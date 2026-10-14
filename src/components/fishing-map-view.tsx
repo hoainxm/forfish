@@ -2205,6 +2205,15 @@ export default function FishingMapView() {
   const [dayIdx, setDayIdx] = useState(0);
   // tuyến dẫn đường tiết kiệm dầu (route-planner.tsx) — vẽ đè lên bản đồ
   const [route, setRoute] = useState<PlannedRoute | null>(null);
+  /*  Điểm đang chọn trong "Các điểm trên tuyến" — GẮN VỚI TUYẾN đã chọn nó:
+      tuyến đổi (tính lại, xoá, mở dẫn đường) là chỉ số cũ trỏ sai điểm, nên
+      chỉ đọc khi `pick.route === route` thay vì đi dọn ở từng chỗ setRoute. */
+  const [routePick, setRoutePick] = useState<{
+    route: PlannedRoute;
+    idx: number;
+  } | null>(null);
+  const pickedPointIdx =
+    routePick && routePick.route === route ? routePick.idx : null;
   /*  Nơi xuất phát đang chọn trong thẻ Dẫn đường — chỉ để BẢN ĐỒ vẽ được nhãn
       khoảng cách đoạn đầu (xuất phát → chỗ 1). RouteMode báo ra qua
       `onStartCoord`; màn này không quyết định gì với nó. */
@@ -2939,6 +2948,19 @@ export default function FishingMapView() {
     setPinName("");
     setPinning(false);
   };
+
+  /** chạm một hàng "Các điểm trên tuyến" → khoanh + bay tới (đủ gần để thấy số điểm) */
+  const pickRoutePoint = useCallback(
+    (p: { idx: number; lat: number; lon: number } | null) => {
+      if (!p || !route) {
+        setRoutePick(null);
+        return;
+      }
+      setRoutePick({ route, idx: p.idx });
+      flyToPoint(p.lon, p.lat, Math.max(mapRef.current?.getZoom() ?? 0, 10));
+    },
+    [route, flyToPoint],
+  );
 
   const handleRoute = useCallback((r: PlannedRoute | null) => {
     setRoute(r);
@@ -5864,6 +5886,7 @@ export default function FishingMapView() {
         <RouteMapLayers
           route={routeMode || navOn ? route : null}
           alongKm={navProgress?.alongKm ?? null}
+          pickedIdx={routeMode ? pickedPointIdx : null}
         />
         {/* Chỗ ghé đã chấm nhưng CHƯA tính tuyến — nét đứt + số, để bà con
             thấy ngay mình đang chấm cái gì.
@@ -7283,6 +7306,8 @@ export default function FishingMapView() {
             onRoute={handleRoute}
             onStart={startNav}
             onClose={closeRouteMode}
+            pickedPointIdx={pickedPointIdx}
+            onPickPoint={pickRoutePoint}
           />
         </div>
       )}

@@ -67,6 +67,7 @@ import {
   type SavedRoute,
 } from "@/lib/saved-routes";
 import { mergeLegPlans } from "@/lib/route-multi";
+import { routePointRows, type RoutePointRow } from "@/lib/route-points";
 import {
   cumulativeKmAt,
   legProgressAt,
@@ -100,8 +101,10 @@ import { parseCoordPair } from "@/lib/parse-coord";
 import {
   AlertIcon,
   AnchorIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   CloseIcon,
   FuelIcon,
   PinIcon,
@@ -203,8 +206,11 @@ export const ROUTE_HIT_LAYER = "fuel-route-hit";
 export function RouteMapLayers({
   route,
   alongKm = null,
+  pickedIdx = null,
 }: {
   route: PlannedRoute | null;
+  /** điểm đang chọn ở danh sách "Các điểm trên tuyến" (chỉ số trong `plan.waypoints`) */
+  pickedIdx?: number | null;
   /*  Quãng tàu đã chạy dọc tuyến (km) — từ `projectOntoRoute` khi đang dẫn
       đường. null = chưa chạy ⇒ không chặng nào xám. */
   alongKm?: number | null;
@@ -288,7 +294,27 @@ export function RouteMapLayers({
     }
     return { type: "FeatureCollection" as const, features: feats };
   }, [route, alongKm]);
+  /*  CHỖ ĐỔI HƯỚNG (waypoint giữa, không phải chỗ ghé) — chấm tròn + số khớp
+      danh sách "Các điểm trên tuyến". Chỗ ghé/điểm cuối đã có ghim riêng bên
+      dưới, không chấm chồng. */
+  const turnPts = useMemo(() => {
+    if (!route) return null;
+    const wps = route.plan.waypoints;
+    const stopIdx = new Set(route.stopWpIdx);
+    const features = [];
+    for (let i = 1; i < wps.length - 1; i++) {
+      if (stopIdx.has(i)) continue;
+      features.push({
+        type: "Feature" as const,
+        properties: { n: String(i) },
+        geometry: { type: "Point" as const, coordinates: [wps[i].lon, wps[i].lat] },
+      });
+    }
+    return { type: "FeatureCollection" as const, features };
+  }, [route]);
   if (!route || !line) return null;
+  const picked =
+    pickedIdx != null ? (route.plan.waypoints[pickedIdx] ?? null) : null;
   return (
     <>
       <Source id="fuel-route" type="geojson" data={line}>
@@ -353,6 +379,51 @@ export function RouteMapLayers({
           }}
         />
       </Source>
+      {turnPts && turnPts.features.length > 0 && (
+        <Source id="fuel-route-pts" type="geojson" data={turnPts}>
+          {/*  Xa (z<8) chỉ là chấm nhỏ cho thấy tuyến bẻ ở đâu; gần thì nở
+               ra đủ chỗ in số — số nhỏ ở zoom xa chồng nhau thành vệt rác. */}
+          <Layer
+            id="fuel-route-pts-dot"
+            type="circle"
+            paint={{
+              "circle-color": ROUTE_CASING_COLOR,
+              "circle-stroke-color": ROUTE_LINE_COLOR,
+              "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 5, 1.5, 8, 2.5],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 3, 8, 10],
+            }}
+          />
+          <Layer
+            id="fuel-route-pts-num"
+            type="symbol"
+            minzoom={8}
+            layout={{
+              "text-field": ["get", "n"],
+              "text-font": ["Noto Sans Bold"],
+              "text-size": 12,
+              "text-allow-overlap": true,
+              "text-ignore-placement": true,
+            }}
+            paint={{ "text-color": ROUTE_LINE_COLOR }}
+          />
+        </Source>
+      )}
+      {picked && (
+        <Marker
+          longitude={picked.lon}
+          latitude={picked.lat}
+          anchor="center"
+          style={{ pointerEvents: "none" }}
+        >
+          {/*  Vòng khoanh điểm vừa chạm trong danh sách — to hơn mọi ghim để
+               nhìn một cái là thấy, rỗng ruột để không che số/ghim bên dưới. */}
+          <span
+            className="block h-14 w-14 rounded-full"
+            style={{ boxShadow: `0 0 0 0.25rem ${ROUTE_LINE_COLOR}, 0 0 0 0.5rem ${ROUTE_CASING_COLOR}` }}
+            aria-label="Điểm đang chọn"
+          />
+        </Marker>
+      )}
       <Marker
         longitude={route.start.lon}
         latitude={route.start.lat}
@@ -623,6 +694,8 @@ export function RouteMode({
   onRoute,
   onStart,
   onClose,
+  pickedPointIdx = null,
+  onPickPoint,
 }: {
   dest: LatLon;
   /** Hạng độ sâu tại `dest` (lưới tĩnh depth-grid, màn bản đồ đã tải sẵn cho
@@ -663,6 +736,11 @@ export function RouteMode({
   onClose: () => void;
   /** Bắt đầu DẪN ĐƯỜNG LIVE theo tuyến vừa tính (bám tuyến, theo dõi GPS) */
   onStart?: (r: PlannedRoute) => void;
+  /*  ĐIỂM TRÊN TUYẾN đang chọn (chỉ số trong `plan.waypoints`) — cha giữ để
+      bản đồ khoanh đúng điểm đó; null = chưa chọn. */
+  pickedPointIdx?: number | null;
+  /** chạm một hàng trong "Các điểm trên tuyến" — cha bay bản đồ tới điểm */
+  onPickPoint?: (p: RoutePointRow | null) => void;
 }) {
   const prefs = useMapPrefs();
   // KHÔNG còn state `open`: chế độ dẫn đường TỰ NÓ là trạng thái mở.
@@ -740,6 +818,10 @@ export function RouteMode({
       Mở KHÔNG unmount và KHÔNG tính lại ⇒ tuyến vẫn vẽ, kết quả vẫn còn cho
       tới khi danh sách THẬT SỰ đổi (lúc đó useEffect [chainSig] tự dọn). */
   const [editing, setEditing] = useState(false);
+  /*  DANH SÁCH ĐIỂM TRÊN TUYẾN — GẬP SẴN (khuôn "Điểm ▾" tab Tuyến SDNavi).
+      Mở sẵn là đẩy cảnh báo xuống dưới một bảng toạ độ dài: cảnh báo phải là
+      thứ đọc trước. */
+  const [showPoints, setShowPoints] = useState(false);
   /*  XOÁ HAI NHỊP. `clearAll` dọn cả tuyến lẫn toàn bộ chỗ ghé, không hoàn tác
       được, mà nút lại nằm sát nút X trong đúng vùng ngón cái — một cú trượt
       tay ướt trên tàu lắc là bay công dựng tuyến giữa biển. */
@@ -1336,6 +1418,13 @@ export function RouteMode({
     ) : null;
 
   const plan = result?.plan ?? null;
+  const pointRows = useMemo(
+    () =>
+      result
+        ? routePointRows(result.plan.waypoints, result.stopWpIdx, result.plan.hoursAt)
+        : [],
+    [result],
+  );
 
   /*  Ý CẢNH BÁO NGUY HIỂM — dựng MỘT LẦN, MỘT CHỖ, vì có HAI nơi đọc: khối đỏ
       đầy đủ trong thân thẻ và dải một dòng trong thanh ghim đáy. Hai chỗ tự
@@ -2635,6 +2724,180 @@ export function RouteMode({
                   <li key={t}>{t}</li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/*  (2c) CÁC ĐIỂM TRÊN TUYẾN — đọc toạ độ từng chỗ đổi hướng (khuôn
+               tab Tuyến của SDNavi: Đầu · #1 · #2 … · Đích). Vạch trên bản đồ
+               không cho bà con con số nào để gõ sang máy định vị của tàu hay
+               đọc qua bộ đàm; danh sách này cho. Số trong vòng tròn = số in
+               cạnh chấm trên bản đồ. Gập sẵn: cảnh báo phía trên đọc trước.
+               Chạm một hàng ⇒ bản đồ bay tới điểm đó, khoanh lại; chạm lần
+               nữa ⇒ bỏ khoanh. */}
+          {pointRows.length > 1 && (
+            <div className="rounded-xl bg-background">
+              <button
+                type="button"
+                onClick={() => setShowPoints((v) => !v)}
+                aria-expanded={showPoints}
+                className="flex min-h-[var(--row-h)] w-full items-center gap-2 px-3 text-left"
+              >
+                <PinIcon className="h-5 w-5 shrink-0 text-t1" />
+                <span className="min-w-0 flex-1 text-[1rem] font-bold text-navy">
+                  Các điểm trên tuyến
+                </span>
+                <span className="shrink-0 text-[0.875rem] font-bold text-foreground/65">
+                  {pointRows.length} điểm
+                </span>
+                {showPoints ? (
+                  <ChevronUpIcon className="h-5 w-5 shrink-0 text-navy" />
+                ) : (
+                  <ChevronDownIcon className="h-5 w-5 shrink-0 text-navy" />
+                )}
+              </button>
+              {showPoints && (
+                <ol className="space-y-1 px-1.5 pb-1.5">
+                  {pointRows.map((r) => {
+                    const picked = pickedPointIdx === r.idx;
+                    /*  CHỖ GHÉ ĐỨNG SAU HÀNG NÀY (nếu có) — tra qua
+                        `result.stops[stopNo-1]` (toạ độ ĐÚNG bà con đã chấm)
+                        rồi mới `stopAt`, chứ không tra thẳng toạ độ waypoint:
+                        điểm cuối chặng có thể đã bị lưới tính đường nắn lệch
+                        vài chục mét, tra thẳng là trượt khỏi dung sai placeId.
+                        null = chỗ đổi hướng máy tính, hoặc điểm đến khi chưa
+                        chấm chỗ nào (đích = chỗ đang xem) — không có gì để Bỏ. */
+                    const stop =
+                      (r.kind === "stop" || r.kind === "dest") && r.stopNo
+                        ? (() => {
+                            const s = result?.stops[r.stopNo - 1];
+                            return s ? stopAt(stops, s.lat, s.lon) : null;
+                          })()
+                        : null;
+                    const name = stop?.name;
+                    const role =
+                      r.kind === "start"
+                        ? "Xuất phát"
+                        : r.kind === "dest"
+                          ? "Điểm đến"
+                          : r.kind === "stop"
+                            ? `Điểm dừng ${r.stopNo}`
+                            : "Đổi hướng";
+                    const sub =
+                      r.kind === "start" ? result?.startLabel || undefined : name;
+                    return (
+                      /*  KHUÔN HÀNG CHUNG của thẻ: [thân hàng flex-1] + [ô nút
+                          vuông SQ_BTN]. Hàng không có gì để Bỏ (xuất phát, chỗ
+                          đổi hướng máy tính) kéo hết bề ngang — không chừa ô
+                          trống (luật 2026-08-29h). */
+                      <li key={r.idx} className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          aria-pressed={picked}
+                          onClick={() => onPickPoint?.(picked ? null : r)}
+                          className={`flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-card px-2.5 py-1.5 text-left transition active:scale-[0.99] ${
+                            picked ? "ring-2 ring-t1" : ""
+                          }`}
+                        >
+                          {r.kind === "start" ? (
+                            <span
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-navy ring-2 ring-navy"
+                              aria-hidden
+                            >
+                              <AnchorIcon className="h-4 w-4" />
+                            </span>
+                          ) : r.kind === "turn" ? (
+                            <span
+                              className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[0.8125rem] font-bold"
+                              style={{
+                                color: ROUTE_LINE_COLOR,
+                                boxShadow: `0 0 0 0.125rem ${ROUTE_LINE_COLOR}`,
+                              }}
+                              aria-hidden
+                            >
+                              {r.idx}
+                            </span>
+                          ) : (
+                            <span
+                              className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.875rem] font-bold text-white"
+                              style={{ background: ROUTE_LINE_COLOR }}
+                              aria-hidden
+                            >
+                              {r.kind === "dest" ? (
+                                <PinIcon className="h-4 w-4" />
+                              ) : (
+                                r.stopNo
+                              )}
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[0.8125rem] font-bold leading-tight text-foreground/65">
+                              {r.kind === "turn" ? `Điểm ${r.idx} · ${role}` : role}
+                              {sub ? ` · ${sub}` : ""}
+                            </span>
+                            {/*  KHÔNG `truncate`: toạ độ cụt một chữ số là
+                                 lệch cả hải lý — thà xuống dòng. */}
+                            <span className="block text-[0.9375rem] font-semibold leading-snug text-navy">
+                              {fmtCoordPair(r.lat, r.lon, prefs.coordFormat)}
+                            </span>
+                          </span>
+                          {r.idx > 0 && (
+                            <span className="shrink-0 text-right text-[0.8125rem] font-bold leading-tight text-foreground/65">
+                              <span className="block">
+                                {fmtDist(r.km, prefs.distUnit, r.km < 10 ? 1 : 0)}
+                              </span>
+                              {r.hours != null && (
+                                <span className="block">{formatHoursVN(r.hours)}</span>
+                              )}
+                            </span>
+                          )}
+                        </button>
+                        {/*  BỎ CHỖ GHÉ NGAY TRONG DANH SÁCH (khuôn nút bỏ từng hàng
+                             của tab Tuyến SDNavi). CÙNG LUẬT với nút Bỏ ở danh
+                             sách chấm điểm: danh sách đổi ⇒ `useEffect [chainSig]`
+                             tự dọn kết quả, bản đồ về nét đứt, bà con bấm Tính
+                             lại; bỏ chỗ CUỐI CÙNG ⇒ dọn luôn vạch (2026-08-29h). */}
+                        {stop && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const con = removeStop(stops, stop.id);
+                              onStops?.(con);
+                              if (con.length === 0) clearRoute();
+                            }}
+                            aria-label={`Bỏ ${role} khỏi lộ trình`}
+                            className={`${SQ_BTN} bg-card text-danger`}
+                          >
+                            <CloseIcon className="h-6 w-6" />
+                            Bỏ
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                  {/*  THÊM ĐIỂM — cuối danh sách, đúng vai "Add destination"
+                       như hàng cùng tên ở biểu mẫu; mở CÙNG bộ chọn (chỗ đang
+                       xem · điểm đã lưu · gõ toạ độ · cảng), không đẻ lối thứ
+                       hai. Thêm xong tuyến cũ hết khớp ⇒ biểu mẫu tự mở lại
+                       để bấm Tính. Đủ trần thì hàng ẩn — header đã nói
+                       "Đã đủ 6 điểm". */}
+                  {!stopsFull && (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => setPanel("dest")}
+                        className="flex min-h-[var(--row-h)] w-full items-center gap-2.5 rounded-xl bg-card px-2.5 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
+                      >
+                        <PlusIcon className="h-6 w-6 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">Thêm điểm dừng</span>
+                        <ChevronRightIcon
+                          className="h-5 w-5 shrink-0 text-foreground/40"
+                          aria-hidden
+                        />
+                      </button>
+                    </li>
+                  )}
+                </ol>
+              )}
             </div>
           )}
 
