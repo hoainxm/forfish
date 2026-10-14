@@ -6,7 +6,7 @@
 covers: src/app, src/components
 last_verified: 2026-10-06
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-12) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-14) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-10-06 16:40 — đối chiếu code: §12 dòng Push (notify-storms tầng 1 + đơn hàng system:order) khớp `src/app/api/cron/notify-storms` + `lib/account-notify`; THÊM ngoại lệ tầng 3 nhắc hạn giấy tờ (`/api/cron/notify-docs`, `lib/doc-reminders`), hàng `doc-reminder-bell.tsx` ở tab Giấy tờ, BoatForm 4 nhóm ô theo giấy + kiểm số dấu phẩy, form giấy tờ có Ngày cấp + giữ ảnh khi Sửa. Soi thật trên trình duyệt 375px (trang soi tạm, đã xoá). -->
 gate: warn
 <!-- re-verified: 2026-10-05 10:40 — rail/panel auto-hide (ra-khoi-controls `AUTO_HIDE_MS=5000`, `armAutoHide`, 3 vùng cuộn `overflow-y-auto`) + SnapSheet tự-ẩn (`SHEET_AUTO_HIDE_MS=3000`, `onInteract`): CÒN KHỚP. Fix 2026-10-05: cuộn nay nạp lại đồng hồ qua `onScrollCapture` (ra-khoi-controls container gốc + snap-sheet `<section>`, thay `onScroll` ở thân) — sửa bug "Ngư trường → Tất cả → kéo xuống là tự tắt"; dòng 376 + 397 cập nhật. -->

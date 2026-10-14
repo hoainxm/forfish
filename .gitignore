@@ -61,3 +61,6 @@ test-reports/
 # xem CLAUDE.md "Dữ liệu bản đồ trong git — CHỐNG PHÌNH".
 /public/data/reef-shapes-aca.v1.json
 /public/data/reef-shapes-aca.*.tmp
+
+# Dữ liệu kéo về máy (Data Lake IUU có SĐT/địa chỉ chủ tàu) — KHÔNG BAO GIỜ commit, KHÔNG để trong public/
+/data-local/

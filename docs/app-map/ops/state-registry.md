@@ -6,7 +6,6 @@ covers: src/lib/boats.ts, src/lib/region.ts, src/lib/places.ts, src/lib/sea.ts, 
 last_verified: 2026-10-07
 <!-- re-verified: 2026-10-07 16:20 — KHOÁ MỚI `forfish.push.rekey.v1` (dấu đổi khoá VAPID đang dở, lib/push-client.ts) — thêm hàng + xếp `EXCLUDED` trong offline-backup.test (máy-riêng). Không đổi khoá cũ nào, không bump phiên bản kho. -->
 ttl_days: 180
-<!-- DOC-STATUS: SUSPECT (2026-09-30) — code 'src/lib/user-sync.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-10-06 17:25 — `user-sync.ts` đối chiếu code: metaCache/readMeta/setMeta/clearSyncMeta + nhánh kéo không đè dirty — khớp. THÊM hàng `forfish.sync.v1` (trước chỉ có trong ghi chú — trái luật "không có trong bảng = không tồn tại") với `ids` + `_owner`; không key mới, không bump. -->
 <!-- re-verified: 2026-10-06 16:50 — KHÔNG key mới, KHÔNG bump khoá. `forfish.boats.v1` thêm 19 ô tuỳ chọn trong `Boat` (lib/boats.ts) — tàu cũ đọc nguyên vẹn (test boats.test.ts); `forfish.documents.v1` dùng thêm `issuedOn` (trường đã có) + kind `dang_ky_tau`. Nhắc hạn đổ chuông chạy ở MÁY CHỦ (cron notify-docs đọc user_docs), không thêm state phía máy. -->
 gate: warn

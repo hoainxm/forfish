@@ -7,7 +7,7 @@
 // đội tàu BIẾT chỗ có cá mà vệ tinh không thấy (cá tụ dưới đèn/vật nổi). Lưới này đưa cái
 // biết đó vào mô hình như MỘT kênh bằng chứng nữa (FLEET trong fish-predict.ts).
 //
-// CÁCH ĐẾM (giống profiles/grounds.json của data-local, khác ở dải tốc độ):
+// CÁCH ĐẾM (giống profiles/grounds.json của sdvico-data/data-local, khác ở dải tốc độ):
 //   đoạn giữa 2 điểm VMS liền nhau, khoảng ≤ 3 giờ, tốc độ 0–4,5 hải lý/giờ (GỒM CẢ đứng
 //   yên — tàu đèn/vây ánh sáng giữ đàn là đứng yên), trung điểm cách mọi cảng ≥ 10 km
 //   (bỏ neo đậu). Giờ của đoạn cộng vào ô 0,25° CÙNG TRỤC lưới cá (tâm x,025 / x,275…)
@@ -17,11 +17,11 @@
 // LOÀI → NGHỀ: nghề mang về ≥ 10 % sản lượng loài trong nhật ký eCDT (cùng luật targetGears
 //   của scripts/dl-eval.mjs), tên loài ghép qua ASFIS_TO_SHORT.
 //
-// NGUỒN (ngoài repo, gitignored, có PII — chỉ đọc): data-local/datalake-iuu/
+// NGUỒN (ngoài repo, có PII — chỉ đọc): ../AI Assistant/sdvico-data/data-local/datalake-iuu/ (dời từ ForFish/data-local 14/10/2026)
 //   tracks/<YYYY-MM>.ndjson.gz · snapshots/<ngày>/vessels-asof-*.ndjson.gz ·
 //   snapshots/<ngày>/logbooks-all.ndjson.gz · snapshots/<ngày>/catalog-ports.json.gz
 // Chạy lại CHỈ KHI có thêm tháng VMS (quy tắc dữ liệu trong git: sinh lại là hành động có chủ ý):
-//   node scripts/build-fleet-effort-grid.mjs [--root data-local/datalake-iuu] [--snapshot 2026-10-11]
+//   node scripts/build-fleet-effort-grid.mjs [--root "../AI Assistant/sdvico-data/data-local/datalake-iuu"] [--snapshot 2026-10-11]
 //   node scripts/build-fleet-effort-grid.mjs --exclude-month 2026-09 --out <tạm>   (kiểm định giữ-tháng-ra)
 import fs from "node:fs";
 import path from "node:path";
@@ -31,7 +31,8 @@ import { ASFIS_TO_SHORT, targetGears } from "./dl-eval.mjs";
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
-const ROOT = arg("root", "data-local/datalake-iuu");
+// Bản kéo Data Lake dời khỏi repo 14/10/2026 → repo AI Assistant (sdvico-data, dữ liệu gitignored). Máy khác: --root hoặc SDVICO_DATALAKE_ROOT.
+const ROOT = arg("root", process.env.SDVICO_DATALAKE_ROOT || "../AI Assistant/sdvico-data/data-local/datalake-iuu");
 export const OUT_DEFAULT = "src/data/fleet-effort-025.v1.json";
 const OUT = arg("out", OUT_DEFAULT);
 const EXCLUDE = new Set((arg("exclude-month", "") || "").split(",").filter(Boolean));

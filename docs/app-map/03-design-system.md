@@ -7,7 +7,6 @@
 covers: src/app/globals.css
 last_verified: 2026-10-05
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-09) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-10-05 10:40 — thêm pattern "overlay tự-ẩn phải tính CUỘN là thao tác" (onScrollCapture ở container gốc, không onScroll): đối chiếu `ui/snap-sheet.tsx` (<section onScrollCapture={onInteract}>) + `ra-khoi-controls.tsx` (container gốc onScrollCapture) — khớp sau fix 2026-10-05. Tap-target SnapSheet min-h-[3.5rem] còn đúng. -->
 <!-- re-verify(03): pattern overlay tự-ẩn + cuộn (onScrollCapture) -->

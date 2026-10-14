@@ -5,6 +5,7 @@
 covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs, scripts/dl-collect.mjs, scripts/dl-build-labels.mjs, scripts/dl-eval.mjs, scripts/dl-fit-profiles.mjs, scripts/build-fleet-effort-grid.mjs, scripts/build-species-catch-grid.mjs, scripts/dl-eval-fleet.mjs
 last_verified: 2026-10-14
 ttl_days: 180
+<!-- DOC-STATUS: SUSPECT (2026-10-14) — code 'scripts/dl-fit-profiles.mjs' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
 Hồ sơ gốc: [fish-review-2026-10-03/report-algorithm.md](fish-review-2026-10-03/report-algorithm.md) mục **B8** (lỗ hổng: SDFish chỉ tự kiểm nội bộ) và **C1** (việc này). Chuẩn đo: Hsu et al. 2021 — % vị trí tàu nằm trong 5/50 km của ô HSI cao; không cần CPUE.
@@ -149,6 +150,7 @@ Test đổi kèm: `fish-predict.test.ts` "VIỆC 4" đổi chl mẫu 4,0 → 1,0
 
 **Kiểm chứng bản chốt 2026-10-10 (soft-OR cá nổi lớn 0,6 · sàn trái vụ ×0,6 · mùa vụ ngày xa 25 %) trên nền hồ sơ đã hiệu chỉnh** — cùng 31 ngày, cùng nhãn: AUCeff TB theo sản lượng **+0,017**; ngừ vằn 0,668 → **0,734** (loài phản hồi thực địa Bình Định), mực nang +0,079, ngừ vây vàng +0,059, mực ống +0,056, cá thu / cá trích / nục heo ≈ +0,06, cá mối +0,030, cá đổng +0,023; giảm nhẹ ngừ ồ −0,015, cá sòng −0,020, cá cờ −0,010; "mọi loài" −0,002. Nhãn chỉ chuyến có giám sát cho cùng chiều. Cái giá: Δdyn ngừ vằn 0,012 → 0,001 (bản đồ tĩnh hơn). Phần mùa vụ ngày xa (fish-blend) không đo được bằng bộ này (chỉ chấm ngày ảnh).
 
+
 ## 10. Kênh đội tàu + dựng lại bộ đo DataLake (2026-10-11)
 
 **Dựng lại bộ đo** (bản `~/sdfish-data` của 10/10 không còn trên máy): bộ chuyển `C:\Users\admin\sdfish-data\tools\dl-adapt-local.mjs` (NGOÀI repo) đổi bản kéo local `AI Assistant/sdvico-data/data-local/datalake-iuu` (dời khỏi ForFish 14/10/2026) (snapshot 2026-10-11 + `tracks/<tháng>.ndjson.gz`) thành đúng tệp vào của `dl-build-labels.mjs`, bỏ chủ tàu/số đăng ký. Hai biến thể nhãn: `dl-trk0809` (track CHỈ 8–9 — **khớp §9**: ngừ vằn 0,734 · cá nục 0,552 · bạc má 0,770 · cá chim 0,395) và `dl` (track 7–10, thêm 3,7 nghìn chuyến rời bến tháng 7, dải tốc độ lưới rê đổi 0–1 → 0,3–1 kn ⇒ AUCeff lệch tới ±0,07 vài loài). **Dùng `dl-trk0809` làm nền so sánh.** Lưới vệ tinh 61 ngày 8–9/2026 ở `fc-full/grids` (tải ~3,5 phút). Ngừ ồ nay 0,626 (§9: 0,573) — phần tăng đến từ 3f86eab (sàn cổng ven bờ 0,7 + vùng HS/TS), đóng `## Assumptions` của sửa đó trong 01-product.
@@ -179,7 +181,7 @@ Giới hạn: lưới tĩnh theo tháng-trong-năm (không phải "hôm nay"); m
 
 **Chuỗi dựng** (dữ liệu ngoài repo, `~/sdfish-data/dl-all`, không PII):
 ```bash
-node C:/Users/admin/sdfish-data/tools/dl-adapt-local.mjs --out C:/Users/admin/sdfish-data/dl-all --from 2026-01-01 --to 2026-10-11 \
+node C:/Users/admin/sdfish-data/tools/dl-adapt-local.mjs --src "C:/Code/AI Assistant/sdvico-data/data-local/datalake-iuu" --out C:/Users/admin/sdfish-data/dl-all --from 2026-01-01 --to 2026-10-11 \
   --track-months 2025-12,2026-01,2026-02,2026-03,2026-04,2026-05,2026-06,2026-07,2026-08,2026-09,2026-10        # ~7 phút
 for w in 2026-01-01,2026-02-28 2026-03-01,2026-04-30 2026-05-01,2026-06-30 2026-07-01,2026-08-31 2026-09-01,2026-10-11; do
   node --max-old-space-size=9000 scripts/dl-build-labels.mjs --dir C:/Users/admin/sdfish-data/dl-all --from 2026-01-01 --to 2026-10-11 --window $w
