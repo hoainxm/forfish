@@ -7,7 +7,7 @@
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-06
 ttl_days: 180
-<!-- DOC-STATUS: SUSPECT (2026-10-11) — code 'src/lib/documents.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-14) — code 'src/lib/documents.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-10-06 17:20 — đồng bộ sổ đối chiếu code: `user-sync.ts` (syncAll/pushKind/markLocalWrite/clearSyncMeta, metaCache), route `/api/me/sync` (identityFromRequest, lọc owner_phone, keepDeleted/stripDeleted), `user-sync-core.ts` — khớp; THÊM gộp 3 chiều theo id (`mergeById`, baseIds), chủ sổ `_owner` + `phone` ở GET, seed khi server chưa có dòng, `showsUnderBoat`; dọn câu "apply nhầm, chưa recoverable" mâu thuẫn. -->
 <!-- re-verified: 2026-10-06 16:30 — đối chiếu code: `DocumentKind`/`DOCUMENT_KINDS`/`getExpiryStatus`/`SOON_DAYS_DOCS` (documents.ts + days.ts) khớp; THÊM `dang_ky_tau`, `kindUsuallyNoExpiry`, issuedOn trên form; `Boat` +19 ô theo giấy (boats.ts); user_docs + bucket user-docs ĐO THẬT có ở znzgugvfhgmiszqgjulk (sửa drift "chưa có"); staff_permissions + cờ `resetPassword`; reset mật khẩu khách ⇒ sd123456 (ADR 0008); §5 mục 5 nhắc hạn push. -->
 <!-- re-verified: 2026-10-02 15:40 — RBAC: đối chiếu `phone.ts` (thêm `phoneFromAuthEmail`), 0002 `current_phone()` (split_part không xét đuôi — vá ở 0056), 0007/0019 `customers.role` customer|manager|admin, 0024 admin chung, 0028 `staff_permissions`, 0037/0039/0053 `device_tokens` (không hạn, allow_multi chỉ admin). Khớp code trước khi thêm 0056. -->
