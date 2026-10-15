@@ -49,4 +49,12 @@ describe("map-prefs hệ toạ độ", () => {
     expect(fmtCoordPair(8.5, 109.3, "dd")).toBe("8,50°N · 109,30°E");
     expect(fmtCoordPair(8.5, 109.3, "dms")).toBe("8°30′00″N · 109°18′00″E");
   });
+
+  it("ddDigits: chỗ chép sang máy định vị lấy 4 số lẻ; dms không đổi", () => {
+    expect(fmtCoordPair(12.38456, 109.3, "dd", 4)).toBe("12,3846°N · 109,3000°E");
+    expect(fmtLat(-8.5, "dd", 4)).toBe("8,5000°S");
+    // mặc định vẫn 2 số lẻ cho nhãn đọc lướt
+    expect(fmtCoordPair(12.38456, 109.3, "dd")).toBe("12,38°N · 109,30°E");
+    expect(fmtCoordPair(8.5, 109.3, "dms", 4)).toBe("8°30′00″N · 109°18′00″E");
+  });
 });

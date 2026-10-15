@@ -33,6 +33,18 @@ describe("routePointRows", () => {
     expect(rows[4].stopNo).toBe(2);
   });
 
+  it("chỗ đổi hướng đánh số LIỀN MẠCH, chỗ ghé không chiếm số", () => {
+    // start · turn · turn · stop · stop · turn · dest — trước đây in idx: 1, 2, 5
+    const rows = routePointRows([A, B, C, D, E, A, B], [3, 4, 6]);
+    expect(rows.map((r) => r.kind)).toEqual([
+      "start", "turn", "turn", "stop", "stop", "turn", "dest",
+    ]);
+    expect(rows.filter((r) => r.kind === "turn").map((r) => r.turnNo)).toEqual([1, 2, 3]);
+    expect(rows.filter((r) => r.kind !== "turn").every((r) => r.turnNo === undefined)).toBe(true);
+    expect(rows[3].stopNo).toBe(1);
+    expect(rows[4].stopNo).toBe(2);
+  });
+
   it("hoursAt lệch độ dài → bỏ cột giờ, không đoán", () => {
     const rows = routePointRows([A, B, C], [2], [0, 1]);
     expect(rows.every((r) => r.hours === null)).toBe(true);

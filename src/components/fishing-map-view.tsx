@@ -5886,7 +5886,10 @@ export default function FishingMapView() {
         <RouteMapLayers
           route={routeMode || navOn ? route : null}
           alongKm={navProgress?.alongKm ?? null}
-          pickedIdx={routeMode ? pickedPointIdx : null}
+          /*  Vòng khoanh chỉ thuộc lúc ĐỌC danh sách điểm. Đang dẫn đường
+              (navOn) thì `routeMode` vẫn bật mà bảng đã thu — vòng cũ còn
+              nằm trên bản đồ, bà con tưởng đó là chỗ phải tới. */
+          pickedIdx={routeMode && !navOn ? pickedPointIdx : null}
         />
         {/* Chỗ ghé đã chấm nhưng CHƯA tính tuyến — nét đứt + số, để bà con
             thấy ngay mình đang chấm cái gì.

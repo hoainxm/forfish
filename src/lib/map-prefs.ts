@@ -159,7 +159,17 @@ export function fmtDepthM(m: number): string {
 
 // ── HỆ TOẠ ĐỘ ──────────────────────────────────────────────────────────────
 
-function oneCoord(v: number, fmt: CoordFormat, pos: string, neg: string): string {
+/*  `ddDigits`: số lẻ của dạng thập phân. Mặc định 2 (~1 km) cho nhãn đọc lướt;
+    chỗ nào bà con CHÉP toạ độ sang máy định vị của tàu (danh sách điểm trên
+    tuyến) thì truyền 4 (~10 m) — 2 số lẻ là lệch nửa hải lý. Dạng độ-phút-giây
+    không dùng tham số này: tròn tới giây (~30 m) là đủ chép. */
+function oneCoord(
+  v: number,
+  fmt: CoordFormat,
+  pos: string,
+  neg: string,
+  ddDigits = 2,
+): string {
   const hemi = v >= 0 ? pos : neg;
   const a = Math.abs(v);
   if (fmt === "dms") {
@@ -171,14 +181,19 @@ function oneCoord(v: number, fmt: CoordFormat, pos: string, neg: string): string
     const p2 = (n: number) => String(n).padStart(2, "0");
     return `${d}°${p2(m)}′${p2(s)}″${hemi}`;
   }
-  return `${formatNumberVN(a, 2)}°${hemi}`;
+  return `${formatNumberVN(a, ddDigits)}°${hemi}`;
 }
-export function fmtLat(lat: number, fmt: CoordFormat): string {
-  return oneCoord(lat, fmt, "N", "S"); // North / South — chữ cái QUỐC TẾ
+export function fmtLat(lat: number, fmt: CoordFormat, ddDigits?: number): string {
+  return oneCoord(lat, fmt, "N", "S", ddDigits); // North / South — chữ cái QUỐC TẾ
 }
-export function fmtLon(lon: number, fmt: CoordFormat): string {
-  return oneCoord(lon, fmt, "E", "W"); // East / West — khớp máy định vị, hải đồ
+export function fmtLon(lon: number, fmt: CoordFormat, ddDigits?: number): string {
+  return oneCoord(lon, fmt, "E", "W", ddDigits); // East / West — khớp máy định vị, hải đồ
 }
-export function fmtCoordPair(lat: number, lon: number, fmt: CoordFormat): string {
-  return `${fmtLat(lat, fmt)} · ${fmtLon(lon, fmt)}`;
+export function fmtCoordPair(
+  lat: number,
+  lon: number,
+  fmt: CoordFormat,
+  ddDigits?: number,
+): string {
+  return `${fmtLat(lat, fmt, ddDigits)} · ${fmtLon(lon, fmt, ddDigits)}`;
 }

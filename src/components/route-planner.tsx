@@ -297,19 +297,17 @@ export function RouteMapLayers({
   /*  CHỖ ĐỔI HƯỚNG (waypoint giữa, không phải chỗ ghé) — chấm tròn + số khớp
       danh sách "Các điểm trên tuyến". Chỗ ghé/điểm cuối đã có ghim riêng bên
       dưới, không chấm chồng. */
+  /*  Số in cạnh chấm = `turnNo` của CHÍNH `routePointRows` mà danh sách dùng
+      — một nguồn đánh số, hai chỗ không bao giờ lệch nhau. */
   const turnPts = useMemo(() => {
     if (!route) return null;
-    const wps = route.plan.waypoints;
-    const stopIdx = new Set(route.stopWpIdx);
-    const features = [];
-    for (let i = 1; i < wps.length - 1; i++) {
-      if (stopIdx.has(i)) continue;
-      features.push({
+    const features = routePointRows(route.plan.waypoints, route.stopWpIdx)
+      .filter((r) => r.kind === "turn")
+      .map((r) => ({
         type: "Feature" as const,
-        properties: { n: String(i) },
-        geometry: { type: "Point" as const, coordinates: [wps[i].lon, wps[i].lat] },
-      });
-    }
+        properties: { n: String(r.turnNo) },
+        geometry: { type: "Point" as const, coordinates: [r.lon, r.lat] },
+      }));
     return { type: "FeatureCollection" as const, features };
   }, [route]);
   if (!route || !line) return null;
@@ -775,7 +773,6 @@ export function RouteMode({
       ra ⇒ bấm xong màn hình "không đổi gì" dưới mắt bà con — người ít rành
       công nghệ sẽ bấm loạn. */
   const formRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
   /*  MỎ NEO THỨ TƯ: hàng "Thêm điểm dừng" — xem cú cuộn thứ tư dưới. */
   const addStopRef = useRef<HTMLDivElement>(null);
   // "gps" | "place:<id>" | "port:<id>"; mặc định Cảng nhà nếu có
@@ -875,12 +872,16 @@ export function RouteMode({
     formRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
   }, [editing]);
 
-  /*  Xổ một bộ chọn (xuất phát / điểm đến / thông số tàu): khối vừa xổ có thể
-      nằm dưới mép thẻ, trước đây phải vuốt dò mới thấy. Không cuộn khi thu về
-      `idle` — lúc đó không có gì mới để nhìn. */
+  /*  Xổ một bộ chọn (xuất phát / điểm đến / thông số tàu): bộ chọn THAY CHỖ
+      thân thẻ ("một sheet"), nên đầu bộ chọn là đầu khung — cuộn khung về 0.
+      Trước đây là `scrollIntoView({block:"nearest"})`: mở "Thêm điểm dừng" từ
+      CUỐI danh sách "Các điểm trên tuyến" (đang cuộn sâu) thì khung giữ chỗ
+      cuộn cũ, mục đầu "Chỗ đang xem trên bản đồ" — lựa chọn hay dùng nhất —
+      nằm khuất dưới thanh ghim. Không cuộn khi thu về `idle` — lúc đó không
+      có gì mới để nhìn. */
   useEffect(() => {
     if (panel === "idle") return;
-    panelRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+    boxRef.current?.scrollTo({ top: 0, behavior: "auto" });
   }, [panel]);
 
   /*  CÚ CUỘN THỨ TƯ — VỪA THÊM MỘT ĐIỂM (2026-08-29). Cú thứ ba ở trên
@@ -1617,8 +1618,15 @@ export function RouteMode({
              `mb-4` trả lại đúng 12px đã bị trừ, cộng 4px cho bằng khoảng cách
              giữa các hàng. Lỗi này CÓ TỪ LÚC có thanh ghim, ở CẢ HAI chế độ —
              chế độ gọn chỉ làm nó lộ ra vì nút thấp đi thì phần chữ bị cắt
-             chiếm tỉ lệ lớn hơn. */}
-        <div className="sticky top-0 z-10 -mx-3 -mt-3 mb-4 space-y-1 bg-card px-3 pb-1 pt-3">
+             chiếm tỉ lệ lớn hơn.
+
+             LỖI THỨ BA — `top-0` CHỪA KHE 12px (2026-10-15). Phần tử sticky
+             trong khung cuộn có `p-3` dính ở mép TRONG lớp đệm, tức cách mép
+             khung 12px; khi cuộn, nội dung trôi qua khe đó và lộ lên TRÊN
+             thanh nút (đo thật: mép thanh ghim cách mép khung đúng 12px). Danh
+             sách "Các điểm trên tuyến" dài nên lộ rõ. `-top-3` cho nó dính
+             sát mép khung; `-mt-3`/`pt-3` vẫn phủ kín phần đệm như cũ. */}
+        <div className="sticky -top-3 z-10 -mx-3 -mt-3 mb-4 space-y-1 bg-card px-3 pb-1 pt-3">
           <div className="flex items-center gap-2">
           {/*  HEADER GÁNH LUÔN "TUỲ CHỌN" (2026-08-28j): thẻ phải cắt 42px nữa
                mới đạt sàn bản đồ ≥60% của 07 §5 — đo thật: thẻ 296px ⇒ bản đồ
@@ -1664,32 +1672,15 @@ export function RouteMode({
                 type="button"
                 onClick={() => setEditing((v) => !v)}
                 aria-expanded={editing}
-                /*  Khi có cảnh báo, chữ hiện ra LÀ câu cảnh báo — đặt
-                    `aria-label` để tai nghe được cả cảnh báo lẫn việc nút này
-                    làm, thay vì nghe mỗi câu cảnh báo rồi không biết bấm ra gì. */
-                aria-label={
-                  staleMsg
-                    ? `${staleMsg}. Chạm để mở danh sách điểm.`
-                    : undefined
-                }
                 className="flex min-h-[var(--row-h)] w-full items-center gap-1.5 text-left"
               >
-                {staleMsg ? (
-                  /*  KHÔNG `truncate`: câu cảnh báo bị cắt cụt là mất đúng vế
-                      nói rõ cái gì đang lệch. Ba dòng 0.875rem vẫn thấp hơn
-                      hàng 3.5rem nên không đội chiều cao thanh ghim. */
-                  <span className="min-w-0 flex-1 text-[0.875rem] font-bold leading-tight text-[var(--warn)]">
-                    {staleMsg}
-                  </span>
-                ) : (
-                  <span className="min-w-0 flex-1 truncate text-[1rem] font-bold leading-tight text-navy">
-                    {stops.length > 1
-                      ? `Lộ trình qua ${stops.length} điểm`
-                      : stops.length === 1
-                        ? "Lộ trình tới điểm đã đánh dấu"
-                        : "Dẫn đường tới điểm đang xem"}
-                  </span>
-                )}
+                <span className="min-w-0 flex-1 truncate text-[1rem] font-bold leading-tight text-navy">
+                  {stops.length > 1
+                    ? `Lộ trình qua ${stops.length} điểm`
+                    : stops.length === 1
+                      ? "Lộ trình tới điểm đã đánh dấu"
+                      : "Dẫn đường tới điểm đang xem"}
+                </span>
                 <ChevronRightIcon
                   className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
                     editing ? "rotate-90" : ""
@@ -1697,10 +1688,6 @@ export function RouteMode({
                   aria-hidden
                 />
               </button>
-            ) : staleMsg ? (
-              <p className="text-[0.875rem] font-bold leading-tight text-[var(--warn)]">
-                {staleMsg}
-              </p>
             ) : panel !== "idle" ? (
               /*  MỘT SHEET, TIÊU ĐỀ NÓI ĐANG LÀM GÌ (chủ dự án 2026-08-29g:
                   *"tại sao click vào lại xổ ra 3 phần khác nhau, sao ko gom 1
@@ -1796,6 +1783,24 @@ export function RouteMode({
             </button>
           )}
           </div>
+          {/*  BĂNG "VẠCH XANH LÀ ĐƯỜNG CŨ" — DẢI RỘNG RIÊNG, VẪN TRONG THANH
+               GHIM (2026-10-15). Trước đây câu cảnh báo chiếm chỗ TIÊU ĐỀ, kẹp
+               giữa ô Thoát và hai ô Tuỳ chọn/Tính: cột chữ còn ~70px trên màn
+               375px nên mỗi dòng một chữ, thanh ghim cao vọt ~300px, nuốt gần
+               hết thẻ (chủ dự án thấy khi bấm Bỏ trong "Các điểm trên tuyến").
+               Nay tiêu đề giữ chữ thường, câu cảnh báo xuống một dải đủ bề
+               ngang — 1–2 dòng — mà VẪN ghim, không cuộn mất (CLAUDE.md cấm
+               giấu cảnh báo an toàn). `role="status"` để máy đọc màn hình đọc
+               lên khi nó hiện. KHÔNG `truncate`: cắt cụt là mất đúng vế nói
+               cái gì đang lệch. */}
+          {staleMsg && (
+            <p
+              role="status"
+              className="rounded-lg bg-warn-bg px-2.5 py-1.5 text-[0.875rem] font-bold leading-snug text-warn"
+            >
+              {staleMsg}
+            </p>
+          )}
         </div>
       {stopsSaveBar}
 
@@ -1964,7 +1969,7 @@ export function RouteMode({
           )}
 
           {panel === "start" && (
-            <div ref={panelRef} className="space-y-1.5 rounded-xl bg-background/60 p-2">
+            <div className="space-y-1.5 rounded-xl bg-background/60 p-2">
               <div role="radiogroup" aria-label="Nơi xuất phát" className="space-y-1.5">
                 {startOptions.map((o) => {
                   const on = o.id === effectiveStartId;
@@ -2154,7 +2159,7 @@ export function RouteMode({
           )}
 
           {panel === "dest" && (
-            <div ref={panelRef} className="space-y-1.5 rounded-xl bg-background/60 p-2">
+            <div className="space-y-1.5 rounded-xl bg-background/60 p-2">
               <button
                 type="button"
                 disabled={currentStop != null}
@@ -2333,7 +2338,7 @@ export function RouteMode({
                và bà con tính dầu theo số cũ. Mở ra ⇒ khôi phục điểm, bấm Tính
                đường để máy tính lại bằng dự báo hôm nay. */}
           {panel === "saved" && (
-            <div ref={panelRef} className="space-y-1.5">
+            <div className="space-y-1.5">
               {savedRoutesSaveFailed && (
                 <p className="rounded-xl bg-[var(--warn-bg)] px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
                   Máy không giữ được đường đã lưu — tắt app là mất. Dọn bớt
@@ -2437,7 +2442,7 @@ export function RouteMode({
           )}
 
           {panel === "boat" && (
-            <div ref={panelRef} className="grid grid-cols-2 gap-3 rounded-xl bg-background/60 p-2">
+            <div className="grid grid-cols-2 gap-3 rounded-xl bg-background/60 p-2">
               <label className="block">
                 <span className="text-[0.875rem] font-bold text-foreground/75">
                   Tàu chạy (hải lý/giờ)
@@ -2814,7 +2819,7 @@ export function RouteMode({
                               }}
                               aria-hidden
                             >
-                              {r.idx}
+                              {r.turnNo}
                             </span>
                           ) : (
                             <span
@@ -2831,13 +2836,16 @@ export function RouteMode({
                           )}
                           <span className="min-w-0 flex-1">
                             <span className="block text-[0.8125rem] font-bold leading-tight text-foreground/65">
-                              {r.kind === "turn" ? `Điểm ${r.idx} · ${role}` : role}
+                              {r.kind === "turn" ? `Điểm ${r.turnNo} · ${role}` : role}
                               {sub ? ` · ${sub}` : ""}
                             </span>
                             {/*  KHÔNG `truncate`: toạ độ cụt một chữ số là
-                                 lệch cả hải lý — thà xuống dòng. */}
+                                 lệch cả hải lý — thà xuống dòng. Dạng thập
+                                 phân lấy 4 số lẻ (~10 m): đây là số bà con
+                                 CHÉP sang máy định vị, 2 số lẻ mặc định của
+                                 nhãn bản đồ lệch tới ~1 km. */}
                             <span className="block text-[0.9375rem] font-semibold leading-snug text-navy">
-                              {fmtCoordPair(r.lat, r.lon, prefs.coordFormat)}
+                              {fmtCoordPair(r.lat, r.lon, prefs.coordFormat, 4)}
                             </span>
                           </span>
                           {r.idx > 0 && (
