@@ -40,6 +40,7 @@ import { decodeKhuTruBao, type KhuTruBao } from "@/lib/khu-tru-bao";
 import { requiredDepthM } from "@/lib/hazards";
 import type { NavAlert } from "@/lib/nav-hazards";
 import { fmtDist } from "@/lib/map-prefs";
+import { decodeVungQuanLy } from "@/lib/vung-quan-ly";
 
 const DATA = join(process.cwd(), "public", "data");
 const readJson = (f: string) => JSON.parse(readFileSync(join(DATA, f), "utf8"));
@@ -50,10 +51,11 @@ const seamarks = decodeSeamarks(readJson("seamarks.v1.json"));
 const vnAids = decodeVnAids(readJson("vn-aids.v1.json"));
 const denBien = decodeDenBien(readJson("den-bien.v1.json"));
 const khuTruBao = decodeKhuTruBao(readJson("khu-tru-bao.v1.json"));
+const vungQuanLy = decodeVungQuanLy(readJson("vung-quan-ly.v1.json"));
 
 /** Năm cố định — test không được đổi kết quả theo lịch máy. */
 const NAM_NAY = 2026;
-const KHO = { xacTau, laneFeatures, seamarks, vnAids, denBien, khuTruBao };
+const KHO = { xacTau, laneFeatures, seamarks, vnAids, denBien, khuTruBao, vungQuanLy };
 
 /** Đơn vị mặc định của bà con là hải lý — dùng đúng bản `map-prefs`, không tự chế. */
 const fmt = (km: number) => fmtDist(km, "nm", 1);
@@ -68,7 +70,8 @@ describe("buildNavContext trên dữ liệu thật", () => {
     expect(ctx.counts.noGo).toBeGreaterThanOrEqual(1);
     // 103 đường cáp/ống → ~1.950 đoạn
     expect(ctx.counts.cableSegs).toBeGreaterThanOrEqual(1500);
-    expect(ctx.counts.restricted).toBe(8); // 7 cấm neo + 1 cấm đánh bắt (đa giác)
+    // 7 cấm neo + 1 cấm đánh bắt (đa giác, hải đồ) + ≥30 mảnh khu bảo tồn/vùng cấm theo mùa (2026-10-14)
+    expect(ctx.counts.restricted).toBeGreaterThanOrEqual(38);
     expect(ctx.counts.khu).toBe(khuTruBao.length);
     expect(ctx.counts.den).toBe(denBien.length);
     // phao gộp hai nguồn, đã bỏ bản OSM trùng chỗ bản nhà nước (≤100 m)
@@ -173,6 +176,50 @@ describe("cáp/ống + vùng hạn chế", () => {
     );
     expect(ho.length).toBeGreaterThan(0); // nguồn thật CÓ ca này
     expect(restrictedZones(ho)).toEqual([]);
+  });
+});
+
+describe("khu bảo tồn / vùng cấm khai thác có thời hạn trong kho dẫn đường (2026-10-14)", () => {
+  /** Kho CŨ — không có lớp này (máy chưa tải được file). */
+  const ctxCu: NavContext = buildNavContext({ ...KHO, vungQuanLy: null }, requiredDepthM(2.2, null), NAM_NAY);
+  const ctxVq = ctx;
+  /** 15/5 — trong mùa cấm 01/4–30/6 của Long Châu – Hạ Mai; 15/9 — ngoài mùa. */
+  const T5 = new Date(2026, 4, 15).getTime();
+  const T9 = new Date(2026, 8, 15).getTime();
+
+  it("kho không có lớp này thì ghi 'vung-quan-ly' vào missing, vùng hạn chế chỉ còn 8 của hải đồ", () => {
+    expect(ctxCu.missing).toContain("vung-quan-ly");
+    expect(ctxCu.counts.restricted).toBe(8); // 7 cấm neo + 1 cấm đánh bắt (đa giác)
+  });
+
+  it("có lớp thì vùng hạn chế tăng thêm ≥ 30 mảnh (khu bảo tồn đã có + vùng cấm theo mùa), missing rỗng", () => {
+    expect(ctxVq.missing).toEqual([]);
+    expect(ctxVq.counts.restricted - ctxCu.counts.restricted).toBeGreaterThanOrEqual(30);
+    // khu "thành lập mới" (quy hoạch) và khu bảo vệ nguồn lợi KHÔNG vào kho
+    const ids = ctxVq.restricted.map((z) => z.id);
+    for (const v of vungQuanLy) {
+      if (v.loai === "bao-ve-nguon-loi" || v.trangThai === "thanh_lap_moi")
+        expect(ids.some((id) => id.startsWith(`vq:${v.ma}:`)), v.ma).toBe(false);
+    }
+  });
+
+  it("tâm khu bảo tồn Cù Lao Chàm: nhắc quanh năm bằng tên khu", () => {
+    const clc = vungQuanLy.find((v) => v.ten.includes("Cù Lao Chàm"))!;
+    const p = { lat: clc.lat, lon: clc.lon };
+    expect(restrictedAt(ctxVq, p, T5)).toBe("khu bảo tồn biển Cù Lao Chàm");
+    expect(restrictedAt(ctxVq, p, T9)).toBe("khu bảo tồn biển Cù Lao Chàm");
+    expect(restrictedAt(ctxCu, p, T5)).toBeNull(); // kho cũ không biết khu này
+  });
+
+  it("vùng cấm theo mùa: chỉ nhắc ĐÚNG mùa cấm, ngoài mùa im", () => {
+    const lc = vungQuanLy.find((v) => v.loai === "cam-thoi-han" && v.ten.includes("Long Châu"))!;
+    const p = { lat: lc.lat, lon: lc.lon };
+    expect(restrictedAt(ctxVq, p, T5)).toMatch(/^vùng cấm khai thác theo mùa \(vùng biển Long Châu/);
+    expect(restrictedAt(ctxVq, p, T9)).toBeNull();
+  });
+
+  it("giữa Biển Đông vẫn null", () => {
+    expect(restrictedAt(ctxVq, { lat: 13.5, lon: 113.5 }, T5)).toBeNull();
   });
 });
 

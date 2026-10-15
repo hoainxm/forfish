@@ -13,6 +13,7 @@ import { join } from "node:path";
 */
 
 import { buildNavContext, phaoKeTiep, cableKmAt, restrictedAt, type NavContext } from "@/lib/nav-context";
+import { decodeVungQuanLy } from "@/lib/vung-quan-ly";
 import { decodeXacTau } from "@/lib/xac-tau";
 import { decodeSeamarks } from "@/lib/seamarks";
 import { decodeVnAids } from "@/lib/vn-aids";
@@ -43,6 +44,7 @@ const CTX: NavContext = buildNavContext(
     vnAids: decodeVnAids(readJson("vn-aids.v1.json")),
     denBien: decodeDenBien(readJson("den-bien.v1.json")),
     khuTruBao: decodeKhuTruBao(readJson("khu-tru-bao.v1.json")),
+    vungQuanLy: decodeVungQuanLy(readJson("vung-quan-ly.v1.json")),
   },
   NEED,
   2026,

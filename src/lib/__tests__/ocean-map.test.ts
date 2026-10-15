@@ -647,7 +647,7 @@ describe("dải glyph: mọi ký tự trong nhãn bản đồ phải có file .p
   const dai = (cp: number) => `${Math.floor(cp / 256) * 256}-${Math.floor(cp / 256) * 256 + 255}`;
 
   it("ký tự thật trong data nhãn (tuyến, địa danh ngầm, rạn, đảo, đèn) đều thuộc dải đã host", () => {
-    const files = ["vn-sea-lanes.v1.json", "dia-danh-ngam.v1.json", "coral-reefs.v1.json", "vn-islands.v1.json", "den-bien.v1.json", "khu-tru-bao.v1.json"];
+    const files = ["vn-sea-lanes.v1.json", "dia-danh-ngam.v1.json", "coral-reefs.v1.json", "vn-islands.v1.json", "den-bien.v1.json", "khu-tru-bao.v1.json", "vung-quan-ly.v1.json"];
     const can = new Set<string>();
     for (const f of files) {
       const t = fs.readFileSync(path.join(ROOT, "public/data", f), "utf8");

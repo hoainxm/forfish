@@ -452,6 +452,35 @@ export const KHU_TRU_BAO_COLOR = "#0e8a5f";
     đúng, nhưng z5 là cả nước — chọn bến là việc của mức vùng (2026-09-03). */
 export const KHU_TRU_BAO_MINZOOM = CHART_TIER.XA;
 
+/*  KHU BẢO TỒN BIỂN · VÙNG CẤM KHAI THÁC CÓ THỜI HẠN · KHU BẢO VỆ NGUỒN LỢI
+    (`lib/vung-quan-ly.ts`, 2026-10-14). CÙNG HỌ MÀU với vùng cấm/khu hạn chế
+    của hải đồ (cam đất SEA_RESTRICTED_COLOR — kênh "cam = chỗ không được làm
+    gì đó" đã có chủ, không mở thêm hue): bà con chỉ cần một phản xạ "cam là
+    cấm". Phân biệt bằng ĐỘ ĐẬM NỀN + NÉT VIỀN + NHÃN, không bằng màu:
+      · hieu-luc  (khu bảo tồn đã có)        nền 0,14 · viền LIỀN
+      · dang-cam  (vùng cấm ĐANG mùa cấm)    nền 0,22 · viền ĐỨT đậm
+      · ngoai-mua (vùng cấm ngoài mùa)       nền 0,04 · viền đứt mờ
+      · quy-hoach (mới quy hoạch / BVNL)     nền 0,06 · viền CHẤM
+    Nền 0,22 trên biển #d5e8eb ≈ #cfd0c0: nét đẳng sâu đè lên còn 2,9:1 — là
+    trần, đừng nâng (nền 0,10 đã tính ở RESTRICTED_FILL_OPACITY).
+    Vùng rộng hàng chục nghìn ha ⇒ nền thấy từ tầng LUÔN (z5, cả nước); nhãn
+    tên từ tầng XA (z7); khu chỉ là ĐIỂM (sá sùng/ngán vài chục ha) từ tầng VỪA. */
+export const VUNG_QUAN_LY_MINZOOM = CHART_TIER.LUON;
+export const VUNG_QUAN_LY_LABEL_MINZOOM = CHART_TIER.XA;
+export const VUNG_QUAN_LY_DIEM_MINZOOM = CHART_TIER.VUA;
+export const VUNG_QUAN_LY_FILL_OPACITY = {
+  "hieu-luc": 0.14,
+  "dang-cam": 0.22,
+  "ngoai-mua": 0.04,
+  "quy-hoach": 0.06,
+} as const;
+export const VUNG_QUAN_LY_LINE_OPACITY = {
+  "hieu-luc": 0.9,
+  "dang-cam": 0.95,
+  "ngoai-mua": 0.45,
+  "quy-hoach": 0.6,
+} as const;
+
 /*  TRẠM CON NƯỚC (thuỷ triều) — 11 trạm, lớp MIỄN PHÍ, mặc định bật, không
     dính công tắc "Hải đồ chi tiết" (chủ dự án 2026-09-04). Ba nấc:
       LUÔN (z5): ký hiệu CỘT NƯỚC (tide gauge) — hình quen của Navionics /

@@ -1450,6 +1450,17 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         icon={<DepthIcon className="h-5 w-5 text-trim" />}
       />
       <div className="mb-2" />
+      {/* KHU BẢO TỒN · VÙNG CẤM KHAI THÁC (2026-10-14) — lớp miễn phí, mặc định
+          BẬT. Tắt chỉ là chuyện NHÌN: dẫn đường vẫn nhắc "đang trong khu…"
+          (lib/vung-quan-ly.ts — kho dẫn đường nạp không phụ thuộc công tắc). */}
+      <Toggle
+        label="Khu bảo tồn, vùng cấm đánh bắt"
+        sub="27 khu bảo tồn · vùng cấm theo mùa · khu bảo vệ nguồn lợi · tham khảo"
+        on={prefs.vungQuanLy}
+        onToggle={() => setMapPrefs({ vungQuanLy: !prefs.vungQuanLy })}
+        icon={<AlertIcon className="h-5 w-5 text-trim" />}
+      />
+      <div className="mb-2" />
       {/* TRẠM CON NƯỚC (2026-09-04) — lớp miễn phí, mặc định BẬT, bà con tắt
           được. Không thuộc "Hải đồ chi tiết": chạm trạm là ra con nước, kể cả
           khi đang xem nền vệ tinh. */}

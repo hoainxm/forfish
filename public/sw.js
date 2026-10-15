@@ -389,6 +389,11 @@ const SHELL = [
   // (không CRITICAL): lớp phụ trợ — nhãn TÊN rạn đã nằm ở CRITICAL, thiếu hình
   // thì vẫn còn tên. Nặng nên không để nó chặn install lúc sóng chập chờn.
   "/data/reef-shapes.v1.json",
+  // KHU BẢO TỒN BIỂN · VÙNG CẤM KHAI THÁC CÓ THỜI HẠN · KHU BẢO VỆ NGUỒN LỢI
+  // (2026-10-14, ~150 KB). Ranh giới thả lưới được/không — đúng thứ cần giữa
+  // biển mất sóng; dẫn đường đọc nó để nhắc "đang trong khu…". Best-effort
+  // như reef-shapes (nặng hơn 12 KB khu trú bão, không để chặn install).
+  "/data/vung-quan-ly.v1.json",
 ];
 
 /** Rút các đường dẫn /_next/static/... mà một trang HTML cần (JS · CSS · font) */

@@ -24,6 +24,13 @@ export interface MapPrefs {
   /** Ranh giới vùng lộng (NĐ 26/2019, tàu 12–<15m) — nét đứt teal */
   vungLong: boolean;
   /**
+   * Khu bảo tồn biển · vùng cấm khai thác có thời hạn · khu bảo vệ nguồn lợi
+   * (`lib/vung-quan-ly.ts`, 2026-10-14) — MẶC ĐỊNH BẬT, miễn phí, bà con tắt
+   * được. Dẫn đường vẫn nhắc "đang trong khu…" dù lớp đang tắt (nhắc là
+   * chuyện an toàn, không phải chuyện nhìn).
+   */
+  vungQuanLy: boolean;
+  /**
    * Ghi đè bật/tắt vùng biển VMS theo id (vùng do admin quản lý, danh sách
    * động). KHÔNG có id trong map = dùng `defaultOn` của vùng. Bà con bật/tắt
    * thì lưu override ở đây; đổi vùng mặc định bên admin vẫn tôn trọng lựa chọn
@@ -44,6 +51,7 @@ const DEFAULT: MapPrefs = {
   coordFormat: "dms",
   mapGrid: false, // lưới kẻ ô toạ độ MẶC ĐỊNH ẨN (user 2026-07-28)
   vungLong: true,
+  vungQuanLy: true,
   vmsOverrides: {},
   tideStations: true,
 };
@@ -67,6 +75,8 @@ function load(): MapPrefs {
       mapGrid: p.mapGrid === true,
       // ranh giới vùng lộng mặc định bật; chỉ tắt khi đã lưu false
       vungLong: p.vungLong !== false,
+      // khu bảo tồn/vùng cấm mặc định bật; chỉ tắt khi đã lưu false
+      vungQuanLy: p.vungQuanLy !== false,
       vmsOverrides:
         p.vmsOverrides && typeof p.vmsOverrides === "object"
           ? (p.vmsOverrides as Record<string, boolean>)
