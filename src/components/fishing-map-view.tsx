@@ -472,6 +472,9 @@ import type { ChartReadiness } from "@/lib/nav-voice/opening";
 import { VOICE_MODE_LABEL } from "@/lib/nav-voice/prefs";
 import { ttsUnlock } from "@/lib/voice/tts";
 import { CruiseIntroSheet } from "@/components/nav-voice-ui";
+import { SenBienSheet, loadSenBienModel } from "@/components/sen-bien-sheet";
+import type { SenDest } from "@/lib/sen-bien/hieu-y";
+import { ACTIVE_PORTS } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import type { NavInfoLine } from "@/lib/nav-context";
 import {
@@ -3034,6 +3037,25 @@ export default function FishingMapView() {
     },
     [flyToPoint, setPoint, setDayIdx],
   );
+
+  /*  SEN BIỂN — chọn điểm đến bằng giọng (doc 07 §Sen Biển). Tên dò trong cảng
+      cá + điểm đã ghim, đều nằm trong máy. Nói xong: bay tới + mở khung dẫn
+      đường; bà con tự bấm Bắt đầu. */
+  const [senOpen, setSenOpen] = useState(false);
+  const senDests = useMemo<SenDest[]>(
+    () => [
+      ...places.map((p) => ({ name: p.name, lat: p.lat, lon: p.lon, kind: p.kind === "home" ? ("nha" as const) : ("diem" as const) })),
+      ...ACTIVE_PORTS.flatMap((p) =>
+        p.lat != null && p.lng != null ? [{ name: p.name, lat: p.lat, lon: p.lng, kind: "cang" as const }] : [],
+      ),
+    ],
+    [places],
+  );
+  // tải sẵn bộ hiểu ý (2,4 MB) khi còn ở bờ — SW giữ lại, ra khơi mất sóng vẫn có
+  useEffect(() => {
+    const t = setTimeout(() => void loadSenBienModel(), 8000);
+    return () => clearTimeout(t);
+  }, []);
 
   /** Ghim chỗ đang xem thành điểm của tôi (đặt tên) */
   const [pinName, setPinName] = useState("");
@@ -7385,6 +7407,20 @@ export default function FishingMapView() {
         />
       )}
 
+      {senOpen && (
+        <SenBienSheet
+          dests={senDests}
+          seaLine={condSummary ?? null}
+          onGo={(d) => {
+            setSenOpen(false);
+            setPinning(false);
+            goToCoord(d.lat, d.lon);
+            if (!routeMode && !navMode) openRoutePanel();
+          }}
+          onClose={() => setSenOpen(false)}
+        />
+      )}
+
       {cruiseIntro && (
         <CruiseIntroSheet
           onClose={() => setCruiseIntro(false)}
@@ -7549,6 +7585,7 @@ export default function FishingMapView() {
             routeOn={routeMode}
             onCruise={toggleCruise}
             cruiseOn={navOn}
+            onSenBien={() => setSenOpen(true)}
             locating={locating}
             geoError={geoError}
             layerId={layerId}
