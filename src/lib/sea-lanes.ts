@@ -17,7 +17,8 @@
  */
 
 import { fetchDataJson } from "@/lib/data-fetch";
-import { REEFS_DATA_URL, SEA_LANES_DATA_URL } from "@/lib/ocean-map";
+import { haversineKm } from "@/lib/route-plan";
+import { ISLANDS_DATA_URL, REEFS_DATA_URL, SEA_LANES_DATA_URL } from "@/lib/ocean-map";
 
 /**
  * Một cửa đọc chung cho MỌI lớp GeoJSON tĩnh mà thuật toán cần: đệm theo URL,
@@ -59,4 +60,60 @@ export async function fetchSeaLanes(): Promise<GeoJSON.Feature[]> {
  */
 export async function fetchCoralReefs(): Promise<GeoJSON.Feature[]> {
   return fetchFeatures(REEFS_DATA_URL, "coral-reefs");
+}
+
+/** Đảo CÓ TÊN (`vn-islands.v1.json`) — giọng đọc "phía trước là đảo Lý Sơn". */
+export async function fetchIslands(): Promise<GeoJSON.Feature[]> {
+  return fetchFeatures(ISLANDS_DATA_URL, "vn-islands");
+}
+
+/** Tên điểm (Point có `name`) gần nhất trong `maxKm` — gọi tên đảo/bãi cho câu nói. */
+export function nearestNamedPoint(
+  features: readonly GeoJSON.Feature[] | null | undefined,
+  p: { lat: number; lon: number },
+  maxKm: number,
+): { name: string; type: string | null } | null {
+  if (!features) return null;
+  const pad = maxKm / 100; // độ ≈ 111 km — hộp thô rộng hơn chút cho chắc
+  const cosLat = Math.cos((p.lat * Math.PI) / 180);
+  let best: { name: string; type: string | null } | null = null;
+  let bestKm = maxKm;
+  for (const f of features) {
+    const g = f?.geometry;
+    if (!g || g.type !== "Point") continue;
+    const [lon, lat] = g.coordinates;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    if (Math.abs(lat - p.lat) > pad || Math.abs(lon - p.lon) > pad / Math.max(cosLat, 0.1)) continue;
+    const props = f.properties as { name?: string; type?: string } | null;
+    if (!props?.name) continue;
+    const km = haversineKm(p, { lat, lon });
+    if (km < bestKm) {
+      bestKm = km;
+      best = { name: props.name, type: props.type ?? null };
+    }
+  }
+  return best;
+}
+
+const CO_LOAI = /^(đảo|hòn|cù lao|bãi|đá|cồn|rạn|mũi)\s/i;
+
+/**
+ * Tên để ĐỌC cho chỗ nón phía trước chạm (nav-hazards `nameAt`):
+ *  · bờ/đảo → đảo có tên trong 6 km ("đảo Lý Sơn"; tên đã có "Hòn/Cù Lao…" thì
+ *    giữ nguyên), không có thì đá/cồn nổi trong 3 km;
+ *  · rạn → bãi/đá/rạn có tên trong 3 km.
+ * Không thấy tên ⇒ null: câu cũ "bờ hoặc đảo", KHÔNG đoán.
+ */
+export function tenChoPhiaTruoc(
+  islands: readonly GeoJSON.Feature[] | null,
+  reefs: readonly GeoJSON.Feature[] | null,
+  p: { lat: number; lon: number },
+  kind: "bo" | "ran",
+): string | null {
+  if (kind === "bo") {
+    const dao = nearestNamedPoint(islands, p, 6);
+    if (dao) return CO_LOAI.test(dao.name) ? dao.name : `đảo ${dao.name}`;
+  }
+  const bai = nearestNamedPoint(reefs, p, 3);
+  return bai?.name ?? null;
 }

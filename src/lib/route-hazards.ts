@@ -31,6 +31,7 @@
  */
 
 import { haversineKm, type LatLon } from "@/lib/route-plan";
+import { nearestNamedPoint } from "@/lib/sea-lanes";
 import {
   buildIndex,
   buildSegmentIndex,
@@ -277,25 +278,7 @@ function lineSegments<R>(line: readonly LatLon[], ref: R, into: Segment<R>[]): v
 
 /** Tên bãi/đá/rạn (coral-reefs Point) trong `REEF_NAME_KM` — chỉ để gọi tên. */
 function tenBaiGan(reefs: readonly GeoJSON.Feature[] | undefined, p: LatLon): string | null {
-  if (!reefs) return null;
-  let best: string | null = null;
-  let bestKm = REEF_NAME_KM;
-  for (const f of reefs) {
-    const g = f?.geometry;
-    if (!g || g.type !== "Point") continue;
-    const [lon, lat] = g.coordinates;
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-    const name = (f.properties as { name?: string } | null)?.name;
-    if (!name) continue;
-    // hộp thô trước, haversine sau — 1.372 điểm × vài chục lượt hỏi
-    if (Math.abs(lat - p.lat) > 0.05 || Math.abs(lon - p.lon) > 0.05) continue;
-    const km = haversineKm(p, { lat, lon });
-    if (km < bestKm) {
-      bestKm = km;
-      best = name;
-    }
-  }
-  return best;
+  return nearestNamedPoint(reefs, p, REEF_NAME_KM)?.name ?? null;
 }
 
 type TideAt = { heightM: number; model: boolean } | null;

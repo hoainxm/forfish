@@ -525,7 +525,7 @@ import {
   type KhuGan,
   type NavContext,
 } from "@/lib/nav-context";
-import { fetchSeaLanes } from "@/lib/sea-lanes";
+import { fetchCoralReefs, fetchIslands, fetchSeaLanes, tenChoPhiaTruoc } from "@/lib/sea-lanes";
 import { requiredDepthM } from "@/lib/hazards";
 import {
   DEPTH_CLASS_LABEL,
@@ -3312,6 +3312,11 @@ export default function FishingMapView() {
       (d) Nhánh mất sóng LÀ nhánh duy nhất: mọi kho đã nằm trong vỏ sống-còn
           của service worker, không kho nào nào cần mạng lúc đang chạy. */
   const navCtxRef = useRef<NavContext | null>(null);
+  /** đảo + bãi đá CÓ TÊN — để giọng đọc gọi tên chỗ phía trước (tenChoPhiaTruoc) */
+  const navNamesRef = useRef<{ islands: GeoJSON.Feature[] | null; reefs: GeoJSON.Feature[] | null }>({
+    islands: null,
+    reefs: null,
+  });
   const navDepthRef = useRef<DepthGrid | null>(null);
   const navStateRef = useRef<NavHazardState>(initNavHazardState());
   /** mốc lần đánh giá gần nhất — để tiết chế ≤1 lần/2 s (xem effect dưới) */
@@ -3422,8 +3427,14 @@ export default function FishingMapView() {
       fetchKhuTruBao(),
       fetchDepthGrid(),
       fetchVungQuanLy(),
-    ]).then(([xt, sl, sm, va, db, kh, dg, vq]) => {
+      fetchIslands(),
+      fetchCoralReefs(),
+    ]).then(([xt, sl, sm, va, db, kh, dg, vq, isl, rf]) => {
       if (!alive) return;
+      navNamesRef.current = {
+        islands: isl.status === "fulfilled" ? isl.value : null,
+        reefs: rf.status === "fulfilled" ? rf.value : null,
+      };
       navDepthRef.current = dg.status === "fulfilled" ? dg.value : null;
       const ctx = buildNavContext(
         {
@@ -3507,6 +3518,8 @@ export default function FishingMapView() {
       insideRestricted: restrictedAt(ctx, navPos, now),
       borderNm: navProx?.applies ? navProx.distanceNm : null,
       fmtDist: navFmtDist,
+      nameAt: (lat, lon, kind) =>
+        tenChoPhiaTruoc(navNamesRef.current.islands, navNamesRef.current.reefs, { lat, lon }, kind),
     });
     navStateRef.current = state;
 

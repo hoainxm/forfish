@@ -396,6 +396,11 @@ describe("nón phía trước — lớp độ sâu", () => {
   it("lớp 0 → bờ/đảo; lớp 2 → rất cạn; lớp 3 không khai mớn → 'chưa tới 4 m' bậc 1; khai mớn cần ≤2 m → tin bậc 4", () => {
     const mk = (c: number) => (lat: number) => (lat >= at(1, 0).lat ? c : 5);
     expect(evaluateNavHazards(initNavHazardState(), baseInput({ depthAt: mk(0) })).alerts[0].cau).toMatch(/là bờ hoặc đảo\.$/);
+    // có tên gần chỗ chạm ⇒ gọi tên (bà con 2026-10-16: "nói tên luôn ok")
+    const named = baseInput({ depthAt: mk(0), nameAt: (_la, _lo, k) => (k === "bo" ? "đảo Lý Sơn" : null) });
+    expect(evaluateNavHazards(initNavHazardState(), named).alerts[0].cau).toMatch(/là đảo Lý Sơn\.$/);
+    const ranTen = baseInput({ depthAt: mk(1), nameAt: (_la, _lo, k) => (k === "ran" ? "Bãi Cỏ Mây" : null) });
+    expect(evaluateNavHazards(initNavHazardState(), ranTen).alerts[0].cau).toMatch(/có rạn đá — Bãi Cỏ Mây\.$/);
     expect(evaluateNavHazards(initNavHazardState(), baseInput({ depthAt: mk(2) })).alerts[0].cau).toMatch(/nước rất cạn — chưa tới 2 m\.$/);
     const c3 = evaluateNavHazards(initNavHazardState(), baseInput({ depthAt: mk(3) })).alerts[0];
     expect(c3.cau).toMatch(/nước cạn — chưa tới 4 m\.$/);

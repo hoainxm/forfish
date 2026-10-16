@@ -182,6 +182,12 @@ export type NavHazardInput = {
   borderNm: number | null;
   /** đổi km → chữ theo đơn vị bà con chọn (map-prefs); bỏ trống = "600 m" / "1,5 hải lý" */
   fmtDist?: (km: number) => string;
+  /**
+   * TÊN chỗ nón phía trước chạm bờ/rạn (bà con chạy thử 2026-10-16: "chỉ báo
+   * phía trước là đảo mà chưa nói đảo hay bãi đá ngầm nào, nếu nói tên luôn
+   * ok"). Nơi gọi tra vn-islands / coral-reefs; null = không có tên gần ⇒ câu cũ.
+   */
+  nameAt?: (lat: number, lon: number, kind: "bo" | "ran") => string | null;
 };
 
 /** Một vật đã thấy: mốc đã nói, lần nói cuối, để quên/khử lặp. */
@@ -506,6 +512,8 @@ export function evaluateNavHazards(
     let dRan = Infinity;
     let dCan2 = Infinity;
     let dCan4 = Infinity;
+    let pBo: LatLon | null = null;
+    let pRan: LatLon | null = null;
     // bắt đầu từ mẫu 1 (0,4 km): ô ngay dưới tàu thì tàu đang nổi ở đó rồi
     for (let k = 1; k <= n; k++) {
       const d = k * NAV_CONE_STEP_KM;
@@ -513,8 +521,13 @@ export function evaluateNavHazards(
         const p = offsetKm(pos, heading + t * NAV_CONE_HALF_DEG, d);
         const c = input.depthAt(p.lat, p.lon);
         if (c == null) continue;
-        if (c === 0) dBo = Math.min(dBo, d);
-        else if (c === 1) dRan = Math.min(dRan, d);
+        if (c === 0) {
+          if (d < dBo || (d === dBo && t === 0)) pBo = p;
+          dBo = Math.min(dBo, d);
+        } else if (c === 1) {
+          if (d < dRan || (d === dRan && t === 0)) pRan = p;
+          dRan = Math.min(dRan, d);
+        }
         else if (c === 2) dCan2 = Math.min(dCan2, d);
         else if (c === 3) dCan4 = Math.min(dCan4, d);
       }
@@ -536,8 +549,14 @@ export function evaluateNavHazards(
         lon: pos.lon,
       });
     };
-    pushDepth("day:bo", dBo, 1, (s) => `Phía trước chừng ${s} là bờ hoặc đảo.`);
-    pushDepth("day:ran", dRan, 1, (s) => `Phía trước chừng ${s} có rạn đá.`);
+    const tenBo = pBo && input.nameAt ? input.nameAt(pBo.lat, pBo.lon, "bo") : null;
+    const tenRan = pRan && input.nameAt ? input.nameAt(pRan.lat, pRan.lon, "ran") : null;
+    pushDepth("day:bo", dBo, 1, (s) =>
+      tenBo ? `Phía trước chừng ${s} là ${tenBo}.` : `Phía trước chừng ${s} là bờ hoặc đảo.`,
+    );
+    pushDepth("day:ran", dRan, 1, (s) =>
+      tenRan ? `Phía trước chừng ${s} có rạn đá — ${tenRan}.` : `Phía trước chừng ${s} có rạn đá.`,
+    );
     pushDepth("day:can2", dCan2, 1, (s) => `Phía trước chừng ${s} nước rất cạn — chưa tới 2 m.`);
     // 2–4 m: chưa khai mớn hoặc tàu cần hơn 2 m → coi như rất cạn; còn lại chỉ là tin
     if (input.needM == null || input.needM > 2) {
