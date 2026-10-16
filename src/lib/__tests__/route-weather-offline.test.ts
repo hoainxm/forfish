@@ -21,6 +21,7 @@ import {
   gridToWeatherField,
   gridHourOffsetFromToday,
   fetchWeatherField,
+  isWeatherRateLimit,
 } from "../route-weather";
 import {
   gridPoints,
@@ -146,6 +147,8 @@ describe("fetchWeatherField — mất sóng lùi về lưới đã lưu", () => 
     const f = await fetchWeatherField(bbox, NOW);
     expect(f.source).toBe("grid");
     expect(f.savedAt).toBeTypeOf("number");
+    // mất sóng thật — KHÔNG gắn cờ "bị từ chối"
+    expect(f.rateLimited).toBeUndefined();
   });
 
   it("KHÔNG có lưới trong máy + offline → ném lỗi (UI báo thiếu)", async () => {
@@ -156,5 +159,43 @@ describe("fetchWeatherField — mất sóng lùi về lưới đã lưu", () => 
     await expect(
       fetchWeatherField({ latMin: 9, latMax: 15, lonMin: 107, lonMax: 114 }, NOW),
     ).rejects.toThrow();
+  });
+});
+
+describe("fetchWeatherField — Open-Meteo từ chối 429 (vượt lượt trong giờ)", () => {
+  const tuChoi = () =>
+    vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: true, reason: "Hourly API request limit exceeded." }),
+    }) as unknown as typeof fetch;
+
+  it("có lưới trong máy → dùng lưới đã lưu NHƯNG gắn rateLimited để UI nói đúng lý do", async () => {
+    saveForecast(GRID_NS, gridCacheId(3), makeGrid("2026-07-28", 24, 1));
+    globalThis.fetch = tuChoi();
+    const f = await fetchWeatherField({ latMin: 7, latMax: 13, lonMin: 105, lonMax: 112 }, NOW);
+    expect(f.source).toBe("grid");
+    expect(f.rateLimited).toBe(true);
+  });
+
+  it("không có lưới trong máy → ném lỗi nhận ra được là 429, không phải mất sóng", async () => {
+    globalThis.fetch = tuChoi();
+    const err = await fetchWeatherField(
+      { latMin: 6, latMax: 12, lonMin: 104, lonMax: 111 },
+      NOW,
+    ).catch((e: unknown) => e);
+    expect(isWeatherRateLimit(err)).toBe(true);
+  });
+
+  it("lỗi HTTP khác (500) vẫn là lỗi thường — không bị đọc thành quá tải", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }) as unknown as typeof fetch;
+    const err = await fetchWeatherField(
+      { latMin: 5, latMax: 11, lonMin: 103, lonMax: 110 },
+      NOW,
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(isWeatherRateLimit(err)).toBe(false);
   });
 });
