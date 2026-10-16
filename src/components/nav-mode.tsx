@@ -27,6 +27,7 @@ import {
   MinusIcon,
   NavArrowIcon,
   RouteIcon,
+  SpeakerIcon,
 } from "@/components/icons";
 
 /** Ảnh dấu tàu — sinh từ `Workops/assets/sdfish/sdfish-fishing-vessel-map-marker.png`
@@ -119,6 +120,24 @@ export type NavOffRouteNotice = {
   dismissed: boolean;
 };
 
+/**
+ * GIỌNG ĐỌC (chế độ Đang chạy, doc 15 §9) — cha giữ toàn bộ trạng thái ở
+ * `lib/nav-voice/use-nav-voice`, HUD chỉ vẽ nút + câu đang đọc.
+ */
+export type NavHudVoice = {
+  /** "Giọng: đầy đủ" / "Giọng: ít" / "Giọng: im 30 phút" / "Giọng: tắt" */
+  label: string;
+  /** đang đọc được (không tắt, không im) — để tô nút */
+  on: boolean;
+  onCycle: () => void;
+  /** câu ĐANG đọc — in ra cho người nghe kém / máy rè */
+  speaking: { text: string; red: boolean } | null;
+  /** "Đã nghe" — thôi nhắc lại câu đỏ */
+  onAck: () => void;
+  /** máy không đọc được tiếng Việt: nói thật + cho tải giọng (Android) */
+  noVoice: { canInstall: boolean; onInstall: () => void } | null;
+};
+
 /*  Mảng rỗng DÙNG CHUNG làm mặc định: `hazardLines = []` viết thẳng trong
     tham số sẽ tạo mảng MỚI mỗi lần vẽ — mà HUD vẽ lại theo nhịp GPS. */
 const EMPTY_LINES: HudLine[] = [];
@@ -144,7 +163,16 @@ export function NavHud({
   rungOn = true,
   onToggleRung,
   onShelter,
+  title = "Đang dẫn đường",
+  cruiseLine = null,
+  voice = null,
 }: {
+  /*  "Đang dẫn đường" (có tuyến) / "Đang chạy" (chỉ GPS, không tuyến — doc 15 §3B) */
+  title?: string;
+  /*  CHẾ ĐỘ ĐANG CHẠY không tuyến: dòng "hướng · tốc độ · nước dưới tàu" thay cho
+      khối bám tuyến. null khi chưa có vị trí. */
+  cruiseLine?: string | null;
+  voice?: NavHudVoice | null;
   progress: NavProgress | null;
   status: NavStatus;
   onStop: () => void;
@@ -238,7 +266,7 @@ export function NavHud({
           <RouteIcon className="h-5 w-5 text-t1" />
           {progress
             ? `Còn ${fmtDist(progress.remainingKm, prefs.distUnit)}`
-            : "Đang dẫn đường"}
+            : title}
         </button>
         {/* rất gần ranh giới thì HUD ẩn vẫn phải nói — không thu được */}
         {borderLocked && borderLine && (
@@ -263,6 +291,17 @@ export function NavHud({
             {l.cau}
           </p>
         ))}
+        {/*  Câu ĐỎ đang đọc (ranh giới, bão gần) cũng phải "Đã nghe" được khi HUD thu */}
+        {voice?.speaking?.red && (
+          <button
+            type="button"
+            onClick={voice.onAck}
+            className="pointer-events-auto flex min-h-[3rem] w-full items-center gap-2 rounded-xl bg-danger-bg px-3 py-2 text-left text-[0.9375rem] font-bold leading-snug text-danger shadow-md"
+          >
+            <SpeakerIcon className="h-5 w-5 shrink-0" />
+            <span className="min-w-0 flex-1">Đã nghe</span>
+          </button>
+        )}
       </div>
     );
   }
@@ -284,9 +323,7 @@ export function NavHud({
           aria-label="Giữ và kéo để dời bảng dẫn đường"
         >
           <RouteIcon className="h-5 w-5 shrink-0 text-t1" />
-          <h3 className="text-[0.9375rem] font-bold text-navy">
-            Đang dẫn đường
-          </h3>
+          <h3 className="text-[0.9375rem] font-bold text-navy">{title}</h3>
           <span
             className="ml-1 h-1 w-8 rounded-full bg-navy/20"
             aria-hidden
@@ -296,19 +333,6 @@ export function NavHud({
              (2.75rem) như nút ẩn bên cạnh. Chữ chứ không chỉ hình: bà con
              không đoán được biểu tượng rung, mà bấm nhầm là mất kênh cảnh báo
              duy nhất còn tới được khi máy trong túi áo mưa. */}
-        {onToggleRung && (
-          <button
-            type="button"
-            onClick={onToggleRung}
-            aria-pressed={rungOn}
-            aria-label={rungOn ? "Tắt rung khi có cảnh báo" : "Bật rung khi có cảnh báo"}
-            className={`min-h-[2.75rem] shrink-0 rounded-xl px-3 text-[0.875rem] font-bold transition active:scale-95 ${
-              rungOn ? "bg-t1/15 text-t1" : "bg-navy/10 text-navy/60"
-            }`}
-          >
-            {rungOn ? "Báo rung: đang bật" : "Báo rung: đang tắt"}
-          </button>
-        )}
         <button
           type="button"
           onClick={() => setHidden(true)}
@@ -318,6 +342,39 @@ export function NavHud({
           <MinusIcon className="h-5 w-5" />
         </button>
       </div>
+
+      {/*  HÀNG NÚT KÊNH CẢNH BÁO — Giọng + Rung cạnh nhau, chữ chứ không chỉ
+           hình (bà con không đoán được biểu tượng), ≥44 px cho ngón cái ướt. */}
+      {(voice || onToggleRung) && (
+        <div className="grid grid-cols-2 gap-1.5">
+          {voice && (
+            <button
+              type="button"
+              onClick={voice.onCycle}
+              aria-label={`${voice.label} — chạm để đổi`}
+              className={`flex min-h-[2.75rem] items-center justify-center gap-1.5 rounded-xl px-2 text-[0.875rem] font-bold transition active:scale-95 ${
+                voice.on ? "bg-t1/15 text-t1" : "bg-navy/10 text-navy/60"
+              }`}
+            >
+              <SpeakerIcon className="h-5 w-5 shrink-0" />
+              {voice.label}
+            </button>
+          )}
+        {onToggleRung && (
+            <button
+              type="button"
+              onClick={onToggleRung}
+              aria-pressed={rungOn}
+              aria-label={rungOn ? "Tắt rung khi có cảnh báo" : "Bật rung khi có cảnh báo"}
+              className={`min-h-[2.75rem] rounded-xl px-2 text-[0.875rem] font-bold transition active:scale-95 ${
+                rungOn ? "bg-t1/15 text-t1" : "bg-navy/10 text-navy/60"
+              }`}
+            >
+              {rungOn ? "Báo rung: đang bật" : "Báo rung: đang tắt"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* RANH GIỚI theo GPS — trên mọi thứ khác trong HUD; chạm để thu khi còn
           >6 hải lý, nói lại khi vượt mốc mới (cha lo), ≤6 hải lý nằm đó. */}
@@ -381,6 +438,45 @@ export function NavHud({
           <span className="min-w-0 flex-1">Khu trú bão gần</span>
           <ChevronRightIcon className="h-5 w-5 shrink-0" />
         </button>
+      )}
+
+      {/*  CÂU ĐANG ĐỌC — in ra đúng câu loa đang nói (người nghe kém một bên,
+           máy rè, tiếng máy tàu át). Câu ĐỎ có nút "Đã nghe" để thôi nhắc lại. */}
+      {voice?.speaking && (
+        <div
+          role="status"
+          className={`flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.9375rem] font-semibold leading-snug ${
+            voice.speaking.red ? "bg-danger-bg text-danger" : "bg-white/45 text-navy"
+          }`}
+        >
+          <SpeakerIcon className="h-5 w-5 shrink-0" />
+          <span className="min-w-0 flex-1">{voice.speaking.text}</span>
+          {voice.speaking.red && (
+            <button
+              type="button"
+              onClick={voice.onAck}
+              className="min-h-[2.75rem] shrink-0 rounded-xl bg-danger px-3 text-[0.875rem] font-bold text-white transition active:scale-95"
+            >
+              Đã nghe
+            </button>
+          )}
+        </div>
+      )}
+      {voice?.noVoice && (
+        <div className="flex items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-bold leading-snug text-warn">
+          <span className="min-w-0 flex-1">
+            Máy chưa có giọng tiếng Việt — chỉ báo bằng chuông và chữ.
+          </span>
+          {voice.noVoice.canInstall && (
+            <button
+              type="button"
+              onClick={voice.noVoice.onInstall}
+              className="min-h-[2.75rem] shrink-0 rounded-xl bg-navy px-3 text-[0.875rem] font-bold text-white transition active:scale-95"
+            >
+              Tải giọng
+            </button>
+          )}
+        </div>
       )}
 
       {denied ? (
@@ -474,6 +570,12 @@ export function NavHud({
                 </p>
               )}
             </div>
+          ) : cruiseLine ? (
+            <p
+              className={`display text-[1.125rem] font-bold leading-snug text-navy ${lost ? "opacity-50" : ""}`}
+            >
+              {cruiseLine}
+            </p>
           ) : (
             !lost && (
               <p className="rounded-xl bg-white/45 p-2.5 text-[0.9375rem] font-semibold text-foreground/70">

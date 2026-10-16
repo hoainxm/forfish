@@ -23,6 +23,10 @@
  *   · `seamarks.v1.json` + `vn-aids.v1.json` → `aids` (phao kế tiếp)
  *   · `den-bien.v1.json` → `den` (105 đèn biển CÓ TÊN của Việt Nam)
  *   · `khu-tru-bao.v1.json` → `khu` (chỉ dùng khi ĐANG CÓ BÃO)
+ *   · `vung-quan-ly.v1.json` (khu bảo tồn biển đã có hiệu lực + vùng cấm khai
+ *     thác CÓ THỜI HẠN) → cũng vào `restricted`, mỗi mảnh một vòng ngoài, mang
+ *     `mua` để `restrictedAt` chỉ nhắc ĐÚNG MÙA CẤM (2026-10-14). Khu "thành
+ *     lập mới" (quy hoạch) và khu bảo vệ nguồn lợi KHÔNG vào — chưa ràng buộc.
  *
  * Kho nào thiếu thì ghi tên vào `missing` chứ KHÔNG ném: mất một kho không
  * được làm mất cả lớp cảnh báo của chuyến biển (cùng luật `buildHazardList`).
@@ -73,6 +77,7 @@ import {
 import type { VnAid } from "@/lib/vn-aids";
 import { tenDayDu, type DenBien } from "@/lib/den-bien";
 import { tenTinhDep, type KhuTruBao } from "@/lib/khu-tru-bao";
+import { canhBaoDanDuong, dangCam, tenNoi, type MuaCam, type VungQuanLy } from "@/lib/vung-quan-ly";
 import type { XacTau } from "@/lib/xac-tau";
 import { windDirectionVN } from "@/lib/marine-weather";
 
@@ -112,6 +117,8 @@ export type NavRestricted = {
   /** vòng ngoài đa giác, GeoJSON [lon, lat] */
   ring: [number, number][];
   bbox: BBox;
+  /** chỉ cấm trong các khoảng này (vùng cấm có thời hạn); thiếu/rỗng = quanh năm */
+  mua?: MuaCam[];
 };
 
 /** Báo hiệu hàng hải gộp hai nguồn: OSM (`Seamark`) + Cục Hàng hải (`VnAid`). */
@@ -159,6 +166,8 @@ export type NavStores = {
   vnAids?: VnAid[] | null;
   denBien?: DenBien[] | null;
   khuTruBao?: KhuTruBao[] | null;
+  /** lớp khu bảo tồn / vùng cấm khai thác có thời hạn (`lib/vung-quan-ly.ts`) */
+  vungQuanLy?: VungQuanLy[] | null;
 };
 
 /* ── ĐỌC FEATURE CỦA vn-sea-lanes ────────────────────────────────────────── */
@@ -254,6 +263,35 @@ export function restrictedZones(
   return out;
 }
 
+/**
+ * Khu bảo tồn biển ĐÃ CÓ HIỆU LỰC + vùng cấm khai thác CÓ THỜI HẠN → vùng hạn
+ * chế của dẫn đường. Mỗi MẢNH một mục (vòng ngoài; lỗ = đảo, đứng trên đảo
+ * không phải ca dẫn đường) để bbox nhỏ, `restrictedAt` loại nhanh. Vùng cấm
+ * theo mùa mang `mua` — nhắc hay không quyết LÚC CHẠY, không lúc dựng kho
+ * (chuyến biển dài có thể vắt qua ngày bắt đầu mùa cấm).
+ */
+export function restrictedFromVung(vung: readonly VungQuanLy[]): NavRestricted[] {
+  const out: NavRestricted[] = [];
+  for (const v of vung) {
+    if (!canhBaoDanDuong(v) || !v.polys) continue;
+    const ten = tenNoi(v);
+    v.polys.forEach((poly, i) => {
+      const ring: [number, number][] = [];
+      for (const c of poly[0]) if (okLatLon(c[1], c[0])) ring.push([c[0], c[1]]);
+      if (ring.length < 3) return;
+      out.push({
+        id: `vq:${v.ma}:${i}`,
+        ten,
+        loai: v.loai,
+        ring,
+        bbox: ringBBox(ring),
+        ...(v.loai === "cam-thoi-han" ? { mua: v.mua } : {}),
+      });
+    });
+  }
+  return out;
+}
+
 /* ── DỰNG KHO ────────────────────────────────────────────────────────────── */
 
 const aidPos = (m: NavAid): LatLon => ({ lat: m.lat, lon: m.lon });
@@ -293,6 +331,9 @@ export function buildNavContext(
   const segs = lanes ? cableSegments(lanes) : [];
   const cables = segs.length ? buildSegmentIndex(segs) : null;
   const restricted = lanes ? restrictedZones(lanes) : [];
+  const vq = kho?.vungQuanLy ?? null;
+  if (!vq) missing.push("vung-quan-ly");
+  else restricted.push(...restrictedFromVung(vq));
 
   /*  PHAO: bản NHÀ NƯỚC vào trước, bản OSM chỉ vào khi cách mọi bản nhà nước
       hơn 100 m. Cùng một cái phao mà hai nguồn lệch nhau vài chục mét thì bà
@@ -363,10 +404,14 @@ export function cableKmAt(
 export function restrictedAt(
   ctx: NavContext | null,
   pos: LatLon,
+  /** thời điểm đang xét (ms) — vùng cấm theo mùa chỉ tính khi đang mùa cấm */
+  nowMs: number = Date.now(),
 ): string | null {
   if (!ctx?.restricted?.length) return null;
   if (!Number.isFinite(pos?.lat) || !Number.isFinite(pos?.lon)) return null;
+  const ngay = Number.isFinite(nowMs) ? new Date(nowMs) : new Date();
   for (const z of ctx.restricted) {
+    if (z.mua && (!z.mua.length || !dangCam(z.mua, ngay))) continue;
     if (
       pos.lat < z.bbox.latMin ||
       pos.lat > z.bbox.latMax ||

@@ -79,6 +79,11 @@ import {
   RESTRICTED_FILL_COLOR,
   RESTRICTED_FILL_OPACITY,
   RESTRICTED_LABEL_COLOR,
+  VUNG_QUAN_LY_MINZOOM,
+  VUNG_QUAN_LY_LABEL_MINZOOM,
+  VUNG_QUAN_LY_DIEM_MINZOOM,
+  VUNG_QUAN_LY_FILL_OPACITY,
+  VUNG_QUAN_LY_LINE_OPACITY,
   REEF_SHAPE_LINE_OPACITY,
   REEF_SHAPE_FILL_OPACITY,
   CHAT_DAY_OPACITY,
@@ -117,6 +122,13 @@ import { fetchXacTau, xacTauLabel, moTaXacTau, type XacTau } from "@/lib/xac-tau
 import { chatDayLabel, laDayCung, ghiChuChatDayTrong, type ChatDayMa } from "@/lib/chat-day";
 import { fetchDiaDanhNgam, nhanLoaiDiaDanhNgam, type DiaDanhNgam } from "@/lib/dia-danh-ngam";
 import { fetchKhuTruBao, capLabel, tenTinhDep, type KhuTruBao } from "@/lib/khu-tru-bao";
+import {
+  fetchVungQuanLy,
+  dangVung,
+  trangThaiText,
+  LOAI_LABEL,
+  type VungQuanLy,
+} from "@/lib/vung-quan-ly";
 import {
   fetchTideStations,
   isModelStation,
@@ -385,6 +397,7 @@ const LEGEND_TIERS: LegendTier[] = [
       { icon: CHART_FEATURE_ICON.pipelineMark, chu: "Ống dẫn dầu/khí (đen, vạch-chấm) — đừng thả neo" },
       { icon: CHART_FEATURE_ICON.cableLanding, chu: "Điểm cáp cập bờ" },
       { mau: SEA_RESTRICTED_COLOR, dang: "vung", chu: "Vùng cấm / khu hạn chế (viền cam, nền cam nhạt)" },
+      { mau: SEA_RESTRICTED_COLOR, dang: "vung", chu: "Khu bảo tồn biển (viền liền) · vùng cấm đánh bắt theo mùa (viền đứt — nền đậm là ĐANG cấm, mờ là ngoài mùa) · khu bảo vệ nguồn lợi (viền chấm) — chạm vào để đọc" },
       { mau: SEA_LANE_COLOR, dang: "duong", chu: "Luồng cảng, phân luồng" },
       { icon: CHART_FEATURE_ICON.bank, chu: "Rạn, bãi, đá VEN BỜ (cùng hình như ngoài khơi)" },
     ],
@@ -454,8 +467,16 @@ import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
+import { useNavVoice } from "@/lib/nav-voice/use-nav-voice";
+import type { ChartReadiness } from "@/lib/nav-voice/opening";
+import { VOICE_MODE_LABEL } from "@/lib/nav-voice/prefs";
+import { ttsUnlock } from "@/lib/voice/tts";
+import { CruiseIntroSheet } from "@/components/nav-voice-ui";
+import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
+import type { NavInfoLine } from "@/lib/nav-context";
 import {
   computeNavProgress,
+  MIN_MOVING_KMH,
   offRouteStepCrossed,
   offRouteStepFor,
 } from "@/lib/nav-progress";
@@ -631,6 +652,18 @@ const BORDER_LEVEL_STYLE: Record<BorderLevel, { bg: string; fg: string }> = {
     lớp ở đây); màu theo mức đáng lo: đỏ = không đi vào (rạn, nước <2 m), vàng =
     đi được nhưng nhìn con nước (2–4 m, 4–12 m), thường = trên bờ / đủ sâu (nói
     cho biết, không doạ). Ngoài lưới (null) thì im. */
+/** Giữ dòng cảnh báo hải đồ trên HUD ngần này sau khi nói (xem effect mỗi fix). */
+const NAV_ALERT_HOLD_MS = 30_000;
+
+/** Nước dưới tàu, gọn cho dòng thân HUD "Đang chạy" (lớp 0 = đất/nhiễu GPS: im). */
+const CRUISE_DEPTH_SHORT: Record<number, string | undefined> = {
+  1: "trên rạn đá",
+  2: "nước dưới 2 m",
+  3: "nước 2–4 m",
+  4: "nước 4–12 m",
+  5: "nước trên 12 m",
+};
+
 const DEPTH_NOTE: Record<DepthClass, { text: string; tone: "danger" | "warn" | "plain" }> = {
   0: { text: `${DEPTH_CLASS_LABEL[0]} — theo bản đồ độ sâu của máy, ô ~450 m.`, tone: "plain" },
   1: { text: `${DEPTH_CLASS_LABEL[1]} — coi chừng mắc cạn.`, tone: "danger" },
@@ -1651,6 +1684,13 @@ export default function FishingMapView() {
     x: number;
     y: number;
   } | null>(null);
+  /*  Thẻ "khu bảo tồn / vùng cấm nào" — mở khi chạm nền vùng hoặc nhãn tên.
+      Nói thẳng hôm nay có đang cấm không + nguồn là quy hoạch (tham khảo). */
+  const [vungInfo, setVungInfo] = useState<{
+    v: VungQuanLy;
+    x: number;
+    y: number;
+  } | null>(null);
   /*  Thẻ tên rạn/bãi/đá + thẻ hạ tầng (cáp/ống/giàn/vùng cấm/cập bờ) — mở khi
       chạm; trước đây các lớp này câm (reviewer B.5). Đọc thuộc tính thẳng từ
       feature, không tra mảng. */
@@ -2231,6 +2271,11 @@ export default function FishingMapView() {
   }, [route]);
   // DẪN ĐƯỜNG LIVE: tuyến đang chạy theo (bám tuyến + theo dõi GPS). null = tắt
   const [navMode, setNavMode] = useState<PlannedRoute | null>(null);
+  /*  CHẾ ĐỘ ĐANG CHẠY không tuyến (doc 15 §3B, 2026-10-13): chỉ cần GPS là máy
+      canh hải đồ + đọc cảnh báo. Dùng CHUNG mọi bộ não của dẫn đường live (ranh
+      giới, hiểm hoạ, phao/đèn) — `navOn` dưới đây = có tuyến HOẶC đang chạy. */
+  const [cruise, setCruise] = useState(false);
+  const [cruiseIntro, setCruiseIntro] = useState(false);
   // hạng độ sâu tại điểm đang xem (null = chưa biết/không cảnh báo)
   const [depth, setDepth] = useState<DepthClass | null>(null);
   /*  Thẻ dẫn đường ở đáy — đo mép trên thật lúc chạm bản đồ để biết điểm vừa
@@ -2564,6 +2609,28 @@ export default function FishingMapView() {
     };
   }, [netEpoch, khuTruBao]);
 
+  /*  KHU BẢO TỒN BIỂN · VÙNG CẤM KHAI THÁC CÓ THỜI HẠN · KHU BẢO VỆ NGUỒN LỢI
+      (2026-10-14, lib/vung-quan-ly.ts — 27 khu bảo tồn + 27 vùng cấm TT 19/2018
+      + 61 khu bảo vệ nguồn lợi). Ranh giới nghề cá của nhà nước — thứ bà con
+      không có cách nào biết ngoài biển. Nạp không phụ thuộc công tắc. */
+  const [vungQuanLy, setVungQuanLy] = useState<VungQuanLy[] | null>(null);
+
+  useEffect(() => {
+    if (vungQuanLy) return;
+    let alive = true;
+    fetchVungQuanLy()
+      .then((v) => {
+        if (alive && v.length) setVungQuanLy(v);
+      })
+      .catch(() => {
+        // im lặng có chủ ý: lần sóng về sau tự thử lại. Thiếu lớp này thì bản
+        // đồ vẫn dùng được; dẫn đường ghi "vung-quan-ly" vào missing.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, vungQuanLy]);
+
   /*  BÁO HIỆU CHÍNH THỨC CỦA CỤC HÀNG HẢI — 774 cái (147 ở nửa nam mà lớp OSM
       gần như trắng). Lần tái phát thứ TƯ của bệnh "sinh xong không nối": dữ
       liệu nằm trong repo từ trước mà không dòng nào đọc, và bộ tự kiểm còn báo
@@ -2744,6 +2811,40 @@ export default function FishingMapView() {
       })),
     };
   }, [khuTruBao]);
+
+  /*  Vùng quản lý → HAI FeatureCollection: nền (MultiPolygon, `dang` quyết độ
+      đậm + nét viền) và điểm (tâm vùng để đặt nhãn + khu chỉ là ĐIỂM). `i` tra
+      ngược mảng cho thẻ chạm. `dang` tính theo NGÀY MỞ MÀN (mùa cấm đổi theo
+      lịch): mở app sang ngày khác là dựng lại — đủ cho một màn bản đồ, kho dẫn
+      đường thì xét từng fix (restrictedAt(nowMs)). */
+  const vungQuanLyGeo = useMemo<{
+    vung: GeoJSON.FeatureCollection;
+    diem: GeoJSON.FeatureCollection;
+  } | null>(() => {
+    if (!vungQuanLy?.length) return null;
+    const homNay = new Date();
+    const vung: GeoJSON.Feature[] = [];
+    const diem: GeoJSON.Feature[] = [];
+    vungQuanLy.forEach((v, i) => {
+      const dang = dangVung(v, homNay);
+      if (v.polys) {
+        vung.push({
+          type: "Feature",
+          geometry: { type: "MultiPolygon", coordinates: v.polys as GeoJSON.Position[][][] },
+          properties: { i, dang, loai: v.loai },
+        });
+      }
+      diem.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [v.lon, v.lat] },
+        properties: { i, dang, loai: v.loai, ten: v.ten, diem: !v.polys },
+      });
+    });
+    return {
+      vung: { type: "FeatureCollection", features: vung },
+      diem: { type: "FeatureCollection", features: diem },
+    };
+  }, [vungQuanLy]);
 
   const xacTauGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!xacTau?.length) return null;
@@ -2988,8 +3089,8 @@ export default function FishingMapView() {
   /*  Dẫn đường HOẶC ô toạ độ tàu đều cần theo dõi GPS — dùng CHUNG một watch.
       `keepAwake` chỉ bật khi đang dẫn đường: xem toạ độ mà giữ màn hình sáng
       cả buổi là ăn hết pin giữa biển. */
-  const tracking = useNavTracking(navMode != null || gpsOn, {
-    keepAwake: navMode != null,
+  const tracking = useNavTracking(navMode != null || cruise || gpsOn, {
+    keepAwake: navMode != null || cruise,
   });
   /*  Vị trí mới nhất giữ trong ref: `goToMyBoat` cần đọc nó mà KHÔNG được nhận
       `tracking.pos` làm dep — fix về mỗi 1–2 giây, dựng lại callback từng nhịp
@@ -3035,7 +3136,7 @@ export default function FishingMapView() {
      → 3, lib/geofence borderStepCrossed), không lặp mỗi nhịp GPS; ≤6 hải lý
      không thu được (NavHud). Đi ra xa thì mốc lùi trong im lặng để lần quay
      lại gần vẫn được nhắc. */
-  const navOn = navMode != null;
+  const navOn = navMode != null || cruise;
   const navPos = tracking.pos;
   // memo theo fix GPS — effect dưới lệ thuộc reference này, không được đổi
   // mỗi lần vẽ lại (sẽ set state vòng lặp)
@@ -3146,20 +3247,31 @@ export default function FishingMapView() {
   // camera bám vị trí tàu mỗi khi có fix mới (chỉ khi định vị còn tốt — mất
   // định vị thì GIỮ NGUYÊN khung, không giật camera theo vị trí cũ)
   useEffect(() => {
-    if (navMode && tracking.pos && tracking.status === "tracking") {
+    if (navOn && tracking.pos && tracking.status === "tracking") {
       flyToPoint(tracking.pos.lon, tracking.pos.lat);
     }
-  }, [navMode, tracking.pos, tracking.status, flyToPoint]);
+  }, [navOn, tracking.pos, tracking.status, flyToPoint]);
 
   const startNav = useCallback(
     (r: PlannedRoute) => {
+      ttsUnlock(); // trong cử chỉ chạm — mở khoá loa iOS cho giọng đọc
+      setCruise(false); // đang chạy không tuyến → nâng lên có tuyến, vòng canh KHÔNG dừng
       setNavMode(r);
       setRoute(r); // đảm bảo tuyến đang vẽ đúng tuyến đang dẫn
       setSize("peek"); // để bản đồ + HUD lộ tối đa
     },
     [setSize],
   );
-  const stopNav = useCallback(() => setNavMode(null), []);
+  const stopNav = useCallback(() => {
+    setNavMode(null);
+    setCruise(false);
+  }, []);
+  const startCruise = useCallback(() => {
+    ttsUnlock();
+    setCruiseIntro(false);
+    setCruise(true);
+    setSize("peek"); // bản đồ + HUD lộ tối đa, như bắt đầu dẫn đường
+  }, [setSize]);
 
   /* ── CẢNH BÁO HIỂM HOẠ KHI ĐANG CHẠY (Đợt 3, 2026-09-04) ─────────────────
      Bộ não ở `lib/nav-hazards.ts` (thuần), kho tra cứu ở `lib/nav-context.ts`
@@ -3190,9 +3302,17 @@ export default function FishingMapView() {
     denMs: number;
   }>({ ms: 0, lat: NaN, lon: NaN, hdg: null, phaoMs: 0, denMs: 0 });
   const [navAlerts, setNavAlerts] = useState<NavAlert[]>([]);
-  const [navInfoLine, setNavInfoLine] = useState<string | null>(null);
+  /** lần cuối có câu cảnh báo mới — giữ dòng trên HUD NAV_ALERT_HOLD_MS */
+  const navAlertsAtRef = useRef(-Infinity);
+  const [navInfo, setNavInfo] = useState<NavInfoLine | null>(null);
   /** câu đèn biển gần nhất — làm mới 30 giây/lần, dùng khi không có phao nào */
-  const navDenRef = useRef<string | null>(null);
+  const navDenRef = useRef<NavInfoLine | null>(null);
+  /** lớp độ sâu DƯỚI TÀU (0..5, `depthClassAt`) — giọng đọc vùng nước (doc 15 §5) */
+  const [navDepthHere, setNavDepthHere] = useState<number | null>(null);
+  /** kho hải đồ dựng tới đâu — bản tin mở đầu nói thật (null = đang dựng) */
+  const [navChart, setNavChart] = useState<ChartReadiness | null>(null);
+  /** chiều dài tàu đang chọn — ngưỡng sóng gió theo cỡ tàu (doc 15 Assumptions 5) */
+  const [navLengthM, setNavLengthM] = useState<number | null>(null);
   const [navRung, setNavRung] = useState(true);
   const navRungRef = useRef(true);
   /*  Kho khu trú bão đã nạp xong chưa. PHẢI là state chứ không đọc thẳng
@@ -3249,7 +3369,9 @@ export default function FishingMapView() {
         denMs: 0,
       };
       setNavAlerts([]);
-      setNavInfoLine(null);
+      setNavInfo(null);
+      setNavDepthHere(null);
+      setNavChart(null);
       setShelterOpen(false);
       setNavKhuReady(false);
       return;
@@ -3261,6 +3383,13 @@ export default function FishingMapView() {
         ? boat.draftM
         : null;
     navDraftRef.current = mon;
+    try {
+      const cur = loadCurrentBoatId();
+      const b = loadBoats().find((x) => x.id === cur) ?? null;
+      setNavLengthM(typeof b?.lengthM === "number" && b.lengthM > 0 ? b.lengthM : null);
+    } catch {
+      setNavLengthM(null);
+    }
     navNeedRef.current = requiredDepthM(mon, null);
     void Promise.allSettled([
       fetchXacTau(),
@@ -3270,7 +3399,8 @@ export default function FishingMapView() {
       fetchDenBien(),
       fetchKhuTruBao(),
       fetchDepthGrid(),
-    ]).then(([xt, sl, sm, va, db, kh, dg]) => {
+      fetchVungQuanLy(),
+    ]).then(([xt, sl, sm, va, db, kh, dg, vq]) => {
       if (!alive) return;
       navDepthRef.current = dg.status === "fulfilled" ? dg.value : null;
       const ctx = buildNavContext(
@@ -3281,11 +3411,19 @@ export default function FishingMapView() {
           vnAids: va.status === "fulfilled" ? va.value : null,
           denBien: db.status === "fulfilled" ? db.value : null,
           khuTruBao: kh.status === "fulfilled" ? kh.value : null,
+          vungQuanLy: vq.status === "fulfilled" ? vq.value : null,
         },
         navNeedRef.current,
       );
       navCtxRef.current = ctx;
       setNavKhuReady(ctx.khu != null);
+      /*  HẢI ĐỒ ĐỦ CHƯA — bản tin mở đầu nói thật: thiếu lưới độ sâu hay thiếu
+          kho chướng ngại thì "chỉ canh được một phần", không hứa đủ. */
+      const coDoSau = navDepthRef.current != null;
+      const coVat = ctx.counts.hazards > 0;
+      setNavChart(
+        !coDoSau && !coVat ? "chua-co" : coDoSau && ctx.missing.length === 0 ? "du" : "thieu",
+      );
       if (process.env.NODE_ENV !== "production") {
         console.debug("nav-context", ctx.counts, `${ctx.buildMs} ms`, ctx.missing);
       }
@@ -3344,7 +3482,7 @@ export default function FishingMapView() {
       noGo: ctx?.noGo ?? null,
       depthAt: navDepthRef.current ? navDepthAt : null,
       nearestCableKm: cableKmAt(ctx, navPos),
-      insideRestricted: restrictedAt(ctx, navPos),
+      insideRestricted: restrictedAt(ctx, navPos, now),
       borderNm: navProx?.applies ? navProx.distanceNm : null,
       fmtDist: navFmtDist,
     });
@@ -3354,24 +3492,39 @@ export default function FishingMapView() {
         đèn biển 30 giây. Nhịp riêng vì hai thứ này đổi chậm hơn hiểm hoạ, mà
         dựng câu cho chúng là hai lượt tra chỉ mục nữa. */
     if (navStatus !== "tracking") {
-      setNavInfoLine(null);
+      setNavInfo(null);
     } else if (ctx && now - last.phaoMs >= 10_000) {
       last.phaoMs = now;
       if (now - last.denMs >= 30_000) {
         last.denMs = now;
-        navDenRef.current = denBienTin(ctx, navPos, navFmtDist)?.cau ?? null;
+        navDenRef.current = denBienTin(ctx, navPos, navFmtDist);
       }
       // phao thắng đèn: phao là thứ sắp đi ngang, đèn chỉ là mốc nhìn cho vui mắt
       const p = phaoKeTiep(ctx, navPos, navHeadingDeg, navFmtDist);
-      setNavInfoLine(p ? p.cau : navDenRef.current);
+      const next = p ?? navDenRef.current;
+      setNavInfo((cu) => (cu?.id === next?.id && cu?.cau === next?.cau ? cu : next));
     }
+    // VÙNG NƯỚC DƯỚI TÀU — đọc lưới độ sâu đã nạp (O(1), không mạng)
+    setNavDepthHere(
+      navStatus === "tracking" && navDepthRef.current
+        ? depthClassAt(navDepthRef.current, navPos.lat, navPos.lon)
+        : null,
+    );
 
     last.ms = now;
     last.lat = navPos.lat;
     last.lon = navPos.lon;
     last.hdg = navHeadingDeg;
 
-    setNavAlerts((cu) => (sameAlerts(cu, alerts) ? cu : alerts));
+    /*  GIỮ DÒNG CẢNH BÁO 30 GIÂY (2026-10-13). `evaluateNavHazards` chỉ trả câu
+        đúng lúc VƯỢT MỐC — fix kế tiếp trả rỗng — nên trước đây dòng đỏ "xác
+        tàu phía trước" chỉ nháy ~2 giây rồi mất. Giờ có giọng đọc, nhưng người
+        nghe kém / máy tàu ồn vẫn phải ĐỌC lại được: giữ câu vừa nói tới khi có
+        câu mới hoặc quá 30 giây. Chỉ là lớp hiển thị — mốc/đếm lần vẫn ở lib. */
+    if (alerts.length > 0) navAlertsAtRef.current = now;
+    const giu =
+      alerts.length === 0 && navStatus === "tracking" && now - navAlertsAtRef.current < NAV_ALERT_HOLD_MS;
+    if (!giu) setNavAlerts((cu) => (sameAlerts(cu, alerts) ? cu : alerts));
 
     /*  Chuông + rung: `nav-hazards` đã đếm giãn cách (≤1 chuông/20 s, ≤1
         rung/30 s, đỏ mới được miễn) nên ở đây chỉ việc phát. Nuốt lỗi là cố
@@ -3436,9 +3589,98 @@ export default function FishingMapView() {
       `navBorder` mức very_near (≤6 hải lý) vẫn đứng đầu và do HUD vẽ riêng;
       lúc đó dòng tin phao/đèn nhường chỗ. */
   const navHazardLines = useMemo(
-    () => pickHudLines(navAlerts, navBorder?.level === "very_near", navInfoLine),
-    [navAlerts, navBorder?.level, navInfoLine],
+    () => pickHudLines(navAlerts, navBorder?.level === "very_near", navInfo?.cau ?? null),
+    [navAlerts, navBorder?.level, navInfo],
   );
+
+  /* ── GIỌNG ĐỌC KHI CHẠY (doc 15, 2026-10-13) ─────────────────────────────
+     Mọi quyết định "đọc gì, lúc nào" ở `lib/nav-voice/*` (thuần, có test).
+     Ở đây chỉ gom nguồn đã có sẵn trên màn này đưa vào. Hải đồ (độ sâu, rạn,
+     xác tàu, chướng ngại) là ưu tiên số một — chủ dự án chốt 2026-10-13. */
+  const navLegs = useMemo(() => {
+    const bounds = navMode?.legBoundsKm ?? [];
+    if (!navMode || !navProgress || bounds.length < 2) return { passed: 0, total: 0 };
+    return {
+      passed: legProgressAt(bounds, navProgress.alongKm, null).currentLeg,
+      total: bounds.length,
+    };
+  }, [navMode, navProgress]);
+  const navMoving = tracking.speedKmh != null && tracking.speedKmh >= MIN_MOVING_KMH;
+  const voiceBorder = useMemo(
+    () =>
+      navBorder
+        ? { step: navBorder.step, distanceNm: navBorder.distanceNm, level: navBorder.level }
+        : null,
+    [navBorder],
+  );
+  const voiceOffRoute = useMemo(
+    () => (navOffRoute ? { step: navOffRoute.step, km: navOffRoute.km } : null),
+    [navOffRoute],
+  );
+  const navVoice = useNavVoice({
+    on: navOn,
+    unit: prefs.distUnit === "km" ? "km" : "nm",
+    pos: tracking.pos,
+    headingDeg: tracking.headingDeg,
+    speedKmh: tracking.speedKmh,
+    moving: navMoving,
+    gps: tracking.status,
+    alerts: navAlerts,
+    border: voiceBorder,
+    offRoute: voiceOffRoute,
+    info: navInfo,
+    storm: stormInfo,
+    depthHere: navDepthHere,
+    legsPassed: navLegs.passed,
+    legsTotal: navLegs.total,
+    arrived: navProgress?.arrived ?? false,
+    chart: navChart,
+    lengthM: navLengthM,
+  });
+  const voiceHud = useMemo(
+    () => ({
+      label:
+        navVoice.level === "im30"
+          ? "Giọng: im 30 phút"
+          : `Giọng: ${VOICE_MODE_LABEL[navVoice.level]}`,
+      on: navVoice.level === "day-du" || navVoice.level === "it",
+      onCycle: navVoice.cycleLevel,
+      speaking: navVoice.speaking,
+      onAck: navVoice.ack,
+      noVoice:
+        navVoice.avail && !navVoice.avail.ok
+          ? { canInstall: navVoice.avail.canInstall, onInstall: navVoice.openInstall }
+          : null,
+    }),
+    [navVoice],
+  );
+  /*  Dòng thân HUD khi ĐANG CHẠY không tuyến: hướng · tốc độ · nước dưới tàu. */
+  const cruiseLine = useMemo(() => {
+    if (navMode || !tracking.pos) return null;
+    if (!navMoving) return "Tàu đang đứng — máy vẫn canh.";
+    if (tracking.headingDeg == null) return "Đang bắt hướng đi…";
+    const v = tracking.speedKmh ?? 0;
+    const tocDo =
+      prefs.distUnit === "km"
+        ? `${Math.round(v)} km/giờ`
+        : `${Math.round(v / 1.852)} hải lý/giờ`;
+    const nuoc =
+      navDepthHere != null && CRUISE_DEPTH_SHORT[navDepthHere]
+        ? ` · ${CRUISE_DEPTH_SHORT[navDepthHere]}`
+        : "";
+    return `Hướng ${windDirectionVN(tracking.headingDeg)} · ${tocDo}${nuoc}`;
+  }, [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh, navMoving, prefs.distUnit, navDepthHere]);
+  const toggleCruise = useCallback(() => {
+    if (navOn) {
+      stopNav();
+      return;
+    }
+    if (!navVoice.prefs.daXem) {
+      setCruiseIntro(true);
+      return;
+    }
+    startCruise();
+  }, [navOn, stopNav, navVoice.prefs.daXem, startCruise]);
 
   // độ sâu tại điểm đang xem — lưới tĩnh, đọc cục bộ
   useEffect(() => {
@@ -3499,6 +3741,10 @@ export default function FishingMapView() {
     /*  Chạm KHU NEO ĐẬU tránh trú bão để đọc tên + sức chứa + độ tin toạ độ —
         thứ bà con cần lúc quyết chạy vào đâu khi bão tới. */
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn) ids.push("khu-tru-bao-dot");
+    /*  Chạm KHU BẢO TỒN / VÙNG CẤM (nền, nhãn tên, chấm khu điểm) để biết hôm
+        nay có đang cấm không. Công tắc riêng, không theo Hải đồ chi tiết. */
+    if (!anyExclusiveOverlay && prefs.vungQuanLy && vungQuanLyGeo)
+      ids.push("vung-quan-ly-fill", "vung-quan-ly-dot", "vung-quan-ly-label", "vung-quan-ly-label-diem");
     /*  Chạm TRẠM CON NƯỚC ra sheet giờ nước lớn/ròng 7 ngày. Không dính công
         tắc "Hải đồ chi tiết" — lớp miễn phí, riêng công tắc của nó. */
     if (!anyExclusiveOverlay && prefs.tideStations && tideGeo) ids.push("tram-trieu-dot", "tram-trieu-dot-cang");
@@ -3522,7 +3768,7 @@ export default function FishingMapView() {
     // chạm MỐC bão (đã qua / dự báo) để bật popup thông tin mốc đó (A)
     if (trackGeo) ids.push("storm-moc-toi", "storm-moc-qua");
     return ids.length ? ids : undefined;
-  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo]);
+  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo, prefs.vungQuanLy, vungQuanLyGeo]);
 
   const reqKey = `${point.lat},${point.lon}:${retry}`;
   useEffect(() => {
@@ -4486,6 +4732,20 @@ export default function FishingMapView() {
             return;
           }
           // đổi điểm xem — tuyến cũ GIỮ NGUYÊN trên bản đồ (hội đồng UX
+          /*  CHẠM KHU BẢO TỒN / VÙNG CẤM ⇒ thẻ tên + trạng thái hôm nay rồi
+              DỪNG. Xếp SAU mọi vật điểm: nền vùng rộng hàng chục nghìn ha,
+              để nó thắng là không chạm được phao/xác tàu/mốc bão nằm trong. */
+          const hitVung = measureMode
+            ? undefined
+            : nearFeats.find((f) => (f.layer?.id ?? "").startsWith("vung-quan-ly-"));
+          if (hitVung) {
+            const vi = Number(hitVung.properties?.i ?? -1);
+            const vv = vi >= 0 ? vungQuanLy?.[vi] : undefined;
+            if (vv) {
+              setVungInfo({ v: vv, x: e.point.x, y: e.point.y });
+              return;
+            }
+          }
           // 2026-06-11: tuyến tính mất 10s, không tự ý vứt vì một cú chạm
           // nhầm; RoutePlanner sẽ nhắc "tuyến đang tới chỗ cũ" + cho xóa)
           const lat = Math.round(e.lngLat.lat * 1000) / 1000;
@@ -4641,6 +4901,138 @@ export default function FishingMapView() {
               }}
             />
           </Source>
+        )}
+
+        {/*  KHU BẢO TỒN BIỂN · VÙNG CẤM KHAI THÁC CÓ THỜI HẠN · KHU BẢO VỆ NGUỒN
+             LỢI (2026-10-14) — cùng họ cam "chỗ không được làm gì đó" với vùng
+             cấm hải đồ; phân biệt bằng độ đậm nền + nét viền + nhãn (xem
+             ocean-map VUNG_QUAN_LY_*). Vẽ TRƯỚC lớp hải đồ chi tiết để phao/
+             xác tàu/giàn khoan nổi lên trên. */}
+        {!anyExclusiveOverlay && prefs.vungQuanLy && vungQuanLyGeo && (
+          <>
+            <Source id="vung-quan-ly" type="geojson" data={vungQuanLyGeo.vung}>
+              <Layer
+                id="vung-quan-ly-fill"
+                type="fill"
+                minzoom={VUNG_QUAN_LY_MINZOOM}
+                paint={{
+                  "fill-color": RESTRICTED_FILL_COLOR,
+                  "fill-opacity": [
+                    "match",
+                    ["get", "dang"],
+                    "dang-cam", VUNG_QUAN_LY_FILL_OPACITY["dang-cam"],
+                    "hieu-luc", VUNG_QUAN_LY_FILL_OPACITY["hieu-luc"],
+                    "ngoai-mua", VUNG_QUAN_LY_FILL_OPACITY["ngoai-mua"],
+                    VUNG_QUAN_LY_FILL_OPACITY["quy-hoach"],
+                  ] as unknown as number,
+                }}
+              />
+              {/* viền LIỀN: khu bảo tồn đã có hiệu lực */}
+              <Layer
+                id="vung-quan-ly-line-lien"
+                type="line"
+                minzoom={VUNG_QUAN_LY_MINZOOM}
+                filter={["==", ["get", "dang"], "hieu-luc"] as unknown as FilterSpecification}
+                layout={{ "line-join": "round" }}
+                paint={{
+                  "line-color": SEA_RESTRICTED_COLOR,
+                  "line-width": 2,
+                  "line-opacity": VUNG_QUAN_LY_LINE_OPACITY["hieu-luc"],
+                }}
+              />
+              {/* viền ĐỨT: vùng cấm theo mùa — đậm khi đang cấm, mờ khi ngoài mùa */}
+              <Layer
+                id="vung-quan-ly-line-dut"
+                type="line"
+                minzoom={VUNG_QUAN_LY_MINZOOM}
+                filter={["any", ["==", ["get", "dang"], "dang-cam"], ["==", ["get", "dang"], "ngoai-mua"]] as unknown as FilterSpecification}
+                layout={{ "line-join": "round" }}
+                paint={{
+                  "line-color": SEA_RESTRICTED_COLOR,
+                  "line-width": ["match", ["get", "dang"], "dang-cam", 2.4, 1.4] as unknown as number,
+                  "line-dasharray": [3, 2],
+                  "line-opacity": [
+                    "match",
+                    ["get", "dang"],
+                    "dang-cam", VUNG_QUAN_LY_LINE_OPACITY["dang-cam"],
+                    VUNG_QUAN_LY_LINE_OPACITY["ngoai-mua"],
+                  ] as unknown as number,
+                }}
+              />
+              {/* viền CHẤM: mới quy hoạch (khu bảo tồn thành lập mới, khu bảo vệ nguồn lợi) */}
+              <Layer
+                id="vung-quan-ly-line-cham"
+                type="line"
+                minzoom={VUNG_QUAN_LY_MINZOOM}
+                filter={["==", ["get", "dang"], "quy-hoach"] as unknown as FilterSpecification}
+                layout={{ "line-join": "round", "line-cap": "round" }}
+                paint={{
+                  "line-color": SEA_RESTRICTED_COLOR,
+                  "line-width": 1.6,
+                  "line-dasharray": [0.6, 1.8],
+                  "line-opacity": VUNG_QUAN_LY_LINE_OPACITY["quy-hoach"],
+                }}
+              />
+            </Source>
+            <Source id="vung-quan-ly-diem" type="geojson" data={vungQuanLyGeo.diem}>
+              {/* khu chỉ là ĐIỂM (sá sùng/ngán vài chục ha): chấm cam rỗng từ tầng VỪA */}
+              <Layer
+                id="vung-quan-ly-dot"
+                type="circle"
+                minzoom={VUNG_QUAN_LY_DIEM_MINZOOM}
+                filter={["==", ["get", "diem"], true] as unknown as FilterSpecification}
+                paint={{
+                  "circle-radius": 6,
+                  "circle-color": RESTRICTED_FILL_COLOR,
+                  "circle-opacity": 0.25,
+                  "circle-stroke-color": SEA_RESTRICTED_COLOR,
+                  "circle-stroke-width": 1.6,
+                }}
+              />
+              {/* tên vùng có ranh giới từ tầng XA; tên khu điểm từ tầng VỪA (cùng nấc chấm) */}
+              <Layer
+                id="vung-quan-ly-label"
+                type="symbol"
+                minzoom={VUNG_QUAN_LY_LABEL_MINZOOM}
+                filter={["!=", ["get", "diem"], true] as unknown as FilterSpecification}
+                layout={{
+                  "text-field": ["get", "ten"] as unknown as string,
+                  "text-font": ["Noto Sans Bold"],
+                  "text-size": 13,
+                  "text-max-width": 9,
+                  "text-allow-overlap": false,
+                  "text-optional": true,
+                }}
+                paint={{
+                  "text-color": RESTRICTED_LABEL_COLOR,
+                  "text-halo-color": "#ffffff",
+                  "text-halo-width": 1.4,
+                  "text-opacity": ["match", ["get", "dang"], "ngoai-mua", 0.7, 1] as unknown as number,
+                }}
+              />
+              <Layer
+                id="vung-quan-ly-label-diem"
+                type="symbol"
+                minzoom={VUNG_QUAN_LY_DIEM_MINZOOM}
+                filter={["==", ["get", "diem"], true] as unknown as FilterSpecification}
+                layout={{
+                  "text-field": ["get", "ten"] as unknown as string,
+                  "text-font": ["Noto Sans Bold"],
+                  "text-size": 12,
+                  "text-max-width": 9,
+                  "text-offset": [0, 1.1],
+                  "text-anchor": "top",
+                  "text-allow-overlap": false,
+                  "text-optional": true,
+                }}
+                paint={{
+                  "text-color": RESTRICTED_LABEL_COLOR,
+                  "text-halo-color": "#ffffff",
+                  "text-halo-width": 1.4,
+                }}
+              />
+            </Source>
+          </>
         )}
 
         {/*  Đường ranh giới 75 điểm cũ (cam-đỏ nét đứt) ĐÃ XÓA khỏi bản đồ
@@ -6666,6 +7058,79 @@ export default function FishingMapView() {
           </div>
         </div>
       )}
+      {vungInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(Math.max(8, vungInfo.x - 144), window.innerWidth - 296),
+            top: Math.min(vungInfo.y + 12, window.innerHeight - 240),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <span
+              className="mt-1 inline-block h-4 w-4 flex-none rounded-sm border-2"
+              style={{
+                borderColor: SEA_RESTRICTED_COLOR,
+                backgroundColor: RESTRICTED_FILL_COLOR,
+                opacity: dangVung(vungInfo.v, new Date()) === "ngoai-mua" ? 0.45 : 1,
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[1.0625rem] font-bold leading-tight text-navy">{vungInfo.v.ten}</p>
+              {/*  Loại chỉ in khi TÊN chưa tự nói ("Khu bảo tồn biển Cù Lao Chàm" đã
+                   đủ; "Vùng biển Long Châu - Hạ Mai" thì cần "Vùng cấm khai thác có
+                   thời hạn" đứng trước). Cùng luật `moTaVung`. */}
+              <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-foreground/70">
+                {[
+                  /^khu bảo tồn/i.test(vungInfo.v.ten) ? null : LOAI_LABEL[vungInfo.v.loai],
+                  vungInfo.v.tinh || null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+                {vungInfo.v.dienTichHa
+                  ? ` · ${Math.round(vungInfo.v.dienTichHa).toLocaleString("vi-VN")} ha`
+                  : ""}
+              </p>
+              {/*  Trạng thái HÔM NAY nói thẳng: đang cấm (đỏ) / đã có hiệu lực (đỏ)
+                   / ngoài mùa, quy hoạch (thường). Đây là câu bà con cần nhất. */}
+              {(() => {
+                const dang = dangVung(vungInfo.v, new Date());
+                const nong = dang === "dang-cam" || dang === "hieu-luc";
+                return (
+                  <p
+                    className={`mt-1 text-[0.9375rem] font-bold leading-snug ${nong ? "text-danger" : "text-foreground/70"}`}
+                  >
+                    {nong ? "Không thả lưới ở đây — " : ""}
+                    {trangThaiText(vungInfo.v, new Date())}
+                  </p>
+                );
+              })()}
+              {/*  Danh sách loài có vùng dài 9 họ cá — cắt 3 dòng để thẻ không
+                   trôi khỏi màn (thẻ neo theo điểm chạm, không cuộn). */}
+              {vungInfo.v.doiTuong && (
+                <p
+                  className="mt-0.5 line-clamp-3 text-[0.8125rem] font-semibold leading-snug text-foreground/60"
+                  title={vungInfo.v.doiTuong}
+                >
+                  Bảo vệ: {vungInfo.v.doiTuong}
+                </p>
+              )}
+              {vungInfo.v.thoiGianKhac && (
+                <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-danger/80">
+                  Hai bảng nhà nước ghi mùa cấm khác nhau ({vungInfo.v.thoiGian} · {vungInfo.v.thoiGianKhac}) — app lấy cả hai, cần hỏi lại chi cục thủy sản.
+                </p>
+              )}
+              <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+                Theo quy hoạch, thông tư nhà nước (tham khảo)
+                {vungInfo.v.tinCay === "vi_tri" || vungInfo.v.loai === "bao-ve-nguon-loi"
+                  ? " · tên ghép theo vị trí, có thể lệch"
+                  : ""}
+              </p>
+            </div>
+            <CloseButton onClose={() => setVungInfo(null)} label="Đóng thông tin khu bảo tồn, vùng cấm" />
+          </div>
+        </div>
+      )}
       {depthInfo && (
         <div
           className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
@@ -6920,6 +7385,15 @@ export default function FishingMapView() {
         />
       )}
 
+      {cruiseIntro && (
+        <CruiseIntroSheet
+          onClose={() => setCruiseIntro(false)}
+          onStart={() => {
+            navVoice.markIntroSeen();
+            startCruise();
+          }}
+        />
+      )}
       {shelterOpen && (
         <BottomSheet
           title="Khu trú bão gần đây"
@@ -7001,11 +7475,11 @@ export default function FishingMapView() {
           Về peek thì hiện lại. */}
       <div
         className={`safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2 transition-opacity duration-200 ${
-          sheetThu || navMode
+          sheetThu || navOn
             ? "opacity-100"
             : "opacity-0 [&_*]:pointer-events-none"
         }`}
-        aria-hidden={!sheetThu && !navMode}
+        aria-hidden={!sheetThu && !navOn}
       >
         <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
         {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
@@ -7013,8 +7487,11 @@ export default function FishingMapView() {
         {earlyWarning && <StormEarlyBanner ew={earlyWarning} />}
         {/* DẪN ĐƯỜNG LIVE: thẻ HUD LUÔN hiện khi đang dẫn đường (kể cả kéo sheet
             lên) — dưới banner bão. Gợi ý lái + quãng/giờ còn lại + nút Dừng. */}
-        {navMode && (
+        {navOn && (
           <NavHud
+            title={navMode ? "Đang dẫn đường" : "Đang chạy"}
+            cruiseLine={cruiseLine}
+            voice={voiceHud}
             progress={navProgress}
             status={tracking.status}
             onStop={stopNav}
@@ -7070,6 +7547,8 @@ export default function FishingMapView() {
             closeLayersSignal={closeRailSignal}
             onRoutePanel={openRoutePanel}
             routeOn={routeMode}
+            onCruise={toggleCruise}
+            cruiseOn={navOn}
             locating={locating}
             geoError={geoError}
             layerId={layerId}

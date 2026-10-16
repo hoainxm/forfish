@@ -622,6 +622,10 @@ const EXCLUDED: Array<[string, string]> = [
     "forfish.nav.rung.v1",
     "tắt/bật RUNG khi dẫn đường (2026-09-04, Đợt 3) — chuyện của MÁY NÀY: máy khác có thể không có mô-tơ rung, và ai tắt vì để máy trên giá thì máy mới không có lý do gì phải tắt theo. Mặc định BẬT là phía an toàn (rung là kênh cảnh báo còn tới được khi tiếng máy tàu át chuông), nên chép cái 'tắt' sang máy mới là âm thầm bịt một kênh cảnh báo",
   ],
+  [
+    "forfish.nav.voice.v1",
+    "mức GIỌNG ĐỌC của chế độ Đang chạy + dấu đã xem tấm giới thiệu (2026-10-13) — chuyện của MÁY NÀY: máy khác có thể không có giọng tiếng Việt, và chép cái 'tắt giọng' sang máy mới là âm thầm bịt kênh đọc cảnh báo hải đồ. Thiếu khoá = đọc đầy đủ (phía an toàn)",
+  ],
 ];
 
 type KeyClass =

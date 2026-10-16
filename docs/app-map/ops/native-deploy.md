@@ -49,6 +49,13 @@ Chủ dự án chốt qua Zalo: *"cài app tự động bật GPS luôn"* (làm 
 - **Tự xin lần đầu**: `src/components/native-gps-prime.tsx` (mount ở `app-shell.tsx`, nhánh app ngư dân). `Capacitor.isNativePlatform()` gác → chỉ native. CHỈ khi quyền `state === "prompt"` (chưa quyết) mới bung hộp; đã cho/đã từ chối thì thôi (permission-state là bộ nhớ, KHÔNG đẻ khoá `forfish.*` mới). `getCurrentPosition` có callback lỗi → từ chối/không GPS không treo, không throw; cảm biến tại chỗ nên KHÔNG request mạng, an toàn offline.
 - KHÔNG cài `@capacitor/geolocation` — dùng thẳng `navigator.geolocation` web trong webview (đủ dùng, khỏi thêm dep).
 
+## 3b. Giọng đọc cảnh báo — plugin TTS native (2026-10-13, 07 §10.7 S)
+
+- **Vì sao phải native**: Android WebView **không có** `speechSynthesis` (MDN BCD `webview_android: false`) ⇒ bản app Android chỉ đọc được qua plugin. Dep: `@capacitor-community/text-to-speech` **8.0.2** (cần Capacitor ≥ 8 — repo 8.5). Một cửa `src/lib/voice/tts.ts`: `Capacitor.isNativePlatform()` ⇒ plugin; trình duyệt ⇒ Web Speech.
+- **Android**: `npx cap update android` đã thêm plugin vào `android/capacitor.settings.gradle` + `android/app/capacitor.build.gradle`. Manifest của plugin tự khai `<queries>` intent `TTS_SERVICE` (Android 11+ mới thấy engine) — không phải sửa manifest app. Máy chưa có gói tiếng Việt ⇒ HUD/tấm giới thiệu có nút **Tải giọng** gọi `openInstall()`. Engine TTS của máy (Google Speech Services) có gói tiếng Việt **tải về chạy offline**.
+- **iOS**: plugin dùng AVSpeechSynthesizer; `category: "playback"` để vẫn đọc khi gạt nút im lặng. **KHÔNG khai `UIBackgroundModes`** (audio/location) ⇒ khoá màn là ngừng đọc — cố ý, tránh xét lại hồ sơ App Store 2.5.4/5.1.x. Thư mục `ios/` chưa có trên main: khi thêm, chạy `npx cap sync ios` để plugin vào Podfile.
+- **Nợ có trần**: đọc khi khoá màn / app ra nền (background-geolocation + audio nền) — làm khi (1) cảnh báo ranh giới IUU được ghi là tính năng chính trong hồ sơ store VÀ (2) ≥30 % người dùng thật báo "tắt màn mất cảnh báo" (doc 15 §11 bậc C).
+
 ## 4. Còn thiếu (cần user / môi trường)
 
 - **Mac + Xcode** (build iOS) · **Android Studio/SDK** (build Android).

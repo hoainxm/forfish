@@ -460,6 +460,22 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 > **HỎNG (chặn)**: bước 2 có bất kỳ request mạng nào, hoặc `nav-context` in ra **nhiều hơn một lần** cho một lượt dẫn đường (⇒ chỉ mục đang dựng lại theo nhịp GPS — máy sẽ nóng và tụt pin). Bước 4 thu HUD mà dòng ĐỎ biến mất (⇒ mất cảnh báo tính mạng đúng lúc bà con vừa dọn màn hình). Bước 7 neo mà vẫn kêu (⇒ đồng hồ neo hỏng, tai bà con sẽ học cách bỏ qua tiếng chuông). Bước 11 hiện một con số giờ (⇒ đang bịa). Bước 13 màn trắng hoặc mất luôn cảnh báo xác tàu (⇒ một kho thiếu đang kéo sập cả lớp).
 
+### N-14 · CHẾ ĐỘ ĐANG CHẠY + GIỌNG ĐỌC, hoàn toàn không sóng (mới 2026-10-13, 07 §10.7 S)
+
+> **Vì sao có ca này**: từ 2026-10-13 chỉ cần GPS (không cần vẽ tuyến) là máy canh hải đồ và **ĐỌC TO** cảnh báo. Giọng đọc là engine của MÁY (Android: plugin TTS native — WebView không có Web Speech; iPhone: giọng Việt của iOS), dữ liệu là kho đã có trong SW. **Đổi này KHÔNG đụng `sw.js`/`SHELL`**; khoá mới duy nhất `forfish.nav.voice.v1`. Đã kiểm bằng máy (Playwright, Chromium, 2026-10-13): tải app có mạng → **tắt mạng** → mở lại → bấm "Bắt đầu chạy" → GPS giả chạy vào xác tàu thật xt:8 (Mỹ An 1, Vũng Tàu): đọc bản tin mở đầu TRƯỚC, rồi "Tàu đang ở vùng nước sâu…", "Xác tàu Mỹ An 1 phía trước chừng 1,1 hải lý…" (vàng), "…chừng 0,3 hải lý…" (đỏ, dòng đỏ giữ trên HUD), giọng `vi-VN`; vòng đọc **không phát request nào** (request ghi được trong lúc chạy đều là request có sẵn của app: vùng VMS, nhịp mở app, tin bão — tự hỏng êm khi mất sóng).
+
+| Bước | Làm gì | ĐẠT khi |
+|---|---|---|
+| 1 | Máy **Android thật** (bản app) + **iPhone thật**, đã làm TC-01. **Bật máy bay**, đóng hẳn app, mở lại → **Ra khơi** → bấm **Bắt đầu chạy** (lần đầu) | Hiện tấm "Bắt đầu chạy" có **Nghe thử giọng đọc**; bấm nghe được câu mẫu tiếng Việt. Máy chưa có giọng Việt: tấm nói thật + nút **Tải giọng tiếng Việt** (Android) / chỉ dẫn Cài đặt (iPhone) |
+| 2 | Bấm **Bắt đầu chạy** trong tấm | HUD "Đang chạy" + máy đọc **bản tin mở đầu** trước mọi câu: tin bão nói bằng **tuổi tin** ("tin cũ N giờ" / "máy chưa có tin bão", KHÔNG BAO GIỜ "không có bão" khi chưa hỏi được) + sóng gió từ bản đã lưu kèm giờ tải + "máy đang canh độ sâu, rạn và chướng ngại" |
+| 3 | Chạy (hoặc giả GPS) về phía một xác tàu / bãi cạn / rạn có thật | Chuông → máy ĐỌC câu vàng ~10 phút trước, câu đỏ ~3 phút trước; mỗi vật **tối đa 2 câu**; dòng chữ giữ trên HUD ~30 giây |
+| 4 | Chạm **"Giọng: đầy đủ"** hai lần → "Giọng: im 30 phút". Chạy tới hiểm hoạ tiếp theo | Cảnh báo hải đồ **vẫn đọc**; câu tin (phao, đèn, điểm tin) **im**. Chuông/rung không đổi |
+| 5 | Tắt màn hình 1 phút khi đang tới gần một vật cản rồi mở lại | Lúc tắt: im. Mở lại: câu đỏ đã lỡ được nhắc *"Lúc tắt màn có cảnh báo: …"* |
+| 6 | Panel **Cài đặt** → "Tắt giọng" | Không đọc gì nữa; chuông, rung, chữ HUD vẫn chạy. Đóng app mở lại (vẫn máy bay): vẫn "Tắt giọng" |
+| 7 | Chạy 35 phút liền không có cảnh báo | Có **một** câu điểm tin ~30 phút: hướng · tốc độ · nước dưới tàu (· gió sóng nếu có lưới lưu). Không có câu "không có gì phía trước" |
+
+> **HỎNG (chặn)**: máy đọc bằng giọng KHÔNG phải tiếng Việt; có câu "an toàn" / "không có bão" khi tin bão chưa hỏi được; một vật được đọc quá 2 lần; vòng đọc phát request mạng; tắt giọng mà vẫn đọc.
+
 ## Kiểm lại 2026-09-16 — mã hoá file dữ liệu (data-codec)
 
 Đợt này KHÔNG đụng `sw.js`, `SHELL`, khoá `forfish.*`; đổi TẦNG ĐỌC của 24 file `/data/**` (fetch → giải mã → parse) và cách MapLibre nạp GeoJSON tĩnh (`sdfdata://`) + pmtiles (`DecodingSource`). Bốn câu soi trả lời ở 02 (re-verified 2026-09-16). Điểm cần kiểm tay khi deploy bản mã đầu tiên lên Vercel:
