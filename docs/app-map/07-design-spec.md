@@ -6,7 +6,6 @@
 covers: src/app, src/components
 last_verified: 2026-10-06
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-14) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-10-06 16:40 — đối chiếu code: §12 dòng Push (notify-storms tầng 1 + đơn hàng system:order) khớp `src/app/api/cron/notify-storms` + `lib/account-notify`; THÊM ngoại lệ tầng 3 nhắc hạn giấy tờ (`/api/cron/notify-docs`, `lib/doc-reminders`), hàng `doc-reminder-bell.tsx` ở tab Giấy tờ, BoatForm 4 nhóm ô theo giấy + kiểm số dấu phẩy, form giấy tờ có Ngày cấp + giữ ảnh khi Sửa. Soi thật trên trình duyệt 375px (trang soi tạm, đã xoá). -->
 <!-- re-verified: 2026-10-16 — SEN BIỂN RẢNH TAY + GIỌNG NỮ (§10.7 S): luồng nói chỗ → tự vẽ đường từ vị trí tàu → đọc tóm tắt → "đi"; lệnh ngắn; thẻ gọn (× xuống hàng cuối, tiêu đề ≤2 dòng); icon ẩn khi khung dẫn đường mở; tự đọc khi mở bản đồ; mp3 giọng nữ cho câu cố định + giọng máy nữ tách đoạn có nghỉ. Kiểm bằng Playwright 375×812 GPS giả 14.6,109.3 (ảnh ~/sen-bien-shots). -->
 <!-- re-verified: 2026-10-15 — CÁC ĐIỂM TRÊN TUYẾN, sửa 6 lỗi sau kiểm tra kỹ (§10.7 H): turnNo liền mạch · toạ độ thập phân 4 số lẻ · tắt vòng khoanh khi dẫn đường · bộ chọn cuộn về đầu · thanh ghim -top-3 · băng tuyến-cũ thành dải rộng trong thanh ghim — đã thử thật trên trình duyệt 375×812. -->
