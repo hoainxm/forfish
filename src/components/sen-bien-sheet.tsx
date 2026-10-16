@@ -121,12 +121,14 @@ export function SenBienSheet({
 
   /*  GỌN (chủ dự án 2026-10-16: "đừng có làm rối, che bản đồ quá"): thẻ
       nhỏ nổi góc trái dưới, không phủ màn, không tấm đáy. Hàng đầu cá + câu
-      ngắn, một hàng nút to, câu nghe/đáp, hàng cuối "gõ/nói" + đóng. */
+      ngắn, một hàng nút to, câu nghe/đáp, hàng cuối "gõ/nói" + đóng.
+      Nền ĐẶC (bỏ /95, rà soát 2026-10-16): thẻ hay nằm đè khung dẫn đường,
+      chữ khung lộ qua thành bóng mờ — nắng chói đọc lẫn. */
   return (
     <div
       role="dialog"
       aria-label="Sen Biển"
-      className="pointer-events-auto absolute bottom-24 left-2 z-40 w-[min(20rem,calc(100%-6rem))] space-y-2 rounded-2xl bg-card/95 p-2.5 shadow-xl"
+      className="pointer-events-auto absolute bottom-24 left-2 z-40 w-[min(20rem,calc(100%-6rem))] space-y-2 rounded-2xl bg-card p-2.5 shadow-xl"
     >
       {/*  Nút đóng ở HÀNG DƯỚI (2026-10-16): đặt ở hàng đầu thì cột chữ còn
            ~150px, tóm tắt "Tới Sa Huỳnh: 34 hải lý, chừng 4 giờ 55 phút." vỡ

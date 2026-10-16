@@ -678,6 +678,10 @@ const DEPTH_NOTE: Record<DepthClass, { text: string; tone: "danger" | "warn" | "
 };
 
 const MAP_LAYER_KEY = "forfish.maplayer.v1";
+/** Đang chạy: tàu ở ~72% chiều cao bản đồ — dưới HUD + ô toạ độ, trên dock */
+const NAV_FOLLOW_OFFSET = 0.22;
+/** Đang chạy: zoom tối thiểu ở fix đầu (≈ 55 km bề ngang màn điện thoại) */
+const NAV_FOLLOW_ZOOM = 10;
 
 /**
  * Dấu cho SỐ SÓNG MÁY TỰ SUY TỪ GIÓ (lib/sea.ts `estimateWaveFromWind`), dùng
@@ -3017,13 +3021,14 @@ export default function FishingMapView() {
     anyExclusiveOverlay,
   ]);
 
-  /** Bay tới điểm, dồn tâm lên nửa trên màn hình để sheet không che */
-  const flyToPoint = useCallback((lon: number, lat: number, zoom?: number) => {
+  /** Bay tới điểm, dồn tâm lên nửa trên màn hình để sheet không che.
+      `offsetFrac` = dời tâm theo chiều cao bản đồ (âm = lên trên). */
+  const flyToPoint = useCallback((lon: number, lat: number, zoom?: number, offsetFrac = -0.18) => {
     const h = mapRef.current?.getContainer().clientHeight ?? 600;
     mapRef.current?.flyTo({
       center: [lon, lat],
       ...(zoom != null ? { zoom } : {}),
-      offset: [0, -Math.round(h * 0.18)],
+      offset: [0, Math.round(h * offsetFrac)],
       duration: 650,
     });
   }, []);
@@ -3282,9 +3287,23 @@ export default function FishingMapView() {
 
   // camera bám vị trí tàu mỗi khi có fix mới (chỉ khi định vị còn tốt — mất
   // định vị thì GIỮ NGUYÊN khung, không giật camera theo vị trí cũ)
+  /*  ĐANG CHẠY: HUD nằm TRÊN (tới ~½ màn khi có thẻ bản tin), sheet đáy ẩn ⇒
+      dồn tàu XUỐNG dưới HUD (+NAV_FOLLOW_OFFSET), không lên trên như lúc xem
+      điểm. Fix đầu tiên của một lượt chạy mà bản đồ còn ở tầm cả nước (mở bản
+      đồ là tự Đang chạy, zoom ~4,6) thì phóng tới NAV_FOLLOW_ZOOM — tầm nón
+      cảnh báo 2–4 km; sau đó giữ zoom bà con tự chỉnh. Bắt được ở rà soát prod
+      2026-10-16 (scripts/e2e-sen-bien): tàu nằm khuất dưới HUD, bản đồ cả nước. */
+  const navFollowZoomed = useRef(false);
   useEffect(() => {
-    if (navOn && tracking.pos && tracking.status === "tracking") {
-      flyToPoint(tracking.pos.lon, tracking.pos.lat);
+    if (!navOn) {
+      navFollowZoomed.current = false;
+      return;
+    }
+    if (tracking.pos && tracking.status === "tracking") {
+      const z = mapRef.current?.getZoom() ?? NAV_FOLLOW_ZOOM;
+      const zoom = !navFollowZoomed.current && z < NAV_FOLLOW_ZOOM ? NAV_FOLLOW_ZOOM : undefined;
+      navFollowZoomed.current = true;
+      flyToPoint(tracking.pos.lon, tracking.pos.lat, zoom, NAV_FOLLOW_OFFSET);
     }
   }, [navOn, tracking.pos, tracking.status, flyToPoint]);
 
@@ -7627,7 +7646,8 @@ export default function FishingMapView() {
            icon thôi"): chỉ hình cá, mép trái trên dải đáy, không chữ, không
            nền. Hiện cả khi đang chạy — lúc tay đang lái mới cần nói thay chạm. */}
       {/* khung dẫn đường mở thì nó phủ đúng chỗ này (z-30) — ẩn, khỏi nằm khuất mà bấm không ăn */}
-      {!senOpen && !navOn && !routeMode && (
+      {/* sheet đáy mở nửa màn thì cũng ẩn: cá nằm đè lên chữ của sheet (có cả dòng đỏ ranh giới) */}
+      {!senOpen && !navOn && !routeMode && size !== "half" && (
         <button
           type="button"
           onClick={openSen}

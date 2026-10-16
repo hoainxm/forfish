@@ -317,6 +317,12 @@ const CRITICAL_SHELL = [
   //  trả lời. Nhỏ (5,5 KB + 13,8 KB bản @2x) nên ghim cả hai.
   "/icons/boat-marker.png",
   "/icons/boat-marker@2x.png",
+  /*  CON CÁ SEN BIỂN (2026-10-16, rà soát prod) — icon nổi trên bản đồ là nút
+      DUY NHẤT để nói/gõ chỗ muốn tới, và nút ấy CHỈ có hình, không chữ. Không
+      trong vỏ thì mở app lần đầu rồi ra khơi mất sóng là ảnh vỡ ⇒ nút trong
+      suốt, bà con không thấy Sen Biển đâu (bắt được bằng scripts/e2e-sen-bien
+      luồng f). 13 KB (hạ từ 226 KB: 512 px → 192 px, đủ nét cho ô 64 px @3x). */
+  "/icons/sen-bien.png",
   /*  BỘ KÝ HIỆU HẢI ĐỒ (2026-09-01) — phao/tiêu/đèn vẽ đúng hình như hải đồ
       giấy. VÀO NHÓM SỐNG-CÒN cùng lý do với chính lớp báo hiệu: thiếu sprite
       thì MapLibre **im lặng không vẽ** icon nào, tức mất TRẮNG cả lớp báo hiệu
@@ -1654,63 +1660,90 @@ self.addEventListener("fetch", (event) => {
   // rơi vào nhánh này; treo ở đây là bấm tab không ăn gì.
   const isRsc = url.searchParams.has("_rsc");
   event.respondWith(
-    caches.match(req).then((hit) => {
-      if (hit) return hit;
-      // ĐỒNG HỒ CHO MỌI NHÁNH (2026-08-02): trước đây chỉ RSC có, còn JS/CSS/
-      // font/ảnh trả thẳng `net` ⇒ ca sóng "sống mà chết" treo màn vô hạn (C-3).
-      // Thua đồng hồ thì thử kho một lần nữa (mẻ khác có thể vừa cất xong) rồi
-      // trả 504 gọn — `net` vẫn chạy nền và vẫn cất, lần sau là có sẵn.
-      const limitMs = isRsc ? RSC_NETWORK_MS : ASSET_NETWORK_MS;
-      const net = fetch(req)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            // JS/CSS băm tên vào kho RIÊNG (bump vỏ không xoá) + trần (FIFO).
-            // Phản hồi `?_rsc=` vào KHO RSC RIÊNG (2026-08-01b): trước để chung
-            // kho asset, mà `_rsc` đẻ một bộ mới mỗi deploy + mỗi lần bấm dock
-            // ⇒ trần FIFO chung sẽ đẩy chính CHUNK KHUNG SƯỜN (cất sớm nhất, và
-            // không được làm mới vị trí khi trúng kho) ra trước ⇒ cold-start
-            // offline nhận 504 cho chunk = trắng màn. Hai kho, hai trần.
-            const store = isRsc
-              ? SDFISH_RSC_V
-              : isHashed
-                ? SDFISH_STATIC_V
-                : SDFISH_CACHE_V;
-            const max = isRsc
-              ? RSC_CACHE_MAX
-              : isHashed
-                ? STATIC_CACHE_MAX
-                : null;
-            keepAlive(
-              event,
-              caches.open(store).then((c) =>
-                /*  KHO VỎ (asset không băm tên: icon, /data, /fonts) KHÔNG có
-                    trần và KHÔNG được đuổi ai — mục cũ nhất ở đó là "/",
-                    "/ngu-truong", nền bản đồ. Chỉ hai kho CÓ TRẦN mới được dọn
-                    chỗ khi máy đầy (xem putWithRoom). */
-                max == null
-                  ? c.put(req, copy)
-                  : putWithRoom(c, req, copy, max, null, store),
-              ),
-            );
-          }
-          return res;
-        })
-        // Mạng hỏng mà kho không có: trả 504 gọn thay vì để promise lửng lơ —
-        // trang biết đường lùi (Next chuyển sang điều hướng cứng, và điều hướng
-        // đã có bản trong máy để trả).
-        .catch(() =>
-          caches.match(req).then((h) => h || new Response("", { status: 504 })),
-        );
-      keepAliveLate(event, net, limitMs);
-      return raceTimeout(net, limitMs).then(
-        (winner) =>
-          winner ||
-          caches.match(req).then((h) => h || new Response("", { status: 504 })),
-      );
-    }),
+    staticFirst(event, req, isHashed, isRsc).then((res) =>
+      req.destination === "worker" ? asWorkerScript(res) : res,
+    ),
   );
 });
+
+/*  SCRIPT WEB WORKER PHẢI LÀ PHẢN HỒI "TỔNG HỢP" (2026-10-16, rà soát prod).
+    Turbopack dựng worker tìm đường (lib/route-plan.worker.ts) bằng một file mồi
+    `turbopack-worker-*.js#params=[…chunk…]` — cấu hình nằm ở `#params` và file
+    mồi đọc nó từ `location` của worker. Phản hồi lấy từ kho/`fetch()` mang URL
+    KHÔNG có phần `#…` (Cache API cất URL bỏ fragment) ⇒ worker sống ở URL cụt
+    ⇒ "Missing worker bootstrap config" ⇒ MỌI lần tính tuyến trên máy đã có SW
+    rơi về Dijkstra đồng bộ trên luồng chính — đúng cái đơ vài giây trên Android
+    yếu mà worker sinh ra để tránh (route-plan-async.ts). Gói lại thành
+    `new Response(...)`: phản hồi không có URL riêng thì worker lấy URL của chính
+    yêu cầu, còn nguyên `#params`. Vẫn cache-first như mọi asset — mất sóng vẫn
+    dựng được worker. */
+function asWorkerScript(res) {
+  if (!res || !res.ok) return res;
+  return new Response(res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers: res.headers,
+  });
+}
+
+/** Nhánh asset tĩnh: cache-first, có đồng hồ, cất đúng kho (xem các ghi chú trong). */
+function staticFirst(event, req, isHashed, isRsc) {
+  return caches.match(req).then((hit) => {
+    if (hit) return hit;
+    // ĐỒNG HỒ CHO MỌI NHÁNH (2026-08-02): trước đây chỉ RSC có, còn JS/CSS/
+    // font/ảnh trả thẳng `net` ⇒ ca sóng "sống mà chết" treo màn vô hạn (C-3).
+    // Thua đồng hồ thì thử kho một lần nữa (mẻ khác có thể vừa cất xong) rồi
+    // trả 504 gọn — `net` vẫn chạy nền và vẫn cất, lần sau là có sẵn.
+    const limitMs = isRsc ? RSC_NETWORK_MS : ASSET_NETWORK_MS;
+    const net = fetch(req)
+      .then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          // JS/CSS băm tên vào kho RIÊNG (bump vỏ không xoá) + trần (FIFO).
+          // Phản hồi `?_rsc=` vào KHO RSC RIÊNG (2026-08-01b): trước để chung
+          // kho asset, mà `_rsc` đẻ một bộ mới mỗi deploy + mỗi lần bấm dock
+          // ⇒ trần FIFO chung sẽ đẩy chính CHUNK KHUNG SƯỜN (cất sớm nhất, và
+          // không được làm mới vị trí khi trúng kho) ra trước ⇒ cold-start
+          // offline nhận 504 cho chunk = trắng màn. Hai kho, hai trần.
+          const store = isRsc
+            ? SDFISH_RSC_V
+            : isHashed
+              ? SDFISH_STATIC_V
+              : SDFISH_CACHE_V;
+          const max = isRsc
+            ? RSC_CACHE_MAX
+            : isHashed
+              ? STATIC_CACHE_MAX
+              : null;
+          keepAlive(
+            event,
+            caches.open(store).then((c) =>
+              /*  KHO VỎ (asset không băm tên: icon, /data, /fonts) KHÔNG có
+                  trần và KHÔNG được đuổi ai — mục cũ nhất ở đó là "/",
+                  "/ngu-truong", nền bản đồ. Chỉ hai kho CÓ TRẦN mới được dọn
+                  chỗ khi máy đầy (xem putWithRoom). */
+              max == null
+                ? c.put(req, copy)
+                : putWithRoom(c, req, copy, max, null, store),
+            ),
+          );
+        }
+        return res;
+      })
+      // Mạng hỏng mà kho không có: trả 504 gọn thay vì để promise lửng lơ —
+      // trang biết đường lùi (Next chuyển sang điều hướng cứng, và điều hướng
+      // đã có bản trong máy để trả).
+      .catch(() =>
+        caches.match(req).then((h) => h || new Response("", { status: 504 })),
+      );
+    keepAliveLate(event, net, limitMs);
+    return raceTimeout(net, limitMs).then(
+      (winner) =>
+        winner ||
+        caches.match(req).then((h) => h || new Response("", { status: 504 })),
+    );
+  });
+}
 
 /*
   WEB PUSH (2026-07-28, Phase 3) — admin gửi thông báo per-user/broadcast từ
