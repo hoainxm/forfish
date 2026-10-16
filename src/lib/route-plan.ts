@@ -209,6 +209,13 @@ export type WeatherField = {
    * UI phải nói thật (memory: "dữ liệu cũ đội lốt mới" là lỗi nặng nhất).
    */
   source?: "live" | "grid";
+  /**
+   * true = lùi về lưới đã lưu KHÔNG phải vì mất sóng mà vì Open-Meteo từ chối
+   * (HTTP 429 — vượt lượt gọi trong giờ, tính theo IP). UI phải nói "máy chủ dự
+   * báo đang quá tải, thử lại sau" thay vì "mất sóng"/"vùng này thiếu dữ liệu".
+   * Chỉ có nghĩa khi source='grid'.
+   */
+  rateLimited?: boolean;
   /** epoch ms lúc lưới offline được lưu — chỉ có nghĩa khi source='grid' */
   savedAt?: number | null;
 };

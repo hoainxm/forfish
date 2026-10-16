@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WeatherField } from "@/lib/route-plan";
 import { fmtCoordPair } from "@/lib/map-prefs";
+import { WeatherRateLimitError } from "@/lib/route-weather";
 
 const mocks = vi.hoisted(() => ({ weather: vi.fn(), depth: vi.fn(), xacTau: vi.fn(), plan: vi.fn() }));
 vi.mock("react-map-gl/maplibre", () => ({ Layer: () => null, Marker: () => null, Source: () => null }));
@@ -87,6 +88,26 @@ describe("Tính đường — chờ dữ liệu và giải thích đúng điểm
     await waitFor(() => expect(screen.getByText(/kiểm tra lại/)).toBeDefined());
     expect(document.body.textContent).not.toContain("không có đường vòng nào qua được");
     expect(document.body.textContent).toMatch(/nơi đi|nơi xuất phát/);
+  });
+
+  it("Open-Meteo từ chối (429) + lưới lưu không đủ: nói máy chủ quá tải, KHÔNG nói vùng thiếu dữ liệu", async () => {
+    mocks.weather.mockResolvedValue({ ...field, source: "grid", savedAt: Date.now(), rateLimited: true });
+    mocks.plan.mockResolvedValue({ plan: null, failure: "weather-coverage" });
+    mount();
+    clickCompute();
+    await screen.findByText(/Máy chủ dự báo thời tiết đang quá tải/);
+    expect(document.body.textContent).toContain("Tính lại");
+    expect(document.body.textContent).not.toContain("thiếu dữ liệu dự báo");
+    expect(document.body.textContent).not.toContain("kiểm tra lại nơi xuất phát");
+  });
+
+  it("Open-Meteo từ chối (429) + máy chưa lưu gì: nói máy chủ quá tải, không bảo mở Ra khơi lúc có sóng", async () => {
+    mocks.weather.mockRejectedValue(new WeatherRateLimitError());
+    mount();
+    clickCompute();
+    await screen.findByText(/Máy chủ dự báo thời tiết đang quá tải/);
+    expect(document.body.textContent).not.toContain("Tuyến này chưa có dự báo");
+    expect(mocks.plan).not.toHaveBeenCalled();
   });
 
   it("thiếu phủ dự báo có thông báo riêng thay cho khẳng định đất chặn", async () => {
