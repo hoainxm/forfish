@@ -437,6 +437,43 @@ export const MAX_DETOUR_RATIO = 1.3;
 const VICINITY_SHALLOW_KM = 12;
 /** Nới chặn Ô ĐẤT chỉ trong bán kính nhỏ hơn — không cho tuyến cắt doi đất */
 const VICINITY_LAND_KM = 5;
+/*  ĐẤT SÁT CẢNG: ĐI ĐƯỢC NHƯNG PHẠT RẤT NẶNG (2026-10-16, chủ dự án: "tính từ
+    cảng ra thì một số điểm đi xuyên luôn cả đảo"). Nới 5 km ở trên là để tàu
+    THOÁT được khỏi cảng nằm trong sông/lạch mà lưới 450 m vẽ thành đất — nhưng
+    trước đây đất trong vòng đó KHÔNG tốn đồng nào, nên cắt thẳng qua bán đảo
+    (Quy Nhơn → Phương Mai, Thọ Quang → Sơn Trà, Hòn Rớ → doi đất phía bắc) là
+    đường "rẻ" nhất. Đo bằng bộ thử 18 tuyến từ 10 cảng: 9 tuyến cắt 0,3–3,4 km
+    đất. Nay mỗi km trên đất tính như LAND_PEN_KM km nước ⇒ có lối nước (cửa đầm,
+    vòng mũi) là máy đi lối đó; chỉ đi qua đất khi KHÔNG còn lối nào. */
+const LAND_PEN_KM = 40;
+/*  VÒNG NỚI ĐẤT TỰ GIÃN THEO TỪNG ĐẦU (2026-10-16). Cảng sâu trong sông mà lưới
+    450 m không vẽ nổi lòng sông (Láng Chim ~5 km, Mỹ Tho ~7 km, Bình Châu ~10 km
+    tới ô nước gần nhất): vòng 5 km cố định thì hoặc KHÔNG ra tuyến, hoặc (trước
+    khi mẫu dày 0,4 km) "ra" nhờ mẫu 2 km nhảy qua đất ngoài vòng. Nay vòng của
+    MỖI đầu = khoảng tới nước + LAND_EXIT_PAD_KM, không dưới VICINITY_LAND_KM,
+    không quá LAND_VICINITY_MAX_KM — đất trong đó vẫn bị phạt LAND_PEN_KM nên
+    máy chỉ dẫm đoạn đất NGẮN NHẤT ra tới nước. */
+const LAND_EXIT_PAD_KM = 1.5;
+const LAND_VICINITY_MAX_KM = 12;
+/** lề nới lần hai khi lần đầu không ra tuyến (xem `planRouteWithDiagnostics`) */
+const LAND_EXIT_PAD_RETRY_KM = 5;
+
+/** km từ p tới ô NƯỚC gần nhất của lưới (lớp ≥ 2), dò vòng 0,25 km tới 12 km; 0 nếu không có lưới */
+function khoangRaNuocKm(depth: DepthGrid | null, p: LatLon): number {
+  if (!depth) return 0;
+  const cosLat = Math.cos((p.lat * Math.PI) / 180) || 1;
+  for (let r = 0; r <= LAND_VICINITY_MAX_KM; r += 0.25) {
+    const n = r === 0 ? 1 : 32;
+    for (let k = 0; k < n; k++) {
+      const b = (k / n) * 2 * Math.PI;
+      const la = p.lat + (r / 111.32) * Math.cos(b);
+      const lo = p.lon + (r / (111.32 * cosLat)) * Math.sin(b);
+      const c = depthClassAt(depth, la, lo);
+      if (c != null && c >= 2) return r;
+    }
+  }
+  return LAND_VICINITY_MAX_KM;
+}
 
 /*  MỚN NƯỚC VÀO LUẬT ĐỘ SÂU (Đợt 0, 2026-09-04 — quyết định thiết kế §1.9).
     Lưới 6 lớp (depth-grid.ts): 0 đất · 1 mặt nạ rạn · 2 nước <2 m · 3 nước
@@ -477,6 +514,8 @@ const WEATHER_SAMPLE_KM = 12;
  * (vùng 0,2 km giữa hai mẫu 2 km: ~10 %), nên nó đi đường chỉ mục vật điểm.
  */
 const DEPTH_SAMPLE_KM = 2;
+/** bước mẫu thật dọc chặng cho lưới độ sâu — phải nhỏ hơn một ô (15" ≈ 450 m) */
+const DEPTH_STEP_KM = 0.4;
 
 /**
  * "CHẤM CHẶN" — một vật điểm có vòng chặn, đã gộp hai nguồn (vật của kho hải
@@ -647,6 +686,8 @@ type LegInfo = {
   veryShallow: boolean;
   /** chặng đè lên ĐẤT nhưng được nới vì sát nơi xuất phát/điểm đến */
   nearLand: boolean;
+  /** km của chặng nằm trên ô đất (trong vòng nới) — để so đường thẳng với tuyến */
+  landKm: number;
   /** chặng qua dải 2–4 m ngoài vicinity, đi được nhờ mớn đã khai */
   draftShallow: boolean;
   /** chặng chạm vòng chặn của một vật/vùng cấm NGOÀI bán kính nới hai đầu */
@@ -673,7 +714,7 @@ type LegInfo = {
 const INFEASIBLE_LEG: LegInfo = Object.freeze({
   feasible: false, distKm: 0, hours: 0, fuelL: 0, cost: 0,
   waveM: 0, windKmh: 0, rough: false, shallow: false,
-  veryShallow: false, nearLand: false, draftShallow: false,
+  veryShallow: false, nearLand: false, landKm: 0, draftShallow: false,
   hazard: false, hazardNearPort: false,
   lowSeen: false, lowFar: false, following: false, seaImpassable: false,
   noWeatherKm: 0,
@@ -700,6 +741,10 @@ export type PlanArgs = {
   /*  Vùng CẤM VÀO dạng đa giác (`buildHazardList().noGo`). Ring là mảng số
       thuần nên clone được. Cũng lọc theo khung ở phía gọi. */
   noGo?: NoGoZone[] | null;
+  /*  NỘI BỘ — lề cộng thêm vào vòng nới đất mỗi đầu (mặc định LAND_EXIT_PAD_KM).
+      `planRouteWithDiagnostics` tự nâng khi mọi lượt đều không ra tuyến; chỗ
+      gọi không cần truyền. */
+  landExitPadKm?: number;
 };
 
 // hàng đợi ưu tiên nhị phân tối giản
@@ -779,6 +824,19 @@ type AttemptDiag = { seaBlocked: boolean; weatherGap: boolean };
  * phủ dự báo trước đây đều chạy thừa cả lượt thứ hai.
  */
 export function planRouteWithDiagnostics(args: PlanArgs): RoutePlanOutcome {
+  const o = planOnceWithDiagnostics(args);
+  if (o.plan || args.landExitPadKm != null) return o;
+  /*  CẢNG SÂU TRONG SÔNG: không ra tuyến mà một đầu cách ô nước ≥ 2 km ⇒ có thể
+      lòng sông hẹp hơn ô lưới, lối ra dài hơn vòng nới. Nới thêm một nấc rồi
+      thử lại MỘT lần (đất vẫn bị phạt LAND_PEN_KM). Không xa nước thì không thử
+      lại — hỏng vì sóng/đất chắn giữa biển, thử lại chỉ tốn gấp đôi thời gian. */
+  const xa = Math.max(khoangRaNuocKm(args.depth, args.start), khoangRaNuocKm(args.depth, args.dest));
+  if (xa < 2) return o;
+  const o2 = planOnceWithDiagnostics({ ...args, landExitPadKm: LAND_EXIT_PAD_RETRY_KM });
+  return o2.plan ? o2 : o;
+}
+
+function planOnceWithDiagnostics(args: PlanArgs): RoutePlanOutcome {
   const strict: AttemptDiag = { seaBlocked: false, weatherGap: false };
   const plan = planAttempt(args, false, strict);
   if (plan) return { plan, failure: null };
@@ -868,6 +926,12 @@ function planAttempt(
 
   const nearEndpoints = (p: LatLon, radiusKm: number) =>
     haversineKm(p, start) <= radiusKm || haversineKm(p, dest) <= radiusKm;
+  const landPad = args.landExitPadKm ?? LAND_EXIT_PAD_KM;
+  const landRStart = Math.min(LAND_VICINITY_MAX_KM, Math.max(VICINITY_LAND_KM, khoangRaNuocKm(depth, start) + landPad));
+  const landRDest = Math.min(LAND_VICINITY_MAX_KM, Math.max(VICINITY_LAND_KM, khoangRaNuocKm(depth, dest) + landPad));
+  /** ô đất này nằm trong vòng nới (tự giãn) của một đầu */
+  const nearLandEnd = (p: LatLon) =>
+    haversineKm(p, start) <= landRStart || haversineKm(p, dest) <= landRDest;
 
   /*  ── HIỂM HOẠ: DỰNG CHỈ MỤC MỘT LẦN CHO CẢ LƯỢT TÍNH ────────────────────
       `legCost` chạy ~120.000 lượt; dựng lưới ô ở đây (O(n) một lần, 285 vật
@@ -1006,6 +1070,8 @@ function planAttempt(
     let shallow = false;
     let veryShallow = false;
     let nearLand = false;
+    /** km của chặng nằm trên ô đất (chỉ có thể >0 trong vòng nới sát cảng) */
+    let landKm = 0;
     let draftShallow = false;
     let lowSeen = false;
     let lowFar = false;
@@ -1024,7 +1090,11 @@ function planAttempt(
           hơn hẳn `sampleField` (nội suy thời tiết) chạy ngay dưới, và cả lượt
           tính nằm trong Web Worker. Đo lại nếu có ngày thấy "Đang tính đường…"
           lâu hơn trước. */
-      const nSamples = Math.max(2, Math.ceil(distKm / DEPTH_SAMPLE_KM));
+      /*  BƯỚC MẪU ĐẤT/CẠN 0,4 KM (2026-10-16) — NHỎ HƠN MỘT Ô LƯỚI (450 m).
+          Bước 2 km để lọt dải đất hẹp hơn 2 km (doi cát, đảo nhỏ): bộ thử bắt
+          được tuyến Hòn Rớ cắt 0,2 km đất NGOÀI vòng 5 km mà không mẫu nào
+          rơi trúng. `DEPTH_SAMPLE_KM` vẫn giữ nghĩa cỡ vùng cấm (xem đầu file). */
+      const nSamples = Math.max(2, Math.ceil(distKm / DEPTH_STEP_KM));
       for (let s = 1; s <= nSamples; s++) {
         const t = s / nSamples;
         const pLat = from.lat + dLatLeg * t;
@@ -1067,7 +1137,7 @@ function planAttempt(
         if (cls === 0) {
           lowSeen = true;
           // đất liền: chỉ nới trong bán kính nhỏ sát cảng
-          if (!nearEndpoints(noGoProbe,VICINITY_LAND_KM)) {
+          if (!nearLandEnd(noGoProbe)) {
             if (!relaxed) return INFEASIBLE_LEG;
             lowFar = true;
           }
@@ -1076,6 +1146,7 @@ function planAttempt(
               Ở nhánh `relaxed` (tính lại số liệu) cũng cắm — tổng hiển thị luôn
               là của CẢ tuyến, kể cả đoạn chỉ đi được nhờ nới. */
           nearLand = true;
+          landKm += distKm / nSamples;
         } else if (cls === 1 || cls === 2) {
           lowSeen = true;
           // mặt nạ rạn / nước <2 m: "rất cạn" — chỉ nới sát cảng/điểm đến
@@ -1248,10 +1319,12 @@ function planAttempt(
     if (veryShallow) cost *= SHALLOW_PENALTY;
     // qua dải 2–4 m nhờ mớn: đi được nhưng chỗ sâu hơn cùng giá thì ưu tiên
     if (draftShallow) cost *= SHALLOW_PENALTY;
+    // đất sát cảng: như chạy thêm LAND_PEN_KM km nước cho mỗi km đất (cùng đơn vị lít)
+    if (landKm > 0) cost += landKm * LAND_PEN_KM * (boat.litersPerHour / calmKmh);
 
     return {
       feasible: true, distKm, hours, fuelL, cost,
-      waveM: maxWave, windKmh: maxWind, rough, shallow, veryShallow, nearLand,
+      waveM: maxWave, windKmh: maxWind, rough, shallow, veryShallow, nearLand, landKm,
       draftShallow, hazard, hazardNearPort, lowSeen, lowFar, following, seaImpassable,
       noWeatherKm, weatherSeen,
     };
@@ -1397,6 +1470,7 @@ function planAttempt(
       seaImpassableFlag = false,
       ok = true;
     let noWeatherKm = 0;
+    let landKm = 0;
     let weatherSeen = false;
     const hoursAt: number[] = [0];
     const segRisks: LegRisk[] = [];
@@ -1424,6 +1498,7 @@ function planAttempt(
       following = following || leg.following;
       seaImpassableFlag = seaImpassableFlag || leg.seaImpassable;
       noWeatherKm += leg.noWeatherKm;
+      landKm += leg.landKm;
       weatherSeen = weatherSeen || leg.weatherSeen;
       segRisks.push(legInfoRisk(leg));
     }
@@ -1433,7 +1508,7 @@ function planAttempt(
       hazardFlag, hazardNearPortFlag,
       // có chỗ thấp, và MỌI chỗ thấp đều là chuyện ở cảng
       nearPortOnly: lowSeen && !lowFar,
-      following, seaImpassable: seaImpassableFlag, segRisks, noWeatherKm, weatherSeen,
+      following, seaImpassable: seaImpassableFlag, segRisks, noWeatherKm, weatherSeen, landKm,
     };
   };
 
@@ -1500,7 +1575,16 @@ function planAttempt(
   // trả đường thẳng + cảnh báo thật, thuyền trưởng tự quyết.
   // BEST-EFFORT KHÔNG áp trần: lúc biển động, một đường vòng dài né bớt ô ≥4 m
   // đáng giá hơn đường thẳng đâm thẳng vào sóng dữ — đừng ép về chạy thẳng.
-  if (!seaAsPenalty && direct && chosen.distSum > directDist * MAX_DETOUR_RATIO) {
+  /*  Đường thẳng chỉ được "thắng" trần đường vòng khi nó KHÔNG đè thêm đất so
+      với tuyến (2026-10-16): đường thẳng qua bán đảo sát cảng vẫn "đi được" nhờ
+      vòng nới 5 km, và trước đây trần 30% kéo tuyến vòng cửa đầm về lại đúng
+      đường xuyên đất. */
+  if (
+    !seaAsPenalty &&
+    direct &&
+    directWalk.landKm <= chosen.landKm + 0.05 &&
+    chosen.distSum > directDist * MAX_DETOUR_RATIO
+  ) {
     return {
       waypoints: directPts,
       distKm: directWalk.distSum,

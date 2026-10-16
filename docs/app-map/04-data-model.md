@@ -609,7 +609,7 @@ Schema không đổi (`islands.ts`/`reefs.ts` đọc như cũ); chỉ thêm prop
 
 | Lớp | Nghĩa | Nguồn quyết định | Luật tuyến (`route-plan.ts`) |
 |---|---|---|---|
-| 0 | ĐẤT LIỀN | tâm ô TRONG đa giác `vn-coast.v1.json` (526 Polygon, scanline theo hàng) **HOẶC** cả ETOPO lẫn GEBCO cùng z > 0 | chặn ngoài 5 km quanh hai đầu; trong 5 km → cờ `hasNearLandLeg` |
+| 0 | ĐẤT LIỀN | tâm ô TRONG đa giác `vn-coast.v1.json` (526 Polygon, scanline theo hàng) **HOẶC** cả ETOPO lẫn GEBCO cùng z > 0 | chặn ngoài vòng nới quanh hai đầu (5 km, tự giãn tới 12 km cho cảng sâu trong sông); trong vòng → cờ `hasNearLandLeg` + phạt 40 km nước/km đất (2026-10-16) |
 | 1 | mặt nạ rạn/bãi cạn/đá ngầm/xác tàu (OSM `reef-shapes`, nở 1–1,5 km + lấp lòng hồ) | như 2026-08-29, "chỉ hạ không nâng" | chặn ngoài 12 km; trong → `hasVeryShallowLeg` |
 | 2 | nước rất cạn, z ∈ (−2, 0] | min(ETOPO, GEBCO); một nguồn nói đất, nguồn kia nói nước → lớp này | như lớp 1 |
 | 3 | nước cạn, z ∈ (−4, −2] | min hai nguồn | trong 12 km: như lớp 1; **ngoài 12 km: chỉ đi khi `boat.draftM` đã khai và `requiredDepthM = mớn + 0,5 + ½·min(Hs,3) ≤ 2,0 m`** → cờ `hasDraftShallowLeg`; chưa khai mớn → chặn |
