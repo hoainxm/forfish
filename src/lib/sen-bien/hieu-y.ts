@@ -35,7 +35,8 @@ export type SenReply =
   | { kind: "repeat" }
   /** còn bao xa — chỗ gọi có số */
   | { kind: "howfar" }
-  | { kind: "say"; say: string };
+  /** `ask` = câu này CHỜ bà con nói lại ⇒ đọc xong Sen Biển tự nghe một lượt ngắn */
+  | { kind: "say"; say: string; ask?: boolean };
 
 /** Đang ở nấc nào của cuộc nói — quyết định "đi"/"thôi" nghĩa là gì. */
 export type SenCtx = {
@@ -128,7 +129,7 @@ export function senBienReply(
   ctx: SenCtx = { awaitingGo: false, running: false },
 ): SenReply {
   const f = foldVn(text);
-  if (!f) return { kind: "say", say: "Sen Biển chưa nghe rõ. Bà con nói lại tên chỗ muốn tới nhé." };
+  if (!f) return { kind: "say", say: "Sen Biển chưa nghe rõ. Bà con nói lại tên chỗ muốn tới nhé.", ask: true };
 
   // (1) chờ "đi": đồng ý / không — trước mọi thứ khác
   if (ctx.awaitingGo) {

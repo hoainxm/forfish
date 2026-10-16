@@ -43,10 +43,50 @@ export interface ListenHandle {
   abort(): void;
 }
 
+/** im lặng tối đa khi bà con nói TÊN CHỖ (nghĩ tên, đọc toạ độ — cần lâu) */
 export const SILENCE_MS = 8000;
+/** im lặng tối đa khi đang chờ LỆNH NGẮN ("đi" / "thôi" / chọn một chỗ) — nhanh
+    hơn (chủ dự án 2026-10-16: "nghe qua lại tự nhiên"); cũng là độ dài lượt
+    tự nghe sau câu hỏi của Sen Biển */
+export const COMMAND_SILENCE_MS = 5000;
 export const MAX_LISTEN_MS = 20000;
+
+/** Đang chờ gì: `lenh` = đáp ngắn (đi/thôi/chọn), `ten` = tên chỗ / toạ độ. */
+export type ListenExpect = "lenh" | "ten";
+
+export function silenceMsFor(expect: ListenExpect | undefined): number {
+  return expect === "lenh" ? COMMAND_SILENCE_MS : SILENCE_MS;
+}
+
+/*  MICRO ĐÃ ĐƯỢC CHO PHÉP trong phiên này (đã có một lượt nghe ra chữ). Sen Biển
+    chỉ TỰ bật micro sau câu hỏi khi cờ này bật: tự bật lúc máy chưa cho phép thì
+    hộp xin quyền nhảy ra giữa lúc bà con không chạm gì. */
+let granted = false;
+export function micGranted(): boolean {
+  return granted;
+}
 /** Mất sóng + không kết quả sau 3 s = coi như lỗi mạng (13 §5.4), không đợi đủ 8 s. */
 const OFFLINE_GRACE_MS = 3000;
+
+/*  TỰ NGHE SAU CÂU HỎI (chủ dự án 2026-10-16: "nghe qua lại tự nhiên"): Sen
+    Biển hỏi xong ("…Nói đi để bắt đầu.", "Có 2 chỗ tên giống nhau…", "chưa nghe
+    rõ") thì micro tự bật một lượt ngắn — bà con khỏi chạm. Bật SAU KHI câu đọc
+    XONG thật (màn bản đồ tăng `autoListen` của SenBienSheet trong onSpoken của useNavVoice.say),
+    không bao giờ trong lúc loa còn kêu (micro thu tiếng máy thành lệnh).
+    Không tự nghe khi: máy không có STT, đang chế độ gõ, micro chưa từng được
+    cho phép trong phiên (khỏi bật hộp xin quyền giữa chừng), màn/tab ẩn, mất
+    sóng (STT cần mạng — tự bật rồi báo lỗi là ồn), loa đang đọc câu khác. */
+export function autoListenOk(s: {
+  stt: boolean;
+  typing: boolean;
+  granted: boolean;
+  hidden: boolean;
+  online: boolean;
+  busy: boolean;
+  listening: boolean;
+}): boolean {
+  return s.stt && !s.typing && s.granted && !s.hidden && s.online && !s.busy && !s.listening;
+}
 
 let live: { rec: SR; done: boolean } | null = null;
 
@@ -73,6 +113,8 @@ export function listenOnce(opts: {
   onInterim(text: string): void;
   onFinal(text: string): void;
   onError(code: ListenErrorCode): void;
+  /** ngữ cảnh — quyết định im lặng tối đa (`silenceMsFor`); `silenceMs` đè nếu có */
+  expect?: ListenExpect;
   silenceMs?: number;
   maxMs?: number;
 }): ListenHandle {
@@ -130,6 +172,7 @@ export function listenOnce(opts: {
       else interim += t;
     }
     gotAny = true;
+    granted = true;
     if (finalText.trim()) {
       const text = finalText.trim();
       finish(() => opts.onFinal(text));
@@ -154,7 +197,7 @@ export function listenOnce(opts: {
         abortRec();
         finish(() => opts.onError("no-speech"));
       }
-    }, opts.silenceMs ?? SILENCE_MS),
+    }, opts.silenceMs ?? silenceMsFor(opts.expect)),
   );
   timers.push(
     setTimeout(() => {

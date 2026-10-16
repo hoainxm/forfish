@@ -3,6 +3,7 @@
 //
 // Chạy:  npx next build   (biến Supabase RỖNG ⇒ demo mode, xem dưới)
 //        node scripts/e2e-sen-bien.mjs [--only a,b,...] [--port 3200] [--out ~/ra-soat-shots]
+//        (luồng i: tự nghe sau tóm tắt · n: đo độ trễ nói–nghe, ghi do-tre-$E2E_LABEL.json)
 //
 // Dựng: `next start` + Chromium headless 375×812 (chạm, vi-VN), GPS giả ngoài
 // biển gần Sa Huỳnh, speechSynthesis giả 2 giọng vi-VN (ghi lại mọi câu đọc),
@@ -155,6 +156,9 @@ const INIT = ({ token, gps: init_gps }) => {
   } catch {}
   // speechSynthesis giả: 2 giọng vi-VN, ghi lại câu đọc
   const spoken = (window.__spoken = []);
+  // mốc ĐỌC XONG (giọng giả + mp3) và mốc micro — đo độ trễ nói–nghe (luồng i, n)
+  const ends = (window.__ends = []);
+  window.__srLog = [];
   const voices = [
     { name: "Giọng nữ (giả)", lang: "vi-VN", voiceURI: "vi-1", localService: true, default: true },
     { name: "Giọng nam (giả)", lang: "vi-VN", voiceURI: "vi-2", localService: true, default: false },
@@ -172,12 +176,14 @@ const INIT = ({ token, gps: init_gps }) => {
       spoken.push({ t: Date.now(), text: u.text, kind: "tts" });
       speaking = true;
       setTimeout(() => u.onstart?.({}), 5);
+      // thời lượng giả tỉ lệ nghịch với rate — câu đáp 1,12 ngắn hơn thật
       setTimeout(
         () => {
           speaking = false;
+          ends.push({ t: Date.now(), text: u.text, kind: "tts" });
           u.onend?.({});
         },
-        Math.min(3000, 40 * (u.text?.length ?? 10)),
+        Math.min(3000, 40 * (u.text?.length ?? 10)) / (u.rate || 1),
       );
     },
     cancel() {
@@ -218,7 +224,11 @@ const INIT = ({ token, gps: init_gps }) => {
     // `src` chứ không `currentSrc`: lúc play() chạy, currentSrc còn là clip TRƯỚC
     const raw = this.src || this.currentSrc || "";
     const src = blobSrc.get(raw) ?? raw;
-    if (src && !src.startsWith("data:")) spoken.push({ t: Date.now(), text: src, kind: "mp3" });
+    if (src && !src.startsWith("data:")) {
+      window.__audioEl = this; // thẻ <audio> Sen Biển (không nằm trong DOM)
+      spoken.push({ t: Date.now(), text: src, kind: "mp3" });
+      this.addEventListener("ended", () => ends.push({ t: Date.now(), text: src, kind: "mp3" }), { once: true });
+    }
     return realPlay.call(this).catch((e) => {
       spoken.push({ t: Date.now(), text: `mp3-loi:${e?.name}`, kind: "mp3-err" });
       throw e;
@@ -234,6 +244,7 @@ const INIT = ({ token, gps: init_gps }) => {
     onstart = null;
     start() {
       window.__listening = (window.__listening ?? 0) + 1;
+      window.__srLog.push({ t: Date.now(), ev: "start", synthBusy: synth.speaking, audioBusy: !!window.__audioEl && !window.__audioEl.paused && !window.__audioEl.ended });
       setTimeout(() => this.onstart?.(), 10);
       if (!navigator.onLine || window.__offline) {
         setTimeout(() => this.onerror?.({ error: "network" }), 300);
@@ -245,10 +256,12 @@ const INIT = ({ token, gps: init_gps }) => {
           clearInterval(this._iv);
           const r = [{ transcript: window.__say.shift() }];
           r.isFinal = true;
+          window.__srLog.push({ t: Date.now(), ev: "final", text: r[0].transcript });
           this.onresult?.({ results: [r] });
           setTimeout(() => this.onend?.(), 20);
         } else if (Date.now() - t0 > 7000) {
           clearInterval(this._iv);
+          window.__srLog.push({ t: Date.now(), ev: "no-speech" });
           this.onerror?.({ error: "no-speech" });
         }
       }, 100);
@@ -256,6 +269,7 @@ const INIT = ({ token, gps: init_gps }) => {
     stop() {}
     abort() {
       clearInterval(this._iv);
+      window.__srLog.push({ t: Date.now(), ev: "abort" });
       this.onerror?.({ error: "aborted" });
     }
   }
@@ -629,6 +643,28 @@ async function dblTap(page, at) {
   const z1 = await mapZoom(page);
   return { zoomed: z0 != null && z1 != null && z1 - z0 > 0.5, known: z0 != null, detail: `zoom ${z0?.toFixed(2)} → ${z1?.toFixed(2)}` };
 }
+/** mic bật (lượt nghe mới) sau mốc `n` của __srLog — chờ tối đa `ms` */
+async function waitListen(page, n, ms, minT = 0) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    const hit = await page
+      .evaluate(([k, m]) => window.__srLog.slice(k).find((e) => e.ev === "start" && e.t >= m) ?? null, [n, minT])
+      .catch(() => null);
+    if (hit) return hit;
+    await sleep(50);
+  }
+  return null;
+}
+/** mốc ĐỌC XONG gần nhất của câu khớp `re` (tên file mp3 hoặc chữ giọng máy) */
+async function endOf(page, re, ms = 10_000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    const hit = await page.evaluate((src) => window.__ends.filter((e) => new RegExp(src).test(e.text)).at(-1) ?? null, re.source).catch(() => null);
+    if (hit) return hit;
+    await sleep(50);
+  }
+  return null;
+}
 async function flow(id, title, fn) {
   if (ONLY.length && !ONLY.includes(id)) return;
   const r = { id, title, ok: false, checks: [], shots: [], notes: [] };
@@ -838,6 +874,137 @@ async function main() {
       r.shots.push(await shot(page, "d4-dung"));
       r.notes.push(...(await spoken(page)).slice(-16));
       await ctx.close();
+    });
+
+    await flow("i", "Tự nghe sau tóm tắt: đọc XONG mới bật mic, 'Đang nghe…', nói 'đi' ⇒ dẫn đường KHÔNG chạm; im 5 s ⇒ tắt êm", async ({ check, r }) => {
+      const ctx = await newCtx({ gps: STILL_NEAR_SA_HUYNH });
+      const page = await ctx.newPage();
+      watchPage(page, ctx.__net);
+      await openMap(page);
+      await unlockAudio(page);
+      await stopCruise(page);
+      const sheet = page.getByRole("dialog", { name: "Sen Biển" });
+      // lượt 1: im lặng — mic tự bật rồi tự tắt êm, nút Đi/Thôi còn nguyên
+      await senAskFresh(page, "dẫn về cảng Sa Huỳnh"); // chạm mic một lần (micro được cho phép)
+      const nSr1 = await page.evaluate(() => window.__srLog.length);
+      await waitSpoken(page, /Nói đi để bắt đầu/, 120_000);
+      const lis1 = await waitListen(page, nSr1, 8000);
+      const end1 = await endOf(page, /noi_di\.mp3|Nói đi để bắt đầu/);
+      check("mic tự bật SAU khi câu tóm tắt đọc xong", lis1 && end1 && lis1.t >= end1.t, lis1 && end1 ? `xong ${end1.t % 100000} → mic ${lis1.t % 100000} (+${lis1.t - end1.t} ms)` : `${JSON.stringify(lis1)} ${JSON.stringify(end1)}`);
+      check("lúc mic bật loa đã im (không thu tiếng máy)", lis1 && !lis1.synthBusy && !lis1.audioBusy, JSON.stringify(lis1));
+      check("thẻ hiện 'Đang nghe…'", await sheet.getByText("Đang nghe…").isVisible().catch(() => false));
+      r.shots.push(await shot(page, "i1-dang-nghe"));
+      await sleep(5800);
+      const log1 = await page.evaluate((n) => window.__srLog.slice(n), nSr1);
+      check("im 5 s ⇒ mic tự tắt", log1.some((e) => e.ev === "abort"), log1.map((e) => e.ev).join(","));
+      check("tắt êm: không 'chưa nghe rõ', Đi/Thôi vẫn đó, hết 'Đang nghe…'",
+        !(await sheet.getByText(/chưa nghe rõ/).isVisible().catch(() => false)) &&
+        (await sheetHas(page, "Đi")) && (await sheetHas(page, "Thôi")) &&
+        !(await sheet.getByText("Đang nghe…").isVisible().catch(() => false)));
+      r.shots.push(await shot(page, "i2-im-tat-em"));
+      // lượt 2: nói "đi" vào lượt tự nghe — KHÔNG chạm gì
+      await sheet.getByRole("button", { name: "Thôi", exact: true }).click();
+      await waitSpoken(page, /chưa chạy/i, 5000);
+      await closeRouteAndSen(page);
+      const icon = page.getByRole("button", { name: /^Sen Biển — nói/ }).first();
+      await icon.click({ timeout: 10_000 });
+      await sheet.waitFor({ timeout: 5000 });
+      await senAsk(page, "dẫn về cảng Sa Huỳnh");
+      const nSp = (await spoken(page)).length;
+      const nSr2 = await page.evaluate(() => window.__srLog.length);
+      await waitSpoken(page, /Nói đi để bắt đầu/, 120_000, nSp);
+      const lis2 = await waitListen(page, nSr2, 8000);
+      check("lượt 2: mic tự bật sau tóm tắt", !!lis2);
+      let clicks = 0;
+      await page.exposeFunction("__countClick", () => clicks++).catch(() => {});
+      await page.evaluate(() => document.addEventListener("click", () => window.__countClick?.(), true));
+      const nDi = (await spoken(page)).length;
+      await page.evaluate(() => window.__say.push("đi"));
+      const bd = await waitSpoken(page, /Bắt đầu dẫn đường/, 10_000, nDi);
+      check("nói 'đi' ⇒ 'Bắt đầu dẫn đường' — không chạm", bd && clicks === 0, `${bd} · chạm=${clicks}`);
+      await page.getByRole("button", { name: "Dừng", exact: true }).first().waitFor({ timeout: 10_000 }).catch(() => {});
+      check("HUD dẫn đường hiện (nút Dừng)", await hudVisible(page));
+      r.shots.push(await shot(page, "i3-di-khong-cham"));
+      await ctx.close();
+    });
+
+    await flow("n", "Đo độ trễ một vòng nói–nghe: tóm tắt → 'đi' → dẫn (ms)", async ({ check, r }) => {
+      const runs = [];
+      for (let k = 0; k < 3; k++) {
+        const ctx = await newCtx({ gps: STILL_NEAR_SA_HUYNH });
+        const page = await ctx.newPage();
+        watchPage(page, ctx.__net);
+        await openMap(page);
+        await unlockAudio(page);
+        await stopCruise(page);
+        const nSp = (await page.evaluate(() => window.__spoken.length));
+        const nSr = await page.evaluate(() => window.__srLog.length);
+        await senAskFresh(page, "dẫn về cảng Sa Huỳnh");
+        await waitSpoken(page, /Nói đi để bắt đầu/, 120_000);
+        const end = await endOf(page, /noi_di\.mp3|Nói đi để bắt đầu/, 15_000);
+        const tom = await page.evaluate((n) => window.__spoken.slice(n).find((s) => /Tới Sa Huỳnh/.test(s.text)), nSp);
+        // bản mới tự nghe; bản cũ không ⇒ "người" chạm nút Nói NGAY (0 ms nghĩ — có lợi cho bản cũ)
+        let lis = await waitListen(page, nSr, 1500, tom?.t ?? 0);
+        let tap = false;
+        if (!lis) {
+          tap = true;
+          await page.getByRole("dialog", { name: "Sen Biển" }).getByRole("button", { name: /^(Nói|Nghe…)$/ }).click();
+          lis = await waitListen(page, nSr, 3000, tom?.t ?? 0);
+        }
+        // HUD = nút "Dừng" (đã Dừng chạy ở đầu luồng). KHÔNG dò chữ "Đang dẫn đường":
+        // nút rail của khung dẫn đường cũng mang đúng chữ đó khi khung mở
+        const hudOn = () => hudVisible(page);
+        const hudTruoc = await hudOn();
+        const nDi = await page.evaluate(() => window.__spoken.length);
+        const tPush = await page.evaluate(() => {
+          window.__say.push("đi");
+          return Date.now();
+        });
+        const t0 = Date.now();
+        let fin = null;
+        let bd = null;
+        let hud = null;
+        while (Date.now() - t0 < 15_000 && !(bd && hud)) {
+          fin ??= await page.evaluate((m) => window.__srLog.find((e) => e.ev === "final" && e.t >= m) ?? null, tPush);
+          bd ??= await page.evaluate((n) => window.__spoken.slice(n).find((s) => /bat_dau_dan|Bắt đầu dẫn đường/.test(s.text)) ?? null, nDi);
+          if (!hud && (await hudOn())) hud = { t: await page.evaluate(() => Date.now()) };
+          await sleep(50);
+        }
+        if (hudTruoc) r.notes.push(`lượt ${k}: chữ 'Đang dẫn đường' đã hiện TRƯỚC khi nói 'đi' — mốc HUD không tin được`);
+        // câu đáp ngắn: "còn bao xa" — từ nghe xong tới bắt đầu đọc đáp
+        const fish = page.getByRole("button", { name: "Sen Biển — nói lệnh" });
+        if (!(await page.getByRole("dialog", { name: "Sen Biển" }).isVisible().catch(() => false))) await fish.click().catch(() => {});
+        await sleep(2500);
+        const nFar = await page.evaluate(() => window.__spoken.length);
+        const nSrFar = await page.evaluate(() => window.__srLog.length);
+        await senAsk(page, "còn bao xa");
+        const finFar = await page.evaluate((n) => window.__srLog.slice(n).find((e) => e.ev === "final") ?? null, nSrFar);
+        const far = await page.evaluate((n) => window.__spoken.slice(n).find((s) => /^Còn /.test(s.text) || /\.mp3/.test(s.text)) ?? null, nFar);
+        const farEnd = await page.evaluate((n) => window.__ends.filter((e) => e.t >= (window.__spoken[n]?.t ?? 0)).at(-1) ?? null, nFar);
+        const one = {
+          tap,
+          tomTatDocMs: tom && end ? end.t - tom.t : null,
+          xongToiMicMs: end && lis ? lis.t - end.t : null,
+          ngheXongToiDapMs: fin && bd ? bd.t - fin.t : null,
+          vongTomTatDiDanMs: tom && hud ? hud.t - tom.t : null,
+          xongTomTatToiHudMs: end && hud ? hud.t - end.t : null,
+          noiDiToiNgheXongMs: fin ? fin.t - tPush : null,
+          conBaoXaDapMs: finFar && far ? far.t - finFar.t : null,
+          conBaoXaDocMs: far && farEnd ? farEnd.t - far.t : null,
+        };
+        runs.push(one);
+        r.notes.push(JSON.stringify(one));
+        await ctx.close();
+      }
+      const med = (k) => {
+        const v = runs.map((x) => x[k]).filter((x) => x != null).sort((a, b) => a - b);
+        return v.length ? v[Math.floor(v.length / 2)] : null;
+      };
+      const sum = Object.fromEntries(Object.keys(runs[0]).filter((k) => k !== "tap").map((k) => [k, med(k)]));
+      sum.tap = runs.some((x) => x.tap);
+      r.notes.push("TRUNG VỊ: " + JSON.stringify(sum));
+      writeFileSync(join(OUT, `do-tre-${process.env.E2E_LABEL ?? "build"}.json`), JSON.stringify({ runs, median: sum }, null, 2));
+      check("đo đủ 3 lượt", runs.every((x) => x.vongTomTatDiDanMs != null && x.ngheXongToiDapMs != null), JSON.stringify(sum));
     });
 
     await flow("e", "Dẫn đường bằng tay: Tính lộ trình, điểm trên tuyến, 429, thiếu dự báo, chạm 2 lần không zoom", async ({ check, r }) => {

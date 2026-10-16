@@ -3051,6 +3051,8 @@ export default function FishingMapView() {
   const [senOpen, setSenOpen] = useState(false);
   /** mở bằng chạm cá ⇒ nghe luôn; mở vì đường vừa vẽ xong ⇒ chờ "đi" */
   const [senListen, setSenListen] = useState(false);
+  /** tăng 1 khi câu HỎI của Sen Biển đọc xong ⇒ thẻ tự nghe một lượt (doc 07 §Sen Biển) */
+  const [senAutoListen, setSenAutoListen] = useState(0);
   /** đường Sen Biển vừa vẽ, đang chờ "đi" */
   const [senAwait, setSenAwait] = useState<PlannedRoute | null>(null);
   const [senTitle, setSenTitle] = useState("");
@@ -3782,6 +3784,12 @@ export default function FishingMapView() {
      Một giọng: mọi câu đi qua `navVoice.say` (cùng hàng với cảnh báo, đỏ đi
      trước). Lệnh khi đang chạy dùng luật từ khoá ở lib/sen-bien/hieu-y. */
   const senSay = navVoice.say;
+  /*  CÂU HỎI (chờ bà con đáp): đọc XONG thật mới mở micro — onSpoken của
+      useNavVoice gọi sau onEnd của mp3/giọng máy; câu bị đỏ cắt thì không gọi. */
+  const senAsk = useCallback(
+    (text: string) => senSay(text, { onSpoken: () => setSenAutoListen((n) => n + 1) }),
+    [senSay],
+  );
   const senGo = useCallback(
     (d: SenDest) => {
       setPinning(false);
@@ -3864,8 +3872,8 @@ export default function FishingMapView() {
     setSenAwait(route);
     setSenListen(false);
     setSenOpen(true);
-    senSay(`${t} Nói đi để bắt đầu.`);
-  }, [route, prefs.distUnit, senSay]);
+    senAsk(`${t} Nói đi để bắt đầu.`);
+  }, [route, prefs.distUnit, senAsk]);
   const senStart = useCallback(() => {
     if (!senAwait) return;
     startNav(senAwait);
@@ -3891,7 +3899,7 @@ export default function FishingMapView() {
           senGo(r.dest);
           return { show: `${r.say} Đang vẽ đường…` };
         case "pick":
-          senSay(r.say);
+          senAsk(r.say);
           return { show: r.say, options: r.options };
         case "start":
           senStart();
@@ -3930,11 +3938,12 @@ export default function FishingMapView() {
           return { show: t };
         }
         default:
-          senSay(r.say);
+          if (r.ask) senAsk(r.say);
+          else senSay(r.say);
           return { show: r.say };
       }
     },
-    [senDests, senAwait, navOn, senSay, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit],
+    [senDests, senAwait, navOn, senSay, senAsk, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit],
   );
   const openSen = useCallback(() => {
     ttsUnlock();
@@ -7686,6 +7695,11 @@ export default function FishingMapView() {
           awaitingGo={senAwait != null}
           title={senTitle}
           listenOnOpen={senListen}
+          autoListen={senAutoListen}
+          speakerBusy={navVoice.speaking != null}
+          onMissed={() =>
+            senAsk(senAwait ? "Sen Biển chưa nghe rõ. Nói đi để bắt đầu." : "Sen Biển chưa nghe rõ. Bà con nói lại tên chỗ muốn tới nhé.")
+          }
           onHeard={senHeard}
           onPick={(d) => {
             setSenOpen(false);

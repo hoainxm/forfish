@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { fetchDataBytes } from "@/lib/data-fetch";
 import type { SenDest } from "@/lib/sen-bien/hieu-y";
-import { listenOnce, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
+import { autoListenOk, listenOnce, micGranted, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
 import { loadNgram, NGRAM_PATH, type NgramModel } from "@/lib/sen-bien/ngram";
 import { ttsUnlock } from "@/lib/voice/tts";
 
@@ -46,11 +46,14 @@ export function SenBienSheet({
   awaitingGo,
   title,
   listenOnOpen = false,
+  autoListen = 0,
+  speakerBusy = false,
   onHeard,
   onPick,
   onStart,
   onCancel,
   onClose,
+  onMissed,
 }: {
   /** vừa đọc tóm tắt đường — hiện nút Đi / Thôi */
   awaitingGo: boolean;
@@ -58,11 +61,18 @@ export function SenBienSheet({
   title: string;
   /** mở ra là nghe luôn (chạm cá) */
   listenOnOpen?: boolean;
+  /** tăng 1 mỗi khi câu hỏi của Sen Biển ĐỌC XONG ⇒ tự nghe một lượt ngắn */
+  autoListen?: number;
+  /** loa đang đọc (cảnh báo chen vào) ⇒ huỷ lượt tự nghe, không tự bật */
+  speakerBusy?: boolean;
   onHeard: (text: string) => SenHeard | Promise<SenHeard>;
   onPick: (d: SenDest) => void;
   onStart: () => void;
   onCancel: () => void;
   onClose: () => void;
+  /** lượt nghe bà con TỰ CHẠM mà không nghe ra chữ ⇒ màn cha đọc "chưa nghe rõ"
+      (câu hỏi — đọc xong tự nghe lại một lượt; lượt tự nghe hỏng thì im, không lặp) */
+  onMissed?: () => void;
 }) {
   const [heard, setHeard] = useState("");
   const [listening, setListening] = useState(false);
@@ -74,6 +84,8 @@ export function SenBienSheet({
   };
   const [typed, setTyped] = useState("");
   const live = useRef<ListenHandle | null>(null);
+  /** lượt nghe đang chạy là lượt TỰ bật (hết giờ im ⇒ tắt êm, không báo lỗi) */
+  const [auto, setAuto] = useState(false);
 
   useEffect(() => () => live.current?.abort(), []);
 
@@ -90,21 +102,32 @@ export function SenBienSheet({
     setShown(await onHeard(text));
   };
 
-  const listen = () => {
-    ttsUnlock();
-    setShown(null);
+  // đang chờ đáp NGẮN (đi/thôi, chọn một trong danh sách) ⇒ im 5 s là thôi
+  const expect = awaitingGo || shown?.options?.length ? "lenh" : "ten";
+
+  const listen = (isAuto = false) => {
+    if (!isAuto) ttsUnlock(); // tự nghe không phải cử chỉ chạm — mở khoá loa vô ích
+    // lượt tự nghe giữ câu đáp + danh sách chọn trên thẻ (bà con còn đang nhìn nó)
+    if (!isAuto) setShown(null);
     setHeard("");
     setListening(true);
+    setAuto(isAuto);
     live.current = listenOnce({
+      expect: isAuto ? "lenh" : expect,
       onInterim: setHeard,
       onFinal: (t) => {
         setListening(false);
+        setAuto(false);
         live.current = null;
         void answer(t);
       },
       onError: (code) => {
         setListening(false);
+        setAuto(false);
+        live.current = null;
         if (code === "aborted") return; // chính mình dừng (gõ thay, đóng thẻ) — không phải lỗi
+        // lượt tự nghe hết giờ im / lỗi: tắt mic ÊM — nút Đi/Thôi, danh sách vẫn đó
+        if (isAuto) return;
         if (code === "network" || code === "unsupported" || code === "not-allowed") setTyping(true);
         setShown({
           show:
@@ -112,11 +135,36 @@ export function SenBienSheet({
               ? "Mất sóng nên máy chưa nghe được. Bà con gõ, hoặc chạm nút."
               : code === "not-allowed"
                 ? "Máy chưa cho dùng micro. Bà con gõ, hoặc chạm nút."
-                : "Sen Biển chưa nghe rõ. Chạm micro nói lại nhé.",
+                : onMissed
+                  ? "Sen Biển chưa nghe rõ. Bà con nói lại nhé."
+                  : "Sen Biển chưa nghe rõ. Chạm micro nói lại nhé.",
         });
+        if (code === "no-speech") onMissed?.();
       },
     });
   };
+
+  // câu hỏi đọc xong ⇒ tự nghe một lượt (xem `autoListenOk`)
+  const autoSeen = useRef(autoListen);
+  useEffect(() => {
+    if (autoListen === autoSeen.current) return;
+    autoSeen.current = autoListen;
+    const ok = autoListenOk({
+      stt: sttSupported(),
+      typing,
+      granted: micGranted(),
+      hidden: typeof document !== "undefined" && document.visibilityState === "hidden",
+      online: typeof navigator === "undefined" || navigator.onLine !== false,
+      busy: speakerBusy,
+      listening: live.current != null,
+    });
+    if (ok) listen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo tín hiệu "đọc xong"
+  }, [autoListen]);
+  // loa đọc câu khác (cảnh báo chen) giữa lượt tự nghe ⇒ huỷ, kẻo mic thu tiếng máy
+  useEffect(() => {
+    if (speakerBusy && auto && live.current) live.current.abort();
+  }, [speakerBusy, auto]);
 
   // chạm cá ⇒ mở là nghe (một lần, sau khi khung dựng xong)
   const autoRef = useRef(listenOnOpen);
@@ -218,6 +266,12 @@ export function SenBienSheet({
         </form>
       )}
 
+      {listening && auto && !heard && (
+        <p role="status" className="flex items-center gap-2 text-[1rem] font-bold text-t1">
+          <span aria-hidden className="h-3 w-3 animate-pulse rounded-full bg-t1" />
+          Đang nghe…
+        </p>
+      )}
       {heard && <p className="truncate text-[0.9375rem] italic text-foreground/75">&ldquo;{heard}&rdquo;</p>}
       {shown && (
         <p role="status" className="text-[1rem] font-bold leading-snug text-navy">

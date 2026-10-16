@@ -54,6 +54,15 @@ Chủ dự án chê giọng máy *"không hay, nhịp máy móc"* và muốn dù
 
 Chi tiết: [15 §17](../app-map/15-flow-dang-chay-giong-noi.md).
 
+## Bổ sung 2026-10-16c — nhịp theo loại câu + "đọc xong" thật (cửa KHÔNG đổi)
+
+Chủ dự án: *"đã tăng tốc độ nói và nghe qua lại chưa"*. Vẫn MỘT cửa `lib/voice/tts.ts`, thêm hai thứ:
+
+- **Tốc độ theo loại câu** (`speechRate`, hằng số ở `tts.ts`, test khoá): câu đáp Sen Biển ngắn 1,12; cảnh báo/bản tin/câu đáp dài 1,0. Nghỉ 120/180 ms (trước 180/250). mp3 đáp ngắn nhanh sẵn trong file (`nhanh: true`, atempo giữ cao độ) — tốc độ chỉ áp cho giọng máy; mp3 không đổi `playbackRate` lúc phát để mọi máy nghe như nhau.
+- **`onEnd(completed)`**: `ttsSpeak` báo câu đi HẾT (true) hay bị huỷ/thay/quá giờ (false). Hook `useNavVoice.say(text, { onSpoken })` chỉ gọi `onSpoken` khi true và lượt đọc còn là lượt hiện hành ⇒ Sen Biển mở micro đúng lúc loa im, không bao giờ trong lúc loa kêu; câu đỏ cắt câu hỏi thì không mở. Lựa chọn bị loại: đoán giờ đọc xong theo độ dài câu (sai với mp3, sai khi đỏ chen) và bật micro ngay khi bắt đầu đọc (micro thu tiếng loa thành lệnh).
+
+Chi tiết: [15 §17g](../app-map/15-flow-dang-chay-giong-noi.md).
+
 ## References
 
 - [docs/app-map/15-flow-dang-chay-giong-noi.md](../app-map/15-flow-dang-chay-giong-noi.md) — flow + §16 bảng tiêu chí

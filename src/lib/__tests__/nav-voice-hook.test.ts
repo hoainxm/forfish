@@ -11,7 +11,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { useNavVoice, type NavVoiceInput } from "@/lib/nav-voice/use-nav-voice";
 import type { NavAlert } from "@/lib/nav-hazards";
 
-type Spoken = { text: string };
+type Spoken = { text: string; rate: number };
 let spoken: Spoken[] = [];
 let hasVi = true;
 
@@ -22,9 +22,9 @@ function installSynth() {
     addEventListener: () => {},
     removeEventListener: () => {},
     cancel: () => {},
-    speak: (u: { text: string; onstart?: () => void; onend?: () => void }) => {
+    speak: (u: { text: string; rate: number; onstart?: () => void; onend?: () => void }) => {
       if (!u.text) return;
-      spoken.push({ text: u.text });
+      spoken.push({ text: u.text, rate: u.rate });
       setTimeout(() => u.onstart?.(), 10);
       setTimeout(() => u.onend?.(), 1000);
     },
@@ -229,5 +229,74 @@ describe("useNavVoice", () => {
     await tick(12_000);
     expect(spoken.map((s) => s.text).join(" ")).toMatch(/Máy đang canh độ sâu/);
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+  });
+
+  it("onSpoken (chế độ TẮT): gọi SAU KHI câu hỏi đọc xong, không gọi lúc loa còn kêu", async () => {
+    const { result } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    await tick(100);
+    const done = vi.fn();
+    act(() => result.current.say("Tới Sa Huỳnh: 14 hải lý, chừng 2 giờ. Nói đi để bắt đầu.", { onSpoken: done }));
+    await tick(1500); // đoạn đầu còn đang đọc
+    expect(done).not.toHaveBeenCalled();
+    await tick(10_000);
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(spoken.map((s) => s.text).at(-1)).toBe("Nói đi để bắt đầu.");
+  });
+
+  it("onSpoken (đang chạy): gọi khi câu đáp đọc xong", async () => {
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du" }));
+    await tick(30_000); // bản tin mở đầu đọc xong
+    const done = vi.fn();
+    act(() => result.current.say("Có 2 chỗ tên giống nhau. Bà con chạm chọn đúng chỗ.", { onSpoken: done }));
+    await tick(500);
+    expect(done).not.toHaveBeenCalled();
+    await tick(5000);
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+
+  it("câu ĐỎ chen vào cắt câu hỏi ⇒ KHÔNG báo đọc xong (không mở micro)", async () => {
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du" }));
+    await tick(30_000);
+    const done = vi.fn();
+    act(() => result.current.say("Tới Sa Huỳnh: 14 hải lý, chừng 2 giờ. Nói đi để bắt đầu.", { onSpoken: done }));
+    await tick(300);
+    rerender(base({ on: true, chart: "du", alerts: [RED] }));
+    await tick(20_000);
+    expect(spoken.map((s) => s.text)).toContain("Xác tàu phía trước chừng 400 mét.");
+    expect(done).not.toHaveBeenCalled();
+  });
+
+  it("tắt màn giữa câu hỏi ⇒ không báo đọc xong", async () => {
+    let vis: DocumentVisibilityState = "visible";
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => vis });
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du" }));
+    await tick(30_000);
+    const done = vi.fn();
+    act(() => result.current.say("Bà con chạm chọn đúng chỗ.", { onSpoken: done }));
+    await tick(300);
+    vis = "hidden";
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await tick(5000);
+    expect(done).not.toHaveBeenCalled();
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+  });
+
+  it("tốc độ: câu đáp ngắn đọc 1,12; câu ĐỎ giữ 1,0", async () => {
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du" }));
+    await tick(30_000);
+    act(() => result.current.say("Còn 12 hải lý, chừng 1 giờ."));
+    await tick(5000);
+    rerender(base({ on: true, chart: "du", alerts: [RED] }));
+    await tick(5000);
+    const reply = spoken.filter((s) => s.text === "Còn 12 hải lý");
+    expect(reply.length).toBe(1);
+    expect(reply[0].rate).toBe(1.12);
+    expect(spoken.find((s) => s.text === "Xác tàu phía trước chừng 400 mét.")?.rate).toBe(1);
   });
 });

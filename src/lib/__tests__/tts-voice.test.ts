@@ -74,6 +74,38 @@ describe("câu cố định trong code đều có giọng Sen Biển", () => {
   });
 });
 
+describe("NHỊP theo loại câu (lượt nói nhanh hơn 2026-10-16) — hằng số khoá", () => {
+  it("nghỉ dấu phẩy 120 ms, giữa câu 180 ms; đáp ngắn 1,12, cảnh báo 1,0", async () => {
+    const t = await import("@/lib/voice/tts");
+    expect(t.PAUSE_COMMA_MS).toBe(120);
+    expect(t.PAUSE_SENTENCE_MS).toBe(180);
+    expect(t.TTS_RATE).toBe(1);
+    expect(t.TTS_RATE_SHORT).toBe(1.12);
+  });
+
+  it("speechRate: câu ĐÁP ngắn nhanh; cảnh báo và câu đáp dài (kèm cảnh báo) giữ nhịp thường", async () => {
+    const { speechRate, TTS_RATE, TTS_RATE_SHORT } = await import("@/lib/voice/tts");
+    for (const t of ["Dạ, chưa chạy. Đường vẫn để trên bản đồ.", "Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo.", "Còn 12 hải lý, chừng 1 giờ 30 phút."])
+      expect(speechRate({ reply: true }, t), t).toBe(TTS_RATE_SHORT);
+    // tóm tắt đường có kèm cảnh báo thiếu dự báo — dài, phải rõ
+    expect(
+      speechRate(
+        { reply: true },
+        "Tới Sa Huỳnh: 14 hải lý, chừng 2 giờ. Đường này chưa có dự báo sóng gió, máy chỉ né bờ và bãi cạn. Bà con nghe đài trước khi chạy. Nói đi để bắt đầu.",
+      ),
+    ).toBe(TTS_RATE);
+    // cảnh báo đỏ/vàng, bản tin: không phải câu đáp
+    expect(speechRate({}, "Xác tàu phía trước chừng 400 mét.")).toBe(TTS_RATE);
+    expect(speechRate({ reply: false }, "Còn 3 hải lý.")).toBe(TTS_RATE);
+  });
+
+  it("mp3: câu ĐÁP ngắn đánh dấu nhanh, câu cảnh báo / độ sâu / định vị / bão KHÔNG", () => {
+    const nhanh = new Set(catalog.items.filter((i) => (i as { nhanh?: boolean }).nhanh).map((i) => i.id));
+    for (const id of ["bat_dau_dan", "da_chua_chay", "noi_di", "dung_dan", "chua_nghe_ro", "cham_chon_dung"]) expect(nhanh.has(id), id).toBe(true);
+    for (const id of ["song_gio_lon", "rat_can", "di_tren_ran", "mat_dinh_vi", "bao_qua_gan", "hai_do_chua_co", "thu_giong_1"]) expect(nhanh.has(id), id).toBe(false);
+  });
+});
+
 describe("speechParts — câu nói → đoạn đọc có nghỉ", () => {
   it("câu động tách ở dấu phẩy / hai chấm, KHÔNG tách số thập phân 2,5", async () => {
     const { speechParts, PAUSE_COMMA_MS, PAUSE_SENTENCE_MS } = await import("@/lib/voice/tts");
@@ -83,8 +115,6 @@ describe("speechParts — câu nói → đoạn đọc có nghỉ", () => {
     expect(p[0].pauseMs).toBe(PAUSE_COMMA_MS);
     expect(p[2].pauseMs).toBe(PAUSE_SENTENCE_MS);
     expect(p[3].pauseMs).toBe(0);
-    expect(PAUSE_COMMA_MS).toBeGreaterThanOrEqual(150);
-    expect(PAUSE_SENTENCE_MS).toBeLessThanOrEqual(250);
   });
 
   it("gạch ngang có khoảng trắng là chỗ ngắt; câu rỗng ra rỗng", async () => {
@@ -121,10 +151,12 @@ describe("voiceRank — giọng nữ trước, mất sóng thì giọng trong m�
 
 /* ── PHÁT: mp3 + giọng máy nối nhau, có nghỉ, onEnd đúng một lần ──────────── */
 
+let rates: number[] = [];
 type FakeUtter = { text: string; voice: { name: string } | null; rate: number; onstart?: () => void; onend?: () => void; onerror?: () => void };
 
 function installSynth(voices: { lang: string; localService: boolean; name: string; voiceURI?: string }[], dead: string[] = []) {
   const log: string[] = [];
+  rates = [];
   const synth = {
     getVoices: () => voices,
     addEventListener: () => {},
@@ -133,6 +165,7 @@ function installSynth(voices: { lang: string; localService: boolean; name: strin
       if (!u.text) return;
       if (u.voice && dead.includes(u.voice.name)) return; // giọng mạng chết: không bao giờ onstart
       log.push(`synth:${u.text}@${Date.now()}|${u.voice?.name}`);
+      rates.push(u.rate);
       setTimeout(() => u.onstart?.(), 5);
       setTimeout(() => u.onend?.(), 100);
     },
@@ -265,6 +298,38 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     await vi.advanceTimersByTimeAsync(2000);
     expect(log).toHaveLength(1);
     expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("onEnd báo completed: đọc hết ⇒ true, bị huỷ / câu mới thay ⇒ false", async () => {
+    installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
+    installAudio([]);
+    const tts = await import("@/lib/voice/tts");
+    const a = vi.fn();
+    tts.ttsSpeak("Còn 3 hải lý, chừng 20 phút.", { onEnd: a });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(a).toHaveBeenCalledWith(true);
+    const b = vi.fn();
+    const c = vi.fn();
+    tts.ttsSpeak("Còn 3 hải lý, chừng 20 phút.", { onEnd: b });
+    await vi.advanceTimersByTimeAsync(50);
+    tts.ttsSpeak("Còn 2 hải lý.", { onEnd: c });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(b).toHaveBeenCalledWith(false);
+    expect(c).toHaveBeenCalledWith(true);
+    const d = vi.fn();
+    tts.ttsSpeak("Còn 3 hải lý, chừng 20 phút.", { onEnd: d });
+    await vi.advanceTimersByTimeAsync(50);
+    tts.ttsCancel();
+    expect(d).toHaveBeenCalledWith(false);
+  });
+
+  it("rate truyền xuống giọng máy từng đoạn", async () => {
+    installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
+    installAudio([]);
+    const tts = await import("@/lib/voice/tts");
+    tts.ttsSpeak("Còn 3 hải lý, chừng 20 phút.", { rate: tts.TTS_RATE_SHORT });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(rates).toEqual([1.12, 1.12]);
   });
 
   it("ttsCancel giữa câu nhiều đoạn: dừng HẲN, không đọc tiếp đoạn sau", async () => {
