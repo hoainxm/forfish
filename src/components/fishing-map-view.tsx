@@ -7511,7 +7511,7 @@ export default function FishingMapView() {
         )}
         {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
             dòng nhỏ rồi tự tắt — xem components/pretrip-auto-notify.tsx */}
-        <PretripAutoNotify points={pretripPoints} />
+        {!navOn && <PretripAutoNotify points={pretripPoints} />}
         {/*  GHIM CHƯA LƯU ĐƯỢC — nói thẳng, đừng để ghim hiện trên bản đồ như đã
              lưu rồi đóng app là mất. Chỗ đánh cá là thứ bà con đo bằng cả chuyến
              biển, tải lại không được từ đâu (xem lib/places.ts). */}
@@ -7799,7 +7799,9 @@ export default function FishingMapView() {
            chiếm 3.5rem sát đáy — đúng chỗ khung dẫn đường cần, mà lúc này nó
            cũng vô dụng: mở sheet ra thì khung dẫn đường đè lên ngay. Thoát chế
            độ là sheet trở lại như cũ. */}
-      {!routeMode && (
+      {/*  ĐANG CHẠY / ĐANG DẪN cũng thế (user 2026-10-16 "nó rối và bị che"):
+           chip ngày + dòng sóng gió nằm dưới rail và dock, che lẫn nhau. */}
+      {!routeMode && !navOn && (
       <SnapSheet
         size={size}
         onSizeChange={setSize}

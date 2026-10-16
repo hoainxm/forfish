@@ -335,6 +335,13 @@ export function NavHud({
              duy nhất còn tới được khi máy trong túi áo mưa. */}
         <button
           type="button"
+          onClick={onStop}
+          className="min-h-[2.75rem] shrink-0 rounded-xl bg-navy/10 px-4 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
+        >
+          Dừng
+        </button>
+        <button
+          type="button"
           onClick={() => setHidden(true)}
           aria-label="Ẩn bảng dẫn đường"
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy transition active:scale-95"
@@ -586,19 +593,6 @@ export function NavHud({
         </>
       )}
 
-      {/* dặn dò an toàn RÚT GỌN — vẫn giữ vì app không thay máy định vị */}
-      <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 text-[0.75rem] leading-snug text-foreground/65">
-          Chỉ tham khảo — dò hải đồ, nghe đài duyên hải khi chạy.
-        </p>
-        <button
-          type="button"
-          onClick={onStop}
-          className="min-h-[2.75rem] shrink-0 rounded-xl bg-navy/10 px-4 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
-        >
-          Dừng
-        </button>
-      </div>
     </div>
   );
 }

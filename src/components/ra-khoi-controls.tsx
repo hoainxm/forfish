@@ -572,7 +572,7 @@ export function RaKhoiControls({
 
         {/* ĐẾN ĐIỂM (premium) — gõ tay toạ độ để nhảy tới điểm cần xem (không
             cần GPS, chạy cả khi mất sóng). Đặt NGAY DƯỚI nút "Vị trí". */}
-        {premiumTools && (
+        {premiumTools && !cruiseOn && (
         <button
           type="button"
           onClick={() => {
@@ -604,7 +604,7 @@ export function RaKhoiControls({
             16,5rem không chứa nổi mà vẫn giữ được cỡ chữ ≥18px cho bà con. Rail
             giữ đúng vai "chỗ bấm", sheet giữ đúng vai "chỗ đọc" (07 §11). */}
         {/* ĐIỂM ĐÃ LƯU (premium) — chỗ quen của chủ tàu, mở nhanh một chạm */}
-        {premiumTools && (
+        {premiumTools && !cruiseOn && (
         <button
           type="button"
           onClick={() => {
@@ -627,7 +627,7 @@ export function RaKhoiControls({
         </button>
         )}
 
-        {premiumTools && onRoutePanel && (
+        {premiumTools && onRoutePanel && !cruiseOn && (
           <button
             type="button"
             onClick={() => {
@@ -668,7 +668,7 @@ export function RaKhoiControls({
             </span>
           </button>
         )}
-        {!collapsed &&
+        {!collapsed && !cruiseOn &&
           RAIL.map((r) => {
           const active = open === r.id;
           const Icon = r.icon;
