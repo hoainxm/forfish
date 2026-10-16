@@ -873,7 +873,9 @@ async function main() {
       await stopCruise(p2);
       const o2 = await manualRoute(p2, { check: () => {}, r, tag: "e3-429" });
       const body2 = await p2.locator("body").innerText();
-      check("Open-Meteo 429 ⇒ nói 'quá tải'", /quá tải/.test(body2), (body2.match(/[^\n]*quá tải[^\n]*/) ?? [""])[0]);
+      // 656e3ce: gió sóng tuyến lấy từ server mình (routegrid) — điện thoại không gọi
+      // Open-Meteo nữa, nên 429 ở Open-Meteo KHÔNG được làm bà con thấy "quá tải"
+      check("Open-Meteo 429 không lọt ra màn (tuyến lấy gió sóng từ server mình)", !/quá tải/.test(body2), (body2.match(/[^\n]*quá tải[^\n]*/) ?? [""])[0]);
       check("429 vẫn ra tuyến (theo hải đồ)", o2.ok, o2.msg);
       r.shots.push(await shot(p2, "e3-429-qua-tai"));
       await ctx2.close();
@@ -1030,7 +1032,8 @@ async function main() {
       for (const b of big) r.notes.push(`${b}: ${count[b] ?? 0} lượt`);
       // lỗi do MÔI TRƯỜNG chạy thử (demo mode không khoá dữ liệu, máy không có kho
       // snapshot dự báo, nguồn ô hải đồ ngoài chập chờn) — ghi lại, không tính
-      const ENV = [/^404 \/api\/weather-snapshot/, /^503 \/api\/data-key/, /^50\d \/api\/tiles\//, /^(401|503) \/api\/me\//];
+      // 50x routegrid: demo mode không có kho weather_snapshot để server lưu ô (máy thật có)
+      const ENV = [/^404 \/api\/weather-snapshot/, /^50\d \/api\/weather-snapshot\?id=routegrid/, /^503 \/api\/data-key/, /^50\d \/api\/tiles\//, /^(401|503) \/api\/me\//];
       const bad = [...new Set(ctx.__net.bad ?? [])];
       const badReal = bad.filter((b) => !ENV.some((re) => re.test(b)));
       r.notes.push(`HTTP lỗi do môi trường: ${bad.filter((b) => !badReal.includes(b)).join(", ")}`);
