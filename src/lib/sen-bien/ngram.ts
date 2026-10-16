@@ -2,8 +2,12 @@
 //
 // Hồi quy logistic đa lớp trên n-gram ký tự + từ, băm 2^16 chiều, trọng số
 // int8 (2,36 MB, `public/data/sen-bien-ngram.v1.bin`). Train ở repo Forlife
-// Assistant `train/tro-ly/ngram.mjs` (commit 0c7b771, 2026-10-16): ý định đúng
-// 97 % bộ A, trọn đúng 68 % bộ B (bộ B chưa người duyệt). File này là bản
+// Assistant `train/tro-ly/ngram.mjs` (0c7b771) + 1.184 câu LỆNH NGẮN
+// (`train/tro-ly/lenh-ngan.mjs`, train lại trên gpu-desktop 2026-10-16): ý định
+// đúng bộ A 96,1 % · A-nhiễu 97,5 % · B 89,2 % · lệnh ngắn 89,5 % (bản cũ
+// 97,0 / 97,5 / 90,3 / 73,7). Đè cùng đường dẫn: máy còn bản cũ trong kho SW
+// vẫn đoán ĐÚNG ý (đổi thang chỉ co giãn đều mọi điểm, không đổi lớp thắng),
+// chỉ số `conf` lệch tới khi tải lại. File này là bản
 // CHÉP Y HỆT phần đoán — đổi cách băm/đặc trưng ở đó thì phải đổi ở đây, và
 // ngược lại; test `sen-bien-ngram.test.ts` khoá vài câu với đúng file trọng số.
 //
@@ -27,7 +31,7 @@ const DIM = 1 << 16;
 const NY = INTENTS.length;
 const NLOP = NY + REASONS.length;
 /** thang int8 → số thực, ghi lúc train (meta.json của bản 0c7b771) */
-const THANG = 0.13052925350159172;
+const THANG = 0.15350699237012488;
 export const NGRAM_BYTES = DIM * NLOP;
 
 /** Bỏ dấu + chữ thường + chỉ giữ a-z0-9 — giống `foldVn` bên train. */

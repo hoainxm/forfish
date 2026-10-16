@@ -14,19 +14,19 @@ const DESTS: SenDest[] = [
   { name: "Bến nhà", lat: 14.6, lon: 109.0, kind: "nha" },
 ];
 
-describe("ngram Sen Biển — chép y bản train (Forlife Assistant 0c7b771)", () => {
+describe("ngram Sen Biển — chép y bản train (Forlife Assistant 0c7b771 + lệnh ngắn, gpu-desktop 2026-10-16)", () => {
   it("file trọng số đúng cỡ, sai cỡ thì từ chối", () => {
     expect(buf.byteLength).toBe(NGRAM_BYTES);
     expect(loadNgram(new ArrayBuffer(10))).toBeNull();
   });
   it.each([
-    ["dẫn tôi về cảng Sa Huỳnh", "dan_duong", 0.975],
-    ["chạy ra Hòn Mù", "dan_duong", 0.98],
+    ["dẫn tôi về cảng Sa Huỳnh", "dan_duong", 0.974],
+    ["chạy ra Hòn Mù", "dan_duong", 0.979],
     ["mai sóng gió thế nào", "thoi_tiet", 0.999],
     ["có bão không", "bao", 0.999],
     ["giá cá ngừ hôm nay", "gia_ca", 0.998],
-    ["tôi bị đau đầu uống thuốc gì", "ngoai_pham_vi", 0.976],
-    ["dừng lại", "huy", 0.919],
+    ["tôi bị đau đầu uống thuốc gì", "ngoai_pham_vi", 0.975],
+    ["dừng lại", "huy", 0.995],
   ])("%s → %s (đúng số của bản train)", (cau, y, conf) => {
     const g = guessIntent(model, cau);
     expect(g.y).toBe(y);
