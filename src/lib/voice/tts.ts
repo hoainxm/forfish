@@ -221,18 +221,25 @@ function clipAudio(): HTMLAudioElement | null {
     return null;
   }
 }
-/** blob URL đã tải — clip nhỏ (≤25 KB), giữ trong bộ nhớ cho cả phiên */
-const clipBlobs = new Map<string, string>();
+/** blob URL đã tải (hoặc đang tải) — clip nhỏ (≤25 KB), giữ trong bộ nhớ cả
+    phiên. Giữ PROMISE: phát và tải trước (`warmVoiceClips`) xin cùng clip một
+    lúc thì dùng chung một lượt tải (rà soát prod 2026-10-16: clip bị xin 2 lần). */
+const clipBlobs = new Map<string, Promise<string>>();
 
-async function clipSrc(url: string): Promise<string> {
+function clipSrc(url: string): Promise<string> {
   const hit = clipBlobs.get(url);
   if (hit) return hit;
   // đi qua SW (cache-first) — tải về blob để phát không phụ thuộc Range/206
-  const res = await fetch(url, { signal: timeoutSignal(CLIP_FETCH_MS) });
-  if (!res.ok) throw new Error(`clip ${res.status}`);
-  const b = URL.createObjectURL(await res.blob());
-  clipBlobs.set(url, b);
-  return b;
+  const p = fetch(url, { signal: timeoutSignal(CLIP_FETCH_MS) }).then(async (res) => {
+    if (!res.ok) throw new Error(`clip ${res.status}`);
+    return URL.createObjectURL(await res.blob());
+  });
+  clipBlobs.set(url, p);
+  // hỏng (mất sóng, chưa có trong kho) ⇒ bỏ khỏi bộ nhớ, lần sau tải lại
+  p.catch(() => {
+    if (clipBlobs.get(url) === p) clipBlobs.delete(url);
+  });
+  return p;
 }
 
 /** Phát một clip; `done(false)` = không phát được ⇒ chỗ gọi đọc giọng máy. */
@@ -277,17 +284,20 @@ function playClip(url: string, done: (ok: boolean) => void): () => void {
  * Tải trước mọi clip vào kho SW khi còn sóng (gọi lúc mở bản đồ, sau vài giây).
  * Không ném; dừng ở lỗi đầu tiên (mất sóng thì thôi, lần mở sau tải tiếp).
  */
+let warmedAll = false;
 export async function warmVoiceClips(): Promise<void> {
-  if (typeof fetch === "undefined" || !isOnline()) return;
+  /*  MỘT LƯỢT ĐỦ / PHIÊN (rà soát prod 2026-10-16): mỗi lần mở bản đồ trước đây
+      xin lại cả 63 clip — trúng kho SW nên rẻ, nhưng vẫn 63 lượt gọi chen với
+      lúc bản đồ đang dựng. Đủ một lượt là thôi; clip đã phát / đang tải dùng chung. */
+  if (warmedAll || typeof fetch === "undefined" || !isOnline()) return;
   for (const url of allClipUrls()) {
     try {
-      const r = await fetch(url, { signal: timeoutSignal(8000) });
-      if (!r.ok) return;
-      await r.arrayBuffer();
+      await clipSrc(url); // vào kho SW + giữ blob — lúc phát khỏi tải lại
     } catch {
       return;
     }
   }
+  warmedAll = true;
 }
 
 function waitVoices(ms: number): Promise<void> {

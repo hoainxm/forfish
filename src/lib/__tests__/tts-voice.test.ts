@@ -295,15 +295,41 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual(["synth:Còn 3 hải lý|Linh", "clip"]);
   });
 
-  it("warmVoiceClips tải đủ mọi clip một lượt khi có sóng, dừng ở lỗi đầu", async () => {
+  it("warmVoiceClips tải đủ mọi clip một lượt khi có sóng; đủ rồi thì phiên này thôi", async () => {
     installSynth([]);
     const log: string[] = [];
     installAudio(log);
     const tts = await import("@/lib/voice/tts");
     await tts.warmVoiceClips();
     expect((fetch as unknown as { mock: { calls: unknown[] } }).mock.calls).toHaveLength(catalog.items.length);
+    // lần mở bản đồ sau: không xin lại 63 clip
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, blob: async () => new Blob(["x"]) })));
+    await tts.warmVoiceClips();
+    expect((fetch as unknown as { mock: { calls: unknown[] } }).mock.calls).toHaveLength(0);
+  });
+
+  it("đang phát một clip mà tải trước chạy cùng lúc: mỗi clip chỉ tải MỘT lần", async () => {
+    installSynth([]);
+    const log: string[] = [];
+    installAudio(log);
+    const tts = await import("@/lib/voice/tts");
+    tts.ttsSpeak("Nói đi để bắt đầu.");
+    await tts.warmVoiceClips();
+    const urls = (fetch as unknown as { mock: { calls: [string][] } }).mock.calls.map((c) => c[0]);
+    expect(urls).toHaveLength(catalog.items.length);
+    expect(new Set(urls).size).toBe(urls.length);
+  });
+
+  it("warmVoiceClips dừng ở lỗi đầu, lần sau thử lại", async () => {
+    installSynth([]);
+    const log: string[] = [];
+    installAudio(log);
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 504 })));
+    const tts = await import("@/lib/voice/tts");
     await tts.warmVoiceClips();
     expect((fetch as unknown as { mock: { calls: unknown[] } }).mock.calls).toHaveLength(1);
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, blob: async () => new Blob(["x"]) })));
+    await tts.warmVoiceClips();
+    expect((fetch as unknown as { mock: { calls: unknown[] } }).mock.calls).toHaveLength(catalog.items.length);
   });
 });
