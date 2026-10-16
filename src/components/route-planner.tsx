@@ -809,6 +809,13 @@ export function RouteMode({
   const addStopRef = useRef<HTMLDivElement>(null);
   // "gps" | "place:<id>" | "port:<id>"; mặc định Cảng nhà nếu có
   const [startId, setStartId] = useState<string>("");
+  /*  NƠI XUẤT PHÁT CHỐT TẠI CHỖ (2026-10-16, chủ dự án: "đang có điểm 1, thêm
+      điểm 2 thì nó thay đổi 1 sang 2 luôn"). Trước đây chọn "Điểm đang xem"
+      là nơi đi BÁM THEO con trỏ — mà thêm điểm dừng chính là chạm bản đồ dời
+      con trỏ ⇒ nơi đi nhảy theo điểm vừa chấm ("0 hải lý thẳng"). Nay chọn là
+      CHỐT toạ độ lúc đó thành "Vị trí đã chọn" (id "fixed"); con trỏ đi đâu
+      mặc nó. Muốn đổi thì mở bộ chọn, chọn lại "Điểm đang xem". */
+  const [fixedStart, setFixedStart] = useState<LatLon | null>(null);
   // đọc thẳng localStorage lúc render đầu được vì cả cây bản đồ đã
   // next/dynamic ssr:false (không có HTML server để lệch); readBoat tự
   // fallback DEFAULT_BOAT khi không có window/storage
@@ -967,6 +974,15 @@ export function RouteMode({
       label: `Điểm đang xem — ${fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}`,
       coord: dest,
     },
+    ...(fixedStart
+      ? [
+          {
+            id: "fixed",
+            label: `Vị trí đã chọn — ${fmtCoordPair(fixedStart.lat, fixedStart.lon, prefs.coordFormat)}`,
+            coord: fixedStart,
+          },
+        ]
+      : []),
     ...myPlaces.map((p) => ({
       id: `place:${p.id}`,
       label: p.kind === "home" ? `Cảng nhà — ${p.name}` : `Điểm đã ghim — ${p.name}`,
@@ -1085,6 +1101,9 @@ export function RouteMode({
       }
       if (start) {
         // đã có định vị
+      } else if (sid === "fixed" && fixedStart) {
+        start = fixedStart;
+        startLabel = "Vị trí đã chọn";
       } else if (sid === "cursor") {
         start = { lat: dest.lat, lon: dest.lon };
         startLabel = "Điểm đang xem";
@@ -2066,7 +2085,7 @@ export function RouteMode({
                    CỐ Ý KHÔNG cảnh báo "trên bờ" ở đây: cảng thật (Tam Quang, Quy
                    Nhơn, Vũng Tàu) nằm ô hạng 0 của lưới mà vẫn tính được đường
                    nhờ luật sát cảng — cảnh báo sẽ kêu ở gần như mọi cảng. */}
-              {effectiveStartId !== "cursor" && (
+              {effectiveStartId !== "cursor" && effectiveStartId !== "fixed" && (
                 <span className="block truncate text-[0.8125rem] font-bold text-foreground/60">
                   {startCoord
                     ? fmtCoordPair(startCoord.lat, startCoord.lon, prefs.coordFormat)
@@ -2103,7 +2122,13 @@ export function RouteMode({
                       role="radio"
                       aria-checked={on}
                       onClick={() => {
-                        setStartId(o.id);
+                        if (o.id === "cursor") {
+                          // chốt toạ độ con trỏ NGAY LÚC CHỌN — không bám theo về sau
+                          setFixedStart({ lat: dest.lat, lon: dest.lon });
+                          setStartId("fixed");
+                        } else {
+                          setStartId(o.id);
+                        }
                         setPanel("idle");
                       }}
                       className={`flex min-h-[var(--row-h)] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold transition ${
@@ -2528,7 +2553,11 @@ export function RouteMode({
                       type="button"
                       onClick={() => {
                         onStops?.(r.stops);
-                        if (r.startId) setStartId(r.startId);
+                        // tuyến lưu từ "chỗ đang xem"/"vị trí đã chọn" ⇒ đi từ ĐÚNG toạ độ đã lưu, không bám con trỏ
+                        if ((r.startId === "fixed" || r.startId === "cursor") && r.start) {
+                          setFixedStart({ lat: r.start.lat, lon: r.start.lon });
+                          setStartId("fixed");
+                        } else if (r.startId) setStartId(r.startId);
                         setPanel("idle");
                         /*  KHÔNG tự bấm Tính: tuyến phải tính lại bằng dự báo
                             HÔM NAY, mà việc đó tốn ~10 giây và có thể cần sóng.

@@ -166,3 +166,24 @@ describe("Tính đường — chờ dữ liệu và giải thích đúng điểm
     expect(document.body.textContent).not.toContain("không có đường vòng nào qua được");
   });
 });
+
+describe("Nơi xuất phát 'Điểm đang xem' chốt toạ độ lúc chọn (2026-10-16)", () => {
+  it("dời con trỏ (thêm điểm dừng) KHÔNG kéo nơi xuất phát theo", () => {
+    const onStartCoord = vi.fn();
+    const props = {
+      destDepth: 0 as const, places: [home], stops: [] as typeof stop[],
+      stormInfo: { kind: "khong-co" as const, checkedAt: Date.now() }, onRoute: vi.fn(), onClose: vi.fn(), onStartCoord,
+    };
+    const a = { lat: 9.347, lon: 107.657 };
+    const b = { lat: 9.9, lon: 108.4 };
+    const { rerender } = render(React.createElement(RouteMode, { ...props, dest: a }));
+    fireEvent.click(screen.getByRole("button", { name: /Điểm xuất phát/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /Điểm đang xem/ }));
+    const chot = fmtCoordPair(a.lat, a.lon, "dms");
+    expect(screen.getByText(`Vị trí đã chọn — ${chot}`)).toBeTruthy();
+    // bà con chạm bản đồ thêm điểm 2 ⇒ con trỏ dời sang b, kèm điểm dừng mới
+    rerender(React.createElement(RouteMode, { ...props, dest: b, stops: [{ id: "s1", name: "Điểm 1", lat: a.lat, lon: a.lon }] }));
+    expect(screen.getByText(`Vị trí đã chọn — ${chot}`)).toBeTruthy();
+    expect(onStartCoord).toHaveBeenLastCalledWith(a);
+  });
+});
