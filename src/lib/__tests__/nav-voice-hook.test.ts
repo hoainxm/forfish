@@ -30,6 +30,9 @@ function installSynth() {
     },
   };
   Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
+  // mp3 Sen Biển không tải được trong test ⇒ mọi câu đi giọng máy (đếm được qua `spoken`);
+  // KHÔNG để fetch thật chạy tới localhost — test không được phụ thuộc máy có server hay không
+  vi.stubGlobal("fetch", () => Promise.reject(new TypeError("offline")));
   class Utter {
     text: string;
     lang = "";
@@ -96,7 +99,7 @@ describe("useNavVoice", () => {
     rerender(base({ on: true, depthHere: 5, chart: "du", headingDeg: 1 }));
     await tick(30_000);
     expect(spoken.length).toBeGreaterThanOrEqual(2);
-    expect(spoken[0].text).toMatch(/Máy đang canh độ sâu|Máy chưa có tin bão/);
+    expect(spoken[0].text).toMatch(/^(Máy đang canh độ sâu|Máy chưa có tin bão)/);
     expect(spoken.some((s) => /vùng nước sâu/.test(s.text))).toBe(true);
   });
 
@@ -122,8 +125,36 @@ describe("useNavVoice", () => {
     rerender(base({ on: true, chart: "du", depthHere: 4, headingDeg: 2 }));
     await tick(30_000);
     const after = spoken.slice(n1);
-    expect(after[0]?.text).toMatch(/Máy đang canh độ sâu/);
+    // bản tin mở đầu nay đọc THÀNH ĐOẠN (nghỉ giữa câu/dấu phẩy) — ghép lại để soi
+    expect(after.map((s) => s.text).join(" ")).toMatch(/Máy đang canh độ sâu/);
     expect(after.some((s) => /vùng nước 4 đến 12/.test(s.text))).toBe(true);
+  });
+
+  it("Sen Biển 'dừng': đẩy câu đáp rồi tắt chế độ NGAY — câu đáp vẫn được đọc", async () => {
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du" }));
+    await tick(3000);
+    // câu đáp TRƯỚC còn đang đọc ⇒ câu "dừng" phải xếp hàng sau nó
+    act(() => result.current.say("Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo."));
+    await tick(200);
+    act(() => result.current.say("Đã dừng dẫn đường."));
+    rerender(base({ on: false, chart: "du" })); // stopNav cùng nhịp
+    await tick(3000);
+    expect(spoken.filter((s) => s.text === "Đã dừng dẫn đường.")).toHaveLength(1);
+    // câu đang đọc dở không bị đọc lại từ đầu
+    expect(spoken.filter((s) => s.text === "Bắt đầu dẫn đường.")).toHaveLength(1);
+  });
+
+  it("chế độ TẮT: hai câu Sen Biển liên tiếp NỐI HÀNG, câu sau không cắt câu trước", async () => {
+    const { result } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    await tick(100);
+    act(() => {
+      result.current.say("Điểm 14 độ 34 phút Bắc. Đang vẽ đường.");
+      result.current.say("Tới Sa Huỳnh: 14 hải lý.");
+    });
+    await tick(10_000);
+    const texts = spoken.map((s) => s.text);
+    expect(texts).toEqual(["Điểm 14 độ 34 phút Bắc.", "Đang vẽ đường.", "Tới Sa Huỳnh", "14 hải lý."]);
   });
 
   it("máy không có giọng Việt: không đọc, báo avail.ok=false để HUD nói thật", async () => {
@@ -147,8 +178,8 @@ describe("useNavVoice", () => {
     await act(async () => {
       document.dispatchEvent(new Event("visibilitychange"));
     });
-    await tick(3000);
-    expect(spoken[0]?.text).toMatch(/Máy đang canh độ sâu/);
+    await tick(12_000);
+    expect(spoken.map((s) => s.text).join(" ")).toMatch(/Máy đang canh độ sâu/);
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
   });
 });

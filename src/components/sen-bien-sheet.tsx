@@ -69,6 +69,14 @@ export function SenBienSheet({
   useEffect(() => () => live.current?.abort(), []);
 
   const answer = async (text: string) => {
+    /*  Mic còn đang nghe (mở thẻ là tự nghe) mà bà con GÕ: dừng mic trước, không
+        thì lỗi "không nghe thấy gì" của nó về sau ĐÈ lên câu trả lời (bắt được
+        khi chạy thử 2026-10-16: gõ "nhắc lại" mà thẻ hiện "chưa nghe rõ"). */
+    if (live.current) {
+      live.current.abort();
+      live.current = null;
+      setListening(false);
+    }
     setHeard(text);
     setShown(await onHeard(text));
   };
@@ -82,10 +90,12 @@ export function SenBienSheet({
       onInterim: setHeard,
       onFinal: (t) => {
         setListening(false);
+        live.current = null;
         void answer(t);
       },
       onError: (code) => {
         setListening(false);
+        if (code === "aborted") return; // chính mình dừng (gõ thay, đóng thẻ) — không phải lỗi
         if (code === "network" || code === "unsupported" || code === "not-allowed") setTyping(true);
         setShown({
           show:
@@ -110,26 +120,21 @@ export function SenBienSheet({
   }, []);
 
   /*  GỌN (chủ dự án 2026-10-16: "đừng có làm rối, che bản đồ quá"): thẻ
-      nhỏ nổi góc trái dưới, không phủ màn, không tấm đáy. Một hàng đầu (cá +
-      câu ngắn + đóng), một hàng nút to, câu nghe/đáp mỗi thứ một dòng. */
+      nhỏ nổi góc trái dưới, không phủ màn, không tấm đáy. Hàng đầu cá + câu
+      ngắn, một hàng nút to, câu nghe/đáp, hàng cuối "gõ/nói" + đóng. */
   return (
     <div
       role="dialog"
       aria-label="Sen Biển"
       className="pointer-events-auto absolute bottom-24 left-2 z-40 w-[min(20rem,calc(100%-6rem))] space-y-2 rounded-2xl bg-card/95 p-2.5 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      {/*  Nút đóng ở HÀNG DƯỚI (2026-10-16): đặt ở hàng đầu thì cột chữ còn
+           ~150px, tóm tắt "Tới Sa Huỳnh: 34 hải lý, chừng 4 giờ 55 phút." vỡ
+           3 dòng; chủ dự án đòi ≤2 dòng. */}
+      <div className="flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy, cache SW */}
         <img src="/icons/sen-bien.png" alt="" className="h-10 w-10 shrink-0" />
         <p className="min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-navy">{title}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Đóng Sen Biển"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy/10 text-[1.25rem] font-bold text-navy transition active:scale-95"
-        >
-          ×
-        </button>
       </div>
 
       {awaitingGo ? (
@@ -224,15 +229,27 @@ export function SenBienSheet({
         </div>
       )}
 
-      {sttSupported() && (
+      <div className="flex items-center gap-2">
+        {sttSupported() ? (
+          <button
+            type="button"
+            onClick={() => setTyping((v) => !v)}
+            className="min-h-[3.5rem] flex-1 text-left text-[1rem] font-bold text-navy/70"
+          >
+            {typing ? "Nói bằng giọng" : "Gõ thay vì nói"}
+          </button>
+        ) : (
+          <span className="flex-1" />
+        )}
         <button
           type="button"
-          onClick={() => setTyping((v) => !v)}
-          className="min-h-[2.75rem] w-full text-[0.9375rem] font-bold text-navy/65"
+          onClick={onClose}
+          aria-label="Đóng Sen Biển"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-navy/10 text-[1.5rem] font-bold text-navy transition active:scale-95"
         >
-          {typing ? "Nói bằng giọng" : "Gõ thay vì nói"}
+          ×
         </button>
-      )}
+      </div>
     </div>
   );
 }

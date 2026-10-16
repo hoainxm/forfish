@@ -37,6 +37,8 @@ function installSynth(voices: { lang: string; localService: boolean; name: strin
   }
   Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
   (globalThis as unknown as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = Utter;
+  // mp3 Sen Biển: không tải được trong test ⇒ đi giọng máy (đường mp3 có test riêng ở tts-voice.test)
+  vi.stubGlobal("fetch", () => Promise.reject(new TypeError("offline")));
   return { spoken, synth };
 }
 
@@ -47,6 +49,7 @@ describe("tts — nhánh trình duyệt", () => {
   });
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("không có giọng Việt: KHÔNG đọc (kể cả có giọng Anh), onEnd gọi đúng 1 lần", async () => {
@@ -62,7 +65,7 @@ describe("tts — nhánh trình duyệt", () => {
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
-  it("có giọng Việt: đọc vi-VN bằng giọng Việt cài trong máy, chậm hơn mặc định", async () => {
+  it("có giọng Việt: đọc vi-VN bằng giọng Việt cài trong máy, tốc độ tự nhiên", async () => {
     const { spoken } = installSynth([
       { lang: "en-US", localService: true, name: "Samantha" },
       { lang: "vi-VN", localService: false, name: "Google tiếng Việt" },
@@ -77,7 +80,7 @@ describe("tts — nhánh trình duyệt", () => {
     expect(u.lang).toBe("vi-VN");
     expect((u.voice as { name: string }).name).toBe("Linh");
     expect(u.rate).toBe(tts.TTS_RATE);
-    expect(tts.TTS_RATE).toBeLessThan(1);
+    expect(tts.TTS_RATE).toBeLessThanOrEqual(1);
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 

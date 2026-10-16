@@ -43,6 +43,17 @@ Một cửa `lib/voice/tts.ts` dùng **engine TTS của máy** (native ⇒ plugi
 - **Tích cực**: cảnh báo hải đồ (độ sâu, rạn, xác tàu, chướng ngại, vùng cấm) được đọc to ở cả hai mốc "sắp tới / rất gần", có nghiệm thu 25 tiêu chí trên thế giới giả + hải đồ thật; không thêm request mạng nào; không đụng `sw.js`.
 - **Đánh đổi**: khoá màn là im (nói thật trong tấm "Bắt đầu chạy"); máy không có giọng Việt chỉ còn chuông + chữ; thêm khoá `forfish.nav.voice.v1`.
 
+## Bổ sung 2026-10-16 — giọng nữ Sen Biển (cửa KHÔNG đổi)
+
+Chủ dự án chê giọng máy *"không hay, nhịp máy móc"* và muốn dùng bộ giọng nữ Sen Biển (VieNeu-TTS) đã có. Option B ở trên ("bản ghi âm sẵn") được nâng từ dự phòng thành **đường chính cho câu CỐ ĐỊNH**, vẫn bên trong `lib/voice/tts.ts`:
+
+- Câu cố định (danh mục `src/data/giong-sen-bien.json`, 63 câu) ⇒ mp3 `public/giong/sen-bien/` sinh ở bờ; câu động ⇒ engine của máy như Option C, xếp giọng nữ trước, tốc độ 1,0, tách đoạn có nghỉ 180/250 ms.
+- Luật "không có giọng Việt thì im" đọc chính xác là "**không đọc bằng giọng KHÁC**": mp3 là giọng Việt nên vẫn phát; câu động vẫn im.
+- **Vẫn không đụng `sw.js`**: mp3 là asset tĩnh cùng-origin, nhánh cache-first giữ lại; `warmVoiceClips` tải trước khi còn sóng. Đổi lại so với lo ngại ở Option B: câu động vẫn đọc được vì không bỏ engine của máy.
+- Một lượt nói một lúc (`activeCancel`): câu mới hoặc `ttsCancel` dừng hẳn cả câu nhiều đoạn.
+
+Chi tiết: [15 §17](../app-map/15-flow-dang-chay-giong-noi.md).
+
 ## References
 
 - [docs/app-map/15-flow-dang-chay-giong-noi.md](../app-map/15-flow-dang-chay-giong-noi.md) — flow + §16 bảng tiêu chí

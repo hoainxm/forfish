@@ -110,7 +110,7 @@ export function senBienReply(
     if (CONFIRM.test(f)) return { kind: "start", say: "Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo." };
   }
   // (2) lệnh khi đang chạy
-  if (ctx.running && STOP.test(f)) return { kind: "stop", say: "Dừng dẫn đường." };
+  if (ctx.running && STOP.test(f)) return { kind: "stop", say: "Đã dừng dẫn đường." };
   if (MUTE.test(f)) return { kind: "mute", say: "Im ba mươi phút. Cảnh báo nguy hiểm vẫn đọc." };
   if (UNMUTE.test(f)) return { kind: "unmute", say: "Bật tiếng lại." };
   if (REPEAT.test(f)) return { kind: "repeat" };

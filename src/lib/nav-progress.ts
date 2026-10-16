@@ -267,7 +267,17 @@ export function computeNavProgress(input: NavInput): NavProgress {
 
   const proj = projectOntoRoute(pos, waypoints);
   const totalKm = routeLengthKm(waypoints);
-  const remainingKm = Math.max(0, totalKm - proj.alongKm);
+  /*  SÀN = ĐƯỜNG CHIM BAY TỚI ĐÍCH (sửa 2026-10-16, đo được trên máy thật).
+      Tàu lệch xa tuyến (tuyến tính từ một cảng, tàu đang ở chỗ khác) thì điểm
+      chiếu gần nhất có thể là CHÍNH ĐIỂM CUỐI ⇒ "còn 0 hải lý" + "đã tới gần
+      điểm đến" trong khi tàu còn cách 26 km. Quãng còn đi theo tuyến không
+      bao giờ ngắn hơn đường thẳng tới đích (bất đẳng thức tam giác) — lấy sàn
+      đó thì đang bám tuyến không đổi gì, lệch tuyến thì hết nói dối. */
+  const remainingKm = Math.max(
+    0,
+    totalKm - proj.alongKm,
+    haversineKm(pos, waypoints[waypoints.length - 1]),
+  );
 
   // nextWp = waypoint đầu tiên có quãng-dọc-tuyến VƯỢT điểm chiếu (bỏ qua khúc
   // đã đi và khúc đang đứng ngay trên). Không tìm được → đích cuối.

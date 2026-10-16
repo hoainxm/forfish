@@ -226,10 +226,39 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     [run],
   );
 
+  /*  CÂU ĐÁP LÚC CHẾ ĐỘ TẮT (không có hàng của announcer): NỐI HÀNG, không cắt
+      nhau — "Điểm 14 độ… Đang vẽ đường." rồi mới tới tóm tắt đường. Bật chế độ
+      thì hàng này bỏ (announcer lo từ đó). */
+  const offQRef = useRef<string[]>([]);
+  const offBusyRef = useRef(false);
+  const sayOffNext = useCallback(function next() {
+    const t = offQRef.current.shift();
+    if (t == null || onRef.current) {
+      offQRef.current = [];
+      offBusyRef.current = false;
+      return;
+    }
+    offBusyRef.current = true;
+    ttsSpeak(t, { onEnd: next });
+  }, []);
+  const sayOff = useCallback(
+    (text: string) => {
+      offQRef.current.push(text);
+      if (!offBusyRef.current) sayOffNext();
+    },
+    [sayOffNext],
+  );
+
   /* ── bật / tắt chế độ ─────────────────────────────────────────────────── */
 
   useEffect(() => {
     if (!inp.on) {
+      /*  CÂU ĐÁP KHÔNG ĐƯỢC CHẾT THEO (2026-10-16): bà con nói "dừng" ⇒ Sen
+          Biển đẩy "Đã dừng dẫn đường." vào hàng RỒI mới tắt chế độ — dọn hàng
+          ở dưới là nuốt luôn lời đáp, bà con không biết máy đã nghe. Hỏi thì
+          đáp: gom câu đáp CHƯA đọc trong hàng (câu đang đọc dở thì thôi, đọc
+          lại từ đầu là lặp), đọc thẳng sau khi dọn. */
+      const replies = stRef.current.queue.filter((u) => u.reply).map((u) => u.text);
       tokRef.current++;
       ttsCancel();
       for (const t of [waitRef.current, leadRef.current]) if (t) clearTimeout(t);
@@ -243,6 +272,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
       extraRef.current = [];
       pendingRef.current = [];
       diemMsRef.current = -Infinity;
+      for (const t of replies) sayOff(t);
       fieldRef.current = { field: null, at: -Infinity };
       setSpeaking(null);
       setMuted(false);
@@ -260,7 +290,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     return () => {
       alive = false;
     };
-  }, [inp.on]);
+  }, [inp.on, sayOff]);
 
   /* ── nhịp đồng hồ 1 phút: điểm tin, pin, sóng gió, hết im ──────────────── */
 
@@ -560,13 +590,13 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     (text: string) => {
       if (!text) return;
       if (!onRef.current) {
-        ttsSpeak(text);
+        sayOff(text);
         return;
       }
       const now = Date.now();
       push([{ key: `sen:${now}`, group: `sen:${now}`, tier: "vang", text, reply: true }]);
     },
-    [push],
+    [push, sayOff],
   );
 
   const mute = useCallback(() => {

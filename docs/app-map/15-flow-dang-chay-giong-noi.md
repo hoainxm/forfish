@@ -1,6 +1,6 @@
 # 15 — Chế độ "ĐANG CHẠY": đọc & cảnh báo bằng giọng nói kiểu VietMap
 
-**Load khi / Load when**: sửa chế độ Đang chạy, giọng đọc cảnh báo, `src/lib/nav-voice/*`, `src/lib/voice/tts.ts`, HUD dẫn đường (nút Giọng); cần bảng tiêu chí nghiệm thu VM-xx.
+**Load khi / Load when**: sửa chế độ Đang chạy, giọng đọc cảnh báo, `src/lib/nav-voice/*`, `src/lib/voice/tts.ts`, HUD dẫn đường (nút Giọng), Sen Biển rảnh tay / giọng nữ (§17); cần bảng tiêu chí nghiệm thu VM-xx.
 
 > **Trạng thái: ĐÃ LÀM (2026-10-13, nhánh `feat/dang-chay-giong-noi`, CHƯA commit — chờ chủ dự án test).** Chủ dự án ra đề 2026-10-12: *"tổ chức phần dẫn đường, giọng nói, đọc, cảnh báo như một ứng dụng VietMap — đang chạy thì cảnh báo các thông tin về biển cho thuyền trưởng, chỉ cần có vị trí là đọc và cảnh báo, chạy offline với dữ liệu bản đồ"*; duyệt 2026-10-13: *"làm luôn, thêm dependency, ngưỡng nghiệp vụ ok… test đến khi đạt 100% các tiêu chí theo VietMap, chạy được offline"*; thêm giữa chừng: *"lưới độ sâu, rạn các kiểu, hải đồ là quan trọng nhất trong việc đọc lên và cảnh báo"*. Nguồn sự thật hành vi đã hiện thực: [07 §10.7 S](07-design-spec.md); quyết định: [ADR 0010](../adr/0010-giong-doc-canh-bao-mot-cua-tts-may.md); nghiệm thu: §16 dưới đây.
 >
@@ -393,4 +393,62 @@ Mỗi tiêu chí là một `it(...)` mang mã VM-xx. Nguồn: VietMap/Waze/OsmAn
 
 **Chưa kiểm được bằng máy (phải làm tay — N-14 ở ops/qa-offline-acceptance)**: giọng thật trên Android (plugin native, gói tiếng Việt Google) và iPhone (gạt nút im lặng, khoá màn); chất lượng đọc số/dấu của từng engine.
 
-**Last updated**: 2026-10-13 — đã làm, chờ chủ dự án test trước khi commit.
+---
+
+## 17. SEN BIỂN RẢNH TAY + GIỌNG NỮ (2026-10-16)
+
+Chủ dự án: *"nói xong là máy tự vẽ, tự đọc, nói đi là chạy"* · *"gọn, đừng rối, đừng che bản đồ"* · *"giọng đọc đang ko hay, ko dùng các bộ đọc nữ của t à, cái nhịp không tự nhiên, máy móc"*.
+
+### 17a. Luồng (không phải chạm vào khung dẫn đường)
+
+| Nhịp | Bà con | Máy |
+|---|---|---|
+| 0 | mở `/ngu-truong` | **tự vào Đang chạy** (prefs `tuDoc`, mặc định bật; tắt ở Cài đặt → Giọng đọc) — một lần mỗi lần mở màn; chạm đầu tiên ở đâu cũng mở khoá loa web |
+| 1 | chạm cá (HUD khi đang chạy / icon nổi khi không) → nói "dẫn về cảng Sa Huỳnh" hoặc "14 độ 34 phút bắc 109 độ 4 phút đông" | "Đi Sa Huỳnh. Đang vẽ đường." → bay tới, mở khung, **TỰ TÍNH từ vị trí tàu** |
+| 2 | — | đọc *"Tới Sa Huỳnh: 14 hải lý, chừng 2 giờ. Nói đi để bắt đầu."*; thẻ Đi · Thôi · Nói |
+| 3 | "đi" / chạm Đi | "Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo." — đang Đang chạy thì nâng thẳng lên dẫn đường, vòng canh không dừng |
+| — | "còn bao xa" · "im" · "bật tiếng" · "nhắc lại" · "dừng" | lệnh bằng LUẬT (`lib/sen-bien/hieu-y.ts`), không qua bộ hiểu ý; "dừng" đóng luôn khung dẫn đường |
+
+### 17b. Giọng — vẫn MỘT cửa `lib/voice/tts.ts` (ADR 0010, bổ sung 2026-10-16)
+
+- **Câu cố định** (63 câu: lời Sen Biển, câu khuôn bản tin mở đầu, vùng nước dưới tàu, GPS, bão chưa có tin, câu nghe thử) ⇒ **mp3 giọng nữ VieNeu-TTS "Trúc Ly"** sinh sẵn ở bờ. Danh mục `src/data/giong-sen-bien.json` (khoá tra = nguyên văn câu, không phân biệt hoa thường/dấu chấm cuối), file `public/giong/sen-bien/<id>.mp3` (24 kHz mono 48 kbps, 0,8 MB). Máy sinh: `scripts/sen-bien-giong/gen_clips.py` (4 bản/câu, nhiệt độ 0,4–0,7, chậm 10 %, cắt lặng chừa 80 ms) → `chon_clips.mjs` cho bộ nhận giọng sherpa-onnx trong máy nghe lại, chép bản ít sai chữ nhất (đo: sai chữ trung bình 3,2 %; phần còn lại là bộ nhận nghe nhầm "ghim/ghi", "Sen/Xen"). Cổng `tts-voice.test.ts`: câu trong code đổi mà quên sinh lại mp3 ⇒ đỏ.
+- **Câu động** (khoảng cách, tên đảo, giờ) ⇒ giọng máy, **xếp giọng nữ trước** (HoaiMy · Linh · Google tiếng Việt; NamMinh/An xuống sau; mất sóng thì giọng trong máy trước giọng mạng; giọng không chịu phát trong phiên bị loại, đoạn đó thử lại giọng kế). Tốc độ **1,0** (bỏ 0,95 — chậm đều cả câu là chỗ nghe máy móc nhất), **tách ở ", " ": " "; " " – " thành đoạn nghỉ 180 ms, giữa câu 250 ms**; không tách "2,5".
+- Một câu nói có thể ghép: câu có mp3 phát mp3, câu không có đọc giọng máy. mp3 không tải được (máy chưa có trong kho, mất sóng) ⇒ đọc câu đó bằng giọng máy. Máy KHÔNG có giọng Việt ⇒ câu cố định vẫn đọc bằng mp3, câu động im (luật "không giọng lạ" giữ nguyên).
+- **Một lượt nói một lúc**: câu mới / `ttsCancel` dừng HẲN bộ chạy nhiều đoạn (lỗi bắt được khi chạy thử: dừng một đoạn thì bộ chạy coi là "đoạn hỏng" rồi đọc tiếp ⇒ hai câu chồng nhau).
+- Hook: lúc tắt chế độ, câu ĐÁP chưa đọc trong hàng vẫn được đọc (trước: "dừng" là nuốt luôn "Đã dừng dẫn đường."); chế độ tắt thì câu đáp nối hàng, không cắt nhau.
+
+### 17c. Ma trận trạng thái (bổ sung §8)
+
+| Ca | Máy làm |
+|---|---|
+| Có fix GPS ≤10 phút | xuất phát từ đó ngay (không hỏi GPS lần nữa — có `watchPosition` thì `getCurrentPosition` dễ chờ đủ 12 s) |
+| Chưa có fix | hỏi GPS (12 s); hỏng ⇒ xuất phát mặc định (cảng nhà / cảng gần), thẻ chọn lại cho khớp |
+| Tính hỏng (thiếu dự báo, quá gần, bão chắn…) | thẻ hiện đúng câu lỗi của khung + đọc "Chưa vẽ được đường. …" |
+| Khung đang có danh sách điểm ghé | KHÔNG tự tính (sẽ đọc sai đích), nói "Khung dẫn đường đang có danh sách điểm ghé. Bà con xoá danh sách, hoặc chạm Tính lộ trình." — không tự xoá công bà con |
+| Đang dẫn tuyến cũ, nói chỗ mới | hạ về Đang chạy (vòng canh không dừng), tính tuyến mới, "đi" là nâng lên lại |
+| Đóng khung giữa chừng / mount lại | tín hiệu tự tính về 0 — mở khung lần sau KHÔNG tự tính |
+| Mở thẻ (mic tự nghe) rồi GÕ | mic dừng, lỗi mic không đè câu đáp |
+| Tuyến tính từ chỗ khác, tàu lệch xa | "còn bao xa" / HUD lấy sàn = chim bay tới đích, không báo "đã tới · còn 0" |
+
+### 17d. Offline — 4 câu (CLAUDE.md)
+
+| Câu hỏi | Trả lời |
+|---|---|
+| (a) Request mạng mới lúc mở app / chuyển màn? | Có MỘT: `warmVoiceClips` tải 63 mp3 (0,8 MB) **8 giây sau khi mở bản đồ, sau bộ hiểu ý**, chỉ khi `navigator.onLine`, tuần tự, mỗi file `timeoutSignal(8000)`, dừng ở lỗi đầu, không ném. Lần sau đọc từ kho SW (cache-first) nên không ra mạng. Phát clip: `fetch` qua SW, trần 4 s rồi đọc giọng máy. |
+| (b) Đụng `sw.js` / `SHELL` / khoá `forfish.*`? | **Không.** mp3 là asset tĩnh cùng-origin ⇒ nhánh cache-first sẵn có của SW giữ lại (kho vỏ, không trần, không bị đuổi). Không khoá mới. |
+| (c) Mất/đè dữ liệu bà con? | Không — chỉ đọc. |
+| (d) Nhánh mất sóng? | mp3 đã ở kho SW ⇒ đọc như có sóng; chưa kịp tải ⇒ giọng máy (giọng trong máy xếp trước giọng mạng khi mất sóng). Tự vẽ đường dùng lưới đã lưu như nút "Tính lộ trình". |
+
+### 17e. Assumptions (tự chốt theo mặc định an toàn — không hỏi lặt vặt)
+
+- Bà con nói chỗ muốn tới ⇒ đi **từ chỗ tàu đang đứng**, không từ cảng mặc định.
+- MỘT giọng nữ (Trúc Ly) cho mọi vùng — nhánh `feat/san-thuong-mai` có thêm giọng Nam (Mỹ Duyên) chọn theo tỉnh cảng nhà; chưa gộp nhánh đó nên chưa có luật chọn vùng. Nâng khi gộp trợ lý.
+- "dừng" bằng giọng = xong việc ⇒ đóng khung dẫn đường (tuyến thôi vẽ); muốn xem lại thì mở Dẫn đường.
+- Câu "Dừng dẫn đường." đổi thành "Đã dừng dẫn đường." (câu xác nhận; một lần sinh giọng hay nuốt chữ "Dừng" đầu câu).
+- Thẻ đặt ở góc trái dưới cả khi khung dẫn đường đang mở — che phần đầu khung, nhưng khối cảnh báo nguy hiểm ở đáy khung vẫn thấy; KHÔNG ẩn khung vì cảnh báo trên tuyến phải đọc được trước khi "đi".
+
+### 17f. Đã kiểm (2026-10-16, gpu-desktop)
+
+`npm test` 4362 xanh · `tsc` sạch · eslint các file đụng 0 lỗi · Playwright Chromium headless 375×812, GPS giả 14.6, 109.3, server `next start` ở demo mode, Open-Meteo GIẢ (IP máy đang bị 429), speechSynthesis GIẢ có 2 giọng vi-VN (headless không có giọng): mở bản đồ tự Đang chạy · chạm cá thẻ gọn không đè rail · "dẫn về cảng Sa Huỳnh" ⇒ tự vẽ từ vị trí tàu (14 hải lý, 2 giờ), đọc tóm tắt, nút Đi · "đi" ⇒ dẫn đường · "còn bao xa" ⇒ "Còn 14 hải lý" · "im" · "nhắc lại" · "dừng" (một câu mp3, khung đóng) · toạ độ bằng lời ⇒ tự vẽ · kho SW giữ đủ 63 mp3. Ảnh + báo cáo: `~/sen-bien-shots/` (máy gpu-desktop). **Chưa kiểm được**: tiếng thật ra loa (headless câm), STT mic thật, giọng native Android/iOS (chọn giọng qua `getSupportedVoices`), thẻ `<audio>` trên iOS khi gạt nút im lặng, đăng nhập tài khoản thật (máy không có khoá service-role).
+
+**Last updated**: 2026-10-16 — Sen Biển rảnh tay + giọng nữ (§17). Trước đó 2026-10-13 — đã làm, chờ chủ dự án test trước khi commit.

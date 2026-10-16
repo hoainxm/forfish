@@ -695,10 +695,22 @@ export function RouteMode({
   pickedPointIdx = null,
   onPickPoint,
   autoCompute = 0,
+  onAutoFail,
+  boatPos = null,
+  boatFixAt = null,
 }: {
-  /*  SEN BIỂN (2026-10-16): số tăng ⇒ tự bấm "Tính đường" một lần (bà con vừa
-      nói tên chỗ). 0 = không tự tính. */
+  /*  SEN BIỂN (2026-10-16): số tăng ⇒ tự bấm "Tính đường" một lần, đi TỪ VỊ
+      TRÍ TÀU (bà con vừa nói tên chỗ). 0 = không tự tính. */
   autoCompute?: number;
+  /** lượt tự tính hỏng — câu lỗi đúng như thẻ hiện, để Sen Biển đọc */
+  onAutoFail?: (msg: string) => void;
+  /*  Vị trí tàu màn bản đồ ĐANG theo dõi (chế độ Đang chạy) — lượt tự tính
+      dùng luôn, khỏi hỏi GPS lần nữa: đang có `watchPosition` thì
+      `getCurrentPosition` dễ chờ đủ 12 s rồi hết giờ (đo 2026-10-16), mà bà
+      con vừa nói xong là chờ nghe tóm tắt. null = chưa có ⇒ hỏi GPS như cũ. */
+  boatPos?: LatLon | null;
+  /** mốc fix của `boatPos` (ms) — quá 10 phút thì coi như chưa có, hỏi GPS lại */
+  boatFixAt?: number | null;
   dest: LatLon;
   /** Hạng độ sâu tại `dest` (lưới tĩnh depth-grid, màn bản đồ đã tải sẵn cho
       việc khác — KHÔNG thêm request nào). null = ngoài lưới / chưa biết ⇒ im. */
@@ -976,43 +988,79 @@ export function RouteMode({
     (Math.abs(staleRoute.dest.lat - finalDest.lat) > 1e-6 ||
       Math.abs(staleRoute.dest.lon - finalDest.lon) > 1e-6);
 
-  /*  Tự tính khi Sen Biển gửi tín hiệu. Chờ một nhịp để `dest` mới (cha vừa
-      setPoint) đã vào props — tính trên điểm CŨ là vẽ sai đường. */
-  // bắt đầu từ 0: khung vừa MỞ do chính Sen Biển (tín hiệu đã >0) cũng phải tính
+  /*  TỰ TÍNH KHI SEN BIỂN GỬI TÍN HIỆU (sửa 2026-10-16 — trước đó không bao
+      giờ chạy: màn cha quên truyền prop, VÀ nơi xuất phát mặc định là "cảng gần
+      điểm đến nhất" — bà con nói "về cảng Sa Huỳnh" thì đó CHÍNH là Sa Huỳnh ⇒
+      "quá gần nơi xuất phát", tuyến không ra mà Sen Biển im).
+      Bà con nói chỗ muốn tới tức là đi TỪ CHỖ TÀU ĐANG ĐỨNG ⇒ xuất phát = định
+      vị; máy không lấy được định vị thì lùi về nơi xuất phát mặc định (cảng
+      nhà / cảng gần), và câu lỗi (nếu có) đi ra `onAutoFail` để Sen Biển NÓI.
+      Effect chạy SAU lượt vẽ có `dest` mới (cha đặt điểm + tín hiệu cùng một
+      nhịp) nên `compute` đọc đúng điểm đến mới. Bắt đầu từ 0: khung vừa MỞ do
+      chính Sen Biển (tín hiệu đã >0) cũng phải tính. */
   const autoSeen = useRef(0);
+  const autoPending = useRef(false);
   useEffect(() => {
     if (autoCompute === autoSeen.current) return;
     autoSeen.current = autoCompute;
-    if (autoCompute > 0) void compute();
+    if (autoCompute <= 0) return;
+    autoPending.current = true;
+    setStartId("gps");
+    void compute({ startId: "gps", gpsFallback: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo tín hiệu
-  }, [autoCompute, dest.lat, dest.lon]);
+  }, [autoCompute]);
+  // lượt tự tính hỏng ⇒ trả câu lỗi cho Sen Biển đọc (không thì nó im mãi)
+  useEffect(() => {
+    if (!autoPending.current || busy) return;
+    if (error) {
+      autoPending.current = false;
+      onAutoFail?.(error);
+    } else if (result) {
+      autoPending.current = false;
+    }
+  }, [busy, error, result, onAutoFail]);
 
-  async function compute() {
+  async function compute(
+    opts: { startId?: string; gpsFallback?: boolean } = {},
+  ) {
     if (busy) return;
     setBusy(true);
     setError(null);
     // hậu kiểm cũ thuộc về tuyến cũ — bỏ NGAY, đừng để nó sống qua lượt tính mới
     setAudit(null);
     try {
-      let start: LatLon;
-      let startLabel: string;
-      if (effectiveStartId === "cursor") {
-        start = { lat: dest.lat, lon: dest.lon };
-        startLabel = "Điểm đang xem";
-      } else if (effectiveStartId === "gps") {
+      let start: LatLon | null = null;
+      let startLabel = "";
+      let sid = opts.startId ?? effectiveStartId;
+      // fix gần nhất chưa quá 10 phút (tàu 8 hải lý/giờ đi chưa tới 1,5 hải lý)
+      const boatFresh =
+        boatPos != null && boatFixAt != null && Date.now() - boatFixAt < 10 * 60_000;
+      if (sid === "gps" && opts.gpsFallback && boatFresh && boatPos) {
+        start = { lat: boatPos.lat, lon: boatPos.lon };
+        startLabel = "Vị trí tàu hiện tại";
+      } else if (sid === "gps") {
         try {
           start = await myPosition();
+          startLabel = "Vị trí tàu hiện tại";
         } catch {
-          setError(
-            "Ứng dụng chưa lấy được vị trí tàu — bà con bật định vị giúp, hoặc chọn đi từ một cảng nhé.",
-          );
-          return;
+          if (!opts.gpsFallback) {
+            setError(
+              "Ứng dụng chưa lấy được vị trí tàu — bà con bật định vị giúp, hoặc chọn đi từ một cảng nhé.",
+            );
+            return;
+          }
+          // Sen Biển: không có định vị thì đi từ nơi mặc định, chọn lại cho khớp thẻ
+          sid = defaultStartId;
+          setStartId(defaultStartId);
         }
-        startLabel = "Vị trí tàu hiện tại";
-      } else if (effectiveStartId.startsWith("place:")) {
-        const pl = places.find(
-          (p) => `place:${p.id}` === effectiveStartId,
-        );
+      }
+      if (start) {
+        // đã có định vị
+      } else if (sid === "cursor") {
+        start = { lat: dest.lat, lon: dest.lon };
+        startLabel = "Điểm đang xem";
+      } else if (sid.startsWith("place:")) {
+        const pl = places.find((p) => `place:${p.id}` === sid);
         if (pl) {
           start = { lat: pl.lat, lon: pl.lon };
           startLabel = pl.kind === "home" ? `Cảng nhà ${pl.name}` : pl.name;
@@ -1021,7 +1069,7 @@ export function RouteMode({
           startLabel = `Cảng ${nearestPort.name}`;
         }
       } else {
-        const portId = effectiveStartId.replace(/^port:/, "");
+        const portId = sid.replace(/^port:/, "");
         const port = PORTS.find((p) => p.id === portId) ?? nearestPort;
         start = { lat: port.lat, lon: port.lon };
         startLabel = `Cảng ${port.name}`;
@@ -1789,7 +1837,7 @@ export function RouteMode({
           ) : (
             <button
               type="button"
-              onClick={compute}
+              onClick={() => void compute()}
               disabled={busy}
               className={`${SQ_BTN} bg-t1 text-white disabled:opacity-60`}
             >
@@ -2590,7 +2638,7 @@ export function RouteMode({
                  nút cho nhanh, không phải để đẩy nút xuống chỗ không ai thấy. */}
             <button
               type="button"
-              onClick={compute}
+              onClick={() => void compute()}
               disabled={busy}
               className={`${SQ_BTN} bg-background text-navy disabled:opacity-60`}
             >

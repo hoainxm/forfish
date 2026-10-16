@@ -141,6 +141,23 @@ describe("computeNavProgress — bám tuyến", () => {
     expect(p.arrived).toBe(true);
   });
 
+  it("lệch xa tuyến mà điểm chiếu rơi vào ĐIỂM CUỐI: KHÔNG được báo 'đã tới, còn 0'", () => {
+    // tàu ở phía đông xa hơn đích 26 km, tuyến A→B: chiếu gần nhất = B (t=1)
+    const pos = { lat: 10.2, lon: 109.2 };
+    const p = computeNavProgress({ ...base, pos, waypoints: STRAIGHT });
+    expect(p.remainingKm).toBeCloseTo(haversineKm(pos, B), 3);
+    expect(p.remainingKm).toBeGreaterThan(20);
+    expect(p.arrived).toBe(false);
+    expect(p.offRoute).toBe(true);
+  });
+
+  it("bám tuyến: quãng còn lại vẫn là quãng THEO TUYẾN (dài hơn chim bay qua khúc rẽ)", () => {
+    const V = [A, { lat: 10.3, lon: 108.5 }, B];
+    const p = computeNavProgress({ ...base, pos: A, waypoints: V });
+    expect(p.remainingKm).toBeCloseTo(routeLengthKm(V), 3);
+    expect(p.remainingKm).toBeGreaterThan(haversineKm(A, B));
+  });
+
   it("lệch tuyến quá ngưỡng → offRoute=true; sát tuyến → false", () => {
     const far = computeNavProgress({
       ...base, pos: { lat: 10.05, lon: 108.5 }, waypoints: STRAIGHT,
