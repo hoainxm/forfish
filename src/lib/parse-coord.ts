@@ -92,3 +92,66 @@ export function parseCoordPair(
   if (lat == null || lon == null) return null;
   return { lat, lon };
 }
+
+/*
+  TOẠ ĐỘ NÓI BẰNG GIỌNG (Sen Biển, 2026-10-16 — "thiếu cái nhập toạ độ bằng giọng
+  nói"). Máy nghe trả chữ kiểu: "vĩ độ 14 độ 34 phút bắc kinh độ 109 độ 4 phút
+  đông" · "14 34 109 04" · "14 phẩy 58, 109 phẩy 45". Tách thành hai trục rồi
+  đọc từng trục bằng `parseOneCoord` (một luật đọc số cho cả gõ lẫn nói).
+  Chỉ nhận trong khung biển Việt Nam và lân cận (vĩ -5…30, kinh 95…125): nghe
+  nhầm một chữ số là ra chỗ cách hàng trăm hải lý — thà hỏi lại.
+*/
+const SPOKEN_BOX = { latMin: -5, latMax: 30, lonMin: 95, lonMax: 125 };
+
+function foldSpoken(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d");
+}
+
+export function parseSpokenCoordPair(text: string): { lat: number; lon: number } | null {
+  if (typeof text !== "string") return null;
+  let s = ` ${foldSpoken(text)} `
+    // "14 phẩy 58" / "14 chấm 58" → 14.58 ; "14,58" → 14.58
+    .replace(/(\d+)\s*(?:phay|cham)\s*(\d+)/g, "$1.$2")
+    .replace(/(\d+),(\d+)/g, "$1.$2");
+  // nhãn trục: tách theo "kinh do" nếu có
+  s = s.replace(/\b(toa do|vi do|vi tuyen)\b/g, " ");
+  let latPart: string;
+  let lonPart: string;
+  const kinh = s.search(/\bkinh( do| tuyen)?\b/);
+  const bacNam = s.search(/\b(bac|nam)\b/);
+  if (kinh >= 0) {
+    latPart = s.slice(0, kinh);
+    lonPart = s.slice(kinh).replace(/\bkinh( do| tuyen)?\b/, " ");
+  } else if (bacNam >= 0) {
+    const m = s.slice(bacNam).match(/^(bac|nam)/)![0];
+    latPart = s.slice(0, bacNam + m.length);
+    lonPart = s.slice(bacNam + m.length);
+  } else {
+    // không nhãn: chia đôi dãy số (2 · 4 · 6 số)
+    const nums = s.match(/\d+(?:\.\d+)?/g) ?? [];
+    if (nums.length !== 2 && nums.length !== 4 && nums.length !== 6) return null;
+    const h = nums.length / 2;
+    latPart = nums.slice(0, h).join(" ");
+    lonPart = nums.slice(h).join(" ");
+  }
+  const clean = (p: string) =>
+    p
+      .replace(/\b(do|phut|giay|va|la)\b/g, " ")
+      .replace(/\bbac\b/g, " B ")
+      .replace(/\bnam\b/g, " NAM ")
+      .replace(/\bdong\b/g, " D ")
+      .replace(/\btay\b/g, " T ")
+      .replace(/[^0-9a-zA-Z. ]+/g, " ")
+      .replace(/\b[a-z]+\b/g, " ") // chữ thừa khác ("o", "tai"…) bỏ, chỉ giữ chữ hướng viết hoa
+      .trim();
+  const lat = parseOneCoord(clean(latPart), "lat");
+  const lon = parseOneCoord(clean(lonPart), "lon");
+  if (lat == null || lon == null) return null;
+  if (lat < SPOKEN_BOX.latMin || lat > SPOKEN_BOX.latMax) return null;
+  if (lon < SPOKEN_BOX.lonMin || lon > SPOKEN_BOX.lonMax) return null;
+  return { lat, lon };
+}

@@ -37,6 +37,12 @@ export type VoiceEvent = {
   persist?: boolean;
   /** thứ tự trong cùng mức, nhỏ = trước */
   rank?: number;
+  /**
+   * TRẢ LỜI Sen Biển (bà con vừa hỏi/ra lệnh bằng giọng) — một giọng chung với
+   * cảnh báo (2026-10-16): đứng ngay SAU câu đỏ, không chờ nhịp 8 giây, không
+   * chuông, chế độ nào cũng đọc (người ta đang hỏi). Đỏ tới vẫn cắt ngang.
+   */
+  reply?: boolean;
 };
 
 export type Utterance = VoiceEvent & { queuedMs: number; repeat: number };
@@ -87,7 +93,8 @@ export function initAnnouncer(): AnnouncerState {
 }
 
 /** Độ ưu tiên: nhỏ = trước. Hải đồ đứng trên cùng mức của nó. */
-export function priority(u: Pick<VoiceEvent, "tier" | "chart">): number {
+export function priority(u: Pick<VoiceEvent, "tier" | "chart" | "reply">): number {
+  if (u.reply && u.tier !== "do") return 1.5;
   switch (u.tier) {
     case "do":
       return u.chart ? 0 : 1;
@@ -111,6 +118,7 @@ function sortQueue(q: Utterance[]): Utterance[] {
 
 /** Chế độ có cho câu này ra loa không. */
 export function allowed(ev: VoiceEvent, mode: VoiceMode, muted: boolean): boolean {
+  if (ev.reply) return true;
   if (mode === "tat") return false;
   // CẢNH BÁO hải đồ (đỏ/vàng): không chế độ nào ngoài "tắt" chặn. Câu TIN hải
   // đồ (phao, đèn, vùng nước sâu) thì theo mức nói như mọi câu tin.
@@ -152,6 +160,7 @@ export function announce(
   });
 
   let enqueuedRed = false;
+  let enqueuedReply = false;
   for (const ev of events) {
     if (!ev || !ev.key || !ev.text) continue;
     const busy = (g: string) =>
@@ -178,6 +187,7 @@ export function announce(
     if (!allowed(ev, mode, muted)) continue;
     s.queue.push({ ...ev, queuedMs: nowMs, repeat: 0 });
     if (ev.tier === "do") enqueuedRed = true;
+    if (ev.reply) enqueuedReply = true;
   }
 
   s.queue = sortQueue(s.queue);
@@ -205,6 +215,17 @@ export function announce(
     s.queue.shift();
     return { state: started(s, head, nowMs), start: head, interrupt: true, waitMs: null };
   }
+  // trả lời Sen Biển cắt câu TIN / bản tin đang đọc (bà con đang chờ nghe đáp),
+  // KHÔNG cắt cảnh báo đỏ/vàng
+  if (
+    enqueuedReply &&
+    s.current &&
+    head?.reply &&
+    (s.current.tier === "tin" || s.current.tier === "bantin")
+  ) {
+    s.queue.shift();
+    return { state: started(s, head, nowMs), start: head, interrupt: true, waitMs: null };
+  }
   return pump(s, nowMs);
 }
 
@@ -223,7 +244,7 @@ export function pump(prev: AnnouncerState, nowMs: number): AnnounceResult {
   }
   const head = s.queue[0];
   const since = nowMs - s.lastEndMs;
-  if (head.tier !== "do" && since < VOICE_GAP_MS) {
+  if (head.tier !== "do" && !head.reply && since < VOICE_GAP_MS) {
     return { state: s, start: null, interrupt: false, waitMs: VOICE_GAP_MS - since };
   }
   s.queue.shift();

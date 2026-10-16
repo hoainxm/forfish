@@ -479,3 +479,37 @@ describe("opening — bản tin mở đầu + điểm tin", () => {
     expect(parseVoicePrefs('{"muc":"to-lon"}').muc).toBe("day-du");
   });
 });
+
+describe("trả lời Sen Biển — một giọng chung với cảnh báo (2026-10-16)", () => {
+  const rep = (text: string, at = 0) => ({ key: `sen:${at}`, group: "sen", tier: "vang" as const, text, reply: true });
+  it("đọc ngay, không chờ nhịp 8 giây, kể cả chế độ tắt", () => {
+    let st = initAnnouncer();
+    st = finished(st, 1000).state; // vừa đọc xong 1 câu
+    const r = announce(st, [rep("Tới Sa Huỳnh 32 hải lý")], 2000, "tat");
+    expect(r.start?.text).toBe("Tới Sa Huỳnh 32 hải lý");
+  });
+  it("đứng SAU câu đỏ, TRƯỚC câu vàng", () => {
+    const st = initAnnouncer();
+    const r = announce(
+      st,
+      [
+        { key: "v", group: "v", tier: "vang", text: "vàng" },
+        rep("đáp"),
+        { key: "d", group: "d", tier: "do", text: "đỏ" },
+      ],
+      0,
+      "day-du",
+    );
+    expect(r.start?.text).toBe("đỏ");
+    // hàng chờ trần 2 câu (gồm câu đang đọc): câu vàng nhường chỗ cho câu trả lời
+    expect(r.state.queue.map((u) => u.text)[0]).toBe("đáp");
+  });
+  it("cắt câu tin đang đọc, không cắt cảnh báo đỏ", () => {
+    const a = announce(initAnnouncer(), [{ key: "t", group: "t", tier: "tin", text: "phao" }], 0, "day-du");
+    expect(announce(a.state, [rep("đáp", 1)], 100, "day-du").interrupt).toBe(true);
+    const b = announce(initAnnouncer(), [{ key: "d", group: "d", tier: "do", text: "rạn" }], 0, "day-du");
+    const r = announce(b.state, [rep("đáp", 2)], 100, "day-du");
+    expect(r.interrupt).toBe(false);
+    expect(r.start).toBeNull();
+  });
+});
