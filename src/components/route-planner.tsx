@@ -83,7 +83,7 @@ import {
   clearStops,
   type RouteStop,
 } from "@/lib/route-stops";
-import { fetchWeatherField } from "@/lib/route-weather";
+import { fetchWeatherField, isWeatherRateLimit } from "@/lib/route-weather";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { readUserRecord } from "@/lib/user-list-store";
 import { saveUserJson } from "@/lib/user-store";
@@ -198,6 +198,14 @@ function myPosition(): Promise<LatLon> {
     );
   });
 }
+
+/*  OPEN-METEO TỪ CHỐI (HTTP 429 — vượt lượt gọi trong giờ, tính theo IP; 2026-10-16).
+    Nói đúng nguyên nhân: máy chủ dự báo bận, KHÔNG phải mất sóng, KHÔNG phải
+    vùng biển thiếu dữ liệu, và KHÔNG bảo bà con "kiểm tra lại điểm" — điểm
+    không sai gì. Việc đúng duy nhất là đợi rồi tính lại. */
+const QUA_TAI_MSG =
+  "Máy chủ dự báo thời tiết đang quá tải (quá nhiều lượt hỏi trong giờ này) nên chưa lấy được gió sóng mới cho tuyến.";
+const THU_LAI_MSG = "Bà con đợi khoảng 1 tiếng rồi bấm Tính lại nhé.";
 
 /** Tuyến + điểm xuất phát vẽ lên bản đồ — đặt BÊN TRONG <MapGL> */
 /** id lớp bắt chạm của tuyến — khai vào `interactiveLayerIds` của <MapGL> */
@@ -794,6 +802,10 @@ export function RouteMode({
   const [offlineSavedAt, setOfflineSavedAt] = useState<number | null | undefined>(
     undefined,
   );
+  /*  Lưới đã lưu được dùng vì Open-Meteo TỪ CHỐI (429 vượt lượt), không phải vì
+      mất sóng — băng cảnh báo phải nói đúng lý do (2026-10-16). Chỉ đọc khi
+      `offlineSavedAt !== undefined`. */
+  const [offlineRateLimited, setOfflineRateLimited] = useState(false);
   /*  Câu cảnh báo "tuyến này CHƯA đối chiếu bão" — chốt lại tại LÚC TÍNH, không
       đọc trạng thái live khi vẽ: tin bão về giữa chừng thì câu chữ dưới tuyến
       đổi trong khi tuyến trên bản đồ vẫn là tuyến tính lúc chưa có tin. Bà con
@@ -1103,6 +1115,11 @@ export function RouteMode({
       let failedLeg = 0;
       // chẩn đoán của lượt tìm hỏng GẦN NHẤT (khung rộng nhất đã thử)
       let failure: RoutePlanFailure = "no-route";
+      /*  Có lượt nào phải tính trên lưới đã lưu VÌ Open-Meteo từ chối (429)
+          không. Lưới đó thô (~2°) và hay thủng gần bờ ⇒ tìm hỏng với nhãn
+          `weather-coverage`; câu "vùng này thiếu dữ liệu" khi đó là sai — vùng
+          không thiếu gì, chỉ là máy chủ dự báo đang từ chối. */
+      let biTuChoi = false;
       /*  TRẦN CHỜ KHO 5 GIÂY (sửa 2026-09-04, review đợt 4 N4). Chín `fetchX`
           chạy song song và mỗi cái có `timeoutSignal(20000)` riêng, nhưng
           `Promise.all` chờ CÁI CHẬM NHẤT, và lượt `await` này đứng TRƯỚC vòng
@@ -1162,6 +1179,7 @@ export function RouteMode({
             : fetchWeatherField(bbox),
           depthPromise,
         ]);
+        if (field.rateLimited) biTuChoi = true;
         /*  Lọc hiểm hoạ theo ĐÚNG khung đang tính rồi đóng gói phẳng: tuyến Vũng
             Tàu → Côn Đảo không việc gì phải mang giàn khoan vịnh Bắc Bộ sang
             worker. Gói là ba `Float64Array` + mảng id (structured-clone được;
@@ -1233,9 +1251,11 @@ export function RouteMode({
             : "";
         const kiemLai = `Bà con kiểm tra lại nơi xuất phát (${fromName} · ${fmt(fromPt)}) và ${toName} (${fmt(toPt)}) trên hải đồ.`;
         setError(
-          failure === "weather-coverage"
-            ? `Chưa tìm được đường${where}. Vùng này đang thiếu dữ liệu dự báo. ${kiemLai} Bà con thử tải lại dự báo khi có sóng nhé.`
-            : `Chưa tìm được đường${where}. ${kiemLai}`,
+          failure === "weather-coverage" && biTuChoi
+            ? `Chưa tìm được đường${where}. ${QUA_TAI_MSG} Bản dự báo lưu sẵn trong máy không đủ chi tiết cho vùng này. ${THU_LAI_MSG}`
+            : failure === "weather-coverage"
+              ? `Chưa tìm được đường${where}. Vùng này đang thiếu dữ liệu dự báo. ${kiemLai} Bà con thử tải lại dự báo khi có sóng nhé.`
+              : `Chưa tìm được đường${where}. ${kiemLai}`,
         );
         setResult(null);
         onRoute(null);
@@ -1267,6 +1287,7 @@ export function RouteMode({
       setOfflineSavedAt(
         chosenField?.source === "grid" ? chosenField.savedAt ?? null : undefined,
       );
+      setOfflineRateLimited(chosenField?.rateLimited === true);
 
       /*  ── HẬU KIỂM TRÊN TUYẾN THẬT SỰ TRẢ VỀ (Đợt 2, 2026-09-04) ──────────
           Đặt ở ĐÂY, sau `mergeLegPlans` và sau cả nhánh trần-đường-vòng: cái
@@ -1355,10 +1376,12 @@ export function RouteMode({
       onRoute(r);
       // tính xong thì thẻ về dạng đọc kết quả gọn, không để biểu mẫu đè lên
       setEditing(false);
-    } catch {
+    } catch (e) {
       setError(
-        "Tuyến này chưa có dự báo và máy cũng chưa lưu dữ liệu. " +
-          "Bà con mở màn hình Ra khơi lúc có sóng để máy tự tải sẵn thông tin gió sóng, rồi thử lại nhé.",
+        isWeatherRateLimit(e)
+          ? `${QUA_TAI_MSG} ${THU_LAI_MSG}`
+          : "Tuyến này chưa có dự báo và máy cũng chưa lưu dữ liệu. " +
+              "Bà con mở màn hình Ra khơi lúc có sóng để máy tự tải sẵn thông tin gió sóng, rồi thử lại nhé.",
       );
     } finally {
       setBusy(false);
@@ -2671,7 +2694,11 @@ export function RouteMode({
             if (stormWarn) items.push(stormWarn);
             if (offlineSavedAt !== undefined)
               items.push(
-                `Đang mất sóng — tuyến tính từ lưới gió sóng ĐÃ LƯU trong máy${
+                `${
+                  offlineRateLimited
+                    ? "Máy chủ dự báo đang quá tải"
+                    : "Đang mất sóng"
+                } — tuyến tính từ lưới gió sóng ĐÃ LƯU trong máy${
                   offlineSavedAt != null ? ` (${savedAgoLabel(offlineSavedAt)})` : ""
                 }; lưới này thô hơn và CHƯA tính dòng chảy.`,
               );

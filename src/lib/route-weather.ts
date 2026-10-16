@@ -146,6 +146,24 @@ export function weatherFieldCacheKey(bbox: BBox, now: Date): string {
   );
 }
 
+/**
+ * Open-Meteo trả HTTP 429 — vượt lượt gọi trong giờ (gói miễn phí tính theo IP;
+ * mạng dùng chung / CGNAT nhà mạng là cả nhóm máy chung một suất). KHÁC mất
+ * sóng: máy vẫn có mạng, chỉ là máy chủ dự báo không trả lời — đợi rồi thử lại
+ * là được. Tách riêng để UI nói đúng nguyên nhân (2026-10-16: trước đây rơi vào
+ * nhánh lưới đã lưu rồi báo "Vùng này đang thiếu dữ liệu dự báo" — sai).
+ */
+export class WeatherRateLimitError extends Error {
+  constructor() {
+    super("Máy chủ dự báo đang quá tải (HTTP 429)");
+    this.name = "WeatherRateLimitError";
+  }
+}
+
+export function isWeatherRateLimit(e: unknown): boolean {
+  return e instanceof WeatherRateLimitError;
+}
+
 /** Lưới thời tiết 72 giờ phủ bbox — cache 45 phút, `now` truyền được để test */
 export function fetchWeatherField(
   bbox: BBox,
@@ -180,7 +198,9 @@ export function fetchWeatherField(
     // xài lại thứ đã có trong máy. Thô hơn + không dòng chảy, source='grid' để
     // UI nói thật. Không có lưới nào trong máy → ném lại như cũ (UI báo thiếu).
     const fb = offlineFieldFromGrid(now);
-    if (fb) return fb;
+    // bị Open-Meteo từ chối (429) mà vẫn có lưới lưu: dùng lưới đó nhưng GHI
+    // lý do, để UI không nói "mất sóng" khi máy vẫn có sóng
+    if (fb) return isWeatherRateLimit(e) ? { ...fb, rateLimited: true } : fb;
     throw e;
   });
   fieldCache.set(key, { at: now.getTime(), field });
@@ -333,6 +353,9 @@ async function fetchWeatherFieldFresh(bbox: BBox): Promise<WeatherField> {
       { signal: timeoutSignal(15000) },
     ),
   ]);
+  if (windRes.status === 429 || waveRes.status === 429) {
+    throw new WeatherRateLimitError();
+  }
   if (!windRes.ok || !waveRes.ok) {
     throw new Error("Không lấy được dự báo cho tuyến");
   }
