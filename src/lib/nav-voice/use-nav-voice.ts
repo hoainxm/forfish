@@ -106,10 +106,18 @@ export type NavVoice = {
   openInstall: () => void;
   prefs: NavVoicePrefs;
   markIntroSeen: () => void;
+  /** SEN BIỂN nói — CÙNG hàng đợi với cảnh báo (đỏ vẫn đi trước, cắt ngang);
+      chưa bật chế độ chạy thì đọc thẳng */
+  say: (text: string) => void;
+  /** "im" bằng giọng = nấc "im 30 phút" của nút Giọng */
+  mute: () => void;
+  unmuteVoice: () => void;
+  /** "nhắc lại" — đọc lại câu cảnh báo/tin gần nhất */
+  repeatLast: () => void;
 };
 
 export function useNavVoice(inp: NavVoiceInput): NavVoice {
-  const [prefs, setPrefs] = useState<NavVoicePrefs>({ muc: "day-du", daXem: true });
+  const [prefs, setPrefs] = useState<NavVoicePrefs>({ muc: "day-du", daXem: true, tuDoc: false });
   const [muted, setMuted] = useState(false);
   const [avail, setAvail] = useState<TtsAvail | null>(null);
   const [speaking, setSpeaking] = useState<{ text: string; red: boolean } | null>(null);
@@ -129,6 +137,12 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
   const pendingRef = useRef<VoiceEvent[]>([]);
   const diemMsRef = useRef(-Infinity);
   const hiddenSinceRef = useRef<number | null>(null);
+  /** câu cảnh báo/tin gần nhất đã ĐỌC (không tính câu trả lời) — cho "nhắc lại" */
+  const lastTextRef = useRef<string | null>(null);
+  const onRef = useRef(inp.on);
+  useEffect(() => {
+    onRef.current = inp.on;
+  }, [inp.on]);
   const fieldRef = useRef<{ field: WeatherField | null; at: number }>({ field: null, at: -Infinity });
   const [sea, setSea] = useState<SeaObservation | null>(null);
   const [stormObs, setStormObs] = useState<StormObservation | null>(null);
@@ -172,9 +186,10 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
         setSpeaking(null);
         runRef.current(finished(stRef.current, Date.now()));
       };
-      const canSpeak = !!availRef.current?.ok && modeRef.current !== "tat" && !isHidden();
+      const modeOk = modeRef.current !== "tat" || !!u.reply; // hỏi thì đáp, cả khi tắt giọng
+      const canSpeak = !!availRef.current?.ok && modeOk && !isHidden();
       if (!canSpeak) {
-        if (availRef.current?.ok && modeRef.current !== "tat" && isHidden()) {
+        if (availRef.current?.ok && modeOk && isHidden()) {
           // MÀN ĐANG TẮT: trả câu về đầu hàng, mở màn lại thì đọc (đỏ đã lỡ có
           // câu nhắc riêng — xem onVis). Không đánh dấu "đã đọc" một câu chưa ai nghe.
           stRef.current = { ...stRef.current, current: null, queue: [u, ...stRef.current.queue] };
@@ -187,9 +202,10 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
       const go = () => {
         if (tok !== tokRef.current) return;
         setSpeaking({ text: u.text, red: u.tier === "do" });
+        if (!u.reply) lastTextRef.current = u.text;
         cancelRef.current = ttsSpeak(u.text, { onEnd: done });
       };
-      const lead = (u.tier === "do" || u.tier === "vang") && u.repeat === 0 ? CHIME_LEAD_MS : 0;
+      const lead = (u.tier === "do" || u.tier === "vang") && u.repeat === 0 && !u.reply ? CHIME_LEAD_MS : 0;
       if (lead > 0) leadRef.current = setTimeout(go, lead);
       else go();
     } else if (r.waitMs != null && !waitRef.current) {
@@ -540,7 +556,40 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     });
   }, []);
 
+  const say = useCallback(
+    (text: string) => {
+      if (!text) return;
+      if (!onRef.current) {
+        ttsSpeak(text);
+        return;
+      }
+      const now = Date.now();
+      push([{ key: `sen:${now}`, group: `sen:${now}`, tier: "vang", text, reply: true }]);
+    },
+    [push],
+  );
+
+  const mute = useCallback(() => {
+    stRef.current = muteFor(stRef.current, Date.now());
+    setMuted(true);
+  }, []);
+
+  const unmuteVoice = useCallback(() => {
+    stRef.current = unmute(stRef.current);
+    setMuted(false);
+    if (modeRef.current === "tat") setMode("day-du");
+  }, [setMode]);
+
+  const repeatLast = useCallback(() => {
+    const t = lastTextRef.current;
+    say(t ? `Nhắc lại: ${t}` : "Chưa có cảnh báo nào.");
+  }, [say]);
+
   return {
+    say,
+    mute,
+    unmuteVoice,
+    repeatLast,
     level,
     cycleLevel,
     setMode,

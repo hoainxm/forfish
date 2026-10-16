@@ -50,8 +50,8 @@ function bam(s: string): number {
   return (h >>> 0) % DIM;
 }
 
-/** ctx: tên đã fold — chỉ dùng tín hiệu "câu có nhắc tên chỗ/cảng". */
-export type NgramCtx = { diem?: string[]; cang?: string[]; tau?: string[] };
+/** ctx: tên đã fold — tín hiệu "câu có nhắc tên chỗ/cảng"; `xn` = đang chờ bà con đồng ý (lúc train có cờ này — "đi" lúc chờ là đồng ý). */
+export type NgramCtx = { diem?: string[]; cang?: string[]; tau?: string[]; xn?: boolean };
 
 function dacTrung(cau: string, ctx: NgramCtx): [number, number][] {
   const f = foldVn(cau);
@@ -61,7 +61,7 @@ function dacTrung(cau: string, ctx: NgramCtx): [number, number][] {
     const i = bam(k);
     out.set(i, (out.get(i) || 0) + 1);
   };
-  add("xn=0");
+  add(`xn=${ctx.xn ? 1 : 0}`);
   add(`len=${Math.min(w.length, 12)}`);
   if (w.length > 40) add("qua_dai");
   const t = ` ${f} `;

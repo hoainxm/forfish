@@ -14,16 +14,22 @@ export type NavVoicePrefs = {
   muc: VoiceMode;
   /** đã xem tấm giới thiệu "Đang chạy" lần đầu */
   daXem: boolean;
+  /**
+   * TỰ ĐỌC khi mở bản đồ (chủ dự án 2026-10-16: "lúc vô app thì căn theo vị
+   * trí hiện tại nó vẫn luôn tự đọc phát loa để dân biết nguy hiểm"). Mặc định
+   * BẬT; thiếu khoá / hỏng ⇒ bật (phía an toàn).
+   */
+  tuDoc: boolean;
 };
 
-export const DEFAULT_VOICE_PREFS: NavVoicePrefs = { muc: "day-du", daXem: false };
+export const DEFAULT_VOICE_PREFS: NavVoicePrefs = { muc: "day-du", daXem: false, tuDoc: true };
 
 export function parseVoicePrefs(raw: string | null): NavVoicePrefs {
   if (!raw) return DEFAULT_VOICE_PREFS;
   try {
     const j = JSON.parse(raw) as Partial<NavVoicePrefs>;
     const muc: VoiceMode = j.muc === "it" || j.muc === "tat" ? j.muc : "day-du";
-    return { muc, daXem: j.daXem === true };
+    return { muc, daXem: j.daXem === true, tuDoc: j.tuDoc !== false };
   } catch {
     return DEFAULT_VOICE_PREFS;
   }

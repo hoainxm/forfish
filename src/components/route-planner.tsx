@@ -694,7 +694,11 @@ export function RouteMode({
   onClose,
   pickedPointIdx = null,
   onPickPoint,
+  autoCompute = 0,
 }: {
+  /*  SEN BIỂN (2026-10-16): số tăng ⇒ tự bấm "Tính đường" một lần (bà con vừa
+      nói tên chỗ). 0 = không tự tính. */
+  autoCompute?: number;
   dest: LatLon;
   /** Hạng độ sâu tại `dest` (lưới tĩnh depth-grid, màn bản đồ đã tải sẵn cho
       việc khác — KHÔNG thêm request nào). null = ngoài lưới / chưa biết ⇒ im. */
@@ -971,6 +975,17 @@ export function RouteMode({
     staleRoute != null &&
     (Math.abs(staleRoute.dest.lat - finalDest.lat) > 1e-6 ||
       Math.abs(staleRoute.dest.lon - finalDest.lon) > 1e-6);
+
+  /*  Tự tính khi Sen Biển gửi tín hiệu. Chờ một nhịp để `dest` mới (cha vừa
+      setPoint) đã vào props — tính trên điểm CŨ là vẽ sai đường. */
+  // bắt đầu từ 0: khung vừa MỞ do chính Sen Biển (tín hiệu đã >0) cũng phải tính
+  const autoSeen = useRef(0);
+  useEffect(() => {
+    if (autoCompute === autoSeen.current) return;
+    autoSeen.current = autoCompute;
+    if (autoCompute > 0) void compute();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo tín hiệu
+  }, [autoCompute, dest.lat, dest.lon]);
 
   async function compute() {
     if (busy) return;

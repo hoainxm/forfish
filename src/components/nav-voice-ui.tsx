@@ -108,9 +108,14 @@ const MODES: { id: VoiceMode; title: string; sub: string }[] = [
 
 export function VoiceSettingsSection() {
   const [muc, setMuc] = useState<VoiceMode>("day-du");
+  const [tuDoc, setTuDoc] = useState(true);
   const [avail, refreshAvail] = useTtsAvail();
   useEffect(() => {
-    const load = () => setMuc(readVoicePrefs().muc);
+    const load = () => {
+      const p = readVoicePrefs();
+      setMuc(p.muc);
+      setTuDoc(p.tuDoc);
+    };
     load();
     window.addEventListener(NAV_VOICE_EVENT, load);
     return () => window.removeEventListener(NAV_VOICE_EVENT, load);
@@ -120,6 +125,22 @@ export function VoiceSettingsSection() {
       <p className="mb-2 mt-3 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
         Giọng đọc khi chạy
       </p>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={tuDoc}
+        onClick={() => {
+          const p = readVoicePrefs();
+          writeVoicePrefs({ ...p, tuDoc: !tuDoc });
+          setTuDoc(!tuDoc);
+        }}
+        className={`mb-2 flex min-h-[3.5rem] w-full items-center justify-between gap-2 rounded-xl px-3 text-left transition active:scale-[0.98] ${
+          tuDoc ? "bg-t1/15 ring-2 ring-t1" : "bg-field/70"
+        }`}
+      >
+        <span className="text-[1rem] font-bold text-navy">Mở bản đồ là tự đọc cảnh báo</span>
+        <span className="text-[0.9375rem] font-bold text-navy">{tuDoc ? "Bật" : "Tắt"}</span>
+      </button>
       <div className="space-y-2" role="radiogroup" aria-label="Mức giọng đọc">
         {MODES.map((m) => (
           <button

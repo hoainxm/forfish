@@ -472,8 +472,9 @@ import type { ChartReadiness } from "@/lib/nav-voice/opening";
 import { VOICE_MODE_LABEL } from "@/lib/nav-voice/prefs";
 import { ttsUnlock } from "@/lib/voice/tts";
 import { CruiseIntroSheet } from "@/components/nav-voice-ui";
-import { SenBienSheet, loadSenBienModel } from "@/components/sen-bien-sheet";
-import type { SenDest } from "@/lib/sen-bien/hieu-y";
+import { SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
+import { senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
+import { distSpeech } from "@/lib/nav-voice/phrases";
 import { ACTIVE_PORTS } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import type { NavInfoLine } from "@/lib/nav-context";
@@ -3042,6 +3043,16 @@ export default function FishingMapView() {
       cá + điểm đã ghim, đều nằm trong máy. Nói xong: bay tới + mở khung dẫn
       đường; bà con tự bấm Bắt đầu. */
   const [senOpen, setSenOpen] = useState(false);
+  /** mở bằng chạm cá ⇒ nghe luôn; mở vì đường vừa vẽ xong ⇒ chờ "đi" */
+  const [senListen, setSenListen] = useState(false);
+  /** đường Sen Biển vừa vẽ, đang chờ "đi" */
+  const [senAwait, setSenAwait] = useState<PlannedRoute | null>(null);
+  const [senTitle, setSenTitle] = useState("");
+  /** Sen Biển đã chọn chỗ, đang chờ khung dẫn đường tính xong */
+  const senPendingRef = useRef<{ name: string } | null>(null);
+  /** dòng sóng gió chỗ đang xem — khai sau (condSummary), đọc qua ref */
+  const senSeaRef = useRef<string | null>(null);
+  const [senAutoCompute, setSenAutoCompute] = useState(0);
   const senDests = useMemo<SenDest[]>(
     () => [
       ...places.map((p) => ({ name: p.name, lat: p.lat, lon: p.lon, kind: p.kind === "home" ? ("nha" as const) : ("diem" as const) })),
@@ -3717,6 +3728,136 @@ export default function FishingMapView() {
     startCruise();
   }, [navOn, stopNav, navVoice.prefs.daXem, startCruise]);
 
+  /*  TỰ ĐỌC KHI MỞ BẢN ĐỒ (chủ dự án 2026-10-16): vào màn là canh theo vị trí
+      và đọc cảnh báo, không chờ bấm "Bắt đầu chạy". Một lần mỗi lần mở màn;
+      bà con bấm Dừng thì thôi tới lần mở sau. Tắt hẳn ở Cài đặt → Giọng đọc.
+      Trình duyệt chỉ cho phát tiếng sau một cú chạm ⇒ chạm đầu tiên ở đâu
+      cũng mở khoá loa (bản app native không cần). */
+  const autoReadDone = useRef(false);
+  useEffect(() => {
+    if (autoReadDone.current || !navVoice.prefs.tuDoc) return;
+    autoReadDone.current = true;
+    if (!navOn) {
+      setCruise(true);
+      if (!navVoice.prefs.daXem) navVoice.markIntroSeen();
+    }
+  }, [navVoice.prefs.tuDoc, navVoice.prefs.daXem, navOn, navVoice]);
+  useEffect(() => {
+    const unlock = () => ttsUnlock();
+    window.addEventListener("pointerdown", unlock, { once: true, capture: true });
+    return () => window.removeEventListener("pointerdown", unlock, { capture: true });
+  }, []);
+
+  /* ── SEN BIỂN rảnh tay: chọn chỗ → tự vẽ đường → đọc tóm tắt → "đi" ─────
+     Một giọng: mọi câu đi qua `navVoice.say` (cùng hàng với cảnh báo, đỏ đi
+     trước). Lệnh khi đang chạy dùng luật từ khoá ở lib/sen-bien/hieu-y. */
+  const senSay = navVoice.say;
+  const senGo = useCallback(
+    (d: SenDest) => {
+      setPinning(false);
+      goToCoord(d.lat, d.lon);
+      senPendingRef.current = { name: d.name };
+      setSenAwait(null);
+      setRoute(null); // đường cũ không được đọc nhầm thành đường mới
+      setRouteMode(true); // mở khung dẫn đường (không bật/tắt như nút rail)
+      setSenAutoCompute((n) => n + 1);
+    },
+    [goToCoord],
+  );
+  // khung dẫn đường tính xong đường Sen Biển vừa xin ⇒ đọc tóm tắt + chờ "đi"
+  useEffect(() => {
+    const want = senPendingRef.current;
+    if (!want || !route) return;
+    senPendingRef.current = null;
+    const p = route.plan;
+    const unit = prefs.distUnit === "km" ? "km" : "nm";
+    const canh = p.hasRoughLeg ? " Có đoạn sóng gió lớn, bà con xem kỹ." : "";
+    const t = `Tới ${want.name}: ${distSpeech(p.distKm, unit)}, chừng ${formatHoursVN(p.hours)}.${canh}`;
+    setSenTitle(`${t} Nói "đi" hoặc chạm Đi để bắt đầu.`);
+    setSenAwait(route);
+    setSenListen(false);
+    setSenOpen(true);
+    senSay(`${t} Nói đi để bắt đầu.`);
+  }, [route, prefs.distUnit, senSay]);
+  const senStart = useCallback(() => {
+    if (!senAwait) return;
+    startNav(senAwait);
+    setSenAwait(null);
+    setSenOpen(false);
+    senSay("Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo.");
+  }, [senAwait, startNav, senSay]);
+  const senCancel = useCallback(() => {
+    setSenAwait(null);
+    setSenOpen(false);
+    senSay("Dạ, chưa chạy. Đường vẫn để trên bản đồ.");
+  }, [senSay]);
+  const senHeard = useCallback(
+    async (text: string): Promise<SenHeard> => {
+      const r = senBienReply(text, await loadSenBienModel(), senDests, senSeaRef.current, {
+        awaitingGo: senAwait != null,
+        running: navOn,
+      });
+      switch (r.kind) {
+        case "go":
+          senSay(`${r.say} Đang vẽ đường.`);
+          setSenOpen(false);
+          senGo(r.dest);
+          return { show: `${r.say} Đang vẽ đường…` };
+        case "pick":
+          senSay(r.say);
+          return { show: r.say, options: r.options };
+        case "start":
+          senStart();
+          return null;
+        case "cancel":
+          senCancel();
+          return null;
+        case "stop":
+          stopNav();
+          setSenOpen(false);
+          senSay(r.say);
+          return { show: r.say };
+        case "mute":
+          navVoice.mute();
+          senSay(r.say);
+          return { show: r.say };
+        case "unmute":
+          navVoice.unmuteVoice();
+          senSay(r.say);
+          return { show: r.say };
+        case "repeat":
+          navVoice.repeatLast();
+          return { show: "Đọc lại câu vừa rồi." };
+        case "howfar": {
+          const unit = prefs.distUnit === "km" ? "km" : "nm";
+          const t = navProgress
+            ? `Còn ${distSpeech(navProgress.remainingKm, unit)}${
+                navProgress.etaHours != null ? `, chừng ${formatHoursVN(navProgress.etaHours)}` : ""
+              }.`
+            : navOn
+              ? "Đang chạy không có đích. Nói tên chỗ muốn tới để Sen Biển vẽ đường."
+              : "Chưa dẫn đường tới đâu.";
+          senSay(t);
+          return { show: t };
+        }
+        default:
+          senSay(r.say);
+          return { show: r.say };
+      }
+    },
+    [senDests, senAwait, navOn, senSay, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit],
+  );
+  const openSen = useCallback(() => {
+    ttsUnlock();
+    setSenTitle(
+      navOn
+        ? "Nói lệnh, hoặc tên chỗ mới."
+        : "Muốn đi đâu? Tên cảng, điểm ghim, toạ độ.",
+    );
+    setSenListen(true);
+    setSenOpen(true);
+  }, [navOn]);
+
   // độ sâu tại điểm đang xem — lưới tĩnh, đọc cục bộ
   useEffect(() => {
     let alive = true;
@@ -4234,6 +4375,9 @@ export default function FishingMapView() {
               : "—"
           } · Gió cấp ${beaufort(sel.windMaxKmh)}`
     : "";
+  useEffect(() => {
+    senSeaRef.current = condSummary || null;
+  }, [condSummary]);
 
   /*  DẢI CHIP NGÀY — DỰNG MỘT LẦN, DÙNG Ở HAI NẤC (2026-08-29). Trước đây nó
       chỉ nằm trong slot `peek`, nên đồng hồ tự-ẩn 3 giây hạ sheet về `hidden`
@@ -7423,10 +7567,10 @@ export default function FishingMapView() {
       {/*  SEN BIỂN — ICON NỔI (chủ dự án 2026-10-16: "sen biển là cái float
            icon thôi"): chỉ hình cá, mép trái trên dải đáy, không chữ, không
            nền. Hiện cả khi đang chạy — lúc tay đang lái mới cần nói thay chạm. */}
-      {!senOpen && (
+      {!senOpen && !navOn && (
         <button
           type="button"
-          onClick={() => setSenOpen(true)}
+          onClick={openSen}
           aria-label="Sen Biển — nói chỗ muốn tới"
           className="absolute bottom-36 left-2 z-20 h-16 w-16 rounded-full drop-shadow-lg transition active:scale-90"
         >
@@ -7436,15 +7580,22 @@ export default function FishingMapView() {
       )}
       {senOpen && (
         <SenBienSheet
-          dests={senDests}
-          seaLine={condSummary ?? null}
-          onGo={(d) => {
+          key={senAwait ? "cho-di" : senListen ? "nghe" : "mo"}
+          awaitingGo={senAwait != null}
+          title={senTitle}
+          listenOnOpen={senListen}
+          onHeard={senHeard}
+          onPick={(d) => {
             setSenOpen(false);
-            setPinning(false);
-            goToCoord(d.lat, d.lon);
-            if (!routeMode && !navMode) openRoutePanel();
+            senSay(`Đi ${d.name}. Đang vẽ đường.`);
+            senGo(d);
           }}
-          onClose={() => setSenOpen(false)}
+          onStart={senStart}
+          onCancel={senCancel}
+          onClose={() => {
+            setSenOpen(false);
+            setSenAwait(null);
+          }}
         />
       )}
 
@@ -7555,6 +7706,7 @@ export default function FishingMapView() {
             title={navMode ? "Đang dẫn đường" : "Đang chạy"}
             cruiseLine={cruiseLine}
             voice={voiceHud}
+            onSenBien={openSen}
             progress={navProgress}
             status={tracking.status}
             onStop={stopNav}

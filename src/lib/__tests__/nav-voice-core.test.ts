@@ -473,9 +473,11 @@ describe("opening — bản tin mở đầu + điểm tin", () => {
     expect(diemTinDue(-Infinity, DIEM_TIN_MS - 60_000, 0, DIEM_TIN_MS)).toBe(false);
   });
   it("cài đặt: thiếu/hỏng = đọc đầy đủ", () => {
-    expect(parseVoicePrefs(null)).toEqual({ muc: "day-du", daXem: false });
-    expect(parseVoicePrefs("{hỏng")).toEqual({ muc: "day-du", daXem: false });
-    expect(parseVoicePrefs('{"muc":"it","daXem":true}')).toEqual({ muc: "it", daXem: true });
+    expect(parseVoicePrefs(null)).toEqual({ muc: "day-du", daXem: false, tuDoc: true });
+    expect(parseVoicePrefs("{hỏng")).toEqual({ muc: "day-du", daXem: false, tuDoc: true });
+    expect(parseVoicePrefs('{"muc":"it","daXem":true}')).toEqual({ muc: "it", daXem: true, tuDoc: true });
+    // tự đọc khi mở bản đồ: chỉ TẮT khi bà con tắt rõ ràng
+    expect(parseVoicePrefs('{"tuDoc":false}').tuDoc).toBe(false);
     expect(parseVoicePrefs('{"muc":"to-lon"}').muc).toBe("day-du");
   });
 });

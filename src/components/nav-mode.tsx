@@ -166,7 +166,10 @@ export function NavHud({
   title = "Đang dẫn đường",
   cruiseLine = null,
   voice = null,
+  onSenBien,
 }: {
+  /** chạm cá Sen Biển ⇒ nói lệnh / chỗ mới (khi đang chạy cá nằm ở đây, không nổi riêng) */
+  onSenBien?: () => void;
   /*  "Đang dẫn đường" (có tuyến) / "Đang chạy" (chỉ GPS, không tuyến — doc 15 §3B) */
   title?: string;
   /*  CHẾ ĐỘ ĐANG CHẠY không tuyến: dòng "hướng · tốc độ · nước dưới tàu" thay cho
@@ -333,6 +336,17 @@ export function NavHud({
              (2.75rem) như nút ẩn bên cạnh. Chữ chứ không chỉ hình: bà con
              không đoán được biểu tượng rung, mà bấm nhầm là mất kênh cảnh báo
              duy nhất còn tới được khi máy trong túi áo mưa. */}
+        {onSenBien && (
+          <button
+            type="button"
+            onClick={onSenBien}
+            aria-label="Sen Biển — nói lệnh"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-90"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy */}
+            <img src="/icons/sen-bien.png" alt="" className="h-10 w-10" />
+          </button>
+        )}
         <button
           type="button"
           onClick={onStop}

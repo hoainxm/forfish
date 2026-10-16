@@ -72,7 +72,8 @@ const NGOAI_BAN_DO: SenIntent[] = [
     "đi" → huỷ (0,75), "bắt đầu" → giá dầu, "còn bao xa" → bão — lệnh một hai
     chữ quá ngắn cho đặc trưng n-gram. Bộ lệnh đóng, sai là nguy hiểm ("đi"
     thành "dừng") ⇒ luật tường minh. Mô hình chỉ dùng cho câu chọn chỗ. */
-const NEG = /(^| )(khong|thoi|dung|huy|ngung|khoi)( |$)/;
+// "thôi" chỉ là KHÔNG khi đứng đầu câu ("thôi khỏi"); "đi thôi" / "chạy thôi" là ĐỒNG Ý
+const NEG = /(^thoi( |$))|((^| )(khong|dung|huy|ngung|khoi)( |$))/;
 const STOP = /^(dung|dung lai|dung chay|ngung|huy|thoi|tat dan duong|dung dan duong|ngung dan duong|thoi khoi)( |$)/;
 const CONFIRM = /^(di|di thoi|di di|bat dau|chay|chay di|chay thoi|xuat phat|ok|oke|duoc|u|uh|vang|da|co|dong y)( |$)/;
 const MUTE = /^(im|im di|im lang|tat tieng|tat loa|nho tieng)( |$)/;
@@ -127,7 +128,7 @@ export function senBienReply(
   const home = dests.find((d) => d.kind === "nha");
   // mô hình chưa tải được (lần đầu mất sóng) ⇒ vẫn dẫn được khi câu có tên chỗ
   const y: SenIntent = model
-    ? guessIntent(model, text, { diem: dests.map((d) => core(d.name)) }).y
+    ? guessIntent(model, text, { diem: dests.map((d) => core(d.name)), xn: ctx.awaitingGo }).y
     : hits.length
       ? "dan_duong"
       : "khong_hieu";

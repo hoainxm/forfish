@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { foldVn, guessIntent, loadNgram, NGRAM_BYTES } from "@/lib/sen-bien/ngram";
-import { findDests, senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
+import { coordSpeech, findDests, senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
 
 const buf = readFileSync("public/data/sen-bien-ngram.v1.bin");
 const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
@@ -64,12 +64,54 @@ describe("senBienReply — chọn điểm đến bằng giọng", () => {
   });
   it("hỏi sóng gió ⇒ đọc dòng chỗ đang xem", () => {
     const r = senBienReply("mai sóng gió thế nào", model, DESTS, "sóng 1 m, gió cấp 3");
-    expect(r.say).toContain("sóng 1 m");
+    expect(r.kind === "say" && r.say).toContain("sóng 1 m");
   });
   it("việc ngoài bản đồ ⇒ nói chưa làm", () => {
-    expect(senBienReply("giá cá ngừ hôm nay", model, DESTS, null).say).toContain("chỉ giúp trên bản đồ");
+    const r = senBienReply("giá cá ngừ hôm nay", model, DESTS, null);
+    expect(r.kind === "say" && r.say).toContain("chỉ giúp trên bản đồ");
   });
   it("câu rỗng ⇒ hỏi lại", () => {
     expect(senBienReply("  ", model, DESTS, null).kind).toBe("say");
+  });
+});
+
+describe("Sen Biển rảnh tay — lệnh khi chạy, chờ 'đi', toạ độ (2026-10-16)", () => {
+  const AWAIT = { awaitingGo: true, running: false };
+  const RUN = { awaitingGo: false, running: true };
+  it.each(["đi", "đi thôi", "ừ đi", "bắt đầu", "chạy đi", "được", "ok"])("chờ đi: %s ⇒ start", (c) => {
+    expect(senBienReply(c, model, DESTS, null, AWAIT).kind).toBe("start");
+  });
+  it.each(["thôi", "không", "không đi nữa", "dừng"])("chờ đi: %s ⇒ cancel (không bao giờ thành start)", (c) => {
+    expect(senBienReply(c, model, DESTS, null, AWAIT).kind).toBe("cancel");
+  });
+  it("'đi' khi KHÔNG chờ thì không tự chạy", () => {
+    expect(senBienReply("đi", model, DESTS, null, RUN).kind).not.toBe("start");
+  });
+  it.each([
+    ["dừng", "stop"],
+    ["dừng lại", "stop"],
+    ["im đi", "mute"],
+    ["tắt tiếng", "mute"],
+    ["bật tiếng", "unmute"],
+    ["nói lại", "repeat"],
+    ["nhắc lại đi", "repeat"],
+    ["còn bao xa", "howfar"],
+    ["bao giờ tới", "howfar"],
+  ])("đang chạy: %s ⇒ %s", (c, k) => {
+    expect(senBienReply(c, model, DESTS, null, RUN).kind).toBe(k);
+  });
+  it("'dừng' khi không chạy, không chờ ⇒ không dừng gì", () => {
+    expect(senBienReply("dừng", model, DESTS, null).kind).not.toBe("stop");
+  });
+  it("đọc toạ độ ⇒ điểm đến + đọc lại toạ độ", () => {
+    const r = senBienReply("14 độ 34 phút bắc 109 độ 4 phút đông", model, DESTS, null);
+    expect(r.kind).toBe("go");
+    if (r.kind === "go") {
+      expect(r.dest.lat).toBeCloseTo(14 + 34 / 60, 4);
+      expect(r.say).toBe("Điểm 14 độ 34 phút Bắc, 109 độ 4 phút Đông.");
+    }
+  });
+  it("coordSpeech làm tròn 60 phút lên độ", () => {
+    expect(coordSpeech(14.9999, "lat")).toBe("15 độ 0 phút Bắc");
   });
 });
