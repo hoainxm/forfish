@@ -1058,6 +1058,8 @@ export function RouteMode({
       let start: LatLon | null = null;
       let startLabel = "";
       let sid = opts.startId ?? effectiveStartId;
+      /** Sen Biển xin đi từ vị trí tàu mà máy không lấy được ⇒ đang dùng nơi dự phòng */
+      let gpsFellBack = false;
       // fix gần nhất chưa quá 10 phút (tàu 8 hải lý/giờ đi chưa tới 1,5 hải lý)
       const boatFresh =
         boatPos != null && boatFixAt != null && Date.now() - boatFixAt < 10 * 60_000;
@@ -1078,6 +1080,7 @@ export function RouteMode({
           // Sen Biển: không có định vị thì đi từ nơi mặc định, chọn lại cho khớp thẻ
           sid = defaultStartId;
           setStartId(defaultStartId);
+          gpsFellBack = true;
         }
       }
       if (start) {
@@ -1107,12 +1110,18 @@ export function RouteMode({
       const legPts = [start, ...chainStops];
       for (let i = 1; i < legPts.length; i++) {
         if (haversineKm(legPts[i - 1], legPts[i]) < 5) {
+          /*  NƠI DỰ PHÒNG TRÙNG ĐÍCH (chạy thử 2026-10-16): không GPS, nơi xuất
+              phát mặc định là "cảng gần điểm đến nhất" — nói "về cảng Phan
+              Thiết" thì đó CHÍNH là Phan Thiết. Câu "chọn điểm xa hơn" bắt bà
+              con sửa cái họ không hề chọn; nói đúng gốc: thiếu vị trí tàu. */
           setError(
-            stops.length
-              ? i === 1
-                ? "Điểm ghé 1 đang quá gần nơi xuất phát — bà con chọn điểm xa hơn trên biển nhé."
-                : `Điểm ghé ${i} và điểm ghé ${i - 1} đang quá sát nhau — bà con chọn khoảng cách xa hơn một chút.`
-              : "Điểm đến đang quá gần nơi xuất phát — bà con chọn điểm xa hơn trên biển nhé.",
+            gpsFellBack && i === 1
+              ? "Máy chưa lấy được vị trí tàu nên chưa biết đi từ đâu. Bà con bật định vị (GPS) rồi nói lại nhé."
+              : stops.length
+                ? i === 1
+                  ? "Điểm ghé 1 đang quá gần nơi xuất phát — bà con chọn điểm xa hơn trên biển nhé."
+                  : `Điểm ghé ${i} và điểm ghé ${i - 1} đang quá sát nhau — bà con chọn khoảng cách xa hơn một chút.`
+                : "Điểm đến đang quá gần nơi xuất phát — bà con chọn điểm xa hơn trên biển nhé.",
           );
           return;
         }

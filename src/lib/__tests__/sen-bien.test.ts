@@ -115,3 +115,40 @@ describe("Sen Biển rảnh tay — lệnh khi chạy, chờ 'đi', toạ độ 
     expect(coordSpeech(14.9999, "lat")).toBe("15 độ 0 phút Bắc");
   });
 });
+
+describe("Sen Biển — lỗi bắt khi chạy thử 2026-10-16", () => {
+  const PORTS: SenDest[] = [
+    ...DESTS,
+    { name: "Phan Rí Cửa", lat: 11.17, lon: 108.56, kind: "cang" },
+    { name: "Phan Thiết", lat: 10.91, lon: 108.1, kind: "cang" },
+  ];
+  it("tên nói thiếu chữ cuối: 'về bến Phan Rí' ⇒ Phan Rí Cửa, KHÔNG về nhà", () => {
+    const r = senBienReply("về bến Phan Rí", model, PORTS, null);
+    expect(r.kind === "go" && r.dest.name).toBe("Phan Rí Cửa");
+  });
+  it("khớp trọn thắng khớp thiếu chữ", () => {
+    expect(findDests("về Phan Thiết", PORTS).map((d) => d.name)).toEqual(["Phan Thiết"]);
+  });
+  it("một chữ đầu không đủ để đoán ('về Phan' ⇒ không chỗ nào)", () => {
+    expect(findDests("về Phan", PORTS)).toHaveLength(0);
+  });
+  it("'về bến' đứng một mình vẫn là cảng nhà", () => {
+    const r = senBienReply("về bến", model, PORTS, null);
+    expect(r.kind === "go" && r.dest.kind).toBe("nha");
+  });
+  it("'về bến <tên lạ>' ⇒ nói chưa thấy, KHÔNG về nhà", () => {
+    const r = senBienReply("về bến Xyz", model, PORTS, null);
+    expect(r.kind).toBe("say");
+  });
+  it.each(["đi Vũng Tàu", "vào Rạch Giá", "tới cảng Cà Mau đi"])("tên không có trong danh sách: %s ⇒ chưa thấy chỗ đó", (c) => {
+    const r = senBienReply(c, model, PORTS, null);
+    expect(r.kind === "say" && r.say).toContain("chưa thấy chỗ đó");
+  });
+  it("'tôi …' (bỏ dấu trùng 'tới') không bị hiểu là đi tới chỗ lạ", () => {
+    const r = senBienReply("tôi đau bụng uống thuốc gì", model, PORTS, null);
+    expect(r.kind === "say" && r.say).not.toContain("chưa thấy chỗ đó");
+  });
+  it.each(["chưa", "để sau", "khoan"])("chờ đi: %s ⇒ cancel", (c) => {
+    expect(senBienReply(c, model, PORTS, null, { awaitingGo: true, running: false }).kind).toBe("cancel");
+  });
+});

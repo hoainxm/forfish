@@ -43,25 +43,43 @@ function core(name: string): string {
   return foldVn(name).replace(/^(cang ca|cang|ben ca|ben)\s+/, "");
 }
 
-/** Mọi chỗ có tên xuất hiện NGUYÊN CỤM trong câu; khớp dài nhất thắng. */
+/** Mọi chỗ có tên xuất hiện NGUYÊN CỤM trong câu; khớp dài nhất thắng.
+ *  Không chỗ nào khớp trọn thì xét tên NÓI THIẾU CHỮ CUỐI (bắt được khi chạy
+ *  thử 2026-10-16: "về bến Phan Rí" không khớp "Phan Rí Cửa" ⇒ rơi xuống nhánh
+ *  "về bến" = cảng nhà, dẫn nhầm về nhà). Chỉ nhận ≥2 chữ ĐẦU của tên — một chữ
+ *  ("Phan") quá dễ trùng; trùng nhiều chỗ thì trả cả, chỗ gọi cho chạm chọn. */
 export function findDests(text: string, dests: readonly SenDest[]): SenDest[] {
   const t = ` ${foldVn(text)} `;
-  let best = 0;
-  let hits: SenDest[] = [];
-  for (const d of dests) {
-    const k = core(d.name);
-    if (!k || !t.includes(` ${k} `)) continue;
-    if (k.length > best) {
-      best = k.length;
-      hits = [d];
-    } else if (k.length === best && !hits.some((h) => h.lat === d.lat && h.lon === d.lon)) {
-      hits.push(d);
+  const pick = (score: (k: string) => number): SenDest[] => {
+    let best = 0;
+    let hits: SenDest[] = [];
+    for (const d of dests) {
+      const s = score(core(d.name));
+      if (s <= 0) continue;
+      if (s > best) {
+        best = s;
+        hits = [d];
+      } else if (s === best && !hits.some((h) => h.lat === d.lat && h.lon === d.lon)) {
+        hits.push(d);
+      }
     }
-  }
-  return hits;
+    return hits;
+  };
+  const full = pick((k) => (k && t.includes(` ${k} `) ? k.length : 0));
+  if (full.length) return full;
+  return pick((k) => {
+    const w = k.split(" ");
+    for (let n = w.length - 1; n >= 2; n--) if (t.includes(` ${w.slice(0, n).join(" ")} `)) return n;
+    return 0;
+  });
 }
 
-const HOME_RE = / (cang nha|ve nha|ve ben) /;
+// "về bến" chỉ là cảng nhà khi KHÔNG có chữ nào theo sau ("về bến Phan Rí" là bến khác)
+const HOME_RE = / (cang nha|ve nha) | ve ben $/;
+// câu bắt đầu bằng động từ đi lại mà không thấy tên ⇒ bà con muốn tới một chỗ máy chưa biết
+// KHÔNG có "toi" trần: bỏ dấu thì "tôi" và "tới" là một ("tôi đau bụng…" từng thành "chưa thấy chỗ")
+const MOVE = /^(di|ve|ra|vao|vo|toi cang|chay|dan|chi duong)( |$)/;
+const NOT_FOUND = "Sen Biển chưa thấy chỗ đó. Bà con nói tên cảng, điểm đã ghim, hoặc đọc toạ độ.";
 
 const NGOAI_BAN_DO: SenIntent[] = [
   "giay_to", "bao_duong", "thuyen_vien", "tau_cua_toi", "tim_mon", "them_gio", "xem_gio",
@@ -73,7 +91,8 @@ const NGOAI_BAN_DO: SenIntent[] = [
     chữ quá ngắn cho đặc trưng n-gram. Bộ lệnh đóng, sai là nguy hiểm ("đi"
     thành "dừng") ⇒ luật tường minh. Mô hình chỉ dùng cho câu chọn chỗ. */
 // "thôi" chỉ là KHÔNG khi đứng đầu câu ("thôi khỏi"); "đi thôi" / "chạy thôi" là ĐỒNG Ý
-const NEG = /(^thoi( |$))|((^| )(khong|dung|huy|ngung|khoi)( |$))/;
+// "chưa" / "để sau" / "khoan" lúc chờ "đi" cũng là chưa chạy (chạy thử 2026-10-16: từng ra "chưa hiểu")
+const NEG = /(^thoi( |$))|((^| )(khong|dung|huy|ngung|khoi)( |$))|^(chua|de sau|khoan|doi chut|doi da)( |$)/;
 const STOP = /^(dung|dung lai|dung chay|ngung|huy|thoi|tat dan duong|dung dan duong|ngung dan duong|thoi khoi)( |$)/;
 const CONFIRM = /^(di|di thoi|di di|bat dau|chay|chay di|chay thoi|xuat phat|ok|oke|duoc|u|uh|vang|da|co|dong y)( |$)/;
 const MUTE = /^(im|im di|im lang|tat tieng|tat loa|nho tieng)( |$)/;
@@ -143,12 +162,17 @@ export function senBienReply(
       if (home) return { kind: "go", dest: home, say: `Về ${home.name}.` };
       return { kind: "say", say: "Máy chưa biết cảng nhà. Bà con ghim chỗ cảng nhà trên bản đồ trước nhé." };
     }
-    return { kind: "say", say: "Sen Biển chưa thấy chỗ đó. Bà con nói tên cảng, điểm đã ghim, hoặc đọc toạ độ." };
+    return { kind: "say", say: NOT_FOUND };
   }
   if (y === "thoi_tiet" || y === "bao" || y === "con_nuoc")
     return { kind: "say", say: seaLine ? `Chỗ đang xem: ${seaLine}.` : "Bà con chạm vào biển chỗ muốn xem, Sen Biển đọc sóng gió chỗ đó." };
   if (y === "ngoai_pham_vi") return { kind: "say", say: "Việc này Sen Biển không trả lời được." };
   if (y === "chao_hoi") return { kind: "say", say: "Chào bà con. Muốn đi đâu, cứ nói tên cảng, điểm đã ghim hoặc toạ độ." };
+  /*  "đi Vũng Tàu" / "vào Rạch Giá" — tên không có trong danh sách, mô hình đoán
+      lạc sang việc khác ("tàu" ⇒ tàu của tôi) ⇒ từng đáp "chỉ giúp trên bản
+      đồ", sai hẳn ý. Câu mở bằng động từ đi lại thì nói thật là chưa thấy chỗ.
+      Đặt SAU sóng gió / ngoài phạm vi / chào: chỉ giành lại các ý "việc khác". */
+  if (MOVE.test(f)) return { kind: "say", say: NOT_FOUND };
   if (NGOAI_BAN_DO.includes(y))
     return { kind: "say", say: "Sen Biển hiện chỉ giúp trên bản đồ: chọn chỗ đến, dẫn đường và đọc cảnh báo." };
   return { kind: "say", say: "Sen Biển chưa hiểu. Bà con thử nói: dẫn về cảng Sa Huỳnh." };

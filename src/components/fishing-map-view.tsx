@@ -480,6 +480,7 @@ import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import type { NavInfoLine } from "@/lib/nav-context";
 import {
   computeNavProgress,
+  etaHours,
   MIN_MOVING_KMH,
   offRouteStepCrossed,
   offRouteStepFor,
@@ -3135,6 +3136,11 @@ export default function FishingMapView() {
   useEffect(() => {
     trackingPosRef.current = tracking.pos;
   }, [tracking.pos]);
+  /** tốc độ GPS mới nhất — câu tóm tắt Sen Biển đọc qua ref, cùng nguồn với giờ tới của HUD */
+  const trackingSpeedRef = useRef<number | null>(null);
+  useEffect(() => {
+    trackingSpeedRef.current = tracking.speedKmh;
+  }, [tracking.speedKmh]);
   const navProgress = useMemo(
     () =>
       navMode && tracking.pos
@@ -3814,12 +3820,26 @@ export default function FishingMapView() {
     setSenAutoCompute(0);
     const p = route.plan;
     const unit = prefs.distUnit === "km" ? "km" : "nm";
-    const canh = p.hasRoughLeg ? " Có đoạn sóng gió lớn, bà con xem kỹ." : "";
-    const t = `Tới ${want.name}: ${distSpeech(p.distKm, unit)}, chừng ${formatHoursVN(p.hours)}.${canh}`;
+    /*  THIẾU DỰ BÁO PHẢI NÓI RA (chạy thử 2026-10-16): Open-Meteo từ chối ⇒ tuyến
+        chỉ theo hải đồ, thẻ dẫn đường có báo đỏ — nhưng bà con rảnh tay chỉ NGHE
+        câu này rồi nói "đi". Không nói là giấu đúng cảnh báo quan trọng nhất. */
+    const canh =
+      (p.noWeatherKm > 0
+        ? " Đường này chưa có dự báo sóng gió, máy chỉ né bờ và bãi cạn. Bà con nghe đài trước khi chạy."
+        : "") + (p.hasRoughLeg ? " Có đoạn sóng gió lớn, bà con xem kỹ." : "");
+    /*  GIỜ TỚI CÙNG NGUỒN VỚI HUD (chạy thử 2026-10-16: tóm tắt "4 giờ 55", vào
+        dẫn đường ngay sau đó HUD ghi "5 giờ 55"). HUD tính theo tốc độ GPS đang
+        chạy; tàu đang chạy thì tóm tắt cũng vậy. Tàu đứng / chưa có GPS thì
+        `etaHours` trả null ⇒ dùng giờ của tuyến (tốc độ trong hồ sơ tàu). */
+    const gio = formatHoursVN(etaHours(p.distKm, trackingSpeedRef.current) ?? p.hours);
+    const t = `Tới ${want.name}: ${distSpeech(p.distKm, unit)}, chừng ${gio}.${canh}`;
     // thẻ chỉ một câu (≤2 dòng, chủ dự án "gọn"): nút Đi to ngay dưới đã là lời mời;
     // tên dài (toạ độ đọc bằng lời) thì thẻ ghi "điểm này" — giọng vẫn đọc đủ
     const ten = want.name.length > 22 ? "điểm này" : want.name;
-    setSenTitle(`Tới ${ten}: ${distSpeech(p.distKm, unit)}, chừng ${formatHoursVN(p.hours)}.`);
+    // máy không có giọng Việt thì câu động im ⇒ cảnh báo thiếu dự báo phải có cả trên thẻ
+    setSenTitle(
+      `Tới ${ten}: ${distSpeech(p.distKm, unit)}, chừng ${gio}.${p.noWeatherKm > 0 ? " Chưa có dự báo sóng gió." : ""}`,
+    );
     setSenAwait(route);
     setSenListen(false);
     setSenOpen(true);
