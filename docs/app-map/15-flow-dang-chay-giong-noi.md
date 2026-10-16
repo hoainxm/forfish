@@ -451,4 +451,70 @@ Chủ dự án: *"nói xong là máy tự vẽ, tự đọc, nói đi là chạy
 
 `npm test` 4362 xanh · `tsc` sạch · eslint các file đụng 0 lỗi · Playwright Chromium headless 375×812, GPS giả 14.6, 109.3, server `next start` ở demo mode, Open-Meteo GIẢ (IP máy đang bị 429), speechSynthesis GIẢ có 2 giọng vi-VN (headless không có giọng): mở bản đồ tự Đang chạy · chạm cá thẻ gọn không đè rail · "dẫn về cảng Sa Huỳnh" ⇒ tự vẽ từ vị trí tàu (14 hải lý, 2 giờ), đọc tóm tắt, nút Đi · "đi" ⇒ dẫn đường · "còn bao xa" ⇒ "Còn 14 hải lý" · "im" · "nhắc lại" · "dừng" (một câu mp3, khung đóng) · toạ độ bằng lời ⇒ tự vẽ · kho SW giữ đủ 63 mp3. Ảnh + báo cáo: `~/sen-bien-shots/` (máy gpu-desktop). **Chưa kiểm được**: tiếng thật ra loa (headless câm), STT mic thật, giọng native Android/iOS (chọn giọng qua `getSupportedVoices`), thẻ `<audio>` trên iOS khi gạt nút im lặng, đăng nhập tài khoản thật (máy không có khoá service-role).
 
-**Last updated**: 2026-10-16 — Sen Biển rảnh tay + giọng nữ (§17). Trước đó 2026-10-13 — đã làm, chờ chủ dự án test trước khi commit.
+## 18. SEN BIỂN NGHE TRONG MÁY + HỎI ĐÁP BẢN ĐỒ (2026-10-16)
+
+Chủ dự án: *"hoàn thiện cái stt offline đi, rồi mở rộng tăng tính thông minh"* · *"phải đọc được toàn bộ thông tin mà bản đồ đang có, tất cả các lớp"* · *"phải đủ các loại thường tương tác bản đồ như google map: gần đảo nào, đi đâu, chỗ nào dự báo nhiều cá x, cá y, đi hướng nào thì có info nào"*. Quyết định kỹ thuật + giấy phép: [ADR 0011](../adr/0011-sen-bien-nghe-trong-may-zipformer-wasm.md).
+
+### 18a. Tai — hai tầng
+
+| Tầng | Khi nào | Ghi chú |
+|---|---|---|
+| **Trong máy** (`lib/sen-bien/nghe-may.ts` → worker `public/sen-bien-nghe.worker.js` → WASM `public/sherpa-asr/1.13.8/`) | đã nạp `sen-bien-nghe.v1.bin` (34 MB) | không cần sóng; chạy cả Android WebView; thu mic → VAD (nền ước 4 khung đầu, ngưỡng 2,5 × nền, im 1,1 s là xong, chưa nói 6 s là thôi, trần 10 s) → giải mã cả câu; tên cảng + điểm ghim là **tên ưu tiên** |
+| Web Speech | chưa nạp (lần đầu, đang tải, tiết kiệm dữ liệu, máy yếu nạp hỏng) | như §17; mất sóng thì đưa ô gõ |
+
+Nạp: 8 s sau khi mở bản đồ, **sau** bộ hiểu ý và mp3 giọng, tuần tự; `fetchDataBytes` trần 180 s (quá giờ thì SW vẫn tải tiếp và cất). Điểm ghim đổi thì dựng lại tên ưu tiên (khoảng 0,5 s, chạy nền).
+
+### 18b. Hiểu — thêm ba lớp trước khi chọn chỗ
+
+1. **Số bằng chữ → số** (`parse-coord.soBangChu`): "mười bốn độ ba mươi tư phút" thành "14 độ 34 phút". Giữ dấu: "năm" (5) khác "nam" (hướng), "không" đứng một mình là từ chối. Hai số nguyên trơn không nhãn thì KHÔNG phải toạ độ.
+2. **Câu hỏi bản đồ** (`sen-bien/hoi-ban-do.ts` `hoiGi`, luật đóng, chạy trước khi dò tên chỗ) → `traLoi(q, kho, vịTrí)`. Kho gom bằng `kho-ban-do.ts`, chỉ gọi lại các hàm tải sẵn có.
+3. **Khớp gần theo âm** (`hieu-y.findDestsGan`): gộp r/d/gi, tr/ch, s/x, v, qu, c/k, t/c cuối; khoảng cách chữ ≤30 %, phải hơn hẳn chỗ nhì; chỉ khi bộ hiểu ý đoán "dẫn đường". Bỏ chữ lệnh/đệm trước khi so ("cảng" từng khớp nhầm "Cà Ná").
+
+| Hỏi (ví dụ) | Loại | Đọc từ lớp | Câu đáp mẫu |
+|---|---|---|---|
+| gần đảo nào nhất · tàu đang ở đâu | `dao_gan` · `o_dau` | vn-islands | "Gần tàu nhất là đảo Lý Sơn, hướng Đông, 14 hải lý." |
+| rạn gần nhất | `ran_gan` | coral-reefs + lưới độ sâu | "Rạn có tên gần nhất là …" (đang ở vùng rạn thì nói trước) |
+| chỗ này sâu bao nhiêu | `do_sau` | depth-grid | "…: nước nông, cỡ 4–12 m. Số theo hải đồ, chỉ để tham khảo, nhớ dò đáy." |
+| phía trước có gì · hướng Đông Bắc có gì | `phia_truoc` | độ sâu dọc tia + xác tàu + giàn + đảo + rạn + đèn, nón ±20°, 20 km | ≤3 thứ gần trước; không biết hướng thì HỎI hướng |
+| đèn biển / phao / xác tàu gần nhất | `den_bien` `phao` `xac_tau` | den-bien · seamarks + vn-aids · xac-tau | tên + hướng + quãng |
+| chỗ tránh trú bão gần nhất | `tru_bao` | khu-tru-bao | có "dẫn tới" thì đi luôn |
+| chỗ này có cấm đánh bắt không | `vung_cam` | vung-quan-ly (theo mùa) + vùng cấm trên hải đồ | trong khu nào, hôm nay có cấm không; không thì khu gần nhất |
+| nước ròng mấy giờ · triều cường không | `con_nuoc` | tide-stations | lên/xuống + con nước kế |
+| cảng nào gần nhất | `cang_gan` | ACTIVE_PORTS | có "dẫn" thì đi luôn |
+| chỗ nào nhiều cá ngừ vằn · mực ở đâu | `ca` | bản đồ cá đang xem, hoặc bản đã lưu | **premium** (đăng nhập / chưa mở thì nói rõ); "đây là dự báo, không chắc chắn" |
+
+Sau câu đáp có chỗ, bản đồ bay tới đó; bà con nói **"dẫn tới đó"** là vẽ đường (`SenCtx.choVuaNoi`). Vị trí hỏi: GPS tàu còn mới (≤10 phút) thì nói "từ tàu", không thì lấy giữa bản đồ, nói "chỗ đang xem".
+
+### 18c. Ma trận trạng thái (bổ sung §17c)
+
+| Trạng thái | Hành vi |
+|---|---|
+| Bộ nghe chưa nạp / đang tải | Web Speech; mất sóng thì ô gõ (như cũ) |
+| Bộ nghe nạp hỏng (thiếu RAM, file cắt) | `napBoNghe` trả false, huỷ worker, lần mở bản đồ sau thử lại; vẫn còn Web Speech + gõ |
+| Không cho mic | `not-allowed` → ô gõ |
+| Không nói gì 6 s | "chưa nghe rõ" như §17 |
+| Lớp chưa tải (mất sóng lần đầu) | "Máy chưa có lớp …. Bà con mở bản đồ lúc còn sóng để máy tải về." — **không bao giờ** nói "không có gì" khi kho thiếu |
+| Hỏi cá, chưa premium / chưa đăng nhập | nói rõ, không lộ điểm |
+| Hỏi "phía trước" khi tàu đứng yên | hỏi lại hướng, không đoán |
+
+### 18d. Offline — 4 câu (CLAUDE.md)
+
+| Câu hỏi | Trả lời |
+|---|---|
+| (a) Request mạng mới? | Có HAI, đều chạy một lần rồi nằm trong kho SW: `sen-bien-nghe.v1.bin` (34 MB, gzip khoảng 26 MB) qua `fetchDataBytes` trần 180 s, và WASM (14 MB, gzip 3,8 MB) do worker `importScripts`. Cả hai chạy **sau** bộ hiểu ý + mp3, 8 s sau khi mở bản đồ, không chặn màn; lỗi thì nuốt, quay về Web Speech. Máy bật `saveData` thì không tải. Hỏi đáp **không** thêm request: chỉ gọi lại các hàm tải lớp sẵn có (đã ở `CRITICAL_SHELL`). |
+| (b) Đụng `sw.js` / `SHELL` / khoá `forfish.*`? | **Không.** `/data/*`, `/sherpa-asr/*`, worker là asset tĩnh cùng nguồn nên đi nhánh cache-first sẵn có. Đường dẫn có số bản nên đổi bản thì tự lấy file mới. |
+| (c) Mất/đè dữ liệu bà con? | Không, chỉ đọc. |
+| (d) Nhánh mất sóng? | Đã nạp một lần thì nghe, hiểu, đáp hoàn toàn trong máy. Chưa nạp thì như §17. |
+
+### 18e. Assumptions
+
+- **Tự tải 34 MB khi mở bản đồ** (không hỏi), giống nền bản đồ 17 MB đã tự tải. Chừa ra máy bật "tiết kiệm dữ liệu". Nếu bà con phàn nàn tốn 4G thì đổi sang nút "Tải bộ nghe" trong Cài đặt.
+- **Trong máy đi trước Web Speech** khi đã nạp: nhanh, không lộ tiếng ra máy chủ ngoài, có tên ưu tiên; đo 68–69/70 câu lệnh đúng việc. Giọng thật chưa đo, nếu tệ hơn Web Speech lúc có sóng thì đảo thứ tự.
+- **Hỏi đáp bằng LUẬT**, chưa qua n-gram: 31 ý định hiện có chưa có các ý bản đồ. Luật đo trên 1.421 câu thử của bộ train: bắt nhầm khoảng 8 câu (phần lớn là hỏi giá cá → "chỗ nào nhiều cá"). Nâng cấp: train lại n-gram + Gemma nhỏ với các ý này (ADR 0011, việc riêng).
+- **Giọng câu cố định đổi sang VieNeu "Mỹ Duyên"** (chủ dự án 2026-10-16), 63 câu sinh lại trên gpu-desktop, sai chữ trung bình 3,9 % (Trúc Ly 3,2 %). Câu "Sen Biển chưa hiểu" bị nuốt chữ "Sen", để sinh lại sau.
+
+### 18f. Đã kiểm (2026-10-16, Mac)
+
+`npm test` 4.438 xanh · `tsc` sạch · eslint các file đụng 0 lỗi mới. Worker + WASM dựng riêng chạy trong Chromium (pane trình duyệt của app, dev server): nạp 0,9 s, câu "dẫn về cảng Sa Huỳnh" trộn máy tàu 5 dB nghe ra "DẪN VỀ CẢNG SA HUỲNH" sau 0,13 s, dựng lại tên ưu tiên 0,5 s. Bộ đo Node (cùng mô hình, cùng luật): 68–69/70. **Chưa kiểm được**: mic thật + VAD trên điện thoại, giọng bà con thật, RAM máy Android yếu, màn bản đồ khi đã đăng nhập (Mac và gpu-desktop không có khoá service-role để cấp acc test), bản SDF2 mã hoá trên Vercel.
+
+**Last updated**: 2026-10-16 — Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).

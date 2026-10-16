@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { foldVn, guessIntent, loadNgram, NGRAM_BYTES } from "@/lib/sen-bien/ngram";
-import { coordSpeech, findDests, senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
+import { coordSpeech, findDests, findDestsGan, senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
 
 const buf = readFileSync("public/data/sen-bien-ngram.v1.bin");
 const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
@@ -114,4 +114,29 @@ describe("Sen Biển rảnh tay — lệnh khi chạy, chờ 'đi', toạ độ 
   it("coordSpeech làm tròn 60 phút lên độ", () => {
     expect(coordSpeech(14.9999, "lat")).toBe("15 độ 0 phút Bắc");
   });
+});
+
+describe("khớp gần theo âm — bộ nghe trong máy viết lệch tên riêng", () => {
+  const PORTS: SenDest[] = ["Sa Huỳnh", "Hòn Rớ", "Ninh Chữ", "La Gi", "Quy Nhơn", "Tịnh Hòa", "Cà Ná", "Trân Châu", "Tắc Cậu"].map(
+    (name, i) => ({ name, lat: 10 + i, lon: 106 + i, kind: "cang" as const }),
+  );
+  it.each([
+    ["dẫn về cảng xa huyền", "Sa Huỳnh"],
+    ["cho tui về hòn dớ nha", "Hòn Rớ"],
+    ["dẫn về cảng niên trữ", "Ninh Chữ"],
+    ["chạy ra lagi", "La Gi"],
+    ["về bến quèo nhôn", "Quy Nhơn"],
+    ["chạy ra tiền hòa", "Tịnh Hòa"],
+    ["chạy ra táp cẩu", "Tắc Cậu"],
+  ])("%s → %s, vẫn chờ 'đi' mới chạy", (cau, ten) => {
+    const r = senBienReply(cau, model, PORTS, null);
+    expect(r.kind).toBe("go");
+    expect(r.kind === "go" && r.dest.name).toBe(ten);
+  });
+  it.each(["về trang chủ", "tôi cần mua lưới nha", "sóng gió chỗ này sao rồi"])("'%s' KHÔNG hoá tên cảng", (cau) => {
+    expect(senBienReply(cau, model, PORTS, "gió cấp 4").kind).not.toBe("go");
+  });
+  it("chữ 'cảng' không khớp gần 'Cà Ná'", () => expect(findDestsGan("dẫn về cảng", PORTS)).toEqual([]));
+  it("hai chỗ gần ngang nhau ⇒ không đoán", () =>
+    expect(findDestsGan("về hòn rớ", [...PORTS, { name: "Hòn Rơ", lat: 1, lon: 1, kind: "diem" }])).toEqual([]));
 });

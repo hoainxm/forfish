@@ -4,12 +4,14 @@
 // feat/san-thuong-mai `lib/assistant/speech.ts` (bỏ phần đọc: app đã có
 // `lib/voice/tts.ts` một cửa cho giọng đọc, ADR 0010).
 //
-// STT của Chrome Android / Safari iOS chạy trên máy chủ Google/Apple ⇒ CẦN
-// MẠNG. Mất sóng mic thử MỘT lần rồi báo `network` → khung Sen Biển đưa ô GÕ
-// lên (gõ tên cảng vẫn chọn được điểm đến, hiểu ý chạy trong máy).
-//
-// nợ: STT native offline (Capacitor SpeechRecognition) chưa có, mất sóng chỉ gõ — nâng cấp khi có bản native hoặc ≥30% lượt mic lỗi 'network'
+// HAI TAI (2026-10-16): bộ nghe TRONG MÁY (`nghe-may.ts`, zipformer WASM) đã nạp
+// thì dùng nó trước — không cần sóng, chạy cả Android WebView (không có Web
+// Speech). Chưa nạp (lần đầu, đang tải, máy tiết kiệm dữ liệu) ⇒ Web Speech như
+// cũ: Chrome/Safari gửi tiếng lên máy chủ Google/Apple, mất sóng mic thử MỘT
+// lần rồi báo `network` → khung Sen Biển đưa ô GÕ lên.
 
+
+import { boNgheSan, ngheMay } from "./nghe-may";
 
 type SR = {
   lang: string;
@@ -33,7 +35,7 @@ function srCtor(): SRCtor | null {
 }
 
 export function sttSupported(): boolean {
-  return srCtor() !== null;
+  return boNgheSan() || srCtor() !== null;
 }
 
 export type ListenErrorCode = "not-allowed" | "no-speech" | "network" | "aborted" | "audio-capture" | "unsupported" | "other";
@@ -76,6 +78,7 @@ export function listenOnce(opts: {
   silenceMs?: number;
   maxMs?: number;
 }): ListenHandle {
+  if (boNgheSan()) return ngheMay(opts);
   const Ctor = srCtor();
   const noop: ListenHandle = { stop() {}, abort() {} };
   if (!Ctor) {

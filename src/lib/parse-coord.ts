@@ -103,6 +103,52 @@ export function parseCoordPair(
 */
 const SPOKEN_BOX = { latMin: -5, latMax: 30, lonMin: 95, lonMax: 125 };
 
+/*  SỐ ĐỌC BẰNG CHỮ → CHỮ SỐ. Web Speech trả "14 độ", nhưng bộ nghe trong máy
+    (zipformer, chạy offline) trả "mười bốn độ". Đổi TRƯỚC khi bỏ dấu: "năm" (5)
+    khác "nam" (hướng), "tư" (4) khác "từ". "không" chỉ là 0 sau "phẩy"/"linh"
+    — đứng một mình là lời từ chối. Chỉ dùng trong luồng toạ độ. */
+const CHU_SO: Record<string, number> = {
+  một: 1, mốt: 1, hai: 2, ba: 3, bốn: 4, tư: 4, năm: 5, lăm: 5, sáu: 6, bảy: 7, bẩy: 7, tám: 8, chín: 9,
+};
+export function soBangChu(text: string): string {
+  const w = text.toLowerCase().normalize("NFC").split(/\s+/).filter(Boolean);
+  const out: string[] = [];
+  const d = (k: number) => CHU_SO[w[k]];
+  let i = 0;
+  while (i < w.length) {
+    let n = 0;
+    let j = i;
+    if (d(j) != null && w[j + 1] === "trăm") {
+      n = d(j) * 100;
+      j += 2;
+      if ((w[j] === "linh" || w[j] === "lẻ") && (d(j + 1) != null || w[j + 1] === "không")) {
+        n += d(j + 1) ?? 0;
+        j += 2;
+      }
+    }
+    if (w[j] === "mười") {
+      n += 10;
+      j++;
+      if (d(j) != null && w[j] !== "mốt" && w[j] !== "tư") n += d(j++);
+    } else if (d(j) != null && d(j) > 1 && w[j + 1] === "mươi") {
+      n += d(j) * 10;
+      j += 2;
+      if (d(j) != null) n += d(j++);
+    } else if (j === i && d(j) != null && w[j] !== "mốt" && (w[j] !== "lăm" || /^\d$/.test(out[out.length - 1] ?? ""))) {
+      n = d(j++);
+    } else if (j === i && w[j] === "không" && /^(phẩy|chấm|\d)$/.test(out[out.length - 1] ?? "")) {
+      j++; // "phẩy không năm" ⇒ 0 5 ⇒ dính thành 05 ở dưới
+    }
+    if (j === i) out.push(w[i++]);
+    else {
+      out.push(String(n));
+      i = j;
+    }
+  }
+  // "14 phẩy 0 5" → "14 phẩy 05": các chữ số rời sau phẩy dính lại
+  return out.join(" ").replace(/(phẩy|chấm) ((?:\d \d)+(?: \d)?)\b/g, (_, p, ds: string) => `${p} ${ds.replace(/ /g, "")}`);
+}
+
 function foldSpoken(s: string): string {
   return s
     .toLowerCase()
@@ -113,7 +159,7 @@ function foldSpoken(s: string): string {
 
 export function parseSpokenCoordPair(text: string): { lat: number; lon: number } | null {
   if (typeof text !== "string") return null;
-  let s = ` ${foldSpoken(text)} `
+  let s = ` ${foldSpoken(soBangChu(text))} `
     // "14 phẩy 58" / "14 chấm 58" → 14.58 ; "14,58" → 14.58
     .replace(/(\d+)\s*(?:phay|cham)\s*(\d+)/g, "$1.$2")
     .replace(/(\d+),(\d+)/g, "$1.$2");
@@ -134,6 +180,8 @@ export function parseSpokenCoordPair(text: string): { lat: number; lon: number }
     // không nhãn: chia đôi dãy số (2 · 4 · 6 số)
     const nums = s.match(/\d+(?:\.\d+)?/g) ?? [];
     if (nums.length !== 2 && nums.length !== 4 && nums.length !== 6) return null;
+    // hai số NGUYÊN trơn ("tháng 2 … bd 95") không phải toạ độ — cần số lẻ hoặc nhãn
+    if (nums.length === 2 && !nums.every((x) => x.includes("."))) return null;
     const h = nums.length / 2;
     latPart = nums.slice(0, h).join(" ");
     lonPart = nums.slice(h).join(" ");

@@ -9,6 +9,7 @@
 
 import { parseSpokenCoordPair } from "@/lib/parse-coord";
 
+import { hoiGi, type CauHoi } from "./hoi-ban-do";
 import { foldVn, guessIntent, type NgramModel, type SenIntent } from "./ngram";
 
 export type SenDest = { name: string; lat: number; lon: number; kind: "cang" | "diem" | "nha" };
@@ -28,6 +29,8 @@ export type SenReply =
   | { kind: "repeat" }
   /** còn bao xa — chỗ gọi có số */
   | { kind: "howfar" }
+  /** câu hỏi bản đồ (gần đảo nào, rạn, độ sâu, phía trước, cá…) — chỗ gọi tra kho lớp (hoi-ban-do.ts) */
+  | { kind: "hoi"; q: CauHoi }
   | { kind: "say"; say: string };
 
 /** Đang ở nấc nào của cuộc nói — quyết định "đi"/"thôi" nghĩa là gì. */
@@ -36,6 +39,10 @@ export type SenCtx = {
   awaitingGo: boolean;
   /** đang chạy hoặc đang dẫn đường */
   running: boolean;
+  /** chỗ Sen Biển vừa trả lời ("rạn gần nhất là…") — "dẫn tới đó" đi tới đây */
+  choVuaNoi?: SenDest | null;
+  /** tên ngắn các loài cá app biết — để nhận "chỗ nào nhiều cá ngừ vằn" */
+  loaiCa?: readonly string[];
 };
 
 /** Bỏ chữ "cảng"/"cảng cá" đầu tên để "về Sa Huỳnh" cũng khớp "Cảng Sa Huỳnh". */
@@ -61,6 +68,66 @@ export function findDests(text: string, dests: readonly SenDest[]): SenDest[] {
   return hits;
 }
 
+/*  KHỚP GẦN THEO ÂM — chỉ khi không thấy tên nguyên cụm. Bộ nghe trong máy hay
+    viết lệch tên riêng đúng kiểu giọng miền: "Hòn Rớ"→"Hòn Dớ", "Ninh Chữ"→
+    "Niên Trữ", "La Gi"→"Lavi", "Sa Huỳnh"→"Xa Huyền" (đo 2026-10-16, 70 câu ×
+    4 kiểu thu). Gộp phụ âm hay lẫn rồi so khoảng cách chữ. Khớp gần KHÔNG tự
+    chạy: Sen Biển đọc lại tên + đường rồi chờ "đi", bà con nghe sai thì "thôi". */
+function amKey(s: string): string[] {
+  return foldVn(s)
+    .split(" ")
+    .filter(Boolean)
+    .map((w) =>
+      w
+        .replace(/^ngh/, "ng")
+        .replace(/^gh/, "g")
+        .replace(/^gi(?=[aeiouy])/, "d")
+        .replace(/^g(?=i)/, "d")
+        .replace(/^tr/, "ch")
+        .replace(/^[rv]/, "d")
+        .replace(/^s/, "x")
+        .replace(/^qu/, "kw")
+        .replace(/^[ck]/, "k")
+        .replace(/[ct]$/, "k"),
+    );
+}
+
+function lev(a: string, b: string): number {
+  let p = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const q = [i];
+    for (let j = 1; j <= b.length; j++) q[j] = Math.min(p[j] + 1, q[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    p = q;
+  }
+  return p[b.length];
+}
+
+/** Chỗ có tên GẦN GIỐNG nhất (một chỗ duy nhất, cách chỗ nhì ít nhất 1 chữ); không chắc ⇒ []. */
+export function findDestsGan(text: string, dests: readonly SenDest[]): SenDest[] {
+  // bỏ chữ lệnh/đệm trước khi so: "cảng" từng khớp gần "Cà Ná"
+  const h = amKey(foldVn(text).replace(LOI_DEM, " "));
+  const gan: { d: SenDest; k: number }[] = [];
+  for (const d of dests) {
+    const k = amKey(core(d.name));
+    const kj = k.join("");
+    if (kj.length < 4) continue; // tên quá ngắn, gần giống gì cũng khớp
+    let dmin = Infinity;
+    for (let n = Math.max(1, k.length - 1); n <= k.length + 1; n++)
+      for (let i = 0; i + n <= h.length; i++) dmin = Math.min(dmin, lev(h.slice(i, i + n).join(""), kj));
+    if (dmin <= Math.floor(kj.length * 0.3)) gan.push({ d, k: dmin });
+  }
+  gan.sort((a, b) => a.k - b.k);
+  const a = gan[0];
+  // cùng một chỗ (trùng toạ độ, hai tên) không tính là "nhì"
+  const nhi = gan.find((g) => g.d.lat !== a?.d.lat || g.d.lon !== a?.d.lon);
+  return a && (!nhi || nhi.k > a.k) ? [a.d] : [];
+}
+
+const LOI_DEM =
+  /(^| )(dan|ve|cang|ben|chay|ra|di|toi|cho|tui|toi|minh|em|anh|nha|giup|gium|coi|voi|duong|den|thoi|o|a|nhe)(?= |$)/g;
+
+const MOTION_RE = /^(dan|chay|di|ve|toi|cho tui ve|cho toi ve|ra) /;
+
 const HOME_RE = / (cang nha|ve nha|ve ben) /;
 
 const NGOAI_BAN_DO: SenIntent[] = [
@@ -79,6 +146,7 @@ const CONFIRM = /^(di|di thoi|di di|bat dau|chay|chay di|chay thoi|xuat phat|ok|
 const MUTE = /^(im|im di|im lang|tat tieng|tat loa|nho tieng)( |$)/;
 const UNMUTE = /(^| )(bat tieng|bat loa|mo loa|doc tiep|noi tiep)( |$)/;
 const REPEAT = /(^| )(noi lai|nhac lai|doc lai|lap lai|noi gi|gi vay)( |$)/;
+const TOI_DO = /^(dan|di|chay|toi|ra|ve|dua)( toi| ra| ve| vo)? (do|cho do|cho nay|cho kia|ben do|dao do|ran do)( di| nha| luon)?$/;
 const HOWFAR = /(^| )(bao xa|bao lau|bao gio toi|toi chua|con may|con bao nhieu)( |$)/;
 
 /** 14,5754 → "14 độ 34 phút" — đọc lại toạ độ để bà con nghe máy hiểu đúng chưa. */
@@ -116,6 +184,9 @@ export function senBienReply(
   if (REPEAT.test(f)) return { kind: "repeat" };
   if (HOWFAR.test(f)) return { kind: "howfar" };
 
+  // (2b) "dẫn tới đó" — chỗ vừa trả lời
+  if (ctx.choVuaNoi && TOI_DO.test(f)) return { kind: "go", dest: ctx.choVuaNoi, say: `Đi ${ctx.choVuaNoi.name}.` };
+
   // (3) toạ độ đọc bằng giọng
   const c = parseSpokenCoordPair(text);
   if (c) {
@@ -123,15 +194,25 @@ export function senBienReply(
     return { kind: "go", dest: { name, lat: c.lat, lon: c.lon, kind: "diem" }, say: `Điểm ${name}.` };
   }
 
+  // (3b) câu hỏi bản đồ — luật đóng, trước tên chỗ ("gần đảo nào" không phải "đi đảo Nào")
+  const hoi = hoiGi(text, ctx.loaiCa);
+  if (hoi) return { kind: "hoi", q: hoi };
+
   // (4) chọn chỗ theo tên
-  const hits = findDests(text, dests);
+  let hits = findDests(text, dests);
   const home = dests.find((d) => d.kind === "nha");
   // mô hình chưa tải được (lần đầu mất sóng) ⇒ vẫn dẫn được khi câu có tên chỗ
   const y: SenIntent = model
     ? guessIntent(model, text, { diem: dests.map((d) => core(d.name)), xn: ctx.awaitingGo }).y
-    : hits.length
+    : hits.length || MOTION_RE.test(`${f} `)
       ? "dan_duong"
       : "khong_hieu";
+  // khớp gần chỉ khi câu RÕ là muốn đi — đừng để "sóng gió chỗ này" hoá tên cảng
+  // Có mô hình thì chỉ khớp gần khi nó đoán DẪN ĐƯỜNG: nới sang "không hiểu"/"có động
+  // từ đi" thì khớp nhầm tăng từ 1 lên 33 trên 1.421 câu thử ("về trang chủ" → Trân Châu).
+  const muonDi = model ? y === "dan_duong" || y === "dat_cang_nha" : MOTION_RE.test(`${f} `);
+  if (!hits.length && muonDi)
+    hits = findDestsGan(text, dests);
 
   const wantsGo =
     y === "dan_duong" || y === "dat_cang_nha" || (hits.length > 0 && y !== "ngoai_pham_vi");

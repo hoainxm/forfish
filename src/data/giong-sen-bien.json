@@ -1,6 +1,6 @@
 {
-  "_ghi": "Câu CỐ ĐỊNH đọc bằng mp3 giọng nữ Sen Biển (VieNeu-TTS, giọng Trúc Ly). `text` = ĐÚNG NGUYÊN VĂN một câu app đọc (khoá tra, so không phân biệt hoa thường và dấu chấm cuối); `doc` = cách đọc khi chữ viết dễ đọc sai. Sửa câu trong code thì sửa ở đây + chạy scripts/sen-bien-giong/gen_clips.py (cổng: src/lib/__tests__/tts-voice.test.ts).",
-  "voice": "Trúc Ly",
+  "_ghi": "Câu CỐ ĐỊNH đọc bằng mp3 giọng nữ Sen Biển (VieNeu-TTS, giọng Mỹ Duyên — đổi từ Trúc Ly 2026-10-16 theo chủ dự án). `text` = ĐÚNG NGUYÊN VĂN một câu app đọc (khoá tra, so không phân biệt hoa thường và dấu chấm cuối); `doc` = cách đọc khi chữ viết dễ đọc sai. Sửa câu trong code thì sửa ở đây + chạy scripts/sen-bien-giong/gen_clips.py (cổng: src/lib/__tests__/tts-voice.test.ts).",
+  "voice": "Mỹ Duyên",
   "dir": "/giong/sen-bien",
   "items": [
     { "id": "chua_nghe_ro", "text": "Sen Biển chưa nghe rõ." },

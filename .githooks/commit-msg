@@ -1,0 +1,3 @@
+#!/bin/sh
+# commit-msg: kiểm cần ĐỌC message — git chỉ đưa file message cho hook này ($1).
+exec sh "$(dirname "$0")/data-budget.sh" "$1"

@@ -42,4 +42,8 @@
          app trên bản native (NativeGpsPrime). iOS khai ở Info.plist NSLocation*. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Sen Biển nghe trong máy (ADR 0011): getUserMedia trong WebView cần quyền mic;
+         Capacitor BridgeWebChromeClient tự xin lúc trang gọi mic -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 </manifest>
