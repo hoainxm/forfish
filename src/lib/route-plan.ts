@@ -207,15 +207,20 @@ export type WeatherField = {
    * từ lưới Windy ĐÃ LƯU trong máy lúc mất sóng (route-weather.offlineFieldFromGrid).
    * Bản 'grid' THÔ hơn (~2° thay vì ~0,35°) và KHÔNG có dòng chảy/chu kỳ sóng —
    * UI phải nói thật (memory: "dữ liệu cũ đội lốt mới" là lỗi nặng nhất).
+   * 'none' = KHÔNG có số dự báo nào (Open-Meteo từ chối/không tới được VÀ máy
+   * chưa lưu lưới) — lưới rỗng, tuyến chỉ tính theo hải đồ (`noWeatherKm`).
    */
-  source?: "live" | "grid";
+  source?: "live" | "grid" | "none";
   /**
    * true = lùi về lưới đã lưu KHÔNG phải vì mất sóng mà vì Open-Meteo từ chối
    * (HTTP 429 — vượt lượt gọi trong giờ, tính theo IP). UI phải nói "máy chủ dự
    * báo đang quá tải, thử lại sau" thay vì "mất sóng"/"vùng này thiếu dữ liệu".
-   * Chỉ có nghĩa khi source='grid'.
+   * Chỉ có nghĩa khi source='grid' hoặc 'none'.
    */
   rateLimited?: boolean;
+  /** true = Open-Meteo báo hết suất CẢ NGÀY (mở lại 7 giờ sáng VN) — chỉ có
+      nghĩa khi `rateLimited` */
+  rateLimitDaily?: boolean;
   /** epoch ms lúc lưới offline được lưu — chỉ có nghĩa khi source='grid' */
   savedAt?: number | null;
 };
@@ -611,6 +616,22 @@ export type RoutePlan = {
    * chỉ theo chặng chỗ-ghé. "red" cũng gồm khúc best-effort dẫm sóng ≥4 m.
    */
   segRisks: LegRisk[];
+  /**
+   * TUYẾN THEO HẢI ĐỒ KHI THIẾU DỰ BÁO (2026-10-16). Số km dọc tuyến nằm giữa
+   * biển mà KHÔNG có số sóng gió (lưới dự báo thủng / Open-Meteo từ chối và
+   * máy chưa lưu lưới). 0 = cả tuyến có dự báo. > 0 thì đoạn đó máy CHỈ né bờ,
+   * bãi cạn, vật chặn, vùng cấm và bão; giờ chạy + dầu tính như biển êm — UI
+   * PHẢI cảnh báo đỏ. Trước đây chỗ thiếu số bị coi như ĐẤT ⇒ không ra tuyến
+   * nào ("Chưa tìm được đường… thiếu dữ liệu dự báo") đúng lúc bà con cần nhất.
+   */
+  noWeatherKm: number;
+  /**
+   * Tuyến có gặp ÍT NHẤT MỘT mẫu dự báo thật không. false ⇒ `maxWaveM`/
+   * `maxWindKmh` = 0 vì KHÔNG BIẾT chứ không phải biển êm — UI không được in
+   * "sóng 0 m". Không suy từ tỉ lệ `noWeatherKm`/`distKm`: phần sát hai đầu
+   * không được đếm vào `noWeatherKm`, tuyến mù hoàn toàn vẫn có thể < 90 %.
+   */
+  weatherSeen: boolean;
 };
 
 type LegInfo = {
@@ -640,6 +661,11 @@ type LegInfo = {
   /** chặng có mẫu ≥ ngưỡng CỨNG (sóng ≥4 m / gió ≥ cấp 8) — chỉ lọt qua ở chế
       độ best-effort (`seaAsPenalty`); ở chế độ nghiêm chặng này đã INFEASIBLE */
   seaImpassable: boolean;
+  /** km của chặng nằm giữa biển mà KHÔNG có số dự báo (chỉ khác 0 ở lượt
+      "theo hải đồ" hoặc khi tính lại số liệu tuyến đã chọn) */
+  noWeatherKm: number;
+  /** chặng có ít nhất một mẫu dự báo thật */
+  weatherSeen: boolean;
 };
 
 // bất biến + dùng lại cho mọi chặng không đi được — tránh cấp phát object
@@ -650,6 +676,8 @@ const INFEASIBLE_LEG: LegInfo = Object.freeze({
   veryShallow: false, nearLand: false, draftShallow: false,
   hazard: false, hazardNearPort: false,
   lowSeen: false, lowFar: false, following: false, seaImpassable: false,
+  noWeatherKm: 0,
+  weatherSeen: false,
 });
 
 // export cho route-plan.worker.ts (structured clone nguyên args qua worker)
@@ -761,7 +789,26 @@ export function planRouteWithDiagnostics(args: PlanArgs): RoutePlanOutcome {
     if (bestEffort) return { plan: bestEffort, failure: null };
     weatherGap = weatherGap || loose.weatherGap;
   }
-  return { plan: null, failure: weatherGap ? "weather-coverage" : "no-route" };
+  /*  TÍNH THEO HẢI ĐỒ KHI THIẾU DỰ BÁO (2026-10-16, yêu cầu "dùng A* thôi"
+      khi dẫn đường chết vì Open-Meteo 429 — chờ chủ dự án duyệt qua PR). Lượt
+      tìm hỏng mà CÓ gặp chỗ thiếu số ⇒ tìm lại, chỗ thiếu số đi như biển êm.
+      Đất/cạn/vật chặn/vùng cấm VẪN chặn cứng; bão vẫn qua cổng ở route-planner;
+      chỗ CÓ số mà sóng ≥ ngưỡng cứng vẫn chặn (lượt best-effort nếu cần).
+      Tuyến trả về mang `noWeatherKm > 0` để UI cảnh báo đỏ. Không có chỗ thiếu
+      số nào thì lượt này đi lại y hệt hai lượt trên ⇒ bỏ qua. */
+  if (weatherGap) {
+    const blind: AttemptDiag = { seaBlocked: false, weatherGap: false };
+    const theoHaiDo = planAttempt(args, false, blind, true);
+    if (theoHaiDo) return { plan: theoHaiDo, failure: null };
+    if (blind.seaBlocked) {
+      const blindLoose: AttemptDiag = { seaBlocked: false, weatherGap: false };
+      const theoHaiDoDu = planAttempt(args, true, blindLoose, true);
+      if (theoHaiDoDu) return { plan: theoHaiDoDu, failure: null };
+    }
+    // vẫn null ⇒ không phải chuyện dự báo nữa: đất/cạn/vật chặn chắn lối
+    return { plan: null, failure: "no-route" };
+  }
+  return { plan: null, failure: "no-route" };
 }
 
 /**
@@ -785,6 +832,10 @@ function planAttempt(
   args: PlanArgs,
   seaAsPenalty: boolean,
   diag: AttemptDiag,
+  /*  LƯỢT THEO HẢI ĐỒ: mẫu giữa biển thiếu số dự báo KHÔNG còn chặn cạnh mà
+      chạy như biển êm + đếm `noWeatherKm`. Chỉ `planRouteWithDiagnostics`
+      bật, và chỉ khi lượt thường đã gặp chỗ thiếu số mà không ra tuyến. */
+  weatherUnknownOk = false,
 ): RoutePlan | null {
   const { start, dest, boat, departHourIdx, field, depth, bbox } = args;
   const midLat = (bbox.latMin + bbox.latMax) / 2;
@@ -1105,6 +1156,8 @@ function planAttempt(
     let rough = false;
     let following = false;
     let seaImpassable = false;
+    let noWeatherKm = 0;
+    let weatherSeen = false;
     for (let s = 0; s < nW; s++) {
       const t = (s + 0.5) / nW;
       const h = sampleField(
@@ -1115,14 +1168,19 @@ function planAttempt(
       );
       if (!h) {
         // ngoài lưới thời tiết / cả 4 góc đất liền
-        if (
-          !relaxed &&
-          !nearEndpoints({ lat: from.lat + dLatLeg * t, lon: from.lon + dLonLeg * t }, VICINITY_SHALLOW_KM)
-        ) {
+        const giuaBien = !nearEndpoints(
+          { lat: from.lat + dLatLeg * t, lon: from.lon + dLonLeg * t },
+          VICINITY_SHALLOW_KM,
+        );
+        if (giuaBien && !relaxed && !weatherUnknownOk) {
           diag.weatherGap = true;
           return INFEASIBLE_LEG;
         }
-        // sát cảng: chạy bằng số 0 an toàn (đoạn ngắn)
+        /*  Lượt THEO HẢI ĐỒ (`weatherUnknownOk`) hoặc tính lại tuyến đã chọn:
+            đi tiếp như biển êm nhưng ĐẾM quãng thiếu số để UI nói thật. Sát
+            cảng thì không đếm — đoạn ngắn, luật cũ vốn đã cho qua. */
+        if (giuaBien) noWeatherKm += subKm;
+        // sát cảng / thiếu số: chạy bằng số 0 an toàn
         const h0 = subKm / calmKmh;
         hours += h0;
         fuelL += h0 * boat.litersPerHour;
@@ -1130,6 +1188,7 @@ function planAttempt(
         continue;
       }
 
+      weatherSeen = true;
       // Ô biển mà GIỜ này thiếu số sóng (nguồn marine thủng) → ƯỚC từ gió
       // thay vì coi 0 = biển lặng: 0 giả tắt cả giảm tốc lẫn phạt an toàn
       // đúng lúc dữ liệu kém nhất. Cùng công thức estimateWaveFromWind của
@@ -1194,6 +1253,7 @@ function planAttempt(
       feasible: true, distKm, hours, fuelL, cost,
       waveM: maxWave, windKmh: maxWind, rough, shallow, veryShallow, nearLand,
       draftShallow, hazard, hazardNearPort, lowSeen, lowFar, following, seaImpassable,
+      noWeatherKm, weatherSeen,
     };
   };
 
@@ -1336,6 +1396,8 @@ function planAttempt(
       following = false,
       seaImpassableFlag = false,
       ok = true;
+    let noWeatherKm = 0;
+    let weatherSeen = false;
     const hoursAt: number[] = [0];
     const segRisks: LegRisk[] = [];
     for (let k = 1; k < pts.length; k++) {
@@ -1361,6 +1423,8 @@ function planAttempt(
       lowFar = lowFar || leg.lowFar;
       following = following || leg.following;
       seaImpassableFlag = seaImpassableFlag || leg.seaImpassable;
+      noWeatherKm += leg.noWeatherKm;
+      weatherSeen = weatherSeen || leg.weatherSeen;
       segRisks.push(legInfoRisk(leg));
     }
     return {
@@ -1369,7 +1433,7 @@ function planAttempt(
       hazardFlag, hazardNearPortFlag,
       // có chỗ thấp, và MỌI chỗ thấp đều là chuyện ở cảng
       nearPortOnly: lowSeen && !lowFar,
-      following, seaImpassable: seaImpassableFlag, segRisks,
+      following, seaImpassable: seaImpassableFlag, segRisks, noWeatherKm, weatherSeen,
     };
   };
 
@@ -1408,8 +1472,13 @@ function planAttempt(
   for (const c of field.cells) {
     if (c.onSea && c.hours.length > fieldHours) fieldHours = c.hours.length;
   }
+  /*  Lưới RỖNG (source 'none') thì "quá cửa sổ dự báo" là vô nghĩa — cả tuyến
+      không có số, `noWeatherKm` đã nói việc đó; báo thêm "đuôi tuyến quá cửa
+      sổ" là hai câu cùng một chuyện mà câu sau còn sai lý do. */
   const beyondH = (tripHours: number) =>
-    Math.max(0, Math.ceil(departHourIdx + tripHours - fieldHours));
+    fieldHours === 0
+      ? 0
+      : Math.max(0, Math.ceil(departHourIdx + tripHours - fieldHours));
 
   // đường thẳng để so sánh trung thực — chia nhỏ theo bước lưới
   const directDist = haversineKm(start, dest);
@@ -1462,6 +1531,8 @@ function planAttempt(
       beyondForecastH: beyondH(directWalk.hoursSum),
       bestEffortSeas: directWalk.seaImpassable,
       segRisks: directWalk.segRisks,
+      noWeatherKm: directWalk.noWeatherKm,
+      weatherSeen: directWalk.weatherSeen,
     };
   }
 
@@ -1490,6 +1561,8 @@ function planAttempt(
     beyondForecastH: beyondH(chosen.hoursSum),
     bestEffortSeas: chosen.seaImpassable,
     segRisks: chosen.segRisks,
+    noWeatherKm: chosen.noWeatherKm,
+    weatherSeen: chosen.weatherSeen,
   };
 }
 

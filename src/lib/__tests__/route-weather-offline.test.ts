@@ -22,6 +22,8 @@ import {
   gridHourOffsetFromToday,
   fetchWeatherField,
   isWeatherRateLimit,
+  noWeatherField,
+  WeatherRateLimitError,
 } from "../route-weather";
 import {
   gridPoints,
@@ -187,6 +189,39 @@ describe("fetchWeatherField — Open-Meteo từ chối 429 (vượt lượt tron
     expect(isWeatherRateLimit(err)).toBe(true);
   });
 
+  it("hết suất CẢ NGÀY: lỗi mang cờ daily, lưới lưu mang rateLimitDaily", async () => {
+    const ngay = () =>
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        text: async () =>
+          '{"error":true,"reason":"Daily API request limit exceeded. Please try again tomorrow."}',
+      }) as unknown as typeof fetch;
+    globalThis.fetch = ngay();
+    const err = await fetchWeatherField(
+      { latMin: 4, latMax: 10, lonMin: 102, lonMax: 109 },
+      NOW,
+    ).catch((e: unknown) => e);
+    expect(isWeatherRateLimit(err)).toBe(true);
+    expect((err as WeatherRateLimitError).daily).toBe(true);
+    // có lưới trong máy → lùi về lưới, giữ cờ ngày
+    saveForecast(GRID_NS, gridCacheId(3), makeGrid("2026-07-28", 24, 1));
+    globalThis.fetch = ngay();
+    const f = await fetchWeatherField({ latMin: 3, latMax: 9, lonMin: 101, lonMax: 108 }, NOW);
+    expect(f.rateLimited).toBe(true);
+    expect(f.rateLimitDaily).toBe(true);
+  });
+
+  it("429 không đọc được thân (không có text()) → vẫn là quá tải, coi như suất GIỜ", async () => {
+    globalThis.fetch = tuChoi();
+    const err = await fetchWeatherField(
+      { latMin: 2, latMax: 8, lonMin: 100, lonMax: 107 },
+      NOW,
+    ).catch((e: unknown) => e);
+    expect(isWeatherRateLimit(err)).toBe(true);
+    expect((err as WeatherRateLimitError).daily).toBe(false);
+  });
+
   it("lỗi HTTP khác (500) vẫn là lỗi thường — không bị đọc thành quá tải", async () => {
     globalThis.fetch = vi
       .fn()
@@ -197,5 +232,23 @@ describe("fetchWeatherField — Open-Meteo từ chối 429 (vượt lượt tron
     ).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(Error);
     expect(isWeatherRateLimit(err)).toBe(false);
+  });
+});
+
+describe("noWeatherField — lưới RỖNG khi không có lấy một số dự báo (2026-10-16)", () => {
+  it("lưới rỗng, nguồn 'none', mang đúng lý do", () => {
+    const thuong = noWeatherField(new Error("mất sóng"));
+    expect(thuong).toMatchObject({ source: "none", nLat: 0, nLon: 0, cells: [] });
+    expect(thuong.rateLimited).toBe(false);
+    expect(thuong.rateLimitDaily).toBe(false);
+    const gio = noWeatherField(new WeatherRateLimitError());
+    expect(gio.rateLimited).toBe(true);
+    expect(gio.rateLimitDaily).toBe(false);
+    const ngay = noWeatherField(new WeatherRateLimitError(true));
+    expect(ngay.rateLimitDaily).toBe(true);
+  });
+
+  it("lấy mẫu trên lưới rỗng luôn trả null (bộ tính đường chạy theo hải đồ)", () => {
+    expect(sampleField(noWeatherField(null), 10, 108, 0)).toBeNull();
   });
 });

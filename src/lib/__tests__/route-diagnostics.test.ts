@@ -39,10 +39,50 @@ const args = (weather = field()): PlanArgs => ({
 });
 
 describe("route diagnostics — phân biệt dữ liệu thiếu với chưa tìm được đường", () => {
-  it("hai đầu ngoài khơi nhưng dự báo không phủ: không quy lỗi cho đất", () => {
-    expect(planRouteWithDiagnostics(args(field(false)))).toEqual({
-      plan: null, failure: "weather-coverage",
+  /*  TÍNH THEO HẢI ĐỒ KHI THIẾU DỰ BÁO (2026-10-16). Trước đây ca này trả
+      `{ plan: null, failure: "weather-coverage" }` ⇒ dẫn đường chết hẳn lúc
+      Open-Meteo từ chối (429). Nay ra tuyến, mang `noWeatherKm` để UI cảnh báo. */
+  it("hai đầu ngoài khơi nhưng dự báo không phủ: vẫn ra tuyến THEO HẢI ĐỒ, đếm quãng không có số", () => {
+    const r = planRouteWithDiagnostics(args(field(false)));
+    expect(r.failure).toBeNull();
+    expect(r.plan?.waypoints[0]).toEqual(start);
+    expect(r.plan?.waypoints.at(-1)).toEqual(dest);
+    // gần trọn tuyến không có số (trừ bán kính sát hai đầu)
+    expect(r.plan!.noWeatherKm).toBeGreaterThan(r.plan!.distKm * 0.8);
+    expect(r.plan!.noWeatherKm).toBeLessThanOrEqual(r.plan!.distKm + 1e-6);
+    // không có số thì không bịa sóng: 0 là "không biết", UI đọc noWeatherKm
+    expect(r.plan!.maxWaveM).toBe(0);
+    expect(r.plan!.weatherSeen).toBe(false);
+    expect(r.plan!.beyondForecastH).toBe(0);
+  });
+
+  it("lưới RỖNG hẳn (source 'none', 0 ô) cũng ra tuyến theo hải đồ", () => {
+    const rong: WeatherField = {
+      lat0: 0, lon0: 0, dLat: 1, dLon: 1, nLat: 0, nLon: 0, cells: [], source: "none",
+    };
+    const r = planRouteWithDiagnostics(args(rong));
+    expect(r.failure).toBeNull();
+    expect(r.plan!.noWeatherKm).toBeGreaterThan(r.plan!.distKm * 0.8);
+  });
+
+  it("thiếu dự báo KHÔNG được mở đường qua đất: đất + không dự báo ⇒ no-route", () => {
+    expect(planRouteWithDiagnostics({ ...args(field(false)), depth: land })).toEqual({
+      plan: null, failure: "no-route",
     });
+  });
+
+  it("dự báo phủ một nửa: tuyến ra, chỉ đếm phần không có số", () => {
+    const half = field(true);
+    // bỏ số từ cột j = 2 về đông. Khung có lề 120 km nên đích (112°E) nằm ở
+    // x ≈ 2,95: mẫu x ∈ [2, 3) có cả bốn góc không số ⇒ nửa đông chạy mù
+    half.cells = half.cells.map((c, k) => (k % 5 >= 2 ? { onSea: false, hours: [] } : c));
+    const r = planRouteWithDiagnostics(args(half));
+    expect(r.failure).toBeNull();
+    expect(r.plan!.noWeatherKm).toBeGreaterThan(0);
+    expect(r.plan!.noWeatherKm).toBeLessThan(r.plan!.distKm * 0.8);
+    // phần có số vẫn đọc được sóng thật
+    expect(r.plan!.maxWaveM).toBeCloseTo(0.5, 5);
+    expect(r.plan!.weatherSeen).toBe(true);
   });
 
   it("đất chặn với dự báo đủ: vẫn không trả tuyến qua đất", () => {
@@ -58,6 +98,9 @@ describe("route diagnostics — phân biệt dữ liệu thiếu với chưa tì
     expect(result.plan?.waypoints[0]).toEqual(start);
     expect(result.plan?.waypoints.at(-1)).toEqual(dest);
     expect(result.plan?.bestEffortSeas).toBe(false);
+    // dự báo phủ trọn ⇒ không có đoạn nào chạy mù
+    expect(result.plan?.noWeatherKm).toBe(0);
+    expect(result.plan?.weatherSeen).toBe(true);
     expect(planRoute(input)?.distKm).toBeCloseTo(result.plan!.distKm, 8);
   });
 

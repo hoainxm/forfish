@@ -163,6 +163,24 @@ export function buildDangerItems(
       label: "Sóng quá lớn",
       text: `Có đoạn sóng tới ${formatNumberVN(plan.maxWaveM)} m, gió cấp ${beaufort(plan.maxWindKmh)} — mức KHÔNG NÊN ĐI với tàu nhỏ. Cân nhắc hoãn chuyến, nghe đài trước khi quyết.`,
     });
+  /*  THIẾU DỰ BÁO SÓNG GIÓ (2026-10-16) — tuyến tính THEO HẢI ĐỒ ở đoạn không
+      có số. Đỏ: máy không biết đoạn đó sóng gió ra sao, mà giờ/dầu lại tính
+      như biển êm — không nói ra là bà con đọc thành "đường êm". Đứng ngay sau
+      sóng dữ vì cùng là chuyện thời tiết. Quãng < 1 km là mép lưới, bỏ qua. */
+  if (plan.noWeatherKm >= 1) {
+    // không gặp lấy một mẫu dự báo ⇒ nói "cả tuyến"; KHÔNG suy từ tỉ lệ km
+    // (phần sát hai đầu không được đếm, tuyến mù hẳn vẫn có thể < 90 %)
+    const caTuyen = !plan.weatherSeen;
+    const hl = formatNumberVN(plan.noWeatherKm / 1.852, plan.noWeatherKm < 18.52 ? 1 : 0);
+    items.push({
+      key: "khong-du-bao",
+      danger: true,
+      label: "Thiếu dự báo sóng gió",
+      text: caTuyen
+        ? "Cả tuyến KHÔNG có số dự báo sóng gió — máy chỉ né bờ, bãi cạn, chướng ngại và vùng cấm. Giờ chạy và dầu tính như biển êm. Nghe đài duyên hải trước khi chạy."
+        : `Chừng ${hl} hải lý trên tuyến KHÔNG có số dự báo sóng gió — đoạn đó máy chỉ né bờ, bãi cạn và chướng ngại; giờ chạy và dầu tính như biển êm. Nghe đài duyên hải trước khi chạy.`,
+    });
+  }
   them(hang("ranh-gioi"));
 
   /*  VẬT CHẶN: gộp cả cờ `hasHazardLeg` vào đây. Cờ đó nghĩa là tuyến TRẢ VỀ
