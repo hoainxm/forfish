@@ -21,6 +21,9 @@ import {
   gridToWeatherField,
   gridHourOffsetFromToday,
   fetchWeatherField,
+  isWeatherRateLimit,
+  noWeatherField,
+  WeatherRateLimitError,
 } from "../route-weather";
 import {
   gridPoints,
@@ -146,6 +149,8 @@ describe("fetchWeatherField — mất sóng lùi về lưới đã lưu", () => 
     const f = await fetchWeatherField(bbox, NOW);
     expect(f.source).toBe("grid");
     expect(f.savedAt).toBeTypeOf("number");
+    // mất sóng thật — KHÔNG gắn cờ "bị từ chối"
+    expect(f.rateLimited).toBeUndefined();
   });
 
   it("KHÔNG có lưới trong máy + offline → ném lỗi (UI báo thiếu)", async () => {
@@ -156,5 +161,94 @@ describe("fetchWeatherField — mất sóng lùi về lưới đã lưu", () => 
     await expect(
       fetchWeatherField({ latMin: 9, latMax: 15, lonMin: 107, lonMax: 114 }, NOW),
     ).rejects.toThrow();
+  });
+});
+
+describe("fetchWeatherField — Open-Meteo từ chối 429 (vượt lượt trong giờ)", () => {
+  const tuChoi = () =>
+    vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: true, reason: "Hourly API request limit exceeded." }),
+    }) as unknown as typeof fetch;
+
+  it("có lưới trong máy → dùng lưới đã lưu NHƯNG gắn rateLimited để UI nói đúng lý do", async () => {
+    saveForecast(GRID_NS, gridCacheId(3), makeGrid("2026-07-28", 24, 1));
+    globalThis.fetch = tuChoi();
+    const f = await fetchWeatherField({ latMin: 7, latMax: 13, lonMin: 105, lonMax: 112 }, NOW);
+    expect(f.source).toBe("grid");
+    expect(f.rateLimited).toBe(true);
+  });
+
+  it("không có lưới trong máy → ném lỗi nhận ra được là 429, không phải mất sóng", async () => {
+    globalThis.fetch = tuChoi();
+    const err = await fetchWeatherField(
+      { latMin: 6, latMax: 12, lonMin: 104, lonMax: 111 },
+      NOW,
+    ).catch((e: unknown) => e);
+    expect(isWeatherRateLimit(err)).toBe(true);
+  });
+
+  it("hết suất CẢ NGÀY: lỗi mang cờ daily, lưới lưu mang rateLimitDaily", async () => {
+    const ngay = () =>
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        text: async () =>
+          '{"error":true,"reason":"Daily API request limit exceeded. Please try again tomorrow."}',
+      }) as unknown as typeof fetch;
+    globalThis.fetch = ngay();
+    const err = await fetchWeatherField(
+      { latMin: 4, latMax: 10, lonMin: 102, lonMax: 109 },
+      NOW,
+    ).catch((e: unknown) => e);
+    expect(isWeatherRateLimit(err)).toBe(true);
+    expect((err as WeatherRateLimitError).daily).toBe(true);
+    // có lưới trong máy → lùi về lưới, giữ cờ ngày
+    saveForecast(GRID_NS, gridCacheId(3), makeGrid("2026-07-28", 24, 1));
+    globalThis.fetch = ngay();
+    const f = await fetchWeatherField({ latMin: 3, latMax: 9, lonMin: 101, lonMax: 108 }, NOW);
+    expect(f.rateLimited).toBe(true);
+    expect(f.rateLimitDaily).toBe(true);
+  });
+
+  it("429 không đọc được thân (không có text()) → vẫn là quá tải, coi như suất GIỜ", async () => {
+    globalThis.fetch = tuChoi();
+    const err = await fetchWeatherField(
+      { latMin: 2, latMax: 8, lonMin: 100, lonMax: 107 },
+      NOW,
+    ).catch((e: unknown) => e);
+    expect(isWeatherRateLimit(err)).toBe(true);
+    expect((err as WeatherRateLimitError).daily).toBe(false);
+  });
+
+  it("lỗi HTTP khác (500) vẫn là lỗi thường — không bị đọc thành quá tải", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }) as unknown as typeof fetch;
+    const err = await fetchWeatherField(
+      { latMin: 5, latMax: 11, lonMin: 103, lonMax: 110 },
+      NOW,
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(isWeatherRateLimit(err)).toBe(false);
+  });
+});
+
+describe("noWeatherField — lưới RỖNG khi không có lấy một số dự báo (2026-10-16)", () => {
+  it("lưới rỗng, nguồn 'none', mang đúng lý do", () => {
+    const thuong = noWeatherField(new Error("mất sóng"));
+    expect(thuong).toMatchObject({ source: "none", nLat: 0, nLon: 0, cells: [] });
+    expect(thuong.rateLimited).toBe(false);
+    expect(thuong.rateLimitDaily).toBe(false);
+    const gio = noWeatherField(new WeatherRateLimitError());
+    expect(gio.rateLimited).toBe(true);
+    expect(gio.rateLimitDaily).toBe(false);
+    const ngay = noWeatherField(new WeatherRateLimitError(true));
+    expect(ngay.rateLimitDaily).toBe(true);
+  });
+
+  it("lấy mẫu trên lưới rỗng luôn trả null (bộ tính đường chạy theo hải đồ)", () => {
+    expect(sampleField(noWeatherField(null), 10, 108, 0)).toBeNull();
   });
 });

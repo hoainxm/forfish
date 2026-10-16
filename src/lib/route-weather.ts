@@ -146,6 +146,54 @@ export function weatherFieldCacheKey(bbox: BBox, now: Date): string {
   );
 }
 
+/**
+ * Open-Meteo trả HTTP 429 — vượt lượt gọi trong giờ (gói miễn phí tính theo IP;
+ * mạng dùng chung / CGNAT nhà mạng là cả nhóm máy chung một suất). KHÁC mất
+ * sóng: máy vẫn có mạng, chỉ là máy chủ dự báo không trả lời — đợi rồi thử lại
+ * là được. Tách riêng để UI nói đúng nguyên nhân (2026-10-16: trước đây rơi vào
+ * nhánh lưới đã lưu rồi báo "Vùng này đang thiếu dữ liệu dự báo" — sai).
+ */
+export class WeatherRateLimitError extends Error {
+  /** true = hết suất CẢ NGÀY ("Daily API request limit exceeded" — mở lại 0h
+      UTC = 7 giờ sáng VN), false = hết suất trong giờ. Đo thật 2026-10-16:
+      Open-Meteo trả cả hai loại; bảo "đợi 1 tiếng" khi đã hết suất ngày là
+      bắt bà con bấm lại cả chục lần vô ích. */
+  readonly daily: boolean;
+  constructor(daily = false) {
+    super("Máy chủ dự báo đang quá tải (HTTP 429)");
+    this.name = "WeatherRateLimitError";
+    this.daily = daily;
+  }
+}
+
+export function isWeatherRateLimit(e: unknown): boolean {
+  return e instanceof WeatherRateLimitError;
+}
+
+/**
+ * LƯỚI RỖNG — không có lấy một số dự báo nào (Open-Meteo từ chối / không tới
+ * được VÀ máy chưa lưu lưới). Trước 2026-10-16 ca này ném lỗi và dẫn đường
+ * chết hẳn ("Tuyến này chưa có dự báo…"). Nay route-planner tính tiếp trên
+ * lưới rỗng: `planRouteWithDiagnostics` thấy mọi mẫu giữa biển thiếu số nên
+ * chạy lượt THEO HẢI ĐỒ (né bờ/cạn/vật chặn/vùng cấm/bão) và trả `noWeatherKm`
+ * để UI cảnh báo đỏ. Giữ lý do (429 giờ/ngày) để câu chữ nói đúng.
+ */
+export function noWeatherField(e: unknown): WeatherField {
+  const rate = e instanceof WeatherRateLimitError ? e : null;
+  return {
+    lat0: 0,
+    lon0: 0,
+    dLat: 1,
+    dLon: 1,
+    nLat: 0,
+    nLon: 0,
+    cells: [],
+    source: "none",
+    rateLimited: rate != null,
+    rateLimitDaily: rate?.daily === true,
+  };
+}
+
 /** Lưới thời tiết 72 giờ phủ bbox — cache 45 phút, `now` truyền được để test */
 export function fetchWeatherField(
   bbox: BBox,
@@ -180,7 +228,12 @@ export function fetchWeatherField(
     // xài lại thứ đã có trong máy. Thô hơn + không dòng chảy, source='grid' để
     // UI nói thật. Không có lưới nào trong máy → ném lại như cũ (UI báo thiếu).
     const fb = offlineFieldFromGrid(now);
-    if (fb) return fb;
+    // bị Open-Meteo từ chối (429) mà vẫn có lưới lưu: dùng lưới đó nhưng GHI
+    // lý do, để UI không nói "mất sóng" khi máy vẫn có sóng
+    if (fb)
+      return e instanceof WeatherRateLimitError
+        ? { ...fb, rateLimited: true, rateLimitDaily: e.daily }
+        : fb;
     throw e;
   });
   fieldCache.set(key, { at: now.getTime(), field });
@@ -333,6 +386,18 @@ async function fetchWeatherFieldFresh(bbox: BBox): Promise<WeatherField> {
       { signal: timeoutSignal(15000) },
     ),
   ]);
+  if (windRes.status === 429 || waveRes.status === 429) {
+    // đọc lý do để phân biệt hết suất GIỜ hay hết suất NGÀY — đọc hỏng thì
+    // coi như suất giờ (câu "đợi 1 tiếng" — hành vi cũ)
+    const tuChoi = windRes.status === 429 ? windRes : waveRes;
+    let lyDo = "";
+    try {
+      lyDo = await tuChoi.text();
+    } catch {
+      /* thân hỏng / không đọc được — giữ "" */
+    }
+    throw new WeatherRateLimitError(/daily/i.test(lyDo));
+  }
   if (!windRes.ok || !waveRes.ok) {
     throw new Error("Không lấy được dự báo cho tuyến");
   }

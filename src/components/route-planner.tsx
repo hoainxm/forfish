@@ -83,7 +83,11 @@ import {
   clearStops,
   type RouteStop,
 } from "@/lib/route-stops";
-import { fetchWeatherField } from "@/lib/route-weather";
+import {
+  fetchWeatherField,
+  isWeatherRateLimit,
+  noWeatherField,
+} from "@/lib/route-weather";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { readUserRecord } from "@/lib/user-list-store";
 import { saveUserJson } from "@/lib/user-store";
@@ -198,6 +202,18 @@ function myPosition(): Promise<LatLon> {
     );
   });
 }
+
+/*  OPEN-METEO TỪ CHỐI (HTTP 429 — vượt lượt gọi trong giờ, tính theo IP; 2026-10-16).
+    Nói đúng nguyên nhân: máy chủ dự báo bận, KHÔNG phải mất sóng, KHÔNG phải
+    vùng biển thiếu dữ liệu, và KHÔNG bảo bà con "kiểm tra lại điểm" — điểm
+    không sai gì. Việc đúng duy nhất là đợi rồi tính lại. */
+const QUA_TAI_MSG =
+  "Máy chủ dự báo thời tiết đang quá tải (quá nhiều lượt hỏi trong giờ này) nên chưa lấy được gió sóng mới cho tuyến.";
+const THU_LAI_MSG = "Bà con đợi khoảng 1 tiếng rồi bấm Tính lại nhé.";
+/*  Hết suất CẢ NGÀY (Open-Meteo "Daily API request limit exceeded", đo thật
+    2026-10-16) — mở lại 0h UTC = 7 giờ sáng VN. Bảo "đợi 1 tiếng" lúc này là
+    bắt bà con bấm lại cả chục lần vô ích. */
+const THU_LAI_NGAY_MSG = "Máy chủ mở lại sau 7 giờ sáng mai, bà con tính lại lúc đó nhé.";
 
 /** Tuyến + điểm xuất phát vẽ lên bản đồ — đặt BÊN TRONG <MapGL> */
 /** id lớp bắt chạm của tuyến — khai vào `interactiveLayerIds` của <MapGL> */
@@ -810,6 +826,15 @@ export function RouteMode({
   const [offlineSavedAt, setOfflineSavedAt] = useState<number | null | undefined>(
     undefined,
   );
+  /*  Lưới đã lưu được dùng vì Open-Meteo TỪ CHỐI (429 vượt lượt), không phải vì
+      mất sóng — băng cảnh báo phải nói đúng lý do (2026-10-16). Chỉ đọc khi
+      `offlineSavedAt !== undefined`. */
+  const [offlineRateLimited, setOfflineRateLimited] = useState(false);
+  /** Open-Meteo hết suất CẢ NGÀY — băng nói "mở lại 7 giờ sáng mai" */
+  const [offlineRateLimitDaily, setOfflineRateLimitDaily] = useState(false);
+  /*  Tuyến tính trên LƯỚI RỖNG — không có lấy một số dự báo (2026-10-16). Chốt
+      tại lúc tính như `stormWarn`, không đọc lại khi vẽ. */
+  const [noForecast, setNoForecast] = useState(false);
   /*  Câu cảnh báo "tuyến này CHƯA đối chiếu bão" — chốt lại tại LÚC TÍNH, không
       đọc trạng thái live khi vẽ: tin bão về giữa chừng thì câu chữ dưới tuyến
       đổi trong khi tuyến trên bản đồ vẫn là tuyến tính lúc chưa có tin. Bà con
@@ -862,6 +887,7 @@ export function RouteMode({
     setResult(null);
     setError(null);
     setOfflineSavedAt(undefined);
+    setNoForecast(false);
     setStormWarn(null);
     // hậu kiểm là của TUYẾN CŨ — giữ lại là dán cảnh báo của đường này lên đường kia
     setAudit(null);
@@ -1166,6 +1192,13 @@ export function RouteMode({
       let failedLeg = 0;
       // chẩn đoán của lượt tìm hỏng GẦN NHẤT (khung rộng nhất đã thử)
       let failure: RoutePlanFailure = "no-route";
+      /*  Có lượt nào phải tính trên lưới đã lưu VÌ Open-Meteo từ chối (429)
+          không. Lưới đó thô (~2°) và hay thủng gần bờ ⇒ tìm hỏng với nhãn
+          `weather-coverage`; câu "vùng này thiếu dữ liệu" khi đó là sai — vùng
+          không thiếu gì, chỉ là máy chủ dự báo đang từ chối. */
+      let biTuChoi = false;
+      /** Open-Meteo báo hết suất CẢ NGÀY (không phải trong giờ) */
+      let biTuChoiNgay = false;
       /*  TRẦN CHỜ KHO 5 GIÂY (sửa 2026-09-04, review đợt 4 N4). Chín `fetchX`
           chạy song song và mỗi cái có `timeoutSignal(20000)` riêng, nhưng
           `Promise.all` chờ CÁI CHẬM NHẤT, và lượt `await` này đứng TRƯỚC vòng
@@ -1217,14 +1250,18 @@ export function RouteMode({
         const bbox =
           mi === 0 ? firstBBox : clampBBox(bboxOfPoints(legPts, margins[mi]));
         const [field, depth] = await Promise.all([
+          /*  KHÔNG LẤY ĐƯỢC DỰ BÁO NÀO (Open-Meteo từ chối/không tới được VÀ
+              máy chưa lưu lưới) ⇒ KHÔNG còn chết ở đây nữa (2026-10-16): tính
+              tiếp trên LƯỚI RỖNG, bộ tính đường tự chạy lượt THEO HẢI ĐỒ và
+              tuyến mang `noWeatherKm` để thẻ cảnh báo đỏ. Trước đây nhánh này
+              ném lỗi ⇒ "Tuyến này chưa có dự báo…", dẫn đường chết hẳn. */
           mi === 0
-            ? firstField.then((r) => {
-                if ("e" in r) throw r.e;
-                return r.f;
-              })
-            : fetchWeatherField(bbox),
+            ? firstField.then((r) => ("e" in r ? noWeatherField(r.e) : r.f))
+            : fetchWeatherField(bbox).catch((e: unknown) => noWeatherField(e)),
           depthPromise,
         ]);
+        if (field.rateLimited) biTuChoi = true;
+        if (field.rateLimitDaily) biTuChoiNgay = true;
         /*  Lọc hiểm hoạ theo ĐÚNG khung đang tính rồi đóng gói phẳng: tuyến Vũng
             Tàu → Côn Đảo không việc gì phải mang giàn khoan vịnh Bắc Bộ sang
             worker. Gói là ba `Float64Array` + mảng id (structured-clone được;
@@ -1296,9 +1333,11 @@ export function RouteMode({
             : "";
         const kiemLai = `Bà con kiểm tra lại nơi xuất phát (${fromName} · ${fmt(fromPt)}) và ${toName} (${fmt(toPt)}) trên hải đồ.`;
         setError(
-          failure === "weather-coverage"
-            ? `Chưa tìm được đường${where}. Vùng này đang thiếu dữ liệu dự báo. ${kiemLai} Bà con thử tải lại dự báo khi có sóng nhé.`
-            : `Chưa tìm được đường${where}. ${kiemLai}`,
+          failure === "weather-coverage" && biTuChoi
+            ? `Chưa tìm được đường${where}. ${QUA_TAI_MSG} Bản dự báo lưu sẵn trong máy không đủ chi tiết cho vùng này. ${biTuChoiNgay ? THU_LAI_NGAY_MSG : THU_LAI_MSG}`
+            : failure === "weather-coverage"
+              ? `Chưa tìm được đường${where}. Vùng này đang thiếu dữ liệu dự báo. ${kiemLai} Bà con thử tải lại dự báo khi có sóng nhé.`
+              : `Chưa tìm được đường${where}. ${kiemLai}`,
         );
         setResult(null);
         onRoute(null);
@@ -1330,6 +1369,11 @@ export function RouteMode({
       setOfflineSavedAt(
         chosenField?.source === "grid" ? chosenField.savedAt ?? null : undefined,
       );
+      setOfflineRateLimited(chosenField?.rateLimited === true);
+      setOfflineRateLimitDaily(chosenField?.rateLimitDaily === true);
+      /*  Lưới RỖNG (không có số dự báo nào) — nhớ để khối "chưa đối chiếu" nói
+          LÝ DO; còn HẬU QUẢ (đoạn nào chạy mù) do mục đỏ `noWeatherKm` nói. */
+      setNoForecast(chosenField?.source === "none");
 
       /*  ── HẬU KIỂM TRÊN TUYẾN THẬT SỰ TRẢ VỀ (Đợt 2, 2026-09-04) ──────────
           Đặt ở ĐÂY, sau `mergeLegPlans` và sau cả nhánh trần-đường-vòng: cái
@@ -1418,10 +1462,12 @@ export function RouteMode({
       onRoute(r);
       // tính xong thì thẻ về dạng đọc kết quả gọn, không để biểu mẫu đè lên
       setEditing(false);
-    } catch {
+    } catch (e) {
       setError(
-        "Tuyến này chưa có dự báo và máy cũng chưa lưu dữ liệu. " +
-          "Bà con mở màn hình Ra khơi lúc có sóng để máy tự tải sẵn thông tin gió sóng, rồi thử lại nhé.",
+        isWeatherRateLimit(e)
+          ? `${QUA_TAI_MSG} ${THU_LAI_MSG}` // còn lại cho chắc — lỗi thời tiết nay không tới đây nữa
+          : "Tuyến này chưa có dự báo và máy cũng chưa lưu dữ liệu. " +
+              "Bà con mở màn hình Ra khơi lúc có sóng để máy tự tải sẵn thông tin gió sóng, rồi thử lại nhé.",
       );
     } finally {
       setBusy(false);
@@ -1432,6 +1478,7 @@ export function RouteMode({
     setResult(null);
     setError(null);
     setOfflineSavedAt(undefined);
+    setNoForecast(false);
     setAudit(null);
     onRoute(null);
   }
@@ -1522,6 +1569,10 @@ export function RouteMode({
       bảng bên lib được sắp lại lần nữa. */
   const topDanger =
     dangerItems.find((i) => i.danger) ?? dangerItems[0] ?? null;
+  /*  CẢ TUYẾN KHÔNG CÓ SỐ SÓNG GIÓ (không gặp lấy một mẫu dự báo) — số sóng/
+      gió lớn nhất khi đó là 0 vì KHÔNG BIẾT, không phải vì êm; các dòng in số
+      sóng phải đổi lời. Cùng luật với câu "Cả tuyến…" của `buildDangerItems`. */
+  const caTuyenMu = plan != null && plan.noWeatherKm > 0 && !plan.weatherSeen;
 
   /*  Có gì để dọn không: tuyến ĐÃ TÍNH **hoặc** chỗ ghé đã chấm. Bản đầu chỉ
       xét tuyến ⇒ chấm 3 chỗ rồi mà chưa bấm tính thì không có nút nào dọn, phải
@@ -2593,7 +2644,9 @@ export function RouteMode({
                   . Chạy máy {formatHoursVN(plan.hours)}. Dầu ước tính khoảng{" "}
                   {Math.round(plan.fuelL)} lít.
                   {topDanger &&
-                    ` ${topDanger.label}. Sóng có thể lên tới ${formatNumberVN(plan.maxWaveM)} mét.`}
+                    (caTuyenMu
+                      ? ` ${topDanger.label}. Chưa có số sóng.`
+                      : ` ${topDanger.label}. Sóng có thể lên tới ${formatNumberVN(plan.maxWaveM)} mét.`)}
                 </span>
                 {/*  KHÔNG `truncate`/`line-clamp`: dòng này mang con số sóng —
                      thứ quyết định đi hay ở — nên thà xuống dòng còn hơn cắt
@@ -2621,8 +2674,10 @@ export function RouteMode({
                   {topDanger && (
                     <span className={anyDanger ? "text-danger" : "text-warn"}>
                       {" "}
-                      · {topDanger.label} · sóng {formatNumberVN(plan.maxWaveM)}{" "}
-                      m
+                      · {topDanger.label}
+                      {/*  Cả tuyến không có số dự báo ⇒ maxWaveM = 0 là "không
+                           biết", KHÔNG phải "biển êm" — in "sóng 0 m" là nói dối. */}
+                      {!caTuyenMu && <> · sóng {formatNumberVN(plan.maxWaveM)} m</>}
                     </span>
                   )}
                 </span>
@@ -2732,9 +2787,25 @@ export function RouteMode({
           {(() => {
             const items: string[] = [];
             if (stormWarn) items.push(stormWarn);
+            if (noForecast)
+              items.push(
+                `${
+                  offlineRateLimited
+                    ? "Máy chủ dự báo đang quá tải"
+                    : "Không lấy được dự báo sóng gió"
+                } và máy chưa lưu sẵn lưới gió sóng — tuyến này chỉ tính theo hải đồ.${
+                  offlineRateLimited
+                    ? ` ${offlineRateLimitDaily ? THU_LAI_NGAY_MSG : THU_LAI_MSG}`
+                    : " Có sóng thì mở màn Ra khơi để máy tự tải sẵn gió sóng."
+                }`,
+              );
             if (offlineSavedAt !== undefined)
               items.push(
-                `Đang mất sóng — tuyến tính từ lưới gió sóng ĐÃ LƯU trong máy${
+                `${
+                  offlineRateLimited
+                    ? "Máy chủ dự báo đang quá tải"
+                    : "Đang mất sóng"
+                } — tuyến tính từ lưới gió sóng ĐÃ LƯU trong máy${
                   offlineSavedAt != null ? ` (${savedAgoLabel(offlineSavedAt)})` : ""
                 }; lưới này thô hơn và CHƯA tính dòng chảy.`,
               );
@@ -3025,9 +3096,16 @@ export function RouteMode({
                  cùng việc là rối — hàng vẫn CHỪA Ô để mép phải thẳng một khuôn. */}
             <div className="flex items-center gap-2">
               <p className="min-w-0 flex-1 text-[0.875rem] leading-snug text-foreground/65">
-                Đoạn xấu nhất: sóng ~{formatNumberVN(plan.maxWaveM)} m, gió cấp{" "}
-                {beaufort(plan.maxWindKmh)}. Lưới độ sâu ô ~450 m — dò hải đồ,
-                nghe đài duyên hải trước khi chạy.
+                {caTuyenMu ? (
+                  "Chưa có số sóng gió cho tuyến này."
+                ) : (
+                  <>
+                    Đoạn xấu nhất: sóng ~{formatNumberVN(plan.maxWaveM)} m, gió
+                    cấp {beaufort(plan.maxWindKmh)}.
+                  </>
+                )}{" "}
+                Lưới độ sâu ô ~450 m — dò hải đồ, nghe đài duyên hải trước khi
+                chạy.
               </p>
               {/*  KHÔNG còn nút ở hàng này (2026-08-29h). Đo thật 375×812:
                    "Tính lại" đứng đây rơi xuống y=1082 trong khi thẻ kết thúc

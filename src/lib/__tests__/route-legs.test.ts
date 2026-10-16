@@ -44,6 +44,8 @@ function leg(over: Partial<RoutePlan> = {}): RoutePlan {
     beyondForecastH: 0,
     bestEffortSeas: false,
     segRisks: [],
+    noWeatherKm: 0,
+    weatherSeen: true,
     ...over,
   };
 }
