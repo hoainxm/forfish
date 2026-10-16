@@ -20,6 +20,11 @@ import { loadNgram, NGRAM_PATH, type NgramModel } from "@/lib/sen-bien/ngram";
 import { ttsUnlock } from "@/lib/voice/tts";
 
 let modelP: Promise<NgramModel | null> | null = null;
+/*  NHỚ "ĐANG GÕ" QUA CÁC LẦN MỞ (chạy thử 2026-10-16): Sen Biển đóng thẻ sau
+    mỗi lệnh ("đi Sa Huỳnh" → vẽ đường), mở lại là về mic — bà con đang gõ
+    (mic hỏng / chỗ ồn / không cho micro) phải bấm "Gõ thay vì nói" lại mỗi câu.
+    Nhớ trong phiên (biến mô-đun), tải lại app thì về mặc định nói. */
+let thichGo = false;
 /** Tải trọng số một lần / phiên. Lỗi ⇒ null (lùi về dò tên), lần sau thử lại. */
 export function loadSenBienModel(): Promise<NgramModel | null> {
   if (!modelP) {
@@ -62,7 +67,11 @@ export function SenBienSheet({
   const [heard, setHeard] = useState("");
   const [listening, setListening] = useState(false);
   const [shown, setShown] = useState<SenHeard>(null);
-  const [typing, setTyping] = useState(() => !sttSupported());
+  const [typing, setTypingState] = useState(() => thichGo || !sttSupported());
+  const setTyping = (v: boolean) => {
+    thichGo = v;
+    setTypingState(v);
+  };
   const [typed, setTyped] = useState("");
   const live = useRef<ListenHandle | null>(null);
 
@@ -112,7 +121,7 @@ export function SenBienSheet({
   // chạm cá ⇒ mở là nghe (một lần, sau khi khung dựng xong)
   const autoRef = useRef(listenOnOpen);
   useEffect(() => {
-    if (autoRef.current && sttSupported()) {
+    if (autoRef.current && sttSupported() && !thichGo) {
       autoRef.current = false;
       listen();
     }
@@ -185,7 +194,9 @@ export function SenBienSheet({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (typed.trim()) void answer(typed.trim());
+            if (!typed.trim()) return;
+            void answer(typed.trim());
+            setTyped(""); // câu đã gửi vẫn hiện ở dòng nghiêng bên dưới; ô trống cho câu kế
           }}
           className="flex gap-1.5"
         >
@@ -233,7 +244,7 @@ export function SenBienSheet({
         {sttSupported() ? (
           <button
             type="button"
-            onClick={() => setTyping((v) => !v)}
+            onClick={() => setTyping(!typing)}
             className="min-h-[3.5rem] flex-1 text-left text-[1rem] font-bold text-navy/70"
           >
             {typing ? "Nói bằng giọng" : "Gõ thay vì nói"}

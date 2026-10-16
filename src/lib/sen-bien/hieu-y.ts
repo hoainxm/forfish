@@ -11,7 +11,14 @@ import { parseSpokenCoordPair } from "@/lib/parse-coord";
 
 import { foldVn, guessIntent, type NgramModel, type SenIntent } from "./ngram";
 
-export type SenDest = { name: string; lat: number; lon: number; kind: "cang" | "diem" | "nha" };
+export type SenDest = {
+  name: string;
+  lat: number;
+  lon: number;
+  kind: "cang" | "diem" | "nha";
+  /** toạ độ trong máy đã biết là SAI (PORT_COORD_SAI) — nhận ra tên nhưng không dẫn tới */
+  toaDoSai?: boolean;
+};
 
 export type SenReply =
   | { kind: "go"; dest: SenDest; say: string }
@@ -143,7 +150,7 @@ export function senBienReply(
   }
 
   // (4) chọn chỗ theo tên
-  const hits = findDests(text, dests);
+  let hits = findDests(text, dests);
   const home = dests.find((d) => d.kind === "nha");
   // mô hình chưa tải được (lần đầu mất sóng) ⇒ vẫn dẫn được khi câu có tên chỗ
   const y: SenIntent = model
@@ -155,6 +162,16 @@ export function senBienReply(
   const wantsGo =
     y === "dan_duong" || y === "dat_cang_nha" || (hits.length > 0 && y !== "ngoai_pham_vi");
   if (wantsGo) {
+    /*  Cảng biết là sai toạ độ: dẫn tới đó là đưa tàu đi chỗ khác hàng trăm hải
+        lý. Có chỗ trùng tên đúng toạ độ thì bỏ chỗ sai; chỉ còn chỗ sai thì nói
+        thật (không im, không đoán). */
+    const dung = hits.filter((h) => !h.toaDoSai);
+    if (hits.length > 0 && dung.length === 0)
+      return {
+        kind: "say",
+        say: `Toạ độ ${hits[0].name} trong máy chưa đúng, Sen Biển chưa dẫn tới đó được. Bà con đọc toạ độ, hoặc chạm chỗ đó trên bản đồ.`,
+      };
+    hits = dung;
     if (hits.length === 1) return { kind: "go", dest: hits[0], say: `Đi ${hits[0].name}.` };
     if (hits.length > 1)
       return { kind: "pick", options: hits.slice(0, 4), say: `Có ${hits.length} chỗ tên giống nhau. Bà con chạm chọn đúng chỗ.` };

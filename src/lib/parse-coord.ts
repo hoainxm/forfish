@@ -111,9 +111,83 @@ function foldSpoken(s: string): string {
     .replace(/đ/g, "d");
 }
 
+/*  SỐ ĐỌC BẰNG CHỮ → CHỮ SỐ (chạy thử 2026-10-16: "mười bốn độ ba mươi tư phút
+    bắc một trăm lẻ chín độ bốn phút đông" không hiểu — bộ nghe giọng đôi khi
+    trả chữ chứ không trả số). Nhận số 0–999 kiểu đọc Việt: mười bốn · ba mươi
+    tư · hai mươi mốt · mười lăm · một trăm lẻ chín · một trăm hai mươi.
+    Chữ NƯỚC ĐÔI sau khi bỏ dấu ("nam" = năm/Nam, "tu" = tư/từ, "sau" = sáu/sau,
+    "khong" = không/số 0, "lam" = lăm/làm) chỉ là số khi đứng cạnh số khác hoặc
+    ngay trước "độ/phút" — "34 phút nam" vẫn là hướng Nam. */
+const SO_CHU: Record<string, number> = {
+  khong: 0, mot: 1, hai: 2, ba: 3, bon: 4, tu: 4, nam: 5, lam: 5, sau: 6, bay: 7, tam: 8, chin: 9,
+};
+const NUOC_DOI = new Set(["nam", "sau", "tu", "khong", "lam"]);
+const lopSo = (w: string) =>
+  w === "muoi" ? "M" : w === "tram" ? "T" : w === "le" || w === "linh" ? "L" : w in SO_CHU ? "D" : "";
+
+function giaTriSo(w: string[], c: string[]): number {
+  let v = 0;
+  let i = 0;
+  const t = c.indexOf("T");
+  if (t >= 0) {
+    v += (t > 0 ? SO_CHU[w[0]] : 1) * 100;
+    i = t + 1;
+  }
+  if (c[i] === "L") return v + SO_CHU[w[i + 1]];
+  const m = c.indexOf("M", i);
+  if (m >= 0) {
+    v += (m > i ? SO_CHU[w[i]] : 1) * 10;
+    return m + 1 < w.length ? v + SO_CHU[w[m + 1]] : v;
+  }
+  return i < w.length ? v + SO_CHU[w[i]] : v;
+}
+
+/** Đổi số đọc bằng chữ trong câu ĐÃ BỎ DẤU ra chữ số; chữ khác giữ nguyên. */
+export function soChuThanhSo(s: string): string {
+  const raw = s.split(/\s+/).filter(Boolean);
+  const w = raw.map((x) => x.replace(/[^a-z0-9]/g, ""));
+  const c = w.map(lopSo);
+  const laSo = c.map((k, i) => {
+    if (!k) return false;
+    if (!NUOC_DOI.has(w[i])) return true;
+    const truoc = c[i - 1] ?? "";
+    const sau = c[i + 1] ?? "";
+    const chuSau = w[i + 1] ?? "";
+    const truocDoPhut = chuSau === "do" || chuSau === "phut" || chuSau === "giay";
+    // "lăm"/"tư" chỉ đứng sau "mươi"/"lẻ" (ba mươi tư, một trăm lẻ tư)
+    if (w[i] === "lam" || w[i] === "tu") return truoc === "M" || truoc === "L" || truocDoPhut;
+    // đứng TRƯỚC thì chỉ khi sau nó là "mươi"/"trăm" (năm mươi) — "phút nam một trăm…" là hướng Nam
+    return truoc !== "" || sau === "M" || sau === "T" || truocDoPhut;
+  });
+  const out: string[] = [];
+  for (let i = 0; i < w.length; ) {
+    if (!laSo[i]) {
+      out.push(raw[i]);
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < w.length && laSo[j]) j++;
+    // một dãy chữ số có thể là NHIỀU số liền nhau ("mười bốn ba mươi tư") — cắt theo khuôn
+    for (let k = i; k < j; ) {
+      const m = c.slice(k, j).join("").match(/^(?:D?T(?:LD|D?MD?|D)?|D?MD?|D)/);
+      if (!m) {
+        out.push(raw[k]);
+        k++;
+        continue;
+      }
+      const n = m[0].length;
+      out.push(String(giaTriSo(w.slice(k, k + n), c.slice(k, k + n))));
+      k += n;
+    }
+    i = j;
+  }
+  return out.join(" ");
+}
+
 export function parseSpokenCoordPair(text: string): { lat: number; lon: number } | null {
   if (typeof text !== "string") return null;
-  let s = ` ${foldSpoken(text)} `
+  let s = ` ${soChuThanhSo(foldSpoken(text))} `
     // "14 phẩy 58" / "14 chấm 58" → 14.58 ; "14,58" → 14.58
     .replace(/(\d+)\s*(?:phay|cham)\s*(\d+)/g, "$1.$2")
     .replace(/(\d+),(\d+)/g, "$1.$2");

@@ -152,3 +152,17 @@ describe("Sen Biển — lỗi bắt khi chạy thử 2026-10-16", () => {
     expect(senBienReply(c, model, PORTS, null, { awaitingGo: true, running: false }).kind).toBe("cancel");
   });
 });
+
+describe("Sen Biển — cảng biết là sai toạ độ (2026-10-16)", () => {
+  const SAI: SenDest = { name: "Lạch Bạng", lat: 9.8, lon: 105.09, kind: "cang", toaDoSai: true };
+  it("chỉ có chỗ sai ⇒ nói thật, KHÔNG dẫn", () => {
+    const r = senBienReply("về Lạch Bạng", model, [...DESTS, SAI], null);
+    expect(r.kind).toBe("say");
+    if (r.kind === "say") expect(r.say).toContain("chưa đúng");
+  });
+  it("trùng tên với một chỗ đúng ⇒ dẫn chỗ đúng", () => {
+    const dung: SenDest = { name: "Lạch Bạng", lat: 19.4, lon: 105.8, kind: "diem" };
+    const r = senBienReply("về Lạch Bạng", model, [...DESTS, SAI, dung], null);
+    expect(r.kind === "go" && r.dest.lat).toBe(19.4);
+  });
+});

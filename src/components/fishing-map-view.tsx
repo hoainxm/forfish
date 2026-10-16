@@ -475,7 +475,7 @@ import { CruiseIntroSheet } from "@/components/nav-voice-ui";
 import { SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
 import { distSpeech } from "@/lib/nav-voice/phrases";
-import { ACTIVE_PORTS } from "@/data/fishing-ports";
+import { ACTIVE_PORTS, PORT_COORD_SAI } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import type { NavInfoLine } from "@/lib/nav-context";
 import {
@@ -3058,7 +3058,9 @@ export default function FishingMapView() {
     () => [
       ...places.map((p) => ({ name: p.name, lat: p.lat, lon: p.lon, kind: p.kind === "home" ? ("nha" as const) : ("diem" as const) })),
       ...ACTIVE_PORTS.flatMap((p) =>
-        p.lat != null && p.lng != null ? [{ name: p.name, lat: p.lat, lon: p.lng, kind: "cang" as const }] : [],
+        p.lat != null && p.lng != null
+          ? [{ name: p.name, lat: p.lat, lon: p.lng, kind: "cang" as const, toaDoSai: PORT_COORD_SAI.has(p.id) }]
+          : [],
       ),
     ],
     [places],
