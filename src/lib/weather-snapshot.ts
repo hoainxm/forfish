@@ -44,6 +44,9 @@ export async function saveWeatherSnapshot(
     của chính mình. */
 export async function loadWeatherSnapshot(
   id: string,
+  /** noStore: đọc thẳng bản mới nhất, bỏ data cache — ô lưới dẫn đường
+      (route-grid-server) vừa ghi xong là phải đọc lại được ngay */
+  opts: { noStore?: boolean } = {},
 ): Promise<{ payload: unknown | null; unreachable: boolean }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -57,7 +60,9 @@ export async function loadWeatherSnapshot(
       `${url}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(id)}&select=payload`,
       {
         headers: { apikey: key, Authorization: `Bearer ${key}` },
-        next: { revalidate: SNAPSHOT_REVALIDATE },
+        ...(opts.noStore
+          ? { cache: "no-store" as const }
+          : { next: { revalidate: SNAPSHOT_REVALIDATE } }),
       },
     );
     if (!r.ok) return { payload: null, unreachable: true };

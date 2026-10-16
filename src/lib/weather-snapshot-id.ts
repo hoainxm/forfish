@@ -98,7 +98,9 @@ export function isValidSnapshotId(id: string): boolean {
     /^scalar:(cloud|rain|airtemp|storm|pressure):d\d+$/.test(id) ||
     /^curdepth:t(0|50|150|300):d\d+$/.test(id) ||
     /^salinity:d\d+$/.test(id) ||
-    /^seascalar:(ssha|sss)$/.test(id)
+    /^seascalar:(ssha|sss)$/.test(id) ||
+    // ô lưới gió sóng dẫn đường (lib/route-grid.ts) — miễn phí, 72 giờ
+    /^routegrid:[0-5]:[0-5]$/.test(id)
   );
 }
 

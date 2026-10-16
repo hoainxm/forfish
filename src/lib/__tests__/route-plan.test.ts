@@ -24,10 +24,15 @@ import {
 } from "../route-plan";
 import {
   fetchWeatherField,
-  fieldGrid,
   parseWeatherField,
   weatherFieldCacheKey,
 } from "../route-weather";
+import {
+  parseRouteTileId,
+  ROUTE_TILE_N,
+  vnDate,
+  type RouteTile,
+} from "../route-grid";
 import { planRouteAsync } from "../route-plan-async";
 import { requiredDepthM } from "../route-plan";
 import { requiredDepthM as requiredDepthMGoc } from "../hazards";
@@ -743,13 +748,6 @@ describe("parseWeatherField (adapter)", () => {
     });
   });
 
-  it("fieldGrid: bbox to vẫn ≤ 120 điểm một lượt gọi", () => {
-    const { lats, lons } = fieldGrid({
-      latMin: 5, latMax: 23, lonMin: 102, lonMax: 118,
-    });
-    expect(lats.length * lons.length).toBeLessThanOrEqual(120);
-  });
-
   it("ô có số sóng nhưng KHÔNG có giờ gió nào → onSea=false (không biển-lặng giả)", () => {
     const lats = [10, 10.5];
     const lons = [105, 105.5];
@@ -784,51 +782,50 @@ describe("fetchWeatherField cache", () => {
     expect(weatherFieldCacheKey(bb, before)).not.toBe(weatherFieldCacheKey(bb, after));
   });
 
+  /** Server mình trả một ô lưới dẫn đường hợp lệ cho id trong URL (72 giờ, mọi mắt biển) */
+  const tileResponse = (url: unknown, now: Date) => {
+    const id = new URL(String(url), "http://x").searchParams.get("id") ?? "";
+    const rc = parseRouteTileId(id)!;
+    const H = 72;
+    const arr = (v: number) => Array.from({ length: H }, () => v);
+    const cell = { w: arr(100), wd: arr(0), h: arr(50), hd: arr(0), p: arr(60), c: arr(0), cd: arr(0) };
+    const tile: RouteTile = {
+      v: 1,
+      r: rc.r,
+      c: rc.c,
+      start: vnDate(now),
+      builtAt: now.toISOString(),
+      cells: Array.from({ length: ROUTE_TILE_N * ROUTE_TILE_N }, () => cell),
+    };
+    return { ok: true, status: 200, json: async () => tile } as unknown as Response;
+  };
+
   it("cùng bbox trong TTL → không refetch; quá TTL → gọi lại", async () => {
     const calls: string[] = [];
-    const loc = {
-      hourly: {
-        wind_speed_10m: [10],
-        wind_direction_10m: [0],
-        wave_height: [0.5],
-      },
-    };
+    const t0 = new Date("2026-07-26T02:00:00Z");
     vi.stubGlobal("fetch", async (url: unknown) => {
       calls.push(String(url));
-      // đủ vị trí cho lưới thô (fieldGrid tối đa 12×10)
-      return {
-        ok: true,
-        json: async () => Array.from({ length: 120 }, () => loc),
-      } as unknown as Response;
+      return tileResponse(url, t0);
     });
     const bb: BBox = { latMin: 9.1, latMax: 10.1, lonMin: 108.1, lonMax: 109.1 };
-    const t0 = new Date("2026-07-26T02:00:00Z");
     await fetchWeatherField(bb, t0);
-    expect(calls.length).toBe(2); // gió + sóng
+    expect(calls.length).toBe(1); // khung nằm gọn trong 1 ô lưới server
+    expect(calls[0]).toContain("/api/weather-snapshot?id=routegrid:");
+    expect(calls.some((u) => u.includes("open-meteo"))).toBe(false); // máy KHÔNG gọi nguồn ngoài
     await fetchWeatherField(bb, new Date(t0.getTime() + 10 * 60_000));
-    expect(calls.length).toBe(2); // "Tính lại" trong 45 phút — ăn cache
+    expect(calls.length).toBe(1); // "Tính lại" trong 45 phút — ăn cache
     await fetchWeatherField(bb, new Date(t0.getTime() + 46 * 60_000));
-    expect(calls.length).toBe(4); // quá TTL — lấy dự báo mới
+    expect(calls.length).toBe(2); // quá TTL — lấy dự báo mới
   });
 
   it("lượt fetch lỗi KHÔNG bị găm vào cache — gọi lại là thử mạng lại", async () => {
     let fail = true;
-    const loc = {
-      hourly: {
-        wind_speed_10m: [10],
-        wind_direction_10m: [0],
-        wave_height: [0.5],
-      },
-    };
-    vi.stubGlobal("fetch", async () => {
+    const t0 = new Date("2026-07-26T03:00:00Z");
+    vi.stubGlobal("fetch", async (url: unknown) => {
       if (fail) throw new Error("mạng yếu");
-      return {
-        ok: true,
-        json: async () => Array.from({ length: 120 }, () => loc),
-      } as unknown as Response;
+      return tileResponse(url, t0);
     });
     const bb: BBox = { latMin: 9.2, latMax: 10.2, lonMin: 108.2, lonMax: 109.2 };
-    const t0 = new Date("2026-07-26T03:00:00Z");
     await expect(fetchWeatherField(bb, t0)).rejects.toThrow();
     fail = false;
     const f = await fetchWeatherField(bb, new Date(t0.getTime() + 60_000));

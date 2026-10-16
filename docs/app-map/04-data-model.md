@@ -179,6 +179,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 | Thay đổi | Nghĩa |
 |---|---|
 | bảng `weather_snapshot` | Nhiều khoá 1 bảng: `id text pk` (`sea:<port>` 10 cảng đủ 16 ngày · `grid:d3` lưới Windy CHỈ khung miễn phí) · `payload jsonb` · `updated_at`. **KHÁC snapshot cá**: đây chỉ là **fallback** — client vẫn gọi **LIVE Open-Meteo là chính** (nhanh, tải phân tán theo IP từng máy — tốt rate-limit); snapshot chỉ dùng khi live lỗi + máy chưa có localStorage. Cron `/api/cron/refresh-weather` ghi; client đọc qua `/api/weather-snapshot?id=` (`lib/weather-snapshot.ts`, service-role). RLS bật, **KHÔNG policy**. Khung lưới >3 ngày (premium) KHÔNG snapshot công khai kẻo lộ |
+| id `routegrid:<0-5>:<0-5>` (2026-10-16, KHÔNG migration — chỉ thêm dạng id) | Ô lưới gió sóng DẪN ĐƯỜNG 8×8 mắt bước 0,35°, 96 giờ, số nguyên đã nhân hệ số (`lib/route-grid.ts` `RouteTile` v1: `start` ngày VN của giờ 0, `builtAt`, `cells[64]` null = đất). KHÁC các hàng trên: đây là NGUỒN CHÍNH của dẫn đường (máy không gọi Open-Meteo nữa), server ghi theo nhu cầu khi ô cũ >3h (`lib/route-grid-server.ts`). Miễn phí (không hậu tố `:dN`) |
 
 - **KÍCH HOẠT**: dùng CHUNG `CRON_SECRET` với refresh-fish (đã có). Vercel cron `30 2 * * *` (lệch 30′ sau fish). Khoá whitelist ở `lib/weather-snapshot-id.ts` (thuần, có test) — chặn `/api/weather-snapshot` thành proxy đọc bảng tuỳ ý.
 

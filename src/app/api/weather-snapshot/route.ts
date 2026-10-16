@@ -4,6 +4,8 @@ import {
   snapshotNeedsPremium,
 } from "@/lib/weather-snapshot-id";
 import { premiumDenied } from "@/lib/api-identity";
+import { parseRouteTileId } from "@/lib/route-grid";
+import { getRouteTile } from "@/lib/route-grid-server";
 
 /**
  * ĐỌC snapshot thời tiết (LƯỚI AN TOÀN) — client gọi khi live Open-Meteo lỗi.
@@ -42,7 +44,11 @@ export async function GET(req: Request) {
     }
   }
 
-  const { payload, unreachable } = await loadWeatherSnapshot(id);
+  // Ô lưới dẫn đường: server tự lấy + lưu khi cũ (route-grid-server) — máy
+  // bà con không còn gọi Open-Meteo trực tiếp (2026-10-16)
+  const { payload, unreachable } = parseRouteTileId(id)
+    ? await getRouteTile(id)
+    : await loadWeatherSnapshot(id);
   /*  KHÔNG HỎI ĐƯỢC ≠ KHÔNG CÓ (2026-08-02, audit lô B).
       404 cố ý KHÔNG nằm trong `isRescuableStatus` của service worker ("404 →
       nói thật"), nên trả 404 lúc hạ tầng chập chờn là tự tay chặn đường cứu:

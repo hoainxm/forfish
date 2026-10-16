@@ -1,7 +1,9 @@
 // Trục 1 — adapter dự báo cho DẪN ĐƯỜNG: lưới thời tiết THÔ phủ vùng tính
-// toán (≤ ~120 điểm/lượt, theo GIỜ, 72h, kèm HƯỚNG sóng/gió), thuật toán
+// toán (≤ 24×24 mắt, theo GIỜ, 72h, kèm HƯỚNG sóng/gió), thuật toán
 // nội suy xuống lưới tìm đường mịn hơn (sampleField trong route-plan.ts).
-// Nguồn: Open-Meteo (miễn phí, không key) — đổi nguồn chỉ sửa file này.
+// Nguồn: CHỈ server mình — ô lưới 0,35° (lib/route-grid.ts) qua
+// /api/weather-snapshot; server lấy từ Open-Meteo. `parseWeatherField` dưới đây
+// là bộ đọc JSON Open-Meteo mà server (route-grid-server) dùng.
 
 import type {
   BBox,
@@ -19,12 +21,17 @@ import {
   type ForecastGrid,
 } from "@/lib/forecast-grid";
 import { timeoutSignal } from "@/lib/abort";
+import { apiUrl } from "@/lib/api-base";
+import { noteResponse, tokenHeader } from "@/lib/device-token-store";
+import {
+  isRouteTile,
+  routeTileIdsForBBox,
+  stitchRouteField,
+  type RouteTile,
+} from "@/lib/route-grid";
 
 // 72 giờ — đủ cho chuyến dài quanh mũi đất; route-plan giữ giờ cuối khi hơn
 const FORECAST_DAYS = 3;
-// lưới thô tối đa ~12×10 = 120 điểm một lượt gọi (đã thử thực tế với
-// Open-Meteo, trả đủ 120 vị trí × 72 giờ)
-const MAX_AXIS = 12;
 
 const num = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
@@ -40,31 +47,6 @@ type RawLocation = {
     ocean_current_direction?: unknown[];
   };
 };
-
-/** Toạ độ các mắt lưới thô cho một bbox — lat tăng trước, lon tăng sau */
-export function fieldGrid(bbox: BBox): {
-  lats: number[];
-  lons: number[];
-} {
-  const span = (a: number, b: number) => Math.max(1e-6, b - a);
-  const nLat = Math.min(
-    MAX_AXIS,
-    Math.max(4, Math.round(span(bbox.latMin, bbox.latMax) / 0.35) + 1),
-  );
-  const nLon = Math.min(
-    MAX_AXIS - 2,
-    Math.max(4, Math.round(span(bbox.lonMin, bbox.lonMax) / 0.35) + 1),
-  );
-  const lats = Array.from(
-    { length: nLat },
-    (_, i) => bbox.latMin + (span(bbox.latMin, bbox.latMax) * i) / (nLat - 1),
-  );
-  const lons = Array.from(
-    { length: nLon },
-    (_, j) => bbox.lonMin + (span(bbox.lonMin, bbox.lonMax) * j) / (nLon - 1),
-  );
-  return { lats, lons };
-}
 
 /**
  * Ghép JSON gió + sóng thành WeatherField. Ô không có số sóng nào →
@@ -221,7 +203,7 @@ export function fetchWeatherField(
     if (oldest.done) break;
     fieldCache.delete(oldest.value);
   }
-  const field = fetchWeatherFieldFresh(bbox).catch((e) => {
+  const field = fetchWeatherFieldFresh(bbox, now).catch((e) => {
     fieldCache.delete(key); // lỗi/offline không được găm 45 phút
     // OFFLINE (2026-07-28): mất sóng thì lùi về lưới Windy đã lưu sẵn (pretrip
     // tải lúc còn ở bờ) — cùng triết lý forecast-grid: KHÔNG thêm nguồn mới,
@@ -361,52 +343,47 @@ function offlineFieldFromGrid(now: Date): WeatherField | null {
   }
 }
 
-async function fetchWeatherFieldFresh(bbox: BBox): Promise<WeatherField> {
-  const { lats, lons } = fieldGrid(bbox);
-  // Open-Meteo nhận danh sách vị trí: nhân chéo lat×lon thành danh sách phẳng
-  const latList: number[] = [];
-  const lonList: number[] = [];
-  for (const la of lats)
-    for (const lo of lons) {
-      latList.push(la);
-      lonList.push(lo);
-    }
-  const common =
-    `latitude=${latList.map((v) => v.toFixed(3)).join(",")}` +
-    `&longitude=${lonList.map((v) => v.toFixed(3)).join(",")}` +
-    `&timezone=Asia%2FHo_Chi_Minh&forecast_days=${FORECAST_DAYS}`;
-
-  const [windRes, waveRes] = await Promise.all([
-    fetch(
-      `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m`,
-      { signal: timeoutSignal(15000) },
-    ),
-    fetch(
-      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction`,
-      { signal: timeoutSignal(15000) },
-    ),
-  ]);
-  if (windRes.status === 429 || waveRes.status === 429) {
-    // đọc lý do để phân biệt hết suất GIỜ hay hết suất NGÀY — đọc hỏng thì
-    // coi như suất giờ (câu "đợi 1 tiếng" — hành vi cũ)
-    const tuChoi = windRes.status === 429 ? windRes : waveRes;
+/** Tải MỘT ô lưới dẫn đường từ server mình. null = không có/không đọc được;
+    ném WeatherRateLimitError khi server mình trả 429 (cổng gác đếm lượt). */
+async function fetchRouteTile(id: string): Promise<RouteTile | null> {
+  const r = await fetch(apiUrl(`/api/weather-snapshot?id=${id}`), {
+    headers: tokenHeader(),
+    signal: timeoutSignal(15000),
+  });
+  void noteResponse(r);
+  if (r.status === 429) {
+    // đọc lý do để phân biệt hết suất GIỜ hay NGÀY — đọc hỏng thì coi như giờ
     let lyDo = "";
     try {
-      lyDo = await tuChoi.text();
+      lyDo = await r.text();
     } catch {
       /* thân hỏng / không đọc được — giữ "" */
     }
     throw new WeatherRateLimitError(/daily/i.test(lyDo));
   }
-  if (!windRes.ok || !waveRes.ok) {
-    throw new Error("Không lấy được dự báo cho tuyến");
-  }
-  const norm = (j: unknown): RawLocation[] =>
-    Array.isArray(j) ? (j as RawLocation[]) : [j as RawLocation];
-  return parseWeatherField(
-    norm(await windRes.json()),
-    norm(await waveRes.json()),
-    lats,
-    lons,
-  );
+  if (!r.ok) return null;
+  const t: unknown = await r.json();
+  return isRouteTile(t) ? t : null;
+}
+
+/*  NGUỒN DUY NHẤT LÀ SERVER MÌNH (2026-10-16): ghép các ô lưới 0,35° mà server
+    giữ sẵn (lib/route-grid.ts). Trước đây máy gọi thẳng Open-Meteo và hay dính
+    429 vì IP dùng chung. Mất sóng ⇒ fetch ném ⇒ fetchWeatherField lùi về lưới
+    đã lưu như cũ; service worker còn giữ ô đã tải thì dùng lại được ngoài khơi. */
+async function fetchWeatherFieldFresh(bbox: BBox, now: Date): Promise<WeatherField> {
+  const ids = routeTileIdsForBBox(bbox);
+  if (ids.length === 0) throw new Error("Tuyến nằm ngoài vùng lưới dự báo");
+  const settled = await Promise.allSettled(ids.map((id) => fetchRouteTile(id)));
+  const tiles = new Map<string, RouteTile>();
+  let firstError: unknown = null;
+  settled.forEach((s, k) => {
+    if (s.status === "fulfilled") {
+      if (s.value) tiles.set(ids[k], s.value);
+    } else if (firstError == null || s.reason instanceof WeatherRateLimitError) {
+      firstError = s.reason;
+    }
+  });
+  const field = stitchRouteField(bbox, tiles, now, FORECAST_DAYS * 24);
+  if (field) return field;
+  throw firstError ?? new Error("Không lấy được dự báo cho tuyến");
 }
