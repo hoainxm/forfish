@@ -4629,6 +4629,17 @@ export default function FishingMapView() {
             App không dùng `bearing`/`pitch` ở bất kỳ đâu, nên khoá lại không
             mất chức năng nào; đổi lại MapLibre bỏ được đường vẽ nghiêng. */
         dragRotate={false}
+        /*  TẮT "CHẠM 2 LẦN = PHÓNG TO" KHI ĐANG DẪN ĐƯỜNG / ĐO (user
+            2026-10-16: "tap 2 lần sẽ zoom vào map, khó mà chọn được"). Ở hai
+            chế độ này mỗi cú chạm là ĐẶT ĐIỂM có chủ đích — chấm lại cho
+            trúng, hay đặt hai điểm gần nhau, là hai cú chạm liền nhau, và
+            MapLibre hiểu thành double-tap ⇒ bản đồ nhảy nấc, điểm vừa chấm
+            trôi khỏi ngón tay. Phóng to vẫn còn bằng hai ngón. Luồng xem
+            thường giữ double-tap như cũ (chạm lần 2 ở đó là trả bản đồ về
+            trống, không phải đặt điểm). Prop `doubleClickZoom` gồm cả chuột
+            dblclick lẫn tap-zoom trên cảm ứng; react-map-gl bật/tắt lại
+            handler khi prop đổi. */
+        doubleClickZoom={!(routeMode || measureMode)}
         pitchWithRotate={false}
         touchPitch={false}
         // KHUNG khi có lớp dự báo (user 2026-07-28): VẪN cho zoom IN + move
