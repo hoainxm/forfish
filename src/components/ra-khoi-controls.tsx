@@ -137,7 +137,6 @@ export function RaKhoiControls({
   routeOn = false,
   onCruise,
   cruiseOn = false,
-  onSenBien,
   locating,
   geoError,
   onLegend,
@@ -172,8 +171,6 @@ export function RaKhoiControls({
       dự báo cá) nên KHÔNG gác `premiumTools`. Bấm lại khi đang bật = dừng. */
   onCruise?: () => void;
   cruiseOn?: boolean;
-  /** mở Sen Biển — chọn điểm đến bằng giọng (doc 07 §Sen Biển) */
-  onSenBien?: () => void;
   /*  ĐANG Ở TRONG chế độ dẫn đường — nút phải TRÔNG KHÁC HẲN (user
       2026-08-28e: "hiện thời ko khác gì nhau"). Cùng khuôn nút "Đến điểm":
       bật thì nền `t1` + vòng trắng, tắt thì nền `navy`; kèm `aria-pressed`
@@ -570,26 +567,6 @@ export function RaKhoiControls({
             <span className="text-[0.8125rem] font-bold leading-tight">
               {cruiseOn ? "Đang chạy" : "Bắt đầu chạy"}
             </span>
-          </button>
-        )}
-
-        {/*  SEN BIỂN — chọn điểm đến bằng giọng. Ngay dưới "Đang chạy" và CÒN
-             HIỆN khi đang chạy: đúng lúc tay đang lái mới cần nói thay chạm. */}
-        {onSenBien && (
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(null);
-              setCoordOpen(false);
-              setPlacesOpen(false);
-              onSenBien();
-            }}
-            aria-label="Sen Biển — nói chỗ muốn tới"
-            className="flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl bg-card py-1.5 text-navy shadow-md transition active:scale-95"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy */}
-            <img src="/icons/sen-bien.png" alt="" className="h-8 w-8" />
-            <span className="text-[0.8125rem] font-bold leading-tight">Sen Biển</span>
           </button>
         )}
 

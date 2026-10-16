@@ -7407,6 +7407,20 @@ export default function FishingMapView() {
         />
       )}
 
+      {/*  SEN BIỂN — ICON NỔI (chủ dự án 2026-10-16: "sen biển là cái float
+           icon thôi"): chỉ hình cá, mép trái trên dải đáy, không chữ, không
+           nền. Hiện cả khi đang chạy — lúc tay đang lái mới cần nói thay chạm. */}
+      {!senOpen && (
+        <button
+          type="button"
+          onClick={() => setSenOpen(true)}
+          aria-label="Sen Biển — nói chỗ muốn tới"
+          className="absolute bottom-36 left-2 z-20 h-16 w-16 rounded-full drop-shadow-lg transition active:scale-90"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy */}
+          <img src="/icons/sen-bien.png" alt="" className="h-full w-full" />
+        </button>
+      )}
       {senOpen && (
         <SenBienSheet
           dests={senDests}
@@ -7585,7 +7599,6 @@ export default function FishingMapView() {
             routeOn={routeMode}
             onCruise={toggleCruise}
             cruiseOn={navOn}
-            onSenBien={() => setSenOpen(true)}
             locating={locating}
             geoError={geoError}
             layerId={layerId}
