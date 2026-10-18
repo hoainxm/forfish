@@ -43,7 +43,8 @@ export type SenReply =
   | { kind: "map"; lenh: LenhBanDo }
   /** `ask` = câu này CHỜ bà con nói lại ⇒ đọc xong Sen Biển tự nghe một lượt ngắn ·
       `y` = ý định n-gram khi có — "dan_duong" mà không thấy tên ⇒ Gemma (Android) còn cứu được tên lệch giọng */
-  | { kind: "say"; say: string; ask?: boolean; y?: SenIntent };
+  /** `daTraLoi` = câu này đã là câu trả lời thật (sóng gió chỗ đang xem, chặn ngoài phạm vi) — lớp trợ lý toàn app (tra-loi-app.ts) đừng thay */
+  | { kind: "say"; say: string; ask?: boolean; y?: SenIntent; daTraLoi?: boolean };
 
 /** Đang ở nấc nào của cuộc nói — quyết định "đi"/"thôi" nghĩa là gì. */
 export type SenCtx = {
@@ -291,15 +292,15 @@ export function senBienReply(
     return { kind: "say", say: NOT_FOUND, y };
   }
   if (y === "thoi_tiet" || y === "bao" || y === "con_nuoc")
-    return { kind: "say", say: seaLine ? `Chỗ đang xem: ${seaLine}.` : "Bà con chạm vào biển chỗ muốn xem, Sen Biển đọc sóng gió chỗ đó." };
-  if (y === "ngoai_pham_vi") return { kind: "say", say: "Việc này Sen Biển không trả lời được." };
-  if (y === "chao_hoi") return { kind: "say", say: "Chào bà con. Muốn đi đâu, cứ nói tên cảng, điểm đã ghim hoặc toạ độ." };
+    return { kind: "say", say: seaLine ? `Chỗ đang xem: ${seaLine}.` : "Bà con chạm vào biển chỗ muốn xem, Sen Biển đọc sóng gió chỗ đó.", y, ...(seaLine ? { daTraLoi: true } : {}) };
+  if (y === "ngoai_pham_vi") return { kind: "say", say: "Việc này Sen Biển không trả lời được.", y, daTraLoi: true };
+  if (y === "chao_hoi") return { kind: "say", say: "Chào bà con. Muốn đi đâu, cứ nói tên cảng, điểm đã ghim hoặc toạ độ.", y };
   /*  "đi Vũng Tàu" / "vào Rạch Giá" — tên không có trong danh sách, mô hình đoán
       lạc sang việc khác ("tàu" ⇒ tàu của tôi) ⇒ từng đáp "chỉ giúp trên bản
       đồ", sai hẳn ý. Câu mở bằng động từ đi lại thì nói thật là chưa thấy chỗ.
       Đặt SAU sóng gió / ngoài phạm vi / chào: chỉ giành lại các ý "việc khác". */
-  if (MOVE.test(f)) return { kind: "say", say: NOT_FOUND };
+  if (MOVE.test(f)) return { kind: "say", say: NOT_FOUND, y: "dan_duong" };
   if (NGOAI_BAN_DO.includes(y))
-    return { kind: "say", say: "Sen Biển hiện chỉ giúp trên bản đồ: chọn chỗ đến, dẫn đường và đọc cảnh báo." };
-  return { kind: "say", say: "Sen Biển chưa hiểu. Bà con thử nói: dẫn về cảng Sa Huỳnh." };
+    return { kind: "say", say: "Sen Biển hiện chỉ giúp trên bản đồ: chọn chỗ đến, dẫn đường và đọc cảnh báo.", y };
+  return { kind: "say", say: "Sen Biển chưa hiểu. Bà con thử nói: dẫn về cảng Sa Huỳnh.", y };
 }

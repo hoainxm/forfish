@@ -282,6 +282,20 @@ async function loadSeaSnapshotClient(
 }
 
 // ── cache trên máy, đỡ gọi mạng mỗi lần mở app ──────────────────────────
+/** Bản dự báo biển đã lưu của một cảng (đọc localStorage, không mạng) — trợ lý Sen Biển trả lời thời tiết
+ *  khi mất sóng. null = chưa có. (chép từ feat/san-thuong-mai, 2026-10-18) */
+export function readSeaCache(portId: string): { savedAt: number; days: ScoredSeaDay[] } | null {
+  const days = readCache(portId, true);
+  if (!days || days.length === 0) return null;
+  try {
+    const raw = window.localStorage.getItem(cacheKey(portId));
+    const ts = raw ? (JSON.parse(raw) as { ts?: number }).ts : undefined;
+    return { savedAt: typeof ts === "number" ? ts : 0, days };
+  } catch {
+    return null;
+  }
+}
+
 function cacheKey(portId: string) {
   // v3: horizon 10→16 ngày + waveEstimated + model sóng ncep_gfswave025 —
   // đổi version để bỏ cache 10-ngày cũ (thiếu 5 ngày, shape khác)

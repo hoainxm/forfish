@@ -480,6 +480,9 @@ import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { apDungGemma, canGemma, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
+import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
+import { useRouter } from "next/navigation";
+import { gomSnapshot } from "@/lib/assistant/device-snapshot";
 import { Capacitor } from "@capacitor/core";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
 import { foldVn } from "@/lib/sen-bien/ngram";
@@ -854,6 +857,7 @@ const ONLINE_REFRESH_GAP_MS = 2 * 60 * 1000;
 
 export default function FishingMapView() {
   const mapRef = useRef<MapRef>(null);
+  const router = useRouter();
   // `?debug=tiles` → bảng % tải ô theo nguồn (components/tile-load-debug). Đọc
   // một lần sau mount (window chỉ có ở client) — không ảnh hưởng người dùng thường.
   const [tileDebug, setTileDebug] = useState(false);
@@ -4305,17 +4309,67 @@ export default function FishingMapView() {
           senSay(t);
           return { show: t };
         }
-        default:
+        default: {
+          // việc trong app (giấy tờ, bảo dưỡng, bạn thuyền, giá cá, mở màn…) ⇒ trả lời từ dữ liệu trong máy
+          // (lớp trợ lý toàn app, 2026-10-18) thay vì "chỉ giúp trên bản đồ"
+          const a = traLoiApp(
+            text,
+            r,
+            gomSnapshot("/ngu-truong"),
+            { awaitingConfirm: false, boatNames: [], portNames: [], placeNames: places.map((p) => p.name), route: "/ngu-truong" },
+            Date.now(),
+          );
+          if (a) {
+            if (a.action?.type === "navigate" && a.action.href !== "/ngu-truong") {
+              setSenOpen(false);
+              router.push(a.action.href);
+            } else if (a.action?.type === "mute") {
+              if (a.action.on) navVoice.mute();
+              else navVoice.unmuteVoice();
+            }
+            senSay(a.speak);
+            return { show: a.text };
+          }
           if (r.ask) senAsk(r.say);
           else senSay(r.say);
           return { show: r.say };
+        }
       }
     },
-    [senDests, senAwait, navOn, senSay, senAsk, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit, tracking.pos, tracking.lastFixAt, tracking.headingDeg, point, goToCoord, senLenh, senViTri],
+    [senDests, senAwait, navOn, senSay, senAsk, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit, tracking.pos, tracking.lastFixAt, tracking.headingDeg, point, goToCoord, senLenh, senViTri, places, router],
   );
   /*  CÂU CHÀO khi GỌI Sen Biển — chủ dự án 2026-10-17: "click vào thì hỏi sen biển giúp gì được cho bạn"
       (thay câu hướng dẫn dài). Ngắn ⇒ nghe sớm. */
   const SEN_CHAO = "Sen Biển giúp gì được cho bạn?";
+  /*  CÂU CHUYỂN TỪ MÀN KHÁC (Sen Biển toàn app, 2026-10-18): màn ngoài bản đồ nghe được việc
+      BẢN ĐỒ ("dẫn về Sa Huỳnh", "xem sóng chiều mai") ⇒ mở /ngu-truong?sen=<câu>. Ở đây nghe lại
+      đúng câu đó một lần, sau khi bản đồ dựng xong, rồi bỏ ?sen khỏi địa chỉ (quay lại không chạy lại). */
+  const senHeardRef = useRef(senHeard);
+  useEffect(() => {
+    senHeardRef.current = senHeard;
+  }, [senHeard]);
+  useEffect(() => {
+    const cau = new URLSearchParams(window.location.search).get("sen");
+    if (!cau) return;
+    // dọn ?sen NGAY LÚC CHẠY (không phải lúc hẹn): dev chạy effect hai lần — dọn sớm thì lượt hai mất câu
+    const t = setTimeout(() => {
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.delete("sen");
+        window.history.replaceState(window.history.state, "", u.toString());
+      } catch {
+        // không sửa được địa chỉ — vẫn chạy câu này
+      }
+      setSenTitle(`“${cau.slice(0, 80)}”`);
+      setSenListen(false);
+      setSenOpen(true);
+      // câu đi đường tắt (không qua ô của thẻ) ⇒ tự hiện câu đáp lên tiêu đề thẻ, tàu ồn vẫn có chữ để nhìn
+      void Promise.resolve(senHeardRef.current(cau.slice(0, 200))).then((kq) => {
+        if (kq?.show) setSenTitle(kq.show);
+      });
+    }, 2500);
+    return () => clearTimeout(t);
+  }, []);
   const openSen = useCallback(() => {
     ttsUnlock();
     senPhienRef.current = phienMoi();
