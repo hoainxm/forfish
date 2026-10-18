@@ -14,29 +14,30 @@ const DESTS: SenDest[] = [
   { name: "Bến nhà", lat: 14.6, lon: 109.0, kind: "nha" },
 ];
 
-describe("ngram Sen Biển v3 — chép y bản train (AI Assistant train/tro-ly, 52 ý: hỏi + thao tác bản đồ)", () => {
+describe("ngram Sen Biển v3 — chép y bản train (AI Assistant train/tro-ly, 52 ý: hỏi + thao tác bản đồ + 1.184 câu lệnh ngắn)", () => {
   it("file trọng số đúng cỡ, sai cỡ thì từ chối", () => {
     expect(buf.byteLength).toBe(NGRAM_BYTES);
     expect(loadNgram(new ArrayBuffer(10))).toBeNull();
   });
   it.each([
     ["dẫn tôi về cảng Sa Huỳnh", "dan_duong", 0.996],
-    ["chạy ra Hòn Mù", "dan_duong", 0.99],
+    ["chạy ra Hòn Mù", "dan_duong", 0.992],
     ["mai sóng gió thế nào", "thoi_tiet", 0.996],
     ["có bão không", "bao", 1],
-    ["giá cá ngừ hôm nay", "gia_ca", 0.997],
-    ["tôi bị đau đầu uống thuốc gì", "ngoai_pham_vi", 0.99],
-    ["dừng lại", "huy", 0.955],
+    ["giá cá ngừ hôm nay", "gia_ca", 0.998],
+    ["tôi bị đau đầu uống thuốc gì", "ngoai_pham_vi", 0.989],
+    ["dừng lại", "huy", 0.989],
+    ["im đi", "tat_tieng", 0.995], // lệnh ngắn (lenh-ngan.mjs, 2026-10-18)
     // v2 — hỏi bản đồ; câu chữ HOA như bộ nghe trong máy trả
     ["gần đảo nào nhất", "hoi_dao_gan", 0.999],
-    ["chỗ nào nhiều cá ngừ vằn", "hoi_ca", 0.997],
+    ["chỗ nào nhiều cá ngừ vằn", "hoi_ca", 0.998],
     ["CHỖ NÀY CÓ CẤM ĐÁNH BẮT KHÔNG", "hoi_vung_cam", 0.997],
     ["bán cá ngừ ở đâu", "tin_mua_ban", 0.987],
     ["khu tránh trú bão gần nhất", "hoi_tru_bao", 1],
-    ["còn mấy hải lý nữa tới", "con_bao_xa", 0.999],
+    ["còn mấy hải lý nữa tới", "con_bao_xa", 1],
     // v3 — thao tác bản đồ
-    ["xem bản đồ sóng chiều mai", "mo_lop", 0.994],
-    ["tắt lớp gió đi", "tat_lop", 0.991],
+    ["xem bản đồ sóng chiều mai", "mo_lop", 0.991],
+    ["tắt lớp gió đi", "tat_lop", 0.995],
     ["phóng to", "phong_to", 0.999],
   ])("%s → %s (đúng số của bản train)", (cau, y, conf) => {
     const g = guessIntent(model, cau);

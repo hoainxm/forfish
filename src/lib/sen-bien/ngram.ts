@@ -4,6 +4,10 @@
 // int8 (3,6 MB, `public/data/sen-bien-ngram.v3.bin`). Train ở repo AI Assistant
 // `train/tro-ly/ngram.mjs` + `chay-bd.sh` (bản v3, 2026-10-17): 52 ý định = 31 ý
 // cũ + 13 ý HỎI BẢN ĐỒ (hoi_*, con_bao_xa) + 8 ý THAO TÁC bản đồ (lenh-ban-do.ts). Số đo ở train/reports/troly-*.md.
+// Train lại 2026-10-18 (doc 15 §22b) có thêm 1.184 câu LỆNH NGẮN (`lenh-ngan.mjs`, gộp trong
+// gop.mjs): ý định đúng A 97,4 · A-nhiễu 97,0 · B 89,7 · BĐ 94,6 · thao tác 91,9 · 19 lệnh ngắn 84,2 %
+// (v3 cũ 97,8 / 97,5 / 90,3 / 95,0 / 91,5 / 68,4). Đè cùng tên: máy còn bản cũ trong kho SW vẫn đoán
+// ĐÚNG ý như cũ (đổi thang chỉ co giãn đều, không đổi lớp thắng), chỉ conf lệch tới khi kho làm mới.
 // File này là bản CHÉP Y HỆT phần đoán — đổi cách băm/đặc trưng ở đó thì phải
 // đổi ở đây, và ngược lại; test `sen-bien.test.ts` khoá vài câu với đúng file trọng số.
 //
@@ -33,8 +37,8 @@ const REASONS = ["y_te", "phap_ly", "tien", "tra_nguoi", "khac"] as const;
 const DIM = 1 << 16;
 const NY = INTENTS.length;
 const NLOP = NY + REASONS.length;
-/** thang int8 → số thực, ghi lúc train (meta.json của bản v3) */
-const THANG = 0.15106531578724777;
+/** thang int8 → số thực, ghi lúc train (meta.json của bản v3 + lệnh ngắn, 2026-10-18) */
+const THANG = 0.17380100160133183;
 export const NGRAM_BYTES = DIM * NLOP;
 
 /** Bỏ dấu + chữ thường + chỉ giữ a-z0-9 — giống `foldVn` bên train. */
