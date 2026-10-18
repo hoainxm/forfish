@@ -830,7 +830,16 @@ Chủ dự án: *"mở rộng làm trợ lý cho toàn app, giao tiếp bằng g
 
 **Đã kiểm (trình duyệt dev 375 px, tài khoản test 0900000777):** icon hiện ở Trang chủ / Bạn thuyền / Giao dịch; "giá dầu hôm nay" lần đầu (chưa có bản lưu) ⇒ nói thật + mở Giao dịch, lần hai ⇒ đọc đúng giá đã lưu; "gần đảo nào nhất" ở Giao dịch ⇒ mở bản đồ ⇒ "Gần chỗ đang xem nhất là Hòn Tre, hướng Tây, 95 hải lý." + bay tới. Test `sen-bien-tra-loi-app.test.ts` + `assistant-*.test.ts` (chép kèm). **Chưa kiểm**: micro thật trên điện thoại ở màn ngoài bản đồ; bản Android (Gemma) ở màn ngoài bản đồ.
 
-**Assumptions**: icon nổi cùng chỗ với màn bản đồ (mép trái, kéo được), chưa hỏi chủ dự án vị trí riêng cho màn danh sách; câu thời tiết ở màn ngoài bản đồ trả lời theo dự báo **cảng nhà** đã lưu (bản đồ thì theo chỗ đang xem).
+**Nói qua nói lại + giọng Mỹ Duyên ở mọi màn (2026-10-18 chiều, chủ dự án: *"đã đảm bảo giao tiếp 2 chiều chưa giọng Mỹ Duyên"* → *"sửa luôn"*)**. Trước đó màn ngoài bản đồ chỉ nghe một lượt lúc mở thẻ; thẻ còn tự thu giữa lúc đọc câu dài (luật "rảnh 5 s thì thu"); bộ giọng chỉ được tải sẵn khi đã mở màn bản đồ.
+- `sen-bien-toan-app`: mọi câu Sen Biển nói đi qua `noi(câu, ngheTiep)` → `ttsSpeak` (cửa giọng chung: mp3 Mỹ Duyên + mảnh ghép, thiếu mảnh mới giọng máy). Đọc XONG thật ⇒ `autoListen` +1 ⇒ thẻ tự nghe một lượt (luật `autoListenOk` như màn bản đồ: không khi đang gõ chat / chưa cấp mic / ẩn app / mất sóng mà chưa có bộ nghe trong máy). Đang đọc ⇒ `speakerBusy` (micro không thu tiếng loa). Im 5 s ⇒ chỉ tắt mic; rảnh tiếp ⇒ thẻ tự thu như cũ.
+- KHÔNG tự nghe sau: câu có **nút xác nhận** (việc sàn có hậu quả — một chạm, 13 §4.3) và câu "Mở bản đồ." (thẻ đã đóng).
+- Có tiếng mà không ra chữ ⇒ hỏi lại "Sen Biển chưa nghe rõ. Bà con nói lại nhé." rồi nghe tiếp — MỘT lần; trượt lần hai chỉ nói "chưa nghe rõ", không nghe tiếp (khỏi vòng hỏi–ồn–hỏi ngoài boong).
+- `sen-bien-sheet` (chung cả màn bản đồ): loa còn đọc (`speakerBusy`) thì CHƯA tính là rảnh — đếm giờ thu về từ lúc đọc xong.
+- Tải sẵn: 8 s sau khi app mở, còn sóng và không bật tiết kiệm dữ liệu ⇒ `loadSenBienModel` + `warmVoiceClips` (một lượt/phiên, vào kho SW cache-first) ⇒ chưa mở bản đồ lần nào mà ra khơi vẫn nghe giọng Mỹ Duyên.
+- Kiểm (dev 375 px, khách): màn Tàu cá tải ~2.900 mảnh mp3 sau 8 s (200); chat "sen biển làm được những gì" ⇒ trả lời, thẻ mở trong lúc đọc rồi tự thu khi rảnh; chế độ chat không bật mic. **Chưa kiểm**: micro thật trên điện thoại (tự nghe sau câu trả lời, mic không thu tiếng loa).
+- Offline: (a) thêm tải sẵn lúc mở app — chỉ khi `isOnline`, nền, `.catch`, không ai chờ; mất sóng thì bỏ; (b) không đụng `sw.js`/SHELL/khoá `forfish.*`; (c) không xoá/đè dữ liệu bà con; (d) mất sóng ⇒ đọc từ kho SW đã tải, thiếu mảnh thì giọng máy như cũ.
+
+**Assumptions**: icon nổi cùng chỗ với màn bản đồ (mép trái, kéo được), chưa hỏi chủ dự án vị trí riêng cho màn danh sách; màn ngoài bản đồ tự nghe sau MỌI câu trả lời (màn bản đồ chỉ sau câu hỏi — ở đó loa còn đọc cảnh báo dẫn đường, mở mic sau mỗi câu sẽ thu nhầm); tải sẵn ~8,4 MB giọng một lần cho máy đã có sóng (như màn bản đồ đã làm); câu thời tiết ở màn ngoài bản đồ trả lời theo dự báo **cảng nhà** đã lưu (bản đồ thì theo chỗ đang xem).
 
 ## 25. SEN BIỂN LÀM MỌI THAO TÁC SÀN (2026-10-18)
 
