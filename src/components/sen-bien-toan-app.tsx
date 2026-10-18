@@ -13,12 +13,14 @@
   Màn bản đồ có Sen Biển riêng (đủ lớp, vị trí, dẫn đường) ⇒ ở đó không vẽ cái này.
 */
 
+import { Capacitor } from "@capacitor/core";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { SenBienNoi, SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
 import type { AssistantAction } from "@/lib/assistant/types";
+import { LOCAL_BUILD_ID } from "@/lib/app-version";
 import { loadBoats, saveCurrentBoatId } from "@/lib/boats";
 import { SPECIES_META } from "@/lib/fish-predict";
 import { loadPlaces } from "@/lib/places";
@@ -26,6 +28,7 @@ import { saveHome } from "@/lib/region";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
 import { lamLenhCho, type ChoKetQua } from "@/lib/sen-bien/lam-cho";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
+import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { guessIntent } from "@/lib/sen-bien/ngram";
 import { useAuthUser } from "@/lib/use-auth";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
@@ -42,6 +45,21 @@ export function SenBienToanApp() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const { phone } = useAuthUser();
+  /** một lần mở Sen Biển — mẫu học (mau-hoc.ts) ghép cặp câu nói lại theo mã này */
+  const phienRef = useRef("");
+  /** mẫu học (doc 15 §23, chủ dự án 2026-10-18 "ghi nhận lịch sử từ user để train tiếp"): chữ nghe ra + máy làm gì */
+  const ghiMau = useCallback((cau: string, r: Parameters<typeof ghiMauSen>[0]["r"]) => {
+    ghiMauSen({
+      phien: phienRef.current || (phienRef.current = phienMoi()),
+      cau,
+      r,
+      xn: false,
+      chay: false,
+      nen: Capacitor.getPlatform(),
+      ban: LOCAL_BUILD_ID,
+    });
+    void guiMauSen();
+  }, []);
   /** câu chuyển từ màn bản đồ (?sen=, việc sàn nói ở bản đồ) — mở thẻ là làm luôn */
   const [hoiNgay, setHoiNgay] = useState<string | undefined>(undefined);
   useEffect(() => {
@@ -62,6 +80,7 @@ export function SenBienToanApp() {
   const dong = useCallback(() => {
     setOpen(false);
     setHoiNgay(undefined);
+    phienRef.current = "";
   }, []);
 
   const noi = useCallback((t: string) => {
@@ -116,16 +135,22 @@ export function SenBienToanApp() {
   const onHeard = useCallback(
     async (text: string): Promise<SenHeard> => {
       const cho = hieuLenhCho(text);
-      if (cho) return choRaThe(await lamLenhCho(cho, phone));
+      if (cho) {
+        ghiMau(text, { tra: "cho", ct: cho.k });
+        return choRaThe(await lamLenhCho(cho, phone));
+      }
       const model = await loadSenBienModel();
       // cổng phụ (n-gram v4): luật hụt câu mà mô hình chắc là việc sàn ⇒ hỏi lại kèm câu mẫu, không đoán làm hộ
       const g = model ? guessIntent(model, text) : null;
       const hoiLai = g ? hoiLaiCho(g.y, g.conf) : null;
       if (hoiLai) {
+        ghiMau(text, { tra: "say", ct: g!.y });
         noi(hoiLai);
         return { show: hoiLai };
       }
       const r = senBienReply(text, model, [], null, { awaitingGo: false, running: false, loaiCa: LOAI_CA });
+      // câu việc bản đồ: màn bản đồ ghi lại khi chạy ?sen= ⇒ ở đây không ghi, khỏi đếm hai lần
+      if (!veBanDo(r)) ghiMau(text, r);
       if (veBanDo(r)) {
         noi("Mở bản đồ.");
         dong();
@@ -150,7 +175,7 @@ export function SenBienToanApp() {
       noi(say);
       return { show: say };
     },
-    [pathname, router, noi, lam, choRaThe, phone, dong],
+    [pathname, router, noi, lam, choRaThe, phone, dong, ghiMau],
   );
 
   if (KHONG_VE.test(pathname) || pathname.startsWith("/quan-tri")) return null;
