@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { canXacNhan, hieuLenhCho, tachHen, tachMa, tachTien } from "@/lib/sen-bien/lenh-cho";
+import { CAU_MAU_CHO, CHO_CHAC, canXacNhan, hieuLenhCho, hoiLaiCho, tachHen, tachMa, tachTien, Y_CHO } from "@/lib/sen-bien/lenh-cho";
+import { INTENTS } from "@/lib/sen-bien/ngram";
 import { normalizeUtterance } from "@/lib/assistant/normalize";
 import { foldVn } from "@/lib/market/text";
 
@@ -95,5 +96,24 @@ describe("không phải việc sàn ⇒ null (để Sen Biển hiểu đường 
     expect(canXacNhan({ k: "don_huy", shop: false })).toBe(true);
     expect(canXacNhan({ k: "xem_gio" })).toBe(false);
     expect(canXacNhan({ k: "them_gio", q: "x", qty: 1 })).toBe(false);
+  });
+});
+
+describe("cổng phụ n-gram v4 — luật hụt thì hỏi lại kèm câu mẫu", () => {
+  it("mọi ý sàn đều có trong bộ n-gram", () => {
+    for (const y of Y_CHO) expect(INTENTS).toContain(y);
+  });
+  it.each(Y_CHO.map((y) => [y]))("câu mẫu của %s luật hiểu đúng việc đó", (y) => {
+    expect(k(CAU_MAU_CHO[y].mau)).toBe(y);
+  });
+  it("ý sàn đủ chắc ⇒ câu hỏi lại có câu mẫu", () => {
+    expect(hoiLaiCho("don_huy", 0.9)).toBe('Bà con muốn huỷ đơn phải không? Nói rõ giúp, ví dụ: "huỷ đơn UY3Y vì đặt nhầm".');
+    expect(hoiLaiCho("san_bao_gia", CHO_CHAC)).toContain("báo giá 3 triệu 6");
+  });
+  it("kém chắc hoặc không phải ý sàn ⇒ null", () => {
+    expect(hoiLaiCho("don_huy", CHO_CHAC - 0.01)).toBeNull();
+    expect(hoiLaiCho("thoi_tiet", 0.99)).toBeNull();
+    expect(hoiLaiCho("don_cua_toi", 0.99)).toBeNull();
+    expect(hoiLaiCho("", 1)).toBeNull();
   });
 });
