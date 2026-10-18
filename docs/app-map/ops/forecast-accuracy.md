@@ -5,7 +5,7 @@
 covers: scripts/forecast-backtest.mjs, src/data/forecast-skill.json, src/lib/forecast-skill.ts
 last_verified: 2026-07-25
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-16) — code 'src/lib/forecast-skill.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-18) — code 'src/lib/forecast-skill.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
 > Bảng **skill** đo độ chính xác của engine dự báo biển 15 ngày (Trục 1). So DỰ-BÁO-CŨ với THỰC-TẾ để biết sai số tăng bao nhiêu theo tầm ngày (lead 1..15), rồi kết tinh thành `src/data/forecast-skill.json` để (a) hiệu chỉnh **bias** điểm số và (b) gán nhãn **độ tin TRUNG THỰC**.
