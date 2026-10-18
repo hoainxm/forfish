@@ -140,7 +140,11 @@ describe("voiceRank — giọng nữ trước, mất sóng thì giọng trong m�
 
 type FakeUtter = { text: string; voice: { name: string } | null; rate: number; onstart?: () => void; onend?: () => void; onerror?: () => void };
 
-function installSynth(voices: { lang: string; localService: boolean; name: string; voiceURI?: string }[], dead: string[] = []) {
+function installSynth(
+  voices: { lang: string; localService: boolean; name: string; voiceURI?: string }[],
+  dead: string[] = [],
+  startMs = 5,
+) {
   const log: string[] = [];
   const synth = {
     getVoices: () => voices,
@@ -150,8 +154,8 @@ function installSynth(voices: { lang: string; localService: boolean; name: strin
       if (!u.text) return;
       if (u.voice && dead.includes(u.voice.name)) return; // giọng mạng chết: không bao giờ onstart
       log.push(`synth:${u.text}@${Date.now()}|${u.voice?.name}`);
-      setTimeout(() => u.onstart?.(), 5);
-      setTimeout(() => u.onend?.(), 100);
+      setTimeout(() => u.onstart?.(), startMs);
+      setTimeout(() => u.onend?.(), startMs + 95);
     },
   };
   class Utter {
@@ -282,6 +286,77 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
       "synth:Asd Zxc.|Microsoft An - Vietnamese",
     ]);
     expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  /*  LỖI 2026-10-18 (Chrome Android, bà con Bình Định: "để 1 lát lâu thì nó báo tắt
+      tiếng"): giọng Việt DUY NHẤT khởi động chậm một lần là bị loại vĩnh viễn ⇒ im cả chế độ. */
+  it("chỉ MỘT giọng Việt khởi động chậm 2 s: vẫn đọc, KHÔNG bị loại, ttsCheck vẫn có giọng máy", async () => {
+    const log = installSynth([{ lang: "vi-VN", localService: false, name: "Google tiếng Việt" }], [], 2000);
+    installAudio(log);
+    const tts = await import("@/lib/voice/tts");
+    tts.ttsSpeak("Qwe Xyz.");
+    await vi.advanceTimersByTimeAsync(5000);
+    tts.ttsSpeak("Asd Zxc.");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual(["synth:Qwe Xyz.|Google tiếng Việt", "synth:Asd Zxc.|Google tiếng Việt"]);
+    const p = tts.ttsCheck();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(await p).toMatchObject({ ok: true, giongMay: true });
+  });
+
+  it("giọng Việt duy nhất không chịu phát: KHÔNG gác — lần sau vẫn thử, không thành 'máy chưa có giọng'", async () => {
+    const dead = ["Google tiếng Việt"];
+    const log = installSynth([{ lang: "vi-VN", localService: false, name: "Google tiếng Việt" }], dead);
+    installAudio(log);
+    const tts = await import("@/lib/voice/tts");
+    tts.ttsSpeak("Qwe Xyz.");
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(log).toHaveLength(0);
+    dead.length = 0; // sóng về
+    tts.ttsSpeak("Asd Zxc.");
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual(["synth:Asd Zxc.|Google tiếng Việt"]);
+  });
+
+  it("giọng mạng chết bị gác CÓ HẠN: hết hạn và sóng về thì quay lại giọng nữ tốt hơn", async () => {
+    const dead = ["Google tiếng Việt"];
+    const log = installSynth(
+      [
+        { lang: "vi-VN", localService: false, name: "Google tiếng Việt" },
+        { lang: "vi-VN", localService: true, name: "Microsoft An - Vietnamese" },
+      ],
+      dead,
+    );
+    installAudio(log);
+    const tts = await import("@/lib/voice/tts");
+    tts.ttsSpeak("Qwe Xyz.");
+    await vi.advanceTimersByTimeAsync(5000);
+    dead.length = 0;
+    tts.ttsSpeak("Asd Zxc.");
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(tts.BAD_VOICE_MS);
+    tts.ttsSpeak("Rty Uio.");
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual([
+      "synth:Qwe Xyz.|Microsoft An - Vietnamese",
+      "synth:Asd Zxc.|Microsoft An - Vietnamese",
+      "synth:Rty Uio.|Google tiếng Việt",
+    ]);
+  });
+
+  it("ttsCheck: không giọng máy nhưng phát được mp3 ⇒ đọc được (ok), giongMay false; không cả hai ⇒ không", async () => {
+    installSynth([{ lang: "en-US", localService: true, name: "Samantha" }]);
+    installAudio([]);
+    let tts = await import("@/lib/voice/tts");
+    let p = tts.ttsCheck();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(await p).toMatchObject({ ok: true, giongMay: false });
+    vi.resetModules();
+    vi.stubGlobal("Audio", undefined);
+    tts = await import("@/lib/voice/tts");
+    p = tts.ttsCheck();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(await p).toMatchObject({ ok: false, giongMay: false });
   });
 
   it("huỷ giữa chừng: không đọc đoạn sau, onEnd đúng 1 lần", async () => {

@@ -158,14 +158,25 @@ describe("useNavVoice", () => {
     expect(texts).toEqual(["Điểm mười bốn độ ba mươi tư phút Bắc", "Đang vẽ đường.", "Tới Sa Huỳnh", "mười bốn hải lý"]);
   });
 
-  it("máy không có giọng Việt: không đọc, báo avail.ok=false để HUD nói thật", async () => {
+  it("máy không có giọng Việt VÀ không phát được mp3: không đọc, báo avail.ok=false để HUD nói thật", async () => {
     hasVi = false;
     installSynth();
+    vi.stubGlobal("Audio", undefined);
     const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
     rerender(base({ on: true, chart: "du", alerts: [RED] }));
     await tick(10_000);
     expect(spoken).toHaveLength(0);
     expect(result.current.avail?.ok).toBe(false);
+  });
+
+  it("không giọng Việt nhưng có mp3 Mỹ Duyên: VẪN đọc được (avail.ok), chỉ thiếu giọng máy", async () => {
+    hasVi = false;
+    installSynth();
+    vi.stubGlobal("Audio", class {}); // ca trước gỡ Audio — trả lại thẻ phát mp3
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du", alerts: [RED] }));
+    await tick(10_000);
+    expect(result.current.avail).toMatchObject({ ok: true, giongMay: false });
   });
 
   it("màn tắt đúng lúc tới lượt bản tin: KHÔNG nuốt — mở màn lại thì đọc", async () => {

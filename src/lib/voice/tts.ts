@@ -41,8 +41,10 @@ import { ghepManh, khoaManh } from "@/lib/voice/ghep.mjs";
 import { timeoutSignal } from "@/lib/abort";
 
 export type TtsAvail = {
-  /** đọc được tiếng Việt trên máy này */
+  /** đọc được tiếng Việt trên máy này — bằng giọng máy HOẶC mp3 Mỹ Duyên (từ 2026-10-18) */
   ok: boolean;
+  /** máy có giọng tiếng Việt của hệ thống (đọc được câu không có mảnh mp3) */
+  giongMay: boolean;
   native: boolean;
   /** Android: mở được màn tải giọng của máy */
   canInstall: boolean;
@@ -61,6 +63,10 @@ export const PAUSE_SENTENCE_MS = 250;
 const CLIP_FETCH_MS = 4000;
 /** không `onstart` sau ngần này (web) ⇒ coi như không đọc được, sang câu kế */
 const START_GUARD_MS = 1500;
+/** chỉ còn MỘT giọng Việt: cho nó khởi động lâu hơn (Google tiếng Việt máy nguội / sóng yếu hay quá 1,5 s) */
+const START_GUARD_ONLY_MS = 4000;
+/** giọng chậm khởi động bị gác chừng này rồi được thử lại — KHÔNG gác vĩnh viễn */
+export const BAD_VOICE_MS = 120_000;
 /** trần một lượt nói (bản tin mở đầu nhiều câu + nghỉ giữa đoạn) — engine treo không được giữ hàng đợi mãi */
 const MAX_UTTER_MS = 45_000;
 
@@ -130,18 +136,43 @@ function isOnline(): boolean {
   }
 }
 
-/*  Giọng đã HỎNG trong phiên này (giọng mạng lúc sóng chập chờn: không chịu
-    phát) — loại khỏi danh sách để đoạn sau rơi xuống giọng cài trong máy thay
-    vì im cả câu. */
-const badVoices = new Set<string>();
+/*  Giọng CHẬM/HỎNG tạm (giọng mạng lúc sóng chập chờn: không chịu phát) — gác
+    một lúc để đoạn sau rơi xuống giọng khác thay vì im cả câu.
+    LỖI 2026-10-18 (bà con chạy thử Bình Định, Chrome Android: "để 1 lát lâu thì
+    nó báo tắt tiếng"): trước đây gác VĨNH VIỄN trong phiên. Chrome Android chỉ
+    có MỘT giọng Việt ⇒ một lần khởi động quá 1,5 s là mất giọng duy nhất ⇒ lần
+    màn sáng lại `ttsCheck` ra "không có giọng" ⇒ cả chế độ im. Nay: gác có hạn
+    (`BAD_VOICE_MS`) và KHÔNG BAO GIỜ gác giọng Việt cuối cùng còn lại. */
+const badUntil = new Map<string, number>();
+const voiceKey = (v: SpeechSynthesisVoice) => v.voiceURI || v.name;
+
+function viVoices(): SpeechSynthesisVoice[] {
+  refreshVoices();
+  return voices.filter(isVi);
+}
 
 /** Giọng Việt tốt nhất lúc này: đọc được (mất sóng → giọng cài trong máy), rồi ưu tiên giọng nữ. */
 export function vietnameseVoice(): SpeechSynthesisVoice | null {
-  refreshVoices();
-  const vi = voices.filter((v) => isVi(v) && !badVoices.has(v.voiceURI || v.name));
-  if (vi.length === 0) return null;
+  const all = viVoices();
+  if (all.length === 0) return null;
+  const now = Date.now();
+  const tot = all.filter((v) => (badUntil.get(voiceKey(v)) ?? 0) <= now);
+  // mọi giọng đều đang bị gác ⇒ vẫn thử giọng tốt nhất — chậm còn hơn im
+  const pool = tot.length ? tot : all;
   const online = isOnline();
-  return [...vi].sort((a, b) => voiceRank(a, online) - voiceRank(b, online))[0];
+  return [...pool].sort((a, b) => voiceRank(a, online) - voiceRank(b, online))[0];
+}
+
+/** Gác giọng chậm — chỉ khi còn giọng Việt KHÁC để rơi xuống. */
+function gacGiong(v: SpeechSynthesisVoice): void {
+  const now = Date.now();
+  const khac = viVoices().filter((x) => voiceKey(x) !== voiceKey(v) && (badUntil.get(voiceKey(x)) ?? 0) <= now);
+  if (khac.length) badUntil.set(voiceKey(v), now + BAD_VOICE_MS);
+}
+
+/** Máy phát được mp3 Mỹ Duyên (câu cố định + mảnh ghép) — đủ để Sen Biển đọc dù không có giọng máy. */
+function clipsOk(): boolean {
+  return typeof Audio !== "undefined" && allClipUrls().length > 0;
 }
 
 /* ── CÂU → ĐOẠN ĐỌC ─────────────────────────────────────────────────────── */
@@ -510,17 +541,19 @@ export async function ttsCheck(): Promise<TtsAvail> {
         new Promise<{ supported: boolean }>((res) => setTimeout(() => res({ supported: false }), 2500)),
       ]);
       return {
-        ok: !!r.supported,
+        ok: !!r.supported || clipsOk(),
+        giongMay: !!r.supported,
         native: true,
         canInstall: Capacitor.getPlatform() === "android",
       };
     } catch {
-      return { ok: false, native: true, canInstall: Capacitor.getPlatform() === "android" };
+      return { ok: clipsOk(), giongMay: false, native: true, canInstall: Capacitor.getPlatform() === "android" };
     }
   }
-  if (!webSupported()) return { ok: false, native: false, canInstall: false };
+  if (!webSupported()) return { ok: clipsOk(), giongMay: false, native: false, canInstall: false };
   await waitVoices(1500);
-  return { ok: vietnameseVoice() !== null, native: false, canInstall: false };
+  const giongMay = vietnameseVoice() !== null;
+  return { ok: giongMay || clipsOk(), giongMay, native: false, canInstall: false };
 }
 
 /** WAV lặng 1 mẫu — "mở khoá" thẻ <audio> trong cử chỉ chạm (iOS). */
@@ -627,17 +660,18 @@ function synthPart(text: string, rate: number, done: (ok: boolean) => void): () 
   };
   u.onend = () => finish(true);
   u.onerror = () => finish(startedOk);
+  const conMot = viVoices().length <= 1;
   guards.push(setTimeout(() => {
     if (startedOk) return;
-    // giọng này không chịu phát (giọng mạng lúc sóng yếu) — loại nó cho đoạn sau
-    badVoices.add(voice.voiceURI || voice.name);
+    // giọng này không chịu phát (giọng mạng lúc sóng yếu) — gác tạm nếu còn giọng khác
+    gacGiong(voice);
     try {
       synth.cancel();
     } catch {
       /* không có gì để huỷ */
     }
     finish(false);
-  }, START_GUARD_MS));
+  }, conMot ? START_GUARD_ONLY_MS : START_GUARD_MS));
   try {
     synth.speak(u);
   } catch {
@@ -713,8 +747,11 @@ export function ttsSpeak(text: string, opts: { onEnd?(): void; rate?: number } =
       else next();
     };
     const synth = (retry: boolean) => {
+      const dung = isNative() ? null : vietnameseVoice();
       stopCur = synthPart(p.text, rate, (ok) => {
-        if (!ok && retry && !isNative() && vietnameseVoice()) synth(false);
+        // thử lại CHỈ khi có giọng KHÁC (giọng mạng bị gác → giọng trong máy); cùng giọng thì phí thêm một lần chờ
+        const ke = !ok && retry && !isNative() ? vietnameseVoice() : null;
+        if (ke && ke !== dung) synth(false);
         else after();
       });
     };

@@ -52,12 +52,13 @@ describe("tts — nhánh trình duyệt", () => {
     vi.unstubAllGlobals();
   });
 
-  it("không có giọng Việt: KHÔNG đọc (kể cả có giọng Anh), onEnd gọi đúng 1 lần", async () => {
+  it("không có giọng Việt: KHÔNG đọc giọng máy (kể cả có giọng Anh), onEnd gọi đúng 1 lần", async () => {
     const { spoken } = installSynth([{ lang: "en-US", localService: true, name: "Samantha" }]);
     const tts = await import("@/lib/voice/tts");
     const check = tts.ttsCheck();
     await vi.advanceTimersByTimeAsync(2000);
-    expect((await check).ok).toBe(false);
+    // từ 2026-10-18 `ok` tính cả mp3 Mỹ Duyên — ở đây chỉ khẳng định KHÔNG có giọng máy
+    expect((await check).giongMay).toBe(false);
     const onEnd = vi.fn();
     tts.ttsSpeak("Phía trước có xác tàu.", { onEnd });
     await vi.advanceTimersByTimeAsync(100);
@@ -84,13 +85,15 @@ describe("tts — nhánh trình duyệt", () => {
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
-  it("engine im (không onstart sau 1,5 s): bỏ câu, onEnd vẫn gọi — hàng đợi không kẹt", async () => {
+  it("engine im (không onstart; chỉ một giọng thì chờ 4 s): bỏ câu, onEnd vẫn gọi — hàng đợi không kẹt", async () => {
     const { synth } = installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
     synth.speak = () => {}; // không bao giờ phát
     const tts = await import("@/lib/voice/tts");
     const onEnd = vi.fn();
     tts.ttsSpeak("Còn chừng 6 hải lý tới ranh giới.", { onEnd });
     await vi.advanceTimersByTimeAsync(1600);
+    expect(onEnd).not.toHaveBeenCalled(); // giọng duy nhất: cho khởi động lâu hơn (lỗi 2026-10-18)
+    await vi.advanceTimersByTimeAsync(2500);
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
@@ -105,12 +108,13 @@ describe("tts — nhánh trình duyệt", () => {
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
-  it("không có Web Speech (Android WebView): báo không đọc được, không ném", async () => {
+  it("không có Web Speech (Android WebView): không có giọng máy, vẫn đọc được bằng mp3; không ném", async () => {
     Object.defineProperty(window, "speechSynthesis", { value: undefined, configurable: true });
     delete (window as unknown as Record<string, unknown>).speechSynthesis;
     const tts = await import("@/lib/voice/tts");
     const a = await tts.ttsCheck();
-    expect(a).toEqual({ ok: false, native: false, canInstall: false });
+    expect(a).toMatchObject({ giongMay: false, native: false, canInstall: false });
+    expect(a.ok).toBe(typeof Audio !== "undefined");
     const onEnd = vi.fn();
     expect(() => tts.ttsSpeak("x", { onEnd })).not.toThrow();
     expect(onEnd).toHaveBeenCalledTimes(1);

@@ -734,4 +734,20 @@ Opus nhỏ nhất mà không mất độ rõ, NHƯNG Safari/iOS cũ (app còn ch
 
 > **2026-10-17 — bản tin mở đầu viết lại cho liền mạch** (chủ dự án: "các câu này không hợp logic, câu trước vênh câu sau"; `lib/nav-voice/opening.ts`). Thứ tự cố định: **bão · sóng gió 6 giờ tới · máy canh gì · nhắc việc về bờ (CUỐI)**. (1) CHỈ nói "Máy đang canh độ sâu, rạn và chướng ngại phía trước." khi ĐÃ có vị trí tàu (`coViTri`) — trước đây chưa bật định vị vẫn khẳng định canh rạn, sai sự thật và vênh với dòng báo GPS; chưa có vị trí ⇒ chỉ "Chỉ tham khảo, bà con dò hải đồ và nghe đài." (dòng GPS riêng đã nói chuyện định vị, không lặp). (2) Việc về bờ đứng cuối, danh từ ngắn, KHÔNG số ngày: "Về bờ nhớ lo: đăng kiểm tàu cá, giấy phép khai thác thủy sản." (trước: "Việc cần lo khi về bờ: Đăng kiểm tàu cá, đã quá hạn 141 ngày; …" chen giữa sóng gió và hải đồ). Giữ nguyên câu đã có mp3 Mỹ Duyên.
 
-**Last updated**: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).
+## 22. SỬA LỖI CHẠY THỬ 2026-10-18 — "để một lát lâu thì nó báo tắt tiếng" + "mất định vị" giả
+
+Hai báo cáo cùng sáng: bà con chạy thử ở Bình Định (Chrome Android, `forfish.vercel.app`): *"để 1 lát lâu thì nó báo tắt tiếng"*; chủ dự án (iPhone): HUD hiện "Máy chưa có giọng tiếng Việt — chỉ báo bằng chuông và chữ" + "Mất định vị" trong khi toạ độ vừa bắt lúc 08:22.
+
+| Lỗi | Gốc | Sửa |
+|---|---|---|
+| Sau một lúc chạy thì im hẳn + hiện "chưa có giọng" | `tts.ts`: giọng máy không `onstart` trong 1,5 s bị đưa vào `badVoices` **vĩnh viễn trong phiên**. Chrome Android chỉ có MỘT giọng Việt (Google tiếng Việt), khởi động chậm hơn 1,5 s là chuyện thường ⇒ mất giọng duy nhất ⇒ lần màn sáng lại `ttsCheck` ra `ok:false` ⇒ `use-nav-voice` (`canSpeak` cần `avail.ok`) **im cả mp3 Mỹ Duyên** | Gác **có hạn** (`BAD_VOICE_MS` 2 phút), **không bao giờ gác giọng Việt cuối cùng**; chỉ còn một giọng thì chờ khởi động **4 s** (`START_GUARD_ONLY_MS`); chỉ thử lại khi có giọng KHÁC |
+| "Chỉ báo bằng chuông và chữ" dù có mp3 | `TtsAvail.ok` chỉ tính giọng máy | `ok` = giọng máy **hoặc** phát được mp3 (câu cố định + mảnh ghép §21); thêm `giongMay`. Dòng cảnh báo chỉ hiện khi không có cả hai |
+| "Mất định vị" khi máy đứng yên | `use-nav-tracking`: fix cũ hơn 10 s là mất; lỗi `TIMEOUT` của `watchPosition` (không fix MỚI trong 15 s — đứng yên hay gặp) bị coi là mất ngay | `fixQuaCu`: đang chạy 10 s, **đứng yên 60 s**; `TIMEOUT` chỉ thành mất khi fix gần nhất đã quá ngưỡng |
+
+**Assumptions**: không có giọng máy nhưng có mp3 thì KHÔNG hiện cảnh báo (đoạn không có mảnh thì im, chữ vẫn hiện trên HUD — luật "không giọng lạ" giữ nguyên); chưa thêm nhắc "Tải giọng máy" cho trường hợp này. Đứng yên 60 s là ngưỡng an toàn vì tàu đứng thì vị trí không đổi; đang chạy vẫn báo sau 10 s.
+
+**Offline — 4 câu**: (a) không thêm request; (b) không đụng `sw.js`/khoá `forfish.*`; (c) không đè dữ liệu; (d) không đổi nhánh mất sóng (giọng mạng chết khi mất sóng vẫn bị gác có hạn để rơi xuống giọng trong máy).
+
+**Đã kiểm**: `npm test` 4.567 xanh (mới: 4 ca `tts-voice` gác giọng có hạn / giọng duy nhất / `ok` theo mp3, 1 ca `nav-voice-hook`, `nav-tracking-stale.test.ts` 3 ca). **Chưa kiểm** trên Chrome Android và iPhone thật.
+
+**Last updated**: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).
