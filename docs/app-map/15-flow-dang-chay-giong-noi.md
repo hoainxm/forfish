@@ -750,4 +750,22 @@ Hai báo cáo cùng sáng: bà con chạy thử ở Bình Định (Chrome Androi
 
 **Đã kiểm**: `npm test` 4.567 xanh (mới: 4 ca `tts-voice` gác giọng có hạn / giọng duy nhất / `ok` theo mp3, 1 ca `nav-voice-hook`, `nav-tracking-stale.test.ts` 3 ca). **Chưa kiểm** trên Chrome Android và iPhone thật.
 
-**Last updated**: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).
+## 23. HỌC THÊM TỪ CÂU NÓI THẬT (2026-10-18)
+
+Chủ dự án: *"lúc dùng app là bà con phải làm xác nhận đồng ý rồi, còn làm đi cái phần thu thập để nâng cấp mô hình sau khi sử dụng, đảm bảo mô hình luôn thông minh"*. Hiểu ý và trả lời VẪN chạy trong máy (luật §20 không đổi). Cái mới chỉ là GỬI VỀ, khi có sóng, chữ của các câu đã nói để bản sau học thêm.
+
+**Vòng học**:
+1. Máy ghi (`lib/sen-bien/mau-hoc.ts` `ghiMauSen`, gọi ở `fishing-map-view.senHeard`): mỗi câu ⇒ `{cau, tra, ct, gemma, xn, chay, phien, t, nen, ban}`. `tra`/`ct` là việc máy đã làm (go + loại chỗ / hoi + loại câu hỏi / map + việc / say + ý n-gram…), `phien` đổi mỗi lần mở Sen Biển.
+2. Có sóng + đã đăng nhập ⇒ `guiMauSen` gửi lô ≤ 100 lên `POST /api/sen-bien/mau` → bảng `sen_bien_mau` (migration 0059, 04 §0059).
+3. Ở bờ: `node scripts/sen-bien-keo-mau.mjs <kho>.jsonl` kéo tiếp từ mốc, đánh dấu `nghi_sai` khi bà con NÓI LẠI trong 20 s sau một câu máy không làm được (say/cancel/pick) ⇒ cặp (câu máy hiểu sai, câu nói lại) là chỗ chấm trước.
+4. Kho huấn luyện (repo AI Assistant `train/`, gpu-desktop): thầy chấm nhãn ⇒ gộp vào dữ liệu ⇒ huấn luyện n-gram/Gemma ⇒ CHỈ phát khi bộ kín không tụt (cổng phát hành sẵn có). N-gram đi theo deploy (`public/data/sen-bien-ngram.vN.bin`); Gemma đi gói Play on-demand theo bản app. *Bước 4 chưa nối — xem phiên tiếp theo.*
+
+**Riêng tư**: chỉ CHỮ (không tiếng thu), không toạ độ (đi tới đâu chỉ còn loại chỗ cảng/điểm/nhà), không SĐT (máy chủ lưu dấu băm có pepper để gỡ mẫu của một người hoặc bỏ lô rác). Kho máy bị xoá khi đổi người (`auth-scope`).
+
+**Ma trận trạng thái**: chưa đăng nhập ⇒ giữ trong máy, không gửi · mất sóng / hết 8 s / máy chủ lỗi / thiếu bảng ⇒ giữ, 10 phút sau mới thử lại · kho đầy 300 ⇒ bỏ mẫu cũ nhất · máy hết chỗ ⇒ không ghi, không báo (mẫu là thứ bỏ được, không lấy chỗ của giấy tờ) · mẫu sai khuôn ⇒ bỏ ở cả hai đầu · gửi trùng ⇒ máy chủ bỏ qua theo id.
+
+**Offline — 4 câu**: (a) thêm MỘT request, chỉ chạy khi `navigator.onLine` + có chuỗi thiết bị, POST (SW bỏ qua), timeout 8 s, không ném, không ai chờ nó ⇒ mất sóng không treo gì; (b) không đụng `sw.js`; khoá mới `forfish.senbien.mau.v1` + `forfish.senbien.mau-gui.v1`, không bump kho nào; (c) không xoá/đè dữ liệu của bà con (kho mẫu có trần riêng, ghi hỏng thì thôi); (d) nhánh mất sóng = cất trong máy, gửi bù 8 s sau lần mở bản đồ có sóng kế tiếp.
+
+**Assumptions**: (1) bà con đã đồng ý lúc đăng ký nên chưa có công tắc tắt trong app — nếu cần cho bà con tự tắt thì thêm vào Cài đặt; (2) trần 20 lô/giờ/SĐT, đếm theo instance; (3) mẫu của khách chưa đăng nhập không gửi (chặn bơm rác); (4) chưa tự xoá mẫu cũ trên máy chủ — mỗi câu vài trăm byte, khi cần thì đặt hạn giữ.
+
+**Last updated**: 2026-10-18 — Sen Biển học thêm từ câu nói thật: ghi mẫu trong máy, có sóng gửi về (§23). Trước đó: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).

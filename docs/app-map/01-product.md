@@ -189,6 +189,14 @@ Trục 2 tăng thu nhập → mua nhiều hơn từ Trục 3
 3. **Đợt 3 — Chợ tin mua/bán nối mạng thu mua**: `market_listings` đã có (chủ tàu đăng tin bán/mua); bước tiếp nối app bên thu mua đổ tin cần mua qua webhook + gói hồ sơ chuyến biển PDF/QR truy xuất cho người mua (làm lại khi cần — trip-dossier cũ đã bỏ). *(Sổ công nợ nậu bỏ khỏi lộ trình 2026-07-27.)*
 4. **Đợt 4 — Kết nối SDWork/marketplace**: hồ sơ kinh nghiệm thuyền viên thành "chợ lao động đi biển", kênh bán/chào giá nối mạng đại lý SDVICO, đơn vật tư chảy sâu hơn vào SDWork — chỉ sau khi dữ liệu từ đợt 1–3 đủ dày.
 
+## 8b. Chủ quyền trong AI — LUẬT BẤT BIẾN (chủ dự án 2026-10-18)
+
+Mọi AI/mô hình đưa vào SDFish (Sen Biển, Gemma, LLM, giọng đọc) và mọi dữ liệu huấn luyện (kể cả mẫu câu nói thu từ bà con, nhãn của thầy) phải nắm rõ: **Hoàng Sa, Trường Sa là của Việt Nam; gọi là Biển Đông**. KHÔNG dùng dữ liệu xuyên tạc của Trung Quốc ("Tây Sa", "Nam Sa", "Tam Sa", "South China Sea", đường lưỡi bò, địa danh do Trung Quốc đặt).
+
+- Mô hình mới phải qua bộ câu thử chủ quyền TRƯỚC khi dùng — rớt là loại, dù nhanh/nhẹ tới đâu. Án lệ: Ternary Bonsai 2 2B (đo 2026-10-18) nhận tên "Tây Sa" không sửa, nói Hoàng Sa "thuộc Hải Phòng" ⇒ loại.
+- Dữ liệu huấn luyện lọc địa danh Trung Quốc trước khi gộp; cổng phát hành mô hình phải có ca chủ quyền.
+- Cùng luật với nguồn dữ liệu bản đồ (CLAUDE.md "Chủ quyền").
+
 ## 8. Cross-references
 
 - Kiến trúc routes/components: [02-architecture.md](02-architecture.md)

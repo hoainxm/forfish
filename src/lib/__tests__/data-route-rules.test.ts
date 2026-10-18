@@ -95,6 +95,7 @@ describe("matcher middleware.ts ↔ DATA_ROUTE_MATCHER ↔ route thật", () => 
       "data-key", // tự gác + rate limit trong route
       "version", // chỉ trả mã bản đang deploy (báo có bản mới) — công khai, không dữ liệu
       "market-listings", "crew-reports", "product-inquiries", "renewal", "sdvico", // nghiệp vụ per-user, identityFromRequest trong route
+      "sen-bien", // máy GỬI mẫu câu nói lên (POST), không trả dữ liệu — identityFromRequest + rate limit trong route
     ]);
     const top = readdirSync(join(ROOT, "src", "app", "api"), { withFileTypes: true })
       .filter((d) => d.isDirectory())

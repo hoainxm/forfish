@@ -479,6 +479,9 @@ import { VOICE_MODE_LABEL } from "@/lib/nav-voice/prefs";
 import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { apDungGemma, canGemma, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
+import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
+import { Capacitor } from "@capacitor/core";
+import { LOCAL_BUILD_ID } from "@/lib/app-version";
 import { foldVn } from "@/lib/sen-bien/ngram";
 import { CruiseIntroSheet } from "@/components/nav-voice-ui";
 import { SenBienNoi, SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
@@ -3077,6 +3080,8 @@ export default function FishingMapView() {
   const senChoRef = useRef<SenDest | null>(null);
   /** bản đồ cá cho câu hỏi "chỗ nào nhiều cá" — gán sau khi fishView có (khai báo phía dưới) */
   const senCaRef = useRef<() => KhoBanDo["ca"]>(() => undefined);
+  /** một lần mở Sen Biển — mẫu học (mau-hoc.ts) ghép cặp câu nói lại theo mã này */
+  const senPhienRef = useRef<string>("");
   const [senAutoCompute, setSenAutoCompute] = useState(0);
   const senDests = useMemo<SenDest[]>(
     () => [
@@ -3094,6 +3099,8 @@ export default function FishingMapView() {
   const senTenRef = useRef(senTen);
   useEffect(() => {
     const t = setTimeout(() => {
+      // mẫu câu nói còn trong máy (chuyến trước mất sóng) ⇒ có sóng thì gửi về để học; không chờ, không ném
+      void guiMauSen();
       void loadSenBienModel()
         .then(() => warmVoiceClips())
         .then(() => napBoNghe(senTenRef.current))
@@ -4154,10 +4161,8 @@ export default function FishingMapView() {
         loaiCa: SEN_LOAI_CA,
       });
       // Android có Gemma: hỏi thêm để lấy THAM SỐ (cùng việc mới nhận), trần 2,5 s; web/lỗi ⇒ giữ câu của luật
-      const r = canGemma(r0)
-        ? apDungGemma(
-            r0,
-            await hoiGemma(text, {
+      const g = canGemma(r0)
+        ? await hoiGemma(text, {
               xn: senAwait != null,
               // như lúc train: cang = tên cảng bỏ chữ "cảng", diem = điểm ghim — đã bỏ dấu
               // KV cache 256 ⇒ ngữ cảnh ngắn như lúc train (2–5 cảng, 1–4 điểm): 5 cảng GẦN chỗ hỏi nhất + 4 điểm ghim
@@ -4166,11 +4171,21 @@ export default function FishingMapView() {
               ),
               diem: ganNhatTen(senDests.filter((d) => d.kind !== "cang"), senViTri(), 4).map((d) => foldVn(d.name)),
               tau: [],
-            }),
-            SEN_LOAI_CA,
-            senDests,
-          )
-        : r0;
+            })
+        : null;
+      const r = canGemma(r0) ? apDungGemma(r0, g, SEN_LOAI_CA, senDests) : r0;
+      // mẫu học (chủ dự án 2026-10-18): chữ nghe ra + máy hiểu thành gì — cất trong máy, có sóng mới gửi
+      ghiMauSen({
+        phien: senPhienRef.current || (senPhienRef.current = phienMoi()),
+        cau: text,
+        r,
+        gemma: g?.y ?? null,
+        xn: senAwait != null,
+        chay: navOn,
+        nen: Capacitor.getPlatform(),
+        ban: LOCAL_BUILD_ID,
+      });
+      void guiMauSen();
       switch (r.kind) {
         case "map":
           return senLenh(r.lenh);
@@ -4253,6 +4268,7 @@ export default function FishingMapView() {
   const SEN_CHAO = "Sen Biển giúp gì được cho bạn?";
   const openSen = useCallback(() => {
     ttsUnlock();
+    senPhienRef.current = phienMoi();
     // không câu nhắc (chủ dự án 2026-10-17: "đừng có ghi nói cái gì hết") — tiêu đề chỉ mang tin thật
     setSenTitle("");
     setSenListen(true);
