@@ -14,6 +14,7 @@ import type { StormAlert, StormStatus } from "@/lib/storms";
 import { forecastTrack, routeStormConflict } from "@/lib/route-storm";
 import { bearingDeg, haversineKm, type LatLon } from "@/lib/route-plan";
 import { ageSpeech, dirSpeech, distSpeech, type SpeechUnit } from "@/lib/nav-voice/phrases";
+import { tenBaoNoi } from "@/lib/nav-voice/ten-bao";
 
 export const STORM_NEAR_KM = 200;
 export const STORM_STEP_KM = 50;
@@ -44,8 +45,9 @@ function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
+/** Tên ĐỂ NÓI: "Bão Vu típ" — tên quốc tế đọc theo phiên âm Việt (ten-bao.ts). */
 export function stormName(s: StormAlert): string {
-  return [s.kindLabel || "Bão", s.name].filter(Boolean).join(" ");
+  return [s.kindLabel || "Bão", s.name && tenBaoNoi(s.name)].filter(Boolean).join(" ");
 }
 
 /** Cơn bão GẦN TÀU NHẤT (theo đường đi) + câu đọc. null khi không có bão hoặc chưa có vị trí. */

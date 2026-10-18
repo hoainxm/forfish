@@ -21,6 +21,7 @@ import {
   trongVung,
   tenNoi,
   moTaVung,
+  doiTuongNoi,
   trangThaiText,
   muaCamText,
   type VungQuanLyFile,
@@ -222,5 +223,23 @@ describe("câu cho bà con", () => {
     expect(s).toMatch(/chuyển tiếp/);
     const diem = VUNG.find((v) => v.loai === "bao-ve-nguon-loi" && v.diem && !v.dienTichHa);
     if (diem) expect(moTaVung(diem, T5)).not.toMatch(/ ha/);
+  });
+
+  it("câu NÓI không đọc tên Latin của loài (doc 15 §21j) — mọi khu trong file thật", () => {
+    expect(doiTuongNoi("Cá lượng (Nemipteridae), cá trích (Clupeidae), cá lượng (Nemipteridae)")).toBe(
+      "Cá lượng, cá trích",
+    );
+    expect(doiTuongNoi("Bãi đẻ mực lá (Sepioteuthis lessoniana); bãi ương giống tôm hùm")).toBe(
+      "Bãi đẻ mực lá; bãi ương giống tôm hùm",
+    );
+    expect(doiTuongNoi("Trai ngọc nữ ( Pteria penguin); San hô cứng Scleractinia spp")).toBe("Trai ngọc nữ; San hô cứng");
+    expect(doiTuongNoi("Bãi ương giống cá mú mè và cá mú sông")).toBe("Bãi ương giống cá mú mè và cá mú sông");
+    const latin = /\(|[A-Z][a-z]+(idae|idac)\b|\bspp\b|Hippocampus|Penaeus|Anguilla/;
+    for (const v of VUNG) {
+      if (!v.doiTuong) continue;
+      const s = moTaVung(v, T5);
+      expect(s, v.ten).not.toMatch(latin);
+      expect(s, v.ten).toMatch(/bảo vệ: \S/);
+    }
   });
 });
