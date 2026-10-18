@@ -51,7 +51,23 @@ import {
   writeVoicePrefs,
   type NavVoicePrefs,
 } from "@/lib/nav-voice/prefs";
-import { ttsCancel, ttsCheck, ttsOpenInstall, ttsSpeak, ttsUnlock, type TtsAvail } from "@/lib/voice/tts";
+import {
+  speechRate,
+  ttsCancel,
+  ttsCheck,
+  ttsOpenInstall,
+  ttsSpeak,
+  ttsUnlock,
+  type TtsAvail,
+} from "@/lib/voice/tts";
+
+/** Câu ĐÁP của Sen Biển thành sự kiện cho announcer — khoá riêng từng câu
+    (hai câu trong cùng mili giây không được trùng khoá, announcer bỏ câu đã nói). */
+let replySeq = 0;
+const replyKey = () => `sen:${Date.now()}:${++replySeq}`;
+function replyEvent(text: string, key = replyKey()): VoiceEvent {
+  return { key, group: key, tier: "vang", text, reply: true };
+}
 
 const isHidden = () => typeof document !== "undefined" && document.visibilityState === "hidden";
 
@@ -107,14 +123,18 @@ export type NavVoice = {
   prefs: NavVoicePrefs;
   markIntroSeen: () => void;
   /** SEN BIỂN nói — CÙNG hàng đợi với cảnh báo (đỏ vẫn đi trước, cắt ngang);
-      chưa bật chế độ chạy thì đọc thẳng */
-  say: (text: string) => void;
+      chưa bật chế độ chạy thì đọc thẳng. `onSpoken` gọi khi câu ĐỌC XONG thật
+      (onEnd của mp3/giọng máy) — để Sen Biển bật micro nghe trả lời mà micro
+      không thu tiếng loa. Câu bị cắt (đỏ chen, tắt màn, tắt giọng) ⇒ KHÔNG gọi. */
+  say: (text: string, opts?: SayOpts) => void;
   /** "im" bằng giọng = nấc "im 30 phút" của nút Giọng */
   mute: () => void;
   unmuteVoice: () => void;
   /** "nhắc lại" — đọc lại câu cảnh báo/tin gần nhất */
   repeatLast: () => void;
 };
+
+export type SayOpts = { onSpoken?: () => void };
 
 export function useNavVoice(inp: NavVoiceInput): NavVoice {
   const [prefs, setPrefs] = useState<NavVoicePrefs>({ muc: "day-du", daXem: true, tuDoc: false });
@@ -164,6 +184,16 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
   /* ── phát ─────────────────────────────────────────────────────────────── */
 
 
+  /** hàng câu đáp lúc CHẾ ĐỘ TẮT (xem `sayOff` dưới) — khai trước `run` vì `run` nhìn nó */
+  const offQRef = useRef<{ text: string; key: string }[]>([]);
+  /** "đọc xong thì báo" của câu đáp Sen Biển, theo key — câu bị cắt thì bỏ (không gọi) */
+  const spokenCbRef = useRef(new Map<string, () => void>());
+  const fireSpoken = useCallback((key: string, completed: boolean) => {
+    const cb = spokenCbRef.current.get(key);
+    spokenCbRef.current.delete(key);
+    if (completed) cb?.();
+  }, []);
+  const offBusyRef = useRef(false);
   const runRef = useRef<(r: AnnounceResult) => void>(() => {});
   const run = useCallback((r: AnnounceResult) => {
     stRef.current = r.state;
@@ -179,6 +209,13 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
         waitRef.current = null;
       }
       const u: Utterance = r.start;
+      if (offBusyRef.current && u.tier !== "do") {
+        // câu đáp lúc CHẾ ĐỘ TẮT còn đang đọc (vd "Bắt đầu dẫn đường. Sen Biển
+        // canh…" nói đúng lúc bật chế độ): đợi nó đọc xong — `sayOffNext` gọi
+        // `pump` khi hàng đó cạn. Câu ĐỎ thì không đợi (ttsSpeak cắt câu đáp).
+        stRef.current = { ...stRef.current, current: null, queue: [u, ...stRef.current.queue] };
+        return;
+      }
       const tok = ++tokRef.current;
       const done = () => {
         if (tok !== tokRef.current) return;
@@ -189,6 +226,13 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
       const modeOk = modeRef.current !== "tat" || !!u.reply; // hỏi thì đáp, cả khi tắt giọng
       const canSpeak = !!availRef.current?.ok && modeOk && !isHidden();
       if (!canSpeak) {
+        if (availRef.current == null && modeOk) {
+          // CHƯA BIẾT máy đọc được không (ttsCheck lúc bật chế độ chưa xong): giữ
+          // câu ở đầu hàng — có kết quả là effect sự kiện đẩy lượt mới, câu được
+          // đọc. Không giữ thì câu đáp chuyển từ hàng lúc tắt bị coi "không đọc được".
+          stRef.current = { ...stRef.current, current: null, queue: [u, ...stRef.current.queue] };
+          return;
+        }
         if (availRef.current?.ok && modeOk && isHidden()) {
           // MÀN ĐANG TẮT: trả câu về đầu hàng, mở màn lại thì đọc (đỏ đã lỡ có
           // câu nhắc riêng — xem onVis). Không đánh dấu "đã đọc" một câu chưa ai nghe.
@@ -196,14 +240,25 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
           return;
         }
         // máy không đọc được tiếng Việt / tắt giọng: vẫn đi hết hàng để không dồn câu cũ
-        queueMicrotask(done);
+        // (câu đáp không có tiếng để micro thu nhầm ⇒ coi như đọc xong)
+        queueMicrotask(() => {
+          fireSpoken(u.key, tok === tokRef.current);
+          done();
+        });
         return;
       }
       const go = () => {
         if (tok !== tokRef.current) return;
         setSpeaking({ text: u.text, red: u.tier === "do" });
         if (!u.reply) lastTextRef.current = u.text;
-        cancelRef.current = ttsSpeak(u.text, { onEnd: done });
+        cancelRef.current = ttsSpeak(u.text, {
+          rate: speechRate(u, u.text),
+          onEnd: (completed) => {
+            // bị cắt (đỏ chen, tắt màn, tắt giọng) ⇒ tok đã đổi / completed=false: không báo "xong"
+            fireSpoken(u.key, completed && tok === tokRef.current);
+            done();
+          },
+        });
       };
       const lead = (u.tier === "do" || u.tier === "vang") && u.repeat === 0 && !u.reply ? CHIME_LEAD_MS : 0;
       if (lead > 0) leadRef.current = setTimeout(go, lead);
@@ -214,7 +269,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
         runRef.current(pump(stRef.current, Date.now()));
       }, r.waitMs + 20);
     }
-  }, []);
+  }, [fireSpoken]);
   useEffect(() => {
     runRef.current = run;
   }, [run]);
@@ -228,22 +283,41 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
 
   /*  CÂU ĐÁP LÚC CHẾ ĐỘ TẮT (không có hàng của announcer): NỐI HÀNG, không cắt
       nhau — "Điểm 14 độ… Đang vẽ đường." rồi mới tới tóm tắt đường. Bật chế độ
-      thì hàng này bỏ (announcer lo từ đó). */
-  const offQRef = useRef<string[]>([]);
-  const offBusyRef = useRef(false);
-  const sayOffNext = useCallback(function next() {
-    const t = offQRef.current.shift();
-    if (t == null || onRef.current) {
-      offQRef.current = [];
-      offBusyRef.current = false;
-      return;
-    }
-    offBusyRef.current = true;
-    ttsSpeak(t, { onEnd: next });
-  }, []);
+      thì announcer lo từ đó — câu CÒN CHỜ trong hàng này CHUYỂN sang announcer
+      (câu đáp, cắt được bản tin), KHÔNG bỏ; câu ĐANG đọc thì announcer đợi nó
+      xong (xem `run`). Rà soát prod 2026-10-16: bà con nói
+      "đi" lúc tóm tắt đường còn đọc ⇒ "Bắt đầu dẫn đường…" nằm chờ, tóm tắt đọc
+      xong thì chế độ đã bật và hàng bị xoá ⇒ nói "đi" mà máy im. */
+  const sayOffNext = useCallback(
+    function next() {
+      const t = offQRef.current.shift();
+      if (t == null) {
+        offBusyRef.current = false;
+        // chế độ đã bật trong lúc câu đáp đọc: announcer đang chờ — mời nó đọc tiếp
+        if (onRef.current) runRef.current(pump(stRef.current, Date.now()));
+        return;
+      }
+      if (onRef.current) {
+        const rest = [t, ...offQRef.current];
+        offQRef.current = [];
+        offBusyRef.current = false;
+        push(rest.map((x) => replyEvent(x.text, x.key)));
+        return;
+      }
+      offBusyRef.current = true;
+      ttsSpeak(t.text, {
+        rate: speechRate({ reply: true }, t.text),
+        onEnd: (completed) => {
+          fireSpoken(t.key, completed);
+          next();
+        },
+      });
+    },
+    [push, fireSpoken],
+  );
   const sayOff = useCallback(
-    (text: string) => {
-      offQRef.current.push(text);
+    (text: string, key: string) => {
+      offQRef.current.push({ text, key });
       if (!offBusyRef.current) sayOffNext();
     },
     [sayOffNext],
@@ -258,7 +332,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
           ở dưới là nuốt luôn lời đáp, bà con không biết máy đã nghe. Hỏi thì
           đáp: gom câu đáp CHƯA đọc trong hàng (câu đang đọc dở thì thôi, đọc
           lại từ đầu là lặp), đọc thẳng sau khi dọn. */
-      const replies = stRef.current.queue.filter((u) => u.reply).map((u) => u.text);
+      const replies = stRef.current.queue.filter((u) => u.reply);
       tokRef.current++;
       ttsCancel();
       for (const t of [waitRef.current, leadRef.current]) if (t) clearTimeout(t);
@@ -272,7 +346,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
       extraRef.current = [];
       pendingRef.current = [];
       diemMsRef.current = -Infinity;
-      for (const t of replies) sayOff(t);
+      for (const u of replies) sayOff(u.text, u.key);
       fieldRef.current = { field: null, at: -Infinity };
       setSpeaking(null);
       setMuted(false);
@@ -588,14 +662,15 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
   }, []);
 
   const say = useCallback(
-    (text: string) => {
+    (text: string, opts?: SayOpts) => {
       if (!text) return;
+      const key = replyKey();
+      if (opts?.onSpoken) spokenCbRef.current.set(key, opts.onSpoken);
       if (!onRef.current) {
-        sayOff(text);
+        sayOff(text, key);
         return;
       }
-      const now = Date.now();
-      push([{ key: `sen:${now}`, group: `sen:${now}`, tier: "vang", text, reply: true }]);
+      push([replyEvent(text, key)]);
     },
     [push, sayOff],
   );

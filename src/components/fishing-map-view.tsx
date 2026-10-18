@@ -499,11 +499,12 @@ import {
 } from "@/lib/sen-bien/lenh-ban-do";
 import { napKhoBanDo } from "@/lib/sen-bien/kho-ban-do";
 import { distSpeech } from "@/lib/nav-voice/phrases";
-import { ACTIVE_PORTS } from "@/data/fishing-ports";
+import { ACTIVE_PORTS, PORT_COORD_SAI } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import type { NavInfoLine } from "@/lib/nav-context";
 import {
   computeNavProgress,
+  etaHours,
   MIN_MOVING_KMH,
   offRouteStepCrossed,
   offRouteStepFor,
@@ -702,6 +703,10 @@ const DEPTH_NOTE: Record<DepthClass, { text: string; tone: "danger" | "warn" | "
 };
 
 const MAP_LAYER_KEY = "forfish.maplayer.v1";
+/** Đang chạy: tàu ở ~72% chiều cao bản đồ — dưới HUD + ô toạ độ, trên dock */
+const NAV_FOLLOW_OFFSET = 0.22;
+/** Đang chạy: zoom tối thiểu ở fix đầu (≈ 55 km bề ngang màn điện thoại) */
+const NAV_FOLLOW_ZOOM = 10;
 
 /**
  * Dấu cho SỐ SÓNG MÁY TỰ SUY TỪ GIÓ (lib/sea.ts `estimateWaveFromWind`), dùng
@@ -3041,13 +3046,14 @@ export default function FishingMapView() {
     anyExclusiveOverlay,
   ]);
 
-  /** Bay tới điểm, dồn tâm lên nửa trên màn hình để sheet không che */
-  const flyToPoint = useCallback((lon: number, lat: number, zoom?: number) => {
+  /** Bay tới điểm, dồn tâm lên nửa trên màn hình để sheet không che.
+      `offsetFrac` = dời tâm theo chiều cao bản đồ (âm = lên trên). */
+  const flyToPoint = useCallback((lon: number, lat: number, zoom?: number, offsetFrac = -0.18) => {
     const h = mapRef.current?.getContainer().clientHeight ?? 600;
     mapRef.current?.flyTo({
       center: [lon, lat],
       ...(zoom != null ? { zoom } : {}),
-      offset: [0, -Math.round(h * 0.18)],
+      offset: [0, Math.round(h * offsetFrac)],
       duration: 650,
     });
   }, []);
@@ -3069,6 +3075,8 @@ export default function FishingMapView() {
   const [senOpen, setSenOpen] = useState(false);
   /** mở bằng chạm cá ⇒ nghe luôn; mở vì đường vừa vẽ xong ⇒ chờ "đi" */
   const [senListen, setSenListen] = useState(false);
+  /** tăng 1 khi câu HỎI của Sen Biển đọc xong ⇒ thẻ tự nghe một lượt (doc 07 §Sen Biển) */
+  const [senAutoListen, setSenAutoListen] = useState(0);
   /** đường Sen Biển vừa vẽ, đang chờ "đi" */
   const [senAwait, setSenAwait] = useState<PlannedRoute | null>(null);
   const [senTitle, setSenTitle] = useState("");
@@ -3087,7 +3095,9 @@ export default function FishingMapView() {
     () => [
       ...places.map((p) => ({ name: p.name, lat: p.lat, lon: p.lon, kind: p.kind === "home" ? ("nha" as const) : ("diem" as const) })),
       ...ACTIVE_PORTS.flatMap((p) =>
-        p.lat != null && p.lng != null ? [{ name: p.name, lat: p.lat, lon: p.lng, kind: "cang" as const }] : [],
+        p.lat != null && p.lng != null
+          ? [{ name: p.name, lat: p.lat, lon: p.lng, kind: "cang" as const, toaDoSai: PORT_COORD_SAI.has(p.id) }]
+          : [],
       ),
     ],
     [places],
@@ -3184,6 +3194,11 @@ export default function FishingMapView() {
   useEffect(() => {
     trackingPosRef.current = tracking.pos;
   }, [tracking.pos]);
+  /** tốc độ GPS mới nhất — câu tóm tắt Sen Biển đọc qua ref, cùng nguồn với giờ tới của HUD */
+  const trackingSpeedRef = useRef<number | null>(null);
+  useEffect(() => {
+    trackingSpeedRef.current = tracking.speedKmh;
+  }, [tracking.speedKmh]);
   const navProgress = useMemo(
     () =>
       navMode && tracking.pos
@@ -3331,9 +3346,23 @@ export default function FishingMapView() {
 
   // camera bám vị trí tàu mỗi khi có fix mới (chỉ khi định vị còn tốt — mất
   // định vị thì GIỮ NGUYÊN khung, không giật camera theo vị trí cũ)
+  /*  ĐANG CHẠY: HUD nằm TRÊN (tới ~½ màn khi có thẻ bản tin), sheet đáy ẩn ⇒
+      dồn tàu XUỐNG dưới HUD (+NAV_FOLLOW_OFFSET), không lên trên như lúc xem
+      điểm. Fix đầu tiên của một lượt chạy mà bản đồ còn ở tầm cả nước (mở bản
+      đồ là tự Đang chạy, zoom ~4,6) thì phóng tới NAV_FOLLOW_ZOOM — tầm nón
+      cảnh báo 2–4 km; sau đó giữ zoom bà con tự chỉnh. Bắt được ở rà soát prod
+      2026-10-16 (scripts/e2e-sen-bien): tàu nằm khuất dưới HUD, bản đồ cả nước. */
+  const navFollowZoomed = useRef(false);
   useEffect(() => {
-    if (navOn && tracking.pos && tracking.status === "tracking") {
-      flyToPoint(tracking.pos.lon, tracking.pos.lat);
+    if (!navOn) {
+      navFollowZoomed.current = false;
+      return;
+    }
+    if (tracking.pos && tracking.status === "tracking") {
+      const z = mapRef.current?.getZoom() ?? NAV_FOLLOW_ZOOM;
+      const zoom = !navFollowZoomed.current && z < NAV_FOLLOW_ZOOM ? NAV_FOLLOW_ZOOM : undefined;
+      navFollowZoomed.current = true;
+      flyToPoint(tracking.pos.lon, tracking.pos.lat, zoom, NAV_FOLLOW_OFFSET);
     }
   }, [navOn, tracking.pos, tracking.status, flyToPoint]);
 
@@ -3804,6 +3833,12 @@ export default function FishingMapView() {
      Một giọng: mọi câu đi qua `navVoice.say` (cùng hàng với cảnh báo, đỏ đi
      trước). Lệnh khi đang chạy dùng luật từ khoá ở lib/sen-bien/hieu-y. */
   const senSay = navVoice.say;
+  /*  CÂU HỎI (chờ bà con đáp): đọc XONG thật mới mở micro — onSpoken của
+      useNavVoice gọi sau onEnd của mp3/giọng máy; câu bị đỏ cắt thì không gọi. */
+  const senAsk = useCallback(
+    (text: string) => senSay(text, { onSpoken: () => setSenAutoListen((n) => n + 1) }),
+    [senSay],
+  );
   const senGo = useCallback(
     (d: SenDest) => {
       setPinning(false);
@@ -3863,17 +3898,31 @@ export default function FishingMapView() {
     setSenAutoCompute(0);
     const p = route.plan;
     const unit = prefs.distUnit === "km" ? "km" : "nm";
-    const canh = p.hasRoughLeg ? " Có đoạn sóng gió lớn, bà con xem kỹ." : "";
-    const t = `Tới ${want.name}: ${distSpeech(p.distKm, unit)}, chừng ${formatHoursVN(p.hours)}.${canh}`;
+    /*  THIẾU DỰ BÁO PHẢI NÓI RA (chạy thử 2026-10-16): Open-Meteo từ chối ⇒ tuyến
+        chỉ theo hải đồ, thẻ dẫn đường có báo đỏ — nhưng bà con rảnh tay chỉ NGHE
+        câu này rồi nói "đi". Không nói là giấu đúng cảnh báo quan trọng nhất. */
+    const canh =
+      (p.noWeatherKm > 0
+        ? " Đường này chưa có dự báo sóng gió, máy chỉ né bờ và bãi cạn. Bà con nghe đài trước khi chạy."
+        : "") + (p.hasRoughLeg ? " Có đoạn sóng gió lớn, bà con xem kỹ." : "");
+    /*  GIỜ TỚI CÙNG NGUỒN VỚI HUD (chạy thử 2026-10-16: tóm tắt "4 giờ 55", vào
+        dẫn đường ngay sau đó HUD ghi "5 giờ 55"). HUD tính theo tốc độ GPS đang
+        chạy; tàu đang chạy thì tóm tắt cũng vậy. Tàu đứng / chưa có GPS thì
+        `etaHours` trả null ⇒ dùng giờ của tuyến (tốc độ trong hồ sơ tàu). */
+    const gio = formatHoursVN(etaHours(p.distKm, trackingSpeedRef.current) ?? p.hours);
+    const t = `Tới ${want.name}: ${distSpeech(p.distKm, unit)}, chừng ${gio}.${canh}`;
     // thẻ chỉ một câu (≤2 dòng, chủ dự án "gọn"): nút Đi to ngay dưới đã là lời mời;
     // tên dài (toạ độ đọc bằng lời) thì thẻ ghi "điểm này" — giọng vẫn đọc đủ
     const ten = want.name.length > 22 ? "điểm này" : want.name;
-    setSenTitle(`Tới ${ten}: ${distSpeech(p.distKm, unit)}, chừng ${formatHoursVN(p.hours)}.`);
+    // máy không có giọng Việt thì câu động im ⇒ cảnh báo thiếu dự báo phải có cả trên thẻ
+    setSenTitle(
+      `Tới ${ten}: ${distSpeech(p.distKm, unit)}, chừng ${gio}.${p.noWeatherKm > 0 ? " Chưa có dự báo sóng gió." : ""}`,
+    );
     setSenAwait(route);
     setSenListen(false);
     setSenOpen(true);
-    senSay(`${t} Nói đi để bắt đầu.`);
-  }, [route, prefs.distUnit, senSay]);
+    senAsk(`${t} Nói đi để bắt đầu.`);
+  }, [route, prefs.distUnit, senAsk]);
   const senStart = useCallback(() => {
     if (!senAwait) return;
     startNav(senAwait);
@@ -4195,7 +4244,7 @@ export default function FishingMapView() {
           senGo(r.dest);
           return { show: `${r.say} Đang vẽ đường…` };
         case "pick":
-          senSay(r.say);
+          senAsk(r.say);
           return { show: r.say, options: r.options };
         case "start":
           senStart();
@@ -4257,11 +4306,12 @@ export default function FishingMapView() {
           return { show: t };
         }
         default:
-          senSay(r.say);
+          if (r.ask) senAsk(r.say);
+          else senSay(r.say);
           return { show: r.say };
       }
     },
-    [senDests, senAwait, navOn, senSay, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit, tracking.pos, tracking.lastFixAt, tracking.headingDeg, point, goToCoord, senLenh, senViTri],
+    [senDests, senAwait, navOn, senSay, senAsk, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit, tracking.pos, tracking.lastFixAt, tracking.headingDeg, point, goToCoord, senLenh, senViTri],
   );
   /*  CÂU CHÀO khi GỌI Sen Biển — chủ dự án 2026-10-17: "click vào thì hỏi sen biển giúp gì được cho bạn"
       (thay câu hướng dẫn dài). Ngắn ⇒ nghe sớm. */
@@ -5011,6 +5061,17 @@ export default function FishingMapView() {
             App không dùng `bearing`/`pitch` ở bất kỳ đâu, nên khoá lại không
             mất chức năng nào; đổi lại MapLibre bỏ được đường vẽ nghiêng. */
         dragRotate={false}
+        /*  TẮT "CHẠM 2 LẦN = PHÓNG TO" KHI ĐANG DẪN ĐƯỜNG / ĐO (user
+            2026-10-16: "tap 2 lần sẽ zoom vào map, khó mà chọn được"). Ở hai
+            chế độ này mỗi cú chạm là ĐẶT ĐIỂM có chủ đích — chấm lại cho
+            trúng, hay đặt hai điểm gần nhau, là hai cú chạm liền nhau, và
+            MapLibre hiểu thành double-tap ⇒ bản đồ nhảy nấc, điểm vừa chấm
+            trôi khỏi ngón tay. Phóng to vẫn còn bằng hai ngón. Luồng xem
+            thường giữ double-tap như cũ (chạm lần 2 ở đó là trả bản đồ về
+            trống, không phải đặt điểm). Prop `doubleClickZoom` gồm cả chuột
+            dblclick lẫn tap-zoom trên cảm ứng; react-map-gl bật/tắt lại
+            handler khi prop đổi. */
+        doubleClickZoom={!(routeMode || measureMode)}
         pitchWithRotate={false}
         touchPitch={false}
         // KHUNG khi có lớp dự báo (user 2026-07-28): VẪN cho zoom IN + move
@@ -7999,8 +8060,9 @@ export default function FishingMapView() {
            nền. Hiện cả khi đang chạy — lúc tay đang lái mới cần nói thay chạm. */}
       {/* khung dẫn đường mở thì nó phủ đúng chỗ này (z-30) — ẩn, khỏi nằm khuất mà bấm không ăn */}
       {/* thẻ mở thì SenBienSheet tự vẽ icon ĐÚNG chỗ này (icon cố định là nút gọi, bong bóng trên đầu) */}
-      {/* cả lúc Đang chạy cũng nổi (chủ dự án 2026-10-17: "bỏ con cá trên HUD") */}
-      {!senOpen && !routeMode && (
+      {/* cả lúc Đang chạy cũng nổi (chủ dự án 2026-10-17: "bỏ con cá trên HUD"); sheet đáy mở nửa màn thì ẩn —
+          cá nằm đè lên chữ của sheet (rà soát prod 2026-10-16) */}
+      {!senOpen && !routeMode && size !== "half" && (
         <SenBienNoi onOpen={openSen} />
       )}
       {senOpen && (
@@ -8010,6 +8072,11 @@ export default function FishingMapView() {
           title={senTitle}
           chao={SEN_CHAO}
           listenOnOpen={senListen}
+          autoListen={senAutoListen}
+          speakerBusy={navVoice.speaking != null}
+          onMissed={() =>
+            senAsk(senAwait ? "Sen Biển chưa nghe rõ. Nói đi để bắt đầu." : "Sen Biển chưa nghe rõ. Bà con nói lại tên chỗ muốn tới nhé.")
+          }
           onHeard={senHeard}
           onPick={(d) => {
             setSenOpen(false);

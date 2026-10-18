@@ -142,6 +142,12 @@ export type NavHudVoice = {
     tham số sẽ tạo mảng MỚI mỗi lần vẽ — mà HUD vẽ lại theo nhịp GPS. */
 const EMPTY_LINES: HudLine[] = [];
 
+/** Hai câu như nhau khi bỏ khoảng trắng thừa + dấu câu cuối */
+function sameSentence(a: string, b: string): boolean {
+  const n = (x: string) => x.replace(/\s+/g, " ").trim().replace(/[.!?…]+$/, "");
+  return n(a) === n(b);
+}
+
 /** Nền + chữ cho từng mức cảnh báo — token màu, không hex (design-system §màu). */
 const MUC_TONE: Record<HudLine["muc"], string> = {
   do: "bg-danger-bg text-danger",
@@ -205,6 +211,14 @@ export function NavHud({
   const [thuIds, setThuIds] = useState<string[]>([]);
   const lines = hazardLines.filter((l) => l.khoa || !thuIds.includes(l.id));
   const linesKhoa = lines.filter((l) => l.khoa);
+  /*  Câu loa đang đọc TRÙNG một dòng cảnh báo đang hiện ⇒ khỏi in lần hai
+      (rà soát prod 2026-10-16: "Phía trước chừng 1,9 hải lý là đảo Lý Sơn." nằm
+      hai thẻ liền nhau, HUD cao thêm một nấc che bản đồ). Câu ĐỎ vẫn in — nó
+      mang nút "Đã nghe". */
+  const speakingIsShown =
+    !!voice?.speaking &&
+    !voice.speaking.red &&
+    lines.some((l) => sameSentence(l.cau, voice.speaking!.text));
   const lost = status === "lost";
   const denied = status === "denied";
   /* RANH GIỚI (2026-08-18, audit M3): dòng warn/danger theo GPS; ≤6 hải lý
@@ -449,7 +463,7 @@ export function NavHud({
 
       {/*  CÂU ĐANG ĐỌC — in ra đúng câu loa đang nói (người nghe kém một bên,
            máy rè, tiếng máy tàu át). Câu ĐỎ có nút "Đã nghe" để thôi nhắc lại. */}
-      {voice?.speaking && (
+      {voice?.speaking && !speakingIsShown && (
         <div
           role="status"
           className={`flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.9375rem] font-semibold leading-snug ${

@@ -18,7 +18,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchDataBytes } from "@/lib/data-fetch";
 import type { SenDest } from "@/lib/sen-bien/hieu-y";
-import { listenOnce, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
+import { autoListenOk, listenOnce, micGranted, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
+import { boNgheSan } from "@/lib/sen-bien/nghe-may";
 import { loadNgram, NGRAM_PATH, type NgramModel } from "@/lib/sen-bien/ngram";
 import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC, type ViTriIcon } from "@/lib/sen-bien/vi-tri";
 import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
@@ -137,6 +138,9 @@ export function SenBienSheet({
   title,
   chao,
   listenOnOpen = false,
+  autoListen = 0,
+  speakerBusy = false,
+  onMissed,
   onHeard,
   onPick,
   onStart,
@@ -151,6 +155,12 @@ export function SenBienSheet({
   chao: string;
   /** mở bằng GỌI (chạm icon Sen Biển) ⇒ chào rồi nghe */
   listenOnOpen?: boolean;
+  /** số tăng = Sen Biển vừa đọc XONG một câu hỏi ⇒ tự nghe một lượt (main 2026-10-16, `autoListenOk`) */
+  autoListen?: number;
+  /** loa đang đọc câu khác — lượt tự nghe phải dừng, kẻo micro thu tiếng loa */
+  speakerBusy?: boolean;
+  /** nghe được tiếng mà không ra chữ ⇒ màn bản đồ hỏi lại (rồi tự nghe tiếp) */
+  onMissed?: () => void;
   onHeard: (text: string) => SenHeard | Promise<SenHeard>;
   onPick: (d: SenDest) => void;
   onStart: () => void;
@@ -210,7 +220,10 @@ export function SenBienSheet({
   );
 
   /** GỌI: một lượt nghe; không nói gì 5 s ⇒ thu thẻ về. */
-  const ghi = useCallback(() => {
+  /** lượt nghe đang chạy là lượt TỰ bật sau câu hỏi: im thì chỉ tắt mic, KHÔNG thu thẻ (nút Đi/Thôi còn) */
+  const tuRef = useRef(false);
+  const ghi = useCallback((tu = false) => {
+    tuRef.current = tu;
     catChao();
     ttsUnlock();
     dungNghe();
@@ -227,7 +240,7 @@ export function SenBienSheet({
       if (coNoi.current || !live.current) return;
       dungNghe();
       setPhase("ranh");
-      onClose();
+      if (!tu) onClose();
     }, SEN_IM_MS);
     const xongIm = () => {
       if (imRef.current) clearTimeout(imRef.current);
@@ -250,7 +263,9 @@ export function SenBienSheet({
         live.current = null;
         setPhase("ranh");
         if (code === "aborted") return;
-        if (code === "no-speech" && !coNoi.current) return onClose(); // im 5 s ⇒ thu về
+        if (code === "no-speech" && !coNoi.current) return tu ? undefined : onClose(); // im 5 s ⇒ thu về (tự nghe: chỉ tắt mic)
+        // có tiếng mà không ra chữ ⇒ để màn bản đồ hỏi lại bằng giọng (rồi tự nghe tiếp)
+        if (code === "no-speech" && onMissed) return onMissed();
         // máy không nghe được giọng ⇒ sang chat; micro bị chặn / mất sóng ⇒ báo MỘT dòng rồi tự thu về
         // (KHÔNG tự nhảy sang chat — nằm đó là "dính"); muốn gõ thì chạm bong bóng chat
         if (code === "unsupported") setMode("chat");
@@ -264,7 +279,32 @@ export function SenBienSheet({
         });
       },
     });
-  }, [answer, onClose]);
+  }, [answer, onClose, onMissed]);
+
+  // câu hỏi đọc XONG ⇒ tự nghe một lượt (luật `autoListenOk`; bộ nghe trong máy thì không cần sóng)
+  const autoSeen = useRef(autoListen);
+  useEffect(() => {
+    if (autoListen === autoSeen.current) return;
+    autoSeen.current = autoListen;
+    const ok = autoListenOk({
+      stt: canVoice,
+      typing: mode === "chat",
+      granted: micGranted(),
+      hidden: typeof document !== "undefined" && document.visibilityState === "hidden",
+      online: typeof navigator === "undefined" || navigator.onLine !== false || boNgheSan(),
+      busy: speakerBusy,
+      listening: live.current != null,
+    });
+    if (ok) ghi(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo tín hiệu "đọc xong"
+  }, [autoListen]);
+  // loa đọc câu khác (cảnh báo chen) giữa lượt tự nghe ⇒ huỷ
+  useEffect(() => {
+    if (speakerBusy && tuRef.current && live.current) {
+      dungNghe();
+      setPhase("ranh");
+    }
+  }, [speakerBusy]);
 
   /** CHAT: micro đọc-ra-chữ — chữ điền vào ô, KHÔNG tự gửi. */
   const docRaChu = () => {

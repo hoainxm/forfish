@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseSpokenCoordPair, soBangChu } from "@/lib/parse-coord";
+import { parseSpokenCoordPair, soBangChu, soChuThanhSo } from "@/lib/parse-coord";
 
 const near = (r: { lat: number; lon: number } | null, lat: number, lon: number) => {
   expect(r).not.toBeNull();
@@ -24,6 +24,37 @@ describe("toạ độ nói bằng giọng (Sen Biển)", () => {
     expect(parseSpokenCoordPair("14 34 109")).toBeNull();
     expect(parseSpokenCoordPair("dẫn về cảng Sa Huỳnh")).toBeNull();
   });
+});
+
+describe("số đọc bằng chữ (chạy thử 2026-10-16)", () => {
+  it.each([
+    ["muoi bon", "14"],
+    ["ba muoi tu", "34"],
+    ["hai muoi mot", "21"],
+    ["muoi lam", "15"],
+    ["muoi", "10"],
+    ["nam muoi", "50"],
+    ["mot tram le chin", "109"],
+    ["mot tram linh tu", "104"],
+    ["mot tram hai muoi", "120"],
+    ["mot tram", "100"],
+    ["muoi bon ba muoi tu", "14 34"],
+  ])("%s ⇒ %s", (c, so) => expect(soChuThanhSo(c)).toBe(so));
+  it("chữ nước đôi giữ nguyên khi không đứng cạnh số", () => {
+    expect(soChuThanhSo("34 phut nam")).toBe("34 phut nam");
+    expect(soChuThanhSo("di tu cang")).toBe("di tu cang");
+    expect(soChuThanhSo("khong di")).toBe("khong di");
+    expect(soChuThanhSo("nam do")).toBe("5 do");
+  });
+  it("toạ độ đọc toàn bằng chữ", () =>
+    near(
+      parseSpokenCoordPair("mười bốn độ ba mươi tư phút bắc một trăm lẻ chín độ bốn phút đông"),
+      14 + 34 / 60,
+      109 + 4 / 60,
+    ));
+  it("trộn chữ và số", () => near(parseSpokenCoordPair("9 độ hai mươi phút bắc 108 độ hai mươi mốt phút đông"), 9 + 20 / 60, 108 + 21 / 60));
+  it("'năm' trước 'phút' / 'mươi' là số", () =>
+    near(parseSpokenCoordPair("mười lăm độ năm phút bắc một trăm lẻ chín độ năm mươi phút đông"), 15 + 5 / 60, 109 + 50 / 60));
 });
 
 describe("số đọc bằng chữ (bộ nghe trong máy trả chữ, không trả số)", () => {

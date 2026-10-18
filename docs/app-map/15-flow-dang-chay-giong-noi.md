@@ -405,14 +405,14 @@ Chủ dự án: *"nói xong là máy tự vẽ, tự đọc, nói đi là chạy
 |---|---|---|
 | 0 | mở `/ngu-truong` | **tự vào Đang chạy** (prefs `tuDoc`, mặc định bật; tắt ở Cài đặt → Giọng đọc) — một lần mỗi lần mở màn; chạm đầu tiên ở đâu cũng mở khoá loa web |
 | 1 | chạm cá (HUD khi đang chạy / icon nổi khi không) → nói "dẫn về cảng Sa Huỳnh" hoặc "14 độ 34 phút bắc 109 độ 4 phút đông" | "Đi Sa Huỳnh. Đang vẽ đường." → bay tới, mở khung, **TỰ TÍNH từ vị trí tàu** |
-| 2 | — | đọc *"Tới Sa Huỳnh: 14 hải lý, chừng 2 giờ. Nói đi để bắt đầu."*; thẻ Đi · Thôi · Nói |
-| 3 | "đi" / chạm Đi | "Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo." — đang Đang chạy thì nâng thẳng lên dẫn đường, vòng canh không dừng |
+| 2 | — | đọc *"Tới Sa Huỳnh: 14 hải lý, chừng 2 giờ. Nói đi để bắt đầu."*; thẻ Đi · Thôi · Nói; đọc XONG ⇒ **micro tự nghe 5 s** ("Đang nghe…" trên thẻ — §17g) |
+| 3 | "đi" (không chạm) / chạm Đi | "Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo." — đang Đang chạy thì nâng thẳng lên dẫn đường, vòng canh không dừng |
 | — | "còn bao xa" · "im" · "bật tiếng" · "nhắc lại" · "dừng" | lệnh bằng LUẬT (`lib/sen-bien/hieu-y.ts`), không qua bộ hiểu ý; "dừng" đóng luôn khung dẫn đường |
 
 ### 17b. Giọng — vẫn MỘT cửa `lib/voice/tts.ts` (ADR 0010, bổ sung 2026-10-16)
 
-- **Câu cố định** (63 câu: lời Sen Biển, câu khuôn bản tin mở đầu, vùng nước dưới tàu, GPS, bão chưa có tin, câu nghe thử) ⇒ **mp3 giọng nữ VieNeu-TTS "Trúc Ly"** sinh sẵn ở bờ. Danh mục `src/data/giong-sen-bien.json` (khoá tra = nguyên văn câu, không phân biệt hoa thường/dấu chấm cuối), file `public/giong/sen-bien/<id>.mp3` (24 kHz mono 48 kbps, 0,8 MB). Máy sinh: `scripts/sen-bien-giong/gen_clips.py` (4 bản/câu, nhiệt độ 0,4–0,7, chậm 10 %, cắt lặng chừa 80 ms) → `chon_clips.mjs` cho bộ nhận giọng sherpa-onnx trong máy nghe lại, chép bản ít sai chữ nhất (đo: sai chữ trung bình 3,2 %; phần còn lại là bộ nhận nghe nhầm "ghim/ghi", "Sen/Xen"). Cổng `tts-voice.test.ts`: câu trong code đổi mà quên sinh lại mp3 ⇒ đỏ.
-- **Câu động** (khoảng cách, tên đảo, giờ) ⇒ giọng máy, **xếp giọng nữ trước** (HoaiMy · Linh · Google tiếng Việt; NamMinh/An xuống sau; mất sóng thì giọng trong máy trước giọng mạng; giọng không chịu phát trong phiên bị loại, đoạn đó thử lại giọng kế). Tốc độ **1,0** (bỏ 0,95 — chậm đều cả câu là chỗ nghe máy móc nhất), **tách ở ", " ": " "; " " – " thành đoạn nghỉ 180 ms, giữa câu 250 ms**; không tách "2,5".
+- **Câu cố định** (63 câu: lời Sen Biển, câu khuôn bản tin mở đầu, vùng nước dưới tàu, GPS, bão chưa có tin, câu nghe thử) ⇒ **mp3 giọng nữ VieNeu-TTS "Trúc Ly"** sinh sẵn ở bờ. Danh mục `src/data/giong-sen-bien.json` (khoá tra = nguyên văn câu, không phân biệt hoa thường/dấu chấm cuối), file `public/giong/sen-bien/<id>.mp3` (24 kHz mono 48 kbps, 0,8 MB). Máy sinh: `scripts/sen-bien-giong/gen_clips.py` (4 bản/câu, nhiệt độ 0,4–0,7, chậm 10 % — câu đáp ngắn `nhanh: true` chỉ chậm 2,8 %, cắt lặng -45 dB chừa 40 ms — §17g) → `chon_clips.mjs` cho bộ nhận giọng sherpa-onnx trong máy nghe lại, chép bản ít sai chữ nhất (đo: sai chữ trung bình 3,2 %; phần còn lại là bộ nhận nghe nhầm "ghim/ghi", "Sen/Xen"). Cổng `tts-voice.test.ts`: câu trong code đổi mà quên sinh lại mp3 ⇒ đỏ.
+- **Câu động** (khoảng cách, tên đảo, giờ) ⇒ giọng máy, **xếp giọng nữ trước** (HoaiMy · Linh · Google tiếng Việt; NamMinh/An xuống sau; mất sóng thì giọng trong máy trước giọng mạng; giọng không chịu phát trong phiên bị loại, đoạn đó thử lại giọng kế). Tốc độ **1,0** cho cảnh báo/bản tin, **1,12 cho câu đáp ngắn** của Sen Biển (§17g), **tách ở ", " ": " "; " " – " thành đoạn nghỉ 120 ms, giữa câu 180 ms** (trước 180/250); không tách "2,5".
 - Một câu nói có thể ghép: câu có mp3 phát mp3, câu không có đọc giọng máy. mp3 không tải được (máy chưa có trong kho, mất sóng) ⇒ đọc câu đó bằng giọng máy. Máy KHÔNG có giọng Việt ⇒ câu cố định vẫn đọc bằng mp3, câu động im (luật "không giọng lạ" giữ nguyên).
 - **Một lượt nói một lúc**: câu mới / `ttsCancel` dừng HẲN bộ chạy nhiều đoạn (lỗi bắt được khi chạy thử: dừng một đoạn thì bộ chạy coi là "đoạn hỏng" rồi đọc tiếp ⇒ hai câu chồng nhau).
 - Hook: lúc tắt chế độ, câu ĐÁP chưa đọc trong hàng vẫn được đọc (trước: "dừng" là nuốt luôn "Đã dừng dẫn đường."); chế độ tắt thì câu đáp nối hàng, không cắt nhau.
@@ -428,6 +428,10 @@ Chủ dự án: *"nói xong là máy tự vẽ, tự đọc, nói đi là chạy
 | Đang dẫn tuyến cũ, nói chỗ mới | hạ về Đang chạy (vòng canh không dừng), tính tuyến mới, "đi" là nâng lên lại |
 | Đóng khung giữa chừng / mount lại | tín hiệu tự tính về 0 — mở khung lần sau KHÔNG tự tính |
 | Mở thẻ (mic tự nghe) rồi GÕ | mic dừng, lỗi mic không đè câu đáp |
+| Câu HỎI đọc xong (tóm tắt "Nói đi để bắt đầu", trùng tên, "chưa nghe rõ") | micro tự nghe một lượt 5 s, thẻ hiện "Đang nghe…" (§17g) |
+| Lượt tự nghe im 5 s / lỗi | tắt mic ÊM: không câu lỗi, nút Đi/Thôi, danh sách chọn vẫn đó |
+| Câu đỏ chen vào giữa câu hỏi | câu hỏi bị cắt ⇒ KHÔNG tự nghe; đang tự nghe mà loa đọc câu khác ⇒ huỷ lượt nghe |
+| Màn tắt / tab ẩn · không có STT · chế độ gõ · micro chưa từng cho phép trong phiên · mất sóng | không tự nghe (chạm Nói vẫn được) |
 | Tuyến tính từ chỗ khác, tàu lệch xa | "còn bao xa" / HUD lấy sàn = chim bay tới đích, không báo "đã tới · còn 0" |
 
 ### 17d. Offline — 4 câu (CLAUDE.md)
@@ -450,6 +454,17 @@ Chủ dự án: *"nói xong là máy tự vẽ, tự đọc, nói đi là chạy
 ### 17f. Đã kiểm (2026-10-16, gpu-desktop)
 
 `npm test` 4362 xanh · `tsc` sạch · eslint các file đụng 0 lỗi · Playwright Chromium headless 375×812, GPS giả 14.6, 109.3, server `next start` ở demo mode, Open-Meteo GIẢ (IP máy đang bị 429), speechSynthesis GIẢ có 2 giọng vi-VN (headless không có giọng): mở bản đồ tự Đang chạy · chạm cá thẻ gọn không đè rail · "dẫn về cảng Sa Huỳnh" ⇒ tự vẽ từ vị trí tàu (14 hải lý, 2 giờ), đọc tóm tắt, nút Đi · "đi" ⇒ dẫn đường · "còn bao xa" ⇒ "Còn 14 hải lý" · "im" · "nhắc lại" · "dừng" (một câu mp3, khung đóng) · toạ độ bằng lời ⇒ tự vẽ · kho SW giữ đủ 63 mp3. Ảnh + báo cáo: `~/sen-bien-shots/` (máy gpu-desktop). **Chưa kiểm được**: tiếng thật ra loa (headless câm), STT mic thật, giọng native Android/iOS (chọn giọng qua `getSupportedVoices`), thẻ `<audio>` trên iOS khi gạt nút im lặng, đăng nhập tài khoản thật (máy không có khoá service-role).
+
+### 17g. Nói nhanh hơn + nghe qua lại (2026-10-16, lượt 2 — chủ dự án: *"đã tăng tốc độ nói và nghe qua lại chưa"* → *"hoàn thiện đi"*)
+
+- **Tự nghe sau câu hỏi**: câu Sen Biển CHỜ trả lời — tóm tắt đường (*"…Nói đi để bắt đầu."*), danh sách trùng tên, *"chưa nghe rõ"* (cả lúc bà con chạm Nói mà không nghe ra chữ: nay ĐỌC câu đó rồi tự nghe) — đọc XONG thật thì micro tự bật một lượt. "Xong thật" = `onEnd(completed=true)` của mp3/giọng máy (`ttsSpeak`), chuyển lên qua `useNavVoice.say(text, { onSpoken })`; câu bị cắt (đỏ chen, tắt màn, tắt giọng, câu mới thay) ⇒ `completed=false` ⇒ không tự nghe. **Không bao giờ bật trong lúc loa còn kêu** (micro thu tiếng máy thành lệnh). Luật thuần `autoListenOk` (`lib/sen-bien/nghe.ts`): có STT · không chế độ gõ · micro đã được cho phép trong phiên (đã có một lượt nghe ra chữ — tự bật lúc chưa cho phép thì hộp xin quyền nhảy ra) · màn hiện · có sóng · loa rảnh · chưa nghe sẵn. Loa đọc câu khác giữa lượt tự nghe ⇒ huỷ lượt.
+- **"Chưa hiểu" KHÔNG tự nghe**: tiếng máy tàu thành chữ rác ⇒ "chưa hiểu" ⇒ nghe ⇒ rác… thành vòng hỏi mãi. Chỉ câu có `ask: true` (hiểu ý) hoặc câu hỏi màn bản đồ tự đặt mới tự nghe; lượt tự nghe hỏng thì im ⇒ tối đa một vòng thêm.
+- **Chờ lệnh ngắn im 5 s** (`COMMAND_SILENCE_MS`, `listenOnce({ expect: "lenh" })`): đang chờ "đi"/"thôi"/chọn một chỗ, và mọi lượt tự nghe. Nói tên chỗ / toạ độ vẫn 8 s (`SILENCE_MS`).
+- **Tốc độ theo loại câu** (`lib/voice/tts.ts`, test khoá): câu ĐÁP Sen Biển ≤80 ký tự đọc **1,12** (`speechRate`); cảnh báo đỏ/vàng, bản tin, câu đáp dài (thường kèm cảnh báo thiếu dự báo) giữ **1,0**. Nghỉ dấu phẩy 180 → **120 ms**, giữa câu 250 → **180 ms**.
+- **63 mp3**: cắt lặng đầu/cuối lại ở -45 dB chừa 40 ms, 30 câu đáp ngắn (`nhanh: true` trong danh mục) nhanh thêm 8 % (atempo 1,08, giữ cao độ). ĐÈ cùng tên file. Tổng thời lượng **113,0 s → 103,9 s** (−8 %), 812 KB → 764 KB. Kiểm bằng bộ nhận giọng sherpa-onnx trong máy: chừa 40 ms ở đầu câu nuốt "Sen" của *"Sen Biển chưa nghe rõ"* và hai câu khác ⇒ ba câu đó chừa 80 ms; một câu (`chua_biet_cang_nha`) giữ bản cũ vì chỉ mã hoá lại thôi bộ nhận đã nghe nhầm. Sai chữ trung bình 3,2 % → 3,1 %.
+- **Offline**: không request mạng mới; không đụng `sw.js`/`SHELL`/khoá `forfish.*`; mp3 ĐÈ cùng đường dẫn (luật 1 file/lớp) — máy ĐÃ có mp3 cũ trong kho vỏ SW (cache-first, không tự làm mới) giữ nhịp cũ tới lần bump `SDFISH_CACHE_V`; câu chữ y hệt nên không hỏng gì, chỉ chưa nhanh. Cố ý KHÔNG đổi URL (`?v=`): máy chưa kịp tải bản mới mà mất sóng sẽ mất luôn mp3 cũ đang có ⇒ máy không có giọng Việt thành câm (nợ ghi ở `tts.ts`); mất sóng ⇒ không tự nghe (STT cần mạng), ô gõ như cũ.
+- Kiểm: `sen-bien-nghe.test.ts` (mới), ca mới ở `nav-voice-hook` (onSpoken xong/đỏ cắt/tắt màn, tốc độ) và `tts-voice` (hằng số, `speechRate`, `completed`); e2e `scripts/e2e-sen-bien.mjs` luồng **i** (tự nghe sau tóm tắt — giả micro trả "đi" ⇒ dẫn đường mà KHÔNG chạm; im 5 s ⇒ tắt êm) + **n** (đo độ trễ, ghi `do-tre-*.json`).
+
 
 ## 18. SEN BIỂN NGHE TRONG MÁY + HỎI ĐÁP BẢN ĐỒ (2026-10-16)
 
@@ -750,6 +765,19 @@ Hai báo cáo cùng sáng: bà con chạy thử ở Bình Định (Chrome Androi
 
 **Đã kiểm**: `npm test` 4.567 xanh (mới: 4 ca `tts-voice` gác giọng có hạn / giọng duy nhất / `ok` theo mp3, 1 ca `nav-voice-hook`, `nav-tracking-stale.test.ts` 3 ca). **Chưa kiểm** trên Chrome Android và iPhone thật.
 
+### 22b. Gộp `feat/sen-bien-ranh-tay` vào `main` (2026-10-18) — quyết định khi hai mạch chạy song song
+
+| Chỗ | main (rà soát prod + §17g) | nhánh (§18–22) | Giữ |
+|---|---|---|---|
+| Giọng mp3 | Trúc Ly, 63 câu cắt -45 dB, 30 câu `nhanh` atempo 1,08 | Mỹ Duyên (chủ dự án chốt 16/10) + ~2.800 mảnh ghép | **Mỹ Duyên**; cờ `nhanh` gắn vào danh mục; `gen_clips.py` theo luật cắt/nhịp của main + trần chống treo của nhánh |
+| n-gram | v1 train lại + 1.184 câu lệnh ngắn | v3 52 ý (hỏi + thao tác bản đồ) | **v3** (tính năng cần); lệnh ngắn vẫn qua luật từ khoá trước |
+| Số bằng chữ | `soChuThanhSo` (bỏ dấu, luật ngữ cảnh) | `soBangChu` (có dấu) | **MỘT lõi** `doiSo` (luật main) + dấu khi có + phần lẻ sau "phẩy"; hai cửa giữ tên cũ |
+| Động từ đi | `MOVE` (bỏ "toi" trần: tôi/tới) | `MOTION_RE` (còn "toi") | **`MOVE`** cho cả khớp gần |
+| Khung Sen Biển | thẻ cũ + tự nghe sau câu hỏi | khung GỌI/CHAT mới (17/10) | **khung mới** + ghép `autoListen`/`speakerBusy`/`onMissed`: tự nghe mà im thì CHỈ tắt mic, không thu thẻ; bộ nghe trong máy cũng bật cờ "micro đã cho phép" |
+| Tải trước clip | một lượt/phiên, giữ blob 63 clip | `taiTruoc` mảnh, tên rạn hẹn 2 phút | **cả hai**: một lượt/phiên, chỉ vào kho SW (không giữ blob ~2.900 mảnh trong RAM) |
+
+**Nợ sau gộp** (ghi thật): 64 mp3 Mỹ Duyên CHƯA áp luật "mp3 gọn" của main (cắt -45 dB, 30 câu đáp nhanh 8 %) — sinh lại bằng `gen_clips.py` đã gộp trên gpu-desktop; n-gram v3 chưa học 1.184 câu lệnh ngắn (`lenh-ngan.mjs` chỉ ở gpu-desktop) — train lại v3 kèm bộ đó. Kiểm: `npm test` 4.662 xanh trên bản gộp.
+
 ## 23. HỌC THÊM TỪ CÂU NÓI THẬT (2026-10-18)
 
 Chủ dự án: *"lúc dùng app là bà con phải làm xác nhận đồng ý rồi, còn làm đi cái phần thu thập để nâng cấp mô hình sau khi sử dụng, đảm bảo mô hình luôn thông minh"*. Hiểu ý và trả lời VẪN chạy trong máy (luật §20 không đổi). Cái mới chỉ là GỬI VỀ, khi có sóng, chữ của các câu đã nói để bản sau học thêm.
@@ -768,4 +796,4 @@ Chủ dự án: *"lúc dùng app là bà con phải làm xác nhận đồng ý 
 
 **Assumptions**: (1) bà con đã đồng ý lúc đăng ký nên chưa có công tắc tắt trong app — nếu cần cho bà con tự tắt thì thêm vào Cài đặt; (2) trần 20 lô/giờ/SĐT, đếm theo instance; (3) mẫu của khách chưa đăng nhập không gửi (chặn bơm rác); (4) chưa tự xoá mẫu cũ trên máy chủ — mỗi câu vài trăm byte, khi cần thì đặt hạn giữ.
 
-**Last updated**: 2026-10-18 — Sen Biển học thêm từ câu nói thật: ghi mẫu trong máy, có sóng gửi về (§23). Trước đó: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).
+**Last updated**: 2026-10-18 — gộp `feat/sen-bien-ranh-tay` vào `main` (§22b) + Sen Biển học thêm từ câu nói thật: ghi mẫu trong máy, có sóng gửi về (§23). Trước đó: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).

@@ -127,6 +127,57 @@ describe("Sen Biển rảnh tay — lệnh khi chạy, chờ 'đi', toạ độ 
   });
 });
 
+describe("Sen Biển — lỗi bắt khi chạy thử 2026-10-16", () => {
+  const PORTS: SenDest[] = [
+    ...DESTS,
+    { name: "Phan Rí Cửa", lat: 11.17, lon: 108.56, kind: "cang" },
+    { name: "Phan Thiết", lat: 10.91, lon: 108.1, kind: "cang" },
+  ];
+  it("tên nói thiếu chữ cuối: 'về bến Phan Rí' ⇒ Phan Rí Cửa, KHÔNG về nhà", () => {
+    const r = senBienReply("về bến Phan Rí", model, PORTS, null);
+    expect(r.kind === "go" && r.dest.name).toBe("Phan Rí Cửa");
+  });
+  it("khớp trọn thắng khớp thiếu chữ", () => {
+    expect(findDests("về Phan Thiết", PORTS).map((d) => d.name)).toEqual(["Phan Thiết"]);
+  });
+  it("một chữ đầu không đủ để đoán ('về Phan' ⇒ không chỗ nào)", () => {
+    expect(findDests("về Phan", PORTS)).toHaveLength(0);
+  });
+  it("'về bến' đứng một mình vẫn là cảng nhà", () => {
+    const r = senBienReply("về bến", model, PORTS, null);
+    expect(r.kind === "go" && r.dest.kind).toBe("nha");
+  });
+  it("'về bến <tên lạ>' ⇒ nói chưa thấy, KHÔNG về nhà", () => {
+    const r = senBienReply("về bến Xyz", model, PORTS, null);
+    expect(r.kind).toBe("say");
+  });
+  it.each(["đi Vũng Tàu", "vào Rạch Giá", "tới cảng Cà Mau đi"])("tên không có trong danh sách: %s ⇒ chưa thấy chỗ đó", (c) => {
+    const r = senBienReply(c, model, PORTS, null);
+    expect(r.kind === "say" && r.say).toContain("chưa thấy chỗ đó");
+  });
+  it("'tôi …' (bỏ dấu trùng 'tới') không bị hiểu là đi tới chỗ lạ", () => {
+    const r = senBienReply("tôi đau bụng uống thuốc gì", model, PORTS, null);
+    expect(r.kind === "say" && r.say).not.toContain("chưa thấy chỗ đó");
+  });
+  it.each(["chưa", "để sau", "khoan"])("chờ đi: %s ⇒ cancel", (c) => {
+    expect(senBienReply(c, model, PORTS, null, { awaitingGo: true, running: false }).kind).toBe("cancel");
+  });
+});
+
+describe("Sen Biển — cảng biết là sai toạ độ (2026-10-16)", () => {
+  const SAI: SenDest = { name: "Lạch Bạng", lat: 9.8, lon: 105.09, kind: "cang", toaDoSai: true };
+  it("chỉ có chỗ sai ⇒ nói thật, KHÔNG dẫn", () => {
+    const r = senBienReply("về Lạch Bạng", model, [...DESTS, SAI], null);
+    expect(r.kind).toBe("say");
+    if (r.kind === "say") expect(r.say).toContain("chưa đúng");
+  });
+  it("trùng tên với một chỗ đúng ⇒ dẫn chỗ đúng", () => {
+    const dung: SenDest = { name: "Lạch Bạng", lat: 19.4, lon: 105.8, kind: "diem" };
+    const r = senBienReply("về Lạch Bạng", model, [...DESTS, SAI, dung], null);
+    expect(r.kind === "go" && r.dest.lat).toBe(19.4);
+  });
+});
+
 describe("khớp gần theo âm — bộ nghe trong máy viết lệch tên riêng", () => {
   const PORTS: SenDest[] = ["Sa Huỳnh", "Hòn Rớ", "Ninh Chữ", "La Gi", "Quy Nhơn", "Tịnh Hòa", "Cà Ná", "Trân Châu", "Tắc Cậu"].map(
     (name, i) => ({ name, lat: 10 + i, lon: 106 + i, kind: "cang" as const }),

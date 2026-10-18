@@ -31,7 +31,12 @@ Vì sao bốn bản: đo 2026-10-16 bằng nhận giọng ngược, một lần 
 đầu câu ngắn ("Sen", "Dừng") và mỗi nhiệt độ hỏng một kiểu — chọn bản tốt nhất
 rẻ hơn nhiều so với chỉnh tay từng câu.
 Nhịp (chủ dự án chê "máy móc"): chậm 10% bằng ffmpeg atempo (giữ cao độ) + cắt
-lặng đầu/cuối (chừa 80 ms) để câu nối nhau không hụt hơi mà không mất phụ âm đầu.
+lặng đầu/cuối để câu nối nhau không hụt hơi mà không mất phụ âm đầu.
+Lượt "nói nhanh hơn" 2026-10-16 (NHANH-HON): cắt lặng ở -45 dB chừa 40 ms (trước
+-50 dB/80 ms), và câu ĐÁP NGẮN (`"nhanh": true` trong danh mục — xác nhận, "Dạ",
+"Bắt đầu dẫn đường"…) nhanh thêm 8% (atempo 0,9 × 1,08). Câu cảnh báo giữ 0,9.
+Đo bằng nhận giọng ngược: chừa 40 ms ở ĐẦU câu nuốt phụ âm "S" của "Sen Biển"
+ở vài câu — `chon_clips.mjs` chọn bản sai ít nhất nên tự loại bản hụt.
 """
 import json, os, subprocess, sys, tempfile, time
 
@@ -43,6 +48,8 @@ TEMPS = (0.4, 0.5, 0.6, 0.7)
 # Nhịp: 2026-10-16 kéo chậm 10 % (chê "máy móc"); 2026-10-17 chủ dự án chốt BỎ
 # ("giọng chưa tự nhiên" — chậm đều là một phần cái máy móc). Đặt lại bằng env.
 ATEMPO = float(os.environ.get("SEN_BIEN_TEMPO", "1.0"))
+# câu đáp ngắn ("nhanh": true) — doc 15 §11, lượt nói nhanh hơn 2026-10-16
+ATEMPO_NHANH = 1.08
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("HF_HOME", os.path.expanduser("~/.local/forlife/hf"))
@@ -78,10 +85,12 @@ def items_of(cat):
     return [{"id": i, "text": t} for k, ds in cat["nhom"].items() if keep is None or k in keep for i, t in ds]
 
 
-def to_mp3(wav, mp3):
-    keep = "0.03" if MANH else "0.08"
-    cut = f"silenceremove=start_periods=1:start_threshold=-50dB:start_silence={keep}"
-    flt = f"{cut},areverse,{cut},areverse" + (f",atempo={ATEMPO}" if ATEMPO != 1.0 else "")
+def to_mp3(wav, mp3, nhanh=False):
+    # câu: cắt lặng -45 dB chừa 40 ms (main, "mp3 gọn" 2026-10-16); mảnh ghép chừa 30 ms
+    keep = "0.03" if MANH else "0.04"
+    cut = f"silenceremove=start_periods=1:start_threshold=-45dB:start_silence={keep}"
+    tempo = ATEMPO * (ATEMPO_NHANH if nhanh else 1)
+    flt = f"{cut},areverse,{cut},areverse" + (f",atempo={tempo:.3f}" if abs(tempo - 1.0) > 1e-6 else "")
     # trần 60 s: bản sinh ra toàn im ⇒ silenceremove cắt hết, areverse gặp tiếng
     # rỗng và ffmpeg TREO mãi (dính thật 2026-10-17 ở "Bãi Nhà Phiếu")
     subprocess.run(
@@ -140,7 +149,7 @@ def main():
                 wav = tf.name
             engine.save(audio, wav)
             try:
-                to_mp3(wav, os.path.join(CAND_DIR, f"{it['id']}~{k}.mp3"))
+                to_mp3(wav, os.path.join(CAND_DIR, f"{it['id']}~{k}.mp3"), bool(it.get("nhanh")))
             except (subprocess.SubprocessError, OSError) as e:  # bỏ bản hỏng, còn 3 bản kia
                 print(f"  {it['id']}~{k}: bỏ ({type(e).__name__})", flush=True)
             os.remove(wav)

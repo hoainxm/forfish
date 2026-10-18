@@ -18,7 +18,7 @@
 //    danh mục src/data/giong-sen-bien.json, file ở public/giong/sen-bien/ — SW
 //    giữ theo luật cache-first asset tĩnh, `warmVoiceClips` tải trước khi còn
 //    sóng). Câu ĐỘNG (khoảng cách, tên đảo) đọc giọng máy, ưu tiên giọng nữ,
-//    tách theo dấu phẩy / hai chấm / gạch thành đoạn có NGHỈ 180–250 ms — một
+//    tách theo dấu phẩy / hai chấm / gạch thành đoạn có NGHỈ 120–180 ms — một
 //    hơi dài không ngắt là chỗ nghe máy móc nhất. Ghép trong MỘT câu nói: câu
 //    nào có mp3 thì mp3, câu nào không thì giọng máy.
 //
@@ -53,12 +53,27 @@ export type TtsAvail = {
 const LANG = "vi-VN";
 /*  NHỊP: trước 0,95 ("chậm cho người 40–60 tuổi") — nhưng chậm đều cả câu lại
     là thứ nghe máy móc nhất. Nay giữ tốc độ tự nhiên và lấy chỗ thở bằng NGHỈ
-    giữa các đoạn (PAUSE_*), đúng cách người đọc bản tin. */
+    giữa các đoạn (PAUSE_*), đúng cách người đọc bản tin.
+    TỐC ĐỘ THEO LOẠI CÂU (chủ dự án 2026-10-16: "đã tăng tốc độ nói và nghe qua
+    lại chưa"): câu ĐÁP NGẮN của Sen Biển ("Dạ, chưa chạy.", "Bắt đầu dẫn
+    đường.", "Còn 12 hải lý.") nhanh hơn — người ta vừa hỏi, đang chờ; câu
+    CẢNH BÁO đỏ/vàng và câu đáp dài (có kèm cảnh báo thiếu dự báo) giữ 1,0 cho rõ. */
 export const TTS_RATE = 1;
-/** nghỉ sau dấu phẩy / hai chấm / gạch */
-export const PAUSE_COMMA_MS = 180;
-/** nghỉ giữa hai câu */
-export const PAUSE_SENTENCE_MS = 250;
+/** câu đáp ngắn của Sen Biển */
+export const TTS_RATE_SHORT = 1.12;
+/** câu đáp dài hơn ngần này ký tự (thường là có kèm cảnh báo) đọc nhịp thường */
+export const SHORT_REPLY_MAX_CHARS = 80;
+/** nghỉ sau dấu phẩy / hai chấm / gạch (trước 180 — nghe ngắc ngứ ở câu đáp) */
+export const PAUSE_COMMA_MS = 120;
+/** nghỉ giữa hai câu (trước 250) */
+export const PAUSE_SENTENCE_MS = 180;
+
+/** Tốc độ đọc một câu nói: câu đáp Sen Biển ngắn ⇒ nhanh; còn lại (cảnh báo,
+    bản tin, câu đáp dài) nhịp thường. Mp3 đáp ngắn đã nhanh sẵn trong file
+    (`nhanh: true`, gen_clips) — tốc độ này chỉ áp cho giọng máy. */
+export function speechRate(u: { reply?: boolean }, text: string): number {
+  return u.reply && text.trim().length <= SHORT_REPLY_MAX_CHARS ? TTS_RATE_SHORT : TTS_RATE;
+}
 /** tải một clip mp3 (từ kho SW là mili giây) — quá thì đọc giọng máy */
 const CLIP_FETCH_MS = 4000;
 /** không `onstart` sau ngần này (web) ⇒ coi như không đọc được, sang câu kế */
@@ -188,6 +203,7 @@ export function clipKey(s: string): string {
     .trim();
 }
 
+// nợ: mp3 đổi nhịp (2026-10-16, cùng đường dẫn) không tới máy đã có bản cũ trong kho vỏ SW cho tới lần bump SDFISH_CACHE_V — nâng khi bump vỏ có chủ ý, hoặc SW thêm nhánh làm mới nền cho /giong/ (đổi URL thì máy mất sóng mất cả mp3 cũ)
 const CLIPS = new Map<string, string>(
   clipCatalog.items.map((it) => [clipKey(it.text), `${clipCatalog.dir}/${it.id}.mp3`]),
 );
@@ -282,18 +298,25 @@ function clipAudio(): HTMLAudioElement | null {
     return null;
   }
 }
-/** blob URL đã tải — clip nhỏ (≤25 KB), giữ trong bộ nhớ cho cả phiên */
-const clipBlobs = new Map<string, string>();
+/** blob URL đã tải (hoặc đang tải) — clip nhỏ (≤25 KB), giữ trong bộ nhớ cả
+    phiên. Giữ PROMISE: phát và tải trước (`warmVoiceClips`) xin cùng clip một
+    lúc thì dùng chung một lượt tải (rà soát prod 2026-10-16: clip bị xin 2 lần). */
+const clipBlobs = new Map<string, Promise<string>>();
 
-async function clipSrc(url: string): Promise<string> {
+function clipSrc(url: string): Promise<string> {
   const hit = clipBlobs.get(url);
   if (hit) return hit;
   // đi qua SW (cache-first) — tải về blob để phát không phụ thuộc Range/206
-  const res = await fetch(url, { signal: timeoutSignal(CLIP_FETCH_MS) });
-  if (!res.ok) throw new Error(`clip ${res.status}`);
-  const b = URL.createObjectURL(await res.blob());
-  clipBlobs.set(url, b);
-  return b;
+  const p = fetch(url, { signal: timeoutSignal(CLIP_FETCH_MS) }).then(async (res) => {
+    if (!res.ok) throw new Error(`clip ${res.status}`);
+    return URL.createObjectURL(await res.blob());
+  });
+  clipBlobs.set(url, p);
+  // hỏng (mất sóng, chưa có trong kho) ⇒ bỏ khỏi bộ nhớ, lần sau tải lại
+  p.catch(() => {
+    if (clipBlobs.get(url) === p) clipBlobs.delete(url);
+  });
+  return p;
 }
 
 /** Phát một clip; `done(false)` = không phát được ⇒ chỗ gọi đọc giọng máy. */
@@ -498,11 +521,18 @@ let warmSau: ReturnType<typeof setTimeout> | null = null;
  * chặn ai. Không ném; dừng ở lỗi đầu (mất sóng thì thôi, lần mở sau tải tiếp —
  * file đã có trong kho SW thì lần sau đọc từ kho, không ra mạng).
  */
+let warmedAll = false;
 export async function warmVoiceClips(): Promise<void> {
-  if (typeof fetch === "undefined" || !isOnline()) return;
+  /*  MỘT LƯỢT ĐỦ / PHIÊN (rà soát prod 2026-10-16): đủ một lượt là thôi, khỏi
+      chen với lúc bản đồ đang dựng. Gộp 2026-10-18: nay có ~2.900 mảnh ghép
+      (doc 15 §21) ⇒ chỉ đưa vào kho SW (taiTruoc), KHÔNG giữ blob của cả bộ trong
+      RAM như khi còn 63 clip; clip đang phát vẫn dùng chung qua clipSrc. */
+  if (warmedAll || typeof fetch === "undefined" || !isOnline()) return;
   const all = allClipUrls();
   const ok = await taiTruoc(all.filter((u) => !MANH_SAU.has(u)), 4);
-  if (!ok || warmSau) return;
+  if (!ok) return;
+  warmedAll = true;
+  if (warmSau) return;
   warmSau = setTimeout(() => {
     if (isOnline()) void taiTruoc(all.filter((u) => MANH_SAU.has(u)), 2);
   }, WARM_SAU_MS);
@@ -690,36 +720,41 @@ function synthPart(text: string, rate: number, done: (ok: boolean) => void): () 
 
 /**
  * Đọc một câu nói (có thể nhiều câu). Trả hàm huỷ. `onEnd` gọi ĐÚNG MỘT LẦN
- * (xong / lỗi / huỷ / không có giọng Việt / quá giờ).
+ * (xong / lỗi / huỷ / không có giọng Việt / quá giờ); `completed` = false khi
+ * bị HUỶ hoặc quá giờ (câu bị cắt ngang — chỗ gọi đừng coi là "đọc xong" mà
+ * bật micro), true khi đi hết các đoạn (kể cả đoạn không đọc được).
  *
  * Từng đoạn (xem `speechParts`): có mp3 Sen Biển → phát mp3 (hỏng thì đọc giọng
  * máy); không có → giọng máy. Giọng máy không chịu phát ở một đoạn thì thử lại
  * đúng đoạn đó một lần với giọng kế (giọng mạng hỏng → giọng trong máy); vẫn
  * không được thì bỏ đoạn đó — đoạn mp3 phía sau vẫn đọc.
  */
-export function ttsSpeak(text: string, opts: { onEnd?(): void; rate?: number } = {}): () => void {
+export function ttsSpeak(
+  text: string,
+  opts: { onEnd?(completed: boolean): void; rate?: number } = {},
+): () => void {
   // MỘT LƯỢT NÓI MỘT LÚC: câu mới thay câu cũ (như `synth.cancel()` trước đây)
   activeCancel?.();
   let ended = false;
   const timers: ReturnType<typeof setTimeout>[] = [];
   let stopCur: (() => void) | null = null;
-  const end = () => {
+  const end = (completed: boolean) => {
     if (ended) return;
     ended = true;
     for (const t of timers) clearTimeout(t);
     if (activeCancel === cancel) activeCancel = null;
-    opts.onEnd?.();
+    opts.onEnd?.(completed);
   };
   const cancel = () => {
     if (ended) return;
     stopCur?.();
     stopCur = null;
-    end();
+    end(false);
   };
   activeCancel = cancel;
   const parts = speechParts(text);
   if (parts.length === 0) {
-    end();
+    end(true);
     return () => {};
   }
   const rate = opts.rate ?? TTS_RATE;
@@ -737,7 +772,7 @@ export function ttsSpeak(text: string, opts: { onEnd?(): void; rate?: number } =
     if (ended) return;
     if (i >= parts.length) {
       stopCur = null;
-      end();
+      end(true);
       return;
     }
     const p = parts[i++];

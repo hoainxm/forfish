@@ -11,7 +11,9 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { useNavVoice, type NavVoiceInput } from "@/lib/nav-voice/use-nav-voice";
 import type { NavAlert } from "@/lib/nav-hazards";
 
-type Spoken = { text: string };
+type Spoken = { text: string; rate: number };
+/** câu đỏ mẫu khi đi giọng máy: số đã thành chữ nói (mảnh ghép Mỹ Duyên, doc 15 §21) */
+const RED_NOI = "Xác tàu phía trước chừng bốn trăm mét";
 let spoken: Spoken[] = [];
 let hasVi = true;
 
@@ -22,9 +24,9 @@ function installSynth() {
     addEventListener: () => {},
     removeEventListener: () => {},
     cancel: () => {},
-    speak: (u: { text: string; onstart?: () => void; onend?: () => void }) => {
+    speak: (u: { text: string; rate: number; onstart?: () => void; onend?: () => void }) => {
       if (!u.text) return;
-      spoken.push({ text: u.text });
+      spoken.push({ text: u.text, rate: u.rate });
       setTimeout(() => u.onstart?.(), 10);
       setTimeout(() => u.onend?.(), 1000);
     },
@@ -146,6 +148,56 @@ describe("useNavVoice", () => {
     expect(spoken.filter((s) => s.text === "Bắt đầu dẫn đường.")).toHaveLength(1);
   });
 
+  it("Sen Biển 'đi' khi tóm tắt đường CÒN ĐANG ĐỌC: câu đáp vẫn tới tai sau khi bật chế độ", async () => {
+    // Bà con nghe "…Nói đi để bắt đầu." là nói "đi" liền — lúc đó câu tóm tắt còn
+    // đọc (chế độ tắt ⇒ hàng câu đáp lúc tắt), senStart bật chế độ + say "Bắt đầu…".
+    // Rà soát prod 2026-10-16: tóm tắt đọc xong thì hàng chờ bị BỎ vì chế độ đã
+    // bật ⇒ nói "đi" mà máy im, chỉ nghe bản tin.
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    await tick(100);
+    act(() => result.current.say("Tới Sa Huỳnh: 14 hải lý, chừng 2 giờ. Nói đi để bắt đầu."));
+    await tick(500);
+    act(() => result.current.say("Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo."));
+    rerender(base({ on: true, chart: "du" }));
+    await tick(30_000);
+    const texts = spoken.map((s) => s.text);
+    expect(texts.filter((t) => t === "Bắt đầu dẫn đường.")).toHaveLength(1);
+    expect(texts.filter((t) => t === "Sen Biển canh và đọc cảnh báo.")).toHaveLength(1);
+  });
+
+  it("Sen Biển 'đi' sau khi tóm tắt đọc xong: câu đáp ĐANG đọc không bị bản tin cắt ngang", async () => {
+    // như máy thật: mở bản đồ là tự Đang chạy (máy đã biết đọc được tiếng Việt),
+    // bà con bấm Dừng, rồi nhờ Sen Biển vẽ đường và nói "đi"
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base({ on: true, chart: "du" }) });
+    await tick(20_000);
+    rerender(base({ on: false, chart: "du" }));
+    await tick(500);
+    const n0 = spoken.length;
+    act(() => result.current.say("Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo. Bà con giữ máy sáng nhé."));
+    rerender(base({ on: true, chart: "du" }));
+    // bước nhỏ: để effect bản tin mở đầu chạy ĐÚNG nhịp 1,2 s như trên máy (một
+    // tick dài thì React chỉ vẽ lại ở cuối, bản tin tới muộn và lỗi không lộ)
+    for (let i = 0; i < 100; i++) await tick(300);
+    const texts = spoken.slice(n0).map((s) => s.text);
+    // mp3 không tải được ⇒ đọc giọng máy TỪNG MẢNH ở dạng chữ nói (ghép mảnh, doc 15 §21):
+    // "Bà con giữ máy" · "sáng" · "nhé" — mốc là mảnh CUỐI của câu cuối
+    const iCuoi = texts.findIndex((t) => /(^| )nhé\.?$/.test(t));
+    const iBanTin = texts.findIndex((t) => /^(Máy đang canh|Máy chưa có tin bão|Bản tin)/.test(t));
+    expect(iCuoi).toBeGreaterThan(0);
+    expect(iBanTin).toBeGreaterThan(iCuoi);
+  });
+
+  it("câu ĐỎ tới lúc câu đáp (chế độ tắt) còn đọc: đỏ không phải chờ", async () => {
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    await tick(100);
+    act(() => result.current.say("Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo."));
+    rerender(base({ on: true }));
+    await tick(300);
+    rerender(base({ on: true, alerts: [RED] }));
+    await tick(1500);
+    expect(spoken.map((s) => s.text)).toContain(RED_NOI);
+  });
+
   it("chế độ TẮT: hai câu Sen Biển liên tiếp NỐI HÀNG, câu sau không cắt câu trước", async () => {
     const { result } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
     await tick(100);
@@ -193,5 +245,74 @@ describe("useNavVoice", () => {
     await tick(12_000);
     expect(spoken.map((s) => s.text).join(" ")).toMatch(/Máy đang canh độ sâu/);
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+  });
+
+  it("onSpoken (chế độ TẮT): gọi SAU KHI câu hỏi đọc xong, không gọi lúc loa còn kêu", async () => {
+    const { result } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    await tick(100);
+    const done = vi.fn();
+    act(() => result.current.say("Tới Sa Huỳnh: 14 hải lý, chừng 2 giờ. Nói đi để bắt đầu.", { onSpoken: done }));
+    await tick(1500); // đoạn đầu còn đang đọc
+    expect(done).not.toHaveBeenCalled();
+    await tick(10_000);
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(spoken.map((s) => s.text).at(-1)).toBe("Nói đi để bắt đầu.");
+  });
+
+  it("onSpoken (đang chạy): gọi khi câu đáp đọc xong", async () => {
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du" }));
+    await tick(30_000); // bản tin mở đầu đọc xong
+    const done = vi.fn();
+    act(() => result.current.say("Có 2 chỗ tên giống nhau. Bà con chạm chọn đúng chỗ.", { onSpoken: done }));
+    await tick(500);
+    expect(done).not.toHaveBeenCalled();
+    await tick(5000);
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+
+  it("câu ĐỎ chen vào cắt câu hỏi ⇒ KHÔNG báo đọc xong (không mở micro)", async () => {
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du" }));
+    await tick(30_000);
+    const done = vi.fn();
+    act(() => result.current.say("Tới Sa Huỳnh: 14 hải lý, chừng 2 giờ. Nói đi để bắt đầu.", { onSpoken: done }));
+    await tick(300);
+    rerender(base({ on: true, chart: "du", alerts: [RED] }));
+    await tick(20_000);
+    expect(spoken.map((s) => s.text)).toContain(RED_NOI);
+    expect(done).not.toHaveBeenCalled();
+  });
+
+  it("tắt màn giữa câu hỏi ⇒ không báo đọc xong", async () => {
+    let vis: DocumentVisibilityState = "visible";
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => vis });
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du" }));
+    await tick(30_000);
+    const done = vi.fn();
+    act(() => result.current.say("Bà con chạm chọn đúng chỗ.", { onSpoken: done }));
+    await tick(300);
+    vis = "hidden";
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await tick(5000);
+    expect(done).not.toHaveBeenCalled();
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+  });
+
+  it("tốc độ: câu đáp ngắn đọc 1,12; câu ĐỎ giữ 1,0", async () => {
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du" }));
+    await tick(30_000);
+    act(() => result.current.say("Còn 12 hải lý, chừng 1 giờ."));
+    await tick(5000);
+    rerender(base({ on: true, chart: "du", alerts: [RED] }));
+    await tick(5000);
+    const reply = spoken.filter((s) => s.text === "Còn mười hai hải lý"); // số thành chữ nói (doc 15 §21)
+    expect(reply.length).toBe(1);
+    expect(reply[0].rate).toBe(1.12);
+    expect(spoken.find((s) => s.text === RED_NOI)?.rate).toBe(1);
   });
 });

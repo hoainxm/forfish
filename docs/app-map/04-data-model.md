@@ -187,6 +187,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 | Thay đổi | Nghĩa |
 |---|---|
 | bảng `weather_snapshot` | Nhiều khoá 1 bảng: `id text pk` (`sea:<port>` 10 cảng đủ 16 ngày · `grid:d3` lưới Windy CHỈ khung miễn phí) · `payload jsonb` · `updated_at`. **KHÁC snapshot cá**: đây chỉ là **fallback** — client vẫn gọi **LIVE Open-Meteo là chính** (nhanh, tải phân tán theo IP từng máy — tốt rate-limit); snapshot chỉ dùng khi live lỗi + máy chưa có localStorage. Cron `/api/cron/refresh-weather` ghi; client đọc qua `/api/weather-snapshot?id=` (`lib/weather-snapshot.ts`, service-role). RLS bật, **KHÔNG policy**. Khung lưới >3 ngày (premium) KHÔNG snapshot công khai kẻo lộ |
+| id `routegrid:<0-5>:<0-5>` (2026-10-16, KHÔNG migration — chỉ thêm dạng id) | Ô lưới gió sóng DẪN ĐƯỜNG 8×8 mắt bước 0,35°, 96 giờ, số nguyên đã nhân hệ số (`lib/route-grid.ts` `RouteTile` v1: `start` ngày VN của giờ 0, `builtAt`, `cells[64]` null = đất). KHÁC các hàng trên: đây là NGUỒN CHÍNH của dẫn đường (máy không gọi Open-Meteo nữa), server ghi theo nhu cầu khi ô cũ >3h (`lib/route-grid-server.ts`). Miễn phí (không hậu tố `:dN`) |
 
 - **KÍCH HOẠT**: dùng CHUNG `CRON_SECRET` với refresh-fish (đã có). Vercel cron `30 2 * * *` (lệch 30′ sau fish). Khoá whitelist ở `lib/weather-snapshot-id.ts` (thuần, có test) — chặn `/api/weather-snapshot` thành proxy đọc bảng tuỳ ý.
 
@@ -616,7 +617,7 @@ Schema không đổi (`islands.ts`/`reefs.ts` đọc như cũ); chỉ thêm prop
 
 | Lớp | Nghĩa | Nguồn quyết định | Luật tuyến (`route-plan.ts`) |
 |---|---|---|---|
-| 0 | ĐẤT LIỀN | tâm ô TRONG đa giác `vn-coast.v1.json` (526 Polygon, scanline theo hàng) **HOẶC** cả ETOPO lẫn GEBCO cùng z > 0 | chặn ngoài 5 km quanh hai đầu; trong 5 km → cờ `hasNearLandLeg` |
+| 0 | ĐẤT LIỀN | tâm ô TRONG đa giác `vn-coast.v1.json` (526 Polygon, scanline theo hàng) **HOẶC** cả ETOPO lẫn GEBCO cùng z > 0 | chặn ngoài vòng nới quanh hai đầu (5 km, tự giãn tới 12 km cho cảng sâu trong sông); trong vòng → cờ `hasNearLandLeg` + phạt 40 km nước/km đất (2026-10-16) |
 | 1 | mặt nạ rạn/bãi cạn/đá ngầm/xác tàu (OSM `reef-shapes`, nở 1–1,5 km + lấp lòng hồ) | như 2026-08-29, "chỉ hạ không nâng" | chặn ngoài 12 km; trong → `hasVeryShallowLeg` |
 | 2 | nước rất cạn, z ∈ (−2, 0] | min(ETOPO, GEBCO); một nguồn nói đất, nguồn kia nói nước → lớp này | như lớp 1 |
 | 3 | nước cạn, z ∈ (−4, −2] | min hai nguồn | trong 12 km: như lớp 1; **ngoài 12 km: chỉ đi khi `boat.draftM` đã khai và `requiredDepthM = mớn + 0,5 + ½·min(Hs,3) ≤ 2,0 m`** → cờ `hasDraftShallowLeg`; chưa khai mớn → chặn |

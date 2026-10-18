@@ -113,6 +113,11 @@ export function mergeLegPlans(plans: RoutePlan[]): MergedRoute | null {
           tổng số khúc từng chặng ⇒ segRisks nối thẳng là khớp một-một với các
           cặp waypoint của tuyến gộp. */
       segRisks: plans.flatMap((p) => p.segRisks),
+      /*  quãng THIẾU DỰ BÁO cộng dồn mọi chặng — một chặng chạy mù cũng là cả
+          tuyến phải cảnh báo, không được loãng khi nối */
+      noWeatherKm: sum((p) => p.noWeatherKm ?? 0),
+      // một chặng có số là cả tuyến có số để đọc sóng lớn nhất
+      weatherSeen: some((p) => p.weatherSeen !== false),
     },
     stopWpIdx,
     legs: summarizeLegs(plans),

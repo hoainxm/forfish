@@ -6,7 +6,11 @@ const start = { lat: 12, lon: 110 }, dest = { lat: 12, lon: 112 };
 const bbox = bboxFor(start, dest, 120);
 const args: PlanArgs = {
   start, dest, bbox, boat: DEFAULT_BOAT, departHourIdx: 0,
-  depth: decodeDepthGrid(new Uint8Array(DEPTH_GRID_BYTES).fill(0x55).buffer),
+  /*  ĐẤT KÍN + KHÔNG CÓ DỰ BÁO ⇒ kết quả tất định "no-route". Trước 2026-10-16
+      bộ test này dùng biển sâu + dự báo rỗng ⇒ "weather-coverage"; nay ca đó
+      ra tuyến THEO HẢI ĐỒ (route-diagnostics.test canh), nên ở đây lấy một ca
+      không bao giờ ra tuyến để soi riêng chuyện LÝ DO đi qua worker nguyên vẹn. */
+  depth: decodeDepthGrid(new Uint8Array(DEPTH_GRID_BYTES).buffer),
   field: {
     lat0: bbox.latMin, lon0: bbox.lonMin,
     dLat: (bbox.latMax - bbox.latMin) / 4,
@@ -15,7 +19,7 @@ const args: PlanArgs = {
     cells: Array.from({ length: 25 }, () => ({ onSea: false, hours: [] })),
   },
 };
-const missing = { plan: null, failure: "weather-coverage" };
+const missing = { plan: null, failure: "no-route" };
 
 type Message = { data: unknown };
 let instances: FakeWorker[];
@@ -39,7 +43,7 @@ afterEach(() => {
 });
 
 describe("route diagnostics qua Worker và các cửa fallback", () => {
-  it("không có Worker: giữ lý do thiếu phủ và hợp đồng API cũ", async () => {
+  it("không có Worker: giữ lý do và hợp đồng API cũ", async () => {
     vi.stubGlobal("Worker", undefined);
     const api = await import("../route-plan-async");
     expect(await api.planRouteWithDiagnosticsAsync(args)).toEqual(missing);

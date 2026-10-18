@@ -33,7 +33,7 @@ export interface SavedRoute {
       không có toạ độ cố định, mở lại thì vẫn là "chỗ tàu tôi". Phải giữ được
       ca này, không thì đường lưu từ ngoài biển mở lại sẽ nhảy về cảng. */
   start: { lat: number; lon: number; label: string } | null;
-  /*  LỰA CHỌN nơi xuất phát ("gps" · "cursor" · "place:…" · "port:…"), không
+  /*  LỰA CHỌN nơi xuất phát ("gps" · "fixed" · "cursor" · "place:…" · "port:…"; "fixed" = toạ độ chốt lúc chọn, nằm ở `start`), không
       phải toạ độ. Mở lại đường đi phải trả về đúng LỰA CHỌN: lưu từ "Cảng nhà"
       thì tuần sau vẫn là cảng nhà, dù bà con đã đổi cảng nhà sang chỗ khác.
       Tuỳ chọn vì bản ghi có thể tới từ chỗ khác — thiếu thì nơi gọi tự dò theo

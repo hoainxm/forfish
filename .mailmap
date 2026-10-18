@@ -1,0 +1,3 @@
+# Gộp tên tác giả trong git log/blame (git tự đọc file này).
+# Commit 14–16/10/2026 lỡ ký tên Hồ Vũ Hoàng Hà — cùng một người với Mr-Robot1c.
+Mr-Robot1c <178200163+Mr-Robot1c@users.noreply.github.com> Hồ Vũ Hoàng Hà <inoudead@gmail.com>

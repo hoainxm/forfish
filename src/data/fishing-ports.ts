@@ -194,6 +194,16 @@ export const FISHING_PORTS: FishingPortDir[] = [
   { id: "knd-phu-hai", name: "KNĐ Phú Hải", code: "KNDPH", province: "Quảng Ninh", address: "Thôn Phú Hải, xã Quảng Hà, tỉnh Quảng Ninh", active: true, klass: 3 },
 ];
 
+/** Cảng có TOẠ ĐỘ SAI RÕ trong file nguồn (rà ở docs/review-final/04-data.md §2a:
+ *  ngoài khung VN hoặc lệch tỉnh >180 km — vd Lạch Bạng/Thanh Hoá đang nằm ở
+ *  Kiên Giang, Đá Bạc/Khánh Hoà ở mũi Cà Mau). Chưa có nguồn đáng tin để sửa số
+ *  ⇒ KHÔNG đoán toạ độ mới; chỗ nào DẪN ĐƯỜNG tới cảng (Sen Biển) phải bỏ qua
+ *  các cảng này và nói thật. Sửa được toạ độ thì gỡ id khỏi đây. */
+export const PORT_COORD_SAI = new Set([
+  "lach-bang", "da-bac", "ca-mau", "song-tra-bong", "bai-dong", "phuong-6-thang-nhi",
+  "dao-an-bang", "dao-phan-vinh", "dao-da-thuyen-chai", "hon-khoai",
+]);
+
 /** Chỉ cảng đang hoạt động, sắp theo tỉnh rồi tên. */
 export const ACTIVE_PORTS = FISHING_PORTS.filter((p) => p.active).sort(
   (a, b) => (a.province ?? '').localeCompare(b.province ?? '', 'vi') || a.name.localeCompare(b.name, 'vi'),

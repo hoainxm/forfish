@@ -51,6 +51,8 @@ function plan(over: Partial<RoutePlan> = {}): RoutePlan {
     beyondForecastH: 0,
     bestEffortSeas: false,
     segRisks: [],
+    noWeatherKm: 0,
+    weatherSeen: true,
     ...over,
   };
 }
@@ -143,6 +145,33 @@ describe("thứ tự cố định", () => {
   it("tuyến sạch → không ý nào (khối cảnh báo biến mất hẳn)", () => {
     expect(buildDangerItems(plan(), [])).toEqual([]);
     expect(buildDangerItems(null, [])).toEqual([]);
+  });
+});
+
+describe("THIẾU DỰ BÁO SÓNG GIÓ — tuyến theo hải đồ (2026-10-16)", () => {
+  it("có quãng không có số → mục ĐỎ 'Thiếu dự báo sóng gió', đứng sau sóng dữ", () => {
+    const items = buildDangerItems(
+      plan({ noWeatherKm: 40, distKm: 120, weatherSeen: true, hasRoughLeg: true, maxWaveM: 3.5 }),
+      [],
+    );
+    const keys = items.map((i) => i.key);
+    expect(keys.slice(0, 2)).toEqual(["song-du", "khong-du-bao"]);
+    const it0 = items.find((i) => i.key === "khong-du-bao")!;
+    expect(it0.danger).toBe(true);
+    expect(it0.text).toContain("Chừng 22 hải lý");
+    expect(it0.text).toContain("Nghe đài duyên hải");
+  });
+
+  it("không gặp lấy một mẫu dự báo → câu 'Cả tuyến…'", () => {
+    const [it0] = buildDangerItems(plan({ noWeatherKm: 100, distKm: 130, weatherSeen: false }), []);
+    expect(it0.key).toBe("khong-du-bao");
+    expect(it0.text).toMatch(/^Cả tuyến KHÔNG có số dự báo sóng gió/);
+  });
+
+  it("dưới 1 km (mép lưới) → không báo", () => {
+    expect(buildDangerItems(plan({ noWeatherKm: 0.6 }), []).map((i) => i.key)).not.toContain(
+      "khong-du-bao",
+    );
   });
 });
 
