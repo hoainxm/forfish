@@ -257,8 +257,38 @@ export function moTaVung(v: VungQuanLy, d: Date): string {
   if (v.tinh) bits.push(v.tinh);
   if (v.dienTichHa) bits.push(`${soViet(v.dienTichHa)} ha`);
   bits.push(trangThaiText(v, d));
-  if (v.doiTuong) bits.push(`bảo vệ: ${v.doiTuong}`);
+  const dt = v.doiTuong && doiTuongNoi(v.doiTuong);
+  if (dt) bits.push(`bảo vệ: ${dt}`);
   return [...new Set(bits)].join(" · ");
+}
+
+/**
+ * Loài được bảo vệ, bản ĐỂ NÓI: bỏ tên khoa học Latin — giọng đọc "cá lượng
+ * Nemipteridae" là vô nghĩa với bà con (doc 15 §21j). Bỏ "(Nemipteridae)",
+ * "(Hippocampus kuda)", "Scleractinia spp"; ngoặc có chữ Việt thì giữ; bỏ loài
+ * lặp (nguồn ghi "cá lượng" hai lần). Thẻ trên màn hình vẫn in nguyên văn (07 §3).
+ */
+export function doiTuongNoi(s: string): string {
+  const sach = s
+    .replace(/\s*\(\s*[A-Za-z][A-Za-z.\s]*\)/g, "")
+    .replace(/\s+\(?[A-Z][a-z]+\s+spp\.?\)?/g, "")
+    .replace(/[\s.;,]+$/, "");
+  const seen = new Set<string>();
+  return sach
+    .split(/\s*;\s*/)
+    .map((nhom) =>
+      nhom
+        .split(/\s*,\s*/)
+        .filter((x) => {
+          const k = x.toLocaleLowerCase("vi-VN");
+          if (!k || seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        })
+        .join(", "),
+    )
+    .filter(Boolean)
+    .join("; ");
 }
 
 /** "23488" → "23.488" — số kiểu Việt. */

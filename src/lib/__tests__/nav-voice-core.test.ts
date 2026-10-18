@@ -368,7 +368,7 @@ describe("nav-storm — bão theo GPS", () => {
     const o = stormObservation(st, pos, NOW + 30 * 60_000, "km")!;
     expect(o.near).toBe(true);
     expect(o.band).toBeLessThan(STORM_FAR_BAND);
-    expect(o.text).toMatch(/^Bão WUTIP cách tàu chừng \d+ cây số, đang đi hướng Tây Bắc\./);
+    expect(o.text).toMatch(/^Bão Vu típ cách tàu chừng \d+ cây số, đang đi hướng Tây Bắc\./);
     expect(o.text).toContain("Tin lúc 7 giờ sáng.");
     expect(o.text).toContain("Nghe đài duyên hải.");
     expect(speechIsClean(o.text)).toBe(true);

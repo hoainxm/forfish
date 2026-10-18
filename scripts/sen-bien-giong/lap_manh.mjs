@@ -13,6 +13,7 @@
 //  · `ten`   — tên cảng, đảo, trạm thuỷ triều, đèn biển, khu tránh trú bão, vùng quản lý
 //  · `gop` / `kichban` — HỌC từ kịch bản toàn bộ (--kich-ban, xem dưới)
 //  · `ran`   — tên rạn / bãi / địa danh ngầm (chủ dự án chốt thu 2026-10-17)
+//  · `bao`   — phiên âm Việt tên bão quốc tế (bảng trong lib/nav-voice/ten-bao.ts)
 //
 // id GIỮ NGUYÊN cho chữ đã có (file mp3 không bị đổi tên ⇒ git không phình);
 // chữ mới mới được id mới. Sau đó: gen_clips.py --manh → chon_clips.mjs --manh.
@@ -143,6 +144,13 @@ function tenRan() {
   return ten;
 }
 
+/** Phiên âm tên bão: vế phải của bảng BANG trong ten-bao.ts ("Wutip: \"Vu típ\""). */
+function tenBao() {
+  const src = readFileSync(join(ROOT, "src/lib/nav-voice/ten-bao.ts"), "utf8");
+  const bang = src.slice(src.indexOf("const BANG"), src.indexOf("};", src.indexOf("const BANG")));
+  return new Set([...bang.matchAll(/:\s*"([^"]+)"/g)].map((m) => m[1]));
+}
+
 /* ── lập ───────────────────────────────────────────────────────────────────── */
 
 /*  Số: MỘT mảnh cho cả cụm hay gặp (0–99, "X trăm", "lẻ X", "X nghìn", "phẩy X") —
@@ -251,6 +259,7 @@ moi.nhom.khung = nhom(khung);
 moi.nhom.gop = nhom(hoc.gop.map((t) => t.toLowerCase()));
 moi.nhom.kichban = nhom(hoc.kichban);
 moi.nhom.ten = nhom(tenCo());
+moi.nhom.bao = nhom(tenBao());
 moi.nhom.ran = nhom(tenRan());
 
 const truoc = new Set([...idCu.entries()].filter(([, id]) => Object.values(cu.nhom ?? {}).some((ds) => ds.some(([i]) => i === id))).map(([, id]) => id));
