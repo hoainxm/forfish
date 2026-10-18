@@ -6,7 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-18
-<!-- re-verified: 2026-10-18 — MIGRATION MỚI 0063_market_requests_eta.sql (§7g): market_orders + eta_from/eta_to/request_id (nullable) · bảng market_requests (RLS bật, 0 policy, revoke anon/authenticated). CHƯA APPLY prod — chờ chủ dự án. -->
+<!-- re-verified: 2026-10-18 — MIGRATION MỚI 0063_market_requests_eta.sql (§7g): market_orders + eta_from/eta_to/request_id (nullable) · bảng market_requests (RLS bật, 0 policy, revoke anon/authenticated). ĐÃ APPLY prod 2026-10-18 (chủ dự án duyệt) — xem §7g. -->
 ttl_days: 180
 <!-- re-verified: 2026-10-06 17:20 — đồng bộ sổ đối chiếu code: `user-sync.ts` (syncAll/pushKind/markLocalWrite/clearSyncMeta, metaCache), route `/api/me/sync` (identityFromRequest, lọc owner_phone, keepDeleted/stripDeleted), `user-sync-core.ts` — khớp; THÊM gộp 3 chiều theo id (`mergeById`, baseIds), chủ sổ `_owner` + `phone` ở GET, seed khi server chưa có dòng, `showsUnderBoat`; dọn câu "apply nhầm, chưa recoverable" mâu thuẫn. -->
 <!-- re-verified: 2026-10-06 16:30 — đối chiếu code: `DocumentKind`/`DOCUMENT_KINDS`/`getExpiryStatus`/`SOON_DAYS_DOCS` (documents.ts + days.ts) khớp; THÊM `dang_ky_tau`, `kindUsuallyNoExpiry`, issuedOn trên form; `Boat` +19 ô theo giấy (boats.ts); user_docs + bucket user-docs ĐO THẬT có ở znzgugvfhgmiszqgjulk (sửa drift "chưa có"); staff_permissions + cờ `resetPassword`; reset mật khẩu khách ⇒ sd123456 (ADR 0008); §5 mục 5 nhắc hạn push. -->
@@ -848,7 +848,7 @@ Sinh ra NGAY SAU khi apply 0060+0061 vì `get_advisors` báo WARN `function_sear
 
 - KHÔNG sửa thẳng vào 0054/0055 — hai file đó đã apply, lịch sử migration phải khớp thứ đã chạy. Vá bằng bước mới.
 - Kiểm sau apply: `pg_proc.proconfig` của cả hai = `search_path=""`; ghi thử một dòng `shops` ⇒ trigger vẫn nhích `updated_at`; `market_fold_vn('Đá cây ướp cá')` vẫn ra `da cay uop ca`.
-### HẸN GIAO + YÊU CẦU ĐẶT HÀNG — migration [`0063_market_requests_eta.sql`](../../supabase/migrations/0063_market_requests_eta.sql) (2026-10-18) — ⚠️ **CHƯA APPLY** (chờ chủ dự án)
+### HẸN GIAO + YÊU CẦU ĐẶT HÀNG — migration [`0063_market_requests_eta.sql`](../../supabase/migrations/0063_market_requests_eta.sql) (2026-10-18) — ✅ **ĐÃ APPLY prod 2026-10-18** (chủ dự án duyệt; soi sau apply: 3 cột mới có, `market_requests` 0 dòng, RLS bật 0 policy, anon không có quyền select; ghi `schema_migrations` 20261018070844)
 
 Chủ dự án: *"cho phép chủ tàu đặt đơn bất kỳ cái gì, nó sẽ chuyển cho chủ sàn, làm luôn luồng giống shopee như xác nhận đơn, thời gian giao"*. Hành vi: [11 §4.3–§4.4, §5.9](11-ba-spec-san-thuong-mai.md); tên: [12 §13](12-kien-truc-san-thuong-mai.md).
 

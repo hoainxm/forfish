@@ -5,7 +5,7 @@
 covers: src/lib/market, src/app/cho, src/app/ban-hang, src/app/api/cho, src/app/api/ban-hang, src/app/api/admin/cho, src/app/api/dev, src/app/dev, src/components/market, src/components/admin/market-admin-tab.tsx, src/components/admin/market-admin-requests.tsx, supabase/migrations/0060_marketplace.sql, supabase/migrations/0063_market_requests_eta.sql
 gate: warn
 last_verified: 2026-10-18
-<!-- re-verified: 2026-10-18 — §13 LUỒNG GIỐNG SHOPEE: hợp đồng kho thêm listOverduePending + 6 hàm yêu cầu đặt hàng (cả supabase-store lẫn file-store, test hợp đồng xanh), OrderPatch.etaFrom/etaTo, Order.etaFrom/etaTo/requestId, migration 0063 (CHƯA apply), route /api/cho/yeu-cau*, /api/admin/cho/yeu-cau*. -->
+<!-- re-verified: 2026-10-18 — §13 LUỒNG GIỐNG SHOPEE: hợp đồng kho thêm listOverduePending + 6 hàm yêu cầu đặt hàng (cả supabase-store lẫn file-store, test hợp đồng xanh), OrderPatch.etaFrom/etaTo, Order.etaFrom/etaTo/requestId, migration 0063 (ĐÃ apply prod 2026-10-18), route /api/cho/yeu-cau*, /api/admin/cho/yeu-cau*. -->
 ttl_days: 90
 <!-- re-verified: 2026-09-06 - Core pha 2a đã hiện thực đúng hợp đồng §2–§6, §8.1: 24 file lib/market, 11 shared component, migration 0060, /api/dev + /dev, 16 file test; không đổi tên/chữ ký (chỉ THÊM notice.ts, rating.ts, marketErrorStatus/isMarketError theo hình dạng, marketSend, sniffImageMime) -->
 
@@ -1782,7 +1782,7 @@ Hành vi ở [11 §4.3–§4.4, §5.9, §7b](11-ba-spec-san-thuong-mai.md); đâ
 | `route-utils.ts` | `settleOverdueOrders` ghi theo `o.status` (không còn gài `da_giao`) + N7 khi tự huỷ · `settleOverdueForStats` quét cả chờ quá 72h · `settleRequests` |
 | `requests-cache.ts` (client) | `forfish.myc.v1` ngăn SĐT, ≤ 30, gộp theo id — `NEVER_BACKUP_PREFIXES` |
 | Route | `GET/POST /api/cho/yeu-cau` · `GET/PATCH /api/cho/yeu-cau/[id]` (`dong_y`·`huy`) · `GET /api/admin/cho/yeu-cau` (+`counts.moi`) · `GET/PATCH /api/admin/cho/yeu-cau/[id]` (`bao_gia`·`khong_tim_duoc`, nhật ký `market.request-quote`) · `PATCH /api/ban-hang/don/[id]` + `/api/admin/cho/don/[id]`: `da_xac_nhan` bắt buộc hẹn, dời hẹn ở nhánh "chỉ ghi" |
-| Migration | `0063_market_requests_eta.sql` — ⚠️ CHƯA APPLY (04 §7g) |
+| Migration | `0063_market_requests_eta.sql` — ✅ ĐÃ APPLY prod 2026-10-18 (04 §7g) |
 
 Gác dữ liệu: `/api/cho/*` + `/api/admin/cho/*` đã nằm trong `KHONG_PHAI_DU_LIEU` của `data-route-rules` (route sàn tự gác bằng `identityFromRequest`/`requireAdmin`) — route mới không cần dòng mới.
 

@@ -14,7 +14,8 @@
 -- Auth: khuôn 0037/0060 — RLS bật, KHÔNG policy, revoke anon/authenticated. Mọi đọc/ghi qua
 -- route service-role: /api/cho/yeu-cau* (identityFromRequest), /api/admin/cho/yeu-cau*
 -- (requireAdmin). Client KHÔNG chạm bảng.
--- ⚠️ CHƯA APPLY — chờ chủ dự án duyệt (CLAUDE.md: không tự apply lên remote).
+-- ✅ ĐÃ APPLY prod 2026-10-18 (ref znzgugvfhgmiszqgjulk, chủ dự án duyệt: "áp migration 0063 lên prod rồi push").
+--    Đã chạy rồi thì ĐỪNG sửa file này — vá bằng migration mới.
 -- Xem docs/app-map/04-data-model.md §7g + 11-ba-spec-san-thuong-mai.md §4.4/§5.9.
 
 alter table public.market_orders
