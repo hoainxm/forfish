@@ -24,6 +24,9 @@ import {
   clearSyncMeta,
   USER_SYNC_EVENT,
 } from "@/lib/user-sync";
+import { clearMarketCart } from "@/lib/market/cart";
+import { clearCachedMarketOrders } from "@/lib/market/orders-cache";
+import { clearShopFlag, loadShopFlag, saveShopFlag, type ShopFlag } from "@/lib/market/seller-flag";
 import {
   applyIdentityAction,
   offlineIdentityPhone,
@@ -253,6 +256,41 @@ export function HeroAccount() {
     };
   }, [signedIn]);
 
+  /*  KÊNH NGƯỜI BÁN — hai dạng dòng (LEAD §4 #16 / 12 §9). Cờ `forfish.mshop.v1`
+      trả lời "máy này có shop không" mà KHÔNG gọi mạng lúc mở app; chỉ khi SHEET
+      MỞ và có sóng mới tra lại `GET /api/ban-hang/shop` (12 s, có `.catch`) rồi
+      ghi cờ. Chưa có cờ + mất sóng ⇒ ẩn cả hai dòng — không mời bà con vào ngõ
+      cụt giữa biển (tầng 5). */
+  const [shopFlag, setShopFlag] = useState<ShopFlag | null>(null);
+  useEffect(() => {
+    if (!open || !signedIn) return;
+    setShopFlag(loadShopFlag(phone));
+    if (!online) return; // mất sóng: dùng cờ đã có, không đụng mạng
+    let alive = true;
+    fetch(apiUrl("/api/ban-hang/shop"), {
+      headers: tokenHeader(),
+      signal: timeoutSignal(12000),
+      cache: "no-store",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { ok?: boolean; shop?: { status?: ShopFlag["status"] } | null } | null) => {
+        if (!alive || !j?.ok) return;
+        const flag: ShopFlag = {
+          hasShop: !!j.shop,
+          ...(j.shop?.status ? { status: j.shop.status } : {}),
+          at: Date.now(),
+        };
+        saveShopFlag(phone, flag);
+        setShopFlag(flag);
+      })
+      .catch(() => {
+        /* mất sóng / hết giờ — giữ cờ cũ, không nói gì */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open, signedIn, online, phone]);
+
   useEffect(() => {
     if (!isPushSupported()) {
       setPushState("unsupported");
@@ -423,6 +461,11 @@ export function HeroAccount() {
     // Đơn hàng đã lưu cũng là dữ liệu CỦA NGƯỜI TRƯỚC (SĐT nhận hàng, điểm
     // giao) — máy dùng chung trên tàu thì phải đi cùng hộp thư (2026-08-18).
     clearCachedOrders();
+    // Giỏ chợ vật tư + bản lưu đơn + cờ "có shop" cũng là dữ liệu CỦA NGƯỜI
+    // TRƯỚC (12 §4.13) — đi cùng hộp thư, máy trên tàu là máy dùng chung.
+    clearMarketCart(phone);
+    clearCachedMarketOrders();
+    clearShopFlag();
     // qua CỔNG DUY NHẤT (K7): "user-signed-out" = bà con TỰ BẤM và máy chủ đã
     // xác nhận — khác hẳn `SIGNED_OUT` auth-js tự bắn khi nó tự xoá phiên (C-7)
     // (cổng đã xoá luôn dấu hạng — `forgetIdentity` gọi `clearTierMark`, quan
@@ -455,6 +498,9 @@ export function HeroAccount() {
   function forgetThisDevice() {
     clearInbox();
     clearCachedOrders(); // xem ghi chú ở doSignOut
+    clearMarketCart(phone);
+    clearCachedMarketOrders();
+    clearShopFlag();
     /* GỠ TÀI KHOẢN KHỎI ĐĂNG KÝ THÔNG BÁO — thiếu chỗ này (bản trước quên,
        R7) thì endpoint push VĨNH VIỄN còn trỏ về chủ tàu: `syncPushAccount`
        chỉ chạy khi đã đăng nhập lại, nên không có đường bù nào. Tin nhắm riêng
@@ -627,6 +673,44 @@ export function HeroAccount() {
                 </p>
               )}
             </>
+          )}
+
+          {/*  LỐI VÀO KÊNH NGƯỜI BÁN (12 §9) — hai dạng dòng:
+               (a) đã có shop ⇒ dòng thường "Kênh người bán";
+               (b) chưa có shop ⇒ dòng MỜ, không icon nổi, chỉ mời một câu;
+               (c) chưa biết (chưa có cờ, mất sóng) ⇒ không dòng nào.
+               ĐẶT NGAY DƯỚI KHỐI DANH TÍNH, TRÊN nhóm "Cài đặt khác" thu gọn
+               (2026-09-06): nằm trong nhóm thu gọn thì bà con phải bấm "Mở" mới
+               thấy — người bán không tìm ra kênh của mình, còn lời mời đăng ký
+               shop thì không ai đọc. Đây là lối vào một TRỤC việc, không phải
+               một tuỳ chọn cài đặt. */}
+          {signedIn && shopFlag?.hasShop && (
+            <Link
+              href="/ban-hang"
+              onClick={() => setOpen(false)}
+              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[1rem] font-bold text-navy">
+                  Kênh người bán
+                  {shopFlag.status === "cho_duyet" && " · đang chờ duyệt"}
+                </span>
+                <span className="block text-[0.8125rem] leading-snug text-foreground/70">
+                  Đăng sản phẩm, xử lý đơn, thống kê
+                </span>
+              </span>
+              <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+            </Link>
+          )}
+          {signedIn && shopFlag && !shopFlag.hasShop && (
+            <Link
+              href="/ban-hang/dang-ky"
+              onClick={() => setOpen(false)}
+              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left text-[1rem] text-foreground/65"
+            >
+              <span className="min-w-0 flex-1">Bà con có bán vật tư? Đăng ký shop</span>
+              <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+            </Link>
           )}
 
           {/*  MỘT HÀNG "Cài đặt khác" gom năm nhóm việc không liên quan nhau

@@ -1,4 +1,15 @@
 "use client";
+/*  ĐÃ NGHỈ 2026-09-07 — GỘP CỬA HÀNG VÀO CHỢ VẬT TƯ (ADR 0014).
+
+    Không màn nào còn dựng file này: tab Tàu cá → Sản phẩm nay chỉ giữ đồ trên
+    tàu, còn mua bán + xem đơn đều ở chợ (/cho). Dữ liệu đã chuyển sang bảng của
+    chợ bằng migration 0055.
+
+    CHƯA XOÁ, có lý do: 0054+0055 chưa apply lên prod, nên tới lúc đó đây vẫn là
+    đường lùi duy nhất nếu chợ trục trặc. Xoá khi chợ đã chạy êm trên prod.
+    // nợ: giữ mã chết cho tới khi 0054+0055 apply xong và chợ chạy êm 1 tuần,
+    // điều kiện nâng cấp: xoá file + route cùng đợt, gỡ luôn khoá forfish.orders.v1
+*/
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -12,6 +23,7 @@ import { ProductInquiryButton } from "@/components/product-inquiry-button";
 import { CartSheet, QtyStepper } from "@/components/cart-sheet";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ChipRow } from "@/components/ui/chip-row";
+import { FloatBtn } from "@/components/ui/float-btn";
 import { apiUrl } from "@/lib/api-base";
 import { type CatalogGroup } from "@/lib/sdvico-catalog";
 import {
@@ -348,13 +360,18 @@ export function SdvicoCatalog({
         Giá và model hợp tàu — nhân viên tư vấn trực tiếp.
       </p>
 
-      {/* ── Nút giỏ nổi + CartSheet (chỉ khi có hàng đặt được) ──────────── */}
+      {/* ── Nút giỏ nổi + CartSheet (chỉ khi có hàng đặt được) ────────────
+          Khuôn `FloatBtn` (2026-09-07): kéo được, ẩn được, nằm trong cột app.
+          Mặc định xếp NGAY TRÊN nút Sen Biển (0.75rem + 4rem + 0.75rem) — trước
+          đây hai nút cùng một toạ độ nên đè lên nhau ở tab Sản phẩm. */}
       {hasOrderable && (
-        <button
-          type="button"
-          onClick={() => setCartOpen(true)}
-          aria-label={`Mở giỏ hàng${count > 0 ? ` (${count} món)` : ""}`}
-          className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-20 flex h-16 w-16 items-center justify-center rounded-full bg-trim text-white shadow-trim-fab transition active:scale-[0.95]"
+        <FloatBtn
+          id="gio-hang"
+          label={`Mở giỏ hàng${count > 0 ? ` (${count} món)` : ""}`}
+          onPress={() => setCartOpen(true)}
+          baseBottom="5.5rem"
+          size="4rem"
+          className="bg-trim text-white shadow-trim-fab"
         >
           <CartIcon className="h-7 w-7" />
           {count > 0 && (
@@ -362,7 +379,7 @@ export function SdvicoCatalog({
               {count > 99 ? "99+" : count}
             </span>
           )}
-        </button>
+        </FloatBtn>
       )}
 
       {cartOpen && (

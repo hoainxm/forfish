@@ -230,9 +230,6 @@ export function BoatServices() {
       {/* sổ nhắc bảo dưỡng tự ghi — của bà con, lưu trên máy */}
       {/* Bỏ dòng "Tự ghi việc thay nhớt…" (D1): dạy cách dùng, không cấp dữ
           liệu — hàng "Sổ nhắc bảo dưỡng · N việc" ngay dưới đã nói đủ. */}
-      <h3 className="display mb-1 px-1 text-[1.125rem] font-bold text-navy">
-        Sổ nhắc bảo dưỡng của tôi
-      </h3>
       <div className="-mx-4">
         <MaintenanceReminders />
       </div>

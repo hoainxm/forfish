@@ -22,8 +22,12 @@ const nextConfig: NextConfig = {
   // Ghim gốc workspace về thư mục dự án. Máy dev có lockfile lạc ở thư mục cha
   // (C:\Users\ACER\package-lock.json) khiến Next đoán nhầm gốc → sai manifest
   // module (lỗi 500 "Could not find module global-error.js"). Ghim rõ để hết.
+  // Dùng process.cwd() (không __dirname): khi SWC gốc bị chặn (Windows Smart App
+  // Control enforce), Next biên dịch file này ra ESM — nơi __dirname không tồn
+  // tại → sập "next config error". process.cwd() = thư mục chạy npm run dev =
+  // gốc dự án, chạy được cả bản CJS lẫn ESM.
   turbopack: {
-    root: __dirname,
+    root: process.cwd(),
   },
   ...(e2eDistDir ? { distDir: e2eDistDir } : {}),
   // Mã bản cho "Có bản mới — chạm để cập nhật" (lib/app-version.ts). Vercel tự

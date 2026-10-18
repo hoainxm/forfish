@@ -492,3 +492,127 @@ export function SpeakerIcon(p: IconProps) {
     </svg>
   );
 }
+
+/* ── Icon danh mục CHỢ VẬT TƯ (lib/market/categories.ts CATEGORY_ICON, 2026-09-06) ── */
+
+/** Máy & động cơ — khối máy + trục */
+export function EngineIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="5" y="8" width="12" height="9" rx="1.5" />
+      <path d="M17 11h3v3h-3M8 8V5h6v3M2 12h3M9 17v3h4v-3" />
+    </svg>
+  );
+}
+
+/** Điện tử hàng hải — radar quét */
+export function RadarIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="4.5" />
+      <path d="M12 12l6-6M12 3v2" />
+    </svg>
+  );
+}
+
+/** Ngư cụ — lưới */
+export function NetIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 5h16M4 5v14M20 5v14M4 19h16" />
+      <path d="M9 5v14M15 5v14M4 10h16M4 14h16" />
+    </svg>
+  );
+}
+
+/** Đá & bảo quản — bông tuyết */
+export function IceIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M12 3v18M3 12h18M6 6l12 12M18 6L6 18" />
+      <path d="M12 3l-2 2M12 3l2 2M12 21l-2-2M12 21l2-2" />
+    </svg>
+  );
+}
+
+/** Nhu yếu phẩm — giỏ */
+export function BasketIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M3 10h18l-2 9H5l-2-9Z" />
+      <path d="M8 10l3-6M16 10l-3-6M9 14v2M15 14v2M12 14v2" />
+    </svg>
+  );
+}
+
+/** An toàn — phao cứu sinh */
+export function LifebuoyIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 3v5M12 16v5M3 12h5M16 12h5" />
+    </svg>
+  );
+}
+
+/** Phụ tùng — bánh răng */
+export function GearIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" />
+    </svg>
+  );
+}
+
+/** Khác — thùng hàng */
+export function BoxIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M3 8l9-4 9 4v9l-9 4-9-4V8Z" />
+      <path d="M3 8l9 4 9-4M12 12v9" />
+    </svg>
+  );
+}
+
+/** Trợ lý — mic (nút nổi "Nói", vòng mic trên tấm che) */
+export function MicIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="9" y="2.5" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 17.5V21M8.5 21h7" />
+    </svg>
+  );
+}
+
+/** Trợ lý — loa tắt tiếng */
+export function SpeakerOffIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4v-5Z" />
+      <path d="M16 9.5l5 5M21 9.5l-5 5" />
+    </svg>
+  );
+}
+
+/** Trợ lý — bàn phím (gõ thay vì nói; máy không nghe được) */
+export function KeyboardIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="2.5" y="6" width="19" height="12" rx="2.5" />
+      <path d="M6.5 9.5h.01M10 9.5h.01M13.5 9.5h.01M17 9.5h.01M6.5 12.8h.01M10 12.8h.01M13.5 12.8h.01M17 12.8h.01M8 15.6h8" />
+    </svg>
+  );
+}
+
+/** Trợ lý — mũi tên gửi (nút Gửi cạnh ô gõ) */
+export function SendIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 12h15M13 6l6 6-6 6" />
+    </svg>
+  );
+}

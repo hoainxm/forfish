@@ -1,0 +1,42 @@
+.tau-header { padding-top: calc(1rem + env(safe-area-inset-top)); }
+.tau-nav { top: env(safe-area-inset-top); }
+.tau-workspace .market-search-bar { position: static; }
+.tau-workspace .tau-owned { padding-block: 1rem 2rem; }
+.tau-owned > section { margin-top: 1.5rem; }
+.tau-owned > section:first-of-type { margin-top: 1rem; }
+.tau-owned .tau-section-title { padding-inline: 1rem; margin-bottom: 0.75rem; }
+.tau-owned .tau-section-title h2 { font-size: 1.125rem; font-weight: 700; color: var(--navy); }
+.tau-owned .tau-section-title p { font-size: 0.9375rem; color: var(--foreground); margin-top: 0.25rem; }
+.tau-workspace :where(button, a, input, select, textarea):focus-visible {
+  outline: 0.1875rem solid var(--sea);
+  outline-offset: 0.1875rem;
+}
+.tau-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 0.25rem;
+  min-width: 4rem;
+  min-height: 3.5rem;
+  border-radius: 1rem;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.tau-action svg { width: 1.5rem; height: 1.5rem; flex-shrink: 0; }
+.tau-action:focus-visible { outline: 0.1875rem solid var(--sea); outline-offset: 0.1875rem; }
+.tau-action:disabled { opacity: 0.45; }
+.tau-section-heading { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+.tau-section-heading > div { min-width: 0; flex: 1; padding: 0.5rem 0; }
+.tau-section-heading p { font-size: 1.125rem; font-weight: 700; color: var(--navy); }
+.tau-record > div:first-child { flex-wrap: wrap; justify-content: flex-end; }
+.tau-record > div:first-child > div { flex-basis: 100%; }
+.tau-record > div > span.w-16[aria-hidden] { display: none; }
+.tau-record > div > div { background: transparent; padding-inline: 0.25rem; }
+.tau-record p { overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) {
+  .tau-workspace * { animation: none !important; transition: none !important; }
+}

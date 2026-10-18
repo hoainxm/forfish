@@ -167,6 +167,16 @@ export const NEVER_BACKUP_PREFIXES = [
    *    giao cho tài khoản đã đăng nhập. Chép sang máy khác = trao khoá cho máy
    *    chưa từng đăng nhập; máy mới cứ đăng nhập là được cấp lại, không mất gì. */
   "forfish.datakey.",
+  /*  · `fab.` — VỊ TRÍ NÚT NỔI (Sen Biển, giỏ hàng) bà con đã kéo tới trên MÁY
+   *    NÀY (lib/float-pos, 2026-09-07). Gắn với cỡ màn của đúng máy đó; chép
+   *    sang máy khác là nút nằm sai chỗ. Mất thì nút về góc mặc định. */
+  "forfish.fab.",
+  /*  · `mlist.` — CHỖ ĐANG ĐỨNG trong danh sách cửa hàng (lib/market/list-state,
+   *    2026-09-08): chữ đang tìm, nhóm đã lọc, các món đã tải, vị trí cuộn. Nằm ở
+   *    `sessionStorage` nên tự mất khi đóng app; chép sang máy khác là dán một
+   *    bảng giá CŨ của phiên người khác vào màn đang mở. Mất thì danh sách tải lại,
+   *    không mất gì của bà con. */
+  "forfish.mlist.",
   /*  · `sync.` — SỔ BOOKKEEPING đồng bộ per-máy (lib/user-sync): mỗi kind đã ghi
    *    lúc nào (mốc client) + còn dirty không. Của RIÊNG máy này. Chép sang máy
    *    khác là dán mốc/dirty sai → máy nhận tưởng đã đẩy/đã mới, bỏ qua sổ thật
@@ -214,6 +224,19 @@ export const NEVER_BACKUP_PREFIXES = [
    *    tự xoá sau khi đặt xong. Chép sang máy khác chẳng để làm gì (đơn đặt rồi
    *    nằm ở server, xem qua "Đơn của tôi"); mất khoá này không mất gì. */
   "forfish.cart.",
+  /*  · `mcart.` / `maddr.` / `morders.` — CHỢ VẬT TƯ (lib/market, 2026-09-06):
+   *    giỏ đang soạn + bản tra giá, địa chỉ nhận (tên, SĐT người nhận, cảng),
+   *    bản lưu đơn của tôi. Là PII và CÓ SÓNG LÀ TẢI LẠI ĐƯỢC — cùng luật với
+   *    `orders.`/`cart.`: không đi theo tệp sang máy khác. */
+  "forfish.mcart.",
+  "forfish.maddr.",
+  "forfish.morders.",
+  /*  · `mfav.` / `mshop.` — yêu thích (kèm snapshot giá) và cờ "máy này có shop"
+   *    của Chợ vật tư. Của RIÊNG MÁY NÀY: cờ shop chép sang máy khác là sheet
+   *    Tài khoản mời người không có shop vào Kênh người bán; snapshot giá là
+   *    bảng giá cũ dán vào máy chưa từng xem. Mất không mất gì — tra lại được. */
+  "forfish.mfav.",
+  "forfish.mshop.",
 ];
 
 const hasPrefix = (k: string, list: readonly string[]) =>

@@ -124,6 +124,13 @@ const RSC_CACHE_MAX = 60;
     Giá phải trả: bà con tải lại một lần. Bản mới **nhẹ hơn 2,4 MB** (14,4 so
     với 16,9) nên lần tải lại này còn rẻ hơn lần đầu. */
 const SDFISH_BASEMAP_V = "sdfish-basemap-v2";
+/*  GÓI NÃO TRỢ LÝ "Sen Biển" (ADR 0010 P1, 2026-09-30) — kho do CLIENT tự quản
+    (`src/lib/assistant/brain-pack.ts`: tải `/tro-ly/*`, kiểm sha256 đủ mới đổi
+    khối). SW KHÔNG đọc/ghi kho này, chỉ có hai việc: (1) `activate` KHÔNG xoá nó
+    — bump vỏ mà mất kho kiến thức + giọng Sen Biển là mất đúng thứ bà con dùng
+    ngoài biển; (2) nhánh fetch để `/tro-ly/*` đi thẳng mạng (xem dưới) — không
+    để kho tĩnh cache-first giữ `manifest.json` cũ mãi. */
+const SDFISH_TROLY_V = "sdfish-tro-ly-v1";
 /*  DANH SÁCH KHO PMTILES — nhiều file, KHÔNG phải một (2026-08-30).
 
     LỖI SUÝT DÍNH: nhánh phục vụ Range trước đây gắn cứng vào ĐÚNG MỘT đường
@@ -852,7 +859,9 @@ self.addEventListener("activate", (event) => {
                 k !== SDFISH_STATIC_V &&
                 k !== SDFISH_RSC_V &&
                 // kho nền bản đồ (16,9 MB, tải một lần) — bump vỏ KHÔNG xoá nó
-                k !== SDFISH_BASEMAP_V,
+                k !== SDFISH_BASEMAP_V &&
+                // gói não trợ lý — client tự quản, bump vỏ KHÔNG xoá
+                k !== SDFISH_TROLY_V,
             )
             .map((k) => caches.delete(k)),
         ),
@@ -1579,6 +1588,12 @@ self.addEventListener("fetch", (event) => {
       thật. Khu này CHỈ dùng khi ngồi bờ có mạng, chẳng có lời hứa offline nào
       để giữ ⇒ để mạng lo, SW đứng ngoài. */
   if (url.pathname.startsWith("/api/admin/")) return;
+
+  /*  GÓI NÃO TRỢ LÝ — client tự tải vào kho SDFISH_TROLY_V sau khi kiểm sha256
+      (brain-pack.ts). SW mà cache-first ở đây thì `manifest.json` cũ nằm mãi,
+      máy không bao giờ thấy gói mới ⇒ để mạng lo. Offline không mất gì: app
+      đọc gói từ kho riêng, không fetch `/tro-ly/*` lúc không có sóng. */
+  if (url.pathname.startsWith("/tro-ly/")) return;
 
   /*  MỌI /api KHÁC KHÔNG NẰM TRONG ALLOWLIST — cũng để mạng lo (2026-08-01b).
       Trước đây SW cache TẤT CẢ /api/* GET: gồm /api/me, /api/crew-reports,

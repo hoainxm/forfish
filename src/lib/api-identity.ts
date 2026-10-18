@@ -1,4 +1,5 @@
 import "server-only";
+import { normalizeVnPhone } from "@/lib/phone";
 
 // CỔNG CHUNG CỦA MỌI ROUTE APP NGƯ DÂN — "ai đang gọi".
 //
@@ -28,6 +29,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { authIdentity, ownerLogin } from "@/lib/admin";
 import { effectiveTier } from "@/lib/staff-store";
 import { tokenIdentity, touchToken } from "@/lib/device-token-server";
+import { readTokenHeader } from "@/lib/device-token";
+import { isDevFileMode } from "@/lib/market/dev-mode";
+import { getMarketStore } from "@/lib/market/store";
 
 export type Gate =
   | { ok: true; phone: string; legacy: boolean }
@@ -48,6 +52,19 @@ export async function identityFromRequest(
   req: Request,
   anonymous = false,
 ): Promise<Gate> {
+  /*  NHÁNH DEV — CHỈ khi kho file (MARKET_STORE=file, không Vercel, không
+      production; xem lib/market/dev-mode.ts). Máy dev không có service key nên
+      tokenIdentity() trả `unavailable` ⇒ 503 cho mọi thứ; nhánh này tra chuỗi ở
+      sổ persona của file-store thay cho device_tokens. Ở prod isDevFileMode()
+      là false theo ba điều kiện — không có đường nào bật nhầm. */
+  if (isDevFileMode()) {
+    const raw = readTokenHeader(req.headers);
+    const who = raw ? await (await getMarketStore()).devIdentity(raw) : null;
+    if (who) return { ok: true, phone: normalizeVnPhone(who.phone), legacy: false };
+    if (anonymous) return { ok: true, phone: "", legacy: false };
+    return deny(401, raw ? "unknown_token" : "no_token");
+  }
+
   const who = await tokenIdentity(req);
 
   if (who.ok) {

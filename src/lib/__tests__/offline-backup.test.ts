@@ -192,6 +192,8 @@ describe("nhập lúc máy CHẬT CHỖ", () => {
     "CỔNG QUÉT `src/`" cuối file này: nó đọc mã nguồn, moi mọi chuỗi
     `"forfish.…"` ra rồi bắt khoá nào cũng phải được XẾP LOẠI rõ ràng.  */
 const ALL_KEYS = [
+  // trợ lý giọng nói — 10 câu bà con nói + cờ mic + đếm lượt: KHÔNG bao giờ sao lưu (14 §5.3)
+  "forfish.assistant.v1",
   // dự báo — tải lại được, không nói gì về người dùng
   "forfish.fc.point.10_109",
   "forfish.fc.grid.d3",
@@ -275,6 +277,7 @@ const TRANSFER_ONLY = [
 
 /** KHÔNG BAO GIỜ vào tệp — dù chế độ nào, dù ai thêm gì sau này */
 const FORBIDDEN = [
+  "forfish.assistant.v1",
   "forfish.crew.v1",
   "forfish.inbox.v1",
   "forfish.inbox.v2",

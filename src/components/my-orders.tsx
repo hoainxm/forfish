@@ -1,4 +1,15 @@
 "use client";
+/*  ĐÃ NGHỈ 2026-09-07 — GỘP CỬA HÀNG VÀO CHỢ VẬT TƯ (ADR 0014).
+
+    Không màn nào còn dựng file này: tab Tàu cá → Sản phẩm nay chỉ giữ đồ trên
+    tàu, còn mua bán + xem đơn đều ở chợ (/cho). Dữ liệu đã chuyển sang bảng của
+    chợ bằng migration 0055.
+
+    CHƯA XOÁ, có lý do: 0054+0055 chưa apply lên prod, nên tới lúc đó đây vẫn là
+    đường lùi duy nhất nếu chợ trục trặc. Xoá khi chợ đã chạy êm trên prod.
+    // nợ: giữ mã chết cho tới khi 0054+0055 apply xong và chợ chạy êm 1 tuần,
+    // điều kiện nâng cấp: xoá file + route cùng đợt, gỡ luôn khoá forfish.orders.v1
+*/
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";

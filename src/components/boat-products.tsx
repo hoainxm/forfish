@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  BasketIcon,
   CheckIcon,
+  ChevronRightIcon,
   ClockIcon,
   CloseIcon,
   DocIcon,
@@ -12,7 +14,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
+import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -22,10 +24,7 @@ import {
   RefNote,
 } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { ChipRow } from "@/components/ui/chip-row";
 import { useBoats } from "@/components/boat-switcher";
-import { SdvicoCatalog } from "@/components/sdvico-catalog";
-import { MyOrders } from "@/components/my-orders";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { formatVnDate } from "@/lib/format";
 import { readUserList, type UserListRead } from "@/lib/user-list-store";
@@ -42,23 +41,19 @@ import { SdvicoAssignPrompt } from "@/components/sdvico-assign-prompt";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 
 /*
-  Tab SẢN PHẨM — tách ĐÔI bằng chip tầng 1 (user chốt 2026-06-11, hết cảnh
-  kéo một cột dài):
-  · ĐANG DÙNG — đồ đã mua (đồng bộ SDVICO, nhắc bảo hành) + đồ tự ghi
-  · CỦA SDVICO — cửa hàng gọn focus giới thiệu + upsale (sdvico-catalog)
+  Tab SẢN PHẨM — ĐỒ TRÊN TÀU CỦA BÀ CON, một cột, không còn chip.
+
+  MỘT CỬA HÀNG THÔI (chủ dự án 2026-09-07, ADR 0014). Trước đây tab này có ba
+  chip: "Đang dùng" · "Cửa hàng" · "Đơn của tôi" — mà "Cửa hàng" là một cửa
+  hàng THỨ HAI song song với Chợ vật tư `/cho`: hai giỏ, hai chỗ xem đơn, hàng
+  SDVICO hiện ở hai nơi, bấm vào chia hai luồng. Nay chợ là cửa hàng duy nhất,
+  SDVICO là một gian hàng trong đó; tab này chỉ còn việc của nó — đồ đã mua
+  (đồng bộ SDVICO, nhắc bảo hành) + đồ tự ghi — và MỘT thẻ dẫn sang chợ đặt
+  đúng chỗ hai chip cũ đứng, để tay quen của bà con vẫn chạm trúng.
+
   Mỗi sản phẩm là MỘT thẻ với MỘT băng trạng thái bảo hành màu trên cùng;
   thêm/sửa trong bottom sheet; dữ liệu gắn theo tàu đang chọn (boatId).
 */
-
-type Section = "dang-dung" | "sdvico" | "don-hang";
-
-// "Khuyến nghị" mơ hồ — "Cửa hàng" nói thẳng đây là chỗ xem đồ SDVICO bán.
-// "Đơn của tôi" = chỗ theo dõi đơn đặt hàng từ Cửa hàng.
-const SECTIONS: { id: Section; label: string }[] = [
-  { id: "dang-dung", label: "Đang dùng" },
-  { id: "sdvico", label: "Cửa hàng" },
-  { id: "don-hang", label: "Đơn hàng của tôi" },
-];
 
 const STORAGE_KEY = "forfish.products.v1";
 
@@ -96,7 +91,6 @@ export function BoatProducts() {
   const [editing, setEditing] = useState<BoatProduct | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<BoatProduct | null>(null);
-  const [section, setSection] = useState<Section>("dang-dung");
   // đồ mua của SDVICO — hook dùng chung 4 nấc (loading/guest/error/ok),
   // KHÔNG còn nuốt lỗi mạng thành "chưa đăng nhập"
   const { status: syncStatus, assets, retry } = useSdvicoAssets();
@@ -184,14 +178,10 @@ export function BoatProducts() {
 
   return (
     <div className="pt-1">
-      <ChipRow
-        options={SECTIONS}
-        value={section}
-        onChange={setSection}
-        accent="t3"
-        level={1}
-        ariaLabel="Mục sản phẩm"
-      />
+      {/*  ĐÃ GỠ hai lối sang cửa hàng (2026-09-07): /tau nay có TAB "Cửa hàng"
+          và TAB "Đơn" đứng ngay cạnh, nhúng thẳng nội dung. Để lại hai thẻ dẫn
+          ở đây là hai lối vào cho cùng một chỗ, và là đúng cái "nhảy qua nhảy
+          lại" mà chủ dự án chê. */}
 
       {/* Hỏi gán hàng SDVICO cho tàu khi có >1 tàu (ba-spec 08 AC-6) */}
       <SdvicoAssignPrompt assets={synced} />
@@ -215,20 +205,7 @@ export function BoatProducts() {
         </div>
       )}
 
-      {/* ════ MỤC 2: CỦA SDVICO — cửa hàng gọn, giới thiệu + upsale ═══ */}
-      {section === "sdvico" && (
-        <div className="px-4">
-          <SdvicoCatalog
-            ownedProductNames={synced?.products.map((p) => p.name) ?? []}
-          />
-        </div>
-      )}
-
-      {/* ════ MỤC 3: ĐƠN CỦA TÔI — theo dõi + huỷ đơn đặt từ Cửa hàng ═══ */}
-      {section === "don-hang" && <MyOrders />}
-
-      {/* ════ MỤC 1: ĐANG DÙNG — đồ đã mua + đồ tự ghi ════════════════ */}
-      {section === "dang-dung" && (
+      {/* ════ ĐỒ ĐANG DÙNG — đồ đã mua + đồ tự ghi ═══════════════════ */}
     <div className="px-4">
       <div className="mb-4">
         {synced ? (
@@ -349,7 +326,7 @@ export function BoatProducts() {
           đồng bộ SDVICO và đồ bà con tự ghi. Nay nó vừa là tiêu đề khối vừa mang
           ô nút. ĐỌC KHÔNG ĐƯỢC ⇒ chừa ô trống (T13, luật 3b) — banner đỏ ở trên
           đã nói vì sao. */}
-      <div className="mb-4 flex items-stretch gap-2">
+      <div className="tau-section-heading">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
           <p className="text-[1rem] font-bold text-navy">
             Đồ tự ghi · {sorted.length} món
@@ -493,7 +470,6 @@ export function BoatProducts() {
       {/*  Bỏ dòng chân trang "lưu ngay trên máy" (D1) — chỉ giải thích app hoạt
           động thế nào, không cấp dữ liệu, không dặn dò an toàn. */}
     </div>
-      )}
 
       {showForm && (
         <ProductForm

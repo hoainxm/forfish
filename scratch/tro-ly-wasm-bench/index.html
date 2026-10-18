@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sen Biển — đo nghe/đọc trong máy (P0)</title>
+<style>
+  body{font-family:system-ui,sans-serif;margin:0;padding:16px;background:#f6f7f9;color:#111;font-size:18px}
+  h1{font-size:1.25rem;margin:0 0 8px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  button{min-height:56px;min-width:56px;font-size:18px;padding:0 18px;border-radius:12px;border:1px solid #aab;background:#fff}
+  button.primary{background:#0b3d66;color:#fff;border-color:#0b3d66}
+  button:disabled{opacity:.5}
+  #status{font-weight:600;margin:8px 0}
+  #heard{font-size:1.4rem;min-height:2.2rem;padding:8px;background:#fff;border-radius:8px}
+  pre{background:#fff;border:1px solid #dde;border-radius:8px;padding:8px;white-space:pre-wrap;font-size:14px}
+  table{border-collapse:collapse;background:#fff;font-size:15px}
+  td,th{border:1px solid #dde;padding:4px 8px;text-align:left}
+</style>
+</head>
+<body>
+<h1>Sen Biển — đo nghe/đọc trong máy (không cần sóng)</h1>
+<div id="status">Đang nạp…</div>
+<div class="row">
+  <button id="btnLoad" class="primary">1. Nạp bộ nghe/đọc</button>
+  <button id="btnWav" disabled>2. Đo STT trên 3 file mẫu</button>
+  <button id="btnTts" disabled>3. Đo TTS 3 câu</button>
+  <button id="btnMic" disabled>4. Nói (mic)</button>
+  <button id="btnStop" disabled>Dừng mic</button>
+</div>
+<div id="heard"></div>
+<div class="row"><button id="btnPlay" disabled>Nghe lại câu TTS cuối</button></div>
+<table id="tbl"><thead><tr><th>Việc</th><th>Kết quả</th><th>ms</th><th>RTF</th></tr></thead><tbody></tbody></table>
+<pre id="log"></pre>
+
+<script>var module = {};</script>
+<script src="assets/sherpa-onnx-wasm-web.js"></script>
+<script src="assets/sherpa-onnx-asr.js"></script>
+<script src="assets/sherpa-onnx-vad.js"></script>
+<script src="assets/sherpa-onnx-tts.js"></script>
+<script src="bench.js"></script>
+</body>
+</html>

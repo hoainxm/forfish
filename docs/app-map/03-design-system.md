@@ -93,8 +93,8 @@ Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero bi�
 ### Phân cấp điều hướng TRONG trang (chốt 2026-06-10, khi cấu trúc mới sinh chip lồng chip)
 Người 40–60 tuổi phải biết mình đang ở tầng nào bằng MẮT, không bằng suy luận:
 1. **Tabs** (`ui/tabs.tsx`) — chia KHU trong một trang (vd /tau: Giấy tờ · Dịch vụ · Sản phẩm). Track pill sticky, tab chọn navy đặc. *(/tien bỏ Tabs 2026-07-27 — chỉ còn 1 khu Giao dịch.)*
-2. **Chip tầng 1** (`ui/chip-row.tsx` `level=1`) — mục chính TRONG một tab: pill ĐẶC màu trục, 48px, chữ 16px (vd Giá cá · Ai cần mua · Bán ở đâu).
-3. **Chip tầng 2** (`level=2`) — mục con bên trong một mục: pill TONAL nền nhạt màu trục, 42px, chữ 15px — nhỏ + nhẹ hơn hẳn tầng 1 (vd 5 mục của Bán ở đâu).
+2. **Chip tầng 1** (`ui/chip-row.tsx` `level=1`) — mục chính TRONG một tab: pill ĐẶC màu trục, **3.5rem** (56px), chữ 1rem (vd Giá cá · Ai cần mua · Bán ở đâu; chip nhóm hàng + chip sắp xếp của khu chợ). *(Số cũ 48px hết hiệu lực từ 2026-08-29e — xem 5d.)*
+3. **Chip tầng 2** (`level=2`) — mục con bên trong một mục: pill TONAL nền nhạt màu trục, **3.25rem** (52px), chữ nhỏ hơn — nhẹ hơn hẳn tầng 1 (vd 5 mục của Bán ở đâu). 52px là **dưới sàn chạm 56px**: chỉ dùng cho mục con thật sự ít chạm, việc bị chạm nhiều phải ở tầng 1.
 KHÔNG tự chép tay style chip nữa — mọi hàng chip điều hướng dùng `ChipRow` (truyền `accent` đúng màu trục). Không đào sâu quá 3 tầng (Tabs → chip 1 → chip 2 là kịch trần).
 
 ### Nhãn ngang hàng — ĐỒNG BỘ hình dạng (user chốt 2026-07-28)
@@ -144,6 +144,20 @@ Mọi trạng thái trên thẻ (giấy tờ, bảo dưỡng, sản phẩm/bảo
 - **Bộ đếm số lượng** (`QtyStepper`, export từ `cart-sheet.tsx`): 2 nút − / + tap ≥3.5rem + ô số ở giữa, dùng cho thẻ hàng orderable ở Cửa hàng và trong giỏ. Clamp 1..999. KHÔNG tự chế stepper khác.
 - **Chip trạng thái đơn**: `moi` = field/navy (neutral), `da_nhan` = warn, `dang_giao` = sea (xanh biển đặc), `da_giao` = ok (xanh lá), `da_huy` = danger. Nhãn từ `ORDER_STATUS_LABELS` (`lib/catalog-orders.ts`) — GIỮ đồng bộ nhãn ở app chủ tàu và /quan-tri.
 - **Giỏ + đặt hàng** ở **bottom-sheet** (`cart-sheet.tsx`) như mọi form tạo/sửa; nút giỏ nổi hiện `cartCount`. Đặt đơn nêu rõ "không thanh toán trong app"; mất mạng báo trung thực "cần có mạng" (online-only).
+
+**Chợ vật tư — BA bộ chip nữa, cùng bảng màu trạng thái (2026-09-06).** Sàn có sáu trạng thái đơn thay vì năm, nên KHÔNG dùng lại bảng của Cửa hàng: nhãn và cặp màu là **một nguồn duy nhất** trong `lib/market/order-state.ts` (`ORDER_STATUS_LABEL`, `ORDER_STATUS_CHIP` — giá trị `var(--token)`, không hex), component dùng chung là `components/market/shared/order-status-chip.tsx`. Người mua, người bán và `/quan-tri` nhìn **cùng một chữ, cùng một màu** — bà con gọi tổng đài đọc "đơn đang giao" thì người trực thấy đúng chữ đó trên màn mình.
+
+| Bộ chip | Giá trị → cặp màu (nền / chữ) |
+|---|---|
+| **Trạng thái đơn chợ** (6) | `cho_xac_nhan` field/navy (neutral — chưa ai làm gì, đừng doạ) · `da_xac_nhan` warn-bg/warn · `dang_giao` sea/card (xanh biển đặc — đang chạy) · `da_giao` ok-bg/ok · `hoan_thanh` ok/card (xanh lá đặc — xong hẳn) · `da_huy` danger-bg/danger |
+| **Thanh toán** (3 nấc, `PaymentStatusChip`) | `chua_thanh_toan` field/navy · `bao_da_chuyen` warn-bg/warn (**lời khai của người mua — app KHÔNG xác minh tiền**, nên vàng "đang chờ", không xanh) · `da_thanh_toan` ok-bg/ok |
+| **Trạng thái gian hàng** (4, chỉ hiện ở `/quan-tri`) | `cho_duyet` warn-bg/warn · `hoat_dong` ok-bg/ok · `tam_khoa` danger-bg/danger · `tu_choi` field/foreground-70 (xám — không phải lỗi hệ thống, là chưa đạt) |
+
+Chip món của admin dùng lại đúng ba cặp trên: "Đã gỡ" = danger, "Đang bán" = ok, "Hết hàng"/"Shop ẩn" = field. **Sao đánh giá** dùng `RatingStars` (`components/market/shared`), không tự chế ký tự ★.
+
+**GIÁ HIỆN Ở ĐÂU CŨNG QUA `PriceText`** (`components/market/shared/price-text.tsx`) — thẻ lưới, màn món, màn shop, tìm kiếm, danh sách của người bán. Từ 2026-09-07 ([ADR 0014](../adr/0014-gop-cua-hang-vao-cho.md)) nó nhận `priceVnd: number | null`, và **`null` in ra chữ "Liên hệ báo giá"** — đúng cỡ chữ, đúng màu `text-trim`, đúng độ đậm của giá thật để hàng thẻ không so le. Đây là luật, không phải tuỳ chọn: **cấm để một giá rỗng rơi vào `formatVnd()`**, vì nó in ra "0 đ" và bà con đọc "0 đ" là hiểu cho không. Chỗ nào không dùng được `PriceText` (bảng của `/quan-tri`) thì tự rẽ nhánh `null` trước khi gọi `formatVnd`.
+
+**CHIP CHỌN CỦA CHỢ = `ChipRow` TẦNG 1, không tầng 2 (2026-09-06).** Chip nhóm hàng ở `/cho` · `/cho/tim` · trang shop (`shared/category-chips.tsx`) và hàng chip sắp xếp ở `/cho/tim` đều dùng **`level={1}`** (3.5rem / 1rem), accent `t3`. Tầng 2 đo được **52px** — dưới sàn chạm — và đây là ô bị chạm nhiều nhất của cả khu chợ: bà con đổi nhóm hàng trước khi làm bất cứ việc gì khác. Luật phân tầng chip ở §"Phân cấp điều hướng TRONG trang" vẫn nguyên; chợ chỉ có MỘT tầng chip nên nó là tầng 1, không phải ngoại lệ.
 
 ## 3. Typography
 
@@ -211,6 +225,13 @@ Ba câu hỏi trước khi thêm một ô vào khung:
 
 **Đo thật (375×812)**: popup lúc mở form **563px (69% màn) → 296px (36%)**; số ô nhập bày sẵn **6 → 1**; toạ độ điền sẵn thay vì báo "Chưa có toạ độ".
 
+**CHỌN MỘT GIÁ TRỊ TRONG DANH SÁCH DÀI (>12 lựa chọn) → `<select>` NỀN TẢNG, không phải hàng chip (chốt 2026-09-06).** Ca sinh ra luật: ô **tỉnh** trong `AddressForm` (đặt hàng) và trong form đăng ký / cài đặt shop từng là **34 chip cuộn ngang** — người Khánh Hòa phải kéo qua ~20 chip mới thấy tỉnh mình, mà hàng chip cuộn ngang không cho biết còn bao nhiêu cái nữa ở bên phải. `<select>` nền tảng mở ra danh sách cuộn dọc quen thuộc, gõ chữ cái nhảy tới nơi, và bà con đã gặp nó ở mọi app khác.
+
+- **Ranh giới với luật chip**: `ChipRow` là để **ĐIỀU HƯỚNG** — chuyển khu/mục, tập nhỏ và cố định, người dùng cần thấy hết lựa chọn cùng lúc (nhóm hàng, mục của một tab, cách sắp xếp). Danh sách **GIÁ TRỊ NHẬP** dài thì không phải việc của chip. Không mâu thuẫn với "mọi hàng chip điều hướng dùng `ChipRow`" ở §Phân cấp điều hướng: chỗ này vốn không nên là chip ngay từ đầu.
+- **Vẫn giữ luật C2 "đoán sẵn giá trị hay đúng nhất"**: đưa **tỉnh của cảng nhà lên đầu** danh sách; người dùng đổi được, không khoá tay ai.
+- **Cỡ chữ**: `<select>` đã nằm trong `input,select,textarea { font-size: max(16px, 1em) }` của `globals.css` (§Nút hành động mục 4) nên iOS không phóng to cả trang khi chạm. Vùng chạm theo sàn 3.5rem như mọi ô nhập.
+- ≤12 lựa chọn, tập cố định, cần thấy hết cùng lúc (vd "Giao ra cảng / bến" × "Địa chỉ nhà / kho") thì **vẫn dùng chip** — luật này không phải lệnh đổi mọi chip thành select.
+
 **MÀU TUYẾN THEO CHẶNG (2026-08-29g)** — `ocean-map.ts`: xanh `ROUTE_LINE_COLOR #1a73e8` = không có gì · cam `ROUTE_LEG_AMBER #e8710a` = chú ý vừa · đỏ `ROUTE_LEG_RED #d92d20` = phải lưu ý · xám `ROUTE_LEG_PASSED #8a94a0` = đã đi qua. Bề dày đi kèm màu (5 / 4,5 / 3,5 / 2,5px) vì nắng chói làm màu bạc nhanh — chỉ dựa vào màu là thua. **Không phạm quy ước cam-đỏ độc quyền của ranh giới**: đỏ tuyến là đỏ TƯƠI khác đỏ GẠCH `#b42318`, tuyến luôn có viền trắng dày, và ranh giới là đường dài chạy suốt màn còn chặng là khúc ngắn nối hai ghim số. Lý do đầy đủ ở 07 §10.7 L2.
 
 **MÀU CHẤT ĐÁY + KHU TRÁNH TRÚ BÃO (2026-09-03)** — `ocean-map.ts`, cùng ngoại lệ "màu nội dung bản đồ" (không phải token UI). **`CHAT_DAY_COLORS`** — mỗi loại đáy một màu ĐỦ TÁCH NHAU và đủ SẪM để đọc dưới nắng trên nền biển sáng (#d5e8eb), tách khỏi teal rạn / magenta báo hiệu / cam-đỏ ranh giới: Cát `S #d99a2b` (vàng cát) · Đá `R #5c5560` (xám đá) · San hô `Co #e2674a` (cam-đỏ san hô) · Vụn `G #a9743f` (nâu đất) · Cỏ biển `Sg #2f9163` (lục rêu) · Thảm rong `Ma #7f8c2f` (ô-liu); loại chưa rõ `khac #8a949c` (xám trung tính) làm nền lùi. Mã khớp `codes` của `chat-day.ts`. **`KHU_TRU_BAO_COLOR #0e8a5f`** — xanh lục "bến an toàn": khu neo đậu là nơi CHẠY TỚI khi bão, nên CỐ Ý không dùng cam-đỏ (màu hiểm hoạ/ranh giới) — kênh màu riêng, tách cả với xanh chỉ đường của tuyến.
@@ -258,6 +279,21 @@ Chủ dự án: *"cái nút nó là ô vuông kích thước đồng bộ"* · *
 **Nhãn 0.6875rem (11px) — CHỦ DỰ ÁN CHỐT GIỮ 2026-08-29f.** Cỡ này thấp hơn sàn *font ≥18px* mà CLAUDE.md đặt cho bà con 40–60 tuổi, nên phải nói rõ vì sao được miễn: sàn 18px là cho **chữ phải ĐỌC** — tên giấy tờ, con số, câu cảnh báo. Nhãn `SQ_BTN` không phải chữ để đọc mà là **chú thích cho icon** ngay trên nó; icon `h-6 w-6` mới là thứ mắt bắt, nhãn chỉ xác nhận. Vùng chạm vẫn đủ **56px**. Nâng lên 0.75rem thì nhãn hai chữ ("Cảnh báo", "Đăng nhập") tràn ô `w-16` — đổi lấy chữ to hơn 1px bằng nhãn bị cắt là lỗ. **Ranh giới:** 0.6875rem CHỈ dùng cho nhãn dưới icon trong `SQ_BTN`. Mọi chữ khác vẫn theo type-ramp, sàn 0.75rem.
 
 **Nợ `0.6875rem` GIẢM (2026-09-03b)**: chữ phụ dưới các công tắc/nhóm trong panel lớp `ra-khoi-controls.tsx` (dòng "tham khảo…", ghi chú nguồn, câu dưới nút "Ký hiệu là gì?") trước cũng dùng 11 px mượn ngoại lệ trên — sai chỗ: đó là chữ ĐỌC dưới nắng, không phải chú thích icon. Nay **`0.8125rem` (13 px)**, mờ tối đa `/75`. Ranh giới ở trên giữ nguyên: 0.6875rem CHỈ cho nhãn dưới icon trong `SQ_BTN`.
+
+**1b. KHU CHỢ VẬT TƯ — KHÔNG DÙNG `SQ_BTN` CHO HÀNH ĐỘNG CHÍNH / VIỆC THƯỜNG BẤM (chốt 2026-09-06, vòng FIX UX).**
+
+Mặc định giao diện của app là **"gọn"** ⇒ `--row-h` = **2.3125rem (37px)** và nhãn `.sq-btn` = **0.6875rem (11px)**. Trên bản đồ điều đó đã chốt là chấp nhận được (§"CHẾ ĐỘ HIỂN THỊ…", 2026-08-29h): nút ở đó là icon phụ, ít bấm, người dùng đổi sang "Nút to" được. **Khu chợ không nằm trong ngoại lệ đó.** Đo thật 390×844 ở chế độ mặc định, mọi nút của chợ rơi xuống 37px cao / chữ 11px: "+ Giỏ" 68×37 · "Bỏ" 55×37 · **"Huỷ" 37×37** · "Đổi" 58×37 · "Chép mã" 88×37 · "Sửa"/"Hết hàng" · "Thêm món" · "Lưu" · "Xoá món" · "Huỷ đơn". Đó là những việc bà con làm suốt buổi, một số có hậu quả tiền bạc (Huỷ đơn, Đặt hàng, Đã nhận hàng) — và mọi máy mới rơi vào 37px mà chưa chọn gì.
+
+**Luật cho `/cho/**` · `/ban-hang/**`:**
+
+| Loại nút ở khu chợ | Khuôn |
+|---|---|
+| Hành động **chính** của màn (Đặt hàng · Thêm vào giỏ · Xác nhận đơn · Lưu) và mọi việc **thường bấm** hoặc **có hậu quả** (Huỷ · Bỏ · Đã nhận hàng · Sửa · Xoá món · Chép mã) | **nút CHỮ ≥3.5rem cao, chữ ≥1rem ở MỌI chế độ** — hằng dùng chung `SELLER_BTN` / `SELLER_BTN_WIDE` (`components/market/seller/ui.tsx`); phía người mua dùng cùng khuôn tại chỗ |
+| Icon phụ, ít bấm, có nhãn giải thích ngay cạnh | `SQ_BTN` như phần còn lại của app |
+
+Vì sao đây **không phải phá luật `SQ_BTN`**: luật một-khuôn sinh ra để nút đừng lệch nhau và đừng ăn chỗ của dữ liệu. Ở chợ, thứ lệch nhau là **cỡ theo chế độ hiển thị**, và cái bị mất không phải chỗ mà là **chạm trúng**. Giữ nguyên: vùng chạm là sàn không bao giờ hạ, và nhãn ở đây là **chữ để ĐỌC** (một chữ "Huỷ" đứng trơ trong ô 37px không có icon nào đỡ), nên nó theo type-ramp chứ không mượn ngoại lệ 0.6875rem.
+
+**NGOẠI LỆ CÓ CHỦ ĐÍCH — nút ♡ trên thẻ món trong lưới: vùng chạm `2.75rem` (44px), dưới sàn 56px.** Nó **đè lên ảnh vuông của thẻ**, là nút **duy nhất** trên thẻ (thẻ lưới đã bỏ hẳn "+ Giỏ"/"Chọn"), và **cạnh nó không có nút nào khác** — chạm hụt thì rơi vào chính link của thẻ, tức mở trang món chứ không kích hoạt nhầm việc khác. Đổi lại, thẻ mới thấp hơn thẻ cũ ~40% nên mỗi màn hiện được gấp đôi số món. Nâng ♡ lên 56px sẽ ăn 1/4 chiều ngang ảnh và đè lên badge `-N%`. **Ranh giới: ngoại lệ 2.75rem CHỈ cho ♡ overlay trên ảnh thẻ lưới.** ♡ ở trang món và mọi nút khác của chợ vẫn 3.5rem.
 
 **2. CẤM NÚT FULL-WIDTH.** Một dải ngang chiếm trọn bề ngang cho MỘT việc, trong khi thẻ đang tranh từng chục px với bản đồ. Ba ô vuông xếp hàng tốn bằng một dải cũ. **Trả về khuôn 2026-08-29b**: dải "Chọn cảng nhà" (271×52 full-width trong panel Điểm đã lưu) nay là một hàng chuẩn — vế trái nói CẤP DỮ LIỆU (`"Cảng nhà: chưa đặt"` / tên cảng đang đặt), vế phải là ô `w-16` mang icon kính lúp + nhãn "Chọn". **Không bóp cả nút thành ô vuông trơ**: nó là nút MỞ Ô TÌM, ô vuông không đủ chỗ cho nhãn nói nó làm gì. Lợi ích nói đúng, không bán quá: panel đang chạm trần `max-h-[70dvh]` nên xoá dải KHÔNG kéo bản đồ lộ thêm — được là mép phải thẳng một khuôn và chạm trần muộn hơn một điểm ghim.
 
@@ -370,6 +406,82 @@ Chủ dự án 2026-08-29: *"kích thước cái x đóng làm cho đồng bộ�
 
 **Nguồn khảo sát**: Material 3 Dialogs (48dp/24dp) · Apple HIG Sheets (Cancel trái/Done phải, 44pt, `interactiveDismissDisabled` khi có thay đổi) · Shopify Polaris Modal (X/Cancel/Esc/chạm-ngoài, primary phải) · IBM Carbon Modal (Cancel ngoài-trái, primary ngoài-phải, X đóng không gửi) · WCAG 2.5.5 (44px AAA) / 2.5.8 (24px AA).
 
+### Trợ lý trong app — LUẬT CHUNG cho mọi trợ lý nổi (2026-09-07, chủ dự án chốt sau khảo sát)
+
+> Chủ dự án 2026-09-07: *"sao lại xổ ra 1 cái che hết toàn bộ app thế — ghi rõ vào cái quy định đi, đừng có làm các kiểu design không có tư duy, không giống ai"*.
+> Mục này là **quy định**, không phải mô tả bản đang chạy. Ai làm khác phải sửa mục này trước, kèm lý do.
+
+**Khảo sát đã làm (2026-09-07)** — nguồn kiểm chứng được, KHÔNG suy đoán:
+
+| Nguồn | Câu chốt lấy được |
+|---|---|
+| [Intercom Messenger trên app di động](https://www.intercom.com/help/en/articles/6705301-use-the-messenger-in-your-mobile-app) | Messenger mở **dạng bottom sheet gốc**, để người dùng "see exactly where they are in your app" |
+| [Material 3 · Bottom sheets](https://m3.material.io/components/bottom-sheets/guidelines) | Sheet dạng chặn (modal) **mở đầu không quá 50% chiều cao**; đổi nấc và đóng được **bằng nút, không bắt buộc kéo**; *"Don't omit a close affordance in full-screen modal bottom sheets"* |
+| [Apple HIG · Sheets](https://developer.apple.com/design/human-interface-guidelines/sheets) | Sheet "allows some of the parent view to remain visible, **helping people retain their original context**"; **toàn màn chỉ dành cho** "complex or prolonged user flows", ảnh/video/máy ảnh, việc nhiều bước |
+| [WCAG 2.2.2 Pause, Stop, Hide (mức A)](https://www.w3.org/WAI/WCAG21/Understanding/pause-stop-hide.html) | Chuyển động **tự chạy quá 5 giây** song song với nội dung khác thì phải dừng/ẩn được ⇒ **nhịp thở vô hạn là vi phạm** |
+| [Material 3 · FAB](https://m3.material.io/components/floating-action-button/guidelines) | Góc **dưới-phải** là chỗ dễ với nhất trên màn hẹp; **không bao giờ hai nút nổi cùng một màn** |
+| [Material 3 · Chips](https://m3.material.io/components/chips/guidelines) · [NN/g #4](https://www.nngroup.com/articles/ai-chatbots-design-guidelines/) | Gợi ý phải là **nút bấm, không phải chữ**; nhãn ngắn; luôn đi theo nhóm |
+| [Amazon Rufus](https://www.aboutamazon.com/news/retail/how-to-use-amazon-rufus) | Câu hỏi gợi ý **khác nhau theo từng trang**; ở trang sản phẩm thì hỏi về chính sản phẩm đó |
+| [Apple · AssistiveTouch](https://support.apple.com/guide/iphone/use-assistivetouch-iph96b21954/ios) | Nút nổi của hệ điều hành có **độ mờ lúc rảnh** (hạ tới 15%) |
+
+**Không tìm được nguồn** mô tả chi tiết giao diện trợ lý của Shopee, MB Bank, Vietcombank, Techcombank, VPBank, TPBank, Zalo, Grab — báo chí tiếng Việt chỉ nói "chatbot 24/7", không tả một chi tiết màn nào. Nên **đừng viện dẫn các app đó** làm lý do cho một quyết định thiết kế; dùng bảng trên.
+
+#### Luật bắt buộc
+
+| # | Luật | Vì sao |
+|---|---|---|
+| 1 | **CẤM `fixed inset-0`** cho trợ lý. Hỏi–đáp là việc ngắn, không phải "luồng nhiều bước" — Apple HIG dành toàn màn cho ảnh/video/việc dài. Che hết app là bà con **mất dấu mình đang đứng ở đâu** | Apple HIG Sheets · Intercom |
+| 2 | **Hai nấc, mặc định là nấc thấp**: nấc 1 = **55%** chiều cao khả dụng (M3 nói ≤50%; SDFish nới lên 55% vì cỡ chữ ≥1.125rem nên 50% chật), nấc 2 = **92%**, KHÔNG 100% — chừa một dải thấy màn phía sau | M3 · HIG |
+| 3 | **Ba đường đóng**: nút ✕ luôn hiện ở hàng tiêu đề · vuốt xuống · chạm nền mờ. Đổi nấc phải làm được **bằng chạm tay nắm**, không bắt buộc kéo | M3 "cycle through preset heights without dragging" |
+| 4 | **Nền mờ nhìn xuyên** (đen ~32%), KHÔNG nền đục | HIG: giữ ngữ cảnh |
+| 5 | Tự lên nấc 2 **chỉ khi bàn phím mở**. Không tự nhảy vì lý do nào khác | tránh giật màn |
+| 5b | **KHÔNG che thanh điều hướng đáy** (chủ dự án 2026-09-07: *"cái dialog hiện ra không nên che cái bottom menu"*). Cả sheet LẪN nền mờ dừng ở `bottom: var(--dock-total)`; dock vẫn **chạm được** để đổi tab mà không phải đóng trợ lý trước | bà con phải luôn thấy mình đang đứng ở tab nào; bắt đóng trợ lý rồi mới đổi tab là một bước thừa |
+| 6 | **Tay nắm** mép trên, vùng chạm **≥3.5rem** (sàn SDFish, cao hơn 48dp của M3) | 03 §Nút hành động 5 |
+| 7 | Nút nổi **có mặt ở mọi màn app ngư dân**, không biến mất khi đổi tab. M3 nói FAB nên biến mất khi đổi tab, nhưng đó là nút *hành động chính của màn*; trợ lý là **đường tắt xuyên suốt** — NN/g: *"A chatbot that disappears between pages is one that users will stop trying to use"* | NN/g |
+| 8 | **Một nút nổi một màn.** Màn nào đã có nút nổi khác (giỏ hàng ở Cửa hàng) thì hai nút **xếp chồng dọc cách 0.75rem**, không đặt cạnh nhau, không đè | M3 FAB |
+| 9 | **Gợi ý là NÚT BẤM theo màn đang đứng**, 3–4 cái, mỗi nút cao ≥3.5rem, nhãn ≤20 ký tự. Nội dung phải bám **mục tiêu của chính tab đó** — xem bảng §Gợi ý theo tab dưới | M3 Chips · NN/g #4 · Rufus |
+| 10 | Mở sheet ở màn nào thì **dòng đầu nói rõ đang xem gì** ("Đang xem Ra khơi — cảng Quy Nhơn") | Rufus |
+
+#### Hiệu ứng gây chú ý — chọn MỘT, không chồng
+
+| # | Luật | Trần |
+|---|---|---|
+| 11 | **Nhịp thở khi mở app**: 3 nhịp rồi **dừng hẳn**, tổng **≤5 giây**; tắt hoàn toàn dưới `prefers-reduced-motion: reduce` | WCAG 2.2.2 mức A — quá 5 giây mà không dừng được là **vi phạm**, không phải lựa chọn thẩm mỹ |
+| 12 | **Bong bóng chào một dòng** theo màn: bung sau 2 giây, tự thu sau 6 giây hoặc khi bà con cuộn/chạm chỗ khác; có ✕. Tối đa **1 lần/ngày/trục**; **3 ngày liền không ai bấm → thôi hẳn** | Drift welcome message; đừng phiền người đang làm việc |
+| 13 | **Chấm báo** chỉ khi có việc THẬT chưa xem; chấm không số, dùng token màu, **tắt ngay khi mở sheet** | M3 Badges |
+| 14 | **CẤM**: nhấp nháy vô hạn · rung · đổi màu liên tục · âm thanh · nút tự chạy quanh màn | WCAG + ngư dân đang lái tàu |
+
+#### Gợi ý theo tab — bám mục tiêu của trục, không trộn lẫn
+
+Chủ dự án 2026-09-07: *"click vào bot ở từng màn hình nó phải khác nhau tương ứng với mục tiêu của từng cái tab"*. Luật: **hai gợi ý đầu LUÔN thuộc trục của tab đang đứng**; gợi ý theo giờ và theo việc chỉ được chen vào **ô thứ 3–4**, và **không bao giờ đẩy gợi ý của trục ra ngoài**.
+
+| Tab | Trục | Hai gợi ý đầu phải thuộc nhóm |
+|---|---|---|
+| Trang chủ | tổng hợp | việc gấp nhất trong máy (giấy sắp hết · bão · đơn đang giao) |
+| Ra khơi | 1 — đánh bắt | đi được không · sóng gió · bão · dầu/tuyến |
+| Tàu cá | 3 + 4 — vận hành, giấy tờ | giấy tờ · bảo dưỡng · mua đồ cho tàu · đơn |
+| Bạn thuyền | 4 — thuyền viên | số người · bảo hiểm · giấy của thuyền viên |
+| Giao dịch | 2 — bán được đắt | giá cá · giá dầu · chỗ bán |
+
+Sai đã đo thật 2026-09-07: đứng ở **Tàu cá → Sản phẩm** mà gợi ý ra "Ngày mai sao" + "Tin bão" (chuyện thời tiết) vì chip theo giờ và theo việc chiếm chỗ. Đó là lỗi trộn trục, không phải chuyện thẩm mỹ.
+
+---
+
+### Nút nổi TRỢ LÝ + tấm che toàn màn (2026-09-06, [13 §5.1/§5.2](13-ba-spec-tro-ly-giong-noi.md))
+
+Hai khuôn mới, chỉ dùng cho Trợ lý giọng nói — đừng chép sang chỗ khác mà không đọc lý do.
+
+| Khuôn | Chốt | Vì sao |
+|---|---|---|
+| **Nút nổi "Sen Biển"** (`assistant-fab.tsx` trên khuôn `ui/float-btn.tsx`, 2026-09-07) | vùng chạm tròn **4rem**, **trong suốt, không nền/viền**, mascot PNG 48px + nhãn "Sen Biển" dưới icon; mặc định cách mép **cột app** 1rem, `bottom: calc(var(--dock-total) + 0.75rem)`, `z-20`; **kéo được** (thả nép mép, giữ độ cao), **ẩn được** (đẩy sát mép → ló 1,25rem, mờ 70%, chạm hiện lại), nhớ `forfish.fab.v1` | Linh vật riêng như bot ngân hàng: **cá xanh** thân thiện, **nụ sen cam** hòa vào đỉnh đầu, hai vây bên mở như đang lắng nghe, **cụm sóng xanh** làm chân để khóa nghĩa “biển”. Asset `public/icons/sen-bien.png` có alpha thật, nổi trực tiếp trên màn hình, không huy hiệu trắng/robot/mic; bóng đổ chỉ bám silhouette. Sàn chạm 56px là sàn tuyệt đối (§Nút hành động 5). Nằm TRONG cột 480px; **khuôn `FloatBtn` dùng chung** cho nút giỏ nổi ở Cửa hàng |
+| **Luật ẩn** (rẻ → đắt) | route cấm (danh sách tĩnh) → bàn phím mở (`visualViewport` co >150px) → panel khác (`[role=dialog][aria-modal]`) → thanh đáy dính của chợ → **sheet Ra khơi nở nấc `half`** (2026-09-06c: `section[role=region]` có `style.height` theo %) | Nút nổi che ô đang gõ hoặc che "Đặt hàng (n)" là hỏng việc chính của màn. ⚠️ Phép dò thanh dính bắt theo dấu vết `--dock-total`, mà chính nút nổi cũng mang dấu đó ⇒ **phải loại chính nó ra**, không thì nút tự thấy mình → ẩn → hiện → ẩn (đo thật 2026-09-06: ~10.000 lượt/giây, chạm không được) |
+| **Tấm che** (`assistant-sheet.tsx`) | `fixed inset-0` trong cột 480px, `role="dialog" aria-modal`, tự bẫy focus + Esc + khoá cuộn nền; **không** dùng `BottomSheet`, **không** scrim | Cần trọn chiều cao cho vòng mic + chữ TO; nền sau không có gì để nhìn. Đổi lại nó phải tự làm đủ ba việc a11y mà `BottomSheet` làm sẵn |
+| **Sáu khối theo thứ tự** | 1 tiêu đề + Tắt/Bật tiếng (`SQ_BTN` 56px) + `CloseButton` · 2 vòng mic ≥6rem (nhịp `motion-safe:animate-ping`, tôn trọng "giảm chuyển động") + chữ nghe được hiện dần · 3 câu trả lời **≥1.25rem** `text-foreground` + dòng tuổi dữ liệu 0.9375rem · 4 thẻ hành động 0-hoặc-1 (cặp nút `grid-cols-2`, primary bên PHẢI, mỗi nút `min-h-[3.5rem]`) · 5 chip gợi ý 3–4 (`min-h-[3.5rem]`) · 6 hàng đáy "Gõ thay vì nói" / ô gõ | "Chỉ bày cái KEY" (§Khung nhập C1). Chữ trả lời là kênh CHÍNH (nhiều máy Android không có giọng Việt), nên nó to hơn mọi chữ khác trên tấm che |
+| **Đọc lại** | nút chữ "Nghe lại" dưới câu trả lời, ẩn khi đã tắt tiếng hoặc máy không có giọng Việt | iOS chỉ phát tiếng trong một cử chỉ chạm THẬT; câu trả lời tới sau cử chỉ mở tấm che thì máy im — nút này là cử chỉ mới |
+| **Nâng tránh chỗ chạm** (2026-09-06c) | ở `/ngu-truong` đo dải chip ngày rồi nâng nút bằng `marginBottom` (KHÔNG `transform` — lớp `active:scale` đã chiếm thuộc tính đó) | Chip ngày là ô chạm nhiều thứ hai của màn; nâng theo SỐ ĐO thật thì dải đổi chỗ theo nấc sheet vẫn không bị che |
+| **Chữ phụ trên tấm che** (2026-09-06c) | các dòng dặn ("Bật mic trong cài đặt máy…", "Máy này chưa nói được với tôi…", dòng cách xác nhận) và nhãn chip lên **1.125rem**; "Nghe lại" 1.125rem | Đây là chữ ĐỌC, không phải nhãn trang trí — sàn 1.125rem của §Chữ áp cho cả chữ phụ (audit P2-11: 0.9375rem dưới nắng chói bà con 55 tuổi không đọc nổi) |
+| **Đồng hồ** | "Đang nghĩ…" chỉ hiện sau **300 ms**, đổi sang "Hơi lâu, bác chờ chút…" ở **8 s** (cạnh nó là nút "Thôi đợi" — bỏ câu đang hỏi, không đóng tấm che); trạng thái xong không ai chạm **20 s** → tự đóng | Tầng máy trả lời trong nửa giây — nháy một dòng chữ rồi mất còn khó chịu hơn không có. Tự đóng để trả màn về việc bà con đang làm dở |
+
 ## 7. Cross-references
 
 - Vì sao audience là vậy: [01-product.md](01-product.md)
@@ -377,6 +489,21 @@ Chủ dự án 2026-08-29: *"kích thước cái x đóng làm cho đồng bộ�
 
 ---
 
-**Last updated**: 2026-08-29
+**Last updated**: 2026-09-06
+
+<!-- re-verified: 2026-09-06b — VÒNG FIX UX CHỢ VẬT TƯ, ba luật vào design system (doc đi cùng commit code):
+  §Nút hành động 1b MỚI — khu chợ KHÔNG dùng `SQ_BTN` cho hành động chính / việc thường bấm. Gốc là số ĐO chứ không phải ý thích: mặc định app là "gọn" (`layout.tsx` đặt `data-mode=gon` khi chưa có khoá) ⇒ `--row-h` 2.3125rem và nhãn `.sq-btn` 0.6875rem, nên mọi máy MỚI rơi vào 37px/11px mà người dùng chưa chọn gì; đo 390×844 ra "Huỷ" 37×37, "Bỏ" 55×37, "Chép mã" 88×37… Hằng dùng chung là `SELLER_BTN`/`SELLER_BTN_WIDE` ở `src/components/market/seller/ui.tsx` (tên mang tiền tố seller vì sinh ra ở đó; phía người mua dùng cùng chuỗi tại chỗ — GỘP TÊN là việc vòng sau, KHÔNG nhân bản chuỗi thứ hai). Ngoại lệ ♡ overlay 2.75rem đối chiếu mã: `shared/product-card.tsx` `h-11 w-11` đè lên ảnh, `onFav` là nút riêng ngoài `<a>` — ghi ranh giới rõ để không ai mượn con số này cho nút khác.
+  §Đặt hàng — thêm luật chip chợ = `ChipRow` level 1 (`shared/category-chips.tsx` + hàng sắp xếp ở `market-search.tsx`); nhân đó SỬA số cũ ở §Phân cấp điều hướng (48px/42px) cho khớp 5d (3.5rem/3.25rem) — hai chỗ đang nói hai con số cho cùng một component.
+  §Khung nhập — thêm luật `<select>` nền tảng cho danh sách >12 lựa chọn (tỉnh: `AddressForm` + `seller/shop-form.tsx` đều đã đổi từ 34 chip cuộn ngang sang `<select>` trên `COASTAL_PROVINCES`). ĐÃ ĐỐI CHIẾU với luật chip cũ: không mâu thuẫn — `ChipRow` là để ĐIỀU HƯỚNG, đây là GIÁ TRỊ NHẬP; ghi rõ ranh giới ≤12 vẫn dùng chip để luật không bị đọc thành "đổi hết chip thành select".
+  KHÔNG token màu mới; không đụng `globals.css`. Ma trận trạng thái + screen map: [07 §5a/§6/§7/§8]. -->
+<!-- re-verified: 2026-09-06 — CHỢ VẬT TƯ: mục "Đặt hàng" thêm BA bộ chip của sàn (trạng thái đơn 6 giá trị · thanh toán 3 nấc · trạng thái gian hàng 4 giá trị). Đối chiếu mã: `src/lib/market/order-state.ts` (ORDER_STATUS_LABEL + ORDER_STATUS_CHIP, cặp màu bằng `var(--token)` — không hex, không rgba) và `src/components/market/shared/order-status-chip.tsx`; chip gian hàng ở `src/components/admin/market-admin-shared.tsx` (class token: warn-bg/ok-bg/danger-bg/field). KHÔNG token màu MỚI nào được thêm vào `globals.css` — sàn dùng đúng bộ trạng thái sẵn có. Vì sao tách khỏi bảng chip của Cửa hàng (`lib/catalog-orders.ts`, 5 trạng thái): sàn có thêm `hoan_thanh` và nghĩa của `da_giao` khác (chờ người mua xác nhận), gộp một bảng là nói dối một trong hai. Khu `/quan-tri` là web desktop-first nên chạm ở đó theo khuôn tab sẵn có (2.5–2.75rem), KHÔNG áp sàn 3.5rem của app ngư dân — luật tap 56px vẫn nguyên cho mọi màn bà con dùng. -->
 
 **5c. SÁU Ổ CHẠM CÒN SÓT TRONG FORM "THÊM ĐIỂM" (2026-08-29c).** `my-places-sheet.tsx` còn `min-h-[3rem]` (48px) ở sáu chỗ của khối `addOpen`: ô Tên · nút "Lấy chỗ đang trỏ" · hai ô Vĩ/Kinh độ · nút "Hủy" · nút "Lưu điểm" — trong khi CHÍNH FILE ĐÓ đã dùng `3.25rem` ở các hàng khác và `3.5rem` ở hàng điểm. Đây là **sáu ngoại lệ đo được còn sót, KHÔNG phải chuyện cả app chưa đạt sàn** (gốc chữ 16px ⇒ `3.5rem` = 56px, sàn tap toàn app đã đạt). Vì sao đáng sửa dù chỉ là 6 token: đó là **đường đi DUY NHẤT để lưu một điểm đánh cá** — việc cốt lõi của app — và cũng đúng là chỗ lối tắt chạm-giữ trên bản đồ đổ vào ([07 §10.7 K](07-design-spec.md), `prefillTick`); chỗ tốt nhất của app đang dẫn thẳng vào sáu ô nhỏ nhất của app, tay ướt, tàu lắc, sáu ô liền nhau. **Chốt**: bốn ô nhập/nút trong thân form lên `3.25rem`; "Hủy" + "Lưu điểm" (đứng riêng một hàng `grid-cols-2`, nâng không ảnh hưởng bố cục) lên hẳn `3.5rem`. Chỉ đổi token chiều cao, không đụng bố cục ⇒ không có rủi ro tràn — panel đã chứa sẵn hàng `3.25rem`. **KHÔNG đụng bề ngang** cột "Đổi tên"/"Xóa" (44px, xem 5b(b) — vẫn đang có `// nợ:`).
+
+### Cỡ UI cửa hàng — 2026-09-08 (thay quy tắc thẻ lưới cũ)
+
+- Icon thao tác thông thường 1.5rem, vùng chạm 3.5rem; icon mic 2rem trong nút 4rem. Nút lưu món bỏ ngoại lệ 2.75rem, dùng 3.5rem.
+- Tên món và giá thẻ 1.125rem; thông tin shop/tỉnh/thống kê 0.875rem, độ đậm và tương phản tăng. Giá chi tiết size lg dùng text-2xl; tiêu đề trang và Sen Biển text-xl.
+- Thẻ ảnh 4:3, không cắt ảnh hàng; màn dưới 360px một cột, ảnh 2:1. Hai cột còn lại chỉ cân chiều cao trong cùng hàng, không auto-rows-fr toàn danh sách.
+- Thanh tìm không dùng icon trơ cho Giỏ/Đơn. Thanh đầu nền navy phẳng, không hero gradient. Nút người bán rounded-2xl, đồng bộ ô điều khiển sàn.
+- Focus ring rõ, reduced-motion tắt hiệu ứng trong khu sàn. Token màu/font và quy tắc chế độ Gọn/Chữ to giữ nguyên.

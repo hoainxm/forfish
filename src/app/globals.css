@@ -354,6 +354,42 @@ textarea,
 .anim-pop-out { animation: sdf-pop-out 160ms ease-in both; }
 .anim-fade-in { animation: sdf-scrim-in 180ms ease-out both; }
 
+/*  NHỊP THỞ NÚT TRỢ LÝ (03 §Trợ lý trong app, luật 11) — báo "có tôi ở đây" mà
+    KHÔNG phiền. Đúng 3 nhịp × 1,4s = 4,2s rồi dừng hẳn: WCAG 2.2.2 (mức A) cấm
+    chuyển động tự chạy quá 5 giây mà không có cách dừng. Nhịp là quầng sáng nở
+    ra rồi tan, không phóng to chính nút — nút to nhỏ liên tục thì tay đang với
+    sẽ chạm hụt. Block prefers-reduced-motion bên dưới tắt hẳn cái này. */
+@keyframes sdf-fab-tho {
+  0%   { box-shadow: 0 0 0 0 rgb(15 118 178 / 0.45); }
+  70%  { box-shadow: 0 0 0 0.75rem rgb(15 118 178 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(15 118 178 / 0); }
+}
+.anim-fab-tho { animation: sdf-fab-tho 1400ms ease-out 3; }
+
+/*  MASCOT SEN BIỂN NỔI TỰ NHIÊN — KHÔNG bao tròn (chủ dự án 2026-09-07, so với
+    mẫu trợ lý VTC: "nó không cần cái bao tròn nền màu liquid như mình đâu").
+    Bản trong suốt trước đó CHÌM vào chữ; bản bọc nền nước thì thành cái đĩa.
+    Cách thứ ba: bóng bám ĐÚNG HÌNH con cá (drop-shadow theo alpha, không phải
+    box-shadow theo hình vuông) — một lớp trắng tách nó khỏi nền tối, một lớp
+    xanh sâu tách khỏi nền sáng. Nhờ vậy nổi trên cả bản đồ lẫn danh sách chữ. */
+.fab-mascot {
+  filter:
+    drop-shadow(0 0 2px rgb(255 255 255 / 0.95))
+    drop-shadow(0 1px 1px rgb(255 255 255 / 0.8))
+    drop-shadow(0 4px 8px color-mix(in srgb, var(--navy) 55%, transparent));
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* rê chuột / giữ ngón: nhún lên như cá quẫy — báo "chạm được" */
+@media (hover: hover) {
+  .fab-tro-ly:hover .fab-mascot { transform: translateY(-2px) scale(1.06) rotate(-3deg); }
+}
+.fab-tro-ly:active .fab-mascot { transform: translateY(1px) scale(0.96); }
+/* nhãn chữ có viên nền mờ để đọc được trên ảnh vệ tinh lẫn nền trắng */
+.fab-nhan {
+  background: color-mix(in srgb, var(--background) 82%, transparent);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--navy) 30%, transparent);
+}
+
 /* Tôn trọng người tắt hiệu ứng chuyển động (a11y) */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Tabs } from "@/components/ui/tabs";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { BoatSwitcher } from "@/components/boat-switcher";
+import { AnchorIcon, CartIcon, DocIcon } from "@/components/icons";
 import { DocumentVault, loadDocs } from "@/components/document-vault";
 import { VmsRenewal } from "@/components/vms-renewal";
 import { BoatServices } from "@/components/boat-services";
 import { BoatProducts } from "@/components/boat-products";
+import { MarketHome } from "@/components/market/buyer/market-home";
+import { MyMarketOrders } from "@/components/market/buyer/my-market-orders";
+import { RequireLogin } from "@/components/require-login";
 import { LoginGate } from "@/components/login-gate";
 import {
   getDueStatus,
@@ -31,11 +36,43 @@ import { useTodayVN } from "@/lib/use-today";
   · Dịch vụ  — nợ SDVICO quá hạn HOẶC bảo dưỡng tự ghi / kỳ dịch vụ SDVICO quá hạn
   Đọc lại mỗi lần đổi tab / đổi tàu / đổi ngày.
 */
+/*  Mã tab CŨ vẫn còn trong trang chủ, chip trợ lý, tài liệu và liên kết bà con đã
+    lưu. Giữ chúng chạy được thay vì đi sửa mọi nơi rồi bỏ sót một chỗ. */
+const CU_SANG_MOI: Record<string, string> = {
+  "giay-to": "tau-cua-toi",
+  "dich-vu": "tau-cua-toi",
+  "san-pham": "tau-cua-toi",
+};
+
 export function TauTabs() {
+  return <Suspense fallback={<p role="status" className="p-4">Đang mở tàu cá…</p>}><TauTabsContent /></Suspense>;
+}
+
+function TauTabsContent() {
   const { assets } = useSdvicoAssets();
   const { current, boats, ready: boatReady } = useBoats();
   const { today, todayIso } = useTodayVN();
-  const [tab, setTab] = useState("giay-to");
+  /*  BA TAB (chủ dự án chốt 2026-09-07): "dịch vụ, sản phẩm, giấy tờ của tàu vào
+      1 tab (là các sản phẩm, giấy tờ, dịch vụ tàu đang sử dụng), thêm tab Cửa hàng,
+      tab Đơn" — mặc định mở **Cửa hàng**.
+
+      Vì sao gộp: ba mục cũ đều trả lời CÙNG MỘT câu — "tàu tôi đang có gì, cái nào
+      sắp phải lo". Tách ba tab bắt bà con nhớ giấy tờ nằm tab nào, bảo dưỡng tab nào.
+      Còn mua đồ và xem đơn là việc KHÁC hẳn, nên chúng mới đáng một tab riêng —
+      và nhúng THẲNG vào đây thay vì nhảy sang màn khác rồi bấm Quay lại.
+
+      Deep-link cũ (?tab=giay-to · dich-vu · san-pham) từ trang chủ, chip trợ lý và
+      tài liệu vẫn phải chạy: map hết về tab gộp, không để bà con bấm nhắc việc rồi
+      rơi vào tab trống. */
+  const params = useSearchParams();
+  const wanted = params.get("tab") ?? "cua-hang";
+  const mapped = CU_SANG_MOI[wanted] ?? wanted;
+  const tab = ["tau-cua-toi", "cua-hang", "don"].includes(mapped) ? mapped : "cua-hang";
+  const setTab = (id: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", id);
+    window.history.pushState(null, "", url.pathname + url.search);
+  };
   const [docsBadge, setDocsBadge] = useState(false);
   const [maintOverdue, setMaintOverdue] = useState(false);
 
@@ -79,49 +116,59 @@ export function TauTabs() {
 
   return (
     <div>
-      <Tabs
-        ariaLabel="Mục quản lý tàu"
-        paramKey="tab"
-        value={tab}
-        onChange={setTab}
-        tabs={[
+      <nav aria-label="Mục quản lý tàu" className="tau-nav sticky z-30 bg-background px-4 py-3">
+        <div className="grid grid-cols-3 gap-1 rounded-2xl bg-field p-1">
+          {[
+            { id: "tau-cua-toi", label: "Tàu của tôi", icon: AnchorIcon },
+            { id: "cua-hang", label: "Cửa hàng", icon: CartIcon },
+            { id: "don", label: "Đơn hàng", icon: DocIcon },
+          ].map(({ id, label, icon: Icon }) => (
+            <button key={id} type="button" aria-current={tab === id ? "page" : undefined}
+              onClick={() => setTab(id)}
+              className={`relative flex min-h-[4rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[0.9375rem] font-bold ${tab === id ? "bg-navy text-white shadow-sm" : "text-navy"}`}>
+              <Icon className="h-6 w-6" /><span>{label}</span>
+              {id === "tau-cua-toi" && (docsBadge || sdvicoOverdue || maintOverdue) && <span aria-label="Có việc cần xem" className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-card" />}
+            </button>
+          ))}
+        </div>
+      </nav>
+      {[
           {
-            id: "giay-to",
-            label: "Giấy tờ",
-            badge: docsBadge,
-            content: <DocumentVault />,
-          },
-          {
-            id: "dich-vu",
-            label: "Dịch vụ",
-            badge: sdvicoOverdue || maintOverdue,
+            id: "tau-cua-toi",
+            label: "Tàu của tôi",
+            badge: docsBadge || sdvicoOverdue || maintOverdue,
             content: (
-              <LoginGate
-                feature="dịch vụ và nhắc bảo dưỡng"
-                blurb="Đăng nhập để theo dõi dịch vụ, công nợ SDVICO và lịch bảo dưỡng — dữ liệu riêng của bà con."
-                accent="t3"
-              >
-                <BoatServices />
-                {/* Gia hạn VMS đặt NGAY SAU sổ nhắc bảo dưỡng (mục cuối của BoatServices) */}
-                <VmsRenewal />
-              </LoginGate>
+              <div className="tau-owned">
+                <BoatSwitcher compact />
+                <section aria-label="Giấy tờ tàu"><DocumentVault /></section>
+                <LoginGate
+                  feature="dịch vụ và nhắc bảo dưỡng"
+                  blurb="Đăng nhập để theo dõi dịch vụ, công nợ SDVICO, lịch bảo dưỡng và đồ đã mua — dữ liệu riêng của bà con."
+                  accent="t3"
+                >
+                  <section aria-label="Dịch vụ và bảo dưỡng" className="mt-6"><BoatServices /></section>
+                  {/* Gia hạn VMS đặt NGAY SAU sổ nhắc bảo dưỡng (mục cuối của BoatServices) */}
+                  <section aria-label="Giám sát hành trình" className="mx-4 mt-6 rounded-2xl bg-card p-4"><VmsRenewal /></section>
+                  <section aria-label="Thiết bị đang dùng" className="mt-6"><div className="tau-section-title"><h2>Thiết bị đang dùng</h2></div><BoatProducts /></section>
+                </LoginGate>
+              </div>
             ),
           },
           {
-            id: "san-pham",
-            label: "Sản phẩm",
+            id: "cua-hang",
+            label: "Cửa hàng",
+            content: <MarketHome embedded />,
+          },
+          {
+            id: "don",
+            label: "Đơn",
             content: (
-              <LoginGate
-                feature="sản phẩm của tàu"
-                blurb="Đăng nhập để quản lý đồ đã mua, bảo hành — dữ liệu riêng của bà con."
-                accent="t3"
-              >
-                <BoatProducts />
-              </LoginGate>
+              <RequireLogin what="đơn hàng">
+                <MyMarketOrders />
+              </RequireLogin>
             ),
           },
-        ]}
-      />
+        ].find((item) => item.id === tab)?.content}
     </div>
   );
 }

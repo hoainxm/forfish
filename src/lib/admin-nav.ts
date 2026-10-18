@@ -9,6 +9,7 @@ export type AdminTab =
   | "canh-bao"
   | "san-pham"
   | "don-hang"
+  | "cho-vat-tu"
   | "yeu-cau"
   | "vung-bien"
   | "cho-ban"
@@ -22,6 +23,8 @@ export type AdminTab =
 export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
   "tai-khoan": "Tài khoản",
   "don-hang": "Đơn hàng",
+  // Chợ vật tư (sàn đa người bán, gộp từ feat/san-thuong-mai 2026-10-18) — admin-only
+  "cho-vat-tu": "Cửa hàng",
   "yeu-cau": "Yêu cầu hỗ trợ",
   "thong-bao": "Thông báo",
   "san-pham": "Sản phẩm",
@@ -34,7 +37,7 @@ export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
   "he-thong": "Cấu hình hệ thống",
 };
 
-export type AdminNavGroupId = "khach" | "noi-dung" | "nhan-su" | "he-thong";
+export type AdminNavGroupId = "khach" | "cho" | "noi-dung" | "nhan-su" | "he-thong";
 export type AdminNavGroup = {
   id: AdminNavGroupId;
   label: string;
@@ -46,12 +49,16 @@ export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
   {
     id: "khach",
     label: "Khách hàng",
-    tabs: ["tai-khoan", "don-hang", "yeu-cau", "thong-bao"],
+    tabs: ["tai-khoan", "yeu-cau", "thong-bao"],
   },
+  /*  CHỢ VẬT TƯ (gộp feat/san-thuong-mai 2026-10-18): tab "Cửa hàng" là sàn thật;
+      "Sản phẩm" + "Đơn hàng" là danh mục/đơn CŨ đã nghỉ từ 07/09 (ADR 0014) — để
+      cạnh nhau cho người trực thấy ngay cái nào là chỗ làm việc, cái nào chỉ để tra. */
+  { id: "cho", label: "Chợ vật tư", tabs: ["cho-vat-tu", "san-pham", "don-hang"] },
   {
     id: "noi-dung",
     label: "Nội dung",
-    tabs: ["san-pham", "cho-ban", "canh-bao", "vung-bien"],
+    tabs: ["cho-ban", "canh-bao", "vung-bien"],
   },
   { id: "nhan-su", label: "Nhân sự", tabs: ["phan-quyen", "nhat-ky"] },
   { id: "he-thong", label: "Hệ thống", tabs: ["du-lieu", "he-thong"] },

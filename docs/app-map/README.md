@@ -25,6 +25,7 @@
 | Hành vi đa-tàu, hồ sơ cố định/động, vòng đời thêm/xóa/đổi tàu, nhắc theo tàu | Root + [08-ba-spec-da-tau.md](08-ba-spec-da-tau.md) |
 | Đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (dự báo × mùa vụ), nguồn cho tầm 16 ngày | Root + [09-ba-spec-lo-trinh-chuyen-bien.md](09-ba-spec-lo-trinh-chuyen-bien.md) |
 | Đụng DB, migration, RLS, logic giấy tờ / hạn | Root + [04-data-model.md](04-data-model.md) |
+| Chợ vật tư tàu cá (sàn đa người bán): mua, bán, đơn, shop, admin duyệt | Root + [11-ba-spec-san-thuong-mai.md](11-ba-spec-san-thuong-mai.md) (hành vi) + [12-kien-truc-san-thuong-mai.md](12-kien-truc-san-thuong-mai.md) (kỹ thuật) |
 | Phối hợp nhiều agent / chia việc | Root + [05-agents-team.md](05-agents-team.md) |
 
 ---
@@ -44,6 +45,8 @@
 | 09 | [09-ba-spec-lo-trinh-chuyen-bien.md](09-ba-spec-lo-trinh-chuyen-bien.md) | ba-spec LỘ TRÌNH CHUYẾN BIỂN: bài toán orienteering có điểm bắt buộc, nguồn dữ liệu cho tầm 16 ngày, lớp cá pha trộn dự-báo × mùa-vụ (§5d — ĐÃ LÀM, có số đo), lưu tuyến + so vị trí offline |
 | 10 | [10-ba-spec-quan-tri-van-hanh.md](10-ba-spec-quan-tri-van-hanh.md) | ba-spec WEB QUẢN TRỊ VẬN HÀNH: **ranh giới SDFish (vận hành) vs SDWork (tiền/khách/doanh thu)**, phân quyền đại lý, trạng thái chăm khách (đã dùng/đã liên hệ), thu tiền bằng MÃ CK + trace đồng bộ SDWork, audit admin, 1-tài-khoản-1-máy. Từ hội thoại team 2026-07-30 |
 | 15 | [15-flow-dang-chay-giong-noi.md](15-flow-dang-chay-giong-noi.md) | **FLOW ĐỂ DUYỆT (2026-10-12, chưa code)** chế độ ĐANG CHẠY kiểu VietMap: chỉ cần GPS là đọc + cảnh báo giọng nói (bão · ranh giới · hiểm hoạ · nước nông · sóng gió · lệch tuyến · phao/đèn), offline, bộ phát ngôn chung, 3 bậc nền tảng (Android WebView không có Web Speech ⇒ plugin TTS native), phân việc team-agent. Số 11–14 đang ở nhánh `feat/san-thuong-mai` |
+| 11 | [11-ba-spec-san-thuong-mai.md](11-ba-spec-san-thuong-mai.md) | ba-spec CHỢ VẬT TƯ TÀU CÁ (sàn đa người bán kiểu Shopee giản lược): actor mua/bán/admin, đối chiếu Shopee, object model, máy trạng thái đơn, flow từng màn, thông báo, offline, AC cho QA (2026-09-06) |
+| 12 | [12-kien-truc-san-thuong-mai.md](12-kien-truc-san-thuong-mai.md) | THIẾT KẾ KỸ THUẬT chợ vật tư: schema 0060 nguyên văn, interface `MarketStore` (supabase-store/file-store), logic thuần `lib/market/*`, dev identity file mode, route API, trang/component, ownership build (2026-09-06) |
 | ops | [ops/external-services.md](ops/external-services.md) | Registry nguồn dữ liệu ngoài (Open-Meteo, GDACS, VASEP, Supabase ×2, CRM gateway…) + "khi nó chết thì sao" |
 | ops | [ops/native-deploy.md](ops/native-deploy.md) | Deploy iOS/Android: PWA (manifest/SW/icons) + Capacitor (api-base, 2 chế độ wrap) + việc còn thiếu (Mac/store account/hosting) + lịch sử reject App Store |
 | ops | [ops/build-publish-store.md](ops/build-publish-store.md) | RUNBOOK build & phát hành CH Play + App Store: chốt version → AAB/Archive → store, xử lý reject 5.1.2 Privacy, chuyển domain sang sdfish.sdvico.vn |
@@ -54,7 +57,9 @@
 | ops | [ops/test-tai-khoan.md](ops/test-tai-khoan.md) | **Tài khoản test một lệnh**: `scripts/test-account.mjs` cấp chuỗi thiết bị / nâng premium tạm / dọn; danh sách khoanh vùng ở `scripts/test-accounts.json`; ca kiểm 401/403/200 chuẩn |
 | ops | [ops/rbac-runbook.md](ops/rbac-runbook.md) | **Tài khoản & phân quyền (RBAC 2026-10-02)**: vai (`staff_accounts`) · loại (real/test/demo/reviewer) · hạng tách ba trục; bảng quyền theo vai; thứ tự deploy → apply 0056 → gỡ admin chung → thu env; xoay khoá đã lộ |
 | ops | [ops/runbook.md](ops/runbook.md) | Runbook vận hành: dev/build/lint, regenerate asset tĩnh, deploy Vercel/PWA, health-check doc, escalation 🔴 |
+| ops | [ops/tram-o-bo/README.md](ops/tram-o-bo/README.md) | **TRẠM HỌC Ở BỜ** (PC RTX 3060, không phục vụ live): vận hành Sen Biển độc lập (ADR 0010) — cài local LLM (Ollama + qwen3.5:9b), quản trị+update gói não, vòng đêm soạn gói, tối ưu, giọng VieNeu, fine-tune (runbook, chưa train). Load khi vận hành trạm soạn/phát hành gói |
 | — | [../contracts/sdwork-assets.contract.md](../contracts/sdwork-assets.contract.md) | Contract shape đồ đã mua giữa CRM SDViCo (producer) ↔ ForFish (consumer), versioned |
+| — | [../contracts/tro-ly-brain-pack.contract.md](../contracts/tro-ly-brain-pack.contract.md) | Contract GÓI NÃO trợ lý (producer = trạm ở bờ, consumer = app): manifest có phiên bản + sha256, intents/answers/knowledge/models, luật nội dung (không số sống, đủ nguồn+ngày soát) |
 | — | [../adr/README.md](../adr/README.md) | ADR — log quyết định kiến trúc (vì sao chọn X), đánh số bất biến |
 
 ---

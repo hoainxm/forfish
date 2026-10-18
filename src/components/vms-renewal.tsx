@@ -14,7 +14,7 @@ import {
   ChevronRightIcon,
   CloseIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
+import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import { tokenHeader } from "@/lib/device-token-store";

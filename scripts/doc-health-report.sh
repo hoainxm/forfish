@@ -1,4 +1,6 @@
 #!/bin/sh
+# sedi <file> <sed-args...>: thay `sed -i` (GNU: -i, BSD/macOS: -i '' — không portable): ghi file tạm rồi mv.
+sedi() { _f=$1; shift; sed "$@" "$_f" > "$_f.tmp.$$" && mv "$_f.tmp.$$" "$_f"; }
 # ai-simple-version: 1.18.0
 # doc-health-report — đo lường nguyên tắc 12 v2 (event-first). 3 chế độ:
 #   sh doc-health-report.sh              -> report đầy đủ ra stdout (exit 0 kể cả khi có vấn đề)
@@ -46,10 +48,11 @@ read_meta() {
   [ -n "$CLINE" ] || { echo ""; return; }
   LV=$(head -10 "$1" | grep -i '^last_verified:' | head -1 | sed 's/^[^:]*:[[:space:]]*//')
   TTL=$(head -10 "$1" | grep -i '^ttl_days:' | head -1 | sed 's/^[^:]*:[[:space:]]*//')
-  LV_TS=$(date -d "$LV" +%s 2>/dev/null)
+  LV_TS=$(date -d "$LV" +%s 2>/dev/null)                                            # GNU date (Linux, Git Bash)
+  [ -n "$LV_TS" ] || LV_TS=$(date -j -f '%Y-%m-%d %H:%M:%S' "$LV 00:00:00" +%s 2>/dev/null)  # BSD date (macOS) — không có -d; cùng mốc đầu ngày như GNU
   if [ -z "$LV_TS" ]; then
     LV_TS=0
-    echo "WARN: khong parse duoc last_verified '$LV' trong $1 — can GNU date (macOS: brew install coreutils, dung gdate). Doc se bi coi la SUSPECT." >&2
+    echo "WARN: khong parse duoc last_verified '$LV' trong $1 (can dang YYYY-MM-DD). Doc se bi coi la SUSPECT." >&2
   fi
   PATHS=$(echo "$CLINE" | sed 's/^[Cc]overs:[[:space:]]*//; s/[[:space:]]*,[[:space:]]*/,/g; s/^[[:space:]]*//; s/[[:space:]]*$//')
   echo "$PATHS|$LV_TS|${TTL:-365}"
@@ -119,12 +122,13 @@ doc_state() {
 # Chèn/xóa marker DOC-STATUS trong chính doc. Anchor fallback: ttl_days -> last_verified
 # -> covers (doc cẩu thả frontmatter vẫn phải nhận marker — vòng 9 Bug 3).
 update_marker() {
-  sed -i '/<!-- DOC-STATUS:/d' "$1"
+  sedi "$1" '/<!-- DOC-STATUS:/d'
   if [ "$2" = "SUSPECT" ] || [ "$2" = "ORPHANED" ]; then
     if grep -qi '^ttl_days:' "$1"; then A='^[Tt][Tt][Ll]_days:'
     elif grep -qi '^last_verified:' "$1"; then A='^[Ll]ast_verified:'
     else A='^[Cc]overs:'; fi
-    sed -i "/$A/a <!-- DOC-STATUS: $2 ($(date +%Y-%m-%d)) — $3. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->" "$1"
+    sedi "$1" "/$A/a\\
+<!-- DOC-STATUS: $2 ($(date +%Y-%m-%d)) — $3. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->"
   fi
 }
 
@@ -151,7 +155,8 @@ if [ "$1" = "--self-test" ]; then
   # re-verify commit message hop le (kem dong re-verified comment — flow chuan, vi bump
   # date cung ngay la no-op khong co gi de stage) -> VERIFIED
   sleep 1
-  sed -i "/^ttl_days:/a <!-- re-verified: $(date '+%Y-%m-%d %H:%M') - calcX van khop -->" docs/app-map/01-t.md
+  sedi docs/app-map/01-t.md "/^ttl_days:/a\\
+<!-- re-verified: $(date '+%Y-%m-%d %H:%M') - calcX van khop -->"
   git add docs/app-map/01-t.md; git commit -qm "re-verify(01-t): calcX van khop"
   ST=$(doc_state docs/app-map/01-t.md 2>/dev/null | cut -d'|' -f1)
   [ "$ST" = "VERIFIED" ] && echo "PASS: re-verify(...) commit -> VERIFIED" || { echo "FAIL: re-verify khong duoc cong nhan ('$ST')"; RC=1; }
@@ -161,7 +166,7 @@ if [ "$1" = "--self-test" ]; then
   git add -A; git commit -qm "re-verify(01-t): them ref helperZ"
   ST=$(doc_state docs/app-map/01-t.md 2>/dev/null | cut -d'|' -f1)
   [ "$ST" = "VERIFIED" ] && echo "PASS: symbol song ngoai covers -> van VERIFIED" || { echo "FAIL: SUSPECT oan voi shared util ('$ST')"; RC=1; }
-  sed -i 's/calcX/deadFn/' docs/app-map/01-t.md && git add -A && git commit -qm "re-verify(01-t): doi ref"
+  sedi docs/app-map/01-t.md 's/calcX/deadFn/' && git add -A && git commit -qm "re-verify(01-t): doi ref"
   ST=$(doc_state docs/app-map/01-t.md 2>/dev/null)
   echo "$ST" | grep -q "symbol 'deadFn()'" && echo "PASS: symbol chet (toan repo) -> SUSPECT" || { echo "FAIL: symbol chet khong bi bat ($ST)"; RC=1; }
   # Symbol chết phải làm --ci FAIL (detector có răng — vòng 10)

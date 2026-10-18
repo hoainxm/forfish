@@ -15,12 +15,16 @@ import { useAuthUser } from "@/lib/use-auth";
 
 export function LoginGate({
   feature,
+  verb = "xem",
   blurb,
   accent = "t1",
   children,
 }: {
   /** Tên tính năng bị khóa, lời thường — vd "ai đang cần mua cá" */
   feature: string;
+  /** Động từ của việc bị khoá — mặc định "xem"; chợ truyền "đặt hàng" / "lưu món"
+   *  với `feature=""` (2026-09-06, F-20: "Đăng nhập để xem đặt hàng" là câu lệch). */
+  verb?: string;
   /** Một câu nói rõ vào sẽ được gì */
   blurb?: string;
   /** Màu trục của khu đặt gate (t1…t4) — không hardcode màu trục 1 giữa khu khác */
@@ -47,7 +51,7 @@ export function LoginGate({
         <LockIcon className="h-7 w-7" />
       </span>
       <p className="display mt-3 text-[1.25rem] font-bold text-navy">
-        Đăng nhập để xem {feature}
+        Đăng nhập để {[verb, feature].filter(Boolean).join(" ")}
       </p>
       <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-foreground/65">
         {blurb ??

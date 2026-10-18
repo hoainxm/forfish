@@ -64,3 +64,8 @@ test-reports/
 
 # Dữ liệu kéo về máy (Data Lake IUU có SĐT/địa chỉ chủ tàu) — KHÔNG BAO GIỜ commit, KHÔNG để trong public/
 /data-local/
+# pnpm store cache — máy-riêng, không commit
+/.pnpm-store/
+
+# Kho dữ liệu DEV của Chợ vật tư (MARKET_STORE=file) — máy riêng, không commit
+/.local/

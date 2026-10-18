@@ -26,6 +26,11 @@ const eslintConfig = defineConfig([
     // dùng @ts-nocheck vì globals Deno) — KHÔNG bundle vào Next, không phải app
     // code. Lint nó theo luật app là sai loại: báo lỗi @ts-nocheck cho thứ cố ý.
     "docs/**",
+    // scratch/ = bàn thí nghiệm ngoài app (vd scratch/tro-ly-wasm-bench của ADR
+    // 0010): mã đo + ASSET BÊN THỨ BA tải về (wasm wrapper do Emscripten sinh,
+    // .gitignore chặn không cho vào git). Lint nó theo luật app là sai loại —
+    // mã sinh tự động đẻ ra require()/this-alias/assign-module và lấp lỗi thật.
+    "scratch/**",
   ]),
   {
     rules: {

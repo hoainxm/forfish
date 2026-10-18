@@ -24,9 +24,10 @@ describe("ADMIN_NAV_GROUPS", () => {
 });
 
 describe("groupVisibleTabs", () => {
-  it("admin thấy đủ 4 nhóm", () => {
+  it("admin thấy đủ 5 nhóm", () => {
     expect(groupVisibleTabs(ALL_ADMIN_TABS).map((g) => g.id)).toEqual([
       "khach",
+      "cho",
       "noi-dung",
       "nhan-su",
       "he-thong",
@@ -36,7 +37,7 @@ describe("groupVisibleTabs", () => {
     const g = groupVisibleTabs(["san-pham", "tai-khoan"]);
     expect(g.map((x) => [x.id, x.tabs])).toEqual([
       ["khach", ["tai-khoan"]],
-      ["noi-dung", ["san-pham"]],
+      ["cho", ["san-pham"]],
     ]);
   });
   it("không tab nào → rỗng", () => {

@@ -19,7 +19,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
+import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -200,7 +200,7 @@ export function DocumentVault() {
           [thân cấp dữ liệu flex-1] + [ô nút w-16]. Trước: dải 343×60 ở y=263
           ăn riêng một hàng cho MỘT việc. Hàng vẫn chừa đúng ô nút khi khoá cửa
           ghi để mép phải không nhảy giữa hai trạng thái (luật 3b). */}
-      <div className="mb-4 flex items-stretch gap-2">
+      <div className="tau-section-heading">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
           <p className="text-[1rem] font-bold text-navy">
             Tủ giấy tờ · {sorted.length} giấy
@@ -300,7 +300,7 @@ export function DocumentVault() {
                   dữ liệu là [thân bg-background flex-1 min-w-0] + [ô nút w-16];
                   hàng không mang nút vẫn chừa đúng ô đó ⇒ mép phải thẳng. Trước:
                   hàng grid-cols-2 chỉ để chứa hai nút, tốn 52px không nội dung. */}
-              <div className="space-y-1.5 p-2">
+              <div className="tau-record space-y-2 p-3">
                 <div className="flex items-stretch gap-2">
                   <div className="min-w-0 flex-1 rounded-2xl bg-background px-3 py-2">
                     {/*  Loại giấy chỉ in khi KHÁC tên gọi (D1): DocumentForm khởi
