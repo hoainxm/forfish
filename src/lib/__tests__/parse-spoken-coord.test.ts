@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseSpokenCoordPair, soChuThanhSo } from "@/lib/parse-coord";
+import { parseSpokenCoordPair, soBangChu, soChuThanhSo } from "@/lib/parse-coord";
 
 const near = (r: { lat: number; lon: number } | null, lat: number, lon: number) => {
   expect(r).not.toBeNull();
@@ -55,4 +55,20 @@ describe("số đọc bằng chữ (chạy thử 2026-10-16)", () => {
   it("trộn chữ và số", () => near(parseSpokenCoordPair("9 độ hai mươi phút bắc 108 độ hai mươi mốt phút đông"), 9 + 20 / 60, 108 + 21 / 60));
   it("'năm' trước 'phút' / 'mươi' là số", () =>
     near(parseSpokenCoordPair("mười lăm độ năm phút bắc một trăm lẻ chín độ năm mươi phút đông"), 15 + 5 / 60, 109 + 50 / 60));
+});
+
+describe("số đọc bằng chữ (bộ nghe trong máy trả chữ, không trả số)", () => {
+  it.each([
+    ["mười bốn độ ba mươi tư phút", "14 độ 34 phút"],
+    ["một trăm lẻ chín độ bốn phút đông", "109 độ 4 phút đông"],
+    ["hai mươi mốt độ mười lăm phút", "21 độ 15 phút"],
+    ["mười ba phẩy không năm", "13 phẩy 05"],
+    ["một trăm linh chín phẩy bốn lăm", "109 phẩy 45"],
+  ])("%s → %s", (vao, ra) => expect(soBangChu(vao)).toBe(ra));
+  it("'không' đứng một mình là lời từ chối, không phải số 0", () => expect(soBangChu("không")).toBe("không"));
+  it("'nam' (hướng) khác 'năm' (5)", () => expect(soBangChu("mười độ nam")).toBe("10 độ nam"));
+  it("toạ độ nói bằng chữ đọc ra số", () =>
+    near(parseSpokenCoordPair("MƯỜI BỐN ĐỘ BA MƯƠI TƯ PHÚT BẮC MỘT TRĂM LẺ CHÍN ĐỘ BỐN PHÚT ĐÔNG"), 14 + 34 / 60, 109 + 4 / 60));
+  it("hai số nguyên trơn không nhãn KHÔNG là toạ độ ('tháng 2 … bd 95')", () =>
+    expect(parseSpokenCoordPair("lấy chiếc tàu của thằng hai ra coi bd 95")).toBeNull());
 });

@@ -20,17 +20,40 @@ import { CloseIcon } from "@/components/icons";
 
   Chỉ dùng cho panel ĐỌC-XEM / auto-apply (đóng không mất dữ liệu). Form có
   dữ liệu nhập → KHÔNG dùng X, dùng cặp Huỷ/Lưu ở đáy (xem 03-design-system).
+
+  KIỂU `goc` (2026-10-17, chủ dự án: "nút × là cái nhỏ ở góc trên phải sát góc, bé
+  xíu chiếm một ô nhỏ nhất để có thể click được" — chê × nằm ngang hàng nút):
+  cho THẺ NỔI nhỏ trên bản đồ. Chấm tròn 28px nền đậm ĐÈ góc trên-phải thẻ (bên
+  gọi đặt thẻ `relative`/`absolute`), vùng chạm 44px quanh chấm (WCAG AAA) — chủ
+  dự án chốt nhỏ hơn sàn 56px RIÊNG cho nút đóng góc. Không chiếm chỗ trong hàng.
 */
 export function CloseButton({
   onClose,
   label = "Đóng",
   className = "",
+  variant = "hang",
 }: {
   onClose: () => void;
+  /** `hang` (mặc định): X trong hàng tiêu đề panel · `goc`: chấm nhỏ đè góc thẻ nổi */
+  variant?: "hang" | "goc";
   /** aria-label — mặc định "Đóng"; đặt riêng khi cần tả rõ (vd "Đóng thông tin chặng") */
   label?: string;
   className?: string;
 }) {
+  if (variant === "goc") {
+    return (
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label={label}
+        className={`group absolute -right-3 -top-3 z-10 flex h-11 w-11 items-center justify-center ${className}`}
+      >
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-navy text-white shadow-md transition group-active:scale-90">
+          <CloseIcon className="h-4 w-4" />
+        </span>
+      </button>
+    );
+  }
   return (
     <button
       type="button"

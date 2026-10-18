@@ -12,6 +12,8 @@ import { useNavVoice, type NavVoiceInput } from "@/lib/nav-voice/use-nav-voice";
 import type { NavAlert } from "@/lib/nav-hazards";
 
 type Spoken = { text: string; rate: number };
+/** câu đỏ mẫu khi đi giọng máy: số đã thành chữ nói (mảnh ghép Mỹ Duyên, doc 15 §21) */
+const RED_NOI = "Xác tàu phía trước chừng bốn trăm mét";
 let spoken: Spoken[] = [];
 let hasVi = true;
 
@@ -109,7 +111,8 @@ describe("useNavVoice", () => {
     await tick(300);
     rerender(base({ on: true, alerts: [RED] }));
     await tick(1500);
-    expect(spoken[0]?.text).toBe("Xác tàu phía trước chừng 400 mét.");
+    // câu có số nay GHÉP mảnh giọng Sen Biển: đoạn đọc mang chữ nói (doc 15 §21)
+    expect(spoken[0]?.text).toBe("Xác tàu phía trước chừng bốn trăm mét");
   });
 
   it("tắt rồi bật lại: vẫn có bản tin mới và vẫn đọc", async () => {
@@ -176,7 +179,9 @@ describe("useNavVoice", () => {
     // tick dài thì React chỉ vẽ lại ở cuối, bản tin tới muộn và lỗi không lộ)
     for (let i = 0; i < 100; i++) await tick(300);
     const texts = spoken.slice(n0).map((s) => s.text);
-    const iCuoi = texts.indexOf("Bà con giữ máy sáng nhé.");
+    // mp3 không tải được ⇒ đọc giọng máy TỪNG MẢNH ở dạng chữ nói (ghép mảnh, doc 15 §21):
+    // "Bà con giữ máy" · "sáng" · "nhé" — mốc là mảnh CUỐI của câu cuối
+    const iCuoi = texts.findIndex((t) => /(^| )nhé\.?$/.test(t));
     const iBanTin = texts.findIndex((t) => /^(Máy đang canh|Máy chưa có tin bão|Bản tin)/.test(t));
     expect(iCuoi).toBeGreaterThan(0);
     expect(iBanTin).toBeGreaterThan(iCuoi);
@@ -190,7 +195,7 @@ describe("useNavVoice", () => {
     await tick(300);
     rerender(base({ on: true, alerts: [RED] }));
     await tick(1500);
-    expect(spoken.map((s) => s.text)).toContain("Xác tàu phía trước chừng 400 mét.");
+    expect(spoken.map((s) => s.text)).toContain(RED_NOI);
   });
 
   it("chế độ TẮT: hai câu Sen Biển liên tiếp NỐI HÀNG, câu sau không cắt câu trước", async () => {
@@ -202,17 +207,28 @@ describe("useNavVoice", () => {
     });
     await tick(10_000);
     const texts = spoken.map((s) => s.text);
-    expect(texts).toEqual(["Điểm 14 độ 34 phút Bắc.", "Đang vẽ đường.", "Tới Sa Huỳnh", "14 hải lý."]);
+    expect(texts).toEqual(["Điểm mười bốn độ ba mươi tư phút Bắc", "Đang vẽ đường.", "Tới Sa Huỳnh", "mười bốn hải lý"]);
   });
 
-  it("máy không có giọng Việt: không đọc, báo avail.ok=false để HUD nói thật", async () => {
+  it("máy không có giọng Việt VÀ không phát được mp3: không đọc, báo avail.ok=false để HUD nói thật", async () => {
     hasVi = false;
     installSynth();
+    vi.stubGlobal("Audio", undefined);
     const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
     rerender(base({ on: true, chart: "du", alerts: [RED] }));
     await tick(10_000);
     expect(spoken).toHaveLength(0);
     expect(result.current.avail?.ok).toBe(false);
+  });
+
+  it("không giọng Việt nhưng có mp3 Mỹ Duyên: VẪN đọc được (avail.ok), chỉ thiếu giọng máy", async () => {
+    hasVi = false;
+    installSynth();
+    vi.stubGlobal("Audio", class {}); // ca trước gỡ Audio — trả lại thẻ phát mp3
+    const { result, rerender } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    rerender(base({ on: true, chart: "du", alerts: [RED] }));
+    await tick(10_000);
+    expect(result.current.avail).toMatchObject({ ok: true, giongMay: false });
   });
 
   it("màn tắt đúng lúc tới lượt bản tin: KHÔNG nuốt — mở màn lại thì đọc", async () => {
@@ -264,7 +280,7 @@ describe("useNavVoice", () => {
     await tick(300);
     rerender(base({ on: true, chart: "du", alerts: [RED] }));
     await tick(20_000);
-    expect(spoken.map((s) => s.text)).toContain("Xác tàu phía trước chừng 400 mét.");
+    expect(spoken.map((s) => s.text)).toContain(RED_NOI);
     expect(done).not.toHaveBeenCalled();
   });
 
@@ -294,9 +310,9 @@ describe("useNavVoice", () => {
     await tick(5000);
     rerender(base({ on: true, chart: "du", alerts: [RED] }));
     await tick(5000);
-    const reply = spoken.filter((s) => s.text === "Còn 12 hải lý");
+    const reply = spoken.filter((s) => s.text === "Còn mười hai hải lý"); // số thành chữ nói (doc 15 §21)
     expect(reply.length).toBe(1);
     expect(reply[0].rate).toBe(1.12);
-    expect(spoken.find((s) => s.text === "Xác tàu phía trước chừng 400 mét.")?.rate).toBe(1);
+    expect(spoken.find((s) => s.text === RED_NOI)?.rate).toBe(1);
   });
 });

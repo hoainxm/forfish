@@ -22,7 +22,7 @@
  * hai chỗ khác hình là bà con không nối được đâu với đâu.
  *  · Đang chạy bình thường  → hai dòng chữ, KHÔNG phải nút (đọc, không bấm) —
  *    đúng cách các app bản đồ bày toạ độ; nút "Vị trí" ở rail phải mới là nút.
- *  · CHƯA có vị trí          → dòng TÀU TÔI thành NÚT THẬT cao 3.5rem, chạm là
+ *  · CHƯA có vị trí          → dòng TÀU TÔI thành NÚT THẬT cao 2.75rem (44px — chủ dự án 2026-10-17 chê hai hàng cách xa), chạm là
  *    xin quyền định vị ngay (user: *"click vào có request quyền"*).
  *
  * TRUNG THỰC là bất biến: chưa bật / máy từ chối / mất tín hiệu thì NÓI THẲNG,
@@ -30,7 +30,7 @@
  */
 
 import { haversineKm, bearingDeg, type LatLon } from "@/lib/route-plan";
-import { useMapPrefs, fmtCoordPair, fmtDist } from "@/lib/map-prefs";
+import { useMapPrefs, fmtLat, fmtLon, fmtDist, type CoordFormat } from "@/lib/map-prefs";
 import type { NavStatus } from "@/lib/use-nav-tracking";
 import { PinIcon, AlertIcon } from "@/components/icons";
 
@@ -124,18 +124,12 @@ export function PlotterReadout({
     <div className="pointer-events-auto glass w-fit max-w-[calc(100vw-5.5rem)] overflow-hidden px-1.5 py-0.5">
       {/* ── TÀU TÔI ───────────────────────────────────────────────────────
           Có toạ độ = DÒNG CHỮ (đọc, không bấm — như mọi app bản đồ).
-          Chưa có = NÚT THẬT cao 3.5rem: chạm là xin quyền định vị. */}
+          Chưa có = NÚT THẬT cao 2.75rem: chạm là xin quyền định vị. */}
       {myPos != null ? (
-        <p className="flex min-h-[1.375rem] items-center gap-1.5">
+        <p className="flex min-h-[1.5rem] items-center gap-1.5">
           <BoatMark stale={stale} />
           <RowLabel text="Tàu" />
-          <span
-            className={`truncate text-[0.75rem] font-bold tabular-nums leading-snug ${
-              stale ? "text-foreground/55" : "text-navy"
-            }`}
-          >
-            {fmtCoordPair(myPos.lat, myPos.lon, prefs.coordFormat)}
-          </span>
+          <ToaDo lat={myPos.lat} lon={myPos.lon} fmt={prefs.coordFormat} mo={stale} />
           {myTail && (
             <span className="shrink-0 whitespace-nowrap text-[0.625rem] font-semibold leading-snug text-warn">
               {myTail}
@@ -151,7 +145,7 @@ export function PlotterReadout({
               ? "Tính năng định vị đang bị chặn — chạm để cấp quyền lại nhé"
               : "Bật định vị để hiển thị toạ độ tàu"
           }
-          className="flex min-h-[3.5rem] w-full items-center gap-1.5 py-1 text-left transition active:scale-[0.98]"
+          className="flex min-h-[2.75rem] w-full items-center gap-1.5 text-left transition active:scale-[0.98]"
         >
           {denied ? (
             <AlertIcon className="h-3.5 w-3.5 shrink-0 text-warn" />
@@ -161,17 +155,15 @@ export function PlotterReadout({
           <RowLabel text="Tàu" />
           <span className="min-w-0 flex-1">
             <span className="block text-[0.75rem] font-bold leading-snug text-navy">
-              {denied
-                ? "Ứng dụng chưa được cấp quyền định vị"
-                : status === "idle"
-                  ? "Chạm để bật định vị"
-                  : "Đang lấy toạ độ…"}
+              {/* DANH TỪ NGẮN, không nguyên câu (chủ dự án 2026-10-17: "bị rộng quá, chiếm màn
+                  hình, viết ngắn gọn thôi, dùng danh từ") — câu đủ nằm ở aria-label */}
+              {denied ? "Định vị bị chặn" : status === "idle" ? "Bật định vị" : "Đang dò…"}
             </span>
             {/* CHỈ trạng thái bị chặn mới được thêm dòng thứ hai — bà con phải
                 biết đi đâu mà bật. Các trạng thái khác giữ đúng một dòng. */}
             {denied && (
               <span className="block text-[0.625rem] font-semibold leading-tight text-warn">
-                Cài đặt máy → SDFish → Vị trí
+                Cài đặt › Vị trí
               </span>
             )}
           </span>
@@ -182,12 +174,10 @@ export function PlotterReadout({
           Ẩn khi bản đồ TRỐNG (cursor == null): không có điểm xem thì không in
           toạ độ trỏ (tránh "cứ chạm là tính vị trí nhìn rối" — user 2026-08-29). */}
       {cursor != null && (
-      <p className="flex min-h-[1.375rem] items-center gap-1.5">
+      <p className="flex min-h-[1.5rem] items-center gap-1.5">
         <PinIcon className="h-4 w-4 shrink-0 text-trim" />
         <RowLabel text="Trỏ" />
-        <span className="truncate text-[0.75rem] font-bold tabular-nums leading-snug text-navy">
-          {fmtCoordPair(cursor.lat, cursor.lon, prefs.coordFormat)}
-        </span>
+        <ToaDo lat={cursor.lat} lon={cursor.lon} fmt={prefs.coordFormat} />
         {rng && (
           <span className="shrink-0 whitespace-nowrap text-[0.625rem] font-semibold leading-snug text-foreground/55">
             · {rng}
@@ -196,5 +186,17 @@ export function PlotterReadout({
       </p>
       )}
     </div>
+  );
+}
+
+/*  TOẠ ĐỘ HAI HÀNG — vĩ độ trên, kinh độ dưới, chữ nhỏ (chủ dự án 2026-10-17: "toạ độ cho hàng
+    trên hàng dưới, làm nhỏ lại, cái ô nó ngắn lại được"). Một hàng "13°00'00"N · 110°30'00"E"
+    kéo thẻ rộng gấp đôi; hai hàng thì thẻ hẹp lại, vẫn đọc trọn số. */
+function ToaDo({ lat, lon, fmt, mo = false }: { lat: number; lon: number; fmt: CoordFormat; mo?: boolean }) {
+  return (
+    <span className={`flex flex-col text-[0.6875rem] font-bold tabular-nums leading-tight ${mo ? "text-foreground/55" : "text-navy"}`}>
+      <span className="whitespace-nowrap">{fmtLat(lat, fmt)}</span>
+      <span className="whitespace-nowrap">{fmtLon(lon, fmt)}</span>
+    </span>
   );
 }

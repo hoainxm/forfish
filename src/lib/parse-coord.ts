@@ -142,22 +142,37 @@ function giaTriSo(w: string[], c: string[]): number {
   return i < w.length ? v + SO_CHU[w[i]] : v;
 }
 
-/** Đổi số đọc bằng chữ trong câu ĐÃ BỎ DẤU ra chữ số; chữ khác giữ nguyên. */
-export function soChuThanhSo(s: string): string {
-  const raw = s.split(/\s+/).filter(Boolean);
-  const w = raw.map((x) => x.replace(/[^a-z0-9]/g, ""));
+/*  Chữ có DẤU nói chắc nó là số hay không — chỉ dùng được khi câu còn dấu
+    (bộ nghe trong máy luôn trả có dấu): "năm" là số, "nam" là hướng Nam. */
+const CHAC_SO = new Set(["năm", "tư", "sáu", "lăm"]);
+const CHAC_KHONG = new Set(["nam", "từ", "sau", "làm"]);
+
+/**
+ * LÕI đổi số bằng chữ — MỘT luật cho cả câu bỏ dấu lẫn câu có dấu (gộp 2026-10-18:
+ * main có `soChuThanhSo` trên chữ bỏ dấu, nhánh Sen Biển có `soBangChu` trên chữ có
+ * dấu — hai bản trôi nhau là đúng kiểu lỗi CLAUDE.md cảnh báo). `raw` = chữ gốc
+ * (giữ nguyên khi không phải số), `w` = cùng chữ đã bỏ dấu, `co` = có dấu để tra.
+ */
+function doiSo(raw: string[], w: string[], co: boolean): string {
   const c = w.map(lopSo);
   const laSo = c.map((k, i) => {
     if (!k) return false;
     if (!NUOC_DOI.has(w[i])) return true;
+    if (co) {
+      const r = raw[i].toLowerCase().normalize("NFC");
+      if (CHAC_SO.has(r)) return true;
+      if (CHAC_KHONG.has(r)) return false;
+    }
     const truoc = c[i - 1] ?? "";
     const sau = c[i + 1] ?? "";
     const chuSau = w[i + 1] ?? "";
     const truocDoPhut = chuSau === "do" || chuSau === "phut" || chuSau === "giay";
+    // ngay sau "phẩy/chấm" là chữ số thập phân ("mười ba phẩy không năm")
+    const sauPhay = w[i - 1] === "phay" || w[i - 1] === "cham";
     // "lăm"/"tư" chỉ đứng sau "mươi"/"lẻ" (ba mươi tư, một trăm lẻ tư)
-    if (w[i] === "lam" || w[i] === "tu") return truoc === "M" || truoc === "L" || truocDoPhut;
+    if (w[i] === "lam" || w[i] === "tu") return truoc === "M" || truoc === "L" || truoc === "D" || truocDoPhut || sauPhay;
     // đứng TRƯỚC thì chỉ khi sau nó là "mươi"/"trăm" (năm mươi) — "phút nam một trăm…" là hướng Nam
-    return truoc !== "" || sau === "M" || sau === "T" || truocDoPhut;
+    return truoc !== "" || sau === "M" || sau === "T" || truocDoPhut || sauPhay;
   });
   const out: string[] = [];
   for (let i = 0; i < w.length; ) {
@@ -182,12 +197,28 @@ export function soChuThanhSo(s: string): string {
     }
     i = j;
   }
-  return out.join(" ");
+  // "14 phẩy 0 5" → "14 phẩy 05": các chữ số rời sau phẩy dính lại thành phần lẻ
+  return out
+    .join(" ")
+    .replace(/(phẩy|phay|chấm|cham) ((?:\d \d)+(?: \d)?)(?=\s|$)/gi, (_, p: string, ds: string) => `${p} ${ds.replace(/ /g, "")}`);
+}
+
+/** Đổi số đọc bằng chữ trong câu ĐÃ BỎ DẤU ra chữ số; chữ khác giữ nguyên. */
+export function soChuThanhSo(s: string): string {
+  const raw = s.split(/\s+/).filter(Boolean);
+  return doiSo(raw, raw.map((x) => x.replace(/[^a-z0-9]/g, "")), false);
+}
+
+/** Như `soChuThanhSo` cho câu CÒN DẤU (bộ nghe trong máy, lệnh bản đồ): chữ không phải số giữ nguyên dấu. */
+export function soBangChu(text: string): string {
+  const raw = String(text ?? "").split(/\s+/).filter(Boolean);
+  return doiSo(raw, raw.map((x) => foldSpoken(x).replace(/[^a-z0-9]/g, "")), true);
 }
 
 export function parseSpokenCoordPair(text: string): { lat: number; lon: number } | null {
   if (typeof text !== "string") return null;
-  let s = ` ${soChuThanhSo(foldSpoken(text))} `
+  // đổi số TRƯỚC khi bỏ dấu: còn dấu thì "năm" (5) khác chắc "nam" (hướng)
+  let s = ` ${foldSpoken(soBangChu(text))} `
     // "14 phẩy 58" / "14 chấm 58" → 14.58 ; "14,58" → 14.58
     .replace(/(\d+)\s*(?:phay|cham)\s*(\d+)/g, "$1.$2")
     .replace(/(\d+),(\d+)/g, "$1.$2");
@@ -208,6 +239,8 @@ export function parseSpokenCoordPair(text: string): { lat: number; lon: number }
     // không nhãn: chia đôi dãy số (2 · 4 · 6 số)
     const nums = s.match(/\d+(?:\.\d+)?/g) ?? [];
     if (nums.length !== 2 && nums.length !== 4 && nums.length !== 6) return null;
+    // hai số NGUYÊN trơn ("tháng 2 … bd 95") không phải toạ độ — cần số lẻ hoặc nhãn
+    if (nums.length === 2 && !nums.every((x) => x.includes("."))) return null;
     const h = nums.length / 2;
     latPart = nums.slice(0, h).join(" ");
     lonPart = nums.slice(h).join(" ");

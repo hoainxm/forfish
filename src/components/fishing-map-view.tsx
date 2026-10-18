@@ -182,6 +182,8 @@ import {
 import {
   arrowFeatures,
   fetchForecastGrid,
+  gridHasCurrent,
+  nearestGridCell,
   peekForecastGrid,
   savedCurrentGridDays,
   timeLabelVN,
@@ -195,6 +197,7 @@ import {
 import { fishInRegion, regionAt } from "@/data/fish-seasons";
 import {
   fetchFishForecast,
+  banDoCaDaLuu,
   SPECIES_META,
   FISH_LEVEL_BANDS,
   type FishForecast,
@@ -243,6 +246,8 @@ import {
 /*  Mảng hằng, KHÔNG dựng inline trong JSX: `interactiveLayerIds` đổi reference
     mỗi lần vẽ lại là react-map-gl gỡ/gắn lại bộ bắt sự kiện theo nhịp GPS. */
 const ROUTE_HIT_LAYERS = [ROUTE_HIT_LAYER];
+/** tên ngắn mọi loài cá app biết — Sen Biển nhận "chỗ nào nhiều cá ngừ vằn" */
+const SEN_LOAI_CA = Object.keys(SPECIES_META);
 
 /*  BÁO HIỆU HÀNG HẢI — id lớp bắt chạm, và NẤC ZOOM cho từng loại.
 
@@ -441,6 +446,7 @@ import {
   scalarGradientCss,
   SCALAR_META,
   SCALAR_RAMP,
+  scalarValueAt,
   type FetchScalarKind,
   type ScalarGrid,
 } from "@/lib/scalar-field";
@@ -471,9 +477,24 @@ import { useNavVoice } from "@/lib/nav-voice/use-nav-voice";
 import type { ChartReadiness } from "@/lib/nav-voice/opening";
 import { VOICE_MODE_LABEL } from "@/lib/nav-voice/prefs";
 import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
+import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
+import { apDungGemma, canGemma, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
+import { foldVn } from "@/lib/sen-bien/ngram";
 import { CruiseIntroSheet } from "@/components/nav-voice-ui";
-import { SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
+import { SenBienNoi, SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
+import { traLoi, type KhoBanDo, type ViTri } from "@/lib/sen-bien/hoi-ban-do";
+import {
+  cauDocSo,
+  chiSoMoc,
+  LOP_CO_GIO,
+  noiThoiDiem,
+  TEN_LOP,
+  type LenhBanDo,
+  type LopBanDo,
+  type ThoiDiem,
+} from "@/lib/sen-bien/lenh-ban-do";
+import { napKhoBanDo } from "@/lib/sen-bien/kho-ban-do";
 import { distSpeech } from "@/lib/nav-voice/phrases";
 import { ACTIVE_PORTS, PORT_COORD_SAI } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
@@ -3060,6 +3081,10 @@ export default function FishingMapView() {
   const senPendingRef = useRef<{ name: string } | null>(null);
   /** dòng sóng gió chỗ đang xem — khai sau (condSummary), đọc qua ref */
   const senSeaRef = useRef<string | null>(null);
+  /** chỗ Sen Biển vừa trả lời — "dẫn tới đó" đi tới đây */
+  const senChoRef = useRef<SenDest | null>(null);
+  /** bản đồ cá cho câu hỏi "chỗ nào nhiều cá" — gán sau khi fishView có (khai báo phía dưới) */
+  const senCaRef = useRef<() => KhoBanDo["ca"]>(() => undefined);
   const [senAutoCompute, setSenAutoCompute] = useState(0);
   const senDests = useMemo<SenDest[]>(
     () => [
@@ -3072,14 +3097,31 @@ export default function FishingMapView() {
     ],
     [places],
   );
-  // tải sẵn bộ hiểu ý (2,4 MB) + giọng nữ Sen Biển (~0,8 MB mp3) khi còn ở bờ —
-  // SW giữ lại (cache-first), ra khơi mất sóng vẫn có. Lần mở sau là đọc từ kho.
+  // tải sẵn bộ hiểu ý (2,4 MB) + giọng nữ Sen Biển (~1,1 MB mp3) + bộ NGHE trong
+  // máy (34 MB, nghe-may.ts) khi còn ở bờ — SW giữ lại (cache-first), ra khơi mất
+  // sóng vẫn nghe/hiểu/đọc được. Lần mở sau là đọc từ kho. Tuần tự, sau 8 s.
+  const senTen = useMemo(() => senDests.map((d) => d.name), [senDests]);
+  const senTenRef = useRef(senTen);
   useEffect(() => {
     const t = setTimeout(() => {
-      void loadSenBienModel().then(() => warmVoiceClips());
+      void loadSenBienModel()
+        .then(() => warmVoiceClips())
+        .then(() => napBoNghe(senTenRef.current))
+        // Android: Gemma tách tham số (gói Play on-demand 62 MB, ADR 0012) — có thì nạp, chưa có thì xin Play tải
+        .then(() =>
+          chuanBiGemma(!!(navigator as unknown as { connection?: { saveData?: boolean } }).connection?.saveData),
+        );
     }, 8000);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      dongGemma();
+    };
   }, []);
+  // điểm ghim đổi ⇒ tên ưu tiên của bộ nghe đổi theo
+  useEffect(() => {
+    senTenRef.current = senTen;
+    datTenUuTien(senTen);
+  }, [senTen]);
 
   /** Ghim chỗ đang xem thành điểm của tôi (đặt tên) */
   const [pinName, setPinName] = useState("");
@@ -3886,13 +3928,301 @@ export default function FishingMapView() {
     setSenOpen(false);
     senSay("Dạ, chưa chạy. Đường vẫn để trên bản đồ.");
   }, [senSay]);
+
+  /* ── SEN BIỂN THAO TÁC BẢN ĐỒ (2026-10-17, lenh-ban-do.ts) ─────────────────
+     Bấm ĐÚNG các nút sẵn có (onForecast / onOverlayField / onLayer / onFish +
+     thanh giờ) — không có đường tắt riêng, nên mọi luật cũ (một lớp động mỗi
+     lần, khoá premium theo ngày, gác lớp cá) tự áp. Đọc số chỉ từ lưới màn hình
+     ĐÃ tải (không thêm request). ĐANG DẪN ĐƯỜNG thì KHÔNG đổi màn (hải đồ là ưu
+     tiên số một khi chạy — doc 15 §19): chỉ đọc số. */
+  const senViTri = useCallback((): ViTri => {
+    const tauMoi = tracking.pos && tracking.lastFixAt != null && Date.now() - tracking.lastFixAt < 10 * 60_000;
+    const c = mapRef.current?.getCenter();
+    return tauMoi && tracking.pos
+      ? { lat: tracking.pos.lat, lon: tracking.pos.lon, nguon: "tau", huongChay: tracking.headingDeg }
+      : { lat: c?.lat ?? point.lat, lon: c?.lng ?? point.lon, nguon: "ban-do" };
+  }, [tracking.pos, tracking.lastFixAt, tracking.headingDeg, point]);
+  /** goToMyBoat khai báo phía dưới — gọi qua ref */
+  const senVeTauRef = useRef<() => void>(() => {});
+  /** thời điểm chờ áp lên thanh giờ khi lưới của lớp vừa mở về */
+  const senMocRef = useRef<ThoiDiem | null>(null);
+  /** câu đọc số chờ lưới về (mở lớp xong đọc luôn; hỏi số của lớp chưa tải) */
+  const senDocRef = useRef<{ lop: LopBanDo; luc?: ThoiDiem; ds?: string[]; v: ViTri; mo?: string; han: number } | null>(null);
+  const SEN_OVERLAY: Partial<Record<LopBanDo, FetchScalarKind>> = useMemo(
+    () => ({ may: "cloud", mua: "rain", nhiet_kk: "airtemp", dong_set: "storm", ap_suat: "pressure" }),
+    [],
+  );
+  const SEN_FORECAST: Partial<Record<LopBanDo, ForecastKind>> = useMemo(() => ({ gio: "wind", song: "wave", dong_chay: "current" }), []);
+  const gioVN = () => Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" }).format(new Date())) % 24;
+
+  /** Số của một lớp tại chỗ hỏi: câu đọc · "ngoai" (vượt khung ngày) · null (lưới chưa có). */
+  const senDocSo = useCallback(
+    (lop: LopBanDo, luc: ThoiDiem | undefined, v: ViTri, ds?: string[]): string | "ngoai" | null => {
+      const moc = (times: readonly string[], dangXem: boolean, i: number) =>
+        luc ? chiSoMoc(times, luc, todayIso, gioVN()) : dangXem ? i : chiSoMoc(times, { ngay: 0 }, todayIso, gioVN());
+      const fk = SEN_FORECAST[lop];
+      if (fk) {
+        if (!fGrid || (lop === "dong_chay" && !gridHasCurrent(fGrid))) return null;
+        const i = moc(fGrid.times, forecastKind === fk, timeIdx);
+        if (i === "ngoai" || i == null) return i;
+        const c = nearestGridCell(fGrid, v.lat, v.lon);
+        return c ? cauDocSo(lop, c.cell.hours[i] ?? {}) : null;
+      }
+      const ok = SEN_OVERLAY[lop];
+      if (ok) {
+        if (!sfGrid || sfGrid.kind !== ok) return null;
+        const i = moc(sfGrid.times, overlayField === ok, timeIdx);
+        if (i === "ngoai" || i == null) return i;
+        return cauDocSo(lop, { scalar: scalarValueAt(sfGrid, i, v.lat, v.lon) });
+      }
+      if (lop === "ca" || lop === "nhiet_nuoc") {
+        // số trong ô dự báo cá — phần premium: gác y như câu hỏi cá
+        const kho = senCaRef.current();
+        if (kho === "premium") return "Dự báo cá dành cho tài khoản premium. Bà con liên hệ SDVICO để mở";
+        if (kho === "dang-nhap") return "Bà con đăng nhập để xem dự báo cá";
+        if (!kho?.cells.length) return null;
+        let best: (typeof kho.cells)[number] | null = null;
+        let bd = Infinity;
+        for (const c of kho.cells) {
+          const d = Math.hypot(c.lat - v.lat, (c.lon - v.lon) * Math.cos((v.lat * Math.PI) / 180));
+          if (d < bd) {
+            bd = d;
+            best = c;
+          }
+        }
+        if (!best || bd > 0.3) return null; // ~30 km: xa hơn là không có ô dự báo ở đó
+        if (lop === "nhiet_nuoc") return Number.isFinite(best.t) ? cauDocSo("nhiet_nuoc", { nhietNuoc: best.t }) : null;
+        const diem = ds?.length ? Math.max(0, ...ds.map((k) => best.sp?.[k] ?? 0)) : best.s;
+        return `điểm cá ${Math.round(diem)} trên 100${!ds?.length && best.top.length ? `, nhiều nhất ${best.top.slice(0, 2).join(", ")}` : ""} — dự báo, không chắc chắn`;
+      }
+      return null;
+    },
+    [fGrid, sfGrid, forecastKind, overlayField, timeIdx, todayIso, SEN_FORECAST, SEN_OVERLAY],
+  );
+  const tuCho = (v: ViTri) => (v.nguon === "tau" ? "Chỗ tàu" : "Chỗ đang xem");
+  /** câu đến MUỘN (lưới vừa về / hết hạn chờ): vừa đọc vừa hiện lên thẻ — tàu ồn thì còn chữ để nhìn */
+  const senBaoMuon = useCallback(
+    (t: string) => {
+      setSenTitle(t);
+      senSay(t);
+    },
+    [senSay],
+  );
+  /** thời điểm đọc lại: lớp cá theo NGÀY nên không nói "bây giờ" */
+  const luc0 = (lop: LopBanDo, luc?: ThoiDiem) => (lop === "ca" && !luc ? "hôm nay" : noiThoiDiem(luc));
+  const ngoaiKhung = useCallback(
+    (luc?: ThoiDiem) =>
+      luc && premiumUnsure && !savedLongGrid && luc.ngay >= FREE_FORECAST_DAYS
+        ? `Xem quá ${FREE_FORECAST_DAYS} ngày dành cho tài khoản premium.`
+        : "Máy chưa có dự báo tới lúc đó.",
+    [premiumUnsure, savedLongGrid],
+  );
+  // lưới về ⇒ áp mốc giờ đang chờ + đọc số đang chờ
+  useEffect(() => {
+    const luc = senMocRef.current;
+    if (luc) {
+      const times = forecastKind ? fGrid?.times : overlayField && sfGrid?.kind === overlayField ? sfGrid.times : undefined;
+      if (times?.length) {
+        const i = chiSoMoc(times, luc, todayIso, gioVN());
+        if (typeof i === "number") {
+          setPlaying(false);
+          setTimeIdx(i);
+        }
+        senMocRef.current = null;
+      }
+    }
+    const doc = senDocRef.current;
+    if (!doc) return;
+    if (Date.now() > doc.han) {
+      senDocRef.current = null;
+      senBaoMuon(`${doc.mo ?? ""}Chưa tải được số ${TEN_LOP[doc.lop]}. Bà con mở lại lúc còn sóng.`.trim());
+      return;
+    }
+    const so = senDocSo(doc.lop, doc.luc, doc.v, doc.ds);
+    if (so == null) return;
+    senDocRef.current = null;
+    senBaoMuon(
+      so === "ngoai"
+        ? `${doc.mo ?? ""}${ngoaiKhung(doc.luc)}`
+        : `${doc.mo ?? ""}${tuCho(doc.v)} ${luc0(doc.lop, doc.luc)}: ${so}.`,
+    );
+  }, [fGrid, sfGrid, forecastKind, overlayField, todayIso, senDocSo, senBaoMuon, ngoaiKhung]);
+  // lưới không bao giờ về (mất sóng, không có bản lưu) ⇒ hết hạn vẫn phải lên tiếng
+  useEffect(() => {
+    const t = setInterval(() => {
+      const doc = senDocRef.current;
+      if (doc && Date.now() > doc.han) {
+        senDocRef.current = null;
+        senBaoMuon(`${doc.mo ?? ""}Chưa tải được số ${TEN_LOP[doc.lop]}. Bà con mở lại lúc còn sóng.`.trim());
+      }
+    }, 5000);
+    return () => clearInterval(t);
+  }, [senBaoMuon]);
+
+  /** Bật một lớp bằng ĐÚNG luật của nút trên RaKhoiControls. */
+  const senMoLop = useCallback(
+    (lop: LopBanDo, tang?: number) => {
+      const fk = SEN_FORECAST[lop];
+      const ok = SEN_OVERLAY[lop];
+      setFishOn(lop === "ca" ? true : false);
+      if (fk) {
+        setForecastKind(fk);
+        setOverlayField(null);
+        setScalarKind(null);
+        setGridFailed(false);
+        setTimeIdx(0);
+        if (fk === "current") setCurDepthTier(tang ?? 0);
+      } else if (ok) {
+        setOverlayField(ok);
+        setForecastKind(null);
+        setScalarKind(null);
+        setGridFailed(false);
+        setTimeIdx(0);
+      } else {
+        setForecastKind(null);
+        setOverlayField(null);
+        setScalarKind(null);
+        setPlaying(false);
+        if (lop === "nhiet_nuoc" || lop === "phu_du" || lop === "do_sau") {
+          const id = lop === "nhiet_nuoc" ? "sst" : lop === "phu_du" ? "chlorophyll" : "bathymetry";
+          setLayerId(id);
+          if (id !== "bathymetry") setChartDetailOn(false);
+        }
+      }
+    },
+    [SEN_FORECAST, SEN_OVERLAY, setLayerId],
+  );
+
+  const senLenh = useCallback(
+    async (lenh: LenhBanDo): Promise<SenHeard> => {
+      const noi = (t: string): SenHeard => {
+        senSay(t);
+        return { show: t };
+      };
+      const v = senViTri();
+      const lopDang: LopBanDo | undefined =
+        forecastKind === "wind" ? "gio" : forecastKind === "wave" ? "song" : forecastKind === "current" ? "dong_chay"
+          : (Object.entries(SEN_OVERLAY).find(([, k]) => k === overlayField)?.[0] as LopBanDo | undefined) ?? (fishOn ? "ca" : undefined);
+      const docNgay = (lop: LopBanDo, luc: ThoiDiem | undefined, ds: string[] | undefined, mo = "") => {
+        const so = senDocSo(lop, luc, v, ds);
+        if (so === "ngoai") return noi(`${mo}${ngoaiKhung(luc)}`);
+        if (so != null) return noi(`${mo}${tuCho(v)} ${luc0(lop, luc)}: ${so}.`);
+        // lưới chưa có: đang chạy thì không mở lớp — nói thật
+        if (navOn) return noi(`${mo}Máy chưa có số ${TEN_LOP[lop]} chỗ này.`);
+        return null;
+      };
+      switch (lenh.viec) {
+        case "phong_to":
+          mapRef.current?.getMap().zoomIn();
+          return { show: "Phóng to." };
+        case "thu_nho":
+          mapRef.current?.getMap().zoomOut();
+          return { show: "Thu nhỏ." };
+        case "ve_tau":
+          senVeTauRef.current();
+          return noi(trackingPosRef.current ? "Về chỗ tàu." : "Đang lấy vị trí tàu.");
+        case "tat_lop":
+          if (navOn) return noi("Đang dẫn đường, hải đồ giữ nguyên.");
+          setForecastKind(null);
+          setOverlayField(null);
+          setScalarKind(null);
+          setPlaying(false);
+          setFishOn(false);
+          return noi("Đã tắt lớp, về hải đồ.");
+        case "chay_thoi_gian":
+          if (navOn) return noi("Đang dẫn đường, hải đồ giữ nguyên.");
+          if (!forecastKind && !overlayField) return noi("Bà con mở lớp gió, sóng hay dòng chảy trước, rồi nói: cho chạy.");
+          setPlaying(true);
+          return noi("Cho chạy qua các giờ tới.");
+        case "doi_thoi_diem": {
+          const lop = lopDang && LOP_CO_GIO.includes(lopDang) ? lopDang : undefined;
+          if (navOn) return docNgay(lop ?? "song", lenh.luc, undefined, "Đang dẫn đường nên giữ nguyên hải đồ. ") ?? noi("Đang dẫn đường.");
+          if (!lop) return noi("Bà con mở lớp gió, sóng, dòng chảy hay mưa trước, rồi nói thời điểm.");
+          const times = forecastKind ? fGrid?.times : sfGrid?.times;
+          const i = times ? chiSoMoc(times, lenh.luc, todayIso, gioVN()) : null;
+          if (i === "ngoai") return noi(ngoaiKhung(lenh.luc));
+          if (typeof i === "number") {
+            setPlaying(false);
+            setTimeIdx(i);
+          } else senMocRef.current = lenh.luc;
+          senDocRef.current = { lop, luc: lenh.luc, v, mo: `${TEN_LOP[lop][0].toUpperCase()}${TEN_LOP[lop].slice(1)} ${noiThoiDiem(lenh.luc)}. `, han: Date.now() + 25_000 };
+          return { show: `${TEN_LOP[lop]} ${noiThoiDiem(lenh.luc)}` };
+        }
+        case "mo_lop": {
+          const { lop, luc } = lenh;
+          const ds = lenh.loaiCa?.ds;
+          if (navOn) {
+            const r = docNgay(lop, luc, ds, "Đang dẫn đường nên giữ nguyên hải đồ. ");
+            return r ?? noi(`Đang dẫn đường nên giữ nguyên hải đồ. Máy chưa có số ${TEN_LOP[lop]} chỗ này.`);
+          }
+          senMoLop(lop, lenh.tang);
+          if (lop === "ca") {
+            if (premiumAccess === "login") return noi("Đã mở bản đồ cá. Bà con đăng nhập để xem dự báo cá.");
+            if (premiumAccess === "upgrade") return noi("Dự báo cá dành cho tài khoản premium. Bà con liên hệ SDVICO để mở.");
+            if (ds?.length) {
+              const co = ds.find((k) => fishCast?.species.includes(k));
+              if (co) setFishSpecies(co);
+              else return noi(`Đã mở bản đồ cá. Hôm nay bản đồ không có ${lenh.loaiCa?.ten} đạt mức hiện.`);
+              return noi(`Đang xem ${lenh.loaiCa?.ten}.`);
+            }
+            setFishSpecies(null);
+            return noi("Đang xem bản đồ cá.");
+          }
+          if (!LOP_CO_GIO.includes(lop)) return noi(`Đang xem ${TEN_LOP[lop]}.`);
+          const mo = `Đang xem ${TEN_LOP[lop]}${lenh.tang ? ` tầng ${lenh.tang} mét` : ""} ${noiThoiDiem(luc)}. `;
+          if (luc && luc.ngay >= FREE_FORECAST_DAYS && premiumUnsure && !savedLongGrid) return noi(`${mo}${ngoaiKhung(luc)}`);
+          if (luc) senMocRef.current = luc;
+          // tầng sâu đọc từ lưới tầng riêng — chưa đọc số, chỉ mở
+          if (lenh.tang) return noi(mo);
+          senDocRef.current = { lop, luc, v, mo, han: Date.now() + 25_000 };
+          return { show: mo.trim() };
+        }
+        case "doc_gia_tri": {
+          const lop = lenh.lop ?? lopDang ?? "song";
+          const ds = lenh.loaiCa?.ds;
+          const r = docNgay(lop, lenh.luc, ds);
+          if (r) return r;
+          // chưa có lưới số đó ⇒ mở lớp rồi đọc khi lưới về
+          senMoLop(lop);
+          if (lenh.luc) senMocRef.current = lenh.luc;
+          senDocRef.current = { lop, luc: lenh.luc, v, ds, mo: `Đang mở ${TEN_LOP[lop]}. `, han: Date.now() + 25_000 };
+          return { show: `Đang mở ${TEN_LOP[lop]}…` };
+        }
+      }
+    },
+    [senViTri, forecastKind, overlayField, fishOn, SEN_OVERLAY, senDocSo, ngoaiKhung, navOn, senSay, fGrid, sfGrid, todayIso, senMoLop, premiumAccess, fishCast, premiumUnsure, savedLongGrid],
+  );
+  const ganNhatTen = (ds: readonly SenDest[], v: { lat: number; lon: number }, n: number) =>
+    [...ds].sort((a, b) => haversineKm(v.lat, v.lon, a.lat, a.lon) - haversineKm(v.lat, v.lon, b.lat, b.lon)).slice(0, n);
   const senHeard = useCallback(
     async (text: string): Promise<SenHeard> => {
-      const r = senBienReply(text, await loadSenBienModel(), senDests, senSeaRef.current, {
+      const r0 = senBienReply(text, await loadSenBienModel(), senDests, senSeaRef.current, {
         awaitingGo: senAwait != null,
         running: navOn,
+        choVuaNoi: senChoRef.current,
+        loaiCa: SEN_LOAI_CA,
       });
+      // Android có Gemma: hỏi thêm để lấy THAM SỐ (cùng việc mới nhận), trần 2,5 s; web/lỗi ⇒ giữ câu của luật
+      const r = canGemma(r0)
+        ? apDungGemma(
+            r0,
+            await hoiGemma(text, {
+              xn: senAwait != null,
+              // như lúc train: cang = tên cảng bỏ chữ "cảng", diem = điểm ghim — đã bỏ dấu
+              // KV cache 256 ⇒ ngữ cảnh ngắn như lúc train (2–5 cảng, 1–4 điểm): 5 cảng GẦN chỗ hỏi nhất + 4 điểm ghim
+              cang: ganNhatTen(senDests.filter((d) => d.kind === "cang"), senViTri(), 5).map((d) =>
+                foldVn(d.name).replace(/^(cang ca|cang|ben ca|ben)\s+/, ""),
+              ),
+              diem: ganNhatTen(senDests.filter((d) => d.kind !== "cang"), senViTri(), 4).map((d) => foldVn(d.name)),
+              tau: [],
+            }),
+            SEN_LOAI_CA,
+            senDests,
+          )
+        : r0;
       switch (r.kind) {
+        case "map":
+          return senLenh(r.lenh);
         case "go":
           senSay(`${r.say} Đang vẽ đường.`);
           setSenOpen(false);
@@ -3925,6 +4255,29 @@ export default function FishingMapView() {
         case "repeat":
           navVoice.repeatLast();
           return { show: "Đọc lại câu vừa rồi." };
+        case "hoi": {
+          // vị trí: GPS tàu còn mới (≤10 phút) thì "từ tàu", không thì giữa bản đồ "chỗ đang xem"
+          const tauMoi = tracking.pos && tracking.lastFixAt != null && Date.now() - tracking.lastFixAt < 10 * 60_000;
+          const c = mapRef.current?.getCenter();
+          const v: ViTri =
+            tauMoi && tracking.pos
+              ? { lat: tracking.pos.lat, lon: tracking.pos.lon, nguon: "tau", huongChay: tracking.headingDeg }
+              : { lat: c?.lat ?? point.lat, lon: c?.lng ?? point.lon, nguon: "ban-do" };
+          const kho = { ...(await napKhoBanDo()), cang: senDests.filter((d) => d.kind === "cang"), ca: senCaRef.current() };
+          const t = traLoi(r.q, kho, v, prefs.distUnit === "km" ? "km" : "nm", Date.now());
+          if (t.di) {
+            senSay(`${t.say} Đang vẽ đường.`);
+            setSenOpen(false);
+            senGo(t.di);
+            return { show: t.say };
+          }
+          if (t.cho) {
+            senChoRef.current = { name: t.cho.ten, lat: t.cho.lat, lon: t.cho.lon, kind: "diem" };
+            goToCoord(t.cho.lat, t.cho.lon);
+            senSay(`${t.say} Muốn đi thì nói: dẫn tới đó.`);
+          } else senSay(t.say);
+          return { show: t.say };
+        }
         case "howfar": {
           const unit = prefs.distUnit === "km" ? "km" : "nm";
           const t = navProgress
@@ -3943,18 +4296,18 @@ export default function FishingMapView() {
           return { show: r.say };
       }
     },
-    [senDests, senAwait, navOn, senSay, senAsk, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit],
+    [senDests, senAwait, navOn, senSay, senAsk, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit, tracking.pos, tracking.lastFixAt, tracking.headingDeg, point, goToCoord, senLenh, senViTri],
   );
+  /*  CÂU CHÀO khi GỌI Sen Biển — chủ dự án 2026-10-17: "click vào thì hỏi sen biển giúp gì được cho bạn"
+      (thay câu hướng dẫn dài). Ngắn ⇒ nghe sớm. */
+  const SEN_CHAO = "Sen Biển giúp gì được cho bạn?";
   const openSen = useCallback(() => {
     ttsUnlock();
-    setSenTitle(
-      navOn
-        ? "Nói lệnh, hoặc tên chỗ mới."
-        : "Muốn đi đâu? Tên cảng, điểm ghim, toạ độ.",
-    );
+    // không câu nhắc (chủ dự án 2026-10-17: "đừng có ghi nói cái gì hết") — tiêu đề chỉ mang tin thật
+    setSenTitle("");
     setSenListen(true);
     setSenOpen(true);
-  }, [navOn]);
+  }, []);
 
   // độ sâu tại điểm đang xem — lưới tĩnh, đọc cục bộ
   useEffect(() => {
@@ -4143,6 +4496,9 @@ export default function FishingMapView() {
       { enableHighAccuracy: true, timeout: 12000 },
     );
   }, [locating, flyToPoint, setLocating, setGeoError, setGpsOn, setSize]);
+  useEffect(() => {
+    senVeTauRef.current = goToMyBoat;
+  }, [goToMyBoat]);
 
   const today = cond?.days[0] ?? null;
   // Bản lưu trong máy giữ nguyên dãy ngày CŨ → có ngày đã trôi qua. Bỏ qua các
@@ -4265,6 +4621,16 @@ export default function FishingMapView() {
   // báo THEO CHỖ, không theo chỗ đang xem — neo ổn định (cảng nhà + điểm ghim)
   // thì chạm đâu hồng tâm cũng đứng yên. `near` (màu viền) cũng đo theo neo
   // này, không theo `point`.
+  // Sen Biển hỏi cá: gác premium như lớp cá (dự báo cá là phần thu tiền); chưa bật lớp
+  // cá thì dùng bản đã lưu trong máy, không tự tải mạng.
+  useEffect(() => {
+    senCaRef.current = () => {
+      if (premiumAccess === "login") return "dang-nhap";
+      if (premiumAccess === "upgrade") return "premium";
+      const fc = fishView ?? (premiumAccess === "open" ? banDoCaDaLuu() : null);
+      return fc ? { cells: fc.cells, ngay: fc.date } : undefined;
+    };
+  }, [premiumAccess, fishView]);
   const fishHotspots = useMemo<
     { lat: number; lon: number; v: number; top: string[]; near: boolean }[]
   >(() => {
@@ -7677,23 +8043,18 @@ export default function FishingMapView() {
            icon thôi"): chỉ hình cá, mép trái trên dải đáy, không chữ, không
            nền. Hiện cả khi đang chạy — lúc tay đang lái mới cần nói thay chạm. */}
       {/* khung dẫn đường mở thì nó phủ đúng chỗ này (z-30) — ẩn, khỏi nằm khuất mà bấm không ăn */}
-      {/* sheet đáy mở nửa màn thì cũng ẩn: cá nằm đè lên chữ của sheet (có cả dòng đỏ ranh giới) */}
-      {!senOpen && !navOn && !routeMode && size !== "half" && (
-        <button
-          type="button"
-          onClick={openSen}
-          aria-label="Sen Biển — nói chỗ muốn tới"
-          className="absolute bottom-36 left-2 z-20 h-16 w-16 rounded-full drop-shadow-lg transition active:scale-90"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy */}
-          <img src="/icons/sen-bien.png" alt="" className="h-full w-full" />
-        </button>
+      {/* thẻ mở thì SenBienSheet tự vẽ icon ĐÚNG chỗ này (icon cố định là nút gọi, bong bóng trên đầu) */}
+      {/* cả lúc Đang chạy cũng nổi (chủ dự án 2026-10-17: "bỏ con cá trên HUD"); sheet đáy mở nửa màn thì ẩn —
+          cá nằm đè lên chữ của sheet (rà soát prod 2026-10-16) */}
+      {!senOpen && !routeMode && size !== "half" && (
+        <SenBienNoi onOpen={openSen} />
       )}
       {senOpen && (
         <SenBienSheet
           key={senAwait ? "cho-di" : senListen ? "nghe" : "mo"}
           awaitingGo={senAwait != null}
           title={senTitle}
+          chao={SEN_CHAO}
           listenOnOpen={senListen}
           autoListen={senAutoListen}
           speakerBusy={navVoice.speaking != null}
@@ -7822,7 +8183,6 @@ export default function FishingMapView() {
             title={navMode ? "Đang dẫn đường" : "Đang chạy"}
             cruiseLine={cruiseLine}
             voice={voiceHud}
-            onSenBien={openSen}
             progress={navProgress}
             status={tracking.status}
             onStop={stopNav}

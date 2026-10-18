@@ -456,12 +456,27 @@ describe("opening — bản tin mở đầu + điểm tin", () => {
   it("≤ 4 phần, việc sắp hạn ≤ 7 ngày, tối đa 2 việc", () => {
     expect(
       urgentLine([item("Đăng kiểm", "Còn 3 ngày", 3), item("Bảo hiểm", "Còn 20 ngày", 20), item("Lọc dầu", "Quá hạn 2 ngày", -2), item("Phao", "Còn 6 ngày", 6)]),
-    ).toBe("Việc cần lo khi về bờ: Lọc dầu, quá hạn 2 ngày; Đăng kiểm, còn 3 ngày.");
-    const b = openingBulletin({ storm: "Máy chưa có tin bão. Nghe đài duyên hải.", sea: null, urgent: [], chart: "du", nowMs: NOW });
+    ).toBe("Về bờ nhớ lo: lọc dầu, đăng kiểm.");
+    const b = openingBulletin({ storm: "Máy chưa có tin bão. Nghe đài duyên hải.", sea: null, urgent: [], chart: "du", nowMs: NOW, coViTri: true });
     expect(b).toBe(
       "Máy chưa có tin bão. Nghe đài duyên hải. Máy chưa lưu dự báo sóng gió vùng này. Máy đang canh độ sâu, rạn và chướng ngại phía trước. Chỉ tham khảo, bà con dò hải đồ và nghe đài.",
     );
-    expect(openingBulletin({ storm: "", sea: null, urgent: [], chart: "thieu", nowMs: NOW })).toContain("một phần hải đồ");
+    expect(openingBulletin({ storm: "", sea: null, urgent: [], chart: "thieu", nowMs: NOW, coViTri: true })).toContain("một phần hải đồ");
+  });
+  it("chưa có vị trí tàu thì KHÔNG nói 'máy đang canh'; nhắc việc về bờ đứng CUỐI", () => {
+    const b = openingBulletin({
+      storm: "Bản tin lúc 6 giờ chưa thấy bão trên Biển Đông.",
+      sea: null,
+      urgent: [item("Đăng kiểm tàu cá", "Quá hạn 141 ngày", -141), item("Giấy phép khai thác thủy sản", "Quá hạn 111 ngày", -111)],
+      chart: "du",
+      nowMs: NOW,
+      coViTri: false,
+    });
+    expect(b).not.toMatch(/đang canh/);
+    expect(b).not.toMatch(/\d+ ngày/);
+    expect(b).toBe(
+      "Bản tin lúc 6 giờ chưa thấy bão trên Biển Đông. Máy chưa lưu dự báo sóng gió vùng này. Chỉ tham khảo, bà con dò hải đồ và nghe đài. Về bờ nhớ lo: đăng kiểm tàu cá, giấy phép khai thác thủy sản.",
+    );
   });
   it("điểm tin: có hướng, tốc độ, nước dưới tàu; đứng thì im; nhường cảnh báo 5 phút", () => {
     expect(diemTin({ headingDeg: 135, speedKmh: 13, unit: "nm", depthHere: 4, sea: null })).toBe(

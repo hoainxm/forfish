@@ -30,8 +30,18 @@ export interface NavTracking {
   accuracyM: number | null;
 }
 
-// Không fix mới quá lâu → coi như mất định vị (nói thật, không đóng băng ngầm)
-const STALE_MS = 10_000;
+// Không fix mới quá lâu → coi như mất định vị (nói thật, không đóng băng ngầm).
+// ĐANG CHẠY: 10 s. ĐỨNG YÊN: 60 s — LỖI 2026-10-18 (iPhone, ảnh chủ dự án): máy
+// đứng yên thì vị trí không đổi nên WebView có khi vài chục giây mới trả fix mới
+// ⇒ "Mất định vị" trong khi toạ độ vừa bắt lúc 08:22 (đồng hồ 8:22).
+export const STALE_MS = 10_000;
+export const STALE_DUNG_MS = 60_000;
+
+/** Fix gần nhất đã quá cũ chưa — ngưỡng theo đang chạy hay đứng yên. Thuần, có test. */
+export function fixQuaCu(lastFixAt: number | null, speedKmh: number | null, now: number): boolean {
+  if (lastFixAt == null) return false;
+  return now - lastFixAt > (speedKmh != null ? STALE_MS : STALE_DUNG_MS);
+}
 // Đi được quãng này giữa 2 fix mới suy ra hướng (m) — dưới ngưỡng là nhiễu GPS
 const MIN_MOVE_M = 15;
 // Tốc độ suy từ 2 fix vượt ngưỡng này coi là nhiễu (km/h ≈ 40 hải lý/giờ)
@@ -129,11 +139,14 @@ export function useNavTracking(
 
     const onErr = (e: GeolocationPositionError) => {
       if (stopped) return;
-      // 1 = PERMISSION_DENIED → máy từ chối; còn lại (unavailable/timeout) = mất sóng
-      setState((s) => ({
-        ...s,
-        status: e.code === e.PERMISSION_DENIED ? "denied" : "lost",
-      }));
+      // 1 = PERMISSION_DENIED → máy từ chối. 3 = TIMEOUT: chưa có fix MỚI trong 15 s —
+      // máy đứng yên hay gặp (vị trí không đổi) ⇒ chỉ là mất định vị khi fix cũ đã
+      // quá ngưỡng, không thì giữ "đang theo dõi". 2 = UNAVAILABLE ⇒ mất sóng thật.
+      setState((s) => {
+        if (e.code === e.PERMISSION_DENIED) return { ...s, status: "denied" };
+        if (e.code === e.TIMEOUT && s.status === "tracking" && !fixQuaCu(s.lastFixAt, s.speedKmh, Date.now())) return s;
+        return { ...s, status: "lost" };
+      });
     };
 
     const startWatch = () => {
@@ -187,7 +200,7 @@ export function useNavTracking(
     const staleTimer = window.setInterval(() => {
       setState((s) => {
         if (s.status !== "tracking" || s.lastFixAt == null) return s;
-        return Date.now() - s.lastFixAt > STALE_MS ? { ...s, status: "lost" } : s;
+        return fixQuaCu(s.lastFixAt, s.speedKmh, Date.now()) ? { ...s, status: "lost" } : s;
       });
     }, 3000);
 

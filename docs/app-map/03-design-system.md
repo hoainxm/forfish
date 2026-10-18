@@ -357,6 +357,17 @@ Chủ dự án 2026-08-29: *"kích thước cái x đóng làm cho đồng bộ�
 
 7. **Thao tác thông minh (tự-hiểu, chống rối)**: toggle/bộ lọc/chọn lớp **auto-apply ngay** (không nút Lưu) · **không hỏi xác nhận cho hành động ĐẢO ĐƯỢC** (bật/tắt lớp, đổi cảng) — chỉ hỏi cho phá huỷ · form autofill từ `forfish.*`. Xem thêm luật dữ liệu-KHÔNG-CẮT (§6 mục toạ độ) + [07-design-spec](07-design-spec.md).
 
+8. **THẺ NỔI — LUẬT CHUNG CHO MỌI KHUNG/THẺ (chủ dự án chốt 2026-10-17, sau khi chê thẻ Sen Biển 5 lượt: *"× ở dưới… box lớn, thông tin không có gì, tốn diện tích"*, *"icon quá quen thuộc thì đừng có text"*, *"tính cân đối ở đâu"*, *"làm cái ô nhỏ lại, đừng có ghi nói cái gì hết"*, *"nút × là cái nhỏ ở góc trên phải sát góc, bé xíu"* — và dặn: *"trong toàn bộ design đừng bao giờ làm một cái thiết kế như thế"*)**. Áp cho MỌI thẻ/khung/panel mới, không riêng Sen Biển:
+   - **× = chấm nhỏ ĐÈ góc trên-phải** của thẻ nổi (`<CloseButton variant="goc">`: chấm 28px, vùng chạm 44px). CẤM × nằm ngang hàng nút, CẤM × ở đáy, CẤM × to chiếm một ô ngang bằng nút hành động. Panel có hàng tiêu đề thì dùng `CloseButton` mặc định (glyph 24px trong suốt, góc phải hàng tiêu đề).
+   - **Icon quen thuộc KHÔNG kèm chữ** (micro, bàn phím, gửi, đóng, tìm, vị trí, phóng/thu…). Tên đưa vào `aria-label`. CẤM nút chữ dài kiểu "Chạm rồi nói", "Gõ thay vì nói", "Nói bằng giọng" — chữ làm nút phình ra và phá bố cục. Nút chữ chỉ cho hành động không có icon quen, MỘT–HAI chữ (Đi, Thôi, Lưu).
+   - **Không câu nhắc / hướng dẫn chiếm chỗ** ("Nói tên cảng, điểm ghim…", "Chạm để…"). Chữ trong thẻ chỉ khi mang THÔNG TIN THẬT (kết quả, số, cảnh báo, câu trả lời). Gợi ý nhập thì để `placeholder` của ô nhập.
+   - **Thẻ rộng VỪA KHÍT nội dung** (`w-max` + `max-w`), không kéo full-width khi chỉ có vài icon. Không hàng điều khiển thừa ở đáy; không khoảng trắng chết.
+   - **Cân đối**: hàng icon canh giữa dọc; nếu hàng nút phải phủ bề ngang thì chia cột BẰNG NHAU (`grid-cols-N`), không dồn nút một bên để trống bên kia.
+   - **Không cắt chữ thông tin bằng "…"** — rút gọn câu hoặc cho xuống dòng.
+   - Icon gọn: glyph 20px trong ô màu 44px, vùng chạm vẫn 56px (component `IconNut` trong `sen-bien-sheet.tsx` là mẫu).
+   - **Thẻ TỰ THU VỀ thì KHÔNG cần ×** (Sen Biển 2026-10-17: "bỏ luôn dấu X, không nói thì 5s tự thu về") — thẻ ngắn hạn đóng theo trạng thái (hết nói / rảnh), × chỉ cho khung bà con chủ động đọc lâu.
+   - **Nhập bằng giọng theo khuôn Claude/ChatGPT**: tách GỌI (hội thoại giọng, icon nhân vật là nút ghi, vòng lan + sóng âm khi nghe) với micro ĐỌC-RA-CHỮ trong thanh chat (ô hiện "Đang nghe…" + sóng âm + nút dừng ■, chữ điền vào ô, không tự gửi; mũi tên gửi chỉ hiện khi có chữ). Không trộn hai kiểu trong một nút. **Nhân vật trợ lý (icon nổi) đứng CỐ ĐỊNH, kéo đi được, và LÀ nút gọi** — hội thoại hiện trong bong bóng kính (liquid: nền mờ xuyên thấu + blur, viền/vệt sáng, đuôi chỉ về icon, trồi lên như giọt nước) bám theo icon; KHÔNG kéo icon vào trong khung. **Ô nhập chat TỰ PHÌNH theo chữ** (textarea, trần ~4 dòng rồi cuộn) và thanh đủ rộng để đọc trọn câu — không bao giờ ô một dòng hẹp cắt chữ.
+
 **Nguồn khảo sát**: Material 3 Dialogs (48dp/24dp) · Apple HIG Sheets (Cancel trái/Done phải, 44pt, `interactiveDismissDisabled` khi có thay đổi) · Shopify Polaris Modal (X/Cancel/Esc/chạm-ngoài, primary phải) · IBM Carbon Modal (Cancel ngoài-trái, primary ngoài-phải, X đóng không gửi) · WCAG 2.5.5 (44px AAA) / 2.5.8 (24px AA).
 
 ## 7. Cross-references
