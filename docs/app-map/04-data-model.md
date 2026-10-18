@@ -18,7 +18,7 @@ ttl_days: 180
 ---
 
 <!-- 0052 (đổi số từ 0038 base khi sync — 0038 đã là data_until_web ở sdvico) — `vms_zones.is_border` -->
-### 0059 — MẪU CÂU NÓI SEN BIỂN (học thêm) — migration [`0059_sen_bien_mau.sql`](../../supabase/migrations/0059_sen_bien_mau.sql) (2026-10-18) — ⚠️ **CHƯA APPLY prod**
+### 0059 — MẪU CÂU NÓI SEN BIỂN (học thêm) — migration [`0059_sen_bien_mau.sql`](../../supabase/migrations/0059_sen_bien_mau.sql) (2026-10-18) — ✅ **ĐÃ APPLY prod 2026-10-18** (chủ dự án duyệt; qua Management API, `schema_migrations` 20261018070727. Soi sau apply: RLS bật, 0 policy, advisor chỉ `rls_enabled_no_policy` INFO — đúng thiết kế; thử thật: khách ghi 401 / đọc rỗng, service-role ghi 201, câu > 200 ký tự 400; hàng thử đã xoá)
 
 - Bảng `public.sen_bien_mau`, mỗi hàng là một câu bà con nói với Sen Biển: `cau` (chữ bộ nghe ra, ≤ 200 ký tự) · `tra` (máy làm gì: go/pick/start/stop/cancel/mute/unmute/repeat/howfar/hoi/map/say) · `ct` (ý n-gram / loại câu hỏi / việc bản đồ / số chỗ) · `gemma` (ý Gemma đoán, Android) · `xn`/`chay` (đang chờ "đi" / đang dẫn) · `phien` (một lần mở Sen Biển, dùng để ghép cặp câu NÓI LẠI = ca hiểu sai) · `noi_luc`/`nhan_luc` · `nen`/`ban` · `nguoi`.
 - `id` text là khoá do máy sinh (uuid) ⇒ gửi lại không nhân đôi (`upsert … ignoreDuplicates`).
