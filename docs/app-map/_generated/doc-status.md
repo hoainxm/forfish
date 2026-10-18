@@ -33,6 +33,11 @@
 | docs/app-map/ops/fish-review-2026-10-03/report-demersal-reef.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/fish-review-2026-10-03/report-pelagic-large.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/fish-review-2026-10-03/report-pelagic-small.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/fish-train-review-2026-10-18/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/fish-train-review-2026-10-18/report-data-labels.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/fish-train-review-2026-10-18/report-eval-protocol.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/fish-train-review-2026-10-18/report-fit-method.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/fish-train-review-2026-10-18/report-pipeline-ops.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/fish-validate-positions.md | SUSPECT | code 'scripts/dl-eval-fleet.mjs' doi sau last_verified |
 | docs/app-map/ops/forecast-accuracy.md | SUSPECT | code 'src/lib/forecast-skill.ts' doi sau last_verified |
 | docs/app-map/ops/native-deploy.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |

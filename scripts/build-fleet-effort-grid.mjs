@@ -23,11 +23,13 @@
 // Chạy lại CHỈ KHI có thêm tháng VMS (quy tắc dữ liệu trong git: sinh lại là hành động có chủ ý):
 //   node scripts/build-fleet-effort-grid.mjs [--root "../AI Assistant/sdvico-data/data-local/datalake-iuu"] [--snapshot 2026-10-11]
 //   node scripts/build-fleet-effort-grid.mjs --exclude-month 2026-09 --out <tạm>   (kiểm định giữ-tháng-ra)
+//   … --vessel-half A|B   CHỈ tàu thuộc nửa A (xô băm 0–4) hoặc B (5–9) — kiểm "tách theo tàu" (scripts/vessel-bucket.mjs)
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import readline from "node:readline";
 import { ASFIS_TO_SHORT, targetGears } from "./dl-eval.mjs";
+import { vesselHalf } from "./vessel-bucket.mjs";
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
@@ -36,6 +38,8 @@ const ROOT = arg("root", process.env.SDVICO_DATALAKE_ROOT || "../AI Assistant/sd
 export const OUT_DEFAULT = "src/data/fleet-effort-025.v1.json";
 const OUT = arg("out", OUT_DEFAULT);
 const EXCLUDE = new Set((arg("exclude-month", "") || "").split(",").filter(Boolean));
+const HALF = arg("vessel-half", null);
+if (HALF && HALF !== "A" && HALF !== "B") { console.error("--vessel-half phải là A hoặc B"); process.exit(2); }
 
 export const FISH_KN = [0, 4.5];
 export const MAX_GAP_S = 3 * 3600;
@@ -116,6 +120,7 @@ async function main() {
   for (const f of fs.readdirSync(tracksDir).filter((x) => /^\d{4}-\d{2}\.ndjson\.gz$/.test(x)).sort()) {
     let nPts = 0;
     for await (const t of lines(path.join(tracksDir, f))) {
+      if (HALF && vesselHalf(t.v) !== HALF) continue;
       const g = gearOf.get(t.v) ?? "khac";
       const pts = t.pts;
       nPts += pts.length;
@@ -161,7 +166,7 @@ async function main() {
   const res = {
     v: 1,
     unit: "giờ có mặt-đánh bắt (VMS)",
-    builtFrom: { snapshot: SNAP, vessels: gearOf.size, logbooks: nLog, excludedMonths: [...EXCLUDE] },
+    builtFrom: { snapshot: SNAP, vessels: gearOf.size, logbooks: nLog, excludedMonths: [...EXCLUDE], ...(HALF ? { vesselHalf: HALF } : {}) },
     rule: { kn: FISH_KN, maxGapH: MAX_GAP_S / 3600, minPortKm: MIN_PORT_KM, minVessels: MIN_VESSELS },
     axis: AXIS,
     gears: GEARS,

@@ -13,6 +13,12 @@
 // CHẮC CHẮN nâng AUCarea (nó chính là chỗ tàu đi); câu hỏi thật là AUCeff có TỤT không.
 //
 // Ra: <out>/fleet-eval.json + bảng in ra màn hình.
+//
+// BỘ ĐO TRUNG THỰC (rà pipeline 2026-10-18, đợt 1): thêm `--honest` ⇒ chạy scripts/dl-eval-honest.mjs thay cho
+// bảng trên — AUCeff trong-nghề + n_eff, baseline (x thuần/tĩnh/khí hậu/ngẫu nhiên/M−1), 4 phép kiểm rò, bootstrap
+// khối 7 ngày + CI chênh cặp, bảng CPUE theo bậc điểm. Cần --catch-dir; nhãn nên là `labels-vh` (có cột băm tàu):
+//   npx tsx scripts/dl-eval-fleet.mjs --honest --grids … --labels <dl-trk0809/labels-vh> --fleet-dir … --catch-dir … --out <dir> [--boot 500]
+// Lưới nửa-tàu: fleet-ex-<tháng>-A|B.json, catch-ex-<tháng>-A|B.json; ablation: catch-null-ex-<tháng>.json (xem dl-eval-honest.mjs).
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -79,6 +85,12 @@ const gearSp = {};
 for (const r of catAll) { const s = ASFIS_TO_SHORT[r.species]; if (s) (gearSp[s] ??= {})[r.gear] = (gearSp[s][r.gear] ?? 0) + +r.kg; }
 const SPECIES = Object.keys(gearSp).filter((s) => Object.values(gearSp[s]).reduce((a, b) => a + b, 0) > 0).sort();
 const tg = Object.fromEntries(SPECIES.map((s) => [s, targetGears(gearSp[s])]));
+
+if (argv.includes("--honest")) {
+  const { runHonest } = await import("./dl-eval-honest.mjs");
+  await runHonest({ inputs, depth, climo, reef, heldOut, catchHeld, catchFull, fullGrid, effD, catD, SPECIES, tg, OUT, FLEET_DIR, CATCH_DIR, B: Number(arg("boot", 500)) });
+  process.exit(0);
+}
 
 const prep = new Map();
 for (const x of inputs) {

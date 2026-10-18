@@ -466,7 +466,11 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    (nhật ký eCDT × giờ đánh VMS, lời khai đã nhân trọng số tin cậy), 34 loài, 274 nghìn tấn. Gộp vào ĐIỂM
    CUỐI (bằng chứng sản lượng thắng hồ sơ suy diễn về mùa/mồi/độ sâu) nhưng SAU cổng nhiệt (nước hôm
    nay ngoài dải chịu đựng thì không vẽ). ĐO (giữ-tháng-ra, 61 ngày 8–9/2026, AUCeff TB theo kg — 0,5 =
-   không hơn "chỗ tàu hay đi"): 0,621 → 0,672 (đội tàu) → **0,736** (+ sản lượng loài); cả hai tháng
+   không hơn "chỗ tàu hay đi"): 0,621 → 0,672 (đội tàu) → **0,736** (+ sản lượng loài) ⚠ **2026-10-18: KHÔNG
+   dùng 0,736 làm số tiêu đề nữa** — bộ đo trung thực (ops/fish-train-review-2026-10-18 §6) cho thấy
+   đây là "bản đồ bãi cá theo mùa": vệ tinh của ngày đóng góp ≈ 0, baseline tĩnh sâu+bờ+vĩ 0,809 và
+   kg-tháng-trước 0,813 đều cao hơn. Chủ dự án chốt hướng: NỀN = bản đồ bãi theo mùa (x + tĩnh),
+   HSI/vệ tinh = lớp cộng thêm phải tự chứng minh (kế hoạch đợt 2 ở README §7 cùng thư mục); cả hai tháng
    đều tăng; cá nục 0,644 → 0,758 · ngừ chấm 0,640 → 0,757 · cá mối 0,599 → 0,724 · cá đổng 0,630 → 0,726 ·
    chỉ vàng 0,811 → 0,887 · ngừ ồ 0,664 → 0,728 · ngừ chù 0,654 → 0,716 · ngừ vằn 0,786 → 0,806; không loài
    nào tụt quá 0,002. QUYẾT ĐỊNH SẢN PHẨM: dò `CATCH_SCALE` tới 1,0 thì AUCeff còn tăng (0,754) — tức là

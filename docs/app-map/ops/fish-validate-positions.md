@@ -195,7 +195,7 @@ npx tsx scripts/dl-eval-fleet.mjs --grids ~/sdfish-data/fc-full/grids --labels ~
 - Lưới: kg theo tháng × loài × ô 0,25°, chỉ ô ≥ 3 tàu bắt loài đó trong tháng (bỏ 66,6 nghìn ô = 20 nghìn t, 7 %), loài ≥ 20 t cả kỳ ⇒ 34 loài, 80,4 nghìn ô, 274 nghìn t, 986 KB. CÙNG shape lưới đội tàu (khoá = loài) ⇒ dùng lại `fleetPresenceLookup`.
 - Gộp: `fit' = 1 − (1 − fit)(1 − CATCH_SCALE·x)` vào ĐIỂM CUỐI, sau cổng nhiệt.
 
-**Kiểm định** — cùng nhãn `dl-trk0809`, cùng 61 ngày lưới vệ tinh như §10; ngày tháng M chấm bằng lưới sản lượng dựng KHÔNG CÓ tháng M (đội tàu cũng giữ-tháng-ra). AUCeff / AUCarea TB theo kg:
+**Kiểm định** — cùng nhãn `dl-trk0809`, cùng 61 ngày lưới vệ tinh như §10; ngày tháng M chấm bằng lưới sản lượng dựng KHÔNG CÓ tháng M (đội tàu cũng giữ-tháng-ra). AUCeff / AUCarea TB theo kg. ⚠ **2026-10-18 — đọc cùng §12**: 0,736 là "bản đồ bãi cá theo mùa", không phải bằng chứng cho dự báo cá; baseline tĩnh 0,809 / M−1 0,813 cao hơn. Không dùng số này làm tiêu đề (chủ dự án chốt):
 
 | Cấu hình | AUCeff | AUCarea |
 |---|---|---|
@@ -215,3 +215,7 @@ Bản rò hơn bản giữ-ra chỉ +0,011 ⇒ kênh không thắng nhờ học 
 **Vì sao chốt 0,7 mà không 1,0:** AUCeff còn tăng tới 1,0, nhưng lúc đó điểm = "chỗ năm trước bắt được", ảnh vệ tinh hôm nay không còn đổi được gì. 0,7 < ngưỡng Cao 75 (`FISH_LEVEL_BANDS`) ⇒ sản lượng MỘT MÌNH chỉ đưa tới Trung bình; lên đỏ phải có cơ chế gom cá hôm nay. Test `species-catch.test.ts` khoá luật này.
 
 Giới hạn: một năm dữ liệu (tháng 11–12 chưa có sản lượng loài ⇒ chỉ kênh đội tàu); tàu có VMS + khai eCDT (chủ yếu ≥15 m); nhãn kiểm định chỉ 8–9 (gió Tây Nam); kg là lời khai đã nhân tin cậy, vị trí chia theo giờ đánh (nhật ký chưa có toạ độ mẻ); Δdyn (tín hiệu "hôm nay") chưa đo lại sau hai kênh tĩnh. Sinh lại lưới khi có thêm tháng nhật ký/VMS (`refresh.mjs` hằng ngày đã kéo) — mỗi lần sinh lại là ~1 MB vào lịch sử git, làm theo tháng, không theo ngày.
+
+## 12. Bộ đo trung thực (2026-10-18, đợt 1 của rà pipeline train)
+
+`dl-eval-fleet.mjs --honest` (code: `dl-eval-honest.mjs`) thêm AUCeff trong-nghề + n_eff, baseline (x thuần · tĩnh · khí hậu · ngẫu nhiên · M−1), 4 phép kiểm rò, bootstrap khối 7 ngày + CI chênh cặp, bảng CPUE theo bậc điểm; `dl-fit-profiles.mjs --label-shift N` kiểm nhận-oan. **Số 0,736 ở §10–§11 phải đọc cùng kết quả ở [fish-train-review-2026-10-18/README.md §6](fish-train-review-2026-10-18/README.md)**: vệ tinh theo ngày đóng góp ≈ 0, x thuần/tĩnh/M−1 đều cao hơn 0,736.

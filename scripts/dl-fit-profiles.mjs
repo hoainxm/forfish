@@ -19,6 +19,8 @@
 // Ra: <out>/fit-<loài>.json  {species, base, best, cv:{…}, accepted, caveat}
 //   --grids ~/sdfish-data/fc-full/grids  --labels ~/sdfish-data/dl/labels  --out ~/sdfish-data/fit
 //   --cfg '{"chlShift":-1}'  không dò, chỉ kiểm chéo gốc vs bộ chỉnh này (dùng khi đổi code nền)
+//   --label-shift N   KIỂM NHẬN-OAN (rà pipeline 2026-10-18, đợt 1 mục 1.5): ghép dự báo ngày d với nhãn ngày d+N
+//                     (N ≥ 15 ⇒ cá của ngày khác hẳn). Còn loài "NHẬN" ⇒ ngưỡng nhận không bảo vệ gì.
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -34,6 +36,8 @@ const OUT = home(arg("out", "~/sdfish-data/fit"));
 const SPECIES = arg("species", null);
 const MIN_GAIN = Number(arg("min-gain", 0.01));
 // --cfg '<json>': KHÔNG dò — chỉ đo gốc vs bộ chỉnh đã chọn (kiểm lại trên code khác, vd main)
+const LABEL_SHIFT = Number(arg("label-shift", 0));
+const shiftDay = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400e3).toISOString().slice(0, 10);
 const FIXED_CFG = arg("cfg", null) ? JSON.parse(arg("cfg")) : null;
 mkdirSync(OUT, { recursive: true });
 if (!SPECIES) { console.error('cần --species "<tên ngắn>"'); process.exit(2); }
@@ -111,7 +115,8 @@ for (const x of inputs) {
   for (let i = 0; i < x.sst.lats.length; i++)
     for (let k = 0; k < x.sst.lons.length; k++)
       if (Number.isFinite(x.sst.values[i][k])) cells.push({ lat: Math.round(x.sst.lats[i] * 100) / 100, lon: Math.round(x.sst.lons[k] * 100) / 100, sp: {} });
-  const lab = attachDay(cells, effD.get(x.d) ?? [], catD.get(x.d) ?? [], ASFIS_TO_SHORT);
+  const ld = LABEL_SHIFT ? shiftDay(x.d, LABEL_SHIFT) : x.d;
+  const lab = attachDay(cells, effD.get(ld) ?? [], catD.get(ld) ?? [], ASFIS_TO_SHORT);
   const key = (c) => `${c.lat},${c.lon}`;
   const pos = [], neg = [];
   for (const [c, m] of lab.kg) if (m[SPECIES] > 0) pos.push([key(c), m[SPECIES]]);
@@ -199,6 +204,7 @@ const out = {
   profile: accepted
     ? { sst: prof.sst, ...(prof.sstFallback ? { sstFallback: prof.sstFallback } : {}), chlLog: prof.chlLog, foodDependence: prof.foodDependence, offshore: prof.offshore, inshore: prof.inshore, coastKm: prof.coastKm }
     : null,
+  ...(LABEL_SHIFT ? { labelShift: LABEL_SHIFT } : {}),
   caveat: "Một mùa (8–9/2026, gió Tây Nam), tàu có VMS (chủ yếu ≥15 m), sản lượng chia theo giờ đánh suy từ tốc độ VMS — không phải toạ độ mẻ. Payload không có HYCOM/Copernicus.",
   secs: Math.round((Date.now() - t0) / 1000),
 };

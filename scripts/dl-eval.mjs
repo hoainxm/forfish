@@ -104,12 +104,80 @@ async function selftest() {
   console.log("selftest OK");
 }
 
-/** Gắn nhãn theo ngày vào lưới; trả mỗi ngày {cells, eff:Map(cell→{gear→h}), kg:Map(cell→{sp→kg})}. */
+
+/* ── BỘ ĐO TRUNG THỰC (đợt 1, docs/app-map/ops/fish-train-review-2026-10-18) ─────────────────────
+ * Mỗi (khối ngày, loài) giữ MỘT bản ghi histogram điểm 0..100 (Float64Array), bố cục:
+ *   [0] hpAll  kg loài s của MỌI nghề (đúng "pos" của AUCeff cũ)
+ *   [1] ha     số ô biển (chỉ ngày loài s có kg)           — mẫu số của AUCarea
+ *   [2+2k] hp_k, [3+2k] hn_k  kg của loài s / giờ đánh, CHỈ của nghề thứ k trong targetGears(s)
+ * Bootstrap khối ngày = cộng các bản ghi khối; AUC tính lại từ histogram. */
+export const NB = 101;
+export const recLen = (G) => NB * (2 + 2 * G);
+
+/** AUC từ hai histogram con (offset oa, ob trong mảng a, b); ties tính ½. */
+export function aucHist(a, oa, b, ob) {
+  let P = 0, N = 0, acc = 0;
+  for (let v = 0; v < NB; v++) { const p = a[oa + v], n = b[ob + v]; acc += p * (N + n / 2); N += n; P += p; }
+  return P > 0 && N > 0 ? acc / (P * N) : NaN;
+}
+
+/**
+ * Số đo của một bản ghi. eff = AUCeff CŨ (pos mọi nghề vs giờ hợp các nghề mục tiêu); within = AUCeff
+ * TRONG-NGHỀ Σ_g w_g·AUC(pos_{s,g}, neg_g) (w_g = kg loài s của nghề g, chuẩn lại trên nghề đo được);
+ * area = AUCarea; kgAll/kgW = trọng số kg của hai số đầu.
+ */
+export function recMetrics(rec, G) {
+  const hnU = new Float64Array(NB);
+  let kgAll = 0, wSum = 0, wAuc = 0;
+  for (let v = 0; v < NB; v++) kgAll += rec[v];
+  for (let k = 0; k < G; k++) {
+    const op = (2 + 2 * k) * NB, on = (3 + 2 * k) * NB;
+    let w = 0;
+    for (let v = 0; v < NB; v++) { hnU[v] += rec[on + v]; w += rec[op + v]; }
+    const a = aucHist(rec, op, rec, on);
+    if (Number.isFinite(a) && w > 0) { wSum += w; wAuc += w * a; }
+  }
+  return { eff: aucHist(rec, 0, hnU, 0), area: aucHist(rec, 0, rec, NB), within: wSum > 0 ? wAuc / wSum : NaN, kgAll, kgW: wSum };
+}
+
+/** Cỡ mẫu hiệu dụng Kish (Σw)²/Σw² */
+export function kishNeff(w) {
+  let s = 0, s2 = 0;
+  for (const x of w) { s += x; s2 += x * x; }
+  return s2 > 0 ? (s * s) / s2 : 0;
+}
+
+/** LCG 31 bit trả [0,1) — cùng họ với dl-eval để chạy lại ra đúng số. */
+export function makeRng(seed) {
+  let r = seed;
+  return () => ((r = (r * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+}
+
+/** Phân vị p∈[0,1] của mảng ĐÃ SẮP XẾP tăng (nội suy tuyến tính). */
+export function quantile(sorted, p) {
+  if (!sorted.length) return NaN;
+  const x = (sorted.length - 1) * p, lo = Math.floor(x), hi = Math.ceil(x);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (x - lo);
+}
+
+/** Khoảng tin cậy 90 % (phân vị 5–95) của một dãy thống kê bootstrap (bỏ NaN). */
+export function ci90(samples) {
+  const v = Array.from(samples).filter(Number.isFinite).sort((a, b) => a - b);
+  return v.length ? [quantile(v, 0.05), quantile(v, 0.95)] : [NaN, NaN];
+}
+
+/** B lần lấy mẫu có hoàn lại `nb` khối (mỗi lần trả mảng chỉ số khối). */
+export function blockResamples(nb, B, seed = 11) {
+  const rnd = makeRng(seed);
+  return Array.from({ length: B }, () => Array.from({ length: nb }, () => Math.floor(rnd() * nb)));
+}
+
+/** Gắn nhãn theo ngày vào lưới; trả mỗi ngày {cells, eff:Map(cell→{gear→h}), kg:Map(cell→{sp→kg}), kgG:Map(cell→{sp→{gear→kg}})}. */
 export function attachDay(cells, effRows, catchRows, nameMap) {
   const step = inferStep(cells);
   const g = indexGrid(cells, step);
   const keyOf = (lat, lon) => `${Math.round((lat - g.lat0) / g.step)},${Math.round((lon - g.lon0) / g.step)}`;
-  const eff = new Map(), kg = new Map();
+  const eff = new Map(), kg = new Map(), kgG = new Map();
   let dropE = 0, dropK = 0;
   for (const r of effRows) {
     const c = g.map.get(keyOf(+r.lat, +r.lon));
@@ -124,8 +192,12 @@ export function attachDay(cells, effRows, catchRows, nameMap) {
     if (!c) { dropK += +r.kg; continue; }
     const m = kg.get(c) ?? kg.set(c, {}).get(c);
     m[s] = (m[s] ?? 0) + +r.kg;
+    // theo NGHỀ (cột gear của catch.csv) — cho AUCeff trong-nghề
+    const mg = kgG.get(c) ?? kgG.set(c, {}).get(c);
+    const gs = mg[s] ?? (mg[s] = {});
+    gs[r.gear] = (gs[r.gear] ?? 0) + +r.kg;
   }
-  return { cells, eff, kg, dropE, dropK };
+  return { cells, eff, kg, kgG, dropE, dropK };
 }
 
 // Chạy như script (không chạy khi bộ tối ưu import các hàm ở trên).

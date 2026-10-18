@@ -109,7 +109,10 @@ export const FLEET_SCALE = 0.5;
  *  0,7 < ngưỡng Cao 75: sản lượng tháng trước MỘT MÌNH chỉ đưa tới Trung bình, lên Cao phải có
  *  ảnh vệ tinh hôm nay đồng ý. Dò tới 1,0 thì AUCeff còn tăng (0,736 → 0,754) — tức là bản đồ
  *  "chỗ năm trước bắt được" — cố ý KHÔNG lấy để bản đồ còn là dự báo. Chốt bằng kiểm định
- *  DataLake giữ-tháng-ra (ops/fish-validate-positions §11): AUCeff 0,672 → 0,736. */
+ *  DataLake giữ-tháng-ra (ops/fish-validate-positions §11): AUCeff 0,672 → 0,736.
+ *  ⚠ 2026-10-18: 0,736 KHÔNG còn là số tiêu đề — bộ đo trung thực (ops/fish-train-review-2026-10-18 §6)
+ *  cho thấy baseline tĩnh sâu+bờ+vĩ 0,809 và kg-tháng-trước 0,813 cao hơn, vệ tinh theo ngày ≈ 0.
+ *  Hướng chốt: nền = bãi theo mùa (x + tĩnh), lớp HSI/vệ tinh phải tự chứng minh (đợt 2). */
 export const CATCH_SCALE = 0.7;
 /** kg-30-ngày (đã làm mượt 3×3) để x = 1 − 1/e. Dò 500/2000/8000/20000/50000: 8000 tốt nhất —
  *  bão hoà sớm (500) thì ô bắt vừa ngang ô bắt nhiều, mất thứ hạng. */
