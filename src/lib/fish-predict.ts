@@ -1967,35 +1967,61 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
     // (/api/fish-forecast, same-origin), nhưng JS không đọc được kho SW đồng bộ.
     // Ghi 1 dấu localStorage khi nhận 200 để bảng "trong máy có gì" báo được lớp
     // cá + tới ngày nào (fetchFishForecast luôn qua đây).
-    if (data && (data as FishForecast).ok === true) {
-      saveForecast(FISH_MARK_NS, FISH_MARK_ID, {
-        targetDate: (data as FishForecast).targetDate ?? null,
-        // GHI KÈM MỐC MÁY CHỦ TÍNH (2026-07-31): mất sóng thì service worker
-        // vẫn trả 200 bằng bản CŨ, nên `savedAt` được làm mới mỗi lần vào đây
-        // ⇒ bảng "trong máy có gì" báo lớp cá còn tươi trong khi số liệu đã
-        // mấy ngày tuổi. `generatedAt` là tuổi THẬT của bản, không đổi.
-        generatedAt: (data as FishForecast).generatedAt ?? null,
-      });
-      /*  ═══ VÀ GIỮ LUÔN BẢN ĐỒ THẬT, KHÔNG CHỈ CÁI DẤU ═══ (2026-08-02k)
-
-          Chủ dự án chốt: *"Cache API bị xoá sau 7 ngày thì cái này chỉ nên dùng
-          dự phòng, còn phải lưu và lấy trực tiếp từ local và IndexedDB."*
-
-          Đúng, và trước bản vá này thì ngược hẳn: payload bản đồ cá (~1 MB) nằm
-          DUY NHẤT trong kho Service Worker, còn localStorage chỉ giữ một cái dấu
-          vài chục byte nói "đã tải rồi". Nên khi WebKit dọn kho SW — 7 ngày
-          không mở, hoặc máy đầy, hoặc chính `reclaimRoom` của `sw.js` — thì dấu
-          vẫn còn mà bản đồ thì bay. Bảng "trong máy có gì" đọc cái dấu và báo
-          XANH. Tàu ra khơi tin là có lớp cá, mở ra thì trắng.
-
-          Nay bản thật nằm ở IndexedDB (qua `forecast-store`), kho SW tụt xuống
-          làm lớp đọc nhanh. Mất kho SW cũng không mất bản đồ. */
-      saveForecast(FISH_NS, FISH_ID, data);
-    }
+    if (data && (data as FishForecast).ok === true) luuBanDoCa(data as FishForecast);
     return data;
   } catch {
     const luu = banDoCaDaLuu();
     return luu ? { ...luu, tuKhoOffline: true as const } : { ok: false };
+  }
+}
+
+/** Ghi bản đồ cá vừa nhận (200, ok) vào kho bền — dùng chung cho
+ *  `fetchFishForecast` và `fishForecastTuKhoSW`. */
+function luuBanDoCa(data: FishForecast) {
+  saveForecast(FISH_MARK_NS, FISH_MARK_ID, {
+    targetDate: data.targetDate ?? null,
+    // GHI KÈM MỐC MÁY CHỦ TÍNH (2026-07-31): mất sóng thì service worker
+    // vẫn trả 200 bằng bản CŨ, nên `savedAt` được làm mới mỗi lần vào đây
+    // ⇒ bảng "trong máy có gì" báo lớp cá còn tươi trong khi số liệu đã
+    // mấy ngày tuổi. `generatedAt` là tuổi THẬT của bản, không đổi.
+    generatedAt: data.generatedAt ?? null,
+  });
+  /*  ═══ VÀ GIỮ LUÔN BẢN ĐỒ THẬT, KHÔNG CHỈ CÁI DẤU ═══ (2026-08-02k)
+
+      Chủ dự án chốt: *"Cache API bị xoá sau 7 ngày thì cái này chỉ nên dùng
+      dự phòng, còn phải lưu và lấy trực tiếp từ local và IndexedDB."*
+
+      Đúng, và trước bản vá này thì ngược hẳn: payload bản đồ cá (~1 MB) nằm
+      DUY NHẤT trong kho Service Worker, còn localStorage chỉ giữ một cái dấu
+      vài chục byte nói "đã tải rồi". Nên khi WebKit dọn kho SW — 7 ngày
+      không mở, hoặc máy đầy, hoặc chính `reclaimRoom` của `sw.js` — thì dấu
+      vẫn còn mà bản đồ thì bay. Bảng "trong máy có gì" đọc cái dấu và báo
+      XANH. Tàu ra khơi tin là có lớp cá, mở ra thì trắng.
+
+      Nay bản thật nằm ở IndexedDB (qua `forecast-store`), kho SW tụt xuống
+      làm lớp đọc nhanh. Mất kho SW cũng không mất bản đồ. */
+  saveForecast(FISH_NS, FISH_ID, data);
+}
+
+/**
+ * Đọc bản đồ cá THẲNG TỪ KHO SERVICE WORKER — gọi khi SW báo bản mới đã về kho
+ * (lib/sw-api-fresh.ts). KHÔNG fetch: bản 3 MB vừa tải xong, tải lần hai là phí
+ * sóng. Có thì ghi luôn vào kho bền như một lần tải thường. Không có kho / hỏng
+ * / bản không ok ⇒ null (không bao giờ ném).
+ */
+export async function fishForecastTuKhoSW(): Promise<FishForecast | null> {
+  if (typeof caches === "undefined") return null;
+  try {
+    const hit = await caches.match(apiUrl("/api/fish-forecast"), {
+      ignoreVary: true,
+    });
+    if (!hit) return null;
+    const d = (await hit.json()) as FishForecastResult;
+    if (!d || d.ok !== true) return null;
+    luuBanDoCa(d);
+    return d;
+  } catch {
+    return null;
   }
 }
 
