@@ -231,3 +231,39 @@ export function hieuLenhCho(text: string): LenhCho | null {
 export function canXacNhan(l: LenhCho): boolean {
   return ["don_huy", "da_nhan", "bao_chuyen", "yc_dong_y", "yc_huy", "shop_xac_nhan", "shop_giao", "shop_da_giao", "shop_doi_hen", "shop_nhan_tien", "san_bao_gia", "san_khong_tim_duoc"].includes(l.k);
 }
+
+/*  CỔNG PHỤ n-gram (v4, 2026-10-18). Luật trên trả null mà bộ n-gram CHẮC đây là việc sàn ⇒ Sen Biển
+    hỏi lại kèm MỘT câu mẫu luật hiểu được — không đoán làm hộ (việc sàn đa số là việc ghi, cần mã đơn,
+    tiền, hẹn giao mà chỉ luật tách được). Câu mẫu phải qua đúng `hieuLenhCho` (test khoá). */
+export const Y_CHO = [
+  "don_huy", "da_nhan", "bao_chuyen", "yc_moi", "yc_xem", "yc_dong_y",
+  "shop_xac_nhan", "shop_giao", "shop_da_giao", "shop_doi_hen", "shop_nhan_tien", "san_yc_moi", "san_bao_gia",
+] as const satisfies readonly LenhCho["k"][];
+export type YCho = (typeof Y_CHO)[number];
+
+/** Câu mẫu nói lại — viết đúng kiểu luật bắt, mã đơn mẫu đuôi 4 ký tự. */
+export const CAU_MAU_CHO: Record<YCho, { viec: string; mau: string }> = {
+  don_huy: { viec: "huỷ đơn", mau: "huỷ đơn UY3Y vì đặt nhầm" },
+  da_nhan: { viec: "báo đã nhận hàng", mau: "đã nhận hàng đơn UY3Y" },
+  bao_chuyen: { viec: "báo đã chuyển khoản", mau: "đã chuyển khoản đơn UY3Y" },
+  yc_moi: { viec: "nhờ chủ sàn tìm món chợ chưa có", mau: "nhờ chủ sàn tìm 2 cuộn lưới cước" },
+  yc_xem: { viec: "xem báo giá", mau: "có báo giá chưa" },
+  yc_dong_y: { viec: "đồng ý báo giá", mau: "đồng ý báo giá" },
+  shop_xac_nhan: { viec: "xác nhận đơn", mau: "xác nhận đơn UY3Y giao ngày mai" },
+  shop_giao: { viec: "đi giao hàng", mau: "đi giao đơn UY3Y gửi xe Phương Trang" },
+  shop_da_giao: { viec: "báo đã giao xong", mau: "đã giao xong đơn UY3Y" },
+  shop_doi_hen: { viec: "dời hẹn giao", mau: "dời hẹn giao đơn UY3Y sang ngày kia" },
+  shop_nhan_tien: { viec: "báo đã nhận tiền", mau: "đã nhận tiền đơn UY3Y" },
+  san_yc_moi: { viec: "xem yêu cầu mới", mau: "có yêu cầu mới không" },
+  san_bao_gia: { viec: "báo giá", mau: "báo giá 3 triệu 6 phí giao 50 nghìn giao 2 3 ngày" },
+};
+
+/** Độ tin n-gram từ đó mới coi là việc sàn — cùng mốc với hieu-y (NGRAM_CHAC). */
+export const CHO_CHAC = 0.5;
+
+/** n-gram ra ý sàn đủ chắc (và luật đã hụt) ⇒ câu hỏi lại kèm ví dụ; còn lại null. */
+export function hoiLaiCho(y: string, conf: number): string | null {
+  if (conf < CHO_CHAC || !(Y_CHO as readonly string[]).includes(y)) return null;
+  const m = CAU_MAU_CHO[y as YCho];
+  return `Bà con muốn ${m.viec} phải không? Nói rõ giúp, ví dụ: "${m.mau}".`;
+}

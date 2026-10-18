@@ -92,7 +92,7 @@ describe("ca từng sai trên bộ kín (17/10)", () => {
 });
 
 describe("senBienReply với n-gram v3 ⇒ lệnh bản đồ", () => {
-  const buf = readFileSync("public/data/sen-bien-ngram.v3.bin");
+  const buf = readFileSync("public/data/sen-bien-ngram.v4.bin");
   const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
   const r = (c: string) => senBienReply(c, model, [], null, { awaitingGo: false, running: false, loaiCa: LOAI });
   it.each([

@@ -8,7 +8,7 @@ import { loadNgram } from "@/lib/sen-bien/ngram";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
 
 const NOW = Date.UTC(2026, 9, 18, 3);
-const buf = readFileSync("public/data/sen-bien-ngram.v3.bin");
+const buf = readFileSync("public/data/sen-bien-ngram.v4.bin");
 const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
 const LOAI = Object.keys(SPECIES_META);
 const snap = (over: Partial<DeviceSnapshot> = {}): DeviceSnapshot => ({

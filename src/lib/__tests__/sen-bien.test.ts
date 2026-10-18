@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { foldVn, guessIntent, loadNgram, NGRAM_BYTES } from "@/lib/sen-bien/ngram";
 import { coordSpeech, findDests, findDestsGan, senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
+import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 
-const buf = readFileSync("public/data/sen-bien-ngram.v3.bin");
+const buf = readFileSync("public/data/sen-bien-ngram.v4.bin");
 const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
 
 const DESTS: SenDest[] = [
@@ -14,36 +15,62 @@ const DESTS: SenDest[] = [
   { name: "Bến nhà", lat: 14.6, lon: 109.0, kind: "nha" },
 ];
 
-describe("ngram Sen Biển v3 — chép y bản train (AI Assistant train/tro-ly, 52 ý: hỏi + thao tác bản đồ)", () => {
+describe("ngram Sen Biển v4 — chép y bản train (AI Assistant train/tro-ly, 65 ý: hỏi + thao tác bản đồ + chợ)", () => {
   it("file trọng số đúng cỡ, sai cỡ thì từ chối", () => {
     expect(buf.byteLength).toBe(NGRAM_BYTES);
     expect(loadNgram(new ArrayBuffer(10))).toBeNull();
   });
   it.each([
-    ["dẫn tôi về cảng Sa Huỳnh", "dan_duong", 0.996],
-    ["chạy ra Hòn Mù", "dan_duong", 0.99],
-    ["mai sóng gió thế nào", "thoi_tiet", 0.996],
+    ["dẫn tôi về cảng Sa Huỳnh", "dan_duong", 1],
+    ["chạy ra Hòn Mù", "dan_duong", 0.997],
+    ["mai sóng gió thế nào", "thoi_tiet", 0.995],
     ["có bão không", "bao", 1],
-    ["giá cá ngừ hôm nay", "gia_ca", 0.997],
-    ["tôi bị đau đầu uống thuốc gì", "ngoai_pham_vi", 0.99],
-    ["dừng lại", "huy", 0.955],
+    ["giá cá ngừ hôm nay", "gia_ca", 0.999],
+    ["tôi bị đau đầu uống thuốc gì", "ngoai_pham_vi", 0.998],
+    ["dừng lại", "huy", 0.998],
     // v2 — hỏi bản đồ; câu chữ HOA như bộ nghe trong máy trả
     ["gần đảo nào nhất", "hoi_dao_gan", 0.999],
-    ["chỗ nào nhiều cá ngừ vằn", "hoi_ca", 0.997],
-    ["CHỖ NÀY CÓ CẤM ĐÁNH BẮT KHÔNG", "hoi_vung_cam", 0.997],
-    ["bán cá ngừ ở đâu", "tin_mua_ban", 0.987],
+    ["chỗ nào nhiều cá ngừ vằn", "hoi_ca", 0.999],
+    ["CHỖ NÀY CÓ CẤM ĐÁNH BẮT KHÔNG", "hoi_vung_cam", 0.999],
+    ["bán cá ngừ ở đâu", "tin_mua_ban", 0.99],
     ["khu tránh trú bão gần nhất", "hoi_tru_bao", 1],
-    ["còn mấy hải lý nữa tới", "con_bao_xa", 0.999],
+    ["còn mấy hải lý nữa tới", "con_bao_xa", 1],
     // v3 — thao tác bản đồ
-    ["xem bản đồ sóng chiều mai", "mo_lop", 0.994],
-    ["tắt lớp gió đi", "tat_lop", 0.991],
-    ["phóng to", "phong_to", 0.999],
+    ["xem bản đồ sóng chiều mai", "mo_lop", 0.997],
+    ["tắt lớp gió đi", "tat_lop", 0.99],
+    ["phóng to", "phong_to", 1],
+    // v4 — chợ vật tư: câu luật lenh-cho HỤT, n-gram vẫn ra đúng việc (cổng phụ hỏi lại)
+    ["đơn đá đó tui hổng lấy nữa", "don_huy", 0.939],
+    ["tui bắn tiền qua cho shop rồi", "bao_chuyen", 0.994],
+    ["khách trả đủ tiền rồi nha", "shop_nhan_tien", 1],
+    ["món tui nhờ kiếm có giá chưa", "yc_xem", 0.999],
+    ["lùi lại hai bữa mới giao được", "shop_doi_hen", 0.999],
+    ["mấy ghe nhờ tìm món gì", "san_yc_moi", 0.921],
+    // tên chỗ bộ nghe viết lệch thành chữ sàn vẫn là dẫn đường
+    ["chạy ra tiền hòa", "dan_duong", 0.876],
   ])("%s → %s (đúng số của bản train)", (cau, y, conf) => {
     const g = guessIntent(model, cau);
     expect(g.y).toBe(y);
     expect(g.conf).toBeCloseTo(conf, 2);
   });
   it("fold bỏ dấu + đ", () => expect(foldVn("Đà Nẵng, Cảng!")).toBe("da nang cang"));
+});
+
+describe("cổng phụ chợ (v4): luật hụt câu sàn ⇒ n-gram ⇒ hỏi lại kèm câu mẫu", () => {
+  it.each([
+    ["đơn đá đó tui hổng lấy nữa", "huỷ đơn UY3Y"],
+    ["hàng xuống tàu rồi đủ hết", "đã nhận hàng đơn UY3Y"],
+    ["giá đó chịu luôn", "đồng ý báo giá"],
+    ["đơn mới đó tui làm được mai giao", "xác nhận đơn UY3Y"],
+  ])("%s", (cau, mau) => {
+    expect(hieuLenhCho(cau)).toBeNull();
+    const g = guessIntent(model, cau);
+    expect(hoiLaiCho(g.y, g.conf)).toContain(mau);
+  });
+  it.each(["dừng lại", "bán cá ngừ ở đâu", "giá cá ngừ hôm nay", "đơn tới đâu rồi", "chạy ra tiền hòa"])("ý cũ '%s' không bị hỏi lại sàn", (cau) => {
+    const g = guessIntent(model, cau);
+    expect(hoiLaiCho(g.y, g.conf)).toBeNull();
+  });
 });
 
 describe("senBienReply — chọn điểm đến bằng giọng", () => {

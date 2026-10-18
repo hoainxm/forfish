@@ -25,7 +25,8 @@ import { loadPlaces } from "@/lib/places";
 import { saveHome } from "@/lib/region";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
 import { lamLenhCho, type ChoKetQua } from "@/lib/sen-bien/lam-cho";
-import { hieuLenhCho } from "@/lib/sen-bien/lenh-cho";
+import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
+import { guessIntent } from "@/lib/sen-bien/ngram";
 import { useAuthUser } from "@/lib/use-auth";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
 import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
@@ -116,7 +117,15 @@ export function SenBienToanApp() {
     async (text: string): Promise<SenHeard> => {
       const cho = hieuLenhCho(text);
       if (cho) return choRaThe(await lamLenhCho(cho, phone));
-      const r = senBienReply(text, await loadSenBienModel(), [], null, { awaitingGo: false, running: false, loaiCa: LOAI_CA });
+      const model = await loadSenBienModel();
+      // cổng phụ (n-gram v4): luật hụt câu mà mô hình chắc là việc sàn ⇒ hỏi lại kèm câu mẫu, không đoán làm hộ
+      const g = model ? guessIntent(model, text) : null;
+      const hoiLai = g ? hoiLaiCho(g.y, g.conf) : null;
+      if (hoiLai) {
+        noi(hoiLai);
+        return { show: hoiLai };
+      }
+      const r = senBienReply(text, model, [], null, { awaitingGo: false, running: false, loaiCa: LOAI_CA });
       if (veBanDo(r)) {
         noi("Mở bản đồ.");
         dong();

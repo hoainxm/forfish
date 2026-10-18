@@ -481,12 +481,12 @@ import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { apDungGemma, canGemma, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
-import { hieuLenhCho } from "@/lib/sen-bien/lenh-cho";
+import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 import { useRouter } from "next/navigation";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
 import { Capacitor } from "@capacitor/core";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
-import { foldVn } from "@/lib/sen-bien/ngram";
+import { foldVn, guessIntent } from "@/lib/sen-bien/ngram";
 import { CruiseIntroSheet } from "@/components/nav-voice-ui";
 import { SenBienNoi, SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
@@ -4209,11 +4209,14 @@ export default function FishingMapView() {
   const senHeard = useCallback(
     async (text: string): Promise<SenHeard> => {
       // VIỆC CHỢ VẬT TƯ nói ở bản đồ ⇒ sang chợ, Sen Biển ở đó làm tiếp (sen-bien-toan-app đọc ?sen=) — 2026-10-18
-      if (!senAwait && !navOn && hieuLenhCho(text)) {
+      // Luật hụt mà n-gram v4 chắc là việc sàn cũng sang chợ — ở đó Sen Biển hỏi lại kèm câu mẫu (lenh-cho.hoiLaiCho)
+      const senModel = await loadSenBienModel();
+      const gCho = !senAwait && !navOn && senModel ? guessIntent(senModel, text) : null;
+      if (!senAwait && !navOn && (hieuLenhCho(text) || (gCho && hoiLaiCho(gCho.y, gCho.conf)))) {
         router.push(`/cho?sen=${encodeURIComponent(text)}`);
         return { show: "Mở chợ…" };
       }
-      const r0 = senBienReply(text, await loadSenBienModel(), senDests, senSeaRef.current, {
+      const r0 = senBienReply(text, senModel, senDests, senSeaRef.current, {
         awaitingGo: senAwait != null,
         running: navOn,
         choVuaNoi: senChoRef.current,
