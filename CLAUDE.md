@@ -91,7 +91,7 @@ Nghĩa là ràng buộc cắn đúng chỗ có tiền, không cắn lớp bản 
 **Vẫn là cổng chặn thật, đừng lẫn với điều trên:**
 - **Copyleft phần mềm** (GPL của bộ ký hiệu OpenCPN, share-alike ODbL của OSM) — đây là ràng buộc lên **mã và cơ sở dữ liệu**, không phải chuyện thu tiền hay không. Vẫn phải tránh.
 - **Cấm "adapted"** (IHO S-52) — cấm cả việc vẽ lại theo hình của họ, bất kể miễn phí.
-- **Chủ quyền** — nguồn nào buộc ghi "South China Sea" hay tên Trung Quốc thì loại, dù giấy phép sạch tới đâu.
+- **Chủ quyền** — nguồn nào buộc ghi "South China Sea" hay tên Trung Quốc thì loại, dù giấy phép sạch tới đâu. Áp cả AI + dữ liệu huấn luyện ([01 §8b](docs/app-map/01-product.md)).
 
 **Thông tin nhà nước Việt Nam công bố công khai** (Thông báo hàng hải, tin bão, danh mục báo hiệu): doanh nghiệp hiện thực hoá thành ứng dụng cho bà con là việc bình thường. Điều 15 Luật SHTT loại "văn bản hành chính" và "số liệu" khỏi bảo hộ quyền tác giả. **Đừng viết câu dè chừng nào cho nhóm này.**
 

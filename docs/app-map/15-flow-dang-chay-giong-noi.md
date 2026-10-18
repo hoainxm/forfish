@@ -778,4 +778,48 @@ Hai báo cáo cùng sáng: bà con chạy thử ở Bình Định (Chrome Androi
 
 **Nợ sau gộp** (ghi thật): 64 mp3 Mỹ Duyên CHƯA áp luật "mp3 gọn" của main (cắt -45 dB, 30 câu đáp nhanh 8 %) — sinh lại bằng `gen_clips.py` đã gộp trên gpu-desktop; n-gram v3 chưa học 1.184 câu lệnh ngắn (`lenh-ngan.mjs` chỉ ở gpu-desktop) — train lại v3 kèm bộ đó. Kiểm: `npm test` 4.662 xanh trên bản gộp.
 
-**Last updated**: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).
+## 23. HỌC THÊM TỪ CÂU NÓI THẬT (2026-10-18)
+
+Chủ dự án: *"lúc dùng app là bà con phải làm xác nhận đồng ý rồi, còn làm đi cái phần thu thập để nâng cấp mô hình sau khi sử dụng, đảm bảo mô hình luôn thông minh"*. Hiểu ý và trả lời VẪN chạy trong máy (luật §20 không đổi). Cái mới chỉ là GỬI VỀ, khi có sóng, chữ của các câu đã nói để bản sau học thêm.
+
+**Vòng học**:
+1. Máy ghi (`lib/sen-bien/mau-hoc.ts` `ghiMauSen`, gọi ở `fishing-map-view.senHeard`): mỗi câu ⇒ `{cau, tra, ct, gemma, xn, chay, phien, t, nen, ban}`. `tra`/`ct` là việc máy đã làm (go + loại chỗ / hoi + loại câu hỏi / map + việc / say + ý n-gram…), `phien` đổi mỗi lần mở Sen Biển.
+2. Có sóng + đã đăng nhập ⇒ `guiMauSen` gửi lô ≤ 100 lên `POST /api/sen-bien/mau` → bảng `sen_bien_mau` (migration 0059, 04 §0059).
+3. Ở bờ: `node scripts/sen-bien-keo-mau.mjs <kho>.jsonl` kéo tiếp từ mốc, đánh dấu `nghi_sai` khi bà con NÓI LẠI trong 20 s sau một câu máy không làm được (say/cancel/pick) ⇒ cặp (câu máy hiểu sai, câu nói lại) là chỗ chấm trước.
+4. Kho huấn luyện (repo AI Assistant `train/`, gpu-desktop): thầy chấm nhãn ⇒ gộp vào dữ liệu ⇒ huấn luyện n-gram/Gemma ⇒ CHỈ phát khi bộ kín không tụt (cổng phát hành sẵn có). N-gram đi theo deploy (`public/data/sen-bien-ngram.vN.bin`); Gemma đi gói Play on-demand theo bản app. *Bước 4 chưa nối — xem phiên tiếp theo.*
+
+**Riêng tư**: chỉ CHỮ (không tiếng thu), không toạ độ (đi tới đâu chỉ còn loại chỗ cảng/điểm/nhà), không SĐT (máy chủ lưu dấu băm có pepper để gỡ mẫu của một người hoặc bỏ lô rác). Kho máy bị xoá khi đổi người (`auth-scope`).
+
+**Ma trận trạng thái**: chưa đăng nhập ⇒ giữ trong máy, không gửi · mất sóng / hết 8 s / máy chủ lỗi / thiếu bảng ⇒ giữ, 10 phút sau mới thử lại · kho đầy 300 ⇒ bỏ mẫu cũ nhất · máy hết chỗ ⇒ không ghi, không báo (mẫu là thứ bỏ được, không lấy chỗ của giấy tờ) · mẫu sai khuôn ⇒ bỏ ở cả hai đầu · gửi trùng ⇒ máy chủ bỏ qua theo id.
+
+**Offline — 4 câu**: (a) thêm MỘT request, chỉ chạy khi `navigator.onLine` + có chuỗi thiết bị, POST (SW bỏ qua), timeout 8 s, không ném, không ai chờ nó ⇒ mất sóng không treo gì; (b) không đụng `sw.js`; khoá mới `forfish.senbien.mau.v1` + `forfish.senbien.mau-gui.v1`, không bump kho nào; (c) không xoá/đè dữ liệu của bà con (kho mẫu có trần riêng, ghi hỏng thì thôi); (d) nhánh mất sóng = cất trong máy, gửi bù 8 s sau lần mở bản đồ có sóng kế tiếp.
+
+**Assumptions**: (1) bà con đã đồng ý lúc đăng ký nên chưa có công tắc tắt trong app — nếu cần cho bà con tự tắt thì thêm vào Cài đặt; (2) trần 20 lô/giờ/SĐT, đếm theo instance; (3) mẫu của khách chưa đăng nhập không gửi (chặn bơm rác); (4) chưa tự xoá mẫu cũ trên máy chủ — mỗi câu vài trăm byte, khi cần thì đặt hạn giữ.
+
+## 24. SEN BIỂN — TRỢ LÝ GIỌNG NÓI CHO TOÀN APP (2026-10-18, CHƯA commit)
+
+Chủ dự án: *"mở rộng làm trợ lý cho toàn app, giao tiếp bằng giọng nói"*. Sen Biển vẫn là MỘT bộ (tai §18a → hiểu ý n-gram v3 + luật, Android thêm Gemma §20 → trả lời), giờ có ở **mọi màn** ngư dân và trả lời cả việc ngoài bản đồ. **Chỉ chạy trong máy** (chủ dự án 17/10 đã bỏ nhánh hỏi máy chủ).
+
+- **Icon ở mọi màn**: `components/sen-bien-toan-app.tsx` gắn trong `app-shell.tsx` (nạp `dynamic(..., { ssr: false })` — `tts.ts` đụng `window` lúc nạp module, dựng trên máy chủ là 500 mọi trang). Không vẽ ở `/ngu-truong` (bản đồ có Sen Biển riêng đủ lớp + vị trí), `/quan-tri`, đăng nhập/đăng ký/đổi mật khẩu/pháp lý. Cùng icon kéo được, cùng thẻ GỌI/CHAT (`SenBienSheet`), giọng qua `ttsSpeak` (mp3 Mỹ Duyên ghép mảnh + giọng máy).
+- **Phân việc** (`lib/sen-bien/tra-loi-app.ts`):
+  - việc **BẢN ĐỒ** (`veBanDo`: dẫn đường, hỏi bản đồ, mở lớp/đổi giờ/đọc số, phóng/thu, còn bao xa…) ⇒ màn khác chuyển sang `/ngu-truong?sen=<câu>`; màn bản đồ chờ 2,5 s cho bản đồ dựng, chạy lại đúng câu đó, hiện câu đáp lên tiêu đề thẻ, rồi bỏ `?sen` khỏi địa chỉ (quay lại không chạy lại).
+  - việc **TRONG APP** ⇒ `traLoiApp`: ý định do n-gram chọn, tham số do bộ tách `lib/assistant/parse.ts` khi cùng ý; câu trả lời từ `lib/assistant/answer.ts` + `device-snapshot.ts` (CHÉP từ feat/san-thuong-mai, bỏ chợ + máy chủ): thời tiết (bản dự báo cảng nhà đã lưu), bão, con nước, giấy tờ, bảo dưỡng, bạn thuyền (đếm, không đọc CCCD/SĐT), tàu đang chọn/đổi tàu, giá cá, giá dầu, đặt cảng nhà, mở màn, hộp thư, trợ giúp, tắt/bật tiếng. Màn bản đồ cũng dùng lớp này thay câu cũ "chỉ giúp trên bản đồ".
+  - **chợ vật tư** (tìm món, giỏ, đơn, gọi shop) chưa có trên bản này ⇒ "Chợ vật tư chưa mở…" + mở Giao dịch.
+- **Hành động**: mở màn · đổi tàu (`saveCurrentBoatId`) · đặt cảng nhà (`saveHome`, cùng luật tỉnh đi theo cảng) — vô hại, nói lại là đổi lại. **Gọi điện chỉ ĐỌC số** (xác nhận gọi luôn là một chạm của bà con, 13 §4.3).
+
+| Trạng thái | Hành vi |
+|---|---|
+| Máy chưa có bản lưu (giá dầu, dự báo, giá cá) | nói thật "Chưa có … trong máy. Có sóng mở … để tải" + mở màn đó; không bịa số |
+| Có bản lưu | đọc số + "số lưu … trước" (vd "Dầu DO 28.800 đ/lít, kỳ 18/10. Số lưu 1 phút trước.") |
+| Chưa có hồ sơ (tàu, giấy tờ, bạn thuyền) | nói chưa có + mở màn để thêm |
+| Câu ngoài phạm vi (y tế, pháp lý, tiền, tra người) | chặn như §17 (`ngoai_pham_vi`) |
+| Kho máy hỏng / bị chặn | trả lời không có tên riêng, không ném |
+| Mất sóng | toàn bộ chạy trong máy (bộ hiểu ý + bản lưu) |
+
+**Offline — 4 câu**: (a) không thêm request (chỉ đọc kho máy; mở màn nào thì màn đó tải như bấm tay); (b) không đụng `sw.js`/khoá `forfish.*` mới; (c) không đè dữ liệu — chỉ ghi khi bà con bảo đổi tàu/cảng nhà; (d) mất sóng vẫn hiểu + trả lời từ bản lưu.
+
+**Đã kiểm (trình duyệt dev 375 px, tài khoản test 0900000777):** icon hiện ở Trang chủ / Bạn thuyền / Giao dịch; "giá dầu hôm nay" lần đầu (chưa có bản lưu) ⇒ nói thật + mở Giao dịch, lần hai ⇒ đọc đúng giá đã lưu; "gần đảo nào nhất" ở Giao dịch ⇒ mở bản đồ ⇒ "Gần chỗ đang xem nhất là Hòn Tre, hướng Tây, 95 hải lý." + bay tới. Test `sen-bien-tra-loi-app.test.ts` + `assistant-*.test.ts` (chép kèm). **Chưa kiểm**: micro thật trên điện thoại ở màn ngoài bản đồ; bản Android (Gemma) ở màn ngoài bản đồ.
+
+**Assumptions**: icon nổi cùng chỗ với màn bản đồ (mép trái, kéo được), chưa hỏi chủ dự án vị trí riêng cho màn danh sách; câu thời tiết ở màn ngoài bản đồ trả lời theo dự báo **cảng nhà** đã lưu (bản đồ thì theo chỗ đang xem).
+
+**Last updated**: 2026-10-18 — Sen Biển trợ lý giọng nói cho toàn app (§24). Trước đó: 2026-10-18 — gộp `feat/sen-bien-ranh-tay` vào `main` (§22b) + Sen Biển học thêm từ câu nói thật: ghi mẫu trong máy, có sóng gửi về (§23). Trước đó: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).

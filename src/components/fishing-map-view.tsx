@@ -479,6 +479,12 @@ import { VOICE_MODE_LABEL } from "@/lib/nav-voice/prefs";
 import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { apDungGemma, canGemma, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
+import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
+import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
+import { useRouter } from "next/navigation";
+import { gomSnapshot } from "@/lib/assistant/device-snapshot";
+import { Capacitor } from "@capacitor/core";
+import { LOCAL_BUILD_ID } from "@/lib/app-version";
 import { foldVn } from "@/lib/sen-bien/ngram";
 import { CruiseIntroSheet } from "@/components/nav-voice-ui";
 import { SenBienNoi, SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
@@ -851,6 +857,7 @@ const ONLINE_REFRESH_GAP_MS = 2 * 60 * 1000;
 
 export default function FishingMapView() {
   const mapRef = useRef<MapRef>(null);
+  const router = useRouter();
   // `?debug=tiles` → bảng % tải ô theo nguồn (components/tile-load-debug). Đọc
   // một lần sau mount (window chỉ có ở client) — không ảnh hưởng người dùng thường.
   const [tileDebug, setTileDebug] = useState(false);
@@ -3085,6 +3092,8 @@ export default function FishingMapView() {
   const senChoRef = useRef<SenDest | null>(null);
   /** bản đồ cá cho câu hỏi "chỗ nào nhiều cá" — gán sau khi fishView có (khai báo phía dưới) */
   const senCaRef = useRef<() => KhoBanDo["ca"]>(() => undefined);
+  /** một lần mở Sen Biển — mẫu học (mau-hoc.ts) ghép cặp câu nói lại theo mã này */
+  const senPhienRef = useRef<string>("");
   const [senAutoCompute, setSenAutoCompute] = useState(0);
   const senDests = useMemo<SenDest[]>(
     () => [
@@ -3104,6 +3113,8 @@ export default function FishingMapView() {
   const senTenRef = useRef(senTen);
   useEffect(() => {
     const t = setTimeout(() => {
+      // mẫu câu nói còn trong máy (chuyến trước mất sóng) ⇒ có sóng thì gửi về để học; không chờ, không ném
+      void guiMauSen();
       void loadSenBienModel()
         .then(() => warmVoiceClips())
         .then(() => napBoNghe(senTenRef.current))
@@ -4203,10 +4214,8 @@ export default function FishingMapView() {
         loaiCa: SEN_LOAI_CA,
       });
       // Android có Gemma: hỏi thêm để lấy THAM SỐ (cùng việc mới nhận), trần 2,5 s; web/lỗi ⇒ giữ câu của luật
-      const r = canGemma(r0)
-        ? apDungGemma(
-            r0,
-            await hoiGemma(text, {
+      const g = canGemma(r0)
+        ? await hoiGemma(text, {
               xn: senAwait != null,
               // như lúc train: cang = tên cảng bỏ chữ "cảng", diem = điểm ghim — đã bỏ dấu
               // KV cache 256 ⇒ ngữ cảnh ngắn như lúc train (2–5 cảng, 1–4 điểm): 5 cảng GẦN chỗ hỏi nhất + 4 điểm ghim
@@ -4215,11 +4224,21 @@ export default function FishingMapView() {
               ),
               diem: ganNhatTen(senDests.filter((d) => d.kind !== "cang"), senViTri(), 4).map((d) => foldVn(d.name)),
               tau: [],
-            }),
-            SEN_LOAI_CA,
-            senDests,
-          )
-        : r0;
+            })
+        : null;
+      const r = canGemma(r0) ? apDungGemma(r0, g, SEN_LOAI_CA, senDests) : r0;
+      // mẫu học (chủ dự án 2026-10-18): chữ nghe ra + máy hiểu thành gì — cất trong máy, có sóng mới gửi
+      ghiMauSen({
+        phien: senPhienRef.current || (senPhienRef.current = phienMoi()),
+        cau: text,
+        r,
+        gemma: g?.y ?? null,
+        xn: senAwait != null,
+        chay: navOn,
+        nen: Capacitor.getPlatform(),
+        ban: LOCAL_BUILD_ID,
+      });
+      void guiMauSen();
       switch (r.kind) {
         case "map":
           return senLenh(r.lenh);
@@ -4290,19 +4309,70 @@ export default function FishingMapView() {
           senSay(t);
           return { show: t };
         }
-        default:
+        default: {
+          // việc trong app (giấy tờ, bảo dưỡng, bạn thuyền, giá cá, mở màn…) ⇒ trả lời từ dữ liệu trong máy
+          // (lớp trợ lý toàn app, 2026-10-18) thay vì "chỉ giúp trên bản đồ"
+          const a = traLoiApp(
+            text,
+            r,
+            gomSnapshot("/ngu-truong"),
+            { awaitingConfirm: false, boatNames: [], portNames: [], placeNames: places.map((p) => p.name), route: "/ngu-truong" },
+            Date.now(),
+          );
+          if (a) {
+            if (a.action?.type === "navigate" && a.action.href !== "/ngu-truong") {
+              setSenOpen(false);
+              router.push(a.action.href);
+            } else if (a.action?.type === "mute") {
+              if (a.action.on) navVoice.mute();
+              else navVoice.unmuteVoice();
+            }
+            senSay(a.speak);
+            return { show: a.text };
+          }
           if (r.ask) senAsk(r.say);
           else senSay(r.say);
           return { show: r.say };
+        }
       }
     },
-    [senDests, senAwait, navOn, senSay, senAsk, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit, tracking.pos, tracking.lastFixAt, tracking.headingDeg, point, goToCoord, senLenh, senViTri],
+    [senDests, senAwait, navOn, senSay, senAsk, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit, tracking.pos, tracking.lastFixAt, tracking.headingDeg, point, goToCoord, senLenh, senViTri, places, router],
   );
   /*  CÂU CHÀO khi GỌI Sen Biển — chủ dự án 2026-10-17: "click vào thì hỏi sen biển giúp gì được cho bạn"
       (thay câu hướng dẫn dài). Ngắn ⇒ nghe sớm. */
   const SEN_CHAO = "Sen Biển giúp gì được cho bạn?";
+  /*  CÂU CHUYỂN TỪ MÀN KHÁC (Sen Biển toàn app, 2026-10-18): màn ngoài bản đồ nghe được việc
+      BẢN ĐỒ ("dẫn về Sa Huỳnh", "xem sóng chiều mai") ⇒ mở /ngu-truong?sen=<câu>. Ở đây nghe lại
+      đúng câu đó một lần, sau khi bản đồ dựng xong, rồi bỏ ?sen khỏi địa chỉ (quay lại không chạy lại). */
+  const senHeardRef = useRef(senHeard);
+  useEffect(() => {
+    senHeardRef.current = senHeard;
+  }, [senHeard]);
+  useEffect(() => {
+    const cau = new URLSearchParams(window.location.search).get("sen");
+    if (!cau) return;
+    // dọn ?sen NGAY LÚC CHẠY (không phải lúc hẹn): dev chạy effect hai lần — dọn sớm thì lượt hai mất câu
+    const t = setTimeout(() => {
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.delete("sen");
+        window.history.replaceState(window.history.state, "", u.toString());
+      } catch {
+        // không sửa được địa chỉ — vẫn chạy câu này
+      }
+      setSenTitle(`“${cau.slice(0, 80)}”`);
+      setSenListen(false);
+      setSenOpen(true);
+      // câu đi đường tắt (không qua ô của thẻ) ⇒ tự hiện câu đáp lên tiêu đề thẻ, tàu ồn vẫn có chữ để nhìn
+      void Promise.resolve(senHeardRef.current(cau.slice(0, 200))).then((kq) => {
+        if (kq?.show) setSenTitle(kq.show);
+      });
+    }, 2500);
+    return () => clearTimeout(t);
+  }, []);
   const openSen = useCallback(() => {
     ttsUnlock();
+    senPhienRef.current = phienMoi();
     // không câu nhắc (chủ dự án 2026-10-17: "đừng có ghi nói cái gì hết") — tiêu đề chỉ mang tin thật
     setSenTitle("");
     setSenListen(true);

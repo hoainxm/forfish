@@ -97,6 +97,7 @@ describe("matcher middleware.ts ↔ DATA_ROUTE_MATCHER ↔ route thật", () => 
       "market-listings", "crew-reports", "product-inquiries", "renewal", "sdvico", // nghiệp vụ per-user, identityFromRequest trong route
       "cho", "ban-hang", // chợ vật tư: xem chợ công khai; đơn/giỏ/kênh bán tự gác (identityFromRequest · openMyOrder · requireShopOwner)
       "dev", // kho file máy dev (isDevFileMode: MARKET_STORE=file, không Vercel, không production) — prod không vào
+      "sen-bien", // máy GỬI mẫu câu nói lên (POST), không trả dữ liệu — identityFromRequest + rate limit trong route
     ]);
     const top = readdirSync(join(ROOT, "src", "app", "api"), { withFileTypes: true })
       .filter((d) => d.isDirectory())

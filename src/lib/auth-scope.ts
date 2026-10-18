@@ -29,6 +29,9 @@ const USER_SCOPED_KEYS = [
   // logout NHƯNG chỉ lúc hook mount + ONLINE — đổi user lúc offline thì dấu
   // premium của A còn cho B (quyền offline rò). Xoá ở đây đóng nốt đường đó.
   "forfish.tier.premium.v1",
+  // Mẫu câu nói Sen Biển chưa gửi (lib/sen-bien/mau-hoc.ts) — không để câu của A
+  // gửi lên dưới tài khoản B (dấu người nói sai). Mất vài câu chưa gửi là chấp nhận được.
+  "forfish.senbien.mau.v1",
 ] as const;
 
 /**

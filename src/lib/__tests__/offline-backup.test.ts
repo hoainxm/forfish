@@ -593,6 +593,14 @@ const EXCLUDED: Array<[string, string]> = [
     "chỗ bà con kéo icon Sen Biển tới (2026-10-17) — đo theo màn hình MÁY NÀY, chép sang máy khác cỡ màn là lệch/che nút",
   ],
   [
+    "forfish.senbien.mau.v1",
+    "mẫu câu nói Sen Biển CHƯA gửi về máy chủ (2026-10-18) — chép sang máy khác là gửi trùng câu dưới tài khoản khác; mất thì chỉ mất vài câu học",
+  ],
+  [
+    "forfish.senbien.mau-gui.v1",
+    "mốc lần gửi mẫu gần nhất của MÁY NÀY — chép sang máy khác chỉ làm máy đó hoãn gửi 10 phút",
+  ],
+  [
     "forfish.installNudge.dismissed.v1",
     "máy MỚI chưa cài mà đã tắt lời nhắc cài",
   ],
