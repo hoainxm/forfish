@@ -1,8 +1,10 @@
 // CHẾ ĐỘ ĐANG CHẠY — BẢN TIN MỞ ĐẦU + ĐIỂM TIN 30 PHÚT (thuần).
 //
-// Bản tin mở đầu (doc 15 §5D): đọc MỘT lần lúc bật, tối đa 4 phần — bão ·
-// sóng gió 6 giờ tới · việc sắp hạn (≤ 7 ngày, ≤ 2 việc) · câu kết nói rõ máy
-// đang canh hải đồ và chỉ là tham khảo. Giấy tờ/bảo dưỡng KHÔNG đọc giữa biển.
+// Bản tin mở đầu (doc 15 §5D): đọc MỘT lần lúc bật, tối đa 4 phần, ý NỐI ý (chủ dự
+// án 2026-10-17: "các câu này không hợp logic, câu trước vênh câu sau"):
+//   bão · sóng gió 6 giờ tới · máy canh gì (CHỈ nói "đang canh" khi ĐÃ có vị trí
+//   tàu — chưa định vị mà khẳng định canh rạn là nói sai) · nhắc việc về bờ ở CUỐI,
+//   danh từ ngắn, không số ngày (≤ 7 ngày, ≤ 2 việc).
 //
 // Điểm tin (doc 15 §5C): 30 phút một lần khi tàu đang chạy — hướng, tốc độ,
 // nước dưới tàu, gió sóng. CẤM câu phủ định kiểu "không có gì phía trước".
@@ -27,9 +29,7 @@ export function urgentLine(items: readonly UrgentItem[]): string {
     .sort((a, b) => a.days - b.days)
     .slice(0, OPENING_URGENT_MAX);
   if (pick.length === 0) return "";
-  return `Việc cần lo khi về bờ: ${pick
-    .map((i) => `${i.label}, ${i.status.charAt(0).toLowerCase()}${i.status.slice(1)}`)
-    .join("; ")}.`;
+  return `Về bờ nhớ lo: ${pick.map((i) => `${i.label.charAt(0).toLowerCase()}${i.label.slice(1)}`).join(", ")}.`;
 }
 
 export function chartLine(chart: ChartReadiness): string {
@@ -39,13 +39,18 @@ export function chartLine(chart: ChartReadiness): string {
   return "Máy đang canh độ sâu, rạn và chướng ngại phía trước. Chỉ tham khảo, bà con dò hải đồ và nghe đài.";
 }
 
-/** Bản tin mở đầu, ≤ 4 phần. */
+/** Chưa có vị trí tàu: không khẳng định canh gì (dòng báo GPS riêng đã nói chuyện định vị). */
+export const CHUA_VI_TRI_LINE = "Chỉ tham khảo, bà con dò hải đồ và nghe đài.";
+
+/** Bản tin mở đầu, ≤ 4 phần: bão · sóng gió · máy canh gì · nhắc việc về bờ. */
 export function openingBulletin(o: {
   storm: string;
   sea: SeaObservation | null;
   urgent: readonly UrgentItem[];
   chart: ChartReadiness;
   nowMs: number;
+  /** đã có vị trí tàu chưa — chưa thì KHÔNG nói "máy đang canh" */
+  coViTri: boolean;
 }): string {
   const parts: string[] = [];
   if (o.storm) parts.push(o.storm);
@@ -54,9 +59,9 @@ export function openingBulletin(o: {
       ? `Sáu giờ tới ${o.sea.warn ? o.sea.warn.charAt(0).toLowerCase() + o.sea.warn.slice(1) : `${o.sea.summary}. ${seaSavedLine(o.sea.savedAt, o.nowMs)}`}`
       : "Máy chưa lưu dự báo sóng gió vùng này.",
   );
+  parts.push(o.coViTri ? chartLine(o.chart) : CHUA_VI_TRI_LINE);
   const u = urgentLine(o.urgent);
   if (u) parts.push(u);
-  parts.push(chartLine(o.chart));
   return parts.slice(0, 4).join(" ");
 }
 

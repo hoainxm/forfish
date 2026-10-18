@@ -184,7 +184,7 @@ function cruise(toKm: number, opts: { mode?: VoiceMode; canSpeak?: boolean; info
         key: "bantin:0",
         group: "bantin",
         tier: "bantin",
-        text: openingBulletin({ storm: "Máy chưa có tin bão. Nghe đài duyên hải.", sea: null, urgent: [], chart: "du", nowMs: 0 }),
+        text: openingBulletin({ storm: "Máy chưa có tin bão. Nghe đài duyên hải.", sea: null, urgent: [], chart: "du", nowMs: 0, coViTri: true }),
       });
     }
     if (diemTinDue(lastDiem, sim.st.lastAlarmMs, 0, t)) {

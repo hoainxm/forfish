@@ -1,0 +1,9 @@
+Gemma is provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms
+
+gemma.litertlm in this asset pack is a Model Derivative of Google Gemma 3 270M (instruction-tuned),
+MODIFIED by SDVICO (2026-10): fine-tuned for the SDFish "Sen Biển" voice assistant, vocabulary trimmed
+to 13.7k tokens, quantization-aware trained (int4, block 32), exported with LiteRT-LM.
+
+Use of this model is subject to the use restrictions in Section 3.2 of the Gemma Terms of Use and the
+Gemma Prohibited Use Policy (ai.google.dev/gemma/prohibited_use_policy). A copy of the Gemma Terms of Use
+is at ai.google.dev/gemma/terms (the full text must be bundled before public release — ADR 0012).

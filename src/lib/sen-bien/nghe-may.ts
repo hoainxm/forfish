@@ -179,6 +179,8 @@ export function ngheMay(opts: {
   onInterim(text: string): void;
   onFinal(text: string): void;
   onError(code: ListenErrorCode): void;
+  /** mức âm 0..1 từng khúc ~85 ms — để vẽ sóng âm thật (thanh nghe kiểu Claude/ChatGPT) */
+  onLevel?(v: number): void;
 }): ListenHandle {
   let xong = false;
   let dung = false; // bà con bấm dừng ⇒ giải mã phần đã thu
@@ -248,7 +250,9 @@ export function ngheMay(opts: {
         tong += x.length;
         let e2 = 0;
         for (let i = 0; i < x.length; i++) e2 += x[i] * x[i];
-        const r = vadBuoc(vad, Math.sqrt(e2 / x.length), (tong / rate) * 1000);
+        const rms = Math.sqrt(e2 / x.length);
+        opts.onLevel?.(Math.min(1, rms * 8));
+        const r = vadBuoc(vad, rms, (tong / rate) * 1000);
         vad = r.s;
         if (dung || r.xong === "noi-xong" || r.xong === "tran") {
           proc.onaudioprocess = null;

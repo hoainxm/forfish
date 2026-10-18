@@ -1,0 +1,14 @@
+// GÓI TÀI NGUYÊN Play Asset Delivery — mô hình Gemma 3 270M của Sen Biển (62 MB, ADR 0012).
+// on-demand: KHÔNG nằm trong bản cài; app xin tải MỘT lần (Play lo tải + giữ), ngoài biển không cần mạng.
+// File mô hình KHÔNG vào git (trần 20 MB/file): CI tải về src/main/assets/sen-bien/gemma.litertlm trước khi build
+// (android-release.yml, bước "Tải mô hình Gemma"); build tay thì chép file vào đó.
+plugins {
+    id 'com.android.asset-pack'
+}
+
+assetPack {
+    packName = "senbiengemma"
+    dynamicDelivery {
+        deliveryType = "on-demand"
+    }
+}

@@ -28,6 +28,7 @@ KHÔNG viết ADR cho: feature thường, UI tweak, fix bug — những thứ đ
 | [0008](0008-dat-lai-mat-khau-khach-ve-sd123456.md) | Đặt lại mật khẩu KHÁCH về sd123456; quyền đặt lại tick riêng từng quản lý | Accepted | 2026-10-06 |
 | [0010](0010-giong-doc-canh-bao-mot-cua-tts-may.md) | Giọng đọc cảnh báo khi chạy: một cửa TTS của máy, hải đồ ưu tiên số một, không có giọng Việt thì im (0009 đang dùng ở nhánh Trợ lý) | Accepted | 2026-10-13 |
 | [0011](0011-sen-bien-nghe-trong-may-zipformer-wasm.md) | Sen Biển nghe trong máy: zipformer tiếng Việt chạy WASM (dựng riêng chỉ-nghe), mô hình trong git, tên ưu tiên + khớp gần; giấy phép mô hình 30M là CC-BY-NC-ND (chủ dự án chốt) | Accepted | 2026-10-16 |
+| [0012](0012-sen-bien-gemma-270m-litert.md) | Sen Biển hiểu ý: n-gram v2 (44 ý, có hỏi bản đồ) chọn ý + luật làm lưới; Gemma 3 270M LiteRT tách tham số — giấy phép Gemma dùng thương mại được (kèm NOTICE + điều khoản §3.2), Android: gói Play on-demand + plugin LiteRT-LM (duyệt 17/10) | Accepted | 2026-10-16 |
 
 ## Cách thêm
 

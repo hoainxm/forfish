@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { foldVn, guessIntent, loadNgram, NGRAM_BYTES } from "@/lib/sen-bien/ngram";
 import { coordSpeech, findDests, findDestsGan, senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
 
-const buf = readFileSync("public/data/sen-bien-ngram.v1.bin");
+const buf = readFileSync("public/data/sen-bien-ngram.v3.bin");
 const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
 
 const DESTS: SenDest[] = [
@@ -14,19 +14,30 @@ const DESTS: SenDest[] = [
   { name: "Bến nhà", lat: 14.6, lon: 109.0, kind: "nha" },
 ];
 
-describe("ngram Sen Biển — chép y bản train (Forlife Assistant 0c7b771)", () => {
+describe("ngram Sen Biển v3 — chép y bản train (AI Assistant train/tro-ly, 52 ý: hỏi + thao tác bản đồ)", () => {
   it("file trọng số đúng cỡ, sai cỡ thì từ chối", () => {
     expect(buf.byteLength).toBe(NGRAM_BYTES);
     expect(loadNgram(new ArrayBuffer(10))).toBeNull();
   });
   it.each([
-    ["dẫn tôi về cảng Sa Huỳnh", "dan_duong", 0.975],
-    ["chạy ra Hòn Mù", "dan_duong", 0.98],
-    ["mai sóng gió thế nào", "thoi_tiet", 0.999],
-    ["có bão không", "bao", 0.999],
-    ["giá cá ngừ hôm nay", "gia_ca", 0.998],
-    ["tôi bị đau đầu uống thuốc gì", "ngoai_pham_vi", 0.976],
-    ["dừng lại", "huy", 0.919],
+    ["dẫn tôi về cảng Sa Huỳnh", "dan_duong", 0.996],
+    ["chạy ra Hòn Mù", "dan_duong", 0.99],
+    ["mai sóng gió thế nào", "thoi_tiet", 0.996],
+    ["có bão không", "bao", 1],
+    ["giá cá ngừ hôm nay", "gia_ca", 0.997],
+    ["tôi bị đau đầu uống thuốc gì", "ngoai_pham_vi", 0.99],
+    ["dừng lại", "huy", 0.955],
+    // v2 — hỏi bản đồ; câu chữ HOA như bộ nghe trong máy trả
+    ["gần đảo nào nhất", "hoi_dao_gan", 0.999],
+    ["chỗ nào nhiều cá ngừ vằn", "hoi_ca", 0.997],
+    ["CHỖ NÀY CÓ CẤM ĐÁNH BẮT KHÔNG", "hoi_vung_cam", 0.997],
+    ["bán cá ngừ ở đâu", "tin_mua_ban", 0.987],
+    ["khu tránh trú bão gần nhất", "hoi_tru_bao", 1],
+    ["còn mấy hải lý nữa tới", "con_bao_xa", 0.999],
+    // v3 — thao tác bản đồ
+    ["xem bản đồ sóng chiều mai", "mo_lop", 0.994],
+    ["tắt lớp gió đi", "tat_lop", 0.991],
+    ["phóng to", "phong_to", 0.999],
   ])("%s → %s (đúng số của bản train)", (cau, y, conf) => {
     const g = guessIntent(model, cau);
     expect(g.y).toBe(y);

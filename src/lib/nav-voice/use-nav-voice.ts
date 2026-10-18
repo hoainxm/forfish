@@ -394,6 +394,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
       urgent,
       chart: inp.chart ?? "chua-co",
       nowMs: now,
+      coViTri: posRef.current != null,
     });
     extraRef.current = [
       ...extraRef.current,

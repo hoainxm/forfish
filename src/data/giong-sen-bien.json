@@ -21,6 +21,7 @@
     { "id": "cham_bien_xem", "text": "Bà con chạm vào biển chỗ muốn xem, Sen Biển đọc sóng gió chỗ đó." },
     { "id": "khong_tra_loi", "text": "Việc này Sen Biển không trả lời được." },
     { "id": "chao", "text": "Chào bà con." },
+    { "id": "giup_gi", "text": "Sen Biển giúp gì được cho bạn?" },
     { "id": "muon_di_dau", "text": "Muốn đi đâu, cứ nói tên cảng, điểm đã ghim hoặc toạ độ." },
     { "id": "chi_giup_ban_do", "text": "Sen Biển hiện chỉ giúp trên bản đồ: chọn chỗ đến, dẫn đường và đọc cảnh báo." },
     { "id": "chua_hieu", "text": "Sen Biển chưa hiểu." },

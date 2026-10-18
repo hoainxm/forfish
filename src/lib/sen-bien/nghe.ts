@@ -77,6 +77,8 @@ export function listenOnce(opts: {
   onError(code: ListenErrorCode): void;
   silenceMs?: number;
   maxMs?: number;
+  /** mức âm 0..1 — chỉ bộ nghe trong máy có; Web Speech không cho số này (sóng vẽ giả) */
+  onLevel?(v: number): void;
 }): ListenHandle {
   if (boNgheSan()) return ngheMay(opts);
   const Ctor = srCtor();

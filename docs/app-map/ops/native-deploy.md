@@ -56,6 +56,14 @@ Chủ dự án chốt qua Zalo: *"cài app tự động bật GPS luôn"* (làm 
 - **iOS**: plugin dùng AVSpeechSynthesizer; `category: "playback"` để vẫn đọc khi gạt nút im lặng. **KHÔNG khai `UIBackgroundModes`** (audio/location) ⇒ khoá màn là ngừng đọc — cố ý, tránh xét lại hồ sơ App Store 2.5.4/5.1.x. Thư mục `ios/` chưa có trên main: khi thêm, chạy `npx cap sync ios` để plugin vào Podfile.
 - **Nợ có trần**: đọc khi khoá màn / app ra nền (background-geolocation + audio nền) — làm khi (1) cảnh báo ranh giới IUU được ghi là tính năng chính trong hồ sơ store VÀ (2) ≥30 % người dùng thật báo "tắt màn mất cảnh báo" (doc 15 §11 bậc C).
 
+## 3c. Sen Biển Gemma — plugin cục bộ + gói Play on-demand (2026-10-17, ADR 0012, doc 15 §20)
+
+- **Plugin cục bộ Kotlin** `android/app/src/main/java/vn/sdvico/sdfish/SenBienGemmaPlugin.kt` (`@CapacitorPlugin(name = "SenBienGemma")`, đăng ký ở `MainActivity.onCreate` TRƯỚC `super`): `trangThai` · `taiVe` (+ sự kiện `tien`) · `nap` · `hoi({he, nguoi}) → {txt, ms}` · `dong`. Dep: `com.google.ai.edge.litertlm:litertlm-android:0.18.0` (CPU; JNI arm64-v8a + x86_64, ~22 MB/ABI — Play tách theo ABI), `com.google.android.play:asset-delivery-ktx:2.3.0`, Kotlin 2.4.0 (root `build.gradle`).
+- **Gói tài nguyên** module `android/sen-bien-gemma` (`com.android.asset-pack`, `packName = "senbiengemma"`, **on-demand**): `src/main/assets/sen-bien/gemma.litertlm` (62 MB, **gitignore**) + `NOTICE.txt` (Gemma Terms §3.1). `app/build.gradle` CHỈ gắn `assetPacks` khi file có mặt ⇒ thiếu file vẫn build (app không có Gemma).
+- **CI** (`android-release.yml`, bước "Tải mô hình Gemma"): `gh release download sen-bien-gemma-v1 -p gemma.litertlm` từ chính repo + kiểm `android/sen-bien-gemma/gemma.sha256`; thiếu release / sai hash ⇒ cảnh báo, build không Gemma. **Release `sen-bien-gemma-v1` đã có trên CẢ HAI repo** (Long-Forfun/ForFish, sdvico/forfish — tạo 2026-10-17 theo chủ dự án, asset `gemma.litertlm` 64.445.952 byte, SHA-256 khớp `gemma.sha256`). Đổi mô hình ⇒ release MỚI (`-v2`) + sửa tag trong workflow + `gemma.sha256`, không ghi đè v1.
+- **Build tay**: chép file vào `android/sen-bien-gemma/src/main/assets/sen-bien/gemma.litertlm`, `./gradlew bundleDebug`. Thử gói on-demand không cần Play: `bundletool build-apks --local-testing` + `install-apks` (đã chạy trên emulator gpu-desktop 2026-10-17: tải gói, nạp 0,33 s, 0,43–0,6 s/câu).
+- **Không cần `npx cap sync`** cho plugin cục bộ (không phải gói npm). `cap sync` đòi Node ≥ 22.
+
 ## 4. Còn thiếu (cần user / môi trường)
 
 - **Mac + Xcode** (build iOS) · **Android Studio/SDK** (build Android).

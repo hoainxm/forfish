@@ -22,12 +22,22 @@
 //    hơi dài không ngắt là chỗ nghe máy móc nhất. Ghép trong MỘT câu nói: câu
 //    nào có mp3 thì mp3, câu nào không thì giọng máy.
 //
+//  · GHÉP MẢNH (chủ dự án 2026-10-17: "dùng vietneu cho toàn bộ", doc 15 §21):
+//    câu có số / tên không khớp nguyên văn thì cắt thành MẢNH thu sẵn (số đọc
+//    bằng chữ, khung câu, tên cảng/đảo/rạn — src/data/giong-sen-bien-manh.json,
+//    luật cắt ở lib/voice/ghep.mjs) và phát NỐI ĐUÔI bằng Web Audio (chính xác
+//    tới mẫu; thẻ <audio> đổi src từng mảnh trễ 50–150 ms, nghe giật). Chỉ khúc
+//    không mảnh nào phủ (tên bà con tự đặt) mới đọc giọng máy.
+//
 // Không file nào ném ra ngoài: mọi lỗi nuốt, `onEnd` luôn được gọi đúng một lần
 // để hàng đợi phát ngôn không bao giờ kẹt.
 
 import { Capacitor } from "@capacitor/core";
 import { QueueStrategy, TextToSpeech } from "@capacitor-community/text-to-speech";
 import clipCatalog from "@/data/giong-sen-bien.json";
+// nợ: danh mục mảnh (~90 KB, gzip ~30 KB) nằm trong bundle màn bản đồ vì speechParts đồng bộ; nâng thành tải lười khi danh mục quá ~300 KB
+import manhCatalog from "@/data/giong-sen-bien-manh.json";
+import { ghepManh, khoaManh } from "@/lib/voice/ghep.mjs";
 import { timeoutSignal } from "@/lib/abort";
 
 export type TtsAvail = {
@@ -151,14 +161,32 @@ const CLIPS = new Map<string, string>(
   clipCatalog.items.map((it) => [clipKey(it.text), `${clipCatalog.dir}/${it.id}.mp3`]),
 );
 
+/** Mảnh ghép: khoá (chữ nói, thường) → mp3. `MANH_DAI` = số âm tiết mảnh dài nhất. */
+const MANH = new Map<string, string>();
+/** mảnh nhóm `ran` (1 500 tên rạn) — tải trước SAU cùng, không chặn bộ nghe */
+const MANH_SAU = new Set<string>();
+let MANH_DAI = 1;
+for (const [nhom, ds] of Object.entries(manhCatalog.nhom as Record<string, string[][]>)) {
+  for (const [id, text] of ds) {
+    const k = khoaManh(text);
+    if (!k || MANH.has(k)) continue;
+    const url = `${manhCatalog.dir}/${id}.mp3`;
+    MANH.set(k, url);
+    if (nhom === "ran") MANH_SAU.add(url);
+    MANH_DAI = Math.max(MANH_DAI, k.split(" ").length);
+  }
+}
+const traManh = (k: string) => MANH.get(k);
+
 /** Đường dẫn mp3 giọng Sen Biển cho đúng câu này, hoặc null. */
 export function clipFor(sentence: string): string | null {
   return CLIPS.get(clipKey(sentence)) ?? null;
 }
 
-/** Mọi đường dẫn clip — để tải trước khi còn sóng. */
+/** Mọi đường dẫn clip — để tải trước khi còn sóng: câu nguyên trước, rồi mảnh
+    theo thứ tự nhóm trong danh mục (số, khung… trước; tên rạn cuối). */
 export function allClipUrls(): string[] {
-  return [...new Set(CLIPS.values())];
+  return [...new Set([...CLIPS.values(), ...MANH.values()])];
 }
 
 /** Tách câu ở dấu . ! ? … có khoảng trắng theo sau. KHÔNG dùng regex
@@ -174,16 +202,17 @@ export function splitSentences(text: string): string[] {
 
 export type SpeechPart = {
   text: string;
-  /** mp3 giọng Sen Biển — null ⇒ đọc giọng máy */
-  clip: string | null;
-  /** nghỉ SAU đoạn này */
+  /** mp3 giọng Sen Biển phát NỐI ĐUÔI (một câu nguyên, hoặc các mảnh ghép) — null ⇒ đọc giọng máy */
+  clips: string[] | null;
+  /** nghỉ SAU đoạn này (0 = nối liền khúc sau trong cùng đoạn câu) */
   pauseMs: number;
 };
 
 /**
- * Một câu nói → các đoạn đọc. Câu có mp3 thì nguyên câu là một đoạn; câu không
- * có thì tách ở ", " / ": " / "; " / " – " (KHÔNG tách "2,5" — dấu phẩy thập
- * phân không có khoảng trắng theo sau).
+ * Một câu nói → các đoạn đọc. Câu có mp3 nguyên văn thì nguyên câu là một đoạn;
+ * không có thì tách ở ", " / ": " / "; " / " – " / " · " (KHÔNG tách "2,5" —
+ * dấu phẩy thập phân không có khoảng trắng theo sau), rồi mỗi đoạn cắt thành
+ * khúc mảnh mp3 + khúc giọng máy (`ghepManh`, doc 15 §21).
  */
 export function speechParts(text: string): SpeechPart[] {
   const sentences = splitSentences(text);
@@ -191,17 +220,18 @@ export function speechParts(text: string): SpeechPart[] {
   for (const sen of sentences) {
     const clip = clipFor(sen);
     if (clip) {
-      out.push({ text: sen, clip, pauseMs: PAUSE_SENTENCE_MS });
+      out.push({ text: sen, clips: [clip], pauseMs: PAUSE_SENTENCE_MS });
       continue;
     }
-    const chunks = sen.split(/(?:[,;:]\s+|\s+[—–-]\s+)/).map((c) => c.trim()).filter(Boolean);
-    chunks.forEach((c, i) =>
-      out.push({
-        text: c,
-        clip: null,
-        pauseMs: i === chunks.length - 1 ? PAUSE_SENTENCE_MS : PAUSE_COMMA_MS,
-      }),
-    );
+    const chunks = sen.split(/(?:[,;:]\s+|\s+[—–·-]\s+)/).map((c) => c.trim()).filter(Boolean);
+    chunks.forEach((c, i) => {
+      const segs = ghepManh(c, traManh, MANH_DAI);
+      if (segs.length === 0) return;
+      // cả đoạn không mảnh nào phủ ⇒ đưa giọng máy CHỮ GỐC (nó tự đọc số theo cách của nó)
+      if (segs.length === 1 && !segs[0].ids) out.push({ text: c, clips: null, pauseMs: 0 });
+      else for (const g of segs) out.push({ text: g.text, clips: g.ids, pauseMs: 0 });
+      out[out.length - 1].pauseMs = i === chunks.length - 1 ? PAUSE_SENTENCE_MS : PAUSE_COMMA_MS;
+    });
   }
   if (out.length) out[out.length - 1].pauseMs = 0;
   return out;
@@ -273,21 +303,178 @@ function playClip(url: string, done: (ok: boolean) => void): () => void {
   };
 }
 
+/* ── GHÉP NỐI ĐUÔI BẰNG WEB AUDIO ──────────────────────────────────────── */
+
+/*  iOS: Web Audio đi theo nút gạt im lặng trừ khi đặt `navigator.audioSession`
+    (Safari 16.4+). Cảnh báo không được câm vì một nút gạt ⇒ iOS không có
+    audioSession thì KHÔNG dùng Web Audio, lùi về thẻ <audio> từng mảnh. */
+type AudioSessionNav = Navigator & { audioSession?: { type: string } };
+let actx: AudioContext | null = null;
+let actxDead = false;
+function audioCtx(): AudioContext | null {
+  if (actxDead || typeof window === "undefined") return null;
+  try {
+    const AC =
+      window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AC) return null;
+    const nav = navigator as AudioSessionNav;
+    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
+    if (ios && !nav.audioSession) return null;
+    if (nav.audioSession) nav.audioSession.type = "playback";
+    actx ??= new AC();
+    return actx;
+  } catch {
+    actxDead = true;
+    return null;
+  }
+}
+
+/** mảnh đã giải mã — giữ ít (mỗi giây tiếng ~190 KB RAM ở 48 kHz) */
+const BUF_CAP = 120;
+const bufs = new Map<string, AudioBuffer>();
+async function clipBuffer(ctx: AudioContext, url: string): Promise<AudioBuffer> {
+  const hit = bufs.get(url);
+  if (hit) {
+    bufs.delete(url);
+    bufs.set(url, hit);
+    return hit;
+  }
+  const res = await fetch(url, { signal: timeoutSignal(CLIP_FETCH_MS) });
+  if (!res.ok) throw new Error(`clip ${res.status}`);
+  const b = await ctx.decodeAudioData(await res.arrayBuffer());
+  bufs.set(url, b);
+  if (bufs.size > BUF_CAP) bufs.delete(bufs.keys().next().value as string);
+  return b;
+}
+
+/** chồng mép giữa hai mảnh (fade vào/ra) — nối không "tách" */
+const XFADE_S = 0.012;
+
+/** Phát các mảnh NỐI ĐUÔI; `done(false)` = không phát được ⇒ chỗ gọi lùi. */
+function playWebAudio(ctx: AudioContext, urls: string[], done: (ok: boolean) => void): () => void {
+  let over = false;
+  const srcs: AudioBufferSourceNode[] = [];
+  const cap = setTimeout(() => finish(true), 15_000 + urls.length * 3000);
+  function finish(ok: boolean) {
+    if (over) return;
+    over = true;
+    clearTimeout(cap);
+    done(ok);
+  }
+  const stopAll = () => {
+    for (const s of srcs) {
+      try {
+        s.onended = null;
+        s.stop();
+      } catch {
+        /* chưa chạy / đã dừng */
+      }
+    }
+  };
+  (async () => {
+    if (ctx.state !== "running") {
+      await Promise.race([ctx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 300))]);
+      if ((ctx.state as string) !== "running") throw new Error("ctx khoá");
+    }
+    const list = await Promise.all(urls.map((u) => clipBuffer(ctx, u)));
+    if (over) return;
+    let t = ctx.currentTime + 0.02;
+    list.forEach((b, i) => {
+      const s = ctx.createBufferSource();
+      const g = ctx.createGain();
+      s.buffer = b;
+      s.connect(g);
+      g.connect(ctx.destination);
+      const end = t + b.duration;
+      const f = Math.min(XFADE_S, b.duration / 4);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(1, t + f);
+      g.gain.setValueAtTime(1, end - f);
+      g.gain.linearRampToValueAtTime(0, end);
+      if (i === list.length - 1) s.onended = () => finish(true);
+      s.start(t);
+      srcs.push(s);
+      t = end - f;
+    });
+  })().catch(() => finish(false));
+  return () => {
+    over = true;
+    clearTimeout(cap);
+    stopAll();
+  };
+}
+
+/** Phát lần lượt bằng thẻ <audio> (không có Web Audio). Hỏng mảnh nào ⇒ `done(false)`. */
+function playAudioSeq(urls: string[], done: (ok: boolean) => void): () => void {
+  let i = 0;
+  let stop: () => void = () => {};
+  let over = false;
+  const step = () => {
+    if (over) return;
+    if (i >= urls.length) return done(true);
+    stop = playClip(urls[i++], (ok) => {
+      if (ok) return step();
+      over = true;
+      done(false);
+    });
+  };
+  step();
+  return () => {
+    over = true;
+    stop();
+  };
+}
+
+/** Một khúc mp3 (một câu nguyên hoặc nhiều mảnh): Web Audio → thẻ <audio> → `done(false)`. */
+function playClips(urls: string[], done: (ok: boolean) => void): () => void {
+  const ctx = urls.length > 1 ? audioCtx() : null;
+  if (!ctx) return playAudioSeq(urls, done);
+  let stop = playWebAudio(ctx, urls, (ok) => {
+    if (ok) done(true);
+    else stop = playAudioSeq(urls, done);
+  });
+  return () => stop();
+}
+
+/** tải trước một loạt url, `song` luồng song song; dừng hết ở lỗi đầu. true = xong trọn */
+async function taiTruoc(urls: string[], song: number): Promise<boolean> {
+  let i = 0;
+  let hong = false;
+  const luong = async () => {
+    while (!hong && i < urls.length) {
+      const url = urls[i++];
+      try {
+        const r = await fetch(url, { signal: timeoutSignal(8000) });
+        if (!r.ok) throw new Error(String(r.status));
+        await r.arrayBuffer();
+      } catch {
+        hong = true;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: song }, luong));
+  return !hong;
+}
+
+/** tên rạn tải sau ngần này — nhường đường cho bộ nghe 34 MB tải ngay sau */
+const WARM_SAU_MS = 120_000;
+let warmSau: ReturnType<typeof setTimeout> | null = null;
+
 /**
- * Tải trước mọi clip vào kho SW khi còn sóng (gọi lúc mở bản đồ, sau vài giây).
- * Không ném; dừng ở lỗi đầu tiên (mất sóng thì thôi, lần mở sau tải tiếp).
+ * Tải trước clip vào kho SW khi còn sóng (gọi lúc mở bản đồ, sau vài giây).
+ * Câu nguyên + mảnh lõi (số, khung, tên cảng/đảo…) tải ngay, 4 luồng — xong
+ * mới trả về (chỗ gọi tải tiếp bộ nghe); tên rạn hẹn tải sau 2 phút, không
+ * chặn ai. Không ném; dừng ở lỗi đầu (mất sóng thì thôi, lần mở sau tải tiếp —
+ * file đã có trong kho SW thì lần sau đọc từ kho, không ra mạng).
  */
 export async function warmVoiceClips(): Promise<void> {
   if (typeof fetch === "undefined" || !isOnline()) return;
-  for (const url of allClipUrls()) {
-    try {
-      const r = await fetch(url, { signal: timeoutSignal(8000) });
-      if (!r.ok) return;
-      await r.arrayBuffer();
-    } catch {
-      return;
-    }
-  }
+  const all = allClipUrls();
+  const ok = await taiTruoc(all.filter((u) => !MANH_SAU.has(u)), 4);
+  if (!ok || warmSau) return;
+  warmSau = setTimeout(() => {
+    if (isOnline()) void taiTruoc(all.filter((u) => MANH_SAU.has(u)), 2);
+  }, WARM_SAU_MS);
 }
 
 function waitVoices(ms: number): Promise<void> {
@@ -342,6 +529,8 @@ const SILENT_WAV =
 
 /** Mở khoá loa (iOS Safari web) — PHẢI gọi trong handler chạm. Native không cần. */
 export function ttsUnlock(): void {
+  const ctx = audioCtx();
+  if (ctx && ctx.state !== "running") ctx.resume().catch(() => {});
   const el = clipAudio();
   if (el && !el.src) {
     try {
@@ -529,8 +718,8 @@ export function ttsSpeak(text: string, opts: { onEnd?(): void; rate?: number } =
         else after();
       });
     };
-    if (p.clip) {
-      stopCur = playClip(p.clip, (ok) => (ok ? after() : synth(true)));
+    if (p.clips) {
+      stopCur = playClips(p.clips, (ok) => (ok ? after() : synth(true)));
     } else {
       synth(true);
     }

@@ -467,7 +467,7 @@ Nạp: 8 s sau khi mở bản đồ, **sau** bộ hiểu ý và mp3 giọng, tu�
 ### 18b. Hiểu — thêm ba lớp trước khi chọn chỗ
 
 1. **Số bằng chữ → số** (`parse-coord.soBangChu`): "mười bốn độ ba mươi tư phút" thành "14 độ 34 phút". Giữ dấu: "năm" (5) khác "nam" (hướng), "không" đứng một mình là từ chối. Hai số nguyên trơn không nhãn thì KHÔNG phải toạ độ.
-2. **Câu hỏi bản đồ** (`sen-bien/hoi-ban-do.ts` `hoiGi`, luật đóng, chạy trước khi dò tên chỗ) → `traLoi(q, kho, vịTrí)`. Kho gom bằng `kho-ban-do.ts`, chỉ gọi lại các hàm tải sẵn có.
+2. **Câu hỏi bản đồ** (chạy trước khi dò tên chỗ) → `traLoi(q, kho, vịTrí)`. Kho gom bằng `kho-ban-do.ts`, chỉ gọi lại các hàm tải sẵn có. **Chọn loại câu hỏi (2026-10-16 tối): bộ n-gram** (`ngram.ts`; v2 44 ý = 31 ý cũ + 13 ý bản đồ `hoi_*` · `con_bao_xa`; từ 17/10 là v3 `sen-bien-ngram.v3.bin` 52 ý, §19) **độ tin ≥ 0,5 thì theo nó** — kể cả khi nó nói "không phải câu bản đồ"; kém chắc hoặc chưa tải được thì **luật `hoiGi` làm lưới**. Mô hình chỉ chọn LOẠI; hướng / loài / "đi luôn" vẫn do luật trích (`tachThamSo`), `cauHoiTuY` nối hai nửa. Câu có TÊN chỗ + động từ đi thì nhường bước dẫn đi. Đo trên bộ kín 239 câu bản đồ (Opus viết, chưa người duyệt): đúng tuyến luật 76,6 % → n-gram rồi luật **97,1 %**; bản chữ HOA lệch tên như bộ nghe trả 75,7 % → 96,2 %; bộ 28 câu người viết (luật được chỉnh theo) 96,4 % → 100 %. Bộ cũ không tụt: A 97 → 97,8 %, B 90,3 → 90,6 %, lọt chặn 2 → 1/23. Số liệu + cách train: repo AI Assistant `train/tro-ly/chay-bd.sh`, `train/reports/troly-2026-10-16-16-*.md`.
 3. **Khớp gần theo âm** (`hieu-y.findDestsGan`): gộp r/d/gi, tr/ch, s/x, v, qu, c/k, t/c cuối; khoảng cách chữ ≤30 %, phải hơn hẳn chỗ nhì; chỉ khi bộ hiểu ý đoán "dẫn đường". Bỏ chữ lệnh/đệm trước khi so ("cảng" từng khớp nhầm "Cà Ná").
 
 | Hỏi (ví dụ) | Loại | Đọc từ lớp | Câu đáp mẫu |
@@ -510,11 +510,228 @@ Sau câu đáp có chỗ, bản đồ bay tới đó; bà con nói **"dẫn tớ
 
 - **Tự tải 34 MB khi mở bản đồ** (không hỏi), giống nền bản đồ 17 MB đã tự tải. Chừa ra máy bật "tiết kiệm dữ liệu". Nếu bà con phàn nàn tốn 4G thì đổi sang nút "Tải bộ nghe" trong Cài đặt.
 - **Trong máy đi trước Web Speech** khi đã nạp: nhanh, không lộ tiếng ra máy chủ ngoài, có tên ưu tiên; đo 68–69/70 câu lệnh đúng việc. Giọng thật chưa đo, nếu tệ hơn Web Speech lúc có sóng thì đảo thứ tự.
-- **Hỏi đáp bằng LUẬT**, chưa qua n-gram: 31 ý định hiện có chưa có các ý bản đồ. Luật đo trên 1.421 câu thử của bộ train: bắt nhầm khoảng 8 câu (phần lớn là hỏi giá cá → "chỗ nào nhiều cá"). Nâng cấp: train lại n-gram + Gemma nhỏ với các ý này (ADR 0011, việc riêng).
+- **Hỏi đáp: n-gram v2 chọn, luật làm lưới** (§18b). Ngưỡng 0,5 chọn trên bộ kín (0,4–0,6 cùng đỉnh). Bộ kín do Opus viết + gán nhãn, CHƯA người duyệt; câu bà con thật chưa đo. Đổi tên file v1 → v2 vì SW giữ `/data` cache-first: cùng tên thì máy cũ giữ mãi bản 31 ý (sai cỡ ⇒ `loadNgram` null ⇒ chỉ còn luật). Gemma 3 270M tách tham số: đã fine-tune + xuất LiteRT, CHƯA vào app — chờ chủ dự án duyệt cách phân phối (ADR 0012).
 - **Giọng câu cố định đổi sang VieNeu "Mỹ Duyên"** (chủ dự án 2026-10-16), 63 câu sinh lại trên gpu-desktop, sai chữ trung bình 3,9 % (Trúc Ly 3,2 %). Câu "Sen Biển chưa hiểu" bị nuốt chữ "Sen", để sinh lại sau.
 
 ### 18f. Đã kiểm (2026-10-16, Mac)
 
 `npm test` 4.438 xanh · `tsc` sạch · eslint các file đụng 0 lỗi mới. Worker + WASM dựng riêng chạy trong Chromium (pane trình duyệt của app, dev server): nạp 0,9 s, câu "dẫn về cảng Sa Huỳnh" trộn máy tàu 5 dB nghe ra "DẪN VỀ CẢNG SA HUỲNH" sau 0,13 s, dựng lại tên ưu tiên 0,5 s. Bộ đo Node (cùng mô hình, cùng luật): 68–69/70. **Chưa kiểm được**: mic thật + VAD trên điện thoại, giọng bà con thật, RAM máy Android yếu, màn bản đồ khi đã đăng nhập (Mac và gpu-desktop không có khoá service-role để cấp acc test), bản SDF2 mã hoá trên Vercel.
 
-**Last updated**: 2026-10-16 — Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).
+## 19. SEN BIỂN THAO TÁC BẢN ĐỒ BẰNG GIỌNG (2026-10-17)
+
+Chủ dự án: *"ngư dân nói xem bản đồ sóng, xem bản đồ gió, xem dòng chảy trong mấy ngày tới rồi bản đồ tự thao tác theo, xem bản đồ cá thì qua bản đồ cá, chọn loài cá cần xem, đọc giá trị và vị trí … thao tác toàn bộ ở bản đồ chỉ cần nói với sen biển"*.
+
+**Hai nửa** (`lib/sen-bien/lenh-ban-do.ts`): bộ n-gram **v3** (`sen-bien-ngram.v3.bin` 3,6 MB, 52 ý) chọn VIỆC trong 8 ý mới; luật trích THAM SỐ (`tachLop`, `tachThoiDiem`, tầng); chưa tải mô hình thì `lenhLuat` chỉ bắt câu rất rõ. Màn bản đồ (`fishing-map-view` `senLenh`) bấm **đúng các hàm nút sẵn có** nên mọi luật cũ tự áp: một lớp động mỗi lần, khoá ngày theo hạng, gác lớp cá.
+
+| Bà con nói | Việc | Màn bản đồ làm | Sen Biển đọc |
+|---|---|---|---|
+| xem bản đồ sóng chiều mai · mở gió · xem dòng chảy tầng 150 mét | `mo_lop` | bật lớp (gió/sóng/dòng chảy + tầng · mây/mưa/nhiệt kk/dông/khí áp · nhiệt nước/phù du/hải đồ) rồi kéo thanh giờ tới mốc gần nhất khi lưới về | "Đang xem sóng 3 giờ chiều mai. Chỗ tàu …: sóng cao 1,8 mét." |
+| xem bản đồ cá ngừ vằn · cho xem mực ống | `mo_lop` lớp cá + loài | bật lớp cá, chọn loài (nhóm "cá ngừ" ⇒ loài ngừ có trong bản hôm nay) | "Đang xem cá ngừ vằn." · loài không có hôm nay ⇒ nói thật |
+| qua chiều mai · xem 3 giờ chiều mốt | `doi_thoi_diem` | kéo thanh giờ của lớp ĐANG bật | đọc số lớp đó tại chỗ hỏi |
+| sóng chỗ tàu ngày mốt bao nhiêu · điểm cá ngừ vằn chỗ này | `doc_gia_tri` | lưới đã có ⇒ đọc ngay; chưa có ⇒ mở lớp rồi đọc khi lưới về | gió: cấp + km/giờ + hướng thổi tới · sóng: mét · dòng chảy: hải lý/giờ + hướng CHẢY VỀ · mây %, mưa mm/giờ, nhiệt °C, khí áp, nguy cơ dông (CAPE) · cá: điểm /100 "dự báo, không chắc chắn" |
+| tắt lớp · phóng to · thu nhỏ · về chỗ tàu · cho chạy | `tat_lop` `phong_to` `thu_nho` `ve_tau` `chay_thoi_gian` | nút tương ứng | câu ngắn |
+
+Vị trí hỏi như §18b: GPS tàu ≤10 phút thì "Chỗ tàu", không thì giữa bản đồ "Chỗ đang xem". Số đọc từ lưới màn bản đồ ĐÃ tải (`fGrid`, `sfGrid`, ô dự báo cá) — **không thêm request**.
+
+**Đo (bộ kín 232 câu thao tác bản đồ, Opus viết qua subscription, chưa người duyệt):** đúng việc luật 42,2 % → n-gram v3 rồi luật **93,3 %**, trọn đúng (thêm tham số) 17,9 → **81,2 %**; bản CHỮ HOA lệch chữ như bộ nghe: 38,6 → 88,3 %. Bộ cũ giữ mức v1: A 97,8 %, B 90,3 %, lọt chặn 1/23. Báo cáo: AI Assistant `train/reports/troly-2026-10-17-*.md`.
+
+### 19a. Ma trận trạng thái
+
+| Trạng thái | Hành vi |
+|---|---|
+| **Đang dẫn đường / đang chạy** | KHÔNG đổi lớp, không kéo thanh giờ, không tắt lớp (hải đồ ưu tiên số một, §17) — chỉ ĐỌC số nếu lưới có: "Đang dẫn đường nên giữ nguyên hải đồ. …". Phóng/thu/về tàu vẫn làm |
+| Lưới chưa về (mất sóng lần đầu, đang tải) | mở lớp, chờ tối đa 25 s; hết hạn thì đọc + HIỆN "Chưa tải được số …. Bà con mở lại lúc còn sóng." — không bao giờ nói 0 |
+| Hỏi quá 3 ngày, tài khoản thường | "Xem quá 3 ngày dành cho tài khoản premium." (trừ máy đã có lưới dài — luật "đã tải thì cứ dùng") |
+| Ngày nói vượt lưới đang có | "Máy chưa có dự báo tới lúc đó." — không nhảy bừa tới mốc cuối |
+| Lớp cá chưa đăng nhập / chưa premium | mở lớp cá (khoá như bấm tay) + nói rõ; số cá không lộ |
+| "mở cái đó lên" (không rõ lớp) | hỏi lại: "Bà con muốn xem lớp nào: sóng, gió, dòng chảy, mưa, mây, hay bản đồ cá?" |
+| Đổi giờ khi chưa bật lớp có thời gian | "Bà con mở lớp gió, sóng, dòng chảy hay mưa trước, rồi nói thời điểm." |
+| Câu đến muộn (lưới vừa về) | vừa đọc vừa hiện lên tiêu đề thẻ (tàu ồn còn chữ để nhìn) |
+
+### 19b. Offline — 4 câu
+
+| Câu hỏi | Trả lời |
+|---|---|
+| (a) Request mạng mới? | Không. Chỉ bật các lớp bằng hàm nút sẵn có; lớp nào tải thì tải đúng như bấm tay (đã có timeout/bản lưu). File n-gram đổi tên v2→v3 (một file, cùng cửa `fetchDataBytes` 20 s như trước). |
+| (b) Đụng `sw.js`/`SHELL`/khoá `forfish.*`? | Không. |
+| (c) Mất/đè dữ liệu bà con? | Không, chỉ đổi lớp đang xem (lớp đang xem vốn được nhớ ở `MAP_LAYER_KEY` như bấm tay). |
+| (d) Nhánh mất sóng? | Hiểu + trích tham số hoàn toàn trong máy; đọc số từ bản lưới đã lưu (`peekForecastGrid`) nếu có, không thì nói thật. |
+
+### 19c. Assumptions
+
+- **Đang dẫn đường thì không đổi màn** (mặc định an toàn nhất, chủ dự án chưa chốt khác).
+- Chưa đọc số dòng chảy TẦNG SÂU (lưới tầng riêng) — mở được lớp, chưa đọc số.
+- "Cuối tuần" chưa hiểu thành ngày cụ thể (bà con nói "thứ bảy" cũng vậy) — Sen Biển hỏi lại ngày giờ.
+- Kiểm trên trình duyệt (dev, chuỗi thử đúng khuôn trên localhost): mở lớp sóng, bản đồ cá + loài, đọc điểm cá ("điểm cá 75 trên 100"), tắt lớp, chặn đổi lớp khi đang chạy. **Chưa kiểm được trên máy dev**: nhảy thanh giờ + đọc số gió/sóng thật (máy dev không có lưới dự báo — snapshot 404/503); phần này có test đơn vị `lenh-ban-do.test.ts`.
+
+## 20. SEN BIỂN GEMMA TRÊN ANDROID (2026-10-17, ADR 0012, CHƯA commit)
+
+Chủ dự án duyệt 2026-10-17: *"làm plugin Capacitor Android chạy Gemma 62 MB qua Play Asset Delivery, web giữ n-gram + luật"*.
+
+- **Vai**: Gemma 3 270M (fine-tune, cắt từ vựng, int4) chỉ **tách tham số**. Luồng `senHeard`: `senBienReply` (n-gram + luật) trả lời trước → nếu là câu hỏi bản đồ / lệnh bản đồ / dẫn đường mà không thấy tên ⇒ `hoiGemma` (trần **2,5 s**) → `apDungGemma` CHỈ nhận tham số khi Gemma đoán **cùng việc** (hướng, loài, đi luôn, lớp, ngày giờ, tầng; tên chỗ lệch giọng khớp ĐÚNG một chỗ trong danh sách thì đi). Gemma lỗi/chậm/chưa có ⇒ câu của luật, không treo.
+- **Prompt khớp lúc train** (`lib/sen-bien/gemma.ts` `SYSTEM` + `userMsg`, câu hạ chữ thường); ngữ cảnh = 5 cảng gần chỗ hỏi + 4 điểm ghim (KV cache 256).
+- **Tải**: 8 s sau khi mở bản đồ, sau bộ nghe: có gói ⇒ `nap`; chưa có ⇒ xin Play tải gói on-demand (Play lo Wi-Fi/4G, tự hỏi bà con khi cần); máy bật tiết kiệm dữ liệu ⇒ không xin. Rời bản đồ ⇒ `dong` (nhả ~200 MB RAM). Plugin + gói + CI: ops/native-deploy §3c.
+- **Web/PWA**: không có Gemma (`coGemma()` false) — n-gram v3 + luật như §18–19.
+
+| Trạng thái | Hành vi |
+|---|---|
+| Web, hoặc bản Android build không có file mô hình | như web |
+| Gói chưa tải / đang tải / chờ Wi-Fi | luật trả lời; Play tải nền |
+| Gói có, chưa nạp xong khi bà con nói | chờ nạp trong trần 2,5 s, quá thì câu của luật |
+| Gemma trả rác / ý khác | bỏ, giữ câu của luật |
+| Mất sóng | Gemma chạy trong máy, không cần mạng |
+
+**Offline — 4 câu**: (a) request mạng mới = MỘT lần Play tải gói 62 MB (Play quản, có thử lại; app không tự fetch); (b) không đụng `sw.js`/khoá `forfish.*`; (c) không đè dữ liệu bà con; (d) đã có gói thì chạy hoàn toàn trong máy.
+
+**Đo trên emulator x86_64 (gpu-desktop, CPU máy tính — chưa phải điện thoại thật):** gói tải qua Play giả lập (`bundletool --local-testing`), nạp 0,33 s, 0,43–0,6 s/câu, ra đúng JSON (vd "XEM BẢN ĐỒ SÓNG CHIỀU MAI" → `mo_lop`, sóng, ngày 1, 15 giờ). **Chưa kiểm**: điện thoại thật (độ trễ, RAM, nóng máy), Play thật, toàn luồng UI trong app Android (app tải web Vercel — bản web chưa deploy phần này).
+
+**Assumptions**: tự xin Play tải gói lúc mở bản đồ (như bộ nghe 34 MB tự tải), chưa có nút riêng; tên lệch giọng ("XA HUYỀN") chỉ đi khi tên Gemma ra khớp đúng MỘT chỗ.
+
+## 21. KỊCH BẢN GIỌNG MỸ DUYÊN CHO MỌI CÂU — GHÉP MẢNH (2026-10-17, ĐÃ DUYỆT — thu cả tên rạn)
+
+Chủ dự án: *"dùng vietneu cho toàn bộ đi"* · *"kịch bản đi, tăng tính tuỳ biến, ghép"*. Nay (§17b) chỉ 63 câu CỐ ĐỊNH có mp3; câu nào có số hay tên ("Còn chừng 3 hải lý tới ranh giới", "Rạn có tên gần nhất là Đá Lát, hướng Đông Nam, 4,5 hải lý") đọc giọng máy ⇒ một lượt nói lẫn hai giọng. Máy bà con không chạy được VieNeu (nặng, cần GPU) và Sen Biển không gọi máy chủ ⇒ chỉ còn cách **thu sẵn từng MẢNH ở bờ rồi ghép lúc đọc**.
+
+### 21a. Ý chính — người gọi KHÔNG đổi gì
+
+Không viết khuôn riêng cho từng câu trong code (hơn 60 chỗ dựng câu ở `nav-voice/*`, `sen-bien/hoi-ban-do.ts`, `lenh-ban-do.ts`, `hieu-y.ts`). `tts.ts` tự cắt câu thành mảnh bằng **khớp dài nhất** trên danh mục mảnh:
+
+1. Câu khớp NGUYÊN VĂN một câu cố định ⇒ mp3 câu đó (như nay — vẫn đẹp nhất).
+2. Không thì **chuẩn hoá thành chữ nói**: số → chữ ("12" → "mười hai", "4,5" → "bốn phẩy năm", "21" → "hai mươi mốt", "105" → "một trăm lẻ năm"), "km/giờ" → "cây số một giờ", "%" → "phần trăm", "2–4" → "hai đến bốn", bỏ dấu câu trừ chỗ nghỉ.
+3. Đi từ trái sang phải, mỗi lần lấy **cụm âm tiết DÀI NHẤT** có trong danh mục mảnh (một mảnh có thể là "còn chừng", "hải lý", "tới ranh giới", "Sa Huỳnh", "hai mươi"…).
+4. Âm tiết không mảnh nào phủ ⇒ gom thành MỘT đoạn liền, **chỉ đoạn đó** đọc giọng máy (vd tên điểm ghim bà con tự đặt "chỗ ông Ba"). Máy không có giọng Việt ⇒ đoạn đó im, phần còn lại vẫn đọc mp3; chữ vẫn hiện trên HUD/thẻ (luật "không giọng lạ" giữ).
+5. Nghỉ: giữa hai mảnh trong một đoạn **0 ms** (nối liền, xem 21d), sau ", " ": " "; " " · " 180 ms, giữa câu 250 ms (giữ §17b).
+6. Cả đoạn không mảnh nào phủ ⇒ giọng máy đọc CHỮ GỐC của đoạn (nó tự đọc số theo cách của nó).
+
+Code: luật chung `src/lib/voice/ghep.mjs` (`docSo`, `vietThanhNoi`, `khoaManh`, `ghepManh` — app và script lập danh mục dùng CÙNG luật nên khoá lúc thu và lúc đọc không lệch); `tts.ts` `speechParts` trả `clips: string[] | null`.
+
+Nghĩa là **thêm khuôn mới = thêm dòng vào JSON + sinh mp3**, không sửa code; câu mới ai viết trong code mà dùng chữ đã có mảnh thì tự có giọng Mỹ Duyên.
+
+### 21b. Danh mục mảnh (kịch bản thu)
+
+Một file `src/data/giong-sen-bien-manh.json`, mỗi mục `{ id, text, nhom, doc? }` — `text` là cụm chữ nói (khoá tra), `doc` khi cần đọc khác chữ. Nhóm:
+
+| Nhóm | Nội dung | Số mảnh (ước) | Nguồn liệt kê |
+|---|---|---|---|
+| `so` | MỘT mảnh cho cả cụm: 0–99 ("hai mươi mốt"), "X trăm", "lẻ X", "X nghìn", "X triệu", "phẩy X" + âm tiết lẻ dự phòng | 158 | luật đọc số tiếng Việt. Đo 2026-10-17: âm tiết số thu ĐỨNG RIÊNG ("trăm", "phẩy", "lẻ") hay méo, bộ nhận giọng nghe sai 9/22 ⇒ thu theo cụm |
+| `coban` | từ rời sát chỗ trống: 8 hướng, buổi, đơn vị, giới từ, loại địa danh | 85 | `CO_BAN` trong `lap_manh.mjs` |
+| `khung` | phần chữ cố định của mọi câu động: "còn chừng" · "tới ranh giới" · "giữ khoảng cách" · "đang đi khác đường đã vẽ chừng" · "gần nhất là" · "rạn có tên gần nhất là" · "cảng gần nhất là" · "đèn biển" · "trạm" · "nước lớn" · "nước ròng" · "gió cấp" · "sóng chừng" · "pin còn" · "tới" · "đi" · "về" · "điểm" · "nhắc lại" · "đã tới chỗ ghé số" · "đây là dự báo, không chắc chắn"… | 348 | `lap_manh.mjs` QUÉT mọi chuỗi chữ trong 17 file dựng câu nói (`nav-voice/*`, `sen-bien/*`, `nav-hazards`, `nav-context`, nhãn phao/xác tàu/vùng…): phần chữ giữa các `${…}`, tách ở dấu câu |
+| `them` | mảnh khai TAY (giữ qua mỗi lần lập lại) | 0 | sửa thẳng JSON |
+| `gop` | cặp mảnh hay đứng liền, thu GỘP ("hướng Tây Nam", "chừng một", "phẩy tám hải lý") — ít chỗ nối, liền hơi | 254 | HỌC từ kịch bản toàn bộ (21e), kiểu BPE: gộp cặp gặp ≥15 lần, ≤6 âm tiết, trần 400 |
+| `kichban` | cụm câu thật còn phải đọc giọng máy (vd "Vào luồng: để … này bên trái tàu (ra biển thì …)", tên tàu Việt, "Áp thấp nhiệt đới") | ~45 | HỌC từ kịch bản toàn bộ |
+| `ten` | cảng cá · đảo · trạm thuỷ triều · đèn biển · khu tránh trú bão · khu bảo tồn/vùng quản lý — trùng thì một mảnh | 400 | `fishing-ports.ts` + `public/data/*.json` |
+| `ran` | tên rạn, bãi + địa danh ngầm (đã duyệt thu) | 1 509 | `coral-reefs.v1.json`, `dia-danh-ngam.v1.json` |
+
+### 21c. Dung lượng (đo theo clip đang có: 48 kbps ≈ 6 KB/giây, sau chậm 10 % ≈ 0,25 giây/âm tiết ≈ 1,5 KB/âm tiết)
+
+| Gói | Âm tiết (ước) | Dung lượng |
+|---|---|---|
+| Đang có: 63 câu cố định | — | 1,1 MB |
+| `so` + `donvi` + `huong` + `gio` + `khung` | ~200 mảnh × 2,5 ≈ 500 | **~0,8 MB** |
+| `ten` (~400 tên × 2,7) | ~1 100 | **~1,6 MB** |
+| `ran` (1 509 tên) | ~4 900 | ~7 MB |
+| **Tổng 2 807 mảnh (sau 2 vòng học kịch bản)** | **8 988** | **đo thật: 8,4 MB** sau nén + cắt gọn (21j, 21k); cả `public/giong/` 8,9 MB |
+
+**Chốt 2026-10-17 (chủ dự án)**: thu cả `ran`. Tên điểm ghim bà con tự đặt vẫn lùi giọng máy cho đúng khúc tên (bước 4).
+
+Git: **mỗi mảnh MỘT file** `public/giong/sen-bien/m/<id>.mp3` (không gộp thành một file lớn — gộp thì thêm một mảnh là cả gói 2,4 MB nằm lại lịch sử, CLAUDE.md "chống phình" luật 1+3). `gen_clips.py` mặc định chỉ sinh mảnh CHƯA có file ⇒ thêm mảnh chỉ thêm vài KB.
+
+### 21d. Ghép cho liền — chỗ quyết định nghe "người" hay "máy"
+
+- Phát bằng **Web Audio** (`AudioContext`, `decodeAudioData` mỗi mảnh một lần, giữ trong bộ nhớ phiên) và **xếp lịch nối đuôi chính xác tới mẫu** — thẻ `<audio>` đổi `src` từng mảnh trễ 50–150 ms mỗi lần, ghép 6 mảnh là nghe giật. Không có `AudioContext` ⇒ lùi về thẻ `<audio>` như nay. `ttsUnlock` mở khoá cả `AudioContext.resume()` trong cú chạm (iOS).
+- Mảnh sinh **cắt lặng sát hơn câu** (chừa 30 ms thay 80 ms) + nối có **chồng mép 15 ms** (fade) để không "tách" giữa hai mảnh.
+- Mọi mảnh sinh như cụm đứng riêng (4 bản, `chon_clips.mjs --manh` chọn bản ít sai chữ). Số thu theo CỤM (bảng 21b) thay vì "câu mang rồi cắt" — cắt cần căn chỉnh âm, không đáng; cụm hai âm tiết đã đủ tự nhiên.
+- **iOS**: Web Audio đi theo nút gạt im lặng trừ khi đặt `navigator.audioSession.type = "playback"` (Safari 16.4+) — iOS không có `audioSession` ⇒ KHÔNG dùng Web Audio, lùi thẻ `<audio>` từng mảnh (cảnh báo không được câm vì một nút gạt). Mảnh giải mã giữ tối đa 120 trong RAM.
+- Ghép không thể hay bằng câu thu nguyên: câu cố định vẫn giữ mp3 nguyên câu; câu nào đọc rất thường (vd "Còn chừng … hải lý tới ranh giới.") có thể thêm mp3 nguyên câu cho vài số hay gặp — bước 1 thắng.
+
+### 21e. Quy trình thêm khuôn (tuỳ biến)
+
+1. Sửa/viết câu trong code như thường.
+2. `node scripts/sen-bien-giong/lap_manh.mjs` (máy nào cũng chạy): quét lại chuỗi chữ + tên, GIỮ id cũ (mp3 không đổi tên), in mảnh mới / mảnh bỏ. Từ rời không dấu (vd "khuya") thì thêm vào `CO_BAN`; cụm riêng thì nhóm `them` trong JSON.
+3. Trên **gpu-desktop**: `gen_clips.py --manh` (chỉ sinh mảnh CHƯA có file) → `chon_clips.mjs --manh`.
+   **Học từ kịch bản** (vòng "train"): `SEN_BIEN_KICH_BAN=/tmp/kb.json npx vitest run src/lib/__tests__/sen-bien-kich-ban.test.ts` gom MỌI câu app có thể nói từ đúng hàm của app trên dữ liệu thật — tàu chạy thẳng vào ~400 vật cản thật (nav-hazards → events → announcer), câu phao/đèn biển quanh từng phao/đèn, hỏi đáp 13 loại câu ở chỗ cách mọi cảng 15 km ra biển, đọc số 9 lớp × 3 ngày, bão 4 cấp × 4 khoảng cách, quãng/sóng/hướng/giờ — rồi `lap_manh.mjs --kich-ban /tmp/kb.json` thêm nhóm `kichban` (cụm thiếu) + `gop` (cặp hay đi liền). Đo 2026-10-17: 4 041 câu; vòng 1 **86 %** đoạn phủ mảnh → vòng 2 **97,6 %**, 12 301 đoạn. Phần còn giọng máy là mã viết tắt (TS, SG, BĐ), tên tàu nước ngoài, tên họ Latin trong dữ liệu vùng bảo tồn — cố ý không thu.
+   ⚠️ ĐỪNG xoá `giong-sen-bien-manh.json` rồi lập lại: id giữ theo file cũ; lập từ đầu thì hai chữ trùng slug ("giờ/gió", "tháp/thấp") có thể đổi id cho nhau ⇒ mp3 lệch chữ.
+4. Cổng `ghep-giong.test.ts`: câu thật của app (quãng đường 0,05–600 km, sóng, tốc độ, 8 hướng, mọi mốc 5 phút trong ngày, tuổi tin, thời điểm hỏi bản đồ, đọc số 9 lớp, hỏi đáp bản đồ với tên trong danh mục) phải **phủ 100 % bằng mảnh** — thiếu là đỏ và in cụm thiếu kèm câu gốc; mỗi mảnh có mp3; không trùng id/khoá. `tts-voice.test.ts`: câu cố định vẫn là MỘT mp3 nguyên câu; Web Audio xếp lịch nối đuôi chồng mép 12 ms; huỷ dừng mọi mảnh đã xếp.
+
+### 21k. Nén (đo 2026-10-17, 120 mảnh ≥2 âm tiết, bộ nhận giọng sherpa chấm sai chữ)
+
+| Mức | KB/mảnh | Sai chữ |
+|---|---|---|
+| mp3 24 kHz / 48 kbps (cũ) | 8,7 | 11,5 % |
+| mp3 24 kHz / 32 kbps | 5,8 | 13,0 % |
+| **mp3 16 kHz / 24 kbps (chọn)** | **4,5** | **12,3 %** |
+| mp3 16 kHz / 16 kbps | 3,1 | 13,1 % |
+| Opus 16 kbps | 2,9 | 11,6 % |
+| Opus 12 kbps | 2,2 | 11,2 % |
+
+Nấc 16 kHz chỉ có 16 / 24 kbps (20k tự rơi về 16k; VBR q7–9 còn to hơn) ⇒ mảnh nghe NHIỀU 24 kbps, **1 509 tên rạn 16 kbps** (−32 %, ít khi đọc).
+
+Opus nhỏ nhất mà không mất độ rõ, NHƯNG Safari/iOS cũ (app còn chạy iOS 15 — `inflate.mjs`) không giải mã Ogg/WebM Opus chắc chắn ⇒ không dám dùng cho giọng cảnh báo. Chọn **mp3 16 kHz mono 24 kbps** (≈ −48 %, độ rõ như cũ), bỏ thẻ ID3, GIỮ khung Xing/LAME (trình duyệt dựa vào nó cắt độ trễ bộ mã — mất là mỗi mảnh dôi ~46 ms lặng, ghép hụt hơi). Nén ở bước `chon_clips.mjs` (ứng viên giữ 48 kbps); 63 câu nguyên nén lại một lần bằng `chon_clips.mjs --nen-lai` (chỉ chạy MỘT lần — chạy nữa là nén chồng). Nâng lên Opus khi bỏ hỗ trợ iOS < 17.
+
+**Tải trước theo ưu tiên**: `warmVoiceClips` tải câu nguyên + mảnh lõi (số, từ rời, khung, gộp, tên cảng/đảo) **4 luồng**, xong mới trả về để `fishing-map-view` tải tiếp bộ nghe 34 MB; 1 500 tên rạn hẹn **2 phút sau**, 2 luồng, không chặn ai.
+
+### 21j. Đã sinh + đã kiểm (2026-10-17, gpu-desktop RTX 3060)
+
+- **2 807 mảnh** sinh đủ (VieNeu "Mỹ Duyên", 4 bản/mảnh, ~25–55 mảnh/phút), chọn bản bằng bộ nhận giọng, nén, cắt gọn ⇒ `public/giong/sen-bien/m/` **8,4 MB**; 63 câu nguyên nén lại 1,0 MB → **455 KB**. Cả `public/giong/` **8,9 MB** (ước 48 kbps không nén ~20 MB).
+- **Cắt gọn** (`chon_clips.mjs` `catGon`, chạy mặc định khi chọn bản; `--cat-gon` cho file đã có): đo trên Chromium thật — mảnh một âm tiết dài ~1,2 s vì đuôi nhiễu −55 dB và **157 mảnh dính tiếng bật** ở rìa. Sau cắt: trung vị 0,36 s/âm tiết, không mảnh nào dưới 0,24 s/âm tiết (lần cắt đầu "bỏ mọi thứ sau quãng lặng" đã cắt cụt "Rạn ngầm Chà Đỏ" còn 0,16 s — sửa thành chỉ bỏ tiếng bật < 150 ms ở HAI RÌA, khôi phục từ bản sao lưu).
+- Chromium giải mã mảnh 16 kHz đúng độ trễ bộ mã: lặng đầu 12–48 ms (khung Xing/LAME giữ nguyên).
+- **Kịch bản toàn bộ**: 4 041 câu, 12 301 đoạn — **97,6 %** đoạn đọc bằng mảnh; chỗ nối giữa hai mảnh 20 332 → **10 374** nhờ nhóm `gop`.
+- **Độ rõ (bộ nhận giọng chấm)**: sai chữ trung bình 14 %, ~30 % mảnh bị "nghe sai" — gần hết là mảnh 1–2 âm tiết đứng riêng mà giọng Nam Mỹ Duyên đọc tr≈ch, hỏi≈ngã ("trăm→chăm", "nửa→nữa", "phẩy→phải"), bộ nhận giọng không có ngữ cảnh. Thử 5 cách mớm chữ cho VieNeu ("…", ",", "!", ".") không đổi gì; đo độ dài "lẻ ba" 0,79 s so với "ba" 0,54 s ⇒ âm "lẻ" CÓ, chỉ bị nghe sót. **Phải nghe bằng tai** — file nghe thử 6 câu đã gửi chủ dự án.
+- Sự cố đã chặn: ffmpeg TREO khi một bản sinh ra toàn im (`areverse` gặp tiếng rỗng) ⇒ `gen_clips.py` trần 60 s + bỏ bản hỏng; bản ứng viên mp3 cụt làm `chon_clips` sập ⇒ bỏ qua bản hỏng, không chấm lại mảnh đã có file.
+- **Chưa kiểm**: nghe ra loa thật (headless câm), iOS (thẻ `<audio>` từng mảnh khi không có `audioSession`), Android WebView.
+- **Còn giọng máy (cố ý)**: mã viết tắt trong tên phao (TS, SG, BĐ), tên tàu nước ngoài viết hoa, tên bão quốc tế (WUTIP…), tên điểm ghim bà con tự đặt. ⚠️ Câu "khu bảo tồn … bảo vệ: …" đang đọc cả **tên họ Latin** ("cá lượng Nemipteridae") từ dữ liệu `vung-quan-ly` — nên lọc ở chỗ dựng câu (việc riêng).
+
+### 21l. Cho tự nhiên hơn — thu TRONG CÂU rồi cắt (chủ dự án 2026-10-17: "giọng đọc vẫn chưa tự nhiên, train thêm cho tự nhiên"; chốt cả 4 hướng)
+
+**Chẩn đoán** (UTMOS22 — mô hình chấm độ tự nhiên; học trên tiếng Anh nên chỉ dùng để XẾP các bản của cùng một câu): câu thu nguyên "Chào bà con." **3,86**; câu GHÉP từ mảnh thu đứng riêng **1,9**. Mảnh thu đứng riêng mang ngữ điệu KẾT câu (hạ giọng cuối), ghép 4–5 mảnh thành câu nghe như đọc từng cụm. Thêm: mọi clip kéo chậm 10 % (đặt 2026-10-16), và chọn bản chỉ theo ĐÚNG CHỮ.
+
+**Làm** (công cụ ở bờ `scripts/sen-bien-giong/`, chạy trên gpu-desktop):
+1. **Bỏ nhịp chậm**: `gen_clips.py` `ATEMPO` mặc định 1,0 (đặt lại bằng env `SEN_BIEN_TEMPO`). Áp cho mảnh VÀ 64 câu nguyên.
+2. **Chấm "hay"**: `cham_hay.py <thư mục ứng viên>` ⇒ `hay.json` điểm UTMOS từng bản. `chon_clips.mjs` chọn: sai chữ ít nhất trước, ngang nhau lấy bản UTMOS cao hơn.
+3. **Câu mang**: `sen-bien-kich-ban.test.ts` (env `SEN_BIEN_KICH_BAN`) chọn tham lam bộ câu THẬT ít nhất phủ mọi mảnh — 550 câu thật phủ 918 mảnh; mảnh không có trong câu thật nào (tên rạn ít hỏi, số hiếm) đặt vào câu DỰNG "Gần nhất là A, B, và C." (3 mảnh/câu) ⇒ **1 183 câu, 17 402 âm tiết**. `gen_clips.py --mang kb.json` cho VieNeu đọc NGUYÊN câu, 4 bản.
+4. **Cắt**: `cat_trong_cau.mjs` — bộ nhận giọng cho mốc thời gian từng chữ, căn với chữ mong đợi (Levenshtein), mảnh nào mọi chữ khớp thì cắt, ranh cắt dời về khung 10 ms năng lượng thấp nhất quanh mốc. **Tự kiểm**: nhận khi nghe riêng mảnh ra đúng chữ, HOẶC hai chỗ cắt đều gần lặng (< −38 dBFS) — chỉ dùng cách đầu thì bỏ oan 2/3 bản tốt vì nghe riêng mảnh ngắn bộ nhận giọng vốn sai (giọng Nam tr≈ch, hỏi≈ngã). Mỗi mảnh lấy bản cắt từ câu có UTMOS cao nhất. Chạy thử 63 câu: 189/314 mảnh cắt được (~60 %).
+5. Mảnh không cắt được (`chua_cat.json`) ⇒ sinh đứng riêng như cũ nhưng tốc độ gốc + chọn theo UTMOS.
+
+### 21m. Fine-tune VieNeu (đã đánh giá — chờ dữ liệu ghi âm)
+
+- VieNeu v3-Turbo (Apache-2.0) có fine-tune **LoRA, một giọng một lần**: cần **10–30 phút ghi âm sạch của MỘT người thật**, GPU ~6 GB (RTX 3060 12 GB của gpu-desktop đủ), script `finetune/prepare_dataset.py` → `train_lora.py --merge` → `make_voice.py` của repo VieNeu.
+- **Không fine-tune trên giọng Mỹ Duyên đã sinh** — học lại chính giọng máy, không tự nhiên hơn.
+- Đã soạn **kịch bản ghi âm** `scripts/sen-bien-giong/kich-ban-ghi-am.md`: 380 câu (64 câu cố định + câu thật của app, số viết bằng chữ), ~21 phút đọc, kèm cách ghi + giấy đồng ý của người đọc. Có ghi âm thì: LoRA trên gpu-desktop → giọng mới thay "Mỹ Duyên" trong `giong-sen-bien.json` + `-manh.json` → sinh lại toàn bộ bằng quy trình 21l (đã tự động, ~2 giờ GPU).
+- Cách rẻ hơn, làm được ngay khi có một đoạn ghi âm 3–8 giây: v3-Turbo **nhân bản giọng** từ `ref_audio` — giọng người thật làm mẫu thường cho ngữ điệu tự nhiên hơn giọng dựng sẵn.
+
+### 21f. Ma trận trạng thái
+
+| Ca | Máy làm |
+|---|---|
+| Câu khớp nguyên văn câu cố định | mp3 nguyên câu |
+| Câu phủ đủ mảnh | ghép mp3, giọng Mỹ Duyên trọn câu |
+| Thiếu mảnh (tên bà con đặt, tên rạn) | chỉ đoạn thiếu đọc giọng máy; không có giọng Việt ⇒ đoạn đó im |
+| Mảnh chưa có trong kho SW + mất sóng | đoạn chứa mảnh đó đọc giọng máy (như mp3 câu nay) |
+| Không có `AudioContext` / giải mã hỏng | thẻ `<audio>` từng mảnh; hỏng nữa ⇒ giọng máy |
+| Câu mới / "dừng" giữa lúc ghép | huỷ mọi nguồn đã xếp lịch, `onEnd` đúng một lần (luật §17b) |
+| Số lạ (âm, quá 999 999, nhiều chữ số lẻ) | đọc từng chữ số; vẫn bằng mảnh `so` |
+
+### 21g. Offline — 4 câu
+
+| Câu hỏi | Trả lời |
+|---|---|
+| (a) Request mạng mới? | `warmVoiceClips` tải thêm ~2 800 file nhỏ (~6,5 MB sau nén) cùng chỗ cũ (8 s sau mở bản đồ, chỉ khi có sóng, mỗi file trần 8 s, dừng ở lỗi đầu, lần sau tải tiếp — file đã ở kho SW thì không ra mạng). Lõi 4 luồng trước, tên rạn 2 phút sau (21k). Không thêm gì lúc mở app. |
+| (b) Đụng `sw.js` / `SHELL` / khoá `forfish.*`? | Không — asset tĩnh cùng origin, nhánh cache-first sẵn có giữ. |
+| (c) Mất/đè dữ liệu bà con? | Không, chỉ đọc. |
+| (d) Nhánh mất sóng? | Mảnh đã ở kho SW ⇒ đọc như có sóng; chưa có ⇒ giọng máy cho đúng đoạn đó. |
+
+### 21h. Đã chốt (chủ dự án 2026-10-17: "Duyệt §21 nhưng thu cả tên rạn")
+
+1. Thu cả tên **rạn** (~7 MB).
+2. Tên **điểm ghim bà con tự đặt** đọc giọng máy cho riêng khúc tên.
+3. mp3 mảnh vào git `public/giong/sen-bien/m/` — mỗi mảnh MỘT file, thêm mảnh chỉ thêm file nhỏ.
+
+### 21i. Assumptions
+
+- Danh mục mảnh (~90 KB, gzip ~30 KB) nằm trong bundle màn bản đồ vì `speechParts` đồng bộ (ghi `// nợ:` trong `tts.ts`).
+- Tên riêng: khúc thiếu có chữ hoa thì kéo theo các mảnh chữ hoa sát bên ("hướng Quảng Nam" ⇒ "Quảng Nam" giọng máy cả cụm, không "Quảng" máy + "Nam" mp3).
+- Tải trước theo thứ tự nhóm: câu nguyên → số → từ rời → khung → tên → rạn.
+
+
+> **2026-10-17 — bản tin mở đầu viết lại cho liền mạch** (chủ dự án: "các câu này không hợp logic, câu trước vênh câu sau"; `lib/nav-voice/opening.ts`). Thứ tự cố định: **bão · sóng gió 6 giờ tới · máy canh gì · nhắc việc về bờ (CUỐI)**. (1) CHỈ nói "Máy đang canh độ sâu, rạn và chướng ngại phía trước." khi ĐÃ có vị trí tàu (`coViTri`) — trước đây chưa bật định vị vẫn khẳng định canh rạn, sai sự thật và vênh với dòng báo GPS; chưa có vị trí ⇒ chỉ "Chỉ tham khảo, bà con dò hải đồ và nghe đài." (dòng GPS riêng đã nói chuyện định vị, không lặp). (2) Việc về bờ đứng cuối, danh từ ngắn, KHÔNG số ngày: "Về bờ nhớ lo: đăng kiểm tàu cá, giấy phép khai thác thủy sản." (trước: "Việc cần lo khi về bờ: Đăng kiểm tàu cá, đã quá hạn 141 ngày; …" chen giữa sóng gió và hải đồ). Giữ nguyên câu đã có mp3 Mỹ Duyên.
+
+**Last updated**: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).

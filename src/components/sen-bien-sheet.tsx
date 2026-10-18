@@ -1,23 +1,27 @@
 "use client";
 
-// SEN BIỂN trên bản đồ — CỬA NÓI DUY NHẤT (doc 07 §Sen Biển): chọn điểm đến
-// bằng tên / toạ độ, chờ "đi", lệnh khi đang chạy. Khung này CHỈ nghe/gõ và
-// hiện câu đáp; làm gì là việc của màn bản đồ (`onHeard`), nói gì đi qua
-// MỘT giọng chung với cảnh báo (useNavVoice.say).
-// Bà con chạy thử 2026-10-16: "chỉ đường nói ok, thiếu cái chọn điểm đến bằng
-// giọng nói". Chạm mic → nói "dẫn về cảng Sa Huỳnh" → máy đặt điểm đến + mở
-// khung dẫn đường; bà con xem đường rồi tự bấm Bắt đầu (máy không tự chạy).
+// SEN BIỂN trên bản đồ — làm lại toàn bộ thao tác 2026-10-17 (chủ dự án: "theo
+// đúng cách Claude và ChatGPT đang làm với nút mic", "gọi và chat phải khác nhau").
 //
-// Hiểu ý chạy TRONG MÁY (`lib/sen-bien`). Nghe giọng cần mạng (Web Speech) —
-// mất sóng thì ô GÕ thay mic, chọn điểm đến vẫn được.
+// HAI THAO TÁC TÁCH BẠCH:
+//  · GỌI (chạm icon Sen Biển nổi) — như chế độ gọi giọng: Sen Biển CHÀO + đọc
+//    việc làm được, đọc xong TỰ NGHE; icon Sen Biển có vòng lan + sóng âm thật khi
+//    đang ghi; chạm icon = ghi / dừng (đang chào thì cắt lời, ghi luôn). Không nói
+//    gì 5 s ⇒ tự thu về. Xong câu đáp, rảnh 5 s ⇒ tự thu về. KHÔNG có nút ×.
+//  · CHAT (icon bong bóng) — thanh nhập kiểu Claude: ô gõ + micro ĐỌC-RA-CHỮ
+//    (ô hiện "Đang nghe…", sóng âm, nút dừng; chữ điền vào ô để xem lại rồi gửi)
+//    + mũi tên gửi. Không tự gửi, không tự đọc chào.
+// Làm gì với câu là việc của màn bản đồ (`onHeard`); nói gì đi qua MỘT giọng chung
+// (useNavVoice.say). Hiểu ý chạy TRONG MÁY (`lib/sen-bien`).
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchDataBytes } from "@/lib/data-fetch";
 import type { SenDest } from "@/lib/sen-bien/hieu-y";
 import { listenOnce, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
 import { loadNgram, NGRAM_PATH, type NgramModel } from "@/lib/sen-bien/ngram";
-import { ttsUnlock } from "@/lib/voice/tts";
+import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC, type ViTriIcon } from "@/lib/sen-bien/vi-tri";
+import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
 
 let modelP: Promise<NgramModel | null> | null = null;
 /** Tải trọng số một lần / phiên. Lỗi ⇒ null (lùi về dò tên), lần sau thử lại. */
@@ -37,9 +41,101 @@ export function loadSenBienModel(): Promise<NgramModel | null> {
 /** Màn cha xử lý câu nghe được: trả câu hiện ra + (nếu có) danh sách chọn. */
 export type SenHeard = { show: string; options?: SenDest[] } | null;
 
+/**
+ * KÉO ICON SEN BIỂN (chủ dự án 2026-10-17: "cái float sen biển gốc phải cho phép kéo đi được").
+ * Giữ rồi kéo = dời chỗ (nhớ trong máy, `forfish.senbien.vitri.v1`); chạm nhẹ = bấm như thường.
+ * Dùng chung cho icon nổi (màn bản đồ, thẻ đóng) và icon trong thẻ (thẻ mở) — cùng một chỗ.
+ */
+export function useSenKeo() {
+  const [pos, setPos] = useState<ViTriIcon>(VI_TRI_GOC);
+  const [khung, setKhung] = useState({ w: 0, h: 0 });
+  const ref = useRef<HTMLButtonElement | null>(null);
+  const keo = useRef<{ x: number; y: number; l: number; b: number; dang: boolean; w: number; h: number } | null>(null);
+  const boClick = useRef(false);
+  const cuoi = useRef(pos);
+
+  const doKhung = () => {
+    const r = (ref.current?.offsetParent as HTMLElement | null)?.getBoundingClientRect();
+    return r ? { w: r.width, h: r.height } : { w: 0, h: 0 };
+  };
+  useEffect(() => {
+    const k = doKhung();
+    const p = kepViTri(docViTri(), k.w, k.h);
+    cuoi.current = p;
+    // đọc kho trong máy SAU khi gắn (tránh lệch SSR)
+    setKhung(k);
+    setPos(p);
+  }, []);
+
+  const props = {
+    ref,
+    style: { left: pos.left, bottom: pos.bottom, touchAction: "none" as const },
+    onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
+      const k = doKhung();
+      setKhung(k);
+      keo.current = { x: e.clientX, y: e.clientY, l: pos.left, b: pos.bottom, dang: false, w: k.w, h: k.h };
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => {
+      const k = keo.current;
+      if (!k) return;
+      const dx = e.clientX - k.x;
+      const dy = e.clientY - k.y;
+      if (!k.dang && laKeo(dx, dy)) k.dang = true;
+      if (!k.dang) return;
+      const p = kepViTri({ left: k.l + dx, bottom: k.b - dy }, k.w, k.h);
+      cuoi.current = p;
+      setPos(p);
+    },
+    onPointerUp: () => {
+      if (keo.current?.dang) {
+        ghiViTri(cuoi.current);
+        boClick.current = true; // vừa kéo xong — click theo sau KHÔNG tính là bấm
+      }
+      keo.current = null;
+    },
+    onPointerCancel: () => {
+      keo.current = null;
+    },
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!boClick.current) return;
+      boClick.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+  };
+  return { pos, khung, props };
+}
+
+/** Icon Sen Biển nổi khi thẻ ĐÓNG — kéo đi được; chạm = gọi. */
+export function SenBienNoi({ onOpen }: { onOpen: () => void }) {
+  const { props } = useSenKeo();
+  return (
+    <button
+      type="button"
+      {...props}
+      onClick={onOpen}
+      aria-label="Sen Biển — nói chỗ muốn tới"
+      className="absolute z-20 h-16 w-16 select-none rounded-full drop-shadow-lg transition-transform active:scale-90"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy */}
+      <img src="/icons/sen-bien.png" alt="" draggable={false} className="h-full w-full" />
+    </button>
+  );
+}
+
+/** Không nói gì sau ngần này thì thẻ GỌI tự thu về (chủ dự án 2026-10-17). */
+export const SEN_IM_MS = 5000;
+/** Thẻ CHAT để trống, không gõ — tự thu về sau ngần này. */
+const CHAT_RANH_MS = 10000;
+/** Còn danh sách chọn — cho thêm thời gian chạm. */
+const CHON_MS = 15000;
+const SO_VACH = 14;
+
 export function SenBienSheet({
   awaitingGo,
   title,
+  chao,
   listenOnOpen = false,
   onHeard,
   onPick,
@@ -49,96 +145,354 @@ export function SenBienSheet({
 }: {
   /** vừa đọc tóm tắt đường — hiện nút Đi / Thôi */
   awaitingGo: boolean;
-  /** dòng trên cùng (tóm tắt đường khi chờ "đi") */
+  /** dòng thông tin (tóm tắt đường, lỗi vẽ đường) — trống thì không hiện */
   title: string;
-  /** mở ra là nghe luôn (chạm cá) */
+  /** câu chào + việc làm được, đọc khi mở bằng GỌI */
+  chao: string;
+  /** mở bằng GỌI (chạm icon Sen Biển) ⇒ chào rồi nghe */
   listenOnOpen?: boolean;
   onHeard: (text: string) => SenHeard | Promise<SenHeard>;
   onPick: (d: SenDest) => void;
   onStart: () => void;
   onCancel: () => void;
+  /** thu thẻ về (tự động — không có nút ×) */
   onClose: () => void;
 }) {
+  const canVoice = sttSupported();
+  const [mode, setMode] = useState<"goi" | "chat">(canVoice ? "goi" : "chat");
+  const [phase, setPhase] = useState<"chao" | "nghe" | "nghi" | "ranh">("ranh");
   const [heard, setHeard] = useState("");
-  const [listening, setListening] = useState(false);
   const [shown, setShown] = useState<SenHeard>(null);
-  const [typing, setTyping] = useState(() => !sttSupported());
   const [typed, setTyped] = useState("");
+  const [doc, setDoc] = useState(false); // chat: micro đọc-ra-chữ đang nghe
+  const [muc, setMuc] = useState<number[] | null>(null); // mức âm thật (null = vẽ giả)
   const live = useRef<ListenHandle | null>(null);
+  const huyChao = useRef<(() => void) | null>(null);
+  const imRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bongRef = useRef<HTMLDivElement | null>(null);
+  const { pos, khung, props: keoProps } = useSenKeo();
+  const coNoi = useRef(false);
 
-  useEffect(() => () => live.current?.abort(), []);
-
-  const answer = async (text: string) => {
-    /*  Mic còn đang nghe (mở thẻ là tự nghe) mà bà con GÕ: dừng mic trước, không
-        thì lỗi "không nghe thấy gì" của nó về sau ĐÈ lên câu trả lời (bắt được
-        khi chạy thử 2026-10-16: gõ "nhắc lại" mà thẻ hiện "chưa nghe rõ"). */
-    if (live.current) {
-      live.current.abort();
-      live.current = null;
-      setListening(false);
-    }
-    setHeard(text);
-    setShown(await onHeard(text));
+  const dungNghe = () => {
+    live.current?.abort();
+    live.current = null;
+  };
+  const catChao = () => {
+    // xoá mốc TRƯỚC rồi mới huỷ — huỷ đọc có thể gọi onEnd ngay, onEnd thấy mốc rỗng thì không ghi lần hai
+    const f = huyChao.current;
+    huyChao.current = null;
+    f?.();
   };
 
-  const listen = () => {
+  useEffect(
+    () => () => {
+      dungNghe();
+      catChao();
+      if (imRef.current) clearTimeout(imRef.current);
+    },
+    [],
+  );
+
+  const daMuc = (v: number) => setMuc((m) => [...(m ?? []).slice(-(SO_VACH - 1)), v]);
+
+  const answer = useCallback(
+    async (text: string) => {
+      setHeard(text);
+      setShown(null);
+      setPhase("nghi");
+      try {
+        setShown(await onHeard(text));
+      } finally {
+        setPhase("ranh");
+      }
+    },
+    [onHeard],
+  );
+
+  /** GỌI: một lượt nghe; không nói gì 5 s ⇒ thu thẻ về. */
+  const ghi = useCallback(() => {
+    catChao();
     ttsUnlock();
+    dungNghe();
+    coNoi.current = false;
     setShown(null);
     setHeard("");
-    setListening(true);
+    setMuc(null);
+    setPhase("nghe");
+    /*  5 S IM ⇒ THU VỀ — thẻ TỰ ĐẾM, không trông vào bộ nghe báo im (bộ nghe trong máy không có
+        hẹn giờ đó; micro chưa được cấp quyền thì nó chờ mãi ⇒ thẻ "dính luôn", chủ dự án bắt 2026-10-17). */
+    if (imRef.current) clearTimeout(imRef.current);
+    imRef.current = setTimeout(() => {
+      imRef.current = null;
+      if (coNoi.current || !live.current) return;
+      dungNghe();
+      setPhase("ranh");
+      onClose();
+    }, SEN_IM_MS);
+    const xongIm = () => {
+      if (imRef.current) clearTimeout(imRef.current);
+      imRef.current = null;
+    };
     live.current = listenOnce({
-      onInterim: setHeard,
+      silenceMs: SEN_IM_MS,
+      onLevel: daMuc,
+      onInterim: (t) => {
+        coNoi.current = true;
+        setHeard(t === "…" ? "" : t);
+      },
       onFinal: (t) => {
-        setListening(false);
+        xongIm();
         live.current = null;
         void answer(t);
       },
       onError: (code) => {
-        setListening(false);
-        if (code === "aborted") return; // chính mình dừng (gõ thay, đóng thẻ) — không phải lỗi
-        if (code === "network" || code === "unsupported" || code === "not-allowed") setTyping(true);
+        xongIm();
+        live.current = null;
+        setPhase("ranh");
+        if (code === "aborted") return;
+        if (code === "no-speech" && !coNoi.current) return onClose(); // im 5 s ⇒ thu về
+        // máy không nghe được giọng ⇒ sang chat; micro bị chặn / mất sóng ⇒ báo MỘT dòng rồi tự thu về
+        // (KHÔNG tự nhảy sang chat — nằm đó là "dính"); muốn gõ thì chạm bong bóng chat
+        if (code === "unsupported") setMode("chat");
         setShown({
           show:
             code === "network"
-              ? "Mất sóng nên máy chưa nghe được. Bà con gõ, hoặc chạm nút."
+              ? "Mất sóng nên máy chưa nghe được. Bà con chạm ô chat để gõ."
               : code === "not-allowed"
-                ? "Máy chưa cho dùng micro. Bà con gõ, hoặc chạm nút."
-                : "Sen Biển chưa nghe rõ. Chạm micro nói lại nhé.",
+                ? "Máy chưa cho dùng micro. Bà con chạm ô chat để gõ."
+                : "Sen Biển chưa nghe rõ.",
         });
+      },
+    });
+  }, [answer, onClose]);
+
+  /** CHAT: micro đọc-ra-chữ — chữ điền vào ô, KHÔNG tự gửi. */
+  const docRaChu = () => {
+    if (doc) {
+      live.current?.stop();
+      return;
+    }
+    ttsUnlock();
+    dungNghe();
+    const truoc = typed.trim();
+    setMuc(null);
+    setDoc(true);
+    live.current = listenOnce({
+      onLevel: daMuc,
+      onInterim: (t) => t !== "…" && setTyped(truoc ? `${truoc} ${t}` : t),
+      onFinal: (t) => {
+        live.current = null;
+        setDoc(false);
+        setTyped(truoc ? `${truoc} ${t}` : t);
+      },
+      onError: () => {
+        live.current = null;
+        setDoc(false);
       },
     });
   };
 
-  // chạm cá ⇒ mở là nghe (một lần, sau khi khung dựng xong)
-  const autoRef = useRef(listenOnOpen);
+  const oRef = useRef<HTMLTextAreaElement | null>(null);
+  // cao theo chữ (không dùng field-sizing: iOS 15 chưa có), trần ~4 dòng rồi cuộn
   useEffect(() => {
-    if (autoRef.current && sttSupported()) {
-      autoRef.current = false;
-      listen();
-    }
+    const o = oRef.current;
+    if (!o) return;
+    o.style.height = "auto";
+    o.style.height = `${Math.min(o.scrollHeight, 8 * 16)}px`;
+  }, [typed, mode]);
+  // hai tầng khi chữ đã nhiều dòng; giữ hai tầng tới khi ô trống (không nhảy qua lại lúc đang gõ)
+  const [haiTang, setHaiTang] = useState(false);
+  useEffect(() => {
+    if (!typed) setHaiTang(false);
+    const o = oRef.current;
+    if (!o || !typed) return;
+    const dong = parseFloat(getComputedStyle(o).lineHeight) || 25;
+    const dem = parseFloat(getComputedStyle(o).paddingTop) + parseFloat(getComputedStyle(o).paddingBottom);
+    if (o.scrollHeight - dem > dong * 1.5) setHaiTang(true);
+  }, [typed]);
+  const gui = () => {
+    const t = typed.trim();
+    if (!t || doc) return;
+    setTyped("");
+    void answer(t);
+  };
+
+  const sangChat = () => {
+    catChao();
+    dungNghe();
+    setPhase("ranh");
+    setMode("chat");
+  };
+  const nutChat = (
+    <>
+      {canVoice && (
+        <IconNut label={doc ? "Dừng nghe" : "Đọc ra chữ"} onClick={docRaChu} nen={doc ? "bg-navy text-white" : "text-navy"}>
+          {doc ? <IconDung /> : <IconMic />}
+        </IconNut>
+      )}
+      {!doc && typed.trim() && (
+        <IconNut label="Gửi" submit nen="bg-navy text-white">
+          <IconGui />
+        </IconNut>
+      )}
+    </>
+  );
+
+  // mở bằng GỌI ⇒ chào + nói việc làm được, đọc xong thì nghe (chạm icon là cắt lời, ghi luôn)
+  const moRef = useRef(listenOnOpen && canVoice);
+  useEffect(() => {
+    if (!moRef.current) return;
+    moRef.current = false;
+    ttsUnlock();
+    setPhase("chao");
+    huyChao.current = ttsSpeak(chao, {
+      onEnd: () => {
+        if (huyChao.current) {
+          huyChao.current = null;
+          ghi();
+        }
+      },
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ lúc mở
   }, []);
 
-  /*  GỌN (chủ dự án 2026-10-16: "đừng có làm rối, che bản đồ quá"): thẻ
-      nhỏ nổi góc trái dưới, không phủ màn, không tấm đáy. Hàng đầu cá + câu
-      ngắn, một hàng nút to, câu nghe/đáp, hàng cuối "gõ/nói" + đóng. */
-  return (
-    <div
-      role="dialog"
-      aria-label="Sen Biển"
-      className="pointer-events-auto absolute bottom-24 left-2 z-40 w-[min(20rem,calc(100%-6rem))] space-y-2 rounded-2xl bg-card/95 p-2.5 shadow-xl"
-    >
-      {/*  Nút đóng ở HÀNG DƯỚI (2026-10-16): đặt ở hàng đầu thì cột chữ còn
-           ~150px, tóm tắt "Tới Sa Huỳnh: 34 hải lý, chừng 4 giờ 55 phút." vỡ
-           3 dòng; chủ dự án đòi ≤2 dòng. */}
-      <div className="flex items-center gap-2">
-        {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy, cache SW */}
-        <img src="/icons/sen-bien.png" alt="" className="h-10 w-10 shrink-0" />
-        <p className="min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-navy">{title}</p>
-      </div>
+  // CHẠM RA NGOÀI (bản đồ, nút khác) ⇒ thu về, như mọi khung bật lên — trừ lúc chờ "Đi/Thôi"
+  useEffect(() => {
+    if (awaitingGo) return;
+    const ngoai = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (!t || bongRef.current?.contains(t) || keoProps.ref.current?.contains(t)) return;
+      onClose();
+    };
+    document.addEventListener("pointerdown", ngoai, true);
+    return () => document.removeEventListener("pointerdown", ngoai, true);
+  }, [awaitingGo, onClose, keoProps.ref]);
 
-      {awaitingGo ? (
-        <div className="grid grid-cols-[1fr_1fr_auto] gap-1.5">
+  // TỰ THU VỀ khi rảnh — không có nút ×
+  useEffect(() => {
+    if (awaitingGo || phase !== "ranh" || doc) return;
+    if (mode === "chat" && typed.trim()) return;
+    const ms = mode === "chat" ? CHAT_RANH_MS : shown?.options?.length ? CHON_MS : SEN_IM_MS;
+    const t = setTimeout(onClose, ms);
+    return () => clearTimeout(t);
+  }, [awaitingGo, phase, doc, mode, typed, shown, onClose]);
+
+  const huong = huongBongBong(pos, khung.w, khung.h);
+  const dangGhi = mode === "goi" && phase === "nghe";
+  const dangChao = mode === "goi" && phase === "chao";
+  // icon Sen Biển là nút BẬT/TẮT (chủ dự án 2026-10-17: "click icon sen thì mở ra, click tiếp thì thu lại
+  // chứ không phải treo"): thẻ đang mở thì chạm là THU VỀ — dừng nghe, dừng đọc (dọn ở cleanup khi gỡ)
+  const bamSen = () => onClose();
+
+  return (
+    <>
+      {/*  ICON SEN BIỂN CỐ ĐỊNH — đúng chỗ icon nổi trên bản đồ, không chạy vào khung (chủ dự án
+           2026-10-17: "icon sen biển cố định, click vào thì hiện trên đầu con sen biển cái dialog kiểu
+           liquid, chứ không phải kéo icon vô dialog"). Nó là NÚT GỌI: vòng lan + viền cam khi đang ghi. */}
+      <button
+        type="button"
+        {...keoProps}
+        onClick={bamSen}
+        aria-label="Thu Sen Biển lại"
+        aria-expanded={true}
+        className="pointer-events-auto absolute z-40 h-16 w-16 select-none rounded-full drop-shadow-lg transition-transform active:scale-90"
+      >
+        {dangGhi && <span className="anim-vong absolute inset-1 rounded-full bg-t1" aria-hidden="true" />}
+        {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy, cache SW */}
+        <img
+          src="/icons/sen-bien.png"
+          alt=""
+          draggable={false}
+          className={`relative h-full w-full rounded-full transition ${dangGhi ? "scale-105 ring-2 ring-t1" : dangChao ? "animate-pulse" : ""}`}
+        />
+      </button>
+
+      {/*  BONG BÓNG KÍNH (liquid) TRÊN ĐẦU SEN BIỂN — trồi lên từ icon như giọt nước nở ra; nền mờ
+           xuyên thấu + viền sáng + đuôi chỉ xuống icon. Nền giữ đủ đặc (card/75) cho chữ đọc được ngoài nắng. */}
+      <div
+        ref={bongRef}
+        role="dialog"
+        aria-label="Sen Biển"
+        // BÁM THEO ICON: icon nửa dưới ⇒ mở lên trên đầu, nửa trên ⇒ mở xuống dưới; icon nửa phải ⇒ canh mép phải
+        style={{
+          ...(huong.len ? { bottom: pos.bottom + ICON_PX + 12 } : { top: khung.h - pos.bottom + 12 }),
+          ...(huong.phai ? { right: Math.max(8, khung.w - pos.left - ICON_PX) } : { left: pos.left }),
+          transformOrigin: `${huong.phai ? "calc(100% - 2rem)" : "2rem"} ${huong.len ? "100%" : "0%"}`,
+        }}
+        className={`anim-giot pointer-events-auto absolute z-40 space-y-1.5 rounded-3xl border border-card/70 bg-card/75 p-1.5 shadow-xl backdrop-blur-xl backdrop-saturate-150 ${
+          // chat: ~2/3 bề ngang (chủ dự án: "bong bóng chỉ chiếm 2/3 thôi, không phải full")
+          mode === "chat" ? "w-[66%] min-w-[15rem]" : "w-max max-w-[min(22rem,calc(100%-1rem))]"
+        }`}
+      >
+        <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-card/70 via-transparent to-transparent" />
+        {/* đuôi chỉ về icon (chat kéo hết bề ngang thì đuôi canh theo tâm icon) */}
+        <span
+          aria-hidden="true"
+          className={`absolute h-3 w-3 rotate-45 border-card/70 bg-card/75 ${huong.len ? "-bottom-1.5 border-b border-r" : "-top-1.5 border-l border-t"} ${
+            huong.phai ? "right-6" : "left-6"
+          }`}
+        />
+        <div className="relative space-y-1.5">
+      {mode === "goi" ? (
+        // GỌI: chỉ sóng âm / ba chấm + bong bóng chat — icon Sen Biển ở dưới, không nằm trong khung
+        <div className="flex items-center gap-1">
+          {(dangGhi || dangChao) && <SongAm muc={dangGhi ? muc : null} gia={dangChao} />}
+          {phase === "nghi" && <Cham />}
+          {canVoice && (
+            <IconNut label="Nhắn chữ" onClick={sangChat}>
+              <IconChat />
+            </IconNut>
+          )}
+        </div>
+      ) : (
+        // CHAT: thanh nhập kiểu ChatGPT/Claude. MỘT dòng ⇒ [Sen Biển · ô gõ · micro · gửi] cùng hàng, canh giữa.
+        // NHIỀU dòng ⇒ hai tầng: chữ trải hết bề ngang ở trên, hàng icon ở dưới (Sen Biển trái · micro, gửi
+        // phải) — chủ dự án 2026-10-17: "lúc phình ra vẫn phải cân đối, icon không dồn xuống dưới lệch".
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            gui();
+          }}
+          className={`rounded-2xl bg-field/80 focus-within:ring-2 focus-within:ring-sea ${
+            haiTang ? "flex flex-col px-1 pt-1" : "flex items-center gap-1 pl-1"
+          }`}
+        >
+          {/* ô gõ TỰ PHÌNH theo chữ (trần ~4 dòng rồi cuộn); Enter gửi, Shift+Enter xuống dòng */}
+          <textarea
+            ref={oRef}
+            rows={1}
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                gui();
+              }
+            }}
+            placeholder={doc ? "Đang nghe…" : "Nhắn Sen Biển"}
+            aria-label="Nhắn Sen Biển"
+            className={`min-w-0 resize-none bg-transparent text-[1.125rem] leading-snug text-navy outline-none placeholder:text-foreground/50 focus-visible:outline-none! ${
+              haiTang ? "w-full px-2 py-2" : "flex-1 px-1 py-[0.875rem]"
+            }`}
+          />
+          {haiTang ? (
+            <div className="flex items-center justify-end gap-1">
+              {doc && <SongAm muc={muc} />}
+              {nutChat}
+            </div>
+          ) : (
+            <>
+              {doc && <SongAm muc={muc} />}
+              {nutChat}
+            </>
+          )}
+        </form>
+      )}
+
+      {title && <p className="px-2 text-[1rem] font-semibold leading-snug text-navy">{title}</p>}
+
+      {awaitingGo && (
+        <div className="grid grid-cols-2 gap-1.5">
           <button
             type="button"
             onClick={onStart}
@@ -153,61 +507,14 @@ export function SenBienSheet({
           >
             Thôi
           </button>
-          {!typing && (
-            <button
-              type="button"
-              onClick={() => (listening ? live.current?.stop() : listen())}
-              aria-label={listening ? "Đang nghe — chạm để xong" : "Nói"}
-              className={`min-h-[3.5rem] rounded-xl px-3 text-[1rem] font-bold text-white transition active:scale-[0.98] ${
-                listening ? "animate-pulse bg-t1" : "bg-navy"
-              }`}
-            >
-              {listening ? "Nghe…" : "Nói"}
-            </button>
-          )}
         </div>
-      ) : (
-        !typing && (
-          <button
-            type="button"
-            onClick={() => (listening ? live.current?.stop() : listen())}
-            aria-pressed={listening}
-            className={`flex min-h-[3.5rem] w-full items-center justify-center rounded-xl px-3 text-[1.125rem] font-bold text-white transition active:scale-[0.98] ${
-              listening ? "animate-pulse bg-t1" : "bg-navy"
-            }`}
-          >
-            {listening ? "Đang nghe… chạm để xong" : "Chạm rồi nói"}
-          </button>
-        )
       )}
 
-      {typing && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (typed.trim()) void answer(typed.trim());
-          }}
-          className="flex gap-1.5"
-        >
-          <input
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-            placeholder="Tên chỗ, toạ độ, lệnh"
-            aria-label="Gõ cho Sen Biển"
-            className="min-h-[3.5rem] min-w-0 flex-1 rounded-xl bg-field px-3 text-[1.125rem] text-navy"
-          />
-          <button
-            type="submit"
-            className="min-h-[3.5rem] shrink-0 rounded-xl bg-navy px-3 text-[1rem] font-bold text-white transition active:scale-[0.98]"
-          >
-            Gửi
-          </button>
-        </form>
-      )}
-
-      {heard && <p className="truncate text-[0.9375rem] italic text-foreground/75">&ldquo;{heard}&rdquo;</p>}
+      {/* câu nghe được — chỉ ở GỌI (chat thì ô nhập đã có câu đó) */}
+      {mode === "goi" && heard && <p className="px-2 text-[0.9375rem] italic text-foreground/75">&ldquo;{heard}&rdquo;</p>}
+      {mode === "chat" && phase === "nghi" && <Cham />}
       {shown && (
-        <p role="status" className="text-[1rem] font-bold leading-snug text-navy">
+        <p role="status" className="px-2 text-[1rem] font-bold leading-snug text-navy">
           {shown.show}
         </p>
       )}
@@ -228,28 +535,96 @@ export function SenBienSheet({
           ))}
         </div>
       )}
-
-      <div className="flex items-center gap-2">
-        {sttSupported() ? (
-          <button
-            type="button"
-            onClick={() => setTyping((v) => !v)}
-            className="min-h-[3.5rem] flex-1 text-left text-[1rem] font-bold text-navy/70"
-          >
-            {typing ? "Nói bằng giọng" : "Gõ thay vì nói"}
-          </button>
-        ) : (
-          <span className="flex-1" />
-        )}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Đóng Sen Biển"
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-navy/10 text-[1.5rem] font-bold text-navy transition active:scale-95"
-        >
-          ×
-        </button>
+        </div>
       </div>
+    </>
+  );
+}
+
+/** Sóng âm kiểu Claude/ChatGPT: mức âm thật nếu có, không thì vạch chạy giả. */
+function SongAm({ muc, gia = false }: { muc: number[] | null; gia?: boolean }) {
+  const vach = Array.from({ length: SO_VACH }, (_, i) => (muc ? (muc[muc.length - SO_VACH + i] ?? 0) : null));
+  return (
+    <div className="flex h-8 items-center gap-[3px] px-1" aria-hidden="true">
+      {vach.map((v, i) => (
+        <span
+          key={i}
+          className={`w-[3px] rounded-full ${gia ? "bg-navy/40" : "bg-navy"} ${v === null ? "anim-song" : ""}`}
+          style={v === null ? { height: "100%", animationDelay: `${(i % 7) * 110}ms` } : { height: `${Math.max(12, Math.round(v * 100))}%` }}
+        />
+      ))}
     </div>
+  );
+}
+
+/** Đang nghĩ — ba chấm, không chữ. */
+function Cham() {
+  return (
+    <div className="flex h-8 items-center gap-1 px-2" aria-label="Sen Biển đang nghĩ" role="status">
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-navy/60" style={{ animationDelay: `${i * 200}ms` }} />
+      ))}
+    </div>
+  );
+}
+
+/** Ô màu 44px trong vùng chạm 56px (CLAUDE.md: tap ≥ 56px) — icon không kèm chữ. */
+function IconNut({
+  label,
+  onClick,
+  nen = "bg-navy/10 text-navy",
+  submit,
+  children,
+}: {
+  label: string;
+  onClick?: () => void;
+  nen?: string;
+  submit?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type={submit ? "submit" : "button"}
+      onClick={onClick}
+      aria-label={label}
+      className="group flex h-14 w-12 shrink-0 items-center justify-center"
+    >
+      <span className={`flex h-11 w-11 items-center justify-center rounded-full transition group-active:scale-95 ${nen}`}>{children}</span>
+    </button>
+  );
+}
+
+const SVG = { viewBox: "0 0 24 24", "aria-hidden": true, className: "h-5 w-5", fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+
+function IconMic() {
+  return (
+    <svg {...SVG}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+    </svg>
+  );
+}
+
+function IconChat() {
+  return (
+    <svg {...SVG}>
+      <path d="M4 5h16v11H9l-5 4z" />
+    </svg>
+  );
+}
+
+function IconDung() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="currentColor">
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+    </svg>
+  );
+}
+
+function IconGui() {
+  return (
+    <svg {...SVG}>
+      <path d="M12 19V5M6 11l6-6 6 6" />
+    </svg>
   );
 }

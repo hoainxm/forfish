@@ -1,4 +1,7 @@
 apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+// Java 21 đặt ở capacitor.build.gradle (sinh tự động); Kotlin phải cùng đích
+kotlin { jvmToolchain(21) }
 apply plugin: 'com.github.triplet.play'
 
 def keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -36,6 +39,12 @@ android {
             }
         }
     }
+    // Gemma của Sen Biển đi gói on-demand riêng (Play Asset Delivery) — bản cài không phình 62 MB.
+    // File mô hình không vào git: CHỈ gắn gói khi file có mặt (CI tải về trước khi build). Thiếu file thì
+    // vẫn build được — app không có Gemma, Sen Biển chạy n-gram + luật như bản web (ADR 0012).
+    if (rootProject.file("sen-bien-gemma/src/main/assets/sen-bien/gemma.litertlm").exists()) {
+        assetPacks = [":sen-bien-gemma"]
+    }
     buildTypes {
         release {
             minifyEnabled false
@@ -59,6 +68,10 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // Sen Biển Gemma (ADR 0012): LiteRT-LM chạy .litertlm trên CPU · Play Asset Delivery tải gói on-demand
+    implementation "com.google.ai.edge.litertlm:litertlm-android:0.18.0"
+    implementation "com.google.android.play:asset-delivery-ktx:2.3.0"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

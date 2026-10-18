@@ -34,7 +34,7 @@ export const metadata = {
   Cập nhật nội dung ở ĐÂY thì đổi luôn "Cập nhật lần cuối" bên dưới.
 */
 
-const UPDATED = "27/07/2026";
+const UPDATED = "17/10/2026";
 
 function Section({
   id,
@@ -239,6 +239,32 @@ export default function QuyenRiengTuPage() {
               sdvico.vn
             </a>
             .
+          </p>
+        </Section>
+
+        {/* GEMMA (ADR 0012): Gemma Terms §3.1 buộc kèm NOTICE + bản điều khoản + hạn chế sử dụng có hiệu lực
+            khi phân phối bản sửa (Model Derivative) — bản Android có gói mô hình Sen Biển. */}
+        <Section id="sen-bien-gemma" title="7. Trợ lý Sen Biển và mô hình Gemma">
+          <p>
+            Trợ lý giọng nói Sen Biển nghe và hiểu câu nói <b>ngay trên điện thoại</b> — không gửi tiếng nói
+            hay câu chữ lên máy chủ để hiểu ý. Bản Android có thêm một mô hình ngôn ngữ nhỏ tải một lần
+            qua Google Play (khoảng 62 MB) để hiểu tham số câu nói tốt hơn.
+          </p>
+          <p>
+            Mô hình đó là bản SDVICO đã chỉnh sửa (huấn luyện thêm, thu gọn) từ Gemma của Google.{" "}
+            <b>Gemma is provided under and subject to the Gemma Terms of Use found at{" "}
+            <a href="https://ai.google.dev/gemma/terms" className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
+              ai.google.dev/gemma/terms
+            </a>
+            .</b>
+          </p>
+          <p>
+            Khi dùng tính năng này, bà con đồng ý không dùng nó vào các việc bị cấm theo{" "}
+            <a href="https://ai.google.dev/gemma/prohibited_use_policy" className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
+              Chính sách sử dụng bị cấm của Gemma
+            </a>{" "}
+            (Gemma Terms of Use, mục 3.2). Câu trả lời của Sen Biển chỉ để tham khảo, đọc từ dữ liệu bản đồ
+            trong máy — không thay cho việc tự quan sát, dò đáy và nghe tin bão chính thức.
           </p>
         </Section>
 

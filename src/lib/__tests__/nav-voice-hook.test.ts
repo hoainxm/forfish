@@ -109,7 +109,8 @@ describe("useNavVoice", () => {
     await tick(300);
     rerender(base({ on: true, alerts: [RED] }));
     await tick(1500);
-    expect(spoken[0]?.text).toBe("Xác tàu phía trước chừng 400 mét.");
+    // câu có số nay GHÉP mảnh giọng Sen Biển: đoạn đọc mang chữ nói (doc 15 §21)
+    expect(spoken[0]?.text).toBe("Xác tàu phía trước chừng bốn trăm mét");
   });
 
   it("tắt rồi bật lại: vẫn có bản tin mới và vẫn đọc", async () => {
@@ -154,7 +155,7 @@ describe("useNavVoice", () => {
     });
     await tick(10_000);
     const texts = spoken.map((s) => s.text);
-    expect(texts).toEqual(["Điểm 14 độ 34 phút Bắc.", "Đang vẽ đường.", "Tới Sa Huỳnh", "14 hải lý."]);
+    expect(texts).toEqual(["Điểm mười bốn độ ba mươi tư phút Bắc", "Đang vẽ đường.", "Tới Sa Huỳnh", "mười bốn hải lý"]);
   });
 
   it("máy không có giọng Việt: không đọc, báo avail.ok=false để HUD nói thật", async () => {

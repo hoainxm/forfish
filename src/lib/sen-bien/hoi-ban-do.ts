@@ -28,7 +28,7 @@ import { dangCam, moTaVung, trongVung, type VungQuanLy } from "@/lib/vung-quan-l
 import { xacTauLabel, type XacTau } from "@/lib/xac-tau";
 
 import type { SenDest } from "./hieu-y";
-import { foldVn } from "./ngram";
+import { foldVn, type SenIntent } from "./ngram";
 
 export type LoaiHoi =
   | "ca"
@@ -74,7 +74,7 @@ const DI_RE = /^ (dan|chay|di|ve|toi|dua) | (dan|dua) (toi|ra|ve|vo|vao|duong) |
  * ngừ vằn). Nói chung chung "cá ngừ", "mực" ⇒ cả nhóm (mọi loài bắt đầu bằng
  * chữ đó). Tên ngắn có loài thiếu chữ "cá" ("ngừ vằn") — nhận cả hai cách nói.
  */
-function timLoaiCa(text: string, loai: readonly string[]): { ds: string[]; ten: string } | undefined {
+export function timLoaiCa(text: string, loai: readonly string[]): { ds: string[]; ten: string } | undefined {
   // so GIỮ DẤU khi câu có dấu (bộ nghe luôn trả có dấu): bỏ dấu thì "cá ngừ ở đâu"
   // trùng loài "ngừ ồ". Câu gõ không dấu mới so kiểu bỏ dấu.
   const coDau = /[^\x00-\x7f]/.test(text);
@@ -104,6 +104,13 @@ const CHO_RE = / (ban|mua|gia|thu mua|bao nhieu|nhieu tien|mot can|ky|shop|cua h
 /** Câu hỏi CÁCH làm ("câu mực dùng mồi gì") — hỏi mở, không phải "ở đâu". */
 const CACH_RE = / (moi gi|dung moi|chuan bi|lam sao|vi sao|tai sao|cach) /;
 
+/** Tham số của câu hỏi bản đồ — dùng chung cho luật (`hoiGi`) và bộ n-gram (`cauHoiTuY`). */
+export function tachThamSo(text: string, loaiCa: readonly string[] = []): Pick<CauHoi, "huong" | "loaiCa" | "muonDi"> {
+  const f = ` ${foldVn(text)} `;
+  const muonDi = DI_RE.test(f) && !/ (co gi|nao|o dau|bao nhieu|bao xa|khong) $/.test(f);
+  return { muonDi, huong: HUONG.find(([re]) => re.test(f))?.[1], loaiCa: timLoaiCa(text, loaiCa) };
+}
+
 /**
  * Câu → loại câu hỏi bản đồ, hoặc null (không phải câu hỏi bản đồ — để hieu-y lo).
  * `loaiCa` = danh sách tên ngắn loài app biết (SPECIES_META).
@@ -111,9 +118,8 @@ const CACH_RE = / (moi gi|dung moi|chuan bi|lam sao|vi sao|tai sao|cach) /;
 export function hoiGi(text: string, loaiCa: readonly string[] = []): CauHoi | null {
   const f = ` ${foldVn(text)} `;
   if (f.trim() === "") return null;
-  const muonDi = DI_RE.test(f) && !/ (co gi|nao|o dau|bao nhieu|bao xa|khong) $/.test(f);
-  const huongMatch = HUONG.find(([re]) => re.test(f));
-  const huong = huongMatch?.[1];
+  const t = tachThamSo(text, loaiCa);
+  const { muonDi, huong } = t;
   const q = (loai: LoaiHoi, extra: Partial<CauHoi> = {}): CauHoi => ({ loai, muonDi, ...extra });
 
   if (/ (con nuoc|thuy trieu|trieu cuong|nuoc (lon|rong|ron|rac|len|xuong|dung|dang|kem|cuong)|trieu (len|xuong)) /.test(f)) return q("con_nuoc");
@@ -121,7 +127,7 @@ export function hoiGi(text: string, loaiCa: readonly string[] = []): CauHoi | nu
   if (muonDi && !/ (gan nhat|gan day|gan|nhieu|nao|o dau|co gi) /.test(f)) return null;
   const cho = CHO_RE.test(f) || CACH_RE.test(f);
 
-  const sp = timLoaiCa(text, loaiCa);
+  const sp = t.loaiCa;
   if (!cho && sp && / (o dau|cho nao|nhieu|vung nao|huong nao|ben nao|danh|bat|cau|kiem|co khong) /.test(f)) return q("ca", { loaiCa: sp });
   if (!cho && / (cho nao|o dau|vung nao|huong nao) (nhieu|co) ca | (nhieu|co) ca (khong|o dau|cho nao) | du bao ca | ca (o dau|cho nao|nhieu) /.test(f))
     return q("ca", sp ? { loaiCa: sp } : {});
@@ -141,6 +147,29 @@ export function hoiGi(text: string, loaiCa: readonly string[] = []): CauHoi | nu
   if (/ (dang|minh|tau|toi|tui) (dang )?o (dau|cho nao) | day la (dau|cho nao) | toa do (cua )?(toi|minh|tau|cho nay) /.test(f))
     return q("o_dau");
   return null;
+}
+
+/** Ý định bản đồ của bộ n-gram v2 → loại câu hỏi (bỏ tiền tố "hoi_"; "con_nuoc" là ý cũ). */
+const Y_HOI: Partial<Record<SenIntent, LoaiHoi>> = {
+  hoi_dao_gan: "dao_gan", hoi_o_dau: "o_dau", hoi_ran_gan: "ran_gan", hoi_do_sau: "do_sau", hoi_phia_truoc: "phia_truoc",
+  hoi_den_bien: "den_bien", hoi_phao: "phao", hoi_xac_tau: "xac_tau", hoi_tru_bao: "tru_bao", hoi_vung_cam: "vung_cam",
+  hoi_cang_gan: "cang_gan", hoi_ca: "ca", con_nuoc: "con_nuoc",
+};
+
+/**
+ * Ý định n-gram → câu hỏi bản đồ (null nếu không phải ý bản đồ). Mô hình chỉ CHỌN loại câu hỏi;
+ * tham số (hướng, loài, đi luôn) vẫn do luật trích — `tachThamSo`.
+ */
+export function cauHoiTuY(y: SenIntent, text: string, loaiCa: readonly string[] = []): CauHoi | null {
+  const loai = Y_HOI[y];
+  if (!loai) return null;
+  const t = tachThamSo(text, loaiCa);
+  return {
+    loai,
+    muonDi: t.muonDi,
+    ...(t.huong != null && loai === "phia_truoc" ? { huong: t.huong } : {}),
+    ...(t.loaiCa && loai === "ca" ? { loaiCa: t.loaiCa } : {}),
+  };
 }
 
 /* ── kho lớp — mọi thứ có thể thiếu (chưa tải, mất sóng lần đầu) ─────────── */

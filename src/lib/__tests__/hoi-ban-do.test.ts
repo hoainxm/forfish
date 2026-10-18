@@ -1,8 +1,10 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { SPECIES_META } from "@/lib/fish-predict";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
 import { hoiGi, traLoi, type KhoBanDo, type ViTri } from "@/lib/sen-bien/hoi-ban-do";
+import { loadNgram } from "@/lib/sen-bien/ngram";
 
 const LOAI = Object.keys(SPECIES_META);
 
@@ -121,4 +123,37 @@ describe("tên loài giữ dấu", () => {
   it("'cá ngừ ở đâu' KHÔNG phải loài 'ngừ ồ'", () => expect(hoiGi("cá ngừ ở đâu nhiều", LOAI)?.loaiCa?.ten).toBe("cá ngừ"));
   it("'cá ngừ ồ ở đâu' vẫn là ngừ ồ", () => expect(hoiGi("cá ngừ ồ ở đâu nhiều", LOAI)?.loaiCa?.ds).toEqual(["ngừ ồ"]));
   it("gõ không dấu vẫn nhận", () => expect(hoiGi("cho nao nhieu ca ngu van", LOAI)?.loaiCa?.ds).toEqual(["ngừ vằn"]));
+});
+
+describe("n-gram v2 chọn loại câu hỏi, luật làm lưới (2026-10-16)", () => {
+  const buf = readFileSync("public/data/sen-bien-ngram.v3.bin");
+  const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
+  const hoi = (cau: string) => {
+    const r = senBienReply(cau, model, [], null, { awaitingGo: false, running: false, loaiCa: LOAI });
+    return r.kind === "hoi" ? r.q : r.kind;
+  };
+  // câu giọng miền trong bộ kín (Opus viết) mà LUẬT để lọt — mô hình bắt được
+  it.each([
+    ["bác ơi gần đây có đảo hông", "dao_gan"],
+    ["tui đang ở mô rứa", "o_dau"],
+    ["chỗ ni sâu nhiêu mét", "do_sau"],
+    ["gan day co chiec nao dam khong bac", "xac_tau"],
+    ["CHỖ NÀY THẢ LƯỚI ĐƯỢC HÔNG HAY BỊ CẤM", "vung_cam"],
+  ])("%s → %s", (cau, loai) => {
+    expect(hoiGi(cau, LOAI)).toBeNull();
+    expect(hoi(cau)).toMatchObject({ loai });
+  });
+  it("hỏi BÁN cá không thành câu hỏi bản đồ (luật từng bắt 'chỗ nào nhiều cá')", () =>
+    expect(hoi("bán cá ngừ ở đâu được giá")).not.toMatchObject({ loai: "ca" }));
+  it("tham số vẫn do luật trích: loài + hướng + đi luôn", () => {
+    expect(hoi("dẫn tới chỗ nhiều cá ngừ vằn")).toMatchObject({ loai: "ca", muonDi: true, loaiCa: { ds: ["ngừ vằn"] } });
+    expect(hoi("chạy hướng đông bắc có đụng gì không")).toMatchObject({ loai: "phia_truoc", huong: 45 });
+  });
+  it("'còn mấy hải lý nữa tới' ⇒ còn bao xa", () => expect(hoi("còn mấy hải lý nữa tới")).toBe("howfar"));
+  it("câu có TÊN chỗ + động từ đi ⇒ dẫn đi, không thành câu hỏi", () => {
+    const d = { name: "Hòn Mù", lat: 14.9, lon: 109.3, kind: "diem" as const };
+    expect(senBienReply("chạy ra Hòn Mù", model, [d], null).kind).toBe("go");
+  });
+  it("không có mô hình (chưa tải) ⇒ luật vẫn trả lời", () =>
+    expect(senBienReply("gần đảo nào nhất", null, [], null).kind).toBe("hoi"));
 });

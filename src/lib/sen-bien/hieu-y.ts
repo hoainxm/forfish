@@ -9,7 +9,8 @@
 
 import { parseSpokenCoordPair } from "@/lib/parse-coord";
 
-import { hoiGi, type CauHoi } from "./hoi-ban-do";
+import { cauHoiTuY, hoiGi, tachThamSo, timLoaiCa, type CauHoi } from "./hoi-ban-do";
+import { lenhLuat, lenhTuY, type LenhBanDo } from "./lenh-ban-do";
 import { foldVn, guessIntent, type NgramModel, type SenIntent } from "./ngram";
 
 export type SenDest = { name: string; lat: number; lon: number; kind: "cang" | "diem" | "nha" };
@@ -31,7 +32,10 @@ export type SenReply =
   | { kind: "howfar" }
   /** câu hỏi bản đồ (gần đảo nào, rạn, độ sâu, phía trước, cá…) — chỗ gọi tra kho lớp (hoi-ban-do.ts) */
   | { kind: "hoi"; q: CauHoi }
-  | { kind: "say"; say: string };
+  /** thao tác màn bản đồ (mở/tắt lớp, đổi giờ, đọc số, phóng/thu, về tàu) — chỗ gọi bấm nút hộ (lenh-ban-do.ts) */
+  | { kind: "map"; lenh: LenhBanDo }
+  /** `y` = ý định n-gram khi có — "dan_duong" mà không thấy tên ⇒ Gemma (Android) còn cứu được tên lệch giọng */
+  | { kind: "say"; say: string; y?: SenIntent };
 
 /** Đang ở nấc nào của cuộc nói — quyết định "đi"/"thôi" nghĩa là gì. */
 export type SenCtx = {
@@ -126,6 +130,11 @@ export function findDestsGan(text: string, dests: readonly SenDest[]): SenDest[]
 const LOI_DEM =
   /(^| )(dan|ve|cang|ben|chay|ra|di|toi|cho|tui|toi|minh|em|anh|nha|giup|gium|coi|voi|duong|den|thoi|o|a|nhe)(?= |$)/g;
 
+const LENH_Y = new Set<SenIntent>(["mo_lop", "tat_lop", "doi_thoi_diem", "doc_gia_tri", "phong_to", "thu_nho", "ve_tau", "chay_thoi_gian"]);
+
+/** Độ tin n-gram từ đó tin mô hình hơn luật hỏi bản đồ (chọn trên bộ kín: 0,4–0,5 cùng đỉnh). */
+const NGRAM_CHAC = 0.5;
+
 const MOTION_RE = /^(dan|chay|di|ve|toi|cho tui ve|cho toi ve|ra) /;
 
 const HOME_RE = / (cang nha|ve nha|ve ben) /;
@@ -194,19 +203,38 @@ export function senBienReply(
     return { kind: "go", dest: { name, lat: c.lat, lon: c.lon, kind: "diem" }, say: `Điểm ${name}.` };
   }
 
-  // (3b) câu hỏi bản đồ — luật đóng, trước tên chỗ ("gần đảo nào" không phải "đi đảo Nào")
-  const hoi = hoiGi(text, ctx.loaiCa);
+  let hits = findDests(text, dests);
+  const g = model ? guessIntent(model, text, { diem: dests.map((d) => core(d.name)), xn: ctx.awaitingGo }) : null;
+  const yM = g?.y ?? null;
+
+  // (3a) thao tác bản đồ — mô hình chắc thì theo mô hình, không thì luật chỉ bắt câu rất rõ
+  const tim = (t: string) => timLoaiCa(t, ctx.loaiCa ?? []);
+  if (g && g.conf >= NGRAM_CHAC && LENH_Y.has(g.y)) {
+    const lenh = lenhTuY(g.y, text, tim);
+    if (lenh) return { kind: "map", lenh };
+    if (g.y === "mo_lop")
+      return { kind: "say", say: "Bà con muốn xem lớp nào: sóng, gió, dòng chảy, mưa, mây, hay bản đồ cá?" };
+    if (g.y === "doi_thoi_diem") return { kind: "say", say: "Bà con nói rõ ngày giờ, ví dụ: chiều mai, ba giờ chiều mốt." };
+  } else if (!g || g.conf < NGRAM_CHAC) {
+    const lenh = lenhLuat(text, tim);
+    if (lenh) return { kind: "map", lenh };
+  }
+
+  // (3b) câu hỏi bản đồ — trước tên chỗ ("gần đảo nào" không phải "đi đảo Nào").
+  // Bộ n-gram v2 (44 ý, 13 ý bản đồ) CHẮC (≥ 0,5) thì theo nó — kể cả khi nó nói "không phải câu bản đồ"; kém chắc
+  // hoặc chưa tải được thì LUẬT làm lưới. Đo 2026-10-16 trên bộ câu bản đồ kín (Forlife Assistant
+  // train/reports/troly-*): đúng tuyến luật 76,6 % · luật rồi n-gram 93,3 % · n-gram rồi luật 96,2 %.
+  // Mô hình chỉ chọn LOẠI câu hỏi; hướng/loài/đi luôn vẫn do luật trích (tachThamSo).
+  // Ngoại lệ: câu có TÊN chỗ + động từ đi ("chạy ra Hòn Mù có rạn") ⇒ để bước (4) dẫn đi.
+  const tuMoHinh = (y: SenIntent) => (hits.length && tachThamSo(text).muonDi ? null : cauHoiTuY(y, text, ctx.loaiCa));
+  const hoi = g && g.conf >= NGRAM_CHAC ? tuMoHinh(g.y) : (hoiGi(text, ctx.loaiCa) ?? (g ? tuMoHinh(g.y) : null));
   if (hoi) return { kind: "hoi", q: hoi };
+  if (yM === "con_bao_xa") return { kind: "howfar" };
 
   // (4) chọn chỗ theo tên
-  let hits = findDests(text, dests);
   const home = dests.find((d) => d.kind === "nha");
   // mô hình chưa tải được (lần đầu mất sóng) ⇒ vẫn dẫn được khi câu có tên chỗ
-  const y: SenIntent = model
-    ? guessIntent(model, text, { diem: dests.map((d) => core(d.name)), xn: ctx.awaitingGo }).y
-    : hits.length || MOTION_RE.test(`${f} `)
-      ? "dan_duong"
-      : "khong_hieu";
+  const y: SenIntent = yM ?? (hits.length || MOTION_RE.test(`${f} `) ? "dan_duong" : "khong_hieu");
   // khớp gần chỉ khi câu RÕ là muốn đi — đừng để "sóng gió chỗ này" hoá tên cảng
   // Có mô hình thì chỉ khớp gần khi nó đoán DẪN ĐƯỜNG: nới sang "không hiểu"/"có động
   // từ đi" thì khớp nhầm tăng từ 1 lên 33 trên 1.421 câu thử ("về trang chủ" → Trân Châu).
@@ -224,7 +252,7 @@ export function senBienReply(
       if (home) return { kind: "go", dest: home, say: `Về ${home.name}.` };
       return { kind: "say", say: "Máy chưa biết cảng nhà. Bà con ghim chỗ cảng nhà trên bản đồ trước nhé." };
     }
-    return { kind: "say", say: "Sen Biển chưa thấy chỗ đó. Bà con nói tên cảng, điểm đã ghim, hoặc đọc toạ độ." };
+    return { kind: "say", say: "Sen Biển chưa thấy chỗ đó. Bà con nói tên cảng, điểm đã ghim, hoặc đọc toạ độ.", y };
   }
   if (y === "thoi_tiet" || y === "bao" || y === "con_nuoc")
     return { kind: "say", say: seaLine ? `Chỗ đang xem: ${seaLine}.` : "Bà con chạm vào biển chỗ muốn xem, Sen Biển đọc sóng gió chỗ đó." };
