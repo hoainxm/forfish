@@ -14,7 +14,7 @@
 */
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { SenBienNoi, SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
@@ -24,6 +24,9 @@ import { SPECIES_META } from "@/lib/fish-predict";
 import { loadPlaces } from "@/lib/places";
 import { saveHome } from "@/lib/region";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
+import { lamLenhCho, type ChoKetQua } from "@/lib/sen-bien/lam-cho";
+import { hieuLenhCho } from "@/lib/sen-bien/lenh-cho";
+import { useAuthUser } from "@/lib/use-auth";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
 import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
 
@@ -37,6 +40,28 @@ export function SenBienToanApp() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
+  const { phone } = useAuthUser();
+  /** câu chuyển từ màn bản đồ (?sen=, việc sàn nói ở bản đồ) — mở thẻ là làm luôn */
+  const [hoiNgay, setHoiNgay] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      const t = u.searchParams.get("sen");
+      if (!t || KHONG_VE.test(u.pathname)) return;
+      u.searchParams.delete("sen");
+      window.history.replaceState(window.history.state, "", u.pathname + (u.search || "") + u.hash);
+      setHoiNgay(t.slice(0, 300));
+      setOpen(true);
+    } catch {
+      // URL lạ — bỏ qua, bà con chạm icon nói lại
+    }
+  }, [pathname]);
+  // thẻ đóng (mọi đường) ⇒ bỏ câu chuyển, lần mở sau là chào bình thường.
+  // KHÔNG làm bằng effect theo `open`: effect đó chạy cùng lượt với effect đọc ?sen= (lúc open còn false) và xoá mất câu
+  const dong = useCallback(() => {
+    setOpen(false);
+    setHoiNgay(undefined);
+  }, []);
 
   const noi = useCallback((t: string) => {
     if (t) ttsSpeak(t);
@@ -58,6 +83,9 @@ export function SenBienToanApp() {
             return "";
           case "call":
             return ` Số ${a.label}: ${a.tel}.`;
+          case "search":
+            router.push(`/cho/tim?q=${encodeURIComponent(a.q)}`);
+            return "";
           default:
             return "";
         }
@@ -68,12 +96,30 @@ export function SenBienToanApp() {
     [router],
   );
 
+  /** CHỢ VẬT TƯ (2026-10-18, "toàn bộ thao tác sàn phải đảm bảo sen biển thực hiện"): nói → mở màn → nút xác nhận */
+  const choRaThe = useCallback(
+    (k0: ChoKetQua): SenHeard => {
+      const doi = (k: ChoKetQua): SenHeard => {
+        noi(k.noi);
+        if (k.den && k.den !== pathname) router.push(k.den);
+        return {
+          show: k.noi,
+          ...(k.xacNhan ? { xacNhan: { nhan: k.xacNhan.nhan, lam: async () => doi(await k.xacNhan!.lam()) } } : {}),
+        };
+      };
+      return doi(k0);
+    },
+    [noi, pathname, router],
+  );
+
   const onHeard = useCallback(
     async (text: string): Promise<SenHeard> => {
+      const cho = hieuLenhCho(text);
+      if (cho) return choRaThe(await lamLenhCho(cho, phone));
       const r = senBienReply(text, await loadSenBienModel(), [], null, { awaitingGo: false, running: false, loaiCa: LOAI_CA });
       if (veBanDo(r)) {
         noi("Mở bản đồ.");
-        setOpen(false);
+        dong();
         router.push(`/ngu-truong?sen=${encodeURIComponent(text)}`);
         return { show: "Mở bản đồ…" };
       }
@@ -95,7 +141,7 @@ export function SenBienToanApp() {
       noi(say);
       return { show: say };
     },
-    [pathname, router, noi, lam],
+    [pathname, router, noi, lam, choRaThe, phone, dong],
   );
 
   if (KHONG_VE.test(pathname) || pathname.startsWith("/quan-tri")) return null;
@@ -116,12 +162,13 @@ export function SenBienToanApp() {
           awaitingGo={false}
           title={title}
           chao={CHAO}
+          hoiNgay={hoiNgay}
           listenOnOpen
           onHeard={onHeard}
-          onPick={() => setOpen(false)}
-          onStart={() => setOpen(false)}
-          onCancel={() => setOpen(false)}
-          onClose={() => setOpen(false)}
+          onPick={dong}
+          onStart={dong}
+          onCancel={dong}
+          onClose={dong}
         />
       )}
     </div>

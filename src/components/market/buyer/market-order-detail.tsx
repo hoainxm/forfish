@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AlertIcon, CheckIcon } from "@/components/icons";
+import { AutoCancelNote, EtaLine, OrderSteps } from "@/components/market/shared/eta";
 import { LineThumb } from "@/components/market/shared/line-thumb";
 import { MoneyText } from "@/components/market/shared/price-text";
 import { OrderStatusChip, PaymentStatusChip } from "@/components/market/shared/order-status-chip";
@@ -303,7 +304,9 @@ export function MarketOrderDetail({ id }: { id: string }) {
       )}
       {order.status === "da_huy" && order.cancelBy !== "buyer" && (
         <div className="mt-3 overflow-hidden rounded-2xl">
-          <StatusBanner level="danger">Shop đã huỷ: {order.cancelReason || "không ghi lý do"}.</StatusBanner>
+          <StatusBanner level="danger">
+            {order.cancelBy === "system" ? `${order.cancelReason || "Đơn tự huỷ"}.` : `Shop đã huỷ: ${order.cancelReason || "không ghi lý do"}.`}
+          </StatusBanner>
         </div>
       )}
       {order.paymentStatus === "chua_thanh_toan" && notSeen && (
@@ -313,9 +316,17 @@ export function MarketOrderDetail({ id }: { id: string }) {
           </StatusBanner>
         </div>
       )}
-      {isPendingTooLong(order, nowIso) && (
-        <p className="mt-3 text-[1rem] font-bold text-warn">Shop chưa xác nhận sau 2 ngày.</p>
-      )}
+      {/* kiểu Shopee (2026-10-18): thanh 5 bước + hẹn giao/trễ hẹn + đếm ngược tự huỷ */}
+      <section className="surface mt-3 space-y-3 px-4 py-3">
+        <OrderSteps status={order.status} />
+        {isPendingTooLong(order, nowIso) || order.status === "cho_xac_nhan" ? <AutoCancelNote order={order} who="buyer" /> : null}
+        <EtaLine order={order} />
+        {order.requestId && (
+          <Link href={`/cho/yeu-cau/${order.requestId}`} className="block text-[1rem] font-bold text-sea underline">
+            Đơn đặt theo yêu cầu — xem yêu cầu
+          </Link>
+        )}
+      </section>
 
       {/* ── Dòng thời gian ─────────────────────────────────────────────── */}
       <section className="surface mt-3 px-4 py-3">

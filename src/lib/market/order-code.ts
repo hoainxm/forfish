@@ -20,6 +20,11 @@ export function makeOrderCode(now: Date, rand: () => number): string {
   return `SD${ymd}${tail}`;
 }
 
+/** Mã YÊU CẦU đặt hàng: "YC" + cùng khuôn (2026-10-18) — đọc qua điện thoại không lẫn với mã đơn. */
+export function makeRequestCode(now: Date, rand: () => number): string {
+  return `YC${makeOrderCode(now, rand).slice(2)}`;
+}
+
 export function isOrderCode(v: unknown): v is string {
   return typeof v === "string" && /^SD\d{6}[A-HJ-NP-Z2-9]{4}$/.test(v);
 }

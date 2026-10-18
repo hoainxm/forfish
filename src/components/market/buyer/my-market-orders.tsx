@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRightIcon, DocIcon } from "@/components/icons";
 import { EmptyNet } from "@/components/market/shared/empty-net";
+import { AutoCancelNote, EtaLine } from "@/components/market/shared/eta";
 import { LineThumb } from "@/components/market/shared/line-thumb";
 import { OrderStatusChip } from "@/components/market/shared/order-status-chip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -183,6 +184,14 @@ export function MyMarketOrders() {
       </div>
 
       <div className="px-4">
+        {/* YÊU CẦU ĐẶT HÀNG — món chưa có trên chợ, chủ sàn báo giá (2026-10-18) */}
+        <Link href="/cho/yeu-cau" className="surface mb-3 flex min-h-[3.5rem] items-center gap-3 px-4 py-3">
+          <span className="min-w-0 flex-1">
+            <span className="block text-[1.0625rem] font-bold text-navy">Yêu cầu đặt hàng của tôi</span>
+            <span className="block text-[0.9375rem] text-foreground/70">Món không có trên chợ — xem báo giá của chủ sàn</span>
+          </span>
+          <ChevronRightIcon className="h-6 w-6 shrink-0 text-navy" />
+        </Link>
         {savedAt != null && (
           <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">
             Đang xem đơn đã lưu trong máy ({savedAgoLabel(savedAt)}) — có sóng sẽ tự tải mới.
@@ -240,9 +249,8 @@ export function MyMarketOrders() {
                   </div>
                   <ChevronRightIcon className="mt-1 h-6 w-6 shrink-0 text-navy" />
                 </Link>
-                {isPendingTooLong(o, nowIso) && (
-                  <p className="mt-1 text-[1rem] font-bold text-warn">Shop chưa xác nhận sau 2 ngày.</p>
-                )}
+                {isPendingTooLong(o, nowIso) && <div className="mt-1"><AutoCancelNote order={o} who="buyer" /></div>}
+                <div className="mt-1"><EtaLine order={o} /></div>
                 {(canCancel || canReceive || canPay) && (
                   <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
                     {!online && (

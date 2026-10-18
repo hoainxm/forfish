@@ -7,6 +7,7 @@
   đơn ra vẫn biết ai đã đụng vào.
 */
 
+import { AutoCancelNote, EtaLine, EtaSheet } from "@/components/market/shared/eta";
 import { useEffect, useState } from "react";
 import { formatVnd } from "@/lib/format";
 import { clockVN } from "@/lib/day-labels";
@@ -244,7 +245,12 @@ function OrderRow({
           <p className="text-[0.8125rem] text-foreground/55">
             {clockVN(Date.parse(order.createdAt))} · {order.items.length} món ·{" "}
             {PAYMENT_METHOD_LABEL[order.paymentMethod]}
+            {order.requestId ? " · từ yêu cầu đặt" : ""}
           </p>
+          <div className="mt-1 max-w-[22rem] space-y-1 text-[0.875rem]">
+            <AutoCancelNote order={order} who="shop" />
+            <EtaLine order={order} />
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <OrderStatusChip status={order.status} />
@@ -381,17 +387,16 @@ function OrderRow({
         </div>
       )}
 
+      {/* XÁC NHẬN = HẸN GIAO (2026-10-18) — cùng tấm chọn ngày với chủ shop */}
       {ask === "xac-nhan" && (
-        <ConfirmDialog
-          title={`Xác nhận đơn ${order.code} thay shop?`}
-          message="Người mua sẽ thấy đơn đã được xác nhận. Diễn biến ghi rõ SDVICO làm thay."
-          confirmLabel="Xác nhận"
-          cancelLabel="Không"
-          danger={false}
-          onCancel={() => setAsk(null)}
-          onConfirm={() => {
+        <EtaSheet
+          title={`Xác nhận đơn ${order.code} thay shop — hẹn ngày giao`}
+          sendLabel="Xác nhận đơn"
+          busy={busy}
+          onClose={() => setAsk(null)}
+          onSend={(eta) => {
             setAsk(null);
-            patch({ status: "da_xac_nhan" }, "Đã xác nhận đơn.");
+            patch({ status: "da_xac_nhan", ...eta }, "Đã xác nhận đơn.");
           }}
         />
       )}

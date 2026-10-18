@@ -4,6 +4,7 @@
 // Dùng cho shop SDVICO chưa gán chủ + khiếu nại gọi qua tổng đài.
 // Mỗi request MỘT việc: đổi trạng thái · đổi thanh toán · chỉ ghi chú/vận chuyển.
 import { NextResponse } from "next/server";
+import { readEta, vnToday } from "@/lib/market/eta";
 import { SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
 import { MarketError } from "@/lib/market/errors";
 import {
@@ -57,6 +58,9 @@ export async function PATCH(req: Request, { params }: Ctx) {
       sellerNote?: unknown;
       carrier?: unknown;
       trackingCode?: unknown;
+      etaPreset?: unknown;
+      etaFrom?: unknown;
+      etaTo?: unknown;
     } | null;
     if (!body) return NextResponse.json({ ok: false, code: "bad_body" }, { status: 400 });
 
@@ -83,6 +87,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
       }
       const patch = applyTransition(order, body.status, "admin", note, now, who.phone);
       if (!patch) throw new MarketError("bad_transition");
+      if (body.status === "da_xac_nhan") {
+        const eta = readEta(body, vnToday());
+        if (typeof eta === "string") throw new MarketError("invalid", eta);
+        patch.etaFrom = eta.etaFrom;
+        patch.etaTo = eta.etaTo;
+      }
       if (body.status === "dang_giao") {
         if (carrier) patch.carrier = carrier;
         if (trackingCode) patch.trackingCode = trackingCode;
@@ -110,7 +120,8 @@ export async function PATCH(req: Request, { params }: Ctx) {
     } else {
       // Chỉ ghi chú / vận chuyển — patch trần, expectStatus = trạng thái hiện tại.
       const sellerNote = typeof body.sellerNote === "string" ? body.sellerNote.trim() : undefined;
-      if (sellerNote === undefined && carrier === undefined && trackingCode === undefined)
+      const moveEta = body.etaPreset !== undefined || body.etaFrom !== undefined;
+      if (sellerNote === undefined && carrier === undefined && trackingCode === undefined && !moveEta)
         throw new MarketError("invalid", "Chưa có gì để cập nhật.");
       if ((sellerNote?.length ?? 0) > NOTE_MAX)
         throw new MarketError("invalid", "Ghi chú tối đa 300 chữ.");
@@ -118,6 +129,13 @@ export async function PATCH(req: Request, { params }: Ctx) {
       if (sellerNote !== undefined) patch.sellerNote = sellerNote;
       if (carrier !== undefined) patch.carrier = carrier;
       if (trackingCode !== undefined) patch.trackingCode = trackingCode;
+      if (moveEta) {
+        if (order.status !== "da_xac_nhan" && order.status !== "dang_giao") throw new MarketError("bad_transition");
+        const eta = readEta(body, vnToday());
+        if (typeof eta === "string") throw new MarketError("invalid", eta);
+        patch.etaFrom = eta.etaFrom;
+        patch.etaTo = eta.etaTo;
+      }
       updated = await store.transitionOrder(id, order.status, patch);
       logDetail = { note: true };
     }
@@ -133,6 +151,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
           shop: shop ? { id: shop.id, name: shop.name } : undefined,
           reason: note,
           hotline: SDVICO_HOTLINE_DISPLAY,
+          today: vnToday(),
         }),
       );
     }

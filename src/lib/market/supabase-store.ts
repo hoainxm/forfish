@@ -9,15 +9,17 @@ import { todayIsoVN } from "@/lib/days";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isProductCategory } from "./categories";
 import { MarketError } from "./errors";
-import { makeOrderCode } from "./order-code";
+import { makeOrderCode, makeRequestCode } from "./order-code";
 import { isOrderStatus, isPaymentMethod, isPaymentStatus } from "./order-state";
-import type { MarketStore, OrderListQuery, PreparedShopOrder } from "./store";
+import { isRequestStatus, type RequestPatch } from "./request-state";
+import type { MarketStore, OrderListQuery, PreparedShopOrder, RequestListQuery } from "./store";
 import { foldVn, maskPhone } from "./text";
 import { normalizeProductStatus } from "./validate";
 import type {
   Actor, Address, AdminOverview, BankInfo, Order, OrderLine, OrderStatus, Page, PaymentMethod,
   PlaceOrderResult, Product, ProductCard, Review, Shop, ShopStatus,
   TimelineEntry, Variant,
+  MarketRequest, RequestQuote, RequestTimelineEntry,
 } from "./types";
 
 type Row = Record<string, unknown>;
@@ -118,6 +120,32 @@ export function rowToOrder(r: Row): Order {
     carrier: str(r.carrier), trackingCode: str(r.tracking_code), timeline: toTimeline(r.timeline),
     clientRef: str(r.client_ref), createdAt: str(r.created_at) ?? "", updatedAt: str(r.updated_at) ?? "",
     deliveredAt: str(r.delivered_at), completedAt: str(r.completed_at),
+    etaFrom: str(r.eta_from), etaTo: str(r.eta_to), requestId: str(r.request_id),
+  };
+}
+const REQUEST_JOIN = "shops(name)";
+function toRequestTimeline(v: unknown): RequestTimelineEntry[] {
+  return Array.isArray(v)
+    ? v.filter((t): t is RequestTimelineEntry => !!t && typeof t === "object" && isRequestStatus((t as Row).status) && typeof (t as Row).at === "string")
+    : [];
+}
+function toQuote(v: unknown): RequestQuote | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const q = v as Row;
+  const etaFrom = str(q.etaFrom), etaTo = str(q.etaTo), quotedAt = str(q.quotedAt), expiresAt = str(q.expiresAt);
+  if (!etaFrom || !etaTo || !quotedAt || !expiresAt) return undefined;
+  return { goodsVnd: num(q.goodsVnd), shippingVnd: num(q.shippingVnd), etaFrom, etaTo, quotedAt, expiresAt, ...(str(q.note) ? { note: str(q.note) } : {}) };
+}
+export function rowToRequest(r: Row): MarketRequest {
+  const s = (r.shops && typeof r.shops === "object" ? r.shops : {}) as Row;
+  return {
+    id: String(r.id), code: str(r.code) ?? "", buyerPhone: str(r.buyer_phone) ?? "", title: str(r.title) ?? "",
+    qty: num(r.qty, 1), unit: str(r.unit) ?? "cái", description: str(r.description), images: strArr(r.images),
+    needBy: str(r.need_by), address: toAddress(r.address),
+    paymentMethod: isPaymentMethod(r.payment_method) ? r.payment_method : "cod",
+    status: isRequestStatus(r.status) ? r.status : "moi", quote: toQuote(r.quote), rejectReason: str(r.reject_reason),
+    quoteShopId: str(r.quote_shop_id), quoteShopName: str(s.name), orderId: str(r.order_id),
+    timeline: toRequestTimeline(r.timeline), createdAt: str(r.created_at) ?? "", updatedAt: str(r.updated_at) ?? "",
   };
 }
 export function rowToReview(r: Row): Review {
@@ -213,6 +241,15 @@ export function createSupabaseStore(): MarketStore {
     const { data, error, count } = await withSig(qb.order("created_at", { ascending: false }).range(from, to));
     if (error) fail("market_orders đọc", error);
     return { items: (data ?? []).map((r) => rowToOrder(r as Row)), total: count ?? 0, page, pageSize };
+  }
+
+  async function listRequests(build: (q: OrderQb) => OrderQb, q?: RequestListQuery): Promise<Page<MarketRequest>> {
+    const { page, pageSize, from, to } = clampPage(q);
+    let qb = build(client().from("market_requests").select(`*, ${REQUEST_JOIN}`, { count: "exact" }) as unknown as OrderQb);
+    if (q?.status) qb = qb.eq("status", q.status);
+    const { data, error, count } = await withSig(qb.order("created_at", { ascending: false }).range(from, to));
+    if (error) fail("market_requests đọc", error);
+    return { items: (data ?? []).map((r: unknown) => rowToRequest(r as Row)), total: count ?? 0, page, pageSize };
   }
 
   const store: MarketStore = {
@@ -384,6 +421,13 @@ export function createSupabaseStore(): MarketStore {
       if (error) fail("market_orders quét", error);
       return (data ?? []).map((r) => rowToOrder(r as Row));
     },
+    async listOverduePending(beforeIso, shopId) {
+      let qb = client().from("market_orders").select(`*, ${ORDER_JOIN}`).eq("status", "cho_xac_nhan").lte("created_at", beforeIso);
+      if (shopId) qb = qb.eq("shop_id", shopId);
+      const { data, error } = await withSig(qb.order("created_at", { ascending: true }).limit(200));
+      if (error) fail("market_orders quét chờ xác nhận", error);
+      return (data ?? []).map((r) => rowToOrder(r as Row));
+    },
     async getOrder(id) {
       const { data, error } = await withSig(client().from("market_orders").select(`*, ${ORDER_JOIN}`).eq("id", id)).maybeSingle();
       if (error) fail("market_orders đọc", error);
@@ -413,6 +457,8 @@ export function createSupabaseStore(): MarketStore {
       if (patch.trackingCode != null) row.tracking_code = patch.trackingCode;
       if (patch.deliveredAt != null) row.delivered_at = patch.deliveredAt;
       if (patch.completedAt != null) row.completed_at = patch.completedAt;
+      if (patch.etaFrom != null) row.eta_from = patch.etaFrom;
+      if (patch.etaTo != null) row.eta_to = patch.etaTo;
       if (patch.timelineAppend) row.timeline = [...toTimeline((cur as Row).timeline), patch.timelineAppend];
       const { data, error } = await withSig(
         client().from("market_orders").update(row).eq("id", id).eq("status", expectStatus).select(`*, ${ORDER_JOIN}`).maybeSingle(),
@@ -424,6 +470,79 @@ export function createSupabaseStore(): MarketStore {
         if (e2) console.error("[market] hoàn kho hỏng:", pgErr(e2).code, pgErr(e2).message);
       }
       return rowToOrder(data as Row);
+    },
+
+    // ── Yêu cầu đặt hàng (2026-10-18) ──
+    async createRequest(buyerPhone, d) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const at = new Date().toISOString();
+        const { data, error } = await withSig(
+          client().from("market_requests").insert({
+            code: makeRequestCode(new Date(), Math.random), buyer_phone: buyerPhone, title: d.title.trim(), qty: d.qty,
+            unit: d.unit.trim(), description: d.description?.trim() || null, images: d.images ?? [], need_by: d.needBy || null,
+            address: d.address, payment_method: d.paymentMethod, status: "moi",
+            timeline: [{ status: "moi", at, by: "buyer" }],
+          }).select(`*, ${REQUEST_JOIN}`).single(),
+        );
+        if (!error) return rowToRequest(data as Row);
+        if (pgErr(error).code === "23505") continue; // mã trùng — sinh mã mới
+        fail("market_requests ghi", error);
+      }
+      throw new MarketError("insert_failed");
+    },
+    listBuyerRequests: (buyerPhone, q) => listRequests((qb) => qb.eq("buyer_phone", buyerPhone), q),
+    listAllRequests: (q) => listRequests((qb) => qb, q),
+    async getRequest(id) {
+      const { data, error } = await withSig(client().from("market_requests").select(`*, ${REQUEST_JOIN}`).eq("id", id)).maybeSingle();
+      if (error) fail("market_requests đọc", error);
+      return data ? rowToRequest(data as Row) : null;
+    },
+    async patchRequest(id, expectStatus, patch) {
+      const { data: cur, error: e1 } = await withSig(client().from("market_requests").select("timeline,status").eq("id", id)).maybeSingle();
+      if (e1) fail("market_requests đọc", e1);
+      if (!cur) throw new MarketError("not_found");
+      if ((cur as Row).status !== expectStatus) throw new MarketError("bad_transition");
+      const { data, error } = await withSig(
+        client().from("market_requests").update(requestPatchRow(patch, (cur as Row).timeline)).eq("id", id).eq("status", expectStatus).select(`*, ${REQUEST_JOIN}`).maybeSingle(),
+      );
+      if (error) fail("market_requests vá", error);
+      if (!data) throw new MarketError("bad_transition");
+      return rowToRequest(data as Row);
+    },
+    async acceptRequest(id, patch, pre) {
+      const claimed = await store.patchRequest(id, "da_bao_gia", patch);
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const at = new Date().toISOString();
+        const { data, error } = await withSig(
+          client().from("market_orders").insert({
+            code: makeOrderCode(new Date(), Math.random), buyer_phone: claimed.buyerPhone, shop_id: pre.shopId, items: pre.lines,
+            subtotal_vnd: pre.subtotalVnd, shipping_vnd: pre.shippingVnd, total_vnd: pre.totalVnd,
+            payment_method: claimed.paymentMethod, payment_status: "chua_thanh_toan", bank_snapshot: pre.bankSnapshot ?? null,
+            status: "da_xac_nhan", address: claimed.address, buyer_note: pre.buyerNote ?? null, timeline: pre.timeline,
+            eta_from: pre.etaFrom, eta_to: pre.etaTo, request_id: claimed.id, client_ref: `yc:${claimed.id}`, created_at: at,
+          }).select(`*, ${ORDER_JOIN}`).single(),
+        );
+        if (!error) {
+          const order = rowToOrder(data as Row);
+          const { data: r2, error: e3 } = await withSig(
+            client().from("market_requests").update({ order_id: order.id }).eq("id", id).select(`*, ${REQUEST_JOIN}`).maybeSingle(),
+          );
+          if (e3) console.error("[market] ghi order_id yêu cầu hỏng:", pgErr(e3).code, pgErr(e3).message);
+          return { request: r2 ? rowToRequest(r2 as Row) : { ...claimed, orderId: order.id }, order };
+        }
+        const { code: pg, message } = pgErr(error);
+        if (pg === "23505" && /client_ref/.test(message ?? "")) {
+          const dup = await store.getOrderByClientRef(claimed.buyerPhone, `yc:${claimed.id}`);
+          if (dup) return { request: { ...claimed, orderId: dup.id }, order: dup };
+        }
+        if (pg === "23505") continue;
+        console.error("[market] sinh đơn từ yêu cầu:", pg, message);
+        break;
+      }
+      // trả yêu cầu về "đã báo giá" để bà con bấm lại — không để kẹt ở "đã đặt" mà không có đơn
+      const back = (claimed.timeline ?? []).slice(0, -1);
+      await withSig(client().from("market_requests").update({ status: "da_bao_gia", timeline: back }).eq("id", id).eq("status", "da_dat"));
+      throw new MarketError("insert_failed");
     },
 
     async addReview(input) {
@@ -599,4 +718,15 @@ export function createSupabaseStore(): MarketStore {
   }
 
   return store;
+}
+
+function requestPatchRow(p: RequestPatch, curTimeline: unknown): Row {
+  const row: Row = {};
+  if (p.status != null) row.status = p.status;
+  if (p.quote != null) row.quote = p.quote;
+  if (p.quoteShopId != null) row.quote_shop_id = p.quoteShopId;
+  if (p.rejectReason != null) row.reject_reason = p.rejectReason;
+  if (p.orderId != null) row.order_id = p.orderId;
+  if (p.timelineAppend) row.timeline = [...toRequestTimeline(curTimeline), p.timelineAppend];
+  return row;
 }

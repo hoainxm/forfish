@@ -231,6 +231,9 @@ export const NEVER_BACKUP_PREFIXES = [
   "forfish.mcart.",
   "forfish.maddr.",
   "forfish.morders.",
+  /*  · `myc.` — bản lưu YÊU CẦU ĐẶT HÀNG của tôi (2026-10-18): tên món, địa chỉ nhận, báo giá —
+   *    PII, có sóng là tải lại, cùng luật `morders.`. */
+  "forfish.myc.",
   /*  · `mfav.` / `mshop.` — yêu thích (kèm snapshot giá) và cờ "máy này có shop"
    *    của Chợ vật tư. Của RIÊNG MÁY NÀY: cờ shop chép sang máy khác là sheet
    *    Tài khoản mời người không có shop vào Kênh người bán; snapshot giá là

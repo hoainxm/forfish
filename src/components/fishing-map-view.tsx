@@ -481,6 +481,7 @@ import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { apDungGemma, canGemma, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
+import { hieuLenhCho } from "@/lib/sen-bien/lenh-cho";
 import { useRouter } from "next/navigation";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
 import { Capacitor } from "@capacitor/core";
@@ -4207,6 +4208,11 @@ export default function FishingMapView() {
     [...ds].sort((a, b) => haversineKm(v.lat, v.lon, a.lat, a.lon) - haversineKm(v.lat, v.lon, b.lat, b.lon)).slice(0, n);
   const senHeard = useCallback(
     async (text: string): Promise<SenHeard> => {
+      // VIỆC CHỢ VẬT TƯ nói ở bản đồ ⇒ sang chợ, Sen Biển ở đó làm tiếp (sen-bien-toan-app đọc ?sen=) — 2026-10-18
+      if (!senAwait && !navOn && hieuLenhCho(text)) {
+        router.push(`/cho?sen=${encodeURIComponent(text)}`);
+        return { show: "Mở chợ…" };
+      }
       const r0 = senBienReply(text, await loadSenBienModel(), senDests, senSeaRef.current, {
         awaitingGo: senAwait != null,
         running: navOn,

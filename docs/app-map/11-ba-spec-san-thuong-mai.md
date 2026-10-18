@@ -1,10 +1,12 @@
 # 11 — ba-spec: Chợ vật tư tàu cá (sàn đa người bán)
 
 > Load khi: task chạm `/cho/**`, `/ban-hang/**`, tab "Chợ vật tư" ở `/quan-tri`, `src/lib/market/**`, `/api/cho|ban-hang|admin/cho/**`, migration `0060_marketplace.sql`, hoặc bất kỳ câu hỏi "người mua/người bán/admin sàn được làm gì, khi nào, thấy gì".
-covers: src/lib/market/, src/app/cho/, src/app/ban-hang/, src/components/market/, src/components/admin/market-admin-tab.tsx, src/app/api/cho/, src/app/api/ban-hang/, src/app/api/admin/cho/
-last_verified: 2026-09-06
+covers: src/lib/market/, src/app/cho/, src/app/ban-hang/, src/components/market/, src/components/admin/market-admin-tab.tsx, src/components/admin/market-admin-requests.tsx, src/components/admin/market-admin-orders.tsx, src/app/api/cho/, src/app/api/ban-hang/, src/app/api/admin/cho/
+last_verified: 2026-10-18
+<!-- re-verified: 2026-10-18 — v1.4 "LUỒNG GIỐNG SHOPEE" (chủ dự án: "cho phép chủ tàu đặt đơn bất kỳ cái gì, nó sẽ chuyển cho chủ sàn, làm luôn luồng giống shopee như xác nhận đơn, thời gian giao"): §4.3 tự huỷ 72 giờ (thay "48 giờ không tự huỷ"), §4.4 hẹn giao, §5.9 yêu cầu đặt hàng, §6.5 xác nhận = hẹn giao + dời hẹn, §7 mục Yêu cầu đặt, §8 Y1/Y2, AC-78..AC-92. Code: lib/market/{eta,request-state,requests-cache}.ts, order-state settlePending, route-utils settleRequests, /api/cho/yeu-cau*, /api/admin/cho/yeu-cau*, components/market/shared/eta.tsx, buyer/market-requests.tsx, admin/market-admin-requests.tsx. Kiểm trình duyệt file mode 2026-10-18: gửi yêu cầu → báo giá → đồng ý → đơn "Đã xác nhận" kèm hẹn giao; chủ shop xác nhận chọn "Ngày mai". -->
 <!-- re-verified: 2026-09-06 - pha 2b: /cho (8 màn), /ban-hang (7 màn), tab admin, /api/cho|ban-hang|admin/cho đã hiện thực theo §5–§7; AC 77 mã; QA e2e 63 pass / 8 fixme; khác spec: ghi chú người mua là MỘT ô chung cho cả lần đặt (Core CheckoutDraft.buyerNote), giỏ khách lạ dời sang ngăn SĐT khi ngăn đó trống -->
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-10-18) — code 'src/app/api/admin/cho/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện, chưa build. 16 quyết định LEAD-BRIEF §4 + §5 đã đưa vào; tên trường/mã/route/trần số lấy NGUYÊN VĂN từ [12-kien-truc 1.1](12-kien-truc-san-thuong-mai.md) (12 = nguồn TÊN, 11 = nguồn HÀNH VI). Đối chiếu: [_generated/phan-bien-san-thuong-mai-2026-09-06.md](_generated/phan-bien-san-thuong-mai-2026-09-06.md).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — ai được làm gì, hệ thống phản ứng ra sao, đúng-sai đo bằng AC nào. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả schema cột (việc của [12-kien-truc-san-thuong-mai](12-kien-truc-san-thuong-mai.md) + [04-data-model](04-data-model.md)).
@@ -211,7 +213,14 @@ Mọi chuyển khác → **409** `bad_transition`, UI: "Đơn đã sang bước 
 
 - `hoan_thanh`, `da_huy` = **đích**, không chuyển tiếp; đánh giá chỉ mở ở `hoan_thanh`.
 - **Tự hoàn thành = lười khi đọc** (`settleOverdue`, LEAD §4 #3): không cron; đơn `da_giao` quá 7 ngày chuyển `hoan_thanh` ngay lượt đọc đầu tiên của bất kỳ ai (buyer, seller, admin, thống kê). Hệ quả chấp nhận: đơn không ai đọc thì treo — vô hại (không ai nhìn); thống kê luôn quét trước khi tính (12 §7 `settleOverdueForStats`).
-- Đơn `cho_xac_nhan` quá **48 giờ** không được xác nhận → KHÔNG tự huỷ (ghi nợ), nhưng màn buyer hiện "Shop chưa xác nhận sau 2 ngày — gọi shop hoặc huỷ đơn" và màn seller có băng vàng "Đơn chờ quá 2 ngày" (`isPendingTooLong`).
+- **TỰ HUỶ 72 GIỜ (2026-10-18, thay luật "48 giờ không tự huỷ")** — kiểu Shopee: đơn `cho_xac_nhan` quá `AUTO_CANCEL_MS` = 72 giờ ⇒ `system` huỷ (`settlePending`, gọi qua `settleOverdue`), lý do "Shop chưa xác nhận sau 3 ngày — đơn tự huỷ", hoàn kho như mọi lần huỷ, mốc ghi = `createdAt + 72h` (không phải giờ đọc). Lười khi đọc như T4' (không cron); thống kê quét `listOverduePending` trước khi đếm. Người mua nhận N7. Từ 48 giờ màn hai bên hiện đếm ngược "Còn … để xác nhận — quá hạn đơn tự huỷ" (`msUntilAutoCancel`, `AutoCancelNote`).
+
+### 4.4 Hẹn giao (2026-10-18)
+
+- **XÁC NHẬN = HẸN GIAO**: T1 (`cho_xac_nhan → da_xac_nhan`, shop hoặc admin) BẮT BUỘC kèm `etaFrom`/`etaTo` (ngày VN, `YYYY-MM-DD`) hoặc `etaPreset` (`hom_nay` · `ngay_mai` · `2_3_ngay` · `3_5_ngay` · `tuan_toi`). Thiếu/sai ⇒ 400 `invalid` câu của `validateEta` ("Chọn ngày giao hàng." · "không được trước hôm nay" · "tối đa 60 ngày").
+- **Dời hẹn**: ở `da_xac_nhan`/`dang_giao` shop/admin gửi lại khoảng mới (không đổi trạng thái); trạng thái khác ⇒ 409.
+- **Trễ hẹn** (`isLate`): `da_xac_nhan`/`dang_giao` mà `etaTo` < hôm nay ⇒ dòng đỏ "Trễ hẹn — đã hẹn giao …" ở cả hai bên. Chỉ nhắc, không tự huỷ.
+- Nhãn đọc: "hôm nay" · "ngày mai" · "Thứ Năm 20/10" (trong 7 ngày) · "2/11" · khoảng "A – B" (`etaLabel`). Không giờ phút — ngoài biển giờ chính xác là lời hứa shop không giữ được.
 
 ---
 
@@ -298,6 +307,15 @@ Quy ước chung mọi màn `/cho/**`:
 - **Ma trận**: `da_huy` do seller/admin → khối đỏ "Shop đã huỷ: {lý do}" (+ "Shop cần hoàn tiền cho bà con — gọi shop" khi `needsRefund`) · `bao_da_chuyen` bị trả về `chua_thanh_toan` (P3) → khối vàng "Shop chưa thấy tiền: {lý do} — kiểm tra lại giao dịch hoặc gọi shop" · `cho_xac_nhan` > 48h → dòng "Shop chưa xác nhận sau 2 ngày" · 404/không phải đơn của mình → "Không tìm thấy đơn này." · mất sóng → đọc từ cache nếu có; nút ghi vô hiệu + câu quy ước.
 
 ---
+
+### 5.9 `/cho/yeu-cau` · `/cho/yeu-cau/moi` · `/cho/yeu-cau/[id]` — ĐẶT MÓN CHỢ CHƯA CÓ (2026-10-18)
+
+- **Lối vào**: thẻ "Cần món chợ chưa có?" ở `/cho` (trên "Gần bà con") · dòng "Không thấy đúng món? Nhờ chủ sàn tìm …" dưới kết quả `/cho/tim` (mang `?ten=`) · thẻ "Yêu cầu đặt hàng của tôi" đầu `/cho/don` · Sen Biển ("nhờ chủ sàn tìm 2 cái chân vịt…" ⇒ mở phiếu điền sẵn `?ten=&sl=&dv=`).
+- **Phiếu** (`RequestForm`): tên món (3–120) · số lượng (1–9999) + đơn vị · mô tả (≤1000) · cần trước ngày (tuỳ chọn, ≥ hôm nay) · địa chỉ (CÙNG sổ địa chỉ với Đặt hàng `forfish.maddr.v1`) · cách trả. Nút **Gửi cho chủ sàn** = cú chạm xác nhận. Tối đa 10 yêu cầu đang chờ báo giá/người.
+- **Máy trạng thái** (`request-state.ts`): `moi` →(admin) `da_bao_gia` | `khong_tim_duoc` · `da_bao_gia` →(admin báo lại) `da_bao_gia` · →(chủ tàu) `da_dat` | `da_huy` · `moi`→(chủ tàu) `da_huy` · hết hạn lười (`system`): báo giá quá **3 ngày** ⇒ `het_han`; yêu cầu `moi` quá **7 ngày** ⇒ `het_han` ("Chủ sàn chưa trả lời sau 7 ngày — bà con gửi lại giúp"). `da_dat`/`khong_tim_duoc`/`da_huy`/`het_han` là đích.
+- **Báo giá** = tiền hàng (cả số lượng) + phí giao + hẹn giao + shop lo hàng (shop đang hoạt động do chủ sàn chọn) + lời dặn. Chủ tàu thấy tổng, hẹn giao, shop, hạn giữ giá.
+- **ĐỒNG Ý ĐẶT** (ConfirmDialog nói rõ tổng + hẹn giao) ⇒ sinh MỘT đơn thường của shop đã chọn: 1 dòng hàng (`productId` = id yêu cầu — hoàn kho khi huỷ không đụng kho ai), **vào thẳng `da_xac_nhan` kèm hẹn giao của báo giá** (chủ sàn đã nhận lời lúc báo giá), `requestId`, `clientRef = yc:<id>` (bấm hai lần không ra hai đơn); rồi đi tiếp luồng đơn như mọi đơn (shop giao, buyer nhận, đánh giá). Chuyển khoản mà shop không có STK ⇒ 409 "gọi chủ sàn đổi cách trả". Shop lo hàng vừa tạm nghỉ ⇒ 409.
+- **Ma trận**: đang tải (khung xương) · lỗi (ErrorBlock thử lại) · mất sóng (bản lưu `forfish.myc.v1` + tuổi bản lưu; nút gửi/đồng ý/huỷ vô hiệu kèm "cần có sóng") · trống ("Chưa có yêu cầu nào…") · hết hạn (dòng lý do + "Gửi lại" mang `?ten=`) · không tìm được (băng đỏ lý do).
 
 ## 5b. NGƯỜI MUA CHỈ CÓ BA VIỆC — Tìm món · Mua hàng · Xem đơn (chủ dự án chốt 2026-09-08)
 
@@ -414,7 +432,8 @@ Quy ước: cần đăng nhập (`RequireLogin what="kênh người bán"`) → 
 
 - **Danh sách**: tab theo trạng thái (Chờ xác nhận · Đã xác nhận · Đang giao · Đã giao · Hoàn thành · Đã huỷ) + badge số (`stats.byStatus`); thẻ [mã · người nhận · tỉnh/cảng · tóm tắt món · tổng · cách trả (+ "Báo đã CK" vàng khi `bao_da_chuyen`) · tuổi đơn ("2 giờ trước")]; đơn chờ >48h băng vàng.
 - **Chi tiết**: mọi thứ buyer thấy (5.8) + SĐT người nhận + SQ_BTN **Gọi người mua** (không ẩn offline) + ô "Ghi chú cho người mua" (`sellerNote`, lưu độc lập bằng SQ_BTN Lưu) + **hàng hành động** theo trạng thái:
-  - `cho_xac_nhan`: **Xác nhận đơn** (nút chính) · SQ_BTN "Huỷ" (→ sheet lý do bắt buộc 5–200, chip gợi ý: "Hết hàng" · "Không giao tới được" · "Không liên lạc được" · "Khác" + ô chữ).
+  - `cho_xac_nhan`: **Xác nhận & hẹn ngày giao** (nút chính → tấm `EtaSheet`: chip Hôm nay · Ngày mai · 2–3 ngày · 3–5 ngày · Trong 7 ngày · Chọn ngày; bấm "Xác nhận đơn" mới gửi — 2026-10-18, §4.4) · SQ_BTN "Huỷ" (→ sheet lý do bắt buộc 5–200, chip gợi ý: "Hết hàng" · "Không giao tới được" · "Không liên lạc được" · "Khác" + ô chữ).
+  - `da_xac_nhan` / `dang_giao`: thêm SQ_BTN **Dời hẹn giao** (cùng `EtaSheet`, mở sẵn hẹn cũ).
   - `da_xac_nhan`: **Giao hàng** (→ sheet: chip cách giao "Tự giao" · "Gửi xe" · "Gửi ra cảng" + ô "Đơn vị / nhà xe" + ô "Mã vận đơn" — đều tuỳ chọn, gửi cùng `status:"dang_giao"`) · SQ_BTN Huỷ.
   - `dang_giao`: **Đã giao xong**.
   - `da_giao`: chỉ dòng "Chờ người mua bấm Đã nhận (tự hoàn thành sau 7 ngày)".
@@ -444,6 +463,10 @@ Mọi hành động admin ghi `logActivity` (`market.shop-status` · `market.sho
 
 ---
 
+### 7b. Mục "Yêu cầu đặt" (tab Chợ vật tư, 2026-10-18)
+
+Chip mục mang số đang chờ (`counts.moi`). Lọc: Chờ báo giá (mặc định) · Đã có báo giá · Đã đặt · Tất cả. Mỗi thẻ: món · số lượng · mã YC · người nhận/SĐT/tỉnh · cần trước · mô tả · báo giá đã gửi. Hành động: **Báo giá** / **Sửa báo giá** (shop lo hàng — chỉ shop đang hoạt động, SDVICO lên đầu · tiền hàng · phí giao · lời dặn → "Chọn ngày giao rồi gửi" mở `EtaSheet`) · **Không tìm được** (`ReasonDialog`, lý do 3–300, chip gợi ý). Nhật ký `market.request-quote`. Xác nhận đơn thay shop ở mục Đơn hàng cũng đi qua `EtaSheet`.
+
 ## 8. Thông báo (theo 07 §12 — đơn hàng là "chuyện ở bờ": hộp thư luôn ghi, push chỉ khi cần hành động hoặc tiền đang đi)
 
 Kênh = `notifyMarket(phone, marketNotice(ev, ctx))` (12 §7.4) → prod `notifyAccount(admin, phone, {…, sentBy:'system:market', pushOs, tag:'mdon-<orderId>'|'mshop-<shopId>'})`; best-effort, không làm hỏng việc chính; mọi push mang `sentAt` + "TIN CŨ" khi >2h (luật sẵn có). **Ngoại lệ đã chốt (LEAD §4 #4)**: actor NGƯỜI BÁN (ở bờ, bỏ lỡ đơn = mất tiền) nhận push OS cho N1, N8, N10–N12; người mua giữ luật 07 §12 (chỉ `dang_giao`/`da_giao`/`da_huy` + P3). Admin+Docs ghi 1 dòng vào 07 §12 cùng commit.
@@ -470,6 +493,10 @@ Kênh = `notifyMarket(phone, marketNotice(ev, ctx))` (12 §7.4) → prod `notify
 Trong app: badge trên nút "Đơn hàng" ở `/cho` = số đơn chưa kết thúc (từ cache); badge ở Tổng quan seller = 3 ô việc cần làm; **không badge dock** (luật hộp thư). Không toast; xác nhận sau hành động là dòng inline.
 
 ---
+
+- **Y1** (chủ sàn báo giá → chủ tàu, `pushOs:true`): "Đã có giá: {món}" · "{tổng} cả phí giao. Mở ra bấm Đồng ý đặt trong 3 ngày." · url `/cho/yeu-cau/{id}` · tag `myc-{id}`.
+- **Y2** (không tìm được → chủ tàu, `pushOs:true`): "Chưa tìm được: {món}" · lý do.
+- **N2** nay đọc hẹn giao: "Hẹn giao ngày mai tới {chỗ nhận}." Đồng ý báo giá ⇒ chủ shop lo hàng nhận **N1**. Tự huỷ 72 giờ ⇒ người mua nhận **N7** (lý do tự huỷ).
 
 ## 9. Offline & mạng yếu
 
@@ -618,6 +645,24 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = route/hàm chịu trách nhi
 - AC-66 (A) Ngoài file mode, `POST /api/dev/login` → 404; `/dev` hiện câu "Chỉ dùng khi chạy `MARKET_STORE=file npm run dev`".
 - AC-67 (A) Danh mục: `POST /api/ban-hang/san-pham` với `category:"may_dong_co"` (gạch dưới) → 400; `"may-dong-co"` → 201; chip ở `/cho` đúng 9 nhãn theo thứ tự LEAD §4 #14 (`isProductCategory`, `PRODUCT_CATEGORIES`).
 
+
+**Luồng giống Shopee (v1.4, 2026-10-18)**
+- AC-78 (U) `settleOverdue` đơn `cho_xac_nhan` < 72h ⇒ null; ≥ 72h ⇒ `{status:"da_huy", cancelBy:"system", cancelReason: AUTO_CANCEL_REASON}`, `timelineAppend.at = createdAt+72h` (`market-eta-request.test.ts`).
+- AC-79 (A) Route đọc đơn của buyer/seller/admin trả đơn chờ quá 72h ở `da_huy` và đã hoàn kho; `settleOverdueForStats` quét `listOverduePending` trước khi đếm.
+- AC-80 (A) `PATCH /api/ban-hang/don/[id]` `{status:"da_xac_nhan"}` thiếu hẹn ⇒ 400 "Chọn ngày giao hàng."; kèm `etaPreset:"ngay_mai"` ⇒ 200, `etaFrom = etaTo = mai`. Admin cùng luật.
+- AC-81 (A) Dời hẹn ở `cho_xac_nhan` ⇒ 409; ở `da_xac_nhan`/`dang_giao` ⇒ 200, trạng thái không đổi.
+- AC-82 (U) `validateEta`: quá khứ · ngược · > 60 ngày · sai khuôn ⇒ câu lỗi; `etaLabel` "hôm nay"/"ngày mai"/"Thứ Ba 20/10 – Thứ Tư 21/10"; `isLate` chỉ khi đang chờ giao và qua `etaTo`.
+- AC-83 (E) Chi tiết đơn hai bên có thanh 5 bước + "Hẹn giao …" (đỏ "Trễ hẹn" khi quá) + đếm ngược tự huỷ khi chờ xác nhận.
+- AC-84 (A) `POST /api/cho/yeu-cau` sai (tên < 3, qty 0, cần trước ngày quá khứ, địa chỉ thiếu) ⇒ 400 câu `validateRequestDraft`; đúng ⇒ `status:"moi"`, mã `YC…`; người thứ 11 đang chờ ⇒ 400.
+- AC-85 (A) Người khác mở `/api/cho/yeu-cau/{id}` ⇒ 404.
+- AC-86 (A) `PATCH /api/admin/cho/yeu-cau/{id}` `{action:"bao_gia"}` thiếu shop/tiền < 1.000/phí > 5 triệu/hẹn sai ⇒ 400; shop chưa hoạt động ⇒ 400; đúng ⇒ `da_bao_gia`, `quote.expiresAt = quotedAt + 3 ngày`, Y1 cho chủ tàu, nhật ký `market.request-quote`.
+- AC-87 (A) `{action:"khong_tim_duoc"}` lý do < 3 ⇒ 400; đúng ⇒ `khong_tim_duoc` + Y2.
+- AC-88 (A) Chủ tàu `{action:"dong_y"}` khi `da_bao_gia` còn hạn ⇒ 200 `{request: da_dat + orderId, order: da_xac_nhan, shopId = quoteShopId, etaFrom/etaTo = báo giá, requestId}`; N1 cho chủ shop; quá hạn ⇒ 409 "Báo giá đã hết hạn".
+- AC-89 (U) Huỷ đơn sinh từ yêu cầu không đổi tồn kho món nào (`market-store-contract.test.ts`).
+- AC-90 (U) Báo giá quá 3 ngày / yêu cầu `moi` quá 7 ngày ⇒ `het_han`, mốc = lúc đến hạn (`settleRequest`).
+- AC-91 (E) Mất sóng ở `/cho/yeu-cau` ⇒ hiện bản lưu + tuổi; nút gửi/đồng ý/huỷ vô hiệu kèm "cần có sóng".
+- AC-92 (E) Sen Biển làm được mọi thao tác sàn (doc 15 §25); việc ghi có hậu quả luôn hỏi MỘT CHẠM xác nhận trước khi gửi.
+
 ---
 
 ## 12. Phản biện với khung của lead — ĐÃ CHỐT (LEAD-BRIEF §4, 2026-09-06)
@@ -652,7 +697,8 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = route/hàm chịu trách nhi
 - **Chốt**: 1 cách trả tiền chung cho cả lần đặt; có shop không STK → ép COD toàn bộ.
 - `chuyen_khoan`: nội dung CK = mã đơn; buyer tự báo "đã chuyển", seller tự xác nhận; app không kiểm tra tiền, không hứa gì về tiền; `needsRefund` chỉ nhắc.
 - Buyer huỷ chỉ khi `cho_xac_nhan`; huỷ có chip lý do tuỳ chọn; seller/admin huỷ bắt buộc lý do 5–200 chữ.
-- Đơn `cho_xac_nhan` >48h không tự huỷ, chỉ nhắc 2 bên.
+- ~~Đơn `cho_xac_nhan` >48h không tự huỷ, chỉ nhắc 2 bên.~~ **Thay 2026-10-18** (chủ dự án "luồng giống Shopee"): tự huỷ sau **72 giờ** (§4.3); mốc 72 giờ là mặc định an toàn tự chọn (Shopee 1–3 ngày tuỳ ngành) — chủ dự án đổi được ở `AUTO_CANCEL_MS`.
+- **2026-10-18 (tự chọn, chờ chủ dự án)**: "chủ sàn" = admin `/quan-tri` (requireAdmin); báo giá giữ **3 ngày**, yêu cầu không trả lời **7 ngày** thì hết hạn; tối đa **10** yêu cầu đang chờ/người; yêu cầu chưa đính ảnh (`// nợ:` buyer chưa có route tải ảnh — mô tả bằng chữ); đơn từ yêu cầu vào thẳng `da_xac_nhan` (không bắt shop xác nhận lần hai); một đơn = một dòng hàng giá = tiền hàng / số lượng (làm tròn).
 - Đánh giá không sửa/xoá bởi buyer; không ảnh; admin ẩn được; `ratingAvg` cache trên món + shop từ đánh giá không ẩn.
 - Doanh thu thống kê = tổng `totalVnd` (kể cả ship) của đơn `hoan_thanh` theo `completedAt` giờ VN.
 - Danh sách: 20/trang, nút "Xem thêm", không cuộn vô tận; tìm không dấu; hết hàng vẫn hiện (mờ).
@@ -670,11 +716,12 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = route/hàm chịu trách nhi
 **Risk-tier (ai-simple #06)**: 🔴 — bảng mới + Storage bucket (migration 0060, KHÔNG tự apply remote), tiền thật giữa hai bên ngoài app, cross-trục (lối vào `/tien`, `/tau`, sheet Tài khoản), thông báo mở rộng §8, nhánh dev trong `api-identity.ts`/`admin-auth.ts`.
 
 ## History
+- **v1.4 (2026-10-18) — luồng giống Shopee**: tự huỷ 72 giờ (§4.3 thay luật 48 giờ), hẹn giao bắt buộc khi xác nhận + dời hẹn + trễ hẹn (§4.4, §6.5), đặt món chợ chưa có qua chủ sàn (§5.9, §7b), Y1/Y2 (§8), AC-78..92; Sen Biển làm mọi thao tác sàn (doc 15 §25).
 - v1 (2026-09-06): khởi tạo pha BA từ LEAD-BRIEF 2026-09-06; 62 AC; 16 điểm phản biện; 5 điểm chờ chốt.
 - **v1.3 (2026-09-06) — Buyer, vòng fix UX 2 (ux-audit2/AUDIT2.md)**: §5.6 ghi chú **theo từng shop** (`shops[].buyerNote`, ô nằm trong khối shop, bỏ ô chung; `clientRef` tính kèm ghi chú của chính shop đó); §5.8 nút "Đánh giá" xuống hàng riêng full-width (R-01) + thêm **Mua lại** cho đơn đã kết thúc; §5.2 số kết quả "N món" ra dòng riêng dưới dải chip (R-02); §5.3 nút chính KHÔNG mờ khi chưa chọn loại — bấm là cuộn tới khối loại/cỡ + nháy viền + câu "Chọn loại/cỡ trước rồi bấm lại giúp." (R-03); §5.7 thẻ đơn: tên shop một dòng, chip trạng thái xuống dòng riêng (R-04); thẻ lưới gọn còn ~300px (R-05). Không đổi AC.
 - **v1.2 (2026-09-06) — Buyer, vòng fix UX (ux-audit/AUDIT.md + LEAD §6)**: §5.5 ô chọn giỏ + "Đặt hàng (n)" + lời mời đăng nhập là sheet; §5.6 địa chỉ đợi `ready`, sheet hai bước, `<select>` tỉnh, lỗi dưới ô, ảnh + "× N", chip CK mờ, "Mua tiếp"; mọi màn `/cho/**` dùng đầu màn gọn có Quay lại (`MarketHeader`); thẻ lưới gọn chạm-cả-thẻ, bỏ "+ Giỏ"; chip sắp xếp ngang + "N món" (tìm + shop); tab đơn `grid-cols-4`; ảnh món ở thẻ đơn/chi tiết; badge giỏ = số dòng. Không đổi AC.
 - **v1.1 (2026-09-06) — hợp nhất sau phản biện**: đưa đủ 16 quyết định LEAD-BRIEF §4 + §5 vào §3–§10; tên trường/mã trạng thái/route/trần số lấy NGUYÊN VĂN từ 12-kien-truc 1.1 (`cho_duyet|hoat_dong|tam_khoa|tu_choi`, `items/subtotalVnd/shippingVnd`, `address{name,phone,province,detail,isPort}`, `variantLabel`, `/api/cho/san-pham`, `/api/cho/gio/tinh`, `/cho/shop/[slug]`, mã đơn `SD…`, danh mục gạch-ngang); bỏ R4 "không mua shop mình"; thêm R2'/R12/R13/R17/R19; AC 62 → 77 (thêm AC-08/08b/15b/29b/38b/38c/44b/53b/53c/56b/56c/63–67), mỗi AC ghi route/hàm; §12 đổi thành bảng "đã chốt". Bảng đối chiếu: `_generated/phan-bien-san-thuong-mai-2026-09-06.md`.
 
-**Last updated**: 2026-09-06 (v1.3)
+**Last updated**: 2026-10-18 (v1.4 — luồng giống Shopee: tự huỷ 72h, hẹn giao, đặt món chợ chưa có)
 
 Cập nhật UI 2026-09-08: ảnh chi tiết hàng dùng khung 4:3 và object-contain, giảm vùng ảnh trống và không cắt vật tư. Các thay đổi bố cục được ghi ở 07-design-spec, không thay đổi máy trạng thái đơn hoặc giao kèo API.

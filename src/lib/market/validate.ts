@@ -4,11 +4,12 @@
 import { isValidVnPhone } from "@/lib/phone";
 import { COASTAL_PROVINCES, provinceKey } from "@/lib/region";
 import { isProductCategory } from "./categories";
+import { validateEta } from "./eta";
 import { isPaymentMethod } from "./order-state";
 import { isValidMarketQty } from "./pricing";
 import { foldVn } from "./text";
 import type {
-  Actor, Address, CheckoutDraft, ProductDraftM, ProductStatus, ShopDraft,
+  Actor, Address, CheckoutDraft, ProductDraftM, ProductStatus, RequestDraft, ShopDraft,
 } from "./types";
 
 // TRẦN — một nguồn cho cả client lẫn server (11 R8)
@@ -204,4 +205,40 @@ export function normalizeProductStatus(
   if (stock <= 0) return "het_hang";
   if (status === "het_hang") return "dang_ban";
   return status;
+}
+
+// ── YÊU CẦU ĐẶT HÀNG (2026-10-18) ─────────────────────────────────────────
+export const REQUEST_IMAGE_MAX = 3;
+export const REQUEST_QTY_MAX = 9_999;
+export const SHIPPING_MAX = 5_000_000;
+
+export function validateRequestDraft(d: RequestDraft, today: string): string | null {
+  if (!d) return "Thiếu thông tin món cần đặt.";
+  const t = len(d.title);
+  if (t < 3 || t > 120) return "Ghi tên món cần đặt (3–120 chữ).";
+  if (!isInt(d.qty) || d.qty < 1 || d.qty > REQUEST_QTY_MAX) return "Số lượng từ 1 đến 9999.";
+  const u = len(d.unit);
+  if (u < 1 || u > 20) return "Ghi đơn vị (cái, bộ, thùng…).";
+  if (optLen(d.description) > 1000) return "Mô tả tối đa 1000 chữ.";
+  if (d.images != null) {
+    if (!Array.isArray(d.images) || d.images.length > REQUEST_IMAGE_MAX) return "Tối đa 3 ảnh.";
+    if (d.images.some((x) => typeof x !== "string" || !IMAGE_OK.test(x))) return "Ảnh không hợp lệ — chụp lại giúp.";
+  }
+  if (d.needBy != null && d.needBy !== "") {
+    if (typeof d.needBy !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d.needBy) || d.needBy < today) return "Ngày cần hàng không được trước hôm nay.";
+  }
+  if (!isPaymentMethod(d.paymentMethod)) return "Chọn cách trả tiền.";
+  return validateAddress(d.address);
+}
+
+export function validateQuote(
+  q: { goodsVnd: unknown; shippingVnd: unknown; etaFrom: unknown; etaTo: unknown; note?: unknown; shopId: unknown },
+  today: string,
+): string | null {
+  if (!q) return "Thiếu báo giá.";
+  if (typeof q.shopId !== "string" || !q.shopId) return "Chọn shop lo hàng.";
+  if (!isInt(q.goodsVnd) || q.goodsVnd < PRICE_MIN || q.goodsVnd > PRICE_MAX) return "Tiền hàng từ 1.000đ đến 1 tỷ.";
+  if (!isInt(q.shippingVnd) || q.shippingVnd < 0 || q.shippingVnd > SHIPPING_MAX) return "Phí giao từ 0 đến 5 triệu.";
+  if (q.note != null && (typeof q.note !== "string" || q.note.trim().length > NOTE_MAX)) return "Ghi chú tối đa 300 chữ.";
+  return validateEta(q.etaFrom, q.etaTo, today);
 }

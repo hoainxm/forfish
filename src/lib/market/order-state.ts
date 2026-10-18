@@ -46,7 +46,8 @@ export function isPaymentMethod(v: unknown): v is PaymentMethod {
 
 /** Bảng chuyển hợp lệ theo ACTOR (một chiều, không quay lui) — 11 §4.1. Admin = mọi việc seller làm được + huỷ tới dang_giao (LEAD §4 #2). */
 export const TRANSITIONS: Record<OrderStatus, Partial<Record<Actor, OrderStatus[]>>> = {
-  cho_xac_nhan: { seller: ["da_xac_nhan", "da_huy"], admin: ["da_xac_nhan", "da_huy"], buyer: ["da_huy"] },
+  // system: TỰ HUỶ khi shop không xác nhận sau AUTO_CANCEL_MS (kiểu Shopee, 2026-10-18)
+  cho_xac_nhan: { seller: ["da_xac_nhan", "da_huy"], admin: ["da_xac_nhan", "da_huy"], buyer: ["da_huy"], system: ["da_huy"] },
   da_xac_nhan:  { seller: ["dang_giao", "da_huy"],   admin: ["dang_giao", "da_huy"] },
   dang_giao:    { seller: ["da_giao"],               admin: ["da_giao", "da_huy"] },
   da_giao:      { buyer: ["hoan_thanh"],             admin: ["hoan_thanh"], system: ["hoan_thanh"] },
@@ -163,6 +164,7 @@ export function canReview(o: Order, productId: string, reviewedProductIds: strin
  */
 export const AUTO_COMPLETE_MS = 7 * 24 * 3600 * 1000;
 export function settleOverdue(o: Order, nowIso: string): OrderPatch | null {
+  if (o.status === "cho_xac_nhan") return settlePending(o, nowIso);
   if (o.status !== "da_giao" || !o.deliveredAt) return null;
   const delivered = Date.parse(o.deliveredAt);
   const now = Date.parse(nowIso);
@@ -179,4 +181,28 @@ export function isPendingTooLong(o: Pick<Order, "status" | "createdAt">, nowIso:
   const now = Date.parse(nowIso);
   if (!Number.isFinite(c) || !Number.isFinite(now)) return false;
   return now - c >= PENDING_WARN_MS;
+}
+
+/**
+ * TỰ HUỶ ĐƠN SHOP KHÔNG XÁC NHẬN (2026-10-18, chủ dự án: "luồng giống Shopee"). Đơn cho_xac_nhan quá
+ * AUTO_CANCEL_MS ⇒ system huỷ, hoàn kho (transitionOrder lo), lý do nói rõ cho cả hai bên. Mốc ghi = lúc ĐẾN HẠN
+ * (createdAt + 72 giờ) như settleOverdue, không phải lúc ai đó mở màn. 48 giờ vẫn chỉ NHẮC (isPendingTooLong).
+ * Chạy lười ở mọi route đọc đơn (settleOverdueOrders) — không cron.
+ */
+export const AUTO_CANCEL_MS = 72 * 3600 * 1000;
+export const AUTO_CANCEL_REASON = "Shop chưa xác nhận sau 3 ngày — đơn tự huỷ";
+export function settlePending(o: Order, nowIso: string): OrderPatch | null {
+  if (o.status !== "cho_xac_nhan") return null;
+  const c = Date.parse(o.createdAt);
+  const now = Date.parse(nowIso);
+  if (!Number.isFinite(c) || !Number.isFinite(now) || now - c < AUTO_CANCEL_MS) return null;
+  return applyTransition(o, "da_huy", "system", AUTO_CANCEL_REASON, new Date(c + AUTO_CANCEL_MS).toISOString());
+}
+/** Còn bao lâu nữa đơn chờ tự huỷ (ms, ≥0) — để màn chủ shop đếm ngược; null nếu không ở chờ xác nhận. */
+export function msUntilAutoCancel(o: Pick<Order, "status" | "createdAt">, nowIso: string): number | null {
+  if (o.status !== "cho_xac_nhan") return null;
+  const c = Date.parse(o.createdAt);
+  const now = Date.parse(nowIso);
+  if (!Number.isFinite(c) || !Number.isFinite(now)) return null;
+  return Math.max(0, c + AUTO_CANCEL_MS - now);
 }

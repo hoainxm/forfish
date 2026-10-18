@@ -13,9 +13,11 @@ import { normalizeVnPhone } from "@/lib/phone";
 import { buildDevSeed, type DevSeed, type SeedOrder, type SeedProduct, type SeedReview } from "./dev-seed";
 import { assertDevFileMode } from "./dev-mode";
 import { MarketError } from "./errors";
-import { makeOrderCode } from "./order-code";
+import { makeOrderCode, makeRequestCode } from "./order-code";
+import { patchRequest as applyRequestPatch } from "./request-state";
 import { recountRating } from "./rating";
 import type { MarketStore, OrderListQuery, PreparedShopOrder } from "./store";
+import type { MarketRequest } from "./types";
 import { foldVn, maskPhone } from "./text";
 import { normalizeProductStatus } from "./validate";
 import type {
@@ -123,6 +125,7 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
       parsed.orders ??= [];
       parsed.products ??= [];
       parsed.personas ??= [];
+      parsed.requests ??= [];
       state = parsed;
       return state;
     } catch (e) {
@@ -170,6 +173,14 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
       shopSlug: shop?.slug,
     };
   };
+  const toRequest = (s: DevSeed, r: MarketRequest): MarketRequest => ({
+    ...r,
+    images: [...r.images],
+    address: { ...r.address },
+    timeline: r.timeline.map((t) => ({ ...t })),
+    ...(r.quote ? { quote: { ...r.quote } } : {}),
+    quoteShopName: r.quoteShopId ? s.shops.find((x) => x.id === r.quoteShopId)?.name : undefined,
+  });
   const toReview = (r: SeedReview): Review => {
     const { buyerPhone, ...rest } = r;
     return { ...rest, buyerPhoneMasked: maskPhone(buyerPhone) };
@@ -443,6 +454,14 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
         .slice(0, 200)
         .map((o) => toOrder(s, o));
     },
+    async listOverduePending(beforeIso, shopId) {
+      const s = await load();
+      return s.orders
+        .filter((o) => o.status === "cho_xac_nhan" && o.createdAt <= beforeIso && (!shopId || o.shopId === shopId))
+        .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+        .slice(0, 200)
+        .map((o) => toOrder(s, o));
+    },
     async getOrder(id) {
       const s = await load();
       const o = s.orders.find((x) => x.id === id);
@@ -468,10 +487,82 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
         if (patch.trackingCode != null) o.trackingCode = patch.trackingCode;
         if (patch.deliveredAt != null) o.deliveredAt = patch.deliveredAt;
         if (patch.completedAt != null) o.completedAt = patch.completedAt;
+        if (patch.etaFrom != null) o.etaFrom = patch.etaFrom;
+        if (patch.etaTo != null) o.etaTo = patch.etaTo;
         if (patch.timelineAppend) o.timeline.push({ ...patch.timelineAppend });
         o.updatedAt = nowIso();
         if (patch.status === "da_huy") restock(s, o);
         return toOrder(s, o);
+      });
+    },
+
+    // ── Yêu cầu đặt hàng (2026-10-18) ──
+    createRequest(buyerPhone, d) {
+      return mutate((s) => {
+        const reqs = (s.requests ??= []);
+        let code = makeRequestCode(now(), Math.random);
+        for (let i = 0; i < 20 && reqs.some((r) => r.code === code); i++) code = makeRequestCode(now(), Math.random);
+        const at = nowIso();
+        const r: MarketRequest = {
+          id: crypto.randomUUID(), code, buyerPhone, title: d.title.trim(), qty: d.qty, unit: d.unit.trim(),
+          description: d.description?.trim() || undefined, images: [...(d.images ?? [])], needBy: d.needBy || undefined,
+          address: { ...d.address }, paymentMethod: d.paymentMethod, status: "moi",
+          timeline: [{ status: "moi", at, by: "buyer" }], createdAt: at, updatedAt: at,
+        };
+        reqs.push(r);
+        return toRequest(s, r);
+      });
+    },
+    async listBuyerRequests(buyerPhone, q) {
+      const s = await load();
+      const list = (s.requests ?? []).filter((r) => r.buyerPhone === buyerPhone && (!q?.status || r.status === q.status)).sort(byCreatedDesc);
+      const page = paginate(list, q);
+      return { ...page, items: page.items.map((r) => toRequest(s, r)) };
+    },
+    async listAllRequests(q) {
+      const s = await load();
+      const list = (s.requests ?? []).filter((r) => !q?.status || r.status === q.status).sort(byCreatedDesc);
+      const page = paginate(list, q);
+      return { ...page, items: page.items.map((r) => toRequest(s, r)) };
+    },
+    async getRequest(id) {
+      const s = await load();
+      const r = (s.requests ?? []).find((x) => x.id === id);
+      return r ? toRequest(s, r) : null;
+    },
+    patchRequest(id, expectStatus, patch) {
+      return mutate((s) => {
+        const reqs = s.requests ?? [];
+        const i = reqs.findIndex((x) => x.id === id);
+        if (i < 0) throw new MarketError("not_found");
+        if (reqs[i].status !== expectStatus) throw new MarketError("bad_transition");
+        reqs[i] = applyRequestPatch(reqs[i], patch, nowIso());
+        return toRequest(s, reqs[i]);
+      });
+    },
+    acceptRequest(id, patch, pre) {
+      return mutate((s) => {
+        const reqs = s.requests ?? [];
+        const i = reqs.findIndex((x) => x.id === id);
+        if (i < 0) throw new MarketError("not_found");
+        if (reqs[i].status !== "da_bao_gia") throw new MarketError("bad_transition");
+        const shop = s.shops.find((x) => x.id === pre.shopId);
+        if (!shop) throw new MarketError("insert_failed");
+        let code = makeOrderCode(now(), Math.random);
+        for (let k = 0; k < 20 && s.orders.some((o) => o.code === code); k++) code = makeOrderCode(now(), Math.random);
+        const at = nowIso();
+        const r = reqs[i];
+        const order: SeedOrder = {
+          id: crypto.randomUUID(), code, buyerPhone: r.buyerPhone, shopId: shop.id,
+          items: pre.lines.map((l) => ({ ...l })), subtotalVnd: pre.subtotalVnd, shippingVnd: pre.shippingVnd, totalVnd: pre.totalVnd,
+          paymentMethod: r.paymentMethod, paymentStatus: "chua_thanh_toan", bankSnapshot: pre.bankSnapshot,
+          needsRefund: false, status: "da_xac_nhan", address: { ...r.address }, buyerNote: pre.buyerNote,
+          timeline: pre.timeline.map((t) => ({ ...t })), clientRef: `yc:${r.id}`, createdAt: at, updatedAt: at,
+          etaFrom: pre.etaFrom, etaTo: pre.etaTo, requestId: r.id,
+        };
+        s.orders.push(order);
+        reqs[i] = applyRequestPatch(r, { ...patch, orderId: order.id }, at);
+        return { request: toRequest(s, reqs[i]), order: toOrder(s, order) };
       });
     },
 

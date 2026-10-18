@@ -46,6 +46,7 @@ export const ADMIN_ACTIONS = [
   "market.order-update",
   "market.product-hide",
   "market.review-hide",
+  "market.request-quote",
   // Phân quyền
   "staff.set-permissions",
   "staff.set-role",
@@ -92,6 +93,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "market.order-update": "Xử lý đơn chợ thay shop",
   "market.product-hide": "Gỡ/trả lại món trên chợ",
   "market.review-hide": "Ẩn/hiện đánh giá",
+  "market.request-quote": "Báo giá / từ chối yêu cầu đặt hàng",
   "staff.set-permissions": "Đổi phân quyền quản lý",
   "staff.set-role": "Nâng/hạ quản trị viên",
   "staff.set-scope": "Đổi tầm nhìn quản lý",

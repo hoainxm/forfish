@@ -6,6 +6,7 @@
 // Đọc `?q&category&province` SAU KHI MOUNT từ `location.search` (khuôn `Tabs
 // paramKey`) chứ không `useSearchParams`: trang này là vỏ tĩnh, hook kia bắt
 // phải bọc Suspense và làm cả màn nhấp nháy.
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { saveListState, takeListState } from "@/lib/market/list-state";
@@ -275,6 +276,15 @@ export function MarketSearch() {
             Không thấy món nào cho “{q.trim() || "cửa hàng"}”. Thử chữ ngắn hơn (vd: “lọc dầu”) hay chọn nhóm hàng
             {nearOn ? ", hoặc tắt Gần tôi" : ""}.
           </EmptyState>
+        )}
+        {/* không có trên chợ ⇒ nhờ chủ sàn tìm (2026-10-18) — đi kèm cả khi có kết quả nhưng chưa đúng ý */}
+        {status === "ok" && q.trim() && (
+          <Link
+            href={`/cho/yeu-cau/moi?ten=${encodeURIComponent(q.trim())}`}
+            className="surface mt-3 flex min-h-[3.5rem] items-center justify-center px-4 py-3 text-center text-[1.0625rem] font-bold text-navy"
+          >
+            Không thấy đúng món? Nhờ chủ sàn tìm “{q.trim()}”
+          </Link>
         )}
 
         {status === "ok" && items.length > 0 && (

@@ -12,6 +12,7 @@ import { CartIcon, ChevronRightIcon } from "@/components/icons";
 import { formatVnd } from "@/lib/format";
 import { isPendingTooLong, ORDER_STATUSES, ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/market/order-state";
 import type { Order, OrderStatus, ShopStats } from "@/lib/market/types";
+import { AutoCancelNote, EtaLine } from "@/components/market/shared/eta";
 import { LineThumb } from "@/components/market/shared/line-thumb";
 import { LoadView, agoLabel, useMarketData, useMarketList } from "./seller-net";
 import { MoreButton, SELLER_BTN, linesSummary } from "./ui";
@@ -175,12 +176,9 @@ function Rows({ items, tab, searching }: { items: Order[]; tab: OrderStatus; sea
                   {soMon} món · {PAYMENT_METHOD_LABEL[o.paymentMethod]} · {agoLabel(o.createdAt)}
                 </span>
                 <b className="mt-0.5 block text-[1.125rem] text-navy">{formatVnd(o.totalVnd)}</b>
-                {late && (
-                  <span className="mt-1 block rounded-2xl px-3 py-1.5 text-[0.9375rem] font-bold"
-                    style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}>
-                    Đơn chờ quá 2 ngày — xác nhận hoặc gọi người mua giúp.
-                  </span>
-                )}
+                {/* đếm ngược tự huỷ 72 giờ (thay câu "chờ quá 2 ngày") + hẹn giao / TRỄ HẸN — 2026-10-18 */}
+                {o.status === "cho_xac_nhan" && late && <span className="mt-1 block"><AutoCancelNote order={o} who="shop" /></span>}
+                <span className="mt-1 block"><EtaLine order={o} /></span>
               </span>
               <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
             </Link>

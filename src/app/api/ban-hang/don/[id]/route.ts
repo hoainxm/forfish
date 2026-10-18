@@ -7,6 +7,7 @@
 // (order-state.ts) — route chỉ gọi rồi ghi có điều kiện `expectStatus`.
 import { NextResponse } from "next/server";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
+import { readEta, vnToday } from "@/lib/market/eta";
 import {
   applyPaymentTransition, applyTransition, isOrderStatus, isPaymentStatus,
 } from "@/lib/market/order-state";
@@ -33,7 +34,7 @@ const PAYMENT_EVENT: Partial<Record<PaymentStatus, MarketEvent>> = {
 /** Best-effort — thông báo hỏng KHÔNG được làm hỏng việc chính (11 AC-58). */
 async function tell(ev: MarketEvent | undefined, order: Order): Promise<void> {
   if (!ev) return;
-  await notifyMarket(order.buyerPhone, marketNotice(ev, { order, hotline: SDVICO_HOTLINE }));
+  await notifyMarket(order.buyerPhone, marketNotice(ev, { order, hotline: SDVICO_HOTLINE, today: vnToday() }));
 }
 
 export async function GET(req: Request, ctx: Ctx) {
@@ -82,6 +83,14 @@ export async function PATCH(req: Request, ctx: Ctx) {
       }
       const patch = applyTransition(cur, to, "seller", note, nowIso);
       if (!patch) return badTransition();
+      // XÁC NHẬN = HẸN GIAO (kiểu Shopee, 2026-10-18) — không hẹn thì không xác nhận
+      if (to === "da_xac_nhan") {
+        const eta = readEta(b, vnToday());
+        if (typeof eta === "string") return invalid(eta);
+        patch.etaFrom = eta.etaFrom;
+        patch.etaTo = eta.etaTo;
+        if (patch.timelineAppend && !patch.timelineAppend.note) patch.timelineAppend.note = `Hẹn giao ${eta.etaFrom === eta.etaTo ? eta.etaFrom : `${eta.etaFrom} – ${eta.etaTo}`}`;
+      }
       if (to === "dang_giao") {
         if (carrier) patch.carrier = carrier;
         if (trackingCode) patch.trackingCode = trackingCode;
@@ -115,6 +124,14 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
     if (carrier != null) patch.carrier = carrier;
     if (trackingCode != null) patch.trackingCode = trackingCode;
+    // DỜI HẸN GIAO — chỉ khi đã xác nhận / đang giao
+    if (b.etaPreset !== undefined || b.etaFrom !== undefined) {
+      if (cur.status !== "da_xac_nhan" && cur.status !== "dang_giao") return badTransition();
+      const eta = readEta(b, vnToday());
+      if (typeof eta === "string") return invalid(eta);
+      patch.etaFrom = eta.etaFrom;
+      patch.etaTo = eta.etaTo;
+    }
     if (Object.keys(patch).length === 0) return invalid("Chưa có gì để lưu.");
     const order = await store.transitionOrder(cur.id, cur.status, patch);
     return NextResponse.json({ ok: true, order });

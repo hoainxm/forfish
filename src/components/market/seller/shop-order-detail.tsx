@@ -6,6 +6,7 @@
 // ⇒ nói thẳng + tự tải lại. Nút Gọi người mua KHÔNG ẩn khi mất sóng (LEAD §4 #10).
 import { useState } from "react";
 import { OrderStatusChip, PaymentStatusChip } from "@/components/market/shared/order-status-chip";
+import { AutoCancelNote, EtaLine, EtaSheet, OrderSteps } from "@/components/market/shared/eta";
 import { LineThumb } from "@/components/market/shared/line-thumb";
 import { OrderTimeline } from "@/components/market/shared/order-timeline";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -54,6 +55,8 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
   const [cancelSheet, setCancelSheet] = useState(false);
   const [shipSheet, setShipSheet] = useState(false);
   const [payNoteSheet, setPayNoteSheet] = useState(false);
+  /** "confirm" = xác nhận kèm hẹn giao · "move" = dời hẹn */
+  const [etaSheet, setEtaSheet] = useState<"confirm" | "move" | null>(null);
   const [sellerNote, setSellerNote] = useState(order.sellerNote ?? "");
 
   async function send(body: Record<string, unknown>, done: string) {
@@ -114,7 +117,13 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
           </div>
           <p className="mt-1 text-[0.9375rem] text-foreground/65">
             Đặt {agoLabel(order.createdAt)} · {soMon} món · {PAYMENT_METHOD_LABEL[order.paymentMethod]}
+            {order.requestId ? " · đặt theo yêu cầu" : ""}
           </p>
+          <div className="mt-3"><OrderSteps status={order.status} /></div>
+          <div className="mt-3 space-y-2">
+            <AutoCancelNote order={order} who="shop" />
+            <EtaLine order={order} />
+          </div>
         </div>
 
         {/* ── Người nhận ─────────────────────────────────────────────── */}
@@ -205,15 +214,9 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
         <div className="mt-3">
           {order.status === "cho_xac_nhan" && (
             <>
-              <PrimaryButton
-                disabled={busy}
-                onClick={() => setAsk({
-                  kind: "status", to: "da_xac_nhan",
-                  title: "Xác nhận đơn này?",
-                  message: "Người mua sẽ thấy shop đã nhận đơn.",
-                })}
-              >
-                <CheckIcon className="h-6 w-6" /> {busy ? "Đang gửi…" : "Xác nhận đơn"}
+              {/* XÁC NHẬN = HẸN GIAO (kiểu Shopee, 2026-10-18) — bấm là mở chọn ngày */}
+              <PrimaryButton disabled={busy} onClick={() => setEtaSheet("confirm")}>
+                <CheckIcon className="h-6 w-6" /> {busy ? "Đang gửi…" : "Xác nhận & hẹn ngày giao"}
               </PrimaryButton>
               <div className="mt-3 flex justify-center">
                 <button type="button" disabled={busy} onClick={() => setCancelSheet(true)} className={`${SELLER_BTN} bg-field`} style={{ color: "var(--danger)" }}>
@@ -229,7 +232,10 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
               <PrimaryButton disabled={busy} onClick={() => setShipSheet(true)}>
                 <RouteIcon className="h-6 w-6" /> {busy ? "Đang gửi…" : "Giao hàng"}
               </PrimaryButton>
-              <div className="mt-3 flex justify-center">
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
+                <button type="button" disabled={busy} onClick={() => setEtaSheet("move")} className={`${SELLER_BTN} bg-field text-navy`}>
+                  Dời hẹn giao
+                </button>
                 <button type="button" disabled={busy} onClick={() => setCancelSheet(true)} className={`${SELLER_BTN} bg-field`} style={{ color: "var(--danger)" }}>
                   <CloseIcon className="h-6 w-6" />
                   {busy ? "Đang gửi…" : "Huỷ đơn"}
@@ -239,6 +245,12 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
           )}
 
           {order.status === "dang_giao" && (
+            <>
+            <div className="mb-3 flex justify-center">
+              <button type="button" disabled={busy} onClick={() => setEtaSheet("move")} className={`${SELLER_BTN} bg-field text-navy`}>
+                Dời hẹn giao
+              </button>
+            </div>
             <PrimaryButton
               disabled={busy}
               onClick={() => setAsk({
@@ -249,6 +261,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
             >
               <CartIcon className="h-6 w-6" /> {busy ? "Đang gửi…" : "Đã giao xong"}
             </PrimaryButton>
+            </>
           )}
 
           {order.status === "da_giao" && (
@@ -338,6 +351,22 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
           onSend={(carrier, trackingCode) => {
             setShipSheet(false);
             void move("dang_giao", { ...(carrier ? { carrier } : {}), ...(trackingCode ? { trackingCode } : {}) });
+          }}
+        />
+      )}
+
+      {etaSheet && (
+        <EtaSheet
+          title={etaSheet === "confirm" ? "Xác nhận đơn — hẹn ngày giao" : "Dời hẹn giao"}
+          sendLabel={etaSheet === "confirm" ? "Xác nhận đơn" : "Lưu hẹn mới"}
+          busy={busy}
+          initial={etaSheet === "move" && order.etaFrom ? { etaFrom: order.etaFrom, etaTo: order.etaTo ?? order.etaFrom } : undefined}
+          onClose={() => setEtaSheet(null)}
+          onSend={(eta) => {
+            const k = etaSheet;
+            setEtaSheet(null);
+            if (k === "confirm") void move("da_xac_nhan", { ...eta });
+            else void send({ ...eta }, "Đã dời hẹn giao — người mua thấy ngày mới.");
           }}
         />
       )}

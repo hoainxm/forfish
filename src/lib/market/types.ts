@@ -149,6 +149,12 @@ export interface Order {
   sellerNote?: string;
   carrier?: string;
   trackingCode?: string;
+  /** HẸN GIAO (2026-10-18, kiểu Shopee): shop chọn lúc xác nhận — ngày VN YYYY-MM-DD, từ ≤ đến.
+   *  Đơn cũ trước 0063 không có ⇒ UI không hiện dòng hẹn. */
+  etaFrom?: string;
+  etaTo?: string;
+  /** đơn sinh từ YÊU CẦU ĐẶT HÀNG (chủ sàn báo giá) — id yêu cầu, để hai bên nhìn ra nguồn gốc */
+  requestId?: string;
   timeline: TimelineEntry[];
   clientRef?: string;
   createdAt: string;
@@ -317,4 +323,71 @@ export interface DevPersona {
   name: string;
   role: "buyer" | "seller" | "admin";
   tier: "basic" | "premium";
+}
+
+// ── YÊU CẦU ĐẶT HÀNG (2026-10-18) ───────────────────────────────────────────
+/*  Chủ dự án: "cho phép chủ tàu đặt đơn bất kỳ cái gì, nó sẽ chuyển cho chủ sàn". Món chợ KHÔNG có ⇒
+    chủ tàu gửi yêu cầu (tên món, số lượng, mô tả, ảnh, cần trước ngày, chỗ nhận) ⇒ CHỦ SÀN (SDVICO, admin)
+    báo giá hoặc báo không tìm được ⇒ chủ tàu đồng ý ⇒ thành ĐƠN của gian hàng SDVICO, đã xác nhận + hẹn giao.
+    Bảng `market_requests` (migration 0063). */
+export type RequestStatus =
+  | "moi"             // vừa gửi, chờ chủ sàn
+  | "da_bao_gia"      // chủ sàn đã báo giá, chờ chủ tàu đồng ý (hết hạn sau REQUEST_QUOTE_TTL_MS)
+  | "da_dat"          // chủ tàu đồng ý ⇒ đã thành đơn (orderId)
+  | "khong_tim_duoc"  // chủ sàn báo không lo được (rejectReason)
+  | "da_huy"          // chủ tàu huỷ trước khi đặt
+  | "het_han";        // báo giá quá hạn mà chủ tàu chưa trả lời
+
+export interface RequestQuote {
+  /** tiền hàng (cả số lượng) */
+  goodsVnd: number;
+  shippingVnd: number;
+  etaFrom: string;
+  etaTo: string;
+  note?: string;
+  quotedAt: string;
+  expiresAt: string;
+}
+
+export interface RequestTimelineEntry {
+  status: RequestStatus;
+  at: string;
+  by: TimelineBy;
+  note?: string;
+}
+
+export interface MarketRequest {
+  id: string;
+  code: string;
+  buyerPhone: string;
+  title: string;
+  qty: number;
+  unit: string;
+  description?: string;
+  images: string[];
+  /** cần trước ngày (YYYY-MM-DD) — tuỳ chọn */
+  needBy?: string;
+  address: Address;
+  paymentMethod: PaymentMethod;
+  status: RequestStatus;
+  quote?: RequestQuote;
+  rejectReason?: string;
+  /** shop chủ sàn giao lo hàng (chọn lúc báo giá) — đơn sinh ra thuộc shop này */
+  quoteShopId?: string;
+  quoteShopName?: string;
+  orderId?: string;
+  timeline: RequestTimelineEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RequestDraft {
+  title: string;
+  qty: number;
+  unit: string;
+  description?: string;
+  images?: string[];
+  needBy?: string;
+  address: Address;
+  paymentMethod: PaymentMethod;
 }

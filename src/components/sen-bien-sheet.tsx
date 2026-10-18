@@ -40,7 +40,12 @@ export function loadSenBienModel(): Promise<NgramModel | null> {
 }
 
 /** Màn cha xử lý câu nghe được: trả câu hiện ra + (nếu có) danh sách chọn. */
-export type SenHeard = { show: string; options?: SenDest[] } | null;
+export type SenHeard = {
+  show: string;
+  options?: SenDest[];
+  /** việc GHI có hậu quả (sàn: huỷ / xác nhận / giao / đồng ý giá…) — một chạm xác nhận mới làm (13 §4.3) */
+  xacNhan?: { nhan: string; lam: () => Promise<SenHeard> };
+} | null;
 
 /**
  * KÉO ICON SEN BIỂN (chủ dự án 2026-10-17: "cái float sen biển gốc phải cho phép kéo đi được").
@@ -138,6 +143,7 @@ export function SenBienSheet({
   title,
   chao,
   listenOnOpen = false,
+  hoiNgay,
   autoListen = 0,
   speakerBusy = false,
   onMissed,
@@ -155,6 +161,8 @@ export function SenBienSheet({
   chao: string;
   /** mở bằng GỌI (chạm icon Sen Biển) ⇒ chào rồi nghe */
   listenOnOpen?: boolean;
+  /** câu đã nghe ở màn khác (?sen=) — mở thẻ là trả lời câu này luôn, không chào */
+  hoiNgay?: string;
   /** số tăng = Sen Biển vừa đọc XONG một câu hỏi ⇒ tự nghe một lượt (main 2026-10-16, `autoListenOk`) */
   autoListen?: number;
   /** loa đang đọc câu khác — lượt tự nghe phải dừng, kẻo micro thu tiếng loa */
@@ -378,8 +386,17 @@ export function SenBienSheet({
     </>
   );
 
+  // câu chuyển từ màn khác (?sen=) ⇒ trả lời ngay một lần
+  const hoiRef = useRef(hoiNgay);
+  useEffect(() => {
+    const t = hoiRef.current;
+    hoiRef.current = undefined;
+    if (t) void answer(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ lúc mở
+  }, []);
+
   // mở bằng GỌI ⇒ chào + nói việc làm được, đọc xong thì nghe (chạm icon là cắt lời, ghi luôn)
-  const moRef = useRef(listenOnOpen && canVoice);
+  const moRef = useRef(listenOnOpen && canVoice && !hoiNgay);
   useEffect(() => {
     if (!moRef.current) return;
     moRef.current = false;
@@ -412,7 +429,8 @@ export function SenBienSheet({
   useEffect(() => {
     if (awaitingGo || phase !== "ranh" || doc) return;
     if (mode === "chat" && typed.trim()) return;
-    const ms = mode === "chat" ? CHAT_RANH_MS : shown?.options?.length ? CHON_MS : SEN_IM_MS;
+    // đang chờ bấm xác nhận việc sàn ⇒ giữ lâu như lúc chọn điểm (đọc câu hỏi xong mới kịp bấm)
+    const ms = mode === "chat" ? CHAT_RANH_MS : shown?.options?.length || shown?.xacNhan ? CHON_MS : SEN_IM_MS;
     const t = setTimeout(onClose, ms);
     return () => clearTimeout(t);
   }, [awaitingGo, phase, doc, mode, typed, shown, onClose]);
@@ -557,6 +575,33 @@ export function SenBienSheet({
         <p role="status" className="px-2 text-[1rem] font-bold leading-snug text-navy">
           {shown.show}
         </p>
+      )}
+      {shown?.xacNhan && (
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            disabled={phase === "nghi"}
+            onClick={() => {
+              const x = shown.xacNhan!;
+              setShown({ show: "Đang gửi…" });
+              setPhase("nghi");
+              void x
+                .lam()
+                .then(setShown, () => setShown({ show: "Chưa làm được — thử lại giúp." }))
+                .finally(() => setPhase("ranh"));
+            }}
+            className="min-h-[3.5rem] rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.98] disabled:opacity-50"
+          >
+            {shown.xacNhan.nhan}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShown({ show: "Thôi, không làm." })}
+            className="min-h-[3.5rem] rounded-xl bg-navy/10 text-[1.125rem] font-bold text-navy transition active:scale-[0.98]"
+          >
+            Thôi
+          </button>
+        </div>
       )}
       {shown?.options && (
         <div className="space-y-1.5">

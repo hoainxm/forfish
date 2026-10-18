@@ -194,6 +194,14 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
 
         {status === "ok" && (
           <>
+            {/* ĐẶT BẤT KỲ MÓN GÌ — chợ chưa bán thì chủ sàn tìm, báo giá (2026-10-18) */}
+            <Link href="/cho/yeu-cau/moi" className="surface mb-5 flex min-h-[3.5rem] items-center gap-3 px-4 py-3">
+              <span className="min-w-0 flex-1">
+                <span className="block text-[1.0625rem] font-bold text-navy">Cần món chợ chưa có?</span>
+                <span className="block text-[0.9375rem] text-foreground/75">Ghi món cần — chủ sàn tìm hàng, báo giá, hẹn ngày giao</span>
+              </span>
+              <span className="shrink-0 rounded-full bg-trim px-4 py-2 text-[1rem] font-bold text-white">Đặt</span>
+            </Link>
             {near.length > 0 && (
               <section className="mb-5">
                 <SectionHeader className="px-0">Gần bà con — {province}</SectionHeader>

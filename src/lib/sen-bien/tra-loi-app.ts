@@ -14,7 +14,7 @@
 
 import { answerOffline } from "@/lib/assistant/answer";
 import { parseUtterance } from "@/lib/assistant/parse";
-import { INTENTS as APP_INTENTS, SCREEN_HREF, type AssistantReply, type DeviceSnapshot, type Intent, type ParseContext } from "@/lib/assistant/types";
+import { INTENTS as APP_INTENTS, type AssistantReply, type DeviceSnapshot, type Intent, type ParseContext } from "@/lib/assistant/types";
 
 import type { SenReply } from "./hieu-y";
 import type { SenIntent } from "./ngram";
@@ -38,8 +38,6 @@ export function veBanDo(r: SenReply): boolean {
   }
 }
 
-/** Chợ vật tư (giỏ, đơn, gọi shop) chỉ có ở nhánh feat/san-thuong-mai — chưa có trên bản này. */
-const CHO: readonly Intent[] = ["tim_mon", "them_gio", "xem_gio", "don_cua_toi", "goi_shop"];
 
 /**
  * Câu "say" của hieu-y (việc ngoài bản đồ) → câu trả lời từ dữ liệu trong máy; null =
@@ -56,14 +54,8 @@ export function traLoiApp(
   const y = r.y as SenIntent;
   if (!(APP_INTENTS as readonly string[]).includes(y)) return null;
   const intent = y as Intent;
-  if (CHO.includes(intent))
-    return {
-      text: "Chợ vật tư chưa mở trong bản này. Muốn bán cá, xem giá thì vào Giao dịch.",
-      speak: "Chợ vật tư chưa mở trong bản này. Muốn bán cá, xem giá thì vào Giao dịch.",
-      action: { type: "navigate", href: SCREEN_HREF.giao_dich },
-      source: "offline",
-      intent,
-    } as AssistantReply;
+  // Chợ vật tư đã gộp (2026-10-18): câu chợ có tham số rõ đi lenh-cho.ts trước; câu chợ chung n-gram
+  // nhận (tìm món, giỏ, đơn, gọi shop) trả bằng bộ trả lời cũ của Trợ lý (answer.ts) như mọi ý khác.
   const p = parseUtterance(text, { route: ctx.route ?? "/", ...ctx });
   // tham số chỉ tin khi bộ tách cùng ý với n-gram; khác ý thì để trống (answer tự hỏi lại / trả lời chung)
   const parsed = p.intent === intent ? p : { ...p, intent, slots: {}, followUp: undefined };

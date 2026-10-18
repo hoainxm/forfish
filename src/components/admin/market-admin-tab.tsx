@@ -18,6 +18,7 @@ import { ORDER_STATUS_LABEL, ORDER_STATUSES } from "@/lib/market/order-state";
 import type { AdminOverview } from "@/lib/market/types";
 import { MarketAdminOrders, type OrderFilter } from "./market-admin-orders";
 import { MarketAdminProducts } from "./market-admin-products";
+import { MarketAdminRequests } from "./market-admin-requests";
 import { MarketAdminReviews } from "./market-admin-reviews";
 import { MarketAdminShops } from "./market-admin-shops";
 import {
@@ -27,17 +28,18 @@ import {
   marketAdminGet,
 } from "./market-admin-shared";
 
-type Section = "tong-quan" | "gian-hang" | "don-hang" | "san-pham" | "danh-gia";
+type Section = "tong-quan" | "gian-hang" | "don-hang" | "yeu-cau" | "san-pham" | "danh-gia";
 
 const SECTIONS: [Section, string][] = [
   ["tong-quan", "Tổng quan"],
   ["gian-hang", "Gian hàng"],
   ["don-hang", "Đơn hàng"],
+  ["yeu-cau", "Yêu cầu đặt"],
   ["san-pham", "Sản phẩm"],
   ["danh-gia", "Đánh giá"],
 ];
 
-type ShopLite = { id: string; name: string };
+type ShopLite = { id: string; name: string; status?: string };
 
 const sum = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a + b, 0);
 
@@ -66,11 +68,21 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
      theo — nếu không thì ô "chờ duyệt" vẫn báo 3 trong khi danh sách chỉ còn 2,
      và admin không biết tin số nào. Nạp im: giữ số cũ trên màn cho tới khi có
      số mới, hỏng thì cứ để số cũ (dải KPI không phải chỗ báo lỗi). */
+  /* số yêu cầu đặt hàng đang chờ báo giá — hiện trên chip mục (2026-10-18); hỏng thì chip không số */
+  const [reqPending, setReqPending] = useState<number | null>(null);
+  const loadReqCount = useCallback(() => {
+    marketAdminGet<{ counts: { moi: number } }>("/api/admin/cho/yeu-cau?status=moi")
+      .then((j) => setReqPending(j.counts.moi))
+      .catch(() => setReqPending(null));
+  }, []);
+  useEffect(loadReqCount, [loadReqCount]);
+
   const refreshOverview = useCallback(() => {
     marketAdminGet<{ overview: AdminOverview }>("/api/admin/cho/tong-quan")
       .then((j) => setOverview(j.overview))
       .catch(() => {});
-  }, []);
+    loadReqCount();
+  }, [loadReqCount]);
 
   /*  Danh sách gian hàng cho ô lọc của mục Đơn hàng + Sản phẩm.
       GOM ĐỦ TRANG, không phải một lượt đọc (sửa 2026-09-07): route trả 20 shop
@@ -85,10 +97,10 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
     const all: ShopLite[] = [];
     try {
       for (let p = 1; p <= 20; p++) {
-        const j = await marketAdminGet<{ items: ShopLite[]; total: number }>(
+        const j = await marketAdminGet<{ items: (ShopLite & { status: string })[]; total: number }>(
           `/api/admin/cho/shops?status=all&page=${p}`,
         );
-        all.push(...j.items.map((s) => ({ id: s.id, name: s.name })));
+        all.push(...j.items.map((s) => ({ id: s.id, name: s.name, status: s.status })));
         if (all.length >= j.total || j.items.length === 0) break;
       }
       setShops(all);
@@ -132,7 +144,7 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
         {SECTIONS.map(([id, label]) => (
           <FilterChip
             key={id}
-            label={label}
+            label={id === "yeu-cau" && reqPending ? `${label} ${reqPending}` : label}
             active={section === id}
             onClick={() => setSection(id)}
           />
@@ -160,6 +172,7 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
           onChanged={refreshOverview}
         />
       )}
+      {section === "yeu-cau" && <MarketAdminRequests shops={shops} onChanged={refreshOverview} />}
       {section === "danh-gia" && <MarketAdminReviews onChanged={refreshOverview} />}
       {section === "san-pham" && (
         <MarketAdminProducts

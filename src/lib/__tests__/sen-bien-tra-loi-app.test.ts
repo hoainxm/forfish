@@ -44,10 +44,10 @@ describe("traLoiApp — trả lời việc trong app từ dữ liệu trong máy
     const a = app("mở giấy tờ");
     expect(a?.action).toMatchObject({ type: "navigate" });
   });
-  it("chợ vật tư chưa có ⇒ chỉ sang Giao dịch", () => {
+  it("chợ vật tư đã gộp ⇒ trả bằng bộ trả lời chợ (không còn câu 'chưa mở')", () => {
     const a = app("mua hai thùng nhớt");
-    expect(a?.text).toMatch(/Chợ vật tư chưa mở/);
-    expect(a?.action).toEqual({ type: "navigate", href: "/tien" });
+    expect(a?.text ?? "").not.toMatch(/Chợ vật tư chưa mở/);
+    expect(a?.intent).toMatch(/them_gio|tim_mon/);
   });
   it("câu đã là trả lời thật (chặn ngoài phạm vi) ⇒ giữ nguyên", () => expect(app("tôi bị đau đầu uống thuốc gì")).toBeNull());
   it("việc bản đồ ⇒ null (để màn bản đồ lo)", () => expect(app("gần đảo nào nhất")).toBeNull());

@@ -804,7 +804,7 @@ Chủ dự án: *"mở rộng làm trợ lý cho toàn app, giao tiếp bằng g
 - **Phân việc** (`lib/sen-bien/tra-loi-app.ts`):
   - việc **BẢN ĐỒ** (`veBanDo`: dẫn đường, hỏi bản đồ, mở lớp/đổi giờ/đọc số, phóng/thu, còn bao xa…) ⇒ màn khác chuyển sang `/ngu-truong?sen=<câu>`; màn bản đồ chờ 2,5 s cho bản đồ dựng, chạy lại đúng câu đó, hiện câu đáp lên tiêu đề thẻ, rồi bỏ `?sen` khỏi địa chỉ (quay lại không chạy lại).
   - việc **TRONG APP** ⇒ `traLoiApp`: ý định do n-gram chọn, tham số do bộ tách `lib/assistant/parse.ts` khi cùng ý; câu trả lời từ `lib/assistant/answer.ts` + `device-snapshot.ts` (CHÉP từ feat/san-thuong-mai, bỏ chợ + máy chủ): thời tiết (bản dự báo cảng nhà đã lưu), bão, con nước, giấy tờ, bảo dưỡng, bạn thuyền (đếm, không đọc CCCD/SĐT), tàu đang chọn/đổi tàu, giá cá, giá dầu, đặt cảng nhà, mở màn, hộp thư, trợ giúp, tắt/bật tiếng. Màn bản đồ cũng dùng lớp này thay câu cũ "chỉ giúp trên bản đồ".
-  - **chợ vật tư** (tìm món, giỏ, đơn, gọi shop) chưa có trên bản này ⇒ "Chợ vật tư chưa mở…" + mở Giao dịch.
+  - **chợ vật tư** ⇒ §25 (từ 2026-10-18 chợ đã gộp; câu "Chợ vật tư chưa mở" đã bỏ).
 - **Hành động**: mở màn · đổi tàu (`saveCurrentBoatId`) · đặt cảng nhà (`saveHome`, cùng luật tỉnh đi theo cảng) — vô hại, nói lại là đổi lại. **Gọi điện chỉ ĐỌC số** (xác nhận gọi luôn là một chạm của bà con, 13 §4.3).
 
 | Trạng thái | Hành vi |
@@ -822,4 +822,49 @@ Chủ dự án: *"mở rộng làm trợ lý cho toàn app, giao tiếp bằng g
 
 **Assumptions**: icon nổi cùng chỗ với màn bản đồ (mép trái, kéo được), chưa hỏi chủ dự án vị trí riêng cho màn danh sách; câu thời tiết ở màn ngoài bản đồ trả lời theo dự báo **cảng nhà** đã lưu (bản đồ thì theo chỗ đang xem).
 
-**Last updated**: 2026-10-18 — Sen Biển trợ lý giọng nói cho toàn app (§24). Trước đó: 2026-10-18 — gộp `feat/sen-bien-ranh-tay` vào `main` (§22b) + Sen Biển học thêm từ câu nói thật: ghi mẫu trong máy, có sóng gửi về (§23). Trước đó: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).
+## 25. SEN BIỂN LÀM MỌI THAO TÁC SÀN (2026-10-18)
+
+Chủ dự án: *"toàn bộ thao tác sàn phải đảm bảo sen biển thực hiện"* (cùng lúc với luồng giống Shopee — [11 v1.4](11-ba-spec-san-thuong-mai.md)).
+
+**Hai tầng, tách bạch:**
+- `lib/sen-bien/lenh-cho.ts` (THUẦN, có test `sen-bien-lenh-cho.test.ts`) — câu → MỘT lệnh sàn + tham số. Luật, không học máy: lệnh sàn cần tách **mã đơn** (đủ "SD261018UY3Y" hoặc 4 ký tự cuối "đơn UY3Y"), **hẹn giao** (hôm nay · ngày mai · ngày kia · "hai ba ngày" · "3 đến 5 ngày" · tuần sau · N ngày), **tiền nói miệng** ("ba triệu sáu" · "3 triệu 650" · "một triệu rưỡi" · "năm mươi nghìn" · "50k"), **nhà xe** ("gửi xe Phương Trang", "tự giao", "gửi ra cảng"), **lý do** (sau "vì/do/lý do là") — n-gram không tách được tham số. Câu không phải việc sàn ⇒ `null`, Sen Biển hiểu theo đường cũ.
+- `lib/sen-bien/lam-cho.ts` (client) — lệnh → gọi ĐÚNG route mà nút bấm gọi (cùng luật server, không đường tắt) → câu nói + màn cần mở + (tuỳ) nút xác nhận.
+
+| Vai | Nói (ví dụ) | Làm |
+|---|---|---|
+| Chủ tàu | "thêm 2 thùng dầu nhớt vào giỏ" | tìm món bán được, thêm giỏ NGAY (lùi được), nói tên + shop + tiền, mở giỏ; món có loại/hỏi giá ⇒ mở chợ để chọn; chợ không có ⇒ gợi "nhờ chủ sàn tìm" |
+| | "giỏ có gì" · "đặt hàng luôn" | đọc số món / mở trang Đặt hàng (nút Đặt hàng trên màn là cú chạm xác nhận) |
+| | "hàng tới đâu rồi" · "khi nào giao" | đọc 3 đơn đang mở: shop, đuôi mã, trạng thái, hẹn giao; mất sóng đọc bản lưu và nói "bản lưu" |
+| | "huỷ đơn UY3Y" · "đã nhận được hàng rồi" · "đã chuyển khoản rồi" | chọn đơn (mã, hoặc đơn DUY NHẤT hợp việc; nhiều đơn ⇒ đọc danh sách, xin 4 chữ cuối) → **nút xác nhận** → POST `/api/cho/don/[id]/{huy,da-nhan,bao-chuyen}` |
+| | "gọi shop" | đọc số, mở đơn để bấm gọi (gọi là việc của bà con — §24) |
+| | "nhờ chủ sàn tìm 2 cái chân vịt inox 18 inch" | mở phiếu `/cho/yeu-cau/moi?ten=&sl=&dv=` điền sẵn; nút Gửi = xác nhận |
+| | "có báo giá chưa" · "đồng ý báo giá" · "huỷ yêu cầu" | đọc giá + hẹn; đồng ý/huỷ qua **nút xác nhận** → PATCH `/api/cho/yeu-cau/[id]`; đồng ý xong mở đơn mới |
+| Chủ shop | "shop có đơn mới không" | đếm đơn chờ, đọc đơn mới nhất, mở tab Chờ xác nhận |
+| | "xác nhận đơn, giao ngày mai" · "dời hẹn sang 3 đến 5 ngày" | thiếu hẹn ⇒ hỏi "hẹn giao khi nào?"; đủ ⇒ **nút xác nhận** → PATCH kèm `etaFrom/etaTo` |
+| | "đi giao, gửi xe Phương Trang" · "đã giao xong rồi" · "đã nhận được tiền" · "huỷ đơn của khách vì hết hàng" | **nút xác nhận** → PATCH `/api/ban-hang/don/[id]` (huỷ thiếu lý do ⇒ xin lý do) |
+| Chủ sàn | "có yêu cầu đặt hàng mới không" | đếm + đọc yêu cầu mới nhất, mở `/quan-tri?tab=cho-vat-tu` |
+| | "báo giá 8W33 ba triệu sáu, phí giao năm mươi nghìn, giao hai ba ngày" | thiếu tiền/hẹn ⇒ hỏi; shop lo hàng = SDVICO (hoặc shop hoạt động đầu tiên) → **nút xác nhận** đọc lại đủ hàng/phí/hẹn/shop → PATCH `bao_gia` |
+| | "không tìm được hàng cho yêu cầu 8W33 vì hãng ngừng sản xuất" | **nút xác nhận** → PATCH `khong_tim_duoc` |
+
+**Nối vào Sen Biển:**
+- `sen-bien-toan-app.tsx`: thử `hieuLenhCho` TRƯỚC bộ hiểu ý; kết quả qua `choRaThe` (nói + `router.push` màn + bọc nút xác nhận đệ quy để câu kết quả cũng được nói và mở màn).
+- `sen-bien-sheet.tsx`: `SenHeard.xacNhan {nhan, lam}` ⇒ hàng 2 nút [việc · Thôi] (≥ 3.5rem); thẻ giữ `CHON_MS` 15 s khi đang chờ bấm. Prop `hoiNgay` = câu chuyển từ màn khác: mở thẻ là trả lời luôn, không chào.
+- Màn bản đồ (`fishing-map-view` `senHeard`): câu sàn (khi không đang chờ "Đi" / không đang chạy) ⇒ `/cho?sen=<câu>`, Sen Biển ở chợ đọc `?sen=` làm tiếp — khuôn `veBanDo` đảo chiều.
+- `tra-loi-app.ts`: bỏ nhánh "Chợ vật tư chưa mở"; ý chợ n-gram nhận mà luật không bắt (vd "tìm dầu nhớt") trả bằng `answer.ts` (action `search` → `/cho/tim?q=`).
+
+| Trạng thái | Hành vi |
+|---|---|
+| Mất sóng — việc đọc | đơn / yêu cầu / giỏ đọc bản lưu (`forfish.morders.v1`, `forfish.myc.v1`, `forfish.mcart.v1`) + nói "bản lưu" |
+| Mất sóng — việc ghi | "Việc này cần có sóng — có sóng lại bà con nói lại giúp." Không xếp hàng gửi sau (đơn/tiền không được gửi trễ ngoài ý bà con) |
+| Không phải chủ shop / không phải admin | "Máy này chưa đăng nhập tài khoản chủ shop." / "Việc này của chủ sàn…" (route trả 403/404/401, không đoán) |
+| Nhiều đơn khớp | đọc ≤ 3 đơn (đuôi mã + shop) và xin 4 chữ cuối — không tự chọn |
+| Đơn đã sang bước khác (409) | "Đơn đã sang bước khác rồi — … không làm được nữa." |
+| Bấm "Thôi" / thẻ tự thu | không gửi gì |
+
+**Offline — 4 câu**: (a) request mạng CHỈ khi bà con nói việc sàn (như bấm tay vào chợ), mọi lời gọi qua `marketGet/marketSend` có đồng hồ 12/20 s, mất sóng kiểm `navigator.onLine` trước; (b) không đụng `sw.js`; khoá mới `forfish.myc.v1` (đã xếp `NEVER_BACKUP_PREFIXES`); (c) không đè dữ liệu bà con — giỏ chỉ CỘNG dòng, bản lưu gộp theo id; (d) việc đọc có nhánh bản lưu.
+
+**Assumptions**: luật (không retrain n-gram) cho lệnh sàn vì cần tách tham số — `// nợ:` khi mẫu câu thật (§23) cho thấy luật hụt > 10% câu sàn ⇒ thêm ý sàn vào n-gram v4 (sinh câu `train/tro-ly/sinh.mjs`, thay-opus, `chay-bd.sh`) để n-gram phân ý, luật chỉ tách tham số; chủ sàn báo giá bằng giọng chọn shop SDVICO mặc định (đổi shop thì làm ở màn quản trị); Sen Biển không hiện trên `/quan-tri` (§24) nên lệnh chủ sàn nói ở màn app khác.
+
+**Đã kiểm (trình duyệt dev file mode)**: "shop có đơn mới không" (Hải Đăng) ⇒ đọc "không có đơn chờ" + mở `/ban-hang/don`; "đi giao đơn K7PQ gửi xe Phương Trang" ⇒ nút [Đang giao · Thôi] → bấm ⇒ đơn sang Đang giao, nhà xe ghi đúng; "đã giao xong rồi" ⇒ bấm chuột thật ⇒ đơn Đã giao; chủ tàu "tôi đã nhận được hàng rồi" (2 đơn đã giao) ⇒ đọc 2 đơn, xin 4 chữ cuối; "đơn tới đâu rồi" ⇒ đọc 3 đơn kèm hẹn giao.
+
+**Last updated**: 2026-10-18 — Sen Biển làm mọi thao tác sàn (§25). Trước đó: 2026-10-18 — Sen Biển trợ lý giọng nói cho toàn app (§24). Trước đó: 2026-10-18 — gộp `feat/sen-bien-ranh-tay` vào `main` (§22b) + Sen Biển học thêm từ câu nói thật: ghi mẫu trong máy, có sóng gửi về (§23). Trước đó: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).

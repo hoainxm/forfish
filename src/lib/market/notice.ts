@@ -2,8 +2,10 @@
 // re-export `marketNotice` từ đây để route gọi một chỗ; tách file để test không
 // phải kéo `server-only`.
 import { formatVnd } from "@/lib/format";
+import { etaLabel } from "./eta";
 import { PAYMENT_METHOD_LABEL } from "./order-state";
-import type { Order, Product, Shop } from "./types";
+import { quoteTotal } from "./request-state";
+import type { MarketRequest, Order, Product, Shop } from "./types";
 
 export type MarketEvent =
   | "N1" | "N2" | "N3" | "N4" | "N5" | "N6" | "N7" | "N8" | "N9" | "N9b" | "N10" | "N11" | "N12" | "N13";
@@ -14,6 +16,8 @@ export interface MarketNoticeCtx {
   product?: Pick<Product, "id" | "title">;
   reason?: string;
   hotline: string;
+  /** ngày VN hôm nay — để đọc hẹn giao thành "ngày mai", "Thứ Năm 20/10" */
+  today?: string;
 }
 
 export interface MarketNoticeOut { title: string; body: string; url: string; pushOs: boolean; tag: string }
@@ -46,7 +50,9 @@ export function marketNotice(ev: MarketEvent, ctx: MarketNoticeCtx): MarketNotic
     case "N2":
       return {
         title: `Shop ${shopName} đã xác nhận đơn ${code}`,
-        body: `Sẽ giao tới ${o?.address.detail ?? ""}.`,
+        body: o?.etaFrom && ctx.today
+          ? `Hẹn giao ${etaLabel(o.etaFrom, o.etaTo, ctx.today)} tới ${o.address.detail}.`
+          : `Sẽ giao tới ${o?.address.detail ?? ""}.`,
         url: buyerUrl(o), pushOs: false, tag: orderTag(o),
       };
     case "N3": {
@@ -126,4 +132,22 @@ export function marketNotice(ev: MarketEvent, ctx: MarketNoticeCtx): MarketNotic
         url: `/ban-hang/san-pham/${ctx.product?.id ?? ""}`, pushOs: false, tag: shopTag(ctx.shop),
       };
   }
+}
+
+/** Thông báo YÊU CẦU ĐẶT HÀNG (2026-10-18): Y1 chủ sàn báo giá · Y2 không tìm được → chủ tàu. */
+export type RequestEvent = "Y1" | "Y2";
+export function requestNotice(ev: RequestEvent, r: MarketRequest): MarketNoticeOut {
+  const url = `/cho/yeu-cau/${r.id}`;
+  const tag = `myc-${r.id}`;
+  if (ev === "Y1")
+    return {
+      title: `Đã có giá: ${r.title}`,
+      body: `${formatVnd(r.quote ? quoteTotal(r.quote) : 0)} cả phí giao. Mở ra bấm Đồng ý đặt trong 3 ngày.`,
+      url, pushOs: true, tag,
+    };
+  return {
+    title: `Chưa tìm được: ${r.title}`,
+    body: dot(r.rejectReason) || "Chủ sàn chưa tìm được hàng.",
+    url, pushOs: true, tag,
+  };
 }

@@ -198,8 +198,10 @@ function StatsBody({ stats, shopStatus }: { stats: ShopStats; shopStatus: Shop["
     stats.orders === 0 && stats.pendingOrders === 0 && stats.shippingOrders === 0 && stats.awaitingPaymentConfirm === 0;
   return (
     <div className="px-4">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Tile n={stats.pendingOrders} label="Chờ xác nhận" href="/ban-hang/don?tab=cho_xac_nhan" strong />
+        {/* đã xác nhận, chưa đi giao — việc kế tiếp của shop (2026-10-18) */}
+        <Tile n={stats.byStatus.da_xac_nhan} label="Cần đi giao" href="/ban-hang/don?tab=da_xac_nhan" />
         <Tile n={stats.shippingOrders} label="Đang giao" href="/ban-hang/don?tab=dang_giao" />
         <Tile n={stats.awaitingPaymentConfirm} label="Báo đã CK" href="/ban-hang/don?tab=cho_xac_nhan" />
       </div>

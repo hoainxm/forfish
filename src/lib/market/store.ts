@@ -9,7 +9,9 @@ import type {
   Actor, Address, AdminOverview, BankInfo, DevPersona, Order, OrderLine, OrderStatus, Page,
   PaymentMethod, PaymentStatus, PlaceOrderResult, Product, ProductCard, ProductDraftM, ProductQuery,
   Review, Shop, ShopDraft, ShopPatch, ShopStats, ShopStatus, StatsRange, TimelineEntry,
+  MarketRequest, RequestDraft, RequestStatus,
 } from "./types";
+import type { PreparedRequestOrder, RequestPatch } from "./request-state";
 
 /** Vá một đơn — adapter chỉ GHI đúng các trường có mặt; nội dung do applyTransition /
  *  applyPaymentTransition / settleOverdue (order-state.ts) tính. */
@@ -24,6 +26,9 @@ export interface OrderPatch {
   trackingCode?: string;
   deliveredAt?: string;
   completedAt?: string;
+  /** hẹn giao — ghi khi shop/chủ sàn xác nhận (YYYY-MM-DD) */
+  etaFrom?: string;
+  etaTo?: string;
   /** mục MỚI nối vào timeline (adapter append, không thay cả mảng) */
   timelineAppend?: TimelineEntry;
 }
@@ -55,6 +60,12 @@ export interface OrderListQuery {
   code?: string;
   /** SĐT người mua, đã chuẩn hoá trước khi truyền vào */
   buyerPhone?: string;
+}
+
+export interface RequestListQuery {
+  status?: RequestStatus;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface MarketStore {
@@ -108,6 +119,8 @@ export interface MarketStore {
   listAllOrders(q?: OrderListQuery & { shopId?: string }): Promise<Page<Order>>;
   /** quét cho settleOverdue: đơn da_giao có deliveredAt ≤ mốc (≤ 200 đơn/lượt) */
   listOverdueDelivered(beforeIso: string, shopId?: string): Promise<Order[]>;
+  /** quét tự huỷ: đơn cho_xac_nhan tạo trước mốc (≤ 200 đơn/lượt) — 2026-10-18 */
+  listOverduePending(beforeIso: string, shopId?: string): Promise<Order[]>;
   getOrder(id: string): Promise<Order | null>;
   getOrderByClientRef(buyerPhone: string, clientRef: string): Promise<Order | null>;
   /**
@@ -118,6 +131,17 @@ export interface MarketStore {
    * và ghi chú/vận chuyển (không đổi status — expectStatus vẫn phải khớp).
    */
   transitionOrder(id: string, expectStatus: OrderStatus, patch: OrderPatch): Promise<Order>;
+
+  // ── Yêu cầu đặt hàng — "đặt bất kỳ cái gì", chủ sàn báo giá (2026-10-18) ──
+  /** adapter sinh mã YC… (makeRequestCode), status moi, timeline [moi] */
+  createRequest(buyerPhone: string, draft: RequestDraft): Promise<MarketRequest>;
+  listBuyerRequests(buyerPhone: string, q?: RequestListQuery): Promise<Page<MarketRequest>>;
+  listAllRequests(q?: RequestListQuery): Promise<Page<MarketRequest>>;
+  getRequest(id: string): Promise<MarketRequest | null>;
+  /** ghi có điều kiện như transitionOrder — lệch expectStatus ⇒ 'bad_transition' */
+  patchRequest(id: string, expectStatus: RequestStatus, patch: RequestPatch): Promise<MarketRequest>;
+  /** đồng ý báo giá: giữ yêu cầu (da_bao_gia → da_dat) RỒI sinh đơn; sinh đơn hỏng ⇒ trả yêu cầu về da_bao_gia + ném 'insert_failed' */
+  acceptRequest(id: string, patch: RequestPatch, order: PreparedRequestOrder): Promise<{ request: MarketRequest; order: Order }>;
 
   // ── Đánh giá ─────────────────────────────────────────────────────────
   addReview(input: { orderId: string; productId: string; buyerPhone: string; rating: 1 | 2 | 3 | 4 | 5; comment?: string }): Promise<Review>;

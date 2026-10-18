@@ -506,3 +506,34 @@ describe("thống kê + ảnh + dev", () => {
     expect(readdirSync(dir).filter((f) => f.endsWith(".tmp"))).toEqual([]);
   });
 });
+
+describe("yêu cầu đặt hàng — kho file (2026-10-18)", () => {
+  it("gửi → báo giá → đồng ý ⇒ đơn đã xác nhận ở shop chủ sàn chọn, kho món không đổi", async () => {
+    const { applyAccept, applyQuote, requestToOrder } = await import("@/lib/market/request-state");
+    const before = (await store.readState()).products.reduce((t, p) => t + p.stock, 0);
+    const r = await store.createRequest("0901000003", { title: "Lưới rê 3 phân", qty: 5, unit: "tấm", address: addr, paymentMethod: "cod" });
+    expect(r.code).toMatch(/^YC\d{6}/);
+    expect((await store.listBuyerRequests("0901000003")).items.map((x) => x.id)).toContain(r.id);
+    expect((await store.listAllRequests({ status: "moi" })).items.some((x) => x.id === r.id)).toBe(true);
+    const nowIso = NOW.toISOString();
+    const quoted = await store.patchRequest(r.id, "moi", applyQuote(r, { goodsVnd: 2_500_000, shippingVnd: 0, etaFrom: "2026-09-08", etaTo: "2026-09-09" }, haidang.id, nowIso)!);
+    expect(quoted.quoteShopName).toBe(haidang.name);
+    await expectCode(store.patchRequest(r.id, "moi", { status: "da_huy" }), "bad_transition");
+    const out = await store.acceptRequest(r.id, applyAccept(quoted, nowIso)!, requestToOrder(quoted, nowIso)!);
+    expect(out.order.status).toBe("da_xac_nhan");
+    expect(out.order.shopId).toBe(haidang.id);
+    expect(out.order.etaTo).toBe("2026-09-09");
+    expect(out.order.requestId).toBe(r.id);
+    expect(out.request.status).toBe("da_dat");
+    expect(out.request.orderId).toBe(out.order.id);
+    // huỷ đơn sinh từ yêu cầu: hoàn kho không đụng món nào
+    await store.transitionOrder(out.order.id, "da_xac_nhan", { status: "da_huy", cancelBy: "seller", cancelReason: "thử" });
+    expect((await store.readState()).products.reduce((t, p) => t + p.stock, 0)).toBe(before);
+  });
+  it("quét đơn chờ quá hạn theo createdAt", async () => {
+    const list = await store.listOverduePending("2100-01-01T00:00:00.000Z");
+    expect(list.every((o) => o.status === "cho_xac_nhan")).toBe(true);
+    expect(await store.listOverduePending("2000-01-01T00:00:00.000Z")).toEqual([]);
+  });
+});
+

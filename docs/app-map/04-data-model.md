@@ -5,13 +5,12 @@
 **Load khi / Load when**: đụng DB/migration/RLS, sửa `src/lib/documents.ts`, nối vault với Supabase, hoặc thêm bảng mới.
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
-last_verified: 2026-10-06
+last_verified: 2026-10-18
+<!-- re-verified: 2026-10-18 — MIGRATION MỚI 0063_market_requests_eta.sql (§7g): market_orders + eta_from/eta_to/request_id (nullable) · bảng market_requests (RLS bật, 0 policy, revoke anon/authenticated). CHƯA APPLY prod — chờ chủ dự án. -->
 ttl_days: 180
-<!-- DOC-STATUS: SUSPECT (2026-10-16) — code 'src/lib/documents.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-10-06 17:20 — đồng bộ sổ đối chiếu code: `user-sync.ts` (syncAll/pushKind/markLocalWrite/clearSyncMeta, metaCache), route `/api/me/sync` (identityFromRequest, lọc owner_phone, keepDeleted/stripDeleted), `user-sync-core.ts` — khớp; THÊM gộp 3 chiều theo id (`mergeById`, baseIds), chủ sổ `_owner` + `phone` ở GET, seed khi server chưa có dòng, `showsUnderBoat`; dọn câu "apply nhầm, chưa recoverable" mâu thuẫn. -->
 <!-- re-verified: 2026-10-06 16:30 — đối chiếu code: `DocumentKind`/`DOCUMENT_KINDS`/`getExpiryStatus`/`SOON_DAYS_DOCS` (documents.ts + days.ts) khớp; THÊM `dang_ky_tau`, `kindUsuallyNoExpiry`, issuedOn trên form; `Boat` +19 ô theo giấy (boats.ts); user_docs + bucket user-docs ĐO THẬT có ở znzgugvfhgmiszqgjulk (sửa drift "chưa có"); staff_permissions + cờ `resetPassword`; reset mật khẩu khách ⇒ sd123456 (ADR 0008); §5 mục 5 nhắc hạn push. -->
 <!-- re-verified: 2026-10-02 15:40 — RBAC: đối chiếu `phone.ts` (thêm `phoneFromAuthEmail`), 0002 `current_phone()` (split_part không xét đuôi — vá ở 0056), 0007/0019 `customers.role` customer|manager|admin, 0024 admin chung, 0028 `staff_permissions`, 0037/0039/0053 `device_tokens` (không hạn, allow_multi chỉ admin). Khớp code trước khi thêm 0056. -->
-<!-- DOC-STATUS: SUSPECT (2026-09-30) — code 'src/lib/documents.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-07-29 — documents.ts GỠ demoDocuments (dead seed, prod không dùng — app đã lên thật, user mới thấy tủ giấy tờ RỖNG). KHÔNG đổi schema/RLS/shape BoatDocument, không đụng migration/webhook/owned-assets. Xem 02 §4 + 07 §8.1. -->
 <!-- re-verified: 2026-08-18 — ĐỐI CHIẾU 5 vùng covers sau gói C/E/F: (1) `documents.ts` `getExpiryStatus` nay import `SOON_DAYS_DOCS/daysUntil/todayIsoVN/addDaysIso` từ `lib/days.ts`, `days===0` → level `expired` "Hết hạn hôm nay" (khớp bảng §3); (2) `owned-assets.ts` `getServiceDueStatus` dùng `SOON_DAYS_SERVICE=14` + `daysUntil` giờ VN, `requestStatusVN` trả `ok|neutral`; (3) `phone.ts` KHÔNG đổi từ 2026-06-16 (4 export `normalizeVnPhone/phoneToEmail/sanitizePhoneInput/isValidVnPhone` + `PHONE_EMAIL_DOMAIN`, đúng như §5b tả "helper SĐT thuần"; report báo SUSPECT chỉ vì commit tạo file trùng ngày last_verified cũ); (4) `sdwork-webhook.ts` + `supabase/migrations` không có thay đổi mới hôm nay ngoài 0034/0035 đã ghi (commit f078783); (5) `push_messages` không migration mới — chỉ THÊM quy ước `sent_by` `system:storm`/`system:order` + `tag` (ghi ở mục 0023). -->
 <!-- re-verified: 2026-08-19 — GỘP BASE (sync base): migration base 0032/0033/0034/0036/0037 đánh lại số thành 0045/0046/0047/0048/0049 cho khỏi đụng số sdvico; base 0035_market_listings_owner_phone BỎ vì trùng logic 0043 của sdvico. Mọi mục dưới đây dùng SỐ MỚI và trạng thái apply tính theo prod SDVICO (⚠️ CHƯA APPLY), KHÔNG phải prod base. -->
@@ -849,6 +848,21 @@ Sinh ra NGAY SAU khi apply 0060+0061 vì `get_advisors` báo WARN `function_sear
 
 - KHÔNG sửa thẳng vào 0054/0055 — hai file đó đã apply, lịch sử migration phải khớp thứ đã chạy. Vá bằng bước mới.
 - Kiểm sau apply: `pg_proc.proconfig` của cả hai = `search_path=""`; ghi thử một dòng `shops` ⇒ trigger vẫn nhích `updated_at`; `market_fold_vn('Đá cây ướp cá')` vẫn ra `da cay uop ca`.
+### HẸN GIAO + YÊU CẦU ĐẶT HÀNG — migration [`0063_market_requests_eta.sql`](../../supabase/migrations/0063_market_requests_eta.sql) (2026-10-18) — ⚠️ **CHƯA APPLY** (chờ chủ dự án)
+
+Chủ dự án: *"cho phép chủ tàu đặt đơn bất kỳ cái gì, nó sẽ chuyển cho chủ sàn, làm luôn luồng giống shopee như xác nhận đơn, thời gian giao"*. Hành vi: [11 §4.3–§4.4, §5.9](11-ba-spec-san-thuong-mai.md); tên: [12 §13](12-kien-truc-san-thuong-mai.md).
+
+| Thay đổi | Nghĩa |
+|---|---|
+| `market_orders.eta_from`, `eta_to` (`date`, null được, `eta_to ≥ eta_from`) | Hẹn giao shop đặt lúc xác nhận. Đơn cũ = null ⇒ màn không hiện dòng hẹn |
+| `market_orders.request_id` (`uuid`, null được) | Đơn sinh từ yêu cầu; `items[0].productId` = id yêu cầu ⇒ `market_restock_order` không khớp món nào, hoàn kho vô hại |
+| Bảng `market_requests` | `code` YC… unique · `buyer_phone` · `title` 3–120 · `qty` 1–9999 · `unit` · `description` ≤1000 · `images` jsonb ≤3 · `need_by` date · `address` jsonb · `payment_method` · `status` 6 giá trị · `quote` jsonb · `quote_shop_id` → shops · `reject_reason` ≤300 · `order_id` → market_orders · `timeline` jsonb · trigger `market_set_updated_at` · index (buyer, created) + (status, created) |
+| RLS | khuôn 0037/0060: bật, KHÔNG policy, revoke anon/authenticated — mọi đường qua route service-role |
+
+- Không cron: tự huỷ 72h, báo giá hết hạn 3 ngày, yêu cầu treo 7 ngày đều chạy LƯỜI khi đọc.
+- Cột mới đều nullable + `add column if not exists` ⇒ code cũ đọc vẫn chạy; chạy lại an toàn.
+- **Trước khi apply**: code mới đọc/ghi `eta_from` · `request_id` · `market_requests` ⇒ deploy code này lên prod mà CHƯA apply 0063 thì xác nhận đơn/ yêu cầu đặt hàng lỗi 500 (`market_orders vá` báo cột lạ). Thứ tự bắt buộc: **apply 0063 → deploy**.
+
 <!-- re-verified: 2026-09-07 — 0055 gộp Cửa hàng vào chợ; soi prod: product_listings 13/13 hiện, 7 đặt được, 0 vendor ngoài; catalog_orders 1 đơn thật trạng thái `moi` ngày 28/08; `shops` chưa tồn tại ⇒ 0054 chưa apply, 0045/0046/0047 ĐÃ apply (mục trên ghi "CHƯA APPLY" là doc cũ sai). market_fold_vn đối chiếu với foldVn() trên đủ 13 tên món: khớp từng chữ. -->
 
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->

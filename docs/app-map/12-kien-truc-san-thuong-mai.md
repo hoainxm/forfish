@@ -2,11 +2,11 @@
 
 > **Load khi / Load when**: build hoặc sửa bất kỳ thứ gì trong `src/lib/market/**`, `src/app/cho/**`, `src/app/ban-hang/**`, `src/app/api/{cho,ban-hang,admin/cho,dev}/**`, `src/app/dev/**`, `src/components/market/**`, `src/components/admin/market-admin-tab.tsx`, migration `0060_marketplace.sql`; hoặc muốn biết hợp đồng `MarketStore`, máy trạng thái đơn, danh sách route/trang của sàn.
 
-covers: src/lib/market, src/app/cho, src/app/ban-hang, src/app/api/cho, src/app/api/ban-hang, src/app/api/admin/cho, src/app/api/dev, src/app/dev, src/components/market, src/components/admin/market-admin-tab.tsx, supabase/migrations/0060_marketplace.sql
+covers: src/lib/market, src/app/cho, src/app/ban-hang, src/app/api/cho, src/app/api/ban-hang, src/app/api/admin/cho, src/app/api/dev, src/app/dev, src/components/market, src/components/admin/market-admin-tab.tsx, src/components/admin/market-admin-requests.tsx, supabase/migrations/0060_marketplace.sql, supabase/migrations/0063_market_requests_eta.sql
 gate: warn
-last_verified: 2026-09-06
+last_verified: 2026-10-18
+<!-- re-verified: 2026-10-18 — §13 LUỒNG GIỐNG SHOPEE: hợp đồng kho thêm listOverduePending + 6 hàm yêu cầu đặt hàng (cả supabase-store lẫn file-store, test hợp đồng xanh), OrderPatch.etaFrom/etaTo, Order.etaFrom/etaTo/requestId, migration 0063 (CHƯA apply), route /api/cho/yeu-cau*, /api/admin/cho/yeu-cau*. -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-30) — code 'src/components/admin/market-admin-tab.tsx' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-09-06 - Core pha 2a đã hiện thực đúng hợp đồng §2–§6, §8.1: 24 file lib/market, 11 shared component, migration 0060, /api/dev + /dev, 16 file test; không đổi tên/chữ ký (chỉ THÊM notice.ts, rating.ts, marketErrorStatus/isMarketError theo hình dạng, marketSend, sniffImageMime) -->
 
 **Version**: 1.1 (hợp nhất sau phản biện) · **Ngày**: 2026-09-06 · **Tác giả**: Kiến trúc sư (Phase 1) + Reviewer hợp nhất · **Khung**: LEAD-BRIEF 2026-09-06 §4/§5 = luật cao nhất · **Vì sao**: [ADR 0013](../adr/0013-san-thuong-mai-da-nguoi-ban.md) · **Nghiệp vụ**: [11-ba-spec-san-thuong-mai.md](11-ba-spec-san-thuong-mai.md)
@@ -1762,6 +1762,29 @@ Commit message mỗi pha ghi câu trả lời offline (CLAUDE.md pre-flight 🟡
 | Chọn cách trả tiền chung cả lần đặt (ép COD khi có shop không STK) | — | bà con phàn nàn ⇒ chọn theo từng shop |
 
 ---
+
+## 13. Luồng giống Shopee — hẹn giao, tự huỷ 72 giờ, yêu cầu đặt hàng (2026-10-18)
+
+Hành vi ở [11 §4.3–§4.4, §5.9, §7b](11-ba-spec-san-thuong-mai.md); đây là TÊN.
+
+| Lớp | Thêm |
+|---|---|
+| `types.ts` | `Order.etaFrom?/etaTo?/requestId?` · `RequestStatus` (`moi`·`da_bao_gia`·`da_dat`·`khong_tim_duoc`·`da_huy`·`het_han`) · `RequestQuote {goodsVnd, shippingVnd, etaFrom, etaTo, note?, quotedAt, expiresAt}` · `MarketRequest` (+ `quoteShopId/quoteShopName/orderId/timeline`) · `RequestDraft` |
+| `order-state.ts` | `cho_xac_nhan.system: ["da_huy"]` · `AUTO_CANCEL_MS` 72h · `AUTO_CANCEL_REASON` · `settlePending` (gọi từ `settleOverdue`) · `msUntilAutoCancel` |
+| `eta.ts` (mới, thuần) | `ETA_PRESETS` · `presetRange` · `validateEta` · `readEta(body)` (preset hoặc from/to) · `etaLabel` · `isLate` · `vnToday` · `ETA_MAX_DAYS` 60 |
+| `request-state.ts` (mới, thuần) | bảng chuyển theo actor · `applyQuote/applyReject/applyBuyerCancel/applyAccept` · `settleRequest` (3 ngày / 7 ngày) · `requestToOrder` → `PreparedRequestOrder` · `patchRequest` · `quoteTotal` · nhãn + chip token |
+| `validate.ts` | `validateRequestDraft` · `validateQuote` · `REQUEST_IMAGE_MAX` 3 · `REQUEST_QTY_MAX` 9999 · `SHIPPING_MAX` |
+| `order-code.ts` | `makeRequestCode` = "YC" + khuôn mã đơn |
+| `notice.ts` | `requestNotice("Y1"|"Y2")` · N2 đọc hẹn giao (`ctx.today`) |
+| `store.ts` (hợp đồng) | `listOverduePending(before, shopId?)` · `createRequest` · `listBuyerRequests` · `listAllRequests` · `getRequest` · `patchRequest(id, expectStatus, patch)` (ghi có điều kiện như `transitionOrder`) · `acceptRequest(id, patch, PreparedRequestOrder)` → `{request, order}` |
+| `supabase-store.ts` | `rowToRequest` · `eta_from/eta_to/request_id` trong `rowToOrder` + `transitionOrder` · `acceptRequest`: GIỮ yêu cầu (`da_bao_gia → da_dat`, có điều kiện) RỒI insert đơn (`client_ref = yc:<id>`, trùng ⇒ trả đơn cũ), hỏng ⇒ trả yêu cầu về `da_bao_gia` + `insert_failed` |
+| `file-store.ts` | `DevSeed.requests?` (tệp cũ thiếu ⇒ `[]`) · cùng 6 hàm, một `mutate` cho cả "sinh đơn + vá yêu cầu" |
+| `route-utils.ts` | `settleOverdueOrders` ghi theo `o.status` (không còn gài `da_giao`) + N7 khi tự huỷ · `settleOverdueForStats` quét cả chờ quá 72h · `settleRequests` |
+| `requests-cache.ts` (client) | `forfish.myc.v1` ngăn SĐT, ≤ 30, gộp theo id — `NEVER_BACKUP_PREFIXES` |
+| Route | `GET/POST /api/cho/yeu-cau` · `GET/PATCH /api/cho/yeu-cau/[id]` (`dong_y`·`huy`) · `GET /api/admin/cho/yeu-cau` (+`counts.moi`) · `GET/PATCH /api/admin/cho/yeu-cau/[id]` (`bao_gia`·`khong_tim_duoc`, nhật ký `market.request-quote`) · `PATCH /api/ban-hang/don/[id]` + `/api/admin/cho/don/[id]`: `da_xac_nhan` bắt buộc hẹn, dời hẹn ở nhánh "chỉ ghi" |
+| Migration | `0063_market_requests_eta.sql` — ⚠️ CHƯA APPLY (04 §7g) |
+
+Gác dữ liệu: `/api/cho/*` + `/api/admin/cho/*` đã nằm trong `KHONG_PHAI_DU_LIEU` của `data-route-rules` (route sàn tự gác bằng `identityFromRequest`/`requireAdmin`) — route mới không cần dòng mới.
 
 ## Assumptions (đã đối chiếu LEAD-BRIEF §4/§5 — mục nào lead đã chốt thì ghi "chốt")
 

@@ -7,7 +7,7 @@ import { productSearchText } from "./text";
 import { recountRating } from "./rating";
 import { normalizeProductStatus } from "./validate";
 import type {
-  Address, DevPersona, Order, OrderLine, Product, ProductCategory, Review, Shop, Variant,
+  Address, DevPersona, Order, OrderLine, Product, ProductCategory, Review, Shop, Variant, MarketRequest,
 } from "./types";
 
 export interface SeedProduct extends Product { searchText: string }
@@ -24,6 +24,8 @@ export interface DevSeed {
   sessions: Record<string, { phone: string; issuedAt: string }>;
   personas: DevPersona[];
   notifications: SeedNotification[];
+  /** yêu cầu đặt hàng (2026-10-18) — tệp cũ thiếu thì load() điền [] */
+  requests?: MarketRequest[];
 }
 
 export const DEV_PERSONAS: DevPersona[] = [
