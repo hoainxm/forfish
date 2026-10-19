@@ -7,9 +7,15 @@
 # Supabase DÙNG CHUNG. Workflow này gọi THẲNG prod, chạy code mới nhất.
 #
 #   · /api/collect/sea-daily     GET  — lịch sử biển 10 cảng + dự báo cá + bão
+#   · /api/cron/refresh-fish     GET  — (2026-10-19) tính sẵn bản đồ cá VÀ LƯU LƯỚI ĐẦU VÀO
+#       (SST/phù du/SLA/dị thường/HYCOM/Copernicus) vào kho `fish-inputs/`. Thêm vào đây vì
+#       kho chỉ có ĐÚNG MỘT ngày (10/10): workflow refresh-fish.yml gõ APP_BASE_URL lệch
+#       secret (401), còn Vercel cron gõ bản cũ ⇒ 8 ngày đầu vào mất không dựng lại được.
+#       Hai lượt/ngày (01:40 · 13:40 UTC); file cùng ngày VN ghi đè — lượt sau thắng.
 #   · /api/collect/archive       GET  — lưu trữ theo ngày (2026-10-10): chép mọi lưới thời
 #       tiết + bản đồ cá đủ ô vào Storage `forecast-archive` (migration 0058) — hai bảng
 #       snapshot ghi đè mỗi ngày. Đặt sau refresh-fish/refresh-weather (02:00/02:30 UTC).
+#       (2026-10-19) kèm THỰC TẾ ERA5 10 cảng (`actual/`) cho 5 ngày đã qua — xem route.
 #   · /api/cron/snapshot-prices  GET  — tích luỹ lịch sử giá VASEP (thứ Bảy)
 #   · /api/cron/trace-payments   POST — bắn MÃ CK sang SDWork đối soát (NV4).
 #       ⚠️ Route này CHỈ có POST, mà Vercel Cron gọi GET ⇒ 405 ⇒ trước nay CHƯA
@@ -46,6 +52,8 @@ name: cron-prod
 on:
   schedule:
     - cron: "50 23 * * *" # sea-daily        — Vercel cũ 23:30, đây chạy sau
+    - cron: "40 1 * * *" # refresh-fish     — trước archive; ảnh vệ tinh ngày mới về ~00 UTC
+    - cron: "40 13 * * *" # refresh-fish     — lượt chiều VN, bắt bản ảnh muộn (cùng file ngày)
     - cron: "35 3 * * *" # archive          — Vercel cũ 03:15
     - cron: "20 3 * * 6" # snapshot-prices  — Vercel cũ thứ Bảy 03:00
     - cron: "10 * * * *" # trace-payments   — mỗi giờ (theo ops/self-host-vps §7b); Vercel cũ 01:00 gọi GET ⇒ 405
@@ -55,7 +63,7 @@ on:
       job:
         description: "Chạy tay việc nào"
         type: choice
-        options: [sea-daily, archive, snapshot-prices, trace-payments, notify-docs]
+        options: [sea-daily, refresh-fish, archive, snapshot-prices, trace-payments, notify-docs]
         required: true
 
 permissions: {}
@@ -84,6 +92,7 @@ jobs:
           fi
           case "$WHICH" in
             "50 23 * * *"|sea-daily)        P=/api/collect/sea-daily;    M=GET;  T=330 ;;
+            "40 1 * * *"|"40 13 * * *"|refresh-fish) P=/api/cron/refresh-fish; M=GET; T=120 ;; # maxDuration 90
             "35 3 * * *"|archive)           P=/api/collect/archive;      M=GET;  T=330 ;;
             "20 3 * * 6"|snapshot-prices)   P=/api/cron/snapshot-prices; M=GET;  T=90  ;;
             "10 * * * *"|trace-payments)     P=/api/cron/trace-payments;  M=POST; T=90  ;;

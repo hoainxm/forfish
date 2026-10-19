@@ -6,6 +6,8 @@
 //   fish/…         bản đồ cá ĐẦY ĐỦ mọi ô, mọi loài (fish_forecast_daily chỉ giữ ô ≥ 60)
 //   fish-inputs/…  lưới ĐẦU VÀO mô hình cá (SST, phù du, SLA, dị thường, Copernicus, HYCOM,
 //                  lưới mịn) — không lưu thì không bao giờ dựng lại được bản production
+//   actual/…       (2026-10-19) THỰC TẾ ERA5 theo ngày cho 10 cảng (gió/giật/mưa/sóng) —
+//                  vế "thật ra hôm đó thế nào" để đo skill liên tục (lib/sea-actual.ts)
 // Đường dẫn: <loại>/<YYYY>/<YYYY-MM-DD>/<tên>.json.gz. Ghi đè trong ngày (upsert) — lượt sau
 // trong cùng ngày thay lượt trước, mỗi ngày đúng một bản.
 //
@@ -17,7 +19,7 @@ import { gzipSync } from "node:zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const ARCHIVE_BUCKET = "forecast-archive";
-export type ArchiveKind = "weather" | "fish" | "fish-inputs";
+export type ArchiveKind = "weather" | "fish" | "fish-inputs" | "actual";
 
 /**
  * Đường dẫn file trong kho. `day` phải là YYYY-MM-DD; `name` lấy từ id snapshot (`grid:d16`,

@@ -2,7 +2,7 @@
 
 > Load khi: hiệu chỉnh điểm đi biển theo tầm ngày, gán nhãn độ tin dự báo, chạy lại bộ đo skill, hoặc nghi bảng `forecast-skill.json` đã cũ.
 
-covers: scripts/forecast-backtest.mjs, src/data/forecast-skill.json, src/lib/forecast-skill.ts
+covers: scripts/forecast-backtest.mjs, src/data/forecast-skill.json, src/lib/forecast-skill.ts, src/lib/sea-actual.ts
 last_verified: 2026-07-25
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-10-18) — code 'src/lib/forecast-skill.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
@@ -82,3 +82,7 @@ Nên chạy lại mỗi mùa (`ttl_days: 90`) vì skill model đổi theo mùa g
 - **`n` nhỏ** (12 init × 10 cảng ≈ 120 cặp gió/lead, 99 cặp sóng/lead 1..6): đủ ra xu hướng, chưa đủ cho khoảng tin cậy hẹp. Tăng `INIT_BACK_START`/giảm `INIT_STEP_DAYS` nếu cần nhiều mẫu hơn.
 - **ERA5 = "thực tế" tham chiếu**, không phải quan trắc tại phao — bản thân nó cũng là mô hình tái phân tích.
 - Một cảng có thể thiếu sóng (vd Rạch Giá: gwam "no data" tại toạ độ trong vịnh) → `nWave` cảng đó = 0, đã tính vào tổng.
+
+## 8. Đo skill LIÊN TỤC từ kho (2026-10-19) — thay cho backtest tay mỗi quý
+
+Từ 2026-10-19, `/api/collect/archive` ghi mỗi ngày THỰC TẾ ERA5 của 10 cảng (`actual/<năm>/<ngày>/era5-ports.json.gz`, `lib/sea-actual.ts`): `windMaxKmh`, `gustMaxKmh`, `rainMm`, `waveMaxM` theo ngày GMT. `sea_daily` (0005) đã giữ DỰ BÁO 10 ngày/cảng liên tục từ 2026-07-07 (`collected_on`, `date`, `lead_days`). Ghép hai thứ theo (`port_id`, `date`) là có cặp dự báo–thực tế cho mọi tầm 0..9 ngày, mỗi ngày thêm 10 cảng × 10 tầm — không cần Single Runs API, không cần chạy `forecast-backtest.mjs` tay. Việc mở: script offline đọc kho + `sea_daily` → sinh `forecast-skill.json` (cùng công thức §4), chạy mỗi tháng; tới lúc đó bảng §6 (2026-07-25) vẫn là bản đang dùng. Giới hạn: `sea_daily` chỉ 10 tầm (0..9), còn bảng hiện có 15; ERA5 vẫn là tái phân tích, không phải phao.
