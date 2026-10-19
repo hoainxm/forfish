@@ -195,7 +195,7 @@ export function PriceHistorySheet({
   return (
     <BottomSheet title={`Giá ${species}`} onClose={onClose}>
       {loading && (
-        <div className="rounded-2xl bg-field/70 px-4 py-10 text-center">
+        <div className="rounded-xl border border-dashed border-line px-4 py-6 text-center">
           <p className="text-[1rem] text-foreground/70">
             Đang tải lịch sử giá…
           </p>

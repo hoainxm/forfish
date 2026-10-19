@@ -238,7 +238,7 @@ export function MaintenanceReminders() {
               setEditing(null);
               setShowForm(true);
             }}
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+            className={`${SQ_BTN} bg-field text-navy`}
           >
             <PlusIcon className="h-6 w-6" />
             Thêm
@@ -269,7 +269,7 @@ export function MaintenanceReminders() {
           nút cam ở trên đã mời thêm. GIỮ cảnh báo ĐỌC-HỎNG (đọc được ≠ chưa có
           gì): mất nó là mất lá chắn chống-mất-dữ-liệu (nguyên tắc 4). */}
       {ready && boatReady && sorted.length === 0 && readFailed && (
-        <div className="rounded-2xl bg-field/70 px-4 py-12 text-center">
+        <div className="rounded-xl border border-dashed border-line px-4 py-6 text-center">
           <WrenchIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[1rem] text-foreground/70">
             Chưa mở được lịch bảo dưỡng trong máy.

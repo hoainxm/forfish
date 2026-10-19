@@ -340,7 +340,7 @@ export function BoatProducts() {
               setEditing(null);
               setShowForm(true);
             }}
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+            className={`${SQ_BTN} bg-field text-navy`}
           >
             <PlusIcon className="h-6 w-6" />
             Thêm
@@ -365,7 +365,7 @@ export function BoatProducts() {
               <>
                 Chưa ghi món đồ nào cho tàu này.
                 <br />
-                Bấm nút cam ở trên để thêm.
+                Bấm “Thêm” ở trên để thêm.
               </>
             )}
           </EmptyState>

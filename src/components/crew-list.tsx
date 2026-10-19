@@ -170,6 +170,8 @@ export function CrewList() {
   const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<StoredCrew | null>(null);
+  /** hàng đang bung chi tiết (CCCD, chứng chỉ, Sửa/Xóa/Cảnh báo) — một hàng một lúc */
+  const [openId, setOpenId] = useState<string | null>(null);
   // sheet BÁO CÁO một người (mở từ nút Cảnh báo của thẻ) — kèm định danh (CCCD
   // và/hoặc SĐT) + tên
   const [warningFor, setWarningFor] = useState<{
@@ -225,8 +227,8 @@ export function CrewList() {
           [ô nút w-16]. Đo trước: thẻ người ĐẦU TIÊN bắt đầu ở y=380 (47% màn bị
           ăn hết trước khi thấy một người nào) vì hai ô đếm chỉ nhắc lại thứ đang
           hiện ngay dưới (đếm thẻ + đếm banner đỏ) rồi một dải cam 343×60 nữa. */}
-      <div className="mb-3 flex items-stretch gap-2">
-        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center px-1 py-2">
           <p className="text-[1rem] font-semibold text-navy">
             {boatCrew.length} bạn thuyền
             {issueCount > 0 && (
@@ -237,15 +239,13 @@ export function CrewList() {
         {/* ĐỌC KHÔNG ĐƯỢC thì KHOÁ cửa ghi (T1): thêm người lúc này là ghi đè
             lên chuỗi gốc còn cứu được, mất cả sổ. Hàng vẫn chừa đúng ô nút để
             mép phải không nhảy giữa hai trạng thái (luật 3b). */}
-        {readFailed ? (
-          <span className="w-16 shrink-0" aria-hidden />
-        ) : (
+        {readFailed ? null : (
           <button
             onClick={() => {
               setEditing(null);
               setShowForm(true);
             }}
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+            className={`${SQ_BTN} bg-field text-navy`}
           >
             <PlusIcon className="h-6 w-6" />
             Thêm
@@ -276,7 +276,7 @@ export function CrewList() {
           2026-08-18) — banner đếm số người ở đầu trang đã bỏ, cùng ý cùng màn. */}
 
       {ready && boatCrew.length === 0 && (
-        <div className="rounded-2xl bg-field/70 px-4 py-12 text-center">
+        <div className="rounded-xl border border-dashed border-line px-4 py-6 text-center">
           <UsersIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[1rem] text-foreground/70">
             {readFailed ? (
@@ -289,80 +289,78 @@ export function CrewList() {
               <>
                 Chưa có ai trong sổ.
                 <br />
-                Bấm nút cam ở trên để thêm bạn thuyền.
+                Bấm “Thêm” ở trên để thêm bạn thuyền.
               </>
             )}
           </p>
         </div>
       )}
 
-      <ul className="space-y-3">
-        {sortedCrew.map((m) => {
-          const issue = crewIssue(m, today);
-          const hasCccd = isValidCccd(m.cccd);
-          const canWarn = hasIdentity({ cccd: m.cccd, phone: m.phone });
-          return (
-            <li key={m.id} className="overflow-hidden surface">
-              <StatusBanner
-                level={issue.level}
-                icon={
-                  issue.level === "neutral" ? (
-                    <UsersIcon className="h-5 w-5" />
-                  ) : undefined
-                }
-              >
-                {issue.label}
-              </StatusBanner>
-
-              {/*  THÂN THẺ theo khuôn hàng chung (2026-08-29, luật B1): mỗi dòng
-                  dữ liệu là [thân bg-background flex-1 min-w-0] + [ô nút w-16];
-                  dòng không mang nút vẫn chừa đúng ô đó để mép phải thẳng.
-                  Trước: dải grid-cols-3 "Cảnh báo/Sửa/Xóa" ăn riêng 52px cuối
-                  thẻ (24% chiều cao thẻ) và không nút nào nằm ở hàng nó thao
-                  tác lên. */}
-              <div className="space-y-1.5 p-2">
-                {/* Hàng danh tính — Sửa/Xóa thao tác lên CẢ THẺ nên nằm ở đây */}
-                <div className="flex items-stretch gap-2">
-                  <div className="min-w-0 flex-1 rounded-2xl bg-background px-3 py-2">
-                    <p className="text-[0.8125rem] font-semibold uppercase tracking-wide text-foreground/65">
-                      {ROLE_LABELS[m.role]}
-                    </p>
-                    <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
-                      {m.name}
-                    </p>
-                  </div>
+      {/*  MỖI NGƯỜI MỘT HÀNG (rà design Codex lần 2, 2026-10-19): trước mỗi người
+          là một thẻ nhiều tầng — băng trạng thái đặc → hộp nền tên → hộp nền
+          CCCD → hộp nền SĐT + 4 ô nút (Sửa/Xóa/Cảnh báo/Gọi) + ô đệm trống.
+          Nay: MỘT .surface kẻ mảnh; hàng = tên + vai · tình trạng giấy tờ (chữ
+          nhỏ có màu, không băng) · nút Gọi. Chạm tên ⇒ bung chi tiết ngay dưới
+          hàng: CCCD/SĐT, chứng chỉ, Sửa · Xóa · Cảnh báo. Không bỏ chức năng nào;
+          luật "Cảnh báo vô hiệu khi thiếu định danh, lý do nằm sẵn trong chữ" giữ. */}
+      {sortedCrew.length > 0 && (
+        <ul className="surface divide-y divide-line overflow-hidden">
+          {sortedCrew.map((m) => {
+            const issue = crewIssue(m, today);
+            const hasCccd = isValidCccd(m.cccd);
+            const canWarn = hasIdentity({ cccd: m.cccd, phone: m.phone });
+            const open = openId === m.id;
+            const tone =
+              issue.level === "danger"
+                ? "text-danger"
+                : issue.level === "warn"
+                  ? "text-warn"
+                  : issue.level === "ok"
+                    ? "text-ok"
+                    : "text-foreground/65";
+            return (
+              <li key={m.id}>
+                <div className="flex min-h-(--h-row) items-center gap-2 px-4 py-2.5">
                   <button
-                    onClick={() => {
-                      setEditing(m);
-                      setShowForm(true);
-                    }}
-                    className={`${SQ_BTN} bg-background text-sea`}
+                    type="button"
+                    onClick={() => setOpenId(open ? null : m.id)}
+                    aria-expanded={open}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    <EditIcon className="h-6 w-6" />
-                    Sửa
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words text-[1rem] font-semibold leading-snug text-navy">
+                        {m.name}
+                        <span className="font-normal text-foreground/60">
+                          {" "}· {ROLE_LABELS[m.role]}
+                        </span>
+                      </span>
+                      <span className={`mt-0.5 block text-[0.8125rem] leading-snug ${tone}`}>
+                        {issue.label}
+                      </span>
+                    </span>
+                    <ChevronDownIcon
+                      className={`h-4 w-4 shrink-0 text-foreground/40 transition ${open ? "rotate-180" : ""}`}
+                    />
                   </button>
-                  <button
-                    onClick={() => setConfirmDelete(m)}
-                    className={`${SQ_BTN} bg-background text-danger`}
-                  >
-                    <TrashIcon className="h-6 w-6" />
-                    Xóa
-                  </button>
+                  {m.phone && (
+                    <a href={`tel:${m.phone}`} className={`${SQ_BTN} bg-field text-sea`}>
+                      <PhoneIcon className="h-4 w-4" />
+                      Gọi
+                    </a>
+                  )}
                 </div>
 
-                {/*  Hàng CCCD/SĐT — ô "Cảnh báo" nằm đúng hàng định danh mà nó
-                    tra. THIẾU định danh thì VÔ HIỆU nút chứ không đổi việc:
-                    trước đây bấm "Cảnh báo" trên người chưa có CCCD lại mở sheet
-                    "Sửa thông tin bạn thuyền" — một nút hai việc, nhãn hứa việc
-                    nó không làm (thao tác câm). Lý do đã nằm sẵn trong thân hàng. */}
-                <div className="flex items-stretch gap-2">
-                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                {open && (
+                  <div className="space-y-2 bg-background/60 px-4 pb-3 pt-1">
+                    {/*  THIẾU định danh thì VÔ HIỆU nút "Cảnh báo" chứ không đổi
+                        việc (trước bấm lại mở sheet Sửa — thao tác câm); lý do đã
+                        nằm sẵn trong dòng chữ ngay trên. */}
                     {hasCccd ? (
-                      <p className="text-[0.875rem] tabular-nums text-foreground/70">
+                      <p className="text-[0.875rem] tabular-nums text-foreground/75">
                         CCCD: {formatCccd(m.cccd)}
                       </p>
                     ) : canWarn ? (
-                      <p className="text-[0.875rem] text-foreground/70">
+                      <p className="text-[0.875rem] text-foreground/75">
                         Chưa có CCCD — tra cảnh báo theo số điện thoại
                       </p>
                     ) : (
@@ -371,59 +369,57 @@ export function CrewList() {
                         báo được
                       </p>
                     )}
-                  </div>
-                  <button
-                    disabled={!canWarn}
-                    onClick={() =>
-                      setWarningFor({
-                        cccd: m.cccd,
-                        phone: m.phone ?? "",
-                        name: m.name,
-                      })
-                    }
-                    className={`${SQ_BTN} bg-background text-t4 disabled:opacity-40`}
-                  >
-                    <AlertIcon className="h-6 w-6" />
-                    Cảnh báo
-                  </button>
-                </div>
-
-                {/*  Số điện thoại là DỮ LIỆU (đọc được, chép được) — việc GỌI
-                    tách thành ô nút riêng. Trước là link "Gọi: 090…" 133×48px,
-                    dưới sàn chạm; chạm hụt thì không mở được cuộc gọi. */}
-                {m.phone && (
-                  <div className="flex items-stretch gap-2">
-                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[1rem] font-semibold tabular-nums text-navy">
-                        {m.phone}
+                    {m.phone && (
+                      <p className="text-[0.875rem] tabular-nums text-foreground/75">
+                        SĐT: {m.phone}
                       </p>
-                    </div>
-                    <a
-                      href={`tel:${m.phone}`}
-                      className={`${SQ_BTN} bg-background text-sea`}
-                    >
-                      <PhoneIcon className="h-6 w-6" />
-                      Gọi
-                    </a>
-                  </div>
-                )}
-
-                {m.certLabel && (
-                  <div className="flex items-stretch gap-2">
-                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[0.875rem] text-foreground/70">
+                    )}
+                    {m.certLabel && (
+                      <p className="text-[0.875rem] text-foreground/75">
                         {m.certLabel}
                         {m.certExpiry && ` — hết hạn ${formatVnDate(m.certExpiry)}`}
                       </p>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          setEditing(m);
+                          setShowForm(true);
+                        }}
+                        className={`${SQ_BTN} bg-field text-navy`}
+                      >
+                        <EditIcon className="h-4 w-4" />
+                        Sửa
+                      </button>
+                      <button
+                        disabled={!canWarn}
+                        onClick={() =>
+                          setWarningFor({
+                            cccd: m.cccd,
+                            phone: m.phone ?? "",
+                            name: m.name,
+                          })
+                        }
+                        className={`${SQ_BTN} bg-field text-navy disabled:opacity-40`}
+                      >
+                        <AlertIcon className="h-4 w-4" />
+                        Cảnh báo
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(m)}
+                        className={`${SQ_BTN} bg-field text-danger`}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                        Xóa
+                      </button>
                     </div>
-                    <span className="w-16 shrink-0" aria-hidden />
                   </div>
                 )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {/*  Bỏ vế "Cảnh báo … SDVICO xem trước rồi mới hiện" ở chân trang (D1):
           câu đó nói BA LẦN trong cùng một mảng màn; giữ đúng MỘT chỗ là ngay

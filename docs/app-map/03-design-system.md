@@ -10,7 +10,6 @@ last_verified: 2026-10-19
 <!-- re-verified: 2026-10-19c — GỌN = 37px Ở MỌI KHU (chủ dự án chốt): `--market-control: var(--row-h)`, `.tau-action min-height: var(--row-h)`, 86 chỗ `min-h-[3.5rem]` trong market/cho/ban-hang + khu Tàu tôi → `min-h-(--row-h)` (Tailwind v4 cú pháp biến). Đo 390 gọn: ô tìm/chip/nút Vật tư 37px, "Thêm"/"Gọi SDVICO" Tàu tôi 37px; hàng có nút stretch theo thân hàng (48/42px) đúng luật thân hàng = nút. Chip tài khoản biến thể `light` (ManHeader): chữ 1rem, đệm hẹp, min-w-0 + truncate — nhường chỗ cho tiêu đề. -->
 <!-- re-verified: 2026-10-19 — `.dock-label` đổi theo nhãn dock mới (Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư); từ 2026-10-19d là 0.75rem (0.6875rem dưới 345px) theo thang §0. Khuôn MỚI `ManHeader` (components/man-header.tsx): đầu màn nền sáng thay hero gradient ở các màn dock. Danh sách kẻ mảnh (`divide-y divide-line rounded-2xl bg-card`, hàng theo bậc hàng danh sách, chữ theo thang §0, chấm màu thay tag) là khuôn chung của Thông báo + Việc cần làm. HeroAccount có biến thể `light`. -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-10-05 10:40 — thêm pattern "overlay tự-ẩn phải tính CUỘN là thao tác" (onScrollCapture ở container gốc, không onScroll): đối chiếu `ui/snap-sheet.tsx` (<section onScrollCapture={onInteract}>) + `ra-khoi-controls.tsx` (container gốc onScrollCapture) — khớp sau fix 2026-10-05. Tap-target SnapSheet min-h-[3.5rem] còn đúng. -->
 <!-- re-verify(03): pattern overlay tự-ẩn + cuộn (onScrollCapture) -->
@@ -76,6 +75,8 @@ Luật đi kèm:
 | **Header màn** | `right` = MỘT nút ngắn nhãn cố định (vd "Tài khoản"). Thông báo/thẻ KHÔNG đặt trong header — đặt đầu thân màn, nguyên bề ngang | `ManHeader` |
 | **Trạng thái "yên"** | một hàng viền mảnh, icon màu, chữ thường; KHÔNG phủ nền trạng thái. Nền `ok/warn/danger-bg` chỉ khi có việc cần biết (có bão, mất sóng, tài khoản bị đá) | `StormBanner` lúc không bão |
 | **Dữ liệu dạng bảng** | MỘT `.surface` + `divide-y divide-line`, mỗi mục một hàng `min-h-(--h-row)`; chạm cả hàng + chevron nhỏ, KHÔNG ô nút riêng lặp lại việc của hàng | bảng giá cá |
+| **Bản ghi có thao tác (giấy tờ, bạn thuyền…)** | cùng khuôn danh sách; hàng = tên + tình trạng chữ nhỏ CÓ MÀU (không băng nền đặc); chạm ⇒ bung chi tiết ngay dưới hàng (nền `background/60`) chứa dữ liệu phụ + Sửa · Xóa · việc riêng. Một hàng bung một lúc. Việc gọi điện (Gọi) được ở ngoài hàng | `document-vault`, `crew-list` |
+| **Khối trống** | viền đứt `border-dashed border-line`, py-6, icon nhạt — không hộp nền xám to | — |
 | **Không ghép `.surface` với border utility** | `.surface` nằm ngoài layer, khai `border` shorthand ⇒ `surface border-l-4 border-danger` không chắc ra viền đỏ. Thẻ trạng thái tự khai viền + nền | `KickedNotice` |
 
 **Cam = MỘT hành động chính mỗi màn.** Nút "Thêm" ở đầu từng nhóm là nút phụ (nền trung tính), không phải cam — đang dọn theo màn (Tàu tôi, Bạn thuyền, Vật tư) ở các commit sau của đợt này.

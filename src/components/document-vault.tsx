@@ -13,6 +13,7 @@ import {
 import {
   AlertIcon,
   CheckIcon,
+  ChevronDownIcon,
   CloseIcon,
   DocIcon,
   EditIcon,
@@ -101,6 +102,8 @@ export function DocumentVault() {
   const [readFailed, setReadFailed] = useState(false);
   const [editing, setEditing] = useState<StoredDocument | null>(null);
   const [showForm, setShowForm] = useState(false);
+  /** giấy đang bung chi tiết (số, ngày, ghi chú, ảnh, Sửa/Xóa) — một hàng một lúc */
+  const [openId, setOpenId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StoredDocument | null>(
     null,
   );
@@ -214,7 +217,7 @@ export function DocumentVault() {
               setEditing(null);
               setShowForm(true);
             }}
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+            className={`${SQ_BTN} bg-field text-navy`}
           >
             <PlusIcon className="h-6 w-6" />
             Thêm
@@ -250,7 +253,7 @@ export function DocumentVault() {
           được lúc kiểm trên trình duyệt thật): ca đọc-hỏng đã ẩn nút, mà câu cũ
           vẫn chỉ vào nó — bà con tìm một nút không tồn tại. Ca đó nói khác. */}
       {ready && boatReady && sorted.length === 0 && (
-        <div className="rounded-2xl bg-field/70 px-4 py-12 text-center">
+        <div className="rounded-xl border border-dashed border-line px-4 py-6 text-center">
           <DocIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[1rem] text-foreground/70">
             {readFailed ? (
@@ -263,92 +266,68 @@ export function DocumentVault() {
               <>
                 Chưa có giấy tờ nào.
                 <br />
-                Bấm nút cam ở trên để thêm.
+                Bấm “Thêm” ở trên để thêm.
               </>
             )}
           </p>
         </div>
       )}
 
-      <ul className="space-y-3">
-        {sorted.map((doc) => {
-          const status = getExpiryStatus(doc, today);
-          const level =
-            status.level === "expired"
-              ? ("danger" as const)
-              : status.level === "soon"
-                ? ("warn" as const)
-                : status.level === "ok"
-                  ? ("ok" as const)
-                  : ("neutral" as const);
-          return (
-            <li
-              key={doc.id}
-              className="overflow-hidden surface"
-            >
-              {/* status banner — the first thing the eye lands on */}
-              <StatusBanner
-                level={level}
-                icon={
-                  level === "neutral" ? <DocIcon className="h-5 w-5" /> : undefined
-                }
-              >
-                {status.label}
-              </StatusBanner>
-
-              {/*  THÂN THẺ theo khuôn hàng chung (2026-08-29, luật B1): mỗi dòng
-                  dữ liệu là [thân bg-background flex-1 min-w-0] + [ô nút w-16];
-                  hàng không mang nút vẫn chừa đúng ô đó ⇒ mép phải thẳng. Trước:
-                  hàng grid-cols-2 chỉ để chứa hai nút, tốn 52px không nội dung. */}
-              <div className="tau-record space-y-2 p-3">
-                <div className="flex items-stretch gap-2">
-                  <div className="min-w-0 flex-1 rounded-2xl bg-background px-3 py-2">
+      {/*  MỖI GIẤY MỘT HÀNG (rà design Codex lần 2, 2026-10-19): trước mỗi giấy
+          là một hộp — băng trạng thái đặc trên đầu, rồi hộp nền tên + Sửa/Xóa,
+          hộp số giấy, hộp ngày, hộp ghi chú (mỗi hộp chừa ô đệm w-16) ⇒ một biểu
+          mẫu nhỏ rất cao chỉ để đọc vài dữ kiện. Nay: MỘT .surface kẻ mảnh; hàng =
+          tên (+ loại khi khác tên) · tình trạng hạn chữ nhỏ có màu bên phải. Chạm
+          ⇒ bung chi tiết ngay dưới: số, ngày cấp/hết hạn, ghi chú, ảnh, Sửa · Xóa.
+          Màu tình trạng vẫn kèm CHỮ (không màu đứng một mình). */}
+      {sorted.length > 0 && (
+        <ul className="surface divide-y divide-line overflow-hidden">
+          {sorted.map((doc) => {
+            const status = getExpiryStatus(doc, today);
+            const tone =
+              status.level === "expired"
+                ? "text-danger"
+                : status.level === "soon"
+                  ? "text-warn"
+                  : status.level === "ok"
+                    ? "text-ok"
+                    : "text-foreground/65";
+            const open = openId === doc.id;
+            return (
+              <li key={doc.id}>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(open ? null : doc.id)}
+                  aria-expanded={open}
+                  className="flex min-h-(--h-row) w-full items-center gap-3 px-4 py-2.5 text-left"
+                >
+                  <span className="min-w-0 flex-1">
                     {/*  Loại giấy chỉ in khi KHÁC tên gọi (D1): DocumentForm khởi
-                        tạo label = kindLabel(kind) và giữ label bám theo kind tới
-                        khi user gõ tay ⇒ MẶC ĐỊNH luôn trùng, thẻ in hai lần cùng
-                        một chuỗi ("ĐĂNG KIỂM TÀU CÁ" rồi "Đăng kiểm tàu cá"). */}
+                        tạo label = kindLabel(kind) ⇒ mặc định trùng, in hai lần. */}
                     {doc.label !== kindLabel(doc.kind) && (
-                      <p className="text-[0.8125rem] font-semibold uppercase tracking-wide text-foreground/65">
+                      <span className="block text-[0.8125rem] text-foreground/60">
                         {kindLabel(doc.kind)}
-                      </p>
+                      </span>
                     )}
-                    <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
+                    <span className="block break-words text-[1rem] font-semibold leading-snug text-navy">
                       {doc.label}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setEditing(doc);
-                      setShowForm(true);
-                    }}
-                    className={`${SQ_BTN} bg-background text-sea`}
-                  >
-                    <EditIcon className="h-6 w-6" />
-                    Sửa
-                  </button>
-                  <button
-                    onClick={() => setConfirmDelete(doc)}
-                    className={`${SQ_BTN} bg-background text-danger`}
-                  >
-                    <TrashIcon className="h-6 w-6" />
-                    Xóa
-                  </button>
-                </div>
+                    </span>
+                    <span className={`mt-0.5 block text-[0.8125rem] leading-snug ${tone}`}>
+                      {status.label}
+                    </span>
+                  </span>
+                  <ChevronDownIcon
+                    className={`h-4 w-4 shrink-0 text-foreground/40 transition ${open ? "rotate-180" : ""}`}
+                  />
+                </button>
 
-                {doc.number && (
-                  <div className="flex items-stretch gap-2">
-                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[1rem] text-foreground/70">
-                        Số: {doc.number}
-                      </p>
-                    </div>
-                    <span className="w-16 shrink-0" aria-hidden />
-                  </div>
-                )}
-                {(doc.expiresOn || doc.issuedOn) && (
-                  <div className="flex items-stretch gap-2">
-                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[1rem] text-foreground/70">
+                {open && (
+                  <div className="space-y-1.5 bg-background/60 px-4 pb-3 pt-1">
+                    {doc.number && (
+                      <p className="text-[0.875rem] text-foreground/75">Số: {doc.number}</p>
+                    )}
+                    {(doc.expiresOn || doc.issuedOn) && (
+                      <p className="text-[0.875rem] text-foreground/75">
                         {doc.expiresOn && (
                           <>
                             Hết hạn: <strong>{formatVnDate(doc.expiresOn)}</strong>
@@ -357,35 +336,43 @@ export function DocumentVault() {
                         {doc.expiresOn && doc.issuedOn && " · "}
                         {doc.issuedOn && <>Cấp: {formatVnDate(doc.issuedOn)}</>}
                       </p>
+                    )}
+                    {doc.note && (
+                      <p className="text-[0.875rem] text-foreground/75">{doc.note}</p>
+                    )}
+                    {/* Ảnh chụp giấy tờ (P3) — thêm/xem cần có sóng */}
+                    <DocPhotoStrip
+                      docId={doc.id}
+                      photos={doc.photos ?? []}
+                      online={online}
+                      onChange={(photos) => upsert({ ...doc, photos })}
+                    />
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          setEditing(doc);
+                          setShowForm(true);
+                        }}
+                        className={`${SQ_BTN} bg-field text-navy`}
+                      >
+                        <EditIcon className="h-4 w-4" />
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(doc)}
+                        className={`${SQ_BTN} bg-field text-danger`}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                        Xóa
+                      </button>
                     </div>
-                    <span className="w-16 shrink-0" aria-hidden />
                   </div>
                 )}
-                {doc.note && (
-                  <div className="flex items-stretch gap-2">
-                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[0.875rem] text-foreground/70">
-                        {doc.note}
-                      </p>
-                    </div>
-                    <span className="w-16 shrink-0" aria-hidden />
-                  </div>
-                )}
-
-                {/* Ảnh chụp giấy tờ (P3) — thêm/xem cần có sóng */}
-                <div className="px-1">
-                  <DocPhotoStrip
-                    docId={doc.id}
-                    photos={doc.photos ?? []}
-                    online={online}
-                    onChange={(photos) => upsert({ ...doc, photos })}
-                  />
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {/*  Bỏ dòng chân trang "Giấy tờ lưu ngay trên máy của bà con." (D1):
           không phải cấp dữ liệu, không phải dặn dò an toàn — chỉ giải thích app

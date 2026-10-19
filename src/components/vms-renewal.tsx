@@ -122,7 +122,7 @@ function VmsRenewalInner() {
         <button
           type="button"
           onClick={onRequest}
-          className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+          className={`${SQ_BTN} bg-field text-navy`}
         >
           <PlusIcon className="h-6 w-6" />
           Gia hạn
