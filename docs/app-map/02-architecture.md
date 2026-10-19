@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19n — TONE MÀU MẪU CODEX (anh Long: "xem cái tone màu của cái codex góp ý"): đo từ ảnh mẫu Sen Biển — globals.css đổi GIÁ TRỊ token (giữ tên): --navy #14324f→#1c323c slate-teal, --sea #18648b→#306c72 teal, --foreground #16283a→#1c323c, --background #f3f6f8→#f6f8f7, --line #e2e9ef→#dce4e3, --field #eaeff3→#edf1f0. --trim cam chưa đổi (chờ chốt). Xem 03 §2 "Màu nền tảng". -->
 <!-- re-verified: 2026-10-19m — RÀ DESIGN CODEX LẦN 2, bước 5a (Vật tư): `MarketTopBar` ô tìm cao `--h-ctl` viền line, "Tìm" là chữ xanh trong ô (bỏ khối navy đặc); Giỏ hàng/Đơn hàng = hai pill nhỏ `--h-chip` một hàng (bỏ hai ô xám to), chấm số giữ. Thẻ món: giá NAVY (`PriceText`, cả "Liên hệ báo giá"), nhãn -N% chữ cam trên nền trắng (bỏ khối cam đặc), tên 1rem medium, shop · tỉnh một dòng phụ 0.8125rem thường. `market-ui.css` bỏ bo 1.25rem riêng + bóng riêng thẻ món (dùng .surface chung). Trang chủ chợ: "Cần món chợ chưa có?" dời XUỐNG SAU lưới món, thành hàng nhẹ "Nhờ tìm ›" (bỏ nút cam "Đặt"); "Mua lại" nền trung tính thay vàng màu trục. -->
 <!-- re-verified: 2026-10-19l — DOCK KIỂU FACEBOOK (anh Long: "bottom menu nói codex làm giống facebook"): `.bottom-dock` thành thanh trắng bo tròn NỔI (lề 0.75rem, hở đáy `--dock-gap` 0.5rem, viền line + bóng nổi), CHỈ ICON, mục đang chọn = pill xanh nhạt + icon xanh, tên mục qua aria-label/title. `--dock-total` cộng thêm `--dock-gap` nên mọi chỗ chừa đáy (app-content, full-map, thanh mua chợ, Sen Biển nổi, float-btn) tự theo. -->
 <!-- re-verified: 2026-10-19k — RÀ DESIGN CODEX LẦN 2, bước 4 (Tàu tôi): `tau.css` bỏ `.tau-action` (ép nút về ô vuông icon-trên-chữ 11px) — `TAU_ACTION` giờ ra đúng nút chữ gọn `.sq-btn`; khoảng giữa nhóm 1.5 → 1.25rem. TỦ GIẤY TỜ (`document-vault`) + SỔ BẠN THUYỀN (`crew-list`): mỗi bản ghi MỘT HÀNG trong một `.surface divide-y` (tên · tình trạng hạn/giấy tờ chữ nhỏ có màu, crew thêm nút Gọi), chạm hàng ⇒ bung chi tiết ngay dưới (số/ngày/ghi chú/ảnh hoặc CCCD/SĐT/chứng chỉ + Sửa · Xóa · Cảnh báo); bỏ băng trạng thái đặc đầu thẻ, hộp nền từng dòng, ô đệm `w-16`. Hàng đếm bạn thuyền thôi hộp nền. Nút "Thêm" đầu nhóm (giấy tờ, bảo dưỡng, đồ tự ghi, bạn thuyền) + "Gia hạn" VMS: cam → nền trung tính (cam chỉ còn "Lưu" trong form); câu trống "Bấm nút cam" → "Bấm “Thêm”"; khối trống = viền đứt gọn (py-6). "Gọi SDVICO" (`sdvico-request`) và `CallButton`: pill xanh biển cao `--h-ctl` cùng khuôn, bỏ vàng màu trục. Luật: 03 §0b. -->
@@ -340,6 +341,7 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 
 
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 <!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->

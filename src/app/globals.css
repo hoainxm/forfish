@@ -11,15 +11,15 @@
 */
 :root {
   /* water & ink */
-  --background: #f3f6f8; /* cool mist */
-  --foreground: #16283a; /* sea ink */
+  --background: #f6f8f7; /* trắng lạnh ngả xanh rêu — tone mẫu Codex (2026-10-19) */
+  --foreground: #1c323c; /* mực slate-teal — tone mẫu Codex */
   --card: #ffffff;
-  --line: #e2e9ef; /* hairline dividers — KHÔNG dùng làm viền thẻ */
-  --field: #eaeff3; /* nền ô nhập kiểu filled */
+  --line: #dce4e3; /* viền thẻ + kẻ mảnh — tone mẫu Codex */
+  --field: #edf1f0; /* nền ô nhập / nút phụ trung tính */
 
   /* hull & trim */
-  --navy: #14324f; /* hull blue */
-  --sea: #18648b; /* mid sea */
+  --navy: #1c323c; /* thương hiệu + tiêu đề: slate-teal của mẫu Codex (trước #14324f navy xanh dương) */
+  --sea: #306c72; /* nhấn teal: chữ in hoa nhỏ, icon, link, chip/dock đang chọn (trước #18648b) */
   --sun: #f2a01f; /* sun yellow */
   --trim: #e4572e; /* boat-trim orange-red */
 
