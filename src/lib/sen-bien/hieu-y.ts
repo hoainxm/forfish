@@ -99,6 +99,10 @@ const HOME_RE = / (cang nha|ve nha) | ve ben $/;
 // câu bắt đầu bằng động từ đi lại mà không thấy tên ⇒ bà con muốn tới một chỗ máy chưa biết
 // KHÔNG có "toi" trần: bỏ dấu thì "tôi" và "tới" là một ("tôi đau bụng…" từng thành "chưa thấy chỗ")
 const MOVE = /^(di|ve|ra|vao|vo|toi cang|chay|dan|chi duong)( |$)/;
+/** Câu mở bằng động từ đi lại — muốn đi đâu đó (dùng chung với kho hỏi–đáp: câu này KHÔNG đọc kho). */
+export const moDauDiLai = (text: string): boolean => MOVE.test(foldVn(text));
+/** Ngữ cảnh n-gram chuẩn cho câu nói (tên chỗ đã fold, đang chờ "đi") — cùng cái `senBienReply` đưa v4. */
+export const senNgramCtx = (dests: readonly SenDest[], awaitingGo = false) => ({ diem: dests.map((d) => core(d.name)), xn: awaitingGo });
 const NOT_FOUND = "Sen Biển chưa thấy chỗ đó. Bà con nói tên cảng, điểm đã ghim, hoặc đọc toạ độ.";
 
 /*  KHỚP GẦN THEO ÂM — chỉ khi không thấy tên nguyên cụm. Bộ nghe trong máy hay
@@ -231,7 +235,7 @@ export function senBienReply(
   }
 
   let hits = findDests(text, dests);
-  const g = model ? guessIntent(model, text, { diem: dests.map((d) => core(d.name)), xn: ctx.awaitingGo }) : null;
+  const g = model ? guessIntent(model, text, senNgramCtx(dests, ctx.awaitingGo)) : null;
   const yM = g?.y ?? null;
 
   // (3a) thao tác bản đồ — mô hình chắc thì theo mô hình, không thì luật chỉ bắt câu rất rõ

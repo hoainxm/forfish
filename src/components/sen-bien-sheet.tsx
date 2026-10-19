@@ -16,10 +16,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { fetchDataBytes } from "@/lib/data-fetch";
+import { fetchDataBytes, fetchDataJson } from "@/lib/data-fetch";
 import type { SenDest } from "@/lib/sen-bien/hieu-y";
 import { autoListenOk, listenOnce, micGranted, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
 import { boNgheSan } from "@/lib/sen-bien/nghe-may";
+import { DAU_KHO_PATH, loadDauKho } from "@/lib/sen-bien/dau-kho";
+import { docKho, HOI_DAP_PATH } from "@/lib/sen-bien/hoi-dap";
+import type { BoKho } from "@/lib/sen-bien/hoi-kho";
+import { loadLoc, LOC_PATH } from "@/lib/sen-bien/loc";
 import { loadNgram, NGRAM_PATH, type NgramModel } from "@/lib/sen-bien/ngram";
 import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC, viTriGocApp, type ViTriIcon } from "@/lib/sen-bien/vi-tri";
 import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
@@ -39,6 +43,47 @@ export function loadSenBienModel(): Promise<NgramModel | null> {
       });
   }
   return modelP;
+}
+
+let khoP: Promise<BoKho | null> | null = null;
+let daChoKho = false;
+let boKho: BoKho | null = null;
+/** Ba file kho hỏi–đáp (đầu kho v5b 4,6 MB + kho ⚠ chưa duyệt + bộ lọc 64 KB) — song song, mỗi file trần 20 s. */
+function napBoKho(): Promise<BoKho | null> {
+  if (!khoP) {
+    khoP = Promise.all([
+      fetchDataBytes(DAU_KHO_PATH, 20000, "sen-bien dau-kho").then(loadDauKho),
+      fetchDataJson(HOI_DAP_PATH, 20000, "sen-bien hoi-dap"),
+      fetchDataBytes(LOC_PATH, 20000, "sen-bien loc").then(loadLoc).catch(() => null), // thiếu lọc vẫn chạy: chỉ ý hoi_mo/khong_hieu vào kho
+    ])
+      .then(([dk, raw, loc]) => {
+        const kho = dk ? docKho(raw, dk.nq) : null;
+        return dk && kho ? { dk, kho, loc } : null;
+      })
+      .catch(() => null)
+      .then((b) => {
+        if (b) boKho = b;
+        else khoP = null; // hỏng ⇒ lần sau thử lại
+        return b;
+      });
+  }
+  return khoP;
+}
+/**
+ * Kho hỏi–đáp trong máy (lib/sen-bien/hoi-kho.ts). Lần đầu CHỜ tải (câu hỏi đầu đã có câu trả lời); hỏng thì các lần sau
+ * thử lại NGẦM và trả null ngay — không bắt câu đang nói chờ thêm tới 20 s khi sóng chập chờn. Lỗi ⇒ null, không ném.
+ */
+export function boKhoSan(): BoKho | null {
+  if (!boKho) void napBoKho();
+  return boKho;
+}
+/** Kho đã tải sẵn (không chờ); chưa có thì bắt đầu tải ngầm cho lần sau. */
+export async function loadBoKho(): Promise<BoKho | null> {
+  if (boKho) return boKho;
+  const p = napBoKho();
+  if (daChoKho) return null;
+  daChoKho = true;
+  return p;
 }
 
 /** Màn cha xử lý câu nghe được: trả câu hiện ra + (nếu có) danh sách chọn. */

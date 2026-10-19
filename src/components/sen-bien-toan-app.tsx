@@ -17,7 +17,7 @@ import { Capacitor } from "@capacitor/core";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { SenBienNoi, SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
+import { SenBienNoi, SenBienSheet, boKhoSan, loadBoKho, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
 import type { AssistantAction } from "@/lib/assistant/types";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
@@ -27,7 +27,9 @@ import { loadPlaces } from "@/lib/places";
 import { loadHome, saveHome } from "@/lib/region";
 import { readToken } from "@/lib/device-token-store";
 import { DANG_HOI, doanMayNha, hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
-import { senBienReply } from "@/lib/sen-bien/hieu-y";
+import { chonCauHoi } from "@/lib/sen-bien/gemma";
+import { senBienReply, senNgramCtx } from "@/lib/sen-bien/hieu-y";
+import { CAU_CHUA_CHAC, goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
 import { lamLenhCho, type ChoKetQua } from "@/lib/sen-bien/lam-cho";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
@@ -206,7 +208,8 @@ export function SenBienToanApp() {
         noi(hoiLai);
         return { show: hoiLai };
       }
-      const r = senBienReply(text, model, [], null, { awaitingGo: false, running: false, loaiCa: LOAI_CA });
+      // luật "nhắc lại"/"còn bao xa" bắt nhầm đuôi câu hỏi ⇒ bộ lọc (trong kho đã sẵn, không chờ) gỡ (hoi-kho.goLenhNgan)
+      const r = goLenhNgan(text, senBienReply(text, model, [], null, { awaitingGo: false, running: false, loaiCa: LOAI_CA }), boKhoSan()?.loc ?? null, senNgramCtx([]));
       // câu việc bản đồ: màn bản đồ ghi lại khi chạy ?sen= ⇒ ở đây không ghi, khỏi đếm hai lần
       if (!veBanDo(r)) ghiMau(text, r);
       if (veBanDo(r)) {
@@ -214,6 +217,43 @@ export function SenBienToanApp() {
         dong();
         router.push(`/ngu-truong?sen=${encodeURIComponent(text)}`);
         return { show: "Mở bản đồ…" };
+      }
+      /*  KHO HỎI–ĐÁP TRONG MÁY (lib/sen-bien/hoi-kho.ts, 2026-10-19 — ⚠ kho chưa duyệt, bản test): câu hỏi kiến thức ⇒
+          v5b đưa 9 câu, Gemma (Android) chọn / ngưỡng n-gram ⇒ đọc câu có sẵn, chạy cả khi mất sóng. Kho chỉ tải khi
+          câu v4 nói hoi_mo/khong_hieu thì CHỜ kho (lần đầu); ý khác chỉ dùng kho đã sẵn (bộ lọc nằm trong kho) — lệnh
+          trong app không phải chờ tải 5 MB. */
+      const ctxN = senNgramCtx([]);
+      const bo = r.kind !== "say" || r.daTraLoi ? null : r.y === "hoi_mo" || r.y === "khong_hieu" ? await loadBoKho() : boKhoSan();
+      const kq = await hoiKho(text, r, bo, ctxN, chonCauHoi);
+      if (kq.vao && kq.dap) {
+        noi(kq.dap.say);
+        return { show: kq.dap.say };
+      }
+      const coSong = typeof navigator === "undefined" || navigator.onLine !== false;
+      /** Hỏi máy nhà (ADR 0016): câu đọc được ⇒ đọc giọng Mỹ Duyên, trả chữ; không được ⇒ null. */
+      const hoiMayNha = async (): Promise<string | null> => {
+        if (!nenHoiMayChu(r, text, !!readToken(), coSong)) return null;
+        noi(DANG_HOI, false);
+        const dap = await hoiMayChu(text, pathname, loadHome().province ?? null);
+        if (!dap) return null;
+        // câu đã vào mẫu học ở trên (ghiMau); câu trả lời máy nhà được AI Assistant ghi nhật ký train `forfish_tb`.
+        // Đọc GIỌNG MỸ DUYÊN (mp3 máy nhà đọc sẵn từng câu); câu nào không có mp3 thì giọng máy — như noi()
+        const luot = ++luotDoc.current;
+        setDangDoc(true);
+        ttsSpeakMp3(doanMayNha(dap), {
+          onEnd: (xong) => {
+            if (luot !== luotDoc.current) return;
+            setDangDoc(false);
+            if (xong) setTuNghe((n) => n + 1);
+          },
+        });
+        return dap.text;
+      };
+      // (c) câu hỏi kho TRƯỢT: có sóng ⇒ máy nhà TRƯỚC (câu trả lời của answer.ts cho hoi_mo/khong_hieu chỉ là "cần sóng" /
+      // "chưa nghe rõ" — đừng để nó chặn đường hỏi máy nhà)
+      if (kq.vao) {
+        const t = await hoiMayNha();
+        if (t) return { show: t };
       }
       let boats: string[] = [];
       let places: string[] = [];
@@ -223,34 +263,24 @@ export function SenBienToanApp() {
       } catch {
         // kho hỏng / bị chặn — trả lời không có tên riêng
       }
-      const a = traLoiApp(text, r, gomSnapshot(pathname), { awaitingConfirm: false, boatNames: boats, portNames: [], placeNames: places, route: pathname }, Date.now());
+      // kho trượt + ý hoi_mo/khong_hieu: câu của answer.ts là ngõ cụt ⇒ bỏ, nói câu an toàn bên dưới
+      const a =
+        kq.vao && r.kind === "say" && (r.y === "hoi_mo" || r.y === "khong_hieu")
+          ? null
+          : traLoiApp(text, r, gomSnapshot(pathname), { awaitingConfirm: false, boatNames: boats, portNames: [], placeNames: places, route: pathname }, Date.now());
       if (a) {
         const them = lam(a.action);
         noi(`${a.speak}${them}`);
         return { show: `${a.text}${them}` };
       }
-      const say = "say" in r ? r.say : "";
       /*  MÁY KHÔNG TỰ TRẢ LỜI ĐƯỢC + CÓ SÓNG ⇒ HỎI MÁY NHÀ (ADR 0016, 2026-10-19): Gemma trong máy gpu-desktop, luồng
           thuê bao ForFish (AI Assistant /gw/v1/forfish/hoi qua /api/sen-bien/hoi). Báo "đang hỏi" ngay; máy nhà im /
-          mất sóng / quá giờ ⇒ nói câu cũ của máy như trước. */
-      if (nenHoiMayChu(r, text, !!readToken(), typeof navigator === "undefined" || navigator.onLine !== false)) {
-        noi(DANG_HOI, false);
-        const dap = await hoiMayChu(text, pathname, loadHome().province ?? null);
-        if (dap) {
-          // câu đã vào mẫu học ở trên (ghiMau); câu trả lời máy nhà được AI Assistant ghi nhật ký train `forfish_tb`.
-          // Đọc GIỌNG MỸ DUYÊN (mp3 máy nhà đọc sẵn từng câu); câu nào không có mp3 thì giọng máy — như noi()
-          const luot = ++luotDoc.current;
-          setDangDoc(true);
-          ttsSpeakMp3(doanMayNha(dap), {
-            onEnd: (xong) => {
-              if (luot !== luotDoc.current) return;
-              setDangDoc(false);
-              if (xong) setTuNghe((n) => n + 1);
-            },
-          });
-          return { show: dap.text };
-        }
+          mất sóng / quá giờ ⇒ nói câu cũ của máy như trước (câu hỏi kho trượt đã hỏi ở trên ⇒ câu an toàn). */
+      if (!kq.vao) {
+        const t = await hoiMayNha();
+        if (t) return { show: t };
       }
+      const say = kq.vao ? CAU_CHUA_CHAC : "say" in r ? r.say : "";
       noi(say);
       return { show: say };
     },

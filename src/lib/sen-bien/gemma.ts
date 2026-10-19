@@ -189,3 +189,50 @@ export async function chuanBiGemma(tietKiemDuLieu: boolean): Promise<GemmaTrangT
 export function dongGemma(): void {
   if (coGemma()) void Plugin.dong().catch(() => {});
 }
+
+/* ── VAI THỨ HAI (2026-10-19): CHỌN CÂU HỎI TRONG KHO ────────────────────────────────────────────────────────────
+   n-gram v5b đưa 9 câu hỏi chuẩn gần nhất (dau-kho.ts, hoi-kho.ts); Gemma đọc câu bà con + 9 câu, trả MỘT chữ số:
+   1–9 = câu cùng ý, 0 = không câu nào (⇒ hỏi máy nhà khi có sóng / câu an toàn khi mất sóng). Prompt KHỚP TỪNG CHỮ
+   với lúc train (repo AI Assistant tro-ly-v5r `dung-chon.mjs` hàm `mau`, tron:false — thứ tự theo n-gram, KHÔNG hạ
+   chữ thường: dữ liệu train đã trộn HOA/thường như bộ nghe).
+   nợ: mô hình đang ở gói Play Asset (.litertlm hiện tại) CHƯA học vai này — nó trả JSON hiểu ý, không phải chữ số
+   ⇒ `docSoChon` ra null ⇒ hoi-kho lùi về ngưỡng n-gram như web. Trần: Android chưa được Gemma chọn câu. Nâng cấp khi
+   bản đa nhiệm g270v5r (hiểu ý v4 + chọn câu) qua cổng: thay .litertlm trong `android/sen-bien-gemma` (doc 15 §26,
+   ops/native-deploy §3c), không đổi code. */
+export const SYSTEM_CHON =
+  "Bộ chọn câu hỏi Sen Biển. Đọc câu ngư dân hỏi và 9 câu hỏi có sẵn, trả đúng một số: số của câu cùng ý, không câu nào cùng ý thì 0.";
+
+/** = dung-chon.mjs mau(): "cau: <câu>" rồi mỗi dòng "n. <câu hỏi chuẩn>". */
+export function nguoiChon(cau: string, hoi: readonly string[]): string {
+  return `cau: ${cau}\n` + hoi.map((h, i) => `${i + 1}. ${h}`).join("\n");
+}
+
+/** Ký tự đầu (bỏ khoảng trắng) là chữ số 0–9 và không vượt số ứng viên ⇒ số đó; còn lại ⇒ null. */
+export function docSoChon(txt: unknown, n: number): number | null {
+  const c = String(txt ?? "").trim().charAt(0);
+  if (!/^[0-9]$/.test(c)) return null;
+  const k = Number(c);
+  return k <= n ? k : null;
+}
+
+/** Trần chờ Gemma chọn câu — quá thì coi như không có Gemma. */
+export const CHON_HAN_MS = 4000;
+
+/** Hỏi Gemma chọn câu (Android). Không có Gemma / lỗi / quá giờ / trả không phải chữ số ⇒ null. Không bao giờ ném. */
+export async function chonCauHoi(cau: string, hoi: readonly string[], tranMs = CHON_HAN_MS): Promise<number | null> {
+  if (!hoi.length || !coGemma()) return null;
+  let t: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const kq = await Promise.race([
+      Plugin.hoi({ he: SYSTEM_CHON, nguoi: nguoiChon(cau, hoi) }),
+      new Promise<null>((ok) => {
+        t = setTimeout(() => ok(null), tranMs);
+      }),
+    ]);
+    return kq ? docSoChon(kq.txt, hoi.length) : null;
+  } catch {
+    return null;
+  } finally {
+    if (t) clearTimeout(t);
+  }
+}

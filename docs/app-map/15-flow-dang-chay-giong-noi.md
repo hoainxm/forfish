@@ -902,4 +902,64 @@ Chủ dự án: *"toàn bộ thao tác sàn phải đảm bảo sen biển thự
 
 **Đã kiểm (trình duyệt dev file mode)**: "shop có đơn mới không" (Hải Đăng) ⇒ đọc "không có đơn chờ" + mở `/ban-hang/don`; "đi giao đơn K7PQ gửi xe Phương Trang" ⇒ nút [Đang giao · Thôi] → bấm ⇒ đơn sang Đang giao, nhà xe ghi đúng; "đã giao xong rồi" ⇒ bấm chuột thật ⇒ đơn Đã giao; chủ tàu "tôi đã nhận được hàng rồi" (2 đơn đã giao) ⇒ đọc 2 đơn, xin 4 chữ cuối; "đơn tới đâu rồi" ⇒ đọc 3 đơn kèm hẹn giao.
 
-**Last updated**: 2026-10-18 — gộp main: tên bão đọc phiên âm Việt + bỏ tên Latin khỏi câu nói khu bảo tồn (§21n); gộp main: trả nợ §22b (64 mp3 Mỹ Duyên theo luật mp3 gọn; phần n-gram v3 học lệnh ngắn được v4 thay — v4 đã gồm 1.184 câu đó). Trước đó: 2026-10-18 — n-gram v4 thêm 13 ý sàn, cổng phụ hỏi lại khi luật hụt (§25). Trước đó: 2026-10-18 — Sen Biển làm mọi thao tác sàn (§25). Trước đó: 2026-10-18 — Sen Biển trợ lý giọng nói cho toàn app (§24). Trước đó: 2026-10-18 — gộp `feat/sen-bien-ranh-tay` vào `main` (§22b) + Sen Biển học thêm từ câu nói thật: ghi mẫu trong máy, có sóng gửi về (§23). Trước đó: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).
+
+## 26. SEN BIỂN — KHO HỎI–ĐÁP TRONG MÁY: v4 hiểu lệnh · v5b đầu kho · lọc · Gemma chọn (2026-10-19, nhánh `test/ban-gop`, ⚠ CHỈ BẢN TEST — CHƯA ĐƯỢC LÊN MAIN)
+
+Chủ dự án 19/10: *"nâng n-gram lên phân biệt hơn 2000 câu hỏi"*; rồi chốt: **giữ v4 hiểu LỆNH (không tụt), v5b CHỈ làm đầu kho, Gemma trong máy chọn câu, còn lại có sóng hỏi máy nhà** — mục tiêu ngoài biển tự trả lời ~99 % câu bà con hỏi. Kho chỉ đọc câu **không cần kiểm**; câu dính số liệu/luật nói câu an toàn.
+
+**Vì sao không thay v4 bằng v5b** (đo n-gram trơn, bộ kín `forfish-troly-v2`, v4 → v5b): A 97,0 → 99,1 · A-nhiễu 97,5 → 97,0 · B 91,2 → 89,2 · BĐ 95,4 → 93,3 · BĐ-asr 94,6 → 90,4 · chợ 92,0 → 90,7 · lệnh-asr 87,4 → 83,4 — trung bình −1,4 điểm, rớt cổng; tên chỗ lệch giọng ("về bến quèo nhôn", "chạy ra táp cẩu"…) hết ra dẫn đường. v4 giữ nguyên (`sen-bien-ngram.v4.bin`, `ngram.ts` y như trước — chỉ thêm `export` cho `dacTrung`; test `sen-bien.test.ts` không đổi).
+
+**Ba file mới** (`scripts/build-sen-bien-hoi-dap.mjs`, sinh lại có chủ ý; đọc qua `fetchDataBytes/fetchDataJson`, SDF2 như mọi `/data`):
+- `sen-bien-ngram.v5.bin` 4,6 MB = `w.sbn5` v5b (H=64) — `lib/sen-bien/dau-kho.ts` chỉ đọc đầu kho (E + Wq, int8 thang mỗi hàng; đầu ý định bỏ), `topK`. Khớp `topk.mjs` bên train: 2.056 câu, top-9 lệch 0.
+- `sen-bien-hoi-dap.v1.json` 635 KB: `trangThai: "chua-duyet-chi-ban-test"` · `q` 1.990 mã đúng thứ tự lớp · `cauHoi` câu hỏi CHUẨN (danh mục `hoi`) cho Gemma chọn · `dap` 1.530 câu trả lời (`can_kiem=false`) · `canKiem` 460 mã KHÔNG mang câu trả lời. 10 câu trùng ý (`trung.json`) không có lớp — mô hình đoán thẳng về câu giữ.
+- `sen-bien-loc.v1.bin` 64 KB: bộ lọc "câu hỏi kiến thức hay câu lệnh" (`lib/sen-bien/loc.ts`) — "SBL1" · f32 thang · f32 b · i8 w[65536], logistic trên đúng đặc trưng băm v4 (có ngữ cảnh). Khớp `loc.mjs pHoi` lệch ≤ 6·10⁻⁸. `LOC_NGUONG` 0,8 (mốc khởi điểm — chờ số đo).
+
+**Chuỗi** (`lib/sen-bien/hoi-kho.ts`, nối ở `sen-bien-toan-app` và `fishing-map-view senHeard` nhánh "say"):
+1. (a) luật + v4 (`senBienReply`) như cũ — lệnh, hỏi bản đồ, câu trả lời thật (`daTraLoi`), chặn ngoài phạm vi: xong.
+2. (b) `goLenhNgan` (dưới) rồi `vaoKho`: câu "say" chưa trả lời thật, không mở bằng động từ đi lại (`moDauDiLai`), không phải ý đi lại / ngoài phạm vi, và (v4 = `hoi_mo` HOẶC lọc p ≥ 0,8 — kể cả `khong_hieu`) ⇒ `ungVien`: v5b lấy 12, gộp mã, cắt 9 (= `dung-chon.mjs mau`, tron:false; khớp từng chữ trên 500 câu).
+   - câu nhất p ≥ `Q_NHANH` 0,9 ⇒ trả lời luôn;
+   - Android: `gemma.chonCauHoi` (prompt `SYSTEM_CHON` + `nguoiChon` khớp từng chữ lúc train, trần 4 s) — 1–9 ⇒ câu đó, 0 ⇒ trượt;
+   - không Gemma / Gemma không ra chữ số / quá giờ / lỗi ⇒ câu nhất p ≥ `Q_CHAC` 0,5 ⇒ trả lời, không thì trượt;
+   - mã cần kiểm ⇒ `CAU_CAN_KIEM` *"Câu này dính tới luật lệ, con số, Sen Biển chưa dám nói chắc. Bà con hỏi Chi cục Thuỷ sản hoặc SDVICO cho đúng nhé."*
+3. (c) trượt ⇒ có sóng + có chuỗi: hỏi máy nhà (`hoiMayChu`, ADR 0016 — `daTraLoi` false nên `nenHoiMayChu` nhận; màn bản đồ nay cũng hỏi, đọc chữ bằng giọng chung); không được ⇒ ý `hoi_mo`/`khong_hieu`: `CAU_CHUA_CHAC` *"Câu này Sen Biển chưa chắc. Có sóng bà con hỏi lại, Sen Biển hỏi máy nhà cho."* (câu "cần sóng"/"chưa nghe rõ" của answer.ts không còn chặn đường máy nhà); ý app khác: trả lời bằng dữ liệu trong máy như cũ.
+
+**Tải**: màn bản đồ tải kho sau bộ hiểu ý (8 s sau mở). Màn khác: ý `hoi_mo`/`khong_hieu` chờ kho lần đầu; ý khác chỉ dùng kho đã sẵn (lệnh trong app không chờ 5 MB). Hỏng ⇒ thử lại ngầm, không chờ.
+
+**Gemma — nợ thay mô hình**: gói Play `android/sen-bien-gemma` đang là bản hiểu ý v4, CHƯA học vai chọn ⇒ trả JSON ⇒ `docSoChon` null ⇒ Android chạy như web. Bản đa nhiệm **g270v5r** (hiểu ý v4 + chọn câu) đang train; qua cổng thì thay `.litertlm` trong gói (ops/native-deploy §3c), không đổi code.
+
+**Lọc đè ĐÚNG hai luật lệnh ngắn** (chủ dự án 2026-10-19, chọn phương án an toàn — `hoi-kho.goLenhNgan`, gọi ngay sau `senBienReply` ở cả hai màn): `REPEAT` bắt nhầm "…là gì vậy", `HOWFAR` bắt nhầm "…bao lâu một lần" ⇒ lọc p ≥ 0,8 và câu không mở bằng động từ đi lại thì đổi thành câu hỏi (`hoi_mo`) cho chuỗi kho. Lệnh thật "nhắc lại", "nói lại đi", "gì vậy", "còn bao xa", "bao lâu nữa thì tới", "tới chưa" lọc ≤ 0,05 ⇒ giữ nguyên. **KHÔNG** đè chặn `ngoai_pham_vi` (ranh giới an toàn), câu hỏi bản đồ, dẫn đường. Màn khác dùng lọc trong kho đã sẵn (không chờ tải) — lần đầu chưa có kho thì luật cũ.
+
+**Số đo bộ lọc riêng** (điều phối, test-hd, mọi ý v4): lọc ≥ 0,8 ⇒ phủ 88,0 % / đúng 82,5 %, bộ lệnh bị cướp nhiều nhất 2,1 % (test-bd-asr); ≥ 0,9 ⇒ 84,7 % / 82,4 %, cướp nhiều nhất 1,3 %. Giữ `LOC_NGUONG` 0,8 — Gemma là lớp gác thứ hai (học trả 0 cho câu lệnh).
+
+**Độ phủ NGOÀI BIỂN của cả chuỗi như app chạy** (đo lại 2026-10-19 sau khi đè hai luật; web, KHÔNG Gemma, ngữ cảnh rỗng):
+
+| Bộ kín | Câu | Vào kho | Trả lời trong máy | Đúng câu | trong đó câu an toàn (cần kiểm) |
+|---|---|---|---|---|---|
+| test-hd | 6.000 | 62,0 % | 57,1 % | 83,6 % | 12,4 % |
+| test-hd-asr (chữ như bộ nghe) | 6.000 | 62,4 % | 56,9 % | 82,2 % | 12,2 % |
+
+| Bộ lệnh kín (bỏ câu nhãn hoi_mo) | Câu | Bị kho trả lời |
+|---|---|---|
+| test-a · test-a-nhieu · test-bd · test-bd-tay | 222 · 191 · 223 · 27 | 0 |
+| test-b | 539 | 6 (1,1 %) |
+| test-bd-asr | 223 | 1 (0,4 %) |
+| test-cho · test-cho-asr | 237 · 237 | 2 (0,8 %) · 5 (2,1 %) |
+| test-lenh · test-lenh-asr | 223 · 223 | 1 (0,4 %) · 2 (0,9 %) |
+| **Tổng** | **2.345** | **17 (0,7 %)** |
+
+Trước khi đè hai luật: vào 58,1 % · trả lời 53,4 % · đúng 83,3 % · 17 câu lệnh — tức +3,7 điểm trả lời, KHÔNG thêm câu lệnh nào bị kho trả lời. Câu hỏi kho còn KHÔNG vào được chủ yếu vì v4/luật đã trả lời: `ngoai_pham_vi` ~23,6 % (chủ dự án giữ chặn — an toàn trước), hỏi bản đồ ~8 %, dẫn đường ~3 %. Phần trượt có sóng đi máy nhà; mất sóng nói câu an toàn. Có Gemma chọn (Android, sau khi thay mô hình) thì phần p 0,5–0,9 do Gemma quyết — chưa đo trong app.
+
+| Trạng thái | Hành vi |
+|---|---|
+| Kho có, câu chắc (p ≥ 0,9, hoặc Gemma chọn, hoặc web p ≥ 0,5) | đọc câu có sẵn (≤ 60 chữ, Opus soạn, chưa duyệt) |
+| Câu cần kiểm | `CAU_CAN_KIEM` |
+| Trượt + có sóng | máy nhà (≤ 6 s); máy nhà im ⇒ câu dưới |
+| Trượt + mất sóng / máy nhà im | `CAU_CHUA_CHAC` (ý hoi_mo/khong_hieu) · câu cũ (ý app khác) |
+| Kho / đầu kho chưa tải, hỏng, lệch nhau | như trượt; lọc hỏng ⇒ chỉ ý hoi_mo vào |
+| Gemma chưa có / đang tải / bản cũ / quá 4 s | như web |
+
+**Offline — 4 câu**: (a) thêm 3 request `/data` (4,6 MB + 635 KB + 64 KB) lúc mở bản đồ (sau bộ hiểu ý) hoặc câu hỏi đầu tiên — trần 20 s/file, lỗi ⇒ null, không ném, không chặn màn; Gemma 4 s; máy nhà chỉ khi có sóng (sẵn có, 6 s); (b) không đụng `sw.js`/SHELL/khoá `forfish.*` — ba file đi đường `/data` cache-first sẵn có; (c) không đè/xoá dữ liệu bà con; (d) câu trả lời nằm trong file đã cất — mất sóng vẫn đọc; trượt khi mất sóng nói câu an toàn.
+
+**Assumptions** (2026-10-19 — (1), (2) chủ dự án đã duyệt giữ): (1) `khong_hieu` phải qua lọc mới vào kho (đo: cho vào thẳng thì 49 câu lệnh kín bị đọc kho, qua lọc 17; mất 0,1 % phủ — đầu kho softmax tự tin cả với câu ngoài kho, "hôm qua ăn gì" p 0,999); (2) Gemma trả null (không ra chữ số / quá 4 s / lỗi) ⇒ lùi ngưỡng n-gram 0,5 như web, CHỈ số 0 mới là trượt (mô hình Gemma hiện tại chưa học vai chọn — không để Android mất kho); (2b) lọc đè CHỈ hai luật lệnh ngắn "nhắc lại"/"còn bao xa" (chủ dự án chọn), không đè ngoài phạm vi / hỏi bản đồ / dẫn đường; (3) ngưỡng 0,5 / 0,9 / lọc 0,8 như đề; (4) câu gộp trùng dùng câu hỏi chuẩn + câu trả lời + cờ cần kiểm của CÂU GIỮ; (5) chưa thêm câu dẫn "theo kho tham khảo"; (6) màn bản đồ hỏi máy nhà đọc chữ bằng giọng chung (chưa ghép mp3 Mỹ Duyên như màn khác).
+
+**Last updated**: 2026-10-19 — §26 kho hỏi–đáp trong máy: v4 hiểu lệnh + v5b đầu kho + lọc + Gemma chọn câu (CHỈ BẢN TEST, kho chưa duyệt). Trước đó: 2026-10-18 — gộp main: tên bão đọc phiên âm Việt + bỏ tên Latin khỏi câu nói khu bảo tồn (§21n); gộp main: trả nợ §22b (64 mp3 Mỹ Duyên theo luật mp3 gọn; phần n-gram v3 học lệnh ngắn được v4 thay — v4 đã gồm 1.184 câu đó). Trước đó: 2026-10-18 — n-gram v4 thêm 13 ý sàn, cổng phụ hỏi lại khi luật hụt (§25). Trước đó: 2026-10-18 — Sen Biển làm mọi thao tác sàn (§25). Trước đó: 2026-10-18 — Sen Biển trợ lý giọng nói cho toàn app (§24). Trước đó: 2026-10-18 — gộp `feat/sen-bien-ranh-tay` vào `main` (§22b) + Sen Biển học thêm từ câu nói thật: ghi mẫu trong máy, có sóng gửi về (§23). Trước đó: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).

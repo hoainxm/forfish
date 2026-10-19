@@ -288,7 +288,10 @@ import type { VoiceMode } from "@/lib/nav-voice/announcer";
 import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { setSenSignal } from "@/lib/sen-bien-state";
-import { apDungGemma, canGemma, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
+import { apDungGemma, canGemma, chonCauHoi, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
+import { CAU_CHUA_CHAC, goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
+import { DANG_HOI, hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { readToken } from "@/lib/device-token-store";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
@@ -298,8 +301,8 @@ import { Capacitor } from "@capacitor/core";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
 import { foldVn, guessIntent } from "@/lib/sen-bien/ngram";
 import { CruiseIntroSheet } from "@/components/nav-voice-ui";
-import { SenBienNoi, SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
-import { senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
+import { SenBienNoi, SenBienSheet, boKhoSan, loadBoKho, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
+import { senBienReply, senNgramCtx, type SenDest } from "@/lib/sen-bien/hieu-y";
 import { traLoi, type KhoBanDo, type ViTri } from "@/lib/sen-bien/hoi-ban-do";
 import {
   cauDocSo,
@@ -2855,6 +2858,8 @@ export default function FishingMapView() {
       // mẫu câu nói còn trong máy (chuyến trước mất sóng) ⇒ có sóng thì gửi về để học; không chờ, không ném
       void guiMauSen();
       void loadSenBienModel()
+        // kho hỏi–đáp trong máy (đầu kho v5b + kho + bộ lọc ~5,3 MB, doc 15 §26) — tải lúc còn sóng, SW giữ cho ngoài biển
+        .then(() => loadBoKho())
         .then(() => warmVoiceClips())
         .then(() => napBoNghe(senTenRef.current))
         // Android: Gemma tách tham số (gói Play on-demand 62 MB, ADR 0012) — có thì nạp, chưa có thì xin Play tải
@@ -3973,7 +3978,13 @@ export default function FishingMapView() {
               tau: [],
             })
         : null;
-      const r = canGemma(r0) ? apDungGemma(r0, g, SEN_LOAI_CA, senDests) : r0;
+      // luật "nhắc lại"/"còn bao xa" bắt nhầm đuôi câu hỏi ("…là gì vậy", "…bao lâu một lần") ⇒ bộ lọc gỡ (hoi-kho.goLenhNgan)
+      const r = goLenhNgan(
+        text,
+        canGemma(r0) ? apDungGemma(r0, g, SEN_LOAI_CA, senDests) : r0,
+        boKhoSan()?.loc ?? null,
+        senNgramCtx(senDests, senAwait != null),
+      );
       // mẫu học (chủ dự án 2026-10-18): chữ nghe ra + máy hiểu thành gì — cất trong máy, có sóng mới gửi
       ghiMauSen({
         phien: senPhienRef.current || (senPhienRef.current = phienMoi()),
@@ -4057,6 +4068,31 @@ export default function FishingMapView() {
           return { show: t };
         }
         default: {
+          /*  KHO HỎI–ĐÁP TRONG MÁY (lib/sen-bien/hoi-kho.ts, doc 15 §26 — ⚠ kho chưa duyệt, bản test): câu hỏi kiến
+              thức ⇒ v5b 9 câu ⇒ Gemma (Android) chọn / ngưỡng n-gram ⇒ đọc câu có sẵn, kể cả mất sóng. Trượt ⇒ có sóng
+              hỏi máy nhà (ADR 0016), không thì câu an toàn. Ý hoi_mo/khong_hieu chờ kho; ý khác chỉ dùng kho đã sẵn. */
+          const bo = r.daTraLoi ? null : r.y === "hoi_mo" || r.y === "khong_hieu" ? await loadBoKho() : boKhoSan();
+          const kq = await hoiKho(text, r, bo, senNgramCtx(senDests, senAwait != null), chonCauHoi);
+          if (kq.vao && kq.dap) {
+            senSay(kq.dap.say);
+            return { show: kq.dap.say };
+          }
+          if (kq.vao) {
+            const coSong = typeof navigator === "undefined" || navigator.onLine !== false;
+            if (nenHoiMayChu(r, text, !!readToken(), coSong)) {
+              senSay(DANG_HOI);
+              const dap = await hoiMayChu(text, "/ngu-truong", null);
+              if (dap) {
+                senSay(dap.text);
+                return { show: dap.text };
+              }
+            }
+            // kho trượt + ý hoi_mo/khong_hieu: câu của answer.ts là ngõ cụt ("cần sóng" / "chưa nghe rõ") ⇒ câu an toàn
+            if (r.y === "hoi_mo" || r.y === "khong_hieu") {
+              senSay(CAU_CHUA_CHAC);
+              return { show: CAU_CHUA_CHAC };
+            }
+          }
           // việc trong app (giấy tờ, bảo dưỡng, bạn thuyền, giá cá, mở màn…) ⇒ trả lời từ dữ liệu trong máy
           // (lớp trợ lý toàn app, 2026-10-18) thay vì "chỉ giúp trên bản đồ"
           const a = traLoiApp(
