@@ -550,7 +550,7 @@ describe("lớp đèn biển phải được NỐI, không chỉ nằm trong rep
   });
 
   it("chạm được — ban đêm câu hỏi là ĐÈN NÀO, không chạm thì không trả lời được", () => {
-    const v = doc("src/components/fishing-map-view.tsx");
+    const v = (doc("src/components/fishing-map-view.tsx") + doc("src/components/ban-do/the-thong-tin.tsx"));
     expect(v, "lớp đèn chưa vào danh sách bắt chạm").toContain('ids.push("den-bien")');
     expect(v, "chưa có thẻ mô tả đèn").toContain("moTaDenBien(");
   });

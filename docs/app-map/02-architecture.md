@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19f — TÁCH fishing-map-view.tsx lát 2: 11 THẺ THÔNG TIN KHI CHẠM (báo hiệu · đo sâu · đèn · xác tàu · chất đáy · khu trú bão · vùng quản lý · rạn/bãi · luồng/hạ tầng · địa danh ngầm · mốc bão) + `DongToaDo` dời nguyên văn sang `src/components/ban-do/the-thong-tin.tsx`: mỗi thẻ là component `TheX({ info, onClose, …prefs/bieuTuong/tideStations/todayIso })`, kiểu state thành kiểu có tên (MarkInfo, DepthInfo…). File gốc 9.278 → 8.572 dòng. KHÔNG đổi hành vi/giao diện; 4 test đọc nguồn (den-bien, soundings-verified, tides, xac-tau) nay đọc cả hai file. -->
 <!-- re-verified: 2026-10-19e — TÁCH fishing-map-view.tsx (rà Codex đợt 3), lát 1: hằng báo hiệu hàng hải (SEAMARK_*, CLUSTER_HIT_LAYERS, SEAMARK_ICON_LAYOUT, KHONG_PHAI_CUM/LA_CUM), `cumLayers` và chú giải theo tầng (LegendRow/LegendTier/LEGEND_TIERS) dời NGUYÊN VĂN sang `src/components/ban-do/hai-do.tsx`, file gốc import lại. KHÔNG đổi hành vi/giao diện (5105 test đạt). Thư mục `src/components/ban-do/` là chỗ cho các lát sau. -->
 <!-- re-verified: 2026-10-19d — ROUTE MỚI `/api/status` (GET, công khai như /api/version, ngoài dataGate — có trong danh sách "không phải dữ liệu" của data-route-rules.test; SW không cache vì ngoài API_CACHE_ALLOW): mã bản + ngày build + ngày fit tham số mô hình (src/data/fish-blend-weights.json, forecast-skill.json) + TUỔI bản tính sẵn mới nhất (fish_forecast_snapshot, weather_snapshot id grid:%) ⇒ `duLieu` tuoi|cu|khong-doc-duoc (ngưỡng 36 h). Luật thuần lib/status-report.ts (+ test). DB lỗi ⇒ vẫn 200 "khong-doc-duoc" (trang hỏi tình trạng không được sập theo DB); truy vấn trần 5 s. deploy.yml in dòng này sau health check (không chặn). -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
@@ -331,6 +332,7 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 
 
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 <!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->

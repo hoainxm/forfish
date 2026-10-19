@@ -225,7 +225,7 @@ describe("câu nói tuổi khi ngày chỉ là ước chừng", () => {
   });
 
   it("giao diện ĐỌC cờ đó — không chỉ có trong dữ liệu", () => {
-    const v = read("src/components/fishing-map-view.tsx")
+    const v = (read("src/components/fishing-map-view.tsx") + read("src/components/ban-do/the-thong-tin.tsx"))
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^[ \t]*\/\/.*$/gm, "");
     expect(v, "thẻ chạm chưa đọc cờ ngayUocLuong").toContain("ngayUocLuong");

@@ -666,7 +666,7 @@ describe("thuỷ triều + làm mớn phải được NỐI, không chỉ nằm 
   const doc = (p: string) => strip(_rf(path.join(process.cwd(), p), "utf8"));
 
   it("component nạp trạm và dùng cảnh báo mớn trong thẻ độ sâu", () => {
-    const v = doc("src/components/fishing-map-view.tsx");
+    const v = (doc("src/components/fishing-map-view.tsx") + doc("src/components/ban-do/the-thong-tin.tsx"));
     expect(v, "chưa gọi fetchTideStations").toContain("fetchTideStations(");
     expect(v, "chưa dùng tideDraftWarning").toContain("tideDraftWarning(");
     expect(v, "thiếu câu độ-tin khi trạm xa").toContain("tideTrustText(");

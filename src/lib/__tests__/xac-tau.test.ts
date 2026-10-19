@@ -622,7 +622,7 @@ describe("lớp xác tàu phải được NỐI, không chỉ nằm trong repo",
   const doc = (p: string) => strip(_rf2(_j2(process.cwd(), p), "utf8"));
 
   it("component nạp, vẽ và cho chạm", () => {
-    const v = doc("src/components/fishing-map-view.tsx");
+    const v = (doc("src/components/fishing-map-view.tsx") + doc("src/components/ban-do/the-thong-tin.tsx"));
     expect(v, "chưa gọi fetchXacTau").toContain("fetchXacTau(");
     expect(v, "chưa vẽ WRECK_LAYER").toContain("WRECK_LAYER");
     expect(v, "chưa vào danh sách chạm").toContain('ids.push("xac-tau")');
