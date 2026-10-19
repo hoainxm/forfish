@@ -525,9 +525,11 @@ export function RaKhoiControls({
           icon={collapsed ? LayersIcon : ChevronRightIcon}
           label={collapsed ? "Lớp" : "Đóng"}
         />
-        {cruiseOn && onCruise ? (
-          <RailBtn active dot aria-pressed onClick={onCruise} aria-label="Đang chạy — chạm để dừng đọc cảnh báo" icon={SpeakerIcon} label="Đang chạy" />
-        ) : routeOn && onRoutePanel ? (
+        {/*  ĐANG CHẠY (không tuyến): KHÔNG còn ô "Đang chạy" trên rail — HUD trên
+             cùng đã có tiêu đề "Đang chạy" + nút Dừng (tối ưu bố cục bản đồ,
+             anh Long 2026-10-19: một việc một chỗ, bớt icon che bản đồ). Rail
+             giữ "Thêm" để vẫn mở được Vị trí / Toạ độ / Điểm lưu khi đang chạy. */}
+        {routeOn && onRoutePanel ? (
           <RailBtn active dot aria-pressed onClick={onRoutePanel} aria-label="Đang dẫn đường — chạm để đóng" icon={RouteIcon} label="Dẫn đường" />
         ) : collapsed ? (
           <RailBtn
@@ -545,7 +547,7 @@ export function RaKhoiControls({
             label="Thêm"
           />
         ) : null}
-        {more && !cruiseOn && !routeOn && (
+        {more && !routeOn && (
           <div
             role="group"
             aria-label="Thêm việc"
@@ -568,9 +570,9 @@ export function RaKhoiControls({
                   setMore(false);
                   onCruise();
                 }}
-                aria-label="Chạy tàu — máy đọc cảnh báo theo vị trí tàu"
+                aria-label={cruiseOn ? "Dừng chạy — thôi đọc cảnh báo theo vị trí tàu" : "Chạy tàu — máy đọc cảnh báo theo vị trí tàu"}
                 icon={SpeakerIcon}
-                label="Chạy tàu"
+                label={cruiseOn ? "Dừng chạy" : "Chạy tàu"}
               />
             )}
             {premiumTools && onRoutePanel && (

@@ -177,9 +177,13 @@ export function StormBanner({
     const at = clockVN(status.checkedAt);
     if (variant === "overlay") {
       return (
-        <p role="status" className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-ok-bg px-3 py-1.5 text-[0.875rem] font-semibold leading-snug text-ok">
-          <CheckIcon className="h-4 w-4 shrink-0" />
-          Không có tin bão — hỏi lúc {at}
+        /*  LÚC YÊN trên bản đồ = pill trắng nhỏ, chữ thường (tối ưu bố cục bản đồ
+            2026-10-19): pill xanh đặc chữ đậm "Không có tin bão — hỏi lúc 22:38
+            ngày 19/10" nặng ngang một cảnh báo và chiếm trọn hàng trên cùng. Có
+            bão / không hỏi được vẫn nền màu như cũ (hai nhánh trên dưới). */
+        <p role="status" className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full border border-line bg-card/90 px-3 py-1 text-[0.8125rem] leading-snug text-foreground/75 shadow-sm">
+          <CheckIcon className="h-4 w-4 shrink-0 text-ok" />
+          Không có bão · hỏi {at}
         </p>
       );
     }

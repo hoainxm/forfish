@@ -12,14 +12,14 @@
 :root {
   /* water & ink */
   --background: #f6f8f7; /* trắng lạnh ngả xanh rêu — tone mẫu Codex (2026-10-19) */
-  --foreground: #1c323c; /* mực slate-teal — tone mẫu Codex */
+  --foreground: #15333e; /* mực slate-teal — --p-ink của bộ design Sen Biển (handoff 2026-10-19) */
   --card: #ffffff;
-  --line: #dce4e3; /* viền thẻ + kẻ mảnh — tone mẫu Codex */
+  --line: #dce5e4; /* viền thẻ + kẻ mảnh — --p-line */
   --field: #edf1f0; /* nền ô nhập / nút phụ trung tính */
 
   /* hull & trim */
-  --navy: #1c323c; /* thương hiệu + tiêu đề: slate-teal của mẫu Codex (trước #14324f navy xanh dương) */
-  --sea: #306c72; /* nhấn teal: chữ in hoa nhỏ, icon, link, chip/dock đang chọn (trước #18648b) */
+  --navy: #15333e; /* tiêu đề + chữ đậm: --p-ink của bộ design Sen Biển (trước #14324f navy xanh dương) */
+  --sea: #086e73; /* thương hiệu teal: --p-brand — chữ in hoa nhỏ, icon, link, chip/dock đang chọn (trước #18648b) */
   --sun: #f2a01f; /* sun yellow */
   --trim: #e4572e; /* boat-trim orange-red */
 

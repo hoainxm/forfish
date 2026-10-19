@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19o — TỐI ƯU BỐ CỤC BẢN ĐỒ (anh Long: "giữ 5, bố cục bản đồ tối ưu đi"): (1) `NavHud` hàng Giọng/Rung THU vào nút loa ở hàng đầu (loa gạch khi giọng tắt — trạng thái vẫn thấy; chạm mở hai nút như cũ); Dừng/ẩn cao `--h-ctl` bo tròn; dòng "chưa bật định vị"/"mất định vị" rút một dòng. Dòng đỏ, ranh giới ≤6 hl, "Đã nghe", Trú bão KHÔNG đổi. (2) `RaKhoiControls`: đang chạy KHÔNG còn ô "Đang chạy" trên rail (HUD đã có Dừng) — rail giữ Lớp + Thêm; khay Thêm mở được khi đang chạy, mục "Chạy tàu" đổi nhãn "Dừng chạy". (3) `StormBanner overlay` lúc yên = pill trắng nhỏ chữ thường "Không có bão · hỏi HH:MM". Đo % bản đồ nhìn thấy khi đang chạy (khách, GPS bị chặn): 390×844 65% → 77%; 360×740 → 72%. -->
 <!-- re-verified: 2026-10-19n — TONE MÀU MẪU CODEX (anh Long: "xem cái tone màu của cái codex góp ý"): đo từ ảnh mẫu Sen Biển — globals.css đổi GIÁ TRỊ token (giữ tên): --navy #14324f→#1c323c slate-teal, --sea #18648b→#306c72 teal, --foreground #16283a→#1c323c, --background #f3f6f8→#f6f8f7, --line #e2e9ef→#dce4e3, --field #eaeff3→#edf1f0. --trim cam chưa đổi (chờ chốt). Xem 03 §2 "Màu nền tảng". -->
 <!-- re-verified: 2026-10-19m — RÀ DESIGN CODEX LẦN 2, bước 5a (Vật tư): `MarketTopBar` ô tìm cao `--h-ctl` viền line, "Tìm" là chữ xanh trong ô (bỏ khối navy đặc); Giỏ hàng/Đơn hàng = hai pill nhỏ `--h-chip` một hàng (bỏ hai ô xám to), chấm số giữ. Thẻ món: giá NAVY (`PriceText`, cả "Liên hệ báo giá"), nhãn -N% chữ cam trên nền trắng (bỏ khối cam đặc), tên 1rem medium, shop · tỉnh một dòng phụ 0.8125rem thường. `market-ui.css` bỏ bo 1.25rem riêng + bóng riêng thẻ món (dùng .surface chung). Trang chủ chợ: "Cần món chợ chưa có?" dời XUỐNG SAU lưới món, thành hàng nhẹ "Nhờ tìm ›" (bỏ nút cam "Đặt"); "Mua lại" nền trung tính thay vàng màu trục. -->
 <!-- re-verified: 2026-10-19l — DOCK KIỂU FACEBOOK (anh Long: "bottom menu nói codex làm giống facebook"): `.bottom-dock` thành thanh trắng bo tròn NỔI (lề 0.75rem, hở đáy `--dock-gap` 0.5rem, viền line + bóng nổi), CHỈ ICON, mục đang chọn = pill xanh nhạt + icon xanh, tên mục qua aria-label/title. `--dock-total` cộng thêm `--dock-gap` nên mọi chỗ chừa đáy (app-content, full-map, thanh mua chợ, Sen Biển nổi, float-btn) tự theo. -->
@@ -343,6 +344,7 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 
 
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 <!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->

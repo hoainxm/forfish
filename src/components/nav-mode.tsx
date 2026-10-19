@@ -28,6 +28,7 @@ import {
   NavArrowIcon,
   RouteIcon,
   SpeakerIcon,
+  SpeakerOffIcon,
 } from "@/components/icons";
 
 /** Ảnh dấu tàu — sinh từ `Workops/assets/sdfish/sdfish-fishing-vessel-map-marker.png`
@@ -237,6 +238,8 @@ export function NavHud({
     : "bg-warn-bg text-warn";
 
   const [hidden, setHidden] = useState(false);
+  /** hàng Giọng/Rung mở khi bấm nút loa ở hàng đầu — mặc định thu */
+  const [showKenh, setShowKenh] = useState(false);
   // kéo-thả: offset so với chỗ gốc (đầu màn hình) — chip ẩn cũng giữ chỗ này
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(
@@ -347,10 +350,31 @@ export function NavHud({
              (2.75rem) như nút ẩn bên cạnh. Chữ chứ không chỉ hình: bà con
              không đoán được biểu tượng rung, mà bấm nhầm là mất kênh cảnh báo
              duy nhất còn tới được khi máy trong túi áo mưa. */}
+        {/*  KÊNH CẢNH BÁO thu vào một nút loa (tối ưu bố cục bản đồ, anh Long
+             2026-10-19): hàng Giọng + Rung trước đây chiếm trọn một hàng thường
+             trực. Icon loa GẠCH khi giọng đang tắt ⇒ trạng thái vẫn nhìn thấy;
+             chạm mở hàng hai nút như cũ (chữ, không chỉ hình). */}
+        {(voice || onToggleRung) && (
+          <button
+            type="button"
+            onClick={() => setShowKenh((v) => !v)}
+            aria-expanded={showKenh}
+            aria-label={`Giọng đọc và rung${voice ? ` — ${voice.label}` : ""}${onToggleRung ? `, ${rungOn ? "rung bật" : "rung tắt"}` : ""}`}
+            className={`flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
+              showKenh ? "bg-sea/15 text-sea" : "bg-navy/10 text-navy"
+            }`}
+          >
+            {voice && !voice.on ? (
+              <SpeakerOffIcon className="h-5 w-5" />
+            ) : (
+              <SpeakerIcon className="h-5 w-5" />
+            )}
+          </button>
+        )}
         <button
           type="button"
           onClick={onStop}
-          className="min-h-[2.75rem] shrink-0 rounded-xl bg-navy/10 px-4 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
+          className="h-(--h-ctl) shrink-0 rounded-full bg-navy/10 px-4 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
         >
           Dừng
         </button>
@@ -358,15 +382,15 @@ export function NavHud({
           type="button"
           onClick={() => setHidden(true)}
           aria-label="Ẩn bảng dẫn đường"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy transition active:scale-95"
+          className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy transition active:scale-95"
         >
           <MinusIcon className="h-5 w-5" />
         </button>
       </div>
 
       {/*  HÀNG NÚT KÊNH CẢNH BÁO — Giọng + Rung cạnh nhau, chữ chứ không chỉ
-           hình (bà con không đoán được biểu tượng), ≥44 px cho ngón cái ướt. */}
-      {(voice || onToggleRung) && (
+           hình (bà con không đoán được biểu tượng). Chỉ hiện khi bấm nút loa. */}
+      {showKenh && (voice || onToggleRung) && (
         <div className="grid grid-cols-2 gap-1.5">
           {voice && (
             <button
@@ -501,16 +525,16 @@ export function NavHud({
       )}
 
       {denied ? (
-        <p className="flex items-start gap-2 rounded-xl bg-[var(--warn-bg)] p-2.5 text-[0.875rem] font-semibold leading-snug text-[var(--warn)]">
-          <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-          Máy chưa bật định vị. Bật định vị (GPS) rồi mở lại để dẫn đường.
+        <p className="flex items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-1.5 text-[0.875rem] font-semibold leading-snug text-warn">
+          <AlertIcon className="h-4 w-4 shrink-0" />
+          Chưa bật định vị (GPS) — bật rồi mở lại.
         </p>
       ) : (
         <>
           {lost && (
-            <p className="flex items-start gap-2 rounded-xl bg-[var(--warn-bg)] p-2.5 text-[0.875rem] font-semibold leading-snug text-[var(--warn)]">
-              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-              Mất định vị — đang tìm lại. Số dưới là lần bắt được gần nhất.
+            <p className="flex items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-1.5 text-[0.875rem] font-semibold leading-snug text-warn">
+              <AlertIcon className="h-4 w-4 shrink-0" />
+              Mất định vị — số dưới là lần bắt gần nhất.
             </p>
           )}
 
