@@ -65,7 +65,7 @@ function bam(s: string): number {
 /** ctx: tên đã fold — tín hiệu "câu có nhắc tên chỗ/cảng"; `xn` = đang chờ bà con đồng ý (lúc train có cờ này — "đi" lúc chờ là đồng ý). */
 export type NgramCtx = { diem?: string[]; cang?: string[]; tau?: string[]; xn?: boolean };
 
-function dacTrung(cau: string, ctx: NgramCtx): [number, number][] {
+export function dacTrung(cau: string, ctx: NgramCtx): [number, number][] {
   const f = foldVn(cau);
   const w = f.split(" ").filter(Boolean);
   const out = new Map<number, number>();

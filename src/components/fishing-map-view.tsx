@@ -483,6 +483,7 @@ import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { apDungGemma, canGemma, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
+import { traLoiKho } from "@/lib/sen-bien/hoi-dap";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 import { useRouter } from "next/navigation";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
@@ -490,7 +491,7 @@ import { Capacitor } from "@capacitor/core";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
 import { foldVn, guessIntent } from "@/lib/sen-bien/ngram";
 import { CruiseIntroSheet } from "@/components/nav-voice-ui";
-import { SenBienNoi, SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
+import { SenBienNoi, SenBienSheet, khoRaThe, loadSenBienHoiDap, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
 import { traLoi, type KhoBanDo, type ViTri } from "@/lib/sen-bien/hoi-ban-do";
 import {
@@ -4240,6 +4241,23 @@ export default function FishingMapView() {
       if (!senAwait && !navOn && (hieuLenhCho(text) || (gCho && hoiLaiCho(gCho.y, gCho.conf)))) {
         router.push(`/cho?sen=${encodeURIComponent(text)}`);
         return { show: "Mở chợ…" };
+      }
+      // KHO HỎI–ĐÁP (v5, 19/10) — không chen khi đang chờ "đi" hay đang dẫn đường (lệnh ngắn lúc đó là luật)
+      if (!senAwait && !navOn) {
+        const kho = traLoiKho(await loadSenBienHoiDap(), text, senModel ? (gCho ?? guessIntent(senModel, text)) : null);
+        if (kho) {
+          ghiMauSen({
+            phien: senPhienRef.current || (senPhienRef.current = phienMoi()),
+            cau: text,
+            r: { tra: "hd", ct: kho.loai === "dap" ? kho.id : `goi_y:${kho.cac.length}` },
+            xn: false,
+            chay: false,
+            nen: Capacitor.getPlatform(),
+            ban: LOCAL_BUILD_ID,
+          });
+          void guiMauSen();
+          return khoRaThe(kho, (c) => senSay(c));
+        }
       }
       const r0 = senBienReply(text, senModel, senDests, senSeaRef.current, {
         awaitingGo: senAwait != null,

@@ -520,6 +520,7 @@ Chủ dự án: *"cho phép chủ tàu đặt đơn bất kỳ cái gì, nó s�
 - Chủ tàu đặt được món chợ CHƯA bán: ghi món → chủ sàn (admin `/quan-tri`) tìm, báo giá + hẹn giao + chọn shop lo hàng → chủ tàu đồng ý thì thành đơn thường. Không có thanh toán trong app (COD/chuyển khoản tay như cũ).
 - Shop xác nhận đơn là hẹn ngày giao; đơn không ai xác nhận 3 ngày tự huỷ; trễ hẹn hiện đỏ.
 - Sen Biển làm được mọi thao tác sàn bằng giọng nói (doc 15 §25); việc ghi có hậu quả luôn hỏi một chạm xác nhận.
+- **Sen Biển trả lời ~2.000 câu hỏi kiến thức trong máy (2026-10-19, doc 15 §26) — MIỄN PHÍ**: giấy tờ, IUU, an toàn cứu nạn, thời tiết biển, nghề và cá, máy tàu, mua bán, chính sách hỗ trợ, biển đảo chủ quyền, cách dùng app. Opus soạn, **chủ dự án duyệt từng câu**; app chỉ đọc câu đã duyệt. Không nêu mức phạt, không chẩn đoán, không tư vấn vay.
 - Không hứa thời gian giao chính xác hơn ngày — hẹn là của shop, app chỉ hiện và nhắc trễ.
 Chi tiết: [11 v1.4](11-ba-spec-san-thuong-mai.md).
 

@@ -901,3 +901,37 @@ Chủ dự án: *"toàn bộ thao tác sàn phải đảm bảo sen biển thự
 **Đã kiểm (trình duyệt dev file mode)**: "shop có đơn mới không" (Hải Đăng) ⇒ đọc "không có đơn chờ" + mở `/ban-hang/don`; "đi giao đơn K7PQ gửi xe Phương Trang" ⇒ nút [Đang giao · Thôi] → bấm ⇒ đơn sang Đang giao, nhà xe ghi đúng; "đã giao xong rồi" ⇒ bấm chuột thật ⇒ đơn Đã giao; chủ tàu "tôi đã nhận được hàng rồi" (2 đơn đã giao) ⇒ đọc 2 đơn, xin 4 chữ cuối; "đơn tới đâu rồi" ⇒ đọc 3 đơn kèm hẹn giao.
 
 **Last updated**: 2026-10-18 — gộp main: tên bão đọc phiên âm Việt + bỏ tên Latin khỏi câu nói khu bảo tồn (§21n); gộp main: trả nợ §22b (64 mp3 Mỹ Duyên theo luật mp3 gọn; phần n-gram v3 học lệnh ngắn được v4 thay — v4 đã gồm 1.184 câu đó). Trước đó: 2026-10-18 — n-gram v4 thêm 13 ý sàn, cổng phụ hỏi lại khi luật hụt (§25). Trước đó: 2026-10-18 — Sen Biển làm mọi thao tác sàn (§25). Trước đó: 2026-10-18 — Sen Biển trợ lý giọng nói cho toàn app (§24). Trước đó: 2026-10-18 — gộp `feat/sen-bien-ranh-tay` vào `main` (§22b) + Sen Biển học thêm từ câu nói thật: ghi mẫu trong máy, có sóng gửi về (§23). Trước đó: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).
+
+## 26. KHO HỎI–ĐÁP ~2.000 CÂU TRONG MÁY (2026-10-19)
+
+Chủ dự án: *"tôi muốn nâng cấp cái n-gram lên phân biệt hơn 2000 câu hỏi"*, *"t muốn nó mạnh luôn"*; chốt: **cả lệnh lẫn hỏi–đáp**, **Opus soạn, anh duyệt**.
+
+**Vì sao không phình n-gram v4**: bảng dày 2^16 × 70 lớp int8 = 4,6 MB; lên 2.000 lớp là ~131 MB (vượt trần 20 MB/file và cả `public/data`). Cho n-gram lệnh học thêm câu kiến thức thì cổng lệnh tụt (đo: thêm 5k câu ⇒ −0,6 điểm, 2 bộ tụt > 1). ⇒ **hai file**: v4 giữ nguyên quyết LỆNH; kho hỏi–đáp là mô hình riêng.
+
+- **Mô hình** `public/data/sen-bien-hoi-dap.v1.bin` (4,6 MB, "SBN5"): kiểu fastText — cùng đặc trưng băm với v4 (`ngram.dacTrung`) ⇒ tầng ẩn 64 chiều ⇒ đầu ý định (biết câu là hỏi kiến thức) + đầu kho (1.990 câu sau khi gộp 10 câu trùng ý). Int8 MỖI HÀNG một thang (một thang chung ép đầu kho về 0). Train: repo AI Assistant `train/tro-ly/ngram-ft.mjs` (lr 0,2 · 15 vòng), dữ liệu `hoi-dap.mjs` trên gpu-desktop: 12 chủ đề (giấy tờ tàu · IUU/xuất cập bến · an toàn cứu nạn · thời tiết biển · nghề và cá · bảo quản cá · máy tàu · mua bán · chính sách hỗ trợ · biển đảo chủ quyền · cách dùng app · đời sống trên tàu), 48.471 cách hỏi + 20.003 cách hỏi "khó" (né từ khoá, kể hoàn cảnh, giọng ba miền).
+- **Kho** `public/data/sen-bien-hoi-dap.v1.json`: `q` mã câu theo thứ tự lớp · `hoi` câu hỏi chuẩn · `dap` **CHỈ câu chủ dự án đã duyệt/sửa** trên trang duyệt claude.ai (quyết định ở kho của trang, `quyet/<chủ đề>`). Dựng lại: `npx jiti scripts/sen-bien-kho-hoi-dap.mjs --meta … --danh-muc … --quyet …` (`dungKho`). Câu chưa duyệt không có trong `dap` ⇒ máy KHÔNG BAO GIỜ đọc. Bản đầu (19/10): 0 câu duyệt ⇒ tính năng có sẵn nhưng im.
+- **Câu trả lời**: 2–4 câu đời thường ≤ 60 chữ để đọc to; giữ ranh giới cũ (không mức phạt cụ thể, không chẩn đoán/thuốc, không tư vấn vay); chủ quyền đúng §01 8b; câu có số liệu / văn bản / số điện thoại gắn **cần kiểm** (463 câu) — duyệt nhóm này trước.
+
+**Chính sách ghép** (`lib/sen-bien/hoi-dap.ts` `traLoiKho`, thuần): kho chỉ lên tiếng khi v4 KHÔNG giành câu (v4 ra `hoi_mo`/`khong_hieu`/`ngoai_pham_vi`, hoặc v4 chắc < 0,5) VÀ mô hình kho cho là câu hỏi kiến thức:
+
+| p câu đứng đầu | Sen Biển |
+|---|---|
+| ≥ 0,7 (`NGUONG_DAP`) và câu đó đã duyệt | đọc câu trả lời luôn |
+| 0,3–0,7, hoặc câu đầu chưa duyệt | "Có phải bà con hỏi…" / "Bà con hỏi câu nào: …?" + nút từng câu đã duyệt trong 3 câu gần nhất (≥ 3.5rem); chạm ⇒ đọc câu trả lời |
+| < 0,3 / không câu nào đã duyệt | như trước (câu hỏi mở ⇒ "cần có sóng…", màn bản đồ ⇒ "chỉ giúp trên bản đồ") |
+
+Đo 2026-10-19 (bộ kín 6.000 câu Opus viết kiểu bà con hỏi thật, cùng kiểu với cách hỏi "khó" lúc train ⇒ số hơi lạc quan; chưa có câu thật): đúng câu đầu 78,1 % (bản chữ HOA kiểu bộ nghe 75,9 %), đúng trong 3 câu 91,9 %; p ≥ 0,7 phủ 81 % câu, đúng 87 %. Ghép với v4 trên 2.240 câu LỆNH kín: kho chen vào 0,8 % (mức gợi ý, v4 kém chắc) — lệnh không đổi vì v4 không đổi. Bản tầng ẩn 128 (8,9 MB) chỉ hơn 1–2 điểm ⇒ không dùng.
+
+**Nối**: `sen-bien-toan-app` (sau cổng phụ chợ, trước `senBienReply`) và màn bản đồ `senHeard` (khi KHÔNG chờ "đi" / KHÔNG đang dẫn đường). `sen-bien-sheet`: `loadSenBienHoiDap` (hai file một lần/phiên, 20 s, lỗi ⇒ null), `SenHeard.goiY`, `khoRaThe`. Mẫu học ghi `tra: "hd"`, `ct` = mã câu hoặc `goi_y:<n>`.
+
+| Trạng thái | Hành vi |
+|---|---|
+| Chưa tải được kho (lần đầu mất sóng, file hỏng/sai cỡ) | `null` ⇒ Sen Biển như trước; lần sau thử lại |
+| Kho trống (chưa duyệt câu nào) | im — không đọc câu chưa duyệt |
+| Câu đầu chưa duyệt, câu gần khác đã duyệt | gợi ý câu đã duyệt, không đọc câu chưa duyệt |
+| Đang chờ "đi" / đang dẫn đường | kho không chen (lệnh ngắn là luật) |
+
+**Offline — 4 câu**: (a) thêm 2 request `/data` khi mở Sen Biển lần đầu (timeout 20 s, `.catch` ⇒ null, không chặn gì); (b) không đụng `sw.js` — hai file `/data` đi cache-first như n-gram, mở một lần lúc có sóng là ngoài biển có; khoá localStorage không đổi; (c) không đè dữ liệu bà con; (d) trả lời hoàn toàn trong máy. **Nợ**: chưa tải trước kho khi chưa từng mở Sen Biển (cùng mức n-gram v4).
+
+**Assumptions**: ngưỡng 0,7 / 0,3 / 0,5 chọn trên bộ kín do Opus viết — đổi khi có câu thật từ `sen_bien_mau` (`tra: "hd"`); duyệt trên trang claude.ai là nguồn sự thật nội dung, app chỉ chép bản đã duyệt.
+

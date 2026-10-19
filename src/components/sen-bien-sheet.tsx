@@ -16,10 +16,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { fetchDataBytes } from "@/lib/data-fetch";
+import { fetchDataBytes, fetchDataJson } from "@/lib/data-fetch";
 import type { SenDest } from "@/lib/sen-bien/hieu-y";
 import { autoListenOk, listenOnce, micGranted, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
 import { boNgheSan } from "@/lib/sen-bien/nghe-may";
+import { cauGoiY, HOI_DAP_BIN, HOI_DAP_KHO, loadHoiDap, type HoiDapModel, type TraLoiKho } from "@/lib/sen-bien/hoi-dap";
 import { loadNgram, NGRAM_PATH, type NgramModel } from "@/lib/sen-bien/ngram";
 import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC, type ViTriIcon } from "@/lib/sen-bien/vi-tri";
 import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
@@ -39,13 +40,46 @@ export function loadSenBienModel(): Promise<NgramModel | null> {
   return modelP;
 }
 
+let hoiDapP: Promise<HoiDapModel | null> | null = null;
+/** Kho hỏi–đáp (mô hình + câu đã duyệt) — một lần / phiên. Lỗi / thiếu file ⇒ null (Sen Biển chạy như trước),
+ *  lần sau thử lại. Hai file /data đi qua SW cache-first như n-gram ⇒ đã mở một lần lúc có sóng là ngoài biển vẫn có. */
+export function loadSenBienHoiDap(): Promise<HoiDapModel | null> {
+  if (!hoiDapP) {
+    hoiDapP = Promise.all([fetchDataBytes(HOI_DAP_BIN, 20000, "sen-bien hoi-dap"), fetchDataJson(HOI_DAP_KHO, 20000, "sen-bien kho")])
+      .then(([b, k]) => loadHoiDap(b, k))
+      .catch(() => null)
+      .then((m) => {
+        if (!m) hoiDapP = null;
+        return m;
+      });
+  }
+  return hoiDapP;
+}
+
 /** Màn cha xử lý câu nghe được: trả câu hiện ra + (nếu có) danh sách chọn. */
 export type SenHeard = {
   show: string;
   options?: SenDest[];
   /** việc GHI có hậu quả (sàn: huỷ / xác nhận / giao / đồng ý giá…) — một chạm xác nhận mới làm (13 §4.3) */
   xacNhan?: { nhan: string; lam: () => Promise<SenHeard> };
+  /** kho hỏi–đáp kém chắc: các câu hỏi gần nhất — chạm một câu thì Sen Biển đọc câu trả lời của nó */
+  goiY?: { nhan: string; chon: () => SenHeard }[];
 } | null;
+
+/** Kết quả kho hỏi–đáp ⇒ thẻ Sen Biển: đọc câu trả lời, hoặc hỏi lại kèm nút từng câu gần nhất. Dùng chung
+ *  màn bản đồ và mọi màn khác (`noi` = giọng của màn đó). */
+export function khoRaThe(k: TraLoiKho, noi: (s: string) => void): SenHeard {
+  if (k.loai === "dap") {
+    noi(k.dap);
+    return { show: k.dap };
+  }
+  const hoi = cauGoiY(k.cac);
+  noi(hoi);
+  return {
+    show: hoi,
+    goiY: k.cac.map((c) => ({ nhan: c.hoi, chon: () => { noi(c.dap); return { show: c.dap }; } })),
+  };
+}
 
 /**
  * KÉO ICON SEN BIỂN (chủ dự án 2026-10-17: "cái float sen biển gốc phải cho phép kéo đi được").
@@ -431,7 +465,7 @@ export function SenBienSheet({
     if (awaitingGo || phase !== "ranh" || doc || speakerBusy) return;
     if (mode === "chat" && typed.trim()) return;
     // đang chờ bấm xác nhận việc sàn ⇒ giữ lâu như lúc chọn điểm (đọc câu hỏi xong mới kịp bấm)
-    const ms = mode === "chat" ? CHAT_RANH_MS : shown?.options?.length || shown?.xacNhan ? CHON_MS : SEN_IM_MS;
+    const ms = mode === "chat" ? CHAT_RANH_MS : shown?.options?.length || shown?.xacNhan || shown?.goiY?.length ? CHON_MS : SEN_IM_MS;
     const t = setTimeout(onClose, ms);
     return () => clearTimeout(t);
   }, [awaitingGo, phase, doc, speakerBusy, mode, typed, shown, onClose]);
@@ -602,6 +636,20 @@ export function SenBienSheet({
           >
             Thôi
           </button>
+        </div>
+      )}
+      {shown?.goiY && (
+        <div className="space-y-1.5">
+          {shown.goiY.map((g) => (
+            <button
+              key={g.nhan}
+              type="button"
+              onClick={() => setShown(g.chon())}
+              className="flex min-h-[3.5rem] w-full items-center rounded-xl bg-navy/10 px-3 py-2 text-left text-[1rem] font-bold leading-snug text-navy transition active:scale-[0.98]"
+            >
+              {g.nhan}
+            </button>
+          ))}
         </div>
       )}
       {shown?.options && (

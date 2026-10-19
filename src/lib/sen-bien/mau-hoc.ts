@@ -35,7 +35,7 @@ export type MauSen = {
   phien: string;
   /** chữ bộ nghe ra (đã cắt ≤ 200 ký tự) */
   cau: string;
-  /** máy làm gì: go/pick/start/stop/cancel/mute/unmute/repeat/howfar/hoi/map/say · cho (lệnh sàn, lenh-cho.ts) */
+  /** máy làm gì: go/pick/start/stop/cancel/mute/unmute/repeat/howfar/hoi/map/say · cho (lệnh sàn, lenh-cho.ts) · hd (kho hỏi–đáp: ct = mã câu, hoặc "goi_y:<số câu>") */
   tra: string;
   /** chi tiết việc: ý n-gram (say), loại câu hỏi (hoi), việc bản đồ (map), số chỗ (pick), lệnh sàn (cho) */
   ct?: string;
@@ -48,7 +48,7 @@ export type MauSen = {
   ban: string;
 };
 
-const TRA = new Set(["go", "pick", "start", "stop", "cancel", "mute", "unmute", "repeat", "howfar", "hoi", "map", "say", "cho"]);
+const TRA = new Set(["go", "pick", "start", "stop", "cancel", "mute", "unmute", "repeat", "howfar", "hoi", "map", "say", "cho", "hd"]);
 const CHU_NGAN = /^[a-z0-9_:.-]{0,40}$/;
 
 /** Việc máy đã làm, gọn để học — không mang toạ độ chỗ đến (chỉ loại chỗ). */

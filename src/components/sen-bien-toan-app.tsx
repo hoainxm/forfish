@@ -17,7 +17,7 @@ import { Capacitor } from "@capacitor/core";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { SenBienNoi, SenBienSheet, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
+import { SenBienNoi, SenBienSheet, khoRaThe, loadSenBienHoiDap, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
 import type { AssistantAction } from "@/lib/assistant/types";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
@@ -27,6 +27,7 @@ import { loadPlaces } from "@/lib/places";
 import { saveHome } from "@/lib/region";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
 import { lamLenhCho, type ChoKetQua } from "@/lib/sen-bien/lam-cho";
+import { traLoiKho } from "@/lib/sen-bien/hoi-dap";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { guessIntent } from "@/lib/sen-bien/ngram";
@@ -188,6 +189,12 @@ export function SenBienToanApp() {
         ghiMau(text, { tra: "say", ct: g!.y });
         noi(hoiLai);
         return { show: hoiLai };
+      }
+      // KHO HỎI–ĐÁP (v5, 19/10): câu hỏi kiến thức mà n-gram không giành làm lệnh ⇒ đọc câu đã duyệt / gợi ý câu gần
+      const kho = traLoiKho(await loadSenBienHoiDap(), text, g);
+      if (kho) {
+        ghiMau(text, { tra: "hd", ct: kho.loai === "dap" ? kho.id : `goi_y:${kho.cac.length}` });
+        return khoRaThe(kho, (c) => noi(c));
       }
       const r = senBienReply(text, model, [], null, { awaitingGo: false, running: false, loaiCa: LOAI_CA });
       // câu việc bản đồ: màn bản đồ ghi lại khi chạy ?sen= ⇒ ở đây không ghi, khỏi đếm hai lần
