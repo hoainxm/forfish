@@ -504,6 +504,7 @@ import {
   type ThoiDiem,
 } from "@/lib/sen-bien/lenh-ban-do";
 import { napKhoBanDo } from "@/lib/sen-bien/kho-ban-do";
+import { SEN_BIEN_BAT } from "@/lib/sen-bien/bat-tat";
 import { distSpeech } from "@/lib/nav-voice/phrases";
 import { ACTIVE_PORTS, PORT_COORD_SAI } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
@@ -3138,6 +3139,8 @@ export default function FishingMapView() {
   const senTen = useMemo(() => senDests.map((d) => d.name), [senDests]);
   const senTenRef = useRef(senTen);
   useEffect(() => {
+    // Sen Biển tắt (bản demo, bat-tat.ts) ⇒ không tải ~38 MB mô hình, không gửi mẫu
+    if (!SEN_BIEN_BAT) return;
     const t = setTimeout(() => {
       // mẫu câu nói còn trong máy (chuyến trước mất sóng) ⇒ có sóng thì gửi về để học; không chờ, không ném
       void guiMauSen();
@@ -4384,7 +4387,7 @@ export default function FishingMapView() {
   }, [senHeard]);
   useEffect(() => {
     const cau = new URLSearchParams(window.location.search).get("sen");
-    if (!cau) return;
+    if (!cau || !SEN_BIEN_BAT) return;
     // dọn ?sen NGAY LÚC CHẠY (không phải lúc hẹn): dev chạy effect hai lần — dọn sớm thì lượt hai mất câu
     const t = setTimeout(() => {
       try {
@@ -8150,10 +8153,10 @@ export default function FishingMapView() {
       {/* thẻ mở thì SenBienSheet tự vẽ icon ĐÚNG chỗ này (icon cố định là nút gọi, bong bóng trên đầu) */}
       {/* cả lúc Đang chạy cũng nổi (chủ dự án 2026-10-17: "bỏ con cá trên HUD"); sheet đáy mở nửa màn thì ẩn —
           cá nằm đè lên chữ của sheet (rà soát prod 2026-10-16) */}
-      {!senOpen && !routeMode && size !== "half" && (
+      {SEN_BIEN_BAT && !senOpen && !routeMode && size !== "half" && (
         <SenBienNoi onOpen={openSen} />
       )}
-      {senOpen && (
+      {SEN_BIEN_BAT && senOpen && (
         <SenBienSheet
           key={senAwait ? "cho-di" : senListen ? "nghe" : "mo"}
           awaitingGo={senAwait != null}

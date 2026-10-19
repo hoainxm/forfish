@@ -13,6 +13,20 @@
   - `origin` = **ĐÚNG 2 push URL**: https://github.com/sdvico/forfish (fetch+push) + https://github.com/hoainxm/forfish (push, **= Vercel prod**). → **1 lần `git push origin main` = đẩy CẢ 2 remote đích**, và hoainxm nhận commit ⇒ Vercel auto-deploy.
 - **origin/main và base/main LUÔN diverge thật** (không ff): sdvico có delta riêng (đại lý, thu tiền thủ công, webhook NV4/5/7, privacy, self-host); base có tính năng mới. Pattern lịch sử = sdvico định kỳ MERGE base vào rồi giữ delta.
 
+## 0b. Tính năng DEMO không lên prod (chủ dự án chốt 2026-10-19)
+
+> Án lệ: **Sen Biển** (trợ lý giọng nói, doc 15 §17–§25) là bản demo, đáng lẽ chỉ nằm ở `base`, nhưng đã lỡ commit + `git push origin main` ⇒ vào cả sdvico lẫn hoainxm ⇒ deploy prod. Không viết lại lịch sử (cấm `--force`); vá bằng **cờ tắt mặc định** `NEXT_PUBLIC_SEN_BIEN` (`src/lib/sen-bien/bat-tat.ts`).
+
+- **Tính năng chưa tới đợt release = DEMO.** Chỉ được nằm ở `base`, HOẶC nằm sau một cờ build `NEXT_PUBLIC_<TÊN>` mà **không khai = TẮT** ở build prod/Android (chỉ tự bật khi `next dev`). Không có cờ thì KHÔNG commit lên `main` của origin.
+- **Trước mỗi `git push origin main`** (= deploy prod qua hoainxm): soi `git log origin/main..HEAD` — có commit nào mở tính năng demo mà không có cờ không? Có ⇒ dừng, thêm cờ hoặc tách nhánh.
+- **Sync base → origin (§1)**: tính năng demo base mang về phải vào sau cờ, mặc định tắt. Gỡ conflict (§2) GIỮ cờ, không để bản base "hiện luôn" thắng.
+- **Tắt = ẩn điểm vào + không tải tài nguyên nặng + route ghi nhận trả 404**; KHÔNG xoá code, KHÔNG xoá dữ liệu/khoá `forfish.*` bà con đã có trong máy, KHÔNG đụng migration đã apply.
+- **Mở lại khi release**: khai `NEXT_PUBLIC_<TÊN>=1` ở môi trường build (`deploy.yml` lấy từ GitHub Environment `production` — thêm dòng env vào workflow; Android: `android-release.yml`) → deploy lại → ghi ngày mở vào bảng dưới.
+
+| Tính năng demo | Cờ | Prod | Mở lại khi |
+|---|---|---|---|
+| Sen Biển (toàn app + màn bản đồ + `/api/sen-bien/mau`) | `NEXT_PUBLIC_SEN_BIEN` | TẮT từ 2026-10-19 | đợt release Sen Biển (chủ dự án báo) |
+
 ## 1. Các bước (đã kiểm chứng 2026-08-01)
 
 ```bash

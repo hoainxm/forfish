@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { cccdPepper } from "@/lib/crew-report-hash";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
+import { SEN_BIEN_BAT } from "@/lib/sen-bien/bat-tat";
 import { LO_GUI, lamSachMau } from "@/lib/sen-bien/mau-hoc";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -24,6 +25,8 @@ const DEM: RateStore = new Map();
 const TRAN = { limit: 20, windowMs: 60 * 60_000 };
 
 export async function POST(req: Request) {
+  // Sen Biển tắt (bản demo, bat-tat.ts) ⇒ không nhận mẫu; máy cũ còn mẫu thì giữ lại, không mất
+  if (!SEN_BIEN_BAT) return err(404, "disabled");
   const who = await identityFromRequest(req);
   if (!who.ok) return who.res;
   if (!allowRequest(DEM, who.phone, Date.now(), TRAN)) return err(429, "rate_limited");

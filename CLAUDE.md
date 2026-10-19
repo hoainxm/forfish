@@ -134,7 +134,7 @@ Nghĩa là ràng buộc cắn đúng chỗ có tiền, không cắn lớp bản 
 - Đầu phiên / trước mỗi mạch việc: `git fetch origin` rồi xem `git status -sb`; nếu nhánh sau remote thì `git pull --ff-only` (hoặc rebase nhánh lên `origin/main`) **trước khi** sửa.
 - Nhánh tính năng: rebase/merge `origin/main` mới nhất vào **sớm và thường xuyên**, đừng để dồn.
 - Push: chỉ **fast-forward**. KHÔNG `--force` lên nhánh chung (`main`) — sẽ xoá commit người khác. Diverge thì rebase lên `origin/main` rồi push.
-- Push/commit chỉ khi user yêu cầu (xem cũng nhắc ở phần đầu). Đang ở nhánh mặc định → tách nhánh trước khi commit.
+- Push/commit chỉ khi user yêu cầu; nhánh mặc định → tách nhánh trước. Demo chưa release không lên prod: [§0b](docs/app-map/ops/sync-base-flow.md).
 
 ## Quick commands
 

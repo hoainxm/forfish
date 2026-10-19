@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/bottom-nav";
 import { NativeGpsPrime } from "@/components/native-gps-prime";
 import { UserSyncInit } from "@/components/user-sync-init";
+import { SEN_BIEN_BAT } from "@/lib/sen-bien/bat-tat";
 
 // CHỈ dựng ở máy: tts.ts (plugin TTS Capacitor) đụng `window` lúc nạp module ⇒ dựng trên máy chủ là 500 mọi trang
 const SenBienToanApp = dynamic(() => import("@/components/sen-bien-toan-app").then((m) => m.SenBienToanApp), { ssr: false });
@@ -34,8 +35,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="app-content flex-1">{children}</main>
       <BottomNav />
       <NativeGpsPrime />
-      {/* Sen Biển — trợ lý giọng nói ở MỌI màn (màn bản đồ có bản riêng, tự ẩn ở đó) */}
-      <SenBienToanApp />
+      {/* Sen Biển — trợ lý giọng nói ở MỌI màn (màn bản đồ có bản riêng, tự ẩn ở đó). Demo: tắt ở prod (bat-tat.ts) */}
+      {SEN_BIEN_BAT && <SenBienToanApp />}
       <UserSyncInit />
     </div>
   );
