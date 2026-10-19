@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19e — TÁCH fishing-map-view.tsx (rà Codex đợt 3), lát 1: hằng báo hiệu hàng hải (SEAMARK_*, CLUSTER_HIT_LAYERS, SEAMARK_ICON_LAYOUT, KHONG_PHAI_CUM/LA_CUM), `cumLayers` và chú giải theo tầng (LegendRow/LegendTier/LEGEND_TIERS) dời NGUYÊN VĂN sang `src/components/ban-do/hai-do.tsx`, file gốc import lại. KHÔNG đổi hành vi/giao diện (5105 test đạt). Thư mục `src/components/ban-do/` là chỗ cho các lát sau. -->
 <!-- re-verified: 2026-10-19d — ROUTE MỚI `/api/status` (GET, công khai như /api/version, ngoài dataGate — có trong danh sách "không phải dữ liệu" của data-route-rules.test; SW không cache vì ngoài API_CACHE_ALLOW): mã bản + ngày build + ngày fit tham số mô hình (src/data/fish-blend-weights.json, forecast-skill.json) + TUỔI bản tính sẵn mới nhất (fish_forecast_snapshot, weather_snapshot id grid:%) ⇒ `duLieu` tuoi|cu|khong-doc-duoc (ngưỡng 36 h). Luật thuần lib/status-report.ts (+ test). DB lỗi ⇒ vẫn 200 "khong-doc-duoc" (trang hỏi tình trạng không được sập theo DB); truy vấn trần 5 s. deploy.yml in dòng này sau health check (không chặn). -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 <!-- re-verified: 2026-10-19c — DOCK 5 MỤC MỚI (chủ dự án chốt sau rà design Codex): Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư (lib/dock-nav.ts + bottom-nav.tsx). Mỗi việc một chỗ: /tau chỉ hồ sơ tàu (bỏ tab Cửa hàng/Đơn, ?tab=cua-hang→/cho, ?tab=don→/cho/don), /tien bỏ thẻ vật tư, bộ chọn tàu chỉ ở Hồ sơ tàu. Đầu màn gọn nền sáng `ManHeader` (Trang chủ/Tàu tôi/Chợ cá/Vật tư), `TauToiNav` Hồ sơ tàu | Bạn thuyền. Trang chủ = tin bão thường trực + việc cần làm + thông báo + con nước (bỏ 4 thẻ nhóm việc). Thông báo/việc cần làm: danh sách kẻ mảnh, cỡ chữ theo thang 03 §0, không IN HOA. Sen Biển KHÔNG là mục dock — icon nổi như cũ, z-[25] dưới BottomSheet. -->
@@ -330,7 +331,6 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 
 
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 <!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->
