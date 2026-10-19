@@ -48,52 +48,56 @@ export function MarketTopBar({
   placeholder?: string;
 }) {
   return (
-    <div className="market-search-bar sticky top-0 z-20 bg-background px-4 pb-3 pt-2">
+    /*  THANH TRÊN GỌN (rà design Codex lần 2, 2026-10-19): trước là ô tìm có nút
+        "Tìm" khối navy đặc + HAI ô Giỏ/Đơn to nền xám = ba tầng điều khiển trước
+        khi thấy món. Nay: ô tìm cao --h-ctl viền mảnh, "Tìm" là chữ nhẹ trong ô;
+        Giỏ/Đơn là hai pill nhỏ một hàng, chấm số giữ nguyên. */
+    <div className="market-search-bar sticky top-0 z-20 bg-background px-4 pb-2 pt-1">
       <form
-        className="flex min-w-0 items-center gap-2 rounded-2xl bg-card pl-4 pr-1 shadow-sm"
+        className="flex h-(--h-ctl) min-w-0 items-center gap-2 rounded-xl border border-line bg-card pl-3 pr-1"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit();
         }}
         role="search"
       >
-        <SearchIcon className="h-6 w-6 shrink-0 text-navy" />
+        <SearchIcon className="h-5 w-5 shrink-0 text-foreground/55" />
         <input
           value={q}
           onChange={(e) => onQ(e.target.value)}
           placeholder={placeholder}
           aria-label="Tìm món trong cửa hàng"
           enterKeyHint="search"
-          className="min-h-(--row-h) min-w-0 flex-1 border-0 bg-transparent text-[1rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-sea rounded-xl"
+          className="h-full min-w-0 flex-1 rounded-lg border-0 bg-transparent text-[1rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-sea"
         />
         {q && (
           <button
             type="button"
             onClick={() => onQ("")}
             aria-label="Xoá chữ đang tìm"
-            className="-mr-2 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-foreground/60 active:bg-card"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground/60 active:bg-field"
           >
-            <CloseIcon className="h-6 w-6" />
+            <CloseIcon className="h-5 w-5" />
           </button>
         )}
-        <button type="submit" className="flex min-h-(--row-h) shrink-0 items-center justify-center rounded-xl bg-navy px-4 text-[1rem] font-semibold text-white">Tìm</button>
+        <button type="submit" className="flex h-9 shrink-0 items-center justify-center rounded-lg px-3 text-[0.9375rem] font-semibold text-sea active:bg-field">Tìm</button>
       </form>
-      <nav aria-label="Mua hàng" className={`mt-2 grid gap-2 ${embedded ? "grid-cols-1" : "grid-cols-2"}`}>
+      <nav aria-label="Mua hàng" className="mt-2 flex gap-2">
       <Link
         href="/cho/gio"
         aria-label={`Giỏ hàng, ${cartCount} món`}
-        className="relative flex min-h-(--row-h) items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-semibold text-navy"
+        className="relative inline-flex h-(--h-chip) items-center gap-1.5 rounded-full border border-line bg-card px-3.5 text-[0.875rem] font-semibold text-navy"
       >
-        <CartIcon className="h-6 w-6" />
+        <CartIcon className="h-4 w-4" />
         <span>Giỏ hàng</span>
         <Dot n={cartCount} />
       </Link>
       {!embedded && <Link
         href="/cho/don"
         aria-label={`Đơn hàng của tôi, ${openOrders} đơn đang chạy`}
-        className="relative flex min-h-(--row-h) items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-semibold text-navy"
+        className="relative inline-flex h-(--h-chip) items-center gap-1.5 rounded-full border border-line bg-card px-3.5 text-[0.875rem] font-semibold text-navy"
       >
-        <DocIcon className="h-6 w-6" />
+        <DocIcon className="h-4 w-4" />
         <span>Đơn hàng</span>
         <Dot n={openOrders} />
       </Link>}

@@ -72,11 +72,9 @@ export function MarketProductCard({
               <CategoryIcon category={product.category} className="h-12 w-12" />
             </div>
           )}
+          {/* nhãn giảm giá: chữ cam trên nền trắng — nhỏ, không khối cam đặc */}
           {pct != null && (
-            <span
-              className="absolute left-2 top-2 rounded-full px-2 py-0.5 text-[0.8125rem] font-semibold"
-              style={{ backgroundColor: "var(--trim)", color: "var(--card)" }}
-            >
+            <span className="absolute left-2 top-2 rounded-full border border-line bg-card px-2 py-0.5 text-[0.8125rem] font-semibold text-trim">
               -{pct}%
             </span>
           )}
@@ -96,7 +94,7 @@ export function MarketProductCard({
         </div>
         {/* Tên/giá trước; shop và tỉnh luôn đọc được, không nhét vào dòng cắt. */}
         <div className="flex flex-1 flex-col p-3">
-          <p className="line-clamp-3 text-[1rem] font-semibold leading-snug text-navy">{product.title}</p>
+          <p className="line-clamp-3 text-[1rem] font-medium leading-snug text-navy">{product.title}</p>
           <PriceText priceVnd={product.priceVnd} compareAtVnd={product.compareAtVnd} className="mt-1" />
           {/* "Đã bán 0" không giúp chọn món ⇒ chưa bán, chưa đánh giá thì bỏ cả dòng (rà Codex 2026-10-19). */}
           {(product.soldCount > 0 || product.ratingCount > 0) && (
@@ -113,8 +111,12 @@ export function MarketProductCard({
               )}
             </p>
           )}
-          <p className="mt-auto pt-2 text-[0.875rem] font-semibold leading-snug text-navy">{product.shopName}</p>
-          {product.shopProvince && <p className="mt-1 text-[0.875rem] text-foreground/80">{product.shopProvince}</p>}
+          {/* shop · tỉnh: chữ phụ thường một khối (rà Codex lần 2 — tên, giá, shop
+              cùng đậm làm thẻ đặc chữ). Vẫn tách dòng khi dài, không cắt. */}
+          <p className="mt-auto pt-2 text-[0.8125rem] leading-snug text-foreground/65">
+            {product.shopName}
+            {product.shopProvince && <> · {product.shopProvince}</>}
+          </p>
         </div>
       </Link>
       {onFav && (

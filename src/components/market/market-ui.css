@@ -21,13 +21,9 @@
   scroll-margin-block: 10rem;
 }
 
-.market-ui .surface {
-  border-radius: 1.25rem;
-}
-
-.market-product-card {
-  box-shadow: 0 0.25rem 1rem color-mix(in srgb, var(--navy) 6%, transparent);
-}
+/*  Bỏ bo 1.25rem riêng cho .surface trong khu chợ (đè cả Tàu tôi vì trang tàu
+    mang class market-ui) và bóng riêng của thẻ món — dùng đúng .surface chung
+    (bo 1rem, viền line, bóng rất nhẹ). Rà design Codex lần 2, 2026-10-19. */
 
 .market-product-card > a:focus-visible {
   outline-offset: -0.1875rem;

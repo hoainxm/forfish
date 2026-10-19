@@ -1,6 +1,8 @@
 import { formatVnd } from "@/lib/format";
 
 /** Giá + giá gạch (nếu có). `formatVnd` dùng chung; giá gạch mờ + gạch ngang.
+ *  Giá màu NAVY (rà design Codex lần 2, 2026-10-19): giá cam khắp lưới làm cam
+ *  hết là "một hành động chính" — giảm giá nói bằng giá gạch + nhãn -N%.
  *
  *  `priceVnd === null` = LIÊN HỆ BÁO GIÁ (món bán qua tư vấn — xem
  *  `Product.priceVnd`). Nói thẳng bằng CHỮ, tuyệt đối không để rơi vào
@@ -21,13 +23,13 @@ export function PriceText({
   if (priceVnd == null) {
     return (
       <span className={`inline-flex flex-wrap items-baseline gap-x-2 ${className}`}>
-        <span className={`${main} font-semibold text-trim`}>Liên hệ báo giá</span>
+        <span className={`${main} font-semibold text-navy`}>Liên hệ báo giá</span>
       </span>
     );
   }
   return (
     <span className={`inline-flex flex-wrap items-baseline gap-x-2 ${className}`}>
-      <span className={`${main} font-semibold text-trim`}>{formatVnd(priceVnd)}</span>
+      <span className={`${main} font-semibold text-navy`}>{formatVnd(priceVnd)}</span>
       {compareAtVnd != null && compareAtVnd > priceVnd && (
         <span className="text-[0.875rem] text-foreground/50 line-through">{formatVnd(compareAtVnd)}</span>
       )}
