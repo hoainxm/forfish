@@ -68,13 +68,13 @@ export function HomeBar({
         <div className="flex items-stretch gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-[1rem] leading-snug text-foreground/70">
-              Khai báo <strong>tỉnh của cảng nhà</strong> trong mục Tàu cá để app chỉ
+              Khai báo <strong>tỉnh của cảng nhà</strong> trong mục Tàu tôi để app chỉ
               hiện nơi gần bà con.
             </p>
           </div>
           <Link href="/tau" className={`${SQ_BTN} bg-field text-sea`}>
             <AnchorIcon className="h-6 w-6" />
-            Tàu cá
+            Tàu tôi
           </Link>
         </div>
       </div>

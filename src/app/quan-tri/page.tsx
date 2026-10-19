@@ -4233,7 +4233,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
         Danh bạ “Bán ở đâu”
       </h2>
       <p className="mt-1 text-[0.9375rem] text-foreground/70">
-        Nậu vựa · Chợ đầu mối · Nhà máy hiện trong app ngư dân (mục Giao dịch →
+        Nậu vựa · Chợ đầu mối · Nhà máy hiện trong app ngư dân (mục Chợ cá →
         Bán ở đâu). Sửa / ẩn / hiện / xóa / thêm — áp dụng ngay. (“Mối quen” là
         sổ riêng của bà con, không quản lý ở đây.)
       </p>

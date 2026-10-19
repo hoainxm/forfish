@@ -363,7 +363,7 @@ export function BoatProducts() {
               </>
             ) : (
               <>
-                Chưa có sản phẩm SDVICO nào cho tàu này.
+                Chưa ghi món đồ nào cho tàu này.
                 <br />
                 Bấm nút cam ở trên để thêm.
               </>

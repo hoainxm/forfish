@@ -183,13 +183,13 @@ function answerWeather(p: ParsedIntent, s: DeviceSnapshot, now: number): Assista
   const w = s.weather;
   const portName = w?.portName ?? s.home?.portName ?? "cảng nhà";
   if (p.slots.portName && w && p.slots.portName !== w.portName.toLowerCase() && !foldLike(p.slots.portName, w.portName)) {
-    return reply("thoi_tiet", `Máy chỉ có dự báo cảng ${portName}, chưa có cảng bác hỏi. Có sóng thì mở Ra khơi để tải.${diDuoc ? ` ${NGHE_DAI}` : ""}`, nav(SCREEN_HREF.ra_khoi));
+    return reply("thoi_tiet", `Máy chỉ có dự báo cảng ${portName}, chưa có cảng bác hỏi. Có sóng thì mở Bản đồ để tải.${diDuoc ? ` ${NGHE_DAI}` : ""}`, nav(SCREEN_HREF.ra_khoi));
   }
   const storm = stormLead(s, now);
   if (!w || w.days.length === 0) {
     return reply("thoi_tiet", diDuoc
       ? `${storm}Máy chưa có dự báo cảng ${portName} để nói đi được hay không. Đừng đoán — ${NGHE_DAI.toLowerCase()}`
-      : `${storm}Máy chưa có dự báo cảng ${portName}. Có sóng thì mở Ra khơi để tải.${storm ? "" : ` ${NGHE_DAI}`}`, nav(SCREEN_HREF.ra_khoi));
+      : `${storm}Máy chưa có dự báo cảng ${portName}. Có sóng thì mở Bản đồ để tải.${storm ? "" : ` ${NGHE_DAI}`}`, nav(SCREEN_HREF.ra_khoi));
   }
   const today = todayIsoVN(now);
   const premiumNote = day > 2 && !s.premium;
@@ -202,7 +202,7 @@ function answerWeather(p: ParsedIntent, s: DeviceSnapshot, now: number): Assista
     return reply("thoi_tiet", `${storm}Dự báo cảng ${portName} trong máy đã cũ (${luu}). Tải lại khi có sóng. ${NGHE_DAI}`, { ...nav(SCREEN_HREF.ra_khoi), savedAt: w.savedAt });
   }
   if (!d) {
-    return reply("thoi_tiet", `${storm}Máy chưa có dự báo ${DAY_NAME[askDay].toLowerCase()} cho cảng ${portName} (${luu}). Có sóng thì mở Ra khơi để tải. ${NGHE_DAI}`, { ...nav(SCREEN_HREF.ra_khoi), savedAt: w.savedAt });
+    return reply("thoi_tiet", `${storm}Máy chưa có dự báo ${DAY_NAME[askDay].toLowerCase()} cho cảng ${portName} (${luu}). Có sóng thì mở Bản đồ để tải. ${NGHE_DAI}`, { ...nav(SCREEN_HREF.ra_khoi), savedAt: w.savedAt });
   }
   // đọc: câu bão (nếu có) đứng TRƯỚC, số liệu sau; đài duyên hải luôn có (13 §6, AC-T13/T56)
   const spokenStorm = storm ? `${storm.trim().replace(/\.$/, "")}, bác nghe thêm đài duyên hải. ` : "";
@@ -307,7 +307,7 @@ function answerStorm(s: DeviceSnapshot, now: number): AssistantReply {
 
 function answerTide(p: ParsedIntent, s: DeviceSnapshot, now: number): AssistantReply {
   if (!s.tide || s.tide.extremes.length === 0) {
-    return reply("con_nuoc", "Máy chưa tải bảng con nước. Mở Ra khơi lúc còn sóng.", nav(SCREEN_HREF.ra_khoi));
+    return reply("con_nuoc", "Máy chưa tải bảng con nước. Mở Bản đồ lúc còn sóng.", nav(SCREEN_HREF.ra_khoi));
   }
   const highs = s.tide.extremes.filter((e) => e.kind === "high");
   const lows = s.tide.extremes.filter((e) => e.kind === "low");
@@ -326,7 +326,7 @@ export function tauTen(name: string): string {
 
 function answerDocs(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
   const extra = nav(SCREEN_HREF.giay_to);
-  if (s.docs === null) return reply("giay_to", "Tủ giấy tờ trong máy đang đọc không được, bác mở Tàu cá xem giúp.", extra);
+  if (s.docs === null) return reply("giay_to", "Tủ giấy tờ trong máy đang đọc không được, bác mở Tàu tôi xem giúp.", extra);
   const boat = s.boat?.name ? tauTen(s.boat.name) : "tàu";
   let docs = s.docs;
   if (p.slots.docKind) {
@@ -335,7 +335,7 @@ function answerDocs(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
     if (byKind.length > 0) docs = byKind;
   }
   if (docs.length === 0) {
-    return reply("giay_to", p.slots.docKind ? `Tủ chưa có ${kindName(p.slots.docKind)}. Mở Tàu cá để thêm.` : "Tủ giấy tờ còn trống. Mở Tàu cá để thêm.", extra);
+    return reply("giay_to", p.slots.docKind ? `Tủ chưa có ${kindName(p.slots.docKind)}. Mở Tàu tôi để thêm.` : "Tủ giấy tờ còn trống. Mở Tàu tôi để thêm.", extra);
   }
   const urgent = docs
     .filter((d) => d.level === "expired" || d.level === "soon")
@@ -375,8 +375,8 @@ function kindName(kind: string): string {
 
 function answerMaintenance(s: DeviceSnapshot): AssistantReply {
   const extra = nav(SCREEN_HREF.bao_duong);
-  if (s.maintenance === null) return reply("bao_duong", "Sổ bảo dưỡng trong máy đang đọc không được, bác mở Tàu cá xem giúp.", extra);
-  if (s.maintenance.length === 0) return reply("bao_duong", "Chưa ghi việc bảo dưỡng nào. Mở Tàu cá, mục Dịch vụ để thêm.", extra);
+  if (s.maintenance === null) return reply("bao_duong", "Sổ bảo dưỡng trong máy đang đọc không được, bác mở Tàu tôi xem giúp.", extra);
+  if (s.maintenance.length === 0) return reply("bao_duong", "Chưa ghi việc bảo dưỡng nào. Mở Tàu tôi, phần Dịch vụ để thêm.", extra);
   const due = s.maintenance.filter((m) => m.level !== "ok").sort((a, b) => a.daysLeft - b.daysLeft);
   if (due.length === 0) return reply("bao_duong", "Chưa có việc bảo dưỡng nào tới kỳ trong 2 tuần.", extra);
   const over = due.filter((m) => m.level === "overdue");
@@ -396,7 +396,7 @@ function answerCrew(s: DeviceSnapshot): AssistantReply {
 }
 
 function answerBoat(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
-  if (!s.boat || s.boat.count === 0) return reply("tau_cua_toi", "Chưa có tàu nào trong máy. Mở Tàu cá để thêm tàu.", nav(SCREEN_HREF.tau));
+  if (!s.boat || s.boat.count === 0) return reply("tau_cua_toi", "Chưa có tàu nào trong máy. Mở Tàu tôi để thêm tàu.", nav(SCREEN_HREF.tau));
   if (p.slots.boatName) {
     const want = p.slots.boatName;
     const hitName = s.boat.names.find((n) => foldLike(want, n));
@@ -475,7 +475,7 @@ function answerOrders(p: ParsedIntent, s: DeviceSnapshot, now: number): Assistan
 
 function answerFishPrice(p: ParsedIntent, s: DeviceSnapshot, now: number): AssistantReply {
   const extra = nav(SCREEN_HREF.giao_dich);
-  if (!s.fishPrices || s.fishPrices.items.length === 0) return reply("gia_ca", "Máy chưa có bảng giá. Có sóng mở Giao dịch để tải.", extra);
+  if (!s.fishPrices || s.fishPrices.items.length === 0) return reply("gia_ca", "Máy chưa có bảng giá. Có sóng mở Chợ cá để tải.", extra);
   const luu = luuLabel(s.fishPrices.savedAt, now);
   const week = s.fishPrices.week ? `tuần ${s.fishPrices.week}` : "tham khảo";
   let items = s.fishPrices.items;
@@ -493,7 +493,7 @@ function answerFishPrice(p: ParsedIntent, s: DeviceSnapshot, now: number): Assis
 
 function answerFuel(s: DeviceSnapshot, now: number): AssistantReply {
   const extra = nav(SCREEN_HREF.giao_dich);
-  if (!s.fuel) return reply("gia_dau", "Chưa có giá dầu trong máy. Có sóng mở Giao dịch để tải.", extra);
+  if (!s.fuel) return reply("gia_dau", "Chưa có giá dầu trong máy. Có sóng mở Chợ cá để tải.", extra);
   return reply("gia_dau", `Dầu DO ${fmtVnd(s.fuel.priceVnd)}/lít, kỳ ${fmtDate(s.fuel.date)}. Số ${luuLabel(s.fuel.savedAt, now)}.`, { ...extra, savedAt: s.fuel.savedAt });
 }
 
@@ -528,17 +528,17 @@ function answerCallSdvico(): AssistantReply {
 function answerMarket(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
   const extra = nav(SCREEN_HREF.giao_dich);
   const where = p.slots.portName ?? s.home?.province;
-  if (where) return reply("tin_mua_ban", `Chỗ thu mua ở ${where} có trong danh bạ Giao dịch. Mở Giao dịch để coi và gọi.`, extra);
-  return reply("tin_mua_ban", s.online ? "Mở Giao dịch để coi tin mua bán và chỗ thu mua nhé." : "Chưa có tin mua bán nào trong máy. Có sóng tôi coi lại giúp.", extra);
+  if (where) return reply("tin_mua_ban", `Chỗ thu mua ở ${where} có trong danh bạ Chợ cá. Mở Chợ cá để coi và gọi.`, extra);
+  return reply("tin_mua_ban", s.online ? "Mở Chợ cá để coi tin mua bán và chỗ thu mua nhé." : "Chưa có tin mua bán nào trong máy. Có sóng tôi coi lại giúp.", extra);
 }
 
 function answerScreen(p: ParsedIntent): AssistantReply {
   const t = p.slots.target;
   if (!t) {
-    return reply("mo_man", "Tôi mở được: Ra khơi, Tàu cá, Bạn thuyền, Giao dịch, Chợ. Bác muốn mở cái nào?", {
+    return reply("mo_man", "Tôi mở được: Bản đồ, Tàu tôi, Bạn thuyền, Chợ cá, Vật tư. Bác muốn mở cái nào?", {
       clarify: {
         question: "Mở màn nào?",
-        options: [chip("Ra khơi", "mở ra khơi"), chip("Tàu cá", "mở tàu cá"), chip("Bạn thuyền", "mở bạn thuyền"), chip("Chợ", "mở chợ")],
+        options: [chip("Bản đồ", "mở bản đồ"), chip("Tàu tôi", "mở tàu tôi"), chip("Chợ cá", "mở chợ cá"), chip("Vật tư", "mở vật tư")],
       },
     });
   }
@@ -585,14 +585,14 @@ function answerHomePort(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
 function answerNavigate(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
   const extra = nav(SCREEN_HREF.ra_khoi);
   if (s.placeNames.length === 0 && p.slots.placeName !== "cang nha") {
-    return reply("dan_duong", "Bác chưa ghim điểm nào. Mở Ra khơi, chạm giữ trên biển để ghim.", extra);
+    return reply("dan_duong", "Bác chưa ghim điểm nào. Mở Bản đồ, chạm giữ trên biển để ghim.", extra);
   }
   if (p.confidence >= 0.9 && p.slots.placeName) {
     const want = p.slots.placeName;
     // tên điểm CÓ DẤU: tra trong máy theo khoá fold; không có thì chữ bà con nói (audit P1-5)
     const name = want === "cang nha" ? (s.home?.portName ?? "cảng nhà") : (s.placeNames.find((n) => foldLike(want, n)) ?? p.slots.nameRaw ?? want);
     // nợ: ?den=<placeId> mở thẳng thẻ dẫn đường (2 chạm), nâng khi đụng route-planner Trục 1
-    return reply("dan_duong", `Tôi mở Ra khơi. Bác bấm Điểm đã lưu rồi chọn ${name} nhé.`, extra);
+    return reply("dan_duong", `Tôi mở Bản đồ. Bác bấm Điểm đã lưu rồi chọn ${name} nhé.`, extra);
   }
   const options = s.placeNames.slice(0, 4).map((n) => chip(n, `dẫn đường tới ${n}`));
   if (p.confidence >= 0.55) return reply("dan_duong", "Có mấy điểm gần tên đó. Bác chọn:", { clarify: { question: "Đi điểm nào?", options } });
@@ -662,12 +662,12 @@ const LABEL_OF_INTENT: Partial<Record<Intent, string>> = {
   don_cua_toi: "Đơn hàng",
   xem_gio: "Giỏ hàng",
   giay_to: "Giấy tờ",
-  tau_cua_toi: "Tàu cá",
+  tau_cua_toi: "Tàu tôi",
   thuyen_vien: "Bạn thuyền",
-  dan_duong: "Ra khơi",
-  tin_mua_ban: "Giao dịch",
+  dan_duong: "Bản đồ",
+  tin_mua_ban: "Chợ cá",
   mo_man: "Trang chủ",
-  tim_mon: "Chợ",
+  tim_mon: "Vật tư",
 };
 
 /* ───────────────── điểm vào ───────────────── */

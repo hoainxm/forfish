@@ -45,7 +45,14 @@ export function TradeHub() {
            có tài khoản thấy app đáng dùng, rồi mới gọi SDVICO xin cấp. Chợ tin
            mua/bán và danh bạ mối quen thì gắn với người dùng cụ thể (đăng tin
            dưới tên ai, gọi cho mối của ai) nên phải có tài khoản. */}
-      {section === "gia" && <PriceBoard />}
+      {/*  LỀ 16px như hai mục kia và mọi màn dock (kiểm ảnh 390/360 2026-10-19:
+           bảng giá, ô tìm, dải nguồn đều tràn sát mép màn trong khi tiêu đề và
+           chip thụt 16px — lỗi design cũ sót lại). */}
+      {section === "gia" && (
+        <div className="px-4">
+          <PriceBoard />
+        </div>
+      )}
       {section === "tin" && (
         <RequireLogin what="chợ tin mua bán">
           <div className="px-4">
