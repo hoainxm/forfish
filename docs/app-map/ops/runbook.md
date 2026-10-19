@@ -3,7 +3,8 @@
 > Load khi: cần deploy / build lỗi / regenerate asset tĩnh (icon, lưới độ sâu, isobath) / kiểm tra sức khỏe app trước khi push.
 
 covers: scripts/train/run.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
-last_verified: 2026-07-30
+last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19b — thêm "Bảng môi trường" (rà Codex mục 10: "một bảng môi trường thống nhất: web domain, native origin, API, cron, DB, build ID"); đối chiếu capacitor.config.ts + android/ios capacitor.config.json (server.url), vercel.json crons, .github/workflows/{deploy,cron-prod,deploy.windows-iis,doc-health}.yml, /api/version. doc-health --ci đã chạy thật trên máy: exit 1 vì doc lệch có sẵn (forecast-accuracy 87 ngày…) — nên để workflow RIÊNG, không gộp vào `ci`. -->
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'scripts/doc-health-report.sh' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
@@ -15,7 +16,23 @@ gate: warn
 
 > Viết cho người đang cuống: lệnh copy-paste được ngay. **ForFish KHÔNG có process nền** (Vercel serverless + Supabase Edge Functions) → không có start/stop daemon. "Vận hành" = build, deploy, regenerate asset, đọc registry khi nguồn ngoài chết.
 
-**Last updated**: 2026-08-18
+**Last updated**: 2026-10-19
+
+## Bảng môi trường — bản nào đang phục vụ ai (2026-10-19)
+
+| Môi trường | Địa chỉ | Build từ | Deploy | Cron | DB | Mã bản đang chạy |
+|---|---|---|---|---|---|---|
+| **Web công ty (prod)** | `https://sdfish.sdvico.vn` | `main` của **sdvico/forfish** (remote `company`) | `.github/workflows/deploy.yml`: runner Windows tự host, PM2 `forfish` ở `C:\sdfish\forfish`, **chỉ chạy khi `ci` xanh**, ép mã hoá `public/data` + `--verify`, kiểm `/api/version` đúng commit, sai thì tráo về `forfish-prev` | `.github/workflows/cron-prod.yml` (GitHub Actions, `PROD_BASE_URL` mặc định sdfish.sdvico.vn). **Cron trong `vercel.json` KHÔNG tới đây** | Supabase `znzgugvfhgmiszqgjulk` | `GET /api/version` → `{build}` = `SDFISH_BUILD_SHA` (12 ký tự) |
+| **Web Vercel** | `https://forfish-alpha.vercel.app` | repo Git nối trong dự án Vercel — **ĐO 2026-10-19: chạy `ecc6c71e` = đầu `company/main`, TRÙNG web công ty** (origin/main lúc đó `3062e029`) ⇒ xác minh trong Vercel nó nối sdvico/forfish hay Long-Forfun/ForFish | Vercel tự build mỗi push `main` (`VERCEL=1` ⇒ encode-data mã hoá tại chỗ) | 5 cron trong `vercel.json` (sea-daily · refresh-fish · refresh-weather · archive · snapshot-prices) | **Cùng** Supabase `znzgugvfhgmiszqgjulk` | `/api/version` = `VERCEL_GIT_COMMIT_SHA` |
+| **IIS thủ công** | theo `DEPLOY_BASE` máy chủ | nhánh chọn khi bấm | `.github/workflows/deploy.windows-iis.yml` (bấm tay) — `SDFISH_ENCODE_DATA=1` + `--verify` | — | như trên | `/api/version` |
+| **App native iOS/Android** | vỏ Capacitor `vn.sdvico.sdfish` | — | store | — | qua web | **tải web từ `server.url = https://forfish-alpha.vercel.app/`** (capacitor.config.ts + android/ios `capacitor.config.json`) |
+| **Máy dev** | `localhost:3000` | nhánh đang làm | `npm run dev` | không | `.env.local` (thiếu env ⇒ demo; production thiếu env ⇒ 503 `misconfigured`, `lib/demo-mode.ts`) | rỗng ("bản phát triển") |
+
+⚠️ **Điểm cần chủ dự án chốt (Codex chỉ ra, ghi lại sự thật):** app native tải web từ **Vercel** (`forfish-alpha.vercel.app`), không phải web công ty `sdfish.sdvico.vn`. Đo 2026-10-19 hai web cùng bản `ecc6c71e`, nhưng chúng deploy bằng HAI đường riêng (Vercel tự build / runner Windows) nên có thể lệch nhau bất cứ lúc nào ⇒ người dùng app native và người dùng web công ty có thể thấy hai bản app khác nhau. Đổi `server.url` thì kho `localStorage`/IndexedDB **theo origin** sẽ trắng trên máy bà con (sổ tàu, bản đồ đã tải) — phải có đường chuyển dữ liệu trước khi đổi.
+
+**Kiểm nhanh bản đang chạy:** `curl -s https://sdfish.sdvico.vn/api/version` · `curl -s https://forfish-alpha.vercel.app/api/version` — so với `git log -1 --format=%h company/main` / `origin/main`.
+
+**Sức khoẻ tài liệu:** workflow `doc-health` (riêng, KHÔNG chặn deploy) chạy mỗi PR + 08:00 thứ Hai. Chạy tay: `sh scripts/doc-health-report.sh --ci`.
 
 ---
 

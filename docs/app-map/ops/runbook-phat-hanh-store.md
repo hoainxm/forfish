@@ -276,7 +276,7 @@ node scripts/generate-ios-screenshots.mjs  # iPhone 6.5"/6.7" + iPad 12.9"/13"
 | Triệu chứng | Xem |
 |---|---|
 | Reject 5.1.2 (Privacy / tracking) hoặc 2.1 (demo không đăng nhập được) | [build-publish-store.md §5](build-publish-store.md) |
-| Vercel deploy "đứng" không có bản mới | [ADR 0006](../adr/0006-cron-day-hon-mot-ngay-khong-vao-vercel-json.md) — cron sub-daily trong `vercel.json` chặn deploy |
+| Vercel deploy "đứng" không có bản mới | [ADR 0006](../../adr/0006-cron-day-hon-mot-ngay-khong-vao-vercel-json.md) — cron sub-daily trong `vercel.json` chặn deploy |
 | Đổi domain sang `sdfish.sdvico.vn` | [build-publish-store.md §6](build-publish-store.md) |
 | Hiện trạng PWA / còn thiếu gì | [native-deploy.md](native-deploy.md) |
 | GitHub Actions cron báo đỏ (thiếu `APP_BASE_URL`/`CRON_SECRET`) | §1e file này |

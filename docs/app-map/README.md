@@ -57,9 +57,9 @@
 | ops | [ops/test-tai-khoan.md](ops/test-tai-khoan.md) | **Tài khoản test một lệnh**: `scripts/test-account.mjs` cấp chuỗi thiết bị / nâng premium tạm / dọn; danh sách khoanh vùng ở `scripts/test-accounts.json`; ca kiểm 401/403/200 chuẩn |
 | ops | [ops/rbac-runbook.md](ops/rbac-runbook.md) | **Tài khoản & phân quyền (RBAC 2026-10-02)**: vai (`staff_accounts`) · loại (real/test/demo/reviewer) · hạng tách ba trục; bảng quyền theo vai; thứ tự deploy → apply 0056 → gỡ admin chung → thu env; xoay khoá đã lộ |
 | ops | [ops/runbook.md](ops/runbook.md) | Runbook vận hành: dev/build/lint, regenerate asset tĩnh, deploy Vercel/PWA, health-check doc, escalation 🔴 |
-| ops | [ops/tram-o-bo/README.md](ops/tram-o-bo/README.md) | **TRẠM HỌC Ở BỜ** (PC RTX 3060, không phục vụ live): vận hành Sen Biển độc lập (ADR 0010) — cài local LLM (Ollama + qwen3.5:9b), quản trị+update gói não, vòng đêm soạn gói, tối ưu, giọng VieNeu, fine-tune (runbook, chưa train). Load khi vận hành trạm soạn/phát hành gói |
+| ops | ops/tram-o-bo/README.md *(chưa có trong repo)* | **TRẠM HỌC Ở BỜ** (PC RTX 3060, không phục vụ live): vận hành Sen Biển độc lập (ADR 0010) — cài local LLM (Ollama + qwen3.5:9b), quản trị+update gói não, vòng đêm soạn gói, tối ưu, giọng VieNeu, fine-tune (runbook, chưa train). Load khi vận hành trạm soạn/phát hành gói |
 | — | [../contracts/sdwork-assets.contract.md](../contracts/sdwork-assets.contract.md) | Contract shape đồ đã mua giữa CRM SDViCo (producer) ↔ ForFish (consumer), versioned |
-| — | [../contracts/tro-ly-brain-pack.contract.md](../contracts/tro-ly-brain-pack.contract.md) | Contract GÓI NÃO trợ lý (producer = trạm ở bờ, consumer = app): manifest có phiên bản + sha256, intents/answers/knowledge/models, luật nội dung (không số sống, đủ nguồn+ngày soát) |
+| — | ../contracts/tro-ly-brain-pack.contract.md *(chưa có trong repo)* | Contract GÓI NÃO trợ lý (producer = trạm ở bờ, consumer = app): manifest có phiên bản + sha256, intents/answers/knowledge/models, luật nội dung (không số sống, đủ nguồn+ngày soát) |
 | — | [../adr/README.md](../adr/README.md) | ADR — log quyết định kiến trúc (vì sao chọn X), đánh số bất biến |
 
 ---

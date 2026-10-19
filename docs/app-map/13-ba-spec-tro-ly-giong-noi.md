@@ -1,12 +1,13 @@
 # 13 — ba-spec: Trợ lý giọng nói ("Trợ lý")
 
 > Load khi: task chạm `src/lib/assistant/**`, `src/components/assistant/**`, `/api/tro-ly`, nút nổi mic trên app ngư dân, chip gợi ý theo màn, hoặc bất kỳ câu hỏi "bà con nói gì thì app hiểu gì, trả lời ra sao, làm gì, khi nào cần sóng".
-covers: src/lib/assistant/, src/components/assistant/, src/app/api/tro-ly/
+covers: src/lib/assistant/
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19b — covers chỉ còn src/lib/assistant/: `src/components/assistant/` và `src/app/api/tro-ly/` KHÔNG còn trong repo (Trợ lý cũ đã gộp vào Sen Biển — sen-bien-toan-app.tsx dùng lib/assistant/answer.ts + device-snapshot.ts, chạy TRONG MÁY, không route /api/tro-ly). Các mục bên dưới nhắc hai đường dẫn đó là LỊCH SỬ thiết kế. -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 ttl_days: 90
 <!-- DOC-STATUS: ORPHANED (2026-10-19) — path 'src/components/assistant/' khong con ton tai. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
-version: v1.1 (2026-09-06) — hợp nhất sau phản biện ([_generated/phan-bien-tro-ly-2026-09-06](_generated/phan-bien-tro-ly-2026-09-06.md)); CHƯA build. **14-kien-truc = nguồn TÊN** (mã `Intent`, type, export, mã lỗi, khoá — bảng mã dùng chung ở 14 §3.0); **13 = nguồn HÀNH VI + câu chữ**; **TROLY-BRIEF §4 = luật cao nhất** (§0 dưới).
+version: v1.1 (2026-09-06) — hợp nhất sau phản biện (_generated/phan-bien-tro-ly-2026-09-06 *(chưa có trong repo)*); CHƯA build. **14-kien-truc = nguồn TÊN** (mã `Intent`, type, export, mã lỗi, khoá — bảng mã dùng chung ở 14 §3.0); **13 = nguồn HÀNH VI + câu chữ**; **TROLY-BRIEF §4 = luật cao nhất** (§0 dưới).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — bà con nói câu gì thì app hiểu thành ý định nào, trả lời bằng dữ liệu nào, làm hành động gì, hỏi lại khi nào, và im/nói thật khi thiếu gì. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả prompt/SDK/tool schema (việc của 14-kien-truc + ADR 0009).
 >
@@ -61,7 +62,7 @@ Luật thiết kế kế thừa nguyên: cỡ chữ/chạm theo thang [03 §0](0
 
 ## 3. Bảng ý định (INT-xx)
 
-### 3.0 INT-xx ↔ mã `Intent` trong code (bảng mã dùng chung — bản gốc ở [14 §3.0](14-kien-truc-tro-ly.md))
+### 3.0 INT-xx ↔ mã `Intent` trong code (bảng mã dùng chung — bản gốc ở 14 §3.0 *(chưa có trong repo)*)
 
 INT-xx là **nhãn nghiệp vụ** (câu nói, câu trả lời, ma trận thiếu dữ liệu ở đây). Mã trong `types.ts`/prompt/test là cột phải; QA truy vết theo cả hai.
 
@@ -370,7 +371,7 @@ Server **không lưu** câu hỏi/câu trả lời vào DB (chỉ bộ đếm l�
 
 Mỗi AC 1 dòng kiểm được, **trong ngoặc = tầng · hàm/route chịu trách nhiệm**. Test: **U** = unit (`src/lib/__tests__/assistant-*.test.ts`), **E** = e2e (`tests/e2e/troly/**`, `ASSISTANT_MOCK=1`, persona `/dev`), **A** = API, **M** = đo tay.
 
-> **CỔNG TRUY VẾT (2026-09-07)** — `src/lib/__tests__/assistant-ac-oracle.test.ts` chạy mỗi `npm test`: mọi mã ở §9 phải có **ca kiểm ĐANG CHẠY dẫn chiếu mã đó trong nhãn**, hoặc được khai trong bảng `CHUYEN_TAY` của chính tệp cổng (lý do + mã kịch bản trong [docs/test-cases/tro-ly-2026-09-06.md](../test-cases/tro-ly-2026-09-06.md) + điều kiện trả nợ). Ba luật cổng giữ: mã nằm trong ca `test.fixme`/`skip` **không** tính là phủ (giả xanh); nợ đã trả mà quên xoá khỏi bảng → đỏ; khai mã kịch bản không có thật → đỏ.
+> **CỔNG TRUY VẾT (2026-09-07)** — `src/lib/__tests__/assistant-ac-oracle.test.ts` chạy mỗi `npm test`: mọi mã ở §9 phải có **ca kiểm ĐANG CHẠY dẫn chiếu mã đó trong nhãn**, hoặc được khai trong bảng `CHUYEN_TAY` của chính tệp cổng (lý do + mã kịch bản trong docs/test-cases/tro-ly-2026-09-06.md *(chưa có trong repo)* + điều kiện trả nợ). Ba luật cổng giữ: mã nằm trong ca `test.fixme`/`skip` **không** tính là phủ (giả xanh); nợ đã trả mà quên xoá khỏi bảng → đỏ; khai mã kịch bản không có thật → đỏ.
 >
 > Rà lần đầu bằng cổng này (2026-09-07): **9 AC không ai nhận** — T04/T05/T06/T07 đã kiểm nhưng thiếu nhãn mã, còn **T30/T32/T35/T38/T43 chỉ nằm trong ca bị hoãn** nên `grep` tưởng đã phủ. Nay: **46 tự động · 10 chuyển đo tay · 0 treo**. Vá kèm: AC-T05 kiểm thêm `qty`, AC-T06 thêm ca năm nhóm bị chặn (kèm ca đối chứng không chặn oan) và ca hook chứng minh ý định cấm **không gọi** `/api/tro-ly` (trước đó chỉ kiểm hằng số `NEVER_ONLINE`, đổi một dòng trong `use-assistant` là câu bệnh tật lên mạng mà test vẫn xanh).
 
@@ -520,7 +521,7 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = tầng · hàm/route chịu 
 - v1.4 (2026-09-07, học phương pháp): đối chiếu với `anthropics/commerce-agents` (Apache 2.0, 2026-09-02) — KHÔNG lấy phần gọi API, chỉ lấy cách đặt luật: lọc chữ bên thứ ba, cổng nguồn gốc cho hành động ghi, ba câu tách bạch mất sóng/máy chưa có/app không có, eval ca độc + ca hiền, gói não chia theo flow. Bảng việc P1–P3 ở [research/commerce-agents-hoc-phuong-phap-2026-09](../research/commerce-agents-hoc-phuong-phap-2026-09.md); ý định mới "chính sách chợ" chờ BA duyệt.
 - v1.0 (2026-09-06): khởi tạo pha BA từ LEAD-BRIEF "Trợ lý" 2026-09-06; 27 ý định; 56 AC; 15 điểm phản biện; 4 điểm chờ chốt.
 - v1.2 (2026-09-06, Core sau audit + QA): §4.3 chốt P1-7 (ừ bằng giọng cho việc hoàn tác được, gọi điện vẫn chạm; nói tên chip = chạm chip); INT-08 tên có dấu + tỉnh từ danh sách thật, chip "Đổi lại"; §6 áp cho MỌI câu thời tiết trong máy (đài duyên hải ở mọi nhánh — AC-T56) và bão trong máy → mở đầu câu + "đừng ra khơi vùng ảnh hưởng", không kết luận "đi được" (P0-1).
-- v1.1 (2026-09-06): **hợp nhất sau phản biện** ([_generated/phan-bien-tro-ly-2026-09-06](_generated/phan-bien-tro-ly-2026-09-06.md)): §0 chốt lead (TROLY-BRIEF §4); §3.0 ánh xạ INT-xx ↔ mã `Intent` của 14 (nguồn tên); INT-07 v1 = mở Ra khơi 3 chạm, không confirm (nợ `?den=`); INT-14 giỏ chợ ONLINE top 3, chạm thẻ = xác nhận; INT-21 bỏ gọi bạn thuyền, hotline `SDVICO_HOTLINE`; INT-02 premium hai tầng; tấm che toàn màn; chip `/cho/sp` bỏ "Thêm món này"; STT `network` → chip hàng chính + câu chốt; client 25 s; mã lỗi +`invalid`/`bad_snapshot`/`upstream`/`timeout`; mock = `reply.source`; `forfish.assistant.` vào `NEVER_BACKUP_PREFIXES`; AC-T05/06/07/08/10/11/17/18/23/24/40/41/51/54 sửa theo type 14 §3.1; §10 việc 8 = 3 chạm (19/20 đạt); §11 #1/2/4/6/9/13 đánh dấu đã chốt; Open = rỗng.
+- v1.1 (2026-09-06): **hợp nhất sau phản biện** (_generated/phan-bien-tro-ly-2026-09-06 *(chưa có trong repo)*): §0 chốt lead (TROLY-BRIEF §4); §3.0 ánh xạ INT-xx ↔ mã `Intent` của 14 (nguồn tên); INT-07 v1 = mở Ra khơi 3 chạm, không confirm (nợ `?den=`); INT-14 giỏ chợ ONLINE top 3, chạm thẻ = xác nhận; INT-21 bỏ gọi bạn thuyền, hotline `SDVICO_HOTLINE`; INT-02 premium hai tầng; tấm che toàn màn; chip `/cho/sp` bỏ "Thêm món này"; STT `network` → chip hàng chính + câu chốt; client 25 s; mã lỗi +`invalid`/`bad_snapshot`/`upstream`/`timeout`; mock = `reply.source`; `forfish.assistant.` vào `NEVER_BACKUP_PREFIXES`; AC-T05/06/07/08/10/11/17/18/23/24/40/41/51/54 sửa theo type 14 §3.1; §10 việc 8 = 3 chạm (19/20 đạt); §11 #1/2/4/6/9/13 đánh dấu đã chốt; Open = rỗng.
 
 ---
 

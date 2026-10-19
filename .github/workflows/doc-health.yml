@@ -1,0 +1,29 @@
+# SỨC KHOẺ TÀI LIỆU (rà Codex 2026-10-19: "đưa doc-health vào CI").
+#
+# Workflow RIÊNG, KHÔNG nằm trong `ci`: deploy.yml chỉ chạy khi `ci` xanh — gộp vào
+# đó thì một doc lệch (vd last_verified cũ) chặn luôn phát hành bản sửa lỗi ngoài
+# biển. Ở đây đỏ là để NGƯỜI thấy (PR có dấu đỏ, tab Actions), không chặn deploy.
+# --ci đỏ khi: doc lệch code quá 7 ngày / covers trỏ đường đã mất (ORPHANED) /
+# _generated cũ / link hỏng giữa các doc. Chạy tay: sh scripts/doc-health-report.sh --ci
+name: doc-health
+
+on:
+  pull_request: {}
+  schedule:
+    - cron: "0 1 * * 1" # 08:00 thứ Hai giờ VN
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # fetch-depth 0: doc-lag so mốc commit của doc với của code nó phủ
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Doc-health (--ci)
+        run: sh scripts/doc-health-report.sh --status && sh scripts/doc-health-report.sh --ci
