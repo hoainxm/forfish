@@ -2,9 +2,10 @@
 
 > Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
 covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
-last_verified: 2026-09-16
+last_verified: 2026-10-19
 ttl_days: 90
 
+<!-- re-verified: 2026-10-19 — NỀN BÃI CÁ THEO MÙA (01-product Trục 1, ops/fish-train-review-2026-10-18 §7.9): khi payload có `baseMode` thì `s`/`sp` đã là bản đồ MÙA theo tháng (không phụ thuộc ảnh hôm nay) nên `fishing-map-view.tsx` TRẢ NGUYÊN `fishCast` cho mọi tầm ngày, KHÔNG gọi `blendFishCells` (pha thêm bản mùa vụ HSI là trộn hai thứ khác bản chất); `fish-blend.ts` chỉ thêm chú thích. Không có `baseMode` (bản cũ/thiếu nền) ⇒ đường blend §5d chạy y nguyên. w(d), `fish-blend-weights.json`, `fishLeadDays`, `climScoreAt` KHÔNG đổi. Nợ ghi ở README §7 (3.6): đo w(d) bằng cá thật cho lớp `hint` nếu sau này `hint` được pha. -->
 <!-- re-verified: 2026-10-03e — `scripts/collect-fish-climatology.mjs` nay truyền `{ climo }` (bảng `src/data/sst-climatology.v1.json`, dải nhiệt lai — 01-product 2026-10-03e) vào `buildFishForecast` để bản MÙA VỤ cùng thang điểm với bản live. CHƯA sinh lại `fish-climatology.v1.json` (hành động có chủ ý theo CLAUDE.md; bản hiện tại chấm bằng dải cố định — blend nghiêng nhẹ về bản dự báo, không sai hướng). Không đổi w(d), không đổi decodeClimatology. -->
 
 <!-- re-verified: 2026-09-16 — `fish-blend.ts` CHỈ đổi CÁCH TẢI bản mùa vụ: `fetch("/data/fish-climatology.v1.json").then(r=>r.json())` → `fetchDataJson(...)` (lib/data-fetch.ts: tải → giải mã data-codec → parse) vì file phát ra ngoài nay là BẢN MÃ (02 re-verified 2026-09-16). Không đổi w(d), không đổi decodeClimatology, không đổi luật xoá-cache-rồi-trả-null (D-PH12). Bản rõ trong git đi cùng đường ⇒ fish-blend.test.ts vẫn import file thật như cũ. -->
