@@ -55,8 +55,8 @@ describe("chọn cách ký", () => {
 
 describe("kiểm câu hỏi ở ranh giới", () => {
   it("text 1–300, màn = đường app, cảng ≤40 chữ; lạ ⇒ bỏ ô hoặc null", () => {
-    expect(kiemCauHoi({ text: "  chừng nào  có bão ", man: "/tau", cang: "Quảng Ngãi" })).toEqual({ text: "chừng nào có bão", man: "/tau", cang: "Quảng Ngãi" });
-    expect(kiemCauHoi({ text: "x", man: "http://evil", cang: "<b>" })).toEqual({ text: "x", man: null, cang: null });
+    expect(kiemCauHoi({ text: "  chừng nào  có bão ", man: "/tau", cang: "Quảng Ngãi", hang: "premium" })).toEqual({ text: "chừng nào có bão", man: "/tau", cang: "Quảng Ngãi", hang: "premium" });
+    expect(kiemCauHoi({ text: "x", man: "http://evil", cang: "<b>", hang: "vip" })).toEqual({ text: "x", man: null, cang: null, hang: null });
     expect(kiemCauHoi({ text: "" })).toBeNull();
     expect(kiemCauHoi({ text: "a".repeat(301) })).toBeNull();
     expect(kiemCauHoi(null)).toBeNull();

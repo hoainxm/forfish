@@ -9,6 +9,17 @@ import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import { noteResponse, readToken, tokenHeader } from "@/lib/device-token-store";
 import type { SenReply } from "@/lib/sen-bien/hieu-y";
+import { effectivePremiumMark, readPremiumMark, readTierMarkRaw, readTierUntilRaw } from "@/lib/tier";
+
+/** Hạng theo dấu trong máy (premium còn hạn / thường / chưa biết ⇒ null) — chỉ để Gemma nói đúng gói. */
+function hangTrongMay(): "premium" | "thuong" | null {
+  try {
+    const m = effectivePremiumMark(readPremiumMark(readTierMarkRaw()), readTierUntilRaw(), Date.now());
+    return m === "premium" ? "premium" : m === "basic" ? "thuong" : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Trần chờ phía máy: route chờ cổng nhà 20 s + đường truyền. */
 export const HOI_HAN_MS = 22_000;
@@ -30,11 +41,12 @@ export function nenHoiMayChu(r: SenReply, text: string, coChuoi: boolean, online
 export async function hoiMayChu(text: string, man: string | null, cang: string | null): Promise<{ text: string; speak: string[] } | null> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
   if (!readToken()) return null;
+  const hang = hangTrongMay();
   try {
     const r = await fetch(apiUrl("/api/sen-bien/hoi"), {
       method: "POST",
       headers: { "content-type": "application/json", ...tokenHeader() },
-      body: JSON.stringify({ text: text.slice(0, 300), ...(man ? { man } : {}), ...(cang ? { cang } : {}) }),
+      body: JSON.stringify({ text: text.slice(0, 300), ...(man ? { man } : {}), ...(cang ? { cang } : {}), ...(hang ? { hang } : {}) }),
       signal: timeoutSignal(HOI_HAN_MS),
     });
     void noteResponse(r);

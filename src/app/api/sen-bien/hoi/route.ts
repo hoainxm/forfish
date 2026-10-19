@@ -2,7 +2,7 @@
 //
 // Máy bà con chỉ gọi route này khi Sen Biển trong máy KHÔNG tự trả lời được và đang có sóng (lib/sen-bien/hoi-may-chu.ts).
 // Route: (1) chỉ thuê bao đã đăng nhập (chuỗi thiết bị — identityFromRequest: 401 dứt khoát / 503 không tra được),
-// (2) nhịp theo SĐT, (3) tra hạng để Gemma biết bà con có gói nào, (4) ký + chuyển sang cổng nhà
+// (2) nhịp theo SĐT, (3) hạng = dấu trong máy gửi kèm (chỉ đổi câu chữ, KHÔNG tra DB — mục tiêu < 1 s), (4) ký + chuyển sang cổng nhà
 // `/gw/v1/forfish/hoi` với MÃ THUÊ BAO GIẢ DANH (cong-ai-ky.ts — không gửi SĐT), (5) trần 20 s.
 // Lỗi gì cũng trả mã rõ, KHÔNG 200-kèm-lỗi: máy nghe mã là nói câu của chính nó, không treo.
 //
@@ -13,8 +13,6 @@ import { timeoutSignal } from "@/lib/abort";
 import { cccdPepper } from "@/lib/crew-report-hash";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
 import { cachKy, dauKy, DUONG_HOI, GW_URL_MAC_DINH, kiemCauHoi, maThueBao } from "@/lib/sen-bien/cong-ai-ky";
-import { effectiveTier } from "@/lib/staff-store";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 // Gemma lạnh có thể mất ~10 s nạp; cổng nhà trần 25 s ⇒ route chờ tối đa 20 s rồi để máy tự nói
@@ -39,12 +37,9 @@ export async function POST(req: Request) {
   const tb = maThueBao(who.phone, cccdPepper() ?? "");
   if (!ky || !tb) return err(503, "chua_noi");
 
-  // hạng chỉ để Gemma nói đúng gói — không tra được thì bỏ trống, KHÔNG chặn câu hỏi
-  const admin = createAdminClient();
-  const tier = admin ? await effectiveTier(admin, who.phone).catch(() => "unavailable" as const) : "unavailable";
   const body = JSON.stringify({
     text: cau.text,
-    ...(tier === "premium" ? { hang: "premium" } : tier === "basic" ? { hang: "thuong" } : {}),
+    ...(cau.hang ? { hang: cau.hang } : {}),
     ...(cau.man ? { man: cau.man } : {}),
     ...(cau.cang ? { cang: cau.cang } : {}),
   });

@@ -71,13 +71,18 @@ export function dauKy(
   };
 }
 
-/** Kiểm câu hỏi máy gửi lên (ranh giới): text 1–300 ký tự; màn = đường đầu; cảng ≤40 chữ. Lạ ⇒ null. */
-export function kiemCauHoi(b: unknown): { text: string; man: string | null; cang: string | null } | null {
+/**
+ * Kiểm câu hỏi máy gửi lên (ranh giới): text 1–300 ký tự; màn = đường đầu; cảng ≤40 chữ; hạng = dấu hạng TRONG MÁY
+ * ("premium" | "thuong"). Lạ ⇒ bỏ ô (text lạ ⇒ null). Hạng do máy tự khai CHỈ đổi câu chữ của Gemma (nói đúng gói),
+ * KHÔNG mở quyền gì — nên không tra DB mỗi câu (bớt một lượt khứ hồi, mục tiêu < 1 s, 19/10).
+ */
+export function kiemCauHoi(b: unknown): { text: string; man: string | null; cang: string | null; hang: "premium" | "thuong" | null } | null {
   if (!b || typeof b !== "object" || Array.isArray(b)) return null;
   const o = b as Record<string, unknown>;
   const text = typeof o.text === "string" ? o.text.normalize("NFC").replace(/\s+/g, " ").trim() : "";
   if (!text || text.length > 300) return null;
   const man = typeof o.man === "string" && /^\/[a-z0-9/-]{0,60}$/.test(o.man) ? o.man : null;
   const cang = typeof o.cang === "string" && /^[\p{L}\p{N} .,'()-]{1,40}$/u.test(o.cang.trim()) ? o.cang.trim() : null;
-  return { text, man, cang };
+  const hang = o.hang === "premium" || o.hang === "thuong" ? o.hang : null;
+  return { text, man, cang, hang };
 }
