@@ -65,6 +65,7 @@ import { parseCoordPair } from "@/lib/parse-coord";
 import { CloseButton } from "@/components/ui/close-button";
 import { AppVersionLine } from "@/components/app-version-line";
 import { VoiceSettingsSection } from "@/components/nav-voice-ui";
+import { tideToggleSub } from "@/lib/tides";
 
 const FISH_COLOR = "var(--fish)"; // xanh lá — cá/ngư trường (token globals, Phương án A)
 
@@ -109,6 +110,7 @@ export function RaKhoiControls({
   overlayField,
   onOverlayField,
   vmsZones,
+  tideCount,
   fishOn,
   onFish,
   fishSpecies,
@@ -202,6 +204,8 @@ export function RaKhoiControls({
   onOverlayField: (k: FetchScalarKind | null) => void;
   /** Vùng biển VMS (admin quản lý) — mỗi vùng 1 toggle trong panel Cài đặt */
   vmsZones: VmsZone[];
+  /** số trạm con nước trong file đã nạp (null = chưa nạp) — cho dòng phụ công tắc */
+  tideCount: number | null;
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
@@ -456,7 +460,7 @@ export function RaKhoiControls({
                   onClearMeasure={onClearMeasure}
                 />
               )}
-              {open === "cai-dat" && <SettingsPanel vmsZones={vmsZones} />}
+              {open === "cai-dat" && <SettingsPanel vmsZones={vmsZones} tideCount={tideCount} />}
             </>
           }
         </div>
@@ -1384,7 +1388,7 @@ function RadioCard({
   );
 }
 
-function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
+function SettingsPanel({ vmsZones, tideCount }: { vmsZones: VmsZone[]; tideCount: number | null }) {
   const prefs = useMapPrefs();
   return (
     <div>
@@ -1466,7 +1470,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
           khi đang xem nền vệ tinh. */}
       <Toggle
         label="Trạm con nước"
-        sub="11 trạm · chạm vào trạm để xem giờ nước lớn, nước ròng"
+        sub={tideToggleSub(tideCount)}
         on={prefs.tideStations}
         onToggle={() => setMapPrefs({ tideStations: !prefs.tideStations })}
         icon={<WavesIcon className="h-5 w-5 text-t1" />}

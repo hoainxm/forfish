@@ -481,7 +481,7 @@ export const VUNG_QUAN_LY_LINE_OPACITY = {
   "quy-hoach": 0.6,
 } as const;
 
-/*  TRẠM CON NƯỚC (thuỷ triều) — 11 trạm, lớp MIỄN PHÍ, mặc định bật, không
+/*  TRẠM CON NƯỚC (thuỷ triều) — 11 trạm VÙNG ở nấc cả nước (cả file 104 trạm, 2026-10-19), lớp MIỄN PHÍ, mặc định bật, không
     dính công tắc "Hải đồ chi tiết" (chủ dự án 2026-09-04). Ba nấc:
       LUÔN (z5): ký hiệu CỘT NƯỚC (tide gauge) — hình quen của Navionics /
                  C-MAP / OpenCPN: cột đứng có mực nước, xanh dương = đang

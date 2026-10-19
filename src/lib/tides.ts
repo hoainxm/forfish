@@ -890,6 +890,17 @@ export function tideCursorReading(
   return { heightM: h, trend: tideTrendAt(st, ms) };
 }
 
+/**
+ * Dòng phụ của công tắc "Trạm con nước" — SỐ LẤY TỪ FILE TRẠM, không gõ cứng
+ * (2026-10-19: chữ "11 trạm" đứng yên từ 09/2026 trong khi file đã 104 trạm).
+ * Chưa nạp được file (đang tải / máy chưa có) ⇒ bỏ con số, không bịa.
+ */
+export function tideToggleSub(count: number | null | undefined): string {
+  const tail = "chạm vào trạm để xem giờ nước lớn, nước ròng";
+  if (!count || !Number.isFinite(count) || count <= 0) return `Phóng gần để thấy trạm ở cảng và cửa biển · ${tail}`;
+  return `${Math.round(count)} trạm · phóng gần để thấy trạm ở cảng và cửa biển · ${tail}`;
+}
+
 export interface TideCardData {
   station: TideStation;
   distanceKm: number;

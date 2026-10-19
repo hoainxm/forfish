@@ -49,6 +49,7 @@ import {
   tideUpcoming,
   tideUpcomingText,
   tideStepHour,
+  tideToggleSub,
   tideCursorAtEdge,
   tideMinuteFromFrac,
   tideCursorMs,
@@ -819,5 +820,22 @@ describe("con trỏ giờ trên đường nước (◀ ▶ + kéo)", () => {
     expect(r!.heightM).toBeCloseTo(tideHeightAt(st, ms), 6);
     expect(r!.trend).toBe(tideTrendAt(st, ms));
     expect(tideCursorReading(st, "hỏng", 600)).toBeNull();
+  });
+});
+
+describe("công tắc lớp trạm nói đúng số trạm", () => {
+  it("số lấy từ file trạm thật, không gõ cứng", () => {
+    expect(tideToggleSub(stations.length)).toMatch(new RegExp(`^${stations.length} trạm · `));
+    expect(tideToggleSub(104)).toBe(
+      "104 trạm · phóng gần để thấy trạm ở cảng và cửa biển · chạm vào trạm để xem giờ nước lớn, nước ròng",
+    );
+  });
+  it("chưa nạp file thì bỏ con số, không bịa", () => {
+    for (const v of [null, undefined, 0, Number.NaN, -3]) expect(tideToggleSub(v)).not.toMatch(/\d/);
+  });
+  it("component không còn số trạm gõ cứng", () => {
+    const rk = readFileSync(join(process.cwd(), "src/components/ra-khoi-controls.tsx"), "utf8");
+    expect(rk).toContain("tideToggleSub(tideCount)");
+    expect(rk).not.toMatch(/sub="\d+ trạm/);
   });
 });
