@@ -58,7 +58,8 @@ import {
 import { isShellReady } from "@/lib/shell-ready";
 import { isOffline, subscribeOnline } from "@/lib/use-online";
 import { NOTIFY_HIDE_MS } from "@/lib/notify";
-import { AlertIcon, CheckIcon } from "@/components/icons";
+import { AlertIcon, CheckIcon, ChevronRightIcon } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 
 /** byte → "~1,2 MB" / "~340 KB" (rỗng nếu 0 — lớp nằm kho khác) */
 function fmtBytes(b: number): string {
@@ -656,9 +657,8 @@ function PretripSavedSheet({
           khoảng 7 ngày không mở.
         </p>
       )}
-      <p className="mb-3 text-[0.9375rem] leading-snug text-foreground/70">
-        Mỗi lớp cần tải sẵn lúc còn sóng để xem được khi ra khơi mất sóng. Dòng
-        nào <b>chưa lưu</b> thì chạm <b>Tải lại</b>.
+      <p className="mb-3 text-[0.875rem] leading-snug text-foreground/65">
+        Tải sẵn lúc còn sóng để ra khơi mất sóng vẫn xem được.
       </p>
       {/*  KHO CHƯA MỞ XONG ⇒ NÓI THẬT, ĐỪNG LIỆT KÊ "CHƯA LƯU" (2026-08-02k).
            Danh sách bên dưới đọc kho ĐỒNG BỘ; kho nạp chưa xong thì mọi dòng ra
@@ -671,20 +671,19 @@ function PretripSavedSheet({
             : "Máy chưa mở được dữ liệu đã lưu. Bà con thử đóng app rồi mở lại xem sao nhé."}
         </p>
       )}
-      <ul className="space-y-2">
+      {/*  DANH SÁCH KẺ MẢNH (rà design Codex lần 2, 2026-10-19 — anh Long gửi ảnh
+           sheet này): trước mỗi lớp là một hộp nền xám + vòng tròn tick to, câu
+           lỗi vàng đậm 3 dòng. Nay một .surface divide-y, icon trạng thái nhỏ có
+           màu (không nền tròn), câu lỗi một dòng chữ thường màu cảnh báo. */}
+      <ul className="surface divide-y divide-line overflow-hidden">
         {layers.map((l) => {
           const rowBusy = busy === l.id || busy === "all";
           return (
             <li
               key={l.id}
-              className="flex items-center gap-3 rounded-xl bg-field px-3 py-2.5"
+              className="flex min-h-(--h-row) items-center gap-3 px-3.5 py-2.5"
             >
-              <span
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                  l.saved ? "bg-ok-bg text-ok" : "bg-warn-bg text-warn"
-                }`}
-                aria-hidden
-              >
+              <span className={`shrink-0 ${l.saved ? "text-ok" : "text-warn"}`} aria-hidden>
                 {l.saved ? (
                   <CheckIcon className="h-4 w-4" />
                 ) : (
@@ -692,15 +691,15 @@ function PretripSavedSheet({
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[0.875rem] font-semibold leading-tight text-navy">
+                <span className="block text-[0.9375rem] font-semibold leading-snug text-navy">
                   {l.label}
                 </span>
                 {failed.has(l.id) ? (
-                  <span className="block text-[0.8125rem] font-semibold leading-snug text-warn">
+                  <span className="block text-[0.8125rem] leading-snug text-warn">
                     {l.saved
                       ? // lớp vốn đã có: nói đúng cái vừa hụt — bản MỚI
-                        "Chưa có bản dự báo mới — có thể hệ thống chưa cập nhật, hoặc máy đang không có mạng."
-                      : "Chưa tải được — bà con kiểm tra lại mạng hoặc thử lại sau ít phút nhé."}
+                        "Chưa có bản mới — hệ thống chưa cập nhật hoặc đang mất sóng."
+                      : "Chưa tải được — kiểm tra mạng rồi thử lại."}
                   </span>
                 ) : (
                   <span className="block text-[0.8125rem] leading-snug text-foreground/65">
@@ -728,7 +727,7 @@ function PretripSavedSheet({
                   type="button"
                   onClick={() => retry(l.id)}
                   disabled={!!busy}
-                  className={`flex min-h-[3.25rem] shrink-0 items-center rounded-lg px-4 text-[0.8125rem] font-semibold transition active:scale-95 disabled:opacity-50 ${
+                  className={`flex h-(--h-ctl) shrink-0 items-center rounded-full px-3.5 text-[0.875rem] font-semibold transition active:scale-95 disabled:opacity-50 ${
                     l.saved ? "text-sea" : "bg-navy text-white"
                   }`}
                 >
@@ -745,7 +744,7 @@ function PretripSavedSheet({
           type="button"
           onClick={() => runMany(missingIds)}
           disabled={!!busy}
-          className="mt-4 min-h-[3.25rem] w-full rounded-xl bg-navy text-[1.0625rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
+          className="mt-4 h-(--h-cta) w-full rounded-xl bg-navy text-[1rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
         >
           {busy === "all"
             ? "Đang tải các lớp còn thiếu…"
@@ -756,7 +755,7 @@ function PretripSavedSheet({
           type="button"
           onClick={() => runMany(staleIds)}
           disabled={!!busy}
-          className="mt-4 min-h-[3.25rem] w-full rounded-xl bg-navy text-[1.0625rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
+          className="mt-4 h-(--h-cta) w-full rounded-xl bg-navy text-[1rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
         >
           {busy === "all"
             ? "Đang tải các lớp đã cũ…"
@@ -764,8 +763,9 @@ function PretripSavedSheet({
         </button>
       ) : null}
       {total > 0 && (
-        <p className="mt-3 text-[0.875rem] font-semibold text-foreground/70">
-          Tổng trong máy: ~{fmtBytes(total)}
+        <p className="mt-2 px-1 text-[0.8125rem] text-foreground/65">
+          Tổng trong máy: ~{fmtBytes(total)} · cần sóng để tải; mất sóng chỉ
+          xem được thứ đã tải.
         </p>
       )}
 
@@ -773,27 +773,28 @@ function PretripSavedSheet({
           được dự báo >3 ngày nên chỉ premium mới thấy nút xuất/nhập tệp). */}
       {!fishLocked && (
         <>
-          {/* NHÃN CỤM NGANG HÀNG PHẢI CÙNG KHUÔN (luật peer-label-uniformity,
-              03-design-system): cặp cũ "Lưu dự báo ra tệp" (5 chữ) / "Phục hồi
-              dự báo từ tệp" (6 chữ) ở 0,9375rem trong cột nửa màn thì cái phải
-              tràn 2 dòng còn cái trái 1 dòng — hai nút ngang hàng cao lệch nhau.
-              Cặp mới cùng 2–3 chữ, cùng 1 dòng. */}
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          {/*  TỆP DỰ BÁO — MỘT nhóm có tiêu đề (rà design Codex lần 2): trước là
+              hai ô xám to "Lưu dự báo" / "Phục hồi dự báo" (3 chữ) + đoạn giải
+              thích 5 dòng. Nay: tiêu đề nhóm · MỘT dòng giải thích giữ đúng tin
+              chính (chỉ dự báo, gửi ai cũng được; sổ bạn thuyền KHÔNG mang đi
+              được) · hai nút chữ gọn nhãn 2 chữ chuẩn (03 bảng nhãn). */}
+          <div className="mt-5 flex items-center gap-2">
+            <p className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">Tệp dự báo</p>
             <button
               type="button"
               onClick={() => doExport("forecast")}
               disabled={!!backupBusy || total <= 0}
-              className="min-h-[3.5rem] rounded-xl bg-field px-2 text-[0.9375rem] font-semibold text-navy transition active:scale-[0.99] disabled:opacity-50"
+              className={`${SQ_BTN} bg-field text-navy disabled:opacity-50`}
             >
-              {backupBusy === "export" ? "Đang lưu…" : "Lưu dự báo"}
+              {backupBusy === "export" ? "Đang lưu" : "Sao lưu"}
             </button>
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={!!backupBusy}
-              className="min-h-[3.5rem] rounded-xl bg-field px-2 text-[0.9375rem] font-semibold text-navy transition active:scale-[0.99] disabled:opacity-50"
+              className={`${SQ_BTN} bg-field text-navy disabled:opacity-50`}
             >
-              {backupBusy === "import" ? "Đang đọc tệp…" : "Phục hồi dự báo"}
+              {backupBusy === "import" ? "Đang đọc" : "Phục hồi"}
             </button>
             <input
               ref={fileRef}
@@ -807,11 +808,9 @@ function PretripSavedSheet({
               }}
             />
           </div>
-          <p className="mt-3 text-[0.9375rem] leading-snug text-foreground/70">
-            Tệp này chỉ gồm <b>dự báo đã tải</b> — gửi cho ai cũng được. Giấy tờ,
-            đồ trên tàu và sổ mối quen nằm ở nút <b>Chuyển sang máy mới</b> bên
-            dưới. Riêng <b>sổ bạn thuyền</b> (CCCD) thì <b>không tệp nào mang đi
-            được</b>, sang máy mới phải nhập tay lại.
+          <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/65">
+            Chỉ gồm dự báo đã tải — gửi ai cũng được. Sổ bạn thuyền (CCCD) không
+            tệp nào mang đi được.
           </p>
           {badFile && (
             /* DÒNG MANG TIN CHÍNH ≥18px: đây là câu trả lời cho cú bấm vừa rồi,
@@ -832,28 +831,33 @@ function PretripSavedSheet({
           {/* ĐỔI MÁY là việc HIẾM và NẶNG → để riêng, không nằm cạnh nút hằng
               ngày cho khỏi bấm nhầm. Chữ NÓI THẲNG là sẽ hỏi thêm một bước —
               dấu "…" là ngụ ý của dân làm phần mềm, bà con không đọc ra. */}
+          {/*  "Chuyển máy" = hàng mở chi tiết (hàng › chuẩn 03 §0b): tên việc ·
+              dòng phụ nói nó mang theo gì + "xem trước rồi mới lưu" (vẫn có
+              bước xác nhận TransferWarnSheet như cũ). */}
           <button
             type="button"
             onClick={() => doExport("transfer")}
             disabled={!!backupBusy}
-            className="mt-3 min-h-[3.5rem] w-full rounded-xl px-3 text-[0.9375rem] font-semibold text-sea transition active:scale-[0.99] disabled:opacity-50"
+            className="surface mt-4 flex min-h-(--h-row) w-full items-center gap-3 px-3.5 py-2.5 text-left transition active:bg-field disabled:opacity-50"
           >
-            Chuyển sang máy mới — xem trước rồi mới lưu
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.9375rem] font-semibold text-navy">Chuyển máy</span>
+              <span className="block text-[0.8125rem] leading-snug text-foreground/65">
+                Giấy tờ, đồ trên tàu, mối quen — xem trước rồi mới lưu
+              </span>
+            </span>
+            <ChevronRightIcon className="h-4 w-4 shrink-0 text-foreground/40" />
           </button>
         </>
       )}
 
-      <p className="mt-3 text-[0.8125rem] leading-snug text-foreground/60">
-        Cần có sóng (mạng) để tải. Ngoài khơi mất sóng thì chỉ xem lại được thứ
-        đã tải sẵn.
-      </p>
-      <button
-        type="button"
-        onClick={onClose}
-        className="mt-2 min-h-[3rem] w-full rounded-xl bg-field text-[0.875rem] font-semibold text-navy transition active:scale-[0.99]"
-      >
-        Đóng
-      </button>
+      {/*  "Đóng" thành nút chữ gọn canh phải (bỏ dải xám full-width): sheet này
+          không có X, vuốt/chạm nền ngoài vẫn đóng. */}
+      <div className="mt-4 flex justify-end">
+        <button type="button" onClick={onClose} className={`${SQ_BTN} bg-field text-navy`}>
+          Đóng
+        </button>
+      </div>
 
       {pending && (
         <ConfirmImportSheet
