@@ -211,12 +211,10 @@ import {
   type SeaScalarResult,
 } from "@/lib/sea-scalars";
 import {
-  ROUTE_HIT_LAYER,
-  RouteMapLayers,
   RouteMode,
-  RouteStopsLayers,
   type PlannedRoute,
 } from "@/components/route-planner";
+import { ROUTE_HIT_LAYER, RouteMapLayers, RouteStopsLayers } from "@/components/route-layers";
 import { formatHoursVN } from "@/lib/route-plan";
 import { legProgressAt } from "@/lib/route-legs";
 import { NOTIFY_HIDE_MS } from "@/lib/notify";
