@@ -187,7 +187,7 @@ export function InstallBanner() {
         <AnchorIcon className="h-6 w-6" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="display text-[1rem] font-bold leading-tight text-navy">
+        <p className="display text-[1.125rem] font-bold leading-tight text-navy">
           Cài SDFish về máy
         </p>
         {/* CÂU CHỮ TÁCH THEO MÁY (sửa 2026-07-31): trên Android bản cài dùng
@@ -195,7 +195,7 @@ export function InstallBanner() {
             iPhone bản cài giữ kho RIÊNG — dự báo đã tải trong Safari KHÔNG theo
             sang, mà lần mở đầu tiên của bản cài bắt buộc phải có sóng. Hứa
             "cài xong là ra khơi mở được" cho iPhone là hứa hão. */}
-        <p className="mt-1 text-[0.9375rem] leading-snug text-foreground/70">
+        <p className="mt-1 text-[1.125rem] leading-snug text-foreground/75">
           {mode === "ios"
             ? "Cài ra màn hình chính giúp máy giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."
             : "Cài ra màn hình chính giúp mở app khi không có sóng, và máy sẽ giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."}
@@ -205,14 +205,14 @@ export function InstallBanner() {
           /*  Chrome không hỏi — hầu hết là vì máy đã có bản CH Play, lúc đó
               Chrome coi origin này "đã cài". Không nói lý do kỹ thuật ra màn
               hình: bà con chỉ cần biết BẤM VÀO ĐÂU. */
-          <p className="mt-2 rounded-xl bg-background p-3 text-[0.9375rem] font-semibold leading-snug text-navy">
+          <p className="mt-2 rounded-xl bg-background p-3 text-[1.125rem] font-semibold leading-snug text-navy">
             Trên Android: bấm nút <span className="font-bold">⋮</span> ở góc trên
             Chrome, rồi chọn{" "}
             <span className="font-bold">“Thêm vào Màn hình chính”</span> (có máy
             ghi <span className="font-bold">“Cài ứng dụng”</span>).
           </p>
         ) : mode === "ios" ? (
-          <p className="mt-2 rounded-xl bg-background p-3 text-[0.9375rem] font-semibold leading-snug text-navy">
+          <p className="mt-2 rounded-xl bg-background p-3 text-[1.125rem] font-semibold leading-snug text-navy">
             Trên iPhone: bấm nút <span className="font-bold">Chia sẻ</span> ở thanh
             dưới trình duyệt, rồi chọn{" "}
             <span className="font-bold">“Thêm vào Màn hình chính”</span>.

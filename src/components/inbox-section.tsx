@@ -19,7 +19,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDownIcon, ChevronRightIcon } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { useAuthUser } from "@/lib/use-auth";
 import { staleWarningVN } from "@/lib/push-message";
 import {
@@ -199,117 +198,77 @@ export function InboxSection() {
 
   const shown = expanded ? messages : messages.slice(0, PREVIEW_COUNT);
   const rest = messages.length - shown.length;
-  /*  CHỈ CHỪA CỘT NÚT KHI DANH SÁCH THẬT SỰ CÓ NÚT (2026-08-29).
-      Luật B1 nói mọi hàng chừa đúng một ô w-16 để mép phải thẳng — nhưng đo lại
-      thấy đa số tin không mang `url`, nên cả danh sách chừa một cột RỖNG: bề
-      ngang chữ tụt 343 → 271px (mất 21%) mà không hàng nào dùng tới cột đó.
-      Chừa cột là để các hàng THẲNG NHAU, không phải để thẳng với một danh sách
-      khác ở khối khác. Không hàng nào có nút ⇒ không có gì để thẳng ⇒ trả bề
-      ngang lại cho chữ. */
-  const coChevron = shown.some((m) => m.url);
+  const soMoi = messages.filter((m) => unread.has(m.id)).length;
 
+  /*  DỄ ĐỌC (làm lại 2026-10-19, chủ dự án: "làm sao đọc thông báo"): trước đây
+      giờ tin 13px, nút "Xem hết" 11px, nhãn IN HOA "TIN CŨ…", mỗi tin một thẻ có
+      viền + một cột mũi tên rỗng. Nay MỘT khối danh sách kẻ mảnh (như design
+      Codex): tin mới chấm cam + tiêu đề đậm; nội dung đủ chữ 1.125rem; giờ gửi
+      (và tuổi tin) một dòng riêng cùng cỡ; tin có đường dẫn thì cả hàng chạm được,
+      mũi tên nằm TRONG hàng. Số tin mới lên hàng tiêu đề. Xem thêm = hàng cuối. */
   return (
     <section aria-label="Thông báo">
-      {/*  Nút xoè/thu về INLINE cuối hàng tiêu đề (2026-08-29, luật A2/A3/A5):
-          trước là dải 343×44 (dưới sàn 52px) rộng bằng cả thẻ tin bên trên nên
-          trông như một thẻ tin nữa. Số tin là DỮ LIỆU ⇒ lên hàng tiêu đề. */}
-      <div className="mb-1.5 flex items-stretch gap-2 px-1">
-        <div className="flex min-w-0 flex-1 items-center">
-          <h2 className="display text-[1.125rem] font-bold text-navy">
-            Thông báo
-            {rest > 0 && (
-              <span className="text-[1rem] font-semibold text-foreground/70">
-                {" "}
-                · còn {rest} tin cũ hơn
-              </span>
-            )}
-          </h2>
-        </div>
-        {rest > 0 || expanded ? (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            className={`${SQ_BTN} bg-field text-navy`}
-          >
-            <ChevronDownIcon
-              className={`h-6 w-6 ${expanded ? "rotate-180" : ""}`}
-            />
-            {expanded ? "Thu gọn" : "Xem hết"}
-          </button>
-        ) : (
-          <span className="w-16 shrink-0" aria-hidden />
+      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+        <h2 className="display text-[1.25rem] font-bold text-navy">Thông báo</h2>
+        {soMoi > 0 && (
+          <span className="rounded-full bg-trim px-3 py-0.5 text-[1.125rem] font-bold text-white">{soMoi} tin mới</span>
         )}
       </div>
-      <ul ref={listRef} className="space-y-2">
+      <ul ref={listRef} className="divide-y divide-line overflow-hidden rounded-2xl bg-card">
         {shown.map((m) => {
           const isUnread = unread.has(m.id);
           const sentMs = Date.parse(m.sentAt);
-          const stale =
+          const staleRaw =
             now > 0 && Number.isFinite(sentMs)
               ? staleWarningVN(sentMs, now)
               : null;
-          const cardClass = isUnread
-            ? "block rounded-[1.125rem] bg-card px-4 py-3 shadow-sm ring-2 ring-navy/60"
-            : "block rounded-[1.125rem] bg-card px-4 py-3 shadow-sm ring-1 ring-line";
+          // nhãn tuổi tin dùng chung với thông báo hệ điều hành (sw.js — IN HOA cho nổi
+          // trên khay); trong app viết thường để không mất dấu, không gào
+          const stale = staleRaw ? staleRaw.charAt(0) + staleRaw.slice(1).toLowerCase().replace(/\s*—\s*$/, "") : null;
           const inner = (
             <>
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="display flex min-w-0 items-baseline gap-2 text-[1rem] font-bold leading-snug text-navy">
-                  {isUnread && (
-                    <span
-                      className="inline-block h-2.5 w-2.5 shrink-0 self-center rounded-full bg-trim"
-                      aria-label="Chưa đọc"
-                    />
-                  )}
-                  <span className="min-w-0">{m.title}</span>
-                </span>
-                <span className="shrink-0 text-[0.8125rem] tabular-nums text-foreground/70">
-                  {fmt(m.sentAt)}
-                </span>
-              </span>
-              <span className="mt-0.5 block text-[1rem] leading-snug text-foreground/75">
-                {stale && (
-                  <span className="font-bold text-warn">{stale} </span>
+              <span className="flex items-start gap-2">
+                {isUnread && (
+                  <span className="mt-2 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-trim" aria-label="Chưa đọc" />
                 )}
-                {m.body}
-              </span>
-              {m.mine && (
-                <span className="mt-1 inline-block rounded-full bg-t1-bg px-2 py-0.5 text-[0.75rem] font-bold text-t1">
-                  Gửi riêng cho bà con
+                <span className={`min-w-0 flex-1 text-[1.125rem] leading-snug text-navy ${isUnread ? "font-bold" : "font-semibold"}`}>
+                  {m.title}
                 </span>
-              )}
+                {m.url && <ChevronRightIcon className="mt-0.5 h-5 w-5 shrink-0 text-foreground/50" />}
+              </span>
+              <span className="mt-1 block text-[1.125rem] leading-snug text-foreground/85">{m.body}</span>
+              <span className="mt-1 block text-[1.125rem] leading-snug text-foreground/65">
+                {fmt(m.sentAt)}
+                {stale && <span className="font-bold text-warn"> · {stale}</span>}
+                {m.mine && " · Gửi riêng cho bà con"}
+              </span>
             </>
           );
-          /*  Khuôn hàng chung (luật B1): [thân flex-1 min-w-0] + [ô w-16].
-              Thẻ không có url vẫn chừa ô đó ĐỂ THẲNG với thẻ có url — nhưng chỉ
-              khi trong danh sách có ít nhất một thẻ mang url (xem `coChevron`). */
           return (
-            <li key={m.id} data-msg-id={m.id} className="flex items-stretch gap-2">
+            <li key={m.id} data-msg-id={m.id}>
               {m.url ? (
-                <>
-                  <Link
-                    href={m.url}
-                    className={`${cardClass} min-w-0 flex-1 transition active:scale-[0.99]`}
-                  >
-                    {inner}
-                  </Link>
-                  <span
-                    className="flex w-16 shrink-0 items-center justify-center text-foreground/30"
-                    aria-hidden
-                  >
-                    <ChevronRightIcon className="h-6 w-6" />
-                  </span>
-                </>
+                <Link href={m.url} className="block min-h-[3.5rem] px-4 py-3 active:bg-field">
+                  {inner}
+                </Link>
               ) : (
-                <>
-                  <div className={`${cardClass} min-w-0 flex-1`}>{inner}</div>
-                  {coChevron && <span className="w-16 shrink-0" aria-hidden />}
-                </>
+                <div className="px-4 py-3">{inner}</div>
               )}
             </li>
           );
         })}
+        {(rest > 0 || expanded) && (
+          <li>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 px-4 text-[1.125rem] font-bold text-navy active:bg-field"
+            >
+              <ChevronDownIcon className={`h-5 w-5 ${expanded ? "rotate-180" : ""}`} />
+              {expanded ? "Thu gọn" : `Xem thêm ${rest} tin cũ hơn`}
+            </button>
+          </li>
+        )}
       </ul>
     </section>
   );

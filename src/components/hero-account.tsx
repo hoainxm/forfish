@@ -200,7 +200,8 @@ function KickedNotice() {
   );
 }
 
-export function HeroAccount() {
+/** @param light đầu màn NỀN SÁNG (Trang chủ từ 2026-10-19) — chip navy trên nền field, không trắng-trên-trong-suốt */
+export function HeroAccount({ light = false }: { light?: boolean } = {}) {
   const online = useOnline();
   const router = useRouter();
   /*  ⚠️ `signedIn`, KHÔNG PHẢI `user` (sửa 2026-08-02h — lỗi CHẶN).
@@ -543,7 +544,7 @@ export function HeroAccount() {
     else document.documentElement.dataset.mode = next;
   }
 
-  if (!ready) return <div className="mt-3 h-[2.75rem]" aria-hidden />;
+  if (!ready) return <div className={`${light ? "" : "mt-3 "}h-[2.75rem]`} aria-hidden />;
 
   const name = (user?.user_metadata?.full_name as string | undefined)?.trim();
   const badge = tierBadge({ access, premiumUntil });
@@ -557,17 +558,19 @@ export function HeroAccount() {
         /*  Sàn chạm 3.5rem = 56px (luật A5 + sàn dự án): đo thật 164×44px, mà
             đây là CỬA DUY NHẤT vào sheet Tài khoản, lại nằm trên nền gradient
             tối nên viền không rõ ngoài nắng. */
-        className="mt-3 flex min-h-[3.5rem] max-w-full items-center gap-2 rounded-full bg-white/15 pl-2 pr-3.5 text-white backdrop-blur-sm transition active:scale-[0.97]"
+        className={`flex min-h-[3.5rem] max-w-full items-center gap-2 rounded-full pl-2 pr-3.5 transition active:scale-[0.97] ${
+          light ? "bg-field text-navy" : "mt-3 bg-white/15 text-white backdrop-blur-sm"
+        }`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${light ? "bg-card" : "bg-white/20"}`}>
           <UsersIcon className="h-4.5 w-4.5" />
         </span>
-        <span className="min-w-0 truncate text-[0.9375rem] font-bold">
+        <span className={`min-w-0 truncate font-bold ${light ? "text-[1.125rem]" : "text-[0.9375rem]"}`}>
           {/* khách lạ thấy thẳng "Đăng nhập" — "Tài khoản" trung tính không
               mời ai làm gì (roadmap hội đồng UX 2026-06-11) */}
           {signedIn && phone ? name || prettyPhone(phone) : "Đăng nhập"}
         </span>
-        <ChevronRightIcon className="h-4 w-4 shrink-0 rotate-90 text-white/60" />
+        <ChevronRightIcon className={`h-4 w-4 shrink-0 rotate-90 ${light ? "text-navy/60" : "text-white/60"}`} />
       </button>
 
       {/* bị đá tài khoản — thẻ đỏ inline ngay dưới chip (tầng 2, luôn nói) */}

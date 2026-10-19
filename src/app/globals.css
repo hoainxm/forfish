@@ -136,30 +136,28 @@ html {
 }
 
 /*
-  NHÃN DOCK — 5 cột, nhãn 2 chữ LUÔN 1 dòng (03 §"Nhãn ngang hàng"). Bug user
-  2026-09-24: "Bạn thuyền" (và cả "Trang chủ"/"Giao dịch") gãy 2 dòng trên máy
-  hẹp → icon+chữ tràn khỏi pill trắng, lệch so với các tab khác. App KHÔNG tự
-  thu cỡ chữ cho vừa. Cách sửa: chặn gãy dòng + hạ cỡ chữ theo BỀ NGANG máy
-  (rem, giữ nguyên type-ramp/data-mode — KHÔNG clamp font, hook 1d-n). Mốc đo
-  thật ở 12px: "Bạn thuyền" cần ~65px, ô dock chỉ 54–68px tuỳ máy.
-    · ≥400px (iPhone Plus/Max, đa số Android): 0.75rem
-    · 345–399px (iPhone SE/mini/15/16): 0.6875rem
-    · <345px (iPhone SE 1 gen, Android nhỏ, iOS 15): 0.625rem
+  NHÃN DOCK — 5 cột, nhãn LUÔN 1 dòng (03 §"Nhãn ngang hàng"). Từ 2026-10-19
+  nhãn mới ngắn hơn hẳn ("Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư" — bỏ
+  "Bạn thuyền"/"Giao dịch" từng gãy 2 dòng 2026-09-24) nên NÂNG cỡ chữ một bậc.
+  NGOẠI LỆ sàn 18px có chủ đích: 5 cột trên máy 360px chỉ ~69px/ô — chủ dự án
+  chọn 5 mục khi đã biết nhãn ~14px (2026-10-19). Hạ theo BỀ NGANG máy (rem,
+  KHÔNG clamp font — hook 1d-n); "Trang chủ" là nhãn dài nhất (~64px ở 14px).
+    · ≥400px: 0.9375rem   · 345–399px: 0.875rem   · <345px: 0.75rem
   line-height 1.15 (KHÔNG leading-none) để chừa dấu tiếng Việt (ạ/ề/ủ).
 */
 .dock-label {
   white-space: nowrap;
   line-height: 1.15;
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
 }
 @media (max-width: 399px) {
   .dock-label {
-    font-size: 0.6875rem;
+    font-size: 0.875rem;
   }
 }
 @media (max-width: 344px) {
   .dock-label {
-    font-size: 0.625rem;
+    font-size: 0.75rem;
   }
 }
 

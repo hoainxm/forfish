@@ -171,9 +171,11 @@ export function SenBienToanApp() {
   if (KHONG_VE.test(pathname) || pathname.startsWith("/quan-tri")) return null;
   return (
     // khung cố định cùng bề ngang app (≤480 px), chừa dock — icon + thẻ đặt tuyệt đối bên trong như ở màn bản đồ
-    // đáy chừa đúng --dock-total (globals.css), không số rời 5.5rem
+    // đáy chừa đúng --dock-total (globals.css), không số rời 5.5rem.
+    // z-[25]: trên dock + thanh mua hàng (z-20), DƯỚI BottomSheet (z-30) và hộp xác nhận
+    // (z-40) — z-40 cũ làm icon đè lên sheet Tài khoản (thấy 2026-10-19).
     <div
-      className="pointer-events-none fixed inset-x-0 top-0 z-40 mx-auto max-w-[480px] [&>*]:pointer-events-auto"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[25] mx-auto max-w-[480px] [&>*]:pointer-events-auto"
       style={{ bottom: "var(--dock-total)" }}
     >
       {!open && !dangGo && (

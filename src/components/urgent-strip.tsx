@@ -14,7 +14,6 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 
 /*
   Việc cần làm ngay — one urgent strip spanning ALL pillars, not just giấy tờ.
@@ -114,7 +113,7 @@ export function UrgentStrip() {
   if (all.length === 0) {
     if (!sdvicoNote) return null;
     return (
-      <p className="px-2 text-[0.875rem] text-foreground/65">
+      <p className="px-1 text-[1.125rem] leading-snug text-foreground/70">
         Chưa hỏi được nợ/bảo hành bên SDVICO — sóng đang yếu, app sẽ thử lại.
       </p>
     );
@@ -123,103 +122,63 @@ export function UrgentStrip() {
   const shown = expanded ? all : all.slice(0, MAX_ROWS);
   const rest = all.length - shown.length;
 
+  /*  CÙNG KHUÔN VỚI "THÔNG BÁO" ngay dưới (làm lại 2026-10-19, rà design Codex):
+      một khối danh sách kẻ mảnh, chữ ≥1.125rem; nhãn trục + tên tàu (trước là hai
+      tag 12px) gộp thành MỘT dòng phụ cùng cỡ; mũi tên nhỏ trong hàng thay cột
+      w-16 rỗng; "Xem hết" là HÀNG CUỐI danh sách (trước là nút 11px trên tiêu đề). */
   return (
     <section aria-label="Việc cần làm ngay">
-      {/*  Nút xoè/thu về INLINE cuối hàng tiêu đề (2026-08-29, luật A2/A3/A5).
-          Trước: dải 343×48 full-width ăn riêng một hàng ngay dưới 4 hàng việc
-          343×81 nên mắt đọc nó như HÀNG VIỆC THỨ 5; cao 48px, dưới sàn 52px; và
-          onClick chỉ setExpanded(true) — xoè rồi KHÔNG có đường thu lại (nút tự
-          biến mất vì rest===0), trong khi hộp thư ngay dưới cùng màn thì có
-          "Thu gọn". Con số "còn N việc" là DỮ LIỆU ⇒ lên hàng tiêu đề. */}
-      <div className="mb-1.5 flex items-stretch gap-2 px-1">
-        <div className="flex min-w-0 flex-1 items-center">
-          <h2 className="display text-[1rem] font-bold text-navy">
-            Việc cần làm ngay
-            {rest > 0 && (
-              <span className="font-semibold text-foreground/70">
-                {" "}
-                · còn {rest} việc nữa
-              </span>
-            )}
-          </h2>
-        </div>
-        {all.length > MAX_ROWS ? (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className={`${SQ_BTN} bg-background text-sea`}
-          >
-            <ChevronDownIcon
-              className={`h-6 w-6 ${expanded ? "rotate-180" : ""}`}
-            />
-            {expanded ? "Thu gọn" : "Xem hết"}
-          </button>
-        ) : (
-          <span className="w-16 shrink-0" aria-hidden />
-        )}
+      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+        <h2 className="display text-[1.25rem] font-bold text-navy">Việc cần làm</h2>
+        <span className="text-[1.125rem] font-bold text-foreground/70">{all.length} việc</span>
       </div>
-      <div className="overflow-hidden surface">
-        <ul>
-          {shown.map((item, i) => {
-            const Icon = item.tone === "danger" ? AlertIcon : ClockIcon;
-            return (
-              <li key={item.id}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-3 py-3.5 pl-4 transition active:bg-background ${
-                    i > 0 ? "border-t border-line" : ""
-                  }`}
-                >
+      <ul className="divide-y divide-line overflow-hidden rounded-2xl bg-card">
+        {shown.map((item) => {
+          const Icon = item.tone === "danger" ? AlertIcon : ClockIcon;
+          const phu = [PILLAR_TAG[item.pillar].tag, item.boatLabel].filter(Boolean).join(" · ");
+          return (
+            <li key={item.id}>
+              <Link href={item.href} className="flex min-h-[3.5rem] items-start gap-3 px-4 py-3 active:bg-field">
+                <span
+                  className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${item.tone === "danger" ? "bg-danger" : "bg-warn"}`}
+                  aria-hidden
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[1.125rem] font-bold leading-snug text-navy">{item.label}</span>
                   <span
-                    className={`flex h-3 w-3 shrink-0 rounded-full ${
-                      item.tone === "danger" ? "bg-danger" : "bg-warn"
+                    className={`mt-0.5 flex items-center gap-1 text-[1.125rem] font-bold leading-snug ${
+                      item.tone === "danger" ? "text-danger" : "text-warn"
                     }`}
-                    aria-hidden
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span className="block min-w-0 truncate text-[1.125rem] font-semibold">
-                        {item.label}
-                      </span>
-                      <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 text-[0.75rem] font-bold text-foreground/70">
-                        {PILLAR_TAG[item.pillar].tag}
-                      </span>
-                      {item.boatLabel && (
-                        <span className="shrink-0 truncate rounded-md bg-navy/10 px-1.5 py-0.5 text-[0.75rem] font-bold text-navy">
-                          {item.boatLabel}
-                        </span>
-                      )}
-                    </span>
-                    <span
-                      className={`flex items-center gap-1 text-[0.9375rem] font-bold ${
-                        item.tone === "danger" ? "text-danger" : "text-warn"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {item.status}
-                    </span>
-                  </span>
-                  {/*  Chevron nằm trong ĐÚNG cột w-16 như hộp thư (2026-08-29f):
-                       trước đây nó ở trong lề px-4 của thẻ nên tâm icon lệch 8px
-                       so với chevron hộp thư ngay bên dưới — hai danh sách cùng
-                       một màn mà hai cột icon không thẳng. */}
-                  <span
-                    className="flex w-16 shrink-0 items-center justify-center text-foreground/30"
-                    aria-hidden
                   >
-                    <ChevronRightIcon className="h-6 w-6" />
+                    <Icon className="h-5 w-5 shrink-0" />
+                    {item.status}
                   </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-        {sdvicoNote && (
-          <p className="border-t border-line px-4 py-2 text-[0.875rem] text-foreground/65">
-            Chưa hỏi được nợ/bảo hành bên SDVICO — sóng đang yếu, app sẽ thử lại.
-          </p>
+                  {phu && <span className="mt-0.5 block text-[1.125rem] leading-snug text-foreground/65">{phu}</span>}
+                </span>
+                <ChevronRightIcon className="mt-0.5 h-5 w-5 shrink-0 text-foreground/50" />
+              </Link>
+            </li>
+          );
+        })}
+        {(rest > 0 || expanded) && (
+          <li>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 px-4 text-[1.125rem] font-bold text-navy active:bg-field"
+            >
+              <ChevronDownIcon className={`h-5 w-5 ${expanded ? "rotate-180" : ""}`} />
+              {expanded ? "Thu gọn" : `Xem thêm ${rest} việc`}
+            </button>
+          </li>
         )}
-      </div>
+        {sdvicoNote && (
+          <li className="px-4 py-3 text-[1.125rem] leading-snug text-foreground/70">
+            Chưa hỏi được nợ/bảo hành bên SDVICO — sóng đang yếu, app sẽ thử lại.
+          </li>
+        )}
+      </ul>
     </section>
   );
 }

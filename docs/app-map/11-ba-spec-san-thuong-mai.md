@@ -2,7 +2,8 @@
 
 > Load khi: task chạm `/cho/**`, `/ban-hang/**`, tab "Chợ vật tư" ở `/quan-tri`, `src/lib/market/**`, `/api/cho|ban-hang|admin/cho/**`, migration `0060_marketplace.sql`, hoặc bất kỳ câu hỏi "người mua/người bán/admin sàn được làm gì, khi nào, thấy gì".
 covers: src/lib/market/, src/app/cho/, src/app/ban-hang/, src/components/market/, src/components/admin/market-admin-tab.tsx, src/components/admin/market-admin-requests.tsx, src/components/admin/market-admin-orders.tsx, src/app/api/cho/, src/app/api/ban-hang/, src/app/api/admin/cho/
-last_verified: 2026-10-18
+last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19 — /cho gốc thành MỤC DOCK "Vật tư": đầu màn ManHeader "Vật tư" (bỏ MarketHeader + nút Quay lại về /tien), lối vào cũ ở /tien (thẻ) và /tau (tab Cửa hàng/Đơn) đã gỡ; ?tab=cua-hang|don ở /tau chuyển sang /cho, /cho/don. Luồng mua/giỏ/đơn/báo giá KHÔNG đổi. -->
 <!-- re-verified: 2026-10-18 — v1.4 "LUỒNG GIỐNG SHOPEE" (chủ dự án: "cho phép chủ tàu đặt đơn bất kỳ cái gì, nó sẽ chuyển cho chủ sàn, làm luôn luồng giống shopee như xác nhận đơn, thời gian giao"): §4.3 tự huỷ 72 giờ (thay "48 giờ không tự huỷ"), §4.4 hẹn giao, §5.9 yêu cầu đặt hàng, §6.5 xác nhận = hẹn giao + dời hẹn, §7 mục Yêu cầu đặt, §8 Y1/Y2, AC-78..AC-92. Code: lib/market/{eta,request-state,requests-cache}.ts, order-state settlePending, route-utils settleRequests, /api/cho/yeu-cau*, /api/admin/cho/yeu-cau*, components/market/shared/eta.tsx, buyer/market-requests.tsx, admin/market-admin-requests.tsx. Kiểm trình duyệt file mode 2026-10-18: gửi yêu cầu → báo giá → đồng ý → đơn "Đã xác nhận" kèm hẹn giao; chủ shop xác nhận chọn "Ngày mai". -->
 <!-- re-verified: 2026-09-06 - pha 2b: /cho (8 màn), /ban-hang (7 màn), tab admin, /api/cho|ban-hang|admin/cho đã hiện thực theo §5–§7; AC 77 mã; QA e2e 63 pass / 8 fixme; khác spec: ghi chú người mua là MỘT ô chung cho cả lần đặt (Core CheckoutDraft.buyerNote), giỏ khách lạ dời sang ngăn SĐT khi ngăn đó trống -->
 ttl_days: 90

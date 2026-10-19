@@ -1,6 +1,3 @@
-.tau-header { padding-top: calc(1rem + env(safe-area-inset-top)); }
-.tau-nav { top: env(safe-area-inset-top); }
-.tau-workspace .market-search-bar { position: static; }
 .tau-workspace .tau-owned { padding-block: 1rem 2rem; }
 .tau-owned > section { margin-top: 1.5rem; }
 .tau-owned > section:first-of-type { margin-top: 1rem; }

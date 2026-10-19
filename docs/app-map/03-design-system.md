@@ -5,7 +5,8 @@
 **Load khi / Load when**: sửa UI, màu sắc, typography, copy, trạng thái (status), hoặc thêm component mới.
 
 covers: src/app/globals.css
-last_verified: 2026-10-05
+last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19 — `.dock-label` NÂNG một bậc (0.9375 / 0.875 / 0.75rem theo bề ngang) vì nhãn dock mới ngắn hơn (Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư); ngoại lệ sàn 18px có chủ đích (5 cột ~69px ở máy 360). Khuôn MỚI `ManHeader` (components/man-header.tsx): đầu màn nền sáng thay hero gradient ở các màn dock. Danh sách kẻ mảnh (`divide-y divide-line rounded-2xl bg-card`, hàng ≥3.5rem, chữ 1.125rem, chấm màu thay tag 12px) là khuôn chung của Thông báo + Việc cần làm. HeroAccount có biến thể `light`. -->
 ttl_days: 90
 gate: warn
 <!-- re-verified: 2026-10-05 10:40 — thêm pattern "overlay tự-ẩn phải tính CUỘN là thao tác" (onScrollCapture ở container gốc, không onScroll): đối chiếu `ui/snap-sheet.tsx` (<section onScrollCapture={onInteract}>) + `ra-khoi-controls.tsx` (container gốc onScrollCapture) — khớp sau fix 2026-10-05. Tap-target SnapSheet min-h-[3.5rem] còn đúng. -->

@@ -1,8 +1,7 @@
 import { TradeHub } from "@/components/trade-hub";
-import { BoatSwitcher } from "@/components/boat-switcher";
-import { PageHeader } from "@/components/page-header";
+import { ManHeader } from "@/components/man-header";
 
-export const metadata = { title: "Giao dịch — SDFish" };
+export const metadata = { title: "Chợ cá — SDFish" };
 
 // Trục GIAO DỊCH (user chốt 2026-07-27 — gộp về đúng 1 việc: mua–bán):
 // thông tin được cấp để bán có lợi thế — giá cá hôm nay, tin mua/bán
@@ -11,15 +10,11 @@ export const metadata = { title: "Giao dịch — SDFish" };
 export default function TienPage() {
   return (
     <div>
-      <PageHeader
-        kicker="Giao dịch"
-        title="Mua bán của tàu"
-        sub="Giúp bà con nắm giá cả và đầu mối thu mua — dễ dàng đăng tin, gọi trực tiếp thương lái."
-        toColor="var(--t2)"
-      />
+      {/* CHỢ CÁ (dock 2026-10-19, trước là "Giao dịch") — đầu màn gọn nền sáng */}
+      <ManHeader title="Chợ cá" sub="Giá cá, tin mua bán, chỗ thu mua." />
       {/* Giao dịch (giá cá tham khảo) để PUBLIC — nắm giá là quyền lợi chung,
           không bắt đăng nhập. Sổ lãi lỗ + công nợ là data cá nhân → khóa. */}
-      <BoatSwitcher />
+      {/* Bỏ BoatSwitcher (2026-10-19): chọn tàu chỉ ở Hồ sơ tàu — tin đăng chỉ ĐIỀN SẴN tên/tỉnh tàu đang chọn, sửa được */}
       <TradeHub />
     </div>
   );

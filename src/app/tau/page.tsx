@@ -1,10 +1,11 @@
-import { PageHeader } from "@/components/page-header";
+import { ManHeader } from "@/components/man-header";
+import { TauToiNav } from "@/components/tau-toi-nav";
 import { TauTabs } from "@/components/tau-tabs";
 import { RequireLogin } from "@/components/require-login";
 import "@/components/market/market-ui.css";
 import "./tau.css";
 
-export const metadata = { title: "Tàu cá — SDFish" };
+export const metadata = { title: "Tàu tôi — SDFish" };
 
 // Trục TÀU (tài sản) — ForFish là kênh CSKH của SDVICO: giấy tờ + tuân thủ,
 // DỊCH VỤ (sửa chữa/bảo dưỡng/cước + sổ nhắc tự ghi), sản phẩm SDVICO
@@ -14,17 +15,12 @@ export const metadata = { title: "Tàu cá — SDFish" };
 export default function TauPage() {
   return (
     <div className="tau-workspace market-ui">
-      {/* Rút bỏ vế liệt kê "Giấy tờ, dịch vụ, sản phẩm" khỏi sub (D1): ĐÚNG BA
-          TỪ đó là nhãn ba tab hiện ngay bên dưới. */}
-      <PageHeader
-        kicker="Quản lý tàu"
-        title="Tàu cá"
-        sub="Chăm tàu, mua đồ, theo dõi đơn."
-        toColor="var(--t3)"
-      />
+      {/*  TÀU TÔI (dock 2026-10-19): đầu màn gọn nền sáng + thanh Hồ sơ tàu | Bạn thuyền.
+           Cửa hàng + Đơn KHÔNG còn ở đây — đã là mục dock Vật tư (một việc một chỗ). */}
+      <ManHeader title="Tàu tôi" />
+      <TauToiNav />
       {/*  CẢ MÀN CẦN TÀI KHOẢN (chủ dự án 2026-09-01). Tiêu đề vẫn hiện để
-           người chưa có tài khoản biết mình đang đứng ở đâu, và thẻ khoá nói
-           thẳng phải gọi SDVICO. */}
+           người chưa có tài khoản biết mình đang đứng ở đâu. */}
       <RequireLogin what="hồ sơ tàu">
         <TauTabs />
       </RequireLogin>

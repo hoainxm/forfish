@@ -60,7 +60,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 ## 2. Bốn trục / The four promises
 
-> **Lời hứa ≠ route** (cập nhật 2026-06-15): nav đã đổi sang **hướng đối tượng** (dock: Trang chủ · Ra khơi · Tàu cá · Bạn thuyền · Giao dịch — nhãn 2026-07-28), KHÔNG còn 1 route/trục. Bản đồ lời-hứa → nơi ở thật: **Trục 1** `/ngu-truong` · **Trục 2** `/tien` (tab Giao dịch) · **Trục 3** `/tau` (tab Dịch vụ/Sản phẩm) · **Trục 4** `/tau` (tab Giấy tờ) + `/nguoi` (thuyền viên). Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng về nav: [07-design-spec §4](07-design-spec.md). Lời hứa thì không đổi — đó mới là trục.
+> **Lời hứa ≠ route** (cập nhật 2026-06-15): nav **hướng đối tượng** (dock từ 2026-10-19: Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư — mỗi việc một chỗ; trước: Trang chủ · Ra khơi · Tàu cá · Bạn thuyền · Giao dịch), KHÔNG còn 1 route/trục. Bản đồ lời-hứa → nơi ở thật: **Trục 1** `/ngu-truong` · **Trục 2** `/tien` (tab Giao dịch) · **Trục 3** `/tau` (tab Dịch vụ/Sản phẩm) · **Trục 4** `/tau` (tab Giấy tờ) + `/nguoi` (thuyền viên). Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng về nav: [07-design-spec §4](07-design-spec.md). Lời hứa thì không đổi — đó mới là trục.
 
 ### Trục 1 — Đánh bắt tốt hơn (`/ngu-truong`)
 - **Hứa gì**: ra khơi trúng hơn, đỡ phí dầu phí công.
@@ -118,7 +118,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
   - ⚠️ Khuyến nghị ngư trường của họ chỉ cập nhật **2 lần/tuần** → KHÔNG hứa với người dùng độ chính xác hằng ngày cho phần khuyến nghị.
 - ⚠️ Độ phân giải ảnh vệ tinh là **mức vùng (vài km)**, không phải tọa độ điểm — không hứa "chỉ đúng chỗ thả lưới". Lớp phù du bị mây che mất chỗ — UI giải thích "chỗ trống là mây che".
 
-### Trục 2 — Bán được đắt hơn (ở `/tien`, dock nhãn "Giao dịch" · route cũ `/gia-ca` → redirect)
+### Trục 2 — Bán được đắt hơn (ở `/tien`, dock nhãn "Chợ cá" từ 2026-10-19 · route cũ `/gia-ca` → redirect)
 - **Hứa gì**: cá về bờ bán được giá, không bị ép.
 - **Cấu trúc GỌN VỀ 1 VIỆC MUA–BÁN (user chốt 2026-07-27)** — bỏ tab Hiệu quả/Công nợ khỏi khu này, chỉ còn 3 mục:
   1. **Giá cá** — giá cá tuần VASEP + giá dầu DO live. **Chạm 1 loài → biểu đồ giá LỊCH SỬ** (kiểu chứng khoán, 2026-07-29).

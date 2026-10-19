@@ -1,6 +1,6 @@
 import { CrewList } from "@/components/crew-list";
-import { PageHeader } from "@/components/page-header";
-import { BoatSwitcher } from "@/components/boat-switcher";
+import { ManHeader } from "@/components/man-header";
+import { TauToiNav } from "@/components/tau-toi-nav";
 import { RequireLogin } from "@/components/require-login";
 
 export const metadata = { title: "Bạn thuyền — SDFish" };
@@ -11,19 +11,14 @@ export const metadata = { title: "Bạn thuyền — SDFish" };
 export default function NguoiPage() {
   return (
     <div>
-      {/* Bỏ prop sub (D1): chỉ giải thích màn này là gì — tiêu đề "Sổ thuyền
-          viên" ngay trên đã nói xong, mà 41px đó nằm trong ngân sách 380px bị ăn
-          trước khi thấy người đầu tiên. */}
-      <PageHeader
-        kicker="Bạn thuyền"
-        title="Sổ thuyền viên"
-        toColor="var(--t4)"
-      />
+      {/* TÀU TÔI › Bạn thuyền (dock 2026-10-19) — cùng đầu màn + thanh với /tau */}
+      <ManHeader title="Tàu tôi" />
+      <TauToiNav />
       {/*  ĐỔI `LoginGate` → `RequireLogin` (chủ dự án 2026-09-01): từ nay CẢ
            app cần tài khoản. Người ngoài tự đăng ký lại được (2026-09-23) —
            thẻ khoá mời TẠO tài khoản hoặc đăng nhập, không còn bắt gọi SDVICO. */}
       <RequireLogin what="sổ thuyền viên">
-        <BoatSwitcher />
+        {/* Bỏ BoatSwitcher (2026-10-19): sổ bạn thuyền là danh bạ CHUNG của chủ tàu, bộ chọn tàu ở đây làm tưởng danh sách bị lọc */}
         <CrewList />
       </RequireLogin>
     </div>

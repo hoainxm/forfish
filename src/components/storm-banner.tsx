@@ -16,6 +16,10 @@
  *     được thu về chip 1 dòng, bung đầy đủ 8s mỗi khi CÂU đổi.
  *   · variant="page" — Trang chủ, trên dải khẩn: CHỈ lên tiếng khi có bão hoặc
  *     tin đã quá cũ >24h / chưa từng có (shouldShowStormOnHome); còn lại IM.
+ *   · variant="page" + `always` (2026-10-19, màn Sen Biển = cửa vào chính): THƯỜNG
+ *     TRỰC — cả "đang hỏi" lẫn "không có bão, hỏi lúc …" đều có một dòng, vì màn
+ *     đầu app không còn chỗ nào khác nói về bão (chủ dự án chốt: "cảnh báo bão hiện
+ *     thường trực"). Chữ ≥1.125rem (18px) ở mọi nhánh của variant page.
  */
 import { useEffect, useRef, useState } from "react";
 import {
@@ -30,12 +34,15 @@ import { NOTIFY_HIDE_LONG_MS, NOTIFY_HIDE_MS } from "@/lib/notify";
 import { clockVN } from "@/lib/day-labels";
 import { beaufort } from "@/lib/marine-weather";
 import { routeStormConflict } from "@/lib/route-storm";
-import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons";
+import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon } from "@/components/icons";
 
 export function StormBanner({
   variant = "page",
   myPos = null,
+  always = false,
 }: {
+  /** page: luôn có một dòng tin bão (cả khi đang hỏi / không có bão) */
+  always?: boolean;
   /** "overlay" = nổi trên bản đồ full-screen: chip gọn khi yên, thẻ đầy đủ khi có bão */
   variant?: "page" | "overlay";
   /** Vị trí tàu (GPS) — để biết tàu có TRONG vùng bão không; null = chưa định vị */
@@ -107,10 +114,22 @@ export function StormBanner({
     return () => clearTimeout(t);
   }, [noticeText, variant]);
 
-  if (status.kind === "dang-hoi") return null; // đang hỏi — chưa nói gì
+  if (status.kind === "dang-hoi") {
+    // đang hỏi — bản đồ chưa nói gì; màn Sen Biển (always) giữ chỗ để dòng bão không nhảy
+    if (variant === "page" && always) {
+      return (
+        <p role="status" className="flex min-h-[3.5rem] items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-[1.125rem] leading-snug text-foreground/80">
+          <ClockIcon className="h-5 w-5 shrink-0" />
+          Đang hỏi tin bão…
+        </p>
+      );
+    }
+    return null;
+  }
 
   // TRANG CHỦ là màn yên: chỉ nói khi đáng nói (có bão / tin quá cũ / chưa có).
-  if (variant === "page" && !shouldShowStormOnHome(status, nowMs)) return null;
+  // Màn Sen Biển (always) thì nói cả lúc yên — xem đầu file.
+  if (variant === "page" && !always && !shouldShowStormOnHome(status, nowMs)) return null;
 
   // KHÔNG hỏi được (mất sóng / nguồn lỗi / tin trong máy đã quá cũ): nền VÀNG,
   // nói bằng TUỔI TIN — khác hẳn "không có bão".
@@ -144,7 +163,7 @@ export function StormBanner({
     return (
       <p
         role="status"
-        className="flex items-start gap-2 rounded-xl bg-warn-bg px-3 py-2.5 text-[1rem] font-bold leading-snug text-warn"
+        className="flex items-start gap-2 rounded-xl bg-warn-bg px-3 py-2.5 text-[1.125rem] font-bold leading-snug text-warn"
       >
         <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
         <span>{noticeText}</span>
@@ -164,7 +183,13 @@ export function StormBanner({
         </p>
       );
     }
-    return null;
+    if (!always) return null;
+    return (
+      <p role="status" className="flex min-h-[3.5rem] items-center gap-2 rounded-xl bg-ok-bg px-3 py-2.5 text-[1.125rem] font-bold leading-snug text-ok">
+        <CheckIcon className="h-5 w-5 shrink-0" />
+        Không có tin bão trên Biển Đông — hỏi lúc {at}
+      </p>
+    );
   }
 
   // Overlay đã thu: 1 chip cảnh báo gọn, vẫn nổi bật, chạm để mở lại.
@@ -230,7 +255,7 @@ export function StormBanner({
                 {s.kindLabel}
                 {s.name ? ` ${s.name}` : ""} đang trên vùng Biển Đông
               </p>
-              <p className="mt-0.5 text-[1rem] leading-snug text-foreground/80">
+              <p className={`mt-0.5 leading-snug text-foreground/80 ${variant === "page" ? "text-[1.125rem]" : "text-[1rem]"}`}>
                 {s.windKmh != null &&
                   `Gió mạnh nhất khoảng ${s.windKmh} km/giờ (cấp ${beaufort(s.windKmh)}). `}
                 Đừng ra khơi vùng ảnh hưởng — nghe ngay đài duyên hải hoặc
@@ -247,7 +272,7 @@ export function StormBanner({
                   thì hai bên khớp nhau. Không có `updated` (nguồn cũ) thì mới
                   lùi về `checkedAt`. */}
               <p
-                className={`mt-1 text-[0.9375rem] font-bold leading-snug ${
+                className={`mt-1 font-bold leading-snug ${variant === "page" ? "text-[1.125rem]" : "text-[0.9375rem]"} ${
                   status.cu ? "text-warn" : "text-foreground/65"
                 }`}
               >
