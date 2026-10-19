@@ -6471,6 +6471,1665 @@
     }
    },
    "sampleRadius": 1
+  },
+  {
+   "id": "cua-bien-dinh-an",
+   "name": "Cửa Định An",
+   "note": "Ngoài cửa biển – Trà Vinh – Sóc Trăng: Phao 0 luồng Định An – Cần Thơ, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 9.4708,
+   "lon": 106.5158,
+   "cons": {
+    "2N2": {
+     "amp_cm": 2.2266,
+     "G_deg": 154.77
+    },
+    "J1": {
+     "amp_cm": 1.9661,
+     "G_deg": 237.99
+    },
+    "K1": {
+     "amp_cm": 62.0855,
+     "G_deg": 216.36
+    },
+    "K2": {
+     "amp_cm": 11.2867,
+     "G_deg": 250.19
+    },
+    "M2": {
+     "amp_cm": 88.0478,
+     "G_deg": 208.19
+    },
+    "M4": {
+     "amp_cm": 1.484,
+     "G_deg": 276.84
+    },
+    "MF": {
+     "amp_cm": 0.4463,
+     "G_deg": 7.18
+    },
+    "MM": {
+     "amp_cm": 1.4397,
+     "G_deg": 8.44
+    },
+    "N2": {
+     "amp_cm": 17.7491,
+     "G_deg": 187.74
+    },
+    "O1": {
+     "amp_cm": 44.363,
+     "G_deg": 172.82
+    },
+    "P1": {
+     "amp_cm": 19.5719,
+     "G_deg": 212.53
+    },
+    "Q1": {
+     "amp_cm": 8.443,
+     "G_deg": 153.65
+    },
+    "S1": {
+     "amp_cm": 0.9635,
+     "G_deg": 153.0
+    },
+    "S2": {
+     "amp_cm": 34.1776,
+     "G_deg": 244.91
+    },
+    "SA": {
+     "amp_cm": 10.7538,
+     "G_deg": 355.9
+    },
+    "SSA": {
+     "amp_cm": 0.1218,
+     "G_deg": 208.08
+    },
+    "T2": {
+     "amp_cm": 1.8146,
+     "G_deg": 223.95
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-tieu",
+   "name": "Cửa Tiểu",
+   "note": "Ngoài cửa biển – Đồng Tháp: Phao 0 luồng Sông Tiền (Cửa Tiểu), theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 10.2048,
+   "lon": 106.9538,
+   "cons": {
+    "2N2": {
+     "amp_cm": 1.9159,
+     "G_deg": 147.23
+    },
+    "J1": {
+     "amp_cm": 1.4568,
+     "G_deg": 224.28
+    },
+    "K1": {
+     "amp_cm": 58.3646,
+     "G_deg": 207.3
+    },
+    "K2": {
+     "amp_cm": 9.1373,
+     "G_deg": 236.31
+    },
+    "M2": {
+     "amp_cm": 74.8837,
+     "G_deg": 192.75
+    },
+    "M4": {
+     "amp_cm": 1.5522,
+     "G_deg": 209.32
+    },
+    "MF": {
+     "amp_cm": 0.5591,
+     "G_deg": 27.22
+    },
+    "MM": {
+     "amp_cm": 1.2723,
+     "G_deg": 14.12
+    },
+    "N2": {
+     "amp_cm": 15.8811,
+     "G_deg": 170.45
+    },
+    "O1": {
+     "amp_cm": 44.2276,
+     "G_deg": 163.58
+    },
+    "P1": {
+     "amp_cm": 18.7684,
+     "G_deg": 204.9
+    },
+    "Q1": {
+     "amp_cm": 8.2299,
+     "G_deg": 144.06
+    },
+    "S1": {
+     "amp_cm": 0.4306,
+     "G_deg": 129.82
+    },
+    "S2": {
+     "amp_cm": 29.5202,
+     "G_deg": 225.61
+    },
+    "SA": {
+     "amp_cm": 10.8992,
+     "G_deg": 355.87
+    },
+    "SSA": {
+     "amp_cm": 0.0563,
+     "G_deg": 255.07
+    },
+    "T2": {
+     "amp_cm": 1.9925,
+     "G_deg": 220.78
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-phu-quy",
+   "name": "Đảo Phú Quý",
+   "note": "Ngoài cửa biển – Lâm Đồng: Phao 0 luồng Phú Quý, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 10.4996,
+   "lon": 108.9254,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.7726,
+     "G_deg": 81.29
+    },
+    "J1": {
+     "amp_cm": 1.6885,
+     "G_deg": 205.84
+    },
+    "K1": {
+     "amp_cm": 38.9388,
+     "G_deg": 194.2
+    },
+    "K2": {
+     "amp_cm": 2.238,
+     "G_deg": 155.66
+    },
+    "M2": {
+     "amp_cm": 20.3037,
+     "G_deg": 119.34
+    },
+    "M4": {
+     "amp_cm": 0.3676,
+     "G_deg": 334.41
+    },
+    "MF": {
+     "amp_cm": 0.8598,
+     "G_deg": 357.35
+    },
+    "MM": {
+     "amp_cm": 0.7928,
+     "G_deg": 21.04
+    },
+    "N2": {
+     "amp_cm": 4.5916,
+     "G_deg": 103.94
+    },
+    "O1": {
+     "amp_cm": 32.1259,
+     "G_deg": 152.99
+    },
+    "P1": {
+     "amp_cm": 12.1212,
+     "G_deg": 189.36
+    },
+    "Q1": {
+     "amp_cm": 5.9651,
+     "G_deg": 131.05
+    },
+    "S1": {
+     "amp_cm": 0.2668,
+     "G_deg": 75.83
+    },
+    "S2": {
+     "amp_cm": 8.625,
+     "G_deg": 153.24
+    },
+    "SA": {
+     "amp_cm": 4.9052,
+     "G_deg": 341.76
+    },
+    "SSA": {
+     "amp_cm": 0.4237,
+     "G_deg": 349.31
+    },
+    "T2": {
+     "amp_cm": 0.4208,
+     "G_deg": 114.29
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-dam-mon",
+   "name": "Đầm Môn",
+   "note": "Ngoài cửa biển – Khánh Hoà: Phao 0 luồng Đầm Môn, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 12.5457,
+   "lon": 109.4276,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.9528,
+     "G_deg": 74.56
+    },
+    "J1": {
+     "amp_cm": 1.7655,
+     "G_deg": 211.13
+    },
+    "K1": {
+     "amp_cm": 34.2886,
+     "G_deg": 190.72
+    },
+    "K2": {
+     "amp_cm": 2.5911,
+     "G_deg": 110.95
+    },
+    "M2": {
+     "amp_cm": 17.8086,
+     "G_deg": 86.1
+    },
+    "M4": {
+     "amp_cm": 0.8541,
+     "G_deg": 156.03
+    },
+    "MF": {
+     "amp_cm": 0.7271,
+     "G_deg": 29.77
+    },
+    "MM": {
+     "amp_cm": 0.638,
+     "G_deg": 31.94
+    },
+    "N2": {
+     "amp_cm": 3.605,
+     "G_deg": 71.78
+    },
+    "O1": {
+     "amp_cm": 27.5628,
+     "G_deg": 151.19
+    },
+    "P1": {
+     "amp_cm": 11.3004,
+     "G_deg": 187.79
+    },
+    "Q1": {
+     "amp_cm": 5.5148,
+     "G_deg": 133.44
+    },
+    "S1": {
+     "amp_cm": 0.2443,
+     "G_deg": 231.94
+    },
+    "S2": {
+     "amp_cm": 5.9859,
+     "G_deg": 125.18
+    },
+    "SA": {
+     "amp_cm": 3.8637,
+     "G_deg": 5.77
+    },
+    "SSA": {
+     "amp_cm": 0.2929,
+     "G_deg": 345.78
+    },
+    "T2": {
+     "amp_cm": 1.6313,
+     "G_deg": 110.01
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-cam-ranh",
+   "name": "Cửa vịnh Cam Ranh",
+   "note": "Ngoài cửa biển – Khánh Hoà: Phao 1 luồng Ba Ngòi, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 11.8234,
+   "lon": 109.2127,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.8627,
+     "G_deg": 82.72
+    },
+    "J1": {
+     "amp_cm": 1.5492,
+     "G_deg": 210.87
+    },
+    "K1": {
+     "amp_cm": 34.8717,
+     "G_deg": 191.98
+    },
+    "K2": {
+     "amp_cm": 2.2802,
+     "G_deg": 118.93
+    },
+    "M2": {
+     "amp_cm": 17.8431,
+     "G_deg": 89.6
+    },
+    "M4": {
+     "amp_cm": 0.4197,
+     "G_deg": 168.32
+    },
+    "MF": {
+     "amp_cm": 0.6788,
+     "G_deg": 9.2
+    },
+    "MM": {
+     "amp_cm": 0.4913,
+     "G_deg": 5.61
+    },
+    "N2": {
+     "amp_cm": 3.651,
+     "G_deg": 73.87
+    },
+    "O1": {
+     "amp_cm": 27.7217,
+     "G_deg": 151.37
+    },
+    "P1": {
+     "amp_cm": 11.3127,
+     "G_deg": 189.23
+    },
+    "Q1": {
+     "amp_cm": 5.4774,
+     "G_deg": 134.21
+    },
+    "S1": {
+     "amp_cm": 0.2618,
+     "G_deg": 19.22
+    },
+    "S2": {
+     "amp_cm": 6.4547,
+     "G_deg": 129.24
+    },
+    "SA": {
+     "amp_cm": 4.7559,
+     "G_deg": 357.77
+    },
+    "SSA": {
+     "amp_cm": 0.2825,
+     "G_deg": 345.1
+    },
+    "T2": {
+     "amp_cm": 0.9346,
+     "G_deg": 110.6
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 1
+  },
+  {
+   "id": "cua-bien-vung-ro",
+   "name": "Vũng Rô",
+   "note": "Ngoài cửa biển – Đắk Lắk: Phao 1 luồng Vũng Rô, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 12.85,
+   "lon": 109.4121,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.7012,
+     "G_deg": 64.46
+    },
+    "J1": {
+     "amp_cm": 1.7464,
+     "G_deg": 207.93
+    },
+    "K1": {
+     "amp_cm": 33.5062,
+     "G_deg": 190.82
+    },
+    "K2": {
+     "amp_cm": 2.7208,
+     "G_deg": 111.58
+    },
+    "M2": {
+     "amp_cm": 17.5283,
+     "G_deg": 84.69
+    },
+    "M4": {
+     "amp_cm": 0.7969,
+     "G_deg": 164.48
+    },
+    "MF": {
+     "amp_cm": 0.7541,
+     "G_deg": 22.08
+    },
+    "MM": {
+     "amp_cm": 0.7134,
+     "G_deg": 34.27
+    },
+    "N2": {
+     "amp_cm": 3.5053,
+     "G_deg": 69.79
+    },
+    "O1": {
+     "amp_cm": 27.4365,
+     "G_deg": 151.17
+    },
+    "P1": {
+     "amp_cm": 10.836,
+     "G_deg": 186.46
+    },
+    "Q1": {
+     "amp_cm": 5.4504,
+     "G_deg": 134.27
+    },
+    "S1": {
+     "amp_cm": 0.1947,
+     "G_deg": 144.55
+    },
+    "S2": {
+     "amp_cm": 5.805,
+     "G_deg": 121.66
+    },
+    "SA": {
+     "amp_cm": 2.947,
+     "G_deg": 17.42
+    },
+    "SSA": {
+     "amp_cm": 0.3178,
+     "G_deg": 344.61
+    },
+    "T2": {
+     "amp_cm": 1.7146,
+     "G_deg": 110.15
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 1
+  },
+  {
+   "id": "cua-bien-sa-ky",
+   "name": "Cửa Sa Kỳ",
+   "note": "Ngoài cửa biển – Quảng Ngãi: Phao 0 luồng Sa Kỳ, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 15.2034,
+   "lon": 108.926,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.3823,
+     "G_deg": 134.73
+    },
+    "J1": {
+     "amp_cm": 0.8308,
+     "G_deg": 208.81
+    },
+    "K1": {
+     "amp_cm": 30.1644,
+     "G_deg": 187.21
+    },
+    "K2": {
+     "amp_cm": 2.4092,
+     "G_deg": 127.03
+    },
+    "M2": {
+     "amp_cm": 18.1191,
+     "G_deg": 78.83
+    },
+    "M4": {
+     "amp_cm": 0.4898,
+     "G_deg": 178.28
+    },
+    "MF": {
+     "amp_cm": 1.363,
+     "G_deg": 32.04
+    },
+    "MM": {
+     "amp_cm": 0.8175,
+     "G_deg": 353.03
+    },
+    "N2": {
+     "amp_cm": 3.5035,
+     "G_deg": 65.2
+    },
+    "O1": {
+     "amp_cm": 25.0054,
+     "G_deg": 147.75
+    },
+    "P1": {
+     "amp_cm": 9.7855,
+     "G_deg": 183.31
+    },
+    "Q1": {
+     "amp_cm": 4.6708,
+     "G_deg": 129.2
+    },
+    "S1": {
+     "amp_cm": 0.6707,
+     "G_deg": 191.52
+    },
+    "S2": {
+     "amp_cm": 6.0238,
+     "G_deg": 117.54
+    },
+    "SA": {
+     "amp_cm": 5.9893,
+     "G_deg": 334.0
+    },
+    "SSA": {
+     "amp_cm": 0.1496,
+     "G_deg": 344.35
+    },
+    "T2": {
+     "amp_cm": 1.3501,
+     "G_deg": 85.67
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 1
+  },
+  {
+   "id": "cua-bien-ky-ha",
+   "name": "Cửa Kỳ Hà",
+   "note": "Ngoài cửa biển – Đà Nẵng: Phao 0 luồng Kỳ Hà, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 15.4955,
+   "lon": 108.7037,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.3115,
+     "G_deg": 135.18
+    },
+    "J1": {
+     "amp_cm": 0.8213,
+     "G_deg": 220.62
+    },
+    "K1": {
+     "amp_cm": 28.4986,
+     "G_deg": 185.12
+    },
+    "K2": {
+     "amp_cm": 2.1678,
+     "G_deg": 128.72
+    },
+    "M2": {
+     "amp_cm": 18.1552,
+     "G_deg": 80.08
+    },
+    "M4": {
+     "amp_cm": 0.5492,
+     "G_deg": 179.45
+    },
+    "MF": {
+     "amp_cm": 1.498,
+     "G_deg": 37.07
+    },
+    "MM": {
+     "amp_cm": 0.8687,
+     "G_deg": 3.01
+    },
+    "N2": {
+     "amp_cm": 3.473,
+     "G_deg": 66.86
+    },
+    "O1": {
+     "amp_cm": 22.9027,
+     "G_deg": 144.89
+    },
+    "P1": {
+     "amp_cm": 9.1762,
+     "G_deg": 182.08
+    },
+    "Q1": {
+     "amp_cm": 4.1624,
+     "G_deg": 125.46
+    },
+    "S1": {
+     "amp_cm": 0.6189,
+     "G_deg": 190.57
+    },
+    "S2": {
+     "amp_cm": 5.7125,
+     "G_deg": 120.23
+    },
+    "SA": {
+     "amp_cm": 7.3726,
+     "G_deg": 333.73
+    },
+    "SSA": {
+     "amp_cm": 0.0599,
+     "G_deg": 18.36
+    },
+    "T2": {
+     "amp_cm": 1.199,
+     "G_deg": 73.06
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-thuan-an",
+   "name": "Cửa Thuận An",
+   "note": "Ngoài cửa biển – Huế: Phao 0 luồng Thuận An, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 16.5917,
+   "lon": 107.6167,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.4862,
+     "G_deg": 102.66
+    },
+    "J1": {
+     "amp_cm": 0.6483,
+     "G_deg": 268.06
+    },
+    "K1": {
+     "amp_cm": 3.6209,
+     "G_deg": 173.88
+    },
+    "K2": {
+     "amp_cm": 2.1562,
+     "G_deg": 177.63
+    },
+    "M2": {
+     "amp_cm": 18.1012,
+     "G_deg": 117.6
+    },
+    "M4": {
+     "amp_cm": 0.4559,
+     "G_deg": 346.16
+    },
+    "MF": {
+     "amp_cm": 1.3509,
+     "G_deg": 30.07
+    },
+    "MM": {
+     "amp_cm": 0.5756,
+     "G_deg": 22.78
+    },
+    "N2": {
+     "amp_cm": 3.7736,
+     "G_deg": 99.6
+    },
+    "O1": {
+     "amp_cm": 4.9823,
+     "G_deg": 268.86
+    },
+    "P1": {
+     "amp_cm": 0.6273,
+     "G_deg": 208.88
+    },
+    "Q1": {
+     "amp_cm": 2.0999,
+     "G_deg": 229.89
+    },
+    "S1": {
+     "amp_cm": 0.4453,
+     "G_deg": 59.77
+    },
+    "S2": {
+     "amp_cm": 4.6874,
+     "G_deg": 157.99
+    },
+    "SA": {
+     "amp_cm": 8.7071,
+     "G_deg": 332.97
+    },
+    "SSA": {
+     "amp_cm": 0.1317,
+     "G_deg": 132.4
+    },
+    "T2": {
+     "amp_cm": 0.7536,
+     "G_deg": 75.48
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-viet",
+   "name": "Cửa Việt (phao 0)",
+   "note": "Ngoài cửa biển – Quảng Trị: Phao 0 luồng Cửa Việt, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 16.9161,
+   "lon": 107.2033,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.512,
+     "G_deg": 58.95
+    },
+    "J1": {
+     "amp_cm": 0.2951,
+     "G_deg": 16.65
+    },
+    "K1": {
+     "amp_cm": 4.2292,
+     "G_deg": 354.52
+    },
+    "K2": {
+     "amp_cm": 2.4663,
+     "G_deg": 204.05
+    },
+    "M2": {
+     "amp_cm": 19.5109,
+     "G_deg": 127.48
+    },
+    "M4": {
+     "amp_cm": 0.7753,
+     "G_deg": 350.62
+    },
+    "MF": {
+     "amp_cm": 1.394,
+     "G_deg": 26.8
+    },
+    "MM": {
+     "amp_cm": 0.5216,
+     "G_deg": 57.69
+    },
+    "N2": {
+     "amp_cm": 3.9577,
+     "G_deg": 102.77
+    },
+    "O1": {
+     "amp_cm": 13.1099,
+     "G_deg": 289.08
+    },
+    "P1": {
+     "amp_cm": 2.2757,
+     "G_deg": 348.16
+    },
+    "Q1": {
+     "amp_cm": 3.711,
+     "G_deg": 246.24
+    },
+    "S1": {
+     "amp_cm": 0.8158,
+     "G_deg": 103.23
+    },
+    "S2": {
+     "amp_cm": 5.25,
+     "G_deg": 172.3
+    },
+    "SA": {
+     "amp_cm": 9.3371,
+     "G_deg": 330.74
+    },
+    "SSA": {
+     "amp_cm": 0.2849,
+     "G_deg": 121.58
+    },
+    "T2": {
+     "amp_cm": 0.6053,
+     "G_deg": 29.3
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-gianh",
+   "name": "Cửa Gianh",
+   "note": "Ngoài cửa biển – Quảng Trị: Phao 0 luồng Cửa Gianh, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 17.7155,
+   "lon": 106.5116,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.8902,
+     "G_deg": 72.67
+    },
+    "J1": {
+     "amp_cm": 0.7076,
+     "G_deg": 336.92
+    },
+    "K1": {
+     "amp_cm": 24.0713,
+     "G_deg": 351.65
+    },
+    "K2": {
+     "amp_cm": 3.7263,
+     "G_deg": 216.07
+    },
+    "M2": {
+     "amp_cm": 23.7273,
+     "G_deg": 146.27
+    },
+    "M4": {
+     "amp_cm": 0.9672,
+     "G_deg": 333.54
+    },
+    "MF": {
+     "amp_cm": 0.794,
+     "G_deg": 34.87
+    },
+    "MM": {
+     "amp_cm": 0.8917,
+     "G_deg": 78.48
+    },
+    "N2": {
+     "amp_cm": 4.0639,
+     "G_deg": 114.57
+    },
+    "O1": {
+     "amp_cm": 32.8059,
+     "G_deg": 294.61
+    },
+    "P1": {
+     "amp_cm": 8.1471,
+     "G_deg": 344.45
+    },
+    "Q1": {
+     "amp_cm": 6.7718,
+     "G_deg": 263.63
+    },
+    "S1": {
+     "amp_cm": 1.254,
+     "G_deg": 171.34
+    },
+    "S2": {
+     "amp_cm": 6.8088,
+     "G_deg": 202.6
+    },
+    "SA": {
+     "amp_cm": 9.0923,
+     "G_deg": 333.44
+    },
+    "SSA": {
+     "amp_cm": 0.3278,
+     "G_deg": 122.26
+    },
+    "T2": {
+     "amp_cm": 0.7179,
+     "G_deg": 285.02
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-hon-la",
+   "name": "Hòn La",
+   "note": "Ngoài cửa biển – Quảng Trị: Phao 0 luồng Hòn La, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 17.9155,
+   "lon": 106.5299,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.9331,
+     "G_deg": 75.13
+    },
+    "J1": {
+     "amp_cm": 0.7347,
+     "G_deg": 333.05
+    },
+    "K1": {
+     "amp_cm": 26.1311,
+     "G_deg": 351.18
+    },
+    "K2": {
+     "amp_cm": 3.7924,
+     "G_deg": 217.48
+    },
+    "M2": {
+     "amp_cm": 23.9115,
+     "G_deg": 147.5
+    },
+    "M4": {
+     "amp_cm": 0.9315,
+     "G_deg": 330.92
+    },
+    "MF": {
+     "amp_cm": 0.8275,
+     "G_deg": 38.59
+    },
+    "MM": {
+     "amp_cm": 0.9135,
+     "G_deg": 78.11
+    },
+    "N2": {
+     "amp_cm": 4.0274,
+     "G_deg": 116.13
+    },
+    "O1": {
+     "amp_cm": 34.8712,
+     "G_deg": 294.56
+    },
+    "P1": {
+     "amp_cm": 8.749,
+     "G_deg": 343.95
+    },
+    "Q1": {
+     "amp_cm": 7.1186,
+     "G_deg": 264.46
+    },
+    "S1": {
+     "amp_cm": 1.375,
+     "G_deg": 167.09
+    },
+    "S2": {
+     "amp_cm": 6.9232,
+     "G_deg": 205.07
+    },
+    "SA": {
+     "amp_cm": 9.0395,
+     "G_deg": 333.72
+    },
+    "SSA": {
+     "amp_cm": 0.3157,
+     "G_deg": 121.58
+    },
+    "T2": {
+     "amp_cm": 0.8298,
+     "G_deg": 285.12
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-hoi",
+   "name": "Cửa Hội (phao 0)",
+   "note": "Ngoài cửa biển – Nghệ An – Hà Tĩnh: Phao 0 luồng Cửa Hội, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 18.7954,
+   "lon": 105.7767,
+   "cons": {
+    "2N2": {
+     "amp_cm": 1.6517,
+     "G_deg": 101.64
+    },
+    "J1": {
+     "amp_cm": 1.521,
+     "G_deg": 327.89
+    },
+    "K1": {
+     "amp_cm": 48.2103,
+     "G_deg": 349.4
+    },
+    "K2": {
+     "amp_cm": 5.1758,
+     "G_deg": 227.88
+    },
+    "M2": {
+     "amp_cm": 29.5255,
+     "G_deg": 157.51
+    },
+    "M4": {
+     "amp_cm": 0.8802,
+     "G_deg": 289.76
+    },
+    "MF": {
+     "amp_cm": 0.9078,
+     "G_deg": 13.83
+    },
+    "MM": {
+     "amp_cm": 0.8695,
+     "G_deg": 69.49
+    },
+    "N2": {
+     "amp_cm": 4.4013,
+     "G_deg": 131.1
+    },
+    "O1": {
+     "amp_cm": 55.596,
+     "G_deg": 294.59
+    },
+    "P1": {
+     "amp_cm": 15.5823,
+     "G_deg": 346.26
+    },
+    "Q1": {
+     "amp_cm": 11.6228,
+     "G_deg": 265.41
+    },
+    "S1": {
+     "amp_cm": 2.6715,
+     "G_deg": 199.08
+    },
+    "S2": {
+     "amp_cm": 10.6986,
+     "G_deg": 222.45
+    },
+    "SA": {
+     "amp_cm": 8.9892,
+     "G_deg": 332.47
+    },
+    "SSA": {
+     "amp_cm": 0.4528,
+     "G_deg": 126.66
+    },
+    "T2": {
+     "amp_cm": 0.6406,
+     "G_deg": 254.51
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-lo",
+   "name": "Cửa Lò",
+   "note": "Ngoài cửa biển – Nghệ An: Phao 0 luồng Cửa Lò, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 18.8296,
+   "lon": 105.7459,
+   "cons": {
+    "2N2": {
+     "amp_cm": 1.6611,
+     "G_deg": 102.29
+    },
+    "J1": {
+     "amp_cm": 1.5341,
+     "G_deg": 326.76
+    },
+    "K1": {
+     "amp_cm": 49.2162,
+     "G_deg": 348.8
+    },
+    "K2": {
+     "amp_cm": 5.2165,
+     "G_deg": 227.47
+    },
+    "M2": {
+     "amp_cm": 29.5785,
+     "G_deg": 157.12
+    },
+    "M4": {
+     "amp_cm": 0.8244,
+     "G_deg": 285.1
+    },
+    "MF": {
+     "amp_cm": 0.8973,
+     "G_deg": 11.89
+    },
+    "MM": {
+     "amp_cm": 0.8494,
+     "G_deg": 71.15
+    },
+    "N2": {
+     "amp_cm": 4.4264,
+     "G_deg": 130.65
+    },
+    "O1": {
+     "amp_cm": 56.7123,
+     "G_deg": 294.09
+    },
+    "P1": {
+     "amp_cm": 15.8677,
+     "G_deg": 345.68
+    },
+    "Q1": {
+     "amp_cm": 11.7774,
+     "G_deg": 264.97
+    },
+    "S1": {
+     "amp_cm": 2.8104,
+     "G_deg": 199.55
+    },
+    "S2": {
+     "amp_cm": 10.8189,
+     "G_deg": 222.01
+    },
+    "SA": {
+     "amp_cm": 8.933,
+     "G_deg": 332.53
+    },
+    "SSA": {
+     "amp_cm": 0.4524,
+     "G_deg": 127.29
+    },
+    "T2": {
+     "amp_cm": 0.6325,
+     "G_deg": 248.75
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-nghi-son",
+   "name": "Nghi Sơn",
+   "note": "Ngoài cửa biển – Thanh Hoá: Phao 0 luồng Nghi Sơn, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 19.2782,
+   "lon": 105.8423,
+   "cons": {
+    "2N2": {
+     "amp_cm": 1.5383,
+     "G_deg": 102.74
+    },
+    "J1": {
+     "amp_cm": 1.6034,
+     "G_deg": 325.91
+    },
+    "K1": {
+     "amp_cm": 51.9906,
+     "G_deg": 347.19
+    },
+    "K2": {
+     "amp_cm": 5.0864,
+     "G_deg": 227.24
+    },
+    "M2": {
+     "amp_cm": 27.8197,
+     "G_deg": 156.01
+    },
+    "M4": {
+     "amp_cm": 0.655,
+     "G_deg": 275.32
+    },
+    "MF": {
+     "amp_cm": 0.8623,
+     "G_deg": 13.62
+    },
+    "MM": {
+     "amp_cm": 0.89,
+     "G_deg": 79.44
+    },
+    "N2": {
+     "amp_cm": 4.1724,
+     "G_deg": 129.29
+    },
+    "O1": {
+     "amp_cm": 59.5556,
+     "G_deg": 292.68
+    },
+    "P1": {
+     "amp_cm": 16.7148,
+     "G_deg": 343.94
+    },
+    "Q1": {
+     "amp_cm": 12.2471,
+     "G_deg": 263.62
+    },
+    "S1": {
+     "amp_cm": 3.1349,
+     "G_deg": 197.77
+    },
+    "S2": {
+     "amp_cm": 10.5197,
+     "G_deg": 220.95
+    },
+    "SA": {
+     "amp_cm": 8.6542,
+     "G_deg": 332.47
+    },
+    "SSA": {
+     "amp_cm": 0.4383,
+     "G_deg": 129.14
+    },
+    "T2": {
+     "amp_cm": 0.6996,
+     "G_deg": 233.24
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-hoi-le-mon",
+   "name": "Cửa Hới (Lệ Môn)",
+   "note": "Ngoài cửa biển – Thanh Hoá: Phao 0 luồng Lệ Môn, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 19.7806,
+   "lon": 105.9624,
+   "cons": {
+    "2N2": {
+     "amp_cm": 1.2611,
+     "G_deg": 100.81
+    },
+    "J1": {
+     "amp_cm": 1.7577,
+     "G_deg": 329.66
+    },
+    "K1": {
+     "amp_cm": 56.8615,
+     "G_deg": 345.61
+    },
+    "K2": {
+     "amp_cm": 4.6358,
+     "G_deg": 228.63
+    },
+    "M2": {
+     "amp_cm": 24.0029,
+     "G_deg": 156.31
+    },
+    "M4": {
+     "amp_cm": 0.5555,
+     "G_deg": 251.15
+    },
+    "MF": {
+     "amp_cm": 0.837,
+     "G_deg": 29.87
+    },
+    "MM": {
+     "amp_cm": 1.1315,
+     "G_deg": 92.02
+    },
+    "N2": {
+     "amp_cm": 3.5501,
+     "G_deg": 128.66
+    },
+    "O1": {
+     "amp_cm": 64.5989,
+     "G_deg": 291.17
+    },
+    "P1": {
+     "amp_cm": 18.3955,
+     "G_deg": 341.92
+    },
+    "Q1": {
+     "amp_cm": 13.0669,
+     "G_deg": 262.49
+    },
+    "S1": {
+     "amp_cm": 3.4484,
+     "G_deg": 197.79
+    },
+    "S2": {
+     "amp_cm": 9.9424,
+     "G_deg": 220.82
+    },
+    "SA": {
+     "amp_cm": 8.202,
+     "G_deg": 330.17
+    },
+    "SSA": {
+     "amp_cm": 0.455,
+     "G_deg": 130.22
+    },
+    "T2": {
+     "amp_cm": 0.728,
+     "G_deg": 219.99
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-lach-giang",
+   "name": "Lạch Giang (Hải Thịnh)",
+   "note": "Ngoài cửa biển – Ninh Bình: Phao 0 luồng Hải Thịnh, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 19.9755,
+   "lon": 106.2097,
+   "cons": {
+    "2N2": {
+     "amp_cm": 1.1323,
+     "G_deg": 93.48
+    },
+    "J1": {
+     "amp_cm": 1.7998,
+     "G_deg": 331.92
+    },
+    "K1": {
+     "amp_cm": 59.151,
+     "G_deg": 344.33
+    },
+    "K2": {
+     "amp_cm": 3.9125,
+     "G_deg": 232.78
+    },
+    "M2": {
+     "amp_cm": 19.6158,
+     "G_deg": 156.26
+    },
+    "M4": {
+     "amp_cm": 0.3341,
+     "G_deg": 234.96
+    },
+    "MF": {
+     "amp_cm": 0.9562,
+     "G_deg": 41.83
+    },
+    "MM": {
+     "amp_cm": 1.4115,
+     "G_deg": 92.81
+    },
+    "N2": {
+     "amp_cm": 2.7344,
+     "G_deg": 130.69
+    },
+    "O1": {
+     "amp_cm": 67.1716,
+     "G_deg": 290.15
+    },
+    "P1": {
+     "amp_cm": 19.0971,
+     "G_deg": 340.15
+    },
+    "Q1": {
+     "amp_cm": 13.4602,
+     "G_deg": 261.16
+    },
+    "S1": {
+     "amp_cm": 2.8716,
+     "G_deg": 186.82
+    },
+    "S2": {
+     "amp_cm": 8.6249,
+     "G_deg": 220.57
+    },
+    "SA": {
+     "amp_cm": 7.9646,
+     "G_deg": 327.42
+    },
+    "SSA": {
+     "amp_cm": 0.4439,
+     "G_deg": 130.17
+    },
+    "T2": {
+     "amp_cm": 0.647,
+     "G_deg": 221.1
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-diem-dien",
+   "name": "Cửa Diêm Điền",
+   "note": "Ngoài cửa biển – Hưng Yên: Phao 0 luồng Diêm Điền, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 20.5124,
+   "lon": 106.6351,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.8154,
+     "G_deg": 119.17
+    },
+    "J1": {
+     "amp_cm": 1.9606,
+     "G_deg": 339.58
+    },
+    "K1": {
+     "amp_cm": 67.4907,
+     "G_deg": 343.17
+    },
+    "K2": {
+     "amp_cm": 2.2117,
+     "G_deg": 249.81
+    },
+    "M2": {
+     "amp_cm": 7.5664,
+     "G_deg": 181.75
+    },
+    "M4": {
+     "amp_cm": 0.3978,
+     "G_deg": 209.97
+    },
+    "MF": {
+     "amp_cm": 0.8899,
+     "G_deg": 72.37
+    },
+    "MM": {
+     "amp_cm": 1.1489,
+     "G_deg": 81.66
+    },
+    "N2": {
+     "amp_cm": 0.7615,
+     "G_deg": 194.25
+    },
+    "O1": {
+     "amp_cm": 75.4102,
+     "G_deg": 289.02
+    },
+    "P1": {
+     "amp_cm": 21.762,
+     "G_deg": 339.01
+    },
+    "Q1": {
+     "amp_cm": 15.3076,
+     "G_deg": 260.12
+    },
+    "S1": {
+     "amp_cm": 1.7645,
+     "G_deg": 138.36
+    },
+    "S2": {
+     "amp_cm": 5.2068,
+     "G_deg": 237.7
+    },
+    "SA": {
+     "amp_cm": 7.3899,
+     "G_deg": 322.42
+    },
+    "SSA": {
+     "amp_cm": 0.4654,
+     "G_deg": 133.02
+    },
+    "T2": {
+     "amp_cm": 0.5778,
+     "G_deg": 279.29
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 0
+  },
+  {
+   "id": "cua-bien-lach-huyen",
+   "name": "Lạch Huyện (Hải Phòng)",
+   "note": "Ngoài cửa biển – Hải Phòng: Phao 0 luồng Hải Phòng, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 20.6886,
+   "lon": 106.9938,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.8366,
+     "G_deg": 137.55
+    },
+    "J1": {
+     "amp_cm": 2.066,
+     "G_deg": 339.82
+    },
+    "K1": {
+     "amp_cm": 70.1909,
+     "G_deg": 342.17
+    },
+    "K2": {
+     "amp_cm": 1.5557,
+     "G_deg": 263.51
+    },
+    "M2": {
+     "amp_cm": 5.3228,
+     "G_deg": 226.6
+    },
+    "M4": {
+     "amp_cm": 0.4772,
+     "G_deg": 203.51
+    },
+    "MF": {
+     "amp_cm": 0.8145,
+     "G_deg": 81.74
+    },
+    "MM": {
+     "amp_cm": 0.8758,
+     "G_deg": 69.97
+    },
+    "N2": {
+     "amp_cm": 1.3096,
+     "G_deg": 251.11
+    },
+    "O1": {
+     "amp_cm": 78.366,
+     "G_deg": 287.97
+    },
+    "P1": {
+     "amp_cm": 22.4696,
+     "G_deg": 337.97
+    },
+    "Q1": {
+     "amp_cm": 16.0036,
+     "G_deg": 258.46
+    },
+    "S1": {
+     "amp_cm": 1.8827,
+     "G_deg": 114.76
+    },
+    "S2": {
+     "amp_cm": 4.0838,
+     "G_deg": 252.77
+    },
+    "SA": {
+     "amp_cm": 7.2162,
+     "G_deg": 321.8
+    },
+    "SSA": {
+     "amp_cm": 0.4866,
+     "G_deg": 134.36
+    },
+    "T2": {
+     "amp_cm": 0.766,
+     "G_deg": 305.49
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 1
+  },
+  {
+   "id": "cua-bien-bo-de",
+   "name": "Cửa Bồ Đề",
+   "note": "Ngoài cửa biển – Cà Mau: Phao 2 luồng Năm Căn – Bồ Đề, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 8.6904,
+   "lon": 105.2909,
+   "cons": {
+    "2N2": {
+     "amp_cm": 2.4626,
+     "G_deg": 168.21
+    },
+    "J1": {
+     "amp_cm": 2.6857,
+     "G_deg": 267.09
+    },
+    "K1": {
+     "amp_cm": 61.3785,
+     "G_deg": 235.88
+    },
+    "K2": {
+     "amp_cm": 10.4906,
+     "G_deg": 273.68
+    },
+    "M2": {
+     "amp_cm": 75.7705,
+     "G_deg": 233.18
+    },
+    "M4": {
+     "amp_cm": 1.9256,
+     "G_deg": 57.72
+    },
+    "MF": {
+     "amp_cm": 0.6666,
+     "G_deg": 7.02
+    },
+    "MM": {
+     "amp_cm": 0.8406,
+     "G_deg": 3.49
+    },
+    "N2": {
+     "amp_cm": 15.5263,
+     "G_deg": 210.43
+    },
+    "O1": {
+     "amp_cm": 39.1812,
+     "G_deg": 195.11
+    },
+    "P1": {
+     "amp_cm": 18.7324,
+     "G_deg": 233.72
+    },
+    "Q1": {
+     "amp_cm": 7.3061,
+     "G_deg": 179.21
+    },
+    "S1": {
+     "amp_cm": 1.1001,
+     "G_deg": 171.58
+    },
+    "S2": {
+     "amp_cm": 30.2725,
+     "G_deg": 272.2
+    },
+    "SA": {
+     "amp_cm": 10.2375,
+     "G_deg": 357.75
+    },
+    "SSA": {
+     "amp_cm": 0.1092,
+     "G_deg": 235.66
+    },
+    "T2": {
+     "amp_cm": 2.2054,
+     "G_deg": 256.22
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 1
+  },
+  {
+   "id": "cua-bien-ha-tien",
+   "name": "Hà Tiên",
+   "note": "Ngoài cửa biển – An Giang: Phao 1 luồng Hà Tiên, theo báo hiệu Cục Hàng hải Việt Nam (lấy 2026-09-02). Trạm cửa biển, sinh 2026-10-19 — vào sâu trong lạch nước lớn, nước ròng có thể trễ hơn.",
+   "lat": 10.3567,
+   "lon": 104.4656,
+   "cons": {
+    "2N2": {
+     "amp_cm": 0.5173,
+     "G_deg": 174.82
+    },
+    "J1": {
+     "amp_cm": 1.2952,
+     "G_deg": 346.86
+    },
+    "K1": {
+     "amp_cm": 19.8863,
+     "G_deg": 324.71
+    },
+    "K2": {
+     "amp_cm": 2.8347,
+     "G_deg": 80.21
+    },
+    "M2": {
+     "amp_cm": 9.9426,
+     "G_deg": 216.13
+    },
+    "M4": {
+     "amp_cm": 1.3198,
+     "G_deg": 138.57
+    },
+    "MF": {
+     "amp_cm": 0.7482,
+     "G_deg": 59.11
+    },
+    "MM": {
+     "amp_cm": 0.9902,
+     "G_deg": 337.25
+    },
+    "N2": {
+     "amp_cm": 3.1629,
+     "G_deg": 204.19
+    },
+    "O1": {
+     "amp_cm": 13.4053,
+     "G_deg": 304.77
+    },
+    "P1": {
+     "amp_cm": 5.7541,
+     "G_deg": 334.05
+    },
+    "Q1": {
+     "amp_cm": 3.0017,
+     "G_deg": 292.55
+    },
+    "S1": {
+     "amp_cm": 1.6417,
+     "G_deg": 355.05
+    },
+    "S2": {
+     "amp_cm": 0.6337,
+     "G_deg": 177.87
+    },
+    "SA": {
+     "amp_cm": 9.8901,
+     "G_deg": 1.97
+    },
+    "SSA": {
+     "amp_cm": 0.2181,
+     "G_deg": 247.72
+    },
+    "T2": {
+     "amp_cm": 1.047,
+     "G_deg": 302.54
+    }
+   },
+   "extractedAt": "2026-10-19",
+   "sampleRadius": 1
   }
  ]
 }

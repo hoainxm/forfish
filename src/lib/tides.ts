@@ -78,8 +78,10 @@ export interface TideStation {
    * HẠNG hiển thị trên bản đồ (2026-09-04, "sinh ở các cảng luôn"):
    *  · "vung" (vắng cờ) — trạm VÙNG: 4 trạm đo + 7 trạm mô hình cửa lạch lớn,
    *    hiện từ nấc LUÔN (z5) — 11 mốc cả nước không rối;
-   *  · "cang" — trạm TẠI CẢNG (mô hình EOT20 lấy tại toạ độ cảng cá), 70+
-   *    trạm dày dọc bờ ⇒ chỉ hiện từ nấc VỪA (z9). `nearestTideStation` KHÔNG
+   *  · "cang" — trạm TẠI CẢNG (mô hình EOT20 lấy tại toạ độ cảng cá, id
+   *    `cang-*`) + trạm NGOÀI CỬA BIỂN (2026-10-19, id `cua-bien-*`, toạ độ =
+   *    phao số 0 đầu luồng của Cục Hàng hải), 90+ trạm dày dọc bờ ⇒ chỉ hiện
+   *    từ nấc VỪA (z9). `nearestTideStation` KHÔNG
    *    phân biệt hạng: thẻ con nước luôn lấy trạm gần nhất.
    */
   hang?: "vung" | "cang";
@@ -803,6 +805,89 @@ export function tideDaySeries(st: TideStation, isoDate: string, stepMin = 30): n
   const out: number[] = [];
   for (let m = 0; m <= 1440; m += stepMin) out.push(tideHeightAt(st, start + m * 60000));
   return out;
+}
+
+/* ---------------------------------------------------------------------------
+   Con trỏ giờ trên đường nước (2026-10-19, góp ý anh Quân: "kéo theo từng giờ")
+--------------------------------------------------------------------------- */
+
+/**
+ * Vị trí con trỏ trên màn nhiều ngày: ngày thứ mấy (0 = hôm nay) + phút trong
+ * ngày giờ VN (0–1439). Bấm ◀ ▶ đi từng giờ chẵn, kéo đồ thị đi từng 15 phút.
+ */
+export interface TideCursor {
+  dayIdx: number;
+  minute: number;
+}
+
+/** Phút cuối cùng con trỏ được đứng trong một ngày (23:59 — 24:00 là ngày sau). */
+const CURSOR_MAX_MIN = 1439;
+
+/**
+ * Một nấc ◀ (delta −1) / ▶ (+1): nhảy tới GIỜ CHẴN kề bên — đang 10:23 thì ▶ ra
+ * 11:00, ◀ ra 10:00 (bà con đọc "mấy giờ", không đọc "10 giờ 23 cộng một").
+ * Qua 23 giờ thì sang 0 giờ ngày sau, lùi khỏi 0 giờ thì về 23 giờ ngày trước.
+ * Đã ở mép dải ngày (đầu ngày đầu / từ 23 giờ ngày cuối) → giữ nguyên.
+ */
+export function tideStepHour(c: TideCursor, delta: 1 | -1, nDays: number): TideCursor {
+  const day = Math.max(0, Math.min(nDays - 1, Math.trunc(c.dayIdx) || 0));
+  const min = Math.max(0, Math.min(CURSOR_MAX_MIN, Math.trunc(c.minute) || 0));
+  const here = { dayIdx: day, minute: min };
+  if (!(nDays >= 1)) return here;
+  if (delta > 0) {
+    const next = Math.floor(min / 60) * 60 + 60;
+    if (next < 1440) return { dayIdx: day, minute: next };
+    return day < nDays - 1 ? { dayIdx: day + 1, minute: 0 } : here;
+  }
+  const prev = min % 60 ? Math.floor(min / 60) * 60 : min - 60;
+  if (prev >= 0) return { dayIdx: day, minute: prev };
+  return day > 0 ? { dayIdx: day - 1, minute: 1380 } : here;
+}
+
+/** Hết đường ◀ / ▶ chưa — để tắt nút thay vì bấm mà không có gì xảy ra. */
+export function tideCursorAtEdge(c: TideCursor, delta: 1 | -1, nDays: number): boolean {
+  const s = tideStepHour(c, delta, nDays);
+  return s.dayIdx === c.dayIdx && s.minute === c.minute;
+}
+
+/**
+ * Vị trí ngón tay trên trục giờ (0 = mép trái 0 giờ, 1 = mép phải 24 giờ) →
+ * phút trong ngày, bắt nấc `stepMin` phút, kẹp trong ngày.
+ */
+export function tideMinuteFromFrac(frac: number, stepMin = 15): number {
+  if (!Number.isFinite(frac) || !(stepMin > 0)) return 0;
+  const m = Math.round((Math.max(0, Math.min(1, frac)) * 1440) / stepMin) * stepMin;
+  return Math.min(m, Math.floor(CURSOR_MAX_MIN / stepMin) * stepMin);
+}
+
+/** epoch ms của con trỏ trên ngày `isoDate` (giờ VN). Ngày hỏng → NaN. */
+export function tideCursorMs(isoDate: string, minute: number): number {
+  return vnDayStartMs(isoDate) + minute * 60000;
+}
+
+/** Phút trong ngày giờ VN của `ms` (0–1439) — để đặt con trỏ ở "bây giờ". */
+export function vnMinuteOfDay(ms: number): number {
+  if (!Number.isFinite(ms)) return 0;
+  const d = new Date(ms + VN_OFFSET_MS);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+/** 870 → "14:30" — trên đồ thị đọc theo trục giờ nên ghi số, không "2 giờ rưỡi". */
+export function tideHhmm(minute: number): string {
+  const m = Math.max(0, Math.min(CURSOR_MAX_MIN, Math.round(minute) || 0));
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** Mực nước + lên/xuống tại con trỏ. Số hỏng → null (màn bày "—", không bịa). */
+export function tideCursorReading(
+  st: TideStation,
+  isoDate: string,
+  minute: number,
+): { heightM: number; trend: TideTrend } | null {
+  const ms = tideCursorMs(isoDate, minute);
+  const h = tideHeightAt(st, ms);
+  if (!Number.isFinite(h)) return null;
+  return { heightM: h, trend: tideTrendAt(st, ms) };
 }
 
 export interface TideCardData {

@@ -21,6 +21,9 @@
 # ── LẤY EOT20 ───────────────────────────────────────────────────────────────
 #   1. Tải & giải nén tới <thư-mục-EOT20>/ocean_tides/*.nc  (17 sóng)
 #   2. python scripts/extract-eot20.py <thư-mục-EOT20>/ocean_tides
+#      Chỉ THÊM điểm mới (điểm chưa có `cons`, vd trạm cửa biển 2026-10-19):
+#      python scripts/extract-eot20.py <thư-mục> --only-missing
+#      → điểm cũ giữ NGUYÊN từng số, điểm mới ghi `extractedAt` riêng.
 #   3. npx tsx scripts/generate-tides.mjs --add-model-only   (quy đổi + ghép trạm)
 #   4. npm test
 #
@@ -130,13 +133,20 @@ def is_tmd(path):
         return False
 
 
-def main(eot_dir):
+def main(eot_dir, only_missing=False):
     doc = json.load(open(POINTS, encoding="utf-8"))
+    today = __import__("datetime").date.today().isoformat()
     ncs = [f for f in glob.glob(os.path.join(eot_dir, "**", "*.nc"), recursive=True)
            if "load" not in os.path.basename(f).lower()]
     if not ncs:
         sys.exit(f"không thấy file .nc nào trong {eot_dir}")
     targets = [("calib", p) for p in doc["calib"]] + [("model", p) for p in doc["model"]]
+    if only_missing:
+        # thêm điểm mà KHÔNG đụng điểm cũ: trích lại cả lượt là đổi `extractedAt`
+        # và số lẻ của mọi trạm đã phát cho bà con, vì một lý do không tồn tại
+        targets = [(g, p) for g, p in targets if not p.get("cons")]
+        for _, p in targets:
+            p["extractedAt"] = today
     for _, p in targets:
         p["cons"] = {}
         p.pop("sampleRadius", None)
@@ -158,7 +168,8 @@ def main(eot_dir):
             # bán kính ô đã phải nới để gặp nước (0 = trúng ô ướt; ≥3 ≈ >40 km,
             # điểm nằm sâu trong sông/đất — generate-tides.mjs đọc cờ này)
             p["sampleRadius"] = max(p.get("sampleRadius", 0), rad)
-    doc["extractedAt"] = __import__("datetime").date.today().isoformat()
+    if not only_missing:
+        doc["extractedAt"] = today
     json.dump(doc, open(POINTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     for grp, p in targets:
         pid = p.get("id") or p.get("gaugeId")
@@ -167,6 +178,7 @@ def main(eot_dir):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        sys.exit("dùng: python scripts/extract-eot20.py <thư-mục-EOT20-ocean_tides>")
-    main(sys.argv[1])
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if len(args) != 1:
+        sys.exit("dùng: python scripts/extract-eot20.py <thư-mục-EOT20-ocean_tides> [--only-missing]")
+    main(args[0], "--only-missing" in sys.argv)

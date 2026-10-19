@@ -5,7 +5,8 @@
 **Load khi / Load when**: sửa UI, màu sắc, typography, copy, trạng thái (status), hoặc thêm component mới.
 
 covers: src/app/globals.css
-last_verified: 2026-10-05
+last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19 11:20 — thêm pattern "chạm/kéo NGANG trên một trục trong sheet cuộn dọc" (`lib/use-pointer-scrub.ts`, touch-action pan-y) + "nút bước giữ-để-chạy" (◀ ▶ màn con nước); đối chiếu `components/ui/bottom-sheet.tsx`: grabber chỉ là hình, CHƯA có vuốt-xuống-đóng (mục 4 §Nút X đóng nói đúng là quy ước, không phải đã làm). -->
 ttl_days: 90
 gate: warn
 <!-- re-verified: 2026-10-05 10:40 — thêm pattern "overlay tự-ẩn phải tính CUỘN là thao tác" (onScrollCapture ở container gốc, không onScroll): đối chiếu `ui/snap-sheet.tsx` (<section onScrollCapture={onInteract}>) + `ra-khoi-controls.tsx` (container gốc onScrollCapture) — khớp sau fix 2026-10-05. Tap-target SnapSheet min-h-[3.5rem] còn đúng. -->
@@ -405,6 +406,15 @@ Chủ dự án 2026-08-29: *"kích thước cái x đóng làm cho đồng bộ�
    - **Nhập bằng giọng theo khuôn Claude/ChatGPT**: tách GỌI (hội thoại giọng, icon nhân vật là nút ghi, vòng lan + sóng âm khi nghe) với micro ĐỌC-RA-CHỮ trong thanh chat (ô hiện "Đang nghe…" + sóng âm + nút dừng ■, chữ điền vào ô, không tự gửi; mũi tên gửi chỉ hiện khi có chữ). Không trộn hai kiểu trong một nút. **Nhân vật trợ lý (icon nổi) đứng CỐ ĐỊNH, kéo đi được, và LÀ nút gọi** — hội thoại hiện trong bong bóng kính (liquid: nền mờ xuyên thấu + blur, viền/vệt sáng, đuôi chỉ về icon, trồi lên như giọt nước) bám theo icon; KHÔNG kéo icon vào trong khung. **Ô nhập chat TỰ PHÌNH theo chữ** (textarea, trần ~4 dòng rồi cuộn) và thanh đủ rộng để đọc trọn câu — không bao giờ ô một dòng hẹp cắt chữ.
 
 **Nguồn khảo sát**: Material 3 Dialogs (48dp/24dp) · Apple HIG Sheets (Cancel trái/Done phải, 44pt, `interactiveDismissDisabled` khi có thay đổi) · Shopify Polaris Modal (X/Cancel/Esc/chạm-ngoài, primary phải) · IBM Carbon Modal (Cancel ngoài-trái, primary ngoài-phải, X đóng không gửi) · WCAG 2.5.5 (44px AAA) / 2.5.8 (24px AA).
+
+### Chạm / kéo NGANG trên một trục trong sheet cuộn dọc (2026-10-19, anh Quân: "thao tác vuốt khó, phải làm nhiều lần mới được")
+
+Áp cho mọi dải/đồ thị chọn theo trục ngang nằm TRONG sheet hay trang cuộn dọc (dải 30 ngày, đường nước một ngày trong `tide-card.tsx`).
+
+1. **CẤM chỉ nghe `onClick`** trên vùng chọn kiểu dải/đồ thị. Trong sheet cuộn, ngón tay xê dịch một chút là trình duyệt coi như cuộn và **huỷ click** ⇒ bà con chạm 3 lần mới ăn 1 — đúng lỗi đã dính ở dải 30 ngày.
+2. Dùng **`usePointerScrub(onPick)`** (`lib/use-pointer-scrub.ts`): pointer events + `touch-action: pan-y` (KHÔNG `none` — vùng nằm giữa sheet, khoá hẳn là đặt ngón lên đồ thị không cuộn sheet được). Kéo ngang quá 6 px = chọn liên tục (+ pointer capture); chạm gọn = chọn khi nhấc tay; kéo dọc = trình duyệt cuộn (pointercancel, không chọn gì). Toạ độ trong SVG co giãn tính bằng `fracInPlot` (tính lề trục theo đơn vị viewBox).
+   Thanh thời gian bản đồ (`time-scrubber.tsx`) giữ `touch-none` vì nó nằm trên bản đồ, không trong sheet cuộn.
+3. **Mỗi chỗ kéo phải có đường KHÔNG cần kéo**: nút bước (◀ ▶) là cách CHÍNH, kéo là cách phụ. Nút bước dùng `sq-btn` 56 px; **giữ nút quá 450 ms thì chạy liên tục** (180 ms/nấc), nhấc tay thì dừng và KHÔNG cộng thêm một nấc từ cú click cuối; tới mép dải thì nút **tắt** (`disabled`, mờ 40 %), không bấm mà im. Vùng kéo là `role="slider"` có `aria-valuetext` + phím mũi tên.
 
 ### Trợ lý trong app — LUẬT CHUNG cho mọi trợ lý nổi (2026-09-07, chủ dự án chốt sau khảo sát)
 

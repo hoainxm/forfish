@@ -48,6 +48,13 @@ import {
   tideTrendText,
   tideUpcoming,
   tideUpcomingText,
+  tideStepHour,
+  tideCursorAtEdge,
+  tideMinuteFromFrac,
+  tideCursorMs,
+  tideCursorReading,
+  tideHhmm,
+  vnMinuteOfDay,
   vnIsoDate,
   TIDE_FAR_KM,
   type TideStation,
@@ -323,10 +330,42 @@ describe("file public/data/tide-stations.v1.json", () => {
     const cang = stations.filter((s) => s.hang === "cang");
     expect(cang.length).toBeGreaterThanOrEqual(60);
     for (const s of stations) {
-      if (s.id.startsWith("cang-")) {
+      if (s.id.startsWith("cang-") || s.id.startsWith("cua-bien-")) {
         expect(s.hang, s.id).toBe("cang");
         expect(s.nguon, s.id).toBe("model");
       } else expect(s.hang, s.id).toBeUndefined();
+    }
+  });
+
+  it("trạm cửa biển (2026-10-19): ≥ 20 cửa, toạ độ là phao THẬT của Cục Hàng hải, không chồng trạm khác", () => {
+    const cua = stations.filter((s) => s.id.startsWith("cua-bien-"));
+    expect(cua.length).toBeGreaterThanOrEqual(20);
+    // nguồn toạ độ không bịa: mỗi trạm cửa phải trùng (≤ 50 m) một báo hiệu
+    // trong lớp báo hiệu chính thức mà app đang phát
+    const aids = JSON.parse(readFileSync(join(process.cwd(), "public", "data", "vn-aids.v1.json"), "utf8"));
+    const marks: number[][] = aids.marks;
+    const km = (la1: number, lo1: number, la2: number, lo2: number) => {
+      const r = Math.PI / 180;
+      const a =
+        Math.sin(((la2 - la1) * r) / 2) ** 2 +
+        Math.cos(la1 * r) * Math.cos(la2 * r) * Math.sin(((lo2 - lo1) * r) / 2) ** 2;
+      return 12742 * Math.asin(Math.sqrt(a));
+    };
+    const names = stations.map((s) => s.name);
+    for (const s of cua) {
+      const near = Math.min(...marks.map((m) => km(s.lat, s.lon, m[1], m[0])));
+      expect(near, `${s.id} không trùng báo hiệu nào`).toBeLessThanOrEqual(0.05);
+      expect(s.note, s.id).toMatch(/Cục Hàng hải/);
+      expect(s.note, s.id).toMatch(/trễ hơn/); // nói thật: trong lạch nước trễ hơn ngoài phao
+      expect(names.filter((n) => n === s.name), `${s.id} trùng tên`).toHaveLength(1);
+      for (const o of stations) {
+        if (o.id === s.id) continue;
+        const d = km(s.lat, s.lon, o.lat, o.lon);
+        expect(d, `${s.id} chồng ${o.id}`).toBeGreaterThanOrEqual(3);
+        // trạm ĐO thật là chuẩn vàng: cửa trong 15 km của nó thì thẻ con nước
+        // quanh đó phải ra trạm đo, không ra số mô hình (bài học Soài Rạp ↔ Vũng Tàu)
+        if (!isModelStation(o)) expect(d, `${s.id} che trạm đo ${o.id}`).toBeGreaterThanOrEqual(15);
+      }
     }
   });
 
@@ -719,5 +758,66 @@ describe("thuỷ triều + làm mớn phải được NỐI, không chỉ nằm 
     expect(rh).toContain('loai: "con-nuoc"');
     const di = doc("src/lib/route-danger-items.ts");
     expect(di).toContain('"con-nuoc": "Con nước"');
+  });
+});
+
+describe("con trỏ giờ trên đường nước (◀ ▶ + kéo)", () => {
+  const N = 30;
+  it("▶ ◀ nhảy tới giờ chẵn kề bên, không cộng lẻ phút", () => {
+    expect(tideStepHour({ dayIdx: 0, minute: 623 }, 1, N)).toEqual({ dayIdx: 0, minute: 660 });
+    expect(tideStepHour({ dayIdx: 0, minute: 623 }, -1, N)).toEqual({ dayIdx: 0, minute: 600 });
+    expect(tideStepHour({ dayIdx: 0, minute: 600 }, -1, N)).toEqual({ dayIdx: 0, minute: 540 });
+    expect(tideStepHour({ dayIdx: 3, minute: 600 }, 1, N)).toEqual({ dayIdx: 3, minute: 660 });
+  });
+
+  it("qua 23 giờ sang ngày sau, lùi khỏi 0 giờ về ngày trước", () => {
+    expect(tideStepHour({ dayIdx: 2, minute: 1380 }, 1, N)).toEqual({ dayIdx: 3, minute: 0 });
+    expect(tideStepHour({ dayIdx: 2, minute: 1425 }, 1, N)).toEqual({ dayIdx: 3, minute: 0 });
+    expect(tideStepHour({ dayIdx: 3, minute: 0 }, -1, N)).toEqual({ dayIdx: 2, minute: 1380 });
+  });
+
+  it("mép dải ngày: đứng yên và báo hết đường để tắt nút", () => {
+    expect(tideStepHour({ dayIdx: 0, minute: 0 }, -1, N)).toEqual({ dayIdx: 0, minute: 0 });
+    expect(tideCursorAtEdge({ dayIdx: 0, minute: 0 }, -1, N)).toBe(true);
+    expect(tideCursorAtEdge({ dayIdx: 0, minute: 30 }, -1, N)).toBe(false);
+    expect(tideStepHour({ dayIdx: N - 1, minute: 1390 }, 1, N)).toEqual({ dayIdx: N - 1, minute: 1390 });
+    expect(tideCursorAtEdge({ dayIdx: N - 1, minute: 1380 }, 1, N)).toBe(true);
+    expect(tideCursorAtEdge({ dayIdx: N - 1, minute: 1320 }, 1, N)).toBe(false);
+  });
+
+  it("đầu vào hỏng không làm sập: kẹp về trong dải", () => {
+    expect(tideStepHour({ dayIdx: 99, minute: 5000 }, 1, N)).toEqual({ dayIdx: N - 1, minute: 1439 });
+    expect(tideStepHour({ dayIdx: Number.NaN, minute: Number.NaN }, 1, N)).toEqual({ dayIdx: 0, minute: 60 });
+    expect(tideStepHour({ dayIdx: -4, minute: -10 }, -1, N)).toEqual({ dayIdx: 0, minute: 0 });
+  });
+
+  it("kéo: vị trí ngón tay → phút bắt nấc 15, kẹp trong ngày", () => {
+    expect(tideMinuteFromFrac(0)).toBe(0);
+    expect(tideMinuteFromFrac(0.5)).toBe(720);
+    expect(tideMinuteFromFrac(0.501)).toBe(720);
+    expect(tideMinuteFromFrac(1)).toBe(1425);
+    expect(tideMinuteFromFrac(1.7)).toBe(1425);
+    expect(tideMinuteFromFrac(-0.2)).toBe(0);
+    expect(tideMinuteFromFrac(Number.NaN)).toBe(0);
+  });
+
+  it("giờ VN cố định, đọc HH:MM", () => {
+    const ms = tideCursorMs("2026-10-19", 870);
+    expect(new Date(ms).toISOString()).toBe("2026-10-19T07:30:00.000Z");
+    expect(vnMinuteOfDay(ms)).toBe(870);
+    expect(tideHhmm(870)).toBe("14:30");
+    expect(tideHhmm(0)).toBe("00:00");
+    expect(tideHhmm(5000)).toBe("23:59");
+    expect(Number.isNaN(tideCursorMs("hỏng", 60))).toBe(true);
+  });
+
+  it("số đọc tại con trỏ khớp đúng mực nước + xu hướng của trạm", () => {
+    const st = byId("vung-tau");
+    const r = tideCursorReading(st, "2026-10-19", 600);
+    const ms = tideCursorMs("2026-10-19", 600);
+    expect(r).not.toBeNull();
+    expect(r!.heightM).toBeCloseTo(tideHeightAt(st, ms), 6);
+    expect(r!.trend).toBe(tideTrendAt(st, ms));
+    expect(tideCursorReading(st, "hỏng", 600)).toBeNull();
   });
 });

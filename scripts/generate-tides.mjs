@@ -429,7 +429,8 @@ function buildModelStations(gaugeStations, eot) {
   /*  HAI HẠNG (2026-09-04, chủ dự án: "sinh hết đi, sinh ở các cảng luôn"):
         · 7 điểm cửa lạch lớn (id không có tiền tố) = hạng VÙNG — luật CHẶN
           giữ nguyên: hỏng một điểm là dừng cả lượt sinh;
-        · điểm `cang-*` (toạ độ cảng cá trong danh mục) = hạng CẢNG — hỏng thì
+        · điểm `cang-*` (toạ độ cảng cá trong danh mục) và `cua-bien-*` (phao số 0
+          đầu luồng ngoài CỬA BIỂN, 2026-10-19) = hạng CẢNG — hỏng thì
           BỎ điểm đó và NÓI RA, không dừng: cảng nằm sâu trong sông (Mỹ Tho,
           Cần Thơ) ô EOT20 gần nhất cách 40 km trở lên (`sampleRadius` ≥ 3 do
           extract-eot20.py ghi) — số lấy ở đó là số của cửa biển, không phải
@@ -437,7 +438,7 @@ function buildModelStations(gaugeStations, eot) {
   const stations = [];
   const bo = [];
   for (const m of eot.model) {
-    const laCang = m.id.startsWith("cang-");
+    const laCang = m.id.startsWith("cang-") || m.id.startsWith("cua-bien-");
     const loi = (msg) => {
       if (!laCang) throw new Error(`CHẶN: trạm mô hình ${m.id} ${msg}`);
       bo.push(`${m.id}: ${msg}`);
@@ -464,7 +465,8 @@ function buildModelStations(gaugeStations, eot) {
       lon: Number(m.lon.toFixed(4)),
       z0,
       source: "EOT20 (DGFI-TUM), doi:10.17882/79489",
-      span: `mô hình ${eot.extractedAt}`,
+      // điểm thêm sau (--only-missing) mang ngày trích riêng
+      span: `mô hình ${m.extractedAt ?? eot.extractedAt}`,
       rmseM: modelRmse,
       nguon: "model",
       ...(laCang ? { hang: "cang" } : {}),
