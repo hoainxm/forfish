@@ -12,12 +12,12 @@ import { identityFromRequest } from "@/lib/api-identity";
 import { timeoutSignal } from "@/lib/abort";
 import { cccdPepper } from "@/lib/crew-report-hash";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
-import { cachKy, dauKy, DUONG_HOI, GW_URL_MAC_DINH, kiemCauHoi, maThueBao } from "@/lib/sen-bien/cong-ai-ky";
+import { amThanhHopLe, cachKy, dauKy, DUONG_HOI, GW_URL_MAC_DINH, kiemCauHoi, maThueBao } from "@/lib/sen-bien/cong-ai-ky";
 
 export const dynamic = "force-dynamic";
-// Gemma lạnh có thể mất ~10 s nạp; cổng nhà trần 25 s ⇒ route chờ tối đa 20 s rồi để máy tự nói
-export const maxDuration = 30;
-const HAN_MS = 20_000;
+// Máy nhà trả lời trong 0,5 s lúc khoẻ và tự cắt ở 3 s (+0,8 s đọc câu đầu) khi bận (train chiếm GPU, nạp lạnh) ⇒ route chờ 5 s rồi để máy tự nói (19/10: "hỏi chỉ được <1s")
+export const maxDuration = 10;
+const HAN_MS = 5_000;
 
 const err = (status: number, code: string) => NextResponse.json({ ok: false, code }, { status });
 
@@ -52,11 +52,13 @@ export async function POST(req: Request) {
     const het = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
     return err(het ? 504 : 502, het ? "timeout" : "may_nha_tat");
   }
-  const j = (await r.json().catch(() => null)) as { ok?: boolean; text?: unknown; speak?: unknown; code?: unknown } | null;
+  const j = (await r.json().catch(() => null)) as { ok?: boolean; text?: unknown; speak?: unknown; code?: unknown; am_thanh?: unknown } | null;
   if (!r.ok || !j?.ok || typeof j.text !== "string" || !j.text.trim()) {
     const code = typeof j?.code === "string" ? j.code.slice(0, 40) : "upstream";
     return err(r.status === 429 ? 429 : r.status === 504 ? 504 : 502, code);
   }
   const speak = Array.isArray(j.speak) ? j.speak.filter((s): s is string => typeof s === "string").slice(0, 6) : [j.text];
-  return NextResponse.json({ ok: true, text: j.text.slice(0, 1200), speak }, { headers: { "Cache-Control": "no-store" } });
+  // mp3 câu đầu giọng Mỹ Duyên (máy nhà đọc sẵn) — không có thì app tự xin /api/sen-bien/doc
+  const amThanh = amThanhHopLe(j.am_thanh);
+  return NextResponse.json({ ok: true, text: j.text.slice(0, 1200), speak, ...(amThanh ? { am_thanh: amThanh } : {}) }, { headers: { "Cache-Control": "no-store" } });
 }

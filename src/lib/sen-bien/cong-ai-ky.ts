@@ -14,6 +14,8 @@ import { createHash, createHmac, randomBytes } from "node:crypto";
 
 export const GW_URL_MAC_DINH = "https://gpu-desktop.tail1438a1.ts.net";
 export const DUONG_HOI = "/gw/v1/forfish/hoi";
+/** Đọc một câu bằng giọng Mỹ Duyên (máy nhà VieNeu ⇒ mp3) — câu thứ hai trở đi của câu trả lời máy nhà. */
+export const DUONG_DOC = "/gw/v1/forfish/doc";
 export const KHACH_THUE_TB = "forfish-thue-bao";
 const KHOA_RE = /^[A-Za-z0-9_-]{32,128}$/;
 const OIDC_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
@@ -57,8 +59,9 @@ export function dauKy(
   body: string,
   now = Date.now(),
   nonce = randomBytes(16).toString("hex"),
+  duong: typeof DUONG_HOI | typeof DUONG_DOC = DUONG_HOI,
 ): Record<string, string> {
-  const t: TruongKy = { ts: String(now), nonce, method: "POST", duong: DUONG_HOI, nguoi: tb, khachThue: KHACH_THUE_TB, body };
+  const t: TruongKy = { ts: String(now), nonce, method: "POST", duong, nguoi: tb, khachThue: KHACH_THUE_TB, body };
   return {
     "content-type": "application/json",
     "x-forlife-ts": t.ts,
@@ -85,4 +88,17 @@ export function kiemCauHoi(b: unknown): { text: string; man: string | null; cang
   const cang = typeof o.cang === "string" && /^[\p{L}\p{N} .,'()-]{1,40}$/u.test(o.cang.trim()) ? o.cang.trim() : null;
   const hang = o.hang === "premium" || o.hang === "thuong" ? o.hang : null;
   return { text, man, cang, hang };
+}
+
+/** Câu cần đọc (ranh giới /api/sen-bien/doc): 1–200 ký tự — đúng trần bên máy nhà. */
+export function kiemCauDoc(b: unknown): string | null {
+  if (!b || typeof b !== "object" || Array.isArray(b)) return null;
+  const t = (b as Record<string, unknown>).text;
+  const text = typeof t === "string" ? t.normalize("NFC").replace(/\s+/g, " ").trim() : "";
+  return text && text.length <= 200 ? text : null;
+}
+
+/** mp3 base64 máy nhà gửi kèm (câu đầu) — chỉ nhận chuỗi base64 ≤ 300 KB, lạ ⇒ bỏ (app tự xin /doc). */
+export function amThanhHopLe(x: unknown): string | null {
+  return typeof x === "string" && x.length > 100 && x.length <= 400_000 && /^[A-Za-z0-9+/]+=*$/.test(x) ? x : null;
 }

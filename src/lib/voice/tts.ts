@@ -803,6 +803,71 @@ export function ttsSpeak(
   return cancel;
 }
 
+/**
+ * ĐỌC CÂU MÁY NHÀ BẰNG MP3 MỸ DUYÊN (2026-10-19, ADR 0016 — chủ dự án: "đọc mỹ duyên hết chưa"). Câu Gemma là chữ
+ * tự do ⇒ mảnh ghép sẵn không phủ; máy nhà đọc sẵn từng câu ra mp3. Mỗi đoạn: `mp3` là Promise url (blob:) — đã bắt
+ * đầu tải TRƯỚC khi gọi (câu sau tải trong lúc câu trước phát). Có url ⇒ phát mp3; null / hỏng / chờ quá 6 s ⇒ đọc
+ * đúng đoạn đó bằng giọng máy như `ttsSpeak`. Chung khoá "một lượt nói một lúc", tín hiệu icon, trần MAX_UTTER_MS.
+ */
+export function ttsSpeakMp3(
+  doan: readonly { text: string; mp3: Promise<string | null> }[],
+  opts: { onEnd?(completed: boolean): void; rate?: number } = {},
+): () => void {
+  activeCancel?.();
+  setSenSignal({ speaking: true });
+  let ended = false;
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  let stopCur: (() => void) | null = null;
+  const end = (completed: boolean) => {
+    if (ended) return;
+    ended = true;
+    for (const t of timers) clearTimeout(t);
+    if (activeCancel === cancel) activeCancel = null;
+    setSenSignal({ speaking: false });
+    opts.onEnd?.(completed);
+  };
+  const cancel = () => {
+    if (ended) return;
+    stopCur?.();
+    stopCur = null;
+    end(false);
+  };
+  activeCancel = cancel;
+  if (doan.length === 0) {
+    end(true);
+    return () => {};
+  }
+  const rate = opts.rate ?? TTS_RATE;
+  timers.push(setTimeout(cancel, MAX_UTTER_MS));
+  let i = 0;
+  const next = () => {
+    if (ended) return;
+    if (i >= doan.length) {
+      stopCur = null;
+      end(true);
+      return;
+    }
+    const d = doan[i++];
+    const after = () => {
+      if (ended) return;
+      timers.push(setTimeout(next, PAUSE_SENTENCE_MS));
+    };
+    const may = () => {
+      stopCur = synthPart(d.text, rate, () => after());
+    };
+    let cho: ReturnType<typeof setTimeout> | undefined;
+    const quaGio = new Promise<null>((r) => (cho = setTimeout(() => r(null), 6_000)));
+    void Promise.race([d.mp3.catch(() => null), quaGio]).then((url) => {
+      clearTimeout(cho);
+      if (ended) return;
+      if (url) stopCur = playClips([url], (ok) => (ok ? after() : may()));
+      else may();
+    });
+  };
+  next();
+  return cancel;
+}
+
 /*  Lượt nói đang chạy. Dừng một ĐOẠN không đủ: bộ chạy coi đoạn bị dừng là
     "đoạn hỏng" rồi đọc tiếp đoạn sau ⇒ hai câu chồng nhau (bắt được khi chạy
     thử "dừng" giữa lúc đang đọc "Nhắc lại: …", 2026-10-16). */

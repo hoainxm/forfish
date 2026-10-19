@@ -26,7 +26,7 @@ import { SPECIES_META } from "@/lib/fish-predict";
 import { loadPlaces } from "@/lib/places";
 import { loadHome, saveHome } from "@/lib/region";
 import { readToken } from "@/lib/device-token-store";
-import { DANG_HOI, hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { DANG_HOI, doanMayNha, hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
 import { lamLenhCho, type ChoKetQua } from "@/lib/sen-bien/lam-cho";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
@@ -34,7 +34,7 @@ import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { guessIntent } from "@/lib/sen-bien/ngram";
 import { useAuthUser } from "@/lib/use-auth";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
-import { ttsSpeak, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
+import { ttsSpeak, ttsSpeakMp3, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 
 const LOAI_CA = Object.keys(SPECIES_META);
 const CHAO = "Sen Biển giúp gì được cho bạn?";
@@ -237,8 +237,17 @@ export function SenBienToanApp() {
         noi(DANG_HOI, false);
         const dap = await hoiMayChu(text, pathname, loadHome().province ?? null);
         if (dap) {
-          // câu đã vào mẫu học ở trên (ghiMau); câu trả lời máy nhà được AI Assistant ghi nhật ký train `forfish_tb`
-          noi(dap.speak.join(" "));
+          // câu đã vào mẫu học ở trên (ghiMau); câu trả lời máy nhà được AI Assistant ghi nhật ký train `forfish_tb`.
+          // Đọc GIỌNG MỸ DUYÊN (mp3 máy nhà đọc sẵn từng câu); câu nào không có mp3 thì giọng máy — như noi()
+          const luot = ++luotDoc.current;
+          setDangDoc(true);
+          ttsSpeakMp3(doanMayNha(dap), {
+            onEnd: (xong) => {
+              if (luot !== luotDoc.current) return;
+              setDangDoc(false);
+              if (xong) setTuNghe((n) => n + 1);
+            },
+          });
           return { show: dap.text };
         }
       }
