@@ -35,8 +35,12 @@ const nextConfig: NextConfig = {
   // Actions (.github/workflows/deploy.yml) nên có GITHUB_SHA — thiếu nhánh này
   // thì máy chủ trả mã rỗng và thẻ không bao giờ hiện (dính 2026-09-29).
   // Máy dev: cả hai rỗng ⇒ tính năng tự tắt.
+  // SDFISH_BUILD_SHA đứng TRƯỚC GITHUB_SHA: deploy.yml chạy qua workflow_run,
+  // nơi GITHUB_SHA là đầu main lúc sự kiện nổ chứ không phải commit đang build
+  // ⇒ health check /api/version so sai bản (2026-10-18).
   env: {
     NEXT_PUBLIC_BUILD_ID: (
+      process.env.SDFISH_BUILD_SHA ||
       process.env.VERCEL_GIT_COMMIT_SHA ||
       process.env.GITHUB_SHA ||
       ""
@@ -44,7 +48,7 @@ const nextConfig: NextConfig = {
     // Ngày build (YYYY-MM-DD) để hiện nhãn phiên bản dễ đọc "ngày · mã" —
     // CHỈ đặt khi có mã bản (build trong CI), để máy dev vẫn rỗng ⇒ tính năng
     // tắt gọn như cũ. Dùng giờ build (≈ ngày deploy), không phải ngày commit.
-    NEXT_PUBLIC_BUILD_DATE: (process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA)
+    NEXT_PUBLIC_BUILD_DATE: (process.env.SDFISH_BUILD_SHA || process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA)
       ? new Date().toISOString().slice(0, 10)
       : "",
   },

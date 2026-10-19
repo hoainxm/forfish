@@ -7,6 +7,7 @@ import { tokenIdentity } from "@/lib/device-token-server";
 import { readTokenHeader } from "@/lib/device-token";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
 import { dataRouteRule, type DataRouteRule } from "@/lib/data-route-rules";
+import { supabaseMode } from "@/lib/demo-mode";
 
 /**
  * CỔNG DỮ LIỆU của mọi route trả dữ liệu cho app (2026-09-16 — trước đó chỉ
@@ -26,13 +27,16 @@ import { dataRouteRule, type DataRouteRule } from "@/lib/data-route-rules";
  * khoản đang còn hạn — đúng khuôn lỗi mà cả việc này sinh ra để chấm dứt.
  */
 export async function dataGate(request: NextRequest, rule: DataRouteRule) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  // Chưa cấu hình → demo mode, mở hết như cũ.
-  if (!url || !key) return NextResponse.next({ request });
-
   const deny = (status: number, code: string) =>
     NextResponse.json({ ok: false, code }, { status });
+
+  // Thiếu env: demo (máy dev / cờ rõ) thì mở như cũ; production thì 503 —
+  // KHÔNG lặng lẽ bỏ cổng (lib/demo-mode.ts).
+  const mode = supabaseMode();
+  if (mode === "demo") return NextResponse.next({ request });
+  if (mode === "misconfigured") return deny(503, "misconfigured");
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   // ── 1. CHUỖI CỨNG ────────────────────────────────────────────────────────
   const raw = readTokenHeader(request.headers);

@@ -42,7 +42,7 @@ describe("cron-prod.yml — method gửi khớp method route", () => {
     method: m[2],
   }));
 
-  it("đọc được đủ năm việc (nhắc hạn giấy tờ 2026-10-06, lưu trữ dự báo 2026-10-10)", () => {
+  it("đọc được đủ sáu việc (nhắc hạn giấy tờ 2026-10-06, lưu trữ dự báo 2026-10-10, refresh-fish 2026-10-19)", () => {
     expect(jobs.map((j) => j.p).sort()).toEqual(
       [
         "/api/collect/sea-daily",
@@ -50,6 +50,7 @@ describe("cron-prod.yml — method gửi khớp method route", () => {
         "/api/cron/trace-payments",
         "/api/cron/notify-docs",
         "/api/collect/archive",
+        "/api/cron/refresh-fish",
       ].sort(),
     );
   });

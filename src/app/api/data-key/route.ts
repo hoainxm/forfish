@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
 import { DATA_KEY_RATE } from "@/lib/data-key-server";
+import { supabaseMode } from "@/lib/demo-mode";
 import { loadDataKeys } from "@/lib/data-key-source";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +20,11 @@ export const dynamic = "force-dynamic";
 const store: RateStore = new Map();
 
 export async function GET(req: Request) {
-  // Demo mode (chưa cấu hình Supabase — máy dev): không có tài khoản để kiểm,
-  // mở như dataGate mở. Production luôn có env nên luôn qua cổng danh tính.
-  const demo = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Demo mode (máy dev / cờ rõ — lib/demo-mode.ts): không có tài khoản để kiểm,
+  // mở như dataGate mở. Production thiếu env ⇒ 503, KHÔNG phát khoá cho ai hỏi.
+  const mode = supabaseMode();
+  if (mode === "misconfigured") return NextResponse.json({ ok: false, code: "misconfigured" }, { status: 503 });
+  const demo = mode === "demo";
   let phone = "demo";
   if (!demo) {
     const who = await identityFromRequest(req);

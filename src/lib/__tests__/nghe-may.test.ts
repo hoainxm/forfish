@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -66,6 +67,19 @@ describe("gói bộ nghe + bộ chạy WASM có đủ trong repo", () => {
     const js = readFileSync(dir + "sherpa-onnx-wasm-main-asr.js", "utf8");
     expect(js).not.toMatch(/NODERAWFS is currently only supported/);
     expect(js).toMatch(/_SherpaOnnxCreateOfflineRecognizer/);
+  });
+  // Vendor do Emscripten sinh, eslint bỏ qua (eslint.config.mjs) ⇒ gác bằng
+  // checksum: ai đổi bộ chạy mà không bump SHERPA_BAN (thư mục mới) là đỏ —
+  // SW/trình duyệt giữ bản cũ theo đường dẫn, đổi nội dung tại chỗ là lệch.
+  it(`bộ chạy ${SHERPA_BAN} không bị sửa tại chỗ (checksum)`, () => {
+    const SHA: Record<string, string> = {
+      "sherpa-onnx-asr.js": "d51ae8e8b756ee5e53423ffada0c9702973f154f561aca7984fe0b12f4060178",
+      "sherpa-onnx-wasm-main-asr.js": "63eebaa6b1ea572849bab623ae19ca65f4894253816ef5dbc214204a7ad32242",
+      "sherpa-onnx-wasm-main-asr.wasm": "8e06e8f0a1a0f3f5460238e36542fed9f933c10f4393826d1c0f429fc9d9b85d",
+    };
+    expect(SHERPA_BAN).toBe("1.13.8");
+    for (const [f, h] of Object.entries(SHA))
+      expect(createHash("sha256").update(readFileSync(`public/sherpa-asr/${SHERPA_BAN}/${f}`)).digest("hex"), f).toBe(h);
   });
   it("worker trỏ đúng thư mục bộ chạy", () =>
     expect(readFileSync("public/sen-bien-nghe.worker.js", "utf8")).toMatch(/\/sherpa-asr\/\$\{ban\}\//));

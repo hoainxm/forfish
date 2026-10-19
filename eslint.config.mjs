@@ -31,6 +31,11 @@ const eslintConfig = defineConfig([
     // .gitignore chặn không cho vào git). Lint nó theo luật app là sai loại —
     // mã sinh tự động đẻ ra require()/this-alias/assign-module và lấp lỗi thật.
     "scratch/**",
+    // public/sherpa-asr/<bản>/ = ASR Sherpa ONNX do Emscripten SINH (rà Codex
+    // 2026-10-18: 2 lỗi no-this-alias + 87 cảnh báo của cả repo nằm ở đây, làm
+    // `npm run lint` đỏ vì mã không phải của mình). Vendor được gác bằng
+    // checksum trong nghe-may.test.ts, không bằng luật lint của app.
+    "public/sherpa-asr/**",
   ]),
   {
     rules: {

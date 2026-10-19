@@ -66,7 +66,14 @@ git push origin main
 ```
 **Verify sau deploy**: mở route từng trục (`/ngu-truong` `/gia-ca` `/van-hanh` `/giay-to`), check nguồn ngoài degrade đúng (thẻ "Thử lại", không treo).
 
-**Deploy self-host PM2 — `.github/workflows/deploy.yml` (tối ưu 2026-09-29, trước ~20 phút/lần)**: runner `self-hosted` Windows, push `main` → build standalone → PM2 `forfish` ở `C:\sdfish\forfish`. Chỗ nhanh lên, ĐỪNG gỡ ngược:
+**Deploy self-host PM2 — `.github/workflows/deploy.yml` (tối ưu 2026-09-29, trước ~20 phút/lần)**: runner `self-hosted` Windows, workflow `ci` xanh trên `main` → build standalone → PM2 `forfish` ở `C:\sdfish\forfish`.
+**Cổng phát hành (rà Codex 2026-10-19), ĐỪNG gỡ:**
+- Kích bằng `workflow_run` của `ci` (không còn `push`): ci đỏ/huỷ ⇒ KHÔNG deploy. Checkout đúng `head_sha` ci đã gác. Bấm tay (`workflow_dispatch`) vẫn được — tự chịu trách nhiệm.
+- `SDFISH_ENCODE_DATA=1` khai trong workflow + bước `encode-data.mjs --verify` trước khi đụng bản đang chạy ⇒ không bao giờ phát `public/data` bản rõ vì `.env` máy chủ thiếu cờ.
+- Trước khi tráo: `robocopy` bản đang chạy sang `C:\sdfish\forfish-prev`. Sau khi tráo: `GET /api/version` phải trả đúng mã commit (`SDFISH_BUILD_SHA`) trong ~60 s; sai/không lên ⇒ tự tráo lại `forfish-prev` + job ĐỎ.
+- Production thiếu env Supabase ⇒ route dữ liệu trả 503 `misconfigured` (lib/demo-mode.ts), không mở cổng. Thấy 503 này ngay sau deploy = `.env` sai.
+
+Chỗ nhanh lên, ĐỪNG gỡ ngược:
 - `checkout clean: false` — giữ `node_modules` + `.next/cache` (mặc định `git clean -ffdx` xoá cả hai ⇒ cài lại 683 MB + build lạnh mỗi lần).
 - `npm ci` chỉ chạy khi hash `package-lock.json` + `node -v` đổi (dấu ở `node_modules\.deploy-lock-hash`). Nghi `node_modules` hỏng → xoá file dấu đó, lần sau cài lại sạch.
 - Không `setup-node cache: npm` (runner tự host đã có `~/.npm`); `PUPPETEER_SKIP_DOWNLOAD`.
