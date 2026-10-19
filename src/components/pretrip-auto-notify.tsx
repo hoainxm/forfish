@@ -349,21 +349,40 @@ export function PretripSavedStatus({
     );
   }
 
+  /*  CHIP GỌN 2 CHỮ trên bản đồ (anh Long 2026-10-20: "vẫn tốn chỗ, chưa thông
+      minh"): câu đầy đủ ("App cần mạng để tải nốt dữ liệu. Bà con mở lại khi có
+      sóng nhé." / "Còn dùng tới ngày 31/10 — chạm tải mới"…) chiếm cả một dải
+      ngang trên đáy bản đồ. Nay chip chỉ nói TRẠNG THÁI bằng icon + 2 chữ, màu
+      giữ đúng luật cũ (xanh chỉ khi coverageChipOk + vỏ đủ); câu đầy đủ nằm ở
+      aria-label/title và trong sheet khi chạm. */
+  const short =
+    phase === "loading"
+      ? "Đang tải"
+      : shellMissing
+        ? "Cần sóng"
+        : allSaved
+          ? "Đã lưu"
+          : "Chưa đủ";
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Xem dữ liệu đã lưu để đi biển"
-        className={`pointer-events-auto inline-flex min-h-[2.75rem] items-center gap-1.5 rounded-full bg-card/95 px-3 py-1 text-[0.8125rem] font-semibold shadow-sm ring-1 ring-line transition active:scale-95 ${tone}`}
+        aria-label={`Dữ liệu đi biển: ${text}. Chạm để xem.`}
+        title={text}
+        className={`pointer-events-auto inline-flex h-(--h-ctl) items-center gap-1.5 rounded-full border border-line bg-card/95 px-3 text-[0.8125rem] font-semibold shadow-sm transition active:scale-95 ${tone}`}
       >
-        {phase === "loading" && (
+        {phase === "loading" ? (
           <span
             className="h-2 w-2 animate-pulse rounded-full bg-navy"
             aria-hidden
           />
+        ) : allSaved ? (
+          <CheckIcon className="h-4 w-4 shrink-0" aria-hidden />
+        ) : (
+          <AlertIcon className="h-4 w-4 shrink-0" aria-hidden />
         )}
-        {text}
+        {short}
       </button>
       {open && (
         <PretripSavedSheet

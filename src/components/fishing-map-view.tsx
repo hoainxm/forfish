@@ -427,6 +427,8 @@ import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify";
 import { premiumLine } from "@/components/premium-gate";
 import {
   AlertIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   FishIcon,
   HomeIcon,
   LockIcon,
@@ -4775,6 +4777,94 @@ export default function FishingMapView() {
       </div>
     ) : null;
 
+  /*  BƯỚC NGÀY GỌN "‹ Hôm nay ›" — thay dải 5 chip ngày ở nấc `hidden` (anh
+      Long 2026-10-20: dải chip ngày + câu "cần mạng" + viên kính sóng gió là BA
+      tầng nổi trên đáy bản đồ, "tốn chỗ, chưa thông minh"). Một viên nhỏ cùng
+      HÀNG với chip dữ liệu; dải chip đầy đủ vẫn ở thân sheet (peek/half).
+      Cùng luật chọn ngày với dải chip: bỏ qua ngày đã qua; ngày premium bị khoá
+      thì KHÔNG nhảy vào mà bật dòng mời (dayLockNote) + mở sheet về peek để
+      dòng đó hiện ra — không chặn câm. */
+  const stepDay = (dir: -1 | 1) => {
+    if (!cond || selIdx < 0) return;
+    for (let i = selIdx + dir; i >= 0 && i < cond.days.length; i += dir) {
+      const d = cond.days[i];
+      if (isPastDay(d.date, todayIso)) continue;
+      if (dayChipLocked(d.date)) {
+        setDayLockNote(true);
+        setSize("peek");
+        return;
+      }
+      setDayLockNote(false);
+      setDayIdx(i);
+      armSheetHide();
+      return;
+    }
+  };
+  const canStep = (dir: -1 | 1) => {
+    if (!cond || selIdx < 0) return false;
+    for (let i = selIdx + dir; i >= 0 && i < cond.days.length; i += dir) {
+      if (!isPastDay(cond.days[i].date, todayIso)) return true;
+    }
+    return false;
+  };
+  const dayStepper =
+    cond && today && sel ? (
+      <div
+        role="group"
+        aria-label="Chọn ngày xem dự báo"
+        onPointerDown={(e) => e.stopPropagation()}
+        className="pointer-events-auto inline-flex h-(--h-ctl) items-center rounded-full border border-line bg-card/95 shadow-sm"
+      >
+        <button
+          type="button"
+          onClick={() => stepDay(-1)}
+          disabled={!canStep(-1)}
+          aria-label="Ngày trước"
+          className="flex h-full w-10 items-center justify-center rounded-l-full text-navy active:bg-field disabled:opacity-30"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+        </button>
+        {/*  Giữa = ngày + TÓM TẮT sóng gió hai dòng (thay viên kính "Sóng — · Gió
+             cấp 3 Bắc" từng chiếm riêng một hàng — anh Long: "tốn chỗ, chuyển
+             thành sidebar hoặc cách gì thông minh hơn"). Chạm giữa ⇒ mở sheet
+             về peek để đọc đủ số. */}
+        <button
+          type="button"
+          onClick={() => {
+            setSize("peek");
+            armSheetHide();
+          }}
+          aria-live="polite"
+          aria-label={`${chipLabel(sel.date, todayIso)}: sóng ${
+            sel.waveMaxM > 0 ? `${formatNumberVN(sel.waveMaxM)} mét` : "chưa rõ"
+          }, gió cấp ${beaufort(sel.windMaxKmh)}. Chạm xem chi tiết`}
+          className="flex h-full min-w-[6.5rem] flex-col items-center justify-center px-1 leading-tight"
+        >
+          <span className="text-[0.8125rem] font-semibold text-navy">
+            {chipLabel(sel.date, todayIso)}
+          </span>
+          <span className="text-[0.75rem] text-foreground/70">
+            Sóng{" "}
+            {/* ước lượng: dấu "~" (chữ " (ước lượng)" quá dài cho viên gọn;
+                aria-label + thân sheet vẫn nói đủ) */}
+            {sel.waveMaxM > 0
+              ? `${sel.waveEstimated ? "~" : ""}${formatNumberVN(sel.waveMaxM)} m`
+              : "—"}{" "}
+            · Gió {beaufort(sel.windMaxKmh)}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => stepDay(1)}
+          disabled={!canStep(1)}
+          aria-label="Ngày sau"
+          className="flex h-full w-10 items-center justify-center rounded-r-full text-navy active:bg-field disabled:opacity-30"
+        >
+          <ChevronRightIcon className="h-4 w-4" />
+        </button>
+      </div>
+    ) : null;
+
   /*  Dòng "ở đâu" CHỈ nói TÊN chỗ khi con trỏ đang đứng trên một điểm đã ghim.
       Không ghim thì KHÔNG nói gì — cột phải của peek để trống cho dòng toạ độ.
       Bỏ 2026-08-25d (user: *"bỏ chỗ đang xem cách cái gì đi"*): câu "cách <cảng>
@@ -7683,8 +7773,14 @@ export default function FishingMapView() {
             phí 0px, xem chú thích `hiddenLabel` trong snap-sheet.tsx. CHỈ khi
             nấc `hidden` đến từ đồng hồ tự-ẩn: bị lớp nổi khác ép ẩn mà vẫn dán
             dòng số là dựng lại đúng cảnh hai lớp nổi vừa dẹp. */
+        /*  Viên kính KHÔNG kèm chữ nữa (2026-10-20): tóm tắt sóng gió đã nằm
+            trong bước ngày `dayStepper` ở hàng trên — in thêm ở viên kính là
+            một hàng nổi thừa. Còn lại đúng vạch kéo mảnh. Ca bị lớp nổi khác ép
+            ẩn / đang mở thanh giờ thì dayStepper không dựng ⇒ vẫn giữ chữ. */
         hiddenLabel={
-          !sheetHiddenByOverlay && condSummary ? condSummary : undefined
+          !sheetHiddenByOverlay && condSummary && (overlayOn || !dayStepper)
+            ? condSummary
+            : undefined
         }
         above={
           /*  CÒN Ở NẤC `hidden` NỮA (user 2026-08-24: "cái chip tải cái gì đủ
@@ -7700,6 +7796,14 @@ export default function FishingMapView() {
                   khi kéo sheet lên đọc chi tiết cho khỏi rối; căn phải, nằm ngay
                   trên mép sheet. Dòng lỗi dự báo cá (nếu có) xếp NGAY TRÊN nhãn. */}
               {sheetThu && (
+                /*  MỘT HÀNG ở nấc `hidden` (2026-10-20): [‹ ngày ›] trái · [chip dữ
+                    liệu 2 chữ] phải — thay cho chip câu dài + dải 5 chip ngày
+                    xếp hai tầng. Ở `peek` dải chip ngày nằm trong thân sheet nên
+                    bên trái để trống, chip dữ liệu vẫn căn phải như cũ. */
+                <div className="flex items-end gap-2">
+                  <div className="min-w-0 flex-1">
+                    {size === "hidden" && !sheetHiddenByOverlay && !overlayOn && dayStepper}
+                  </div>
                 <div className="flex flex-col items-end gap-2">
                   {!overlayOn && fishOn && !fishCast && fishFailMsg && (
                     <button
@@ -7721,19 +7825,12 @@ export default function FishingMapView() {
                     fishLocked={fishLocked}
                   />
                 </div>
+                </div>
               )}
-              {/*  DẢI CHIP NGÀY SỐNG QUA NẤC `hidden` (2026-08-29). CHỈ dựng ở
-                   `hidden`: ở nấc `peek` dải này đã nằm trong thân sheet, dựng
-                   thêm ở đây là in hai lần cùng một hàng.
-                   Guard `!sheetHiddenByOverlay` (đúng guard `hiddenLabel` đang
-                   dùng) + `!overlayOn`: bị lớp nổi khác ép ẩn, hoặc đang mở
-                   thanh giờ dự báo, mà vẫn dán dải chip lên là dựng lại đúng
-                   cảnh HAI LỚP NỔI cùng lúc mà luật đã cấm.
-                   `pointer-events-auto` là bắt buộc — khung `above` của
-                   SnapSheet đặt `pointer-events-none` cho cả slot. */}
-              {size === "hidden" && !sheetHiddenByOverlay && !overlayOn && (
-                <div className="pointer-events-auto">{dayChipsRow}</div>
-              )}
+              {/*  ĐỔI NGÀY SỐNG QUA NẤC `hidden` (2026-08-29) — từ 2026-10-20 bằng
+                   bước ngày gọn `dayStepper` ở hàng trên (không còn dải 5 chip).
+                   Guard `!sheetHiddenByOverlay` + `!overlayOn` giữ nguyên: bị lớp
+                   nổi khác ép ẩn / đang mở thanh giờ thì không dán thêm lớp nổi. */}
               {/* thanh giờ gió/sóng/mây/mưa/nhiệt XUỐNG ĐÁY kiểu Windy — tay với
                   tới, không chồng 4 tầng trên đầu bản đồ (roadmap UX 2026-06-11) */}
               {overlayOn && (
