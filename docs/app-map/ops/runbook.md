@@ -153,6 +153,13 @@ sh scripts/doc-health-report.sh --status   # regenerate _generated/doc-status.md
 sh .githooks/pre-commit --self-test        # verify hook còn parse + gate đúng
 ```
 
+## Sen Biển hỏi máy nhà (2026-10-19, ADR 0016)
+
+Server ForFish cần, đặt ở env (Vercel / `.env` máy chủ IIS / secret `deploy.yml`):
+- `FORLIFE_GW_KEY` — khoá cổng nhà, sinh trên máy GPU: `cd ~/forlife/app && node core/cli.mjs tao-khoa-cong` (in MỘT lần, băm vào `secrets.env` máy nhà, khởi động lại AI Assistant). Bản Vercel có thể bỏ khoá, dùng OIDC: thêm `sub` của project ForFish vào `FORLIFE_GW_OIDC_SUB` máy nhà (AI Assistant `ops/runbook-l3.md` §Nối ForFish).
+- `CREW_CCCD_PEPPER` (đã có) — muối mã thuê bao. `FORLIFE_GW_URL` tuỳ chọn.
+Thiếu ⇒ `/api/sen-bien/hoi` trả 503 `chua_noi`, Sen Biển nói câu trong máy. Thử: một câu máy không trả lời được (vd câu hỏi mở) trong thẻ Sen Biển ở màn Tàu tôi.
+
 ## Escalation — KHÔNG được tự làm
 
 - 🔴 **Migration / RLS / schema** (`supabase/migrations/`, ref `znzgugvfhgmiszqgjulk`): KHÔNG tự apply lên remote. Dừng, hỏi user. Đi qua Supabase MCP có xác nhận.

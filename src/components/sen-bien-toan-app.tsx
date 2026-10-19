@@ -24,7 +24,9 @@ import { LOCAL_BUILD_ID } from "@/lib/app-version";
 import { loadBoats, saveCurrentBoatId } from "@/lib/boats";
 import { SPECIES_META } from "@/lib/fish-predict";
 import { loadPlaces } from "@/lib/places";
-import { saveHome } from "@/lib/region";
+import { loadHome, saveHome } from "@/lib/region";
+import { readToken } from "@/lib/device-token-store";
+import { DANG_HOI, hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
 import { lamLenhCho, type ChoKetQua } from "@/lib/sen-bien/lam-cho";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
@@ -228,6 +230,18 @@ export function SenBienToanApp() {
         return { show: `${a.text}${them}` };
       }
       const say = "say" in r ? r.say : "";
+      /*  MÁY KHÔNG TỰ TRẢ LỜI ĐƯỢC + CÓ SÓNG ⇒ HỎI MÁY NHÀ (ADR 0016, 2026-10-19): Gemma trong máy gpu-desktop, luồng
+          thuê bao ForFish (AI Assistant /gw/v1/forfish/hoi qua /api/sen-bien/hoi). Báo "đang hỏi" ngay; máy nhà im /
+          mất sóng / quá giờ ⇒ nói câu cũ của máy như trước. */
+      if (nenHoiMayChu(r, text, !!readToken(), typeof navigator === "undefined" || navigator.onLine !== false)) {
+        noi(DANG_HOI, false);
+        const dap = await hoiMayChu(text, pathname, loadHome().province ?? null);
+        if (dap) {
+          // câu đã vào mẫu học ở trên (ghiMau); câu trả lời máy nhà được AI Assistant ghi nhật ký train `forfish_tb`
+          noi(dap.speak.join(" "));
+          return { show: dap.text };
+        }
+      }
       noi(say);
       return { show: say };
     },

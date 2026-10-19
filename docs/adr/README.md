@@ -30,6 +30,7 @@ KHÔNG viết ADR cho: feature thường, UI tweak, fix bug — những thứ đ
 | [0011](0011-sen-bien-nghe-trong-may-zipformer-wasm.md) | Sen Biển nghe trong máy: zipformer tiếng Việt chạy WASM (dựng riêng chỉ-nghe), mô hình trong git, tên ưu tiên + khớp gần; giấy phép mô hình 30M là CC-BY-NC-ND (chủ dự án chốt) | Accepted | 2026-10-16 |
 | [0012](0012-sen-bien-gemma-270m-litert.md) | Sen Biển hiểu ý: n-gram v2 (44 ý, có hỏi bản đồ) chọn ý + luật làm lưới; Gemma 3 270M LiteRT tách tham số — giấy phép Gemma dùng thương mại được (kèm NOTICE + điều khoản §3.2), Android: gói Play on-demand + plugin LiteRT-LM (duyệt 17/10) | Accepted | 2026-10-16 |
 | [0013](0013-san-thuong-mai-da-nguoi-ban.md) | Chợ vật tư tàu cá: sàn ĐA NGƯỜI BÁN tách bảng mới, kho qua adapter MarketStore (supabase/file), định danh SĐT chuỗi cứng, COD + chuyển khoản | Proposed | 2026-09-06 |
+| [0016](0016-sen-bien-hoi-may-nha.md) | Sen Biển hỏi máy nhà (AI Assistant, Gemma trong máy) khi máy bà con không tự trả lời được — đường lùi có sóng, mã thuê bao giả danh, không gửi SĐT; đảo luật 17/10 "chỉ chạy trong máy" | Accepted | 2026-10-19 |
 | [0014](0014-gop-cua-hang-vao-cho.md) | Gộp "Cửa hàng" cũ vào Chợ vật tư — một cửa hàng, SDVICO là một gian hàng; dữ liệu chuyển bằng 0061; thêm bậc sản phẩm "Liên hệ báo giá" | Accepted | 2026-09-07 |
 
 ## Cách thêm
