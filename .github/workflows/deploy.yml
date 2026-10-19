@@ -239,3 +239,14 @@ jobs:
             pm2 restart forfish --update-env 2>$null
           }
           exit 1
+
+      # 9. Smoke test (rà Codex đợt 2): mã bản + /api/status + file dữ liệu là bản
+      #    mã + route dữ liệu có gác. KHÔNG chặn (bản đã qua health check ở trên)
+      #    — để log nói rõ hỏng ở bước nào.
+      - name: Smoke test
+        continue-on-error: true
+        shell: powershell
+        run: |
+          $port = if ($env:PORT) { $env:PORT } else { "3000" }
+          $sha = (git rev-parse --short HEAD).Trim()
+          node scripts/smoke.mjs "http://127.0.0.1:$port" --build $sha

@@ -33,6 +33,8 @@ gate: warn
 **Kiểm nhanh bản đang chạy:** `curl -s https://sdfish.sdvico.vn/api/version` · `curl -s https://forfish-alpha.vercel.app/api/version` — so với `git log -1 --format=%h company/main` / `origin/main`.
 **Server sống nhưng dữ liệu có mới không:** `curl -s <web>/api/status` → `duLieu` = `tuoi` | `cu` (bản dự báo cá hoặc lưới thời tiết tính sẵn quá 36 giờ — cron hỏng?) | `khong-doc-duoc` (DB/env), kèm `ageHours` từng bản và ngày fit tham số mô hình (`model.fishBlendFittedAt`, `forecastSkillFittedAt`). Bước health check của deploy.yml in dòng này sau khi tráo bản (không chặn). Đo 2026-10-19 trên máy dev nối DB prod: cá 4,6 h, thời tiết 1,1 h ⇒ `tuoi`.
 
+**Smoke test (rà Codex đợt 2):** `node scripts/smoke.mjs <gốc web> [--build <sha>] [--strict]` — trang chủ 200 · mã bản (khớp `--build`) · `/api/status` (ngày fit + tuổi dự báo; `cu` ⇒ CẢNH BÁO) · đầu file `/data/*` phải là `SDF2` (tide-stations `SDF1`) — dữ liệu RÕ ⇒ LỖI · `/api/fish-forecast` không chuỗi ⇒ 401. Chỉ đọc, không khoá. `deploy.yml` chạy nó sau health check (`continue-on-error`).
+⚠️ **Đo thật 2026-10-19 18:2x:** `sdfish.sdvico.vn` (bản `ecc6c71e`) phát `model-params`, `vn-coast`, `tide-stations` **RÕ** (đầu file `{"v"`, `{"ty`) — bản đó build trước 866fa72a (ép `SDFISH_ENCODE_DATA=1` + `--verify`). `forfish-alpha.vercel.app` cùng bản thì ĐẠT (mã tại chỗ nhờ `VERCEL=1`). Hết khi `deploy.yml` mới lên `company/main`.
 **Đo hiệu năng — JS mỗi màn (đợt 4 rà Codex, 2026-10-19).** Build production thật (`npm run build` + `node .next/standalone/server.js`), đo trong trình duyệt tổng JS **đã nén** mỗi màn tải (resource timing, cỡ 390×844). Trước = `73757759`, sau = `f4290b2c` (đã tách quản trị + bản đồ + tuyến):
 
 | Màn | Trước | Sau | Ghi chú |
