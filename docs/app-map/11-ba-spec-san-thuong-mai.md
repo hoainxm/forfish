@@ -3,6 +3,7 @@
 > Load khi: task chạm `/cho/**`, `/ban-hang/**`, tab "Chợ vật tư" ở `/quan-tri`, `src/lib/market/**`, `/api/cho|ban-hang|admin/cho/**`, migration `0060_marketplace.sql`, hoặc bất kỳ câu hỏi "người mua/người bán/admin sàn được làm gì, khi nào, thấy gì".
 covers: src/lib/market/, src/app/cho/, src/app/ban-hang/, src/components/market/, src/components/admin/market-admin-tab.tsx, src/components/admin/market-admin-requests.tsx, src/components/admin/market-admin-orders.tsx, src/app/api/cho/, src/app/api/ban-hang/, src/app/api/admin/cho/
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 <!-- re-verified: 2026-10-19 — /cho gốc thành MỤC DOCK "Vật tư": đầu màn ManHeader "Vật tư" (bỏ MarketHeader + nút Quay lại về /tien), lối vào cũ ở /tien (thẻ) và /tau (tab Cửa hàng/Đơn) đã gỡ; ?tab=cua-hang|don ở /tau chuyển sang /cho, /cho/don. Luồng mua/giỏ/đơn/báo giá KHÔNG đổi. -->
 <!-- re-verified: 2026-10-18 — v1.4 "LUỒNG GIỐNG SHOPEE" (chủ dự án: "cho phép chủ tàu đặt đơn bất kỳ cái gì, nó sẽ chuyển cho chủ sàn, làm luôn luồng giống shopee như xác nhận đơn, thời gian giao"): §4.3 tự huỷ 72 giờ (thay "48 giờ không tự huỷ"), §4.4 hẹn giao, §5.9 yêu cầu đặt hàng, §6.5 xác nhận = hẹn giao + dời hẹn, §7 mục Yêu cầu đặt, §8 Y1/Y2, AC-78..AC-92. Code: lib/market/{eta,request-state,requests-cache}.ts, order-state settlePending, route-utils settleRequests, /api/cho/yeu-cau*, /api/admin/cho/yeu-cau*, components/market/shared/eta.tsx, buyer/market-requests.tsx, admin/market-admin-requests.tsx. Kiểm trình duyệt file mode 2026-10-18: gửi yêu cầu → báo giá → đồng ý → đơn "Đã xác nhận" kèm hẹn giao; chủ shop xác nhận chọn "Ngày mai". -->
 <!-- re-verified: 2026-09-06 - pha 2b: /cho (8 màn), /ban-hang (7 màn), tab admin, /api/cho|ban-hang|admin/cho đã hiện thực theo §5–§7; AC 77 mã; QA e2e 63 pass / 8 fixme; khác spec: ghi chú người mua là MỘT ô chung cho cả lần đặt (Core CheckoutDraft.buyerNote), giỏ khách lạ dời sang ngăn SĐT khi ngăn đó trống -->
@@ -21,7 +22,7 @@ version: v1.1 (2026-09-06) — hợp nhất sau phản biện, chưa build. 16 q
 
 | Actor | Là ai | Muốn gì | Sợ gì | Định danh |
 |---|---|---|---|---|
-| **Người mua** — `buyer` | chủ tàu / ngư dân 40–60 tuổi, ít rành công nghệ, tay ướt, đọc ngoài nắng; mua vật tư cho MỘT chuyến biển (dầu, đá, lưới, phụ tùng máy) trước ngày ra khơi | tìm nhanh món quen, thấy giá số, đặt vài chạm, biết đơn đang ở đâu, gọi được người bán | đặt rồi không ai giao; bấm nhầm đặt hai lần; giá trên màn khác giá lúc nhận; mất sóng giữa chừng không biết đã đặt chưa | tài khoản SDFish (SĐT + chuỗi cứng theo máy, `identityFromRequest`) |
+| **Người mua** — `buyer` | chủ tàu / ngư dân, ít rành công nghệ; mua vật tư cho MỘT chuyến biển (dầu, đá, lưới, phụ tùng máy) trước ngày ra khơi | tìm nhanh món quen, thấy giá số, đặt vài chạm, biết đơn đang ở đâu, gọi được người bán | đặt rồi không ai giao; bấm nhầm đặt hai lần; giá trên màn khác giá lúc nhận; mất sóng giữa chừng không biết đã đặt chưa | tài khoản SDFish (SĐT + chuỗi cứng theo máy, `identityFromRequest`) |
 | **Người bán** — `seller` | hãng / đại lý vật tư, cửa hàng ở cảng; có nhân viên trực điện thoại, rành Zalo/Shopee Seller ở mức cơ bản | đăng món có ảnh, nhận đơn kèm SĐT + địa chỉ, xử lý đơn theo bước, biết đã bán được bao nhiêu | đơn ảo/đặt phá; người mua báo "đã chuyển" mà chưa thấy tiền; bán hụt vì tồn kho không khớp | tài khoản SDFish theo SĐT (SĐT chủ shop = định danh shop, `requireShopOwner`) |
 | **Admin sàn** — `admin` | nhân viên SDVICO ở `/quan-tri` | duyệt shop đàng hoàng, gỡ món vi phạm, thấy toàn cảnh đơn, xử lý khiếu nại qua điện thoại | shop lừa đảo lên sàn; sản phẩm cấm (ngư cụ huỷ diệt, hoá chất) | `requireAdmin` |
 | **Hệ thống** | route server + adapter `MarketStore` | giữ bất biến §10, tính lại tiền, giữ tồn kho, gửi thông báo | — | service-role |
@@ -226,7 +227,7 @@ Mọi chuyển khác → **409** `bad_transition`, UI: "Đơn đã sang bước 
 
 ## 5. Flow người mua (route theo LEAD §2 + §5 #8)
 
-> **Quy ước đọc (vòng fix UX 2026-09-06)**: mọi chữ "SQ_BTN" trong §5–§7 đọc là **nút hành động khu chợ ≥3.5rem, chữ ≥1rem** (03 §Nút hành động mục 1b) — khu chợ KHÔNG dùng khuôn `SQ_BTN` 37px cho hành động chính/thường bấm. Mọi màn con có `MarketHeader` gọn với "‹ Quay lại". Giỏ có ô chọn dòng/shop/tất cả (§5.5); ♡ trên thẻ lưới là icon đè ảnh 2.75rem (ngoại lệ có chủ đích, 03).
+> **Quy ước đọc (vòng fix UX 2026-09-06)**: mọi chữ "SQ_BTN" trong §5–§7 đọc là **nút hành động khu chợ, cỡ theo thang 03 §0** — khu chợ KHÔNG dùng khuôn `SQ_BTN` 37px cho hành động chính/thường bấm. Mọi màn con có `MarketHeader` gọn với "‹ Quay lại". Giỏ có ô chọn dòng/shop/tất cả (§5.5); ♡ trên thẻ lưới là icon đè ảnh 2.75rem (ngoại lệ có chủ đích, 03).
 
 Quy ước chung mọi màn `/cho/**`:
 - **Đăng nhập (LEAD §5 #8, chốt)**: `/cho`, `/cho/tim`, `/cho/sp/[id]`, `/cho/shop/[slug]`, `/cho/gio` — **khách lạ XEM được**, không bọc `RequireLogin`. Cần tài khoản tại **điểm chạm**: nút Đặt hàng (giỏ) · ♡ Yêu thích · Đánh giá — hiện `LoginGate` tại chỗ ("Cần tài khoản để đặt hàng" + Đăng nhập + Gọi SDVICO, 1 lời mời/màn). `/cho/thanh-toan`, `/cho/don`, `/cho/don/[id]` bọc `RequireLogin what="đơn hàng"`. Lời mời đăng nhập **ẩn khi mất sóng** (07 §12 tầng 5).
@@ -352,7 +353,7 @@ Khi rời danh sách rồi quay lại (nút Quay lại, back của máy, đóng 
 
 | Giữ | Vì sao |
 |---|---|
-| chữ đang tìm | gõ lại trên tàu, tay ướt, là việc nặng |
+| chữ đang tìm | gõ lại là việc nặng |
 | nhóm hàng + lọc gần + thứ tự sắp xếp | bà con đã chọn xong một lần |
 | **số món đã tải** (đã bấm "Xem thêm" mấy lần) | tải lại từ trang 1 là tốn sóng và mất chỗ |
 | **vị trí cuộn** | quay lại phải thấy đúng món vừa xem |

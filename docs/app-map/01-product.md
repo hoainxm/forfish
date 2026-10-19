@@ -3,6 +3,7 @@
 > **Mục đích / Purpose**: Định nghĩa canonical về sản phẩm ForFish — bốn lời hứa, thứ tự build, nguồn dữ liệu và quy tắc adapter, vòng lặp giá trị giữa các trục.
 
 **Load khi / Load when**: cần hiểu scope một trục, quyết định feature thuộc trục nào, đụng tới data vendor (OceanByte, SDWork), hoặc viết copy/positioning.
+<!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 
 ---
 
@@ -36,7 +37,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 > **Định vị bổ sung (2026-06-16)**: SDFish còn là **app khách hàng của công ty** — mọi KH mua hàng (chiến dịch anten vệ tinh: mỗi đơn ra trực tiếp KH yêu cầu cài app) đăng nhập bằng **SĐT + mật khẩu** (sale báo khi mua; KHÔNG email/OTP) để theo dõi **thiết bị · bảo hành · hỗ trợ kỹ thuật**. Dữ liệu KH **TÁCH RIÊNG SDWork**: SDFish có DB của riêng nó, SDWork **đẩy webhook** sang khi có đơn (không đọc-live). Chi tiết: [04-data-model §5b](04-data-model.md) + [contract webhook](../integration/sdwork-sso-contract.md). Public + khu khách hàng giữ nguyên (đăng nhập mới thấy đồ của mình).
 
-**Người dùng**: ngư dân, phần lớn 40–60 tuổi, **ít rành công nghệ** (low tech literacy). Mọi quyết định sản phẩm phải qua filter: *"bác ngư dân 55 tuổi, tay ướt, đứng ngoài nắng có dùng được không?"* — chi tiết UI ở [03-design-system.md](03-design-system.md).
+**Người dùng**: ngư dân, **ít rành công nghệ** (low tech literacy), dùng app ngoài biển — đây là mô tả sản phẩm (tiếng Việt đời thường, ít bước, offline là mặc định), KHÔNG phải luật cỡ chữ/nút; cỡ theo thang [03 §0](03-design-system.md).
 
 **Nguyên tắc số 1**: sản phẩm cấu trúc quanh **BỐN LỜI HỨA (bốn trục)** — KHÔNG phải quanh feature, KHÔNG phải quanh nguồn dữ liệu. Vendor có thể thay, lời hứa thì không.
 
@@ -493,7 +494,7 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
  · "chạy ra ~3 ngày" QUÁ DÀI — kỹ thuật nghề câu VN: Quy Nhơn → ngư trường 30–48 giờ ⇒ ~2 ngày.
  · CHƯA TÁCH 2 NGHỀ: câu vàng (longline, vàng 40–55 km, thả 14–17h30, chuyến >20 ngày, theo vụ, giá cao)
    vs CÂU TAY KẾT HỢP ÁNH SÁNG (từ 2011, Hoài Nhơn; 4 cần + mồi mực sống + giàn 15–20 bóng cao áp; bắt
-   buộc ĐÊM; ~20 ngày; QUANH NĂM; thịt bị chua, giá chỉ 40–60 % câu vàng). Hai nghề khác nhau về mùa,
+   buộc ĐÊM; ~20 ngày; QUANH NĂM; thịt bị chua, giá chỉ bằng 40 tới 60 % câu vàng). Hai nghề khác nhau về mùa,
    chuyến, cách đánh ⇒ preset lộ trình phải tách.
  · Cổng độ sâu vây vàng [50,200] m: ngư trường THẬT 200–4.000 m (Hoàng Sa 400–4.000, Trường Sa 200–3.000)
    ⇒ cổng trả 1,0 trên 100 % ngư trường thật, chỉ còn tác dụng chặn thềm. Đề xuất [100,400] / mắt to

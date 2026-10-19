@@ -346,19 +346,8 @@ describe("gỡ tài khoản khỏi máy — cả hai đường đều gỡ push"
     expect(flat).not.toContain("cho tới lần có sóng sau");
   });
 
-  /* Tap target ≥56px là LUẬT dự án (03-design-system, ngư dân 40-60 tuổi).
-     Bản vá trước hạ hai nút xuống 3.25rem = 52px để "cho nó đừng to nhất
-     sheet" — ý đúng, cách sai: phân vai bằng MÀU/NỀN, không bằng chiều cao. */
-  it("không nút nào bị GỌT xuống dưới sàn 56px", () => {
-    const heights = [...src.matchAll(/min-h-\[(\d+(?:\.\d+)?)rem\]/g)].map((m) =>
-      Number(m[1]),
-    );
-    expect(heights.length).toBeGreaterThan(3); // regex còn khớp được thật
-    /* 3–3.5rem = "định làm nút to, rồi gọt xuống dưới sàn cho bớt nổi" — đúng
-       khuôn lỗi cần chặn. Chip nhỏ (<3rem) là thành phần khác, không đụng. */
-    const shaved = heights.filter((h) => h >= 3 && h < 3.5);
-    expect(shaved, `tap target bị gọt: ${shaved.join(" · ")}rem`).toEqual([]);
-  });
+  /* Luật sàn chạm 56px đã XOÁ (anh Long 2026-10-19: "xoá cái quy tắc làm cho
+     dân biển to chữ các kiểu đi"). Cỡ control theo bậc 03 §0 — không gác ở đây. */
 });
 
 /* ── "ĐÃ ĐĂNG NHẬP CHƯA" CHỈ CÓ MỘT CÂU TRẢ LỜI ───────────────────────────────

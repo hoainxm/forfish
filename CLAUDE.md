@@ -31,11 +31,11 @@ Thứ tự build: **4 + 3 trước → 1 → 2**. Trục 4 làm trước vì kh�
 1. **Leo thang trước khi viết**, dừng ở bậc đầu tiên đủ dùng: (1) việc này có cần tồn tại không — không có dòng nào trong spec đòi thì bỏ · (2) repo đã có helper/type/pattern chưa (lib/ + ui/primitives trước) · (3) thư viện chuẩn · (4) nền tảng có sẵn — trừ component đã chốt trong design-system (QtyStepper, BottomSheet, .surface... — chúng thắng bậc 4) · (5) dependency ĐÃ CÀI, cấm thêm dep mới cho việc vài dòng · (6) gói 1 dòng · (7) code tối thiểu chạy được. Không interface cho 1 implementation, không wrapper chỉ để gọi tiếp; "để mở rộng sau" không phải lý do. Leo thang SAU khi đã đọc code bị chạm.
 2. Bậc 1 chỉ áp cho thứ AI tự nghĩ ra thêm. CẤM dùng nó cắt thứ ba-spec/AC/design-spec đã ghi — đó là định nghĩa duy nhất của "được yêu cầu tường minh".
 3. Sửa bug = sửa gốc: grep MỌI caller trước, guard đặt ở hàm dùng chung. Thêm export mới: grep tên + grep việc nó làm — trùng nghĩa thì dùng lại (bài học thật: `haversineKm`, `nearestIndex` đang tồn tại 2 bản).
-4. **KHÔNG cắt, dù thang bảo gì**: validate input ở ranh giới · error handling chống mất dữ liệu (án lệ `saveUserJson` 2026-07-31 — nuốt lỗi là mất sổ của bà con) · ĐỦ ma trận trạng thái TRONG CODE (trống/đang tải/lỗi/offline/cực đoan) · tap ≥56px · contrast cao cho nắng chói · focus ring không huỷ trắng · action → expectation.
+4. **KHÔNG cắt, dù thang bảo gì**: validate input ở ranh giới · error handling chống mất dữ liệu (án lệ `saveUserJson` 2026-07-31 — nuốt lỗi là mất sổ của bà con) · ĐỦ ma trận trạng thái TRONG CODE (trống/đang tải/lỗi/offline/cực đoan) · focus ring không huỷ trắng · action → expectation.
 5. Gặp hành vi chưa có trong spec: CẤM bỏ qua im lặng — mặc định an toàn nhất + `## Assumptions` + 1 dòng vào spec CÙNG COMMIT; nghiệp vụ → hỏi/BA; HOW-nhìn → design.
 6. Vùng miễn test giữ đúng 3 ca (pure UI tweak / config-only / doc-only). "Sửa 1 dòng nên khỏi test" KHÔNG phải một ca.
 7. Cắt góc có trần → `// nợ: <trần là gì>, <điều kiện nâng cấp>` (hook WARN marker thiếu vế 2). Không TODO trần.
-8. Riêng ForFish: REM không px cho cỡ chữ/tap (kiến trúc data-mode); token màu qua `globals.css @theme`, cấm hex/rgba arbitrary (hook BLOCK); copy tiếng Việt đời thường, không jargon.
+8. Riêng ForFish: REM không px (data-mode); token màu qua `globals.css @theme`, cấm hex/rgba rời (hook BLOCK); tiếng Việt đời thường. Cỡ theo thang Codex (03 §0); nhãn nút/tab/chip ≤2 chữ, cỡ cố định theo loại, tên từ `src/lib/labels.ts`.
 
 ## Doc + Test sync — INVARIANT (không thoả hiệp)
 
@@ -123,7 +123,7 @@ Nghĩa là ràng buộc cắn đúng chỗ có tiền, không cắn lớp bản 
 ## KHÔNG ĐƯỢC / NEVER
 
 - Hardcode secret / API key
-- UI phức tạp, chữ nhỏ, jargon — người dùng là ngư dân 40-60 tuổi (font ≥18px, tap target ≥56px, xem [03-design-system.md](docs/app-map/03-design-system.md))
+- UI phức tạp, jargon, nhiều hộp/chữ đậm — theo thang Codex (03 §0). 2026-10-19 anh Long XOÁ luật "to chữ cho dân biển" (sàn 18px/56px) — không thêm lại.
 - Hứa độ chính xác dữ liệu mà nguồn không đảm bảo (vd: khuyến nghị ngư trường chỉ cập nhật 2 lần/tuần)
 - Code mà không update doc cùng commit
 
@@ -146,4 +146,4 @@ npm run lint
 
 ---
 
-**Last updated**: 2026-07-27
+**Last updated**: 2026-10-19

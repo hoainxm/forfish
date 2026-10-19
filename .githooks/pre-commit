@@ -649,7 +649,7 @@ if [ "$UI_CHECKS" != "off" ]; then
       case "$f" in
         *.tsx|*.jsx)
           if printf '%s' "$UC" | grep -qF -e '✕' -e '✖'; then
-            echo "WARN: ky tu X tho (✕/✖) trong $f — nut dong dung <CloseButton> (src/components/ui/close-button.tsx): glyph icon 24px + cham 56px + goc tren-phai (03-design-system §Nut X dong · Huy · vuot-dong, hook 1d-q)."
+            echo "WARN: ky tu X tho (✕/✖) trong $f — nut dong dung <CloseButton> (src/components/ui/close-button.tsx): glyph icon + o chuan theo loai + goc tren-phai (03-design-system §Nut X dong · Huy · vuot-dong, hook 1d-q)."
           fi
           # 1d-r (ForFish 2026-08-29g): mau hex/rgba LITERAL trong CHUOI JS (inline
           # style={{color:"#.."}} / object mau nhu DOT/FISH_COLOR) — LOT gate 1d vi
@@ -683,6 +683,14 @@ if [ "$UI_CHECKS" != "off" ]; then
           ;;
         *) echo "$UC" | grep -qE 'font-family:' && echo "WARN: font-family trong $f (ngoai globals/tokens) — font song o 1 cho duy nhat (ui-design-logic 07 §5)." ;;
       esac
+      # 1d-s (ForFish 2026-10-19, anh Long: "tối đa chữ 1 nhãn là 2 chữ"): nhãn chữ thuần
+      # trong <button>…</button> / <Link>…</Link> dài hơn 2 tiếng -> WARN. Chỉ bắt nhãn
+      # literal một dòng (JSX xuống dòng/biểu thức lọt — lọt là an toàn). "Sen Biển" = 1 tên.
+      LONGLBL=$(printf '%s' "$UC" | LC_ALL=C.UTF-8 grep -oE '>[^<>{}]{6,60}</(button|Link|a)>' | LC_ALL=C.UTF-8 sed 's/^>//; s/<\/[A-Za-z]*>$//; s/Sen Biển/SenBiển/g; s/[0-9.,:;!?/()·—–-]\{1,\}/ /g' | LC_ALL=C.UTF-8 awk 'NF>2' | head -5 || true)
+      if [ -n "$LONGLBL" ]; then
+        echo "WARN: nhan nut/link >2 chu trong $f — doi sang ten chuan trong src/lib/labels.ts (03 §Nhan, hook 1d-s):"
+        echo "$LONGLBL" | sed 's/^/    /'
+      fi
       echo "$UC" | grep -qE 'overflow-x:[[:space:]]*hidden' && echo "WARN: overflow-x: hidden trong $f — che trieu chung tran ngang thay vi sua; neu buoc phai chan dung 'clip' (Hallmark gate 34)."
     done
   fi

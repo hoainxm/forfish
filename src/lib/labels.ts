@@ -1,0 +1,95 @@
+/*
+  BẢNG NHÃN CHUẨN — một tên cho mỗi hành động lặp lại, dùng chung toàn app
+  (anh Long 2026-10-19: "các quy tắc về nhãn, kích thước các kiểu, tối đa chữ 1
+  nhãn là 2 chữ thôi, ko phải mở rộng theo chiều dài của chữ, đặt tên nhãn chuẩn vào").
+
+  LUẬT (03 §Nhãn):
+   · Mỗi nhãn nút / tab / chip / mục dock / tiêu đề hàng TỐI ĐA 2 CHỮ (2 tiếng).
+     Ngoại lệ duy nhất: tên riêng "Sen Biển" tính là một tên.
+   · Kích thước nút/tab/chip CỐ ĐỊNH theo loại (bậc trong 03 §0), không nở theo
+     chữ — vì nhãn đã ≤2 chữ nên ô cố định luôn đủ.
+   · Thêm hành động mới ⇒ thêm vào đây (test labels.test.ts gác ≤2 chữ), không
+     đặt tên tại chỗ.
+  Số đếm đi kèm (vd "Xem thêm" + "3") là SỐ, không tính là chữ — đặt ở nhãn phụ
+  hoặc badge, không nối vào tên nút.
+*/
+export const NHAN = {
+  // ghi / huỷ
+  luu: "Lưu",
+  huy: "Huỷ",
+  sua: "Sửa",
+  xoa: "Xoá",
+  them: "Thêm",
+  xong: "Xong",
+  tiep: "Tiếp",
+  gui: "Gửi",
+  dong: "Đóng",
+  an: "Ẩn",
+  thuGon: "Thu gọn",
+  xemThem: "Xem thêm",
+  xemTruoc: "Xem trước",
+  chiTiet: "Chi tiết",
+  quayLai: "Quay lại",
+  thuLai: "Thử lại",
+  doi: "Đổi",
+  chon: "Chọn",
+  chep: "Chép",
+  chiaSe: "Chia sẻ",
+  // tài khoản
+  dangNhap: "Đăng nhập",
+  dangKy: "Đăng ký",
+  dangXuat: "Đăng xuất",
+  taiKhoan: "Tài khoản",
+  capLai: "Cấp lại",
+  // liên hệ / mua bán
+  goi: "Gọi",
+  lienHe: "Liên hệ",
+  dangTin: "Đăng tin",
+  datHang: "Đặt hàng",
+  muaLai: "Mua lại",
+  baoGia: "Báo giá",
+  gioHang: "Giỏ hàng",
+  donHang: "Đơn hàng",
+  thanhToan: "Thanh toán",
+  muaDo: "Mua đồ",
+  giaHan: "Gia hạn",
+  yeuCau: "Yêu cầu",
+  tim: "Tìm",
+  loc: "Lọc",
+  // bản đồ / Sen Biển
+  mo: "Mở",
+  lop: "Lớp",
+  viTri: "Vị trí",
+  chayTau: "Chạy tàu",
+  dangChay: "Đang chạy",
+  loTrinh: "Lộ trình",
+  dauDuong: "Dẫn đường",
+  batDau: "Bắt đầu",
+  dung: "Dừng",
+  diem: "Điểm",
+  daLuu: "Đã lưu",
+  tinhDuong: "Tính đường",
+  noi: "Nói",
+  nghe: "Nghe",
+  bieuDo: "Biểu đồ",
+  caiDat: "Cài đặt",
+  saoLuu: "Sao lưu",
+  taiXuong: "Tải xuống",
+  caiApp: "Cài app",
+  huongDan: "Hướng dẫn",
+  chinhSach: "Chính sách",
+} as const;
+
+export type NhanId = keyof typeof NHAN;
+
+/** Số CHỮ (tiếng) của một nhãn — số và dấu câu không tính; "Sen Biển" đếm là 1. */
+export function demChu(nhan: string): number {
+  const s = nhan.replace(/Sen Biển/g, "SenBiển").replace(/[0-9.,:;!?/()·—–-]+/g, " ").trim();
+  return s ? s.split(/\s+/).length : 0;
+}
+
+export const NHAN_TOI_DA_CHU = 2;
+
+export function nhanHopLe(nhan: string): boolean {
+  return demChu(nhan) <= NHAN_TOI_DA_CHU;
+}

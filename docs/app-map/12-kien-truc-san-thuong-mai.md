@@ -5,6 +5,7 @@
 covers: src/lib/market, src/app/cho, src/app/ban-hang, src/app/api/cho, src/app/api/ban-hang, src/app/api/admin/cho, src/app/api/dev, src/app/dev, src/components/market, src/components/admin/market-admin-tab.tsx, src/components/admin/market-admin-requests.tsx, supabase/migrations/0060_marketplace.sql, supabase/migrations/0063_market_requests_eta.sql
 gate: warn
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 <!-- re-verified: 2026-10-19 — /cho gốc thành MỤC DOCK "Vật tư": đầu màn ManHeader "Vật tư" (bỏ MarketHeader + nút Quay lại về /tien), lối vào cũ ở /tien (thẻ) và /tau (tab Cửa hàng/Đơn) đã gỡ; ?tab=cua-hang|don ở /tau chuyển sang /cho, /cho/don. Luồng mua/giỏ/đơn/báo giá KHÔNG đổi. -->
 <!-- re-verified: 2026-10-18 — §13 LUỒNG GIỐNG SHOPEE: hợp đồng kho thêm listOverduePending + 6 hàm yêu cầu đặt hàng (cả supabase-store lẫn file-store, test hợp đồng xanh), OrderPatch.etaFrom/etaTo, Order.etaFrom/etaTo/requestId, migration 0063 (ĐÃ apply prod 2026-10-18), route /api/cho/yeu-cau*, /api/admin/cho/yeu-cau*. -->
 ttl_days: 90
@@ -29,7 +30,7 @@ Tài liệu này là **hợp đồng build** cho bốn agent Phase 2 (Core trư�
 | 5 | Ghi = online-only. Mất sóng: nói thật + giữ bản đã lưu (đơn), không có dữ liệu giả | ADR 0004 |
 | 6 | Mã lỗi route: `{ ok:false, code }` + HTTP status. 503 = **không tra được** (không bao giờ đội lốt 401/403) | api-identity.ts |
 | 7 | Tên export mới **không trùng** tên đã có trong repo (hook 1f-b WARN `export function` trùng): `buildMarketLines` (không `buildOrderLines`), `validateMarketProductDraft`, `marketOrderClientRef` (không `orderClientRef`), `canTransitionOrder` (không `canTransition`), `loadMarketCart`/`saveMarketCart` (không `loadCart`), `MarketProductCard` (component, không trùng type `ProductCard`) | NT15 §3 |
-| 8 | UI: rem không px, chữ ≥ 1.125rem, tap ≥ 3.5rem, token màu qua `@theme` (cấm hex), `ChipRow`/`Tabs`/`BottomSheet`/`StatusBanner`/`QtyStepper`/`SQ_BTN` có sẵn — không chép tay | 03 |
+| 8 | UI: rem không px, cỡ chữ/chạm theo thang 03 §0, token màu qua `@theme` (cấm hex), `ChipRow`/`Tabs`/`BottomSheet`/`StatusBanner`/`QtyStepper`/`SQ_BTN` có sẵn — không chép tay | 03 |
 | 9 | Module `"use client"` **không** được import từ route/server (cổng `server-client-boundary.test.ts`) ⇒ `types.ts`, `categories.ts`, `errors.ts`, `dev-mode.ts`, `order-state.ts`, `pricing.ts`, `validate.ts`, `order-ref.ts`, `order-code.ts`, `text.ts` **không có** `"use client"`; `cart.ts`, `addresses.ts`, `favorites.ts`, `orders-cache.ts`, `seller-flag.ts`, `image-resize.ts`, `client.ts`, `use-online.ts` (đụng `window`) **có** `"use client"` và chỉ được import từ component | server-client-boundary |
 | 10 | Khoá `forfish.*` mới (5 khoá `m*`) phải được **xếp loại** ở `NEVER_BACKUP_PREFIXES` (`lib/offline-backup.ts`) — cổng quét `offline-backup.test.ts` bắt mọi chuỗi `"forfish.…"` trong `src/` | state-registry |
 | 11 | **LEAD-BRIEF §4/§5 là luật cao nhất**: `settleOverdue` khi đọc (không cron) · `needs_refund` · `shops.paused` · `product_reviews.hidden` · `results[]` từng shop · `marketOrderClientRef` · 1 cách trả tiền/lần đặt + ép COD · `tel:` không ẩn offline · `?province` + "Gần tôi" · danh mục id gạch-ngang · sheet Tài khoản 2 dạng · khách lạ xem chợ · SDVICO sentinel + admin gán · admin xử lý đơn thay shop `by=admin:<sđt>` | LEAD-BRIEF |
@@ -1635,7 +1636,7 @@ T4' (`settleOverdue`) KHÔNG gửi thông báo (hệ thống tự làm lúc đ�
 | `market-header.tsx` | `MarketHeader` | `title; fallback?="/cho"; right?` | **Đầu màn chợ gọn ≤ 6rem (F-08/F-09)** thay `PageHeader` hero ở mọi `/cho/**`: `[‹ Quay lại 3.5rem][tiêu đề]` trên gradient trục 3; Quay lại = `router.back()`, `history.length ≤ 1` ⇒ `router.push(fallback)` |
 | `line-thumb.tsx` | `LineThumb` | `image?; size?=3 (rem); className?` | ảnh nhỏ của một dòng hàng (`OrderLine.image` snapshot) — thẻ đơn, chi tiết đơn, tóm tắt đặt hàng, giỏ (F-06); không ảnh/ảnh lỗi ⇒ ô xám icon giỏ |
 | `price-text.tsx` | `PriceText` | `priceVnd; compareAtVnd?; size?: "sm"\|"lg"` | `formatVnd` (lib/format); giá gạch `line-through text-foreground/50` |
-| `rating-stars.tsx` | `RatingStars` | `value: number; count?: number; size?; interactive?; onChange?` | 5 sao từ `StarIcon` (icons.tsx — đã có); interactive tap ≥ 3.5rem/sao |
+| `rating-stars.tsx` | `RatingStars` | `value: number; count?: number; size?; interactive?; onChange?` | 5 sao từ `StarIcon` (icons.tsx — đã có); interactive: vùng chạm mỗi sao theo thang 03 §0 |
 | `order-status-chip.tsx` | `OrderStatusChip`, `PaymentStatusChip` | `status` | màu từ `ORDER_STATUS_CHIP` (style inline `backgroundColor/color` bằng `var(--…)` như `my-orders.tsx`) |
 | `order-timeline.tsx` | `OrderTimeline` | `timeline: TimelineEntry[]; carrier?; trackingCode?` | dòng thời gian dọc "Đặt 09:00 → Đã xác nhận 09:40 → Đang giao (Gửi xe · mã …)"; mục thanh toán hiện xen kẽ; `by` bắt đầu `admin:` ⇒ nhãn "SDVICO" |
 | `shop-badge.tsx` | `ShopBadge` | `name; province?; ratingAvg?; paused?` | dòng nhỏ dưới tên món |

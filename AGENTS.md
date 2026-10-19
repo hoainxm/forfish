@@ -10,7 +10,7 @@
 
 ## Tóm tắt 30 giây
 
-- **ForFish**: app mobile-first cho ngư dân Việt Nam (SDVICO). Người dùng ít rành công nghệ → UI đơn giản, chữ to, tiếng Việt đời thường.
+- **ForFish**: app mobile-first cho ngư dân Việt Nam (SDVICO). Người dùng ít rành công nghệ → UI đơn giản, gọn và rõ (thang cỡ Codex ở docs/app-map/03 §0), tiếng Việt đời thường.
 - Sản phẩm = **bốn lời hứa**: Đánh bắt tốt hơn (`/ngu-truong`), Bán được đắt hơn (`/gia-ca`), Vận hành rẻ hơn (`/van-hanh`), Tuân thủ dễ hơn (`/giay-to` — MVP hiện tại).
 - Stack: Next.js 16 App Router + TypeScript + Tailwind v4 + Supabase (demo mode fallback khi env trống), deploy Vercel.
 

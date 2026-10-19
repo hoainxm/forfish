@@ -2,7 +2,8 @@
 
 > Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
 covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
-last_verified: 2026-09-16
+last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 ttl_days: 90
 
 <!-- re-verified: 2026-10-03e — `scripts/collect-fish-climatology.mjs` nay truyền `{ climo }` (bảng `src/data/sst-climatology.v1.json`, dải nhiệt lai — 01-product 2026-10-03e) vào `buildFishForecast` để bản MÙA VỤ cùng thang điểm với bản live. CHƯA sinh lại `fish-climatology.v1.json` (hành động có chủ ý theo CLAUDE.md; bản hiện tại chấm bằng dải cố định — blend nghiêng nhẹ về bản dự báo, không sai hướng). Không đổi w(d), không đổi decodeClimatology. -->
@@ -135,7 +136,7 @@ B5  Hậu kiểm: routeStormConflict trên waypoints nối + kiểm két dầu (
   đầu mới — pipeline <2s nên re-plan ngay trên máy, offline vẫn chạy với bản đã lưu (ghi rõ
   tuổi dữ liệu — bài học offline-16d).
 
-## 4. Nghiệp vụ + UX (người dùng 40–60 tuổi, ít rành công nghệ)
+## 4. Nghiệp vụ + UX (người dùng ít rành công nghệ)
 
 **Mẫu chuyến theo nghề** (neo tham số mặc định):
 
@@ -163,7 +164,7 @@ tuyến; điểm cá của app xếp QUANH điểm quen, không thay thế.
 
 **Output** (nghiên cứu low-literacy: đồ họa 100% hoàn thành tác vụ vs text 0%):
 - Tuyến trên **bản đồ** là chính: 1 đường + 2–3 vùng đánh đánh số 1-2-3.
-- **Lịch chuyến theo ngày**, mỗi ngày 1 dòng chữ to: "Ngày 1–2: chạy ra vùng A (~36 giờ)" ·
+- **Lịch chuyến theo ngày**, mỗi ngày 1 dòng: "Ngày 1–2: chạy ra vùng A (~36 giờ)" ·
   "Ngày 3–7: đánh vùng A" · "Ngày 8: sang vùng B"…
 - **3 con số to**: ~lít dầu cả chuyến (quy ra tiền theo giá dầu) · ~hải lý · **ngày nên quay
   về** (theo đá lạnh/chất lượng cá — hầm tốt 15–20 ngày, cá ngừ ngon ≤7–14 ngày).
@@ -621,7 +622,7 @@ trơn tới mức nào" chứ không đo "dự báo được bao nhiêu". Trần
 - Mở lộ trình đã lưu → nút "Tôi đang ở đâu so với tuyến": lấy GPS → tính
   `distToSegmentKm` tới polyline tuyến (hàm sẵn ở `route-storm.ts:39`) + đối chiếu lịch
   (giờ hiện tại → đáng lẽ đang ở chặng nào/vùng nào theo `schedule`).
-- Hiện 2 dòng chữ to: **"Cách tuyến X hải lý"** + **"Theo kế hoạch: giờ này đang [chạy ra vùng A /
+- Hiện 2 dòng: **"Cách tuyến X hải lý"** + **"Theo kế hoạch: giờ này đang [chạy ra vùng A /
   đánh vùng B / trên đường về]"**; lệch >20 hải lý → thêm dòng trung tính "Đang đi khác kế hoạch —
   không sao, thuyền trưởng quyết" (app là người phụ việc, KHÔNG báo động kiểu sai-đúng).
 - Chạm-để-xem, KHÔNG theo dõi nền liên tục (đỡ pin + đỡ quyền; nâng cấp nền là việc Capacitor sau).

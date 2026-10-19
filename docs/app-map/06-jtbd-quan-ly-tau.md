@@ -3,6 +3,7 @@
 > **Mục đích / Purpose**: Định nghĩa canonical về định vị mở rộng của ForFish — từ "bốn lời hứa" sang **app quản lý toàn bộ tàu cá**: chân dung người dùng cập nhật, bảng JTBD hợp nhất từ 4 nghiên cứu, ba khoảng trống vàng, mốc pháp lý cứng, nguyên tắc thiết kế, và map nhóm việc → module.
 
 **Load khi / Load when**: quyết định ưu tiên feature mới, thiết kế module quanh object "con tàu" (chuyến biển / thuyền viên / tiền / giấy tờ), cần biết JTBD hoặc deadline pháp lý nào đang chi phối roadmap, hoặc viết copy theo chân dung người dùng.
+<!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 
 Nguồn gốc: tổng hợp từ 4 nghiên cứu trong `docs/research/` — [01 kinh tế chuyến biển](../research/01-kinh-te-chuyen-bien.md) · [02 lao động trên tàu](../research/02-lao-dong-tren-tau.md) · [03 pháp lý IUU](../research/03-phap-ly-iuu.md) · [04 chuỗi giá trị & app](../research/04-chuoi-gia-tri-va-app.md). Cột "Nguồn" trong bảng JTBD trỏ về các file này.
 
@@ -25,7 +26,7 @@ Lý do từ nghiên cứu: mọi pain point của chủ tàu đều xoay quanh *
 
 | Ai | Đặc điểm chính | Nguồn |
 |---|---|---|
-| **Chủ tàu / thuyền trưởng** (người dùng chính) | 40–60 tuổi, ít rành công nghệ; quản lý tổn 100–800 triệu/chuyến bằng sổ tay + trí nhớ; thường không biết chuyến vừa rồi lời hay lỗ cho đến khi đã chia xong tiền | 01 |
+| **Chủ tàu / thuyền trưởng** (người dùng chính) | ít rành công nghệ; quản lý tổn 100–800 triệu/chuyến bằng sổ tay + trí nhớ; thường không biết chuyến vừa rồi lời hay lỗ cho đến khi đã chia xong tiền | 01 |
 | **Thuyền viên ("bạn thuyền")** | Lực lượng già hóa: >40% ở tuổi 41–60, ~12% mù chữ, thu nhập bình quân ~9,2 triệu đ/tháng ([SGGP](https://www.sggp.org.vn/chu-tau-ca-do-mat-tim-ban-di-bien-post833344.html)); thay đổi từng chuyến, quan hệ với chủ tàu 100% thỏa thuận miệng | 02 |
 | **Người đại diện trên bờ — vợ/con chủ tàu** (người dùng thứ hai, RẤT quan trọng) | Người thực sự thao tác smartphone: vận hành livestream bán cá, có thể khai eCDT hộ từ bờ, nhận cảnh báo hạn giấy tờ/VMS khi chồng đang ngoài khơi không sóng | 04 |
 
@@ -55,7 +56,7 @@ Hợp nhất + khử trùng lặp từ 4 bảng JTBD của nghiên cứu 01–04
 
 | Tôi (chủ tàu) có gì | Tôi cần gì | App cấp INFO | App cấp CÔNG CỤ | Nguồn |
 |---|---|---|---|---|
-| Sổ tay ghi tổn (dầu 40–60%, đá, lương thực) hay thiếu sót; mỗi chuyến 100–800 triệu | Biết chuyến này **lời hay lỗ bao nhiêu trước khi chia tiền** | Giá dầu hôm nay + lịch điều hành; mẫu "tổn chuẩn" theo nghề + cỡ tàu từ các chuyến trước | **Sổ chuyến biển**: ghi chi phí siêu nhanh (icon dầu/đá/gạo + nói số tiền), nhập tiền bán cá → tự tính lãi/lỗ | 01, 04 |
+| Sổ tay ghi tổn (dầu 40 tới 60%, đá, lương thực) hay thiếu sót; mỗi chuyến 100–800 triệu | Biết chuyến này **lời hay lỗ bao nhiêu trước khi chia tiền** | Giá dầu hôm nay + lịch điều hành; mẫu "tổn chuẩn" theo nghề + cỡ tàu từ các chuyến trước | **Sổ chuyến biển**: ghi chi phí siêu nhanh (icon dầu/đá/gạo + nói số tiền), nhập tiền bán cá → tự tính lãi/lỗ | 01, 04 |
 | Nợ dầu ghi tay với đại lý, thỏa thuận miệng với nậu — chỉ nậu giữ sổ | Nắm chính xác nợ ai bao nhiêu, đã trừ những gì, không bị trừ oan khi bán cá | Tổng dư nợ theo từng chủ nợ (đại lý dầu, nậu, ngân hàng); lịch sử ứng–trừ qua các chuyến | **Sổ công nợ đa đối tượng**: ghi nhanh khoản ứng (voice/ảnh hóa đơn), đối chiếu sau mỗi chuyến, xuất bảng kê hai bên cùng xác nhận | 01, 04 |
 | Tiền tàu và tiền nhà lẫn một túi | Biết cả năm nghề biển lời hay lỗ, có nên vay thêm/bán tàu không | Báo cáo tổng doanh thu, tổng tổn, lãi ròng theo tháng/quý/năm | Tự tổng hợp từ sổ chuyến biển; biểu đồ chuyến lời/lỗ theo nghề, ngư trường, mùa vụ để rút kinh nghiệm | 01, 04 |
 

@@ -2,7 +2,8 @@
 
 > Load khi: task chạm `src/lib/assistant/**`, `src/components/assistant/**`, `/api/tro-ly`, nút nổi mic trên app ngư dân, chip gợi ý theo màn, hoặc bất kỳ câu hỏi "bà con nói gì thì app hiểu gì, trả lời ra sao, làm gì, khi nào cần sóng".
 covers: src/lib/assistant/, src/components/assistant/, src/app/api/tro-ly/
-last_verified: 2026-09-06
+last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 ttl_days: 90
 <!-- DOC-STATUS: ORPHANED (2026-10-19) — path 'src/components/assistant/' khong con ton tai. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện ([_generated/phan-bien-tro-ly-2026-09-06](_generated/phan-bien-tro-ly-2026-09-06.md)); CHƯA build. **14-kien-truc = nguồn TÊN** (mã `Intent`, type, export, mã lỗi, khoá — bảng mã dùng chung ở 14 §3.0); **13 = nguồn HÀNH VI + câu chữ**; **TROLY-BRIEF §4 = luật cao nhất** (§0 dưới).
@@ -31,8 +32,8 @@ version: v1.1 (2026-09-06) — hợp nhất sau phản biện ([_generated/phan-
 
 | Persona | Là ai | Hoàn cảnh lúc dùng | Muốn gì từ Trợ lý | Sợ gì |
 |---|---|---|---|---|
-| **Chú Bảy — chủ tàu, 58 tuổi** (người dùng chính, [06 §2](06-jtbd-quan-ly-tau.md)) | Chủ tàu lưới vây Bình Định, tay to ngón thô, đọc chậm, gõ dấu không quen, hay nói giọng miền Trung nuốt âm | Sáng 4–5h ở cảng, nắng chưa lên nhưng tay ướt; giữa biển máy nổ ồn, sóng chập chờn, sóng điện thoại lúc có lúc không | Hỏi một câu là ra: "mai đi được không", "giấy tờ còn hạn không", "gọi thằng bán đá" — không phải mò tab | Bấm nhầm đặt hàng; app nói "không có bão" khi tin đã cũ; bị hỏi lại nhiều lần |
-| **Anh Tâm — thuyền trưởng làm thuê, 44 tuổi** | Rành Zalo, Shopee ở mức cơ bản; cầm điện thoại chủ tàu hoặc máy riêng; quản 8–10 bạn thuyền | Trên ca-bin, một tay lái, một tay cầm máy; nắng chói qua kính; động cơ + bộ đàm ồn | Hỏi con nước, sóng gió theo giờ, dẫn đường tới điểm đã ghim; mua nhớt, lọc dầu cho chuyến sau | Trợ lý nghe sai tên cảng rồi đổi cảng nhà; đọc to số CCCD bạn thuyền trước mặt người khác |
+| **Chú Bảy — chủ tàu, 58 tuổi** (người dùng chính, [06 §2](06-jtbd-quan-ly-tau.md)) | Chủ tàu lưới vây Bình Định, gõ dấu không quen, hay nói giọng miền Trung nuốt âm | Sáng 4–5h ở cảng; giữa biển máy nổ ồn, sóng chập chờn, sóng điện thoại lúc có lúc không | Hỏi một câu là ra: "mai đi được không", "giấy tờ còn hạn không", "gọi thằng bán đá" — không phải mò tab | Bấm nhầm đặt hàng; app nói "không có bão" khi tin đã cũ; bị hỏi lại nhiều lần |
+| **Anh Tâm — thuyền trưởng làm thuê, 44 tuổi** | Rành Zalo, Shopee ở mức cơ bản; cầm điện thoại chủ tàu hoặc máy riêng; quản 8–10 bạn thuyền | Trên ca-bin, một tay lái, một tay cầm máy; động cơ + bộ đàm ồn | Hỏi con nước, sóng gió theo giờ, dẫn đường tới điểm đã ghim; mua nhớt, lọc dầu cho chuyến sau | Trợ lý nghe sai tên cảng rồi đổi cảng nhà; đọc to số CCCD bạn thuyền trước mặt người khác |
 | **Chị Hoa — vợ chủ tàu ở bờ, 50 tuổi** (người đại diện trên bờ — [06 §2](06-jtbd-quan-ly-tau.md), rất quan trọng) | Người thật sự thao tác app khi chồng ngoài khơi: theo dõi đơn vật tư, giấy tờ sắp hết hạn, tin bão | Ở nhà/ở chợ, có sóng, có thể ồn chợ; đọc được nhưng ngại gõ dài | "Đơn dầu tới chưa", "giấy phép hết hạn khi nào", "gọi shop"; hỏi kinh nghiệm ("mùa này cá gì được giá") | Trợ lý huỷ đơn/đặt đơn mà không hỏi; hết lượt online mà không biết vì sao |
 
 **Mục tiêu sản phẩm (chủ dự án, LEAD §1)**: *"ngư dân trao đổi cho đỡ gõ vào hay chọn… đạt 90% về đơn giản"*. BA diễn thành 5 thước đo ở §2 và bộ 20 việc ở §10.
@@ -46,7 +47,7 @@ version: v1.1 (2026-09-06) — hợp nhất sau phản biện ([_generated/phan-
 | # | Nguyên tắc | Đo bằng | Ngưỡng đạt |
 |---|---|---|---|
 | P1 | **1 chạm để nói** | Từ bất kỳ màn nào của app ngư dân: số chạm để mic bắt đầu nghe | = 1 (chạm nút nổi là nghe ngay, không màn trung gian, không hỏi "bác muốn gì?") |
-| P2 | **0 chạm để nghe** | Sau khi nói xong, số chạm để nghe câu trả lời | = 0 (tự đọc to trừ khi đã "Tắt tiếng"; chữ TO hiện cùng lúc) |
+| P2 | **0 chạm để nghe** | Sau khi nói xong, số chạm để nghe câu trả lời | = 0 (tự đọc to trừ khi đã "Tắt tiếng"; chữ hiện cùng lúc) |
 | P3 | **≤2 chạm cho việc thường ngày** | 20 việc ở §10: chạm nói + (nếu có hành động) chạm xác nhận | ≥18/20 việc ≤2 chạm khi mic dùng được; ≤3 chạm khi phải dùng chip/gõ |
 | P4 | **Không thuật ngữ** | Rà mọi chuỗi UI + câu nói của trợ lý bằng danh sách cấm (§ Từ vựng) | 0 từ cấm trong `src/lib/assistant/**` + `src/components/assistant/**` (test chuỗi) |
 | P5 | **Câu trả lời ≤2 câu + 1 hành động** | Đếm câu trong `speak`; đếm nút hành động trên tấm che | `speak` ≤2 câu, ≤ ~40 chữ; đúng 0 hoặc 1 nút hành động chính (chip gợi ý không tính) |
@@ -54,7 +55,7 @@ version: v1.1 (2026-09-06) — hợp nhất sau phản biện ([_generated/phan-
 | P7 | **Mất sóng vẫn có ích** | Số ý định offline / tổng ý định | ≥ 2/3 ý định chạy không cần sóng (§3 cột Tầng) |
 | P8 | **Không bao giờ làm việc có hậu quả bằng giọng** | Danh sách hành động ghi | Đặt hàng · huỷ đơn · xoá bất kỳ thứ gì · gửi tin · đổi mật khẩu: **KHÔNG có ý định nào** — nói tới là chỉ đường tới màn, không làm |
 
-Luật thiết kế kế thừa nguyên: tap ≥3.5rem ([03 §Nút hành động 5](03-design-system.md)), rem không px, contrast cao, chỉ bày cái KEY (03 §Khung nhập C1), X đóng = `CloseButton` (03 §X đóng), không toast (07 §12), mọi request có đồng hồ + `.catch` (CLAUDE.md 🟡).
+Luật thiết kế kế thừa nguyên: cỡ chữ/chạm theo thang [03 §0](03-design-system.md), rem không px, contrast cao, chỉ bày cái KEY (03 §Khung nhập C1), X đóng = `CloseButton` (03 §X đóng), không toast (07 §12), mọi request có đồng hồ + `.catch` (CLAUDE.md 🟡).
 
 ---
 
@@ -170,7 +171,7 @@ nghỉ ──chạm nút nổi──► nghe ──có chữ (final)──► ng
 | **nghỉ** | app mở | chỉ nút nổi | chạm nút | — |
 | **nghe** | chạm nút nổi (P1) · nói "nói lại" · sau "hỏi lại" lần 1 | tấm che: vòng mic **đang nhịp**, chữ nghe được hiện dần (interim), chip gợi ý mờ | có kết quả `final` · im lặng **8 s** · chạm chip · chạm "Gõ" · chạm X | 8 s im lặng → "không nghe được"; trần cứng **20 s** một lượt nghe (chống mic treo) |
 | **nghĩ** | có câu (từ mic/gõ/chip) | vòng mic ngừng nhịp, dòng "Đang nghĩ…" (chỉ hiện khi >300 ms — offline thường không kịp thấy) | có `answer` · lỗi · hết giờ online | offline: **≤500 ms** (§8); online: tổng **≤8 s** kèm "Đang nghĩ…" từ 300 ms, quá 8 s → chuyển "hơi lâu, bác chờ chút" tới trần client **25 s** (> 20 s máy chủ, để nhận 504 thật thay vì tự cắt — 14 §8) rồi lỗi |
-| **nói** | có `answer` | chữ TO câu trả lời + (nếu có) 1 nút hành động + chip tiếp theo; TTS đọc `speak` (trừ `muted`) | TTS xong · chạm bất kỳ (dừng đọc) | TTS bắt đầu **≤1 s** sau khi có answer; nếu TTS không bắt đầu được sau 1,5 s → bỏ, chỉ chữ (không treo) |
+| **nói** | có `answer` | chữ câu trả lời + (nếu có) 1 nút hành động + chip tiếp theo; TTS đọc `speak` (trừ `muted`) | TTS xong · chạm bất kỳ (dừng đọc) | TTS bắt đầu **≤1 s** sau khi có answer; nếu TTS không bắt đầu được sau 1,5 s → bỏ, chỉ chữ (không treo) |
 | **hỏi lại** | thiếu tham số máy không suy được (INT-01 không cảng nhà, INT-07 nhiều điểm, INT-08 khớp mờ, INT-14 biến thể) · không hiểu lần 1 · **im lặng 8 s lần 1** (máy ĐỌC "Tôi chưa nghe rõ, bác nói lại giúp." rồi mới mở mic lại sau ~1,6 s — audit vòng 2 P1-18) | câu hỏi ngắn + **chip ≤4** lựa chọn + mic mở lại (chỉ lần 1) | chọn chip · nói · im 8 s → chip vẫn còn, mic tắt | **tối đa 1 lần hỏi lại/lượt**; lần 2 = chỉ chip |
 | **xong** | nói xong | như "nói", mic tắt, nút nổi thành "Nói tiếp" trong tấm che | chạm "Nói tiếp" → nghe · chạm hành động → làm rồi đóng · chạm X/vuốt → nghỉ | tự đóng tấm che sau **20 s** không tương tác (giữ câu trả lời trong 10 câu gần nhất) |
 | **ô gõ** | không hỗ trợ STT · từ chối quyền mic · lỗi mic · chạm "Gõ thay vì nói" | ô nhập ≥16px thực tế (03 §Nút hành động 4), nút "Gửi" inline cuối hàng, chip vẫn hiện | gửi · X | — |
@@ -214,7 +215,7 @@ Xác nhận bằng **chạm** là đường chính. **Chốt lead P1-7 (2026-09-
 | **Kéo được** (2026-09-07) | Giữ và rê là nút đi theo ngón tay (ngưỡng 8px để phân biệt với chạm rung tay); **thả là nép về mép gần nhất** (trái/phải) và giữ độ cao vừa kéo, kẹp trong khung (không lên quá 24px dưới mép trên, không xuống dưới chỗ mặc định). Chạm không rê = bấm như thường. Nhớ theo máy `forfish.fab.v1` (mỗi nút một ngăn: `sen-bien`, `gio-hang`) |
 | **Ẩn được** (2026-09-07) | Đẩy nút **sát ra ngoài mép** (tâm nút lọt vào 40% bề rộng nút sát mép) → nút **nép vào mép, chỉ ló 1,25rem và mờ 70%**; chạm mẩu ló ra = hiện lại (KHÔNG mở trợ lý). Không giấu hẳn: bà con giấu xong không biết mở lại ở đâu là mất luôn trợ lý. `aria-label` khi ẩn nối " — đang ẩn, chạm để hiện lại" |
 | Không đè nút giỏ | Nút giỏ nổi ở Cửa hàng (`sdvico-catalog.tsx`) dùng **cùng khuôn** và mặc định xếp **ngay trên** Sen Biển (`5.5rem` trên dock) — trước đây hai nút cùng một toạ độ, đè nhau (ảnh thật 2026-09-07) |
-| Kích thước | Vùng chạm tròn **4rem** (bằng nút giỏ; sàn 56px, chế độ gọn KHÔNG hạ — nút này là việc thường bấm, theo luật 03 §1b), mascot PNG 48px + nhãn **"Sen Biển"** dưới icon |
+| Kích thước | Vùng chạm tròn **4rem** (bằng nút giỏ; cỡ theo thang 03 §0, cả hai chế độ), mascot PNG 48px + nhãn **"Sen Biển"** dưới icon |
 | Màu | Nền `bg-card` không viền + bóng mềm; sen/sóng `--navy` + `--sea`, tâm `--sun`, cá trắng (chỉ token `@theme`, cấm hex); trạng thái nghe: viền nhịp `--accent` |
 | Có ở đâu | Mọi route app ngư dân (`AppShell` nhánh có dock). **KHÔNG** ở `/quan-tri`, `/dev`, `/login`, `/dang-ky`, `/doi-mat-khau`, `/quen-mat-khau`, `/huong-dan.html`, `/quyen-rieng-tu` |
 | Ẩn khi | bàn phím mở (`visualViewport` co >150px) · `BottomSheet`/`SnapSheet`/`ConfirmDialog` bất kỳ đang mở · HUD dẫn đường live đang chạy (07 §10.7 — không che ranh giới/HUD) · sheet Ra khơi ở `half/full` · tấm che trợ lý đang mở (chính nó) |
@@ -226,13 +227,13 @@ Xác nhận bằng **chạm** là đường chính. **Chốt lead P1-7 (2026-09-
 
 > **ĐỔI 2026-09-07 (chủ dự án: *"sao lại xổ ra 1 cái che hết toàn bộ app thế"*)**: KHÔNG còn tấm che toàn màn. Nay là **sheet neo đáy hai nấc** — mặc định **55%**, chạm tay nắm lên **92%** (không 100%), nền mờ **nhìn xuyên** 30%, ba đường đóng (✕ · vuốt · chạm nền). Tự lên nấc cao **chỉ khi bàn phím mở**. Hàng tiêu đề ghi **"Đang xem &lt;tên màn&gt;"**. Luật đầy đủ + nguồn khảo sát (Material 3 · Apple HIG · WCAG 2.2.2 · Intercom · NN/g): [03 §Trợ lý trong app](03-design-system.md).
 
-Là **tấm che toàn màn** (LEAD §1 — `fixed inset-0`, `role="dialog" aria-modal`, Esc + X đóng, khoá cuộn nền; **không** phải `BottomSheet` — cần full-height cho vòng mic + chữ TO + thẻ hành động mà không tranh chỗ với khung nổi bản đồ). Thứ tự từ trên xuống:
+Là **tấm che toàn màn** (LEAD §1 — `fixed inset-0`, `role="dialog" aria-modal`, Esc + X đóng, khoá cuộn nền; **không** phải `BottomSheet` — cần full-height cho vòng mic + câu trả lời + thẻ hành động mà không tranh chỗ với khung nổi bản đồ). Thứ tự từ trên xuống:
 
 | # | Khối | Key? | Chi tiết |
 |---|---|---|---|
 | 1 | Hàng tiêu đề: "Sen Biển" + `CloseButton` góc phải + nút **Tắt tiếng/Bật tiếng** (`SQ_BTN` icon loa, inline cuối hàng tiêu đề — 03 luật 3) | phụ | Không có nút Huỷ (03 §X đóng 2: panel đọc-xem → chỉ X) |
 | 2 | **Vòng mic** to (≥5rem) giữa, nhịp khi nghe; dưới là **chữ nghe được** hiện dần (interim xám, final đậm) | **KEY** | Chạm vòng = nghe lại (cùng việc với nút nổi) |
-| 3 | **Câu trả lời** chữ TO (≥1.25rem, `text-foreground`, không xám nhạt) — `text`; dòng phụ "Số lưu 2 giờ trước" 0.875rem `--muted` (đủ contrast) | **KEY** | Khi "nghĩ": "Đang nghĩ…" `role=status` |
+| 3 | **Câu trả lời** (cỡ theo thang 03 §0, `text-foreground`, không xám nhạt) — `text`; dòng phụ "Số lưu 2 giờ trước" 0.875rem `--muted` (đủ contrast) | **KEY** | Khi "nghĩ": "Đang nghĩ…" `role=status` |
 | 4 | **Thẻ hành động** (0 hoặc 1): thẻ món + `QtyStepper` + cặp Thôi/Thêm vào giỏ · hoặc tên + số + Thôi/Gọi · hoặc điểm + Thôi/Dẫn đường — cặp nút `grid-cols-2`, primary **phải**, mỗi nút `min-h-[3.5rem]` | KEY khi có | Đây là chỗ DUY NHẤT có nút hành động |
 | 5 | **Chip gợi ý** 3–4 (`ChipRow` tầng 1, `min-h-[3.5rem]`) theo màn + giờ (§5.3) | phụ | Chạm chip = gửi câu đó (không mở mic) |
 | 6 | Hàng đáy: nút **"Gõ thay vì nói"** (text button) — chạm → ô gõ thay chỗ vòng mic; khi không có STT/quyền: ô gõ hiện **sẵn** thay vòng mic, không cần chạm | phụ/KEY tuỳ ca | Ô gõ ≥16px thực tế |
@@ -427,7 +428,7 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = tầng · hàm/route chịu 
 - AC-T47 (E) Cùng câu chưa đăng nhập → không gọi route; câu mời đăng nhập + chip; `navigator.onLine=false` → **không** có lời mời (UI · tầng 5 ẩn offline).
 - AC-T48 (E) Tấm che "xong" 20 s không tương tác → tự đóng; mở lại → chip "Hỏi lại câu trước" có mặt (UI · `use-assistant`).
 - AC-T49 (E) `visibilitychange` hidden khi đang nghe → mic dừng; đang nói → TTS dừng; visible → trạng thái "xong" (UI · `use-assistant`).
-- AC-T50 (E) Mọi phần tử bấm được trong tấm che ≥3.5rem cao; chip `min-h-[3.5rem]`; ô gõ font-size thực tế ≥16px; chữ trả lời ≥1.25rem; contrast AA (UI · axe + đo).
+- AC-T50 (E) Mọi phần tử bấm được trong tấm che, chip và chữ trả lời đúng thang 03 §0; ô gõ font-size thực tế ≥16px (chống iOS tự phóng); contrast AA (UI · axe + đo).
 
 **API**
 - AC-T51 (A) `POST /api/tro-ly` không có định danh → 401 `no_token`; có định danh, thiếu key và `NODE_ENV=production` → 503 `no_key`; `ASSISTANT_MOCK=1` → 200 với `reply.source:"mock"`; body có `history` hoặc SĐT → 400 `invalid` (ON · `route.ts`).
@@ -478,7 +479,7 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = tầng · hàm/route chịu 
 | 2 | Dẫn đường tới điểm đã lưu: `/ngu-truong` **chưa có** deep-link tới điểm (chỉ có `?bao=&cap=`) | **LEAD CHỐT (§0 #2)**: v1 mở `/ngu-truong` + đọc "bấm Điểm đã lưu rồi chọn <tên>" (3 chạm). `?den=<placeId>` = nợ có trần khi đụng route-planner Trục 1; khi làm: KHÔNG sessionStorage handoff, ghi 02/07 cùng lượt | **Cao** — đã chốt (nợ) |
 | 3 | `/tien` không có param mục (Giá cá / Tin mua bán / Bán ở đâu) | Chấp nhận v1 mở `/tien` đầu trang (giá cá là chip đầu). Nợ: `?muc=` nếu QA thấy bà con phải cuộn | Thấp |
 | 4 | **STT Web Speech API thực tế cần mạng**: Safari iOS gửi lên máy chủ Apple; Chrome Android dùng dịch vụ Google — mất sóng ngoài khơi là **mic chết**, đúng lúc "đỡ gõ" cần nhất. Brief gọi tầng 1 là "OFFLINE" — đúng cho **hiểu**, không đúng cho **nghe** | **LEAD CHỐT (§0 #4)**: `isDefinitelyOffline()` → mic thử 1 lần; lỗi `network` → chip + ô gõ làm hàng chính ngay, câu "Mất sóng nên tôi không nghe được, bác chạm câu bên dưới."; chip theo màn/giờ/việc phủ 20 việc §10 để **0-gõ**; nợ native STT (Capacitor) khi có bản native; copy không hứa "nói được khi mất sóng" | **Cao** — đã chốt |
-| 5 | TTS `speechSynthesis` vi-VN: iOS có sẵn (Linh); Android phụ thuộc gói Google TTS tiếng Việt — nhiều máy rẻ không có | Không đọc bằng giọng khác; chữ TO là kênh chính, tiếng là phụ. Nút nổi vẫn hoạt động đầy đủ khi không TTS (§5.4) | Trung bình |
+| 5 | TTS `speechSynthesis` vi-VN: iOS có sẵn (Linh); Android phụ thuộc gói Google TTS tiếng Việt — nhiều máy rẻ không có | Không đọc bằng giọng khác; chữ là kênh chính, tiếng là phụ. Nút nổi vẫn hoạt động đầy đủ khi không TTS (§5.4) | Trung bình |
 | 6 | **Premium qua giọng**: hỏi "tuần sau sao" là lối lách xem thời tiết >3 ngày | **LEAD CHỐT (§0 #6)**: cả hai tầng tôn trọng `lib/tier.ts` — tầng máy đọc `snapshot.premium` (từ `effectivePremiumMark`, không gọi mạng), basic chỉ 3 ngày + mời (ẩn khi offline); tool máy chủ trả ≤3 ngày (v1 mọi hạng — 14 §6.4, không tra hạng trong 20 s) | **Cao** — đã chốt |
 | 7 | Quota "N lượt/ngày/SĐT — tài khoản đã đăng nhập": khách chưa đăng nhập không có online — OK; nhưng client phải **biết trước** đã hết để không gửi request thừa ngoài biển | Client nhớ `{day, used}` trong `forfish.assistant.v1`; server vẫn là nguồn chốt; câu "còn 5" chỉ ở mốc 5 và 1 | Thấp — chốt |
 | 8 | `forfish.assistant.v1` giữ 10 câu gần nhất — câu có thể chứa tên người/số | Đã ∈ NEVER_BACKUP; **không** gửi 10 câu lên server (§7.3); xoá khi đăng xuất cùng `auth-scope` | Thấp — chốt |
