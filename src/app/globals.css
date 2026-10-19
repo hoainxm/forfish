@@ -99,8 +99,9 @@ html {
 :root {
   /* hở đáy nhỏ để PILL nổi trên home-indicator (bớt "dư bottom": floor 6px) */
   --dock-safe: env(safe-area-inset-bottom, 0px);
-  --dock-row: 3.5rem; /* thanh dock phẳng theo thang Codex (03 §0, 2026-10-19) */
-  --dock-total: calc(var(--dock-row) + var(--dock-safe));
+  --dock-row: 3.5rem; /* thanh dock nổi kiểu Facebook (03 §0b, 2026-10-19) */
+  --dock-gap: 0.5rem; /* hở giữa thanh nổi và mép đáy / home-indicator */
+  --dock-total: calc(var(--dock-row) + var(--dock-safe) + var(--dock-gap));
 }
 
 .dock-frame {
@@ -114,19 +115,23 @@ html {
   margin-inline: auto;
   pointer-events: none; /* trong suốt, để map/nội dung sau nhận chạm */
 }
-/*  DOCK PHẲNG (anh Long 2026-10-19, "đẹp như mẫu Codex"): nền trắng, viền trên
-    1px, không pill navy, không bóng đậm; mục đang chọn navy đậm. Safe-area là
-    padding đáy của chính dock nên nền phủ tới mép màn. */
+/*  DOCK NỔI KIỂU FACEBOOK (anh Long 2026-10-19: "bottom menu Codex nói làm
+    giống facebook"): thanh trắng bo tròn TÁCH khỏi mép (lề 0.75rem hai bên, hở
+    đáy --dock-gap trên home-indicator), viền 1px line + bóng nổi nhẹ; chỉ icon,
+    mục đang chọn có pill xanh nhạt sau icon (bottom-nav.tsx). Mọi chỗ chừa đáy
+    vẫn đọc --dock-total (đã cộng --dock-gap) nên không số rời nào phải đổi. */
 .bottom-dock {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: var(--dock-total);
-  padding-bottom: var(--dock-safe);
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(var(--dock-safe) + var(--dock-gap));
+  height: var(--dock-row);
+  padding-inline: 0.375rem;
   pointer-events: auto;
   background: var(--card);
-  border-top: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  box-shadow: var(--shadow-float);
 }
 /* nội dung trang cuộn: chừa đúng chiều cao dock + thở 1rem */
 .app-content {

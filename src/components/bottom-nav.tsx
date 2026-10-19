@@ -6,10 +6,10 @@ import { AnchorIcon, CartIcon, FishIcon, HomeIcon, PinIcon } from "@/components/
 import { DOCK, dockActive, type DockId } from "@/lib/dock-nav";
 
 /*
-  Dock điều hướng (spec user 2026-07-29; phẳng theo mẫu Codex 2026-10-19): DockFrame
-  fixed + dock `absolute bottom:0` neo đáy frame. Nền TRẮNG viền trên 1px, không
-  pill navy; mục đang chọn navy đậm, mục khác xám. Safe-area là padding TRONG dock
-  nên icon/chữ nằm trên home-indicator. Chiều cao dùng chung --dock-total.
+  Dock điều hướng (spec user 2026-07-29; KIỂU FACEBOOK 2026-10-19): DockFrame
+  fixed + thanh trắng bo tròn NỔI, tách mép, hở trên home-indicator (globals.css
+  .bottom-dock). Chỉ icon; mục đang chọn = pill xanh nhạt + icon xanh. Chiều cao
+  chừa đáy dùng chung --dock-total (đã cộng hở --dock-gap).
   NĂM MỤC (chủ dự án chốt 2026-10-19): Trang chủ · Bản đồ · Tàu tôi · Chợ cá ·
   Vật tư — mỗi việc một chỗ; mục nào sáng ở route nào: lib/dock-nav.ts.
 */
@@ -33,15 +33,23 @@ export function BottomNav() {
             const Icon = ICON[id];
             return (
               <li key={id}>
+                {/*  KIỂU FACEBOOK (anh Long 2026-10-19): chỉ icon, mục đang chọn
+                    là pill xanh nhạt sau icon + icon xanh; tên mục vẫn đọc được
+                    qua aria-label/title (trình đọc màn hình, nhấn giữ). */}
                 <Link
                   href={href}
                   aria-current={active ? "page" : undefined}
-                  className={`flex h-full flex-col items-center justify-center gap-1 transition-[color,transform] duration-200 ease-out active:scale-95 ${
-                    active ? "text-navy" : "text-foreground/60"
-                  }`}
+                  aria-label={label}
+                  title={label}
+                  className="flex h-full items-center justify-center transition-transform duration-200 ease-out active:scale-95"
                 >
-                  <Icon className="h-6 w-6 shrink-0" />
-                  <span className={`dock-label ${active ? "font-semibold" : "font-medium"}`}>{label}</span>
+                  <span
+                    className={`flex h-10 w-[3.75rem] items-center justify-center rounded-full transition-colors ${
+                      active ? "bg-sea/12 text-sea" : "text-foreground/70"
+                    }`}
+                  >
+                    <Icon className="h-6 w-6 shrink-0" />
+                  </span>
                 </Link>
               </li>
             );

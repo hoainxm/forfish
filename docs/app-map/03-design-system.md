@@ -10,6 +10,7 @@ last_verified: 2026-10-19
 <!-- re-verified: 2026-10-19c — GỌN = 37px Ở MỌI KHU (chủ dự án chốt): `--market-control: var(--row-h)`, `.tau-action min-height: var(--row-h)`, 86 chỗ `min-h-[3.5rem]` trong market/cho/ban-hang + khu Tàu tôi → `min-h-(--row-h)` (Tailwind v4 cú pháp biến). Đo 390 gọn: ô tìm/chip/nút Vật tư 37px, "Thêm"/"Gọi SDVICO" Tàu tôi 37px; hàng có nút stretch theo thân hàng (48/42px) đúng luật thân hàng = nút. Chip tài khoản biến thể `light` (ManHeader): chữ 1rem, đệm hẹp, min-w-0 + truncate — nhường chỗ cho tiêu đề. -->
 <!-- re-verified: 2026-10-19 — `.dock-label` đổi theo nhãn dock mới (Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư); từ 2026-10-19d là 0.75rem (0.6875rem dưới 345px) theo thang §0. Khuôn MỚI `ManHeader` (components/man-header.tsx): đầu màn nền sáng thay hero gradient ở các màn dock. Danh sách kẻ mảnh (`divide-y divide-line rounded-2xl bg-card`, hàng theo bậc hàng danh sách, chữ theo thang §0, chấm màu thay tag) là khuôn chung của Thông báo + Việc cần làm. HeroAccount có biến thể `light`. -->
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-10-05 10:40 — thêm pattern "overlay tự-ẩn phải tính CUỘN là thao tác" (onScrollCapture ở container gốc, không onScroll): đối chiếu `ui/snap-sheet.tsx` (<section onScrollCapture={onInteract}>) + `ra-khoi-controls.tsx` (container gốc onScrollCapture) — khớp sau fix 2026-10-05. Tap-target SnapSheet min-h-[3.5rem] còn đúng. -->
 <!-- re-verify(03): pattern overlay tự-ẩn + cuộn (onScrollCapture) -->
@@ -55,7 +56,7 @@ Gốc `<html>` = **16px** (chế độ Gọn, mặc định). Chế độ **Nút
 | Bo góc thẻ | **0.75–1rem** (12–16) · thẻ 1rem, control 0.75rem | `--r-card`, `--r-ctl` |
 | Khoảng trong nhóm / giữa nhóm | 0.5–0.75rem / 1–1.25rem | `space-y-2` / `space-y-5` |
 | Bóng | thẻ: viền 1px `line` + bóng rất nhẹ; nổi trên bản đồ: `--shadow-float` | `.surface`, `.glass` |
-| Dock | nền trắng, viền trên 1px, cao 3.5rem + safe-area, mục đang chọn navy đậm — KHÔNG pill navy | `.bottom-dock` |
+| Dock | **kiểu Facebook** (anh Long 2026-10-19): thanh trắng bo tròn NỔI, lề 0.75rem, hở đáy `--dock-gap` 0.5rem trên home-indicator, viền 1px line + `--shadow-float`; CHỈ ICON 1.5rem, mục đang chọn = pill xanh nhạt (`bg-sea/12`) + icon xanh; tên mục qua `aria-label`/`title` | `.bottom-dock`, `bottom-nav.tsx` |
 
 Luật đi kèm:
 - **Cỡ cố định theo loại** (anh Long 2026-10-19): cùng loại ⇒ cùng cao/rộng, chữ canh giữa; nút/chip KHÔNG nở theo độ dài chữ — vì nhãn ≤2 chữ (§Nhãn) nên ô cố định luôn đủ. Ô vuông bản đồ `.sq-tile` = 4rem × 2.75rem; nút phụ chữ `.sq-btn` ≥ 5.5rem rộng; chip ≥ 5.5rem.
@@ -87,7 +88,7 @@ Ngư dân, ít rành công nghệ, dùng app ngoài biển và ở bờ. Điều
 
 | Ràng buộc | Quy tắc |
 |---|---|
-| Ít rành công nghệ | Nhãn = **icon + ≤2 chữ**, không icon trơ trọi, không jargon |
+| Ít rành công nghệ | Nhãn = **icon + ≤2 chữ**, không icon trơ trọi, không jargon — NGOẠI LỆ duy nhất: dock (chỉ icon kiểu Facebook, anh Long chốt 2026-10-19) |
 | Tiếng Việt đời thường | "Tủ giấy tờ" chứ không "Document management"; "Còn 18 ngày" chứ không "Expires in 18d" |
 | Một việc một màn hình | Không nested menu, không bước thừa; flow ≤ 2 chạm tới việc chính |
 | Mất sóng nhiều ngày | Màn nào cũng có nhánh đọc bản đã lưu; trạng thái trống/tải/lỗi/offline đủ trong code |
