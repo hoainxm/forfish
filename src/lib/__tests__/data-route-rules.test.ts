@@ -94,6 +94,7 @@ describe("matcher middleware.ts ↔ DATA_ROUTE_MATCHER ↔ route thật", () => 
       "auth", "admin", "cron", "collect", "push", "sdwork", "me", // auth/quản trị/cron/webhook/riêng tư — tự gác
       "data-key", // tự gác + rate limit trong route
       "version", // chỉ trả mã bản đang deploy (báo có bản mới) — công khai, không dữ liệu
+      "status", // mã bản + ngày fit mô hình + TUỔI bản tính sẵn (lib/status-report) — công khai, không nội dung dự báo
       "market-listings", "crew-reports", "product-inquiries", "renewal", "sdvico", // nghiệp vụ per-user, identityFromRequest trong route
       "cho", "ban-hang", // chợ vật tư: xem chợ công khai; đơn/giỏ/kênh bán tự gác (identityFromRequest · openMyOrder · requireShopOwner)
       "dev", // kho file máy dev (isDevFileMode: MARKET_STORE=file, không Vercel, không production) — prod không vào

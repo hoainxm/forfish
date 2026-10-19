@@ -6,7 +6,7 @@ covers: scripts/train/run.mjs, scripts/generate-depth-grid.mjs, scripts/generate
 last_verified: 2026-10-19
 <!-- re-verified: 2026-10-19b — thêm "Bảng môi trường" (rà Codex mục 10: "một bảng môi trường thống nhất: web domain, native origin, API, cron, DB, build ID"); đối chiếu capacitor.config.ts + android/ios capacitor.config.json (server.url), vercel.json crons, .github/workflows/{deploy,cron-prod,deploy.windows-iis,doc-health}.yml, /api/version. doc-health --ci đã chạy thật trên máy: exit 1 vì doc lệch có sẵn (forecast-accuracy 87 ngày…) — nên để workflow RIÊNG, không gộp vào `ci`. -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'scripts/doc-health-report.sh' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'scripts/train/run.mjs' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-10-19 - thêm mục "Train dự báo cá" (runner scripts/train/run.mjs, SDFISH_DATA_DIR) -->
 <!-- re-verified: 2026-06-17 - lệnh regenerate asset (icons/depth-grid/isobaths) + deploy/health-check khớp scripts/ hiện tại -->
@@ -31,6 +31,7 @@ gate: warn
 ⚠️ **Điểm cần chủ dự án chốt (Codex chỉ ra, ghi lại sự thật):** app native tải web từ **Vercel** (`forfish-alpha.vercel.app`), không phải web công ty `sdfish.sdvico.vn`. Đo 2026-10-19 hai web cùng bản `ecc6c71e`, nhưng chúng deploy bằng HAI đường riêng (Vercel tự build / runner Windows) nên có thể lệch nhau bất cứ lúc nào ⇒ người dùng app native và người dùng web công ty có thể thấy hai bản app khác nhau. Đổi `server.url` thì kho `localStorage`/IndexedDB **theo origin** sẽ trắng trên máy bà con (sổ tàu, bản đồ đã tải) — phải có đường chuyển dữ liệu trước khi đổi.
 
 **Kiểm nhanh bản đang chạy:** `curl -s https://sdfish.sdvico.vn/api/version` · `curl -s https://forfish-alpha.vercel.app/api/version` — so với `git log -1 --format=%h company/main` / `origin/main`.
+**Server sống nhưng dữ liệu có mới không:** `curl -s <web>/api/status` → `duLieu` = `tuoi` | `cu` (bản dự báo cá hoặc lưới thời tiết tính sẵn quá 36 giờ — cron hỏng?) | `khong-doc-duoc` (DB/env), kèm `ageHours` từng bản và ngày fit tham số mô hình (`model.fishBlendFittedAt`, `forecastSkillFittedAt`). Bước health check của deploy.yml in dòng này sau khi tráo bản (không chặn). Đo 2026-10-19 trên máy dev nối DB prod: cá 4,6 h, thời tiết 1,1 h ⇒ `tuoi`.
 
 **Sức khoẻ tài liệu:** workflow `doc-health` (riêng, KHÔNG chặn deploy) chạy mỗi PR + 08:00 thứ Hai. Chạy tay: `sh scripts/doc-health-report.sh --ci`.
 

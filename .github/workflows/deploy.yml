@@ -225,7 +225,12 @@ jobs:
             } catch {}
             Start-Sleep -Seconds 3
           }
-          if ($ok) { Write-Host "Health OK: build $got"; exit 0 }
+          if ($ok) {
+            Write-Host "Health OK: build $got"
+            # Do tuoi du lieu (khong chan deploy): server song nhung du bao co bi ket o hom qua khong
+            try { $s = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/status" -TimeoutSec 15; Write-Host "Du lieu: $($s.duLieu) - ca: $($s.data.fishSnapshot.ageHours)h, thoi tiet: $($s.data.weatherSnapshot.ageHours)h" } catch { Write-Host "Chua doc duoc /api/status" }
+            exit 0
+          }
           Write-Host "Health FAIL: muon build $want, nhan '$got' - quay lai ban truoc"
           if (Test-Path "$env:PREV_DIR\server.js") {
             pm2 stop forfish 2>$null

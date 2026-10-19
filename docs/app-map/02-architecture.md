@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19d — ROUTE MỚI `/api/status` (GET, công khai như /api/version, ngoài dataGate — có trong danh sách "không phải dữ liệu" của data-route-rules.test; SW không cache vì ngoài API_CACHE_ALLOW): mã bản + ngày build + ngày fit tham số mô hình (src/data/fish-blend-weights.json, forecast-skill.json) + TUỔI bản tính sẵn mới nhất (fish_forecast_snapshot, weather_snapshot id grid:%) ⇒ `duLieu` tuoi|cu|khong-doc-duoc (ngưỡng 36 h). Luật thuần lib/status-report.ts (+ test). DB lỗi ⇒ vẫn 200 "khong-doc-duoc" (trang hỏi tình trạng không được sập theo DB); truy vấn trần 5 s. deploy.yml in dòng này sau health check (không chặn). -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 <!-- re-verified: 2026-10-19c — DOCK 5 MỤC MỚI (chủ dự án chốt sau rà design Codex): Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư (lib/dock-nav.ts + bottom-nav.tsx). Mỗi việc một chỗ: /tau chỉ hồ sơ tàu (bỏ tab Cửa hàng/Đơn, ?tab=cua-hang→/cho, ?tab=don→/cho/don), /tien bỏ thẻ vật tư, bộ chọn tàu chỉ ở Hồ sơ tàu. Đầu màn gọn nền sáng `ManHeader` (Trang chủ/Tàu tôi/Chợ cá/Vật tư), `TauToiNav` Hồ sơ tàu | Bạn thuyền. Trang chủ = tin bão thường trực + việc cần làm + thông báo + con nước (bỏ 4 thẻ nhóm việc). Thông báo/việc cần làm: danh sách kẻ mảnh, cỡ chữ theo thang 03 §0, không IN HOA. Sen Biển KHÔNG là mục dock — icon nổi như cũ, z-[25] dưới BottomSheet. -->
 <!-- COMPONENT MỚI 2026-10-19c: `lib/dock-nav.ts` (DOCK + dockActive, thuần, test dock-nav.test.ts) · `components/man-header.tsx` (prop `compact` 2026-10-19: tiêu đề 1.25rem không xuống dòng — Trang chủ) · `components/tau-toi-nav.tsx`. 2026-10-19h: `ra-khoi-controls.tsx` rail 2 ô Lớp + Thêm (khay `more`, `RailBtn` dùng chung, `DotsIcon`), `plotter-readout.tsx` dòng Tàu là nút bay về tàu. 2026-10-19f: `lib/sen-bien-state.ts` (kho tín hiệu + máy trạng thái icon Sen Biển, thuần, test) · `lib/use-sen-bien.ts` (hook useSyncExternalStore) · `components/sen-bien-icon.tsx` (SenBienIcon — một hình cho mọi icon Sen Biển, data-sen/data-canh) · `lib/labels.ts` (bảng nhãn chuẩn NHAN ≤2 chữ). `tau-tabs.tsx` còn một màn hồ sơ tàu (+ chuyển ?tab=cua-hang|don sang /cho, /cho/don). `/cho` gốc dùng ManHeader. Route KHÔNG đổi, không route mới; SHELL sw.js không đổi. -->
@@ -329,6 +330,7 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 
 
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 <!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->
