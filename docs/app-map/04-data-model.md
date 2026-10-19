@@ -5,10 +5,11 @@
 **Load khi / Load when**: đụng DB/migration/RLS, sửa `src/lib/documents.ts`, nối vault với Supabase, hoặc thêm bảng mới.
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
-last_verified: 2026-10-18
+last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19 — MIGRATION MỚI 0064_atomic_writes.sql (§ GHI NGUYÊN TỬ): user_docs.rev + 3 hàm market_transition_order/market_patch_request/market_accept_request. ĐÃ APPLY prod 2026-10-19, kiểm thật trên Postgres (rollback). -->
 <!-- re-verified: 2026-10-18 — MIGRATION MỚI 0063_market_requests_eta.sql (§7g): market_orders + eta_from/eta_to/request_id (nullable) · bảng market_requests (RLS bật, 0 policy, revoke anon/authenticated). ĐÃ APPLY prod 2026-10-18 (chủ dự án duyệt) — xem §7g. -->
 ttl_days: 180
-<!-- DOC-STATUS: SUSPECT (2026-10-18) — code 'supabase/migrations' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'supabase/migrations' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-10-06 17:20 — đồng bộ sổ đối chiếu code: `user-sync.ts` (syncAll/pushKind/markLocalWrite/clearSyncMeta, metaCache), route `/api/me/sync` (identityFromRequest, lọc owner_phone, keepDeleted/stripDeleted), `user-sync-core.ts` — khớp; THÊM gộp 3 chiều theo id (`mergeById`, baseIds), chủ sổ `_owner` + `phone` ở GET, seed khi server chưa có dòng, `showsUnderBoat`; dọn câu "apply nhầm, chưa recoverable" mâu thuẫn. -->
 <!-- re-verified: 2026-10-06 16:30 — đối chiếu code: `DocumentKind`/`DOCUMENT_KINDS`/`getExpiryStatus`/`SOON_DAYS_DOCS` (documents.ts + days.ts) khớp; THÊM `dang_ky_tau`, `kindUsuallyNoExpiry`, issuedOn trên form; `Boat` +19 ô theo giấy (boats.ts); user_docs + bucket user-docs ĐO THẬT có ở znzgugvfhgmiszqgjulk (sửa drift "chưa có"); staff_permissions + cờ `resetPassword`; reset mật khẩu khách ⇒ sd123456 (ADR 0008); §5 mục 5 nhắc hạn push. -->
 <!-- re-verified: 2026-10-02 15:40 — RBAC: đối chiếu `phone.ts` (thêm `phoneFromAuthEmail`), 0002 `current_phone()` (split_part không xét đuôi — vá ở 0056), 0007/0019 `customers.role` customer|manager|admin, 0024 admin chung, 0028 `staff_permissions`, 0037/0039/0053 `device_tokens` (không hạn, allow_multi chỉ admin). Khớp code trước khi thêm 0056. -->
@@ -864,6 +865,24 @@ Chủ dự án: *"cho phép chủ tàu đặt đơn bất kỳ cái gì, nó s�
 - Không cron: tự huỷ 72h, báo giá hết hạn 3 ngày, yêu cầu treo 7 ngày đều chạy LƯỜI khi đọc.
 - Cột mới đều nullable + `add column if not exists` ⇒ code cũ đọc vẫn chạy; chạy lại an toàn.
 - **Trước khi apply**: code mới đọc/ghi `eta_from` · `request_id` · `market_requests` ⇒ deploy code này lên prod mà CHƯA apply 0063 thì xác nhận đơn/ yêu cầu đặt hàng lỗi 500 (`market_orders vá` báo cột lạ). Thứ tự bắt buộc: **apply 0063 → deploy**.
+
+### GHI NGUYÊN TỬ — migration [`0064_atomic_writes.sql`](../../supabase/migrations/0064_atomic_writes.sql) (2026-10-19, rà Codex) — ✅ **ĐÃ APPLY prod 2026-10-19** (chủ dự án duyệt "viết và apply luôn"; ghi `schema_migrations` 20261019061252)
+
+Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng bộ sổ đọc→gộp→upsert không kiểm bản vừa đọc; huỷ đơn đổi status xong mới hoàn kho (lỗi chỉ ghi log); đồng ý báo giá là ba câu riêng. Cộng thêm timeline đọc-rồi-ghi cả mảng.
+
+| Thay đổi | Nghĩa |
+|---|---|
+| `user_docs.rev` (`bigint`, default 0) | Phiên bản do SERVER cấp, +1 mỗi lần ghi. `/api/me/sync` ghi `update … where rev = <rev đã đọc>` (CAS); trượt ⇒ đọc lại, `decidePut` (lib/user-sync-core, thuần) quyết lại, thử ≤3; hết lượt ⇒ 503 `busy` (máy giữ sổ chưa đẩy, tự gửi lại). Cuốn > 5 000 mục hoặc > 2 000 000 ký tự ⇒ 400 `too_large` (đo prod 2026-10-19: lớn nhất 787 ký tự, 5 mục) |
+| `market_transition_order(id, expect, patch, entry)` | MỘT câu UPDATE có điều kiện status + `timeline || entry` tại DB; sang `da_huy` ⇒ gọi `market_restock_order` trong cùng giao dịch — hoàn kho lỗi thì cả cú huỷ rollback |
+| `market_patch_request(id, expect, patch, entry)` | Như trên cho `market_requests` |
+| `market_accept_request(id, patch, entry, order)` | `da_bao_gia → da_dat` + insert đơn + ghi `order_id` một giao dịch. buyer/địa chỉ/cách trả lấy từ chính yêu cầu trong DB. Đã có `order_id` ⇒ trả đơn cũ. Mã đơn trùng ⇒ rollback cả gói, adapter sinh mã mới gọi lại |
+| Lỗi | P0001 message = `not_found` / `bad_transition` ⇒ adapter map `MarketError` |
+| Quyền | security definer, revoke public/anon/authenticated — chỉ route service-role |
+
+- **Kiểm thật trên Postgres prod lúc apply** (khối DO kết thúc bằng RAISE ⇒ tự rollback, soi lại 0 dòng thử): huỷ ⇒ kho 99→97→99, `restocked_at` có, timeline 1→2; sai status mong đợi ⇒ `bad_transition`; id lạ ⇒ `not_found`; đồng ý báo giá ⇒ đơn `da_xac_nhan`, `order_id` khớp, `client_ref = yc:<id>`; bấm lại ⇒ cùng đơn, 1 đơn; mã trùng ⇒ 23505 và yêu cầu vẫn `da_bao_gia`.
+- **Đối soát bản ghi dở dang trước đó** (đo 2026-10-19): 0 đơn `da_huy` chưa hoàn kho, 0 yêu cầu `da_dat` thiếu `order_id` ⇒ không cần dọn. Truy vấn đối soát giữ ở ops/runbook.md.
+- Tương thích: cột có default + hàm mới ⇒ code cũ chạy nguyên trên DB đã apply. Thứ tự: **apply 0064 → deploy** (code mới gọi hàm 0064).
+- file-store (dev) không đổi: một tiến trình, ghi cả tệp một lần nên vốn nguyên tử.
 
 <!-- re-verified: 2026-09-07 — 0055 gộp Cửa hàng vào chợ; soi prod: product_listings 13/13 hiện, 7 đặt được, 0 vendor ngoài; catalog_orders 1 đơn thật trạng thái `moi` ngày 28/08; `shops` chưa tồn tại ⇒ 0054 chưa apply, 0045/0046/0047 ĐÃ apply (mục trên ghi "CHƯA APPLY" là doc cũ sai). market_fold_vn đối chiếu với foldVn() trên đủ 13 tên món: khớp từng chữ. -->
 

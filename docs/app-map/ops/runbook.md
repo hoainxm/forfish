@@ -5,6 +5,7 @@
 covers: scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
 last_verified: 2026-07-30
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'scripts/doc-health-report.sh' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-17 - lệnh regenerate asset (icons/depth-grid/isobaths) + deploy/health-check khớp scripts/ hiện tại -->
 <!-- re-verified: 2026-06-29 - generate-icons.mjs đổi nguồn icon.svg→logo-src.png; lệnh `node scripts/generate-icons.mjs` không đổi, vẫn xuất public/icons -->
@@ -124,3 +125,16 @@ sh .githooks/pre-commit --self-test        # verify hook còn parse + gate đún
 - Nguồn ngoài lỗi → đọc [external-services.md](external-services.md) cột "khi nó chết thì sao" TRƯỚC khi sửa code.
 
 > Lỗi vận hành mới gặp lần đầu → thêm dòng vào runbook này CÙNG COMMIT với fix (nguyên tắc 11).
+
+## Đối soát ghi dở dang (chợ + đồng bộ sổ, 2026-10-19)
+
+Từ 0064 các việc nhiều bước đã là một giao dịch, nhưng nghi có bản ghi dở (dữ liệu trước 0064, sửa tay ở DB) thì chạy (chỉ đọc, qua Management API hoặc SQL editor):
+
+```sql
+select
+  (select count(*) from public.market_orders  where status = 'da_huy' and restocked_at is null) as huy_chua_hoan_kho,
+  (select count(*) from public.market_requests where status = 'da_dat' and order_id is null)    as yeu_cau_dat_thieu_don;
+```
+
+Khác 0 ⇒ với đơn: `select public.market_restock_order('<id>')` (idempotent); với yêu cầu: trả về `da_bao_gia` để bà con bấm lại. Đo 2026-10-19: cả hai = 0.
+

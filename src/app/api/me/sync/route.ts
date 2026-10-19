@@ -12,6 +12,9 @@
 //          `server` = cuốn đã gộp + mốc mới để máy nhận về.
 //        · KHÔNG có `baseIds` (bản app cũ còn ngoài biển): giữ LAST-WRITE-WINS
 //          nguyên cuốn như trước — server mới hơn thì trả stale.
+//        · GHI CÓ ĐIỀU KIỆN theo `rev` (0064, rà Codex 2026-10-19): hai máy ghi
+//          sát nhau không đè mất phần của nhau; hết lượt thử ⇒ 503 `busy`, máy
+//          giữ sổ "chưa đẩy" và tự gửi lại. Cuốn quá cỡ ⇒ 400 `too_large`.
 //
 // ⚠️ KHÔNG cache ở service worker (gắn danh tính, dữ liệu riêng tư).
 import { NextResponse } from "next/server";
@@ -19,15 +22,17 @@ import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeVnPhone } from "@/lib/phone";
 import {
+  decidePut,
   invalidPut,
   isValidBaseIds,
-  mergeById,
   type SyncKind,
 } from "@/lib/user-sync-core";
 
-import { keepDeleted, stripDeleted } from "@/lib/sync-tombstone";
+import { stripDeleted } from "@/lib/sync-tombstone";
 
 const TABLE = "user_docs";
+/** Số lần đọc–quyết–ghi khi bị máy khác chen (CAS trượt). */
+const SYNC_CAS_TRIES = 3;
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
@@ -82,91 +87,60 @@ export async function PUT(req: Request) {
     data: unknown;
     clientUpdatedAt: number;
   };
+  const baseIds = hasBase ? ((body!.baseIds as string[] | null) ?? null) : undefined;
 
   const admin = createAdminClient();
   if (!admin) return err(503, "unavailable");
 
-  // LAST-WRITE-WINS: bản server mới hơn thì KHÔNG đè — trả về để client nhận.
-  const { data: cur, error: readErr } = await admin
-    .from(TABLE)
-    .select("data,client_updated_at")
-    .eq("owner_phone", phone)
-    .eq("kind", kind)
-    .maybeSingle();
-  if (readErr) return err(500, "query_failed");
+  /*  ĐỌC → QUYẾT → GHI CÓ ĐIỀU KIỆN (CAS, rà Codex 2026-10-18; cột rev 0064).
+      Trước đây bước ghi là upsert trần: hai máy cùng đọc một bản rồi lần lượt
+      ghi ⇒ phần thêm của máy ghi trước bị đè mất. Nay ghi kèm `rev = rev đã
+      đọc`; trượt (máy khác vừa ghi) ⇒ đọc lại, quyết lại trên bản mới, thử lại.
+      Hết lượt ⇒ 503: máy giữ sổ "chưa đẩy" và tự gửi lại (user-sync.ts), không
+      mất gì. Quyết định là hàm THUẦN `decidePut` (có test). */
+  for (let attempt = 0; attempt < SYNC_CAS_TRIES; attempt++) {
+    const { data: cur, error: readErr } = await admin
+      .from(TABLE)
+      .select("data,client_updated_at,rev")
+      .eq("owner_phone", phone)
+      .eq("kind", kind)
+      .maybeSingle();
+    if (readErr) return err(500, "query_failed");
 
-  /*  GỘP THEO MỤC (máy mới gửi `baseIds`). Cuốn không phải mảng mục có `id`
-      ⇒ mergeById trả null ⇒ rơi xuống luật cũ bên dưới. */
-  if (hasBase && cur) {
-    const curAt = Number(cur.client_updated_at) || 0;
-    const merged = mergeById(
-      cur.data,
-      data,
-      (body!.baseIds as string[] | null) ?? null,
-      clientUpdatedAt >= curAt,
+    const nowIso = new Date().toISOString();
+    const d = decidePut(
+      cur ? { data: cur.data, clientUpdatedAt: Number(cur.client_updated_at) || 0 } : null,
+      { kind, data, clientUpdatedAt, baseIds },
+      nowIso,
     );
-    if (merged) {
-      const serverLive = stripDeleted(cur.data);
-      // Gộp xong y hệt server ⇒ không ghi, chỉ trả về để máy nhận cho khớp.
-      if (JSON.stringify(merged) === JSON.stringify(serverLive)) {
-        return NextResponse.json({
-          ok: true,
-          server: { kind, data: serverLive, clientUpdatedAt: curAt },
-        });
-      }
-      // Mốc mới PHẢI lớn hơn mốc server: máy khác so `server > mốc của mình`
-      // để biết có bản mới mà kéo về.
-      const newAt = Math.max(clientUpdatedAt, curAt + 1);
-      const { error } = await admin.from(TABLE).upsert(
-        {
-          owner_phone: phone,
-          kind,
-          data: keepDeleted(cur.data, merged, new Date().toISOString()),
-          client_updated_at: newAt,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "owner_phone,kind" },
-      );
-      if (error) return err(500, "write_failed");
-      return NextResponse.json({
-        ok: true,
-        merged: true,
-        server: { kind, data: merged, clientUpdatedAt: newAt },
-      });
-    }
-  }
+    if (d.action === "reply") return NextResponse.json(d.reply);
 
-  if (cur && cur.client_updated_at > clientUpdatedAt) {
-    return NextResponse.json({
-      ok: true,
-      stale: true,
-      // cùng luật với GET: bản trả về cho máy KHÔNG mang theo thứ đã xoá
-      server: {
-        kind,
-        data: stripDeleted(cur.data),
-        clientUpdatedAt: cur.client_updated_at,
-      },
-    });
-  }
-
-  /*  GIỮ BẢN ĐÃ XOÁ Ở SERVER (chủ dự án 2026-09-01: *"đã xoá thì xoá ở máy còn
-      trên server vẫn có"*). Bản ghi biến mất so với lần đẩy trước thì Ở LẠI
-      trong chính cuốn sổ này, chỉ thêm cờ `_deleted` + `_deletedAt` — không
-      bảng mới, không migration, vì `data` vốn là `jsonb`.
-      Máy bà con không thấy lại: nhánh GET đã lọc bỏ trước khi trả về. */
-  const dataGiuVet = keepDeleted(cur?.data, data, new Date().toISOString());
-
-  const { error } = await admin.from(TABLE).upsert(
-    {
+    const row = {
       owner_phone: phone,
       kind,
-      data: dataGiuVet,
-      client_updated_at: clientUpdatedAt,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "owner_phone,kind" },
-  );
-  if (error) return err(500, "write_failed");
-
-  return NextResponse.json({ ok: true });
+      data: d.write.data,
+      client_updated_at: d.write.clientUpdatedAt,
+      updated_at: nowIso,
+    };
+    if (cur) {
+      const rev = Number(cur.rev) || 0;
+      const { data: hit, error } = await admin
+        .from(TABLE)
+        .update({ ...row, rev: rev + 1 })
+        .eq("owner_phone", phone)
+        .eq("kind", kind)
+        .eq("rev", rev)
+        .select("rev");
+      if (error) return err(500, "write_failed");
+      if (!hit || hit.length === 0) continue; // máy khác vừa ghi — đọc lại
+    } else {
+      const { error } = await admin.from(TABLE).insert({ ...row, rev: 1 });
+      if (error) {
+        if (error.code === "23505") continue; // máy khác vừa tạo cuốn này — đọc lại
+        return err(500, "write_failed");
+      }
+    }
+    return NextResponse.json(d.reply);
+  }
+  return err(503, "busy");
 }

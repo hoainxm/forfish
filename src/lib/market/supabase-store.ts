@@ -12,7 +12,7 @@ import { MarketError } from "./errors";
 import { makeOrderCode, makeRequestCode } from "./order-code";
 import { isOrderStatus, isPaymentMethod, isPaymentStatus } from "./order-state";
 import { isRequestStatus, type RequestPatch } from "./request-state";
-import type { MarketStore, OrderListQuery, PreparedShopOrder, RequestListQuery } from "./store";
+import type { MarketStore, OrderListQuery, OrderPatch, PreparedShopOrder, RequestListQuery } from "./store";
 import { foldVn, maskPhone } from "./text";
 import { normalizeProductStatus } from "./validate";
 import type {
@@ -211,6 +211,12 @@ export function createSupabaseStore(): MarketStore {
     const { code, message } = pgErr(e);
     console.error(`[market] ${where}:`, code, message);
     throw new MarketError("unavailable");
+  };
+  /** Lỗi từ hàm 0064: P0001 mang mã nghiệp vụ (not_found · bad_transition). */
+  const rpcFail = (where: string, e: unknown): never => {
+    const { code, message } = pgErr(e);
+    if (code === "P0001" && (message === "not_found" || message === "bad_transition")) throw new MarketError(message);
+    return fail(where, e);
   };
   const clampPage = (q?: { page?: number; pageSize?: number }, def = 20) => {
     const page = Math.max(1, Math.floor(q?.page ?? 1) || 1);
@@ -441,35 +447,19 @@ export function createSupabaseStore(): MarketStore {
       return data ? rowToOrder(data as Row) : null;
     },
     async transitionOrder(id, expectStatus, patch) {
-      // nợ: timeline đọc-rồi-ghi 2 câu (đủ khi < 100 đơn/ngày), > 100 đơn/ngày ⇒ `timeline = timeline || $1::jsonb` một câu (12 §12)
-      const { data: cur, error: e1 } = await withSig(client().from("market_orders").select("timeline,status").eq("id", id)).maybeSingle();
-      if (e1) fail("market_orders đọc", e1);
-      if (!cur) throw new MarketError("not_found");
-      if ((cur as Row).status !== expectStatus) throw new MarketError("bad_transition");
-      const row: Row = {};
-      if (patch.status != null) row.status = patch.status;
-      if (patch.paymentStatus != null) row.payment_status = patch.paymentStatus;
-      if (patch.cancelBy != null) row.cancel_by = patch.cancelBy;
-      if (patch.cancelReason != null) row.cancel_reason = patch.cancelReason;
-      if (patch.needsRefund != null) row.needs_refund = patch.needsRefund;
-      if (patch.sellerNote != null) row.seller_note = patch.sellerNote;
-      if (patch.carrier != null) row.carrier = patch.carrier;
-      if (patch.trackingCode != null) row.tracking_code = patch.trackingCode;
-      if (patch.deliveredAt != null) row.delivered_at = patch.deliveredAt;
-      if (patch.completedAt != null) row.completed_at = patch.completedAt;
-      if (patch.etaFrom != null) row.eta_from = patch.etaFrom;
-      if (patch.etaTo != null) row.eta_to = patch.etaTo;
-      if (patch.timelineAppend) row.timeline = [...toTimeline((cur as Row).timeline), patch.timelineAppend];
-      const { data, error } = await withSig(
-        client().from("market_orders").update(row).eq("id", id).eq("status", expectStatus).select(`*, ${ORDER_JOIN}`).maybeSingle(),
+      /*  MỘT giao dịch ở DB (0064 market_transition_order, rà Codex 2026-10-19):
+          đổi trạng thái có điều kiện + nối timeline tại DB (`timeline || entry`,
+          không đọc-rồi-ghi cả mảng) + HOÀN KHO NGAY khi sang da_huy. Trước đây
+          hoàn kho là lời gọi thứ hai, lỗi chỉ ghi log ⇒ đơn huỷ mà hàng chưa về. */
+      const { error } = await withSig(
+        client().rpc("market_transition_order", {
+          p_id: id, p_expect: expectStatus, p_patch: orderPatchRow(patch), p_entry: patch.timelineAppend ?? null,
+        }),
       );
-      if (error) fail("market_orders vá", error);
-      if (!data) throw new MarketError("bad_transition");
-      if (patch.status === "da_huy") {
-        const { error: e2 } = await withSig(client().rpc("market_restock_order", { p_order_id: id }));
-        if (e2) console.error("[market] hoàn kho hỏng:", pgErr(e2).code, pgErr(e2).message);
-      }
-      return rowToOrder(data as Row);
+      if (error) rpcFail("market_transition_order", error);
+      const o = await store.getOrder(id);
+      if (!o) throw new MarketError("not_found");
+      return o;
     },
 
     // ── Yêu cầu đặt hàng (2026-10-18) ──
@@ -498,50 +488,45 @@ export function createSupabaseStore(): MarketStore {
       return data ? rowToRequest(data as Row) : null;
     },
     async patchRequest(id, expectStatus, patch) {
-      const { data: cur, error: e1 } = await withSig(client().from("market_requests").select("timeline,status").eq("id", id)).maybeSingle();
-      if (e1) fail("market_requests đọc", e1);
-      if (!cur) throw new MarketError("not_found");
-      if ((cur as Row).status !== expectStatus) throw new MarketError("bad_transition");
-      const { data, error } = await withSig(
-        client().from("market_requests").update(requestPatchRow(patch, (cur as Row).timeline)).eq("id", id).eq("status", expectStatus).select(`*, ${REQUEST_JOIN}`).maybeSingle(),
+      // 0064 market_patch_request: đổi có điều kiện + nối timeline tại DB, một câu.
+      const { error } = await withSig(
+        client().rpc("market_patch_request", {
+          p_id: id, p_expect: expectStatus, p_patch: requestPatchRow(patch), p_entry: patch.timelineAppend ?? null,
+        }),
       );
-      if (error) fail("market_requests vá", error);
-      if (!data) throw new MarketError("bad_transition");
-      return rowToRequest(data as Row);
+      if (error) rpcFail("market_patch_request", error);
+      const r = await store.getRequest(id);
+      if (!r) throw new MarketError("not_found");
+      return r;
     },
     async acceptRequest(id, patch, pre) {
-      const claimed = await store.patchRequest(id, "da_bao_gia", patch);
+      /*  MỘT giao dịch (0064 market_accept_request): yêu cầu da_bao_gia → da_dat
+          + sinh đơn + ghi order_id. Trước đây là ba câu, rollback tay — tiến trình
+          chết giữa chừng là yêu cầu "đã đặt" không có đơn. buyer/địa chỉ/cách trả
+          tiền lấy từ chính yêu cầu trong DB; đã có đơn (bấm hai lần) ⇒ trả đơn cũ.
+          Mã đơn trùng ⇒ cả giao dịch rollback, sinh mã mới gọi lại (≤3). */
       for (let attempt = 0; attempt < 3; attempt++) {
-        const at = new Date().toISOString();
         const { data, error } = await withSig(
-          client().from("market_orders").insert({
-            code: makeOrderCode(new Date(), Math.random), buyer_phone: claimed.buyerPhone, shop_id: pre.shopId, items: pre.lines,
-            subtotal_vnd: pre.subtotalVnd, shipping_vnd: pre.shippingVnd, total_vnd: pre.totalVnd,
-            payment_method: claimed.paymentMethod, payment_status: "chua_thanh_toan", bank_snapshot: pre.bankSnapshot ?? null,
-            status: "da_xac_nhan", address: claimed.address, buyer_note: pre.buyerNote ?? null, timeline: pre.timeline,
-            eta_from: pre.etaFrom, eta_to: pre.etaTo, request_id: claimed.id, client_ref: `yc:${claimed.id}`, created_at: at,
-          }).select(`*, ${ORDER_JOIN}`).single(),
+          client().rpc("market_accept_request", {
+            p_id: id, p_patch: requestPatchRow(patch), p_entry: patch.timelineAppend ?? null,
+            p_order: {
+              code: makeOrderCode(new Date(), Math.random), shop_id: pre.shopId, items: pre.lines,
+              subtotal_vnd: pre.subtotalVnd, shipping_vnd: pre.shippingVnd, total_vnd: pre.totalVnd,
+              bank_snapshot: pre.bankSnapshot ?? null, buyer_note: pre.buyerNote ?? null, timeline: pre.timeline,
+              eta_from: pre.etaFrom, eta_to: pre.etaTo,
+            },
+          }),
         );
         if (!error) {
-          const order = rowToOrder(data as Row);
-          const { data: r2, error: e3 } = await withSig(
-            client().from("market_requests").update({ order_id: order.id }).eq("id", id).select(`*, ${REQUEST_JOIN}`).maybeSingle(),
-          );
-          if (e3) console.error("[market] ghi order_id yêu cầu hỏng:", pgErr(e3).code, pgErr(e3).message);
-          return { request: r2 ? rowToRequest(r2 as Row) : { ...claimed, orderId: order.id }, order };
+          const ids = data as { request?: Row; order?: Row } | null;
+          const orderId = str(ids?.order?.id);
+          const [request, order] = await Promise.all([store.getRequest(id), orderId ? store.getOrder(orderId) : null]);
+          if (!request || !order) throw new MarketError("not_found");
+          return { request, order };
         }
-        const { code: pg, message } = pgErr(error);
-        if (pg === "23505" && /client_ref/.test(message ?? "")) {
-          const dup = await store.getOrderByClientRef(claimed.buyerPhone, `yc:${claimed.id}`);
-          if (dup) return { request: { ...claimed, orderId: dup.id }, order: dup };
-        }
-        if (pg === "23505") continue;
-        console.error("[market] sinh đơn từ yêu cầu:", pg, message);
-        break;
+        if (pgErr(error).code === "23505" && /market_orders_code_key/.test(pgErr(error).message ?? "")) continue;
+        rpcFail("market_accept_request", error);
       }
-      // trả yêu cầu về "đã báo giá" để bà con bấm lại — không để kẹt ở "đã đặt" mà không có đơn
-      const back = (claimed.timeline ?? []).slice(0, -1);
-      await withSig(client().from("market_requests").update({ status: "da_bao_gia", timeline: back }).eq("id", id).eq("status", "da_dat"));
       throw new MarketError("insert_failed");
     },
 
@@ -720,13 +705,31 @@ export function createSupabaseStore(): MarketStore {
   return store;
 }
 
-function requestPatchRow(p: RequestPatch, curTimeline: unknown): Row {
+/** RequestPatch → khoá cột cho market_patch_request (timeline đi riêng: p_entry). */
+function requestPatchRow(p: RequestPatch): Row {
   const row: Row = {};
   if (p.status != null) row.status = p.status;
   if (p.quote != null) row.quote = p.quote;
   if (p.quoteShopId != null) row.quote_shop_id = p.quoteShopId;
   if (p.rejectReason != null) row.reject_reason = p.rejectReason;
   if (p.orderId != null) row.order_id = p.orderId;
-  if (p.timelineAppend) row.timeline = [...toRequestTimeline(curTimeline), p.timelineAppend];
+  return row;
+}
+
+/** OrderPatch → khoá cột cho market_transition_order (timeline đi riêng: p_entry). */
+function orderPatchRow(p: OrderPatch): Row {
+  const row: Row = {};
+  if (p.status != null) row.status = p.status;
+  if (p.paymentStatus != null) row.payment_status = p.paymentStatus;
+  if (p.cancelBy != null) row.cancel_by = p.cancelBy;
+  if (p.cancelReason != null) row.cancel_reason = p.cancelReason;
+  if (p.needsRefund != null) row.needs_refund = p.needsRefund;
+  if (p.sellerNote != null) row.seller_note = p.sellerNote;
+  if (p.carrier != null) row.carrier = p.carrier;
+  if (p.trackingCode != null) row.tracking_code = p.trackingCode;
+  if (p.deliveredAt != null) row.delivered_at = p.deliveredAt;
+  if (p.completedAt != null) row.completed_at = p.completedAt;
+  if (p.etaFrom != null) row.eta_from = p.etaFrom;
+  if (p.etaTo != null) row.eta_to = p.etaTo;
   return row;
 }
