@@ -26,7 +26,7 @@
 | Sắp tới chỗ nguy hiểm (xác tàu, giàn khoan, bãi cạn, ranh giới) | được nhắc **trước đủ xa để kịp lái**, nhắc lại khi đã sát | chuông → câu đỏ; nói theo MỐC, không lải nhải |
 | Có bão, mất sóng nhiều ngày | biết bão còn cách bao xa, tin này cũ mấy giờ | đọc bản bão đã lưu + tuổi tin, **không bao giờ nói "an toàn"** |
 | Chạy mà không vẽ tuyến (đi quen, đổi ý giữa chừng) | vẫn được cảnh báo | **chế độ Đang chạy chỉ cần GPS** |
-| Điện thoại không có giọng Việt / tắt loa | không bị bỏ rơi | chuông + rung + chữ to vẫn chạy như cũ |
+| Điện thoại không có giọng Việt / tắt loa | không bị bỏ rơi | chuông + rung + chữ trên HUD vẫn chạy như cũ |
 
 **KHÔNG hứa:** độ chính xác hải đồ chính thức (vẫn "tham khảo — dò hải đồ, nghe đài duyên hải"); tự tính lại tuyến; phán "kịp/không kịp"; ra lệnh "bẻ lái ngay".
 
@@ -68,7 +68,7 @@
 
 - **(A)** giữ nguyên mọi thứ của §10.7, chỉ thêm giọng. Có thêm: lệch tuyến, tới chỗ ghé, còn bao xa.
 - **(B) MỚI**: cùng vòng lặp, cùng kho, **không có tuyến** ⇒ không có lệch tuyến / ETA đích; vẫn có ranh giới, hiểm hoạ, bão, sóng gió, phao/đèn, nước nông. HUD rút gọn: hướng đang chạy · tốc độ · "Đang canh chừng" · 2 dòng cảnh báo · nút Giọng/Rung/Dừng.
-- Lối vào (B): nút ≥56 px trên rail Ra khơi, nhãn **"Đang chạy"** (ngang hàng Công cụ/Cài đặt). Lần đầu bấm: tấm 3 dòng *"Máy sẽ đọc to cảnh báo khi tàu chạy. Chỉ tham khảo — dò hải đồ, nghe đài duyên hải."* + nút "Bắt đầu" (chạm này = cử chỉ mở khoá loa iOS).
+- Lối vào (B): nút ô vuông trên rail Ra khơi, nhãn **"Đang chạy"** (ngang hàng Công cụ/Cài đặt). Lần đầu bấm: tấm 3 dòng *"Máy sẽ đọc to cảnh báo khi tàu chạy. Chỉ tham khảo — dò hải đồ, nghe đài duyên hải."* + nút "Bắt đầu" (chạm này = cử chỉ mở khoá loa iOS).
 - Đang (B) mà vẽ tuyến + bấm dẫn đường ⇒ nâng lên (A) **không dừng vòng lặp** (không đọc lại bản tin mở đầu).
 
 ---
@@ -250,10 +250,11 @@ Trần bản tin mở đầu: **≤4 câu, ≤25 giây**. Bấm Dừng/chạm m�
 
 ## 9. Cài đặt & HUD
 
-- Hàng đầu HUD thêm nút **"Giọng: đầy đủ / ít / im 30 phút"** cạnh "Rung" (≥44 px, có chữ, 3 nấc xoay vòng; "im 30 phút" tự về "đầy đủ" — pattern 7b #9, không tắt vĩnh viễn trên HUD). Tắt hẳn chỉ trong panel Cài đặt. Nền tảng không có TTS ⇒ nút ẩn + chip 1 lần.
+- Hàng đầu HUD thêm nút **"Giọng: đầy đủ / ít / im 30 phút"** cạnh "Rung" (bậc control 03 §0, có chữ, 3 nấc xoay vòng; "im 30 phút" tự về "đầy đủ" — pattern 7b #9, không tắt vĩnh viễn trên HUD). Tắt hẳn chỉ trong panel Cài đặt. Nền tảng không có TTS ⇒ nút ẩn + chip 1 lần.
 - Tấm bắt đầu (B) có nút **"Nghe thử"** (đọc 1 câu mẫu; cũng là cử chỉ mở khoá loa iOS) + dòng *"Để màn hình sáng và cắm sạc. Tắt màn là máy ngừng đọc."* Máy Android chưa có giọng Việt ⇒ nút "Tải giọng tiếng Việt" gọi `openInstall()`.
-- Dòng cuối HUD: khi đang đọc, hiện chính câu đang đọc (chữ ≥18 px) — người điếc một bên / máy rè vẫn đọc được.
+- Dòng cuối HUD: khi đang đọc, hiện chính câu đang đọc (bậc nội dung 03 §0) — người điếc một bên / máy rè vẫn đọc được.
 - Panel Cài đặt (rail) mục "Giọng đọc": nấc + nút "Nghe thử" (đọc câu mẫu — cũng là cách mở khoá loa).
+- **Icon Sen Biển báo trạng thái** (2026-10-19, anh Long): một nguồn `lib/sen-bien-state` — đang chạy/dẫn đường ⇒ icon có chấm xanh "đang canh" kể cả lúc im; loa đọc cảnh báo ⇒ nhịp cam "đang nói"; micro mở ⇒ vòng lan "đang nghe"; đang hiểu ý ⇒ vòng xoay; micro chặn ⇒ mờ + gạch. Vẽ ở `components/sen-bien-icon.tsx`, hiệu ứng CSS `.sen-icon` (globals.css).
 - Không thêm trang mới, không route mới.
 
 ---
@@ -859,7 +860,7 @@ Chủ dự án: *"toàn bộ thao tác sàn phải đảm bảo sen biển thự
 
 **Nối vào Sen Biển:**
 - `sen-bien-toan-app.tsx`: thử `hieuLenhCho` TRƯỚC bộ hiểu ý; kết quả qua `choRaThe` (nói + `router.push` màn + bọc nút xác nhận đệ quy để câu kết quả cũng được nói và mở màn).
-- `sen-bien-sheet.tsx`: `SenHeard.xacNhan {nhan, lam}` ⇒ hàng 2 nút [việc · Thôi] (≥ 3.5rem); thẻ giữ `CHON_MS` 15 s khi đang chờ bấm. Prop `hoiNgay` = câu chuyển từ màn khác: mở thẻ là trả lời luôn, không chào.
+- `sen-bien-sheet.tsx`: `SenHeard.xacNhan {nhan, lam}` ⇒ hàng 2 nút [việc · Thôi] (bậc control 03 §0); thẻ giữ `CHON_MS` 15 s khi đang chờ bấm. Prop `hoiNgay` = câu chuyển từ màn khác: mở thẻ là trả lời luôn, không chào.
 - Màn bản đồ (`fishing-map-view` `senHeard`): câu sàn (khi không đang chờ "Đi" / không đang chạy) ⇒ `/cho?sen=<câu>`, Sen Biển ở chợ đọc `?sen=` làm tiếp — khuôn `veBanDo` đảo chiều.
 - `tra-loi-app.ts`: bỏ nhánh "Chợ vật tư chưa mở"; ý chợ n-gram nhận mà luật không bắt (vd "tìm dầu nhớt") trả bằng `answer.ts` (action `search` → `/cho/tim?q=`).
 - **Cổng phụ n-gram v4** (`lenh-cho.ts` `Y_CHO` · `CAU_MAU_CHO` · `hoiLaiCho`, chốt 2026-10-18): `hieuLenhCho` trả null mà bộ n-gram đoán một trong 13 ý sàn (`don_huy` · `da_nhan` · `bao_chuyen` · `yc_moi` · `yc_xem` · `yc_dong_y` · `shop_xac_nhan` · `shop_giao` · `shop_da_giao` · `shop_doi_hen` · `shop_nhan_tien` · `san_yc_moi` · `san_bao_gia` — cùng tên `LenhCho.k`) với độ tin ≥ 0,5 (`CHO_CHAC`, cùng mốc `NGRAM_CHAC` của hieu-y) ⇒ Sen Biển **hỏi lại kèm MỘT câu mẫu**: *Bà con muốn huỷ đơn phải không? Nói rõ giúp, ví dụ: "huỷ đơn UY3Y vì đặt nhầm".* KHÔNG đoán làm hộ — việc sàn đa số là việc GHI, cần mã đơn / tiền / hẹn giao mà chỉ luật tách được. Câu mẫu nào cũng qua đúng `hieuLenhCho` (test khoá). Nối ở `sen-bien-toan-app` (trước `senBienReply`) và màn bản đồ (`senHeard`: luật HOẶC cổng phụ ⇒ sang `/cho?sen=`, Sen Biển ở chợ hỏi lại). Ý `shop_don_moi` · `yc_huy` · `san_khong_tim_duoc` · `dat_hang` · `don_xem` chưa có trong n-gram (luật đủ, hoặc trùng ý cũ `don_cua_toi`).

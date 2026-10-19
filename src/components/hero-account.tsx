@@ -562,16 +562,16 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             min-w-0 + nhãn truncate, đệm hẹp hơn, chữ 1rem. Đo 360px: tiêu đề
             "Chào bà con" 1.25rem 121px + chip SĐT ≈192px vừa một hàng; dài hơn
             (tên khách) thì nhãn cắt "…" chứ tiêu đề không vỡ dòng. */
-        className={`flex min-h-[3.5rem] min-w-0 max-w-full items-center rounded-full transition active:scale-[0.97] ${
+        className={`flex min-w-0 max-w-full items-center rounded-full transition active:scale-[0.97] ${
           light
-            ? "gap-1.5 bg-field pl-1.5 pr-3 text-navy"
+            ? "h-(--h-ctl) gap-1.5 border border-line bg-card pl-1.5 pr-3 text-navy"
             : "mt-3 gap-2 bg-white/15 pl-2 pr-3.5 text-white backdrop-blur-sm"
         }`}
       >
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${light ? "bg-card" : "bg-white/20"}`}>
           <UsersIcon className="h-4.5 w-4.5" />
         </span>
-        <span className={`min-w-0 truncate font-bold ${light ? "text-[1rem]" : "text-[0.9375rem]"}`}>
+        <span className={`min-w-0 truncate font-semibold ${light ? "text-[0.875rem]" : "text-[0.9375rem]"}`}>
           {/* khách lạ thấy thẳng "Đăng nhập" — "Tài khoản" trung tính không
               mời ai làm gì (roadmap hội đồng UX 2026-06-11) */}
           {signedIn && phone ? name || prettyPhone(phone) : "Đăng nhập"}

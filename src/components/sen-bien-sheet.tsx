@@ -23,6 +23,8 @@ import { boNgheSan } from "@/lib/sen-bien/nghe-may";
 import { loadNgram, NGRAM_PATH, type NgramModel } from "@/lib/sen-bien/ngram";
 import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC, viTriGocApp, type ViTriIcon } from "@/lib/sen-bien/vi-tri";
 import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
+import { SenBienIcon, useSenAria } from "@/components/sen-bien-icon";
+import { setSenSignal } from "@/lib/sen-bien-state";
 
 let modelP: Promise<NgramModel | null> | null = null;
 /** Tải trọng số một lần / phiên. Lỗi ⇒ null (lùi về dò tên), lần sau thử lại. */
@@ -117,16 +119,16 @@ export function useSenKeo(gocApp = false) {
 /** Icon Sen Biển nổi khi thẻ ĐÓNG — kéo đi được; chạm = gọi. */
 export function SenBienNoi({ onOpen, gocApp = false }: { onOpen: () => void; gocApp?: boolean }) {
   const { props } = useSenKeo(gocApp);
+  const aria = useSenAria();
   return (
     <button
       type="button"
       {...props}
       onClick={onOpen}
-      aria-label="Sen Biển — nói chỗ muốn tới"
-      className="absolute z-20 h-16 w-16 select-none rounded-full drop-shadow-lg transition-transform active:scale-90"
+      aria-label={aria}
+      className="absolute z-20 h-14 w-14 select-none rounded-full transition-transform active:scale-90"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy */}
-      <img src="/icons/sen-bien.png" alt="" draggable={false} className="h-full w-full" />
+      <SenBienIcon className="fab-mascot block h-full w-full" />
     </button>
   );
 }
@@ -183,6 +185,16 @@ export function SenBienSheet({
   const canVoice = sttSupported();
   const [mode, setMode] = useState<"goi" | "chat">(canVoice ? "goi" : "chat");
   const [phase, setPhase] = useState<"chao" | "nghe" | "nghi" | "ranh">("ranh");
+  /*  Báo trạng thái cho MỌI icon Sen Biển (lib/sen-bien-state, 2026-10-19): thẻ là
+      nguồn của "đang nghe"/"đang nghĩ"; "đang chào" = loa đọc nên tính là đang nói
+      (tts.ts tự báo speaking). Thẻ đóng ⇒ trả về rảnh. */
+  useEffect(() => {
+    setSenSignal({ listening: phase === "nghe", thinking: phase === "nghi" });
+    return () => setSenSignal({ listening: false, thinking: false, level: null });
+  }, [phase]);
+  useEffect(() => {
+    setSenSignal({ micBlocked: !canVoice || !micGranted() });
+  }, [canVoice]);
   const [heard, setHeard] = useState("");
   const [shown, setShown] = useState<SenHeard>(null);
   const [typed, setTyped] = useState("");
@@ -215,7 +227,10 @@ export function SenBienSheet({
     [],
   );
 
-  const daMuc = (v: number) => setMuc((m) => [...(m ?? []).slice(-(SO_VACH - 1)), v]);
+  const daMuc = (v: number) => {
+    setSenSignal({ level: Math.max(0, Math.min(1, v)) });
+    setMuc((m) => [...(m ?? []).slice(-(SO_VACH - 1)), v]);
+  };
 
   const answer = useCallback(
     async (text: string) => {
@@ -457,16 +472,10 @@ export function SenBienSheet({
         onClick={bamSen}
         aria-label="Thu Sen Biển lại"
         aria-expanded={true}
-        className="pointer-events-auto absolute z-40 h-16 w-16 select-none rounded-full drop-shadow-lg transition-transform active:scale-90"
+        className="pointer-events-auto absolute z-40 h-14 w-14 select-none rounded-full transition-transform active:scale-90"
       >
-        {dangGhi && <span className="anim-vong absolute inset-1 rounded-full bg-t1" aria-hidden="true" />}
-        {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy, cache SW */}
-        <img
-          src="/icons/sen-bien.png"
-          alt=""
-          draggable={false}
-          className={`relative h-full w-full rounded-full transition ${dangGhi ? "scale-105 ring-2 ring-t1" : dangChao ? "animate-pulse" : ""}`}
-        />
+        {/* hiệu ứng nghe/nghĩ/nói lấy từ một nguồn (lib/sen-bien-state) — không vẽ riêng ở đây nữa */}
+        <SenBienIcon className="fab-mascot block h-full w-full" />
       </button>
 
       {/*  BONG BÓNG KÍNH (liquid) TRÊN ĐẦU SEN BIỂN — trồi lên từ icon như giọt nước nở ra; nền mờ

@@ -29,7 +29,7 @@ export function SectionHeader({
 }) {
   return (
     <h2
-      className={`display px-4 pb-2 text-[1.25rem] font-bold text-navy ${className}`}
+      className={`display px-4 pb-2 text-[1.125rem] font-semibold text-navy ${className}`}
     >
       {children}
     </h2>
@@ -46,7 +46,7 @@ export function Field({
 }) {
   return (
     <label className="mb-3.5 block">
-      <span className="mb-1.5 block text-[1rem] font-bold text-navy">
+      <span className="mb-1.5 block text-[0.875rem] font-semibold text-navy">
         {label}
       </span>
       {children}
@@ -56,9 +56,9 @@ export function Field({
 
 /** Class chuẩn cho ô nhập 1 dòng / select / textarea — kiểu FILLED hiện đại. */
 export const inputClass =
-  "w-full rounded-2xl border-0 bg-field px-4 py-4 text-[1.125rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
+  "h-(--h-ctl) w-full rounded-xl border border-line bg-card px-3.5 text-[1rem] focus:outline-none focus:ring-2 focus:ring-sea";
 
-/** Nút chính (cam trim) — pill, tap ≥60px, bóng màu. */
+/** Nút chính (cam trim) — bậc nút chính 3.25rem, bo 0.75rem, không bóng (03 §0, 2026-10-19). */
 export function PrimaryButton({
   type = "button",
   onClick,
@@ -77,7 +77,7 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none ${className}`}
+      className={`display flex h-(--h-cta) w-full items-center justify-center gap-2 rounded-xl bg-trim text-[1rem] font-semibold text-white transition active:scale-[0.98] disabled:opacity-40 ${className}`}
     >
       {children}
     </button>
@@ -111,7 +111,7 @@ export function MoneyField({
         placeholder={placeholder}
       />
       {readback && (
-        <span className="mt-1 block text-[1rem] font-bold text-navy">
+        <span className="mt-1 block text-[0.875rem] font-semibold text-navy">
           = {readback}
         </span>
       )}
@@ -139,7 +139,7 @@ export function CallButton({
           /tien mục "Bán ở đâu" — dưới sàn. Gọi thương lái là việc chạm-nhiều
           trên bến, tay ướt. Bề ngang px-4 GIỮ NGUYÊN: nhãn "Gọi hỏi mua" /
           "Gọi chào bán" cần chỗ, bóp về w-16 sẽ cắt chữ. */
-      className={`inline-flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-full bg-sea px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97] ${className}`}
+      className={`inline-flex h-(--h-ctl) min-w-[5.5rem] shrink-0 items-center justify-center gap-1.5 rounded-xl bg-sea px-3 text-[0.875rem] font-semibold text-white transition active:scale-[0.97] ${className}`}
     >
       <PhoneIcon className="h-4 w-4" />
       {label}
@@ -156,9 +156,9 @@ export function EmptyState({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
+    <div className="rounded-2xl border border-dashed border-line bg-card px-4 py-8 text-center">
       {icon && <div className="mx-auto mb-3 w-fit text-foreground/65">{icon}</div>}
-      <p className="text-[1.125rem] text-foreground/70">{children}</p>
+      <p className="text-[1rem] text-foreground/65">{children}</p>
     </div>
   );
 }

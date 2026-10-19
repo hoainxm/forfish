@@ -480,6 +480,7 @@ import type { ChartReadiness } from "@/lib/nav-voice/opening";
 import { VOICE_MODE_LABEL } from "@/lib/nav-voice/prefs";
 import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
+import { setSenSignal } from "@/lib/sen-bien-state";
 import { apDungGemma, canGemma, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
@@ -2338,6 +2339,12 @@ export default function FishingMapView() {
       canh hải đồ + đọc cảnh báo. Dùng CHUNG mọi bộ não của dẫn đường live (ranh
       giới, hiểm hoạ, phao/đèn) — `navOn` dưới đây = có tuyến HOẶC đang chạy. */
   const [cruise, setCruise] = useState(false);
+  /*  Sen Biển "đang canh" (icon có chấm xanh thường trực — lib/sen-bien-state, 2026-10-19):
+      bật khi Đang chạy hoặc đang dẫn đường, kể cả lúc loa im. Rời màn ⇒ tắt. */
+  useEffect(() => {
+    setSenSignal({ watching: cruise || navMode != null });
+    return () => setSenSignal({ watching: false });
+  }, [cruise, navMode]);
   const [cruiseIntro, setCruiseIntro] = useState(false);
   // hạng độ sâu tại điểm đang xem (null = chưa biết/không cảnh báo)
   const [depth, setDepth] = useState<DepthClass | null>(null);

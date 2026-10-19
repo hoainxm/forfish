@@ -23,7 +23,7 @@ export function ManHeader({
   compact?: boolean;
 }) {
   return (
-    <header className="px-4 pb-2" style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}>
+    <header className="px-4 pb-1" style={{ paddingTop: "calc(0.5rem + env(safe-area-inset-top))" }}>
       <div className={`flex min-h-[3.5rem] items-center ${compact ? "gap-2" : "gap-3"}`}>
         <h1
           className={`display font-bold leading-tight text-navy ${
@@ -34,7 +34,7 @@ export function ManHeader({
         </h1>
         {right}
       </div>
-      {sub && <p className="text-[1.125rem] leading-snug text-foreground/75">{sub}</p>}
+      {sub && <p className="text-[0.875rem] leading-snug text-foreground/65">{sub}</p>}
     </header>
   );
 }

@@ -32,6 +32,7 @@
 // Không file nào ném ra ngoài: mọi lỗi nuốt, `onEnd` luôn được gọi đúng một lần
 // để hàng đợi phát ngôn không bao giờ kẹt.
 
+import { setSenSignal } from "@/lib/sen-bien-state";
 import { Capacitor } from "@capacitor/core";
 import { QueueStrategy, TextToSpeech } from "@capacitor-community/text-to-speech";
 import clipCatalog from "@/data/giong-sen-bien.json";
@@ -735,6 +736,7 @@ export function ttsSpeak(
 ): () => void {
   // MỘT LƯỢT NÓI MỘT LÚC: câu mới thay câu cũ (như `synth.cancel()` trước đây)
   activeCancel?.();
+  setSenSignal({ speaking: true }); // icon Sen Biển "đang nói" (lib/sen-bien-state)
   let ended = false;
   const timers: ReturnType<typeof setTimeout>[] = [];
   let stopCur: (() => void) | null = null;
@@ -743,6 +745,7 @@ export function ttsSpeak(
     ended = true;
     for (const t of timers) clearTimeout(t);
     if (activeCancel === cancel) activeCancel = null;
+    setSenSignal({ speaking: false });
     opts.onEnd?.(completed);
   };
   const cancel = () => {

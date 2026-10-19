@@ -6,10 +6,10 @@ import { AnchorIcon, CartIcon, FishIcon, HomeIcon, PinIcon } from "@/components/
 import { DOCK, dockActive, type DockId } from "@/lib/dock-nav";
 
 /*
-  Dock điều hướng (spec user 2026-07-29): DockFrame fixed + dock `absolute
-  bottom:0` neo đáy frame → mọi tab một đáy, không dịch theo tab. Nền navy phủ
-  TỚI đáy màn (border-radius top), safe-area là padding TRONG dock nên icon/chữ
-  nằm trên home-indicator. Chiều cao dùng chung --dock-total (globals.css).
+  Dock điều hướng (spec user 2026-07-29; phẳng theo mẫu Codex 2026-10-19): DockFrame
+  fixed + dock `absolute bottom:0` neo đáy frame. Nền TRẮNG viền trên 1px, không
+  pill navy; mục đang chọn navy đậm, mục khác xám. Safe-area là padding TRONG dock
+  nên icon/chữ nằm trên home-indicator. Chiều cao dùng chung --dock-total.
   NĂM MỤC (chủ dự án chốt 2026-10-19): Trang chủ · Bản đồ · Tàu tôi · Chợ cá ·
   Vật tư — mỗi việc một chỗ; mục nào sáng ở route nào: lib/dock-nav.ts.
 */
@@ -26,8 +26,8 @@ export function BottomNav() {
   const on = dockActive(pathname);
   return (
     <div className="dock-frame">
-      <nav aria-label="Điều hướng chính" className="bottom-dock backdrop-blur-md">
-        <ul className="grid h-full grid-cols-5 items-stretch gap-0.5 px-1 py-1.5">
+      <nav aria-label="Điều hướng chính" className="bottom-dock">
+        <ul className="grid h-full grid-cols-5 items-stretch">
           {DOCK.map(({ id, href, label }) => {
             const active = on === id;
             const Icon = ICON[id];
@@ -36,12 +36,12 @@ export function BottomNav() {
                 <Link
                   href={href}
                   aria-current={active ? "page" : undefined}
-                  className={`flex h-full flex-col items-center justify-center gap-0.5 rounded-[1.25rem] transition-[color,background-color,transform] duration-200 ease-out active:scale-95 ${
-                    active ? "bg-white text-navy" : "text-white/80"
+                  className={`flex h-full flex-col items-center justify-center gap-1 transition-[color,transform] duration-200 ease-out active:scale-95 ${
+                    active ? "text-navy" : "text-foreground/60"
                   }`}
                 >
                   <Icon className="h-6 w-6 shrink-0" />
-                  <span className="dock-label font-bold">{label}</span>
+                  <span className={`dock-label ${active ? "font-semibold" : "font-medium"}`}>{label}</span>
                 </Link>
               </li>
             );

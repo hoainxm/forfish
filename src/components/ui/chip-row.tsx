@@ -39,15 +39,17 @@ export function ChipRow<T extends string>({
       NHIỀU NHẤT của khu Giao dịch (đường duy nhất chuyển giữa 3 mục lớn + 4 mục
       con). Bề ngang GIỮ NGUYÊN — chip tự co theo nhãn, không phải ô vuông; đúng
       cách đã xử ca 5b(b) của my-places-sheet. */
+  /*  Bậc chip 03 §0 (2026-10-19): cao 2.5rem, rộng CỐ ĐỊNH ≥5.5rem, chữ canh giữa —
+      nhãn ≤2 chữ nên không nở theo chữ; tầng 2 chỉ khác màu, không khác cỡ. */
   const base =
     level === 1
-      ? "min-h-[3.5rem] px-4 text-[1rem]"
-      : "min-h-[3.25rem] px-3.5 text-[0.9375rem]";
+      ? "h-(--h-chip) min-w-[5.5rem] px-3 text-[0.875rem]"
+      : "h-(--h-chip) min-w-[5.5rem] px-3 text-[0.8125rem]";
   return (
     <div
       role="group"
       aria-label={ariaLabel}
-      className="mb-3 flex gap-1.5 overflow-x-auto px-4"
+      className="mb-3 flex gap-2 overflow-x-auto px-4"
     >
       {options.map((o) => {
         const on = o.id === value;
@@ -57,12 +59,12 @@ export function ChipRow<T extends string>({
             type="button"
             onClick={() => onChange(o.id)}
             aria-pressed={on}
-            className={`${base} shrink-0 rounded-full font-bold transition active:scale-[0.97] ${
+            className={`${base} inline-flex shrink-0 items-center justify-center rounded-full border font-semibold transition active:scale-[0.97] ${
               on
                 ? level === 1
-                  ? "text-white"
-                  : ""
-                : "bg-field text-navy/65 active:bg-card"
+                  ? "border-transparent text-white"
+                  : "border-transparent"
+                : "border-line bg-card text-foreground/75"
             }`}
             style={
               on

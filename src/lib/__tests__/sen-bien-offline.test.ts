@@ -14,7 +14,7 @@ const SW = readFileSync(join(root, "public", "sw.js"), "utf8");
 const CRITICAL = SW.slice(SW.indexOf("const CRITICAL_SHELL"), SW.indexOf("const SHELL"));
 
 describe("ảnh trên màn bản đồ có trong vỏ sống-còn", () => {
-  const files = ["src/components/fishing-map-view.tsx", "src/components/nav-mode.tsx", "src/components/sen-bien-sheet.tsx"];
+  const files = ["src/components/fishing-map-view.tsx", "src/components/nav-mode.tsx", "src/components/sen-bien-sheet.tsx", "src/components/sen-bien-icon.tsx"];
   const icons = new Set<string>();
   for (const f of files) {
     const src = readFileSync(join(root, f), "utf8");

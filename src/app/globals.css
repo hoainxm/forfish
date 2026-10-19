@@ -98,8 +98,8 @@ html {
 */
 :root {
   /* hở đáy nhỏ để PILL nổi trên home-indicator (bớt "dư bottom": floor 6px) */
-  --dock-safe: max(6px, env(safe-area-inset-bottom, 0px));
-  --dock-row: calc(4.5rem - 5px); /* chiều cao pill — bớt 5px (user) */
+  --dock-safe: env(safe-area-inset-bottom, 0px);
+  --dock-row: 3.5rem; /* thanh dock phẳng theo thang Codex (03 §0, 2026-10-19) */
   --dock-total: calc(var(--dock-row) + var(--dock-safe));
 }
 
@@ -114,17 +114,19 @@ html {
   margin-inline: auto;
   pointer-events: none; /* trong suốt, để map/nội dung sau nhận chạm */
 }
-/* PILL NỔI 4 GÓC TRÒN, tách mép, nổi trên home-indicator (--dock-safe) */
+/*  DOCK PHẲNG (anh Long 2026-10-19, "đẹp như mẫu Codex"): nền trắng, viền trên
+    1px, không pill navy, không bóng đậm; mục đang chọn navy đậm. Safe-area là
+    padding đáy của chính dock nên nền phủ tới mép màn. */
 .bottom-dock {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: var(--dock-safe);
-  height: var(--dock-row);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--dock-total);
+  padding-bottom: var(--dock-safe);
   pointer-events: auto;
-  background: rgb(17 42 66 / 0.92);
-  border-radius: 1.625rem;
-  box-shadow: 0 12px 32px -8px rgb(10 30 50 / 0.45);
+  background: var(--card);
+  border-top: 1px solid var(--line);
 }
 /* nội dung trang cuộn: chừa đúng chiều cao dock + thở 1rem */
 .app-content {
@@ -148,16 +150,11 @@ html {
 .dock-label {
   white-space: nowrap;
   line-height: 1.15;
-  font-size: 0.9375rem;
-}
-@media (max-width: 399px) {
-  .dock-label {
-    font-size: 0.875rem;
-  }
+  font-size: 0.75rem;
 }
 @media (max-width: 344px) {
   .dock-label {
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
   }
 }
 
@@ -200,64 +197,42 @@ html {
   lưu forfish.displaymode.v1; script đầu <body> đặt data-mode trước khi vẽ.
 */
 html[data-mode="to"] {
-  font-size: 16px;
-  /* "To" giữ đúng sàn chạm 56px của app (tay ướt, tàu lắc, nắng chói) */
-  --row-h: 3.5rem;
+  /*  "Nút to" (2026-10-19, thang Codex): nâng GỐC lên 17px — mọi cỡ to theo tỷ
+      lệ, bố cục không đổi. Không còn đổi riêng chiều cao nút theo chế độ. */
+  font-size: 17px;
 }
-/*  Ô NHẬP vẫn giữ sàn 16px như một CẦU DAO: chế độ "Theo máy" (auto) ăn theo
-    cỡ chữ của điện thoại, máy nào đặt nhỏ là lại rơi xuống dưới ngưỡng iOS.
-    Không `!important` nữa vì không còn phải thắng ai — gốc đã 16px. */
+/*  Ô NHẬP giữ sàn 16px thực tế: hành vi nền tảng iOS (chạm ô < 16px là tự phóng
+    cả trang), không phải luật đối tượng. */
 input,
 select,
 textarea {
   font-size: max(16px, 1em);
 }
-
-/*  "GỌN" NAY LÀ 16px, KHÔNG CÒN 14px (chủ dự án 2026-08-29: *"đừng để nó phóng
-    to nữa, đưa kích thước lên cho đủ"*).
-
-    VÌ SAO: 14px làm MỌI ô nhập rơi xuống dưới ngưỡng 16px của iOS ⇒ chạm vào ô
-    là hệ điều hành tự phóng to cả trang; trên bản CÀI (standalone) không có
-    thanh địa chỉ để thu lại, app kẹt luôn ở trạng thái phóng — rail tràn khỏi
-    mép phải, dock cụt, "ko view được cái gì". Vá riêng ô nhập bằng `!important`
-    chỉ chữa triệu chứng và còn làm ô nhập to lệch khỏi phần chữ quanh nó.
-
-    Nâng gốc lên 16px chữa luôn một lỗ thứ hai đã đo được: sàn tap 3.5rem ở
-    gốc 14 chỉ ra 49px — DƯỚI sàn 56px của chính design-system này. Ở gốc 16px
-    thì 3.5rem = đúng 56px.
-
-    Đổi lại mật độ thưa hơn ~14%: mọi thẻ cao thêm, nên phải soi lại sàn "bản đồ
-    ≥60%" sau khi đổi (xem 03-design-system §Nút hành động). */
 html[data-mode="gon"] {
   font-size: 16px;
-  /*  CHẾ ĐỘ "GỌN" NAY GỌN THẬT (chủ dự án 2026-08-29h: *"nút hạ xuống 37 với
-      chế độ gọn"*). Trước đó "gọn" và "to" cùng 16px gốc nên công tắc chẳng
-      đổi gì — chọn xong màn y hệt.
-
-      GỌN KHÔNG ĐỘNG VÀO CỠ CHỮ, chỉ hạ chiều cao hàng + nút: cỡ chữ hạ xuống
-      dưới 16px là iOS tự phóng to cả trang khi chạm ô nhập (án lệ 2026-08-29,
-      lỗi "bể ra hết"). Gọn = ít khoảng đệm, KHÔNG phải chữ nhỏ.
-
-      37px DƯỚI SÀN CHẠM 56px — chủ dự án chốt sau khi tôi nêu lo ngại: đây là
-      lựa chọn CÓ Ý THỨC của người dùng, ai thấy khó bấm thì đổi sang "To".
-      Mặc định của app vẫn là 56px. */
-  --row-h: 2.3125rem;
 }
 
 :root {
-  /*  Chiều cao chuẩn của MỘT hàng và MỘT nút hành động — thân hàng và nút phải
-      bằng nhau (07 §10.7 M10). Chế độ hiển thị ghi đè biến này; mặc định là
-      sàn chạm 56px. */
-  --row-h: 3.5rem;
+  /*  BẬC KÍCH THƯỚC CONTROL (03 §0, thang Codex 2026-10-19) — cùng loại cùng cỡ,
+      không nở theo chữ. `--row-h` là tên cũ, nay = `--h-ctl`. */
+  --h-cta: 3.25rem; /* nút chính: cam / navy */
+  --h-ctl: 2.75rem; /* control thường: nút phụ, ô nhập, ô vuông rail */
+  --h-chip: 2.5rem; /* chip, tab trong trang */
+  --h-row: 3.5rem; /* hàng danh sách tối thiểu */
+  --row-h: var(--h-ctl);
+  --r-card: 1rem;
+  --r-ctl: 0.75rem;
+  --shadow-card: 0 1px 2px rgb(13 35 54 / 0.04);
+  --shadow-float: 0 4px 16px rgb(13 35 54 / 0.12);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  /* large base for older eyes + sunlight (rem để ăn theo chế độ hiển thị) */
-  font-size: 1.125rem;
-  line-height: 1.6;
+  /* nội dung chính 1rem (03 §0); rem để ăn theo chế độ hiển thị */
+  font-size: 1rem;
+  line-height: 1.5;
   /* KHÔNG pad đáy ở body: <main> đã chừa calc(8rem+env(sab)) và bottom-nav tự
      chừa env(sab) — pad thêm ở body = cộng đôi safe-area = hở đáy thừa trên máy
      tai thỏ/gesture. */
@@ -408,15 +383,14 @@ textarea,
 }
 
 /*
-  Bề mặt hiện đại — thẻ KHÔNG viền: trắng nổi trên nền mist bằng bóng mềm,
-  bo 20px. Thay cho "rounded-xl bg-card shadow-sm ring-1 ring-line" cũ.
+  Thẻ theo mẫu Codex (2026-10-19): trắng, VIỀN 1px line, bo 1rem, bóng rất nhẹ —
+  ít lớp, nền sáng; thay bản "không viền + bóng mềm bo 20px" cũ.
 */
 .surface {
   background: var(--card);
-  border-radius: 1.25rem;
-  box-shadow:
-    0 1px 2px rgb(13 35 54 / 0.05),
-    0 8px 24px -12px rgb(13 35 54 / 0.12);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
 }
 
 /*
@@ -594,6 +568,98 @@ textarea,
   In hồ sơ chuyến biển (C1) — khi In/Lưu PDF chỉ in vùng .print-area, giấu
   mọi thứ khác (nav, nút). Người mua / cơ quan cần bản giấy sạch.
 */
+
+/*  ICON SEN BIỂN — HIỆU ỨNG THEO TRẠNG THÁI (anh Long 2026-10-19: "cần có hiệu
+    ứng để phân biệt lúc nào đang chạy lúc nào ko"). Một nguồn: lib/sen-bien-state
+    → data-sen trên .sen-icon (components/sen-bien-icon.tsx). Hiệu ứng vẽ bằng
+    ::before/::after NẰM TRONG hộp icon — không làm icon to ra, không che thêm.
+      ranh        tĩnh
+      nghe        vòng lan màu biển (sea) + sóng âm theo mức thật (--sen-level)
+      nghi        vòng xoay đứt nét
+      noi         nhịp sáng cam (trim) nhẹ, chậm hơn "nghe"
+      khong-nghe  icon mờ + gạch chéo nhỏ
+    và dấu canh (data-canh) — chấm xanh thường trực góc dưới phải.
+    prefers-reduced-motion: chỉ đổi màu/viền, không chuyển động (khối reduce ở trên
+    đã tắt animation; viền tĩnh vẫn còn). */
+.sen-icon {
+  position: relative;
+  display: inline-block;
+}
+.sen-icon > img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+}
+.sen-icon::before,
+.sen-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.sen-icon::before { z-index: 0; }
+.sen-icon::after { z-index: 2; }
+.sen-icon[data-sen="nghe"]::before {
+  border: 2px solid var(--sea);
+  animation: sdf-vong 1.4s ease-out infinite;
+}
+.sen-icon[data-sen="nghe"]::after {
+  inset: auto 0 -0.25rem 0;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: var(--sea);
+  transform: scaleX(calc(0.2 + 0.8 * var(--sen-level, 0.3)));
+  transition: transform 120ms linear;
+}
+.sen-icon[data-sen="nghi"]::before {
+  border: 2px dashed var(--sea);
+  animation: sdf-xoay 1.1s linear infinite;
+}
+.sen-icon[data-sen="noi"]::before {
+  border: 2px solid var(--trim);
+  animation: sdf-nhip 1.8s ease-in-out infinite;
+}
+.sen-icon[data-sen="khong-nghe"] > img { opacity: 0.5; }
+.sen-icon[data-sen="khong-nghe"]::after {
+  inset: 45% 15% auto 15%;
+  height: 2px;
+  border-radius: 0;
+  background: var(--danger);
+  transform: rotate(-35deg);
+}
+.sen-icon[data-canh="1"]::after {
+  inset: auto 6% 6% auto;
+  width: 0.625rem;
+  height: 0.625rem;
+  background: var(--ok);
+  box-shadow: 0 0 0 2px var(--card);
+}
+/* đang canh VÀ đang nghe/không nghe: ::after đã dùng — chấm canh dời sang ::before góc */
+.sen-icon[data-canh="1"][data-sen="nghe"]::before,
+.sen-icon[data-canh="1"][data-sen="khong-nghe"]::before {
+  inset: auto 6% 6% auto;
+  width: 0.625rem;
+  height: 0.625rem;
+  border: 0;
+  background: var(--ok);
+  box-shadow: 0 0 0 2px var(--card);
+  animation: none;
+}
+@keyframes sdf-xoay {
+  to { transform: rotate(360deg); }
+}
+@keyframes sdf-nhip {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sen-icon[data-sen="nghe"]::before,
+  .sen-icon[data-sen="nghi"]::before,
+  .sen-icon[data-sen="noi"]::before { animation: none; opacity: 1; }
+}
+
 @media print {
   body * {
     visibility: hidden;
@@ -622,32 +688,25 @@ textarea,
     icon trơ trọi thì bà con 40–60 tuổi phải đoán (CLAUDE.md cấm). */
 .sq-btn {
   display: flex;
-  min-height: var(--row-h);
-  width: 4rem;
+  min-height: var(--h-ctl);
+  width: 3.5rem;
   flex-shrink: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.125rem;
-  border-radius: 1rem;
-  padding-block: 0.5rem;
+  border-radius: var(--r-ctl);
+  padding-block: 0.25rem;
   font-size: 0.6875rem;
-  font-weight: 700;
-  line-height: 1.25;
+  font-weight: 600;
+  line-height: 1.2;
   transition-property: color, background-color, border-color, transform;
   transition-duration: 150ms;
 }
-.sq-btn:active {
-  transform: scale(0.95);
-}
-html[data-mode="gon"] .sq-btn {
-  width: auto;
-  flex-direction: row;
-  gap: 0.25rem;
-  padding-block: 0.25rem;
-  padding-inline: 0.5rem;
-}
-html[data-mode="gon"] .sq-btn svg {
+.sq-btn svg {
   height: 1.25rem;
   width: 1.25rem;
+}
+.sq-btn:active {
+  transform: scale(0.95);
 }
