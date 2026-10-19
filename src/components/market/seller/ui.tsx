@@ -14,7 +14,7 @@ import type { OrderLine } from "@/lib/market/types";
     đúng sàn chạm 3.5rem và chữ 1rem ở MỌI chế độ; nền/màu chữ do nơi gọi
     thêm (`bg-field text-navy`, `bg-trim text-white`…). */
 export const SELLER_BTN =
-  "flex min-h-(--row-h) items-center justify-center gap-2 rounded-2xl px-4 py-2 text-[1rem] font-bold transition active:scale-[0.98] disabled:opacity-40";
+  "flex min-h-(--row-h) items-center justify-center gap-2 rounded-2xl px-4 py-2 text-[1rem] font-semibold transition active:scale-[0.98] disabled:opacity-40";
 
 /** Nút chữ chiếm trọn bề ngang ô chứa (hàng nút dưới thẻ món). */
 export const SELLER_BTN_WIDE = `${SELLER_BTN} w-full`;

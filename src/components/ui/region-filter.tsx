@@ -86,7 +86,7 @@ export function HomeBar({
         type="button"
         onClick={() => setNear(true)}
         aria-pressed={near}
-        className={`min-h-[3.5rem] rounded-xl text-[0.9375rem] font-bold ${
+        className={`min-h-(--h-row) rounded-xl text-[0.875rem] font-semibold ${
           near ? "bg-navy text-white" : "bg-field text-foreground/70"
         }`}
       >
@@ -96,7 +96,7 @@ export function HomeBar({
         type="button"
         onClick={() => setNear(false)}
         aria-pressed={!near}
-        className={`min-h-[3.5rem] rounded-xl text-[0.9375rem] font-bold ${
+        className={`min-h-(--h-row) rounded-xl text-[0.875rem] font-semibold ${
           !near ? "bg-navy text-white" : "bg-field text-foreground/70"
         }`}
       >

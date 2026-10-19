@@ -25,7 +25,7 @@ import { LoginGate } from "@/components/login-gate";
   vấp lại chính link chuyển.
 */
 export function TauTabs() {
-  return <Suspense fallback={<p role="status" className="p-4 text-[1.125rem]">Đang mở hồ sơ tàu…</p>}><HoSoTau /></Suspense>;
+  return <Suspense fallback={<p role="status" className="p-4 text-[1rem]">Đang mở hồ sơ tàu…</p>}><HoSoTau /></Suspense>;
 }
 
 function HoSoTau() {

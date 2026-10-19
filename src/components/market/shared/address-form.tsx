@@ -16,7 +16,7 @@ const PORT_OPTIONS: readonly ChipOption<"cang" | "dia_chi">[] = [
 /** Câu lỗi ngay dưới ô (F-11) — một khuôn cho mọi ô. */
 function FieldError({ text }: { text: string }) {
   return (
-    <span className="mt-1 block text-[1rem] font-bold" style={{ color: "var(--danger)" }} role="alert">
+    <span className="mt-1 block text-[1rem] font-semibold" style={{ color: "var(--danger)" }} role="alert">
       {text}
     </span>
   );
@@ -108,7 +108,7 @@ export function AddressForm({
         </select>
         {bad === "province" && error && <FieldError text={error} />}
       </Field>
-      <p className="mb-1.5 block text-[1rem] font-bold text-navy">Nhận ở đâu</p>
+      <p className="mb-1.5 block text-[1rem] font-semibold text-navy">Nhận ở đâu</p>
       <div className="-mx-4">
         <ChipRow
           options={PORT_OPTIONS}

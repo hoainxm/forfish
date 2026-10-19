@@ -683,7 +683,7 @@ const FOLLOW_CHIP: Partial<Record<Intent, Suggestion>> = {
   bao_duong: chip("Bảo dưỡng tới hạn", "bảo dưỡng gì tới hạn"),
   thuyen_vien: chip("Bạn thuyền", "tàu có mấy người"),
   xem_gio: chip("Xem giỏ", "giỏ có gì"),
-  don_cua_toi: chip("Đơn của tôi", "đơn của tôi"),
+  don_cua_toi: chip("Đơn hàng", "đơn của tôi"),
   gia_ca: chip("Giá cá", "giá cá hôm nay"),
   gia_dau: chip("Giá dầu", "giá dầu"),
   hop_thu: chip("Tin mới", "có tin mới không"),

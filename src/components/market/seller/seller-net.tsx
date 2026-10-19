@@ -199,7 +199,7 @@ export function agoLabel(iso: string, now: number = Date.now()): string {
 /** Dòng "đang tải" — KHÔNG bao giờ vẽ null (án lệ màn trắng câm, 11 §5). */
 export function Loading({ what }: { what: string }) {
   return (
-    <p role="status" className="px-4 py-8 text-center text-[1.125rem] font-semibold text-foreground/65">
+    <p role="status" className="px-4 py-8 text-center text-[1rem] font-semibold text-foreground/65">
       Đang tải {what}…
     </p>
   );
@@ -254,7 +254,7 @@ export function InlineNote({ text, level = "ok" }: { text: string; level?: "ok" 
   return (
     <p
       role="status"
-      className="mx-4 mb-3 rounded-2xl px-3.5 py-2.5 text-[1rem] font-bold"
+      className="mx-4 mb-3 rounded-2xl px-3.5 py-2.5 text-[1rem] font-semibold"
       style={
         level === "ok"
           ? { backgroundColor: "var(--ok-bg)", color: "var(--ok)" }

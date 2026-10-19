@@ -90,7 +90,7 @@ export const shopFieldDomId = (f: ShopField) => `shop-field-${f}`;
 function ErrLine({ msg }: { msg?: string }) {
   if (!msg) return null;
   return (
-    <p className="-mt-2.5 mb-3 text-[1rem] font-bold" style={{ color: "var(--danger)" }} role="alert">
+    <p className="-mt-2.5 mb-3 text-[1rem] font-semibold" style={{ color: "var(--danger)" }} role="alert">
       {msg}
     </p>
   );
@@ -196,7 +196,7 @@ export function ShopForm({
         <button
           type="button"
           onClick={() => setShowMore(true)}
-          className="mb-4 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-bold text-navy"
+          className="mb-4 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-semibold text-navy"
         >
           <PlusIcon className="h-5 w-5 shrink-0" />
           Thêm giới thiệu · miễn phí giao
@@ -233,12 +233,12 @@ export function ShopForm({
           <button
             type="button"
             onClick={() => setShowBank(true)}
-            className="mb-1.5 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-bold text-navy"
+            className="mb-1.5 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-semibold text-navy"
           >
             <PlusIcon className="h-5 w-5 shrink-0" />
             Thêm số tài khoản ngân hàng
           </button>
-          <p className="mb-4 text-[0.9375rem] leading-snug text-foreground/70">
+          <p className="mb-4 text-[0.875rem] leading-snug text-foreground/70">
             Không có số tài khoản thì bà con chỉ trả được tiền mặt khi nhận hàng.
           </p>
         </>

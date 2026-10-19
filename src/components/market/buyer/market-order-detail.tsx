@@ -216,10 +216,10 @@ export function MarketOrderDetail({ id }: { id: string }) {
     return (
       <div className="px-4 py-8 pb-[7rem] text-center">
         <div className="mx-auto mb-3 w-fit text-foreground/50"><AlertIcon className="h-8 w-8" /></div>
-        <p className="text-[1.125rem] font-bold text-navy">Không tìm thấy đơn này.</p>
+        <p className="text-[1rem] font-semibold text-navy">Không tìm thấy đơn này.</p>
         <Link
           href="/cho/don"
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
         >
           Về đơn của tôi
         </Link>
@@ -230,14 +230,14 @@ export function MarketOrderDetail({ id }: { id: string }) {
     return (
       <div className="px-4 py-4 pb-[7rem]">
         {status === "offline" ? (
-          <div className="rounded-[1.25rem] bg-field/70 px-4 py-8 text-center" role="status">
-            <p className="text-[1.125rem] font-bold text-navy">
+          <div className="rounded-2xl bg-field/70 px-4 py-8 text-center" role="status">
+            <p className="text-[1rem] font-semibold text-navy">
               Máy đang không có sóng — chưa mở được đơn này và máy chưa lưu bản nào.
             </p>
             <button
               type="button"
               onClick={() => void load()}
-              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
             >
               Thử lại
             </button>
@@ -274,12 +274,12 @@ export function MarketOrderDetail({ id }: { id: string }) {
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[1rem] text-foreground/65">Mã đơn</p>
-          <p className="display select-all text-[1.5rem] font-bold text-navy">{order.code}</p>
+          <p className="display select-all text-[1.5rem] font-semibold text-navy">{order.code}</p>
         </div>
         <button
           type="button"
           onClick={() => void copyCode()}
-          className="flex min-h-(--row-h) shrink-0 items-center gap-1 rounded-full px-4 text-[1rem] font-bold"
+          className="flex min-h-(--row-h) shrink-0 items-center gap-1 rounded-full px-4 text-[1rem] font-semibold"
           style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}
           aria-label="Sao chép mã đơn"
         >
@@ -293,7 +293,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
       </div>
 
       {note && (
-        <p className="mt-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-bold text-navy" role="status">{note}</p>
+        <p className="mt-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">{note}</p>
       )}
       {order.needsRefund && (
         <div className="mt-3 overflow-hidden rounded-2xl">
@@ -322,7 +322,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
         {isPendingTooLong(order, nowIso) || order.status === "cho_xac_nhan" ? <AutoCancelNote order={order} who="buyer" /> : null}
         <EtaLine order={order} />
         {order.requestId && (
-          <Link href={`/cho/yeu-cau/${order.requestId}`} className="block text-[1rem] font-bold text-sea underline">
+          <Link href={`/cho/yeu-cau/${order.requestId}`} className="block text-[1rem] font-semibold text-sea underline">
             Đơn đặt theo yêu cầu — xem yêu cầu
           </Link>
         )}
@@ -330,13 +330,13 @@ export function MarketOrderDetail({ id }: { id: string }) {
 
       {/* ── Dòng thời gian ─────────────────────────────────────────────── */}
       <section className="surface mt-3 px-4 py-3">
-        <h3 className="mb-2 text-[1.0625rem] font-bold text-navy">Đơn đi tới đâu rồi</h3>
+        <h3 className="mb-2 text-[1rem] font-semibold text-navy">Đơn đi tới đâu rồi</h3>
         <OrderTimeline timeline={order.timeline} carrier={order.carrier} trackingCode={order.trackingCode} />
       </section>
 
       {/* ── Dòng hàng ──────────────────────────────────────────────────── */}
       <section className="surface mt-3 px-4 py-3">
-        <h3 className="mb-2 text-[1.0625rem] font-bold text-navy">Hàng trong đơn</h3>
+        <h3 className="mb-2 text-[1rem] font-semibold text-navy">Hàng trong đơn</h3>
         <ul className="flex flex-col gap-2">
           {order.items.map((l) => (
             /*  R-01 (2026-09-06): "Đánh giá" XUỐNG HÀNG RIÊNG. Bản cũ nhét ảnh +
@@ -348,7 +348,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
                 <Link href={`/cho/sp/${l.productId}`} className="flex min-h-(--row-h) min-w-0 flex-1 items-center gap-3">
                   <LineThumb image={l.image} size={3.5} />
                   <span className="min-w-0 flex-1">
-                    <span className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">
+                    <span className="line-clamp-2 text-[1rem] font-semibold leading-snug text-navy">
                       {l.title}
                       {l.variantLabel ? ` · ${l.variantLabel}` : ""}
                     </span>
@@ -365,7 +365,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
                   disabled={!online}
                   onClick={() => setReviewLine(l)}
                   aria-label={`Đánh giá ${l.title}`}
-                  className="min-h-(--row-h) w-full rounded-full text-[1rem] font-bold disabled:opacity-40"
+                  className="min-h-(--row-h) w-full rounded-full text-[1rem] font-semibold disabled:opacity-40"
                   style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
                 >
                   Đánh giá
@@ -383,8 +383,8 @@ export function MarketOrderDetail({ id }: { id: string }) {
             <span className="text-foreground/70">Phí giao</span>
             <MoneyText vnd={order.shippingVnd} bold={false} />
           </p>
-          <p className="flex justify-between text-[1.125rem]">
-            <span className="font-bold text-navy">Tổng</span>
+          <p className="flex justify-between text-[1rem]">
+            <span className="font-semibold text-navy">Tổng</span>
             <MoneyText vnd={order.totalVnd} />
           </p>
         </div>
@@ -392,33 +392,33 @@ export function MarketOrderDetail({ id }: { id: string }) {
 
       {/* ── Nhận tại + trả tiền ────────────────────────────────────────── */}
       <section className="surface mt-3 px-4 py-3">
-        <h3 className="text-[1.0625rem] font-bold text-navy">Nhận tại</h3>
-        <p className="mt-0.5 text-[1.0625rem] leading-snug">
+        <h3 className="text-[1rem] font-semibold text-navy">Nhận tại</h3>
+        <p className="mt-0.5 text-[1rem] leading-snug">
           {order.address.name} · {order.address.phone}
           <br />
           {order.address.detail}, {order.address.province}
         </p>
-        <h3 className="mt-3 text-[1.0625rem] font-bold text-navy">Trả tiền</h3>
-        <p className="mt-0.5 text-[1.0625rem]">{PAYMENT_METHOD_LABEL[order.paymentMethod]}</p>
+        <h3 className="mt-3 text-[1rem] font-semibold text-navy">Trả tiền</h3>
+        <p className="mt-0.5 text-[1rem]">{PAYMENT_METHOD_LABEL[order.paymentMethod]}</p>
         {order.bankSnapshot && (
           <div className="mt-2 rounded-2xl bg-field px-3.5 py-2.5">
             <p className="text-[1rem]">{order.bankSnapshot.bankName}</p>
-            <p className="text-[1.125rem] font-bold text-navy">{order.bankSnapshot.bankAccount}</p>
+            <p className="text-[1rem] font-semibold text-navy">{order.bankSnapshot.bankAccount}</p>
             <p className="text-[1rem]">{order.bankSnapshot.bankHolder}</p>
             <p className="mt-1 text-[1rem]">
-              Nội dung chuyển: <span className="font-bold text-navy">{order.code}</span>
+              Nội dung chuyển: <span className="font-semibold text-navy">{order.code}</span>
             </p>
           </div>
         )}
         {order.buyerNote && (
           <p className="mt-3 text-[1rem]">
-            <span className="font-bold text-navy">Ghi chú của tôi: </span>
+            <span className="font-semibold text-navy">Ghi chú của tôi: </span>
             {order.buyerNote}
           </p>
         )}
         {order.sellerNote && (
           <p className="mt-1 text-[1rem]">
-            <span className="font-bold text-navy">Shop nhắn: </span>
+            <span className="font-semibold text-navy">Shop nhắn: </span>
             {order.sellerNote}
           </p>
         )}
@@ -427,9 +427,9 @@ export function MarketOrderDetail({ id }: { id: string }) {
       {/* ── Shop + gọi (KHÔNG ẩn khi mất sóng) ─────────────────────────── */}
       <section className="surface mt-3 flex items-center gap-3 px-4 py-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[1rem] font-bold text-navy">{order.shopName ?? "Shop"}</p>
+          <p className="text-[1rem] font-semibold text-navy">{order.shopName ?? "Shop"}</p>
           {order.shopSlug && (
-            <Link href={`/cho/shop/${order.shopSlug}`} className="flex min-h-(--row-h) items-center text-[1rem] font-bold text-t3">
+            <Link href={`/cho/shop/${order.shopSlug}`} className="flex min-h-(--row-h) items-center text-[1rem] font-semibold text-t3">
               Xem shop
             </Link>
           )}
@@ -444,7 +444,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
             type="button"
             onClick={() => void rebuy()}
             disabled={rebuying}
-            className="min-h-(--row-h) w-full rounded-full text-[1.125rem] font-bold disabled:opacity-40"
+            className="min-h-(--row-h) w-full rounded-full text-[1rem] font-semibold disabled:opacity-40"
             style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
           >
             {rebuying ? "Đang xem món còn bán…" : "Mua lại"}
@@ -454,9 +454,9 @@ export function MarketOrderDetail({ id }: { id: string }) {
               role="status"
               className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-field px-3.5 py-2.5"
             >
-              <span className="min-w-0 text-[1rem] font-bold leading-snug text-navy">{rebuyNote}</span>
+              <span className="min-w-0 text-[1rem] font-semibold leading-snug text-navy">{rebuyNote}</span>
               {rebuyAdded > 0 && (
-                <Link href="/cho/gio" className="flex min-h-(--row-h) shrink-0 items-center text-[1rem] font-bold text-t3 underline">
+                <Link href="/cho/gio" className="flex min-h-(--row-h) shrink-0 items-center text-[1rem] font-semibold text-t3 underline">
                   Xem giỏ ({cart.count})
                 </Link>
               )}
@@ -478,7 +478,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
               type="button"
               disabled={!online || busy}
               onClick={() => setAct("bao-chuyen")}
-              className="min-h-(--row-h) w-full rounded-full text-[1.125rem] font-bold disabled:opacity-40"
+              className="min-h-(--row-h) w-full rounded-full text-[1rem] font-semibold disabled:opacity-40"
               style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
             >
               Tôi đã chuyển khoản
@@ -492,7 +492,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
                 setReason("");
                 setAct("huy");
               }}
-              className="min-h-(--row-h) w-full rounded-full text-[1.125rem] font-bold disabled:opacity-40"
+              className="min-h-(--row-h) w-full rounded-full text-[1rem] font-semibold disabled:opacity-40"
               style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}
             >
               Huỷ đơn
@@ -528,7 +528,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
                   type="button"
                   onClick={() => setReason(r)}
                   aria-pressed={reason === r}
-                  className="min-h-(--row-h) rounded-full px-3.5 text-[1rem] font-bold"
+                  className="min-h-(--row-h) rounded-full px-3.5 text-[1rem] font-semibold"
                   style={{
                     backgroundColor: reason === r ? "var(--t3)" : "var(--field)",
                     color: reason === r ? "var(--card)" : "var(--navy)",
@@ -555,7 +555,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
               placeholder="Hàng có tốt không, giao có đúng hẹn không…"
             />
             {reviewNote && (
-              <p role="alert" className="mt-2 text-[1rem] font-bold text-danger">{reviewNote}</p>
+              <p role="alert" className="mt-2 text-[1rem] font-semibold text-danger">{reviewNote}</p>
             )}
             <PrimaryButton className="mt-3" disabled={busy || !online} onClick={() => void sendReview()}>
               {busy ? "Đang gửi…" : "Gửi đánh giá"}

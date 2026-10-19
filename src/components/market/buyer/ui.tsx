@@ -17,7 +17,7 @@ function Dot({ n }: { n: number }) {
   if (n <= 0) return null;
   return (
     <span
-      className="absolute -right-0.5 -top-0.5 min-w-[1.375rem] rounded-full px-1 text-center text-[0.75rem] font-bold leading-[1.375rem]"
+      className="absolute -right-0.5 -top-0.5 min-w-[1.375rem] rounded-full px-1 text-center text-[0.75rem] font-semibold leading-[1.375rem]"
       style={{ backgroundColor: "var(--trim)", color: "var(--card)" }}
     >
       {n > 99 ? "99+" : n}
@@ -64,7 +64,7 @@ export function MarketTopBar({
           placeholder={placeholder}
           aria-label="Tìm món trong cửa hàng"
           enterKeyHint="search"
-          className="min-h-(--row-h) min-w-0 flex-1 border-0 bg-transparent text-[1.125rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-sea rounded-xl"
+          className="min-h-(--row-h) min-w-0 flex-1 border-0 bg-transparent text-[1rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-sea rounded-xl"
         />
         {q && (
           <button
@@ -76,13 +76,13 @@ export function MarketTopBar({
             <CloseIcon className="h-6 w-6" />
           </button>
         )}
-        <button type="submit" className="flex min-h-(--row-h) shrink-0 items-center justify-center rounded-xl bg-navy px-4 text-[1rem] font-bold text-white">Tìm</button>
+        <button type="submit" className="flex min-h-(--row-h) shrink-0 items-center justify-center rounded-xl bg-navy px-4 text-[1rem] font-semibold text-white">Tìm</button>
       </form>
       <nav aria-label="Mua hàng" className={`mt-2 grid gap-2 ${embedded ? "grid-cols-1" : "grid-cols-2"}`}>
       <Link
         href="/cho/gio"
         aria-label={`Giỏ hàng, ${cartCount} món`}
-        className="relative flex min-h-(--row-h) items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-bold text-navy"
+        className="relative flex min-h-(--row-h) items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-semibold text-navy"
       >
         <CartIcon className="h-6 w-6" />
         <span>Giỏ hàng</span>
@@ -91,10 +91,10 @@ export function MarketTopBar({
       {!embedded && <Link
         href="/cho/don"
         aria-label={`Đơn hàng của tôi, ${openOrders} đơn đang chạy`}
-        className="relative flex min-h-(--row-h) items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-bold text-navy"
+        className="relative flex min-h-(--row-h) items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-semibold text-navy"
       >
         <DocIcon className="h-6 w-6" />
-        <span>Đơn của tôi</span>
+        <span>Đơn hàng</span>
         <Dot n={openOrders} />
       </Link>}
       </nav>
@@ -160,17 +160,17 @@ export function ErrorBlock({
   onRetry: () => void;
 }) {
   return (
-    <div className="rounded-[1.25rem] bg-danger-bg px-4 py-8 text-center" role="alert">
+    <div className="rounded-2xl bg-danger-bg px-4 py-8 text-center" role="alert">
       <div className="mx-auto mb-3 w-fit text-danger">
         <AlertIcon className="h-8 w-8" />
       </div>
-      <p className="text-[1.125rem] font-bold text-danger">
+      <p className="text-[1rem] font-semibold text-danger">
         {what === "cửa hàng" ? "Cửa hàng đang trục trặc, chưa tải được." : `Chưa tải được ${what}.`} Thử lại giúp.
       </p>
       <button
         type="button"
         onClick={onRetry}
-        className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+        className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
       >
         Thử lại
       </button>
@@ -201,9 +201,9 @@ export function CartFeedback({ note, count }: { note: string | null; count: numb
         color: good ? "var(--ok)" : "var(--danger)",
       }}
     >
-      <span className="min-w-0 text-[1rem] font-bold leading-snug">{note}</span>
+      <span className="min-w-0 text-[1rem] font-semibold leading-snug">{note}</span>
       {good && (
-        <Link href="/cho/gio" className="shrink-0 text-[1rem] font-bold underline">
+        <Link href="/cho/gio" className="shrink-0 text-[1rem] font-semibold underline">
           Xem giỏ ({count})
         </Link>
       )}
@@ -238,7 +238,7 @@ export function LoginInvite({
       <button
         type="button"
         onClick={onClose}
-        className="mx-auto mt-2 flex min-h-(--row-h) items-center justify-center px-4 text-[1rem] font-bold text-foreground/65"
+        className="mx-auto mt-2 flex min-h-(--row-h) items-center justify-center px-4 text-[1rem] font-semibold text-foreground/65"
       >
         Để sau
       </button>

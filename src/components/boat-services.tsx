@@ -41,7 +41,7 @@ export function BoatServices() {
           (luật A4 — gọi TÊN VIỆC, không hứa kết quả). */}
       <div className="mb-5">
         <div className="flex items-center gap-2">
-          <p className="min-w-0 flex-1 text-[1rem] font-bold text-navy">
+          <p className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">
             {activeServices.length} dịch vụ đang dùng
           </p>
           <SdvicoRequestButton topic="sua-chua" label="Gọi SDVICO" />
@@ -49,13 +49,13 @@ export function BoatServices() {
         {/* 4 nấc — chỉ mời đăng nhập khi THẬT SỰ chưa đăng nhập */}
         {syncStatus === "guest" && (
           <div className="mt-2.5 flex items-center gap-2">
-            <p className="min-w-0 flex-1 text-[0.9375rem] leading-snug text-foreground/70">
+            <p className="min-w-0 flex-1 text-[0.875rem] leading-snug text-foreground/70">
               Bà con đăng nhập bằng số điện thoại lúc mua hàng là dịch vụ tự
               hiện ra ở đây.
             </p>
             <Link
               href="/login"
-              className="flex min-h-(--row-h) shrink-0 items-center rounded-full bg-field px-4 text-[1rem] font-bold text-navy transition active:scale-[0.98]"
+              className="flex min-h-(--row-h) shrink-0 items-center rounded-full bg-field px-4 text-[1rem] font-semibold text-navy transition active:scale-[0.98]"
             >
               Đăng nhập
             </Link>
@@ -63,13 +63,13 @@ export function BoatServices() {
         )}
         {syncStatus === "error" && (
           <div className="mt-2.5 flex items-center justify-between gap-3 rounded-2xl bg-danger-bg px-3.5 py-2.5">
-            <p className="min-w-0 text-[0.9375rem] font-semibold leading-snug text-danger">
+            <p className="min-w-0 text-[0.875rem] font-semibold leading-snug text-danger">
               Chưa tải được dịch vụ bên SDVICO — mạng có thể đang yếu.
             </p>
             <button
               type="button"
               onClick={retry}
-              className="min-h-[3rem] shrink-0 rounded-full bg-danger px-4 text-[0.9375rem] font-bold text-white"
+              className="min-h-[3rem] shrink-0 rounded-full bg-danger px-4 text-[0.875rem] font-semibold text-white"
             >
               Thử lại
             </button>
@@ -80,7 +80,7 @@ export function BoatServices() {
       {/* yêu cầu đã gửi — để bà con biết mình ĐƯỢC tiếp nhận */}
       {synced && synced.requests.length > 0 && (
         <div className="mb-5">
-          <h3 className="display mb-1.5 px-1 text-[1.125rem] font-bold text-navy">
+          <h3 className="display mb-1.5 px-1 text-[1rem] font-semibold text-navy">
             Yêu cầu đã gửi
           </h3>
           <div className="overflow-hidden surface">
@@ -98,7 +98,7 @@ export function BoatServices() {
                     {/* trạng thái bình thường = màu chữ thường, không vàng
                         (chốt 2026-08-18: màu = chữ) */}
                     <p
-                      className={`mt-0.5 flex items-center gap-1.5 text-[0.875rem] font-bold ${
+                      className={`mt-0.5 flex items-center gap-1.5 text-[0.875rem] font-semibold ${
                         st.level === "ok" ? "text-ok" : "text-foreground/70"
                       }`}
                     >
@@ -141,7 +141,7 @@ export function BoatServices() {
                       : "Chờ thanh toán"}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
+                  <p className="display text-[1rem] font-semibold leading-snug text-navy">
                     {formatVnd(p.amountVnd)}
                   </p>
                   <p className="text-[1rem] text-foreground/70">
@@ -189,10 +189,10 @@ export function BoatServices() {
                   {due.label}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
+                  <p className="text-[0.8125rem] font-semibold uppercase tracking-wide text-foreground/65">
                     {serviceKindLabel(s.kind)}
                   </p>
-                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
+                  <p className="display text-[1rem] font-semibold leading-snug text-navy">
                     {s.name}
                   </p>
                   {s.nextDueOn && (
@@ -201,7 +201,7 @@ export function BoatServices() {
                     </p>
                   )}
                   {s.startedOn && (
-                    <p className="text-[0.9375rem] text-foreground/70">
+                    <p className="text-[0.875rem] text-foreground/70">
                       Dùng từ {formatVnDate(s.startedOn)}
                     </p>
                   )}
@@ -220,7 +220,7 @@ export function BoatServices() {
           })}
 
           {synced.payments.length === 0 && activeServices.length === 0 && (
-            <p className="rounded-[1.25rem] bg-field/70 px-4 py-6 text-center text-[1rem] text-foreground/70">
+            <p className="rounded-2xl bg-field/70 px-4 py-6 text-center text-[1rem] text-foreground/70">
               Chưa thấy dịch vụ nào đang dùng bên SDVICO.
             </p>
           )}

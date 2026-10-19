@@ -1,5 +1,6 @@
 "use client";
 
+import { NHAN } from "@/lib/labels";
 import { useCallback, useEffect, useState } from "react";
 import { useBoats } from "@/lib/boat-store";
 import { BoatForm } from "@/components/boat-switcher";
@@ -105,7 +106,7 @@ function VmsRenewalInner() {
   return (
     // Khối phẳng KHỚP format "Sổ nhắc bảo dưỡng": tiêu đề + phụ đề + nút cam.
     <div>
-      <h3 className="display mb-1 px-1 text-[1.125rem] font-bold text-navy">
+      <h3 className="display mb-1 px-1 text-[1rem] font-semibold text-navy">
         Giám sát hành trình
       </h3>
 
@@ -131,7 +132,7 @@ function VmsRenewalInner() {
       {saveFailed && (
         <p
           role="alert"
-          className="mb-2.5 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-bold leading-snug text-danger"
+          className="mb-2.5 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-semibold leading-snug text-danger"
         >
           {storageFullCopy("hồ sơ tàu")}
         </p>
@@ -144,8 +145,8 @@ function VmsRenewalInner() {
         onClick={() => setStatusOpen(true)}
         className="mt-2.5 flex w-full items-stretch gap-2 rounded-2xl px-1 text-left active:opacity-70"
       >
-        <span className="flex min-w-0 flex-1 items-center text-[1rem] font-bold text-sea">
-          Yêu cầu gia hạn của tôi
+        <span className="flex min-w-0 flex-1 items-center text-[1rem] font-semibold text-sea">
+          {NHAN.yeuCau}
         </span>
         <span className="flex w-16 shrink-0 items-center justify-center text-sea">
           <ChevronRightIcon className="h-6 w-6" />
@@ -164,7 +165,7 @@ function VmsRenewalInner() {
               <div className="mt-4">
                 <PrimaryButton onClick={openAddBoat}>
                   <PlusIcon className="h-5 w-5" />
-                  Thêm tàu của bạn
+                  {NHAN.them} tàu
                 </PrimaryButton>
               </div>
             </>
@@ -338,7 +339,7 @@ function RenewalWizard({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1rem] font-semibold text-foreground/70"
           >
             Đóng
           </button>
@@ -351,11 +352,11 @@ function RenewalWizard({
   return (
     <BottomSheet title="Gia hạn máy giám sát hành trình" onClose={onClose}>
       <div className="rounded-2xl bg-field px-4 py-3">
-        <p className="text-[1rem] font-bold text-navy">{boat.name}</p>
-        <p className="text-[0.9375rem] text-foreground/70">Mã tàu: {boat.maTau}</p>
+        <p className="text-[1rem] font-semibold text-navy">{boat.name}</p>
+        <p className="text-[0.875rem] text-foreground/70">Mã tàu: {boat.maTau}</p>
       </div>
 
-      <p className="mb-1.5 mt-4 text-[1rem] font-bold text-navy">Chọn thời gian gia hạn</p>
+      <p className="mb-1.5 mt-4 text-[1rem] font-semibold text-navy">Chọn thời gian gia hạn</p>
       <ChipRow
         accent="t3"
         ariaLabel="Số tháng muốn gia hạn"
@@ -382,7 +383,7 @@ function RenewalWizard({
                   {formatVnd(unit)}/tháng × {months}
                   {isRef ? " (tham khảo)" : ""}
                 </span>
-                <span className="text-[1.125rem] font-bold text-navy">
+                <span className="text-[1rem] font-semibold text-navy">
                   {formatVnd(renewalTotal(months, unit))}
                 </span>
               </div>
@@ -414,7 +415,7 @@ function RenewalWizard({
           inline cuối một hàng có nội dung, không dải ngang ăn hàng. */}
       <div className="mt-4 flex items-stretch gap-2">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-          <p className="text-[0.9375rem] text-foreground/70">
+          <p className="text-[0.875rem] text-foreground/70">
             Nhân viên SDVICO gọi lại xác nhận.
           </p>
         </div>
@@ -493,7 +494,7 @@ function RenewalStatusSheet({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={load}
-            className="mt-3 min-h-[3.25rem] rounded-full bg-field px-6 text-[1rem] font-bold text-navy"
+            className="mt-3 min-h-[3.25rem] rounded-full bg-field px-6 text-[1rem] font-semibold text-navy"
           >
             Thử lại
           </button>
@@ -517,7 +518,7 @@ function RenewalStatusSheet({ onClose }: { onClose: () => void }) {
               <li key={r.requestCode} className="rounded-2xl bg-field px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[1rem] font-bold text-navy">
+                    <p className="text-[1rem] font-semibold text-navy">
                       {r.vesselCode ?? "Tàu"}
                       {r.monthsCount ? ` · ${renewalMonthsLabel(r.monthsCount)}` : ""}
                     </p>
@@ -527,14 +528,14 @@ function RenewalStatusSheet({ onClose }: { onClose: () => void }) {
                     </p>
                   </div>
                   <span
-                    className="shrink-0 rounded-full px-3 py-1 text-[0.8125rem] font-bold"
+                    className="shrink-0 rounded-full px-3 py-1 text-[0.8125rem] font-semibold"
                     style={badgeStyle}
                   >
                     {sv.label}
                   </span>
                 </div>
 
-                <p className="mt-1.5 text-[1rem] font-bold text-navy">
+                <p className="mt-1.5 text-[1rem] font-semibold text-navy">
                   {formatVnd(r.totalAmount)}
                 </p>
 
@@ -558,7 +559,7 @@ function RenewalStatusSheet({ onClose }: { onClose: () => void }) {
                       </div>
                     )}
                     {r.transferNote && (
-                      <p className="mt-1.5 text-[0.9375rem] text-foreground/70">
+                      <p className="mt-1.5 text-[0.875rem] text-foreground/70">
                         Nội dung CK:{" "}
                         <strong className="text-navy">{r.transferNote}</strong>
                       </p>

@@ -44,14 +44,14 @@ function NoShop() {
         <span className="flex h-14 w-14 items-center justify-center rounded-full bg-t3-bg text-t3" aria-hidden>
           <BasketIcon className="h-7 w-7" />
         </span>
-        <p className="display mt-3 text-[1.125rem] font-bold text-navy">Mở gian hàng trên SDFish</p>
+        <p className="display mt-3 text-[1rem] font-semibold text-navy">Mở gian hàng trên SDFish</p>
         <p className="mt-1 text-[1rem] leading-snug text-foreground/70">
           Bà con có bán máy, ngư cụ, dầu nhớt, đá… thì đăng ký shop để bán thẳng cho tàu cá cả nước.
           SDVICO duyệt trong 1–2 ngày.
         </p>
         <Link
           href="/ban-hang/dang-ky"
-          className="display mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+          className="display mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1rem] font-semibold text-white  transition active:scale-[0.98]"
         >
           Đăng ký gian hàng
         </Link>
@@ -169,8 +169,8 @@ function HomeLink({ href, icon, label, sub }: { href: string; icon: React.ReactN
     <Link href={href} className="flex min-h-(--row-h) items-center gap-3 px-4 py-2 surface">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-field text-navy">{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[1.125rem] font-bold text-navy">{label}</span>
-        <span className="block text-[0.9375rem] leading-snug text-foreground/70">{sub}</span>
+        <span className="block text-[1rem] font-semibold text-navy">{label}</span>
+        <span className="block text-[0.875rem] leading-snug text-foreground/70">{sub}</span>
       </span>
     </Link>
   );
@@ -210,7 +210,7 @@ function StatsBody({ stats, shopStatus }: { stats: ShopStats; shopStatus: Shop["
         <p className="text-[1rem] text-foreground/70">
           Đơn: <b className="text-navy">{stats.orders}</b> · Hoàn thành: <b className="text-navy">{stats.completed}</b>
         </p>
-        <p className="mt-1 text-[1.125rem] font-bold text-navy">Doanh thu {formatVnd(stats.revenueVnd)}</p>
+        <p className="mt-1 text-[1rem] font-semibold text-navy">Doanh thu {formatVnd(stats.revenueVnd)}</p>
         <p className="mt-0.5 text-[0.875rem] text-foreground/65">Tính theo đơn đã hoàn thành (tiền hàng + phí giao).</p>
       </div>
 
@@ -224,14 +224,14 @@ function StatsBody({ stats, shopStatus }: { stats: ShopStats; shopStatus: Shop["
 
       {stats.topProducts.length > 0 && (
         <div className="mt-3 surface px-4 py-3">
-          <p className="mb-2 flex items-center gap-2 text-[1rem] font-bold text-navy">
+          <p className="mb-2 flex items-center gap-2 text-[1rem] font-semibold text-navy">
             <TrendUpIcon className="h-5 w-5" /> Bán chạy
           </p>
           <ol className="space-y-1">
             {stats.topProducts.map((p) => (
               <li key={p.productId} className="flex min-h-[2.5rem] items-center justify-between gap-3 text-[1rem]">
                 <span className="min-w-0 flex-1 truncate text-foreground/85">{p.title}</span>
-                <span className="shrink-0 font-bold text-navy">{p.qty}</span>
+                <span className="shrink-0 font-semibold text-navy">{p.qty}</span>
               </li>
             ))}
           </ol>
@@ -239,7 +239,7 @@ function StatsBody({ stats, shopStatus }: { stats: ShopStats; shopStatus: Shop["
       )}
 
       {empty && stats.topProducts.length === 0 && (
-        <p className="mt-3 rounded-2xl bg-field/70 px-4 py-6 text-center text-[1.125rem] text-foreground/70">
+        <p className="mt-3 rounded-2xl bg-field/70 px-4 py-6 text-center text-[1rem] text-foreground/70">
           {shopStatus === "hoat_dong"
             ? "Chưa có đơn nào. Thêm sản phẩm để bà con thấy shop."
             : "Chưa có đơn nào — món sẽ lên cửa hàng sau khi SDVICO duyệt shop."}
@@ -258,8 +258,8 @@ function Tile({ n, label, href, strong }: { n: number; label: string; href: stri
         ? { backgroundColor: "var(--warn-bg)", color: "var(--warn)" }
         : { backgroundColor: "var(--card)", color: "var(--navy)" }}
     >
-      <span className="display text-[1.5rem] font-bold leading-none">{n}</span>
-      <span className="mt-1 text-[0.875rem] font-bold leading-snug">{label}</span>
+      <span className="display text-[1.5rem] font-semibold leading-none">{n}</span>
+      <span className="mt-1 text-[0.875rem] font-semibold leading-snug">{label}</span>
     </Link>
   );
 }

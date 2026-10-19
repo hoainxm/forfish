@@ -162,7 +162,7 @@ export function MarketBoard() {
         {ready && signedIn ? (
           <button
             onClick={() => setShowForm(true)}
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+            className={`${SQ_BTN} bg-trim text-white `}
           >
             <PlusIcon className="h-6 w-6" />
             Đăng tin
@@ -171,7 +171,7 @@ export function MarketBoard() {
           /* lời mời đăng nhập ẨN khi mất sóng — /login cần sóng (tầng 5, 2026-08-18) */
           <Link
             href="/login"
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+            className={`${SQ_BTN} bg-trim text-white `}
           >
             <PlusIcon className="h-6 w-6" />
             Đăng nhập
@@ -279,7 +279,7 @@ function ListingCard({
       <div className="flex items-stretch gap-2">
         <div className="min-w-0 flex-1">
           <span
-            className="inline-block rounded-full px-2.5 py-0.5 text-[0.75rem] font-bold"
+            className="inline-block rounded-full px-2.5 py-0.5 text-[0.75rem] font-semibold"
             style={
               sell
                 ? { backgroundColor: "var(--ok-bg)", color: "var(--ok)" }
@@ -289,11 +289,11 @@ function ListingCard({
             {SIDE_LABEL[l.side]}
             {l.status === "closed" ? " · đã đóng" : ""}
           </span>
-          <p className="mt-1 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/65">
+          <p className="mt-1 text-[0.75rem] font-semibold uppercase tracking-wide text-foreground/65">
             {POSTER_KIND_LABEL[l.posterKind]}
             {l.province ? ` · ${l.province}` : ""}
           </p>
-          <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
+          <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
             {l.species}
           </p>
         </div>
@@ -349,7 +349,7 @@ function ListingCard({
           </p>
         )}
         {l.note && (
-          <p className="rounded-xl bg-background px-3 py-1.5 text-[0.9375rem] text-foreground/70">
+          <p className="rounded-xl bg-background px-3 py-1.5 text-[0.875rem] text-foreground/70">
             {l.note}
           </p>
         )}
@@ -432,7 +432,7 @@ function ListingForm({
     <BottomSheet title="Đăng tin mua/bán" onClose={onCancel}>
       <form onSubmit={submit}>
         <div className="mb-3.5">
-          <span className="mb-1.5 block text-[1rem] font-bold text-navy">
+          <span className="mb-1.5 block text-[1rem] font-semibold text-navy">
             Loại tin
           </span>
           <div className="grid grid-cols-2 gap-2">
@@ -444,7 +444,7 @@ function ListingForm({
                   type="button"
                   onClick={() => setSide(s)}
                   aria-pressed={on}
-                  className={`min-h-[3.5rem] rounded-2xl text-[1rem] font-bold transition active:scale-[0.98] ${
+                  className={`min-h-(--h-row) rounded-2xl text-[1rem] font-semibold transition active:scale-[0.98] ${
                     on ? "text-white" : "bg-field text-navy/65"
                   }`}
                   style={on ? { backgroundColor: "var(--t2)" } : undefined}
@@ -471,7 +471,7 @@ function ListingForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Người đăng:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {posterName.trim() || "chưa đặt tên"}
               </span>
               {province.trim() ? ` · ${province}` : ""}
@@ -536,7 +536,7 @@ function ListingForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Khối lượng, giá:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {[quantity.trim(), priceText.trim()]
                   .filter(Boolean)
                   .join(" · ") || "chưa ghi"}
@@ -587,7 +587,7 @@ function ListingForm({
         <div className="mt-2 flex items-stretch gap-2">
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p
-              className={`text-[0.9375rem] ${error ? "font-semibold text-danger" : "text-foreground/70"}`}
+              className={`text-[0.875rem] ${error ? "font-semibold text-danger" : "text-foreground/70"}`}
             >
               {error ?? "Đăng tin công khai trên hệ thống."}
             </p>
@@ -603,7 +603,7 @@ function ListingForm({
           <button
             type="submit"
             disabled={saving}
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta disabled:opacity-40 disabled:shadow-none`}
+            className={`${SQ_BTN} bg-trim text-white  disabled:opacity-40 disabled:shadow-none`}
           >
             <CheckIcon className="h-6 w-6" />
             {saving ? "Đang đăng bài" : "Đăng tin"}

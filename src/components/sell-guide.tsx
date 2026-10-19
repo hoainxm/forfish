@@ -50,8 +50,8 @@ import { SQ_BTN } from "@/components/ui/sq-btn";
 type Section = "vua" | "cho" | "nhamay" | "moiquen";
 
 const SECTIONS: { id: Section; label: string }[] = [
-  { id: "vua", label: "Nậu, vựa" },
-  { id: "cho", label: "Chợ đầu mối" },
+  { id: "vua", label: "Nậu vựa" },
+  { id: "cho", label: "Chợ sỉ" },
   { id: "nhamay", label: "Nhà máy" },
   { id: "moiquen", label: "Mối quen" },
 ];
@@ -108,7 +108,7 @@ export function SellGuide() {
       </div>
 
       {geo && staticFallback && (
-        <p className="mb-2 px-1 text-[0.9375rem] font-semibold text-foreground/65">
+        <p className="mb-2 px-1 text-[0.875rem] font-semibold text-foreground/65">
           Danh bạ tham khảo lưu sẵn — chưa hỏi được bản mới.
         </p>
       )}
@@ -176,23 +176,23 @@ function Wholesalers({
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/65">
+                  <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-foreground/65">
                     {w.subLabel ?? "Vựa"}
                   </p>
-                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
+                  <p className="display text-[1rem] font-semibold leading-snug text-navy">
                     {w.name}
                   </p>
                 </div>
                 {w.phone && <CallButton phone={w.phone} />}
               </div>
               {w.address && (
-                <p className="mt-1 flex gap-1.5 text-[0.9375rem] text-foreground/70">
+                <p className="mt-1 flex gap-1.5 text-[0.875rem] text-foreground/70">
                   <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-t2" />
                   <span>{w.address}</span>
                 </p>
               )}
               {w.phone && (
-                <p className="text-[0.9375rem] text-foreground/70">SĐT: {w.phone}</p>
+                <p className="text-[0.875rem] text-foreground/70">SĐT: {w.phone}</p>
               )}
               {w.species.length > 0 && (
                 <p className="text-[0.875rem] text-foreground/70">
@@ -241,22 +241,22 @@ function Markets({
       </RefNote>
       {list.map((m) => (
         <Card key={m.id} className="p-4">
-          <p className="display text-[1.125rem] font-bold leading-snug text-navy">
+          <p className="display text-[1rem] font-semibold leading-snug text-navy">
             {m.name}
           </p>
           {m.province && (
-            <p className="text-[0.9375rem] font-semibold text-foreground/70">
+            <p className="text-[0.875rem] font-semibold text-foreground/70">
               {m.province}
             </p>
           )}
           {m.address && (
-            <p className="mt-1 flex gap-1.5 text-[0.9375rem] text-foreground/70">
+            <p className="mt-1 flex gap-1.5 text-[0.875rem] text-foreground/70">
               <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-t2" />
               <span>{m.address}</span>
             </p>
           )}
           {m.hours && (
-            <p className="text-[0.9375rem] text-foreground/70">Giờ họp: {m.hours}</p>
+            <p className="text-[0.875rem] text-foreground/70">Giờ họp: {m.hours}</p>
           )}
           {m.species.length > 0 && (
             <p className="mt-1 text-[0.875rem] text-foreground/70">
@@ -299,7 +299,7 @@ function Factories({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm theo loại: cá ngừ, tôm, mực…"
-          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-11 pr-4 text-[1.125rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-11 pr-4 text-[1rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </div>
       <RefNote>
@@ -314,17 +314,17 @@ function Factories({
           <li key={b.id}>
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
-                <p className="display text-[1.125rem] font-bold leading-snug text-navy">
+                <p className="display text-[1rem] font-semibold leading-snug text-navy">
                   {b.name}
                 </p>
                 {b.direct && (
-                  <span className="shrink-0 rounded-full bg-ok-bg px-2 py-0.5 text-[0.75rem] font-bold text-ok">
+                  <span className="shrink-0 rounded-full bg-ok-bg px-2 py-0.5 text-[0.75rem] font-semibold text-ok">
                     Mua trực tiếp
                   </span>
                 )}
               </div>
               {b.province && (
-                <p className="text-[0.9375rem] font-semibold text-foreground/70">
+                <p className="text-[0.875rem] font-semibold text-foreground/70">
                   {b.province}
                 </p>
               )}
@@ -341,7 +341,7 @@ function Factories({
                   href={b.website.startsWith("http") ? b.website : `https://${b.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-block text-[0.9375rem] font-bold text-sea"
+                  className="mt-1 inline-block text-[0.875rem] font-semibold text-sea"
                 >
                   Xem trang web
                 </a>
@@ -457,7 +457,7 @@ function MyBuyers() {
             setEditing(null);
             setShowForm(true);
           }}
-          className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+          className={`${SQ_BTN} bg-trim text-white `}
         >
           <PlusIcon className="h-6 w-6" />
           Thêm mối
@@ -480,10 +480,10 @@ function MyBuyers() {
                   lại là hành động phá huỷ (xoá số thương lái bà con gõ tay). */}
               <div className="flex items-stretch gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/65">
+                  <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-foreground/65">
                     {typeLabel(b.type)}
                   </p>
-                  <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
+                  <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
                     {b.name}
                   </p>
                 </div>
@@ -509,14 +509,14 @@ function MyBuyers() {
                   hàng đó — hàng nó thao tác lên (luật A3/B1). */}
               {b.phone && (
                 <div className="mt-1.5 flex items-center gap-2">
-                  <p className="min-w-0 flex-1 text-[0.9375rem] tabular-nums text-foreground/70">
+                  <p className="min-w-0 flex-1 text-[0.875rem] tabular-nums text-foreground/70">
                     SĐT: {b.phone}
                   </p>
                   <CallButton phone={b.phone} />
                 </div>
               )}
               {b.port && (
-                <p className="text-[0.9375rem] text-foreground/70">Cảng: {b.port}</p>
+                <p className="text-[0.875rem] text-foreground/70">Cảng: {b.port}</p>
               )}
               {b.species && b.species.length > 0 && (
                 <p className="text-[0.875rem] text-foreground/70">
@@ -621,7 +621,7 @@ function BuyerForm({
           </div>
           <button
             type="submit"
-            className={`${SQ_BTN} mb-3.5 bg-trim text-white shadow-trim-cta`}
+            className={`${SQ_BTN} mb-3.5 bg-trim text-white `}
           >
             <CheckIcon className="h-6 w-6" />
             Lưu
@@ -644,7 +644,7 @@ function BuyerForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] text-foreground/80">
               Loại:{" "}
-              <span className="font-bold text-navy">{typeLabel(type)}</span>
+              <span className="font-semibold text-navy">{typeLabel(type)}</span>
             </p>
           </div>
           <button
@@ -677,7 +677,7 @@ function BuyerForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Bến:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {port.trim() || "chưa ghi"}
               </span>
             </p>

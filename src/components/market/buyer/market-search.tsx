@@ -43,7 +43,7 @@ export function SortChip({ on, onClick, children, pressed = true }: { on: boolea
       type="button"
       onClick={onClick}
       aria-pressed={pressed ? on : undefined}
-      className="min-h-(--row-h) shrink-0 rounded-full px-4 text-[1rem] font-bold"
+      className="min-h-(--row-h) shrink-0 rounded-full px-4 text-[1rem] font-semibold"
       style={{
         backgroundColor: on ? "var(--t3)" : "var(--field)",
         color: on ? "var(--card)" : "var(--navy)",
@@ -281,7 +281,7 @@ export function MarketSearch() {
         {status === "ok" && q.trim() && (
           <Link
             href={`/cho/yeu-cau/moi?ten=${encodeURIComponent(q.trim())}`}
-            className="surface mt-3 flex min-h-(--row-h) items-center justify-center px-4 py-3 text-center text-[1.0625rem] font-bold text-navy"
+            className="surface mt-3 flex min-h-(--row-h) items-center justify-center px-4 py-3 text-center text-[1rem] font-semibold text-navy"
           >
             Không thấy đúng món? Nhờ chủ sàn tìm “{q.trim()}”
           </Link>
@@ -292,7 +292,7 @@ export function MarketSearch() {
             <ProductGrid items={items} isFav={fav.has} onFav={onFav} />
             {seen && <p className="mt-3 text-center text-[1rem] text-foreground/65">{seen}</p>}
             {moreError === "error" && (
-              <p role="alert" className="mt-2 text-center text-[1rem] font-bold text-danger">
+              <p role="alert" className="mt-2 text-center text-[1rem] font-semibold text-danger">
                 Chưa tải thêm được — thử lại giúp.
               </p>
             )}
@@ -300,7 +300,7 @@ export function MarketSearch() {
               <button
                 type="button"
                 onClick={() => void fetchPage(page + 1, false)}
-                className="display mx-auto mt-3 flex min-h-(--row-h) w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+                className="display mx-auto mt-3 flex min-h-(--row-h) w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
               >
                 Xem thêm
               </button>

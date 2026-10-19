@@ -26,7 +26,7 @@ export function ShopSettings() {
         d.shop ? (
           <Inner shop={d.shop} onShop={set} />
         ) : (
-          <p className="px-4 py-8 text-center text-[1.125rem] text-foreground/70">
+          <p className="px-4 py-8 text-center text-[1rem] text-foreground/70">
             Chưa có gian hàng để cài đặt — đăng ký shop trước đã.
           </p>
         )
@@ -93,10 +93,10 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
         <label className="mb-4 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl px-4 py-2"
           style={paused ? { backgroundColor: "var(--warn-bg)" } : { backgroundColor: "var(--field)" }}>
           <span className="min-w-0">
-            <span className="block text-[1.125rem] font-bold" style={{ color: paused ? "var(--warn)" : "var(--navy)" }}>
+            <span className="block text-[1rem] font-semibold" style={{ color: paused ? "var(--warn)" : "var(--navy)" }}>
               Tạm nghỉ bán
             </span>
-            <span className="block text-[0.9375rem] leading-snug text-foreground/70">
+            <span className="block text-[0.875rem] leading-snug text-foreground/70">
               Món vẫn hiện trên cửa hàng nhưng bà con không đặt được. Nhớ bấm Lưu.
             </span>
           </span>
@@ -131,7 +131,7 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
           {saving ? "Đang lưu…" : "Lưu cài đặt"}
         </PrimaryButton>
         {!online && (
-          <p className="mt-2 text-center text-[1rem] font-bold" style={{ color: "var(--danger)" }}>
+          <p className="mt-2 text-center text-[1rem] font-semibold" style={{ color: "var(--danger)" }}>
             Lưu cần có sóng — nội dung vẫn ở trên màn.
           </p>
         )}

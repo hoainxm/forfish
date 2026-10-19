@@ -42,7 +42,7 @@ export function MarketHeader({
       >
         <ChevronLeftIcon className="h-7 w-7" />
       </button>
-      <h1 className="display relative z-10 min-w-0 flex-1 text-xl font-bold leading-snug">{title}</h1>
+      <h1 className="display relative z-10 min-w-0 flex-1 text-xl font-semibold leading-snug">{title}</h1>
       {right && <div className="relative z-10 shrink-0">{right}</div>}
     </header>
   );

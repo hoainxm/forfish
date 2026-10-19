@@ -85,7 +85,7 @@ export function ImagePicker({
 
   return (
     <div className="mb-3.5">
-      <p className="mb-1.5 text-[1rem] font-bold text-navy">
+      <p className="mb-1.5 text-[1rem] font-semibold text-navy">
         {label} <span className="font-normal text-foreground/65">({value.length}/{max})</span>
       </p>
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
@@ -94,7 +94,7 @@ export function ImagePicker({
             {/* eslint-disable-next-line @next/next/no-img-element -- ảnh vừa tải lên bucket public / dev */}
             <img src={url} alt={`Ảnh ${i + 1}`} className="h-full w-full object-cover" />
             {i === 0 && (
-              <span className="absolute bottom-1 left-1 rounded-full px-2 py-0.5 text-[0.75rem] font-bold" style={{ backgroundColor: "var(--card)", color: "var(--navy)" }}>
+              <span className="absolute bottom-1 left-1 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold" style={{ backgroundColor: "var(--card)", color: "var(--navy)" }}>
                 Ảnh bìa
               </span>
             )}
@@ -112,18 +112,18 @@ export function ImagePicker({
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-1 text-center">
               {p.state === "loi" ? (
                 <>
-                  <span className="text-[0.75rem] font-bold" style={{ color: "var(--danger)" }}>{p.error}</span>
+                  <span className="text-[0.75rem] font-semibold" style={{ color: "var(--danger)" }}>{p.error}</span>
                   <button
                     type="button"
                     onClick={() => void run(p)}
-                    className="min-h-[2.75rem] rounded-full px-3 text-[0.875rem] font-bold"
+                    className="min-h-[2.75rem] rounded-full px-3 text-[0.875rem] font-semibold"
                     style={{ backgroundColor: "var(--card)", color: "var(--navy)" }}
                   >
                     Thử lại
                   </button>
                 </>
               ) : (
-                <span className="rounded-full px-2 py-1 text-[0.8125rem] font-bold" style={{ backgroundColor: "var(--card)", color: "var(--navy)" }}>
+                <span className="rounded-full px-2 py-1 text-[0.8125rem] font-semibold" style={{ backgroundColor: "var(--card)", color: "var(--navy)" }}>
                   {p.state === "dang_nen" ? "Đang nén…" : "Đang tải…"}
                 </span>
               )}
@@ -135,7 +135,7 @@ export function ImagePicker({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="flex h-28 w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-2xl bg-field text-[0.875rem] font-bold text-navy transition active:scale-95"
+            className="flex h-28 w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-2xl bg-field text-[0.875rem] font-semibold text-navy transition active:scale-95"
             aria-label="Thêm ảnh"
           >
             <PlusIcon className="h-7 w-7" />

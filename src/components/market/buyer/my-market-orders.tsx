@@ -58,7 +58,7 @@ function ActionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="min-h-(--row-h) rounded-full px-4 text-[1rem] font-bold disabled:opacity-40"
+      className="min-h-(--row-h) rounded-full px-4 text-[1rem] font-semibold disabled:opacity-40"
       style={{ backgroundColor: `var(--${tone}-bg)`, color: `var(--${tone})` }}
     >
       {children}
@@ -171,7 +171,7 @@ export function MyMarketOrders() {
             type="button"
             onClick={() => setTab(t.id)}
             aria-pressed={t.id === tab}
-            className="flex min-h-(--row-h) flex-col items-center justify-center rounded-2xl px-1 text-[1rem] font-bold leading-tight"
+            className="flex min-h-(--row-h) flex-col items-center justify-center rounded-2xl px-1 text-[1rem] font-semibold leading-tight"
             style={{
               backgroundColor: t.id === tab ? "var(--t3)" : "var(--field)",
               color: t.id === tab ? "var(--card)" : "var(--navy)",
@@ -187,8 +187,8 @@ export function MyMarketOrders() {
         {/* YÊU CẦU ĐẶT HÀNG — món chưa có trên chợ, chủ sàn báo giá (2026-10-18) */}
         <Link href="/cho/yeu-cau" className="surface mb-3 flex min-h-(--row-h) items-center gap-3 px-4 py-3">
           <span className="min-w-0 flex-1">
-            <span className="block text-[1.0625rem] font-bold text-navy">Yêu cầu đặt hàng của tôi</span>
-            <span className="block text-[0.9375rem] text-foreground/70">Món không có trên chợ — xem báo giá của chủ sàn</span>
+            <span className="block text-[1rem] font-semibold text-navy">Yêu cầu đặt hàng của tôi</span>
+            <span className="block text-[0.875rem] text-foreground/70">Món không có trên chợ — xem báo giá của chủ sàn</span>
           </span>
           <ChevronRightIcon className="h-6 w-6 shrink-0 text-navy" />
         </Link>
@@ -198,7 +198,7 @@ export function MyMarketOrders() {
           </p>
         )}
         {note && (
-          <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-bold text-navy" role="status">
+          <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">
             {note}
           </p>
         )}
@@ -215,9 +215,9 @@ export function MyMarketOrders() {
             {orders.length === 0 && (
               <Link
                 href="/cho"
-                className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+                className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
               >
-                Vào cửa hàng
+                Mua đồ
               </Link>
             )}
           </>
@@ -237,14 +237,14 @@ export function MyMarketOrders() {
                     {/*  TÊN SHOP MỘT DÒNG RIÊNG, CHIP TRẠNG THÁI DÒNG DƯỚI (R-04,
                          2026-09-06): xếp chung một hàng thì "Đại lý Hải Đăng" bị
                          cắt còn "Đại lý Hải Đă…" — bà con không biết đơn của ai. */}
-                    <p className="text-[1.125rem] font-bold leading-snug text-navy">{o.shopName ?? "Shop"}</p>
+                    <p className="text-[1rem] font-semibold leading-snug text-navy">{o.shopName ?? "Shop"}</p>
                     <p className="mt-1"><OrderStatusChip status={o.status} /></p>
-                    <p className="mt-1 line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{summarize(o)}</p>
+                    <p className="mt-1 line-clamp-2 text-[1rem] font-semibold leading-snug text-navy">{summarize(o)}</p>
                     {/*  Mã đơn KHÔNG cắt (bà con đọc mã cho shop) — chật thì tổng tự
                          xuống dòng, canh phải. */}
                     <p className="mt-0.5 flex flex-wrap items-center justify-between gap-x-2 text-[1rem]">
                       <span className="whitespace-nowrap text-foreground/65">{o.code}</span>
-                      <span className="ml-auto whitespace-nowrap text-[1.0625rem] font-bold text-navy">{formatVnd(o.totalVnd)}</span>
+                      <span className="ml-auto whitespace-nowrap text-[1rem] font-semibold text-navy">{formatVnd(o.totalVnd)}</span>
                     </p>
                   </div>
                   <ChevronRightIcon className="mt-1 h-6 w-6 shrink-0 text-navy" />
@@ -254,7 +254,7 @@ export function MyMarketOrders() {
                 {(canCancel || canReceive || canPay) && (
                   <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
                     {!online && (
-                      <span className="mr-auto text-[0.9375rem] text-foreground/65">Việc này cần có sóng.</span>
+                      <span className="mr-auto text-[0.875rem] text-foreground/65">Việc này cần có sóng.</span>
                     )}
                     {canCancel && (
                       <ActionButton tone="danger" disabled={!online || busy} onClick={() => setPending({ order: o, kind: "huy" })}>
@@ -282,7 +282,7 @@ export function MyMarketOrders() {
           <button
             type="button"
             onClick={() => void load(page + 1, false)}
-            className="display mx-auto mt-3 flex min-h-(--row-h) w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+            className="display mx-auto mt-3 flex min-h-(--row-h) w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
           >
             Xem thêm
           </button>

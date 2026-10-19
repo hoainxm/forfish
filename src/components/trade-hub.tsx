@@ -19,8 +19,8 @@ type Section = "gia" | "tin" | "ban-o-dau";
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "gia", label: "Giá cá" },
-  { id: "tin", label: "Tin mua/bán" },
-  { id: "ban-o-dau", label: "Bán ở đâu" },
+  { id: "tin", label: "Mua bán" },
+  { id: "ban-o-dau", label: "Đầu mối" },
 ];
 
 export function TradeHub() {

@@ -44,7 +44,7 @@ function NoShopYet() {
       <EmptyState icon={<BoxIcon className="h-8 w-8" />}>
         Chưa có gian hàng. Đăng ký shop trước rồi mới thêm được món.
       </EmptyState>
-      <Link href="/ban-hang/dang-ky" className="mt-4 flex min-h-(--row-h) items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white">
+      <Link href="/ban-hang/dang-ky" className="mt-4 flex min-h-(--row-h) items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white">
         Đăng ký gian hàng
       </Link>
     </div>
@@ -193,7 +193,7 @@ function Rows({
                 : "Chưa có món nào ở mục này."}
         </EmptyState>
         {canEdit && (
-          <Link href="/ban-hang/san-pham/moi" className="mt-4 flex min-h-(--row-h) items-center justify-center gap-2 rounded-full bg-trim text-[1.125rem] font-bold text-white">
+          <Link href="/ban-hang/san-pham/moi" className="mt-4 flex min-h-(--row-h) items-center justify-center gap-2 rounded-full bg-trim text-[1rem] font-semibold text-white">
             <PlusIcon className="h-6 w-6" /> Thêm sản phẩm
           </Link>
         )}
@@ -213,7 +213,7 @@ function Rows({
               const p = rows.find((x) => x.id === undo.id);
               if (p) void setStock(p, undo.stock, "Đã hoàn lại tồn kho.", false);
             }}
-            className="min-h-(--row-h) rounded-full bg-field px-4 text-[1rem] font-bold text-navy"
+            className="min-h-(--row-h) rounded-full bg-field px-4 text-[1rem] font-semibold text-navy"
           >
             Hoàn lại tồn {undo.stock}
           </button>
@@ -238,11 +238,11 @@ function Rows({
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="line-clamp-2 block text-[1.125rem] font-bold leading-snug text-navy">{p.title}</span>
+                <span className="line-clamp-2 block text-[1rem] font-semibold leading-snug text-navy">{p.title}</span>
                 <span className="mt-0.5 block whitespace-nowrap">
                   <PriceText priceVnd={p.priceVnd} compareAtVnd={p.compareAtVnd} />
                 </span>
-                <span className="mt-0.5 block text-[0.9375rem] text-foreground/65">
+                <span className="mt-0.5 block text-[0.875rem] text-foreground/65">
                   Tồn {p.stock} {p.unit} · Đã bán {p.soldCount}
                   {p.status === "an" && " · Đang ẩn"}
                   {p.status === "het_hang" && " · Hết hàng"}
@@ -270,7 +270,7 @@ function Rows({
             )}
             {p.adminHidden && (
               <div className="border-t border-line px-3 py-2">
-                <p className="text-[1rem] font-bold" style={{ color: "var(--danger)" }}>
+                <p className="text-[1rem] font-semibold" style={{ color: "var(--danger)" }}>
                   SDVICO đã gỡ món này: {p.adminHiddenReason ?? "không ghi lý do"}
                 </p>
                 <div className="mt-2">
@@ -293,7 +293,7 @@ function Rows({
             <ChevronLeftIcon className="h-6 w-6" />
             Trước
           </button>
-          <span className="text-[1rem] font-bold text-navy">Trang {data.page}/{pages}</span>
+          <span className="text-[1rem] font-semibold text-navy">Trang {data.page}/{pages}</span>
           <button
             type="button"
             disabled={data.page >= pages}

@@ -112,7 +112,7 @@ function RemoveButton({ onClick, label }: { onClick: () => void; label: string }
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex min-h-(--row-h) shrink-0 items-center gap-1 rounded-full px-3 text-[1rem] font-bold"
+      className="flex min-h-(--row-h) shrink-0 items-center gap-1 rounded-full px-3 text-[1rem] font-semibold"
       style={{ color: "var(--danger)" }}
     >
       <TrashIcon className="h-5 w-5" />
@@ -220,9 +220,9 @@ export function MarketCart() {
         <EmptyState icon={<CartIcon className="h-8 w-8" />}>Giỏ đang trống.</EmptyState>
         <Link
           href="/cho"
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
         >
-          Vào cửa hàng
+          Mua đồ
         </Link>
       </div>
     );
@@ -273,33 +273,33 @@ export function MarketCart() {
           </p>
         )}
         {cart.items.length >= 50 && (
-          <p className="mb-3 text-[1rem] font-bold text-warn">Giỏ đã đủ 50 món.</p>
+          <p className="mb-3 text-[1rem] font-semibold text-warn">Giỏ đã đủ 50 món.</p>
         )}
 
         {status === "loading" && (
-          <p role="status" className="py-8 text-center text-[1.125rem] text-foreground/65">Đang tra giá…</p>
+          <p role="status" className="py-8 text-center text-[1rem] text-foreground/65">Đang tra giá…</p>
         )}
         {status === "offline" && (
-          <div className="rounded-[1.25rem] bg-field/70 px-4 py-8 text-center" role="status">
-            <p className="text-[1.125rem] font-bold text-navy">
+          <div className="rounded-2xl bg-field/70 px-4 py-8 text-center" role="status">
+            <p className="text-[1rem] font-semibold text-navy">
               Giỏ có {cart.items.length} dòng. Chưa tải được giá — máy không có sóng.
             </p>
             <button
               type="button"
               onClick={() => void fetchQuote(cart.items)}
-              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
             >
               Thử lại
             </button>
           </div>
         )}
         {status === "error" && (
-          <div className="rounded-[1.25rem] bg-danger-bg px-4 py-8 text-center" role="alert">
-            <p className="text-[1.125rem] font-bold text-danger">Chợ đang trục trặc, chưa tra được giá. Thử lại giúp.</p>
+          <div className="rounded-2xl bg-danger-bg px-4 py-8 text-center" role="alert">
+            <p className="text-[1rem] font-semibold text-danger">Chợ đang trục trặc, chưa tra được giá. Thử lại giúp.</p>
             <button
               type="button"
               onClick={() => void fetchQuote(cart.items)}
-              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
             >
               Thử lại
             </button>
@@ -315,7 +315,7 @@ export function MarketCart() {
                 applyItems(undo.items);
                 setUndo(null);
               }}
-              className="min-h-(--row-h) shrink-0 px-2 text-[1rem] font-bold text-t3"
+              className="min-h-(--row-h) shrink-0 px-2 text-[1rem] font-semibold text-t3"
             >
               Hoàn lại
             </button>
@@ -331,13 +331,13 @@ export function MarketCart() {
               label="Chọn tất cả"
               onChange={(v) => cart.select(buyableKeys, v)}
             />
-            <span className="text-[1rem] font-bold text-navy">
+            <span className="text-[1rem] font-semibold text-navy">
               Chọn tất cả <span className="font-semibold text-foreground/65">({pickedCount}/{buyableKeys.length})</span>
             </span>
             <button
               type="button"
               onClick={() => setConfirmClear(true)}
-              className="ml-auto flex min-h-(--row-h) items-center px-3 text-[1rem] font-bold text-danger"
+              className="ml-auto flex min-h-(--row-h) items-center px-3 text-[1rem] font-semibold text-danger"
             >
               Bỏ hết
             </button>
@@ -356,13 +356,13 @@ export function MarketCart() {
                 <CheckBox on={shopOn} some={onCount > 0 && !shopOn} label={`Chọn cả shop ${g.shop.name}`} onChange={(v) => cart.select(shopKeys, v)} />
                 <Link
                   href={`/cho/shop/${g.shop.slug}`}
-                  className="flex min-h-(--row-h) min-w-0 flex-1 items-center text-[1.0625rem] font-bold text-navy"
+                  className="flex min-h-(--row-h) min-w-0 flex-1 items-center text-[1rem] font-semibold text-navy"
                 >
                   <span className="truncate">{g.shop.name}</span>
                 </Link>
                 {g.shop.paused && (
                   <span
-                    className="rounded-full px-2 py-0.5 text-[0.75rem] font-bold"
+                    className="rounded-full px-2 py-0.5 text-[0.75rem] font-semibold"
                     style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
                   >
                     Tạm nghỉ
@@ -384,13 +384,13 @@ export function MarketCart() {
                         <Link href={`/cho/sp/${l.productId}`} className="flex min-h-(--row-h) gap-3">
                           <LineThumb image={l.image} size={4.5} className="mt-0.5" />
                           <span className="min-w-0 flex-1">
-                            <span className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{l.title}</span>
-                            {l.variantLabel && <span className="block text-[0.9375rem] text-foreground/65">Loại: {l.variantLabel}</span>}
+                            <span className="line-clamp-2 text-[1rem] font-semibold leading-snug text-navy">{l.title}</span>
+                            {l.variantLabel && <span className="block text-[0.875rem] text-foreground/65">Loại: {l.variantLabel}</span>}
                             <PriceText priceVnd={l.priceVnd} className="mt-0.5" />
                           </span>
                         </Link>
                         {diff && (
-                          <p className="mt-0.5 text-[0.9375rem] font-bold text-warn">
+                          <p className="mt-0.5 text-[0.875rem] font-semibold text-warn">
                             Giá vừa đổi: {formatVnd(diff.from)} → {formatVnd(diff.to)}
                           </p>
                         )}
@@ -417,11 +417,11 @@ export function MarketCart() {
                   {sel && sel.shippingVnd > 0 ? (
                     <MoneyText vnd={sel.shippingVnd} bold={false} />
                   ) : (
-                    <span className="font-bold text-ok">{sel ? "Miễn phí" : "—"}</span>
+                    <span className="font-semibold text-ok">{sel ? "Miễn phí" : "—"}</span>
                   )}
                 </p>
                 {sel && sel.lines.length > ORDER_MAX_LINES && (
-                  <p className="text-[0.9375rem] font-bold text-danger">
+                  <p className="text-[0.875rem] font-semibold text-danger">
                     Mỗi đơn tối đa {ORDER_MAX_LINES} món — bỏ chọn bớt ở shop này.
                   </p>
                 )}
@@ -433,7 +433,7 @@ export function MarketCart() {
         {/* ── Món không mua được ────────────────────────────────────────── */}
         {dropped.length > 0 && (
           <section className="mb-3">
-            <h3 className="mb-1.5 text-[1.0625rem] font-bold text-navy">Không mua được</h3>
+            <h3 className="mb-1.5 text-[1rem] font-semibold text-navy">Không mua được</h3>
             <ul className="flex flex-col gap-2">
               {dropped.map((d) => (
                 <li
@@ -441,11 +441,11 @@ export function MarketCart() {
                   className="surface flex items-center gap-3 px-4 py-2 opacity-70"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">
+                    <p className="line-clamp-2 text-[1rem] font-semibold leading-snug text-navy">
                       {titles[d.productId] ?? "Món trong giỏ"}
                       {d.variantLabel ? ` · ${d.variantLabel}` : ""}
                     </p>
-                    <p className="text-[0.9375rem] font-bold text-danger">
+                    <p className="text-[0.875rem] font-semibold text-danger">
                       {DROP_LABEL[d.reason].replace("{n}", String(d.available ?? 0))}
                     </p>
                   </div>
@@ -475,8 +475,8 @@ export function MarketCart() {
         }}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[0.9375rem] text-foreground/65">Tổng tạm ({pickedCount} món)</p>
-          <p className="display text-[1.25rem] font-bold text-navy">{formatVnd(summary.totalVnd)}</p>
+          <p className="text-[0.875rem] text-foreground/65">Tổng tạm ({pickedCount} món)</p>
+          <p className="display text-[1rem] font-semibold text-navy">{formatVnd(summary.totalVnd)}</p>
           {blocked && <p className="text-[0.875rem] font-semibold leading-snug text-danger">{blocked}</p>}
         </div>
         <button
@@ -489,7 +489,7 @@ export function MarketCart() {
             }
             router.push("/cho/thanh-toan");
           }}
-          className="display flex min-h-(--row-h) shrink-0 items-center justify-center rounded-full bg-trim px-6 text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+          className="display flex min-h-(--row-h) shrink-0 items-center justify-center rounded-full bg-trim px-6 text-[1rem] font-semibold text-white  transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
         >
           Đặt hàng{pickedCount > 0 ? ` (${pickedCount})` : ""}
         </button>

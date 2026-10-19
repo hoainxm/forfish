@@ -118,7 +118,7 @@ export function StormBanner({
     // đang hỏi — bản đồ chưa nói gì; màn Sen Biển (always) giữ chỗ để dòng bão không nhảy
     if (variant === "page" && always) {
       return (
-        <p role="status" className="flex min-h-[3.5rem] items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-[1.125rem] leading-snug text-foreground/80">
+        <p role="status" className="flex min-h-(--h-row) items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-[1rem] leading-snug text-foreground/80">
           <ClockIcon className="h-5 w-5 shrink-0" />
           Đang hỏi tin bão…
         </p>
@@ -140,7 +140,7 @@ export function StormBanner({
           <button
             type="button"
             onClick={() => setNoticeOpen(true)}
-            className="pointer-events-auto mx-auto flex min-h-[2.75rem] w-fit items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-bold text-warn shadow-md"
+            className="pointer-events-auto mx-auto flex h-(--h-ctl) w-fit items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-semibold text-warn shadow-md"
           >
             <AlertIcon className="h-4 w-4 shrink-0" />
             {stormNoticeShort(status, nowMs)} — chạm xem
@@ -153,7 +153,7 @@ export function StormBanner({
           type="button"
           role="status"
           onClick={() => setNoticeOpen(false)}
-          className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-start gap-1.5 rounded-2xl bg-warn-bg px-3 py-2 text-left text-[0.9375rem] font-bold leading-snug text-warn shadow-md"
+          className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-start gap-1.5 rounded-2xl bg-warn-bg px-3 py-2 text-left text-[0.875rem] font-semibold leading-snug text-warn shadow-md"
         >
           <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
           <span>{noticeText}</span>
@@ -163,7 +163,7 @@ export function StormBanner({
     return (
       <p
         role="status"
-        className="flex items-start gap-2 rounded-xl bg-warn-bg px-3 py-2.5 text-[1.125rem] font-bold leading-snug text-warn"
+        className="flex items-start gap-2 rounded-xl bg-warn-bg px-3 py-2.5 text-[1rem] font-semibold leading-snug text-warn"
       >
         <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
         <span>{noticeText}</span>
@@ -177,7 +177,7 @@ export function StormBanner({
     const at = clockVN(status.checkedAt);
     if (variant === "overlay") {
       return (
-        <p role="status" className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-ok-bg px-3 py-1.5 text-[0.875rem] font-bold leading-snug text-ok">
+        <p role="status" className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-ok-bg px-3 py-1.5 text-[0.875rem] font-semibold leading-snug text-ok">
           <CheckIcon className="h-4 w-4 shrink-0" />
           Không có tin bão — hỏi lúc {at}
         </p>
@@ -185,7 +185,7 @@ export function StormBanner({
     }
     if (!always) return null;
     return (
-      <p role="status" className="flex min-h-[3.5rem] items-center gap-2 rounded-xl bg-ok-bg px-3 py-2.5 text-[1.125rem] font-bold leading-snug text-ok">
+      <p role="status" className="flex min-h-(--h-row) items-center gap-2 rounded-xl bg-ok-bg px-3 py-2.5 text-[1rem] font-semibold leading-snug text-ok">
         <CheckIcon className="h-5 w-5 shrink-0" />
         Không có tin bão trên Biển Đông — hỏi lúc {at}
       </p>
@@ -198,7 +198,7 @@ export function StormBanner({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`pointer-events-auto mx-auto flex min-h-[2.75rem] w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8125rem] font-bold shadow-md ${
+        className={`pointer-events-auto mx-auto flex h-(--h-ctl) w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8125rem] font-semibold shadow-md ${
           anyDanger ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn"
         }`}
       >
@@ -244,7 +244,7 @@ export function StormBanner({
             </span>
             <div className="min-w-0">
               <p
-                className={`text-[1.125rem] font-bold leading-snug ${
+                className={`text-[1rem] font-semibold leading-snug ${
                   danger ? "text-danger" : "text-warn"
                 }`}
               >
@@ -255,7 +255,7 @@ export function StormBanner({
                 {s.kindLabel}
                 {s.name ? ` ${s.name}` : ""} đang trên vùng Biển Đông
               </p>
-              <p className={`mt-0.5 leading-snug text-foreground/80 ${variant === "page" ? "text-[1.125rem]" : "text-[1rem]"}`}>
+              <p className={`mt-0.5 leading-snug text-foreground/80 ${variant === "page" ? "text-[1rem]" : "text-[1rem]"}`}>
                 {s.windKmh != null &&
                   `Gió mạnh nhất khoảng ${s.windKmh} km/giờ (cấp ${beaufort(s.windKmh)}). `}
                 Đừng ra khơi vùng ảnh hưởng — nghe ngay đài duyên hải hoặc
@@ -272,7 +272,7 @@ export function StormBanner({
                   thì hai bên khớp nhau. Không có `updated` (nguồn cũ) thì mới
                   lùi về `checkedAt`. */}
               <p
-                className={`mt-1 font-bold leading-snug ${variant === "page" ? "text-[1.125rem]" : "text-[0.9375rem]"} ${
+                className={`mt-1 font-semibold leading-snug ${variant === "page" ? "text-[1rem]" : "text-[0.875rem]"} ${
                   status.cu ? "text-warn" : "text-foreground/65"
                 }`}
               >

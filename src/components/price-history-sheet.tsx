@@ -196,7 +196,7 @@ export function PriceHistorySheet({
     <BottomSheet title={`Giá ${species}`} onClose={onClose}>
       {loading && (
         <div className="rounded-2xl bg-field/70 px-4 py-10 text-center">
-          <p className="text-[1.125rem] text-foreground/70">
+          <p className="text-[1rem] text-foreground/70">
             Đang tải lịch sử giá…
           </p>
         </div>
@@ -205,7 +205,7 @@ export function PriceHistorySheet({
       {/* KHÔNG HỎI ĐƯỢC (mất sóng / máy chủ) — mở lại sheet là hỏi lại */}
       {!loading && failed && (
         <div className="rounded-2xl bg-warn-bg px-4 py-8 text-center">
-          <p className="text-[1.125rem] font-semibold text-warn">
+          <p className="text-[1rem] font-semibold text-warn">
             {offline
               ? "Chưa tải được lịch sử giá — máy đang không có mạng."
               : "Hiện chưa cập nhật được lịch sử giá."}
@@ -219,7 +219,7 @@ export function PriceHistorySheet({
       {/* HỎI ĐƯỢC nhưng VASEP không đăng loại này đủ tuần */}
       {!loading && !failed && n < 2 && (
         <div className="rounded-2xl bg-warn-bg px-4 py-8 text-center">
-          <p className="text-[1.125rem] font-semibold text-warn">
+          <p className="text-[1rem] font-semibold text-warn">
             Chưa có lịch sử giá cho loại này.
           </p>
           <p className="mt-1 text-[1rem] text-foreground/70">
@@ -232,16 +232,16 @@ export function PriceHistorySheet({
         <>
           {/* tuần mới nhất — số to */}
           <div className="mb-3 surface px-4 py-3">
-            <p className="text-[0.9375rem] font-semibold text-foreground/70">
+            <p className="text-[0.875rem] font-semibold text-foreground/70">
               Tuần mới nhất · {ddmm(latest.date)}
             </p>
-            <p className="mt-0.5 text-[1.375rem] font-bold text-foreground tabular-nums">
+            <p className="mt-0.5 text-[1.375rem] font-semibold text-foreground tabular-nums">
               {latest.minVnd.toLocaleString("vi-VN")} –{" "}
               {latest.maxVnd.toLocaleString("vi-VN")} {unit}
             </p>
             {trend && (
               <p
-                className="mt-1 flex items-center gap-1.5 text-[1rem] font-bold"
+                className="mt-1 flex items-center gap-1.5 text-[1rem] font-semibold"
                 style={{ color: trend.color }}
               >
                 <trend.Icon className="h-5 w-5" />
@@ -250,7 +250,7 @@ export function PriceHistorySheet({
             )}
           </div>
 
-          <p className="mb-1 text-[0.9375rem] font-semibold text-foreground/70">
+          <p className="mb-1 text-[0.875rem] font-semibold text-foreground/70">
             Giá tại bến theo tuần (nghìn đồng/kg)
           </p>
           <div className="rounded-2xl bg-card p-2 ring-1 ring-line">
@@ -269,7 +269,7 @@ export function PriceHistorySheet({
       <button
         type="button"
         onClick={onClose}
-        className="mt-4 min-h-[3.5rem] w-full rounded-xl bg-navy text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+        className="mt-4 min-h-(--h-row) w-full rounded-xl bg-navy text-[1rem] font-semibold text-white transition active:scale-[0.99]"
       >
         Xong
       </button>

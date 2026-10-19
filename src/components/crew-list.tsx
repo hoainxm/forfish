@@ -227,7 +227,7 @@ export function CrewList() {
           hiện ngay dưới (đếm thẻ + đếm banner đỏ) rồi một dải cam 343×60 nữa. */}
       <div className="mb-3 flex items-stretch gap-2">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
-          <p className="text-[1rem] font-bold text-navy">
+          <p className="text-[1rem] font-semibold text-navy">
             {boatCrew.length} bạn thuyền
             {issueCount > 0 && (
               <span className="text-danger"> · {issueCount} kẹt giấy tờ</span>
@@ -276,9 +276,9 @@ export function CrewList() {
           2026-08-18) — banner đếm số người ở đầu trang đã bỏ, cùng ý cùng màn. */}
 
       {ready && boatCrew.length === 0 && (
-        <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
+        <div className="rounded-2xl bg-field/70 px-4 py-12 text-center">
           <UsersIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[1.125rem] text-foreground/70">
+          <p className="mt-3 text-[1rem] text-foreground/70">
             {readFailed ? (
               <>
                 Chưa mở được sổ thuyền viên trong máy.
@@ -324,10 +324,10 @@ export function CrewList() {
                 {/* Hàng danh tính — Sửa/Xóa thao tác lên CẢ THẺ nên nằm ở đây */}
                 <div className="flex items-stretch gap-2">
                   <div className="min-w-0 flex-1 rounded-2xl bg-background px-3 py-2">
-                    <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
+                    <p className="text-[0.8125rem] font-semibold uppercase tracking-wide text-foreground/65">
                       {ROLE_LABELS[m.role]}
                     </p>
-                    <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
+                    <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
                       {m.name}
                     </p>
                   </div>
@@ -358,15 +358,15 @@ export function CrewList() {
                 <div className="flex items-stretch gap-2">
                   <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                     {hasCccd ? (
-                      <p className="text-[0.9375rem] tabular-nums text-foreground/70">
+                      <p className="text-[0.875rem] tabular-nums text-foreground/70">
                         CCCD: {formatCccd(m.cccd)}
                       </p>
                     ) : canWarn ? (
-                      <p className="text-[0.9375rem] text-foreground/70">
+                      <p className="text-[0.875rem] text-foreground/70">
                         Chưa có CCCD — tra cảnh báo theo số điện thoại
                       </p>
                     ) : (
-                      <p className="text-[0.9375rem] font-semibold text-warn">
+                      <p className="text-[0.875rem] font-semibold text-warn">
                         Chưa có CCCD/SĐT — bấm Sửa để bổ sung, rồi mới tra cảnh
                         báo được
                       </p>
@@ -394,7 +394,7 @@ export function CrewList() {
                 {m.phone && (
                   <div className="flex items-stretch gap-2">
                     <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[1rem] font-bold tabular-nums text-navy">
+                      <p className="text-[1rem] font-semibold tabular-nums text-navy">
                         {m.phone}
                       </p>
                     </div>
@@ -411,7 +411,7 @@ export function CrewList() {
                 {m.certLabel && (
                   <div className="flex items-stretch gap-2">
                     <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[0.9375rem] text-foreground/70">
+                      <p className="text-[0.875rem] text-foreground/70">
                         {m.certLabel}
                         {m.certExpiry && ` — hết hạn ${formatVnDate(m.certExpiry)}`}
                       </p>
@@ -610,7 +610,7 @@ function CrewForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] text-foreground/80">
               Làm việc:{" "}
-              <span className="font-bold text-navy">{ROLE_LABELS[role]}</span>
+              <span className="font-semibold text-navy">{ROLE_LABELS[role]}</span>
             </p>
           </div>
           <button
@@ -647,7 +647,7 @@ function CrewForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] text-foreground/80">
               Giấy tờ, bảo hiểm:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {hasInsurance ? "có bảo hiểm" : "chưa có bảo hiểm"}
               </span>
             </p>
@@ -669,7 +669,7 @@ function CrewForm({
                 <button
                   type="button"
                   onClick={() => setHasInsurance(true)}
-                  className={`min-h-(--row-h) rounded-xl text-[1.125rem] font-bold ${
+                  className={`min-h-(--row-h) rounded-xl text-[1rem] font-semibold ${
                     hasInsurance
                       ? "bg-ok text-white"
                       : "bg-field text-foreground/70"
@@ -680,7 +680,7 @@ function CrewForm({
                 <button
                   type="button"
                   onClick={() => setHasInsurance(false)}
-                  className={`min-h-(--row-h) rounded-xl text-[1.125rem] font-bold ${
+                  className={`min-h-(--row-h) rounded-xl text-[1rem] font-semibold ${
                     !hasInsurance
                       ? "bg-danger text-white"
                       : "bg-field text-foreground/70"
@@ -734,7 +734,7 @@ function CrewForm({
         <div className="mt-3 flex items-stretch gap-2">
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p
-              className={`text-[0.9375rem] ${err ? "font-semibold text-danger" : "text-foreground/70"}`}
+              className={`text-[0.875rem] ${err ? "font-semibold text-danger" : "text-foreground/70"}`}
             >
               {err ?? "Yêu cầu có Tên + CCCD hoặc số điện thoại."}
             </p>
@@ -837,17 +837,17 @@ function WarningsList({ result }: { result: CrewLookupResult }) {
   if (result.count === 0) return null;
   return (
     <div className="overflow-hidden rounded-2xl border border-danger/40">
-      <div className="bg-danger-bg px-4 py-2.5 text-[1rem] font-bold text-danger">
+      <div className="bg-danger-bg px-4 py-2.5 text-[1rem] font-semibold text-danger">
         {result.count} cảnh báo SDVICO đã xem
       </div>
       <ul>
         {result.reports.map((rp) => (
           <li key={rp.id} className="border-t border-line px-4 py-3">
-            <p className="text-[1rem] font-bold text-navy">
+            <p className="text-[1rem] font-semibold text-navy">
               {crewReportCategoryLabel(rp.category)}
             </p>
             {rp.detail && (
-              <p className="mt-0.5 text-[0.9375rem] leading-snug text-foreground/75">
+              <p className="mt-0.5 text-[0.875rem] leading-snug text-foreground/75">
                 {rp.detail}
               </p>
             )}
@@ -857,7 +857,7 @@ function WarningsList({ result }: { result: CrewLookupResult }) {
             </p>
             {rp.subjectResponse && (
               <p className="mt-1.5 rounded-lg bg-field px-3 py-2 text-[0.875rem] text-foreground/75">
-                <span className="font-bold text-navy">Thuyền viên phản hồi: </span>
+                <span className="font-semibold text-navy">Thuyền viên phản hồi: </span>
                 {rp.subjectResponse}
               </p>
             )}
@@ -954,14 +954,14 @@ function IdentityCheck({
   if (state.kind === "done") {
     if (state.result.count === 0)
       return (
-        <p className="mt-1.5 flex items-center gap-1.5 text-[0.9375rem] font-bold text-ok">
+        <p className="mt-1.5 flex items-center gap-1.5 text-[0.875rem] font-semibold text-ok">
           <CheckIcon className="h-5 w-5" />
           Không có cảnh báo — bạn thuyền ổn.
         </p>
       );
     return (
       <div className="mt-2">
-        <p className="mb-1.5 flex items-center gap-1.5 text-[0.9375rem] font-bold text-danger">
+        <p className="mb-1.5 flex items-center gap-1.5 text-[0.875rem] font-semibold text-danger">
           <AlertIcon className="h-5 w-5" />
           Có cảnh báo về người này:
         </p>
@@ -1039,7 +1039,7 @@ function ReportSheet({
               ô "Sửa" ngay cuối chính hàng nó. */}
           <div className="mb-3 -mt-1 flex items-stretch gap-2">
             <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-              <p className="text-[0.9375rem] tabular-nums text-foreground/70">
+              <p className="text-[0.875rem] tabular-nums text-foreground/70">
                 {subjName ? (
                   <strong className="text-navy">{subjName} · </strong>
                 ) : null}
@@ -1070,7 +1070,7 @@ function ReportSheet({
 
           {ctx.kind === "done" && ctx.result.count > 0 && (
             <div className="mb-3">
-              <p className="mb-1.5 text-[0.9375rem] font-bold text-danger">
+              <p className="mb-1.5 text-[0.875rem] font-semibold text-danger">
                 Người này đã bị báo cáo trước đó:
               </p>
               <WarningsList result={ctx.result} />
@@ -1156,13 +1156,13 @@ function ReportForm({
     return (
       <div className="rounded-2xl bg-ok-bg px-4 py-8 text-center">
         {/* Rút một dòng (D1): câu đầy đủ đã nói ngay trước nút Gửi. */}
-        <p className="text-[1rem] font-bold text-ok">
+        <p className="text-[1rem] font-semibold text-ok">
           Đã gửi. Chờ SDVICO duyệt.
         </p>
         <button
           type="button"
           onClick={onDone}
-          className="mt-4 min-h-[3.25rem] rounded-full bg-navy px-6 text-[1rem] font-bold text-white"
+          className="mt-4 min-h-[3.25rem] rounded-full bg-navy px-6 text-[1rem] font-semibold text-white"
         >
           Xong
         </button>
@@ -1172,7 +1172,7 @@ function ReportForm({
 
   return (
     <form onSubmit={submit} className="mt-1">
-      <p className="mb-3 text-[0.9375rem] leading-snug text-foreground/70">
+      <p className="mb-3 text-[0.875rem] leading-snug text-foreground/70">
         SDVICO xem trước rồi mới hiện báo cáo. Người bị ghi cũng được
         trả lời lại — bà con nhớ ghi đúng sự thật.
       </p>
@@ -1183,7 +1183,7 @@ function ReportForm({
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p className="text-[1rem] text-foreground/80">
             Vấn đề:{" "}
-            <span className="font-bold text-navy">
+            <span className="font-semibold text-navy">
               {category ? CREW_REPORT_CATEGORY_LABELS[category] : "chưa chọn"}
             </span>
           </p>
@@ -1208,7 +1208,7 @@ function ReportForm({
                 setCategory(c);
                 setPickCat(false);
               }}
-              className={`min-h-(--row-h) rounded-xl px-3 text-left text-[1rem] font-bold ${
+              className={`min-h-(--row-h) rounded-xl px-3 text-left text-[1rem] font-semibold ${
                 category === c
                   ? "bg-navy text-white"
                   : "bg-field text-foreground/70"
@@ -1224,7 +1224,7 @@ function ReportForm({
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p className="text-[1rem] text-foreground/80">
             Kể rõ hơn{" "}
-            <span className="font-bold text-navy">
+            <span className="font-semibold text-navy">
               {detail.trim() ? "đã ghi" : "(tuỳ chọn)"}
             </span>
           </p>
@@ -1255,7 +1255,7 @@ function ReportForm({
       <div className="mt-2 flex items-stretch gap-2">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p
-            className={`text-[0.9375rem] ${msg ? "font-semibold text-danger" : "text-foreground/70"}`}
+            className={`text-[0.875rem] ${msg ? "font-semibold text-danger" : "text-foreground/70"}`}
           >
             {msg ?? (category ? "Đã có thể gửi báo cáo." : "Bà con chọn loại vấn đề trước nhé.")}
           </p>

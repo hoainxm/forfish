@@ -106,10 +106,10 @@ export function ProductDetail({ id }: { id: string }) {
   if (status === "loading") {
     return (
       <div className="px-4 py-4 pb-[7rem]" role="status">
-        <div className="aspect-square w-full animate-pulse rounded-[1.25rem] bg-field" />
+        <div className="aspect-square w-full animate-pulse rounded-2xl bg-field" />
         <div className="mt-4 h-6 w-3/4 animate-pulse rounded bg-field" />
         <div className="mt-2 h-6 w-1/3 animate-pulse rounded bg-field" />
-        <p className="mt-4 text-[1.125rem] text-foreground/65">Đang tải món…</p>
+        <p className="mt-4 text-[1rem] text-foreground/65">Đang tải món…</p>
       </div>
     );
   }
@@ -119,10 +119,10 @@ export function ProductDetail({ id }: { id: string }) {
         <div className="mx-auto mb-3 w-fit text-foreground/50">
           <AlertIcon className="h-8 w-8" />
         </div>
-        <p className="text-[1.125rem] font-bold text-navy">Món này không còn trên chợ.</p>
+        <p className="text-[1rem] font-semibold text-navy">Món này không còn trên chợ.</p>
         <Link
           href="/cho"
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
         >
           Về cửa hàng
         </Link>
@@ -240,7 +240,7 @@ export function ProductDetail({ id }: { id: string }) {
               ))}
             </div>
             <span
-              className="pointer-events-none absolute bottom-3 right-3 rounded-full px-2.5 py-0.5 text-[0.875rem] font-bold"
+              className="pointer-events-none absolute bottom-3 right-3 rounded-full px-2.5 py-0.5 text-[0.875rem] font-semibold"
               style={{ backgroundColor: "var(--navy)", color: "var(--card)" }}
               aria-live="polite"
             >
@@ -270,7 +270,7 @@ export function ProductDetail({ id }: { id: string }) {
 
         {/* ── Tên + giá ─────────────────────────────────────────────────── */}
         <div className="flex items-start gap-3">
-          <h2 className="display min-w-0 flex-1 text-[1.375rem] font-bold leading-snug text-navy">{product.title}</h2>
+          <h2 className="display min-w-0 flex-1 text-[1.375rem] font-semibold leading-snug text-navy">{product.title}</h2>
           <button
             type="button"
             onClick={onFav}
@@ -287,7 +287,7 @@ export function ProductDetail({ id }: { id: string }) {
           <PriceText priceVnd={unitPrice} compareAtVnd={product.compareAtVnd} size="lg" />
           {pct != null && (
             <span
-              className="rounded-full px-2 py-0.5 text-[0.875rem] font-bold"
+              className="rounded-full px-2 py-0.5 text-[0.875rem] font-semibold"
               style={{ backgroundColor: "var(--trim)", color: "var(--card)" }}
             >
               -{pct}%
@@ -303,7 +303,7 @@ export function ProductDetail({ id }: { id: string }) {
           {product.ratingCount > 0 ? (
             <span className="inline-flex items-center gap-1">
               <span style={{ color: "var(--sun)" }} aria-hidden><StarIcon className="h-4 w-4 fill-current" /></span>
-              <span className="font-bold text-navy">{product.ratingAvg.toFixed(1)}</span>
+              <span className="font-semibold text-navy">{product.ratingAvg.toFixed(1)}</span>
               <span>({product.ratingCount})</span>
             </span>
           ) : (
@@ -329,7 +329,7 @@ export function ProductDetail({ id }: { id: string }) {
             className="-mx-2 mt-2 rounded-2xl px-2 py-2 transition-shadow"
             style={variantHint ? { boxShadow: "0 0 0 3px var(--trim)" } : undefined}
           >
-            <p className="mb-1.5 text-[1rem] font-bold text-navy">Chọn loại / cỡ</p>
+            <p className="mb-1.5 text-[1rem] font-semibold text-navy">Chọn loại / cỡ</p>
             <div className="flex flex-wrap gap-2">
               {product.variants.map((v) => (
                 <button
@@ -337,7 +337,7 @@ export function ProductDetail({ id }: { id: string }) {
                   type="button"
                   onClick={() => setVariant(v.label)}
                   aria-pressed={variant === v.label}
-                  className="min-h-(--row-h) rounded-full px-4 text-[1rem] font-bold"
+                  className="min-h-(--row-h) rounded-full px-4 text-[1rem] font-semibold"
                   style={{
                     backgroundColor: variant === v.label ? "var(--t3)" : "var(--field)",
                     color: variant === v.label ? "var(--card)" : "var(--navy)",
@@ -348,7 +348,7 @@ export function ProductDetail({ id }: { id: string }) {
               ))}
             </div>
             {variantHint && (
-              <p role="status" className="mt-1.5 text-[1rem] font-bold text-trim">
+              <p role="status" className="mt-1.5 text-[1rem] font-semibold text-trim">
                 Chọn loại/cỡ trước rồi bấm lại giúp.
               </p>
             )}
@@ -361,7 +361,7 @@ export function ProductDetail({ id }: { id: string }) {
         {!quoteOnly && (
           <>
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-[1rem] font-bold text-navy">Số lượng</span>
+              <span className="text-[1rem] font-semibold text-navy">Số lượng</span>
               <QtyStepper
                 qty={qty}
                 onChange={(n) => setQty(Math.max(1, Math.min(product.stock > 0 ? product.stock : 1, n)))}
@@ -392,7 +392,7 @@ export function ProductDetail({ id }: { id: string }) {
               paused={shopPaused}
               className="text-[1rem]"
             />
-            <span className="mt-0.5 flex items-center gap-1 text-[0.9375rem] font-bold text-t3">
+            <span className="mt-0.5 flex items-center gap-1 text-[0.875rem] font-semibold text-t3">
               Xem shop <ChevronRightIcon className="h-4 w-4" />
             </span>
           </Link>
@@ -403,15 +403,15 @@ export function ProductDetail({ id }: { id: string }) {
         {/* ── Mô tả ────────────────────────────────────────────────────── */}
         {product.description && (
           <section className="mt-4">
-            <h3 className="text-[1.125rem] font-bold text-navy">Mô tả</h3>
-            <p ref={descRef} className={`mt-1 whitespace-pre-line text-[1.0625rem] leading-relaxed ${descOpen ? "" : "line-clamp-4"}`}>
+            <h3 className="text-[1rem] font-semibold text-navy">Mô tả</h3>
+            <p ref={descRef} className={`mt-1 whitespace-pre-line text-[1rem] leading-relaxed ${descOpen ? "" : "line-clamp-4"}`}>
               {product.description}
             </p>
             {(descOpen || descClamped) && (
               <button
                 type="button"
                 onClick={() => setDescOpen((v) => !v)}
-                className="mt-1 min-h-(--row-h) text-[1rem] font-bold text-t3"
+                className="mt-1 min-h-(--row-h) text-[1rem] font-semibold text-t3"
               >
                 {descOpen ? "Thu gọn" : "Xem thêm"}
               </button>
@@ -421,12 +421,12 @@ export function ProductDetail({ id }: { id: string }) {
 
         {/* ── Đánh giá ─────────────────────────────────────────────────── */}
         <section className="mt-4">
-          <h3 className="text-[1.125rem] font-bold text-navy">Đánh giá</h3>
+          <h3 className="text-[1rem] font-semibold text-navy">Đánh giá</h3>
           {data && data.reviews.count > 0 ? (
             <>
               <p className="mt-1 flex items-center gap-2 text-[1rem] text-foreground/70">
                 <RatingStars value={data.reviews.avg} size="lg" />
-                <span className="font-bold text-navy">{data.reviews.avg.toFixed(1)}</span>
+                <span className="font-semibold text-navy">{data.reviews.avg.toFixed(1)}</span>
                 <span>({data.reviews.count} đánh giá)</span>
               </p>
               <ul className="mt-2 flex flex-col gap-2">
@@ -442,7 +442,7 @@ export function ProductDetail({ id }: { id: string }) {
                 <button
                   type="button"
                   onClick={() => void openAllReviews()}
-                  className="mt-2 min-h-(--row-h) text-[1rem] font-bold text-t3"
+                  className="mt-2 min-h-(--row-h) text-[1rem] font-semibold text-t3"
                 >
                   Xem tất cả đánh giá
                 </button>
@@ -476,7 +476,7 @@ export function ProductDetail({ id }: { id: string }) {
           ) : (
             <Link
               href={`/cho/shop/${product.shopSlug}`}
-              className="flex min-h-(--row-h) flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-[1rem] font-bold"
+              className="flex min-h-(--row-h) flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-[1rem] font-semibold"
               style={{ backgroundColor: "var(--trim)", color: "var(--card)" }}
             >
               Xem shop để hỏi giá
@@ -489,7 +489,7 @@ export function ProductDetail({ id }: { id: string }) {
             ) : (
               <Link
                 href={`/cho/shop/${product.shopSlug}`}
-                className="flex min-h-(--row-h) shrink-0 items-center gap-1.5 rounded-full px-4 text-[1rem] font-bold"
+                className="flex min-h-(--row-h) shrink-0 items-center gap-1.5 rounded-full px-4 text-[1rem] font-semibold"
                 style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}
               >
                 Xem shop
@@ -506,9 +506,9 @@ export function ProductDetail({ id }: { id: string }) {
       {reviewsOpen && (
         <BottomSheet title="Tất cả đánh giá" onClose={() => setReviewsOpen(false)}>
           {allReviews === null ? (
-            <p role="status" className="py-6 text-center text-[1.125rem] text-foreground/65">Đang tải…</p>
+            <p role="status" className="py-6 text-center text-[1rem] text-foreground/65">Đang tải…</p>
           ) : allReviews.length === 0 ? (
-            <p className="py-6 text-center text-[1.125rem] text-foreground/65">
+            <p className="py-6 text-center text-[1rem] text-foreground/65">
               Chưa tải được đánh giá — thử lại khi có sóng.
             </p>
           ) : (

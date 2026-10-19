@@ -112,7 +112,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
         {cart.saveFailed && (
           <p
             role="alert"
-            className="mb-3 rounded-2xl px-3.5 py-2.5 text-[1rem] font-bold"
+            className="mb-3 rounded-2xl px-3.5 py-2.5 text-[1rem] font-semibold"
             style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}
           >
             Máy hết chỗ — CHƯA lưu được giỏ. Xoá bớt ảnh/ứng dụng rồi chọn lại giúp.
@@ -123,8 +123,8 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
         {coming && (
           <Link href={`/cho/don/${coming.id}`} className="surface mb-4 flex items-center gap-3 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[1rem] font-bold text-navy">Đơn đang tới · {coming.code}</p>
-              <p className="mt-0.5 truncate text-[0.9375rem] text-foreground/65">
+              <p className="text-[1rem] font-semibold text-navy">Đơn đang tới · {coming.code}</p>
+              <p className="mt-0.5 truncate text-[0.875rem] text-foreground/65">
                 {coming.shopName ?? "Shop"} ·{" "}
                 {coming.status === "da_giao" ? "Đã giao — bấm Đã nhận hàng" : "Shop đang giao"}
               </p>
@@ -142,7 +142,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
               {rebuy.map((l) => (
                 <li key={`${l.productId}-${l.variantLabel ?? ""}`} className="surface w-[10.5rem] shrink-0 p-2">
                   <Link href={`/cho/sp/${l.productId}`} className="block">
-                    <p className="line-clamp-2 min-h-[2.75rem] text-[0.9375rem] font-bold leading-snug text-navy">
+                    <p className="line-clamp-2 min-h-[2.75rem] text-[0.875rem] font-semibold leading-snug text-navy">
                       {l.title}
                     </p>
                     <PriceText priceVnd={l.priceVnd} className="mt-1" />
@@ -161,7 +161,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
                     }}
                     /*  Nút thường bấm ⇒ KHÔNG SQ_BTN (F-07: chế độ gọn hạ nó
                         xuống 37px/11px). */
-                    className="mt-2 flex min-h-(--row-h) w-full items-center justify-center gap-1.5 rounded-full text-[1rem] font-bold"
+                    className="mt-2 flex min-h-(--row-h) w-full items-center justify-center gap-1.5 rounded-full text-[1rem] font-semibold"
                     style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
                     aria-label={`Mua lại ${l.title}`}
                   >
@@ -184,9 +184,9 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
             extra={
               <Link
                 href="/cho/don"
-                className="inline-flex min-h-(--row-h) items-center justify-center rounded-full bg-field px-5 text-[1rem] font-bold text-navy"
+                className="inline-flex min-h-(--row-h) items-center justify-center rounded-full bg-field px-5 text-[1rem] font-semibold text-navy"
               >
-                Xem đơn của tôi
+                Đơn hàng
               </Link>
             }
           />
@@ -197,10 +197,10 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
             {/* ĐẶT BẤT KỲ MÓN GÌ — chợ chưa bán thì chủ sàn tìm, báo giá (2026-10-18) */}
             <Link href="/cho/yeu-cau/moi" className="surface mb-5 flex min-h-(--row-h) items-center gap-3 px-4 py-3">
               <span className="min-w-0 flex-1">
-                <span className="block text-[1.0625rem] font-bold text-navy">Cần món chợ chưa có?</span>
-                <span className="block text-[0.9375rem] text-foreground/75">Ghi món cần — chủ sàn tìm hàng, báo giá, hẹn ngày giao</span>
+                <span className="block text-[1rem] font-semibold text-navy">Cần món chợ chưa có?</span>
+                <span className="block text-[0.875rem] text-foreground/75">Ghi món cần — chủ sàn tìm hàng, báo giá, hẹn ngày giao</span>
               </span>
-              <span className="shrink-0 rounded-full bg-trim px-4 py-2 text-[1rem] font-bold text-white">Đặt</span>
+              <span className="shrink-0 rounded-full bg-trim px-4 py-2 text-[1rem] font-semibold text-white">Đặt</span>
             </Link>
             {near.length > 0 && (
               <section className="mb-5">
@@ -236,7 +236,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
                 <li key={f.productId}>
                   <Link href={`/cho/sp/${f.productId}`} className="surface flex items-center gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{f.snapshot.title}</p>
+                      <p className="line-clamp-2 text-[1rem] font-semibold leading-snug text-navy">{f.snapshot.title}</p>
                       <p className="mt-0.5 text-[0.875rem] text-foreground/65">{f.snapshot.shopName}</p>
                     </div>
                     <PriceText priceVnd={f.snapshot.priceVnd} />

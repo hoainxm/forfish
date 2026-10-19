@@ -52,14 +52,14 @@ export function OrderTimeline({
               {!last && <span className="w-0.5 flex-1" style={{ backgroundColor: "var(--line)" }} />}
             </span>
             <div className="pb-3">
-              <p className={`text-[1rem] ${last ? "font-bold text-navy" : "text-foreground/80"}`}>
+              <p className={`text-[1rem] ${last ? "font-semibold text-navy" : "text-foreground/80"}`}>
                 {label}
                 {extra && <span className="text-foreground/65"> ({extra})</span>}
               </p>
               <p className="text-[0.875rem] text-foreground/65">
                 {when(t.at)} · {byLabel(t.by)}
               </p>
-              {t.note && <p className="mt-0.5 text-[0.9375rem] text-foreground/80">{t.note}</p>}
+              {t.note && <p className="mt-0.5 text-[0.875rem] text-foreground/80">{t.note}</p>}
             </div>
           </li>
         );

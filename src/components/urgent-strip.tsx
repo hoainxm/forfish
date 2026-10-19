@@ -1,5 +1,6 @@
 "use client";
 
+import { NHAN } from "@/lib/labels";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { loadBoats } from "@/lib/boats";
@@ -113,7 +114,7 @@ export function UrgentStrip() {
   if (all.length === 0) {
     if (!sdvicoNote) return null;
     return (
-      <p className="px-1 text-[1.125rem] leading-snug text-foreground/70">
+      <p className="px-1 text-[1rem] leading-snug text-foreground/70">
         Chưa hỏi được nợ/bảo hành bên SDVICO — sóng đang yếu, app sẽ thử lại.
       </p>
     );
@@ -129,31 +130,31 @@ export function UrgentStrip() {
   return (
     <section aria-label="Việc cần làm ngay">
       <div className="mb-2 flex items-center justify-between gap-2 px-1">
-        <h2 className="display text-[1.25rem] font-bold text-navy">Việc cần làm</h2>
-        <span className="text-[1.125rem] font-bold text-foreground/70">{all.length} việc</span>
+        <h2 className="display text-[1rem] font-semibold text-navy">Việc cần làm</h2>
+        <span className="text-[0.8125rem] font-medium text-foreground/65">{all.length} việc</span>
       </div>
-      <ul className="divide-y divide-line overflow-hidden rounded-2xl bg-card">
+      <ul className="divide-y divide-line overflow-hidden surface overflow-hidden">
         {shown.map((item) => {
           const Icon = item.tone === "danger" ? AlertIcon : ClockIcon;
           const phu = [PILLAR_TAG[item.pillar].tag, item.boatLabel].filter(Boolean).join(" · ");
           return (
             <li key={item.id}>
-              <Link href={item.href} className="flex min-h-[3.5rem] items-start gap-3 px-4 py-3 active:bg-field">
+              <Link href={item.href} className="flex min-h-(--h-row) items-start gap-3 px-4 py-3 active:bg-field">
                 <span
                   className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${item.tone === "danger" ? "bg-danger" : "bg-warn"}`}
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[1.125rem] font-bold leading-snug text-navy">{item.label}</span>
+                  <span className="block text-[1rem] font-semibold leading-snug text-navy">{item.label}</span>
                   <span
-                    className={`mt-0.5 flex items-center gap-1 text-[1.125rem] font-bold leading-snug ${
+                    className={`mt-0.5 flex items-center gap-1 text-[1rem] font-semibold leading-snug ${
                       item.tone === "danger" ? "text-danger" : "text-warn"
                     }`}
                   >
                     <Icon className="h-5 w-5 shrink-0" />
                     {item.status}
                   </span>
-                  {phu && <span className="mt-0.5 block text-[1.125rem] leading-snug text-foreground/65">{phu}</span>}
+                  {phu && <span className="mt-0.5 block text-[0.8125rem] leading-snug text-foreground/65">{phu}</span>}
                 </span>
                 <ChevronRightIcon className="mt-0.5 h-5 w-5 shrink-0 text-foreground/50" />
               </Link>
@@ -166,15 +167,18 @@ export function UrgentStrip() {
               type="button"
               onClick={() => setExpanded((v) => !v)}
               aria-expanded={expanded}
-              className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 px-4 text-[1.125rem] font-bold text-navy active:bg-field"
+              className="flex min-h-(--h-row) w-full items-center justify-center gap-2 px-4 text-[1rem] font-semibold text-navy active:bg-field"
             >
               <ChevronDownIcon className={`h-5 w-5 ${expanded ? "rotate-180" : ""}`} />
-              {expanded ? "Thu gọn" : `Xem thêm ${rest} việc`}
+              {expanded ? NHAN.thuGon : NHAN.xemThem}
+              {!expanded && rest > 0 && (
+                <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-semibold text-foreground/70">{rest}</span>
+              )}
             </button>
           </li>
         )}
         {sdvicoNote && (
-          <li className="px-4 py-3 text-[1.125rem] leading-snug text-foreground/70">
+          <li className="px-4 py-3 text-[1rem] leading-snug text-foreground/70">
             Chưa hỏi được nợ/bảo hành bên SDVICO — sóng đang yếu, app sẽ thử lại.
           </li>
         )}

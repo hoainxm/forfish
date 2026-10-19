@@ -22,6 +22,7 @@
  * do app tồn tại — nhắc cài nhường chỗ, audit S8). Không nài — tắt là nhớ.
  */
 
+import { NHAN } from "@/lib/labels";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { isStandalone, isIOS, isAndroid } from "@/lib/storage-persist";
@@ -188,18 +189,18 @@ export function InstallBanner() {
       /*  Chrome không hỏi — hầu hết là vì máy đã có bản CH Play, lúc đó
           Chrome coi origin này "đã cài". Không nói lý do kỹ thuật ra màn
           hình: bà con chỉ cần biết BẤM VÀO ĐÂU. */
-      <p className="rounded-xl bg-background p-3 text-[1.125rem] font-semibold leading-snug text-navy">
-        Trên Android: bấm nút <span className="font-bold">⋮</span> ở góc trên
+      <p className="rounded-xl bg-background p-3 text-[1rem] font-semibold leading-snug text-navy">
+        Trên Android: bấm nút <span className="font-semibold">⋮</span> ở góc trên
         Chrome, rồi chọn{" "}
-        <span className="font-bold">“Thêm vào Màn hình chính”</span> (có máy
-        ghi <span className="font-bold">“Cài ứng dụng”</span>).
+        <span className="font-semibold">“Thêm vào Màn hình chính”</span> (có máy
+        ghi <span className="font-semibold">“Cài ứng dụng”</span>).
       </p>
     ) : mode === "ios" ? (
-      <p className="rounded-xl bg-background p-3 text-[1.125rem] font-semibold leading-snug text-navy">
-        Trên iPhone: bấm nút <span className="font-bold">Chia sẻ</span> ở thanh
+      <p className="rounded-xl bg-background p-3 text-[1rem] font-semibold leading-snug text-navy">
+        Trên iPhone: bấm nút <span className="font-semibold">Chia sẻ</span> ở thanh
         dưới trình duyệt, rồi chọn{" "}
-        <span className="font-bold">“Thêm vào Màn hình chính”</span>.
-        <span className="mt-2 block font-bold text-danger">
+        <span className="font-semibold">“Thêm vào Màn hình chính”</span>.
+        <span className="mt-2 block font-semibold text-danger">
           Cài xong mở app vừa cài NGAY khi còn sóng: bản cài bắt đầu từ kho
           trống, phải tải lại dự báo một lần.
         </span>
@@ -208,10 +209,10 @@ export function InstallBanner() {
       <button
         type="button"
         onClick={install}
-        className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-2xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
+        className="flex min-h-(--h-row) w-full items-center justify-center gap-2 rounded-2xl bg-t1 text-[1rem] font-semibold text-white transition active:scale-[0.98]"
       >
-        <AnchorIcon className="h-6 w-6" />
-        Cài về máy
+        <AnchorIcon className="h-5 w-5" />
+        {NHAN.caiApp}
       </button>
     );
 
@@ -222,16 +223,17 @@ export function InstallBanner() {
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
-          className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-3 rounded-2xl pl-2 text-left transition active:bg-background"
+          className="flex min-h-(--h-row) min-w-0 flex-1 items-center gap-3 rounded-2xl pl-2 text-left transition active:bg-background"
         >
           <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-t1-bg text-t1"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-t1-bg text-t1"
             aria-hidden
           >
-            <AnchorIcon className="h-6 w-6" />
+            <AnchorIcon className="h-5 w-5" />
           </span>
-          <span className="display min-w-0 flex-1 text-[1.125rem] font-bold leading-tight text-navy">
-            Cài SDFish về máy để dùng khi mất sóng
+          <span className="min-w-0 flex-1">
+            <span className="display block text-[1rem] font-semibold leading-tight text-navy">Cài app</span>
+            <span className="block text-[0.8125rem] leading-snug text-foreground/65">Dùng được khi mất sóng</span>
           </span>
           <ChevronRightIcon
             className={`h-5 w-5 shrink-0 text-foreground/60 transition-transform ${open ? "rotate-90" : ""}`}
@@ -256,7 +258,7 @@ export function InstallBanner() {
               iPhone bản cài giữ kho RIÊNG — dự báo đã tải trong Safari KHÔNG theo
               sang, mà lần mở đầu tiên của bản cài bắt buộc phải có sóng. Hứa
               "cài xong là ra khơi mở được" cho iPhone là hứa hão. */}
-          <p className="text-[1.125rem] leading-snug text-foreground/75">
+          <p className="text-[1rem] leading-snug text-foreground/75">
             {mode === "ios"
               ? "Cài ra màn hình chính giúp máy giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."
               : "Cài ra màn hình chính giúp mở app khi không có sóng, và máy sẽ giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."}

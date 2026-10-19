@@ -35,7 +35,7 @@ import { ErrorBlock } from "./ui";
 export function RequestStatusChip({ status }: { status: RequestStatus }) {
   const c = REQUEST_STATUS_CHIP[status];
   return (
-    <span className="inline-flex items-center rounded-full px-3 py-1 text-[0.875rem] font-bold" style={{ backgroundColor: c.bg, color: c.fg }}>
+    <span className="inline-flex items-center rounded-full px-3 py-1 text-[0.875rem] font-semibold" style={{ backgroundColor: c.bg, color: c.fg }}>
       {REQUEST_STATUS_LABEL[status]}
     </span>
   );
@@ -73,7 +73,7 @@ export function MyRequests() {
 
   return (
     <div className="px-4 pb-[7rem] pt-3">
-      <Link href="/cho/yeu-cau/moi" className="display flex min-h-[3.75rem] items-center justify-center rounded-full bg-trim px-5 text-[1.125rem] font-bold text-white shadow-trim-cta">
+      <Link href="/cho/yeu-cau/moi" className="display flex min-h-[3.75rem] items-center justify-center rounded-full bg-trim px-5 text-[1rem] font-semibold text-white ">
         + Đặt món không có trên chợ
       </Link>
       <p className="mt-2 text-[1rem] text-foreground/75">
@@ -100,12 +100,12 @@ export function MyRequests() {
                 <Link href={`/cho/yeu-cau/${r.id}`} className="surface flex min-h-(--row-h) items-start gap-3 px-4 py-3">
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
-                      <b className="text-[1.0625rem] text-navy">{r.title}</b>
+                      <b className="text-[1rem] text-navy">{r.title}</b>
                       <RequestStatusChip status={r.status} />
                     </span>
                     <span className="mt-0.5 block text-[1rem] text-foreground/75">{r.qty} {r.unit} · {r.code}</span>
                     {r.status === "da_bao_gia" && r.quote && (
-                      <span className="mt-1 block text-[1.0625rem] font-bold text-navy">
+                      <span className="mt-1 block text-[1rem] font-semibold text-navy">
                         {formatVnd(quoteTotal(r.quote))} · giao {etaLabel(r.quote.etaFrom, r.quote.etaTo, vnToday())}
                       </span>
                     )}
@@ -189,29 +189,29 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
       </Field>
 
       <div className="surface mt-2 px-4 py-3">
-        <p className="text-[1rem] font-bold text-navy">Giao tới</p>
+        <p className="text-[1rem] font-semibold text-navy">Giao tới</p>
         {addr && !validateAddress(addr) ? (
           <p className="mt-1 text-[1rem] text-foreground/85">{addr.name} · {addr.phone}<br />{addr.isPort ? "Cảng/bến: " : ""}{addr.detail} · {addr.province}</p>
         ) : (
           <p className="mt-1 text-[1rem] text-foreground/70">Chưa có địa chỉ nhận.</p>
         )}
-        <button type="button" onClick={() => setAddrSheet(true)} className="mt-2 min-h-(--row-h) rounded-full bg-field px-4 text-[1rem] font-bold text-navy">
+        <button type="button" onClick={() => setAddrSheet(true)} className="mt-2 min-h-(--row-h) rounded-full bg-field px-4 text-[1rem] font-semibold text-navy">
           Đổi địa chỉ
         </button>
       </div>
 
-      <p className="mb-2 mt-4 text-[1rem] font-bold text-navy">Trả tiền</p>
+      <p className="mb-2 mt-4 text-[1rem] font-semibold text-navy">Trả tiền</p>
       <div className="flex gap-2">
         {(["cod", "chuyen_khoan"] as const).map((m) => (
           <button key={m} type="button" aria-pressed={pay === m} onClick={() => setPay(m)}
-            className="min-h-(--row-h) flex-1 rounded-full px-3 text-[1rem] font-bold"
+            className="min-h-(--row-h) flex-1 rounded-full px-3 text-[1rem] font-semibold"
             style={{ backgroundColor: pay === m ? "var(--t3)" : "var(--field)", color: pay === m ? "var(--card)" : "var(--navy)" }}>
             {PAYMENT_METHOD_LABEL[m]}
           </button>
         ))}
       </div>
 
-      {err && <p className="mt-3 text-[1rem] font-bold" style={{ color: "var(--danger)" }} role="alert">{err}</p>}
+      {err && <p className="mt-3 text-[1rem] font-semibold" style={{ color: "var(--danger)" }} role="alert">{err}</p>}
       <div className="mt-4">
         <PrimaryButton disabled={busy || !online} onClick={() => void submit()}>
           {busy ? "Đang gửi…" : "Gửi cho chủ sàn"}
@@ -313,11 +313,11 @@ export function RequestDetail({ id }: { id: string }) {
           Đang xem bản lưu ({savedAgoLabel(savedAt)}) — có sóng sẽ tự tải mới.
         </p>
       )}
-      {note && <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-bold text-navy" role="status">{note}</p>}
+      {note && <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">{note}</p>}
 
       <section className="surface px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <b className="text-[1.125rem] text-navy">{r.title}</b>
+          <b className="text-[1rem] text-navy">{r.title}</b>
           <RequestStatusChip status={r.status} />
         </div>
         <p className="mt-1 text-[1rem] text-foreground/80">{r.qty} {r.unit} · mã {r.code}</p>
@@ -333,15 +333,15 @@ export function RequestDetail({ id }: { id: string }) {
 
       {q && (r.status === "da_bao_gia" || r.status === "da_dat" || r.status === "het_han") && (
         <section className="surface mt-3 px-4 py-3">
-          <h3 className="text-[1.0625rem] font-bold text-navy">Báo giá của chủ sàn</h3>
+          <h3 className="text-[1rem] font-semibold text-navy">Báo giá của chủ sàn</h3>
           <p className="mt-1 flex justify-between text-[1rem] text-foreground/80"><span>Tiền hàng</span><span>{formatVnd(q.goodsVnd)}</span></p>
           <p className="flex justify-between text-[1rem] text-foreground/80"><span>Phí giao</span><span>{formatVnd(q.shippingVnd)}</span></p>
-          <p className="mt-1 flex justify-between text-[1.25rem] font-bold text-navy"><span>Tổng</span><span>{formatVnd(quoteTotal(q))}</span></p>
-          <p className="mt-2 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-bold text-navy">Hẹn giao {etaLabel(q.etaFrom, q.etaTo, today)}</p>
+          <p className="mt-1 flex justify-between text-[1rem] font-semibold text-navy"><span>Tổng</span><span>{formatVnd(quoteTotal(q))}</span></p>
+          <p className="mt-2 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy">Hẹn giao {etaLabel(q.etaFrom, q.etaTo, today)}</p>
           {r.quoteShopName && <p className="mt-1 text-[1rem] text-foreground/80">Shop lo hàng: {r.quoteShopName}</p>}
           {q.note && <p className="mt-1 text-[1rem] text-foreground/85">Chủ sàn dặn: {q.note}</p>}
           {r.status === "da_bao_gia" && (
-            <p className="mt-2 text-[0.9375rem] text-foreground/70">
+            <p className="mt-2 text-[0.875rem] text-foreground/70">
               Giá giữ tới {clockVN(Date.parse(q.expiresAt))}{expiresLeft < 24 * 3600 * 1000 ? " — sắp hết hạn" : ""}.
             </p>
           )}
@@ -356,11 +356,11 @@ export function RequestDetail({ id }: { id: string }) {
       {r.status === "het_han" && (
         <p className="mt-3 rounded-2xl bg-field px-4 py-3 text-[1rem] text-navy">
           {r.timeline.at(-1)?.note || "Yêu cầu đã hết hạn."}{" "}
-          <Link href={`/cho/yeu-cau/moi?ten=${encodeURIComponent(r.title)}`} className="font-bold text-sea underline">Gửi lại</Link>
+          <Link href={`/cho/yeu-cau/moi?ten=${encodeURIComponent(r.title)}`} className="font-semibold text-sea underline">Gửi lại</Link>
         </p>
       )}
       {r.status === "da_dat" && (r.orderId || order) && (
-        <Link href={`/cho/don/${r.orderId ?? order?.id}`} className="display mt-3 flex min-h-[3.75rem] items-center justify-center rounded-full bg-trim px-5 text-[1.125rem] font-bold text-white shadow-trim-cta">
+        <Link href={`/cho/don/${r.orderId ?? order?.id}`} className="display mt-3 flex min-h-[3.75rem] items-center justify-center rounded-full bg-trim px-5 text-[1rem] font-semibold text-white ">
           Xem đơn hàng {order?.code ?? ""}
         </Link>
       )}
@@ -375,7 +375,7 @@ export function RequestDetail({ id }: { id: string }) {
       {(r.status === "moi" || r.status === "da_bao_gia") && (
         <div className="mt-3 flex justify-center">
           <button type="button" disabled={busy || !online} onClick={() => setAsk("huy")}
-            className="min-h-(--row-h) rounded-full bg-field px-5 text-[1rem] font-bold disabled:opacity-40" style={{ color: "var(--danger)" }}>
+            className="min-h-(--row-h) rounded-full bg-field px-5 text-[1rem] font-semibold disabled:opacity-40" style={{ color: "var(--danger)" }}>
             Huỷ yêu cầu
           </button>
         </div>

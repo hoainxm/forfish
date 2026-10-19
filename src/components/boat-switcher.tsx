@@ -67,7 +67,7 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
     return (
       <div className={`relative z-10 flex items-stretch gap-2 px-4 ${compact ? "" : "-mt-6"}`}>
         <div className="flex min-w-0 flex-1 items-center surface px-3.5 py-3">
-          <p className="text-[1rem] font-bold text-navy">Chưa có thông tin tàu</p>
+          <p className="text-[1rem] font-semibold text-navy">Chưa có thông tin tàu</p>
         </div>
         <button
           onClick={() => setForm({ id: `boat-${Date.now()}`, name: "" })}
@@ -102,7 +102,7 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
           <AnchorIcon className="h-6 w-6" />
         </span>
         <span className="min-w-0 flex-1 text-left">
-          <span className="block text-[1.125rem] font-bold leading-snug text-navy">
+          <span className="block text-[1rem] font-semibold leading-snug text-navy">
             {current.name}
           </span>
           <span className="mt-1 block text-[0.875rem] text-foreground/80">
@@ -112,7 +112,7 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
             {boats.length > 1 ? ` · ${boats.length} tàu` : ""}
           </span>
         </span>
-        <span className="flex shrink-0 flex-col items-center gap-1 text-[0.875rem] font-bold text-sea"><ChevronRightIcon className="h-6 w-6 rotate-90" />Chọn tàu</span>
+        <span className="flex shrink-0 flex-col items-center gap-1 text-[0.875rem] font-semibold text-sea"><ChevronRightIcon className="h-6 w-6 rotate-90" />Chọn tàu</span>
       </button>
 
       {/*  MÁY HẾT CHỖ — vẽ NGOÀI sheet (S14, audit 2026-08-18): `saveFailed`
@@ -122,7 +122,7 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
       {saveFailed && (
         <div
           role="alert"
-          className="mt-2 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-bold leading-snug text-danger"
+          className="mt-2 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-semibold leading-snug text-danger"
         >
           {storageFullCopy("hồ sơ tàu")} Danh sách tàu và giấy tờ giữ NGUYÊN
           như cũ.
@@ -147,7 +147,7 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
                     }}
                     className="min-w-0 flex-1 rounded-l-xl px-3.5 py-3 text-left"
                   >
-                    <span className="block truncate text-[1rem] font-bold">
+                    <span className="block truncate text-[1rem] font-semibold">
                       {b.name}
                     </span>
                     <span
@@ -162,7 +162,7 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
                       setPick(false);
                     }}
                     aria-label={`Sửa thông tin tàu ${b.name}`}
-                    className={`shrink-0 rounded-r-xl px-3 text-[0.875rem] font-bold ${b.id === current.id ? "text-white underline" : "text-sea"}`}
+                    className={`shrink-0 rounded-r-xl px-3 text-[0.875rem] font-semibold ${b.id === current.id ? "text-white underline" : "text-sea"}`}
                   >
                     Sửa
                   </button>
@@ -412,7 +412,7 @@ export function BoatForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] leading-snug text-foreground/80">
               Theo giấy đăng ký, đăng kiểm, giấy phép:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 đã ghi {filled}/{BOAT_PAPER_FIELDS.length} mục
               </span>
             </p>
@@ -534,7 +534,7 @@ function draftAsLoose(d: Draft): Partial<Boat> {
 
 function GroupTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-2 mt-1 text-[0.875rem] font-bold uppercase tracking-wide text-foreground/65">
+    <p className="mb-2 mt-1 text-[0.875rem] font-semibold uppercase tracking-wide text-foreground/65">
       {children}
     </p>
   );
@@ -589,11 +589,11 @@ function NumField({
         aria-invalid={error ? true : undefined}
       />
       {error ? (
-        <span role="alert" className="mt-1 block text-[0.9375rem] font-bold leading-snug text-danger">
+        <span role="alert" className="mt-1 block text-[0.875rem] font-semibold leading-snug text-danger">
           {error}
         </span>
       ) : hint ? (
-        <span className="mt-1 block text-[0.9375rem] text-foreground/70">{hint}</span>
+        <span className="mt-1 block text-[0.875rem] text-foreground/70">{hint}</span>
       ) : null}
     </Field>
   );

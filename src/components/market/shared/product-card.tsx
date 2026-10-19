@@ -74,7 +74,7 @@ export function MarketProductCard({
           )}
           {pct != null && (
             <span
-              className="absolute left-2 top-2 rounded-full px-2 py-0.5 text-[0.8125rem] font-bold"
+              className="absolute left-2 top-2 rounded-full px-2 py-0.5 text-[0.8125rem] font-semibold"
               style={{ backgroundColor: "var(--trim)", color: "var(--card)" }}
             >
               -{pct}%
@@ -82,12 +82,12 @@ export function MarketProductCard({
           )}
           {out && (
             <div className="absolute inset-0 flex items-center justify-center bg-navy/60">
-              <span className="rounded-full bg-card px-3 py-1 text-[1rem] font-bold text-navy">Hết hàng</span>
+              <span className="rounded-full bg-card px-3 py-1 text-[1rem] font-semibold text-navy">Hết hàng</span>
             </div>
           )}
           {product.shopPaused && !out && (
             <span
-              className="absolute bottom-2 left-2 rounded-full px-2 py-0.5 text-[0.75rem] font-bold"
+              className="absolute bottom-2 left-2 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold"
               style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
             >
               Tạm nghỉ
@@ -96,7 +96,7 @@ export function MarketProductCard({
         </div>
         {/* Tên/giá trước; shop và tỉnh luôn đọc được, không nhét vào dòng cắt. */}
         <div className="flex flex-1 flex-col p-3">
-          <p className="line-clamp-3 text-[1.125rem] font-bold leading-snug text-navy">{product.title}</p>
+          <p className="line-clamp-3 text-[1rem] font-semibold leading-snug text-navy">{product.title}</p>
           <PriceText priceVnd={product.priceVnd} compareAtVnd={product.compareAtVnd} className="mt-1" />
           {/* "Đã bán 0" không giúp chọn món ⇒ chưa bán, chưa đánh giá thì bỏ cả dòng (rà Codex 2026-10-19). */}
           {(product.soldCount > 0 || product.ratingCount > 0) && (

@@ -10,7 +10,7 @@ export function OrderStatusChip({ status, className = "" }: { status: OrderStatu
   const c = ORDER_STATUS_CHIP[status];
   return (
     <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-[0.875rem] font-bold ${className}`}
+      className={`inline-flex items-center rounded-full px-3 py-1 text-[0.875rem] font-semibold ${className}`}
       style={{ backgroundColor: c.bg, color: c.fg }}
     >
       {ORDER_STATUS_LABEL[status]}
@@ -29,7 +29,7 @@ export function PaymentStatusChip({ status, className = "" }: { status: PaymentS
   const c = PAY_CHIP[status];
   return (
     <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-[0.875rem] font-bold ${className}`}
+      className={`inline-flex items-center rounded-full px-3 py-1 text-[0.875rem] font-semibold ${className}`}
       style={{ backgroundColor: c.bg, color: c.fg }}
     >
       {PAYMENT_STATUS_LABEL[status]}

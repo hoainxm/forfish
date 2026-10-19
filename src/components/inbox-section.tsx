@@ -16,6 +16,7 @@
  * thì vẫn hiện đủ tin cũ, không quay vòng chờ (xem lib/inbox.ts).
  */
 
+import { NHAN } from "@/lib/labels";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDownIcon, ChevronRightIcon } from "@/components/icons";
@@ -209,12 +210,12 @@ export function InboxSection() {
   return (
     <section aria-label="Thông báo">
       <div className="mb-2 flex items-center justify-between gap-2 px-1">
-        <h2 className="display text-[1.25rem] font-bold text-navy">Thông báo</h2>
+        <h2 className="display text-[1rem] font-semibold text-navy">Thông báo</h2>
         {soMoi > 0 && (
-          <span className="rounded-full bg-trim px-3 py-0.5 text-[1.125rem] font-bold text-white">{soMoi} tin mới</span>
+          <span className="rounded-full bg-trim px-2.5 py-0.5 text-[0.75rem] font-semibold text-white">{soMoi} mới</span>
         )}
       </div>
-      <ul ref={listRef} className="divide-y divide-line overflow-hidden rounded-2xl bg-card">
+      <ul ref={listRef} className="divide-y divide-line overflow-hidden surface overflow-hidden">
         {shown.map((m) => {
           const isUnread = unread.has(m.id);
           const sentMs = Date.parse(m.sentAt);
@@ -231,15 +232,15 @@ export function InboxSection() {
                 {isUnread && (
                   <span className="mt-2 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-trim" aria-label="Chưa đọc" />
                 )}
-                <span className={`min-w-0 flex-1 text-[1.125rem] leading-snug text-navy ${isUnread ? "font-bold" : "font-semibold"}`}>
+                <span className={`min-w-0 flex-1 text-[1rem] leading-snug text-navy ${isUnread ? "font-semibold" : "font-semibold"}`}>
                   {m.title}
                 </span>
                 {m.url && <ChevronRightIcon className="mt-0.5 h-5 w-5 shrink-0 text-foreground/50" />}
               </span>
-              <span className="mt-1 block text-[1.125rem] leading-snug text-foreground/85">{m.body}</span>
-              <span className="mt-1 block text-[1.125rem] leading-snug text-foreground/65">
+              <span className="mt-1 block text-[1rem] leading-snug text-foreground/85">{m.body}</span>
+              <span className="mt-1 block text-[0.8125rem] leading-snug text-foreground/65">
                 {fmt(m.sentAt)}
-                {stale && <span className="font-bold text-warn"> · {stale}</span>}
+                {stale && <span className="font-semibold text-warn"> · {stale}</span>}
                 {m.mine && " · Gửi riêng cho bà con"}
               </span>
             </>
@@ -247,7 +248,7 @@ export function InboxSection() {
           return (
             <li key={m.id} data-msg-id={m.id}>
               {m.url ? (
-                <Link href={m.url} className="block min-h-[3.5rem] px-4 py-3 active:bg-field">
+                <Link href={m.url} className="block min-h-(--h-row) px-4 py-3 active:bg-field">
                   {inner}
                 </Link>
               ) : (
@@ -262,10 +263,13 @@ export function InboxSection() {
               type="button"
               onClick={() => setExpanded((v) => !v)}
               aria-expanded={expanded}
-              className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 px-4 text-[1.125rem] font-bold text-navy active:bg-field"
+              className="flex min-h-(--h-row) w-full items-center justify-center gap-2 px-4 text-[1rem] font-semibold text-navy active:bg-field"
             >
               <ChevronDownIcon className={`h-5 w-5 ${expanded ? "rotate-180" : ""}`} />
-              {expanded ? "Thu gọn" : `Xem thêm ${rest} tin cũ hơn`}
+              {expanded ? NHAN.thuGon : NHAN.xemThem}
+              {!expanded && rest > 0 && (
+                <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-semibold text-foreground/70">{rest}</span>
+              )}
             </button>
           </li>
         )}

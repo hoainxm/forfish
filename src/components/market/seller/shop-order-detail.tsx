@@ -111,11 +111,11 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
       <div className="px-4">
         <div className="surface px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
-            <b className="text-[1.125rem] text-navy">{order.code}</b>
+            <b className="text-[1rem] text-navy">{order.code}</b>
             <OrderStatusChip status={order.status} />
             <PaymentStatusChip status={order.paymentStatus} />
           </div>
-          <p className="mt-1 text-[0.9375rem] text-foreground/65">
+          <p className="mt-1 text-[0.875rem] text-foreground/65">
             Đặt {agoLabel(order.createdAt)} · {soMon} món · {PAYMENT_METHOD_LABEL[order.paymentMethod]}
             {order.requestId ? " · đặt theo yêu cầu" : ""}
           </p>
@@ -128,8 +128,8 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
 
         {/* ── Người nhận ─────────────────────────────────────────────── */}
         <div className="mt-3 surface px-4 py-3">
-          <p className="text-[1rem] font-bold text-navy">Giao cho</p>
-          <p className="mt-1 text-[1.125rem] font-bold text-navy">{order.address.name}</p>
+          <p className="text-[1rem] font-semibold text-navy">Giao cho</p>
+          <p className="mt-1 text-[1rem] font-semibold text-navy">{order.address.name}</p>
           <p className="text-[1rem] text-foreground/80">
             {order.address.isPort ? "Cảng/bến: " : ""}{order.address.detail} · {order.address.province}
           </p>
@@ -147,7 +147,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
 
         {/* ── Hàng trong đơn ─────────────────────────────────────────── */}
         <div className="mt-3 surface px-4 py-3">
-          <p className="mb-2 text-[1rem] font-bold text-navy">Hàng trong đơn</p>
+          <p className="mb-2 text-[1rem] font-semibold text-navy">Hàng trong đơn</p>
           <ul className="space-y-2">
             {order.items.map((l, i) => (
               <li key={`${l.productId}-${l.variantLabel ?? ""}-${i}`} className="flex items-start justify-between gap-3">
@@ -155,7 +155,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
                 <LineThumb image={l.image} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[1rem] font-semibold text-navy">{l.title}</span>
-                  <span className="block text-[0.9375rem] text-foreground/65">
+                  <span className="block text-[0.875rem] text-foreground/65">
                     {l.variantLabel ? `${l.variantLabel} · ` : ""}{l.qty} {l.unit} × {formatVnd(l.priceVnd)}
                   </span>
                 </span>
@@ -166,10 +166,10 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
           <div className="mt-3 border-t border-line pt-2 text-[1rem]">
             <p className="flex justify-between text-foreground/80"><span>Tiền hàng</span><span>{formatVnd(order.subtotalVnd)}</span></p>
             <p className="flex justify-between text-foreground/80"><span>Phí giao</span><span>{formatVnd(order.shippingVnd)}</span></p>
-            <p className="mt-1 flex justify-between text-[1.125rem] font-bold text-navy"><span>Tổng</span><span>{formatVnd(order.totalVnd)}</span></p>
+            <p className="mt-1 flex justify-between text-[1rem] font-semibold text-navy"><span>Tổng</span><span>{formatVnd(order.totalVnd)}</span></p>
           </div>
           {order.bankSnapshot && (
-            <p className="mt-2 rounded-2xl bg-field px-3.5 py-2.5 text-[0.9375rem] leading-snug text-foreground/85">
+            <p className="mt-2 rounded-2xl bg-field px-3.5 py-2.5 text-[0.875rem] leading-snug text-foreground/85">
               Chuyển khoản về {order.bankSnapshot.bankName} · {order.bankSnapshot.bankAccount} ·{" "}
               {order.bankSnapshot.bankHolder} — nội dung {order.code}
             </p>
@@ -179,7 +179,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
         {/* ── Tiền đang chờ xác nhận ─────────────────────────────────── */}
         {order.paymentStatus === "bao_da_chuyen" && order.status !== "da_huy" && order.status !== "hoan_thanh" && (
           <div className="mt-3 rounded-2xl px-4 py-3" style={{ backgroundColor: "var(--warn-bg)" }}>
-            <p className="text-[1rem] font-bold" style={{ color: "var(--warn)" }}>
+            <p className="text-[1rem] font-semibold" style={{ color: "var(--warn)" }}>
               Người mua báo đã chuyển {formatVnd(order.totalVnd)} · nội dung {order.code}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -306,7 +306,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
         </div>
 
         <div className="mt-4 surface px-4 py-3">
-          <p className="mb-2 text-[1rem] font-bold text-navy">Đường đi của đơn</p>
+          <p className="mb-2 text-[1rem] font-semibold text-navy">Đường đi của đơn</p>
           <OrderTimeline timeline={order.timeline} carrier={order.carrier} trackingCode={order.trackingCode} />
         </div>
       </div>
@@ -405,7 +405,7 @@ function CancelSheet({
       <div className="px-4 pb-4">
         {refundVnd > 0 && (
           <div className="mb-3 rounded-2xl px-4 py-3" style={{ backgroundColor: "var(--danger-bg)" }}>
-            <p className="text-[1rem] font-bold leading-snug" style={{ color: "var(--danger)" }}>
+            <p className="text-[1rem] font-semibold leading-snug" style={{ color: "var(--danger)" }}>
               Người mua đã chuyển tiền đơn này. Huỷ xong bà con PHẢI tự chuyển trả
               {" "}
               {formatVnd(refundVnd)} cho họ — app không giữ tiền, không tự hoàn được.
@@ -429,7 +429,7 @@ function CancelSheet({
              ngay lúc mở tấm che, mà lúc đó ô còn trống nên KHÔNG có chữ nào —
              bà con thấy một nút chết không lời giải thích. */}
         {short && (
-          <p className="mb-2 text-[1rem] font-bold" style={{ color: "var(--danger)" }}>
+          <p className="mb-2 text-[1rem] font-semibold" style={{ color: "var(--danger)" }}>
             Ghi ít nhất 5 chữ nói vì sao huỷ — người mua sẽ đọc câu này.
           </p>
         )}
@@ -484,7 +484,7 @@ function PayNoteSheet({ busy, onClose, onSend }: { busy: boolean; onClose: () =>
         </Field>
         {/* Cùng luật R-03 với tấm che huỷ đơn — xem chú thích ở CancelSheet. */}
         {short && (
-          <p className="mb-2 text-[1rem] font-bold" style={{ color: "var(--danger)" }}>
+          <p className="mb-2 text-[1rem] font-semibold" style={{ color: "var(--danger)" }}>
             Ghi ít nhất 5 chữ nói rõ chưa thấy tiền — người mua sẽ đọc câu này.
           </p>
         )}

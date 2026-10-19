@@ -217,13 +217,13 @@ export function BoatProducts() {
         ) : syncStatus === "error" ? (
           // thất bại phải LÊN TIẾNG — không mời đăng nhập người đã đăng nhập
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-danger-bg px-3.5 py-2.5">
-            <p className="min-w-0 text-[0.9375rem] font-semibold leading-snug text-danger">
+            <p className="min-w-0 text-[0.875rem] font-semibold leading-snug text-danger">
               Chưa tải được đồ SDVICO — mạng có thể đang yếu.
             </p>
             <button
               type="button"
               onClick={retry}
-              className="min-h-[3rem] shrink-0 rounded-full bg-danger px-4 text-[0.9375rem] font-bold text-white"
+              className="min-h-[3rem] shrink-0 rounded-full bg-danger px-4 text-[0.875rem] font-semibold text-white"
             >
               Thử lại
             </button>
@@ -281,10 +281,10 @@ export function BoatProducts() {
                   {status.label}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
+                  <p className="text-[0.8125rem] font-semibold uppercase tracking-wide text-foreground/65">
                     Mua của SDVICO{p.orderCode ? ` · đơn ${p.orderCode}` : ""}
                   </p>
-                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
+                  <p className="display text-[1rem] font-semibold leading-snug text-navy">
                     {p.name}
                   </p>
                   {p.serial && (
@@ -328,7 +328,7 @@ export function BoatProducts() {
           đã nói vì sao. */}
       <div className="tau-section-heading">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
-          <p className="text-[1rem] font-bold text-navy">
+          <p className="text-[1rem] font-semibold text-navy">
             Đồ tự ghi · {sorted.length} món
           </p>
         </div>
@@ -403,7 +403,7 @@ export function BoatProducts() {
               <div className="space-y-1.5 p-2">
                 <div className="flex items-stretch gap-2">
                   <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                    <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
+                    <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
                       {product.name}
                     </p>
                   </div>
@@ -454,7 +454,7 @@ export function BoatProducts() {
                 {product.note && (
                   <div className="flex items-stretch gap-2">
                     <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[0.9375rem] text-foreground/70">
+                      <p className="text-[0.875rem] text-foreground/70">
                         {product.note}
                       </p>
                     </div>
@@ -609,7 +609,7 @@ function ProductForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Serial:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {serial.trim() || "chưa ghi"}
               </span>
             </p>
@@ -659,7 +659,7 @@ function ProductForm({
         {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
         <div className="mt-3 flex items-stretch gap-2">
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-            <p className="text-[0.9375rem] text-foreground/70">
+            <p className="text-[0.875rem] text-foreground/70">
               {warrantyUntil
                 ? "Thông tin đã đủ để app nhắc bảo hành."
                 : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc bảo hành giúp bà con."}

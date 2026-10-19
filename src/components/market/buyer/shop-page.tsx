@@ -95,13 +95,13 @@ export function ShopPage({ slug }: { slug: string }) {
         <div className="mx-auto mb-3 w-fit text-foreground/50">
           <AlertIcon className="h-8 w-8" />
         </div>
-        <p className="text-[1.125rem] font-bold text-navy">
+        <p className="text-[1rem] font-semibold text-navy">
           {status === "closed" ? "Shop này đang tạm đóng." : "Không tìm thấy shop này."}
         </p>
         {/*  F-09: màn cụt phải có đường ra — trước đây chỉ có câu, không nút. */}
         <Link
           href="/cho"
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
         >
           Về cửa hàng
         </Link>
@@ -123,12 +123,12 @@ export function ShopPage({ slug }: { slug: string }) {
               // eslint-disable-next-line @next/next/no-img-element -- ảnh sàn, không qua optimizer
               <img src={shop.logoUrl} alt="" className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
             ) : (
-              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-field text-[1.5rem] font-bold text-navy">
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-field text-[1.5rem] font-semibold text-navy">
                 {shop.name.slice(0, 1)}
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <h2 className="display text-[1.25rem] font-bold leading-snug text-navy">{shop.name}</h2>
+              <h2 className="display text-[1rem] font-semibold leading-snug text-navy">{shop.name}</h2>
               <p className="mt-0.5 text-[1rem] text-foreground/65">
                 {[shop.province, shop.address].filter(Boolean).join(" · ")}
               </p>
@@ -141,11 +141,11 @@ export function ShopPage({ slug }: { slug: string }) {
           </div>
           {shop.description && (
             <div className="px-4 pt-3">
-              <p className={`text-[1.0625rem] leading-relaxed ${descOpen ? "" : "line-clamp-3"}`}>{shop.description}</p>
+              <p className={`text-[1rem] leading-relaxed ${descOpen ? "" : "line-clamp-3"}`}>{shop.description}</p>
               <button
                 type="button"
                 onClick={() => setDescOpen((v) => !v)}
-                className="min-h-(--row-h) text-[1rem] font-bold text-t3"
+                className="min-h-(--row-h) text-[1rem] font-semibold text-t3"
               >
                 {descOpen ? "Thu gọn" : "Xem thêm"}
               </button>
@@ -182,7 +182,7 @@ export function ShopPage({ slug }: { slug: string }) {
               <button
                 type="button"
                 onClick={() => void load(page + 1, false)}
-                className="display mx-auto mt-3 flex min-h-(--row-h) w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+                className="display mx-auto mt-3 flex min-h-(--row-h) w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
               >
                 Xem thêm
               </button>

@@ -26,7 +26,7 @@ export function ShopBadge({
       )}
       {paused && (
         <span
-          className="rounded-full px-2 py-0.5 text-[0.75rem] font-bold"
+          className="rounded-full px-2 py-0.5 text-[0.75rem] font-semibold"
           style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
         >
           Tạm nghỉ

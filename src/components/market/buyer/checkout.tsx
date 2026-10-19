@@ -66,7 +66,7 @@ function PayChip({ on, disabled, onClick, children }: { on: boolean; disabled?: 
       onClick={onClick}
       disabled={disabled}
       aria-pressed={on}
-      className="min-h-(--row-h) flex-1 rounded-full px-4 text-[1rem] font-bold disabled:opacity-40"
+      className="min-h-(--row-h) flex-1 rounded-full px-4 text-[1rem] font-semibold disabled:opacity-40"
       style={{
         backgroundColor: on ? "var(--t3)" : "var(--field)",
         color: on ? "var(--card)" : "var(--navy)",
@@ -254,33 +254,33 @@ export function Checkout() {
     const nameOf = (shopId: string) => groups.find((g) => g.shop.id === shopId)?.shop.name ?? "này";
     return (
       <div className="px-4 py-4 pb-[7rem]">
-        <h2 className="display text-[1.375rem] font-bold text-navy">
+        <h2 className="display text-[1.375rem] font-semibold text-navy">
           {okOnes.length > 0 ? `Đã đặt ${okOnes.length} đơn` : "Chưa đặt được đơn nào"}
         </h2>
         <ul className="mt-3 flex flex-col gap-3">
           {okOnes.map((r) => (
             <li key={r.order.id} className="surface px-4 py-3">
-              <p className="flex items-center gap-2 text-[1.125rem] font-bold text-navy">
+              <p className="flex items-center gap-2 text-[1rem] font-semibold text-navy">
                 <CheckIcon className="h-5 w-5 text-ok" />
                 {r.order.code}
               </p>
               <p className="mt-0.5 text-[1rem] text-foreground/70">
                 {r.order.shopName ?? nameOf(r.order.shopId)} · {PAYMENT_METHOD_LABEL[r.order.paymentMethod]}
               </p>
-              <p className="mt-0.5 text-[1.125rem] font-bold text-navy">{formatVnd(r.order.totalVnd)}</p>
+              <p className="mt-0.5 text-[1rem] font-semibold text-navy">{formatVnd(r.order.totalVnd)}</p>
               {r.order.bankSnapshot && (
                 <div className="mt-2 rounded-2xl bg-field px-3.5 py-2.5">
-                  <p className="text-[1rem] font-bold text-navy">Chuyển khoản cho shop</p>
+                  <p className="text-[1rem] font-semibold text-navy">Chuyển khoản cho shop</p>
                   <p className="text-[1rem]">{r.order.bankSnapshot.bankName}</p>
-                  <p className="text-[1.125rem] font-bold text-navy">{r.order.bankSnapshot.bankAccount}</p>
+                  <p className="text-[1rem] font-semibold text-navy">{r.order.bankSnapshot.bankAccount}</p>
                   <p className="text-[1rem]">{r.order.bankSnapshot.bankHolder}</p>
                   <p className="mt-1 text-[1rem]">
-                    Nội dung chuyển: <span className="font-bold text-navy">{r.order.code}</span>
+                    Nội dung chuyển: <span className="font-semibold text-navy">{r.order.code}</span>
                   </p>
                   <button
                     type="button"
                     onClick={() => void copy(r.order.bankSnapshot?.bankAccount ?? "", r.order.id)}
-                    className="mt-2 min-h-(--row-h) rounded-full bg-card px-4 text-[1rem] font-bold text-navy"
+                    className="mt-2 min-h-(--row-h) rounded-full bg-card px-4 text-[1rem] font-semibold text-navy"
                   >
                     {copied === r.order.id ? "Đã chép số TK" : "Sao chép số TK"}
                   </button>
@@ -288,7 +288,7 @@ export function Checkout() {
               )}
               <Link
                 href={`/cho/don/${r.order.id}`}
-                className="mt-2 flex min-h-(--row-h) items-center gap-1 text-[1rem] font-bold text-t3"
+                className="mt-2 flex min-h-(--row-h) items-center gap-1 text-[1rem] font-semibold text-t3"
               >
                 Xem đơn này <ChevronRightIcon className="h-4 w-4" />
               </Link>
@@ -296,8 +296,8 @@ export function Checkout() {
           ))}
           {failOnes.map((r) => (
             <li key={r.shopId} className="rounded-2xl bg-danger-bg px-4 py-3" role="alert">
-              <p className="text-[1rem] font-bold leading-snug text-danger">{failLine(r, nameOf(r.shopId))}</p>
-              <Link href="/cho/gio" className="mt-1 flex min-h-(--row-h) items-center text-[1rem] font-bold text-danger underline">
+              <p className="text-[1rem] font-semibold leading-snug text-danger">{failLine(r, nameOf(r.shopId))}</p>
+              <Link href="/cho/gio" className="mt-1 flex min-h-(--row-h) items-center text-[1rem] font-semibold text-danger underline">
                 Về giỏ sửa lại
               </Link>
             </li>
@@ -305,14 +305,14 @@ export function Checkout() {
         </ul>
         <Link
           href="/cho/don"
-          className="display mx-auto mt-5 flex min-h-[3.75rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-5 flex min-h-[3.75rem] w-full items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
         >
           Xem đơn hàng
         </Link>
         {/*  F-09: màn kết quả là màn cụt — thêm đường quay lại chợ. */}
         <Link
           href="/cho"
-          className="display mx-auto mt-2 flex min-h-(--row-h) w-full items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+          className="display mx-auto mt-2 flex min-h-(--row-h) w-full items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
         >
           Mua tiếp
         </Link>
@@ -322,16 +322,16 @@ export function Checkout() {
 
   // ── ma trận trước khi đặt ──────────────────────────────────────────────
   if (status === "loading") {
-    return <p role="status" className="px-4 py-10 pb-[7rem] text-center text-[1.125rem] text-foreground/65">Đang tra lại giỏ…</p>;
+    return <p role="status" className="px-4 py-10 pb-[7rem] text-center text-[1rem] text-foreground/65">Đang tra lại giỏ…</p>;
   }
   if (status === "offline" || !online) {
     return (
       <div className="px-4 py-8 pb-[7rem] text-center">
-        <p className="text-[1.125rem] font-bold text-navy">Đặt hàng cần có sóng. Giỏ vẫn giữ nguyên.</p>
+        <p className="text-[1rem] font-semibold text-navy">Đặt hàng cần có sóng. Giỏ vẫn giữ nguyên.</p>
         <button
           type="button"
           onClick={() => void reload()}
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
         >
           Thử lại
         </button>
@@ -341,11 +341,11 @@ export function Checkout() {
   if (status === "error") {
     return (
       <div className="px-4 py-8 pb-[7rem] text-center" role="alert">
-        <p className="text-[1.125rem] font-bold text-danger">Chợ đang trục trặc, chưa tra được giỏ. Thử lại giúp.</p>
+        <p className="text-[1rem] font-semibold text-danger">Chợ đang trục trặc, chưa tra được giỏ. Thử lại giúp.</p>
         <button
           type="button"
           onClick={() => void reload()}
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
         >
           Thử lại
         </button>
@@ -355,12 +355,12 @@ export function Checkout() {
   if (groups.length === 0) {
     return (
       <div className="px-4 py-8 pb-[7rem] text-center">
-        <p className="text-[1.125rem] font-bold text-navy">
+        <p className="text-[1rem] font-semibold text-navy">
           {items.length === 0 && cart.items.length > 0 ? "Chưa chọn món nào để đặt." : "Không còn món nào mua được trong giỏ."}
         </p>
         <Link
           href="/cho/gio"
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
         >
           Về giỏ
         </Link>
@@ -376,21 +376,21 @@ export function Checkout() {
       <section className="surface px-4 py-2">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1 py-1">
-            <p className="text-[1.125rem] font-bold text-navy">1. Nhận hàng</p>
+            <p className="text-[1rem] font-semibold text-navy">1. Nhận hàng</p>
             {chosen ? (
-              <p className="mt-0.5 text-[1.0625rem] leading-snug">
+              <p className="mt-0.5 text-[1rem] leading-snug">
                 {chosen.name} · {chosen.phone}
                 <br />
                 {chosen.detail}, {chosen.province}
               </p>
             ) : (
-              <p className="mt-0.5 text-[1.0625rem] text-danger">Chưa có địa chỉ nhận — thêm giúp một địa chỉ.</p>
+              <p className="mt-0.5 text-[1rem] text-danger">Chưa có địa chỉ nhận — thêm giúp một địa chỉ.</p>
             )}
           </div>
           <button
             type="button"
             onClick={() => (addresses.length > 0 ? setAddrSheet("list") : openNewAddress())}
-            className="flex min-h-(--row-h) shrink-0 items-center gap-0.5 rounded-full px-3 text-[1rem] font-bold text-t3"
+            className="flex min-h-(--row-h) shrink-0 items-center gap-0.5 rounded-full px-3 text-[1rem] font-semibold text-t3"
           >
             {chosen ? "Đổi" : "Thêm"} <ChevronRightIcon className="h-5 w-5" />
           </button>
@@ -399,7 +399,7 @@ export function Checkout() {
 
       {/* ── 2. Cách trả tiền ───────────────────────────────────────────── */}
       <section className="mt-3">
-        <p className="mb-2 text-[1.125rem] font-bold text-navy">2. Cách trả tiền</p>
+        <p className="mb-2 text-[1rem] font-semibold text-navy">2. Cách trả tiền</p>
         <div className="flex flex-wrap gap-2">
           <PayChip on={method === "cod"} onClick={() => setMethod("cod")}>Trả khi nhận hàng</PayChip>
           <PayChip on={method === "chuyen_khoan"} disabled={!canBank} onClick={() => setMethod("chuyen_khoan")}>
@@ -417,16 +417,16 @@ export function Checkout() {
       <section className="mt-3 flex flex-col gap-3">
         {groups.map((g) => (
           <div key={g.shop.id} className="surface px-4 py-3">
-            <p className="text-[1.0625rem] font-bold text-navy">{g.shop.name}</p>
+            <p className="text-[1rem] font-semibold text-navy">{g.shop.name}</p>
             <ul className="mt-1.5 flex flex-col gap-2">
               {g.lines.map((l) => (
                 <li key={`${l.productId}|${l.variantLabel ?? ""}`} className="flex items-center gap-2.5 text-[1rem]">
                   <LineThumb image={l.image} size={3} />
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-2 leading-snug">{l.title}</span>
-                    {l.variantLabel && <span className="block text-[0.9375rem] text-foreground/65">Loại: {l.variantLabel}</span>}
+                    {l.variantLabel && <span className="block text-[0.875rem] text-foreground/65">Loại: {l.variantLabel}</span>}
                   </span>
-                  <span className="shrink-0 whitespace-nowrap font-bold text-navy">× {l.qty}</span>
+                  <span className="shrink-0 whitespace-nowrap font-semibold text-navy">× {l.qty}</span>
                   <MoneyText vnd={l.lineTotalVnd} bold={false} className="shrink-0 whitespace-nowrap" />
                 </li>
               ))}
@@ -438,10 +438,10 @@ export function Checkout() {
               </p>
               <p className="flex justify-between">
                 <span className="text-foreground/70">Giao</span>
-                {g.shippingVnd > 0 ? <MoneyText vnd={g.shippingVnd} bold={false} /> : <span className="font-bold text-ok">Miễn phí giao</span>}
+                {g.shippingVnd > 0 ? <MoneyText vnd={g.shippingVnd} bold={false} /> : <span className="font-semibold text-ok">Miễn phí giao</span>}
               </p>
               <p className="flex justify-between">
-                <span className="font-bold text-navy">Thành tiền shop này</span>
+                <span className="font-semibold text-navy">Thành tiền shop này</span>
                 <MoneyText vnd={g.totalVnd} />
               </p>
             </div>
@@ -465,11 +465,11 @@ export function Checkout() {
 
       {/* ── 4. Dòng chốt + nút ─────────────────────────────────────────── */}
       <div className="mt-2 rounded-2xl bg-field px-4 py-3">
-        <p className="text-[1.0625rem] font-bold text-navy">
+        <p className="text-[1rem] font-semibold text-navy">
           Sẽ tạo {groups.length} đơn cho {groups.length} shop
         </p>
-        <p className="mt-0.5 flex justify-between text-[1.125rem]">
-          <span className="font-bold text-navy">Tổng</span>
+        <p className="mt-0.5 flex justify-between text-[1rem]">
+          <span className="font-semibold text-navy">Tổng</span>
           <MoneyText vnd={summary.totalVnd} />
         </p>
       </div>
@@ -509,7 +509,7 @@ export function Checkout() {
                   style={{ backgroundColor: a.isDefault ? "var(--t3-bg)" : "var(--field)" }}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[1rem] font-bold text-navy">{a.name} · {a.phone}</span>
+                    <span className="block text-[1rem] font-semibold text-navy">{a.name} · {a.phone}</span>
                     <span className="block text-[1rem] text-foreground/70">{a.detail}, {a.province}</span>
                   </span>
                   {a.isDefault && <CheckIcon className="h-6 w-6 shrink-0 text-t3" />}
@@ -520,7 +520,7 @@ export function Checkout() {
           <button
             type="button"
             onClick={openNewAddress}
-            className="mb-2 flex min-h-(--row-h) w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy"
+            className="mb-2 flex min-h-(--row-h) w-full items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
           >
             + Thêm địa chỉ mới
           </button>

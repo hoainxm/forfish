@@ -84,7 +84,7 @@ export function ShopOrders() {
         /*  Đang tra thì nói rõ ĐANG XEM GÌ và cho đường quay về — nếu không, bà
             con thấy danh sách lạ mà tưởng đơn của mình mất. */
         <div className="mb-3 flex flex-wrap items-center gap-2 px-4">
-          <span className="text-[1rem] font-bold text-navy">Kết quả tra &quot;{q}&quot;</span>
+          <span className="text-[1rem] font-semibold text-navy">Kết quả tra &quot;{q}&quot;</span>
           <button
             type="button"
             onClick={() => {
@@ -153,13 +153,13 @@ function Rows({ items, tab, searching }: { items: Order[]; tab: OrderStatus; sea
                   <b className="text-[1rem] text-navy">{o.code}</b>
                   <OrderStatusChip status={o.status} />
                   {o.paymentStatus === "bao_da_chuyen" && (
-                    <span className="rounded-full px-2 py-0.5 text-[1rem] font-bold"
+                    <span className="rounded-full px-2 py-0.5 text-[1rem] font-semibold"
                       style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}>
                       Báo đã CK
                     </span>
                   )}
                   {o.needsRefund && (
-                    <span className="rounded-full px-2 py-0.5 text-[1rem] font-bold"
+                    <span className="rounded-full px-2 py-0.5 text-[1rem] font-semibold"
                       style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}>
                       Cần hoàn tiền
                     </span>
@@ -172,10 +172,10 @@ function Rows({ items, tab, searching }: { items: Order[]; tab: OrderStatus; sea
                 <span className="mt-0.5 line-clamp-2 block text-[1rem] font-semibold leading-snug text-navy">
                   {linesSummary(o.items)}
                 </span>
-                <span className="mt-0.5 block truncate text-[0.9375rem] text-foreground/65">
+                <span className="mt-0.5 block truncate text-[0.875rem] text-foreground/65">
                   {soMon} món · {PAYMENT_METHOD_LABEL[o.paymentMethod]} · {agoLabel(o.createdAt)}
                 </span>
-                <b className="mt-0.5 block text-[1.125rem] text-navy">{formatVnd(o.totalVnd)}</b>
+                <b className="mt-0.5 block text-[1rem] text-navy">{formatVnd(o.totalVnd)}</b>
                 {/* đếm ngược tự huỷ 72 giờ (thay câu "chờ quá 2 ngày") + hẹn giao / TRỄ HẸN — 2026-10-18 */}
                 {o.status === "cho_xac_nhan" && late && <span className="mt-1 block"><AutoCancelNote order={o} who="shop" /></span>}
                 <span className="mt-1 block"><EtaLine order={o} /></span>

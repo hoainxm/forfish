@@ -108,7 +108,7 @@ function RegisterInner({ shop }: { shop: Shop | null }) {
       <ShopForm value={form} onChange={setForm} error={error} />
 
       {serverNote && (
-        <p className="mx-4 mb-3 rounded-2xl px-3.5 py-2.5 text-[1rem] font-bold" role="alert"
+        <p className="mx-4 mb-3 rounded-2xl px-3.5 py-2.5 text-[1rem] font-semibold" role="alert"
           style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}>
           {serverNote}
         </p>
@@ -121,7 +121,7 @@ function RegisterInner({ shop }: { shop: Shop | null }) {
           {sending ? "Đang gửi…" : resend ? "Gửi lại đăng ký" : "Gửi đăng ký"}
         </PrimaryButton>
         {!online && (
-          <p className="mt-2 text-center text-[1rem] font-bold" style={{ color: "var(--danger)" }}>
+          <p className="mt-2 text-center text-[1rem] font-semibold" style={{ color: "var(--danger)" }}>
             Đăng ký cần có sóng.
           </p>
         )}

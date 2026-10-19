@@ -73,7 +73,7 @@ export function TideHomeCard() {
 
   return (
     <section aria-label={`Con nước cảng nhà ${cang.name}`}>
-      <h2 className="display mb-2 text-[1.125rem] font-bold text-navy">
+      <h2 className="display mb-2 text-[1rem] font-semibold text-navy">
         Con nước — {cang.name}
       </h2>
       <TideCard

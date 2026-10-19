@@ -9,12 +9,12 @@ export const PRODUCT_CATEGORIES: readonly ProductCategory[] = [
 ] as const;
 
 export const CATEGORY_LABEL: Record<ProductCategory, string> = {
-  "may-dong-co": "Máy & động cơ",
-  "dien-tu-hang-hai": "Điện tử hàng hải",
+  "may-dong-co": "Máy móc",
+  "dien-tu-hang-hai": "Điện tử",
   "ngu-cu": "Ngư cụ",
-  "dau-nhot-nhien-lieu": "Dầu nhớt & nhiên liệu",
-  "da-bao-quan": "Đá & bảo quản",
-  "nhu-yeu-pham": "Nhu yếu phẩm",
+  "dau-nhot-nhien-lieu": "Dầu nhớt",
+  "da-bao-quan": "Bảo quản",
+  "nhu-yeu-pham": "Thực phẩm",
   "an-toan": "An toàn",
   "phu-tung": "Phụ tùng",
   "khac": "Khác",

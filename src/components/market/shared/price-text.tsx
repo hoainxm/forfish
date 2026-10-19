@@ -17,17 +17,17 @@ export function PriceText({
   size?: "sm" | "lg";
   className?: string;
 }) {
-  const main = size === "lg" ? "text-2xl" : "text-[1.125rem]";
+  const main = size === "lg" ? "text-2xl" : "text-[1rem]";
   if (priceVnd == null) {
     return (
       <span className={`inline-flex flex-wrap items-baseline gap-x-2 ${className}`}>
-        <span className={`${main} font-bold text-trim`}>Liên hệ báo giá</span>
+        <span className={`${main} font-semibold text-trim`}>Liên hệ báo giá</span>
       </span>
     );
   }
   return (
     <span className={`inline-flex flex-wrap items-baseline gap-x-2 ${className}`}>
-      <span className={`${main} font-bold text-trim`}>{formatVnd(priceVnd)}</span>
+      <span className={`${main} font-semibold text-trim`}>{formatVnd(priceVnd)}</span>
       {compareAtVnd != null && compareAtVnd > priceVnd && (
         <span className="text-[0.875rem] text-foreground/50 line-through">{formatVnd(compareAtVnd)}</span>
       )}
@@ -40,7 +40,7 @@ export function PriceText({
  *  chữ "đ" là số tiền đọc thành hai thứ — đặt ở đây để mọi màn khỏi tự nhớ. */
 export function MoneyText({ vnd, bold = true, className = "" }: { vnd: number; bold?: boolean; className?: string }) {
   return (
-    <span className={`whitespace-nowrap ${bold ? "font-bold text-navy" : "text-foreground/80"} ${className}`}>
+    <span className={`whitespace-nowrap ${bold ? "font-semibold text-navy" : "text-foreground/80"} ${className}`}>
       {formatVnd(vnd)}
     </span>
   );

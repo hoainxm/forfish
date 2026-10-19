@@ -51,7 +51,7 @@ export function EtaSheet({
               type="button"
               aria-pressed={preset === p.id}
               onClick={() => setPreset(p.id)}
-              className={`min-h-(--row-h) rounded-2xl px-3 text-[1.0625rem] font-bold ${preset === p.id ? "bg-navy text-card" : "bg-field text-navy"}`}
+              className={`min-h-(--row-h) rounded-2xl px-3 text-[1rem] font-semibold ${preset === p.id ? "bg-navy text-card" : "bg-field text-navy"}`}
             >
               {p.label}
             </button>
@@ -60,7 +60,7 @@ export function EtaSheet({
             type="button"
             aria-pressed={preset === "chon"}
             onClick={() => setPreset("chon")}
-            className={`min-h-(--row-h) rounded-2xl px-3 text-[1.0625rem] font-bold ${preset === "chon" ? "bg-navy text-card" : "bg-field text-navy"}`}
+            className={`min-h-(--row-h) rounded-2xl px-3 text-[1rem] font-semibold ${preset === "chon" ? "bg-navy text-card" : "bg-field text-navy"}`}
           >
             Chọn ngày
           </button>
@@ -76,10 +76,10 @@ export function EtaSheet({
           </div>
         )}
         {pick && !err && (
-          <p className="mt-3 text-[1.125rem] font-bold text-navy">Hẹn giao: {etaLabel(pick.etaFrom, pick.etaTo, today)}</p>
+          <p className="mt-3 text-[1rem] font-semibold text-navy">Hẹn giao: {etaLabel(pick.etaFrom, pick.etaTo, today)}</p>
         )}
-        {err && <p className="mt-3 text-[1rem] font-bold" style={{ color: "var(--danger)" }}>{err}</p>}
-        {!pick && <p className="mt-3 text-[1rem] font-bold text-foreground/70">Chọn một ngày hẹn để gửi.</p>}
+        {err && <p className="mt-3 text-[1rem] font-semibold" style={{ color: "var(--danger)" }}>{err}</p>}
+        {!pick && <p className="mt-3 text-[1rem] font-semibold text-foreground/70">Chọn một ngày hẹn để gửi.</p>}
         <div className="mt-3">
           <PrimaryButton disabled={busy || !pick || !!err} onClick={() => pick && onSend(pick)}>
             {busy ? "Đang gửi…" : sendLabel}
@@ -98,13 +98,13 @@ export function EtaLine({ order, className = "" }: { order: Pick<Order, "status"
   const label = etaLabel(order.etaFrom, order.etaTo, today);
   if (late)
     return (
-      <span className={`block rounded-2xl px-3.5 py-2.5 text-[1rem] font-bold ${className}`} style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}>
+      <span className={`block rounded-2xl px-3.5 py-2.5 text-[1rem] font-semibold ${className}`} style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}>
         Trễ hẹn — đã hẹn giao {label}
       </span>
     );
   const done = order.status === "da_giao" || order.status === "hoan_thanh" || order.status === "da_huy";
   return (
-    <span className={`block rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-bold text-navy ${className}`}>
+    <span className={`block rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy ${className}`}>
       {done ? `Đã hẹn giao ${label}` : `${cap("hẹn giao")} ${label}`}
     </span>
   );
@@ -119,7 +119,7 @@ export function AutoCancelNote({ order, who }: { order: Pick<Order, "status" | "
   const urgent = h < 24;
   return (
     <span
-      className="block rounded-2xl px-3.5 py-2.5 text-[1rem] font-bold"
+      className="block rounded-2xl px-3.5 py-2.5 text-[1rem] font-semibold"
       style={{ backgroundColor: urgent ? "var(--warn-bg)" : "var(--field)", color: urgent ? "var(--warn)" : "var(--navy)" }}
     >
       {who === "shop"
@@ -149,13 +149,13 @@ export function OrderSteps({ status }: { status: OrderStatus }) {
             <span className="relative flex w-full items-center justify-center">
               {i > 0 && <span className="absolute right-1/2 h-1 w-full" style={{ backgroundColor: i <= at ? "var(--sea)" : "var(--line)" }} />}
               <span
-                className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-[0.875rem] font-bold"
+                className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-[0.875rem] font-semibold"
                 style={{ backgroundColor: done ? "var(--sea)" : "var(--line)", color: done ? "var(--card)" : "var(--navy)" }}
               >
                 {i + 1}
               </span>
             </span>
-            <span className={`text-[0.875rem] leading-tight ${i === at ? "font-bold text-navy" : "text-foreground/70"}`}>{x.label}</span>
+            <span className={`text-[0.875rem] leading-tight ${i === at ? "font-semibold text-navy" : "text-foreground/70"}`}>{x.label}</span>
           </li>
         );
       })}

@@ -128,7 +128,7 @@ export function PriceBoard() {
       {/* giá dầu DO hôm nay — chi phí lớn nhất chuyến biển. Không lấy được thì
           NÓI một dòng nhỏ chứ không biến mất im (audit 2026-08-18 G3). */}
       {fuel === null && (
-        <p className="mb-3 px-1 text-[0.9375rem] font-semibold text-foreground/65">
+        <p className="mb-3 px-1 text-[0.875rem] font-semibold text-foreground/65">
           Chưa lấy được giá dầu hôm nay.
         </p>
       )}
@@ -139,9 +139,9 @@ export function PriceBoard() {
             {fuel.date ? ` · ${formatVnDate(fuel.date)}` : ""}
           </p>
           {/* bỏ jargon "vùng 1/vùng 2" của Petrolimex — nói tiếng người */}
-          <p className="mt-0.5 text-[1.125rem] font-bold text-foreground">
+          <p className="mt-0.5 text-[1rem] font-semibold text-foreground">
             {fuel.do005Zone1.toLocaleString("vi-VN")} đ/lít
-            <span className="text-[0.9375rem] font-semibold text-foreground/70">
+            <span className="text-[0.875rem] font-semibold text-foreground/70">
               {" "}
               (gần kho) · {fuel.do005Zone2.toLocaleString("vi-VN")} đ/lít (xa
               kho, đảo)
@@ -163,7 +163,7 @@ export function PriceBoard() {
           . Giá thật tại cảng có thể khác.
         </p>
       ) : result.netFailed ? (
-        <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.9375rem] font-semibold text-warn">
+        <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] font-semibold text-warn">
           Chưa tải được giá tuần này — máy đang không có sóng. Bên dưới là giá
           tham khảo tổng hợp ngày {formatVnDate(PRICE_DATE)}; có sóng lại là máy
           tự tải bản mới.
@@ -181,13 +181,13 @@ export function PriceBoard() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm loại cá…"
-          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[1.125rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[1rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </label>
 
       {shown.length === 0 && (
-        <div className="rounded-[1.25rem] bg-field/70 px-4 py-10 text-center">
-          <p className="text-[1.125rem] text-foreground/70">
+        <div className="rounded-2xl bg-field/70 px-4 py-10 text-center">
+          <p className="text-[1rem] text-foreground/70">
             Không thấy loại cá này trong bảng.
             <br />
             Bà con thử gõ tên ngắn hơn, ví dụ “nục”.
@@ -217,13 +217,13 @@ export function PriceBoard() {
                     cuối tên, KHÔNG trôi ra giữa hai dòng đè lên tên (bug user
                     2026-09-24). min-w-0 flex-1 để nhường chỗ cho cụm xu hướng
                     bên phải. */}
-                <p className="display min-w-0 flex-1 text-[1.125rem] font-bold leading-snug text-navy">
+                <p className="display min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-navy">
                   {p.species}
                   {isLive && (
                     <span
                       className={`ml-1.5 inline-block whitespace-nowrap rounded-full px-2 py-0.5 align-[0.08em] text-[0.75rem] ${
                         (p as LivePortPrice).live
-                          ? "bg-ok-bg font-bold text-ok"
+                          ? "bg-ok-bg font-semibold text-ok"
                           : "bg-field font-semibold text-foreground/65"
                       }`}
                     >
@@ -235,14 +235,14 @@ export function PriceBoard() {
                     color: "var(--foreground)" sẵn — ghi đè bằng rgba là màu
                     ngoài token, không đổi theo theme. */}
                 <p
-                  className="flex shrink-0 items-center gap-1.5 pt-0.5 text-[0.9375rem] font-bold"
+                  className="flex shrink-0 items-center gap-1.5 pt-0.5 text-[0.875rem] font-semibold"
                   style={{ color: t.color }}
                 >
                   <t.Icon className="h-5 w-5" />
                   {t.word}
                 </p>
               </div>
-              <p className="mt-0.5 text-[1.125rem] font-bold text-foreground tabular-nums">
+              <p className="mt-0.5 text-[1rem] font-semibold text-foreground tabular-nums">
                 {formatRange(p)}
               </p>
               {(p.region || p.note) && (

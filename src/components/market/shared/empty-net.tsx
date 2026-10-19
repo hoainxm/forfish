@@ -23,11 +23,11 @@ export function EmptyNet({
   className?: string;
 }) {
   return (
-    <div className={`rounded-[1.25rem] bg-field/70 px-4 py-8 text-center ${className}`} role="status">
+    <div className={`rounded-2xl bg-field/70 px-4 py-8 text-center ${className}`} role="status">
       <div className="mx-auto mb-3 w-fit text-foreground/65">
         <AlertIcon className="h-8 w-8" />
       </div>
-      <p className="text-[1.125rem] font-bold text-navy">Máy đang không có sóng — {what} cần mạng.</p>
+      <p className="text-[1rem] font-semibold text-navy">Máy đang không có sóng — {what} cần mạng.</p>
       {savedAt != null && (
         <p className="mt-1 text-[1rem] text-foreground/70">Đang xem bản đã lưu ({savedAgoLabel(savedAt)}).</p>
       )}

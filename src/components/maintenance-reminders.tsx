@@ -224,7 +224,7 @@ export function MaintenanceReminders() {
           lệch, nay gom về SQ_BTN dùng chung (nguyên tắc 3). */}
       <div className="tau-section-heading">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
-          <p className="text-[1rem] font-bold text-navy">
+          <p className="text-[1rem] font-semibold text-navy">
             Sổ nhắc bảo dưỡng · {sorted.length} việc
           </p>
         </div>
@@ -269,9 +269,9 @@ export function MaintenanceReminders() {
           nút cam ở trên đã mời thêm. GIỮ cảnh báo ĐỌC-HỎNG (đọc được ≠ chưa có
           gì): mất nó là mất lá chắn chống-mất-dữ-liệu (nguyên tắc 4). */}
       {ready && boatReady && sorted.length === 0 && readFailed && (
-        <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
+        <div className="rounded-2xl bg-field/70 px-4 py-12 text-center">
           <WrenchIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[1.125rem] text-foreground/70">
+          <p className="mt-3 text-[1rem] text-foreground/70">
             Chưa mở được lịch bảo dưỡng trong máy.
             <br />
             Việc cũ chưa mất — xem dải đỏ ở trên.
@@ -304,7 +304,7 @@ export function MaintenanceReminders() {
               <div className="tau-record space-y-2 p-3">
                 <div className="flex items-stretch gap-2">
                   <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                    <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
+                    <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
                       {entry.item}
                     </p>
                   </div>
@@ -350,7 +350,7 @@ export function MaintenanceReminders() {
                 {entry.note && (
                   <div className="flex items-stretch gap-2">
                     <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[0.9375rem] text-foreground/70">
+                      <p className="text-[0.875rem] text-foreground/70">
                         {entry.note}
                       </p>
                     </div>
@@ -503,7 +503,7 @@ function MaintenanceForm({
                   setIntervalDays(String(d));
                   setCustomInterval(false);
                 }}
-                className={`min-h-[3.25rem] rounded-xl text-[1rem] font-bold transition active:scale-[0.97] ${
+                className={`min-h-[3.25rem] rounded-xl text-[1rem] font-semibold transition active:scale-[0.97] ${
                   !customInterval && Number(intervalDays) === d
                     ? "bg-navy text-white"
                     : "bg-field text-foreground/70"
@@ -515,7 +515,7 @@ function MaintenanceForm({
             <button
               type="button"
               onClick={() => setCustomInterval((v) => !v)}
-              className={`min-h-[3.25rem] rounded-xl text-[1rem] font-bold transition active:scale-[0.97] ${
+              className={`min-h-[3.25rem] rounded-xl text-[1rem] font-semibold transition active:scale-[0.97] ${
                 customInterval
                   ? "bg-navy text-white"
                   : "bg-field text-foreground/70"
@@ -543,7 +543,7 @@ function MaintenanceForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] text-foreground/80">
               Làm gần nhất:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {formatVnDate(lastDone || todayIso)}
               </span>
             </p>
@@ -573,7 +573,7 @@ function MaintenanceForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Ghi chú:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {note.trim() || "chưa ghi"}
               </span>
             </p>
@@ -602,7 +602,7 @@ function MaintenanceForm({
         {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
         <div className="mt-3 flex items-stretch gap-2">
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-            <p className="text-[0.9375rem] text-foreground/70">
+            <p className="text-[0.875rem] text-foreground/70">
               Nhắc lại sau mỗi {Math.max(1, Number(intervalDays) || 60)} ngày.
             </p>
           </div>

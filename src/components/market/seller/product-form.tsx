@@ -131,7 +131,7 @@ function productFieldOfError(msg: string, f: PForm): PField {
 function ErrLine({ msg }: { msg?: string }) {
   if (!msg) return null;
   return (
-    <p className="-mt-2.5 mb-3 text-[1rem] font-bold" style={{ color: "var(--danger)" }} role="alert">
+    <p className="-mt-2.5 mb-3 text-[1rem] font-semibold" style={{ color: "var(--danger)" }} role="alert">
       {msg}
     </p>
   );
@@ -146,7 +146,7 @@ export function SellerProductForm({ id }: { id: string }) {
     <LoadView state={shopState.state} what="gian hàng" onRetry={shopState.reload}>
       {(s) =>
         !s.shop ? (
-          <p className="px-4 py-8 text-center text-[1.125rem] text-foreground/70">
+          <p className="px-4 py-8 text-center text-[1rem] text-foreground/70">
             Chưa có gian hàng — đăng ký shop trước đã.
           </p>
         ) : isNew ? (
@@ -272,7 +272,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
         </div>
         <ErrLine msg={at("title")} />
 
-        <p className="mb-1.5 text-[1rem] font-bold text-navy" id={pFieldDomId("category")}>Nhóm hàng</p>
+        <p className="mb-1.5 text-[1rem] font-semibold text-navy" id={pFieldDomId("category")}>Nhóm hàng</p>
       </div>
       <div className="mb-3.5">
         <ChipRow
@@ -295,8 +295,8 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
              giá · tồn kho · giá gạch · loại-cỡ cho khỏi rối. */}
         <label className="mb-3 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl bg-field px-4">
           <span className="min-w-0">
-            <span className="block text-[1rem] font-bold text-navy">Chưa để giá — bà con gọi hỏi</span>
-            <span className="block text-[0.9375rem] leading-snug text-foreground/70">
+            <span className="block text-[1rem] font-semibold text-navy">Chưa để giá — bà con gọi hỏi</span>
+            <span className="block text-[0.875rem] leading-snug text-foreground/70">
               Món báo giá theo từng tàu. Chợ hiện &quot;Liên hệ báo giá&quot; và nút gọi shop.
             </span>
           </span>
@@ -319,7 +319,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
 
         {!form.quoteOnly && (
           <>
-        <p className="mb-1.5 text-[1rem] font-bold text-navy">Tồn kho</p>
+        <p className="mb-1.5 text-[1rem] font-semibold text-navy">Tồn kho</p>
         <div className="mb-1 flex items-center gap-2" id={pFieldDomId("stock")}>
           <button type="button" onClick={() => setStock(stockNum - 1)} aria-label="Bớt tồn kho"
             className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field text-navy active:scale-95">
@@ -339,7 +339,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
           </button>
         </div>
         <ErrLine msg={at("stock")} />
-        <p className="mb-3.5 text-[0.9375rem] text-foreground/70">Tồn 0 là món tự chuyển sang &quot;Hết hàng&quot;.</p>
+        <p className="mb-3.5 text-[0.875rem] text-foreground/70">Tồn 0 là món tự chuyển sang &quot;Hết hàng&quot;.</p>
           </>
         )}
 
@@ -361,7 +361,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
           <button
             type="button"
             onClick={() => setMore(true)}
-            className="mb-4 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-bold text-navy"
+            className="mb-4 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-semibold text-navy"
           >
             <PlusIcon className="h-5 w-5 shrink-0" />
             {/* Món chưa để giá thì giá gạch và loại/cỡ không mở được — đừng mời. */}
@@ -382,7 +382,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
             <ErrLine msg={at("compare")} />
 
             <label className="mb-2 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl bg-field px-4">
-              <span className="text-[1rem] font-bold text-navy">Món có nhiều loại/cỡ</span>
+              <span className="text-[1rem] font-semibold text-navy">Món có nhiều loại/cỡ</span>
               <input
                 type="checkbox"
                 className="h-7 w-7"
@@ -392,7 +392,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
             </label>
             {form.variantsOn && (
               <div className="mb-3.5" id={pFieldDomId("variants")}>
-                <p className="mb-2 text-[0.9375rem] leading-snug text-foreground/70">
+                <p className="mb-2 text-[0.875rem] leading-snug text-foreground/70">
                   Tồn kho tính chung cho mọi loại. Cần ít nhất 2 loại, nhiều nhất {VARIANT_MAX}.
                 </p>
                 {form.variants.map((v, i) => (
@@ -432,7 +432,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
                   <button
                     type="button"
                     onClick={() => set({ variants: [...form.variants, { label: "", priceDigits: "" }] })}
-                    className="flex min-h-(--row-h) w-full items-center gap-2 rounded-2xl bg-field px-4 text-[1rem] font-bold text-navy"
+                    className="flex min-h-(--row-h) w-full items-center gap-2 rounded-2xl bg-field px-4 text-[1rem] font-semibold text-navy"
                   >
                     <PlusIcon className="h-5 w-5" /> Thêm loại
                   </button>
@@ -460,8 +460,8 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
 
             <label className="mb-4 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl bg-field px-4">
               <span className="min-w-0">
-                <span className="block text-[1rem] font-bold text-navy">Ẩn món khỏi chợ</span>
-                <span className="block text-[0.9375rem] leading-snug text-foreground/70">Bà con không thấy món này nữa.</span>
+                <span className="block text-[1rem] font-semibold text-navy">Ẩn món khỏi chợ</span>
+                <span className="block text-[0.875rem] leading-snug text-foreground/70">Bà con không thấy món này nữa.</span>
               </span>
               <input
                 type="checkbox"
@@ -477,7 +477,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
         {/*  Câu lỗi của TỪNG Ô đã nằm ngay dưới ô đó (F-25); chỗ này chỉ còn
             lời của máy chủ / mất sóng — thứ không thuộc ô nào. */}
         {serverNote && (
-          <p className="mb-3 rounded-2xl px-3.5 py-2.5 text-[1rem] font-bold" role="alert"
+          <p className="mb-3 rounded-2xl px-3.5 py-2.5 text-[1rem] font-semibold" role="alert"
             style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}>
             {serverNote}
           </p>
@@ -488,7 +488,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
           {saving ? "Đang lưu…" : product ? "Lưu thay đổi" : "Lưu món hàng"}
         </PrimaryButton>
         {!online && (
-          <p className="mt-2 text-center text-[1rem] font-bold" style={{ color: "var(--danger)" }}>
+          <p className="mt-2 text-center text-[1rem] font-semibold" style={{ color: "var(--danger)" }}>
             Lưu cần có sóng — nội dung vẫn ở trên màn.
           </p>
         )}

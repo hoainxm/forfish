@@ -24,7 +24,7 @@ export function NetChip({ state, text }: { state: "offline" | "stale" | "error";
   return (
     <div className="pointer-events-none sticky top-2 z-10 flex justify-center px-4" role="status">
       <span
-        className="rounded-full px-4 py-2 text-[0.9375rem] font-bold shadow-sm"
+        className="rounded-full px-4 py-2 text-[0.875rem] font-semibold shadow-sm"
         style={{ backgroundColor: s.bg, color: s.fg }}
       >
         {text}

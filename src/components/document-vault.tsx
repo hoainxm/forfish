@@ -202,7 +202,7 @@ export function DocumentVault() {
           ghi để mép phải không nhảy giữa hai trạng thái (luật 3b). */}
       <div className="tau-section-heading">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
-          <p className="text-[1rem] font-bold text-navy">
+          <p className="text-[1rem] font-semibold text-navy">
             Tủ giấy tờ · {sorted.length} giấy
           </p>
         </div>
@@ -250,9 +250,9 @@ export function DocumentVault() {
           được lúc kiểm trên trình duyệt thật): ca đọc-hỏng đã ẩn nút, mà câu cũ
           vẫn chỉ vào nó — bà con tìm một nút không tồn tại. Ca đó nói khác. */}
       {ready && boatReady && sorted.length === 0 && (
-        <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
+        <div className="rounded-2xl bg-field/70 px-4 py-12 text-center">
           <DocIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[1.125rem] text-foreground/70">
+          <p className="mt-3 text-[1rem] text-foreground/70">
             {readFailed ? (
               <>
                 Chưa mở được tủ giấy tờ trong máy.
@@ -308,11 +308,11 @@ export function DocumentVault() {
                         khi user gõ tay ⇒ MẶC ĐỊNH luôn trùng, thẻ in hai lần cùng
                         một chuỗi ("ĐĂNG KIỂM TÀU CÁ" rồi "Đăng kiểm tàu cá"). */}
                     {doc.label !== kindLabel(doc.kind) && (
-                      <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
+                      <p className="text-[0.8125rem] font-semibold uppercase tracking-wide text-foreground/65">
                         {kindLabel(doc.kind)}
                       </p>
                     )}
-                    <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
+                    <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
                       {doc.label}
                     </p>
                   </div>
@@ -364,7 +364,7 @@ export function DocumentVault() {
                 {doc.note && (
                   <div className="flex items-stretch gap-2">
                     <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[0.9375rem] text-foreground/70">
+                      <p className="text-[0.875rem] text-foreground/70">
                         {doc.note}
                       </p>
                     </div>
@@ -492,7 +492,7 @@ function DocumentForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Tên gọi:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {label.trim() || kindLabel(kind)}
               </span>
             </p>
@@ -536,7 +536,7 @@ function DocumentForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Số giấy:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {number.trim() || "chưa ghi"}
               </span>
             </p>
@@ -586,7 +586,7 @@ function DocumentForm({
         {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
         <div className="mt-3 flex items-stretch gap-2">
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-            <p className="text-[0.9375rem] text-foreground/70">
+            <p className="text-[0.875rem] text-foreground/70">
               {expiresOn
                 ? "Thông tin đã đủ để app nhắc hạn."
                 : kindUsuallyNoExpiry(kind)
