@@ -1,8 +1,7 @@
 import { LOCAL_BUILD_DATE, LOCAL_BUILD_ID } from "@/lib/app-version";
 import { buildStatus } from "@/lib/status-report";
 import { createAdminClient } from "@/lib/supabase/admin";
-import blend from "@/data/fish-blend-weights.json";
-import skill from "@/data/forecast-skill.json";
+import { timeoutSignal } from "@/lib/abort";
 
 /**
  * TRẠNG THÁI BẢN ĐANG CHẠY + ĐỘ TƯƠI DỮ LIỆU (lib/status-report.ts). Công khai như
@@ -21,7 +20,8 @@ async function moiNhat(table: string, idLike: string | null): Promise<{ at: stri
   try {
     let q = admin.from(table).select("updated_at").order("updated_at", { ascending: false }).limit(1);
     if (idLike) q = q.like("id", idLike);
-    const { data, error } = await q.abortSignal(AbortSignal.timeout(TIMEOUT_MS));
+    const sig = timeoutSignal(TIMEOUT_MS);
+    const { data, error } = await (sig ? q.abortSignal(sig) : q);
     if (error) return { at: null, ok: false };
     return { at: (data?.[0] as { updated_at?: string } | undefined)?.updated_at ?? null, ok: true };
   } catch {
@@ -37,8 +37,9 @@ export async function GET() {
   const body = buildStatus({
     build: LOCAL_BUILD_ID,
     builtOn: LOCAL_BUILD_DATE,
-    fishBlendFittedAt: (blend as { generatedAt?: string }).generatedAt ?? null,
-    forecastSkillFittedAt: (skill as { generatedAt?: string }).generatedAt ?? null,
+    // ngày fit đọc LÚC BUILD trong next.config.ts — KHÔNG import JSON tham số (cổng model-params.test)
+    fishBlendFittedAt: process.env.SDFISH_MODEL_BLEND_AT || null,
+    forecastSkillFittedAt: process.env.SDFISH_MODEL_SKILL_AT || null,
     fishSnapshotAt: fish.at,
     weatherSnapshotAt: weather.at,
     dbOk: fish.ok && weather.ok,

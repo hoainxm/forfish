@@ -1,4 +1,18 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+/* NGÀY FIT tham số mô hình cho /api/status (2026-10-19) — đọc LÚC BUILD ở đây để
+   route không phải import JSON tham số (cổng model-params.test: tham số chỉ đi qua
+   public/data/model-params.v1.json). Hỏng/thiếu ⇒ "" (route trả null). */
+function fitAt(file: string): string {
+  try {
+    const j = JSON.parse(readFileSync(join(process.cwd(), file), "utf8")) as { generatedAt?: unknown };
+    return typeof j.generatedAt === "string" ? j.generatedAt : "";
+  } catch {
+    return "";
+  }
+}
 
 /* Build riêng cho e2e quay video (scripts/e2e-build.mjs + playwright.config.ts):
    để mỗi biến thể ra THƯ MỤC RIÊNG. Nếu không tách, hai build demo/auth (khác
@@ -39,6 +53,8 @@ const nextConfig: NextConfig = {
   // nơi GITHUB_SHA là đầu main lúc sự kiện nổ chứ không phải commit đang build
   // ⇒ health check /api/version so sai bản (2026-10-18).
   env: {
+    SDFISH_MODEL_BLEND_AT: fitAt("src/data/fish-blend-weights.json"),
+    SDFISH_MODEL_SKILL_AT: fitAt("src/data/forecast-skill.json"),
     NEXT_PUBLIC_BUILD_ID: (
       process.env.SDFISH_BUILD_SHA ||
       process.env.VERCEL_GIT_COMMIT_SHA ||
