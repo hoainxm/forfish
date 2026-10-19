@@ -16,7 +16,7 @@
   flex-shrink: 0;
   gap: 0.25rem;
   min-width: 4rem;
-  min-height: 3.5rem;
+  min-height: var(--row-h); /* Gọn = 37px, Nút to = 56px (chủ dự án chốt 2026-10-19) */
   border-radius: 1rem;
   padding: 0.5rem;
   font-size: 0.875rem;

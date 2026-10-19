@@ -94,7 +94,7 @@ export function AddressForm({
       <Field label="Tỉnh">
         <select
           ref={provinceRef}
-          className={`${inputClass} min-h-[3.5rem]`}
+          className={`${inputClass} min-h-(--row-h)`}
           value={value.province}
           onChange={(e) => set({ province: e.target.value })}
           aria-invalid={bad === "province" || undefined}

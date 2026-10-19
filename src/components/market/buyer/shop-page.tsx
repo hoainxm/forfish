@@ -101,7 +101,7 @@ export function ShopPage({ slug }: { slug: string }) {
         {/*  F-09: màn cụt phải có đường ra — trước đây chỉ có câu, không nút. */}
         <Link
           href="/cho"
-          className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
         >
           Về cửa hàng
         </Link>
@@ -145,7 +145,7 @@ export function ShopPage({ slug }: { slug: string }) {
               <button
                 type="button"
                 onClick={() => setDescOpen((v) => !v)}
-                className="min-h-[3.5rem] text-[1rem] font-bold text-t3"
+                className="min-h-(--row-h) text-[1rem] font-bold text-t3"
               >
                 {descOpen ? "Thu gọn" : "Xem thêm"}
               </button>
@@ -182,7 +182,7 @@ export function ShopPage({ slug }: { slug: string }) {
               <button
                 type="button"
                 onClick={() => void load(page + 1, false)}
-                className="display mx-auto mt-3 flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+                className="display mx-auto mt-3 flex min-h-(--row-h) w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
               >
                 Xem thêm
               </button>

@@ -196,7 +196,7 @@ export function ShopForm({
         <button
           type="button"
           onClick={() => setShowMore(true)}
-          className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-bold text-navy"
+          className="mb-4 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-bold text-navy"
         >
           <PlusIcon className="h-5 w-5 shrink-0" />
           Thêm giới thiệu · miễn phí giao
@@ -233,7 +233,7 @@ export function ShopForm({
           <button
             type="button"
             onClick={() => setShowBank(true)}
-            className="mb-1.5 flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-bold text-navy"
+            className="mb-1.5 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-bold text-navy"
           >
             <PlusIcon className="h-5 w-5 shrink-0" />
             Thêm số tài khoản ngân hàng

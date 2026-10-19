@@ -219,7 +219,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
         <p className="text-[1.125rem] font-bold text-navy">Không tìm thấy đơn này.</p>
         <Link
           href="/cho/don"
-          className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
         >
           Về đơn của tôi
         </Link>
@@ -237,7 +237,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
             <button
               type="button"
               onClick={() => void load()}
-              className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
             >
               Thử lại
             </button>
@@ -279,7 +279,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
         <button
           type="button"
           onClick={() => void copyCode()}
-          className="flex min-h-[3.5rem] shrink-0 items-center gap-1 rounded-full px-4 text-[1rem] font-bold"
+          className="flex min-h-(--row-h) shrink-0 items-center gap-1 rounded-full px-4 text-[1rem] font-bold"
           style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}
           aria-label="Sao chép mã đơn"
         >
@@ -345,7 +345,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
                 là màn bà con nhìn để nhớ mình mua gì — đọc không ra là hỏng. */
             <li key={`${l.productId}|${l.variantLabel ?? ""}`} className="flex flex-col gap-1">
               <div className="flex items-center gap-3">
-                <Link href={`/cho/sp/${l.productId}`} className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-3">
+                <Link href={`/cho/sp/${l.productId}`} className="flex min-h-(--row-h) min-w-0 flex-1 items-center gap-3">
                   <LineThumb image={l.image} size={3.5} />
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">
@@ -365,7 +365,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
                   disabled={!online}
                   onClick={() => setReviewLine(l)}
                   aria-label={`Đánh giá ${l.title}`}
-                  className="min-h-[3.5rem] w-full rounded-full text-[1rem] font-bold disabled:opacity-40"
+                  className="min-h-(--row-h) w-full rounded-full text-[1rem] font-bold disabled:opacity-40"
                   style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
                 >
                   Đánh giá
@@ -429,7 +429,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
         <div className="min-w-0 flex-1">
           <p className="text-[1rem] font-bold text-navy">{order.shopName ?? "Shop"}</p>
           {order.shopSlug && (
-            <Link href={`/cho/shop/${order.shopSlug}`} className="flex min-h-[3.5rem] items-center text-[1rem] font-bold text-t3">
+            <Link href={`/cho/shop/${order.shopSlug}`} className="flex min-h-(--row-h) items-center text-[1rem] font-bold text-t3">
               Xem shop
             </Link>
           )}
@@ -444,7 +444,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
             type="button"
             onClick={() => void rebuy()}
             disabled={rebuying}
-            className="min-h-[3.5rem] w-full rounded-full text-[1.125rem] font-bold disabled:opacity-40"
+            className="min-h-(--row-h) w-full rounded-full text-[1.125rem] font-bold disabled:opacity-40"
             style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
           >
             {rebuying ? "Đang xem món còn bán…" : "Mua lại"}
@@ -456,7 +456,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
             >
               <span className="min-w-0 text-[1rem] font-bold leading-snug text-navy">{rebuyNote}</span>
               {rebuyAdded > 0 && (
-                <Link href="/cho/gio" className="flex min-h-[3.5rem] shrink-0 items-center text-[1rem] font-bold text-t3 underline">
+                <Link href="/cho/gio" className="flex min-h-(--row-h) shrink-0 items-center text-[1rem] font-bold text-t3 underline">
                   Xem giỏ ({cart.count})
                 </Link>
               )}
@@ -478,7 +478,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
               type="button"
               disabled={!online || busy}
               onClick={() => setAct("bao-chuyen")}
-              className="min-h-[3.5rem] w-full rounded-full text-[1.125rem] font-bold disabled:opacity-40"
+              className="min-h-(--row-h) w-full rounded-full text-[1.125rem] font-bold disabled:opacity-40"
               style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
             >
               Tôi đã chuyển khoản
@@ -492,7 +492,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
                 setReason("");
                 setAct("huy");
               }}
-              className="min-h-[3.5rem] w-full rounded-full text-[1.125rem] font-bold disabled:opacity-40"
+              className="min-h-(--row-h) w-full rounded-full text-[1.125rem] font-bold disabled:opacity-40"
               style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}
             >
               Huỷ đơn
@@ -528,7 +528,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
                   type="button"
                   onClick={() => setReason(r)}
                   aria-pressed={reason === r}
-                  className="min-h-[3.5rem] rounded-full px-3.5 text-[1rem] font-bold"
+                  className="min-h-(--row-h) rounded-full px-3.5 text-[1rem] font-bold"
                   style={{
                     backgroundColor: reason === r ? "var(--t3)" : "var(--field)",
                     color: reason === r ? "var(--card)" : "var(--navy)",

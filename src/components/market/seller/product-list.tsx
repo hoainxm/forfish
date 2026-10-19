@@ -44,7 +44,7 @@ function NoShopYet() {
       <EmptyState icon={<BoxIcon className="h-8 w-8" />}>
         Chưa có gian hàng. Đăng ký shop trước rồi mới thêm được món.
       </EmptyState>
-      <Link href="/ban-hang/dang-ky" className="mt-4 flex min-h-[3.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white">
+      <Link href="/ban-hang/dang-ky" className="mt-4 flex min-h-(--row-h) items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white">
         Đăng ký gian hàng
       </Link>
     </div>
@@ -193,7 +193,7 @@ function Rows({
                 : "Chưa có món nào ở mục này."}
         </EmptyState>
         {canEdit && (
-          <Link href="/ban-hang/san-pham/moi" className="mt-4 flex min-h-[3.5rem] items-center justify-center gap-2 rounded-full bg-trim text-[1.125rem] font-bold text-white">
+          <Link href="/ban-hang/san-pham/moi" className="mt-4 flex min-h-(--row-h) items-center justify-center gap-2 rounded-full bg-trim text-[1.125rem] font-bold text-white">
             <PlusIcon className="h-6 w-6" /> Thêm sản phẩm
           </Link>
         )}
@@ -213,7 +213,7 @@ function Rows({
               const p = rows.find((x) => x.id === undo.id);
               if (p) void setStock(p, undo.stock, "Đã hoàn lại tồn kho.", false);
             }}
-            className="min-h-[3.5rem] rounded-full bg-field px-4 text-[1rem] font-bold text-navy"
+            className="min-h-(--row-h) rounded-full bg-field px-4 text-[1rem] font-bold text-navy"
           >
             Hoàn lại tồn {undo.stock}
           </button>

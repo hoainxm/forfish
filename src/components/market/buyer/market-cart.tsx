@@ -112,7 +112,7 @@ function RemoveButton({ onClick, label }: { onClick: () => void; label: string }
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex min-h-[3.5rem] shrink-0 items-center gap-1 rounded-full px-3 text-[1rem] font-bold"
+      className="flex min-h-(--row-h) shrink-0 items-center gap-1 rounded-full px-3 text-[1rem] font-bold"
       style={{ color: "var(--danger)" }}
     >
       <TrashIcon className="h-5 w-5" />
@@ -220,7 +220,7 @@ export function MarketCart() {
         <EmptyState icon={<CartIcon className="h-8 w-8" />}>Giỏ đang trống.</EmptyState>
         <Link
           href="/cho"
-          className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
         >
           Vào cửa hàng
         </Link>
@@ -287,7 +287,7 @@ export function MarketCart() {
             <button
               type="button"
               onClick={() => void fetchQuote(cart.items)}
-              className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
             >
               Thử lại
             </button>
@@ -299,7 +299,7 @@ export function MarketCart() {
             <button
               type="button"
               onClick={() => void fetchQuote(cart.items)}
-              className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
             >
               Thử lại
             </button>
@@ -315,7 +315,7 @@ export function MarketCart() {
                 applyItems(undo.items);
                 setUndo(null);
               }}
-              className="min-h-[3.5rem] shrink-0 px-2 text-[1rem] font-bold text-t3"
+              className="min-h-(--row-h) shrink-0 px-2 text-[1rem] font-bold text-t3"
             >
               Hoàn lại
             </button>
@@ -337,7 +337,7 @@ export function MarketCart() {
             <button
               type="button"
               onClick={() => setConfirmClear(true)}
-              className="ml-auto flex min-h-[3.5rem] items-center px-3 text-[1rem] font-bold text-danger"
+              className="ml-auto flex min-h-(--row-h) items-center px-3 text-[1rem] font-bold text-danger"
             >
               Bỏ hết
             </button>
@@ -356,7 +356,7 @@ export function MarketCart() {
                 <CheckBox on={shopOn} some={onCount > 0 && !shopOn} label={`Chọn cả shop ${g.shop.name}`} onChange={(v) => cart.select(shopKeys, v)} />
                 <Link
                   href={`/cho/shop/${g.shop.slug}`}
-                  className="flex min-h-[3.5rem] min-w-0 flex-1 items-center text-[1.0625rem] font-bold text-navy"
+                  className="flex min-h-(--row-h) min-w-0 flex-1 items-center text-[1.0625rem] font-bold text-navy"
                 >
                   <span className="truncate">{g.shop.name}</span>
                 </Link>
@@ -381,7 +381,7 @@ export function MarketCart() {
                            bề ngang còn lại (ô chọn + ảnh + stepper + Bỏ không đủ chỗ trên
                            một hàng 390px: chữ "Bỏ" bị cắt). */}
                       <div className="min-w-0 flex-1">
-                        <Link href={`/cho/sp/${l.productId}`} className="flex min-h-[3.5rem] gap-3">
+                        <Link href={`/cho/sp/${l.productId}`} className="flex min-h-(--row-h) gap-3">
                           <LineThumb image={l.image} size={4.5} className="mt-0.5" />
                           <span className="min-w-0 flex-1">
                             <span className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{l.title}</span>
@@ -489,7 +489,7 @@ export function MarketCart() {
             }
             router.push("/cho/thanh-toan");
           }}
-          className="display flex min-h-[3.5rem] shrink-0 items-center justify-center rounded-full bg-trim px-6 text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+          className="display flex min-h-(--row-h) shrink-0 items-center justify-center rounded-full bg-trim px-6 text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
         >
           Đặt hàng{pickedCount > 0 ? ` (${pickedCount})` : ""}
         </button>

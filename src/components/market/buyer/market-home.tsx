@@ -161,7 +161,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
                     }}
                     /*  Nút thường bấm ⇒ KHÔNG SQ_BTN (F-07: chế độ gọn hạ nó
                         xuống 37px/11px). */
-                    className="mt-2 flex min-h-[3.5rem] w-full items-center justify-center gap-1.5 rounded-full text-[1rem] font-bold"
+                    className="mt-2 flex min-h-(--row-h) w-full items-center justify-center gap-1.5 rounded-full text-[1rem] font-bold"
                     style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
                     aria-label={`Mua lại ${l.title}`}
                   >
@@ -184,7 +184,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
             extra={
               <Link
                 href="/cho/don"
-                className="inline-flex min-h-[3.5rem] items-center justify-center rounded-full bg-field px-5 text-[1rem] font-bold text-navy"
+                className="inline-flex min-h-(--row-h) items-center justify-center rounded-full bg-field px-5 text-[1rem] font-bold text-navy"
               >
                 Xem đơn của tôi
               </Link>
@@ -195,7 +195,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
         {status === "ok" && (
           <>
             {/* ĐẶT BẤT KỲ MÓN GÌ — chợ chưa bán thì chủ sàn tìm, báo giá (2026-10-18) */}
-            <Link href="/cho/yeu-cau/moi" className="surface mb-5 flex min-h-[3.5rem] items-center gap-3 px-4 py-3">
+            <Link href="/cho/yeu-cau/moi" className="surface mb-5 flex min-h-(--row-h) items-center gap-3 px-4 py-3">
               <span className="min-w-0 flex-1">
                 <span className="block text-[1.0625rem] font-bold text-navy">Cần món chợ chưa có?</span>
                 <span className="block text-[0.9375rem] text-foreground/75">Ghi món cần — chủ sàn tìm hàng, báo giá, hẹn ngày giao</span>

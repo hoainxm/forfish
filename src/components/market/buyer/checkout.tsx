@@ -66,7 +66,7 @@ function PayChip({ on, disabled, onClick, children }: { on: boolean; disabled?: 
       onClick={onClick}
       disabled={disabled}
       aria-pressed={on}
-      className="min-h-[3.5rem] flex-1 rounded-full px-4 text-[1rem] font-bold disabled:opacity-40"
+      className="min-h-(--row-h) flex-1 rounded-full px-4 text-[1rem] font-bold disabled:opacity-40"
       style={{
         backgroundColor: on ? "var(--t3)" : "var(--field)",
         color: on ? "var(--card)" : "var(--navy)",
@@ -280,7 +280,7 @@ export function Checkout() {
                   <button
                     type="button"
                     onClick={() => void copy(r.order.bankSnapshot?.bankAccount ?? "", r.order.id)}
-                    className="mt-2 min-h-[3.5rem] rounded-full bg-card px-4 text-[1rem] font-bold text-navy"
+                    className="mt-2 min-h-(--row-h) rounded-full bg-card px-4 text-[1rem] font-bold text-navy"
                   >
                     {copied === r.order.id ? "Đã chép số TK" : "Sao chép số TK"}
                   </button>
@@ -288,7 +288,7 @@ export function Checkout() {
               )}
               <Link
                 href={`/cho/don/${r.order.id}`}
-                className="mt-2 flex min-h-[3.5rem] items-center gap-1 text-[1rem] font-bold text-t3"
+                className="mt-2 flex min-h-(--row-h) items-center gap-1 text-[1rem] font-bold text-t3"
               >
                 Xem đơn này <ChevronRightIcon className="h-4 w-4" />
               </Link>
@@ -297,7 +297,7 @@ export function Checkout() {
           {failOnes.map((r) => (
             <li key={r.shopId} className="rounded-2xl bg-danger-bg px-4 py-3" role="alert">
               <p className="text-[1rem] font-bold leading-snug text-danger">{failLine(r, nameOf(r.shopId))}</p>
-              <Link href="/cho/gio" className="mt-1 flex min-h-[3.5rem] items-center text-[1rem] font-bold text-danger underline">
+              <Link href="/cho/gio" className="mt-1 flex min-h-(--row-h) items-center text-[1rem] font-bold text-danger underline">
                 Về giỏ sửa lại
               </Link>
             </li>
@@ -312,7 +312,7 @@ export function Checkout() {
         {/*  F-09: màn kết quả là màn cụt — thêm đường quay lại chợ. */}
         <Link
           href="/cho"
-          className="display mx-auto mt-2 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+          className="display mx-auto mt-2 flex min-h-(--row-h) w-full items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
         >
           Mua tiếp
         </Link>
@@ -331,7 +331,7 @@ export function Checkout() {
         <button
           type="button"
           onClick={() => void reload()}
-          className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
         >
           Thử lại
         </button>
@@ -345,7 +345,7 @@ export function Checkout() {
         <button
           type="button"
           onClick={() => void reload()}
-          className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
         >
           Thử lại
         </button>
@@ -360,7 +360,7 @@ export function Checkout() {
         </p>
         <Link
           href="/cho/gio"
-          className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
         >
           Về giỏ
         </Link>
@@ -390,7 +390,7 @@ export function Checkout() {
           <button
             type="button"
             onClick={() => (addresses.length > 0 ? setAddrSheet("list") : openNewAddress())}
-            className="flex min-h-[3.5rem] shrink-0 items-center gap-0.5 rounded-full px-3 text-[1rem] font-bold text-t3"
+            className="flex min-h-(--row-h) shrink-0 items-center gap-0.5 rounded-full px-3 text-[1rem] font-bold text-t3"
           >
             {chosen ? "Đổi" : "Thêm"} <ChevronRightIcon className="h-5 w-5" />
           </button>
@@ -505,7 +505,7 @@ export function Checkout() {
                     setAddrSheet(null);
                   }}
                   aria-pressed={a.isDefault}
-                  className="flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"
+                  className="flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"
                   style={{ backgroundColor: a.isDefault ? "var(--t3-bg)" : "var(--field)" }}
                 >
                   <span className="min-w-0 flex-1">
@@ -520,7 +520,7 @@ export function Checkout() {
           <button
             type="button"
             onClick={openNewAddress}
-            className="mb-2 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy"
+            className="mb-2 flex min-h-(--row-h) w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy"
           >
             + Thêm địa chỉ mới
           </button>

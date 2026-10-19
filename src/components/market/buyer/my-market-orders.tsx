@@ -58,7 +58,7 @@ function ActionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="min-h-[3.5rem] rounded-full px-4 text-[1rem] font-bold disabled:opacity-40"
+      className="min-h-(--row-h) rounded-full px-4 text-[1rem] font-bold disabled:opacity-40"
       style={{ backgroundColor: `var(--${tone}-bg)`, color: `var(--${tone})` }}
     >
       {children}
@@ -171,7 +171,7 @@ export function MyMarketOrders() {
             type="button"
             onClick={() => setTab(t.id)}
             aria-pressed={t.id === tab}
-            className="flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl px-1 text-[1rem] font-bold leading-tight"
+            className="flex min-h-(--row-h) flex-col items-center justify-center rounded-2xl px-1 text-[1rem] font-bold leading-tight"
             style={{
               backgroundColor: t.id === tab ? "var(--t3)" : "var(--field)",
               color: t.id === tab ? "var(--card)" : "var(--navy)",
@@ -185,7 +185,7 @@ export function MyMarketOrders() {
 
       <div className="px-4">
         {/* YÊU CẦU ĐẶT HÀNG — món chưa có trên chợ, chủ sàn báo giá (2026-10-18) */}
-        <Link href="/cho/yeu-cau" className="surface mb-3 flex min-h-[3.5rem] items-center gap-3 px-4 py-3">
+        <Link href="/cho/yeu-cau" className="surface mb-3 flex min-h-(--row-h) items-center gap-3 px-4 py-3">
           <span className="min-w-0 flex-1">
             <span className="block text-[1.0625rem] font-bold text-navy">Yêu cầu đặt hàng của tôi</span>
             <span className="block text-[0.9375rem] text-foreground/70">Món không có trên chợ — xem báo giá của chủ sàn</span>
@@ -215,7 +215,7 @@ export function MyMarketOrders() {
             {orders.length === 0 && (
               <Link
                 href="/cho"
-                className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+                className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
               >
                 Vào cửa hàng
               </Link>
@@ -282,7 +282,7 @@ export function MyMarketOrders() {
           <button
             type="button"
             onClick={() => void load(page + 1, false)}
-            className="display mx-auto mt-3 flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+            className="display mx-auto mt-3 flex min-h-(--row-h) w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
           >
             Xem thêm
           </button>

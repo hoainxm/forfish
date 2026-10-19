@@ -55,7 +55,7 @@ export function BoatServices() {
             </p>
             <Link
               href="/login"
-              className="flex min-h-[3.5rem] shrink-0 items-center rounded-full bg-field px-4 text-[1rem] font-bold text-navy transition active:scale-[0.98]"
+              className="flex min-h-(--row-h) shrink-0 items-center rounded-full bg-field px-4 text-[1rem] font-bold text-navy transition active:scale-[0.98]"
             >
               Đăng nhập
             </Link>

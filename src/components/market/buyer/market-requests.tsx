@@ -97,7 +97,7 @@ export function MyRequests() {
           <ul className="flex flex-col gap-3">
             {items.map((r) => (
               <li key={r.id}>
-                <Link href={`/cho/yeu-cau/${r.id}`} className="surface flex min-h-[3.5rem] items-start gap-3 px-4 py-3">
+                <Link href={`/cho/yeu-cau/${r.id}`} className="surface flex min-h-(--row-h) items-start gap-3 px-4 py-3">
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
                       <b className="text-[1.0625rem] text-navy">{r.title}</b>
@@ -195,7 +195,7 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
         ) : (
           <p className="mt-1 text-[1rem] text-foreground/70">Chưa có địa chỉ nhận.</p>
         )}
-        <button type="button" onClick={() => setAddrSheet(true)} className="mt-2 min-h-[3.5rem] rounded-full bg-field px-4 text-[1rem] font-bold text-navy">
+        <button type="button" onClick={() => setAddrSheet(true)} className="mt-2 min-h-(--row-h) rounded-full bg-field px-4 text-[1rem] font-bold text-navy">
           Đổi địa chỉ
         </button>
       </div>
@@ -204,7 +204,7 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
       <div className="flex gap-2">
         {(["cod", "chuyen_khoan"] as const).map((m) => (
           <button key={m} type="button" aria-pressed={pay === m} onClick={() => setPay(m)}
-            className="min-h-[3.5rem] flex-1 rounded-full px-3 text-[1rem] font-bold"
+            className="min-h-(--row-h) flex-1 rounded-full px-3 text-[1rem] font-bold"
             style={{ backgroundColor: pay === m ? "var(--t3)" : "var(--field)", color: pay === m ? "var(--card)" : "var(--navy)" }}>
             {PAYMENT_METHOD_LABEL[m]}
           </button>
@@ -375,7 +375,7 @@ export function RequestDetail({ id }: { id: string }) {
       {(r.status === "moi" || r.status === "da_bao_gia") && (
         <div className="mt-3 flex justify-center">
           <button type="button" disabled={busy || !online} onClick={() => setAsk("huy")}
-            className="min-h-[3.5rem] rounded-full bg-field px-5 text-[1rem] font-bold disabled:opacity-40" style={{ color: "var(--danger)" }}>
+            className="min-h-(--row-h) rounded-full bg-field px-5 text-[1rem] font-bold disabled:opacity-40" style={{ color: "var(--danger)" }}>
             Huỷ yêu cầu
           </button>
         </div>

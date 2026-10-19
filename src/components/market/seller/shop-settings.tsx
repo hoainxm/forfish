@@ -90,7 +90,7 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
       {note.node}
 
       <div className="px-4">
-        <label className="mb-4 flex min-h-[3.5rem] items-center justify-between gap-3 rounded-2xl px-4 py-2"
+        <label className="mb-4 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl px-4 py-2"
           style={paused ? { backgroundColor: "var(--warn-bg)" } : { backgroundColor: "var(--field)" }}>
           <span className="min-w-0">
             <span className="block text-[1.125rem] font-bold" style={{ color: paused ? "var(--warn)" : "var(--navy)" }}>

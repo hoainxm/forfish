@@ -1,6 +1,9 @@
 /* Shared buyer/seller presentation. Uses the app's rem scale and colour tokens. */
 .market-ui {
-  --market-control: 3.5rem;
+  /*  Theo --row-h (globals.css): "Nút to"/"Theo máy" = 3.5rem, "Gọn" = 2.3125rem.
+      Chủ dự án chốt 2026-10-19: chế độ Gọn hạ CẢ nút khu chợ/tàu về 37px cho
+      khớp .sq-btn — trước đây chợ ghim 3.5rem nên cùng một màn hai cỡ nút. */
+  --market-control: var(--row-h);
   line-height: 1.5;
 }
 

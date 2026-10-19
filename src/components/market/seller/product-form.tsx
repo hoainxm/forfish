@@ -293,7 +293,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
              thường báo giá từng chiếc. Không có bậc này thì shop buộc phải bịa
              một con số, hoặc không đăng được món lên cửa hàng. Bật lên thì giấu luôn
              giá · tồn kho · giá gạch · loại-cỡ cho khỏi rối. */}
-        <label className="mb-3 flex min-h-[3.5rem] items-center justify-between gap-3 rounded-2xl bg-field px-4">
+        <label className="mb-3 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl bg-field px-4">
           <span className="min-w-0">
             <span className="block text-[1rem] font-bold text-navy">Chưa để giá — bà con gọi hỏi</span>
             <span className="block text-[0.9375rem] leading-snug text-foreground/70">
@@ -361,7 +361,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
           <button
             type="button"
             onClick={() => setMore(true)}
-            className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-bold text-navy"
+            className="mb-4 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-bold text-navy"
           >
             <PlusIcon className="h-5 w-5 shrink-0" />
             {/* Món chưa để giá thì giá gạch và loại/cỡ không mở được — đừng mời. */}
@@ -381,7 +381,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
             </div>
             <ErrLine msg={at("compare")} />
 
-            <label className="mb-2 flex min-h-[3.5rem] items-center justify-between gap-3 rounded-2xl bg-field px-4">
+            <label className="mb-2 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl bg-field px-4">
               <span className="text-[1rem] font-bold text-navy">Món có nhiều loại/cỡ</span>
               <input
                 type="checkbox"
@@ -432,7 +432,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
                   <button
                     type="button"
                     onClick={() => set({ variants: [...form.variants, { label: "", priceDigits: "" }] })}
-                    className="flex min-h-[3.5rem] w-full items-center gap-2 rounded-2xl bg-field px-4 text-[1rem] font-bold text-navy"
+                    className="flex min-h-(--row-h) w-full items-center gap-2 rounded-2xl bg-field px-4 text-[1rem] font-bold text-navy"
                   >
                     <PlusIcon className="h-5 w-5" /> Thêm loại
                   </button>
@@ -458,7 +458,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
             </div>
             <ErrLine msg={at("description")} />
 
-            <label className="mb-4 flex min-h-[3.5rem] items-center justify-between gap-3 rounded-2xl bg-field px-4">
+            <label className="mb-4 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl bg-field px-4">
               <span className="min-w-0">
                 <span className="block text-[1rem] font-bold text-navy">Ẩn món khỏi chợ</span>
                 <span className="block text-[0.9375rem] leading-snug text-foreground/70">Bà con không thấy món này nữa.</span>

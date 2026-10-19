@@ -23,7 +23,7 @@ import { TideHomeCard } from "@/components/tide-home-card";
 export default function Home() {
   return (
     <div>
-      <ManHeader title="Chào bà con" right={<HeroAccount light />} />
+      <ManHeader compact title="Chào bà con" right={<HeroAccount light />} />
       <div className="space-y-5 px-4 pt-1">
         <StormBanner variant="page" always />
         <UrgentWithInstall>

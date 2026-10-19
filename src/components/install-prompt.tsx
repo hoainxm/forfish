@@ -35,7 +35,7 @@ import {
   shouldShowInstallNudge,
   type InstallNudgeState,
 } from "@/lib/install-nudge";
-import { AnchorIcon, CloseIcon } from "@/components/icons";
+import { AnchorIcon, ChevronRightIcon, CloseIcon } from "@/components/icons";
 import { SQ_BTN } from "@/components/ui/sq-btn";
 
 /** Dải khẩn từ ngần này dòng trở lên thì nhắc cài nhường chỗ. */
@@ -109,6 +109,11 @@ export function InstallBanner() {
   );
   const deferred = useRef<BeforeInstallPromptEvent | null>(null);
   const online = useOnline();
+  /*  MỘT HÀNG, CHẠM MỚI BUNG (chủ dự án chốt 2026-10-19 sau kiểm ảnh 360×740):
+      thẻ cũ — tiêu đề + 2 câu + hộp hướng dẫn — chiếm hơn nửa màn ngay dưới tin
+      bão, đẩy Việc cần làm và Thông báo xuống dưới. Nay gập còn một hàng 56px;
+      chạm hàng mới mở lời giải thích + hướng dẫn từng bước + nút cài. */
+  const [open, setOpen] = useState(false);
   /* mỗi lần thẻ THẬT SỰ hiện mới tính một lượt — chỉ ghi khi mode được đặt */
   const marked = useRef(false);
 
@@ -178,74 +183,87 @@ export function InstallBanner() {
     setMode(null);
   };
 
-  return (
-    <div className="surface flex gap-3 p-4">
-      <span
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-t1-bg text-t1"
-        aria-hidden
-      >
-        <AnchorIcon className="h-6 w-6" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="display text-[1.125rem] font-bold leading-tight text-navy">
-          Cài SDFish về máy
-        </p>
-        {/* CÂU CHỮ TÁCH THEO MÁY (sửa 2026-07-31): trên Android bản cài dùng
-            CHUNG kho với trình duyệt nên cài xong là mang theo được thật. Trên
-            iPhone bản cài giữ kho RIÊNG — dự báo đã tải trong Safari KHÔNG theo
-            sang, mà lần mở đầu tiên của bản cài bắt buộc phải có sóng. Hứa
-            "cài xong là ra khơi mở được" cho iPhone là hứa hão. */}
-        <p className="mt-1 text-[1.125rem] leading-snug text-foreground/75">
-          {mode === "ios"
-            ? "Cài ra màn hình chính giúp máy giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."
-            : "Cài ra màn hình chính giúp mở app khi không có sóng, và máy sẽ giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."}
-        </p>
-
-        {mode === "android-tay" ? (
-          /*  Chrome không hỏi — hầu hết là vì máy đã có bản CH Play, lúc đó
-              Chrome coi origin này "đã cài". Không nói lý do kỹ thuật ra màn
-              hình: bà con chỉ cần biết BẤM VÀO ĐÂU. */
-          <p className="mt-2 rounded-xl bg-background p-3 text-[1.125rem] font-semibold leading-snug text-navy">
-            Trên Android: bấm nút <span className="font-bold">⋮</span> ở góc trên
-            Chrome, rồi chọn{" "}
-            <span className="font-bold">“Thêm vào Màn hình chính”</span> (có máy
-            ghi <span className="font-bold">“Cài ứng dụng”</span>).
-          </p>
-        ) : mode === "ios" ? (
-          <p className="mt-2 rounded-xl bg-background p-3 text-[1.125rem] font-semibold leading-snug text-navy">
-            Trên iPhone: bấm nút <span className="font-bold">Chia sẻ</span> ở thanh
-            dưới trình duyệt, rồi chọn{" "}
-            <span className="font-bold">“Thêm vào Màn hình chính”</span>.
-            <span className="mt-2 block font-bold text-danger">
-              Cài xong mở app vừa cài NGAY khi còn sóng: bản cài bắt đầu từ kho
-              trống, phải tải lại dự báo một lần.
-            </span>
-          </p>
-        ) : null}
-      </div>
-      {/*  Hai nút về khuôn ô vuông chung (2026-08-29, luật A2/A3/A5). Nút đóng
-          cũ h-9 w-9 = 36×36px — dưới sàn vùng chạm RẤT xa (sàn dự án 56px, sàn
-          SQ_BTN 52px) mà lại nằm ngay cạnh nút "Cài về máy": tay ướt, tàu lắc,
-          bấm trượt là bấm nhầm. aria-label giữ nguyên. */}
-      {mode !== "android-tay" && mode !== "ios" && (
-        <button
-          type="button"
-          onClick={install}
-          className={`${SQ_BTN} self-center bg-t1 text-white`}
-        >
-          <AnchorIcon className="h-6 w-6" />
-          Cài về máy
-        </button>
-      )}
+  const guide =
+    mode === "android-tay" ? (
+      /*  Chrome không hỏi — hầu hết là vì máy đã có bản CH Play, lúc đó
+          Chrome coi origin này "đã cài". Không nói lý do kỹ thuật ra màn
+          hình: bà con chỉ cần biết BẤM VÀO ĐÂU. */
+      <p className="rounded-xl bg-background p-3 text-[1.125rem] font-semibold leading-snug text-navy">
+        Trên Android: bấm nút <span className="font-bold">⋮</span> ở góc trên
+        Chrome, rồi chọn{" "}
+        <span className="font-bold">“Thêm vào Màn hình chính”</span> (có máy
+        ghi <span className="font-bold">“Cài ứng dụng”</span>).
+      </p>
+    ) : mode === "ios" ? (
+      <p className="rounded-xl bg-background p-3 text-[1.125rem] font-semibold leading-snug text-navy">
+        Trên iPhone: bấm nút <span className="font-bold">Chia sẻ</span> ở thanh
+        dưới trình duyệt, rồi chọn{" "}
+        <span className="font-bold">“Thêm vào Màn hình chính”</span>.
+        <span className="mt-2 block font-bold text-danger">
+          Cài xong mở app vừa cài NGAY khi còn sóng: bản cài bắt đầu từ kho
+          trống, phải tải lại dự báo một lần.
+        </span>
+      </p>
+    ) : (
       <button
         type="button"
-        onClick={dismiss}
-        aria-label="Ẩn nhắc cài về máy"
-        className={`${SQ_BTN} self-center text-foreground/70 active:bg-background`}
+        onClick={install}
+        className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-2xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
       >
-        <CloseIcon className="h-6 w-6" />
-        Ẩn
+        <AnchorIcon className="h-6 w-6" />
+        Cài về máy
       </button>
+    );
+
+  return (
+    <div className="surface p-2">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-3 rounded-2xl pl-2 text-left transition active:bg-background"
+        >
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-t1-bg text-t1"
+            aria-hidden
+          >
+            <AnchorIcon className="h-6 w-6" />
+          </span>
+          <span className="display min-w-0 flex-1 text-[1.125rem] font-bold leading-tight text-navy">
+            Cài SDFish về máy để dùng khi mất sóng
+          </span>
+          <ChevronRightIcon
+            className={`h-5 w-5 shrink-0 text-foreground/60 transition-transform ${open ? "rotate-90" : ""}`}
+          />
+        </button>
+        {/*  Nút đóng theo khuôn ô vuông chung (2026-08-29, luật A2/A3/A5): sàn
+            chạm 56px, tay ướt tàu lắc không bấm nhầm. aria-label giữ nguyên. */}
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Ẩn nhắc cài về máy"
+          className={`${SQ_BTN} text-foreground/70 active:bg-background`}
+        >
+          <CloseIcon className="h-6 w-6" />
+          Ẩn
+        </button>
+      </div>
+      {open && (
+        <div className="space-y-2 px-2 pb-2 pt-1">
+          {/* CÂU CHỮ TÁCH THEO MÁY (sửa 2026-07-31): trên Android bản cài dùng
+              CHUNG kho với trình duyệt nên cài xong là mang theo được thật. Trên
+              iPhone bản cài giữ kho RIÊNG — dự báo đã tải trong Safari KHÔNG theo
+              sang, mà lần mở đầu tiên của bản cài bắt buộc phải có sóng. Hứa
+              "cài xong là ra khơi mở được" cho iPhone là hứa hão. */}
+          <p className="text-[1.125rem] leading-snug text-foreground/75">
+            {mode === "ios"
+              ? "Cài ra màn hình chính giúp máy giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."
+              : "Cài ra màn hình chính giúp mở app khi không có sóng, và máy sẽ giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."}
+          </p>
+          {guide}
+        </div>
+      )}
     </div>
   );
 }

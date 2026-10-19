@@ -122,7 +122,7 @@ export function ProductDetail({ id }: { id: string }) {
         <p className="text-[1.125rem] font-bold text-navy">Món này không còn trên chợ.</p>
         <Link
           href="/cho"
-          className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
         >
           Về cửa hàng
         </Link>
@@ -337,7 +337,7 @@ export function ProductDetail({ id }: { id: string }) {
                   type="button"
                   onClick={() => setVariant(v.label)}
                   aria-pressed={variant === v.label}
-                  className="min-h-[3.5rem] rounded-full px-4 text-[1rem] font-bold"
+                  className="min-h-(--row-h) rounded-full px-4 text-[1rem] font-bold"
                   style={{
                     backgroundColor: variant === v.label ? "var(--t3)" : "var(--field)",
                     color: variant === v.label ? "var(--card)" : "var(--navy)",
@@ -384,7 +384,7 @@ export function ProductDetail({ id }: { id: string }) {
 
         {/* ── Shop ─────────────────────────────────────────────────────── */}
         <div className="surface mt-4 flex items-center gap-3 px-4 py-3">
-          <Link href={`/cho/shop/${product.shopSlug}`} className="flex min-h-[3.5rem] min-w-0 flex-1 flex-col justify-center">
+          <Link href={`/cho/shop/${product.shopSlug}`} className="flex min-h-(--row-h) min-w-0 flex-1 flex-col justify-center">
             <ShopBadge
               name={product.shopName}
               province={product.shopProvince}
@@ -411,7 +411,7 @@ export function ProductDetail({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => setDescOpen((v) => !v)}
-                className="mt-1 min-h-[3.5rem] text-[1rem] font-bold text-t3"
+                className="mt-1 min-h-(--row-h) text-[1rem] font-bold text-t3"
               >
                 {descOpen ? "Thu gọn" : "Xem thêm"}
               </button>
@@ -442,7 +442,7 @@ export function ProductDetail({ id }: { id: string }) {
                 <button
                   type="button"
                   onClick={() => void openAllReviews()}
-                  className="mt-2 min-h-[3.5rem] text-[1rem] font-bold text-t3"
+                  className="mt-2 min-h-(--row-h) text-[1rem] font-bold text-t3"
                 >
                   Xem tất cả đánh giá
                 </button>
@@ -476,7 +476,7 @@ export function ProductDetail({ id }: { id: string }) {
           ) : (
             <Link
               href={`/cho/shop/${product.shopSlug}`}
-              className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-[1rem] font-bold"
+              className="flex min-h-(--row-h) flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-[1rem] font-bold"
               style={{ backgroundColor: "var(--trim)", color: "var(--card)" }}
             >
               Xem shop để hỏi giá
@@ -489,7 +489,7 @@ export function ProductDetail({ id }: { id: string }) {
             ) : (
               <Link
                 href={`/cho/shop/${product.shopSlug}`}
-                className="flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-full px-4 text-[1rem] font-bold"
+                className="flex min-h-(--row-h) shrink-0 items-center gap-1.5 rounded-full px-4 text-[1rem] font-bold"
                 style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}
               >
                 Xem shop

@@ -51,7 +51,7 @@ export function EtaSheet({
               type="button"
               aria-pressed={preset === p.id}
               onClick={() => setPreset(p.id)}
-              className={`min-h-[3.5rem] rounded-2xl px-3 text-[1.0625rem] font-bold ${preset === p.id ? "bg-navy text-card" : "bg-field text-navy"}`}
+              className={`min-h-(--row-h) rounded-2xl px-3 text-[1.0625rem] font-bold ${preset === p.id ? "bg-navy text-card" : "bg-field text-navy"}`}
             >
               {p.label}
             </button>
@@ -60,7 +60,7 @@ export function EtaSheet({
             type="button"
             aria-pressed={preset === "chon"}
             onClick={() => setPreset("chon")}
-            className={`min-h-[3.5rem] rounded-2xl px-3 text-[1.0625rem] font-bold ${preset === "chon" ? "bg-navy text-card" : "bg-field text-navy"}`}
+            className={`min-h-(--row-h) rounded-2xl px-3 text-[1.0625rem] font-bold ${preset === "chon" ? "bg-navy text-card" : "bg-field text-navy"}`}
           >
             Chọn ngày
           </button>

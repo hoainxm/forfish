@@ -669,7 +669,7 @@ function CrewForm({
                 <button
                   type="button"
                   onClick={() => setHasInsurance(true)}
-                  className={`min-h-[3.5rem] rounded-xl text-[1.125rem] font-bold ${
+                  className={`min-h-(--row-h) rounded-xl text-[1.125rem] font-bold ${
                     hasInsurance
                       ? "bg-ok text-white"
                       : "bg-field text-foreground/70"
@@ -680,7 +680,7 @@ function CrewForm({
                 <button
                   type="button"
                   onClick={() => setHasInsurance(false)}
-                  className={`min-h-[3.5rem] rounded-xl text-[1.125rem] font-bold ${
+                  className={`min-h-(--row-h) rounded-xl text-[1.125rem] font-bold ${
                     !hasInsurance
                       ? "bg-danger text-white"
                       : "bg-field text-foreground/70"
@@ -1208,7 +1208,7 @@ function ReportForm({
                 setCategory(c);
                 setPickCat(false);
               }}
-              className={`min-h-[3.5rem] rounded-xl px-3 text-left text-[1rem] font-bold ${
+              className={`min-h-(--row-h) rounded-xl px-3 text-left text-[1rem] font-bold ${
                 category === c
                   ? "bg-navy text-white"
                   : "bg-field text-foreground/70"

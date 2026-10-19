@@ -6,6 +6,7 @@
 
 covers: src/app/globals.css
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-19c — GỌN = 37px Ở MỌI KHU (chủ dự án chốt): `--market-control: var(--row-h)`, `.tau-action min-height: var(--row-h)`, 86 chỗ `min-h-[3.5rem]` trong market/cho/ban-hang + khu Tàu tôi → `min-h-(--row-h)` (Tailwind v4 cú pháp biến). Đo 390 gọn: ô tìm/chip/nút Vật tư 37px, "Thêm"/"Gọi SDVICO" Tàu tôi 37px; hàng có nút stretch theo thân hàng (48/42px) đúng luật thân hàng = nút. Chip tài khoản biến thể `light` (ManHeader): chữ 1rem, đệm hẹp, min-w-0 + truncate — nhường chỗ cho tiêu đề. -->
 <!-- re-verified: 2026-10-19 — `.dock-label` NÂNG một bậc (0.9375 / 0.875 / 0.75rem theo bề ngang) vì nhãn dock mới ngắn hơn (Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư); ngoại lệ sàn 18px có chủ đích (5 cột ~69px ở máy 360). Khuôn MỚI `ManHeader` (components/man-header.tsx): đầu màn nền sáng thay hero gradient ở các màn dock. Danh sách kẻ mảnh (`divide-y divide-line rounded-2xl bg-card`, hàng ≥3.5rem, chữ 1.125rem, chấm màu thay tag 12px) là khuôn chung của Thông báo + Việc cần làm. HeroAccount có biến thể `light`. -->
 ttl_days: 90
 gate: warn
@@ -32,7 +33,7 @@ Toàn bộ cỡ chữ / tap-size / bo góc viết bằng **REM** (đã quét s�
 
 | Chế độ | Gốc | Cho ai |
 |---|---|---|
-| **Gọn** (`data-mode="gon"`, MẶC ĐỊNH — kể cả chưa đăng nhập/màn login) | khóa **16px** (KHÔNG còn 14px từ 2026-08-29 — 14px làm ô nhập dưới ngưỡng iOS) → body 18px; chỉ hạ `--row-h` xuống 2.3125rem (37px, chủ dự án chốt 2026-08-29h). ⚠️ Chưa đồng bộ (rà Codex 2026-10-19): `.sq-btn` theo `--row-h` (37px) nhưng `.market-ui` (`--market-control` 3.5rem) và `.tau-action` vẫn 56px — CHỜ chủ dự án chốt hướng (hạ cả về 37 hay nâng nút về 56) | mật độ chuẩn app |
+| **Gọn** (`data-mode="gon"`, MẶC ĐỊNH — kể cả chưa đăng nhập/màn login) | khóa **16px** (KHÔNG còn 14px từ 2026-08-29 — 14px làm ô nhập dưới ngưỡng iOS) → body 18px; chỉ hạ `--row-h` xuống 2.3125rem (37px, chủ dự án chốt 2026-08-29h). **Đồng bộ 2026-10-19 (chủ dự án chốt "hạ cả nút chợ/tàu về 37")**: `.market-ui` (`--market-control: var(--row-h)`), `.tau-action` và mọi `min-h-[3.5rem]` trong `components/market/**`, `app/cho/**`, `app/ban-hang/**`, khu Tàu tôi (crew-list, boat-*, document-vault, vms-renewal, maintenance-reminders, tau-toi-nav) đổi sang `min-h-(--row-h)` — Gọn = 37px ở MỌI khu, Nút to = 56px. Đảo lại luật §Nút hành động 1b (2026-09-06) ở phần "khu chợ không rơi xuống 37" | mật độ chuẩn app |
 | **Chữ to** (`data-mode="to"`) | khóa 16px → body 18px, nút 60px | khóa to bất kể máy |
 | **Theo máy** (auto — bấm lại lựa chọn đang chọn trong sheet) | không đặt → ăn theo cỡ chữ cài trong điện thoại/trình duyệt | bác nào chỉnh chữ to trong máy, app TỰ to theo |
 
@@ -282,6 +283,8 @@ Chủ dự án: *"cái nút nó là ô vuông kích thước đồng bộ"* · *
 **Nợ `0.6875rem` GIẢM (2026-09-03b)**: chữ phụ dưới các công tắc/nhóm trong panel lớp `ra-khoi-controls.tsx` (dòng "tham khảo…", ghi chú nguồn, câu dưới nút "Ký hiệu là gì?") trước cũng dùng 11 px mượn ngoại lệ trên — sai chỗ: đó là chữ ĐỌC dưới nắng, không phải chú thích icon. Nay **`0.8125rem` (13 px)**, mờ tối đa `/75`. Ranh giới ở trên giữ nguyên: 0.6875rem CHỈ cho nhãn dưới icon trong `SQ_BTN`.
 
 **1b. KHU CHỢ VẬT TƯ — KHÔNG DÙNG `SQ_BTN` CHO HÀNH ĐỘNG CHÍNH / VIỆC THƯỜNG BẤM (chốt 2026-09-06, vòng FIX UX).**
+
+> **ĐẢO MỘT VẾ 2026-10-19 (chủ dự án chốt sau kiểm ảnh dock 5 mục):** phần "chợ không được rơi xuống 37px" dưới đây KHÔNG còn — chế độ Gọn nay hạ CẢ nút chợ/tàu về `--row-h` (37px) cho khớp `.sq-btn`, vì cùng một màn hai cỡ nút (37 cạnh 56) trông lệch. `SELLER_BTN`/nút chữ của chợ vẫn là NÚT CHỮ (không về `SQ_BTN` icon+nhãn 11px) — vế đó giữ. Mặc định app vẫn là Gọn; ai thấy khó bấm thì chuyển "Nút to" (56px).
 
 Mặc định giao diện của app là **"gọn"** ⇒ `--row-h` = **2.3125rem (37px)** và nhãn `.sq-btn` = **0.6875rem (11px)**. Trên bản đồ điều đó đã chốt là chấp nhận được (§"CHẾ ĐỘ HIỂN THỊ…", 2026-08-29h): nút ở đó là icon phụ, ít bấm, người dùng đổi sang "Nút to" được. **Khu chợ không nằm trong ngoại lệ đó.** Đo thật 390×844 ở chế độ mặc định, mọi nút của chợ rơi xuống 37px cao / chữ 11px: "+ Giỏ" 68×37 · "Bỏ" 55×37 · **"Huỷ" 37×37** · "Đổi" 58×37 · "Chép mã" 88×37 · "Sửa"/"Hết hàng" · "Thêm món" · "Lưu" · "Xoá món" · "Huỷ đơn". Đó là những việc bà con làm suốt buổi, một số có hậu quả tiền bạc (Huỷ đơn, Đặt hàng, Đã nhận hàng) — và mọi máy mới rơi vào 37px mà chưa chọn gì.
 

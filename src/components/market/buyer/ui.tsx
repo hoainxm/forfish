@@ -64,7 +64,7 @@ export function MarketTopBar({
           placeholder={placeholder}
           aria-label="Tìm món trong cửa hàng"
           enterKeyHint="search"
-          className="min-h-[3.5rem] min-w-0 flex-1 border-0 bg-transparent text-[1.125rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-sea rounded-xl"
+          className="min-h-(--row-h) min-w-0 flex-1 border-0 bg-transparent text-[1.125rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-sea rounded-xl"
         />
         {q && (
           <button
@@ -76,13 +76,13 @@ export function MarketTopBar({
             <CloseIcon className="h-6 w-6" />
           </button>
         )}
-        <button type="submit" className="flex min-h-[3.5rem] shrink-0 items-center justify-center rounded-xl bg-navy px-4 text-[1rem] font-bold text-white">Tìm</button>
+        <button type="submit" className="flex min-h-(--row-h) shrink-0 items-center justify-center rounded-xl bg-navy px-4 text-[1rem] font-bold text-white">Tìm</button>
       </form>
       <nav aria-label="Mua hàng" className={`mt-2 grid gap-2 ${embedded ? "grid-cols-1" : "grid-cols-2"}`}>
       <Link
         href="/cho/gio"
         aria-label={`Giỏ hàng, ${cartCount} món`}
-        className="relative flex min-h-[3.5rem] items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-bold text-navy"
+        className="relative flex min-h-(--row-h) items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-bold text-navy"
       >
         <CartIcon className="h-6 w-6" />
         <span>Giỏ hàng</span>
@@ -91,7 +91,7 @@ export function MarketTopBar({
       {!embedded && <Link
         href="/cho/don"
         aria-label={`Đơn hàng của tôi, ${openOrders} đơn đang chạy`}
-        className="relative flex min-h-[3.5rem] items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-bold text-navy"
+        className="relative flex min-h-(--row-h) items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-bold text-navy"
       >
         <DocIcon className="h-6 w-6" />
         <span>Đơn của tôi</span>
@@ -170,7 +170,7 @@ export function ErrorBlock({
       <button
         type="button"
         onClick={onRetry}
-        className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+        className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
       >
         Thử lại
       </button>
@@ -238,7 +238,7 @@ export function LoginInvite({
       <button
         type="button"
         onClick={onClose}
-        className="mx-auto mt-2 flex min-h-[3.5rem] items-center justify-center px-4 text-[1rem] font-bold text-foreground/65"
+        className="mx-auto mt-2 flex min-h-(--row-h) items-center justify-center px-4 text-[1rem] font-bold text-foreground/65"
       >
         Để sau
       </button>

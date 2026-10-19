@@ -52,7 +52,7 @@ export function MarketProductCard({
 
   return (
     <article className="market-product-card surface relative flex h-full flex-col overflow-hidden">
-      <Link href={href} className="flex h-full min-h-[3.5rem] flex-col" aria-label={product.title}>
+      <Link href={href} className="flex h-full min-h-(--row-h) flex-col" aria-label={product.title}>
         {/*  Khung ảnh GIỮ tỷ lệ 4:3 bất kể cỡ ảnh: ảnh nằm TUYỆT ĐỐI trong khung.
             Trước đây <img h-full> trong khung aspect-ratio để ảnh dọc kéo giãn
             khung (đo 2026-10-19, cùng rộng 173px: cao 289/142/130px) ⇒ hàng

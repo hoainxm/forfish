@@ -146,7 +146,7 @@ function Rows({ items, tab, searching }: { items: Order[]; tab: OrderStatus; sea
         const soMon = o.items.length;
         return (
           <li key={o.id}>
-            <Link href={`/ban-hang/don/${o.id}`} className="flex min-h-[3.5rem] items-start gap-3 px-4 py-3 surface">
+            <Link href={`/ban-hang/don/${o.id}`} className="flex min-h-(--row-h) items-start gap-3 px-4 py-3 surface">
               <LineThumb image={o.items[0]?.image} size={3.5} />
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">

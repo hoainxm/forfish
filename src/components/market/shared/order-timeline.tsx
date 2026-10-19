@@ -43,7 +43,7 @@ export function OrderTimeline({
             ? [carrier, trackingCode ? `mã ${trackingCode}` : ""].filter(Boolean).join(" · ")
             : "";
         return (
-          <li key={`${t.status}-${t.at}-${i}`} className="relative flex min-h-[3.5rem] gap-3 pl-1">
+          <li key={`${t.status}-${t.at}-${i}`} className="relative flex min-h-(--row-h) gap-3 pl-1">
             <span className="flex flex-col items-center">
               <span
                 className="mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full"
