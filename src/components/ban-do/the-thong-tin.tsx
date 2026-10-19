@@ -4,15 +4,16 @@
   fishing-map-view.tsx (2026-10-19, rà Codex đợt 3 — tách theo trách nhiệm, KHÔNG đổi
   hành vi): mỗi thẻ nhận `info` + `onClose`, phần còn lại (prefs, bieuTuong…) qua props.
 */
+import { type PlannedRoute } from "@/components/route-planner";
 import { CloseButton } from "@/components/ui/close-button";
 import { CHART_FEATURE_ICON, diaDanhNgamSymbolId, reefSymbolId } from "@/lib/chart-symbols";
 import { chatDayLabel, laDayCung, type ChatDayMa } from "@/lib/chat-day";
 import { moTaDenBien, tenDayDu, type DenBien } from "@/lib/den-bien";
 import { nhanLoaiDiaDanhNgam } from "@/lib/dia-danh-ngam";
 import { capLabel, tenTinhDep, type KhuTruBao } from "@/lib/khu-tru-bao";
-import { fmtCoordPair, fmtDepthM, fmtLat, fmtLon, type CoordFormat } from "@/lib/map-prefs";
+import { fmtCoordPair, fmtDepthM, fmtDist, fmtLat, fmtLon, type CoordFormat } from "@/lib/map-prefs";
 import { CHAT_DAY_COLORS, KHU_TRU_BAO_COLOR, RESTRICTED_FILL_COLOR, SEA_RESTRICTED_COLOR } from "@/lib/ocean-map";
-import { type BoatProfile } from "@/lib/route-plan";
+import { formatHoursVN, type BoatProfile } from "@/lib/route-plan";
 import { describeSeamark, huongDiQuaPhao, seamarkLabel, type Seamark } from "@/lib/seamarks";
 import { soundingAgeDays, type Sounding } from "@/lib/soundings";
 import { ESTIMATED_DATE_NOTE, ageLine, isStale } from "@/lib/soundings-verified";
@@ -779,6 +780,58 @@ export function TheMocBao({ info, onClose, prefs }: { info: StormPtInfo; onClose
           onClose={() => onClose()}
           label="Đóng thông tin mốc bão"
         />
+      </div>
+    </div>
+  );
+}
+
+/*  THẺ THÔNG TIN CHẶNG — "khúc màu này bị gì" (quãng · giờ · cớ). Dời nguyên văn
+    (2026-10-19, lát 3); chỉ gọi khi `route.legs[info.idx]` tồn tại. */
+export type LegInfo = {
+  idx: number;
+  x: number;
+  y: number;
+};
+
+export function TheChang({ info, route, prefs, onClose }: { info: LegInfo; route: PlannedRoute; prefs: MapPrefs; onClose: () => void }) {
+  return (
+    <div
+      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+      style={{
+        left: Math.min(
+          Math.max(8, info.x - 120),
+          window.innerWidth - 248,
+        ),
+        top: Math.min(info.y + 12, window.innerHeight - 180),
+      }}
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-[1rem] font-bold leading-tight text-navy">
+            {route.stops.length > 1
+              ? `Chặng ${info.idx + 1} — tới điểm ${info.idx + 1}`
+              : "Toàn bộ tuyến đường"}
+          </p>
+          <p className="mt-0.5 text-[0.9375rem] font-semibold text-foreground/75">
+            {fmtDist(route.legs[info.idx].distKm, prefs.distUnit)} ·{" "}
+            {formatHoursVN(route.legs[info.idx].hours)}
+          </p>
+          {/*  CỚ chỉ hiện khi CÓ cớ. Chặng xanh thì nói thẳng là không có
+               gì đáng nói — im lặng ở đây dễ bị đọc thành "máy chưa kiểm". */}
+          <p
+            className={`mt-1 text-[0.9375rem] font-bold leading-snug ${
+              route.legs[info.idx].risk === "red"
+                ? "text-danger"
+                : route.legs[info.idx].risk === "amber"
+                  ? "text-warn"
+                  : "text-foreground/70"
+            }`}
+          >
+            {route.legs[info.idx].reason ??
+              "Không có thông tin đáng lưu ý ở chặng này"}
+          </p>
+        </div>
+        <CloseButton onClose={() => onClose()} label="Đóng thông tin chặng" />
       </div>
     </div>
   );

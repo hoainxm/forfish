@@ -4,6 +4,7 @@
   hành vi — mọi hằng/hàm giữ đúng giá trị, file gốc import lại).
 */
 import { Layer } from "react-map-gl/maplibre";
+import { CloseButton } from "@/components/ui/close-button";
 import { CHART_FEATURE_ICON, CHART_ICON_SIZE } from "@/lib/chart-symbols";
 import { ghiChuChatDayTrong } from "@/lib/chat-day";
 import { CHART_TIER, CHAT_DAY_COLORS, CLUSTER_BADGE, DEPTH_BANDS, DEPTH_DANGER_COLOR, DEPTH_SAFE_COLOR, DEPTH_SHALLOW_COLOR, ISLAND_DOT_COLOR, SAFETY_CONTOUR_STYLE, SEA_CABLE_COLOR, SEA_LANE_COLOR, SEA_RESTRICTED_COLOR } from "@/lib/ocean-map";
@@ -186,3 +187,54 @@ export const LEGEND_TIERS: LegendTier[] = [
     ghiChu: "Chấm đo sâu rỗng ruột = số đo cũ trên một năm, cửa lạch có thể đã bồi. " + ghiChuChatDayTrong(),
   },
 ];
+
+/*  SHEET "KÝ HIỆU LÀ GÌ?" (reviewer B.2/B.3) — dời nguyên văn khỏi fishing-map-view
+    (2026-10-19, lát 3). `kyHieu` vẽ ô ký hiệu từ sprite (phụ thuộc meta nạp lúc chạy)
+    nên đi qua props; gợi ý "phóng to thêm" tính từ `mapZoom`. */
+export function BangChuGiai({
+  mapZoom,
+  kyHieu,
+  onClose,
+}: {
+  mapZoom: number;
+  kyHieu: (d: LegendRow) => React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="pointer-events-auto absolute inset-x-2 bottom-2 top-16 z-50 flex flex-col overflow-hidden rounded-2xl bg-card/98 shadow-2xl"
+      role="dialog"
+      aria-label="Ký hiệu trên hải đồ"
+    >
+      <div className="flex items-center justify-between border-b border-foreground/10 px-4 py-3">
+        <p className="text-[1.125rem] font-bold text-navy">Ký hiệu trên hải đồ</p>
+        <CloseButton onClose={onClose} label="Đóng chú giải" />
+      </div>
+      <p className="border-b border-foreground/10 bg-field/60 px-4 py-2 text-[0.875rem] font-semibold leading-snug text-foreground/75">
+        Hải đồ hiện dần theo <b>ba mức phóng to</b> (như máy hải đồ thương mại): phóng XA thấy
+        đèn lớn + vật chìm, phóng VỪA thấy phao + cáp, phóng SÁT thấy số đo sâu + chất đáy —
+        và chỉ ở nơi có vật đó. Chỗ nhiều phao gom thành vòng <b>+6</b>, chạm vào là phóng tới.
+      </p>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[0.9375rem] font-semibold text-foreground/85">
+        {LEGEND_TIERS.map((tang) => (
+          <div key={tang.tieuDe} className="mb-4">
+            <p className="mb-1 text-[0.875rem] font-bold uppercase tracking-wide text-foreground/60">
+              {tang.tieuDe}
+              <span className="normal-case tracking-normal text-danger/80">{mapZoom < tang.zoom ? " — phóng to thêm mới thấy" : ""}</span>
+            </p>
+            {tang.dong.map((d) => (
+              <div key={d.chu} className="flex min-h-[2.5rem] items-center gap-3 py-0.5">
+                {kyHieu(d)}
+                <span>{d.chu}</span>
+              </div>
+            ))}
+            {tang.ghiChu && <p className="mt-1 text-[0.875rem] text-foreground/65">{tang.ghiChu}</p>}
+          </div>
+        ))}
+        <p className="mb-2 text-[0.875rem] text-foreground/65">
+          Chạm bất kỳ vật nào trên bản đồ để xem tên và chi tiết.
+        </p>
+      </div>
+    </div>
+  );
+}

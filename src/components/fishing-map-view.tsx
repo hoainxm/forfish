@@ -232,11 +232,11 @@ const ROUTE_HIT_LAYERS = [ROUTE_HIT_LAYER];
 const SEN_LOAI_CA = Object.keys(SPECIES_META);
 
 import {
-  TheBaoHieu, TheChatDay, TheDen, TheDiaDanh, TheDoSau, TheKhuTruBao, TheLuong, TheMocBao, TheRan, TheVung, TheXacTau,
-  type ChatDayInfo, type DenInfo, type DepthInfo, type DiaDanhInfo, type KhuTruBaoInfo, type LaneInfo, type MarkInfo,
+  TheBaoHieu, TheChang, TheChatDay, TheDen, TheDiaDanh, TheDoSau, TheKhuTruBao, TheLuong, TheMocBao, TheRan, TheVung, TheXacTau,
+  type ChatDayInfo, type LegInfo, type DenInfo, type DepthInfo, type DiaDanhInfo, type KhuTruBaoInfo, type LaneInfo, type MarkInfo,
   type ReefInfo, type StormPtInfo, type VungInfo, type XacTauInfo,
 } from "@/components/ban-do/the-thong-tin";
-import { SEAMARK_HIT_LAYERS, CLUSTER_HIT_LAYERS, SEAMARK_FAR, SEAMARK_MID, SEAMARK_AN, SEAMARK_ICON_LAYOUT, KHONG_PHAI_CUM, cumLayers, LEGEND_TIERS, type LegendRow } from "@/components/ban-do/hai-do";
+import { BangChuGiai, SEAMARK_HIT_LAYERS, CLUSTER_HIT_LAYERS, SEAMARK_FAR, SEAMARK_MID, SEAMARK_AN, SEAMARK_ICON_LAYOUT, KHONG_PHAI_CUM, cumLayers, type LegendRow } from "@/components/ban-do/hai-do";
 import {
   loadSavedRoutes,
   persistSavedRoutes,
@@ -415,7 +415,6 @@ import { tokenHeader } from "@/lib/device-token-store";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { CloseButton } from "@/components/ui/close-button";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
 import { StormEarlyBanner } from "@/components/storm-early-banner";
@@ -1475,11 +1474,7 @@ export default function FishingMapView() {
       chạm-giữ: thẻ này là HAI DÒNG (quãng · giờ · cớ), mà 3 giây là nhịp của
       câu MỘT dòng — người 50 tuổi đọc chưa xong hai dòng trong 5 giây
       (lib/notify, audit M9). Chọn theo ĐỘ DÀI CÂU, không theo chỗ nó nổi lên. */
-  const [legInfo, setLegInfo] = useState<{
-    idx: number;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [legInfo, setLegInfo] = useState<LegInfo | null>(null);
   useEffect(() => {
     if (!legInfo) return;
     const t = setTimeout(() => setLegInfo(null), NOTIFY_HIDE_LONG_MS);
@@ -1547,7 +1542,6 @@ export default function FishingMapView() {
   /*  Chú giải phải nói ký hiệu HIỆN TỪ MỨC PHÓNG NÀO (chủ dự án 2026-09-03:
       "có ký hiệu mà không thấy vẽ?") — SCAMIN giấu vật nhỏ ở zoom xa là cố ý,
       nhưng chú giải liệt kê hết mà không nói thì bà con đi tìm vô ích. */
-  const goiYPhongTo = (z: number) => (mapZoom < z ? " — phóng to thêm mới thấy" : "");
   /** Ký hiệu đầu dòng chú giải: icon sprite · vệt đường · chấm · ô vùng · vòng "+6". */
   const kyHieu = (d: LegendRow) => {
     if (d.icon) return bieuTuong(d.icon);
@@ -7040,47 +7034,7 @@ export default function FishingMapView() {
       {/*  THẺ THÔNG TIN CHẶNG — trả lời đúng câu "khúc màu này bị gì".
            Ba con số là DỮ LIỆU (quãng · giờ · cớ); không có câu giải thích
            cách đọc màu, không có nút nào ngoài đường đóng. */}
-      {legInfo && route?.legs?.[legInfo.idx] && (
-        <div
-          className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-          style={{
-            left: Math.min(
-              Math.max(8, legInfo.x - 120),
-              window.innerWidth - 248,
-            ),
-            top: Math.min(legInfo.y + 12, window.innerHeight - 180),
-          }}
-        >
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <p className="text-[1rem] font-bold leading-tight text-navy">
-                {route.stops.length > 1
-                  ? `Chặng ${legInfo.idx + 1} — tới điểm ${legInfo.idx + 1}`
-                  : "Toàn bộ tuyến đường"}
-              </p>
-              <p className="mt-0.5 text-[0.9375rem] font-semibold text-foreground/75">
-                {fmtDist(route.legs[legInfo.idx].distKm, prefs.distUnit)} ·{" "}
-                {formatHoursVN(route.legs[legInfo.idx].hours)}
-              </p>
-              {/*  CỚ chỉ hiện khi CÓ cớ. Chặng xanh thì nói thẳng là không có
-                   gì đáng nói — im lặng ở đây dễ bị đọc thành "máy chưa kiểm". */}
-              <p
-                className={`mt-1 text-[0.9375rem] font-bold leading-snug ${
-                  route.legs[legInfo.idx].risk === "red"
-                    ? "text-danger"
-                    : route.legs[legInfo.idx].risk === "amber"
-                      ? "text-warn"
-                      : "text-foreground/70"
-                }`}
-              >
-                {route.legs[legInfo.idx].reason ??
-                  "Không có thông tin đáng lưu ý ở chặng này"}
-              </p>
-            </div>
-            <CloseButton onClose={() => setLegInfo(null)} label="Đóng thông tin chặng" />
-          </div>
-        </div>
-      )}
+      {legInfo && route?.legs?.[legInfo.idx] && <TheChang info={legInfo} route={route} prefs={prefs} onClose={() => setLegInfo(null)} />}
 
       {/*  THẺ BÁO HIỆU (2026-08-29) — chạm vào phao/đèn thì nói nó là cái gì.
            Cùng khuôn đặt chỗ với thẻ chặng ngay trên: kẹp trong màn hình để
@@ -7111,43 +7065,7 @@ export default function FishingMapView() {
            là hiểu; "11/06/2019" bắt người ta tự trừ trong đầu lúc đang lái. */}
       {/*  SHEET "KÝ HIỆU LÀ GÌ?" — mở từ nút trong panel lớp hải đồ. Icon là
            ĐÚNG hình trên bản đồ (cắt từ sprite), chữ đời thường, không mã. */}
-      {legendOpen && (
-        <div
-          className="pointer-events-auto absolute inset-x-2 bottom-2 top-16 z-50 flex flex-col overflow-hidden rounded-2xl bg-card/98 shadow-2xl"
-          role="dialog"
-          aria-label="Ký hiệu trên hải đồ"
-        >
-          <div className="flex items-center justify-between border-b border-foreground/10 px-4 py-3">
-            <p className="text-[1.125rem] font-bold text-navy">Ký hiệu trên hải đồ</p>
-            <CloseButton onClose={() => setLegendOpen(false)} label="Đóng chú giải" />
-          </div>
-          <p className="border-b border-foreground/10 bg-field/60 px-4 py-2 text-[0.875rem] font-semibold leading-snug text-foreground/75">
-            Hải đồ hiện dần theo <b>ba mức phóng to</b> (như máy hải đồ thương mại): phóng XA thấy
-            đèn lớn + vật chìm, phóng VỪA thấy phao + cáp, phóng SÁT thấy số đo sâu + chất đáy —
-            và chỉ ở nơi có vật đó. Chỗ nhiều phao gom thành vòng <b>+6</b>, chạm vào là phóng tới.
-          </p>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[0.9375rem] font-semibold text-foreground/85">
-            {LEGEND_TIERS.map((tang) => (
-              <div key={tang.tieuDe} className="mb-4">
-                <p className="mb-1 text-[0.875rem] font-bold uppercase tracking-wide text-foreground/60">
-                  {tang.tieuDe}
-                  <span className="normal-case tracking-normal text-danger/80">{goiYPhongTo(tang.zoom)}</span>
-                </p>
-                {tang.dong.map((d) => (
-                  <div key={d.chu} className="flex min-h-[2.5rem] items-center gap-3 py-0.5">
-                    {kyHieu(d)}
-                    <span>{d.chu}</span>
-                  </div>
-                ))}
-                {tang.ghiChu && <p className="mt-1 text-[0.875rem] text-foreground/65">{tang.ghiChu}</p>}
-              </div>
-            ))}
-            <p className="mb-2 text-[0.875rem] text-foreground/65">
-              Chạm bất kỳ vật nào trên bản đồ để xem tên và chi tiết.
-            </p>
-          </div>
-        </div>
-      )}
+      {legendOpen && <BangChuGiai mapZoom={mapZoom} kyHieu={kyHieu} onClose={() => setLegendOpen(false)} />}
 
       {/*  CHÚ GIẢI CHẤT ĐÁY (2026-09-03, chủ dự án hỏi "cái này là cái gì") —
            chỉ hiện khi lớp chất đáy THẬT SỰ vẽ (nhóm Độ sâu & đáy bật + z≥9),
