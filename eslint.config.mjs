@@ -31,6 +31,10 @@ const eslintConfig = defineConfig([
     // .gitignore chặn không cho vào git). Lint nó theo luật app là sai loại —
     // mã sinh tự động đẻ ra require()/this-alias/assign-module và lấp lỗi thật.
     "scratch/**",
+    // public/sherpa-asr/ = bộ nghe trong máy (sherpa-onnx WASM, Emscripten sinh
+    // sẵn, đã nén) — ASSET BÊN THỨ BA phát tĩnh, không qua bundle. Cùng lý do
+    // với scratch/: this-alias của mã sinh làm job `gates` CI đỏ (2026-10-19).
+    "public/sherpa-asr/**",
   ]),
   {
     rules: {

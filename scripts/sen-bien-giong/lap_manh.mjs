@@ -186,10 +186,17 @@ const dungId = new Set(idCu.values());
 const slug = (t) =>
   t.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D")
     .toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40);
+/*  TÊN THIẾT BỊ CỦA WINDOWS (CON, PRN, AUX, NUL, COM1–9, LPT1–9 — kể cả có
+    đuôi .mp3): git trên máy Windows KHÔNG checkout được ⇒ runner deploy tự
+    host (Windows) đỏ ngay bước Checkout. Đã dính thật 2026-10-18→19: mảnh
+    "còn" ⇒ `con.mp3` làm đứng deploy 8 ngày. Thêm "_" (mảnh "còn" = `con_`).
+    Cổng: src/lib/__tests__/windows-paths.test.ts quét mọi file. */
+const TEN_WIN_CAM = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+const antoanWin = (id) => (TEN_WIN_CAM.test(id) ? `${id}_` : id);
 function idCho(text) {
   const k = khoaManh(text);
-  if (idCu.has(k)) return idCu.get(k);
-  let id = slug(text) || "m";
+  if (idCu.has(k)) return antoanWin(idCu.get(k));
+  let id = antoanWin(slug(text) || "m");
   if (dungId.has(id)) id = `${id}_${createHash("sha1").update(k).digest("hex").slice(0, 4)}`;
   dungId.add(id);
   idCu.set(k, id);

@@ -9,7 +9,7 @@
 | docs/app-map/04-data-model.md | SUSPECT | code 'supabase/migrations' doi sau last_verified |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/07-design-spec.md | VERIFIED | ok |
+| docs/app-map/07-design-spec.md | SUSPECT | code 'src/components' doi sau last_verified |
 | docs/app-map/08-ba-spec-da-tau.md | SUSPECT | code 'src/components/boat-products.tsx' doi sau last_verified |
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | VERIFIED | ok |
 | docs/app-map/10-ba-spec-quan-tri-van-hanh.md | VERIFIED | ok |
@@ -34,7 +34,7 @@
 | docs/app-map/ops/fish-review-2026-10-03/report-pelagic-large.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/fish-review-2026-10-03/report-pelagic-small.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/fish-validate-positions.md | SUSPECT | code 'scripts/dl-eval-fleet.mjs' doi sau last_verified |
-| docs/app-map/ops/forecast-accuracy.md | VERIFIED | ok |
+| docs/app-map/ops/forecast-accuracy.md | SUSPECT | code 'src/lib/sea-actual.ts' doi sau last_verified |
 | docs/app-map/ops/native-deploy.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/qa-offline-acceptance.md | SUSPECT | code 'public/sw.js' doi sau last_verified |
 | docs/app-map/ops/rbac-runbook.md | VERIFIED | ok |
