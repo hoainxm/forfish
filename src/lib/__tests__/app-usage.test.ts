@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   normalizePlatform,
@@ -177,7 +177,7 @@ describe("nhãn thang KHÔNG được đụng nhãn chip sẵn sàng", () => {
       Cổng này khoá tận gốc: hai bảng không được đụng câu, để hàng thang luôn in
       được và không cần luật giấu nào. */
   it("không nhãn bậc nào trùng nhãn lý do sẵn sàng", () => {
-    const src = readFileSync(join(process.cwd(), "src/app/quan-tri/page.tsx"), "utf8");
+    const src = ["src/app/quan-tri/page.tsx", ...readdirSync(join(process.cwd(), "src/components/admin")).filter((f) => /^(tab-|quan-tri-chung)/.test(f)).map((f) => `src/components/admin/${f}`)].map((p) => readFileSync(join(process.cwd(), p), "utf8")).join("\n") /* trang quản trị tách theo tab 2026-10-19 */;
     const i = src.indexOf("const rdLabel");
     const rd = i < 0 ? null : src.slice(i, src.indexOf("};", i));
     expect(rd, "không tìm thấy rdLabel ở /quan-tri").toBeTruthy();
@@ -192,7 +192,7 @@ describe("nhãn thang KHÔNG được đụng nhãn chip sẵn sàng", () => {
   });
 
   it("/quan-tri KHÔNG được giấu chip thang nữa", () => {
-    const src = readFileSync(join(process.cwd(), "src/app/quan-tri/page.tsx"), "utf8");
+    const src = ["src/app/quan-tri/page.tsx", ...readdirSync(join(process.cwd(), "src/components/admin")).filter((f) => /^(tab-|quan-tri-chung)/.test(f)).map((f) => `src/components/admin/${f}`)].map((p) => readFileSync(join(process.cwd(), p), "utf8")).join("\n") /* trang quản trị tách theo tab 2026-10-19 */;
     /*  Giấu chip thang = hàng "đã đi tới đâu" trống rỗng. Chống trùng câu phải
         xử ở NHÃN (cổng trên), không phải bằng cách bỏ trống cả hàng. */
     expect(src).not.toContain("USAGE_STAGE_LABEL[stage] === rdLabel");

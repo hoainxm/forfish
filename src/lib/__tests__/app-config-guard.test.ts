@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import {
@@ -87,7 +87,7 @@ describe("dataKeyShift", () => {
 
 describe("DÂY NỐI — trang quản trị + route thật sự dùng ba lớp", () => {
   const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
-  const page = strip(readFileSync(join(ROOT, "src/app/quan-tri/page.tsx"), "utf8"));
+  const page = strip(["src/app/quan-tri/page.tsx", ...readdirSync(join(ROOT, "src/components/admin")).filter((f) => /^(tab-|quan-tri-chung)/.test(f)).map((f) => `src/components/admin/${f}`)].map((p) => readFileSync(join(ROOT, p), "utf8")).join("\n") /* trang quản trị tách theo tab 2026-10-19 */);
   const route = strip(readFileSync(join(ROOT, "src/app/api/admin/app-config/route.ts"), "utf8"));
 
   it("input cấu hình tắt tự điền của trình duyệt", () => {
