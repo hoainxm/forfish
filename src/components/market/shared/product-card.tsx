@@ -53,18 +53,22 @@ export function MarketProductCard({
   return (
     <article className="market-product-card surface relative flex h-full flex-col overflow-hidden">
       <Link href={href} className="flex h-full min-h-[3.5rem] flex-col" aria-label={product.title}>
-        <div className="market-product-image relative aspect-[4/3] w-full bg-field">
+        {/*  Khung ảnh GIỮ tỷ lệ 4:3 bất kể cỡ ảnh: ảnh nằm TUYỆT ĐỐI trong khung.
+            Trước đây <img h-full> trong khung aspect-ratio để ảnh dọc kéo giãn
+            khung (đo 2026-10-19, cùng rộng 173px: cao 289/142/130px) ⇒ hàng
+            thẻ lệch tên–giá (rà Codex). shrink-0: flex cột không bóp khung. */}
+        <div className="market-product-image relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-field">
           {image && !imgBroken ? (
             // eslint-disable-next-line @next/next/no-img-element -- ảnh sàn: bucket public Supabase / data-URI seed, không qua optimizer (băng thông có đo đếm)
             <img
               src={image}
               alt={product.title}
               loading="lazy"
-              className="h-full w-full object-contain p-3"
+              className="absolute inset-0 h-full w-full object-contain p-3"
               onError={() => setImgBroken(true)}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-foreground/40">
+            <div className="absolute inset-0 flex items-center justify-center text-foreground/40">
               <CategoryIcon category={product.category} className="h-12 w-12" />
             </div>
           )}
@@ -94,18 +98,21 @@ export function MarketProductCard({
         <div className="flex flex-1 flex-col p-3">
           <p className="line-clamp-3 text-[1.125rem] font-bold leading-snug text-navy">{product.title}</p>
           <PriceText priceVnd={product.priceVnd} compareAtVnd={product.compareAtVnd} className="mt-1" />
-          <p className="mt-2 text-[0.875rem] leading-relaxed text-foreground/80">
-            Đã bán {product.soldCount}
-            {product.ratingCount > 0 && (
-              <>
-                {" · "}
-                <span className="inline-flex items-center gap-0.5 align-middle" style={{ color: "var(--sun)" }}>
-                  <StarIcon className="h-3.5 w-3.5 fill-current" />
-                </span>{" "}
-                {product.ratingAvg.toFixed(1)}
-              </>
-            )}
-          </p>
+          {/* "Đã bán 0" không giúp chọn món ⇒ chưa bán, chưa đánh giá thì bỏ cả dòng (rà Codex 2026-10-19). */}
+          {(product.soldCount > 0 || product.ratingCount > 0) && (
+            <p className="mt-2 text-[0.875rem] leading-relaxed text-foreground/80">
+              {product.soldCount > 0 && <>Đã bán {product.soldCount}</>}
+              {product.ratingCount > 0 && (
+                <>
+                  {product.soldCount > 0 && " · "}
+                  <span className="inline-flex items-center gap-0.5 align-middle" style={{ color: "var(--sun)" }}>
+                    <StarIcon className="h-3.5 w-3.5 fill-current" />
+                  </span>{" "}
+                  {product.ratingAvg.toFixed(1)}
+                </>
+              )}
+            </p>
+          )}
           <p className="mt-auto pt-2 text-[0.875rem] font-semibold leading-snug text-navy">{product.shopName}</p>
           {product.shopProvince && <p className="mt-1 text-[0.875rem] text-foreground/80">{product.shopProvince}</p>}
         </div>
@@ -116,10 +123,13 @@ export function MarketProductCard({
           onClick={onFav}
           aria-pressed={!!fav}
           aria-label={fav ? "Bỏ yêu thích" : "Yêu thích"}
-          className="absolute right-1 top-1 flex h-14 w-14 items-center justify-center rounded-full bg-card shadow-sm transition active:scale-95"
+          className="group absolute right-0 top-0 flex h-14 w-14 items-center justify-center"
           style={{ color: fav ? "var(--trim)" : "var(--navy)" }}
         >
-          <StarIcon className={`h-6 w-6 ${fav ? "fill-current" : ""}`} />
+          {/* Vùng chạm giữ 3.5rem; phần VẼ chỉ 2.25rem — hành động phụ không tranh với ảnh và tên món (rà Codex 2026-10-19). */}
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-card/90 shadow-sm transition group-active:scale-95">
+            <StarIcon className={`h-5 w-5 ${fav ? "fill-current" : ""}`} />
+          </span>
         </button>
       )}
     </article>

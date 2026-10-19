@@ -21,7 +21,7 @@ import type { SenDest } from "@/lib/sen-bien/hieu-y";
 import { autoListenOk, listenOnce, micGranted, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
 import { boNgheSan } from "@/lib/sen-bien/nghe-may";
 import { loadNgram, NGRAM_PATH, type NgramModel } from "@/lib/sen-bien/ngram";
-import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC, type ViTriIcon } from "@/lib/sen-bien/vi-tri";
+import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC, viTriGocApp, type ViTriIcon } from "@/lib/sen-bien/vi-tri";
 import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
 
 let modelP: Promise<NgramModel | null> | null = null;
@@ -52,7 +52,7 @@ export type SenHeard = {
  * Giữ rồi kéo = dời chỗ (nhớ trong máy, `forfish.senbien.vitri.v1`); chạm nhẹ = bấm như thường.
  * Dùng chung cho icon nổi (màn bản đồ, thẻ đóng) và icon trong thẻ (thẻ mở) — cùng một chỗ.
  */
-export function useSenKeo() {
+export function useSenKeo(gocApp = false) {
   const [pos, setPos] = useState<ViTriIcon>(VI_TRI_GOC);
   const [khung, setKhung] = useState({ w: 0, h: 0 });
   const ref = useRef<HTMLButtonElement | null>(null);
@@ -66,12 +66,13 @@ export function useSenKeo() {
   };
   useEffect(() => {
     const k = doKhung();
-    const p = kepViTri(docViTri(), k.w, k.h);
+    // màn ngoài bản đồ: chưa kéo lần nào ⇒ mép phải (viTriGocApp), không phải chỗ gốc bản đồ
+    const p = kepViTri(gocApp ? docViTri(viTriGocApp(k.w)) : docViTri(), k.w, k.h);
     cuoi.current = p;
     // đọc kho trong máy SAU khi gắn (tránh lệch SSR)
     setKhung(k);
     setPos(p);
-  }, []);
+  }, [gocApp]);
 
   const props = {
     ref,
@@ -114,8 +115,8 @@ export function useSenKeo() {
 }
 
 /** Icon Sen Biển nổi khi thẻ ĐÓNG — kéo đi được; chạm = gọi. */
-export function SenBienNoi({ onOpen }: { onOpen: () => void }) {
-  const { props } = useSenKeo();
+export function SenBienNoi({ onOpen, gocApp = false }: { onOpen: () => void; gocApp?: boolean }) {
+  const { props } = useSenKeo(gocApp);
   return (
     <button
       type="button"
@@ -152,7 +153,10 @@ export function SenBienSheet({
   onStart,
   onCancel,
   onClose,
+  gocApp = false,
 }: {
+  /** màn ngoài bản đồ — chỗ gốc của icon là mép phải (viTriGocApp) */
+  gocApp?: boolean;
   /** vừa đọc tóm tắt đường — hiện nút Đi / Thôi */
   awaitingGo: boolean;
   /** dòng thông tin (tóm tắt đường, lỗi vẽ đường) — trống thì không hiện */
@@ -188,7 +192,7 @@ export function SenBienSheet({
   const huyChao = useRef<(() => void) | null>(null);
   const imRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bongRef = useRef<HTMLDivElement | null>(null);
-  const { pos, khung, props: keoProps } = useSenKeo();
+  const { pos, khung, props: keoProps } = useSenKeo(gocApp);
   const coNoi = useRef(false);
 
   const dungNghe = () => {

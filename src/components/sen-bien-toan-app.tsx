@@ -44,6 +44,21 @@ export function SenBienToanApp() {
   const { phone } = useAuthUser();
   /** câu chuyển từ màn bản đồ (?sen=, việc sàn nói ở bản đồ) — mở thẻ là làm luôn */
   const [hoiNgay, setHoiNgay] = useState<string | undefined>(undefined);
+  /*  Đang gõ chữ (ô tìm, form) ⇒ cất icon: nó không được che ô nhập và bàn phím
+      (rà Codex 2026-10-19). Thẻ đang mở thì giữ — ô chat là của chính nó. */
+  const [dangGo, setDangGo] = useState(false);
+  useEffect(() => {
+    const laO = (t: EventTarget | null) =>
+      t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+    const vao = (e: FocusEvent) => setDangGo(laO(e.target));
+    const ra = () => setDangGo(laO(document.activeElement));
+    document.addEventListener("focusin", vao);
+    document.addEventListener("focusout", ra);
+    return () => {
+      document.removeEventListener("focusin", vao);
+      document.removeEventListener("focusout", ra);
+    };
+  }, []);
   useEffect(() => {
     try {
       const u = new URL(window.location.href);
@@ -156,9 +171,14 @@ export function SenBienToanApp() {
   if (KHONG_VE.test(pathname) || pathname.startsWith("/quan-tri")) return null;
   return (
     // khung cố định cùng bề ngang app (≤480 px), chừa dock — icon + thẻ đặt tuyệt đối bên trong như ở màn bản đồ
-    <div className="pointer-events-none fixed inset-x-0 bottom-[5.5rem] top-0 z-40 mx-auto max-w-[480px] [&>*]:pointer-events-auto">
-      {!open && (
+    // đáy chừa đúng --dock-total (globals.css), không số rời 5.5rem
+    <div
+      className="pointer-events-none fixed inset-x-0 top-0 z-40 mx-auto max-w-[480px] [&>*]:pointer-events-auto"
+      style={{ bottom: "var(--dock-total)" }}
+    >
+      {!open && !dangGo && (
         <SenBienNoi
+          gocApp
           onOpen={() => {
             ttsUnlock();
             setTitle("");
@@ -168,6 +188,7 @@ export function SenBienToanApp() {
       )}
       {open && (
         <SenBienSheet
+          gocApp
           awaitingGo={false}
           title={title}
           chao={CHAO}

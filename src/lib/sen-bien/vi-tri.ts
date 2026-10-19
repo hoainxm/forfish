@@ -12,6 +12,16 @@ export type ViTriIcon = { left: number; bottom: number };
 /** Chỗ cũ của icon nổi: `left-2` (8px), `bottom-36` (144px). */
 export const VI_TRI_GOC: ViTriIcon = { left: 8, bottom: 144 };
 
+/**
+ * Chỗ gốc ở MÀN NGOÀI BẢN ĐỒ (Sen Biển toàn app, rà Codex 2026-10-19): mép PHẢI,
+ * cách đỉnh dock 96px. Chỗ gốc bản đồ (trái, 144px) đè tên món ở lưới Chợ; sát
+ * dock thì đè thanh mua hàng/giỏ dính đáy (cao ~80px) ⇒ 96px.
+ */
+export const VI_TRI_GOC_APP_BOTTOM = 96;
+export function viTriGocApp(w: number): ViTriIcon {
+  return { left: w > 0 ? w - ICON_PX - LE : VI_TRI_GOC.left, bottom: VI_TRI_GOC_APP_BOTTOM };
+}
+
 /** Cỡ icon (h-16 w-16) và lề tối thiểu với mép khung. */
 export const ICON_PX = 64;
 const LE = 8;
@@ -46,14 +56,15 @@ export function huongBongBong(p: ViTriIcon, w: number, h: number): { len: boolea
   return { len: !(h > 0) || tamY > h * 0.4, phai: w > 0 && tamX > w / 2 };
 }
 
-export function docViTri(): ViTriIcon {
+/** Chỗ bà con đã kéo tới; chưa kéo / kho hỏng ⇒ `goc`. */
+export function docViTri(goc: ViTriIcon = VI_TRI_GOC): ViTriIcon {
   try {
     const raw = window.localStorage.getItem(SEN_VI_TRI_KEY);
-    if (!raw) return VI_TRI_GOC;
+    if (!raw) return goc;
     const v = JSON.parse(raw) as Partial<ViTriIcon>;
-    return typeof v?.left === "number" && typeof v?.bottom === "number" ? { left: v.left, bottom: v.bottom } : VI_TRI_GOC;
+    return typeof v?.left === "number" && typeof v?.bottom === "number" ? { left: v.left, bottom: v.bottom } : goc;
   } catch {
-    return VI_TRI_GOC;
+    return goc;
   }
 }
 

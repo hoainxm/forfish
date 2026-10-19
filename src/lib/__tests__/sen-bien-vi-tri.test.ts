@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, SEN_VI_TRI_KEY, VI_TRI_GOC } from "@/lib/sen-bien/vi-tri";
+import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, SEN_VI_TRI_KEY, VI_TRI_GOC, VI_TRI_GOC_APP_BOTTOM, viTriGocApp } from "@/lib/sen-bien/vi-tri";
 
 describe("vị trí icon Sen Biển kéo được", () => {
   beforeEach(() => window.localStorage.clear());
@@ -30,4 +30,13 @@ describe("vị trí icon Sen Biển kéo được", () => {
     window.localStorage.setItem(SEN_VI_TRI_KEY, "{hỏng");
     expect(docViTri()).toEqual(VI_TRI_GOC);
   });
+  it("màn ngoài bản đồ: chưa kéo ⇒ mép phải, trên thanh dính đáy; đã kéo ⇒ giữ chỗ đã kéo", () => {
+    const g = viTriGocApp(390);
+    expect(g).toEqual({ left: 390 - ICON_PX - 8, bottom: VI_TRI_GOC_APP_BOTTOM });
+    expect(kepViTri(docViTri(g), 390, 700)).toEqual(g);
+    expect(huongBongBong(g, 390, 700).phai).toBe(true);
+    ghiViTri({ left: 20, bottom: 200 });
+    expect(docViTri(g)).toEqual({ left: 20, bottom: 200 });
+  });
+  it("chưa đo được khung (w=0) ⇒ không ra toạ độ âm", () => expect(viTriGocApp(0).left).toBe(VI_TRI_GOC.left));
 });
