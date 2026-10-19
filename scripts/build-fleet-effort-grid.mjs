@@ -23,11 +23,18 @@
 // Chạy lại CHỈ KHI có thêm tháng VMS (quy tắc dữ liệu trong git: sinh lại là hành động có chủ ý):
 //   node scripts/build-fleet-effort-grid.mjs [--root "../AI Assistant/sdvico-data/data-local/datalake-iuu"] [--snapshot 2026-10-11]
 //   node scripts/build-fleet-effort-grid.mjs --exclude-month 2026-09 --out <tạm>   (kiểm định giữ-tháng-ra)
+//   … --v2 [--gear-map <gear-map.json>]   ĐỊNH NGHĨA "GIỜ ĐÁNH" CHUNG VỚI NHÃN v2 (scripts/fishing-def.mjs +
+//     fishing-bands.v2.json): dải tốc độ theo nghề thay cho 0–4,5 kn, vmin 0 chỉ vây ban đêm, cách MỌI cảng
+//     ≥ 10 km, nghề tàu thiếu sổ lấy từ gear-map (bộ phân loại), bỏ tàu thu mua (likelyCarrier). Không cờ ⇒ y nguyên.
+//   … --vessel-half A|B   CHỈ tàu thuộc nửa A (xô băm 0–4) hoặc B (5–9) — kiểm "tách theo tàu" (scripts/vessel-bucket.mjs)
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import readline from "node:readline";
 import { ASFIS_TO_SHORT, targetGears } from "./dl-eval.mjs";
+import { vesselHalf } from "./vessel-bucket.mjs";
+import { hav, gearGroup, GEARS, makePortIndex, nearAnyPort, loadBands, isFishingV2 } from "./fishing-def.mjs";
+export { gearGroup, GEARS };
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
@@ -36,6 +43,10 @@ const ROOT = arg("root", process.env.SDVICO_DATALAKE_ROOT || "../AI Assistant/sd
 export const OUT_DEFAULT = "src/data/fleet-effort-025.v1.json";
 const OUT = arg("out", OUT_DEFAULT);
 const EXCLUDE = new Set((arg("exclude-month", "") || "").split(",").filter(Boolean));
+const HALF = arg("vessel-half", null);
+if (HALF && HALF !== "A" && HALF !== "B") { console.error("--vessel-half phải là A hoặc B"); process.exit(2); }
+const V2 = argv.includes("--v2");
+const GEAR_MAP = arg("gear-map", null);
 
 export const FISH_KN = [0, 4.5];
 export const MAX_GAP_S = 3 * 3600;
@@ -43,24 +54,6 @@ export const MIN_PORT_KM = 10;
 export const MIN_VESSELS = 3;
 // Trục lưới cá (fish-forecast: SST blended stride 5 ⇒ 0,25°, tâm 5,025…22,025 × 102,025…118,025)
 export const AXIS = { lat0: 5.025, lon0: 102.025, step: 0.25, nLat: 69, nLon: 65 };
-export const GEARS = ["vay", "cau", "re", "keo", "chup", "khac"];
-
-/** Nghề trong sổ tàu VNF → nhóm nghề của lưới. */
-export function gearGroup(g) {
-  const s = (g || "").toLowerCase();
-  if (s.includes("vây")) return "vay";
-  if (s.includes("câu")) return "cau";
-  if (s.includes("rê")) return "re";
-  if (s.includes("kéo")) return "keo";
-  if (s.includes("chụp")) return "chup";
-  return "khac";
-}
-
-function hav(lat1, lng1, lat2, lng2) {
-  const R = 6371, t = Math.PI / 180;
-  const a = Math.sin(((lat2 - lat1) * t) / 2) ** 2 + Math.cos(lat1 * t) * Math.cos(lat2 * t) * Math.sin(((lng2 - lng1) * t) / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
 
 async function* lines(file) {
   const input = file.endsWith(".gz") ? fs.createReadStream(file).pipe(zlib.createGunzip()) : fs.createReadStream(file);
@@ -75,23 +68,24 @@ async function main() {
 
   // cảng → lưới 0,5° tra nhanh "gần cảng"
   const cat = JSON.parse(zlib.gunzipSync(fs.readFileSync(S("catalog-ports.json.gz"))).toString("utf8"));
-  const portGrid = new Map();
-  for (const p of cat.items || cat) {
-    if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
-    const k = `${Math.floor(p.lat * 2)},${Math.floor(p.lng * 2)}`;
-    (portGrid.get(k) || portGrid.set(k, []).get(k)).push(p);
-  }
-  const nearPort = (lat, lng) => {
-    const a = Math.floor(lat * 2), b = Math.floor(lng * 2);
-    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++)
-      for (const p of portGrid.get(`${a + i},${b + j}`) || []) if (hav(lat, lng, p.lat, p.lng) < MIN_PORT_KM) return true;
-    return false;
-  };
+  const portGrid = makePortIndex(cat.items || cat);
+  const nearPort = (lat, lng) => nearAnyPort(portGrid, lat, lng, MIN_PORT_KM);
 
   // nghề của tàu: bản sổ MỚI NHẤT thắng, bản cũ lấp chỗ trống
   const gearOf = new Map();
   const asof = fs.readdirSync(path.join(snapDir, SNAP)).filter((f) => /^vessels-asof-.*\.ndjson\.gz$/.test(f)).sort().reverse();
   for (const f of asof) for await (const v of lines(S(f))) if (v.vesselId && !gearOf.has(v.vesselId) && v.gear) gearOf.set(v.vesselId, gearGroup(v.gear));
+
+  // v2: bảng dải dùng chung với nhãn, nghề suy cho tàu thiếu sổ, bỏ tàu thu mua
+  let table = null, carriers = null, inferred = null, v2ctx = null;
+  if (V2) {
+    table = loadBands();
+    v2ctx = { table, ports: portGrid };
+    inferred = GEAR_MAP ? new Map(Object.entries(JSON.parse(fs.readFileSync(GEAR_MAP, "utf8")).vessels).map(([id, o]) => [id, o.group])) : new Map();
+    const encF = path.join(ROOT, "encounters", "vessels.json");
+    carriers = new Set(fs.existsSync(encF) ? Object.entries(JSON.parse(fs.readFileSync(encF, "utf8")).vessels).filter(([, o]) => o.likelyCarrier).map(([id]) => id) : []);
+    console.log(`[fleet v2] bảng dải ${table.date} · nghề suy ${inferred.size} tàu · thu mua bỏ ${carriers.size} tàu`);
+  }
 
   // loài → nghề (nhật ký eCDT, cùng luật targetGears)
   const kgBy = {};
@@ -116,19 +110,22 @@ async function main() {
   for (const f of fs.readdirSync(tracksDir).filter((x) => /^\d{4}-\d{2}\.ndjson\.gz$/.test(x)).sort()) {
     let nPts = 0;
     for await (const t of lines(path.join(tracksDir, f))) {
-      const g = gearOf.get(t.v) ?? "khac";
+      if (HALF && vesselHalf(t.v) !== HALF) continue;
+      if (V2 && carriers.has(t.v)) continue;
+      const g = gearOf.get(t.v) ?? (V2 ? inferred.get(t.v) : null) ?? "khac";
       const pts = t.pts;
       nPts += pts.length;
       for (let k = 1; k < pts.length; k++) {
         const [ta, la0, lo0] = pts[k - 1], [tb, la1, lo1] = pts[k];
         const dt = tb - ta;
-        if (dt <= 0 || dt > MAX_GAP_S) continue;
+        if (dt <= 0 || (!V2 && dt > MAX_GAP_S)) continue;
         const kn = hav(la0, lo0, la1, lo1) / 1.852 / (dt / 3600);
-        if (kn < FISH_KN[0] || kn > FISH_KN[1]) continue;
         const la = (la0 + la1) / 2, lo = (lo0 + lo1) / 2;
+        if (V2) { if (!isFishingV2({ t: (ta + tb) / 2, lat: la, lon: lo, dtH: dt / 3600, kn }, g, v2ctx)) continue; }
+        else if (kn < FISH_KN[0] || kn > FISH_KN[1]) continue;
         const i = Math.round((la - AXIS.lat0) / AXIS.step), j = Math.round((lo - AXIS.lon0) / AXIS.step);
         if (i < 0 || j < 0 || i >= AXIS.nLat || j >= AXIS.nLon) continue;
-        if (nearPort(la, lo)) continue;
+        if (!V2 && nearPort(la, lo)) continue;
         // tháng theo GIỜ VN của trung điểm đoạn
         const month = new Date(((ta + tb) / 2 + 7 * 3600) * 1000).toISOString().slice(0, 7);
         if (EXCLUDE.has(month)) continue;
@@ -161,8 +158,8 @@ async function main() {
   const res = {
     v: 1,
     unit: "giờ có mặt-đánh bắt (VMS)",
-    builtFrom: { snapshot: SNAP, vessels: gearOf.size, logbooks: nLog, excludedMonths: [...EXCLUDE] },
-    rule: { kn: FISH_KN, maxGapH: MAX_GAP_S / 3600, minPortKm: MIN_PORT_KM, minVessels: MIN_VESSELS },
+    builtFrom: { snapshot: SNAP, vessels: gearOf.size, logbooks: nLog, excludedMonths: [...EXCLUDE], ...(HALF ? { vesselHalf: HALF } : {}), ...(V2 ? { v2: { bands: table.date, gearMapVessels: inferred.size, carriersDropped: carriers.size } } : {}) },
+    rule: V2 ? { bands: Object.fromEntries(Object.entries(table.bands).map(([g, b]) => [g, b.band])), nightStill: table.nightStill, maxGapH: table.maxGapH, minPortKm: table.minPortKm, minVessels: MIN_VESSELS } : { kn: FISH_KN, maxGapH: MAX_GAP_S / 3600, minPortKm: MIN_PORT_KM, minVessels: MIN_VESSELS },
     axis: AXIS,
     gears: GEARS,
     months,

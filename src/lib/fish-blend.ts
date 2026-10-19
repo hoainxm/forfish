@@ -7,6 +7,10 @@
 // ngày đầu. Ngày xa mà vẫn bê nguyên ảnh hôm nay là hứa hão; rơi về mùa vụ thì
 // mất thông tin đang có. Pha trộn giữ được cả hai.
 //
+// 2026-10-19 (đợt 2A): khi bản dự báo có `baseMode` (điểm `s`/`sp` là NỀN bãi cá theo mùa, lib/fish-base.ts) thì
+// `fishing-map-view` KHÔNG gọi blend nữa — nền theo tháng là tĩnh, w(d) vô nghĩa cho `s`; trộn nó với bản mùa vụ HSI
+// là trộn hai thứ khác bản chất. Blend chỉ còn áp cho điểm HSI cũ (bản không có `baseMode`) và, sau này, `hint.sat`.
+//
 // w(d) KHÔNG ĐẶT TAY (chủ dự án chốt 2026-07-28): đo bằng backtest thật ở
 // scripts/fit-fish-blend-weights.mjs → src/data/fish-blend-weights.json.
 // Sửa w phải chạy lại script, KHÔNG gõ số vào đây.

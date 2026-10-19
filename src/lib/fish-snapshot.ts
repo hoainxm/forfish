@@ -11,6 +11,7 @@ import sstClimo from "@/data/sst-climatology.v1.json";
 import reefGridJson from "@/data/reef-grid-025.v1.json";
 import fleetEffortJson from "@/data/fleet-effort-025.v1.json";
 import speciesCatchJson from "@/data/species-catch-025.v1.json";
+import fishBaseJson from "@/data/fish-base.v1.json";
 
 /*
   SNAPSHOT DỰ BÁO CÁ — precompute lưu trên Supabase (2026-07-26).
@@ -50,6 +51,8 @@ export function fishSnapshotRowId(): string {
   h.update(JSON.stringify([fleetEffortJson.builtFrom, fleetEffortJson.months, fleetEffortJson.days]));
   // lưới sản lượng loài: băm TOÀN BỘ (dựng lại từ nhãn mới cùng tên khúc vẫn phải ra hàng mới)
   h.update(JSON.stringify(speciesCatchJson.effort));
+  // nền bãi cá theo mùa (hệ số + bảng tĩnh + K_s): toàn bộ file ⇒ fit lại = hàng snapshot mới
+  h.update(JSON.stringify(fishBaseJson));
   rowIdMemo = snapshotRowId(h.digest("hex").slice(0, 12));
   return rowIdMemo;
 }

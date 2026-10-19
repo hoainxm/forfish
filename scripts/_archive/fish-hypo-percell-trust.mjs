@@ -22,7 +22,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CORPUS = join(ROOT, ".cache", "fish-corpus");
 const CLIM_PATH = join(ROOT, "public", "data", "fish-climatology.v1.json");
 const W_PATH = join(ROOT, "src", "data", "fish-blend-weights.json");

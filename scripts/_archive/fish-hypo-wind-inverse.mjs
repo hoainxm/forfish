@@ -1,4 +1,4 @@
-// scripts/fish-hypo-wind-inverse.mjs  (chạy: npx tsx scripts/fish-hypo-wind-inverse.mjs)
+// scripts/fish-hypo-wind-inverse.mjs  (chạy: npx tsx scripts/_archive/fish-hypo-wind-inverse.mjs)
 // ─────────────────────────────────────────────────────────────────────────────
 // PHỤ LỤC cho GIẢ THUYẾT #3 — H3 ĐÃ BỊ BÁC. Script này KHÔNG cứu H3; nó ĐO một
 // GIẢ THUYẾT MỚI lộ ra trong lúc chẩn đoán, để người sau khỏi phải mò lại:
@@ -16,9 +16,9 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildClimScaleMap, decodeClimatology, ABSENT_PERSIST, climShare } from "../src/lib/fish-blend.ts";
+import { buildClimScaleMap, decodeClimatology, ABSENT_PERSIST, climShare } from "../../src/lib/fish-blend.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CORPUS = join(ROOT, ".cache", "fish-corpus");
 const CLIM_PATH = join(ROOT, "public", "data", "fish-climatology.v1.json");
 const WIND_PATH = join(ROOT, ".cache", "fish-wind", "era5-1deg.json");

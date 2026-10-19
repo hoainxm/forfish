@@ -35,9 +35,9 @@ export type MauSen = {
   phien: string;
   /** chữ bộ nghe ra (đã cắt ≤ 200 ký tự) */
   cau: string;
-  /** máy làm gì: go/pick/start/stop/cancel/mute/unmute/repeat/howfar/hoi/map/say */
+  /** máy làm gì: go/pick/start/stop/cancel/mute/unmute/repeat/howfar/hoi/map/say · cho (lệnh sàn, lenh-cho.ts) */
   tra: string;
-  /** chi tiết việc: ý n-gram (say), loại câu hỏi (hoi), việc bản đồ (map), số chỗ (pick) */
+  /** chi tiết việc: ý n-gram (say), loại câu hỏi (hoi), việc bản đồ (map), số chỗ (pick), lệnh sàn (cho) */
   ct?: string;
   /** Gemma đoán ý gì (Android) — null = không có/không kịp */
   gemma?: string | null;
@@ -48,7 +48,7 @@ export type MauSen = {
   ban: string;
 };
 
-const TRA = new Set(["go", "pick", "start", "stop", "cancel", "mute", "unmute", "repeat", "howfar", "hoi", "map", "say"]);
+const TRA = new Set(["go", "pick", "start", "stop", "cancel", "mute", "unmute", "repeat", "howfar", "hoi", "map", "say", "cho"]);
 const CHU_NGAN = /^[a-z0-9_:.-]{0,40}$/;
 
 /** Việc máy đã làm, gọn để học — không mang toạ độ chỗ đến (chỉ loại chỗ). */
@@ -145,11 +145,14 @@ export function phienMoi(): string {
   return maNgau();
 }
 
-/** Ghi một câu vừa nói. Không ném, không chờ mạng. */
+/**
+ * Ghi một câu vừa nói. Không ném, không chờ mạng. `r` là câu trả lời của hieu-y; việc không
+ * qua hieu-y (lệnh sàn ở màn ngoài bản đồ) thì đưa thẳng `{ tra, ct }`.
+ */
 export function ghiMauSen(a: {
   phien: string;
   cau: string;
-  r: SenReply;
+  r: SenReply | { tra: string; ct?: string };
   gemma?: string | null;
   xn: boolean;
   chay: boolean;
@@ -161,7 +164,7 @@ export function ghiMauSen(a: {
     t: Date.now(),
     phien: a.phien,
     cau: a.cau,
-    ...tomTatTraLoi(a.r),
+    ...("kind" in a.r ? tomTatTraLoi(a.r) : a.r),
     gemma: a.gemma ?? null,
     xn: a.xn,
     chay: a.chay,

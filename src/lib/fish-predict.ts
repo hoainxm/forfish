@@ -13,6 +13,7 @@
 // ~25 km — không phải lời hứa "có cá", UI phải luôn ghi rõ.
 
 import {
+  type FishRegionId,
   FISH_SEASONS,
   SEASON_FULL_PAD_MONTHS,
   SEASON_OFF_FLOOR,
@@ -21,6 +22,7 @@ import {
   seasonPrior,
 } from "@/data/fish-seasons";
 import { apiUrl } from "@/lib/api-base";
+import { baseGroup, baseSeason, scoreBase, staticBins, staticLogLift, type BaseFeatures, type BaseParams } from "@/lib/fish-base";
 import { haversineKm } from "@/lib/geo";
 import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
@@ -109,7 +111,10 @@ export const FLEET_SCALE = 0.5;
  *  0,7 < ngưỡng Cao 75: sản lượng tháng trước MỘT MÌNH chỉ đưa tới Trung bình, lên Cao phải có
  *  ảnh vệ tinh hôm nay đồng ý. Dò tới 1,0 thì AUCeff còn tăng (0,736 → 0,754) — tức là bản đồ
  *  "chỗ năm trước bắt được" — cố ý KHÔNG lấy để bản đồ còn là dự báo. Chốt bằng kiểm định
- *  DataLake giữ-tháng-ra (ops/fish-validate-positions §11): AUCeff 0,672 → 0,736. */
+ *  DataLake giữ-tháng-ra (ops/fish-validate-positions §11): AUCeff 0,672 → 0,736.
+ *  ⚠ 2026-10-18: 0,736 KHÔNG còn là số tiêu đề — bộ đo trung thực (ops/fish-train-review-2026-10-18 §6)
+ *  cho thấy baseline tĩnh sâu+bờ+vĩ 0,809 và kg-tháng-trước 0,813 cao hơn, vệ tinh theo ngày ≈ 0.
+ *  Hướng chốt: nền = bãi theo mùa (x + tĩnh), lớp HSI/vệ tinh phải tự chứng minh (đợt 2). */
 export const CATCH_SCALE = 0.7;
 /** kg-30-ngày (đã làm mượt 3×3) để x = 1 − 1/e. Dò 500/2000/8000/20000/50000: 8000 tốt nhất —
  *  bão hoà sớm (500) thì ô bắt vừa ngang ô bắt nhiều, mất thứ hạng. */
@@ -1183,6 +1188,12 @@ export interface FishCell {
   t: number;
   /** phù du mg/m³ (2 số lẻ), null nếu thiếu */
   c: number | null;
+  /**
+   * DẤU HIỆU HÔM NAY (chỉ khi dựng bằng nền — `baseMode` có mặt): mô hình HSI vệ tinh của loài tốt nhất tại ô,
+   * TÁCH KHỎI `s`/`sp` (không nâng điểm — 2D đo 0/30 thắng, gộp vào nền còn HẠI). `sat` 0..100 (null = loài
+   * trong vụ nhưng HSI không chấm được); `why` ≤3 cơ chế mạnh nhất, chữ đời thường.
+   */
+  hint?: { sat: number | null; why: string[] };
 }
 
 export interface FishForecast {
@@ -1192,6 +1203,13 @@ export interface FishForecast {
   cells: FishCell[];
   /** loài có mặt trong dự báo hôm nay, loài mạnh nhất trước — cho bộ chọn */
   species: string[];
+  /**
+   * Điểm `s`/`sp` là ĐIỂM NỀN "bãi cá theo mùa" (lib/fish-base.ts), không phải HSI vệ tinh:
+   *   "catch-fleet-static" — nền đủ: sản lượng loài + đội tàu + tĩnh + mùa vụ;
+   *   "fleet-static"       — tháng chưa có kg loài (11–12): chỉ đội tàu + tĩnh + mùa vụ, UI phải nói rõ.
+   * Vắng = bản cũ (HSI + hai kênh gộp noisy-OR). Ngày xa KHÔNG pha mùa vụ HSI vào `s` khi trường này có mặt.
+   */
+  baseMode?: "catch-fleet-static" | "fleet-static";
   /**
    * ISO lúc MÁY CHỦ TÍNH bản này (route gắn vào) — KHÁC `date` (ngày ẢNH vệ tinh).
    * Service worker giữ lại response nên bản trong máy có thể rất cũ.
@@ -1231,6 +1249,486 @@ export interface FishForecast {
 export interface CurrentGrids {
   u: ScalarGrid;
   v: ScalarGrid;
+}
+
+/* ----------------------------------------------------------------------------
+   TÁCH `buildFishForecast` (rà pipeline 2026-10-18, mảnh 2B) — MỘT nguồn công thức:
+     buildCellFeatures(lưới…) → đặc trưng từng ô-ngày (KHÔNG phụ thuộc hồ sơ loài)
+     scoreCell(F, hồ sơ, …)   → điểm 0..1 của MỘT loài tại MỘT ô (phụ thuộc hồ sơ)
+   `buildFishForecast` gọi cả hai; script fit/đo (scripts/fish-features-cache.mjs,
+   dl-fit-profiles.mjs) cũng gọi đúng hai hàm này — KHÔNG chép công thức sang script.
+---------------------------------------------------------------------------- */
+
+/** Đặc trưng của một ô biển (một ngày) — mọi thứ `scoreCell` cần ngoài hồ sơ loài + kênh tĩnh. */
+export interface CellFeatures {
+  /** chỉ số ô trong lưới SST */
+  i: number;
+  j: number;
+  lat: number;
+  lon: number;
+  /** vùng biển gần nhất (khoá mùa vụ + khí hậu nhiệt) */
+  regionId: FishRegionId;
+  /** nhiệt mặt °C */
+  t: number;
+  /** nhiệt đáy / 250 m; null = thiếu lưới / ô NaN (chấm bằng nhiệt mặt) */
+  tBottom: number | null;
+  tDeep: number | null;
+  /** phù du mg/m³; NaN = thiếu */
+  c: number;
+  fThermFront: number;
+  fChlFront: number;
+  /** rìa xoáy; null = KHÔNG có lưới SSHA (term bỏ khỏi tổ hợp) */
+  fEddy: number | null;
+  coldStr: number;
+  warmStr: number;
+  /** nước trồi / hội tụ / D20 dị thường; null = thiếu */
+  upwTerm: number | null;
+  convTerm: number | null;
+  thermoAnomM: number | null;
+  /** độ sâu đáy (m, dương), cách bờ (km); null = thiếu */
+  depthM: number | null;
+  coastKm: number | null;
+  /** ô có rạn; null = thiếu lưới rạn */
+  hasReef: boolean | null;
+}
+
+/** Hằng/thiết lập của một lượt chấm (không phụ thuộc ô). */
+export interface ScoreConsts {
+  month: number;
+  climo: SstClimatology | null;
+  reefAbsentFit?: number;
+  fleetScale?: number;
+  catchScale?: number;
+}
+
+const seasonWMemo = new Map<string, Map<string, number>>();
+/**
+ * MÙA VỤ MỀM: mỗi loài ở vùng này có prior ∈ [0,1] theo tháng (1 = chính vụ, giảm
+ * dần ở vạt đầu/cuối vụ, SEASON_OFF_FLOOR = 0,6 khi trái vụ hẳn — từ 2026-10-10
+ * trái vụ chỉ TRỪ BỚT, vệ tinh vẫn quyết) — thay cổng nhị phân cũ (điểm nhảy vách
+ * 0↔đầy ở ranh giới tháng). Gộp nhiều dòng mùa của cùng loài trong vùng → lấy
+ * prior LỚN NHẤT (loài chỉ chấm MỘT lần). Nhớ theo (vùng, tháng): bảng mùa là hằng.
+ */
+export function seasonWeights(regionId: FishRegionId, month: number): Map<string, number> {
+  const key = `${regionId}|${month}`;
+  let m = seasonWMemo.get(key);
+  if (!m) {
+    m = new Map<string, number>();
+    for (const f of FISH_SEASONS) {
+      if (!f.regions.includes(regionId)) continue;
+      const w = seasonPrior(f.months, month);
+      if (w <= 0) continue;
+      const prev = m.get(f.species) ?? 0;
+      if (w > prev) m.set(f.species, w);
+    }
+    seasonWMemo.set(key, m);
+  }
+  return m;
+}
+
+/**
+ * Nhớ kết quả phép tính nặng THEO THAM CHIẾU LƯỚI (WeakMap): lưới là bất biến theo
+ * quy ước (parseErddapGrid trả mảng mới, không ai sửa tại chỗ), nên cùng một lưới
+ * + cùng tham số ⇒ cùng kết quả. Đo 2026-10-18: `spatialAnomaly` chiếm ~85 % thời
+ * gian một lượt dựng dự báo (67/80 ms) mà KHÔNG đổi theo tham số hồ sơ — fit dò
+ * hàng trăm lượt trên cùng lưới nên tính lại là phí.
+ */
+const gridMemo = new WeakMap<object, Map<string, unknown>>();
+function memoByGrid<T>(grid: object, key: string, make: () => T): T {
+  let m = gridMemo.get(grid);
+  if (!m) gridMemo.set(grid, (m = new Map()));
+  if (!m.has(key)) m.set(key, make());
+  return m.get(key) as T;
+}
+
+/**
+ * Đặc trưng từng ô biển của MỘT ngày (chỉ ô có vùng + có loài trong vụ tháng `month`).
+ * Đây là đoạn "lấy mẫu các trường về ô" của `buildFishForecast`, nguyên văn.
+ */
+export function buildCellFeatures(
+  sst: ScalarGrid,
+  chl: ScalarGrid,
+  sla: ScalarGrid | null,
+  month: number,
+  extra?: FishForecastExtra,
+): CellFeatures[] {
+  const anom = extra?.anom ?? null;
+  const cur = extra?.cur ?? null;
+  const thermo = extra?.thermo ?? null;
+  const depth = extra?.depth ?? null;
+  // Lưới không có nút biển nào = ETOPO hỏng (không phải "toàn đất") ⇒ không
+  // dựng cổng cách bờ, để luật "mất nguồn ⇒ DEPTH_UNKNOWN_FIT" lo như cũ.
+  const coastKm =
+    depth && depth.values.some((r) => r.some(Number.isFinite))
+      ? memoByGrid(depth, `coast${OFFSHORE_COAST_KM[1]}`, () => coastDistanceKm(depth, OFFSHORE_COAST_KM[1]))
+      : null;
+  const bottomTemp = extra?.bottomTemp ?? null;
+  const deepTemp = extra?.deepTemp ?? null;
+  const reef = extra?.reef ?? null;
+
+  // GUARD ĐƠN VỊ tại chỗ dùng — lưới chưa khai thì bỏ qua, khai SAI thì ném.
+  // Bẫy thật: nguồn SST chính trả Kelvin, nguồn dự phòng CoralTemp trả °C sẵn;
+  // lẫn một cái là bản đồ lệch 273° mà không cổng nào bắt.
+  expectUnit(sst, "degC", "buildFishForecast: sst");
+  expectUnit(chl, "mg/m3", "buildFishForecast: chl");
+  expectUnit(sla, "m", "buildFishForecast: sla");
+  expectUnit(anom, "degC", "buildFishForecast: anom (dị thường nhiệt)");
+  expectUnit(bottomTemp, "degC", "buildFishForecast: bottomTemp");
+  expectUnit(deepTemp, "degC", "buildFishForecast: deepTemp");
+  expectUnit(thermo, "m", "buildFishForecast: thermo (độ sâu đẳng nhiệt)");
+  expectUnit(depth, "m", "buildFishForecast: depth (độ sâu đáy)");
+  if (cur) {
+    expectUnit(cur.u, "m/s", "buildFishForecast: cur.u");
+    expectUnit(cur.v, "m/s", "buildFishForecast: cur.v");
+  }
+  const frontSrc =
+    extra?.frontSst &&
+    extra.frontSst.lats.length === sst.lats.length &&
+    extra.frontSst.lons.length === sst.lons.length
+      ? extra.frontSst
+      : sst;
+  const coarseThermFront = memoByGrid(frontSrc, "front", () => frontStrength(frontSrc));
+  // FRONT TRÊN LƯỚI GỐC MỊN (C2): cùng chiều vật lý với hội tụ dòng (chi tiết nằm ở
+  // lưới mịn, đừng làm mượt trước rồi mới đạo hàm). Không có / không mịn hơn → lưới 0,25°.
+  const sstFine = extra?.frontSstFine ?? null;
+  expectUnit(sstFine, "degC", "buildFishForecast: frontSstFine");
+  const fineScale = extra?.frontFineFullScale ?? FRONT_FINE_FULL_SCALE;
+  const thermFront =
+    sstFine && isFinerGrid(sstFine, sst)
+      ? fineFrontOnto(
+          sstFine.values,
+          sstFine,
+          THERM_FRONT_FULL_PER_DEG * fineScale,
+          sst,
+          coarseThermFront,
+        )
+      : coarseThermFront;
+  const logChl = logChlGrid(chl);
+  const coarseChlFront = gradientStrength(
+    logChl,
+    CHL_FRONT_FULL_PER_DEG * gridStepDeg(chl.lats),
+  );
+  const chlFine = extra?.frontChlFine ?? null;
+  expectUnit(chlFine, "mg/m3", "buildFishForecast: frontChlFine");
+  const chlFront =
+    chlFine && isFinerGrid(chlFine, chl)
+      ? fineFrontOnto(
+          logChlGrid(chlFine),
+          chlFine,
+          CHL_FRONT_FULL_PER_DEG,
+          chl,
+          coarseChlFront,
+        )
+      : coarseChlFront;
+  // Bao nhiêu nút lưới dòng chảy rơi vào MỘT ô cá (≥1). Copernicus 1/12° vs ô
+  // 0.25° ⇒ 3×3 = 9 nút; nguồn thô hơn ⇒ 1 (rơi về đúng ô tâm).
+  const convRatioLat = cur
+    ? Math.max(1, Math.round(gridStepDeg(sst.lats) / gridStepDeg(cur.u.lats)))
+    : 1;
+  const convRatioLon = cur
+    ? Math.max(1, Math.round(gridStepDeg(sst.lons) / gridStepDeg(cur.u.lons)))
+    : 1;
+  // rìa xoáy = GRADIENT của SSHA (giữ nguyên — cấu trúc cục bộ sẵn có)
+  const eddyEdge = sla
+    ? gradientStrength(sla.values, EDDY_FULL_PER_DEG * gridStepDeg(sla.lats))
+    : null;
+  // VIỆC 2 — ĐỘ LỚN nước trồi/xoáy lạnh dùng DỊ THƯỜNG KHÔNG GIAN (so vùng bên
+  // cạnh), KHÔNG dùng anomaly nhiều năm / SSHA thô (chúng sáng-tối cả bồn theo
+  // mùa → chỉ chỉnh độ sáng toàn miền, không xếp hạng ô). Nhớ theo tham chiếu lưới.
+  const spatial = (g: ScalarGrid) =>
+    memoByGrid(g, `sa${SPATIAL_RADIUS_DEG}`, () => spatialAnomaly(g.values, g.lats, g.lons, SPATIAL_RADIUS_DEG));
+  const slaSpatial = sla ? spatial(sla) : null;
+  const anomSpatial = anom ? spatial(anom) : null;
+  // TẦNG NHIỆT cũng dùng DỊ THƯỜNG KHÔNG GIAN (cùng lý do, cùng bán kính): D20
+  // tuyệt đối ở Biển Đông gần như đồng đều (đo thật p10–p90 = 84–120 m, đều nằm
+  // trong dải "tốt" cũ) → cổng tuyệt đối ≈1 khắp nơi, chỉ nâng điểm đồng loạt.
+  const thermoSpatial = thermo ? spatial(thermo) : null;
+  // HỘI TỤ dòng chảy mặt — tính TRÊN LƯỚI GỐC của nguồn dòng (Copernicus 1/12°),
+  // rồi mới lấy mẫu xuống ô cá 0,25° ở vòng lặp dưới. Đúng chiều vật lý: chi
+  // tiết nước dồn có sẵn ở lưới mịn, đừng làm mượt trước rồi mới đạo hàm.
+  // Mức "rõ hẳn" quy theo ĐỘ nên đổi nguồn/độ phân giải KHÔNG phải chỉnh tay.
+  const convFullPerDeg = extra?.convFullPerDeg ?? CONV_FULL_PER_DEG;
+  const convGrid = cur
+    ? convergenceStrength(
+        cur.u.values,
+        cur.v.values,
+        convFullPerDeg * gridStepDeg(cur.u.lats),
+      )
+    : null;
+
+  const out: CellFeatures[] = [];
+  for (let i = 0; i < sst.lats.length; i++) {
+    for (let j = 0; j < sst.lons.length; j++) {
+      const t = sst.values[i][j];
+      if (!Number.isFinite(t)) continue; // đất liền
+      const lat = sst.lats[i];
+      const lon = sst.lons[j];
+      // gán vùng GẦN NHẤT (phủ kín toàn vùng biển VN, không còn lỗ hổng giữa
+      // các đa giác thô); null = xa hẳn mọi vùng → ngoài vùng biển VN
+      const region = nearestRegionWithin(lat, lon, REGION_REACH_DEG);
+      if (!region) continue;
+      if (seasonWeights(region.id, month).size === 0) continue; // không loài nào trong vụ
+
+      // lấy mẫu các trường về ô SST đang xét
+      const ci = nearestIndex(chl.lats, lat);
+      const cj = nearestIndex(chl.lons, lon);
+      const c = chl.values[ci]?.[cj] ?? NaN;
+      const fThermFront = thermFront[i][j];
+      const fChlFront = chlFront[ci]?.[cj] ?? 0;
+      let fEddy: number | null = null;
+      let coldStrength = 0;
+      let warmStrength = 0;
+      if (sla && eddyEdge) {
+        const si = nearestIndex(sla.lats, lat);
+        const sj = nearestIndex(sla.lons, lon);
+        fEddy = eddyEdge[si]?.[sj] ?? 0;
+        // mực nước THẤP HƠN VÙNG LÂN CẬN (dị thường không gian âm) = xoáy/nước
+        // trồi lạnh cục bộ, năng suất cao — KHÔNG so mực tuyệt đối (mùa cả bồn).
+        const slaAnomV = slaSpatial?.[si]?.[sj];
+        coldStrength = Number.isFinite(slaAnomV)
+          ? Math.min(1, Math.max(0, -(slaAnomV as number) / COLD_SCALE))
+          : 0;
+        // mực nước CAO HƠN lân cận = xoáy ấm cục bộ — gương coldStrength, cùng
+        // thước COLD_SCALE (p90 |dị thường| đo chung hai phía). Dùng cho cá nổi lớn.
+        warmStrength = Number.isFinite(slaAnomV)
+          ? Math.min(1, Math.max(0, (slaAnomV as number) / COLD_SCALE))
+          : 0;
+      }
+      // nước trồi/xáo trộn: LẠNH HƠN VÙNG LÂN CẬN (dị thường không gian nhiệt
+      // âm rõ); null = thiếu. So vùng bên cạnh, không so anomaly nhiều năm.
+      let upwTerm: number | null = null;
+      if (anom) {
+        const ai = nearestIndex(anom.lats, lat);
+        const aj = nearestIndex(anom.lons, lon);
+        const a = anomSpatial?.[ai]?.[aj];
+        if (Number.isFinite(a))
+          upwTerm = Math.min(1, Math.max(0, -(a as number) / UPW_SCALE));
+      }
+      // hội tụ dòng chảy mặt tại ô; null = thiếu dữ liệu
+      let convTerm: number | null = null;
+      if (cur && convGrid) {
+        const ui = nearestIndex(cur.u.lats, lat);
+        const uj = nearestIndex(cur.u.lons, lon);
+        // GỘP KHỐI: lưới dòng Copernicus 1/12° mịn hơn ô cá 0.25° ⇒ gộp mọi nút
+        // rơi vào ô, đừng lấy 1 nút rồi vứt 8/9 (xem blockMeanAt).
+        const cv = blockMeanAt(convGrid, ui, uj, convRatioLat, convRatioLon);
+        if (Number.isFinite(cv) && Number.isFinite(cur.u.values[ui]?.[uj])) {
+          convTerm = cv;
+        }
+      }
+      // tầng nhiệt: DỊ THƯỜNG KHÔNG GIAN của D20 (m) tại ô — âm = nêm nhô lên so
+      // với lân cận, dương = nêm chìm. Chấm thành điểm ở `scoreCell` (mỗi loài
+      // một khẩu vị `thermoBand`). null = thiếu lưới / ô NaN.
+      let thermoAnomM: number | null = null;
+      if (thermo) {
+        const ti = nearestIndex(thermo.lats, lat);
+        const tj = nearestIndex(thermo.lons, lon);
+        const dv = thermoSpatial?.[ti]?.[tj];
+        if (Number.isFinite(dv)) thermoAnomM = dv as number;
+      }
+      // độ sâu đáy tại ô (m, dương) — để CHẶN loài xa bờ (offshore) ở nước cạn
+      let cellDepthM: number | null = null;
+      let cellCoastKm: number | null = null;
+      if (depth) {
+        const dpi = nearestIndex(depth.lats, lat);
+        const dpj = nearestIndex(depth.lons, lon);
+        const dv = depth.values[dpi]?.[dpj];
+        if (Number.isFinite(dv)) cellDepthM = dv;
+        cellCoastKm = coastKm?.[dpi]?.[dpj] ?? null;
+      }
+      // ô có RẠN không (lưới rạn 0,25°) — null = thiếu lưới / ô NaN ⇒ "không rạn"
+      let cellHasReef: boolean | null = null;
+      if (reef) {
+        const rv = reef.values[nearestIndex(reef.lats, lat)]?.[nearestIndex(reef.lons, lon)];
+        if (Number.isFinite(rv)) cellHasReef = (rv as number) > 0;
+      }
+      // nhiệt độ ĐÁY / tầng 250 m tại ô (°C) — cổng nhiệt loài đáy / ngừ mắt to.
+      // Thiếu lưới hoặc ô NaN → null → chấm bằng SST mặt (fallback, không regress).
+      const sampleT = (g: ScalarGrid | null): number | null => {
+        if (!g) return null;
+        const gi = nearestIndex(g.lats, lat);
+        const gj = nearestIndex(g.lons, lon);
+        const v = g.values[gi]?.[gj];
+        return Number.isFinite(v) ? (v as number) : null;
+      };
+      out.push({
+        i, j, lat, lon, regionId: region.id, t,
+        tBottom: sampleT(bottomTemp),
+        tDeep: sampleT(deepTemp),
+        c, fThermFront, fChlFront, fEddy,
+        coldStr: coldStrength, warmStr: warmStrength,
+        upwTerm, convTerm, thermoAnomM,
+        depthM: cellDepthM, coastKm: cellCoastKm, hasReef: cellHasReef,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * HABITAT của MỘT loài tại MỘT ô: tổ hợp soft-OR các cơ chế gom cá + kênh đội tàu →
+ * `AGG_FLOOR + (1−AGG_FLOOR)·aggEff` (sàn rạn nếu có). KHÔNG phụ thuộc các nút fit hay dò
+ * (dải nhiệt `sst`, dải mồi `chlLog`, `foodDependence`, `offshore`/`inshore`/`coastKm`):
+ * bên fit tính MỘT lần mỗi ô-ngày rồi đưa vào `scoreCell(…, habitat)` cho mọi lượt dò.
+ * `fx` = x kênh đội tàu tại ô cho loài này (0 = không có).
+ */
+export function cellHabitat(
+  F: CellFeatures,
+  p: SpeciesProfile,
+  fx: number,
+  k: ScoreConsts,
+): number {
+  // loài ưa nước trồi lạnh: rìa xoáy HOẶC nước lõm lạnh, lấy mạnh hơn.
+  // CÁ NỔI LỚN (pelagic-large, coldCore=false): rìa xoáy HOẶC nước LỒI ẤM
+  // cục bộ (xoáy ấm/anticyclone) — 4 nghiên cứu độc lập cho ngừ vằn/vây
+  // vàng/chù ưa SSHA DƯƠNG (Zainuddin 2017/2023 0–12,5 cm; Mugo 2010 0→+50
+  // cm; Hsu 2021; Zhou 2022 Auxis thazard Biển Đông), xem ops/fish-review-
+  // 2026-10-03/report-algorithm.md B5/C5. CHỈ nhóm này: nguồn chỉ nói về cá
+  // ngừ & cá nổi lớn; mở cho mọi coldCore=false thì cá đáy/rạn (hồng 209→213,
+  // mối 72→75 ô ≥50) sáng thêm không có bằng chứng. Đo lưới 30/9 (t1/t4/t7/
+  // t10): %điểm nóng "Mọi loài" +0,25…+0,66 điểm; std eddyTerm 0,283→0,292;
+  // nục heo 106→123, vây vàng 85→92, chù 57→61, thu 1→3 ô ≥50; số loài giữ.
+  const eddyTerm =
+    F.fEddy != null
+      ? p.coldCore
+        ? Math.max(F.fEddy, F.coldStr)
+        : p.category === "pelagic-large"
+          ? Math.max(F.fEddy, F.warmStr)
+          : F.fEddy
+      : null;
+
+  // SOFT-OR trên các CƠ CHẾ GOM CÁ (một cơ chế đầy = 0,4 < sàn 50; ô ≥50
+  // cần ≥2 cơ chế cùng chỗ — xem SOFTOR_SCALE), loại yếu tố
+  // thiếu dữ liệu. Mốc chuẩn hoá wMax là mức KHAI BÁO của hồ sơ loài
+  // (SPECIES_WMAX), KHÔNG suy từ các term còn lại — nếu suy thì mất nguồn
+  // sẽ kéo mốc xuống và LÀM ĐIỂM TĂNG. Mồi ĐÃ tách ra làm limiter.
+  const mech: [number, number][] = [
+    [p.w.thermFront, F.fThermFront],
+    [p.w.chlFront, F.fChlFront],
+  ];
+  if (eddyTerm != null) mech.push([p.w.eddy, eddyTerm]);
+  if (F.upwTerm != null) mech.push([p.w.upw, F.upwTerm]);
+  if (F.convTerm != null) mech.push([p.w.conv, F.convTerm]);
+  // tầng nhiệt: chỉ tính cho loài CÓ trọng số (cá ngừ/cá nổi lớn, mực xà).
+  // Khẩu vị theo LOÀI: vây vàng & cá nổi mặt ưa nêm NÔNG hơn lân cận (dải
+  // mặc định), ngừ mắt to ưa nêm SÂU hơn (`thermoBand` dương).
+  if (F.thermoAnomM != null && (p.w.thermo ?? 0) > 0)
+    mech.push([p.w.thermo as number, thermoFit(F.thermoAnomM, p.thermoBand)]);
+  const agg = softOrHabitat(
+    mech,
+    p.category === "pelagic-large" ? PELAGIC_LARGE_SOFTOR_SCALE : SOFTOR_SCALE,
+    SPECIES_WMAX.get(p.species) ?? speciesWMax(p.w),
+  );
+  // TRUNG THỰC: loài đáy/rạn ảnh vệ tinh ít nói được → kéo tổ hợp về trung
+  // tính, không vẽ điểm nóng giả. Loài nổi (high) giữ nguyên.
+  const conf = SURFACE_CONF[p.surfaceSignal];
+  const aggSat = conf * agg + (1 - conf) * NEUTRAL_AGG;
+  const fleetScale = k.fleetScale ?? FLEET_SCALE;
+  // KÊNH ĐỘI TÀU: tàu làm đều ở đây ⇒ gộp soft-OR (x=0 ⇒ y nguyên aggSat)
+  const aggEff = fx > 0 ? 1 - (1 - aggSat) * (1 - fleetScale * fx) : aggSat;
+  // nền sàn: mùa+nhiệt+mồi vẫn quyết điểm ngay cả khi cơ chế trơ.
+  // Cá rạn đứng trên rạn: sinh cảnh bắt buộc có thật ⇒ sàn REEF_HABITAT_FLOOR.
+  const habitatRaw = AGG_FLOOR + (1 - AGG_FLOOR) * aggEff;
+  const habitat =
+    p.requiresReef && F.hasReef ? Math.max(habitatRaw, REEF_HABITAT_FLOOR) : habitatRaw;
+  return habitat;
+}
+
+/**
+ * CỔNG NHIỆT 0..1 của MỘT loài tại MỘT ô (`trapezoid` trên dải chịu đựng, dải lai theo khí hậu vùng–tháng).
+ * 0 = nước ngoài dải chịu đựng ⇒ KHÔNG vẽ loài này ở ô này (bất biến, cả ở nền lẫn HSI). MỘT nguồn công thức:
+ * `scoreCell` và nhánh nền của `buildFishForecast` cùng gọi.
+ */
+export function thermalFit(F: CellFeatures, p: SpeciesProfile, k: ScoreConsts): number {
+  const t = F.t;
+  const region = F.regionId;
+  const month = k.month;
+  // CỔNG NHIỆT (nhân): chấm ở TẦNG của loài — mặt (mặc định), đáy (loài
+  // đáy), hay 250 m (ngừ mắt to). Có lưới tầng → chấm nhiệt tầng với dải
+  // `sst[]` (đã tuned cho tầng đó). THIẾU lưới/ô NaN → FALLBACK nhiệt MẶT
+  // `t` với dải `sstFallback` (nếu có) hoặc `sst[]` — loài KHÔNG biến mất
+  // khi HYCOM fail. 14 loài đáy giữ dải mặt cũ nên fallback = hành vi cũ.
+  const tierT =
+    p.tempSource === "bottom" ? F.tBottom : p.tempSource === "deep" ? F.tDeep : t;
+  const bandRaw = tierT != null ? p.sst : (p.sstFallback ?? p.sst);
+  const tGate = tierT != null ? tierT : t;
+  // DẢI NHIỆT LAI (C3, 2026-10-03e): cao nguyên [b,c] nới theo khí hậu SST
+  // vùng–tháng (p25/p75), biên [a,d] giữ. CHỈ khi cổng đang chấm nhiệt MẶT
+  // (loài mặt, hoặc loài đáy/sâu đang FALLBACK về mặt vì thiếu HYCOM):
+  // loài đáy đang chấm nhiệt đáy thật thì khí hậu mặt không liên quan.
+  // Thiếu bảng ⇒ `bandRaw` (hành vi cũ; chỉ nới nên mất bảng không bao
+  // giờ làm điểm tăng).
+  const surfaceGate = tierT == null || (p.tempSource !== "bottom" && p.tempSource !== "deep");
+  const band = surfaceGate ? seasonalThermalBand(bandRaw, region, month, k.climo) : bandRaw;
+  const tFit = trapezoid(tGate, band[0], band[1], band[2], band[3]);
+  return tFit;
+}
+
+/**
+ * Điểm 0..1 của MỘT loài (`p`) tại MỘT ô (`F`): cổng nhiệt × mồi × habitat × cổng
+ * độ sâu × mùa vụ, rồi cộng hai kênh tĩnh. `sW` = prior mùa vụ (`seasonWeights`);
+ * `fx`/`cx` = x của kênh đội tàu / sản lượng tại ô cho loài này (0 = không có).
+ * 0 = bỏ ô (nhiệt ngoài dải chịu đựng). KHÔNG làm tròn, KHÔNG cắt KEEP_MIN.
+ */
+export function scoreCell(
+  F: CellFeatures,
+  p: SpeciesProfile,
+  sW: number,
+  fx: number,
+  cx: number,
+  k: ScoreConsts,
+  /** habitat tính sẵn bằng `cellHabitat` (fit/đo); bỏ trống = tự tính */
+  habitatPre?: number,
+): number {
+  const tFit = thermalFit(F, p, k);
+  // KHÔNG đệm ngoài [a,d] (C8 rà 2026-10-03d, đã đo rồi BỎ): sàn 0,2 kiểu
+  // FOOD_FLOOR cho điểm tối đa 20 < KEEP_MIN 25 ⇒ không bao giờ vào payload,
+  // là no-op; sàn ≥0,5 mới hiện mà hiện nghĩa là vẽ "tốt" ngoài dải chịu
+  // đựng đã dẫn nguồn = nói dối. Lưới 30/9: đệm ±1 °C chỉ chạm 3 ô×loài.
+  // Loài "0 ô trong vụ" (cá cờ, cá sòng) kẹt ở TRẦN c=29 °C (dốc 0,3–0,6
+  // khi nước 29,75–30,4) — việc của HỒ SƠ loài, không phải của cổng.
+  if (tFit === 0) return 0;
+  // MỒI = GIỚI HẠN MỀM (tách khỏi soft-OR): mồi=0 chỉ hạ điểm còn
+  // FOOD_FLOOR, không zero hẳn để loài KHÔNG biến mất vì nhiễu ảnh mồi.
+  // `foodDependence` (∈[0,1], mặc định 1) điều khiển MỨC lệ thuộc mồi:
+  //   dep=1 → giới hạn đầy đủ (= hành vi cũ);  dep=0 → mồi KHÔNG gồng cổng
+  //   (điểm không đổi theo chl). Đây là chỗ THAY trường `w.food` cũ vốn
+  //   KHÔNG bao giờ được đọc. Mặc định 1 giữ nguyên bản đồ hiện tại.
+  const food = chlFit(F.c, p.chlLog[0], p.chlLog[1]);
+  const foodLimiter = foodGate(food, p.foodDependence ?? 1);
+  const habitat = habitatPre ?? cellHabitat(F, p, fx, k);
+  // CỔNG ĐỘ SÂU: loài xa bờ (offshore) ở nước cạn → điểm kéo về 0.
+  // KHÔNG BIẾT độ sâu (mất lưới ETOPO / ô NaN) → DEPTH_UNKNOWN_FIT (<1),
+  // KHÔNG phải ×1: mất nguồn thì bớt chắc chắn chứ không được thưởng oan.
+  // Loài VEN BỜ (inshore) thì ngược lại: nước khơi sâu → kéo về 0.
+  // Loài xa bờ còn qua CỔNG CÁCH BỜ (OFFSHORE_COAST_KM): thềm miền Trung
+  // dốc nên độ sâu một mình để lọt; và ô sát bờ có nút ETOPO rơi vào đất
+  // (độ sâu "không biết" ⇒ 0,5) nay ra 0 vì cách bờ 0 km.
+  const depthGate = p.offshore
+    ? (F.depthM != null ? deepWaterFit(F.depthM, p.offshore[0], p.offshore[1]) : DEPTH_UNKNOWN_FIT) *
+      (F.coastKm != null && Number.isFinite(F.coastKm)
+        ? deepWaterFit(F.coastKm, ...(p.coastKm ?? OFFSHORE_COAST_KM))
+        : 1)
+    : p.inshore
+      ? F.depthM != null
+        ? shallowWaterFit(F.depthM, p.inshore[0], p.inshore[1], p.inshoreFloor)
+        : DEPTH_UNKNOWN_FIT
+      : 1;
+  // CỔNG NỀN RẠN (requiresReef): ô có rạn ⇒ bỏ qua cổng độ sâu (chóp rạn
+  // nhô từ nền sâu); không rạn / thiếu lưới rạn ⇒ cổng độ sâu × REEF_ABSENT_FIT.
+  const depthFit = p.requiresReef
+    ? F.hasReef
+      ? 1
+      : depthGate * (k.reefAbsentFit ?? REEF_ABSENT_FIT)
+    : depthGate;
+  // `sW` = prior mùa vụ mềm (≤1): chính vụ ×1 (không đổi), tháng đệm hạ
+  // điểm đầu/cuối vụ, trái vụ ×0,6. Là thừa số ≤1 nên bất biến "mất tín hiệu = điểm
+  // GIẢM" vẫn giữ.
+  const fitSat = tFit * foodLimiter * habitat * depthFit * sW;
+  // KÊNH SẢN LƯỢNG LOÀI: loài này ra đều ở ô này mùa này (nhật ký × VMS) ⇒ gộp soft-OR
+  // vào điểm cuối; x=0 ⇒ y nguyên (chỉ cộng, không trừ)
+  const catchScale = k.catchScale ?? CATCH_SCALE;
+  return cx > 0 ? 1 - (1 - fitSat) * (1 - catchScale * cx) : fitSat;
 }
 
 /**
@@ -1327,404 +1825,108 @@ export function buildFishForecast(
     /** CHỈ để hiệu chỉnh: thay `CATCH_SCALE` / `CATCH_FULL_KG`. Runtime KHÔNG truyền. */
     catchScale?: number;
     catchFullKg?: number;
+    /**
+     * NỀN "bãi cá theo mùa" (`src/data/fish-base.v1.json`, đợt 2A): có ⇒ `s`/`sp` = điểm nền (logistic ≤5 hệ số/nhóm
+     * loài trên x-sản-lượng K_s + x-đội-tàu + tĩnh + mùa vụ), CỔNG NHIỆT và LỊCH MÙA VỤ vẫn là cổng cứng, HSI vệ tinh
+     * chỉ ra `cell.hint`. Thiếu ⇒ hành vi cũ (HSI + `fleet`/`catchGrid` gộp noisy-OR). `fleet`/`catchGrid` vẫn là
+     * nguồn của x — truyền cả hai.
+     */
+    base?: BaseParams | null;
+    /** CHỈ để ĐO nhánh nền: tắt cổng nhiệt / cổng lịch mùa vụ theo vùng. Runtime KHÔNG truyền (cả hai bật). */
+    baseGates?: { thermal?: boolean; season?: boolean };
+    /**
+     * CHỈ để FIT/ĐO (mảnh 2B 2026-10-18): trả điểm LIÊN TỤC — `s` và `sp[loài]` là số thực
+     * 0..100, KHÔNG làm tròn, KHÔNG cắt KEEP_MIN, giữ mọi ô có loài chấm được. Runtime KHÔNG
+     * truyền (payload vẫn nguyên số + ngưỡng như cũ).
+     */
+    rawScores?: boolean;
   },
 ): FishForecast {
-  const climo = extra?.climo ?? null;
-  const anom = extra?.anom ?? null;
-  const cur = extra?.cur ?? null;
-  const thermo = extra?.thermo ?? null;
-  const depth = extra?.depth ?? null;
-  // Lưới không có nút biển nào = ETOPO hỏng (không phải "toàn đất") ⇒ không
-  // dựng cổng cách bờ, để luật "mất nguồn ⇒ DEPTH_UNKNOWN_FIT" lo như cũ.
-  const coastKm =
-    depth && depth.values.some((r) => r.some(Number.isFinite))
-      ? coastDistanceKm(depth, OFFSHORE_COAST_KM[1])
-      : null;
-  const bottomTemp = extra?.bottomTemp ?? null;
-  const deepTemp = extra?.deepTemp ?? null;
-  const reef = extra?.reef ?? null;
-  const reefAbsentFit = extra?.reefAbsentFit ?? REEF_ABSENT_FIT;
   const fleetScale = extra?.fleetScale ?? FLEET_SCALE;
   const fleetX = fleetPresenceLookup(extra?.fleet, month, extra?.fleetFullHours ?? FLEET_FULL_HOURS);
   const catchScale = extra?.catchScale ?? CATCH_SCALE;
   const catchX = fleetPresenceLookup(extra?.catchGrid, month, extra?.catchFullKg ?? CATCH_FULL_KG);
-
-  // GUARD ĐƠN VỊ tại chỗ dùng — lưới chưa khai thì bỏ qua, khai SAI thì ném.
-  // Bẫy thật: nguồn SST chính trả Kelvin, nguồn dự phòng CoralTemp trả °C sẵn;
-  // lẫn một cái là bản đồ lệch 273° mà không cổng nào bắt.
-  expectUnit(sst, "degC", "buildFishForecast: sst");
-  expectUnit(chl, "mg/m3", "buildFishForecast: chl");
-  expectUnit(sla, "m", "buildFishForecast: sla");
-  expectUnit(anom, "degC", "buildFishForecast: anom (dị thường nhiệt)");
-  expectUnit(bottomTemp, "degC", "buildFishForecast: bottomTemp");
-  expectUnit(deepTemp, "degC", "buildFishForecast: deepTemp");
-  expectUnit(thermo, "m", "buildFishForecast: thermo (độ sâu đẳng nhiệt)");
-  expectUnit(depth, "m", "buildFishForecast: depth (độ sâu đáy)");
-  if (cur) {
-    expectUnit(cur.u, "m/s", "buildFishForecast: cur.u");
-    expectUnit(cur.v, "m/s", "buildFishForecast: cur.v");
-  }
-  const frontSrc =
-    extra?.frontSst &&
-    extra.frontSst.lats.length === sst.lats.length &&
-    extra.frontSst.lons.length === sst.lons.length
-      ? extra.frontSst
-      : sst;
-  const coarseThermFront = frontStrength(frontSrc);
-  // FRONT TRÊN LƯỚI GỐC MỊN (C2): có lưới 0,05° thì |∇| tính ở đó rồi gộp khối
-  // về ô cá — cùng chiều vật lý với hội tụ dòng (chi tiết nằm ở lưới mịn, đừng
-  // làm mượt trước rồi mới đạo hàm). Không có / không mịn hơn → lưới 0,25°.
-  const sstFine = extra?.frontSstFine ?? null;
-  expectUnit(sstFine, "degC", "buildFishForecast: frontSstFine");
-  const fineScale = extra?.frontFineFullScale ?? FRONT_FINE_FULL_SCALE;
-  const thermFront =
-    sstFine && isFinerGrid(sstFine, sst)
-      ? fineFrontOnto(
-          sstFine.values,
-          sstFine,
-          THERM_FRONT_FULL_PER_DEG * fineScale,
-          sst,
-          coarseThermFront,
-        )
-      : coarseThermFront;
-  const logChl = logChlGrid(chl);
-  const coarseChlFront = gradientStrength(
-    logChl,
-    CHL_FRONT_FULL_PER_DEG * gridStepDeg(chl.lats),
-  );
-  const chlFine = extra?.frontChlFine ?? null;
-  expectUnit(chlFine, "mg/m3", "buildFishForecast: frontChlFine");
-  const chlFront =
-    chlFine && isFinerGrid(chlFine, chl)
-      ? fineFrontOnto(
-          logChlGrid(chlFine),
-          chlFine,
-          CHL_FRONT_FULL_PER_DEG,
-          chl,
-          coarseChlFront,
-        )
-      : coarseChlFront;
-  // Bao nhiêu nút lưới dòng chảy rơi vào MỘT ô cá (≥1). Copernicus 1/12° vs ô
-  // 0.25° ⇒ 3×3 = 9 nút; nguồn thô hơn ⇒ 1 (rơi về đúng ô tâm).
-  const convRatioLat = cur
-    ? Math.max(1, Math.round(gridStepDeg(sst.lats) / gridStepDeg(cur.u.lats)))
-    : 1;
-  const convRatioLon = cur
-    ? Math.max(1, Math.round(gridStepDeg(sst.lons) / gridStepDeg(cur.u.lons)))
-    : 1;
-  // rìa xoáy = GRADIENT của SSHA (giữ nguyên — cấu trúc cục bộ sẵn có)
-  const eddyEdge = sla
-    ? gradientStrength(sla.values, EDDY_FULL_PER_DEG * gridStepDeg(sla.lats))
-    : null;
-  // VIỆC 2 — ĐỘ LỚN nước trồi/xoáy lạnh dùng DỊ THƯỜNG KHÔNG GIAN (so vùng bên
-  // cạnh), KHÔNG dùng anomaly nhiều năm / SSHA thô (chúng sáng-tối cả bồn theo
-  // mùa → chỉ chỉnh độ sáng toàn miền, không xếp hạng ô). Precompute 1 lần.
-  const slaSpatial = sla
-    ? spatialAnomaly(sla.values, sla.lats, sla.lons, SPATIAL_RADIUS_DEG)
-    : null;
-  const anomSpatial = anom
-    ? spatialAnomaly(anom.values, anom.lats, anom.lons, SPATIAL_RADIUS_DEG)
-    : null;
-  // TẦNG NHIỆT cũng dùng DỊ THƯỜNG KHÔNG GIAN (cùng lý do, cùng bán kính): D20
-  // tuyệt đối ở Biển Đông gần như đồng đều (đo thật p10–p90 = 84–120 m, đều nằm
-  // trong dải "tốt" cũ) → cổng tuyệt đối ≈1 khắp nơi, chỉ nâng điểm đồng loạt.
-  const thermoSpatial = thermo
-    ? spatialAnomaly(thermo.values, thermo.lats, thermo.lons, SPATIAL_RADIUS_DEG)
-    : null;
-  // HỘI TỤ dòng chảy mặt — tính TRÊN LƯỚI GỐC của nguồn dòng (Copernicus 1/12°),
-  // rồi mới lấy mẫu xuống ô cá 0,25° ở vòng lặp dưới. Đúng chiều vật lý: chi
-  // tiết nước dồn có sẵn ở lưới mịn, đừng làm mượt trước rồi mới đạo hàm.
-  // Mức "rõ hẳn" quy theo ĐỘ nên đổi nguồn/độ phân giải KHÔNG phải chỉnh tay.
-  const convFullPerDeg = extra?.convFullPerDeg ?? CONV_FULL_PER_DEG;
-  const convGrid = cur
-    ? convergenceStrength(
-        cur.u.values,
-        cur.v.values,
-        convFullPerDeg * gridStepDeg(cur.u.lats),
-      )
-    : null;
+  const raw = extra?.rawScores === true;
+  const consts: ScoreConsts = {
+    month,
+    climo: extra?.climo ?? null,
+    reefAbsentFit: extra?.reefAbsentFit,
+    fleetScale,
+    catchScale,
+  };
+  // loài → hồ sơ: dựng MỘT lần mỗi lượt (không tìm tuyến tính mỗi ô × loài); trùng tên lấy cái đầu như `.find`
+  const profileOf = new Map<string, SpeciesProfile>();
+  for (const p of SPECIES_PROFILES) if (!profileOf.has(p.species)) profileOf.set(p.species, p);
 
   const cells: FishCell[] = [];
   const speciesBest = new Map<string, number>();
 
-  for (let i = 0; i < sst.lats.length; i++) {
-    for (let j = 0; j < sst.lons.length; j++) {
-      const t = sst.values[i][j];
-      if (!Number.isFinite(t)) continue; // đất liền
-      const lat = sst.lats[i];
-      const lon = sst.lons[j];
-      // gán vùng GẦN NHẤT (phủ kín toàn vùng biển VN, không còn lỗ hổng giữa
-      // các đa giác thô); null = xa hẳn mọi vùng → ngoài vùng biển VN
-      const region = nearestRegionWithin(lat, lon, REGION_REACH_DEG);
-      if (!region) continue;
+  if (extra?.base) {
+    const res = buildBaseCells(buildCellFeatures(sst, chl, sla, month, extra), extra.base, month, consts, profileOf, {
+      fleet: extra.fleet,
+      catchGrid: extra.catchGrid,
+      raw,
+      gates: extra.baseGates,
+    });
+    const date0 =
+      [sst.date, chl.date, sla?.date, extra?.anom?.date, extra?.cur?.u.date, extra?.thermo?.date]
+        .filter(Boolean)
+        .sort()[0] ?? "";
+    return {
+      ok: true,
+      date: date0,
+      cells: res.cells,
+      species: [...res.speciesBest.entries()].sort((a, b) => b[1] - a[1]).map(([short]) => short),
+      baseMode: res.mode,
+    };
+  }
 
-      // MÙA VỤ MỀM: mỗi loài ở vùng này có prior ∈ [0,1] theo tháng (1 = chính
-      // vụ, giảm dần ở vạt đầu/cuối vụ, SEASON_OFF_FLOOR = 0,6 khi trái vụ hẳn —
-      // từ 2026-10-10 trái vụ chỉ TRỪ BỚT, vệ tinh vẫn quyết) — thay cổng nhị phân cũ
-      // (điểm nhảy vách 0↔đầy ở ranh giới tháng). Gộp nhiều dòng mùa của cùng
-      // loài trong vùng → lấy prior LỚN NHẤT (loài chỉ chấm MỘT lần).
-      const seasonW = new Map<string, number>();
-      for (const f of FISH_SEASONS) {
-        if (!f.regions.includes(region.id)) continue;
-        const w = seasonPrior(f.months, month);
-        if (w <= 0) continue;
-        const prev = seasonW.get(f.species) ?? 0;
-        if (w > prev) seasonW.set(f.species, w);
+  for (const F of buildCellFeatures(sst, chl, sla, month, extra)) {
+    const scored: { short: string; fit: number; low: boolean }[] = [];
+    for (const [speciesName, sW] of seasonWeights(F.regionId, month)) {
+      const p = profileOf.get(speciesName);
+      if (!p) continue;
+      const fit = scoreCell(F, p, sW, fleetX(p.short, F.lat, F.lon), catchX(p.short, F.lat, F.lon), consts);
+      if (fit > 0) scored.push({ short: p.short, fit, low: p.surfaceSignal === "low" });
+    }
+    if (scored.length === 0) continue;
+    scored.sort((a, b) => b.fit - a.fit);
+    // điểm + điểm nóng của lớp "Mọi loài" CHỈ tính loài ĐỊNH VỊ ĐƯỢC bằng
+    // vệ tinh (không low) — để bản đồ tổng không bị cá đáy tô lan man.
+    const locatable = scored.filter((x) => !x.low);
+    const s = locatable.length ? (raw ? locatable[0].fit * 100 : Math.round(locatable[0].fit * 100)) : 0;
+    const sp: Record<string, number> = {};
+    for (const x of scored) {
+      const v = Math.round(x.fit * 100);
+      if (raw) {
+        sp[x.short] = x.fit * 100; // ĐO/FIT: giữ nguyên số thực, không cắt KEEP_MIN
+        if (v >= KEEP_MIN) speciesBest.set(x.short, Math.max(speciesBest.get(x.short) ?? 0, v));
+      } else if (v >= KEEP_MIN) {
+        sp[x.short] = v;
+        const prev = speciesBest.get(x.short) ?? 0;
+        if (v > prev) speciesBest.set(x.short, v);
       }
-      if (seasonW.size === 0) continue;
-
-      // lấy mẫu các trường về ô SST đang xét
-      const ci = nearestIndex(chl.lats, lat);
-      const cj = nearestIndex(chl.lons, lon);
-      const c = chl.values[ci]?.[cj];
-      const fThermFront = thermFront[i][j];
-      const fChlFront = chlFront[ci]?.[cj] ?? 0;
-      let fEddy = 0;
-      let coldStrength = 0;
-      let warmStrength = 0;
-      if (sla && eddyEdge) {
-        const si = nearestIndex(sla.lats, lat);
-        const sj = nearestIndex(sla.lons, lon);
-        fEddy = eddyEdge[si]?.[sj] ?? 0;
-        // mực nước THẤP HƠN VÙNG LÂN CẬN (dị thường không gian âm) = xoáy/nước
-        // trồi lạnh cục bộ, năng suất cao — KHÔNG so mực tuyệt đối (mùa cả bồn).
-        const slaAnomV = slaSpatial?.[si]?.[sj];
-        coldStrength = Number.isFinite(slaAnomV)
-          ? Math.min(1, Math.max(0, -(slaAnomV as number) / COLD_SCALE))
-          : 0;
-        // mực nước CAO HƠN lân cận = xoáy ấm cục bộ — gương coldStrength, cùng
-        // thước COLD_SCALE (p90 |dị thường| đo chung hai phía). Dùng cho cá nổi lớn.
-        warmStrength = Number.isFinite(slaAnomV)
-          ? Math.min(1, Math.max(0, (slaAnomV as number) / COLD_SCALE))
-          : 0;
-      }
-      // nước trồi/xáo trộn: LẠNH HƠN VÙNG LÂN CẬN (dị thường không gian nhiệt
-      // âm rõ); null = thiếu. So vùng bên cạnh, không so anomaly nhiều năm.
-      let upwTerm: number | null = null;
-      if (anom) {
-        const ai = nearestIndex(anom.lats, lat);
-        const aj = nearestIndex(anom.lons, lon);
-        const a = anomSpatial?.[ai]?.[aj];
-        if (Number.isFinite(a))
-          upwTerm = Math.min(1, Math.max(0, -(a as number) / UPW_SCALE));
-      }
-      // hội tụ dòng chảy mặt tại ô; null = thiếu dữ liệu
-      let convTerm: number | null = null;
-      if (cur && convGrid) {
-        const ui = nearestIndex(cur.u.lats, lat);
-        const uj = nearestIndex(cur.u.lons, lon);
-        // GỘP KHỐI: lưới dòng Copernicus 1/12° mịn hơn ô cá 0.25° ⇒ gộp mọi nút
-        // rơi vào ô, đừng lấy 1 nút rồi vứt 8/9 (xem blockMeanAt).
-        const cv = blockMeanAt(convGrid, ui, uj, convRatioLat, convRatioLon);
-        if (Number.isFinite(cv) && Number.isFinite(cur.u.values[ui]?.[uj])) {
-          convTerm = cv;
-        }
-      }
-      // tầng nhiệt: DỊ THƯỜNG KHÔNG GIAN của D20 (m) tại ô — âm = nêm nhô lên so
-      // với lân cận, dương = nêm chìm. Chấm thành điểm ở vòng lặp LOÀI (mỗi loài
-      // một khẩu vị `thermoBand`). null = thiếu lưới / ô NaN.
-      let thermoAnomM: number | null = null;
-      if (thermo) {
-        const ti = nearestIndex(thermo.lats, lat);
-        const tj = nearestIndex(thermo.lons, lon);
-        const dv = thermoSpatial?.[ti]?.[tj];
-        if (Number.isFinite(dv)) thermoAnomM = dv as number;
-      }
-      // độ sâu đáy tại ô (m, dương) — để CHẶN loài xa bờ (offshore) ở nước cạn
-      let cellDepthM: number | null = null;
-      let cellCoastKm: number | null = null;
-      if (depth) {
-        const dpi = nearestIndex(depth.lats, lat);
-        const dpj = nearestIndex(depth.lons, lon);
-        const dv = depth.values[dpi]?.[dpj];
-        if (Number.isFinite(dv)) cellDepthM = dv;
-        cellCoastKm = coastKm?.[dpi]?.[dpj] ?? null;
-      }
-      // ô có RẠN không (lưới rạn 0,25°) — null = thiếu lưới / ô NaN ⇒ "không rạn"
-      let cellHasReef: boolean | null = null;
-      if (reef) {
-        const rv = reef.values[nearestIndex(reef.lats, lat)]?.[nearestIndex(reef.lons, lon)];
-        if (Number.isFinite(rv)) cellHasReef = (rv as number) > 0;
-      }
-      // nhiệt độ ĐÁY / tầng 250 m tại ô (°C) — cổng nhiệt loài đáy / ngừ mắt to.
-      // Thiếu lưới hoặc ô NaN → null → chấm bằng SST mặt (fallback, không regress).
-      const sampleT = (g: ScalarGrid | null): number | null => {
-        if (!g) return null;
-        const gi = nearestIndex(g.lats, lat);
-        const gj = nearestIndex(g.lons, lon);
-        const v = g.values[gi]?.[gj];
-        return Number.isFinite(v) ? (v as number) : null;
-      };
-      const tBottom = sampleT(bottomTemp);
-      const tDeep = sampleT(deepTemp);
-
-      const scored: { short: string; fit: number; low: boolean }[] = [];
-      for (const [speciesName, sW] of seasonW) {
-        const p = SPECIES_PROFILES.find((x) => x.species === speciesName);
-        if (!p) continue;
-        // CỔNG NHIỆT (nhân): chấm ở TẦNG của loài — mặt (mặc định), đáy (loài
-        // đáy), hay 250 m (ngừ mắt to). Có lưới tầng → chấm nhiệt tầng với dải
-        // `sst[]` (đã tuned cho tầng đó). THIẾU lưới/ô NaN → FALLBACK nhiệt MẶT
-        // `t` với dải `sstFallback` (nếu có) hoặc `sst[]` — loài KHÔNG biến mất
-        // khi HYCOM fail. 14 loài đáy giữ dải mặt cũ nên fallback = hành vi cũ.
-        const tierT =
-          p.tempSource === "bottom"
-            ? tBottom
-            : p.tempSource === "deep"
-              ? tDeep
-              : t;
-        const bandRaw = tierT != null ? p.sst : (p.sstFallback ?? p.sst);
-        const tGate = tierT != null ? tierT : t;
-        // DẢI NHIỆT LAI (C3, 2026-10-03e): cao nguyên [b,c] nới theo khí hậu SST
-        // vùng–tháng (p25/p75), biên [a,d] giữ. CHỈ khi cổng đang chấm nhiệt MẶT
-        // (loài mặt, hoặc loài đáy/sâu đang FALLBACK về mặt vì thiếu HYCOM):
-        // loài đáy đang chấm nhiệt đáy thật thì khí hậu mặt không liên quan.
-        // Thiếu bảng ⇒ `bandRaw` (hành vi cũ; chỉ nới nên mất bảng không bao
-        // giờ làm điểm tăng).
-        const surfaceGate =
-          tierT == null || (p.tempSource !== "bottom" && p.tempSource !== "deep");
-        const band = surfaceGate
-          ? seasonalThermalBand(bandRaw, region.id, month, climo)
-          : bandRaw;
-        const tFit = trapezoid(tGate, band[0], band[1], band[2], band[3]);
-        // KHÔNG đệm ngoài [a,d] (C8 rà 2026-10-03d, đã đo rồi BỎ): sàn 0,2 kiểu
-        // FOOD_FLOOR cho điểm tối đa 20 < KEEP_MIN 25 ⇒ không bao giờ vào payload,
-        // là no-op; sàn ≥0,5 mới hiện mà hiện nghĩa là vẽ "tốt" ngoài dải chịu
-        // đựng đã dẫn nguồn = nói dối. Lưới 30/9: đệm ±1 °C chỉ chạm 3 ô×loài.
-        // Loài "0 ô trong vụ" (cá cờ, cá sòng) kẹt ở TRẦN c=29 °C (dốc 0,3–0,6
-        // khi nước 29,75–30,4) — việc của HỒ SƠ loài, không phải của cổng.
-        if (tFit === 0) continue;
-        // MỒI = GIỚI HẠN MỀM (tách khỏi soft-OR): mồi=0 chỉ hạ điểm còn
-        // FOOD_FLOOR, không zero hẳn để loài KHÔNG biến mất vì nhiễu ảnh mồi.
-        // `foodDependence` (∈[0,1], mặc định 1) điều khiển MỨC lệ thuộc mồi:
-        //   dep=1 → giới hạn đầy đủ (= hành vi cũ);  dep=0 → mồi KHÔNG gồng cổng
-        // (điểm không đổi theo chl). Đây là chỗ THAY trường `w.food` cũ vốn
-        // KHÔNG bao giờ được đọc. Mặc định 1 giữ nguyên bản đồ hiện tại.
-        const food = chlFit(c, p.chlLog[0], p.chlLog[1]);
-        const foodLimiter = foodGate(food, p.foodDependence ?? 1);
-        // loài ưa nước trồi lạnh: rìa xoáy HOẶC nước lõm lạnh, lấy mạnh hơn.
-        // CÁ NỔI LỚN (pelagic-large, coldCore=false): rìa xoáy HOẶC nước LỒI ẤM
-        // cục bộ (xoáy ấm/anticyclone) — 4 nghiên cứu độc lập cho ngừ vằn/vây
-        // vàng/chù ưa SSHA DƯƠNG (Zainuddin 2017/2023 0–12,5 cm; Mugo 2010 0→+50
-        // cm; Hsu 2021; Zhou 2022 Auxis thazard Biển Đông), xem ops/fish-review-
-        // 2026-10-03/report-algorithm.md B5/C5. CHỈ nhóm này: nguồn chỉ nói về cá
-        // ngừ & cá nổi lớn; mở cho mọi coldCore=false thì cá đáy/rạn (hồng 209→213,
-        // mối 72→75 ô ≥50) sáng thêm không có bằng chứng. Đo lưới 30/9 (t1/t4/t7/
-        // t10): %điểm nóng "Mọi loài" +0,25…+0,66 điểm; std eddyTerm 0,283→0,292;
-        // nục heo 106→123, vây vàng 85→92, chù 57→61, thu 1→3 ô ≥50; số loài giữ.
-        const eddyTerm = sla
-          ? p.coldCore
-            ? Math.max(fEddy, coldStrength)
-            : p.category === "pelagic-large"
-              ? Math.max(fEddy, warmStrength)
-              : fEddy
-          : null;
-
-        // SOFT-OR trên các CƠ CHẾ GOM CÁ (một cơ chế đầy = 0,4 < sàn 50; ô ≥50
-        // cần ≥2 cơ chế cùng chỗ — xem SOFTOR_SCALE), loại yếu tố
-        // thiếu dữ liệu. Mốc chuẩn hoá wMax là mức KHAI BÁO của hồ sơ loài
-        // (SPECIES_WMAX), KHÔNG suy từ các term còn lại — nếu suy thì mất nguồn
-        // sẽ kéo mốc xuống và LÀM ĐIỂM TĂNG. Mồi ĐÃ tách ra làm limiter.
-        const mech: [number, number][] = [
-          [p.w.thermFront, fThermFront],
-          [p.w.chlFront, fChlFront],
-        ];
-        if (eddyTerm != null) mech.push([p.w.eddy, eddyTerm]);
-        if (upwTerm != null) mech.push([p.w.upw, upwTerm]);
-        if (convTerm != null) mech.push([p.w.conv, convTerm]);
-        // tầng nhiệt: chỉ tính cho loài CÓ trọng số (cá ngừ/cá nổi lớn, mực xà).
-        // Khẩu vị theo LOÀI: vây vàng & cá nổi mặt ưa nêm NÔNG hơn lân cận (dải
-        // mặc định), ngừ mắt to ưa nêm SÂU hơn (`thermoBand` dương).
-        if (thermoAnomM != null && (p.w.thermo ?? 0) > 0)
-          mech.push([p.w.thermo as number, thermoFit(thermoAnomM, p.thermoBand)]);
-        const agg = softOrHabitat(
-          mech,
-          p.category === "pelagic-large" ? PELAGIC_LARGE_SOFTOR_SCALE : SOFTOR_SCALE,
-          SPECIES_WMAX.get(p.species) ?? speciesWMax(p.w),
-        );
-        // TRUNG THỰC: loài đáy/rạn ảnh vệ tinh ít nói được → kéo tổ hợp về trung
-        // tính, không vẽ điểm nóng giả. Loài nổi (high) giữ nguyên.
-        const conf = SURFACE_CONF[p.surfaceSignal];
-        const aggSat = conf * agg + (1 - conf) * NEUTRAL_AGG;
-        // KÊNH ĐỘI TÀU: tàu làm đều ở đây ⇒ gộp soft-OR (x=0 ⇒ y nguyên aggSat)
-        const fx = fleetX(p.short, lat, lon);
-        const aggEff = fx > 0 ? 1 - (1 - aggSat) * (1 - fleetScale * fx) : aggSat;
-        // nền sàn: mùa+nhiệt+mồi vẫn quyết điểm ngay cả khi cơ chế trơ.
-        // Cá rạn đứng trên rạn: sinh cảnh bắt buộc có thật ⇒ sàn REEF_HABITAT_FLOOR.
-        const habitatRaw = AGG_FLOOR + (1 - AGG_FLOOR) * aggEff;
-        const habitat =
-          p.requiresReef && cellHasReef ? Math.max(habitatRaw, REEF_HABITAT_FLOOR) : habitatRaw;
-        // CỔNG ĐỘ SÂU: loài xa bờ (offshore) ở nước cạn → điểm kéo về 0.
-        // KHÔNG BIẾT độ sâu (mất lưới ETOPO / ô NaN) → DEPTH_UNKNOWN_FIT (<1),
-        // KHÔNG phải ×1: mất nguồn thì bớt chắc chắn chứ không được thưởng oan.
-        // Loài VEN BỜ (inshore) thì ngược lại: nước khơi sâu → kéo về 0.
-        // Loài xa bờ còn qua CỔNG CÁCH BỜ (OFFSHORE_COAST_KM): thềm miền Trung
-        // dốc nên độ sâu một mình để lọt; và ô sát bờ có nút ETOPO rơi vào đất
-        // (độ sâu "không biết" ⇒ 0,5) nay ra 0 vì cách bờ 0 km.
-        const depthGate = p.offshore
-          ? (cellDepthM != null
-              ? deepWaterFit(cellDepthM, p.offshore[0], p.offshore[1])
-              : DEPTH_UNKNOWN_FIT) *
-            (cellCoastKm != null && Number.isFinite(cellCoastKm)
-              ? deepWaterFit(cellCoastKm, ...(p.coastKm ?? OFFSHORE_COAST_KM))
-              : 1)
-          : p.inshore
-            ? cellDepthM != null
-              ? shallowWaterFit(cellDepthM, p.inshore[0], p.inshore[1], p.inshoreFloor)
-              : DEPTH_UNKNOWN_FIT
-            : 1;
-        // CỔNG NỀN RẠN (requiresReef): ô có rạn ⇒ bỏ qua cổng độ sâu (chóp rạn
-        // nhô từ nền sâu); không rạn / thiếu lưới rạn ⇒ cổng độ sâu × REEF_ABSENT_FIT.
-        const depthFit = p.requiresReef
-          ? cellHasReef
-            ? 1
-            : depthGate * reefAbsentFit
-          : depthGate;
-        // `sW` = prior mùa vụ mềm (≤1): chính vụ ×1 (không đổi), tháng đệm hạ
-        // điểm đầu/cuối vụ, trái vụ ×0,6. Là thừa số ≤1 nên bất biến "mất tín hiệu = điểm
-        // GIẢM" vẫn giữ.
-        const fitSat = tFit * foodLimiter * habitat * depthFit * sW;
-        // KÊNH SẢN LƯỢNG LOÀI: loài này ra đều ở ô này mùa này (nhật ký × VMS) ⇒ gộp soft-OR
-        // vào điểm cuối; x=0 ⇒ y nguyên (chỉ cộng, không trừ)
-        const cx = catchX(p.short, lat, lon);
-        const fit = cx > 0 ? 1 - (1 - fitSat) * (1 - catchScale * cx) : fitSat;
-        if (fit > 0)
-          scored.push({ short: p.short, fit, low: p.surfaceSignal === "low" });
-      }
-      if (scored.length === 0) continue;
-      scored.sort((a, b) => b.fit - a.fit);
-      // điểm + điểm nóng của lớp "Mọi loài" CHỈ tính loài ĐỊNH VỊ ĐƯỢC bằng
-      // vệ tinh (không low) — để bản đồ tổng không bị cá đáy tô lan man.
-      const locatable = scored.filter((x) => !x.low);
-      const s = locatable.length ? Math.round(locatable[0].fit * 100) : 0;
-      const sp: Record<string, number> = {};
-      for (const x of scored) {
-        const v = Math.round(x.fit * 100);
-        if (v >= KEEP_MIN) {
-          sp[x.short] = v;
-          const prev = speciesBest.get(x.short) ?? 0;
-          if (v > prev) speciesBest.set(x.short, v);
-        }
-      }
-      // giữ ô nếu "Mọi loài" đạt ngưỡng HOẶC có loài nào (kể cả đáy) đạt ngưỡng.
-      // Ngưỡng hạ về KEEP_MIN=25 (trước 35): client (sàn hiển thị 50) tự lọc,
-      // đây chỉ quyết payload — giữ đủ ô cho legend kéo-thả xuống dưới 50.
+    }
+    // giữ ô nếu "Mọi loài" đạt ngưỡng HOẶC có loài nào (kể cả đáy) đạt ngưỡng.
+    // Ngưỡng hạ về KEEP_MIN=25 (trước 35): client (sàn hiển thị 50) tự lọc,
+    // đây chỉ quyết payload — giữ đủ ô cho legend kéo-thả xuống dưới 50.
+    if (!raw) {
       const anySp = Object.values(sp).some((v) => v >= KEEP_MIN);
       if (s < KEEP_MIN && !anySp) continue;
-      cells.push({
-        lat: Math.round(lat * 100) / 100,
-        lon: Math.round(lon * 100) / 100,
-        s,
-        top: locatable.filter((x) => x.fit >= KEEP_MIN / 100).slice(0, 3).map((x) => x.short),
-        sp,
-        t: Math.round(t * 10) / 10,
-        c: Number.isFinite(c) ? Math.round((c as number) * 100) / 100 : null,
-      });
     }
+    cells.push({
+      lat: Math.round(F.lat * 100) / 100,
+      lon: Math.round(F.lon * 100) / 100,
+      s,
+      top: locatable.filter((x) => x.fit >= KEEP_MIN / 100).slice(0, 3).map((x) => x.short),
+      sp,
+      t: Math.round(F.t * 10) / 10,
+      c: Number.isFinite(F.c) ? Math.round(F.c * 100) / 100 : null,
+    });
   }
 
   const date =
-    [sst.date, chl.date, sla?.date, anom?.date, cur?.u.date, thermo?.date]
+    [sst.date, chl.date, sla?.date, extra?.anom?.date, extra?.cur?.u.date, extra?.thermo?.date]
       .filter(Boolean)
       .sort()[0] ?? "";
   const species = [...speciesBest.entries()]
@@ -1732,6 +1934,109 @@ export function buildFishForecast(
     .map(([short]) => short);
   return { ok: true, date, cells, species };
 }
+
+/** Cơ chế gom cá → chữ đời thường cho `hint.why` (ngưỡng 0,4 = một cơ chế đầy của SOFTOR_SCALE) */
+const HINT_WHY: [(F: CellFeatures) => number, string][] = [
+  [(F) => F.fThermFront, "ranh giới nước nóng–lạnh"],
+  [(F) => F.fChlFront, "ranh giới nước nhiều mồi"],
+  [(F) => F.fEddy ?? 0, "xoáy nước"],
+  [(F) => F.upwTerm ?? 0, "nước trồi"],
+  [(F) => F.convTerm ?? 0, "dòng chảy gom mồi"],
+];
+const HINT_WHY_MIN = 0.4;
+/**
+ * Nhánh nền có giữ cổng CỨNG "loài phải có trong lịch mùa vụ của VÙNG" (`seasonWeights`) không?
+ * ĐO 2026-10-19 (nhãn v2, 61 ngày, README §7.9): bật cổng này làm trong-nghề tụt 0,802 → 0,770 (−0,032) vì nhiều kg
+ * thật rơi ở (vùng, loài) mà lịch không ghi — nền đã có mùa vụ làm ĐẶC TRƯNG (`baseSeason`, sàn 0,6 giữ), nên mặc
+ * định TẮT. Cổng nhiệt (`thermalFit` = 0 ⇒ không vẽ) vẫn BẬT — đo: không mất gì (0,770 = 0,770).
+ */
+export const BASE_SEASON_LIST_GATE = false;
+
+/**
+ * Nhánh NỀN của `buildFishForecast` (đợt 2A). Với mỗi loài có bảng trong `base`: dựng đặc trưng
+ * [xc, xf, stat, season] cho MỌI ô, xếp hạng một lượt qua `scoreBase` (miền xếp hạng = toàn bộ ô có vùng biển,
+ * không phụ thuộc loài đang vụ ở đâu — đúng cách đo ở dl-eval-honest). Rồi áp hai cổng CỨNG như cũ:
+ * lịch mùa vụ theo vùng (`seasonWeights`) và cổng nhiệt (`thermalFit` = 0 ⇒ không vẽ). Mùa vụ KHÔNG nhân thêm vào
+ * điểm — đã là một đặc trưng của nền. Tháng không có kg loài cùng tháng (`catchSameMonth`) hoặc loài trong
+ * `base.fleetOnly` ⇒ nền chỉ từ đội tàu + tĩnh + mùa vụ.
+ */
+function buildBaseCells(
+  feats: Iterable<CellFeatures>,
+  base: BaseParams,
+  month: number,
+  consts: ScoreConsts,
+  profileOf: Map<string, SpeciesProfile>,
+  o: { fleet?: FleetEffortGrid | null; catchGrid?: FleetEffortGrid | null; raw: boolean; gates?: { thermal?: boolean; season?: boolean } },
+): { cells: FishCell[]; speciesBest: Map<string, number>; mode: "catch-fleet-static" | "fleet-static" } {
+  const Fs = [...feats];
+  const sameMonth = base.catchSameMonth[String(month)] === true;
+  const fleetOnly = new Set(base.fleetOnly ?? []);
+  const fleetX = fleetPresenceLookup(o.fleet, month, FLEET_FULL_HOURS);
+  const byShort = new Map<string, SpeciesProfile>();
+  for (const p of profileOf.values()) if (!byShort.has(p.short)) byShort.set(p.short, p);
+
+  const scores = new Map<string, Uint8Array>();
+  for (const p of byShort.values()) {
+    const table = base.staticLift[p.short];
+    if (!table) continue;
+    const useCatch = sameMonth && !fleetOnly.has(p.short);
+    const catchX = useCatch
+      ? fleetPresenceLookup(o.catchGrid, month, base.ksKg[p.short] ?? 8000)
+      : () => 0;
+    const season = baseSeason(p.species, month);
+    const arr: BaseFeatures[] = Fs.map((F) => [
+      catchX(p.short, F.lat, F.lon),
+      fleetX(p.short, F.lat, F.lon),
+      staticLogLift(table, staticBins(F.depthM ?? NaN, F.coastKm != null && Number.isFinite(F.coastKm) ? F.coastKm : 700, F.lat)),
+      season,
+    ]);
+    scores.set(p.short, scoreBase(base, baseGroup(p.category), arr, useCatch));
+  }
+
+  const cells: FishCell[] = [];
+  const speciesBest = new Map<string, number>();
+  Fs.forEach((F, n) => {
+    const scored: { short: string; v: number; fit: number }[] = [];
+    const season = seasonWeights(F.regionId, month);
+    const list: [string, number][] = (o.gates?.season ?? BASE_SEASON_LIST_GATE) ? [...season] : [...profileOf.keys()].map((n) => [n, 1]);
+    for (const [speciesName, sW] of list) {
+      const p = profileOf.get(speciesName);
+      const sc = p && scores.get(p.short);
+      if (!p || !sc) continue;
+      if (o.gates?.thermal !== false && thermalFit(F, p, consts) <= 0) continue; // cổng nhiệt: ngoài dải chịu đựng thì không vẽ
+      scored.push({ short: p.short, v: sc[n], fit: scoreCell(F, p, sW, 0, 0, consts) });
+    }
+    if (scored.length === 0) return;
+    scored.sort((a, b) => b.v - a.v);
+    const s = scored[0].v;
+    const sp: Record<string, number> = {};
+    for (const x of scored) {
+      if (o.raw || x.v >= KEEP_MIN) sp[x.short] = x.v;
+      if (x.v >= KEEP_MIN) speciesBest.set(x.short, Math.max(speciesBest.get(x.short) ?? 0, x.v));
+    }
+    if (!o.raw && s < KEEP_MIN) return;
+    const satFit = Math.round(scored[0].fit * 100);
+    const why = HINT_WHY.map(([f, label]) => [f(F), label] as const)
+      .filter(([v]) => v >= HINT_WHY_MIN)
+      .sort((a, b) => b[0] - a[0])
+      .slice(0, 3)
+      .map(([, label]) => label);
+    cells.push({
+      lat: Math.round(F.lat * 100) / 100,
+      lon: Math.round(F.lon * 100) / 100,
+      s,
+      top: scored.filter((x) => x.v >= KEEP_MIN).slice(0, 3).map((x) => x.short),
+      sp,
+      t: Math.round(F.t * 10) / 10,
+      c: Number.isFinite(F.c) ? Math.round(F.c * 100) / 100 : null,
+      hint: { sat: satFit > 0 ? satFit : null, why },
+    });
+  });
+  return { cells, speciesBest, mode: sameMonth ? "catch-fleet-static" : "fleet-static" };
+}
+
+/** Kiểu `extra` của `buildFishForecast` — dùng chung với `buildCellFeatures`. */
+export type FishForecastExtra = NonNullable<Parameters<typeof buildFishForecast>[4]>;
 
 /* ----------------------------------------------------------------------------
    URL nguồn (server route dùng) — bbox vùng biển VN, lưới ~0.25°
@@ -1763,7 +2068,7 @@ export const CHL_FRONT_STRIDE = 1;
  * loài / lịch mùa / hằng số đã liệt kê trong `fishModelSignature`. Những thứ đó
  * TỰ vào dấu vân tay, không cần nhớ tăng tay.
  */
-export const FISH_ALGO_REV = 1;
+export const FISH_ALGO_REV = 2; // 2 = nối NỀN bãi cá theo mùa (đợt 2A, 2026-10-19): `s`/`sp` = điểm nền, HSI ra `hint`
 
 /**
  * CHỮ KÝ MÔ HÌNH CÁ — chuỗi chuẩn hoá mọi thứ quyết định bản đồ cá ra sao: hồ sơ
@@ -1795,6 +2100,7 @@ export function fishModelSignature(): string {
       FLEET_FULL_HOURS,
       CATCH_SCALE,
       CATCH_FULL_KG,
+      BASE_SEASON_LIST_GATE,
       AGG_FLOOR,
       NEUTRAL_AGG,
       FOOD_FLOOR,

@@ -21,12 +21,21 @@
 //   labels/catch-vessels-025.csv  month,lat,lon,species,vessels — số tàu theo ô 0,25° (cổng riêng tư
 //                       của build-species-catch-grid.mjs)
 //   --window a,b ⇒ labels-<a>/ chỉ chuyến rời bến trong [a,b] (dựng cả năm theo khúc)
+//   --out <thư mục>  ghi nơi khác (không đè nhãn cũ)
+//   --vessel-hash    thêm cột `vh` (xô băm tàu 0..9, scripts/vessel-bucket.mjs — không PII) vào
+//                    effort/catch/catch-vessels ⇒ chia tàu 2 nửa cho phép kiểm "tách theo tàu"
+//   --null-prod      ghi THÊM catch-null.csv: kg mỗi chuyến thay bằng trung vị kg/giờ của
+//                    (nghề × lớp dài) × giờ đánh (giữ cơ cấu loài, trọng số tin cậy; chuẩn lại để
+//                    TỔNG kg bằng bản thật) — ablation "triệt tiêu năng suất tàu" (đợt 1 mục 1.3)
 //
 //   node scripts/dl-build-labels.mjs [--dir ~/sdfish-data/dl] [--from 2026-08-01 --to 2026-09-30]
 //   node scripts/dl-build-labels.mjs --selftest
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+//   node scripts/dl-build-labels.mjs --v2 …   nhãn v2 (xem khối --v2 bên dưới + scripts/dl-labels-v2.mjs)
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { dataDir } from "./lib/data-dir.mjs";
+import { vesselBucket } from "./vessel-bucket.mjs";
 
 export const GAP_H = 4; // đoạn dài hơn = mất tín hiệu, không gán giờ
 export const PORT_KM = 5;
@@ -138,7 +147,18 @@ export const catchPrint = (sp) =>
 const snap = (v) => (Math.floor(v / CELL) * CELL + CELL / 2).toFixed(3);
 const vnDate = (t) => new Date((t + VN_OFFSET_S) * 1000).toISOString().slice(0, 10);
 
+/** Lớp dài tàu (m) cho ablation năng suất: <12 · 12–15 · 15–24 · ≥24 · không rõ */
+export const lenClass = (m) => (!Number.isFinite(m) ? "?" : m < 12 ? "<12" : m < 15 ? "12-15" : m < 24 ? "15-24" : ">=24");
+export const median = (a) => {
+  if (!a.length) return NaN;
+  const v = [...a].sort((x, y) => x - y);
+  const h = v.length >> 1;
+  return v.length % 2 ? v[h] : (v[h - 1] + v[h]) / 2;
+};
+
 function selftest() {
+  if (lenClass(11.9) !== "<12" || lenClass(12) !== "12-15" || lenClass(24) !== ">=24" || lenClass(undefined) !== "?") throw new Error("selftest: lenClass");
+  if (median([3, 1, 2]) !== 2 || median([1, 2, 3, 4]) !== 2.5) throw new Error("selftest: median");
   const t0 = 1_780_000_000;
   // 2 mẻ kéo 3 kn xen chạy 8 kn, có đầu/cuối ở bến
   const pts = [[t0, 10, 107]];
@@ -161,7 +181,7 @@ if (process.argv.includes("--selftest")) { selftest(); process.exit(0); }
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
-const DIR = arg("dir", join(homedir(), "sdfish-data", "dl")).replace(/^~/, homedir());
+const DIR = arg("dir", join(dataDir(), "dl")).replace(/^~/, homedir());
 const FROM = arg("from", "2026-08-01");
 const TO = arg("to", "2026-09-30");
 // --trust weighted (mặc định): mọi chuyến, nhân trọng số tin cậy · monitored: CHỈ chuyến có giám sát
@@ -170,7 +190,32 @@ const TRUST = arg("trust", "weighted");
 // --window 2026-01-01,2026-02-28: chỉ nhật ký có NGÀY RỜI (giờ VN) trong khoảng ⇒ labels-<từ>/.
 // Dựng nhãn cả năm theo từng khúc cho vừa bộ nhớ (track 11 tháng × 14 nghìn tàu không nạp một lần được).
 const WINDOW = arg("window", "").split(",").filter(Boolean);
-const OUT = join(DIR, (TRUST === "weighted" ? "labels" : `labels-${TRUST}`) + (WINDOW.length ? `-${WINDOW[0]}` : ""));
+// --v2: NHÃN v2 (mảnh 2C, scripts/dl-labels-v2.mjs) — bảng dải cả năm, cảng 10 km, nghề suy, tách thu mua/cặp,
+// Huber thay hệ số tin cậy, cột vh luôn bật. Không cờ này ⇒ mọi thứ dưới đây chạy y nguyên bản cũ.
+//   --ports <catalog-ports.json[.gz]> (mặc định: snapshot mới nhất của $SDVICO_DATALAKE_ROOT)  --bands <file>
+//   --gear-map <gear-map.json> (scripts/gear-infer.mjs)  --encounters <encounters/vessels.json>  --pairs <pairs.json>
+//   --ablate (ghi thêm catch-legacy.csv / catch-none.csv / catch-no-<tín hiệu>.csv)  --signals --hide --huber (điểm tin cậy)
+if (argv.includes("--v2")) {
+  const root = (process.env.SDVICO_DATALAKE_ROOT || join(homedir(), "forlife", "sdvico-data", "data-local", "datalake-iuu")).replace(/^~/, homedir());
+  const latest = existsSync(join(root, "snapshots")) ? readdirSync(join(root, "snapshots")).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().at(-1) : null;
+  const home = (p) => p?.replace(/^~/, homedir());
+  const { buildLabelsV2 } = await import("./dl-labels-v2.mjs");
+  await buildLabelsV2({
+    DIR, FROM, TO, WINDOW, OUT: home(arg("out", null)) ?? undefined,
+    ports: home(arg("ports", join(root, "snapshots", latest ?? "", "catalog-ports.json.gz"))),
+    bands: home(arg("bands", undefined)), gearMap: home(arg("gear-map", join(DIR, "gear-map.json"))),
+    encounters: home(arg("encounters", join(root, "encounters", "vessels.json"))), pairs: home(arg("pairs", join(DIR, "pairs.json"))),
+    ablate: argv.includes("--ablate"), huber: argv.includes("--huber"),
+    // điểm tin cậy (README §7.2b): --signals c2_repeat,… (mặc định: mọi tín hiệu mềm; "none" = tắt) · --hide a1_gap,a2_flag,a3_eez (mặc định: cả ba; "none" = tắt)
+    signals: arg("signals", null) ? arg("signals").split(",").filter((x) => x && x !== "none") : undefined,
+    hide: arg("hide", null) ? arg("hide").split(",").filter((x) => x && x !== "none") : undefined,
+  });
+  process.exit(0);
+}
+const OUT = arg("out", null)?.replace(/^~/, homedir()) ?? join(DIR, (TRUST === "weighted" ? "labels" : `labels-${TRUST}`) + (WINDOW.length ? `-${WINDOW[0]}` : ""));
+const VH = argv.includes("--vessel-hash");
+const NULLP = argv.includes("--null-prod");
+const vcol = (id) => (VH ? `,${vesselBucket(id)}` : "");
 mkdirSync(OUT, { recursive: true });
 
 const trips = new Map(JSON.parse(readFileSync(join(DIR, `trips_${FROM}_${TO}.json`), "utf8")).map((t) => [t.code, t]));
@@ -221,7 +266,7 @@ for (const lb of logbooks) {
   if (TRUST === "monitored" && trust.w < 1) { cov.distrust++; continue; }
   cov.used++;
   const gear = csv(vessels.get(vid)?.gear ?? "?");
-  rows.push({ lb, gear, segs: segments(pts), hauls: lb.haulCount ?? 0, w: trust.w, electronic: lb.form === "ELECTRONIC" });
+  rows.push({ lb, vid, len: vessels.get(vid)?.lengthM, gear, segs: segments(pts), hauls: lb.haulCount ?? 0, w: trust.w, electronic: lb.form === "ELECTRONIC" });
 }
 
 // ── chỉnh ngưỡng theo nghề ────────────────────────────────────────────────
@@ -260,6 +305,21 @@ for (const r of rows) {
 }
 const cap = {};
 for (const [g, v] of cpue) { v.sort((a, b) => a - b); cap[g] = v[Math.floor(0.99 * (v.length - 1))]; }
+// ABLATION năng suất: trung vị kg/giờ (đã kẹp p99) theo nghề × lớp dài; lớp <20 chuyến lùi về trung vị của nghề
+const nullMed = new Map();
+if (NULLP) {
+  const by = new Map(), byG = new Map();
+  for (const r of rows) {
+    if (!(r.H > 0 && r.kg > 0)) continue;
+    const c = Math.min(r.kg / r.H, cap[r.gear]);
+    const k = `${r.gear}|${lenClass(r.len)}`;
+    (by.get(k) ?? by.set(k, []).get(k)).push(c);
+    (byG.get(r.gear) ?? byG.set(r.gear, []).get(r.gear)).push(c);
+  }
+  for (const [k, v] of by) nullMed.set(k, v.length >= 20 ? median(v) : median(byG.get(k.split("|")[0])));
+  for (const [g, v] of byG) nullMed.set(g, median(v));
+}
+const catNull = new Map();
 let capped = 0;
 for (const r of rows) {
   if (!r.H) { if (r.kg > 0) cov.declaredButNoFishing++; continue; }
@@ -269,23 +329,34 @@ for (const r of rows) {
   const scale = r.kg / H > cap[r.gear] ? (capped++, (cap[r.gear] * H) / r.kg) : 1;
   for (const s of fishing) {
     const k = `${vnDate(s.t)},${snap(s.lat)},${snap(s.lon)}`;
-    eff.set(`${k},${r.gear}`, (eff.get(`${k},${r.gear}`) ?? 0) + s.dtH);
+    const ek = `${k},${r.gear}${vcol(r.vid)}`;
+    eff.set(ek, (eff.get(ek) ?? 0) + s.dtH);
     for (const x of sp) {
       if (!(x.kg > 0)) continue;
       const kg = (x.kg * scale * r.w * s.dtH) / H;
-      const kk = `${k},${csv(x.code || "?")},${r.gear}`;
+      const kk = `${k},${csv(x.code || "?")},${r.gear}${vcol(r.vid)}`;
       cat.set(kk, (cat.get(kk) ?? 0) + kg);
+      if (NULLP && r.kg > 0) {
+        const med = nullMed.get(`${r.gear}|${lenClass(r.len)}`) ?? nullMed.get(r.gear);
+        if (Number.isFinite(med)) catNull.set(kk, (catNull.get(kk) ?? 0) + (x.kg * ((med * H) / r.kg) * r.w * s.dtH) / H);
+      }
       // số TÀU khác nhau theo tháng × ô 0,25° (trục lưới cá) × loài — cổng riêng tư của lưới
       // sản lượng loài (build-species-catch-grid.mjs chỉ giữ ô ≥ 3 tàu)
-      const vk = `${vnDate(s.t).slice(0, 7)},${axis025(s.lat)},${axis025(s.lon)},${csv(x.code || "?")}`;
+      const vk = `${vnDate(s.t).slice(0, 7)},${axis025(s.lat)},${axis025(s.lon)},${csv(x.code || "?")}${vcol(r.vid)}`;
       (catVessels.get(vk) ?? catVessels.set(vk, new Set()).get(vk)).add(r.lb.vessel?.id);
     }
   }
   for (const x of sp) if (x.kg > 0) spTot.set(`${x.code}|${x.name}`, (spTot.get(`${x.code}|${x.name}`) ?? 0) + x.kg);
 }
-writeFileSync(join(OUT, "effort.csv"), "date,lat,lon,geartype,hours\n" + [...eff].map(([k, h]) => `${k},${h.toFixed(2)}`).join("\n"));
-writeFileSync(join(OUT, "catch.csv"), "date,lat,lon,species,gear,kg\n" + [...cat].map(([k, v]) => `${k},${v.toFixed(1)}`).join("\n"));
-writeFileSync(join(OUT, "catch-vessels-025.csv"), "month,lat,lon,species,vessels\n" + [...catVessels].map(([k, v]) => `${k},${v.size}`).join("\n"));
+writeFileSync(join(OUT, "effort.csv"), `date,lat,lon,geartype,${VH ? "vh," : ""}hours\n` + [...eff].map(([k, h]) => `${k},${h.toFixed(2)}`).join("\n"));
+writeFileSync(join(OUT, "catch.csv"), `date,lat,lon,species,gear,${VH ? "vh," : ""}kg\n` + [...cat].map(([k, v]) => `${k},${v.toFixed(1)}`).join("\n"));
+writeFileSync(join(OUT, "catch-vessels-025.csv"), `month,lat,lon,species,${VH ? "vh," : ""}vessels\n` + [...catVessels].map(([k, v]) => `${k},${v.size}`).join("\n"));
+if (NULLP) {
+  const tot = [...cat.values()].reduce((a, b) => a + b, 0), totN = [...catNull.values()].reduce((a, b) => a + b, 0);
+  const F = totN > 0 ? tot / totN : 1; // chuẩn lại: tổng kg bằng bản thật ⇒ mức bão hoà CATCH_FULL_KG giữ nghĩa
+  writeFileSync(join(OUT, "catch-null.csv"), `date,lat,lon,species,gear,${VH ? "vh," : ""}kg\n` + [...catNull].map(([k, v]) => `${k},${(v * F).toFixed(1)}`).join("\n"));
+  console.error(`[null-prod] chuẩn lại ×${F.toFixed(4)} · ${nullMed.size} ô trung vị nghề×lớp dài`);
+}
 const report = {
   builtAt: new Date().toISOString(),
   trust: TRUST,

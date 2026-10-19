@@ -1,4 +1,4 @@
-// scripts/fish-hypo-drift-vector.mjs   (chạy: npx tsx scripts/fish-hypo-drift-vector.mjs)
+// scripts/fish-hypo-drift-vector.mjs   (chạy: npx tsx scripts/_archive/fish-hypo-drift-vector.mjs)
 // ─────────────────────────────────────────────────────────────────────────────
 // GIẢ THUYẾT #5 (H5) — DỊCH CẢ TRƯỜNG ĐIỂM THEO MỘT VECTƠ ĐO ĐƯỢC
 //
@@ -33,9 +33,9 @@ import {
   decodeClimatology,
   ABSENT_PERSIST,
   climShare,
-} from "../src/lib/fish-blend.ts";
+} from "../../src/lib/fish-blend.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CORPUS = join(ROOT, ".cache", "fish-corpus");
 const CLIM_PATH = join(ROOT, "public", "data", "fish-climatology.v1.json");
 const OUT = join(ROOT, ".cache", "fish-hypo-drift-result.json");

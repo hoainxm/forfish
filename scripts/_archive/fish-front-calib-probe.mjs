@@ -3,7 +3,7 @@
 // các hằng `full` trong fish-predict.ts (thermFront 0.5°C, chlFront 0.25 log,
 // eddy 0.08 m) có realistic không: nếu hầu hết ô front đã kịch trần (=1) thì
 // tín hiệu bão hoà (mất phân biệt); nếu hầu như 0 thì front gần như vô hình.
-// Chỉ kéo ảnh MỚI NHẤT mỗi nguồn (nhanh). node scripts/fish-front-calib-probe.mjs
+// Chỉ kéo ảnh MỚI NHẤT mỗi nguồn (nhanh). node scripts/_archive/fish-front-calib-probe.mjs
 import { writeFileSync } from "node:fs";
 const UA = "Mozilla/5.0 (compatible; SDFish/1.0; +https://github.com/Long-Forfun/ForFish)";
 const ERDDAP = "https://coastwatch.noaa.gov/erddap/griddap";

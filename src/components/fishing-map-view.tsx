@@ -4675,6 +4675,9 @@ export default function FishingMapView() {
 
   const fishView = useMemo<FishForecast | null>(() => {
     if (!fishCast) return null;
+    // NỀN bãi cá theo mùa (`baseMode`): `s`/`sp` đã là bản đồ MÙA theo tháng, không phụ thuộc ảnh hôm nay — pha thêm
+    // bản mùa vụ HSI (lib/fish-blend.ts) sẽ trộn hai thứ khác bản chất. Ngày xa dùng nguyên bản nền.
+    if (fishCast.baseMode) return fishCast;
     if (fishLead <= 0 || !clim || !blendUsable()) return fishCast;
     const month = Number((sel?.date ?? todayIso).slice(5, 7));
     if (!Number.isFinite(month) || month < 1 || month > 12) return fishCast;

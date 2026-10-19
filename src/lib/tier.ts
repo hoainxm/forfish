@@ -1,5 +1,7 @@
 // Phân hạng tài khoản (logic THUẦN — dùng chung client/middleware/route).
 // 'basic' (mặc định) | 'premium'. Premium mở: dự báo cá + thời tiết quá 3 ngày.
+// (2026-10-19) "Dự báo cá" bán = lớp BÃI CÁ THEO MÙA (điểm nền từ sản lượng thật, fish-base.ts)
+// + "dấu hiệu hôm nay" từ vệ tinh (không nâng điểm) — 01-product Trục 1. Luật gác không đổi.
 // Hạng nằm ở customers.tier + customers.premium_until (migration 0003) — nguồn
 // gán: webhook SDWork hoặc web quản trị /quan-tri. App KHÔNG có luồng
 // thanh toán.

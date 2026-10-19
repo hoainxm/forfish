@@ -23,7 +23,10 @@
     "kiem:ban-do": "node scripts/kiem-ban-do.mjs",
     "kiem:phu": "node scripts/kiem-phu-hai-do.mjs",
     "dev:cho": "node scripts/dev-market.mjs",
-    "dev:webpack": "next dev --webpack"
+    "dev:webpack": "next dev --webpack",
+    "train:dry": "node scripts/train/run.mjs --dry-run",
+    "train:labels": "node scripts/train/run.mjs --only adapt,adapt-0809,aux,labels-v2",
+    "train:eval": "node scripts/train/run.mjs --resume"
   },
   "dependencies": {
     "@capacitor-community/text-to-speech": "^8.0.2",

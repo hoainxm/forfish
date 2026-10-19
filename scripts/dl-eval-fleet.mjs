@@ -13,19 +13,26 @@
 // CHẮC CHẮN nâng AUCarea (nó chính là chỗ tàu đi); câu hỏi thật là AUCeff có TỤT không.
 //
 // Ra: <out>/fleet-eval.json + bảng in ra màn hình.
+//
+// BỘ ĐO TRUNG THỰC (rà pipeline 2026-10-18, đợt 1): thêm `--honest` ⇒ chạy scripts/dl-eval-honest.mjs thay cho
+// bảng trên — AUCeff trong-nghề + n_eff, baseline (x thuần/tĩnh/khí hậu/ngẫu nhiên/M−1), 4 phép kiểm rò, bootstrap
+// khối 7 ngày + CI chênh cặp, bảng CPUE theo bậc điểm. Cần --catch-dir; nhãn nên là `labels-vh` (có cột băm tàu):
+//   npx tsx scripts/dl-eval-fleet.mjs --honest --grids … --labels <dl-trk0809/labels-vh> --fleet-dir … --catch-dir … --out <dir> [--boot 500]
+// Lưới nửa-tàu: fleet-ex-<tháng>-A|B.json, catch-ex-<tháng>-A|B.json; ablation: catch-null-ex-<tháng>.json (xem dl-eval-honest.mjs).
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { dataDir } from "./lib/data-dir.mjs";
 import { buildFishForecast, parseErddapGrid, parseBathyGrid } from "../src/lib/fish-predict.ts";
 import { attachDay, weightedAuc, readCsv, targetGears, ASFIS_TO_SHORT } from "./dl-eval.mjs";
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
 const home = (p) => p.replace(/^~/, homedir());
-const GRIDS = home(arg("grids", "~/sdfish-data/fc-full/grids"));
-const LAB = home(arg("labels", "~/sdfish-data/dl/labels"));
-const OUT = home(arg("out", "~/sdfish-data/fleet"));
-const FLEET_DIR = home(arg("fleet-dir", "~/sdfish-data/fleet"));
+const GRIDS = home(arg("grids", join(dataDir(), "fc-full/grids")));
+const LAB = home(arg("labels", join(dataDir(), "dl/labels")));
+const OUT = home(arg("out", join(dataDir(), "fleet")));
+const FLEET_DIR = home(arg("fleet-dir", join(dataDir(), "fleet")));
 const FULL = arg("fleet-full", "src/data/fleet-effort-025.v1.json");
 const SCALES = (arg("scales", "0.3,0.5,0.7")).split(",").map(Number);
 const HOURS = (arg("hours", "30,60,120")).split(",").map(Number);
@@ -79,6 +86,12 @@ const gearSp = {};
 for (const r of catAll) { const s = ASFIS_TO_SHORT[r.species]; if (s) (gearSp[s] ??= {})[r.gear] = (gearSp[s][r.gear] ?? 0) + +r.kg; }
 const SPECIES = Object.keys(gearSp).filter((s) => Object.values(gearSp[s]).reduce((a, b) => a + b, 0) > 0).sort();
 const tg = Object.fromEntries(SPECIES.map((s) => [s, targetGears(gearSp[s])]));
+
+if (argv.includes("--honest")) {
+  const { runHonest } = await import("./dl-eval-honest.mjs");
+  await runHonest({ inputs, depth, climo, reef, heldOut, catchHeld, catchFull, fullGrid, effD, catD, SPECIES, tg, OUT, FLEET_DIR, CATCH_DIR, B: Number(arg("boot", 500)) });
+  process.exit(0);
+}
 
 const prep = new Map();
 for (const x of inputs) {

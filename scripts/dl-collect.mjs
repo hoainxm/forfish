@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// ⚠️ KẾ THỪA (2026-10-19): đường hầm API đã chết — nguồn thật là snapshot local, đi qua scripts/dl-adapt-local.mjs
+// (runner: scripts/train/run.mjs). File giữ để tham khảo shape; mặc định ghi vào $SDFISH_DATA_DIR/dl.
 // scripts/dl-collect.mjs — TẢI DỮ LIỆU HUẤN LUYỆN lớp dự báo cá từ DataLake thủy sản (Cục).
 // ─────────────────────────────────────────────────────────────────────────────
 // Lấy ba thứ cho khoảng [from, to]:
@@ -10,7 +12,7 @@
 // RIÊNG TƯ: API trả cả tên/SĐT/địa chỉ chủ tàu. Bộ tải BỎ NGAY `owner`, `commune`,
 // `regNo`/`reg` trước khi ghi đĩa — chỉ giữ mã tàu V… (mã hệ thống, không phải số ĐK).
 // DỮ LIỆU KHÔNG VÀO REPO (CLAUDE.md "chống phình" quy tắc 5): mặc định ghi ra
-// ~/sdfish-data/dl. Chỉ THAM SỐ đã fit mới vào src/data.
+// $SDFISH_DATA_DIR/dl (mặc định ~/sdfish-data/dl). Chỉ THAM SỐ đã fit mới vào src/data.
 //
 //   DATALAKE_BASE=https://….trycloudflare.com DATALAKE_KEY=… \
 //     node scripts/dl-collect.mjs --from 2026-08-01 --to 2026-09-30 [--track-from 2026-07-01] [--out ~/sdfish-data/dl] [--conc 12]
@@ -19,12 +21,13 @@
 import { mkdirSync, existsSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { dataDir } from "./lib/data-dir.mjs";
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
 const FROM = arg("from", "2026-08-01");
 const TO = arg("to", "2026-09-30");
-const OUT = arg("out", join(homedir(), "sdfish-data", "dl")).replace(/^~/, homedir());
+const OUT = arg("out", join(dataDir(), "dl")).replace(/^~/, homedir());
 const CONC = Number(arg("conc", 12));
 // --only tracks: chỉ tải track (chạy song song với một tiến trình đang tải chuyến/tàu)
 const ONLY = arg("only", null);

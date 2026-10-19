@@ -1,4 +1,4 @@
-// scripts/fish-hypo-wind-diag.mjs  (chạy: npx tsx scripts/fish-hypo-wind-diag.mjs)
+// scripts/fish-hypo-wind-diag.mjs  (chạy: npx tsx scripts/_archive/fish-hypo-wind-diag.mjs)
 // ─────────────────────────────────────────────────────────────────────────────
 // CHẨN ĐOÁN cho GIẢ THUYẾT #3 sau khi cổng dừng kích hoạt.
 // Mục đích: PHÂN BIỆT hai khả năng — (a) code sai / chỉ số đặt lệch, hay
@@ -21,9 +21,9 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildClimScaleMap, decodeClimatology, ABSENT_PERSIST, climShare } from "../src/lib/fish-blend.ts";
+import { buildClimScaleMap, decodeClimatology, ABSENT_PERSIST, climShare } from "../../src/lib/fish-blend.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CORPUS = join(ROOT, ".cache", "fish-corpus");
 const CLIM_PATH = join(ROOT, "public", "data", "fish-climatology.v1.json");
 const WIND_PATH = join(ROOT, ".cache", "fish-wind", "era5-1deg.json");

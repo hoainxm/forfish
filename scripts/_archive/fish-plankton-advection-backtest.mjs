@@ -38,7 +38,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT_PATH = join(__dirname, "..", "src", "data", "plankton-drift-skill.json");
+const OUT_PATH = join(__dirname, "..", "..", "src", "data", "plankton-drift-skill.json");
 
 const UA =
   "Mozilla/5.0 (compatible; SDFish/1.0; +https://github.com/Long-Forfun/ForFish)";

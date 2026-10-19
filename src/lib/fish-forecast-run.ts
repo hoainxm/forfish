@@ -42,6 +42,8 @@ import type { SstClimatology } from "@/lib/thermal-band";
 import reefGridJson from "@/data/reef-grid-025.v1.json";
 import fleetEffortJson from "@/data/fleet-effort-025.v1.json";
 import speciesCatchJson from "@/data/species-catch-025.v1.json";
+import fishBaseJson from "@/data/fish-base.v1.json";
+import type { BaseParams } from "@/lib/fish-base";
 import type { FleetEffortGrid } from "@/lib/fleet-effort";
 
 /**
@@ -407,6 +409,9 @@ export async function computeFishForecast(opts?: {
         // sản lượng TỪNG LOÀI theo ô × tháng (nhật ký eCDT × VMS, bundle server, không request
         // mạng — scripts/build-species-catch-grid.mjs sinh lại khi có thêm tháng nhật ký)
         catchGrid: speciesCatchJson as unknown as FleetEffortGrid,
+        // NỀN "bãi cá theo mùa" (đợt 2A): `s`/`sp` = điểm nền, HSI vệ tinh chỉ ra `cell.hint`. Bundle server,
+        // KHÔNG request mạng mới; hệ số/bảng tĩnh ở src/data/fish-base.v1.json (scripts/fish-base-build.mjs)
+        base: fishBaseJson as unknown as BaseParams,
       }),
       // `generatedAt` = LÚC TÍNH bản đồ này (khác `date` = ngày ẢNH vệ tinh).
       generatedAt: new Date().toISOString(),

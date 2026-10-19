@@ -21,7 +21,7 @@
 //   (Biến thể "blur" = gradient của TB ảnh chl N ngày — đo thêm để CHỨNG minh
 //    nó nhoè front hơn composite.)
 //
-// Chạy:  node scripts/fish-front-composite-val.mjs
+// Chạy:  node scripts/_archive/fish-front-composite-val.mjs
 // Không cần API key. Cần mạng (NOAA ERDDAP). Dữ liệu THẬT ~30 ngày gần nhất.
 // KHÔNG ghi vào src/ — chỉ in bảng + ghi báo cáo scratchpad (do agent tổng hợp).
 // ─────────────────────────────────────────────────────────────────────────

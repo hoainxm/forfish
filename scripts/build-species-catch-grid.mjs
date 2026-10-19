@@ -18,12 +18,15 @@
 // Chạy lại CHỈ KHI có thêm tháng nhật ký/VMS (sinh lại là hành động có chủ ý):
 //   node scripts/build-species-catch-grid.mjs --labels ~/sdfish-data/dl-all/labels-2026-01-01,~/sdfish-data/dl-all/labels-2026-03-01,…
 //   node scripts/build-species-catch-grid.mjs --labels … --exclude-month 2026-09 --out <tạm>   (kiểm định giữ-tháng-ra)
+//   … --vessel-half A|B   CHỈ tàu nửa A/B (cần nhãn dựng với `dl-build-labels --vessel-hash`: cột vh)
+//   … --catch-file catch-null.csv   đọc kg từ file khác (ablation triệt tiêu năng suất tàu)
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import { homedir } from "node:os";
 import { ASFIS_TO_SHORT } from "./dl-eval.mjs";
 import { AXIS } from "./build-fleet-effort-grid.mjs";
+import { halfOfBucket } from "./vessel-bucket.mjs";
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
@@ -54,29 +57,42 @@ async function main() {
   if (!DIRS.length) { console.error("thiếu --labels <thư mục,…>"); process.exit(2); }
   const OUT = home(arg("out", OUT_DEFAULT));
   const EXCLUDE = new Set((arg("exclude-month", "") || "").split(",").filter(Boolean));
+  const HALF = arg("vessel-half", null);
+  if (HALF && HALF !== "A" && HALF !== "B") { console.error("--vessel-half phải là A hoặc B"); process.exit(2); }
+  const CATCH_FILE = arg("catch-file", "catch.csv");
 
   // số tàu theo tháng × ô × loài (cộng dồn qua các khúc: chuyến chỉ thuộc MỘT khúc theo ngày rời,
   // nhưng một tàu có thể ở hai khúc ⇒ lấy MAX thay vì cộng — đếm dưới, an toàn cho cổng riêng tư)
   const ves = new Map();
   for (const d of DIRS) {
+    // trong MỘT khúc × MỘT mã ASFIS: cộng số tàu các xô băm (xô rời nhau) của nửa được chọn; rồi lấy MAX
+    // qua các mã cùng tên ngắn và qua các khúc (đúng luật cũ — đếm dưới, an toàn cho cổng riêng tư;
+    // nhãn không có cột vh thì mỗi dòng đã là tổng cả tàu)
+    const inDir = new Map();
     for await (const r of csvRows(path.join(d, "catch-vessels-025.csv"))) {
       const sp = ASFIS_TO_SHORT[r.species];
       if (!sp) continue;
       const c = cellOf(+r.lat, +r.lon);
       if (!c) continue;
+      if (HALF && r.vh === undefined) { console.error("--vessel-half cần nhãn có cột vh (dl-build-labels --vessel-hash)"); process.exit(2); }
+      if (HALF && halfOfBucket(r.vh) !== HALF) continue;
       const k = `${r.month}|${sp}|${c[0]},${c[1]}`;
-      ves.set(k, Math.max(ves.get(k) ?? 0, +r.vessels));
+      const kc = `${k}#${r.species}`;
+      inDir.set(kc, (inDir.get(kc) ?? 0) + +r.vessels);
     }
+    for (const [kc, v] of inDir) { const k = kc.slice(0, kc.indexOf("#")); ves.set(k, Math.max(ves.get(k) ?? 0, v)); }
   }
+  const nVes = (k) => ves.get(k) ?? 0;
 
   const acc = new Map(); // tháng|loài|i,j → kg
   const span = new Map(); // tháng → [ngày đầu, ngày cuối] có sản lượng
   const spKg = new Map();
   for (const d of DIRS) {
-    for await (const r of csvRows(path.join(d, "catch.csv"))) {
+    for await (const r of csvRows(path.join(d, CATCH_FILE))) {
       const sp = ASFIS_TO_SHORT[r.species];
       const kg = +r.kg;
       if (!sp || !(kg > 0)) continue;
+      if (HALF && halfOfBucket(r.vh) !== HALF) continue;
       const month = r.date.slice(0, 7);
       if (EXCLUDE.has(month)) continue;
       const c = cellOf(+r.lat, +r.lon);
@@ -98,7 +114,7 @@ async function main() {
   for (const [k, kg] of acc) {
     const [month, sp, ij] = k.split("|");
     if (!keepSp.has(sp)) continue;
-    if ((ves.get(k) ?? 0) < MIN_VESSELS || kg < 1) { dropped++; kgDropped += kg; continue; }
+    if (nVes(k) < MIN_VESSELS || kg < 1) { dropped++; kgDropped += kg; continue; }
     const [i, j] = ij.split(",").map(Number);
     ((out[month] ??= {})[sp] ??= []).push([i, j, Math.round(kg)]);
     kept++;
@@ -117,7 +133,7 @@ async function main() {
   const res = {
     v: 1,
     unit: "kg sản lượng loài (nhật ký eCDT × giờ đánh VMS)",
-    builtFrom: { labels: DIRS.map((d) => path.basename(d)), excludedMonths: [...EXCLUDE] },
+    builtFrom: { labels: DIRS.map((d) => path.basename(d)), excludedMonths: [...EXCLUDE], ...(HALF ? { vesselHalf: HALF } : {}), ...(CATCH_FILE !== "catch.csv" ? { catchFile: CATCH_FILE } : {}) },
     rule: { minVessels: MIN_VESSELS, minSpeciesT: MIN_SPECIES_T },
     axis: AXIS,
     // "nghề" của shape FleetEffortGrid = chính loài

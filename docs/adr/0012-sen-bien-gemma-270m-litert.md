@@ -114,3 +114,9 @@ Nguồn: [Gemma Terms of Use](https://ai.google.dev/gemma/terms) (sửa lần cu
 - **2026-10-16**: Proposed — n-gram v2 làm xong, Gemma chờ duyệt phân phối
 - **2026-10-17**: n-gram v3 (thao tác bản đồ); Gemma nén còn 62 MB; thầy Opus chuyển sang gói subscription
 - **2026-10-17**: Accepted — plugin Android `SenBienGemma` (LiteRT-LM 0.18.0) + gói on-demand `senbiengemma`; chạy trên emulator (nạp 0,33 s, 0,43–0,6 s/câu)
+
+## Cập nhật 2026-10-18 — Gemma v4 (65 ý, có 13 ý chợ) + giới hạn nén
+
+Fine-tune lại trên dữ liệu v4 (gpu-desktop, cùng công thức nén int4 khối 32 + chưng cất, 62 MB). Chấm cùng cổng của vòng train hằng ngày (doc 15 §23 bước 4): chợ 86,5 % trọn đúng (v3 không biết ý chợ), câu người viết +0,9/+2,5, hỏi bản đồ +1,7/+0,8, nhưng **thao tác bản đồ −1,3** (ý chợ lấn: "lùi về bây giờ nè" ⇒ shop_doi_hen) ⇒ **không qua cổng, app GIỮ v3** (release `sen-bien-gemma-v1`). Thiệt hại nhỏ: Gemma chỉ được lấy tham số khi cùng ý với n-gram, lệnh sàn tách tham số bằng luật. Báo cáo: repo AI Assistant `train/reports/troly-v4-gemma-2026-10-18.md`.
+
+**Nén dưới int4 không chạy được**: QAT 2-bit khối 64 xuất ra 35–39 MB nhưng LiteRT-LM (bộ chạy của plugin Android) lỗi ngay câu đầu ⇒ **62 MB int4 là bản nhỏ nhất chạy được trong app**. Bản ternary GGUF (29–36 MB) chỉ chạy trên llama.cpp — đổi runtime Android là quyết định riêng. N-gram: 4,6 MB nhưng 93,7 % trọng số = 0, phát dạng SDF2 (gzip) ⇒ tải về ~300 KB; lưới 4-bit làm tụt ~20 điểm ⇒ giữ int8.

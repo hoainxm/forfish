@@ -1,4 +1,4 @@
-// scripts/fish-hypo-rank-blend.mjs   (chạy: npx tsx scripts/fish-hypo-rank-blend.mjs)
+// scripts/fish-hypo-rank-blend.mjs   (chạy: npx tsx scripts/_archive/fish-hypo-rank-blend.mjs)
 // ─────────────────────────────────────────────────────────────────────────────
 // GIẢ THUYẾT #4 — "VẶN LẠI ĐÚNG THƯỚC ĐO":
 //   (a) fit w bằng TOP-100 (thước đo dự án tuyên bố là đúng) thay vì bình phương
@@ -21,9 +21,9 @@ import {
   decodeClimatology,
   ABSENT_PERSIST,
   climShare,
-} from "../src/lib/fish-blend.ts";
+} from "../../src/lib/fish-blend.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CORPUS = join(ROOT, ".cache", "fish-corpus");
 const CLIM_PATH = join(ROOT, "public", "data", "fish-climatology.v1.json");
 const OUT = join(ROOT, ".cache", "fish-hypo-rank-blend-result.json");

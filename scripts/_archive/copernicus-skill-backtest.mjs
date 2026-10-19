@@ -112,10 +112,10 @@ import {
   isFill,
   lonToAxis,
   lonToEast,
-} from "../src/lib/copernicus.ts";
+} from "../../src/lib/copernicus.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT_PATH = join(__dirname, "..", "src", "data", "copernicus-skill.json");
+const OUT_PATH = join(__dirname, "..", "..", "src", "data", "copernicus-skill.json");
 const CACHE_DIR = join(tmpdir(), "sdfish-copernicus-skill-cache");
 
 const UA =
@@ -836,7 +836,7 @@ async function main() {
   const snapArg = argv.find((a) => a.startsWith("--snapshot-path="));
   const snapPath = snapArg
     ? snapArg.slice("--snapshot-path=".length)
-    : join(__dirname, "..", "src", "data", "copernicus-forecast-snapshot.json");
+    : join(__dirname, "..", "..", "src", "data", "copernicus-forecast-snapshot.json");
   if (has("snapshot")) {
     await snapshot(snapPath);
     return;

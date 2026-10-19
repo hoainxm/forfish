@@ -97,6 +97,13 @@ describe("guiMauSen — có sóng mới gửi, chỉ xoá khi máy chủ nhận"
     expect(ds[0]).toMatchObject({ cau: "chỗ nào nhiều cá", tra: "say", ct: "khong_hieu" });
   });
 
+  it("lệnh sàn (màn ngoài bản đồ) ghi thẳng { tra: cho, ct: lệnh }", () => {
+    ghiMauSen({ phien: "p", cau: "huỷ đơn UY3Y", r: { tra: "cho", ct: "don_huy" }, xn: false, chay: false, nen: "web", ban: "" });
+    const ds = JSON.parse(localStorage.getItem(MAU_KEY)!);
+    expect(ds[0]).toMatchObject({ tra: "cho", ct: "don_huy" });
+    expect(lamSachMau({ ...ds[0], tra: "cho_la" })).toBeNull();
+  });
+
   it("máy chủ nhận ⇒ xoá đúng các mẫu đã nhận; gửi ≤ LO_GUI mẫu/lô, kèm chuỗi thiết bị", async () => {
     for (let i = 0; i < LO_GUI + 3; i++) ghi(`câu ${i}`);
     const f = vi.fn(async (_u: string, init: RequestInit) => {

@@ -444,15 +444,16 @@ export function SenBienSheet({
     return () => document.removeEventListener("pointerdown", ngoai, true);
   }, [awaitingGo, onClose, keoProps.ref]);
 
-  // TỰ THU VỀ khi rảnh — không có nút ×
+  // TỰ THU VỀ khi rảnh — không có nút ×. Loa còn đọc câu trả lời thì CHƯA rảnh (2026-10-18: câu dài > 5 s
+  // làm thẻ thu giữa chừng, mất lượt tự nghe tiếp — "giao tiếp 2 chiều"); đếm lại từ lúc đọc xong.
   useEffect(() => {
-    if (awaitingGo || phase !== "ranh" || doc) return;
+    if (awaitingGo || phase !== "ranh" || doc || speakerBusy) return;
     if (mode === "chat" && typed.trim()) return;
     // đang chờ bấm xác nhận việc sàn ⇒ giữ lâu như lúc chọn điểm (đọc câu hỏi xong mới kịp bấm)
     const ms = mode === "chat" ? CHAT_RANH_MS : shown?.options?.length || shown?.xacNhan ? CHON_MS : SEN_IM_MS;
     const t = setTimeout(onClose, ms);
     return () => clearTimeout(t);
-  }, [awaitingGo, phase, doc, mode, typed, shown, onClose]);
+  }, [awaitingGo, phase, doc, speakerBusy, mode, typed, shown, onClose]);
 
   const huong = huongBongBong(pos, khung.w, khung.h);
   const dangGhi = mode === "goi" && phase === "nghe";

@@ -1,5 +1,5 @@
 // scripts/fish-hypo-h6-seasonal-tendency.mjs
-// (chạy: npx tsx scripts/fish-hypo-h6-seasonal-tendency.mjs)
+// (chạy: npx tsx scripts/_archive/fish-hypo-h6-seasonal-tendency.mjs)
 // ─────────────────────────────────────────────────────────────────────────────
 // KIỂM CHỨNG GIẢ THUYẾT #6 — CỘNG XU HƯỚNG MÙA (anomaly-persistence)
 //
@@ -23,9 +23,9 @@ import {
   decodeClimatology,
   ABSENT_PERSIST,
   climShare,
-} from "../src/lib/fish-blend.ts";
+} from "../../src/lib/fish-blend.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CORPUS = join(ROOT, ".cache", "fish-corpus");
 const CLIM_PATH = join(ROOT, "public", "data", "fish-climatology.v1.json");
 const OUT = join(ROOT, ".cache", "fish-hypo-h6-result.json");

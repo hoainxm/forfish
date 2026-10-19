@@ -2,11 +2,12 @@
 
 > Load khi: cần deploy / build lỗi / regenerate asset tĩnh (icon, lưới độ sâu, isobath) / kiểm tra sức khỏe app trước khi push.
 
-covers: scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
+covers: scripts/train/run.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
 last_verified: 2026-07-30
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'scripts/doc-health-report.sh' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
+<!-- re-verified: 2026-10-19 - thêm mục "Train dự báo cá" (runner scripts/train/run.mjs, SDFISH_DATA_DIR) -->
 <!-- re-verified: 2026-06-17 - lệnh regenerate asset (icons/depth-grid/isobaths) + deploy/health-check khớp scripts/ hiện tại -->
 <!-- re-verified: 2026-06-29 - generate-icons.mjs đổi nguồn icon.svg→logo-src.png; lệnh `node scripts/generate-icons.mjs` không đổi, vẫn xuất public/icons -->
 <!-- re-verified: 2026-09-04 - generate-depth-grid.mjs sinh lưới 6 lớp 4 bit/ô (thêm đường bờ vn-coast scanline, 8,53 MB, ~3,5–4 phút, cần mạng ETOPO ~68 MB + GEBCO 90 ô vuông); lệnh `node scripts/generate-depth-grid.mjs` không đổi. CHỈ chạy khi nguồn/luật phân lớp đổi (CLAUDE.md chống phình) — ngày chốt nguồn ghi ở đầu script; chi tiết lớp: 04-data-model §7e -->
@@ -44,6 +45,10 @@ node scripts/generate-depth-grid.mjs   # lưới độ sâu cho bản đồ ngư
 node scripts/generate-isobaths.mjs     # đường đẳng sâu (isobath)
 ```
 **Output mong đợi**: file trong `public/` thay đổi. Nếu dirty tree sau generate mà không chủ đích → KHÔNG commit, revert.
+
+## Train dự báo cá (PC GPU, ngoài Vercel)
+
+Dữ liệu thô + kết quả nằm NGOÀI repo ở `$SDFISH_DATA_DIR` (PC GPU: `/mnt/c/Users/admin/sdfish-data`), không bao giờ vào git. Một cửa: `npm run train:dry` (xem DAG) → `node scripts/train/run.mjs --resume` (adapt → nhãn v2 → lưới → lưới vệ tinh → đặc trưng → eval; có cache + manifest). Chi tiết lệnh/stage: [fish-validate-positions §9.z](fish-validate-positions.md). Sao lưu: snapshot DataLake + `sdfish-data` rsync sang ổ E: (`/mnt/e/sdfish-backup/<ngày>/`, kèm `MANIFEST.txt`); vhdx WSL ở `D:\WSL\Ubuntu-24.04`, `sdfish-data` ở ổ C ngoài OneDrive. Không chạy lúc `gpu-lich` đang giữ RAM.
 
 ## Deploy
 

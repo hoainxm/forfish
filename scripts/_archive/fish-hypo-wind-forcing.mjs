@@ -1,4 +1,4 @@
-// scripts/fish-hypo-wind-forcing.mjs  (chạy: npx tsx scripts/fish-hypo-wind-forcing.mjs)
+// scripts/fish-hypo-wind-forcing.mjs  (chạy: npx tsx scripts/_archive/fish-hypo-wind-forcing.mjs)
 // ─────────────────────────────────────────────────────────────────────────────
 // GIẢ THUYẾT #3 — TẦNG 1 (DỰ BÁO HOÀN HẢO / perfect-prognosis):
 // Đưa THÔNG TIN TƯƠNG LAI THẬT (gió ERA5 đã xảy ra ở T+1..T+d) vào điểm cá.
@@ -36,9 +36,9 @@ import {
   decodeClimatology,
   ABSENT_PERSIST,
   climShare,
-} from "../src/lib/fish-blend.ts";
+} from "../../src/lib/fish-blend.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CORPUS = join(ROOT, ".cache", "fish-corpus");
 const CLIM_PATH = join(ROOT, "public", "data", "fish-climatology.v1.json");
 const WIND_PATH = join(ROOT, ".cache", "fish-wind", "era5-1deg.json");
