@@ -65,7 +65,7 @@ function BoatMark({ stale, off }: { stale?: boolean; off?: boolean }) {
 /** Nhãn ngắn bên trái mỗi dòng — chữ nhỏ, không ăn chỗ của SỐ */
 function RowLabel({ text }: { text: string }) {
   return (
-    <span className="w-6 shrink-0 text-[0.625rem] font-bold uppercase leading-tight tracking-wide text-foreground/50">
+    <span className="w-7 shrink-0 text-[0.75rem] font-medium leading-tight text-foreground/60">
       {text}
     </span>
   );
@@ -121,21 +121,28 @@ export function PlotterReadout({
       : null;
 
   return (
-    <div className="pointer-events-auto glass w-fit max-w-[calc(100vw-5.5rem)] overflow-hidden px-1.5 py-0.5">
+    <div className="pointer-events-auto w-fit max-w-[calc(100vw-5.5rem)] overflow-hidden rounded-xl border border-line bg-card px-3 py-1 shadow-sm">
       {/* ── TÀU TÔI ───────────────────────────────────────────────────────
           Có toạ độ = DÒNG CHỮ (đọc, không bấm — như mọi app bản đồ).
           Chưa có = NÚT THẬT cao 2.75rem: chạm là xin quyền định vị. */}
       {myPos != null ? (
-        <p className="flex min-h-[1.5rem] items-center gap-1.5">
+        /*  CHẠM DÒNG "TÀU" = BAY VỀ TÀU, một chạm (anh Long 2026-10-19 mục 8 — thay nút
+            Vị trí trên rail). Dòng vẫn là chữ đọc, chỉ thêm vùng chạm + mũi tên nhỏ. */
+        <button
+          type="button"
+          onClick={onGoMyPos}
+          aria-label="Về vị trí tàu"
+          className="flex min-h-[1.75rem] w-full items-center gap-1.5 text-left transition active:opacity-70"
+        >
           <BoatMark stale={stale} />
           <RowLabel text="Tàu" />
           <ToaDo lat={myPos.lat} lon={myPos.lon} fmt={prefs.coordFormat} mo={stale} />
           {myTail && (
-            <span className="shrink-0 whitespace-nowrap text-[0.625rem] font-semibold leading-snug text-warn">
+            <span className="shrink-0 whitespace-nowrap text-[0.6875rem] font-medium leading-snug text-warn">
               {myTail}
             </span>
           )}
-        </p>
+        </button>
       ) : (
         <button
           type="button"
@@ -154,7 +161,7 @@ export function PlotterReadout({
           )}
           <RowLabel text="Tàu" />
           <span className="min-w-0 flex-1">
-            <span className="block text-[0.75rem] font-bold leading-snug text-navy">
+            <span className="block text-[0.8125rem] font-semibold leading-snug text-navy">
               {/* DANH TỪ NGẮN, không nguyên câu (chủ dự án 2026-10-17: "bị rộng quá, chiếm màn
                   hình, viết ngắn gọn thôi, dùng danh từ") — câu đủ nằm ở aria-label */}
               {denied ? "Định vị bị chặn" : status === "idle" ? "Bật định vị" : "Đang dò…"}
@@ -174,12 +181,12 @@ export function PlotterReadout({
           Ẩn khi bản đồ TRỐNG (cursor == null): không có điểm xem thì không in
           toạ độ trỏ (tránh "cứ chạm là tính vị trí nhìn rối" — user 2026-08-29). */}
       {cursor != null && (
-      <p className="flex min-h-[1.5rem] items-center gap-1.5">
+      <p className="flex min-h-[1.75rem] items-center gap-1.5">
         <PinIcon className="h-4 w-4 shrink-0 text-trim" />
         <RowLabel text="Trỏ" />
         <ToaDo lat={cursor.lat} lon={cursor.lon} fmt={prefs.coordFormat} />
         {rng && (
-          <span className="shrink-0 whitespace-nowrap text-[0.625rem] font-semibold leading-snug text-foreground/55">
+          <span className="shrink-0 whitespace-nowrap text-[0.6875rem] font-medium leading-snug text-foreground/55">
             · {rng}
           </span>
         )}
@@ -194,9 +201,8 @@ export function PlotterReadout({
     kéo thẻ rộng gấp đôi; hai hàng thì thẻ hẹp lại, vẫn đọc trọn số. */
 function ToaDo({ lat, lon, fmt, mo = false }: { lat: number; lon: number; fmt: CoordFormat; mo?: boolean }) {
   return (
-    <span className={`flex flex-col text-[0.6875rem] font-bold tabular-nums leading-tight ${mo ? "text-foreground/55" : "text-navy"}`}>
-      <span className="whitespace-nowrap">{fmtLat(lat, fmt)}</span>
-      <span className="whitespace-nowrap">{fmtLon(lon, fmt)}</span>
+    <span className={`whitespace-nowrap text-[0.8125rem] font-semibold tabular-nums leading-tight ${mo ? "text-foreground/55" : "text-navy"}`}>
+      {fmtLat(lat, fmt)} · {fmtLon(lon, fmt)}
     </span>
   );
 }

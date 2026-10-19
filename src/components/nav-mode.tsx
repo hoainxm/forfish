@@ -274,7 +274,7 @@ export function NavHud({
         <button
           type="button"
           onClick={() => setHidden(false)}
-          className="pointer-events-auto glass flex min-h-[3rem] items-center gap-2 px-4 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
+          className="pointer-events-auto glass flex h-(--h-ctl) items-center gap-2 px-4 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
           aria-label="Mở lại bảng dẫn đường"
         >
           <RouteIcon className="h-5 w-5 text-t1" />
@@ -286,7 +286,7 @@ export function NavHud({
         {borderLocked && borderLine && (
           <p
             role="alert"
-            className={`pointer-events-auto flex items-center gap-2 rounded-xl px-3 py-2 text-[0.9375rem] font-bold leading-snug shadow-md ${borderTone}`}
+            className={`pointer-events-auto flex items-center gap-2 rounded-xl px-3 py-2 text-[0.875rem] font-semibold leading-snug shadow-md ${borderTone}`}
           >
             <AlertIcon className="h-5 w-5 shrink-0" />
             {borderLine}
@@ -299,7 +299,7 @@ export function NavHud({
           <p
             key={l.id}
             role="alert"
-            className="pointer-events-auto flex items-center gap-2 rounded-xl bg-danger-bg px-3 py-2 text-[0.9375rem] font-bold leading-snug text-danger shadow-md"
+            className="pointer-events-auto flex items-center gap-2 rounded-xl bg-danger-bg px-3 py-2 text-[0.875rem] font-semibold leading-snug text-danger shadow-md"
           >
             <AlertIcon className="h-5 w-5 shrink-0" />
             {l.cau}
@@ -310,7 +310,7 @@ export function NavHud({
           <button
             type="button"
             onClick={voice.onAck}
-            className="pointer-events-auto flex min-h-[3rem] w-full items-center gap-2 rounded-xl bg-danger-bg px-3 py-2 text-left text-[0.9375rem] font-bold leading-snug text-danger shadow-md"
+            className="pointer-events-auto flex h-(--h-ctl) w-full items-center gap-2 rounded-xl bg-danger-bg px-3 py-2 text-left text-[0.875rem] font-semibold leading-snug text-danger shadow-md"
           >
             <SpeakerIcon className="h-5 w-5 shrink-0" />
             <span className="min-w-0 flex-1">Đã nghe</span>
@@ -337,7 +337,7 @@ export function NavHud({
           aria-label="Giữ và kéo để dời bảng dẫn đường"
         >
           <RouteIcon className="h-5 w-5 shrink-0 text-t1" />
-          <h3 className="text-[0.9375rem] font-bold text-navy">{title}</h3>
+          <h3 className="text-[0.875rem] font-semibold text-navy">{title}</h3>
           <span
             className="ml-1 h-1 w-8 rounded-full bg-navy/20"
             aria-hidden
@@ -350,7 +350,7 @@ export function NavHud({
         <button
           type="button"
           onClick={onStop}
-          className="min-h-[2.75rem] shrink-0 rounded-xl bg-navy/10 px-4 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
+          className="min-h-[2.75rem] shrink-0 rounded-xl bg-navy/10 px-4 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
         >
           Dừng
         </button>
@@ -373,7 +373,7 @@ export function NavHud({
               type="button"
               onClick={voice.onCycle}
               aria-label={`${voice.label} — chạm để đổi`}
-              className={`flex min-h-[2.75rem] items-center justify-center gap-1.5 rounded-xl px-2 text-[0.875rem] font-bold transition active:scale-95 ${
+              className={`flex min-h-[2.75rem] items-center justify-center gap-1.5 rounded-xl px-2 text-[0.875rem] font-semibold transition active:scale-95 ${
                 voice.on ? "bg-t1/15 text-t1" : "bg-navy/10 text-navy/60"
               }`}
             >
@@ -387,11 +387,11 @@ export function NavHud({
               onClick={onToggleRung}
               aria-pressed={rungOn}
               aria-label={rungOn ? "Tắt rung khi có cảnh báo" : "Bật rung khi có cảnh báo"}
-              className={`min-h-[2.75rem] rounded-xl px-2 text-[0.875rem] font-bold transition active:scale-95 ${
+              className={`min-h-[2.75rem] rounded-xl px-2 text-[0.875rem] font-semibold transition active:scale-95 ${
                 rungOn ? "bg-t1/15 text-t1" : "bg-navy/10 text-navy/60"
               }`}
             >
-              {rungOn ? "Báo rung: đang bật" : "Báo rung: đang tắt"}
+              {rungOn ? "Rung bật" : "Rung tắt"}
             </button>
           )}
         </div>
@@ -408,7 +408,7 @@ export function NavHud({
           aria-label={
             borderLocked ? undefined : "Thu gọn dòng cảnh báo ranh giới"
           }
-          className={`flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[0.9375rem] font-bold leading-snug ${borderTone}`}
+          className={`flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[0.875rem] font-semibold leading-snug ${borderTone}`}
         >
           <AlertIcon className="h-5 w-5 shrink-0" />
           <span className="min-w-0 flex-1">{borderLine}</span>
@@ -425,7 +425,7 @@ export function NavHud({
           <p
             key={l.id}
             role="alert"
-            className={`flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.9375rem] font-bold leading-snug ${MUC_TONE.do}`}
+            className={`flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.875rem] font-semibold leading-snug ${MUC_TONE.do}`}
           >
             <AlertIcon className="h-5 w-5 shrink-0" />
             <span className="min-w-0 flex-1">{l.cau}</span>
@@ -437,7 +437,7 @@ export function NavHud({
             role={l.muc === "vang" ? "alert" : "status"}
             onClick={() => setThuIds((ids) => [...ids.slice(-7), l.id])}
             aria-label="Thu gọn thông báo này"
-            className={`flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[0.9375rem] font-bold leading-snug ${MUC_TONE[l.muc]}`}
+            className={`flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[0.875rem] font-semibold leading-snug ${MUC_TONE[l.muc]}`}
           >
             {l.muc === "vang" && <AlertIcon className="h-5 w-5 shrink-0" />}
             <span className="min-w-0 flex-1">{l.cau}</span>
@@ -453,10 +453,10 @@ export function NavHud({
         <button
           type="button"
           onClick={onShelter}
-          className="flex min-h-[3.5rem] w-full items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-left text-[1rem] font-bold leading-snug text-warn"
+          className="flex min-h-[3.5rem] w-full items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-left text-[1rem] font-semibold leading-snug text-warn"
         >
           <AnchorIcon className="h-5 w-5 shrink-0" />
-          <span className="min-w-0 flex-1">Khu trú bão gần</span>
+          <span className="min-w-0 flex-1">Trú bão</span>
           <ChevronRightIcon className="h-5 w-5 shrink-0" />
         </button>
       )}
@@ -466,7 +466,7 @@ export function NavHud({
       {voice?.speaking && !speakingIsShown && (
         <div
           role="status"
-          className={`flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.9375rem] font-semibold leading-snug ${
+          className={`flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.875rem] font-semibold leading-snug ${
             voice.speaking.red ? "bg-danger-bg text-danger" : "bg-white/45 text-navy"
           }`}
         >
@@ -476,7 +476,7 @@ export function NavHud({
             <button
               type="button"
               onClick={voice.onAck}
-              className="min-h-[2.75rem] shrink-0 rounded-xl bg-danger px-3 text-[0.875rem] font-bold text-white transition active:scale-95"
+              className="min-h-[2.75rem] shrink-0 rounded-xl bg-danger px-3 text-[0.875rem] font-semibold text-white transition active:scale-95"
             >
               Đã nghe
             </button>
@@ -484,7 +484,7 @@ export function NavHud({
         </div>
       )}
       {voice?.noVoice && (
-        <div className="flex items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-bold leading-snug text-warn">
+        <div className="flex items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-semibold leading-snug text-warn">
           <span className="min-w-0 flex-1">
             Máy chưa có giọng tiếng Việt — chỉ báo bằng chuông và chữ.
           </span>
@@ -492,7 +492,7 @@ export function NavHud({
             <button
               type="button"
               onClick={voice.noVoice.onInstall}
-              className="min-h-[2.75rem] shrink-0 rounded-xl bg-navy px-3 text-[0.875rem] font-bold text-white transition active:scale-95"
+              className="min-h-[2.75rem] shrink-0 rounded-xl bg-navy px-3 text-[0.875rem] font-semibold text-white transition active:scale-95"
             >
               Tải giọng
             </button>
@@ -501,14 +501,14 @@ export function NavHud({
       )}
 
       {denied ? (
-        <p className="flex items-start gap-2 rounded-xl bg-[var(--warn-bg)] p-2.5 text-[0.9375rem] font-bold leading-snug text-[var(--warn)]">
+        <p className="flex items-start gap-2 rounded-xl bg-[var(--warn-bg)] p-2.5 text-[0.875rem] font-semibold leading-snug text-[var(--warn)]">
           <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
           Máy chưa bật định vị. Bật định vị (GPS) rồi mở lại để dẫn đường.
         </p>
       ) : (
         <>
           {lost && (
-            <p className="flex items-start gap-2 rounded-xl bg-[var(--warn-bg)] p-2.5 text-[0.9375rem] font-bold leading-snug text-[var(--warn)]">
+            <p className="flex items-start gap-2 rounded-xl bg-[var(--warn-bg)] p-2.5 text-[0.875rem] font-semibold leading-snug text-[var(--warn)]">
               <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
               Mất định vị — đang tìm lại. Số dưới là lần bắt được gần nhất.
             </p>
@@ -526,7 +526,7 @@ export function NavHud({
                     <NavArrowIcon className="h-6 w-6 text-t1" />
                   </span>
                 )}
-                <p className="display min-w-0 text-[1.25rem] font-bold leading-tight text-navy">
+                <p className="display min-w-0 text-[1.125rem] font-semibold leading-tight text-navy">
                   {progress.arrived
                     ? "Đã tới gần điểm đến"
                     : progress.steer
@@ -535,7 +535,7 @@ export function NavHud({
                 </p>
               </div>
               {/* một dòng: hướng · quãng còn lại · giờ chạy (thay 2 ô to cũ) */}
-              <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.9375rem] font-semibold text-foreground/75">
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.875rem] font-semibold text-foreground/75">
                 {progress.dirVN}
                 <span aria-hidden>·</span>
                 còn {fmtDist(progress.remainingKm, prefs.distUnit)}
@@ -553,7 +553,7 @@ export function NavHud({
                    Chỉ hiện khi đường đi nhiều chỗ VÀ chưa qua hết (`nextStop`
                    null ở hai ca đó) — không đẻ dòng thừa cho chuyến một chỗ. */}
               {nextStop && !progress.arrived && (
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.9375rem] font-bold text-t1">
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.875rem] font-semibold text-t1">
                   Tới chỗ {nextStop.so}
                   <span aria-hidden>·</span>
                   {fmtDist(nextStop.km, prefs.distUnit)}
@@ -575,7 +575,7 @@ export function NavHud({
                   type="button"
                   onClick={onDismissOffRoute}
                   aria-label="Thu gọn nhắc nhở lệch tuyến"
-                  className="mt-1.5 flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl bg-[var(--warn-bg)] px-2.5 py-2 text-left text-[0.875rem] font-bold leading-snug text-[var(--warn)]"
+                  className="mt-1.5 flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl bg-[var(--warn-bg)] px-2.5 py-2 text-left text-[0.875rem] font-semibold leading-snug text-[var(--warn)]"
                 >
                   <span className="min-w-0 flex-1">
                     Đang đi khác đường đã vẽ ~
@@ -586,20 +586,20 @@ export function NavHud({
                 </button>
               )}
               {progress.arrived && (
-                <p className="mt-1.5 rounded-xl bg-[var(--ok-bg)] p-2 text-[0.875rem] font-bold leading-snug text-[var(--ok)]">
+                <p className="mt-1.5 rounded-xl bg-[var(--ok-bg)] p-2 text-[0.875rem] font-semibold leading-snug text-[var(--ok)]">
                   Đã tới gần điểm đến — bấm Dừng khi neo xong.
                 </p>
               )}
             </div>
           ) : cruiseLine ? (
             <p
-              className={`display text-[1.125rem] font-bold leading-snug text-navy ${lost ? "opacity-50" : ""}`}
+              className={`display text-[1.125rem] font-semibold leading-snug text-navy ${lost ? "opacity-50" : ""}`}
             >
               {cruiseLine}
             </p>
           ) : (
             !lost && (
-              <p className="rounded-xl bg-white/45 p-2.5 text-[0.9375rem] font-semibold text-foreground/70">
+              <p className="rounded-xl bg-white/45 p-2.5 text-[0.875rem] font-semibold text-foreground/70">
                 Đang tìm vị trí tàu…
               </p>
             )

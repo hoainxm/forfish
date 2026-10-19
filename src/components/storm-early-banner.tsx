@@ -37,7 +37,7 @@ export function StormEarlyBanner({ ew }: { ew: EarlyWarning }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="pointer-events-auto mx-auto flex min-h-[2.75rem] w-fit items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-bold text-warn shadow-md"
+        className="pointer-events-auto mx-auto flex min-h-[2.75rem] w-fit items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-semibold text-warn shadow-md"
       >
         <AlertIcon className="h-4 w-4 shrink-0" />
         {short} — chạm xem
@@ -50,7 +50,7 @@ export function StormEarlyBanner({ ew }: { ew: EarlyWarning }) {
       type="button"
       role="status"
       onClick={() => setOpen(false)}
-      className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-start gap-1.5 rounded-2xl bg-warn-bg px-3 py-2 text-left text-[0.9375rem] font-bold leading-snug text-warn shadow-md"
+      className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-start gap-1.5 rounded-2xl bg-warn-bg px-3 py-2 text-left text-[0.9375rem] font-semibold leading-snug text-warn shadow-md"
     >
       <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
       <span>{full}</span>

@@ -477,7 +477,7 @@ import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
 import { useNavVoice } from "@/lib/nav-voice/use-nav-voice";
 import type { ChartReadiness } from "@/lib/nav-voice/opening";
-import { VOICE_MODE_LABEL } from "@/lib/nav-voice/prefs";
+import type { VoiceMode } from "@/lib/nav-voice/announcer";
 import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { setSenSignal } from "@/lib/sen-bien-state";
@@ -692,6 +692,9 @@ const BORDER_LEVEL_STYLE: Record<BorderLevel, { bg: string; fg: string }> = {
 const NAV_ALERT_HOLD_MS = 30_000;
 
 /** Nước dưới tàu, gọn cho dòng thân HUD "Đang chạy" (lớp 0 = đất/nhiễu GPS: im). */
+/** nhãn nút giọng đọc trên HUD — ≤2 chữ (03 §Nhãn) */
+const GIONG_NHAN: Record<VoiceMode, string> = { "day-du": "Đọc đủ", it: "Đọc ít", tat: "Tắt đọc" };
+
 const CRUISE_DEPTH_SHORT: Record<number, string | undefined> = {
   1: "trên rạn đá",
   2: "nước dưới 2 m",
@@ -3805,8 +3808,8 @@ export default function FishingMapView() {
     () => ({
       label:
         navVoice.level === "im30"
-          ? "Giọng: im 30 phút"
-          : `Giọng: ${VOICE_MODE_LABEL[navVoice.level]}`,
+          ? "Im 30 phút"
+          : GIONG_NHAN[navVoice.level],
       on: navVoice.level === "day-du" || navVoice.level === "it",
       onCycle: navVoice.cycleLevel,
       speaking: navVoice.speaking,
@@ -5005,8 +5008,8 @@ export default function FishingMapView() {
               disabled={past}
               aria-pressed={active}
               aria-disabled={locked || undefined}
-              className={`flex min-h-[3.5rem] min-w-[4.5rem] shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-3 transition active:scale-[0.97] ${
-                active ? "bg-navy text-white shadow-sm" : "bg-field"
+              className={`flex h-(--h-chip) min-w-[4.5rem] flex-1 shrink-0 flex-col items-center justify-center rounded-lg px-2 text-[0.8125rem] font-semibold transition active:scale-[0.97] ${
+                active ? "bg-navy text-white" : "bg-field text-navy"
               } ${past ? "opacity-40" : ""}`}
             >
               {/* CHỈ NGÀY — bỏ số sóng/gió cho gọn (user 2026-07-28);
@@ -8531,22 +8534,18 @@ export default function FishingMapView() {
           mở panel). Tự mờ khi kéo sheet lên như rail phải. */}
       {fishGridGeo && (
         <div
-          className={`pointer-events-none absolute left-2 top-1/2 z-20 -translate-y-1/2 transition-opacity duration-200 ${
+          className={`pointer-events-none absolute left-2 top-[11rem] z-20 transition-opacity duration-200 ${
             sheetThu ? "opacity-100" : "opacity-0"
           }`}
           aria-hidden={!sheetThu}
         >
-          <div className="flex flex-col gap-1.5 rounded-xl bg-card/90 px-2.5 py-2 shadow-md">
+          {/* chip chú giải gọn theo mẫu (2026-10-19): một hàng "Dự báo cá" + 3 mức */}
+          <div className="flex items-center gap-2 rounded-lg border border-line bg-card px-2 py-1 text-[0.6875rem] font-medium text-navy shadow-sm">
+            <span className="font-semibold">Dự báo cá</span>
             {FISH_LEVEL_BANDS.map((b) => (
-              <span key={b.key} className="flex items-center gap-1.5">
-                <span
-                  className="h-3.5 w-3.5 shrink-0 rounded-sm"
-                  style={{ background: b.color }}
-                  aria-hidden
-                />
-                <span className="text-[0.8125rem] font-bold text-navy">
-                  {b.label}
-                </span>
+              <span key={b.key} className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: b.color }} aria-hidden />
+                {b.label}
               </span>
             ))}
           </div>
@@ -8812,7 +8811,7 @@ export default function FishingMapView() {
             </div>
           ) : undefined
         }
-        label="Gió sóng tại điểm đang xem"
+        label="Gió sóng tại điểm"
         peek={
           // Bật lớp dự báo + đang ở nấc PEEK (strip hiện ở trên) → ẨN panel biển
           // động cho gọn. Vuốt LÊN (half/full) thì panel + chip ngày HIỆN LẠI đầy

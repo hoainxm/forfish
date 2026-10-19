@@ -241,6 +241,18 @@ export function RaKhoiControls({
       loại việc với "Vị trí"/"Đến điểm" (đi tới một toạ độ), không phải
       loại việc "bật/tắt lớp bản đồ" như 5 panel còn lại. */
   const [placesOpen, setPlacesOpen] = useState(false);
+  /** khay "Thêm" (⋯) đang bung — chạm ngoài rail là thu (mục 8, 2026-10-19) */
+  const [more, setMore] = useState(false);
+  const railRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!more) return;
+    const ngoai = (e: PointerEvent) => {
+      if (railRef.current && e.target instanceof Node && railRef.current.contains(e.target)) return;
+      setMore(false);
+    };
+    document.addEventListener("pointerdown", ngoai, true);
+    return () => document.removeEventListener("pointerdown", ngoai, true);
+  }, [more]);
   const [addPlaceOpen, setAddPlaceOpen] = useState(false);
   /*  ĐIỀN SẴN TOẠ ĐỘ CON TRỎ — CHỈ khi form mở do menu chạm-giữ (07 §10.7 K).
       Mở panel bằng nút rail thì KHÔNG điền: app không được tự khai một toạ độ
@@ -384,7 +396,7 @@ export function RaKhoiControls({
           khỏi chồng chéo (user 2026-06-23); panel đơn giản giữ cân đối. */}
       {open && !collapsed && (
         <div
-          className={`pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl [overscroll-behavior:contain] ${
+          className={`pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] overflow-y-auto rounded-xl border border-line bg-card p-3 shadow-float [overscroll-behavior:contain] ${
             open === "diem"
               ? "w-[22rem] max-w-[calc(100vw-4.25rem)]"
               : "w-[16.5rem] max-w-[calc(100vw-5rem)]"
@@ -464,7 +476,7 @@ export function RaKhoiControls({
 
       {/* ĐIỂM ĐÃ LƯU — nổi cạnh nút, cùng khuôn ô toạ độ (premium) */}
       {premiumTools && placesOpen && (
-        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl">
+        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-xl border border-line bg-card p-3 shadow-floatow-xl">
           <DiemPanel
             cursor={cursor}
             prefillTick={prefillTick}
@@ -482,7 +494,7 @@ export function RaKhoiControls({
 
       {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm", độc lập với panel rail (premium) */}
       {premiumTools && coordOpen && (
-        <div className="pointer-events-auto absolute right-[4.5rem] top-0 w-[19rem] max-w-[calc(100vw-5rem)] rounded-2xl bg-card/97 p-3 shadow-xl">
+        <div className="pointer-events-auto absolute right-[4.5rem] top-0 w-[19rem] max-w-[calc(100vw-5rem)] rounded-xl border border-line bg-card p-3 shadow-float">
           <GoToPointPopup
             onGoCoord={onGoCoord}
             onClose={() => setCoordOpen(false)}
@@ -490,217 +502,187 @@ export function RaKhoiControls({
         </div>
       )}
 
-      {/* RAIL dọc mép phải — ẩn/hiện được như menu lớp các app bản đồ.
-          MÀN NGẮN: xổ hết (Lớp·Vị trí·3 nút premium·5 panel) là ~40rem, dài hơn
-          cả màn iPhone nhỏ → nút cuối (Thời tiết/Công cụ/Cài đặt) tụt xuống dưới
-          sheet đáy, KHÔNG chạm được (bug user 2026-09-24: "không chọn được lớp
-          thời tiết"). Nay CHẶN chiều cao theo màn (trừ chỗ banner trên + sheet
-          peek dưới) rồi cho TRƯỢT dọc chọn nốt. Đệm ngang `px-1.5 -mx-1.5` để
-          overflow-x (kèm theo khi bật overflow-y) không cắt bóng nút; giữ mép
-          nút đúng chỗ cũ. Màn cao thì đủ chỗ, không hiện thanh trượt. */}
-      <div
-        className="pointer-events-auto flex max-h-[calc(100dvh-14rem)] flex-col items-end gap-2 overflow-y-auto px-1.5 py-1 -mx-1.5 -my-1 [overscroll-behavior:contain] [&>button]:shrink-0"
-      >
-        <button
-          type="button"
+      {/* RAIL PHẢI — CHỈ HAI Ô (anh Long 2026-10-19 mục 8: "các icon đang bị nhiều
+          quá, tối ưu các icon đi, chỉ để lại 2 icon chính, còn cần thì click ra"):
+          LỚP (mở danh sách 5 panel như cũ) và THÊM (⋯ — khay nhỏ sát mép phải gom
+          Vị trí · Chạy tàu · Lộ trình · Toạ độ · Điểm lưu; chọn xong tự thu, chạm
+          ngoài cũng thu). Đang chạy / đang dẫn đường thì nút đó hiện THẲNG trên
+          rail (không giấu trong Thêm) cùng HUD. Ô theo mẫu ảnh anh Long chọn: vuông
+          bo, nền trắng, icon trên nhãn dưới, cùng cỡ (03 §0 bậc control). CHỈ MỘT
+          bảng mở một lúc: mở Lớp đóng Thêm và ngược lại. */}
+      <div ref={railRef} className="pointer-events-auto flex flex-col items-end gap-1.5">
+        <RailBtn
+          active={!collapsed}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? "Mở lớp bản đồ" : "Đóng lớp bản đồ"}
           onClick={() => {
+            setMore(false);
+            setCoordOpen(false);
+            setPlacesOpen(false);
             if (!collapsed) setOpen(null);
             setCollapsed((c) => !c);
           }}
-          aria-label={collapsed ? "Hiện lớp bản đồ" : "Ẩn bảng tùy chọn"}
-          aria-expanded={!collapsed}
-          className="flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl bg-navy py-2 text-white shadow-md transition active:scale-95"
-        >
-          {collapsed ? (
-            <LayersIcon className="h-6 w-6" />
-          ) : (
-            <ChevronRightIcon className="h-5 w-5" />
-          )}
-          <span className="text-[0.8125rem] font-bold leading-tight">
-            {collapsed ? "Lớp bản đồ" : "Ẩn"}
-          </span>
-        </button>
-
-        {/* VỊ TRÍ — nút GPS chuẩn như mọi app bản đồ. Đặt ngay dưới nút Lớp
-            (chỗ tay phải với tới được), luôn hiện kể cả khi thu bảng lớp. */}
-        <button
-          type="button"
-          onClick={onLocateMe}
-          disabled={locating}
-          aria-label="Vị trí của tôi (GPS)"
-          aria-busy={locating}
-          className={`flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 shadow-md transition active:scale-95 disabled:opacity-70 ${
-            geoError ? "bg-warn-bg text-warn-fg" : "bg-navy text-white"
-          }`}
-        >
-          <CrosshairIcon className={`h-6 w-6 ${locating ? "animate-pulse" : ""}`} />
-          <span className="text-[0.8125rem] font-bold leading-tight">
-            {locating ? "Đang tìm vị trí" : geoError ? "Bật GPS" : "Vị trí"}
-          </span>
-        </button>
-
-        {/* BẮT ĐẦU CHẠY — kiểu VietMap: có vị trí là máy canh + đọc to. Ngay dưới
-            "Vị trí" vì đây là việc làm MỖI CHUYẾN. Ba tín hiệu bật như nút Lộ
-            trình: nền đổi, chữ đổi, chấm nhấp nháy. */}
-        {onCruise && (
-          <button
-            type="button"
+          icon={collapsed ? LayersIcon : ChevronRightIcon}
+          label={collapsed ? "Lớp" : "Đóng"}
+        />
+        {cruiseOn && onCruise ? (
+          <RailBtn active dot aria-pressed onClick={onCruise} aria-label="Đang chạy — chạm để dừng đọc cảnh báo" icon={SpeakerIcon} label="Đang chạy" />
+        ) : routeOn && onRoutePanel ? (
+          <RailBtn active dot aria-pressed onClick={onRoutePanel} aria-label="Đang dẫn đường — chạm để đóng" icon={RouteIcon} label="Dẫn đường" />
+        ) : collapsed ? (
+          <RailBtn
+            active={more}
+            aria-expanded={more}
+            aria-label={more ? "Đóng khay thêm" : "Thêm việc: vị trí, chạy tàu, lộ trình, toạ độ, điểm lưu"}
             onClick={() => {
               setOpen(null);
+              setCollapsed(true);
               setCoordOpen(false);
               setPlacesOpen(false);
-              onCruise();
+              setMore((m) => !m);
             }}
-            aria-pressed={cruiseOn}
-            aria-label={cruiseOn ? "Đang chạy — chạm để dừng đọc cảnh báo" : "Bắt đầu chạy — máy đọc cảnh báo theo vị trí tàu"}
-            className={`relative flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-white shadow-md transition active:scale-95 ${
-              cruiseOn ? "bg-t1" : "bg-navy"
-            }`}
+            icon={DotsIcon}
+            label="Thêm"
+          />
+        ) : null}
+        {more && !cruiseOn && !routeOn && (
+          <div
+            role="group"
+            aria-label="Thêm việc"
+            className="anim-pop-in flex flex-col items-end gap-1.5 rounded-xl border border-line bg-card p-1.5 shadow-float"
           >
-            {cruiseOn && (
-              <span className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5" aria-hidden>
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
-              </span>
+            <RailBtn
+              onClick={() => {
+                setMore(false);
+                onLocateMe();
+              }}
+              disabled={locating}
+              aria-label="Vị trí của tôi (GPS)"
+              icon={CrosshairIcon}
+              label={locating ? "Đang dò" : geoError ? "Bật GPS" : "Vị trí"}
+              tone={geoError ? "warn" : undefined}
+            />
+            {onCruise && (
+              <RailBtn
+                onClick={() => {
+                  setMore(false);
+                  onCruise();
+                }}
+                aria-label="Chạy tàu — máy đọc cảnh báo theo vị trí tàu"
+                icon={SpeakerIcon}
+                label="Chạy tàu"
+              />
             )}
-            <SpeakerIcon className="h-6 w-6" />
-            <span className="text-[0.8125rem] font-bold leading-tight">
-              {cruiseOn ? "Đang chạy" : "Bắt đầu chạy"}
-            </span>
-          </button>
-        )}
-
-        {/* ĐẾN ĐIỂM (premium) — gõ tay toạ độ để nhảy tới điểm cần xem (không
-            cần GPS, chạy cả khi mất sóng). Đặt NGAY DƯỚI nút "Vị trí". */}
-        {premiumTools && !cruiseOn && (
-        <button
-          type="button"
-          onClick={() => {
-            if (routeOn) onRoutePanel?.(); // thoát dẫn đường trước, không đè
-            setOpen(null); // đóng panel rail (nếu đang mở) cho khỏi chồng
-            setPlacesOpen(false);
-            setCoordOpen((v) => !v);
-          }}
-          aria-label="Đến điểm — nhập toạ độ"
-          aria-expanded={coordOpen}
-          className={`flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 shadow-md transition active:scale-95 ${
-            coordOpen ? "bg-t1 text-white" : "bg-navy text-white"
-          }`}
-        >
-          <PinIcon className="h-6 w-6" />
-          <span className="text-[0.8125rem] font-bold leading-tight">
-            Đến điểm
-          </span>
-        </button>
-        )}
-
-        {/* DẪN ĐƯỜNG — LỐI TẮT tới panel dẫn đường trong sheet (user 2026-08-28:
-            "tách cái dẫn đường ở sheet ra thành 1 button, đơn giản hoá thao
-            tác"). Trước đây muốn dẫn đường phải: chạm biển → vuốt sheet lên nấc
-            cao → cuộn tìm khối Dẫn đường → bấm mở panel. Nay MỘT chạm: sheet mở
-            sẵn ở nấc cao, panel mở sẵn, cuộn sẵn tới nơi.
-            Form dẫn đường vẫn Ở TRONG SHEET, không bê vào rail: nó có chọn nơi
-            xuất phát + 2 ô số + thẻ kết quả 3 con số + khối cảnh báo — rail rộng
-            16,5rem không chứa nổi mà vẫn giữ được cỡ chữ ≥18px cho bà con. Rail
-            giữ đúng vai "chỗ bấm", sheet giữ đúng vai "chỗ đọc" (07 §11). */}
-        {/* ĐIỂM ĐÃ LƯU (premium) — chỗ quen của chủ tàu, mở nhanh một chạm */}
-        {premiumTools && !cruiseOn && (
-        <button
-          type="button"
-          onClick={() => {
-            // đang dẫn đường mà mở lớp nổi khác ⇒ THOÁT chế độ trước, không đè
-            if (routeOn) onRoutePanel?.();
-            setOpen(null);
-            setCoordOpen(false);
-            setPlacesOpen((v) => !v);
-          }}
-          aria-label="Điểm đã lưu"
-          aria-expanded={placesOpen}
-          className={`flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-white shadow-md transition active:scale-95 ${
-            placesOpen ? "bg-t1" : "bg-navy"
-          }`}
-        >
-          <StarIcon className="h-6 w-6" />
-          <span className="text-[0.8125rem] font-bold leading-tight">
-            Điểm đã lưu
-          </span>
-        </button>
-        )}
-
-        {premiumTools && onRoutePanel && !cruiseOn && (
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(null); // đóng panel rail cho khỏi chồng lên sheet
-              setCoordOpen(false);
-              setPlacesOpen(false);
-              onRoutePanel();
-            }}
-            aria-label={
-              routeOn
-                ? "Đang dẫn đường — chạm để đóng"
-                : "Dẫn đường — mở bảng tính lộ trình"
-            }
-            aria-pressed={routeOn}
-            /*  BA tín hiệu BẬT, không chỉ đổi màu: nền `t1` (cùng khuôn nút
-                "Đến điểm" ngay trên), chữ đổi "Dẫn đường" → "Đang dẫn", và một
-                CHẤM TRẮNG NHẤP NHÁY. Ngoài nắng chói trên tàu, đổi mỗi màu là
-                gần như không phân biệt được — phải có dấu ĐỘNG và chữ đổi. */
-            className={`relative flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-white shadow-md transition active:scale-95 ${
-              routeOn ? "bg-t1" : "bg-navy"
-            }`}
-          >
-            {/*  CHẤM SÁNG NHẤP NHÁY khi đang bật — màu nền đổi thôi thì ngoài
-                 nắng chói trên tàu nhìn gần như nhau; thêm một dấu ĐỘNG mới
-                 đọc được ngay là "đang ở trong chế độ này". */}
-            {routeOn && (
-              <span
-                className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5"
-                aria-hidden
-              >
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
-              </span>
+            {premiumTools && onRoutePanel && (
+              <RailBtn
+                onClick={() => {
+                  setMore(false);
+                  onRoutePanel();
+                }}
+                aria-label="Lộ trình — mở bảng tính lộ trình"
+                icon={RouteIcon}
+                label="Lộ trình"
+              />
             )}
-            <RouteIcon className="h-6 w-6" />
-            <span className="text-[0.8125rem] font-bold leading-tight">
-              {routeOn ? "Đang dẫn đường" : "Lộ trình"}
-            </span>
-          </button>
+            {premiumTools && (
+              <RailBtn
+                onClick={() => {
+                  setMore(false);
+                  setCoordOpen(true);
+                }}
+                aria-label="Toạ độ — nhập toạ độ để đến điểm"
+                icon={PinIcon}
+                label="Toạ độ"
+              />
+            )}
+            {premiumTools && (
+              <RailBtn
+                onClick={() => {
+                  setMore(false);
+                  setPlacesOpen(true);
+                }}
+                aria-label="Điểm đã lưu"
+                icon={StarIcon}
+                label="Điểm lưu"
+              />
+            )}
+          </div>
         )}
-        {!collapsed && !cruiseOn &&
-          RAIL.map((r) => {
-          const active = open === r.id;
-          const Icon = r.icon;
-          return (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => setOpen(active ? null : r.id)}
-              aria-pressed={active}
-              className="relative flex min-h-[3.75rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 shadow-md transition active:scale-95"
-              style={
-                active
-                  ? { background: r.color, color: "var(--card)" }
-                  : { background: "var(--card)", color: "var(--navy)" }
-              }
-            >
-              {r.dot && !active && (
-                <span
-                  className="absolute right-2 top-2 h-2 w-2 rounded-full"
-                  style={{ background: r.color }}
-                  aria-hidden
+        {!collapsed && !cruiseOn && (
+          <div className="flex max-h-[calc(100dvh-14rem)] flex-col items-end gap-1.5 overflow-y-auto [overscroll-behavior:contain]">
+            {RAIL.map((r) => {
+              const active = open === r.id;
+              return (
+                <RailBtn
+                  key={r.id}
+                  active={active}
+                  aria-pressed={active}
+                  onClick={() => setOpen(active ? null : r.id)}
+                  icon={r.icon}
+                  label={r.label}
+                  dot={!!r.dot && !active}
+                  dotColor={r.color}
                 />
-              )}
-              <Icon className="h-6 w-6" />
-              <span className="text-[0.8125rem] font-bold leading-tight">
-                {r.label}
-              </span>
-            </button>
-          );
-        })}
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+/** Ô vuông trên rail bản đồ — cùng một khuôn cho mọi ô (03 §0: 4rem × 2.75rem, icon trên nhãn dưới ≤2 chữ). */
+function RailBtn({
+  icon: Icon,
+  label,
+  active = false,
+  dot = false,
+  dotColor,
+  tone,
+  ...rest
+}: {
+  icon: (p: { className?: string }) => React.ReactNode;
+  label: string;
+  active?: boolean;
+  /** chấm báo "đang bật" góc trên phải */
+  dot?: boolean;
+  dotColor?: string;
+  tone?: "warn";
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children">) {
+  return (
+    <button
+      type="button"
+      {...rest}
+      className={`${SQ_BTN} relative border shadow-sm transition active:scale-95 disabled:opacity-60 ${
+        active
+          ? "border-navy bg-navy text-white"
+          : tone === "warn"
+            ? "border-warn-bg bg-warn-bg text-warn"
+            : "border-line bg-card text-navy"
+      }`}
+    >
+      {dot && (
+        <span
+          className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full"
+          style={{ background: active ? "var(--card)" : (dotColor ?? "var(--trim)") }}
+          aria-hidden
+        />
+      )}
+      <Icon className="h-5 w-5" />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/** ⋯ — nút "Thêm" của rail */
+function DotsIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
   );
 }
 

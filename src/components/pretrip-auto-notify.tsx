@@ -218,7 +218,7 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
   return (
     <p
       role="status"
-      className={`pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.875rem] font-bold leading-snug shadow-md ${skin}`}
+      className={`pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.875rem] font-semibold leading-snug shadow-md ${skin}`}
     >
       {note.kind === "ok" && <CheckIcon className="h-4 w-4 shrink-0" />}
       {note.kind === "warn" && <AlertIcon className="h-4 w-4 shrink-0" />}
@@ -328,7 +328,7 @@ export function PretripSavedStatus({
           onClick={() => setOpen(true)}
           className="pointer-events-auto w-full rounded-2xl bg-warn-bg px-4 py-3 text-left shadow-md ring-1 ring-warn/30 transition active:scale-[0.99]"
         >
-          <p className="text-[1rem] font-bold leading-snug text-warn">
+          <p className="text-[0.875rem] font-semibold leading-snug text-warn">
             Máy chưa có dữ liệu đi biển
           </p>
           <p className="mt-0.5 text-[0.875rem] leading-snug text-warn/90">
@@ -354,7 +354,7 @@ export function PretripSavedStatus({
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Xem dữ liệu đã lưu để đi biển"
-        className={`pointer-events-auto inline-flex min-h-[2.75rem] items-center gap-1.5 rounded-full bg-card/95 px-3 py-1 text-[0.8125rem] font-bold shadow-sm ring-1 ring-line transition active:scale-95 ${tone}`}
+        className={`pointer-events-auto inline-flex min-h-[2.75rem] items-center gap-1.5 rounded-full bg-card/95 px-3 py-1 text-[0.8125rem] font-semibold shadow-sm ring-1 ring-line transition active:scale-95 ${tone}`}
       >
         {phase === "loading" && (
           <span
@@ -665,7 +665,7 @@ function PretripSavedSheet({
            "chưa lưu" — 12 dòng đỏ trên một máy đang giữ đủ 16 ngày. Giữa biển đó
            là lý do bà con quay tàu về bờ. */}
       {khoState !== "san-sang" && (
-        <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.9375rem] font-bold leading-snug text-warn">
+        <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.9375rem] font-semibold leading-snug text-warn">
           {khoState === "dang-mo"
             ? "Đang mở kho dữ liệu trong máy…"
             : "Máy chưa mở được dữ liệu đã lưu. Bà con thử đóng app rồi mở lại xem sao nhé."}
@@ -692,7 +692,7 @@ function PretripSavedSheet({
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[1rem] font-bold leading-tight text-navy">
+                <span className="block text-[0.875rem] font-semibold leading-tight text-navy">
                   {l.label}
                 </span>
                 {failed.has(l.id) ? (
@@ -715,12 +715,12 @@ function PretripSavedSheet({
                   khoá
                 </span>
               ) : rowBusy ? (
-                <span className="shrink-0 text-[0.8125rem] font-bold text-foreground/55">
+                <span className="shrink-0 text-[0.8125rem] font-semibold text-foreground/55">
                   Đang tải…
                 </span>
               ) : l.saved && l.fresh ? (
                 // còn trong chu kỳ cập nhật → KHÔNG cần tải lại (user: >chu kỳ mới cần)
-                <span className="shrink-0 text-[0.75rem] font-bold text-ok">
+                <span className="shrink-0 text-[0.75rem] font-semibold text-ok">
                   ✓ còn mới
                 </span>
               ) : (
@@ -728,7 +728,7 @@ function PretripSavedSheet({
                   type="button"
                   onClick={() => retry(l.id)}
                   disabled={!!busy}
-                  className={`flex min-h-[3.25rem] shrink-0 items-center rounded-lg px-4 text-[0.8125rem] font-bold transition active:scale-95 disabled:opacity-50 ${
+                  className={`flex min-h-[3.25rem] shrink-0 items-center rounded-lg px-4 text-[0.8125rem] font-semibold transition active:scale-95 disabled:opacity-50 ${
                     l.saved ? "text-sea" : "bg-navy text-white"
                   }`}
                 >
@@ -745,7 +745,7 @@ function PretripSavedSheet({
           type="button"
           onClick={() => runMany(missingIds)}
           disabled={!!busy}
-          className="mt-4 min-h-[3.25rem] w-full rounded-xl bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
+          className="mt-4 min-h-[3.25rem] w-full rounded-xl bg-navy text-[1.0625rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
         >
           {busy === "all"
             ? "Đang tải các lớp còn thiếu…"
@@ -756,7 +756,7 @@ function PretripSavedSheet({
           type="button"
           onClick={() => runMany(staleIds)}
           disabled={!!busy}
-          className="mt-4 min-h-[3.25rem] w-full rounded-xl bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
+          className="mt-4 min-h-[3.25rem] w-full rounded-xl bg-navy text-[1.0625rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
         >
           {busy === "all"
             ? "Đang tải các lớp đã cũ…"
@@ -783,7 +783,7 @@ function PretripSavedSheet({
               type="button"
               onClick={() => doExport("forecast")}
               disabled={!!backupBusy || total <= 0}
-              className="min-h-[3.5rem] rounded-xl bg-field px-2 text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
+              className="min-h-[3.5rem] rounded-xl bg-field px-2 text-[0.9375rem] font-semibold text-navy transition active:scale-[0.99] disabled:opacity-50"
             >
               {backupBusy === "export" ? "Đang lưu…" : "Lưu dự báo"}
             </button>
@@ -791,7 +791,7 @@ function PretripSavedSheet({
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={!!backupBusy}
-              className="min-h-[3.5rem] rounded-xl bg-field px-2 text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
+              className="min-h-[3.5rem] rounded-xl bg-field px-2 text-[0.9375rem] font-semibold text-navy transition active:scale-[0.99] disabled:opacity-50"
             >
               {backupBusy === "import" ? "Đang đọc tệp…" : "Phục hồi dự báo"}
             </button>
@@ -816,14 +816,14 @@ function PretripSavedSheet({
           {badFile && (
             /* DÒNG MANG TIN CHÍNH ≥18px: đây là câu trả lời cho cú bấm vừa rồi,
                không phải chú thích. */
-            <p className="mt-2 text-[1.125rem] font-bold leading-snug text-warn">
+            <p className="mt-2 text-[0.875rem] font-semibold leading-snug text-warn">
               Tệp này không phải bản sao lưu của SDFish — chưa ghi gì vào máy.
             </p>
           )}
           {importFailed > 0 && (
             /* HẾT CHỖ THÌ NÓI THẬT (luật lib/user-store.ts) — trước đây `setItem`
                ném trong `catch {}` rỗng nên sheet đóng như đã xong. */
-            <p className="mt-2 text-[1.125rem] font-bold leading-snug text-danger">
+            <p className="mt-2 text-[0.875rem] font-semibold leading-snug text-danger">
               Máy không giữ được {importFailed} mục — hết chỗ. Xoá bớt ảnh/video
               trong máy rồi phục hồi lại.
             </p>
@@ -836,7 +836,7 @@ function PretripSavedSheet({
             type="button"
             onClick={() => doExport("transfer")}
             disabled={!!backupBusy}
-            className="mt-3 min-h-[3.5rem] w-full rounded-xl px-3 text-[0.9375rem] font-bold text-sea transition active:scale-[0.99] disabled:opacity-50"
+            className="mt-3 min-h-[3.5rem] w-full rounded-xl px-3 text-[0.9375rem] font-semibold text-sea transition active:scale-[0.99] disabled:opacity-50"
           >
             Chuyển sang máy mới — xem trước rồi mới lưu
           </button>
@@ -850,7 +850,7 @@ function PretripSavedSheet({
       <button
         type="button"
         onClick={onClose}
-        className="mt-2 min-h-[3rem] w-full rounded-xl bg-field text-[1rem] font-bold text-navy transition active:scale-[0.99]"
+        className="mt-2 min-h-[3rem] w-full rounded-xl bg-field text-[0.875rem] font-semibold text-navy transition active:scale-[0.99]"
       >
         Đóng
       </button>
@@ -928,7 +928,7 @@ function ConfirmImportSheet({
   const perKey = groups.some((g) => g.kind === "forecast" || g.kind === "settings");
   return (
     <BottomSheet title="Phục hồi từ tệp" onClose={onCancel}>
-      <p className="text-[1.125rem] font-bold leading-snug text-navy">
+      <p className="text-[0.875rem] font-semibold leading-snug text-navy">
         {groups.length > 0
           ? `Máy đã có bản lưu ngày ${dayMonth(sum.savedAt)}. Nếu bấm "Ghi đè", app sẽ thay thế các thông tin sau:`
           : `Tệp lưu ngày ${dayMonth(sum.savedAt)} đang rỗng, không có dữ liệu để phục hồi.`}
@@ -937,11 +937,11 @@ function ConfirmImportSheet({
         <ul className="mt-3 space-y-2">
           {groups.map((g) => (
             <li key={g.id} className="rounded-xl bg-field px-3 py-2.5">
-              <p className="text-[1.125rem] font-bold leading-snug text-navy">
+              <p className="text-[0.875rem] font-semibold leading-snug text-navy">
                 {groupLine(g)}
               </p>
               {g.lost > 0 && (
-                <p className="mt-0.5 text-[1.0625rem] font-bold leading-snug text-warn">
+                <p className="mt-0.5 text-[1.0625rem] font-semibold leading-snug text-warn">
                   Đè xong còn {g.file} {g.unit} — <b>mất {g.lost} {g.unit}</b>.
                 </p>
               )}
@@ -950,7 +950,7 @@ function ConfirmImportSheet({
         </ul>
       )}
       {perKey && (
-        <p className="mt-2 text-[1rem] leading-snug text-foreground/70">
+        <p className="mt-2 text-[0.875rem] leading-snug text-foreground/70">
           Dự báo và cài đặt: cái nào trùng thì tệp đè lên, cái nào máy đang có mà
           tệp không có thì vẫn giữ.
         </p>
@@ -960,13 +960,13 @@ function ConfirmImportSheet({
           với tệp đời cũ (tệp cũ CÓ `crew.v1` + `inbox.*`), nên người vừa bị xoá
           máy tin là 8 bạn thuyền đã về, thực tế app bỏ im. */}
       {sum.skipped.length > 0 ? (
-        <p className="mt-3 text-[1.125rem] font-bold leading-snug text-warn">
+        <p className="mt-3 text-[0.875rem] font-semibold leading-snug text-warn">
           Tệp có {sum.skipped.join(" · ")} nhưng app <b>Bỏ qua</b> — những thứ đó{" "}
           <b>không được phục hồi</b>, bản trong máy giữ nguyên, thiếu thì phải
           nhập tay lại.
         </p>
       ) : (
-        <p className="mt-3 text-[1.125rem] font-semibold leading-snug text-foreground/75">
+        <p className="mt-3 text-[0.875rem] font-semibold leading-snug text-foreground/75">
           Tệp không có sổ bạn thuyền và hộp thư — hai thứ đó trong máy giữ
           nguyên.
         </p>
@@ -976,7 +976,7 @@ function ConfirmImportSheet({
           type="button"
           onClick={onCancel}
           disabled={busy}
-          className="min-h-[3.5rem] rounded-xl bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
+          className="min-h-[3.5rem] rounded-xl bg-field text-[1.0625rem] font-semibold text-navy transition active:scale-[0.99] disabled:opacity-50"
         >
           Thôi
         </button>
@@ -984,7 +984,7 @@ function ConfirmImportSheet({
           type="button"
           onClick={onConfirm}
           disabled={busy || groups.length === 0}
-          className="min-h-[3.5rem] rounded-xl bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-50"
+          className="min-h-[3.5rem] rounded-xl bg-navy text-[1.0625rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-50"
         >
           {busy ? "Đang lưu…" : "Ghi đè"}
         </button>
@@ -1018,7 +1018,7 @@ function TransferWarnSheet({
         className="rounded-xl px-3.5 py-3"
         style={{ backgroundColor: "var(--warn-bg)" }}
       >
-        <p className="text-[1.125rem] font-bold leading-snug text-warn">
+        <p className="text-[0.875rem] font-semibold leading-snug text-warn">
           Tệp này gồm dữ liệu riêng của tàu
         </p>
         <p className="mt-1 text-[1.0625rem] font-semibold leading-snug text-warn/90">
@@ -1032,7 +1032,7 @@ function TransferWarnSheet({
           . Chỉ đưa cho <b>máy của chính mình</b> — đừng gửi Zalo cho người khác.
         </p>
       </div>
-      <p className="mt-3 text-[1rem] leading-snug text-foreground/75">
+      <p className="mt-3 text-[0.875rem] leading-snug text-foreground/75">
         Sổ bạn thuyền (CCCD), hộp thư, tài khoản và mã máy KHÔNG nằm trong tệp.
         Hộp thư và tài khoản thì đăng nhập lại là có; riêng <b>sổ bạn thuyền
         không có cách nào mang sang</b> — trên máy mới phải nhập tay lại.
@@ -1041,14 +1041,14 @@ function TransferWarnSheet({
         <button
           type="button"
           onClick={onCancel}
-          className="min-h-[3.5rem] rounded-xl bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.99]"
+          className="min-h-[3.5rem] rounded-xl bg-field text-[1.0625rem] font-semibold text-navy transition active:scale-[0.99]"
         >
           Thôi
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className="min-h-[3.5rem] rounded-xl bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.99]"
+          className="min-h-[3.5rem] rounded-xl bg-navy text-[1.0625rem] font-semibold text-white transition active:scale-[0.99]"
         >
           Lưu tệp
         </button>
