@@ -50,6 +50,10 @@ jobs:
       NEXT_PUBLIC_SDWORK_FUNCTIONS_URL: ${{ secrets.NEXT_PUBLIC_SDWORK_FUNCTIONS_URL || vars.NEXT_PUBLIC_SDWORK_FUNCTIONS_URL }}
       NEXT_PUBLIC_SDWORK_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SDWORK_ANON_KEY || vars.NEXT_PUBLIC_SDWORK_ANON_KEY }}
       CREW_CCCD_PEPPER: ${{ secrets.CREW_CCCD_PEPPER || vars.CREW_CCCD_PEPPER }}
+      # Sen Biển hỏi máy nhà (ADR 0016): khoá cổng AI Assistant — sinh trên máy GPU bằng `node app/core/cli.mjs tao-khoa-cong`.
+      # Thiếu ⇒ /api/sen-bien/hoi trả 503 chua_noi, Sen Biển nói câu trong máy (tắt êm).
+      FORLIFE_GW_KEY: ${{ secrets.FORLIFE_GW_KEY }}
+      FORLIFE_GW_URL: ${{ vars.FORLIFE_GW_URL }}
       SDFISH_RENEWAL_SECRET: ${{ secrets.SDFISH_RENEWAL_SECRET || vars.SDFISH_RENEWAL_SECRET }}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY || vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
       ADMIN_PHONES: ${{ secrets.ADMIN_PHONES || vars.ADMIN_PHONES }}
@@ -121,6 +125,8 @@ jobs:
             "NEXT_PUBLIC_SDWORK_FUNCTIONS_URL",
             "NEXT_PUBLIC_SDWORK_ANON_KEY",
             "CREW_CCCD_PEPPER",
+            "FORLIFE_GW_KEY",
+            "FORLIFE_GW_URL",
             "SDFISH_RENEWAL_SECRET",
             "NEXT_PUBLIC_VAPID_PUBLIC_KEY",
             "ADMIN_PHONES",
