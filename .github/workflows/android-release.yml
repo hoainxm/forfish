@@ -128,14 +128,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           D=android/sen-bien-gemma/src/main/assets/sen-bien
-          if gh release download sen-bien-gemma-v1 --repo "${{ github.repository }}" -p gemma.litertlm -D "$D" --clobber; then
+          if gh release download sen-bien-gemma-v2 --repo "${{ github.repository }}" -p gemma.litertlm -D "$D" --clobber; then
             if (cd "$D" && sha256sum -c ../../../../gemma.sha256); then
               echo "Gemma: $(du -h "$D/gemma.litertlm" | cut -f1) — gắn gói senbiengemma"
             else
               echo "::warning::Gemma sai SHA-256 — bỏ, build không có Gemma"; rm -f "$D/gemma.litertlm"
             fi
           else
-            echo "::warning::Chưa có release sen-bien-gemma-v1 — build không có Gemma (Sen Biển chạy n-gram + luật)"
+            echo "::warning::Chưa có release sen-bien-gemma-v2 — build không có Gemma (Sen Biển chạy n-gram + luật)"
           fi
 
       - name: Build AAB đã ký
