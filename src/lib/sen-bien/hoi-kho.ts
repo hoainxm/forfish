@@ -4,8 +4,7 @@
 //   (a) luật + n-gram v4 (`hieu-y.senBienReply`) như cũ — lệnh / câu trả lời thật xong là xong.
 //   (b) câu "say" chưa trả lời thật, KHÔNG mở bằng động từ đi lại, và (v4 nói `hoi_mo` HOẶC bộ lọc `loc.ts`
 //       p ≥ LOC_NGUONG — kể cả khi v4 nói `khong_hieu`) ⇒ v5b đưa 9 câu hỏi chuẩn gần nhất (`dau-kho.ts`):
-//         · câu nhất p ≥ Q_NHANH 0,9 ⇒ trả lời luôn (không hỏi Gemma);
-//         · Android có Gemma: Gemma chọn số 1–9 ⇒ câu đó; 0 ⇒ kho trượt;
+//         · Android có Gemma: Gemma chọn số 1 (ĐỒNG Ý câu nhất v5b) ⇒ đọc; chọn số khác / 0 ⇒ kho trượt;
 //         · không Gemma (web/iOS) / Gemma không ra chữ số / quá giờ ⇒ câu nhất p ≥ Q_CHAC 0,5 ⇒ trả lời, không thì trượt.
 //       Mã câu cần kiểm ⇒ câu an toàn (hoi-dap.ts).
 //   (c) kho trượt ⇒ chỗ gọi: có sóng hỏi máy nhà (hoi-may-chu.ts — `r.daTraLoi` vẫn false nên `nenHoiMayChu` nhận);
@@ -24,8 +23,6 @@ export type BoKho = { dk: DauKho; kho: KhoHoiDap; loc: BoLoc | null };
 export const SO_UNG_VIEN = 9;
 /** Không có Gemma: câu nhất từ ngưỡng này thì đọc (test-hd 19/10: phủ 91,7 %, đúng 82,8 %). */
 export const Q_CHAC = 0.5;
-/** Câu nhất chắc tới đây thì khỏi hỏi Gemma. */
-export const Q_NHANH = 0.9;
 /** Kho trượt + không hỏi được máy nhà. */
 export const CAU_CHUA_CHAC = "Câu này Sen Biển chưa chắc. Có sóng bà con hỏi lại, Sen Biển hỏi máy nhà cho.";
 
@@ -88,10 +85,13 @@ export async function hoiKho(text: string, r: SenReply, bo: BoKho | null, ctx: N
       const say = cauTraLoi(bo.kho, u.id);
       return { vao: true as const, dap: say ? { id: u.id, say, cach } : null };
     };
-    if (uv[0].p >= Q_NHANH) return doc(uv[0], "nhanh");
     const k = chon ? await chon(text, uv.map((u) => u.hoi)).catch(() => null) : null;
-    if (k === 0) return { vao: true, dap: null };
-    if (k != null && k >= 1 && k <= uv.length) return doc(uv[k - 1], "gemma");
+    /*  Gemma g270v5r (QAT int4, 2026-10-20, 6.000 câu kín test-hd): Gemma CHỌN MỘT MÌNH đúng 81,2 % khi trả lời — không
+        hơn câu nhất v5b (78,3 %); nhưng Gemma ĐỒNG Ý câu nhất v5b (k = 1) ⇒ trả lời 60,8 %, đúng 95,5 %, sai 2,7 % trên
+        tổng (v5b một mình sai 21,7 %). Ngoài biển câu sai tệ hơn câu "chưa chắc" ⇒ chỉ đọc khi hai bên đồng ý; Gemma
+        chọn số khác / 0 ⇒ trượt (máy nhà / câu an toàn). Bỏ lối tắt p ≥ 0,9: có Gemma thì luôn kiểm chéo. */
+    if (k === 1) return doc(uv[0], "gemma");
+    if (k != null && k >= 0 && k <= 9) return { vao: true, dap: null };
     // không có Gemma / Gemma không ra chữ số (mô hình hiện tại chưa học vai chọn — nợ ở gemma.ts) ⇒ như web
     return uv[0].p >= Q_CHAC ? doc(uv[0], "ngram") : { vao: true, dap: null };
   } catch {

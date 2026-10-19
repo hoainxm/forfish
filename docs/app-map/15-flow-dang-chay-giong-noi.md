@@ -917,15 +917,23 @@ Chủ dự án 19/10: *"nâng n-gram lên phân biệt hơn 2000 câu hỏi"*; r
 **Chuỗi** (`lib/sen-bien/hoi-kho.ts`, nối ở `sen-bien-toan-app` và `fishing-map-view senHeard` nhánh "say"):
 1. (a) luật + v4 (`senBienReply`) như cũ — lệnh, hỏi bản đồ, câu trả lời thật (`daTraLoi`), chặn ngoài phạm vi: xong.
 2. (b) `goLenhNgan` (dưới) rồi `vaoKho`: câu "say" chưa trả lời thật, không mở bằng động từ đi lại (`moDauDiLai`), không phải ý đi lại / ngoài phạm vi, và (v4 = `hoi_mo` HOẶC lọc p ≥ 0,8 — kể cả `khong_hieu`) ⇒ `ungVien`: v5b lấy 12, gộp mã, cắt 9 (= `dung-chon.mjs mau`, tron:false; khớp từng chữ trên 500 câu).
-   - câu nhất p ≥ `Q_NHANH` 0,9 ⇒ trả lời luôn;
-   - Android: `gemma.chonCauHoi` (prompt `SYSTEM_CHON` + `nguoiChon` khớp từng chữ lúc train, trần 4 s) — 1–9 ⇒ câu đó, 0 ⇒ trượt;
+   - Android: `gemma.chonCauHoi` (prompt `SYSTEM_CHON` + `nguoiChon` khớp từng chữ lúc train, trần 4 s) — **chỉ đọc khi Gemma ĐỒNG Ý câu nhất v5b (chọn số 1)**; chọn số khác / 0 ⇒ trượt (2026-10-20, bỏ lối tắt p ≥ 0,9: có Gemma thì luôn kiểm chéo);
    - không Gemma / Gemma không ra chữ số / quá giờ / lỗi ⇒ câu nhất p ≥ `Q_CHAC` 0,5 ⇒ trả lời, không thì trượt;
    - mã cần kiểm ⇒ `CAU_CAN_KIEM` *"Câu này dính tới luật lệ, con số, Sen Biển chưa dám nói chắc. Bà con hỏi Chi cục Thuỷ sản hoặc SDVICO cho đúng nhé."*
 3. (c) trượt ⇒ có sóng + có chuỗi: hỏi máy nhà (`hoiMayChu`, ADR 0016 — `daTraLoi` false nên `nenHoiMayChu` nhận; màn bản đồ nay cũng hỏi, đọc chữ bằng giọng chung); không được ⇒ ý `hoi_mo`/`khong_hieu`: `CAU_CHUA_CHAC` *"Câu này Sen Biển chưa chắc. Có sóng bà con hỏi lại, Sen Biển hỏi máy nhà cho."* (câu "cần sóng"/"chưa nghe rõ" của answer.ts không còn chặn đường máy nhà); ý app khác: trả lời bằng dữ liệu trong máy như cũ.
 
 **Tải**: màn bản đồ tải kho sau bộ hiểu ý (8 s sau mở). Màn khác: ý `hoi_mo`/`khong_hieu` chờ kho lần đầu; ý khác chỉ dùng kho đã sẵn (lệnh trong app không chờ 5 MB). Hỏng ⇒ thử lại ngầm, không chờ.
 
-**Gemma — nợ thay mô hình**: gói Play `android/sen-bien-gemma` đang là bản hiểu ý v4, CHƯA học vai chọn ⇒ trả JSON ⇒ `docSoChon` null ⇒ Android chạy như web. Bản đa nhiệm **g270v5r** (hiểu ý v4 + chọn câu) đang train; qua cổng thì thay `.litertlm` trong gói (ops/native-deploy §3c), không đổi code.
+**Gemma g270v5r — đã train 2026-10-20** (Gemma 3 270M đa nhiệm: hiểu ý v4 + chọn câu trong 9 ứng viên; cắt từ vựng VN → QAT int4 khối 32 + chưng cất → `g270v5r-k512-qb32e32kd-dynamic_wi4b32_afp32.litertlm` 62 MB, KV 512; CPU ~220 ms/câu lệnh). Số đo 6.000 câu kín test-hd (bản QAT):
+
+| Cách | Trả lời | Đúng khi trả lời | Sai trên tổng |
+|---|---|---|---|
+| v5b câu nhất, luôn | 100 % | 78,3 % | 21,7 % |
+| Gemma chọn một mình (mọi p) | 82,8 % | 81,2 % | 15,5 % |
+| **Gemma ĐỒNG Ý v5b (k = 1) — luật đang dùng** | **60,8 %** | **95,5 %** | **2,7 %** |
+| đồng ý, hoặc Gemma p ≥ 0,9 | 65,7 % | 93,8 % | 4,1 % |
+
+(test-hd-asr: đồng ý ⇒ 52,5 % / 94,8 % / 2,7 %.) Plugin chỉ trả chữ, không trả xác suất ⇒ dùng luật đồng ý. Hiểu ý (cham.mjs, so v3vn đang chạy / v4vn): ngang — trọn đúng test-b 85,3 (v3 84,5), test-lenh 88,8 (91,0), test-lenh-asr 80,7 (78,5), test-bd-asr 84,1 (85,8). **Nợ thay gói**: release `sen-bien-gemma-v2` + tag trong `android-release.yml` + `gemma.sha256` (ops/native-deploy §3c) — CHỜ chủ dự án duyệt tạo release; trước khi thay, gói Play cũ trả JSON ⇒ `docSoChon` null ⇒ Android chạy như web.
 
 **Lọc đè ĐÚNG hai luật lệnh ngắn** (chủ dự án 2026-10-19, chọn phương án an toàn — `hoi-kho.goLenhNgan`, gọi ngay sau `senBienReply` ở cả hai màn): `REPEAT` bắt nhầm "…là gì vậy", `HOWFAR` bắt nhầm "…bao lâu một lần" ⇒ lọc p ≥ 0,8 và câu không mở bằng động từ đi lại thì đổi thành câu hỏi (`hoi_mo`) cho chuỗi kho. Lệnh thật "nhắc lại", "nói lại đi", "gì vậy", "còn bao xa", "bao lâu nữa thì tới", "tới chưa" lọc ≤ 0,05 ⇒ giữ nguyên. **KHÔNG** đè chặn `ngoai_pham_vi` (ranh giới an toàn), câu hỏi bản đồ, dẫn đường. Màn khác dùng lọc trong kho đã sẵn (không chờ tải) — lần đầu chưa có kho thì luật cũ.
 
@@ -951,7 +959,7 @@ Trước khi đè hai luật: vào 58,1 % · trả lời 53,4 % · đúng 83,3 %
 
 | Trạng thái | Hành vi |
 |---|---|
-| Kho có, câu chắc (p ≥ 0,9, hoặc Gemma chọn, hoặc web p ≥ 0,5) | đọc câu có sẵn (≤ 60 chữ, Opus soạn, chưa duyệt) |
+| Kho có, câu chắc (Android: Gemma đồng ý v5b; web / Gemma chưa có: p ≥ 0,5) | đọc câu có sẵn (≤ 60 chữ, Opus soạn, chưa duyệt) |
 | Câu cần kiểm | `CAU_CAN_KIEM` |
 | Trượt + có sóng | máy nhà (≤ 6 s); máy nhà im ⇒ câu dưới |
 | Trượt + mất sóng / máy nhà im | `CAU_CHUA_CHAC` (ý hoi_mo/khong_hieu) · câu cũ (ý app khác) |

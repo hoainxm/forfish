@@ -197,8 +197,9 @@ export function dongGemma(): void {
    chữ thường: dữ liệu train đã trộn HOA/thường như bộ nghe).
    nợ: mô hình đang ở gói Play Asset (.litertlm hiện tại) CHƯA học vai này — nó trả JSON hiểu ý, không phải chữ số
    ⇒ `docSoChon` ra null ⇒ hoi-kho lùi về ngưỡng n-gram như web. Trần: Android chưa được Gemma chọn câu. Nâng cấp khi
-   bản đa nhiệm g270v5r (hiểu ý v4 + chọn câu) qua cổng: thay .litertlm trong `android/sen-bien-gemma` (doc 15 §26,
-   ops/native-deploy §3c), không đổi code. */
+   release `sen-bien-gemma-v2` (bản đa nhiệm g270v5r — đã train 2026-10-20, hiểu ý ngang v3, đồng ý v5b đúng 95,5 %)
+   được chủ dự án duyệt tạo: đổi tag trong android-release.yml + gemma.sha256 (doc 15 §26, ops/native-deploy §3c),
+   không đổi code. */
 export const SYSTEM_CHON =
   "Bộ chọn câu hỏi Sen Biển. Đọc câu ngư dân hỏi và 9 câu hỏi có sẵn, trả đúng một số: số của câu cùng ý, không câu nào cùng ý thì 0.";
 

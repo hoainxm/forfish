@@ -8,7 +8,7 @@ import { DAU_KHO_PATH, loadDauKho } from "@/lib/sen-bien/dau-kho";
 import { DEVICE_TOKEN_KEY } from "@/lib/device-token-store";
 import { senBienReply, type SenDest, type SenReply } from "@/lib/sen-bien/hieu-y";
 import { CAU_CAN_KIEM, docKho, HOI_DAP_PATH } from "@/lib/sen-bien/hoi-dap";
-import { CAU_CHUA_CHAC, goLenhNgan, hoiKho, Q_CHAC, Q_NHANH, ungVien, vaoKho, type BoKho, type ChonFn } from "@/lib/sen-bien/hoi-kho";
+import { CAU_CHUA_CHAC, goLenhNgan, hoiKho, Q_CHAC, ungVien, vaoKho, type BoKho, type ChonFn } from "@/lib/sen-bien/hoi-kho";
 import { hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { LOC_PATH, loadLoc } from "@/lib/sen-bien/loc";
 import { loadNgram, NGRAM_PATH } from "@/lib/sen-bien/ngram";
@@ -63,12 +63,11 @@ describe("(a) lệnh + câu trả lời thật của v4/luật KHÔNG vào kho",
 });
 
 describe("(b) vào kho: v4 hoi_mo, hoặc bộ lọc ≥ LOC_NGUONG khi v4 lạc ý", () => {
-  it("p câu nhất ≥ Q_NHANH ⇒ trả lời LUÔN, không hỏi Gemma", async () => {
-    const g = gia(3);
+  it("có Gemma thì LUÔN hỏi Gemma, kể cả khi câu nhất v5b rất chắc (bỏ lối tắt 0,9 — kiểm chéo)", async () => {
+    const g = gia(1);
     const kq = await hoi("cách giữ cá ngừ tươi lâu trên tàu", g.fn);
-    expect(kq).toEqual({ vao: true, dap: { id: "nghe_ca-005", say: raw.dap["nghe_ca-005"], cach: "nhanh" } });
-    expect(g.goi).toHaveLength(0);
-    expect(Q_NHANH).toBe(0.9);
+    expect(kq).toEqual({ vao: true, dap: { id: "nghe_ca-005", say: raw.dap["nghe_ca-005"], cach: "gemma" } });
+    expect(g.goi).toHaveLength(1);
   });
   it("lọc kéo câu v4 đoán lạc (tau_cua_toi) vào kho", async () => {
     expect(r4("máy tàu nóng quá phải làm sao")).toMatchObject({ kind: "say", y: "tau_cua_toi" });
@@ -84,17 +83,19 @@ describe("(b) vào kho: v4 hoi_mo, hoặc bộ lọc ≥ LOC_NGUONG khi v4 lạc
     expect(kq.vao && kq.dap).toMatchObject({ id: "giay_to_tau-053", say: CAU_CAN_KIEM });
   });
 
-  const CAU = "tại sao nhớt máy bị đen"; // hoi_mo · câu nhất may_tau-045 p≈0,62 (giữa Q_CHAC và Q_NHANH)
-  it("Android, Gemma chọn số k ⇒ câu thứ k trong 9 câu (đúng 9 câu, đúng câu chuẩn)", async () => {
-    const g = gia(2);
+  const CAU = "tại sao nhớt máy bị đen"; // hoi_mo · câu nhất may_tau-045 p≈0,62 (≥ Q_CHAC)
+  it("Android, Gemma ĐỒNG Ý câu nhất v5b (chọn số 1) ⇒ đọc câu đó; prompt đúng 9 câu chuẩn", async () => {
+    const g = gia(1);
     const uv = ungVien(BO, CAU, {});
     expect(uv).toHaveLength(9);
     expect(uv[0].p).toBeGreaterThanOrEqual(Q_CHAC);
-    expect(uv[0].p).toBeLessThan(Q_NHANH);
     const kq = await hoi(CAU, g.fn);
-    expect(kq.vao && kq.dap).toMatchObject({ id: uv[1].id, cach: "gemma" });
+    expect(kq.vao && kq.dap).toMatchObject({ id: uv[0].id, cach: "gemma" });
     expect(g.goi).toEqual([{ cau: CAU, hoi: uv.map((u) => u.hoi) }]);
     expect(uv[0].hoi).toBe(raw.cauHoi[raw.q.indexOf(uv[0].id)]);
+  });
+  it("Gemma chọn câu KHÁC câu nhất v5b (k = 2..9) ⇒ hai bên lệch ⇒ kho trượt, không đọc", async () => {
+    for (const k of [2, 5, 9]) expect(await hoi(CAU, gia(k).fn)).toEqual({ vao: true, dap: null });
   });
   it("Gemma nói 0 ⇒ kho trượt (đi máy nhà / câu an toàn)", async () => {
     expect(await hoi(CAU, gia(0).fn)).toEqual({ vao: true, dap: null });
