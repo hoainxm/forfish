@@ -16,6 +16,7 @@ import { buildFishForecast, nearestIndex, coastDistanceKm } from "../src/lib/fis
 import { fleetPresenceLookup } from "../src/lib/fleet-effort.ts";
 import { attachDay, ASFIS_TO_SHORT, NB, recLen, recMetrics, kishNeff, blockResamples, ci90, makeRng } from "./dl-eval.mjs";
 import { halfOfBucket } from "./vessel-bucket.mjs";
+import { makeBase } from "./fish-base-fit.mjs";
 
 export const BLOCK_DAYS = 7;
 export const TIERS = [[0, 24], [25, 49], [50, 74], [75, 100]];
@@ -93,8 +94,11 @@ export async function runHonest(ctx) {
   log(`${days.length} ngày · ${nBlocks} khối ${BLOCK_DAYS} ngày · ${gIndex.size} ô · nhãn ${hasVh ? "CÓ" : "KHÔNG có"} cột vh`);
 
   /* ── nhãn theo ngày × loài × nghề ── */
+  // --trust-col <tên cột> (nhãn v2): nhân kg mỗi dòng với trọng số tin cậy của chuyến; mặc định không có cột = 1
+  const TRUST = process.argv.includes("--trust-col") ? process.argv[process.argv.indexOf("--trust-col") + 1] : null;
   function labelPrep(day, half) {
     let eff = effD.get(day.d) ?? [], cat = catD.get(day.d) ?? [];
+    if (TRUST) cat = cat.map((r) => ({ ...r, kg: +r.kg * (Number.isFinite(+r[TRUST]) && r[TRUST] !== "" ? +r[TRUST] : 1) }));
     if (half) { eff = eff.filter((r) => halfOfBucket(r.vh) === half); cat = cat.filter((r) => halfOfBucket(r.vh) === half); }
     const lab = attachDay(day.cells, eff, cat, ASFIS_TO_SHORT);
     const cellIdx = new Map(day.cells.map((c, i) => [c, i]));
@@ -253,8 +257,13 @@ export async function runHonest(ctx) {
   function run(key, name, scoreFn, note = "") {
     const t = Date.now();
     const blocks = newBlocks();
-    days.forEach((day, di) => accumulate(blocks, day, prepAll[di], scoreFn(day)));
-    results[key] = { name, note, blocks };
+    let hot = 0, tot = 0;
+    days.forEach((day, di) => {
+      const sc = scoreFn(day);
+      accumulate(blocks, day, prepAll[di], sc);
+      for (const s of SPECIES) if (prepAll[di][s].pos.length || prepAll[di][s].neg.length) { let h = 0; const a = sc[s]; for (let i = 0; i < a.length; i++) if (a[i] >= 50) h++; hot += h; tot += a.length; }
+    });
+    results[key] = { name, note, blocks, hotShare: tot ? hot / tot : NaN };
     log(`${key}: ${name} (${Math.round((Date.now() - t) / 1000)}s)`);
   }
   const Fh = (d) => heldOut[d.ym], Ch = (d) => catchHeld[d.ym];
@@ -270,6 +279,24 @@ export async function runHonest(ctx) {
   run("clim_head", "khí hậu của HEAD (TB tháng)", climScore(cHead));
   run("clim_prod", "khí hậu của bản chốt (TB tháng)", climScore(cProd));
   run("rand", "ngẫu nhiên mượt 3×3", randScores, "sanity: kỳ vọng ≈ 0,5");
+
+  // 2A — NỀN "bãi cá theo mùa": x-sản-lượng (K_s riêng loài) + x-đội-tàu + tĩnh + mùa vụ, ≤5 hệ số/nhóm loài,
+  // hệ số + bảng tĩnh fit trên tháng KHÁC tháng chấm, lưới x giữ-tháng-ra. Ngưỡng "nóng" (điểm ≥50) hiệu chỉnh theo
+  // tỉ lệ ô ≥50 của bản chốt (đơn điệu ⇒ không đổi AUC; chỉ để cổng iii so được).
+  const BASE = makeBase({ days, prepAll, SPECIES, feat, heldOut, catchHeld, catchFull, fleetOnly: process.argv.includes("--fleet-only") ? process.argv[process.argv.indexOf("--fleet-only") + 1].split(",").filter(Boolean) : [] });
+  const HOT = results.prod.hotShare;
+  log(`2A: ngưỡng nóng = tỉ lệ ô ≥50 của bản chốt = ${(100 * HOT).toFixed(1)} %`);
+  run("xc_ks", "x-sản-lượng K_s theo loài (thuần)", (d) => BASE.xcScores(d), "như x_catch nhưng K_s = trung vị kg ô dương của loài thay vì 8000");
+  run("base_irls", "NỀN 2A — logistic ≤5 hệ số/nhóm", (d) => BASE.scoreDay(d, "irls", HOT), "xc(K_s)+xf+stat+mùa, IRLS use-availability fit trên tháng kia");
+  run("base_rank", "NỀN 2A — rank-combine (0 hệ số)", (d) => BASE.scoreDay(d, "rank", HOT), "cộng hạng phân vị xc, xf, stat");
+  // production mới (đợt 2A nối nền): buildFishForecast thật với extra.base — nền + cổng nhiệt + lịch mùa vụ; HSI ra hint
+  const HOT2 = Number(process.env.HOT2 ?? HOT);
+  const baseP = (d, same = true) => BASE.paramsFor(d.ym, HOT2, "irls", same);
+  run("prod2", "PRODUCTION MỚI — nền + cổng nhiệt + mùa vụ", (d) => modelScores(d, { fleet: Fh(d), catchGrid: Ch(d), base: baseP(d) }), `buildFishForecast thật, extra.base, hotShare ${HOT2}`);
+  for (const [key, g] of [["prod2_nothermal", { thermal: false }], ["prod2_listgate", { season: true }]])
+    run(key, `production mới, ${key === "prod2_listgate" ? "BẬT cổng lịch mùa vụ theo vùng" : "tắt cổng nhiệt"}`, (d) => modelScores(d, { fleet: Fh(d), catchGrid: Ch(d), base: baseP(d), baseGates: g }), "chẩn đoán: cổng nào làm mất AUC");
+  run("prod2_fs", "production mới, tháng chưa có kg (fleet-static)", (d) => modelScores(d, { fleet: Fh(d), catchGrid: Ch(d), base: baseP(d, false) }), "catchSameMonth=false ⇒ đội tàu + tĩnh + mùa");
+  run("base_irls_nc", "NỀN 2A — logistic, bỏ kênh sản lượng", (d) => BASE.scoreDay(d, "irls", HOT, { noCatch: true }), "chế độ tháng chưa có kg loài: đội tàu + tĩnh + mùa");
   // 1.3 (c) M−1
   const catchPrev = (d) => monthOnly(catchFull, prevYm(d.ym)), fleetPrev = (d) => monthOnly(fullGrid, prevYm(d.ym));
   if (catchFull) {
@@ -306,6 +333,17 @@ export async function runHonest(ctx) {
       });
       results[key] = { name, note: "đội tàu+sản lượng dựng từ MỘT nửa tàu (băm), giữ-tháng-ra", blocks };
       log(`${key} (${Math.round((Date.now() - t) / 1000)}s)`);
+    }
+    for (const mode of ["irls", "rank"]) for (const [sfx, same] of [["other", false], ["same", true]]) {
+      const t = Date.now(), blocks = newBlocks();
+      days.forEach((day, di) => {
+        for (const h of ["A", "B"]) {
+          const sc = BASE.scoreDay(day, mode, HOT, { src: { key: `${day.ym}-${h}`, fleet: fHalf[day.ym][h], catch: cHalf[day.ym][h] } });
+          accumulate(blocks, day, P[same ? h : h === "A" ? "B" : "A"][di], sc);
+        }
+      });
+      results[`base_${mode}_leak2_${sfx}`] = { name: `nền 2A (${mode}) rò#2: lưới nửa này → nhãn nửa ${same ? "NÀY (quen)" : "KIA (lạ)"}`, note: "hệ số + bảng tĩnh vẫn fit trên tháng kia, mọi tàu", blocks, hotShare: NaN };
+      log(`base_${mode}_leak2_${sfx} (${Math.round((Date.now() - t) / 1000)}s)`);
     }
     // HEAD trên cùng tập nhãn đã là "head" (hai nửa cộng lại = toàn bộ)
   } else log(`thiếu lưới nửa tàu (fleet-ex-<tháng>-A/B, catch-ex-<tháng>-A/B) hoặc nhãn không có vh ⇒ bỏ rò#2`);
@@ -364,7 +402,7 @@ export async function runHonest(ctx) {
   }
   const ciOf = (arr) => ci90(arr);
   const diffCi = (a, b, st) => ci90(Array.from(boot[a][st], (v, r) => v - boot[b][st][r]));
-  const REFS = ["head", "prod", "x_catch"];
+  const REFS = ["head", "prod", "x_catch", "static", "m1_cpue"].filter((k) => results[k]);
 
   /* ── bảng CPUE theo bậc điểm (1.6) ── */
   const tierStat = (blocks, idxs, set) => {
@@ -385,7 +423,7 @@ export async function runHonest(ctx) {
   const cpue = (ts, set) => TIERS.map((_, t) => { let K = 0, H = 0; for (const s of set) { K += ts.kg[t][s]; H += ts.hr[t][s]; } return H > 0 ? K / H : NaN; });
   const topSp = [...SPECIES].sort((a, b) => point.head.per[b].kgAll - point.head.per[a].kgAll);
   const tierOut = {};
-  for (const k of ["head", "prod"]) {
+  for (const k of ["head", "prod", "base_irls", "base_rank", "base_irls_nc", "prod2", "prod2_nothermal", "prod2_listgate", "prod2_fs"].filter((k) => results[k])) {
     const blocks = results[k].blocks, ts = tierStat(blocks, all, SPECIES);
     const rows = { pooled: { cpue: cpue(ts, SPECIES), kg: TIERS.map((_, t) => SPECIES.reduce((a, s) => a + ts.kg[t][s], 0)), hours: TIERS.map((_, t) => SPECIES.reduce((a, s) => a + ts.hr[t][s], 0)) } };
     for (const s of topSp.slice(0, 12)) rows[s] = { cpue: cpue(ts, [s]), kg: TIERS.map((_, t) => ts.kg[t][s]), hours: TIERS.map((_, t) => ts.hr[t][s]) };
@@ -417,7 +455,9 @@ export async function runHonest(ctx) {
     speciesDiff: Object.fromEntries(["prod", "x_catch"].filter((k) => results[k]).map((k) => [k, Object.fromEntries(SPECIES.map((s) => [s, { vsHead: { within: ci90(Array.from(bootSp[k][s].within, (v, r) => v - bootSp.head[s].within[r])), eff: ci90(Array.from(bootSp[k][s].eff, (v, r) => v - bootSp.head[s].eff[r])) } }]))])),
     tiers: { TIERS, ...tierOut },
   };
+  json.hotShare = Object.fromEntries(keys.map((k) => [k, results[k].hotShare]));
   writeFileSync(join(OUT, "honest-eval.json"), JSON.stringify(json, null, 1));
+  writeFileSync(join(OUT, "fish-base-fit.json"), JSON.stringify(BASE.exportFit(HOT, process.env.BASE_MODE || "irls")));
 
   /* ── in markdown ── */
   const cell = (k, st) => `${f3(json.configs[k].point[st])} [${f3(json.configs[k].ci[st][0])}–${f3(json.configs[k].ci[st][1])}]`;
@@ -429,20 +469,26 @@ export async function runHonest(ctx) {
   const dc = (k, r, st) => { const x = json.configs[k].diff[r]?.[st]; return x ? `${f3s(x.d)} [${f3s(x.ci[0])}…${f3s(x.ci[1])}]` : "—"; };
   for (const k of keys) console.log(`| ${results[k].name} | ${dc(k, "head", "kgWithin")} | ${dc(k, "head", "macroWithin")} | ${dc(k, "prod", "kgWithin")} | ${dc(k, "prod", "macroWithin")} | ${dc(k, "x_catch", "kgWithin")} | ${dc(k, "x_catch", "macroWithin")} |`);
   console.log(`\n## Bảng C — theo loài: n_eff · AUCeff cũ → trong-nghề (theo cấu hình)\n`);
-  const showK = ["head", "prod", "x_catch", "x_fleet", "static", "m1_cpue", "leak2_other", "leak4_prod"].filter((k) => results[k]);
+  const showK = ["head", "prod", "x_catch", "x_fleet", "static", "m1_cpue", "leak2_other", "leak4_prod", "xc_ks", "base_irls", "base_rank"].filter((k) => results[k]);
   console.log(`| loài | tấn | n_eff | top1% kg | ${showK.map((k) => results[k].name).join(" | ")} |\n|---|---|---|---|${showK.map(() => "---").join("|")}|`);
   for (const s of topSp) {
     const t = point.head.per[s].kgAll / 1000;
     if (t < 0.5) continue;
     console.log(`| ${s} | ${t.toFixed(1)} | ${Math.round(nEff[s])}${nEff[s] < 200 ? "⚠" : ""} | ${f3(top1[s])} | ${showK.map((k) => `${f3(point[k].per[s].eff)} → ${f3(point[k].per[s].within)}`).join(" | ")} |`);
   }
-  for (const k of ["head", "prod"]) {
+  for (const k of ["head", "prod", "base_irls", "base_rank", "base_irls_nc", "prod2", "prod2_nothermal", "prod2_listgate", "prod2_fs"].filter((k) => results[k])) {
     console.log(`\n## Bảng D(${k}) — CPUE kg/giờ (nhóm nghề mục tiêu) theo bậc điểm — ${results[k].name}\n`);
     console.log(`| loài | ${TIERS.map((t) => `${t[0]}–${t[1]}`).join(" | ")} | 25–49/0–24 | 50–74/25–49 | ≥75/50–74 [CI 90 %] |\n|---|---|---|---|---|---|---|---|---|`);
     for (const [nm, row] of Object.entries(tierOut[k])) {
       const rr = (i) => (Number.isFinite(row.ratio[i].r) ? `${row.ratio[i].r.toFixed(2)} [${row.ratio[i].ci[0].toFixed(2)}–${row.ratio[i].ci[1].toFixed(2)}]` : "—");
       console.log(`| ${nm === "pooled" ? "**gộp mọi loài**" : nm} | ${row.cpue.map((c) => (Number.isFinite(c) ? c.toFixed(1) : "—")).join(" | ")} | ${rr(0)} | ${rr(1)} | ${rr(2)} |`);
     }
+  }
+  console.log(`\n## Bảng E — cổng 2A\n`);
+  for (const k of ["base_irls", "base_rank", "base_irls_nc", "prod2", "prod2_nothermal", "prod2_listgate", "prod2_fs"].filter((k) => results[k])) {
+    const t = tierOut[k].pooled, r = t.ratio.map((x) => `${x.r.toFixed(2)} [${x.ci[0].toFixed(2)}–${x.ci[1].toFixed(2)}]`).join(" · ");
+    const lw = (a) => (json.configs[a] ? f3(json.configs[a].point.kgWithin) : "—");
+    console.log(`- ${k}: trong-nghề ${cell(k, "kgWithin")} · cũ ${cell(k, "kgOld")} · Δ bản chốt ${dc(k, "prod", "kgWithin")} · Δ tĩnh ${dc(k, "static", "kgWithin")} · Δ M−1 kg/giờ ${dc(k, "m1_cpue", "kgWithin")} · ô≥50 ${(100 * results[k].hotShare).toFixed(1)} % (chốt ${(100 * HOT).toFixed(1)} %) · bậc 25/50/75: ${r} · lạ ${lw(`${k}_leak2_other`)} vs quen ${lw(`${k}_leak2_same`)}`);
   }
   log(`xong → ${join(OUT, "honest-eval.json")}`);
 }

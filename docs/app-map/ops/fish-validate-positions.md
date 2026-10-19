@@ -2,10 +2,9 @@
 
 > **Load khi**: muốn biết dự báo cá có **đúng chỗ tàu thật đi đánh** không (không chỉ "phân biệt được" nội bộ), khi chốt B1/B2 (AMM vs soft-OR vs weighted-sum) bằng số, khi cần dữ liệu vị trí tàu để đo, hoặc khi ai hỏi "giấy phép GFW có cản gì không".
 
-covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs, scripts/dl-collect.mjs, scripts/dl-build-labels.mjs, scripts/dl-eval.mjs, scripts/dl-fit-profiles.mjs, scripts/build-fleet-effort-grid.mjs, scripts/build-species-catch-grid.mjs, scripts/dl-eval-fleet.mjs
+covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs, scripts/dl-collect.mjs, scripts/dl-build-labels.mjs, scripts/dl-eval.mjs, scripts/dl-fit-profiles.mjs, scripts/build-fleet-effort-grid.mjs, scripts/build-species-catch-grid.mjs, scripts/dl-eval-fleet.mjs, scripts/dl-adapt-local.mjs, scripts/train/run.mjs, scripts/lib/data-dir.mjs
 last_verified: 2026-10-14
 ttl_days: 180
-<!-- DOC-STATUS: SUSPECT (2026-10-18) — code 'scripts/dl-eval-fleet.mjs' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
 Hồ sơ gốc: [fish-review-2026-10-03/report-algorithm.md](fish-review-2026-10-03/report-algorithm.md) mục **B8** (lỗ hổng: SDFish chỉ tự kiểm nội bộ) và **C1** (việc này). Chuẩn đo: Hsu et al. 2021 — % vị trí tàu nằm trong 5/50 km của ô HSI cao; không cần CPUE.
@@ -133,7 +132,7 @@ npx tsx scripts/dl-fit-profiles.mjs --species "ngừ vằn"                     
 - Δdyn ≈ 0 ở đa số loài — tín hiệu "hôm nay" từ ảnh vệ tinh gần như chưa đo được; có nghĩa: ngừ vằn (HEAD +0,018 p 0,003), ngừ chấm, bạc má, cá phèn, cá chim.
 - Bản WIP 2026-10-10 (soft-OR cá nổi lớn 0,6, trái vụ ×0,6) so HEAD: ngừ vằn 0,645→0,697, ngừ vây vàng 0,606→0,665, cá thu, mực ống, cá mối, nục heo tăng; ngừ chấm 0,524→0,490 giảm; Δdyn ngừ vằn mất (0,018→0,002).
 
-**Tối ưu tham số hồ sơ** (`dl-fit-profiles`; gập tháng 8 ↔ 9, nhận khi cả hai chiều không tệ đi và TB tăng ≥ 0,01). Lượt 1 dò phù du tới −0,4, lượt 2 tới −1,0 (trên code WIP chưa commit) → 17 loài; KIỂM LẠI trên code `main` bằng `--cfg` (không dò lại) kèm LUẬT NGHIỆP VỤ: loài tầng mặt KHÔNG hạ phía nóng dải nhiệt (test "trần nhiệt", 2026-10-03), không dò `coastKm` đã khai riêng (ngừ vằn, nục heo) ⇒ **ĐÃ ÁP 15 loài vào `SPECIES_PROFILES` (2026-10-10)**, mỗi dòng có chú thích "fit DataLake" ghi AUCeff trước/sau từng tháng. Rơi khi kiểm trên `main`: mực ống (phần tăng chỉ có trên code WIP), cá sòng (toàn bộ phần tăng đến từ hạ trần nhiệt — cấm). Kết quả: `~/sdfish-data/fit-main2/fit-<loài>.json`.
+**Tối ưu tham số hồ sơ** (`dl-fit-profiles`; gập tháng 8 ↔ 9, nhận khi cả hai chiều không tệ đi và TB tăng ≥ 0,01). Lượt 1 dò phù du tới −0,4, lượt 2 tới −1,0 (trên code WIP chưa commit) → 17 loài; KIỂM LẠI trên code `main` bằng `--cfg` (không dò lại) kèm LUẬT NGHIỆP VỤ: loài tầng mặt KHÔNG hạ phía nóng dải nhiệt (test "trần nhiệt", 2026-10-03), không dò `coastKm` đã khai riêng (ngừ vằn, nục heo) ⇒ **ĐÃ ÁP 15 loài vào `SPECIES_PROFILES` (2026-10-10)** ⚠ **NỢ (2026-10-19)**: 15 hồ sơ này chưa qua kiểm nhận-oan — quy trình fit cũ NHẬN 4–5/10 loài ngay cả trên nhãn LỆCH 15 ngày ([fish-train-review §6.3, §7.5](fish-train-review-2026-10-18/README.md)); không gỡ (holdout không tụt) nhưng từ 2026-10-19 hồ sơ chỉ còn tác dụng ở lớp "dấu hiệu" (`hint`), điểm `s`/`sp` là nền `fish-base.ts`. Nâng cấp: chạy lại qua `dl-fit-profiles --accept dyn` khi có toạ độ mẻ., mỗi dòng có chú thích "fit DataLake" ghi AUCeff trước/sau từng tháng. Rơi khi kiểm trên `main`: mực ống (phần tăng chỉ có trên code WIP), cá sòng (toàn bộ phần tăng đến từ hạ trần nhiệt — cấm). Kết quả: `~/sdfish-data/fit-main2/fit-<loài>.json`.
 
 | Loài | AUCeff trước → sau (cả kỳ) | Tháng 8 (đo) | Tháng 9 (đo) |
 |---|---|---|---|
@@ -150,6 +149,69 @@ Test đổi kèm: `fish-predict.test.ts` "VIỆC 4" đổi chl mẫu 4,0 → 1,0
 
 **Kiểm chứng bản chốt 2026-10-10 (soft-OR cá nổi lớn 0,6 · sàn trái vụ ×0,6 · mùa vụ ngày xa 25 %) trên nền hồ sơ đã hiệu chỉnh** — cùng 31 ngày, cùng nhãn: AUCeff TB theo sản lượng **+0,017**; ngừ vằn 0,668 → **0,734** (loài phản hồi thực địa Bình Định), mực nang +0,079, ngừ vây vàng +0,059, mực ống +0,056, cá thu / cá trích / nục heo ≈ +0,06, cá mối +0,030, cá đổng +0,023; giảm nhẹ ngừ ồ −0,015, cá sòng −0,020, cá cờ −0,010; "mọi loài" −0,002. Nhãn chỉ chuyến có giám sát cho cùng chiều. Cái giá: Δdyn ngừ vằn 0,012 → 0,001 (bản đồ tĩnh hơn). Phần mùa vụ ngày xa (fish-blend) không đo được bằng bộ này (chỉ chấm ngày ảnh).
 
+
+### 9.y Định nghĩa NHÃN v2 (2026-10-18, mảnh 2C của rà pipeline train) — thay cách dựng nhãn ghi ở §9 khi bật `--v2`
+
+`dl-build-labels.mjs --v2` (code: `dl-labels-v2.mjs`, `fishing-def.mjs`, `gear-infer.mjs`, `dl-calibrate-bands.mjs`); **không cờ ⇒ nhãn cũ y nguyên byte** (các số §9–§11 là trên nhãn cũ). Kết quả đo + cổng: [fish-train-review-2026-10-18/README.md §7.6](fish-train-review-2026-10-18/README.md). Khác nhãn cũ:
+- **MỘT bảng dải tốc độ cả năm** theo nhóm nghề (`scripts/fishing-bands.v2.json`, 6 600 chuyến có haulCount gộp mọi cửa sổ, metric ρ(**giờ trong dải**, haulCount), bootstrap 100 ghi CI) thay cho dải tự chỉnh theo từng cửa sổ (đợt/Spearman). Lưới đội tàu `build-fleet-effort-grid.mjs --v2` dùng CHÍNH bảng này (trước: 0–4,5 kn) ⇒ một định nghĩa "giờ đánh". Dải không bao giờ bắt đầu ở 0, **trừ vây ban đêm** (18–06 giờ VN) đứng yên được tính.
+- **Loại giờ** trong 10 km quanh BẤT KỲ cảng nào của `catalog-ports` (thay `PORT_KM = 5` chỉ so đầu/cuối chuyến) và giờ giữa một lần IN và OUT thật của port-calls (`tk.c`).
+- **Nghề tàu NULL** suy bằng Naive Bayes (loài + dài + công suất; posterior ≥ 0,7; cột `gs` = registry | inferred; trần p99 theo nghề đã suy). **Tàu thu mua** (`likelyCarrier`) không có vị trí; **cặp kéo đôi** (PAIRED một-đối-một) gộp kg hai tàu chia theo giờ của cả hai.
+- **Bỏ ×0,5/×0,3/×0,7** (ablation: chênh AUCeff trong-nghề ≤ 0,0012). Thay bằng **điểm tin cậy theo chuyến** từ tín hiệu độc lập với lời khai (luật khai sai có chủ đích): giấu vị trí (VMS đứt > 12 giờ ngoài khơi, ≥ 6 giờ ngoài vùng biển VN) ⇒ loại khỏi nhãn vị trí; cá tạp/xô bất thường ⇒ kg chỉ vào tổng nghề; lặp y hệt · số tròn · landed ≠ catch · cảng khai ≠ cảng VMS ⇒ hạ trọng số theo mức lệch. Đo % chuyến/% kg + ablation từng tín hiệu ở README §7.6b; nhãn nghiêng về tàu khai thật. Huber chỉ còn khi `--huber`.
+- Cột `vh` luôn bật; `report.json` có `kg.byLenClass` (kgUsed/kgTotal), sha script, bảng dải + CI, cổng nhãn.
+- **Giới hạn đã biết**: tàu NULL suy ra kéo/vây (≥ 24 m) có ρ(đợt, haulCount) ≈ −0,3 (n = 85) — vị trí của nhóm này chưa kiểm chứng được; đợt/mẻ vẫn 3–4× ở rê/vây/câu.
+
+### 9.x Cách fit MỚI (2026-10-18, mảnh 2B của rà pipeline train) — thay cách ghi ở §9 phía trên
+
+> Các số "NHẬN 15/17 loài" ở §9 là kết quả của quy trình CŨ (điểm làm tròn + cắt KEEP_MIN, mô hình KHÔNG có hai kênh tĩnh, ngưỡng cố định `MIN_GAIN` 0,01, chỉ 2 nếp kề nhau). Kiểm nhận-oan (README rà train §6.3) cho thấy quy trình cũ vẫn "nhận" 3/10 (hồ sơ hiện tại) – 8/10 (hồ sơ gốc) loài khi nhãn lệch 15 ngày ⇒ **15 hồ sơ đã áp chưa qua kiểm nhận-oan; ghi nợ, chưa gỡ** (holdout không tụt).
+
+`scripts/dl-fit-profiles.mjs` (viết lại) chạy trên **cache đặc trưng ô-ngày** (`scripts/fish-features-cache.mjs`, dựng bằng đúng `buildCellFeatures` của production) và chấm bằng đúng `scoreCell`:
+
+| | cũ | mới |
+|---|---|---|
+| Thời gian 1 loài × 61 ngày (PC GPU) | ~17 phút | vài giây (xem README rà train §7.5) |
+| Điểm | nguyên 0..100, ô < 25 = 0 | **liên tục** (histogram 1024 ngăn) |
+| Hai kênh tĩnh (đội tàu + sản lượng) | TẮT | **BẬT, giữ-tháng-ra** (`fleet-ex-<tháng>.json`, `catch-ex-<tháng>.json`; nếp 2 tháng `…-ex-2026-07+2026-08.json`) |
+| Số đo | AUCeff (pos mọi nghề vs giờ hợp) | **AUCeff trong-nghề** Σ_g w_g·AUC(kg nghề g, giờ nghề g) |
+| Kiểm chéo | gập tháng 8 ↔ 9 | K nếp tháng, **đệm 15 ngày** train↔test; chuỗi tiến F3 (`--forward`) |
+| Ngưỡng NHẬN | TB tăng ≥ 0,01 và cả hai chiều ≥ −0,005 | cận dưới **CI 90 % bootstrap khối 7 ngày** của chênh gộp > 0 **và** Benjamini–Hochberg q = 0,1 trên loài chạy chung **và** chênh **ĐỘNG** (trừ chênh trên nhãn lệch ±15 ngày) cũng qua |
+| Nhận-oan (nhãn lệch 15 ngày, 10 loài) | 3/10 (hồ sơ nay) – 8/10 (hồ sơ gốc) | xem README rà train §7.5 |
+
+Chạy:
+
+```bash
+# 1 lần (hoặc khi có thêm ngày lưới): cache đặc trưng, NGOÀI repo
+export SDFISH_DATA_DIR=/mnt/c/Users/admin/sdfish-data   # mặc định ~/sdfish-data
+npx tsx scripts/fish-features-cache.mjs
+# kế hoạch nếp + lưới tĩnh còn thiếu (kèm lệnh dựng)
+npx tsx scripts/dl-fit-profiles.mjs --species "ngừ vằn" --plan
+# fit (nhiều loài một lượt để BH có nghĩa)
+npx tsx scripts/dl-fit-profiles.mjs --species "ngừ vằn,cá nục" --labels <thư mục nhãn,…> --local --forward
+# kiểm nhận-oan
+npx tsx scripts/dl-fit-profiles.mjs --species "<10 loài>" --label-shift 15
+```
+
+Lưu ý khi đọc kết quả: (1) chênh **thô** vẫn dương khi nhãn lệch ngày — hồ sơ học được hình học bãi theo mùa chứ không phải tín hiệu ngày; chỉ chênh **động** mới nói về "vệ tinh hôm nay". (2) `--local` in AUC cục bộ 1°×1° và Spearman dị thường (`scripts/fish-metrics-local.mjs`) — hai số phụ bắt buộc của lớp cộng thêm (README rà train §7.0). (3) `--legacy-score` tái hiện điểm cũ (làm tròn + cắt 25) để đối chiếu bộ đo. (4) Đây là **bộ đo**, chưa fit lại hồ sơ loài để áp (README §7.3).
+
+## 9.z Chuỗi lệnh MỘT cửa qua runner + `SDFISH_DATA_DIR` (2026-10-19, mảnh 2F của rà pipeline train)
+
+> Thay các chuỗi tay ở §9–§12 cho phần **dựng dữ liệu → đo**. Fit/propose/PR **chưa** vào runner (đợi nối nền 2A xong). Nguồn thiết kế: `ops/fish-train-review-2026-10-18/report-pipeline-ops.md` §3–§7.
+
+- **Một biến** `SDFISH_DATA_DIR` (`scripts/lib/data-dir.mjs`; mặc định `~/sdfish-data`; PC GPU WSL: `/mnt/c/Users/admin/sdfish-data`) cho `dl-collect`, `dl-build-labels`, `dl-eval`, `dl-eval-fleet`, `dl-fit-profiles`, `fish-features-cache`, `fish-2d-experiment`, `fish-base-*` và runner. Lưới `build-*-grid` vẫn mặc định ghi `src/data/…` — runner luôn truyền `--out` về `$SDFISH_DATA_DIR/{fleet,catch}-v2/`. DataLake thô: `--src` / `SDVICO_DATALAKE_ROOT` (repo AI-Assistant, nhánh `Data` đã push 2026-10-19; folder trên GPU `~/forlife/sdvico-data/data-local/datalake-iuu`).
+- `scripts/dl-adapt-local.mjs` (đưa từ `tools/` ngoài repo vào git): `--src` bắt buộc (hoặc env), `--snap` mặc định snapshot mới nhất, `--out` mặc định `$SDFISH_DATA_DIR/dl`; `--selftest` kiểm PII (tên chủ tàu, số đăng ký, số nhật ký KHÔNG lọt ra). `dl-collect.mjs` đánh dấu **kế thừa** (đường hầm API chết).
+- Runner `scripts/train/run.mjs` — stage: `adapt` · `adapt-0809` · `aux` (gear-map, pairs) · `labels-v2` (5 khúc + nhãn kiểm định 8–9) · `fleet-grid-v2` / `catch-grid-v2` (full, ex-tháng, nếp 2 tháng, ex-fwd chuỗi tiến thuần = mọi tháng ≥ M, nửa tàu A/B tháng 8–9) · `sat-grids` (**mạng**, cache theo ngày trong `fish-validate-run`) · `features-cache` · `eval-honest`. Khoá cache item = sha256(mã script + mọi file `./import` + argv + băm đầu vào); đầu vào ≤256 MB băm nội dung, lớn/thư mục băm (tên+kích thước). Chỉ mục cache `<data>/runs/cache.json`; `runs/<ngày>-<gitsha>[-dirty]/manifest.json` ghi sau MỖI item (kích thước + sha256 đầu ra, giây chạy).
+
+```bash
+export SDFISH_DATA_DIR=/mnt/c/Users/admin/sdfish-data SDVICO_DATALAKE_ROOT=~/forlife/sdvico-data/data-local/datalake-iuu
+export TSX=~/fish-eval-r1/tools/node_modules/.bin/tsx          # nếu repo chưa có node_modules/.bin/tsx
+npm run train:dry                                                 # in DAG + từng item CHẠY/CACHE, không chạy gì
+npm run train:labels                                              # adapt → aux → nhãn v2
+node scripts/train/run.mjs --resume                               # cả chuỗi tới eval-honest, nối tiếp sau khi chết giữa chừng
+node scripts/train/run.mjs --only eval-honest                     # một stage;  --from-stage fleet-grid-v2  từ stage đó trở đi
+```
+- Tuần tự (RAM 23 GB: nhãn 9 GB, lưới đội tàu 8 GB). Mất mạng: chỉ `sat-grids` dừng ("LỖI"), lần sau chạy tiếp từ ngày còn thiếu.
+- `eval-honest` tự tạo `fc-full/grids-0809` (liên kết chỉ 08–09 + etopo) vì `dl-eval-fleet` đòi lưới giữ-tháng-ra cho MỌI tháng có ảnh (§12).
+- **Chưa làm / nợ:** ablation `catch-legacy|none`, `catch-null-ex-*` v2, `dl-calibrate-bands` chưa là stage; stage fit/propose/PR; `--jobs` song song; hai file `fleet-ex-fwd-*`/nếp-2-tháng trên GPU từng sinh bằng script ngoài repo — runner dựng lại bằng `--exclude-month` nhiều tháng (kiểm khớp byte: xem README 7.10).
+- 15 script thí nghiệm doc-0 (`fish-hypo-*`, `fish-front-*`, `fish-plankton-*`, `copernicus-skill-backtest`) nằm ở `scripts/_archive/` (README ở đó).
 
 ## 10. Kênh đội tàu + dựng lại bộ đo DataLake (2026-10-11)
 
@@ -174,6 +236,8 @@ npx tsx scripts/dl-eval-fleet.mjs --grids ~/sdfish-data/fc-full/grids --labels ~
 Mức bão hoà 30/60/120 giờ gần như không đổi kết quả (±0,001). Bản rò ≈ bản giữ-ra ⇒ kênh không thắng nhờ học thuộc tháng đang kiểm. AUCeff (chuẩn hoá theo giờ đánh) TĂNG — tức chỗ đội tàu làm dai dẳng cho **sản lượng mỗi giờ** cao hơn, không chỉ là "chỗ tàu hay đi". Từng loài (gốc → 0,5): cá nục 0,549 → 0,656 · ngừ vằn 0,734 → 0,800 · cá tráo 0,529 → 0,739 · ngừ chấm +0,07 · cá cơm +0,06 · ngừ chù/vây vàng +0,05 · nục heo +0,04. Tụt: cá chim, cá sòng (đã <0,5 trước đó), cá hố −0,006, cá hồng −0,02. Kết quả đầy đủ: `~/sdfish-data/fleet/fleet-eval.json`.
 
 Giới hạn: lưới tĩnh theo tháng-trong-năm (không phải "hôm nay"); một mùa nhãn (8–9); nhãn và lưới đội tàu cùng nguồn VMS nên kênh này đo được trên tàu có VMS, chưa nói gì về đội tàu nhỏ không VMS.
+
+> ⚠️ **2026-10-19: "bản chốt" (đội tàu + sản lượng noisy-OR vào HSI) ở mục này đã được THAY bằng NỀN bãi cá theo mùa** (`src/lib/fish-base.ts`, README `ops/fish-train-review-2026-10-18` §7.4/§7.9): `s`/`sp` nay là điểm nền, HSI chỉ còn là `hint`. Mọi số 0,736 bên dưới là số của bản cũ; nền đo trên nhãn v2 là 0,802 trong-nghề (bản chốt cũ trên cùng nhãn 0,713).
 
 ## 11. Kênh sản lượng TỪNG LOÀI (2026-10-14) — 155 nghìn chuyến 01–10/2026
 

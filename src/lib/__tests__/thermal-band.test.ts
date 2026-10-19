@@ -60,7 +60,7 @@ describe("seasonalThermalBand — dải nhiệt lai (C3, 2026-10-03e)", () => {
               trapezoid(t, a, b, c, d) - 1e-12,
             );
         }
-  });
+  }, 20_000); // quét toàn bộ hồ sơ × vùng × tháng — quá 5 s khi cả bộ chạy song song (2026-10-19)
 
   describe("nối vào buildFishForecast qua extra.climo", () => {
     // lưới 4×4 ven bờ Trung Bộ, nước 29,6–31,0 °C (nóng hơn trần c=29 của vài

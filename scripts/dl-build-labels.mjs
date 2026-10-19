@@ -30,9 +30,11 @@
 //
 //   node scripts/dl-build-labels.mjs [--dir ~/sdfish-data/dl] [--from 2026-08-01 --to 2026-09-30]
 //   node scripts/dl-build-labels.mjs --selftest
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+//   node scripts/dl-build-labels.mjs --v2 …   nhãn v2 (xem khối --v2 bên dưới + scripts/dl-labels-v2.mjs)
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { dataDir } from "./lib/data-dir.mjs";
 import { vesselBucket } from "./vessel-bucket.mjs";
 
 export const GAP_H = 4; // đoạn dài hơn = mất tín hiệu, không gán giờ
@@ -179,7 +181,7 @@ if (process.argv.includes("--selftest")) { selftest(); process.exit(0); }
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
-const DIR = arg("dir", join(homedir(), "sdfish-data", "dl")).replace(/^~/, homedir());
+const DIR = arg("dir", join(dataDir(), "dl")).replace(/^~/, homedir());
 const FROM = arg("from", "2026-08-01");
 const TO = arg("to", "2026-09-30");
 // --trust weighted (mặc định): mọi chuyến, nhân trọng số tin cậy · monitored: CHỈ chuyến có giám sát
@@ -188,6 +190,28 @@ const TRUST = arg("trust", "weighted");
 // --window 2026-01-01,2026-02-28: chỉ nhật ký có NGÀY RỜI (giờ VN) trong khoảng ⇒ labels-<từ>/.
 // Dựng nhãn cả năm theo từng khúc cho vừa bộ nhớ (track 11 tháng × 14 nghìn tàu không nạp một lần được).
 const WINDOW = arg("window", "").split(",").filter(Boolean);
+// --v2: NHÃN v2 (mảnh 2C, scripts/dl-labels-v2.mjs) — bảng dải cả năm, cảng 10 km, nghề suy, tách thu mua/cặp,
+// Huber thay hệ số tin cậy, cột vh luôn bật. Không cờ này ⇒ mọi thứ dưới đây chạy y nguyên bản cũ.
+//   --ports <catalog-ports.json[.gz]> (mặc định: snapshot mới nhất của $SDVICO_DATALAKE_ROOT)  --bands <file>
+//   --gear-map <gear-map.json> (scripts/gear-infer.mjs)  --encounters <encounters/vessels.json>  --pairs <pairs.json>
+//   --ablate (ghi thêm catch-legacy.csv / catch-none.csv / catch-no-<tín hiệu>.csv)  --signals --hide --huber (điểm tin cậy)
+if (argv.includes("--v2")) {
+  const root = (process.env.SDVICO_DATALAKE_ROOT || join(homedir(), "forlife", "sdvico-data", "data-local", "datalake-iuu")).replace(/^~/, homedir());
+  const latest = existsSync(join(root, "snapshots")) ? readdirSync(join(root, "snapshots")).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().at(-1) : null;
+  const home = (p) => p?.replace(/^~/, homedir());
+  const { buildLabelsV2 } = await import("./dl-labels-v2.mjs");
+  await buildLabelsV2({
+    DIR, FROM, TO, WINDOW, OUT: home(arg("out", null)) ?? undefined,
+    ports: home(arg("ports", join(root, "snapshots", latest ?? "", "catalog-ports.json.gz"))),
+    bands: home(arg("bands", undefined)), gearMap: home(arg("gear-map", join(DIR, "gear-map.json"))),
+    encounters: home(arg("encounters", join(root, "encounters", "vessels.json"))), pairs: home(arg("pairs", join(DIR, "pairs.json"))),
+    ablate: argv.includes("--ablate"), huber: argv.includes("--huber"),
+    // điểm tin cậy (README §7.2b): --signals c2_repeat,… (mặc định: mọi tín hiệu mềm; "none" = tắt) · --hide a1_gap,a2_flag,a3_eez (mặc định: cả ba; "none" = tắt)
+    signals: arg("signals", null) ? arg("signals").split(",").filter((x) => x && x !== "none") : undefined,
+    hide: arg("hide", null) ? arg("hide").split(",").filter((x) => x && x !== "none") : undefined,
+  });
+  process.exit(0);
+}
 const OUT = arg("out", null)?.replace(/^~/, homedir()) ?? join(DIR, (TRUST === "weighted" ? "labels" : `labels-${TRUST}`) + (WINDOW.length ? `-${WINDOW[0]}` : ""));
 const VH = argv.includes("--vessel-hash");
 const NULLP = argv.includes("--null-prod");

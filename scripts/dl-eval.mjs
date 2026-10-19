@@ -19,6 +19,7 @@
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { dataDir } from "./lib/data-dir.mjs";
 import { indexGrid, inferStep } from "./fish-validate-positions.mjs";
 
 export const TG_SHARE = 0.1;
@@ -207,8 +208,8 @@ if (process.argv.includes("--selftest")) { await selftest(); process.exit(0); }
 const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
 const home = (p) => p.replace(/^~/, homedir());
-const PAY = home(arg("payloads", "~/sdfish-data/fc-full/payload-fill"));
-const LAB = home(arg("labels", "~/sdfish-data/dl/labels"));
+const PAY = home(arg("payloads", join(dataDir(), "fc-full/payload-fill")));
+const LAB = home(arg("labels", join(dataDir(), "dl/labels")));
 const PERM = Number(arg("perm", 200));
 const MIN_KG = Number(arg("min-kg", 2000));
 const SEED = Number(arg("seed", 7));

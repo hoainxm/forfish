@@ -22,16 +22,17 @@
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { dataDir } from "./lib/data-dir.mjs";
 import { buildFishForecast, parseErddapGrid, parseBathyGrid } from "../src/lib/fish-predict.ts";
 import { attachDay, weightedAuc, readCsv, targetGears, ASFIS_TO_SHORT } from "./dl-eval.mjs";
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
 const home = (p) => p.replace(/^~/, homedir());
-const GRIDS = home(arg("grids", "~/sdfish-data/fc-full/grids"));
-const LAB = home(arg("labels", "~/sdfish-data/dl/labels"));
-const OUT = home(arg("out", "~/sdfish-data/fleet"));
-const FLEET_DIR = home(arg("fleet-dir", "~/sdfish-data/fleet"));
+const GRIDS = home(arg("grids", join(dataDir(), "fc-full/grids")));
+const LAB = home(arg("labels", join(dataDir(), "dl/labels")));
+const OUT = home(arg("out", join(dataDir(), "fleet")));
+const FLEET_DIR = home(arg("fleet-dir", join(dataDir(), "fleet")));
 const FULL = arg("fleet-full", "src/data/fleet-effort-025.v1.json");
 const SCALES = (arg("scales", "0.3,0.5,0.7")).split(",").map(Number);
 const HOURS = (arg("hours", "30,60,120")).split(",").map(Number);
