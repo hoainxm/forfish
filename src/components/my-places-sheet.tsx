@@ -36,7 +36,7 @@ import {
   StarIcon,
   TrashIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
+import { SQ_TILE } from "@/components/ui/sq-btn";
 
 export function MyPlacesContent({
   places,
@@ -191,10 +191,10 @@ export function MyPlacesContent({
       dòng `// nợ:` cũ ("nâng được khi hàng điểm được dựng lại cho tên nằm
       riêng một dòng").
       Trước: ba ô chạm bề ngang 44px xếp liền nhau, dưới sàn 56px và lệch khuôn
-      SQ_BTN 64px của cả app; "Đổi tên" đứng SÁT "Xóa" ở bề ngang 44px — tay
+      SQ_TILE 64px của cả app; "Đổi tên" đứng SÁT "Xóa" ở bề ngang 44px — tay
       ướt, tàu lắc, bấm nhầm sang một hành động PHÁ HUỶ.
-      Nay hàng chỉ còn [thân hàng = ĐI TỚI, flex-1] + [một ô SQ_BTN mở tầng
-      dưới]. Ba việc phụ nằm trong tầng đó, cũng đúng khuôn SQ_BTN. Số cỡ nút
+      Nay hàng chỉ còn [thân hàng = ĐI TỚI, flex-1] + [một ô SQ_TILE mở tầng
+      dưới]. Ba việc phụ nằm trong tầng đó, cũng đúng khuôn SQ_TILE. Số cỡ nút
       trong panel: 4 → 1. Ổ chạm: 44 → 64px. Tên có gấp đôi chỗ.
       GIỮ NGUYÊN chạm thân hàng = ĐI TỚI: đó là việc dùng nhiều nhất của panel,
       biến nó thành cú xổ menu là cướp thao tác của đa số.
@@ -280,7 +280,7 @@ export function MyPlacesContent({
                 <button
                   type="button"
                   onClick={layChoDangXem}
-                  className={`${SQ_BTN} bg-card text-t1`}
+                  className={`${SQ_TILE} bg-card text-t1`}
                 >
                   <PinIcon className="h-6 w-6" />
                   Lấy chỗ đang xem
@@ -289,7 +289,7 @@ export function MyPlacesContent({
               <button
                 type="button"
                 onClick={() => setEditCoord(true)}
-                className={`${SQ_BTN} bg-card text-t1`}
+                className={`${SQ_TILE} bg-card text-t1`}
               >
                 <EditIcon className="h-6 w-6" />
                 Sửa
@@ -403,7 +403,7 @@ export function MyPlacesContent({
                         onPlaces(renamePlace(places, p.id, editName));
                         setEditId(null);
                       }}
-                      className={`${SQ_BTN} bg-t1 text-white`}
+                      className={`${SQ_TILE} bg-t1 text-white`}
                     >
                       <CheckIcon className="h-6 w-6" />
                       Lưu
@@ -417,7 +417,7 @@ export function MyPlacesContent({
                     <button
                       type="button"
                       onClick={() => setEditId(null)}
-                      className={`${SQ_BTN} bg-field text-foreground/70`}
+                      className={`${SQ_TILE} bg-field text-foreground/70`}
                     >
                       <CloseIcon className="h-6 w-6" />
                       Thôi
@@ -437,7 +437,7 @@ export function MyPlacesContent({
                         onPlaces(removePlace(places, p.id));
                         setConfirmId(null);
                       }}
-                      className={`${SQ_BTN} bg-danger text-white`}
+                      className={`${SQ_TILE} bg-danger text-white`}
                     >
                       <TrashIcon className="h-6 w-6" />
                       Xóa hẳn
@@ -445,7 +445,7 @@ export function MyPlacesContent({
                     <button
                       type="button"
                       onClick={() => setConfirmId(null)}
-                      className={`${SQ_BTN} bg-field text-foreground/70`}
+                      className={`${SQ_TILE} bg-field text-foreground/70`}
                     >
                       <CloseIcon className="h-6 w-6" />
                       Thôi
@@ -498,7 +498,7 @@ export function MyPlacesContent({
                         }
                         aria-expanded={menuId === p.id}
                         aria-label={`Thao tác khác với ${p.name}`}
-                        className={`${SQ_BTN} text-foreground/70 active:bg-field`}
+                        className={`${SQ_TILE} text-foreground/70 active:bg-field`}
                       >
                         {menuId === p.id ? (
                           <ChevronUpIcon className="h-6 w-6" />
@@ -511,7 +511,7 @@ export function MyPlacesContent({
                   </div>
                 )}
                 {/*  TẦNG VIỆC PHỤ — chỉ hàng đang mở mới có. Ba ô cùng khuôn
-                     SQ_BTN, căn phải cho thẳng ô "Khác" ngay trên. Mở "Đổi
+                     SQ_TILE, căn phải cho thẳng ô "Khác" ngay trên. Mở "Đổi
                      tên"/"Xoá" thì đóng tầng lại: hàng chuyển hẳn sang trạng
                      thái kia, để tầng nằm lại là hai lớp điều khiển chồng nhau
                      cho cùng một hàng. */}
@@ -524,7 +524,7 @@ export function MyPlacesContent({
                           onPlaces(makeHome(places, p.id));
                           setMenuId(null);
                         }}
-                        className={`${SQ_BTN} bg-field text-foreground/70`}
+                        className={`${SQ_TILE} bg-field text-foreground/70`}
                       >
                         <AnchorIcon className="h-6 w-6" />
                         Cảng nhà
@@ -537,7 +537,7 @@ export function MyPlacesContent({
                         setEditName(p.name);
                         setMenuId(null);
                       }}
-                      className={`${SQ_BTN} bg-field text-foreground/70`}
+                      className={`${SQ_TILE} bg-field text-foreground/70`}
                     >
                       <EditIcon className="h-6 w-6" />
                       Đổi tên
@@ -548,7 +548,7 @@ export function MyPlacesContent({
                         setConfirmId(p.id);
                         setMenuId(null);
                       }}
-                      className={`${SQ_BTN} bg-field text-danger`}
+                      className={`${SQ_TILE} bg-field text-danger`}
                     >
                       <TrashIcon className="h-6 w-6" />
                       Xóa

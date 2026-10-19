@@ -2,13 +2,16 @@
   ĐẦU MÀN GỌN, NỀN SÁNG — một khuôn cho các màn của dock (2026-10-19, rà design
   Codex: "bỏ các khối tiêu đề lớn"). Thay hero `PageHeader` cũ ở Trang chủ, Tàu
   tôi, Chợ cá: gradient navy cao ~330px + nhãn IN HOA giãn chữ (mất dấu tiếng
-  Việt, ăn 40% màn trước khi thấy việc). Tiêu đề navy 1.5rem, chữ phụ 1.125rem,
-  chỗ bên phải cho MỘT nút (vd chip tài khoản ở Trang chủ).
+  Việt, ăn 40% màn trước khi thấy việc). Tiêu đề navy 1.5rem, chữ phụ 0.875rem.
 
-  `compact` (Trang chủ, chủ dự án chốt 2026-10-19 sau kiểm ảnh): tiêu đề 1.25rem
-  và KHÔNG xuống dòng — đo 390/360: "Chào bà con" 1.5rem = 143px + chip tài
-  khoản có SĐT 214px không đủ một hàng (358/328px), dòng chào vỡ thành "Chào bà
-  / con". Tiêu đề giữ nguyên bề ngang, chip (min-w-0, truncate) là thứ nhường.
+  HAI CHỖ, HAI VAI (rà design Codex lần 2, 2026-10-19):
+  - `right` = MỘT nút hành động ngắn (vd "Tài khoản"). KHÔNG đặt thông báo/thẻ ở
+    đây — hàng tiêu đề là flex một hàng, thẻ chữ dài bị ép vỡ 13 dòng (lỗi thật:
+    thẻ "đăng nhập ở máy khác" từng nằm cạnh "Chào bà con").
+  - Thông báo trạng thái đặt NGOÀI header, đầu thân màn, nguyên bề ngang.
+
+  `compact` giữ cho tương thích: tiêu đề 1.25rem không xuống dòng. Trang chủ thôi
+  dùng từ khi chip tài khoản chỉ còn nhãn cố định 2 chữ.
 */
 export function ManHeader({
   title,
@@ -18,8 +21,9 @@ export function ManHeader({
 }: {
   title: React.ReactNode;
   sub?: string;
+  /** MỘT nút ngắn bên phải. Không đặt thẻ/thông báo vào đây. */
   right?: React.ReactNode;
-  /** Tiêu đề 1.25rem, không xuống dòng — cho màn có chip bên phải rộng (Trang chủ). */
+  /** Tiêu đề 1.25rem, không xuống dòng. */
   compact?: boolean;
 }) {
   return (
@@ -32,7 +36,7 @@ export function ManHeader({
         >
           {title}
         </h1>
-        {right}
+        {right && <div className="shrink-0">{right}</div>}
       </div>
       {sub && <p className="text-[0.875rem] leading-snug text-foreground/65">{sub}</p>}
     </header>

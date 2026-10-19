@@ -152,7 +152,7 @@ type PushUiState =
  * ẨN khi mất sóng — đăng nhập cần sóng, mời vào ngõ cụt là vô ích (tầng 5).
  * Dữ liệu đã tải VẪN dùng được (luật `signOutLocal("kicked")` chỉ xoá chuỗi).
  */
-function KickedNotice() {
+export function KickedNotice() {
   const [kickedAt, setKickedAt] = useState<string | null>(null);
   const online = useOnline();
   useEffect(() => {
@@ -166,36 +166,35 @@ function KickedNotice() {
     };
   }, []);
   if (!kickedAt) return null;
+  /*  ĐẶT NGOÀI HEADER, nguyên bề ngang (rà design Codex lần 2, 2026-10-19): bản
+      trước render chung fragment với chip tài khoản nên lọt vào hàng tiêu đề,
+      chữ bị ép vỡ 13 dòng cạnh "Chào bà con" + ô SQ_BTN xám to. Nay: chữ chảy tự
+      nhiên, nút ở hàng cuối canh phải, cao bậc control; là việc ưu tiên trên màn
+      nên nút mang màu cam (chip header giữ trung tính). Mất sóng: KHÔNG nút, KHÔNG
+      ô đệm trống — nói đúng việc làm được. Viền + nền tự khai (không ghép
+      `.surface` với border utility — hai bên tranh cùng thuộc tính `border`). */
   return (
-    <div
-      role="alert"
-      className="mt-3 surface border-l-4 border-danger px-4 py-3 text-left"
-    >
-      {/*  Rút về ĐÚNG MỘT DÒNG cấp dữ liệu (D1) + nút inline (A2/A3): đo trước
-          3 dòng chữ + 1 nút full-width 56px = 233px = 29% màn đầu, đẩy bốn việc
-          chính xuống dưới vạch gấp. Câu "Dự báo và sổ sách đã tải vẫn dùng bình
-          thường" là trấn an chứ không phải dữ liệu; câu "Muốn dùng lại: đăng
-          nhập" nhắc lại đúng nhãn nút ngay dưới. Nhánh MẤT SÓNG giữ nguyên —
-          đổi đuôi câu để nói đúng việc làm được. */}
-      <div className="flex items-stretch gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="display text-[1rem] font-bold leading-snug text-danger">
-            Số này vừa được đăng nhập ở máy khác
-          </p>
-          <p className="mt-1 text-[1rem] leading-snug text-foreground/80">
-            Máy này thôi nhận tin mới — phần đã tải vẫn xem được
-            {online ? "." : " — cần mạng để đăng nhập lại."}
-          </p>
-        </div>
-        {online ? (
-          <Link href="/login" className={`${SQ_BTN} bg-field text-navy`}>
-            <LockIcon className="h-6 w-6" />
+    <div role="alert" className="rounded-xl border border-danger/40 bg-card px-4 py-3">
+      <p className="text-[1rem] font-semibold leading-snug text-danger">
+        Tài khoản đang dùng ở máy khác
+      </p>
+      <p className="mt-1 text-[0.9375rem] leading-snug text-foreground/75">
+        Máy này ngừng nhận tin mới. Phần đã tải vẫn xem được.
+      </p>
+      {online ? (
+        <div className="mt-2 flex justify-end">
+          <Link
+            href="/login"
+            className="inline-flex h-(--h-ctl) items-center rounded-full bg-trim px-5 text-[0.9375rem] font-semibold text-white"
+          >
             Đăng nhập
           </Link>
-        ) : (
-          <span className="w-16 shrink-0" aria-hidden />
-        )}
-      </div>
+        </div>
+      ) : (
+        <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/65">
+          Có mạng để đăng nhập lại.
+        </p>
+      )}
     </div>
   );
 }
@@ -573,14 +572,16 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
         </span>
         <span className={`min-w-0 truncate font-semibold ${light ? "text-[0.875rem]" : "text-[0.9375rem]"}`}>
           {/* khách lạ thấy thẳng "Đăng nhập" — "Tài khoản" trung tính không
-              mời ai làm gì (roadmap hội đồng UX 2026-06-11) */}
-          {signedIn && phone ? name || prettyPhone(phone) : "Đăng nhập"}
+              mời ai làm gì (roadmap hội đồng UX 2026-06-11). Biến thể `light`
+              (đầu màn sáng, rà Codex lần 2): nhãn CỐ ĐỊNH 2 chữ "Tài khoản" —
+              SĐT/tên/hạng nằm trong sheet, chip không nở theo độ dài số. */}
+          {signedIn && phone ? (light ? "Tài khoản" : name || prettyPhone(phone)) : "Đăng nhập"}
         </span>
         <ChevronRightIcon className={`h-4 w-4 shrink-0 rotate-90 ${light ? "text-navy/60" : "text-white/60"}`} />
       </button>
 
-      {/* bị đá tài khoản — thẻ đỏ inline ngay dưới chip (tầng 2, luôn nói) */}
-      <KickedNotice />
+      {/* bị đá tài khoản: thẻ đỏ KHÔNG còn ở đây — trang đặt `<KickedNotice />`
+          trong thân màn (xem page.tsx), ngoài hàng tiêu đề. */}
 
       {open && (
         <BottomSheet title="Tài khoản" onClose={() => setOpen(false)}>

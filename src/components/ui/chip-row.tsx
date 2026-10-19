@@ -6,11 +6,11 @@
   mình đang ở tầng nào:
 
   · Tầng trên cùng của một KHU là Tabs (ui/tabs.tsx — track pill, sticky).
-  · level 1 — mục chính trong tab: pill ĐẶC màu trục, chữ 16px, cao 48px.
-  · level 2 — mục con bên trong một mục: pill TONAL (nền nhạt màu trục),
-    chữ 15px, cao 42px — nhỏ và nhẹ hơn hẳn để không tranh với tầng trên.
+  · level 1 — mục chính trong tab: chọn = pill ĐẶC navy.
+  · level 2 — mục con bên trong một mục: chọn = viền + chữ navy (nhẹ hơn tầng 1
+    bằng màu, cùng cỡ bậc chip 03 §0).
 
-  `accent` = token màu trục ("t1".."t4") để mỗi khu giữ đúng màu nhận diện.
+  `accent` (màu trục) BỎ 2026-10-19 — prop còn nhận để nơi gọi cũ khỏi vỡ.
 */
 
 export interface ChipOption<T extends string> {
@@ -22,7 +22,6 @@ export function ChipRow<T extends string>({
   options,
   value,
   onChange,
-  accent = "t2",
   level = 1,
   ariaLabel,
 }: {
@@ -59,23 +58,18 @@ export function ChipRow<T extends string>({
             type="button"
             onClick={() => onChange(o.id)}
             aria-pressed={on}
+            /*  CHỌN = NAVY, không còn màu trục (rà design Codex lần 2, 2026-10-19):
+                pill đặc xanh lá/tím/vàng theo khu làm mỗi màn một bảng màu riêng
+                và tranh điểm nhấn với nút cam. Navy = thương hiệu/điều hướng.
+                Tầng 1 đặc navy; tầng 2 chỉ viền + chữ navy — nhẹ hơn bằng màu,
+                cùng cỡ. `accent` giữ trong props cho nơi gọi cũ, không còn dùng. */
             className={`${base} inline-flex shrink-0 items-center justify-center rounded-full border font-semibold transition active:scale-[0.97] ${
               on
                 ? level === 1
-                  ? "border-transparent text-white"
-                  : "border-transparent"
+                  ? "border-navy bg-navy text-white"
+                  : "border-navy bg-card text-navy"
                 : "border-line bg-card text-foreground/75"
             }`}
-            style={
-              on
-                ? level === 1
-                  ? { backgroundColor: `var(--${accent})` }
-                  : {
-                      backgroundColor: `var(--${accent}-bg)`,
-                      color: `var(--${accent})`,
-                    }
-                : undefined
-            }
           >
             {o.label}
           </button>

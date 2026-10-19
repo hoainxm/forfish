@@ -102,7 +102,7 @@ import {
   StarIcon,
   TrashIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
+import { SQ_TILE } from "@/components/ui/sq-btn";
 
 export type PlannedRoute = {
   plan: RoutePlan;
@@ -1058,7 +1058,7 @@ export function RouteMode({
       thanh ghim trên, KHÔNG còn là một băng riêng (2026-08-29, đo rồi mới
       chốt).
       Bản băng riêng (3 câu dài + pill "Xoá vạch cũ") cao ~104px; rút xuống
-      [câu ≤2 dòng] + [ô SQ_BTN] vẫn còn ~72px vì cột chữ chỉ rộng ~183px. Đo
+      [câu ≤2 dòng] + [ô SQ_TILE] vẫn còn ~72px vì cột chữ chỉ rộng ~183px. Đo
       thật 375×812 với 2 chỗ ghé: thanh ghim trên phình 60 → 140px, thanh ghim
       đáy đứng ở 647 ⇒ CỬA ĐỌC CÒN 12px. Biểu mẫu (Điểm xuất phát · Bỏ · Thêm
       điểm dừng) coi như không với tới được — đúng bế tắc cần gỡ.
@@ -1337,7 +1337,7 @@ export function RouteMode({
             aria-label={
               panel === "idle" ? "Thoát chế độ dẫn đường" : "Quay lại danh sách điểm"
             }
-            className={`${SQ_BTN} bg-navy/10 text-navy`}
+            className={`${SQ_TILE} bg-navy/10 text-navy`}
           >
             <ChevronLeftIcon className="h-6 w-6" />
             {panel === "idle" ? "Thoát" : "Quay lại"}
@@ -1421,7 +1421,7 @@ export function RouteMode({
             onClick={() => setPanel(panel === "boat" ? "idle" : "boat")}
             aria-expanded={panel === "boat"}
             aria-label={`Thông số hành trình — tàu chạy ${speedKn} hải lý/giờ, tiêu thụ ${lph} lít dầu/giờ`}
-            className={`${SQ_BTN} ${
+            className={`${SQ_TILE} ${
               panel === "boat" ? "bg-t1 text-white" : "bg-navy/10 text-t1"
             }`}
           >
@@ -1450,7 +1450,7 @@ export function RouteMode({
             <button
               type="button"
               onClick={() => onStart(result)}
-              className={`${SQ_BTN} bg-t1 text-white`}
+              className={`${SQ_TILE} bg-t1 text-white`}
             >
               <PlayIcon className="h-6 w-6" />
               Dẫn đường
@@ -1460,7 +1460,7 @@ export function RouteMode({
               type="button"
               onClick={() => void compute()}
               disabled={busy}
-              className={`${SQ_BTN} bg-t1 text-white disabled:opacity-60`}
+              className={`${SQ_TILE} bg-t1 text-white disabled:opacity-60`}
             >
               <RouteIcon className="h-6 w-6" />
               {busy ? "Đang tính toán" : plan ? "Tính lại" : "Tính lộ trình"}
@@ -1526,7 +1526,7 @@ export function RouteMode({
               /*  Chờ xác nhận thì NỞ SANG PHẢI bằng `min-w` + căn giữa: hộp
                   chạm không được dịch giữa hai nhịp của CÙNG một thao tác
                   (bản trước nở về trái, cú bấm thứ hai rơi ra ngoài). */
-              className={`${SQ_BTN} shrink-0 text-danger ${
+              className={`${SQ_TILE} shrink-0 text-danger ${
                 confirmClear ? "w-auto min-w-[8rem] flex-row gap-1 px-2.5" : ""
               } ${confirmClear ? "bg-danger-bg" : "bg-background"}`}
             >
@@ -1587,7 +1587,7 @@ export function RouteMode({
               <button
                 type="button"
                 onClick={() => setPanel("saved")}
-                className={`${SQ_BTN} bg-background text-t1`}
+                className={`${SQ_TILE} bg-background text-t1`}
               >
                 <StarIcon className="h-6 w-6" />
                 Mở
@@ -1781,7 +1781,7 @@ export function RouteMode({
                 if (con.length === 0) clearRoute();
               }}
               aria-label={"Xóa điểm này " + (i + 1)}
-              className={`${SQ_BTN} bg-background text-danger`}
+              className={`${SQ_TILE} bg-background text-danger`}
             >
               <CloseIcon className="h-6 w-6" />
               Bỏ
@@ -2073,7 +2073,7 @@ export function RouteMode({
                       );
                       setSaveName("");
                     }}
-                    className={`${SQ_BTN} bg-t1 text-white`}
+                    className={`${SQ_TILE} bg-t1 text-white`}
                   >
                     <StarIcon className="h-6 w-6" />
                     Lưu
@@ -2123,7 +2123,7 @@ export function RouteMode({
                         onSavedRoutes?.(removeSavedRoute(savedRoutes, r.id))
                       }
                       aria-label={`Xóa lộ trình đã lưu ${r.name}`}
-                      className={`${SQ_BTN} bg-background text-danger`}
+                      className={`${SQ_TILE} bg-background text-danger`}
                     >
                       <CloseIcon className="h-6 w-6" />
                       Bỏ
@@ -2274,7 +2274,7 @@ export function RouteMode({
               type="button"
               onClick={() => void compute()}
               disabled={busy}
-              className={`${SQ_BTN} bg-background text-navy disabled:opacity-60`}
+              className={`${SQ_TILE} bg-background text-navy disabled:opacity-60`}
             >
               <RouteIcon className="h-6 w-6" />
               {busy ? "Đang tính toán" : "Tính lại"}
@@ -2285,7 +2285,7 @@ export function RouteMode({
                 setSaveName("");
                 setPanel("saved");
               }}
-              className={`${SQ_BTN} bg-background text-t1`}
+              className={`${SQ_TILE} bg-background text-t1`}
             >
               <StarIcon className="h-6 w-6" />
               Lưu đường
@@ -2504,7 +2504,7 @@ export function RouteMode({
                       r.kind === "start" ? result?.startLabel || undefined : name;
                     return (
                       /*  KHUÔN HÀNG CHUNG của thẻ: [thân hàng flex-1] + [ô nút
-                          vuông SQ_BTN]. Hàng không có gì để Bỏ (xuất phát, chỗ
+                          vuông SQ_TILE]. Hàng không có gì để Bỏ (xuất phát, chỗ
                           đổi hướng máy tính) kéo hết bề ngang — không chừa ô
                           trống (luật 2026-08-29h). */
                       <li key={r.idx} className="flex items-center gap-2">
@@ -2586,7 +2586,7 @@ export function RouteMode({
                               if (con.length === 0) clearRoute();
                             }}
                             aria-label={`Bỏ ${role} khỏi lộ trình`}
-                            className={`${SQ_BTN} bg-card text-danger`}
+                            className={`${SQ_TILE} bg-card text-danger`}
                           >
                             <CloseIcon className="h-6 w-6" />
                             Bỏ

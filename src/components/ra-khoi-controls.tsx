@@ -29,7 +29,7 @@ import { stormNoticeText, type StormStatus } from "@/lib/storms";
 import { useOnline } from "@/lib/use-online";
 import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
-import { SQ_BTN } from "@/components/ui/sq-btn";
+import { SQ_TILE } from "@/components/ui/sq-btn";
 import {
   useMapPrefs,
   setMapPrefs,
@@ -654,7 +654,7 @@ function RailBtn({
     <button
       type="button"
       {...rest}
-      className={`${SQ_BTN} relative border shadow-sm transition active:scale-95 disabled:opacity-60 ${
+      className={`${SQ_TILE} relative border shadow-sm transition active:scale-95 disabled:opacity-60 ${
         active
           ? "border-navy bg-navy text-white"
           : tone === "warn"
@@ -1216,10 +1216,10 @@ function DiemPanel({
             onClick={() => setAddOpen(true)}
             aria-label="Thêm điểm mới"
             /*  DÙNG KHUÔN CHUNG, KHÔNG CHÉP TAY (2026-08-29h): chuỗi cũ là
-                bản chép của `SQ_BTN` nên nó KHÔNG ăn theo `--row-h` — chế độ
+                bản chép của `SQ_TILE` nên nó KHÔNG ăn theo `--row-h` — chế độ
                 "Gọn" hạ mọi nút xuống 37px thì riêng nút này vẫn 52px. Đúng
                 bài học hai-bản-chép-tay đã ghi ngay trong file sq-btn.ts. */
-            className={`${SQ_BTN} bg-t1 text-white`}
+            className={`${SQ_TILE} bg-t1 text-white`}
           >
             <PlusIcon className="h-6 w-6" />
             Thêm điểm

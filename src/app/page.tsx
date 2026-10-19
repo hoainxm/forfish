@@ -1,6 +1,6 @@
 import { ManHeader } from "@/components/man-header";
 import { UrgentStrip } from "@/components/urgent-strip";
-import { HeroAccount } from "@/components/hero-account";
+import { HeroAccount, KickedNotice } from "@/components/hero-account";
 import { UrgentWithInstall } from "@/components/install-prompt";
 import { InboxSection } from "@/components/inbox-section";
 import { StormBanner } from "@/components/storm-banner";
@@ -20,12 +20,20 @@ import { TideHomeCard } from "@/components/tide-home-card";
   icon nổi (app-shell) — không có khối riêng ở đây.
   Tone: công cụ làm việc tin cậy — chữ đời thường, không emoji, không trang trí.
 */
+/*
+  Rà design Codex lần 2 (2026-10-19): header chỉ còn tiêu đề + MỘT chip nhãn cố
+  định; thẻ "tài khoản đang dùng ở máy khác" ra khỏi header, đứng ngay dưới tin
+  bão, nguyên bề ngang (trước bị ép vào hàng tiêu đề, vỡ 13 dòng).
+*/
 export default function Home() {
   return (
     <div>
-      <ManHeader compact title="Chào bà con" right={<HeroAccount light />} />
+      <ManHeader title="Chào bà con" right={<HeroAccount light />} />
       <div className="space-y-5 px-4 pt-1">
-        <StormBanner variant="page" always />
+        <div className="space-y-3">
+          <StormBanner variant="page" always />
+          <KickedNotice />
+        </div>
         <UrgentWithInstall>
           <UrgentStrip />
         </UrgentWithInstall>

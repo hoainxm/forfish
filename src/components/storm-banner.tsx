@@ -184,10 +184,16 @@ export function StormBanner({
       );
     }
     if (!always) return null;
+    /*  LÚC YÊN = MỘT HÀNG NHẸ (rà design Codex 2026-10-19): thường trực vẫn đúng,
+        nhưng phủ nền xanh + chữ đậm làm tin "yên ổn" nặng như banner cảnh báo.
+        Nền trạng thái chỉ dành cho có bão / không hỏi được (hai nhánh trên dưới). */
     return (
-      <p role="status" className="flex min-h-(--h-row) items-center gap-2 rounded-xl bg-ok-bg px-3 py-2.5 text-[1rem] font-semibold leading-snug text-ok">
-        <CheckIcon className="h-5 w-5 shrink-0" />
-        Không có tin bão trên Biển Đông — hỏi lúc {at}
+      <p role="status" className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5">
+        <CheckIcon className="h-5 w-5 shrink-0 text-ok" />
+        <span className="min-w-0 leading-snug">
+          <span className="block text-[1rem] text-navy">Không có tin bão trên Biển Đông</span>
+          <span className="block text-[0.8125rem] text-foreground/65">Hỏi lúc {at}</span>
+        </span>
       </p>
     );
   }

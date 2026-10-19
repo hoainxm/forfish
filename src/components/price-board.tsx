@@ -15,7 +15,6 @@ import {
   TrendDownIcon,
   TrendUpIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { formatVnDate } from "@/lib/format";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { PriceHistorySheet } from "@/components/price-history-sheet";
@@ -123,70 +122,50 @@ export function PriceBoard() {
 
   const isLive = result.source === "vasep";
 
+  /*  BỐ CỤC THEO RÀ DESIGN CODEX LẦN 2 (2026-10-19): ô tìm → MỘT dòng nguồn/tuần
+      → MỘT danh sách kẻ mảnh (tên trái, giá + xu hướng phải, nơi/ghi chú dưới;
+      chạm cả hàng mở biểu đồ, chevron nhỏ thay ô "Biểu đồ") → giá dầu thành hàng
+      phụ cuối bảng. Trước: thẻ dầu + dải nguồn + ô tìm chiếm nửa màn đầu, rồi mỗi
+      loài một hộp riêng cách 12px — dữ liệu dạng bảng thành chồng hộp. Giá giữ
+      navy (đọc số), xu hướng là chữ nhỏ có màu, không đậm cả hàng. */
   return (
     <div>
-      {/* giá dầu DO hôm nay — chi phí lớn nhất chuyến biển. Không lấy được thì
-          NÓI một dòng nhỏ chứ không biến mất im (audit 2026-08-18 G3). */}
-      {fuel === null && (
-        <p className="mb-3 px-1 text-[0.875rem] font-semibold text-foreground/65">
-          Chưa lấy được giá dầu hôm nay.
-        </p>
-      )}
-      {fuel && (
-        <div className="mb-3 surface px-4 py-3">
-          <p className="text-[0.875rem] font-semibold text-foreground/70">
-            Dầu DO hôm nay (Petrolimex)
-            {fuel.date ? ` · ${formatVnDate(fuel.date)}` : ""}
-          </p>
-          {/* bỏ jargon "vùng 1/vùng 2" của Petrolimex — nói tiếng người */}
-          <p className="mt-0.5 text-[1rem] font-semibold text-foreground">
-            {fuel.do005Zone1.toLocaleString("vi-VN")} đ/lít
-            <span className="text-[0.875rem] font-semibold text-foreground/70">
-              {" "}
-              (gần kho) · {fuel.do005Zone2.toLocaleString("vi-VN")} đ/lít (xa
-              kho, đảo)
-            </span>
-          </p>
-        </div>
-      )}
+      <label className="relative mb-2 block">
+        <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/55" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Tìm loại cá…"
+          className="h-(--h-ctl) w-full rounded-xl border border-line bg-card pl-11 pr-4 text-[1rem] focus:outline-none focus:ring-2 focus:ring-sea"
+        />
+      </label>
 
       {/* nguồn + tuần — trung thực: live thì ghi VASEP (kèm "bản lưu" nếu đang
           đọc từ máy), không thì bảng tĩnh; MẤT SÓNG mà chưa có bản lưu → nói
-          thẳng là chưa tải được, đừng để bảng tĩnh đội lốt giá tuần (audit G3). */}
+          thẳng là chưa tải được, đừng để bảng tĩnh đội lốt giá tuần (audit G3).
+          Lúc bình thường là MỘT dòng chữ phụ, không hộp; cảnh báo mới có nền vàng. */}
       {isLive ? (
-        <p className="mb-3 rounded-xl bg-field px-3 py-2 text-[0.875rem] font-semibold text-foreground/70">
-          Giá nguyên liệu tại bến <b>{result.province}</b>, tuần{" "}
-          <b>{result.week}</b> · Nguồn: VASEP
+        <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-foreground/65">
+          Giá tại bến {result.province}, tuần {result.week} · VASEP
           {result.savedAt != null
-            ? ` · bản lưu trong máy (${savedAgoLabel(result.savedAt)})`
+            ? ` · bản lưu (${savedAgoLabel(result.savedAt)})`
             : ""}
           . Giá thật tại cảng có thể khác.
         </p>
       ) : result.netFailed ? (
-        <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] font-semibold text-warn">
+        <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] leading-snug text-warn">
           Chưa tải được giá tuần này — máy đang không có sóng. Bên dưới là giá
-          tham khảo tổng hợp ngày {formatVnDate(PRICE_DATE)}; có sóng lại là máy
-          tự tải bản mới.
+          tham khảo ngày {formatVnDate(PRICE_DATE)}; có sóng lại là máy tự tải.
         </p>
       ) : (
-        <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] font-semibold text-warn">
+        <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] leading-snug text-warn">
           Giá tham khảo, tổng hợp ngày {formatVnDate(PRICE_DATE)}. Giá thật tại
           cảng có thể khác.
         </p>
       )}
 
-      <label className="relative mb-3 block">
-        <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/65" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Tìm loại cá…"
-          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[1rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
-        />
-      </label>
-
       {shown.length === 0 && (
-        <div className="rounded-2xl bg-field/70 px-4 py-10 text-center">
+        <div className="rounded-xl border border-line px-4 py-8 text-center">
           <p className="text-[1rem] text-foreground/70">
             Không thấy loại cá này trong bảng.
             <br />
@@ -195,79 +174,75 @@ export function PriceBoard() {
         </div>
       )}
 
-      <ul className="space-y-3">
-        {shown.map((p) => {
-          const t = TREND[p.trend];
-          /*  Hàng giá theo khuôn B1: [thân flex-1 min-w-0 — chạm cả hàng vẫn mở
-              biểu đồ như cũ] + [ô nút w-16]. Trước đây hàng thiếu ô nút nên mép
-              phải không thẳng, mà cuối hàng lại có DÒNG CHỮ "Xem biểu đồ giá ›"
-              nhắc lại đúng việc cả hàng đã làm (13 lần trên một trang, ~350px
-              chữ thừa) — bỏ chữ, đưa việc vào đúng ô. */
-          return (
-            <li key={p.id} className="surface flex items-stretch overflow-hidden">
-              <button
-                type="button"
-                onClick={() => openChart(p.id)}
-                aria-label={`Xem biểu đồ giá ${p.species}`}
-                className="block min-w-0 flex-1 px-4 py-3.5 text-left transition active:scale-[0.99]"
-              >
-              <div className="flex items-start justify-between gap-3">
-                {/*  Badge INLINE trong dòng chữ (không flex items-center): tên cá
-                    dài xuống 2 dòng thì badge chạy theo chữ như một cái tag ở
-                    cuối tên, KHÔNG trôi ra giữa hai dòng đè lên tên (bug user
-                    2026-09-24). min-w-0 flex-1 để nhường chỗ cho cụm xu hướng
-                    bên phải. */}
-                <p className="display min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-navy">
-                  {p.species}
-                  {isLive && (
-                    <span
-                      className={`ml-1.5 inline-block whitespace-nowrap rounded-full px-2 py-0.5 align-[0.08em] text-[0.75rem] ${
-                        (p as LivePortPrice).live
-                          ? "bg-ok-bg font-semibold text-ok"
-                          : "bg-field font-semibold text-foreground/65"
-                      }`}
-                    >
-                      {(p as LivePortPrice).live ? "giá trong tuần" : "tham khảo"}
-                    </span>
-                  )}
-                </p>
-                {/*  Bỏ style ghi đè rgba cứng (E1): TREND.flat đã khai
-                    color: "var(--foreground)" sẵn — ghi đè bằng rgba là màu
-                    ngoài token, không đổi theo theme. */}
-                <p
-                  className="flex shrink-0 items-center gap-1.5 pt-0.5 text-[0.875rem] font-semibold"
-                  style={{ color: t.color }}
+      {shown.length > 0 && (
+        <ul className="surface divide-y divide-line overflow-hidden">
+          {shown.map((p) => {
+            const t = TREND[p.trend];
+            const tham = isLive && !(p as LivePortPrice).live;
+            return (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => openChart(p.id)}
+                  aria-label={`Xem biểu đồ giá ${p.species}`}
+                  className="flex min-h-(--h-row) w-full items-center gap-3 px-4 py-3 text-left transition active:bg-field"
                 >
-                  <t.Icon className="h-5 w-5" />
-                  {t.word}
-                </p>
-              </div>
-              <p className="mt-0.5 text-[1rem] font-semibold text-foreground tabular-nums">
-                {formatRange(p)}
-              </p>
-              {(p.region || p.note) && (
-                <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
-                  {[p.region, p.note].filter(Boolean).join(" · ")}
-                </p>
-              )}
-              </button>
-              {/*  Ô nút là AFFORDANCE NHÌN cho ngón tay; nút thân hàng ở trên đã
-                  mang aria-label đầy đủ nên ô này ẩn khỏi trình đọc màn hình để
-                  khỏi đọc hai lần cùng một việc. */}
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-hidden
-                onClick={() => openChart(p.id)}
-                className={`${SQ_BTN} self-center text-sea`}
-              >
-                <ChevronRightIcon className="h-6 w-6" />
-                Biểu đồ
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                  {/*  Ba dòng trong MỘT cột (đo 360px: để giá sang cột phải thì
+                      tên cá bị ép 3–4 dòng): tên + xu hướng nhỏ bên phải · giá ·
+                      nơi/ghi chú. */}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline gap-2">
+                      <span className="min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-navy">
+                        {p.species}
+                      </span>
+                      {/*  Bỏ style ghi đè rgba cứng (E1): TREND.flat đã khai
+                          color: "var(--foreground)" sẵn. */}
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1 text-[0.8125rem]"
+                        style={{ color: t.color }}
+                      >
+                        <t.Icon className="h-4 w-4" />
+                        {t.word}
+                      </span>
+                    </span>
+                    <span className="mt-0.5 block text-[0.9375rem] font-semibold tabular-nums text-foreground">
+                      {formatRange(p)}
+                    </span>
+                    {(p.region || p.note || tham) && (
+                      <span className="mt-0.5 block text-[0.8125rem] leading-snug text-foreground/65">
+                        {[tham ? "tham khảo" : null, p.region, p.note]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronRightIcon className="h-4 w-4 shrink-0 text-foreground/35" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* giá dầu DO hôm nay — HÀNG PHỤ cuối bảng (Codex: không chiếm thẻ đầu
+          màn). Không lấy được thì NÓI một dòng chứ không biến mất im (G3). */}
+      {fuel === null && (
+        <p className="mt-3 px-1 text-[0.8125rem] text-foreground/65">
+          Chưa lấy được giá dầu hôm nay.
+        </p>
+      )}
+      {fuel && (
+        <p className="mt-3 px-1 text-[0.8125rem] leading-snug text-foreground/65">
+          {/* bỏ jargon "vùng 1/vùng 2" của Petrolimex — nói tiếng người */}
+          Dầu DO hôm nay
+          {fuel.date ? ` (${formatVnDate(fuel.date)})` : ""}:{" "}
+          <span className="font-semibold text-navy">
+            {fuel.do005Zone1.toLocaleString("vi-VN")} đ/lít
+          </span>{" "}
+          gần kho · {fuel.do005Zone2.toLocaleString("vi-VN")} đ/lít xa kho, đảo ·
+          Petrolimex
+        </p>
+      )}
 
       {openId && (
         <PriceHistorySheet
