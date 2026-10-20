@@ -13,7 +13,7 @@
     nghe        micro mở — vòng lan + sóng âm theo mức âm thật
     nghi        nghe xong, đang hiểu ý / tải mô hình — vòng xoay
     noi         loa đang đọc (kể cả cảnh báo dẫn đường) — nhịp sóng nhẹ, màu khác "nghe"
-    khong-nghe  micro bị chặn / máy không hỗ trợ — icon mờ + gạch nhỏ
+    khong-nghe  micro bị chặn / máy không hỗ trợ — icon hơi mờ + huy hiệu mic tắt góc dưới
   và một dấu THƯỜNG TRỰC độc lập: `canh` (đang chạy / dẫn đường bằng giọng) — chấm xanh.
 */
 

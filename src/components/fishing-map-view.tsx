@@ -287,7 +287,7 @@ import { buildUVField } from "@/lib/particle-field";
 import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { FishHotspotMarker, SavedPlaceMarker, type FishHotspot } from "@/components/ban-do/diem-ghim";
-import { DongHoTocDo, NutViTri, OTimDiem } from "@/components/ban-do/khung";
+import { DongHoTocDo, NutLoa, NutViTri, OTimDiem } from "@/components/ban-do/khung";
 import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
 import { useNavVoice } from "@/lib/nav-voice/use-nav-voice";
@@ -7418,9 +7418,14 @@ export default function FishingMapView() {
       >
         {/* DẪN ĐƯỜNG LIVE: thẻ HUD LUÔN hiện khi đang dẫn đường (kể cả kéo sheet
             lên) — dưới banner bão. Gợi ý lái + quãng/giờ còn lại + nút Dừng. */}
-        {navOn && (
+        {/*  KHUNG "ĐANG CHẠY/DẪN ĐƯỜNG" CHỈ KHI DẪN ĐƯỜNG THEO TUYẾN (anh Long
+             2026-10-20: "cái này vào dẫn đường, còn cái loa bản chất là để đọc thông
+             báo liên quan vị trí hiện tại"). Bật loa (chế độ đọc cảnh báo theo vị
+             trí, `cruise`) KHÔNG dựng khung này nữa — trạng thái nằm ở chính nút
+             loa (nền đặc = đang đọc), bản đồ giữ nguyên ô tìm + cụm trên. */}
+        {navMode != null && (
           <NavHud
-            title={navMode ? "Đang dẫn đường" : "Đang chạy"}
+            title="Đang dẫn đường"
             cruiseLine={cruiseLine}
             voice={voiceHud}
             progress={navProgress}
@@ -7442,7 +7447,7 @@ export default function FishingMapView() {
         )}
         {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
             dòng nhỏ rồi tự tắt — xem components/pretrip-auto-notify.tsx */}
-        {!navOn && <PretripAutoNotify points={pretripPoints} />}
+        {navMode == null && <PretripAutoNotify points={pretripPoints} />}
         {/*  GHIM CHƯA LƯU ĐƯỢC — nói thẳng, đừng để ghim hiện trên bản đồ như đã
              lưu rồi đóng app là mất. Chỗ đánh cá là thứ bà con đo bằng cả chuyến
              biển, tải lại không được từ đâu (xem lib/places.ts). */}
@@ -7464,7 +7469,7 @@ export default function FishingMapView() {
              hiện (cảnh báo an toàn không ai được che). */}
         <div className="flex items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            {!navOn && <OTimDiem onOpen={() => setOpenCoordSignal((n) => n + 1)} />}
+            {navMode == null && <OTimDiem onOpen={() => setOpenCoordSignal((n) => n + 1)} />}
             <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
             {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
                 không có bão thật); component tự bung 1 lần rồi thu về chip. */}
@@ -7506,7 +7511,7 @@ export default function FishingMapView() {
             closeLayersSignal={closeRailSignal}
             onRoutePanel={openRoutePanel}
             routeOn={routeMode}
-            onCruise={toggleCruise}
+            /* nút loa "Chạy tàu" đã ra ngoài bản đồ (NutLoa, cột góc phải dưới) */
             cruiseOn={navOn}
             locating={locating}
             geoError={geoError}
@@ -7737,7 +7742,10 @@ export default function FishingMapView() {
            độ là sheet trở lại như cũ. */}
       {/*  ĐANG CHẠY / ĐANG DẪN cũng thế (user 2026-10-16 "nó rối và bị che"):
            chip ngày + dòng sóng gió nằm dưới rail và dock, che lẫn nhau. */}
-      {!routeMode && !navOn && (
+      {/*  Bật LOA (đọc cảnh báo theo vị trí, `cruise`) KHÔNG còn là "đang chạy" kiểu
+           dẫn đường (anh Long 2026-10-20) ⇒ thẻ gió sóng VẪN hiện; chỉ dẫn đường
+           theo tuyến (`navMode`) mới nhường chỗ cho khung dẫn đường. */}
+      {!routeMode && navMode == null && (
       <SnapSheet
         size={size}
         onSizeChange={setSize}
@@ -7774,7 +7782,8 @@ export default function FishingMapView() {
               mở ngăn thì cả hàng nhường chỗ (SnapSheet chỉ vẽ `above` khi thu). */
           <div className="flex flex-col gap-1.5">
             <div className="flex items-end justify-between gap-2">
-              {tracking.pos ? (
+              {/* CHỈ HIỆN khi có GPS VÀ tính được tốc độ (anh Long: "chưa gps thì ẩn") */}
+              {tracking.pos && tracking.speedKmh != null ? (
                 <DongHoTocDo kmh={tracking.speedKmh} unit={prefs.distUnit} stale={tracking.status !== "tracking"} />
               ) : (
                 <span />
@@ -7812,6 +7821,9 @@ export default function FishingMapView() {
                   </span>
                   </>
                 )}
+                {/* LOA — luôn đọc cảnh báo (chế độ Chạy tàu); ẩn khi đang dẫn đường theo
+                    tuyến: khung dẫn đường đã có điều khiển giọng riêng */}
+                {!navMode && <NutLoa on={cruise} onClick={toggleCruise} />}
                 {/* luôn hiện: chưa có vị trí thì bấm là XIN QUYỀN + lấy vị trí lần đầu */}
                 <NutViTri onClick={goToMyBoat} disabled={locating} />
               </div>

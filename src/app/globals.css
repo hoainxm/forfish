@@ -641,7 +641,7 @@ textarea,
       nghe        vòng lan màu biển (sea) + sóng âm theo mức thật (--sen-level)
       nghi        vòng xoay đứt nét
       noi         nhịp sáng cam (trim) nhẹ, chậm hơn "nghe"
-      khong-nghe  icon mờ + gạch chéo nhỏ
+      khong-nghe  icon hơi mờ + huy hiệu mic tắt (span .sen-mic-off, góc dưới phải)
     và dấu canh (data-canh) — chấm xanh thường trực góc dưới phải.
     prefers-reduced-motion: chỉ đổi màu/viền, không chuyển động (khối reduce ở trên
     đã tắt animation; viền tĩnh vẫn còn). */
@@ -685,13 +685,23 @@ textarea,
   border: 2px solid var(--trim);
   animation: sdf-nhip 1.8s ease-in-out infinite;
 }
-.sen-icon[data-sen="khong-nghe"] > img { opacity: 0.5; }
-.sen-icon[data-sen="khong-nghe"]::after {
-  inset: 45% 15% auto 15%;
-  height: 2px;
-  border-radius: 0;
-  background: var(--danger);
-  transform: rotate(-35deg);
+/* không nghe được: icon hơi mờ + HUY HIỆU mic tắt góc dưới phải (thay gạch đỏ chéo) */
+.sen-icon[data-sen="khong-nghe"] > img { opacity: 0.75; }
+.sen-icon > .sen-mic-off {
+  position: absolute;
+  right: -4%;
+  bottom: -4%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 42%;
+  height: 42%;
+  min-width: 1rem;
+  min-height: 1rem;
+  border-radius: 50%;
+  background: var(--warn);
+  color: var(--card);
+  box-shadow: 0 0 0 2px var(--card);
 }
 .sen-icon[data-canh="1"]::after {
   inset: auto 6% 6% auto;
@@ -701,8 +711,11 @@ textarea,
   box-shadow: 0 0 0 2px var(--card);
 }
 /* đang canh VÀ đang nghe/không nghe: ::after đã dùng — chấm canh dời sang ::before góc */
-.sen-icon[data-canh="1"][data-sen="nghe"]::before,
-.sen-icon[data-canh="1"][data-sen="khong-nghe"]::before {
+/* không nghe + đang canh: huy hiệu mic chiếm góc dưới phải ⇒ chấm canh lên góc trên phải */
+.sen-icon[data-canh="1"][data-sen="khong-nghe"]::after {
+  inset: 6% 6% auto auto;
+}
+.sen-icon[data-canh="1"][data-sen="nghe"]::before {
   inset: auto 6% 6% auto;
   width: 0.625rem;
   height: 0.625rem;
@@ -796,16 +809,6 @@ textarea,
   border-radius: var(--r-ctl);
   font-size: 0.6875rem;
   line-height: 1.2;
-}
-/*  Chế độ gọn của màn bản đồ (`@container/map`, khung <15rem — chữ phóng to):
-    ô rail thu về vuông --h-ctl chỉ còn icon (nhãn sr-only ở RailBtn). Viết SAU
-    luật gốc và ngoài layer vì `.sq-btn.sq-tile` nằm ngoài layer, utility không đè được. */
-@container map (max-width: 15rem) {
-  .sq-btn.sq-tile {
-    width: var(--h-ctl);
-    min-height: var(--h-ctl);
-    padding: 0;
-  }
 }
 .sq-btn.sq-tile svg {
   height: 1.25rem;

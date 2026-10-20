@@ -6,12 +6,13 @@
   Ba mảnh nổi cố định trên bản đồ, tách khỏi fishing-map-view:
     · `OTimDiem`   — ô "Đi đâu?" đầu màn → mở ô gõ toạ độ (đến điểm).
     · `DongHoTocDo` — tròn góc trái dưới: tốc độ GPS theo đơn vị bà con chọn.
-    · `NutViTri`   — tròn góc phải dưới: đưa bản đồ về chỗ tàu đứng. Bản đồ đã
-      KHOÁ xoay (bắc luôn lên trên, 2026-08-30) nên nút này không xoay hướng —
-      nó là "về tàu", hình la bàn cho quen mắt như app hải đồ.
+    · `NutViTri`   — tròn góc phải dưới: đưa bản đồ về chỗ tàu đứng. Hình VÒNG
+      NGẮM định vị (quen như Google Maps), KHÔNG chữ (anh Long: "bỏ chữ về tàu
+      đi"; tên đọc ở aria-label). Bản đầu dùng mũi tên chỉ lên — anh hỏi "sao chỉ
+      lên trên thế": bản đồ khoá xoay (bắc luôn lên trên), mũi tên gây hiểu lầm.
   Cỡ bằng rem (theo chế độ chữ), màu qua token.
 */
-import { NavArrowIcon, SearchIcon } from "@/components/icons";
+import { CrosshairIcon, SearchIcon, SpeakerIcon, SpeakerOffIcon } from "@/components/icons";
 import { speedReadout, type DistUnit } from "@/lib/map-prefs";
 
 export function OTimDiem({ onOpen }: { onOpen: () => void }) {
@@ -19,30 +20,35 @@ export function OTimDiem({ onOpen }: { onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      aria-label="Đi đâu? Nhập toạ độ để đến điểm"
+      aria-label="Đi đâu — nhập toạ độ để đến điểm"
       className="pointer-events-auto flex h-(--h-ctl) w-full min-w-0 items-center gap-2 rounded-full border border-line bg-card/95 px-3.5 text-left shadow-float active:bg-field"
     >
       <SearchIcon className="h-5 w-5 shrink-0 text-sea" aria-hidden />
-      <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground/65">Đi đâu? Nhập toạ độ…</span>
+      <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground/65">Đi đâu?</span>
     </button>
   );
 }
 
-export function DongHoTocDo({ kmh, unit, stale }: { kmh: number | null; unit: DistUnit; stale: boolean }) {
+/**
+ * TỐC ĐỘ TÀU góc trái dưới — KIỂU TRONG SUỐT (anh Long 2026-10-20: "chưa gps thì
+ * ẩn cái này đi, có gps tính được tốc độ thì hiện, kiểu trong suốt thôi, ko cần
+ * làm 1 ô ra xấu"): không ô tròn nền trắng, chỉ chữ số nổi trên bản đồ có QUẦNG
+ * SÁNG như nhãn hải đồ (đọc được trên cả nền biển lẫn đất). Bên gọi chỉ vẽ khi
+ * đã có vị trí tàu VÀ tốc độ. GPS cũ ⇒ đơn vị đổi thành "GPS cũ" màu cảnh báo.
+ */
+export function DongHoTocDo({ kmh, unit, stale }: { kmh: number; unit: DistUnit; stale: boolean }) {
   const r = speedReadout(kmh, unit);
   return (
     <div
       role="status"
-      aria-label={`Tốc độ tàu ${r.value === "—" ? "chưa có số" : `${r.value} ${r.unit}`}${stale ? ", số GPS đã cũ" : ""}`}
-      className={`pointer-events-none flex aspect-square w-[4.5rem] flex-col items-center justify-center rounded-full border-4 bg-card shadow-float ${
-        stale ? "border-warn" : "border-sea"
-      }`}
+      aria-label={`Tốc độ tàu ${r.value} ${r.unit}${stale ? ", số GPS đã cũ" : ""}`}
+      className="pointer-events-none flex flex-col items-start leading-none [text-shadow:0_0_2px_var(--card),0_0_4px_var(--card),0_0_8px_var(--card)]"
     >
-      <span aria-hidden className="text-[1.375rem] font-bold leading-none tabular-nums text-navy">
+      <span aria-hidden className="text-[1.75rem] font-bold tabular-nums text-navy">
         {r.value}
       </span>
-      <span aria-hidden className="mt-0.5 text-center text-[0.625rem] font-semibold leading-tight text-foreground/65">
-        {r.unit}
+      <span aria-hidden className={`mt-0.5 text-[0.75rem] font-semibold ${stale ? "text-warn" : "text-navy/75"}`}>
+        {stale ? "GPS cũ" : r.unit}
       </span>
     </div>
   );
@@ -55,9 +61,34 @@ export function NutViTri({ onClick, disabled }: { onClick: () => void; disabled?
       onClick={onClick}
       disabled={disabled}
       aria-label="Về chỗ tàu đang đứng"
-      className="pointer-events-auto flex h-(--h-cta) w-(--h-cta) items-center justify-center rounded-full border border-line bg-card text-navy shadow-float active:scale-95 disabled:opacity-50"
+      /*  CÙNG CỠ nút ⚠ chip dữ liệu ngay trên (anh Long: "kích thước nó nhỏ bằng
+          cái dấu !"): vuông --h-ctl, viền mảnh, bóng nhẹ — hai nút một cột thẳng. */
+      className="pointer-events-auto flex h-(--h-ctl) w-(--h-ctl) items-center justify-center rounded-full border border-line bg-card/95 text-sea shadow-sm active:scale-95 disabled:opacity-50"
     >
-      <NavArrowIcon className="h-6 w-6" />
+      <CrosshairIcon className="h-[1.125rem] w-[1.125rem]" aria-hidden />
+    </button>
+  );
+}
+
+/**
+ * NÚT LOA — bật/tắt "LUÔN ĐỌC CẢNH BÁO" theo vị trí tàu (chế độ Chạy tàu), đưa ra
+ * ngoài bản đồ từ khay "Thêm" (anh Long 2026-10-20: "cho hình cái loa ra ngoài để
+ * bật hoặc ẩn để luôn nghe thông báo, cái này theo kiểu luôn đọc cảnh báo chứ ko
+ * phải là vô dẫn đường"). Cùng cỡ nút ⚠ / nút về tàu (--h-ctl), một cột góc phải.
+ * Bật = nền sea đặc + loa; tắt = nền card + loa gạch. Chỉ icon, tên ở aria-label.
+ */
+export function NutLoa({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      aria-label={on ? "Đang đọc cảnh báo theo vị trí tàu — chạm để tắt" : "Bật đọc cảnh báo theo vị trí tàu"}
+      className={`pointer-events-auto flex h-(--h-ctl) w-(--h-ctl) items-center justify-center rounded-full border shadow-sm active:scale-95 ${
+        on ? "border-sea bg-sea text-white" : "border-line bg-card/95 text-navy"
+      }`}
+    >
+      {on ? <SpeakerIcon className="h-[1.125rem] w-[1.125rem]" aria-hidden /> : <SpeakerOffIcon className="h-[1.125rem] w-[1.125rem]" aria-hidden />}
     </button>
   );
 }

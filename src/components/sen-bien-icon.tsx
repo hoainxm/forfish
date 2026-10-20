@@ -5,6 +5,7 @@
   lib/sen-bien-state (một nguồn), hiệu ứng vẽ bằng CSS `.sen-icon[data-sen]`
   trong globals.css — không làm icon to ra, không che thêm nội dung.
 */
+import { MicOffIcon } from "@/components/icons";
 import { useSenBienState } from "@/lib/use-sen-bien";
 import { senAria } from "@/lib/sen-bien-state";
 
@@ -21,6 +22,15 @@ export function SenBienIcon({ className = "" }: { className?: string }) {
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy */}
       <img src="/icons/sen-bien.png" alt="" draggable={false} />
+      {/*  KHÔNG NGHE ĐƯỢC (micro bị chặn) = HUY HIỆU "mic tắt" tròn góc dưới phải,
+           như app gọi điện — thay gạch đỏ chéo ngang mặt icon (anh Long 2026-10-20:
+           "ko có biểu tượng nào đẹp hơn cái gạch đỏ à"): gạch chéo trông như
+           ảnh hỏng/bị cấm, còn huy hiệu nói đúng "đang tắt mic, chạm để gõ". */}
+      {st.mode === "khong-nghe" && (
+        <span aria-hidden className="sen-mic-off">
+          <MicOffIcon className="h-[62%] w-[62%]" />
+        </span>
+      )}
     </span>
   );
 }

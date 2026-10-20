@@ -9,8 +9,10 @@ export const SEN_VI_TRI_KEY = "forfish.senbien.vitri.v1";
 
 export type ViTriIcon = { left: number; bottom: number };
 
-/** Chỗ cũ của icon nổi: `left-2` (8px), `bottom-36` (144px). */
-export const VI_TRI_GOC: ViTriIcon = { left: 8, bottom: 144 };
+/** Chỗ gốc trên BẢN ĐỒ: mép trái, cách đáy 184px — NẰM TRÊN đồng hồ tốc độ (khung
+ *  mới 2026-10-20: thẻ trạng thái đáy ~80px + đồng hồ 4.5rem ở góc trái dưới; chỗ
+ *  cũ 144px đè lên đồng hồ — anh Long: "kéo cái hình cái loa ra ngoài đi"). */
+export const VI_TRI_GOC: ViTriIcon = { left: 8, bottom: 184 };
 
 /**
  * Chỗ gốc ở MÀN NGOÀI BẢN ĐỒ (Sen Biển toàn app, rà Codex 2026-10-19): mép PHẢI,

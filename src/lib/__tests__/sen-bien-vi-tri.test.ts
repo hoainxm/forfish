@@ -20,7 +20,7 @@ describe("vị trí icon Sen Biển kéo được", () => {
     expect(laKeo(10, 0)).toBe(true);
   });
   it("bong bóng mở lên khi icon ở nửa dưới, xuống khi ở trên; canh phải khi icon ở nửa phải", () => {
-    expect(huongBongBong({ left: 8, bottom: 144 }, 375, 700)).toEqual({ len: true, phai: false });
+    expect(huongBongBong({ left: 8, bottom: 184 }, 375, 700)).toEqual({ len: true, phai: false });
     expect(huongBongBong({ left: 300, bottom: 600 }, 375, 700)).toEqual({ len: false, phai: true });
   });
   it("lưu / đọc lại; kho hỏng ⇒ chỗ gốc", () => {

@@ -46,7 +46,6 @@ import {
   CheckIcon,
   ChevronRightIcon,
   DepthIcon,
-  CrosshairIcon,
   GridIcon,
   LayersIcon,
   EddyIcon,
@@ -56,7 +55,6 @@ import {
   RouteIcon,
   RulerIcon,
   SettingsIcon,
-  SpeakerIcon,
   StarIcon,
   WavesIcon,
   WindIcon,
@@ -127,7 +125,6 @@ export function RaKhoiControls({
   measureCount,
   measureResult,
   onClearMeasure,
-  onLocateMe,
   onGoCoord,
   cursor,
   addPlaceSignal,
@@ -136,10 +133,6 @@ export function RaKhoiControls({
   closeLayersSignal,
   onRoutePanel,
   routeOn = false,
-  onCruise,
-  cruiseOn = false,
-  locating,
-  geoError,
   onLegend,
 }: {
   /*  "Ký hiệu là gì?" — mở sheet CHÚ GIẢI HẢI ĐỒ (fishing-map-view lo phần
@@ -535,13 +528,14 @@ export function RaKhoiControls({
           }}
           icon={collapsed ? LayersIcon : ChevronRightIcon}
           label={collapsed ? "Lớp" : "Đóng"}
+          variant="fab"
         />
         {/*  ĐANG CHẠY (không tuyến): KHÔNG còn ô "Đang chạy" trên rail — HUD trên
              cùng đã có tiêu đề "Đang chạy" + nút Dừng (tối ưu bố cục bản đồ,
              anh Long 2026-10-19: một việc một chỗ, bớt icon che bản đồ). Rail
              giữ "Thêm" để vẫn mở được Vị trí / Toạ độ / Điểm lưu khi đang chạy. */}
         {routeOn && onRoutePanel ? (
-          <RailBtn active dot aria-pressed onClick={onRoutePanel} aria-label="Đang dẫn đường — chạm để đóng" icon={RouteIcon} label="Dẫn đường" />
+          <RailBtn variant="fab" active dot aria-pressed onClick={onRoutePanel} aria-label="Đang dẫn đường — chạm để đóng" icon={RouteIcon} label="Dẫn đường" />
         ) : collapsed ? (
           <RailBtn
             active={more}
@@ -556,36 +550,17 @@ export function RaKhoiControls({
             }}
             icon={DotsIcon}
             label="Thêm"
+            variant="fab"
           />
         ) : null}
         {more && !routeOn && (
           <div
             role="group"
             aria-label="Thêm việc"
-            className="anim-pop-in flex flex-col items-end gap-1.5 rounded-xl border border-line bg-card p-1.5 shadow-float"
+            className="anim-pop-in flex w-[11rem] flex-col gap-0.5 rounded-xl border border-line bg-card p-1 shadow-float"
           >
-            <RailBtn
-              onClick={() => {
-                setMore(false);
-                onLocateMe();
-              }}
-              disabled={locating}
-              aria-label="Vị trí của tôi (GPS)"
-              icon={CrosshairIcon}
-              label={locating ? "Đang dò" : geoError ? "Bật GPS" : "Vị trí"}
-              tone={geoError ? "warn" : undefined}
-            />
-            {onCruise && (
-              <RailBtn
-                onClick={() => {
-                  setMore(false);
-                  onCruise();
-                }}
-                aria-label={cruiseOn ? "Dừng chạy — thôi đọc cảnh báo theo vị trí tàu" : "Chạy tàu — máy đọc cảnh báo theo vị trí tàu"}
-                icon={SpeakerIcon}
-                label={cruiseOn ? "Dừng chạy" : "Chạy tàu"}
-              />
-            )}
+            {/*  "Vị trí" và "Chạy tàu" (loa) đã ra NGOÀI bản đồ — nút về tàu + nút loa
+                 ở cột góc phải dưới (khung 2026-10-20) — không lặp trong khay. */}
             {premiumTools && onRoutePanel && (
               <RailBtn
                 onClick={() => {
@@ -621,8 +596,9 @@ export function RaKhoiControls({
             )}
           </div>
         )}
-        {!collapsed && !cruiseOn && (
-          <div className="flex max-h-[calc(100dvh-14rem)] flex-col items-end gap-1.5 overflow-y-auto [overscroll-behavior:contain]">
+        {/* danh sách lớp mở được cả khi loa đang bật — loa không còn là chế độ dẫn đường */}
+        {!collapsed && (
+          <div className="anim-pop-in flex max-h-[calc(100dvh-14rem)] w-[11rem] flex-col gap-0.5 overflow-y-auto rounded-xl border border-line bg-card p-1 shadow-float [overscroll-behavior:contain]">
             {RAIL.map((r) => {
               const active = open === r.id;
               return (
@@ -645,7 +621,15 @@ export function RaKhoiControls({
   );
 }
 
-/** Ô vuông trên rail bản đồ — cùng một khuôn cho mọi ô (03 §0: 4rem × 2.75rem, icon trên nhãn dưới ≤2 chữ). */
+/**
+ * NÚT CỦA RAIL BẢN ĐỒ — HAI KHUÔN CHUẨN (anh Long 2026-10-20: "nút gì to thế? rà
+ * soát tất cả các nút, làm đẹp và tiêu chuẩn"; trước là ô vuông 4rem icon-trên-
+ * chữ-dưới cho MỌI nút, khay "Thêm" thành cột ô to):
+ *  · `fab`  — NÚT NỔI tròn --h-ctl, chỉ icon, nền card viền mảnh: CÙNG khuôn nút
+ *    ⚠ / loa / về tàu ở góc dưới (một hệ nút nổi cho cả bản đồ). Tên ở aria-label.
+ *  · `menu` — DÒNG trong khay/danh sách bung ra: icon + chữ nằm ngang, cao 2.5rem,
+ *    chữ 0.875rem — kiểu menu chuẩn, gọn hơn cột ô vuông. Đang chọn = navy đặc.
+ */
 function RailBtn({
   icon: Icon,
   label,
@@ -653,6 +637,7 @@ function RailBtn({
   dot = false,
   dotColor,
   tone,
+  variant = "menu",
   ...rest
 }: {
   icon: (p: { className?: string }) => React.ReactNode;
@@ -662,29 +647,34 @@ function RailBtn({
   dot?: boolean;
   dotColor?: string;
   tone?: "warn";
+  variant?: "fab" | "menu";
 } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children">) {
+  const mau = active
+    ? "border-navy bg-navy text-white"
+    : tone === "warn"
+      ? "border-warn-bg bg-warn-bg text-warn"
+      : variant === "fab"
+        ? "border-line bg-card/95 text-navy"
+        : "border-transparent bg-transparent text-navy active:bg-field";
   return (
     <button
       type="button"
       {...rest}
-      className={`${SQ_TILE} relative border shadow-sm transition active:scale-95 disabled:opacity-60 ${
-        active
-          ? "border-navy bg-navy text-white"
-          : tone === "warn"
-            ? "border-warn-bg bg-warn-bg text-warn"
-            : "border-line bg-card text-navy"
-      }`}
+      className={
+        variant === "fab"
+          ? `relative flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full border shadow-sm transition active:scale-95 disabled:opacity-60 ${mau}`
+          : `relative flex h-10 w-full items-center gap-2.5 rounded-lg border px-3 text-left text-[0.875rem] font-semibold transition disabled:opacity-60 ${mau}`
+      }
     >
       {dot && (
         <span
-          className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full"
+          className={`absolute h-2 w-2 rounded-full ${variant === "fab" ? "right-1 top-1" : "right-2 top-1/2 -translate-y-1/2"}`}
           style={{ background: active ? "var(--card)" : (dotColor ?? "var(--trim)") }}
           aria-hidden
         />
       )}
-      <Icon className="h-5 w-5" />
-      {/* chế độ gọn của bản đồ (khung hẹp <15rem): chỉ icon, tên vẫn đọc được */}
-      <span className="@max-[15rem]/map:sr-only">{label}</span>
+      <Icon className="h-[1.125rem] w-[1.125rem] shrink-0" />
+      <span className={variant === "fab" ? "sr-only" : "min-w-0 flex-1 truncate"}>{label}</span>
     </button>
   );
 }

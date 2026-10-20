@@ -588,6 +588,17 @@ export function MicIcon(p: IconProps) {
   );
 }
 
+/** Micro bị chặn — mic + gạch (huy hiệu trạng thái Sen Biển "không nghe được") */
+export function MicOffIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M9 9V5.5a3 3 0 0 1 5.8-1.1M15 10.5V11a3 3 0 0 1-4.6 2.5" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 10.6 5M18.5 11a6.4 6.4 0 0 1-.6 2.7" />
+      <path d="M12 17.5V21M8.5 21h7M3.5 3.5l17 17" />
+    </svg>
+  );
+}
+
 /** Trợ lý — loa tắt tiếng */
 export function SpeakerOffIcon(p: IconProps) {
   return (
