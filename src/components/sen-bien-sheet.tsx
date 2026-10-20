@@ -467,21 +467,39 @@ export function SenBienSheet({
   }, []);
 
   // mở bằng GỌI ⇒ chào + nói việc làm được, đọc xong thì nghe (chạm icon là cắt lời, ghi luôn)
-  const moRef = useRef(listenOnOpen && canVoice && !hoiNgay);
+  /*  CHẠY LẠI ĐƯỢC, không cờ "một lần" (lỗi 2026-10-20, anh Long: "sao ko lấy được micro"):
+      bản cũ dùng moRef một lần — React dev (StrictMode) gắn → GỠ THỬ → gắn lại; lần gỡ thử
+      chạy dọn dẹp `catChao()` huỷ câu chào (mốc rỗng ⇒ không `ghi()`), lần gắn lại thấy cờ đã
+      tắt ⇒ bỏ qua ⇒ thẻ kẹt ở "chào", KHÔNG BAO GIỜ bật micro, trình duyệt không hỏi quyền.
+      Nay: mỗi lần gắn thì chào rồi nghe; dọn dẹp huỷ đúng lượt chào của chính nó. */
+  const moKhiMo = listenOnOpen && canVoice && !hoiNgay;
   useEffect(() => {
-    if (!moRef.current) return;
-    moRef.current = false;
+    if (!moKhiMo) return;
+    let conSong = true;
     ttsUnlock();
     setPhase("chao");
-    huyChao.current = ttsSpeak(chao, {
+    let xongNgay = false;
+    let huy: () => void = () => {};
+    huy = ttsSpeak(chao, {
       onEnd: () => {
-        if (huyChao.current) {
-          huyChao.current = null;
-          ghi();
+        // câu chào rỗng ⇒ ttsSpeak báo xong NGAY (trước khi gán `huy`) — vẫn sang nghe
+        if (!conSong) return;
+        if (huyChao.current !== huy) {
+          xongNgay = true;
+          return;
         }
+        huyChao.current = null;
+        ghi();
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ lúc mở
+    if (xongNgay) ghi();
+    else huyChao.current = huy;
+    return () => {
+      conSong = false;
+      if (huyChao.current === huy) huyChao.current = null;
+      huy();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ lúc mở thẻ
   }, []);
 
   // CHẠM RA NGOÀI (bản đồ, nút khác) ⇒ thu về, như mọi khung bật lên — trừ lúc chờ "Đi/Thôi"
