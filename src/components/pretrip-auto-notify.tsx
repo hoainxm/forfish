@@ -712,8 +712,8 @@ function PretripSavedSheet({
           className="mt-4 h-(--h-cta) w-full rounded-xl bg-navy text-[1rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
         >
           {busy === "all"
-            ? "Đang tải các lớp còn thiếu…"
-            : `Tải lại ${missing} lớp còn thiếu`}
+            ? "Đang tải"
+            : "Tải thiếu"}
         </button>
       ) : staleIds.length > 0 ? (
         <button
@@ -723,8 +723,8 @@ function PretripSavedSheet({
           className="mt-4 h-(--h-cta) w-full rounded-xl bg-navy text-[1rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
         >
           {busy === "all"
-            ? "Đang tải các lớp đã cũ…"
-            : `Tải mới ${staleIds.length} lớp đã cũ`}
+            ? "Đang tải"
+            : "Tải mới"}
         </button>
       ) : null}
       {total > 0 && (

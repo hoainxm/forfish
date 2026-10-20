@@ -425,9 +425,6 @@ export function CrewList() {
           câu đó nói BA LẦN trong cùng một mảng màn; giữ đúng MỘT chỗ là ngay
           trước nút Gửi trong form báo cáo — lúc bà con sắp ghi tên người khác
           vào sổ chung, đó mới là lúc câu ấy có việc. */}
-      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
-        Hồ sơ thuyền viên lưu trên máy bà con.
-      </p>
 
       {showForm && (
         <CrewForm

@@ -16,6 +16,7 @@ import {
   TrendUpIcon,
 } from "@/components/icons";
 import { formatVnDate } from "@/lib/format";
+import { useOnline } from "@/lib/use-online";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { PriceHistorySheet } from "@/components/price-history-sheet";
 import {
@@ -55,6 +56,7 @@ const STATIC_RESULT: LivePriceResult = {
 };
 
 export function PriceBoard() {
+  const online = useOnline();
   const [query, setQuery] = useState("");
   // mặc định bảng tĩnh; thay bằng giá tuần khi tải xong (async → không lint effect)
   const [result, setResult] = useState<LivePriceResult>(STATIC_RESULT);
@@ -136,6 +138,7 @@ export function PriceBoard() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm loại cá…"
+          aria-label="Tìm loại cá"
           className="h-(--h-ctl) w-full rounded-xl border border-line bg-card pl-11 pr-4 text-[1rem] focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </label>
@@ -153,9 +156,14 @@ export function PriceBoard() {
           . Giá thật tại cảng có thể khác.
         </p>
       ) : result.netFailed ? (
+        /*  PHÂN BIỆT MẤT SÓNG ↔ NGUỒN LỖI (rà Codex lần 3, ưu tiên 2): `netFailed`
+            bật cả khi máy chủ trả lỗi HTTP — lúc đó máy VẪN có sóng, nói "không
+            có sóng" là nói sai. Hỏi trạng thái mạng thật của máy. */
         <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] leading-snug text-warn">
-          Chưa tải được giá tuần này — máy đang không có sóng. Bên dưới là giá
-          tham khảo ngày {formatVnDate(PRICE_DATE)}; có sóng lại là máy tự tải.
+          {online
+            ? "Chưa tải được giá tuần này — nguồn giá đang lỗi, máy sẽ thử lại."
+            : "Chưa tải được giá tuần này — máy đang không có sóng."}{" "}
+          Bên dưới là giá tham khảo ngày {formatVnDate(PRICE_DATE)}.
         </p>
       ) : (
         <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] leading-snug text-warn">

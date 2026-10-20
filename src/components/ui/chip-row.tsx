@@ -33,11 +33,6 @@ export function ChipRow<T extends string>({
   level?: 1 | 2;
   ariaLabel?: string;
 }) {
-  /*  Chiều cao lên sàn chạm (2026-08-29, luật A5): đo thật tầng 1 = 48px,
-      tầng 2 = 42px — cả hai dưới sàn 52px, tầng 2 hụt 14px. Đây là ô bị chạm
-      NHIỀU NHẤT của khu Giao dịch (đường duy nhất chuyển giữa 3 mục lớn + 4 mục
-      con). Bề ngang GIỮ NGUYÊN — chip tự co theo nhãn, không phải ô vuông; đúng
-      cách đã xử ca 5b(b) của my-places-sheet. */
   /*  Bậc chip 03 §0 (2026-10-19): cao 2.5rem, rộng CỐ ĐỊNH ≥5.5rem, chữ canh giữa —
       nhãn ≤2 chữ nên không nở theo chữ; tầng 2 chỉ khác màu, không khác cỡ. */
   const base =

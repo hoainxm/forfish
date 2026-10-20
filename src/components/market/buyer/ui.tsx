@@ -75,12 +75,12 @@ export function MarketTopBar({
             type="button"
             onClick={() => onQ("")}
             aria-label="Xoá chữ đang tìm"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground/60 active:bg-field"
+            className="flex h-full w-11 shrink-0 items-center justify-center rounded-full text-foreground/60 active:bg-field"
           >
             <CloseIcon className="h-5 w-5" />
           </button>
         )}
-        <button type="submit" className="flex h-9 shrink-0 items-center justify-center rounded-lg px-3 text-[0.9375rem] font-semibold text-sea active:bg-field">Tìm</button>
+        <button type="submit" className="flex h-full shrink-0 items-center justify-center rounded-lg px-3 text-[0.9375rem] font-semibold text-sea active:bg-field">Tìm</button>
       </form>
       <nav aria-label="Mua hàng" className="mt-2 flex gap-2">
       <Link

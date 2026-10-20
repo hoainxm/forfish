@@ -409,7 +409,6 @@ import {
   forecastConfidence,
   formatNumberVN,
   windDirectionVN,
-  windDescribeVN,
   type SeaPoint,
   type SeaPointConditions,
 } from "@/lib/marine-weather";
@@ -442,8 +441,6 @@ import {
   RouteIcon,
   StarIcon,
   TargetIcon,
-  WavesIcon,
-  WindIcon,
 } from "@/components/icons";
 
 /* Nhãn ngày ("Hôm nay" / "Ngày mai" / ngày thật) nằm ở lib/day-labels.ts —
@@ -4785,9 +4782,24 @@ export default function FishingMapView() {
   const sideTabContent =
     cond && today && sel ? (
       <span className="flex flex-col items-start leading-tight">
-        <span className="whitespace-nowrap text-[0.75rem] text-foreground/65">
-          {chipLabel(sel.date, todayIso)}
-        </span>
+        {/*  Số từ BẢN LƯU ⇒ dòng trên đổi thành "Bản lưu HH:MM" (hoặc "dd/MM
+             HH:MM" nếu đã qua ngày) màu cảnh báo — rà Codex lần 3 ưu tiên 2:
+             viên số nằm thường trực trên bản đồ, không được trông như số mới. */}
+        {cond.stale && cond.savedAt != null ? (
+          <span className="whitespace-nowrap text-[0.75rem] font-semibold text-warn">
+            Bản lưu{" "}
+            {(() => {
+              const d = new Date(cond.savedAt + 7 * 3600000).toISOString();
+              return d.slice(0, 10) === todayIso
+                ? d.slice(11, 16)
+                : `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}`;
+            })()}
+          </span>
+        ) : (
+          <span className="whitespace-nowrap text-[0.75rem] text-foreground/65">
+            {chipLabel(sel.date, todayIso)}
+          </span>
+        )}
         <span className="whitespace-nowrap text-[0.8125rem] font-semibold text-navy">
           {sel.waveMaxM > 0
             ? `${sel.waveEstimated ? "~" : ""}${formatNumberVN(sel.waveMaxM)} m`
@@ -4804,6 +4816,13 @@ export default function FishingMapView() {
       cá…) chỉ ở "Xem đủ" (ngăn rộng = nội dung cũ). Cảnh báo AN TOÀN không thu:
       rất gần ranh giới, sóng ước, cạn nước (màu nguy hiểm) vẫn hiện ở đây. */
   const hhmmVN = (ms: number) => new Date(ms + 7 * 3600000).toISOString().slice(11, 16);
+  /*  DẤU BẢN LƯU (rà Codex lần 3, ưu tiên 2): giờ nếu lưu HÔM NAY, kèm ngày nếu
+      đã sang ngày khác — "Bản lưu 07:30" của hôm kia là nói dối độ tươi. */
+  const savedStampVN = (ms: number) => {
+    const d = new Date(ms + 7 * 3600000).toISOString();
+    const sameDay = d.slice(0, 10) === todayIso;
+    return sameDay ? d.slice(11, 16) : `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}`;
+  };
   const sideDense =
     cond && today && sel && cond.onSea
       ? (() => {
@@ -4908,8 +4927,8 @@ export default function FishingMapView() {
                 <p className="text-[0.8125rem] font-bold leading-snug text-danger">{prox.label}.</p>
               )}
               {cond.stale && (
-                <p className="text-[0.75rem] leading-snug text-warn">
-                  Bản lưu{cond.savedAt != null ? ` ${hhmmVN(cond.savedAt)}` : ""}
+                <p className="text-[0.75rem] font-semibold leading-snug text-warn">
+                  Bản lưu{cond.savedAt != null ? ` ${savedStampVN(cond.savedAt)}` : ""} · chưa phải số mới
                 </p>
               )}
               {dayChipsRow}
@@ -7508,16 +7527,13 @@ export default function FishingMapView() {
       />
 
       {/* ── VÙNG NỔI TRÊN CÙNG: tin bão (không gì che) + badge + FAB ──────── */}
-      {/* Kéo sheet info lên (half/full) → TỰ ẨN tin bão + rail bên phải cho
-          khỏi chồng chéo (user 2026-06-23: logic tự ẩn, không bắt click).
-          Về peek thì hiện lại. */}
+      {/* LUÔN HIỆN (rà Codex lần 3, 2026-10-20 — ưu tiên 1): luật cũ "kéo sheet
+          lên thì TỰ ẨN tin bão + rail" (2026-06-23) sinh ra cho sheet ĐÁY cao 55%
+          che cụm trên. Ngăn gió sóng nay là ngăn PHẢI cao 1/3 neo ĐÁY — không
+          chạm cụm trên, nên giấu đi chỉ còn tác hại: mở ngăn lúc đang có bão là
+          tin bão mờ + aria-hidden. Cảnh báo an toàn không bao giờ bị giấu. */}
       <div
-        className={`safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2 transition-opacity duration-200 ${
-          sheetThu || navOn
-            ? "opacity-100"
-            : "opacity-0 [&_*]:pointer-events-none"
-        }`}
-        aria-hidden={!sheetThu && !navOn}
+        className="safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2"
       >
         <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
         {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
@@ -7764,14 +7780,10 @@ export default function FishingMapView() {
 
       {/* CHÚ GIẢI NGƯ TRƯỜNG — nổi sát MÉP TRÁI bản đồ, chỉ khi lớp Cá đang
           hiện lưới màu (user 2026-07-27: cho ra ngoài bản đồ cho dễ nhìn, khỏi
-          mở panel). Tự mờ khi kéo sheet lên như rail phải. */}
+          mở panel). Luôn hiện: ngăn gió sóng nay ở đáy phải, không chạm chỗ này. */}
       {fishGridGeo && (
-        <div
-          className={`pointer-events-none absolute left-2 top-[11rem] z-20 transition-opacity duration-200 ${
-            sheetThu ? "opacity-100" : "opacity-0"
-          }`}
-          aria-hidden={!sheetThu}
-        >
+        <div className="pointer-events-none absolute left-2 top-[11rem] z-20">
+
           {/* chip chú giải gọn theo mẫu (2026-10-19): một hàng "Dự báo cá" + 3 mức */}
           <div className="flex items-center gap-2 rounded-lg border border-line bg-card px-2 py-1 text-[0.6875rem] font-medium text-navy shadow-sm">
             <span className="font-semibold">Dự báo cá</span>
@@ -8057,7 +8069,7 @@ export default function FishingMapView() {
             /* Máy CHỈ giữ số ở đúng chỗ đã xem — không mượn số chỗ khác nữa,
                nên chỗ lạ mà mất sóng thì nói thẳng là chưa có gì. */
             <p className="py-3 text-[1rem] font-bold leading-snug text-danger">
-              Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại.
+              Chỗ này chưa có số nào lưu trong máy — có sóng thì chạm lại để thử.
             </p>
           ) : cond && !cond.onSea ? (
             <p className="py-3 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
@@ -8246,101 +8258,9 @@ export default function FishingMapView() {
 
           {cond && cond.onSea && today && sel && (
             <>
-              {/*  BẢNG SỐ GỌN — MỘT danh sách kẻ mảnh (anh Long 2026-10-20: "thông
-                   tin đang trùng lặp, cách thiết kế vẫn to"). Trước: dòng tóm tắt
-                   ở đầu + dải màu "Cả ngày: sóng tới… gió tới…" + HAI thẻ to "Gió
-                   lúc này"/"Sóng lúc này" + dòng "Dòng chảy" = cùng sóng/gió nói
-                   ba lần. Nay mỗi đại lượng MỘT hàng: số lúc này (hôm nay) bên
-                   phải đậm, dòng phụ "cả ngày tới…" — ngày khác chỉ còn số cả ngày.
-                   Bản lưu: "lúc này" đổi thành "đo lúc HH:MM" (không nói dối). */}
-              {(() => {
-                const nowOk = isToday && cond.windKmh != null;
-                const nowLbl =
-                  cond.stale && cond.savedAt != null ? `đo lúc ${clockVN(cond.savedAt)}` : "lúc này";
-                const useCurNow = isToday && cond.curKmh != null && !cond.stale;
-                const curKmh = useCurNow ? cond.curKmh : (sel.curKmh ?? null);
-                const curDir = useCurNow ? (cond.curDirDeg ?? null) : (sel.curDirDeg ?? null);
-                const waveDay =
-                  sel.waveMaxM > 0
-                    ? `${formatNumberVN(sel.waveMaxM)} m${sel.waveEstimated ? " (ước)" : ""}`
-                    : "chưa có số";
-                const windDay = `cấp ${beaufort(sel.windMaxKmh)}${
-                  sel.gustMaxKmh > 0 ? `, giật cấp ${beaufort(sel.gustMaxKmh)}` : ""
-                }`;
-                const Row = ({
-                  icon,
-                  name,
-                  main,
-                  sub,
-                }: {
-                  icon: React.ReactNode;
-                  name: string;
-                  main: string;
-                  sub?: string | null;
-                }) => (
-                  <li className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="shrink-0 text-sea" aria-hidden>
-                      {icon}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[0.875rem] text-foreground/70">{name}</span>
-                      {sub && (
-                        <span className="block text-[0.8125rem] leading-snug text-foreground/60">
-                          {sub}
-                        </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-right text-[1rem] font-semibold tabular-nums text-navy">
-                      {main}
-                    </span>
-                  </li>
-                );
-                return (
-                  <ul className="surface divide-y divide-line overflow-hidden">
-                    <Row
-                      icon={<WindIcon className="h-5 w-5" />}
-                      name={nowOk ? `Gió ${nowLbl}` : "Gió cả ngày"}
-                      main={nowOk ? `cấp ${beaufort(cond.windKmh!)}` : windDay}
-                      sub={
-                        nowOk
-                          ? `${Math.round(cond.windKmh!)} km/giờ${
-                              cond.windDirDeg != null ? ` · ${windDescribeVN(cond.windDirDeg)}` : ""
-                            } · cả ngày tới ${windDay}`
-                          : sel.windDirDeg != null
-                            ? windDescribeVN(sel.windDirDeg)
-                            : null
-                      }
-                    />
-                    <Row
-                      icon={<WavesIcon className="h-5 w-5" />}
-                      name={nowOk ? `Sóng ${nowLbl}` : "Sóng cả ngày"}
-                      main={
-                        nowOk
-                          ? cond.waveM != null
-                            ? `${formatNumberVN(cond.waveM)} m`
-                            : "—"
-                          : waveDay
-                      }
-                      sub={
-                        nowOk
-                          ? cond.waveM != null
-                            ? `cả ngày tới ${waveDay}`
-                            : "sát bờ, chưa có số sóng — xem gió là chính"
-                          : null
-                      }
-                    />
-                    {curKmh != null && (
-                      <Row
-                        icon={<WavesIcon className="h-5 w-5 opacity-60" />}
-                        name={`Dòng chảy${useCurNow ? " lúc này" : ""}`}
-                        main={`${formatNumberVN(curKmh)} km/giờ`}
-                        sub={curDir != null ? `nước chảy về ${windDirectionVN(curDir)}` : null}
-                      />
-                    )}
-                  </ul>
-                );
-              })()}
-
+              {/*  Bảng số gió/sóng/dòng chảy KHÔNG lặp ở đây nữa (rà Codex lần 3 ưu
+                   tiên 3): lưới số dày `sideDense` phía trên ngăn đã có đủ — phần
+                   "Xem đủ" chỉ thêm thứ lưới chưa có. */}
               {/* SÓNG LÀ SỐ ƯỚC → nói thẳng MỘT dòng (LỖI 2a+2c): điểm đi biển và
                   "Biển êm / động" chấm từ chính con số ước đó. */}
               {sel.waveEstimated && sel.waveMaxM > 0 && (

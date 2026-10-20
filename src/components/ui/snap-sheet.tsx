@@ -21,7 +21,7 @@
   Đặt trong container relative của màn hình map; chiều cao tính theo container.
 */
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "@/components/icons";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 export type SheetSize = "hidden" | "peek" | "half";
 
@@ -92,6 +92,7 @@ export function SnapSheet({
   // Vuốt lên = nở, vuốt xuống = thu. Chạm nhẹ (ít di chuyển) thì coi như tap → nở.
   const dragY = useRef<number | null>(null);
   const dragX = useRef<number | null>(null);
+  const panelId = useId();
   /** ngăn bên phải đang mở phần "Xem đủ" — đóng ngăn là thu lại */
   const [wide, setWide] = useState(false);
   useEffect(() => {
@@ -156,6 +157,13 @@ export function SnapSheet({
                 dragX.current = e.clientX;
               }}
               onPointerUp={(e) => onSideUp(e, false)}
+              /*  Bàn phím / trình đọc màn hình (Enter, Space) chỉ bắn `click` — thiếu
+                  dòng này là viên chỉ mở được bằng ngón tay (rà Codex lần 3). Gọi
+                  "half" là lệnh đặt, không lật, nên chạm (pointerup + click) không
+                  mở-rồi-đóng. */
+              onClick={() => onSizeChange("half")}
+              aria-expanded={false}
+              aria-controls={`${panelId}-ngan`}
               style={{ touchAction: "none" }}
               aria-label={`Mở bảng ${label.toLowerCase()} — vuốt sang trái hoặc chạm`}
               className="pointer-events-auto flex h-(--h-ctl) items-center gap-2 rounded-l-full border border-r-0 border-line bg-card/95 pl-2 pr-3 text-navy shadow-float active:bg-field"
@@ -165,20 +173,22 @@ export function SnapSheet({
             </button>
           </div>
         )}
-        {open && sideDense && (
-          /*  NGĂN THẤP 1/3 MÀN (anh Long 2026-10-20: "1/3 ko phải theo chiều
-              ngang, ý là kích thước như cũ, nhưng chiều dài chỉ còn 1/3, rồi cho
-              scroll đọc"): rộng như ngăn cũ min(22rem,84%), CAO ~1/3 khung bản
-              đồ, neo GÓC DƯỚI PHẢI (đúng chỗ viên tóm tắt), trượt ra từ cạnh
-              phải; thân cuộn dọc. 2/3 trên của bản đồ để trống.
-              "Xem đủ" mở thêm phần giải thích NGAY TRONG ngăn (vẫn cao 1/3). */
+        {open && (
+          /*  NGĂN THẤP 1/3 MÀN — MỌI TRẠNG THÁI (anh Long 2026-10-20: "kích thước
+              như cũ, nhưng chiều dài chỉ còn 1/3, rồi cho scroll đọc"; rà Codex
+              lần 3 ưu tiên 3): rộng min(22rem,84%), cao 34% khung bản đồ, neo góc
+              dưới phải, thân cuộn dọc. Không còn nhánh ngăn cao trọn màn: chưa có
+              số (đang tải / lỗi / chạm đất liền) thì `peek` (câu trạng thái) nằm
+              ngay trong ngăn thấp này. "Xem đủ" chỉ thêm `children` — phần CHƯA có
+              trong lưới số (con nước đầy đủ, cá, câu dặn) — không lặp ngày/số. */
           <div
+            id={`${panelId}-ngan`}
             onPointerDown={(e) => {
               dragX.current = e.clientX;
             }}
             onPointerUp={(e) => onSideUp(e, true)}
             style={{ touchAction: "pan-y" }}
-            className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[13rem] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float"
+            className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[9rem] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float"
           >
             <div className="flex items-center gap-1.5 border-b border-line px-3 py-1.5">
               <div className="min-w-0 flex-1 truncate">
@@ -195,54 +205,22 @@ export function SnapSheet({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2 [overscroll-behavior:contain]">
-              {sideDense}
-              {wide ? (
-                <div className="mt-3 border-t border-line pt-3">
-                  {peek}
-                  <div className="mt-2">{children}</div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setWide(true)}
-                  className="mt-2 flex h-(--h-ctl) w-full items-center justify-center gap-1 rounded-full bg-field text-[0.8125rem] font-semibold text-navy active:scale-[0.98]"
-                >
-                  Xem đủ
-                  <ChevronDownIcon className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-        {open && !sideDense && (
-          <div
-            className="anim-pop-in pointer-events-auto absolute bottom-0 right-0 top-0 flex w-[min(22rem,84%)] flex-col rounded-l-[1.5rem] bg-background shadow-float"
-          >
-            {/* đầu ngăn: vuốt phải để thu */}
-            <div
-              onPointerDown={(e) => {
-                dragX.current = e.clientX;
-              }}
-              onPointerUp={(e) => onSideUp(e, true)}
-              style={{ touchAction: "pan-y" }}
-              className="flex items-center gap-2 border-b border-line pb-2 pl-3 pr-2 pt-[calc(0.5rem+env(safe-area-inset-top))]"
-            >
-              <p className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold text-navy">{label}</p>
-              {sideHeader}
-              <button
-                type="button"
-                onClick={() => onSizeChange("hidden")}
-                aria-label="Thu bảng sang phải"
-                className="flex h-(--h-ctl) shrink-0 items-center gap-1 rounded-full bg-field px-3 text-[0.875rem] font-semibold text-navy active:scale-95"
-              >
-                Thu
-                <ChevronRightIcon className="h-4 w-4" />
-              </button>
-            </div>
-            {/* tóm tắt (peek) + chi tiết cùng cuộn, nguyên bề ngang ngăn */}
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-3 [overscroll-behavior:contain]">
-              {peek}
-              <div className="mt-2">{children}</div>
+              {sideDense ?? peek}
+              {sideDense &&
+                (wide ? (
+                  <div className="mt-3 border-t border-line pt-3">{children}</div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setWide(true)}
+                    aria-expanded={false}
+                    className="mt-2 flex h-(--h-ctl) w-full items-center justify-center gap-1 rounded-full bg-field text-[0.8125rem] font-semibold text-navy active:scale-[0.98]"
+                  >
+                    Xem đủ
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </button>
+                ))}
+              {!sideDense && <div className="mt-2">{children}</div>}
             </div>
           </div>
         )}
