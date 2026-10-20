@@ -406,3 +406,14 @@ export async function fetchStormCheck(): Promise<StormCheck> {
 export function savedStormAt(): number | null {
   return loadForecast<StormCheck>(STORM_NS, STORM_ID)?.savedAt ?? null;
 }
+
+/**
+ * Bản tin bão ĐANG LƯU trong máy có cơn nào không — KHÔNG gọi mạng. Cho lớp
+ * nhắc tầng 3 (nhắc hạn giấy tờ khi mở app) tự nhường: tầng 1 không bị lớp nào
+ * che (07 §12). Chờ kho mở xong như `fetchStormCheck`, không thì đọc ra rỗng.
+ */
+export async function savedStormActive(now: number): Promise<boolean> {
+  await forecastStoreReady();
+  const hit = loadForecast<StormCheck>(STORM_NS, STORM_ID);
+  return stormStatus(hit?.data ?? null, now).kind === "co-bao";
+}

@@ -8,7 +8,11 @@
 //
 // Không fetch, không DB, không Date.now() trong thân hàm ⇒ test được trọn vẹn.
 //
-// MỐC NHẮC: 30 · 15 · 7 · 3 · 1 ngày trước + đúng hôm hết hạn (0). Mỗi mốc MỘT
+// MỐC NHẮC (đổi 2026-10-20, user: "mốc 1 tháng, cứ 5 ngày thông báo 1 lần, 5
+// ngày cuối cùng ngày nào cũng báo"): 30 · 25 · 20 · 15 · 10 ngày trước, rồi
+// HẰNG NGÀY 5 · 4 · 3 · 2 · 1 + đúng hôm hết hạn (0). Mốc tính theo NGÀY HẾT
+// HẠN, không theo lần báo đầu ⇒ giấy nhập lúc còn 28 ngày báo ngay (mốc 30) rồi
+// tới 25 như mọi giấy khác. (Trước đó: 30 · 15 · 7 · 3 · 1 · 0.) Mỗi mốc MỘT
 // lần cho MỘT ngày hết hạn. Cron lỡ vài hôm thì gửi đúng mốc HIỆN TẠI, không dồn
 // mọi mốc đã qua (bà con không cần 3 tin cùng lúc nói cùng một chuyện).
 // ĐÃ QUÁ HẠN: nhắc lại mỗi 30 ngày, tối đa 3 lần — giấy phép khai thác hết hạn là
@@ -32,7 +36,7 @@ import { isDeleted } from "@/lib/sync-tombstone";
 export const DOC_PUSH_SENT_BY = "system:docs";
 export const DOC_PUSH_TAG = "giay-to";
 /** Mốc nhắc trước hạn (ngày). Thứ tự tăng dần. */
-export const DOC_REMIND_DAYS = [0, 1, 3, 7, 15, 30] as const;
+export const DOC_REMIND_DAYS = [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30] as const;
 /** Quá hạn: nhắc lại mỗi ngần này ngày … */
 export const DOC_OVERDUE_EVERY_DAYS = 30;
 /** … tối đa ngần này lần. */
@@ -108,7 +112,8 @@ export function dueReminders(
   return out.sort((a, b) => a.days - b.days);
 }
 
-function whenText(days: number, expiresOn: string): string {
+/** "còn N ngày (hết dd/mm/yyyy)" · "hết hạn HÔM NAY" · "đã quá hạn N ngày". */
+export function reminderWhenText(days: number, expiresOn: string): string {
   if (days < 0) return `đã quá hạn ${-days} ngày`;
   if (days === 0) return "hết hạn HÔM NAY";
   return `còn ${days} ngày (hết ${formatVnDate(expiresOn)})`;
@@ -120,7 +125,7 @@ export function docPushMessage(due: DueReminder[]): { title: string; body: strin
   const title = expired ? "Giấy tờ đã hết hạn" : "Giấy tờ sắp hết hạn";
   const lines = due
     .slice(0, MAX_LINES)
-    .map((d) => `${d.item.label} ${whenText(d.days, d.item.expiresOn)}.`);
+    .map((d) => `${d.item.label} ${reminderWhenText(d.days, d.item.expiresOn)}.`);
   if (due.length > MAX_LINES) lines.push(`Và ${due.length - MAX_LINES} giấy khác.`);
   lines.push("Bà con lo gia hạn sớm để khỏi bị phạt.");
   return { title, body: lines.join(" ") };

@@ -608,6 +608,10 @@ const EXCLUDED: Array<[string, string]> = [
     "forfish.installNudge.v2",
     "đếm số lần nhắc cài + đã tắt (2026-08-18 S7) — cùng lý do với khoá cũ: chuyện của MÁY NÀY, chép sang máy mới là im lời nhắc cài đúng máy cần nhắc",
   ],
+  [
+    "forfish.docRemindSeen.v1",
+    "sổ 'đã nhắc hạn giấy khi mở app' (2026-10-20) — chuyện của MÁY NÀY: chép sang máy mới là im lời nhắc đúng máy chưa từng hiện; mất thì chỉ nhắc lại một lần",
+  ],
   ["forfish.pwa-frame.", "số đo màn hình MÁY KHÁC — đè vào là lệch khung"],
   [
     "forfish.pretrip.lastRunAt.v1",

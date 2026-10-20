@@ -3,6 +3,7 @@
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
 last_verified: 2026-10-18
+<!-- re-verified: 2026-10-20 17:30 — NHẮC HẠN GIẤY TỜ: đối chiếu code `lib/doc-reminders.ts` (DOC_REMIND_DAYS 30·25·20·15·10 + 5→0, quá hạn ×3), `lib/doc-reminder-local.ts` + `components/doc-remind-on-open.tsx` (sheet khi mở Trang chủ, sổ `forfish.docRemindSeen.v1`, nhường bão qua `savedStormActive`), `public/sw.js` push `renotify: true` khi có tag. Soi trình duyệt 375px. -->
 <!-- re-verified: 2026-10-18 — `crew-list.tsx` chỉ THÊM `export const CREW_STORAGE_KEY` (cùng giá trị "forfish.crew.v1") để Sen Biển toàn app (lib/assistant/device-snapshot) ĐẾM người trong sổ — không đổi hành vi đa tàu: thuyền viên vẫn động-theo-chủ (R2), không đọc CCCD/SĐT ra loa. AC không đổi. -->
 <!-- re-verified: 2026-10-14 09:00 — `urgent-strip.tsx` TÁCH LOGIC sang `src/lib/urgent.ts` (thêm vào covers) để bản tin mở đầu của chế độ Đang chạy (doc 15) dùng chung một luật hạn. `computeUrgent` chuyển NGUYÊN VĂN (diff = 0 dòng thân hàm), kèm `maintStatus`, `loadStored`, `sdvicoUrgent`, `byUrgencyOrder`, `PILLAR_TAG` và các kiểu; component re-export `byUrgencyOrder`/`sdvicoUrgent` cho test cũ. NV5/AC-7: vẫn gom MỌI tàu + gắn `boatLabel` khi >1 tàu; cổng `readToken()` của dải khẩn giữ nguyên ở component (bản tin giọng đọc cũng chỉ đọc việc khi máy đã gắn tài khoản). R1/R2/R3/R7, khoá `forfish.*` không đổi. Test `urgent-strip.test.ts` xanh. -->
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
@@ -116,7 +117,7 @@ ttl_days: 90
 
 ### Flow NV5 — Nhắc việc theo tàu · owner: hệ thống
 - **Start**: chủ mở app
-- **Input**: hồ sơ cố định mọi tàu (quá hạn/tới hạn) + hàng SDVICO (bảo hành/cước) đã gán tàu. **2026-10-06**: thêm kênh THÔNG BÁO ĐIỆN THOẠI cho hạn giấy tờ + bảo hiểm/chứng chỉ thuyền viên (cron máy chủ đọc bản đồng bộ, 07 §12 ngoại lệ tầng 3) — cùng luật nhãn tàu (AC-8)
+- **Input**: hồ sơ cố định mọi tàu (quá hạn/tới hạn) + hàng SDVICO (bảo hành/cước) đã gán tàu. **2026-10-06**: thêm kênh THÔNG BÁO ĐIỆN THOẠI cho hạn giấy tờ + bảo hiểm/chứng chỉ thuyền viên (cron máy chủ đọc bản đồng bộ, 07 §12 ngoại lệ tầng 3) — cùng luật nhãn tàu (AC-8). **2026-10-20**: lịch mốc đổi thành 30·25·20·15·10 rồi HẰNG NGÀY 5→0 (AC-10) + kênh thứ ba **sheet khi mở app** đọc kho máy, cùng lịch, mỗi mốc 1 lần (AC-11) — tới được cả máy chưa bật chuông, giấy chưa đồng bộ, máy mất sóng lúc cron chạy
 - **Steps**: gom việc cần làm của TẤT CẢ tàu → mỗi việc gắn nhãn tàu của nó
 - **Output**: danh sách việc gộp đa-tàu, mỗi việc nêu rõ thuộc tàu nào; món "chưa gán" hiện không nhãn (của chung)
 - **End**: chủ thấy đúng việc nào của tàu nào
@@ -207,6 +208,18 @@ ttl_days: 90
 - **Then** chủ nhận ĐÚNG MỘT thông báo trong ngày, dòng giấy đó mở đầu bằng tên T2; lượt kế cùng ngày/cùng mốc KHÔNG gửi lại
 - **Assert**: `expiringItemsOf(...)[i].label.startsWith(name(T2)+":")` && `dueReminders(items, sentKeys∪{key}, today).length==0` (`doc-reminders.test.ts`)
 
+### AC-10 — Lịch mốc nhắc hạn: mỗi 5 ngày trong tháng cuối, hằng ngày 5 ngày cuối · Maps to: NV5 · Test: unit (2026-10-20)
+- **Given** một giấy hết hạn ngày H, chưa gửi mốc nào; lượt nhắc chạy mỗi sáng từ H−35 tới H
+- **When** đếm các ngày có thông báo
+- **Then** đúng 11 lần ở còn 30 · 25 · 20 · 15 · 10 · 5 · 4 · 3 · 2 · 1 · 0 ngày; giấy nhập lúc còn 28 ngày báo ngay (mốc 30) rồi tới 25; mốc đã gửi theo lịch cũ (t15) không gửi lại; quá hạn giữ mỗi 30 ngày ×3
+- **Assert**: `doc-reminders.test.ts` ("chạy mỗi sáng suốt 31 ngày ⇒ đúng 11 lần", `reminderStep` bảng ca, "đổi từ lịch cũ")
+
+### AC-11 — Mở app tới mốc thì hiện nhắc hạn, mỗi mốc một lần · Maps to: NV5 · Test: unit (2026-10-20)
+- **Given** máy đã đăng nhập, kho máy có giấy còn 3 ngày (chưa đồng bộ cũng được, mất sóng cũng được), bản tin bão trong máy không có cơn
+- **When** mở Trang chủ
+- **Then** hiện sheet nhắc (gấp nhất trước); bấm "Để sau"/"Xem giấy tờ" ⇒ cùng ngày mở lại KHÔNG hiện; hôm sau (mốc 2) hiện lại; đã chạm thông báo điện thoại của mốc đó (`?nhac=`) ⇒ không hiện lại chuyện đó
+- **Assert**: `doc-reminder-local.test.ts` (`localDueReminders` + `markSeenKeys` + `markSeenFromUrl`)
+
 > Mỗi AC: atomic · testable · map 1 flow · không từ UI. Flow mới (NV1–NV5) → mặc định E2E trừ AC-3/AC-5 logic thuần.
 
 ## 11. Assumptions / Open
@@ -222,6 +235,7 @@ ttl_days: 90
 ## History
 - v1 (2026-06-15): khởi tạo từ nhu cầu "đa tàu — hồ sơ cố định/động" của chủ tàu; 4 quyết định chốt qua elicitation; transfer-chủ OUT scope.
 - 2026-10-06b: R8 + AC-9 — hồ sơ theo tài khoản (gộp theo mục, chủ sổ, seed khi server chưa có, mục mồ côi hiện ở tàu đang xem).
+- 2026-10-20: NV5 đổi lịch mốc nhắc hạn (AC-10) + thêm sheet nhắc khi mở app (AC-11). Có thể trùng: sheet hiện lúc 6h, push cùng mốc tới lúc 7h (sổ máy và sổ máy chủ tách nhau — chấp nhận, không thêm request mạng).
 - 2026-10-06: NV1 thêm 19 ô theo giấy tàu (cố định theo tàu); NV5 thêm kênh thông báo điện thoại + AC-8. Phân loại R1/R2 không đổi (CCCD/chứng chỉ thuyền trưởng vẫn ở sổ thuyền viên).
 
 <!-- re-verified: 2026-06-15 — build 5/5 XONG: AC-6 (lib/sdvico-assign.ts store + SdvicoAssignPrompt "Đồ này của tàu nào?" trên /tau Sản phẩm; verify unit, e2e cần SDVICO login) + AC-7 (urgent-strip gắn nhãn tàu mỗi việc, gộp mọi tàu, chưa-gán=của chung). TOÀN BỘ AC-1..7 đã hiện thực. -->

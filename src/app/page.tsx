@@ -7,6 +7,7 @@ import { UrgentWithInstall } from "@/components/install-prompt";
 import { InboxSection } from "@/components/inbox-section";
 import { StormBanner } from "@/components/storm-banner";
 import { TideHomeCard } from "@/components/tide-home-card";
+import { DocRemindOnOpen } from "@/components/doc-remind-on-open";
 import {
   AnchorIcon,
   FishIcon,
@@ -81,6 +82,11 @@ export default function Home() {
         <UrgentWithInstall>
           <UrgentStrip />
         </UrgentWithInstall>
+
+        {/* Nhắc hạn giấy tờ KHI MỞ APP (2026-10-20) — sheet theo lịch mốc
+            30·25·20·15·10 rồi hằng ngày 5→0, mỗi mốc 1 lần, đọc kho máy;
+            nhường tin bão. Xem lib/doc-reminder-local + 07 §12. */}
+        <DocRemindOnOpen />
 
         {/*  Bỏ <h2>Bốn việc chính</h2> (D1): nhắc lại đúng thứ ngay bên dưới —
             bốn thẻ 166×162px đã tự nói tên mình (Ra khơi / Tàu cá / Bạn thuyền /
