@@ -12,7 +12,7 @@ import Link from "next/link";
 
   Ở đây: nói bằng lời của bà con, một nút MỞ LẠI (reset() dựng lại cây React,
   KHÔNG tải lại trang nên không cần sóng) và một đường về Trang chủ.
-  Tap target ≥56px, chữ ≥18px (03-design-system).
+  Nút theo thang 03 §0 (`--h-cta`), cỡ chữ rem.
 */
 export default function AppError({
   reset,
@@ -32,13 +32,13 @@ export default function AppError({
       <button
         type="button"
         onClick={reset}
-        className="mt-7 min-h-[56px] w-full rounded-2xl bg-sea px-6 text-[1.125rem] font-bold text-white"
+        className="mt-7 h-(--h-cta) w-full rounded-xl bg-sea px-6 text-[1rem] font-semibold text-white"
       >
         Mở lại
       </button>
       <Link
         href="/"
-        className="mt-3 flex min-h-[56px] w-full items-center justify-center rounded-2xl border border-line text-[1.125rem] font-bold text-navy"
+        className="mt-3 flex h-(--h-cta) w-full items-center justify-center rounded-xl border border-line text-[1rem] font-semibold text-navy"
       >
         Về Trang chủ
       </Link>

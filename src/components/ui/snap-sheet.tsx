@@ -98,6 +98,23 @@ export function SnapSheet({
   useEffect(() => {
     if (size !== "half") setWide(false);
   }, [size]);
+  /*  FOCUS THEO NGĂN BÊN (rà Codex lần 4): mở ngăn → focus vào ngăn (bàn phím /
+      trình đọc màn hình đọc tiếp từ đầu ngăn, không kẹt lại ở viên đã biến mất);
+      thu ngăn mà focus đang ở trong ngăn → trả về viên. Focus ở chỗ khác (đang
+      chạm bản đồ) thì KHÔNG giật về — chỉ dọn cho đúng đường người vừa đi. */
+  const tabRef = useRef<HTMLButtonElement>(null);
+  const nganRef = useRef<HTMLDivElement>(null);
+  const focusInNgan = useRef(false);
+  const sideOpen = !!side && size === "half";
+  useEffect(() => {
+    if (!side) return;
+    if (sideOpen) {
+      nganRef.current?.focus({ preventScroll: true });
+    } else if (focusInNgan.current) {
+      focusInNgan.current = false;
+      tabRef.current?.focus({ preventScroll: true });
+    }
+  }, [side, sideOpen]);
   const onPointerDown = (e: React.PointerEvent) => {
     dragY.current = e.clientY;
   };
@@ -125,10 +142,10 @@ export function SnapSheet({
         hàng đáy, không thanh kéo, không bước ngày trên bản đồ (đổi ngày trong
         ngăn). `above` chỉ còn cho thứ bắt buộc nổi (thanh giờ lớp động, lỗi dự
         báo cá, chip dữ liệu KHI THIẾU) — xếp căn phải ngay trên viên.
-      · `half`: ngăn trượt từ phải, cao trọn khung map, rộng min(22rem,84%),
-        chừa dải bản đồ bên trái. Đầu ngăn: tiêu đề · `sideHeader` (chip dữ
-        liệu) · "Thu ›". Vuốt TRÁI/chạm viên = mở; vuốt PHẢI/"Thu" = đóng.
-        Không scrim, không khoá bản đồ (cùng luật sheet đáy). */
+      · `half`: ngăn thấp 1/3 khung map neo góc dưới phải (xem khối dưới).
+        Đầu ngăn: tiêu đề · `sideHeader` (chip dữ liệu) · "Thu ›". Vuốt TRÁI/
+        chạm viên = mở; vuốt PHẢI/"Thu" = đóng. Không scrim, không khoá bản
+        đồ (cùng luật sheet đáy). */
   if (side) {
     const open = size === "half";
     const onSideUp = (e: React.PointerEvent, wasOpen: boolean) => {
@@ -152,6 +169,7 @@ export function SnapSheet({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-end gap-2 pb-3 pl-2">
             {above && <div className="w-full pr-2">{above}</div>}
             <button
+              ref={tabRef}
               type="button"
               onPointerDown={(e) => {
                 dragX.current = e.clientX;
@@ -179,16 +197,25 @@ export function SnapSheet({
               lần 3 ưu tiên 3): rộng min(22rem,84%), cao 34% khung bản đồ, neo góc
               dưới phải, thân cuộn dọc. Không còn nhánh ngăn cao trọn màn: chưa có
               số (đang tải / lỗi / chạm đất liền) thì `peek` (câu trạng thái) nằm
-              ngay trong ngăn thấp này. "Xem đủ" chỉ thêm `children` — phần CHƯA có
-              trong lưới số (con nước đầy đủ, cá, câu dặn) — không lặp ngày/số. */
+              ngay trong ngăn thấp này. "Xem đủ" nối `children` DƯỚI lưới số —
+              chỉ phần lưới chưa có (giải thích, nguồn, thao tác), không lặp số. */
           <div
             id={`${panelId}-ngan`}
+            ref={nganRef}
+            tabIndex={-1}
+            aria-label={label}
+            onFocusCapture={() => {
+              focusInNgan.current = true;
+            }}
+            onBlurCapture={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) focusInNgan.current = false;
+            }}
             onPointerDown={(e) => {
               dragX.current = e.clientX;
             }}
             onPointerUp={(e) => onSideUp(e, true)}
             style={{ touchAction: "pan-y" }}
-            className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[9rem] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float"
+            className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[9rem] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float focus:outline-none focus-visible:ring-2 focus-visible:ring-sea"
           >
             <div className="flex items-center gap-1.5 border-b border-line px-3 py-1.5">
               <div className="min-w-0 flex-1 truncate">

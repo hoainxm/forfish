@@ -132,6 +132,7 @@ import {
   type TideStation,
 } from "@/lib/tides";
 import { TideCard, TideStationSheet } from "@/components/tide-card";
+import { SeaDenseGrid, type SeaCell } from "@/components/sea-dense-grid";
 import { amLichFromIso, amLichText } from "@/lib/am-lich";
 import type { BoatProfile } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
@@ -1498,7 +1499,7 @@ export default function FishingMapView() {
   const [denInfo, setDenInfo] = useState<DenInfo | null>(null);
   const [xacTauInfo, setXacTauInfo] = useState<XacTauInfo | null>(null);
   /*  Sheet con nước của MỘT trạm — mở khi chạm chấm trạm trên bản đồ hoặc bấm
-      "Xem các ngày khác" trong thẻ con nước của sheet điểm. `km` = trạm cách
+      "Cả tháng" trong thẻ con nước của sheet điểm. `km` = trạm cách
       chỗ đang hỏi (0 khi chạm thẳng vào trạm) — để câu độ-tin nói đúng. */
   const [tramInfo, setTramInfo] = useState<{ st: TideStation; km: number } | null>(null);
   /*  Thẻ "đáy chỗ này là gì" — mở khi chạm ô chất đáy. Đọc thẳng thuộc tính
@@ -4823,6 +4824,29 @@ export default function FishingMapView() {
     const sameDay = d.slice(0, 10) === todayIso;
     return sameDay ? d.slice(11, 16) : `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}`;
   };
+  /*  DÒNG KHOÁ NGÀY — dùng chung cho `peek` và ngăn dày số (rà Codex lần 4: ngăn
+      bên thay `peek` bằng `sideDense` nên chạm chip ngày khoá trong ngăn thì câu
+      giải thích biến mất, chip khoá chỉ có icon). Ẩn khi mất sóng. */
+  const dayLockLine =
+    dayLockNote && premiumLocked && netOnline ? (
+      <p className="mt-1 rounded-xl bg-field/80 px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
+        {premiumAccess === "login" ? (
+          <>
+            Xem quá {FREE_FORECAST_DAYS} ngày cần đăng nhập —{" "}
+            <Link href="/login" className="font-bold text-trim">
+              Đăng nhập →
+            </Link>
+          </>
+        ) : (
+          <>
+            {premiumLine(`xem trước quá ${FREE_FORECAST_DAYS} ngày`)}{" "}
+            <a href={`tel:${SDVICO_HOTLINE}`} className="font-bold text-trim">
+              Gọi →
+            </a>
+          </>
+        )}
+      </p>
+    ) : null;
   const sideDense =
     cond && today && sel && cond.onSea
       ? (() => {
@@ -4833,8 +4857,7 @@ export default function FishingMapView() {
               để ô số chỉ còn MỘT giá trị ngắn. Bỏ ô TRÙNG: "Sóng tới"/"Gió tới"
               chỉ hiện khi lớn hơn số lúc này. Dòng dài (Cá, Độ sâu, Mùa này)
               chiếm trọn hàng. Tình trạng biển nằm ở ĐẦU NGĂN (sideTitle). */
-          type Cell = { k: string; v: string; tone?: string; full?: boolean; span2?: boolean };
-          const cells: Cell[] = [];
+          const cells: SeaCell[] = [];
           const am = amLichFromIso(sel.date);
           if (am) cells.push({ k: "Âm lịch", v: amLichText(am) });
           cells.push({
@@ -4855,6 +4878,9 @@ export default function FishingMapView() {
           });
           if (windNow != null && windMax > windNow) cells.push({ k: "Gió tới", v: `cấp ${windMax}` });
           if (sel.gustMaxKmh > 0) cells.push({ k: "Giật", v: `cấp ${beaufort(sel.gustMaxKmh)}` });
+          // mưa thường = một ô; mưa to / dông = dòng cảnh báo đầu ngăn (không lặp ô)
+          const weather = weatherFromCode(sel.wmoCode);
+          if (weather && !weather.danger) cells.push({ k: "Trời", v: weather.label, span2: true });
           const waveNow = nowOk && cond.waveM != null ? cond.waveM : null;
           const waveMaxTxt =
             sel.waveMaxM > 0 ? `${sel.waveEstimated ? "~" : ""}${formatNumberVN(sel.waveMaxM)} m` : "—";
@@ -4923,8 +4949,21 @@ export default function FishingMapView() {
             });
           return (
             <div className="space-y-2">
+              {/*  CẢNH BÁO AN TOÀN ĐỨNG TRƯỚC SỐ, không chờ "Xem đủ" (rà Codex lần 4
+                   ưu tiên 1): rất gần ranh giới · mưa to/dông · sóng là số ước. */}
               {prox.applies && prox.level === "very_near" && (
                 <p className="text-[0.8125rem] font-bold leading-snug text-danger">{prox.label}.</p>
+              )}
+              {weather?.danger && (
+                <p className="flex items-center gap-1.5 rounded-lg bg-danger-bg px-2 py-1.5 text-[0.8125rem] font-bold leading-snug text-danger">
+                  <AlertIcon className="h-4 w-4 shrink-0" />
+                  {weather.label}
+                </p>
+              )}
+              {sel.waveEstimated && sel.waveMaxM > 0 && (
+                <p className="text-[0.75rem] font-semibold leading-snug text-warn">
+                  ~ Sóng máy ước theo gió · nghe thêm đài duyên hải
+                </p>
               )}
               {cond.stale && (
                 <p className="text-[0.75rem] font-semibold leading-snug text-warn">
@@ -4932,20 +4971,8 @@ export default function FishingMapView() {
                 </p>
               )}
               {dayChipsRow}
-              <dl className="grid grid-cols-3 gap-x-3 gap-y-2.5 pt-1">
-                {cells.map((c, i) => (
-                  <div key={i} className={`min-w-0 ${c.full ? "col-span-3" : c.span2 ? "col-span-2" : ""}`}>
-                    <dt className="truncate text-[0.75rem] leading-tight text-foreground/65">{c.k}</dt>
-                    <dd
-                      className={`mt-0.5 text-[0.9375rem] font-semibold leading-tight tabular-nums ${
-                        c.full ? "" : "truncate"
-                      } ${c.tone ?? "text-navy"}`}
-                    >
-                      {c.v}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+              {dayLockLine}
+              <SeaDenseGrid cells={cells} />
             </div>
           );
         })()
@@ -7394,8 +7421,8 @@ export default function FishingMapView() {
            Ba khu gần nhất, kèm còn bao xa và (nếu tàu đang chạy) chừng bao
            lâu. App KHÔNG phán "kịp/không kịp", KHÔNG hứa còn chỗ, KHÔNG tự
            đổi tuyến — bấm "Vẽ đường tới đây" mới đặt đích mới. */}
-      {/*  SHEET CON NƯỚC CỦA MỘT TRẠM — chạm chấm trạm hoặc "Xem các ngày
-           khác" từ thẻ con nước trong sheet điểm. */}
+      {/*  SHEET CON NƯỚC CỦA MỘT TRẠM — chạm chấm trạm hoặc "Cả tháng"
+           từ thẻ con nước trong sheet điểm. */}
       {tramInfo && (
         <TideStationSheet
           station={tramInfo.st}
@@ -8194,28 +8221,7 @@ export default function FishingMapView() {
                   {dayChipsRow}
                   {/* chạm chip ngày khoá: MỘT câu chuẩn (premiumLine), ẩn khi
                       mất sóng — chip khoá vẫn chỉ mang icon khoá, không chữ */}
-                  {dayLockNote && premiumLocked && netOnline && (
-                    <p className="mt-1 rounded-xl bg-field/80 px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
-                      {premiumAccess === "login" ? (
-                        <>
-                          Xem quá {FREE_FORECAST_DAYS} ngày cần đăng nhập —{" "}
-                          <Link href="/login" className="font-bold text-trim">
-                            Đăng nhập →
-                          </Link>
-                        </>
-                      ) : (
-                        <>
-                          {premiumLine(`xem trước quá ${FREE_FORECAST_DAYS} ngày`)}{" "}
-                          <a
-                            href={`tel:${SDVICO_HOTLINE}`}
-                            className="font-bold text-trim"
-                          >
-                            Gọi →
-                          </a>
-                        </>
-                      )}
-                    </p>
-                  )}
+                  {dayLockLine}
                 </>
               )}
             </div>
@@ -8261,22 +8267,14 @@ export default function FishingMapView() {
               {/*  Bảng số gió/sóng/dòng chảy KHÔNG lặp ở đây nữa (rà Codex lần 3 ưu
                    tiên 3): lưới số dày `sideDense` phía trên ngăn đã có đủ — phần
                    "Xem đủ" chỉ thêm thứ lưới chưa có. */}
-              {/* SÓNG LÀ SỐ ƯỚC → nói thẳng MỘT dòng (LỖI 2a+2c): điểm đi biển và
-                  "Biển êm / động" chấm từ chính con số ước đó. */}
-              {sel.waveEstimated && sel.waveMaxM > 0 && (
-                <p className="flex items-start gap-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.8125rem] font-semibold leading-snug text-warn">
-                  <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>
-                    Sóng là số máy ước theo gió — nghe thêm đài duyên hải trước khi
-                    ra khơi.
-                  </span>
-                </p>
-              )}
+              {/*  Sóng ước + mưa/dông: dòng cảnh báo nằm ĐẦU lưới số (sideDense),
+                   không chờ "Xem đủ" và không lặp ở đây (rà Codex lần 4). */}
 
               {/* CON NƯỚC tại điểm (2026-09-04): trạm gần nhất, tính trong máy.
                   Hôm nay = lúc này + hai con nước kế; ngày khác = các con nước
-                  của ngày đó. Trạm > 120 km chỉ còn lên/xuống. "Xem các ngày
-                  khác" mở sheet 7 ngày của trạm. Không phụ thuộc công tắc lớp
+                  của ngày đó. Trạm > 120 km chỉ còn lên/xuống. "Cả tháng"
+                  mở sheet 30 ngày của trạm. Số con nước đã ở lưới phía trên nên
+                  thẻ ở đây `numbersShown` — chỉ trạm, cường/kém, độ tin. Không phụ thuộc công tắc lớp
                   trạm — tắt chấm trên bản đồ không có nghĩa là giấu con nước. */}
               <TideCard
                 stations={tideStations}
@@ -8285,25 +8283,10 @@ export default function FishingMapView() {
                 nowMs={nowMs}
                 dayIso={isToday ? undefined : sel?.date}
                 onMore={(st, km) => setTramInfo({ st, km })}
+                numbersShown
               />
 
-              {/* mưa/dông + độ tin — để LIỀN với sóng/gió (user 2026-06-23) */}
-              {(() => {
-                const w = weatherFromCode(sel.wmoCode);
-                return (
-                  w && (
-                    <p
-                      className={`rounded-xl px-4 py-3 text-[1rem] font-bold ${
-                        w.danger
-                          ? "bg-danger-bg text-danger"
-                          : "bg-field text-foreground/75"
-                      }`}
-                    >
-                      {w.label}
-                    </p>
-                  )
-                );
-              })()}
+              {/* độ tin dự báo — chỉ ở "Xem đủ" (câu dặn, không phải số) */}
               <p
                 className={`px-1 text-[0.8125rem] leading-snug ${
                   confidence.tone === "ok" ? "text-foreground/65" : "font-semibold text-warn"

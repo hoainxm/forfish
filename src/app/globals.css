@@ -471,7 +471,7 @@ textarea,
   position: relative;
   overflow: hidden;
   border-radius: 0 0 1.75rem 1.75rem;
-  color: #fff;
+  color: var(--card);
 }
 .hero::after {
   content: "";
@@ -509,7 +509,7 @@ textarea,
   width: 1.75rem;
   border-radius: 9999px;
   background: var(--navy);
-  border: 3px solid #fff;
+  border: 3px solid var(--card);
   box-shadow: 0 2px 6px rgb(13 35 54 / 0.35);
 }
 .range-big::-moz-range-track {
@@ -522,7 +522,7 @@ textarea,
   width: 1.75rem;
   border-radius: 9999px;
   background: var(--navy);
-  border: 3px solid #fff;
+  border: 3px solid var(--card);
 }
 
 /*
@@ -556,7 +556,7 @@ textarea,
   width: 1.5rem;
   border-radius: 9999px;
   background: var(--navy);
-  border: 3px solid #fff;
+  border: 3px solid var(--card);
   box-shadow: 0 2px 6px rgb(13 35 54 / 0.4);
   cursor: pointer;
 }
@@ -566,7 +566,7 @@ textarea,
   width: 1.5rem;
   border-radius: 9999px;
   background: var(--navy);
-  border: 3px solid #fff;
+  border: 3px solid var(--card);
   cursor: pointer;
 }
 
@@ -679,7 +679,7 @@ textarea,
     inset: 0;
     margin: 0;
     padding: 1.5rem;
-    background: #fff;
+    background: var(--card);
   }
   .no-print {
     display: none !important;

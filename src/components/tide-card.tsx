@@ -64,6 +64,7 @@ export function TideCard({
   nowMs,
   dayIso,
   onMore,
+  numbersShown = false,
 }: {
   stations: readonly TideStation[] | null | undefined;
   lat: number;
@@ -74,8 +75,14 @@ export function TideCard({
    * "lúc này", không chip lên/xuống — hai thứ đó chỉ có nghĩa với hôm nay.
    */
   dayIso?: string;
-  /** có = hiện nút "Xem các ngày khác" */
+  /** có = hiện nút "Cả tháng" (sheet 30 ngày của trạm) */
   onMore?: (station: TideStation, distanceKm: number) => void;
+  /**
+   * Số con nước (lúc này, giờ lớn/ròng) ĐÃ hiện ở chỗ khác ngay phía trên (lưới
+   * số ngăn gió sóng — rà Codex lần 4): thẻ chỉ còn trạm, cường/kém, độ tin và
+   * nút xem nhiều ngày, không in lại số.
+   */
+  numbersShown?: boolean;
 }) {
   const card = useMemo(
     () => (stations && stations.length ? tideCardAt(stations, lat, lon, nowMs) : null),
@@ -112,6 +119,13 @@ export function TideCard({
           Trạm gần nhất cách {Math.round(distanceKm)} km — chỉ xem được nước đang
           lên hay xuống, không có giờ cho cửa này.
         </p>
+      ) : numbersShown ? (
+        (ngayKhac ? rangeNgayKhac : card.moonRange) && (
+          <p className="mt-2 flex items-center gap-2 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
+            <MoonIcon className="h-5 w-5 shrink-0 text-foreground/55" />
+            <span>{ngayKhac ? rangeNgayKhac : card.moonRange}</span>
+          </p>
+        )
       ) : ngayKhac ? (
         <ul className="mt-2 space-y-1.5">
           {cuaNgayKhac.length === 0 ? (
@@ -174,9 +188,9 @@ export function TideCard({
         <button
           type="button"
           onClick={() => onMore(station, distanceKm)}
-          className="mt-3 flex min-h-[3.5rem] w-full items-center justify-between rounded-2xl bg-field px-4 text-[1rem] font-bold text-navy transition active:scale-[0.98]"
+          className="mt-3 flex h-(--h-ctl) w-full items-center justify-between rounded-xl bg-field px-4 text-[0.9375rem] font-semibold text-navy transition active:scale-[0.98]"
         >
-          <span>Xem các ngày khác</span>
+          <span>Cả tháng</span>
           <ChevronRightIcon className="h-5 w-5 shrink-0" />
         </button>
       )}

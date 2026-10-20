@@ -6,6 +6,7 @@
 
 covers: src/app/globals.css
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-20i — pattern mới `SeaDenseGrid` (lưới số 3 cột: nhãn 0.75rem mờ + số 0.9375rem đậm tabular, không kẻ vạch; `full`/`span2`) cho ngăn gió sóng; nút "Cả tháng" của thẻ con nước theo bậc control (--h-ctl, bo 0.75rem, chữ 600); `#fff` đặc trong globals.css nay là `var(--card)` (rgb trắng có alpha giữ nguyên — color-mix không chạy iOS 15). -->
 <!-- re-verified: 2026-10-20h — `--trim` #c8461f (chữ trắng 4,83:1, rà Codex lần 3); ghi bảng MÃ HIỆN TẠI navy/sea/trim/nền/line/field trước phần lịch sử màu. -->
 <!-- re-verified: 2026-10-19d — QUYẾT ĐỊNH (anh Long): "xoá cái quy tắc làm cho dân biển to chữ các kiểu đi, xoá hẳn đi" — §0 viết lại thành THANG CỠ Codex, §1 bỏ bảng cỡ theo đối tượng, §Nhãn mới (≤2 chữ, cỡ cố định theo loại, bảng nhãn chuẩn `lib/labels.ts`), §3 type-ramp theo thang mới. Mọi chỗ còn lại trong file nhắc sàn 18px/56px hay lý do nắng/tay ướt đều đã gỡ (xem các re-verified cùng ngày). -->
 <!-- re-verified: 2026-10-19c — GỌN = 37px Ở MỌI KHU (chủ dự án chốt): `--market-control: var(--row-h)`, `.tau-action min-height: var(--row-h)`, 86 chỗ `min-h-[3.5rem]` trong market/cho/ban-hang + khu Tàu tôi → `min-h-(--row-h)` (Tailwind v4 cú pháp biến). Đo 390 gọn: ô tìm/chip/nút Vật tư 37px, "Thêm"/"Gọi SDVICO" Tàu tôi 37px; hàng có nút stretch theo thân hàng (48/42px) đúng luật thân hàng = nút. Chip tài khoản biến thể `light` (ManHeader): chữ 1rem, đệm hẹp, min-w-0 + truncate — nhường chỗ cho tiêu đề. -->

@@ -43,7 +43,7 @@ export default function GlobalError({
           <button
             type="button"
             onClick={reset}
-            className="mt-7 min-h-[56px] w-full rounded-2xl bg-sea px-6 text-[1.125rem] font-bold text-white"
+            className="mt-7 min-h-[3.25rem] w-full rounded-2xl bg-sea px-6 text-[1.125rem] font-bold text-white"
           >
             Mở lại
           </button>
@@ -56,7 +56,7 @@ export default function GlobalError({
                 /* không reload được thì thôi — nút Mở lại ở trên vẫn còn */
               }
             }}
-            className="mt-3 flex min-h-[56px] w-full items-center justify-center rounded-2xl border border-line text-[1.125rem] font-bold text-navy"
+            className="mt-3 flex min-h-[3.25rem] w-full items-center justify-center rounded-2xl border border-line text-[1.125rem] font-bold text-navy"
           >
             Tải lại trang
           </button>

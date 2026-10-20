@@ -94,11 +94,15 @@ export function PriceBoard() {
   useEffect(() => {
     let alive = true;
     let dangTai = false;
+    /** lần tải giá gần nhất hỏng — bật lịch thử lại (rà Codex lần 4: câu "máy sẽ
+     *  thử lại" phải là thật, không chỉ chờ sự kiện `online`) */
+    let hong = false;
     const tai = () => {
       if (dangTai) return; // chống chạy chồng lúc sóng nhấp nháy ven bờ
       dangTai = true;
       Promise.all([
         fetchLivePrices().then((r) => {
+          hong = !!r.netFailed;
           if (alive) setResult(r);
         }),
         fetchFuelPrice().then((f) => {
@@ -110,8 +114,14 @@ export function PriceBoard() {
     };
     tai();
     window.addEventListener("online", tai);
+    // thử lại mỗi phút CHỈ khi lần trước hỏng và máy đang có sóng — mất sóng thì
+    // im, đã có giá thì im (không đốt pin/dữ liệu của bà con)
+    const hen = window.setInterval(() => {
+      if (hong && navigator.onLine) tai();
+    }, 60_000);
     return () => {
       alive = false;
+      window.clearInterval(hen);
       window.removeEventListener("online", tai);
     };
   }, []);
@@ -156,12 +166,13 @@ export function PriceBoard() {
           . Giá thật tại cảng có thể khác.
         </p>
       ) : result.netFailed ? (
-        /*  PHÂN BIỆT MẤT SÓNG ↔ NGUỒN LỖI (rà Codex lần 3, ưu tiên 2): `netFailed`
-            bật cả khi máy chủ trả lỗi HTTP — lúc đó máy VẪN có sóng, nói "không
-            có sóng" là nói sai. Hỏi trạng thái mạng thật của máy. */
+        /*  PHÂN BIỆT MẤT SÓNG ↔ CÓ SÓNG MÀ CHƯA TẢI ĐƯỢC (rà Codex lần 3–4):
+            `netFailed` bật cả khi máy chủ trả lỗi HTTP — lúc đó máy VẪN có sóng.
+            `onLine=true` không chứng minh nguồn lỗi (có thể sóng yếu), nên câu
+            có-sóng chỉ nói điều chắc chắn: chưa tải được + lịch thử lại thật. */
         <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] leading-snug text-warn">
           {online
-            ? "Chưa tải được giá tuần này — nguồn giá đang lỗi, máy sẽ thử lại."
+            ? "Chưa tải được giá tuần này — máy tự thử lại mỗi phút."
             : "Chưa tải được giá tuần này — máy đang không có sóng."}{" "}
           Bên dưới là giá tham khảo ngày {formatVnDate(PRICE_DATE)}.
         </p>
