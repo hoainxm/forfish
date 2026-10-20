@@ -55,3 +55,21 @@ export function pushBodyVN(args: {
   const stamp = `(tin lúc ${formatSentAtVN(sentAtMs)})`;
   return [warn, body, stamp].filter(Boolean).join(" ");
 }
+
+// ── CHUÔNG RIÊNG KHI APP ĐANG MỞ (2026-10-20) ─────────────────────────────────
+// Web Push KHÔNG cho chọn âm (tuỳ chọn `sound` không trình duyệt nào làm), và
+// service worker không phát được tiếng. Nên: tin tới lúc app đang hiện trên màn
+// ⇒ sw.js nhắn trang (PUSH_CHIME_MSG), trang phát chuông SDFish
+// (`playPushChime`) rồi trả lời; trả lời "đã phát" trong PUSH_CHIME_WAIT_MS thì
+// thông báo hiện `silent` (khỏi kêu hai tiếng chồng nhau), không thì giữ tiếng
+// mặc định. App tắt / chạy nền ⇒ y như cũ. GIỮ ĐỒNG BỘ với sw.js (test bắt lệch).
+
+/** Loại tin sw.js gửi sang trang */
+export const PUSH_CHIME_MSG = "forfish:push-chime";
+/** sw.js chờ trang trả lời tối đa ngần này rồi mới hiện thông báo */
+export const PUSH_CHIME_WAIT_MS = 600;
+
+/** Tin bão (tag `bao-…`, lib/storm-push) kêu 2 lượt; tin khác 1 lượt. */
+export function pushChimeUrgent(tag: unknown): boolean {
+  return typeof tag === "string" && tag.startsWith("bao-");
+}
