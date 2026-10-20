@@ -609,6 +609,8 @@ Chủ dự án: *"dùng vietneu cho toàn bộ đi"* · *"kịch bản đi, tăn
 
 > **ID mảnh cấm trùng tên thiết bị Windows (2026-10-20)**: mảnh "còn" trước có id `con` ⇒ file `con.mp3` — Windows không tạo được file tên `con`/`nul`/`aux`/`prn`/`com1–9`/`lpt1–9`, nên checkout ở `C:\Code\ForFish` thiếu file, test "mỗi mảnh có mp3" đỏ, và `git commit -o` lén xoá file khác. Đổi id thành `con_m` (cùng nội dung âm thanh); `lap_manh.mjs` tự thêm đuôi `_m` cho tên cấm; cổng `ghep-giong.test.ts` chặn id cấm.
 
+> **MỘT CÂU MỘT GIỌNG + GHIM GIỌNG CẢ PHIÊN (2026-10-20, anh Long: "sao giọng đọc lúc nam lúc nữ thế")** — hai nguồn đổi giọng đã đóng trong `lib/voice/tts.ts`: (1) `speechParts`: câu không có mp3 nguyên văn chỉ GHÉP MẢNH khi MỌI khúc của câu đều có mảnh; thiếu dù một khúc (tên ngoài danh mục…) ⇒ CẢ CÂU đọc giọng máy một lượt — trước đây khúc thiếu đọc giọng máy xen giữa mảnh Mỹ Duyên ⇒ nữ–nam–nữ trong một câu; (2) `vietnameseVoice`: giọng máy chọn lần đầu được GHIM cả phiên (`giongGhim`), chỉ đổi khi giọng đang ghim hỏng thật (bị gác) hoặc biến mất, đổi rồi GHIM giọng mới — không tự quay về giọng mạng khi hết hạn gác (trước đây sóng chập chờn ⇒ nữ (mạng) ↔ nam (trong máy) qua lại). Giọng máy vẫn có thể là nam nếu máy chỉ cài giọng nam — nhưng nhất quán. Test: `tts-voice.test.ts`.
+
 ### 21a. Ý chính — người gọi KHÔNG đổi gì
 
 Không viết khuôn riêng cho từng câu trong code (hơn 60 chỗ dựng câu ở `nav-voice/*`, `sen-bien/hoi-ban-do.ts`, `lenh-ban-do.ts`, `hieu-y.ts`). `tts.ts` tự cắt câu thành mảnh bằng **khớp dài nhất** trên danh mục mảnh:

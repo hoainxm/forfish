@@ -167,16 +167,35 @@ function viVoices(): SpeechSynthesisVoice[] {
   return voices.filter(isVi);
 }
 
-/** Giọng Việt tốt nhất lúc này: đọc được (mất sóng → giọng cài trong máy), rồi ưu tiên giọng nữ. */
+/*  GHIM MỘT GIỌNG MÁY CHO CẢ PHIÊN (anh Long 2026-10-20: "giọng đọc lúc nam lúc
+    nữ"): trước đây mỗi lần đọc lại xếp hạng — giọng mạng (nữ) chập chờn bị gác
+    2 phút rơi xuống giọng máy khác (thường là nam), hết gác lại quay về nữ ⇒ nam
+    nữ đổi qua lại. Nay giọng nào đọc được thì GIỮ suốt phiên; chỉ đổi khi giọng
+    đang ghim hỏng thật (bị gác) hoặc không còn trong máy — và đổi rồi thì GHIM
+    giọng mới, không tự quay về. */
+let giongGhim: string | null = null;
+/** chỉ cho test: bỏ giọng đang ghim */
+export function _boGhimGiong(): void {
+  giongGhim = null;
+}
+
+/** Giọng Việt cho phiên này: giọng đang ghim nếu còn dùng được; không thì giọng tốt
+ *  nhất (đọc được khi mất sóng, ưu tiên nữ) rồi ghim nó. */
 export function vietnameseVoice(): SpeechSynthesisVoice | null {
   const all = viVoices();
   if (all.length === 0) return null;
   const now = Date.now();
   const tot = all.filter((v) => (badUntil.get(voiceKey(v)) ?? 0) <= now);
+  if (giongGhim) {
+    const ghim = tot.find((v) => voiceKey(v) === giongGhim);
+    if (ghim) return ghim;
+  }
   // mọi giọng đều đang bị gác ⇒ vẫn thử giọng tốt nhất — chậm còn hơn im
   const pool = tot.length ? tot : all;
   const online = isOnline();
-  return [...pool].sort((a, b) => voiceRank(a, online) - voiceRank(b, online))[0];
+  const chon = [...pool].sort((a, b) => voiceRank(a, online) - voiceRank(b, online))[0];
+  giongGhim = voiceKey(chon);
+  return chon;
 }
 
 /** Gác giọng chậm — chỉ khi còn giọng Việt KHÁC để rơi xuống. */
@@ -272,12 +291,19 @@ export function speechParts(text: string): SpeechPart[] {
       continue;
     }
     const chunks = sen.split(/(?:[,;:]\s+|\s+[—–·-]\s+)/).map((c) => c.trim()).filter(Boolean);
-    chunks.forEach((c, i) => {
-      const segs = ghepManh(c, traManh, MANH_DAI);
+    const theoDoan = chunks.map((c) => ghepManh(c, traManh, MANH_DAI));
+    /*  MỘT CÂU MỘT GIỌNG (anh Long 2026-10-20: "sao giọng đọc lúc nam lúc nữ thế"):
+        trước đây câu thiếu mảnh thì khúc có mp3 đọc giọng Mỹ Duyên (nữ), khúc thiếu
+        đọc giọng máy — giọng máy trên nhiều máy là giọng NAM ⇒ nam nữ đổi nhau giữa
+        câu. Nay: câu phủ ĐỦ mảnh mới ghép mp3; thiếu dù một khúc ⇒ CẢ CÂU giọng máy. */
+    const duManh = theoDoan.every((segs) => segs.every((g) => g.ids));
+    if (!duManh) {
+      out.push({ text: sen, clips: null, pauseMs: PAUSE_SENTENCE_MS });
+      continue;
+    }
+    theoDoan.forEach((segs, i) => {
       if (segs.length === 0) return;
-      // cả đoạn không mảnh nào phủ ⇒ đưa giọng máy CHỮ GỐC (nó tự đọc số theo cách của nó)
-      if (segs.length === 1 && !segs[0].ids) out.push({ text: c, clips: null, pauseMs: 0 });
-      else for (const g of segs) out.push({ text: g.text, clips: g.ids, pauseMs: 0 });
+      for (const g of segs) out.push({ text: g.text, clips: g.ids, pauseMs: 0 });
       out[out.length - 1].pauseMs = i === chunks.length - 1 ? PAUSE_SENTENCE_MS : PAUSE_COMMA_MS;
     });
   }

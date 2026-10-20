@@ -131,14 +131,17 @@ describe("speechParts — câu nói → đoạn đọc có nghỉ", () => {
     expect(speechParts("   ")).toEqual([]);
   });
 
-  it("tên ngoài danh mục: CHỈ khúc tên đọc giọng máy, nối liền (không nghỉ) với mảnh hai bên", async () => {
-    const { speechParts, PAUSE_COMMA_MS } = await import("@/lib/voice/tts");
+  /*  MỘT CÂU MỘT GIỌNG (anh Long 2026-10-20: "sao giọng đọc lúc nam lúc nữ thế"):
+      trước đây khúc tên ngoài danh mục đọc giọng máy XEN GIỮA mảnh mp3 Mỹ Duyên ⇒
+      nữ–nam–nữ trong một câu. Nay câu thiếu dù một mảnh ⇒ CẢ CÂU giọng máy. */
+  it("tên ngoài danh mục: câu thiếu một mảnh ⇒ CẢ CÂU giọng máy, không nửa mp3 nửa máy", async () => {
+    const { speechParts } = await import("@/lib/voice/tts");
     const p = speechParts("Rạn có tên gần nhất là Xyz Qwe, 3 hải lý.");
     expect(p.map((x) => [x.text, x.clips ? "mp3" : "máy", x.pauseMs])).toEqual([
-      ["Rạn có tên gần nhất là", "mp3", 0],
-      ["Xyz Qwe", "máy", PAUSE_COMMA_MS],
-      ["ba hải lý", "mp3", 0],
+      ["Rạn có tên gần nhất là Xyz Qwe, 3 hải lý.", "máy", 0],
     ]);
+    // câu phủ đủ mảnh thì vẫn trọn mp3 (không đọc giọng máy khúc nào)
+    expect(speechParts("Còn 3 hải lý.").every((x) => x.clips)).toBe(true);
     // cả đoạn không mảnh nào ⇒ giọng máy đọc CHỮ GỐC
     expect(speechParts("Qwe Asd Xyz.")).toEqual([{ text: "Qwe Asd Xyz.", clips: null, pauseMs: 0 }]);
   });
@@ -256,7 +259,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
-  it("đoạn không có mảnh đọc giọng nữ từng đoạn có nghỉ, câu cố định phát mp3; onEnd đúng 1 lần", async () => {
+  it("câu không có mảnh đọc MỘT lượt giọng máy (nữ), câu cố định phát mp3, có nghỉ giữa câu; onEnd đúng 1 lần", async () => {
     const log = installSynth([
       { lang: "vi-VN", localService: true, name: "Microsoft An - Vietnamese" },
       { lang: "vi-VN", localService: true, name: "Linh" },
@@ -266,16 +269,10 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     const onEnd = vi.fn();
     tts.ttsSpeak("Qwe Xyz: Asd Zxc, Rty Uio. Nói đi để bắt đầu.", { onEnd });
     await vi.advanceTimersByTimeAsync(3000);
-    expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual([
-      "synth:Qwe Xyz|Linh",
-      "synth:Asd Zxc|Linh",
-      "synth:Rty Uio.|Linh",
-      "clip",
-    ]);
-    // nghỉ thật giữa hai đoạn: đoạn 1 xong ở +100 ms, đoạn 2 bắt đầu sau ≥ PAUSE_COMMA_MS
+    expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual(["synth:Qwe Xyz: Asd Zxc, Rty Uio.|Linh", "clip"]);
+    // nghỉ thật giữa hai câu: câu 1 xong ở +100 ms, câu 2 bắt đầu sau ≥ PAUSE_SENTENCE_MS
     const t = log.map((l) => Number(/@(\d+)/.exec(l)![1]));
-    expect(t[1] - t[0]).toBeGreaterThanOrEqual(100 + tts.PAUSE_COMMA_MS);
-    expect(t[3] - t[2]).toBeGreaterThanOrEqual(100 + tts.PAUSE_SENTENCE_MS);
+    expect(t[1] - t[0]).toBeGreaterThanOrEqual(100 + tts.PAUSE_SENTENCE_MS);
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
@@ -301,7 +298,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
-  it("giọng mạng không chịu phát (sóng yếu): đoạn đó đọc lại bằng giọng trong máy", async () => {
+  it("giọng mạng không chịu phát (sóng yếu): câu đó đọc lại bằng giọng trong máy", async () => {
     const log = installSynth(
       [
         { lang: "vi-VN", localService: false, name: "Google tiếng Việt" },
@@ -314,10 +311,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     const onEnd = vi.fn();
     tts.ttsSpeak("Qwe Xyz, Asd Zxc.", { onEnd });
     await vi.advanceTimersByTimeAsync(5000);
-    expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual([
-      "synth:Qwe Xyz|Microsoft An - Vietnamese",
-      "synth:Asd Zxc.|Microsoft An - Vietnamese",
-    ]);
+    expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual(["synth:Qwe Xyz, Asd Zxc.|Microsoft An - Vietnamese"]);
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
@@ -351,7 +345,10 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual(["synth:Asd Zxc.|Google tiếng Việt"]);
   });
 
-  it("giọng mạng chết bị gác CÓ HẠN: hết hạn và sóng về thì quay lại giọng nữ tốt hơn", async () => {
+  /*  GHIM GIỌNG CẢ PHIÊN (anh Long 2026-10-20: "giọng lúc nam lúc nữ"): trước đây hết
+      hạn gác là quay lại giọng mạng ⇒ nam rồi nữ rồi nam theo sóng chập chờn. Nay giọng
+      đã rơi xuống thì GIỮ — một phiên một giọng. */
+  it("giọng mạng chết ⇒ rơi xuống giọng trong máy rồi GHIM cả phiên, không quay lại khi hết hạn gác", async () => {
     const dead = ["Google tiếng Việt"];
     const log = installSynth(
       [
@@ -373,7 +370,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual([
       "synth:Qwe Xyz.|Microsoft An - Vietnamese",
       "synth:Asd Zxc.|Microsoft An - Vietnamese",
-      "synth:Rty Uio.|Google tiếng Việt",
+      "synth:Rty Uio.|Microsoft An - Vietnamese",
     ]);
   });
 
@@ -428,14 +425,14 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     expect(d).toHaveBeenCalledWith(false);
   });
 
-  it("rate truyền xuống giọng máy từng đoạn", async () => {
+  it("rate truyền xuống giọng máy (câu không mảnh = một lượt đọc)", async () => {
     installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
     installAudio([]);
     const tts = await import("@/lib/voice/tts");
     // câu KHÔNG có mảnh mp3 (câu có mảnh đi trọn mp3 Mỹ Duyên — không qua giọng máy)
     tts.ttsSpeak("Qwe Xyz, Asd Zxc.", { rate: tts.TTS_RATE_SHORT });
     await vi.advanceTimersByTimeAsync(2000);
-    expect(rates).toEqual([1.12, 1.12]);
+    expect(rates).toEqual([1.12]);
   });
 
   it("ttsCancel giữa câu nhiều đoạn: dừng HẲN, không đọc tiếp đoạn sau", async () => {
@@ -463,7 +460,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     await vi.advanceTimersByTimeAsync(5000);
     expect(end1).toHaveBeenCalledTimes(1);
     expect(end2).toHaveBeenCalledTimes(1);
-    expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual(["synth:Qwe Xyz|Linh", "clip"]);
+    expect(log.map((l) => l.replace(/@\d+/, ""))).toEqual(["synth:Qwe Xyz, Asd Zxc, Rty Uio.|Linh", "clip"]);
   });
 
   it("warmVoiceClips tải đủ mọi clip một lượt khi có sóng; đủ rồi thì phiên này thôi", async () => {
