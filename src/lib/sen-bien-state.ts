@@ -26,8 +26,11 @@ export type SenSignals = {
   thinking: boolean;
   /** loa đang đọc — thẻ, trả lời, hay cảnh báo dẫn đường */
   speaking: boolean;
-  /** máy không nghe được: không hỗ trợ STT, hoặc micro bị từ chối */
+  /** máy KHÔNG CÓ bộ nghe (không STT, không bộ nghe trong máy) */
   micBlocked: boolean;
+  /** quyền micro bị TỪ CHỐI THẬT (Permissions API "denied" / lượt nghe vừa bị từ chối) —
+   *  CHƯA XIN thì false (anh Long 2026-10-20). Nguồn: lib/sen-bien/quyen-micro. */
+  micDenied: boolean;
   /** chế độ Đang chạy / dẫn đường đang bật — Sen Biển đang canh */
   watching: boolean;
   /** mức âm thật 0..1 lúc nghe (null = bộ nghe không báo mức ⇒ vẽ giả) */
@@ -45,16 +48,40 @@ export const SEN_SIGNALS_GOC: SenSignals = {
   thinking: false,
   speaking: false,
   micBlocked: false,
+  micDenied: false,
   watching: false,
   level: null,
 };
+
+/**
+ * CÂU BÁO KHI MICRO KHÔNG DÙNG ĐƯỢC — nói ĐÚNG nguyên nhân + cách gỡ (anh Long
+ * 2026-10-20: "sao ko lấy được micro"; trước chỉ có "Máy chưa cho dùng micro"):
+ *  · trang http (không https/localhost): trình duyệt CẤM micro, cho phép cũng vô ích;
+ *  · không thấy micro: máy không có / đang bị app khác giữ;
+ *  · quyền bị chặn cho trang: chỉ chỗ gỡ (ổ khoá cạnh thanh địa chỉ);
+ *  · còn lại (từ chối hộp xin quyền, hệ điều hành tắt micro cho trình duyệt).
+ */
+export function lyDoMicro(o: {
+  code: "not-allowed" | "audio-capture";
+  /** window.isSecureContext */
+  secure: boolean;
+  /** Permissions API báo "denied" */
+  denied: boolean;
+}): string {
+  const go = " Bà con chạm ô chat để gõ.";
+  if (!o.secure) return "Trang đang mở bằng địa chỉ http nên trình duyệt cấm micro — mở bằng https (hoặc localhost) mới nói được." + go;
+  if (o.code === "audio-capture") return "Không thấy micro trên máy — kiểm tra micro đã cắm, không bị app khác giữ." + go;
+  if (o.denied)
+    return "Micro đang bị chặn cho trang này — chạm biểu tượng ổ khoá cạnh thanh địa chỉ, chọn cho phép Micro rồi thử lại." + go;
+  return "Máy chưa cho dùng micro — cho phép khi trình duyệt hỏi, và bật quyền micro cho trình duyệt trong cài đặt máy." + go;
+}
 
 /** Ưu tiên: đang nghe > đang nghĩ > đang nói > (micro chặn ? không nghe được : rảnh). */
 export function senMode(s: SenSignals): SenMode {
   if (s.listening) return "nghe";
   if (s.thinking) return "nghi";
   if (s.speaking) return "noi";
-  if (s.micBlocked) return "khong-nghe";
+  if (s.micBlocked || s.micDenied) return "khong-nghe";
   return "ranh";
 }
 

@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchDataBytes, fetchDataJson } from "@/lib/data-fetch";
 import type { SenDest } from "@/lib/sen-bien/hieu-y";
-import { autoListenOk, listenOnce, micGranted, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
+import { autoListenOk, listenOnce, micDenied, micGranted, setMicDenied, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
 import { boNgheSan } from "@/lib/sen-bien/nghe-may";
 import { DAU_KHO_PATH, loadDauKho } from "@/lib/sen-bien/dau-kho";
 import { docKho, HOI_DAP_PATH } from "@/lib/sen-bien/hoi-dap";
@@ -28,7 +28,7 @@ import { loadNgram, NGRAM_PATH, type NgramModel } from "@/lib/sen-bien/ngram";
 import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC, viTriGocApp, type ViTriIcon } from "@/lib/sen-bien/vi-tri";
 import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
 import { SenBienIcon, useSenAria } from "@/components/sen-bien-icon";
-import { setSenSignal } from "@/lib/sen-bien-state";
+import { lyDoMicro, setSenSignal } from "@/lib/sen-bien-state";
 
 let modelP: Promise<NgramModel | null> | null = null;
 /** Tải trọng số một lần / phiên. Lỗi ⇒ null (lùi về dò tên), lần sau thử lại. */
@@ -237,8 +237,10 @@ export function SenBienSheet({
     setSenSignal({ listening: phase === "nghe", thinking: phase === "nghi" });
     return () => setSenSignal({ listening: false, thinking: false, level: null });
   }, [phase]);
+  /*  "Không nghe được" CHỈ khi chặn thật: máy không có bộ nghe, hoặc quyền micro bị
+      từ chối (Permissions API / lượt nghe vừa bị từ chối) — CHƯA XIN thì không báo. */
   useEffect(() => {
-    setSenSignal({ micBlocked: !canVoice || !micGranted() });
+    setSenSignal({ micBlocked: !canVoice });
   }, [canVoice]);
   const [heard, setHeard] = useState("");
   const [shown, setShown] = useState<SenHeard>(null);
@@ -341,12 +343,17 @@ export function SenBienSheet({
         // máy không nghe được giọng ⇒ sang chat; micro bị chặn / mất sóng ⇒ báo MỘT dòng rồi tự thu về
         // (KHÔNG tự nhảy sang chat — nằm đó là "dính"); muốn gõ thì chạm bong bóng chat
         if (code === "unsupported") setMode("chat");
+        if (code === "not-allowed") setMicDenied(true);
         setShown({
           show:
             code === "network"
               ? "Mất sóng nên máy chưa nghe được. Bà con chạm ô chat để gõ."
-              : code === "not-allowed"
-                ? "Máy chưa cho dùng micro. Bà con chạm ô chat để gõ."
+              : code === "not-allowed" || code === "audio-capture"
+                ? lyDoMicro({
+                    code,
+                    secure: typeof window === "undefined" || window.isSecureContext !== false,
+                    denied: micDenied(),
+                  })
                 : "Sen Biển chưa nghe rõ.",
         });
       },

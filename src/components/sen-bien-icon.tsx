@@ -6,11 +6,15 @@
   trong globals.css — không làm icon to ra, không che thêm nội dung.
 */
 import { MicOffIcon } from "@/components/icons";
+import { useEffect } from "react";
+import { watchMicPermission } from "@/lib/sen-bien/quyen-micro";
 import { useSenBienState } from "@/lib/use-sen-bien";
 import { senAria } from "@/lib/sen-bien-state";
 
 export function SenBienIcon({ className = "" }: { className?: string }) {
   const st = useSenBienState();
+  // theo dõi quyền micro ở MỌI màn có icon (không chờ mở thẻ) — chặn thật mới hiện huy hiệu
+  useEffect(() => watchMicPermission(), []);
   return (
     <span
       className={`sen-icon ${className}`}

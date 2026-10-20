@@ -12,6 +12,7 @@
 
 
 import { boNgheSan, ngheMay } from "./nghe-may";
+import { setMicDenied } from "./quyen-micro";
 
 type SR = {
   lang: string;
@@ -67,6 +68,9 @@ let granted = false;
 export function micGranted(): boolean {
   return granted;
 }
+
+// cờ "micro bị chặn thật" ở module nhẹ quyen-micro (icon Sen Biển toàn app dùng, không kéo bộ nghe vào bundle)
+export { micDenied, onMicDeniedChange, setMicDenied, watchMicPermission } from "./quyen-micro";
 /** Mất sóng + không kết quả sau 3 s = coi như lỗi mạng (13 §5.4), không đợi đủ 8 s. */
 const OFFLINE_GRACE_MS = 3000;
 
@@ -128,6 +132,7 @@ export function listenOnce(opts: {
       ...opts,
       onFinal: (t) => {
         granted = true;
+        setMicDenied(false);
         opts.onFinal(t);
       },
     });
@@ -186,6 +191,7 @@ export function listenOnce(opts: {
     }
     gotAny = true;
     granted = true;
+    setMicDenied(false);
     if (finalText.trim()) {
       const text = finalText.trim();
       finish(() => opts.onFinal(text));
