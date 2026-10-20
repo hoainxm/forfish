@@ -976,7 +976,7 @@ function NguTruongPanel({
             aria-expanded={expanded}
             className="mt-2 flex w-full items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-left active:scale-[0.99]"
           >
-            {/* khi MỞ dropdown → nhãn "Chọn loài cá" + ẩn chấm, để KHÔNG trùng
+            {/* khi MỞ dropdown → nhãn "Chọn loài" (≤2 chữ, rà Codex lần 9) + ẩn chấm, để KHÔNG trùng
                 với item "Mọi loài" trong danh sách (user 2026-07-27) */}
             {!expanded && (
               <span
@@ -989,8 +989,8 @@ function NguTruongPanel({
                 aria-hidden
               />
             )}
-            <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-bold text-navy">
-              {expanded ? "Chọn loài cá" : name}
+            <span className="min-w-0 flex-1 break-words text-[0.9375rem] font-bold leading-snug text-navy">
+              {expanded ? "Chọn loài" : name}
             </span>
             <ChevronRightIcon
               className={`h-4 w-4 shrink-0 text-navy/55 transition-transform ${

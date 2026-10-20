@@ -116,13 +116,16 @@ export function SeaTab({
   savedAt: number | null;
 }) {
   return (
-    <span className="flex flex-col items-start leading-tight">
-      <span className="whitespace-nowrap text-[0.75rem] text-foreground/65">{chipLabel(date, todayIso)}</span>
-      <span className="whitespace-nowrap text-[0.8125rem] font-semibold text-navy">
+    /*  Không `whitespace-nowrap` (rà Codex lần 9): phóng chữ 200% thì viên nở
+        ngang tới tràn khỏi màn 320px. Trần bề ngang ~11rem, chữ dài thì xuống
+        dòng — số vẫn đọc đủ, không cắt. */
+    <span className="flex max-w-[11rem] flex-col items-start leading-tight">
+      <span className="text-[0.75rem] text-foreground/65">{chipLabel(date, todayIso)}</span>
+      <span className="text-[0.8125rem] font-semibold text-navy">
         {waveMaxM > 0 ? `${waveEstimated ? "~" : ""}${formatNumberVN(waveMaxM)} m` : "—"} · cấp {beaufort(windMaxKmh)}
       </span>
       {stale && (
-        <span className="whitespace-nowrap text-[0.75rem] font-semibold text-warn">
+        <span className="text-[0.75rem] font-semibold text-warn">
           Bản lưu{savedAt != null ? ` ${savedStampVN(savedAt, todayIso)}` : ""}
         </span>
       )}

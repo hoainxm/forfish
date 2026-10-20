@@ -1,38 +1,27 @@
 // @vitest-environment jsdom
 //
-// LUỒNG NGĂN GIÓ SÓNG TRỌN VẸN (rà Codex lần 8): SnapSheet `side` + CHÍNH các hàm
-// luật của lib/sheet-hold mà fishing-map-view dùng (đồng hồ 3 s, ép ẩn của lớp
-// nổi, ghim, ranh giới), chạy với đồng hồ giả. Khung `Cha` dưới đây chép đúng
-// cách map view nối các hàm đó — đổi luật ở một bên mà quên bên kia là test đỏ.
+// LUỒNG NGĂN GIÓ SÓNG TRỌN VẸN (rà Codex lần 8–9): SnapSheet `side` + ĐÚNG hai hook
+// `useSheetAutoHide` / `useSheetAutoHideSync` mà fishing-map-view gọi (đồng hồ 3 s,
+// nạp lại khi chạm trong sheet, ép ẩn của lớp nổi, ghim, ranh giới, đang tải),
+// chạy với đồng hồ giả. Không chép luật ở đây — sửa hook là test thấy ngay.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createElement, useEffect, useRef, useState } from "react";
+import { createElement, useState } from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { SnapSheet } from "@/components/ui/snap-sheet";
-import { canAutoHide, canForceHide, heldAfterSize, mustOpenForBorder } from "@/lib/sheet-hold";
+import { SHEET_AUTO_HIDE_MS, useSheetAutoHide, useSheetAutoHideSync } from "@/lib/use-sheet-auto-hide";
 
-const HIDE_MS = 3000;
+const HIDE_MS = SHEET_AUTO_HIDE_MS;
 type Size = "hidden" | "peek" | "half";
 
 function Cha({ border = false, start = "peek" as Size }: { border?: boolean; start?: Size }) {
   const [size, setSize] = useState<Size>(start);
-  const [heldRaw, setHeld] = useState(false);
-  const held = heldAfterSize(heldRaw, size);
-  if (heldRaw && !held) setHeld(false);
-  if (mustOpenForBorder({ border, held: false }, size)) setSize("half");
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (timer.current) clearTimeout(timer.current);
-    if (size === "hidden" || !canAutoHide({ border, held })) return;
-    timer.current = setTimeout(() => setSize("hidden"), HIDE_MS);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [size, border, held]);
-  const epAn = () => {
-    if (canForceHide({ border, held: false })) setSize("hidden");
-  };
+  // ĐÚNG hai hook màn bản đồ dùng — không chép lại luật
+  const ctl = useSheetAutoHide(size, setSize);
+  useSheetAutoHideSync(ctl, setSize, { size, border, loading: false, resetKey: "p" });
+  const { held, setHeld } = ctl;
+  const epAn = () => void ctl.forceHide();
   return createElement(
     "div",
     null,
@@ -48,6 +37,7 @@ function Cha({ border = false, start = "peek" as Size }: { border?: boolean; sta
         sideDense: createElement("p", null, border ? "RẤT GẦN RANH GIỚI" : "LƯỚI SỐ"),
         sideHold: held,
         onSideHoldChange: setHeld,
+        onInteract: ctl.arm,
         peek: createElement("p", null, "peek"),
       } as never,
       createElement("p", null, "XEM ĐỦ"),
@@ -119,5 +109,57 @@ describe("luồng ngăn gió sóng", () => {
     expect(b.tagName).toBe("BUTTON");
     expect(b.getAttribute("tabindex")).not.toBe("-1");
     expect(b.getAttribute("aria-controls")).toBeTruthy();
+  });
+
+  it("chạm/cuộn trong ngăn (onInteract) nạp lại đồng hồ — đang đọc thì không bị thu", () => {
+    render(createElement(Cha));
+    moNgan();
+    troi(HIDE_MS - 500);
+    act(() => fireEvent.pointerDown(screen.getByText("LƯỚI SỐ")));
+    troi(HIDE_MS - 500);
+    expect(ngan()).not.toBeNull();
+    troi(600);
+    expect(ngan()).toBeNull();
+  });
+
+  it("đang tải số: chưa đếm giờ; tải xong mới đếm 3 giây", () => {
+    function ChaTai({ loading }: { loading: boolean }) {
+      const [size, setSize] = useState<Size>("half");
+      const ctl = useSheetAutoHide(size, setSize);
+      useSheetAutoHideSync(ctl, setSize, { size, border: false, loading, resetKey: "p" });
+      return createElement(SnapSheet, {
+        size,
+        onSizeChange: setSize,
+        label: "Gió sóng",
+        side: true,
+        sideDense: createElement("p", null, "LƯỚI SỐ"),
+        peek: createElement("p", null, "peek"),
+      } as never, null);
+    }
+    const { rerender } = render(createElement(ChaTai, { loading: true }));
+    troi(HIDE_MS * 3);
+    expect(ngan()).not.toBeNull();
+    rerender(createElement(ChaTai, { loading: false }));
+    troi(HIDE_MS + 100);
+    expect(ngan()).toBeNull();
+  });
+
+  it("đang ẩn (người dùng Thu) rồi điểm trở thành sát ranh giới: tôn trọng, không ép mở", () => {
+    function ChaThu({ border }: { border: boolean }) {
+      const [size, setSize] = useState<Size>("hidden");
+      const ctl = useSheetAutoHide(size, setSize);
+      useSheetAutoHideSync(ctl, setSize, { size, border, loading: false, resetKey: border ? "b" : "a" });
+      return createElement(SnapSheet, {
+        size,
+        onSizeChange: setSize,
+        label: "Gió sóng",
+        side: true,
+        sideDense: createElement("p", null, "LƯỚI SỐ"),
+        peek: createElement("p", null, "peek"),
+      } as never, null);
+    }
+    const { rerender } = render(createElement(ChaThu, { border: false }));
+    rerender(createElement(ChaThu, { border: true }));
+    expect(ngan()).toBeNull();
   });
 });

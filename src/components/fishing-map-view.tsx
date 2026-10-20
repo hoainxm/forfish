@@ -133,7 +133,7 @@ import {
 import { TideCard, TideStationSheet } from "@/components/tide-card";
 import { SeaDensePanel, SeaTab } from "@/components/sea-dense-grid";
 import { buildSeaCells, savedStampVN, seaWeather, type SeaCellTide } from "@/lib/sea-cells";
-import { canAutoHide, canForceHide, heldAfterSize, mustOpenForBorder } from "@/lib/sheet-hold";
+import { useSheetAutoHide, useSheetAutoHideSync } from "@/lib/use-sheet-auto-hide";
 import type { BoatProfile } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
 import {
@@ -550,7 +550,6 @@ const STRIP_AUTO_HIDE_MS = 3000; // 5s → 3s (user 2026-08-24: đỡ rối mắ
   đều nạp lại 3s (`onInteract`), nên đang đọc/cuộn thì không bị giật khỏi tay;
   buông tay 3s mới trượt xuống.
 */
-const SHEET_AUTO_HIDE_MS = 3000;
 /*  Ngưỡng CHẠM GIỮ để mở menu ngữ cảnh trên bản đồ. 0,6s — đúng nhịp của
     Google Maps / Zalo / iOS, thứ bà con dùng hằng ngày. Xem 07 §10.7 K. */
 const LONG_PRESS_MS = 600;
@@ -907,53 +906,14 @@ export default function FishingMapView() {
   const [pick, setPick] = useState<"idle" | "picked" | "cleared">("idle");
   /** xem chú thích ở `hideSheetForOverlay` — true = bị lớp nổi khác ép ẩn */
   const [sheetHiddenByOverlay, setSheetHiddenByOverlay] = useState(false);
-  // đồng hồ tự-ẩn của sheet (SHEET_AUTO_HIDE_MS) — nạp lại mỗi lần bà con chạm
-  const sheetHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearSheetHide = useCallback(() => {
-    if (sheetHideTimer.current) clearTimeout(sheetHideTimer.current);
-    sheetHideTimer.current = null;
-  }, []);
-  /*  CẤM TỰ ẨN — cờ dùng chung cho mọi ngoại lệ (rất gần ranh giới · panel dẫn
-      đường đang mở/đang tính). Để trong ref chứ không đọc state thẳng vì hai
-      nguồn của nó (`borderLocked`, `routeActive`) khai MÃI phía dưới thân hàm —
-      đọc lên đây là TDZ, React Compiler chặn build (cùng bẫy đã ghi ở 02 §14).
-      Effect dưới cập nhật ref này.
-
-      ⚠️ GUARD PHẢI NẰM Ở ĐÂY, KHÔNG CHỈ Ở EFFECT (lỗi bắt được khi chạy thật
-      2026-08-28): `armSheetHide` được gọi THẲNG từ `onInteract` mỗi cú chạm
-      trong sheet. Guard chỉ đặt ở effect thì effect không chạy lại (không state
-      nào đổi) ⇒ cú chạm kế tiếp vẫn lên lịch ẩn, sheet vẫn biến mất. Đây cũng
-      là lỗ có sẵn của ngoại lệ ranh giới ≤6 hl: chạm vào sheet là nó tự ẩn dù
-      đang cấm. Một chỗ chặn cho cả hai đường. */
-  const noAutoHideRef = useRef(false);
-  /** riêng cờ RANH GIỚI (chặn cả ép ẩn) — `noAutoHideRef` gộp thêm "Giữ mở" */
-  const borderLockRef = useRef(false);
-  /*  "GIỮ MỞ" (rà Codex lần 6): người dùng tự ghim ngăn gió sóng — đọc lâu, dùng
-      trình đọc màn hình (con trỏ đọc ảo không bật :focus-visible), hay đơn giản
-      không muốn ngăn tự thu. Thu ngăn là bỏ ghim (lần mở sau về luật 3 giây). */
-  const [sheetHeldRaw, setSheetHeld] = useState(false);
-  // mọi đường thu ngăn đều bỏ ghim — suy ra lúc render, không cần bắt từng chỗ setSize
-  const sheetHeld = heldAfterSize(sheetHeldRaw, size);
-  if (sheetHeldRaw && !sheetHeld) setSheetHeld(false);
-  const armSheetHide = useCallback(() => {
-    clearSheetHide();
-    if (size === "hidden") return; // đã ở đáy rồi, không đếm nữa
-    if (noAutoHideRef.current) return; // đang cấm tự ẩn
-    /*  ĐANG ĐỌC BẰNG BÀN PHÍM / TRÌNH ĐỌC MÀN HÌNH thì KHÔNG thu (rà Codex lần
-        5): focus nhìn-thấy (`:focus-visible`) đang nằm trong sheet = người dùng
-        đang Tab qua từng ô — thu ngăn là mất chỗ đang đọc. Chạm ngón tay không
-        bật `:focus-visible` nên đồng hồ 3 giây cho người liếc mắt vẫn y cũ.
-        Chưa thu thì hẹn lại, không bỏ hẳn: Tab ra khỏi ngăn là đồng hồ chạy. */
-    const fire = () => {
-      const a = typeof document !== "undefined" ? document.activeElement : null;
-      if (a instanceof HTMLElement && a.closest("[data-snap-sheet]") && a.matches(":focus-visible")) {
-        sheetHideTimer.current = setTimeout(fire, SHEET_AUTO_HIDE_MS);
-        return;
-      }
-      setSize("hidden");
-    };
-    sheetHideTimer.current = setTimeout(fire, SHEET_AUTO_HIDE_MS);
-  }, [clearSheetHide, size]);
+  /*  ĐIỀU PHỐI NGĂN (đồng hồ 3 s · "Giữ mở" · ép ẩn · ranh giới) — một nguồn ở
+      `lib/use-sheet-auto-hide.ts`, test `sheet-flow.test.ts` gọi ĐÚNG hai hook
+      này (rà Codex lần 9). Các cờ cấm nằm trong ref của hook vì `borderLocked` /
+      `loading` khai mãi phía dưới (TDZ, 02 §14); `useSheetAutoHideSync` ở dưới
+      nạp chúng. Guard nằm trong `arm` (mỗi cú chạm), không chỉ ở effect — lỗi
+      thật 2026-08-28: chạm trong sheet không đổi state, effect không chạy lại. */
+  const sheetCtl = useSheetAutoHide(size, setSize);
+  const { held: sheetHeld, setHeld: setSheetHeld, arm: armSheetHide, forceHide: forceHideSheet } = sheetCtl;
 
   // ── dự báo vẽ động kiểu Windy: lớp gió/sóng + thanh thời gian ───────────
   const [forecastKind, setForecastKind] = useState<ForecastKind | null>(null);
@@ -1671,7 +1631,7 @@ export default function FishingMapView() {
       lệch nhau.
 
       ⚠️ CHỐT KHÔNG ĐƯỢC BỎ — RẤT GẦN RANH GIỚI (≤6 hl): `setSize("hidden")` là
-      lệnh CƯỠNG BỨC, nó đi vòng qua `noAutoHideRef` vốn chỉ chặn ĐỒNG HỒ tự-ẩn.
+      lệnh CƯỠNG BỨC, nó đi vòng qua cờ cấm đồng hồ — nên `forceHide` của hook tự xét ranh giới.
       Dòng đỏ "cách ranh giới…" render TRONG thân sheet, ép ẩn lúc đang đứng sát
       ranh giới là GIẤU CẢNH BÁO AN TOÀN (CLAUDE.md cấm) và trái luôn ngoại lệ
       đã dựng ở nhánh chạm bản đồ. Đọc qua ref chứ không đọc `borderLocked`
@@ -1680,10 +1640,9 @@ export default function FishingMapView() {
   const hideSheetForOverlay = useCallback(() => {
     // CHỈ ranh giới chặn ép ẩn; "Giữ mở" của người dùng thì không — để hai bảng
     // không chồng nhau (lib/sheet-hold.ts). Ép ẩn = bỏ ghim (xem heldAfterSize).
-    if (!canForceHide({ border: borderLockRef.current, held: false })) return;
-    setSize("hidden");
+    if (!forceHideSheet()) return;
     setSheetHiddenByOverlay(true);
-  }, []);
+  }, [forceHideSheet]);
   /*  Sheet đang ở nấc `hidden` VÌ BỊ LỚP KHÁC ÉP, chứ không phải vì đồng hồ
       tự-ẩn. Dùng để KHÔNG dán dòng gió sóng lên thanh kéo lúc đó — dán vào là
       mở "Điểm đã lưu" lại kèm một dải số ở đáy, dựng lại đúng cảnh hai lớp nổi
@@ -4615,7 +4574,7 @@ export default function FishingMapView() {
   /** Số đo "lúc này" trong bản lưu là số ĐÔNG CỨNG lúc lưu — chỉ nói thật giờ đo */
   const isToday = sel?.date === todayIso;
   const prox = borderProximity(point.lat, point.lon, borderSrc);
-  /*  ĐẾM 3 GIÂY RỒI TRƯỢT SHEET SÁT ĐÁY (SHEET_AUTO_HIDE_MS) — MỌI NẤC.
+  /*  ĐẾM 3 GIÂY RỒI TRƯỢT SHEET SÁT ĐÁY (SHEET_AUTO_HIDE_MS, lib/use-sheet-auto-hide) — MỌI NẤC.
       Chạy lại khi ĐỔI ĐIỂM ĐANG XEM nữa, không chỉ khi đổi nấc: chạm điểm mới
       lúc sheet ĐANG ở `peek` thì `size` không đổi ⇒ chỉ nghe `size` là đồng hồ
       cũ đếm tiếp, panel số mới vừa hiện đã biến mất.
@@ -4623,11 +4582,6 @@ export default function FishingMapView() {
       (≤6 hải lý) thì KHÔNG tự ẩn — cùng luật với NavHud (§10.7 F: ≤6 hl không
       thu được). Vượt ranh giới bị bắt/phạt rất nặng, không đánh đổi lấy gọn mắt. */
   const borderLocked = prox.applies && prox.level === "very_near";
-  /*  LƯỚI AN TOÀN cho MỌI đường đưa con trỏ tới sát ranh giới (chạm, "Đến điểm",
-      điểm đã lưu, GPS…): đang `peek` (chỉ viên) mà rất gần ranh giới thì mở
-      `half` để dòng cảnh báo đỏ HIỆN. Người dùng chủ động "Thu" (hidden) thì tôn
-      trọng — nhãn khoảng cách ranh giới trên bản đồ vẫn còn. Luật: lib/sheet-hold. */
-  if (mustOpenForBorder({ border: borderLocked, held: false }, size)) setSize("half");
   /** sheet đang THU (peek hoặc đã trượt sát đáy) — banner bão, rail và chú giải
       chỉ tự mờ khi bà con KÉO SHEET LÊN đọc (half/full), không phải khi sheet
       tự ẩn xuống (lúc đó bản đồ đang lộ nhiều nhất, càng cần rail để thao tác) */
@@ -4647,31 +4601,15 @@ export default function FishingMapView() {
       xong, lỗi, hết giờ hay mất sóng (`fetchSeaPoint` luôn settle, nhánh
       `.catch` ghi `cond: null`). Nếu chỉ chờ số về thì ngoài biển mất sóng sheet
       sẽ KHÔNG BAO GIỜ tự ẩn — che bản đồ đúng lúc cần nhất. */
-  useEffect(() => {
-    // nạp cờ cấm TRƯỚC khi quyết — `armSheetHide` (và mọi cú chạm gọi nó) đọc ref này
-    borderLockRef.current = borderLocked;
-    noAutoHideRef.current = !canAutoHide({ border: borderLocked, held: sheetHeld });
-    if (size === "hidden" || noAutoHideRef.current) {
-      clearSheetHide();
-      return;
-    }
-    if (loading) {
-      // chưa ngã ngũ: dừng đồng hồ, effect sẽ chạy lại khi `loading` tắt
-      clearSheetHide();
-      return;
-    }
-    armSheetHide();
-    return clearSheetHide;
-  }, [
+  /*  + SÁT RANH GIỚI mà ngăn chỉ là viên ⇒ mở `half` cho dòng đỏ HIỆN (lưới an
+      toàn mọi đường đưa con trỏ tới sát biên; `hidden` do người dùng Thu thì
+      tôn trọng). Cả hai luật trong hook dùng chung. */
+  useSheetAutoHideSync(sheetCtl, setSize, {
     size,
-    point.lat,
-    point.lon,
-    borderLocked,
-    sheetHeld,
+    border: borderLocked,
     loading,
-    armSheetHide,
-    clearSheetHide,
-  ]);
+    resetKey: `${point.lat},${point.lon}`,
+  });
   const depthNote = depth != null ? DEPTH_NOTE[depth] : undefined; // ngoài lưới → im
   // tuần trăng đêm nay — quyết với nghề đèn (mực, cá cơm); tính offline
   const moon = moonPhase(new Date());

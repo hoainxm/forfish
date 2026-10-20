@@ -4,6 +4,7 @@
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
 last_verified: 2026-10-19
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
+<!-- re-verified: 2026-10-20n — fishing-map-view.tsx (điều phối ngăn qua lib/use-sheet-auto-hide) — AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20m — fishing-map-view.tsx (sát ranh giới mở hẳn ngăn, nhãn đọc của viên) — AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20l — fishing-map-view.tsx (luật ghim/thu qua lib/sheet-hold, lọc lớp lúc chạm) — AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20k — fishing-map-view.tsx (Giữ mở, lớp bắt chạm theo style thật, tách SeaDensePanel/SeaTab) — AC đa-tàu không đổi. -->

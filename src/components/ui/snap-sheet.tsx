@@ -231,7 +231,9 @@ export function SnapSheet({
             className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[9rem] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float focus:outline-none focus-visible:ring-2 focus-visible:ring-sea"
           >
             <div className="flex items-center gap-1 border-b border-line py-1.5 pl-3 pr-2">
-              <div className="min-w-0 flex-1 truncate">
+              {/*  Tiêu đề XUỐNG DÒNG chứ không cắt (rà Codex lần 9: ở 320px "Biển êm"
+                   thành "Biển ên"); các nút bên phải giữ nguyên cỡ. */}
+              <div className="min-w-0 flex-1 break-words leading-tight">
                 {sideTitle ?? <span className="text-[0.875rem] font-semibold text-navy">{label}</span>}
               </div>
               {sideHeader}
