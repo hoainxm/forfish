@@ -80,6 +80,11 @@ describe("danh mục mảnh ↔ file mp3", () => {
     const keys = items.map(([, t]) => khoaManh(t));
     expect(new Set(keys).size).toBe(keys.length);
   });
+  it("không id nào trùng tên thiết bị cấm của Windows (con, nul, aux…)", () => {
+    // con.mp3 từng làm hỏng checkout + commit trên Windows — xem lap_manh.mjs
+    const cam = items.map(([id]) => id).filter((id) => /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(id));
+    expect(cam).toEqual([]);
+  });
   /*  mp3 sinh ở gpu-desktop (Mac không chạy VieNeu). Thiếu file thì app vẫn đúng:
       mảnh tải hỏng ⇒ khúc đó đọc giọng máy — nên cổng này chỉ đếm, không chặn
       khi chưa có thư mục (lần sinh đầu). */

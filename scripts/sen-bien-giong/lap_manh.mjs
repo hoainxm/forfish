@@ -190,6 +190,10 @@ function idCho(text) {
   const k = khoaManh(text);
   if (idCu.has(k)) return idCu.get(k);
   let id = slug(text) || "m";
+  // Tên thiết bị cấm của Windows (con, prn, aux, nul, com1–9, lpt1–9) — file
+  // "con.mp3" không tạo được trên Windows: checkout hỏng, commit lén xoá file
+  // (dính thật 2026-10). Thêm đuôi "_m" cho mọi máy đọc được.
+  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/.test(id)) id = `${id}_m`;
   if (dungId.has(id)) id = `${id}_${createHash("sha1").update(k).digest("hex").slice(0, 4)}`;
   dungId.add(id);
   idCu.set(k, id);

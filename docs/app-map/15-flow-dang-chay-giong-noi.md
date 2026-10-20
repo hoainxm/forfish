@@ -607,6 +607,8 @@ Chủ dự án duyệt 2026-10-17: *"làm plugin Capacitor Android chạy Gemma 
 
 Chủ dự án: *"dùng vietneu cho toàn bộ đi"* · *"kịch bản đi, tăng tính tuỳ biến, ghép"*. Nay (§17b) chỉ 63 câu CỐ ĐỊNH có mp3; câu nào có số hay tên ("Còn chừng 3 hải lý tới ranh giới", "Rạn có tên gần nhất là Đá Lát, hướng Đông Nam, 4,5 hải lý") đọc giọng máy ⇒ một lượt nói lẫn hai giọng. Máy bà con không chạy được VieNeu (nặng, cần GPU) và Sen Biển không gọi máy chủ ⇒ chỉ còn cách **thu sẵn từng MẢNH ở bờ rồi ghép lúc đọc**.
 
+> **ID mảnh cấm trùng tên thiết bị Windows (2026-10-20)**: mảnh "còn" trước có id `con` ⇒ file `con.mp3` — Windows không tạo được file tên `con`/`nul`/`aux`/`prn`/`com1–9`/`lpt1–9`, nên checkout ở `C:\Code\ForFish` thiếu file, test "mỗi mảnh có mp3" đỏ, và `git commit -o` lén xoá file khác. Đổi id thành `con_m` (cùng nội dung âm thanh); `lap_manh.mjs` tự thêm đuôi `_m` cho tên cấm; cổng `ghep-giong.test.ts` chặn id cấm.
+
 ### 21a. Ý chính — người gọi KHÔNG đổi gì
 
 Không viết khuôn riêng cho từng câu trong code (hơn 60 chỗ dựng câu ở `nav-voice/*`, `sen-bien/hoi-ban-do.ts`, `lenh-ban-do.ts`, `hieu-y.ts`). `tts.ts` tự cắt câu thành mảnh bằng **khớp dài nhất** trên danh mục mảnh:
