@@ -942,7 +942,7 @@ function NguTruongPanel({
   const [expanded, setExpanded] = useState(false);
   const name = fishSpecies
     ? SPECIES_META[fishSpecies]?.full ?? fishSpecies
-    : "Tất cả các loài cá";
+    : "Mọi loài"; // nhãn nút chọn loài ≤2 chữ (rà Codex lần 8)
   return (
     <div>
       {/* KHÔNG nói tuổi bản đồ cá ở đây nữa (bỏ 2026-07-25 — màn hình rối) */}

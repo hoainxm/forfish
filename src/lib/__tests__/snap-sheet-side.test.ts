@@ -26,6 +26,7 @@ function Harness({ onHold }: { onHold?: (v: boolean) => void }) {
       label: "Gió sóng",
       side: true,
       sideTab: "Hôm nay · 0,6 m",
+      sideTabLabel: "Ngày mai, sóng 0,6 mét, gió cấp 3, bản lưu",
       sideDense: createElement("p", null, "LƯỚI SỐ"),
       sideHold: held,
       onSideHoldChange: (v: boolean) => {
@@ -79,5 +80,10 @@ describe("ngăn gió sóng bên phải", () => {
     act(() => fireEvent.click(screen.getByRole("button", { name: /Xem đủ/ })));
     expect(screen.getByText("LƯỚI SỐ")).toBeTruthy();
     expect(screen.getByText("XEM ĐỦ")).toBeTruthy();
+  });
+
+  it("viên đọc được bằng trình đọc màn hình: tên nút nói đủ ngày · số · bản lưu", () => {
+    render(createElement(Harness));
+    expect(vien().getAttribute("aria-label")).toBe("Mở bảng gió sóng — Ngày mai, sóng 0,6 mét, gió cấp 3, bản lưu");
   });
 });

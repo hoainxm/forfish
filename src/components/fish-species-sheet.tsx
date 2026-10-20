@@ -53,7 +53,7 @@ export function FishSpeciesContent({
 
   return (
     <>
-      {/* Mọi loài — gộp tất cả, màu xanh lá */}
+      {/* Mọi loài — gộp tất cả, màu xanh lá. Nhãn "Mọi loài" (≤2 chữ — rà Codex lần 8, cùng chữ với nút chọn loài ở ra-khoi-controls); tiêu đề sheet đã nói là chọn loài */}
       <button
         type="button"
         aria-pressed={current == null}
@@ -64,10 +64,10 @@ export function FishSpeciesContent({
       >
         <span
           className="h-3.5 w-3.5 shrink-0 rounded-full"
-          style={{ background: "linear-gradient(135deg,#95d5b2,#1b4b2c)" }}
+          style={{ background: "linear-gradient(135deg,var(--fish-all-from),var(--fish-all-to))" }}
           aria-hidden
         />
-        <span className="flex-1 text-left text-[1rem] font-bold">Tất cả các loài</span>
+        <span className="flex-1 text-left text-[1rem] font-bold">Mọi loài</span>
         {current == null && <CheckIcon className="h-5 w-5 shrink-0" />}
       </button>
       <p className="mb-3 px-1 text-[0.8125rem] leading-snug text-foreground/70">
@@ -104,7 +104,7 @@ export function FishSpeciesContent({
                 >
                   <span
                     className="h-3 w-3 shrink-0 rounded-full"
-                    style={{ backgroundColor: meta?.color ?? "#888" }}
+                    style={{ backgroundColor: meta?.color ?? "var(--fish-unknown)" }}
                     aria-hidden
                   />
                   <span className="min-w-0 flex-1">{meta?.full ?? sp}</span>

@@ -37,6 +37,7 @@ export function SnapSheet({
   hiddenLabel,
   side = false,
   sideTab,
+  sideTabLabel,
   sideHeader,
   sideDense,
   sideTitle,
@@ -73,6 +74,9 @@ export function SnapSheet({
   side?: boolean;
   /** Nội dung VIÊN dính mép phải ở nấc thu (tóm tắt ngắn) — chỉ khi `side`. */
   sideTab?: ReactNode;
+  /** Bản CHỮ của viên cho trình đọc màn hình (ngày · số · bản lưu) — `aria-label`
+   *  đè nội dung nút nên phải nói lại đủ, không chỉ "Mở bảng…". */
+  sideTabLabel?: string;
   /** Thêm vào đầu ngăn, cạnh "Thu" (vd chip dữ liệu) — chỉ khi `side`. */
   sideHeader?: ReactNode;
   /** Nội dung DÀY SỐ cho ngăn thấp 1/3 màn (mặc định khi mở). "Xem đủ" mở thêm
@@ -190,8 +194,10 @@ export function SnapSheet({
               aria-expanded={false}
               aria-controls={`${panelId}-ngan`}
               style={{ touchAction: "none" }}
-              aria-label={`Mở bảng ${label.toLowerCase()} — vuốt sang trái hoặc chạm`}
-              className="pointer-events-auto flex h-(--h-ctl) items-center gap-2 rounded-l-full border border-r-0 border-line bg-card/95 pl-2 pr-3 text-navy shadow-float active:bg-field"
+              aria-label={`Mở bảng ${label.toLowerCase()}${sideTabLabel ? ` — ${sideTabLabel}` : ""}`}
+              /*  CAO TỐI THIỂU, không cố định (rà Codex lần 8): viên có thể 3 dòng
+                  (ngày · số · bản lưu) và phóng chữ to — `h-` cố định là tràn. */
+              className="pointer-events-auto flex min-h-(--h-ctl) items-center py-1 gap-2 rounded-l-full border border-r-0 border-line bg-card/95 pl-2 pr-3 text-navy shadow-float active:bg-field"
             >
               <ChevronLeftIcon className="h-4 w-4 shrink-0 text-navy/60" />
               {sideTab ?? <span className="text-[0.8125rem] font-semibold">{label}</span>}

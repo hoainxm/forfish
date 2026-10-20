@@ -51,6 +51,11 @@
   --cadence-day: #eab308; /* 🟨 theo ngày */
   --cadence-fixed: #64748b; /* ⬛ cố định, không đổi theo ngày */
   --fish: #2d8659; /* xanh lá — cá/ngư trường (Phương án A) */
+  /*  Chấm "Tất cả các loài" trong bảng chọn loài = dải màu thang mật độ cá trên
+      bản đồ (nhạt → đậm). Dời từ hex rời trong fish-species-sheet (rà Codex lần 8). */
+  --fish-all-from: #95d5b2;
+  --fish-all-to: #1b4b2c;
+  --fish-unknown: #888888; /* loài thiếu màu trong SPECIES_META */
 
   /* status — chữ đậm 16px ĐẠT WCAG AA (≥4.5:1) trên nền tint dưới nắng:
      ok 5.85 · warn 6.26 · danger 5.80 (tính trong docs/design-review/04) */

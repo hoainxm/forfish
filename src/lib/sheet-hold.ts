@@ -26,3 +26,9 @@ export function canForceHide(l: SheetLocks): boolean {
 export function heldAfterSize(held: boolean, size: string): boolean {
   return size === "half" ? held : false;
 }
+
+/** Rất gần ranh giới mà ngăn chỉ đang là viên (`peek`) ⇒ phải mở `half` cho
+ *  cảnh báo đỏ HIỆN. `hidden` = người dùng chủ động thu: tôn trọng. */
+export function mustOpenForBorder(l: SheetLocks, size: string): boolean {
+  return l.border && size === "peek";
+}

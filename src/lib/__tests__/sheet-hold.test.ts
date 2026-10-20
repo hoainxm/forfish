@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAutoHide, canForceHide, heldAfterSize } from "@/lib/sheet-hold";
+import { canAutoHide, canForceHide, heldAfterSize, mustOpenForBorder } from "@/lib/sheet-hold";
 
 describe("luật thu ngăn gió sóng", () => {
   it("không khoá: đồng hồ thu được, lớp khác ép ẩn được", () => {
@@ -19,5 +19,14 @@ describe("luật thu ngăn gió sóng", () => {
     expect(heldAfterSize(true, "hidden")).toBe(false);
     expect(heldAfterSize(true, "peek")).toBe(false);
     expect(heldAfterSize(false, "half")).toBe(false);
+  });
+});
+
+describe("mustOpenForBorder", () => {
+  it("sát ranh giới mà chỉ là viên → phải mở; đã mở / người dùng thu → không ép", () => {
+    expect(mustOpenForBorder({ border: true, held: false }, "peek")).toBe(true);
+    expect(mustOpenForBorder({ border: true, held: false }, "half")).toBe(false);
+    expect(mustOpenForBorder({ border: true, held: false }, "hidden")).toBe(false);
+    expect(mustOpenForBorder({ border: false, held: false }, "peek")).toBe(false);
   });
 });

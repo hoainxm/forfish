@@ -132,8 +132,8 @@ import {
 } from "@/lib/tides";
 import { TideCard, TideStationSheet } from "@/components/tide-card";
 import { SeaDensePanel, SeaTab } from "@/components/sea-dense-grid";
-import { buildSeaCells, seaWeather, type SeaCellTide } from "@/lib/sea-cells";
-import { canAutoHide, canForceHide, heldAfterSize } from "@/lib/sheet-hold";
+import { buildSeaCells, savedStampVN, seaWeather, type SeaCellTide } from "@/lib/sea-cells";
+import { canAutoHide, canForceHide, heldAfterSize, mustOpenForBorder } from "@/lib/sheet-hold";
 import type { BoatProfile } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
 import {
@@ -4623,6 +4623,11 @@ export default function FishingMapView() {
       (≤6 hải lý) thì KHÔNG tự ẩn — cùng luật với NavHud (§10.7 F: ≤6 hl không
       thu được). Vượt ranh giới bị bắt/phạt rất nặng, không đánh đổi lấy gọn mắt. */
   const borderLocked = prox.applies && prox.level === "very_near";
+  /*  LƯỚI AN TOÀN cho MỌI đường đưa con trỏ tới sát ranh giới (chạm, "Đến điểm",
+      điểm đã lưu, GPS…): đang `peek` (chỉ viên) mà rất gần ranh giới thì mở
+      `half` để dòng cảnh báo đỏ HIỆN. Người dùng chủ động "Thu" (hidden) thì tôn
+      trọng — nhãn khoảng cách ranh giới trên bản đồ vẫn còn. Luật: lib/sheet-hold. */
+  if (mustOpenForBorder({ border: borderLocked, held: false }, size)) setSize("half");
   /** sheet đang THU (peek hoặc đã trượt sát đáy) — banner bão, rail và chú giải
       chỉ tự mờ khi bà con KÉO SHEET LÊN đọc (half/full), không phải khi sheet
       tự ẩn xuống (lúc đó bản đồ đang lộ nhiều nhất, càng cần rail để thao tác) */
@@ -5479,9 +5484,10 @@ export default function FishingMapView() {
               vượt ranh giới bị bắt/phạt rất nặng, không đánh đổi lấy gọn mắt.
               Đo ngay tại toạ độ VỪA CHẠM chứ không đọc `borderLocked` (nó tính
               theo `point` của lượt render TRƯỚC, còn đang là điểm cũ). */
+          const proxHere = borderProximity(lat, lon, borderSrc);
+          const satBien = proxHere.applies && proxHere.level === "very_near";
           if (railLayerOpen) {
-            const proxHere = borderProximity(lat, lon, borderSrc);
-            if (!(proxHere.applies && proxHere.level === "very_near")) {
+            if (!satBien) {
               flyToPoint(lon, lat);
               return;
             }
@@ -5490,7 +5496,10 @@ export default function FishingMapView() {
           // kiểu Windy: chạm là sheet nằm GỌN ở đáy (peek) — bản đồ vẫn
           // thấy nguyên, số liệu tóm tắt hiện ngay, chi tiết bấm "Xem thêm"
           setPick("picked"); // có điểm chọn → cú chạm sau sẽ trả về trống
-          setSize("peek");
+          /*  SÁT RANH GIỚI ⇒ MỞ HẲN NGĂN (rà Codex lần 8): ngăn bên ở `peek` chỉ
+              là viên tóm tắt, dòng cảnh báo đỏ nằm TRONG ngăn — mở `peek` là
+              cảnh báo không hiện dù đồng hồ đã bị chặn. */
+          setSize(satBien ? "half" : "peek");
           flyToPoint(lon, lat);
         }}
       >
@@ -7836,6 +7845,15 @@ export default function FishingMapView() {
             đầu ngăn (`sideHeader`); trên bản đồ chỉ nổi icon khi THIẾU. */
         side
         sideTab={sideTabContent}
+        sideTabLabel={
+          cond && today && sel
+            ? `${chipLabel(sel.date, todayIso)}, sóng ${
+                sel.waveMaxM > 0 ? `${sel.waveEstimated ? "ước " : ""}${formatNumberVN(sel.waveMaxM)} mét` : "chưa có số"
+              }, gió cấp ${beaufort(sel.windMaxKmh)}${
+                cond.stale ? `, bản lưu${cond.savedAt != null ? ` lúc ${savedStampVN(cond.savedAt, todayIso)}` : ""}` : ""
+              }`
+            : undefined
+        }
         sideDense={sideDense}
         sideTitle={sideTitle}
         sideHeader={
