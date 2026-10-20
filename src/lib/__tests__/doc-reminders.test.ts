@@ -4,6 +4,7 @@ import {
   docPushUrl,
   dueReminders,
   expiringItemsOf,
+  keepLatestDocReminder,
   parseDocPushUrl,
   reminderStep,
   type ExpiringItem,
@@ -118,6 +119,35 @@ describe("URL = đường mở app + sổ đã gửi", () => {
     const d = dueReminders([odd], new Set(), TODAY)[0];
     expect(parseDocPushUrl(docPushUrl([d.key]))).toEqual([d.key]);
     expect(dueReminders([odd], new Set(parseDocPushUrl(docPushUrl([d.key]))), TODAY)).toHaveLength(0);
+  });
+});
+
+describe("docPushUrl — mở đúng chỗ (audit 2026-10-20 O3)", () => {
+  it("toàn giấy thuyền viên ⇒ /nguoi; có giấy tàu ⇒ tab Giấy tờ; đọc lại được cả hai", () => {
+    const crew = ["crew-bh:c1.2026-06-01.t5", "crew-cc:c2.2026-06-03.t10"];
+    expect(docPushUrl(crew).startsWith("/nguoi?nhac=")).toBe(true);
+    expect(parseDocPushUrl(docPushUrl(crew))).toEqual(crew);
+    const mixed = [...crew, "doc:d1.2026-06-02.t5"];
+    expect(docPushUrl(mixed).startsWith("/tau?tab=giay-to&nhac=")).toBe(true);
+    expect(parseDocPushUrl(docPushUrl(mixed))).toEqual(mixed);
+  });
+});
+
+describe("keepLatestDocReminder — hộp thư chỉ giữ tin nhắc hạn mới nhất (O1)", () => {
+  it("giữ tin nhắc MỚI NHẤT + mọi tin khác, đúng thứ tự", () => {
+    const rows = [
+      { id: "1", sent_by: "system:docs" },
+      { id: "2", sent_by: "admin" },
+      { id: "3", sent_by: "system:docs" },
+      { id: "4", sent_by: "system:storm" },
+      { id: "5", sent_by: "system:docs" },
+      { id: "6", sent_by: null },
+    ];
+    expect(keepLatestDocReminder(rows).map((r) => r.id)).toEqual(["1", "2", "4", "6"]);
+  });
+  it("không có tin nhắc ⇒ nguyên vẹn", () => {
+    const rows = [{ id: "a", sent_by: "admin" }];
+    expect(keepLatestDocReminder(rows)).toEqual(rows);
   });
 });
 

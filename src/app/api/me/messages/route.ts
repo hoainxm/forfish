@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { keepLatestDocReminder } from "@/lib/doc-reminders";
 
 /** Bao nhiêu tin gần nhất — đủ cho một chuyến biển dài, không phình vô hạn */
 const MAX_MESSAGES = 50;
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
 
   let q = admin
     .from("push_messages")
-    .select("id, title, body, url, target, target_phone, created_at");
+    .select("id, title, body, url, target, target_phone, created_at, sent_by");
   q = phone ? q.or(`target.eq.all,target_phone.eq.${phone}`) : q.eq("target", "all");
   const { data: rows, error } = await q
     .order("created_at", { ascending: false })
@@ -48,7 +49,8 @@ export async function GET(req: Request) {
   return NextResponse.json({
     ok: true,
     phone,
-    messages: (rows ?? []).map((r) => ({
+    // tin nhắc hạn giấy tờ: chỉ giữ tin mới nhất (lib/doc-reminders)
+    messages: keepLatestDocReminder(rows ?? []).map((r) => ({
       id: r.id as string,
       title: r.title as string,
       body: r.body as string,

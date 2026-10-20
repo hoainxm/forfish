@@ -75,8 +75,33 @@ function urlSafe(k: string): string {
   return k.replace(/[^A-Za-z0-9._:-]/g, "_");
 }
 
+/**
+ * Đường mở khi chạm thông báo. Toàn giấy THUYỀN VIÊN (`crew-*`) ⇒ `/nguoi`
+ * (bảo hiểm/chứng chỉ nằm ở sổ thuyền viên, tab Giấy tờ tàu không có — audit
+ * 2026-10-20 O3); có giấy tàu ⇒ tab Giấy tờ. `parseDocPushUrl` đọc được cả hai.
+ */
 export function docPushUrl(keys: string[]): string {
-  return `/tau?tab=giay-to&nhac=${keys.map(urlSafe).join("~")}`;
+  const onlyCrew = keys.length > 0 && keys.every((k) => k.startsWith("crew-"));
+  const base = onlyCrew ? "/nguoi?" : "/tau?tab=giay-to&";
+  return `${base}nhac=${keys.map(urlSafe).join("~")}`;
+}
+
+/**
+ * HỘP THƯ CHỈ GIỮ TIN NHẮC HẠN MỚI NHẤT (audit 2026-10-20 O1). Lịch mốc mới ra
+ * tới 11 tin/giấy, 6 ngày cuối liên tiếp ⇒ 3 ô hộp thư Trang chủ toàn tin giấy
+ * tờ, che tin SDVICO/tin chung. Tin nhắc sau đã nói lại đủ hạn hiện tại — tin
+ * cũ hơn chỉ là bản cũ của cùng chuyện (như `tag: giay-to` trên màn khoá).
+ * `rows` xếp MỚI → CŨ. Sổ khử trùng của cron đọc thẳng `push_messages`, không
+ * qua đây ⇒ không ảnh hưởng.
+ */
+export function keepLatestDocReminder<T extends { sent_by?: string | null }>(rows: T[]): T[] {
+  let seen = false;
+  return rows.filter((r) => {
+    if (r.sent_by !== DOC_PUSH_SENT_BY) return true;
+    if (seen) return false;
+    seen = true;
+    return true;
+  });
 }
 
 /** Đọc lại khoá đã gửi từ URL các dòng push_messages cũ. URL lạ ⇒ bỏ qua. */

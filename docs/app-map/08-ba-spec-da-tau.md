@@ -3,6 +3,7 @@
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
 last_verified: 2026-10-18
+<!-- re-verified: 2026-10-20 19:00 — AUDIT nhắc hạn (ops/audit-notify-2026-10-20): đối chiếu code `stormYieldsToReminder` (nhường bão chỉ khi tin ≤12h), sheet đánh dấu lúc HIỆN, `docPushUrl` toàn giấy thuyền viên → `/nguoi`, `keepLatestDocReminder` trong `/api/me/messages`. -->
 <!-- re-verified: 2026-10-20 17:30 — NHẮC HẠN GIẤY TỜ: đối chiếu code `lib/doc-reminders.ts` (DOC_REMIND_DAYS 30·25·20·15·10 + 5→0, quá hạn ×3), `lib/doc-reminder-local.ts` + `components/doc-remind-on-open.tsx` (sheet khi mở Trang chủ, sổ `forfish.docRemindSeen.v1`, nhường bão qua `savedStormActive`), `public/sw.js` push `renotify: true` khi có tag. Soi trình duyệt 375px. -->
 <!-- re-verified: 2026-10-18 — `crew-list.tsx` chỉ THÊM `export const CREW_STORAGE_KEY` (cùng giá trị "forfish.crew.v1") để Sen Biển toàn app (lib/assistant/device-snapshot) ĐẾM người trong sổ — không đổi hành vi đa tàu: thuyền viên vẫn động-theo-chủ (R2), không đọc CCCD/SĐT ra loa. AC không đổi. -->
 <!-- re-verified: 2026-10-14 09:00 — `urgent-strip.tsx` TÁCH LOGIC sang `src/lib/urgent.ts` (thêm vào covers) để bản tin mở đầu của chế độ Đang chạy (doc 15) dùng chung một luật hạn. `computeUrgent` chuyển NGUYÊN VĂN (diff = 0 dòng thân hàm), kèm `maintStatus`, `loadStored`, `sdvicoUrgent`, `byUrgencyOrder`, `PILLAR_TAG` và các kiểu; component re-export `byUrgencyOrder`/`sdvicoUrgent` cho test cũ. NV5/AC-7: vẫn gom MỌI tàu + gắn `boatLabel` khi >1 tàu; cổng `readToken()` của dải khẩn giữ nguyên ở component (bản tin giọng đọc cũng chỉ đọc việc khi máy đã gắn tài khoản). R1/R2/R3/R7, khoá `forfish.*` không đổi. Test `urgent-strip.test.ts` xanh. -->
@@ -32,7 +33,7 @@ cố-định/động (R1/R2), cascade R3, guard R7 không bị chạm. AC-1..7 k
 Phan loai co-dinh-theo-tau vs dong-theo-chu (R1/R2) va guard R7 "luon con >=1 tau" giu nguyen; `removeBoat` khong doi chu ky. Cong test moi: `src/lib/__tests__/local-write-atomic.test.ts` (kho day -> cascade KHONG chay, danh sach tau giu nguyen). -->
 
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'src/components/boat-products.tsx' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-20) — code 'src/components/boat-products.tsx' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-10-06 16:45 — đối chiếu code: R1/R2 (document-vault lọc `boatId`, crew-list KHÔNG gắn boatId), NV5 dải khẩn gom mọi tàu + `boatLabel` khi >1 tàu (urgent-strip.tsx), cổng `readToken()` của dải khẩn — khớp. THÊM: NV1 19 ô theo giấy (boats.ts + BoatForm), NV5 kênh push nhắc hạn + AC-8 (doc-reminders.ts). -->
 <!-- re-verified: 2026-07-25 - boat-switcher/crew-list/urgent-strip chỉ thêm anchor data-tour (chon-tau, them-thuyen-vien, nhac-viec) cho coach-tour hướng dẫn; KHÔNG đổi hành vi đa-tàu — NV1–NV5, handoff H1, vòng đời thêm/xóa/đổi tàu, AC §8 giữ nguyên. -->
 <!-- re-verified: 2026-07-29 — GỠ seed mẫu (app lên thật): crew-list bỏ demoCrew/isDemo/startRealCrew, maintenance-reminders bỏ demoEntries/isDemo, boat-products bỏ filter demo-sp-. User mới thấy màn RỖNG + empty state, tự nhập. KHÔNG đụng hành vi đa-tàu: thuyền viên vẫn động-theo-chủ R2 (không boatId), lịch bảo dưỡng/sản phẩm vẫn gắn tàu + cascade R3 khi xóa tàu giữ nguyên. AC §8 không đổi. -->
@@ -217,7 +218,7 @@ ttl_days: 90
 ### AC-11 — Mở app tới mốc thì hiện nhắc hạn, mỗi mốc một lần · Maps to: NV5 · Test: unit (2026-10-20)
 - **Given** máy đã đăng nhập, kho máy có giấy còn 3 ngày (chưa đồng bộ cũng được, mất sóng cũng được), bản tin bão trong máy không có cơn
 - **When** mở Trang chủ
-- **Then** hiện sheet nhắc (gấp nhất trước); bấm "Để sau"/"Xem giấy tờ" ⇒ cùng ngày mở lại KHÔNG hiện; hôm sau (mốc 2) hiện lại; đã chạm thông báo điện thoại của mốc đó (`?nhac=`) ⇒ không hiện lại chuyện đó
+- **Then** hiện sheet nhắc (gấp nhất trước); đã hiện (bấm "Để sau"/"Xem giấy tờ" hay vuốt thoát app) ⇒ cùng ngày mở lại KHÔNG hiện; bản tin bão trong máy có cơn nhưng đã quá 12 giờ ⇒ VẪN hiện (`stormYieldsToReminder`, `storms.test.ts`); hôm sau (mốc 2) hiện lại; đã chạm thông báo điện thoại của mốc đó (`?nhac=`) ⇒ không hiện lại chuyện đó
 - **Assert**: `doc-reminder-local.test.ts` (`localDueReminders` + `markSeenKeys` + `markSeenFromUrl`)
 
 > Mỗi AC: atomic · testable · map 1 flow · không từ UI. Flow mới (NV1–NV5) → mặc định E2E trừ AC-3/AC-5 logic thuần.

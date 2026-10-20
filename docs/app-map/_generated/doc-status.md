@@ -10,7 +10,7 @@
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/07-design-spec.md | VERIFIED | ok |
-| docs/app-map/08-ba-spec-da-tau.md | SUSPECT | code 'src/components/boat-products.tsx' doi sau last_verified |
+| docs/app-map/08-ba-spec-da-tau.md | VERIFIED | ok |
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | VERIFIED | ok |
 | docs/app-map/10-ba-spec-quan-tri-van-hanh.md | VERIFIED | ok |
 | docs/app-map/11-ba-spec-san-thuong-mai.md | SUSPECT | code 'src/app/api/admin/cho/' doi sau last_verified |
@@ -19,6 +19,7 @@
 | docs/app-map/15-flow-dang-chay-giong-noi.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-notify-2026-08-18.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/audit-notify-2026-10-20.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-offline-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-offline-vong2-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/build-publish-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
@@ -41,6 +42,6 @@
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/runbook.md | SUSPECT | code 'scripts/doc-health-report.sh' doi sau last_verified |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/state-registry.md | VERIFIED | ok |
+| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/auth-scope.ts' doi sau last_verified |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/test-tai-khoan.md | VERIFIED | ok |

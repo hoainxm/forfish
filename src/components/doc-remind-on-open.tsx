@@ -14,11 +14,12 @@ import { localDueReminders, markSeenKeys } from "@/lib/doc-reminder-local";
   lên nữa"). Cùng lịch mốc với thông báo điện thoại (30·25·20·15·10 rồi hằng
   ngày 5→0) nhưng đọc KHO MÁY ⇒ chạy cả khi mất sóng, cả khi máy chưa bật
   chuông, cả giấy chưa đồng bộ lên máy chủ. Mỗi mốc hiện MỘT lần; "Để sau" hay
-  "Xem giấy tờ" đều tính là đã báo (sổ `forfish.docRemindSeen.v1`). Dải khẩn
+  "Xem giấy tờ" — đã hiện là tính đã báo (sổ `forfish.docRemindSeen.v1`). Dải khẩn
   bên dưới vẫn nằm đó suốt 30 ngày như cũ.
 
-  Nhường tầng 1: bản tin bão trong máy đang có cơn ⇒ lần mở này KHÔNG hiện (tin
-  bão không bị lớp nào che — 07 §12); lần mở sau hết bão thì hiện. Chưa đăng
+  Nhường tầng 1: bản tin bão trong máy đang có cơn VÀ còn mới (≤12 giờ) ⇒ lần
+  mở này KHÔNG hiện (tin bão không bị lớp nào che — 07 §12); bản tin cũ hơn thì
+  không nhường, kẻo mất sóng nhiều ngày là im suốt chuyến. Chưa đăng
   nhập ⇒ im, cùng cổng `readToken()` với dải khẩn (máy dùng chung ở bến).
 */
 
@@ -36,7 +37,16 @@ export function DocRemindOnOpen() {
     savedStormActive(Date.now())
       .catch(() => false)
       .then((storm) => {
-        if (alive && !storm) setDue(found);
+        if (!alive || storm) return;
+        // Đánh dấu NGAY LÚC HIỆN, không đợi bấm nút (audit 2026-10-20): vuốt
+        // Quay lại trên Trang chủ là thoát app mà không qua onClose ⇒ trước
+        // đây mở lại là hiện lại đúng mốc đó. Mỗi mốc hiện MỘT lần; dải khẩn
+        // bên dưới vẫn liệt kê đủ.
+        markSeenKeys(
+          found.map((d) => d.key),
+          todayIso,
+        );
+        setDue(found);
       });
     return () => {
       alive = false;
@@ -45,13 +55,7 @@ export function DocRemindOnOpen() {
 
   if (due.length === 0) return null;
 
-  const close = () => {
-    markSeenKeys(
-      due.map((d) => d.key),
-      todayIso,
-    );
-    setDue([]);
-  };
+  const close = () => setDue([]);
   const { title } = docPushMessage(due);
   // Chỉ toàn giấy của thuyền viên ⇒ mở sổ thuyền viên; có giấy tàu ⇒ tab Giấy tờ
   const href = due.some((d) => d.item.ref.startsWith("doc:"))

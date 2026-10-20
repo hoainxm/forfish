@@ -4,6 +4,7 @@ import {
   parseStorms,
   stormKindLabel,
   stormStatus,
+  stormYieldsToReminder,
   STORM_MAX_AGE_MS,
   type StormAlert,
 } from "../storms";
@@ -183,5 +184,39 @@ describe("stormStatus — ba trạng thái không nhập nhằng", () => {
       T0 - 5 * 60 * 60 * 1000,
     );
     expect(s.kind).toBe("khong-hoi-duoc");
+  });
+});
+
+/* Nhắc hạn giấy khi mở app nhường tin bão — nhưng KHÔNG nhường bản tin cũ
+   (audit 2026-10-20: mất sóng nhiều ngày thì bản cuối có cơn nằm mãi trong
+   máy ⇒ lời nhắc giấy im suốt chuyến). */
+describe("stormYieldsToReminder — nhường tầng 1 chỉ khi tin bão còn mới", () => {
+  const T0 = Date.parse("2026-07-20T07:00:00Z");
+  const bao: StormAlert = {
+    id: "1",
+    name: "WUTIP",
+    kindLabel: "Bão",
+    windKmh: 90,
+    lat: 14,
+    lon: 113,
+    alert: "danger",
+    updated: "",
+    track: [],
+    areas: [],
+  };
+  const at = (ms: number) => new Date(ms).toISOString();
+
+  it("có cơn, tin mới ⇒ nhường", () => {
+    expect(stormYieldsToReminder({ ok: true, storms: [bao], checkedAt: at(T0) }, T0 + 60_000)).toBe(true);
+  });
+  it("có cơn nhưng tin đã quá 12 giờ ⇒ KHÔNG nhường", () => {
+    const old = { ok: true as const, storms: [bao], checkedAt: at(T0) };
+    expect(stormYieldsToReminder(old, T0 + STORM_MAX_AGE_MS + 60_000)).toBe(false);
+    expect(stormYieldsToReminder(old, T0 + 5 * 86_400_000)).toBe(false);
+  });
+  it("không cơn / chưa có tin / hỏi hỏng ⇒ không nhường", () => {
+    expect(stormYieldsToReminder({ ok: true, storms: [], checkedAt: at(T0) }, T0)).toBe(false);
+    expect(stormYieldsToReminder(null, T0)).toBe(false);
+    expect(stormYieldsToReminder({ ok: false }, T0)).toBe(false);
   });
 });

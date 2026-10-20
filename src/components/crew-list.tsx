@@ -45,6 +45,8 @@ import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
 import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import { useTodayVN } from "@/lib/use-today";
+import { markSeenFromUrl } from "@/lib/doc-reminder-local";
+import { todayIsoVN } from "@/lib/days";
 
 /** Định danh một bạn thuyền để tra/báo cảnh báo — CCCD hoặc SĐT (1 trong 2). */
 type Identity = { cccd?: string; phone?: string };
@@ -180,6 +182,12 @@ export function CrewList() {
 
   const { access } = useFeatureAccess();
   const configured = isSupabaseConfigured();
+
+  // Mở từ thông báo nhắc hạn bảo hiểm/chứng chỉ (`/nguoi?nhac=`) ⇒ đánh dấu
+  // đã báo, mở app lần sau không hiện lại đúng chuyện vừa đọc (lib/doc-reminder-local).
+  useEffect(() => {
+    markSeenFromUrl(window.location.href, todayIsoVN());
+  }, []);
 
   // Thuyền viên theo CHỦ (ba-spec 08 R2): hiện toàn bộ, không lọc theo tàu.
   const boatCrew = crew;
