@@ -20,7 +20,7 @@
   · không phải dialog (khác ui/bottom-sheet.tsx vốn là modal có focus-trap)
   Đặt trong container relative của màn hình map; chiều cao tính theo container.
 */
-import { CloseIcon } from "@/components/icons";
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "@/components/icons";
 import { useRef, type ReactNode } from "react";
 
 export type SheetSize = "hidden" | "peek" | "half";
@@ -35,6 +35,7 @@ export function SnapSheet({
   above,
   label,
   hiddenLabel,
+  side = false,
   peek,
   children,
 }: {
@@ -62,6 +63,8 @@ export function SnapSheet({
       CHA dựng sẵn chuỗi, con chỉ render — và cha chỉ truyền khi nấc `hidden`
       đến từ ĐỒNG HỒ TỰ-ẨN, không truyền khi bị lớp nổi khác ép ẩn. */
   hiddenLabel?: string;
+  /** Ngăn kéo BÊN PHẢI thay sheet đáy (tab dính mép phải; xem nhánh `if (side)`). */
+  side?: boolean;
   /** Phần luôn thấy ở mọi nấc */
   peek: React.ReactNode;
   /** Phần chi tiết — chỉ thấy ở half/full, cuộn bên trong sheet */
@@ -75,6 +78,7 @@ export function SnapSheet({
 
   // Vuốt lên = nở, vuốt xuống = thu. Chạm nhẹ (ít di chuyển) thì coi như tap → nở.
   const dragY = useRef<number | null>(null);
+  const dragX = useRef<number | null>(null);
   const onPointerDown = (e: React.PointerEvent) => {
     dragY.current = e.clientY;
   };
@@ -93,6 +97,90 @@ export function SnapSheet({
       else grow();
     }
   };
+
+  /*  BIẾN THỂ NGĂN KÉO BÊN PHẢI (anh Long 2026-10-20: "thin drag bar chuyển
+      qua side… kéo side khác kéo dưới lên" — tay cầm ở cạnh thì bảng phải
+      TRƯỢT RA TỪ CẠNH, không mọc từ đáy).
+      · `hidden`/`peek`: không vẽ thân — chỉ hàng `above` ở đáy (bước ngày +
+        chip dữ liệu) + TAB DÍNH MÉP PHẢI (vạch kéo dọc + ‹). Chạm bản đồ (peek)
+        chỉ cập nhật số trên hàng đáy, KHÔNG bung bảng che bản đồ.
+      · `half`: ngăn kéo cao trọn khung map, rộng min(22rem, 84%), chừa một dải
+        bản đồ bên trái. Vuốt TRÁI ở tab / chạm tab = mở; vuốt PHẢI trong ngăn /
+        nút "Thu" = đóng. Không scrim, không khoá bản đồ (cùng luật sheet đáy). */
+  if (side) {
+    const open = size === "half";
+    const onSideUp = (e: React.PointerEvent, wasOpen: boolean) => {
+      const start = dragX.current;
+      dragX.current = null;
+      if (start == null) return;
+      const dx = e.clientX - start;
+      if (!wasOpen && (dx < -24 || Math.abs(dx) < 8)) onSizeChange("half");
+      else if (wasOpen && dx > 36) onSizeChange("hidden");
+    };
+    return (
+      <section
+        role="region"
+        aria-label={label}
+        onPointerDownCapture={onInteract}
+        onKeyDownCapture={onInteract}
+        onScrollCapture={onInteract}
+        className="pointer-events-none absolute inset-0 z-10"
+      >
+        {above && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 pb-2">
+            {above}
+          </div>
+        )}
+        {!open && (
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              dragX.current = e.clientX;
+            }}
+            onPointerUp={(e) => onSideUp(e, false)}
+            style={{ touchAction: "none" }}
+            aria-label={`Mở bảng ${label.toLowerCase()} — vuốt sang trái hoặc chạm`}
+            className="pointer-events-auto absolute bottom-[4.5rem] right-0 flex h-[4.5rem] w-7 flex-col items-center justify-center gap-1 rounded-l-xl border border-r-0 border-line bg-card/95 text-navy shadow-float active:bg-field"
+          >
+            <span className="h-6 w-1 rounded-full bg-navy/35" aria-hidden />
+            <ChevronLeftIcon className="h-4 w-4 text-navy/70" />
+          </button>
+        )}
+        {open && (
+          <div
+            className="anim-pop-in pointer-events-auto absolute bottom-0 right-0 top-0 flex w-[min(22rem,84%)] flex-col rounded-l-[1.5rem] bg-background shadow-float"
+          >
+            {/* hàng đầu: vạch kéo DỌC ở mép trái ngăn (vuốt phải để thu) */}
+            <div
+              onPointerDown={(e) => {
+                dragX.current = e.clientX;
+              }}
+              onPointerUp={(e) => onSideUp(e, true)}
+              style={{ touchAction: "pan-y" }}
+              className="flex items-center gap-2 border-b border-line pl-2 pr-2 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2"
+            >
+              <span className="h-6 w-1 shrink-0 rounded-full bg-line" aria-hidden />
+              <p className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">{label}</p>
+              <button
+                type="button"
+                onClick={() => onSizeChange("hidden")}
+                aria-label="Thu bảng sang phải"
+                className="flex h-(--h-ctl) shrink-0 items-center gap-1 rounded-full bg-field px-3 text-[0.875rem] font-semibold text-navy active:scale-95"
+              >
+                Thu
+                <ChevronRightIcon className="h-4 w-4" />
+              </button>
+            </div>
+            {/* tóm tắt (peek) + chi tiết cùng cuộn, nguyên bề ngang ngăn */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-3 [overscroll-behavior:contain]">
+              {peek}
+              <div className="mt-2">{children}</div>
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section

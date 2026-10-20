@@ -4791,7 +4791,7 @@ export default function FishingMapView() {
       if (isPastDay(d.date, todayIso)) continue;
       if (dayChipLocked(d.date)) {
         setDayLockNote(true);
-        setSize("peek");
+        setSize("half");
         return;
       }
       setDayLockNote(false);
@@ -4820,7 +4820,7 @@ export default function FishingMapView() {
           onClick={() => stepDay(-1)}
           disabled={!canStep(-1)}
           aria-label="Ngày trước"
-          className="flex h-full w-10 items-center justify-center rounded-l-full text-navy active:bg-field disabled:opacity-30"
+          className="flex h-full w-9 items-center justify-center rounded-l-full text-navy active:bg-field disabled:opacity-30"
         >
           <ChevronLeftIcon className="h-4 w-4" />
         </button>
@@ -4831,19 +4831,19 @@ export default function FishingMapView() {
         <button
           type="button"
           onClick={() => {
-            setSize("peek");
+            setSize("half");
             armSheetHide();
           }}
           aria-live="polite"
           aria-label={`${chipLabel(sel.date, todayIso)}: sóng ${
             sel.waveMaxM > 0 ? `${formatNumberVN(sel.waveMaxM)} mét` : "chưa rõ"
           }, gió cấp ${beaufort(sel.windMaxKmh)}. Chạm xem chi tiết`}
-          className="flex h-full min-w-[6.5rem] flex-col items-center justify-center px-1 leading-tight"
+          className="flex h-full flex-col items-center justify-center px-1 leading-tight"
         >
-          <span className="text-[0.8125rem] font-semibold text-navy">
+          <span className="whitespace-nowrap text-[0.8125rem] font-semibold text-navy">
             {chipLabel(sel.date, todayIso)}
           </span>
-          <span className="text-[0.75rem] text-foreground/70">
+          <span className="whitespace-nowrap text-[0.75rem] text-foreground/70">
             Sóng{" "}
             {/* ước lượng: dấu "~" (chữ " (ước lượng)" quá dài cho viên gọn;
                 aria-label + thân sheet vẫn nói đủ) */}
@@ -4858,12 +4858,18 @@ export default function FishingMapView() {
           onClick={() => stepDay(1)}
           disabled={!canStep(1)}
           aria-label="Ngày sau"
-          className="flex h-full w-10 items-center justify-center rounded-r-full text-navy active:bg-field disabled:opacity-30"
+          className="flex h-full w-9 items-center justify-center rounded-r-full text-navy active:bg-field disabled:opacity-30"
         >
           <ChevronRightIcon className="h-4 w-4" />
         </button>
       </div>
     ) : null;
+
+  /*  Hàng đáy gọn đang hiện (nấc hidden do đồng hồ tự-ẩn, không lớp nổi nào ép
+      ẩn, không mở thanh giờ, có ngày để bước) — một điều kiện cho cả bước ngày,
+      nút ⌃ cạnh phải và việc SnapSheet bỏ thanh kéo giữa đáy. */
+  const stepperRowOn =
+    size !== "half" && !sheetHiddenByOverlay && !overlayOn && !!dayStepper;
 
   /*  Dòng "ở đâu" CHỈ nói TÊN chỗ khi con trỏ đang đứng trên một điểm đã ghim.
       Không ghim thì KHÔNG nói gì — cột phải của peek để trống cho dòng toạ độ.
@@ -7782,6 +7788,12 @@ export default function FishingMapView() {
             ? condSummary
             : undefined
         }
+        /*  Thanh kéo giữa đáy dời sang CẠNH PHẢI hàng bước ngày (nút ⌃ ở cuối
+            hàng `above`) — anh Long 2026-10-20 "thin drag bar chuyển qua side".
+            Chỉ khi hàng đó đang dựng nút mở (cùng điều kiện với dayStepper). */
+        /*  NGĂN KÉO BÊN PHẢI (anh Long 2026-10-20): tab dính mép phải thay thanh
+            kéo đáy; mở = trượt từ cạnh. Chạm bản đồ (peek) chỉ cập nhật hàng đáy. */
+        side
         above={
           /*  CÒN Ở NẤC `hidden` NỮA (user 2026-08-24: "cái chip tải cái gì đủ
               hay chưa đâu rồi?"): chip độ phủ `PretripSavedStatus` là nhãn
@@ -7802,7 +7814,7 @@ export default function FishingMapView() {
                     bên trái để trống, chip dữ liệu vẫn căn phải như cũ. */
                 <div className="flex items-end gap-2">
                   <div className="min-w-0 flex-1">
-                    {size === "hidden" && !sheetHiddenByOverlay && !overlayOn && dayStepper}
+                    {stepperRowOn && dayStepper}
                   </div>
                 <div className="flex flex-col items-end gap-2">
                   {!overlayOn && fishOn && !fishCast && fishFailMsg && (
@@ -7820,10 +7832,12 @@ export default function FishingMapView() {
                       </span>
                     </button>
                   )}
-                  <PretripSavedStatus
-                    points={pretripPoints}
-                    fishLocked={fishLocked}
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <PretripSavedStatus
+                      points={pretripPoints}
+                      fishLocked={fishLocked}
+                    />
+                  </div>
                 </div>
                 </div>
               )}
