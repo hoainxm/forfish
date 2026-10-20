@@ -6,6 +6,7 @@
 
 covers: src/app/globals.css
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-20p — pattern KHUNG BẢN ĐỒ (components/ban-do/khung.tsx): ô tìm pill cao --h-ctl viền line nền card/95; đồng hồ tốc độ tròn 4.5rem viền 4px sea (vàng khi GPS cũ), số 1.375rem đậm tabular + đơn vị 0.625rem; nút về tàu tròn --h-cta; thẻ trạng thái đáy rộng hết màn bo 1rem min-h --h-row. CHẾ ĐỘ GỌN `@container/map` <15rem: rail chỉ icon (`.sq-btn.sq-tile` thu về vuông --h-ctl). Khối mời tài khoản: thẻ viền line + hai nút ngang bằng --h-cta (cam đặc · viền). -->
 <!-- re-verified: 2026-10-20o — ĐÍNH CHÍNH 2026-10-20n: màu loài cá KHÔNG nạp vào paint MapLibre (chỉ DOM: chấm bảng chọn loài, nút chọn loài, ghim cá) — nay qua 38 token `--sp-<tên ngắn>` ở globals.css, hồ sơ loài trỏ `var(--sp-…)`; cổng `species-colors.test.ts` đối chiếu token + không trùng. Đầu ngăn bên: container query <15rem ⇒ tiêu đề riêng dòng, "Giữ mở" icon khoá, nút 2.25rem. Nhãn ≤2 chữ: "Chọn loài", "Mọi loài". -->
 <!-- re-verified: 2026-10-20m — token mới `--fish-all-from` #95d5b2 · `--fish-all-to` #1b4b2c (chấm "Mọi loài" = dải thang mật độ cá) · `--fish-unknown` #888888; `--w-app` giữ px CÓ CHỦ Ý (ghi ở globals.css: khung không nở theo chế độ chữ). -->
 <!-- re-verified: 2026-10-20l — token `--w-app: 480px` = bề ngang khung app (một nguồn cho khung, dock, sheet đáy, thanh mua, lớp nổi; px CÓ CHỦ Ý vì khung không nở theo chế độ "Chữ to"); lưới số ngăn gió sóng thích ứng bằng container query (3 cột từ 17rem, dưới đó 2 cột), không cắt chữ. -->

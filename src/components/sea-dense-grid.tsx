@@ -92,11 +92,11 @@ export function SeaDensePanel({
 }
 
 /**
- * VIÊN TÓM TẮT dính mép phải (nội dung tay cầm mở ngăn): ngày đang xem · sóng cao
- * nhất ("~" nếu ước) · cấp gió. Số từ BẢN LƯU ⇒ thêm dòng "Bản lưu HH:MM" màu
- * cảnh báo — báo theo `stale`, không theo `savedAt` (rà Codex lần 7: có luồng
- * bản lưu mà không có giờ lưu; khi đó vẫn ghi "Bản lưu", chỉ thiếu giờ). Ngày
- * đang xem GIỮ NGUYÊN — bản lưu không có nghĩa là đang xem hôm nay.
+ * NỘI DUNG THẺ TRẠNG THÁI ĐÁY (tay cầm mở ngăn gió sóng; khung mới 2026-10-20
+ * theo ảnh mẫu hải đồ): dòng 1 = chấm + tình trạng biển · ngày đang xem; dòng 2
+ * = sóng cao nhất ("~" nếu ước) · cấp gió; dòng 3 (chỉ khi số từ bản lưu) =
+ * "Bản lưu HH:MM" màu cảnh báo — báo theo `stale`, kể cả khi không biết giờ lưu.
+ * Chữ xuống dòng, không cắt (chữ phóng to vẫn đọc đủ).
  */
 export function SeaTab({
   date,
@@ -106,6 +106,7 @@ export function SeaTab({
   windMaxKmh,
   stale,
   savedAt,
+  state,
 }: {
   date: string;
   todayIso: string;
@@ -114,18 +115,28 @@ export function SeaTab({
   windMaxKmh: number;
   stale: boolean;
   savedAt: number | null;
+  /** tình trạng biển ngày đang xem (null = chưa chấm được) */
+  state: { label: string; color: string } | null;
 }) {
   return (
-    /*  Không `whitespace-nowrap` (rà Codex lần 9): phóng chữ 200% thì viên nở
-        ngang tới tràn khỏi màn 320px. Trần bề ngang ~11rem, chữ dài thì xuống
-        dòng — số vẫn đọc đủ, không cắt. */
-    <span className="flex max-w-[11rem] flex-col items-start leading-tight">
-      <span className="text-[0.75rem] text-foreground/65">{chipLabel(date, todayIso)}</span>
-      <span className="text-[0.8125rem] font-semibold text-navy">
-        {waveMaxM > 0 ? `${waveEstimated ? "~" : ""}${formatNumberVN(waveMaxM)} m` : "—"} · cấp {beaufort(windMaxKmh)}
+    <span className="flex flex-col items-start gap-0.5 leading-tight">
+      <span className="flex flex-wrap items-center gap-x-1.5 text-[0.9375rem] font-semibold">
+        {state && (
+          <>
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: state.color }} aria-hidden />
+            <span style={{ color: state.color }}>{state.label}</span>
+            <span className="text-foreground/40" aria-hidden>
+              ·
+            </span>
+          </>
+        )}
+        <span className="text-navy">{chipLabel(date, todayIso)}</span>
+      </span>
+      <span className="text-[0.875rem] text-foreground/70 tabular-nums">
+        Sóng {waveMaxM > 0 ? `${waveEstimated ? "~" : ""}${formatNumberVN(waveMaxM)} m` : "—"} · gió cấp {beaufort(windMaxKmh)}
       </span>
       {stale && (
-        <span className="text-[0.75rem] font-semibold text-warn">
+        <span className="text-[0.8125rem] font-semibold text-warn">
           Bản lưu{savedAt != null ? ` ${savedStampVN(savedAt, todayIso)}` : ""}
         </span>
       )}

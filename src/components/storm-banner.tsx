@@ -183,7 +183,11 @@ export function StormBanner({
             bão / không hỏi được vẫn nền màu như cũ (hai nhánh trên dưới). */
         <p role="status" className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full border border-line bg-card/90 px-3 py-1 text-[0.8125rem] leading-snug text-foreground/75 shadow-sm">
           <CheckIcon className="h-4 w-4 shrink-0 text-ok" />
-          Không có bão · hỏi {at}
+          {/* MỘT khối chữ (span bọc) — để riêng phần giờ thành ô flex thứ hai là
+              chữ bị bẻ thành hai cột; chế độ gọn của bản đồ chỉ giấu phần giờ. */}
+          <span>
+            Không có bão<span className="@max-[15rem]/map:sr-only"> · hỏi {at}</span>
+          </span>
         </p>
       );
     }

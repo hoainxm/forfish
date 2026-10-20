@@ -147,6 +147,17 @@ export function kmToUnit(km: number, unit: DistUnit): number {
 export function distUnitLabel(unit: DistUnit): string {
   return unit === "km" ? "km" : "hải lý";
 }
+/**
+ * ĐỒNG HỒ TỐC ĐỘ góc trái dưới màn bản đồ (khung mới 2026-10-20): số tốc độ GPS
+ * theo đơn vị khoảng cách bà con chọn — "hải lý" ⇒ hải lý/giờ, "km" ⇒ km/h.
+ * Dưới 0,3 coi là đứng yên (nhiễu GPS khi neo) ⇒ "0". `null` (chưa có fix) ⇒ "—".
+ */
+export function speedReadout(kmh: number | null, unit: DistUnit): { value: string; unit: string } {
+  const u = unit === "km" ? "km/h" : "hải lý/giờ";
+  if (kmh == null || !Number.isFinite(kmh)) return { value: "—", unit: u };
+  const v = unit === "km" ? kmh : kmh / KM_PER_NM;
+  return { value: v < 0.3 ? "0" : formatNumberVN(v, v < 10 ? 1 : 0), unit: u };
+}
 /** "349 hải lý" / "646 km" — làm tròn theo digits (mặc định số nguyên). */
 export function fmtDist(km: number, unit: DistUnit, digits = 0): string {
   return `${formatNumberVN(kmToUnit(km, unit), digits)} ${distUnitLabel(unit)}`;

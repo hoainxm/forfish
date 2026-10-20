@@ -174,11 +174,20 @@ export function SnapSheet({
         onPointerDownCapture={onInteract}
         onKeyDownCapture={onInteract}
         onScrollCapture={onInteract}
-        className="pointer-events-none absolute inset-0 z-10"
+        /*  MỞ NGĂN ⇒ NỔI TRÊN cụm điều khiển phía trên (z-30 > z-20): chữ phóng
+            to thì ô toạ độ / rail kéo dài xuống tới ngăn — người dùng vừa CHỦ ĐỘNG
+            mở ngăn để đọc, nên ngăn thắng; thu ngăn là cụm trên lộ lại. Lớp nổi
+            khác (panel Lớp, Toạ độ…) mở là ép ẩn ngăn nên không bị che. */
+        className={`pointer-events-none absolute inset-0 ${open ? "z-30" : "z-10"}`}
       >
         {!open && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-end gap-2 pb-3 pl-2">
-            {above && <div className="w-full pr-2">{above}</div>}
+          /*  THẺ TRẠNG THÁI ĐÁY (khung mới 2026-10-20, theo ảnh mẫu hải đồ anh Long
+              gửi): viên dính mép phải → THẺ RỘNG HẾT MÀN ở đáy, lề 0.5rem. Chữ có
+              chỗ nằm ngang (ngày · tình trạng · số) thay vì xếp 3 dòng trong viên
+              hẹp; vẫn là tay cầm: chạm/vuốt TRÁI mở ngăn bên phải như cũ. `above`
+              (đồng hồ tốc độ · nút về tàu · chip dữ liệu · thanh giờ) ngay trên. */
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 px-2 pb-2">
+            {above && <div className="w-full">{above}</div>}
             <button
               ref={tabRef}
               type="button"
@@ -197,10 +206,12 @@ export function SnapSheet({
               aria-label={`Mở bảng ${label.toLowerCase()}${sideTabLabel ? ` — ${sideTabLabel}` : ""}`}
               /*  CAO TỐI THIỂU, không cố định (rà Codex lần 8): viên có thể 3 dòng
                   (ngày · số · bản lưu) và phóng chữ to — `h-` cố định là tràn. */
-              className="pointer-events-auto flex min-h-(--h-ctl) items-center py-1 gap-2 rounded-l-full border border-r-0 border-line bg-card/95 pl-2 pr-3 text-navy shadow-float active:bg-field"
+              className="pointer-events-auto flex min-h-(--h-row) w-full items-center gap-3 rounded-2xl border border-line bg-card/97 px-4 py-2 text-left text-navy shadow-float active:bg-field"
             >
-              <ChevronLeftIcon className="h-4 w-4 shrink-0 text-navy/60" />
-              {sideTab ?? <span className="text-[0.8125rem] font-semibold">{label}</span>}
+              <span className="min-w-0 flex-1">
+                {sideTab ?? <span className="text-[0.9375rem] font-semibold">{label}</span>}
+              </span>
+              <ChevronLeftIcon className="h-5 w-5 shrink-0 text-navy/55" aria-hidden />
             </button>
           </div>
         )}
@@ -212,6 +223,8 @@ export function SnapSheet({
               số (đang tải / lỗi / chạm đất liền) thì `peek` (câu trạng thái) nằm
               ngay trong ngăn thấp này. "Xem đủ" nối `children` DƯỚI lưới số —
               chỉ phần lưới chưa có (giải thích, nguồn, thao tác), không lặp số.
+              Chế độ gọn của bản đồ (`@container/map` <15rem, chữ phóng to): ngăn
+              rộng gần trọn màn để ba nút đầu ngăn đứng MỘT hàng.
               Sàn cao `min(10rem,75%)` tính bằng REM: cỡ thường (≤160px) vẫn là 1/3
               màn; chữ phóng 200% thì sàn gấp đôi — đầu ngăn to ra không ăn hết
               chỗ đọc số (đo 320×700 @32px: đầu 108px trong ngăn 276px). */
@@ -231,7 +244,7 @@ export function SnapSheet({
             }}
             onPointerUp={(e) => onSideUp(e, true)}
             style={{ touchAction: "pan-y" }}
-            className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[min(10rem,75%)] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float focus:outline-none focus-visible:ring-2 focus-visible:ring-sea"
+            className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[min(10rem,75%)] w-[min(22rem,84%)] @max-[15rem]/map:w-[calc(100%-0.5rem)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float focus:outline-none focus-visible:ring-2 focus-visible:ring-sea"
           >
             <div className="@container flex flex-wrap items-center gap-1 border-b border-line py-1.5 pl-3 pr-2">
               {/*  ĐẦU NGĂN THÍCH ỨNG (rà Codex lần 9–10, đo 320×700 chữ 200%):

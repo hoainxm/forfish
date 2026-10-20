@@ -131,6 +131,7 @@ export function RaKhoiControls({
   onGoCoord,
   cursor,
   addPlaceSignal,
+  openCoordSignal,
   onLayerOpenChange,
   closeLayersSignal,
   onRoutePanel,
@@ -158,6 +159,9 @@ export function RaKhoiControls({
       rail mở ô "Điểm đã lưu" kèm form thêm điểm, toạ độ đã điền sẵn theo con
       trỏ. Đếm chứ không dùng boolean: lưu chỗ thứ hai vẫn phải kích được. */
   addPlaceSignal?: number;
+  /** tăng số = mở ô "Toạ độ" (gõ tay toạ độ để đến điểm) — ô tìm "Đi đâu?" ở
+   *  đầu màn bản đồ gọi qua đây (khung mới 2026-10-20, theo ảnh mẫu hải đồ) */
+  openCoordSignal?: number;
   /*  BÁO LÊN CHA khi rail đang mở một LỚP NỔI (panel lớp · ô "Đến điểm" · ô
       "Điểm đã lưu"). Cha dùng để không bung sheet gió sóng đè lên — luật một
       lúc một lớp nổi ở 07 §10.7 I. */
@@ -266,6 +270,13 @@ export function RaKhoiControls({
     setAddPlaceOpen(true);
     setPrefillTick(addPlaceSignal);
   }, [addPlaceSignal]);
+  useEffect(() => {
+    if (!openCoordSignal) return;
+    setOpen(null);
+    setPlacesOpen(false);
+    setMore(false);
+    setCoordOpen(true);
+  }, [openCoordSignal]);
   /*  ĐÓNG PANEL LÀ DỌN LUÔN TRẠNG THÁI FORM (2026-08-29h — chủ dự án: *"điểm
       đã lưu ko thấy điểm cũ? t lưu điểm gà mà ko thấy"*).
 
@@ -672,7 +683,8 @@ function RailBtn({
         />
       )}
       <Icon className="h-5 w-5" />
-      <span>{label}</span>
+      {/* chế độ gọn của bản đồ (khung hẹp <15rem): chỉ icon, tên vẫn đọc được */}
+      <span className="@max-[15rem]/map:sr-only">{label}</span>
     </button>
   );
 }

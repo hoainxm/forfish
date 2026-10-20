@@ -287,6 +287,7 @@ import { buildUVField } from "@/lib/particle-field";
 import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { FishHotspotMarker, SavedPlaceMarker, type FishHotspot } from "@/components/ban-do/diem-ghim";
+import { DongHoTocDo, NutViTri, OTimDiem } from "@/components/ban-do/khung";
 import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
 import { useNavVoice } from "@/lib/nav-voice/use-nav-voice";
@@ -904,6 +905,8 @@ export default function FishingMapView() {
       CHỈ áp cho luồng xem THƯỜNG. Dẫn đường / đo / mở lớp rail: chạm = dời con
       trỏ có chủ đích, KHÔNG toggle (xem nhánh trong onClick của MapGL). */
   const [pick, setPick] = useState<"idle" | "picked" | "cleared">("idle");
+  /** ô tìm "Đi đâu?" ở đầu màn → tăng số để rail mở ô gõ toạ độ */
+  const [openCoordSignal, setOpenCoordSignal] = useState(0);
   /** xem chú thích ở `hideSheetForOverlay` — true = bị lớp nổi khác ép ẩn */
   const [sheetHiddenByOverlay, setSheetHiddenByOverlay] = useState(false);
   /*  ĐIỀU PHỐI NGĂN (đồng hồ 3 s · "Giữ mở" · ép ẩn · ranh giới) — một nguồn ở
@@ -4777,6 +4780,7 @@ export default function FishingMapView() {
         windMaxKmh={sel.windMaxKmh}
         stale={cond.stale}
         savedAt={cond.savedAt}
+        state={sel.level != null ? { label: SEA_STATE[sel.level], color: LEVEL_STYLE[sel.level].fg } : null}
       />
     ) : null;
 
@@ -4924,7 +4928,12 @@ export default function FishingMapView() {
       : null;
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-t1-bg">
+    /*  `@container/map` — CHẾ ĐỘ GỌN khi khung bản đồ hẹp dưới 15rem (chữ phóng
+        to ≳135% trên máy 320px; cỡ thường máy 320px = 20rem nên không dính):
+        ẩn ô toạ độ + chú giải cá, rail chỉ còn icon, tin bão yên một dòng — giữ
+        ô tìm, tin bão, thẻ trạng thái, nút về tàu. Đo 320×700 @32px trước đó:
+        các khối nổi chồng lên nhau và đè thẻ đáy (rà Codex lần 11). */
+    <div className="@container/map relative h-full w-full overflow-hidden bg-t1-bg">
       {/* ── BẢN ĐỒ — cả màn hình ─────────────────────────────────────────── */}
       {/*  Bắt CHẠM GIỮ ở lớp bọc, pha bubble: MapLibre vẫn nhận đủ cử chỉ
            kéo/zoom như thường; ta chỉ đếm giờ và huỷ ngay khi ngón tay xê dịch
@@ -7407,10 +7416,6 @@ export default function FishingMapView() {
       <div
         className="safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2"
       >
-        <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
-        {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
-            không có bão thật); component tự bung 1 lần rồi thu về chip. */}
-        {earlyWarning && <StormEarlyBanner ew={earlyWarning} />}
         {/* DẪN ĐƯỜNG LIVE: thẻ HUD LUÔN hiện khi đang dẫn đường (kể cả kéo sheet
             lên) — dưới banner bão. Gợi ý lái + quãng/giờ còn lại + nút Dừng. */}
         {navOn && (
@@ -7450,22 +7455,50 @@ export default function FishingMapView() {
             rồi ghim lại giúp nhé.
           </div>
         )}
-        {/* HÀNG ĐIỀU KHIỂN: ô toạ độ kiểu máy định vị (TRÁI) + rail lớp (PHẢI).
-            Xếp cùng một hàng để ô toạ độ không đẩy rail tụt xuống mất chỗ. */}
-        <div className="flex items-start justify-between gap-2">
-          {/* Ô TOẠ ĐỘ — hai số bà con quen đọc trên máy định vị: chỗ TÀU đang
-              đứng + chỗ CON TRỎ đang trỏ tới (kèm cách tàu bao xa, hướng nào).
-              Góp ý VSS Quân Bình Định 2026-08-25. */}
-          <PlotterReadout
-            myPos={tracking.pos}
-            status={tracking.status}
-            blocked={geoError}
-            lastFixAt={tracking.lastFixAt}
-            accuracyM={tracking.accuracyM}
-            cursor={pick === "cleared" ? null : point}
-            onGoMyPos={goToMyBoat}
-          />
+        {/*  KHUNG MỚI (2026-10-20, theo ảnh mẫu hải đồ anh Long gửi): CỘT TRÁI xếp
+             THEO LUỒNG — ô tìm "Đi đâu?" · tin bão · ô toạ độ · chú giải cá — và
+             RAIL lớp bên phải cùng hàng với ô tìm. Trước: tin bão một hàng riêng
+             trên cùng, ô toạ độ + rail một hàng, chú giải cá đặt tuyệt đối
+             `top-[11rem]` ⇒ phóng chữ 200% là các khối đè nhau. Xếp theo luồng
+             thì khối to ra chỉ đẩy khối dưới xuống, không đè. Tin bão vẫn LUÔN
+             hiện (cảnh báo an toàn không ai được che). */}
+        <div className="flex items-start gap-2">
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            {!navOn && <OTimDiem onOpen={() => setOpenCoordSignal((n) => n + 1)} />}
+            <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
+            {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
+                không có bão thật); component tự bung 1 lần rồi thu về chip. */}
+            {earlyWarning && <StormEarlyBanner ew={earlyWarning} />}
+            {/* Ô TOẠ ĐỘ — hai số bà con quen đọc trên máy định vị: chỗ TÀU đang
+                đứng + chỗ CON TRỎ đang trỏ tới (kèm cách tàu bao xa, hướng nào).
+                Góp ý VSS Quân Bình Định 2026-08-25. */}
+            <div className="@max-[15rem]/map:hidden">
+            <PlotterReadout
+              myPos={tracking.pos}
+              status={tracking.status}
+              blocked={geoError}
+              lastFixAt={tracking.lastFixAt}
+              accuracyM={tracking.accuracyM}
+              cursor={pick === "cleared" ? null : point}
+              onGoMyPos={goToMyBoat}
+            />
+            </div>
+            {/* CHÚ GIẢI MÀU LỚP CÁ — theo luồng dưới ô toạ độ (trước đặt tuyệt đối
+                `top-[11rem]`, phóng chữ to là đè lên ô toạ độ). */}
+            {fishGridGeo && (
+              <div className="pointer-events-none flex items-center gap-2 self-start rounded-lg border border-line bg-card px-2 py-1 @max-[15rem]/map:hidden text-[0.6875rem] font-medium text-navy shadow-sm">
+                <span className="font-semibold">Dự báo cá</span>
+                {FISH_LEVEL_BANDS.map((b) => (
+                  <span key={b.key} className="flex items-center gap-1">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: b.color }} aria-hidden />
+                    {b.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
           <RaKhoiControls
+            openCoordSignal={openCoordSignal}
             onLocateMe={goToMyBoat}
             cursor={point}
             addPlaceSignal={addPlaceSignal}
@@ -7650,25 +7683,6 @@ export default function FishingMapView() {
 
       </div>
 
-      {/* CHÚ GIẢI NGƯ TRƯỜNG — nổi sát MÉP TRÁI bản đồ, chỉ khi lớp Cá đang
-          hiện lưới màu (user 2026-07-27: cho ra ngoài bản đồ cho dễ nhìn, khỏi
-          mở panel). Luôn hiện: ngăn gió sóng nay ở đáy phải, không chạm chỗ này. */}
-      {fishGridGeo && (
-        <div className="pointer-events-none absolute left-2 top-[11rem] z-20">
-
-          {/* chip chú giải gọn theo mẫu (2026-10-19): một hàng "Dự báo cá" + 3 mức */}
-          <div className="flex items-center gap-2 rounded-lg border border-line bg-card px-2 py-1 text-[0.6875rem] font-medium text-navy shadow-sm">
-            <span className="font-semibold">Dự báo cá</span>
-            {FISH_LEVEL_BANDS.map((b) => (
-              <span key={b.key} className="flex items-center gap-1">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: b.color }} aria-hidden />
-                {b.label}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ── SHEET ĐÁY 3 NẤC — một chế độ duy nhất ────────────────────────── */}
       {/*  CHẾ ĐỘ DẪN ĐƯỜNG — LỚP RIÊNG trên bản đồ, KHÔNG nằm trong sheet
            (2026-08-28). Thanh trên bám mép trên, thẻ dưới bám trên dock; ở giữa
@@ -7754,19 +7768,24 @@ export default function FishingMapView() {
               chưa. Trước đó slot này chỉ dựng ở `peek`, nên sheet tự ẩn xuống
               là chip mất theo. Nay dùng `sheetThu` (peek + hidden) — chip nổi
               ngay trên thanh kéo, chỉ nhường chỗ khi bà con kéo sheet lên đọc. */
-          overlayOn || sheetThu ? (
-            <div className="flex flex-col gap-1.5">
+          /*  HÀNG GÓC ĐÁY (khung mới 2026-10-20): ĐỒNG HỒ TỐC ĐỘ góc trái (chỉ khi
+              máy có vị trí tàu) · cột phải = lỗi dự báo cá (hiếm) + chip dữ liệu
+              (icon, chỉ khi THIẾU) + NÚT VỀ TÀU. Nằm ngay trên thẻ trạng thái;
+              mở ngăn thì cả hàng nhường chỗ (SnapSheet chỉ vẽ `above` khi thu). */
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-end justify-between gap-2">
+              {tracking.pos ? (
+                <DongHoTocDo kmh={tracking.speedKmh} unit={prefs.distUnit} stale={tracking.status !== "tracking"} />
+              ) : (
+                <span />
+              )}
+              <div className="flex flex-col items-end gap-2">
               {/* Nhãn nhỏ "trong máy đã có dự báo tới đâu" — liếc là biết đã sẵn
                   sàng ra khơi chưa. Có ở nấc peek VÀ hidden (`sheetThu`), chỉ ẩn
                   khi kéo sheet lên đọc chi tiết cho khỏi rối; căn phải, nằm ngay
                   trên mép sheet. Dòng lỗi dự báo cá (nếu có) xếp NGAY TRÊN nhãn. */}
-              {sheetThu && !sheetHiddenByOverlay && (
-                /*  CHỈ NỔI KHI CÓ VIỆC (2026-10-20, anh Long: "thông tin trùng lặp,
-                    thiết kế vẫn to"): bỏ hàng bước ngày + chip chữ ở đáy — tóm
-                    tắt ngày/sóng/gió đã ở VIÊN dính mép phải (sideTab), đổi ngày
-                    trong ngăn. Còn lại: lỗi dự báo cá (hiếm) + chip dữ liệu dạng
-                    ICON, chỉ hiện khi THIẾU/cần sóng (đủ thì nằm ở đầu ngăn). */
-                <div className="flex flex-col items-end gap-2">
+                {sheetThu && !sheetHiddenByOverlay && (
+                  <>
                   {!overlayOn && fishOn && !fishCast && fishFailMsg && (
                     <button
                       type="button"
@@ -7782,14 +7801,21 @@ export default function FishingMapView() {
                       </span>
                     </button>
                   )}
-                  <PretripSavedStatus
-                    points={pretripPoints}
-                    fishLocked={fishLocked}
-                    iconOnly
-                    hideWhenOk
-                  />
-                </div>
-              )}
+                  {/* chế độ gọn (khung <15rem): chip này chạm rail — bản đủ chữ đã ở đầu ngăn */}
+                  <span className="@max-[15rem]/map:hidden">
+                    <PretripSavedStatus
+                      points={pretripPoints}
+                      fishLocked={fishLocked}
+                      iconOnly
+                      hideWhenOk
+                    />
+                  </span>
+                  </>
+                )}
+                {/* luôn hiện: chưa có vị trí thì bấm là XIN QUYỀN + lấy vị trí lần đầu */}
+                <NutViTri onClick={goToMyBoat} disabled={locating} />
+              </div>
+            </div>
               {/* thanh giờ gió/sóng/mây/mưa/nhiệt XUỐNG ĐÁY kiểu Windy — tay với
                   tới, không chồng 4 tầng trên đầu bản đồ (roadmap UX 2026-06-11) */}
               {overlayOn && (
@@ -7932,8 +7958,7 @@ export default function FishingMapView() {
               )}
                 </div>
               )}
-            </div>
-          ) : undefined
+          </div>
         }
         label="Gió sóng"
         peek={

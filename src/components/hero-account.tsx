@@ -9,7 +9,6 @@ import {
   ChevronRightIcon,
   CloseIcon,
   LockIcon,
-  PlusIcon,
   TrashIcon,
   UsersIcon,
 } from "@/components/icons";
@@ -658,23 +657,30 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
                     vuông cùng hàng = CÙNG 56px, KHÔNG tốn thêm chiều dọc. Đăng
                     ký là CTA chính (cam) cho người chưa có; Đăng nhập cạnh bên
                     cho người đã có tài khoản (vd đang dùng máy khác). */
-                <div className="mb-4 flex items-stretch gap-2">
-                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
-                    <p className="text-[1rem] font-bold text-navy">
-                      Máy này chưa có tài khoản
-                    </p>
+                /*  KHỐI MỜI GỌN (anh Long 2026-10-20: "2 nút đăng nhập đăng ký này ko
+                    đẹp"): trước là câu bị ép 2 dòng + hai ô vuông lệch cỡ (cam có
+                    bóng, xám không) chen chung một hàng. Nay: một thẻ — câu một
+                    dòng ở trên, HAI NÚT NGANG BẰNG NHAU bên dưới (cùng cao --h-cta,
+                    bo 0.75rem, chữ 1rem). Đăng ký = hành động chính (cam đặc) cho
+                    người mới; Đăng nhập = viền mảnh cho người đã có tài khoản. */
+                <div className="mb-4 rounded-2xl border border-line bg-card p-4">
+                  <p className="text-[1rem] font-semibold leading-snug text-navy">
+                    Máy này chưa có tài khoản
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Link
+                      href="/dang-ky"
+                      className="flex h-(--h-cta) items-center justify-center rounded-xl bg-trim text-[1rem] font-semibold text-white transition active:scale-[0.98]"
+                    >
+                      Đăng ký
+                    </Link>
+                    <Link
+                      href="/login"
+                      className="flex h-(--h-cta) items-center justify-center rounded-xl border border-line bg-card text-[1rem] font-semibold text-navy transition active:scale-[0.98]"
+                    >
+                      Đăng nhập
+                    </Link>
                   </div>
-                  <Link
-                    href="/dang-ky"
-                    className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
-                  >
-                    <PlusIcon className="h-6 w-6" />
-                    Đăng ký
-                  </Link>
-                  <Link href="/login" className={`${SQ_BTN} bg-field text-navy`}>
-                    <LockIcon className="h-6 w-6" />
-                    Đăng nhập
-                  </Link>
                 </div>
               ) : (
                 <p className="mb-4 rounded-2xl bg-field px-4 py-3 text-[1rem] leading-snug text-foreground/75">
