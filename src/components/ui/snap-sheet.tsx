@@ -39,6 +39,7 @@ export function SnapSheet({
   sideTab,
   sideHeader,
   sideDense,
+  sideTitle,
   peek,
   children,
 }: {
@@ -75,6 +76,8 @@ export function SnapSheet({
   /** Nội dung DÀY SỐ cho ngăn thấp 1/3 màn (mặc định khi mở). "Xem đủ" mở thêm
    *  `peek` + `children` (câu giải thích đầy đủ) ngay trong ngăn, cuộn dọc. */
   sideDense?: ReactNode;
+  /** Thay chữ tiêu đề ở đầu ngăn thấp (vd "● Biển êm") — đỡ một hàng. */
+  sideTitle?: ReactNode;
   /** Phần luôn thấy ở mọi nấc */
   peek: React.ReactNode;
   /** Phần chi tiết — chỉ thấy ở half/full, cuộn bên trong sheet */
@@ -178,7 +181,9 @@ export function SnapSheet({
             className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[13rem] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float"
           >
             <div className="flex items-center gap-1.5 border-b border-line px-3 py-1.5">
-              <p className="min-w-0 flex-1 truncate text-[0.875rem] font-semibold text-navy">{label}</p>
+              <div className="min-w-0 flex-1 truncate">
+                {sideTitle ?? <span className="text-[0.875rem] font-semibold text-navy">{label}</span>}
+              </div>
               {sideHeader}
               <button
                 type="button"

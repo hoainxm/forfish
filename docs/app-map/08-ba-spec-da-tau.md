@@ -4,6 +4,7 @@
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
 last_verified: 2026-10-19
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
+<!-- re-verified: 2026-10-20g — fishing-map-view.tsx chỉ đổi lưới số ngăn gió sóng; AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20f — fishing-map-view.tsx chỉ đổi khung ngăn gió sóng (rộng như cũ, cao 1/3) + dòng âm lịch; AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20e — fishing-map-view.tsx CHỈ đổi cách vẽ ngăn gió sóng (ngăn hẹp 1/3 màn dày số, viên tóm tắt mép phải); KHÔNG đổi AC đa-tàu (tàu đang chọn, cảng nhà, điểm ghim, phạm vi hồ sơ). -->
 <!-- re-verified: 2026-10-19k — document-vault · crew-list · maintenance-reminders · boat-products · vms CHỈ đổi cách vẽ (rà design Codex lần 2): bản ghi thành hàng danh sách kẻ mảnh, chạm bung chi tiết + Sửa/Xóa; nút "Thêm" nền trung tính. KHÔNG đổi AC đa-tàu: lọc theo tàu đang chọn, khoá lưu theo tàu, vòng đời thêm/xoá/đổi tàu, gán hàng SDVICO theo tàu giữ nguyên (không đụng hàm dữ liệu). -->

@@ -4758,7 +4758,7 @@ export default function FishingMapView() {
               /*  Chip ngày MỘT DÒNG, bo tròn, rộng theo nhãn (2026-10-20, "thiết
                   kế vẫn to"): bản cũ flex-1 + chữ 0.9375 đậm ⇒ "Hôm / nay" gãy
                   hai dòng trong ngăn hẹp. Cao vẫn bậc chip --h-chip. */
-              className={`flex h-(--h-chip) shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-3 text-[0.8125rem] font-semibold transition active:scale-[0.97] ${
+              className={`flex h-9 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[0.8125rem] font-semibold transition active:scale-[0.97] ${
                 active ? "bg-navy text-white" : "border border-line bg-card text-navy"
               } ${past ? "opacity-40" : ""}`}
             >
@@ -4807,86 +4807,94 @@ export default function FishingMapView() {
   const sideDense =
     cond && today && sel && cond.onSea
       ? (() => {
-          const rows: { k: string; v: string; tone?: string; full?: boolean }[] = [];
-          /*  NGÀY ÂM + TRĂNG của NGÀY ĐANG XEM (anh Long 2026-10-20: "thông tin
-              xổ ra phải có thêm info về ngày trăng (lịch âm)") — cặp đầu lưới:
-              bà con tính con nước, nghề đèn theo ngày âm. */
+          /*  LƯỚI SỐ CHUẨN 3 CỘT (anh Long 2026-10-20: "mật độ dữ liệu ko đẹp,
+              ko chuẩn"): mỗi ô = nhãn 0.75rem (đọc được, không mờ quá) + số
+              0.9375rem đậm, chữ số thẳng hàng; cùng nhịp hàng, KHÔNG kẻ vạch.
+              Thông tin phụ dồn vào NHÃN ("Gió · Bắc", "Dòng → Nam", "Lớn 02:45")
+              để ô số chỉ còn MỘT giá trị ngắn. Bỏ ô TRÙNG: "Sóng tới"/"Gió tới"
+              chỉ hiện khi lớn hơn số lúc này. Dòng dài (Cá, Độ sâu, Mùa này)
+              chiếm trọn hàng. Tình trạng biển nằm ở ĐẦU NGĂN (sideTitle). */
+          type Cell = { k: string; v: string; tone?: string; full?: boolean; span2?: boolean };
+          const cells: Cell[] = [];
           const am = amLichFromIso(sel.date);
-          if (am) rows.push({ k: "Âm lịch", v: amLichText(am) });
-          rows.push({
+          if (am) cells.push({ k: "Âm lịch", v: amLichText(am) });
+          cells.push({
             k: "Trăng",
-            v: moonPhase(new Date(`${sel.date}T19:00:00+07:00`)).label.split(" — ")[0],
+            v: (() => {
+              const t = moonPhase(new Date(`${sel.date}T19:00:00+07:00`)).label.split(" — ")[0].replace(/^Trăng\s+/i, "");
+              return t.charAt(0).toUpperCase() + t.slice(1);
+            })(),
+            span2: true,
           });
           const nowOk = isToday && cond.windKmh != null;
-          if (nowOk) {
-            rows.push({
-              k: "Gió",
-              v: `cấp ${beaufort(cond.windKmh!)}${cond.windDirDeg != null ? ` · ${windDirectionVN(cond.windDirDeg)}` : ""}`,
-            });
-          }
-          rows.push({
-            k: nowOk ? "Cả ngày" : "Gió",
-            v: `cấp ${beaufort(sel.windMaxKmh)}${sel.gustMaxKmh > 0 ? ` · giật ${beaufort(sel.gustMaxKmh)}` : ""}`,
+          const windNow = nowOk ? beaufort(cond.windKmh!) : null;
+          const windMax = beaufort(sel.windMaxKmh);
+          const windDirDeg = nowOk ? cond.windDirDeg : sel.windDirDeg;
+          cells.push({
+            k: `Gió${windDirDeg != null ? ` · ${windDirectionVN(windDirDeg)}` : ""}`,
+            v: `cấp ${windNow ?? windMax}`,
           });
-          if (nowOk && cond.waveM != null) rows.push({ k: "Sóng", v: `${formatNumberVN(cond.waveM)} m` });
-          rows.push({
-            k: nowOk ? "Sóng tới" : "Sóng",
-            v:
-              sel.waveMaxM > 0
-                ? `${sel.waveEstimated ? "~" : ""}${formatNumberVN(sel.waveMaxM)} m`
-                : "—",
-            tone: sel.waveEstimated ? "text-warn" : undefined,
+          if (windNow != null && windMax > windNow) cells.push({ k: "Gió tới", v: `cấp ${windMax}` });
+          if (sel.gustMaxKmh > 0) cells.push({ k: "Giật", v: `cấp ${beaufort(sel.gustMaxKmh)}` });
+          const waveNow = nowOk && cond.waveM != null ? cond.waveM : null;
+          const waveMaxTxt =
+            sel.waveMaxM > 0 ? `${sel.waveEstimated ? "~" : ""}${formatNumberVN(sel.waveMaxM)} m` : "—";
+          cells.push({
+            k: "Sóng",
+            v: waveNow != null ? `${formatNumberVN(waveNow)} m` : waveMaxTxt,
+            tone: waveNow == null && sel.waveEstimated ? "text-warn" : undefined,
           });
+          // so theo SỐ ĐÃ LÀM TRÒN 1 chữ lẻ: 0,86 vs 0,9 là cùng "0,9 m" — in hai ô là trùng
+          if (waveNow != null && Math.round(sel.waveMaxM * 10) > Math.round(waveNow * 10))
+            cells.push({ k: "Sóng tới", v: waveMaxTxt, tone: sel.waveEstimated ? "text-warn" : undefined });
           const useCurNow = isToday && cond.curKmh != null && !cond.stale;
           const curKmh = useCurNow ? cond.curKmh : (sel.curKmh ?? null);
           const curDir = useCurNow ? (cond.curDirDeg ?? null) : (sel.curDirDeg ?? null);
           if (curKmh != null)
-            rows.push({
-              k: "Dòng",
-              v: `${formatNumberVN(curKmh)} km/h${curDir != null ? ` → ${windDirectionVN(curDir)}` : ""}`,
+            cells.push({
+              k: `Dòng${curDir != null ? ` → ${windDirectionVN(curDir)}` : ""}`,
+              v: `${formatNumberVN(curKmh)} km/h`,
             });
-          // con nước: hôm nay = đang lên/xuống + 2 con kế; ngày khác = con nước của ngày đó
           if (tideStations) {
             if (isToday) {
               const t = tideCardAt(tideStations, point.lat, point.lon, nowMs);
               if (t) {
-                rows.push({
-                  k: "Nước",
-                  v: `${t.trend === "len" ? "lên" : t.trend === "xuong" ? "xuống" : "đứng"}${
-                    t.nowM != null ? ` · ${tideHeightText(t.nowM)}` : ""
-                  }`,
-                });
+                if (t.nowM != null)
+                  cells.push({
+                    k: `Nước ${t.trend === "len" ? "↑ lên" : t.trend === "xuong" ? "↓ xuống" : "đứng"}`,
+                    v: tideHeightText(t.nowM),
+                  });
                 for (const u of t.upcoming)
-                  rows.push({
-                    k: u.kind === "high" ? "Lớn" : "Ròng",
-                    v: `${hhmmVN(u.atMs)}${u.ngayMai ? " mai" : ""} · ${tideHeightText(u.heightM)}`,
+                  cells.push({
+                    k: `${u.kind === "high" ? "Lớn" : "Ròng"} ${hhmmVN(u.atMs)}${u.ngayMai ? " mai" : ""}`,
+                    v: tideHeightText(u.heightM),
                   });
               }
             } else {
               const g = nearestTideStation(tideStations, point.lat, point.lon);
               if (g && g.distanceKm <= 120)
                 for (const e of tideExtremesForDay(g.station, sel.date))
-                  rows.push({
-                    k: e.kind === "high" ? "Lớn" : "Ròng",
-                    v: `${hhmmVN(e.atMs)} · ${tideHeightText(e.heightM)}`,
+                  cells.push({
+                    k: `${e.kind === "high" ? "Lớn" : "Ròng"} ${hhmmVN(e.atMs)}`,
+                    v: tideHeightText(e.heightM),
                   });
             }
           }
-          if (!fishLocked && fishCast && fishAtPoint && fishAtPoint.s >= 25) {
-            rows.push({
+          const fishOk = !fishLocked && fishCast && fishAtPoint && fishAtPoint.s >= 25;
+          if (fishOk) cells.push({ k: "Nhiệt nước", v: `${formatNumberVN(fishAtPoint!.t)}°C` });
+          if (fishOk)
+            cells.push({
               k: "Cá",
-              v: fishAtPoint.top.map((sp) => SPECIES_META[sp]?.full ?? sp).join(", "),
+              v: fishAtPoint!.top.map((sp) => SPECIES_META[sp]?.full ?? sp).join(", "),
               tone: "text-trim",
               full: true,
             });
-            rows.push({ k: "Nhiệt", v: `${formatNumberVN(fishAtPoint.t)}°C` });
-          } else if (fishHere.length > 0) {
-            rows.push({ k: "Mùa này", v: fishHere.join(", "), full: true });
-          }
+          else if (fishHere.length > 0) cells.push({ k: "Mùa này", v: fishHere.join(", "), full: true });
           if (depth != null)
-            rows.push({
-              k: "Sâu",
+            cells.push({
+              k: "Độ sâu",
               v: DEPTH_CLASS_LABEL[depth],
+              full: true,
               tone:
                 DEPTH_NOTE[depth].tone === "danger"
                   ? "text-danger"
@@ -4896,12 +4904,6 @@ export default function FishingMapView() {
             });
           return (
             <div className="space-y-2">
-              {sel.level && (
-                <p className="flex items-center gap-1.5 text-[0.9375rem] font-bold" style={{ color: LEVEL_STYLE[sel.level].fg }}>
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }} aria-hidden />
-                  {SEA_STATE[sel.level]}
-                </p>
-              )}
               {prox.applies && prox.level === "very_near" && (
                 <p className="text-[0.8125rem] font-bold leading-snug text-danger">{prox.label}.</p>
               )}
@@ -4911,15 +4913,16 @@ export default function FishingMapView() {
                 </p>
               )}
               {dayChipsRow}
-              {/*  LƯỚI 2 CỘT nhãn trên / số dưới (ngăn rộng như cũ nhưng thấp 1/3
-                   màn — xếp đôi để một khung nhìn chứa nhiều số nhất). Dòng dài
-                   (Cá, Mùa này) chiếm trọn hàng. */}
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {rows.map((r, i) => (
-                  <div key={i} className={`min-w-0 border-t border-line pt-1 ${r.full ? "col-span-2" : ""}`}>
-                    <dt className="text-[0.6875rem] leading-tight text-foreground/60">{r.k}</dt>
-                    <dd className={`text-[0.875rem] font-semibold leading-snug ${r.tone ?? "text-navy"}`}>
-                      {r.v}
+              <dl className="grid grid-cols-3 gap-x-3 gap-y-2.5 pt-1">
+                {cells.map((c, i) => (
+                  <div key={i} className={`min-w-0 ${c.full ? "col-span-3" : c.span2 ? "col-span-2" : ""}`}>
+                    <dt className="truncate text-[0.75rem] leading-tight text-foreground/65">{c.k}</dt>
+                    <dd
+                      className={`mt-0.5 text-[0.9375rem] font-semibold leading-tight tabular-nums ${
+                        c.full ? "" : "truncate"
+                      } ${c.tone ?? "text-navy"}`}
+                    >
+                      {c.v}
                     </dd>
                   </div>
                 ))}
@@ -4928,6 +4931,14 @@ export default function FishingMapView() {
           );
         })()
       : null;
+  /*  Tình trạng biển ở ĐẦU NGĂN thay chữ "Gió sóng" — đỡ một hàng. */
+  const sideTitle =
+    sel?.level != null ? (
+      <span className="flex items-center gap-1.5 text-[0.9375rem] font-bold" style={{ color: LEVEL_STYLE[sel.level].fg }}>
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }} aria-hidden />
+        {SEA_STATE[sel.level]}
+      </span>
+    ) : null;
 
   /*  Dòng "ở đâu" CHỈ nói TÊN chỗ khi con trỏ đang đứng trên một điểm đã ghim.
       Không ghim thì KHÔNG nói gì — cột phải của peek để trống cho dòng toạ độ.
@@ -7841,6 +7852,7 @@ export default function FishingMapView() {
         side
         sideTab={sideTabContent}
         sideDense={sideDense}
+        sideTitle={sideTitle}
         sideHeader={
           <PretripSavedStatus points={pretripPoints} fishLocked={fishLocked} iconOnly />
         }
