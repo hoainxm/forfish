@@ -21,7 +21,7 @@
   Đặt trong container relative của màn hình map; chiều cao tính theo container.
 */
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "@/components/icons";
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export type SheetSize = "hidden" | "peek" | "half";
 
@@ -38,6 +38,7 @@ export function SnapSheet({
   side = false,
   sideTab,
   sideHeader,
+  sideDense,
   peek,
   children,
 }: {
@@ -71,6 +72,9 @@ export function SnapSheet({
   sideTab?: ReactNode;
   /** Thêm vào đầu ngăn, cạnh "Thu" (vd chip dữ liệu) — chỉ khi `side`. */
   sideHeader?: ReactNode;
+  /** Nội dung DÀY SỐ cho ngăn hẹp 1/3 màn (mặc định khi mở). Có "Xem đủ ›" để
+   *  nở ra ngăn rộng với `peek` + `children` (câu giải thích đầy đủ). */
+  sideDense?: ReactNode;
   /** Phần luôn thấy ở mọi nấc */
   peek: React.ReactNode;
   /** Phần chi tiết — chỉ thấy ở half/full, cuộn bên trong sheet */
@@ -85,6 +89,11 @@ export function SnapSheet({
   // Vuốt lên = nở, vuốt xuống = thu. Chạm nhẹ (ít di chuyển) thì coi như tap → nở.
   const dragY = useRef<number | null>(null);
   const dragX = useRef<number | null>(null);
+  /** ngăn bên phải đang ở bản RỘNG (Xem đủ) — đóng ngăn là về bản hẹp */
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    if (size !== "half") setWide(false);
+  }, [size]);
   const onPointerDown = (e: React.PointerEvent) => {
     dragY.current = e.clientY;
   };
@@ -153,7 +162,44 @@ export function SnapSheet({
             </button>
           </div>
         )}
-        {open && (
+        {open && sideDense && !wide && (
+          /*  NGĂN HẸP 1/3 MÀN (anh Long 2026-10-20: "drag chỉ chiếm 1/3 thôi,
+              trượt mà xem info, dense vào") — số dày, cuộn dọc; "Xem đủ ›" nở
+              ra ngăn rộng có câu giải thích. Vuốt phải / › để thu. */
+          <div
+            onPointerDown={(e) => {
+              dragX.current = e.clientX;
+            }}
+            onPointerUp={(e) => onSideUp(e, true)}
+            style={{ touchAction: "pan-y" }}
+            className="anim-pop-in pointer-events-auto absolute bottom-0 right-0 top-0 flex w-[max(9.5rem,34%)] flex-col rounded-l-2xl border-l border-line bg-background/97 shadow-float"
+          >
+            <div className="flex items-center gap-1.5 px-2 pb-1 pt-[calc(0.5rem+env(safe-area-inset-top))]">
+              {sideHeader}
+              <span className="min-w-0 flex-1" />
+              <button
+                type="button"
+                onClick={() => onSizeChange("hidden")}
+                aria-label="Thu bảng sang phải"
+                className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full bg-field text-navy active:scale-95"
+              >
+                <ChevronRightIcon className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3 [overscroll-behavior:contain]">
+              {sideDense}
+              <button
+                type="button"
+                onClick={() => setWide(true)}
+                className="mt-2 flex h-(--h-ctl) w-full items-center justify-center gap-1 rounded-full bg-field text-[0.8125rem] font-semibold text-navy active:scale-[0.98]"
+              >
+                Xem đủ
+                <ChevronLeftIcon className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        {open && (!sideDense || wide) && (
           <div
             className="anim-pop-in pointer-events-auto absolute bottom-0 right-0 top-0 flex w-[min(22rem,84%)] flex-col rounded-l-[1.5rem] bg-background shadow-float"
           >

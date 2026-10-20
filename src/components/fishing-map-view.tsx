@@ -122,8 +122,12 @@ import {
 import {
   fetchTideStations,
   isModelStation,
+  nearestTideStation,
+  tideCardAt,
   tideDaySeries,
+  tideExtremesForDay,
   tideHeightAt,
+  tideHeightText,
   tideTrendAt,
   type TideStation,
 } from "@/lib/tides";
@@ -4792,6 +4796,126 @@ export default function FishingMapView() {
       </span>
     ) : null;
 
+  /*  NỘI DUNG NGĂN 1/3 MÀN — DÀY SỐ, KHÔNG GIẢI THÍCH (anh Long 2026-10-20:
+      "drag làm sao chỉ chiếm 1/3 thôi, còn trượt mà xem info, thông tin dense
+      vào, đừng có để info loãng, ko cần giải thích quá nhiều"). Mỗi dòng: nhãn
+      ngắn trái · số phải. Câu dặn/giải thích (độ tin, mô hình con nước, vùng
+      cá…) chỉ ở "Xem đủ" (ngăn rộng = nội dung cũ). Cảnh báo AN TOÀN không thu:
+      rất gần ranh giới, sóng ước, cạn nước (màu nguy hiểm) vẫn hiện ở đây. */
+  const hhmmVN = (ms: number) => new Date(ms + 7 * 3600000).toISOString().slice(11, 16);
+  const sideDense =
+    cond && today && sel && cond.onSea
+      ? (() => {
+          const rows: { k: string; v: string; tone?: string }[] = [];
+          const nowOk = isToday && cond.windKmh != null;
+          if (nowOk) {
+            rows.push({
+              k: "Gió",
+              v: `cấp ${beaufort(cond.windKmh!)}${cond.windDirDeg != null ? ` · ${windDirectionVN(cond.windDirDeg)}` : ""}`,
+            });
+          }
+          rows.push({
+            k: nowOk ? "Cả ngày" : "Gió",
+            v: `cấp ${beaufort(sel.windMaxKmh)}${sel.gustMaxKmh > 0 ? ` · giật ${beaufort(sel.gustMaxKmh)}` : ""}`,
+          });
+          if (nowOk && cond.waveM != null) rows.push({ k: "Sóng", v: `${formatNumberVN(cond.waveM)} m` });
+          rows.push({
+            k: nowOk ? "Sóng tới" : "Sóng",
+            v:
+              sel.waveMaxM > 0
+                ? `${sel.waveEstimated ? "~" : ""}${formatNumberVN(sel.waveMaxM)} m`
+                : "—",
+            tone: sel.waveEstimated ? "text-warn" : undefined,
+          });
+          const useCurNow = isToday && cond.curKmh != null && !cond.stale;
+          const curKmh = useCurNow ? cond.curKmh : (sel.curKmh ?? null);
+          const curDir = useCurNow ? (cond.curDirDeg ?? null) : (sel.curDirDeg ?? null);
+          if (curKmh != null)
+            rows.push({
+              k: "Dòng",
+              v: `${formatNumberVN(curKmh)} km/h${curDir != null ? ` → ${windDirectionVN(curDir)}` : ""}`,
+            });
+          // con nước: hôm nay = đang lên/xuống + 2 con kế; ngày khác = con nước của ngày đó
+          if (tideStations) {
+            if (isToday) {
+              const t = tideCardAt(tideStations, point.lat, point.lon, nowMs);
+              if (t) {
+                rows.push({
+                  k: "Nước",
+                  v: `${t.trend === "len" ? "lên" : t.trend === "xuong" ? "xuống" : "đứng"}${
+                    t.nowM != null ? ` · ${tideHeightText(t.nowM)}` : ""
+                  }`,
+                });
+                for (const u of t.upcoming)
+                  rows.push({
+                    k: u.kind === "high" ? "Lớn" : "Ròng",
+                    v: `${hhmmVN(u.atMs)}${u.ngayMai ? " mai" : ""} · ${tideHeightText(u.heightM)}`,
+                  });
+              }
+            } else {
+              const g = nearestTideStation(tideStations, point.lat, point.lon);
+              if (g && g.distanceKm <= 120)
+                for (const e of tideExtremesForDay(g.station, sel.date))
+                  rows.push({
+                    k: e.kind === "high" ? "Lớn" : "Ròng",
+                    v: `${hhmmVN(e.atMs)} · ${tideHeightText(e.heightM)}`,
+                  });
+            }
+          }
+          if (!fishLocked && fishCast && fishAtPoint && fishAtPoint.s >= 25) {
+            rows.push({
+              k: "Cá",
+              v: fishAtPoint.top.map((sp) => SPECIES_META[sp]?.full ?? sp).join(", "),
+              tone: "text-trim",
+            });
+            rows.push({ k: "Nhiệt", v: `${formatNumberVN(fishAtPoint.t)}°C` });
+          } else if (fishHere.length > 0) {
+            rows.push({ k: "Mùa này", v: fishHere.join(", ") });
+          }
+          if (depth != null)
+            rows.push({
+              k: "Sâu",
+              v: DEPTH_CLASS_LABEL[depth],
+              tone:
+                DEPTH_NOTE[depth].tone === "danger"
+                  ? "text-danger"
+                  : DEPTH_NOTE[depth].tone === "warn"
+                    ? "text-warn"
+                    : undefined,
+            });
+          rows.push({ k: "Trăng", v: moon.label.split(" — ")[0] });
+          return (
+            <div className="space-y-2">
+              {sel.level && (
+                <p className="flex items-center gap-1.5 text-[0.9375rem] font-bold" style={{ color: LEVEL_STYLE[sel.level].fg }}>
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }} aria-hidden />
+                  {SEA_STATE[sel.level]}
+                </p>
+              )}
+              {prox.applies && prox.level === "very_near" && (
+                <p className="text-[0.8125rem] font-bold leading-snug text-danger">{prox.label}.</p>
+              )}
+              {cond.stale && (
+                <p className="text-[0.75rem] leading-snug text-warn">
+                  Bản lưu{cond.savedAt != null ? ` ${hhmmVN(cond.savedAt)}` : ""}
+                </p>
+              )}
+              {dayChipsRow}
+              <dl className="divide-y divide-line">
+                {rows.map((r, i) => (
+                  <div key={i} className="flex items-baseline justify-between gap-2 py-1.5">
+                    <dt className="shrink-0 text-[0.75rem] text-foreground/60">{r.k}</dt>
+                    <dd className={`min-w-0 text-right text-[0.8125rem] font-semibold leading-snug ${r.tone ?? "text-navy"}`}>
+                      {r.v}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          );
+        })()
+      : null;
+
   /*  Dòng "ở đâu" CHỈ nói TÊN chỗ khi con trỏ đang đứng trên một điểm đã ghim.
       Không ghim thì KHÔNG nói gì — cột phải của peek để trống cho dòng toạ độ.
       Bỏ 2026-08-25d (user: *"bỏ chỗ đang xem cách cái gì đi"*): câu "cách <cảng>
@@ -7703,8 +7827,9 @@ export default function FishingMapView() {
             đầu ngăn (`sideHeader`); trên bản đồ chỉ nổi icon khi THIẾU. */
         side
         sideTab={sideTabContent}
+        sideDense={sideDense}
         sideHeader={
-          <PretripSavedStatus points={pretripPoints} fishLocked={fishLocked} />
+          <PretripSavedStatus points={pretripPoints} fishLocked={fishLocked} iconOnly />
         }
         above={
           /*  CÒN Ở NẤC `hidden` NỮA (user 2026-08-24: "cái chip tải cái gì đủ
