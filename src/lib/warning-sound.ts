@@ -59,6 +59,21 @@ const HAZARD_NOTES: Motif = [
   [A5, HAZARD_NOTE_LEN + HAZARD_GAP, 0.9, HAZARD_NOTE_LEN],
 ];
 
+/**
+ * TIN MỚI (thông báo đẩy tới lúc app ĐANG MỞ, 2026-10-20) — motif 4: MỘT TIẾNG
+ * CHUÔNG ĐƠN, hợp âm D6+A6 gõ CÙNG LÚC rồi ngân.
+ *
+ * Ba chuông kia đã chiếm "đi lên" (ranh giới), "đi xuống" (lệch tuyến), "lặp
+ * giật" (hiểm hoạ). Gõ một lần, không chuyển động cao độ là hình dạng thứ tư —
+ * nghe ra "có tin" chứ không phải "nguy hiểm trên đường chạy". Tin bão lặp 2
+ * lượt (xem `playPushChime`).
+ */
+const A6 = 1760.0;
+const PUSH_NOTES: Motif = [
+  [D6, 0.0, 0.8, 1.6],
+  [A6, 0.0, 0.5, 1.4],
+];
+
 /** Bồi âm chuông: [bội số tần, biên độ]. Bồi cao tắt nhanh hơn (xem decayFor). */
 const PARTIALS: ReadonlyArray<readonly [number, number]> = [
   [1, 1.0],
@@ -111,6 +126,11 @@ export function offRouteVoices(): WarningVoice[] {
 /** Lịch giọng chuông HIỂM HOẠ (thuần — test soi được: 2 nốt cùng cao độ, ngắt 90 ms). */
 export function hazardVoices(): WarningVoice[] {
   return warningVoices(HAZARD_NOTES);
+}
+
+/** Lịch giọng chuông TIN MỚI (thuần — test soi được: mọi nốt gõ cùng lúc). */
+export function pushVoices(): WarningVoice[] {
+  return warningVoices(PUSH_NOTES);
 }
 
 // ── Phần Web Audio (chỉ chạy ở trình duyệt) ──────────────────────────────────
@@ -263,5 +283,44 @@ export function playHazardWarning(opts?: { urgent?: boolean }): void {
     if (urgent) scheduleChime(c, master, base + URGENT_REPEAT_GAP, voices);
   } catch {
     /* offline / audio bị chặn → im lặng, KHÔNG throw */
+  }
+}
+
+/** Trần chờ AudioContext tỉnh lại trước khi kết luận "không phát được". */
+const PUSH_RESUME_WAIT_MS = 250;
+/** Tin bão: lượt 2 cách lượt 1 ngần này giây (chuông đơn ngân dài hơn hiểm hoạ). */
+const PUSH_URGENT_GAP = 1.1;
+
+/**
+ * Phát chuông TIN MỚI khi thông báo đẩy tới lúc app đang mở (motif 4). `urgent`
+ * (tin bão) = 2 lượt. Trả về `true` CHỈ khi chắc đã lên lịch phát với ngữ cảnh
+ * đang chạy — sw.js dựa vào đó để tắt tiếng mặc định của thông báo; trả `false`
+ * (chưa có thao tác chạm nên trình duyệt còn chặn tiếng, thiếu Web Audio, lỗi)
+ * thì thông báo GIỮ tiếng mặc định. Không bao giờ để tin tới mà im cả hai đường.
+ */
+export async function playPushChime(opts?: { urgent?: boolean }): Promise<boolean> {
+  const c = getCtx();
+  if (!c) return false;
+  try {
+    if (c.state === "suspended") {
+      await Promise.race([
+        c.resume().catch(() => {}),
+        new Promise((r) => setTimeout(r, PUSH_RESUME_WAIT_MS)),
+      ]);
+    }
+    if (c.state !== "running") return false;
+    const urgent = opts?.urgent ?? false;
+    const master = c.createGain();
+    master.gain.value = urgent ? 0.66 : 0.5;
+    const limiter = c.createDynamicsCompressor();
+    master.connect(limiter);
+    limiter.connect(c.destination);
+    const base = c.currentTime + 0.02;
+    const voices = pushVoices();
+    scheduleChime(c, master, base, voices);
+    if (urgent) scheduleChime(c, master, base + PUSH_URGENT_GAP, voices);
+    return true;
+  } catch {
+    return false;
   }
 }
