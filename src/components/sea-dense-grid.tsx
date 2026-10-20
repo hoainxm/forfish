@@ -1,18 +1,11 @@
 /*
   LƯỚI SỐ CHUẨN 3 CỘT của ngăn gió sóng (tách khỏi fishing-map-view 2026-10-20,
-  rà Codex lần 4). Chỉ BÀY: bên gọi dựng sẵn danh sách ô (nhãn ngắn + MỘT giá
+  rà Codex lần 4). Chỉ BÀY: bên gọi dựng sẵn danh sách ô (`buildSeaCells`, lib/sea-cells.ts) (nhãn ngắn + MỘT giá
   trị), ở đây lo nhịp lưới. Mỗi ô = nhãn 0.75rem + số 0.9375rem đậm, chữ số
   thẳng hàng, không kẻ vạch. `full` chiếm trọn hàng (Cá, Độ sâu, Mùa này),
   `span2` hai cột (Trăng, Trời). `tone` = class màu token (text-warn…).
 */
-
-export type SeaCell = {
-  k: string;
-  v: string;
-  tone?: string;
-  full?: boolean;
-  span2?: boolean;
-};
+import type { SeaCell } from "@/lib/sea-cells";
 
 export function SeaDenseGrid({ cells }: { cells: readonly SeaCell[] }) {
   if (cells.length === 0) return null;

@@ -58,7 +58,7 @@ export default function GlobalError({
             }}
             className="mt-3 flex min-h-[3.25rem] w-full items-center justify-center rounded-2xl border border-line text-[1.125rem] font-bold text-navy"
           >
-            Tải lại trang
+            Tải lại
           </button>
           <p className="mt-6 text-[1rem] leading-relaxed text-foreground/60">
             Nếu mở lại mà màn hình vẫn trắng, mời bà con cập nhật iOS (hoặc trình

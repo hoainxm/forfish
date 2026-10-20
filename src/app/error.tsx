@@ -40,7 +40,7 @@ export default function AppError({
         href="/"
         className="mt-3 flex h-(--h-cta) w-full items-center justify-center rounded-xl border border-line text-[1rem] font-semibold text-navy"
       >
-        Về Trang chủ
+        Trang chủ
       </Link>
     </div>
   );

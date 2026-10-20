@@ -160,6 +160,7 @@ export function SnapSheet({
       <section
         role="region"
         aria-label={label}
+        data-snap-sheet=""
         onPointerDownCapture={onInteract}
         onKeyDownCapture={onInteract}
         onScrollCapture={onInteract}
@@ -259,6 +260,7 @@ export function SnapSheet({
     <section
       role="region"
       aria-label={label}
+      data-snap-sheet=""
       onPointerDownCapture={onInteract}
       onKeyDownCapture={onInteract}
       // CUỘN cũng là "đang đọc" → nạp lại đồng hồ tự-ẩn. Dùng onScrollCapture ở

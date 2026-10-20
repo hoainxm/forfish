@@ -6,6 +6,7 @@
 
 covers: src/app/globals.css
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-20j — token KÊNH MÀU `--ink-rgb` 13 35 54 · `--white-rgb` · `--black-rgb` · `--trim-rgb` 200 70 31 (= --trim) · `--sea-rgb` 8 110 115 (= --sea) trong globals.css: bóng/kính/quầng viết `rgb(var(--x-rgb) / a)`, không còn số màu rời ngoài khối token (color-mix bị loại vì iOS 15). Đổi --trim/--sea phải đổi bộ số đi kèm. `SeaCell` (ô lưới số) nay ở `lib/sea-cells.ts`. -->
 <!-- re-verified: 2026-10-20i — pattern mới `SeaDenseGrid` (lưới số 3 cột: nhãn 0.75rem mờ + số 0.9375rem đậm tabular, không kẻ vạch; `full`/`span2`) cho ngăn gió sóng; nút "Cả tháng" của thẻ con nước theo bậc control (--h-ctl, bo 0.75rem, chữ 600); `#fff` đặc trong globals.css nay là `var(--card)` (rgb trắng có alpha giữ nguyên — color-mix không chạy iOS 15). -->
 <!-- re-verified: 2026-10-20h — `--trim` #c8461f (chữ trắng 4,83:1, rà Codex lần 3); ghi bảng MÃ HIỆN TẠI navy/sea/trim/nền/line/field trước phần lịch sử màu. -->
 <!-- re-verified: 2026-10-19d — QUYẾT ĐỊNH (anh Long): "xoá cái quy tắc làm cho dân biển to chữ các kiểu đi, xoá hẳn đi" — §0 viết lại thành THANG CỠ Codex, §1 bỏ bảng cỡ theo đối tượng, §Nhãn mới (≤2 chữ, cỡ cố định theo loại, bảng nhãn chuẩn `lib/labels.ts`), §3 type-ramp theo thang mới. Mọi chỗ còn lại trong file nhắc sàn 18px/56px hay lý do nắng/tay ướt đều đã gỡ (xem các re-verified cùng ngày). -->

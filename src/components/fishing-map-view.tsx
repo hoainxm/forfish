@@ -127,13 +127,12 @@ import {
   tideDaySeries,
   tideExtremesForDay,
   tideHeightAt,
-  tideHeightText,
   tideTrendAt,
   type TideStation,
 } from "@/lib/tides";
 import { TideCard, TideStationSheet } from "@/components/tide-card";
-import { SeaDenseGrid, type SeaCell } from "@/components/sea-dense-grid";
-import { amLichFromIso, amLichText } from "@/lib/am-lich";
+import { SeaDenseGrid } from "@/components/sea-dense-grid";
+import { buildSeaCells, seaWeather, type SeaCellTide } from "@/lib/sea-cells";
 import type { BoatProfile } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
 import {
@@ -385,7 +384,6 @@ import {
 } from "@/lib/depth-grid";
 import { timeoutSignal } from "@/lib/abort";
 import { dataSourceUrl, fetchDataJson } from "@/lib/data-fetch";
-import { weatherFromCode } from "@/lib/weather-codes";
 import {
   useMapPrefs,
   fmtCoordPair,
@@ -931,10 +929,20 @@ export default function FishingMapView() {
     clearSheetHide();
     if (size === "hidden") return; // đã ở đáy rồi, không đếm nữa
     if (noAutoHideRef.current) return; // đang cấm tự ẩn
-    sheetHideTimer.current = setTimeout(
-      () => setSize("hidden"),
-      SHEET_AUTO_HIDE_MS,
-    );
+    /*  ĐANG ĐỌC BẰNG BÀN PHÍM / TRÌNH ĐỌC MÀN HÌNH thì KHÔNG thu (rà Codex lần
+        5): focus nhìn-thấy (`:focus-visible`) đang nằm trong sheet = người dùng
+        đang Tab qua từng ô — thu ngăn là mất chỗ đang đọc. Chạm ngón tay không
+        bật `:focus-visible` nên đồng hồ 3 giây cho người liếc mắt vẫn y cũ.
+        Chưa thu thì hẹn lại, không bỏ hẳn: Tab ra khỏi ngăn là đồng hồ chạy. */
+    const fire = () => {
+      const a = typeof document !== "undefined" ? document.activeElement : null;
+      if (a instanceof HTMLElement && a.closest("[data-snap-sheet]") && a.matches(":focus-visible")) {
+        sheetHideTimer.current = setTimeout(fire, SHEET_AUTO_HIDE_MS);
+        return;
+      }
+      setSize("hidden");
+    };
+    sheetHideTimer.current = setTimeout(fire, SHEET_AUTO_HIDE_MS);
   }, [clearSheetHide, size]);
 
   // ── dự báo vẽ động kiểu Windy: lớp gió/sóng + thanh thời gian ───────────
@@ -4816,7 +4824,6 @@ export default function FishingMapView() {
       ngắn trái · số phải. Câu dặn/giải thích (độ tin, mô hình con nước, vùng
       cá…) chỉ ở "Xem đủ" (ngăn rộng = nội dung cũ). Cảnh báo AN TOÀN không thu:
       rất gần ranh giới, sóng ước, cạn nước (màu nguy hiểm) vẫn hiện ở đây. */
-  const hhmmVN = (ms: number) => new Date(ms + 7 * 3600000).toISOString().slice(11, 16);
   /*  DẤU BẢN LƯU (rà Codex lần 3, ưu tiên 2): giờ nếu lưu HÔM NAY, kèm ngày nếu
       đã sang ngày khác — "Bản lưu 07:30" của hôm kia là nói dối độ tươi. */
   const savedStampVN = (ms: number) => {
@@ -4857,96 +4864,35 @@ export default function FishingMapView() {
               để ô số chỉ còn MỘT giá trị ngắn. Bỏ ô TRÙNG: "Sóng tới"/"Gió tới"
               chỉ hiện khi lớn hơn số lúc này. Dòng dài (Cá, Độ sâu, Mùa này)
               chiếm trọn hàng. Tình trạng biển nằm ở ĐẦU NGĂN (sideTitle). */
-          const cells: SeaCell[] = [];
-          const am = amLichFromIso(sel.date);
-          if (am) cells.push({ k: "Âm lịch", v: amLichText(am) });
-          cells.push({
-            k: "Trăng",
-            v: (() => {
-              const t = moonPhase(new Date(`${sel.date}T19:00:00+07:00`)).label.split(" — ")[0].replace(/^Trăng\s+/i, "");
-              return t.charAt(0).toUpperCase() + t.slice(1);
-            })(),
-            span2: true,
-          });
-          const nowOk = isToday && cond.windKmh != null;
-          const windNow = nowOk ? beaufort(cond.windKmh!) : null;
-          const windMax = beaufort(sel.windMaxKmh);
-          const windDirDeg = nowOk ? cond.windDirDeg : sel.windDirDeg;
-          cells.push({
-            k: `Gió${windDirDeg != null ? ` · ${windDirectionVN(windDirDeg)}` : ""}`,
-            v: `cấp ${windNow ?? windMax}`,
-          });
-          if (windNow != null && windMax > windNow) cells.push({ k: "Gió tới", v: `cấp ${windMax}` });
-          if (sel.gustMaxKmh > 0) cells.push({ k: "Giật", v: `cấp ${beaufort(sel.gustMaxKmh)}` });
-          // mưa thường = một ô; mưa to / dông = dòng cảnh báo đầu ngăn (không lặp ô)
-          const weather = weatherFromCode(sel.wmoCode);
-          if (weather && !weather.danger) cells.push({ k: "Trời", v: weather.label, span2: true });
-          const waveNow = nowOk && cond.waveM != null ? cond.waveM : null;
-          const waveMaxTxt =
-            sel.waveMaxM > 0 ? `${sel.waveEstimated ? "~" : ""}${formatNumberVN(sel.waveMaxM)} m` : "—";
-          cells.push({
-            k: "Sóng",
-            v: waveNow != null ? `${formatNumberVN(waveNow)} m` : waveMaxTxt,
-            tone: waveNow == null && sel.waveEstimated ? "text-warn" : undefined,
-          });
-          // so theo SỐ ĐÃ LÀM TRÒN 1 chữ lẻ: 0,86 vs 0,9 là cùng "0,9 m" — in hai ô là trùng
-          if (waveNow != null && Math.round(sel.waveMaxM * 10) > Math.round(waveNow * 10))
-            cells.push({ k: "Sóng tới", v: waveMaxTxt, tone: sel.waveEstimated ? "text-warn" : undefined });
-          const useCurNow = isToday && cond.curKmh != null && !cond.stale;
-          const curKmh = useCurNow ? cond.curKmh : (sel.curKmh ?? null);
-          const curDir = useCurNow ? (cond.curDirDeg ?? null) : (sel.curDirDeg ?? null);
-          if (curKmh != null)
-            cells.push({
-              k: `Dòng${curDir != null ? ` → ${windDirectionVN(curDir)}` : ""}`,
-              v: `${formatNumberVN(curKmh)} km/h`,
-            });
+          /*  Thứ tự + chữ từng ô ở `lib/sea-cells.ts` (thuần, có test). Ở đây chỉ
+              tra dữ liệu cần component: trạm con nước, lưới cá, độ sâu. */
+          let tide: SeaCellTide | null = null;
           if (tideStations) {
             if (isToday) {
               const t = tideCardAt(tideStations, point.lat, point.lon, nowMs);
-              if (t) {
-                if (t.nowM != null)
-                  cells.push({
-                    k: `Nước ${t.trend === "len" ? "↑ lên" : t.trend === "xuong" ? "↓ xuống" : "đứng"}`,
-                    v: tideHeightText(t.nowM),
-                  });
-                for (const u of t.upcoming)
-                  cells.push({
-                    k: `${u.kind === "high" ? "Lớn" : "Ròng"} ${hhmmVN(u.atMs)}${u.ngayMai ? " mai" : ""}`,
-                    v: tideHeightText(u.heightM),
-                  });
-              }
+              if (t)
+                tide = {
+                  now: t.nowM != null ? { m: t.nowM, trend: t.trend } : null,
+                  events: t.upcoming.map((u) => ({ kind: u.kind, atMs: u.atMs, heightM: u.heightM, ngayMai: u.ngayMai })),
+                };
             } else {
               const g = nearestTideStation(tideStations, point.lat, point.lon);
-              if (g && g.distanceKm <= 120)
-                for (const e of tideExtremesForDay(g.station, sel.date))
-                  cells.push({
-                    k: `${e.kind === "high" ? "Lớn" : "Ròng"} ${hhmmVN(e.atMs)}`,
-                    v: tideHeightText(e.heightM),
-                  });
+              if (g && g.distanceKm <= 120) tide = { events: tideExtremesForDay(g.station, sel.date) };
             }
           }
           const fishOk = !fishLocked && fishCast && fishAtPoint && fishAtPoint.s >= 25;
-          if (fishOk) cells.push({ k: "Nhiệt nước", v: `${formatNumberVN(fishAtPoint!.t)}°C` });
-          if (fishOk)
-            cells.push({
-              k: "Cá",
-              v: fishAtPoint!.top.map((sp) => SPECIES_META[sp]?.full ?? sp).join(", "),
-              tone: "text-trim",
-              full: true,
-            });
-          else if (fishHere.length > 0) cells.push({ k: "Mùa này", v: fishHere.join(", "), full: true });
-          if (depth != null)
-            cells.push({
-              k: "Độ sâu",
-              v: DEPTH_CLASS_LABEL[depth],
-              full: true,
-              tone:
-                DEPTH_NOTE[depth].tone === "danger"
-                  ? "text-danger"
-                  : DEPTH_NOTE[depth].tone === "warn"
-                    ? "text-warn"
-                    : undefined,
-            });
+          const cells = buildSeaCells({
+            day: sel,
+            cond,
+            isToday,
+            tide,
+            fish: fishOk
+              ? { tempC: fishAtPoint!.t, names: fishAtPoint!.top.map((sp) => SPECIES_META[sp]?.full ?? sp) }
+              : null,
+            season: fishHere,
+            depth: depth != null ? { label: DEPTH_CLASS_LABEL[depth], tone: DEPTH_NOTE[depth].tone } : null,
+          });
+          const weather = seaWeather(sel);
           return (
             <div className="space-y-2">
               {/*  CẢNH BÁO AN TOÀN ĐỨNG TRƯỚC SỐ, không chờ "Xem đủ" (rà Codex lần 4

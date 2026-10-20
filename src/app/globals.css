@@ -227,8 +227,17 @@ html[data-mode="gon"] {
   --row-h: var(--h-ctl);
   --r-card: 1rem;
   --r-ctl: 0.75rem;
-  --shadow-card: 0 1px 2px rgb(13 35 54 / 0.04);
-  --shadow-float: 0 4px 16px rgb(13 35 54 / 0.12);
+  /*  KÊNH MÀU CHO BÓNG / KÍNH MỜ (rà Codex lần 5): ba bộ số R G B để viết
+      `rgb(var(--ink-rgb) / 0.12)` — độ trong suốt đổi theo chỗ dùng, MÀU thì chỉ
+      khai ở đây. Không dùng color-mix vì iOS 15 không chạy. Đổi --trim/--sea
+      thì đổi bộ số tương ứng. */
+  --ink-rgb: 13 35 54; /* bóng đổ mực */
+  --white-rgb: 255 255 255; /* kính mờ, quầng sáng */
+  --black-rgb: 0 0 0; /* bóng ghim trên bản đồ */
+  --trim-rgb: 200 70 31; /* = --trim #c8461f */
+  --sea-rgb: 8 110 115; /* = --sea #086e73 */
+  --shadow-card: 0 1px 2px rgb(var(--ink-rgb) / 0.04);
+  --shadow-float: 0 4px 16px rgb(var(--ink-rgb) / 0.12);
 }
 
 body {
@@ -339,9 +348,9 @@ textarea,
     ra rồi tan, không phóng to chính nút — nút to nhỏ liên tục thì tay đang với
     sẽ chạm hụt. Block prefers-reduced-motion bên dưới tắt hẳn cái này. */
 @keyframes sdf-fab-tho {
-  0%   { box-shadow: 0 0 0 0 rgb(15 118 178 / 0.45); }
-  70%  { box-shadow: 0 0 0 0.75rem rgb(15 118 178 / 0); }
-  100% { box-shadow: 0 0 0 0 rgb(15 118 178 / 0); }
+  0%   { box-shadow: 0 0 0 0 rgb(var(--sea-rgb) / 0.45); }
+  70%  { box-shadow: 0 0 0 0.75rem rgb(var(--sea-rgb) / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--sea-rgb) / 0); }
 }
 .anim-fab-tho { animation: sdf-fab-tho 1400ms ease-out 3; }
 
@@ -353,8 +362,8 @@ textarea,
     xanh sâu tách khỏi nền sáng. Nhờ vậy nổi trên cả bản đồ lẫn danh sách chữ. */
 .fab-mascot {
   filter:
-    drop-shadow(0 0 2px rgb(255 255 255 / 0.95))
-    drop-shadow(0 1px 1px rgb(255 255 255 / 0.8))
+    drop-shadow(0 0 2px rgb(var(--white-rgb) / 0.95))
+    drop-shadow(0 1px 1px rgb(var(--white-rgb) / 0.8))
     drop-shadow(0 4px 8px color-mix(in srgb, var(--navy) 55%, transparent));
   transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -404,26 +413,26 @@ textarea,
   panel đè lên bản đồ (thanh giờ, HUD dẫn đường) — thẻ thường vẫn dùng .surface.
 */
 .glass {
-  background: rgb(255 255 255 / 0.62);
+  background: rgb(var(--white-rgb) / 0.62);
   -webkit-backdrop-filter: blur(14px) saturate(1.5);
   backdrop-filter: blur(14px) saturate(1.5);
   border-radius: 1.25rem;
   box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 0.5),
-    0 1px 2px rgb(13 35 54 / 0.08),
-    0 8px 24px -12px rgb(13 35 54 / 0.22);
+    inset 0 0 0 1px rgb(var(--white-rgb) / 0.5),
+    0 1px 2px rgb(var(--ink-rgb) / 0.08),
+    0 8px 24px -12px rgb(var(--ink-rgb) / 0.22);
 }
 /* Bóng màu cho nút cam (03-design-system §2 "nút cam có bóng màu") — giá trị sống Ở ĐÂY,
    không rgba arbitrary trong component (hook 3b2 BLOCK; lift 2026-08-14 từ sdvico-catalog + boat-products) */
 /* nợ: 3 biến thể bóng cam gần trùng nhau (blur 20/24/28, alpha .55/.6/.7), gộp về 1-2 khi chạy screenshot QA loop lần tới */
 .shadow-float { box-shadow: var(--shadow-float); }
-.shadow-trim-fab { box-shadow: 0 12px 28px -8px rgb(228 87 46 / 0.7); }
-.shadow-trim-btn { box-shadow: 0 8px 20px -8px rgb(228 87 46 / 0.6); }
-.shadow-trim-cta { box-shadow: 0 10px 24px -8px rgb(228 87 46 / 0.55); }
+.shadow-trim-fab { box-shadow: 0 12px 28px -8px rgb(var(--trim-rgb) / 0.7); }
+.shadow-trim-btn { box-shadow: 0 8px 20px -8px rgb(var(--trim-rgb) / 0.6); }
+.shadow-trim-cta { box-shadow: 0 10px 24px -8px rgb(var(--trim-rgb) / 0.55); }
 /* Bóng khác lift từ component (2026-08-14, dọn nốt 11 rgba arbitrary còn lại — cùng đợt) */
-.drop-shadow-pin { filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.45)); }
-.shadow-sheet-up { box-shadow: 0 -6px 20px rgb(20 50 79 / 0.25); }
-.shadow-navy-tab { box-shadow: 0 4px 12px -4px rgb(13 35 54 / 0.4); }
+.drop-shadow-pin { filter: drop-shadow(0 2px 3px rgb(var(--black-rgb) / 0.45)); }
+.shadow-sheet-up { box-shadow: 0 -6px 20px rgb(var(--ink-rgb) / 0.25); }
+.shadow-navy-tab { box-shadow: 0 4px 12px -4px rgb(var(--ink-rgb) / 0.4); }
 /*
   Ô NGUỒN BẢN ĐỒ (MapLibre attribution) — BẮT BUỘC theo điều khoản CARTO/OSM,
   chỉ được THU chứ không được bỏ. Mặc định MapLibre dựng ra ở trạng thái bung:
@@ -447,7 +456,7 @@ textarea,
   background-position: center;
 }
 .maplibregl-ctrl.maplibregl-ctrl-attrib {
-  background-color: rgb(255 255 255 / 0.72);
+  background-color: rgb(var(--white-rgb) / 0.72);
   border-radius: 9999px;
 }
 .maplibregl-ctrl-attrib.maplibregl-compact-show {
@@ -462,7 +471,7 @@ textarea,
 /* Máy không hỗ trợ blur → nền đặc hơn cho chữ khỏi chìm vào bản đồ */
 @supports not (backdrop-filter: blur(1px)) {
   .glass {
-    background: rgb(255 255 255 / 0.92);
+    background: rgb(var(--white-rgb) / 0.92);
   }
 }
 
@@ -480,7 +489,7 @@ textarea,
   pointer-events: none;
   background: radial-gradient(
     120% 90% at 85% -20%,
-    rgb(255 255 255 / 0.16),
+    rgb(var(--white-rgb) / 0.16),
     transparent 55%
   );
 }
@@ -510,7 +519,7 @@ textarea,
   border-radius: 9999px;
   background: var(--navy);
   border: 3px solid var(--card);
-  box-shadow: 0 2px 6px rgb(13 35 54 / 0.35);
+  box-shadow: 0 2px 6px rgb(var(--ink-rgb) / 0.35);
 }
 .range-big::-moz-range-track {
   height: 0.5rem;
@@ -557,7 +566,7 @@ textarea,
   border-radius: 9999px;
   background: var(--navy);
   border: 3px solid var(--card);
-  box-shadow: 0 2px 6px rgb(13 35 54 / 0.4);
+  box-shadow: 0 2px 6px rgb(var(--ink-rgb) / 0.4);
   cursor: pointer;
 }
 .range-dual::-moz-range-thumb {

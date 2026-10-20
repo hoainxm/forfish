@@ -52,6 +52,6 @@ describe("global-error (lưới an toàn tầng gốc)", () => {
       }),
     );
     expect(screen.getByText(/cập nhật iOS/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Tải lại trang" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tải lại" })).toBeTruthy();
   });
 });
