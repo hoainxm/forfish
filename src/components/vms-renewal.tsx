@@ -314,7 +314,7 @@ function RenewalWizard({
           <img
             src={result.qrUrl}
             alt={`Mã QR chuyển khoản gia hạn ${result.vesselCode}`}
-            className="mx-auto block w-full max-w-[260px]"
+            className="mx-auto block w-full max-w-[16.25rem]"
           />
         </div>
 
@@ -554,7 +554,7 @@ function RenewalStatusSheet({ onClose }: { onClose: () => void }) {
                         <img
                           src={r.qrUrl}
                           alt={`Mã QR chuyển khoản ${r.requestCode}`}
-                          className="mx-auto block w-full max-w-[220px]"
+                          className="mx-auto block w-full max-w-[13.75rem]"
                         />
                       </div>
                     )}

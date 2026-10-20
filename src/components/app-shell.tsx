@@ -30,7 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // --app-vh max nên iOS tự NỞ viewport bằng tab dài → dock max không còn bị
   // che (user 2026-07-29: "khung view của tab 1/2 phải nở theo vh mới").
   return (
-    <div className="app-shell mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm">
+    <div className="app-shell mx-auto flex min-h-dvh max-w-(--w-app) flex-col bg-background shadow-sm">
       <main className="app-content flex-1">{children}</main>
       <BottomNav />
       <NativeGpsPrime />

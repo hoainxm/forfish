@@ -123,7 +123,7 @@ export default function QuanTriPage() {
   // ── đã đăng nhập nhưng chưa đủ quyền / hệ thống lỗi — nói rõ vì sao ──────
   if (healthErr != null) {
     return (
-      <div className="mx-auto max-w-[640px] px-4 py-16 text-center">
+      <div className="mx-auto max-w-[40rem] px-4 py-16 text-center">
         <h1 className="display text-[1.5rem] font-bold text-navy">
           Trang quản trị SDFish
         </h1>
@@ -148,7 +148,7 @@ export default function QuanTriPage() {
   }
   if (!health) {
     return (
-      <div className="mx-auto max-w-[1200px] px-4 pb-16 pt-6 md:px-8">
+      <div className="mx-auto max-w-[75rem] px-4 pb-16 pt-6 md:px-8">
         <div className="flex items-center gap-3" aria-hidden>
           <div className="h-11 w-11 animate-pulse rounded-xl bg-field" />
           <div className="space-y-2">
@@ -188,7 +188,7 @@ export default function QuanTriPage() {
   const activeTab = visible.includes(tab) ? tab : (visible[0] ?? tab);
 
   return (
-    <div className="mx-auto max-w-[1200px] px-4 pb-16 pt-6 md:px-8">
+    <div className="mx-auto max-w-[75rem] px-4 pb-16 pt-6 md:px-8">
       <header className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           {/* Logo CHUNG với app ngư dân (bộ icon PWA sinh từ image/logo sdfish.png) */}
@@ -372,7 +372,7 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-[70vh] max-w-[420px] flex-col justify-center px-4 py-10">
+    <div className="mx-auto flex min-h-[70vh] max-w-[26.25rem] flex-col justify-center px-4 py-10">
       <div className="flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

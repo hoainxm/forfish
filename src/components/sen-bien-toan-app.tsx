@@ -294,7 +294,7 @@ export function SenBienToanApp() {
     // z-[25]: trên dock + thanh mua hàng (z-20), DƯỚI BottomSheet (z-30) và hộp xác nhận
     // (z-40) — z-40 cũ làm icon đè lên sheet Tài khoản (thấy 2026-10-19).
     <div
-      className="pointer-events-none fixed inset-x-0 top-0 z-[25] mx-auto max-w-[480px] [&>*]:pointer-events-auto"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[25] mx-auto max-w-(--w-app) [&>*]:pointer-events-auto"
       style={{ bottom: "var(--dock-total)" }}
     >
       {!open && !dangGo && (

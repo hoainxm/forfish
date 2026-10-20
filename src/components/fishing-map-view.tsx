@@ -133,6 +133,7 @@ import {
 import { TideCard, TideStationSheet } from "@/components/tide-card";
 import { SeaDensePanel, SeaTab } from "@/components/sea-dense-grid";
 import { buildSeaCells, seaWeather, type SeaCellTide } from "@/lib/sea-cells";
+import { canAutoHide, canForceHide, heldAfterSize } from "@/lib/sheet-hold";
 import type { BoatProfile } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
 import {
@@ -925,10 +926,15 @@ export default function FishingMapView() {
       là lỗ có sẵn của ngoại lệ ranh giới ≤6 hl: chạm vào sheet là nó tự ẩn dù
       đang cấm. Một chỗ chặn cho cả hai đường. */
   const noAutoHideRef = useRef(false);
+  /** riêng cờ RANH GIỚI (chặn cả ép ẩn) — `noAutoHideRef` gộp thêm "Giữ mở" */
+  const borderLockRef = useRef(false);
   /*  "GIỮ MỞ" (rà Codex lần 6): người dùng tự ghim ngăn gió sóng — đọc lâu, dùng
       trình đọc màn hình (con trỏ đọc ảo không bật :focus-visible), hay đơn giản
       không muốn ngăn tự thu. Thu ngăn là bỏ ghim (lần mở sau về luật 3 giây). */
-  const [sheetHeld, setSheetHeld] = useState(false);
+  const [sheetHeldRaw, setSheetHeld] = useState(false);
+  // mọi đường thu ngăn đều bỏ ghim — suy ra lúc render, không cần bắt từng chỗ setSize
+  const sheetHeld = heldAfterSize(sheetHeldRaw, size);
+  if (sheetHeldRaw && !sheetHeld) setSheetHeld(false);
   const armSheetHide = useCallback(() => {
     clearSheetHide();
     if (size === "hidden") return; // đã ở đáy rồi, không đếm nữa
@@ -1672,7 +1678,9 @@ export default function FishingMapView() {
       thẳng: state đó khai mãi phía dưới thân hàm, đọc lên đây là TDZ (02 §14);
       effect đồng hồ tự-ẩn nạp ref này mỗi lượt render nên hai bên luôn khớp. */
   const hideSheetForOverlay = useCallback(() => {
-    if (noAutoHideRef.current) return;
+    // CHỈ ranh giới chặn ép ẩn; "Giữ mở" của người dùng thì không — để hai bảng
+    // không chồng nhau (lib/sheet-hold.ts). Ép ẩn = bỏ ghim (xem heldAfterSize).
+    if (!canForceHide({ border: borderLockRef.current, held: false })) return;
     setSize("hidden");
     setSheetHiddenByOverlay(true);
   }, []);
@@ -4636,7 +4644,8 @@ export default function FishingMapView() {
       sẽ KHÔNG BAO GIỜ tự ẩn — che bản đồ đúng lúc cần nhất. */
   useEffect(() => {
     // nạp cờ cấm TRƯỚC khi quyết — `armSheetHide` (và mọi cú chạm gọi nó) đọc ref này
-    noAutoHideRef.current = borderLocked || sheetHeld;
+    borderLockRef.current = borderLocked;
+    noAutoHideRef.current = !canAutoHide({ border: borderLocked, held: sheetHeld });
     if (size === "hidden" || noAutoHideRef.current) {
       clearSheetHide();
       return;
@@ -4819,7 +4828,8 @@ export default function FishingMapView() {
         waveMaxM={sel.waveMaxM}
         waveEstimated={!!sel.waveEstimated}
         windMaxKmh={sel.windMaxKmh}
-        savedAt={cond.stale ? cond.savedAt : null}
+        stale={cond.stale}
+        savedAt={cond.savedAt}
       />
     ) : null;
 
@@ -5132,7 +5142,10 @@ export default function FishingMapView() {
                   [x - R, y - R],
                   [x + R, y + R],
                 ],
-                { layers: liveHitLayers },
+                // lọc LẠI lúc chạm: giữa setStyle và `styledata` kế, lớp đã khai có
+                // thể chưa dựng (lỗi "seamark-far does not exist" vẫn lọt khi chỉ
+                // đồng bộ ở sự kiện)
+                { layers: liveHitLayers.filter((id) => map.getLayer(id)) },
               );
             } catch {
               return fallback;
@@ -6901,7 +6914,7 @@ export default function FishingMapView() {
                   <StarIcon className="h-4.5 w-4.5" />
                 )}
               </span>
-              <span className="mt-0.5 max-w-[110px] truncate rounded bg-white/85 px-1.5 text-[0.625rem] font-bold leading-tight text-navy shadow-sm">
+              <span className="mt-0.5 max-w-[6.875rem] truncate rounded bg-white/85 px-1.5 text-[0.625rem] font-bold leading-tight text-navy shadow-sm">
                 {pl.name}
               </span>
             </span>
@@ -7812,10 +7825,7 @@ export default function FishingMapView() {
       {!routeMode && !navOn && (
       <SnapSheet
         size={size}
-        onSizeChange={(s) => {
-          if (s !== "half") setSheetHeld(false);
-          setSize(s);
-        }}
+        onSizeChange={setSize}
         sideHold={sheetHeld}
         onSideHoldChange={setSheetHeld}
         onInteract={armSheetHide}

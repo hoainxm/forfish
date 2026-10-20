@@ -197,7 +197,7 @@ export function FloatBtn({
       /*  `overflow-hidden`: phần nút nép ra ngoài mép cột bị CẮT — trên điện
           thoại cột = màn nên tự cắt, còn màn rộng thì không có gì cắt, nút "ẩn"
           lại lòi nguyên ra cạnh cột (đo thật 2026-09-07). */
-      className="pointer-events-none fixed inset-x-0 top-0 z-20 mx-auto max-w-[480px] overflow-hidden"
+      className="pointer-events-none fixed inset-x-0 top-0 z-20 mx-auto max-w-(--w-app) overflow-hidden"
       style={{ height: "var(--app-vh, 100dvh)" }}
     >
       <div

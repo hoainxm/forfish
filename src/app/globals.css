@@ -22,6 +22,10 @@
   /*  KÊNH MÀU (rà Codex lần 5–6): MỘT nguồn số cho cả màu đặc lẫn bóng/kính
       trong suốt — `--trim`/`--sea` dựng TỪ kênh, bóng viết `rgb(var(--x-rgb) / a)`.
       Đổi màu = đổi đúng một dòng kênh. Không dùng color-mix vì iOS 15 không chạy. */
+  /*  BỀ NGANG KHUNG APP (rà Codex lần 7) — MỘT nguồn cho khung, dock, thanh mua,
+      sheet đáy, lớp nổi. Cố ý đơn vị px: khung máy không được nở theo chế độ
+      "Chữ to" (đổi cỡ gốc), nếu không khung lệch khỏi dock/sheet dùng chung. */
+  --w-app: 480px;
   --ink-rgb: 13 35 54; /* bóng đổ mực */
   --white-rgb: 255 255 255; /* kính mờ, quầng sáng */
   --black-rgb: 0 0 0; /* bóng ghim trên bản đồ */
@@ -119,7 +123,7 @@ html {
   right: 0;
   bottom: 0;
   height: var(--dock-total);
-  max-width: 480px;
+  max-width: var(--w-app);
   margin-inline: auto;
   pointer-events: none; /* trong suốt, để map/nội dung sau nhận chạm */
 }

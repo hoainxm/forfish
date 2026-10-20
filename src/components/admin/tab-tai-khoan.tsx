@@ -1010,7 +1010,7 @@ export function AccountsTab({ me }: { me: Me }) {
       {/* NV3 — dialog nhập MÃ CK ghi thu tiền */}
       {toPay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="surface w-full max-w-[420px] p-5">
+          <div className="surface w-full max-w-[26.25rem] p-5">
             <p className="display text-[1.125rem] font-bold text-navy">
               Ghi thu tiền — {toPay.phone}
             </p>

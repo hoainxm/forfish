@@ -92,7 +92,7 @@ export function PasswordField({
 }
 
 /*  Khung trắng giữa màn — nơi đặt form đăng nhập/đăng ký.
-    ĐỒNG ĐỀU VỚI HERO + MÀN HÌNH (user 2026-09-25): trước có `max-w-[420px]`
+    ĐỒNG ĐỀU VỚI HERO + MÀN HÌNH (user 2026-09-25): trước có `max-w-[26.25rem]`
     khiến thẻ HẸP hơn header 52px trên khung 480 (thụt vào 26px mỗi bên), nhìn
     thẻ lọt thỏm/lệch so với hero tràn viền phía trên. Nay thẻ rộng đúng cột
     app-shell (đã cap 480) và dùng `px-5` để MÉP thẻ thẳng hàng với mép chữ hero

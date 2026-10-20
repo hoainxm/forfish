@@ -224,7 +224,7 @@ export function SnapSheet({
             style={{ touchAction: "pan-y" }}
             className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[9rem] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float focus:outline-none focus-visible:ring-2 focus-visible:ring-sea"
           >
-            <div className="flex items-center gap-1.5 border-b border-line px-3 py-1.5">
+            <div className="flex items-center gap-1 border-b border-line py-1.5 pl-3 pr-2">
               <div className="min-w-0 flex-1 truncate">
                 {sideTitle ?? <span className="text-[0.875rem] font-semibold text-navy">{label}</span>}
               </div>
@@ -236,7 +236,7 @@ export function SnapSheet({
                   type="button"
                   aria-pressed={sideHold}
                   onClick={() => onSideHoldChange(!sideHold)}
-                  className={`flex h-(--h-ctl) shrink-0 items-center rounded-full px-3 text-[0.8125rem] font-semibold active:scale-95 ${
+                  className={`flex h-(--h-ctl) shrink-0 items-center rounded-full px-2.5 text-[0.8125rem] font-semibold active:scale-95 ${
                     sideHold ? "bg-sea text-white" : "bg-field text-navy"
                   }`}
                 >

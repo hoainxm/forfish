@@ -153,7 +153,7 @@ export function TimeScrubber({
             <span className="absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap rounded-md bg-trim px-2 py-0.5 text-[0.75rem] font-bold text-white shadow">
               {bubble}
             </span>
-            <span className="absolute left-1/2 top-5 h-3 w-[3px] -translate-x-1/2 rounded bg-trim" />
+            <span className="absolute left-1/2 top-5 h-3 w-[0.1875rem] -translate-x-1/2 rounded bg-trim" />
           </div>
         </div>
       </div>

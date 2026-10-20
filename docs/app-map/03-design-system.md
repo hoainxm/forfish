@@ -6,6 +6,7 @@
 
 covers: src/app/globals.css
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-20l — token `--w-app: 480px` = bề ngang khung app (một nguồn cho khung, dock, sheet đáy, thanh mua, lớp nổi; px CÓ CHỦ Ý vì khung không nở theo chế độ "Chữ to"); lưới số ngăn gió sóng thích ứng bằng container query (3 cột từ 17rem, dưới đó 2 cột), không cắt chữ. -->
 <!-- re-verified: 2026-10-20k — `--sea: rgb(var(--sea-rgb))`, `--trim: rgb(var(--trim-rgb))`: kênh là NGUỒN DUY NHẤT (màu đặc + bóng trong suốt), khối kênh dời lên `:root` đầu file; nút bật/tắt chữ "Giữ mở" ở đầu ngăn bên (h --h-ctl, pill, bật = bg-sea chữ trắng, aria-pressed). -->
 <!-- re-verified: 2026-10-20j — token KÊNH MÀU `--ink-rgb` 13 35 54 · `--white-rgb` · `--black-rgb` · `--trim-rgb` 200 70 31 (= --trim) · `--sea-rgb` 8 110 115 (= --sea) trong globals.css: bóng/kính/quầng viết `rgb(var(--x-rgb) / a)`, không còn số màu rời ngoài khối token (color-mix bị loại vì iOS 15). Đổi --trim/--sea phải đổi bộ số đi kèm. `SeaCell` (ô lưới số) nay ở `lib/sea-cells.ts`. -->
 <!-- re-verified: 2026-10-20i — pattern mới `SeaDenseGrid` (lưới số 3 cột: nhãn 0.75rem mờ + số 0.9375rem đậm tabular, không kẻ vạch; `full`/`span2`) cho ngăn gió sóng; nút "Cả tháng" của thẻ con nước theo bậc control (--h-ctl, bo 0.75rem, chữ 600); `#fff` đặc trong globals.css nay là `var(--card)` (rgb trắng có alpha giữ nguyên — color-mix không chạy iOS 15). -->

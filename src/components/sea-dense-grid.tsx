@@ -13,21 +13,26 @@ import { savedStampVN, type SeaCell } from "@/lib/sea-cells";
 
 export function SeaDenseGrid({ cells }: { cells: readonly SeaCell[] }) {
   if (cells.length === 0) return null;
+  /*  THÍCH ỨNG THEO BỀ RỘNG NGĂN, không theo màn (rà Codex lần 7): container
+      query `@min-[17rem]` — ngăn rộng thì 3 cột, ngăn hẹp (máy 320 px, ngăn
+      chỉ ~16,8rem) hoặc phóng chữ to (ngưỡng tính bằng rem nên phóng chữ 200%
+      là ngưỡng gấp đôi) thì 2 cột. KHÔNG `truncate`: "Gió · Đông Bắc", "Dòng →
+      Tây Nam" bị cắt là mất hướng — thà xuống dòng. */
   return (
-    <dl className="grid grid-cols-3 gap-x-3 gap-y-2.5 pt-1">
-      {cells.map((c, i) => (
-        <div key={i} className={`min-w-0 ${c.full ? "col-span-3" : c.span2 ? "col-span-2" : ""}`}>
-          <dt className="truncate text-[0.75rem] leading-tight text-foreground/65">{c.k}</dt>
-          <dd
-            className={`mt-0.5 text-[0.9375rem] font-semibold leading-tight tabular-nums ${
-              c.full ? "" : "truncate"
-            } ${c.tone ?? "text-navy"}`}
-          >
-            {c.v}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <div className="@container">
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 pt-1 @min-[17rem]:grid-cols-3">
+        {cells.map((c, i) => (
+          <div key={i} className={`min-w-0 ${c.full ? "col-span-full" : c.span2 ? "col-span-2" : ""}`}>
+            <dt className="break-words text-[0.75rem] leading-tight text-foreground/65">{c.k}</dt>
+            <dd
+              className={`mt-0.5 break-words text-[0.9375rem] font-semibold leading-tight tabular-nums ${c.tone ?? "text-navy"}`}
+            >
+              {c.v}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 
@@ -87,9 +92,11 @@ export function SeaDensePanel({
 }
 
 /**
- * VIÊN TÓM TẮT dính mép phải (nội dung tay cầm mở ngăn): dòng trên = ngày đang
- * xem, hoặc "Bản lưu HH:MM" màu cảnh báo khi số từ bản lưu; dòng dưới = sóng cao
- * nhất ("~" nếu ước) · cấp gió.
+ * VIÊN TÓM TẮT dính mép phải (nội dung tay cầm mở ngăn): ngày đang xem · sóng cao
+ * nhất ("~" nếu ước) · cấp gió. Số từ BẢN LƯU ⇒ thêm dòng "Bản lưu HH:MM" màu
+ * cảnh báo — báo theo `stale`, không theo `savedAt` (rà Codex lần 7: có luồng
+ * bản lưu mà không có giờ lưu; khi đó vẫn ghi "Bản lưu", chỉ thiếu giờ). Ngày
+ * đang xem GIỮ NGUYÊN — bản lưu không có nghĩa là đang xem hôm nay.
  */
 export function SeaTab({
   date,
@@ -97,6 +104,7 @@ export function SeaTab({
   waveMaxM,
   waveEstimated,
   windMaxKmh,
+  stale,
   savedAt,
 }: {
   date: string;
@@ -104,21 +112,20 @@ export function SeaTab({
   waveMaxM: number;
   waveEstimated: boolean;
   windMaxKmh: number;
-  /** có = đang xem bản lưu */
+  stale: boolean;
   savedAt: number | null;
 }) {
   return (
     <span className="flex flex-col items-start leading-tight">
-      {savedAt != null ? (
-        <span className="whitespace-nowrap text-[0.75rem] font-semibold text-warn">
-          Bản lưu {savedStampVN(savedAt, todayIso)}
-        </span>
-      ) : (
-        <span className="whitespace-nowrap text-[0.75rem] text-foreground/65">{chipLabel(date, todayIso)}</span>
-      )}
+      <span className="whitespace-nowrap text-[0.75rem] text-foreground/65">{chipLabel(date, todayIso)}</span>
       <span className="whitespace-nowrap text-[0.8125rem] font-semibold text-navy">
         {waveMaxM > 0 ? `${waveEstimated ? "~" : ""}${formatNumberVN(waveMaxM)} m` : "—"} · cấp {beaufort(windMaxKmh)}
       </span>
+      {stale && (
+        <span className="whitespace-nowrap text-[0.75rem] font-semibold text-warn">
+          Bản lưu{savedAt != null ? ` ${savedStampVN(savedAt, todayIso)}` : ""}
+        </span>
+      )}
     </span>
   );
 }

@@ -351,7 +351,7 @@ export function SellContactForm({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-[440px] overflow-y-auto rounded-2xl bg-card p-5"
+        className="max-h-[85vh] w-full max-w-[27.5rem] overflow-y-auto rounded-2xl bg-card p-5"
       >
         <p className="display text-[1.25rem] font-bold text-navy">
           {initial ? "Sửa thông tin đầu mối" : "Thêm đầu mối mới"}

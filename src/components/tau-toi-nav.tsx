@@ -26,7 +26,7 @@ export function TauToiNav() {
             href={href}
             aria-current={on ? "page" : undefined}
             className={`relative flex h-[3.25rem] items-center justify-center text-[1rem] font-semibold ${
-              on ? "text-navy after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-full after:bg-navy" : "text-foreground/65"
+              on ? "text-navy after:absolute after:inset-x-3 after:bottom-0 after:h-[0.1875rem] after:rounded-full after:bg-navy" : "text-foreground/65"
             }`}
           >
             {label}

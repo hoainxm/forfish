@@ -68,7 +68,7 @@ export function ConfirmDialog({
         role="alertdialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-[400px] surface p-5 text-center ${
+        className={`w-full max-w-[25rem] surface p-5 text-center ${
           closing ? "anim-pop-out" : "anim-pop-in"
         }`}
       >

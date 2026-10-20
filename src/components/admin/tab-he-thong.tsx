@@ -330,7 +330,7 @@ export function DataTab() {
                 key={s.key}
                 className="flex flex-wrap items-baseline gap-x-2 text-[0.8125rem]"
               >
-                <span className="w-[72px] font-bold uppercase text-foreground/70">
+                <span className="w-[4.5rem] font-bold uppercase text-foreground/70">
                   {s.key}
                 </span>
                 <span className="text-foreground/65">{s.id}</span>
