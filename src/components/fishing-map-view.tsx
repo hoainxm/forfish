@@ -132,6 +132,7 @@ import {
   type TideStation,
 } from "@/lib/tides";
 import { TideCard, TideStationSheet } from "@/components/tide-card";
+import { amLichFromIso, amLichText } from "@/lib/am-lich";
 import type { BoatProfile } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
 import {
@@ -4806,7 +4807,16 @@ export default function FishingMapView() {
   const sideDense =
     cond && today && sel && cond.onSea
       ? (() => {
-          const rows: { k: string; v: string; tone?: string }[] = [];
+          const rows: { k: string; v: string; tone?: string; full?: boolean }[] = [];
+          /*  NGÀY ÂM + TRĂNG của NGÀY ĐANG XEM (anh Long 2026-10-20: "thông tin
+              xổ ra phải có thêm info về ngày trăng (lịch âm)") — cặp đầu lưới:
+              bà con tính con nước, nghề đèn theo ngày âm. */
+          const am = amLichFromIso(sel.date);
+          if (am) rows.push({ k: "Âm lịch", v: amLichText(am) });
+          rows.push({
+            k: "Trăng",
+            v: moonPhase(new Date(`${sel.date}T19:00:00+07:00`)).label.split(" — ")[0],
+          });
           const nowOk = isToday && cond.windKmh != null;
           if (nowOk) {
             rows.push({
@@ -4867,10 +4877,11 @@ export default function FishingMapView() {
               k: "Cá",
               v: fishAtPoint.top.map((sp) => SPECIES_META[sp]?.full ?? sp).join(", "),
               tone: "text-trim",
+              full: true,
             });
             rows.push({ k: "Nhiệt", v: `${formatNumberVN(fishAtPoint.t)}°C` });
           } else if (fishHere.length > 0) {
-            rows.push({ k: "Mùa này", v: fishHere.join(", ") });
+            rows.push({ k: "Mùa này", v: fishHere.join(", "), full: true });
           }
           if (depth != null)
             rows.push({
@@ -4883,7 +4894,6 @@ export default function FishingMapView() {
                     ? "text-warn"
                     : undefined,
             });
-          rows.push({ k: "Trăng", v: moon.label.split(" — ")[0] });
           return (
             <div className="space-y-2">
               {sel.level && (
@@ -4901,11 +4911,14 @@ export default function FishingMapView() {
                 </p>
               )}
               {dayChipsRow}
-              <dl className="divide-y divide-line">
+              {/*  LƯỚI 2 CỘT nhãn trên / số dưới (ngăn rộng như cũ nhưng thấp 1/3
+                   màn — xếp đôi để một khung nhìn chứa nhiều số nhất). Dòng dài
+                   (Cá, Mùa này) chiếm trọn hàng. */}
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
                 {rows.map((r, i) => (
-                  <div key={i} className="flex items-baseline justify-between gap-2 py-1.5">
-                    <dt className="shrink-0 text-[0.75rem] text-foreground/60">{r.k}</dt>
-                    <dd className={`min-w-0 text-right text-[0.8125rem] font-semibold leading-snug ${r.tone ?? "text-navy"}`}>
+                  <div key={i} className={`min-w-0 border-t border-line pt-1 ${r.full ? "col-span-2" : ""}`}>
+                    <dt className="text-[0.6875rem] leading-tight text-foreground/60">{r.k}</dt>
+                    <dd className={`text-[0.875rem] font-semibold leading-snug ${r.tone ?? "text-navy"}`}>
                       {r.v}
                     </dd>
                   </div>

@@ -20,7 +20,7 @@
   · không phải dialog (khác ui/bottom-sheet.tsx vốn là modal có focus-trap)
   Đặt trong container relative của màn hình map; chiều cao tính theo container.
 */
-import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "@/components/icons";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "@/components/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export type SheetSize = "hidden" | "peek" | "half";
@@ -72,8 +72,8 @@ export function SnapSheet({
   sideTab?: ReactNode;
   /** Thêm vào đầu ngăn, cạnh "Thu" (vd chip dữ liệu) — chỉ khi `side`. */
   sideHeader?: ReactNode;
-  /** Nội dung DÀY SỐ cho ngăn hẹp 1/3 màn (mặc định khi mở). Có "Xem đủ ›" để
-   *  nở ra ngăn rộng với `peek` + `children` (câu giải thích đầy đủ). */
+  /** Nội dung DÀY SỐ cho ngăn thấp 1/3 màn (mặc định khi mở). "Xem đủ" mở thêm
+   *  `peek` + `children` (câu giải thích đầy đủ) ngay trong ngăn, cuộn dọc. */
   sideDense?: ReactNode;
   /** Phần luôn thấy ở mọi nấc */
   peek: React.ReactNode;
@@ -89,7 +89,7 @@ export function SnapSheet({
   // Vuốt lên = nở, vuốt xuống = thu. Chạm nhẹ (ít di chuyển) thì coi như tap → nở.
   const dragY = useRef<number | null>(null);
   const dragX = useRef<number | null>(null);
-  /** ngăn bên phải đang ở bản RỘNG (Xem đủ) — đóng ngăn là về bản hẹp */
+  /** ngăn bên phải đang mở phần "Xem đủ" — đóng ngăn là thu lại */
   const [wide, setWide] = useState(false);
   useEffect(() => {
     if (size !== "half") setWide(false);
@@ -162,21 +162,24 @@ export function SnapSheet({
             </button>
           </div>
         )}
-        {open && sideDense && !wide && (
-          /*  NGĂN HẸP 1/3 MÀN (anh Long 2026-10-20: "drag chỉ chiếm 1/3 thôi,
-              trượt mà xem info, dense vào") — số dày, cuộn dọc; "Xem đủ ›" nở
-              ra ngăn rộng có câu giải thích. Vuốt phải / › để thu. */
+        {open && sideDense && (
+          /*  NGĂN THẤP 1/3 MÀN (anh Long 2026-10-20: "1/3 ko phải theo chiều
+              ngang, ý là kích thước như cũ, nhưng chiều dài chỉ còn 1/3, rồi cho
+              scroll đọc"): rộng như ngăn cũ min(22rem,84%), CAO ~1/3 khung bản
+              đồ, neo GÓC DƯỚI PHẢI (đúng chỗ viên tóm tắt), trượt ra từ cạnh
+              phải; thân cuộn dọc. 2/3 trên của bản đồ để trống.
+              "Xem đủ" mở thêm phần giải thích NGAY TRONG ngăn (vẫn cao 1/3). */
           <div
             onPointerDown={(e) => {
               dragX.current = e.clientX;
             }}
             onPointerUp={(e) => onSideUp(e, true)}
             style={{ touchAction: "pan-y" }}
-            className="anim-pop-in pointer-events-auto absolute bottom-0 right-0 top-0 flex w-[max(9.5rem,34%)] flex-col rounded-l-2xl border-l border-line bg-background/97 shadow-float"
+            className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[13rem] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float"
           >
-            <div className="flex items-center gap-1.5 px-2 pb-1 pt-[calc(0.5rem+env(safe-area-inset-top))]">
+            <div className="flex items-center gap-1.5 border-b border-line px-3 py-1.5">
+              <p className="min-w-0 flex-1 truncate text-[0.875rem] font-semibold text-navy">{label}</p>
               {sideHeader}
-              <span className="min-w-0 flex-1" />
               <button
                 type="button"
                 onClick={() => onSizeChange("hidden")}
@@ -186,20 +189,27 @@ export function SnapSheet({
                 <ChevronRightIcon className="h-4 w-4" />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3 [overscroll-behavior:contain]">
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2 [overscroll-behavior:contain]">
               {sideDense}
-              <button
-                type="button"
-                onClick={() => setWide(true)}
-                className="mt-2 flex h-(--h-ctl) w-full items-center justify-center gap-1 rounded-full bg-field text-[0.8125rem] font-semibold text-navy active:scale-[0.98]"
-              >
-                Xem đủ
-                <ChevronLeftIcon className="h-4 w-4" />
-              </button>
+              {wide ? (
+                <div className="mt-3 border-t border-line pt-3">
+                  {peek}
+                  <div className="mt-2">{children}</div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setWide(true)}
+                  className="mt-2 flex h-(--h-ctl) w-full items-center justify-center gap-1 rounded-full bg-field text-[0.8125rem] font-semibold text-navy active:scale-[0.98]"
+                >
+                  Xem đủ
+                  <ChevronDownIcon className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         )}
-        {open && (!sideDense || wide) && (
+        {open && !sideDense && (
           <div
             className="anim-pop-in pointer-events-auto absolute bottom-0 right-0 top-0 flex w-[min(22rem,84%)] flex-col rounded-l-[1.5rem] bg-background shadow-float"
           >
