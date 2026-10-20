@@ -36,6 +36,8 @@ export function SnapSheet({
   label,
   hiddenLabel,
   side = false,
+  sideTab,
+  sideHeader,
   peek,
   children,
 }: {
@@ -65,6 +67,10 @@ export function SnapSheet({
   hiddenLabel?: string;
   /** Ngăn kéo BÊN PHẢI thay sheet đáy (tab dính mép phải; xem nhánh `if (side)`). */
   side?: boolean;
+  /** Nội dung VIÊN dính mép phải ở nấc thu (tóm tắt ngắn) — chỉ khi `side`. */
+  sideTab?: ReactNode;
+  /** Thêm vào đầu ngăn, cạnh "Thu" (vd chip dữ liệu) — chỉ khi `side`. */
+  sideHeader?: ReactNode;
   /** Phần luôn thấy ở mọi nấc */
   peek: React.ReactNode;
   /** Phần chi tiết — chỉ thấy ở half/full, cuộn bên trong sheet */
@@ -98,15 +104,18 @@ export function SnapSheet({
     }
   };
 
-  /*  BIẾN THỂ NGĂN KÉO BÊN PHẢI (anh Long 2026-10-20: "thin drag bar chuyển
-      qua side… kéo side khác kéo dưới lên" — tay cầm ở cạnh thì bảng phải
-      TRƯỢT RA TỪ CẠNH, không mọc từ đáy).
-      · `hidden`/`peek`: không vẽ thân — chỉ hàng `above` ở đáy (bước ngày +
-        chip dữ liệu) + TAB DÍNH MÉP PHẢI (vạch kéo dọc + ‹). Chạm bản đồ (peek)
-        chỉ cập nhật số trên hàng đáy, KHÔNG bung bảng che bản đồ.
-      · `half`: ngăn kéo cao trọn khung map, rộng min(22rem, 84%), chừa một dải
-        bản đồ bên trái. Vuốt TRÁI ở tab / chạm tab = mở; vuốt PHẢI trong ngăn /
-        nút "Thu" = đóng. Không scrim, không khoá bản đồ (cùng luật sheet đáy). */
+  /*  BIẾN THỂ NGĂN KÉO BÊN PHẢI (anh Long 2026-10-20: "kéo side khác kéo dưới
+      lên"; rồi "bố cục cái drag vẫn chưa đẹp, chưa thông minh, chưa tối ưu, vẫn
+      đang chiếm diện tích").
+      · `hidden`/`peek`: bản đồ chỉ còn MỘT VIÊN dính mép phải — viên vừa là
+        TÓM TẮT (`sideTab`: ngày + sóng/gió) vừa là TAY CẦM (vạch dọc + ‹). Không
+        hàng đáy, không thanh kéo, không bước ngày trên bản đồ (đổi ngày trong
+        ngăn). `above` chỉ còn cho thứ bắt buộc nổi (thanh giờ lớp động, lỗi dự
+        báo cá, chip dữ liệu KHI THIẾU) — xếp căn phải ngay trên viên.
+      · `half`: ngăn trượt từ phải, cao trọn khung map, rộng min(22rem,84%),
+        chừa dải bản đồ bên trái. Đầu ngăn: tiêu đề · `sideHeader` (chip dữ
+        liệu) · "Thu ›". Vuốt TRÁI/chạm viên = mở; vuốt PHẢI/"Thu" = đóng.
+        Không scrim, không khoá bản đồ (cùng luật sheet đáy). */
   if (side) {
     const open = size === "half";
     const onSideUp = (e: React.PointerEvent, wasOpen: boolean) => {
@@ -126,41 +135,39 @@ export function SnapSheet({
         onScrollCapture={onInteract}
         className="pointer-events-none absolute inset-0 z-10"
       >
-        {above && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 pb-2">
-            {above}
-          </div>
-        )}
         {!open && (
-          <button
-            type="button"
-            onPointerDown={(e) => {
-              dragX.current = e.clientX;
-            }}
-            onPointerUp={(e) => onSideUp(e, false)}
-            style={{ touchAction: "none" }}
-            aria-label={`Mở bảng ${label.toLowerCase()} — vuốt sang trái hoặc chạm`}
-            className="pointer-events-auto absolute bottom-[4.5rem] right-0 flex h-[4.5rem] w-7 flex-col items-center justify-center gap-1 rounded-l-xl border border-r-0 border-line bg-card/95 text-navy shadow-float active:bg-field"
-          >
-            <span className="h-6 w-1 rounded-full bg-navy/35" aria-hidden />
-            <ChevronLeftIcon className="h-4 w-4 text-navy/70" />
-          </button>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-end gap-2 pb-3 pl-2">
+            {above && <div className="w-full pr-2">{above}</div>}
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                dragX.current = e.clientX;
+              }}
+              onPointerUp={(e) => onSideUp(e, false)}
+              style={{ touchAction: "none" }}
+              aria-label={`Mở bảng ${label.toLowerCase()} — vuốt sang trái hoặc chạm`}
+              className="pointer-events-auto flex h-(--h-ctl) items-center gap-2 rounded-l-full border border-r-0 border-line bg-card/95 pl-2 pr-3 text-navy shadow-float active:bg-field"
+            >
+              <ChevronLeftIcon className="h-4 w-4 shrink-0 text-navy/60" />
+              {sideTab ?? <span className="text-[0.8125rem] font-semibold">{label}</span>}
+            </button>
+          </div>
         )}
         {open && (
           <div
             className="anim-pop-in pointer-events-auto absolute bottom-0 right-0 top-0 flex w-[min(22rem,84%)] flex-col rounded-l-[1.5rem] bg-background shadow-float"
           >
-            {/* hàng đầu: vạch kéo DỌC ở mép trái ngăn (vuốt phải để thu) */}
+            {/* đầu ngăn: vuốt phải để thu */}
             <div
               onPointerDown={(e) => {
                 dragX.current = e.clientX;
               }}
               onPointerUp={(e) => onSideUp(e, true)}
               style={{ touchAction: "pan-y" }}
-              className="flex items-center gap-2 border-b border-line pl-2 pr-2 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2"
+              className="flex items-center gap-2 border-b border-line pb-2 pl-3 pr-2 pt-[calc(0.5rem+env(safe-area-inset-top))]"
             >
-              <span className="h-6 w-1 shrink-0 rounded-full bg-line" aria-hidden />
-              <p className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">{label}</p>
+              <p className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold text-navy">{label}</p>
+              {sideHeader}
               <button
                 type="button"
                 onClick={() => onSizeChange("hidden")}

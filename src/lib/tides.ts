@@ -662,7 +662,7 @@ export function nearestTideStation(
  */
 export function tideModelCaveat(st: TideStation): string | null {
   if (!isModelStation(st)) return null;
-  return "Con nước ở đây ƯỚC TÍNH từ mô hình (chưa có trạm đo tại chỗ) — chỉ xem con nước lên hay xuống, giờ giấc có thể lệch.";
+  return "Con nước ƯỚC TÍNH (chưa có trạm đo) — chỉ xem lên hay xuống, giờ có thể lệch.";
 }
 
 /**
@@ -682,8 +682,8 @@ export function tideTrustText(
   if (Number.isFinite(distanceKm) && distanceKm > 30) {
     dist =
       distanceKm <= 120
-        ? "Trạm hơi xa — giờ nước ở cửa nhà mình có thể lệch nửa tiếng tới một tiếng."
-        : "Trạm ở xa — chỉ xem cho biết con nước lên hay xuống, đừng lấy làm giờ chính xác.";
+        ? "Trạm hơi xa — giờ có thể lệch 30–60 phút."
+        : "Trạm ở xa — chỉ xem lên hay xuống, đừng lấy giờ chính xác.";
   }
   // Trạm mô hình đã tự nói "chỉ xem lên/xuống" nên không lặp câu khoảng-cách nặng.
   if (model) return dist && distanceKm <= 120 ? `${model} ${dist}` : model;

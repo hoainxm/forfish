@@ -427,8 +427,6 @@ import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify";
 import { premiumLine } from "@/components/premium-gate";
 import {
   AlertIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   FishIcon,
   HomeIcon,
   LockIcon,
@@ -4752,19 +4750,16 @@ export default function FishingMapView() {
               disabled={past}
               aria-pressed={active}
               aria-disabled={locked || undefined}
-              className={`flex h-(--h-chip) min-w-[4.5rem] flex-1 shrink-0 flex-col items-center justify-center rounded-lg px-2 text-[0.8125rem] font-semibold transition active:scale-[0.97] ${
-                active ? "bg-navy text-white" : "bg-field text-navy"
+              /*  Chip ngày MỘT DÒNG, bo tròn, rộng theo nhãn (2026-10-20, "thiết
+                  kế vẫn to"): bản cũ flex-1 + chữ 0.9375 đậm ⇒ "Hôm / nay" gãy
+                  hai dòng trong ngăn hẹp. Cao vẫn bậc chip --h-chip. */
+              className={`flex h-(--h-chip) shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-3 text-[0.8125rem] font-semibold transition active:scale-[0.97] ${
+                active ? "bg-navy text-white" : "border border-line bg-card text-navy"
               } ${past ? "opacity-40" : ""}`}
             >
               {/* CHỈ NGÀY — bỏ số sóng/gió cho gọn (user 2026-07-28);
                   số chi tiết xem ở thân sheet cho ngày đang chọn */}
-              <span
-                className={`text-[0.9375rem] font-bold leading-tight ${
-                  active ? "text-white" : "text-navy"
-                }`}
-              >
-                {chipLabel(d.date, todayIso)}
-              </span>
+              <span>{chipLabel(d.date, todayIso)}</span>
               {locked && (
                 <LockIcon
                   className="h-3.5 w-3.5 text-foreground/45"
@@ -4777,99 +4772,25 @@ export default function FishingMapView() {
       </div>
     ) : null;
 
-  /*  BƯỚC NGÀY GỌN "‹ Hôm nay ›" — thay dải 5 chip ngày ở nấc `hidden` (anh
-      Long 2026-10-20: dải chip ngày + câu "cần mạng" + viên kính sóng gió là BA
-      tầng nổi trên đáy bản đồ, "tốn chỗ, chưa thông minh"). Một viên nhỏ cùng
-      HÀNG với chip dữ liệu; dải chip đầy đủ vẫn ở thân sheet (peek/half).
-      Cùng luật chọn ngày với dải chip: bỏ qua ngày đã qua; ngày premium bị khoá
-      thì KHÔNG nhảy vào mà bật dòng mời (dayLockNote) + mở sheet về peek để
-      dòng đó hiện ra — không chặn câm. */
-  const stepDay = (dir: -1 | 1) => {
-    if (!cond || selIdx < 0) return;
-    for (let i = selIdx + dir; i >= 0 && i < cond.days.length; i += dir) {
-      const d = cond.days[i];
-      if (isPastDay(d.date, todayIso)) continue;
-      if (dayChipLocked(d.date)) {
-        setDayLockNote(true);
-        setSize("half");
-        return;
-      }
-      setDayLockNote(false);
-      setDayIdx(i);
-      armSheetHide();
-      return;
-    }
-  };
-  const canStep = (dir: -1 | 1) => {
-    if (!cond || selIdx < 0) return false;
-    for (let i = selIdx + dir; i >= 0 && i < cond.days.length; i += dir) {
-      if (!isPastDay(cond.days[i].date, todayIso)) return true;
-    }
-    return false;
-  };
-  const dayStepper =
+  /*  VIÊN TÓM TẮT DÍNH MÉP PHẢI (2026-10-20, anh Long: "bố cục cái drag… vẫn
+      đang chiếm diện tích"; "thông tin đang trùng lặp, cách thiết kế vẫn to").
+      Thay bước ngày "‹ ngày ›" + hàng đáy: bản đồ chỉ còn MỘT viên nhỏ — vừa là
+      tóm tắt (ngày đang xem · sóng · cấp gió), vừa là tay cầm mở ngăn gió sóng.
+      Đổi ngày nằm TRONG ngăn (dải chip ngày đầy đủ). Sóng ước lượng có "~". */
+  const sideTabContent =
     cond && today && sel ? (
-      <div
-        role="group"
-        aria-label="Chọn ngày xem dự báo"
-        onPointerDown={(e) => e.stopPropagation()}
-        className="pointer-events-auto inline-flex h-(--h-ctl) items-center rounded-full border border-line bg-card/95 shadow-sm"
-      >
-        <button
-          type="button"
-          onClick={() => stepDay(-1)}
-          disabled={!canStep(-1)}
-          aria-label="Ngày trước"
-          className="flex h-full w-9 items-center justify-center rounded-l-full text-navy active:bg-field disabled:opacity-30"
-        >
-          <ChevronLeftIcon className="h-4 w-4" />
-        </button>
-        {/*  Giữa = ngày + TÓM TẮT sóng gió hai dòng (thay viên kính "Sóng — · Gió
-             cấp 3 Bắc" từng chiếm riêng một hàng — anh Long: "tốn chỗ, chuyển
-             thành sidebar hoặc cách gì thông minh hơn"). Chạm giữa ⇒ mở sheet
-             về peek để đọc đủ số. */}
-        <button
-          type="button"
-          onClick={() => {
-            setSize("half");
-            armSheetHide();
-          }}
-          aria-live="polite"
-          aria-label={`${chipLabel(sel.date, todayIso)}: sóng ${
-            sel.waveMaxM > 0 ? `${formatNumberVN(sel.waveMaxM)} mét` : "chưa rõ"
-          }, gió cấp ${beaufort(sel.windMaxKmh)}. Chạm xem chi tiết`}
-          className="flex h-full flex-col items-center justify-center px-1 leading-tight"
-        >
-          <span className="whitespace-nowrap text-[0.8125rem] font-semibold text-navy">
-            {chipLabel(sel.date, todayIso)}
-          </span>
-          <span className="whitespace-nowrap text-[0.75rem] text-foreground/70">
-            Sóng{" "}
-            {/* ước lượng: dấu "~" (chữ " (ước lượng)" quá dài cho viên gọn;
-                aria-label + thân sheet vẫn nói đủ) */}
-            {sel.waveMaxM > 0
-              ? `${sel.waveEstimated ? "~" : ""}${formatNumberVN(sel.waveMaxM)} m`
-              : "—"}{" "}
-            · Gió {beaufort(sel.windMaxKmh)}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => stepDay(1)}
-          disabled={!canStep(1)}
-          aria-label="Ngày sau"
-          className="flex h-full w-9 items-center justify-center rounded-r-full text-navy active:bg-field disabled:opacity-30"
-        >
-          <ChevronRightIcon className="h-4 w-4" />
-        </button>
-      </div>
+      <span className="flex flex-col items-start leading-tight">
+        <span className="whitespace-nowrap text-[0.75rem] text-foreground/65">
+          {chipLabel(sel.date, todayIso)}
+        </span>
+        <span className="whitespace-nowrap text-[0.8125rem] font-semibold text-navy">
+          {sel.waveMaxM > 0
+            ? `${sel.waveEstimated ? "~" : ""}${formatNumberVN(sel.waveMaxM)} m`
+            : "—"}{" "}
+          · cấp {beaufort(sel.windMaxKmh)}
+        </span>
+      </span>
     ) : null;
-
-  /*  Hàng đáy gọn đang hiện (nấc hidden do đồng hồ tự-ẩn, không lớp nổi nào ép
-      ẩn, không mở thanh giờ, có ngày để bước) — một điều kiện cho cả bước ngày,
-      nút ⌃ cạnh phải và việc SnapSheet bỏ thanh kéo giữa đáy. */
-  const stepperRowOn =
-    size !== "half" && !sheetHiddenByOverlay && !overlayOn && !!dayStepper;
 
   /*  Dòng "ở đâu" CHỈ nói TÊN chỗ khi con trỏ đang đứng trên một điểm đã ghim.
       Không ghim thì KHÔNG nói gì — cột phải của peek để trống cho dòng toạ độ.
@@ -7775,25 +7696,16 @@ export default function FishingMapView() {
         size={size}
         onSizeChange={setSize}
         onInteract={armSheetHide}
-        /*  Sheet tự ẩn rồi thì GIỮ LẠI ĐÚNG MỘT DÒNG SỐ trên viên kính — chi
-            phí 0px, xem chú thích `hiddenLabel` trong snap-sheet.tsx. CHỈ khi
-            nấc `hidden` đến từ đồng hồ tự-ẩn: bị lớp nổi khác ép ẩn mà vẫn dán
-            dòng số là dựng lại đúng cảnh hai lớp nổi vừa dẹp. */
-        /*  Viên kính KHÔNG kèm chữ nữa (2026-10-20): tóm tắt sóng gió đã nằm
-            trong bước ngày `dayStepper` ở hàng trên — in thêm ở viên kính là
-            một hàng nổi thừa. Còn lại đúng vạch kéo mảnh. Ca bị lớp nổi khác ép
-            ẩn / đang mở thanh giờ thì dayStepper không dựng ⇒ vẫn giữ chữ. */
-        hiddenLabel={
-          !sheetHiddenByOverlay && condSummary && (overlayOn || !dayStepper)
-            ? condSummary
-            : undefined
-        }
-        /*  Thanh kéo giữa đáy dời sang CẠNH PHẢI hàng bước ngày (nút ⌃ ở cuối
-            hàng `above`) — anh Long 2026-10-20 "thin drag bar chuyển qua side".
-            Chỉ khi hàng đó đang dựng nút mở (cùng điều kiện với dayStepper). */
-        /*  NGĂN KÉO BÊN PHẢI (anh Long 2026-10-20): tab dính mép phải thay thanh
-            kéo đáy; mở = trượt từ cạnh. Chạm bản đồ (peek) chỉ cập nhật hàng đáy. */
+        /*  NGĂN KÉO BÊN PHẢI (anh Long 2026-10-20): bản đồ chỉ còn MỘT viên dính
+            mép phải (`sideTab` = ngày · sóng · cấp gió) — chạm/vuốt trái mở ngăn
+            gió sóng, đổi ngày trong ngăn. Không hàng đáy, không thanh kéo đáy
+            (`hiddenLabel` không dùng ở biến thể này). Chip dữ liệu đủ chữ nằm ở
+            đầu ngăn (`sideHeader`); trên bản đồ chỉ nổi icon khi THIẾU. */
         side
+        sideTab={sideTabContent}
+        sideHeader={
+          <PretripSavedStatus points={pretripPoints} fishLocked={fishLocked} />
+        }
         above={
           /*  CÒN Ở NẤC `hidden` NỮA (user 2026-08-24: "cái chip tải cái gì đủ
               hay chưa đâu rồi?"): chip độ phủ `PretripSavedStatus` là nhãn
@@ -7807,44 +7719,36 @@ export default function FishingMapView() {
                   sàng ra khơi chưa. Có ở nấc peek VÀ hidden (`sheetThu`), chỉ ẩn
                   khi kéo sheet lên đọc chi tiết cho khỏi rối; căn phải, nằm ngay
                   trên mép sheet. Dòng lỗi dự báo cá (nếu có) xếp NGAY TRÊN nhãn. */}
-              {sheetThu && (
-                /*  MỘT HÀNG ở nấc `hidden` (2026-10-20): [‹ ngày ›] trái · [chip dữ
-                    liệu 2 chữ] phải — thay cho chip câu dài + dải 5 chip ngày
-                    xếp hai tầng. Ở `peek` dải chip ngày nằm trong thân sheet nên
-                    bên trái để trống, chip dữ liệu vẫn căn phải như cũ. */
-                <div className="flex items-end gap-2">
-                  <div className="min-w-0 flex-1">
-                    {stepperRowOn && dayStepper}
-                  </div>
+              {sheetThu && !sheetHiddenByOverlay && (
+                /*  CHỈ NỔI KHI CÓ VIỆC (2026-10-20, anh Long: "thông tin trùng lặp,
+                    thiết kế vẫn to"): bỏ hàng bước ngày + chip chữ ở đáy — tóm
+                    tắt ngày/sóng/gió đã ở VIÊN dính mép phải (sideTab), đổi ngày
+                    trong ngăn. Còn lại: lỗi dự báo cá (hiếm) + chip dữ liệu dạng
+                    ICON, chỉ hiện khi THIẾU/cần sóng (đủ thì nằm ở đầu ngăn). */
                 <div className="flex flex-col items-end gap-2">
                   {!overlayOn && fishOn && !fishCast && fishFailMsg && (
                     <button
                       type="button"
                       onClick={loadFish}
-                      className="pointer-events-auto inline-flex min-h-[3rem] items-center gap-2 rounded-full bg-card/95 px-4 shadow-md transition active:scale-95"
+                      className="pointer-events-auto inline-flex h-(--h-ctl) items-center gap-2 rounded-full bg-card/95 px-3 shadow-md transition active:scale-95"
                     >
                       <FishIcon
-                        className="h-5 w-5 shrink-0 text-danger"
+                        className="h-4 w-4 shrink-0 text-danger"
                         aria-hidden
                       />
-                      <span className="text-[0.875rem] font-bold text-danger">
+                      <span className="text-[0.8125rem] font-semibold text-danger">
                         {fishFailMsg}
                       </span>
                     </button>
                   )}
-                  <div className="flex items-center gap-1.5">
-                    <PretripSavedStatus
-                      points={pretripPoints}
-                      fishLocked={fishLocked}
-                    />
-                  </div>
-                </div>
+                  <PretripSavedStatus
+                    points={pretripPoints}
+                    fishLocked={fishLocked}
+                    iconOnly
+                    hideWhenOk
+                  />
                 </div>
               )}
-              {/*  ĐỔI NGÀY SỐNG QUA NẤC `hidden` (2026-08-29) — từ 2026-10-20 bằng
-                   bước ngày gọn `dayStepper` ở hàng trên (không còn dải 5 chip).
-                   Guard `!sheetHiddenByOverlay` + `!overlayOn` giữ nguyên: bị lớp
-                   nổi khác ép ẩn / đang mở thanh giờ thì không dán thêm lớp nổi. */}
               {/* thanh giờ gió/sóng/mây/mưa/nhiệt XUỐNG ĐÁY kiểu Windy — tay với
                   tới, không chồng 4 tầng trên đầu bản đồ (roadmap UX 2026-06-11) */}
               {overlayOn && (
@@ -7990,7 +7894,7 @@ export default function FishingMapView() {
             </div>
           ) : undefined
         }
-        label="Gió sóng tại điểm"
+        label="Gió sóng"
         peek={
           // Bật lớp dự báo + đang ở nấc PEEK (strip hiện ở trên) → ẨN panel biển
           // động cho gọn. Vuốt LÊN (half/full) thì panel + chip ngày HIỆN LẠI đầy
@@ -8075,46 +7979,15 @@ export default function FishingMapView() {
                       </span>
                     )}
                   </div>
-                  <p className="text-[0.9375rem] font-semibold leading-snug text-foreground/80">
-                    {condSummary}
-                  </p>
-                </div>
-                {/*  Cột phải: TÊN chỗ (chỉ khi đang đứng trên điểm đã ghim) +
-                     TOẠ ĐỘ, xếp chồng cho panel gọn (user 2026-07-28).
-                     TOẠ ĐỘ Ở LẠI ĐÂY (user 2026-08-25d: *"hiển thị toạ độ như
-                     cũ"*) — bản 2026-08-25 gỡ đi với lý do "không in số hai
-                     nơi" là SAI: ô góc là chỗ LIẾC lúc đang lái, sheet là chỗ
-                     ĐỌC KỸ lúc dừng xem dự báo. Hai việc, không phải một câu
-                     nói hai lần. */}
-                <div className="flex shrink-0 flex-col items-end text-right">
+                  {/*  BỎ dòng tóm tắt sóng/gió + cột toạ độ / "cách ranh giới" ở
+                       đầu ngăn (2026-10-20, "thông tin đang trùng lặp"): sóng/gió đã
+                       ở bảng số ngay dưới + viên tóm tắt mép phải; toạ độ đã ở ô
+                       Tàu/Trỏ góc trên; khoảng cách ranh giới đã có nhãn trên bản đồ
+                       và dòng ĐỎ khi rất gần (giữ bên dưới). Chỉ còn TÊN chỗ ghim. */}
                   {whereLine && (
-                    <span className="text-[0.8125rem] leading-snug text-foreground/70">
+                    <p className="text-[0.8125rem] leading-snug text-foreground/70">
                       {whereLine}
-                    </span>
-                  )}
-                  <span className="whitespace-nowrap text-[0.75rem] font-semibold tabular-nums leading-snug text-foreground/55">
-                    {fmtCoordPair(point.lat, point.lon, prefs.coordFormat)}
-                  </span>
-                  {/*  CÁCH RANH GIỚI — LUÔN hiện, ngay dưới toạ độ (bà con qua
-                       VSS Quân 2026-08-25: *"hiện dưới mục toạ độ là cách ranh
-                       giới bn hải lý cho tiện"*).
-                       ĐÂY LÀ ĐỔI Ý so với luật cũ "khoảng cách ranh giới chỉ nói
-                       khi gần, xa hàng trăm hải lý thì im" (audit 2026-06-10 mục
-                       5) — chính người dùng đòi con số thường trực, và biết mình
-                       còn cách ranh giới bao xa là việc bà con tự tính suốt
-                       chuyến. Vẫn KHÔNG khẳng định "đã vượt" (lib/geofence chỉ
-                       đo khoảng cách tới đường ranh giới).
-                       ẨN khi very_near: lúc đó dòng ĐỎ to phía dưới đã in đúng
-                       con số này rồi, in hai lần là thừa. */}
-                  {prox.applies && prox.level !== "very_near" && (
-                    <span
-                      className={`whitespace-nowrap text-[0.75rem] font-semibold tabular-nums leading-snug ${
-                        prox.level === "near" ? "text-warn" : "text-foreground/55"
-                      }`}
-                    >
-                      Cách ranh giới{" "}
-                      {fmtDist(prox.distanceNm * 1.852, prefs.distUnit, prox.distanceNm < 10 ? 1 : 0)}
-                    </span>
+                    </p>
                   )}
                 </div>
               </div>
@@ -8223,120 +8096,112 @@ export default function FishingMapView() {
 
           {cond && cond.onSea && today && sel && (
             <>
-              {/* THANH NGÀY đã dời LÊN peek (hiện luôn mặc định) — ở body không
-                  lặp lại nữa; body bắt đầu thẳng bằng số đỉnh cả ngày. */}
-              {/* MAX cả ngày đã chọn (giật) — peek phía trên đã có tình trạng
-                  + tóm tắt, đây chỉ thêm số đỉnh để khỏi trùng (user: trùng dữ liệu) */}
-              <p
-                className="rounded-xl px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug"
-                style={{
-                  // level null (bản dựng từ lưới) → nền trung tính, không tô
-                  // xanh/đỏ như thể đã chấm được điểm đi biển
-                  backgroundColor: sel.level
-                    ? LEVEL_STYLE[sel.level].bg
-                    : "var(--field)",
-                  color: sel.level ? LEVEL_STYLE[sel.level].fg : "var(--navy)",
-                }}
-              >
-                Cả ngày: sóng tới{" "}
-                {sel.waveMaxM > 0
-                  ? `${formatNumberVN(sel.waveMaxM)} m${sel.waveEstimated ? WAVE_EST_MARK : ""}`
-                  : "— (chưa có dữ liệu)"}{" "}
-                · gió tới cấp {beaufort(sel.windMaxKmh)}
-                {sel.gustMaxKmh > 0 && `, giật cấp ${beaufort(sel.gustMaxKmh)}`}
-                {/* Hướng gió CHỦ ĐẠO cả ngày — hôm nay đã có hướng (tức thời)
-                    trong thẻ "Gió lúc này" nên KHÔNG lặp ở đây; các ngày sau
-                    trước đây trống hướng (VĐ báo 2026-08-10) → bù đúng chỗ này.
-                    Gọi tên gió theo GỐC + "thổi về" cho khớp vệt bản đồ (VĐ báo
-                    2026-08-10 lần 2). Bản dựng từ lưới không có `windDirDeg` → tự ẩn. */}
-                {!isToday &&
-                  sel.windDirDeg != null &&
-                  ` · ${windDescribeVN(sel.windDirDeg)}`}
-              </p>
+              {/*  BẢNG SỐ GỌN — MỘT danh sách kẻ mảnh (anh Long 2026-10-20: "thông
+                   tin đang trùng lặp, cách thiết kế vẫn to"). Trước: dòng tóm tắt
+                   ở đầu + dải màu "Cả ngày: sóng tới… gió tới…" + HAI thẻ to "Gió
+                   lúc này"/"Sóng lúc này" + dòng "Dòng chảy" = cùng sóng/gió nói
+                   ba lần. Nay mỗi đại lượng MỘT hàng: số lúc này (hôm nay) bên
+                   phải đậm, dòng phụ "cả ngày tới…" — ngày khác chỉ còn số cả ngày.
+                   Bản lưu: "lúc này" đổi thành "đo lúc HH:MM" (không nói dối). */}
+              {(() => {
+                const nowOk = isToday && cond.windKmh != null;
+                const nowLbl =
+                  cond.stale && cond.savedAt != null ? `đo lúc ${clockVN(cond.savedAt)}` : "lúc này";
+                const useCurNow = isToday && cond.curKmh != null && !cond.stale;
+                const curKmh = useCurNow ? cond.curKmh : (sel.curKmh ?? null);
+                const curDir = useCurNow ? (cond.curDirDeg ?? null) : (sel.curDirDeg ?? null);
+                const waveDay =
+                  sel.waveMaxM > 0
+                    ? `${formatNumberVN(sel.waveMaxM)} m${sel.waveEstimated ? " (ước)" : ""}`
+                    : "chưa có số";
+                const windDay = `cấp ${beaufort(sel.windMaxKmh)}${
+                  sel.gustMaxKmh > 0 ? `, giật cấp ${beaufort(sel.gustMaxKmh)}` : ""
+                }`;
+                const Row = ({
+                  icon,
+                  name,
+                  main,
+                  sub,
+                }: {
+                  icon: React.ReactNode;
+                  name: string;
+                  main: string;
+                  sub?: string | null;
+                }) => (
+                  <li className="flex items-center gap-3 px-3 py-2.5">
+                    <span className="shrink-0 text-sea" aria-hidden>
+                      {icon}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[0.875rem] text-foreground/70">{name}</span>
+                      {sub && (
+                        <span className="block text-[0.8125rem] leading-snug text-foreground/60">
+                          {sub}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-right text-[1rem] font-semibold tabular-nums text-navy">
+                      {main}
+                    </span>
+                  </li>
+                );
+                return (
+                  <ul className="surface divide-y divide-line overflow-hidden">
+                    <Row
+                      icon={<WindIcon className="h-5 w-5" />}
+                      name={nowOk ? `Gió ${nowLbl}` : "Gió cả ngày"}
+                      main={nowOk ? `cấp ${beaufort(cond.windKmh!)}` : windDay}
+                      sub={
+                        nowOk
+                          ? `${Math.round(cond.windKmh!)} km/giờ${
+                              cond.windDirDeg != null ? ` · ${windDescribeVN(cond.windDirDeg)}` : ""
+                            } · cả ngày tới ${windDay}`
+                          : sel.windDirDeg != null
+                            ? windDescribeVN(sel.windDirDeg)
+                            : null
+                      }
+                    />
+                    <Row
+                      icon={<WavesIcon className="h-5 w-5" />}
+                      name={nowOk ? `Sóng ${nowLbl}` : "Sóng cả ngày"}
+                      main={
+                        nowOk
+                          ? cond.waveM != null
+                            ? `${formatNumberVN(cond.waveM)} m`
+                            : "—"
+                          : waveDay
+                      }
+                      sub={
+                        nowOk
+                          ? cond.waveM != null
+                            ? `cả ngày tới ${waveDay}`
+                            : "sát bờ, chưa có số sóng — xem gió là chính"
+                          : null
+                      }
+                    />
+                    {curKmh != null && (
+                      <Row
+                        icon={<WavesIcon className="h-5 w-5 opacity-60" />}
+                        name={`Dòng chảy${useCurNow ? " lúc này" : ""}`}
+                        main={`${formatNumberVN(curKmh)} km/giờ`}
+                        sub={curDir != null ? `nước chảy về ${windDirectionVN(curDir)}` : null}
+                      />
+                    )}
+                  </ul>
+                );
+              })()}
 
-              {/* SÓNG LÀ SỐ ƯỚC → NÓI THẲNG MỘT DÒNG (LỖI 2a+2c, soát chéo
-                  2026-08-02). Dấu "(ước)" ở trên là để không nói dối con số;
-                  dòng này là để không nói dối ĐIỂM ĐI BIỂN: điểm 1–100 và
-                  "Biển êm / Biển động" đều chấm từ chính con số ước đó
-                  (lib/sea.ts `scoreDay` cố ý không nhận cờ — lý do ghi ở đó).
-                  Chỉ hiện khi thật sự có sóng ước, nên ngày thường màn vẫn gọn. */}
+              {/* SÓNG LÀ SỐ ƯỚC → nói thẳng MỘT dòng (LỖI 2a+2c): điểm đi biển và
+                  "Biển êm / động" chấm từ chính con số ước đó. */}
               {sel.waveEstimated && sel.waveMaxM > 0 && (
-                <p className="flex items-start gap-2 rounded-xl bg-warn-bg px-3 py-2.5 text-[0.9375rem] font-bold leading-snug text-warn">
-                  <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+                <p className="flex items-start gap-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.8125rem] font-semibold leading-snug text-warn">
+                  <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    Chưa lấy được số sóng thật — số sóng ở trên là máy ước theo
-                    gió{sel.level ? ", tình trạng biển cũng theo mức ước tính đó" : ""}
-                    . Nghe thêm đài duyên hải trước khi ra khơi.
+                    Sóng là số máy ước theo gió — nghe thêm đài duyên hải trước khi
+                    ra khơi.
                   </span>
                 </p>
               )}
-
-              {/* số đo LÚC NÀY — để LIỀN với dải ngày + "cả ngày" cho khỏi
-                  nói sóng/gió trên một khúc, dưới một khúc (user 2026-06-23).
-                  Ngày sau đã gọn trong thẻ ngày + "cả ngày" nên chỉ hiện hôm nay.
-                  BẢN LƯU: hai số này đông cứng từ lúc lưu → đổi tiêu đề thành
-                  "đo lúc …", tuyệt đối không để chữ "lúc này". */}
-              {/* Bản dựng từ lưới KHÔNG có số đo "lúc này" (windKmh null) →
-                  ẩn hẳn hai thẻ này, thà trống còn hơn hiện số bịa. */}
-              {isToday && cond.windKmh != null && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="surface p-4">
-                    <div className="flex items-center gap-2 text-t1">
-                      <WindIcon className="h-5 w-5 shrink-0" />
-                      <span className="text-[0.9375rem] font-bold leading-snug">
-                        {cond.stale && cond.savedAt != null
-                          ? `Gió đo lúc ${clockVN(cond.savedAt)}`
-                          : "Gió lúc này"}
-                      </span>
-                    </div>
-                    <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
-                      Cấp {beaufort(cond.windKmh)}
-                    </p>
-                    <p className="mt-1 text-[0.875rem] leading-snug text-foreground/65">
-                      {Math.round(cond.windKmh)} km/giờ
-                      {cond.windDirDeg != null &&
-                        ` · ${windDescribeVN(cond.windDirDeg)}`}
-                    </p>
-                  </div>
-                  <div className="surface p-4">
-                    <div className="flex items-center gap-2 text-t1">
-                      <WavesIcon className="h-5 w-5 shrink-0" />
-                      <span className="text-[0.9375rem] font-bold leading-snug">
-                        {cond.stale && cond.savedAt != null
-                          ? `Sóng đo lúc ${clockVN(cond.savedAt)}`
-                          : "Sóng lúc này"}
-                      </span>
-                    </div>
-                    {cond.waveM != null ? (
-                      <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
-                        {formatNumberVN(cond.waveM)} m
-                      </p>
-                    ) : (
-                      <p className="mt-1.5 text-[0.9375rem] leading-snug text-foreground/65">
-                        Chỗ này sát bờ, chưa có số sóng — xem gió là chính.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* DÒNG CHẢY tại điểm (user 2026-07-29): hôm nay ưu tiên số "lúc
-                  này", ngày sau lấy số đại diện giữa trưa từ chuỗi giờ. Nguồn
-                  SMOC chỉ tới ~10 ngày — ngày xa hơn không có số thì ẨN, không
-                  bịa. Hướng nguồn ghi sẵn là hướng nước CHẢY VỀ. */}
-              {(() => {
-                const useNow = isToday && cond.curKmh != null && !cond.stale;
-                const kmh = useNow ? cond.curKmh : (sel.curKmh ?? null);
-                const dir = useNow ? (cond.curDirDeg ?? null) : (sel.curDirDeg ?? null);
-                if (kmh == null) return null;
-                return (
-                  <p className="rounded-xl bg-field px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug text-navy">
-                    Dòng chảy{useNow ? " lúc này" : isToday ? " hôm nay" : ""}:{" "}
-                    {formatNumberVN(kmh)} km/giờ
-                    {dir != null && ` · nước chảy về hướng ${windDirectionVN(dir)}`}
-                  </p>
-                );
-              })()}
 
               {/* CON NƯỚC tại điểm (2026-09-04): trạm gần nhất, tính trong máy.
                   Hôm nay = lúc này + hai con nước kế; ngày khác = các con nước
@@ -8370,12 +8235,11 @@ export default function FishingMapView() {
                 );
               })()}
               <p
-                className={`px-1 text-[0.875rem] font-semibold leading-snug ${
-                  confidence.tone === "ok" ? "text-foreground/70" : "text-warn"
+                className={`px-1 text-[0.8125rem] leading-snug ${
+                  confidence.tone === "ok" ? "text-foreground/65" : "font-semibold text-warn"
                 }`}
               >
-                {confidence.label}. Chỉ để tham khảo — trước khi đi, nghe thêm
-                đài duyên hải, Biên phòng.
+                {confidence.label} · tham khảo, nghe thêm đài duyên hải.
               </p>
 
               {/* DỰ BÁO CÁ tại chỗ này — tính từ ảnh mới nhất; không có dữ liệu
@@ -8462,8 +8326,8 @@ export default function FishingMapView() {
                           </p>
                         ) : (
                           <p className="mt-0.5 text-[0.8125rem] leading-snug text-foreground/70">
-                            Vùng tô màu trên bản đồ là chỗ tương tự, hồng tâm là
-                            chỗ nổi nhất. Tham khảo, không phải cam kết.
+                            Vùng tô màu là chỗ tương tự, hồng tâm là chỗ nổi
+                            nhất — tham khảo.
                           </p>
                         )}
                         {/* KÉO SANG NGÀY KHÁC: từ 2026-07-28 lớp cá ĐỔI THẬT theo
@@ -8480,8 +8344,8 @@ export default function FishingMapView() {
                         {fishLead > 0 && (
                           <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/70">
                             {fishLead <= FISH_STABLE_DAYS
-                              ? "Phân bố cá ít thay đổi trong vài ngày tới — chủ yếu thay đổi về gió và sóng."
-                              : "Dự báo ngày xa thường dựa nhiều vào kinh nghiệm mùa vụ — bà con nên kết hợp xem thêm gió, sóng để quyết định."}
+                              ? "Cá ít đổi trong vài ngày — đổi chủ yếu gió, sóng."
+                              : "Ngày xa dựa nhiều vào mùa vụ — xem thêm gió, sóng."}
                           </p>
                         )}
                         {/* ưu tiên gần mình: điểm cá gần chỗ đang xem nhất */}

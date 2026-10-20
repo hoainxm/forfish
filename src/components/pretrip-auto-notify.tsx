@@ -229,10 +229,16 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
 export function PretripSavedStatus({
   points,
   fishLocked,
+  iconOnly = false,
+  hideWhenOk = false,
 }: {
   points: PretripPoint[];
   /** bản đồ cá đang khoá (chưa đăng nhập / chưa premium) → không tính là thiếu */
   fishLocked: boolean;
+  /** chỉ icon tròn (chữ ở aria-label/title) — dùng nổi trên bản đồ */
+  iconOnly?: boolean;
+  /** đủ dữ liệu thì KHÔNG vẽ nút (bản đồ chỉ nổi chip khi có việc cần biết) */
+  hideWhenOk?: boolean;
 }) {
   const phase = useSyncExternalStore(
     subscribePhase,
@@ -355,6 +361,10 @@ export function PretripSavedStatus({
         : allSaved
           ? "Đã lưu"
           : "Chưa đủ";
+  /*  Bản đồ chỉ nổi chip khi CÓ VIỆC cần biết (2026-10-20, "thông tin trùng lặp,
+      thiết kế vẫn to"): đủ dữ liệu ⇒ không vẽ gì trên bản đồ — chip đủ chữ nằm
+      trong đầu ngăn gió sóng. */
+  if (hideWhenOk && allSaved && phase !== "loading") return null;
   return (
     <>
       <button
@@ -362,7 +372,9 @@ export function PretripSavedStatus({
         onClick={() => setOpen(true)}
         aria-label={`Dữ liệu đi biển: ${text}. Chạm để xem.`}
         title={text}
-        className={`pointer-events-auto inline-flex h-(--h-ctl) items-center gap-1.5 rounded-full border border-line bg-card/95 px-3 text-[0.8125rem] font-semibold shadow-sm transition active:scale-95 ${tone}`}
+        className={`pointer-events-auto inline-flex h-(--h-ctl) items-center gap-1.5 rounded-full border border-line bg-card/95 text-[0.8125rem] font-semibold shadow-sm transition active:scale-95 ${
+          iconOnly ? "w-(--h-ctl) justify-center" : "px-3"
+        } ${tone}`}
       >
         {phase === "loading" ? (
           <span
@@ -376,7 +388,7 @@ export function PretripSavedStatus({
         )}
         {/* máy hẹp (<380px): chỉ icon — hàng đáy bản đồ còn bước ngày + nút ⌃;
             chữ đầy đủ vẫn ở aria-label/title, chạm mở sheet */}
-        <span className="max-[379px]:sr-only">{short}</span>
+        <span className={iconOnly ? "sr-only" : "max-[379px]:sr-only"}>{short}</span>
       </button>
       {open && (
         <PretripSavedSheet
