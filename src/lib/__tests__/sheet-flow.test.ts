@@ -133,10 +133,16 @@ describe("luồng ngăn gió sóng", () => {
         label: "Gió sóng",
         side: true,
         sideDense: createElement("p", null, "LƯỚI SỐ"),
+        onInteract: ctl.arm,
         peek: createElement("p", null, "peek"),
       } as never, null);
     }
     const { rerender } = render(createElement(ChaTai, { loading: true }));
+    troi(HIDE_MS * 3);
+    expect(ngan()).not.toBeNull();
+    // chạm/cuộn trong ngăn lúc ĐANG TẢI không được lên lịch thu (lỗi rà Codex lần 10)
+    act(() => fireEvent.pointerDown(screen.getByText("LƯỚI SỐ")));
+    act(() => fireEvent.scroll(screen.getByText("LƯỚI SỐ")));
     troi(HIDE_MS * 3);
     expect(ngan()).not.toBeNull();
     rerender(createElement(ChaTai, { loading: false }));
@@ -160,6 +166,29 @@ describe("luồng ngăn gió sóng", () => {
     }
     const { rerender } = render(createElement(ChaThu, { border: false }));
     rerender(createElement(ChaThu, { border: true }));
+    expect(ngan()).toBeNull();
+  });
+
+  it("đổi điểm giữa lúc đang đếm: đếm lại 3 giây từ điểm mới", () => {
+    function ChaDiem({ k }: { k: string }) {
+      const [size, setSize] = useState<Size>("half");
+      const ctl = useSheetAutoHide(size, setSize);
+      useSheetAutoHideSync(ctl, setSize, { size, border: false, loading: false, resetKey: k });
+      return createElement(SnapSheet, {
+        size,
+        onSizeChange: setSize,
+        label: "Gió sóng",
+        side: true,
+        sideDense: createElement("p", null, "LƯỚI SỐ"),
+        peek: createElement("p", null, "peek"),
+      } as never, null);
+    }
+    const { rerender } = render(createElement(ChaDiem, { k: "a" }));
+    troi(HIDE_MS - 500);
+    rerender(createElement(ChaDiem, { k: "b" }));
+    troi(HIDE_MS - 500);
+    expect(ngan()).not.toBeNull();
+    troi(600);
     expect(ngan()).toBeNull();
   });
 });

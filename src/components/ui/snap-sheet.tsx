@@ -20,7 +20,7 @@
   · không phải dialog (khác ui/bottom-sheet.tsx vốn là modal có focus-trap)
   Đặt trong container relative của màn hình map; chiều cao tính theo container.
 */
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "@/components/icons";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon, LockIcon } from "@/components/icons";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 export type SheetSize = "hidden" | "peek" | "half";
@@ -211,7 +211,10 @@ export function SnapSheet({
               dưới phải, thân cuộn dọc. Không còn nhánh ngăn cao trọn màn: chưa có
               số (đang tải / lỗi / chạm đất liền) thì `peek` (câu trạng thái) nằm
               ngay trong ngăn thấp này. "Xem đủ" nối `children` DƯỚI lưới số —
-              chỉ phần lưới chưa có (giải thích, nguồn, thao tác), không lặp số. */
+              chỉ phần lưới chưa có (giải thích, nguồn, thao tác), không lặp số.
+              Sàn cao `min(10rem,75%)` tính bằng REM: cỡ thường (≤160px) vẫn là 1/3
+              màn; chữ phóng 200% thì sàn gấp đôi — đầu ngăn to ra không ăn hết
+              chỗ đọc số (đo 320×700 @32px: đầu 108px trong ngăn 276px). */
           <div
             id={`${panelId}-ngan`}
             ref={nganRef}
@@ -228,34 +231,44 @@ export function SnapSheet({
             }}
             onPointerUp={(e) => onSideUp(e, true)}
             style={{ touchAction: "pan-y" }}
-            className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[9rem] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float focus:outline-none focus-visible:ring-2 focus-visible:ring-sea"
+            className="anim-pop-in pointer-events-auto absolute bottom-2 right-0 flex h-[34%] min-h-[min(10rem,75%)] w-[min(22rem,84%)] flex-col rounded-l-2xl border border-r-0 border-line bg-background/97 shadow-float focus:outline-none focus-visible:ring-2 focus-visible:ring-sea"
           >
-            <div className="flex items-center gap-1 border-b border-line py-1.5 pl-3 pr-2">
-              {/*  Tiêu đề XUỐNG DÒNG chứ không cắt (rà Codex lần 9: ở 320px "Biển êm"
-                   thành "Biển ên"); các nút bên phải giữ nguyên cỡ. */}
-              <div className="min-w-0 flex-1 break-words leading-tight">
+            <div className="@container flex flex-wrap items-center gap-1 border-b border-line py-1.5 pl-3 pr-2">
+              {/*  ĐẦU NGĂN THÍCH ỨNG (rà Codex lần 9–10, đo 320×700 chữ 200%):
+                   · rộng ≥15rem (cỡ thường): MỘT hàng — tiêu đề · chip · Giữ mở · Thu.
+                   · hẹp hơn (chữ phóng to): tiêu đề đứng RIÊNG một dòng (trước bị ép
+                     còn rộng 0), "Giữ mở" chỉ còn icon khoá (tên đọc giữ nguyên) và
+                     ba nút thu về 2.25rem để vừa MỘT hàng dưới — thả cho nút tự rớt dòng thì đầu ngăn
+                     cao 201px, chỉ còn 107px đọc số. Tiêu đề xuống dòng, không cắt. */}
+              <div className="min-w-0 flex-1 break-words leading-tight @max-[15rem]:basis-full">
                 {sideTitle ?? <span className="text-[0.875rem] font-semibold text-navy">{label}</span>}
               </div>
-              {sideHeader}
+              {sideHeader && (
+                <span className="contents @max-[15rem]:[&_button]:h-9 @max-[15rem]:[&_button]:min-h-0 @max-[15rem]:[&_button]:w-9">
+                  {sideHeader}
+                </span>
+              )}
               {onSideHoldChange && (
                 /*  GIỮ MỞ — chữ (2 chữ) chứ không chỉ icon ghim: ghim đọc thành
                     "ghim chỗ này lên bản đồ". Bật = nền sea đặc chữ trắng. */
                 <button
                   type="button"
                   aria-pressed={sideHold}
+                  aria-label="Giữ mở"
                   onClick={() => onSideHoldChange(!sideHold)}
-                  className={`flex h-(--h-ctl) shrink-0 items-center rounded-full px-2.5 text-[0.8125rem] font-semibold active:scale-95 ${
+                  className={`flex h-(--h-ctl) shrink-0 items-center justify-center rounded-full px-2.5 text-[0.8125rem] font-semibold active:scale-95 @max-[15rem]:h-9 @max-[15rem]:w-9 @max-[15rem]:px-0 ${
                     sideHold ? "bg-sea text-white" : "bg-field text-navy"
                   }`}
                 >
-                  Giữ mở
+                  <span className="@max-[15rem]:sr-only">Giữ mở</span>
+                  <LockIcon className="hidden h-4 w-4 @max-[15rem]:block" aria-hidden />
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => onSizeChange("hidden")}
                 aria-label="Thu bảng sang phải"
-                className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full bg-field text-navy active:scale-95"
+                className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 @max-[15rem]:h-9 @max-[15rem]:w-9 items-center justify-center rounded-full bg-field text-navy active:scale-95"
               >
                 <ChevronRightIcon className="h-4 w-4" />
               </button>

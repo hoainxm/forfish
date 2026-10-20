@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSeaCells, savedStampVN, type SeaCellInput } from "@/lib/sea-cells";
+import { buildSeaCells, savedStampVN, seaTabSpeech, type SeaCellInput } from "@/lib/sea-cells";
 import type { SeaPointDay } from "@/lib/marine-weather";
 
 const day = (over: Partial<SeaPointDay> = {}): SeaPointDay =>
@@ -118,5 +118,28 @@ describe("savedStampVN — dấu giờ bản lưu", () => {
   it("ranh giới ngày theo giờ VN, không theo UTC", () => {
     // 17:30 UTC ngày 19 = 00:30 VN ngày 20 → vẫn là hôm nay
     expect(savedStampVN(Date.UTC(2026, 9, 19, 17, 30), "2026-10-20")).toBe("00:30");
+  });
+});
+
+describe("seaTabSpeech — câu đọc của viên tóm tắt", () => {
+  it("số mới: ngày · sóng · gió, không nhắc bản lưu", () => {
+    expect(seaTabSpeech({ day: day(), todayIso: "2026-10-20", stale: false, savedAt: null })).toBe(
+      "Hôm nay, sóng 1,2 mét, gió cấp 5",
+    );
+  });
+  it("sóng ước + bản lưu có giờ", () => {
+    expect(
+      seaTabSpeech({
+        day: day({ waveEstimated: true }),
+        todayIso: "2026-10-20",
+        stale: true,
+        savedAt: Date.UTC(2026, 9, 20, 1, 30),
+      }),
+    ).toBe("Hôm nay, sóng ước 1,2 mét, gió cấp 5, bản lưu lúc 08:30");
+  });
+  it("bản lưu không có giờ vẫn nói 'bản lưu'; thiếu sóng nói 'chưa có số'", () => {
+    expect(seaTabSpeech({ day: day({ waveMaxM: 0 }), todayIso: "2026-10-20", stale: true, savedAt: null })).toBe(
+      "Hôm nay, sóng chưa có số, gió cấp 5, bản lưu",
+    );
   });
 });

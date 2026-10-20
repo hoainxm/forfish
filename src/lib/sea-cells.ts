@@ -19,6 +19,7 @@ import {
   type SeaPointConditions,
   type SeaPointDay,
 } from "@/lib/marine-weather";
+import { chipLabel } from "@/lib/day-labels";
 import { moonPhase } from "@/lib/moon";
 import { tideHeightText } from "@/lib/tides";
 import { weatherFromCode } from "@/lib/weather-codes";
@@ -143,4 +144,25 @@ export function buildSeaCells({ day, cond, isToday, tide, fish, season, depth }:
 export function savedStampVN(ms: number, todayIso: string): string {
   const d = new Date(ms + 7 * 3600000).toISOString();
   return d.slice(0, 10) === todayIso ? d.slice(11, 16) : `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}`;
+}
+
+/**
+ * CÂU ĐỌC của viên tóm tắt cho trình đọc màn hình (aria-label đè nội dung nút nên
+ * phải nói đủ): "Ngày mai, sóng ước 1,2 mét, gió cấp 5, bản lưu lúc 08:30".
+ * Thuần — tách khỏi fishing-map-view để test được (rà Codex lần 10).
+ */
+export function seaTabSpeech({
+  day,
+  todayIso,
+  stale,
+  savedAt,
+}: {
+  day: Pick<SeaPointDay, "date" | "waveMaxM" | "waveEstimated" | "windMaxKmh">;
+  todayIso: string;
+  stale: boolean;
+  savedAt: number | null;
+}): string {
+  const song = day.waveMaxM > 0 ? `${day.waveEstimated ? "ước " : ""}${formatNumberVN(day.waveMaxM)} mét` : "chưa có số";
+  const ban = stale ? `, bản lưu${savedAt != null ? ` lúc ${savedStampVN(savedAt, todayIso)}` : ""}` : "";
+  return `${chipLabel(day.date, todayIso)}, sóng ${song}, gió cấp ${beaufort(day.windMaxKmh)}${ban}`;
 }

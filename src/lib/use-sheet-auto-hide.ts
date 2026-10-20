@@ -44,6 +44,9 @@ export function useSheetAutoHide(size: string, setSize: SetSize, hideMs = SHEET_
   const noAutoRef = useRef(false);
   /** riêng RANH GIỚI — cấm cả ép ẩn */
   const borderRef = useRef(false);
+  /** lượt tải số chưa ngã ngũ — `arm` cũng phải biết, không chỉ effect (rà Codex
+   *  lần 10: chạm trong ngăn lúc đang tải gọi `arm` ⇒ ngăn thu khi số chưa hiện) */
+  const loadingRef = useRef(false);
   const [heldRaw, setHeld] = useState(false);
   // mọi đường thu ngăn đều bỏ ghim — suy ra lúc render, không bắt từng chỗ setSize
   const held = heldAfterSize(heldRaw, size);
@@ -60,7 +63,7 @@ export function useSheetAutoHide(size: string, setSize: SetSize, hideMs = SHEET_
       Đến giờ mà đang đọc bằng bàn phím trong sheet thì HẸN LẠI, không thu. */
   const arm = useCallback(() => {
     clear();
-    if (size === "hidden" || noAutoRef.current) return;
+    if (size === "hidden" || noAutoRef.current || loadingRef.current) return;
     const fire = () => {
       if (dangDocBangPhim()) {
         timer.current = setTimeout(fire, hideMs);
@@ -79,7 +82,7 @@ export function useSheetAutoHide(size: string, setSize: SetSize, hideMs = SHEET_
     return true;
   }, [setSize]);
 
-  return { held, setHeld, arm, clear, forceHide, noAutoRef, borderRef };
+  return { held, setHeld, arm, clear, forceHide, noAutoRef, borderRef, loadingRef };
 }
 
 export function useSheetAutoHideSync(
@@ -105,10 +108,11 @@ export function useSheetAutoHideSync(
       tự Thu thì tôn trọng. */
   if (mustOpenForBorder({ border, held: false }, size)) setSize("half");
 
-  const { arm, clear, held, noAutoRef, borderRef } = ctl;
+  const { arm, clear, held, noAutoRef, borderRef, loadingRef } = ctl;
   useEffect(() => {
     // nạp cờ TRƯỚC khi quyết — `arm` và `forceHide` đọc các ref này
     borderRef.current = border;
+    loadingRef.current = loading;
     noAutoRef.current = !canAutoHide({ border, held });
     if (size === "hidden" || noAutoRef.current || loading) {
       clear();
@@ -116,5 +120,5 @@ export function useSheetAutoHideSync(
     }
     arm();
     return clear;
-  }, [size, border, held, loading, resetKey, arm, clear, noAutoRef, borderRef]);
+  }, [size, border, held, loading, resetKey, arm, clear, noAutoRef, borderRef, loadingRef]);
 }

@@ -6,7 +6,7 @@
 
 covers: src/app/globals.css
 last_verified: 2026-10-19
-<!-- re-verified: 2026-10-20n — MÀU LOÀI CÁ (`color` trong hồ sơ loài, lib/fish-predict.ts) là ngoại lệ "màu nội dung bản đồ" như CHART_PALETTE: MapLibre paint không đọc var(), nên KHÔNG đưa vào @theme; cổng `species-colors.test.ts` giữ đủ #rrggbb + không trùng. Nhãn ≤2 chữ: "Chọn loài", "Mọi loài". -->
+<!-- re-verified: 2026-10-20o — ĐÍNH CHÍNH 2026-10-20n: màu loài cá KHÔNG nạp vào paint MapLibre (chỉ DOM: chấm bảng chọn loài, nút chọn loài, ghim cá) — nay qua 38 token `--sp-<tên ngắn>` ở globals.css, hồ sơ loài trỏ `var(--sp-…)`; cổng `species-colors.test.ts` đối chiếu token + không trùng. Đầu ngăn bên: container query <15rem ⇒ tiêu đề riêng dòng, "Giữ mở" icon khoá, nút 2.25rem. Nhãn ≤2 chữ: "Chọn loài", "Mọi loài". -->
 <!-- re-verified: 2026-10-20m — token mới `--fish-all-from` #95d5b2 · `--fish-all-to` #1b4b2c (chấm "Mọi loài" = dải thang mật độ cá) · `--fish-unknown` #888888; `--w-app` giữ px CÓ CHỦ Ý (ghi ở globals.css: khung không nở theo chế độ chữ). -->
 <!-- re-verified: 2026-10-20l — token `--w-app: 480px` = bề ngang khung app (một nguồn cho khung, dock, sheet đáy, thanh mua, lớp nổi; px CÓ CHỦ Ý vì khung không nở theo chế độ "Chữ to"); lưới số ngăn gió sóng thích ứng bằng container query (3 cột từ 17rem, dưới đó 2 cột), không cắt chữ. -->
 <!-- re-verified: 2026-10-20k — `--sea: rgb(var(--sea-rgb))`, `--trim: rgb(var(--trim-rgb))`: kênh là NGUỒN DUY NHẤT (màu đặc + bóng trong suốt), khối kênh dời lên `:root` đầu file; nút bật/tắt chữ "Giữ mở" ở đầu ngăn bên (h --h-ctl, pill, bật = bg-sea chữ trắng, aria-pressed). -->

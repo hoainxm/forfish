@@ -56,6 +56,47 @@
   --fish-all-from: #95d5b2;
   --fish-all-to: #1b4b2c;
   --fish-unknown: #888888; /* loài thiếu màu trong SPECIES_META */
+  /*  MÀU TỪNG LOÀI CÁ (rà Codex lần 10) — chấm loài trong bảng chọn, nút chọn
+      loài, ghim điểm nhiều cá. Chỉ dùng trên DOM; hồ sơ loài (lib/fish-predict)
+      trỏ `var(--sp-<tên ngắn>)`. Cổng species-colors.test.ts: đủ #rrggbb, không trùng. */
+  --sp-ngu-vay-vang: #1d4ed8; /* ngừ vây vàng */
+  --sp-ngu-mat-to: #4338ca; /* ngừ mắt to */
+  --sp-ngu-van: #2563eb; /* ngừ vằn */
+  --sp-ngu-chu: #0891b2; /* ngừ chù */
+  --sp-ngu-o: #0e7490; /* ngừ ồ */
+  --sp-ngu-cham: #0d9488; /* ngừ chấm */
+  --sp-ca-thu: #155e75; /* cá thu */
+  --sp-ca-co: #3b82f6; /* cá cờ */
+  --sp-nuc-heo: #06b6d4; /* nục heo */
+  --sp-ca-ngan: #1e3a8a; /* cá ngân */
+  --sp-ca-nuc: #22c55e; /* cá nục */
+  --sp-ca-com: #16a34a; /* cá cơm */
+  --sp-ca-trich: #15803d; /* cá trích */
+  --sp-bac-ma: #4d7c0f; /* bạc má */
+  --sp-ca-trao: #65a30d; /* cá tráo */
+  --sp-ca-song: #84cc16; /* cá sòng */
+  --sp-chi-vang: #eab308; /* chỉ vàng */
+  --sp-ca-lam: #059669; /* cá lầm */
+  --sp-ca-ho: #64748b; /* cá hố */
+  --sp-muc-xa: #6d28d9; /* mực xà */
+  --sp-muc-ong: #7c3aed; /* mực ống */
+  --sp-muc-la: #8b5cf6; /* mực lá */
+  --sp-muc-nang: #a855f7; /* mực nang */
+  --sp-bach-tuoc: #9333ea; /* bạch tuộc */
+  --sp-ca-moi: #c2410c; /* cá mối */
+  --sp-ca-dong: #ea580c; /* cá đổng */
+  --sp-ca-phen: #d97706; /* cá phèn */
+  --sp-ca-du: #b45309; /* cá đù */
+  --sp-ca-khoai: #92400e; /* cá khoai */
+  --sp-ca-chim: #a16207; /* cá chim */
+  --sp-ca-bon: #78350f; /* cá bơn */
+  --sp-ca-hong: #dc2626; /* cá hồng */
+  --sp-ca-mu: #b91c1c; /* cá mú */
+  --sp-ca-kem: #e11d48; /* cá kẽm */
+  --sp-tom-bac: #db2777; /* tôm bạc */
+  --sp-tom-su: #be185d; /* tôm sú */
+  --sp-ghe-xanh: #9d174d; /* ghẹ xanh */
+  --sp-ruoc: #f472b6; /* ruốc */
 
   /* status — chữ đậm 16px ĐẠT WCAG AA (≥4.5:1) trên nền tint dưới nắng:
      ok 5.85 · warn 6.26 · danger 5.80 (tính trong docs/design-review/04) */

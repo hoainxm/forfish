@@ -132,7 +132,7 @@ import {
 } from "@/lib/tides";
 import { TideCard, TideStationSheet } from "@/components/tide-card";
 import { SeaDensePanel, SeaTab } from "@/components/sea-dense-grid";
-import { buildSeaCells, savedStampVN, seaWeather, type SeaCellTide } from "@/lib/sea-cells";
+import { buildSeaCells, seaTabSpeech, seaWeather, type SeaCellTide } from "@/lib/sea-cells";
 import { useSheetAutoHide, useSheetAutoHideSync } from "@/lib/use-sheet-auto-hide";
 import type { BoatProfile } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
@@ -286,6 +286,7 @@ import { forecastStoreReady } from "@/lib/forecast-store";
 import { buildUVField } from "@/lib/particle-field";
 import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
+import { FishHotspotMarker, SavedPlaceMarker, type FishHotspot } from "@/components/ban-do/diem-ghim";
 import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
 import { useNavVoice } from "@/lib/nav-voice/use-nav-voice";
@@ -440,7 +441,6 @@ import {
   PlayIcon,
   RouteIcon,
   StarIcon,
-  TargetIcon,
 } from "@/components/icons";
 
 /* Nhãn ngày ("Hôm nay" / "Ngày mai" / ngày thật) nằm ở lib/day-labels.ts —
@@ -4487,9 +4487,13 @@ export default function FishingMapView() {
       return fc ? { cells: fc.cells, ngay: fc.date } : undefined;
     };
   }, [premiumAccess, fishView]);
-  const fishHotspots = useMemo<
-    { lat: number; lon: number; v: number; top: string[]; near: boolean }[]
-  >(() => {
+  /** chạm một ghim (điểm cá / chỗ đã ghim): thôi chế độ ghim, tới chỗ đó, ngăn ở viên */
+  const pickMarker = (lat: number, lon: number) => {
+    setPinning(false);
+    setSize("peek");
+    goToCoord(lat, lon);
+  };
+  const fishHotspots = useMemo<FishHotspot[]>(() => {
     // ẩn hồng tâm cá khi có lớp động (cùng luật với lưới cá)
     if (!fishOn || !fishView || anyExclusiveOverlay) return [];
     // các "mỏ neo gần mình": cảng nhà + điểm ghim (KHÔNG có điểm vừa chạm — xem
@@ -6812,61 +6816,11 @@ export default function FishingMapView() {
 
         {/* HỒNG TÂM điểm nóng dự báo cá — chạm là tới + xem dự báo chỗ đó */}
         {fishHotspots.map((h) => (
-          <Marker
-            key={`hot-${h.lat},${h.lon}`}
-            longitude={h.lon}
-            latitude={h.lat}
-            anchor="center"
-            onClick={() => {
-              setPinning(false);
-              setSize("peek");
-              goToCoord(h.lat, h.lon);
-            }}
-          >
-            <span
-              className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/85 shadow-md ring-2 ${
-                h.near ? "ring-trim" : "ring-white/90"
-              }`}
-              style={{ color: activeFishColor ?? "#1b4b2c" }}
-              role="button"
-              aria-label={`Điểm có khả năng nhiều cá${h.near ? " gần bạn" : ""}: ${h.top.join(", ")}`}
-            >
-              <TargetIcon className="h-6 w-6" />
-            </span>
-          </Marker>
+          <FishHotspotMarker key={`hot-${h.lat},${h.lon}`} h={h} color={activeFishColor} onPick={pickMarker} />
         ))}
 
         {/* điểm của tôi đã ghim — sao vàng có tên; chạm là xem dự báo chỗ đó */}
-        {showPlaces && places.map((pl) => (
-          <Marker
-            key={pl.id}
-            longitude={pl.lon}
-            latitude={pl.lat}
-            anchor="center"
-            onClick={() => {
-              setPinning(false);
-              setSize("peek");
-              goToCoord(pl.lat, pl.lon);
-            }}
-          >
-            <span className="flex cursor-pointer flex-col items-center">
-              <span
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-white shadow-md ${
-                  pl.kind === "home" ? "bg-t1" : "bg-sun"
-                }`}
-              >
-                {pl.kind === "home" ? (
-                  <HomeIcon className="h-4.5 w-4.5" />
-                ) : (
-                  <StarIcon className="h-4.5 w-4.5" />
-                )}
-              </span>
-              <span className="mt-0.5 max-w-[6.875rem] truncate rounded bg-white/85 px-1.5 text-[0.625rem] font-bold leading-tight text-navy shadow-sm">
-                {pl.name}
-              </span>
-            </span>
-          </Marker>
-        ))}
+        {showPlaces && places.map((pl) => <SavedPlaceMarker key={pl.id} pl={pl} onPick={pickMarker} />)}
 
         {/* tuyến dẫn đường tiết kiệm dầu + điểm xuất phát */}
         {/*  `alongKm` = quãng đã chạy dọc tuyến ⇒ chặng nào ở sau lưng thì tô
@@ -7785,11 +7739,7 @@ export default function FishingMapView() {
         sideTab={sideTabContent}
         sideTabLabel={
           cond && today && sel
-            ? `${chipLabel(sel.date, todayIso)}, sóng ${
-                sel.waveMaxM > 0 ? `${sel.waveEstimated ? "ước " : ""}${formatNumberVN(sel.waveMaxM)} mét` : "chưa có số"
-              }, gió cấp ${beaufort(sel.windMaxKmh)}${
-                cond.stale ? `, bản lưu${cond.savedAt != null ? ` lúc ${savedStampVN(cond.savedAt, todayIso)}` : ""}` : ""
-              }`
+            ? seaTabSpeech({ day: sel, todayIso, stale: cond.stale, savedAt: cond.savedAt })
             : undefined
         }
         sideDense={sideDense}

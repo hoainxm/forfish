@@ -1267,7 +1267,8 @@ describe("SPECIES_PROFILES khớp FISH_SEASONS", () => {
     for (const p of SPECIES_PROFILES) {
       const m = SPECIES_META[p.short];
       expect(m, `thiếu meta: ${p.short}`).toBeTruthy();
-      expect(m.color).toMatch(/^#[0-9a-f]{6}$/i);
+      // màu = token var(--sp-…) — mã thật + không trùng kiểm ở species-colors.test.ts
+      expect(m.color).toMatch(/^var\(--sp-[a-z0-9-]+\)$/);
       expect(m.full).toBe(p.species);
     }
   });
