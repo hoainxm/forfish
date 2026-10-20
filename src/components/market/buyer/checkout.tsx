@@ -282,7 +282,7 @@ export function Checkout() {
                     onClick={() => void copy(r.order.bankSnapshot?.bankAccount ?? "", r.order.id)}
                     className="mt-2 min-h-(--row-h) rounded-full bg-card px-4 text-[1rem] font-semibold text-navy"
                   >
-                    {copied === r.order.id ? "Đã chép số TK" : "Sao chép số TK"}
+                    {copied === r.order.id ? "Đã chép" : "Chép số"}
                   </button>
                 </div>
               )}
@@ -290,7 +290,7 @@ export function Checkout() {
                 href={`/cho/don/${r.order.id}`}
                 className="mt-2 flex min-h-(--row-h) items-center gap-1 text-[1rem] font-semibold text-t3"
               >
-                Xem đơn này <ChevronRightIcon className="h-4 w-4" />
+                Xem đơn <ChevronRightIcon className="h-4 w-4" />
               </Link>
             </li>
           ))}
@@ -298,7 +298,7 @@ export function Checkout() {
             <li key={r.shopId} className="rounded-2xl bg-danger-bg px-4 py-3" role="alert">
               <p className="text-[1rem] font-semibold leading-snug text-danger">{failLine(r, nameOf(r.shopId))}</p>
               <Link href="/cho/gio" className="mt-1 flex min-h-(--row-h) items-center text-[1rem] font-semibold text-danger underline">
-                Về giỏ sửa lại
+                Sửa giỏ
               </Link>
             </li>
           ))}

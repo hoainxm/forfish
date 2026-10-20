@@ -19,9 +19,17 @@
 
   /* hull & trim */
   --navy: #15333e; /* tiêu đề + chữ đậm: --p-ink của bộ design Sen Biển (trước #14324f navy xanh dương) */
-  --sea: #086e73; /* thương hiệu teal: --p-brand — chữ in hoa nhỏ, icon, link, chip/dock đang chọn (trước #18648b) */
+  /*  KÊNH MÀU (rà Codex lần 5–6): MỘT nguồn số cho cả màu đặc lẫn bóng/kính
+      trong suốt — `--trim`/`--sea` dựng TỪ kênh, bóng viết `rgb(var(--x-rgb) / a)`.
+      Đổi màu = đổi đúng một dòng kênh. Không dùng color-mix vì iOS 15 không chạy. */
+  --ink-rgb: 13 35 54; /* bóng đổ mực */
+  --white-rgb: 255 255 255; /* kính mờ, quầng sáng */
+  --black-rgb: 0 0 0; /* bóng ghim trên bản đồ */
+  --sea-rgb: 8 110 115; /* #086e73 */
+  --trim-rgb: 200 70 31; /* #c8461f */
+  --sea: rgb(var(--sea-rgb)); /* thương hiệu teal: --p-brand — chữ in hoa nhỏ, icon, link, chip/dock đang chọn (trước #18648b) */
   --sun: #f2a01f; /* sun yellow */
-  --trim: #c8461f; /* cam hành động — đậm từ #e4572e (3,68:1) lên 4,83:1 cho chữ trắng đạt AA (rà Codex lần 3, 2026-10-20) */
+  --trim: rgb(var(--trim-rgb)); /* #c8461f cam hành động — đậm từ #e4572e (3,68:1) lên 4,83:1 cho chữ trắng đạt AA (rà Codex lần 3, 2026-10-20) */
 
   /* per-trục accents */
   --t1: #18648b;
@@ -227,15 +235,6 @@ html[data-mode="gon"] {
   --row-h: var(--h-ctl);
   --r-card: 1rem;
   --r-ctl: 0.75rem;
-  /*  KÊNH MÀU CHO BÓNG / KÍNH MỜ (rà Codex lần 5): ba bộ số R G B để viết
-      `rgb(var(--ink-rgb) / 0.12)` — độ trong suốt đổi theo chỗ dùng, MÀU thì chỉ
-      khai ở đây. Không dùng color-mix vì iOS 15 không chạy. Đổi --trim/--sea
-      thì đổi bộ số tương ứng. */
-  --ink-rgb: 13 35 54; /* bóng đổ mực */
-  --white-rgb: 255 255 255; /* kính mờ, quầng sáng */
-  --black-rgb: 0 0 0; /* bóng ghim trên bản đồ */
-  --trim-rgb: 200 70 31; /* = --trim #c8461f */
-  --sea-rgb: 8 110 115; /* = --sea #086e73 */
   --shadow-card: 0 1px 2px rgb(var(--ink-rgb) / 0.04);
   --shadow-float: 0 4px 16px rgb(var(--ink-rgb) / 0.12);
 }

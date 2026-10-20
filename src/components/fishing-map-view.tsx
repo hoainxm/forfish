@@ -131,7 +131,7 @@ import {
   type TideStation,
 } from "@/lib/tides";
 import { TideCard, TideStationSheet } from "@/components/tide-card";
-import { SeaDenseGrid } from "@/components/sea-dense-grid";
+import { SeaDensePanel, SeaTab } from "@/components/sea-dense-grid";
 import { buildSeaCells, seaWeather, type SeaCellTide } from "@/lib/sea-cells";
 import type { BoatProfile } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
@@ -925,6 +925,10 @@ export default function FishingMapView() {
       là lỗ có sẵn của ngoại lệ ranh giới ≤6 hl: chạm vào sheet là nó tự ẩn dù
       đang cấm. Một chỗ chặn cho cả hai đường. */
   const noAutoHideRef = useRef(false);
+  /*  "GIỮ MỞ" (rà Codex lần 6): người dùng tự ghim ngăn gió sóng — đọc lâu, dùng
+      trình đọc màn hình (con trỏ đọc ảo không bật :focus-visible), hay đơn giản
+      không muốn ngăn tự thu. Thu ngăn là bỏ ghim (lần mở sau về luật 3 giây). */
+  const [sheetHeld, setSheetHeld] = useState(false);
   const armSheetHide = useCallback(() => {
     clearSheetHide();
     if (size === "hidden") return; // đã ở đáy rồi, không đếm nữa
@@ -4260,6 +4264,24 @@ export default function FishingMapView() {
     if (trackGeo) ids.push("storm-moc-toi", "storm-moc-qua");
     return ids.length ? ids : undefined;
   }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo, prefs.vungQuanLy, vungQuanLyGeo]);
+  /*  LỚP BẮT CHẠM ĐÃ DỰNG THẬT (lỗi bắt khi rà 2026-10-20): `hitLayers` tính từ
+      STATE (dữ liệu đã tải, công tắc bật) nhưng lớp chỉ vào style sau một nhịp
+      vẽ — nhất là lúc đổi lớp nền (setStyle dựng lại cả style). Chạm đúng khe đó
+      thì MapLibre báo "layer 'seamark-far' does not exist… cannot be queried" và
+      cú chạm mất. Nên chỉ khai cho react-map-gl những id `map.getLayer` thấy;
+      đồng bộ lại ở mỗi `styledata` (lớp được thêm/bớt) và khi `hitLayers` đổi.
+      Giữ bằng CHUỖI để reference chỉ đổi khi danh sách đổi thật (ghi chú
+      ROUTE_HIT_LAYERS: đổi reference là gỡ/gắn lại bộ bắt sự kiện). */
+  const [liveHitKey, setLiveHitKey] = useState("");
+  const syncLiveHit = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    const key = map && hitLayers ? hitLayers.filter((id) => map.getLayer(id)).join(",") : "";
+    setLiveHitKey((k) => (k === key ? k : key));
+  }, [hitLayers]);
+  useEffect(() => {
+    syncLiveHit();
+  }, [syncLiveHit]);
+  const liveHitLayers = useMemo(() => (liveHitKey ? liveHitKey.split(",") : undefined), [liveHitKey]);
 
   const reqKey = `${point.lat},${point.lon}:${retry}`;
   useEffect(() => {
@@ -4614,7 +4636,7 @@ export default function FishingMapView() {
       sẽ KHÔNG BAO GIỜ tự ẩn — che bản đồ đúng lúc cần nhất. */
   useEffect(() => {
     // nạp cờ cấm TRƯỚC khi quyết — `armSheetHide` (và mọi cú chạm gọi nó) đọc ref này
-    noAutoHideRef.current = borderLocked;
+    noAutoHideRef.current = borderLocked || sheetHeld;
     if (size === "hidden" || noAutoHideRef.current) {
       clearSheetHide();
       return;
@@ -4631,6 +4653,7 @@ export default function FishingMapView() {
     point.lat,
     point.lon,
     borderLocked,
+    sheetHeld,
     loading,
     armSheetHide,
     clearSheetHide,
@@ -4790,32 +4813,14 @@ export default function FishingMapView() {
       Đổi ngày nằm TRONG ngăn (dải chip ngày đầy đủ). Sóng ước lượng có "~". */
   const sideTabContent =
     cond && today && sel ? (
-      <span className="flex flex-col items-start leading-tight">
-        {/*  Số từ BẢN LƯU ⇒ dòng trên đổi thành "Bản lưu HH:MM" (hoặc "dd/MM
-             HH:MM" nếu đã qua ngày) màu cảnh báo — rà Codex lần 3 ưu tiên 2:
-             viên số nằm thường trực trên bản đồ, không được trông như số mới. */}
-        {cond.stale && cond.savedAt != null ? (
-          <span className="whitespace-nowrap text-[0.75rem] font-semibold text-warn">
-            Bản lưu{" "}
-            {(() => {
-              const d = new Date(cond.savedAt + 7 * 3600000).toISOString();
-              return d.slice(0, 10) === todayIso
-                ? d.slice(11, 16)
-                : `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}`;
-            })()}
-          </span>
-        ) : (
-          <span className="whitespace-nowrap text-[0.75rem] text-foreground/65">
-            {chipLabel(sel.date, todayIso)}
-          </span>
-        )}
-        <span className="whitespace-nowrap text-[0.8125rem] font-semibold text-navy">
-          {sel.waveMaxM > 0
-            ? `${sel.waveEstimated ? "~" : ""}${formatNumberVN(sel.waveMaxM)} m`
-            : "—"}{" "}
-          · cấp {beaufort(sel.windMaxKmh)}
-        </span>
-      </span>
+      <SeaTab
+        date={sel.date}
+        todayIso={todayIso}
+        waveMaxM={sel.waveMaxM}
+        waveEstimated={!!sel.waveEstimated}
+        windMaxKmh={sel.windMaxKmh}
+        savedAt={cond.stale ? cond.savedAt : null}
+      />
     ) : null;
 
   /*  NỘI DUNG NGĂN 1/3 MÀN — DÀY SỐ, KHÔNG GIẢI THÍCH (anh Long 2026-10-20:
@@ -4824,13 +4829,6 @@ export default function FishingMapView() {
       ngắn trái · số phải. Câu dặn/giải thích (độ tin, mô hình con nước, vùng
       cá…) chỉ ở "Xem đủ" (ngăn rộng = nội dung cũ). Cảnh báo AN TOÀN không thu:
       rất gần ranh giới, sóng ước, cạn nước (màu nguy hiểm) vẫn hiện ở đây. */
-  /*  DẤU BẢN LƯU (rà Codex lần 3, ưu tiên 2): giờ nếu lưu HÔM NAY, kèm ngày nếu
-      đã sang ngày khác — "Bản lưu 07:30" của hôm kia là nói dối độ tươi. */
-  const savedStampVN = (ms: number) => {
-    const d = new Date(ms + 7 * 3600000).toISOString();
-    const sameDay = d.slice(0, 10) === todayIso;
-    return sameDay ? d.slice(11, 16) : `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}`;
-  };
   /*  DÒNG KHOÁ NGÀY — dùng chung cho `peek` và ngăn dày số (rà Codex lần 4: ngăn
       bên thay `peek` bằng `sideDense` nên chạm chip ngày khoá trong ngăn thì câu
       giải thích biến mất, chip khoá chỉ có icon). Ẩn khi mất sóng. */
@@ -4894,32 +4892,17 @@ export default function FishingMapView() {
           });
           const weather = seaWeather(sel);
           return (
-            <div className="space-y-2">
-              {/*  CẢNH BÁO AN TOÀN ĐỨNG TRƯỚC SỐ, không chờ "Xem đủ" (rà Codex lần 4
-                   ưu tiên 1): rất gần ranh giới · mưa to/dông · sóng là số ước. */}
-              {prox.applies && prox.level === "very_near" && (
-                <p className="text-[0.8125rem] font-bold leading-snug text-danger">{prox.label}.</p>
-              )}
-              {weather?.danger && (
-                <p className="flex items-center gap-1.5 rounded-lg bg-danger-bg px-2 py-1.5 text-[0.8125rem] font-bold leading-snug text-danger">
-                  <AlertIcon className="h-4 w-4 shrink-0" />
-                  {weather.label}
-                </p>
-              )}
-              {sel.waveEstimated && sel.waveMaxM > 0 && (
-                <p className="text-[0.75rem] font-semibold leading-snug text-warn">
-                  ~ Sóng máy ước theo gió · nghe thêm đài duyên hải
-                </p>
-              )}
-              {cond.stale && (
-                <p className="text-[0.75rem] font-semibold leading-snug text-warn">
-                  Bản lưu{cond.savedAt != null ? ` ${savedStampVN(cond.savedAt)}` : ""} · chưa phải số mới
-                </p>
-              )}
-              {dayChipsRow}
-              {dayLockLine}
-              <SeaDenseGrid cells={cells} />
-            </div>
+            <SeaDensePanel
+              borderLabel={prox.applies && prox.level === "very_near" ? prox.label : null}
+              dangerWeather={weather?.danger ? weather.label : null}
+              waveEstimated={!!sel.waveEstimated && sel.waveMaxM > 0}
+              savedAt={cond.savedAt}
+              stale={cond.stale}
+              todayIso={todayIso}
+              dayChips={dayChipsRow}
+              lockLine={dayLockLine}
+              cells={cells}
+            />
           );
         })()
       : null;
@@ -5086,11 +5069,13 @@ export default function FishingMapView() {
         // style đã dựng, KHÔNG nói bản đồ đã xin ô nền — arm ở đây là dương
         // tính giả, xem ghi chú trong effect `sourcedataloading` bên trên.
         onLoad={() => {
+          syncLiveHit();
           syncBaseTopReady();
           thuONguon();
         }}
         // đổi lớp bản đồ = setStyle = dựng lại style ⇒ mốc chèn có/mất theo
         onStyleData={() => {
+          syncLiveHit();
           syncBaseTopReady();
           thuONguon(); // style mới = dòng nguồn mới, MapLibre bung lại
         }}
@@ -5125,7 +5110,7 @@ export default function FishingMapView() {
         }}
         /*  Chỉ khai lớp bắt chạm KHI CÓ TUYẾN: MapLibre ném lỗi nếu
              `queryRenderedFeatures` nhận id lớp chưa tồn tại. */
-        interactiveLayerIds={hitLayers}
+        interactiveLayerIds={liveHitLayers}
         onClick={(e) => {
           /*  ĐỆM VÙNG CHẠM ±28 px (reviewer B.5 2026-09-03): trước đây bắt đúng
               điểm ngón tay nên chấm 2–6 px chạm hụt → xoá điểm xem / bung sheet
@@ -5137,7 +5122,7 @@ export default function FishingMapView() {
           const nearFeats = (() => {
             const map = mapRef.current?.getMap();
             const fallback = e.features ?? [];
-            if (!map || !hitLayers) return fallback;
+            if (!map || !liveHitLayers) return fallback;
             const { x, y } = e.point;
             const R = 28;
             let found: typeof fallback = [];
@@ -5147,7 +5132,7 @@ export default function FishingMapView() {
                   [x - R, y - R],
                   [x + R, y + R],
                 ],
-                { layers: hitLayers },
+                { layers: liveHitLayers },
               );
             } catch {
               return fallback;
@@ -7827,7 +7812,12 @@ export default function FishingMapView() {
       {!routeMode && !navOn && (
       <SnapSheet
         size={size}
-        onSizeChange={setSize}
+        onSizeChange={(s) => {
+          if (s !== "half") setSheetHeld(false);
+          setSize(s);
+        }}
+        sideHold={sheetHeld}
+        onSideHoldChange={setSheetHeld}
         onInteract={armSheetHide}
         /*  NGĂN KÉO BÊN PHẢI (anh Long 2026-10-20): bản đồ chỉ còn MỘT viên dính
             mép phải (`sideTab` = ngày · sóng · cấp gió) — chạm/vuốt trái mở ngăn

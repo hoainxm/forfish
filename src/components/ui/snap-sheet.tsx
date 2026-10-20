@@ -40,6 +40,8 @@ export function SnapSheet({
   sideHeader,
   sideDense,
   sideTitle,
+  sideHold = false,
+  onSideHoldChange,
   peek,
   children,
 }: {
@@ -78,6 +80,10 @@ export function SnapSheet({
   sideDense?: ReactNode;
   /** Thay chữ tiêu đề ở đầu ngăn thấp (vd "● Biển êm") — đỡ một hàng. */
   sideTitle?: ReactNode;
+  /** Ngăn đang được người dùng GHIM mở (không tự thu) — chỉ khi `side`. */
+  sideHold?: boolean;
+  /** Có = hiện nút "Giữ mở" ở đầu ngăn; cha tự tắt đồng hồ tự-thu khi true. */
+  onSideHoldChange?: (held: boolean) => void;
   /** Phần luôn thấy ở mọi nấc */
   peek: React.ReactNode;
   /** Phần chi tiết — chỉ thấy ở half/full, cuộn bên trong sheet */
@@ -223,6 +229,20 @@ export function SnapSheet({
                 {sideTitle ?? <span className="text-[0.875rem] font-semibold text-navy">{label}</span>}
               </div>
               {sideHeader}
+              {onSideHoldChange && (
+                /*  GIỮ MỞ — chữ (2 chữ) chứ không chỉ icon ghim: ghim đọc thành
+                    "ghim chỗ này lên bản đồ". Bật = nền sea đặc chữ trắng. */
+                <button
+                  type="button"
+                  aria-pressed={sideHold}
+                  onClick={() => onSideHoldChange(!sideHold)}
+                  className={`flex h-(--h-ctl) shrink-0 items-center rounded-full px-3 text-[0.8125rem] font-semibold active:scale-95 ${
+                    sideHold ? "bg-sea text-white" : "bg-field text-navy"
+                  }`}
+                >
+                  Giữ mở
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onSizeChange("hidden")}

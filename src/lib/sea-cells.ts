@@ -3,8 +3,8 @@
   rà Codex lần 5). Bên gọi tra sẵn con nước / cá / độ sâu (cần dữ liệu trạm,
   lưới cá trong component), ở đây chỉ quyết THỨ TỰ + CHỮ của từng ô.
 
-  THỨ TỰ = thứ quyết chuyện ra khơi trước: gió · giật · sóng · dòng · trời →
-  con nước → nhiệt nước → âm lịch/trăng → cá/mùa → độ sâu. Ngăn chỉ cao 1/3
+  THỨ TỰ = thứ quyết chuyện ra khơi trước: (cạn nguy hiểm) → gió · giật · sóng ·
+  dòng · trời → con nước → nhiệt nước → âm lịch/trăng → cá/mùa → độ sâu. Ngăn chỉ cao 1/3
   màn, nên hàng đầu phải là số an toàn, không phải lịch.
 
   SỐ "LÚC NÀY" chỉ dùng khi là số MỚI của HÔM NAY (`!cond.stale`) — cùng luật
@@ -62,6 +62,10 @@ export function seaWeather(day: SeaPointDay) {
 
 export function buildSeaCells({ day, cond, isToday, tide, fish, season, depth }: SeaCellInput): SeaCell[] {
   const cells: SeaCell[] = [];
+  /*  CẠN NGUY HIỂM ĐỨNG ĐẦU (rà Codex lần 6): mắc cạn là hiểm hoạ tại chỗ, không
+      được nằm sau lịch và cá. Mức cạn vừa / bình thường vẫn ở cuối như cũ. */
+  const depthDanger = depth?.tone === "danger";
+  if (depth && depthDanger) cells.push({ k: "Độ sâu", v: depth.label, full: true, tone: "text-danger" });
   const fresh = isToday && !cond.stale;
 
   // ── gió ──
@@ -121,7 +125,7 @@ export function buildSeaCells({ day, cond, isToday, tide, fish, season, depth }:
   // ── cá / độ sâu ── (dòng dài, trọn hàng)
   if (fish) cells.push({ k: "Cá", v: fish.names.join(", "), tone: "text-trim", full: true });
   else if (season.length > 0) cells.push({ k: "Mùa này", v: season.join(", "), full: true });
-  if (depth)
+  if (depth && !depthDanger)
     cells.push({
       k: "Độ sâu",
       v: depth.label,
@@ -129,4 +133,14 @@ export function buildSeaCells({ day, cond, isToday, tide, fish, season, depth }:
       tone: depth.tone === "danger" ? "text-danger" : depth.tone === "warn" ? "text-warn" : undefined,
     });
   return cells;
+}
+
+/**
+ * DẤU BẢN LƯU "HH:MM" (giờ VN) nếu lưu HÔM NAY, "dd/MM HH:MM" nếu đã sang ngày
+ * khác — "Bản lưu 07:30" của hôm kia là nói dối độ tươi (rà Codex lần 3).
+ * Dùng chung cho viên tóm tắt và dòng bản lưu đầu ngăn.
+ */
+export function savedStampVN(ms: number, todayIso: string): string {
+  const d = new Date(ms + 7 * 3600000).toISOString();
+  return d.slice(0, 10) === todayIso ? d.slice(11, 16) : `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}`;
 }

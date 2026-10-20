@@ -689,11 +689,11 @@ export function SenBienSheet({
 function SongAm({ muc, gia = false }: { muc: number[] | null; gia?: boolean }) {
   const vach = Array.from({ length: SO_VACH }, (_, i) => (muc ? (muc[muc.length - SO_VACH + i] ?? 0) : null));
   return (
-    <div className="flex h-8 items-center gap-[3px] px-1" aria-hidden="true">
+    <div className="flex h-8 items-center gap-[0.1875rem] px-1" aria-hidden="true">
       {vach.map((v, i) => (
         <span
           key={i}
-          className={`w-[3px] rounded-full ${gia ? "bg-navy/40" : "bg-navy"} ${v === null ? "anim-song" : ""}`}
+          className={`w-[0.1875rem] rounded-full ${gia ? "bg-navy/40" : "bg-navy"} ${v === null ? "anim-song" : ""}`}
           style={v === null ? { height: "100%", animationDelay: `${(i % 7) * 110}ms` } : { height: `${Math.max(12, Math.round(v * 100))}%` }}
         />
       ))}

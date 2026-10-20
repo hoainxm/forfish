@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSeaCells, type SeaCellInput } from "@/lib/sea-cells";
+import { buildSeaCells, savedStampVN, type SeaCellInput } from "@/lib/sea-cells";
 import type { SeaPointDay } from "@/lib/marine-weather";
 
 const day = (over: Partial<SeaPointDay> = {}): SeaPointDay =>
@@ -74,5 +74,49 @@ describe("buildSeaCells — lưới số ngăn gió sóng", () => {
     expect(c.find((x) => x.k === "Lớn 10:30")).toBeTruthy();
     expect(c.find((x) => x.k === "Cá")?.full).toBe(true);
     expect(c.find((x) => x.k === "Độ sâu")?.tone).toBe("text-danger");
+  });
+
+  it("cạn NGUY HIỂM đứng đầu lưới; cạn thường vẫn ở cuối", () => {
+    const nguy = buildSeaCells(base({ depth: { label: "Cạn dưới 5 m", tone: "danger" } }));
+    expect(nguy[0]).toMatchObject({ k: "Độ sâu", tone: "text-danger", full: true });
+    expect(nguy.filter((x) => x.k === "Độ sâu")).toHaveLength(1);
+    const thuong = buildSeaCells(base({ depth: { label: "Sâu 30–50 m", tone: "plain" } }));
+    expect(thuong[thuong.length - 1].k).toBe("Độ sâu");
+  });
+
+  it("dòng chảy BẢN LƯU: bỏ số lúc lưu, lấy dòng đại diện của ngày", () => {
+    const c = buildSeaCells(
+      base({
+        day: day({ curKmh: 1.5, curDirDeg: 180 }),
+        cond: { ...base().cond, curKmh: 4, curDirDeg: 0, stale: true },
+      }),
+    );
+    expect(c.find((x) => x.k.startsWith("Dòng"))?.v).toBe("1,5 km/h");
+  });
+
+  it("thiếu số thì im: không giật, sóng '—', không dòng", () => {
+    const c = buildSeaCells(base({ isToday: false, day: day({ gustMaxKmh: 0, waveMaxM: 0 }) }));
+    expect(c.find((x) => x.k === "Giật")).toBeUndefined();
+    expect(c.find((x) => x.k === "Sóng")?.v).toBe("—");
+    expect(c.find((x) => x.k.startsWith("Dòng"))).toBeUndefined();
+  });
+
+  it("sóng lúc này và mức cao nhất cùng in một số sau làm tròn → không thêm ô 'Sóng tới'", () => {
+    const c = buildSeaCells(base({ day: day({ waveMaxM: 0.86 }), cond: { ...base().cond, waveM: 0.9 } }));
+    expect(c.find((x) => x.k === "Sóng tới")).toBeUndefined();
+  });
+});
+
+describe("savedStampVN — dấu giờ bản lưu", () => {
+  it("lưu hôm nay: chỉ HH:MM giờ VN", () => {
+    // 01:30 UTC = 08:30 VN, ngày 20/10
+    expect(savedStampVN(Date.UTC(2026, 9, 20, 1, 30), "2026-10-20")).toBe("08:30");
+  });
+  it("lưu ngày khác: kèm dd/MM", () => {
+    expect(savedStampVN(Date.UTC(2026, 9, 18, 1, 30), "2026-10-20")).toBe("18/10 08:30");
+  });
+  it("ranh giới ngày theo giờ VN, không theo UTC", () => {
+    // 17:30 UTC ngày 19 = 00:30 VN ngày 20 → vẫn là hôm nay
+    expect(savedStampVN(Date.UTC(2026, 9, 19, 17, 30), "2026-10-20")).toBe("00:30");
   });
 });
