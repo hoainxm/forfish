@@ -3,7 +3,11 @@
 // Vai: TÁCH THAM SỐ. Bộ n-gram + luật (hieu-y.ts) vẫn chọn việc và trả lời ngay;
 // có Gemma thì hỏi thêm Gemma, và CHỈ khi Gemma đoán CÙNG việc mới lấy tham số của
 // nó (hướng, loài, đi luôn, lớp, ngày giờ, tầng, tên chỗ lệch giọng). Gemma lỗi /
-// chưa tải / quá giờ ⇒ giữ nguyên câu trả lời của luật. Web không có Gemma.
+// chưa tải / quá giờ ⇒ giữ nguyên câu trả lời của luật.
+//
+// BẢN WEB/PWA (chủ dự án 2026-10-20: "nối gemma ở máy t"): không chạy Gemma trong trình duyệt (đo: 4,5–5,3 s/câu
+// WASM trên Mac, WebGPU lỗi) mà hỏi MÁY CHỦ Gemma trên gpu-desktop qua route `/api/sen-bien/gemma` — ~0,2 s/câu,
+// cùng file .litertlm với Android. CHỈ khi có sóng + đã đăng nhập; mất sóng / máy chủ tắt / quá trần ⇒ null, luật làm như cũ.
 //
 // Mô hình 62 MB nằm trong gói Play Asset Delivery on-demand (plugin Kotlin
 // SenBienGemmaPlugin.kt). Prompt dưới đây phải KHỚP TỪNG CHỮ với lúc train (repo AI
@@ -14,6 +18,11 @@ import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor
 import type { SenDest, SenReply } from "./hieu-y";
 import type { CauHoi } from "./hoi-ban-do";
 import type { LenhBanDo, LopBanDo, LoaiCaHoi } from "./lenh-ban-do";
+import { apiUrl } from "@/lib/api-base";
+import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
+
+import { SYSTEM } from "./gemma-khuon";
 import { foldVn, INTENTS, type SenIntent } from "./ngram";
 
 export type GemmaTrangThai = {
@@ -40,8 +49,7 @@ export function coGemma(): boolean {
   return Capacitor.getPlatform() === "android" && Capacitor.isPluginAvailable("SenBienGemma");
 }
 
-export const SYSTEM =
-  'Bộ hiểu ý Trợ lý Forfish. Đọc câu ngư dân nói, trả đúng một dòng JSON {"y":ý định,"s":tham số,"f":ý thứ hai,"r":lý do chặn}.';
+export { SYSTEM } from "./gemma-khuon";
 
 export type GemmaCtx = { xn?: boolean; cang?: string[]; diem?: string[]; tau?: string[] };
 
@@ -156,13 +164,33 @@ export const canGemma = (r: SenReply) => r.kind === "hoi" || r.kind === "map" ||
 
 /** Hỏi Gemma, có TRẦN thời gian; mọi lỗi ⇒ null (không bao giờ ném). */
 export async function hoiGemma(cau: string, ctx: GemmaCtx, tranMs = 2500): Promise<GemmaDap | null> {
-  if (!coGemma()) return null;
+  if (!coGemma()) return hoiGemmaMayChu(cau, ctx, tranMs);
   try {
     const kq = await Promise.race([
       Plugin.hoi({ he: SYSTEM, nguoi: userMsg(cau, ctx) }),
       new Promise<null>((ok) => setTimeout(() => ok(null), tranMs)),
     ]);
     return kq ? docDap(kq.txt) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Bản web: hỏi máy chủ Gemma qua route. Mất sóng / chưa đăng nhập / lỗi / quá trần ⇒ null (không bao giờ ném). */
+async function hoiGemmaMayChu(cau: string, ctx: GemmaCtx, tranMs: number): Promise<GemmaDap | null> {
+  try {
+    if (typeof navigator === "undefined" || navigator.onLine === false) return null;
+    const head = tokenHeader();
+    if (!Object.keys(head).length) return null;
+    const res = await fetch(apiUrl("/api/sen-bien/gemma"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...head },
+      body: JSON.stringify({ nguoi: userMsg(cau, ctx) }),
+      signal: timeoutSignal(tranMs),
+    });
+    if (!res.ok) return null;
+    const j = (await res.json().catch(() => null)) as { ok?: boolean; txt?: unknown } | null;
+    return j?.ok && typeof j.txt === "string" ? docDap(j.txt) : null;
   } catch {
     return null;
   }

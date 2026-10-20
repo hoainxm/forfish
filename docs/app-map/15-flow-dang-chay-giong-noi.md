@@ -579,14 +579,14 @@ Vị trí hỏi như §18b: GPS tàu ≤10 phút thì "Chỗ tàu", không thì 
 - "Cuối tuần" chưa hiểu thành ngày cụ thể (bà con nói "thứ bảy" cũng vậy) — Sen Biển hỏi lại ngày giờ.
 - Kiểm trên trình duyệt (dev, chuỗi thử đúng khuôn trên localhost): mở lớp sóng, bản đồ cá + loài, đọc điểm cá ("điểm cá 75 trên 100"), tắt lớp, chặn đổi lớp khi đang chạy. **Chưa kiểm được trên máy dev**: nhảy thanh giờ + đọc số gió/sóng thật (máy dev không có lưới dự báo — snapshot 404/503); phần này có test đơn vị `lenh-ban-do.test.ts`.
 
-## 20. SEN BIỂN GEMMA TRÊN ANDROID (2026-10-17, ADR 0012, CHƯA commit)
+## 20. SEN BIỂN GEMMA TRÊN ANDROID (2026-10-17, ADR 0012, CHƯA commit) + WEB QUA MÁY CHỦ (2026-10-20)
 
 Chủ dự án duyệt 2026-10-17: *"làm plugin Capacitor Android chạy Gemma 62 MB qua Play Asset Delivery, web giữ n-gram + luật"*.
 
 - **Vai**: Gemma 3 270M (fine-tune, cắt từ vựng, int4) chỉ **tách tham số**. Luồng `senHeard`: `senBienReply` (n-gram + luật) trả lời trước → nếu là câu hỏi bản đồ / lệnh bản đồ / dẫn đường mà không thấy tên ⇒ `hoiGemma` (trần **2,5 s**) → `apDungGemma` CHỈ nhận tham số khi Gemma đoán **cùng việc** (hướng, loài, đi luôn, lớp, ngày giờ, tầng; tên chỗ lệch giọng khớp ĐÚNG một chỗ trong danh sách thì đi). Gemma lỗi/chậm/chưa có ⇒ câu của luật, không treo.
 - **Prompt khớp lúc train** (`lib/sen-bien/gemma.ts` `SYSTEM` + `userMsg`, câu hạ chữ thường); ngữ cảnh = 5 cảng gần chỗ hỏi + 4 điểm ghim (KV cache 256).
 - **Tải**: 8 s sau khi mở bản đồ, sau bộ nghe: có gói ⇒ `nap`; chưa có ⇒ xin Play tải gói on-demand (Play lo Wi-Fi/4G, tự hỏi bà con khi cần); máy bật tiết kiệm dữ liệu ⇒ không xin. Rời bản đồ ⇒ `dong` (nhả ~200 MB RAM). Plugin + gói + CI: ops/native-deploy §3c.
-- **Web/PWA**: không có Gemma (`coGemma()` false) — n-gram v3 + luật như §18–19.
+- **Web/PWA — GEMMA QUA MÁY CHỦ (2026-10-20, chủ dự án: "t muốn nó chạy pwa" → "nối gemma ở máy t", chọn cách 1)**: chạy Gemma TRONG trình duyệt đo được nhưng không dùng nổi — LiteRT-LM JS 0.18.1 WASM CPU đúng 5/5 câu mà **4,5–5,3 s/câu trên Mac** (bật COOP/COEP cũng không nhanh hơn; WebGPU lỗi nạp mô hình), điện thoại ước 10–20 s. ⇒ `hoiGemma` bản web gọi `POST /api/sen-bien/gemma` (`gemma.ts` `hoiGemmaMayChu`; khuôn chung `gemma-khuon.ts`), route chuyển tới máy chủ Gemma trên gpu-desktop (cùng file `.litertlm` Android, **~0,2 s/câu**). Chỉ khi CÓ SÓNG + đã đăng nhập; mất sóng / máy chủ tắt / quá 2,5 s ⇒ n-gram + luật như §18–19. **Ngoại lệ có chủ ý** của quyết định "Sen Biển chỉ chạy trong máy" (17/10): Gemma web cần mạng; không gửi gì khác ngoài câu nói + tên cảng/điểm gần (không toạ độ, không SĐT). Nguồn ngoài: ops/external-services. Assumptions: máy GPU nhà là máy chủ tạm — tắt máy là mất Gemma web (an toàn vì có đường lùi); nâng lên máy chủ thật khi dùng nhiều.
 
 | Trạng thái | Hành vi |
 |---|---|

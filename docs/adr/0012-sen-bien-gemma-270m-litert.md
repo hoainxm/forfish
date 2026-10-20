@@ -120,3 +120,10 @@ Nguồn: [Gemma Terms of Use](https://ai.google.dev/gemma/terms) (sửa lần cu
 Fine-tune lại trên dữ liệu v4 (gpu-desktop, cùng công thức nén int4 khối 32 + chưng cất, 62 MB). Chấm cùng cổng của vòng train hằng ngày (doc 15 §23 bước 4): chợ 86,5 % trọn đúng (v3 không biết ý chợ), câu người viết +0,9/+2,5, hỏi bản đồ +1,7/+0,8, nhưng **thao tác bản đồ −1,3** (ý chợ lấn: "lùi về bây giờ nè" ⇒ shop_doi_hen) ⇒ **không qua cổng, app GIỮ v3** (release `sen-bien-gemma-v1`). Thiệt hại nhỏ: Gemma chỉ được lấy tham số khi cùng ý với n-gram, lệnh sàn tách tham số bằng luật. Báo cáo: repo AI Assistant `train/reports/troly-v4-gemma-2026-10-18.md`.
 
 **Nén dưới int4 không chạy được**: QAT 2-bit khối 64 xuất ra 35–39 MB nhưng LiteRT-LM (bộ chạy của plugin Android) lỗi ngay câu đầu ⇒ **62 MB int4 là bản nhỏ nhất chạy được trong app**. Bản ternary GGUF (29–36 MB) chỉ chạy trên llama.cpp — đổi runtime Android là quyết định riêng. N-gram: 4,6 MB nhưng 93,7 % trọng số = 0, phát dạng SDF2 (gzip) ⇒ tải về ~300 KB; lưới 4-bit làm tụt ~20 điểm ⇒ giữ int8.
+
+## Cập nhật 2026-10-20 — Gemma cho bản WEB qua máy chủ (chủ dự án: "t muốn nó chạy pwa" → "nối gemma ở máy t")
+
+Đo lại đường trong trình duyệt với đúng file đang phát (int4 k256, 64 MB): LiteRT-LM JS 0.18.1 WASM CPU đúng 5/5 câu nhưng **4,5–5,3 s/câu trên Mac**; bật cô lập nguồn gốc (COOP/COEP, đa luồng) không nhanh hơn; WebGPU lỗi nạp (0.18.0 lẫn 0.18.1). Điện thoại ước 10–20 s ⇒ vượt trần 2,5 s của app, tải 62 MB vô ích. Không đưa file vào git.
+
+**Chọn**: Gemma web chạy trên **máy GPU của chủ dự án** (AI Assistant `train/tro-ly/gemma-may-chu.py`, systemd `sen-bien-gemma`, cùng `.litertlm`, ~0,2 s/câu), ra internet qua đường hầm; app → `POST /api/sen-bien/gemma` (đăng nhập + giới hạn lượt) → máy chủ. Khoá chỉ ở env máy chủ ForFish. Có sóng mới dùng; mất sóng như cũ (n-gram + luật). Đây là ngoại lệ có chủ ý của "Sen Biển chỉ chạy trong máy" — chỉ cho phần tách tham số, có đường lùi. Rủi ro đã chấp nhận: máy nhà tắt/mất mạng ⇒ mất Gemma web (không hỏng gì khác); máy nhà mở ra internet (chỉ một cổng, chỉ đường hầm, khoá dài 64 hex, chỉ nhận đúng khuôn Sen Biển).
+
