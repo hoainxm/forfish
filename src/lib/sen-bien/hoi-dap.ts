@@ -152,5 +152,5 @@ export function dungKho(
 /** Câu Sen Biển nói khi gợi ý: đọc tối đa 3 câu hỏi để bà con chọn. */
 export function cauGoiY(cac: { hoi: string }[]): string {
   if (cac.length === 1) return `Có phải bà con hỏi: ${cac[0].hoi}`;
-  return `Bà con hỏi câu nào: ${cac.map((c, i) => `${i ? "hay " : ""}${c.hoi.replace(/[?？]\s*$/, "")}`).join(", ")}?`;
+  return `Bà con hỏi câu nào: ${cac.map((c, i) => `${i ? "hay " : ""}${c.hoi.replace(/\?\s*$/, "")}`).join(", ")}?`;
 }
