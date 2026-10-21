@@ -5,9 +5,9 @@ import type { Page } from "@playwright/test";
  * từng bước ở đáy màn hình — để bà con xem video biết đang bấm vào đâu, làm gì.
  */
 
-/** Rail lớp bản đồ (build 2026-07-28 mặc định THU GỌN) — mở nếu đang gọn. */
+/** Rail nút bản đồ (2026-10-21: thu gọn còn 1 nút "Chức năng") — mở nếu đang gọn. */
 export async function openRail(page: Page) {
-  const show = page.locator('button[aria-label="Hiện lớp bản đồ"]');
+  const show = page.locator('button[aria-label="Mở các nút chức năng"]');
   if (await show.count()) {
     await show.first().hover();
     await page.waitForTimeout(400);

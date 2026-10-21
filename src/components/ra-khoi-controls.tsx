@@ -49,6 +49,7 @@ import {
   CrosshairIcon,
   GridIcon,
   LayersIcon,
+  MenuIcon,
   EddyIcon,
   FishIcon,
   PinIcon,
@@ -235,8 +236,14 @@ export function RaKhoiControls({
   onClearMeasure: () => void;
 }) {
   const [open, setOpen] = useState<PanelId | null>(null);
-  // MẶC ĐỊNH THU GỌN (user 2026-07-28): map sạch, chạm "Lớp" mới xổ rail ra;
-  // xổ rồi mà 5s không chạm gì (trong rail/panel) thì TỰ thu lại.
+  // MẶC ĐỊNH THU GỌN (user 2026-07-28): map sạch, chạm "Chức năng" mới xổ rail
+  // ra; xổ rồi mà 5s không chạm gì (trong rail/panel) thì TỰ thu lại.
+  // GOM NÚT (user 2026-10-21: "hàng nút bên phải chiếm quá nhiều giao diện
+  // khi xem và thao tác"): thu gọn chỉ còn nút "Chức năng" + "Vị trí" (Vị trí
+  // luôn ngoài menu — user chốt cùng ngày); Bắt đầu chạy · Đến điểm · Điểm đã
+  // lưu · Lộ trình · 5 panel đều nằm trong.
+  // NGOẠI LỆ: nút nào ĐANG BẬT (Đang chạy · Đang dẫn đường · ô Đến điểm / Điểm
+  // đã lưu đang mở) vẫn hiện khi thu — bà con phải tắt được bằng MỘT chạm.
   const [collapsed, setCollapsed] = useState(true);
   // Ô GÕ TAY TOẠ ĐỘ (nút "Đến điểm") — luôn bấm được kể cả khi thu bảng lớp.
   const [coordOpen, setCoordOpen] = useState(false);
@@ -511,22 +518,23 @@ export function RaKhoiControls({
             if (!collapsed) setOpen(null);
             setCollapsed((c) => !c);
           }}
-          aria-label={collapsed ? "Hiện lớp bản đồ" : "Ẩn bảng tùy chọn"}
+          aria-label={collapsed ? "Mở các nút chức năng" : "Thu gọn các nút"}
           aria-expanded={!collapsed}
-          className="flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl bg-navy py-2 text-white shadow-md transition active:scale-95"
+          className="flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl bg-navy py-2 text-white shadow-md transition active:scale-95"
         >
           {collapsed ? (
-            <LayersIcon className="h-6 w-6" />
+            <MenuIcon className="h-6 w-6" />
           ) : (
             <ChevronRightIcon className="h-5 w-5" />
           )}
           <span className="text-[0.8125rem] font-bold leading-tight">
-            {collapsed ? "Lớp bản đồ" : "Ẩn"}
+            {collapsed ? "Chức năng" : "Thu gọn"}
           </span>
         </button>
 
-        {/* VỊ TRÍ — nút GPS chuẩn như mọi app bản đồ. Đặt ngay dưới nút Lớp
-            (chỗ tay phải với tới được), luôn hiện kể cả khi thu bảng lớp. */}
+        {/* VỊ TRÍ — nút GPS chuẩn như mọi app bản đồ. Đặt ngay dưới nút Chức
+            năng (chỗ tay phải với tới được), LUÔN hiện kể cả khi thu — việc
+            làm nhiều nhất trên bản đồ, không bắt mở menu (user 2026-10-21). */}
         <button
           type="button"
           onClick={onLocateMe}
@@ -546,13 +554,14 @@ export function RaKhoiControls({
         {/* BẮT ĐẦU CHẠY — kiểu VietMap: có vị trí là máy canh + đọc to. Ngay dưới
             "Vị trí" vì đây là việc làm MỖI CHUYẾN. Ba tín hiệu bật như nút Lộ
             trình: nền đổi, chữ đổi, chấm nhấp nháy. */}
-        {onCruise && (
+        {onCruise && (!collapsed || cruiseOn) && (
           <button
             type="button"
             onClick={() => {
               setOpen(null);
               setCoordOpen(false);
               setPlacesOpen(false);
+              setCollapsed(true); // rời rail sang chế độ chạy → map sạch ngay
               onCruise();
             }}
             aria-pressed={cruiseOn}
@@ -576,7 +585,7 @@ export function RaKhoiControls({
 
         {/* ĐẾN ĐIỂM (premium) — gõ tay toạ độ để nhảy tới điểm cần xem (không
             cần GPS, chạy cả khi mất sóng). Đặt NGAY DƯỚI nút "Vị trí". */}
-        {premiumTools && !cruiseOn && (
+        {premiumTools && !cruiseOn && (!collapsed || coordOpen) && (
         <button
           type="button"
           onClick={() => {
@@ -608,7 +617,7 @@ export function RaKhoiControls({
             16,5rem không chứa nổi mà vẫn giữ được cỡ chữ ≥18px cho bà con. Rail
             giữ đúng vai "chỗ bấm", sheet giữ đúng vai "chỗ đọc" (07 §11). */}
         {/* ĐIỂM ĐÃ LƯU (premium) — chỗ quen của chủ tàu, mở nhanh một chạm */}
-        {premiumTools && !cruiseOn && (
+        {premiumTools && !cruiseOn && (!collapsed || placesOpen) && (
         <button
           type="button"
           onClick={() => {
@@ -631,13 +640,14 @@ export function RaKhoiControls({
         </button>
         )}
 
-        {premiumTools && onRoutePanel && !cruiseOn && (
+        {premiumTools && onRoutePanel && !cruiseOn && (!collapsed || routeOn) && (
           <button
             type="button"
             onClick={() => {
               setOpen(null); // đóng panel rail cho khỏi chồng lên sheet
               setCoordOpen(false);
               setPlacesOpen(false);
+              setCollapsed(true); // rời rail sang khung dẫn đường → map sạch
               onRoutePanel();
             }}
             aria-label={
