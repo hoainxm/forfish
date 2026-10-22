@@ -123,6 +123,18 @@ Hai mô hình chỉ khớp nhau trong 5 m ở **31,8 %** hình rạn — ở r�
 
 Bảng tra tên Việt: 227 thực thể (Trường Sa 149, Hoàng Sa 42, Trung Sa 32, Scarborough 1, Đông Sa 3), **162 dòng `duyet: true`** (≥ 2 nguồn khớp tên + toạ độ < 3 km) — `scripts/dan-duong/ran-10m/ten-ran-bien-dong.json`, ghi chú bẫy đồng âm pinyin ở `.ghi-chu.md`. Ghép tên làm theo toạ độ trước (`coral-reefs.v1.json`, 144 tên Việt ở hai quần đảo), bảng tra chỉ khi vừa khớp tên đầy đủ vừa cách ≤ 8 km; dòng chưa khớp `can-nguoi` không vào sản phẩm. Chưa đối chiếu văn bản nhà nước (UBND đặc khu, Bộ TN&MT) — làm trước khi phát hành.
 
+### 6.4 Ghép tên Việt cho 193 đảo/rạn của HHU24 + SCSBathy10 (chạy 10:46, sau 3 lần siết luật)
+
+| Kết quả | Số | Ghi |
+|---|---|---|
+| **khớp** | **142** | bảng tra theo tên (≤ 20 km) 90 %, toạ độ duy nhất ≤ 3 km phần còn lại; ví dụ Yongxing → Đảo Phú Lâm (1 km), Zhaoshu → Đảo Cây, Dong → Đảo Linh Côn, Shanhu → Đảo Hoàng Sa, Yongshu → Đá Chữ Thập |
+| cần người | 35 | cụm sát nhau (Lưỡi Liềm, An Vĩnh, Nam Yết, Sinh Tồn), bảng tra chưa đủ 2 nguồn (Wufang*, Longxia), 5 tên không tra ra (Yuniao, Central Reef, Daoming, Rokong, Tizard Bank) — danh sách kèm gợi ý: [`ten-viet-can-nguoi.md`](do-sau-day-bien-2026-10-22/ten-viet-can-nguoi.md) |
+| ngoài phạm vi | 16 | Luconia / thềm Borneo (vĩ độ < 6,5°) và Đông Sa — không vào sản phẩm |
+
+Bài học ghi vào mã: lần ghép đầu "gần nhất trong 8 km" cho ra **Đảo Bắc → Đá Trương Nghĩa** (cách 1 km) — toạ độ không phân biệt nổi cụm đảo san sát, và `coral-reefs.v1.json` không có đảo. Luật cuối: bảng tra theo tên trước; toạ độ chỉ khi duy nhất trong 3 km; còn lại để người. Kết quả đầy đủ: [`ten-viet-ket-qua.json`](do-sau-day-bien-2026-10-22/ten-viet-ket-qua.json).
+
+**Bước kế (chưa làm, chờ người)**: (1) anh Long/người rành duyệt 35 dòng + soi mắt 142 dòng; (2) đối chiếu văn bản nhà nước về tên; (3) soát QĐ 562 trước khi phát hành; (4) rồi mới sinh `public/data/reef-depth.v1.*` (HHU24 + SCSBathy10, datum MSL, ghi nguồn CC BY Hohai University + tác giả SCSBathy10) và nối vào luật chặn rạn (B8).
+
 ## Assumptions
 
 - "Đo thật" trong TID = mã 10–17 (đo trực tiếp) + 44 (hải đồ số hoá); 40 = nội suy trọng lực vệ tinh; lidar = 15, hải đồ = 42–44 (D sửa lại nhóm "40–47" sai trong đề bài).
