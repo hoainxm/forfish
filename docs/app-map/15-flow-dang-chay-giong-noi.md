@@ -468,6 +468,8 @@ Chủ dự án: *"nói xong là máy tự vẽ, tự đọc, nói đi là chạy
 
 ## 18. SEN BIỂN NGHE TRONG MÁY + HỎI ĐÁP BẢN ĐỒ (2026-10-16)
 
+> **2026-10-22 — đổi bộ nghe (ADR 0015, chủ dự án "thay bản zipformer đi")**: `sen-bien-nghe.v2.bin` = zipformer 70.000 giờ (zzasdf, Apache-2.0) tinh chỉnh bằng câu Sen Biển + tiếng máy tàu + giọng ba miền: đúng việc giọng máy ba miền 94,6 % (30M: 84,8 %), tên Hoàng Sa/Trường Sa/Biển Đông 39/40 (30M: 27), người thật đọc rõ sai chữ 12,6 % (30M: 12,0 %); 79 MB (30M: 34 MB), chậm hơn ~1,3–1,5 lần. Tải/nạp/ma trận trạng thái giữ nguyên dưới đây; tên file đổi v1 → v2 để máy cũ lấy bản mới. Assumptions: chưa đo giọng bà con thật — theo dõi bằng mẫu câu §23; bộ mới có lúc nghe "hông" thay "không", "nì" thay "đi".
+
 Chủ dự án: *"hoàn thiện cái stt offline đi, rồi mở rộng tăng tính thông minh"* · *"phải đọc được toàn bộ thông tin mà bản đồ đang có, tất cả các lớp"* · *"phải đủ các loại thường tương tác bản đồ như google map: gần đảo nào, đi đâu, chỗ nào dự báo nhiều cá x, cá y, đi hướng nào thì có info nào"*. Quyết định kỹ thuật + giấy phép: [ADR 0011](../adr/0011-sen-bien-nghe-trong-may-zipformer-wasm.md).
 
 ### 18a. Tai — hai tầng

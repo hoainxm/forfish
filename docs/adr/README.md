@@ -31,6 +31,7 @@ KHÔNG viết ADR cho: feature thường, UI tweak, fix bug — những thứ đ
 | [0012](0012-sen-bien-gemma-270m-litert.md) | Sen Biển hiểu ý: n-gram v2 (44 ý, có hỏi bản đồ) chọn ý + luật làm lưới; Gemma 3 270M LiteRT tách tham số — giấy phép Gemma dùng thương mại được (kèm NOTICE + điều khoản §3.2), Android: gói Play on-demand + plugin LiteRT-LM (duyệt 17/10) | Accepted | 2026-10-16 |
 | [0013](0013-san-thuong-mai-da-nguoi-ban.md) | Chợ vật tư tàu cá: sàn ĐA NGƯỜI BÁN tách bảng mới, kho qua adapter MarketStore (supabase/file), định danh SĐT chuỗi cứng, COD + chuyển khoản | Proposed | 2026-09-06 |
 | [0014](0014-gop-cua-hang-vao-cho.md) | Gộp "Cửa hàng" cũ vào Chợ vật tư — một cửa hàng, SDVICO là một gian hàng; dữ liệu chuyển bằng 0061; thêm bậc sản phẩm "Liên hệ báo giá" | Accepted | 2026-09-07 |
+| [0015](0015-sen-bien-nghe-mo-hinh-sua-duoc.md) | Sen Biển nghe: đổi 30M (CC-BY-NC-ND, cấm sửa) sang zipformer 70.000 giờ Apache-2.0 tinh chỉnh bằng câu Sen Biển + tiếng máy tàu — đã thay bằng `sen-bien-nghe.v2.bin` (79 MB, vượt trần dữ liệu có ghi `data-budget`) | Accepted | 2026-10-22 |
 
 ## Cách thêm
 
