@@ -674,6 +674,14 @@ export type RoutePlan = {
    * không được đếm vào `noWeatherKm`, tuyến mù hoàn toàn vẫn có thể < 90 %.
    */
   weatherSeen: boolean;
+  /**
+   * DẤU VẾT DỰ BÁO ĐÃ DÙNG (C3, 2026-10-22). Tuyến tính bằng lưới offline cũ
+   * hay không có lưới phải nói thật ngay trong kết quả — không để UI tự nhớ.
+   * `source` 'live' = lưới mới của máy chủ · 'grid' = lưới đã lưu trong máy ·
+   * 'none' = không có số. `savedAt` = epoch ms lưu lưới ('grid'; null khi
+   * không biết hoặc lưới 'live'). `hours` = cửa sổ dự báo có số (giờ).
+   */
+  forecast: { source: "live" | "grid" | "none"; savedAt: number | null; hours: number };
 };
 
 type LegInfo = {
@@ -1601,6 +1609,12 @@ function planAttempt(
       ? 0
       : Math.max(0, Math.ceil(departHourIdx + tripHours - fieldHours));
 
+  const forecast: RoutePlan["forecast"] = {
+    source: field.source ?? "live",
+    savedAt: field.source === "grid" ? (field.savedAt ?? null) : null,
+    hours: fieldHours,
+  };
+
   // đường thẳng để so sánh trung thực — chia nhỏ theo bước lưới
   const directDist = haversineKm(start, dest);
   const nSeg = Math.max(2, Math.ceil(directDist / stepKm));
@@ -1663,6 +1677,7 @@ function planAttempt(
       segRisks: directWalk.segRisks,
       noWeatherKm: directWalk.noWeatherKm,
       weatherSeen: directWalk.weatherSeen,
+      forecast,
     };
   }
 
@@ -1693,6 +1708,7 @@ function planAttempt(
     segRisks: chosen.segRisks,
     noWeatherKm: chosen.noWeatherKm,
     weatherSeen: chosen.weatherSeen,
+    forecast,
   };
 }
 

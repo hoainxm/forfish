@@ -60,7 +60,7 @@ HẬU KIỂM  auditRoute: 11 kho + triều tại ETA (hoursAt) + ranh giới →
 | | B6 | Chưa quy đổi datum MSL ↔ số 0 hải đồ | cộng triều "+1,5 m" vào lưới MSL là cộng thừa z0 (Vũng Tàu 2,9 m!) | `doSauLucT = zMSL + (h(t) − z0)`; trạm model ±0,2 m thêm dự trữ. **ĐÃ SỬA 2026-10-22**: hàm thuần `doSauLucT(zMslM, hTrieuM, z0M) = −zMsl + (h − z0)` ở `hazards.ts` (số hỏng ⇒ NaN); luật lớp 3 trong `route-plan` đã trừ z0 đúng phép này |
 | | B5 | Không có squat theo tốc độ | tàu 10 hl ở nước 5 m lún thêm 0,2–0,4 m | Barrass đơn giản `squat ≈ Cb·V²/100` (Cb≈0,6 tàu cá), cộng vào `requiredDepthM(draft, Hs, speedKn)`. **ĐÃ SỬA 2026-10-22**: `squatM(V) = 0,6·(V²−36)/100` khi V > 6 (12 kn ≈ 0,65 m), `requiredDepthM` nhận tham số thứ 3 tuỳ chọn |
 | | B8 | Rạn/xác tàu không có độ sâu | xác tàu 31 m giữa biển chặn như rạn nổi; không phân biệt rạn nổi với rạn 30 m | **Kiểm độ sâu rạn trên GPU** `scripts/dan-duong/kiem-do-sau-ran.mjs`: từng hình OSM đối chiếu GEBCO + ETOPO (ODB/ERDDAP) + lớp ACA + số đo sâu → bốn kết luận can/trung/sau/mâu-thuẫn; ứng viên `sau` (≥20 m, hai nguồn khớp, không lớp ACA cạn) đưa anh Long chốt (§7 Q3) rồi mới sinh `reef-depth.v1.json` và nối vào luật chặn. Thử 3 hình đầu 2026-10-22: xác tàu 31/32 m ⇒ `sau`; đá 4/6 m ⇒ `can`; xác tàu trong vùng ACA Reef Flat ⇒ `can` |
-| **Thời tiết** | C3 | RoutePlan không mang nguồn/tuổi dự báo | tuyến đã lưu hôm qua bằng lưới cũ mà mở lại trông như mới | thêm `plan.forecast = {source, savedAt, hours}`; saved-routes lưu kèm |
+| **Thời tiết** | C3 | RoutePlan không mang nguồn/tuổi dự báo | tuyến đã lưu hôm qua bằng lưới cũ mà mở lại trông như mới | thêm `plan.forecast = {source, savedAt, hours}`; saved-routes lưu kèm. **ĐÃ SỬA 2026-10-22**: `RoutePlan.forecast = {source, savedAt, hours}` lấy từ lưới đã dùng; tuyến nhiều chặng gộp theo phía xấu nhất; saved-routes vẫn CỐ Ý không lưu kết quả tính nên không cần lưu kèm (Assumption) |
 | | (live) | Đang chạy không đọc lại dự báo/dòng | ETA theo GPS tức thời, không biết sắp vào dải sóng | dùng `plan.hoursAt` + field đã lưu để nói "còn 2 giờ tới khúc sóng 2,5 m" |
 | **Tàu/dầu** | D6 | Hồ sơ tàu rời rạc, không két dầu, không chiều dài | không kiểm "đủ dầu đi và về ×1,3"; vùng VMS theo chiều dài không vào tuyến | gộp `forfish.boat.v1` vào `boats.ts`, thêm `fuelTankL`, `lengthM` |
 | **Waypoint** | E1 | 6/8 waypoint thẳng hàng (góc 0°) | bà con gõ 8 điểm vào máy định vị thay vì 2 | kéo dây không giới hạn `i+6` khi cạnh thẳng hàng; hoặc lọc góc < 3° sau walk · **ĐÃ SỬA 2026-10-22**: sau kéo dây, bỏ điểm giữa góc rẽ < 3° khi nằm trên cạnh nối (lệch < 0,05 km) và cạnh nối vẫn đi được, không đắt hơn |
@@ -138,6 +138,11 @@ Nhật ký: ~/.local/forlife/train/dan-duong/nhat-ky/<ngày>.log · mỗi vòng 
 - Bộ chấm dùng trường thời tiết tổng hợp 10×10 mắt (0,32°) — gần độ mịn lưới server 0,35°; dải thử rộng ≥ 0,2° để chắc chắn trúng ít nhất một mắt.
 - "Đạt" mặc định = điểm ≥ 90; tiêu chí nhị phân ra 0/100.
 - 12 tuyến thật là tập hồi quy do lead chọn (6 từ bench cũ + 6 cảng khác); không thay cho tuyến chuẩn người duyệt.
+
+## Assumptions (C3, 2026-10-22)
+
+- `RoutePlan.forecast` luôn có mặt (kể cả lưới 'none'): `source` mặc định 'live' khi lưới không ghi nguồn; `savedAt` chỉ khác null khi 'grid' có mốc lưu; `hours` = cửa sổ dài nhất có số (0 khi rỗng). UI chưa đọc trường này — chỉ dữ liệu; câu chữ "tính bằng lưới cũ" để vòng UI sau.
+- Tuyến nhiều chặng gộp theo phía xấu: nguồn kém nhất (none > grid > live), `savedAt` cũ nhất, `hours` ngắn nhất. Đường lưu (`saved-routes`) vẫn không cất kết quả tính, nên mở lại luôn tính lại bằng dự báo hôm nay.
 
 ## Assumptions (B4, 2026-10-22)
 - `PlanArgs.tide` chưa có chỗ gọi trong UI (route-planner chưa truyền) nên app chạy như cũ tới khi nối nguồn `tides.ts`; hàm không clone được sang worker, nối phải ở luồng chính. Mặc định an toàn: vắng/hỏng thì dùng trần tĩnh 2,0 m.
