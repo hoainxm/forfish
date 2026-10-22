@@ -55,6 +55,27 @@ describe("projectOntoRoute", () => {
   });
 });
 
+describe("projectOntoRoute — lệch có dấu", () => {
+  it("tuyến đi về Đông: tàu ở phía Bắc → bên TRÁI, Nam → bên PHẢI", () => {
+    const bac = projectOntoRoute({ lat: 10.1, lon: 108.5 }, STRAIGHT);
+    const nam = projectOntoRoute({ lat: 9.9, lon: 108.5 }, STRAIGHT);
+    expect(bac.side).toBe("left");
+    expect(bac.signedKm).toBeCloseTo(-bac.offRouteKm, 5);
+    expect(nam.side).toBe("right");
+    expect(nam.signedKm).toBeCloseTo(nam.offRouteKm, 5);
+  });
+
+  it("tuyến quay chiều ngược lại thì trái/phải đảo theo hướng đi", () => {
+    const p = projectOntoRoute({ lat: 10.1, lon: 108.5 }, [B, A]);
+    expect(p.side).toBe("right");
+  });
+
+  it("đúng vạch → on; tuyến 1 điểm → on", () => {
+    expect(projectOntoRoute({ lat: 10, lon: 108.5 }, STRAIGHT).side).toBe("on");
+    expect(projectOntoRoute({ lat: 10.1, lon: 108 }, [B]).side).toBe("on");
+  });
+});
+
 describe("routeLengthKm", () => {
   it("cộng dồn từng đoạn", () => {
     expect(routeLengthKm(BEND)).toBeCloseTo(haversineKm(A, M) + haversineKm(M, B), 5);

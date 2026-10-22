@@ -138,6 +138,18 @@ export interface RouteProjection {
   offRouteKm: number;
   /** quãng từ đầu tuyến tới điểm chiếu (km) */
   alongKm: number;
+  /** lệch có dấu (km): dương = tàu nằm bên PHẢI hướng đi của đoạn, âm = bên trái */
+  signedKm: number;
+  /** bên nào của vạch tuyến, nhìn theo hướng đi; "on" khi lệch < SIDE_EPS_KM */
+  side: "left" | "right" | "on";
+}
+
+/** dưới mức này coi như đang đi đúng vạch, không nói trái/phải */
+export const SIDE_EPS_KM = 0.01;
+
+function sideOf(signedKm: number): RouteProjection["side"] {
+  if (Math.abs(signedKm) < SIDE_EPS_KM) return "on";
+  return signedKm > 0 ? "right" : "left";
 }
 
 /**
@@ -149,7 +161,7 @@ export function projectOntoRoute(
   waypoints: LatLon[],
 ): RouteProjection {
   if (waypoints.length === 0) {
-    return { segIdx: 0, tOnSeg: 0, snapped: pos, offRouteKm: 0, alongKm: 0 };
+    return { segIdx: 0, tOnSeg: 0, snapped: pos, offRouteKm: 0, alongKm: 0, signedKm: 0, side: "on" };
   }
   if (waypoints.length === 1) {
     return {
@@ -158,6 +170,8 @@ export function projectOntoRoute(
       snapped: waypoints[0],
       offRouteKm: haversineKm(pos, waypoints[0]),
       alongKm: 0,
+      signedKm: 0, // một điểm không có hướng đi để phân trái/phải
+      side: "on",
     };
   }
   const P = toXY(pos, pos); // = {0,0}, mốc là chính vị trí tàu
@@ -181,12 +195,16 @@ export function projectOntoRoute(
     const cy = A.y + t * dy;
     const dist = Math.hypot(P.x - cx, P.y - cy);
     if (!best || dist < best.offRouteKm) {
+      // tích có hướng (hướng đoạn × từ điểm chiếu tới tàu); tàu là gốc toạ độ
+      const signed = dist > 0 ? (dx * cy - dy * cx) / Math.hypot(dx, dy) : 0;
       best = {
         segIdx: i,
         tOnSeg: t,
         snapped: toLatLon({ x: cx, y: cy }, pos),
         offRouteKm: dist,
         alongKm: cum + t * segLenKm,
+        signedKm: signed,
+        side: sideOf(signed),
       };
     }
     cum += segLenKm;
