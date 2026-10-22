@@ -70,8 +70,9 @@ describe("(b) vào kho: v4 hoi_mo, hoặc bộ lọc ≥ LOC_NGUONG khi v4 lạc
     expect(kq).toEqual({ vao: true, dap: { id: "nghe_ca-005", say: raw.dap["nghe_ca-005"], cach: "gemma" } });
     expect(g.goi).toHaveLength(1);
   });
-  it("lọc kéo câu v4 đoán lạc (tau_cua_toi) vào kho", async () => {
-    expect(r4("máy tàu nóng quá phải làm sao")).toMatchObject({ kind: "say", y: "tau_cua_toi" });
+  // v6 (22/10, thêm câu ngoài nghề): câu này nay ra khong_hieu thay vì đoán lạc tau_cua_toi — lọc vẫn kéo vào kho
+  it("lọc kéo câu hiểu ý không ra (khong_hieu) vào kho", async () => {
+    expect(r4("máy tàu nóng quá phải làm sao")).toMatchObject({ kind: "say", y: "khong_hieu" });
     const kq = await hoi("máy tàu nóng quá phải làm sao", null);
     expect(kq.vao && kq.dap?.id).toBe("may_tau-011");
   });
