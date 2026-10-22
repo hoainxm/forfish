@@ -202,7 +202,7 @@ export type KetQuaTieuChi = {
   diem: number;
   dat: boolean;
   /** số đo thô để agent đọc — không phải câu chữ */
-  so: Record<string, number | string | boolean | null>;
+  so: Record<string, unknown>;
   ghi: string;
   /** "chua-do" = chưa có oracle/đường đo — tính là KHÔNG đạt, việc của vòng lặp là dựng */
   trangThai?: "do" | "chua-do";
@@ -234,7 +234,9 @@ export function tomTat(plan: RoutePlan | null) {
     dau: Math.round(plan.fuelL),
     wp: plan.waypoints.length,
     maxWave: plan.maxWaveM,
-    co: {
+    /*  tên cũ 'co' trùng với cờ 'co: true' ở trên — tsc (next build) bắt TS1117; vitest (esbuild) không bắt nên
+        bộ chấm vẫn chạy mà build production đỏ. Giữ tên 'coFlags' cho cờ tuyến. */
+    coFlags: {
       rough: plan.hasRoughLeg, shallow: plan.hasShallowLeg, veryShallow: plan.hasVeryShallowLeg,
       nearLand: plan.hasNearLandLeg, hazard: plan.hasHazardLeg, hazardPort: plan.hasHazardNearPortLeg,
       depthChecked: plan.depthChecked, hazardChecked: plan.hazardChecked, capped: plan.cappedToDirect,

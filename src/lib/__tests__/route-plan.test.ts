@@ -888,7 +888,7 @@ describe("bboxOfPoints — khung bao trọn chuỗi điểm (đường đi nhi�
 
 describe("waypoint sạch (E1)", () => {
   it("biển êm đường thẳng: không còn điểm giữa có góc rẽ < 3°", () => {
-    const p = plan(makeField(BB, calm));
+    const p = plan(makeField(BB, 7, calm));
     expect(p).not.toBeNull();
     const w = p!.waypoints;
     for (let i = 1; i < w.length - 1; i++) {
