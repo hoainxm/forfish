@@ -138,7 +138,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
         {rebuy.length > 0 && (
           <section className="mb-5">
             <SectionHeader className="px-0">Mua lại</SectionHeader>
-            <ul className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+            <ul className="-mx-4 flex gap-3 overflow-x-auto cuon-an px-4 pb-1">
               {rebuy.map((l) => (
                 <li key={`${l.productId}-${l.variantLabel ?? ""}`} className="surface w-[10.5rem] shrink-0 p-2">
                   <Link href={`/cho/sp/${l.productId}`} className="block">

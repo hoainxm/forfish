@@ -293,7 +293,7 @@ export function CartSheet({
                     className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-danger active:bg-danger-bg"
                   >
                     <TrashIcon className="h-6 w-6" />
-                    <span className="text-[0.6875rem] font-bold leading-none">Bỏ mặt hàng</span>
+                    <span className="text-[0.75rem] font-bold leading-none">Bỏ mặt hàng</span>
                   </button>
                 </div>
                 <p className="mt-0.5 text-[0.9375rem] text-foreground/70">
@@ -327,7 +327,7 @@ export function CartSheet({
                   className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-danger active:bg-danger-bg"
                 >
                   <TrashIcon className="h-6 w-6" />
-                  <span className="text-[0.6875rem] font-bold leading-none">Bỏ mặt hàng</span>
+                  <span className="text-[0.75rem] font-bold leading-none">Bỏ mặt hàng</span>
                 </button>
               </div>
             )}

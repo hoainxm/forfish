@@ -26,6 +26,13 @@
       sheet đáy, lớp nổi. Cố ý đơn vị px: khung máy không được nở theo chế độ
       "Chữ to" (đổi cỡ gốc), nếu không khung lệch khỏi dock/sheet dùng chung. */
   --w-app: 480px;
+  /*  ĐƯỜNG CONG CHUYỂN ĐỘNG (áp skill Emil Kowalski 2026-10-22): easing CSS dựng sẵn quá
+      yếu; `ease-in` cấm trên UI (chậm đúng lúc mắt đang nhìn). Vào/ra dùng ease-out mạnh,
+      ngăn/sheet dùng đường cong kiểu iOS. Mọi `transition` Tailwind mặc định 160ms ease-out
+      (xem @theme) — nhấn nút co 0.97 thấy "ăn tay" ngay. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --ink-rgb: 13 35 54; /* bóng đổ mực */
   --white-rgb: 255 255 255; /* kính mờ, quầng sáng */
   --black-rgb: 0 0 0; /* bóng ghim trên bản đồ */
@@ -108,7 +115,30 @@
   --danger-bg: #fde0db;
 }
 
+/*  BỀ MẶT TRÌNH DUYỆT theo bảng màu (sàn chất lượng Impeccable 2026-10-22): chữ bôi đen,
+    con trỏ gõ, phần tử chọn (checkbox/radio/range), thanh cuộn — trước để mặc định
+    trình duyệt (xanh dương hệ thống), lạc tông teal của app. */
+:root {
+  accent-color: var(--sea);
+  caret-color: var(--sea);
+  scrollbar-color: rgb(var(--ink-rgb) / 0.28) transparent;
+}
+::selection {
+  background: rgb(var(--sea-rgb) / 0.2);
+}
+/*  DẢI CUỘN NGANG (hàng chip, dải ngày, ảnh): vuốt/kéo là cách dùng tự nhiên — thanh
+    cuộn xám + mũi tên ◀ ▶ của Windows dưới hàng chip trông như lỗi (bề mặt trình duyệt,
+    Impeccable 2026-10-22). Màn quản trị (bảng rộng, chuột) KHÔNG dùng class này. */
+.cuon-an {
+  scrollbar-width: none;
+}
+.cuon-an::-webkit-scrollbar {
+  display: none;
+}
+
 @theme inline {
+  --default-transition-duration: 160ms;
+  --default-transition-timing-function: var(--ease-out);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -217,7 +247,7 @@ html {
 }
 @media (max-width: 344px) {
   .dock-label {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
   }
 }
 
@@ -383,13 +413,13 @@ textarea,
   100% { opacity: 1; transform: none; }
 }
 .anim-giot { animation: sdf-giot 420ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both; transform-origin: 2rem 100%; }
-.anim-scrim-in { animation: sdf-scrim-in 180ms ease-out both; }
-.anim-scrim-out { animation: sdf-scrim-out 200ms ease-in both; }
-.anim-sheet-in { animation: sdf-sheet-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-.anim-sheet-out { animation: sdf-sheet-out 200ms ease-in both; }
-.anim-pop-in { animation: sdf-pop-in 180ms ease-out both; }
-.anim-pop-out { animation: sdf-pop-out 160ms ease-in both; }
-.anim-fade-in { animation: sdf-scrim-in 180ms ease-out both; }
+.anim-scrim-in { animation: sdf-scrim-in 180ms var(--ease-out) both; }
+.anim-scrim-out { animation: sdf-scrim-out 160ms var(--ease-out) both; }
+.anim-sheet-in { animation: sdf-sheet-in 260ms var(--ease-drawer) both; }
+.anim-sheet-out { animation: sdf-sheet-out 200ms var(--ease-drawer) both; }
+.anim-pop-in { animation: sdf-pop-in 180ms var(--ease-out) both; }
+.anim-pop-out { animation: sdf-pop-out 140ms var(--ease-out) both; }
+.anim-fade-in { animation: sdf-scrim-in 180ms var(--ease-out) both; }
 
 /*  NHỊP THỞ NÚT TRỢ LÝ (03 §Trợ lý trong app, luật 11) — báo "có tôi ở đây" mà
     KHÔNG phiền. Đúng 3 nhịp × 1,4s = 4,2s rồi dừng hẳn: WCAG 2.2.2 (mức A) cấm
@@ -428,13 +458,39 @@ textarea,
 }
 
 /* Tôn trọng người tắt hiệu ứng chuyển động (a11y) */
+/*  GIẢM CHUYỂN ĐỘNG = ÍT VÀ NHẸ HƠN, KHÔNG PHẢI TẮT SẠCH (áp skill Emil + Impeccable
+    2026-10-22): bản cũ ép mọi animation/transition về 0,01ms — mất luôn phản hồi có ích
+    (mờ dần cho biết bảng vừa mở/đóng). Nay: BỎ vòng lặp + di chuyển/co giãn; vào/ra đổi
+    thành mờ dần ngắn; transition giữ (màu, độ mờ) nhưng ngắn lại. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 80ms !important;
+    scroll-behavior: auto !important;
+  }
+  .anim-sheet-in,
+  .anim-pop-in,
+  .anim-giot,
+  .anim-fade-in,
+  .anim-scrim-in {
+    animation: sdf-scrim-in 120ms linear both !important;
+  }
+  .anim-sheet-out,
+  .anim-pop-out,
+  .anim-scrim-out {
+    animation: sdf-scrim-out 100ms linear both !important;
+  }
+  .anim-song,
+  .anim-vong,
+  .anim-fab-tho,
+  .sen-icon::before,
+  .sen-icon::after {
+    animation: none !important;
+  }
+  [class*="active:scale"]:active {
+    transform: none !important;
   }
 }
 
@@ -475,9 +531,12 @@ textarea,
    không rgba arbitrary trong component (hook 3b2 BLOCK; lift 2026-08-14 từ sdvico-catalog + boat-products) */
 /* nợ: 3 biến thể bóng cam gần trùng nhau (blur 20/24/28, alpha .55/.6/.7), gộp về 1-2 khi chạy screenshot QA loop lần tới */
 .shadow-float { box-shadow: var(--shadow-float); }
-.shadow-trim-fab { box-shadow: 0 12px 28px -8px rgb(var(--trim-rgb) / 0.7); }
-.shadow-trim-btn { box-shadow: 0 8px 20px -8px rgb(var(--trim-rgb) / 0.6); }
-.shadow-trim-cta { box-shadow: 0 10px 24px -8px rgb(var(--trim-rgb) / 0.55); }
+/*  BỎ QUẦNG CAM DƯỚI NÚT (áp skill Taste + Impeccable 2026-10-22): bóng màu cam toả
+    dưới nút chính là dấu "nút phát sáng" của giao diện máy sinh — nút cam đặc đã đủ
+    nổi. Giữ tên class (12 chỗ gọi) nhưng chỉ còn bóng trung tính rất nhẹ cho chiều sâu. */
+.shadow-trim-fab { box-shadow: 0 2px 6px rgb(var(--ink-rgb) / 0.16); }
+.shadow-trim-btn,
+.shadow-trim-cta { box-shadow: 0 1px 2px rgb(var(--ink-rgb) / 0.1); }
 /* Bóng khác lift từ component (2026-08-14, dọn nốt 11 rgba arbitrary còn lại — cùng đợt) */
 .drop-shadow-pin { filter: drop-shadow(0 2px 3px rgb(var(--black-rgb) / 0.45)); }
 .shadow-sheet-up { box-shadow: 0 -6px 20px rgb(var(--ink-rgb) / 0.25); }
@@ -807,7 +866,7 @@ textarea,
   gap: 0.125rem;
   overflow: hidden;
   border-radius: var(--r-ctl);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   line-height: 1.2;
 }
 .sq-btn.sq-tile svg {

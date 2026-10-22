@@ -230,7 +230,7 @@ export function ActivityLogTab() {
                       {e.actorPhone}
                     </span>
                     <span
-                      className={`rounded-full px-1.5 py-0.5 text-[0.6875rem] font-bold ${
+                      className={`rounded-full px-1.5 py-0.5 text-[0.75rem] font-bold ${
                         e.actorRole === "admin"
                           ? "bg-navy/10 text-navy"
                           : "bg-t1-bg text-t1"

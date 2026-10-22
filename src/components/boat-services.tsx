@@ -189,7 +189,7 @@ export function BoatServices() {
                   {due.label}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="text-[0.8125rem] font-semibold uppercase tracking-wide text-foreground/65">
+                  <p className="text-[0.8125rem] font-semibold text-foreground/65">
                     {serviceKindLabel(s.kind)}
                   </p>
                   <p className="display text-[1rem] font-semibold leading-snug text-navy">

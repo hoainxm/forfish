@@ -78,7 +78,7 @@ export function FishSpeciesContent({
 
       {groups.map((g) => (
         <div key={g.cat} className="mb-3">
-          <h4 className="display mb-2 text-[0.9375rem] font-bold uppercase tracking-wide text-foreground/65">
+          <h4 className="display mb-2 text-[0.9375rem] font-bold text-foreground/65">
             {CATEGORY_LABEL[g.cat]}
           </h4>
           <div

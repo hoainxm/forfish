@@ -176,7 +176,7 @@ function Wholesalers({
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-foreground/65">
+                  <p className="text-[0.75rem] font-semibold text-foreground/65">
                     {w.subLabel ?? "Vựa"}
                   </p>
                   <p className="display text-[1rem] font-semibold leading-snug text-navy">
@@ -480,7 +480,7 @@ function MyBuyers() {
                   lại là hành động phá huỷ (xoá số thương lái bà con gõ tay). */}
               <div className="flex items-stretch gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-foreground/65">
+                  <p className="text-[0.75rem] font-semibold text-foreground/65">
                     {typeLabel(b.type)}
                   </p>
                   <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">

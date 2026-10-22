@@ -138,7 +138,7 @@ export function PlotterReadout({
           <RowLabel text="Tàu" />
           <ToaDo lat={myPos.lat} lon={myPos.lon} fmt={prefs.coordFormat} mo={stale} />
           {myTail && (
-            <span className="shrink-0 whitespace-nowrap text-[0.6875rem] font-medium leading-snug text-warn">
+            <span className="shrink-0 whitespace-nowrap text-[0.75rem] font-medium leading-snug text-warn">
               {myTail}
             </span>
           )}
@@ -186,7 +186,7 @@ export function PlotterReadout({
         <RowLabel text="Trỏ" />
         <ToaDo lat={cursor.lat} lon={cursor.lon} fmt={prefs.coordFormat} />
         {rng && (
-          <span className="shrink-0 whitespace-nowrap text-[0.6875rem] font-medium leading-snug text-foreground/55">
+          <span className="shrink-0 whitespace-nowrap text-[0.75rem] font-medium leading-snug text-foreground/55">
             · {rng}
           </span>
         )}

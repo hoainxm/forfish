@@ -131,7 +131,7 @@ export function OrdersTab({ perms }: { perms: TabPerms }) {
       {/*  ĐÃ NGHỈ (2026-09-07, ADR 0014) — đơn cũ của "Cửa hàng" đã chuyển sang
            chợ (migration 0061); từ nay bà con đặt hàng là đơn về tab Cửa hàng.
            Màn này KHÔNG nhận đơn mới nữa, chỉ còn để tra lại. */}
-      <div className="surface border-l-4 px-4 py-3" style={{ borderColor: "var(--warn)" }}>
+      <div className="rounded-2xl border border-warn/30 bg-warn-bg px-4 py-3">
         <p className="text-[0.9375rem] font-bold text-navy">
           Màn đơn này ĐÃ NGHỈ — đơn mới về tab Cửa hàng.
         </p>
@@ -276,7 +276,7 @@ export function OrderCard({
       </ul>
       <div className="flex items-baseline justify-between gap-3 border-t border-line px-4 py-2">
         <span className="text-[0.875rem] font-bold text-foreground/70">Tổng giá trị</span>
-        <span className="text-[1.0625rem] font-bold tabular-nums text-navy">
+        <span className="text-[1.125rem] font-bold tabular-nums text-navy">
           {formatVnd(order.totalVnd)}
         </span>
       </div>

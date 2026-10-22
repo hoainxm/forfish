@@ -87,7 +87,7 @@ function ItemRow({ item }: { item: CheckItem }) {
     <li className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0">
       <StatusIcon status={item.status} />
       <span className="min-w-0 flex-1">
-        <span className="block text-[1.0625rem] font-bold leading-snug text-navy">
+        <span className="block text-[1.125rem] font-bold leading-snug text-navy">
           {item.label}
         </span>
         <span className="block text-[0.875rem] leading-snug text-foreground/65">
@@ -193,7 +193,7 @@ export function DepartureChecklist() {
       <Card className="overflow-hidden p-0">
         {/* Đèn lớn */}
         <div className="px-4 py-3.5" style={{ backgroundColor: r.bg }}>
-          <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
+          <p className="text-[0.8125rem] font-bold text-foreground/65">
             {check.groupLabel}
           </p>
           <p
@@ -217,7 +217,7 @@ export function DepartureChecklist() {
 
         {manualItems.length > 0 && (
           <div className="border-t-4 border-background">
-            <p className="px-4 pb-1 pt-3 text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
+            <p className="px-4 pb-1 pt-3 text-[0.8125rem] font-bold text-foreground/65">
               Tự kiểm thêm (app không thấy được)
             </p>
             <ul>
@@ -231,7 +231,7 @@ export function DepartureChecklist() {
 
       {/* Mốc nghĩa vụ khai báo — app CHỈ NHẮC, không khai hộ */}
       <Card className="mt-3 p-4">
-        <p className="display text-[1.0625rem] font-bold text-navy">
+        <p className="display text-[1.125rem] font-bold text-navy">
           Mốc khai báo phải nhớ
         </p>
         <ul className="mt-2 space-y-2.5">

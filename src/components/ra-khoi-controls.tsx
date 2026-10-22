@@ -724,7 +724,7 @@ function PanelHeader({
             </button>
           )}
           <div className="min-w-0">
-            <span className="inline-block rounded-md bg-navy px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-white">
+            <span className="inline-block rounded-md bg-navy px-2 py-0.5 text-[0.625rem] font-bold text-white">
               Điều khiển
             </span>
             <h3 className="display mt-1 text-[1rem] font-bold leading-tight text-navy">
@@ -785,7 +785,7 @@ function HaiDoPanel({
 }) {
   return (
     <div>
-      <p className="mb-2 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+      <p className="mb-2 text-[0.75rem] font-bold text-foreground/55">
         Lớp nền bản đồ · Chọn 1
       </p>
       <ul className="space-y-1.5" role="radiogroup" aria-label="Lớp nền bản đồ">
@@ -1047,7 +1047,7 @@ function ThoiTietPanel({
   const [openedAt] = useState(() => Date.now());
   return (
     <div>
-      <p className="mb-1 flex items-center justify-between text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+      <p className="mb-1 flex items-center justify-between text-[0.75rem] font-bold text-foreground/55">
         <span>Cảnh báo bão</span>
         <span className="text-danger">Ưu tiên cao nhất</span>
       </p>
@@ -1098,7 +1098,7 @@ function ThoiTietPanel({
         </p>
       )}
 
-      <p className="mb-1 mt-3 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+      <p className="mb-1 mt-3 text-[0.75rem] font-bold text-foreground/55">
         Lớp thời tiết khác
       </p>
       <Toggle
@@ -1374,7 +1374,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
   const prefs = useMapPrefs();
   return (
     <div>
-      <p className="mb-2 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+      <p className="mb-2 text-[0.75rem] font-bold text-foreground/55">
         Đơn vị khoảng cách
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -1392,7 +1392,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         />
       </div>
 
-      <p className="mb-2 mt-3 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+      <p className="mb-2 mt-3 text-[0.75rem] font-bold text-foreground/55">
         Hệ toạ độ
       </p>
       <div className="space-y-2">
@@ -1417,7 +1417,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         Đổi ở đây thì toạ độ, khoảng cách, dẫn đường và công cụ đo đều đổi theo.
       </p>
 
-      <p className="mb-1 mt-4 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+      <p className="mb-1 mt-4 text-[0.75rem] font-bold text-foreground/55">
         Lớp bản đồ
       </p>
       <Toggle
@@ -1460,7 +1460,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
 
       {vmsZones.length > 0 && (
         <>
-          <p className="mb-1 mt-4 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+          <p className="mb-1 mt-4 text-[0.75rem] font-bold text-foreground/55">
             Vùng biển (dữ liệu VMS)
           </p>
           {vmsZones.map((zone, i) => (
@@ -1529,7 +1529,7 @@ function ToolsPanel({
         <>
           {measureResult ? (
             <div className="mt-2 rounded-xl bg-field px-3 py-2.5">
-              <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+              <p className="text-[0.75rem] font-bold text-foreground/55">
                 Khoảng cách 2 điểm
               </p>
               <p className="display mt-0.5 text-[1.25rem] font-bold leading-none text-navy">

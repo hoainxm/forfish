@@ -214,7 +214,7 @@ export function ProductDetail({ id }: { id: string }) {
       <div className="relative">
         {product.images.length > 0 ? (
           <ul
-            className="flex snap-x snap-mandatory overflow-x-auto"
+            className="flex snap-x snap-mandatory overflow-x-auto cuon-an"
             onScroll={(e) => {
               const el = e.currentTarget;
               if (el.clientWidth > 0) setImgIdx(Math.round(el.scrollLeft / el.clientWidth));

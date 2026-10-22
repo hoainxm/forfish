@@ -88,7 +88,7 @@ export function ImagePicker({
       <p className="mb-1.5 text-[1rem] font-semibold text-navy">
         {label} <span className="font-normal text-foreground/65">({value.length}/{max})</span>
       </p>
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+      <div className="-mx-4 flex gap-2 overflow-x-auto cuon-an px-4 pb-1">
         {value.map((url, i) => (
           <div key={url} className="relative h-28 w-28 shrink-0 overflow-hidden rounded-2xl bg-field">
             {/* eslint-disable-next-line @next/next/no-img-element -- ảnh vừa tải lên bucket public / dev */}

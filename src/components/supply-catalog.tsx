@@ -40,7 +40,7 @@ export function SupplyCatalog() {
       </div>
 
       {/* category chips — horizontal scroll, big enough for wet thumbs */}
-      <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1">
+      <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto cuon-an px-4 pb-1">
         <button
           onClick={() => setFilter("all")}
           className={`${chipBase} ${

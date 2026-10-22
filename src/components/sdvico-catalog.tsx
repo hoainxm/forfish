@@ -322,7 +322,7 @@ export function SdvicoCatalog({
       {/* ════ MỖI NHÓM: SDVICO trước; món đặt được → thẻ giỏ, còn lại → hỏi mua ══ */}
       {visibleGroups.map((grp) => (
         <section key={grp.id ?? "khac"} className="mb-5">
-          <h4 className="display mb-2 px-1 text-[1.0625rem] font-bold text-t3">
+          <h4 className="display mb-2 px-1 text-[1.125rem] font-bold text-t3">
             {grp.label}
           </h4>
           <ul className="space-y-3">
@@ -351,7 +351,7 @@ export function SdvicoCatalog({
       {/* hotline = khối bấm được tử tế, không phải dòng chữ mờ cuối trang */}
       <a
         href={`tel:${SDVICO_HOTLINE}`}
-        className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
+        className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-navy text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
       >
         <PhoneIcon className="h-5 w-5" />
         Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}
@@ -452,7 +452,7 @@ function OrderableCard({
               {p.description}
             </p>
           )}
-          <p className="mt-1 text-[1.0625rem] font-bold text-t3">
+          <p className="mt-1 text-[1.125rem] font-bold text-t3">
             {formatVnd(p.priceVnd ?? 0)}
             <span className="text-[0.875rem] font-semibold text-foreground/60">
               {" "}
@@ -472,7 +472,7 @@ function OrderableCard({
         <button
           type="button"
           onClick={add}
-          className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-2 rounded-full bg-trim px-4 text-[1.0625rem] font-bold text-white shadow-trim-btn transition active:scale-[0.97]"
+          className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-2 rounded-full bg-trim px-4 text-[1.125rem] font-bold text-white shadow-trim-btn transition active:scale-[0.97]"
         >
           <CartIcon className="h-5 w-5" />
           {inCartQty > 0 ? `Đã thêm (${inCartQty})` : "Thêm vào giỏ hàng"}
@@ -515,12 +515,12 @@ function InquiryCard({
 
         <div className="min-w-0 flex-1">
           {external ? (
-            <p className="text-[0.75rem] font-bold uppercase tracking-wide text-t3">
+            <p className="text-[0.75rem] font-bold text-t3">
               Đơn vị: {p.vendorName}
             </p>
           ) : (
             owned && (
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-bold" style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}>
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.75rem] font-bold" style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}>
                 <CheckIcon className="h-3 w-3" />
                 Đang dùng
               </span>
@@ -642,7 +642,7 @@ function ProductDetailSheet({
         {d.forWho && (
           <div>
             <h4 className="display text-[1rem] font-bold text-navy">Phù hợp cho</h4>
-            <p className="mt-1 text-[1.0625rem] leading-relaxed text-foreground/85">
+            <p className="mt-1 text-[1.125rem] leading-relaxed text-foreground/85">
               {d.forWho}
             </p>
           </div>
@@ -655,7 +655,7 @@ function ProductDetailSheet({
               {d.benefits.map((b, i) => (
                 <li
                   key={i}
-                  className="flex gap-2 text-[1.0625rem] leading-relaxed text-foreground/85"
+                  className="flex gap-2 text-[1.125rem] leading-relaxed text-foreground/85"
                 >
                   <CheckIcon className="mt-1 h-4 w-4 shrink-0 text-ok" />
                   <span>{b}</span>
@@ -713,7 +713,7 @@ function ProductDetailSheet({
               {p.contactPhone && (
                 <a
                   href={`tel:${p.contactPhone}`}
-                  className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
+                  className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-navy text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
                 >
                   <PhoneIcon className="h-5 w-5" />
                   Gọi {p.contactPhone}
@@ -729,7 +729,7 @@ function ProductDetailSheet({
               />
               <a
                 href={`tel:${SDVICO_HOTLINE}`}
-                className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
+                className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1.125rem] font-bold text-navy transition active:scale-[0.98]"
               >
                 <PhoneIcon className="h-5 w-5" />
                 Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}

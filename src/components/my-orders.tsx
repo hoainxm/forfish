@@ -176,7 +176,7 @@ export function MyOrders() {
         {online ? (
           <Link
             href="/login"
-            className="flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field px-4 text-center text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
+            className="flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field px-4 text-center text-[1.125rem] font-bold text-navy transition active:scale-[0.98]"
           >
             Đăng nhập bằng SĐT để xem đơn của mình
           </Link>
@@ -212,7 +212,7 @@ export function MyOrders() {
       )}
 
       {load.kind === "loading" && (
-        <p className="surface px-4 py-8 text-center text-[1.0625rem] text-foreground/65">
+        <p className="surface px-4 py-8 text-center text-[1.125rem] text-foreground/65">
           Đang tải đơn của bà con…
         </p>
       )}
@@ -227,7 +227,7 @@ export function MyOrders() {
             <button
               type="button"
               onClick={fetchOrders}
-              className="min-h-[3.25rem] w-full rounded-full bg-danger px-4 text-[1.0625rem] font-bold text-white active:scale-[0.98]"
+              className="min-h-[3.25rem] w-full rounded-full bg-danger px-4 text-[1.125rem] font-bold text-white active:scale-[0.98]"
             >
               Thử lại
             </button>
@@ -272,7 +272,7 @@ export function MyOrders() {
                     </span>
                   </div>
 
-                  <p className="mt-2 text-[1.0625rem] font-semibold leading-snug text-navy">
+                  <p className="mt-2 text-[1.125rem] font-semibold leading-snug text-navy">
                     {summarizeItems(o) || "Đơn hàng"}
                   </p>
 
@@ -292,7 +292,7 @@ export function MyOrders() {
                       type="button"
                       onClick={() => setConfirmCancel(o)}
                       disabled={cancelling === o.id}
-                      className="mt-3 min-h-[3.25rem] w-full rounded-full bg-field text-[1.0625rem] font-bold text-danger active:scale-[0.98] disabled:opacity-40"
+                      className="mt-3 min-h-[3.25rem] w-full rounded-full bg-field text-[1.125rem] font-bold text-danger active:scale-[0.98] disabled:opacity-40"
                     >
                       {cancelling === o.id ? "Đang xử lý huỷ…" : "Huỷ đơn"}
                     </button>

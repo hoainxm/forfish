@@ -115,7 +115,7 @@ export function DocPhotoStrip({
 
   return (
     <div className="mt-2.5">
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 overflow-x-auto cuon-an pb-1">
         {photos.map((p) => (
           <Thumb
             key={p}

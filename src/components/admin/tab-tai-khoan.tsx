@@ -499,7 +499,7 @@ export function AccountsTab({ me }: { me: Me }) {
             ] as [string, number][]
           ).map(([label, v]) => (
             <div key={label} className="surface px-3 py-3 text-center">
-              <p className="display text-[1.625rem] font-bold tabular-nums text-navy">
+              <p className="display text-[1.75rem] font-bold tabular-nums text-navy">
                 {v}
               </p>
               <p className="text-[0.8125rem] font-semibold text-foreground/65">

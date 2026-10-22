@@ -100,7 +100,7 @@ export function TimeScrubber({
       {/* THANH XEM PHIM — cuộn ngang, kéo marker snap theo nấc */}
       <div
         ref={scrollRef}
-        className="overflow-x-auto pt-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="overflow-x-auto cuon-an pt-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div
           ref={trackRef}
@@ -160,7 +160,7 @@ export function TimeScrubber({
 
       {/* THANH DẢI MÀU cường độ (luôn hiện) — sát ray, không chừa hàng trống */}
       <div className="mt-1 flex items-center gap-2">
-        <span className="shrink-0 text-[0.6875rem] font-bold text-foreground/60">
+        <span className="shrink-0 text-[0.75rem] font-bold text-foreground/60">
           {legend.title} ({legend.unit})
         </span>
         <div className="min-w-0 flex-1">

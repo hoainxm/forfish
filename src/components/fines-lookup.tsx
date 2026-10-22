@@ -80,7 +80,7 @@ export function FinesLookup() {
 
       {/* từ khóa hay tra — BẤM được, tay ướt khỏi gõ (roadmap hội đồng UX) */}
       <div
-        className="-mx-4 mt-2.5 flex gap-2 overflow-x-auto px-4 pb-1"
+        className="-mx-4 mt-2.5 flex gap-2 overflow-x-auto cuon-an px-4 pb-1"
         role="group"
         aria-label="Từ khóa thường tra cứu"
       >

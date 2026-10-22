@@ -66,14 +66,14 @@ export function PremiumLock({
     access === "login" ? (
       <Link
         href="/login"
-        className="display mx-auto mt-3 flex min-h-[3.25rem] w-full max-w-[18.75rem] items-center justify-center rounded-full bg-trim text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
+        className="display mx-auto mt-3 flex min-h-[3.25rem] w-full max-w-[18.75rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
       >
         Đăng nhập
       </Link>
     ) : (
       <a
         href={`tel:${SDVICO_HOTLINE}`}
-        className="display mx-auto mt-3 flex min-h-[3.25rem] w-full max-w-[18.75rem] items-center justify-center gap-2 rounded-full bg-trim text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
+        className="display mx-auto mt-3 flex min-h-[3.25rem] w-full max-w-[18.75rem] items-center justify-center gap-2 rounded-full bg-trim text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
       >
         <PhoneIcon className="h-5 w-5" />
         Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}

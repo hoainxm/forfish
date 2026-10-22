@@ -563,7 +563,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
         className={`flex min-w-0 max-w-full items-center rounded-full transition active:scale-[0.97] ${
           light
             ? "h-(--h-ctl) gap-1.5 border border-line bg-card pl-1.5 pr-3 text-navy"
-            : "mt-3 gap-2 bg-white/15 pl-2 pr-3.5 text-white backdrop-blur-sm"
+            : "mt-3 gap-2 bg-white/15 pl-2 pr-3.5 text-white"
         }`}
       >
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${light ? "bg-card" : "bg-white/20"}`}>
@@ -637,7 +637,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
                   biển thì đăng nhập lại là việc KHÔNG LÀM ĐƯỢC. Nói thẳng,
                   giọng bình thường, không doạ. */}
               {savedAccess && (
-                <div className="mb-4 surface border-l-4 border-ok px-4 py-3">
+                <div className="mb-4 rounded-2xl border border-ok/30 bg-ok-bg px-4 py-3">
                   <p className="display text-[1.125rem] font-bold leading-snug text-navy">
                     Đang dùng quyền đã lưu trên máy
                   </p>
@@ -757,7 +757,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
           {showSettings && (
             <>
           {/* cỡ giao diện — auto theo máy là NỀN; chỉ bày 2 tùy chọn ghi đè */}
-          <p className="mb-1.5 px-1 text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
+          <p className="mb-1.5 px-1 text-[0.8125rem] font-bold text-foreground/65">
             Cỡ chữ và nút
           </p>
           {/*  Bỏ hai dòng hướng dẫn (D1): hai hàng chọn ngay dưới đã tự nói

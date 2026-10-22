@@ -150,7 +150,7 @@ export function SeaForecast() {
             style={{ backgroundColor: levelColor[today.level].bg }}
           >
             <div className="px-5 pb-4 pt-4 text-center">
-              <p className="text-[0.9375rem] font-bold uppercase tracking-wide text-foreground/65">
+              <p className="text-[0.9375rem] font-bold text-foreground/65">
                 Điểm đi biển hôm nay
               </p>
               <p

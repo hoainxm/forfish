@@ -455,7 +455,7 @@ export function TheKhuTruBao({ info, onClose }: { info: KhuTruBaoInfo; onClose: 
           style={{ backgroundColor: KHU_TRU_BAO_COLOR }}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[1.0625rem] font-bold leading-tight text-navy">
+          <p className="text-[1.125rem] font-bold leading-tight text-navy">
             Trú bão: {info.k.ten}
           </p>
           <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-foreground/70">
@@ -510,7 +510,7 @@ export function TheVung({ info, onClose }: { info: VungInfo; onClose: () => void
           }}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[1.0625rem] font-bold leading-tight text-navy">{info.v.ten}</p>
+          <p className="text-[1.125rem] font-bold leading-tight text-navy">{info.v.ten}</p>
           {/*  Loại chỉ in khi TÊN chưa tự nói ("Khu bảo tồn biển Cù Lao Chàm" đã
                đủ; "Vùng biển Long Châu - Hạ Mai" thì cần "Vùng cấm khai thác có
                thời hạn" đứng trước). Cùng luật `moTaVung`. */}
@@ -630,7 +630,7 @@ export function TheLuong({ info, onClose, bieuTuong, prefs }: { info: LaneInfo; 
                   : "special",
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-[1.0625rem] font-bold leading-tight text-navy">
+          <p className="text-[1.125rem] font-bold leading-tight text-navy">
             {info.ten || "Hạ tầng trên biển"}
           </p>
           <p

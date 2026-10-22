@@ -122,7 +122,7 @@ export function VoiceSettingsSection() {
   }, []);
   return (
     <div>
-      <p className="mb-2 mt-3 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+      <p className="mb-2 mt-3 text-[0.75rem] font-bold text-foreground/55">
         Giọng đọc khi chạy
       </p>
       <button

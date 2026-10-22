@@ -127,7 +127,7 @@ export default function QuanTriPage() {
         <h1 className="display text-[1.5rem] font-bold text-navy">
           Trang quản trị SDFish
         </h1>
-        <p className="mt-3 text-[1.0625rem] leading-snug text-foreground/70">
+        <p className="mt-3 text-[1.125rem] leading-snug text-foreground/70">
           {healthErr === 403 &&
             "Tài khoản này chưa được cấp quyền quản trị. Vui lòng liên hệ Admin để được hỗ trợ."}
           {healthErr === 503 &&

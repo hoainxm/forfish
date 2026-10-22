@@ -4703,7 +4703,7 @@ export default function FishingMapView() {
   const dayChipsRow =
     cond && today ? (
       <div
-        className="-mx-1 mt-1.5 flex gap-2 overflow-x-auto px-1 pb-1"
+        className="-mx-1 mt-1.5 flex gap-2 overflow-x-auto cuon-an px-1 pb-1"
         role="group"
         aria-label="Chọn ngày xem dự báo"
         // trong vùng vuốt của SnapSheet (touch-action:none) — mở lại
@@ -6793,7 +6793,7 @@ export default function FishingMapView() {
                 {s.name}
               </div>
               {s.sub && (
-                <div className="text-[0.6875rem] font-semibold italic">{s.sub}</div>
+                <div className="text-[0.75rem] font-semibold italic">{s.sub}</div>
               )}
             </div>
           </Marker>
@@ -6806,7 +6806,7 @@ export default function FishingMapView() {
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md ring-2 ring-danger">
                 <AlertIcon className="h-6 w-6" />
               </span>
-              <span className="mt-0.5 rounded bg-white/90 px-1.5 text-center text-[0.6875rem] font-bold leading-tight">
+              <span className="mt-0.5 rounded bg-white/90 px-1.5 text-center text-[0.75rem] font-bold leading-tight">
                 {s.kindLabel} {s.name}
                 {/* giờ của bản tin — vẽ từ bản lưu thì tâm bão có thể đã đi xa */}
                 <span
@@ -6994,7 +6994,7 @@ export default function FishingMapView() {
                lệch không đáng kể so với `--danger`, mà token thì đã được đo
                tương phản sẵn. Hex chỉ được phép nằm trong `paint` của MapLibre,
                không phải trong className. */}
-          <span className="whitespace-nowrap rounded-full border border-white/80 bg-danger px-2 py-0.5 text-[0.6875rem] font-bold text-white shadow-md">
+          <span className="whitespace-nowrap rounded-full border border-white/80 bg-danger px-2 py-0.5 text-[0.75rem] font-bold text-white shadow-md">
             {prox.outside ? "ngoài ranh giới " : ""}
             {fmtDist(
               prox.distanceNm * 1.852,
@@ -7061,7 +7061,7 @@ export default function FishingMapView() {
               latitude={(tracking.pos.lat + point.lat) / 2}
               anchor="center"
             >
-              <span className="whitespace-nowrap rounded-full border border-white/80 bg-t1 px-2 py-0.5 text-[0.6875rem] font-bold text-white shadow-md">
+              <span className="whitespace-nowrap rounded-full border border-white/80 bg-t1 px-2 py-0.5 text-[0.75rem] font-bold text-white shadow-md">
                 {fmtDist(
                   haversineKm(
                     tracking.pos.lat,
@@ -7374,7 +7374,7 @@ export default function FishingMapView() {
                   <button
                     type="button"
                     onClick={() => veDuongToiKhu(k)}
-                    className="mt-2 min-h-[3.5rem] w-full rounded-2xl bg-t1 px-4 text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
+                    className="mt-2 min-h-[3.5rem] w-full rounded-2xl bg-t1 px-4 text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
                   >
                     Vẽ đường tới đây
                   </button>
@@ -7491,7 +7491,7 @@ export default function FishingMapView() {
             {/* CHÚ GIẢI MÀU LỚP CÁ — theo luồng dưới ô toạ độ (trước đặt tuyệt đối
                 `top-[11rem]`, phóng chữ to là đè lên ô toạ độ). */}
             {fishGridGeo && (
-              <div className="pointer-events-none flex items-center gap-2 self-start rounded-lg border border-line bg-card px-2 py-1 @max-[15rem]/map:hidden text-[0.6875rem] font-medium text-navy shadow-sm">
+              <div className="pointer-events-none flex items-center gap-2 self-start rounded-lg border border-line bg-card px-2 py-1 @max-[15rem]/map:hidden text-[0.75rem] font-medium text-navy shadow-sm">
                 <span className="font-semibold">Dự báo cá</span>
                 {FISH_LEVEL_BANDS.map((b) => (
                   <span key={b.key} className="flex items-center gap-1">
@@ -8041,7 +8041,7 @@ export default function FishingMapView() {
                           aria-hidden
                         />
                         <span
-                          className="display text-[1.1875rem] font-bold leading-snug"
+                          className="display text-[1.125rem] font-bold leading-snug"
                           style={{ color: LEVEL_STYLE[sel.level].fg }}
                         >
                           {SEA_STATE[sel.level]}
@@ -8052,7 +8052,7 @@ export default function FishingMapView() {
                         (chip đang chọn). Chỉ khi bản dựng từ lưới (không chấm
                         được tình trạng biển) mới lấy tên ngày làm tiêu đề. */}
                     {!sel.level && (
-                      <span className="display text-[1.1875rem] font-bold leading-snug text-navy">
+                      <span className="display text-[1.125rem] font-bold leading-snug text-navy">
                         {dayLabel(sel.date, todayIso)}
                       </span>
                     )}

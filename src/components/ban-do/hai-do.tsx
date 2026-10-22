@@ -218,7 +218,7 @@ export function BangChuGiai({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[0.9375rem] font-semibold text-foreground/85">
         {LEGEND_TIERS.map((tang) => (
           <div key={tang.tieuDe} className="mb-4">
-            <p className="mb-1 text-[0.875rem] font-bold uppercase tracking-wide text-foreground/60">
+            <p className="mb-1 text-[0.875rem] font-bold text-foreground/60">
               {tang.tieuDe}
               <span className="normal-case tracking-normal text-danger/80">{mapZoom < tang.zoom ? " — phóng to thêm mới thấy" : ""}</span>
             </p>

@@ -26,7 +26,7 @@ export function PageHeader({
         paddingTop: "calc(1.5rem + env(safe-area-inset-top))",
       }}
     >
-      <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-white/60">
+      <p className="text-[0.75rem] font-bold text-white/60">
         {kicker}
       </p>
       <h1 className="display mt-0.5 text-[1.75rem] font-bold leading-[1.15]">

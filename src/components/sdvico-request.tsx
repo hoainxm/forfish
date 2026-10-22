@@ -226,7 +226,7 @@ function RequestForm({
                 SDVICO đã nhận đơn mua của bà con
               </p>
               {orderRef && (
-                <p className="mt-1 text-[1.0625rem] font-bold text-navy">
+                <p className="mt-1 text-[1.125rem] font-bold text-navy">
                   Mã đơn: {orderRef}
                 </p>
               )}
@@ -345,7 +345,7 @@ function RequestForm({
         {/* gấp thì gọi thẳng — hỗ trợ tức thì */}
         <a
           href={`tel:${SDVICO_HOTLINE}`}
-          className="mt-3 flex min-h-[3.25rem] items-center justify-center gap-2 rounded-full text-[1.0625rem] font-bold text-sea"
+          className="mt-3 flex min-h-[3.25rem] items-center justify-center gap-2 rounded-full text-[1.125rem] font-bold text-sea"
         >
           <PhoneIcon className="h-5 w-5" />
           Gấp? Gọi ngay {SDVICO_HOTLINE_DISPLAY}

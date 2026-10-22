@@ -244,10 +244,12 @@ export function StormBanner({
           <div
             key={s.id}
             role="alert"
-            className={`flex items-start gap-3 rounded-xl border-l-4 p-4 ${
+            /*  nền màu cả thẻ + viền mảnh cùng tông, KHÔNG sọc màu dày bên trái
+                (sàn chất lượng Impeccable 2026-10-22: sọc trái >1px là khuôn mặc định) */
+            className={`flex items-start gap-3 rounded-xl border p-4 ${
               danger
-                ? "border-danger bg-danger-bg"
-                : "border-warn bg-warn-bg"
+                ? "border-danger/30 bg-danger-bg"
+                : "border-warn/30 bg-warn-bg"
             }`}
           >
             <span

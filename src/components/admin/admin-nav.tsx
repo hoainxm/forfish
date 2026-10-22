@@ -68,7 +68,7 @@ export function AdminNav({
         <div role="tablist" aria-orientation="vertical" className="space-y-5">
           {groups.map((g) => (
             <div key={g.id}>
-              <p className="px-4 pb-1.5 text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/50">
+              <p className="px-4 pb-1.5 text-[0.8125rem] font-bold text-foreground/50">
                 {g.label}
               </p>
               <div className="space-y-1">
@@ -80,7 +80,7 @@ export function AdminNav({
       </nav>
 
       {/* ── MOBILE: thanh dính đầu màn ── */}
-      <div className="sticky top-0 z-20 -mx-4 border-b border-line bg-background/95 px-4 pb-2 pt-2 backdrop-blur md:hidden">
+      <div className="sticky top-0 z-20 -mx-4 border-b border-line bg-background px-4 pb-2 pt-2 md:hidden">
         {groups.length > 1 && (
           <div
             className="grid gap-1.5"

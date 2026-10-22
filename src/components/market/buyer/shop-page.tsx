@@ -157,7 +157,7 @@ export function ShopPage({ slug }: { slug: string }) {
       <div className="pt-2">
         <CategoryChips value={category} onChange={setCategory} />
       </div>
-      <div className="mb-3 flex items-center gap-1.5 overflow-x-auto px-4" role="group" aria-label="Sắp xếp">
+      <div className="mb-3 flex items-center gap-1.5 overflow-x-auto cuon-an px-4" role="group" aria-label="Sắp xếp">
         {SORTS.map((s) => (
           <SortChip key={s} on={s === sort} onClick={() => setSort(s)}>
             {SORT_LABEL[s]}

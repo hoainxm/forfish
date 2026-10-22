@@ -111,7 +111,7 @@ export function ProductsTab({ perms }: { perms: TabPerms }) {
            hiểu sai, và cái sai đó chỉ lộ ra khi khách gọi hỏi sao không thấy
            hàng. Màn giữ lại để tra hàng cũ, chưa gỡ vì còn chờ chốt phân quyền
            cho tài khoản quản lý (xem ADR 0014 mục "Việc còn mở"). */}
-      <div className="surface border-l-4 px-4 py-3" style={{ borderColor: "var(--warn)" }}>
+      <div className="rounded-2xl border border-warn/30 bg-warn-bg px-4 py-3">
         <p className="text-[0.9375rem] font-bold text-navy">
           Danh mục này ĐÃ NGHỈ — app ngư dân không còn đọc.
         </p>

@@ -491,7 +491,7 @@ export function TideDaysView({
 
   return (
     <div>
-      <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
+      <div className="flex gap-1.5 overflow-x-auto cuon-an pb-1 [scrollbar-width:none]">
         {days.map((d, i) => (
           <button
             key={d}

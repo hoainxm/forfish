@@ -534,7 +534,7 @@ function draftAsLoose(d: Draft): Partial<Boat> {
 
 function GroupTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-2 mt-1 text-[0.875rem] font-semibold uppercase tracking-wide text-foreground/65">
+    <p className="mb-2 mt-1 text-[0.875rem] font-semibold text-foreground/65">
       {children}
     </p>
   );

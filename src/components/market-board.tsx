@@ -289,7 +289,7 @@ function ListingCard({
             {SIDE_LABEL[l.side]}
             {l.status === "closed" ? " · đã đóng" : ""}
           </span>
-          <p className="mt-1 text-[0.75rem] font-semibold uppercase tracking-wide text-foreground/65">
+          <p className="mt-1 text-[0.75rem] font-semibold text-foreground/65">
             {POSTER_KIND_LABEL[l.posterKind]}
             {l.province ? ` · ${l.province}` : ""}
           </p>

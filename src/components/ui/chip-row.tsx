@@ -43,7 +43,7 @@ export function ChipRow<T extends string>({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="mb-3 flex gap-2 overflow-x-auto px-4"
+      className="mb-3 flex gap-2 overflow-x-auto cuon-an px-4"
     >
       {options.map((o) => {
         const on = o.id === value;

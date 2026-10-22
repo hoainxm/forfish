@@ -69,12 +69,12 @@ export function Tabs({
           NGHỈ (ngay dưới hero) không còn cộng ~47px safe-area vào `pt` → hết
           khoảng trắng thừa giữa hero và tab (user 2026-08-30: "nhiều khoảng
           trắng quá"). Desktop safe-area=0 nên y như cũ. */}
-      <div className="sticky top-[env(safe-area-inset-top)] z-10 bg-background/90 px-4 pb-2.5 pt-2.5 backdrop-blur-md">
+      <div className="sticky top-[env(safe-area-inset-top)] z-10 bg-background px-4 pb-2.5 pt-2.5">
         <div
           role="tablist"
           aria-label={ariaLabel}
           className={`flex gap-1 rounded-full bg-field p-1 ${
-            segmented ? "" : "overflow-x-auto"
+            segmented ? "" : "overflow-x-auto cuon-an"
           }`}
         >
           {tabs.map((t) => {
