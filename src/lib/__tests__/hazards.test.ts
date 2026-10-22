@@ -11,6 +11,7 @@ import { join } from "node:path";
 
 import {
   buildHazardList,
+  doSauLucT,
   hazardsInBBox,
   moTaHazard,
   noGoFromLanes,
@@ -129,6 +130,15 @@ describe("nước trên vật và mớn tàu", () => {
     expect(requiredDepthM(2, null)).toBe(2.5);
     expect(requiredDepthM(2, 1)).toBe(3);
     expect(requiredDepthM(2, 5)).toBe(4); // Hs kẹp 3 m
+  });
+
+  it("requiredDepthM: squat theo tốc độ — 0 khi ≤ 6 kn hoặc bỏ trống/hỏng, ≈ 0,65 m ở 12 kn", () => {
+    expect(requiredDepthM(2, 0, 6)).toBe(2.5);
+    expect(requiredDepthM(2, 0, null)).toBe(2.5);
+    expect(requiredDepthM(2, 0, Number.NaN)).toBe(2.5);
+    expect(requiredDepthM(2, 0, 12)).toBeCloseTo(3.15, 2);
+    expect(requiredDepthM(2, 0, 9)!).toBeGreaterThan(requiredDepthM(2, 0, 7)!);
+    expect(requiredDepthM(null, 0, 12)).toBeNull();
   });
 });
 
@@ -350,5 +360,18 @@ describe("dữ liệu thật public/data", () => {
       expect(x.rKm).toBeGreaterThan(0);
       expect(x.rKm).toBeLessThanOrEqual(5);
     }
+  });
+});
+
+describe("doSauLucT — quy đổi datum MSL ↔ số 0 hải đồ", () => {
+  it("đáy 3 m dưới MSL, triều +1,0 trên số 0, z0 2,887 ⇒ 1,113 m", () => {
+    expect(doSauLucT(-3, 1.0, 2.887)).toBeCloseTo(1.113, 3);
+  });
+  it("triều đúng bằng z0 (mặt nước ngang MSL) ⇒ độ sâu giữ nguyên lưới", () => {
+    expect(doSauLucT(-5, 2.887, 2.887)).toBeCloseTo(5, 6);
+  });
+  it("số hỏng ⇒ NaN, không đoán", () => {
+    expect(Number.isNaN(doSauLucT(-3, NaN, 2.887))).toBe(true);
+    expect(Number.isNaN(doSauLucT(-3, 1, Infinity))).toBe(true);
   });
 });

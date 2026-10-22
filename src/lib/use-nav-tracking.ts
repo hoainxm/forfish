@@ -42,10 +42,74 @@ export function fixQuaCu(lastFixAt: number | null, speedKmh: number | null, now:
   if (lastFixAt == null) return false;
   return now - lastFixAt > (speedKmh != null ? STALE_MS : STALE_DUNG_MS);
 }
-// Đi được quãng này giữa 2 fix mới suy ra hướng (m) — dưới ngưỡng là nhiễu GPS
+// Đi được quãng này giữa 2 fix mới suy ra hướng/tốc độ (m) — dưới ngưỡng là nhiễu GPS.
+// Máy báo sai số lớn thì ngưỡng nới theo: max(15 m, 2 × sai số).
 const MIN_MOVE_M = 15;
 // Tốc độ suy từ 2 fix vượt ngưỡng này coi là nhiễu (km/h ≈ 40 hải lý/giờ)
 const JITTER_MAX_KMH = 74;
+// Hằng số thời gian làm mượt tốc độ (giây)
+const SPEED_TAU_S = 20;
+
+/** Trạng thái lọc bền giữa các fix. */
+export interface LocState {
+  pos: LatLon;
+  t: number;
+  /** tốc độ đã làm mượt (km/h), 0 = đứng; null = chưa biết */
+  smoothKmh: number | null;
+  headingDeg: number | null;
+}
+
+export interface LocIn {
+  pos: LatLon;
+  t: number;
+  /** m/s do máy đo, null nếu không có */
+  speedMps: number | null;
+  /** độ do máy đo, null nếu không có */
+  headingDeg: number | null;
+  accuracyM: number | null;
+}
+
+/**
+ * Lọc 1 fix GPS: tốc độ làm mượt EMA (τ=20 s), bỏ nhiễu dịch gần (< max(15 m, 2×sai số)),
+ * hướng chỉ nhận khi tàu đang chạy (≥ MIN_MOVING_KMH). Thuần, có test.
+ * `speedKmh` null khi đứng/chưa biết.
+ */
+export function locFix(prev: LocState | null, fix: LocIn): LocState & { speedKmh: number | null } {
+  const acc = fix.accuracyM != null && Number.isFinite(fix.accuracyM) ? fix.accuracyM : 0;
+  const minMove = Math.max(MIN_MOVE_M, 2 * acc);
+  const dtS = prev ? (fix.t - prev.t) / 1000 : 0;
+  const movedM = prev ? haversineKm(prev.pos, fix.pos) * 1000 : 0;
+
+  // mẫu tốc độ thô: số máy đo ưu tiên; không có thì suy từ 2 fix (dịch ngắn = đứng)
+  let sample: number | null = null; // null = bỏ mẫu (không đủ cơ sở / nhiễu)
+  const live = mpsToKmh(fix.speedMps);
+  if (live != null) {
+    sample = live < MIN_MOVING_KMH ? 0 : live;
+  } else if (prev && dtS >= 1) {
+    if (movedM < minMove) sample = 0;
+    else {
+      const derived = (movedM / dtS) * 3.6;
+      if (derived <= JITTER_MAX_KMH) sample = derived;
+    }
+  }
+
+  let smooth = prev?.smoothKmh ?? null;
+  if (sample != null) {
+    if (smooth == null || dtS <= 0) smooth = sample;
+    else smooth += (1 - Math.exp(-dtS / SPEED_TAU_S)) * (sample - smooth);
+  }
+  const speedKmh = smooth != null && smooth >= MIN_MOVING_KMH ? smooth : null;
+
+  // hướng: số máy đo CHỈ khi đang chạy → suy từ di chuyển đủ xa → giữ hướng cũ
+  let headingDeg = prev?.headingDeg ?? null;
+  if (fix.headingDeg != null && Number.isFinite(fix.headingDeg) && speedKmh != null) {
+    headingDeg = ((fix.headingDeg % 360) + 360) % 360;
+  } else if (prev && movedM > minMove) {
+    headingDeg = bearingDeg(prev.pos, fix.pos);
+  }
+
+  return { pos: fix.pos, t: fix.t, smoothKmh: smooth, headingDeg, speedKmh };
+}
 
 interface WakeLockSentinelLike {
   release: () => Promise<void>;
@@ -76,8 +140,7 @@ export function useNavTracking(
   });
 
   // giá trị bền giữa các fix (không gây re-render)
-  const prevFix = useRef<{ pos: LatLon; t: number } | null>(null);
-  const headingRef = useRef<number | null>(null);
+  const prevFix = useRef<LocState | null>(null);
   const watchId = useRef<number | null>(null);
   const wakeRef = useRef<WakeLockSentinelLike | null>(null);
 
@@ -97,40 +160,18 @@ export function useNavTracking(
       if (stopped) return;
       const now = p.timestamp || Date.now();
       const pos: LatLon = { lat: p.coords.latitude, lon: p.coords.longitude };
-      const prev = prevFix.current;
-
-      // tốc độ: ưu tiên số máy đo (đã lọc); không có thì suy từ 2 fix (chặn nhiễu)
-      const liveKmh = mpsToKmh(p.coords.speed);
-      let speedKmh: number | null = null;
-      if (liveKmh != null) {
-        speedKmh = liveKmh >= MIN_MOVING_KMH ? liveKmh : null;
-      } else if (prev) {
-        const dtS = (now - prev.t) / 1000;
-        const movedM = haversineKm(prev.pos, pos) * 1000;
-        if (dtS >= 1) {
-          const derived = (movedM / dtS) * 3.6;
-          speedKmh =
-            derived >= MIN_MOVING_KMH && derived <= JITTER_MAX_KMH ? derived : null;
-        }
-      }
-
-      // hướng: số máy đo khi đang chạy → suy từ di chuyển → giữ hướng cũ
-      const gpsHeading = p.coords.heading;
-      if (
-        gpsHeading != null &&
-        Number.isFinite(gpsHeading) &&
-        (liveKmh == null || liveKmh >= MIN_MOVING_KMH)
-      ) {
-        headingRef.current = gpsHeading;
-      } else if (prev && haversineKm(prev.pos, pos) * 1000 > MIN_MOVE_M) {
-        headingRef.current = bearingDeg(prev.pos, pos);
-      }
-
-      prevFix.current = { pos, t: now };
+      const r = locFix(prevFix.current, {
+        pos,
+        t: now,
+        speedMps: p.coords.speed,
+        headingDeg: p.coords.heading,
+        accuracyM: p.coords.accuracy,
+      });
+      prevFix.current = r;
       setState({
         pos,
-        headingDeg: headingRef.current,
-        speedKmh,
+        headingDeg: r.headingDeg,
+        speedKmh: r.speedKmh,
         status: "tracking",
         lastFixAt: now,
         accuracyM: Number.isFinite(p.coords.accuracy) ? p.coords.accuracy : null,
@@ -212,7 +253,6 @@ export function useNavTracking(
       window.removeEventListener("online", onOnline);
       window.clearInterval(staleTimer);
       prevFix.current = null;
-      headingRef.current = null;
     };
   }, [active, keepAwake]);
 

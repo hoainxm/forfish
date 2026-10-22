@@ -56,6 +56,15 @@ describe("route diagnostics — phân biệt dữ liệu thiếu với chưa tì
     expect(r.plan!.beyondForecastH).toBe(0);
   });
 
+  it("forecast mang nguồn + tuổi lưới đã dùng (C3): live → savedAt null; grid → savedAt của lưới; none", () => {
+    const live = planRoute(args())!;
+    expect(live.forecast).toEqual({ source: "live", savedAt: null, hours: 72 });
+    const grid = planRoute(args({ ...field(), source: "grid", savedAt: 1234 }))!;
+    expect(grid.forecast).toEqual({ source: "grid", savedAt: 1234, hours: 72 });
+    const none = planRoute(args({ ...field(false), source: "none" }))!;
+    expect(none.forecast).toEqual({ source: "none", savedAt: null, hours: 0 });
+  });
+
   it("lưới RỖNG hẳn (source 'none', 0 ô) cũng ra tuyến theo hải đồ", () => {
     const rong: WeatherField = {
       lat0: 0, lon0: 0, dLat: 1, dLon: 1, nLat: 0, nLon: 0, cells: [], source: "none",
