@@ -67,6 +67,8 @@ Giao thức đánh giá đầy đủ (AUCeff trong-nghề, bootstrap khối, đ�
 
 10. **Thử dự báo mồi 1–3 tuần ĐÃ ĐO 2026-10-22** (`13-du-bao-moi.md`, gió dự báo thật ECMWF IFS 2024–2026, 51 lần phát): **lần đầu có dự báo tầm 1–3 tuần thắng đối thủ trên dữ liệu chưa thấy.** MKU (thềm Mê Kông – Côn Đảo) thắng quán tính +0,32 / +0,35 / +0,12 ở tầm 8 / 16 / 24 ngày (CI loại 0), gần bằng trần biết trước gió; SCU +0,16 ở tầm 8 ngày; OFU không thêm gì. Mẫu nhỏ (kho dự báo chỉ có từ 2024); vẫn là mồi, chưa phải cá — bước B quyết định.
 
+11. **Bước B (mồi → cá) ĐÃ ĐO 2026-10-22 — KHÔNG QUA** (`14-buoc-B-moi-ca.md`, 18 269 chuyến 2026 trong 4 hộp, chl lấp mây hằng ngày + gió CMEMS nối tới 10/2026): chl và gió 0–16 ngày trước chuyến **không giải thích năng suất chuyến theo cách đúng cơ chế và vững** — kiểm giả (chl/gió 30–38 ngày SAU chuyến) cho tín hiệu ngang hoặc hơn; cá nổi nhỏ còn ngược chiều (chl cao → kg thấp); R² thêm 0,1–0,2 % cho tổng kg. Một giả thuyết duy nhất đáng khoá cho nhãn 2027: gió tây nam → mực SCU (+6 %/sd). **Hệ quả**: dự báo mồi (13) không được gọi là dự báo cá; câu hỏi đáng hỏi nhất ("năm mồi kém thì năm cá kém?") cần **sản lượng nhiều năm** — vẫn là việc chặn số một.
+
 ## 6. Dữ liệu và script để chạy lại (cất 2026-10-22)
 
 - **Script**: `scripts/dong-dan/` (README ở đó: thứ tự chạy, nguồn chạy/không chạy, cách tải tiếp). Bước C và C2 chạy lại từ bản trong repo ra **giống hệt** số trong 09b/10b; bước 0 chạy lại trên gpu-desktop bằng đường dẫn mặc định.

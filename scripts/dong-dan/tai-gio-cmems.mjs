@@ -2,15 +2,16 @@
 // tai-gio-cmems.mjs — gió lưới CMEMS WIND_GLO_PHY_L4_MY_012_006 (scatterometer + ERA5 hiệu chỉnh) cho 5 hộp nước
 // trồi Nam VN (hop.mjs), thay Open-Meteo (bị chặn 429). Nguồn + cách tìm: docs/research/du-bao-ca-dong-dan-2026-10/11-so-nguon.md
 //   bộ "025"  : 0,25°  theo giờ 1994-06-01 → 2009-10-31
-//   bộ "0125" : 0,125° theo giờ 2007-01-11 → 2026-06-20
+//   bộ "0125" : 0,125° theo giờ 2007-01-11 → 2026-06-20 (bộ CHUẨN khi nối)
+//   bộ "nrt"  : 0,125° theo giờ 2020-07-01 → hôm qua (WIND_GLO_PHY_L4_NRT_012_004), đắp sau khi "0125" hết
 // Từ gió giờ (u, v): τ = ρa·Cd·|U|·U (ρa 1,22; Cd 1,2e-3 — CÙNG công thức bước C2 dùng cho ERA5) vì ứng suất có sẵn
 // của CMEMS chỉ phân giải 0,01 N/m² (quá thô cho tín hiệu hè 0,05–0,15). Curl ứng suất (1e-10 N/m³) dùng thẳng.
 // Ra ($SDFISH_DATA_DIR/hindcast-ntb/cmems-gio):
 //   <bộ>/ngay-o.f32 + <bộ>/manifest.json  — trung bình NGÀY từng ô trong hộp: [ô × ngày × 4] (τx, τy, |τ|, curl τ)
-//   chiso-ngay.json                         — chỉ số NGÀY theo hộp, nối hai bộ (0,25° trước 2007-01-11, 0,125° từ đó)
-//   noi-bo.json                             — so hai bộ trên khúc chồng 2007-01-11 → 2009-10-31 (để biết nối có lệch)
+//   chiso-ngay.json                         — chỉ số NGÀY theo hộp: 0,25° trước 2007-01-11, 0,125° tới 2026-06-20, nrt sau đó
+//   noi-bo.json                             — so từng bộ phụ với bộ chuẩn trên khúc chồng (để biết nối có lệch)
 // Khối đã tải cất ở <bộ>/cache (chạy lại chỉ tải phần thiếu). Chạy ở gpu-desktop (nối S3 nhanh, Mac chập chờn).
-//   node scripts/dong-dan/tai-gio-cmems.mjs [--bo 025|0125|all] [--conc 8] [--chi-dung]
+//   node scripts/dong-dan/tai-gio-cmems.mjs [--bo 025|0125|nrt|all] [--conc 8] [--chi-dung]
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { dataDir } from "../lib/data-dir.mjs";
@@ -25,6 +26,8 @@ const S3 = "https://s3.waw3-1.cloudferro.com";
 const BO = {
   "025": `${S3}/mdl-arco-geo-049/arco/WIND_GLO_PHY_L4_MY_012_006/cmems_obs-wind_glo_phy_my_l4_0.25deg_PT1H_202406/geoChunked.zarr`,
   "0125": `${S3}/mdl-arco-geo-062/arco/WIND_GLO_PHY_L4_MY_012_006/cmems_obs-wind_glo_phy_my_l4_0.125deg_PT1H_202211/geoChunked.zarr`,
+  // gần thời gian thực 0,125° theo giờ 2020-07-01 → hôm qua (WIND_GLO_PHY_L4_NRT_012_004) — nối SAU khi bộ "0125" hết
+  nrt: `${S3}/mdl-arco-geo-050/arco/WIND_GLO_PHY_L4_NRT_012_004/cmems_obs-wind_glo_phy_nrt_l4_0.125deg_PT1H_202207/geoChunked.zarr`,
 };
 const RHO_A = 1.22, CD = 1.2e-3, RHO_W = 1025, OMEGA = 7.2921e-5;
 const fCor = (lat) => 2 * OMEGA * Math.sin((lat * Math.PI) / 180);
@@ -36,7 +39,8 @@ async function taiBo(name) {
   mkdirSync(cdir, { recursive: true });
   const z = await openZarr(BO[name]);
   const lat = await z.axis("latitude"), lon = await z.axis("longitude"), time = await z.axis("time");
-  const nT = time.length, tch = z.arr("eastward_wind").chunks[0];
+  const nT = time.length, [tch, cs] = z.arr("eastward_wind").chunks, cc = cs * cs; // khối: tch giờ × cs × cs ô
+  const hasCurl = !!z.meta["stress_curl/.zarray"];
   if (Math.round(time[0]) % 86400 !== 0) throw new Error(`${name}: giờ đầu không phải 00:00 (${iso(time[0])})`);
   if (Math.round(time[nT - 1] - time[0]) !== (nT - 1) * 3600) throw new Error(`${name}: trục giờ không liên tục`);
   const day0 = iso(time[0]).slice(0, 10), nDays = Math.floor(nT / 24);
@@ -46,25 +50,25 @@ async function taiBo(name) {
     const boxes = Object.entries(BOXES).filter(([, b]) => inBox(b, lat[iy], lon[ix])).map(([k]) => k);
     if (boxes.length) cells.push({ iy, ix, lat: lat[iy], lon: lon[ix], boxes });
   }
-  const spatial = [...new Set(cells.map((c) => `${Math.floor(c.iy / 4)}.${Math.floor(c.ix / 4)}`))].map((s) => s.split(".").map(Number));
+  const spatial = [...new Set(cells.map((c) => `${Math.floor(c.iy / cs)}.${Math.floor(c.ix / cs)}`))].map((s) => s.split(".").map(Number));
   const nTC = Math.ceil(nT / tch);
   log(name, `${day0} +${nDays} ngày, ${cells.length} ô, ${spatial.length} khối không gian × ${nTC} khối thời gian`);
-  // mỗi việc = (khối thời gian, khối không gian): tải u, v, curl → tổng + đếm theo NGÀY toàn cục cho 16 ô
+  // mỗi việc = (khối thời gian, khối không gian): tải u, v, curl → tổng + đếm theo NGÀY toàn cục cho cs×cs ô
   const jobs = [];
   for (let tc = 0; tc < nTC; tc++) for (const [cy, cx] of spatial) jobs.push([tc, cy, cx]);
   let done = 0, empty = 0;
   const work = async ([tc, cy, cx]) => {
     const f = join(cdir, `${tc}_${cy}_${cx}.json`);
     if (existsSync(f)) { done++; return; }
-    const [u, v, cu] = await Promise.all(["eastward_wind", "northward_wind", "stress_curl"].map((vn) => z.chunk(vn, [tc, cy, cx])));
+    const [u, v, cu] = await Promise.all(["eastward_wind", "northward_wind", "stress_curl"].map((vn) => (vn === "stress_curl" && !hasCurl ? null : z.chunk(vn, [tc, cy, cx]))));
     const h0 = tc * tch, nh = Math.min(tch, nT - h0);
     const d0 = Math.floor(h0 / 24), d1 = Math.floor((h0 + nh - 1) / 24), nd = d1 - d0 + 1;
-    // [16 ô × nd ngày] × {sx, sy, si, nw, sc, nc}
-    const acc = Array.from({ length: 6 }, () => new Float64Array(16 * nd));
+    // [cc ô × nd ngày] × {sx, sy, si, nw, sc, nc}
+    const acc = Array.from({ length: 6 }, () => new Float64Array(cc * nd));
     if (u && v) for (let h = 0; h < nh; h++) {
       const d = Math.floor((h0 + h) / 24) - d0;
-      for (let k = 0; k < 16; k++) {
-        const uu = u[h * 16 + k], vv = v[h * 16 + k];
+      for (let k = 0; k < cc; k++) {
+        const uu = u[h * cc + k], vv = v[h * cc + k];
         if (!Number.isFinite(uu) || !Number.isFinite(vv)) continue;
         const s = Math.hypot(uu, vv), c = RHO_A * CD * s, q = k * nd + d;
         acc[0][q] += c * uu; acc[1][q] += c * vv; acc[2][q] += c * s; acc[3][q]++;
@@ -72,7 +76,7 @@ async function taiBo(name) {
     }
     if (cu) for (let h = 0; h < nh; h++) {
       const d = Math.floor((h0 + h) / 24) - d0;
-      for (let k = 0; k < 16; k++) { const x = cu[h * 16 + k]; if (Number.isFinite(x)) { acc[4][k * nd + d] += x; acc[5][k * nd + d]++; } }
+      for (let k = 0; k < cc; k++) { const x = cu[h * cc + k]; if (Number.isFinite(x)) { acc[4][k * nd + d] += x; acc[5][k * nd + d]++; } }
     }
     if (!u && !v && !cu) empty++;
     writeFileSync(f, JSON.stringify({ d0, nd, acc: acc.map((a) => Array.from(a, (x) => +x.toPrecision(7))) }));
@@ -87,8 +91,8 @@ async function taiBo(name) {
     const [tc, cy, cx] = fn.replace(".json", "").split("_").map(Number);
     if (tc >= nTC) continue;
     const { d0, nd, acc } = JSON.parse(readFileSync(join(cdir, fn), "utf8"));
-    for (let k = 0; k < 16; k++) {
-      const n = pos.get(`${cy * 4 + (k >> 2)}.${cx * 4 + (k & 3)}`);
+    for (let k = 0; k < cc; k++) {
+      const n = pos.get(`${cy * cs + Math.floor(k / cs)}.${cx * cs + (k % cs)}`);
       if (n === undefined) continue;
       for (let d = 0; d < nd; d++) { const g = d0 + d; if (g >= nDays) continue; for (let j = 0; j < 6; j++) sum[j][n * nDays + g] += acc[j][k * nd + d]; }
     }
@@ -134,33 +138,40 @@ function chiSo(bo) {
   return out;
 }
 function dung() {
-  const A = chiSo(docBo("025")), B = chiSo(docBo("0125")), CUT = "2007-01-11";
-  const ghep = {}, noi = {};
+  // Bộ CHUẨN là "0125" (0,125°, 2007-01-11 → 2026-06-20). Bộ "025" (0,25°) đắp phần TRƯỚC, bộ "nrt" (gần thời gian
+  // thực) đắp phần SAU. Các bộ khớp theo ngày (r ~0,99) nhưng LỆCH MỨC ở vài chỉ số (đo 2026-10-22: bơm Ekman ven bờ
+  // SCU 0,14 ở 0,25° so với 0,36 m/ngày ở 0,125° — lưới thô bỏ sót curl sát bờ) ⇒ cộng vào bộ phụ độ lệch TRUNG BÌNH
+  // THEO THÁNG (chuẩn − phụ) đo trên khúc chồng, để không tạo "bậc" giả ở chỗ nối.
+  const ref = docBo("0125"), R = chiSo(ref);
+  const r0 = ref.day0, r1 = new Date(Date.parse(ref.day0) + (ref.nDays - 1) * 864e5).toISOString().slice(0, 10);
   const pr = (a, b) => { const n = a.length, ma = a.reduce((x, y) => x + y, 0) / n, mb = b.reduce((x, y) => x + y, 0) / n; let xy = 0, xx = 0, yy = 0; for (let i = 0; i < n; i++) { xy += (a[i] - ma) * (b[i] - mb); xx += (a[i] - ma) ** 2; yy += (b[i] - mb) ** 2; } return xy / Math.sqrt(xx * yy); };
-  // Hai bộ khớp theo ngày (r ~0,99) nhưng LỆCH MỨC ở vài chỉ số (đo 2026-10-22: bơm Ekman ven bờ SCU 0,14 ở 0,25°
-  // so với 0,36 m/ngày ở 0,125° — lưới thô bỏ sót curl sát bờ). Nối thẳng sẽ tạo "bậc" giả năm 2007 ⇒ cộng vào bộ
-  // 0,25° độ lệch TRUNG BÌNH THEO THÁNG (0,125° − 0,25°) đo trên khúc chồng 2007-01-11 → 2009-10-31.
   const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
-  for (const k of Object.keys(B)) {
-    ghep[k] = {};
-    const both = Object.keys(B[k]).filter((d) => A[k]?.[d] !== undefined);
-    const off = {};
-    for (let m = 1; m <= 12; m++) { const ds = both.filter((d) => +d.slice(5, 7) === m); off[m] = ds.length >= 20 ? avg(ds.map((d) => B[k][d] - A[k][d])) : 0; }
-    for (const [d, v] of Object.entries(A[k] ?? {})) if (d < CUT) ghep[k][d] = +(v + off[+d.slice(5, 7)]).toPrecision(6);
-    for (const [d, v] of Object.entries(B[k])) if (d >= CUT) ghep[k][d] = v;
-    if (both.length > 100) {
-      const a = both.map((d) => A[k][d]), b = both.map((d) => B[k][d]), ac = both.map((d) => A[k][d] + off[+d.slice(5, 7)]);
-      noi[k] = { n: both.length, r: +pr(a, b).toFixed(3), meanA: +avg(a).toPrecision(4), meanB: +avg(b).toPrecision(4), meanAdaChinh: +avg(ac).toPrecision(4), lechThang: Object.fromEntries(Object.entries(off).map(([m, v]) => [m, +v.toPrecision(3)])) };
+  const ghep = Object.fromEntries(Object.keys(R).map((k) => [k, { ...R[k] }])), noi = {};
+  for (const [name, keep] of [["025", (d) => d < r0], ["nrt", (d) => d > r1]]) {
+    if (!existsSync(join(OUT, name, "manifest.json"))) continue;
+    const X = chiSo(docBo(name));
+    noi[name] = {};
+    for (const k of Object.keys(R)) {
+      const both = Object.keys(R[k]).filter((d) => X[k]?.[d] !== undefined);
+      const off = {};
+      for (let m = 1; m <= 12; m++) { const ds = both.filter((d) => +d.slice(5, 7) === m); off[m] = ds.length >= 20 ? avg(ds.map((d) => R[k][d] - X[k][d])) : 0; }
+      for (const [d, v] of Object.entries(X[k] ?? {})) if (keep(d)) ghep[k][d] = +(v + off[+d.slice(5, 7)]).toPrecision(6);
+      if (both.length > 100) {
+        const a = both.map((d) => X[k][d]), b = both.map((d) => R[k][d]), ac = both.map((d) => X[k][d] + off[+d.slice(5, 7)]);
+        noi[name][k] = { n: both.length, r: +pr(a, b).toFixed(3), meanPhu: +avg(a).toPrecision(4), meanChuan: +avg(b).toPrecision(4), meanPhuDaChinh: +avg(ac).toPrecision(4), lechThang: Object.fromEntries(Object.entries(off).map(([m, v]) => [m, +v.toPrecision(3)])) };
+      }
     }
   }
+  // thứ tự ngày tăng dần trong từng chuỗi
+  for (const k of Object.keys(ghep)) ghep[k] = Object.fromEntries(Object.entries(ghep[k]).sort(([a], [b]) => (a < b ? -1 : 1)));
   writeFileSync(join(OUT, "chiso-ngay.json"), JSON.stringify(ghep));
-  writeFileSync(join(OUT, "noi-bo.json"), JSON.stringify({ cut: CUT, note: "025 (đã cộng lechThang theo tháng) trước cut, 0125 từ cut; so trên khúc chồng", noi }, null, 1));
-  log("chỉ số ngày →", join(OUT, "chiso-ngay.json"), Object.keys(ghep).length, "chuỗi");
-  for (const [k, v] of Object.entries(noi)) console.error(k.padEnd(9), "r", v.r, "TB 0,25°", v.meanA, "→ chỉnh", v.meanAdaChinh, "· 0,125°", v.meanB);
+  writeFileSync(join(OUT, "noi-bo.json"), JSON.stringify({ chuan: "0125", tu: r0, den: r1, note: "025 đắp trước, nrt đắp sau; cả hai đã cộng lechThang (chuẩn − phụ) theo tháng, đo trên khúc chồng", noi }, null, 1));
+  log("chỉ số ngày →", join(OUT, "chiso-ngay.json"), Object.keys(ghep).length, "chuỗi, tới", Object.keys(ghep.SCU_tE).at(-1));
+  for (const [name, o] of Object.entries(noi)) for (const k of ["SCU_tE", "OFU_wEk", "MKU_tE"]) if (o[k]) console.error(name, k.padEnd(8), "r", o[k].r, "TB phụ", o[k].meanPhu, "→ chỉnh", o[k].meanPhuDaChinh, "· chuẩn", o[k].meanChuan);
 }
 
 if (!argv.includes("--chi-dung")) {
   const bo = arg("bo", "all");
-  for (const name of bo === "all" ? ["025", "0125"] : [bo]) await taiBo(name);
+  for (const name of bo === "all" ? ["025", "0125", "nrt"] : [bo]) await taiBo(name);
 }
-if (existsSync(join(OUT, "025", "manifest.json")) && existsSync(join(OUT, "0125", "manifest.json"))) dung();
+if (existsSync(join(OUT, "0125", "manifest.json"))) dung();
