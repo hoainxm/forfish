@@ -114,6 +114,26 @@ function mapError(code: string | undefined): ListenErrorCode {
   }
 }
 
+/**
+ * PHIÊN ÂM THANH CHO PHÉP THU — gọi ngay trước khi mở micro.
+ *
+ * iOS Safari 16.4+: `tts.ts` đặt `navigator.audioSession.type = "playback"` để loa đọc không bị nút
+ * gạt im lặng tắt — nhưng phiên "playback" CẤM thu micro ⇒ getUserMedia / SpeechRecognition hỏng và
+ * Sen Biển báo NHẦM "Không thấy micro trên máy" dù máy có micro (anh Long 2026-10-22: "có mic mà vừa
+ * đọc vừa nghe lỗi hay sao"). Tệ hơn: `ghi()` gọi `ttsUnlock()` ngay trước khi nghe ⇒ lượt nào cũng
+ * dính. Chuyển sang "play-and-record" (vẫn phát được, thu được); lần đọc sau `tts.ts` tự đặt lại
+ * "playback". Máy không có Audio Session API (Android, iOS cũ) thì không làm gì.
+ */
+export function phienThuAm(nav: unknown = typeof navigator === "undefined" ? undefined : navigator): void {
+  const s = (nav as { audioSession?: { type: string } } | undefined)?.audioSession;
+  if (!s || s.type !== "playback") return;
+  try {
+    s.type = "play-and-record";
+  } catch {
+    /* trình duyệt từ chối đổi — để bộ nghe tự báo lỗi như cũ */
+  }
+}
+
 /** Một lượt nghe. Không ném: máy không hỗ trợ → `onError("unsupported")` ngay. */
 export function listenOnce(opts: {
   onInterim(text: string): void;
@@ -126,6 +146,7 @@ export function listenOnce(opts: {
   /** mức âm 0..1 — chỉ bộ nghe trong máy có; Web Speech không cho số này (sóng vẽ giả) */
   onLevel?(v: number): void;
 }): ListenHandle {
+  phienThuAm();
   // bộ nghe trong máy: ra chữ là micro đã được cho phép — tự nghe sau câu hỏi dựa cờ này (gộp 2026-10-18)
   if (boNgheSan())
     return ngheMay({

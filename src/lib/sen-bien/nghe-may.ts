@@ -228,10 +228,23 @@ export function ngheMay(opts: {
   };
 
   void (async () => {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
+    const xin = () =>
+      navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
       });
+    try {
+      try {
+        stream = await xin();
+      } catch (e) {
+        /*  MICRO BẬN, KHÔNG PHẢI KHÔNG CÓ (2026-10-22): Safari iOS ném NotReadableError/AbortError
+            ("Could not start audio source") khi xin lại micro ngay sau lượt trước hoặc ngay lúc loa vừa
+            đọc xong — phần cứng chưa nhả. Chờ 0,4 s xin lại MỘT lần trước khi báo lỗi. */
+        const name = (e as { name?: string })?.name;
+        if (xong || (name !== "NotReadableError" && name !== "AbortError" && name !== "InvalidStateError")) throw e;
+        await new Promise((ok) => setTimeout(ok, 400));
+        if (xong) return;
+        stream = await xin();
+      }
     } catch (e) {
       const name = (e as { name?: string })?.name;
       ket(() => opts.onError(name === "NotAllowedError" || name === "SecurityError" ? "not-allowed" : "audio-capture"));
