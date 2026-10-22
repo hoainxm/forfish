@@ -57,9 +57,11 @@ try:
         with open(p, encoding="utf-8-sig", errors="replace") as f:
             for r in csv.reader(f):
                 if len(r) >= 2 and r[0].strip(): names[r[0].strip()] = r[1].strip()
-    files = sorted(glob.glob(os.path.join(G, "scsbathy10", "**", "*.nc"), recursive=True))
+    # bỏ rác AppleDouble "._x.nc" / __MACOSX trong zip (không phải NetCDF — gây "latitude not found")
+    files = sorted(p for p in glob.glob(os.path.join(G, "scsbathy10", "**", "*.nc"), recursive=True) if not os.path.basename(p).startswith("._") and "__MACOSX" not in p)
     log("SCSBathy10", len(files), "file")
     for p in files:
+      try:
         ds = Dataset(p); fid = os.path.splitext(os.path.basename(p))[0]
         v = next(k for k in ("depth_prediction", "depth") if k in ds.variables)
         z = np.asarray(ds[v][:], float).squeeze(); z = np.where(np.abs(z) > 1e5, np.nan, z)
@@ -71,6 +73,8 @@ try:
                      "tamLat": round(float(LA[ok].mean()), 4) if ok.any() else None, "tamLon": round(float(LO[ok].mean()), 4) if ok.any() else None,
                      "bbox": [round(float(lo.min()), 4), round(float(la.min()), 4), round(float(lo.max()), 4), round(float(la.max()), 4)],
                      "diem": int(ok.sum()), "doSau": tom(z)})
+      except Exception as e:
+        log("SCSBathy10 file lỗi:", os.path.basename(p), e)
 except Exception as e:
     log("SCSBathy10 lỗi:", e)
 

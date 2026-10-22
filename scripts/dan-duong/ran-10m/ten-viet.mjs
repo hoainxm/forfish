@@ -15,7 +15,9 @@ const reefs = JSON.parse(readFileSync(path.join(REPO, "public/data/coral-reefs.v
   .map((f) => ({ ten: f.properties.name, nhom: f.properties.group, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
 const bangF = path.join(REPO, "scripts/dan-duong/ran-10m/ten-ran-bien-dong.json");
 const bang = existsSync(bangF) ? JSON.parse(readFileSync(bangF, "utf8")) : [];
-const chuan = (s) => String(s).toLowerCase().replace(/\s+(reef|island|islands|bank|shoal|cay|atoll|rock|rocks)$/i, "").replace(/[^a-z0-9]/g, "");
+// bỏ loại hình ở đuôi (Anh + pinyin: Dao đảo · Jiao đá · Tan bãi · Ansha bãi ngầm · Shazhou cồn · Qunjiao cụm đá) rồi so phần lõi;
+// phần lõi trùng nhau nhiều (Bei/Nan/Zhong…) nên LUÔN kèm điều kiện toạ độ ≤ NGUONG_KM ở dưới
+const chuan = (s) => String(s).toLowerCase().replace(/\s+(reef|reefs|island|islands|bank|banks|shoal|shoals|cay|atoll|rock|rocks|dao|jiao|tan|ansha|shazhou|qunjiao|sha|shi)$/i, "").replace(/[^a-z0-9]/g, "");
 const km = (a, b) => 111.32 * Math.hypot((a.lon - b.lon) * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180), a.lat - b.lat);
 const NGUONG_KM = 8;
 const out = idx.map((r) => {
@@ -28,7 +30,7 @@ const out = idx.map((r) => {
     /*  Bảng tra: khớp tên quốc tế / pinyin ĐẦY ĐỦ (có hậu tố Dao/Jiao/Tan — pinyin trần như Bei/Nan/Zhong trùng
         nhiều thực thể, cảnh báo của agent dựng bảng) VÀ toạ độ bảng cách tâm ≤ 8 km. Thiếu một trong hai ⇒ cần người. */
     const k = chuan(r.tenGoc);
-    const ungVien = bang.filter((x) => [x.en, x.zh_pinyin_full, ...(x.khac ?? [])].filter(Boolean).some((n) => chuan(n) === k));
+    const ungVien = bang.filter((x) => [x.en, x.zh_pinyin_full, x.zh_pinyin, ...(x.khac ?? [])].filter(Boolean).some((n) => chuan(n) === k));
     const b = ungVien.find((x) => Number.isFinite(x.lat) && km(p, x) <= NGUONG_KM) ?? null;
     if (b?.vi) { row.tenViet = b.vi; row.cach = "bang-tra"; row.khoangKm = +km(p, b).toFixed(1); row.trangThai = b.duyet ? "khop" : "can-nguoi"; }
     else if (ungVien.length) { row.tenViet = ungVien.map((x) => x.vi).join(" | "); row.cach = "bang-tra-xa"; row.trangThai = "can-nguoi"; }
