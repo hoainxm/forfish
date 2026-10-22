@@ -132,6 +132,18 @@ export function requiredDepthM(
   return Math.round((draftM + 0.5 + 0.5 * hs) * 100) / 100;
 }
 
+/**
+ * Độ sâu nước lúc t (m, dương xuống) từ lưới độ sâu MỰC TRUNG BÌNH (ETOPO/GEBCO,
+ * zMslM âm dưới mặt) và mực triều hTrieuM so SỐ 0 HẢI ĐỒ. Mực trung bình nằm
+ * cao hơn số 0 một khoảng z0M, nên mặt nước lúc t so MSL là (hTrieuM − z0M):
+ * sâu = −zMslM + (hTrieuM − z0M). Cộng thẳng hTrieuM vào lưới là cộng thừa z0M
+ * (Vũng Tàu ≈ 2,9 m). Số không hữu hạn ⇒ NaN, người gọi tự về trần tĩnh.
+ */
+export function doSauLucT(zMslM: number, hTrieuM: number, z0M: number): number {
+  if (!finite(zMslM) || !finite(hTrieuM) || !finite(z0M)) return NaN;
+  return -zMslM + (hTrieuM - z0M);
+}
+
 /* ── DỰNG DANH SÁCH ──────────────────────────────────────────────────────── */
 
 const THEO_PHAO_RE = /theo\s+phao/i;
