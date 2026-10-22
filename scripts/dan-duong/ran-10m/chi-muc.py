@@ -65,7 +65,9 @@ try:
         ds = Dataset(p); fid = os.path.splitext(os.path.basename(p))[0]
         v = next(k for k in ("depth_prediction", "depth") if k in ds.variables)
         z = np.asarray(ds[v][:], float).squeeze(); z = np.where(np.abs(z) > 1e5, np.nan, z)
-        la, lo = np.asarray(ds["latitude"][:], float), np.asarray(ds["longitude"][:], float)
+        # 62 file đặt tên latitude/longitude, 4 file (West Reef, Yongxing, Yongle, Stigant) đặt lat/lon
+        kla = "latitude" if "latitude" in ds.variables else "lat"; klo = "longitude" if "longitude" in ds.variables else "lon"
+        la, lo = np.asarray(ds[kla][:], float), np.asarray(ds[klo][:], float)
         ok = np.isfinite(z)
         if la.ndim == 1: LA, LO = np.meshgrid(la, lo, indexing="ij") if z.shape == (la.size, lo.size) else np.meshgrid(la, lo, indexing="xy")
         else: LA, LO = la, lo

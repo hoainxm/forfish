@@ -20,6 +20,9 @@ const bang = existsSync(bangF) ? JSON.parse(readFileSync(bangF, "utf8")) : [];
 const chuan = (s) => String(s).toLowerCase().replace(/\s+(reef|reefs|island|islands|bank|banks|shoal|shoals|cay|atoll|rock|rocks|dao|jiao|tan|ansha|shazhou|qunjiao|sha|shi)$/i, "").replace(/[^a-z0-9]/g, "");
 const km = (a, b) => 111.32 * Math.hypot((a.lon - b.lon) * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180), a.lat - b.lat);
 const NGUONG_KM = 8;
+/*  Đường bảng tra: tên đã khớp nên chỉ cần toạ độ "cùng rạn" — rạn vòng lớn (Chữ Thập, Cỏ Mây, Tizard) tâm bộ dữ liệu
+    lệch tâm bảng 10–15 km. 20 km vẫn nhỏ hơn khoảng cách giữa hai rạn cùng tên lõi khác nhóm (Đá Bắc HS/TS cách 600 km). */
+const NGUONG_BANG_KM = 20;
 const out = idx.map((r) => {
   const p = { lat: r.tamLat, lon: r.tamLon };
   let best = null;
@@ -31,7 +34,7 @@ const out = idx.map((r) => {
         nhiều thực thể, cảnh báo của agent dựng bảng) VÀ toạ độ bảng cách tâm ≤ 8 km. Thiếu một trong hai ⇒ cần người. */
     const k = chuan(r.tenGoc);
     const ungVien = bang.filter((x) => [x.en, x.zh_pinyin_full, x.zh_pinyin, ...(x.khac ?? [])].filter(Boolean).some((n) => chuan(n) === k));
-    const b = ungVien.find((x) => Number.isFinite(x.lat) && km(p, x) <= NGUONG_KM) ?? null;
+    const b = ungVien.find((x) => Number.isFinite(x.lat) && km(p, x) <= NGUONG_BANG_KM) ?? null;
     if (b?.vi) { row.tenViet = b.vi; row.cach = "bang-tra"; row.khoangKm = +km(p, b).toFixed(1); row.trangThai = b.duyet ? "khop" : "can-nguoi"; }
     else if (ungVien.length) { row.tenViet = ungVien.map((x) => x.vi).join(" | "); row.cach = "bang-tra-xa"; row.trangThai = "can-nguoi"; }
   }
