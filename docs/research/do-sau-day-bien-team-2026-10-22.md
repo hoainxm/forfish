@@ -135,6 +135,22 @@ Bài học ghi vào mã: lần ghép đầu "gần nhất trong 8 km" cho ra **�
 
 **Bước kế (chưa làm, chờ người)**: (1) anh Long/người rành duyệt 35 dòng + soi mắt 142 dòng; (2) đối chiếu văn bản nhà nước về tên; (3) soát QĐ 562 trước khi phát hành; (4) rồi mới sinh `public/data/reef-depth.v1.*` (HHU24 + SCSBathy10, datum MSL, ghi nguồn CC BY Hohai University + tác giả SCSBathy10) và nối vào luật chặn rạn (B8).
 
+### 6.5 reef-depth.v1 đã sinh (10:57, anh Long: "sinh từ 142 dòng đã khớp, 35 dòng để lại, chưa phát hành")
+
+| | Số |
+|---|---|
+| Thực thể trong file | **140** (HHU24 94 · SCSBathy10 46; 2 dòng khớp tên không có điểm/file) |
+| Tên Việt duy nhất | 104 (Hoàng Sa 26 tên, Trường Sa còn lại, Scarborough 1) |
+| Ô ~100 m có số | 460 031 |
+| Kích thước | 5,44 MB JSON · **0,48 MB gzip** (base64 lưới uint8; 70 % ô trong hộp bao là nước không số) |
+| Kiểm | không ký tự Hán, không tên gốc trong file; lưới giải mã đúng `nLat×nLon`; Đá Chữ Thập: nông nhất 0 m (phần nổi), trung vị 7,5 m |
+
+Khuôn: mỗi thực thể `{ten, nhom, nguon, lat0, lon0, dLat, dLon, nLat, nLon, data(base64 uint8 dm: 0–253 = 0–25,3 m · 254 = sâu hơn · 255 = không số), nongNhatM, trungViM}`; mỗi ô = độ sâu NÔNG NHẤT (min-pool); datum MSL; `credit` ghi Hohai University (ESSD 2025) + SCSBathy10 (Zenodo 2026), CC BY 4.0. Script: `scripts/dan-duong/ran-10m/sinh-reef-depth.py`.
+
+**Ở đâu**: `~/.local/forlife/train/dan-duong/ran-10m/ra/reef-depth.v1.json` trên gpu-desktop (bản chép trên Mac ở scratchpad phiên). **KHÔNG trong repo, KHÔNG trong public/data** — chưa phát hành theo đúng lời anh Long. Tóm tắt: [`reef-depth.tom-tat.json`](do-sau-day-bien-2026-10-22/reef-depth.tom-tat.json).
+
+**Trước khi phát hành** (thứ tự): duyệt 35 dòng + soi mắt 142 dòng tên → đối chiếu văn bản nhà nước → soát QĐ 562 → chuyển sang khuôn nhị phân delta/varint nếu muốn nhẹ hơn nữa (không bắt buộc, 0,48 MB gzip đã lọt) → đưa vào `public/data/reef-depth.v1.json` (SDF2) + `data-fetch` + nối luật chặn rạn (B8: xác tàu/rạn có số ≥ 20 m hạ xuống cảnh báo; rạn có ô < nước cần thì chặn như lớp 1) + 01/02/04/external-services + LICENSE ghi CC BY.
+
 ## Assumptions
 
 - "Đo thật" trong TID = mã 10–17 (đo trực tiếp) + 44 (hải đồ số hoá); 40 = nội suy trọng lực vệ tinh; lidar = 15, hải đồ = 42–44 (D sửa lại nhóm "40–47" sai trong đề bài).

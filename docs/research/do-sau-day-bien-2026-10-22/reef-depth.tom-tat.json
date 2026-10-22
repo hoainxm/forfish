@@ -1,0 +1,198 @@
+{
+ "sinh": "2026-10-22T10:56:58",
+ "soThucThe": 140,
+ "theoNguon": {
+  "HHU24SWDSCS": 94,
+  "SCSBathy10": 46
+ },
+ "theoNhom": {
+  "hoang-sa": 36,
+  "truong-sa": 103,
+  "scarborough": 1
+ },
+ "tongOCoSo": 460031,
+ "kichThuocByte": 5437663,
+ "nongNhat": [
+  {
+   "ten": "Đảo Cây",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Bắc",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Trung",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Linh Côn",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đá Bông Bay",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Hữu Nhật",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Hoàng Sa",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Quang Ảnh",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Duy Mộng",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đá Hải Sâm",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Ốc Hoa",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Ba Ba",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Bãi Xà Cừ",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đá Trà Tây",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Lưỡi Liềm",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  }
+ ],
+ "tenDuyNhat": [
+  "Bãi Bàn Than",
+  "Bãi Bình Sơn",
+  "Bãi Cỏ Mây",
+  "Bãi Hải Sâm",
+  "Bãi Loại Ta Nam",
+  "Bãi Nam",
+  "Bãi Núi Cầu",
+  "Bãi Phù Mỹ",
+  "Bãi Sa Bin",
+  "Bãi Suối Ngà",
+  "Bãi Thuyền Chài",
+  "Bãi Thám Hiểm",
+  "Bãi Thủy Tề",
+  "Bãi Trăng Khuyết",
+  "Bãi Vĩnh Tuy",
+  "Bãi Xà Cừ",
+  "Bãi cạn Scarborough",
+  "Bãi Đinh Ba",
+  "Bãi đá Tri Lễ",
+  "Bãi đá Tri Lễ Đông",
+  "Bãi đá Tây",
+  "Hòn Tháp",
+  "Đá An Nhơn",
+  "Đá Ba Cờ",
+  "Đá Ba Đầu",
+  "Đá Bãi Khung",
+  "Đá Bình Khê",
+  "Đá Bình Sơn",
+  "Đá Bông Bay",
+  "Đá Bắc",
+  "Đá Chim Én",
+  "Đá Chà Và",
+  "Đá Châu Viên",
+  "Đá Chữ Thập",
+  "Đá Cá Nhám",
+  "Đá Cô Lin",
+  "Đá Công Đo",
+  "Đá Ga Ven",
+  "Đá Gia Hội",
+  "Đá Gia Phú",
+  "Đá Gạc Ma",
+  "Đá Hoa Lau",
+  "Đá Hải Sâm",
+  "Đá Ken Nan",
+  "Đá Khúc Giác",
+  "Đá Kiệu Ngựa",
+  "Đá Kỳ Vân",
+  "Đá Len Đao",
+  "Đá Long Hải",
+  "Đá Long Điền",
+  "Đá Lát",
+  "Đá Lồi",
+  "Đá Lớn",
+  "Đá Mỏ Vịt",
+  "Đá Nam",
+  "Đá Nghĩa Hành",
+  "Đá Ninh Hòa",
+  "Đá Núi Le",
+  "Đá Núi Thị",
+  "Đá Phúc Sĩ",
+  "Đá Phật Tự",
+  "Đá Suối Cát",
+  "Đá Suối Ngọc",
+  "Đá Sâu",
+  "Đá Sơn Hà",
+  "Đá Tiên Nữ",
+  "Đá Trà Tây",
+  "Đá Trâm Đức",
+  "Đá Trương Nghĩa",
+  "Đá Tây",
+  "Đá Tư Nghĩa",
+  "Đá Tốc Tan",
+  "Đá Vành Khăn",
+  "Đá Văn Nguyên",
+  "Đá Vĩnh Hảo",
+  "Đá Xu Bi",
+  "Đá Én Ca",
+  "Đá Én Đất",
+  "Đá Đông",
+  "Đá Đức Hòa",
+  "Đảo Ba Ba",
+  "Đảo Ba Bình",
+  "Đảo Bạch Quy",
+  "Đảo Bắc",
+  "Đảo Bến Lạc",
+  "Đảo Cây",
+  "Đảo Duy Mộng",
+  "Đảo Hoàng Sa",
+  "Đảo Hữu Nhật",
+  "Đảo Linh Côn",
+  "Đảo Lưỡi Liềm",
+  "Đảo Nam Yết",
+  "Đảo Phan Vinh",
+  "Đảo Phú Lâm",
+  "Đảo Quang Ảnh",
+  "Đảo Sinh Tồn",
+  "Đảo Sinh Tồn Đông",
+  "Đảo Song Tử Tây",
+  "Đảo Song Tử Đông",
+  "Đảo Thị Tứ",
+  "Đảo Tri Tôn",
+  "Đảo Trung",
+  "Đảo Đá",
+  "Đảo Ốc Hoa"
+ ]
+}
