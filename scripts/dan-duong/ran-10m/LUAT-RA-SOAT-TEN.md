@@ -23,6 +23,11 @@
 
 Cấm: suy tên từ nghĩa chữ Hán (Bei = Bắc) rồi ghép "Đá Bắc" — đã có hai Đá Bắc cách nhau 600 km; cấm dịch tên tiếng Anh (Central Reef ≠ "Đá Trung"); cấm lấy tên thực thể gần nhất trong cụm (lỗi đã dính: Đảo Bắc → Đá Trương Nghĩa).
 
+### Bổ sung sau lượt rà 35 dòng (agent 2026-10-22 — chờ anh Long xác nhận)
+- **Thực thể là cả CỤM** (nguồn vẽ một polygon cho Tizard Bank, Union Banks, Loaita, Yongle): bậc A/B dùng **hộp bao của cụm** thay cho 5 km; tên = tên cụm tiếng Việt ("Cụm Nam Yết", "Cụm Sinh Tồn", "Cụm Loại Ta", "Nhóm Lưỡi Liềm"). Bước 5 cho phép chữ đầu "Nhóm".
+- **Cồn cát ↔ đảo** coi là cùng lớp khi nguồn đã định đúng thực thể (Sơn Ca, Sinh Tồn Đông, Trường Sa Đông là cồn cát/đảo nhỏ, nguồn gọi "Sand"/"Reef").
+- Kết quả lượt 2026-10-22: 7 A · 13 B · 15 tên chung — `quyet-dinh-ten.json`, lý do từng dòng ở `quyet-dinh-ten.ghi-chu.md`. 5 ca agent đề nghị anh xem: East Island (= Đảo Linh Côn về tên nhưng tâm cách 13,5 km — nghi polygon là cả rạn vòng), Longxia (Đá Vị Khê hay Đá Bia — mâu thuẫn nguồn), Yinyuzi/Kuangzi (1 nguồn), và hai bổ sung luật ở trên.
+
 ## Bước 3 — TÊN CHUNG (khi không có tên riêng đạt bậc A/B)
 
 Khuôn: `<Loại> chưa định danh` + ngữ cảnh địa lý tiếng Việt đã chắc chắn, theo thứ tự ưu tiên:

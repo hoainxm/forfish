@@ -117,7 +117,7 @@ except Exception as e:
 import re
 CAM = re.compile(r"\b(Dao|Jiao|Tan|Ansha|Shazhou|Qunjiao|Reef|Reefs|Island|Islands|Shoal|Bank|Banks|Atoll|Cay)\b")
 HAN = re.compile(r"[\u4e00-\u9fff]")
-MO_DAU = ("Đảo", "Đá", "Bãi", "Cồn", "Cụm", "Hòn")
+MO_DAU = ("Đảo", "Đá", "Bãi", "Cồn", "Cụm", "Nhóm", "Hòn")
 vi_pham = [f["ten"] for f in fs if HAN.search(f["ten"]) or CAM.search(f["ten"]) or not f["ten"].startswith(MO_DAU)]
 if vi_pham:
     log("DỪNG — tên vi phạm luật (có tên nước ngoài / không bắt đầu bằng loại):", vi_pham)
