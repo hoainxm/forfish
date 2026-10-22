@@ -159,7 +159,12 @@ html {
   --dock-safe: env(safe-area-inset-bottom, 0px);
   --dock-row: 3.5rem; /* thanh dock nổi kiểu Facebook (03 §0b, 2026-10-19) */
   --dock-gap: 0.5rem; /* hở giữa thanh nổi và mép đáy / home-indicator */
-  --dock-total: calc(var(--dock-row) + var(--dock-safe) + var(--dock-gap));
+  /*  ĐÁY DOCK SÁT MÉP (2026-10-22, anh Long chụp màn: "sao nó ko sát thế"): trước dock đứng trên CẢ
+      safe-area (~34px iPhone) + 0.5rem ⇒ dưới dock hở ~42px bản đồ. Vạch home chỉ chiếm ~13px dưới
+      cùng, nên cho dock ăn vào safe-area, chừa 0.875rem trên đáy (≈20px, vẫn trên vạch home);
+      máy không có vạch home (safe = 0) giữ hở --dock-gap. */
+  --dock-bottom: max(var(--dock-gap), calc(var(--dock-safe) - 0.875rem));
+  --dock-total: calc(var(--dock-row) + var(--dock-bottom));
 }
 
 .dock-frame {
@@ -182,7 +187,7 @@ html {
   position: absolute;
   left: 0.75rem;
   right: 0.75rem;
-  bottom: calc(var(--dock-safe) + var(--dock-gap));
+  bottom: var(--dock-bottom);
   height: var(--dock-row);
   padding-inline: 0.375rem;
   pointer-events: auto;

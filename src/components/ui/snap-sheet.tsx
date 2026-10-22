@@ -186,7 +186,8 @@ export function SnapSheet({
               chỗ nằm ngang (ngày · tình trạng · số) thay vì xếp 3 dòng trong viên
               hẹp; vẫn là tay cầm: chạm/vuốt TRÁI mở ngăn bên phải như cũ. `above`
               (đồng hồ tốc độ · nút về tàu · chip dữ liệu · thanh giờ) ngay trên. */
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 px-2 pb-2">
+          /*  px-3 = đúng lề 0.75rem của dock ⇒ mép thẻ thẳng mép dock (2026-10-22: "sao nó ko sát"). */
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 px-3 pb-2">
             {above && <div className="w-full">{above}</div>}
             <button
               ref={tabRef}
