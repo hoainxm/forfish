@@ -66,8 +66,29 @@ const out = idx.map((r) => {
   if (gan.length && gan[0].d <= NGUONG_KM) { row.tenViet = gan.slice(0, 3).filter((g) => g.d <= NGUONG_KM).map((g) => `${g.f.ten} (${g.d.toFixed(1)} km)`).join(" | "); row.cach = "toa-do-mo-ho"; row.ghi = "cụm thực thể sát nhau — người chọn"; }
   return row;
 });
+/*  "CÁI NÀO LỆCH THÌ GHI TÊN CHUNG" (anh Long 2026-10-22). Lệch = (a) tâm bộ dữ liệu cách toạ độ tên > 5 km với thực
+    thể điểm (bảng tra từng cho 20 km — nay chỉ để TÌM, không để NHẬN), hoặc (b) LOẠI theo hậu tố nguồn khác loại theo
+    tên Việt (Island ≠ Đá; Sand ≠ Đảo; Reef ≠ Cồn). Thực thể là cả cụm (Cụm/Nhóm) không xét khoảng cách — tên cụm là
+    đúng bản chất. Áp cho CẢ quyết định người/agent: quyết định chỉ được nói tên, không được nới luật. */
+const LOAI_NGUON = [[/\b(islands?|islet|dao|yu)$/i, "Đảo"], [/\b(sand|sand cay|cay|shazhou)$/i, "Cồn"], [/\b(reef|jiao|rock|rocks)$/i, "Đá"], [/\b(shoals?|banks?|tan|ansha)$/i, "Bãi"], [/\b(atoll|reefs|qunjiao)$/i, "Cụm"]];
+const loaiNguon = (t) => { const x = String(t).trim(); for (const [re, l] of LOAI_NGUON) if (re.test(x)) return l; return null; };
+const loaiViet = (t) => { const m = /^(Đảo|Đá|Bãi|Cồn|Cụm|Nhóm|Hòn)\b/.exec(String(t)); return m ? (m[1] === "Nhóm" ? "Cụm" : m[1] === "Hòn" ? "Đảo" : m[1]) : null; };
+const quanDao = (lat) => (lat >= 15 ? "Hoàng Sa" : "Trường Sa");
+const tenChung = (loai, lat) => `${loai === "Cụm" ? "Cụm đá" : loai === "Cồn" ? "Cồn cát" : loai ?? "Đá"} chưa định danh (${quanDao(lat)})`;
+for (const r of out) {
+  if (r.trangThai !== "khop") continue;
+  const lN = loaiNguon(r.tenGoc), lV = loaiViet(r.tenViet);
+  // "Bank"/"Banks" nguồn có thể là cả cụm (Tizard Bank = Cụm Nam Yết): Bãi↔Cụm coi khớp; còn lại phải bằng nhau
+  const loaiKhop = lN == null || lV == null || lN === lV || (lN === "Bãi" && lV === "Cụm");
+  const xa = lV !== "Cụm" && r.khoangKm != null && r.khoangKm > 5;
+  if (loaiKhop && !xa) continue;
+  r.ghi = `lệch: ${!loaiKhop ? `loại nguồn ${lN} ≠ tên Việt ${lV}` : ""}${!loaiKhop && xa ? "; " : ""}${xa ? `cách ${r.khoangKm} km > 5` : ""} — từng gợi ý "${r.tenViet}"`;
+  r.tenViet = tenChung(lN ?? lV, r.tamLat); r.cach = "ten-chung-lech"; r.trangThai = "ten-chung";
+}
 writeFileSync(outF, JSON.stringify({ luc: new Date().toISOString(), n: out.length, khop: out.filter((r) => r.trangThai === "khop").length, ran: out }, null, 1));
 const canNguoi = out.filter((r) => r.trangThai === "can-nguoi");
 console.log(`ngoài phạm vi (Luconia/Đông Sa): ${out.filter((r) => r.trangThai === "ngoai-pham-vi").length} · tên chung: ${out.filter((r) => r.trangThai === "ten-chung").length}`);
 console.log(`ghép tên: ${out.filter((r) => r.trangThai === "khop").length}/${out.length} khớp · ${canNguoi.length} cần người:`);
+console.log(`đổi sang tên chung vì LỆCH: ${out.filter((r) => r.cach === "ten-chung-lech").length}`);
+for (const r of out.filter((r) => r.cach === "ten-chung-lech")) console.log(`  ${r.bo} ${r.id} → ${r.tenViet} · ${r.ghi}`);
 for (const r of canNguoi) console.log(`  ${r.bo} ${r.id} "${r.tenGoc}" ${r.tamLat.toFixed(3)},${r.tamLon.toFixed(3)} ${r.cach ?? "-"} ${r.tenViet ?? ""} ${r.ghi ?? ""}`);

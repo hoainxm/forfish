@@ -35,6 +35,14 @@ Khuôn: `<Loại> chưa định danh` + ngữ cảnh địa lý tiếng Việt �
 2. không trong cụm nào: quần đảo: `Bãi chưa định danh (Trường Sa)`.
 Toạ độ luôn đi kèm ở trường riêng, không nhét vào tên. Tên chung KHÔNG được chứa tên nguồn, không chứa toạ độ.
 
+## Bước 3b — "Cái nào LỆCH thì ghi tên chung" (anh Long 2026-10-22, áp máy móc trong `ten-viet.mjs`)
+
+Sau mọi phép ghép (kể cả quyết định người/agent), dòng nào **lệch** thì tự đổi sang tên chung, ghi lại tên từng gợi ý trong `ghi` để sau này ai có bằng chứng thì nâng lên:
+- **lệch khoảng cách**: thực thể điểm mà tâm bộ dữ liệu cách toạ độ của tên > 5 km (bảng tra 20 km chỉ để TÌM ứng viên);
+- **lệch loại**: hậu tố nguồn nói Island/Sand/Reef/Shoal mà tên Việt lại là Đá/Đảo/Cồn/Bãi khác loại (chỉ Bãi↔Cụm được coi khớp vì "Bank" hay là cả cụm);
+- thực thể là cả **cụm** (Cụm/Nhóm) không xét khoảng cách — tên cụm đúng bản chất.
+Hệ quả chấp nhận: vài tên đúng thật (Đảo Sơn Ca từ "… Sand", Bei Reef → Cồn Cát Bắc) cũng về tên chung cho tới khi có bằng chứng loại khớp. Lớp độ sâu cần vị trí và số, không cần tên.
+
 ## Bước 4 — Hồ sơ quyết định
 
 Mỗi dòng ghi vào `scripts/dan-duong/ran-10m/quyet-dinh-ten.json`: `{bo, id, loai, quyetDinh: "ten-rieng"|"ten-chung", tenViet, bac: "A"|"B"|"chung", bangChung: [url…], lyDo, nguoiDuyet: "agent-<ngày>" | "anh Long <ngày>"}`. `ten-viet.mjs` đọc file này TRƯỚC mọi phép ghép tự động; dòng `ten-chung` vẫn vào sản phẩm (có độ sâu, có vị trí, tên chung) — bà con cần biết chỗ đó cạn, không cần biết tên.
