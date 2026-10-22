@@ -10,7 +10,10 @@ FAIL=0
 # lớn. Lúc nhận ra repo đã 500 MB thì không gỡ lại được nữa mà không viết lại
 # lịch sử. Trần đặt ở chỗ còn kịp nghĩ lại.
 DATA_FILE_MAX=$((20 * 1024 * 1024))   # một file
-DATA_DIR_MAX=$((120 * 1024 * 1024))   # cả public/data
+# TRẦN CẢ THƯ MỤC (120 MB) ĐÃ BỎ 2026-10-22 — chủ dự án: "trần 120mb bỏ quy định này
+# đi". Bộ nghe Sen Biển v2 (75 MB, int8 sẵn, gzip -9 chỉ còn 57 MB) đẩy public/data lên
+# ~148 MB; nén lại thì lịch sử git còn PHÌNH THÊM bản mới, không gỡ được bản cũ. Đường
+# giảm thật là chưng cất bộ nghe về cỡ 30M (ADR 0015 đường a). Trần 20 MB/file giữ nguyên.
 # Lối thoát có chủ ý: ghi `data-budget: <ly do>` vào commit message.
 #
 # ⚠️ ĐỪNG viết lại thành `BUDGET_WAIVER=$(grep -c ... || echo 0)` (lỗi đã dính
@@ -35,22 +38,6 @@ for f in $(git diff --cached --name-only --diff-filter=ACM | grep '^public/data/
   fi
 done
 
-# Chi dem thu GIT PHAI GANH: file da theo doi + file moi chua bi .gitignore loai.
-# KHONG dung `du -sb public/data` nua (2026-08-29): tu khi hai muc ban do nhe hon
-# duoc SINH LUC BUILD vao chinh thu muc nay (scripts/derive-map-tiers.mjs, da
-# .gitignore), `du` dem ca ~58 MB san pham build va chan MOI commit tren may vua
-# chay `npm run build`. Loi thoat duy nhat luc do la ghi `data-budget:` — tuc la
-# tu tay pha dung cai luat nay dung de bao ve.
-if [ -d public/data ]; then
-  DIR_SZ=$(git ls-files --cached --others --exclude-standard -- public/data 2>/dev/null \
-    | while IFS= read -r f; do [ -f "$f" ] && wc -c < "$f"; done \
-    | awk '{s+=$1} END {print s+0}')
-  if [ -n "$DIR_SZ" ] && [ "$DIR_SZ" -gt "$DATA_DIR_MAX" ] && [ "$BUDGET_WAIVER" -eq 0 ]; then
-    echo "BLOCK: public/data tong $((DIR_SZ / 1024 / 1024)) MB (phan git ganh), vuot tran 120 MB."
-    echo "       Buoc tiep theo la dua du lieu nang ra Vercel Blob, khong phai noi tran."
-    FAIL=1
-  fi
-fi
 
 
 exit $FAIL
