@@ -5,7 +5,7 @@ import { foldVn, guessIntent, loadNgram, NGRAM_BYTES } from "@/lib/sen-bien/ngra
 import { coordSpeech, findDests, findDestsGan, senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 
-const buf = readFileSync("public/data/sen-bien-ngram.v4.bin");
+const buf = readFileSync("public/data/sen-bien-ngram.v6.bin");
 const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
 
 const DESTS: SenDest[] = [

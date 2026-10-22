@@ -126,7 +126,7 @@ describe("tên loài giữ dấu", () => {
 });
 
 describe("n-gram v2 chọn loại câu hỏi, luật làm lưới (2026-10-16)", () => {
-  const buf = readFileSync("public/data/sen-bien-ngram.v4.bin");
+  const buf = readFileSync("public/data/sen-bien-ngram.v6.bin");
   const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
   const hoi = (cau: string) => {
     const r = senBienReply(cau, model, [], null, { awaitingGo: false, running: false, loaiCa: LOAI });
