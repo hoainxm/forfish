@@ -230,9 +230,10 @@ const THU_LAI_NGAY_MSG = "Máy chủ mở lại sau 7 giờ sáng mai, bà con t
     Lưới 6 lớp từ 2026-09-04: "rất cạn" nay là lớp 1 (mặt nạ rạn) + lớp 2
     (nước <2 m). */
 const DEST_DEPTH_WARN: Partial<Record<DepthClass, string>> = {
-  0: "Điểm này nằm trên bờ — theo bản đồ độ sâu của ứng dụng",
-  1: "Điểm này rất cạn hoặc bãi nổi — theo bản đồ độ sâu của ứng dụng",
-  2: "Điểm này rất cạn hoặc bãi nổi — theo bản đồ độ sâu của ứng dụng",
+  // ngắn, không câu giải thích (chủ dự án 2026-10-22: "ko cần hd quá nhiều") — màu cảnh báo đã nói đủ
+  0: "Trên bờ",
+  1: "Rất cạn / bãi nổi",
+  2: "Rất cạn / bãi nổi",
 };
 
 export function RouteMode({
@@ -511,7 +512,7 @@ export function RouteMode({
       điểm đến đều có thêm điểm tương tự nhau"): chỗ đang xem trên bản đồ ·
       điểm đã lưu · cảng · vị trí tàu. Trước đây "đi từ" thiếu hẳn "chỗ đang
       xem" — muốn xuất phát từ một chỗ ngoài biển là không có đường nào. */
-  const startOptions: { id: string; label: string; coord: LatLon | null }[] = [
+  const startOptions: { id: string; label: string; ngan?: string; coord: LatLon | null }[] = [
     {
       id: "cursor",
       label: `Điểm đang xem — ${fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}`,
@@ -535,6 +536,7 @@ export function RouteMode({
     {
       id: `port:${nearestPort.id}`,
       label: `Cảng ${nearestPort.name} — gần điểm đến nhất`,
+      ngan: `Cảng ${nearestPort.name}`,
       coord: { lat: nearestPort.lat, lon: nearestPort.lon },
     },
   ];
@@ -543,6 +545,7 @@ export function RouteMode({
       ? `place:${myPlaces.find((p) => p.kind === "home")!.id}`
       : `port:${nearestPort.id}`;
   const effectiveStartId = startId || defaultStartId;
+  const startChon = startOptions.find((o) => o.id === effectiveStartId);
   /** toạ độ nơi xuất phát ĐANG CHỌN — null với lựa chọn "định vị" (chưa biết) */
   const startCoord =
     startOptions.find((o) => o.id === effectiveStartId)?.coord ?? null;
@@ -1362,8 +1365,8 @@ export function RouteMode({
                   {stops.length > 1
                     ? `Lộ trình qua ${stops.length} điểm`
                     : stops.length === 1
-                      ? "Lộ trình tới điểm đã đánh dấu"
-                      : "Dẫn đường tới điểm đang xem"}
+                      ? "Lộ trình"
+                      : "Dẫn đường"}
                 </span>
                 <ChevronRightIcon
                   className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
@@ -1395,8 +1398,8 @@ export function RouteMode({
                   {stops.length > 1
                     ? `Lộ trình qua ${stops.length} điểm`
                     : stops.length === 1
-                      ? "Lộ trình tới điểm đã đánh dấu"
-                      : "Dẫn đường tới điểm đang xem"}
+                      ? "Lộ trình"
+                      : "Dẫn đường"}
                 </p>
                 {/*  KHÔNG in `ghimTomTat` ở đây nữa (2026-08-29h): hàng "Xoá
                      hết" ngay dưới đã mang đúng câu đó làm thân hàng, in cả
@@ -1605,19 +1608,19 @@ export function RouteMode({
             type="button"
             onClick={() => setPanel("start")}
             aria-expanded={false}
+            aria-label={`Điểm xuất phát: ${startChon?.label ?? "chưa chọn"}`}
             className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
           >
+            {/*  ĐI = chấm tròn RỖNG, ĐẾN = ghim ĐỎ — phân biệt bằng hình + màu + thứ tự như mọi app bản đồ,
+                 KHÔNG nhãn chữ "Điểm xuất phát / Chọn điểm đến" (chủ dự án 2026-10-22: "ko cần các text kiểu
+                 điểm đi điểm đến nó làm rối, tốn chỗ… con người quá quen với bản đồ rồi"). */}
             <span
-              className="h-3 w-3 shrink-0 rounded-full border-[3px] border-navy/60"
+              className="h-3.5 w-3.5 shrink-0 rounded-full border-[3px] border-navy bg-card"
               aria-hidden
             />
             <span className="min-w-0 flex-1">
-              <span className="block text-[0.8125rem] font-bold text-foreground/60">
-                Điểm xuất phát
-              </span>
               <span className="block truncate text-[1rem] font-bold text-navy">
-                {startOptions.find((o) => o.id === effectiveStartId)?.label ??
-                  "Chọn nơi xuất phát"}
+                {startChon ? (startChon.ngan ?? startChon.label) : "Chọn nơi xuất phát"}
               </span>
               {/*  TOẠ ĐỘ NƠI ĐI (2026-09-14): nhãn "Cảng nhà — Tam Quang" không
                    cho biết máy sẽ tính từ ĐÂU; câu lỗi nay bảo kiểm lại cả nơi
@@ -1807,11 +1810,13 @@ export function RouteMode({
               aria-expanded={false}
               className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
             >
-              <PlusIcon className="h-6 w-6 shrink-0" />
+              {stops.length === 0 ? (
+                <PinIcon className="h-6 w-6 shrink-0 text-trim" aria-hidden />
+              ) : (
+                <PlusIcon className="h-6 w-6 shrink-0" aria-hidden />
+              )}
+              <span className="sr-only">{stops.length === 0 ? "Chọn điểm đến" : "Thêm điểm dừng"}</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate">
-                  {stops.length === 0 ? "Chọn điểm đến" : "Thêm điểm dừng"}
-                </span>
                 {/*  DÒNG TOẠ ĐỘ SỐNG THEO CON TRỎ — chạm bản đồ trong chế độ
                      dẫn đường chỉ dời con trỏ, trước đây KHÔNG đổi một chữ nào
                      trong thẻ (phản hồi duy nhất là chip toạ độ 0,75rem tận
@@ -1823,8 +1828,8 @@ export function RouteMode({
                      TRỎ, không phải điểm đến đã thêm. Thiếu nhãn thì toạ độ con
                      trỏ + cảnh báo "trên bờ" dưới nó bị đọc nhầm là của điểm
                      đến (đúng chuyện đã xảy ra với ảnh lỗi Tam Quang). */}
-                <span className="block leading-snug text-[0.8125rem] font-bold text-foreground/60">
-                  Chỗ đang xem: {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
+                <span className="block truncate leading-snug text-[1rem] font-bold text-navy tabular-nums">
+                  {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
                 </span>
                 {/*  DÒNG RIÊNG, KHÔNG nối vào dòng toạ độ: dòng đó có
                      `truncate`, nối thêm là câu cảnh báo bị cắt mất đuôi trên
