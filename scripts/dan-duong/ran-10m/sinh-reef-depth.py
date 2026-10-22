@@ -23,7 +23,7 @@ KM_LAT = 111.32
 CAP_DM = 253  # 25,3 m
 
 tv = json.load(open(os.path.join(D, "ten-viet.json")))
-khop = {(r["bo"], str(r["id"])): r for r in tv["ran"] if r["trangThai"] == "khop"}
+khop = {(r["bo"], str(r["id"])): r for r in tv["ran"] if r["trangThai"] in ("khop", "ten-chung")}
 log("thực thể đã khớp tên:", len(khop))
 
 def nhom_cua(lat, lon):
@@ -113,6 +113,15 @@ try:
 except Exception as e:
     log("SCSBathy10 lỗi:", e)
 
+# ── Bước 5 LUAT-RA-SOAT-TEN.md: không tên nước ngoài lọt ra sản phẩm — vi phạm thì DỪNG, không ghi file ──
+import re
+CAM = re.compile(r"\b(Dao|Jiao|Tan|Ansha|Shazhou|Qunjiao|Reef|Reefs|Island|Islands|Shoal|Bank|Banks|Atoll|Cay)\b")
+HAN = re.compile(r"[\u4e00-\u9fff]")
+MO_DAU = ("Đảo", "Đá", "Bãi", "Cồn", "Cụm", "Hòn")
+vi_pham = [f["ten"] for f in fs if HAN.search(f["ten"]) or CAM.search(f["ten"]) or not f["ten"].startswith(MO_DAU)]
+if vi_pham:
+    log("DỪNG — tên vi phạm luật (có tên nước ngoài / không bắt đầu bằng loại):", vi_pham)
+    sys.exit(2)
 out = {
     "v": 1, "sinh": time.strftime("%Y-%m-%dT%H:%M:%S"), "datum": "MSL", "donVi": "dm (0–253; 254 = sâu hơn 25,3 m; 255 = không số)",
     "buocM": STEP_M, "quyUoc": "mỗi ô = độ sâu NÔNG NHẤT trong ô (min-pool) — lớp tham khảo, không thay hải đồ",
@@ -131,7 +140,7 @@ tom = {
     "theoNhom": {k: sum(1 for f in fs if f["nhom"] == k) for k in ("hoang-sa", "truong-sa", "scarborough")},
     "tongOCoSo": int(sum(f["oCoSo"] for f in fs)), "kichThuocByte": size,
     "nongNhat": sorted(({"ten": f["ten"], "nguon": f["nguon"], "m": f["nongNhatM"]} for f in fs if f["nongNhatM"] is not None), key=lambda x: x["m"])[:15],
-    "tenDuyNhat": sorted({f["ten"] for f in fs}),
+    "tenDuyNhat": sorted({f["ten"] for f in fs}), "tenChung": sorted({f["ten"] for f in fs if "chưa định danh" in f["ten"]}),
 }
 json.dump(tom, open(os.path.join(RA, "reef-depth.tom-tat.json"), "w"), ensure_ascii=False, indent=1)
 md = [f"# reef-depth.v1 — sinh {out['sinh']} (CHƯA PHÁT HÀNH, nằm ngoài repo)", "",

@@ -31,9 +31,19 @@ const NGUONG_BANG_KM = 20;
        đảo không bao giờ được ghép bằng đường này.
     3. Còn lại: cần người. Sai một tên là sai chủ quyền — thà để trống. */
 const NGUONG_TOA_DO_KM = 3;
+/*  QUYẾT ĐỊNH NGƯỜI/AGENT THEO LUẬT (LUAT-RA-SOAT-TEN.md) — đọc TRƯỚC mọi phép ghép tự động. "ten-rieng" ⇒ khớp;
+    "ten-chung" ⇒ vào sản phẩm với tên chung ("Đá chưa định danh (cụm Nam Yết)"), không bao giờ để tên nguồn. */
+const qdF = path.join(REPO, "scripts/dan-duong/ran-10m/quyet-dinh-ten.json");
+const quyetDinh = new Map((existsSync(qdF) ? JSON.parse(readFileSync(qdF, "utf8")) : []).map((q) => [`${q.bo}|${q.id}`, q]));
 const out = idx.map((r) => {
   const p = { lat: r.tamLat, lon: r.tamLon };
   const row = { bo: r.bo, id: r.id, tenGoc: r.tenGoc, tamLat: r.tamLat, tamLon: r.tamLon, diem: r.diem, tenViet: null, cach: null, khoangKm: null, trangThai: "can-nguoi", ghi: null };
+  const q = quyetDinh.get(`${r.bo}|${r.id}`);
+  if (q?.tenViet) {
+    row.tenViet = q.tenViet; row.cach = `quyet-dinh-${q.bac ?? "?"}`; row.ghi = q.lyDo ?? null;
+    row.trangThai = q.quyetDinh === "ten-rieng" ? "khop" : "ten-chung";
+    return row;
+  }
   if (p.lat < 6.5 || (p.lat > 19 && p.lon > 116)) { row.trangThai = "ngoai-pham-vi"; return row; }
   // 1. bảng tra theo tên
   const k = chuan(r.tenGoc);
@@ -58,6 +68,6 @@ const out = idx.map((r) => {
 });
 writeFileSync(outF, JSON.stringify({ luc: new Date().toISOString(), n: out.length, khop: out.filter((r) => r.trangThai === "khop").length, ran: out }, null, 1));
 const canNguoi = out.filter((r) => r.trangThai === "can-nguoi");
-console.log(`ngoài phạm vi (Luconia/Đông Sa): ${out.filter((r) => r.trangThai === "ngoai-pham-vi").length}`);
+console.log(`ngoài phạm vi (Luconia/Đông Sa): ${out.filter((r) => r.trangThai === "ngoai-pham-vi").length} · tên chung: ${out.filter((r) => r.trangThai === "ten-chung").length}`);
 console.log(`ghép tên: ${out.filter((r) => r.trangThai === "khop").length}/${out.length} khớp · ${canNguoi.length} cần người:`);
 for (const r of canNguoi) console.log(`  ${r.bo} ${r.id} "${r.tenGoc}" ${r.tamLat.toFixed(3)},${r.tamLon.toFixed(3)} ${r.cach ?? "-"} ${r.tenViet ?? ""} ${r.ghi ?? ""}`);
