@@ -28,6 +28,9 @@ const out = idx.map((r) => {
   let best = null;
   for (const f of reefs) { const d = km(p, f); if (!best || d < best.d) best = { f, d }; }
   const row = { bo: r.bo, id: r.id, tenGoc: r.tenGoc, tamLat: r.tamLat, tamLon: r.tamLon, diem: r.diem, tenViet: null, cach: null, khoangKm: best ? +best.d.toFixed(1) : null, trangThai: "can-nguoi" };
+  /*  NGOÀI PHẠM VI: cụm Luconia / thềm Borneo (vĩ độ < 6,5°) và Đông Sa (Pratas, > 19° B phía đông) không thuộc hai quần
+      đảo của Việt Nam — bộ dữ liệu có, app không dùng, không cần tên Việt. Giữ dòng để đếm, không vào sản phẩm. */
+  if (p.lat < 6.5 || (p.lat > 19 && p.lon > 116)) { row.trangThai = "ngoai-pham-vi"; return row; }
   if (best && best.d <= NGUONG_KM) { row.tenViet = best.f.ten; row.cach = "toa-do"; row.trangThai = "khop"; }
   else {
     /*  Bảng tra: khớp tên quốc tế / pinyin ĐẦY ĐỦ (có hậu tố Dao/Jiao/Tan — pinyin trần như Bei/Nan/Zhong trùng
@@ -41,6 +44,7 @@ const out = idx.map((r) => {
   return row;
 });
 writeFileSync(outF, JSON.stringify({ luc: new Date().toISOString(), n: out.length, khop: out.filter((r) => r.trangThai === "khop").length, ran: out }, null, 1));
-const canNguoi = out.filter((r) => r.trangThai !== "khop");
-console.log(`ghép tên: ${out.length - canNguoi.length}/${out.length} khớp · ${canNguoi.length} cần người:`);
+const canNguoi = out.filter((r) => r.trangThai === "can-nguoi");
+console.log(`ngoài phạm vi (Luconia/Đông Sa): ${out.filter((r) => r.trangThai === "ngoai-pham-vi").length}`);
+console.log(`ghép tên: ${out.filter((r) => r.trangThai === "khop").length}/${out.length} khớp · ${canNguoi.length} cần người:`);
 for (const r of canNguoi) console.log(`  ${r.bo} ${r.id} "${r.tenGoc}" ${r.tamLat},${r.tamLon} gần nhất ${r.khoangKm} km`);
