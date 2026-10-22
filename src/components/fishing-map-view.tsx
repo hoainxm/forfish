@@ -329,6 +329,8 @@ import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import type { NavInfoLine } from "@/lib/nav-context";
 import {
   computeNavProgress,
+  tocDoMuot,
+  type TocDoMuot,
   etaHours,
   MIN_MOVING_KMH,
   offRouteStepCrossed,
@@ -2932,18 +2934,33 @@ export default function FishingMapView() {
   useEffect(() => {
     trackingSpeedRef.current = tracking.speedKmh;
   }, [tracking.speedKmh]);
-  const navProgress = useMemo(
-    () =>
-      navMode && tracking.pos
-        ? computeNavProgress({
-            pos: tracking.pos,
-            headingDeg: tracking.headingDeg,
-            speedKmh: tracking.speedKmh,
-            waypoints: navMode.plan.waypoints,
-          })
-        : null,
-    [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh],
-  );
+  /*  Hai mẩu TRẠNG THÁI THEO NHỊP FIX, cập nhật trong effect chứ KHÔNG trong lúc render (lint react-compiler
+      2026-10-22: "Cannot access refs during render" — bản vòng GPU ghi ref trong useMemo). Mỗi fix tới: effect
+      cập nhật tốc độ mượt (EMA 60 s) + ghi đoạn tuyến vừa chiếu; render kế đọc state mới. Trễ đúng một nhịp
+      render (~ms), không phải một nhịp GPS. */
+  /** đoạn tuyến ở fix trước — để chiếu tuyến có trễ, tuyến vòng về không nhảy đoạn */
+  const [navSeg, setNavSeg] = useState(0);
+  /** tốc độ làm mượt 60 s cho giờ tới — sóng lắc không làm ETA nhảy */
+  const [navEtaSpeed, setNavEtaSpeed] = useState<TocDoMuot | null>(null);
+  useEffect(() => {
+    if (!navMode || !tracking.pos) return;
+    const t = tracking.lastFixAt ?? Date.now();
+    setNavEtaSpeed((prev) => tocDoMuot(prev, tracking.speedKmh, t));
+  }, [navMode, tracking.pos, tracking.speedKmh, tracking.lastFixAt]);
+  const navProgress = useMemo(() => {
+    if (!navMode || !tracking.pos) return null;
+    return computeNavProgress({
+      pos: tracking.pos,
+      headingDeg: tracking.headingDeg,
+      speedKmh: navEtaSpeed?.kmh ?? null,
+      waypoints: navMode.plan.waypoints,
+      segHint: navSeg,
+    });
+  }, [navMode, tracking.pos, tracking.headingDeg, navEtaSpeed, navSeg]);
+  const navProgressSeg = navProgress?.segIdx;
+  useEffect(() => {
+    if (navProgressSeg != null) setNavSeg(navProgressSeg);
+  }, [navProgressSeg]);
 
   /*  CÒN BAO XA / BAO LÂU TỚI CHỖ GHÉ KẾ TIẾP (2026-08-29g). Dòng tổng của
       HUD nói tới ĐÍCH CUỐI — đi 3 chỗ mà chỉ thấy "còn 491 hải lý" thì bà con

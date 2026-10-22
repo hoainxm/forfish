@@ -122,14 +122,37 @@ const okLatLon = (lat: unknown, lon: unknown): boolean =>
  * Độ sâu nước tàu cần để qua: mớn + 0,5 m hở đáy + ½·min(Hs, 3) m cho sóng
  * (BA chốt mặc định 2026-09-04). Không biết mớn → null, và mọi câu mớn phải IM.
  * Không biết sóng → coi Hs = 0 (vẫn còn 0,5 m hở).
+ * Có `speedKn` thì cộng thêm lún đuôi (squat) phần vượt 6 hải lý/giờ:
+ * Cb·(V² − 6²)/100, Cb 0,6 (Barrass rút gọn cho tàu cá). Dưới 6 hải lý/giờ
+ * squat đã nằm trong 0,5 m hở; 12 hải lý/giờ thêm ≈ 0,65 m. Bỏ trống/hỏng ⇒ 0.
  */
+export const SQUAT_CB = 0.6;
+export const SQUAT_V0_KN = 6;
+export function squatM(speedKn: number | null | undefined): number {
+  if (!finite(speedKn) || speedKn <= SQUAT_V0_KN) return 0;
+  return (SQUAT_CB * (speedKn * speedKn - SQUAT_V0_KN * SQUAT_V0_KN)) / 100;
+}
+
 export function requiredDepthM(
   draftM: number | null,
   waveM: number | null,
+  speedKn?: number | null,
 ): number | null {
   if (!finite(draftM) || draftM <= 0) return null;
   const hs = finite(waveM) && waveM > 0 ? Math.min(waveM, 3) : 0;
-  return Math.round((draftM + 0.5 + 0.5 * hs) * 100) / 100;
+  return Math.round((draftM + 0.5 + 0.5 * hs + squatM(speedKn)) * 100) / 100;
+}
+
+/**
+ * Độ sâu nước lúc t (m, dương xuống) từ lưới độ sâu MỰC TRUNG BÌNH (ETOPO/GEBCO,
+ * zMslM âm dưới mặt) và mực triều hTrieuM so SỐ 0 HẢI ĐỒ. Mực trung bình nằm
+ * cao hơn số 0 một khoảng z0M, nên mặt nước lúc t so MSL là (hTrieuM − z0M):
+ * sâu = −zMslM + (hTrieuM − z0M). Cộng thẳng hTrieuM vào lưới là cộng thừa z0M
+ * (Vũng Tàu ≈ 2,9 m). Số không hữu hạn ⇒ NaN, người gọi tự về trần tĩnh.
+ */
+export function doSauLucT(zMslM: number, hTrieuM: number, z0M: number): number {
+  if (!finite(zMslM) || !finite(hTrieuM) || !finite(z0M)) return NaN;
+  return -zMslM + (hTrieuM - z0M);
 }
 
 /* ── DỰNG DANH SÁCH ──────────────────────────────────────────────────────── */
