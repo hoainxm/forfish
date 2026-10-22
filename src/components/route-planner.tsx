@@ -1340,10 +1340,10 @@ export function RouteMode({
             aria-label={
               panel === "idle" ? "Thoát chế độ dẫn đường" : "Quay lại danh sách điểm"
             }
-            className={`${SQ_TILE} bg-navy/10 text-navy`}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-[0.97] bg-navy/10 text-navy"
           >
+            {/* chỉ icon (chủ dự án 2026-10-22: "gọn thêm đi") — nghĩa đủ ở aria-label */}
             <ChevronLeftIcon className="h-6 w-6" />
-            {panel === "idle" ? "Thoát" : "Quay lại"}
           </button>
           <div className="min-w-0 flex-1">
             {/*  Có kết quả rồi thì TIÊU ĐỀ LÀ NÚT mở lại danh sách điểm — có
@@ -1424,12 +1424,11 @@ export function RouteMode({
             onClick={() => setPanel(panel === "boat" ? "idle" : "boat")}
             aria-expanded={panel === "boat"}
             aria-label={`Thông số hành trình — tàu chạy ${speedKn} hải lý/giờ, tiêu thụ ${lph} lít dầu/giờ`}
-            className={`${SQ_TILE} ${
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-[0.97] ${
               panel === "boat" ? "bg-t1 text-white" : "bg-navy/10 text-t1"
             }`}
           >
             <FuelIcon className="h-6 w-6" />
-            Tuỳ chọn
           </button>
           {/*  MỘT Ô HÀNH ĐỘNG, LUÔN LÀ VIỆC KẾ TIẾP (2026-08-29g, mở rộng
                2026-08-29h). Ban đầu nút "Tính đường" nằm trong một DẢI GHIM ĐÁY
@@ -1453,9 +1452,9 @@ export function RouteMode({
             <button
               type="button"
               onClick={() => onStart(result)}
-              className={`${SQ_TILE} bg-t1 text-white`}
+              className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[0.9375rem] font-bold transition active:scale-[0.97] bg-t1 text-white"
             >
-              <PlayIcon className="h-6 w-6" />
+              <PlayIcon className="h-5 w-5" />
               Dẫn đường
             </button>
           ) : (
@@ -1463,10 +1462,11 @@ export function RouteMode({
               type="button"
               onClick={() => void compute()}
               disabled={busy}
-              className={`${SQ_TILE} bg-t1 text-white disabled:opacity-60`}
+              aria-label={busy ? "Đang tính lộ trình" : plan ? "Tính lại lộ trình" : "Tính lộ trình"}
+              className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[0.9375rem] font-bold transition active:scale-[0.97] bg-t1 text-white disabled:opacity-60"
             >
-              <RouteIcon className="h-6 w-6" />
-              {busy ? "Đang tính toán" : plan ? "Tính lại" : "Tính lộ trình"}
+              <RouteIcon className="h-5 w-5" />
+              {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
             </button>
           )}
           </div>
