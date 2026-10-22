@@ -165,6 +165,30 @@ Luật viết thành văn: [`scripts/dan-duong/ran-10m/LUAT-RA-SOAT-TEN.md`](../
 
 Cổng bước 5 bắt được một ca giả: "Đá Tốc Tan" (tên Việt thật) dính chữ "Tan" — đã bỏ "Tan"/"Nan" khỏi danh sách hậu tố, ghi lý do trong luật. Vẫn **chưa phát hành** — file ở GPU; thứ tự phát hành như §6.5.
 
+### 6.7 "Cái nào lệch thì ghi tên chung" (anh Long, 12:58) — reef-depth.v1 bản 3
+
+Luật máy móc trong `ten-viet.mjs` (LUAT §3b): **lệch = toạ độ của tên nằm ngoài chân hình dữ liệu** (hộp bao thực thể nở 1 km; không hộp bao thì > 5 km). Lượt đầu tôi ép thêm "đúng loại theo hậu tố nguồn" và hạ oan 35 tên đúng (Việt Nam gọi theo cồn nổi: Đảo Phan Vinh = "Pearson Reef", Bãi Cỏ Mây = "Second Thomas Shoal") ⇒ bỏ ép loại, chỉ xét vị trí. Lỗi thứ hai tìm ra nhờ luật này: chỉ mục HHU24 gán toàn bộ 29,4 M điểm vào bản ghi hỏng (tâm NaN) ⇒ hộp bao rỗng ⇒ Đá Chữ Thập, Bãi Cỏ Mây bị "lệch" giả — đã sửa.
+
+| reef-depth.v1 | bản 2 | **bản 3 (12:58)** |
+|---|---|---|
+| Thực thể | 169 | **169** |
+| Tên Việt duy nhất | 128 (10 chung) | **124 (18 chung)** |
+| Đổi sang tên chung vì lệch | — | **8** |
+| Kích thước | 6,98 MB / 0,64 MB gzip | 6,97 MB / 0,64 MB gzip |
+
+Tám dòng bị hạ vì lệch (tên từng gợi ý giữ trong `ghi` để sau có bằng chứng thì nâng lại):
+- 12:58:14 xong 277 dòng → /home/long/.local/forlife/train/dan-duong/ran-10m/ran-10m.index.json
+- 69 → Đá chưa định danh (Trường Sa) — lệch: toạ độ tên nằm ngoài chân hình dữ liệu (cách tâm 4.1 km) — từng gợi ý "Đá Bãi Khung"
+- 72 → Đá chưa định danh (Trường Sa) — lệch: toạ độ tên nằm ngoài chân hình dữ liệu (cách tâm 4.7 km) — từng gợi ý "Đảo Sinh Tồn Đông"
+- 87 → Đá chưa định danh (Trường Sa) — lệch: toạ độ tên nằm ngoài chân hình dữ liệu (cách tâm 1.9 km) — từng gợi ý "Đá Mỏ Vịt"
+- 90 → Đá chưa định danh (Trường Sa) — lệch: toạ độ tên nằm ngoài chân hình dữ liệu (cách tâm 6.0 km) — từng gợi ý "Đá Định Tường"
+- 92 → Đá chưa định danh (Trường Sa) — lệch: toạ độ tên nằm ngoài chân hình dữ liệu (cách tâm 5.5 km) — từng gợi ý "Đá Ninh Cơ"
+- 100 → Bãi chưa định danh (Trường Sa) — lệch: toạ độ tên nằm ngoài chân hình dữ liệu (cách tâm 0.5 km) — từng gợi ý "Bãi Trăng Khuyết"
+- 12:58:50 HHU24 → 113 thực thể
+- 12:58:52 SCSBathy10 → 56 thực thể
+
+Vẫn **chưa phát hành** — file ở GPU `~/.local/forlife/train/dan-duong/ran-10m/ra/reef-depth.v1.json`.
+
 ## Assumptions
 
 - "Đo thật" trong TID = mã 10–17 (đo trực tiếp) + 44 (hải đồ số hoá); 40 = nội suy trọng lực vệ tinh; lidar = 15, hải đồ = 42–44 (D sửa lại nhóm "40–47" sai trong đề bài).

@@ -1,5 +1,5 @@
 {
- "sinh": "2026-10-22T11:23:48",
+ "sinh": "2026-10-22T12:58:52",
  "soThucThe": 169,
  "theoNguon": {
   "HHU24SWDSCS": 113,
@@ -11,7 +11,7 @@
   "scarborough": 1
  },
  "tongOCoSo": 595895,
- "kichThuocByte": 6975107,
+ "kichThuocByte": 6975271,
  "nongNhat": [
   {
    "ten": "Cồn Cát Tây",
@@ -104,9 +104,9 @@
   "Bãi Thuyền Chài",
   "Bãi Thám Hiểm",
   "Bãi Thủy Tề",
-  "Bãi Trăng Khuyết",
   "Bãi Vĩnh Tuy",
   "Bãi Xà Cừ",
+  "Bãi chưa định danh (Trường Sa)",
   "Bãi chưa định danh (cụm Song Tử)",
   "Bãi cạn Scarborough",
   "Bãi Đinh Ba",
@@ -122,9 +122,7 @@
   "Hòn Tháp",
   "Nhóm Lưỡi Liềm",
   "Đá An Nhơn",
-  "Đá Ba Cờ",
   "Đá Ba Đầu",
-  "Đá Bãi Khung",
   "Đá Bình Khê",
   "Đá Bình Sơn",
   "Đá Bông Bay",
@@ -154,10 +152,8 @@
   "Đá Lát",
   "Đá Lồi",
   "Đá Lớn",
-  "Đá Mỏ Vịt",
   "Đá Nam",
   "Đá Nghĩa Hành",
-  "Đá Ninh Cơ",
   "Đá Ninh Hòa",
   "Đá Núi Le",
   "Đá Núi Thị",
@@ -180,12 +176,12 @@
   "Đá Văn Nguyên",
   "Đá Vĩnh Hảo",
   "Đá Xu Bi",
+  "Đá chưa định danh (Trường Sa)",
   "Đá chưa định danh (cụm Sinh Tồn)",
   "Đá chưa định danh (nhóm An Vĩnh)",
   "Đá Én Ca",
   "Đá Én Đất",
   "Đá Đông",
-  "Đá Định Tường",
   "Đá Đức Hòa",
   "Đảo Ba Ba",
   "Đảo Ba Bình",
@@ -220,9 +216,11 @@
   "Đảo Ốc Hoa"
  ],
  "tenChung": [
+  "Bãi chưa định danh (Trường Sa)",
   "Bãi chưa định danh (cụm Song Tử)",
   "Cồn cát chưa định danh (nhóm Lưỡi Liềm)",
   "Cụm đá chưa định danh (cụm Bình Nguyên)",
+  "Đá chưa định danh (Trường Sa)",
   "Đá chưa định danh (cụm Sinh Tồn)",
   "Đá chưa định danh (nhóm An Vĩnh)",
   "Đảo chưa định danh (Hoàng Sa)",
