@@ -37,11 +37,11 @@ Toạ độ luôn đi kèm ở trường riêng, không nhét vào tên. Tên ch
 
 ## Bước 3b — "Cái nào LỆCH thì ghi tên chung" (anh Long 2026-10-22, áp máy móc trong `ten-viet.mjs`)
 
-Sau mọi phép ghép (kể cả quyết định người/agent), dòng nào **lệch** thì tự đổi sang tên chung, ghi lại tên từng gợi ý trong `ghi` để sau này ai có bằng chứng thì nâng lên:
-- **lệch khoảng cách**: thực thể điểm mà tâm bộ dữ liệu cách toạ độ của tên > 5 km (bảng tra 20 km chỉ để TÌM ứng viên);
-- **lệch loại**: hậu tố nguồn nói Island/Sand/Reef/Shoal mà tên Việt lại là Đá/Đảo/Cồn/Bãi khác loại (chỉ Bãi↔Cụm được coi khớp vì "Bank" hay là cả cụm);
-- thực thể là cả **cụm** (Cụm/Nhóm) không xét khoảng cách — tên cụm đúng bản chất.
-Hệ quả chấp nhận: vài tên đúng thật (Đảo Sơn Ca từ "… Sand", Bei Reef → Cồn Cát Bắc) cũng về tên chung cho tới khi có bằng chứng loại khớp. Lớp độ sâu cần vị trí và số, không cần tên.
+Sau mọi phép ghép (kể cả quyết định người/agent), dòng nào **lệch vị trí** thì tự đổi sang tên chung, ghi lại tên từng gợi ý trong `ghi`:
+- **Lệch** = toạ độ của TÊN (bảng tra / coral-reefs) nằm **ngoài chân hình** của bộ dữ liệu (hộp bao thực thể nở 1 km); không có hộp bao thì > 5 km tới tâm. Rạn vòng dài 20 km (Chữ Thập, Cỏ Mây) không bị oan vì điểm tên nằm trong chân hình.
+- **Không ép loại theo hậu tố nguồn**: Việt Nam gọi theo cồn nổi (Đảo Phan Vinh = "Pearson Reef", Đảo Sinh Tồn Đông = "Grierson Reef", Bãi Cỏ Mây = "Second Thomas Shoal") — ép Reef = Đá thì mất đúng những tên đúng. Loại chỉ dùng để đặt TÊN CHUNG.
+- Tên chung máy đặt: "<Loại> chưa định danh (Hoàng Sa | Trường Sa)" — không đoán cụm.
+Lượt đầu (12:54) thử ép cả loại: 35 tên đúng bị hạ oan (Đảo Sơn Ca, Bãi Thuyền Chài, Đảo Tri Tôn…) ⇒ bỏ.
 
 ## Bước 4 — Hồ sơ quyết định
 
