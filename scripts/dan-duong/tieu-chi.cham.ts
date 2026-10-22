@@ -166,6 +166,14 @@ describe("B — độ sâu · mớn · triều", () => {
       so: { tramCoZ0: coZ0, soTram: st.length }, ghi: "lưới độ sâu là MSL (ETOPO/GEBCO); mực triều so số 0 ⇒ độ sâu lúc t = z_MSL + (h(t) − z0). Chưa có hàm nào làm phép này" });
   });
 
+  it("B8 rạn có độ sâu ước lượng (kiểm độ sâu rạn trên GPU) và luật chặn phân biệt rạn sâu ≥ 20 m", () => {
+    // kiem-do-sau-ran.mjs ra ứng viên rạn sâu; khi anh Long chốt (doc §7 Q3) thì public/data/reef-depth.v1.json ra đời
+    // và route-plan đọc nó. Chưa có file ⇒ chưa đo. Có file ⇒ tiêu chí đo: xác tàu 31 m giữa biển KHÔNG còn chặn cứng.
+    const co = fs.existsSync(path.join(ROOT, "public/data/reef-depth.v1.json"));
+    ghi({ id: "B8", nhom: "B độ sâu", ten: "Rạn/xác tàu sâu ≥ 20 m không chặn cứng (có nguồn độ sâu rạn)", bac: "C", diem: 0, dat: false, trangThai: "chua-do",
+      so: { coFileDoSauRan: co }, ghi: "hình rạn OSM/ACA không mang độ sâu; mô hình 450 m sai tại rạn — xem .dan-duong/kiem-do-sau-ran.md (chạy trên GPU)" });
+  });
+
   it("B7 lớp 4 (4–12 m) + sóng 2,6 m → nâng mức 'không nên đi' (sóng vỡ nước nông)", () => {
     const g = luoiSauHet();
     toChuNhat(g, { latMin: 9.0, latMax: 11.0, lonMin: 110.3, lonMax: 111.1 }, CO.l4);
