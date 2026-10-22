@@ -24,6 +24,7 @@ import {
   type WeatherField,
 } from "@/lib/route-plan";
 import { packHazards, type Hazard, type HazardPacked } from "@/lib/hazards";
+import { distToSegmentKm } from "@/lib/route-storm";
 
 export const ROOT = path.resolve(__dirname, "../..");
 /** thư mục kết quả — ngoài git (.gitignore), đổi bằng DAN_DUONG_OUT */
@@ -138,15 +139,8 @@ export const goi = (hs: Hazard[]): HazardPacked => packHazards(hs);
 
 // ── hình học đo đạc trên tuyến ────────────────────────────────────────────
 
-export function distToSegmentKm(p: LatLon, a: LatLon, b: LatLon): number {
-  const kx = 111.32 * Math.cos((p.lat * Math.PI) / 180);
-  const ax = (a.lon - p.lon) * kx, ay = (a.lat - p.lat) * 111.32;
-  const bx = (b.lon - p.lon) * kx, by = (b.lat - p.lat) * 111.32;
-  const dx = bx - ax, dy = by - ay;
-  const l2 = dx * dx + dy * dy;
-  const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2));
-  return Math.hypot(ax + t * dx, ay + t * dy);
-}
+// dùng lại bản có sẵn (NT15 §3 — không đẻ bản hai)
+export { distToSegmentKm } from "@/lib/route-storm";
 
 /** khoảng cách nhỏ nhất từ điểm tới polyline tuyến (km) */
 export function khoangToiTuyen(p: LatLon, wps: LatLon[]): number {
