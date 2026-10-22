@@ -23,6 +23,9 @@ try:
     ds = Dataset(os.path.join(G, "HHU24SWDSCS.nc"))
     ten = ["".join(x.decode("latin1") if isinstance(x, bytes) else str(x) for x in r).strip("\x00 \t") for r in ds["islandName"][:]]
     ilat, ilon = np.asarray(ds["islandLat"][:], float), np.asarray(ds["islandLon"][:], float)
+    # bản ghi hỏng trong nguồn (báo cáo D: "Zhanhan Band\t16.42"): lat > 30 là tráo lat/lon; NaN giữ NaN → ten-viet bỏ qua
+    trao = ilat > 30
+    ilat[trao], ilon[trao] = ilon[trao], ilat[trao]
     lat, lon, dep = (np.asarray(ds[v][:], float) for v in ("latitude", "longitude", "depth"))
     # bẫy lat/lon (báo cáo A): nếu "latitude" nằm ngoài 0–25 thì hai biến bị tráo
     if np.nanmax(np.abs(lat)) > 30: lat, lon = lon, lat
@@ -42,8 +45,13 @@ try:
 except Exception as e:
     log("HHU24 lỗi:", e)
 
-# 2. SCSBathy10 — 66 file lưới + Island Name.csv
+# 2. SCSBathy10 — 66 file lưới + Island Name.csv (giải nén bằng zipfile: máy không có unzip)
 try:
+    import zipfile
+    zdir = os.path.join(G, "scsbathy10")
+    if not glob.glob(os.path.join(zdir, "**", "*.nc"), recursive=True) and os.path.exists(os.path.join(G, "Products.zip")):
+        with zipfile.ZipFile(os.path.join(G, "Products.zip")) as zf: zf.extractall(zdir)
+        log("giải nén SCSBathy10 bằng zipfile")
     names = {}
     for p in glob.glob(os.path.join(G, "scsbathy10", "**", "*.csv"), recursive=True):
         with open(p, encoding="utf-8-sig", errors="replace") as f:
@@ -69,12 +77,24 @@ except Exception as e:
 # 3. LGMM — một file lớn, nhiều rạn: liệt kê biến/chiều rồi tách theo nhóm toạ độ (DBSCAN thô theo ô 0,25°)
 try:
     p = os.path.join(G, "lgmm_depth_uncertainty.nc"); ds = Dataset(p)
-    log("LGMM biến:", list(ds.variables)[:12], "chiều:", {k: len(v) for k, v in ds.dimensions.items()})
-    rows.append({"bo": "LGMM", "id": "meta", "tenGoc": None, "bien": list(ds.variables), "chieu": {k: len(v) for k, v in ds.dimensions.items()}})
+    att = {k: str(ds.getncattr(k)) for k in ds.ncattrs()}
+    log("LGMM root attrs:", att)
+    # Đo 2026-10-22: 82 group Region_NNN, biến y/x là CHỈ SỐ PIXEL, không có lat/lon, không CRS ⇒ không định vị được
+    # nếu Zenodo không kèm file toạ độ riêng. Ghi meta từng group để lead quyết; KHÔNG bịa toạ độ.
+    for gname, g in ds.groups.items():
+        z = g["bottom_elevation_msl"]
+        rows.append({"bo": "LGMM", "id": gname, "tenGoc": None, "khongToaDo": True, "shape": list(z.shape),
+                     "attrs": {k: str(g.getncattr(k)) for k in g.ncattrs()}})
+    rows.append({"bo": "LGMM", "id": "meta", "tenGoc": None, "attrs": att, "soGroup": len(ds.groups)})
 except Exception as e:
     log("LGMM lỗi:", e)
 
-json.dump({"luc": time.strftime("%Y-%m-%dT%H:%M:%S"), "n": len(rows), "ran": rows}, open(os.path.join(D, "ran-10m.index.json"), "w"), ensure_ascii=False, indent=1)
+def sach(o):
+    if isinstance(o, float): return None if not np.isfinite(o) else o
+    if isinstance(o, dict): return {k: sach(v) for k, v in o.items()}
+    if isinstance(o, list): return [sach(v) for v in o]
+    return o
+json.dump(sach({"luc": time.strftime("%Y-%m-%dT%H:%M:%S"), "n": len(rows), "ran": rows}), open(os.path.join(D, "ran-10m.index.json"), "w"), ensure_ascii=False, indent=1, allow_nan=False)
 with open(os.path.join(D, "ran-10m.index.md"), "w") as f:
     f.write("| bộ | id | tên gốc | tâm | điểm/pixel | sâu min/med/max |\n|---|---|---|---|---|---|\n")
     for r in rows:

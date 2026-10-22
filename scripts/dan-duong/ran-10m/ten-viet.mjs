@@ -25,9 +25,13 @@ const out = idx.map((r) => {
   const row = { bo: r.bo, id: r.id, tenGoc: r.tenGoc, tamLat: r.tamLat, tamLon: r.tamLon, diem: r.diem, tenViet: null, cach: null, khoangKm: best ? +best.d.toFixed(1) : null, trangThai: "can-nguoi" };
   if (best && best.d <= NGUONG_KM) { row.tenViet = best.f.ten; row.cach = "toa-do"; row.trangThai = "khop"; }
   else {
+    /*  Bảng tra: khớp tên quốc tế / pinyin ĐẦY ĐỦ (có hậu tố Dao/Jiao/Tan — pinyin trần như Bei/Nan/Zhong trùng
+        nhiều thực thể, cảnh báo của agent dựng bảng) VÀ toạ độ bảng cách tâm ≤ 8 km. Thiếu một trong hai ⇒ cần người. */
     const k = chuan(r.tenGoc);
-    const b = bang.find((x) => [x.en, ...(x.khac ?? [])].some((n) => chuan(n) === k));
-    if (b?.vi) { row.tenViet = b.vi; row.cach = "bang-tra"; row.trangThai = b.duyet ? "khop" : "can-nguoi"; }
+    const ungVien = bang.filter((x) => [x.en, x.zh_pinyin_full, ...(x.khac ?? [])].filter(Boolean).some((n) => chuan(n) === k));
+    const b = ungVien.find((x) => Number.isFinite(x.lat) && km(p, x) <= NGUONG_KM) ?? null;
+    if (b?.vi) { row.tenViet = b.vi; row.cach = "bang-tra"; row.khoangKm = +km(p, b).toFixed(1); row.trangThai = b.duyet ? "khop" : "can-nguoi"; }
+    else if (ungVien.length) { row.tenViet = ungVien.map((x) => x.vi).join(" | "); row.cach = "bang-tra-xa"; row.trangThai = "can-nguoi"; }
   }
   return row;
 });

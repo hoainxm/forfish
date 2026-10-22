@@ -1,0 +1,4930 @@
+[
+ {
+  "vi": "Bãi Bình Sơn",
+  "en": "Iltis Bank",
+  "zh_pinyin": "Yinli",
+  "zh_pinyin_full": "Yinli Tan",
+  "zh_hanzi": "银砾滩",
+  "khac": [
+   "Ngân Lịch than",
+   "Yinli Tan",
+   "银砾滩"
+  ],
+  "lat": 16.7667,
+  "lon": 112.2167,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Bình_Sơn",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q11839554"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Bình Sơn\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Bãi Châu Nhai",
+  "en": "Bremen Bank",
+  "zh_pinyin": "Binmei",
+  "zh_pinyin_full": "Binmei Tan",
+  "zh_hanzi": "滨湄滩",
+  "khac": [
+   "Tân Mê than",
+   "Binmei Tan",
+   "滨湄滩"
+  ],
+  "lat": 16.3333,
+  "lon": 112.4278,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Châu_Nhai",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6758825"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Gò Nổi",
+  "en": "Dido Bank",
+  "zh_pinyin": "Xidu",
+  "zh_pinyin_full": "Xidu Tan",
+  "zh_hanzi": "西渡滩",
+  "khac": [
+   "Tây Độ than",
+   "Xidu Tan",
+   "西渡滩"
+  ],
+  "lat": 16.8167,
+  "lon": 112.8833,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Gò_Nổi",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6705779"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Ngự Bình",
+  "en": "Yongnan Shoal",
+  "zh_pinyin": "Yongnan",
+  "zh_pinyin_full": "Yongnan Ansha",
+  "zh_hanzi": "永南暗沙",
+  "khac": [
+   "Yongnan Ansha",
+   "永南暗沙"
+  ],
+  "lat": 16.4583,
+  "lon": 111.65,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Ngự_Bình",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q141267372"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Ốc Tai Voi",
+  "en": "Herald Bank",
+  "zh_pinyin": "Songtao",
+  "zh_pinyin_full": "Songtao Tan",
+  "zh_hanzi": "嵩焘滩",
+  "khac": [
+   "Tung Đảo than",
+   "Songtao Tan",
+   "嵩焘滩"
+  ],
+  "lat": 15.7167,
+  "lon": 112.2167,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Ốc_Tai_Voi",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6811309"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Quảng Nghĩa",
+  "en": "Jehangire Bank",
+  "zh_pinyin": "Zhanhan",
+  "zh_pinyin_full": "Zhanhan Tan",
+  "zh_hanzi": "湛涵灘",
+  "khac": [
+   "Zhanhan Tan",
+   "湛涵灘"
+  ],
+  "lat": 16.3278,
+  "lon": 112.6861,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Quảng_Nghĩa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6759378"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Thủy Tề",
+  "en": "Neptuna Bank",
+  "zh_pinyin": "Beibian",
+  "zh_pinyin_full": "Beibian Lang",
+  "zh_hanzi": "北边廊",
+  "khac": [
+   "Bắc Biên lang",
+   "Beibian Lang",
+   "北边廊"
+  ],
+  "lat": 16.5333,
+  "lon": 112.55,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Thủy_Tề",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6851518"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Tiểu Xà Cừ",
+  "en": "",
+  "zh_pinyin": "Yinyu Zi",
+  "zh_pinyin_full": "Yinyu Zi",
+  "zh_hanzi": "銀嶼仔",
+  "khac": [
+   "銀嶼仔"
+  ],
+  "lat": 16.5792,
+  "lon": 111.7042,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://en.wikipedia.org/wiki/Paracel_Islands"
+  ],
+  "duyet": false,
+  "ghi_chu": "Tên Việt theo cột \"Vietnamese name\" của bài EN Paracel Islands (nguồn đơn)."
+ },
+ {
+  "vi": "Bãi Xà Cừ",
+  "en": "Observation Bank",
+  "zh_pinyin": "Yin",
+  "zh_pinyin_full": "Yin Yu",
+  "zh_hanzi": "银屿",
+  "khac": [
+   "Ngân dự",
+   "Yin Yu",
+   "银屿"
+  ],
+  "lat": 16.5806,
+  "lon": 111.7083,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Xà_Cừ",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6676115"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Đèn Pha",
+  "en": "",
+  "zh_pinyin": "Shanhu Dong",
+  "zh_pinyin_full": "Shanhu Dong Ansha",
+  "zh_hanzi": "珊瑚东暗沙",
+  "khac": [
+   "Đá Đèn Pha",
+   "Shanhu Dong Ansha",
+   "珊瑚东暗沙"
+  ],
+  "lat": 16.5333,
+  "lon": 111.6283,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Đèn_Pha",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q141267769"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Cồn Cát Bắc",
+  "en": "North Sand",
+  "zh_pinyin": "Bei",
+  "zh_pinyin_full": "Bei Shazhou",
+  "zh_hanzi": "北沙洲",
+  "khac": [
+   "Bắc sa châu",
+   "Bei Shazhou",
+   "北沙洲"
+  ],
+  "lat": 16.9378,
+  "lon": 112.3417,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Cồn_Cát_Bắc",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6851722"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Bắc\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Cồn Cát Nam",
+  "en": "South Sand",
+  "zh_pinyin": "Nan",
+  "zh_pinyin_full": "Nan Shazhou",
+  "zh_hanzi": "南沙洲",
+  "khac": [
+   "Nam sa châu",
+   "Nan Shazhou",
+   "南沙洲"
+  ],
+  "lat": 16.9292,
+  "lon": 112.3458,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Cồn_Cát_Nam",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6849967"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Nam\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Cồn Cát Tây",
+  "en": "West Sand",
+  "zh_pinyin": "Xi",
+  "zh_pinyin_full": "Xi Shazhou",
+  "zh_hanzi": "西沙洲",
+  "khac": [
+   "Tây sa châu",
+   "Xi Shazhou",
+   "西沙洲"
+  ],
+  "lat": 16.9775,
+  "lon": 112.2119,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Cồn_Cát_Tây",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q7986432",
+   "https://en.wikipedia.org/wiki/West_Sand"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Tây\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Cồn Cát Trung",
+  "en": "Middle Sand",
+  "zh_pinyin": "Zhong",
+  "zh_pinyin_full": "Zhong Shazhou",
+  "zh_hanzi": "中沙洲",
+  "khac": [
+   "Trung sa châu",
+   "Zhong Shazhou",
+   "中沙洲"
+  ],
+  "lat": 16.9342,
+  "lon": 112.3436,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Cồn_Cát_Trung",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6856772"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Trung\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Hòn Tháp",
+  "en": "Pyramid Rock",
+  "zh_pinyin": "Gaojian",
+  "zh_pinyin_full": "Gaojian Shi",
+  "zh_hanzi": "高尖石",
+  "khac": [
+   "Cao Tiêm thạch",
+   "Gaojian Shi",
+   "高尖石"
+  ],
+  "lat": 16.5768,
+  "lon": 112.6424,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Hòn_Tháp",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6657835"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Bắc",
+  "en": "North Reef",
+  "zh_pinyin": "Bei",
+  "zh_pinyin_full": "Bei Jiao",
+  "zh_hanzi": "北礁",
+  "khac": [
+   "Bắc tiêu",
+   "Bei Jiao",
+   "北礁"
+  ],
+  "lat": 17.0903,
+  "lon": 111.5036,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Bắc_(Hoàng_Sa)",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q814618"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Bắc\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Đá Bông Bay",
+  "en": "Bombay Reef",
+  "zh_pinyin": "Langhua",
+  "zh_pinyin_full": "Langhua Jiao",
+  "zh_hanzi": "浪花礁",
+  "khac": [
+   "Lãng Hoa tiêu",
+   "Langhua Jiao",
+   "浪花礁"
+  ],
+  "lat": 16.0447,
+  "lon": 112.5183,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Bông_Bay",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q866033",
+   "https://en.wikipedia.org/wiki/Bombay_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Chim Én",
+  "en": "Vuladdore Reef",
+  "zh_pinyin": "Yuzhuo",
+  "zh_pinyin_full": "Yuzhuo Jiao",
+  "zh_hanzi": "玉琢礁",
+  "khac": [
+   "Ngọc Trác tiêu",
+   "Đá Chim Yến",
+   "Yuzhuo Jiao",
+   "玉琢礁"
+  ],
+  "lat": 16.3472,
+  "lon": 112.025,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Chim_Én",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q2602133"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Hải Sâm",
+  "en": "Antelope Reef",
+  "zh_pinyin": "Lingyang",
+  "zh_pinyin_full": "Lingyang Jiao",
+  "zh_hanzi": "羚羊礁",
+  "khac": [
+   "Linh Dương tiêu",
+   "Lingyang Jiao",
+   "羚羊礁"
+  ],
+  "lat": 16.4622,
+  "lon": 111.5889,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Hải_Sâm",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6732263"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Hải Sâm\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Đá Lồi",
+  "en": "Discovery Reef",
+  "zh_pinyin": "Huaguang",
+  "zh_pinyin_full": "Huaguang Jiao",
+  "zh_hanzi": "华光礁",
+  "khac": [
+   "Hoa Quang tiêu",
+   "Huaguang Jiao",
+   "华光礁"
+  ],
+  "lat": 16.2311,
+  "lon": 111.6931,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Lồi",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6850763"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Sơn Kỳ",
+  "en": "",
+  "zh_pinyin": "",
+  "zh_pinyin_full": "",
+  "zh_hanzi": "",
+  "khac": [],
+  "lat": 16.5767,
+  "lon": 111.6667,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa"
+  ],
+  "duyet": false,
+  "ghi_chu": "Chỉ có trong bảng Wikipedia VI Quần đảo Hoàng Sa."
+ },
+ {
+  "vi": "Đá Trà Tây",
+  "en": "Salty Hut",
+  "zh_pinyin": "Xianshe",
+  "zh_pinyin_full": "Xianshe Yu",
+  "zh_hanzi": "咸舍屿",
+  "khac": [
+   "Xianshe Yu",
+   "咸舍屿"
+  ],
+  "lat": 16.5467,
+  "lon": 111.7133,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Trà_Tây",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q10921795"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Trương Nghĩa",
+  "en": "",
+  "zh_pinyin": "",
+  "zh_pinyin_full": "",
+  "zh_hanzi": "",
+  "khac": [],
+  "lat": 16.9767,
+  "lon": 112.2567,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa"
+  ],
+  "duyet": false,
+  "ghi_chu": "Chỉ có trong bảng Wikipedia VI Quần đảo Hoàng Sa."
+ },
+ {
+  "vi": "Đảo Ba Ba",
+  "en": "Yagong Island",
+  "zh_pinyin": "Yagong",
+  "zh_pinyin_full": "Yagong Dao",
+  "zh_hanzi": "鸭公岛",
+  "khac": [
+   "Áp Công đảo",
+   "Yagong Dao",
+   "鸭公岛"
+  ],
+  "lat": 16.5667,
+  "lon": 111.6864,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Ba_Ba",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6654333",
+   "https://en.wikipedia.org/wiki/Yagong_Island"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Bắc",
+  "en": "North Island",
+  "zh_pinyin": "Bei",
+  "zh_pinyin_full": "Bei Dao",
+  "zh_hanzi": "北岛",
+  "khac": [
+   "Bắc đảo",
+   "Bei Dao",
+   "北岛"
+  ],
+  "lat": 16.9639,
+  "lon": 112.3094,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Bắc_(Hoàng_Sa)",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q7254514"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Bắc\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Đảo Bạch Quy",
+  "en": "Passu Keah",
+  "zh_pinyin": "Panshi",
+  "zh_pinyin_full": "Panshi Yu",
+  "zh_hanzi": "盘石屿",
+  "khac": [
+   "Đá Bạch Quy",
+   "Panshi Yu",
+   "盘石屿"
+  ],
+  "lat": 16.0564,
+  "lon": 111.7619,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Bạch_Quy",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6745940"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Cây",
+  "en": "Tree Island",
+  "zh_pinyin": "Zhaoshu",
+  "zh_pinyin_full": "Zhaoshu Dao",
+  "zh_hanzi": "赵述岛",
+  "khac": [
+   "Triệu Thuật đảo",
+   "Zhaoshu Dao",
+   "赵述岛"
+  ],
+  "lat": 16.9797,
+  "lon": 112.2711,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Cây",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q2232112"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Duy Mộng",
+  "en": "Drummond Island",
+  "zh_pinyin": "Jinqing",
+  "zh_pinyin_full": "Jinqing Dao",
+  "zh_hanzi": "晋卿岛",
+  "khac": [
+   "Tấn Khanh đảo",
+   "Jinqing Dao",
+   "晋卿岛"
+  ],
+  "lat": 16.4639,
+  "lon": 111.7417,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Duy_Mộng",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6788625"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Hoàng Sa",
+  "en": "Pattle Island",
+  "zh_pinyin": "Shanhu",
+  "zh_pinyin_full": "Shanhu Dao",
+  "zh_hanzi": "珊瑚岛",
+  "khac": [
+   "San Hô đảo",
+   "Shanhu Dao",
+   "珊瑚岛"
+  ],
+  "lat": 16.5347,
+  "lon": 111.6083,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Hoàng_Sa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6750981",
+   "https://en.wikipedia.org/wiki/Pattle_Island"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Hữu Nhật",
+  "en": "Robert Island",
+  "zh_pinyin": "Ganquan",
+  "zh_pinyin_full": "Ganquan Dao",
+  "zh_hanzi": "甘泉岛",
+  "khac": [
+   "Cam Tuyền đảo",
+   "Ganquan Dao",
+   "甘泉岛"
+  ],
+  "lat": 16.5056,
+  "lon": 111.5861,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Hữu_Nhật",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q974329"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Linh Côn",
+  "en": "Lincoln Island",
+  "zh_pinyin": "Dong",
+  "zh_pinyin_full": "Dong Dao",
+  "zh_hanzi": "东岛",
+  "khac": [
+   "Đông đảo",
+   "Dong Dao",
+   "东岛"
+  ],
+  "lat": 16.6667,
+  "lon": 112.7333,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Linh_Côn",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6858173"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Lưỡi Liềm",
+  "en": "Stone Islet",
+  "zh_pinyin": "Shi",
+  "zh_pinyin_full": "Shi Yu",
+  "zh_hanzi": "石屿",
+  "khac": [
+   "Đá Lưỡi Liềm",
+   "Shi Yu",
+   "石屿"
+  ],
+  "lat": 16.5083,
+  "lon": 111.77,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Lưỡi_Liềm",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q15931975"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Nam",
+  "en": "South Island",
+  "zh_pinyin": "Nan",
+  "zh_pinyin_full": "Nan Dao",
+  "zh_hanzi": "南岛",
+  "khac": [
+   "Nam đảo",
+   "Nan Dao",
+   "南岛"
+  ],
+  "lat": 16.9464,
+  "lon": 112.3344,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Nam_(Hoàng_Sa)",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6850299"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Nam\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Đảo Ốc Hoa",
+  "en": "",
+  "zh_pinyin": "Quanfu",
+  "zh_pinyin_full": "Quanfu Dao",
+  "zh_hanzi": "全富岛",
+  "khac": [
+   "Toàn Phú đảo",
+   "WD: Quanfu Island",
+   "Quanfu Dao",
+   "全富岛"
+  ],
+  "lat": 16.5747,
+  "lon": 111.6733,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Ốc_Hoa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6853654"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Phú Lâm",
+  "en": "Woody Island",
+  "zh_pinyin": "Yongxing",
+  "zh_pinyin_full": "Yongxing Dao",
+  "zh_hanzi": "永興島",
+  "khac": [
+   "Yongxing Dao",
+   "永興島"
+  ],
+  "lat": 16.8353,
+  "lon": 112.3381,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Phú_Lâm",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q393044"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Quang Ảnh",
+  "en": "Money Island",
+  "zh_pinyin": "Jinyin",
+  "zh_pinyin_full": "Jinyin Dao",
+  "zh_hanzi": "金银岛",
+  "khac": [
+   "Kim Ngân đảo",
+   "Jinyin Dao",
+   "金银岛"
+  ],
+  "lat": 16.4472,
+  "lon": 111.5056,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Quang_Ảnh",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q1098039"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Quang Hòa",
+  "en": "Duncan Island",
+  "zh_pinyin": "Chenhang",
+  "zh_pinyin_full": "Chenhang Dao",
+  "zh_hanzi": "琛航岛",
+  "khac": [
+   "Sâm Hàng đảo",
+   "Palm Island",
+   "Chenhang Island",
+   "Chenhang Dao",
+   "琛航岛"
+  ],
+  "lat": 16.4514,
+  "lon": 111.7125,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Quang_Hòa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6807504"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Quang Hòa Tây",
+  "en": "Palm Island",
+  "zh_pinyin": "Guangjin",
+  "zh_pinyin_full": "Guangjin Dao",
+  "zh_hanzi": "廣金島",
+  "khac": [
+   "Guangjin Dao",
+   "廣金島"
+  ],
+  "lat": 16.4511,
+  "lon": 111.7019,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://en.wikipedia.org/wiki/Paracel_Islands"
+  ],
+  "duyet": false,
+  "ghi_chu": "Tên Việt theo cột \"Vietnamese name\" của bài EN Paracel Islands (nguồn đơn)."
+ },
+ {
+  "vi": "Đảo Sâm Cầm",
+  "en": "",
+  "zh_pinyin": "Kuangzai",
+  "zh_pinyin_full": "Kuangzai Shazhou",
+  "zh_hanzi": "筐仔沙洲",
+  "khac": [
+   "Kuangzai Shazhou",
+   "筐仔沙洲"
+  ],
+  "lat": 16.4469,
+  "lon": 111.6067,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://en.wikipedia.org/wiki/Paracel_Islands"
+  ],
+  "duyet": false,
+  "ghi_chu": "Tên Việt theo cột \"Vietnamese name\" của bài EN Paracel Islands (nguồn đơn)."
+ },
+ {
+  "vi": "Đảo Tri Tôn",
+  "en": "Triton Island",
+  "zh_pinyin": "Zhongjian",
+  "zh_pinyin_full": "Zhongjian Dao",
+  "zh_hanzi": "中建岛",
+  "khac": [
+   "Zhongjian Dao",
+   "中建岛"
+  ],
+  "lat": 15.7833,
+  "lon": 111.2,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Tri_Tôn",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q3235143",
+   "https://en.wikipedia.org/wiki/Triton_Island"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Trung",
+  "en": "Middle Island",
+  "zh_pinyin": "Zhong",
+  "zh_pinyin_full": "Zhong Dao",
+  "zh_hanzi": "中岛",
+  "khac": [
+   "Trung đảo",
+   "Zhong Dao",
+   "中岛"
+  ],
+  "lat": 16.955,
+  "lon": 112.3244,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Trung",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q6856844"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Trung\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Đảo Đá",
+  "en": "Rocky Island",
+  "zh_pinyin": "Shi",
+  "zh_pinyin_full": "Shi Dao",
+  "zh_hanzi": "石岛",
+  "khac": [
+   "Thạch đảo",
+   "Rocky Island, South China Sea",
+   "Shi Dao",
+   "石岛"
+  ],
+  "lat": 16.8444,
+  "lon": 112.3472,
+  "nhom": "hoang-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Đá",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Hoàng_Sa",
+   "https://www.wikidata.org/wiki/Q2218561"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Bàn Than",
+  "en": "Ban Than Reef",
+  "zh_pinyin": "Zhongzhou",
+  "zh_pinyin_full": "Zhongzhou Jiao",
+  "zh_hanzi": "中洲礁",
+  "khac": [
+   "Trung Châu tiêu",
+   "Silangang Ligaw Reef",
+   "Zhongzhou Jiao",
+   "中洲礁"
+  ],
+  "lat": 10.3861,
+  "lon": 114.4136,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bàn_Than",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q707664"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Cái Mép",
+  "en": "Bombay Shoal",
+  "zh_pinyin": "Pengbo",
+  "zh_pinyin_full": "Pengbo Ansha",
+  "zh_hanzi": "蓬勃暗沙",
+  "khac": [
+   "Bồng Bột ám sa",
+   "Pengbo Ansha",
+   "蓬勃暗沙"
+  ],
+  "lat": 9.4569,
+  "lon": 116.9267,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Cái_Mép",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q7212056"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Chim Biển",
+  "en": "Owen Shoal",
+  "zh_pinyin": "Aoyuan",
+  "zh_pinyin_full": "Aoyuan Ansha",
+  "zh_hanzi": "奥援暗沙",
+  "khac": [
+   "Áo Viện ám sa",
+   "Aoyuan Ansha",
+   "奥援暗沙"
+  ],
+  "lat": 8.15,
+  "lon": 111.9667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Chim_Biển_(bãi_ngầm)",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6825336"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Cỏ Mây",
+  "en": "Second Thomas Reef",
+  "zh_pinyin": "Renai",
+  "zh_pinyin_full": "Renai Jiao",
+  "zh_hanzi": "仁爱礁",
+  "khac": [
+   "Nhân Ái tiêu.",
+   "Second Thomas Shoal",
+   "Renai Jiao",
+   "仁爱礁"
+  ],
+  "lat": 9.65,
+  "lon": 115.85,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Cỏ_Mây",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6855008"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Cỏ Rong",
+  "en": "Reed Tablemount",
+  "zh_pinyin": "Liyue",
+  "zh_pinyin_full": "Liyue Tan",
+  "zh_hanzi": "礼乐滩",
+  "khac": [
+   "Reed Bank",
+   "Liyue Tan",
+   "礼乐滩"
+  ],
+  "lat": 11.3333,
+  "lon": 116.6667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Cỏ_Rong",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q7306628"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Bãi Fancy Wreck",
+  "en": "Fancy Wreck Shoal",
+  "zh_pinyin": "Fanai",
+  "zh_pinyin_full": "Fanai Ansha",
+  "zh_hanzi": "泛爱暗沙",
+  "khac": [
+   "Fanai Ansha",
+   "泛爱暗沙"
+  ],
+  "lat": 9.7167,
+  "lon": 114.6667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Fancy_Wreck",
+   "https://www.wikidata.org/wiki/Q11143930"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Hải Sâm",
+  "en": "Jackson Atoll",
+  "zh_pinyin": "Wufang",
+  "zh_pinyin_full": "Wufang Jiao",
+  "zh_hanzi": "五方礁",
+  "khac": [
+   "Wufang Jiao",
+   "五方礁"
+  ],
+  "lat": 10.5,
+  "lon": 115.75,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Hải_Sâm",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10881829"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Hải Sâm\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Bãi Hải Yến",
+  "en": "",
+  "zh_pinyin": "Bin",
+  "zh_pinyin_full": "Bin Jiao",
+  "zh_hanzi": "彬礁",
+  "khac": [
+   "WD: Bin Reef",
+   "Bin Jiao",
+   "彬礁"
+  ],
+  "lat": 10.5867,
+  "lon": 116.9983,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Hải_Yến",
+   "https://www.wikidata.org/wiki/Q11069670"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Hồ Tràm",
+  "en": "Amy Douglas Bank",
+  "zh_pinyin": "Antang",
+  "zh_pinyin_full": "Antang Tan",
+  "zh_hanzi": "安塘滩",
+  "khac": [
+   "An Đường than",
+   "Antang Tan",
+   "安塘滩"
+  ],
+  "lat": 10.7422,
+  "lon": 116.2822,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Cụm_Hồ_Tràm",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6821698"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Bãi Hữu Độ",
+  "en": "Sandy Shoal",
+  "zh_pinyin": "Shenxian",
+  "zh_pinyin_full": "Shenxian Ansha",
+  "zh_hanzi": "神仙暗沙",
+  "khac": [
+   "Thần Tiên ám sa",
+   "Shenxian Ansha",
+   "神仙暗沙"
+  ],
+  "lat": 11.0333,
+  "lon": 117.65,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Hữu_Độ",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q6743320"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Huyền Trân",
+  "en": "Alexandra Bank",
+  "zh_pinyin": "Renjun",
+  "zh_pinyin_full": "Renjun Tan",
+  "zh_hanzi": "人骏滩",
+  "khac": [
+   "Nhân Tuấn than",
+   "Renjun Tan",
+   "人骏滩"
+  ],
+  "lat": 8.0203,
+  "lon": 110.6308,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Huyền_Trân",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q10883663"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Bãi Loại Ta Nam",
+  "en": "Loaita Nan",
+  "zh_pinyin": "Shuanghuang",
+  "zh_pinyin_full": "Shuanghuang Shazhou",
+  "zh_hanzi": "双黄沙洲",
+  "khac": [
+   "Shuanghuang Shazhou",
+   "双黄沙洲"
+  ],
+  "lat": 10.7039,
+  "lon": 114.3269,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Loại_Ta_Nam",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10912599"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Mỹ Hải",
+  "en": "Jubilee Bank",
+  "zh_pinyin": "Zhuying",
+  "zh_pinyin_full": "Zhuying Tan",
+  "zh_hanzi": "朱应滩",
+  "khac": [
+   "Chu Ứng than",
+   "Zhuying Tan",
+   "朱应滩"
+  ],
+  "lat": 8.55,
+  "lon": 111.4667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Mỹ_Hải_(bãi_ngầm)",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6785326"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Na Khoai",
+  "en": "Lord Auckland Shoal",
+  "zh_pinyin": "Elan",
+  "zh_pinyin_full": "Elan Ansha",
+  "zh_hanzi": "莪兰暗沙",
+  "khac": [
+   "Nga Lan ám sa",
+   "Elan Ansha",
+   "莪兰暗沙"
+  ],
+  "lat": 10.3333,
+  "lon": 117.3167,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Na_Khoai",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q6720779"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Nam",
+  "en": "Southern Banks",
+  "zh_pinyin": "Nanfang",
+  "zh_pinyin_full": "Nanfang Qiantan",
+  "zh_hanzi": "南方浅滩",
+  "khac": [
+   "Nam Phương thiển than",
+   "Southern Bank",
+   "Nanfang Reefs",
+   "Nanfang Qiantan",
+   "南方浅滩"
+  ],
+  "lat": 10.4833,
+  "lon": 116.65,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Nam",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10908009"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Nam\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Bãi ngầm James",
+  "en": "James Shoal",
+  "zh_pinyin": "Cengmu",
+  "zh_pinyin_full": "Cengmu Ansha",
+  "zh_hanzi": "曾母暗沙/詹姆沙",
+  "khac": [
+   "Tăng Mẫu ám sa/Chiêm Mỗ sa",
+   "James",
+   "Cengmu Ansha",
+   "曾母暗沙/詹姆沙"
+  ],
+  "lat": 3.9739,
+  "lon": 112.3489,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_ngầm_James",
+   "https://www.wikidata.org/wiki/Q707510",
+   "https://en.wikipedia.org/wiki/James_Shoal"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi ngầm Tam Thanh",
+  "en": "Glasgow Bank",
+  "zh_pinyin": "Nanle",
+  "zh_pinyin_full": "Nanle Ansha",
+  "zh_hanzi": "南乐暗沙",
+  "khac": [
+   "Nam Nhạc ám sa",
+   "Glasgow Shoal",
+   "Nanle Ansha",
+   "南乐暗沙"
+  ],
+  "lat": 8.5083,
+  "lon": 115.5333,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Tam_Thanh_(bãi_ngầm)",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q10823839"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Ngũ Phụng",
+  "en": "North East Shoal",
+  "zh_pinyin": "Xiaowei",
+  "zh_pinyin_full": "Xiaowei Ansha",
+  "zh_hanzi": "校尉暗沙",
+  "khac": [
+   "Northeast Shea",
+   "Xiaowei Ansha",
+   "校尉暗沙"
+  ],
+  "lat": 8.5167,
+  "lon": 115.25,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Ngũ_Phụng_(bãi_ngầm)",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q12269809"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Nguyệt Sương",
+  "en": "Dhaulle Shoal",
+  "zh_pinyin": "Xiaoyao",
+  "zh_pinyin_full": "Xiaoyao Ansha",
+  "zh_hanzi": "逍遥暗沙",
+  "khac": [
+   "Tiêu Dao ám sa",
+   "Xiaoyao Shoal",
+   "Xiaoyao Ansha",
+   "逍遥暗沙"
+  ],
+  "lat": 9.5333,
+  "lon": 112.4181,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Nguyệt_Sương",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q15942361"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Bãi Núi Cầu",
+  "en": "Lys Shoal",
+  "zh_pinyin": "Lesi",
+  "zh_pinyin_full": "Lesi Ansha",
+  "zh_hanzi": "乐斯暗沙",
+  "khac": [
+   "North Danger Reef",
+   "Lesi Ansha",
+   "乐斯暗沙"
+  ],
+  "lat": 11.3167,
+  "lon": 114.5833,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Núi_Cầu",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10742294"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Ôn Thủy",
+  "en": "Fairie Queen Shoal",
+  "zh_pinyin": "Xianhou",
+  "zh_pinyin_full": "Xianhou Tan",
+  "zh_hanzi": "仙后滩",
+  "khac": [
+   "Tiên Hậu than",
+   "Xianhou Tan",
+   "仙后滩"
+  ],
+  "lat": 10.6333,
+  "lon": 117.6333,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Ôn_Thủy",
+   "https://www.wikidata.org/wiki/Q6854926"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Phù Mỹ",
+  "en": "Investigator Northeast Shoal",
+  "zh_pinyin": "Haikou",
+  "zh_pinyin_full": "Haikou Jiao",
+  "zh_hanzi": "海口礁",
+  "khac": [
+   "Hải Khẩu tiêu",
+   "Haikou Jiao",
+   "海口礁"
+  ],
+  "lat": 9.1764,
+  "lon": 116.4603,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Phù_Mỹ",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6761475"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Phúc Nguyên",
+  "en": "Prince Consort Bank",
+  "zh_pinyin": "Xiwei",
+  "zh_pinyin_full": "Xiwei Tan",
+  "zh_hanzi": "西卫滩",
+  "khac": [
+   "Tây Vệ than",
+   "Xiwei Tan",
+   "西卫滩"
+  ],
+  "lat": 7.9167,
+  "lon": 109.9667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Phúc_Nguyên",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q12683206"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Bãi Phúc Tần",
+  "en": "Prince of Wales Bank",
+  "zh_pinyin": "Guangya",
+  "zh_pinyin_full": "Guangya Tan",
+  "zh_hanzi": "广雅滩",
+  "khac": [
+   "Quảng Nhã than",
+   "Guangya Tan",
+   "广雅滩"
+  ],
+  "lat": 8.15,
+  "lon": 110.6,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Phúc_Tần",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q11062588"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Bãi Quế Đường",
+  "en": "Grainger Bank",
+  "zh_pinyin": "Lizhun",
+  "zh_pinyin_full": "Lizhun Tan",
+  "zh_hanzi": "李准滩",
+  "khac": [
+   "Lý Chuẩn than",
+   "Lizhun Tan",
+   "李准滩"
+  ],
+  "lat": 7.8194,
+  "lon": 110.5008,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Quế_Đường",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q11095558"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Bãi Rạch Lấp",
+  "en": "Carnatic Shoal",
+  "zh_pinyin": "Hongshi",
+  "zh_pinyin_full": "Hongshi Ansha",
+  "zh_hanzi": "红石暗沙",
+  "khac": [
+   "Hồng Thạch ám sa",
+   "Hongshi Ansha",
+   "红石暗沙"
+  ],
+  "lat": 10.1,
+  "lon": 117.3333,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Rạch_Lấp",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q6735377"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Rạch Vang",
+  "en": "Templar Bank",
+  "zh_pinyin": "Zhongxiao",
+  "zh_pinyin_full": "Zhongxiao Tan",
+  "zh_hanzi": "忠孝滩",
+  "khac": [
+   "Trung Hiếu than",
+   "Templer Bank",
+   "Zhongxiao Tan",
+   "忠孝滩"
+  ],
+  "lat": 11.0667,
+  "lon": 117.275,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Rạch_Vang",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q6801030"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Sa Bin",
+  "en": "Sabina Shoal",
+  "zh_pinyin": "Xianbin",
+  "zh_pinyin_full": "Xianbin Jiao",
+  "zh_hanzi": "仙宾礁",
+  "khac": [
+   "Tiên Tân tiêu",
+   "Xianbin Jiao",
+   "仙宾礁"
+  ],
+  "lat": 9.7167,
+  "lon": 116.6,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Sa_Bin",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10742295"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Suối Ngà",
+  "en": "First Thomas Shoal",
+  "zh_pinyin": "Xinyi",
+  "zh_pinyin_full": "Xinyi Jiao",
+  "zh_hanzi": "信义礁",
+  "khac": [
+   "Tín Nghĩa tiêu",
+   "Xinyi Jiao",
+   "信义礁"
+  ],
+  "lat": 9.3286,
+  "lon": 115.9303,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Suối_Ngà",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6854140",
+   "https://en.wikipedia.org/wiki/First_Thomas_Shoal"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Thạch Sa",
+  "en": "Seahorse Shoal",
+  "zh_pinyin": "Haima",
+  "zh_pinyin_full": "Haima Tan",
+  "zh_hanzi": "海马滩",
+  "khac": [
+   "Hải Mã than",
+   "Haima Tan",
+   "海马滩"
+  ],
+  "lat": 10.7847,
+  "lon": 117.7825,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Thạch_Sa",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6760954"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Bãi Thám Hiểm",
+  "en": "Investigator Shoal",
+  "zh_pinyin": "Yuya",
+  "zh_pinyin_full": "Yuya Ansha",
+  "zh_hanzi": "榆亚暗沙",
+  "khac": [
+   "Du Á ám sa",
+   "Yuya Ansha",
+   "榆亚暗沙"
+  ],
+  "lat": 8.1225,
+  "lon": 114.6983,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Thám_Hiểm",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q5274933",
+   "https://en.wikipedia.org/wiki/Investigator_Shoal"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Thuyền Chài",
+  "en": "Barque Canada Reef",
+  "zh_pinyin": "Bai",
+  "zh_pinyin_full": "Bai Jiao",
+  "zh_hanzi": "柏礁",
+  "khac": [
+   "Đá Thuyền Chài",
+   "Bách tiêu",
+   "Bai Jiao",
+   "柏礁"
+  ],
+  "lat": 8.1667,
+  "lon": 113.3,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Thuyền_Chài",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6775400"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Tổ Muỗi",
+  "en": "Nares Bank",
+  "zh_pinyin": "Dayuan",
+  "zh_pinyin_full": "Dayuan Tan",
+  "zh_hanzi": "大渊滩",
+  "khac": [
+   "Đại Uyên than",
+   "Dayuan Tan",
+   "大渊滩"
+  ],
+  "lat": 11.5833,
+  "lon": 116.25,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Tổ_Muỗi",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6832152"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Trăng Khuyết",
+  "en": "Half Moon Shoal",
+  "zh_pinyin": "Banyue",
+  "zh_pinyin_full": "Banyue Jiao",
+  "zh_hanzi": "半月礁",
+  "khac": [
+   "Bán Nguyệt tiêu",
+   "Banyue Jiao",
+   "半月礁"
+  ],
+  "lat": 8.8667,
+  "lon": 116.2667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Trăng_Khuyết",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q5641730",
+   "https://en.wikipedia.org/wiki/Half_Moon_Shoal"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Tư Chính",
+  "en": "Vanguard Bank",
+  "zh_pinyin": "Wanan",
+  "zh_pinyin_full": "Wanan Tan",
+  "zh_hanzi": "万安滩",
+  "khac": [
+   "Vạn An than",
+   "Wanan Tan",
+   "万安滩"
+  ],
+  "lat": 7.5292,
+  "lon": 109.7444,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Tư_Chính",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q11353806"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Vĩnh Tuy",
+  "en": "Leslie Bank",
+  "zh_pinyin": "Yongshi",
+  "zh_pinyin_full": "Yongshi Tan",
+  "zh_hanzi": "勇士滩",
+  "khac": [
+   "Dũng Sĩ than",
+   "Yongshi Tan",
+   "勇士滩"
+  ],
+  "lat": 11.0833,
+  "lon": 117.4667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Vĩnh_Tuy",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q6852198"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Vũng Mây",
+  "en": "Rifleman Bank",
+  "zh_pinyin": "Nanwei",
+  "zh_pinyin_full": "Nanwei Tan",
+  "zh_hanzi": "南薇滩",
+  "khac": [
+   "Nam Vi than",
+   "Johnson Patch",
+   "Nanwei Tan",
+   "南薇滩"
+  ],
+  "lat": 7.5167,
+  "lon": 111.5333,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Vũng_Mây",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10908962"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Đá Bắc",
+  "en": "Da Bac Reefs",
+  "zh_pinyin": "Bei",
+  "zh_pinyin_full": "Bei Jiao",
+  "zh_hanzi": "北礁",
+  "khac": [
+   "Bei Jiao",
+   "𥒥北礁"
+  ],
+  "lat": 10.8283,
+  "lon": 116.675,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Đá_Bắc",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10742321"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Đăng Quang",
+  "en": "Coronation Bank",
+  "zh_pinyin": "Kangtai",
+  "zh_pinyin_full": "Kangtai Tan",
+  "zh_hanzi": "康泰滩",
+  "khac": [
+   "Kangtai Tan",
+   "康泰滩"
+  ],
+  "lat": 9.3542,
+  "lon": 111.7722,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Đăng_Quang",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q11063945"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Bãi Đất",
+  "en": "Orleana Shoal",
+  "zh_pinyin": "Aonan",
+  "zh_pinyin_full": "Aonan Ansha",
+  "zh_hanzi": "奥南暗沙",
+  "khac": [
+   "Aonan Ansha",
+   "奥南暗沙"
+  ],
+  "lat": null,
+  "lon": null,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "duyet": false,
+  "ghi_chu": "Không có bài riêng trên Wikipedia VI; tên Việt theo cột \"Vietnam\" của danh sách EN."
+ },
+ {
+  "vi": "Bãi Đinh",
+  "en": "Kingston Shoal",
+  "zh_pinyin": "Jindun",
+  "zh_pinyin_full": "Jindun Ansha",
+  "zh_hanzi": "金盾暗沙",
+  "khac": [
+   "Jindun Ansha",
+   "金盾暗沙"
+  ],
+  "lat": 7.5789,
+  "lon": 111.5606,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q12357526"
+  ],
+  "duyet": false,
+  "ghi_chu": "Không có bài riêng trên Wikipedia VI; tên Việt theo cột \"Vietnam\" của danh sách EN và trang Quần đảo Trường Sa (VI). Toạ độ từ Wikidata Q12357526 (金盾暗沙), nguồn đơn."
+ },
+ {
+  "vi": "Bãi Đinh Ba",
+  "en": "Trident Shoal",
+  "zh_pinyin": "Yongdeng",
+  "zh_pinyin_full": "Yongdeng Ansha",
+  "zh_hanzi": "永登暗沙",
+  "khac": [
+   "Vĩnh Đăng ám sa",
+   "North Danger Reef",
+   "Bãi Đinh",
+   "Yongdeng Ansha",
+   "永登暗沙"
+  ],
+  "lat": 11.4519,
+  "lon": 114.6783,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Đinh_Ba",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q7224008"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Đồ Bàn",
+  "en": "Brown Bank",
+  "zh_pinyin": "Zong",
+  "zh_pinyin_full": "Zong Tan",
+  "zh_hanzi": "棕滩",
+  "khac": [
+   "Tông than",
+   "Zong Tan",
+   "棕滩"
+  ],
+  "lat": 10.7,
+  "lon": 117.3833,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Đồ_Bàn",
+   "https://www.wikidata.org/wiki/Q6772519"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Đồi Mồi",
+  "en": "Royal Captain Shoal",
+  "zh_pinyin": "Jianzhang",
+  "zh_pinyin_full": "Jianzhang Jiao",
+  "zh_hanzi": "舰长礁",
+  "khac": [
+   "Hạm Trưởng tiêu",
+   "Jianzhang Jiao",
+   "舰长礁"
+  ],
+  "lat": 9.0444,
+  "lon": 116.6633,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Đồi_Mồi",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q7212652"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Bãi Đồng Cam",
+  "en": "Third Thomas Shoal",
+  "zh_pinyin": "Heping",
+  "zh_pinyin_full": "Heping Ansha",
+  "zh_hanzi": "和平暗沙",
+  "khac": [
+   "Hoà Bình ám sa",
+   "Heping Ansha",
+   "和平暗沙"
+  ],
+  "lat": 10.8833,
+  "lon": 115.9022,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Đồng_Cam",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q6840802",
+   "https://en.wikipedia.org/wiki/Third_Thomas_Shoal"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Đồng Giữa",
+  "en": "Wood Bank",
+  "zh_pinyin": "Zi",
+  "zh_pinyin_full": "Zi Tan",
+  "zh_hanzi": "紫滩",
+  "khac": [
+   "Tử than",
+   "Zi Tan",
+   "紫滩"
+  ],
+  "lat": 10.6167,
+  "lon": 117.1667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Đồng_Giữa",
+   "https://www.wikidata.org/wiki/Q7213846"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Bãi Đường",
+  "en": "",
+  "zh_pinyin": "Chang",
+  "zh_pinyin_full": "Chang Jiao",
+  "zh_hanzi": "长礁",
+  "khac": [
+   "Trường tiêu",
+   "WD: Changtan",
+   "Chang Jiao",
+   "长礁"
+  ],
+  "lat": 11.0217,
+  "lon": 114.6967,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Đường",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6674373"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Đá An Bình",
+  "en": "Ross Reef",
+  "zh_pinyin": "Ranqing Dong",
+  "zh_pinyin_full": "Ranqing Dong Jiao",
+  "zh_hanzi": "染青东礁",
+  "khac": [
+   "Nhiễm Thanh Đông tiêu",
+   "Ranqing Dong Jiao",
+   "染青东礁"
+  ],
+  "lat": 9.9067,
+  "lon": 114.5978,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_An_Bình",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6775366"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá An Lão",
+  "en": "Menzies Reef",
+  "zh_pinyin": "Mengzi",
+  "zh_pinyin_full": "Mengzi Jiao",
+  "zh_hanzi": "蒙自礁",
+  "khac": [
+   "Mông Tự tiêu",
+   "Loaita Bank",
+   "Mengzi Jiao",
+   "蒙自礁"
+  ],
+  "lat": 11.15,
+  "lon": 114.8,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_An_Lão",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q7212110"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá An Nhơn",
+  "en": "Lankiam Cay",
+  "zh_pinyin": "Yangxin",
+  "zh_pinyin_full": "Yangxin Shazhou",
+  "zh_hanzi": "杨信沙洲",
+  "khac": [
+   "Dương Tín sa châu",
+   "Yangxin Shazhou",
+   "杨信沙洲"
+  ],
+  "lat": 10.7106,
+  "lon": 114.5339,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_An_Nhơn",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1089441",
+   "https://en.wikipedia.org/wiki/Lankiam_Cay"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá An Nhơn Bắc",
+  "en": "Kugui Reefs",
+  "zh_pinyin": "Kugui",
+  "zh_pinyin_full": "Kugui Jiao",
+  "zh_hanzi": "库归礁",
+  "khac": [
+   "Khố Quy tiêu",
+   "Kugui Reef",
+   "Kugui Jiao",
+   "库归礁"
+  ],
+  "lat": 10.7733,
+  "lon": 114.59,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_An_Nhơn_Bắc",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6807351"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá An Nhơn Nam",
+  "en": "",
+  "zh_pinyin": "Anrennan",
+  "zh_pinyin_full": "Anrennan Jiao",
+  "zh_hanzi": "安仁南礁",
+  "khac": [
+   "Anrennan Jiao",
+   "安仁南礁"
+  ],
+  "lat": 10.69,
+  "lon": 114.495,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_An_Nhơn_Nam",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q126898522"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Đá Ba Cờ",
+  "en": "Baker Reef",
+  "zh_pinyin": "Gongzhen",
+  "zh_pinyin_full": "Gongzhen Jiao",
+  "zh_hanzi": "巩珍礁",
+  "khac": [
+   "Củng Trân tiêu",
+   "Gongzhen Jiao",
+   "巩珍礁"
+  ],
+  "lat": 10.75,
+  "lon": 116.1667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Ba_Cờ",
+   "https://www.wikidata.org/wiki/Q6810782"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Ba Đầu",
+  "en": "Whitson Reef",
+  "zh_pinyin": "Niu E",
+  "zh_pinyin_full": "Niu E Jiao",
+  "zh_hanzi": "牛轭礁",
+  "khac": [
+   "Ngưu Ách tiêu",
+   "Whitsun Reef",
+   "Whitsum Reef",
+   "Niu E Jiao",
+   "牛轭礁"
+  ],
+  "lat": 9.9939,
+  "lon": 114.6575,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Ba_Đầu",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q11722044",
+   "https://en.wikipedia.org/wiki/Whitsun_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Bắc",
+  "en": "North Reef",
+  "zh_pinyin": "Gongtu",
+  "zh_pinyin_full": "Gongtu Jiao",
+  "zh_hanzi": "贡土礁",
+  "khac": [
+   "Cống Thổ tiêu",
+   "Gongtu Jiao",
+   "贡土礁"
+  ],
+  "lat": 11.4625,
+  "lon": 114.3936,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Bắc_(Trường_Sa)",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10840508"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Bắc\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Đá Bãi Khung",
+  "en": "Holiday Reef",
+  "zh_pinyin": "Changxian",
+  "zh_pinyin_full": "Changxian Jiao",
+  "zh_hanzi": "长线礁",
+  "khac": [
+   "Trường Tuyến tiêu",
+   "Changxian Jiao",
+   "长线礁"
+  ],
+  "lat": 9.9636,
+  "lon": 114.5642,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Bãi_Khung",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6674330"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Bia",
+  "en": "",
+  "zh_pinyin": "Longxia",
+  "zh_pinyin_full": "Longxia Jiao",
+  "zh_hanzi": "龙虾礁",
+  "khac": [
+   "Longxia Jiao",
+   "龙虾礁",
+   "(Wikidata gán) Bamford Reef"
+  ],
+  "lat": 9.895,
+  "lon": 114.4944,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Bia",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6646978"
+  ],
+  "duyet": false,
+  "ghi_chu": "MÂU THUẪN NGUỒN: Wikidata Q6646978 gán Bamford Reef/龙虾礁 cho Đá Bia, nhưng Wikipedia VI và danh sách EN gán Bamford Reef cho Đá Vị Khê (cách ~4 km). Chưa phân định."
+ },
+ {
+  "vi": "Đá Bình Khê",
+  "en": "Edmund Reef",
+  "zh_pinyin": "Nanmen",
+  "zh_pinyin_full": "Nanmen Jiao",
+  "zh_hanzi": "南门礁",
+  "khac": [
+   "Nam Môn tiêu",
+   "Nanmen Jiao",
+   "南门礁"
+  ],
+  "lat": 9.8981,
+  "lon": 114.3931,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Bình_Khê",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6849762"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Bình Sơn",
+  "en": "Hallet Reef",
+  "zh_pinyin": "Anle",
+  "zh_pinyin_full": "Anle Jiao",
+  "zh_hanzi": "安乐礁",
+  "khac": [
+   "An Lạc tiêu",
+   "Anle Jiao",
+   "安乐礁"
+  ],
+  "lat": 9.935,
+  "lon": 114.5244,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Bình_Sơn",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6821860"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Bình Sơn\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Đá Bồ Đề",
+  "en": "",
+  "zh_pinyin": "Pian",
+  "zh_pinyin_full": "Pian Jiao",
+  "zh_hanzi": "片礁",
+  "khac": [
+   "Phiến tiêu",
+   "WD: Pian Reef",
+   "Pian Jiao",
+   "片礁"
+  ],
+  "lat": 9.5167,
+  "lon": 116.3917,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Bồ_Đề",
+   "https://www.wikidata.org/wiki/Q10840509"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Cá Nhám",
+  "en": "Irving Reef",
+  "zh_pinyin": "Huoai",
+  "zh_pinyin_full": "Huoai Jiao",
+  "zh_hanzi": "火艾礁",
+  "khac": [
+   "Hỏa Ngải tiêu",
+   "Huoai Jiao",
+   "火艾礁"
+  ],
+  "lat": 10.8756,
+  "lon": 114.9219,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Cá_Nhám",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6757370"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Chà Và",
+  "en": "Foulerton Reef",
+  "zh_pinyin": "Donghua",
+  "zh_pinyin_full": "Donghua Jiao",
+  "zh_hanzi": "东华礁",
+  "khac": [
+   "Đông Hoa tiêu",
+   "Donghua Jiao",
+   "东华礁"
+  ],
+  "lat": 10.55,
+  "lon": 116.9333,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Chà_Và",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6398472"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Châu Viên",
+  "en": "Cuarteron Reef",
+  "zh_pinyin": "Huayang",
+  "zh_pinyin_full": "Huayang Jiao",
+  "zh_hanzi": "华阳礁",
+  "khac": [
+   "Hoa Dương tiêu",
+   "Huayang Jiao",
+   "华阳礁"
+  ],
+  "lat": 8.865,
+  "lon": 112.8303,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Châu_Viên",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q5191865",
+   "https://en.wikipedia.org/wiki/Cuarteron_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Chữ Thập",
+  "en": "Fiery Cross Reef",
+  "zh_pinyin": "Yongshu",
+  "zh_pinyin_full": "Yongshu Jiao",
+  "zh_hanzi": "永暑礁",
+  "khac": [
+   "Vĩnh Thử tiêu",
+   "Yongshu Jiao",
+   "永暑礁"
+  ],
+  "lat": 9.5472,
+  "lon": 112.8894,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Chữ_Thập",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q5447293",
+   "https://en.wikipedia.org/wiki/Fiery_Cross_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Cô Lin",
+  "en": "Collins Reef",
+  "zh_pinyin": "Guihan",
+  "zh_pinyin_full": "Guihan Jiao",
+  "zh_hanzi": "鬼喊礁",
+  "khac": [
+   "Quỷ Hám tiêu",
+   "Guihan Jiao",
+   "鬼喊礁"
+  ],
+  "lat": 9.7739,
+  "lon": 114.2556,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Cô_Lin",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6656493",
+   "https://en.wikipedia.org/wiki/Collins_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Cỏ My",
+  "en": "",
+  "zh_pinyin": "Liyuenan",
+  "zh_pinyin_full": "Liyuenan Tan",
+  "zh_hanzi": "礼乐南滩",
+  "khac": [
+   "WD: North Reef",
+   "Liyuenan Tan",
+   "礼乐南滩"
+  ],
+  "lat": 10.85,
+  "lon": 116.6667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Cỏ_My",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q15940637"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Công Đo",
+  "en": "Commodore Reef",
+  "zh_pinyin": "Siling",
+  "zh_pinyin_full": "Siling Jiao",
+  "zh_hanzi": "司令礁",
+  "khac": [
+   "Tư lệnh tiêu",
+   "Siling Jiao",
+   "司令礁"
+  ],
+  "lat": 8.3617,
+  "lon": 115.2211,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Công_Đo",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6845271",
+   "https://en.wikipedia.org/wiki/Commodore_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Én Ca",
+  "en": "Erica Reef",
+  "zh_pinyin": "Boji",
+  "zh_pinyin_full": "Boji Jiao",
+  "zh_hanzi": "簸箕礁",
+  "khac": [
+   "Bá Ky tiêu",
+   "Boji Jiao",
+   "簸箕礁"
+  ],
+  "lat": 8.1061,
+  "lon": 114.1336,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Én_Ca",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q1090917",
+   "https://en.wikipedia.org/wiki/Erica_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Én Đất",
+  "en": "Flora Temple Reef",
+  "zh_pinyin": "Anda",
+  "zh_pinyin_full": "Anda Jiao",
+  "zh_hanzi": "安达礁",
+  "khac": [
+   "Eldad Reef",
+   "Anda Jiao",
+   "安达礁"
+  ],
+  "lat": 10.35,
+  "lon": 114.7,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Én_Đất",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6821098"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Ga Ven",
+  "en": "Gaven Reefs",
+  "zh_pinyin": "Nanxun",
+  "zh_pinyin_full": "Nanxun Jiao",
+  "zh_hanzi": "南薰礁",
+  "khac": [
+   "Nam Huân tiêu",
+   "Nanxun Jiao",
+   "南薰礁"
+  ],
+  "lat": 10.2072,
+  "lon": 114.2231,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Ga_Ven",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q5528048",
+   "https://en.wikipedia.org/wiki/Gaven_Reefs"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Gạc Ma",
+  "en": "Johnson South Reef",
+  "zh_pinyin": "Chigua",
+  "zh_pinyin_full": "Chigua Jiao",
+  "zh_hanzi": "赤瓜礁",
+  "khac": [
+   "Xích Qua tiêu",
+   "Johnson Reef",
+   "trên hải đồ quốc tế là Johnson Reef",
+   "Chigua Jiao",
+   "赤瓜礁"
+  ],
+  "lat": 9.715,
+  "lon": 114.2875,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Gạc_Ma",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1927337",
+   "https://en.wikipedia.org/wiki/Johnson_South_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Gia Hội",
+  "en": "",
+  "zh_pinyin": "Erjiao",
+  "zh_pinyin_full": "Erjiao Jiao",
+  "zh_hanzi": "二角礁",
+  "khac": [
+   "Nhị Giác tiêu",
+   "WD: Erjiao Reef",
+   "Erjiao Jiao",
+   "二角礁"
+  ],
+  "lat": 8.175,
+  "lon": 114.7117,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Gia_Hội",
+   "https://www.wikidata.org/wiki/Q6855808"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Gia Phú",
+  "en": "",
+  "zh_pinyin": "Xiantou",
+  "zh_pinyin_full": "Xiantou Jiao",
+  "zh_hanzi": "线头礁",
+  "khac": [
+   "Tuyến Đầu tiêu",
+   "WD: Xiantou Reef",
+   "Xiantou Jiao",
+   "线头礁"
+  ],
+  "lat": 8.1233,
+  "lon": 114.805,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Gia_Phú",
+   "https://www.wikidata.org/wiki/Q7213306"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Gò Già",
+  "en": "Pennsylvania North Reef",
+  "zh_pinyin": "Yangming",
+  "zh_pinyin_full": "Yangming Jiao",
+  "zh_hanzi": "阳明礁",
+  "khac": [
+   "Dương Minh tiêu",
+   "Yangming Jiao",
+   "阳明礁"
+  ],
+  "lat": 10.8083,
+  "lon": 116.8583,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Gò_Già",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q6672433"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Hà Tần",
+  "en": "Barque Canada Reef",
+  "zh_pinyin": "Danzhu",
+  "zh_pinyin_full": "Danzhu Shi",
+  "zh_hanzi": "单柱石",
+  "khac": [
+   "Đơn Trụ thạch",
+   "Ha Tan rock",
+   "Danzhu Shi",
+   "单柱石"
+  ],
+  "lat": 8.0833,
+  "lon": 113.2333,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Hà_Tần",
+   "https://www.wikidata.org/wiki/Q6850588"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Hoa",
+  "en": "Hoare Reef",
+  "zh_pinyin": "Wufangbei",
+  "zh_pinyin_full": "Wufangbei Jiao",
+  "zh_hanzi": "五方北礁",
+  "khac": [
+   "Wufangbei Jiao",
+   "五方北礁"
+  ],
+  "lat": 10.5,
+  "lon": 115.75,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa"
+  ],
+  "duyet": false,
+  "ghi_chu": "Không có bài riêng trên Wikipedia VI; tên Việt theo cột \"Vietnam\" của danh sách EN và trang Quần đảo Trường Sa (VI). Toạ độ = tâm cụm Hải Sâm (Jackson Atoll), chưa có toạ độ riêng — KHÔNG dùng để khớp tự động."
+ },
+ {
+  "vi": "Đá Hoa Lau",
+  "en": "Swallow Reef",
+  "zh_pinyin": "Danwan",
+  "zh_pinyin_full": "Danwan Jiao",
+  "zh_hanzi": "弹丸礁",
+  "khac": [
+   "Đạn Hoàn tiêu",
+   "Danwan Jiao",
+   "弹丸礁"
+  ],
+  "lat": 7.3736,
+  "lon": 113.8269,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Hoa_Lau",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1936216",
+   "https://en.wikipedia.org/wiki/Swallow_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Hoài Ân",
+  "en": "Sandy Cay",
+  "zh_pinyin": "Tiexiang",
+  "zh_pinyin_full": "Tiexiang Jiao",
+  "zh_hanzi": "铁线礁",
+  "khac": [
+   "Tiexiang Jiao",
+   "铁线礁"
+  ],
+  "lat": 11.0561,
+  "lon": 114.2033,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Hoài_Ân",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q15938081"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Đá Hội Đức",
+  "en": "Hampson Reef",
+  "zh_pinyin": "Wufangwei",
+  "zh_pinyin_full": "Wufangwei Jiao",
+  "zh_hanzi": "五方尾礁",
+  "khac": [
+   "Wufangwei Jiao",
+   "五方尾礁"
+  ],
+  "lat": 10.5,
+  "lon": 115.75,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "duyet": false,
+  "ghi_chu": "Không có bài riêng trên Wikipedia VI; tên Việt theo cột \"Vietnam\" của danh sách EN. Toạ độ = tâm cụm Hải Sâm (Jackson Atoll), chưa có toạ độ riêng — KHÔNG dùng để khớp tự động."
+ },
+ {
+  "vi": "Đá Hợp Kim",
+  "en": "Hopkins Reef",
+  "zh_pinyin": "Huoxing",
+  "zh_pinyin_full": "Huoxing Jiao",
+  "zh_hanzi": "火星礁",
+  "khac": [
+   "Hỏa Tinh tiêu",
+   "Huoxing Jiao",
+   "火星礁"
+  ],
+  "lat": 10.8086,
+  "lon": 116.0914,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Hợp_Kim",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6757442"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Ken Nan",
+  "en": "McKennan Reef",
+  "zh_pinyin": "Ximen",
+  "zh_pinyin_full": "Ximen Jiao",
+  "zh_hanzi": "西门礁",
+  "khac": [
+   "Tây Môn tiêu",
+   "Ximen Jiao",
+   "西门礁"
+  ],
+  "lat": 9.9,
+  "lon": 114.4667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Ken_Nan",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6704789"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Khúc Giác",
+  "en": "Iroquois Reef",
+  "zh_pinyin": "Houteng",
+  "zh_pinyin_full": "Houteng Jiao",
+  "zh_hanzi": "鲎藤礁",
+  "khac": [
+   "Hấu Đằng tiêu",
+   "Houteng Jiao",
+   "鲎藤礁"
+  ],
+  "lat": 10.6231,
+  "lon": 116.1722,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Khúc_Giác",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q7188706"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Kiêu Ngựa",
+  "en": "Ardasier Reef",
+  "zh_pinyin": "Andu",
+  "zh_pinyin_full": "Andu Tan",
+  "zh_hanzi": "安渡滩",
+  "khac": [
+   "Bãi Kiêu Ngựa",
+   "An Độ than",
+   "Ardasier Bank",
+   "Andu Tan",
+   "安渡滩"
+  ],
+  "lat": 7.7,
+  "lon": 114.1667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Kiêu_Ngựa",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1569253",
+   "https://en.wikipedia.org/wiki/Ardasier_Reef"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Đá Kỳ Vân",
+  "en": "Mariveles Reef",
+  "zh_pinyin": "Nanhai",
+  "zh_pinyin_full": "Nanhai Jiao",
+  "zh_hanzi": "南海礁",
+  "khac": [
+   "Nam Hải tiêu",
+   "Nanhai Jiao",
+   "南海礁"
+  ],
+  "lat": 7.9939,
+  "lon": 113.895,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Kỳ_Vân",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q5274973",
+   "https://en.wikipedia.org/wiki/Mariveles_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Lạc",
+  "en": "Gaven Reefs",
+  "zh_pinyin": "Nanxun",
+  "zh_pinyin_full": "Nanxun Jiao",
+  "zh_hanzi": "南薰礁",
+  "khac": [
+   "Nanxun Jiao",
+   "南薰礁"
+  ],
+  "lat": 10.1625,
+  "lon": 114.2522,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Lạc",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q109430152"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Đá Lát",
+  "en": "Ladd Reef",
+  "zh_pinyin": "Riji",
+  "zh_pinyin_full": "Riji Jiao",
+  "zh_hanzi": "日积礁",
+  "khac": [
+   "Nhật Tích tiêu",
+   "Riji Jiao",
+   "日积礁"
+  ],
+  "lat": 8.6658,
+  "lon": 111.6767,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Lát",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6790521",
+   "https://en.wikipedia.org/wiki/Ladd_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Len Đao",
+  "en": "Lan(d)sdowne Reef",
+  "zh_pinyin": "Qiong",
+  "zh_pinyin_full": "Qiong Jiao",
+  "zh_hanzi": "琼礁",
+  "khac": [
+   "Quỳnh tiêu",
+   "Lansdowne Reef",
+   "Qiong Jiao",
+   "琼礁"
+  ],
+  "lat": 9.7794,
+  "lon": 114.37,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Len_Đao",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q7218323"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Lớn",
+  "en": "Discovery Great Reef",
+  "zh_pinyin": "Daxian",
+  "zh_pinyin_full": "Daxian Jiao",
+  "zh_hanzi": "大现礁",
+  "khac": [
+   "Đại Hiện tiêu",
+   "Great Discovery Reef",
+   "Daxian Jiao",
+   "大现礁"
+  ],
+  "lat": 10.0617,
+  "lon": 113.8517,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Lớn",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6831601",
+   "https://en.wikipedia.org/wiki/Discovery_Great_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Long Hải",
+  "en": "Livock Reef",
+  "zh_pinyin": "Sanjiao",
+  "zh_pinyin_full": "Sanjiao Jiao",
+  "zh_hanzi": "三角礁",
+  "khac": [
+   "Tam Giác tiêu",
+   "Sanjiao Jiao",
+   "三角礁"
+  ],
+  "lat": 10.1833,
+  "lon": 115.3167,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Long_Hải",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q7264197"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Long Điền",
+  "en": "Boxall Reef",
+  "zh_pinyin": "Niu Chelun",
+  "zh_pinyin_full": "Niu Chelun Jiao",
+  "zh_hanzi": "牛车轮礁",
+  "khac": [
+   "Ngưu Xa Luân tiêu",
+   "Niu Chelun Jiao",
+   "牛车轮礁"
+  ],
+  "lat": 9.6,
+  "lon": 116.1667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Long_Điền",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q6755488"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Louisa",
+  "en": "Louisa Reef",
+  "zh_pinyin": "Nantong",
+  "zh_pinyin_full": "Nantong Jiao",
+  "zh_hanzi": "南通礁",
+  "khac": [
+   "Nam Thông tiêu",
+   "Nantong Jiao",
+   "南通礁"
+  ],
+  "lat": 6.3333,
+  "lon": 113.2333,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Louisa_(rạn_san_hô)",
+   "https://www.wikidata.org/wiki/Q2405955",
+   "https://en.wikipedia.org/wiki/Louisa_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Lục Giang",
+  "en": "Hopps Reef",
+  "zh_pinyin": "Lusha",
+  "zh_pinyin_full": "Lusha Jiao",
+  "zh_hanzi": "禄沙礁",
+  "khac": [
+   "Lộc Sa tiêu",
+   "Lusha Jiao",
+   "禄沙礁"
+  ],
+  "lat": 10.2467,
+  "lon": 115.3583,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Lục_Giang",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q6743051"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Mỏ Vịt",
+  "en": "Hirane Shoal",
+  "zh_pinyin": "Antang",
+  "zh_pinyin_full": "Antang Jiao",
+  "zh_hanzi": "安塘礁",
+  "khac": [
+   "An Đường tiêu",
+   "Amy Douglas Reef",
+   "Antang Jiao",
+   "安塘礁"
+  ],
+  "lat": 10.895,
+  "lon": 116.4383,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Mỏ_Vịt",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6821660"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Nam",
+  "en": "South Reef",
+  "zh_pinyin": "Nailuo",
+  "zh_pinyin_full": "Nailuo Jiao",
+  "zh_hanzi": "奈罗礁",
+  "khac": [
+   "Nại La tiêu",
+   "Nailuo Jiao",
+   "奈罗礁"
+  ],
+  "lat": 11.3872,
+  "lon": 114.2986,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Nam",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6825636"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Nam\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Đá Nghĩa Hành",
+  "en": "Loveless Reef",
+  "zh_pinyin": "Hua",
+  "zh_pinyin_full": "Hua Jiao",
+  "zh_hanzi": "华礁",
+  "khac": [
+   "Hoa tiêu",
+   "Hua Jiao",
+   "华礁"
+  ],
+  "lat": 9.8525,
+  "lon": 114.2792,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Nghĩa_Hành",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6850712"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Nhạn Gia",
+  "en": "",
+  "zh_pinyin": "",
+  "zh_pinyin_full": "",
+  "zh_hanzi": "",
+  "khac": [],
+  "lat": 9.8983,
+  "lon": 114.3433,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Nhạn_Gia",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q141237233"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Nhỏ",
+  "en": "Owen Shoal",
+  "zh_pinyin": "Xiaoxian",
+  "zh_pinyin_full": "Xiaoxian Jiao",
+  "zh_hanzi": "小现礁",
+  "khac": [
+   "Tiểu Hiện tiêu",
+   "Discovery Small Reef",
+   "Xiaoxian Jiao",
+   "小现礁"
+  ],
+  "lat": 10.0167,
+  "lon": 114.0167,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Nhỏ",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6816779"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Ninh Cơ",
+  "en": "Deane Reef",
+  "zh_pinyin": "Wufangxi",
+  "zh_pinyin_full": "Wufangxi Jiao",
+  "zh_hanzi": "五方西礁",
+  "khac": [
+   "Wufangxi Jiao",
+   "五方西礁"
+  ],
+  "lat": 10.5,
+  "lon": 115.75,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "duyet": false,
+  "ghi_chu": "Không có bài riêng trên Wikipedia VI; tên Việt theo cột \"Vietnam\" của danh sách EN. Toạ độ = tâm cụm Hải Sâm (Jackson Atoll), chưa có toạ độ riêng — KHÔNG dùng để khớp tự động."
+ },
+ {
+  "vi": "Đá Ninh Hòa",
+  "en": "Tetley Reef",
+  "zh_pinyin": "Bianshen",
+  "zh_pinyin_full": "Bianshen Jiao",
+  "zh_hanzi": "扁参礁",
+  "khac": [
+   "Biển Sâm tiêu",
+   "Bianshen Jiao",
+   "扁参礁"
+  ],
+  "lat": 9.8681,
+  "lon": 114.5108,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Ninh_Hòa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q5248930"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Núi Cô",
+  "en": "Cay Marino",
+  "zh_pinyin": "Yunuo",
+  "zh_pinyin_full": "Yunuo Jiao",
+  "zh_hanzi": "玉诺礁",
+  "khac": [
+   "Ngọc Nặc tiêu",
+   "Yunuo Jiao",
+   "玉诺礁"
+  ],
+  "lat": 8.5167,
+  "lon": 114.35,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Núi_Cô",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q7219640"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Núi Le",
+  "en": "Cornwallis South Reef",
+  "zh_pinyin": "Nanhua",
+  "zh_pinyin_full": "Nanhua Jiao",
+  "zh_hanzi": "南华礁",
+  "khac": [
+   "Nam Hoa tiêu",
+   "Nanhua Jiao",
+   "南华礁"
+  ],
+  "lat": 8.71,
+  "lon": 114.185,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Núi_Le",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6850404",
+   "https://en.wikipedia.org/wiki/Cornwallis_South_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Núi Mon",
+  "en": "Bittern Reef",
+  "zh_pinyin": "Shipanzi",
+  "zh_pinyin_full": "Shipanzi",
+  "zh_hanzi": "石盘仔",
+  "khac": [
+   "Thạch Bàn Tử",
+   "Maralie Reef",
+   "石盘仔"
+  ],
+  "lat": 9.2,
+  "lon": 113.6667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Núi_Mon",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6744229"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Núi Thị",
+  "en": "Petley Reef",
+  "zh_pinyin": "Bolan",
+  "zh_pinyin_full": "Bolan Jiao",
+  "zh_hanzi": "舶兰礁",
+  "khac": [
+   "Bạc Lan tiêu",
+   "Bolan Jiao",
+   "舶兰礁"
+  ],
+  "lat": 10.4103,
+  "lon": 114.5872,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Núi_Thị",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6725948"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Núi Trời",
+  "en": "Ganges Reef",
+  "zh_pinyin": "Heng",
+  "zh_pinyin_full": "Heng Jiao",
+  "zh_hanzi": "恒礁",
+  "khac": [
+   "Hằng tiêu",
+   "Heng Jiao",
+   "恒礁"
+  ],
+  "lat": 9.3667,
+  "lon": 114.1833,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Núi_Trời",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Đá Phật Tự",
+  "en": "Hardy Reef",
+  "zh_pinyin": "Banlu",
+  "zh_pinyin_full": "Banlu Jiao",
+  "zh_hanzi": "半路礁",
+  "khac": [
+   "Bán Lộ tiêu",
+   "Banlu Jiao",
+   "半路礁"
+  ],
+  "lat": 10.1228,
+  "lon": 116.1436,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Phật_Tự",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6850824"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Phúc Sĩ",
+  "en": "Higgens Reef",
+  "zh_pinyin": "Quyuan",
+  "zh_pinyin_full": "Quyuan Jiao",
+  "zh_hanzi": "屈原礁",
+  "khac": [
+   "Khuất Nguyên tiêu",
+   "Quyuan Jiao",
+   "屈原礁"
+  ],
+  "lat": 9.7978,
+  "lon": 114.4036,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Phúc_Sĩ",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6813749"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Sa Huỳnh",
+  "en": "",
+  "zh_pinyin": "",
+  "zh_pinyin_full": "",
+  "zh_hanzi": "",
+  "khac": [],
+  "lat": 10.6783,
+  "lon": 114.46,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Sa_Huỳnh",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10840512"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Sác Lốt",
+  "en": "Royal Charlotte Reef",
+  "zh_pinyin": "Huanglu",
+  "zh_pinyin_full": "Huanglu Jiao",
+  "zh_hanzi": "皇路礁",
+  "khac": [
+   "Hoàng Lộ tiêu",
+   "Huanglu Jiao",
+   "皇路礁"
+  ],
+  "lat": 6.9417,
+  "lon": 113.5797,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Sác_Lốt",
+   "https://www.wikidata.org/wiki/Q6746393"
+  ],
+  "duyet": false
+ },
+ {
+  "vi": "Đá Sâu",
+  "en": "",
+  "zh_pinyin": "Langkou",
+  "zh_pinyin_full": "Langkou Jiao",
+  "zh_hanzi": "浪口礁",
+  "khac": [
+   "Lãng Khẩu tiêu",
+   "WD: Langkou Reef",
+   "Langkou Jiao",
+   "浪口礁"
+  ],
+  "lat": 8.1167,
+  "lon": 114.5733,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Sâu",
+   "https://www.wikidata.org/wiki/Q10840513"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Sơn Hà",
+  "en": "Gent Reef",
+  "zh_pinyin": "Jiyang",
+  "zh_pinyin_full": "Jiyang Jiao",
+  "zh_hanzi": "吉阳礁",
+  "khac": [
+   "Cát Dương tiêu",
+   "Jiyang Jiao",
+   "吉阳礁"
+  ],
+  "lat": 9.8789,
+  "lon": 114.3067,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Sơn_Hà",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6844521"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Suối Cát",
+  "en": "Dallas Reef",
+  "zh_pinyin": "Guangxing",
+  "zh_pinyin_full": "Guangxing Jiao",
+  "zh_hanzi": "光星礁",
+  "khac": [
+   "Quang Tinh tiêu",
+   "Guangxing Jiao",
+   "光星礁"
+  ],
+  "lat": 7.62,
+  "lon": 113.7947,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Suối_Cát",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q997169",
+   "https://en.wikipedia.org/wiki/Dallas_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Suối Ngọc",
+  "en": "Alicia Annie Reef",
+  "zh_pinyin": "Xiane",
+  "zh_pinyin_full": "Xiane Jiao",
+  "zh_hanzi": "仙娥礁",
+  "khac": [
+   "Tiên Nga tiêu",
+   "Xiane Jiao",
+   "仙娥礁"
+  ],
+  "lat": 9.3767,
+  "lon": 115.4428,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Suối_Ngọc",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6854911"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Tam Trung",
+  "en": "",
+  "zh_pinyin": "",
+  "zh_pinyin_full": "",
+  "zh_hanzi": "",
+  "khac": [],
+  "lat": 9.8367,
+  "lon": 114.2683,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Tam_Trung",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10840514"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Tây",
+  "en": "West London Reef",
+  "zh_pinyin": "Xi",
+  "zh_pinyin_full": "Xi Jiao",
+  "zh_hanzi": "西礁",
+  "khac": [
+   "Tây tiêu",
+   "Xi Jiao",
+   "西礁"
+  ],
+  "lat": 8.8589,
+  "lon": 112.225,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Tây",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6705278",
+   "https://en.wikipedia.org/wiki/West_London_Reef"
+  ],
+  "duyet": true,
+  "ghi_chu": "Có thực thể khác cùng tên lõi \"Tây\" — phân biệt bằng toạ độ/nhóm."
+ },
+ {
+  "vi": "Đá Tây Nam",
+  "en": "Pennsylvania South Reef",
+  "zh_pinyin": "Dongpo",
+  "zh_pinyin_full": "Dongpo Jiao",
+  "zh_hanzi": "东坡礁",
+  "khac": [
+   "Đông Pha tiêu",
+   "Dongpo Jiao",
+   "东坡礁"
+  ],
+  "lat": 10.3133,
+  "lon": 116.495,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Tây_Nam",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6858285"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Thanh Kỳ",
+  "en": "Ardasier Breakers",
+  "zh_pinyin": "Xibo",
+  "zh_pinyin_full": "Xibo Jiao",
+  "zh_hanzi": "息波礁",
+  "khac": [
+   "Tức Ba tiêu",
+   "Xibo Jiao",
+   "息波礁"
+  ],
+  "lat": 7.9333,
+  "lon": 114.0333,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Thanh_Kỳ",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6799693"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Tiên Nữ",
+  "en": "Pigeon Reef",
+  "zh_pinyin": "Wumie",
+  "zh_pinyin_full": "Wumie Jiao",
+  "zh_hanzi": "无乜礁",
+  "khac": [
+   "Vô Khiết tiêu",
+   "Tennent Reef",
+   "Wumie Jiao",
+   "无乜礁"
+  ],
+  "lat": 8.855,
+  "lon": 114.655,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Tiên_Nữ",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6790857"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Tốc Tan",
+  "en": "Alison Reef",
+  "zh_pinyin": "Liumen",
+  "zh_pinyin_full": "Liumen Jiao",
+  "zh_hanzi": "六门礁",
+  "khac": [
+   "Lục Môn tiêu",
+   "Liumen Jiao",
+   "六门礁"
+  ],
+  "lat": 8.8117,
+  "lon": 113.9833,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Tốc_Tan",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6853335"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Trâm Đức",
+  "en": "Meijiu Reef",
+  "zh_pinyin": "Meijiu",
+  "zh_pinyin_full": "Meijiu Jiao",
+  "zh_hanzi": "梅九礁",
+  "khac": [
+   "Meijiu Jiao",
+   "梅九礁"
+  ],
+  "lat": 11.0583,
+  "lon": 114.3233,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Trâm_Đức",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q11114497"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Triêm Đức",
+  "en": "Dickinson Reef",
+  "zh_pinyin": "Wufangtou",
+  "zh_pinyin_full": "Wufangtou Jiao",
+  "zh_hanzi": "五方头礁",
+  "khac": [
+   "Wufangtou Jiao",
+   "五方头礁"
+  ],
+  "lat": 10.5,
+  "lon": 115.75,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "duyet": false,
+  "ghi_chu": "Không có bài riêng trên Wikipedia VI; tên Việt theo cột \"Vietnam\" của danh sách EN. Toạ độ = tâm cụm Hải Sâm (Jackson Atoll), chưa có toạ độ riêng — KHÔNG dùng để khớp tự động."
+ },
+ {
+  "vi": "Đá Tư Nghĩa",
+  "en": "Hughes Reef",
+  "zh_pinyin": "Dongmen",
+  "zh_pinyin_full": "Dongmen Jiao",
+  "zh_hanzi": "东门礁",
+  "khac": [
+   "Đông Môn tiêu",
+   "Dongmen Jiao",
+   "东门礁"
+  ],
+  "lat": 9.9086,
+  "lon": 114.4972,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Tư_Nghĩa",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6857825"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Văn Nguyên",
+  "en": "Jones Reef",
+  "zh_pinyin": "Zhangxi",
+  "zh_pinyin_full": "Zhangxi Jiao",
+  "zh_hanzi": "漳溪礁",
+  "khac": [
+   "Chương Khê tiêu",
+   "Zhangxi Jiao",
+   "漳溪礁"
+  ],
+  "lat": 9.8306,
+  "lon": 114.4647,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Văn_Nguyên",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6758509"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Vành Khăn",
+  "en": "Mischief Reef",
+  "zh_pinyin": "Meiji",
+  "zh_pinyin_full": "Meiji Jiao",
+  "zh_hanzi": "美济礁",
+  "khac": [
+   "Mĩ Tế tiêu",
+   "Meiji Jiao",
+   "美济礁"
+  ],
+  "lat": 9.9028,
+  "lon": 115.5364,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Vành_Khăn",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1536891",
+   "https://en.wikipedia.org/wiki/Mischief_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Vị Khê",
+  "en": "Bamford Reef",
+  "zh_pinyin": "Longxia",
+  "zh_pinyin_full": "Longxia Jiao",
+  "zh_hanzi": "龙虾礁",
+  "khac": [
+   "Long Hà tiêu",
+   "Longxia Jiao",
+   "龙虾礁"
+  ],
+  "lat": 9.8833,
+  "lon": 114.5333,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Vị_Khê",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q97729669"
+  ],
+  "duyet": false,
+  "ghi_chu": "Xem mâu thuẫn với Đá Bia (Bamford Reef). Toạ độ chỉ 1 nguồn."
+ },
+ {
+  "vi": "Đá Vĩnh Hảo",
+  "en": "Thitu Reef",
+  "zh_pinyin": "Tiezhi",
+  "zh_pinyin_full": "Tiezhi Jiao",
+  "zh_hanzi": "铁峙礁",
+  "khac": [
+   "Eastern Reef",
+   "Tiezhi Jiao",
+   "铁峙礁"
+  ],
+  "lat": 11.0833,
+  "lon": 114.3833,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Vĩnh_Hảo",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q15940391"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Xu Bi",
+  "en": "Subi",
+  "zh_pinyin": "Zhubi",
+  "zh_pinyin_full": "Zhubi Jiao",
+  "zh_hanzi": "渚碧礁",
+  "khac": [
+   "Chử Bích tiêu",
+   "Subi Reef",
+   "Zhubi Jiao",
+   "渚碧礁"
+  ],
+  "lat": 10.9236,
+  "lon": 114.0847,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Xu_Bi",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1150068"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Đền Cây Cỏ",
+  "en": "Western Reef",
+  "zh_pinyin": "Fulusi",
+  "zh_pinyin_full": "Fulusi Jiao",
+  "zh_hanzi": "福禄寺礁",
+  "khac": [
+   "Phúc Lộc Tự tiêu",
+   "Fulusi Jiao",
+   "福禄寺礁"
+  ],
+  "lat": 10.2667,
+  "lon": 113.6167,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Đền_Cây_Cỏ",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6742526"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Định Tường",
+  "en": "Petch Reef",
+  "zh_pinyin": "Wufangnan",
+  "zh_pinyin_full": "Wufangnan Jiao",
+  "zh_hanzi": "五方南礁",
+  "khac": [
+   "Wufangnan Jiao",
+   "五方南礁"
+  ],
+  "lat": 10.5,
+  "lon": 115.75,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "duyet": false,
+  "ghi_chu": "Không có bài riêng trên Wikipedia VI; tên Việt theo cột \"Vietnam\" của danh sách EN. Toạ độ = tâm cụm Hải Sâm (Jackson Atoll), chưa có toạ độ riêng — KHÔNG dùng để khớp tự động."
+ },
+ {
+  "vi": "Đá Đông",
+  "en": "East London Reef",
+  "zh_pinyin": "Dong",
+  "zh_pinyin_full": "Dong Jiao",
+  "zh_hanzi": "东礁",
+  "khac": [
+   "Đông tiêu",
+   "Dong Jiao",
+   "东礁"
+  ],
+  "lat": 8.8283,
+  "lon": 112.5967,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Đông",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q7262899",
+   "https://en.wikipedia.org/wiki/East_London_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Đồng Thanh",
+  "en": "Marie Louise Bank",
+  "zh_pinyin": "Xiongnan",
+  "zh_pinyin_full": "Xiongnan Jiao",
+  "zh_hanzi": "雄南礁",
+  "khac": [
+   "Hùng Nam tiêu",
+   "Xiongnan Jiao",
+   "雄南礁"
+  ],
+  "lat": 11.925,
+  "lon": 116.7833,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Đồng_Thanh",
+   "https://www.wikidata.org/wiki/Q6668145"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đá Đức Hòa",
+  "en": "Empire Reef",
+  "zh_pinyin": "Zhuquan",
+  "zh_pinyin_full": "Zhuquan Jiao",
+  "zh_hanzi": "主权礁",
+  "khac": [
+   "Chủ Quyền tiêu",
+   "Zhuquan Jiao",
+   "主权礁"
+  ],
+  "lat": 9.9764,
+  "lon": 114.5897,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đá_Đức_Hòa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6856506"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo An Bang",
+  "en": "Amboyna Cay",
+  "zh_pinyin": "Anbo",
+  "zh_pinyin_full": "Anbo Shazhou",
+  "zh_hanzi": "安波沙洲",
+  "khac": [
+   "An Ba sa châu",
+   "Anbo Shazhou",
+   "安波沙洲"
+  ],
+  "lat": 7.8919,
+  "lon": 112.9214,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/An_Bang",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1089447",
+   "https://en.wikipedia.org/wiki/Amboyna_Cay"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Ba Bình",
+  "en": "Taiping Island",
+  "zh_pinyin": "Taiping",
+  "zh_pinyin_full": "Taiping Dao",
+  "zh_hanzi": "太平島",
+  "khac": [
+   "Thái Bình đảo",
+   "Itu Aba Island",
+   "Taiping Dao",
+   "太平島"
+  ],
+  "lat": 10.3769,
+  "lon": 114.3656,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Ba_Bình",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q701264"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Bến Lạc",
+  "en": "West York Island",
+  "zh_pinyin": "Xiyue",
+  "zh_pinyin_full": "Xiyue Dao",
+  "zh_hanzi": "西月岛",
+  "khac": [
+   "Tây Nguyệt đảo",
+   "Xiyue Dao",
+   "西月岛"
+  ],
+  "lat": 11.0817,
+  "lon": 115.0239,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Bến_Lạc",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q1932207",
+   "https://en.wikipedia.org/wiki/West_York_Island"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Bình Nguyên",
+  "en": "Flat Island",
+  "zh_pinyin": "Feixin",
+  "zh_pinyin_full": "Feixin Dao",
+  "zh_hanzi": "费信岛",
+  "khac": [
+   "Phí Tín đảo",
+   "Feixin Dao",
+   "费信岛"
+  ],
+  "lat": 10.8164,
+  "lon": 115.8222,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Bình_Nguyên",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1005318"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Loại Ta",
+  "en": "Loaita Island",
+  "zh_pinyin": "Nanyao",
+  "zh_pinyin_full": "Nanyao Dao",
+  "zh_hanzi": "南钥岛",
+  "khac": [
+   "Nam Thược đảo",
+   "Nanyao Dao",
+   "南钥岛"
+  ],
+  "lat": 10.6683,
+  "lon": 114.4239,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Loại_Ta",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1006110",
+   "https://en.wikipedia.org/wiki/Loaita_Island"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Loại Ta Tây",
+  "en": "Loaita Cay",
+  "zh_pinyin": "Nanyao",
+  "zh_pinyin_full": "Nanyao Shazhou",
+  "zh_hanzi": "南钥沙洲",
+  "khac": [
+   "Nanyao Shazhou",
+   "南钥沙洲"
+  ],
+  "lat": 10.7283,
+  "lon": 114.3508,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Loại_Ta_Tây",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q10787165"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Nam Yết",
+  "en": "Namyit Island",
+  "zh_pinyin": "Hongxiu",
+  "zh_pinyin_full": "Hongxiu Dao",
+  "zh_hanzi": "鸿庥岛",
+  "khac": [
+   "Hồng Hưu đảo",
+   "Hongxiu Dao",
+   "鸿庥岛"
+  ],
+  "lat": 10.1794,
+  "lon": 114.3667,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Nam_Yết",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1005341",
+   "https://en.wikipedia.org/wiki/Namyit_Island"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Phan Vinh",
+  "en": "Pearson Reef",
+  "zh_pinyin": "Bisheng",
+  "zh_pinyin_full": "Bisheng Jiao",
+  "zh_hanzi": "毕生礁",
+  "khac": [
+   "Tất Sinh tiêu",
+   "Bisheng Jiao",
+   "毕生礁"
+  ],
+  "lat": 8.9753,
+  "lon": 113.7086,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Phan_Vinh",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6769005",
+   "https://en.wikipedia.org/wiki/Pearson_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Sinh Tồn",
+  "en": "Sin Cowe Island",
+  "zh_pinyin": "Jinghong",
+  "zh_pinyin_full": "Jinghong Dao",
+  "zh_hanzi": "景宏岛",
+  "khac": [
+   "Jinghong Dao",
+   "景宏岛"
+  ],
+  "lat": 9.8853,
+  "lon": 114.3297,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Sinh_Tồn",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q7521519",
+   "https://en.wikipedia.org/wiki/Sin_Cowe_Island"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Sinh Tồn Đông",
+  "en": "Grierson Reef",
+  "zh_pinyin": "Ranqing",
+  "zh_pinyin_full": "Ranqing Shazhou",
+  "zh_hanzi": "染青沙洲",
+  "khac": [
+   "Nhiễm Thanh sa châu",
+   "Sin Cowe East Island",
+   "Ranqing Shazhou",
+   "染青沙洲"
+  ],
+  "lat": 9.9025,
+  "lon": 114.5642,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Sinh_Tồn_Đông",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6775326",
+   "https://en.wikipedia.org/wiki/Grierson_Reef"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Sơn Ca",
+  "en": "Sand Cay",
+  "zh_pinyin": "Dunqian",
+  "zh_pinyin_full": "Dunqian Shazhou",
+  "zh_hanzi": "敦謙沙洲",
+  "khac": [
+   "Đôn Khiêm sa châu",
+   "Dunqian Shazhou",
+   "敦謙沙洲"
+  ],
+  "lat": 10.375,
+  "lon": 114.48,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Sơn_Ca",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q987764",
+   "https://en.wikipedia.org/wiki/Sand_Cay"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Song Tử Tây",
+  "en": "Southwest Cay",
+  "zh_pinyin": "Nanzi",
+  "zh_pinyin_full": "Nanzi Dao",
+  "zh_hanzi": "南子岛",
+  "khac": [
+   "Nanzi Dao",
+   "南子岛"
+  ],
+  "lat": 11.4294,
+  "lon": 114.3314,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Song_Tử_Tây",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q3137837",
+   "https://en.wikipedia.org/wiki/Southwest_Cay"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Song Tử Đông",
+  "en": "Northeast Cay",
+  "zh_pinyin": "Beizi",
+  "zh_pinyin_full": "Beizi Dao",
+  "zh_hanzi": "北子岛",
+  "khac": [
+   "Bắc Tử đảo",
+   "Beizi Dao",
+   "北子岛"
+  ],
+  "lat": 11.4528,
+  "lon": 114.3547,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Song_Tử_Đông",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1005307",
+   "https://en.wikipedia.org/wiki/Northeast_Cay"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Thị Tứ",
+  "en": "Thitu Island",
+  "zh_pinyin": "Zhongye",
+  "zh_pinyin_full": "Zhongye Dao",
+  "zh_hanzi": "中业岛",
+  "khac": [
+   "Trung Nghiệp đảo",
+   "Pag-asa Island",
+   "Zhongye Dao",
+   "中业岛"
+  ],
+  "lat": 11.0531,
+  "lon": 114.2847,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Thị_Tứ",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q2232625",
+   "https://en.wikipedia.org/wiki/Thitu_Island"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Trường Sa",
+  "en": "Spratly Island",
+  "zh_pinyin": "Nanwei",
+  "zh_pinyin_full": "Nanwei Dao",
+  "zh_hanzi": "南威岛",
+  "khac": [
+   "Nanwei Dao",
+   "南威岛"
+  ],
+  "lat": 8.6447,
+  "lon": 111.92,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Trường_Sa_Lớn",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q3273381",
+   "https://en.wikipedia.org/wiki/Spratly_Island"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Trường Sa Đông",
+  "en": "Central London Reef",
+  "zh_pinyin": "Zhong",
+  "zh_pinyin_full": "Zhong Jiao",
+  "zh_hanzi": "中礁",
+  "khac": [
+   "Trung tiêu",
+   "Zhong Jiao",
+   "中礁"
+  ],
+  "lat": 8.9311,
+  "lon": 112.3531,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Trường_Sa_Đông",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q6856755"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Vĩnh Viễn",
+  "en": "Nanshan Island",
+  "zh_pinyin": "Mahuan",
+  "zh_pinyin_full": "Mahuan Dao",
+  "zh_hanzi": "马歡岛",
+  "khac": [
+   "Mã Hoan đảo",
+   "Mahuan Dao",
+   "马歡岛"
+  ],
+  "lat": 10.7331,
+  "lon": 115.8028,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Vĩnh_Viễn",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/Danh_sách_thực_thể_bị_chiếm_đóng_ở_quần_đảo_Trường_Sa",
+   "https://www.wikidata.org/wiki/Q1005345",
+   "https://en.wikipedia.org/wiki/Nanshan_Island"
+  ],
+  "duyet": true
+ },
+ {
+  "vi": "Đảo Đá Tây A",
+  "en": "West Reef East Island",
+  "zh_pinyin": "Xijiaodong",
+  "zh_pinyin_full": "Xijiaodong Dao",
+  "zh_hanzi": "西礁东岛",
+  "khac": [
+   "Xijiaodong Dao",
+   "西礁东岛"
+  ],
+  "lat": 8.8667,
+  "lon": 112.2569,
+  "nhom": "truong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Đảo_Đá_Tây_A",
+   "https://www.wikidata.org/wiki/Q119033563"
+  ],
+  "duyet": true,
+  "ghi_chu": "Đảo nhân tạo Việt Nam bồi đắp trên vành đá Tây (2022–); là một phần của Đá Tây."
+ },
+ {
+  "vi": "Bãi cạn Balfour",
+  "en": "Balfour Shoal",
+  "zh_pinyin": "Bofu",
+  "zh_pinyin_full": "Bofu Ansha",
+  "zh_hanzi": "波洑暗沙",
+  "khac": [
+   "Ba Phục ám sa",
+   "Bofu Ansha",
+   "波洑暗沙"
+  ],
+  "lat": 15.45,
+  "lon": 114.0,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Bankok",
+  "en": "Bankok Shoal",
+  "zh_pinyin": "Bengu",
+  "zh_pinyin_full": "Bengu Ansha",
+  "zh_hanzi": "本固暗沙",
+  "khac": [
+   "Bản Cố ám sa",
+   "Bengu Ansha",
+   "本固暗沙"
+  ],
+  "lat": 16.0,
+  "lon": 114.1,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Basselt",
+  "en": "Basselt Shoal",
+  "zh_pinyin": "Bude",
+  "zh_pinyin_full": "Bude Ansha",
+  "zh_hanzi": "布德暗沙",
+  "khac": [
+   "Bố Đức ám sa",
+   "Bude Ansha",
+   "布德暗沙"
+  ],
+  "lat": 15.45,
+  "lon": 114.1667,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Carpenter",
+  "en": "Carpenter Shoal",
+  "zh_pinyin": "Luban",
+  "zh_pinyin_full": "Luban Ansha",
+  "zh_hanzi": "鲁班暗沙",
+  "khac": [
+   "Lỗ Ban ám sa",
+   "Luban Ansha",
+   "鲁班暗沙"
+  ],
+  "lat": 16.0667,
+  "lon": 114.3,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Cathay",
+  "en": "Cathay Shoal",
+  "zh_pinyin": "Huaxia",
+  "zh_pinyin_full": "Huaxia Ansha",
+  "zh_hanzi": "华夏暗沙",
+  "khac": [
+   "Hoa Hạ ám sa",
+   "Huaxia Ansha",
+   "华夏暗沙"
+  ],
+  "lat": 15.9,
+  "lon": 113.9667,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Cawston",
+  "en": "Cawston Shoal",
+  "zh_pinyin": "Guodian",
+  "zh_pinyin_full": "Guodian Ansha",
+  "zh_hanzi": "果淀暗沙",
+  "khac": [
+   "Quả Điến ám sa",
+   "Guodian Ansha",
+   "果淀暗沙"
+  ],
+  "lat": 15.5333,
+  "lon": 113.7667,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Combe",
+  "en": "Combe Shoal",
+  "zh_pinyin": "Kongpai",
+  "zh_pinyin_full": "Kongpai Ansha",
+  "zh_hanzi": "控湃暗沙",
+  "khac": [
+   "Khống Phái ám sa",
+   "Kongpai Ansha",
+   "控湃暗沙"
+  ],
+  "lat": 15.8,
+  "lon": 113.9,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Dreyer",
+  "en": "Dreyer Shoal",
+  "zh_pinyin": "Zhongnan",
+  "zh_pinyin_full": "Zhongnan Ansha",
+  "zh_hanzi": "中南暗沙",
+  "khac": [
+   "Trung Nam ám sa",
+   "Zhongnan Ansha",
+   "中南暗沙"
+  ],
+  "lat": 13.95,
+  "lon": 115.4,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Hand",
+  "en": "Hand Shoal",
+  "zh_pinyin": "Zhizhang",
+  "zh_pinyin_full": "Zhizhang Ansha",
+  "zh_hanzi": "指掌暗沙",
+  "khac": [
+   "Chỉ Chưởng ám sa",
+   "Zhizhang Ansha",
+   "指掌暗沙"
+  ],
+  "lat": 16.0,
+  "lon": 114.65,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Helen",
+  "en": "Helen Shoal",
+  "zh_pinyin": "Yitong",
+  "zh_pinyin_full": "Yitong Ansha",
+  "zh_hanzi": "一统暗沙",
+  "khac": [
+   "Nhất Thống ám sa",
+   "Yitong Ansha",
+   "一统暗沙"
+  ],
+  "lat": 19.2,
+  "lon": 113.8833,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Howard",
+  "en": "Howard Shoal",
+  "zh_pinyin": "Wuyong",
+  "zh_pinyin_full": "Wuyong Ansha",
+  "zh_hanzi": "武勇暗沙",
+  "khac": [
+   "Vũ Dũng ám sa",
+   "Wuyong Ansha",
+   "武勇暗沙"
+  ],
+  "lat": 15.8667,
+  "lon": 114.95,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Learmonth",
+  "en": "Learmonth Shoal",
+  "zh_pinyin": "Jimeng",
+  "zh_pinyin_full": "Jimeng Ansha",
+  "zh_hanzi": "济猛暗沙",
+  "khac": [
+   "Tế Mãnh ám sa",
+   "Jimeng Ansha",
+   "济猛暗沙"
+  ],
+  "lat": 15.7,
+  "lon": 114.6833,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Magpie",
+  "en": "Magpie Shoal",
+  "zh_pinyin": "Meibin",
+  "zh_pinyin_full": "Meibin Ansha",
+  "zh_hanzi": "美滨暗沙",
+  "khac": [
+   "Mỹ Tân ám sa",
+   "Meibin Ansha",
+   "美滨暗沙"
+  ],
+  "lat": 16.2167,
+  "lon": 114.7333,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Margesson",
+  "en": "Margesson Shoal",
+  "zh_pinyin": "Nanfei",
+  "zh_pinyin_full": "Nanfei Ansha",
+  "zh_hanzi": "南扉暗沙",
+  "khac": [
+   "Nam Phi ám sa",
+   "Nanfei Ansha",
+   "南扉暗沙"
+  ],
+  "lat": 15.9167,
+  "lon": 114.6333,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Oliver",
+  "en": "Oliver Shoal",
+  "zh_pinyin": "Zhongbei",
+  "zh_pinyin_full": "Zhongbei Ansha",
+  "zh_hanzi": "中北暗沙",
+  "khac": [
+   "Trung Bắc ám sa",
+   "Zhongbei Ansha",
+   "中北暗沙"
+  ],
+  "lat": 16.1,
+  "lon": 114.4167,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Parry",
+  "en": "Parry Shoal",
+  "zh_pinyin": "Paibo",
+  "zh_pinyin_full": "Paibo Ansha",
+  "zh_hanzi": "排波暗沙",
+  "khac": [
+   "Bài Ba ám sa",
+   "Paibo Ansha",
+   "排波暗沙"
+  ],
+  "lat": 15.4833,
+  "lon": 113.85,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Payne",
+  "en": "Payne Shoal",
+  "zh_pinyin": "Pingnan",
+  "zh_pinyin_full": "Pingnan Ansha",
+  "zh_hanzi": "屏南暗沙",
+  "khac": [
+   "Bình Nam ám sa",
+   "Pingnan Ansha",
+   "屏南暗沙"
+  ],
+  "lat": 15.8667,
+  "lon": 114.5667,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Phillip's",
+  "en": "Phillip's Shoal",
+  "zh_pinyin": "Lexi",
+  "zh_pinyin_full": "Lexi Ansha",
+  "zh_hanzi": "乐西暗沙",
+  "khac": [
+   "Lạc Tây ám sa",
+   "Lexi Ansha",
+   "乐西暗沙"
+  ],
+  "lat": 15.8667,
+  "lon": 114.4167,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Pigmy",
+  "en": "Pigmy Shoal",
+  "zh_pinyin": "Biwei",
+  "zh_pinyin_full": "Biwei Ansha",
+  "zh_hanzi": "比微暗沙",
+  "khac": [
+   "Bỉ Vi ám sa",
+   "Biwei Ansha",
+   "比微暗沙"
+  ],
+  "lat": 16.2167,
+  "lon": 114.7333,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Plover",
+  "en": "Plover Shoal",
+  "zh_pinyin": "Haijiu",
+  "zh_pinyin_full": "Haijiu Ansha",
+  "zh_hanzi": "海鸠暗沙",
+  "khac": [
+   "Hải Cưu ám sa",
+   "Haijiu Ansha",
+   "海鸠暗沙"
+  ],
+  "lat": 15.6,
+  "lon": 114.4667,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Siamese",
+  "en": "Siamese Shoal",
+  "zh_pinyin": "Simen",
+  "zh_pinyin_full": "Simen Ansha",
+  "zh_hanzi": "西门暗沙",
+  "khac": [
+   "Tây Môn ám sa",
+   "Simen Ansha",
+   "西门暗沙"
+  ],
+  "lat": 15.9667,
+  "lon": 114.05,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Smith",
+  "en": "Smith Shoal",
+  "zh_pinyin": "Meixi",
+  "zh_pinyin_full": "Meixi Ansha",
+  "zh_hanzi": "美溪暗沙",
+  "khac": [
+   "Mỹ Khê ám sa",
+   "Meixi Ansha",
+   "美溪暗沙"
+  ],
+  "lat": 15.45,
+  "lon": 114.2,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn St. Esprit",
+  "en": "St. Esprit Shoal",
+  "zh_pinyin": "Shenhu",
+  "zh_pinyin_full": "Shenhu Ansha",
+  "zh_hanzi": "神狐暗沙",
+  "khac": [
+   "Thần Hồ ám sa",
+   "Shenhu Ansha",
+   "神狐暗沙"
+  ],
+  "lat": 19.55,
+  "lon": 113.0333,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Tancred",
+  "en": "Tancred Shoal",
+  "zh_pinyin": "Taojing",
+  "zh_pinyin_full": "Taojing Ansha",
+  "zh_hanzi": "涛静暗沙",
+  "khac": [
+   "Đào Tĩnh ám sa",
+   "Taojing Ansha",
+   "涛静暗沙"
+  ],
+  "lat": 15.6833,
+  "lon": 113.9,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Truro",
+  "en": "Truro Shoal",
+  "zh_pinyin": "Xianfa",
+  "zh_pinyin_full": "Xianfa Ansha",
+  "zh_hanzi": "宪法暗沙",
+  "khac": [
+   "Hiến Pháp ám sa",
+   "Xianfa Ansha",
+   "宪法暗沙"
+  ],
+  "lat": 16.3333,
+  "lon": 116.7333,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Walker",
+  "en": "Walker Shoal",
+  "zh_pinyin": "Manbu",
+  "zh_pinyin_full": "Manbu Ansha",
+  "zh_hanzi": "漫步暗沙",
+  "khac": [
+   "Mạn Bộ ám sa",
+   "Manbu Ansha",
+   "漫步暗沙"
+  ],
+  "lat": 15.9167,
+  "lon": 114.4833,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi Macclesfield",
+  "en": "Macclesfield Bank",
+  "zh_pinyin": "Zhongsha",
+  "zh_pinyin_full": "Zhongsha Dahuanjiao",
+  "zh_hanzi": "中沙大环礁",
+  "khac": [
+   "Bãi ngầm Macclesfield",
+   "Zhongsha Dahuanjiao",
+   "中沙大环礁"
+  ],
+  "lat": 15.75,
+  "lon": 114.3333,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Rạn vòng chìm hoàn toàn; tâm cụm, toạ độ hai nguồn lệch ~13 km; Việt Nam không yêu sách."
+ },
+ {
+  "vi": "Bãi ngầm Egeria",
+  "en": "Egeria Bank",
+  "zh_pinyin": "Yinji",
+  "zh_pinyin_full": "Yinji Tan",
+  "zh_hanzi": "隐矶滩",
+  "khac": [
+   "Ẩn Ky than",
+   "Yinji Tan",
+   "隐矶滩"
+  ],
+  "lat": 16.1,
+  "lon": 114.9333,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi ngầm Penguin",
+  "en": "Penguin Bank",
+  "zh_pinyin": "Paihong",
+  "zh_pinyin_full": "Paihong Tan",
+  "zh_hanzi": "排洪滩",
+  "khac": [
+   "Bài Hồng than",
+   "Paihong Tan",
+   "排洪滩"
+  ],
+  "lat": 15.6333,
+  "lon": 113.7167,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Cụm rạn Addington",
+  "en": "Addington Patch",
+  "zh_pinyin": "Anding",
+  "zh_pinyin_full": "Anding Lianjiao",
+  "zh_hanzi": "安定连礁",
+  "khac": [
+   "An Định liên tiêu",
+   "Anding Lianjiao",
+   "安定连礁"
+  ],
+  "lat": 15.6167,
+  "lon": 114.4,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Cụm rạn Hardy",
+  "en": "Hardy Patches",
+  "zh_pinyin": "Shitang",
+  "zh_pinyin_full": "Shitang Lianjiao",
+  "zh_hanzi": "石塘连礁",
+  "khac": [
+   "Thạch Đường liên tiêu",
+   "Shitang Lianjiao",
+   "石塘连礁"
+  ],
+  "lat": 16.0333,
+  "lon": 114.7667,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield",
+   "https://en.wikipedia.org/wiki/Macclesfield_Bank"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Núi ngầm Stewart",
+  "en": "Stewart Seamount",
+  "zh_pinyin": "Guanshi",
+  "zh_pinyin_full": "Guanshi Antan",
+  "zh_hanzi": "管事暗滩",
+  "khac": [
+   "Quản Sự ám than",
+   "Guanshi Antan",
+   "管事暗滩"
+  ],
+  "lat": 17.3333,
+  "lon": 118.8333,
+  "nhom": "trung-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield"
+  ],
+  "duyet": false,
+  "ghi_chu": "Thuộc bãi Macclesfield / khu Trung Sa: Việt Nam KHÔNG đặt tên Việt riêng — \"vi\" là tên mô tả (loại + tên quốc tế), chưa chính thức; không yêu sách."
+ },
+ {
+  "vi": "Bãi cạn Scarborough",
+  "en": "Scarborough Shoal",
+  "zh_pinyin": "Huangyan",
+  "zh_pinyin_full": "Huangyan Dao",
+  "zh_hanzi": "黄岩岛",
+  "khac": [
+   "Scarborough Reef",
+   "Bajo de Masinloc",
+   "Panatag Shoal",
+   "Hoàng Nham đảo",
+   "Minzhu Jiao 民主礁 (tên THDQ 1947",
+   "Huangyan Dao",
+   "黄岩岛"
+  ],
+  "lat": 15.1833,
+  "lon": 117.7667,
+  "nhom": "scarborough",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Bãi_cạn_Scarborough",
+   "https://en.wikipedia.org/wiki/Scarborough_Shoal",
+   "https://vi.wikipedia.org/wiki/Bãi_Macclesfield"
+  ],
+  "duyet": true,
+  "ghi_chu": "Việt Nam không yêu sách; tên Việt thông dụng \"bãi cạn Scarborough\"."
+ },
+ {
+  "vi": "Bãi Bắc Vệ",
+  "en": "North Vereker Bank",
+  "zh_pinyin": "Beiwei",
+  "zh_pinyin_full": "Beiwei Tan",
+  "zh_hanzi": "北卫滩",
+  "khac": [
+   "Beiwei Tan",
+   "北卫滩"
+  ],
+  "lat": 21.0667,
+  "lon": 115.9667,
+  "nhom": "dong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Đông_Sa",
+   "https://en.wikipedia.org/wiki/Pratas_Island"
+  ],
+  "duyet": false,
+  "ghi_chu": "Tên Việt theo Wikipedia VI (dịch từ 北卫滩); chưa thấy nguồn chính thức."
+ },
+ {
+  "vi": "Bãi Nam Vệ",
+  "en": "South Vereker Bank",
+  "zh_pinyin": "Nanwei",
+  "zh_pinyin_full": "Nanwei Tan",
+  "zh_hanzi": "南卫滩",
+  "khac": [
+   "Nanwei Tan",
+   "南卫滩"
+  ],
+  "lat": 20.9667,
+  "lon": 115.9167,
+  "nhom": "dong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Đông_Sa",
+   "https://en.wikipedia.org/wiki/Pratas_Island"
+  ],
+  "duyet": false,
+  "ghi_chu": "Tên Việt theo Wikipedia VI (dịch từ 南卫滩); chưa thấy nguồn chính thức."
+ },
+ {
+  "vi": "Đảo Đông Sa",
+  "en": "Pratas Island",
+  "zh_pinyin": "Dongsha",
+  "zh_pinyin_full": "Dongsha Dao",
+  "zh_hanzi": "东沙岛",
+  "khac": [
+   "Quần đảo Đông Sa",
+   "Pratas Islands",
+   "Tungsha",
+   "Dongsha Dao",
+   "东沙岛"
+  ],
+  "lat": 20.7022,
+  "lon": 116.7275,
+  "nhom": "dong-sa",
+  "nguon": [
+   "https://vi.wikipedia.org/wiki/Quần_đảo_Đông_Sa",
+   "https://en.wikipedia.org/wiki/Pratas_Island"
+  ],
+  "duyet": true,
+  "ghi_chu": "Đài Loan kiểm soát; Việt Nam không yêu sách. \"Đông Sa\" là Hán-Việt của tên TQ/ĐL, là cách gọi thông dụng trong tiếng Việt."
+ }
+]
