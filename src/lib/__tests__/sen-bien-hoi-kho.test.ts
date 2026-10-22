@@ -9,7 +9,8 @@ import { DEVICE_TOKEN_KEY } from "@/lib/device-token-store";
 import { senBienReply, type SenDest, type SenReply } from "@/lib/sen-bien/hieu-y";
 import { CAU_CAN_KIEM, docKho, HOI_DAP_PATH } from "@/lib/sen-bien/hoi-dap";
 import { CAU_CHUA_CHAC, goLenhNgan, hoiKho, Q_CHAC, ungVien, vaoKho, type BoKho, type ChonFn } from "@/lib/sen-bien/hoi-kho";
-import { hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { chonBuoc } from "@/lib/sen-bien/luong-tra-loi";
 import { LOC_PATH, loadLoc } from "@/lib/sen-bien/loc";
 import { loadNgram, NGRAM_PATH } from "@/lib/sen-bien/ngram";
 
@@ -159,18 +160,42 @@ describe("(c) kho trượt ⇒ máy nhà nhận câu (daTraLoi vẫn false)", ()
     vi.unstubAllGlobals();
     localStorage.clear();
   });
-  it("câu hoi_mo trượt kho: nenHoiMayChu nhận khi có chuỗi + có sóng; mất sóng thì không", () => {
+  it("câu hoi_mo trượt kho: chonBuoc hỏi máy nhà khi có chuỗi + có sóng; mất sóng thì không", () => {
     const r = r4("Mang mực với cá nục làm mồi đi xa, ướp kiểu nào để khỏi hư?");
     expect(r.kind === "say" && r.daTraLoi).toBeFalsy();
-    expect(nenHoiMayChu(r, "Mang mực với cá nục", true, true)).toBe(true);
-    expect(nenHoiMayChu(r, "Mang mực với cá nục", true, false)).toBe(false);
+    const o = { r, conf: null, coApp: false, coChuoi: true, text: "Mang mực với cá nục" };
+    expect(chonBuoc({ ...o, online: true }).buoc).toBe("may-nha");
+    expect(chonBuoc({ ...o, online: false }).buoc).toBe("noi");
   });
   it("hoiMayChu gửi đúng câu tới /api/sen-bien/hoi (fetch giả) và trả chữ", async () => {
     localStorage.setItem(DEVICE_TOKEN_KEY, "sdf_" + "a".repeat(43));
     const f = vi.fn(async () => new Response(JSON.stringify({ ok: true, text: "Ướp đá muối.", speak: ["Ướp đá muối."] }), { status: 200 }));
     vi.stubGlobal("fetch", f);
     const dap = await hoiMayChu("Mang mực làm mồi ướp sao", "/ngu-truong", null);
-    expect(dap?.text).toBe("Ướp đá muối.");
+    expect("text" in dap && dap.text).toBe("Ướp đá muối.");
     expect(String((f.mock.calls[0] as unknown[])[0])).toContain("/api/sen-bien/hoi");
+  });
+  // trượt phải mang LÝ DO để Sen Biển nói đúng (luong-tra-loi.cauTruot, 2026-10-22)
+  it.each([
+    [504, "het_gio"],
+    [401, "chua_dang_nhap"],
+    [502, "may_nha"],
+  ] as const)("route trả %i ⇒ lý do %s", async (status, loi) => {
+    localStorage.setItem(DEVICE_TOKEN_KEY, "sdf_" + "a".repeat(43));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: false }), { status })));
+    expect(await hoiMayChu("con gà có mấy chân", null, null)).toEqual({ loi });
+  });
+  it("chưa có chuỗi thiết bị ⇒ chua_dang_nhap, không gọi mạng", async () => {
+    const f = vi.fn();
+    vi.stubGlobal("fetch", f);
+    expect(await hoiMayChu("con gà có mấy chân", null, null)).toEqual({ loi: "chua_dang_nhap" });
+    expect(f).not.toHaveBeenCalled();
+  });
+  it("rớt mạng giữa chừng (fetch ném) ⇒ mat_song; quá giờ ⇒ het_gio", async () => {
+    localStorage.setItem(DEVICE_TOKEN_KEY, "sdf_" + "a".repeat(43));
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    expect(await hoiMayChu("con gà có mấy chân", null, null)).toEqual({ loi: "mat_song" });
+    vi.stubGlobal("fetch", vi.fn(async () => { throw Object.assign(new Error("t"), { name: "TimeoutError" }); }));
+    expect(await hoiMayChu("con gà có mấy chân", null, null)).toEqual({ loi: "het_gio" });
   });
 });

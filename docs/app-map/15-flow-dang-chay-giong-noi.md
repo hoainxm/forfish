@@ -933,7 +933,25 @@ Chủ dự án 19/10: *"nâng n-gram lên phân biệt hơn 2000 câu hỏi"*; r
    - Android: `gemma.chonCauHoi` (prompt `SYSTEM_CHON` + `nguoiChon` khớp từng chữ lúc train, trần 4 s) — **chỉ đọc khi Gemma ĐỒNG Ý câu nhất v5b (chọn số 1)**; chọn số khác / 0 ⇒ trượt (2026-10-20, bỏ lối tắt p ≥ 0,9: có Gemma thì luôn kiểm chéo);
    - không Gemma / Gemma không ra chữ số / quá giờ / lỗi ⇒ câu nhất p ≥ `Q_CHAC` 0,5 ⇒ trả lời, không thì trượt;
    - mã cần kiểm ⇒ `CAU_CAN_KIEM` *"Câu này dính tới luật lệ, con số, Sen Biển chưa dám nói chắc. Bà con hỏi Chi cục Thuỷ sản hoặc SDVICO cho đúng nhé."*
-3. (c) trượt ⇒ có sóng + có chuỗi: hỏi máy nhà (`hoiMayChu`, ADR 0016 — `daTraLoi` false nên `nenHoiMayChu` nhận; màn bản đồ nay cũng hỏi, đọc chữ bằng giọng chung); không được ⇒ ý `hoi_mo`/`khong_hieu`: `CAU_CHUA_CHAC` *"Câu này Sen Biển chưa chắc. Có sóng bà con hỏi lại, Sen Biển hỏi máy nhà cho."* (câu "cần sóng"/"chưa nghe rõ" của answer.ts không còn chặn đường máy nhà); ý app khác: trả lời bằng dữ liệu trong máy như cũ.
+3. (c) trượt ⇒ **luồng một cửa** `luong-tra-loi.chonBuoc` (bảng dưới) — thay `nenHoiMayChu` (đã gỡ 2026-10-22).
+
+**LUỒNG MỘT CỬA — bước cuối khi máy không làm lệnh và kho không trúng** (`lib/sen-bien/luong-tra-loi.ts`, 2026-10-22, anh Long: *"cần tổ chức logic chuyển cho mượt vào, xác định rõ cái nào là ngram cái nào ngoài phạm vi thì xử lý sao, nói user sao, trong lúc đợi time out thì sao, kiểu như chưa tra xong m đã đẩy ngram vô rồi"*). Hai màn (Bản đồ `senHeard` nhánh default · toàn app `onHeard`) gọi CÙNG `chonBuoc`, không tự xếp thứ tự riêng:
+
+| Tình huống | Bước | Nói gì |
+|---|---|---|
+| Lệnh rõ / câu bản đồ / chợ có tên món | làm ngay (trước luồng này, chạy mất sóng) | như cũ |
+| Kho trong máy trúng chắc | đọc kho | câu kho |
+| Ý việc-trong-app (`traLoiApp` có câu) + n-gram **chắc** ≥ `NGRAM_CHAC` 0,5 | `app` — dữ liệu trong máy | câu `answer.ts` |
+| Đã có lời đáp thật (`daTraLoi`, hỏi lại `r.ask`, ngoài phạm vi **chắc**) | `noi` | đúng câu đó |
+| Câu một chữ ("hả") | `noi` | câu của máy |
+| Còn lại (n-gram kém chắc · không hiểu · ngoài phạm vi kém chắc · kho trượt) + có sóng + đăng nhập | `may-nha` — chỉ báo `DANG_HOI` "Để Sen Biển hỏi thêm.", **KHÔNG đọc câu đoán trước** | câu máy nhà |
+| như trên, mất sóng | `noi` | `cauTruot("mat_song")` "Câu này cần sóng để Sen Biển hỏi thêm…" |
+| như trên, chưa đăng nhập | `noi` | `cauTruot("chua_dang_nhap")` |
+| máy nhà quá giờ (route 504 / client `HOI_HAN_MS` 6 s) | — | `cauTruot("het_gio")` "Máy chủ đang chậm…" |
+| máy nhà lỗi / route 5xx | — | `cauTruot("may_nha")` |
+| Người dùng nói câu mới khi lượt cũ còn chờ | `luotMoi` — lượt cũ về muộn bị **bỏ**, không đọc chèn | — |
+
+`hoiMayChu` trả `DapMayNha | { loi: LyDoTruot }` (401 ⇒ chua_dang_nhap · 504/TimeoutError ⇒ het_gio · fetch ném ⇒ mat_song · còn lại ⇒ may_nha). Ngoài phạm vi kém chắc ("một năm có mấy tháng" 0,29) đi máy nhà vì máy nhà tự chặn chính trị/chủ quyền. Test `sen-bien-luong-tra-loi.test.ts` + `sen-bien-hoi-kho.test.ts` (lý do trượt).
 
 **Tải**: màn bản đồ tải kho sau bộ hiểu ý (8 s sau mở). Màn khác: ý `hoi_mo`/`khong_hieu` chờ kho lần đầu; ý khác chỉ dùng kho đã sẵn (lệnh trong app không chờ 5 MB). Hỏng ⇒ thử lại ngầm, không chờ.
 

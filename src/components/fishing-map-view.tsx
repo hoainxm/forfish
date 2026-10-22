@@ -297,8 +297,9 @@ import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { setSenSignal } from "@/lib/sen-bien-state";
 import { apDungGemma, canGemma, chonCauHoi, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
-import { CAU_CHUA_CHAC, goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
-import { DANG_HOI, hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
+import { DANG_HOI, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { cauTruot, chonBuoc, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { readToken } from "@/lib/device-token-store";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
@@ -3952,8 +3953,11 @@ export default function FishingMapView() {
   );
   const ganNhatTen = (ds: readonly SenDest[], v: { lat: number; lon: number }, n: number) =>
     [...ds].sort((a, b) => haversineKm(v.lat, v.lon, a.lat, a.lon) - haversineKm(v.lat, v.lon, b.lat, b.lon)).slice(0, n);
+  /** số lượt nghe — câu máy nhà về muộn của lượt cũ không được đọc chèn câu mới (luong-tra-loi.luotMoi) */
+  const senLuotRef = useRef(0);
   const senHeard = useCallback(
     async (text: string): Promise<SenHeard> => {
+      const conLuot = luotMoi(senLuotRef);
       // VIỆC CHỢ VẬT TƯ nói ở bản đồ ⇒ sang chợ, Sen Biển ở đó làm tiếp (sen-bien-toan-app đọc ?sen=) — 2026-10-18
       // Luật hụt mà n-gram v4 chắc là việc sàn cũng sang chợ — ở đó Sen Biển hỏi lại kèm câu mẫu (lenh-cho.hoiLaiCho)
       const senModel = await loadSenBienModel();
@@ -4071,33 +4075,17 @@ export default function FishingMapView() {
           return { show: t };
         }
         default: {
-          /*  KHO HỎI–ĐÁP TRONG MÁY (lib/sen-bien/hoi-kho.ts, doc 15 §26 — ⚠ kho chưa duyệt, bản test): câu hỏi kiến
-              thức ⇒ v5b 9 câu ⇒ Gemma (Android) chọn / ngưỡng n-gram ⇒ đọc câu có sẵn, kể cả mất sóng. Trượt ⇒ có sóng
-              hỏi máy nhà (ADR 0016), không thì câu an toàn. Ý hoi_mo/khong_hieu chờ kho; ý khác chỉ dùng kho đã sẵn. */
+          /*  LUỒNG MỘT CỬA (lib/sen-bien/luong-tra-loi.ts, doc 15 §luồng, anh Long 2026-10-22: "chưa tra xong m đã đẩy
+              ngram vô rồi"): (1) kho trong máy trúng ⇒ đọc · (2) việc trong app mà n-gram CHẮC ⇒ dữ liệu trong máy ·
+              (3) còn lại ⇒ có sóng + đăng nhập hỏi máy nhà (chỉ báo "đang hỏi", KHÔNG đọc câu đoán trước), không thì nói
+              đúng lý do · máy nhà trượt ⇒ câu theo lý do. Câu về muộn của lượt cũ bị bỏ (conLuot). */
           const bo = r.daTraLoi ? null : r.y === "hoi_mo" || r.y === "khong_hieu" ? await loadBoKho() : boKhoSan();
           const kq = await hoiKho(text, r, bo, senNgramCtx(senDests, senAwait != null), chonCauHoi);
+          if (!conLuot()) return null;
           if (kq.vao && kq.dap) {
             senSay(kq.dap.say);
             return { show: kq.dap.say };
           }
-          if (kq.vao) {
-            const coSong = typeof navigator === "undefined" || navigator.onLine !== false;
-            if (nenHoiMayChu(r, text, !!readToken(), coSong)) {
-              senSay(DANG_HOI);
-              const dap = await hoiMayChu(text, "/ngu-truong", null);
-              if (dap) {
-                senSay(dap.text);
-                return { show: dap.text };
-              }
-            }
-            // kho trượt + ý hoi_mo/khong_hieu: câu của answer.ts là ngõ cụt ("cần sóng" / "chưa nghe rõ") ⇒ câu an toàn
-            if (r.y === "hoi_mo" || r.y === "khong_hieu") {
-              senSay(CAU_CHUA_CHAC);
-              return { show: CAU_CHUA_CHAC };
-            }
-          }
-          // việc trong app (giấy tờ, bảo dưỡng, bạn thuyền, giá cá, mở màn…) ⇒ trả lời từ dữ liệu trong máy
-          // (lớp trợ lý toàn app, 2026-10-18) thay vì "chỉ giúp trên bản đồ"
           const a = traLoiApp(
             text,
             r,
@@ -4105,7 +4093,15 @@ export default function FishingMapView() {
             { awaitingConfirm: false, boatNames: [], portNames: [], placeNames: places.map((p) => p.name), route: "/ngu-truong" },
             Date.now(),
           );
-          if (a) {
+          const buoc = chonBuoc({
+            r,
+            conf: senModel ? guessIntent(senModel, text).conf : null,
+            coApp: a != null,
+            online: typeof navigator === "undefined" || navigator.onLine !== false,
+            coChuoi: !!readToken(),
+            text,
+          });
+          if (buoc.buoc === "app" && a) {
             if (a.action?.type === "navigate" && a.action.href !== "/ngu-truong") {
               setSenOpen(false);
               router.push(a.action.href);
@@ -4116,23 +4112,18 @@ export default function FishingMapView() {
             senSay(a.speak);
             return { show: a.text };
           }
-          /*  MÁY KHÔNG TỰ TRẢ LỜI ĐƯỢC + CÓ SÓNG ⇒ HỎI MÁY NHÀ — cùng bước cuối của màn toàn app (sen-bien-toan-app).
-              Màn Bản đồ thiếu bước này nên câu ngoài nghề ("con gà có mấy chân", anh Long 2026-10-22) bị bộ lọc
-              kho gạt (kq.vao = false) rồi rơi thẳng xuống "Sen Biển chưa hiểu". Câu hỏi lại (r.ask) giữ nguyên. */
-          if (!kq.vao && !r.ask) {
-            const coSong = typeof navigator === "undefined" || navigator.onLine !== false;
-            if (nenHoiMayChu(r, text, !!readToken(), coSong)) {
-              senSay(DANG_HOI);
-              const dap = await hoiMayChu(text, "/ngu-truong", null);
-              if (dap) {
-                senSay(dap.text);
-                return { show: dap.text };
-              }
-            }
+          if (buoc.buoc === "may-nha") {
+            senSay(DANG_HOI);
+            const kqN = await hoiMayChu(text, "/ngu-truong", null);
+            if (!conLuot()) return null;
+            const say = "text" in kqN ? kqN.text : cauTruot(kqN.loi);
+            senSay(say);
+            return { show: say };
           }
-          if (r.ask) senAsk(r.say);
-          else senSay(r.say);
-          return { show: r.say };
+          const say = buoc.buoc === "noi" ? buoc.say : r.say;
+          if (r.ask) senAsk(say);
+          else senSay(say);
+          return { show: say };
         }
       }
     },

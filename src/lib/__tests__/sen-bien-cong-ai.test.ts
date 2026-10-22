@@ -2,7 +2,7 @@
 import { createHash, createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { bindOidc, cachKy, chuoiKy, dauKy, DUONG_HOI, KHACH_THUE_TB, kiemCauHoi, kyHmac, maThueBao } from "@/lib/sen-bien/cong-ai-ky";
-import { nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { chonBuoc } from "@/lib/sen-bien/luong-tra-loi";
 
 const KHOA = "k".repeat(43);
 const T = { ts: "1760000000000", nonce: "0".repeat(32), method: "post", duong: DUONG_HOI, nguoi: "tb-" + "a".repeat(24), khachThue: KHACH_THUE_TB, body: '{"text":"giá dầu"}' };
@@ -63,14 +63,16 @@ describe("kiểm câu hỏi ở ranh giới", () => {
   });
 });
 
-describe("nenHoiMayChu — máy trả lời trước, máy nhà chỉ là đường lùi", () => {
+describe("chonBuoc — máy trả lời trước, máy nhà chỉ là đường lùi (thay nenHoiMayChu 2026-10-22)", () => {
   const chuaHieu = { kind: "say" as const, say: "Sen Biển chưa hiểu." };
+  const hoi = (r: Parameters<typeof chonBuoc>[0]["r"], text: string, coChuoi: boolean, online: boolean) =>
+    chonBuoc({ r, conf: null, coApp: false, online, coChuoi, text }).buoc === "may-nha";
   it("chỉ hỏi khi máy chưa trả lời thật + có chuỗi + có sóng + câu ≥ 2 chữ", () => {
-    expect(nenHoiMayChu(chuaHieu, "giá dầu hôm nay bao nhiêu", true, true)).toBe(true);
-    expect(nenHoiMayChu({ ...chuaHieu, daTraLoi: true }, "sóng chỗ này", true, true)).toBe(false);
-    expect(nenHoiMayChu({ kind: "stop", say: "Dừng." }, "dừng lại đi", true, true)).toBe(false);
-    expect(nenHoiMayChu(chuaHieu, "giá dầu", false, true)).toBe(false);
-    expect(nenHoiMayChu(chuaHieu, "giá dầu", true, false)).toBe(false);
-    expect(nenHoiMayChu(chuaHieu, "ừ", true, true)).toBe(false);
+    expect(hoi(chuaHieu, "giá dầu hôm nay bao nhiêu", true, true)).toBe(true);
+    expect(hoi({ ...chuaHieu, daTraLoi: true }, "sóng chỗ này", true, true)).toBe(false);
+    expect(hoi({ kind: "stop", say: "Dừng." }, "dừng lại đi", true, true)).toBe(false);
+    expect(hoi(chuaHieu, "giá dầu", false, true)).toBe(false);
+    expect(hoi(chuaHieu, "giá dầu", true, false)).toBe(false);
+    expect(hoi(chuaHieu, "ừ", true, true)).toBe(false);
   });
 });

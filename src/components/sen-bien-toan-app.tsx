@@ -26,10 +26,11 @@ import { SPECIES_META } from "@/lib/fish-predict";
 import { loadPlaces } from "@/lib/places";
 import { loadHome, saveHome } from "@/lib/region";
 import { readToken } from "@/lib/device-token-store";
-import { DANG_HOI, doanMayNha, hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { DANG_HOI, doanMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { cauTruot, chonBuoc, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { chonCauHoi } from "@/lib/sen-bien/gemma";
 import { senBienReply, senNgramCtx } from "@/lib/sen-bien/hieu-y";
-import { CAU_CHUA_CHAC, goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
+import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
 import { lamLenhCho, type ChoKetQua } from "@/lib/sen-bien/lam-cho";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
@@ -191,8 +192,11 @@ export function SenBienToanApp() {
     [noi, pathname, router],
   );
 
+  /** số lượt nghe — câu máy nhà về muộn của lượt cũ không được đọc chèn câu mới (luong-tra-loi.luotMoi) */
+  const luotNghe = useRef(0);
   const onHeard = useCallback(
     async (text: string): Promise<SenHeard> => {
+      const conLuot = luotMoi(luotNghe);
       truot.current = 0;
       const cho = hieuLenhCho(text);
       if (cho) {
@@ -225,35 +229,10 @@ export function SenBienToanApp() {
       const ctxN = senNgramCtx([]);
       const bo = r.kind !== "say" || r.daTraLoi ? null : r.y === "hoi_mo" || r.y === "khong_hieu" ? await loadBoKho() : boKhoSan();
       const kq = await hoiKho(text, r, bo, ctxN, chonCauHoi);
+      if (!conLuot()) return null;
       if (kq.vao && kq.dap) {
         noi(kq.dap.say);
         return { show: kq.dap.say };
-      }
-      const coSong = typeof navigator === "undefined" || navigator.onLine !== false;
-      /** Hỏi máy nhà (ADR 0016): câu đọc được ⇒ đọc giọng Mỹ Duyên, trả chữ; không được ⇒ null. */
-      const hoiMayNha = async (): Promise<string | null> => {
-        if (!nenHoiMayChu(r, text, !!readToken(), coSong)) return null;
-        noi(DANG_HOI, false);
-        const dap = await hoiMayChu(text, pathname, loadHome().province ?? null);
-        if (!dap) return null;
-        // câu đã vào mẫu học ở trên (ghiMau); câu trả lời máy nhà được AI Assistant ghi nhật ký train `forfish_tb`.
-        // Đọc GIỌNG MỸ DUYÊN (mp3 máy nhà đọc sẵn từng câu); câu nào không có mp3 thì giọng máy — như noi()
-        const luot = ++luotDoc.current;
-        setDangDoc(true);
-        ttsSpeakMp3(doanMayNha(dap), {
-          onEnd: (xong) => {
-            if (luot !== luotDoc.current) return;
-            setDangDoc(false);
-            if (xong) setTuNghe((n) => n + 1);
-          },
-        });
-        return dap.text;
-      };
-      // (c) câu hỏi kho TRƯỢT: có sóng ⇒ máy nhà TRƯỚC (câu trả lời của answer.ts cho hoi_mo/khong_hieu chỉ là "cần sóng" /
-      // "chưa nghe rõ" — đừng để nó chặn đường hỏi máy nhà)
-      if (kq.vao) {
-        const t = await hoiMayNha();
-        if (t) return { show: t };
       }
       let boats: string[] = [];
       let places: string[] = [];
@@ -263,24 +242,47 @@ export function SenBienToanApp() {
       } catch {
         // kho hỏng / bị chặn — trả lời không có tên riêng
       }
-      // kho trượt + ý hoi_mo/khong_hieu: câu của answer.ts là ngõ cụt ⇒ bỏ, nói câu an toàn bên dưới
-      const a =
-        kq.vao && r.kind === "say" && (r.y === "hoi_mo" || r.y === "khong_hieu")
-          ? null
-          : traLoiApp(text, r, gomSnapshot(pathname), { awaitingConfirm: false, boatNames: boats, portNames: [], placeNames: places, route: pathname }, Date.now());
-      if (a) {
+      /*  LUỒNG MỘT CỬA (lib/sen-bien/luong-tra-loi.ts, doc 15 §luồng, anh Long 2026-10-22: "chưa tra xong m đã đẩy
+          ngram vô rồi") — cùng bảng với màn Bản đồ: việc trong app chỉ làm khi n-gram CHẮC; còn lại có sóng + đăng nhập
+          ⇒ máy nhà (chỉ báo "đang hỏi", không đọc câu đoán trước); mất sóng / chưa đăng nhập / máy nhà trượt ⇒ nói
+          đúng lý do. Câu về muộn của lượt cũ bị bỏ (conLuot). */
+      const a = traLoiApp(text, r, gomSnapshot(pathname), { awaitingConfirm: false, boatNames: boats, portNames: [], placeNames: places, route: pathname }, Date.now());
+      const buoc = chonBuoc({
+        r,
+        conf: g?.conf ?? null,
+        coApp: a != null,
+        online: typeof navigator === "undefined" || navigator.onLine !== false,
+        coChuoi: !!readToken(),
+        text,
+      });
+      if (buoc.buoc === "app" && a) {
         const them = lam(a.action);
         noi(`${a.speak}${them}`);
         return { show: `${a.text}${them}` };
       }
-      /*  MÁY KHÔNG TỰ TRẢ LỜI ĐƯỢC + CÓ SÓNG ⇒ HỎI MÁY NHÀ (ADR 0016, 2026-10-19): Gemma trong máy gpu-desktop, luồng
-          thuê bao ForFish (AI Assistant /gw/v1/forfish/hoi qua /api/sen-bien/hoi). Báo "đang hỏi" ngay; máy nhà im /
-          mất sóng / quá giờ ⇒ nói câu cũ của máy như trước (câu hỏi kho trượt đã hỏi ở trên ⇒ câu an toàn). */
-      if (!kq.vao) {
-        const t = await hoiMayNha();
-        if (t) return { show: t };
+      if (buoc.buoc === "may-nha") {
+        noi(DANG_HOI, false);
+        const kqN = await hoiMayChu(text, pathname, loadHome().province ?? null);
+        if (!conLuot()) return null;
+        if (!("text" in kqN)) {
+          const say = cauTruot(kqN.loi);
+          noi(say);
+          return { show: say };
+        }
+        // câu đã vào mẫu học ở trên (ghiMau); câu trả lời máy nhà được AI Assistant ghi nhật ký train `forfish_tb`.
+        // Đọc GIỌNG MỸ DUYÊN (mp3 máy nhà đọc sẵn từng câu); câu nào không có mp3 thì giọng máy — như noi()
+        const luot = ++luotDoc.current;
+        setDangDoc(true);
+        ttsSpeakMp3(doanMayNha(kqN), {
+          onEnd: (xong) => {
+            if (luot !== luotDoc.current) return;
+            setDangDoc(false);
+            if (xong) setTuNghe((n) => n + 1);
+          },
+        });
+        return { show: kqN.text };
       }
-      const say = kq.vao ? CAU_CHUA_CHAC : "say" in r ? r.say : "";
+      const say = buoc.buoc === "noi" ? buoc.say : "say" in r ? r.say : "";
       noi(say);
       return { show: say };
     },
