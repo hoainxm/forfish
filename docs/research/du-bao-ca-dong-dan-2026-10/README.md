@@ -69,6 +69,15 @@ Giao thức đánh giá đầy đủ (AUCeff trong-nghề, bootstrap khối, đ�
 - **Dữ liệu** (ngoài git, `$SDFISH_DATA_DIR`): `hindcast-ntb/` 277 MB — OISST theo ngày 1982 → 2026-10-20, gió ERA5 lưới 0,5° hộp SCU (20/120 điểm), gió 3 điểm, ONI/Niño/PDO — có ở **cả Mac (`~/sdfish-data`) và PC GPU**. Kết quả bước 0 ở `dong-dan/buoc0/` chỉ trên PC GPU (dữ liệu DataLake không rời máy đó).
 - **Còn thiếu**: lưới gió 100/120 điểm (OFU/MKU/NCU) vì hạn mức Open-Meteo; chl lịch sử. Nguồn thay thế: `11-so-nguon.md`.
 
+## 7. Sổ nguồn (thử thật 2026-10-22, `11-so-nguon.md`)
+
+- **Không cần đăng ký tài khoản nào** cho các nhu cầu 1–5: kho Zarr của Copernicus Marine đọc ẩn danh được, kể cả bộ tái phân tích nhiều năm (lead đã tự thử lại).
+- **Chl** (chỗ hỏng hôm trước): ESA OC-CCI v6.0 8 ngày/tháng 1997 → 6/2026 qua ERDDAP NOAA Hawaii (`oceanwatch.pifsc.noaa.gov`), ~180 MB cho hộp NTB; bản hằng ngày đã lấp mây 1997 → 14/10/2026 trong kho Copernicus Marine.
+- **Gió lưới** (thay Open-Meteo bị chặn 429): CMEMS `WIND_GLO_PHY_L4_MY_012_006` theo giờ 1994 → 6/2026, có sẵn curl gió và curl ứng suất.
+- **Mặt cắt cổng, D20, dòng chảy, SSH**: GLORYS12 `GLOBAL_MULTIYEAR_PHY_001_030` 1993 → 22/9/2026 (bẫy: trục độ sâu đảo, ô trống trả 403).
+- **DMI, MJO**: file nhỏ từ PSL (trang tĩnh vẫn chạy) và CPC.
+- **Điểm nghẽn thật: sản lượng/nhãn cá nhiều năm.** Không có nguồn mở máy đọc được theo tỉnh/loài; FAO FishStat chặn máy, nso.gov.vn chỉ có định nghĩa chỉ tiêu. Cần anh Long xin số liệu tỉnh × tháng (Cục Thống kê, Cục Thủy sản và Kiểm ngư, hoặc SDWork) — đây là việc duy nhất mở được kiểm định liên năm cho tầng cá.
+
 ## Assumptions
 
 - Ước thời gian "4–5 tuần người" là của phản biện (07), "3 tuần" của 06 bị cho là lạc quan; chưa ai đo.
