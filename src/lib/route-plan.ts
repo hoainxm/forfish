@@ -98,9 +98,35 @@ export type BoatProfile = {
       một mớn "trung bình" rồi doạ sai người (tàu thúng 0,3 m và tàu vỏ thép
       3 m cùng dùng app này). Vắng số không phải là số. */
   draftM?: number | null;
+  /*  KÉT DẦU (lít) + CHIỀU DÀI (m) — D6, 2026-10-22. Cùng luật với mớn: `null`/vắng
+      = chủ tàu CHƯA khai ⇒ không kiểm "đủ dầu đi về", không đoán két hộ. */
+  fuelTankL?: number | null;
+  lengthM?: number | null;
 };
 
 export const DEFAULT_BOAT: BoatProfile = { speedKn: 7, litersPerHour: 20, draftM: null };
+
+/** Dầu dự phòng: đi + về, nhân hệ số an toàn (gió ngược, vòng tránh, chờ tại ngư trường). */
+export const FUEL_RETURN_SAFETY = 1.3;
+
+/** Số hợp lệ cho két dầu / chiều dài; mọi thứ khác = "chưa khai". */
+export function positiveOrNull(v: unknown, max: number): number | null {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 && v <= max ? v : null;
+}
+
+/**
+ * Két có đủ dầu đi rồi về không? `null` khi chưa khai két (hoặc dầu chuyến không
+ * hợp lệ) — im lặng, không đoán. Dầu cần = `oneWayFuelL × 2 × 1,3`.
+ */
+export function fuelReturnCheck(
+  boat: Pick<BoatProfile, "fuelTankL">,
+  oneWayFuelL: number,
+): { needL: number; tankL: number; enough: boolean } | null {
+  const tankL = positiveOrNull(boat.fuelTankL, 100000);
+  if (tankL == null || !Number.isFinite(oneWayFuelL) || oneWayFuelL < 0) return null;
+  const needL = Math.round(oneWayFuelL * 2 * FUEL_RETURN_SAFETY * 10) / 10;
+  return { needL, tankL, enough: needL <= tankL };
+}
 export const KMH_PER_KNOT = 1.852;
 
 // ── hình học ─────────────────────────────────────────────────────────────

@@ -21,7 +21,7 @@
 | | `litersPerHour` | như trên, mặc định 20 | lít/giờ | giả định ga cố định |
 | | `draftM` (mớn) | như trên, **mặc định null** | m | null = mọi luật mớn IM (luật 6) |
 | | `lengthM` | `boats.ts` (hồ sơ tàu) | m | chỉ dùng cho ngưỡng sóng giọng đọc + vùng VMS; **chưa vào BoatProfile** |
-| | két dầu, nghề | **không có** | — | D6: không kiểm "đủ dầu đi về" |
+| | két dầu (`fuelTankL`) | `forfish.boat.v1`, mặc định null (D6) | lít | có `fuelReturnCheck`, chưa nối UI; nghề: không có |
 | Địa hình | lưới độ sâu 6 lớp | `depth-grid.v1.bin` (ETOPO+GEBCO 15″, min-pool, mặt nạ rạn, bờ vn-coast) | **mực trung bình (MSL)**; lớp, không còn số mét | ô 450 m; 0 đất · 1 rạn · 2 <2 m · 3 2–4 m · 4 4–12 m · 5 ≥12 m |
 | | số đo sâu, luồng | `soundings`, `fairway-depth` | **số 0 hải đồ** | chỉ hậu kiểm |
 | | rạn | OSM `reef-shapes` (2 622 hình, không độ sâu) → nướng vào lớp 1, nở 1 km (điểm 1,5 km) | — | ACA 5 m chỉ để vẽ + dự báo cá |
@@ -62,7 +62,7 @@ HẬU KIỂM  auditRoute: 11 kho + triều tại ETA (hoursAt) + ranh giới →
 | | B8 | Rạn/xác tàu không có độ sâu | xác tàu 31 m giữa biển chặn như rạn nổi; không phân biệt rạn nổi với rạn 30 m | **Kiểm độ sâu rạn trên GPU** `scripts/dan-duong/kiem-do-sau-ran.mjs`: từng hình OSM đối chiếu GEBCO + ETOPO (ODB/ERDDAP) + lớp ACA + số đo sâu → bốn kết luận can/trung/sau/mâu-thuẫn; ứng viên `sau` (≥20 m, hai nguồn khớp, không lớp ACA cạn) đưa anh Long chốt (§7 Q3) rồi mới sinh `reef-depth.v1.json` và nối vào luật chặn. Thử 3 hình đầu 2026-10-22: xác tàu 31/32 m ⇒ `sau`; đá 4/6 m ⇒ `can`; xác tàu trong vùng ACA Reef Flat ⇒ `can` |
 | **Thời tiết** | C3 | RoutePlan không mang nguồn/tuổi dự báo | tuyến đã lưu hôm qua bằng lưới cũ mà mở lại trông như mới | thêm `plan.forecast = {source, savedAt, hours}`; saved-routes lưu kèm. **ĐÃ SỬA 2026-10-22**: `RoutePlan.forecast = {source, savedAt, hours}` lấy từ lưới đã dùng; tuyến nhiều chặng gộp theo phía xấu nhất; saved-routes vẫn CỐ Ý không lưu kết quả tính nên không cần lưu kèm (Assumption) |
 | | (live) | Đang chạy không đọc lại dự báo/dòng | ETA theo GPS tức thời, không biết sắp vào dải sóng | dùng `plan.hoursAt` + field đã lưu để nói "còn 2 giờ tới khúc sóng 2,5 m" |
-| **Tàu/dầu** | D6 | Hồ sơ tàu rời rạc, không két dầu, không chiều dài | không kiểm "đủ dầu đi và về ×1,3"; vùng VMS theo chiều dài không vào tuyến | gộp `forfish.boat.v1` vào `boats.ts`, thêm `fuelTankL`, `lengthM` |
+| **Tàu/dầu** | D6 | Hồ sơ tàu rời rạc, không két dầu, không chiều dài | không kiểm "đủ dầu đi và về ×1,3"; vùng VMS theo chiều dài không vào tuyến | gộp `forfish.boat.v1` vào `boats.ts`, thêm `fuelTankL`, `lengthM` · **ĐÃ SỬA 2026-10-22**: `BoatProfile` có `fuelTankL`/`lengthM` (null = chưa khai) + `fuelReturnCheck` đi×2×1,3; chưa nối UI, chưa gộp vào `boats.ts` (Assumption) |
 | **Waypoint** | E1 | 6/8 waypoint thẳng hàng (góc 0°) | bà con gõ 8 điểm vào máy định vị thay vì 2 | kéo dây không giới hạn `i+6` khi cạnh thẳng hàng; hoặc lọc góc < 3° sau walk · **ĐÃ SỬA 2026-10-22**: sau kéo dây, bỏ điểm giữa góc rẽ < 3° khi nằm trên cạnh nối (lệch < 0,05 km) và cạnh nối vẫn đi được, không đắt hơn |
 | **Dẫn đường trực tiếp** | F5 | Lọc tốc độ/hướng nằm trong hook, không test được; suy tốc độ từ 2 fix không ngưỡng quãng; heading GPS nhận khi speed null | đứng neo mà la bàn quay, tốc độ nhảy 18 km/h vì GPS trôi 5 m | tách `locFix(prev, fix)` thuần: ngưỡng quãng ≥ max(15 m, 2×accuracy), EMA tốc độ τ=20 s, heading chỉ khi v ≥ 0,9 km/h. **ĐÃ SỬA 2026-10-22**: `locFix` trong `use-nav-tracking.ts` (thuần, có test `nav-tracking-loc.test.ts`), hook chỉ gọi hàm này |
 | | F3 | XTE không có dấu | không nói được "lái sang phải 1,2 km" | `projectOntoRoute` trả `side` từ tích có hướng · **ĐÃ SỬA 2026-10-22**: `RouteProjection` thêm `signedKm` (dương = bên phải hướng đi) + `side` (`left`/`right`/`on`, `on` khi lệch < 10 m) từ tích có hướng; chưa gắn vào giọng/steerCue (việc F10) |
@@ -156,6 +156,12 @@ Nhật ký: ~/.local/forlife/train/dan-duong/nhat-ky/<ngày>.log · mỗi vòng 
 ## Assumptions (E1, 2026-10-22)
 
 - Điểm giữa chỉ bị bỏ khi góc rẽ < 3°, tổng hai cạnh dài hơn cạnh nối < 0,05 km, cạnh nối đi được ở chế độ nghiêm và chi phí không quá 1,001× hai cạnh cũ — chọn thận trọng để không cắt góc sát rạn (A2).
+
+## Assumptions (D6, 2026-10-22)
+
+- `BoatProfile` (route-plan.ts) có thêm `fuelTankL` (két, lít) và `lengthM` (m), cùng luật với mớn: vắng/`null` = chưa khai ⇒ im lặng, không đoán. Trần hợp lệ: két ≤ 100 000 L, chiều dài ≤ 200 m.
+- `fuelReturnCheck(boat, oneWayFuelL)`: dầu cần = một chiều × 2 × 1,3 (`FUEL_RETURN_SAFETY`); chưa có két ⇒ `null`. Hàm thuần, CHƯA nối vào màn kết quả và CHƯA có ô nhập két/chiều dài trong form lập tuyến — `route-planner` chỉ đọc/giữ nguyên hai trường khi lưu `forfish.boat.v1`. Nối UI khi anh Long chốt chữ hiển thị (§7).
+- Chưa gộp `forfish.boat.v1` vào `boats.ts` (đổi nơi lưu = đụng sao lưu/auth-scope); chiều dài vẫn đọc từ `boats.ts` cho giọng đọc/VMS.
 
 ## Assumptions (B5, 2026-10-22)
 
