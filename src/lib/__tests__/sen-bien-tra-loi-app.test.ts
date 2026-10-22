@@ -30,6 +30,16 @@ describe("veBanDo — việc nào phải sang màn bản đồ", () => {
 });
 
 describe("traLoiApp — trả lời việc trong app từ dữ liệu trong máy", () => {
+  // anh Long 2026-10-22: "gà có mấy chân" ⇒ "Tôi mở chợ tìm '' nhé." (n-gram đoán tim_mon, không tách được món)
+  it.each(["gà có mấy chân", "con chó có mấy chân"])("'%s' ⇒ không mở chợ với ô tìm trống", (c) => {
+    const a = app(c, snap({ online: true }));
+    expect(a?.text ?? "").not.toMatch(/''/);
+    expect(a?.action?.type).not.toBe("search");
+  });
+  it("tìm món có tên vẫn mở chợ đúng món", () => {
+    const a = app("tìm lưới rê", snap({ online: true }));
+    if (a?.intent === "tim_mon") expect(a.text).toMatch(/lưới/);
+  });
   it("giấy tờ: máy có giấy sắp hết hạn ⇒ nói đúng loại", () => {
     const a = app("giấy tờ tàu còn hạn không", snap({ docs: [{ kind: "dang_kiem", label: "Đăng kiểm", level: "warn", daysLeft: 12, expiry: "2026-10-30" }] as never }));
     expect(a?.intent).toBe("giay_to");

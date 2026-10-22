@@ -59,6 +59,10 @@ export function traLoiApp(
   const p = parseUtterance(text, { route: ctx.route ?? "/", ...ctx });
   // tham số chỉ tin khi bộ tách cùng ý với n-gram; khác ý thì để trống (answer tự hỏi lại / trả lời chung)
   const parsed = p.intent === intent ? p : { ...p, intent, slots: {}, followUp: undefined };
+  /*  Ý CẦN TÊN MÓN mà không tách được món ⇒ KHÔNG tự trả lời (2026-10-22, anh Long chụp: "gà có mấy chân" ⇒
+      n-gram đoán tim_mon, bộ tách khác ý nên slots rỗng ⇒ "Tôi mở chợ tìm '' nhé." mở chợ với ô tìm trống).
+      Trả null để chỗ gọi đi tiếp: có sóng hỏi máy nhà, không thì câu cũ. */
+  if ((intent === "tim_mon" || intent === "them_gio") && !(parsed.slots.qRaw || parsed.slots.q)?.trim()) return null;
   try {
     return answerOffline(parsed, snap, now);
   } catch {
