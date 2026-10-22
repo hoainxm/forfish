@@ -745,6 +745,12 @@ export type PlanArgs = {
       `planRouteWithDiagnostics` tự nâng khi mọi lượt đều không ra tuyến; chỗ
       gọi không cần truyền. */
   landExitPadKm?: number;
+  /*  TRIỀU tại ETA (B4, 2026-10-22) — chỉ hiệu chỉnh ĐỘ SÂU lớp 3, KHÔNG vào
+      chi phí (quyết định 09/2026). `heightAtMs` và `z0M` cùng so số 0 hải đồ;
+      `departMs` là mốc ms ứng với `departHourIdx`. `reserveM` = dự trữ trừ thêm
+      (trạm `model` ±0,2 m). Bỏ trống ⇒ như cũ (trần tĩnh). Có hàm ⇒ không
+      clone được sang worker: chỗ gọi phải tính ở luồng chính. */
+  tide?: { z0M: number; departMs: number; heightAtMs(ms: number): number; reserveM?: number };
 };
 
 // hàng đợi ưu tiên nhị phân tối giản
@@ -895,7 +901,7 @@ function planAttempt(
       bật, và chỉ khi lượt thường đã gặp chỗ thiếu số mà không ra tuyến. */
   weatherUnknownOk = false,
 ): RoutePlan | null {
-  const { start, dest, boat, departHourIdx, field, depth, bbox } = args;
+  const { start, dest, boat, departHourIdx, field, depth, bbox, tide } = args;
   const midLat = (bbox.latMin + bbox.latMax) / 2;
   const spanLatKm = (bbox.latMax - bbox.latMin) * 111.32;
   const spanLonKm = (bbox.lonMax - bbox.lonMin) * 111.32 * Math.cos(rad(midLat));
@@ -1172,7 +1178,15 @@ function planAttempt(
               const hw = sampleField(field, pLat, pLon, atHour + (distKm * t) / calmKmh);
               const waveHere = hw ? (hw.waveM ?? estimateWaveFromWind(hw.windKmh)) : null;
               const need = requiredDepthM(boat.draftM ?? null, waveHere);
-              ok = need != null && need <= DRAFT_SHALLOW_MAX_NEED_M;
+              /*  triều tại ETA của mẫu: nước lớn mở thêm, ròng đóng bớt. Số triều
+                  không hữu hạn (nguồn hỏng) ⇒ về trần tĩnh, không đoán. */
+              let dTide = 0;
+              if (tide) {
+                const etaMs = tide.departMs + (atHour - departHourIdx + (distKm * t) / calmKmh) * 3_600_000;
+                const d = tide.heightAtMs(etaMs) - tide.z0M - (tide.reserveM ?? 0);
+                if (Number.isFinite(d)) dTide = d;
+              }
+              ok = need != null && need <= DRAFT_SHALLOW_MAX_NEED_M + dTide;
             }
             lowFar = true;
             if (ok) {

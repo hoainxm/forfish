@@ -56,7 +56,7 @@ HẬU KIỂM  auditRoute: 11 kho + triều tại ETA (hoursAt) + ranh giới →
 
 | Nhóm | Mã | Lỗ hổng | Vì sao quan trọng với bà con | Hướng sửa (ngắn) |
 |---|---|---|---|---|
-| **Độ sâu–triều** | B4 | Triều không vào luật độ sâu lúc lập tuyến | tàu mớn 1,8 m qua bãi 2–4 m được lúc nước lớn, mắc cạn lúc ròng — máy hiện trả lời giống nhau mọi giờ | `PlanArgs.tide?: {h(tMs)}`; lớp 3 xét `need ≤ 2,0 + Δh(ETA)`; KHÔNG đưa vào chi phí (giữ quyết định 09/2026) |
+| **Độ sâu–triều** | B4 | Triều không vào luật độ sâu lúc lập tuyến | tàu mớn 1,8 m qua bãi 2–4 m được lúc nước lớn, mắc cạn lúc ròng — máy hiện trả lời giống nhau mọi giờ | `PlanArgs.tide?: {h(tMs)}`; lớp 3 xét `need ≤ 2,0 + Δh(ETA)`; KHÔNG đưa vào chi phí (giữ quyết định 09/2026). **ĐÃ SỬA 2026-10-22**: `PlanArgs.tide {z0M, departMs, heightAtMs, reserveM?}` — `legCost` lớp 3 xét `need ≤ 2,0 + (h(ETA) − z0 − reserve)`; số triều hỏng thì về trần tĩnh |
 | | B6 | Chưa quy đổi datum MSL ↔ số 0 hải đồ | cộng triều "+1,5 m" vào lưới MSL là cộng thừa z0 (Vũng Tàu 2,9 m!) | `doSauLucT = zMSL + (h(t) − z0)`; trạm model ±0,2 m thêm dự trữ |
 | | B5 | Không có squat theo tốc độ | tàu 10 hl ở nước 5 m lún thêm 0,2–0,4 m | Barrass đơn giản `squat ≈ Cb·V²/100` (Cb≈0,6 tàu cá), cộng vào `requiredDepthM(draft, Hs, speedKn)` |
 | | B8 | Rạn/xác tàu không có độ sâu | xác tàu 31 m giữa biển chặn như rạn nổi; không phân biệt rạn nổi với rạn 30 m | **Kiểm độ sâu rạn trên GPU** `scripts/dan-duong/kiem-do-sau-ran.mjs`: từng hình OSM đối chiếu GEBCO + ETOPO (ODB/ERDDAP) + lớp ACA + số đo sâu → bốn kết luận can/trung/sau/mâu-thuẫn; ứng viên `sau` (≥20 m, hai nguồn khớp, không lớp ACA cạn) đưa anh Long chốt (§7 Q3) rồi mới sinh `reef-depth.v1.json` và nối vào luật chặn. Thử 3 hình đầu 2026-10-22: xác tàu 31/32 m ⇒ `sau`; đá 4/6 m ⇒ `can`; xác tàu trong vùng ACA Reef Flat ⇒ `can` |
@@ -136,3 +136,7 @@ Nhật ký: ~/.local/forlife/train/dan-duong/nhat-ky/<ngày>.log · mỗi vòng 
 - Bộ chấm dùng trường thời tiết tổng hợp 10×10 mắt (0,32°) — gần độ mịn lưới server 0,35°; dải thử rộng ≥ 0,2° để chắc chắn trúng ít nhất một mắt.
 - "Đạt" mặc định = điểm ≥ 90; tiêu chí nhị phân ra 0/100.
 - 12 tuyến thật là tập hồi quy do lead chọn (6 từ bench cũ + 6 cảng khác); không thay cho tuyến chuẩn người duyệt.
+
+## Assumptions (B4, 2026-10-22)
+- `PlanArgs.tide` chưa có chỗ gọi trong UI (route-planner chưa truyền) nên app chạy như cũ tới khi nối nguồn `tides.ts`; hàm không clone được sang worker, nối phải ở luồng chính. Mặc định an toàn: vắng/hỏng thì dùng trần tĩnh 2,0 m.
+- ETA mẫu = `departMs + (atHour − departHourIdx + quãng/tốc độ êm) giờ`; triều chỉ mở/đóng lớp 3, không vào chi phí (quyết định 09/2026).
