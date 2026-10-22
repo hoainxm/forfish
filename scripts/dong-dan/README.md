@@ -15,6 +15,7 @@ Mọi đường dẫn đi qua `scripts/lib/data-dir.mjs`: `$SDFISH_DATA_DIR`, m�
 | `hindcast-ntb/chiso/` | `oni.txt` (CPC), `nino.txt` (CPC), `pdo.txt` (NCEI ERSSTv5) | Mac + GPU | tải lại mỗi lần |
 | `hindcast-ntb/chl-occi/<năm>.csv` | Chl OC-CCI v6.0 theo 8 ngày, 8–15°N × 106–115°E, ≈0,125° (57 × 73 ô, vĩ độ GIẢM dần); trục ở `manifest.json` | Mac + GPU | 9/1997 → 6/2026, 31 MB |
 | `hindcast-ntb/cmems-gio/chiso-ngay.json` | Chỉ số gió NGÀY theo 5 hộp (`<HỘP>_<ti\|tE\|tN\|Mek\|wEk>`), nối 0,25° + 0,125° có hiệu chỉnh lệch theo tháng; `noi-bo.json` = so khúc chồng | Mac + GPU | 1994-06 → 2026-06-20, 6,5 MB |
+| `hindcast-ntb/gio-du-bao/ecmwf_ifs/<ngày phát>.json` | Gió DỰ BÁO thật ECMWF IFS (lần chạy 00 UTC đúng ngày phát), 27 ô biển (9/hộp SCU, OFU, MKU), theo giờ tới 10–15 ngày | Mac + GPU | 52 lần phát 5/2024 → 6/2026, 5 MB |
 | `hindcast-ntb/cmems-gio/<025\|0125>/ngay-o.f32` | Gió NGÀY từng ô trong hộp: [ô × ngày × 4] (τx, τy, \|τ\|, curl τ), Float32; `manifest.json` liệt kê ô | **chỉ GPU** | ~730 MB; thư mục `cache/` (~440 MB) chỉ để chạy tiếp, xoá được |
 | `dong-dan/ket-qua/` | Kết quả bước C, C2 (`ket-qua*.json/md`) | Mac | nhỏ |
 | `dong-dan/buoc0/` | Kết quả bước 0 | GPU (dữ liệu DataLake **không rời PC GPU**) | nhỏ |
@@ -32,7 +33,11 @@ node scripts/dong-dan/phan-tich.mjs                # bước C  → dong-dan/ket
 node scripts/dong-dan/phan-tich-ekman.mjs          # bước C2, gió ERA5  → ket-qua-ekman.{json,md}
 node scripts/dong-dan/phan-tich-ekman.mjs --gio cmems   # bước C2, gió CMEMS → ket-qua-ekman-cmems.{json,md}
 node scripts/dong-dan/phan-tich-gio-moi.mjs        # mắt xích gió → mồi → gio-moi.{json,md}
+node scripts/dong-dan/tai-gio-du-bao.mjs           # gió dự báo ECMWF IFS đã lưu (Open-Meteo Single Runs, chỉ có từ 2024)
+node scripts/dong-dan/phan-tich-du-bao-moi.mjs     # thử dự báo mồi 1–3 tuần → du-bao-moi.{json,md}
 ```
+
+`chl-gio.mjs` là phần dùng chung của hai phân tích "mồi" (đọc chl theo hộp, khe 8 ngày, dị thường, gió ngày).
 
 `hop.mjs` là MỘT nguồn định nghĩa hộp; `zarr-cmems.mjs` đọc Zarr ẩn danh của Copernicus Marine bằng bộ giải nén blosc của app (`src/lib/copernicus.ts`, nạp qua `jiti` có sẵn trong node_modules — không thêm phụ thuộc). Muốn chạy ở thư mục ngoài repo (như `~/.local/forlife/train/dong-dan` trên GPU) thì giữ đúng bố cục: `scripts/dong-dan/`, `scripts/lib/data-dir.mjs`, `src/lib/{copernicus,abort}.ts`, `node_modules` (liên kết tới repo).
 
@@ -55,6 +60,7 @@ Khoảng 7 phút, ~9 GB RAM. Ra `dong-dan/buoc0/buoc0.{json,md}`.
 | Open-Meteo archive/marine, SST | Trả null cho năm cũ | không dùng |
 | ONI, Niño (CPC), PDO (NCEI) | **Chạy** | |
 | Chl OC-CCI qua ERDDAP NOAA PIFSC (`oceanwatch.pifsc.noaa.gov`) | **Chạy** | hỏi vượt phạm vi thời gian ⇒ 404 — script kẹp vào `time_coverage_start/end` |
+| Gió dự báo đã lưu, Open-Meteo Single Runs (`&run=`), mô hình `ecmwf_ifs` | **Chạy, chỉ từ ~4/2024** | 10 ngày tới giữa 2024, 15 ngày từ 19/7/2024; `ecmwf_ifs025`, GFS không có trong kho; Previous Runs API (tầm 1–7 ngày) cũng chỉ từ 2024 |
 | Gió CMEMS `WIND_GLO_PHY_L4_MY_012_006` qua Zarr ẩn danh | **Chạy** | khối trống trả 403; ứng suất có sẵn quá thô (0,01 N/m²) nên tự tính từ gió; trục time phải đọc Float64; từ Mac nối S3 chập chờn — chạy ở GPU |
 
 Sổ nguồn đầy đủ, có nguồn thay thế đã thử: `docs/research/du-bao-ca-dong-dan-2026-10/11-so-nguon.md`.

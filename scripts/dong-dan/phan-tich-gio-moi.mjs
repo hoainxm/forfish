@@ -8,51 +8,24 @@
 //   C. ENSO → mồi: ONI T12–2 → chl 6–9 (r, bỏ-từng-năm), và phân nhóm sau El Niño (tercile dưới, đuôi nhị thức).
 //   D. Thời điểm: ngày chl đạt mức hè điển hình vs ngày gió khởi phát (tercile, tương quan).
 // Đối tượng "mồi" ở đây là chl mặt biển (thực vật phù du) — KHÔNG phải cá; mây/cực đại dưới mặt là giới hạn (03 §4).
-import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { dataDir } from "../lib/data-dir.mjs";
-import { BOXES, inBox } from "./hop.mjs";
+import { mean, pearson, makeRng, quantile as q, doy, slot, binomTail, CLIM_YEARS, loadChlBoxes, anomBySlot, loadGioNgay } from "./chl-gio.mjs";
 
 const RAW = join(dataDir(), "hindcast-ntb"), OUT = join(dataDir(), "dong-dan", "ket-qua");
 mkdirSync(OUT, { recursive: true });
-const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
-const pearson = (a, b) => { const ma = mean(a), mb = mean(b); let xy = 0, xx = 0, yy = 0; for (let i = 0; i < a.length; i++) { xy += (a[i] - ma) * (b[i] - mb); xx += (a[i] - ma) ** 2; yy += (b[i] - mb) ** 2; } return xy / Math.sqrt(xx * yy); };
-let seed = 7; const rnd = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let z = Math.imul(seed ^ (seed >>> 15), 1 | seed); z = (z + Math.imul(z ^ (z >>> 7), 61 | z)) ^ z; return ((z ^ (z >>> 14)) >>> 0) / 4294967296; };
-const q = (a, p) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(p * (s.length - 1))]; };
-const doy = (iso) => Math.floor((Date.parse(iso) - Date.UTC(+iso.slice(0, 4), 0, 1)) / 864e5) + 1;
-const slot = (iso) => Math.floor((doy(iso) - 1) / 8); // OC-CCI 8 ngày bắt đầu 1/1 mỗi năm ⇒ khe 0..45
-const binomTail = (k, n, p = 1 / 3) => { let s = 0; for (let j = k; j <= n; j++) { let c = 1; for (let i = 0; i < j; i++) c = (c * (n - i)) / (i + 1); s += c * p ** j * (1 - p) ** (n - j); } return s; };
+const rnd = makeRng(7);
 const BX = ["SCU", "NCU", "OFU", "MKU"];
-const CLIM_YEARS = [1998, 2025];
 
 // ── chl: trung bình log10 theo hộp cho từng mốc 8 ngày ────────────────────
-const man = JSON.parse(readFileSync(join(RAW, "chl-occi", "manifest.json"), "utf8"));
-const nLon = man.lon.length;
-const cellsOf = Object.fromEntries(BX.map((b) => [b, man.lat.flatMap((la, i) => man.lon.map((lo, j) => (inBox(BOXES[b], la, lo) ? i * nLon + j : -1))).filter((k) => k >= 0)]));
-const chl = Object.fromEntries(BX.map((b) => [b, new Map()])); // hộp → Map(ngày → log10 chl)
-const cover = Object.fromEntries(BX.map((b) => [b, []]));
-for (const f of readdirSync(join(RAW, "chl-occi")).filter((f) => f.endsWith(".csv")).sort())
-  for (const l of readFileSync(join(RAW, "chl-occi", f), "utf8").split("\n")) {
-    if (!l) continue;
-    const p = l.split(","), d = p[0];
-    for (const b of BX) {
-      const v = cellsOf[b].map((k) => +p[k + 1]).filter((x) => Number.isFinite(x) && x > 0);
-      cover[b].push(v.length / cellsOf[b].length);
-      if (v.length >= 0.3 * cellsOf[b].length) chl[b].set(d, mean(v.map(Math.log10)));
-    }
-  }
-const anomBySlot = (m) => { // dị thường theo khe 8 ngày, khí hậu 1998–2025
-  const by = Array.from({ length: 46 }, () => []);
-  for (const [d, v] of m) { const y = +d.slice(0, 4); if (y >= CLIM_YEARS[0] && y <= CLIM_YEARS[1]) by[slot(d)].push(v); }
-  const cl = by.map(mean);
-  return { clim: cl, anom: new Map([...m].map(([d, v]) => [d, v - cl[slot(d)]])) };
-};
+const { cellsOf, chl, cover } = loadChlBoxes(RAW, BX);
 const chlA = Object.fromEntries(BX.map((b) => [b, anomBySlot(chl[b])]));
 const chlDates = [...new Set(BX.flatMap((b) => [...chl[b].keys()]))].sort();
 console.error("chl:", chlDates[0], "→", chlDates.at(-1), "·", chlDates.length, "mốc; ô/hộp", JSON.stringify(Object.fromEntries(BX.map((b) => [b, cellsOf[b].length]))));
 
 // ── gió: chỉ số ngày → trung bình cửa sổ 8 ngày khớp mốc chl ───────────────
-const gio = JSON.parse(readFileSync(join(RAW, "cmems-gio", "chiso-ngay.json"), "utf8"));
+const gio = loadGioNgay(RAW);
 const WIND = { SCU: ["SCU_tE", "SCU_Mek", "SCU_wEk", "SCU_ti"], NCU: ["NCU_tN", "NCU_Mek", "NCU_ti"], OFU: ["OFU_wEk", "OFU_ti", "OFU_tE"], MKU: ["MKU_ti", "MKU_tE", "MKU_wEk"] };
 const win8 = (key, start) => { // trung bình 8 ngày từ start; cần ≥ 6 ngày
   const m = gio[key]; if (!m) return NaN;

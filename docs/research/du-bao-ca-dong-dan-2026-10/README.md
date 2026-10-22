@@ -65,6 +65,8 @@ Giao thức đánh giá đầy đủ (AUCeff trong-nghề, bootstrap khối, đ�
 
 9. **Mắt xích gió → mồi ĐÃ ĐO 2026-10-22** (`12-gio-moi.md`, gió CMEMS đủ 4 hộp + chl OC-CCI 1997–2026): **mắt xích mạnh nhất cả nghiên cứu** — gió hè ↔ chl hè r 0,76–0,82 ở SCU/OFU/MKU, chl phản ứng sau 0–16 ngày; NCU đi ngược. Sau El Niño chl hè SCU thấp 4/4, OFU 3/3 (dạng xác suất; hồi quy mức độ không có skill). Mắt xích yếu là **ENSO → gió**, không phải gió → mồi. "Gió mùa vào muộn" của 10 **hạ xuống mức vừa** (ngày vào nhạy với nguồn gió). Hướng đáng làm nhất: **gió dự báo → mồi 1–3 tuần**, rồi kiểm mồi → cá trên nhãn chuyến. Khoá thêm: chl hè 2027 thấp ở SCU và OFU.
 
+10. **Thử dự báo mồi 1–3 tuần ĐÃ ĐO 2026-10-22** (`13-du-bao-moi.md`, gió dự báo thật ECMWF IFS 2024–2026, 51 lần phát): **lần đầu có dự báo tầm 1–3 tuần thắng đối thủ trên dữ liệu chưa thấy.** MKU (thềm Mê Kông – Côn Đảo) thắng quán tính +0,32 / +0,35 / +0,12 ở tầm 8 / 16 / 24 ngày (CI loại 0), gần bằng trần biết trước gió; SCU +0,16 ở tầm 8 ngày; OFU không thêm gì. Mẫu nhỏ (kho dự báo chỉ có từ 2024); vẫn là mồi, chưa phải cá — bước B quyết định.
+
 ## 6. Dữ liệu và script để chạy lại (cất 2026-10-22)
 
 - **Script**: `scripts/dong-dan/` (README ở đó: thứ tự chạy, nguồn chạy/không chạy, cách tải tiếp). Bước C và C2 chạy lại từ bản trong repo ra **giống hệt** số trong 09b/10b; bước 0 chạy lại trên gpu-desktop bằng đường dẫn mặc định.
