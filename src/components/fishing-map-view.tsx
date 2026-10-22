@@ -4116,6 +4116,20 @@ export default function FishingMapView() {
             senSay(a.speak);
             return { show: a.text };
           }
+          /*  MÁY KHÔNG TỰ TRẢ LỜI ĐƯỢC + CÓ SÓNG ⇒ HỎI MÁY NHÀ — cùng bước cuối của màn toàn app (sen-bien-toan-app).
+              Màn Bản đồ thiếu bước này nên câu ngoài nghề ("con gà có mấy chân", anh Long 2026-10-22) bị bộ lọc
+              kho gạt (kq.vao = false) rồi rơi thẳng xuống "Sen Biển chưa hiểu". Câu hỏi lại (r.ask) giữ nguyên. */
+          if (!kq.vao && !r.ask) {
+            const coSong = typeof navigator === "undefined" || navigator.onLine !== false;
+            if (nenHoiMayChu(r, text, !!readToken(), coSong)) {
+              senSay(DANG_HOI);
+              const dap = await hoiMayChu(text, "/ngu-truong", null);
+              if (dap) {
+                senSay(dap.text);
+                return { show: dap.text };
+              }
+            }
+          }
           if (r.ask) senAsk(r.say);
           else senSay(r.say);
           return { show: r.say };
