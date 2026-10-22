@@ -78,6 +78,41 @@ ACA bathymetry   —           rạn ✓       Côn Đảo ✓    Phú Quốc �
 
 Giá EOMAP/TCarta vùng VN · danh sách HO trong PRIMAR Non-SOLAS · giá Navionics Enhanced/SDK và C-MAP Genesis Edge · kênh bán hải đồ Hải quân cho dân · datum dọc của SCSBathy10 · nguồn gốc khối TID 17 ở Nam Trung Bộ · nguồn bathymetry của Laut Nusantara/INCOIS · kho ScienceDB/NESSDC (tiếng Trung, không rà bằng công cụ phương Tây) · datum lớp ACA bathymetry (tải mới biết).
 
+## 6. Kết quả hai việc GPU chạy xong trong ngày (2026-10-22, 09:00–10:15)
+
+### 6.1 Mặt nạ tin cậy GEBCO TID — `tid-vn.py` (số đo của mình, khung 102–118°Đ/5–23°B, 11,35 triệu ô biển)
+
+| | Ô biển | Đo thật (TID 10–17, 44) |
+|---|---|---|
+| Toàn vùng | 11 348 692 | 21,7 % |
+| Dải 0–50 m | 2 205 133 | **14,6 %** |
+| Dải 0–20 m | 639 548 | 25,7 % |
+| Vịnh Bắc Bộ 0–50 m | 208 767 | **3,7 %** |
+| Trung Bộ 0–50 m | 33 187 | 32,9 % |
+| ĐNB–Mekong 0–50 m | 280 106 | 28,0 % |
+| Tây Nam–Phú Quốc 0–50 m | 144 886 | 45,8 % |
+| Hoàng Sa 0–50 m | 9 083 | 50,3 % |
+| Trường Sa 0–50 m | 26 120 | 40,4 % |
+
+Khớp với hai phép đo độc lập của agent A và D (hộp khác nhau nên lệch vài điểm). File `depth-tid-vn.1bit` (2 MB, 1 bit/ô, cùng khung) sẵn sàng đóng gói thành `public/data/depth-tid.v1.bin`. Số liệu: [`tid-vn.stats.json`](do-sau-day-bien-2026-10-22/tid-vn.stats.json).
+
+### 6.2 Kiểm độ sâu 2 622 hình rạn OSM — `kiem-do-sau-ran.mjs` ([kết quả](do-sau-day-bien-2026-10-22/kiem-do-sau-ran-ket-qua.md))
+
+| Kết luận | Số rạn | Trong đó tâm nằm trên ô GEBCO **đoán** (TID 40) |
+|---|---|---|
+| can (giữ chặn) | 2 333 | 512 |
+| trung 5–20 m | 71 | 38 |
+| **sau ≥ 20 m, hai mô hình khớp** | **35** | **23 / 35** |
+| mâu thuẫn (mô hình sai tại rạn) | 183 | 86 |
+
+Hai mô hình chỉ khớp nhau trong 5 m ở **31,8 %** hình rạn — ở rạn, ETOPO và GEBCO không phải hai nhân chứng độc lập mà là hai bản đoán khác nhau. **23/35 ứng viên "sâu" nằm trên ô nội suy trọng lực** ⇒ "sâu" ở đó là đoán, không hạ chặn. Còn lại 12 trên ô đo thật, chia hai nhóm ([`ung-vien-ran-sau.tid.json`](do-sau-day-bien-2026-10-22/ung-vien-ran-sau.tid.json)):
+
+- **7 ứng viên thật sự đáng xem** (đo thật, 20–40 m, đông Trường Sa 116–117°Đ): osm-173 (21 m, TID 16 quang học), osm-467 (22 m, TID 44 hải đồ, gần Hồng Kông), osm-1006 (21 m), osm-1172 (21 m), osm-1501 (23 m, ACA thấy sườn rạn + plateau), osm-1568 (22 m, TID 14 số đo ENC), osm-1585 (36 m, TID 14). Hạ xuống cảnh báo CHỈ sau khi ATL24/ACA bathymetry xác nhận (Q3 giữ nguyên).
+- **3 hình OSM nghi SAI VỊ TRÍ**: osm-704 (1 444 m, TID 11 đa tia), osm-1069 (803 m, TID 11), osm-1146 (309 m, TID 11) — máy đo đa tia nói đáy 300–1 400 m ngay chỗ OSM vẽ "reef". Khả năng cao là người vẽ OSM đặt nhầm hoặc là núi ngầm. Việc riêng: soi ảnh vệ tinh từng hình; nếu sai thì gỡ khỏi mặt nạ (đang chặn oan một vùng 1 km).
+- 2 hình ở lon 112,5°Đ / 4,8–4,9°B ngoài khung TID (phía nam, biển Malaysia).
+
+**Trả lời câu "dữ liệu đủ mà sao không có độ sâu" bằng số**: trong 2 622 rạn, chỉ **1** rạn mô hình nói ≥ 20 m mà ACA thấy mặt rạn cạn — tức mô hình hiếm khi "bịa sâu" ở rạn lớn; nhưng nó **không phân giải** rạn nhỏ (183 mâu thuẫn + 2 333 cạn mà phần lớn ETOPO/GEBCO vẫn ghi vài chục mét quanh đó). Rạn có số độ sâu thật chỉ khi lấy từ ACA bathymetry, ATL24, hoặc ba bộ 10 m đã chốt dùng (Q6).
+
 ## Assumptions
 
 - "Đo thật" trong TID = mã 10–17 (đo trực tiếp) + 44 (hải đồ số hoá); 40 = nội suy trọng lực vệ tinh; lidar = 15, hải đồ = 42–44 (D sửa lại nhóm "40–47" sai trong đề bài).
