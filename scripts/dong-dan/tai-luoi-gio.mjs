@@ -7,8 +7,7 @@ import { dataDir } from "../lib/data-dir.mjs";
 const DIR = join(dataDir(), "hindcast-ntb", "era5-luoi") + "/";
 mkdirSync(DIR, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// hộp (lat0,lat1,lon0,lon1): SCU · NCU · OFU · MKU · ref đông — đặt theo mô tả Herrmann 2023 (toạ độ hộp không in trong bài, chỉ Fig. 1b) [GT]
-const BOXES = { SCU: [10.5, 12.5, 108.5, 110.5], NCU: [12.5, 14.5, 109.0, 110.5], OFU: [11.0, 13.0, 110.5, 112.5], MKU: [8.0, 10.5, 106.5, 109.0], REF: [11.0, 13.0, 113.0, 115.0] };
+import { BOXES } from "./hop.mjs"; // MỘT nguồn định nghĩa hộp
 const pts = new Set();
 for (const [la0, la1, lo0, lo1] of Object.values(BOXES)) for (let la = la0; la <= la1 + 1e-9; la += 0.5) for (let lo = lo0; lo <= lo1 + 1e-9; lo += 0.5) pts.add(`${la.toFixed(1)}_${lo.toFixed(1)}`);
 const P = [...pts].map((k) => k.split("_").map(Number));

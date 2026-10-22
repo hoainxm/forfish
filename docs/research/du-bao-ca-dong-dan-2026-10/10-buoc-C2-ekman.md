@@ -13,6 +13,8 @@
 | "…và **gió cả hè yếu**" (trung bình 6–9) | **Yếu.** Tương quan đúng dấu (ONI T12–2 ↔ ứng suất gió dọc bờ r −0,37) nhưng chỉ nhờ 3 năm lớn (1983, 1998, 2010); nhóm gió yếu sau El Niño 3/7 ≈ tỉ lệ gốc. Hồi quy bỏ-từng-năm: skill +0,03 [−0,09…+0,13] | **Không nói** "gió cả hè yếu". Có thể nói "ít khả năng có hè gió mạnh": 0/7 năm sau El Niño rơi nhóm gió mạnh (gốc 1/3, p ≈ 0,06) |
 | Mức độ (bao nhiêu ngày muộn, bao nhiêu độ lạnh) | Hồi quy tuyến tính không có skill trên MAE với mọi chỉ số gió | Không nói con số |
 
+> **ĐÃ SỬA một phần bởi `12-gio-moi.md` (cùng ngày):** làm lại với gió CMEMS đủ 4 hộp — chiều "gió hè yếu hơn sau El Niño" đứng vững (hai nguồn cùng r −0,35 với ONI), nhưng **ngày gió vào nhạy với nguồn** (ERA5 vs CMEMS r 0,66; 1998 lệch hơn 3 tháng), nên "vào muộn 6/7" hạ xuống mức **vừa**. Câu thẻ triển vọng nên dùng bản ở 12 §0.
+
 **Sửa kết luận 09**: 09 cấm câu "muộn" vì đo khởi phát bằng SST thì 36/45 năm bão hoà ngay 1/5. Đo bằng gió thì câu "gió mùa tây nam vào muộn sau El Niño" **có cơ sở mạnh nhất cả nghiên cứu**. Câu "nước trồi yếu" được phép ở dạng xác suất ("khả năng cao ít nước lạnh"), không ở dạng mức độ.
 
 **Câu thẻ triển vọng đề xuất** (phát tháng 3 khi ONI T12–2 ≥ 1): *"Năm nay sau El Niño. Những năm như vậy, gió mùa tây nam ở Nam Trung Bộ thường vào muộn (6 trên 7 lần, giữa tháng 7 thay vì giữa tháng 6) và nước ven bờ ít lạnh hơn. Tham khảo, không phải lời hứa."* Kèm danh sách năm tương tự: 1983, 1987, 1992, 1998, 2010, 2016, 2024.

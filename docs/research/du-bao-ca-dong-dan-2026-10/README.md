@@ -63,11 +63,14 @@ Giao thức đánh giá đầy đủ (AUCeff trong-nghề, bootstrap khối, đ�
 3. Kênh **kéo DataLake lại** hằng tuần (đường hầm API đã chết), xin **toạ độ mẻ** và **nhãn 2025**, xin **sản lượng tỉnh nhiều năm** — nghiệp vụ, không phải kỹ thuật.
 4. Có duyệt sản phẩm **thẻ triển vọng theo vùng** thay cho bản đồ ô ở tầm >14 ngày không (ảnh hưởng gói premium).
 
+9. **Mắt xích gió → mồi ĐÃ ĐO 2026-10-22** (`12-gio-moi.md`, gió CMEMS đủ 4 hộp + chl OC-CCI 1997–2026): **mắt xích mạnh nhất cả nghiên cứu** — gió hè ↔ chl hè r 0,76–0,82 ở SCU/OFU/MKU, chl phản ứng sau 0–16 ngày; NCU đi ngược. Sau El Niño chl hè SCU thấp 4/4, OFU 3/3 (dạng xác suất; hồi quy mức độ không có skill). Mắt xích yếu là **ENSO → gió**, không phải gió → mồi. "Gió mùa vào muộn" của 10 **hạ xuống mức vừa** (ngày vào nhạy với nguồn gió). Hướng đáng làm nhất: **gió dự báo → mồi 1–3 tuần**, rồi kiểm mồi → cá trên nhãn chuyến. Khoá thêm: chl hè 2027 thấp ở SCU và OFU.
+
 ## 6. Dữ liệu và script để chạy lại (cất 2026-10-22)
 
 - **Script**: `scripts/dong-dan/` (README ở đó: thứ tự chạy, nguồn chạy/không chạy, cách tải tiếp). Bước C và C2 chạy lại từ bản trong repo ra **giống hệt** số trong 09b/10b; bước 0 chạy lại trên gpu-desktop bằng đường dẫn mặc định.
 - **Dữ liệu** (ngoài git, `$SDFISH_DATA_DIR`): `hindcast-ntb/` 277 MB — OISST theo ngày 1982 → 2026-10-20, gió ERA5 lưới 0,5° hộp SCU (20/120 điểm), gió 3 điểm, ONI/Niño/PDO — có ở **cả Mac (`~/sdfish-data`) và PC GPU**. Kết quả bước 0 ở `dong-dan/buoc0/` chỉ trên PC GPU (dữ liệu DataLake không rời máy đó).
 - **Còn thiếu**: lưới gió 100/120 điểm (OFU/MKU/NCU) vì hạn mức Open-Meteo; chl lịch sử. Nguồn thay thế: `11-so-nguon.md`.
+- **Đã bù (cùng ngày, `12-gio-moi.md`)**: gió CMEMS 1994 → 6/2026 cho đủ 5 hộp (`hindcast-ntb/cmems-gio/`: chỉ số ngày theo hộp 6,5 MB ở cả Mac và PC GPU; lưới ngày từng ô ~730 MB chỉ ở PC GPU) và chl OC-CCI 8 ngày 9/1997 → 6/2026 (`hindcast-ntb/chl-occi/`, 31 MB, cả hai máy).
 
 ## 7. Sổ nguồn (thử thật 2026-10-22, `11-so-nguon.md`)
 

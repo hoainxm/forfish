@@ -13,6 +13,9 @@ Mọi đường dẫn đi qua `scripts/lib/data-dir.mjs`: `$SDFISH_DATA_DIR`, m�
 | `hindcast-ntb/era5-luoi-do/` | Tải dở hàng 12,5°N (bị Open-Meteo chặn giữa chừng) — không dùng trong phân tích | Mac + GPU | 20 file |
 | `hindcast-ntb/era5-3diem/` | Gió ERA5 theo giờ tại 3 điểm (12°N 110°E · 11°N 110,5°E · 13°N 109,75°E) | Mac + GPU | 45 file, 31 MB |
 | `hindcast-ntb/chiso/` | `oni.txt` (CPC), `nino.txt` (CPC), `pdo.txt` (NCEI ERSSTv5) | Mac + GPU | tải lại mỗi lần |
+| `hindcast-ntb/chl-occi/<năm>.csv` | Chl OC-CCI v6.0 theo 8 ngày, 8–15°N × 106–115°E, ≈0,125° (57 × 73 ô, vĩ độ GIẢM dần); trục ở `manifest.json` | Mac + GPU | 9/1997 → 6/2026, 31 MB |
+| `hindcast-ntb/cmems-gio/chiso-ngay.json` | Chỉ số gió NGÀY theo 5 hộp (`<HỘP>_<ti\|tE\|tN\|Mek\|wEk>`), nối 0,25° + 0,125° có hiệu chỉnh lệch theo tháng; `noi-bo.json` = so khúc chồng | Mac + GPU | 1994-06 → 2026-06-20, 6,5 MB |
+| `hindcast-ntb/cmems-gio/<025\|0125>/ngay-o.f32` | Gió NGÀY từng ô trong hộp: [ô × ngày × 4] (τx, τy, \|τ\|, curl τ), Float32; `manifest.json` liệt kê ô | **chỉ GPU** | ~730 MB; thư mục `cache/` (~440 MB) chỉ để chạy tiếp, xoá được |
 | `dong-dan/ket-qua/` | Kết quả bước C, C2 (`ket-qua*.json/md`) | Mac | nhỏ |
 | `dong-dan/buoc0/` | Kết quả bước 0 | GPU (dữ liệu DataLake **không rời PC GPU**) | nhỏ |
 | `dl-all/`, `fc-full/features/` | Nhãn DataLake + cache đặc trưng vệ tinh (bước 0 đọc) | **chỉ GPU** | 11 GB + 56 MB |
@@ -22,10 +25,16 @@ Mọi đường dẫn đi qua `scripts/lib/data-dir.mjs`: `$SDFISH_DATA_DIR`, m�
 ```bash
 node scripts/dong-dan/tai-gio-3diem-va-chiso.mjs   # chỉ số + gió 3 điểm (vài phút)
 node scripts/dong-dan/tai-oisst.mjs 6              # OISST theo ngày, 6 luồng; chạy lại chỉ tải ngày thiếu (~25 phút từ đầu)
-node scripts/dong-dan/tai-luoi-gio.mjs             # lưới gió — xem cảnh báo hạn mức dưới đây
+node scripts/dong-dan/tai-luoi-gio.mjs             # lưới gió Open-Meteo — bị hạn mức, đã thay bằng tai-gio-cmems.mjs
+node scripts/dong-dan/tai-chl-occi.mjs             # chl OC-CCI 8 ngày (~8 phút ở GPU)
+node scripts/dong-dan/tai-gio-cmems.mjs            # gió CMEMS 5 hộp, cả hai bộ (~3 phút ở GPU; từ Mac chập chờn)
 node scripts/dong-dan/phan-tich.mjs                # bước C  → dong-dan/ket-qua/ket-qua.{json,md}
-node scripts/dong-dan/phan-tich-ekman.mjs          # bước C2 → dong-dan/ket-qua/ket-qua-ekman.{json,md}
+node scripts/dong-dan/phan-tich-ekman.mjs          # bước C2, gió ERA5  → ket-qua-ekman.{json,md}
+node scripts/dong-dan/phan-tich-ekman.mjs --gio cmems   # bước C2, gió CMEMS → ket-qua-ekman-cmems.{json,md}
+node scripts/dong-dan/phan-tich-gio-moi.mjs        # mắt xích gió → mồi → gio-moi.{json,md}
 ```
+
+`hop.mjs` là MỘT nguồn định nghĩa hộp; `zarr-cmems.mjs` đọc Zarr ẩn danh của Copernicus Marine bằng bộ giải nén blosc của app (`src/lib/copernicus.ts`, nạp qua `jiti` có sẵn trong node_modules — không thêm phụ thuộc). Muốn chạy ở thư mục ngoài repo (như `~/.local/forlife/train/dong-dan` trên GPU) thì giữ đúng bố cục: `scripts/dong-dan/`, `scripts/lib/data-dir.mjs`, `src/lib/{copernicus,abort}.ts`, `node_modules` (liên kết tới repo).
 
 Bước 0 (chỉ chạy ở gpu-desktop, cần `dl-all` + `fc-full`):
 
@@ -45,9 +54,11 @@ Khoảng 7 phút, ~9 GB RAM. Ra `dong-dan/buoc0/buoc0.{json,md}`.
 | Open-Meteo archive, gió theo giờ | **Chạy, nhưng có hạn mức** | tính lượt ≈ số điểm × số ngày / 14; ~5 000/giờ, ~10 000/ngày; 120 điểm × 45 năm ≈ 140 nghìn lượt |
 | Open-Meteo archive/marine, SST | Trả null cho năm cũ | không dùng |
 | ONI, Niño (CPC), PDO (NCEI) | **Chạy** | |
+| Chl OC-CCI qua ERDDAP NOAA PIFSC (`oceanwatch.pifsc.noaa.gov`) | **Chạy** | hỏi vượt phạm vi thời gian ⇒ 404 — script kẹp vào `time_coverage_start/end` |
+| Gió CMEMS `WIND_GLO_PHY_L4_MY_012_006` qua Zarr ẩn danh | **Chạy** | khối trống trả 403; ứng suất có sẵn quá thô (0,01 N/m²) nên tự tính từ gió; trục time phải đọc Float64; từ Mac nối S3 chập chờn — chạy ở GPU |
 
 Sổ nguồn đầy đủ, có nguồn thay thế đã thử: `docs/research/du-bao-ca-dong-dan-2026-10/11-so-nguon.md`.
 
-## Tải tiếp phần lưới gió còn thiếu
+## Lưới gió Open-Meteo còn thiếu
 
-`tai-luoi-gio.mjs` bỏ qua file đã có, nên cứ chạy lại mỗi ngày là tải thêm được khoảng 1/14 phần còn thiếu trước khi chạm hạn mức. Đủ 120 điểm thì `phan-tich-ekman.mjs` tự tính thêm OFU/MKU/NCU, không phải sửa gì. Muốn nhanh hơn: chuyển nguồn sang ERA5 Copernicus CDS hoặc nguồn lưới khác ghi trong sổ nguồn.
+Không cần tải tiếp nữa: gió CMEMS (`tai-gio-cmems.mjs`) đã phủ đủ 5 hộp từ 1994. Lưới Open-Meteo (chỉ hộp SCU, 1982 →) giữ lại vì có thêm 12 năm trước 1994 và để kiểm chéo nguồn (hai nguồn khớp r 0,94–0,96 cho gió hè SCU 1995–2025).

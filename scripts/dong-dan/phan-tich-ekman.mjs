@@ -16,8 +16,20 @@ const sd = (a) => { const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (
 const doy = (d) => Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.UTC(d.getUTCFullYear(), 0, 1)) / 864e5) + 1;
 const RHO_A = 1.22, CD = 1.2e-3, RHO_W = 1025, OMEGA = 7.2921e-5;
 const fCor = (lat) => 2 * OMEGA * Math.sin((lat * Math.PI) / 180);
-const { BOXES, points } = JSON.parse(readFileSync(RAW + "era5-luoi/boxes.json", "utf8"));
-const inBox = (b, la, lo) => la >= b[0] - 1e-6 && la <= b[1] + 1e-6 && lo >= b[2] - 1e-6 && lo <= b[3] + 1e-6;
+import { BOXES, COAST_AXIS_DEG, inBox } from "./hop.mjs";
+// --gio era5 (mặc định, Open-Meteo lưới 0,5°, hiện chỉ hộp SCU) | cmems (tai-gio-cmems.mjs, đủ 5 hộp, 1994-06 → 2026-06)
+const GIO = process.argv.includes("--gio") ? process.argv[process.argv.indexOf("--gio") + 1] : "era5";
+const SUF = GIO === "era5" ? "" : `-${GIO}`;
+const idx = {}; // tên → Map(date → giá trị)
+const put = (name, d, v) => { (idx[name] ??= new Map()); if (Number.isFinite(v)) idx[name].set(d, v); };
+let dates;
+if (GIO === "cmems") {
+  const j = JSON.parse(readFileSync(RAW + "cmems-gio/chiso-ngay.json", "utf8"));
+  for (const [k, m] of Object.entries(j)) for (const [d, v] of Object.entries(m)) put(k, d, v);
+  dates = [...new Set(Object.values(j).flatMap((m) => Object.keys(m)))].sort();
+  console.error("gió CMEMS:", dates[0], "→", dates.at(-1));
+} else {
+const { points } = JSON.parse(readFileSync(RAW + "era5-luoi/boxes.json", "utf8"));
 
 // ── gió lưới → ứng suất ngày từng điểm ───────────────────────────────────
 const pt = new Map(); // "lat_lon" → Map(date → {tx,ty,ti})
@@ -34,12 +46,10 @@ for (const f of readdirSync(RAW + "era5-luoi/").filter((f) => /^\d/.test(f))) {
   for (const [d, e] of acc) if (e.n >= 20) m.set(d, { tx: e.tx / e.n, ty: e.ty / e.n, ti: e.ti / e.n });
 }
 console.error("điểm có gió", pt.size);
-const dates = [...new Set([...pt.values()].flatMap((m) => [...m.keys()]))].sort();
+dates = [...new Set([...pt.values()].flatMap((m) => [...m.keys()]))].sort();
 const ptAt = (la, lo) => pt.get(`${+la.toFixed(1)}_${+lo.toFixed(1)}`); // khoá giống tên file: "11_109", "10.5_108.5"
 // chỉ số ngày theo hộp
-const ANG = { SCU: 25, NCU: 10 }; // trục dọc bờ (độ, từ bắc sang đông), dương = gió đẩy về đông-bắc ⇒ Ekman ra khơi
-const idx = {}; // tên → Map(date → giá trị)
-const put = (name, d, v) => { (idx[name] ??= new Map()); if (Number.isFinite(v)) idx[name].set(d, v); };
+const ANG = COAST_AXIS_DEG; // trục dọc bờ (độ, từ bắc sang đông), dương = gió đẩy về đông-bắc ⇒ Ekman ra khơi
 for (const d of dates) {
   for (const [bn, b] of Object.entries(BOXES)) {
     const vals = points.filter(([la, lo]) => inBox(b, la, lo)).map(([la, lo]) => [la, lo, ptAt(la, lo)?.get(d)]).filter((x) => x[2]);
@@ -51,7 +61,7 @@ for (const d of dates) {
     if (bn === "OFU" || bn === "SCU") {
       // curl τ = ∂τy/∂x − ∂τx/∂y bằng sai phân trung tâm trên lưới 0,5°
       const curls = [];
-      for (const [la, lo, e] of vals) {
+      for (const [la, lo] of vals) {
         const E = ptAt(la, lo + 0.5)?.get(d), W = ptAt(la, lo - 0.5)?.get(d), N = ptAt(la + 0.5, lo)?.get(d), S = ptAt(la - 0.5, lo)?.get(d);
         if (!E || !W || !N || !S) continue;
         const dx = 2 * 0.5 * 111195 * Math.cos((la * Math.PI) / 180), dy = 2 * 0.5 * 111195;
@@ -60,6 +70,7 @@ for (const d of dates) {
       if (curls.length >= 2) put(`${bn}_wEk`, d, mean(curls) * 86400); // m/ngày
     }
   }
+}
 }
 console.error("chỉ số gió:", Object.keys(idx).join(" "));
 
@@ -85,7 +96,8 @@ for (const [d, arr] of sstDay) {
 function climo(series, yrs = [1982, 2025]) { const by = Array.from({ length: 367 }, () => []); for (const [d, v] of series) { const y = +d.slice(0, 4); if (y >= yrs[0] && y <= yrs[1]) by[doy(new Date(d))].push(v); } const raw = by.map((a) => mean(a)), out = new Array(367).fill(NaN); for (let k = 1; k <= 366; k++) { const a = []; for (let j = -15; j <= 15; j++) { const kk = ((k + j - 1 + 366) % 366) + 1; if (Number.isFinite(raw[kk])) a.push(raw[kk]); } out[k] = mean(a); } return out; }
 const anom = {}, clim = {};
 for (const [n, m] of Object.entries(idx)) { clim[n] = climo(m); anom[n] = new Map([...m].map(([d, v]) => [d, v - clim[n][doy(new Date(d))]])); }
-const seasonMean = (m, y, months) => mean([...m].filter(([d]) => +d.slice(0, 4) === y && months.includes(+d.slice(5, 7))).map(([, v]) => v));
+// trung bình mùa CHỈ khi có ≥ 85 % số ngày của các tháng đó (gió CMEMS dừng 2026-06-20 ⇒ hè 2026 không được tính bằng 20 ngày tháng 6)
+const seasonMean = (m, y, months) => { const v = [...m].filter(([d]) => +d.slice(0, 4) === y && months.includes(+d.slice(5, 7))).map(([, x]) => x); const need = months.reduce((s, mo) => s + new Date(Date.UTC(y, mo, 0)).getUTCDate(), 0); return v.length >= 0.85 * need ? mean(v) : NaN; };
 const JJAS = [6, 7, 8, 9], MAM = [3, 4, 5];
 // khởi phát theo gió: τ_E SCU trượt 15 ngày ≥ khí hậu JJAS của chính nó
 if (!clim.SCU_tE) { console.error("chưa đủ lưới gió cho hộp SCU — chờ tải xong"); process.exit(3); }
@@ -98,7 +110,7 @@ const pdo = {}; for (const l of readFileSync(RAW + "chiso/pdo.txt", "utf8").spli
 const pdoS = (y, ms) => mean(ms.map((m) => pdo[`${y}-${String(m).padStart(2, "0")}`]).filter(Number.isFinite));
 
 // ── bảng năm ─────────────────────────────────────────────────────────────
-const TARGETS = ["SCU_ti", "SCU_tE", "SCU_Mek", "SCU_wEk", "OFU_ti", "OFU_wEk", "MKU_ti", "MKU_tE", "NCU_tN", "UI_SCU", "UI_OFU", "SSTc", "Dc"];
+const TARGETS = ["SCU_ti", "SCU_tE", "SCU_Mek", "SCU_wEk", "OFU_ti", "OFU_tE", "OFU_wEk", "MKU_ti", "MKU_tE", "MKU_wEk", "NCU_tN", "NCU_Mek", "UI_SCU", "UI_OFU", "SSTc", "Dc"];
 const years = [];
 for (let y = 1982; y <= 2026; y++) {
   const r = { y, onsetW: onsetWind(y), oni_JAS_prev: oni[`${y - 1}-JAS`], oni_SON_prev: oni[`${y - 1}-SON`], oni_DJF: oni[`${y}-DJF`], oni_MAM: oni[`${y}-MAM`], oni_JJA: oni[`${y}-JJA`], pdo_MAM: pdoS(y, [3, 4, 5]), pdo_SON_prev: pdoS(y - 1, [9, 10, 11]) };
@@ -138,8 +150,7 @@ const MODELS = (t) => ({
 const out = { builtAt: new Date().toISOString(), BOXES, T_REF: +T_REF.toFixed(2), T_O, THR_W: +(THR_W * 1e3).toFixed(2), years, results: {}, concurrent: {} };
 for (const t of [...TARGETS, "onsetW"]) { out.results[t] = {}; for (const [n, f] of Object.entries(MODELS(t))) out.results[t][n] = loyo(t, f, Y); }
 // đồng thời: gió JJAS ↔ UI/SST JJAS (kiểm chỉ số có "thấy" nước trồi không)
-const okY = Y.filter((r) => Number.isFinite(r.SCU_tE) && Number.isFinite(r.UI_SCU));
-for (const w of ["SCU_ti", "SCU_tE", "SCU_Mek", "SCU_wEk", "OFU_ti", "OFU_wEk", "MKU_ti", "NCU_tN"]) {
+for (const w of ["SCU_ti", "SCU_tE", "SCU_Mek", "SCU_wEk", "OFU_ti", "OFU_wEk", "MKU_ti", "MKU_tE", "NCU_tN", "NCU_Mek"]) {
   out.concurrent[w] = {};
   for (const s of ["UI_SCU", "UI_OFU", "SSTc", "Dc"]) { const rows = Y.filter((r) => Number.isFinite(r[w]) && Number.isFinite(r[s])); out.concurrent[w][s] = { r: +pearson(rows.map((r) => r[w]), rows.map((r) => r[s])).toFixed(3), n: rows.length }; }
 }
@@ -147,7 +158,20 @@ for (const w of ["SCU_ti", "SCU_tE", "SCU_Mek", "SCU_wEk", "OFU_ti", "OFU_wEk", 
 const fit = (t, f) => { const ok = Y.filter((r) => Number.isFinite(r[t]) && f(r).every(Number.isFinite)); const b = olsFit(ok.map((r) => [1, ...f(r)]), ok.map((r) => r[t])); const res = ok.map((r) => r[t] - b.reduce((s, bj, j) => s + bj * [1, ...f(r)][j], 0)); return { beta: b.map((v) => +v.toExponential(3)), resSd: +sd(res).toExponential(3), n: ok.length }; };
 out.full = { SCU_tE_oniJASprev: fit("SCU_tE", (r) => [r.oni_JAS_prev]), SCU_tE_oniDJF: fit("SCU_tE", (r) => [r.oni_DJF]), UI_SCU_oniDJF: fit("UI_SCU", (r) => [r.oni_DJF]), SCU_Mek_oniDJF: fit("SCU_Mek", (r) => [r.oni_DJF]) };
 out.sdTargets = Object.fromEntries(TARGETS.map((t) => [t, +sd(Y.map((r) => r[t]).filter(Number.isFinite)).toExponential(3)]));
-writeFileSync(OUT + "ket-qua-ekman.json", JSON.stringify(out, null, 1));
+// phân nhóm theo pha ENSO mùa đông (ONI T12–2): tỉ lệ năm rơi vào tercile "xấu cho nước trồi" so với tỉ lệ gốc 1/3.
+// "xấu" = tercile DƯỚI cho chỉ số gió/UI (gió yếu, ít nước lạnh), tercile TRÊN cho SST ven bờ và ngày khởi phát (ấm, muộn).
+const q3 = (a, p) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(p * (s.length - 1))]; };
+const binomTail = (k, n, p = 1 / 3) => { let s = 0; for (let j = k; j <= n; j++) { let c = 1; for (let i = 0; i < j; i++) c = (c * (n - i)) / (i + 1); s += c * p ** j * (1 - p) ** (n - j); } return s; };
+out.phanNhom = {};
+for (const t of [...TARGETS, "onsetW"]) {
+  const R = Y.filter((r) => Number.isFinite(r[t]) && Number.isFinite(r.oni_DJF));
+  if (R.length < 15) continue;
+  const hi = t === "SSTc" || t === "onsetW", th = q3(R.map((r) => r[t]), hi ? 2 / 3 : 1 / 3);
+  const bad = (r) => (hi ? r[t] >= th : r[t] <= th);
+  const grp = (f) => { const G = R.filter(f), k = G.filter(bad).length; return { k, n: G.length, p: +binomTail(k, G.length).toFixed(4), nam: G.filter(bad).map((r) => r.y) }; };
+  out.phanNhom[t] = { nguong: +th.toPrecision(4), chieu: hi ? "tercile trên" : "tercile dưới", nam: R.length, sauElNino: grp((r) => r.oni_DJF >= 1), trungTinh: grp((r) => r.oni_DJF < 1 && r.oni_DJF > -1), sauLaNina: grp((r) => r.oni_DJF <= -1) };
+}
+writeFileSync(OUT + `ket-qua-ekman${SUF}.json`, JSON.stringify(out, null, 1));
 const md = [`# Bước C2 — chỉ số Ekman/Herrmann: kết quả thô (${out.builtAt})\n`, `Hộp: ${JSON.stringify(BOXES)} · T_ref ${out.T_REF} °C · T_o ${T_O} °C · ngưỡng khởi phát gió ${out.THR_W}×10⁻³ N/m² · sd đích JJAS: ${JSON.stringify(out.sdTargets)}\n`];
 md.push(`## Đồng thời JJAS (năm): gió ↔ SST\n\n| chỉ số gió | ${["UI_SCU", "UI_OFU", "SSTc", "Dc"].join(" | ")} |\n|---|---|---|---|---|`);
 for (const [w, o] of Object.entries(out.concurrent)) md.push(`| ${w} | ${Object.values(o).map((v) => `${v.r} (n ${v.n})`).join(" | ")} |`);
@@ -157,6 +181,8 @@ for (const [t, res] of Object.entries(out.results)) {
 }
 md.push(`\n## Bảng năm (dị thường JJAS; τ ×10⁻³ N/m²; M m²/s; w m/ngày; UI °C)\n\n| năm | SCU_ti | SCU_tE | SCU_Mek | SCU_wEk | OFU_ti | OFU_wEk | MKU_ti | NCU_tN | UI_SCU | UI_OFU | SSTc | Dc | khởi phát gió | ONI DJF | ONI JJA | PDO MAM |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|`);
 for (const r of years) md.push(`| ${r.y} | ${(r.SCU_ti * 1e3).toFixed(1)} | ${(r.SCU_tE * 1e3).toFixed(1)} | ${r.SCU_Mek?.toFixed(3)} | ${r.SCU_wEk?.toFixed(2)} | ${(r.OFU_ti * 1e3).toFixed(1)} | ${r.OFU_wEk?.toFixed(2)} | ${(r.MKU_ti * 1e3).toFixed(1)} | ${(r.NCU_tN * 1e3).toFixed(1)} | ${r.UI_SCU?.toFixed(2)} | ${r.UI_OFU?.toFixed(2)} | ${r.SSTc?.toFixed(2)} | ${r.Dc?.toFixed(2)} | ${Number.isFinite(r.onsetW) ? r.onsetW : "—"} | ${r.oni_DJF ?? ""} | ${r.oni_JJA ?? ""} | ${r.pdo_MAM?.toFixed(2)} |`);
+md.push(`\n## Phân nhóm theo ENSO mùa đông (tỉ lệ năm "xấu cho nước trồi"; gốc 1/3; p = đuôi nhị thức)\n\n| chỉ số | chiều xấu | sau El Niño (T12–2 ≥ 1) | trung tính | sau La Niña (≤ −1) |\n|---|---|---|---|---|`);
+for (const [t, v] of Object.entries(out.phanNhom)) md.push(`| ${t} | ${v.chieu} | ${v.sauElNino.k}/${v.sauElNino.n} (p ${v.sauElNino.p}) | ${v.trungTinh.k}/${v.trungTinh.n} | ${v.sauLaNina.k}/${v.sauLaNina.n} (p ${v.sauLaNina.p}) |`);
 md.push(`\n## Hệ số toàn mẫu\n\n${JSON.stringify(out.full)}\n`);
-writeFileSync(OUT + "ket-qua-ekman.md", md.join("\n"));
-console.error("xong →", OUT + "ket-qua-ekman.md");
+writeFileSync(OUT + `ket-qua-ekman${SUF}.md`, md.join("\n"));
+console.error("xong →", OUT + `ket-qua-ekman${SUF}.md`);
