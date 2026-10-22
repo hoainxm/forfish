@@ -31,11 +31,14 @@ try:
     if np.nanmax(np.abs(lat)) > 30: lat, lon = lon, lat
     log("HHU24", len(ten), "đảo,", lat.size, "điểm")
     # gán theo ô lưới thô 0,05° quanh tâm đảo để không O(N×128) nặng: dùng khoảng cách tới tâm gần nhất theo khối
-    idx = np.full(lat.size, -1, np.int32)
+    # chỉ gán về tâm HỢP LỆ: tâm NaN cho khoảng cách NaN ⇒ argmin trả đúng chỉ số NaN cho MỌI điểm (lỗi đã dính:
+    # 29,4 M điểm dồn hết vào bản ghi hỏng id 15, các đảo khác 0 điểm, không hộp bao ⇒ kiểm lệch sai)
+    hop = np.isfinite(ilat) & np.isfinite(ilon); ids_hop = np.where(hop)[0]
+    idx = np.full(lat.size, -1, np.int64)
     for k in range(0, lat.size, 200_000):
         sl = slice(k, k + 200_000)
-        d2 = (lat[sl, None] - ilat[None, :]) ** 2 + ((lon[sl, None] - ilon[None, :]) * np.cos(np.radians(ilat[None, :]))) ** 2
-        idx[sl] = np.argmin(d2, axis=1)
+        d2 = (lat[sl, None] - ilat[None, ids_hop]) ** 2 + ((lon[sl, None] - ilon[None, ids_hop]) * np.cos(np.radians(ilat[None, ids_hop]))) ** 2
+        idx[sl] = ids_hop[np.argmin(d2, axis=1)]
     for i, t in enumerate(ten):
         m = idx == i
         if not m.any(): rows.append({"bo": "HHU24", "id": i, "tenGoc": t, "tamLat": float(ilat[i]), "tamLon": float(ilon[i]), "diem": 0}); continue
