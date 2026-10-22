@@ -346,7 +346,10 @@ export function RouteStopsLayers({
       quãng tuyến đã tính (tuyến né cạn/sóng luôn dài hơn). Bỏ chữ "thẳng" đi
       là hứa một con số máy chưa tính — bà con tính dầu theo đó là thiếu dầu.
       Nhãn đặt ở TRUNG ĐIỂM đoạn, `pointer-events-none` để không cướp chạm của
-      bản đồ bên dưới. */
+      bản đồ bên dưới.
+      GỌN 2026-10-22 (anh Long: "ko cần text… giao diện đơn giản"): chữ "đường
+      chim bay" đổi thành dấu "~" đứng trước số — nét đứt + dấu xấp xỉ vẫn nói
+      đây chưa phải quãng đã tính, mà không thêm một dòng chữ trên bản đồ. */
   const labels = useMemo(() => {
     const pts: LatLon[] = from ? [from, ...stops] : stops;
     const out: { key: string; lat: number; lon: number; text: string }[] = [];
@@ -357,7 +360,7 @@ export function RouteStopsLayers({
         key: `${a.lat},${a.lon}->${b.lat},${b.lon}`,
         lat: (a.lat + b.lat) / 2,
         lon: (a.lon + b.lon) / 2,
-        text: `${fmtDist(haversineKm(a, b), distUnit)} đường chim bay`,
+        text: `~${fmtDist(haversineKm(a, b), distUnit)}`,
       });
     }
     return out;

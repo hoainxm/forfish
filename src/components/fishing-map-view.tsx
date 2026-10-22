@@ -6832,7 +6832,17 @@ export default function FishingMapView() {
         ))}
 
         {/* điểm của tôi đã ghim — sao vàng có tên; chạm là xem dự báo chỗ đó */}
-        {showPlaces && places.map((pl) => <SavedPlaceMarker key={pl.id} pl={pl} onPick={pickMarker} />)}
+        {/*  NHƯỜNG CHỖ CHO GHIM LỘ TRÌNH (2026-10-22, ảnh anh Long: chữ "Chỗ
+             chưa đặt tên" đè lên ghim số 1): chỗ đã ghim mà đang là điểm ghé của
+             lộ trình đang hiện thì chỉ vẽ ghim số — hai ghim một chỗ là rối. */}
+        {showPlaces &&
+          places
+            .filter(
+              (pl) =>
+                !(routeMode || navOn) ||
+                ![...stops, ...(route?.stops ?? [])].some((s) => placeAt([pl], s.lat, s.lon)),
+            )
+            .map((pl) => <SavedPlaceMarker key={pl.id} pl={pl} onPick={pickMarker} />)}
 
         {/* tuyến dẫn đường tiết kiệm dầu + điểm xuất phát */}
         {/*  `alongKm` = quãng đã chạy dọc tuyến ⇒ chặng nào ở sau lưng thì tô

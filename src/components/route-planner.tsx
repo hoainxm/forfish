@@ -1189,7 +1189,7 @@ export function RouteMode({
     stops.length === 0
       ? "Chưa chọn điểm đến"
       : `${stops.length} chỗ${
-          thangKm != null ? ` · ~${fmtDist(thangKm, prefs.distUnit)} đường chim bay` : ""
+          thangKm != null ? ` · ~${fmtDist(thangKm, prefs.distUnit)}` : ""
         }`;
   /** câu cảnh báo cho chỗ con trỏ đang đứng — null là im (xem DEST_DEPTH_WARN) */
   const destDepthWarn =

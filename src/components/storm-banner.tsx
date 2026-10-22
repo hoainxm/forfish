@@ -244,7 +244,7 @@ export function StormBanner({
           <div
             key={s.id}
             role="alert"
-            className={`flex items-start gap-3 rounded-xl border-l-4 p-4 ${
+            className={`flex items-start gap-3 rounded-xl border-l-4 ${variant === "overlay" ? "p-3" : "p-4"} ${
               danger
                 ? "border-danger bg-danger-bg"
                 : "border-warn bg-warn-bg"
@@ -254,7 +254,7 @@ export function StormBanner({
               className={`mt-0.5 shrink-0 ${danger ? "text-danger" : "text-warn"}`}
               aria-hidden
             >
-              <AlertIcon className="h-7 w-7" />
+              <AlertIcon className={variant === "overlay" ? "h-5 w-5" : "h-7 w-7"} />
             </span>
             <div className="min-w-0">
               <p
@@ -267,14 +267,26 @@ export function StormBanner({
                     ghép chuỗi rỗng cũ ra câu lặp "…trên Biển Đông đang trên
                     vùng Biển Đông". */}
                 {s.kindLabel}
-                {s.name ? ` ${s.name}` : ""} đang trên vùng Biển Đông
+                {s.name ? ` ${s.name}` : ""}
+                {/* GỌN TRÊN BẢN ĐỒ (2026-10-22, anh Long: thẻ bão chiếm ¼ màn):
+                    overlay gộp cấp gió vào dòng tên, bỏ câu dài — vẫn đủ ý an
+                    toàn: tên, cấp, "đừng ra khơi", giờ bản tin. */}
+                {variant === "overlay"
+                  ? s.windKmh != null ? ` · cấp ${beaufort(s.windKmh)}` : ""
+                  : " đang trên vùng Biển Đông"}
               </p>
-              <p className={`mt-0.5 leading-snug text-foreground/80 ${variant === "page" ? "text-[1rem]" : "text-[1rem]"}`}>
+              {variant === "overlay" ? (
+                <p className="mt-0.5 text-[0.9375rem] leading-snug text-foreground/80">
+                  Đừng ra khơi vùng ảnh hưởng — nghe đài duyên hải.
+                </p>
+              ) : (
+              <p className="mt-0.5 text-[1rem] leading-snug text-foreground/80">
                 {s.windKmh != null &&
                   `Gió mạnh nhất khoảng ${s.windKmh} km/giờ (cấp ${beaufort(s.windKmh)}). `}
                 Đừng ra khơi vùng ảnh hưởng — nghe ngay đài duyên hải hoặc
                 đồn biên phòng.
               </p>
+              )}
               {/* GIỜ THẬT của bản tin — bão đi rất nhanh, tin mấy hôm trước
                   không được để trông như tin vừa xong.
 
@@ -286,7 +298,7 @@ export function StormBanner({
                   thì hai bên khớp nhau. Không có `updated` (nguồn cũ) thì mới
                   lùi về `checkedAt`. */}
               <p
-                className={`mt-1 font-semibold leading-snug ${variant === "page" ? "text-[1rem]" : "text-[0.875rem]"} ${
+                className={`${variant === "overlay" ? "mt-0.5" : "mt-1"} font-semibold leading-snug ${variant === "page" ? "text-[1rem]" : "text-[0.875rem]"} ${
                   status.cu ? "text-warn" : "text-foreground/65"
                 }`}
               >
@@ -297,7 +309,10 @@ export function StormBanner({
                     ? `Cập nhật lúc ${clockVN(status.checkedAt)}`
                     : "Chưa rõ giờ báo tin";
                 })()}
-                {status.cu && " — bản tin cũ lưu trong máy, bà con nhớ nghe thêm đài duyên hải nhé"}
+                {status.cu &&
+                  (variant === "overlay"
+                    ? " — tin cũ trong máy"
+                    : " — bản tin cũ lưu trong máy, bà con nhớ nghe thêm đài duyên hải nhé")}
               </p>
             </div>
             {variant === "overlay" && (
