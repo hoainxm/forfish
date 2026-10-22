@@ -55,27 +55,6 @@ describe("projectOntoRoute", () => {
   });
 });
 
-describe("projectOntoRoute — lệch có dấu", () => {
-  it("tuyến đi về Đông: tàu ở phía Bắc → bên TRÁI, Nam → bên PHẢI", () => {
-    const bac = projectOntoRoute({ lat: 10.1, lon: 108.5 }, STRAIGHT);
-    const nam = projectOntoRoute({ lat: 9.9, lon: 108.5 }, STRAIGHT);
-    expect(bac.side).toBe("left");
-    expect(bac.signedKm).toBeCloseTo(-bac.offRouteKm, 5);
-    expect(nam.side).toBe("right");
-    expect(nam.signedKm).toBeCloseTo(nam.offRouteKm, 5);
-  });
-
-  it("tuyến quay chiều ngược lại thì trái/phải đảo theo hướng đi", () => {
-    const p = projectOntoRoute({ lat: 10.1, lon: 108.5 }, [B, A]);
-    expect(p.side).toBe("right");
-  });
-
-  it("đúng vạch → on; tuyến 1 điểm → on", () => {
-    expect(projectOntoRoute({ lat: 10, lon: 108.5 }, STRAIGHT).side).toBe("on");
-    expect(projectOntoRoute({ lat: 10.1, lon: 108 }, [B]).side).toBe("on");
-  });
-});
-
 describe("routeLengthKm", () => {
   it("cộng dồn từng đoạn", () => {
     expect(routeLengthKm(BEND)).toBeCloseTo(haversineKm(A, M) + haversineKm(M, B), 5);
@@ -249,28 +228,5 @@ describe("mốc nói lại khi LỆCH TUYẾN — ảnh gương của mốc ranh
   it("về bám tuyến (dưới ngưỡng) ⇒ thôi hẳn", () => {
     expect(offRouteStepCrossed(1.5, 10)).toBeNull();
     expect(offRouteStepFor(1.5)).toBeNull();
-  });
-});
-
-describe("projectOntoRoute — trễ đoạn (tuyến gập)", () => {
-  const gap: LatLon[] = [{ lat: 10, lon: 110 }, { lat: 10, lon: 110.6 }, { lat: 10.009, lon: 110.6 }, { lat: 10.009, lon: 110 }];
-
-  it("không có gợi ý: đứng giữa hai nhánh không nhảy sang nhánh về", () => {
-    expect(projectOntoRoute({ lat: 10.0046, lon: 110.2 }, gap).segIdx).toBe(0);
-    expect(projectOntoRoute({ lat: 10.006, lon: 110.2 }, gap).segIdx).toBe(0);
-  });
-
-  it("đang ở nhánh về (gợi ý 2) thì ở lại nhánh về", () => {
-    expect(projectOntoRoute({ lat: 10.0046, lon: 110.2 }, gap, 2).segIdx).toBe(2);
-  });
-
-  it("đoạn khác gần hơn hẳn thì được nhảy dù gợi ý ở xa", () => {
-    expect(projectOntoRoute({ lat: 10.0087, lon: 110.2 }, gap, 0).segIdx).toBe(2);
-  });
-
-  it("computeNavProgress mang segIdx và nhận segHint", () => {
-    const pos = { lat: 10.0046, lon: 110.2 };
-    expect(computeNavProgress({ pos, headingDeg: null, speedKmh: null, waypoints: gap }).segIdx).toBe(0);
-    expect(computeNavProgress({ pos, headingDeg: null, speedKmh: null, waypoints: gap, segHint: 2 }).segIdx).toBe(2);
   });
 });

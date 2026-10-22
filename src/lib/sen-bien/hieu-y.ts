@@ -188,6 +188,11 @@ const UNMUTE = /(^| )(bat tieng|bat loa|mo loa|doc tiep|noi tiep)( |$)/;
 const REPEAT = /(^| )(noi lai|nhac lai|doc lai|lap lai|noi gi|gi vay)( |$)/;
 const TOI_DO = /^(dan|di|chay|toi|ra|ve|dua)( toi| ra| ve| vo)? (do|cho do|cho nay|cho kia|ben do|dao do|ran do)( di| nha| luon)?$/;
 const HOWFAR = /(^| )(bao xa|bao lau|bao gio toi|toi chua|con may|con bao nhieu)( |$)/;
+/*  CÓ CHỮ CHỈ QUÃNG ĐƯỜNG / THỜI GIAN — mô hình đoán "còn bao xa" thì câu PHẢI có một chữ này mới chạy lệnh,
+    dù mô hình chắc tới đâu (2026-10-22, anh Long: "hỏi con gà có mấy chân mà ko chạy được"). Bỏ dấu thì
+    "con gà mấy chân" = "con ga may chan" ⇒ v4 đọc "con … mấy" thành "còn mấy" (0,67 — chắc mà sai); không
+    chặn thì app đo khoảng cách thay vì trả lời. "tới cảng chưa" qua nhờ "toi", "còn mấy tiếng nữa" nhờ "tieng". */
+const HOWFAR_GOI = /(^| )(xa|hai ly|km|cay so|toi|den|ve|chua|nua|bao lau|bao gio|gio|tieng|phut)( |$)/;
 
 /** 14,5754 → "14 độ 34 phút" — đọc lại toạ độ để bà con nghe máy hiểu đúng chưa. */
 export function coordSpeech(v: number, axis: "lat" | "lon"): string {
@@ -260,7 +265,7 @@ export function senBienReply(
   const tuMoHinh = (y: SenIntent) => (hits.length && tachThamSo(text).muonDi ? null : cauHoiTuY(y, text, ctx.loaiCa));
   const hoi = g && g.conf >= NGRAM_CHAC ? tuMoHinh(g.y) : (hoiGi(text, ctx.loaiCa) ?? (g ? tuMoHinh(g.y) : null));
   if (hoi) return { kind: "hoi", q: hoi };
-  if (yM === "con_bao_xa") return { kind: "howfar" };
+  if (yM === "con_bao_xa" && HOWFAR_GOI.test(f)) return { kind: "howfar" };
 
   // (4) chọn chỗ theo tên
   const home = dests.find((d) => d.kind === "nha");

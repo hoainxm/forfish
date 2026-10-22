@@ -98,35 +98,9 @@ export type BoatProfile = {
       một mớn "trung bình" rồi doạ sai người (tàu thúng 0,3 m và tàu vỏ thép
       3 m cùng dùng app này). Vắng số không phải là số. */
   draftM?: number | null;
-  /*  KÉT DẦU (lít) + CHIỀU DÀI (m) — D6, 2026-10-22. Cùng luật với mớn: `null`/vắng
-      = chủ tàu CHƯA khai ⇒ không kiểm "đủ dầu đi về", không đoán két hộ. */
-  fuelTankL?: number | null;
-  lengthM?: number | null;
 };
 
 export const DEFAULT_BOAT: BoatProfile = { speedKn: 7, litersPerHour: 20, draftM: null };
-
-/** Dầu dự phòng: đi + về, nhân hệ số an toàn (gió ngược, vòng tránh, chờ tại ngư trường). */
-export const FUEL_RETURN_SAFETY = 1.3;
-
-/** Số hợp lệ cho két dầu / chiều dài; mọi thứ khác = "chưa khai". */
-export function positiveOrNull(v: unknown, max: number): number | null {
-  return typeof v === "number" && Number.isFinite(v) && v > 0 && v <= max ? v : null;
-}
-
-/**
- * Két có đủ dầu đi rồi về không? `null` khi chưa khai két (hoặc dầu chuyến không
- * hợp lệ) — im lặng, không đoán. Dầu cần = `oneWayFuelL × 2 × 1,3`.
- */
-export function fuelReturnCheck(
-  boat: Pick<BoatProfile, "fuelTankL">,
-  oneWayFuelL: number,
-): { needL: number; tankL: number; enough: boolean } | null {
-  const tankL = positiveOrNull(boat.fuelTankL, 100000);
-  if (tankL == null || !Number.isFinite(oneWayFuelL) || oneWayFuelL < 0) return null;
-  const needL = Math.round(oneWayFuelL * 2 * FUEL_RETURN_SAFETY * 10) / 10;
-  return { needL, tankL, enough: needL <= tankL };
-}
 export const KMH_PER_KNOT = 1.852;
 
 // ── hình học ─────────────────────────────────────────────────────────────
@@ -135,9 +109,6 @@ const rad = (d: number) => (d * Math.PI) / 180;
 const deg = (r: number) => (r * 180) / Math.PI;
 
 /** Hướng chạy từ a tới b, 0–360° (0 = Bắc, 90 = Đông) */
-/** Góc rẽ dưới mức này coi như đi thẳng — không đáng một điểm riêng. */
-const MIN_TURN_DEG = 3;
-
 export function bearingDeg(a: LatLon, b: LatLon): number {
   const dLon = rad(b.lon - a.lon);
   const y = Math.sin(dLon) * Math.cos(rad(b.lat));
@@ -700,14 +671,6 @@ export type RoutePlan = {
    * không được đếm vào `noWeatherKm`, tuyến mù hoàn toàn vẫn có thể < 90 %.
    */
   weatherSeen: boolean;
-  /**
-   * DẤU VẾT DỰ BÁO ĐÃ DÙNG (C3, 2026-10-22). Tuyến tính bằng lưới offline cũ
-   * hay không có lưới phải nói thật ngay trong kết quả — không để UI tự nhớ.
-   * `source` 'live' = lưới mới của máy chủ · 'grid' = lưới đã lưu trong máy ·
-   * 'none' = không có số. `savedAt` = epoch ms lưu lưới ('grid'; null khi
-   * không biết hoặc lưới 'live'). `hours` = cửa sổ dự báo có số (giờ).
-   */
-  forecast: { source: "live" | "grid" | "none"; savedAt: number | null; hours: number };
 };
 
 type LegInfo = {
@@ -782,12 +745,6 @@ export type PlanArgs = {
       `planRouteWithDiagnostics` tự nâng khi mọi lượt đều không ra tuyến; chỗ
       gọi không cần truyền. */
   landExitPadKm?: number;
-  /*  TRIỀU tại ETA (B4, 2026-10-22) — chỉ hiệu chỉnh ĐỘ SÂU lớp 3, KHÔNG vào
-      chi phí (quyết định 09/2026). `heightAtMs` và `z0M` cùng so số 0 hải đồ;
-      `departMs` là mốc ms ứng với `departHourIdx`. `reserveM` = dự trữ trừ thêm
-      (trạm `model` ±0,2 m). Bỏ trống ⇒ như cũ (trần tĩnh). Có hàm ⇒ không
-      clone được sang worker: chỗ gọi phải tính ở luồng chính. */
-  tide?: { z0M: number; departMs: number; heightAtMs(ms: number): number; reserveM?: number };
 };
 
 // hàng đợi ưu tiên nhị phân tối giản
@@ -938,7 +895,7 @@ function planAttempt(
       bật, và chỉ khi lượt thường đã gặp chỗ thiếu số mà không ra tuyến. */
   weatherUnknownOk = false,
 ): RoutePlan | null {
-  const { start, dest, boat, departHourIdx, field, depth, bbox, tide } = args;
+  const { start, dest, boat, departHourIdx, field, depth, bbox } = args;
   const midLat = (bbox.latMin + bbox.latMax) / 2;
   const spanLatKm = (bbox.latMax - bbox.latMin) * 111.32;
   const spanLonKm = (bbox.lonMax - bbox.lonMin) * 111.32 * Math.cos(rad(midLat));
@@ -1215,15 +1172,7 @@ function planAttempt(
               const hw = sampleField(field, pLat, pLon, atHour + (distKm * t) / calmKmh);
               const waveHere = hw ? (hw.waveM ?? estimateWaveFromWind(hw.windKmh)) : null;
               const need = requiredDepthM(boat.draftM ?? null, waveHere);
-              /*  triều tại ETA của mẫu: nước lớn mở thêm, ròng đóng bớt. Số triều
-                  không hữu hạn (nguồn hỏng) ⇒ về trần tĩnh, không đoán. */
-              let dTide = 0;
-              if (tide) {
-                const etaMs = tide.departMs + (atHour - departHourIdx + (distKm * t) / calmKmh) * 3_600_000;
-                const d = tide.heightAtMs(etaMs) - tide.z0M - (tide.reserveM ?? 0);
-                if (Number.isFinite(d)) dTide = d;
-              }
-              ok = need != null && need <= DRAFT_SHALLOW_MAX_NEED_M + dTide;
+              ok = need != null && need <= DRAFT_SHALLOW_MAX_NEED_M;
             }
             lowFar = true;
             if (ok) {
@@ -1495,35 +1444,6 @@ function planAttempt(
     smoothed.push(waypoints[bestJ]);
     i = bestJ;
   }
-  /*  Dọn điểm thẳng hàng còn sót (E1): cửa sổ kéo dây chỉ nhìn 6 nút, nên
-      đường thẳng dài vẫn để lại điểm giữa có góc rẽ < 3° — bà con phải gõ thừa
-      vào máy định vị. Bỏ điểm đó khi cạnh nối đi được và không đắt hơn. */
-  for (let k = 1; k < smoothed.length - 1; ) {
-    const turn = Math.abs(angleDiffDeg(
-      bearingDeg(smoothed[k - 1], smoothed[k]),
-      bearingDeg(smoothed[k], smoothed[k + 1]),
-    ));
-    if (turn < MIN_TURN_DEG) {
-      const a = smoothed[k - 1], m = smoothed[k], b = smoothed[k + 1];
-      // chỉ bỏ khi điểm nằm gần như TRÊN cạnh nối (không cắt góc sát rạn)
-      if (haversineKm(a, m) + haversineKm(m, b) - haversineKm(a, b) > 0.05) {
-        k++;
-        continue;
-      }
-      const l1 = legCost(a, m, departHourIdx, false, seaAsPenalty);
-      const l2 = legCost(m, b, departHourIdx + (l1.feasible ? l1.hours : 0), false, seaAsPenalty);
-      const chord = legCost(a, b, departHourIdx, false, seaAsPenalty);
-      if (
-        l1.feasible && l2.feasible && chord.feasible &&
-        chord.cost <= (l1.cost + l2.cost) * 1.001
-      ) {
-        smoothed.splice(k, 1);
-        k = Math.max(1, k - 1);
-        continue;
-      }
-    }
-    k++;
-  }
   waypoints = smoothed;
 
   /**
@@ -1635,12 +1555,6 @@ function planAttempt(
       ? 0
       : Math.max(0, Math.ceil(departHourIdx + tripHours - fieldHours));
 
-  const forecast: RoutePlan["forecast"] = {
-    source: field.source ?? "live",
-    savedAt: field.source === "grid" ? (field.savedAt ?? null) : null,
-    hours: fieldHours,
-  };
-
   // đường thẳng để so sánh trung thực — chia nhỏ theo bước lưới
   const directDist = haversineKm(start, dest);
   const nSeg = Math.max(2, Math.ceil(directDist / stepKm));
@@ -1703,7 +1617,6 @@ function planAttempt(
       segRisks: directWalk.segRisks,
       noWeatherKm: directWalk.noWeatherKm,
       weatherSeen: directWalk.weatherSeen,
-      forecast,
     };
   }
 
@@ -1734,7 +1647,6 @@ function planAttempt(
     segRisks: chosen.segRisks,
     noWeatherKm: chosen.noWeatherKm,
     weatherSeen: chosen.weatherSeen,
-    forecast,
   };
 }
 

@@ -46,7 +46,6 @@ function leg(over: Partial<RoutePlan> = {}): RoutePlan {
     segRisks: [],
     noWeatherKm: 0,
     weatherSeen: true,
-    forecast: { source: "live", savedAt: null, hours: 72 },
     ...over,
   };
 }

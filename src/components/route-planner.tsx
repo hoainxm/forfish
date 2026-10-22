@@ -21,7 +21,6 @@ import {
   bboxOfPoints,
   formatHoursVN,
   haversineKm,
-  positiveOrNull,
   sampleField,
   vnHourIndex,
   type BBox,
@@ -148,8 +147,6 @@ function readBoat(): BoatProfile {
         : DEFAULT_BOAT.litersPerHour,
     // mớn nước: chỉ nhận số dương hợp lý; mọi thứ khác = "chưa khai"
     draftM: typeof b.draftM === "number" && b.draftM > 0 && b.draftM <= 10 ? b.draftM : null,
-    fuelTankL: positiveOrNull(b.fuelTankL, 100000),
-    lengthM: positiveOrNull(b.lengthM, 200),
   };
 }
 
@@ -702,9 +699,6 @@ export function RouteMode({
             báo mớn im lặng. KHÔNG ép về một mặc định: đoán mớn hộ chủ tàu là
             doạ sai tàu thúng hoặc ru ngủ tàu vỏ thép. */
         draftM: draftM.trim() === "" ? null : clampNum(draftM, 0.2, 10, 2),
-        // két dầu + chiều dài chưa có ô nhập ở form này: giữ nguyên bản đã lưu, đừng xoá
-        fuelTankL: readBoat().fuelTankL ?? null,
-        lengthM: readBoat().lengthM ?? null,
       };
       writeBoat(boat);
       setSpeedKn(String(boat.speedKn));

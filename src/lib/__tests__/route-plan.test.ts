@@ -885,15 +885,3 @@ describe("bboxOfPoints — khung bao trọn chuỗi điểm (đường đi nhi�
     expect(bboxFor(a, b, 120)).toEqual(bboxOfPoints([a, b], 120));
   });
 });
-
-describe("waypoint sạch (E1)", () => {
-  it("biển êm đường thẳng: không còn điểm giữa có góc rẽ < 3°", () => {
-    const p = plan(makeField(BB, 7, calm));
-    expect(p).not.toBeNull();
-    const w = p!.waypoints;
-    for (let i = 1; i < w.length - 1; i++) {
-      expect(Math.abs(angleDiffDeg(bearingDeg(w[i - 1], w[i]), bearingDeg(w[i], w[i + 1])))).toBeGreaterThanOrEqual(3);
-    }
-    expect(p!.hoursAt.length).toBe(w.length);
-  });
-});

@@ -150,6 +150,11 @@ describe("n-gram v2 chọn loại câu hỏi, luật làm lưới (2026-10-16)",
     expect(hoi("chạy hướng đông bắc có đụng gì không")).toMatchObject({ loai: "phia_truoc", huong: 45 });
   });
   it("'còn mấy hải lý nữa tới' ⇒ còn bao xa", () => expect(hoi("còn mấy hải lý nữa tới")).toBe("howfar"));
+  // anh Long 2026-10-22: "hỏi con gà có mấy chân mà ko chạy được" — v4 đoán con_bao_xa 0,31 vì "có mấy"
+  it.each(["con gà có mấy chân", "con gà mấy chân", "con mèo mấy chân"])("'%s' KHÔNG thành lệnh còn bao xa (không chữ chỉ quãng đường)", (cau) =>
+    expect(senBienReply(cau, model, [], null).kind).not.toBe("howfar"));
+  it.each(["tới cảng chưa", "còn bao xa nữa", "còn mấy hải lý", "còn bao lâu nữa tới"])("'%s' vẫn là còn bao xa", (cau) =>
+    expect(senBienReply(cau, model, [], null).kind).toBe("howfar"));
   it("câu có TÊN chỗ + động từ đi ⇒ dẫn đi, không thành câu hỏi", () => {
     const d = { name: "Hòn Mù", lat: 14.9, lon: 109.3, kind: "diem" as const };
     expect(senBienReply("chạy ra Hòn Mù", model, [d], null).kind).toBe("go");
