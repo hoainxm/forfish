@@ -69,7 +69,7 @@ ACA bathymetry   —           rạn ✓       Côn Đảo ✓    Phú Quốc �
 | # | Câu hỏi | Mặc định nếu không chốt |
 |---|---|---|
 | Q3 (từ ops/dan-duong-khoa-hoc) | Rạn/xác tàu mô hình nói ≥ 20 m có hạ xuống cảnh báo không | **không** — chỉ hạ khi ATL24/ACA xác nhận; TID cho thấy mô hình ở Bắc Bộ đoán 97 % |
-| **Q6** | Ba bộ 10 m của tác giả Trung Quốc (HHU24, SCSBathy10, LGMM) — CC BY, số liệu tốt, nhưng 100 % tên Trung Quốc cho đảo: dùng số liệu + đổi tên theo bảng Việt, hay loại hẳn | **giữ ngoài sản phẩm**, chỉ dùng để kiểm chéo nội bộ (như SRTM15+); ưu tiên ACA + ATL24 cho cùng rạn |
+| **Q6** | Ba bộ 10 m của tác giả Trung Quốc (HHU24, SCSBathy10, LGMM) — CC BY, số liệu tốt, nhưng 100 % tên Trung Quốc cho đảo | **ĐÃ CHỐT 2026-10-22: dùng, đổi toàn bộ tên sang tiếng Việt, ghi nguồn CC BY** → đường ống `scripts/dan-duong/ran-10m/`; soát QĐ 562 trước khi phát hành |
 | **Q7** | Tạo tài khoản NASA Earthdata (ATL24) và Allen Coral Atlas (bathymetry) bằng email nào | chờ; #2 #3 đứng |
 | **Q8** | Gửi 3 email ENC phi-SOLAS (mẫu B §3) — anh gửi hay để tôi soạn theo skill công văn | chờ |
 | **Q9** | Có mở hồ sơ pháp lý cho lớp độ sâu cộng đồng (Đường 2) không | chưa |

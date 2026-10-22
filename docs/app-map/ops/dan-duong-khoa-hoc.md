@@ -129,7 +129,8 @@ Nhật ký: ~/.local/forlife/train/dan-duong/nhat-ky/<ngày>.log · mỗi vòng 
 | Q1 | Hệ số squat tàu cá (Cb) và có cộng vào nước cần không | có, Cb = 0,6, chỉ khi `speedKn` > 6 |
 | Q2 | Trạm triều mô hình (EOT20) có được dùng để MỞ dải 2–4 m không, hay chỉ để ĐÓNG | chỉ để ĐÓNG (an toàn một chiều); mở chỉ với 4 trạm đo trong 60 km |
 | Q3 | Rạn không có độ sâu: giữ chặn cứng, hay cho qua khi nguồn ĐO (ATL24/ACA) gần đó ≥ 20 m. **Không hạ chỉ vì GEBCO/ETOPO nói sâu** — GEBCO TID đo 2026-10-22: dải 0–50 m ven bờ chỉ 11 % ô đo thật, Vịnh Bắc Bộ 1–3 % ([research/do-sau-day-bien-team-2026-10-22](../../research/do-sau-day-bien-team-2026-10-22.md)) | giữ chặn |
-| Q6–Q9 | Nguồn độ sâu: ba bộ 10 m tác giả TQ (tên TQ cho đảo) dùng hay loại · tài khoản Earthdata/ACA · email ENC phi-SOLAS · hồ sơ pháp lý lớp độ sâu cộng đồng — xem research/do-sau-day-bien-team §4 | giữ ngoài sản phẩm · chờ · chờ · chưa |
+| Q6 | **CHỐT 2026-10-22 (anh Long)**: DÙNG số liệu ba bộ 10 m (HHU24SWDSCS, SCSBathy10, LGMM-SDB) cho rạn Hoàng Sa/Trường Sa, **đổi toàn bộ tên sang tiếng Việt**, ghi nguồn CC BY. Đường ống: `scripts/dan-duong/ran-10m/` (tai.sh → chi-muc.py → ten-viet.mjs ghép tên theo TOẠ ĐỘ với `coral-reefs.v1.json` + bảng tra `ten-ran-bien-dong.json`; dòng `can-nguoi` không vào sản phẩm). ⚠️ Trước khi PHÁT HÀNH lớp này phải soát QĐ 562/QĐ-TTg (địa hình đáy biển đảo/bãi ngầm có thể thuộc danh mục bí mật nhà nước — báo cáo D §1) — dữ liệu nguồn là công bố quốc tế CC BY, nhưng việc ForFish phát hành lại là chuyện pháp lý riêng | — |
+| Q7–Q9 | Tài khoản Earthdata/ACA · email ENC phi-SOLAS · hồ sơ pháp lý lớp độ sâu cộng đồng — research/do-sau-day-bien-team §4 | chờ · chờ · chưa |
 | Q4 | 10–20 tuyến quen để làm tuyến chuẩn (H5) — ai vẽ | chờ; H5 đứng ở "chưa đo" |
 | Q5 | Vòng GPU chạy WSL (như Sen Biển) hay phía Windows | WSL tmux |
 
