@@ -81,19 +81,20 @@ HẬU KIỂM  auditRoute: 11 kho + triều tại ETA (hoursAt) + ranh giới →
 - **Một tiêu chí = một `it`** trong `scripts/dan-duong/tieu-chi.cham.ts`, ra `{id, bậc, điểm 0–100, đạt, số đo thô, ghi}`. Không ném; bảng ghi ra `.dan-duong/bang-diem.{json,md}` (ngoài git).
 - **Sự thật biết trước**: lưới độ sâu TỔNG HỢP (toàn lớp 5, tô đảo/rạn/dải cạn đúng chỗ), trường thời tiết TỔNG HỢP (dải sóng theo giờ, lưới thủng, rỗng), vật chặn cắm sẵn; cộng lưới ĐỘ SÂU THẬT + kho vật chặn THẬT cho 12 tuyến hồi quy. Không dùng mạng.
 - **Ba bậc**: **A** = cổng cứng an toàn (phải đạt 100 %, bất kể tỉ lệ) · **B** = quan trọng · **C** = chất lượng. **Qua cổng** = tỉ lệ đạt ≥ 90 % **và** mọi A đạt.
-- **`chua-do`** = tiêu chí có định nghĩa nhưng chưa có đường đo/oracle — **tính là không đạt** để vòng lặp phải dựng oracle, không được xoá tiêu chí cho đẹp số.
+- **`chua-do`** = tiêu chí có định nghĩa nhưng chưa có đường đo/oracle — **tính là không đạt** để vòng lặp phải dựng oracle, không được xoá tiêu chí cho đẹp số. Mọi tiêu chí đều ĐO ĐƯỢC từ code (gọi hàm/đọc file kết quả) — không có tiêu chí "hard-code 0" (vòng 0 trên GPU 2026-10-22 trượt B4 vì lỗi này, đã sửa). `canNguoi` = cần anh Long chốt, vòng máy không tự chọn (H5, B8).
 - **Cấm "dạy tủ"**: tiêu chí chỉ được đổi khi (a) phát hiện tiêu chí sai so với nghiệp vụ (ghi lý do vào §3 cùng commit), hoặc (b) thêm tiêu chí mới. Hạ ngưỡng để qua = không hợp lệ. Vòng lặp (§6) **không được sửa file `tieu-chi.cham.ts` và `khung.ts`** trừ khi thêm tiêu chí.
 - **Thước đo nghiệp vụ** (H5, khi có tuyến chuẩn): khoảng cách Fréchet rời rạc tuyến máy ↔ tuyến người ≤ 3 km và chênh km ≤ 10 %.
 
 ## 5. Mô hình đích sau vòng lặp (để agent biết đang đi về đâu)
 
-1. `requiredDepthM(draftM, waveM, speedKn?)` = mớn + 0,5 + ½·min(Hs,3) + squat(V) — một bản, ở `hazards.ts`.
-2. `PlanArgs.tide?: { stationZ0: number; heightAtMs(ms): number; departMs }` — lớp 3 (và số đo sâu trong hậu kiểm) đọc `zMSL + (h(ETA) − z0)`; **không** vào chi phí; trạm `model` cộng dự trữ 0,2 m.
-3. `RoutePlan.forecast = { source, savedAt, hoursCovered }` đi theo tuyến lưu.
-4. `BoatProfile` += `lengthM`, `fuelTankL`; kiểm `fuelL × 1,3 ≤ fuelTankL` thành cờ `fuelShort`.
-5. Waypoint: sau walk, gộp điểm có góc rẽ < 3°; giữ `hoursAt` tương ứng.
-6. Live: `locFix()` thuần (ngưỡng quãng theo accuracy, EMA tốc độ, heading khi chạy), `projectOntoRoute(pos, wps, prevSeg?)` có trễ + `side`, `etaMuot` trung vị 60 s, `uocViTri()` dead-reckoning ≤ 2 phút, giọng đọc rẽ.
-7. Oracle offline (GPU): `oracle-luoi-min.ts`, `oracle-nut-gio.ts` — báo cáo chênh dầu/giờ; nếu D5 > 5 % thì mở lại ADR 0003.
+1. `requiredDepthM(draftM, waveM, speedKn?)` = mớn + 0,5 + ½·min(Hs,3) + squat(V) — một bản, ở `hazards.ts`; squat Barrass `Cb·V²/100` với Cb 0,6, V hải lý/giờ, chỉ cộng khi V > 6 (B5 đòi chênh 6→12 kn trong 0,15–0,8 m).
+2. `doSauLucT(zMslM, hTrieuM, z0M) = −zMslM − (hTrieuM − z0M)`… viết đúng dấu: độ sâu nước lúc t = (độ sâu dưới MSL) + (h(t) − z0) với h, z0 cùng so số 0 hải đồ — ở `hazards.ts` (B6 kiểm `doSauLucT(-3, 1.0, 2.887) ≈ 1,113`).
+3. `PlanArgs.tide?: { z0M: number; departMs: number; heightAtMs(ms: number): number }` — lớp 3 xét `need ≤ DRAFT_SHALLOW_MAX_NEED_M + (h(ETA) − z0)`; ETA = departMs + giờ cộng dồn tới mẫu; **không** vào chi phí (quyết định 09/2026); trạm `model` cộng dự trữ 0,2 m (B4).
+4. `RoutePlan.forecast = { source, savedAt, hoursCovered }` đi theo tuyến lưu (C3).
+5. `BoatProfile` += `lengthM`, `fuelTankL`; kiểm `fuelL × 1,3 ≤ fuelTankL` thành cờ `fuelShort`.
+6. Waypoint: sau walk, gộp điểm có góc rẽ < 3°; giữ `hoursAt` tương ứng.
+7. Live: `locFix()` thuần (export từ `use-nav-tracking.ts`) (ngưỡng quãng theo accuracy, EMA tốc độ, heading khi chạy), `projectOntoRoute(pos, wps, prevSeg?)` có trễ + `side`, `etaMuot` trung vị 60 s, `uocViTri()` dead-reckoning ≤ 2 phút, giọng đọc rẽ.
+8. Oracle offline: `scripts/dan-duong/oracle-luoi-min.ts`, `oracle-nut-gio.ts` ghi `.dan-duong/oracle-*.json {chenhDauPhanTram, soTuyen}` (D4/D5 đọc file này); nếu D5 > 5 % thì mở lại ADR 0003.
 
 ## 6. Tổ chức team agent + vòng lặp trên máy GPU
 

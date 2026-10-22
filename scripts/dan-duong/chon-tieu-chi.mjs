@@ -26,7 +26,7 @@ const truotLienTiep = (id) => {
   return n;
 };
 const hong = bang.tieuChi
-  .filter((t) => !t.dat)
+  .filter((t) => !t.dat && !t.canNguoi)
   .sort((a, b) => bac[a.bac] - bac[b.bac] || (UU_TIEN.indexOf(a.id) + 1 || 99) - (UU_TIEN.indexOf(b.id) + 1 || 99));
 const chon = hong.find((t) => truotLienTiep(t.id) < 3);
 if (!chon) { process.stdout.write(""); process.exit(0); }

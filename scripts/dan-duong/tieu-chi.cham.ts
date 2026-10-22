@@ -142,36 +142,44 @@ describe("B — độ sâu · mớn · triều", () => {
       so: { tram: vt.id, rong: low?.heightM ?? null, lon: high?.heightM ?? null, canhBao: !!canhBao }, ghi: "" });
   });
 
-  it("B4 triều NỐI VÀO ĐỘ SÂU LÚC LẬP TUYẾN tại ETA (lớp 3, mớn 1,8: ròng −0,5 chặn, lớn +1,5 mở)", () => {
-    // Hiện tại luật lớp 3 KHÔNG cộng triều ⇒ cùng một tàu ra cùng một kết quả bất kể giờ.
+  it("B4 triều NỐI VÀO ĐỘ SÂU LÚC LẬP TUYẾN tại ETA (lớp 3, mớn 1,8: nước lớn +1,5 m so MSL mở, ròng −0,5 m đóng)", () => {
+    // Đích (doc §5.2): PlanArgs.tide = { z0M, heightAtMs(ms) } — lớp 3 xét need ≤ 2,0 + (h(ETA) − z0). Chưa có ⇒ hai lượt y nhau.
     const g = luoiSauHet();
     toChuNhat(g, { latMin: 9.2, latMax: 10.8, lonMin: GIUA.lon - 0.05, lonMax: GIUA.lon + 0.05 }, CO.l3);
-    const tau = { ...TAU_7KN, draftM: 1.8 }; // cần 2,3 m > trần 2,0 ⇒ chặn tĩnh
-    const p = planRoute(args({ depth: g, boat: tau }));
-    const qua = !!p && mauDocTuyen(p.waypoints, 0.2).some((m) => Math.abs(m.lon - GIUA.lon) <= 0.05 && m.lat > 9.2 && m.lat < 10.8);
-    ghi({ id: "B4", nhom: "B độ sâu", ten: "Triều vào luật độ sâu lúc lập tuyến (tại ETA)", bac: "B", diem: 0, dat: false, trangThai: "chua-do",
-      so: { quaKhiKhongTrieu: qua, hoursAtCo: !!p?.hoursAt?.length }, ghi: "PlanArgs chưa có đầu vào triều; quyết định 2026-09-04 'triều không vào Dijkstra' chỉ cấm đưa vào CHI PHÍ, không cấm hiệu chỉnh ĐỘ SÂU tại ETA" });
+    const tau = { ...TAU_7KN, draftM: 1.8 }; // cần 2,3 m > trần tĩnh 2,0 ⇒ chỉ qua được khi triều cộng ≥ +0,3 m
+    const z0 = 2.0;
+    const lon = { z0M: z0, departMs: Date.UTC(2026, 10, 5), heightAtMs: () => z0 + 1.5 };
+    const rong = { z0M: z0, departMs: Date.UTC(2026, 10, 5), heightAtMs: () => z0 - 0.5 };
+    const pL = planRoute({ ...args({ depth: g, boat: tau }), tide: lon } as PlanArgs);
+    const pR = planRoute({ ...args({ depth: g, boat: tau }), tide: rong } as PlanArgs);
+    const qua = (p: RoutePlan | null) => !!p && mauDocTuyen(p.waypoints, 0.2).some((m) => Math.abs(m.lon - GIUA.lon) <= 0.05 && m.lat > 9.2 && m.lat < 10.8);
+    const ok = qua(pL) && !!pL?.hasDraftShallowLeg && !qua(pR);
+    ghi({ id: "B4", nhom: "B độ sâu", ten: "Triều vào luật độ sâu lúc lập tuyến (tại ETA)", bac: "B", diem: ok ? 100 : 0,
+      so: { nuocLonQua: qua(pL), nuocRongQua: qua(pR), coLon: pL?.hasDraftShallowLeg ?? null }, ghi: "quyết định 2026-09-04 'triều không vào Dijkstra' chỉ cấm đưa vào CHI PHÍ, không cấm hiệu chỉnh ĐỘ SÂU tại ETA" });
   });
 
-  it("B5 squat theo tốc độ trong nước nông (Barrass) có trong nước cần", () => {
-    const n7 = requiredDepthM(2, 0), n12 = requiredDepthM(2, 0);
-    ghi({ id: "B5", nhom: "B độ sâu", ten: "Squat (lún đuôi theo tốc độ) trong UKC", bac: "C", diem: 0, dat: false, trangThai: "chua-do",
-      so: { can7kn: n7, can12kn: n12 }, ghi: "requiredDepthM không nhận tốc độ; tàu cá 10 kn ở nước 5 m lún thêm ~0,2–0,4 m" });
+  it("B5 squat theo tốc độ (Barrass) có trong nước cần: requiredDepthM(2, 0, 12 kn) > requiredDepthM(2, 0, 6 kn)", () => {
+    const f = requiredDepthM as unknown as (d: number, w: number | null, v?: number) => number | null;
+    const n6 = f(2, 0, 6), n12 = f(2, 0, 12), n0 = f(2, 0);
+    const ok = n6 != null && n12 != null && n0 != null && n12 - n6 >= 0.15 && n12 - n6 <= 0.8 && n6 >= n0;
+    ghi({ id: "B5", nhom: "B độ sâu", ten: "Squat (lún đuôi theo tốc độ) trong UKC", bac: "C", diem: ok ? 100 : 0,
+      so: { can0: n0, can6kn: n6, can12kn: n12 }, ghi: "Barrass: squat ≈ Cb·V²/100 (Cb 0,6) — 12 kn ≈ 0,86 m? quá lớn cho tàu cá; chấp nhận 0,15–0,8 m chênh 6→12 kn, mặc định §7 Q1" });
   });
 
-  it("B6 datum: lưới MSL ↔ triều số 0 hải đồ có phép quy đổi (z0)", () => {
-    const st = decodeTideStations(JSON.parse(fs.readFileSync(path.join(ROOT, "public/data/tide-stations.v1.json"), "utf8")));
-    const coZ0 = st.every((s) => Number.isFinite(s.z0));
-    ghi({ id: "B6", nhom: "B độ sâu", ten: "Quy đổi datum MSL ↔ số 0 hải đồ khi cộng triều vào lưới", bac: "B", diem: 0, dat: false, trangThai: "chua-do",
-      so: { tramCoZ0: coZ0, soTram: st.length }, ghi: "lưới độ sâu là MSL (ETOPO/GEBCO); mực triều so số 0 ⇒ độ sâu lúc t = z_MSL + (h(t) − z0). Chưa có hàm nào làm phép này" });
+  it("B6 datum: hàm doSauLucT(zMslM, hTrieuM, z0M) quy đổi MSL ↔ số 0 hải đồ", async () => {
+    const m = (await import("@/lib/hazards")) as unknown as { doSauLucT?: (z: number, h: number, z0: number) => number };
+    const v = m.doSauLucT ? m.doSauLucT(-3, 1.0, 2.887) : null; // đáy 3 m dưới MSL, triều +1,0 trên số 0, z0 2,887 ⇒ 3 − 1,887 = 1,113
+    const ok = v != null && Math.abs(v - 1.113) < 0.01;
+    ghi({ id: "B6", nhom: "B độ sâu", ten: "Quy đổi datum MSL ↔ số 0 hải đồ khi cộng triều vào lưới", bac: "B", diem: ok ? 100 : 0,
+      so: { coHam: !!m.doSauLucT, v }, ghi: "lưới độ sâu là MSL (ETOPO/GEBCO); mực triều so số 0 ⇒ độ sâu lúc t = zMSL + (h(t) − z0)" });
   });
 
   it("B8 rạn có độ sâu ước lượng (kiểm độ sâu rạn trên GPU) và luật chặn phân biệt rạn sâu ≥ 20 m", () => {
     // kiem-do-sau-ran.mjs ra ứng viên rạn sâu; khi anh Long chốt (doc §7 Q3) thì public/data/reef-depth.v1.json ra đời
-    // và route-plan đọc nó. Chưa có file ⇒ chưa đo. Có file ⇒ tiêu chí đo: xác tàu 31 m giữa biển KHÔNG còn chặn cứng.
+    // và route-plan đọc nó. Chưa có file ⇒ chưa đo (cần người). Có file ⇒ đo: xác tàu 31 m giữa biển KHÔNG còn chặn cứng.
     const co = fs.existsSync(path.join(ROOT, "public/data/reef-depth.v1.json"));
-    ghi({ id: "B8", nhom: "B độ sâu", ten: "Rạn/xác tàu sâu ≥ 20 m không chặn cứng (có nguồn độ sâu rạn)", bac: "C", diem: 0, dat: false, trangThai: "chua-do",
-      so: { coFileDoSauRan: co }, ghi: "hình rạn OSM/ACA không mang độ sâu; mô hình 450 m sai tại rạn — xem .dan-duong/kiem-do-sau-ran.md (chạy trên GPU)" });
+    ghi({ id: "B8", nhom: "B độ sâu", ten: "Rạn/xác tàu sâu ≥ 20 m không chặn cứng (có nguồn độ sâu rạn)", bac: "C", diem: 0, dat: false, trangThai: "chua-do", canNguoi: true,
+      so: { coFileDoSauRan: co }, ghi: "hình rạn OSM/ACA không mang độ sâu; mô hình 450 m sai tại rạn — xem kiem-do-sau-ran.md (chạy trên GPU), anh Long chốt §7 Q3" });
   });
 
   it("B7 lớp 4 (4–12 m) + sóng 2,6 m → nâng mức 'không nên đi' (sóng vỡ nước nông)", () => {
@@ -201,9 +209,9 @@ describe("C — thời tiết đọc được / không đọc được", () => {
 
   it("C3 lưới offline 'grid' (thô, không dòng chảy) → cờ nguồn đi ra tới kết quả tuyến", () => {
     const f = truong(BB, () => GIO_EM, 4, 72, { source: "grid", savedAt: Date.now() - 36e5 });
-    const p = planRoute(args({ field: f })) as (RoutePlan & { fieldSource?: string }) | null;
-    const mang = p != null && "fieldSource" in p;
-    ghi({ id: "C3", nhom: "C thời tiết", ten: "RoutePlan tự mang nguồn dự báo đã dùng", bac: "C", diem: mang ? 100 : 0, dat: mang,
+    const p = planRoute(args({ field: f })) as (RoutePlan & { forecast?: { source?: string; savedAt?: number | null } }) | null;
+    const mang = p?.forecast?.source === "grid" && typeof p.forecast.savedAt === "number";
+    ghi({ id: "C3", nhom: "C thời tiết", ten: "RoutePlan.forecast mang nguồn + tuổi dự báo đã dùng", bac: "C", diem: mang ? 100 : 0, dat: mang,
       so: { coTuyen: !!p, mangNguon: mang }, ghi: "hiện UI tự nhớ chosenField; tuyến đã LƯU mất dấu 'tính bằng lưới cũ' — tuyến lưu phải nói thật tuổi dữ liệu" });
   });
 
@@ -265,14 +273,20 @@ describe("D — mô hình tàu · tốc độ · dầu", () => {
     ghi({ id: "D3", nhom: "D mô hình tàu", ten: "Không bán đường vòng > 30 %", bac: "B", diem: ok ? 100 : 0, so: { tiLe: Math.round(ti * 100) / 100, capped: p?.cappedToDirect, fuelDelta: p?.fuelDeltaL }, ghi: "" });
   });
 
-  it("D4 oracle lưới mịn: chênh dầu Dijkstra 4 km vs lưới 1 km ≤ 5 %", () => {
-    ghi({ id: "D4", nhom: "D mô hình tàu", ten: "Sai số rời rạc hoá lưới (oracle lưới mịn)", bac: "C", diem: 0, dat: false, trangThai: "chua-do",
-      so: {}, ghi: "cần scripts/dan-duong/oracle-luoi-min.ts: cùng legCost, MAX_NODES nới, chạy trên GPU/PC — không chạy trên điện thoại" });
+  it("D4 oracle lưới mịn: .dan-duong/oracle-luoi-min.json {chenhDauPhanTram} ≤ 5 trên bộ tuyến thật", () => {
+    const f = path.join(ROOT, ".dan-duong/oracle-luoi-min.json");
+    const kq = fs.existsSync(f) ? (JSON.parse(fs.readFileSync(f, "utf8")) as { chenhDauPhanTram?: number; soTuyen?: number }) : null;
+    const ok = kq != null && Number.isFinite(kq.chenhDauPhanTram) && kq.chenhDauPhanTram! <= 5 && (kq.soTuyen ?? 0) >= 6;
+    ghi({ id: "D4", nhom: "D mô hình tàu", ten: "Sai số rời rạc hoá lưới (oracle lưới mịn)", bac: "C", diem: ok ? 100 : 0, dat: ok, trangThai: kq ? "do" : "chua-do",
+      so: { ...(kq ?? {}) }, ghi: "dựng scripts/dan-duong/oracle-luoi-min.ts (cùng legCost qua planRoute với bbox nhỏ/bước nhỏ hoặc MAX_NODES nới qua tham số) → ghi JSON này; chạy trước khi chấm" });
   });
 
-  it("D5 oracle (nút, khung giờ): chênh dầu so Dijkstra một nhãn ≤ 5 % trên bộ 18 tuyến × 3 mùa", () => {
-    ghi({ id: "D5", nhom: "D mô hình tàu", ten: "Sai số một-nhãn/nút (ADR 0003 — xét lại khi có số)", bac: "C", diem: 0, dat: false, trangThai: "chua-do",
-      so: {}, ghi: "cần oracle time-expanded + lưới thời tiết THẬT lưu lại (routegrid snapshot) — việc GPU" });
+  it("D5 oracle (nút, khung giờ): .dan-duong/oracle-nut-gio.json {chenhDauPhanTram} ≤ 5 (ADR 0003 — xét lại khi có số)", () => {
+    const f = path.join(ROOT, ".dan-duong/oracle-nut-gio.json");
+    const kq = fs.existsSync(f) ? (JSON.parse(fs.readFileSync(f, "utf8")) as { chenhDauPhanTram?: number; soTuyen?: number }) : null;
+    const ok = kq != null && Number.isFinite(kq.chenhDauPhanTram) && kq.chenhDauPhanTram! <= 5 && (kq.soTuyen ?? 0) >= 6;
+    ghi({ id: "D5", nhom: "D mô hình tàu", ten: "Sai số một-nhãn/nút (ADR 0003)", bac: "C", diem: ok ? 100 : 0, dat: ok, trangThai: kq ? "do" : "chua-do",
+      so: { ...(kq ?? {}) }, ghi: "dựng scripts/dan-duong/oracle-nut-gio.ts: Dijkstra trạng thái (nút, giờ) trên trường thời tiết ĐỔI THEO GIỜ tổng hợp (dải sóng di chuyển) → so dầu với planRoute; > 5 % ⇒ mở lại ADR 0003" });
   });
 
   it("D6 hồ sơ tàu đủ cho dẫn đường: tốc độ, lít/giờ, mớn, chiều dài, két dầu — một nguồn", () => {
@@ -458,7 +472,7 @@ describe("H — hiệu năng + hồi quy tuyến thật", () => {
   });
   it("H5 có bộ tuyến thật kèm NHÃN kỳ vọng do người đi biển duyệt (oracle nghiệp vụ)", () => {
     const co = fs.existsSync(path.join(ROOT, "scripts/dan-duong/tuyen-chuan.json"));
-    ghi({ id: "H5", nhom: "H tuyến thật", ten: "Bộ tuyến chuẩn có nhãn người duyệt", bac: "B", diem: co ? 100 : 0, dat: co, trangThai: co ? "do" : "chua-do", so: { co }, ghi: "cần anh Long / thuyền trưởng duyệt 10–20 tuyến quen: vẽ tay → so Fréchet/Hausdorff với tuyến máy" });
+    ghi({ id: "H5", nhom: "H tuyến thật", ten: "Bộ tuyến chuẩn có nhãn người duyệt", bac: "B", diem: co ? 100 : 0, dat: co, trangThai: co ? "do" : "chua-do", canNguoi: true, so: { co }, ghi: "cần anh Long / thuyền trưởng duyệt 10–20 tuyến quen: vẽ tay → so Fréchet/Hausdorff với tuyến máy" });
   });
 });
 

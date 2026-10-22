@@ -206,6 +206,8 @@ export type KetQuaTieuChi = {
   ghi: string;
   /** "chua-do" = chưa có oracle/đường đo — tính là KHÔNG đạt, việc của vòng lặp là dựng */
   trangThai?: "do" | "chua-do";
+  /** cần anh Long/thuyền trưởng chốt — vòng lặp máy KHÔNG tự chọn tiêu chí này */
+  canNguoi?: boolean;
 };
 
 export const bang: KetQuaTieuChi[] = [];
