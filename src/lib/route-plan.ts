@@ -109,6 +109,9 @@ const rad = (d: number) => (d * Math.PI) / 180;
 const deg = (r: number) => (r * 180) / Math.PI;
 
 /** Hướng chạy từ a tới b, 0–360° (0 = Bắc, 90 = Đông) */
+/** Góc rẽ dưới mức này coi như đi thẳng — không đáng một điểm riêng. */
+const MIN_TURN_DEG = 3;
+
 export function bearingDeg(a: LatLon, b: LatLon): number {
   const dLon = rad(b.lon - a.lon);
   const y = Math.sin(dLon) * Math.cos(rad(b.lat));
@@ -1457,6 +1460,35 @@ function planAttempt(
     hoursEst += bestHours;
     smoothed.push(waypoints[bestJ]);
     i = bestJ;
+  }
+  /*  Dọn điểm thẳng hàng còn sót (E1): cửa sổ kéo dây chỉ nhìn 6 nút, nên
+      đường thẳng dài vẫn để lại điểm giữa có góc rẽ < 3° — bà con phải gõ thừa
+      vào máy định vị. Bỏ điểm đó khi cạnh nối đi được và không đắt hơn. */
+  for (let k = 1; k < smoothed.length - 1; ) {
+    const turn = Math.abs(angleDiffDeg(
+      bearingDeg(smoothed[k - 1], smoothed[k]),
+      bearingDeg(smoothed[k], smoothed[k + 1]),
+    ));
+    if (turn < MIN_TURN_DEG) {
+      const a = smoothed[k - 1], m = smoothed[k], b = smoothed[k + 1];
+      // chỉ bỏ khi điểm nằm gần như TRÊN cạnh nối (không cắt góc sát rạn)
+      if (haversineKm(a, m) + haversineKm(m, b) - haversineKm(a, b) > 0.05) {
+        k++;
+        continue;
+      }
+      const l1 = legCost(a, m, departHourIdx, false, seaAsPenalty);
+      const l2 = legCost(m, b, departHourIdx + (l1.feasible ? l1.hours : 0), false, seaAsPenalty);
+      const chord = legCost(a, b, departHourIdx, false, seaAsPenalty);
+      if (
+        l1.feasible && l2.feasible && chord.feasible &&
+        chord.cost <= (l1.cost + l2.cost) * 1.001
+      ) {
+        smoothed.splice(k, 1);
+        k = Math.max(1, k - 1);
+        continue;
+      }
+    }
+    k++;
   }
   waypoints = smoothed;
 
