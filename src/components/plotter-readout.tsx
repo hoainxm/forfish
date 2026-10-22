@@ -65,9 +65,9 @@ function BoatMark({ stale, off }: { stale?: boolean; off?: boolean }) {
 /** Nhãn ngắn bên trái mỗi dòng — chữ nhỏ, không ăn chỗ của SỐ */
 function RowLabel({ text }: { text: string }) {
   return (
-    <span className="w-7 shrink-0 text-[0.75rem] font-medium leading-tight text-foreground/60">
-      {text}
-    </span>
+    // 2026-10-22 (anh Long: "bố cục lại đi chiếm chỗ"): chữ "Tàu"/"Trỏ" chỉ còn cho trình đọc màn hình —
+    // icon tàu và ghim cam đã phân biệt hai hàng bằng hình + màu, đúng luật "phân biệt bằng màu, không chữ".
+    <span className="sr-only">{text}</span>
   );
 }
 
@@ -181,12 +181,12 @@ export function PlotterReadout({
           Ẩn khi bản đồ TRỐNG (cursor == null): không có điểm xem thì không in
           toạ độ trỏ (tránh "cứ chạm là tính vị trí nhìn rối" — user 2026-08-29). */}
       {cursor != null && (
-      <p className="flex min-h-[1.75rem] items-center gap-1.5">
+      <p className="flex min-h-[1.75rem] flex-wrap items-center gap-x-1.5">
         <PinIcon className="h-4 w-4 shrink-0 text-trim" />
         <RowLabel text="Trỏ" />
         <ToaDo lat={cursor.lat} lon={cursor.lon} fmt={prefs.coordFormat} />
         {rng && (
-          <span className="min-w-0 text-[0.6875rem] font-medium leading-snug text-foreground/55">
+          <span className="whitespace-nowrap text-[0.6875rem] font-medium leading-snug text-foreground/55">
             {rng}
           </span>
         )}
@@ -196,16 +196,16 @@ export function PlotterReadout({
   );
 }
 
-/*  TOẠ ĐỘ HAI HÀNG — vĩ độ trên, kinh độ dưới, chữ nhỏ (chủ dự án 2026-10-17: "toạ độ cho hàng
-    trên hàng dưới, làm nhỏ lại, cái ô nó ngắn lại được"). Một hàng "13°00'00"N · 110°30'00"E"
-    kéo thẻ rộng gấp đôi; hai hàng thì thẻ hẹp lại, vẫn đọc trọn số. */
+/*  TOẠ ĐỘ MỘT DÒNG "vĩ độ kinh độ" (2026-10-22b). Lịch sử: 2026-10-17 tách hai hàng cho thẻ hẹp
+    ("làm nhỏ lại, cái ô nó ngắn lại được"); nay bỏ chữ "Tàu"/"Trỏ" thay cho việc tách hàng — thẻ
+    còn 2 dòng thay vì 4 mà vẫn hẹp. */
 function ToaDo({ lat, lon, fmt, mo = false }: { lat: number; lon: number; fmt: CoordFormat; mo?: boolean }) {
-  // 2026-10-22 (chủ dự án chụp màn "lỗi design"): bản trước in MỘT dòng "lat · lon" ngược chú thích trên ⇒ thẻ
-  // rộng tới mép, đè nhãn QUẦN ĐẢO HOÀNG SA và bị cắt mất "· 305 hải lý · 23°". Giờ đúng hai hàng như đã chốt.
+  // 2026-10-22b (anh Long: "bố cục lại đi chiếm chỗ" — hai hàng × hai dòng thành thẻ cao 4 dòng): toạ độ về
+  // MỘT dòng nhưng bỏ chữ "Tàu"/"Trỏ" nên thẻ vẫn hẹp; quãng–hướng tự xuống dòng (flex-wrap) khi máy hẹp,
+  // không bao giờ bị cắt như bản 2026-10-22 trước.
   return (
-    <span className={`inline-flex flex-col whitespace-nowrap text-[0.8125rem] font-semibold tabular-nums leading-tight ${mo ? "text-foreground/55" : "text-navy"}`}>
-      <span>{fmtLat(lat, fmt)}</span>
-      <span>{fmtLon(lon, fmt)}</span>
+    <span className={`whitespace-nowrap text-[0.8125rem] font-semibold tabular-nums leading-tight ${mo ? "text-foreground/55" : "text-navy"}`}>
+      {fmtLat(lat, fmt)} {fmtLon(lon, fmt)}
     </span>
   );
 }
