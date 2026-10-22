@@ -298,7 +298,8 @@ import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { setSenSignal } from "@/lib/sen-bien-state";
 import { apDungGemma, canGemma, chonCauHoi, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
-import { DANG_HOI, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { CAU_GIO, chonCau, henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { readToken } from "@/lib/device-token-store";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
@@ -4113,8 +4114,13 @@ export default function FishingMapView() {
             return { show: a.text };
           }
           if (buoc.buoc === "may-nha") {
-            senSay(DANG_HOI);
+            // câu giờ: mở lời ngay + nhịp ~2,5 s / ~5 s (cau-vui.henCauGio), có kết quả là cắt
+            senSay(chonCau(CAU_GIO[0], "gio-0"));
+            let dangCho = true;
+            const huyGio = henCauGio(senSay, () => dangCho && conLuot());
             const kqN = await hoiMayChu(text, "/ngu-truong", null);
+            dangCho = false;
+            huyGio();
             if (!conLuot()) return null;
             const say = "text" in kqN ? kqN.text : cauTruot(kqN.loi);
             senSay(say);

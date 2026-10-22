@@ -10,6 +10,7 @@
 //   3. câu đã có lời đáp thật của máy (daTraLoi, hỏi lại r.ask, ngoài phạm vi CHẮC) ⇒ "noi" đúng câu đó
 // Máy nhà trượt (quá giờ / lỗi) ⇒ `cauTruot(lyDo)`; lượt cũ về muộn khi đã có câu mới ⇒ chỗ gọi bỏ (xem `luotMoi`).
 
+import { CAU_LANG, chonCau } from "@/lib/sen-bien/cau-vui";
 import type { SenReply } from "@/lib/sen-bien/hieu-y";
 
 /** Độ tin n-gram từ đó mới làm theo đoán — cùng mốc NGRAM_CHAC của hieu-y / lenh-cho. */
@@ -19,18 +20,10 @@ export type LyDoTruot = "mat_song" | "chua_dang_nhap" | "het_gio" | "may_nha";
 
 export type BuocCuoi = { buoc: "app" } | { buoc: "may-nha" } | { buoc: "noi"; say: string };
 
-/** Câu nói khi không có câu trả lời — nói ĐÚNG lý do, không đọc câu đoán của n-gram. */
+/** Câu nói khi không có câu trả lời — nói ĐÚNG lý do, không đọc câu đoán của n-gram; câu lảng có duyên xoay vòng
+ *  trong kho `cau-vui.CAU_LANG` (không lặp liền). */
 export function cauTruot(lyDo: LyDoTruot): string {
-  switch (lyDo) {
-    case "mat_song":
-      return "Câu này cần sóng để Sen Biển hỏi thêm. Có sóng bà con hỏi lại nhé.";
-    case "chua_dang_nhap":
-      return "Bà con đăng nhập thì Sen Biển mới hỏi thêm được câu này.";
-    case "het_gio":
-      return "Máy chủ đang chậm, Sen Biển chưa có câu trả lời. Bà con hỏi lại sau ít phút nhé.";
-    case "may_nha":
-      return "Sen Biển chưa trả lời được câu này. Bà con thử hỏi cách khác nhé.";
-  }
+  return chonCau(CAU_LANG[lyDo], `lang-${lyDo}`);
 }
 
 /** Câu "đã có lời đáp thật" — không cần (và không được) hỏi máy nhà. Ngoài phạm vi mà n-gram KÉM CHẮC thì chưa chắc

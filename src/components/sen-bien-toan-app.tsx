@@ -26,7 +26,8 @@ import { SPECIES_META } from "@/lib/fish-predict";
 import { loadPlaces } from "@/lib/places";
 import { loadHome, saveHome } from "@/lib/region";
 import { readToken } from "@/lib/device-token-store";
-import { DANG_HOI, doanMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { doanMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { CAU_GIO, chonCau, henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { chonCauHoi } from "@/lib/sen-bien/gemma";
 import { senBienReply, senNgramCtx } from "@/lib/sen-bien/hieu-y";
@@ -261,8 +262,13 @@ export function SenBienToanApp() {
         return { show: `${a.text}${them}` };
       }
       if (buoc.buoc === "may-nha") {
-        noi(DANG_HOI, false);
+        // câu giờ: mở lời ngay + nhịp ~2,5 s / ~5 s (cau-vui.henCauGio), có kết quả là cắt
+        noi(chonCau(CAU_GIO[0], "gio-0"), false);
+        let dangCho = true;
+        const huyGio = henCauGio((c) => noi(c, false), () => dangCho && conLuot());
         const kqN = await hoiMayChu(text, pathname, loadHome().province ?? null);
+        dangCho = false;
+        huyGio();
         if (!conLuot()) return null;
         if (!("text" in kqN)) {
           const say = cauTruot(kqN.loi);

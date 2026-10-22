@@ -23,8 +23,6 @@ function hangTrongMay(): "premium" | "thuong" | null {
 
 /** Trần chờ phía máy: route chờ máy nhà 5 s + đường truyền — quá là Sen Biển nói câu của máy, bà con không phải chờ. */
 export const HOI_HAN_MS = 6_000;
-/** Câu báo đang hỏi — đọc ngay để bà con biết Sen Biển không đứng hình. */
-export const DANG_HOI = "Để Sen Biển hỏi thêm.";
 
 /** Hỏi máy nhà. Trả câu đọc được, hoặc `{ loi }` (mọi lỗi kèm lý do). Không bao giờ ném. */
 export type DapMayNha = { text: string; speak: string[]; amThanh: string | null };

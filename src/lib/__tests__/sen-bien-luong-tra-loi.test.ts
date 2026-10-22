@@ -1,6 +1,7 @@
 // Luồng trả lời một cửa (lib/sen-bien/luong-tra-loi.ts, anh Long 2026-10-22: "chưa tra xong m đã đẩy ngram vô rồi").
 import { describe, expect, it } from "vitest";
 import type { SenReply } from "@/lib/sen-bien/hieu-y";
+import { CAU_LANG } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 
 const say = (y: string, extra: Partial<Extract<SenReply, { kind: "say" }>> = {}): SenReply =>
@@ -14,12 +15,16 @@ describe("chonBuoc — bảng quyết định", () => {
     expect(chonBuoc({ ...goc, r: say("tim_mon"), conf: 0.3, coApp: true })).toEqual({ buoc: "may-nha" }));
   it("không hiểu + có sóng + đăng nhập ⇒ máy nhà", () =>
     expect(chonBuoc({ ...goc, r: say("khong_hieu") })).toEqual({ buoc: "may-nha" }));
-  it("mất sóng ⇒ nói rõ cần sóng, không đọc câu đoán", () =>
-    expect(chonBuoc({ ...goc, r: say("khong_hieu"), online: false })).toEqual({ buoc: "noi", say: cauTruot("mat_song") }));
+  const noiTrong = (b: ReturnType<typeof chonBuoc>, nhom: readonly string[]) => {
+    expect(b.buoc).toBe("noi");
+    expect(nhom).toContain(b.buoc === "noi" ? b.say : "");
+  };
+  it("mất sóng ⇒ câu lảng nhóm mất sóng, không đọc câu đoán", () =>
+    noiTrong(chonBuoc({ ...goc, r: say("khong_hieu"), online: false }), CAU_LANG.mat_song));
   it("mất sóng + ý app kém chắc ⇒ vẫn không làm theo đoán", () =>
-    expect(chonBuoc({ ...goc, r: say("tim_mon"), coApp: true, online: false })).toEqual({ buoc: "noi", say: cauTruot("mat_song") }));
-  it("chưa đăng nhập ⇒ nói cần đăng nhập", () =>
-    expect(chonBuoc({ ...goc, r: say("khong_hieu"), coChuoi: false })).toEqual({ buoc: "noi", say: cauTruot("chua_dang_nhap") }));
+    noiTrong(chonBuoc({ ...goc, r: say("tim_mon"), coApp: true, online: false }), CAU_LANG.mat_song));
+  it("chưa đăng nhập ⇒ câu nhóm chưa đăng nhập", () =>
+    noiTrong(chonBuoc({ ...goc, r: say("khong_hieu"), coChuoi: false }), CAU_LANG.chua_dang_nhap));
   it("ngoài phạm vi CHẮC ⇒ giữ câu từ chối của máy", () =>
     expect(chonBuoc({ ...goc, r: say("ngoai_pham_vi", { daTraLoi: true }), conf: 0.9 })).toEqual({ buoc: "noi", say: "câu của máy" }));
   it("ngoài phạm vi KÉM CHẮC ('một năm có mấy tháng' 0,29) ⇒ để máy nhà xét", () =>
@@ -34,12 +39,9 @@ describe("chonBuoc — bảng quyết định", () => {
     expect(chonBuoc({ ...goc, r: say("giay_to"), conf: null, coApp: true })).toEqual({ buoc: "may-nha" }));
 });
 
-describe("cauTruot — mỗi lý do một câu, không câu nào là câu đoán", () => {
-  it("bốn lý do bốn câu khác nhau", () => {
-    const cau = (["mat_song", "chua_dang_nhap", "het_gio", "may_nha"] as const).map(cauTruot);
-    expect(new Set(cau).size).toBe(4);
-    for (const c of cau) expect(c).toMatch(/Sen Biển/);
-  });
+describe("cauTruot — câu lảng đúng nhóm lý do", () => {
+  it.each(["mat_song", "chua_dang_nhap", "het_gio", "may_nha"] as const)("%s ⇒ câu trong nhóm %s", (ly) =>
+    expect(CAU_LANG[ly]).toContain(cauTruot(ly)));
 });
 
 describe("luotMoi — câu về muộn của lượt cũ bị bỏ", () => {

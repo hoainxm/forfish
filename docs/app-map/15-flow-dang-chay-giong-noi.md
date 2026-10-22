@@ -951,6 +951,8 @@ Chủ dự án 19/10: *"nâng n-gram lên phân biệt hơn 2000 câu hỏi"*; r
 | máy nhà lỗi / route 5xx | — | `cauTruot("may_nha")` |
 | Người dùng nói câu mới khi lượt cũ còn chờ | `luotMoi` — lượt cũ về muộn bị **bỏ**, không đọc chèn | — |
 
+**Câu nói có duyên** (`lib/sen-bien/cau-vui.ts`, 2026-10-22, anh Long: *"những câu hài hước những câu vui những câu nói lảng nói tránh khi mà ngram ko trả lời được khi offline, rồi câu giờ nếu online để đợi câu trả lời"*): `cauTruot` chọn trong `CAU_LANG[lyDo]` (mất sóng 8 câu — luôn chỉ sang việc làm được không cần sóng; chưa đăng nhập · chậm · bí 3 câu mỗi nhóm), xoay vòng không lặp liền (`chonCau`). Chờ máy nhà: `CAU_GIO` ba nhịp — mở lời ngay, `henCauGio` nói nhịp 2 ở 2,5 s và nhịp 3 ở 5 s (trước trần 6 s), có kết quả / lượt mới là huỷ, không chen câu trả lời. Thay `DANG_HOI` (đã gỡ). Test `sen-bien-cau-vui.test.ts`.
+
 `hoiMayChu` trả `DapMayNha | { loi: LyDoTruot }` (401 ⇒ chua_dang_nhap · 504/TimeoutError ⇒ het_gio · fetch ném ⇒ mat_song · còn lại ⇒ may_nha). Ngoài phạm vi kém chắc ("một năm có mấy tháng" 0,29) đi máy nhà vì máy nhà tự chặn chính trị/chủ quyền. Test `sen-bien-luong-tra-loi.test.ts` + `sen-bien-hoi-kho.test.ts` (lý do trượt).
 
 **Tải**: màn bản đồ tải kho sau bộ hiểu ý (8 s sau mở). Màn khác: ý `hoi_mo`/`khong_hieu` chờ kho lần đầu; ý khác chỉ dùng kho đã sẵn (lệnh trong app không chờ 5 MB). Hỏng ⇒ thử lại ngầm, không chờ.
