@@ -118,6 +118,7 @@ Nhật ký: ~/.local/forlife/train/dan-duong/nhat-ky/<ngày>.log · mỗi vòng 
 - **Vì sao một tiêu chí mỗi vòng**: diff nhỏ, người duyệt đọc nổi; trượt thì biết do đâu; cổng A chạy lại mỗi vòng nên không có "sửa F3 làm hỏng A2" lọt.
 - **Chỗ chạy**: WSL tmux như vòng Sen Biển (`sen-bien-dem`) — việc không người trông, cần chạy đêm không ngủ máy. Thư mục làm việc riêng `~/.local/forlife/train/dan-duong/`, **không** đụng `~/ForFish` hay `C:\Code\ForFish`. Luật "WSL chỉ train" (2026-10-19): đây là vòng tự động không người ngồi, xếp cùng nhóm với vòng train — nếu anh Long muốn nó chạy phía Windows thì chỉ đổi `W=` trong `vong.sh`.
 - **Chi phí**: mỗi vòng 1 lượt `claude -p` (~5–15 phút, vài trăm nghìn token); trần `DD_TOI_DA_VONG_NGAY` (mặc định 12) để không đốt gói.
+- **Mặt nạ tin cậy GEBCO TID** (research/do-sau-day-bien-team §3 #1, không cần chốt): `scripts/dan-duong/tid-vn.py` chạy trên GPU trong venv rasterio → `depth-tid-vn.1bit` (1 bit/ô 15″, khung 102–118°Đ/5–23°B) + `tid-vn.stats.json`; bước kế: đóng gói `public/data/depth-tid.v1.bin` + cờ `depthGuessed` trong `route-plan` (tiêu chí B9 — thêm khi dữ liệu có).
 - **Việc độ sâu rạn (một lần, chạy song song vòng lặp)**: tmux `kiem-do-sau` trên GPU chạy `kiem-do-sau-ran.mjs` cho 2 622 hình (~40 phút, cache từng hình, chạy lại nối tiếp). Kết quả `~/.local/forlife/train/dan-duong/kiem-do-sau/ra/kiem-do-sau-ran.md` — lead đọc, anh Long chốt Q3, rồi mới sinh dữ liệu và sửa luật (B8).
 - **Khởi động**: `ssh gpu-desktop` → `bash scripts/dan-duong/cai-gpu.sh` (chép script, tạo tmux). Xem: `tmux attach -t =dan-duong` · `tail -f ~/.local/forlife/train/dan-duong/nhat-ky/$(date +%F).log`.
 
@@ -127,7 +128,8 @@ Nhật ký: ~/.local/forlife/train/dan-duong/nhat-ky/<ngày>.log · mỗi vòng 
 |---|---|---|
 | Q1 | Hệ số squat tàu cá (Cb) và có cộng vào nước cần không | có, Cb = 0,6, chỉ khi `speedKn` > 6 |
 | Q2 | Trạm triều mô hình (EOT20) có được dùng để MỞ dải 2–4 m không, hay chỉ để ĐÓNG | chỉ để ĐÓNG (an toàn một chiều); mở chỉ với 4 trạm đo trong 60 km |
-| Q3 | Rạn không có độ sâu: giữ chặn cứng, hay cho qua khi số đo sâu TBHH gần đó ≥ nước cần | giữ chặn |
+| Q3 | Rạn không có độ sâu: giữ chặn cứng, hay cho qua khi nguồn ĐO (ATL24/ACA) gần đó ≥ 20 m. **Không hạ chỉ vì GEBCO/ETOPO nói sâu** — GEBCO TID đo 2026-10-22: dải 0–50 m ven bờ chỉ 11 % ô đo thật, Vịnh Bắc Bộ 1–3 % ([research/do-sau-day-bien-team-2026-10-22](../../research/do-sau-day-bien-team-2026-10-22.md)) | giữ chặn |
+| Q6–Q9 | Nguồn độ sâu: ba bộ 10 m tác giả TQ (tên TQ cho đảo) dùng hay loại · tài khoản Earthdata/ACA · email ENC phi-SOLAS · hồ sơ pháp lý lớp độ sâu cộng đồng — xem research/do-sau-day-bien-team §4 | giữ ngoài sản phẩm · chờ · chờ · chưa |
 | Q4 | 10–20 tuyến quen để làm tuyến chuẩn (H5) — ai vẽ | chờ; H5 đứng ở "chưa đo" |
 | Q5 | Vòng GPU chạy WSL (như Sen Biển) hay phía Windows | WSL tmux |
 
