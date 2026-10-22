@@ -1,0 +1,141 @@
+# Dẫn đường — rà toàn bộ logic + quy trình khoa học làm–chấm–làm (2026-10-22)
+
+**Load khi / Load when**: sửa `route-plan.ts`, `nav-progress.ts`, `use-nav-tracking.ts`, `nav-hazards.ts`, `hazards.ts`, `tides.ts` phần nối tuyến; chạy/đọc bộ chấm `npm run dan-duong:cham`; sửa vòng lặp trên máy GPU (`scripts/dan-duong/vong.sh`).
+
+> Yêu cầu chủ dự án 2026-10-22: *"kiểm tra lại toàn bộ logic về dẫn đường và xác định waypoint… rạn biển… độ sâu an toàn… triều ra vào… tàu cần gì để chạy… tổ chức team agent xây dựng cho nó chuẩn theo đúng phương pháp khoa học, xác định tham số, xác định mô hình, cách chấm điểm, tổ chức làm rồi chấm rồi làm tới đi đạt 90 % các tiêu chí, đưa qua máy GPU chạy phần này cho nó liên tục"* + *"các yếu tố thời tiết, sóng gió, yếu tố lúc đọc được lúc không đọc được"*.
+
+## 0. Kết luận 2 phút
+
+- **Nền tảng tốt, không phải làm lại.** Bộ tìm đường theo VISIR (Dijkstra 16 hướng, chi phí = lít dầu theo giờ đến, Kwon, dòng chảy vector, ràng buộc tĩnh độ sâu 6 lớp + 285 vật chặn, trần đường vòng 1,3, kiểm nghiêm từng cạnh trả về) đã qua 3 đợt review độc lập (06/2026, 07/2026, 09/2026). **Cổng an toàn A: 6/6 đạt** trên bộ chấm mới.
+- **Đo được bằng số lần đầu**: `npm run dan-duong:cham` → **35/51 = 69 %** (lần đầu 35/50, thêm B8 sau câu hỏi độ sâu rạn) (mục tiêu ≥ 90 %). Mười lăm chỗ hở xếp thành 5 nhóm (§3). Không chỗ nào là "thuật toán ngu"; đa số là **đầu vào chưa nối** (triều, datum, squat, két dầu, dấu lệch tuyến) và **phần dẫn đường trực tiếp còn mỏng** (lọc GPS, giọng đọc rẽ, dead-reckoning).
+- **Câu hỏi rạn "nằm sâu thì không ảnh hưởng"**: hôm nay **không trả lời được bằng dữ liệu** — mọi hình rạn OSM/ACA đều **không có độ sâu**, nên máy coi mọi rạn là chướng ngại (lớp 1, nở 1 km, chặn cứng ngoài 12 km). Đó là lựa chọn an toàn đúng khi không có số; muốn "rạn sâu 30 m thì cho qua" phải có nguồn độ sâu rạn (số đo sâu TBHH / soundings) — việc dữ liệu, không phải việc thuật toán.
+- **Triều**: có engine điều hoà 83 trạm (4 đo + 79 mô hình EOT20), **đã nối vào hậu kiểm** (câu "chờ nước lên") nhưng **chưa nối vào luật độ sâu lúc lập tuyến và lúc đang chạy**, và **chưa quy đổi datum** (lưới ETOPO/GEBCO là mực trung bình, triều so số 0 hải đồ). Đây là việc B4/B6 — đáng làm nhất về mặt khoa học.
+- **Thời tiết lúc đọc được lúc không**: đã xử lý khá đủ ở lớp tính tuyến (lưới rỗng → theo hải đồ có cờ `noWeatherKm`; thủng một phần → đếm quãng mù; sóng null → ước từ gió; quá cửa sổ → `beyondForecastH`; 429 → `rateLimited`). Lỗ còn lại: **tuyến đã lưu không mang theo nguồn/tuổi dự báo** (C3) và **lúc đang chạy không đọc lại dự báo** (ETA chỉ theo GPS).
+- **Vòng lặp trên GPU** (§6): `scripts/dan-duong/vong.sh` chạy trong tmux trên gpu-desktop, mỗi vòng: chấm → chọn tiêu chí hỏng ưu tiên cao nhất → `claude -p` sửa trong thư mục làm việc riêng → `npm test` + chấm lại → tốt hơn thì commit lên nhánh ứng viên `dan-duong/ung-vien-<ngày>` và push → lặp. **Không merge, anh Long duyệt PR.** Dừng khi ≥ 90 % và cổng A sạch.
+
+## 1. Tham số (đầu vào của bài toán)
+
+| Nhóm | Tham số | Nguồn hôm nay | Đơn vị / datum | Ghi chú |
+|---|---|---|---|---|
+| Tàu | `speedKn` (tốc độ êm) | `forfish.boat.v1` (form lập tuyến), mặc định 7 | hải lý/giờ | kẹp 2–30 |
+| | `litersPerHour` | như trên, mặc định 20 | lít/giờ | giả định ga cố định |
+| | `draftM` (mớn) | như trên, **mặc định null** | m | null = mọi luật mớn IM (luật 6) |
+| | `lengthM` | `boats.ts` (hồ sơ tàu) | m | chỉ dùng cho ngưỡng sóng giọng đọc + vùng VMS; **chưa vào BoatProfile** |
+| | két dầu, nghề | **không có** | — | D6: không kiểm "đủ dầu đi về" |
+| Địa hình | lưới độ sâu 6 lớp | `depth-grid.v1.bin` (ETOPO+GEBCO 15″, min-pool, mặt nạ rạn, bờ vn-coast) | **mực trung bình (MSL)**; lớp, không còn số mét | ô 450 m; 0 đất · 1 rạn · 2 <2 m · 3 2–4 m · 4 4–12 m · 5 ≥12 m |
+| | số đo sâu, luồng | `soundings`, `fairway-depth` | **số 0 hải đồ** | chỉ hậu kiểm |
+| | rạn | OSM `reef-shapes` (2 622 hình, không độ sâu) → nướng vào lớp 1, nở 1 km (điểm 1,5 km) | — | ACA 5 m chỉ để vẽ + dự báo cá |
+| Vật chặn | xác tàu · chướng ngại · giàn khoan · phao hiểm hoạ · lồng bè · vùng cấm vào | TBHH `xac-tau`, `seamarks`, `vn-sea-lanes` (285 vật, 6 vùng) | bán kính km (`HAZARD_R_KM`), ×2 khi tin vừa | trong 5 km quanh hai đầu: chỉ cờ |
+| Triều | 33 sóng điều hoà, 83 trạm | `tide-stations.v1.json` | **số 0 hải đồ** (z0 ghi từng trạm) | trạm gần nhất, không nội suy; >120 km không in |
+| Thời tiết | sóng (Hs, hướng, chu kỳ), gió, dòng mặt | lưới 0,35° server (`routegrid`), 72 giờ; lùi: lưới Windy đã lưu (~2°, không dòng/chu kỳ); cuối: rỗng | m, °, s, km/h | `source` live/grid/none + `rateLimited` |
+| Bão | GDACS polygon + hành lang 200 km | `route-storm.ts` | — | không mốc giờ ⇒ chặn bảo thủ |
+| GPS | lat/lon, accuracy, speed, heading, timestamp | `watchPosition` high-accuracy | m, m/s, ° thật | không lọc |
+
+## 2. Mô hình (cách máy quyết định)
+
+```
+LẬP TUYẾN  planRouteWithDiagnostics(args)
+  lưới ô ≥4 km, ≤7 500 nút, 16 hướng
+  legCost(from,to,atHour): mẫu độ sâu mỗi 0,4 km · vật chặn đo điểm→đoạn · thời tiết mỗi ≤12 km
+    chặn cứng: đất (ngoài vòng nới 5–12 km) · lớp 1–2 (ngoài 12 km) · lớp 3 trừ khi mớn đã khai và
+               mớn+0,5+½min(Hs,3) ≤ 2,0 · vật chặn · vùng cấm · sóng ≥4 m / gió ≥62 km/h (nghiêm)
+    tốc độ qua nước = êm × Kwon(Hs, góc sóng) / (1 + cản gió) ; cộng vector dòng chảy
+    chi phí = lít dầu × phạt (1,15 cẩn thận · 1,5 không nên đi · 1,2 sóng đuôi ngắn · 1,15 nông · ×6 best-effort)
+  Dijkstra MỘT NHÃN/nút (ADR 0003) → kéo căng dây có kiểm chi phí → walk nghiêm lại cả tuyến
+  → trần vòng 1,3 (trừ best-effort / cắt đất) → RoutePlan + 14 cờ trung thực
+  lượt: nghiêm → best-effort (sóng) → theo hải đồ (thiếu dự báo) → nới cảng trong sông (retry)
+HẬU KIỂM  auditRoute: 11 kho + triều tại ETA (hoursAt) + ranh giới → câu đỏ/vàng/tin
+ĐANG CHẠY  computeNavProgress: chiếu lên đoạn gần nhất toàn tuyến, nextWp = điểm đầu tiên sau điểm chiếu,
+           tới đích ≤0,4 km, lệch tuyến >2 km (mốc 2/5/10/20), ETA = còn lại / tốc độ GPS tức thời
+           evaluateNavHazards: ngưỡng vàng/đỏ = max(sàn, v×10′/3′) + sai số GPS; nón ±15°; >150 m hạ, >500 m im
+```
+
+**Luật nền tảng (giữ nguyên, có nguồn):** an toàn là RÀNG BUỘC CỨNG, không nhân tử (VISIR, audit 06/2026) · thang KTTV QĐ 18/2021 · Kwon 4 bậc · IMO MSC.1/Circ.1228 sóng đuôi · "vắng số không phải là số" (mớn null) · "nới cho đi, không nới cho im" · "chưa soi ≠ đã soi và sạch".
+
+## 3. Lỗ hổng tìm thấy (bộ chấm 2026-10-22, 15/50 không đạt)
+
+| Nhóm | Mã | Lỗ hổng | Vì sao quan trọng với bà con | Hướng sửa (ngắn) |
+|---|---|---|---|---|
+| **Độ sâu–triều** | B4 | Triều không vào luật độ sâu lúc lập tuyến | tàu mớn 1,8 m qua bãi 2–4 m được lúc nước lớn, mắc cạn lúc ròng — máy hiện trả lời giống nhau mọi giờ | `PlanArgs.tide?: {h(tMs)}`; lớp 3 xét `need ≤ 2,0 + Δh(ETA)`; KHÔNG đưa vào chi phí (giữ quyết định 09/2026) |
+| | B6 | Chưa quy đổi datum MSL ↔ số 0 hải đồ | cộng triều "+1,5 m" vào lưới MSL là cộng thừa z0 (Vũng Tàu 2,9 m!) | `doSauLucT = zMSL + (h(t) − z0)`; trạm model ±0,2 m thêm dự trữ |
+| | B5 | Không có squat theo tốc độ | tàu 10 hl ở nước 5 m lún thêm 0,2–0,4 m | Barrass đơn giản `squat ≈ Cb·V²/100` (Cb≈0,6 tàu cá), cộng vào `requiredDepthM(draft, Hs, speedKn)` |
+| | B8 | Rạn/xác tàu không có độ sâu | xác tàu 31 m giữa biển chặn như rạn nổi; không phân biệt rạn nổi với rạn 30 m | **Kiểm độ sâu rạn trên GPU** `scripts/dan-duong/kiem-do-sau-ran.mjs`: từng hình OSM đối chiếu GEBCO + ETOPO (ODB/ERDDAP) + lớp ACA + số đo sâu → bốn kết luận can/trung/sau/mâu-thuẫn; ứng viên `sau` (≥20 m, hai nguồn khớp, không lớp ACA cạn) đưa anh Long chốt (§7 Q3) rồi mới sinh `reef-depth.v1.json` và nối vào luật chặn. Thử 3 hình đầu 2026-10-22: xác tàu 31/32 m ⇒ `sau`; đá 4/6 m ⇒ `can`; xác tàu trong vùng ACA Reef Flat ⇒ `can` |
+| **Thời tiết** | C3 | RoutePlan không mang nguồn/tuổi dự báo | tuyến đã lưu hôm qua bằng lưới cũ mà mở lại trông như mới | thêm `plan.forecast = {source, savedAt, hours}`; saved-routes lưu kèm |
+| | (live) | Đang chạy không đọc lại dự báo/dòng | ETA theo GPS tức thời, không biết sắp vào dải sóng | dùng `plan.hoursAt` + field đã lưu để nói "còn 2 giờ tới khúc sóng 2,5 m" |
+| **Tàu/dầu** | D6 | Hồ sơ tàu rời rạc, không két dầu, không chiều dài | không kiểm "đủ dầu đi và về ×1,3"; vùng VMS theo chiều dài không vào tuyến | gộp `forfish.boat.v1` vào `boats.ts`, thêm `fuelTankL`, `lengthM` |
+| **Waypoint** | E1 | 6/8 waypoint thẳng hàng (góc 0°) | bà con gõ 8 điểm vào máy định vị thay vì 2 | kéo dây không giới hạn `i+6` khi cạnh thẳng hàng; hoặc lọc góc < 3° sau walk |
+| **Dẫn đường trực tiếp** | F5 | Lọc tốc độ/hướng nằm trong hook, không test được; suy tốc độ từ 2 fix không ngưỡng quãng; heading GPS nhận khi speed null | đứng neo mà la bàn quay, tốc độ nhảy 18 km/h vì GPS trôi 5 m | tách `locFix(prev, fix)` thuần: ngưỡng quãng ≥ max(15 m, 2×accuracy), EMA tốc độ τ=20 s, heading chỉ khi v ≥ 0,9 km/h |
+| | F3 | XTE không có dấu | không nói được "lái sang phải 1,2 km" | `projectOntoRoute` trả `side` từ tích có hướng |
+| | F4 | Chiếu toàn tuyến, không trễ | tuyến vòng về gần chính nó ⇒ "còn X km" nhảy | ưu tiên đoạn hiện tại ± 1, chỉ nhảy khi đoạn khác gần hơn 2× trong 3 fix |
+| | F6 | ETA tức thời | ETA nhảy theo sóng | trung vị 60 s tốc độ, hoặc trộn với tốc độ kế hoạch |
+| | F9 | Không dead-reckoning | mất GPS 1 phút là cảnh báo phía trước đứng im | ước vị trí ≤ 2 phút theo hướng + tốc độ cuối, có nhãn "ước" |
+| | F10 | Giọng không đọc rẽ | phải nhìn màn hình lúc lái | đọc "1 phút nữa rẽ phải, hướng Đông Bắc" từ `nextWp` + `steer` |
+| **Oracle** | D4 | Chưa đo sai số rời rạc hoá | chưa biết lưới 4 km mất bao nhiêu dầu so lưới 1 km | oracle lưới mịn chạy trên GPU |
+| | D5 | Chưa đo sai số một-nhãn (ADR 0003) | ADR nói "xét lại khi có số" — chưa có số | oracle (nút, khung giờ) trên lưới thời tiết thật lưu lại |
+| | H5 | Chưa có tuyến chuẩn người duyệt | mọi tiêu chí đều do máy tự đặt | 10–20 tuyến quen anh Long/thuyền trưởng vẽ tay; so Fréchet |
+
+**Đã kiểm và ĐÚNG (không sửa):** chặn đất/rạn/vật/vùng cấm (A1–A5), né dải sóng theo giờ đến (A6, C6), lưới rỗng/thủng/429 (C1, C2), ước sóng từ gió (C5), quá cửa sổ (C4), best-effort có cờ (C7), Kwon + dòng chảy (D1, D2), trần vòng (D3), hoursAt nhất quán (E2), pass-by + đi tắt (F2), ngưỡng live theo tốc độ + GPS (F7), mất GPS 10/60 s (F8), cờ trung thực (G1–G4), 12 tuyến thật ra tuyến, không xuyên đảo, trung vị 6 ms (H1–H4).
+
+## 4. Cách chấm (giao thức)
+
+- **Một tiêu chí = một `it`** trong `scripts/dan-duong/tieu-chi.cham.ts`, ra `{id, bậc, điểm 0–100, đạt, số đo thô, ghi}`. Không ném; bảng ghi ra `.dan-duong/bang-diem.{json,md}` (ngoài git).
+- **Sự thật biết trước**: lưới độ sâu TỔNG HỢP (toàn lớp 5, tô đảo/rạn/dải cạn đúng chỗ), trường thời tiết TỔNG HỢP (dải sóng theo giờ, lưới thủng, rỗng), vật chặn cắm sẵn; cộng lưới ĐỘ SÂU THẬT + kho vật chặn THẬT cho 12 tuyến hồi quy. Không dùng mạng.
+- **Ba bậc**: **A** = cổng cứng an toàn (phải đạt 100 %, bất kể tỉ lệ) · **B** = quan trọng · **C** = chất lượng. **Qua cổng** = tỉ lệ đạt ≥ 90 % **và** mọi A đạt.
+- **`chua-do`** = tiêu chí có định nghĩa nhưng chưa có đường đo/oracle — **tính là không đạt** để vòng lặp phải dựng oracle, không được xoá tiêu chí cho đẹp số. Mọi tiêu chí đều ĐO ĐƯỢC từ code (gọi hàm/đọc file kết quả) — không có tiêu chí "hard-code 0" (vòng 0 trên GPU 2026-10-22 trượt B4 vì lỗi này, đã sửa). `canNguoi` = cần anh Long chốt, vòng máy không tự chọn (H5, B8).
+- **Cấm "dạy tủ"**: tiêu chí chỉ được đổi khi (a) phát hiện tiêu chí sai so với nghiệp vụ (ghi lý do vào §3 cùng commit), hoặc (b) thêm tiêu chí mới. Hạ ngưỡng để qua = không hợp lệ. Vòng lặp (§6) **không được sửa file `tieu-chi.cham.ts` và `khung.ts`** trừ khi thêm tiêu chí.
+- **Thước đo nghiệp vụ** (H5, khi có tuyến chuẩn): khoảng cách Fréchet rời rạc tuyến máy ↔ tuyến người ≤ 3 km và chênh km ≤ 10 %.
+
+## 5. Mô hình đích sau vòng lặp (để agent biết đang đi về đâu)
+
+1. `requiredDepthM(draftM, waveM, speedKn?)` = mớn + 0,5 + ½·min(Hs,3) + squat(V) — một bản, ở `hazards.ts`; squat Barrass `Cb·V²/100` với Cb 0,6, V hải lý/giờ, chỉ cộng khi V > 6 (B5 đòi chênh 6→12 kn trong 0,15–0,8 m).
+2. `doSauLucT(zMslM, hTrieuM, z0M) = −zMslM − (hTrieuM − z0M)`… viết đúng dấu: độ sâu nước lúc t = (độ sâu dưới MSL) + (h(t) − z0) với h, z0 cùng so số 0 hải đồ — ở `hazards.ts` (B6 kiểm `doSauLucT(-3, 1.0, 2.887) ≈ 1,113`).
+3. `PlanArgs.tide?: { z0M: number; departMs: number; heightAtMs(ms: number): number }` — lớp 3 xét `need ≤ DRAFT_SHALLOW_MAX_NEED_M + (h(ETA) − z0)`; ETA = departMs + giờ cộng dồn tới mẫu; **không** vào chi phí (quyết định 09/2026); trạm `model` cộng dự trữ 0,2 m (B4).
+4. `RoutePlan.forecast = { source, savedAt, hoursCovered }` đi theo tuyến lưu (C3).
+5. `BoatProfile` += `lengthM`, `fuelTankL`; kiểm `fuelL × 1,3 ≤ fuelTankL` thành cờ `fuelShort`.
+6. Waypoint: sau walk, gộp điểm có góc rẽ < 3°; giữ `hoursAt` tương ứng.
+7. Live: `locFix()` thuần (export từ `use-nav-tracking.ts`) (ngưỡng quãng theo accuracy, EMA tốc độ, heading khi chạy), `projectOntoRoute(pos, wps, prevSeg?)` có trễ + `side`, `etaMuot` trung vị 60 s, `uocViTri()` dead-reckoning ≤ 2 phút, giọng đọc rẽ.
+8. Oracle offline: `scripts/dan-duong/oracle-luoi-min.ts`, `oracle-nut-gio.ts` ghi `.dan-duong/oracle-*.json {chenhDauPhanTram, soTuyen}` (D4/D5 đọc file này); nếu D5 > 5 % thì mở lại ADR 0003.
+
+## 6. Tổ chức team agent + vòng lặp trên máy GPU
+
+```
+                 ┌──────────────── anh Long (duyệt PR, chốt nghiệp vụ H5, B5 hệ số) ────────────────┐
+                 │                                                                                   │
+gpu-desktop (WSL, tmux `dan-duong`)  scripts/dan-duong/vong.sh — lặp vô hạn, nghỉ NGHI_PHUT giữa vòng
+  1. fetch nhánh gốc (DD_NHANH, mặc định main) → export sạch vào ~/.local/forlife/train/dan-duong/goc (không đụng clone khác)
+  2. npm ci (cache theo lockfile) → npm run dan-duong:cham → bang-diem.json
+  3. qua cổng? ⇒ ghi nhật ký, ngủ 6 giờ, lặp (để bắt hồi quy khi main đổi)
+  4. chọn 1 tiêu chí hỏng theo ưu tiên A > B > C, rồi theo thứ tự ở §3 → viết brief (prompt-sua.md + số đo thô)
+  5. `claude -p` (Sonnet mặc định — việc có cổng số; Opus khi 2 lần Sonnet không qua) sửa trong goc/, luật:
+       KHÔNG sửa tieu-chi.cham.ts / khung.ts · update doc app-map cùng commit (invariant) · npm test xanh · tiếng Việt đời thường
+  6. npm test + chấm lại: tỉ lệ TĂNG và cổng A không hỏng ⇒ commit "feat(dẫn đường): <mã> …" lên nhánh dan-duong/ung-vien-<ngày>, push origin
+     không tăng ⇒ reset, ghi "trượt", đổi model/đổi tiêu chí lần sau
+  7. ≥ 90 % + A sạch ⇒ mở PR (gh có thì gh, không thì in link compare) → dừng sửa, chỉ còn chấm hồi quy
+Nhật ký: ~/.local/forlife/train/dan-duong/nhat-ky/<ngày>.log · mỗi vòng một dòng JSON trong lich-su.jsonl
+```
+
+- **Vai trò**: lead (phiên Mac, Fable) = thiết kế + đọc kết quả + quyết đổi tiêu chí; thợ (claude -p trên GPU) = sửa đúng một tiêu chí mỗi vòng; giám khảo = `tieu-chi.cham.ts` (máy, không LLM); người = duyệt PR.
+- **Vì sao một tiêu chí mỗi vòng**: diff nhỏ, người duyệt đọc nổi; trượt thì biết do đâu; cổng A chạy lại mỗi vòng nên không có "sửa F3 làm hỏng A2" lọt.
+- **Chỗ chạy**: WSL tmux như vòng Sen Biển (`sen-bien-dem`) — việc không người trông, cần chạy đêm không ngủ máy. Thư mục làm việc riêng `~/.local/forlife/train/dan-duong/`, **không** đụng `~/ForFish` hay `C:\Code\ForFish`. Luật "WSL chỉ train" (2026-10-19): đây là vòng tự động không người ngồi, xếp cùng nhóm với vòng train — nếu anh Long muốn nó chạy phía Windows thì chỉ đổi `W=` trong `vong.sh`.
+- **Chi phí**: mỗi vòng 1 lượt `claude -p` (~5–15 phút, vài trăm nghìn token); trần `DD_TOI_DA_VONG_NGAY` (mặc định 12) để không đốt gói.
+- **Mặt nạ tin cậy GEBCO TID** (research/do-sau-day-bien-team §3 #1, không cần chốt): `scripts/dan-duong/tid-vn.py` chạy trên GPU trong venv rasterio → `depth-tid-vn.1bit` (1 bit/ô 15″, khung 102–118°Đ/5–23°B) + `tid-vn.stats.json`; bước kế: đóng gói `public/data/depth-tid.v1.bin` + cờ `depthGuessed` trong `route-plan` (tiêu chí B9 — thêm khi dữ liệu có).
+- **Việc độ sâu rạn (một lần, chạy song song vòng lặp)**: tmux `kiem-do-sau` trên GPU chạy `kiem-do-sau-ran.mjs` cho 2 622 hình (~40 phút, cache từng hình, chạy lại nối tiếp). Kết quả `~/.local/forlife/train/dan-duong/kiem-do-sau/ra/kiem-do-sau-ran.md` — lead đọc, anh Long chốt Q3, rồi mới sinh dữ liệu và sửa luật (B8).
+- **Khởi động**: `ssh gpu-desktop` → `bash scripts/dan-duong/cai-gpu.sh` (chép script, tạo tmux). Xem: `tmux attach -t =dan-duong` · `tail -f ~/.local/forlife/train/dan-duong/nhat-ky/$(date +%F).log`.
+
+## 7. Câu hỏi cần anh Long chốt (nghiệp vụ)
+
+| # | Câu hỏi | Mặc định nếu không chốt |
+|---|---|---|
+| Q1 | Hệ số squat tàu cá (Cb) và có cộng vào nước cần không | có, Cb = 0,6, chỉ khi `speedKn` > 6 |
+| Q2 | Trạm triều mô hình (EOT20) có được dùng để MỞ dải 2–4 m không, hay chỉ để ĐÓNG | chỉ để ĐÓNG (an toàn một chiều); mở chỉ với 4 trạm đo trong 60 km |
+| Q3 | Rạn không có độ sâu: giữ chặn cứng, hay cho qua khi nguồn ĐO (ATL24/ACA) gần đó ≥ 20 m. **Không hạ chỉ vì GEBCO/ETOPO nói sâu** — GEBCO TID đo 2026-10-22: dải 0–50 m ven bờ chỉ 11 % ô đo thật, Vịnh Bắc Bộ 1–3 % ([research/do-sau-day-bien-team-2026-10-22](../../research/do-sau-day-bien-team-2026-10-22.md)) | giữ chặn |
+| Q6 | **CHỐT 2026-10-22 (anh Long)**: DÙNG số liệu ba bộ 10 m (HHU24SWDSCS, SCSBathy10, LGMM-SDB) cho rạn Hoàng Sa/Trường Sa, **đổi toàn bộ tên sang tiếng Việt**, ghi nguồn CC BY. Đường ống: `scripts/dan-duong/ran-10m/` (tai.sh → chi-muc.py → ten-viet.mjs ghép tên theo TOẠ ĐỘ với `coral-reefs.v1.json` + bảng tra `ten-ran-bien-dong.json`; dòng `can-nguoi` không vào sản phẩm). ⚠️ Trước khi PHÁT HÀNH lớp này phải soát QĐ 562/QĐ-TTg (địa hình đáy biển đảo/bãi ngầm có thể thuộc danh mục bí mật nhà nước — báo cáo D §1) — dữ liệu nguồn là công bố quốc tế CC BY, nhưng việc ForFish phát hành lại là chuyện pháp lý riêng | — |
+| Q7–Q9 | Tài khoản Earthdata/ACA · email ENC phi-SOLAS · hồ sơ pháp lý lớp độ sâu cộng đồng — research/do-sau-day-bien-team §4 | chờ · chờ · chưa |
+| Q4 | 10–20 tuyến quen để làm tuyến chuẩn (H5) — ai vẽ | chờ; H5 đứng ở "chưa đo" |
+| Q5 | Vòng GPU chạy WSL (như Sen Biển) hay phía Windows | WSL tmux |
+
+## Assumptions
+
+- Bộ chấm dùng trường thời tiết tổng hợp 10×10 mắt (0,32°) — gần độ mịn lưới server 0,35°; dải thử rộng ≥ 0,2° để chắc chắn trúng ít nhất một mắt.
+- "Đạt" mặc định = điểm ≥ 90; tiêu chí nhị phân ra 0/100.
+- 12 tuyến thật là tập hồi quy do lead chọn (6 từ bench cũ + 6 cảng khác); không thay cho tuyến chuẩn người duyệt.

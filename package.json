@@ -26,7 +26,8 @@
     "dev:webpack": "next dev --webpack",
     "train:dry": "node scripts/train/run.mjs --dry-run",
     "train:labels": "node scripts/train/run.mjs --only adapt,adapt-0809,aux,labels-v2",
-    "train:eval": "node scripts/train/run.mjs --resume"
+    "train:eval": "node scripts/train/run.mjs --resume",
+    "dan-duong:cham": "node scripts/dan-duong/cham.mjs"
   },
   "dependencies": {
     "@capacitor-community/text-to-speech": "^8.0.2",

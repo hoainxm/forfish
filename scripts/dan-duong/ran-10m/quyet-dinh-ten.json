@@ -1,0 +1,728 @@
+[
+ {
+  "bo": "HHU24",
+  "id": 2,
+  "tenGoc": "Xi Sand",
+  "lat": 16.97,
+  "lon": 112.2,
+  "loai": "cồn cát",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Cồn Cát Tây",
+  "bac": "A",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/Qu%E1%BA%A7n_%C4%91%E1%BA%A3o_Ho%C3%A0ng_Sa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://www.wikidata.org/wiki/Q7986432"
+  ],
+  "lyDo": "Bảng tra duyệt West Sand/西沙洲 = Cồn Cát Tây tại 16,9775°B 112,2119°Đ, cách tâm 1.5 km, loại cồn cát khớp hậu tố Sand.",
+  "ungVienBiLoai": [
+   "Đá Trương Nghĩa (gợi ý máy 6,8 km — chỉ là thực thể gần, khác tên khác loại; đúng lỗi cấm \"lấy tên gần nhất\")"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 6,
+  "tenGoc": "Nan Island",
+  "lat": 16.93,
+  "lon": 112.33,
+  "loai": "đảo",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đảo Nam",
+  "bac": "A",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/Qu%E1%BA%A7n_%C4%91%E1%BA%A3o_Ho%C3%A0ng_Sa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://www.wikidata.org/wiki/Q6850299"
+  ],
+  "lyDo": "Bảng tra duyệt South Island/南岛 Nan Dao = Đảo Nam tại 16,9464°B 112,3344°Đ, cách tâm 1.9 km, loại đảo khớp hậu tố Island.",
+  "ungVienBiLoai": [
+   "Cồn Cát Nam (1,7 km nhưng là 南沙洲 Nan Shazhou, loại cồn cát ≠ Island)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 8,
+  "tenGoc": "Zhong Reef",
+  "lat": 16.93,
+  "lon": 112.33,
+  "loai": "đá",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Đá chưa định danh (nhóm An Vĩnh)",
+  "bac": "chung",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/Qu%E1%BA%A7n_%C4%91%E1%BA%A3o_Ho%C3%A0ng_Sa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands"
+  ],
+  "lyDo": "Không nguồn nào ghi một \"Zhong Jiao/中礁\" ở nhóm An Vĩnh; hai thực thể gần đều khác loại (Reef ≠ cồn cát ≠ đảo) nên không được nhận theo bậc C.",
+  "ungVienBiLoai": [
+   "Cồn Cát Trung (1,5 km, loại cồn cát)",
+   "Đảo Trung (2,8 km, loại đảo)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 9,
+  "tenGoc": "Nan Reef",
+  "lat": 16.92,
+  "lon": 112.33,
+  "loai": "đá",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Đá chưa định danh (nhóm An Vĩnh)",
+  "bac": "chung",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/Qu%E1%BA%A7n_%C4%91%E1%BA%A3o_Ho%C3%A0ng_Sa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands"
+  ],
+  "lyDo": "Không nguồn nào ghi một \"Nan Jiao/南礁\" ở nhóm An Vĩnh; dòng Nan Island (id 6) đã là Đảo Nam, dòng này khác loại nên không gán.",
+  "ungVienBiLoai": [
+   "Cồn Cát Nam (1,0 km, loại cồn cát)",
+   "Đảo Nam (2,9 km, loại đảo, đã gán cho id 6)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 10,
+  "tenGoc": "Dongxin Reef",
+  "lat": 16.92,
+  "lon": 112.35,
+  "loai": "đá",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Đá chưa định danh (nhóm An Vĩnh)",
+  "bac": "chung",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/Qu%E1%BA%A7n_%C4%91%E1%BA%A3o_Ho%C3%A0ng_Sa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://www.wikidata.org/wiki/Q10870295"
+  ],
+  "lyDo": "东新沙洲 Dongxin Shazhou là địa danh Trung Quốc đặt sau này; Wikipedia VI ghi rõ không có tên Việt, Wikidata không có nhãn vi, EN không có tên Việt.",
+  "ungVienBiLoai": [
+   "Cồn Cát Nam (1,4 km — thực thể khác, nằm phía bắc)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 11,
+  "tenGoc": "Xixin Reef",
+  "lat": 16.92,
+  "lon": 112.35,
+  "loai": "đá",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Đá chưa định danh (nhóm An Vĩnh)",
+  "bac": "chung",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/Qu%E1%BA%A7n_%C4%91%E1%BA%A3o_Ho%C3%A0ng_Sa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://www.wikidata.org/wiki/Q15931751"
+  ],
+  "lyDo": "西新沙洲 Xixin Shazhou là địa danh Trung Quốc đặt sau này; không nguồn nào có tên Việt.",
+  "ungVienBiLoai": [
+   "Cồn Cát Nam (1,4 km — thực thể khác)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 20,
+  "tenGoc": "Zhenhang Island",
+  "lat": 16.45,
+  "lon": 111.7,
+  "loai": "đảo",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đảo Quang Hòa",
+  "bac": "A",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/%C4%90%E1%BA%A3o_Quang_H%C3%B2a",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://www.wikidata.org/wiki/Q6807504",
+   "https://amti.csis.org/duncan-islands/"
+  ],
+  "lyDo": "Bảng tra duyệt Duncan Island/琛航岛 Chenhang Dao = Đảo Quang Hòa tại 16,4514°B 111,7125°Đ, cách tâm 1.3 km; \"Zhenhang\" là biến thể la-tinh hoá của 琛航 (cặp với Guangjin Island cùng toạ độ trong bộ dữ liệu).",
+  "ungVienBiLoai": [
+   "Bãi Ngự Bình (4,8 km, loại bãi ≠ Island)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 21,
+  "tenGoc": "Guangjin Island",
+  "lat": 16.45,
+  "lon": 111.7,
+  "loai": "đảo",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đảo Quang Hòa Tây",
+  "bac": "B",
+  "bangChung": [
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Qu%E1%BA%A7n_%C4%91%E1%BA%A3o_Ho%C3%A0ng_Sa",
+   "https://vi.wikipedia.org/wiki/%C4%90%E1%BA%A3o_Quang_H%C3%B2a",
+   "https://www.wikidata.org/wiki/Q13189055"
+  ],
+  "lyDo": "EN Wikipedia (Palm Island/廣金島 Guangjin Dao = Đảo Quang Hòa Tây, 16°27′04″B 111°42′07″Đ) và VI Wikipedia (16°27′8″B 111°42′3″Đ) cùng tên, cách tâm 0.2 km; Wikidata Q13189055 xác nhận 广金岛 = Palm Island cùng toạ độ.",
+  "ungVienBiLoai": [],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 27,
+  "tenGoc": "Yinyuzi Island",
+  "lat": 16.58,
+  "lon": 111.7,
+  "loai": "đảo",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Đảo chưa định danh (nhóm Lưỡi Liềm)",
+  "bac": "chung",
+  "bangChung": [
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Qu%E1%BA%A7n_%C4%91%E1%BA%A3o_Ho%C3%A0ng_Sa",
+   "https://www.wikidata.org/wiki/Q6676115"
+  ],
+  "lyDo": "Chỉ EN Wikipedia gọi 銀嶼仔 Yinyu Zi là \"Bãi Tiểu Xà Cừ\" (1 nguồn, loại Bãi ≠ Island); VI Wikipedia chỉ phiên \"Ngân Dự Tử\" không có tên Việt, Wikidata không có mục — bậc C.",
+  "ungVienBiLoai": [
+   "Bãi Tiểu Xà Cừ (1 nguồn EN, loại lệch)",
+   "Bãi Xà Cừ (0,1 km nhưng là bãi mẹ 银屿, thực thể khác)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 29,
+  "tenGoc": "Kuangzi Sand",
+  "lat": 16.45,
+  "lon": 111.63,
+  "loai": "cồn cát",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Cồn cát chưa định danh (nhóm Lưỡi Liềm)",
+  "bac": "chung",
+  "bangChung": [
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/Qu%E1%BA%A7n_%C4%91%E1%BA%A3o_Ho%C3%A0ng_Sa"
+  ],
+  "lyDo": "Chỉ EN Wikipedia gọi 筐仔沙洲 Kuangzai Shazhou là \"Đảo Sâm Cầm\" (1 nguồn, 2,5 km); VI Wikipedia xếp vào địa danh Trung Quốc đặt, không có tên Việt; không có mục Wikidata — bậc C.",
+  "ungVienBiLoai": [
+   "Đảo Sâm Cầm (1 nguồn EN)",
+   "Bãi Ngự Bình (2,7 km, loại bãi)",
+   "Đá Hải Sâm (4,5 km, là rạn mẹ, loại đá)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 40,
+  "tenGoc": "Beiwai Reef",
+  "lat": 11.45,
+  "lon": 114.35,
+  "loai": "đá",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Đá chưa định danh (cụm Song Tử)",
+  "bac": "chung",
+  "bangChung": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Song_T%E1%BB%AD",
+   "https://www.wikidata.org/wiki/Q10911930"
+  ],
+  "lyDo": "北外礁 Beiwai Jiao không có trong danh sách cụm Song Tử của Wikipedia VI (chỉ Đá Bắc, Đá Nam, Bãi Đinh Ba, Bãi Núi Cầu); Đá Bắc là 贡士礁 Gongtu Jiao — tên khác, cách 5,1 km.",
+  "ungVienBiLoai": [
+   "Đá Bắc (5,1 km, tên nguồn khác 贡士礁)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 43,
+  "tenGoc": "Dongnan Shoal",
+  "lat": 11.4,
+  "lon": 114.37,
+  "loai": "bãi",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Bãi chưa định danh (cụm Song Tử)",
+  "bac": "chung",
+  "bangChung": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Song_T%E1%BB%AD"
+  ],
+  "lyDo": "东南暗沙 Dongnan Ansha không có tên Việt ở nguồn nào; cấm dịch nghĩa thành \"Bãi Đông Nam\".",
+  "ungVienBiLoai": [
+   "Đá Bắc (7,8 km, loại đá)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 44,
+  "tenGoc": "Dongbei Shoal",
+  "lat": 11.43,
+  "lon": 114.4,
+  "loai": "bãi",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Bãi chưa định danh (cụm Song Tử)",
+  "bac": "chung",
+  "bangChung": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Song_T%E1%BB%AD"
+  ],
+  "lyDo": "东北暗沙 Dongbei Ansha không có tên Việt ở nguồn nào; cấm dịch nghĩa thành \"Bãi Đông Bắc\".",
+  "ungVienBiLoai": [
+   "Đá Bắc (4,1 km, loại đá, tên khác)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 51,
+  "tenGoc": "Nanyue Island",
+  "lat": 10.67,
+  "lon": 114.42,
+  "loai": "đảo",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đảo Loại Ta",
+  "bac": "A",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/%C4%90%E1%BA%A3o_Lo%E1%BA%A1i_Ta",
+   "https://www.wikidata.org/wiki/Q1006110",
+   "https://en.wikipedia.org/wiki/Loaita_Island"
+  ],
+  "lyDo": "Bảng tra duyệt Loaita Island/南钥岛 = Đảo Loại Ta tại 10,6683°B 114,4239°Đ, cách tâm 0.5 km; \"Nanyue\" là cách đọc khác của 钥 (yào/yuè), Wikidata Q1006110 ghi 南钥岛 cùng toạ độ.",
+  "ungVienBiLoai": [
+   "Đá Sa Huỳnh (4,5 km, loại đá ≠ Island)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 55,
+  "tenGoc": "Zhong Bank",
+  "lat": 10.37,
+  "lon": 114.38,
+  "loai": "bãi",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Bãi chưa định danh (cụm Nam Yết)",
+  "bac": "chung",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Nam_Y%E1%BA%BFt",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "中滩 Zhong Tan không có trong 12 thực thể cụm Nam Yết của Wikipedia VI; Bãi Bàn Than là 中洲礁 Zhongzhou Jiao — thực thể khác.",
+  "ungVienBiLoai": [
+   "Bãi Bàn Than (4,1 km, tên nguồn khác 中洲礁)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 57,
+  "tenGoc": "Chunqian Sand",
+  "lat": 10.38,
+  "lon": 114.47,
+  "loai": "đảo",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đảo Sơn Ca",
+  "bac": "A",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/%C4%90%E1%BA%A3o_S%C6%A1n_Ca",
+   "https://www.wikidata.org/wiki/Q987764",
+   "https://en.wikipedia.org/wiki/Sand_Cay",
+   "https://amti.csis.org/sand-cay/"
+  ],
+  "lyDo": "Bảng tra duyệt Sand Cay/敦谦沙洲 Dunqian Shazhou = Đảo Sơn Ca tại 10,375°B 114,48°Đ, cách tâm 1.2 km; \"Chunqian\" là lỗi la-tinh hoá của 敦谦 (AMTI/Wikipedia đều ghi Dunqian). Nguồn ghi \"Sand\" (cồn cát) còn tên Việt là \"Đảo\" — nhận vì là cùng một thực thể nổi (xem Assumptions).",
+  "ungVienBiLoai": [
+   "Đá Bàn Than (6,3 km, loại đá)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 73,
+  "tenGoc": "Ranqing Sand",
+  "lat": 9.9,
+  "lon": 114.57,
+  "loai": "đảo",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đảo Sinh Tồn Đông",
+  "bac": "A",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/Sinh_T%E1%BB%93n_%C4%90%C3%B4ng",
+   "https://www.wikidata.org/wiki/Q6775326",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "Bảng tra duyệt Grierson Reef/染青沙洲 Ranqing Shazhou = Đảo Sinh Tồn Đông tại 9,9025°B 114,5642°Đ, cách tâm 0.7 km; Wikidata Q6775326 cùng tên cùng toạ độ. Nguồn ghi \"Sand\" còn tên Việt \"Đảo\" — cùng một thực thể nổi.",
+  "ungVienBiLoai": [
+   "Đá An Bình (2,9 km — là 染青东礁 Ranqing Dong Jiao, thực thể khác)",
+   "Đá Bia (4,3 km)",
+   "Đá Tư Nghĩa Đông (6,4 km)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 74,
+  "tenGoc": "Longxia Reef",
+  "lat": 9.88,
+  "lon": 114.53,
+  "loai": "đá",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Đá chưa định danh (cụm Sinh Tồn)",
+  "bac": "chung",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/%C4%90%C3%A1_V%E1%BB%8B_Kh%C3%AA",
+   "https://vi.wikipedia.org/wiki/%C4%90%C3%A1_Bia",
+   "https://www.wikidata.org/wiki/Q6646978",
+   "https://zh.wikipedia.org/wiki/%E9%BE%99%E8%99%BE%E7%A4%81"
+  ],
+  "lyDo": "Nguồn mâu thuẫn về tên Việt của 龙虾礁/Bamford Reef (9,8833°B 114,5333°Đ, trùng tâm 0,4 km): bài VI \"Đá Vị Khê\" nhận là Bamford/Longxia, nhưng Wikidata Q6646978 và liên kết ngôn ngữ zh gán cho \"Đá Bia\" (bài VI Đá Bia lại đặt ở 9,895°B 114,494°Đ và tự ghi \"một số nguồn nhầm lẫn\") — không có 2 nguồn độc lập cùng một tên nên không đạt bậc B.",
+  "ungVienBiLoai": [
+   "Đá Vị Khê (ứng viên mạnh nhất: bài VI riêng, toạ độ trùng; chỉ 1 dự án nguồn)",
+   "Đá Bia (Wikidata/zh gán; bài VI đặt cách 4,3 km giữa Tư Nghĩa và Ken Nan)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 90,
+  "tenGoc": "Wufangnan Reef",
+  "lat": 10.45,
+  "lon": 115.77,
+  "loai": "đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đá Định Tường",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/B%C3%A3i_H%E1%BA%A3i_S%C3%A2m",
+   "https://zh.wikipedia.org/wiki/%E4%BA%94%E6%96%B9%E7%A4%81",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "VI Wikipedia (bài Bãi Hải Sâm) và zh Wikipedia (五方礁) cùng ghi 五方南礁 = Petch Reef = Đá Định Tường, toạ độ VI 10.4603°B 115.7806°Đ cách tâm 1.6 km; EN danh sách Trường Sa cho toạ độ Petch Reef khớp. Thứ tự 5 đá cụm Ngũ Phương kiểm theo toạ độ: nam=Định Tường, vĩ(tây nam)=Hội Đức, tây=Ninh Cơ, bắc=Hoa, đầu(đông bắc)=Triêm Đức.",
+  "ungVienBiLoai": [],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 91,
+  "tenGoc": "Wufangwei Reef",
+  "lat": 10.47,
+  "lon": 115.72,
+  "loai": "đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đá Hội Đức",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/B%C3%A3i_H%E1%BA%A3i_S%C3%A2m",
+   "https://zh.wikipedia.org/wiki/%E4%BA%94%E6%96%B9%E7%A4%81",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "VI Wikipedia (bài Bãi Hải Sâm) và zh Wikipedia (五方礁) cùng ghi 五方尾礁 = Hampson Reef = Đá Hội Đức, toạ độ VI 10.4633°B 115.7253°Đ cách tâm 0.9 km; EN danh sách Trường Sa cho toạ độ Hampson Reef khớp. Thứ tự 5 đá cụm Ngũ Phương kiểm theo toạ độ: nam=Định Tường, vĩ(tây nam)=Hội Đức, tây=Ninh Cơ, bắc=Hoa, đầu(đông bắc)=Triêm Đức.",
+  "ungVienBiLoai": [],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 92,
+  "tenGoc": "Wufangxi Reef",
+  "lat": 10.5,
+  "lon": 115.7,
+  "loai": "đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đá Ninh Cơ",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/B%C3%A3i_H%E1%BA%A3i_S%C3%A2m",
+   "https://zh.wikipedia.org/wiki/%E4%BA%94%E6%96%B9%E7%A4%81",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "VI Wikipedia (bài Bãi Hải Sâm) và zh Wikipedia (五方礁) cùng ghi 五方西礁 = Deane Reef = Đá Ninh Cơ, toạ độ VI 10.4997°B 115.7061°Đ cách tâm 0.7 km; EN danh sách Trường Sa cho toạ độ Deane Reef khớp. Thứ tự 5 đá cụm Ngũ Phương kiểm theo toạ độ: nam=Định Tường, vĩ(tây nam)=Hội Đức, tây=Ninh Cơ, bắc=Hoa, đầu(đông bắc)=Triêm Đức.",
+  "ungVienBiLoai": [],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 93,
+  "tenGoc": "Wufangbei Reef",
+  "lat": 10.53,
+  "lon": 115.72,
+  "loai": "đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đá Hoa",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/B%C3%A3i_H%E1%BA%A3i_S%C3%A2m",
+   "https://zh.wikipedia.org/wiki/%E4%BA%94%E6%96%B9%E7%A4%81",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "VI Wikipedia (bài Bãi Hải Sâm) và zh Wikipedia (五方礁) cùng ghi 五方北礁 = Hoare Reef = Đá Hoa, toạ độ VI 10.5347°B 115.7308°Đ cách tâm 1.3 km; EN danh sách Trường Sa cho toạ độ Hoare Reef khớp. Thứ tự 5 đá cụm Ngũ Phương kiểm theo toạ độ: nam=Định Tường, vĩ(tây nam)=Hội Đức, tây=Ninh Cơ, bắc=Hoa, đầu(đông bắc)=Triêm Đức.",
+  "ungVienBiLoai": [],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 94,
+  "tenGoc": "Wufangtou Reef",
+  "lat": 10.53,
+  "lon": 115.78,
+  "loai": "đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đá Triêm Đức",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/B%C3%A3i_H%E1%BA%A3i_S%C3%A2m",
+   "https://zh.wikipedia.org/wiki/%E4%BA%94%E6%96%B9%E7%A4%81",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "VI Wikipedia (bài Bãi Hải Sâm) và zh Wikipedia (五方礁) cùng ghi 五方头礁 = Dickinson Reef = Đá Triêm Đức, toạ độ VI 10.5358°B 115.7889°Đ cách tâm 1.2 km; EN danh sách Trường Sa cho toạ độ Dickinson Reef khớp. Thứ tự 5 đá cụm Ngũ Phương kiểm theo toạ độ: nam=Định Tường, vĩ(tây nam)=Hội Đức, tây=Ninh Cơ, bắc=Hoa, đầu(đông bắc)=Triêm Đức.",
+  "ungVienBiLoai": [],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 108,
+  "tenGoc": "Yuniao Island",
+  "lat": 8.27,
+  "lon": 113.37,
+  "loai": "đảo",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Đảo chưa định danh (cụm An Bang)",
+  "bac": "chung",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/B%C3%A3i_Thuy%E1%BB%81n_Ch%C3%A0i",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "Không nguồn nào (VI/EN/zh/Wikidata) có \"Yuniao Island\"; vị trí trùng đầu đông bắc của Bãi Thuyền Chài (rạn dài 29 km, tâm 8,167°B 113,3°Đ, thuộc cụm An Bang/Thám Hiểm) nhưng không có tên Việt riêng cho đảo/cồn ở đó.",
+  "ungVienBiLoai": [
+   "Bãi Thuyền Chài (13 km tới tâm rạn; loại bãi ≠ Island; là rạn mẹ)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "HHU24",
+  "id": 123,
+  "tenGoc": "Huanglu Reef",
+  "lat": 6.95,
+  "lon": 113.58,
+  "loai": "đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đá Sác Lốt",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/%C4%90%C3%A1_S%C3%A1c_L%E1%BB%91t",
+   "https://www.wikidata.org/wiki/Q6746393",
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Th%C3%A1m_Hi%E1%BB%83m",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "VI Wikipedia (Royal Charlotte Reef/皇路礁 Huanglu Jiao = Đá Sác Lốt, 6,9417°B 113,5797°Đ, cách tâm 0.9 km) và Wikidata Q6746393 (nhãn vi \"Sác Lốt\", 6,9333°B 113,6139°Đ) cùng tên; loại đá khớp.",
+  "ungVienBiLoai": [],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "SCSBathy10",
+  "id": "Ardasier Bank",
+  "tenGoc": "Ardasier Bank",
+  "lat": 7.7393,
+  "lon": 114.2184,
+  "loai": "bãi",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Bãi Kiêu Ngựa",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/Ki%C3%AAu_Ng%E1%BB%B1a",
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Th%C3%A1m_Hi%E1%BB%83m",
+   "https://www.wikidata.org/wiki/Q1569253",
+   "https://en.wikipedia.org/wiki/Ardasier_Reef"
+  ],
+  "lyDo": "VI Wikipedia (bài Kiêu Ngựa + Cụm Thám Hiểm) ghi Ardasier Bank/安渡滩 = Bãi Kiêu Ngựa, tâm bãi 7,7°B 114,167°Đ (bãi dài 70 km nên tâm lệch 7.2 km); Wikidata Q1569253 (nhãn vi \"Kiêu Ngựa\") có toạ độ 7,75°B 114,2333°Đ cách tâm 1,9 km; loại bãi khớp hậu tố Bank. ⚠ Nhận với mức tin vừa: nguồn tên Việt chủ yếu từ Wikipedia VI.",
+  "ungVienBiLoai": [
+   "Đá Kiêu Ngựa (Ardasier Reef, 7,6186°B 113,9425°Đ — 33 km, loại đá, là rạn nổi ở cực tây nam của bãi)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "SCSBathy10",
+  "id": "Central Reef",
+  "tenGoc": "Central Reef",
+  "lat": 8.9322,
+  "lon": 112.3496,
+  "loai": "đảo",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đảo Trường Sa Đông",
+  "bac": "A",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/Tr%C6%B0%E1%BB%9Dng_Sa_%C4%90%C3%B4ng",
+   "https://www.wikidata.org/wiki/Q6856755",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "Bảng tra duyệt Central London Reef/中礁 Zhong Jiao = Đảo Trường Sa Đông tại 8,9311°B 112,3531°Đ, cách tâm 0.4 km; Wikidata Q6856755 cùng toạ độ. Nguồn gọi \"Reef\" còn tên Việt là \"Đảo\" — nhận vì bảng tra duyệt xác định đúng thực thể này (không phải suy từ khoảng cách); cấm dịch thành \"Đá Trung\".",
+  "ungVienBiLoai": [],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "SCSBathy10",
+  "id": "Daoming Reefs",
+  "tenGoc": "Daoming Reefs",
+  "lat": 10.896,
+  "lon": 114.5806,
+  "loai": "cụm đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Cụm Loại Ta",
+  "bac": "B",
+  "bangChung": [
+   "https://en.wikipedia.org/wiki/Loaita_Bank",
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Lo%E1%BA%A1i_Ta",
+   "https://www.wikidata.org/wiki/Q18663251"
+  ],
+  "lyDo": "道明群礁 Daoming Qunjiao = Loaita Bank = Cụm Loại Ta theo VI Wikipedia, EN Wikipedia và Wikidata Q18663251 (nhãn vi). Đây là tên CẢ CỤM/BÃI (dài 37 km theo trục ĐB–TN từ Đảo Loại Ta tới Đá An Lão); tâm bộ dữ liệu 10,896°B 114,58°Đ nằm trên trục đó nhưng cách tâm quy ước 10,75°B 114,5°Đ 18.5 km — áp luật hộp bao cụm thay cho 5 km (xem Assumptions, cần anh Long chốt).",
+  "ungVienBiLoai": [
+   "Bãi An Nhơn Bắc (14 km, thực thể con)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "SCSBathy10",
+  "id": "East Island",
+  "tenGoc": "East Island",
+  "lat": 16.5452,
+  "lon": 112.7154,
+  "loai": "đảo",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Đảo chưa định danh (Hoàng Sa)",
+  "bac": "chung",
+  "bangChung": [
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://vi.wikipedia.org/wiki/%C4%90%E1%BA%A3o_Linh_C%C3%B4n",
+   "https://www.wikidata.org/wiki/Q6858173",
+   "https://www.wikidata.org/wiki/Q6657835"
+  ],
+  "lyDo": "\"East Island\" = 东岛 Dong Dao = Đảo Linh Côn về tên, nhưng toạ độ Linh Côn (16,6667°B 112,7333°Đ) cách tâm 13,5 km > 5 km nên theo bậc C không nhận; EN Wikipedia xếp Linh Côn vào \"eastern sub-group\" ngoài nhóm An Vĩnh nên ngữ cảnh là quần đảo. Nghi polygon là cả rạn vòng quanh Linh Côn (Hòn Tháp cùng rạn, 8,9 km) — anh Long kiểm hình polygon rồi có thể nâng lên \"Đảo Linh Côn\".",
+  "ungVienBiLoai": [
+   "Đảo Linh Côn (13,5 km — cùng tên nhưng quá xa)",
+   "Hòn Tháp (8,9 km, loại đá/hòn)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "SCSBathy10",
+  "id": "Rokong Atoll",
+  "tenGoc": "Rokong Atoll",
+  "lat": 10.7226,
+  "lon": 115.8349,
+  "loai": "cụm đá",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Cụm đá chưa định danh (cụm Bình Nguyên)",
+  "bac": "chung",
+  "bangChung": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://www.wikidata.org/wiki/Q1005345",
+   "https://www.wikidata.org/wiki/Q1005318"
+  ],
+  "lyDo": "Không nguồn nào (EN/VI/zh/Wikidata) có \"Rokong\"; tâm nằm giữa Đảo Vĩnh Viễn (10,7338°B 115,8016°Đ, 3,9 km) và Đảo Bình Nguyên (10,8164°B 115,8222°Đ) — cả hai thuộc cụm Bình Nguyên; không có tên Việt cho rạn vòng quanh đó.",
+  "ungVienBiLoai": [
+   "Đảo Vĩnh Viễn (3,9 km, loại đảo ≠ Atoll, tên không khớp)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "SCSBathy10",
+  "id": "Royal Charlotte Reef",
+  "tenGoc": "Royal Charlotte Reef",
+  "lat": 6.9434,
+  "lon": 113.5804,
+  "loai": "đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Đá Sác Lốt",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/%C4%90%C3%A1_S%C3%A1c_L%E1%BB%91t",
+   "https://www.wikidata.org/wiki/Q6746393",
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Th%C3%A1m_Hi%E1%BB%83m"
+  ],
+  "lyDo": "VI Wikipedia (Royal Charlotte Reef = Đá Sác Lốt, 6,9417°B 113,5797°Đ, cách tâm 0.2 km) và Wikidata Q6746393 cùng tên; loại đá khớp. Trùng thực thể với HHU24 id 123.",
+  "ungVienBiLoai": [],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "SCSBathy10",
+  "id": "Southeast Shoal",
+  "tenGoc": "Southeast Shoal",
+  "lat": 11.4293,
+  "lon": 114.3591,
+  "loai": "bãi",
+  "quyetDinh": "ten-chung",
+  "tenViet": "Bãi chưa định danh (cụm Song Tử)",
+  "bac": "chung",
+  "bangChung": [
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands",
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Song_T%E1%BB%AD"
+  ],
+  "lyDo": "Không nguồn nào có tên Việt cho \"Southeast Shoal\" ở cụm Song Tử (mọi mục Wikidata \"Southeast Shoal\" đều ở Bắc Mỹ); có lẽ trùng 东南暗沙 (HHU24 id 43). Cấm dịch thành \"Bãi Đông Nam\".",
+  "ungVienBiLoai": [
+   "Đá Bắc (5,6 km, loại đá)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "SCSBathy10",
+  "id": "Tizard Bank",
+  "tenGoc": "Tizard Bank",
+  "lat": 10.3079,
+  "lon": 114.4897,
+  "loai": "cụm đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Cụm Nam Yết",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Nam_Y%E1%BA%BFt",
+   "https://www.wikidata.org/wiki/Q19646448",
+   "https://en.wikipedia.org/wiki/Tizard_Bank"
+  ],
+  "lyDo": "Tizard Bank/郑和群礁 = Cụm Nam Yết theo VI Wikipedia và Wikidata Q19646448 (nhãn vi). Tên CẢ CỤM, không phải một đá; tâm 10,3079°B 114,4897°Đ nằm trong hộp bao cụm (Ba Bình 10,377 · Sơn Ca 10,375 · Bàn Than 10,386 · Nam Yết 10,179), cách tâm quy ước 6.5 km — áp luật hộp bao cụm (xem Assumptions).",
+  "ungVienBiLoai": [
+   "Bãi Bàn Than (11 km, thực thể con)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "SCSBathy10",
+  "id": "Union Banks and Reef",
+  "tenGoc": "Union Banks and Reef",
+  "lat": 9.8632,
+  "lon": 114.4306,
+  "loai": "cụm đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Cụm Sinh Tồn",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/C%E1%BB%A5m_Sinh_T%E1%BB%93n",
+   "https://www.wikidata.org/wiki/Q10878982",
+   "https://en.wikipedia.org/wiki/List_of_maritime_features_in_the_Spratly_Islands"
+  ],
+  "lyDo": "Union Banks/九章群礁 = Cụm Sinh Tồn theo VI Wikipedia và Wikidata Q10878982 (nhãn vi). Tên CẢ CỤM; tâm 9,8632°B 114,4306°Đ nằm giữa Đảo Sinh Tồn (114,33) và Sinh Tồn Đông (114,56), cách tâm quy ước EN 8.3 km — áp luật hộp bao cụm.",
+  "ungVienBiLoai": [
+   "Đá Ken Nan Tây / Đá Văn Nguyên / Đá Ken Nan (3,6–5,7 km, đều là thực thể con — không lấy tên con đặt cho cả cụm)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ },
+ {
+  "bo": "SCSBathy10",
+  "id": "Yongle Atoll",
+  "tenGoc": "Yongle Atoll",
+  "lat": 16.5192,
+  "lon": 111.692,
+  "loai": "cụm đá",
+  "quyetDinh": "ten-rieng",
+  "tenViet": "Nhóm Lưỡi Liềm",
+  "bac": "B",
+  "bangChung": [
+   "https://vi.wikipedia.org/wiki/Qu%E1%BA%A7n_%C4%91%E1%BA%A3o_Ho%C3%A0ng_Sa",
+   "https://en.wikipedia.org/wiki/Paracel_Islands",
+   "https://www.wikidata.org/wiki/Q11131020"
+  ],
+  "lyDo": "永乐群岛 Yongle Qundao = Crescent Group = nhóm (đảo) Lưỡi Liềm theo VI Wikipedia và EN Wikipedia; Wikidata Q11131020 toạ độ 16,5°B 111,6667°Đ cách tâm 3.4 km. Tên CẢ NHÓM. ⚠ Chữ đầu \"Nhóm\" chưa có trong danh sách cho phép ở bước 5 (Đảo/Đá/Bãi/Cồn/Cụm/Hòn) — cần thêm \"Nhóm\" hoặc đổi thành \"Cụm Lưỡi Liềm\" theo ý anh Long.",
+  "ungVienBiLoai": [
+   "Đá Trà Tây (3,9 km, thực thể con)",
+   "Đảo Lưỡi Liềm (Stone Islet, 8 km — tên dễ nhầm nhưng là một đảo nhỏ, không phải cả nhóm)"
+  ],
+  "nguoiDuyet": "agent-2026-10-22"
+ }
+]
