@@ -186,8 +186,8 @@ export function PlotterReadout({
         <RowLabel text="Trỏ" />
         <ToaDo lat={cursor.lat} lon={cursor.lon} fmt={prefs.coordFormat} />
         {rng && (
-          <span className="shrink-0 whitespace-nowrap text-[0.6875rem] font-medium leading-snug text-foreground/55">
-            · {rng}
+          <span className="min-w-0 text-[0.6875rem] font-medium leading-snug text-foreground/55">
+            {rng}
           </span>
         )}
       </p>
@@ -200,9 +200,12 @@ export function PlotterReadout({
     trên hàng dưới, làm nhỏ lại, cái ô nó ngắn lại được"). Một hàng "13°00'00"N · 110°30'00"E"
     kéo thẻ rộng gấp đôi; hai hàng thì thẻ hẹp lại, vẫn đọc trọn số. */
 function ToaDo({ lat, lon, fmt, mo = false }: { lat: number; lon: number; fmt: CoordFormat; mo?: boolean }) {
+  // 2026-10-22 (chủ dự án chụp màn "lỗi design"): bản trước in MỘT dòng "lat · lon" ngược chú thích trên ⇒ thẻ
+  // rộng tới mép, đè nhãn QUẦN ĐẢO HOÀNG SA và bị cắt mất "· 305 hải lý · 23°". Giờ đúng hai hàng như đã chốt.
   return (
-    <span className={`whitespace-nowrap text-[0.8125rem] font-semibold tabular-nums leading-tight ${mo ? "text-foreground/55" : "text-navy"}`}>
-      {fmtLat(lat, fmt)} · {fmtLon(lon, fmt)}
+    <span className={`inline-flex flex-col whitespace-nowrap text-[0.8125rem] font-semibold tabular-nums leading-tight ${mo ? "text-foreground/55" : "text-navy"}`}>
+      <span>{fmtLat(lat, fmt)}</span>
+      <span>{fmtLon(lon, fmt)}</span>
     </span>
   );
 }

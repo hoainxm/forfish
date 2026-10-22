@@ -199,6 +199,22 @@ html {
 .full-map {
   bottom: var(--dock-total);
 }
+/*  LỚP BẢN ĐỒ CHẠY SAU DOCK NỔI (2026-10-22, chủ dự án chụp màn: "nó có nguyên cái khoảng trống bên dưới").
+    Dock là viên nổi (lề hai bên + hở đáy), nhưng .full-map chừa CẢ chiều cao --dock-total ⇒ quanh và dưới viên
+    lộ dải nền trống. Giữ .full-map (mọi thẻ nổi vẫn neo theo nó, không phải dời số nào), chỉ cho LỚP BẢN ĐỒ
+    tràn xuống thêm --dock-total: khung bỏ overflow-hidden, cắt ba phía bằng clip-path (iOS 13.4+) để ngăn kéo
+    trượt ngoài mép vẫn bị che như cũ. Dòng ghi nguồn bản đồ (giấy phép OSM) nâng lên trên dock. */
+.ban-do-khung {
+  overflow: visible;
+  clip-path: inset(0 0 calc(-1 * var(--dock-total)) 0);
+}
+.ban-do-duoi-dock {
+  bottom: calc(-1 * var(--dock-total));
+}
+.ban-do-duoi-dock .maplibregl-ctrl-bottom-left,
+.ban-do-duoi-dock .maplibregl-ctrl-bottom-right {
+  bottom: var(--dock-total);
+}
 
 /*
   NHÃN DOCK — 5 cột, nhãn LUÔN 1 dòng (03 §"Nhãn ngang hàng"). Từ 2026-10-19

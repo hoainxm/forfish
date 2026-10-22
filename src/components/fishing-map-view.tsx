@@ -4933,13 +4933,16 @@ export default function FishingMapView() {
         ẩn ô toạ độ + chú giải cá, rail chỉ còn icon, tin bão yên một dòng — giữ
         ô tìm, tin bão, thẻ trạng thái, nút về tàu. Đo 320×700 @32px trước đó:
         các khối nổi chồng lên nhau và đè thẻ đáy (rà Codex lần 11). */
-    <div className="@container/map relative h-full w-full overflow-hidden bg-t1-bg">
+    <div className="ban-do-khung @container/map relative h-full w-full bg-t1-bg">
       {/* ── BẢN ĐỒ — cả màn hình ─────────────────────────────────────────── */}
+      {/*  Lớp bản đồ chạy XUỐNG SAU dock nổi (`ban-do-duoi-dock`, globals.css) — dock là viên nổi bo tròn,
+          khung chừa cả chiều cao dock thì đáy lộ dải nền trống (chủ dự án chụp màn 2026-10-22). Các thẻ nổi
+          vẫn neo theo khung như cũ, chỉ riêng lớp bản đồ tràn xuống. */}
       {/*  Bắt CHẠM GIỮ ở lớp bọc, pha bubble: MapLibre vẫn nhận đủ cử chỉ
            kéo/zoom như thường; ta chỉ đếm giờ và huỷ ngay khi ngón tay xê dịch
            quá 10px (đang kéo bản đồ, không phải giữ). */}
       <div
-        className="absolute inset-0"
+        className="ban-do-duoi-dock absolute inset-x-0 top-0"
         onPointerDown={(e) => {
           if (e.pointerType === "mouse" && e.button !== 0) return;
           closePressMenu();

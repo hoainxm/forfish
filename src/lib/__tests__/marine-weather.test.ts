@@ -19,6 +19,13 @@ describe("beaufort", () => {
     expect(beaufort(38)).toBe(6);
     expect(beaufort(50)).toBe(7);
     expect(beaufort(120)).toBe(12);
+    // thang KTTV mở rộng 13–17 (bão mạnh, siêu bão) — trước 2026-10-22 cắt ở 12: siêu bão 296 km/h hiện "cấp 12"
+    expect(beaufort(133)).toBe(12);
+    expect(beaufort(134)).toBe(13);
+    expect(beaufort(166)).toBe(14);
+    expect(beaufort(184)).toBe(16);
+    expect(beaufort(202)).toBe(17);
+    expect(beaufort(296)).toBe(17);
   });
 });
 
