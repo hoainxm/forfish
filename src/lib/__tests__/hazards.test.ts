@@ -131,6 +131,15 @@ describe("nước trên vật và mớn tàu", () => {
     expect(requiredDepthM(2, 1)).toBe(3);
     expect(requiredDepthM(2, 5)).toBe(4); // Hs kẹp 3 m
   });
+
+  it("requiredDepthM: squat theo tốc độ — 0 khi ≤ 6 kn hoặc bỏ trống/hỏng, ≈ 0,65 m ở 12 kn", () => {
+    expect(requiredDepthM(2, 0, 6)).toBe(2.5);
+    expect(requiredDepthM(2, 0, null)).toBe(2.5);
+    expect(requiredDepthM(2, 0, Number.NaN)).toBe(2.5);
+    expect(requiredDepthM(2, 0, 12)).toBeCloseTo(3.15, 2);
+    expect(requiredDepthM(2, 0, 9)!).toBeGreaterThan(requiredDepthM(2, 0, 7)!);
+    expect(requiredDepthM(null, 0, 12)).toBeNull();
+  });
 });
 
 describe("kho thiếu và toạ độ hỏng", () => {

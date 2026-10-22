@@ -58,7 +58,7 @@ HẬU KIỂM  auditRoute: 11 kho + triều tại ETA (hoursAt) + ranh giới →
 |---|---|---|---|---|
 | **Độ sâu–triều** | B4 | Triều không vào luật độ sâu lúc lập tuyến | tàu mớn 1,8 m qua bãi 2–4 m được lúc nước lớn, mắc cạn lúc ròng — máy hiện trả lời giống nhau mọi giờ | `PlanArgs.tide?: {h(tMs)}`; lớp 3 xét `need ≤ 2,0 + Δh(ETA)`; KHÔNG đưa vào chi phí (giữ quyết định 09/2026). **ĐÃ SỬA 2026-10-22**: `PlanArgs.tide {z0M, departMs, heightAtMs, reserveM?}` — `legCost` lớp 3 xét `need ≤ 2,0 + (h(ETA) − z0 − reserve)`; số triều hỏng thì về trần tĩnh |
 | | B6 | Chưa quy đổi datum MSL ↔ số 0 hải đồ | cộng triều "+1,5 m" vào lưới MSL là cộng thừa z0 (Vũng Tàu 2,9 m!) | `doSauLucT = zMSL + (h(t) − z0)`; trạm model ±0,2 m thêm dự trữ. **ĐÃ SỬA 2026-10-22**: hàm thuần `doSauLucT(zMslM, hTrieuM, z0M) = −zMsl + (h − z0)` ở `hazards.ts` (số hỏng ⇒ NaN); luật lớp 3 trong `route-plan` đã trừ z0 đúng phép này |
-| | B5 | Không có squat theo tốc độ | tàu 10 hl ở nước 5 m lún thêm 0,2–0,4 m | Barrass đơn giản `squat ≈ Cb·V²/100` (Cb≈0,6 tàu cá), cộng vào `requiredDepthM(draft, Hs, speedKn)` |
+| | B5 | Không có squat theo tốc độ | tàu 10 hl ở nước 5 m lún thêm 0,2–0,4 m | Barrass đơn giản `squat ≈ Cb·V²/100` (Cb≈0,6 tàu cá), cộng vào `requiredDepthM(draft, Hs, speedKn)`. **ĐÃ SỬA 2026-10-22**: `squatM(V) = 0,6·(V²−36)/100` khi V > 6 (12 kn ≈ 0,65 m), `requiredDepthM` nhận tham số thứ 3 tuỳ chọn |
 | | B8 | Rạn/xác tàu không có độ sâu | xác tàu 31 m giữa biển chặn như rạn nổi; không phân biệt rạn nổi với rạn 30 m | **Kiểm độ sâu rạn trên GPU** `scripts/dan-duong/kiem-do-sau-ran.mjs`: từng hình OSM đối chiếu GEBCO + ETOPO (ODB/ERDDAP) + lớp ACA + số đo sâu → bốn kết luận can/trung/sau/mâu-thuẫn; ứng viên `sau` (≥20 m, hai nguồn khớp, không lớp ACA cạn) đưa anh Long chốt (§7 Q3) rồi mới sinh `reef-depth.v1.json` và nối vào luật chặn. Thử 3 hình đầu 2026-10-22: xác tàu 31/32 m ⇒ `sau`; đá 4/6 m ⇒ `can`; xác tàu trong vùng ACA Reef Flat ⇒ `can` |
 | **Thời tiết** | C3 | RoutePlan không mang nguồn/tuổi dự báo | tuyến đã lưu hôm qua bằng lưới cũ mà mở lại trông như mới | thêm `plan.forecast = {source, savedAt, hours}`; saved-routes lưu kèm |
 | | (live) | Đang chạy không đọc lại dự báo/dòng | ETA theo GPS tức thời, không biết sắp vào dải sóng | dùng `plan.hoursAt` + field đã lưu để nói "còn 2 giờ tới khúc sóng 2,5 m" |
@@ -87,7 +87,7 @@ HẬU KIỂM  auditRoute: 11 kho + triều tại ETA (hoursAt) + ranh giới →
 
 ## 5. Mô hình đích sau vòng lặp (để agent biết đang đi về đâu)
 
-1. `requiredDepthM(draftM, waveM, speedKn?)` = mớn + 0,5 + ½·min(Hs,3) + squat(V) — một bản, ở `hazards.ts`; squat Barrass `Cb·V²/100` với Cb 0,6, V hải lý/giờ, chỉ cộng khi V > 6 (B5 đòi chênh 6→12 kn trong 0,15–0,8 m).
+1. `requiredDepthM(draftM, waveM, speedKn?)` = mớn + 0,5 + ½·min(Hs,3) + squat(V) — một bản, ở `hazards.ts`; squat Barrass `Cb·(V²−6²)/100` với Cb 0,6, V hải lý/giờ, chỉ cộng phần vượt 6 (Barrass nguyên bản cho 0,86 m ở 12 kn, vượt trần 0,8 của B5) (B5 đòi chênh 6→12 kn trong 0,15–0,8 m).
 2. `doSauLucT(zMslM, hTrieuM, z0M) = −zMslM − (hTrieuM − z0M)`… viết đúng dấu: độ sâu nước lúc t = (độ sâu dưới MSL) + (h(t) − z0) với h, z0 cùng so số 0 hải đồ — ở `hazards.ts` (B6 kiểm `doSauLucT(-3, 1.0, 2.887) ≈ 1,113`).
 3. `PlanArgs.tide?: { z0M: number; departMs: number; heightAtMs(ms: number): number }` — lớp 3 xét `need ≤ DRAFT_SHALLOW_MAX_NEED_M + (h(ETA) − z0)`; ETA = departMs + giờ cộng dồn tới mẫu; **không** vào chi phí (quyết định 09/2026); trạm `model` cộng dự trữ 0,2 m (B4).
 4. `RoutePlan.forecast = { source, savedAt, hoursCovered }` đi theo tuyến lưu (C3).
@@ -151,3 +151,8 @@ Nhật ký: ~/.local/forlife/train/dan-duong/nhat-ky/<ngày>.log · mỗi vòng 
 ## Assumptions (E1, 2026-10-22)
 
 - Điểm giữa chỉ bị bỏ khi góc rẽ < 3°, tổng hai cạnh dài hơn cạnh nối < 0,05 km, cạnh nối đi được ở chế độ nghiêm và chi phí không quá 1,001× hai cạnh cũ — chọn thận trọng để không cắt góc sát rạn (A2).
+
+## Assumptions (B5, 2026-10-22)
+
+- Squat = Cb·(V²−6²)/100, Cb 0,6, chỉ phần vượt 6 hải lý/giờ (dưới đó đã nằm trong 0,5 m hở đáy). Lý do: Barrass nguyên bản 12 kn = 0,86 m, quá trần 0,8 m của B5 và quá lớn cho tàu cá.
+- Chưa nối tốc độ vào các nơi gọi (`route-plan`, `route-hazards`, bản đồ): không truyền `speedKn` thì squat = 0, hành vi cũ giữ nguyên. Nối khi anh Long chốt tốc độ nào tính (tốc độ kinh tế hay tốc độ thật).

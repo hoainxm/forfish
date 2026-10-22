@@ -122,14 +122,25 @@ const okLatLon = (lat: unknown, lon: unknown): boolean =>
  * Độ sâu nước tàu cần để qua: mớn + 0,5 m hở đáy + ½·min(Hs, 3) m cho sóng
  * (BA chốt mặc định 2026-09-04). Không biết mớn → null, và mọi câu mớn phải IM.
  * Không biết sóng → coi Hs = 0 (vẫn còn 0,5 m hở).
+ * Có `speedKn` thì cộng thêm lún đuôi (squat) phần vượt 6 hải lý/giờ:
+ * Cb·(V² − 6²)/100, Cb 0,6 (Barrass rút gọn cho tàu cá). Dưới 6 hải lý/giờ
+ * squat đã nằm trong 0,5 m hở; 12 hải lý/giờ thêm ≈ 0,65 m. Bỏ trống/hỏng ⇒ 0.
  */
+export const SQUAT_CB = 0.6;
+export const SQUAT_V0_KN = 6;
+export function squatM(speedKn: number | null | undefined): number {
+  if (!finite(speedKn) || speedKn <= SQUAT_V0_KN) return 0;
+  return (SQUAT_CB * (speedKn * speedKn - SQUAT_V0_KN * SQUAT_V0_KN)) / 100;
+}
+
 export function requiredDepthM(
   draftM: number | null,
   waveM: number | null,
+  speedKn?: number | null,
 ): number | null {
   if (!finite(draftM) || draftM <= 0) return null;
   const hs = finite(waveM) && waveM > 0 ? Math.min(waveM, 3) : 0;
-  return Math.round((draftM + 0.5 + 0.5 * hs) * 100) / 100;
+  return Math.round((draftM + 0.5 + 0.5 * hs + squatM(speedKn)) * 100) / 100;
 }
 
 /**
