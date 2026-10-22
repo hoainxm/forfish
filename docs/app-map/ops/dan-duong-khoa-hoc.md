@@ -64,7 +64,7 @@ HẬU KIỂM  auditRoute: 11 kho + triều tại ETA (hoursAt) + ranh giới →
 | | (live) | Đang chạy không đọc lại dự báo/dòng | ETA theo GPS tức thời, không biết sắp vào dải sóng | dùng `plan.hoursAt` + field đã lưu để nói "còn 2 giờ tới khúc sóng 2,5 m" |
 | **Tàu/dầu** | D6 | Hồ sơ tàu rời rạc, không két dầu, không chiều dài | không kiểm "đủ dầu đi và về ×1,3"; vùng VMS theo chiều dài không vào tuyến | gộp `forfish.boat.v1` vào `boats.ts`, thêm `fuelTankL`, `lengthM` |
 | **Waypoint** | E1 | 6/8 waypoint thẳng hàng (góc 0°) | bà con gõ 8 điểm vào máy định vị thay vì 2 | kéo dây không giới hạn `i+6` khi cạnh thẳng hàng; hoặc lọc góc < 3° sau walk · **ĐÃ SỬA 2026-10-22**: sau kéo dây, bỏ điểm giữa góc rẽ < 3° khi nằm trên cạnh nối (lệch < 0,05 km) và cạnh nối vẫn đi được, không đắt hơn |
-| **Dẫn đường trực tiếp** | F5 | Lọc tốc độ/hướng nằm trong hook, không test được; suy tốc độ từ 2 fix không ngưỡng quãng; heading GPS nhận khi speed null | đứng neo mà la bàn quay, tốc độ nhảy 18 km/h vì GPS trôi 5 m | tách `locFix(prev, fix)` thuần: ngưỡng quãng ≥ max(15 m, 2×accuracy), EMA tốc độ τ=20 s, heading chỉ khi v ≥ 0,9 km/h |
+| **Dẫn đường trực tiếp** | F5 | Lọc tốc độ/hướng nằm trong hook, không test được; suy tốc độ từ 2 fix không ngưỡng quãng; heading GPS nhận khi speed null | đứng neo mà la bàn quay, tốc độ nhảy 18 km/h vì GPS trôi 5 m | tách `locFix(prev, fix)` thuần: ngưỡng quãng ≥ max(15 m, 2×accuracy), EMA tốc độ τ=20 s, heading chỉ khi v ≥ 0,9 km/h. **ĐÃ SỬA 2026-10-22**: `locFix` trong `use-nav-tracking.ts` (thuần, có test `nav-tracking-loc.test.ts`), hook chỉ gọi hàm này |
 | | F3 | XTE không có dấu | không nói được "lái sang phải 1,2 km" | `projectOntoRoute` trả `side` từ tích có hướng |
 | | F4 | Chiếu toàn tuyến, không trễ | tuyến vòng về gần chính nó ⇒ "còn X km" nhảy | ưu tiên đoạn hiện tại ± 1, chỉ nhảy khi đoạn khác gần hơn 2× trong 3 fix |
 | | F6 | ETA tức thời | ETA nhảy theo sóng | trung vị 60 s tốc độ, hoặc trộn với tốc độ kế hoạch |
@@ -140,6 +140,11 @@ Nhật ký: ~/.local/forlife/train/dan-duong/nhat-ky/<ngày>.log · mỗi vòng 
 ## Assumptions (B4, 2026-10-22)
 - `PlanArgs.tide` chưa có chỗ gọi trong UI (route-planner chưa truyền) nên app chạy như cũ tới khi nối nguồn `tides.ts`; hàm không clone được sang worker, nối phải ở luồng chính. Mặc định an toàn: vắng/hỏng thì dùng trần tĩnh 2,0 m.
 - ETA mẫu = `departMs + (atHour − departHourIdx + quãng/tốc độ êm) giờ`; triều chỉ mở/đóng lớp 3, không vào chi phí (quyết định 09/2026).
+
+## Assumptions (F5, 2026-10-22)
+
+- Dịch gần hơn max(15 m, 2×sai số) giữa 2 fix không có số tốc độ của máy ⇒ coi là đứng (mẫu 0), không ra tốc độ; mẫu suy > 74 km/h bị bỏ (giữ tốc độ cũ).
+- Tốc độ làm mượt EMA τ=20 s; tốc độ làm mượt < 0,9 km/h ⇒ `speedKmh = null`. Hướng la bàn của máy chỉ nhận khi tàu đang chạy (trước đây nhận cả khi không có số tốc độ).
 
 ## Assumptions (E1, 2026-10-22)
 
