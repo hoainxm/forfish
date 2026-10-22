@@ -2932,18 +2932,20 @@ export default function FishingMapView() {
   useEffect(() => {
     trackingSpeedRef.current = tracking.speedKmh;
   }, [tracking.speedKmh]);
-  const navProgress = useMemo(
-    () =>
-      navMode && tracking.pos
-        ? computeNavProgress({
-            pos: tracking.pos,
-            headingDeg: tracking.headingDeg,
-            speedKmh: tracking.speedKmh,
-            waypoints: navMode.plan.waypoints,
-          })
-        : null,
-    [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh],
-  );
+  /** đoạn tuyến ở fix trước — để chiếu tuyến có trễ, tuyến vòng về không nhảy đoạn */
+  const navSegRef = useRef(0);
+  const navProgress = useMemo(() => {
+    if (!navMode || !tracking.pos) return null;
+    const p = computeNavProgress({
+      pos: tracking.pos,
+      headingDeg: tracking.headingDeg,
+      speedKmh: tracking.speedKmh,
+      waypoints: navMode.plan.waypoints,
+      segHint: navSegRef.current,
+    });
+    navSegRef.current = p.segIdx;
+    return p;
+  }, [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh]);
 
   /*  CÒN BAO XA / BAO LÂU TỚI CHỖ GHÉ KẾ TIẾP (2026-08-29g). Dòng tổng của
       HUD nói tới ĐÍCH CUỐI — đi 3 chỗ mà chỉ thấy "còn 491 hải lý" thì bà con

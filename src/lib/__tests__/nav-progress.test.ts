@@ -251,3 +251,26 @@ describe("mốc nói lại khi LỆCH TUYẾN — ảnh gương của mốc ranh
     expect(offRouteStepFor(1.5)).toBeNull();
   });
 });
+
+describe("projectOntoRoute — trễ đoạn (tuyến gập)", () => {
+  const gap: LatLon[] = [{ lat: 10, lon: 110 }, { lat: 10, lon: 110.6 }, { lat: 10.009, lon: 110.6 }, { lat: 10.009, lon: 110 }];
+
+  it("không có gợi ý: đứng giữa hai nhánh không nhảy sang nhánh về", () => {
+    expect(projectOntoRoute({ lat: 10.0046, lon: 110.2 }, gap).segIdx).toBe(0);
+    expect(projectOntoRoute({ lat: 10.006, lon: 110.2 }, gap).segIdx).toBe(0);
+  });
+
+  it("đang ở nhánh về (gợi ý 2) thì ở lại nhánh về", () => {
+    expect(projectOntoRoute({ lat: 10.0046, lon: 110.2 }, gap, 2).segIdx).toBe(2);
+  });
+
+  it("đoạn khác gần hơn hẳn thì được nhảy dù gợi ý ở xa", () => {
+    expect(projectOntoRoute({ lat: 10.0087, lon: 110.2 }, gap, 0).segIdx).toBe(2);
+  });
+
+  it("computeNavProgress mang segIdx và nhận segHint", () => {
+    const pos = { lat: 10.0046, lon: 110.2 };
+    expect(computeNavProgress({ pos, headingDeg: null, speedKmh: null, waypoints: gap }).segIdx).toBe(0);
+    expect(computeNavProgress({ pos, headingDeg: null, speedKmh: null, waypoints: gap, segHint: 2 }).segIdx).toBe(2);
+  });
+});

@@ -66,7 +66,7 @@ HẬU KIỂM  auditRoute: 11 kho + triều tại ETA (hoursAt) + ranh giới →
 | **Waypoint** | E1 | 6/8 waypoint thẳng hàng (góc 0°) | bà con gõ 8 điểm vào máy định vị thay vì 2 | kéo dây không giới hạn `i+6` khi cạnh thẳng hàng; hoặc lọc góc < 3° sau walk · **ĐÃ SỬA 2026-10-22**: sau kéo dây, bỏ điểm giữa góc rẽ < 3° khi nằm trên cạnh nối (lệch < 0,05 km) và cạnh nối vẫn đi được, không đắt hơn |
 | **Dẫn đường trực tiếp** | F5 | Lọc tốc độ/hướng nằm trong hook, không test được; suy tốc độ từ 2 fix không ngưỡng quãng; heading GPS nhận khi speed null | đứng neo mà la bàn quay, tốc độ nhảy 18 km/h vì GPS trôi 5 m | tách `locFix(prev, fix)` thuần: ngưỡng quãng ≥ max(15 m, 2×accuracy), EMA tốc độ τ=20 s, heading chỉ khi v ≥ 0,9 km/h. **ĐÃ SỬA 2026-10-22**: `locFix` trong `use-nav-tracking.ts` (thuần, có test `nav-tracking-loc.test.ts`), hook chỉ gọi hàm này |
 | | F3 | XTE không có dấu | không nói được "lái sang phải 1,2 km" | `projectOntoRoute` trả `side` từ tích có hướng · **ĐÃ SỬA 2026-10-22**: `RouteProjection` thêm `signedKm` (dương = bên phải hướng đi) + `side` (`left`/`right`/`on`, `on` khi lệch < 10 m) từ tích có hướng; chưa gắn vào giọng/steerCue (việc F10) |
-| | F4 | Chiếu toàn tuyến, không trễ | tuyến vòng về gần chính nó ⇒ "còn X km" nhảy | ưu tiên đoạn hiện tại ± 1, chỉ nhảy khi đoạn khác gần hơn 2× trong 3 fix |
+| | F4 | Chiếu toàn tuyến, không trễ | tuyến vòng về gần chính nó ⇒ "còn X km" nhảy | ưu tiên đoạn hiện tại ± 1, chỉ nhảy khi đoạn khác gần hơn 2× trong 3 fix · **ĐÃ SỬA 2026-10-22**: `projectOntoRoute(pos, wps, hintSeg = 0)` ưu tiên đoạn hintSeg ± 1, chỉ nhảy khi đoạn khác gần dưới 0,4× (`SEG_JUMP_RATIO`); `NavProgress.segIdx` ↔ `NavInput.segHint`, bản đồ giữ ref đoạn fix trước |
 | | F6 | ETA tức thời | ETA nhảy theo sóng | trung vị 60 s tốc độ, hoặc trộn với tốc độ kế hoạch |
 | | F9 | Không dead-reckoning | mất GPS 1 phút là cảnh báo phía trước đứng im | ước vị trí ≤ 2 phút theo hướng + tốc độ cuối, có nhãn "ước" |
 | | F10 | Giọng không đọc rẽ | phải nhìn màn hình lúc lái | đọc "1 phút nữa rẽ phải, hướng Đông Bắc" từ `nextWp` + `steer` |
@@ -162,6 +162,11 @@ Nhật ký: ~/.local/forlife/train/dan-duong/nhat-ky/<ngày>.log · mỗi vòng 
 - `BoatProfile` (route-plan.ts) có thêm `fuelTankL` (két, lít) và `lengthM` (m), cùng luật với mớn: vắng/`null` = chưa khai ⇒ im lặng, không đoán. Trần hợp lệ: két ≤ 100 000 L, chiều dài ≤ 200 m.
 - `fuelReturnCheck(boat, oneWayFuelL)`: dầu cần = một chiều × 2 × 1,3 (`FUEL_RETURN_SAFETY`); chưa có két ⇒ `null`. Hàm thuần, CHƯA nối vào màn kết quả và CHƯA có ô nhập két/chiều dài trong form lập tuyến — `route-planner` chỉ đọc/giữ nguyên hai trường khi lưu `forfish.boat.v1`. Nối UI khi anh Long chốt chữ hiển thị (§7).
 - Chưa gộp `forfish.boat.v1` vào `boats.ts` (đổi nơi lưu = đụng sao lưu/auth-scope); chiều dài vẫn đọc từ `boats.ts` cho giọng đọc/VMS.
+
+## Assumptions (F4, 2026-10-22)
+
+- Ngưỡng nhảy là 0,4× (đoạn khác phải gần hơn 2,5 lần), chặt hơn "2×" trong hướng sửa, vì bộ chấm đặt tàu đúng ở tỉ lệ 2,0 giữa hai nhánh. Chưa làm "3 fix liên tiếp": gần-hơn-hẳn đã đủ chống nhảy, thêm bộ đếm là thêm trạng thái trong hook.
+- Không có gợi ý ⇒ coi tàu đang ở đầu tuyến (đoạn 0 ± 1); tàu ở xa đầu tuyến vẫn nhảy được vì đoạn gần nó gần hơn hẳn. Gợi ý lưu trong ref của bản đồ, mất khi tắt dẫn đường.
 
 ## Assumptions (B5, 2026-10-22)
 

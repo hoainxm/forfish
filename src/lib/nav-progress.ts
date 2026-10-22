@@ -102,6 +102,8 @@ export interface NavProgress {
       nói được "còn bao xa tới chỗ ghé kế". `projectOntoRoute` vốn đã tính sẵn
       — trước đây bị vứt đi, nơi gọi phải chiếu lại lần hai. */
   alongKm: number;
+  /** đoạn tuyến đang đi — truyền lại làm `segHint` ở fix sau (chống nhảy đoạn) */
+  segIdx: number;
 }
 
 // ── hình học phẳng cục bộ (km) ────────────────────────────────────────────
@@ -144,6 +146,9 @@ export interface RouteProjection {
   side: "left" | "right" | "on";
 }
 
+/** đoạn khác phải gần hơn đoạn đang đi (±1) dưới tỉ lệ này mới được nhảy sang */
+export const SEG_JUMP_RATIO = 0.4;
+
 /** dưới mức này coi như đang đi đúng vạch, không nói trái/phải */
 export const SIDE_EPS_KM = 0.01;
 
@@ -159,6 +164,7 @@ function sideOf(signedKm: number): RouteProjection["side"] {
 export function projectOntoRoute(
   pos: LatLon,
   waypoints: LatLon[],
+  hintSeg = 0,
 ): RouteProjection {
   if (waypoints.length === 0) {
     return { segIdx: 0, tOnSeg: 0, snapped: pos, offRouteKm: 0, alongKm: 0, signedKm: 0, side: "on" };
@@ -176,6 +182,7 @@ export function projectOntoRoute(
   }
   const P = toXY(pos, pos); // = {0,0}, mốc là chính vị trí tàu
   let best: RouteProjection | null = null;
+  let nearHint: RouteProjection | null = null; // gần nhất trong đoạn đang đi ± 1
   let cum = 0; // quãng cộng dồn đầu tuyến → waypoints[i]
   for (let i = 0; i < waypoints.length - 1; i++) {
     const a = waypoints[i];
@@ -194,10 +201,10 @@ export function projectOntoRoute(
     const cx = A.x + t * dx;
     const cy = A.y + t * dy;
     const dist = Math.hypot(P.x - cx, P.y - cy);
-    if (!best || dist < best.offRouteKm) {
-      // tích có hướng (hướng đoạn × từ điểm chiếu tới tàu); tàu là gốc toạ độ
+    // tích có hướng (hướng đoạn × từ điểm chiếu tới tàu); tàu là gốc toạ độ
+    const cand = (): RouteProjection => {
       const signed = dist > 0 ? (dx * cy - dy * cx) / Math.hypot(dx, dy) : 0;
-      best = {
+      return {
         segIdx: i,
         tOnSeg: t,
         snapped: toLatLon({ x: cx, y: cy }, pos),
@@ -206,8 +213,17 @@ export function projectOntoRoute(
         signedKm: signed,
         side: sideOf(signed),
       };
+    };
+    if (!best || dist < best.offRouteKm) best = cand();
+    if (Math.abs(i - hintSeg) <= 1 && (!nearHint || dist < nearHint.offRouteKm)) {
+      nearHint = cand();
     }
     cum += segLenKm;
+  }
+  // Trễ: ở lại quanh đoạn đang đi, chỉ nhảy khi đoạn khác gần hơn HẲN
+  // (tuyến vòng về gần chính nó thì "còn X km" không được tụt đột ngột).
+  if (nearHint && best!.segIdx !== nearHint.segIdx && best!.offRouteKm >= nearHint.offRouteKm * SEG_JUMP_RATIO) {
+    return nearHint;
   }
   return best!;
 }
@@ -256,6 +272,8 @@ export interface NavInput {
   speedKmh: number | null;
   /** tuyến đã vẽ (route.plan.waypoints) — start … dest */
   waypoints: LatLon[];
+  /** đoạn tuyến ở fix trước (`NavProgress.segIdx`) — vắng = đầu tuyến */
+  segHint?: number;
 }
 
 /**
@@ -263,7 +281,7 @@ export interface NavInput {
  * đầu tiên NẰM PHÍA TRƯỚC điểm chiếu; quãng/giờ còn lại đo DỌC TUYẾN.
  */
 export function computeNavProgress(input: NavInput): NavProgress {
-  const { pos, headingDeg, speedKmh, waypoints } = input;
+  const { pos, headingDeg, speedKmh, waypoints, segHint } = input;
   // tuyến suy biến (0–1 điểm) → chim bay tới điểm đó
   if (waypoints.length < 2) {
     const dest = waypoints[0] ?? pos;
@@ -280,10 +298,11 @@ export function computeNavProgress(input: NavInput): NavProgress {
       offRoute: false,
       arrived: remainingKm <= ARRIVE_KM,
       alongKm: 0,
+      segIdx: 0,
     };
   }
 
-  const proj = projectOntoRoute(pos, waypoints);
+  const proj = projectOntoRoute(pos, waypoints, segHint ?? 0);
   const totalKm = routeLengthKm(waypoints);
   /*  SÀN = ĐƯỜNG CHIM BAY TỚI ĐÍCH (sửa 2026-10-16, đo được trên máy thật).
       Tàu lệch xa tuyến (tuyến tính từ một cảng, tàu đang ở chỗ khác) thì điểm
@@ -323,6 +342,7 @@ export function computeNavProgress(input: NavInput): NavProgress {
     offRoute: proj.offRouteKm > OFF_ROUTE_WARN_KM,
     arrived: remainingKm <= ARRIVE_KM,
     alongKm: proj.alongKm,
+    segIdx: proj.segIdx,
   };
 }
 
