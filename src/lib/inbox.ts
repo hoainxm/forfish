@@ -207,6 +207,43 @@ function saveReported(phone: string | null, ids: Set<string>): void {
   }
 }
 
+/** Một dòng trên màn = một nội dung; `ids` = mọi tin trùng nội dung đó (mới nhất đứng đầu). */
+export interface InboxGroup {
+  /** Tin MỚI NHẤT của nhóm — giờ gửi của nó là giờ hiện trên dòng */
+  msg: InboxMessage;
+  ids: string[];
+}
+
+/**
+ * GOM TIN TRÙNG NỘI DUNG (rà Taste 2026-10-22): nhắc lại cùng một cơn bão sinh ra
+ * 4 tin y hệt chữ ⇒ danh sách 3 dòng đầu toàn một tin, tin khác bị đẩy khỏi tầm mắt.
+ * Trùng = cùng tiêu đề + nội dung + đường dẫn (khác một chữ là tin khác, KHÔNG gom).
+ * Thứ tự nhóm theo tin mới nhất của nhóm; giữ nguyên dữ liệu trong máy (chỉ gom
+ * lúc vẽ), nên đọc/báo-đã-đọc vẫn theo từng id.
+ */
+export function gomTinTrung(list: InboxMessage[]): InboxGroup[] {
+  const ms = (m: InboxMessage) => {
+    const t = Date.parse(m.sentAt);
+    return Number.isFinite(t) ? t : -Infinity;
+  };
+  const byKey = new Map<string, InboxGroup>();
+  for (const m of list) {
+    const key = `${m.title}\u0000${m.body}\u0000${m.url ?? ""}`;
+    const g = byKey.get(key);
+    if (!g) {
+      byKey.set(key, { msg: m, ids: [m.id] });
+      continue;
+    }
+    if (ms(m) > ms(g.msg)) {
+      g.msg = m;
+      g.ids.unshift(m.id);
+    } else {
+      g.ids.push(m.id);
+    }
+  }
+  return [...byKey.values()].sort((a, b) => ms(b.msg) - ms(a.msg));
+}
+
 /** Chỉ những id CHƯA báo về được lần nào — chỗ gọi khỏi tự lọc */
 export function unreportedIds(phone: string | null, ids: string[]): string[] {
   if (typeof window === "undefined") return [];

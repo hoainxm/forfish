@@ -27,7 +27,7 @@ export function SupplyCatalog() {
     filter === "all" ? SUPPLIES : SUPPLIES.filter((s) => s.category === filter);
 
   const chipBase =
-    "min-h-[3.25rem] shrink-0 rounded-xl px-4 text-[1rem] font-bold transition active:scale-[0.97]";
+    "min-h-[3.25rem] shrink-0 rounded-xl px-4 text-[1rem] font-semibold transition active:scale-[0.97]";
 
   return (
     <div className="px-4">
@@ -73,7 +73,7 @@ export function SupplyCatalog() {
             className="flex items-start justify-between gap-3 surface px-4 py-3.5"
           >
             <div className="min-w-0">
-              <p className="text-[1.125rem] font-bold leading-snug text-navy">
+              <p className="text-[1.125rem] font-semibold leading-snug text-navy">
                 {s.name}
               </p>
               {s.spec && (
@@ -83,7 +83,7 @@ export function SupplyCatalog() {
               )}
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-[1.125rem] font-bold tabular-nums text-foreground">
+              <p className="text-[1.125rem] font-semibold tabular-nums text-foreground">
                 {s.priceVnd.toLocaleString("vi-VN")} đ
               </p>
               <p className="text-[0.875rem] text-foreground/70">{s.unit}</p>

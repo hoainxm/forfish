@@ -60,7 +60,7 @@ export function FinesLookup() {
 
   return (
     <div className="px-4 pt-1">
-      <h2 className="display text-[1.375rem] font-bold text-navy">Tra cứu mức phạt</h2>
+      <h2 className="display text-[1.375rem] font-semibold text-navy">Tra cứu mức phạt</h2>
       <p className="mt-1 text-[1rem] text-foreground/70">
         Gõ vài chữ để tìm, ví dụ: giấy phép, vùng biển, nhật ký
       </p>
@@ -99,7 +99,7 @@ export function FinesLookup() {
                 type="button"
                 onClick={() => setQuery(on ? "" : k)}
                 aria-pressed={on}
-                className={`min-h-[3rem] shrink-0 rounded-full px-4 text-[1rem] font-bold transition active:scale-[0.97] ${
+                className={`min-h-[3rem] shrink-0 rounded-full px-4 text-[1rem] font-semibold transition active:scale-[0.97] ${
                   on ? "bg-t4 text-white" : "bg-field text-navy"
                 }`}
               >
@@ -112,7 +112,7 @@ export function FinesLookup() {
 
       {/* result count when filtering */}
       {isFiltering && (
-        <p className="mt-3 text-[1rem] font-bold text-foreground/70">
+        <p className="mt-3 text-[1rem] font-semibold text-foreground/70">
           {results.length > 0
             ? `Có ${results.length} mức phạt`
             : "Không tìm thấy mức phạt nào"}
@@ -151,7 +151,7 @@ export function FinesLookup() {
                 <p className="text-[1.125rem] font-semibold leading-snug text-foreground">
                   {fine.behavior}
                 </p>
-                <p className={`mt-1.5 text-[1.125rem] font-bold ${style.amount}`}>
+                <p className={`mt-1.5 text-[1.125rem] font-semibold ${style.amount}`}>
                   {fine.rangeVnd}
                 </p>
                 <p className="mt-0.5 text-[0.875rem] text-foreground/65">

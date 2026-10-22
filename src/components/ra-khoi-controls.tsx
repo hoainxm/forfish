@@ -724,10 +724,10 @@ function PanelHeader({
             </button>
           )}
           <div className="min-w-0">
-            <span className="inline-block rounded-md bg-navy px-2 py-0.5 text-[0.625rem] font-bold text-white">
+            <span className="inline-block rounded-md bg-navy px-2 py-0.5 text-[0.625rem] font-semibold text-white">
               Điều khiển
             </span>
-            <h3 className="display mt-1 text-[1rem] font-bold leading-tight text-navy">
+            <h3 className="display mt-1 text-[1rem] font-semibold leading-tight text-navy">
               {title}
             </h3>
           </div>
@@ -785,7 +785,7 @@ function HaiDoPanel({
 }) {
   return (
     <div>
-      <p className="mb-2 text-[0.75rem] font-bold text-foreground/55">
+      <p className="mb-2 text-[0.75rem] font-semibold text-foreground/55">
         Lớp nền bản đồ · Chọn 1
       </p>
       <ul className="space-y-1.5" role="radiogroup" aria-label="Lớp nền bản đồ">
@@ -808,7 +808,7 @@ function HaiDoPanel({
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
+                  <span className="block text-[0.9375rem] font-semibold leading-tight text-navy">
                     {def.label}
                   </span>
                   <span className="flex items-center gap-1 text-[0.8125rem] leading-tight text-foreground/75">
@@ -905,7 +905,7 @@ function HaiDoPanel({
               <AlertIcon className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
+              <span className="block text-[0.9375rem] font-semibold leading-tight text-navy">
                 Ký hiệu là gì?
               </span>
               <span className="block text-[0.8125rem] text-foreground/75">
@@ -976,7 +976,7 @@ function NguTruongPanel({
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            className="mt-2 flex w-full items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-left active:scale-[0.99]"
+            className="mt-2 flex w-full items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-left transition active:scale-[0.99]"
           >
             {/* khi MỞ dropdown → nhãn "Chọn loài" (≤2 chữ, rà Codex lần 9) + ẩn chấm, để KHÔNG trùng
                 với item "Mọi loài" trong danh sách (user 2026-07-27) */}
@@ -991,7 +991,7 @@ function NguTruongPanel({
                 aria-hidden
               />
             )}
-            <span className="min-w-0 flex-1 break-words text-[0.9375rem] font-bold leading-snug text-navy">
+            <span className="min-w-0 flex-1 break-words text-[0.9375rem] font-semibold leading-snug text-navy">
               {expanded ? "Chọn loài" : name}
             </span>
             <ChevronRightIcon
@@ -1047,7 +1047,7 @@ function ThoiTietPanel({
   const [openedAt] = useState(() => Date.now());
   return (
     <div>
-      <p className="mb-1 flex items-center justify-between text-[0.75rem] font-bold text-foreground/55">
+      <p className="mb-1 flex items-center justify-between text-[0.75rem] font-semibold text-foreground/55">
         <span>Cảnh báo bão</span>
         <span className="text-danger">Ưu tiên cao nhất</span>
       </p>
@@ -1061,12 +1061,12 @@ function ThoiTietPanel({
           >
             <AlertIcon className="h-5 w-5 shrink-0 text-danger" />
             <span className="min-w-0 flex-1">
-              <span className="block text-[0.9375rem] font-bold leading-tight text-danger">
+              <span className="block text-[0.9375rem] font-semibold leading-tight text-danger">
                 {s.kindLabel} {s.name}
               </span>
               <span
                 className={`block text-[0.8125rem] leading-snug ${
-                  stormInfo.cu ? "font-bold text-warn" : "text-foreground/75"
+                  stormInfo.cu ? "font-semibold text-warn" : "text-foreground/75"
                 }`}
               >
                 {stormInfo.checkedAt != null
@@ -1084,7 +1084,7 @@ function ThoiTietPanel({
         </p>
       )}
       {stormInfo.kind === "khong-hoi-duoc" && (
-        <p className="mb-2 flex items-start gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-bold leading-snug text-warn">
+        <p className="mb-2 flex items-start gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-semibold leading-snug text-warn">
           <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
           {/* CÙNG MỘT CÂU với banner bão (lib/storms.ts stormNoticeText) — nói
               bằng tuổi tin, không đổ cho máy khi nguồn lỗi (audit S13/M5).
@@ -1098,7 +1098,7 @@ function ThoiTietPanel({
         </p>
       )}
 
-      <p className="mb-1 mt-3 text-[0.75rem] font-bold text-foreground/55">
+      <p className="mb-1 mt-3 text-[0.75rem] font-semibold text-foreground/55">
         Lớp thời tiết khác
       </p>
       <Toggle
@@ -1313,7 +1313,7 @@ function GoToPointPopup({
         />
       </label>
       {err && (
-        <p className="mb-2 flex items-start gap-1.5 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.8125rem] font-bold leading-snug text-warn">
+        <p className="mb-2 flex items-start gap-1.5 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.8125rem] font-semibold leading-snug text-warn">
           <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{err}</span>
         </p>
@@ -1321,7 +1321,7 @@ function GoToPointPopup({
       <button
         type="button"
         onClick={submit}
-        className="min-h-[3.25rem] w-full rounded-xl bg-navy text-[1rem] font-bold text-white transition active:scale-[0.99]"
+        className="min-h-[3.25rem] w-full rounded-xl bg-navy text-[1rem] font-semibold text-white transition active:scale-[0.99]"
       >
         Đến điểm
       </button>
@@ -1361,7 +1361,7 @@ function RadioCard({
         {active && <CheckIcon className="h-3 w-3" />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
+        <span className="block text-[0.9375rem] font-semibold leading-tight text-navy">
           {title}
         </span>
         <span className="block text-[0.8125rem] text-foreground/75">{sub}</span>
@@ -1374,7 +1374,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
   const prefs = useMapPrefs();
   return (
     <div>
-      <p className="mb-2 text-[0.75rem] font-bold text-foreground/55">
+      <p className="mb-2 text-[0.75rem] font-semibold text-foreground/55">
         Đơn vị khoảng cách
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -1392,7 +1392,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         />
       </div>
 
-      <p className="mb-2 mt-3 text-[0.75rem] font-bold text-foreground/55">
+      <p className="mb-2 mt-3 text-[0.75rem] font-semibold text-foreground/55">
         Hệ toạ độ
       </p>
       <div className="space-y-2">
@@ -1417,7 +1417,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         Đổi ở đây thì toạ độ, khoảng cách, dẫn đường và công cụ đo đều đổi theo.
       </p>
 
-      <p className="mb-1 mt-4 text-[0.75rem] font-bold text-foreground/55">
+      <p className="mb-1 mt-4 text-[0.75rem] font-semibold text-foreground/55">
         Lớp bản đồ
       </p>
       <Toggle
@@ -1460,7 +1460,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
 
       {vmsZones.length > 0 && (
         <>
-          <p className="mb-1 mt-4 text-[0.75rem] font-bold text-foreground/55">
+          <p className="mb-1 mt-4 text-[0.75rem] font-semibold text-foreground/55">
             Vùng biển (dữ liệu VMS)
           </p>
           {vmsZones.map((zone, i) => (
@@ -1529,10 +1529,10 @@ function ToolsPanel({
         <>
           {measureResult ? (
             <div className="mt-2 rounded-xl bg-field px-3 py-2.5">
-              <p className="text-[0.75rem] font-bold text-foreground/55">
+              <p className="text-[0.75rem] font-semibold text-foreground/55">
                 Khoảng cách 2 điểm
               </p>
-              <p className="display mt-0.5 text-[1.25rem] font-bold leading-none text-navy">
+              <p className="display mt-0.5 text-[1.25rem] font-semibold leading-none text-navy">
                 {measureResult.dist}
               </p>
               <p className="mt-1 text-[0.8125rem] text-foreground/70">
@@ -1550,7 +1550,7 @@ function ToolsPanel({
             <button
               type="button"
               onClick={onClearMeasure}
-              className="mt-2 min-h-[3rem] w-full rounded-xl bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99]"
+              className="mt-2 min-h-[3rem] w-full rounded-xl bg-field text-[0.9375rem] font-semibold text-navy transition active:scale-[0.99]"
             >
               Xoá, đo lại
             </button>
@@ -1591,7 +1591,7 @@ function Toggle({
     >
       <span className="shrink-0">{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
+        <span className="block text-[0.9375rem] font-semibold leading-tight text-navy">
           {label}
         </span>
         {sub && (

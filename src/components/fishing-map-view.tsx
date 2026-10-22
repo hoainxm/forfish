@@ -159,7 +159,7 @@ import {
   offlineBasemapNote,
   shouldUseOfflineBasemap,
 } from "@/lib/offline-basemap";
-import { type SeaLevel } from "@/lib/sea";
+import { SEA_STATE, type SeaLevel } from "@/lib/sea";
 import {
   loadPlaces,
   persistPlaces,
@@ -469,15 +469,7 @@ const LEVEL_STYLE: Record<SeaLevel, { bg: string; fg: string }> = {
   bad: { bg: "var(--danger-bg)", fg: "var(--danger)" },
 };
 
-/*
-  TÌNH TRẠNG BIỂN — mô tả, KHÔNG phán "đi hay không đi" (bà con có lịch
-  chuyến của mình; app đưa điều kiện, quyết là việc của thuyền trưởng).
-*/
-const SEA_STATE: Record<SeaLevel, string> = {
-  good: "Biển êm",
-  caution: "Biển động nhẹ",
-  bad: "Biển động mạnh",
-};
+// TÌNH TRẠNG BIỂN (`SEA_STATE`) — dời sang lib/sea.ts 2026-10-22, dùng chung với Trang chủ.
 
 const THIS_MONTH = new Date().getMonth() + 1;
 
@@ -1533,7 +1525,7 @@ export default function FishingMapView() {
     if (d.cum)
       return (
         <span
-          className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[0.75rem] font-bold"
+          className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[0.75rem] font-semibold"
           style={{ borderColor: CLUSTER_BADGE.stroke, color: CLUSTER_BADGE.text, backgroundColor: CLUSTER_BADGE.fill }}
         >
           +6
@@ -4799,14 +4791,14 @@ export default function FishingMapView() {
         {premiumAccess === "login" ? (
           <>
             Xem quá {FREE_FORECAST_DAYS} ngày cần đăng nhập —{" "}
-            <Link href="/login" className="font-bold text-trim">
+            <Link href="/login" className="font-semibold text-trim">
               Đăng nhập →
             </Link>
           </>
         ) : (
           <>
             {premiumLine(`xem trước quá ${FREE_FORECAST_DAYS} ngày`)}{" "}
-            <a href={`tel:${SDVICO_HOTLINE}`} className="font-bold text-trim">
+            <a href={`tel:${SDVICO_HOTLINE}`} className="font-semibold text-trim">
               Gọi →
             </a>
           </>
@@ -4870,7 +4862,7 @@ export default function FishingMapView() {
   /*  Tình trạng biển ở ĐẦU NGĂN thay chữ "Gió sóng" — đỡ một hàng. */
   const sideTitle =
     sel?.level != null ? (
-      <span className="flex items-center gap-1.5 text-[0.9375rem] font-bold" style={{ color: LEVEL_STYLE[sel.level].fg }}>
+      <span className="flex items-center gap-1.5 text-[0.9375rem] font-semibold" style={{ color: LEVEL_STYLE[sel.level].fg }}>
         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }} aria-hidden />
         {SEA_STATE[sel.level]}
       </span>
@@ -6786,8 +6778,8 @@ export default function FishingMapView() {
               <div
                 className={
                   s.kind === "sea"
-                    ? "text-[0.875rem] font-bold tracking-[0.18em]"
-                    : "text-[0.8125rem] font-bold tracking-[0.06em]"
+                    ? "text-[0.875rem] font-semibold tracking-[0.18em]"
+                    : "text-[0.8125rem] font-semibold tracking-[0.06em]"
                 }
               >
                 {s.name}
@@ -6806,11 +6798,11 @@ export default function FishingMapView() {
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md ring-2 ring-danger">
                 <AlertIcon className="h-6 w-6" />
               </span>
-              <span className="mt-0.5 rounded bg-white/90 px-1.5 text-center text-[0.75rem] font-bold leading-tight">
+              <span className="mt-0.5 rounded bg-white/90 px-1.5 text-center text-[0.75rem] font-semibold leading-tight">
                 {s.kindLabel} {s.name}
                 {/* giờ của bản tin — vẽ từ bản lưu thì tâm bão có thể đã đi xa */}
                 <span
-                  className={`block font-bold ${
+                  className={`block font-semibold ${
                     stormInfo.kind === "co-bao" && stormInfo.cu
                       ? "text-warn"
                       : "text-navy/70"
@@ -6928,7 +6920,7 @@ export default function FishingMapView() {
             latitude={p.lat}
             anchor="center"
           >
-            <span className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-t1 text-[0.75rem] font-bold text-white shadow-md">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-t1 text-[0.75rem] font-semibold text-white shadow-md">
               {i + 1}
             </span>
           </Marker>
@@ -6940,7 +6932,7 @@ export default function FishingMapView() {
             latitude={(measurePts[0].lat + measurePts[1].lat) / 2}
             anchor="center"
           >
-            <span className="whitespace-nowrap rounded-full border border-white/80 bg-navy px-2.5 py-1 text-[0.8125rem] font-bold text-white shadow-md">
+            <span className="whitespace-nowrap rounded-full border border-white/80 bg-navy px-2.5 py-1 text-[0.8125rem] font-semibold text-white shadow-md">
               {measureResult.dist}
             </span>
           </Marker>
@@ -6994,7 +6986,7 @@ export default function FishingMapView() {
                lệch không đáng kể so với `--danger`, mà token thì đã được đo
                tương phản sẵn. Hex chỉ được phép nằm trong `paint` của MapLibre,
                không phải trong className. */}
-          <span className="whitespace-nowrap rounded-full border border-white/80 bg-danger px-2 py-0.5 text-[0.75rem] font-bold text-white shadow-md">
+          <span className="whitespace-nowrap rounded-full border border-white/80 bg-danger px-2 py-0.5 text-[0.75rem] font-semibold text-white shadow-md">
             {prox.outside ? "ngoài ranh giới " : ""}
             {fmtDist(
               prox.distanceNm * 1.852,
@@ -7061,7 +7053,7 @@ export default function FishingMapView() {
               latitude={(tracking.pos.lat + point.lat) / 2}
               anchor="center"
             >
-              <span className="whitespace-nowrap rounded-full border border-white/80 bg-t1 px-2 py-0.5 text-[0.75rem] font-bold text-white shadow-md">
+              <span className="whitespace-nowrap rounded-full border border-white/80 bg-t1 px-2 py-0.5 text-[0.75rem] font-semibold text-white shadow-md">
                 {fmtDist(
                   haversineKm(
                     tracking.pos.lat,
@@ -7171,7 +7163,7 @@ export default function FishingMapView() {
            nếu không thì chấm màu vô nghĩa với bà con. Không chặn chạm. */}
       {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && mapZoom >= CHAT_DAY_MINZOOM && (
         <div className="pointer-events-none absolute bottom-2 left-2 z-20 rounded-xl bg-card/90 px-2.5 py-2 shadow-lg">
-          <p className="mb-1 text-[0.75rem] font-bold text-navy">Chất đáy</p>
+          <p className="mb-1 text-[0.75rem] font-semibold text-navy">Chất đáy</p>
           <div className="grid grid-cols-1 gap-y-0.5">
             {(
               [
@@ -7225,7 +7217,7 @@ export default function FishingMapView() {
             top: Math.min(pressMenu.y + 12, window.innerHeight - 190),
           }}
         >
-          <p className="truncate px-3 pt-2.5 text-[0.8125rem] font-bold text-foreground/60">
+          <p className="truncate px-3 pt-2.5 text-[0.8125rem] font-semibold text-foreground/60">
             {fmtCoordPair(pressMenu.lat, pressMenu.lon, prefs.coordFormat)}
           </p>
           <button
@@ -7251,7 +7243,7 @@ export default function FishingMapView() {
                 if (!navMode) setRoute(null);
               }
             }}
-            className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-bold text-t1 transition active:bg-field"
+            className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-semibold text-t1 transition active:bg-field"
           >
             <RouteIcon className="h-6 w-6 shrink-0" />
             {routeMode ? "Thêm vào lộ trình" : "Dẫn đường tới đây"}
@@ -7263,7 +7255,7 @@ export default function FishingMapView() {
               closePressMenu();
               setAddPlaceSignal((n) => n + 1);
             }}
-            className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-bold text-navy transition active:bg-field"
+            className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-semibold text-navy transition active:bg-field"
           >
             <StarIcon className="h-6 w-6 shrink-0 text-sun" />
             Lưu thành điểm
@@ -7351,7 +7343,7 @@ export default function FishingMapView() {
             <ul className="space-y-3">
               {shelterRows.map((k) => (
                 <li key={k.id} className="rounded-2xl bg-field p-4">
-                  <p className="display text-[1.125rem] font-bold text-navy">
+                  <p className="display text-[1.125rem] font-semibold text-navy">
                     {k.ten}
                   </p>
                   <p className="mt-0.5 text-[1rem] font-semibold text-foreground/75">
@@ -7374,7 +7366,7 @@ export default function FishingMapView() {
                   <button
                     type="button"
                     onClick={() => veDuongToiKhu(k)}
-                    className="mt-2 min-h-[3.5rem] w-full rounded-2xl bg-t1 px-4 text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
+                    className="mt-2 min-h-[3.5rem] w-full rounded-2xl bg-t1 px-4 text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
                   >
                     Vẽ đường tới đây
                   </button>
@@ -7454,7 +7446,7 @@ export default function FishingMapView() {
         {placesSaveFailed && (
           <div
             role="alert"
-            className="mx-4 mt-2 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-bold leading-snug text-danger"
+            className="mx-4 mt-2 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-semibold leading-snug text-danger"
           >
             Máy hết chỗ nên CHƯA lưu được điểm vừa ghim. Bà con xoá bớt ảnh/video
             rồi ghim lại giúp nhé.
@@ -7637,7 +7629,7 @@ export default function FishingMapView() {
             className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-center gap-2 rounded-full bg-danger-bg px-3 py-1.5 shadow-md"
           >
             <AlertIcon className="h-4 w-4 shrink-0 text-danger" />
-            <p className="text-[0.875rem] font-bold leading-snug text-danger">
+            <p className="text-[0.875rem] font-semibold leading-snug text-danger">
               Chưa lấy được lớp này — biển trống ở đây KHÔNG có nghĩa là biển lặng.
             </p>
             <button
@@ -7653,7 +7645,7 @@ export default function FishingMapView() {
                 });
                 setSeaScalarFailed(null);
               }}
-              className="shrink-0 rounded-full bg-navy px-3 py-1 text-[0.875rem] font-bold text-white"
+              className="shrink-0 rounded-full bg-navy px-3 py-1 text-[0.875rem] font-semibold text-white"
             >
               Thử lại
             </button>
@@ -7666,7 +7658,7 @@ export default function FishingMapView() {
         {fishOn && fishQualityNote && (
           <p
             role="status"
-            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-bold leading-snug text-warn shadow-md"
+            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-semibold leading-snug text-warn shadow-md"
           >
             <AlertIcon className="h-4 w-4 shrink-0" />
             {fishQualityNote}
@@ -7679,7 +7671,7 @@ export default function FishingMapView() {
         {offlineNote && offlineNoteOn && (
           <p
             role="status"
-            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-bold leading-snug text-warn shadow-md"
+            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-semibold leading-snug text-warn shadow-md"
           >
             <AlertIcon className="h-4 w-4 shrink-0" />
             {offlineNote}
@@ -7853,7 +7845,7 @@ export default function FishingMapView() {
                         setGridFailed(false);
                         setCurDepthTier(t);
                       }}
-                      className={`h-9 flex-1 rounded-lg text-[0.8125rem] font-bold active:scale-95 ${
+                      className={`h-9 flex-1 rounded-lg text-[0.8125rem] font-semibold active:scale-95 ${
                         curDepthTier === t
                           ? "bg-navy text-white"
                           : "bg-field text-navy"
@@ -7870,7 +7862,7 @@ export default function FishingMapView() {
               {stripGrid ? (
                 <>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[0.8125rem] font-bold leading-tight text-navy">
+                    <span className="text-[0.8125rem] font-semibold leading-tight text-navy">
                       {overlayTitle} ·{" "}
                       {/* mốc "Hôm nay" so NGÀY THẬT, không so ngày đầu bản lưu */}
                       {timeLabelVN(stripGrid.times[timeIdx] ?? "", todayIso)}
@@ -7892,7 +7884,7 @@ export default function FishingMapView() {
                       type="button"
                       onClick={() => setPlaying((p) => !p)}
                       aria-label={playing ? "Dừng chạy" : "Chạy thử"}
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-navy text-white active:scale-95"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-navy text-white transition active:scale-95"
                     >
                       {playing ? (
                         <PauseIcon className="h-5 w-5" />
@@ -7932,7 +7924,7 @@ export default function FishingMapView() {
                       onClick={() => setGridShrunkTo(null)}
                       className="mt-1 w-full rounded-xl bg-field/80 px-3 py-2.5 text-left"
                     >
-                      <span className="block text-[1.125rem] font-bold leading-snug text-navy">
+                      <span className="block text-[1.125rem] font-semibold leading-snug text-navy">
                         Dải ngày rút còn {gridShrunkTo} ngày.
                       </span>
                       <span className="mt-0.5 block text-[1rem] font-semibold leading-snug text-foreground/75">
@@ -7951,14 +7943,14 @@ export default function FishingMapView() {
                    của luật cấm-mượn-khung, nay sai). Khối "Trong máy đang có:
                    [3 ngày]" cũng BỎ: có bản nào thì code đã tự dùng rồi. */
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-[0.9375rem] font-bold leading-snug text-danger">
+                  <p className="text-[0.9375rem] font-semibold leading-snug text-danger">
                     Chưa lấy được dự báo cả vùng biển — máy chưa có bản nào và
                     nguồn đang không cho tải.
                   </p>
                   <button
                     type="button"
                     onClick={() => setGridFailed(false)}
-                    className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[0.9375rem] font-bold text-white"
+                    className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[0.9375rem] font-semibold text-white"
                   >
                     Thử lại
                   </button>
@@ -7984,7 +7976,7 @@ export default function FishingMapView() {
           ) : errored ? (
             /* Máy CHỈ giữ số ở đúng chỗ đã xem — không mượn số chỗ khác nữa,
                nên chỗ lạ mà mất sóng thì nói thẳng là chưa có gì. */
-            <p className="py-3 text-[1rem] font-bold leading-snug text-danger">
+            <p className="py-3 text-[1rem] font-semibold leading-snug text-danger">
               Chỗ này chưa có số nào lưu trong máy — có sóng thì chạm lại để thử.
             </p>
           ) : cond && !cond.onSea ? (
@@ -7992,7 +7984,7 @@ export default function FishingMapView() {
               Chỗ này trên đất liền — chạm ra biển để xem gió sóng.
             </p>
           ) : allPast ? (
-            <p className="py-3 text-[1rem] font-bold leading-snug text-warn">
+            <p className="py-3 text-[1rem] font-semibold leading-snug text-warn">
               Số lưu trong máy ở chỗ này đã qua ngày hết
               {cond?.savedAt != null && ` (bản lưu ${clockVN(cond.savedAt)})`}. Có
               sóng lại máy sẽ tự lấy số mới.
@@ -8005,7 +7997,7 @@ export default function FishingMapView() {
               {cond?.stale &&
                 staleNoteOn &&
                 (cond.source === "saved-grid" ? (
-                  <p className="mb-1.5 flex items-center gap-1.5 rounded-full bg-warn-bg px-2.5 py-1.5 text-[0.8125rem] font-bold leading-snug text-warn">
+                  <p className="mb-1.5 flex items-center gap-1.5 rounded-full bg-warn-bg px-2.5 py-1.5 text-[0.8125rem] font-semibold leading-snug text-warn">
                     <AlertIcon className="h-4 w-4 shrink-0" />
                     <span>
                       Số gió, sóng lấy từ bản đã lưu
@@ -8015,7 +8007,7 @@ export default function FishingMapView() {
                     </span>
                   </p>
                 ) : (
-                  <p className="mb-1.5 flex items-center gap-1.5 rounded-full bg-warn-bg px-2.5 py-1.5 text-[0.8125rem] font-bold leading-snug text-warn">
+                  <p className="mb-1.5 flex items-center gap-1.5 rounded-full bg-warn-bg px-2.5 py-1.5 text-[0.8125rem] font-semibold leading-snug text-warn">
                     <AlertIcon className="h-4 w-4 shrink-0" />
                     <span>
                       Số cũ trong máy
@@ -8041,7 +8033,7 @@ export default function FishingMapView() {
                           aria-hidden
                         />
                         <span
-                          className="display text-[1.125rem] font-bold leading-snug"
+                          className="display text-[1.125rem] font-semibold leading-snug"
                           style={{ color: LEVEL_STYLE[sel.level].fg }}
                         >
                           {SEA_STATE[sel.level]}
@@ -8052,7 +8044,7 @@ export default function FishingMapView() {
                         (chip đang chọn). Chỉ khi bản dựng từ lưới (không chấm
                         được tình trạng biển) mới lấy tên ngày làm tiêu đề. */}
                     {!sel.level && (
-                      <span className="display text-[1.125rem] font-bold leading-snug text-navy">
+                      <span className="display text-[1.125rem] font-semibold leading-snug text-navy">
                         {dayLabel(sel.date, todayIso)}
                       </span>
                     )}
@@ -8084,7 +8076,7 @@ export default function FishingMapView() {
                    nguồn (bà con qua VSS Quân 2026-08-25: *"trỏ qua biên thì báo
                    vượt biên, chứ sao báo cách biên"*). */}
               {prox.applies && prox.level === "very_near" && (
-                <p className="mt-1 flex items-center gap-1.5 text-[0.875rem] font-bold text-danger">
+                <p className="mt-1 flex items-center gap-1.5 text-[0.875rem] font-semibold text-danger">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-danger" aria-hidden />
                   {prox.label}.
                 </p>
@@ -8137,14 +8129,14 @@ export default function FishingMapView() {
 
           {errored && (
             <>
-              <p className="rounded-xl bg-warn-bg px-3 py-2.5 text-[1rem] font-bold leading-snug text-warn">
+              <p className="rounded-xl bg-warn-bg px-3 py-2.5 text-[1rem] font-semibold leading-snug text-warn">
                 Lúc mất sóng, máy chỉ có số ở những chỗ bà con đã mở xem lúc còn
                 sóng. Chạm lại đúng chỗ đó để coi.
               </p>
               <button
                 type="button"
                 onClick={() => setRetry((n) => n + 1)}
-                className="min-h-[3.5rem] w-full rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+                className="min-h-[3.5rem] w-full rounded-xl bg-t1 text-[1.125rem] font-semibold text-white transition active:scale-[0.99]"
               >
                 Thử lại
               </button>
@@ -8343,7 +8335,7 @@ export default function FishingMapView() {
               {/* độ sâu tại chỗ này — đủ 6 lớp; ngoài lưới thì im */}
               {depthNote && (
                 <p
-                  className={`rounded-xl px-4 py-3 text-[1rem] font-bold ${
+                  className={`rounded-xl px-4 py-3 text-[1rem] font-semibold ${
                     depthNote.tone === "danger"
                       ? "bg-danger-bg text-danger"
                       : depthNote.tone === "warn"
@@ -8375,7 +8367,7 @@ export default function FishingMapView() {
                       <StarIcon className="h-4.5 w-4.5" />
                     )}
                   </span>
-                  <span className="flex-1 text-[0.9375rem] font-bold text-navy">
+                  <span className="flex-1 text-[0.9375rem] font-semibold text-navy">
                     Đã ghim: {currentPlace.name}
                   </span>
                   <span className="text-[0.8125rem] font-semibold text-foreground/60">
@@ -8384,7 +8376,7 @@ export default function FishingMapView() {
                 </div>
               ) : pinning ? (
                 <div className="surface p-3.5">
-                  <p className="mb-2 text-[0.9375rem] font-bold text-navy">
+                  <p className="mb-2 text-[0.9375rem] font-semibold text-navy">
                     Đặt tên cho chỗ này
                   </p>
                   <input
@@ -8401,14 +8393,14 @@ export default function FishingMapView() {
                         setPinning(false);
                         setPinName("");
                       }}
-                      className="min-h-[3.25rem] flex-1 rounded-xl bg-field text-[1rem] font-bold text-navy"
+                      className="min-h-[3.25rem] flex-1 rounded-xl bg-field text-[1rem] font-semibold text-navy"
                     >
                       Thôi
                     </button>
                     <button
                       type="button"
                       onClick={savePin}
-                      className="min-h-[3.25rem] flex-1 rounded-xl bg-t1 text-[1rem] font-bold text-white"
+                      className="min-h-[3.25rem] flex-1 rounded-xl bg-t1 text-[1rem] font-semibold text-white"
                     >
                       Lưu chỗ này
                     </button>
@@ -8421,7 +8413,7 @@ export default function FishingMapView() {
                     setPinName("");
                     setPinning(true);
                   }}
-                  className="flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-xl bg-field text-[1rem] font-bold text-navy transition active:scale-[0.99]"
+                  className="flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-xl bg-field text-[1rem] font-semibold text-navy transition active:scale-[0.99]"
                 >
                   <StarIcon className="h-5 w-5" />
                   Ghim chỗ này để mở nhanh lần sau

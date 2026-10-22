@@ -33,8 +33,18 @@ import { useOnline } from "@/lib/use-online";
 import { NOTIFY_HIDE_LONG_MS, NOTIFY_HIDE_MS } from "@/lib/notify";
 import { clockVN } from "@/lib/day-labels";
 import { beaufort } from "@/lib/marine-weather";
+import { capGioTuKmh } from "@/lib/storm-push";
 import { routeStormConflict } from "@/lib/route-storm";
 import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon } from "@/components/icons";
+
+/*  CẤP GIÓ BÃO — MỘT THANG VỚI THÔNG BÁO ĐẨY (sửa 2026-10-22, rà Taste "số liệu hai chỗ
+    phải khớp"): `beaufort()` dừng ở cấp 12, nên siêu bão 296 km/giờ hiện "cấp 12" trên thẻ
+    trong khi thông báo (storm-push `capGioTuKmh`, thang KTTV tới 17) ghi "cấp 17" — báo
+    thấp năm cấp đúng lúc nguy hiểm nhất. Gió bão (≥ cấp 6) lấy thang 17 cấp; dưới đó
+    (áp thấp yếu) mới lùi về Beaufort thường. */
+function capGioBao(kmh: number): number {
+  return capGioTuKmh(kmh) ?? beaufort(kmh);
+}
 
 export function StormBanner({
   variant = "page",
@@ -222,7 +232,7 @@ export function StormBanner({
         {status.storms.length === 1
           ? (() => {
               const s = status.storms[0];
-              const cap = s.windKmh != null ? ` cấp ${beaufort(s.windKmh)}` : "";
+              const cap = s.windKmh != null ? ` cấp ${capGioBao(s.windKmh)}` : "";
               return `${s.kindLabel}${s.name ? ` ${s.name}` : ""}${cap} — chạm để xem chi tiết`;
             })()
           : `Có ${status.storms.length} tin bão — chạm để xem chi tiết`}
@@ -246,7 +256,7 @@ export function StormBanner({
             role="alert"
             /*  nền màu cả thẻ + viền mảnh cùng tông, KHÔNG sọc màu dày bên trái
                 (sàn chất lượng Impeccable 2026-10-22: sọc trái >1px là khuôn mặc định) */
-            className={`flex items-start gap-3 rounded-xl border p-4 ${
+            className={`flex items-start rounded-xl border ${variant === "overlay" ? "gap-2 p-3" : "gap-3 p-4"} ${
               danger
                 ? "border-danger/30 bg-danger-bg"
                 : "border-warn/30 bg-warn-bg"
@@ -256,7 +266,7 @@ export function StormBanner({
               className={`mt-0.5 shrink-0 ${danger ? "text-danger" : "text-warn"}`}
               aria-hidden
             >
-              <AlertIcon className="h-7 w-7" />
+              <AlertIcon className={variant === "overlay" ? "h-5 w-5" : "h-7 w-7"} />
             </span>
             <div className="min-w-0">
               <p
@@ -271,11 +281,15 @@ export function StormBanner({
                 {s.kindLabel}
                 {s.name ? ` ${s.name}` : ""} đang trên vùng Biển Đông
               </p>
-              <p className={`mt-0.5 leading-snug text-foreground/80 ${variant === "page" ? "text-[1rem]" : "text-[1rem]"}`}>
+              {/*  THẺ TRÊN BẢN ĐỒ GỌN (rà Taste 2026-10-22: thẻ đầy đủ che ~40% bản đồ lúc
+                  mở). Vẫn bung một lần rồi tự thu như spec 07 §"1 Tính mạng" — chỉ bớt chữ:
+                  cùng câu cốt lõi (gió + cấp + đừng ra khơi + nghe đài), bỏ phần lặp. */}
+              <p className="mt-0.5 text-[1rem] leading-snug text-foreground/80">
                 {s.windKmh != null &&
-                  `Gió mạnh nhất khoảng ${s.windKmh} km/giờ (cấp ${beaufort(s.windKmh)}). `}
-                Đừng ra khơi vùng ảnh hưởng — nghe ngay đài duyên hải hoặc
-                đồn biên phòng.
+                  `Gió mạnh nhất khoảng ${s.windKmh} km/giờ (cấp ${capGioBao(s.windKmh)}). `}
+                {variant === "overlay"
+                  ? "Đừng ra khơi vùng ảnh hưởng — nghe đài duyên hải."
+                  : "Đừng ra khơi vùng ảnh hưởng — nghe ngay đài duyên hải hoặc đồn biên phòng."}
               </p>
               {/* GIỜ THẬT của bản tin — bão đi rất nhanh, tin mấy hôm trước
                   không được để trông như tin vừa xong.

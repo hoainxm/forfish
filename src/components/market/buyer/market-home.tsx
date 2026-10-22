@@ -137,7 +137,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
         {/* ── Mua lại (từ đơn đã hoàn thành trong máy) ─────────────────── */}
         {rebuy.length > 0 && (
           <section className="mb-5">
-            <SectionHeader className="px-0">Mua lại</SectionHeader>
+            <SectionHeader>Mua lại</SectionHeader>
             <ul className="-mx-4 flex gap-3 overflow-x-auto cuon-an px-4 pb-1">
               {rebuy.map((l) => (
                 <li key={`${l.productId}-${l.variantLabel ?? ""}`} className="surface w-[10.5rem] shrink-0 p-2">
@@ -195,13 +195,13 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
           <>
             {near.length > 0 && (
               <section className="mb-5">
-                <SectionHeader className="px-0">Gần bà con — {province}</SectionHeader>
+                <SectionHeader>Gần bà con — {province}</SectionHeader>
                 <ProductGrid items={near} isFav={fav.has} onFav={onFav} />
               </section>
             )}
 
             <section className="mb-5">
-              <SectionHeader className="px-0">Món mới về</SectionHeader>
+              <SectionHeader>Món mới về</SectionHeader>
               {fresh.length === 0 ? (
                 <EmptyState>Cửa hàng chưa có món nào. SDVICO đang mời các đại lý lên sàn.</EmptyState>
               ) : (
@@ -227,7 +227,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
         {/* ── Yêu thích (bản lưu trong máy — không cần mạng) ───────────── */}
         {fav.items.length > 0 && (
           <section className="mb-2">
-            <SectionHeader className="px-0">
+            <SectionHeader>
               <span className="inline-flex items-center gap-1.5">
                 <span style={{ color: "var(--sun)" }} aria-hidden>
                   <StarIcon className="h-5 w-5 fill-current" />

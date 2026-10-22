@@ -44,7 +44,7 @@ export function DongHoTocDo({ kmh, unit, stale }: { kmh: number; unit: DistUnit;
       aria-label={`Tốc độ tàu ${r.value} ${r.unit}${stale ? ", số GPS đã cũ" : ""}`}
       className="pointer-events-none flex flex-col items-start leading-none [text-shadow:0_0_2px_var(--card),0_0_4px_var(--card),0_0_8px_var(--card)]"
     >
-      <span aria-hidden className="text-[1.75rem] font-bold tabular-nums text-navy">
+      <span aria-hidden className="text-[1.75rem] font-semibold tabular-nums text-navy">
         {r.value}
       </span>
       <span aria-hidden className={`mt-0.5 text-[0.75rem] font-semibold ${stale ? "text-warn" : "text-navy/75"}`}>
@@ -63,7 +63,7 @@ export function NutViTri({ onClick, disabled }: { onClick: () => void; disabled?
       aria-label="Về chỗ tàu đang đứng"
       /*  CÙNG CỠ nút ⚠ chip dữ liệu ngay trên (anh Long: "kích thước nó nhỏ bằng
           cái dấu !"): vuông --h-ctl, viền mảnh, bóng nhẹ — hai nút một cột thẳng. */
-      className="pointer-events-auto flex h-(--h-ctl) w-(--h-ctl) items-center justify-center rounded-full border border-line bg-card/95 text-sea shadow-sm active:scale-95 disabled:opacity-50"
+      className="pointer-events-auto flex h-(--h-ctl) w-(--h-ctl) items-center justify-center rounded-full border border-line bg-card/95 text-sea shadow-sm transition active:scale-95 disabled:opacity-50"
     >
       <CrosshairIcon className="h-[1.125rem] w-[1.125rem]" aria-hidden />
     </button>

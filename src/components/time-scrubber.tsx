@@ -129,7 +129,7 @@ export function TimeScrubber({
                 className="relative flex h-full items-center justify-center border-l-2 border-navy/25 first:border-l-0"
                 style={{ width: DAY_PX }}
               >
-                <span className="whitespace-nowrap text-[0.75rem] font-bold text-navy">
+                <span className="whitespace-nowrap text-[0.75rem] font-semibold text-navy">
                   {scrubDayLabel(d.iso, todayIso)}
                 </span>
                 {/* nấc-giờ mờ: chia đều theo SỐ NẤC của ngày này */}
@@ -150,7 +150,7 @@ export function TimeScrubber({
             className="pointer-events-none absolute -top-5 bottom-0 z-10 -translate-x-1/2"
             style={{ left: playheadX }}
           >
-            <span className="absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap rounded-md bg-trim px-2 py-0.5 text-[0.75rem] font-bold text-white shadow">
+            <span className="absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap rounded-md bg-trim px-2 py-0.5 text-[0.75rem] font-semibold text-white shadow">
               {bubble}
             </span>
             <span className="absolute left-1/2 top-5 h-3 w-[0.1875rem] -translate-x-1/2 rounded bg-trim" />
@@ -160,7 +160,7 @@ export function TimeScrubber({
 
       {/* THANH DẢI MÀU cường độ (luôn hiện) — sát ray, không chừa hàng trống */}
       <div className="mt-1 flex items-center gap-2">
-        <span className="shrink-0 text-[0.75rem] font-bold text-foreground/60">
+        <span className="shrink-0 text-[0.75rem] font-semibold text-foreground/60">
           {legend.title} ({legend.unit})
         </span>
         <div className="min-w-0 flex-1">

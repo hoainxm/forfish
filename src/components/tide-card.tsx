@@ -47,7 +47,7 @@ function TrendChip({ trend }: { trend: TideTrend }) {
   const mau =
     trend === "len" ? "bg-t1-bg text-t1" : trend === "xuong" ? "bg-warn-bg text-warn" : "bg-field text-foreground/70";
   return (
-    <span className={`inline-flex min-h-[2rem] items-center rounded-full px-3 text-[0.875rem] font-bold ${mau}`}>
+    <span className={`inline-flex min-h-[2rem] items-center rounded-full px-3 text-[0.875rem] font-semibold ${mau}`}>
       {tideTrendText(trend)}
     </span>
   );
@@ -107,7 +107,7 @@ export function TideCard({
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2 text-t1">
           <WavesIcon className="h-5 w-5 shrink-0" />
-          <span className="truncate text-[0.9375rem] font-bold leading-snug">
+          <span className="truncate text-[0.9375rem] font-semibold leading-snug">
             Con nước · trạm {station.name}
           </span>
         </div>
@@ -153,7 +153,7 @@ export function TideCard({
       ) : (
         <ul className="mt-2 space-y-1.5">
           {card.nowM != null && (
-            <li className="flex items-center gap-2 text-[1rem] font-bold leading-snug text-navy">
+            <li className="flex items-center gap-2 text-[1rem] font-semibold leading-snug text-navy">
               <ClockIcon className="h-5 w-5 shrink-0 text-foreground/55" />
               <span>Lúc này {tideHeightText(card.nowM)}</span>
             </li>
@@ -501,7 +501,7 @@ export function TideDaysView({
             type="button"
             onClick={() => setSel(i)}
             aria-pressed={i === sel}
-            className={`min-h-[3.5rem] shrink-0 rounded-2xl px-3 text-[0.9375rem] font-bold leading-tight transition active:scale-95 ${
+            className={`min-h-[3.5rem] shrink-0 rounded-2xl px-3 text-[0.9375rem] font-semibold leading-tight transition active:scale-95 ${
               i === sel ? "bg-navy text-white" : "bg-field text-navy"
             }`}
           >
@@ -519,7 +519,7 @@ export function TideDaysView({
            chọn ngày gần ngón tay nhất (cả dải là một vùng chạm 56 px — 30 cột
            riêng lẻ chỉ 11 px, không đủ chạm); chip ở trên tự cuộn tới ngày đó. */}
       <div className="surface mt-3 p-3">
-        <p className="text-[0.9375rem] font-bold leading-snug text-navy">Cả chu kỳ · 30 ngày tới</p>
+        <p className="text-[0.9375rem] font-semibold leading-snug text-navy">Cả chu kỳ · 30 ngày tới</p>
         <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
           Cột cao là nước rong (lên xuống mạnh), cột thấp là nước kém. Chạm cột để xem ngày đó.
         </p>

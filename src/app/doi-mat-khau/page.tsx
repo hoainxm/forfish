@@ -108,7 +108,7 @@ export default function DoiMatKhauPage() {
           <AuthNote>Bà con cần đăng nhập trước rồi mới đổi được mật khẩu.</AuthNote>
           <Link
             href="/login"
-            className="display flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
+            className="display flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
           >
             Đăng nhập
           </Link>
@@ -273,7 +273,7 @@ export default function DoiMatKhauPage() {
           <>
             <p className="mt-5 text-[1rem] leading-snug text-foreground/70">
               Đổi mãi không được? Gọi{" "}
-              <a href={`tel:${HOTLINE}`} className="font-bold text-sea">
+              <a href={`tel:${HOTLINE}`} className="font-semibold text-sea">
                 SDVICO {HOTLINE_HIEN}
               </a>
             </p>
@@ -286,7 +286,7 @@ export default function DoiMatKhauPage() {
                   không gọi signOutLocal("user") nên bà con VẪN đang đăng nhập ⇒
                   đổi nhãn cho khớp việc nó thật sự làm (luật A4). Đổi HÀNH VI là
                   nghiệp vụ — phải hỏi BA, không làm trong đợt UI này. */
-              className="mt-3 inline-flex min-h-[3.5rem] items-center px-4 text-[1rem] font-bold text-sea transition active:scale-[0.98]"
+              className="mt-3 inline-flex min-h-[3.5rem] items-center px-4 text-[1rem] font-semibold text-sea transition active:scale-[0.98]"
             >
               Để sau
             </button>

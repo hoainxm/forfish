@@ -157,7 +157,7 @@ export function TheBaoHieu({ info, onClose, prefs }: { info: MarkInfo; onClose: 
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[1rem] font-bold leading-tight text-navy">
+          <p className="text-[1rem] font-semibold leading-tight text-navy">
             {seamarkLabel(info.mark.type)}
           </p>
           {/*  Câu mô tả gộp màu thân + đặc tính đèn thành tiếng Việt đọc
@@ -177,7 +177,7 @@ export function TheBaoHieu({ info, onClose, prefs }: { info: MarkInfo; onClose: 
               (info.mark as Partial<VnAid>).tacDung ?? undefined,
             );
             return huong ? (
-              <p className="mt-1 text-[0.9375rem] font-bold leading-snug text-navy">
+              <p className="mt-1 text-[0.9375rem] font-semibold leading-snug text-navy">
                 {huong}
               </p>
             ) : null;
@@ -213,7 +213,7 @@ export function TheDoSau({ info, onClose, prefs, tideStations, todayIso }: { inf
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[1.25rem] font-bold leading-tight text-navy">
+          <p className="text-[1.25rem] font-semibold leading-tight text-navy">
             Sâu {fmtDepthM(info.s.depthM)} m
           </p>
           {(() => {
@@ -228,7 +228,7 @@ export function TheDoSau({ info, onClose, prefs, tideStations, todayIso }: { inf
               <>
                 {txt && (
                   <p
-                    className={`mt-0.5 text-[0.9375rem] font-bold leading-snug ${
+                    className={`mt-0.5 text-[0.9375rem] font-semibold leading-snug ${
                       cu ? "text-danger" : "text-foreground/75"
                     }`}
                   >
@@ -287,7 +287,7 @@ export function TheDoSau({ info, onClose, prefs, tideStations, todayIso }: { inf
             return (
               <>
                 {canhBao && (
-                  <p className="mt-1 text-[0.9375rem] font-bold leading-snug text-danger">
+                  <p className="mt-1 text-[0.9375rem] font-semibold leading-snug text-danger">
                     {canhBao}
                   </p>
                 )}
@@ -325,7 +325,7 @@ export function TheDen({ info, onClose, prefs }: { info: DenInfo; onClose: () =>
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[1.125rem] font-bold leading-tight text-navy">
+          <p className="text-[1.125rem] font-semibold leading-tight text-navy">
             {tenDayDu(info.d)}
           </p>
           {moTaDenBien(info.d) && (
@@ -359,7 +359,7 @@ export function TheXacTau({ info, onClose, prefs }: { info: XacTauInfo; onClose:
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[1.125rem] font-bold leading-tight text-navy">
+          <p className="text-[1.125rem] font-semibold leading-tight text-navy">
             {xacTauLabel(info.x.loai)}
             {info.x.ten ? ` — ${info.x.ten}` : ""}
           </p>
@@ -402,7 +402,7 @@ export function TheChatDay({ info, onClose }: { info: ChatDayInfo; onClose: () =
           }}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[1.125rem] font-bold leading-tight text-navy">
+          <p className="text-[1.125rem] font-semibold leading-tight text-navy">
             Đáy: {chatDayLabel(info.ma)}
           </p>
           {/*  Gợi ý neo — đúng thứ chất đáy dùng để làm gì. Không phải luật
@@ -455,7 +455,7 @@ export function TheKhuTruBao({ info, onClose }: { info: KhuTruBaoInfo; onClose: 
           style={{ backgroundColor: KHU_TRU_BAO_COLOR }}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[1.125rem] font-bold leading-tight text-navy">
+          <p className="text-[1.125rem] font-semibold leading-tight text-navy">
             Trú bão: {info.k.ten}
           </p>
           <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-foreground/70">
@@ -510,7 +510,7 @@ export function TheVung({ info, onClose }: { info: VungInfo; onClose: () => void
           }}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[1.125rem] font-bold leading-tight text-navy">{info.v.ten}</p>
+          <p className="text-[1.125rem] font-semibold leading-tight text-navy">{info.v.ten}</p>
           {/*  Loại chỉ in khi TÊN chưa tự nói ("Khu bảo tồn biển Cù Lao Chàm" đã
                đủ; "Vùng biển Long Châu - Hạ Mai" thì cần "Vùng cấm khai thác có
                thời hạn" đứng trước). Cùng luật `moTaVung`. */}
@@ -532,7 +532,7 @@ export function TheVung({ info, onClose }: { info: VungInfo; onClose: () => void
             const nong = dang === "dang-cam" || dang === "hieu-luc";
             return (
               <p
-                className={`mt-1 text-[0.9375rem] font-bold leading-snug ${nong ? "text-danger" : "text-foreground/70"}`}
+                className={`mt-1 text-[0.9375rem] font-semibold leading-snug ${nong ? "text-danger" : "text-foreground/70"}`}
               >
                 {nong ? "Không thả lưới ở đây — " : ""}
                 {trangThaiText(info.v, new Date())}
@@ -580,7 +580,7 @@ export function TheRan({ info, onClose, bieuTuong, prefs }: { info: ReefInfo; on
       <div className="flex items-start gap-2">
         {bieuTuong(reefSymbolId(info.type))}
         <div className="min-w-0 flex-1">
-          <p className="text-[1.125rem] font-bold leading-tight text-navy">{info.ten}</p>
+          <p className="text-[1.125rem] font-semibold leading-tight text-navy">{info.ten}</p>
           <p
             className={`mt-0.5 text-[0.9375rem] font-semibold leading-snug ${
               info.type === "da" ? "text-danger" : "text-foreground/75"
@@ -630,7 +630,7 @@ export function TheLuong({ info, onClose, bieuTuong, prefs }: { info: LaneInfo; 
                   : "special",
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-[1.125rem] font-bold leading-tight text-navy">
+          <p className="text-[1.125rem] font-semibold leading-tight text-navy">
             {info.ten || "Hạ tầng trên biển"}
           </p>
           <p
@@ -681,7 +681,7 @@ export function TheDiaDanh({ info, onClose, bieuTuong, prefs }: { info: DiaDanhI
       <div className="flex items-start gap-2">
         {bieuTuong(diaDanhNgamSymbolId(info.loai))}
         <div className="min-w-0 flex-1">
-          <p className="text-[1.125rem] font-bold leading-tight text-navy">{info.ten}</p>
+          <p className="text-[1.125rem] font-semibold leading-tight text-navy">{info.ten}</p>
           <p className="mt-0.5 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
             {nhanLoaiDiaDanhNgam(info.loai) || "Địa hình đáy biển"} —{" "}
             {["nui", "day", "guyot", "song"].includes(info.loai)
@@ -731,9 +731,9 @@ export function TheMocBao({ info, onClose, prefs }: { info: StormPtInfo; onClose
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[1rem] font-bold leading-tight text-navy">
+          <p className="text-[1rem] font-semibold leading-tight text-navy">
             {info.ten}
-            <span className="ml-1.5 align-middle text-[0.8125rem] font-bold text-danger">
+            <span className="ml-1.5 align-middle text-[0.8125rem] font-semibold text-danger">
               {info.tuongLai ? "· dự báo" : "· đã qua"}
             </span>
           </p>
@@ -753,7 +753,7 @@ export function TheMocBao({ info, onClose, prefs }: { info: StormPtInfo; onClose
               </p>
             )}
           {info.cap != null && (
-            <p className="mt-1 text-[0.9375rem] font-bold text-danger">
+            <p className="mt-1 text-[0.9375rem] font-semibold text-danger">
               Cấp {info.cap}
               {info.giat != null
                 ? `, giật cấp ${info.giat}`
@@ -807,7 +807,7 @@ export function TheChang({ info, route, prefs, onClose }: { info: LegInfo; route
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[1rem] font-bold leading-tight text-navy">
+          <p className="text-[1rem] font-semibold leading-tight text-navy">
             {route.stops.length > 1
               ? `Chặng ${info.idx + 1} — tới điểm ${info.idx + 1}`
               : "Toàn bộ tuyến đường"}
@@ -819,7 +819,7 @@ export function TheChang({ info, route, prefs, onClose }: { info: LegInfo; route
           {/*  CỚ chỉ hiện khi CÓ cớ. Chặng xanh thì nói thẳng là không có
                gì đáng nói — im lặng ở đây dễ bị đọc thành "máy chưa kiểm". */}
           <p
-            className={`mt-1 text-[0.9375rem] font-bold leading-snug ${
+            className={`mt-1 text-[0.9375rem] font-semibold leading-snug ${
               route.legs[info.idx].risk === "red"
                 ? "text-danger"
                 : route.legs[info.idx].risk === "amber"

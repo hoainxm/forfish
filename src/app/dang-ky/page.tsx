@@ -216,7 +216,7 @@ export default function DangKyPage() {
         </form>
         <p className="mt-3 text-center text-[0.9375rem] leading-snug text-foreground/60">
           Tạo tài khoản tức là bà con đồng ý với{" "}
-          <Link href="/quyen-rieng-tu" className="font-bold text-sea underline">
+          <Link href="/quyen-rieng-tu" className="font-semibold text-sea underline">
             Chính sách quyền riêng tư
           </Link>
           .
@@ -228,7 +228,7 @@ export default function DangKyPage() {
           Đã có tài khoản?{" "}
           <Link
             href="/login"
-            className="inline-flex min-h-[3.5rem] items-center px-2 font-bold text-sea"
+            className="inline-flex min-h-[3.5rem] items-center px-2 font-semibold text-sea"
           >
             Đăng nhập
           </Link>

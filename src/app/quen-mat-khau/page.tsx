@@ -96,7 +96,7 @@ export default function QuenMatKhauPage() {
           </p>
           <Link
             href="/login"
-            className="display flex min-h-[3.75rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+            className="display flex min-h-[3.75rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white shadow-trim-cta transition active:scale-[0.98]"
           >
             Về trang đăng nhập
           </Link>
@@ -169,7 +169,7 @@ export default function QuenMatKhauPage() {
             vẫn ≥3.5rem (luật A2/A3/A5). */}
         <Link
           href="/login"
-          className="mt-3 inline-flex min-h-[3.5rem] items-center px-4 text-[1rem] font-bold text-sea transition active:scale-[0.98]"
+          className="mt-3 inline-flex min-h-[3.5rem] items-center px-4 text-[1rem] font-semibold text-sea transition active:scale-[0.98]"
         >
           Quay lại đăng nhập
         </Link>

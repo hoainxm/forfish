@@ -68,7 +68,7 @@ export function PasswordField({
           type="button"
           onClick={() => setShown((s) => !s)}
           aria-pressed={shown}
-          className="absolute inset-y-0 right-0 flex min-w-[3.5rem] items-center justify-center rounded-r-2xl text-[0.9375rem] font-bold text-sea"
+          className="absolute inset-y-0 right-0 flex min-w-[3.5rem] items-center justify-center rounded-r-2xl text-[0.9375rem] font-semibold text-sea"
         >
           {shown ? "Ẩn" : "Hiện"}
         </button>

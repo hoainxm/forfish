@@ -68,11 +68,11 @@ export function TileLoadDebug({
       role="status"
       aria-label="Kiểm tra tải bản đồ"
     >
-      <p className="mb-1 font-bold">Tải ô bản đồ</p>
+      <p className="mb-1 font-semibold">Tải ô bản đồ</p>
       <p className="mb-1">
         Bản máy: {LOCAL_BUILD_ID || "(trống)"} · máy chủ: {serverBuild ?? "…"}
         {serverBuild && LOCAL_BUILD_ID && serverBuild !== LOCAL_BUILD_ID ? (
-          <span className="block font-bold text-danger">↳ Máy đang chạy BẢN CŨ</span>
+          <span className="block font-semibold text-danger">↳ Máy đang chạy BẢN CŨ</span>
         ) : null}
       </p>
       {rows.length === 0 ? (

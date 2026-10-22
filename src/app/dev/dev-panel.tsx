@@ -122,13 +122,13 @@ export function DevPanel() {
       ) : (
         <StatusBanner level="neutral">Chưa đăng nhập. Chọn một persona bên dưới.</StatusBanner>
       )}
-      {note && <p className="mt-3 text-[1rem] font-bold text-navy">{note}</p>}
+      {note && <p className="mt-3 text-[1rem] font-semibold text-navy">{note}</p>}
 
       <ul className="mt-4 flex flex-col gap-2">
         {state.items.map((p) => (
           <li key={p.phone} className="surface flex min-h-[3.5rem] items-center gap-3 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[1.125rem] font-bold text-navy">{p.name}</p>
+              <p className="text-[1.125rem] font-semibold text-navy">{p.name}</p>
               <p className="text-[1rem] text-foreground/70">
                 {ROLE_LABEL[p.role]} · {p.phone} · {p.tier === "premium" ? "premium" : "basic"}
               </p>

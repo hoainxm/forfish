@@ -87,7 +87,7 @@ function ItemRow({ item }: { item: CheckItem }) {
     <li className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0">
       <StatusIcon status={item.status} />
       <span className="min-w-0 flex-1">
-        <span className="block text-[1.125rem] font-bold leading-snug text-navy">
+        <span className="block text-[1.125rem] font-semibold leading-snug text-navy">
           {item.label}
         </span>
         <span className="block text-[0.875rem] leading-snug text-foreground/65">
@@ -95,7 +95,7 @@ function ItemRow({ item }: { item: CheckItem }) {
         </span>
       </span>
       <span
-        className="shrink-0 rounded-full px-2.5 py-1 text-[0.8125rem] font-bold"
+        className="shrink-0 rounded-full px-2.5 py-1 text-[0.8125rem] font-semibold"
         style={{ color: ui.color, backgroundColor: ui.bg }}
       >
         {ui.word}
@@ -139,7 +139,7 @@ export function DepartureChecklist() {
     return (
       <div className="mb-4 px-4">
         <Card className="p-4">
-          <p className="display flex items-center gap-2 text-[1.125rem] font-bold text-navy">
+          <p className="display flex items-center gap-2 text-[1.125rem] font-semibold text-navy">
             <AnchorIcon className="h-6 w-6 text-t3" />
             Checklist xuất bến
           </p>
@@ -193,11 +193,11 @@ export function DepartureChecklist() {
       <Card className="overflow-hidden p-0">
         {/* Đèn lớn */}
         <div className="px-4 py-3.5" style={{ backgroundColor: r.bg }}>
-          <p className="text-[0.8125rem] font-bold text-foreground/65">
+          <p className="text-[0.8125rem] font-semibold text-foreground/65">
             {check.groupLabel}
           </p>
           <p
-            className="display mt-0.5 text-[1.25rem] font-bold leading-tight"
+            className="display mt-0.5 text-[1.25rem] font-semibold leading-tight"
             style={{ color: r.fg }}
           >
             {r.title}
@@ -217,7 +217,7 @@ export function DepartureChecklist() {
 
         {manualItems.length > 0 && (
           <div className="border-t-4 border-background">
-            <p className="px-4 pb-1 pt-3 text-[0.8125rem] font-bold text-foreground/65">
+            <p className="px-4 pb-1 pt-3 text-[0.8125rem] font-semibold text-foreground/65">
               Tự kiểm thêm (app không thấy được)
             </p>
             <ul>
@@ -231,7 +231,7 @@ export function DepartureChecklist() {
 
       {/* Mốc nghĩa vụ khai báo — app CHỈ NHẮC, không khai hộ */}
       <Card className="mt-3 p-4">
-        <p className="display text-[1.125rem] font-bold text-navy">
+        <p className="display text-[1.125rem] font-semibold text-navy">
           Mốc khai báo phải nhớ
         </p>
         <ul className="mt-2 space-y-2.5">
@@ -240,11 +240,11 @@ export function DepartureChecklist() {
             return (
               <li key={m.id}>
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-[1rem] font-bold leading-snug text-navy">
+                  <span className="text-[1rem] font-semibold leading-snug text-navy">
                     {m.label}
                   </span>
                   <span
-                    className="shrink-0 rounded-full px-2.5 py-1 text-[0.8125rem] font-bold"
+                    className="shrink-0 rounded-full px-2.5 py-1 text-[0.8125rem] font-semibold"
                     style={{
                       color: active ? "var(--danger)" : "var(--warn)",
                       backgroundColor: active
@@ -282,7 +282,7 @@ export function DepartureChecklist() {
       {boatCrew.some((m) => !m.hasInsurance) && (
         <Link
           href="/nguoi"
-          className="mt-2 block text-center text-[0.9375rem] font-bold text-t2 underline"
+          className="mt-2 block text-center text-[0.9375rem] font-semibold text-t2 underline"
         >
           Mở sổ thuyền viên để bổ sung bảo hiểm
         </Link>

@@ -5,6 +5,7 @@ import { UrgentWithInstall } from "@/components/install-prompt";
 import { InboxSection } from "@/components/inbox-section";
 import { StormBanner } from "@/components/storm-banner";
 import { TideHomeCard } from "@/components/tide-home-card";
+import { SeaTodayCard } from "@/components/sea-today-card";
 
 /*
   TRANG CHỦ — "hôm nay có gì cần biết, cần làm" (làm lại 2026-10-19, dock 5 mục
@@ -15,6 +16,9 @@ import { TideHomeCard } from "@/components/tide-home-card";
     2. Việc cần làm (giấy tờ sắp hết hạn, bảo dưỡng, nợ…) + nhắc cài về máy.
     3. Thông báo — đọc được ngay, tin mới đánh dấu.
     4. Con nước cảng nhà.
+  2026-10-22 (rà Taste "màn trả lời câu hỏi của nó bằng khối to nhất"): ngay dưới tin
+  bão là thẻ BIỂN HÔM NAY ở cảng nhà (mô tả, không phán đi/không) — câu bà con hỏi
+  mỗi sáng; chữ trạng thái 1.5rem là chữ to nhất màn, ngang tiêu đề.
   BỎ bốn thẻ nhóm việc (Ra khơi/Tàu cá/Bạn thuyền/Giao dịch): chúng nhắc lại đúng
   dock bên dưới. BỎ bộ chọn tàu: chọn tàu chỉ ở Tàu tôi › Hồ sơ tàu. Sen Biển là
   icon nổi (app-shell) — không có khối riêng ở đây.
@@ -32,6 +36,7 @@ export default function Home() {
       <div className="space-y-5 px-4 pt-1">
         <div className="space-y-3">
           <StormBanner variant="page" always />
+          <SeaTodayCard />
           <KickedNotice />
         </div>
         <UrgentWithInstall>

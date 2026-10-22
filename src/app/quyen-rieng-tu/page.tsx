@@ -47,7 +47,7 @@ function Section({
 }) {
   return (
     <section id={id} className="mb-6">
-      <h2 className="display mb-2 text-[1.25rem] font-bold text-navy">{title}</h2>
+      <h2 className="display mb-2 text-[1.25rem] font-semibold text-navy">{title}</h2>
       <div className="space-y-2.5 text-[1rem] leading-relaxed text-foreground/85">
         {children}
       </div>
@@ -74,7 +74,7 @@ export default function QuyenRiengTuPage() {
       <div className="px-4 pt-3">
         <Link
           href="/"
-          className="inline-flex min-h-[3.5rem] items-center gap-1.5 text-[1rem] font-bold text-sea"
+          className="inline-flex min-h-[3.5rem] items-center gap-1.5 text-[1rem] font-semibold text-sea"
         >
           <ChevronLeftIcon className="h-5 w-5" />
           Quay lại
@@ -212,7 +212,7 @@ export default function QuyenRiengTuPage() {
             </li>
             <li>
               <b>Hỗ trợ xoá vĩnh viễn tài khoản và dữ liệu hệ thống nếu bà con có yêu cầu</b>: gọi SDVICO{" "}
-              <a href={`tel:${SDVICO_HOTLINE}`} className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
+              <a href={`tel:${SDVICO_HOTLINE}`} className="inline-flex min-h-[3.5rem] items-center font-semibold text-sea underline">
                 {SDVICO_HOTLINE_DISPLAY}
               </a>{" "}
               — sẽ xoá trong thời gian hợp lý.
@@ -231,11 +231,11 @@ export default function QuyenRiengTuPage() {
         <Section id="lien-he" title="6. Thông tin liên hệ">
           <p>
             Thắc mắc về quyền riêng tư, gọi tổng đài SDVICO{" "}
-            <a href={`tel:${SDVICO_HOTLINE}`} className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
+            <a href={`tel:${SDVICO_HOTLINE}`} className="inline-flex min-h-[3.5rem] items-center font-semibold text-sea underline">
               {SDVICO_HOTLINE_DISPLAY}
             </a>
             , hoặc qua website{" "}
-            <a href="https://sdvico.vn" className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
+            <a href="https://sdvico.vn" className="inline-flex min-h-[3.5rem] items-center font-semibold text-sea underline">
               sdvico.vn
             </a>
             .
@@ -253,14 +253,14 @@ export default function QuyenRiengTuPage() {
           <p>
             Mô hình đó là bản SDVICO đã chỉnh sửa (huấn luyện thêm, thu gọn) từ Gemma của Google.{" "}
             <b>Gemma is provided under and subject to the Gemma Terms of Use found at{" "}
-            <a href="https://ai.google.dev/gemma/terms" className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
+            <a href="https://ai.google.dev/gemma/terms" className="inline-flex min-h-[3.5rem] items-center font-semibold text-sea underline">
               ai.google.dev/gemma/terms
             </a>
             .</b>
           </p>
           <p>
             Khi dùng tính năng này, bà con đồng ý không dùng nó vào các việc bị cấm theo{" "}
-            <a href="https://ai.google.dev/gemma/prohibited_use_policy" className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
+            <a href="https://ai.google.dev/gemma/prohibited_use_policy" className="inline-flex min-h-[3.5rem] items-center font-semibold text-sea underline">
               Chính sách sử dụng bị cấm của Gemma
             </a>{" "}
             (Gemma Terms of Use, mục 3.2). Câu trả lời của Sen Biển chỉ để tham khảo, đọc từ dữ liệu bản đồ

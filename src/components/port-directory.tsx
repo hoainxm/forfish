@@ -56,12 +56,12 @@ export function PortDirectory() {
           <li key={p.id}>
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
-                <p className="display flex min-w-0 items-center gap-2 text-[1.125rem] font-bold leading-snug text-navy">
+                <p className="display flex min-w-0 items-center gap-2 text-[1.125rem] font-semibold leading-snug text-navy">
                   <AnchorIcon className="h-5 w-5 shrink-0 text-t3" />
                   {p.name}
                 </p>
                 {p.klass && (
-                  <span className="shrink-0 rounded-full bg-t3-bg px-2 py-0.5 text-[0.75rem] font-bold text-t3">
+                  <span className="shrink-0 rounded-full bg-t3-bg px-2 py-0.5 text-[0.75rem] font-semibold text-t3">
                     {PORT_CLASS_LABEL[p.klass]}
                   </span>
                 )}

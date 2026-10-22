@@ -18,7 +18,11 @@ export default function NguTruongPage() {
   // iOS (pwa-frame): cao = --app-vh − --dock-total, khớp DockFrame.
   return (
     <div className="full-map fixed inset-x-0 top-0 mx-auto max-w-(--w-app)">
-      <RequireLogin what="bản đồ ngư trường">
+      {/* MỘT h1 mỗi màn (rà Taste 2026-10-22, bộ đo FAIL `no-title`): khách thấy câu khoá
+          làm tiêu đề; đã đăng nhập thì bản đồ phủ kín màn — tiêu đề chỉ cho trình đọc màn
+          hình, không lấy chỗ của bản đồ. */}
+      <RequireLogin what="bản đồ ngư trường" laTieuDeChinh>
+        <h1 className="sr-only">Bản đồ ngư trường</h1>
         <FishingMap />
       </RequireLogin>
     </div>

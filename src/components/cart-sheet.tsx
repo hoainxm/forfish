@@ -227,11 +227,11 @@ export function CartSheet({
           style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
         >
           <CheckIcon className="mx-auto h-11 w-11" />
-          <p className="mt-3 text-[1.125rem] font-bold">Đã gửi đơn đặt hàng</p>
+          <p className="mt-3 text-[1.125rem] font-semibold">Đã gửi đơn đặt hàng</p>
           {/* xác nhận CÓ SỐ: mã đơn (nếu máy chủ trả) + tổng + SĐT nhận —
               để bà con đối chiếu lúc nhà cung cấp gọi (audit G4/G6) */}
           {placed && (
-            <p className="mt-2 text-[1rem] font-bold tabular-nums text-navy">
+            <p className="mt-2 text-[1rem] font-semibold tabular-nums text-navy">
               {placed.id ? `Mã đơn ${placed.id.slice(0, 8).toUpperCase()} · ` : ""}
               Tổng {formatVnd(placed.totalVnd)} · Gọi số{" "}
               {placed.contactPhone}
@@ -260,7 +260,7 @@ export function CartSheet({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[3.75rem] w-full rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className="min-h-[3.75rem] w-full rounded-full bg-field text-[1.125rem] font-semibold text-foreground/70"
           >
             Đóng
           </button>
@@ -281,7 +281,7 @@ export function CartSheet({
             {available && product ? (
               <>
                 <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 text-[1rem] font-bold leading-snug text-navy">
+                  <p className="min-w-0 text-[1rem] font-semibold leading-snug text-navy">
                     {product.title}
                   </p>
                   <button
@@ -293,7 +293,7 @@ export function CartSheet({
                     className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-danger active:bg-danger-bg"
                   >
                     <TrashIcon className="h-6 w-6" />
-                    <span className="text-[0.75rem] font-bold leading-none">Bỏ mặt hàng</span>
+                    <span className="text-[0.75rem] font-semibold leading-none">Bỏ mặt hàng</span>
                   </button>
                 </div>
                 <p className="mt-0.5 text-[0.9375rem] text-foreground/70">
@@ -307,7 +307,7 @@ export function CartSheet({
                     }
                     label={product.title}
                   />
-                  <p className="text-[1rem] font-bold text-navy">
+                  <p className="text-[1rem] font-semibold text-navy">
                     {formatVnd((product.priceVnd ?? 0) * line.qty)}
                   </p>
                 </div>
@@ -327,7 +327,7 @@ export function CartSheet({
                   className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-danger active:bg-danger-bg"
                 >
                   <TrashIcon className="h-6 w-6" />
-                  <span className="text-[0.75rem] font-bold leading-none">Bỏ mặt hàng</span>
+                  <span className="text-[0.75rem] font-semibold leading-none">Bỏ mặt hàng</span>
                 </button>
               </div>
             )}
@@ -355,8 +355,8 @@ export function CartSheet({
 
       {/* ── Tổng tiền ───────────────────────────────────────────────── */}
       <div className="mt-3 flex items-center justify-between rounded-2xl bg-navy px-4 py-3 text-white">
-        <span className="text-[1rem] font-bold">Tổng cộng</span>
-        <span className="display text-[1.125rem] font-bold">
+        <span className="text-[1rem] font-semibold">Tổng cộng</span>
+        <span className="display text-[1.125rem] font-semibold">
           {formatVnd(total)}
         </span>
       </div>
@@ -371,7 +371,7 @@ export function CartSheet({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] leading-snug text-foreground/80">
               Giao:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {[
                   deliveryLocation.trim() || "chưa ghi địa chỉ nhận",
                   contactName.trim(),
@@ -448,7 +448,7 @@ export function CartSheet({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Ghi chú:{" "}
-              <span className="font-bold text-navy">
+              <span className="font-semibold text-navy">
                 {note.trim() || "chưa ghi"}
               </span>
             </p>
@@ -503,7 +503,7 @@ export function CartSheet({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-semibold text-foreground/70"
           >
             Đóng
           </button>
@@ -535,13 +535,13 @@ export function QtyStepper({
         type="button"
         onClick={() => onChange(qty - 1)}
         aria-label={`Bớt ${label}`}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-card text-navy shadow-sm active:scale-[0.95]"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-card text-navy shadow-sm transition active:scale-[0.95]"
       >
         <MinusIcon className="h-6 w-6" />
       </button>
       <span
         aria-live="polite"
-        className="min-w-[2.75rem] text-center text-[1.25rem] font-bold text-navy"
+        className="min-w-[2.75rem] text-center text-[1.25rem] font-semibold text-navy"
       >
         {qty}
       </span>
@@ -549,7 +549,7 @@ export function QtyStepper({
         type="button"
         onClick={() => onChange(qty + 1)}
         aria-label={`Thêm ${label}`}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-card text-navy shadow-sm active:scale-[0.95]"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-card text-navy shadow-sm transition active:scale-[0.95]"
       >
         <PlusIcon className="h-6 w-6" />
       </button>

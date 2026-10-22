@@ -65,7 +65,7 @@ export function SavedPlaceMarker({
         </span>
         <span
           aria-hidden
-          className="mt-0.5 max-w-[6.875rem] truncate rounded bg-white/85 px-1.5 text-[0.625rem] font-bold leading-tight text-navy shadow-sm"
+          className="mt-0.5 max-w-[6.875rem] truncate rounded bg-white/85 px-1.5 text-[0.625rem] font-semibold leading-tight text-navy shadow-sm"
         >
           {pl.name}
         </span>

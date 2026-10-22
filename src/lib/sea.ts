@@ -4,7 +4,8 @@
 //   · api.open-meteo.com         → gió, mưa
 // Điểm số chỉ để tham khảo — UI phải luôn kèm lời nhắc nghe đài duyên hải.
 
-import type { FishingPort } from "@/data/ports";
+import { PORTS, type FishingPort } from "@/data/ports";
+import { haversineKm, type LatLon } from "@/lib/geo";
 import { apiUrl } from "@/lib/api-base";
 import { seaSnapshotId } from "@/lib/weather-snapshot-id";
 import { isCacheCurrent } from "@/lib/source-cadence";
@@ -93,6 +94,30 @@ export function levelOf(score: number): SeaLevel {
   if (score >= 75) return "good";
   if (score >= 50) return "caution";
   return "bad";
+}
+
+/*  TÌNH TRẠNG BIỂN — MÔ TẢ, KHÔNG phán "đi hay không đi" (bà con có lịch chuyến của
+    mình; app đưa điều kiện, quyết là việc của thuyền trưởng). Một nguồn cho Bản đồ và
+    Trang chủ (dời từ fishing-map-view 2026-10-22 — hai màn phải nói cùng một chữ). */
+export const SEA_STATE: Record<SeaLevel, string> = {
+  good: "Biển êm",
+  caution: "Biển động nhẹ",
+  bad: "Biển động mạnh",
+};
+
+/** Cảng có dự báo biển (PORTS) gần điểm `p` nhất, trong `maxKm`; xa hơn ⇒ null —
+    dự báo một cảng cách 300 km không phải "biển hôm nay" của bà con. */
+export function cangDuBaoGanNhat(p: LatLon, maxKm = 150): FishingPort | null {
+  let best: FishingPort | null = null;
+  let bestKm = Infinity;
+  for (const port of PORTS) {
+    const km = haversineKm(p, { lat: port.lat, lon: port.lon });
+    if (km < bestKm) {
+      bestKm = km;
+      best = port;
+    }
+  }
+  return best && bestKm <= maxKm ? best : null;
 }
 
 export const LEVEL_LABEL: Record<SeaLevel, string> = {

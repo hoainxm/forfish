@@ -50,7 +50,7 @@ export function LoginGate({
       >
         <LockIcon className="h-7 w-7" />
       </span>
-      <p className="display mt-3 text-[1.25rem] font-bold text-navy">
+      <p className="display mt-3 text-[1.25rem] font-semibold text-navy">
         Đăng nhập để {[verb, feature].filter(Boolean).join(" ")}
       </p>
       <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-foreground/65">
@@ -61,13 +61,13 @@ export function LoginGate({
       </p>
       <Link
         href="/dang-ky"
-        className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+        className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white shadow-trim-cta transition active:scale-[0.98]"
       >
         Đăng ký
       </Link>
       <Link
         href="/login"
-        className="mx-auto mt-2 inline-flex min-h-[3.5rem] items-center px-2 text-[1rem] font-bold text-sea"
+        className="mx-auto mt-2 inline-flex min-h-[3.5rem] items-center px-2 text-[1rem] font-semibold text-sea"
       >
         Đã có tài khoản — Đăng nhập
       </Link>

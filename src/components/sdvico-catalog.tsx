@@ -270,7 +270,7 @@ export function SdvicoCatalog({
 
   return (
     <div>
-      <h3 className="display mb-1 px-1 text-[1.125rem] font-bold text-navy">
+      <h3 className="display mb-1 px-1 text-[1.125rem] font-semibold text-navy">
         Cửa hàng
       </h3>
       <p className="mb-3 px-1 text-[0.9375rem] text-foreground/70">
@@ -322,7 +322,7 @@ export function SdvicoCatalog({
       {/* ════ MỖI NHÓM: SDVICO trước; món đặt được → thẻ giỏ, còn lại → hỏi mua ══ */}
       {visibleGroups.map((grp) => (
         <section key={grp.id ?? "khac"} className="mb-5">
-          <h4 className="display mb-2 px-1 text-[1.125rem] font-bold text-t3">
+          <h4 className="display mb-2 px-1 text-[1.125rem] font-semibold text-t3">
             {grp.label}
           </h4>
           <ul className="space-y-3">
@@ -351,7 +351,7 @@ export function SdvicoCatalog({
       {/* hotline = khối bấm được tử tế, không phải dòng chữ mờ cuối trang */}
       <a
         href={`tel:${SDVICO_HOTLINE}`}
-        className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-navy text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
+        className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-navy text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
       >
         <PhoneIcon className="h-5 w-5" />
         Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}
@@ -375,7 +375,7 @@ export function SdvicoCatalog({
         >
           <CartIcon className="h-7 w-7" />
           {count > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-7 min-w-7 items-center justify-center rounded-full border-2 border-background bg-navy px-1.5 text-[0.8125rem] font-bold text-white">
+            <span className="absolute -right-1 -top-1 flex h-7 min-w-7 items-center justify-center rounded-full border-2 border-background bg-navy px-1.5 text-[0.8125rem] font-semibold text-white">
               {count > 99 ? "99+" : count}
             </span>
           )}
@@ -444,7 +444,7 @@ function OrderableCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="display text-[1.125rem] font-bold leading-snug text-navy">
+          <p className="display text-[1.125rem] font-semibold leading-snug text-navy">
             {p.title}
           </p>
           {p.description && (
@@ -452,7 +452,7 @@ function OrderableCard({
               {p.description}
             </p>
           )}
-          <p className="mt-1 text-[1.125rem] font-bold text-t3">
+          <p className="mt-1 text-[1.125rem] font-semibold text-t3">
             {formatVnd(p.priceVnd ?? 0)}
             <span className="text-[0.875rem] font-semibold text-foreground/60">
               {" "}
@@ -472,7 +472,7 @@ function OrderableCard({
         <button
           type="button"
           onClick={add}
-          className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-2 rounded-full bg-trim px-4 text-[1.125rem] font-bold text-white shadow-trim-btn transition active:scale-[0.97]"
+          className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-2 rounded-full bg-trim px-4 text-[1.125rem] font-semibold text-white shadow-trim-btn transition active:scale-[0.97]"
         >
           <CartIcon className="h-5 w-5" />
           {inCartQty > 0 ? `Đã thêm (${inCartQty})` : "Thêm vào giỏ hàng"}
@@ -515,18 +515,18 @@ function InquiryCard({
 
         <div className="min-w-0 flex-1">
           {external ? (
-            <p className="text-[0.75rem] font-bold text-t3">
+            <p className="text-[0.75rem] font-semibold text-t3">
               Đơn vị: {p.vendorName}
             </p>
           ) : (
             owned && (
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.75rem] font-bold" style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}>
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold" style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}>
                 <CheckIcon className="h-3 w-3" />
                 Đang dùng
               </span>
             )
           )}
-          <p className="display text-[1.125rem] font-bold leading-snug text-navy">
+          <p className="display text-[1.125rem] font-semibold leading-snug text-navy">
             {p.title}
           </p>
           {p.description && (
@@ -551,7 +551,7 @@ function InquiryCard({
             {p.contactPhone && (
               <a
                 href={`tel:${p.contactPhone}`}
-                className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-t3 px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
+                className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-t3 px-4 text-[0.9375rem] font-semibold text-white transition active:scale-[0.97]"
               >
                 <PhoneIcon className="h-4 w-4" />
                 Gọi {p.contactPhone}
@@ -587,7 +587,7 @@ function DetailLink({ onDetail }: { onDetail: () => void }) {
     <button
       type="button"
       onClick={onDetail}
-      className="mt-1.5 inline-flex min-h-[2.75rem] items-center gap-0.5 text-[0.9375rem] font-bold text-sea"
+      className="mt-1.5 inline-flex min-h-[2.75rem] items-center gap-0.5 text-[0.9375rem] font-semibold text-sea"
     >
       Xem chi tiết
       <ChevronRightIcon className="h-4 w-4" />
@@ -623,7 +623,7 @@ function ProductDetailSheet({
         {(p.category || d.models) && (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {p.category && (
-              <span className="rounded-full bg-t3-bg px-3 py-1 text-[0.875rem] font-bold text-t3">
+              <span className="rounded-full bg-t3-bg px-3 py-1 text-[0.875rem] font-semibold text-t3">
                 {p.category}
               </span>
             )}
@@ -641,7 +641,7 @@ function ProductDetailSheet({
 
         {d.forWho && (
           <div>
-            <h4 className="display text-[1rem] font-bold text-navy">Phù hợp cho</h4>
+            <h4 className="display text-[1rem] font-semibold text-navy">Phù hợp cho</h4>
             <p className="mt-1 text-[1.125rem] leading-relaxed text-foreground/85">
               {d.forWho}
             </p>
@@ -650,7 +650,7 @@ function ProductDetailSheet({
 
         {d.benefits && d.benefits.length > 0 && (
           <div>
-            <h4 className="display text-[1rem] font-bold text-navy">Lợi ích mang lại</h4>
+            <h4 className="display text-[1rem] font-semibold text-navy">Lợi ích mang lại</h4>
             <ul className="mt-1 space-y-1.5">
               {d.benefits.map((b, i) => (
                 <li
@@ -667,7 +667,7 @@ function ProductDetailSheet({
 
         {d.specs && d.specs.length > 0 && (
           <div>
-            <h4 className="display mb-1 text-[1rem] font-bold text-navy">
+            <h4 className="display mb-1 text-[1rem] font-semibold text-navy">
               Thông số kỹ thuật
             </h4>
             <dl className="overflow-hidden rounded-2xl border border-line">
@@ -690,7 +690,7 @@ function ProductDetailSheet({
 
         {d.variant && (
           <div className="rounded-2xl bg-field px-3.5 py-3">
-            <h4 className="display text-[0.9375rem] font-bold text-navy">
+            <h4 className="display text-[0.9375rem] font-semibold text-navy">
               Bản cơ và bản điện
             </h4>
             <p className="mt-1 text-[1rem] leading-relaxed text-foreground/80">
@@ -713,7 +713,7 @@ function ProductDetailSheet({
               {p.contactPhone && (
                 <a
                   href={`tel:${p.contactPhone}`}
-                  className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-navy text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
+                  className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-navy text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
                 >
                   <PhoneIcon className="h-5 w-5" />
                   Gọi {p.contactPhone}
@@ -729,7 +729,7 @@ function ProductDetailSheet({
               />
               <a
                 href={`tel:${SDVICO_HOTLINE}`}
-                className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1.125rem] font-bold text-navy transition active:scale-[0.98]"
+                className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1.125rem] font-semibold text-navy transition active:scale-[0.98]"
               >
                 <PhoneIcon className="h-5 w-5" />
                 Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}

@@ -281,7 +281,7 @@ export function SnapSheet({
                 type="button"
                 onClick={() => onSizeChange("hidden")}
                 aria-label="Thu bảng sang phải"
-                className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 @max-[15rem]:h-9 @max-[15rem]:w-9 items-center justify-center rounded-full bg-field text-navy active:scale-95"
+                className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 @max-[15rem]:h-9 @max-[15rem]:w-9 items-center justify-center rounded-full bg-field text-navy transition active:scale-95"
               >
                 <ChevronRightIcon className="h-4 w-4" />
               </button>
@@ -296,7 +296,7 @@ export function SnapSheet({
                     type="button"
                     onClick={() => setWide(true)}
                     aria-expanded={false}
-                    className="mt-2 flex h-(--h-ctl) w-full items-center justify-center gap-1 rounded-full bg-field text-[0.8125rem] font-semibold text-navy active:scale-[0.98]"
+                    className="mt-2 flex h-(--h-ctl) w-full items-center justify-center gap-1 rounded-full bg-field text-[0.8125rem] font-semibold text-navy transition active:scale-[0.98]"
                   >
                     Xem đủ
                     <ChevronDownIcon className="h-4 w-4" />
@@ -331,7 +331,9 @@ export function SnapSheet({
       style={{
         // chỉ còn `half` là nấc mở — 55% khung map, thân sheet cuộn trong.
         height: size === "half" ? "55%" : "auto",
-        transition: "height 200ms ease",
+        /* KHÔNG transition `height` (rà Emil 2026-10-22): chiều cao là thuộc tính bố cục —
+           tính lại layout mỗi khung hình trên máy yếu; và `auto` vốn không nội suy được nên
+           hiệu ứng cũ chỉ chạy nửa vời. Bước 1 thang Emil: xoá chuyển động không làm việc. */
       }}
     >
       {/* nội dung nổi sát mép trên sheet — bottom-full nên tự theo sheet.
@@ -374,7 +376,7 @@ export function SnapSheet({
                ở ô góc trên, đó là chỗ LIẾC, sheet là chỗ ĐỌC KỸ. */
             <span className="glass flex h-8 max-w-full items-center gap-2 rounded-full px-3">
               <span className="h-1.5 w-6 shrink-0 rounded-full bg-navy/40" aria-hidden />
-              <span className="truncate text-[0.875rem] font-bold text-navy">
+              <span className="truncate text-[0.875rem] font-semibold text-navy">
                 {hiddenLabel}
               </span>
             </span>
@@ -395,7 +397,7 @@ export function SnapSheet({
                   type="button"
                   onClick={onClose}
                   onPointerDown={(e) => e.stopPropagation()}
-                  className="flex min-h-[3.5rem] shrink-0 items-center justify-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
+                  className="flex min-h-[3.5rem] shrink-0 items-center justify-center gap-1 surface px-3 text-[0.9375rem] font-semibold text-navy transition active:scale-[0.97]"
                 >
                   {closeIcon ?? <CloseIcon className="h-5 w-5" />}
                   {closeLabel}

@@ -66,14 +66,14 @@ export function PremiumLock({
     access === "login" ? (
       <Link
         href="/login"
-        className="display mx-auto mt-3 flex min-h-[3.25rem] w-full max-w-[18.75rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
+        className="display mx-auto mt-3 flex min-h-[3.25rem] w-full max-w-[18.75rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
       >
         Đăng nhập
       </Link>
     ) : (
       <a
         href={`tel:${SDVICO_HOTLINE}`}
-        className="display mx-auto mt-3 flex min-h-[3.25rem] w-full max-w-[18.75rem] items-center justify-center gap-2 rounded-full bg-trim text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
+        className="display mx-auto mt-3 flex min-h-[3.25rem] w-full max-w-[18.75rem] items-center justify-center gap-2 rounded-full bg-trim text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
       >
         <PhoneIcon className="h-5 w-5" />
         Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}
@@ -83,7 +83,7 @@ export function PremiumLock({
   if (compact) {
     return (
       <div className="mt-2 rounded-xl bg-field/70 px-3 py-3 text-center">
-        <p className="flex items-center justify-center gap-1.5 text-[0.9375rem] font-bold text-navy">
+        <p className="flex items-center justify-center gap-1.5 text-[0.9375rem] font-semibold text-navy">
           <span
             className="shrink-0"
             style={{ color: `var(--${accent})` }}
@@ -113,7 +113,7 @@ export function PremiumLock({
       >
         <LockIcon className="h-7 w-7" />
       </span>
-      <p className="display mt-3 text-[1.25rem] font-bold text-navy">{title}</p>
+      <p className="display mt-3 text-[1.25rem] font-semibold text-navy">{title}</p>
       <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-foreground/65">
         {sub}
       </p>

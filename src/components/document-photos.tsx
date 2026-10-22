@@ -57,7 +57,7 @@ function Thumb({
           aria-label="Xoá ảnh này"
           /*  56px chứ không 44px (luật A5): nút này nằm ĐÈ lên ảnh 96px, tay
               ướt trượt một cái là mất ảnh giấy tờ thật. */
-          className="absolute right-1 top-1 flex h-14 w-14 items-center justify-center rounded-full bg-navy/70 text-white active:scale-95"
+          className="absolute right-1 top-1 flex h-14 w-14 items-center justify-center rounded-full bg-navy/70 text-white transition active:scale-95"
         >
           <CloseIcon className="h-6 w-6" />
         </button>
@@ -129,7 +129,7 @@ export function DocPhotoStrip({
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={busy}
-            className="flex h-24 w-24 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line text-[0.8125rem] font-semibold text-navy/70 active:scale-[0.98] disabled:opacity-60"
+            className="flex h-24 w-24 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line text-[0.8125rem] font-semibold text-navy/70 transition active:scale-[0.98] disabled:opacity-60"
           >
             {busy ? (
               "Đang tải…"

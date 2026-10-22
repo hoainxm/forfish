@@ -22,7 +22,7 @@ export default function AppError({
 }) {
   return (
     <div className="mx-auto max-w-md px-5 py-12 text-center">
-      <h1 className="text-[1.5rem] font-bold leading-tight text-navy">
+      <h1 className="text-[1.5rem] font-semibold leading-tight text-navy">
         Màn hình này đang trục trặc
       </h1>
       <p className="mt-3 text-[1.125rem] leading-relaxed text-foreground/75">

@@ -104,7 +104,7 @@ export function SeaForecast() {
     <div className="px-4 pt-1">
       {/* chọn cảng */}
       <label className="mb-4 block">
-        <span className="mb-1.5 flex items-center gap-2 text-[1rem] font-bold text-navy">
+        <span className="mb-1.5 flex items-center gap-2 text-[1rem] font-semibold text-navy">
           <AnchorIcon className="h-5 w-5" />
           Vùng biển gần cảng
         </span>
@@ -134,7 +134,7 @@ export function SeaForecast() {
           </p>
           <button
             onClick={() => port && load(port)}
-            className="mt-4 min-h-[3.25rem] rounded-xl bg-sea px-8 text-[1.125rem] font-bold text-white"
+            className="mt-4 min-h-[3.25rem] rounded-xl bg-sea px-8 text-[1.125rem] font-semibold text-white"
           >
             Thử lại
           </button>
@@ -150,17 +150,17 @@ export function SeaForecast() {
             style={{ backgroundColor: levelColor[today.level].bg }}
           >
             <div className="px-5 pb-4 pt-4 text-center">
-              <p className="text-[0.9375rem] font-bold text-foreground/65">
+              <p className="text-[0.9375rem] font-semibold text-foreground/65">
                 Điểm đi biển hôm nay
               </p>
               <p
-                className="display text-[4.5rem] font-bold leading-none"
+                className="display text-[4.5rem] font-semibold leading-none"
                 style={{ color: levelColor[today.level].fg }}
               >
                 {today.score}
               </p>
               <p
-                className="display mt-1 text-[1.375rem] font-bold"
+                className="display mt-1 text-[1.375rem] font-semibold"
                 style={{ color: levelColor[today.level].fg }}
               >
                 {LEVEL_LABEL[today.level]}
@@ -170,7 +170,7 @@ export function SeaForecast() {
                 return (
                   w && (
                     <p
-                      className={`mt-0.5 text-[1rem] font-bold ${
+                      className={`mt-0.5 text-[1rem] font-semibold ${
                         w.danger ? "text-danger" : "text-foreground/70"
                       }`}
                     >
@@ -203,7 +203,7 @@ export function SeaForecast() {
 
           {/* các ngày tới */}
           <section aria-label="Dự báo những ngày tới" className="mt-5">
-            <h2 className="display mb-2 px-1 text-[1.125rem] font-bold text-navy">
+            <h2 className="display mb-2 px-1 text-[1.125rem] font-semibold text-navy">
               Những ngày tới
             </h2>
             <ul className="overflow-hidden surface">
@@ -230,7 +230,7 @@ export function SeaForecast() {
                       {formatDay(d.date)}
                     </span>
                     <span
-                      className="display w-[3.25rem] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-bold tabular-nums"
+                      className="display w-[3.25rem] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-semibold tabular-nums"
                       style={{
                         color: levelColor[d.level].fg,
                         backgroundColor: levelColor[d.level].bg,
@@ -247,7 +247,7 @@ export function SeaForecast() {
                       {w && (
                         <span
                           className={
-                            w.danger ? "font-bold text-danger" : undefined
+                            w.danger ? "font-semibold text-danger" : undefined
                           }
                         >
                           {" "}

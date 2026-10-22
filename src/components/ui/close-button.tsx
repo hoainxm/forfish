@@ -48,7 +48,7 @@ export function CloseButton({
         aria-label={label}
         className={`group absolute -right-3 -top-3 z-10 flex h-11 w-11 items-center justify-center ${className}`}
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-navy text-white shadow-md transition group-active:scale-90">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-navy text-white shadow-md transition group-active:scale-[0.97]">
           <CloseIcon className="h-4 w-4" />
         </span>
       </button>

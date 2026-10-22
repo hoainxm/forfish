@@ -176,7 +176,7 @@ export function MyOrders() {
         {online ? (
           <Link
             href="/login"
-            className="flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field px-4 text-center text-[1.125rem] font-bold text-navy transition active:scale-[0.98]"
+            className="flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field px-4 text-center text-[1.125rem] font-semibold text-navy transition active:scale-[0.98]"
           >
             Đăng nhập bằng SĐT để xem đơn của mình
           </Link>
@@ -227,7 +227,7 @@ export function MyOrders() {
             <button
               type="button"
               onClick={fetchOrders}
-              className="min-h-[3.25rem] w-full rounded-full bg-danger px-4 text-[1.125rem] font-bold text-white active:scale-[0.98]"
+              className="min-h-[3.25rem] w-full rounded-full bg-danger px-4 text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
             >
               Thử lại
             </button>
@@ -262,12 +262,12 @@ export function MyOrders() {
                 <div className="px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
                     <span
-                      className="rounded-full px-3 py-1 text-[0.875rem] font-bold"
+                      className="rounded-full px-3 py-1 text-[0.875rem] font-semibold"
                       style={{ backgroundColor: chip.bg, color: chip.fg }}
                     >
                       {ORDER_STATUS_LABELS[o.status]}
                     </span>
-                    <span className="display text-[1.125rem] font-bold text-navy">
+                    <span className="display text-[1.125rem] font-semibold text-navy">
                       {formatVnd(o.totalVnd)}
                     </span>
                   </div>
@@ -292,7 +292,7 @@ export function MyOrders() {
                       type="button"
                       onClick={() => setConfirmCancel(o)}
                       disabled={cancelling === o.id}
-                      className="mt-3 min-h-[3.25rem] w-full rounded-full bg-field text-[1.125rem] font-bold text-danger active:scale-[0.98] disabled:opacity-40"
+                      className="mt-3 min-h-[3.25rem] w-full rounded-full bg-field text-[1.125rem] font-semibold text-danger transition active:scale-[0.98] disabled:opacity-40"
                     >
                       {cancelling === o.id ? "Đang xử lý huỷ…" : "Huỷ đơn"}
                     </button>

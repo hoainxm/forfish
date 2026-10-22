@@ -33,7 +33,7 @@ export default function GlobalError({
     <html lang="vi">
       <body className="min-h-full">
         <div className="mx-auto max-w-md px-5 py-12 text-center">
-          <h1 className="text-[1.5rem] font-bold leading-tight text-navy">
+          <h1 className="text-[1.5rem] font-semibold leading-tight text-navy">
             App đang trục trặc
           </h1>
           <p className="mt-3 text-[1.125rem] leading-relaxed text-foreground/75">
@@ -43,7 +43,7 @@ export default function GlobalError({
           <button
             type="button"
             onClick={reset}
-            className="mt-7 min-h-[3.25rem] w-full rounded-2xl bg-sea px-6 text-[1.125rem] font-bold text-white"
+            className="mt-7 min-h-[3.25rem] w-full rounded-2xl bg-sea px-6 text-[1.125rem] font-semibold text-white"
           >
             Mở lại
           </button>
@@ -56,7 +56,7 @@ export default function GlobalError({
                 /* không reload được thì thôi — nút Mở lại ở trên vẫn còn */
               }
             }}
-            className="mt-3 flex min-h-[3.25rem] w-full items-center justify-center rounded-2xl border border-line text-[1.125rem] font-bold text-navy"
+            className="mt-3 flex min-h-[3.25rem] w-full items-center justify-center rounded-2xl border border-line text-[1.125rem] font-semibold text-navy"
           >
             Tải lại
           </button>

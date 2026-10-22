@@ -222,11 +222,11 @@ function RequestForm({
           <CheckIcon className="mx-auto h-10 w-10" />
           {wasOrder ? (
             <>
-              <p className="mt-3 text-[1.125rem] font-bold">
+              <p className="mt-3 text-[1.125rem] font-semibold">
                 SDVICO đã nhận đơn mua của bà con
               </p>
               {orderRef && (
-                <p className="mt-1 text-[1.125rem] font-bold text-navy">
+                <p className="mt-1 text-[1.125rem] font-semibold text-navy">
                   Mã đơn: {orderRef}
                 </p>
               )}
@@ -237,7 +237,7 @@ function RequestForm({
             </>
           ) : (
             <>
-              <p className="mt-3 text-[1.125rem] font-bold">
+              <p className="mt-3 text-[1.125rem] font-semibold">
                 SDVICO đã nhận được yêu cầu
               </p>
               <p className="mt-1 text-[1rem] text-foreground/70">
@@ -332,7 +332,7 @@ function RequestForm({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-semibold text-foreground/70"
           >
             Hủy
           </button>
@@ -345,7 +345,7 @@ function RequestForm({
         {/* gấp thì gọi thẳng — hỗ trợ tức thì */}
         <a
           href={`tel:${SDVICO_HOTLINE}`}
-          className="mt-3 flex min-h-[3.25rem] items-center justify-center gap-2 rounded-full text-[1.125rem] font-bold text-sea"
+          className="mt-3 flex min-h-[3.25rem] items-center justify-center gap-2 rounded-full text-[1.125rem] font-semibold text-sea"
         >
           <PhoneIcon className="h-5 w-5" />
           Gấp? Gọi ngay {SDVICO_HOTLINE_DISPLAY}

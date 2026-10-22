@@ -282,7 +282,7 @@ export function RouteMapLayers({
                 </span>
               ) : (
                 <span
-                  className="display flex h-10 w-10 items-center justify-center rounded-full bg-white text-[1rem] font-bold shadow-md"
+                  className="display flex h-10 w-10 items-center justify-center rounded-full bg-white text-[1rem] font-semibold shadow-md"
                   style={{
                     color: ROUTE_LINE_COLOR,
                     boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
@@ -410,7 +410,7 @@ export function RouteStopsLayers({
           style={{ pointerEvents: "none" }}
         >
           <span
-            className="whitespace-nowrap rounded-full bg-white/90 px-2 py-0.5 text-[0.8125rem] font-bold shadow-sm"
+            className="whitespace-nowrap rounded-full bg-white/90 px-2 py-0.5 text-[0.8125rem] font-semibold shadow-sm"
             style={{ color: ROUTE_LINE_COLOR }}
           >
             {l.text}
@@ -440,7 +440,7 @@ export function RouteStopsLayers({
                chưa từng có onClick), mà comment cũ còn dạy sai rằng đây là cách
                DUY NHẤT bỏ một chỗ. */}
           <span
-            className="display flex h-10 w-10 items-center justify-center rounded-full bg-white/85 text-[1rem] font-bold shadow-md"
+            className="display flex h-10 w-10 items-center justify-center rounded-full bg-white/85 text-[1rem] font-semibold shadow-md"
             style={{
               color: ROUTE_LINE_COLOR,
               boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,

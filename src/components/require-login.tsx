@@ -36,9 +36,13 @@ export function RequireLogin({
   /** Tên phần đang khoá, lời thường — vd "bản đồ ngư trường" */
   what,
   children,
+  laTieuDeChinh = false,
 }: {
   what: string;
   children: React.ReactNode;
+  /** Màn KHÔNG có tiêu đề riêng (bản đồ toàn màn) ⇒ câu khoá là tiêu đề chính `h1` của
+      màn (Taste/a11y: mỗi màn một h1). Màn đã có ManHeader thì để false — tránh hai h1. */
+  laTieuDeChinh?: boolean;
 }) {
   const { signedIn, ready } = useAuthUser();
 
@@ -71,9 +75,15 @@ export function RequireLogin({
         >
           <LockIcon className="h-7 w-7" />
         </span>
-        <p className="display mt-3 text-[1.125rem] font-bold leading-snug text-navy">
-          Cần tài khoản để mở {what}
-        </p>
+        {laTieuDeChinh ? (
+          <h1 className="display mt-3 text-[1.125rem] font-semibold leading-snug text-navy">
+            Cần tài khoản để mở {what}
+          </h1>
+        ) : (
+          <p className="display mt-3 text-[1.125rem] font-semibold leading-snug text-navy">
+            Cần tài khoản để mở {what}
+          </p>
+        )}
         {/*  CÂU CẤP DỮ LIỆU: nói THẲNG bước kế. Người ngoài nay tự tạo tài khoản
              được bằng SĐT — không còn phải gọi SDVICO trước. */}
         <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-foreground/70">
@@ -84,13 +94,13 @@ export function RequireLogin({
                chốt ở 03-design-system §Nút hành động mục 0). */}
           <Link
             href="/dang-ky"
-            className="display flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+            className="display flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white shadow-trim-cta transition active:scale-[0.98]"
           >
             Đăng ký
           </Link>
           <Link
             href="/login"
-            className="inline-flex min-h-[3.5rem] items-center px-2 text-[1rem] font-bold text-sea"
+            className="inline-flex min-h-[3.5rem] items-center px-2 text-[1rem] font-semibold text-sea"
           >
             Đã có tài khoản — Đăng nhập
           </Link>

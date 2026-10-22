@@ -67,7 +67,7 @@ export function FishSpeciesContent({
           style={{ background: "linear-gradient(135deg,var(--fish-all-from),var(--fish-all-to))" }}
           aria-hidden
         />
-        <span className="flex-1 text-left text-[1rem] font-bold">Mọi loài</span>
+        <span className="flex-1 text-left text-[1rem] font-semibold">Mọi loài</span>
         {current == null && <CheckIcon className="h-5 w-5 shrink-0" />}
       </button>
       <p className="mb-3 px-1 text-[0.8125rem] leading-snug text-foreground/70">
@@ -78,7 +78,7 @@ export function FishSpeciesContent({
 
       {groups.map((g) => (
         <div key={g.cat} className="mb-3">
-          <h4 className="display mb-2 text-[0.9375rem] font-bold text-foreground/65">
+          <h4 className="display mb-2 text-[0.9375rem] font-semibold text-foreground/65">
             {CATEGORY_LABEL[g.cat]}
           </h4>
           <div
@@ -94,7 +94,7 @@ export function FishSpeciesContent({
                   type="button"
                   aria-pressed={active}
                   onClick={() => onPick(sp)}
-                  className={`flex min-h-[3.25rem] items-center gap-2 rounded-xl px-3 py-2 text-left text-[0.9375rem] font-bold leading-tight transition active:scale-[0.98] ${
+                  className={`flex min-h-[3.25rem] items-center gap-2 rounded-xl px-3 py-2 text-left text-[0.9375rem] font-semibold leading-tight transition active:scale-[0.98] ${
                     active
                       ? "bg-navy text-white"
                       : inRegion
@@ -147,7 +147,7 @@ export function FishSpeciesSheet({
       <button
         type="button"
         onClick={onClose}
-        className="mt-1 min-h-[3.5rem] w-full rounded-xl bg-navy text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+        className="mt-1 min-h-[3.5rem] w-full rounded-xl bg-navy text-[1.125rem] font-semibold text-white transition active:scale-[0.99]"
       >
         Xong
       </button>

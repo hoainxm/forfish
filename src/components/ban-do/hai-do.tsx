@@ -207,7 +207,7 @@ export function BangChuGiai({
       aria-label="Ký hiệu trên hải đồ"
     >
       <div className="flex items-center justify-between border-b border-foreground/10 px-4 py-3">
-        <p className="text-[1.125rem] font-bold text-navy">Ký hiệu trên hải đồ</p>
+        <p className="text-[1.125rem] font-semibold text-navy">Ký hiệu trên hải đồ</p>
         <CloseButton onClose={onClose} label="Đóng chú giải" />
       </div>
       <p className="border-b border-foreground/10 bg-field/60 px-4 py-2 text-[0.875rem] font-semibold leading-snug text-foreground/75">
@@ -218,7 +218,7 @@ export function BangChuGiai({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[0.9375rem] font-semibold text-foreground/85">
         {LEGEND_TIERS.map((tang) => (
           <div key={tang.tieuDe} className="mb-4">
-            <p className="mb-1 text-[0.875rem] font-bold text-foreground/60">
+            <p className="mb-1 text-[0.875rem] font-semibold text-foreground/60">
               {tang.tieuDe}
               <span className="normal-case tracking-normal text-danger/80">{mapZoom < tang.zoom ? " — phóng to thêm mới thấy" : ""}</span>
             </p>

@@ -311,7 +311,7 @@ export default function LoginPage() {
                 ở trang chủ mới là chỗ của nó. */}
         <Link
           href="/quen-mat-khau"
-          className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center rounded-full border-2 border-line text-[1rem] font-bold text-foreground/80 transition active:scale-[0.98]"
+          className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center rounded-full border-2 border-line text-[1rem] font-semibold text-foreground/80 transition active:scale-[0.98]"
         >
           Quên mật khẩu?
         </Link>
@@ -322,14 +322,14 @@ export default function LoginPage() {
           Chưa có tài khoản?{" "}
           <Link
             href="/dang-ky"
-            className="inline-flex min-h-[3.5rem] items-center px-2 font-bold text-sea"
+            className="inline-flex min-h-[3.5rem] items-center px-2 font-semibold text-sea"
           >
             Đăng ký
           </Link>
         </p>
         <p className="mt-1 text-center text-[0.9375rem] leading-snug text-foreground/60">
           Đăng nhập tức là bà con đồng ý với{" "}
-          <Link href="/quyen-rieng-tu" className="font-bold text-sea underline">
+          <Link href="/quyen-rieng-tu" className="font-semibold text-sea underline">
             Chính sách quyền riêng tư
           </Link>
           .

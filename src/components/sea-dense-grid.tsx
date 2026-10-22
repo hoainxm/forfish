@@ -67,9 +67,9 @@ export function SeaDensePanel({
 }) {
   return (
     <div className="space-y-2">
-      {borderLabel && <p className="text-[0.8125rem] font-bold leading-snug text-danger">{borderLabel}.</p>}
+      {borderLabel && <p className="text-[0.8125rem] font-semibold leading-snug text-danger">{borderLabel}.</p>}
       {dangerWeather && (
-        <p className="flex items-center gap-1.5 rounded-lg bg-danger-bg px-2 py-1.5 text-[0.8125rem] font-bold leading-snug text-danger">
+        <p className="flex items-center gap-1.5 rounded-lg bg-danger-bg px-2 py-1.5 text-[0.8125rem] font-semibold leading-snug text-danger">
           <AlertIcon className="h-4 w-4 shrink-0" />
           {dangerWeather}
         </p>

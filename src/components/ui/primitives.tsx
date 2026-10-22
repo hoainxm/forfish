@@ -29,7 +29,10 @@ export function SectionHeader({
 }) {
   return (
     <h2
-      className={`display px-4 pb-2 text-[1.125rem] font-semibold text-navy ${className}`}
+      /* KHÔNG lề ngang mặc định (sửa 2026-10-22, rà Taste "một mép trái"): `px-4` gốc +
+         `className="px-0"` truyền vào thì Tailwind không bảo đảm lớp sau thắng — "Món mới về"
+         thụt 16px lệch mép lưới. Mọi chỗ gọi đều cần sát mép khối cha. */
+      className={`display pb-2 text-[1.125rem] font-semibold text-navy ${className}`}
     >
       {children}
     </h2>

@@ -171,7 +171,7 @@ export function SenBienNoi({ onOpen, gocApp = false }: { onOpen: () => void; goc
       {...props}
       onClick={onOpen}
       aria-label={aria}
-      className="absolute z-20 h-14 w-14 select-none rounded-full transition-transform active:scale-90"
+      className="absolute z-20 h-14 w-14 select-none rounded-full transition-transform active:scale-[0.97]"
     >
       <SenBienIcon className="fab-mascot block h-full w-full" />
     </button>
@@ -543,7 +543,7 @@ export function SenBienSheet({
         onClick={bamSen}
         aria-label="Thu Sen Biển lại"
         aria-expanded={true}
-        className="pointer-events-auto absolute z-40 h-14 w-14 select-none rounded-full transition-transform active:scale-90"
+        className="pointer-events-auto absolute z-40 h-14 w-14 select-none rounded-full transition-transform active:scale-[0.97]"
       >
         {/* hiệu ứng nghe/nghĩ/nói lấy từ một nguồn (lib/sen-bien-state) — không vẽ riêng ở đây nữa */}
         <SenBienIcon className="fab-mascot block h-full w-full" />
@@ -561,7 +561,7 @@ export function SenBienSheet({
           ...(huong.phai ? { right: Math.max(8, khung.w - pos.left - ICON_PX) } : { left: pos.left }),
           transformOrigin: `${huong.phai ? "calc(100% - 2rem)" : "2rem"} ${huong.len ? "100%" : "0%"}`,
         }}
-        className={`anim-giot pointer-events-auto absolute z-40 space-y-1.5 rounded-3xl border border-card/70 bg-card/75 p-1.5 shadow-xl backdrop-blur-xl backdrop-saturate-150 ${
+        className={`anim-giot pointer-events-auto absolute z-40 space-y-1.5 rounded-3xl bg-card p-1.5 shadow-float ${
           // chat: ~2/3 bề ngang (chủ dự án: "bong bóng chỉ chiếm 2/3 thôi, không phải full")
           mode === "chat" ? "w-[66%] min-w-[15rem]" : "w-max max-w-[min(22rem,calc(100%-1rem))]"
         }`}
@@ -638,14 +638,14 @@ export function SenBienSheet({
           <button
             type="button"
             onClick={onStart}
-            className="min-h-[3.5rem] rounded-xl bg-t1 text-[1.25rem] font-bold text-white transition active:scale-[0.98]"
+            className="min-h-[3.5rem] rounded-xl bg-t1 text-[1.25rem] font-semibold text-white transition active:scale-[0.98]"
           >
             Đi
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[3.5rem] rounded-xl bg-navy/10 text-[1.125rem] font-bold text-navy transition active:scale-[0.98]"
+            className="min-h-[3.5rem] rounded-xl bg-navy/10 text-[1.125rem] font-semibold text-navy transition active:scale-[0.98]"
           >
             Thôi
           </button>
@@ -656,7 +656,7 @@ export function SenBienSheet({
       {mode === "goi" && heard && <p className="px-2 text-[0.9375rem] italic text-foreground/75">&ldquo;{heard}&rdquo;</p>}
       {mode === "chat" && phase === "nghi" && <Cham />}
       {shown && (
-        <p role="status" className="px-2 text-[1rem] font-bold leading-snug text-navy">
+        <p role="status" className="px-2 text-[1rem] font-semibold leading-snug text-navy">
           {shown.show}
         </p>
       )}
@@ -674,14 +674,14 @@ export function SenBienSheet({
                 .then(setShown, () => setShown({ show: "Chưa làm được — thử lại giúp." }))
                 .finally(() => setPhase("ranh"));
             }}
-            className="min-h-[3.5rem] rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.98] disabled:opacity-50"
+            className="min-h-[3.5rem] rounded-xl bg-t1 text-[1.125rem] font-semibold text-white transition active:scale-[0.98] disabled:opacity-50"
           >
             {shown.xacNhan.nhan}
           </button>
           <button
             type="button"
             onClick={() => setShown({ show: "Thôi, không làm." })}
-            className="min-h-[3.5rem] rounded-xl bg-navy/10 text-[1.125rem] font-bold text-navy transition active:scale-[0.98]"
+            className="min-h-[3.5rem] rounded-xl bg-navy/10 text-[1.125rem] font-semibold text-navy transition active:scale-[0.98]"
           >
             Thôi
           </button>
@@ -694,7 +694,7 @@ export function SenBienSheet({
               key={`${d.lat},${d.lon}`}
               type="button"
               onClick={() => onPick(d)}
-              className="flex min-h-[3.5rem] w-full items-center rounded-xl bg-navy/10 px-3 text-left text-[1rem] font-bold text-navy transition active:scale-[0.98]"
+              className="flex min-h-[3.5rem] w-full items-center rounded-xl bg-navy/10 px-3 text-left text-[1rem] font-semibold text-navy transition active:scale-[0.98]"
             >
               {d.name}
               <span className="ml-2 text-[0.875rem] font-semibold text-foreground/60">

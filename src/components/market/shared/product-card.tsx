@@ -57,7 +57,11 @@ export function MarketProductCard({
             Trước đây <img h-full> trong khung aspect-ratio để ảnh dọc kéo giãn
             khung (đo 2026-10-19, cùng rộng 173px: cao 289/142/130px) ⇒ hàng
             thẻ lệch tên–giá (rà Codex). shrink-0: flex cột không bóp khung. */}
-        <div className="market-product-image relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-field">
+            {/* MỘT CÁCH TRÌNH BÀY ẢNH (rà Taste 2026-10-22 "same crop, same treatment"): nền
+                khung TRẮNG như nền thẻ — ảnh nền trắng của nhà bán (đa số) hoà vào thẻ, ảnh chụp
+                thật nằm gọn trong cùng khung 4:3 cùng lề; trước nền xám làm ảnh nền trắng thành
+                ô chữ nhật trắng lơ lửng, xen với ảnh chụp ⇒ lưới trông chắp vá. */}
+        <div className="market-product-image relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-card">
           {image && !imgBroken ? (
             // eslint-disable-next-line @next/next/no-img-element -- ảnh sàn: bucket public Supabase / data-URI seed, không qua optimizer (băng thông có đo đếm)
             <img

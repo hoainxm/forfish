@@ -225,12 +225,9 @@ export function InstallBanner() {
           aria-expanded={open}
           className="flex min-h-(--h-row) min-w-0 flex-1 items-center gap-3 rounded-2xl pl-2 text-left transition active:bg-background"
         >
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-t1-bg text-t1"
-            aria-hidden
-          >
-            <AnchorIcon className="h-5 w-5" />
-          </span>
+          {/* icon TRƠN, không vòng tròn màu (rà Taste 2026-10-22: "icon trong ô/vòng tô màu"
+              là dấu giao diện máy sinh) — giữ màu thương hiệu trên nét icon */}
+          <AnchorIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="display block text-[1rem] font-semibold leading-tight text-navy">Cài app</span>
             <span className="block text-[0.8125rem] leading-snug text-foreground/65">Dùng được khi mất sóng</span>

@@ -217,7 +217,7 @@ export function MyPlacesContent({
             <PlusIcon className="h-5 w-5" />
           </span>
           <span className="flex-1">
-            <span className="block text-[1rem] font-bold text-navy">
+            <span className="block text-[1rem] font-semibold text-navy">
               Thêm điểm
             </span>
           </span>
@@ -353,7 +353,7 @@ export function MyPlacesContent({
                 setAddOpen(false);
                 setEditCoord(false);
               }}
-              className="min-h-[3.25rem] rounded-xl bg-field text-[1rem] font-bold text-foreground/70 active:scale-[0.99]"
+              className="min-h-[3.25rem] rounded-xl bg-field text-[1rem] font-semibold text-foreground/70 transition active:scale-[0.99]"
             >
               Huỷ
             </button>
@@ -361,7 +361,7 @@ export function MyPlacesContent({
               type="button"
               onClick={submitAdd}
               disabled={!addValid}
-              className="flex min-h-[3.25rem] items-center justify-center gap-1.5 rounded-xl bg-t1 text-[1rem] font-bold text-white disabled:opacity-50 active:scale-[0.99]"
+              className="flex min-h-[3.25rem] items-center justify-center gap-1.5 rounded-xl bg-t1 text-[1rem] font-semibold text-white disabled:opacity-50 transition active:scale-[0.99]"
             >
               <StarIcon className="h-5 w-5" />
               Lưu điểm
@@ -428,7 +428,7 @@ export function MyPlacesContent({
                     {/*  TÊN CHỖ KHÔNG `truncate`: câu hỏi này LÀ đường lùi của
                          một hành động phá huỷ — cắt cụt tên là bà con xác nhận
                          xoá một cái tên mình không đọc hết. Thà xuống dòng. */}
-                    <p className="min-w-0 flex-1 text-[0.9375rem] font-bold leading-snug text-navy">
+                    <p className="min-w-0 flex-1 text-[0.9375rem] font-semibold leading-snug text-navy">
                       Xóa “{p.name}”?
                     </p>
                     <button
@@ -479,7 +479,7 @@ export function MyPlacesContent({
                         )}
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate text-[1rem] font-bold text-navy">
+                        <span className="block truncate text-[1rem] font-semibold text-navy">
                           {p.name}
                         </span>
                         <span className="block text-[0.8125rem] text-foreground/70">
@@ -585,7 +585,7 @@ export function MyPlacesContent({
                 ? `Cảng nhà ${home.name} — chạm để đổi`
                 : "Đặt cảng nhà — chạm để nhập tên hoặc chọn cảng"
             }
-            className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-xl bg-background px-3 text-left text-[0.9375rem] font-bold text-navy active:scale-[0.99]"
+            className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-xl bg-background px-3 text-left text-[0.9375rem] font-semibold text-navy transition active:scale-[0.99]"
           >
             <AnchorIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
             <span className="min-w-0 flex-1 truncate">
@@ -632,7 +632,7 @@ export function MyPlacesContent({
                         onGo(p.lat as number, p.lng as number);
                         onClose();
                       }}
-                      className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-lg bg-field px-4 text-left active:scale-[0.99]"
+                      className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-lg bg-field px-4 text-left transition active:scale-[0.99]"
                     >
                       <AnchorIcon className="h-5 w-5 shrink-0 text-t1" />
                       <span className="min-w-0">

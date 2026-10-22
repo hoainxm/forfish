@@ -310,12 +310,14 @@ html[data-mode="gon"] {
       không nở theo chữ. `--row-h` là tên cũ, nay = `--h-ctl`. */
   --h-cta: 3.25rem; /* nút chính: cam / navy */
   --h-ctl: 2.75rem; /* control thường: nút phụ, ô nhập, ô vuông rail */
-  --h-chip: 2.5rem; /* chip, tab trong trang */
+  --h-chip: 2.75rem; /* chip, tab trong trang — 44px vùng chạm (Taste/Impeccable, 2026-10-22; trước 2.5rem = 40px) */
   --h-row: 3.5rem; /* hàng danh sách tối thiểu */
   --row-h: var(--h-ctl);
   --r-card: 1rem;
   --r-ctl: 0.75rem;
-  --shadow-card: 0 1px 2px rgb(var(--ink-rgb) / 0.04);
+  /* Thẻ đứng yên: VIỀN HOẶC BÓNG, không cả hai (Taste app-screens §9.4 + Impeccable craft-floor
+     "ghost card", 2026-10-22). .surface đã có viền 1px ⇒ bỏ bóng. Bóng chỉ cho thứ NỔI (--shadow-float). */
+  --shadow-card: none;
   --shadow-float: 0 4px 16px rgb(var(--ink-rgb) / 0.12);
 }
 
@@ -408,11 +410,12 @@ textarea,
 .anim-vong { animation: sdf-vong 1.4s ease-out infinite; }
 /* bong bóng Sen Biển trồi lên từ đầu icon như giọt nước nở ra (liquid) — nảy rất nhẹ, có chủ đích */
 @keyframes sdf-giot {
-  0% { opacity: 0; transform: translateY(14px) scale(0.35); border-radius: 50%; }
-  65% { opacity: 1; transform: translateY(-2px) scale(1.02); }
-  100% { opacity: 1; transform: none; }
+  /* Emil (2026-10-22): không hiện ra từ gần như không có gì (scale ≥0.9), UI dưới 300ms,
+     không nảy quá đích, không tạo hình bo góc (paint) — chỉ transform + opacity. */
+  from { opacity: 0; transform: translateY(6px) scale(0.94); }
+  to { opacity: 1; transform: none; }
 }
-.anim-giot { animation: sdf-giot 420ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both; transform-origin: 2rem 100%; }
+.anim-giot { animation: sdf-giot 240ms var(--ease-out) both; transform-origin: 2rem 100%; }
 .anim-scrim-in { animation: sdf-scrim-in 180ms var(--ease-out) both; }
 .anim-scrim-out { animation: sdf-scrim-out 160ms var(--ease-out) both; }
 .anim-sheet-in { animation: sdf-sheet-in 260ms var(--ease-drawer) both; }
@@ -489,8 +492,10 @@ textarea,
   .sen-icon::after {
     animation: none !important;
   }
+  /* Tailwind 4 co nút bằng thuộc tính `scale` (không phải `transform`) — chặn
+     `transform` như bản 2026-10-22 đầu không có tác dụng (rà Emil 2026-10-22). */
   [class*="active:scale"]:active {
-    transform: none !important;
+    scale: none !important;
   }
 }
 
@@ -531,12 +536,12 @@ textarea,
    không rgba arbitrary trong component (hook 3b2 BLOCK; lift 2026-08-14 từ sdvico-catalog + boat-products) */
 /* nợ: 3 biến thể bóng cam gần trùng nhau (blur 20/24/28, alpha .55/.6/.7), gộp về 1-2 khi chạy screenshot QA loop lần tới */
 .shadow-float { box-shadow: var(--shadow-float); }
-/*  BỎ QUẦNG CAM DƯỚI NÚT (áp skill Taste + Impeccable 2026-10-22): bóng màu cam toả
-    dưới nút chính là dấu "nút phát sáng" của giao diện máy sinh — nút cam đặc đã đủ
-    nổi. Giữ tên class (12 chỗ gọi) nhưng chỉ còn bóng trung tính rất nhẹ cho chiều sâu. */
+/*  NÚT PHẲNG (Taste house rule "flat fill, one colour" — bộ đo FAIL `button-fx` cả với bóng
+    1px, rà 2026-10-22 lần 2): nút đứng yên KHÔNG bóng. Giữ tên class (13 chỗ gọi). Nút NỔI
+    trên nội dung (fab) vẫn có bóng vì nó thật sự nổi. */
 .shadow-trim-fab { box-shadow: 0 2px 6px rgb(var(--ink-rgb) / 0.16); }
 .shadow-trim-btn,
-.shadow-trim-cta { box-shadow: 0 1px 2px rgb(var(--ink-rgb) / 0.1); }
+.shadow-trim-cta { box-shadow: none; }
 /* Bóng khác lift từ component (2026-08-14, dọn nốt 11 rgba arbitrary còn lại — cùng đợt) */
 .drop-shadow-pin { filter: drop-shadow(0 2px 3px rgb(var(--black-rgb) / 0.45)); }
 .shadow-sheet-up { box-shadow: 0 -6px 20px rgb(var(--ink-rgb) / 0.25); }

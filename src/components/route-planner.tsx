@@ -1358,7 +1358,7 @@ export function RouteMode({
                 aria-expanded={editing}
                 className="flex min-h-[var(--row-h)] w-full items-center gap-1.5 text-left"
               >
-                <span className="min-w-0 flex-1 truncate text-[1rem] font-bold leading-tight text-navy">
+                <span className="min-w-0 flex-1 truncate text-[1rem] font-semibold leading-tight text-navy">
                   {stops.length > 1
                     ? `Lộ trình qua ${stops.length} điểm`
                     : stops.length === 1
@@ -1380,7 +1380,7 @@ export function RouteMode({
                   nhìn ra ba tấm thẻ khác nhau. Nay: một tấm thẻ duy nhất, tiêu
                   đề đổi theo việc, nút Quay lại luôn ở cùng một ô — bà con
                   luôn biết mình đang ở đâu và lùi bằng cách nào. */
-              <p className="truncate text-[1rem] font-bold leading-tight text-navy">
+              <p className="truncate text-[1rem] font-semibold leading-tight text-navy">
                 {panel === "start"
                   ? "Nơi xuất phát"
                   : panel === "dest"
@@ -1391,7 +1391,7 @@ export function RouteMode({
               </p>
             ) : (
               <>
-                <p className="truncate text-[1rem] font-bold leading-tight text-navy">
+                <p className="truncate text-[1rem] font-semibold leading-tight text-navy">
                   {stops.length > 1
                     ? `Lộ trình qua ${stops.length} điểm`
                     : stops.length === 1
@@ -1480,7 +1480,7 @@ export function RouteMode({
           {staleMsg && (
             <p
               role="status"
-              className="rounded-lg bg-warn-bg px-2.5 py-1.5 text-[0.875rem] font-bold leading-snug text-warn"
+              className="rounded-lg bg-warn-bg px-2.5 py-1.5 text-[0.875rem] font-semibold leading-snug text-warn"
             >
               {staleMsg}
             </p>
@@ -1612,10 +1612,10 @@ export function RouteMode({
               aria-hidden
             />
             <span className="min-w-0 flex-1">
-              <span className="block text-[0.8125rem] font-bold text-foreground/60">
+              <span className="block text-[0.8125rem] font-semibold text-foreground/60">
                 Điểm xuất phát
               </span>
-              <span className="block truncate text-[1rem] font-bold text-navy">
+              <span className="block truncate text-[1rem] font-semibold text-navy">
                 {startOptions.find((o) => o.id === effectiveStartId)?.label ??
                   "Chọn nơi xuất phát"}
               </span>
@@ -1627,7 +1627,7 @@ export function RouteMode({
                    Nhơn, Vũng Tàu) nằm ô hạng 0 của lưới mà vẫn tính được đường
                    nhờ luật sát cảng — cảnh báo sẽ kêu ở gần như mọi cảng. */}
               {effectiveStartId !== "cursor" && effectiveStartId !== "fixed" && (
-                <span className="block truncate text-[0.8125rem] font-bold text-foreground/60">
+                <span className="block truncate text-[0.8125rem] font-semibold text-foreground/60">
                   {startCoord
                     ? fmtCoordPair(startCoord.lat, startCoord.lon, prefs.coordFormat)
                     : "Cập nhật vị trí tàu lúc bấm Tính lộ trình"}
@@ -1672,7 +1672,7 @@ export function RouteMode({
                         }
                         setPanel("idle");
                       }}
-                      className={`flex min-h-[var(--row-h)] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold transition ${
+                      className={`flex min-h-[var(--row-h)] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-semibold transition ${
                         on
                           ? "bg-navy text-white"
                           : "bg-card text-foreground/75 active:bg-field"
@@ -1726,7 +1726,7 @@ export function RouteMode({
             <div className="flex items-center gap-2">
             <div className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 py-1.5">
               <span
-                className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.875rem] font-bold text-white"
+                className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.875rem] font-semibold text-white"
                 style={{ background: ROUTE_LINE_COLOR }}
                 aria-hidden
               >
@@ -1736,7 +1736,7 @@ export function RouteMode({
                 {/*  NÓI RÕ VAI: chỗ CUỐI là ĐIỂM ĐẾN, các chỗ trước là điểm
                      dừng dọc đường. Chỉ đánh số 1-2-3 thì bà con không biết
                      đâu là nơi mình định tới. */}
-                <span className="block text-[0.8125rem] font-bold text-foreground/60">
+                <span className="block text-[0.8125rem] font-semibold text-foreground/60">
                   {i === stops.length - 1 ? "Điểm đến" : `Điểm dừng ${i + 1}`}
                 </span>
                 {/*  CÓ TÊN THÌ ĐỌC TÊN: bà con đặt tên "Rạn ông Tư" chính là
@@ -1752,7 +1752,7 @@ export function RouteMode({
                      không ai đọc được điểm đó NẰM ĐÂU (con trỏ và điểm đến là hai
                      chỗ khác nhau). Soát được đầu vào quan trọng hơn hàng đều. */}
                 {s.name && (
-                  <span className="block text-[0.8125rem] font-bold leading-tight text-foreground/60">
+                  <span className="block text-[0.8125rem] font-semibold leading-tight text-foreground/60">
                     {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
                   </span>
                 )}
@@ -1805,7 +1805,7 @@ export function RouteMode({
               type="button"
               onClick={() => setPanel("dest")}
               aria-expanded={false}
-              className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
+              className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left text-[1rem] font-semibold text-t1 transition active:scale-[0.99]"
             >
               <PlusIcon className="h-6 w-6 shrink-0" />
               <span className="min-w-0 flex-1">
@@ -1823,14 +1823,14 @@ export function RouteMode({
                      TRỎ, không phải điểm đến đã thêm. Thiếu nhãn thì toạ độ con
                      trỏ + cảnh báo "trên bờ" dưới nó bị đọc nhầm là của điểm
                      đến (đúng chuyện đã xảy ra với ảnh lỗi Tam Quang). */}
-                <span className="block leading-snug text-[0.8125rem] font-bold text-foreground/60">
+                <span className="block leading-snug text-[0.8125rem] font-semibold text-foreground/60">
                   Chỗ đang xem: {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
                 </span>
                 {/*  DÒNG RIÊNG, KHÔNG nối vào dòng toạ độ: dòng đó có
                      `truncate`, nối thêm là câu cảnh báo bị cắt mất đuôi trên
                      máy hẹp — mất đúng phần nói rõ nguy hiểm. */}
                 {destDepthWarn && (
-                  <span className="block text-[0.8125rem] font-bold leading-tight text-[var(--warn)]">
+                  <span className="block text-[0.8125rem] font-semibold leading-tight text-[var(--warn)]">
                     {destDepthWarn}
                   </span>
                 )}
@@ -1891,21 +1891,21 @@ export function RouteMode({
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[0.8125rem] font-bold text-foreground/60">
+                  <span className="block text-[0.8125rem] font-semibold text-foreground/60">
                     Chỗ đang xem trên bản đồ
                   </span>
-                  <span className="block leading-snug text-[1rem] font-bold text-navy">
+                  <span className="block leading-snug text-[1rem] font-semibold text-navy">
                     {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
                   </span>
                   {/* dòng riêng — lý do y như hàng "Thêm điểm dừng" ở trên */}
                   {destDepthWarn && (
-                    <span className="block text-[0.8125rem] font-bold leading-tight text-[var(--warn)]">
+                    <span className="block text-[0.8125rem] font-semibold leading-tight text-[var(--warn)]">
                       {destDepthWarn}
                     </span>
                   )}
                 </span>
                 {currentStop && (
-                  <span className="shrink-0 text-[0.8125rem] font-bold text-foreground/60">
+                  <span className="shrink-0 text-[0.8125rem] font-semibold text-foreground/60">
                     đã có
                   </span>
                 )}
@@ -1934,11 +1934,11 @@ export function RouteMode({
                     >
                       <StarIcon className="h-4 w-4" />
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-[1rem] font-bold text-navy">
+                    <span className="min-w-0 flex-1 truncate text-[1rem] font-semibold text-navy">
                       {pl.name}
                     </span>
                     {da && (
-                      <span className="shrink-0 text-[0.8125rem] font-bold text-foreground/60">
+                      <span className="shrink-0 text-[0.8125rem] font-semibold text-foreground/60">
                         đã có
                       </span>
                     )}
@@ -1971,7 +1971,7 @@ export function RouteMode({
                   />
                 </div>
                 {coordErr && (
-                  <p className="mt-1 text-[0.8125rem] font-bold leading-snug text-danger">
+                  <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-danger">
                     Chưa đọc được toạ độ. Gõ như ví dụ: {egCoord.lat} /{" "}
                     {egCoord.lon}.
                   </p>
@@ -1990,7 +1990,7 @@ export function RouteMode({
                     setPanel("idle");
                   }}
                   disabled={!coordLat && !coordLon}
-                  className="mt-2 min-h-[3.25rem] w-full rounded-xl bg-background text-[1rem] font-bold text-t1 transition active:scale-[0.99] disabled:opacity-50"
+                  className="mt-2 min-h-[3.25rem] w-full rounded-xl bg-background text-[1rem] font-semibold text-t1 transition active:scale-[0.99] disabled:opacity-50"
                 >
                   Thêm điểm này
                 </button>
@@ -2108,7 +2108,7 @@ export function RouteMode({
                       className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
                     >
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[1rem] font-bold text-navy">
+                        <span className="block truncate text-[1rem] font-semibold text-navy">
                           {r.name}
                         </span>
                         <span className="block truncate text-[0.8125rem] font-semibold text-foreground/60">
@@ -2137,7 +2137,7 @@ export function RouteMode({
           {panel === "boat" && (
             <div className="grid grid-cols-2 gap-3 rounded-xl bg-background/60 p-2">
               <label className="block">
-                <span className="text-[0.875rem] font-bold text-foreground/75">
+                <span className="text-[0.875rem] font-semibold text-foreground/75">
                   Tàu chạy (hải lý/giờ)
                 </span>
                 <input
@@ -2151,7 +2151,7 @@ export function RouteMode({
                 />
               </label>
               <label className="block">
-                <span className="text-[0.875rem] font-bold text-foreground/75">
+                <span className="text-[0.875rem] font-semibold text-foreground/75">
                   Máy ăn dầu (lít/giờ)
                 </span>
                 <input
@@ -2165,7 +2165,7 @@ export function RouteMode({
                 />
               </label>
               <label className="block">
-                <span className="text-[0.875rem] font-bold text-foreground/75">
+                <span className="text-[0.875rem] font-semibold text-foreground/75">
                   Mớn nước (m) — trống nếu chưa rõ
                 </span>
                 <input
@@ -2212,7 +2212,7 @@ export function RouteMode({
                tới đâu vẫn bấm được. */}
           <div className="flex items-center gap-2">
             <div className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center rounded-xl bg-background px-3">
-              <p className="display min-w-0 flex-1 text-[0.9375rem] font-bold leading-snug text-navy">
+              <p className="display min-w-0 flex-1 text-[0.9375rem] font-semibold leading-snug text-navy">
                 {/*  Bản ĐỌC BẰNG TAI — đánh vần đủ vai của từng con số. Mắt
                      đọc bản ngắn bên dưới; không nhân đôi cho tai vì bản mắt
                      đã `aria-hidden`. KHÔNG cắt chữ ở bản này để cho gọn:
@@ -2320,7 +2320,7 @@ export function RouteMode({
                buộc phải đi thì đây là đường ít dữ nhất". Nói thẳng, nền đỏ. */}
           {plan.bestEffortSeas && (
             <div role="alert" className="rounded-xl bg-danger-bg p-3 text-danger">
-              <p className="flex items-center gap-2 text-[1rem] font-bold leading-snug">
+              <p className="flex items-center gap-2 text-[1rem] font-semibold leading-snug">
                 <AlertIcon className="h-5 w-5 shrink-0" />
                 Biển đang quá động — app KHÔNG khuyên đi
               </p>
@@ -2340,7 +2340,7 @@ export function RouteMode({
                 anyDanger ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn"
               }`}
             >
-              <p className="flex items-center gap-2 text-[1rem] font-bold leading-snug">
+              <p className="flex items-center gap-2 text-[1rem] font-semibold leading-snug">
                 <AlertIcon className="h-5 w-5 shrink-0" />
                 Trên tuyến có chỗ nguy hiểm
               </p>
@@ -2413,7 +2413,7 @@ export function RouteMode({
                   stormWarn ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn"
                 }`}
               >
-                <p className="flex items-center gap-2 text-[1rem] font-bold leading-snug">
+                <p className="flex items-center gap-2 text-[1rem] font-semibold leading-snug">
                   <AlertIcon className="h-5 w-5 shrink-0" />
                   Tuyến này chưa đối chiếu đủ
                 </p>
@@ -2434,7 +2434,7 @@ export function RouteMode({
                `buildWillMeet`: danh sách dài là danh sách không ai đọc. */}
           {willMeet.length > 0 && (
             <div role="status" className="rounded-xl bg-field p-3">
-              <p className="text-[1rem] font-bold leading-snug text-navy">
+              <p className="text-[1rem] font-semibold leading-snug text-navy">
                 Trên đường sẽ gặp
               </p>
               <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[0.9375rem] leading-snug text-foreground/80">
@@ -2461,10 +2461,10 @@ export function RouteMode({
                 className="flex min-h-[var(--row-h)] w-full items-center gap-2 px-3 text-left"
               >
                 <PinIcon className="h-5 w-5 shrink-0 text-t1" />
-                <span className="min-w-0 flex-1 text-[1rem] font-bold text-navy">
+                <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">
                   Các điểm trên tuyến
                 </span>
-                <span className="shrink-0 text-[0.875rem] font-bold text-foreground/65">
+                <span className="shrink-0 text-[0.875rem] font-semibold text-foreground/65">
                   {pointRows.length} điểm
                 </span>
                 {showPoints ? (
@@ -2525,7 +2525,7 @@ export function RouteMode({
                             </span>
                           ) : r.kind === "turn" ? (
                             <span
-                              className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[0.8125rem] font-bold"
+                              className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[0.8125rem] font-semibold"
                               style={{
                                 color: ROUTE_LINE_COLOR,
                                 boxShadow: `0 0 0 0.125rem ${ROUTE_LINE_COLOR}`,
@@ -2536,7 +2536,7 @@ export function RouteMode({
                             </span>
                           ) : (
                             <span
-                              className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.875rem] font-bold text-white"
+                              className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.875rem] font-semibold text-white"
                               style={{ background: ROUTE_LINE_COLOR }}
                               aria-hidden
                             >
@@ -2548,7 +2548,7 @@ export function RouteMode({
                             </span>
                           )}
                           <span className="min-w-0 flex-1">
-                            <span className="block text-[0.8125rem] font-bold leading-tight text-foreground/65">
+                            <span className="block text-[0.8125rem] font-semibold leading-tight text-foreground/65">
                               {r.kind === "turn" ? `Điểm ${r.turnNo} · ${role}` : role}
                               {sub ? ` · ${sub}` : ""}
                             </span>
@@ -2562,7 +2562,7 @@ export function RouteMode({
                             </span>
                           </span>
                           {r.idx > 0 && (
-                            <span className="shrink-0 text-right text-[0.8125rem] font-bold leading-tight text-foreground/65">
+                            <span className="shrink-0 text-right text-[0.8125rem] font-semibold leading-tight text-foreground/65">
                               <span className="block">
                                 {fmtDist(r.km, prefs.distUnit, r.km < 10 ? 1 : 0)}
                               </span>
@@ -2606,7 +2606,7 @@ export function RouteMode({
                       <button
                         type="button"
                         onClick={() => setPanel("dest")}
-                        className="flex min-h-[var(--row-h)] w-full items-center gap-2.5 rounded-xl bg-card px-2.5 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
+                        className="flex min-h-[var(--row-h)] w-full items-center gap-2.5 rounded-xl bg-card px-2.5 text-left text-[1rem] font-semibold text-t1 transition active:scale-[0.99]"
                       >
                         <PlusIcon className="h-6 w-6 shrink-0" />
                         <span className="min-w-0 flex-1 truncate">Thêm điểm dừng</span>

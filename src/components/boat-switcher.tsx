@@ -96,7 +96,7 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
     <div className={`relative z-10 px-4 ${compact ? "" : "-mt-6"}`}>
       <button
         onClick={() => setPick(true)}
-        className="flex min-h-[4.5rem] w-full items-center gap-3 surface px-4 py-3 active:scale-[0.99]"
+        className="flex min-h-[4.5rem] w-full items-center gap-3 surface px-4 py-3 transition active:scale-[0.99]"
       >
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-field text-navy">
           <AnchorIcon className="h-6 w-6" />

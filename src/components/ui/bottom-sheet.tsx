@@ -116,7 +116,7 @@ export function BottomSheet({
         }`}
       >
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" aria-hidden />
-        <h3 id={titleId} className="display mb-4 text-[1.375rem] font-bold text-navy">
+        <h3 id={titleId} className="display mb-4 text-[1.375rem] font-semibold text-navy">
           {title}
         </h3>
         {children}

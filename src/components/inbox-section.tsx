@@ -24,6 +24,7 @@ import { useAuthUser } from "@/lib/use-auth";
 import { staleWarningVN } from "@/lib/push-message";
 import {
   acceptRefresh,
+  gomTinTrung,
   loadInbox,
   markRead,
   refreshInbox,
@@ -38,6 +39,11 @@ const PREVIEW_COUNT = 3;
 const SEEN_RATIO = 0.5;
 /** Gom mấy tin lướt qua trong khoảng này thành MỘT cú báo — tiết kiệm sóng */
 const BATCH_MS = 1200;
+
+/** id của một dòng — `data-msg-id` có thể chứa nhiều id cách nhau dấu cách (tin trùng gom lại) */
+function idsOf(el: HTMLElement): string[] {
+  return (el.dataset.msgId ?? "").split(" ").filter(Boolean);
+}
 
 /** "14:30 · 01/08" — giờ gửi, thứ bà con cần để biết tin mới hay cũ */
 function fmt(iso: string): string {
@@ -158,8 +164,8 @@ export function InboxSection() {
       (entries) => {
         for (const e of entries) {
           if (!e.isIntersecting) continue;
-          const id = (e.target as HTMLElement).dataset.msgId;
-          if (id) pendingRef.current.add(id);
+          // một dòng có thể gom nhiều tin trùng (gomTinTrung) — tới mắt là đọc cả nhóm
+          for (const id of idsOf(e.target as HTMLElement)) pendingRef.current.add(id);
           io.unobserve(e.target); // tới mắt một lần là đủ
         }
         if (pendingRef.current.size > 0 && timerRef.current === null) {
@@ -172,14 +178,11 @@ export function InboxSection() {
     const fresh = new Set(
       unreportedIds(
         phone,
-        [...root.querySelectorAll<HTMLElement>("[data-msg-id]")].map(
-          (el) => el.dataset.msgId ?? "",
-        ),
+        [...root.querySelectorAll<HTMLElement>("[data-msg-id]")].flatMap(idsOf),
       ),
     );
     for (const el of root.querySelectorAll<HTMLElement>("[data-msg-id]")) {
-      const id = el.dataset.msgId ?? "";
-      if (fresh.has(id) && !sentRef.current.has(id)) io.observe(el);
+      if (idsOf(el).some((id) => fresh.has(id) && !sentRef.current.has(id))) io.observe(el);
     }
     return () => {
       io.disconnect();
@@ -197,9 +200,12 @@ export function InboxSection() {
      thì server vốn chỉ trả khi đã đăng nhập. */
   if (messages.length === 0) return null;
 
-  const shown = expanded ? messages : messages.slice(0, PREVIEW_COUNT);
-  const rest = messages.length - shown.length;
-  const soMoi = messages.filter((m) => unread.has(m.id)).length;
+  /*  MỘT DÒNG MỘT NỘI DUNG (rà Taste 2026-10-22): nhắc lại cùng cơn bão từng chiếm
+      trọn 3 dòng đầu bằng 3 tin y hệt chữ. Gom lúc vẽ, ghi "báo N lần". */
+  const groups = gomTinTrung(messages);
+  const shown = expanded ? groups : groups.slice(0, PREVIEW_COUNT);
+  const rest = groups.length - shown.length;
+  const soMoi = groups.filter((g) => g.ids.some((id) => unread.has(id))).length;
 
   /*  DỄ ĐỌC (làm lại 2026-10-19, chủ dự án: "làm sao đọc thông báo"): trước đây
       giờ tin 13px, nút "Xem hết" 11px, nhãn IN HOA "TIN CŨ…", mỗi tin một thẻ có
@@ -209,15 +215,15 @@ export function InboxSection() {
       mũi tên nằm TRONG hàng. Số tin mới lên hàng tiêu đề. Xem thêm = hàng cuối. */
   return (
     <section aria-label="Thông báo">
-      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="display text-[1rem] font-semibold text-navy">Thông báo</h2>
         {soMoi > 0 && (
           <span className="rounded-full bg-trim px-2.5 py-0.5 text-[0.75rem] font-semibold text-white">{soMoi} mới</span>
         )}
       </div>
       <ul ref={listRef} className="divide-y divide-line overflow-hidden surface overflow-hidden">
-        {shown.map((m) => {
-          const isUnread = unread.has(m.id);
+        {shown.map(({ msg: m, ids }) => {
+          const isUnread = ids.some((id) => unread.has(id));
           const sentMs = Date.parse(m.sentAt);
           const staleRaw =
             now > 0 && Number.isFinite(sentMs)
@@ -241,12 +247,13 @@ export function InboxSection() {
               <span className="mt-1 block text-[0.8125rem] leading-snug text-foreground/65">
                 {fmt(m.sentAt)}
                 {stale && <span className="font-semibold text-warn"> · {stale}</span>}
+                {ids.length > 1 && ` · báo ${ids.length} lần`}
                 {m.mine && " · Gửi riêng cho bà con"}
               </span>
             </>
           );
           return (
-            <li key={m.id} data-msg-id={m.id}>
+            <li key={m.id} data-msg-id={ids.join(" ")}>
               {m.url ? (
                 <Link href={m.url} className="block min-h-(--h-row) px-4 py-3 active:bg-field">
                   {inner}

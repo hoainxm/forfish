@@ -40,7 +40,7 @@ function NoVoiceNote({ avail }: { avail: TtsAvail | null }) {
         <button
           type="button"
           onClick={() => void ttsOpenInstall()}
-          className="mt-2 flex min-h-[3.5rem] w-full items-center justify-center rounded-xl bg-navy px-4 text-[1rem] font-bold text-white transition active:scale-[0.98]"
+          className="mt-2 flex min-h-[3.5rem] w-full items-center justify-center rounded-xl bg-navy px-4 text-[1rem] font-semibold text-white transition active:scale-[0.98]"
         >
           Tải giọng tiếng Việt
         </button>
@@ -80,7 +80,7 @@ export function CruiseIntroSheet({
         <button
           type="button"
           onClick={() => testVoice(setA2)}
-          className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-xl bg-navy/10 px-4 text-[1rem] font-bold text-navy transition active:scale-[0.98]"
+          className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-xl bg-navy/10 px-4 text-[1rem] font-semibold text-navy transition active:scale-[0.98]"
         >
           <SpeakerIcon className="h-6 w-6" />
           Nghe thử giọng đọc
@@ -91,7 +91,7 @@ export function CruiseIntroSheet({
             ttsUnlock(); // cử chỉ chạm thật — mở khoá loa iOS trước khi máy tự đọc
             onStart();
           }}
-          className="flex min-h-[3.5rem] w-full items-center justify-center rounded-xl bg-t1 px-4 text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
+          className="flex min-h-[3.5rem] w-full items-center justify-center rounded-xl bg-t1 px-4 text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
         >
           Bắt đầu chạy
         </button>
@@ -122,7 +122,7 @@ export function VoiceSettingsSection() {
   }, []);
   return (
     <div>
-      <p className="mb-2 mt-3 text-[0.75rem] font-bold text-foreground/55">
+      <p className="mb-2 mt-3 text-[0.75rem] font-semibold text-foreground/55">
         Giọng đọc khi chạy
       </p>
       <button
@@ -138,8 +138,8 @@ export function VoiceSettingsSection() {
           tuDoc ? "bg-t1/15 ring-2 ring-t1" : "bg-field/70"
         }`}
       >
-        <span className="text-[1rem] font-bold text-navy">Mở bản đồ là tự đọc cảnh báo</span>
-        <span className="text-[0.9375rem] font-bold text-navy">{tuDoc ? "Bật" : "Tắt"}</span>
+        <span className="text-[1rem] font-semibold text-navy">Mở bản đồ là tự đọc cảnh báo</span>
+        <span className="text-[0.9375rem] font-semibold text-navy">{tuDoc ? "Bật" : "Tắt"}</span>
       </button>
       <div className="space-y-2" role="radiogroup" aria-label="Mức giọng đọc">
         {MODES.map((m) => (
@@ -157,7 +157,7 @@ export function VoiceSettingsSection() {
               muc === m.id ? "bg-t1/15 ring-2 ring-t1" : "bg-field/70"
             }`}
           >
-            <span className="text-[1rem] font-bold text-navy">{m.title}</span>
+            <span className="text-[1rem] font-semibold text-navy">{m.title}</span>
             <span className="text-[0.8125rem] leading-snug text-foreground/70">{m.sub}</span>
           </button>
         ))}
@@ -172,7 +172,7 @@ export function VoiceSettingsSection() {
       <button
         type="button"
         onClick={() => testVoice(() => refreshAvail())}
-        className="mt-2 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-xl bg-navy/10 px-4 text-[1rem] font-bold text-navy transition active:scale-[0.98]"
+        className="mt-2 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-xl bg-navy/10 px-4 text-[1rem] font-semibold text-navy transition active:scale-[0.98]"
       >
         <SpeakerIcon className="h-6 w-6" />
         Nghe thử

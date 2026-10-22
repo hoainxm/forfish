@@ -56,7 +56,7 @@ export function DocReminderBell({ hasExpiring }: { hasExpiring: boolean }) {
 
   if (state === "done") {
     return (
-      <p role="status" className="mb-4 rounded-2xl bg-ok-bg px-4 py-3 text-[1rem] font-bold leading-snug text-ok">
+      <p role="status" className="mb-4 rounded-2xl bg-ok-bg px-4 py-3 text-[1rem] font-semibold leading-snug text-ok">
         Đã bật chuông — điện thoại sẽ báo khi giấy còn 30, 15, 7, 3, 1 ngày và đúng
         hôm hết hạn.
       </p>
@@ -88,7 +88,7 @@ export function DocReminderBell({ hasExpiring }: { hasExpiring: boolean }) {
         <div className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl bg-background px-4 py-3">
           <BellIcon className="h-6 w-6 shrink-0 text-navy" />
           <p className="text-[1rem] leading-snug text-foreground/80">
-            <span className="font-bold text-navy">Bật chuông nhắc hạn</span> để điện
+            <span className="font-semibold text-navy">Bật chuông nhắc hạn</span> để điện
             thoại reo trước khi giấy hết hạn.
           </p>
         </div>

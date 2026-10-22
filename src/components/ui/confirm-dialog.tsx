@@ -73,7 +73,7 @@ export function ConfirmDialog({
         }`}
       >
         {icon && <div className="mx-auto mb-3 w-fit">{icon}</div>}
-        <p className="display text-[1.25rem] font-bold text-navy">{title}</p>
+        <p className="display text-[1.25rem] font-semibold text-navy">{title}</p>
         {message && (
           <p className="mt-1 text-[1rem] text-foreground/70">{message}</p>
         )}
@@ -82,7 +82,7 @@ export function ConfirmDialog({
           <button
             ref={cancelRef}
             onClick={() => requestClose()}
-            className="min-h-[3.5rem] rounded-2xl bg-field text-[1.125rem] font-bold text-foreground/70"
+            className="min-h-[3.5rem] rounded-2xl bg-field text-[1.125rem] font-semibold text-foreground/70"
           >
             {cancelLabel}
           </button>
@@ -91,7 +91,7 @@ export function ConfirmDialog({
               tapFeedback();
               requestClose(onConfirm);
             }}
-            className={`min-h-[3.5rem] rounded-2xl text-[1.125rem] font-bold text-white ${
+            className={`min-h-[3.5rem] rounded-2xl text-[1.125rem] font-semibold text-white ${
               danger ? "bg-danger" : "bg-sea"
             }`}
           >

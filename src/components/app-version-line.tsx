@@ -47,7 +47,7 @@ export function AppVersionLine() {
 
   return (
     <div>
-      <p className="mb-2 mt-3 text-[0.75rem] font-bold text-foreground/55">
+      <p className="mb-2 mt-3 text-[0.75rem] font-semibold text-foreground/55">
         Phiên bản
       </p>
       <p className="text-[0.9375rem] font-semibold text-foreground/80">

@@ -40,7 +40,7 @@ export function ProductInquiryButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-navy px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
+        className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-navy px-4 text-[0.9375rem] font-semibold text-white transition active:scale-[0.97]"
       >
         <PhoneIcon className="h-4 w-4" />
         Để lại yêu cầu
@@ -142,7 +142,7 @@ function InquiryForm({
           style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
         >
           <CheckIcon className="mx-auto h-10 w-10" />
-          <p className="mt-3 text-[1.125rem] font-bold">Đã tiếp nhận yêu cầu</p>
+          <p className="mt-3 text-[1.125rem] font-semibold">Đã tiếp nhận yêu cầu</p>
           <p className="mt-1 text-[1rem] text-foreground/70">
             {vendorKind === "external" && vendorName?.trim()
               ? `Yêu cầu về hàng của ${vendorName.trim()} đã được ghi nhận — nhân viên sẽ gọi lại cho bà con sớm nhé.`
@@ -204,7 +204,7 @@ function InquiryForm({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-semibold text-foreground/70"
           >
             Hủy
           </button>

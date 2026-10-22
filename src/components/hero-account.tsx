@@ -591,7 +591,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             <div className="mb-4 flex items-stretch gap-2">
               <div className="min-w-0 flex-1 surface px-4 py-3">
               {name && (
-                <p className="display text-[1.125rem] font-bold text-navy">
+                <p className="display text-[1.125rem] font-semibold text-navy">
                   Bác {name}
                 </p>
               )}
@@ -603,7 +603,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
               {badge && (
                 <div className="mt-3 border-t border-line pt-3">
                   <span
-                    className={`inline-block rounded-full px-3 py-1 text-[0.875rem] font-bold ${
+                    className={`inline-block rounded-full px-3 py-1 text-[0.875rem] font-semibold ${
                       badge.tone === "premium"
                         ? "bg-ok-bg text-ok"
                         : "bg-field text-foreground/75"
@@ -638,7 +638,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
                   giọng bình thường, không doạ. */}
               {savedAccess && (
                 <div className="mb-4 rounded-2xl border border-ok/30 bg-ok-bg px-4 py-3">
-                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
+                  <p className="display text-[1.125rem] font-semibold leading-snug text-navy">
                     Đang dùng quyền đã lưu trên máy
                   </p>
                   <p className="mt-1 text-[1rem] leading-snug text-foreground/75">
@@ -707,7 +707,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
               className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
             >
               <span className="min-w-0 flex-1">
-                <span className="block text-[1rem] font-bold text-navy">
+                <span className="block text-[1rem] font-semibold text-navy">
                   Kênh người bán
                   {shopFlag.status === "cho_duyet" && " · đang chờ duyệt"}
                 </span>
@@ -739,7 +739,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
               "gọn"/"to" (ngoài phạm vi đợt này). */}
           <div className="mb-4 flex items-stretch gap-2">
             <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
-              <p className="text-[1rem] font-bold text-navy">Cài đặt khác</p>
+              <p className="text-[1rem] font-semibold text-navy">Cài đặt khác</p>
             </div>
             <button
               type="button"
@@ -757,7 +757,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
           {showSettings && (
             <>
           {/* cỡ giao diện — auto theo máy là NỀN; chỉ bày 2 tùy chọn ghi đè */}
-          <p className="mb-1.5 px-1 text-[0.8125rem] font-bold text-foreground/65">
+          <p className="mb-1.5 px-1 text-[0.8125rem] font-semibold text-foreground/65">
             Cỡ chữ và nút
           </p>
           {/*  Bỏ hai dòng hướng dẫn (D1): hai hàng chọn ngay dưới đã tự nói
@@ -787,7 +787,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
                     )}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[1rem] font-bold text-navy">
+                    <span className="block text-[1rem] font-semibold text-navy">
                       {m.label}
                     </span>
                     <span className="block text-[0.8125rem] leading-snug text-foreground/70">
@@ -810,7 +810,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
                   <BellIcon className="h-5 w-5 text-navy" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[1rem] font-bold text-navy">
+                  <span className="block text-[1rem] font-semibold text-navy">
                     Thông báo
                   </span>
                   <span className="block text-[0.8125rem] leading-snug text-foreground/70">
@@ -851,7 +851,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
               onClick={() => setOpen(false)}
               className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
             >
-              <span className="min-w-0 flex-1 text-[1rem] font-bold text-navy">
+              <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">
                 Trang quản trị
               </span>
               <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
@@ -870,7 +870,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
                 <LockIcon className="h-5 w-5 text-navy" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[1rem] font-bold text-navy">
+                <span className="block text-[1rem] font-semibold text-navy">
                   Đổi mật khẩu
                 </span>
                 <span className="block text-[0.8125rem] leading-snug text-foreground/70">
@@ -888,7 +888,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             onClick={() => setOpen(false)}
             className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
           >
-            <span className="min-w-0 flex-1 text-[1rem] font-bold text-navy">
+            <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">
               Chính sách quyền riêng tư
             </span>
             <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
@@ -944,7 +944,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
           </p>
           <p className="mt-2 text-[1rem] leading-snug text-foreground/75">
             Muốn dùng lại thì phải{" "}
-            <span className="font-bold text-navy">
+            <span className="font-semibold text-navy">
               đăng nhập lại — việc đó cần sóng
             </span>
             .

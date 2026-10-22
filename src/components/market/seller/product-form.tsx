@@ -322,7 +322,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
         <p className="mb-1.5 text-[1rem] font-semibold text-navy">Tồn kho</p>
         <div className="mb-1 flex items-center gap-2" id={pFieldDomId("stock")}>
           <button type="button" onClick={() => setStock(stockNum - 1)} aria-label="Bớt tồn kho"
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field text-navy active:scale-95">
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field text-navy transition active:scale-95">
             <MinusIcon className="h-6 w-6" />
           </button>
           <input
@@ -334,7 +334,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
             {...invalidProps(badField === "stock")}
           />
           <button type="button" onClick={() => setStock(stockNum + 1)} aria-label="Thêm tồn kho"
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field text-navy active:scale-95">
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field text-navy transition active:scale-95">
             <PlusIcon className="h-6 w-6" />
           </button>
         </div>

@@ -4,6 +4,7 @@
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
 last_verified: 2026-10-19
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
+<!-- re-verified: 2026-10-22b — rà 3 skill lần 2 chỉ đổi độ đậm chữ (font-bold→font-semibold), transition nút bấm, chip 44px ở các component đa tàu (boat-switcher, document-photos…) — AC đa tàu không đổi. -->
 <!-- re-verified: 2026-10-22 — rà thẩm mỹ theo skill (cỡ chữ, chữ hoa, cuộn ngang) chạm crew-list/fishing-map-view/document-* — AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20q — fishing-map-view.tsx (nút loa ra ngoài, NavHud chỉ khi dẫn đường) — AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20p — fishing-map-view.tsx (khung mới: ô tìm, thẻ trạng thái đáy, đồng hồ tốc độ, chế độ gọn) — AC đa-tàu không đổi. -->
