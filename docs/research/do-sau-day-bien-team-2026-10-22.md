@@ -113,6 +113,16 @@ Hai mô hình chỉ khớp nhau trong 5 m ở **31,8 %** hình rạn — ở r�
 
 **Trả lời câu "dữ liệu đủ mà sao không có độ sâu" bằng số**: trong 2 622 rạn, chỉ **1** rạn mô hình nói ≥ 20 m mà ACA thấy mặt rạn cạn — tức mô hình hiếm khi "bịa sâu" ở rạn lớn; nhưng nó **không phân giải** rạn nhỏ (183 mâu thuẫn + 2 333 cạn mà phần lớn ETOPO/GEBCO vẫn ghi vài chục mét quanh đó). Rạn có số độ sâu thật chỉ khi lấy từ ACA bathymetry, ATL24, hoặc ba bộ 10 m đã chốt dùng (Q6).
 
+### 6.3 Ba bộ rạn 10 m đã tải về GPU (Q6) — tình trạng từng bộ
+
+| Bộ | Tải | Đọc được | Vấn đề đo thấy | Dùng |
+|---|---|---|---|---|
+| HHU24SWDSCS | 88 MB, md5 khớp | 128 đảo, 29,4 M điểm | 1 bản ghi tráo lat/lon, 1 tâm NaN (lỗi nguồn) — đã làm sạch trong `chi-muc.py` | ✅ |
+| SCSBathy10 | 126 MB | 66 file lưới .nc + CSV tên | máy GPU không có `unzip` → giải nén bằng Python | ✅ |
+| LGMM-SDB | 2 × 779 MB | 82 group `Region_NNN`, biến y/x | **KHÔNG CÓ TOẠ ĐỘ ĐỊA LÝ**: thuộc tính gốc ghi "y/x là chỉ số hàng cột trong vùng, không phải toạ độ địa lý", không CRS, Zenodo không kèm file toạ độ nào | ❌ loại cho tới khi tác giả bổ sung georef — không ghép theo hình dạng (bịa vị trí là bịa chủ quyền) |
+
+Bảng tra tên Việt: 227 thực thể (Trường Sa 149, Hoàng Sa 42, Trung Sa 32, Scarborough 1, Đông Sa 3), **162 dòng `duyet: true`** (≥ 2 nguồn khớp tên + toạ độ < 3 km) — `scripts/dan-duong/ran-10m/ten-ran-bien-dong.json`, ghi chú bẫy đồng âm pinyin ở `.ghi-chu.md`. Ghép tên làm theo toạ độ trước (`coral-reefs.v1.json`, 144 tên Việt ở hai quần đảo), bảng tra chỉ khi vừa khớp tên đầy đủ vừa cách ≤ 8 km; dòng chưa khớp `can-nguoi` không vào sản phẩm. Chưa đối chiếu văn bản nhà nước (UBND đặc khu, Bộ TN&MT) — làm trước khi phát hành.
+
 ## Assumptions
 
 - "Đo thật" trong TID = mã 10–17 (đo trực tiếp) + 44 (hải đồ số hoá); 40 = nội suy trọng lực vệ tinh; lidar = 15, hải đồ = 42–44 (D sửa lại nhóm "40–47" sai trong đề bài).

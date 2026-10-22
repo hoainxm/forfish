@@ -32,8 +32,8 @@ try:
     log("HHU24", len(ten), "đảo,", lat.size, "điểm")
     # gán theo ô lưới thô 0,05° quanh tâm đảo để không O(N×128) nặng: dùng khoảng cách tới tâm gần nhất theo khối
     idx = np.full(lat.size, -1, np.int32)
-    for k in range(0, lat.size, 2_000_000):
-        sl = slice(k, k + 2_000_000)
+    for k in range(0, lat.size, 200_000):
+        sl = slice(k, k + 200_000)
         d2 = (lat[sl, None] - ilat[None, :]) ** 2 + ((lon[sl, None] - ilon[None, :]) * np.cos(np.radians(ilat[None, :]))) ** 2
         idx[sl] = np.argmin(d2, axis=1)
     for i, t in enumerate(ten):
