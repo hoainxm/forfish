@@ -329,6 +329,8 @@ import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import type { NavInfoLine } from "@/lib/nav-context";
 import {
   computeNavProgress,
+  tocDoMuot,
+  type TocDoMuot,
   etaHours,
   MIN_MOVING_KMH,
   offRouteStepCrossed,
@@ -2934,18 +2936,25 @@ export default function FishingMapView() {
   }, [tracking.speedKmh]);
   /** đoạn tuyến ở fix trước — để chiếu tuyến có trễ, tuyến vòng về không nhảy đoạn */
   const navSegRef = useRef(0);
+  /** tốc độ làm mượt 60 s cho giờ tới — sóng lắc không làm ETA nhảy */
+  const navEtaSpeedRef = useRef<TocDoMuot | null>(null);
   const navProgress = useMemo(() => {
     if (!navMode || !tracking.pos) return null;
+    navEtaSpeedRef.current = tocDoMuot(
+      navEtaSpeedRef.current,
+      tracking.speedKmh,
+      tracking.lastFixAt ?? Date.now(),
+    );
     const p = computeNavProgress({
       pos: tracking.pos,
       headingDeg: tracking.headingDeg,
-      speedKmh: tracking.speedKmh,
+      speedKmh: navEtaSpeedRef.current?.kmh ?? null,
       waypoints: navMode.plan.waypoints,
       segHint: navSegRef.current,
     });
     navSegRef.current = p.segIdx;
     return p;
-  }, [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh]);
+  }, [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh, tracking.lastFixAt]);
 
   /*  CÒN BAO XA / BAO LÂU TỚI CHỖ GHÉ KẾ TIẾP (2026-08-29g). Dòng tổng của
       HUD nói tới ĐÍCH CUỐI — đi 3 chỗ mà chỉ thấy "còn 491 hải lý" thì bà con

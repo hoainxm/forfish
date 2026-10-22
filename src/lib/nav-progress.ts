@@ -264,6 +264,32 @@ export function etaHours(
   return remainingKm / speedKmh;
 }
 
+/** Hằng thời gian làm mượt tốc độ cho ETA (giây) — dài hơn 20 s của `locFix` để sóng lắc không làm giờ tới nhảy */
+export const ETA_TAU_S = 60;
+/** Quá lâu không có mẫu (giây) thì bỏ số cũ, tính lại từ mẫu mới */
+const ETA_STALE_S = 180;
+
+export interface TocDoMuot {
+  kmh: number;
+  t: number;
+}
+
+/**
+ * Tốc độ làm mượt (EMA τ=60 s) dành riêng cho ETA. `mau` null/dưới ngưỡng chạy
+ * ⇒ trả null (đứng/chưa biết thì không hứa giờ tới). Mẫu đầu, thời gian lùi hoặc
+ * cách mẫu trước quá 3 phút ⇒ lấy luôn mẫu mới (không kéo số cũ lỗi thời).
+ */
+export function tocDoMuot(
+  prev: TocDoMuot | null,
+  mau: number | null,
+  t: number,
+): TocDoMuot | null {
+  if (mau == null || !Number.isFinite(mau) || mau < MIN_MOVING_KMH) return null;
+  const dt = prev ? (t - prev.t) / 1000 : 0;
+  if (!prev || dt <= 0 || dt > ETA_STALE_S) return { kmh: mau, t };
+  return { kmh: prev.kmh + (1 - Math.exp(-dt / ETA_TAU_S)) * (mau - prev.kmh), t };
+}
+
 export interface NavInput {
   pos: LatLon;
   /** hướng tàu ĐANG đi (0–360) — null khi chưa xác định */
