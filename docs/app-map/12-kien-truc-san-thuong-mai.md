@@ -9,6 +9,7 @@ last_verified: 2026-10-19
 <!-- re-verified: 2026-10-19 — /cho gốc thành MỤC DOCK "Vật tư": đầu màn ManHeader "Vật tư" (bỏ MarketHeader + nút Quay lại về /tien), lối vào cũ ở /tien (thẻ) và /tau (tab Cửa hàng/Đơn) đã gỡ; ?tab=cua-hang|don ở /tau chuyển sang /cho, /cho/don. Luồng mua/giỏ/đơn/báo giá KHÔNG đổi. -->
 <!-- re-verified: 2026-10-18 — §13 LUỒNG GIỐNG SHOPEE: hợp đồng kho thêm listOverduePending + 6 hàm yêu cầu đặt hàng (cả supabase-store lẫn file-store, test hợp đồng xanh), OrderPatch.etaFrom/etaTo, Order.etaFrom/etaTo/requestId, migration 0063 (ĐÃ apply prod 2026-10-18), route /api/cho/yeu-cau*, /api/admin/cho/yeu-cau*. -->
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-10-22) — code 'src/components/market' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-09-06 - Core pha 2a đã hiện thực đúng hợp đồng §2–§6, §8.1: 24 file lib/market, 11 shared component, migration 0060, /api/dev + /dev, 16 file test; không đổi tên/chữ ký (chỉ THÊM notice.ts, rating.ts, marketErrorStatus/isMarketError theo hình dạng, marketSend, sniffImageMime) -->
 
 **Version**: 1.1 (hợp nhất sau phản biện) · **Ngày**: 2026-09-06 · **Tác giả**: Kiến trúc sư (Phase 1) + Reviewer hợp nhất · **Khung**: LEAD-BRIEF 2026-09-06 §4/§5 = luật cao nhất · **Vì sao**: [ADR 0013](../adr/0013-san-thuong-mai-da-nguoi-ban.md) · **Nghiệp vụ**: [11-ba-spec-san-thuong-mai.md](11-ba-spec-san-thuong-mai.md)

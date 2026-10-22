@@ -12,8 +12,11 @@
 // (hieu-y.ts); ~0,09 s/câu WASM một luồng trên Mac. Giọng thử là giọng máy —
 // chưa đo giọng bà con thật.
 //
-// Mô hình: zipformer-vi-30M-int8-2026-02-09 (hynt, CC-BY-NC-ND 4.0) — chủ dự án
-// chốt 2026-10-16 dùng bản này (xem ADR 0011 §giấy phép).
+// Mô hình (v2, 2026-10-22, ADR 0015 — chủ dự án "thay bản zipformer đi"): zipformer 70.000 giờ
+// của zzasdf (Apache-2.0) TINH CHỈNH bằng câu Sen Biển + tiếng máy tàu + giọng ba miền — được sửa,
+// train tiếp. Đo giọng máy ba miền 94,6 % đúng việc (30M cũ: 84,8 %), tên chủ quyền 39/40; người thật
+// đọc rõ (FLEURS) sai chữ 12,6 % (30M: 12,0 %). Chậm hơn 30M ~1,3–1,5 lần, gói 79 MB (30M: 34 MB).
+// v1 cũ: zipformer-vi-30M-int8 (hynt, CC-BY-NC-ND — cấm sửa, ADR 0011).
 
 import { fetchDataBytes } from "@/lib/data-fetch";
 
@@ -21,7 +24,7 @@ import type { ListenErrorCode, ListenHandle } from "./nghe";
 
 /** Thư mục bộ chạy `public/sherpa-asr/<bản>/` (scripts/sen-bien-nghe-wasm/build.sh; test khoá có đủ file). */
 export const SHERPA_BAN = "1.13.8";
-export const NGHE_PATH = "/data/sen-bien-nghe.v1.bin";
+export const NGHE_PATH = "/data/sen-bien-nghe.v2.bin";
 const WORKER_URL = "/sen-bien-nghe.worker.js";
 /** 34 MB qua sóng bờ: cho dư; quá giờ thì SW vẫn tải tiếp và cất cho lần sau. */
 const NAP_MS = 180_000;

@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { DAU_KHO_PATH, loadDauKho, sbn5Bytes, topK } from "@/lib/sen-bien/dau-kho";
-import { CAU_CAN_KIEM, cauTraLoi, docKho, HOI_DAP_PATH, KHO_CHUA_DUYET } from "@/lib/sen-bien/hoi-dap";
+import { CAU_CAN_KIEM, cauTraLoi, docKho, HOI_DAP_PATH, KHO_CHUA_DUYET, KHO_DA_DUYET } from "@/lib/sen-bien/hoi-dap";
 import { LOC_BYTES, LOC_PATH, loadLoc, pHoi } from "@/lib/sen-bien/loc";
 import { INTENTS } from "@/lib/sen-bien/ngram";
 
-// Kho hỏi–đáp v1 + đầu kho v5b + bộ lọc (2026-10-19). ⚠ KHO CHƯA DUYỆT — CHỈ BẢN TEST, CHƯA ĐƯỢC LÊN MAIN.
+// Kho hỏi–đáp v2 (v5c ĐÃ DUYỆT, 2026-10-22) + đầu kho v5c + bộ lọc (2026-10-19). Chỉ câu đã duyệt mang câu trả lời.
 const ab = (p: string) => {
   const b = readFileSync(`public${p}`);
   return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
@@ -22,11 +22,11 @@ const raw = JSON.parse(readFileSync(`public${HOI_DAP_PATH}`, "utf8")) as {
 const kho = docKho(raw, dk.nq)!;
 const loc = loadLoc(ab(LOC_PATH))!;
 
-describe("đầu kho v5b — tệp SBN5 (chỉ đọc đầu kho, đầu ý định bỏ)", () => {
-  it("đúng đầu + đúng cỡ (H=64, 1990 câu)", () => {
+describe("đầu kho v5c — tệp SBN5 (chỉ đọc đầu kho, đầu ý định bỏ)", () => {
+  it("đúng đầu + đúng cỡ (H=64, 2297 câu)", () => {
     expect(dk.h).toBe(64);
-    expect(dk.nq).toBe(1990);
-    expect(ab(DAU_KHO_PATH).byteLength).toBe(sbn5Bytes(64, 1990));
+    expect(dk.nq).toBe(2297);
+    expect(ab(DAU_KHO_PATH).byteLength).toBe(sbn5Bytes(64, 2297));
   });
   it("bị cắt / sai magic / lệch số ý / bản v4 dày ⇒ null", () => {
     const b = ab(DAU_KHO_PATH);
@@ -66,13 +66,12 @@ describe("bộ lọc câu hỏi / câu lệnh — tệp SBL1", () => {
   });
 });
 
-describe("kho hỏi–đáp — GÁC 'chưa duyệt' (chủ dự án 2026-10-19: bản test, chưa lên main)", () => {
-  it("file kho ghi rõ trạng thái CHƯA DUYỆT", () => {
-    expect(raw.trangThai).toBe(KHO_CHUA_DUYET);
-    expect(KHO_CHUA_DUYET).toBe("chua-duyet-chi-ban-test");
-  });
-  it("đổi trạng thái thành 'đã duyệt' mà không đổi luật có chủ ý ⇒ kho bị từ chối", () => {
-    expect(docKho({ ...raw, trangThai: "da-duyet" }, dk.nq)).toBeNull();
+describe("kho hỏi–đáp — GÁC duyệt (2026-10-22: chỉ câu chủ dự án đã duyệt mang câu trả lời)", () => {
+  it("file kho ghi rõ trạng thái ĐÃ DUYỆT; chỉ nhận đúng hai trạng thái", () => {
+    expect(raw.trangThai).toBe(KHO_DA_DUYET);
+    expect(KHO_DA_DUYET).toBe("da-duyet");
+    expect(docKho({ ...raw, trangThai: KHO_CHUA_DUYET }, dk.nq)).not.toBeNull();
+    expect(docKho({ ...raw, trangThai: "duyet-roi" }, dk.nq)).toBeNull();
     expect(docKho({ ...raw, trangThai: undefined }, dk.nq)).toBeNull();
   });
   it("câu CẦN KIỂM (số liệu / luật) không mang câu trả lời nào trong file", () => {
@@ -82,9 +81,9 @@ describe("kho hỏi–đáp — GÁC 'chưa duyệt' (chủ dự án 2026-10-19:
     expect(raw.q.length).toBe(dk.nq);
     expect(raw.cauHoi.length).toBe(dk.nq);
     for (const id of raw.q) expect(id in raw.dap !== raw.canKiem.includes(id)).toBe(true);
-    // bản test 2026-10-19: 1537 câu can_kiem=false trong danh mục, 7 câu đã gộp vào câu khác ⇒ 1530
-    expect(Object.keys(raw.dap).length).toBe(1530);
-    expect(raw.canKiem.length).toBe(460);
+    // v5c 2026-10-22: 1607 câu không cần kiểm đã duyệt (theo lệnh chủ dự án 20/10); 690 câu còn lại đọc câu an toàn
+    expect(Object.keys(raw.dap).length).toBe(1607);
+    expect(raw.canKiem.length).toBe(690);
   });
   it("file lẫn câu trả lời cho câu cần kiểm ⇒ docKho bỏ câu đó, vẫn đọc câu an toàn", () => {
     const id = raw.canKiem[0];

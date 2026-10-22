@@ -52,13 +52,18 @@ describe("chữ của bộ nghe", () => {
 });
 
 describe("gói bộ nghe + bộ chạy WASM có đủ trong repo", () => {
-  it("sen-bien-nghe.v1.bin: đầu SBN1, đủ 5 file, độ dài khớp", () => {
-    const b = readFileSync("public/data/sen-bien-nghe.v1.bin");
+  it("sen-bien-nghe.v2.bin: đầu SBN1, đủ 5 file, độ dài khớp", () => {
+    const b = readFileSync("public/data/sen-bien-nghe.v2.bin");
     expect(b.subarray(0, 4).toString("ascii")).toBe("SBN1");
     const nh = b.readUInt32LE(4);
     const head = JSON.parse(b.subarray(8, 8 + nh).toString("utf8")) as { files: { name: string; len: number }[] };
     expect(head.files.map((f) => f.name)).toEqual(["encoder.onnx", "decoder.onnx", "joiner.onnx", "tokens.txt", "bpe.vocab"]);
     expect(8 + nh + head.files.reduce((a, f) => a + f.len, 0)).toBe(b.length);
+    // v2 (2026-10-22): bản 70.000 giờ tinh chỉnh — ghi công zzasdf + Apache-2.0 phải đi cùng file (ADR 0015)
+    const meta = head as unknown as { model: string; nguon?: string };
+    expect(meta.model).toMatch(/70000h/);
+    expect(meta.nguon).toMatch(/zzasdf/);
+    expect(meta.nguon).toMatch(/Apache-2\.0/);
   });
   it(`public/sherpa-asr/${SHERPA_BAN}/ có bộ chạy chỉ-nghe (không phải bản Node)`, () => {
     const dir = `public/sherpa-asr/${SHERPA_BAN}/`;
