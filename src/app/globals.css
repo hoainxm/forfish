@@ -533,6 +533,12 @@ textarea,
   line-height: 1.35;
 }
 
+/* Kính trên nút tròn / viên thuốc: .glass nằm ngoài @layer nên đè `rounded-full` của Tailwind —
+   trả lại hình tròn cho đúng nút (2026-10-22, kính hoá thanh nổi màn Bản đồ). */
+.glass.rounded-full {
+  border-radius: 9999px;
+}
+
 /* Máy không hỗ trợ blur → nền đặc hơn cho chữ khỏi chìm vào bản đồ */
 @supports not (backdrop-filter: blur(1px)) {
   .glass {

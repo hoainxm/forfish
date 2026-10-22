@@ -21,7 +21,7 @@ export function OTimDiem({ onOpen }: { onOpen: () => void }) {
       type="button"
       onClick={onOpen}
       aria-label="Đi đâu — nhập toạ độ để đến điểm"
-      className="pointer-events-auto flex h-(--h-ctl) w-full min-w-0 items-center gap-2 rounded-full border border-line bg-card/95 px-3.5 text-left shadow-float active:bg-field"
+      className="pointer-events-auto flex h-(--h-ctl) w-full min-w-0 items-center gap-2 glass rounded-full px-3.5 text-left transition active:scale-[0.98]"
     >
       <SearchIcon className="h-5 w-5 shrink-0 text-sea" aria-hidden />
       <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground/65">Đi đâu?</span>
@@ -63,7 +63,7 @@ export function NutViTri({ onClick, disabled }: { onClick: () => void; disabled?
       aria-label="Về chỗ tàu đang đứng"
       /*  CÙNG CỠ nút ⚠ chip dữ liệu ngay trên (anh Long: "kích thước nó nhỏ bằng
           cái dấu !"): vuông --h-ctl, viền mảnh, bóng nhẹ — hai nút một cột thẳng. */
-      className="pointer-events-auto flex h-(--h-ctl) w-(--h-ctl) items-center justify-center rounded-full border border-line bg-card/95 text-sea shadow-sm active:scale-95 disabled:opacity-50"
+      className="pointer-events-auto flex h-(--h-ctl) w-(--h-ctl) items-center justify-center glass rounded-full text-sea active:scale-95 disabled:opacity-50"
     >
       <CrosshairIcon className="h-[1.125rem] w-[1.125rem]" aria-hidden />
     </button>
@@ -85,7 +85,7 @@ export function NutLoa({ on, onClick }: { on: boolean; onClick: () => void }) {
       aria-pressed={on}
       aria-label={on ? "Đang đọc cảnh báo theo vị trí tàu — chạm để tắt" : "Bật đọc cảnh báo theo vị trí tàu"}
       className={`pointer-events-auto flex h-(--h-ctl) w-(--h-ctl) items-center justify-center rounded-full border shadow-sm active:scale-95 ${
-        on ? "border-sea bg-sea text-white" : "border-line bg-card/95 text-navy"
+        on ? "border-sea bg-sea text-white" : "glass border-transparent text-navy"
       }`}
     >
       {on ? <SpeakerIcon className="h-[1.125rem] w-[1.125rem]" aria-hidden /> : <SpeakerOffIcon className="h-[1.125rem] w-[1.125rem]" aria-hidden />}

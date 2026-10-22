@@ -7504,7 +7504,7 @@ export default function FishingMapView() {
             {/* CHÚ GIẢI MÀU LỚP CÁ — theo luồng dưới ô toạ độ (trước đặt tuyệt đối
                 `top-[11rem]`, phóng chữ to là đè lên ô toạ độ). */}
             {fishGridGeo && (
-              <div className="pointer-events-none flex items-center gap-2 self-start rounded-lg border border-line bg-card px-2 py-1 @max-[15rem]/map:hidden text-[0.6875rem] font-medium text-navy shadow-sm">
+              <div className="glass pointer-events-none flex items-center gap-2 self-start px-2.5 py-1 @max-[15rem]/map:hidden text-[0.6875rem] font-medium text-navy shadow-sm">
                 <span className="font-semibold">Dự báo cá</span>
                 {FISH_LEVEL_BANDS.map((b) => (
                   <span key={b.key} className="flex items-center gap-1">

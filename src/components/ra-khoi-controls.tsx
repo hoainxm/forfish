@@ -654,7 +654,7 @@ function RailBtn({
     : tone === "warn"
       ? "border-warn-bg bg-warn-bg text-warn"
       : variant === "fab"
-        ? "border-line bg-card/95 text-navy"
+        ? "glass border-transparent text-navy"
         : "border-transparent bg-transparent text-navy active:bg-field";
   return (
     <button
