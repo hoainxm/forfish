@@ -408,6 +408,10 @@ const SHELL = [
   // (không CRITICAL): lớp phụ trợ — nhãn TÊN rạn đã nằm ở CRITICAL, thiếu hình
   // thì vẫn còn tên. Nặng nên không để nó chặn install lúc sóng chập chờn.
   "/data/reef-shapes.v1.json",
+  // ĐỘ SÂU RẠN Hoàng Sa / Trường Sa (2026-10-22, ~0,68 MB, `lib/reef-depth`). Tính tuyến đọc nó để chặn thêm ô rạn
+  // nông mặt nạ cũ bỏ sót; thiếu thì tuyến vẫn chặn bằng mặt nạ rạn cũ và thẻ nói "chưa soi được độ sâu rạn".
+  // Best-effort như reef-shapes: không để chặn install lúc sóng chập chờn.
+  "/data/reef-depth.v1.bin",
   // KHU BẢO TỒN BIỂN · VÙNG CẤM KHAI THÁC CÓ THỜI HẠN · KHU BẢO VỆ NGUỒN LỢI
   // (2026-10-14, ~150 KB). Ranh giới thả lưới được/không — đúng thứ cần giữa
   // biển mất sóng; dẫn đường đọc nó để nhắc "đang trong khu…". Best-effort

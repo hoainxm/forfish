@@ -72,6 +72,7 @@ import {
   type NoGoZone,
 } from "@/lib/hazards";
 import { estimateWaveFromWind } from "@/lib/sea";
+import { buildReefDepthIndex, nguongChanRanM, reefDepthAtM, type ReefDepth } from "@/lib/reef-depth";
 import {
   buildIndex,
   maskWithinSegment,
@@ -633,6 +634,11 @@ export type RoutePlan = {
   hazardChecked: boolean;
   hasHazardLeg: boolean;
   hasHazardNearPortLeg: boolean;
+  /*  ĐỘ SÂU RẠN XA BỜ (2026-10-22, `lib/reef-depth`). `reefDepthChecked` true = lượt tính CÓ đối chiếu độ sâu
+      rạn Hoàng Sa/Trường Sa (undefined/false = chưa — UI không được hiểu là "đã soi"). `hasReefShoalLeg` = tuyến đi
+      qua ô rạn nông hơn ngưỡng nhưng nằm trong vòng nới 12 km quanh một đầu (cập đảo/rạn) — đi được, PHẢI cảnh báo. */
+  reefDepthChecked?: boolean;
+  hasReefShoalLeg?: boolean;
   /**
    * có đoạn ĐÈ LÊN ĐẤT theo lưới độ sâu, đi qua được chỉ vì nằm trong bán kính
    * nới `VICINITY_LAND_KM` quanh nơi xuất phát/điểm đến (2026-08-16, thẩm định
@@ -731,6 +737,8 @@ type LegInfo = {
   hazard: boolean;
   /** chặng chạm vật chặn nhưng cả chặng nằm trong 5 km quanh một đầu */
   hazardNearPort: boolean;
+  /** chặng qua ô rạn (reef-depth) nông hơn ngưỡng — chỉ có thể true trong vòng nới hai đầu hoặc khi relaxed */
+  reefShoal: boolean;
   /** có ít nhất một mẫu lớp 0–3 */
   lowSeen: boolean;
   /** có mẫu lớp 0–3 NGOÀI bán kính nới của lớp đó (⇒ không phải chuyện ở cảng) */
@@ -752,7 +760,7 @@ const INFEASIBLE_LEG: LegInfo = Object.freeze({
   feasible: false, distKm: 0, hours: 0, fuelL: 0, cost: 0,
   waveM: 0, windKmh: 0, rough: false, shallow: false,
   veryShallow: false, nearLand: false, landKm: 0, draftShallow: false,
-  hazard: false, hazardNearPort: false,
+  hazard: false, hazardNearPort: false, reefShoal: false,
   lowSeen: false, lowFar: false, following: false, seaImpassable: false,
   noWeatherKm: 0,
   weatherSeen: false,
@@ -788,6 +796,10 @@ export type PlanArgs = {
       (trạm `model` ±0,2 m). Bỏ trống ⇒ như cũ (trần tĩnh). Có hàm ⇒ không
       clone được sang worker: chỗ gọi phải tính ở luồng chính. */
   tide?: { z0M: number; departMs: number; heightAtMs(ms: number): number; reserveM?: number };
+  /*  ĐỘ SÂU RẠN XA BỜ (2026-10-22) — `fetchReefDepth()`; object + Uint8Array nên clone được sang worker. Bỏ trống ⇒
+      như cũ (chỉ mặt nạ rạn lớp 1), `plan.reefDepthChecked` false. Luật: CHỈ THÊM chặn (ô có số nông hơn
+      `nguongChanRanM`), KHÔNG mở ô nào mặt nạ cũ đang chặn — xem đầu `lib/reef-depth.ts`. */
+  reefDepth?: ReefDepth | null;
 };
 
 // hàng đợi ưu tiên nhị phân tối giản
@@ -1083,6 +1095,8 @@ function planAttempt(
       mẫu × 120.000 chặng là rác cho bộ gom rác của máy yếu. Cả hai chỉ ĐỌC hai
       trường, không giữ lại tham chiếu. */
   const noGoProbe = { lat: 0, lon: 0 };
+  /** chỉ mục độ sâu rạn — dựng một lần mỗi lượt (169 thực thể); null = không có file */
+  const rdIx = args.reefDepth ? buildReefDepthIndex(args.reefDepth) : null;
 
   const calmKmh = boat.speedKn * KMH_PER_KNOT;
 
@@ -1120,7 +1134,8 @@ function planAttempt(
     let lowFar = false;
     let hazard = false;
     let hazardNearPort = false;
-    if (depth || noGoZones.length > 0 || noGoPortZones.length > 0) {
+    let reefShoal = false;
+    if (depth || rdIx || noGoZones.length > 0 || noGoPortZones.length > 0) {
       /*  BƯỚC MẪU 2 KM, TRƯỚC LÀ 5 (2026-08-16, thẩm định P0). Lưới độ sâu có
           bước 15" ≈ 450 m (từ 2026-08-29; bản trước 0,05° ≈ 5,5 km), nhưng mẫu
           mỗi 5 km vẫn để lọt: một chấm đảo/đá ngầm nhỏ hơn khoảng cách hai mẫu
@@ -1235,6 +1250,27 @@ function planAttempt(
           }
         } else if (cls === 4) {
           shallow = true;
+        }
+
+        /*  ĐỘ SÂU RẠN XA BỜ — CHỈ THÊM CHẶN (2026-10-22). Đất (0) và mặt nạ rạn (1) đã xử ở trên, KHÔNG mở lại
+            dù file nói sâu. Ô có số nông hơn ngưỡng = nước tàu cần (mớn + 0,5 + ½ sóng tại ETA của mẫu + lún đuôi;
+            chưa khai mớn ⇒ 4 m) + 1,0 m sai số vệ tinh + 0,8 m ròng xa bờ ⇒ chặn như "rất cạn" (nới 12 km quanh
+            hai đầu để còn cập được đảo/rạn, nới thì cắm cờ). Chỉ hỏi thời tiết khi mẫu RƠI vào rạn có số (hiếm). */
+        if (rdIx && cls !== 0 && cls !== 1) {
+          const rM = reefDepthAtM(rdIx, pLat, pLon);
+          if (rM != null) {
+            const hw = sampleField(field, pLat, pLon, atHour + (distKm * t) / calmKmh);
+            const waveHere = hw ? (hw.waveM ?? estimateWaveFromWind(hw.windKmh)) : null;
+            if (rM < nguongChanRanM(boat.draftM ?? null, waveHere, boat.speedKn)) {
+              lowSeen = true;
+              if (!nearEndpoints(noGoProbe, VICINITY_SHALLOW_KM)) {
+                if (!relaxed) return INFEASIBLE_LEG;
+                lowFar = true;
+              }
+              veryShallow = true;
+              reefShoal = true;
+            }
+          }
         }
       }
     }
@@ -1376,7 +1412,7 @@ function planAttempt(
     return {
       feasible: true, distKm, hours, fuelL, cost,
       waveM: maxWave, windKmh: maxWind, rough, shallow, veryShallow, nearLand, landKm,
-      draftShallow, hazard, hazardNearPort, lowSeen, lowFar, following, seaImpassable,
+      draftShallow, hazard, hazardNearPort, reefShoal, lowSeen, lowFar, following, seaImpassable,
       noWeatherKm, weatherSeen,
     };
   };
@@ -1544,6 +1580,7 @@ function planAttempt(
       draftShallowFlag = false,
       hazardFlag = false,
       hazardNearPortFlag = false,
+      reefShoalFlag = false,
       lowSeen = false,
       lowFar = false,
       following = false,
@@ -1573,6 +1610,7 @@ function planAttempt(
       draftShallowFlag = draftShallowFlag || leg.draftShallow;
       hazardFlag = hazardFlag || leg.hazard;
       hazardNearPortFlag = hazardNearPortFlag || leg.hazardNearPort;
+      reefShoalFlag = reefShoalFlag || leg.reefShoal;
       lowSeen = lowSeen || leg.lowSeen;
       lowFar = lowFar || leg.lowFar;
       following = following || leg.following;
@@ -1585,7 +1623,7 @@ function planAttempt(
     return {
       ok, hoursSum, hoursAt, fuelSum, distSum, maxWave, maxWind,
       rough, shallowFlag, veryShallowFlag, nearLandFlag, draftShallowFlag,
-      hazardFlag, hazardNearPortFlag,
+      hazardFlag, hazardNearPortFlag, reefShoalFlag,
       // có chỗ thấp, và MỌI chỗ thấp đều là chuyện ở cảng
       nearPortOnly: lowSeen && !lowFar,
       following, seaImpassable: seaImpassableFlag, segRisks, noWeatherKm, weatherSeen, landKm,
@@ -1695,6 +1733,8 @@ function planAttempt(
       hazardChecked,
       hasHazardLeg: directWalk.hazardFlag,
       hasHazardNearPortLeg: directWalk.hazardNearPortFlag,
+      reefDepthChecked: rdIx != null,
+      hasReefShoalLeg: directWalk.reefShoalFlag,
       cappedToDirect: true,
       direct,
       fuelDeltaL: 0,
@@ -1726,6 +1766,8 @@ function planAttempt(
     hazardChecked,
     hasHazardLeg: chosen.hazardFlag,
     hasHazardNearPortLeg: chosen.hazardNearPortFlag,
+    reefDepthChecked: rdIx != null,
+    hasReefShoalLeg: chosen.reefShoalFlag,
     cappedToDirect: false,
     direct,
     fuelDeltaL: direct ? chosen.fuelSum - direct.fuelL : null,

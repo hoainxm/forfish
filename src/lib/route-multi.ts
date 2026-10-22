@@ -99,6 +99,9 @@ export function mergeLegPlans(plans: RoutePlan[]): MergedRoute | null {
       hazardChecked: plans.every((p) => p.hazardChecked),
       hasHazardLeg: some((p) => p.hasHazardLeg),
       hasHazardNearPortLeg: some((p) => p.hasHazardNearPortLeg),
+      // độ sâu rạn: "đã đối chiếu" chỉ khi MỌI chặng đã đối chiếu (như hazardChecked); qua rạn nông thì OR
+      reefDepthChecked: plans.every((p) => p.reefDepthChecked === true),
+      hasReefShoalLeg: some((p) => p.hasReefShoalLeg === true),
       cappedToDirect: some((p) => p.cappedToDirect),
       direct,
       fuelDeltaL: direct ? fuelL - direct.fuelL : null,

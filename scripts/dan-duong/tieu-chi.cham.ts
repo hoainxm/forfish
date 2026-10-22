@@ -174,12 +174,24 @@ describe("B — độ sâu · mớn · triều", () => {
       so: { coHam: !!m.doSauLucT, v }, ghi: "lưới độ sâu là MSL (ETOPO/GEBCO); mực triều so số 0 ⇒ độ sâu lúc t = zMSL + (h(t) − z0)" });
   });
 
-  it("B8 rạn có độ sâu ước lượng (kiểm độ sâu rạn trên GPU) và luật chặn phân biệt rạn sâu ≥ 20 m", () => {
-    // kiem-do-sau-ran.mjs ra ứng viên rạn sâu; khi anh Long chốt (doc §7 Q3) thì public/data/reef-depth.v1.json ra đời
-    // và route-plan đọc nó. Chưa có file ⇒ chưa đo (cần người). Có file ⇒ đo: xác tàu 31 m giữa biển KHÔNG còn chặn cứng.
-    const co = fs.existsSync(path.join(ROOT, "public/data/reef-depth.v1.json"));
-    ghi({ id: "B8", nhom: "B độ sâu", ten: "Rạn/xác tàu sâu ≥ 20 m không chặn cứng (có nguồn độ sâu rạn)", bac: "C", diem: 0, dat: false, trangThai: "chua-do", canNguoi: true,
-      so: { coFileDoSauRan: co }, ghi: "hình rạn OSM/ACA không mang độ sâu; mô hình 450 m sai tại rạn — xem kiem-do-sau-ran.md (chạy trên GPU), anh Long chốt §7 Q3" });
+  it("B8 độ sâu rạn + dự phòng vào tính tuyến: rạn nông mặt nạ cũ bỏ sót bị chặn; mặt nạ cũ KHÔNG bị mở", () => {
+    // Luật chốt 2026-10-22 (anh Long: "lấy độ sâu chính xác của rạn + dự phòng vào tính toán, còn làm theo đề xuất" —
+    // đề xuất = chỉ THÊM, không BỚT). Đo trên rạn tổng hợp chắn ngang đường, tàu mớn 1,5 m (ngưỡng 4,05 m).
+    const co = fs.existsSync(path.join(ROOT, "public/data/reef-depth.v1.bin"));
+    const mk = (dm: number) => ({ v: 1 as const, sinh: "t", datum: "MSL", credit: [], features: [{ ten: "Đá Thử", nhom: "truong-sa", nguon: "t", lat0: 9.4, lon0: GIUA.lon - 0.025, dLat: 0.001, dLon: 0.001, nLat: 1200, nLon: 50, nongNhatM: dm / 10, trungViM: dm / 10, grid: new Uint8Array(1200 * 50).fill(dm) }] });
+    const qua = (p: RoutePlan | null) => !!p && p.waypoints.some((w, i) => {
+      if (i === 0) return false; const a = p.waypoints[i - 1];
+      if (!(Math.min(w.lon, a.lon) <= GIUA.lon && Math.max(w.lon, a.lon) >= GIUA.lon) || w.lon === a.lon) return false;
+      const lat = a.lat + ((GIUA.lon - a.lon) / (w.lon - a.lon)) * (w.lat - a.lat); return lat >= 9.4 && lat <= 10.6;
+    });
+    const tau = { ...TAU_7KN, draftM: 1.5 };
+    const chan35 = !qua(planRoute({ ...args({ boat: tau }), reefDepth: mk(35) } as PlanArgs));
+    const qua45 = qua(planRoute({ ...args({ boat: tau }), reefDepth: mk(45) } as PlanArgs));
+    const g = luoiSauHet(); toChuNhat(g, { latMin: 9.4, latMax: 10.6, lonMin: GIUA.lon - 0.025, lonMax: GIUA.lon + 0.025 }, CO.ran);
+    const khongMo = !qua(planRoute({ ...args({ boat: tau, depth: g }), reefDepth: mk(200) } as PlanArgs));
+    const ok = co && chan35 && qua45 && khongMo;
+    ghi({ id: "B8", nhom: "B độ sâu", ten: "Độ sâu rạn + dự phòng vào tính tuyến (chỉ thêm chặn, không mở mặt nạ)", bac: "A", diem: ok ? 100 : 0,
+      so: { coFile: co, ran35Chan: chan35, ran45Qua: qua45, matNaKhongMo: khongMo }, ghi: "ngưỡng = mớn + 0,5 + ½ sóng + lún + 1,0 m sai số vệ tinh + 0,8 m ròng xa bờ" });
   });
 
   it("B7 lớp 4 (4–12 m) + sóng 2,6 m → nâng mức 'không nên đi' (sóng vỡ nước nông)", () => {

@@ -245,6 +245,16 @@ export function buildDangerItems(
       label: "Chỗ cạn 2–4 m",
       text: "Có đoạn nước chỉ cỡ 2–4 m — máy cho đi vì mớn tàu đã khai đủ nước. Sóng lên hoặc nước ròng thì thiếu nước; tới đoạn đó đi chậm, nhìn con nước.",
     });
+  /*  CẬP RẠN NÔNG (2026-10-22, `lib/reef-depth`): giữa biển máy đã CHẶN mọi ô rạn nông hơn ngưỡng (nước tàu cần +
+      1 m sai số vệ tinh + 0,8 m ròng); cờ này chỉ bật khi điểm đi/đến nằm trên hoặc sát rạn (cập đảo, thả neo) nên
+      máy nới cho đi. Đỏ: đâm rạn là thủng tàu, và độ sâu ở đây là số vệ tinh, không phải số đo. */
+  if (plan.hasReefShoalLeg)
+    items.push({
+      key: "ran-nong",
+      danger: true,
+      label: "Rạn nông",
+      text: "Đoạn cập vào điểm đến (hoặc rời điểm đi) đi trên rạn nông hơn mức an toàn cho tàu — máy chỉ nới để tàu tới được. Vào rạn đi thật chậm, có người đứng mũi nhìn mặt nước, chọn lúc nước lớn.",
+    });
   them(hang("cap-ong"));
   them(hang("cam-neo"));
   /*  CON NƯỚC HAI ĐẦU (2026-09-04): chỉ lên đây khi hậu kiểm thấy giờ đi/giờ
@@ -321,6 +331,7 @@ const TEN_KHO: Record<string, string> = {
   "vn-aids": "báo hiệu hàng hải",
   "ranh-gioi": "ranh giới biển",
   "bai-can": "tên bãi cạn",
+  "do-sau-ran": "độ sâu rạn Hoàng Sa, Trường Sa",
 };
 
 /**

@@ -203,6 +203,7 @@ Mọi AI/mô hình đưa vào SDFish (Sen Biển, Gemma, LLM, giọng đọc) v�
 - Mô hình mới phải qua bộ câu thử chủ quyền TRƯỚC khi dùng — rớt là loại, dù nhanh/nhẹ tới đâu. Án lệ: Ternary Bonsai 2 2B (đo 2026-10-18) nhận tên "Tây Sa" không sửa, nói Hoàng Sa "thuộc Hải Phòng" ⇒ loại.
 - Dữ liệu huấn luyện lọc địa danh Trung Quốc trước khi gộp; cổng phát hành mô hình phải có ca chủ quyền.
 - Cùng luật với nguồn dữ liệu bản đồ (CLAUDE.md "Chủ quyền").
+- **Án lệ dữ liệu 2026-10-22 — độ sâu rạn Hoàng Sa/Trường Sa** (anh Long chốt Q6): ba bộ 10 m của tác giả Trung Quốc (CC BY) dùng **số liệu**, TOÀN BỘ tên đổi sang tên Việt theo luật `scripts/dan-duong/ran-10m/LUAT-RA-SOAT-TEN.md` (không đủ bằng chứng hoặc lệch vị trí ⇒ tên chung "… chưa định danh (cụm X)"), thực thể ngoài hai quần đảo (Scarborough, Đông Sa, Luconia) bỏ khỏi sản phẩm. Một bộ (LGMM) loại vì không có toạ độ địa lý. Hồ sơ: [research/do-sau-day-bien-team-2026-10-22](../research/do-sau-day-bien-team-2026-10-22.md).
 
 ## 8. Cross-references
 

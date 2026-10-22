@@ -379,6 +379,7 @@ import {
   type NavContext,
 } from "@/lib/nav-context";
 import { fetchCoralReefs, fetchIslands, fetchSeaLanes, tenChoPhiaTruoc } from "@/lib/sea-lanes";
+import { fetchReefDepth, timRanChoThe } from "@/lib/reef-depth";
 import { requiredDepthM } from "@/lib/hazards";
 import {
   DEPTH_CLASS_LABEL,
@@ -5269,15 +5270,30 @@ export default function FishingMapView() {
           if (hitReef) {
             const p = hitReef.properties ?? {};
             const c = toaDoDiem(hitReef);
+            const tenRan = String(p.name ?? "");
+            const nhomRan = String(p.group ?? "");
             setReefInfo({
-              ten: String(p.name ?? ""),
+              ten: tenRan,
               type: String(p.type ?? ""),
-              group: String(p.group ?? ""),
+              group: nhomRan,
               lat: c?.lat ?? null,
               lon: c?.lon ?? null,
               x: e.point.x,
               y: e.point.y,
             });
+            /*  ĐỘ SÂU RẠN (2026-10-22): chỉ Hoàng Sa/Trường Sa có số. Tải LƯỜI lúc chạm (không thêm request khi mở
+                bản đồ); SW giữ file ở tier best-effort nên mất sóng vẫn đọc được nếu đã tải; hỏng thì thẻ im dòng này. */
+            if (nhomRan === "hoang-sa" || nhomRan === "truong-sa") {
+              fetchReefDepth()
+                .then((rd) => {
+                  const f = timRanChoThe(rd, tenRan, c?.lat ?? null, c?.lon ?? null);
+                  if (!f) return;
+                  setReefInfo((prev) =>
+                    prev && prev.ten === tenRan ? { ...prev, doSau: { nongNhatM: f.nongNhatM, trungViM: f.trungViM } } : prev,
+                  );
+                })
+                .catch(() => {});
+            }
             return;
           }
           const LANE_HIT = [

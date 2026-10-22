@@ -84,6 +84,7 @@ import { saveUserJson } from "@/lib/user-store";
 import { routeStormConflict, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
 import { stormGateForRoute, type StormAlert, type StormStatus } from "@/lib/storms";
 import { fetchDepthGrid, type DepthClass } from "@/lib/depth-grid";
+import { fetchReefDepth, reefDepthInBBox } from "@/lib/reef-depth";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
 import { parseCoordPair } from "@/lib/parse-coord";
@@ -735,6 +736,8 @@ export function RouteMode({
         fetchVnAids().catch(() => null),
         fetchCoralReefs().catch(() => null),
         fetchTideStations().catch(() => null),
+        // độ sâu rạn xa bờ (0,68 MB, best-effort trong SW) — thiếu thì tuyến vẫn tính bằng mặt nạ rạn cũ, gọi tên ở "chưa đối chiếu"
+        fetchReefDepth().catch(() => null),
       ]);
       const departHourIdx = vnHourIndex(new Date());
       // tổng chiều dài chuỗi điểm (không phải chỉ đầu–cuối): đường đi vòng qua
@@ -809,7 +812,9 @@ export function RouteMode({
         vnAids,
         reefs,
         tides,
-      ] = khoKip ?? [null, null, null, null, null, null, null, null, null];
+        reefDepth,
+      ] = khoKip ?? [null, null, null, null, null, null, null, null, null, null];
+      const thieuDoSauRan = reefDepth ? [] : ["do-sau-ran"];
       /*  Độ sâu tàu CẦN, tính với sóng = null: chỉ dùng để tha những xác tàu có
           "nước trên vật" đủ sâu (`passable`). Sóng thật tại từng chỗ do hậu kiểm
           tính lại — ở đây mà cộng sóng vào là tha ÍT hơn, tức an toàn hơn, đúng
@@ -865,6 +870,8 @@ export function RouteMode({
             bbox,
             hazards,
             noGo: soiHiemHoa ? kho.noGo : null,
+            // chỉ thực thể trong khung — clone sang worker nhẹ; null = chưa có file ⇒ plan.reefDepthChecked false
+            reefDepth: reefDepth ? reefDepthInBBox(reefDepth, bbox) : null,
           });
           const leg = outcome.plan;
           if (!leg) {
@@ -1014,7 +1021,7 @@ export function RouteMode({
         setAudit({
           hits: kq.hits,
           // hai nguồn thiếu: kho không tải được và kho hậu kiểm không có
-          missing: [...new Set([...kho.missing, ...kq.missing])],
+          missing: [...new Set([...kho.missing, ...kq.missing, ...thieuDoSauRan])],
         });
       } catch {
         /*  KHÔNG `setAudit(null)` (sửa 2026-09-04, review đợt 4 N1): `null` đọc
@@ -1024,7 +1031,7 @@ export function RouteMode({
             lượt hậu kiểm thì bà con còn biết mà tự dò hải đồ. */
         setAudit({
           hits: [],
-          missing: [...new Set([...kho.missing, KHO_HAU_KIEM])],
+          missing: [...new Set([...kho.missing, KHO_HAU_KIEM, ...thieuDoSauRan])],
         });
       }
 

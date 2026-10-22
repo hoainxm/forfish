@@ -102,6 +102,8 @@ export type ReefInfo = {
   lon: number | null;
   x: number;
   y: number;
+  /** độ sâu vệ tinh (lib/reef-depth) — chỉ Hoàng Sa/Trường Sa; undefined = đang tải/không có, thẻ im dòng này */
+  doSau?: { nongNhatM: number | null; trungViM: number | null } | null;
 };
 
 export type LaneInfo = {
@@ -596,6 +598,14 @@ export function TheRan({ info, onClose, bieuTuong, prefs }: { info: ReefInfo; on
                     ? "Cồn cát — có thể ngập, nhìn con nước"
                     : "Bãi cạn — có thể ngập, nhìn con nước"}
           </p>
+          {info.doSau && info.doSau.nongNhatM != null && (
+            <p className="mt-0.5 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
+              Chỗ nông nhất {info.doSau.nongNhatM.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} m
+              {info.doSau.trungViM != null &&
+                ` · phần lớn rạn khoảng ${info.doSau.trungViM.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} m`}
+              <span className="block text-[0.8125rem] text-foreground/60">Số đo từ vệ tinh, sai số khoảng 1 m — máy đã chừa khi vẽ đường</span>
+            </p>
+          )}
           <DongToaDo lat={info.lat} lon={info.lon} fmt={prefs.coordFormat} />
           <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
             Tên theo danh mục địa danh nhà nước (tham khảo)
