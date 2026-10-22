@@ -111,7 +111,7 @@ describe("(b) vào kho: v4 hoi_mo, hoặc bộ lọc ≥ LOC_NGUONG khi v4 lạc
     expect(kq.vao && kq.dap?.cach).toBe("ngram");
   });
   it("web (không Gemma), câu nhất p < Q_CHAC ⇒ trượt", async () => {
-    const cau = "Mang mực với cá nục làm mồi đi xa, ướp kiểu nào để khỏi hư?";
+    const cau = "tại sao đi biển phải có kinh nghiệm"; // v5c 22/10: v4 hoi_mo, câu nhất p ≈ 0,16 (câu v5b cũ nay v5c đã chắc)
     expect(ungVien(BO, cau, {})[0].p).toBeLessThan(Q_CHAC);
     expect(await hoi(cau, null)).toEqual({ vao: true, dap: null });
   });
@@ -124,7 +124,7 @@ describe("(b) vào kho: v4 hoi_mo, hoặc bộ lọc ≥ LOC_NGUONG khi v4 lạc
 describe("lọc đè ĐÚNG hai luật lệnh ngắn bắt nhầm đuôi câu hỏi (chủ dự án 2026-10-19)", () => {
   const go = (cau: string, l = loc) => goLenhNgan(cau, r4(cau), l, {});
   it.each([
-    ["máy giám sát hành trình là gì vậy", "repeat", "iuu_xuat_cap_ben-054"],
+    ["máy giám sát hành trình là gì vậy", "repeat", "sdvico_thiet_bi-002"], // v5c: «gắn trên tàu để làm gì» (chủ đề SDVICO mới)
     ["con nước rong là gì vậy", "repeat", null], // lọc 0,799 < 0,8 ⇒ vẫn là nhắc lại (ngưỡng giữ chặt)
     ["nhớt máy thay bao lâu một lần", "howfar", "may_tau-004"],
     ["đăng kiểm tàu bao lâu một lần", "howfar", "giay_to_tau-012"],
@@ -136,8 +136,8 @@ describe("lọc đè ĐÚNG hai luật lệnh ngắn bắt nhầm đuôi câu h�
     const kq = await hoiKho(cau, r, BO, {}, null);
     expect(kq.vao && kq.dap?.id).toBe(id);
   });
-  it("câu cần kiểm qua đường này vẫn ra câu an toàn", async () => {
-    const cau = "đăng kiểm tàu bao lâu một lần";
+  it("câu cần kiểm / chưa duyệt qua đường này vẫn ra câu an toàn", async () => {
+    const cau = "giấy phép khai thác bao lâu phải gia hạn"; // v5c: giay_to_tau-017 cần kiểm, chưa duyệt
     const kq = await hoiKho(cau, go(cau), BO, {}, null);
     expect(kq.vao && kq.dap?.say).toBe(CAU_CAN_KIEM);
   });
