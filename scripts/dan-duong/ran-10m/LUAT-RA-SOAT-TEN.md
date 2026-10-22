@@ -41,4 +41,4 @@ Mỗi dòng ghi vào `scripts/dan-duong/ran-10m/quyet-dinh-ten.json`: `{bo, id, 
 
 ## Bước 5 — Kiểm sau khi sinh sản phẩm
 
-`sinh-reef-depth.py` kiểm: không ký tự Hán; không chuỗi khớp `/\b(Dao|Jiao|Tan|Ansha|Shazhou|Qunjiao|Reef|Island|Shoal|Bank|Atoll|Cay)\b/` trong `ten`; mọi `ten` bắt đầu bằng một trong {Đảo, Đá, Bãi, Cồn, Cụm, Hòn}. Vi phạm ⇒ dừng, không ghi file.
+`sinh-reef-depth.py` kiểm: không ký tự Hán; không hậu tố loại hình nước ngoài `/\b(Dao|Jiao|Ansha|Shazhou|Qunjiao|Reef|Island|Shoal|Bank|Atoll|Cay)\b/` trong `ten` (không bắt "Tan"/"Nan": Đá Tốc Tan, Đá Ken Nan là tên Việt thật); mọi `ten` bắt đầu bằng một trong {Đảo, Đá, Bãi, Cồn, Cụm, Hòn}. Vi phạm ⇒ dừng, không ghi file.

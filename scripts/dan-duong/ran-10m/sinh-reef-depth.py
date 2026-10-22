@@ -115,7 +115,9 @@ except Exception as e:
 
 # ── Bước 5 LUAT-RA-SOAT-TEN.md: không tên nước ngoài lọt ra sản phẩm — vi phạm thì DỪNG, không ghi file ──
 import re
-CAM = re.compile(r"\b(Dao|Jiao|Tan|Ansha|Shazhou|Qunjiao|Reef|Reefs|Island|Islands|Shoal|Bank|Banks|Atoll|Cay)\b")
+# KHÔNG đưa "Tan"/"Nan"/"Bei"… vào đây: tên Việt phiên âm có thật dùng chúng (Đá Tốc Tan, Đá Ken Nan) — cổng này bắt hậu tố
+# loại hình nước ngoài và chữ Hán; tên lõi pinyin lọt qua đã bị chặn ở bước ghép (quyết định/bảng tra) và soi mắt.
+CAM = re.compile(r"\b(Dao|Jiao|Ansha|Shazhou|Qunjiao|Reef|Reefs|Island|Islands|Shoal|Shoals|Bank|Banks|Atoll|Cay)\b")
 HAN = re.compile(r"[\u4e00-\u9fff]")
 MO_DAU = ("Đảo", "Đá", "Bãi", "Cồn", "Cụm", "Nhóm", "Hòn")
 vi_pham = [f["ten"] for f in fs if HAN.search(f["ten"]) or CAM.search(f["ten"]) or not f["ten"].startswith(MO_DAU)]
