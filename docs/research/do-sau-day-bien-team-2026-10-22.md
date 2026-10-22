@@ -151,6 +151,20 @@ Khuôn: mỗi thực thể `{ten, nhom, nguon, lat0, lon0, dLat, dLon, nLat, nLo
 
 **Trước khi phát hành** (thứ tự): duyệt 35 dòng + soi mắt 142 dòng tên → đối chiếu văn bản nhà nước → soát QĐ 562 → chuyển sang khuôn nhị phân delta/varint nếu muốn nhẹ hơn nữa (không bắt buộc, 0,48 MB gzip đã lọt) → đưa vào `public/data/reef-depth.v1.json` (SDF2) + `data-fetch` + nối luật chặn rạn (B8: xác tàu/rạn có số ≥ 20 m hạ xuống cảnh báo; rạn có ô < nước cần thì chặn như lớp 1) + 01/02/04/external-services + LICENSE ghi CC BY.
 
+### 6.6 Rà 35 dòng theo luật tên riêng/tên chung → reef-depth.v1 bản 2 (11:22; anh Long: "chọn đúng tên Việt, không thì tên chung rạn/đảo, đừng để tên")
+
+Luật viết thành văn: [`scripts/dan-duong/ran-10m/LUAT-RA-SOAT-TEN.md`](../../scripts/dan-duong/ran-10m/LUAT-RA-SOAT-TEN.md) — loại từ hậu tố nguồn · bậc A (bảng tra duyệt + ≤ 5 km + đúng loại) · bậc B (≥ 2 nguồn độc lập) · không đạt ⇒ tên chung "<Loại> chưa định danh (cụm X)" · cổng cấm tên nước ngoài khi sinh file. Agent rà theo luật: **7 A · 13 B · 15 tên chung · 0 dòng còn tên nước ngoài** (`quyet-dinh-ten.json`, lý do từng dòng + 5 ca đề nghị anh xem ở `quyet-dinh-ten.ghi-chu.md`: East Island/Đảo Linh Côn cách 13,5 km, Longxia Vị Khê hay Bia, Yinyuzi/Kuangzi một nguồn, luật cụm dùng hộp bao, cồn cát↔đảo cùng lớp). Máy đã sửa 1 gợi ý sai của chính nó: Xi Sand là **Cồn Cát Tây**, không phải Đá Trương Nghĩa.
+
+| reef-depth.v1 | bản 1 (10:57) | **bản 2 (11:22)** |
+|---|---|---|
+| Thực thể | 140 | **169** (HHU24 113 · SCSBathy10 56) |
+| Tên Việt duy nhất | 104 | **128** (10 tên chung) |
+| Ô ~100 m có số | 460 031 | 595 895 |
+| Kích thước | 5,44 MB / 0,48 MB gzip | **6,98 MB / 0,64 MB gzip** |
+| Dòng chưa xử lý | 35 | **0** (16 ngoài phạm vi vẫn để ngoài) |
+
+Cổng bước 5 bắt được một ca giả: "Đá Tốc Tan" (tên Việt thật) dính chữ "Tan" — đã bỏ "Tan"/"Nan" khỏi danh sách hậu tố, ghi lý do trong luật. Vẫn **chưa phát hành** — file ở GPU; thứ tự phát hành như §6.5.
+
 ## Assumptions
 
 - "Đo thật" trong TID = mã 10–17 (đo trực tiếp) + 44 (hải đồ số hoá); 40 = nội suy trọng lực vệ tinh; lidar = 15, hải đồ = 42–44 (D sửa lại nhóm "40–47" sai trong đề bài).

@@ -1,18 +1,23 @@
 {
- "sinh": "2026-10-22T10:56:58",
- "soThucThe": 140,
+ "sinh": "2026-10-22T11:23:48",
+ "soThucThe": 169,
  "theoNguon": {
-  "HHU24SWDSCS": 94,
-  "SCSBathy10": 46
+  "HHU24SWDSCS": 113,
+  "SCSBathy10": 56
  },
  "theoNhom": {
-  "hoang-sa": 36,
-  "truong-sa": 103,
+  "hoang-sa": 44,
+  "truong-sa": 124,
   "scarborough": 1
  },
- "tongOCoSo": 460031,
- "kichThuocByte": 5437663,
+ "tongOCoSo": 595895,
+ "kichThuocByte": 6975107,
  "nongNhat": [
+  {
+   "ten": "Cồn Cát Tây",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
   {
    "ten": "Đảo Cây",
    "nguon": "HHU24SWDSCS",
@@ -25,6 +30,16 @@
   },
   {
    "ten": "Đảo Trung",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đảo Nam",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
+   "ten": "Đá chưa định danh (nhóm An Vĩnh)",
    "nguon": "HHU24SWDSCS",
    "m": 0.0
   },
@@ -54,6 +69,11 @@
    "m": 0.0
   },
   {
+   "ten": "Đảo Quang Hòa",
+   "nguon": "HHU24SWDSCS",
+   "m": 0.0
+  },
+  {
    "ten": "Đảo Duy Mộng",
    "nguon": "HHU24SWDSCS",
    "m": 0.0
@@ -67,26 +87,6 @@
    "ten": "Đảo Ốc Hoa",
    "nguon": "HHU24SWDSCS",
    "m": 0.0
-  },
-  {
-   "ten": "Đảo Ba Ba",
-   "nguon": "HHU24SWDSCS",
-   "m": 0.0
-  },
-  {
-   "ten": "Bãi Xà Cừ",
-   "nguon": "HHU24SWDSCS",
-   "m": 0.0
-  },
-  {
-   "ten": "Đá Trà Tây",
-   "nguon": "HHU24SWDSCS",
-   "m": 0.0
-  },
-  {
-   "ten": "Đảo Lưỡi Liềm",
-   "nguon": "HHU24SWDSCS",
-   "m": 0.0
   }
  ],
  "tenDuyNhat": [
@@ -94,6 +94,7 @@
   "Bãi Bình Sơn",
   "Bãi Cỏ Mây",
   "Bãi Hải Sâm",
+  "Bãi Kiêu Ngựa",
   "Bãi Loại Ta Nam",
   "Bãi Nam",
   "Bãi Núi Cầu",
@@ -106,12 +107,20 @@
   "Bãi Trăng Khuyết",
   "Bãi Vĩnh Tuy",
   "Bãi Xà Cừ",
+  "Bãi chưa định danh (cụm Song Tử)",
   "Bãi cạn Scarborough",
   "Bãi Đinh Ba",
   "Bãi đá Tri Lễ",
   "Bãi đá Tri Lễ Đông",
   "Bãi đá Tây",
+  "Cồn Cát Tây",
+  "Cồn cát chưa định danh (nhóm Lưỡi Liềm)",
+  "Cụm Loại Ta",
+  "Cụm Nam Yết",
+  "Cụm Sinh Tồn",
+  "Cụm đá chưa định danh (cụm Bình Nguyên)",
   "Hòn Tháp",
+  "Nhóm Lưỡi Liềm",
   "Đá An Nhơn",
   "Đá Ba Cờ",
   "Đá Ba Đầu",
@@ -131,8 +140,10 @@
   "Đá Gia Hội",
   "Đá Gia Phú",
   "Đá Gạc Ma",
+  "Đá Hoa",
   "Đá Hoa Lau",
   "Đá Hải Sâm",
+  "Đá Hội Đức",
   "Đá Ken Nan",
   "Đá Khúc Giác",
   "Đá Kiệu Ngựa",
@@ -146,6 +157,7 @@
   "Đá Mỏ Vịt",
   "Đá Nam",
   "Đá Nghĩa Hành",
+  "Đá Ninh Cơ",
   "Đá Ninh Hòa",
   "Đá Núi Le",
   "Đá Núi Thị",
@@ -153,9 +165,11 @@
   "Đá Phật Tự",
   "Đá Suối Cát",
   "Đá Suối Ngọc",
+  "Đá Sác Lốt",
   "Đá Sâu",
   "Đá Sơn Hà",
   "Đá Tiên Nữ",
+  "Đá Triêm Đức",
   "Đá Trà Tây",
   "Đá Trâm Đức",
   "Đá Trương Nghĩa",
@@ -166,9 +180,12 @@
   "Đá Văn Nguyên",
   "Đá Vĩnh Hảo",
   "Đá Xu Bi",
+  "Đá chưa định danh (cụm Sinh Tồn)",
+  "Đá chưa định danh (nhóm An Vĩnh)",
   "Đá Én Ca",
   "Đá Én Đất",
   "Đá Đông",
+  "Đá Định Tường",
   "Đá Đức Hòa",
   "Đảo Ba Ba",
   "Đảo Ba Bình",
@@ -180,19 +197,35 @@
   "Đảo Hoàng Sa",
   "Đảo Hữu Nhật",
   "Đảo Linh Côn",
+  "Đảo Loại Ta",
   "Đảo Lưỡi Liềm",
+  "Đảo Nam",
   "Đảo Nam Yết",
   "Đảo Phan Vinh",
   "Đảo Phú Lâm",
+  "Đảo Quang Hòa",
   "Đảo Quang Ảnh",
   "Đảo Sinh Tồn",
   "Đảo Sinh Tồn Đông",
   "Đảo Song Tử Tây",
   "Đảo Song Tử Đông",
+  "Đảo Sơn Ca",
   "Đảo Thị Tứ",
   "Đảo Tri Tôn",
   "Đảo Trung",
+  "Đảo Trường Sa Đông",
+  "Đảo chưa định danh (Hoàng Sa)",
+  "Đảo chưa định danh (cụm An Bang)",
   "Đảo Đá",
   "Đảo Ốc Hoa"
+ ],
+ "tenChung": [
+  "Bãi chưa định danh (cụm Song Tử)",
+  "Cồn cát chưa định danh (nhóm Lưỡi Liềm)",
+  "Cụm đá chưa định danh (cụm Bình Nguyên)",
+  "Đá chưa định danh (cụm Sinh Tồn)",
+  "Đá chưa định danh (nhóm An Vĩnh)",
+  "Đảo chưa định danh (Hoàng Sa)",
+  "Đảo chưa định danh (cụm An Bang)"
  ]
 }
