@@ -21,6 +21,7 @@ import {
   bboxOfPoints,
   formatHoursVN,
   haversineKm,
+  positiveOrNull,
   sampleField,
   vnHourIndex,
   type BBox,
@@ -83,6 +84,7 @@ import { saveUserJson } from "@/lib/user-store";
 import { routeStormConflict, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
 import { stormGateForRoute, type StormAlert, type StormStatus } from "@/lib/storms";
 import { fetchDepthGrid, type DepthClass } from "@/lib/depth-grid";
+import { fetchReefDepth, reefDepthInBBox } from "@/lib/reef-depth";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
 import { parseCoordPair } from "@/lib/parse-coord";
@@ -147,6 +149,8 @@ function readBoat(): BoatProfile {
         : DEFAULT_BOAT.litersPerHour,
     // mớn nước: chỉ nhận số dương hợp lý; mọi thứ khác = "chưa khai"
     draftM: typeof b.draftM === "number" && b.draftM > 0 && b.draftM <= 10 ? b.draftM : null,
+    fuelTankL: positiveOrNull(b.fuelTankL, 100000),
+    lengthM: positiveOrNull(b.lengthM, 200),
   };
 }
 
@@ -230,9 +234,10 @@ const THU_LAI_NGAY_MSG = "Máy chủ mở lại sau 7 giờ sáng mai, bà con t
     Lưới 6 lớp từ 2026-09-04: "rất cạn" nay là lớp 1 (mặt nạ rạn) + lớp 2
     (nước <2 m). */
 const DEST_DEPTH_WARN: Partial<Record<DepthClass, string>> = {
-  0: "Điểm này nằm trên bờ — theo bản đồ độ sâu của ứng dụng",
-  1: "Điểm này rất cạn hoặc bãi nổi — theo bản đồ độ sâu của ứng dụng",
-  2: "Điểm này rất cạn hoặc bãi nổi — theo bản đồ độ sâu của ứng dụng",
+  // ngắn, không câu giải thích (chủ dự án 2026-10-22: "ko cần hd quá nhiều") — màu cảnh báo đã nói đủ
+  0: "Trên bờ",
+  1: "Rất cạn / bãi nổi",
+  2: "Rất cạn / bãi nổi",
 };
 
 export function RouteMode({
@@ -511,7 +516,7 @@ export function RouteMode({
       điểm đến đều có thêm điểm tương tự nhau"): chỗ đang xem trên bản đồ ·
       điểm đã lưu · cảng · vị trí tàu. Trước đây "đi từ" thiếu hẳn "chỗ đang
       xem" — muốn xuất phát từ một chỗ ngoài biển là không có đường nào. */
-  const startOptions: { id: string; label: string; coord: LatLon | null }[] = [
+  const startOptions: { id: string; label: string; ngan?: string; coord: LatLon | null }[] = [
     {
       id: "cursor",
       label: `Điểm đang xem — ${fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}`,
@@ -535,6 +540,7 @@ export function RouteMode({
     {
       id: `port:${nearestPort.id}`,
       label: `Cảng ${nearestPort.name} — gần điểm đến nhất`,
+      ngan: `Cảng ${nearestPort.name}`,
       coord: { lat: nearestPort.lat, lon: nearestPort.lon },
     },
   ];
@@ -543,6 +549,7 @@ export function RouteMode({
       ? `place:${myPlaces.find((p) => p.kind === "home")!.id}`
       : `port:${nearestPort.id}`;
   const effectiveStartId = startId || defaultStartId;
+  const startChon = startOptions.find((o) => o.id === effectiveStartId);
   /** toạ độ nơi xuất phát ĐANG CHỌN — null với lựa chọn "định vị" (chưa biết) */
   const startCoord =
     startOptions.find((o) => o.id === effectiveStartId)?.coord ?? null;
@@ -696,6 +703,9 @@ export function RouteMode({
             báo mớn im lặng. KHÔNG ép về một mặc định: đoán mớn hộ chủ tàu là
             doạ sai tàu thúng hoặc ru ngủ tàu vỏ thép. */
         draftM: draftM.trim() === "" ? null : clampNum(draftM, 0.2, 10, 2),
+        // két dầu + chiều dài chưa có ô nhập ở form này: giữ nguyên bản đã lưu, đừng xoá
+        fuelTankL: readBoat().fuelTankL ?? null,
+        lengthM: readBoat().lengthM ?? null,
       };
       writeBoat(boat);
       setSpeedKn(String(boat.speedKn));
@@ -726,6 +736,8 @@ export function RouteMode({
         fetchVnAids().catch(() => null),
         fetchCoralReefs().catch(() => null),
         fetchTideStations().catch(() => null),
+        // độ sâu rạn xa bờ (0,68 MB, best-effort trong SW) — thiếu thì tuyến vẫn tính bằng mặt nạ rạn cũ, gọi tên ở "chưa đối chiếu"
+        fetchReefDepth().catch(() => null),
       ]);
       const departHourIdx = vnHourIndex(new Date());
       // tổng chiều dài chuỗi điểm (không phải chỉ đầu–cuối): đường đi vòng qua
@@ -800,7 +812,9 @@ export function RouteMode({
         vnAids,
         reefs,
         tides,
-      ] = khoKip ?? [null, null, null, null, null, null, null, null, null];
+        reefDepth,
+      ] = khoKip ?? [null, null, null, null, null, null, null, null, null, null];
+      const thieuDoSauRan = reefDepth ? [] : ["do-sau-ran"];
       /*  Độ sâu tàu CẦN, tính với sóng = null: chỉ dùng để tha những xác tàu có
           "nước trên vật" đủ sâu (`passable`). Sóng thật tại từng chỗ do hậu kiểm
           tính lại — ở đây mà cộng sóng vào là tha ÍT hơn, tức an toàn hơn, đúng
@@ -856,6 +870,8 @@ export function RouteMode({
             bbox,
             hazards,
             noGo: soiHiemHoa ? kho.noGo : null,
+            // chỉ thực thể trong khung — clone sang worker nhẹ; null = chưa có file ⇒ plan.reefDepthChecked false
+            reefDepth: reefDepth ? reefDepthInBBox(reefDepth, bbox) : null,
           });
           const leg = outcome.plan;
           if (!leg) {
@@ -1005,7 +1021,7 @@ export function RouteMode({
         setAudit({
           hits: kq.hits,
           // hai nguồn thiếu: kho không tải được và kho hậu kiểm không có
-          missing: [...new Set([...kho.missing, ...kq.missing])],
+          missing: [...new Set([...kho.missing, ...kq.missing, ...thieuDoSauRan])],
         });
       } catch {
         /*  KHÔNG `setAudit(null)` (sửa 2026-09-04, review đợt 4 N1): `null` đọc
@@ -1015,7 +1031,7 @@ export function RouteMode({
             lượt hậu kiểm thì bà con còn biết mà tự dò hải đồ. */
         setAudit({
           hits: [],
-          missing: [...new Set([...kho.missing, KHO_HAU_KIEM])],
+          missing: [...new Set([...kho.missing, KHO_HAU_KIEM, ...thieuDoSauRan])],
         });
       }
 
@@ -1186,7 +1202,7 @@ export function RouteMode({
     stops.length === 0
       ? "Chưa chọn điểm đến"
       : `${stops.length} chỗ${
-          thangKm != null ? ` · ~${fmtDist(thangKm, prefs.distUnit)} đường chim bay` : ""
+          thangKm != null ? ` · ~${fmtDist(thangKm, prefs.distUnit)}` : ""
         }`;
   /** câu cảnh báo cho chỗ con trỏ đang đứng — null là im (xem DEST_DEPTH_WARN) */
   const destDepthWarn =
@@ -1337,10 +1353,10 @@ export function RouteMode({
             aria-label={
               panel === "idle" ? "Thoát chế độ dẫn đường" : "Quay lại danh sách điểm"
             }
-            className={`${SQ_TILE} bg-navy/10 text-navy`}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-[0.97] bg-navy/10 text-navy"
           >
+            {/* chỉ icon (chủ dự án 2026-10-22: "gọn thêm đi") — nghĩa đủ ở aria-label */}
             <ChevronLeftIcon className="h-6 w-6" />
-            {panel === "idle" ? "Thoát" : "Quay lại"}
           </button>
           <div className="min-w-0 flex-1">
             {/*  Có kết quả rồi thì TIÊU ĐỀ LÀ NÚT mở lại danh sách điểm — có
@@ -1362,8 +1378,8 @@ export function RouteMode({
                   {stops.length > 1
                     ? `Lộ trình qua ${stops.length} điểm`
                     : stops.length === 1
-                      ? "Lộ trình tới điểm đã đánh dấu"
-                      : "Dẫn đường tới điểm đang xem"}
+                      ? "Lộ trình"
+                      : "Dẫn đường"}
                 </span>
                 <ChevronRightIcon
                   className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
@@ -1395,8 +1411,8 @@ export function RouteMode({
                   {stops.length > 1
                     ? `Lộ trình qua ${stops.length} điểm`
                     : stops.length === 1
-                      ? "Lộ trình tới điểm đã đánh dấu"
-                      : "Dẫn đường tới điểm đang xem"}
+                      ? "Lộ trình"
+                      : "Dẫn đường"}
                 </p>
                 {/*  KHÔNG in `ghimTomTat` ở đây nữa (2026-08-29h): hàng "Xoá
                      hết" ngay dưới đã mang đúng câu đó làm thân hàng, in cả
@@ -1421,12 +1437,11 @@ export function RouteMode({
             onClick={() => setPanel(panel === "boat" ? "idle" : "boat")}
             aria-expanded={panel === "boat"}
             aria-label={`Thông số hành trình — tàu chạy ${speedKn} hải lý/giờ, tiêu thụ ${lph} lít dầu/giờ`}
-            className={`${SQ_TILE} ${
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-[0.97] ${
               panel === "boat" ? "bg-t1 text-white" : "bg-navy/10 text-t1"
             }`}
           >
             <FuelIcon className="h-6 w-6" />
-            Tuỳ chọn
           </button>
           {/*  MỘT Ô HÀNH ĐỘNG, LUÔN LÀ VIỆC KẾ TIẾP (2026-08-29g, mở rộng
                2026-08-29h). Ban đầu nút "Tính đường" nằm trong một DẢI GHIM ĐÁY
@@ -1450,9 +1465,9 @@ export function RouteMode({
             <button
               type="button"
               onClick={() => onStart(result)}
-              className={`${SQ_TILE} bg-t1 text-white`}
+              className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[0.9375rem] font-bold transition active:scale-[0.97] bg-t1 text-white"
             >
-              <PlayIcon className="h-6 w-6" />
+              <PlayIcon className="h-5 w-5" />
               Dẫn đường
             </button>
           ) : (
@@ -1460,10 +1475,11 @@ export function RouteMode({
               type="button"
               onClick={() => void compute()}
               disabled={busy}
-              className={`${SQ_TILE} bg-t1 text-white disabled:opacity-60`}
+              aria-label={busy ? "Đang tính lộ trình" : plan ? "Tính lại lộ trình" : "Tính lộ trình"}
+              className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[0.9375rem] font-bold transition active:scale-[0.97] bg-t1 text-white disabled:opacity-60"
             >
-              <RouteIcon className="h-6 w-6" />
-              {busy ? "Đang tính toán" : plan ? "Tính lại" : "Tính lộ trình"}
+              <RouteIcon className="h-5 w-5" />
+              {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
             </button>
           )}
           </div>
@@ -1605,19 +1621,19 @@ export function RouteMode({
             type="button"
             onClick={() => setPanel("start")}
             aria-expanded={false}
+            aria-label={`Điểm xuất phát: ${startChon?.label ?? "chưa chọn"}`}
             className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
           >
+            {/*  ĐI = chấm tròn RỖNG, ĐẾN = ghim ĐỎ — phân biệt bằng hình + màu + thứ tự như mọi app bản đồ,
+                 KHÔNG nhãn chữ "Điểm xuất phát / Chọn điểm đến" (chủ dự án 2026-10-22: "ko cần các text kiểu
+                 điểm đi điểm đến nó làm rối, tốn chỗ… con người quá quen với bản đồ rồi"). */}
             <span
-              className="h-3 w-3 shrink-0 rounded-full border-[3px] border-navy/60"
+              className="h-3.5 w-3.5 shrink-0 rounded-full border-[3px] border-navy bg-card"
               aria-hidden
             />
             <span className="min-w-0 flex-1">
-              <span className="block text-[0.8125rem] font-semibold text-foreground/60">
-                Điểm xuất phát
-              </span>
               <span className="block truncate text-[1rem] font-semibold text-navy">
-                {startOptions.find((o) => o.id === effectiveStartId)?.label ??
-                  "Chọn nơi xuất phát"}
+                {startChon ? (startChon.ngan ?? startChon.label) : "Chọn nơi xuất phát"}
               </span>
               {/*  TOẠ ĐỘ NƠI ĐI (2026-09-14): nhãn "Cảng nhà — Tam Quang" không
                    cho biết máy sẽ tính từ ĐÂU; câu lỗi nay bảo kiểm lại cả nơi
@@ -1807,11 +1823,13 @@ export function RouteMode({
               aria-expanded={false}
               className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left text-[1rem] font-semibold text-t1 transition active:scale-[0.99]"
             >
-              <PlusIcon className="h-6 w-6 shrink-0" />
+              {stops.length === 0 ? (
+                <PinIcon className="h-6 w-6 shrink-0 text-trim" aria-hidden />
+              ) : (
+                <PlusIcon className="h-6 w-6 shrink-0" aria-hidden />
+              )}
+              <span className="sr-only">{stops.length === 0 ? "Chọn điểm đến" : "Thêm điểm dừng"}</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate">
-                  {stops.length === 0 ? "Chọn điểm đến" : "Thêm điểm dừng"}
-                </span>
                 {/*  DÒNG TOẠ ĐỘ SỐNG THEO CON TRỎ — chạm bản đồ trong chế độ
                      dẫn đường chỉ dời con trỏ, trước đây KHÔNG đổi một chữ nào
                      trong thẻ (phản hồi duy nhất là chip toạ độ 0,75rem tận
@@ -1823,8 +1841,8 @@ export function RouteMode({
                      TRỎ, không phải điểm đến đã thêm. Thiếu nhãn thì toạ độ con
                      trỏ + cảnh báo "trên bờ" dưới nó bị đọc nhầm là của điểm
                      đến (đúng chuyện đã xảy ra với ảnh lỗi Tam Quang). */}
-                <span className="block leading-snug text-[0.8125rem] font-semibold text-foreground/60">
-                  Chỗ đang xem: {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
+                <span className="block truncate leading-snug text-[1rem] font-semibold text-navy tabular-nums">
+                  {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
                 </span>
                 {/*  DÒNG RIÊNG, KHÔNG nối vào dòng toạ độ: dòng đó có
                      `truncate`, nối thêm là câu cảnh báo bị cắt mất đuôi trên

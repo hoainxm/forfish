@@ -298,8 +298,10 @@ import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { setSenSignal } from "@/lib/sen-bien-state";
 import { apDungGemma, canGemma, chonCauHoi, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
-import { CAU_CHUA_CHAC, goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
-import { DANG_HOI, hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
+import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { CAU_GIO, chonCau, henCauGio } from "@/lib/sen-bien/cau-vui";
+import { cauTruot, chonBuoc, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { readToken } from "@/lib/device-token-store";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
@@ -330,6 +332,8 @@ import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import type { NavInfoLine } from "@/lib/nav-context";
 import {
   computeNavProgress,
+  tocDoMuot,
+  type TocDoMuot,
   etaHours,
   MIN_MOVING_KMH,
   offRouteStepCrossed,
@@ -378,6 +382,7 @@ import {
   type NavContext,
 } from "@/lib/nav-context";
 import { fetchCoralReefs, fetchIslands, fetchSeaLanes, tenChoPhiaTruoc } from "@/lib/sea-lanes";
+import { fetchReefDepth, timRanChoThe } from "@/lib/reef-depth";
 import { requiredDepthM } from "@/lib/hazards";
 import {
   DEPTH_CLASS_LABEL,
@@ -2948,18 +2953,33 @@ export default function FishingMapView() {
   useEffect(() => {
     trackingSpeedRef.current = tracking.speedKmh;
   }, [tracking.speedKmh]);
-  const navProgress = useMemo(
-    () =>
-      navMode && tracking.pos
-        ? computeNavProgress({
-            pos: tracking.pos,
-            headingDeg: tracking.headingDeg,
-            speedKmh: tracking.speedKmh,
-            waypoints: navMode.plan.waypoints,
-          })
-        : null,
-    [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh],
-  );
+  /*  Hai mẩu TRẠNG THÁI THEO NHỊP FIX, cập nhật trong effect chứ KHÔNG trong lúc render (lint react-compiler
+      2026-10-22: "Cannot access refs during render" — bản vòng GPU ghi ref trong useMemo). Mỗi fix tới: effect
+      cập nhật tốc độ mượt (EMA 60 s) + ghi đoạn tuyến vừa chiếu; render kế đọc state mới. Trễ đúng một nhịp
+      render (~ms), không phải một nhịp GPS. */
+  /** đoạn tuyến ở fix trước — để chiếu tuyến có trễ, tuyến vòng về không nhảy đoạn */
+  const [navSeg, setNavSeg] = useState(0);
+  /** tốc độ làm mượt 60 s cho giờ tới — sóng lắc không làm ETA nhảy */
+  const [navEtaSpeed, setNavEtaSpeed] = useState<TocDoMuot | null>(null);
+  useEffect(() => {
+    if (!navMode || !tracking.pos) return;
+    const t = tracking.lastFixAt ?? Date.now();
+    setNavEtaSpeed((prev) => tocDoMuot(prev, tracking.speedKmh, t));
+  }, [navMode, tracking.pos, tracking.speedKmh, tracking.lastFixAt]);
+  const navProgress = useMemo(() => {
+    if (!navMode || !tracking.pos) return null;
+    return computeNavProgress({
+      pos: tracking.pos,
+      headingDeg: tracking.headingDeg,
+      speedKmh: navEtaSpeed?.kmh ?? null,
+      waypoints: navMode.plan.waypoints,
+      segHint: navSeg,
+    });
+  }, [navMode, tracking.pos, tracking.headingDeg, navEtaSpeed, navSeg]);
+  const navProgressSeg = navProgress?.segIdx;
+  useEffect(() => {
+    if (navProgressSeg != null) setNavSeg(navProgressSeg);
+  }, [navProgressSeg]);
 
   /*  CÒN BAO XA / BAO LÂU TỚI CHỖ GHÉ KẾ TIẾP (2026-08-29g). Dòng tổng của
       HUD nói tới ĐÍCH CUỐI — đi 3 chỗ mà chỉ thấy "còn 491 hải lý" thì bà con
@@ -3950,8 +3970,11 @@ export default function FishingMapView() {
   );
   const ganNhatTen = (ds: readonly SenDest[], v: { lat: number; lon: number }, n: number) =>
     [...ds].sort((a, b) => haversineKm(v.lat, v.lon, a.lat, a.lon) - haversineKm(v.lat, v.lon, b.lat, b.lon)).slice(0, n);
+  /** số lượt nghe — câu máy nhà về muộn của lượt cũ không được đọc chèn câu mới (luong-tra-loi.luotMoi) */
+  const senLuotRef = useRef(0);
   const senHeard = useCallback(
     async (text: string): Promise<SenHeard> => {
+      const conLuot = luotMoi(senLuotRef);
       // VIỆC CHỢ VẬT TƯ nói ở bản đồ ⇒ sang chợ, Sen Biển ở đó làm tiếp (sen-bien-toan-app đọc ?sen=) — 2026-10-18
       // Luật hụt mà n-gram v4 chắc là việc sàn cũng sang chợ — ở đó Sen Biển hỏi lại kèm câu mẫu (lenh-cho.hoiLaiCho)
       const senModel = await loadSenBienModel();
@@ -4069,33 +4092,17 @@ export default function FishingMapView() {
           return { show: t };
         }
         default: {
-          /*  KHO HỎI–ĐÁP TRONG MÁY (lib/sen-bien/hoi-kho.ts, doc 15 §26 — ⚠ kho chưa duyệt, bản test): câu hỏi kiến
-              thức ⇒ v5b 9 câu ⇒ Gemma (Android) chọn / ngưỡng n-gram ⇒ đọc câu có sẵn, kể cả mất sóng. Trượt ⇒ có sóng
-              hỏi máy nhà (ADR 0016), không thì câu an toàn. Ý hoi_mo/khong_hieu chờ kho; ý khác chỉ dùng kho đã sẵn. */
+          /*  LUỒNG MỘT CỬA (lib/sen-bien/luong-tra-loi.ts, doc 15 §luồng, anh Long 2026-10-22: "chưa tra xong m đã đẩy
+              ngram vô rồi"): (1) kho trong máy trúng ⇒ đọc · (2) việc trong app mà n-gram CHẮC ⇒ dữ liệu trong máy ·
+              (3) còn lại ⇒ có sóng + đăng nhập hỏi máy nhà (chỉ báo "đang hỏi", KHÔNG đọc câu đoán trước), không thì nói
+              đúng lý do · máy nhà trượt ⇒ câu theo lý do. Câu về muộn của lượt cũ bị bỏ (conLuot). */
           const bo = r.daTraLoi ? null : r.y === "hoi_mo" || r.y === "khong_hieu" ? await loadBoKho() : boKhoSan();
           const kq = await hoiKho(text, r, bo, senNgramCtx(senDests, senAwait != null), chonCauHoi);
+          if (!conLuot()) return null;
           if (kq.vao && kq.dap) {
             senSay(kq.dap.say);
             return { show: kq.dap.say };
           }
-          if (kq.vao) {
-            const coSong = typeof navigator === "undefined" || navigator.onLine !== false;
-            if (nenHoiMayChu(r, text, !!readToken(), coSong)) {
-              senSay(DANG_HOI);
-              const dap = await hoiMayChu(text, "/ngu-truong", null);
-              if (dap) {
-                senSay(dap.text);
-                return { show: dap.text };
-              }
-            }
-            // kho trượt + ý hoi_mo/khong_hieu: câu của answer.ts là ngõ cụt ("cần sóng" / "chưa nghe rõ") ⇒ câu an toàn
-            if (r.y === "hoi_mo" || r.y === "khong_hieu") {
-              senSay(CAU_CHUA_CHAC);
-              return { show: CAU_CHUA_CHAC };
-            }
-          }
-          // việc trong app (giấy tờ, bảo dưỡng, bạn thuyền, giá cá, mở màn…) ⇒ trả lời từ dữ liệu trong máy
-          // (lớp trợ lý toàn app, 2026-10-18) thay vì "chỉ giúp trên bản đồ"
           const a = traLoiApp(
             text,
             r,
@@ -4103,7 +4110,15 @@ export default function FishingMapView() {
             { awaitingConfirm: false, boatNames: [], portNames: [], placeNames: places.map((p) => p.name), route: "/ngu-truong" },
             Date.now(),
           );
-          if (a) {
+          const buoc = chonBuoc({
+            r,
+            conf: senModel ? guessIntent(senModel, text).conf : null,
+            coApp: a != null,
+            online: typeof navigator === "undefined" || navigator.onLine !== false,
+            coChuoi: !!readToken(),
+            text,
+          });
+          if (buoc.buoc === "app" && a) {
             if (a.action?.type === "navigate" && a.action.href !== "/ngu-truong") {
               setSenOpen(false);
               router.push(a.action.href);
@@ -4114,9 +4129,23 @@ export default function FishingMapView() {
             senSay(a.speak);
             return { show: a.text };
           }
-          if (r.ask) senAsk(r.say);
-          else senSay(r.say);
-          return { show: r.say };
+          if (buoc.buoc === "may-nha") {
+            // câu giờ: mở lời ngay + nhịp ~2,5 s / ~5 s (cau-vui.henCauGio), có kết quả là cắt
+            senSay(chonCau(CAU_GIO[0], "gio-0"));
+            let dangCho = true;
+            const huyGio = henCauGio(senSay, () => dangCho && conLuot());
+            const kqN = await hoiMayChu(text, "/ngu-truong", null);
+            dangCho = false;
+            huyGio();
+            if (!conLuot()) return null;
+            const say = "text" in kqN ? kqN.text : cauTruot(kqN.loi);
+            senSay(say);
+            return { show: say };
+          }
+          const say = buoc.buoc === "noi" ? buoc.say : r.say;
+          if (r.ask) senAsk(say);
+          else senSay(say);
+          return { show: say };
         }
       }
     },
@@ -4949,13 +4978,16 @@ export default function FishingMapView() {
         ẩn ô toạ độ + chú giải cá, rail chỉ còn icon, tin bão yên một dòng — giữ
         ô tìm, tin bão, thẻ trạng thái, nút về tàu. Đo 320×700 @32px trước đó:
         các khối nổi chồng lên nhau và đè thẻ đáy (rà Codex lần 11). */
-    <div className="@container/map relative h-full w-full overflow-hidden bg-t1-bg">
+    <div className="ban-do-khung @container/map relative h-full w-full bg-t1-bg">
       {/* ── BẢN ĐỒ — cả màn hình ─────────────────────────────────────────── */}
+      {/*  Lớp bản đồ chạy XUỐNG SAU dock nổi (`ban-do-duoi-dock`, globals.css) — dock là viên nổi bo tròn,
+          khung chừa cả chiều cao dock thì đáy lộ dải nền trống (chủ dự án chụp màn 2026-10-22). Các thẻ nổi
+          vẫn neo theo khung như cũ, chỉ riêng lớp bản đồ tràn xuống. */}
       {/*  Bắt CHẠM GIỮ ở lớp bọc, pha bubble: MapLibre vẫn nhận đủ cử chỉ
            kéo/zoom như thường; ta chỉ đếm giờ và huỷ ngay khi ngón tay xê dịch
            quá 10px (đang kéo bản đồ, không phải giữ). */}
       <div
-        className="absolute inset-0"
+        className="ban-do-duoi-dock absolute inset-x-0 top-0"
         onPointerDown={(e) => {
           if (e.pointerType === "mouse" && e.button !== 0) return;
           closePressMenu();
@@ -5269,15 +5301,30 @@ export default function FishingMapView() {
           if (hitReef) {
             const p = hitReef.properties ?? {};
             const c = toaDoDiem(hitReef);
+            const tenRan = String(p.name ?? "");
+            const nhomRan = String(p.group ?? "");
             setReefInfo({
-              ten: String(p.name ?? ""),
+              ten: tenRan,
               type: String(p.type ?? ""),
-              group: String(p.group ?? ""),
+              group: nhomRan,
               lat: c?.lat ?? null,
               lon: c?.lon ?? null,
               x: e.point.x,
               y: e.point.y,
             });
+            /*  ĐỘ SÂU RẠN (2026-10-22): chỉ Hoàng Sa/Trường Sa có số. Tải LƯỜI lúc chạm (không thêm request khi mở
+                bản đồ); SW giữ file ở tier best-effort nên mất sóng vẫn đọc được nếu đã tải; hỏng thì thẻ im dòng này. */
+            if (nhomRan === "hoang-sa" || nhomRan === "truong-sa") {
+              fetchReefDepth()
+                .then((rd) => {
+                  const f = timRanChoThe(rd, tenRan, c?.lat ?? null, c?.lon ?? null);
+                  if (!f) return;
+                  setReefInfo((prev) =>
+                    prev && prev.ten === tenRan ? { ...prev, doSau: { nongNhatM: f.nongNhatM, trungViM: f.trungViM } } : prev,
+                  );
+                })
+                .catch(() => {});
+            }
             return;
           }
           const LANE_HIT = [
@@ -6859,7 +6906,17 @@ export default function FishingMapView() {
         ))}
 
         {/* điểm của tôi đã ghim — sao vàng có tên; chạm là xem dự báo chỗ đó */}
-        {showPlaces && places.map((pl) => <SavedPlaceMarker key={pl.id} pl={pl} onPick={pickMarker} />)}
+        {/*  NHƯỜNG CHỖ CHO GHIM LỘ TRÌNH (2026-10-22, ảnh anh Long: chữ "Chỗ
+             chưa đặt tên" đè lên ghim số 1): chỗ đã ghim mà đang là điểm ghé của
+             lộ trình đang hiện thì chỉ vẽ ghim số — hai ghim một chỗ là rối. */}
+        {showPlaces &&
+          places
+            .filter(
+              (pl) =>
+                !(routeMode || navOn) ||
+                ![...stops, ...(route?.stops ?? [])].some((s) => placeAt([pl], s.lat, s.lon)),
+            )
+            .map((pl) => <SavedPlaceMarker key={pl.id} pl={pl} onPick={pickMarker} />)}
 
         {/* tuyến dẫn đường tiết kiệm dầu + điểm xuất phát */}
         {/*  `alongKm` = quãng đã chạy dọc tuyến ⇒ chặng nào ở sau lưng thì tô
@@ -7536,7 +7593,7 @@ export default function FishingMapView() {
             {/* CHÚ GIẢI MÀU LỚP CÁ — theo luồng dưới ô toạ độ (trước đặt tuyệt đối
                 `top-[11rem]`, phóng chữ to là đè lên ô toạ độ). */}
             {fishGridGeo && (
-              <div className="pointer-events-none flex items-center gap-2 self-start rounded-lg border border-line bg-card px-2 py-1 @max-[15rem]/map:hidden text-[0.75rem] font-medium text-navy shadow-sm">
+              <div className="glass pointer-events-none flex items-center gap-2 self-start px-2.5 py-1 @max-[15rem]/map:hidden text-[0.75rem] font-medium text-navy shadow-sm">
                 <span className="font-semibold">Dự báo cá</span>
                 {FISH_LEVEL_BANDS.map((b) => (
                   <span key={b.key} className="flex items-center gap-1">

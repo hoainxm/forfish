@@ -53,6 +53,7 @@ function plan(over: Partial<RoutePlan> = {}): RoutePlan {
     segRisks: [],
     noWeatherKm: 0,
     weatherSeen: true,
+    forecast: { source: "live", savedAt: null, hours: 72 },
     ...over,
   };
 }
@@ -405,5 +406,21 @@ describe("giọng văn — không ra lệnh lái, không phán đi hay không", 
       expect(i.text).not.toMatch(/\bngay\b/i);
       expect(i.label.length).toBeLessThanOrEqual(14);
     }
+  });
+});
+
+describe("độ sâu rạn xa bờ (2026-10-22)", () => {
+  it("cập rạn nông ⇒ một dòng ĐỎ 'Rạn nông', đứng trong nhóm đỏ", () => {
+    const items = buildDangerItems(plan({ hasReefShoalLeg: true, reefDepthChecked: true }), []);
+    const r = items.find((i) => i.key === "ran-nong");
+    expect(r?.danger).toBe(true);
+    expect(r?.label).toBe("Rạn nông");
+    expect(items.indexOf(r!)).toBeLessThan(items.filter((i) => i.danger).length);
+  });
+  it("không cờ ⇒ không dòng", () => {
+    expect(buildDangerItems(plan(), []).some((i) => i.key === "ran-nong")).toBe(false);
+  });
+  it("thiếu file độ sâu rạn ⇒ câu 'chưa soi được' gọi đúng tên tiếng Việt", () => {
+    expect(moTaThieu(["do-sau-ran"])).toMatch(/độ sâu rạn Hoàng Sa, Trường Sa/);
   });
 });

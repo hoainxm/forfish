@@ -1,7 +1,7 @@
 // SEN BIỂN — bộ HIỂU Ý siêu nhỏ chạy trong máy (không mạng).
 //
 // Hồi quy logistic đa lớp trên n-gram ký tự + từ, băm 2^16 chiều, trọng số
-// int8 (4,6 MB, `public/data/sen-bien-ngram.v4.bin`). Train ở repo AI Assistant
+// int8 (4,6 MB, `public/data/sen-bien-ngram.v6.bin`). Train ở repo AI Assistant
 // `train/tro-ly/ngram.mjs` + `chay-bd.sh` (bản v4, 2026-10-18): 65 ý định = 31 ý
 // cũ + 13 ý HỎI BẢN ĐỒ (hoi_*, con_bao_xa) + 8 ý THAO TÁC bản đồ (lenh-ban-do.ts)
 // + 13 ý CHỢ VẬT TƯ (lenh-cho.ts Y_CHO — lưới khi luật hụt). Số đo ở train/reports/troly-*.md.
@@ -14,7 +14,7 @@
 // thì máy cũ mới lấy file mới; file sai cỡ ⇒ loadNgram trả null ⇒ chạy bằng luật.
 // Mỗi lúc chỉ MỘT bản trong repo (CLAUDE.md "một lớp = một file"): lên bản mới là git mv, không để song song.
 
-export const NGRAM_PATH = "/data/sen-bien-ngram.v4.bin";
+export const NGRAM_PATH = "/data/sen-bien-ngram.v6.bin";
 
 export const INTENTS = [
   "thoi_tiet", "bao", "con_nuoc", "dan_duong", "dat_cang_nha",
@@ -39,7 +39,7 @@ const DIM = 1 << 16;
 const NY = INTENTS.length;
 const NLOP = NY + REASONS.length;
 /** thang int8 → số thực, ghi lúc train (meta.json của bản v4) */
-const THANG = 0.2235505712313915;
+const THANG = 0.22209903386634167;
 export const NGRAM_BYTES = DIM * NLOP;
 
 /** Bỏ dấu + chữ thường + chỉ giữ a-z0-9 — giống `foldVn` bên train. */
@@ -98,6 +98,25 @@ export type NgramModel = { w: Int8Array };
 export function loadNgram(buf: ArrayBuffer): NgramModel | null {
   if (buf.byteLength !== NGRAM_BYTES) return null;
   return { w: new Int8Array(buf) };
+}
+
+export type LyDoChan = (typeof REASONS)[number];
+
+/**
+ * ĐẦU "LÝ DO CHẶN" của cùng bảng trọng số (lớp NY…NLOP — train cùng lúc với ý định, chỉ học trên câu ngoai_pham_vi).
+ * Chỉ có nghĩa khi ý là `ngoai_pham_vi`: y_te / phap_ly / tien / tra_nguoi là chuyện phải từ chối; `khac` là chuyện
+ * vui, tán gẫu (hát một bài, kể chuyện cười…) — 2026-10-23, anh Long muốn Sen Biển có duyên chứ không từ chối khô.
+ */
+export function lyDoChan(m: NgramModel, cau: string, ctx: NgramCtx = {}): LyDoChan {
+  const x = dacTrung(cau, ctx);
+  const z = new Array<number>(REASONS.length).fill(0);
+  for (const [i, v] of x) {
+    const o = i * NLOP + NY;
+    for (let c = 0; c < REASONS.length; c++) z[c] += m.w[o + c] * THANG * v;
+  }
+  let b = 0;
+  for (let i = 1; i < z.length; i++) if (z[i] > z[b]) b = i;
+  return REASONS[b];
 }
 
 export function guessIntent(m: NgramModel, cau: string, ctx: NgramCtx = {}): { y: SenIntent; conf: number } {

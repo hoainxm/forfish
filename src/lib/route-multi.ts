@@ -99,6 +99,9 @@ export function mergeLegPlans(plans: RoutePlan[]): MergedRoute | null {
       hazardChecked: plans.every((p) => p.hazardChecked),
       hasHazardLeg: some((p) => p.hasHazardLeg),
       hasHazardNearPortLeg: some((p) => p.hasHazardNearPortLeg),
+      // độ sâu rạn: "đã đối chiếu" chỉ khi MỌI chặng đã đối chiếu (như hazardChecked); qua rạn nông thì OR
+      reefDepthChecked: plans.every((p) => p.reefDepthChecked === true),
+      hasReefShoalLeg: some((p) => p.hasReefShoalLeg === true),
       cappedToDirect: some((p) => p.cappedToDirect),
       direct,
       fuelDeltaL: direct ? fuelL - direct.fuelL : null,
@@ -118,8 +121,27 @@ export function mergeLegPlans(plans: RoutePlan[]): MergedRoute | null {
       noWeatherKm: sum((p) => p.noWeatherKm ?? 0),
       // một chặng có số là cả tuyến có số để đọc sóng lớn nhất
       weatherSeen: some((p) => p.weatherSeen !== false),
+      /*  dấu vết dự báo: lấy chặng KÉM nhất (none > grid > live), tuổi = lưới
+          cũ nhất, cửa sổ = chặng ngắn nhất — nói thật theo phía xấu */
+      forecast: mergeForecast(plans),
     },
     stopWpIdx,
     legs: summarizeLegs(plans),
+  };
+}
+
+const FORECAST_RANK = { live: 0, grid: 1, none: 2 } as const;
+
+function mergeForecast(plans: RoutePlan[]): RoutePlan["forecast"] {
+  const fs = plans.map((p) => p.forecast);
+  const source = fs.reduce<RoutePlan["forecast"]["source"]>(
+    (a, f) => (FORECAST_RANK[f.source] > FORECAST_RANK[a] ? f.source : a),
+    "live",
+  );
+  const ages = fs.map((f) => f.savedAt).filter((t): t is number => typeof t === "number");
+  return {
+    source,
+    savedAt: ages.length ? Math.min(...ages) : null,
+    hours: Math.min(...fs.map((f) => f.hours)),
   };
 }

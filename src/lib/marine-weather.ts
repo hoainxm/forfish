@@ -150,13 +150,16 @@ export function forecastConfidence(
   return base;
 }
 
-/** km/h → cấp gió Beaufort (0–12), thang bà con quen nghe trên đài */
+/** km/h → cấp gió theo thang KTTV Việt Nam (0–17), thang bà con quen nghe trên đài.
+ *  0–12 là Beaufort; 13–17 là phần mở rộng cho bão mạnh / siêu bão (cùng cận dưới `capGioTuKmh` của
+ *  storm-push.ts — 134 · 150 · 167 · 184 · 202 km/h). Trước 2026-10-22 hàm cắt ở 12 nên siêu bão 296 km/h
+ *  hiện "cấp 12" ngay dưới tiêu đề "Siêu bão" (chủ dự án chụp màn: "lỗi design"). */
 export function beaufort(kmh: number): number {
-  const limits = [1, 5, 11, 19, 28, 38, 49, 61, 74, 88, 102, 117];
+  const limits = [1, 5, 11, 19, 28, 38, 49, 61, 74, 88, 102, 117, 134, 150, 167, 184, 202];
   for (let i = 0; i < limits.length; i++) {
     if (kmh < limits[i]) return i;
   }
-  return 12;
+  return 17;
 }
 
 /** Hướng gió 0–360° → tên hướng tiếng Việt (8 hướng) */

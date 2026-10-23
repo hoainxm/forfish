@@ -36,6 +36,7 @@ function leg(waypoints: LatLon[], over: Partial<RoutePlan> = {}): RoutePlan {
     segRisks: [],
     noWeatherKm: 0,
     weatherSeen: true,
+    forecast: { source: "live", savedAt: null, hours: 72 },
     ...over,
   };
 }
@@ -47,6 +48,15 @@ const C = { lat: 15, lon: 112 };
 describe("mergeLegPlans — nối các chặng thành MỘT tuyến", () => {
   it("không có chặng nào ⇒ null (nơi gọi tự lo, đừng để lọt tuyến rỗng)", () => {
     expect(mergeLegPlans([])).toBeNull();
+  });
+
+  it("forecast: lấy phía xấu nhất — nguồn kém nhất, lưới cũ nhất, cửa sổ ngắn nhất", () => {
+    const m = mergeLegPlans([
+      leg([A, B], { forecast: { source: "live", savedAt: null, hours: 72 } }),
+      leg([B, C], { forecast: { source: "grid", savedAt: 5000, hours: 48 } }),
+      leg([C, A], { forecast: { source: "grid", savedAt: 3000, hours: 60 } }),
+    ])!;
+    expect(m.plan.forecast).toEqual({ source: "grid", savedAt: 3000, hours: 48 });
   });
 
   it("nối waypoints, KHÔNG lặp điểm nối giữa hai chặng", () => {

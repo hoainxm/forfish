@@ -9,7 +9,8 @@ import { DEVICE_TOKEN_KEY } from "@/lib/device-token-store";
 import { senBienReply, type SenDest, type SenReply } from "@/lib/sen-bien/hieu-y";
 import { CAU_CAN_KIEM, docKho, HOI_DAP_PATH } from "@/lib/sen-bien/hoi-dap";
 import { CAU_CHUA_CHAC, goLenhNgan, hoiKho, Q_CHAC, ungVien, vaoKho, type BoKho, type ChonFn } from "@/lib/sen-bien/hoi-kho";
-import { hoiMayChu, nenHoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { chonBuoc } from "@/lib/sen-bien/luong-tra-loi";
 import { LOC_PATH, loadLoc } from "@/lib/sen-bien/loc";
 import { loadNgram, NGRAM_PATH } from "@/lib/sen-bien/ngram";
 
@@ -69,8 +70,9 @@ describe("(b) vào kho: v4 hoi_mo, hoặc bộ lọc ≥ LOC_NGUONG khi v4 lạc
     expect(kq).toEqual({ vao: true, dap: { id: "nghe_ca-005", say: raw.dap["nghe_ca-005"], cach: "gemma" } });
     expect(g.goi).toHaveLength(1);
   });
-  it("lọc kéo câu v4 đoán lạc (tau_cua_toi) vào kho", async () => {
-    expect(r4("máy tàu nóng quá phải làm sao")).toMatchObject({ kind: "say", y: "tau_cua_toi" });
+  // v6 (22/10, thêm câu ngoài nghề): câu này nay ra khong_hieu thay vì đoán lạc tau_cua_toi — lọc vẫn kéo vào kho
+  it("lọc kéo câu hiểu ý không ra (khong_hieu) vào kho", async () => {
+    expect(r4("máy tàu nóng quá phải làm sao")).toMatchObject({ kind: "say", y: "khong_hieu" });
     const kq = await hoi("máy tàu nóng quá phải làm sao", null);
     expect(kq.vao && kq.dap?.id).toBe("may_tau-011");
   });
@@ -159,18 +161,42 @@ describe("(c) kho trượt ⇒ máy nhà nhận câu (daTraLoi vẫn false)", ()
     vi.unstubAllGlobals();
     localStorage.clear();
   });
-  it("câu hoi_mo trượt kho: nenHoiMayChu nhận khi có chuỗi + có sóng; mất sóng thì không", () => {
+  it("câu hoi_mo trượt kho: chonBuoc hỏi máy nhà khi có chuỗi + có sóng; mất sóng thì không", () => {
     const r = r4("Mang mực với cá nục làm mồi đi xa, ướp kiểu nào để khỏi hư?");
     expect(r.kind === "say" && r.daTraLoi).toBeFalsy();
-    expect(nenHoiMayChu(r, "Mang mực với cá nục", true, true)).toBe(true);
-    expect(nenHoiMayChu(r, "Mang mực với cá nục", true, false)).toBe(false);
+    const o = { r, conf: null, coApp: false, coChuoi: true, text: "Mang mực với cá nục" };
+    expect(chonBuoc({ ...o, online: true }).buoc).toBe("may-nha");
+    expect(chonBuoc({ ...o, online: false }).buoc).toBe("noi");
   });
   it("hoiMayChu gửi đúng câu tới /api/sen-bien/hoi (fetch giả) và trả chữ", async () => {
     localStorage.setItem(DEVICE_TOKEN_KEY, "sdf_" + "a".repeat(43));
     const f = vi.fn(async () => new Response(JSON.stringify({ ok: true, text: "Ướp đá muối.", speak: ["Ướp đá muối."] }), { status: 200 }));
     vi.stubGlobal("fetch", f);
     const dap = await hoiMayChu("Mang mực làm mồi ướp sao", "/ngu-truong", null);
-    expect(dap?.text).toBe("Ướp đá muối.");
+    expect("text" in dap && dap.text).toBe("Ướp đá muối.");
     expect(String((f.mock.calls[0] as unknown[])[0])).toContain("/api/sen-bien/hoi");
+  });
+  // trượt phải mang LÝ DO để Sen Biển nói đúng (luong-tra-loi.cauTruot, 2026-10-22)
+  it.each([
+    [504, "het_gio"],
+    [401, "chua_dang_nhap"],
+    [502, "may_nha"],
+  ] as const)("route trả %i ⇒ lý do %s", async (status, loi) => {
+    localStorage.setItem(DEVICE_TOKEN_KEY, "sdf_" + "a".repeat(43));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: false }), { status })));
+    expect(await hoiMayChu("con gà có mấy chân", null, null)).toEqual({ loi });
+  });
+  it("chưa có chuỗi thiết bị ⇒ chua_dang_nhap, không gọi mạng", async () => {
+    const f = vi.fn();
+    vi.stubGlobal("fetch", f);
+    expect(await hoiMayChu("con gà có mấy chân", null, null)).toEqual({ loi: "chua_dang_nhap" });
+    expect(f).not.toHaveBeenCalled();
+  });
+  it("rớt mạng giữa chừng (fetch ném) ⇒ mat_song; quá giờ ⇒ het_gio", async () => {
+    localStorage.setItem(DEVICE_TOKEN_KEY, "sdf_" + "a".repeat(43));
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    expect(await hoiMayChu("con gà có mấy chân", null, null)).toEqual({ loi: "mat_song" });
+    vi.stubGlobal("fetch", vi.fn(async () => { throw Object.assign(new Error("t"), { name: "TimeoutError" }); }));
+    expect(await hoiMayChu("con gà có mấy chân", null, null)).toEqual({ loi: "het_gio" });
   });
 });

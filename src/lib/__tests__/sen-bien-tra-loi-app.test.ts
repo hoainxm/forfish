@@ -5,10 +5,11 @@ import type { DeviceSnapshot } from "@/lib/assistant/types";
 import { SPECIES_META } from "@/lib/fish-predict";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
 import { loadNgram } from "@/lib/sen-bien/ngram";
+import { chonBuoc } from "@/lib/sen-bien/luong-tra-loi";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
 
 const NOW = Date.UTC(2026, 9, 18, 3);
-const buf = readFileSync("public/data/sen-bien-ngram.v4.bin");
+const buf = readFileSync("public/data/sen-bien-ngram.v6.bin");
 const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
 const LOAI = Object.keys(SPECIES_META);
 const snap = (over: Partial<DeviceSnapshot> = {}): DeviceSnapshot => ({
@@ -30,6 +31,41 @@ describe("veBanDo — việc nào phải sang màn bản đồ", () => {
 });
 
 describe("traLoiApp — trả lời việc trong app từ dữ liệu trong máy", () => {
+  // anh Long 2026-10-23: "nó bị ngắt giữa chừng" — hoi_mo trả "…Bác chờ chút." rồi im, khong_hieu trả "chưa hiểu"
+  it.each(["con gà có mấy chân", "máy lọc nước SDWATER tốn điện không", "SDVICO là công ty gì"])(
+    "'%s' (hoi_mo / khong_hieu) ⇒ traLoiApp KHÔNG trả lời, để luồng hỏi máy nhà",
+    (c) => {
+      const rr = r(c);
+      expect(rr.kind === "say" && ["hoi_mo", "khong_hieu"].includes(rr.y ?? "")).toBe(true);
+      const a = app(c, snap({ online: true }));
+      expect(a).toBeNull();
+      // bộ v6 đoán CHẮC (≥ 0,96) mà vẫn phải đi máy nhà, không dừng ở câu ngõ cụt
+      expect(chonBuoc({ r: rr, conf: 0.99, coApp: a != null, online: true, coChuoi: true, text: c }).buoc).toBe("may-nha");
+    },
+  );
+  // rà luồng 2026-10-23: chuyện vui KHÔNG bị từ chối khô — có sóng hỏi máy nhà; chuyện nhạy cảm vẫn từ chối
+  it.each(["kể chuyện cười nghe coi", "hát một bài đi"])("'%s' ⇒ máy nhà (không từ chối)", (c) => {
+    const rr = r(c);
+    expect(rr.kind === "say" && rr.daTraLoi).toBeFalsy();
+    expect(chonBuoc({ r: rr, conf: 0.9, coApp: app(c, snap({ online: true })) != null, online: true, coChuoi: true, text: c }).buoc).toBe("may-nha");
+  });
+  it("'tôi bị đau đầu uống thuốc gì' (y tế) ⇒ vẫn từ chối, không hỏi máy nhà", () => {
+    const c = "tôi bị đau đầu uống thuốc gì";
+    expect(chonBuoc({ r: r(c), conf: 0.99, coApp: app(c, snap({ online: true })) != null, online: true, coChuoi: true, text: c })).toEqual({
+      buoc: "noi",
+      say: "Việc này Sen Biển không trả lời được.",
+    });
+  });
+  // anh Long 2026-10-22: "gà có mấy chân" ⇒ "Tôi mở chợ tìm '' nhé." (n-gram đoán tim_mon, không tách được món)
+  it.each(["gà có mấy chân", "con chó có mấy chân"])("'%s' ⇒ không mở chợ với ô tìm trống", (c) => {
+    const a = app(c, snap({ online: true }));
+    expect(a?.text ?? "").not.toMatch(/''/);
+    expect(a?.action?.type).not.toBe("search");
+  });
+  it("tìm món có tên vẫn mở chợ đúng món", () => {
+    const a = app("tìm lưới rê", snap({ online: true }));
+    if (a?.intent === "tim_mon") expect(a.text).toMatch(/lưới/);
+  });
   it("giấy tờ: máy có giấy sắp hết hạn ⇒ nói đúng loại", () => {
     const a = app("giấy tờ tàu còn hạn không", snap({ docs: [{ kind: "dang_kiem", label: "Đăng kiểm", level: "warn", daysLeft: 12, expiry: "2026-10-30" }] as never }));
     expect(a?.intent).toBe("giay_to");

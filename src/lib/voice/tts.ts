@@ -410,6 +410,22 @@ function audioCtx(): AudioContext | null {
   }
 }
 
+/**
+ * TRẢ PHIÊN VỀ "playback" TRƯỚC MỖI LƯỢT ĐỌC (2026-10-22, anh Long: "sao ko nói được").
+ * Mở micro thì `phienThuAm()` (sen-bien/nghe) đổi phiên sang "play-and-record"; trên iPhone phiên đó
+ * đẩy tiếng ra LOA NGHE GỌI (rất nhỏ) — trước chỉ `audioCtx()` (câu nhiều mảnh) đặt lại "playback",
+ * câu một mảnh + giọng máy đọc trong phiên thu nên nghe như câm. Đặt ở cửa chung `ttsSpeak`/`ttsSpeakMp3`.
+ */
+export function phienPhat(nav: unknown = typeof navigator === "undefined" ? undefined : navigator): void {
+  const s = (nav as AudioSessionNav | undefined)?.audioSession;
+  if (!s || s.type === "playback") return;
+  try {
+    s.type = "playback";
+  } catch {
+    /* trình duyệt từ chối — vẫn đọc như cũ */
+  }
+}
+
 /** mảnh đã giải mã — giữ ít (mỗi giây tiếng ~190 KB RAM ở 48 kHz) */
 const BUF_CAP = 120;
 const bufs = new Map<string, AudioBuffer>();
@@ -762,6 +778,7 @@ export function ttsSpeak(
 ): () => void {
   // MỘT LƯỢT NÓI MỘT LÚC: câu mới thay câu cũ (như `synth.cancel()` trước đây)
   activeCancel?.();
+  phienPhat();
   setSenSignal({ speaking: true }); // icon Sen Biển "đang nói" (lib/sen-bien-state)
   let ended = false;
   const timers: ReturnType<typeof setTimeout>[] = [];
@@ -840,6 +857,7 @@ export function ttsSpeakMp3(
   opts: { onEnd?(completed: boolean): void; rate?: number } = {},
 ): () => void {
   activeCancel?.();
+  phienPhat();
   setSenSignal({ speaking: true });
   let ended = false;
   const timers: ReturnType<typeof setTimeout>[] = [];

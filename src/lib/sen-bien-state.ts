@@ -70,7 +70,9 @@ export function lyDoMicro(o: {
 }): string {
   const go = " Bà con chạm ô chat để gõ.";
   if (!o.secure) return "Trang đang mở bằng địa chỉ http nên trình duyệt cấm micro — mở bằng https (hoặc localhost) mới nói được." + go;
-  if (o.code === "audio-capture") return "Không thấy micro trên máy — kiểm tra micro đã cắm, không bị app khác giữ." + go;
+  // "audio-capture" = máy KHÔNG MỞ ĐƯỢC micro: phần lớn là đang bận (app khác / cuộc gọi giữ), hiếm khi
+  // là không có — nói "không thấy micro" khiến người có micro tưởng app hỏng (2026-10-22).
+  if (o.code === "audio-capture") return "Micro đang bận — tắt app khác đang dùng micro (gọi điện, ghi âm) rồi thử lại." + go;
   if (o.denied)
     return "Micro đang bị chặn cho trang này — chạm biểu tượng ổ khoá cạnh thanh địa chỉ, chọn cho phép Micro rồi thử lại." + go;
   return "Máy chưa cho dùng micro — cho phép khi trình duyệt hỏi, và bật quyền micro cho trình duyệt trong cài đặt máy." + go;

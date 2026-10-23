@@ -33,7 +33,7 @@ describe("micro Sen Biển — chỉ báo chặn khi chặn thật, nói đúng 
     expect(lyDoMicro({ code: "not-allowed", secure: true, denied: true })).toMatch(/ổ khoá/);
   });
   it("không thấy micro / từ chối hộp hỏi: câu riêng, luôn kèm lối gõ chat", () => {
-    expect(lyDoMicro({ code: "audio-capture", secure: true, denied: false })).toMatch(/Không thấy micro/);
+    expect(lyDoMicro({ code: "audio-capture", secure: true, denied: false })).toMatch(/Micro đang bận/);
     const c = lyDoMicro({ code: "not-allowed", secure: true, denied: false });
     expect(c).toMatch(/cài đặt máy/);
     expect(c).toMatch(/chạm ô chat để gõ/);

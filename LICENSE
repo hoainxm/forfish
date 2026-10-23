@@ -23,6 +23,11 @@ Phần mềm được phát triển theo đặt hàng của SDVICO; quan hệ s�
 THƯ VIỆN VÀ DỮ LIỆU BÊN THỨ BA giữ giấy phép riêng của họ, không thuộc phạm
 vi thông báo này:
   · Thư viện mã nguồn mở khai trong package.json (giấy phép trong node_modules).
+  · Độ sâu rạn Hoàng Sa, Trường Sa (public/data/reef-depth.v1.bin) dẫn xuất từ
+    HHU24SWDSCS — Hohai University, Earth Syst. Sci. Data 2025,
+    doi:10.5194/essd-17-2463-2025 — và SCSBathy10, doi:10.5281/zenodo.19148819,
+    cả hai theo giấy phép CC BY 4.0. Tên thực thể do SDVICO biên tập theo danh
+    mục Việt Nam; số liệu đã gộp và nén lại, không phải bản gốc.
   · Dữ liệu dẫn xuất từ OpenStreetMap chịu giấy phép ODbL v1.0 — theo ODbL
     §4.6, bản máy-đọc-được của phần dẫn xuất sẽ được cung cấp cho người nhận
     khi có yêu cầu (chi tiết: docs/formaps/00-phap-ly.md).

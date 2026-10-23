@@ -7,8 +7,8 @@
 //         · Android có Gemma: Gemma chọn số 1 (ĐỒNG Ý câu nhất v5b) ⇒ đọc; chọn số khác / 0 ⇒ kho trượt;
 //         · không Gemma (web/iOS) / Gemma không ra chữ số / quá giờ ⇒ câu nhất p ≥ Q_CHAC 0,5 ⇒ trả lời, không thì trượt.
 //       Mã câu cần kiểm ⇒ câu an toàn (hoi-dap.ts).
-//   (c) kho trượt ⇒ chỗ gọi: có sóng hỏi máy nhà (hoi-may-chu.ts — `r.daTraLoi` vẫn false nên `nenHoiMayChu` nhận);
-//       mất sóng / máy nhà im ⇒ `CAU_CHUA_CHAC`.
+//   (c) kho trượt ⇒ chỗ gọi đi luồng một cửa `luong-tra-loi.chonBuoc` (có sóng + đăng nhập hỏi máy nhà; không thì
+//       nói đúng lý do — `cauTruot`).
 // ⚠ Kho CHƯA DUYỆT — chỉ bản test (hoi-dap.ts).
 
 import { topK, type DauKho } from "./dau-kho";

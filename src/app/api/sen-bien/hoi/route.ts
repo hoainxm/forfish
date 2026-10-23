@@ -16,10 +16,15 @@ import { amThanhHopLe, cachKy, dauKy, DUONG_HOI, GW_URL_MAC_DINH, kiemCauHoi, ma
 
 export const dynamic = "force-dynamic";
 // Máy nhà trả lời trong 0,5 s lúc khoẻ và tự cắt ở 3 s (+0,8 s đọc câu đầu) khi bận (train chiếm GPU, nạp lạnh) ⇒ route chờ 5 s rồi để máy tự nói (19/10: "hỏi chỉ được <1s")
-export const maxDuration = 10;
-const HAN_MS = 5_000;
+export const maxDuration = 15;
+const HAN_MS = 9_000; // máy nhà 0,6–0,7 s + đọc mp3; trần dư cho lúc máy nhà vừa nạp lại mô hình (đo 2026-10-23)
 
-const err = (status: number, code: string) => NextResponse.json({ ok: false, code }, { status });
+/*  GHI LÝ DO TỪ CHỐI (2026-10-22, anh Long: câu hỏi không tới máy nhà mà log Vercel trống — route lỗi im lặng
+    nên không biết chặn ở đâu). Chỉ ghi MÃ + trạng thái, KHÔNG ghi câu hỏi hay số điện thoại. */
+const err = (status: number, code: string) => {
+  console.warn(`[sen-bien/hoi] ${status} ${code}`);
+  return NextResponse.json({ ok: false, code }, { status });
+};
 
 // nợ: đếm trong bộ nhớ một instance (như rate-limit.ts); cổng nhà có trần riêng 10/phút + 200/ngày mỗi thuê bao
 const DEM: RateStore = new Map();
@@ -27,7 +32,10 @@ const TRAN = { limit: 30, windowMs: 10 * 60_000 };
 
 export async function POST(req: Request) {
   const who = await identityFromRequest(req);
-  if (!who.ok) return who.res;
+  if (!who.ok) {
+    console.warn(`[sen-bien/hoi] ${who.res.status} danh_tinh`);
+    return who.res;
+  }
   if (!allowRequest(DEM, who.phone, Date.now(), TRAN)) return err(429, "rate_limited");
 
   const cau = kiemCauHoi(await req.json().catch(() => null));
@@ -35,7 +43,7 @@ export async function POST(req: Request) {
 
   const ky = cachKy(process.env, req.headers.get("x-vercel-oidc-token"));
   const tb = maThueBao(who.phone, cccdPepper() ?? "");
-  if (!ky || !tb) return err(503, "chua_noi");
+  if (!ky || !tb) return err(503, !ky ? "chua_noi:khoa_ky" : "chua_noi:pepper");
 
   const body = JSON.stringify({
     text: cau.text,

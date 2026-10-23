@@ -350,8 +350,8 @@ describe("htmlToText", () => {
     tại ≥49, nên banner in "49 km/giờ (cấp 7)" trong khi đài đọc CẤP 6. Sai một
     cấp ở bản tin bão là bà con hết tin app. */
 describe("capGioSangKmh — quy ngược phải ra ĐÚNG cấp bản tin nói", () => {
-  it("mọi cấp 6..12: beaufort(capGioSangKmh(c)) === c", () => {
-    for (let c = 6; c <= 12; c++) {
+  it("mọi cấp 6..17: beaufort(capGioSangKmh(c)) === c", () => {
+    for (let c = 6; c <= 17; c++) {
       const kmh = capGioSangKmh(c)!;
       expect(kmh).toBeGreaterThan(0);
       expect(beaufort(kmh)).toBe(c);

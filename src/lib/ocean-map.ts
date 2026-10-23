@@ -848,7 +848,9 @@ export type SovereigntyLabel = {
 export const SOVEREIGNTY_LABELS: SovereigntyLabel[] = [
   { name: "VỊNH BẮC BỘ", lat: 19.5, lng: 107.3, kind: "sea" },
   { name: "BIỂN ĐÔNG", lat: 14.2, lng: 113.0, kind: "sea" },
-  { name: "VỊNH THÁI LAN", lat: 9.3, lng: 102.3, kind: "sea" },
+  /*  Dời vào giữa vịnh 2026-10-22: ở 102,3°E chữ giãn rộng lấn sang cụm Nam
+      Du – Thổ Chu (ảnh anh Long) — nhãn HTML không né chữ như lớp symbol. */
+  { name: "VỊNH THÁI LAN", lat: 9.0, lng: 101.4, kind: "sea" },
   {
     name: "QUẦN ĐẢO HOÀNG SA",
     sub: "TP. Đà Nẵng — Việt Nam",

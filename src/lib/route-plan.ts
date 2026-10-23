@@ -72,6 +72,7 @@ import {
   type NoGoZone,
 } from "@/lib/hazards";
 import { estimateWaveFromWind } from "@/lib/sea";
+import { buildReefDepthIndex, nguongChanRanM, reefDepthAtM, type ReefDepth } from "@/lib/reef-depth";
 import {
   buildIndex,
   maskWithinSegment,
@@ -98,9 +99,35 @@ export type BoatProfile = {
       một mớn "trung bình" rồi doạ sai người (tàu thúng 0,3 m và tàu vỏ thép
       3 m cùng dùng app này). Vắng số không phải là số. */
   draftM?: number | null;
+  /*  KÉT DẦU (lít) + CHIỀU DÀI (m) — D6, 2026-10-22. Cùng luật với mớn: `null`/vắng
+      = chủ tàu CHƯA khai ⇒ không kiểm "đủ dầu đi về", không đoán két hộ. */
+  fuelTankL?: number | null;
+  lengthM?: number | null;
 };
 
 export const DEFAULT_BOAT: BoatProfile = { speedKn: 7, litersPerHour: 20, draftM: null };
+
+/** Dầu dự phòng: đi + về, nhân hệ số an toàn (gió ngược, vòng tránh, chờ tại ngư trường). */
+export const FUEL_RETURN_SAFETY = 1.3;
+
+/** Số hợp lệ cho két dầu / chiều dài; mọi thứ khác = "chưa khai". */
+export function positiveOrNull(v: unknown, max: number): number | null {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 && v <= max ? v : null;
+}
+
+/**
+ * Két có đủ dầu đi rồi về không? `null` khi chưa khai két (hoặc dầu chuyến không
+ * hợp lệ) — im lặng, không đoán. Dầu cần = `oneWayFuelL × 2 × 1,3`.
+ */
+export function fuelReturnCheck(
+  boat: Pick<BoatProfile, "fuelTankL">,
+  oneWayFuelL: number,
+): { needL: number; tankL: number; enough: boolean } | null {
+  const tankL = positiveOrNull(boat.fuelTankL, 100000);
+  if (tankL == null || !Number.isFinite(oneWayFuelL) || oneWayFuelL < 0) return null;
+  const needL = Math.round(oneWayFuelL * 2 * FUEL_RETURN_SAFETY * 10) / 10;
+  return { needL, tankL, enough: needL <= tankL };
+}
 export const KMH_PER_KNOT = 1.852;
 
 // ── hình học ─────────────────────────────────────────────────────────────
@@ -109,6 +136,9 @@ const rad = (d: number) => (d * Math.PI) / 180;
 const deg = (r: number) => (r * 180) / Math.PI;
 
 /** Hướng chạy từ a tới b, 0–360° (0 = Bắc, 90 = Đông) */
+/** Góc rẽ dưới mức này coi như đi thẳng — không đáng một điểm riêng. */
+const MIN_TURN_DEG = 3;
+
 export function bearingDeg(a: LatLon, b: LatLon): number {
   const dLon = rad(b.lon - a.lon);
   const y = Math.sin(dLon) * Math.cos(rad(b.lat));
@@ -604,6 +634,11 @@ export type RoutePlan = {
   hazardChecked: boolean;
   hasHazardLeg: boolean;
   hasHazardNearPortLeg: boolean;
+  /*  ĐỘ SÂU RẠN XA BỜ (2026-10-22, `lib/reef-depth`). `reefDepthChecked` true = lượt tính CÓ đối chiếu độ sâu
+      rạn Hoàng Sa/Trường Sa (undefined/false = chưa — UI không được hiểu là "đã soi"). `hasReefShoalLeg` = tuyến đi
+      qua ô rạn nông hơn ngưỡng nhưng nằm trong vòng nới 12 km quanh một đầu (cập đảo/rạn) — đi được, PHẢI cảnh báo. */
+  reefDepthChecked?: boolean;
+  hasReefShoalLeg?: boolean;
   /**
    * có đoạn ĐÈ LÊN ĐẤT theo lưới độ sâu, đi qua được chỉ vì nằm trong bán kính
    * nới `VICINITY_LAND_KM` quanh nơi xuất phát/điểm đến (2026-08-16, thẩm định
@@ -671,6 +706,14 @@ export type RoutePlan = {
    * không được đếm vào `noWeatherKm`, tuyến mù hoàn toàn vẫn có thể < 90 %.
    */
   weatherSeen: boolean;
+  /**
+   * DẤU VẾT DỰ BÁO ĐÃ DÙNG (C3, 2026-10-22). Tuyến tính bằng lưới offline cũ
+   * hay không có lưới phải nói thật ngay trong kết quả — không để UI tự nhớ.
+   * `source` 'live' = lưới mới của máy chủ · 'grid' = lưới đã lưu trong máy ·
+   * 'none' = không có số. `savedAt` = epoch ms lưu lưới ('grid'; null khi
+   * không biết hoặc lưới 'live'). `hours` = cửa sổ dự báo có số (giờ).
+   */
+  forecast: { source: "live" | "grid" | "none"; savedAt: number | null; hours: number };
 };
 
 type LegInfo = {
@@ -694,6 +737,8 @@ type LegInfo = {
   hazard: boolean;
   /** chặng chạm vật chặn nhưng cả chặng nằm trong 5 km quanh một đầu */
   hazardNearPort: boolean;
+  /** chặng qua ô rạn (reef-depth) nông hơn ngưỡng — chỉ có thể true trong vòng nới hai đầu hoặc khi relaxed */
+  reefShoal: boolean;
   /** có ít nhất một mẫu lớp 0–3 */
   lowSeen: boolean;
   /** có mẫu lớp 0–3 NGOÀI bán kính nới của lớp đó (⇒ không phải chuyện ở cảng) */
@@ -715,7 +760,7 @@ const INFEASIBLE_LEG: LegInfo = Object.freeze({
   feasible: false, distKm: 0, hours: 0, fuelL: 0, cost: 0,
   waveM: 0, windKmh: 0, rough: false, shallow: false,
   veryShallow: false, nearLand: false, landKm: 0, draftShallow: false,
-  hazard: false, hazardNearPort: false,
+  hazard: false, hazardNearPort: false, reefShoal: false,
   lowSeen: false, lowFar: false, following: false, seaImpassable: false,
   noWeatherKm: 0,
   weatherSeen: false,
@@ -745,6 +790,16 @@ export type PlanArgs = {
       `planRouteWithDiagnostics` tự nâng khi mọi lượt đều không ra tuyến; chỗ
       gọi không cần truyền. */
   landExitPadKm?: number;
+  /*  TRIỀU tại ETA (B4, 2026-10-22) — chỉ hiệu chỉnh ĐỘ SÂU lớp 3, KHÔNG vào
+      chi phí (quyết định 09/2026). `heightAtMs` và `z0M` cùng so số 0 hải đồ;
+      `departMs` là mốc ms ứng với `departHourIdx`. `reserveM` = dự trữ trừ thêm
+      (trạm `model` ±0,2 m). Bỏ trống ⇒ như cũ (trần tĩnh). Có hàm ⇒ không
+      clone được sang worker: chỗ gọi phải tính ở luồng chính. */
+  tide?: { z0M: number; departMs: number; heightAtMs(ms: number): number; reserveM?: number };
+  /*  ĐỘ SÂU RẠN XA BỜ (2026-10-22) — `fetchReefDepth()`; object + Uint8Array nên clone được sang worker. Bỏ trống ⇒
+      như cũ (chỉ mặt nạ rạn lớp 1), `plan.reefDepthChecked` false. Luật: CHỈ THÊM chặn (ô có số nông hơn
+      `nguongChanRanM`), KHÔNG mở ô nào mặt nạ cũ đang chặn — xem đầu `lib/reef-depth.ts`. */
+  reefDepth?: ReefDepth | null;
 };
 
 // hàng đợi ưu tiên nhị phân tối giản
@@ -895,7 +950,7 @@ function planAttempt(
       bật, và chỉ khi lượt thường đã gặp chỗ thiếu số mà không ra tuyến. */
   weatherUnknownOk = false,
 ): RoutePlan | null {
-  const { start, dest, boat, departHourIdx, field, depth, bbox } = args;
+  const { start, dest, boat, departHourIdx, field, depth, bbox, tide } = args;
   const midLat = (bbox.latMin + bbox.latMax) / 2;
   const spanLatKm = (bbox.latMax - bbox.latMin) * 111.32;
   const spanLonKm = (bbox.lonMax - bbox.lonMin) * 111.32 * Math.cos(rad(midLat));
@@ -1040,6 +1095,8 @@ function planAttempt(
       mẫu × 120.000 chặng là rác cho bộ gom rác của máy yếu. Cả hai chỉ ĐỌC hai
       trường, không giữ lại tham chiếu. */
   const noGoProbe = { lat: 0, lon: 0 };
+  /** chỉ mục độ sâu rạn — dựng một lần mỗi lượt (169 thực thể); null = không có file */
+  const rdIx = args.reefDepth ? buildReefDepthIndex(args.reefDepth) : null;
 
   const calmKmh = boat.speedKn * KMH_PER_KNOT;
 
@@ -1077,7 +1134,8 @@ function planAttempt(
     let lowFar = false;
     let hazard = false;
     let hazardNearPort = false;
-    if (depth || noGoZones.length > 0 || noGoPortZones.length > 0) {
+    let reefShoal = false;
+    if (depth || rdIx || noGoZones.length > 0 || noGoPortZones.length > 0) {
       /*  BƯỚC MẪU 2 KM, TRƯỚC LÀ 5 (2026-08-16, thẩm định P0). Lưới độ sâu có
           bước 15" ≈ 450 m (từ 2026-08-29; bản trước 0,05° ≈ 5,5 km), nhưng mẫu
           mỗi 5 km vẫn để lọt: một chấm đảo/đá ngầm nhỏ hơn khoảng cách hai mẫu
@@ -1172,7 +1230,15 @@ function planAttempt(
               const hw = sampleField(field, pLat, pLon, atHour + (distKm * t) / calmKmh);
               const waveHere = hw ? (hw.waveM ?? estimateWaveFromWind(hw.windKmh)) : null;
               const need = requiredDepthM(boat.draftM ?? null, waveHere);
-              ok = need != null && need <= DRAFT_SHALLOW_MAX_NEED_M;
+              /*  triều tại ETA của mẫu: nước lớn mở thêm, ròng đóng bớt. Số triều
+                  không hữu hạn (nguồn hỏng) ⇒ về trần tĩnh, không đoán. */
+              let dTide = 0;
+              if (tide) {
+                const etaMs = tide.departMs + (atHour - departHourIdx + (distKm * t) / calmKmh) * 3_600_000;
+                const d = tide.heightAtMs(etaMs) - tide.z0M - (tide.reserveM ?? 0);
+                if (Number.isFinite(d)) dTide = d;
+              }
+              ok = need != null && need <= DRAFT_SHALLOW_MAX_NEED_M + dTide;
             }
             lowFar = true;
             if (ok) {
@@ -1184,6 +1250,27 @@ function planAttempt(
           }
         } else if (cls === 4) {
           shallow = true;
+        }
+
+        /*  ĐỘ SÂU RẠN XA BỜ — CHỈ THÊM CHẶN (2026-10-22). Đất (0) và mặt nạ rạn (1) đã xử ở trên, KHÔNG mở lại
+            dù file nói sâu. Ô có số nông hơn ngưỡng = nước tàu cần (mớn + 0,5 + ½ sóng tại ETA của mẫu + lún đuôi;
+            chưa khai mớn ⇒ 4 m) + 1,0 m sai số vệ tinh + 0,8 m ròng xa bờ ⇒ chặn như "rất cạn" (nới 12 km quanh
+            hai đầu để còn cập được đảo/rạn, nới thì cắm cờ). Chỉ hỏi thời tiết khi mẫu RƠI vào rạn có số (hiếm). */
+        if (rdIx && cls !== 0 && cls !== 1) {
+          const rM = reefDepthAtM(rdIx, pLat, pLon);
+          if (rM != null) {
+            const hw = sampleField(field, pLat, pLon, atHour + (distKm * t) / calmKmh);
+            const waveHere = hw ? (hw.waveM ?? estimateWaveFromWind(hw.windKmh)) : null;
+            if (rM < nguongChanRanM(boat.draftM ?? null, waveHere, boat.speedKn)) {
+              lowSeen = true;
+              if (!nearEndpoints(noGoProbe, VICINITY_SHALLOW_KM)) {
+                if (!relaxed) return INFEASIBLE_LEG;
+                lowFar = true;
+              }
+              veryShallow = true;
+              reefShoal = true;
+            }
+          }
         }
       }
     }
@@ -1325,7 +1412,7 @@ function planAttempt(
     return {
       feasible: true, distKm, hours, fuelL, cost,
       waveM: maxWave, windKmh: maxWind, rough, shallow, veryShallow, nearLand, landKm,
-      draftShallow, hazard, hazardNearPort, lowSeen, lowFar, following, seaImpassable,
+      draftShallow, hazard, hazardNearPort, reefShoal, lowSeen, lowFar, following, seaImpassable,
       noWeatherKm, weatherSeen,
     };
   };
@@ -1444,6 +1531,35 @@ function planAttempt(
     smoothed.push(waypoints[bestJ]);
     i = bestJ;
   }
+  /*  Dọn điểm thẳng hàng còn sót (E1): cửa sổ kéo dây chỉ nhìn 6 nút, nên
+      đường thẳng dài vẫn để lại điểm giữa có góc rẽ < 3° — bà con phải gõ thừa
+      vào máy định vị. Bỏ điểm đó khi cạnh nối đi được và không đắt hơn. */
+  for (let k = 1; k < smoothed.length - 1; ) {
+    const turn = Math.abs(angleDiffDeg(
+      bearingDeg(smoothed[k - 1], smoothed[k]),
+      bearingDeg(smoothed[k], smoothed[k + 1]),
+    ));
+    if (turn < MIN_TURN_DEG) {
+      const a = smoothed[k - 1], m = smoothed[k], b = smoothed[k + 1];
+      // chỉ bỏ khi điểm nằm gần như TRÊN cạnh nối (không cắt góc sát rạn)
+      if (haversineKm(a, m) + haversineKm(m, b) - haversineKm(a, b) > 0.05) {
+        k++;
+        continue;
+      }
+      const l1 = legCost(a, m, departHourIdx, false, seaAsPenalty);
+      const l2 = legCost(m, b, departHourIdx + (l1.feasible ? l1.hours : 0), false, seaAsPenalty);
+      const chord = legCost(a, b, departHourIdx, false, seaAsPenalty);
+      if (
+        l1.feasible && l2.feasible && chord.feasible &&
+        chord.cost <= (l1.cost + l2.cost) * 1.001
+      ) {
+        smoothed.splice(k, 1);
+        k = Math.max(1, k - 1);
+        continue;
+      }
+    }
+    k++;
+  }
   waypoints = smoothed;
 
   /**
@@ -1464,6 +1580,7 @@ function planAttempt(
       draftShallowFlag = false,
       hazardFlag = false,
       hazardNearPortFlag = false,
+      reefShoalFlag = false,
       lowSeen = false,
       lowFar = false,
       following = false,
@@ -1493,6 +1610,7 @@ function planAttempt(
       draftShallowFlag = draftShallowFlag || leg.draftShallow;
       hazardFlag = hazardFlag || leg.hazard;
       hazardNearPortFlag = hazardNearPortFlag || leg.hazardNearPort;
+      reefShoalFlag = reefShoalFlag || leg.reefShoal;
       lowSeen = lowSeen || leg.lowSeen;
       lowFar = lowFar || leg.lowFar;
       following = following || leg.following;
@@ -1505,7 +1623,7 @@ function planAttempt(
     return {
       ok, hoursSum, hoursAt, fuelSum, distSum, maxWave, maxWind,
       rough, shallowFlag, veryShallowFlag, nearLandFlag, draftShallowFlag,
-      hazardFlag, hazardNearPortFlag,
+      hazardFlag, hazardNearPortFlag, reefShoalFlag,
       // có chỗ thấp, và MỌI chỗ thấp đều là chuyện ở cảng
       nearPortOnly: lowSeen && !lowFar,
       following, seaImpassable: seaImpassableFlag, segRisks, noWeatherKm, weatherSeen, landKm,
@@ -1554,6 +1672,12 @@ function planAttempt(
     fieldHours === 0
       ? 0
       : Math.max(0, Math.ceil(departHourIdx + tripHours - fieldHours));
+
+  const forecast: RoutePlan["forecast"] = {
+    source: field.source ?? "live",
+    savedAt: field.source === "grid" ? (field.savedAt ?? null) : null,
+    hours: fieldHours,
+  };
 
   // đường thẳng để so sánh trung thực — chia nhỏ theo bước lưới
   const directDist = haversineKm(start, dest);
@@ -1609,6 +1733,8 @@ function planAttempt(
       hazardChecked,
       hasHazardLeg: directWalk.hazardFlag,
       hasHazardNearPortLeg: directWalk.hazardNearPortFlag,
+      reefDepthChecked: rdIx != null,
+      hasReefShoalLeg: directWalk.reefShoalFlag,
       cappedToDirect: true,
       direct,
       fuelDeltaL: 0,
@@ -1617,6 +1743,7 @@ function planAttempt(
       segRisks: directWalk.segRisks,
       noWeatherKm: directWalk.noWeatherKm,
       weatherSeen: directWalk.weatherSeen,
+      forecast,
     };
   }
 
@@ -1639,6 +1766,8 @@ function planAttempt(
     hazardChecked,
     hasHazardLeg: chosen.hazardFlag,
     hasHazardNearPortLeg: chosen.hazardNearPortFlag,
+    reefDepthChecked: rdIx != null,
+    hasReefShoalLeg: chosen.reefShoalFlag,
     cappedToDirect: false,
     direct,
     fuelDeltaL: direct ? chosen.fuelSum - direct.fuelL : null,
@@ -1647,6 +1776,7 @@ function planAttempt(
     segRisks: chosen.segRisks,
     noWeatherKm: chosen.noWeatherKm,
     weatherSeen: chosen.weatherSeen,
+    forecast,
   };
 }
 

@@ -2,13 +2,13 @@
 // án: "nối vô, rồi tạo pipeline để gemma ở local pc biết luồng xử lý riêng cho thuê bao forfish").
 //
 // THỨ TỰ KHÔNG ĐỔI: luật + n-gram (+ Gemma Android) trong máy trả lời TRƯỚC. Chỉ khi máy KHÔNG ra câu trả lời thật
-// (`nenHoiMayChu`) và có sóng mới hỏi `/api/sen-bien/hoi`. Mất sóng / chưa đăng nhập / máy nhà tắt / quá 22 s ⇒ trả
+// (`luong-tra-loi.chonBuoc`) và có sóng mới hỏi `/api/sen-bien/hoi`. Mất sóng / chưa đăng nhập / máy nhà tắt / quá 22 s ⇒ trả
 // null, chỗ gọi nói câu cũ của máy — Sen Biển ngoài biển vẫn y như trước, không treo, không báo lỗi kỹ thuật.
 
 import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import { noteResponse, readToken, tokenHeader } from "@/lib/device-token-store";
-import type { SenReply } from "@/lib/sen-bien/hieu-y";
+import type { LyDoTruot } from "@/lib/sen-bien/luong-tra-loi";
 import { effectivePremiumMark, readPremiumMark, readTierMarkRaw, readTierUntilRaw } from "@/lib/tier";
 
 /** Hạng theo dấu trong máy (premium còn hạn / thường / chưa biết ⇒ null) — chỉ để Gemma nói đúng gói. */
@@ -21,28 +21,20 @@ function hangTrongMay(): "premium" | "thuong" | null {
   }
 }
 
-/** Trần chờ phía máy: route chờ máy nhà 5 s + đường truyền — quá là Sen Biển nói câu của máy, bà con không phải chờ. */
-export const HOI_HAN_MS = 6_000;
-/** Câu báo đang hỏi — đọc ngay để bà con biết Sen Biển không đứng hình. */
-export const DANG_HOI = "Để Sen Biển hỏi thêm.";
+/** Trần chờ phía máy: route chờ máy nhà 9 s + đường truyền. Đo 2026-10-23 trọn đường (tài khoản test, máy nhà nóng):
+ *  máy nhà 0,6–0,7 s nhưng cả lượt 3,0–6,5 s (Vercel khởi động lạnh + kiểm danh tính + máy nhà đọc mp3) — trần cũ 6 s
+ *  cắt đúng lượt đầu sau lúc nghỉ. Trong lúc chờ có câu giờ ba nhịp (cau-vui.henCauGio), bà con không ngồi im. */
+export const HOI_HAN_MS = 12_000;
 
-/**
- * Có nên hỏi máy nhà không. CHỈ câu "say" mà máy CHƯA trả lời thật (không `daTraLoi`), câu đủ dài để là câu hỏi
- * (≥ 2 chữ), có chuỗi thiết bị, và trình duyệt không báo mất sóng. Mọi việc khác (đi, dừng, mở lớp, hỏi bản đồ…) do
- * máy làm — máy nhà không bao giờ ra lệnh cho app.
- */
-export function nenHoiMayChu(r: SenReply, text: string, coChuoi: boolean, online: boolean): boolean {
-  if (r.kind !== "say" || r.daTraLoi) return false;
-  if (!coChuoi || !online) return false;
-  return (text.trim().match(/\p{L}+/gu) || []).length >= 2;
-}
-
-/** Hỏi máy nhà. Trả câu đọc được, hoặc null (mọi lỗi — chỗ gọi tự nói câu của máy). Không bao giờ ném. */
+/** Hỏi máy nhà. Trả câu đọc được, hoặc `{ loi }` (mọi lỗi kèm lý do). Không bao giờ ném. */
 export type DapMayNha = { text: string; speak: string[]; amThanh: string | null };
 
-export async function hoiMayChu(text: string, man: string | null, cang: string | null): Promise<DapMayNha | null> {
-  if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
-  if (!readToken()) return null;
+/** Kết quả một lượt hỏi: câu đọc được, hoặc LÝ DO trượt để chỗ gọi nói đúng (luong-tra-loi.cauTruot). */
+export type KqMayNha = DapMayNha | { loi: LyDoTruot };
+
+export async function hoiMayChu(text: string, man: string | null, cang: string | null): Promise<KqMayNha> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return { loi: "mat_song" };
+  if (!readToken()) return { loi: "chua_dang_nhap" };
   const hang = hangTrongMay();
   try {
     const r = await fetch(apiUrl("/api/sen-bien/hoi"), {
@@ -52,14 +44,19 @@ export async function hoiMayChu(text: string, man: string | null, cang: string |
       signal: timeoutSignal(HOI_HAN_MS),
     });
     void noteResponse(r);
-    if (!r.ok) return null;
+    if (r.status === 401) return { loi: "chua_dang_nhap" };
+    if (r.status === 504) return { loi: "het_gio" };
+    if (!r.ok) return { loi: "may_nha" };
     const j = (await r.json().catch(() => null)) as { ok?: boolean; text?: unknown; speak?: unknown; am_thanh?: unknown } | null;
-    if (!j?.ok || typeof j.text !== "string" || !j.text.trim()) return null;
+    if (!j?.ok || typeof j.text !== "string" || !j.text.trim()) return { loi: "may_nha" };
     const speak = Array.isArray(j.speak) ? j.speak.filter((s): s is string => typeof s === "string" && !!s.trim()) : [];
     const amThanh = typeof j.am_thanh === "string" && /^[A-Za-z0-9+/]+=*$/.test(j.am_thanh) ? j.am_thanh : null;
     return { text: j.text.trim(), speak: speak.length ? speak : [j.text.trim()], amThanh };
-  } catch {
-    return null;
+  } catch (e) {
+    const het = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+    if (het) return { loi: "het_gio" };
+    // fetch ném khi rớt mạng giữa chừng (navigator.onLine vẫn báo có) ⇒ coi như mất sóng
+    return { loi: "mat_song" };
   }
 }
 

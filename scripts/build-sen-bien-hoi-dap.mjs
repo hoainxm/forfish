@@ -1,4 +1,4 @@
-// Gói KHO HỎI–ĐÁP của Sen Biển thành BA file (CLAUDE.md "một lớp = một file"; hiểu LỆNH vẫn là sen-bien-ngram.v4.bin):
+// Gói KHO HỎI–ĐÁP của Sen Biển thành BA file (CLAUDE.md "một lớp = một file"; hiểu LỆNH vẫn là sen-bien-ngram.v6.bin):
 //   public/data/sen-bien-ngram.v5.bin     — w.sbn5 chép nguyên byte, app CHỈ dùng đầu kho (lib/sen-bien/dau-kho.ts)
 //   public/data/sen-bien-hoi-dap.v2.json  — kho: mã câu theo đúng thứ tự đầu kho + câu hỏi chuẩn (cho Gemma chọn) + câu trả lời
 //   public/data/sen-bien-loc.v1.bin       — bộ lọc "câu hỏi hay câu lệnh": "SBL1" · f32 thang · f32 b · i8 w[65536] (lib/sen-bien/loc.ts)

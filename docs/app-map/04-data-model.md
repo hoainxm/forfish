@@ -635,6 +635,19 @@ Schema không đổi (`islands.ts`/`reefs.ts` đọc như cũ); chỉ thêm prop
 
 **Vì sao sinh lại** (briefing-03, 2026-09-04): bản 2 bit cũ định nghĩa "đất = z > −2 m" nên bãi bùn ven bờ ở mực nước trung bình thành đất — mẫu 0,1° có 257/19.865 ô NƯỚC theo đường bờ bị coi là đất; Rạch Giá không có tuyến nào ra khơi (null trong 2 ms). Đo thật khi sinh lại: 0→2 **74.904 ô** (nước <2 m từng bị gọi là đất), 0→1 24.017, cũ "rất cạn" tách thành 1 (101.930) và 3 (49.428); ngược lại 6.473 ô nước cũ → đất vì nằm TRONG đa giác bờ giản lược (cụm lớn nhất: phá Tam Giang, Huế — không vịnh sâu nào bị lấp). Phân bố: đất 5,66 M · mặt nạ 126 k (0,74 %) · <2 m 75 k · 2–4 m 49 k · 4–12 m 203 k · đủ sâu 10,94 M. Phát hiện thêm lúc sinh: điểm briefing 10,02°B/104,99°Đ có ETOPO −2 m nhưng GEBCO **+1 m** → luật "min" thuần vẫn cho ra đất; vì thế đất ngoài đa giác bờ đòi CẢ HAI nguồn z > 0 (một nguồn nói đất → lớp 2, vẫn chặn ngoài 12 km). Cổng test `depth-grid.test.ts`: cỡ 4 bit, 4 điểm briefing ≠ 0, dải ven bờ 102–110°Đ ô nước-theo-bờ mang lớp 0 ≤ 1,2 % (đo 0,79 %; phần dư là đảo vn-coast giản lược đã cắt + bờ Campuchia/Thái/Hải Nam — cổng 0,1 % của quyết định thiết kế không đạt được với vn-coast hiện tại), mặt nạ ≤ 2 %, 5 toạ độ sự cố 2026-08-29 + tâm 2.622 hình rạn không "đủ sâu".
 
+## 7f. Độ sâu rạn xa bờ — Hoàng Sa / Trường Sa (2026-10-22)
+
+> `public/data/reef-depth.v1.bin` (**0,66 MB**, ~0,5 MB qua Brotli; SDF2 khi phát ra như mọi file). **168 thực thể**, chỉ hai quần đảo của Việt Nam (bộ đóng gói bỏ Scarborough, Đông Sa, Luconia). Nguồn: HHU24SWDSCS (Hohai University, ESSD 2025, Zenodo 13852568) + SCSBathy10 (Zenodo 19148819, 2026-03-21), **CC BY 4.0**, độ sâu suy từ ảnh vệ tinh + laser ICESat-2, RMSE công bố 0,67–0,82 m, **datum mực nước trung bình**. Tên: theo danh mục Việt Nam, ghép bằng `scripts/dan-duong/ran-10m/ten-viet.mjs` + `quyet-dinh-ten.json` theo luật `LUAT-RA-SOAT-TEN.md` (không chắc ⇒ tên chung "… chưa định danh (cụm X)", toạ độ tên lệch chân hình ⇒ tên chung); không tên nước ngoài nào trong file (cổng `reef-depth.test.ts` chạy `scripts/audit-names.mjs` trên tên đã giải mã).
+> Dựng: GPU `sinh-reef-depth.py` (lưới ~100 m, mỗi ô = độ sâu NÔNG NHẤT trong ô) → Mac `dong-goi-reef-depth.mjs` → file này. Ngày chốt nguồn ghim trong đầu file. Chỉ sinh lại khi nguồn đổi.
+
+| Phần | Nội dung |
+|---|---|
+| Đầu | `"RDP1"` · u32 LE độ dài · JSON `{v:1, sinh, datum:"MSL", donVi, buocM:100, quyUoc, credit[], nguonChot, features[{ten, nhom, nguon, lat0, lon0, dLat, dLon, nLat, nLon, nongNhatM, trungViM, off, len}]}` |
+| Thân | lưới từng thực thể nén RLE: byte 0–253 = 0,0–25,3 m · 254 = sâu hơn 25,3 m · 255 + varint n = n ô không số. Hàng i theo vĩ độ TĂNG |
+| Đọc | `src/lib/reef-depth.ts`: `decodeReefDepth` (méo ⇒ ném) · `buildReefDepthIndex` (ô 0,05°) · `reefDepthAtM` (nông nhất mọi thực thể phủ điểm) · `nguongChanRanM` · `reefDepthInBBox` · `timRanChoThe` · `fetchReefDepth` (trần 30 s, hỏng xoá nhớ) |
+| Luật dùng | **chỉ THÊM chặn**: ô có số nông hơn `nguongChanRanM` = nước tàu cần (mớn + 0,5 + ½·min(Hs,3) + lún đuôi; chưa khai mớn 4 m) + **1,0 m** sai số vệ tinh + **0,8 m** ròng xa bờ ⇒ chặn như lớp 1–2. Mặt nạ rạn cũ (lớp 1) KHÔNG bao giờ mở. Đo 2026-10-22: 99,93 % ô cạn dưới 2 m đã nằm trong mặt nạ cũ; phần thêm thật là cụm Song Tử |
+| Offline | SW tier best-effort (cạnh `reef-shapes`); thiếu file ⇒ tuyến tính như cũ, `reefDepthChecked=false`, thẻ tuyến gọi tên "độ sâu rạn Hoàng Sa, Trường Sa" ở "chưa soi được" |
+
 ## 8. Cross-references
 
 - Demo mode pattern: [02-architecture.md](02-architecture.md)

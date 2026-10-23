@@ -189,7 +189,12 @@ html {
   --dock-safe: env(safe-area-inset-bottom, 0px);
   --dock-row: 3.5rem; /* thanh dock nổi kiểu Facebook (03 §0b, 2026-10-19) */
   --dock-gap: 0.5rem; /* hở giữa thanh nổi và mép đáy / home-indicator */
-  --dock-total: calc(var(--dock-row) + var(--dock-safe) + var(--dock-gap));
+  /*  ĐÁY DOCK SÁT MÉP (2026-10-22, anh Long chụp màn: "sao nó ko sát thế"): trước dock đứng trên CẢ
+      safe-area (~34px iPhone) + 0.5rem ⇒ dưới dock hở ~42px bản đồ. Vạch home chỉ chiếm ~13px dưới
+      cùng, nên cho dock ăn vào safe-area, chừa 0.875rem trên đáy (≈20px, vẫn trên vạch home);
+      máy không có vạch home (safe = 0) giữ hở --dock-gap. */
+  --dock-bottom: max(var(--dock-gap), calc(var(--dock-safe) - 0.875rem));
+  --dock-total: calc(var(--dock-row) + var(--dock-bottom));
 }
 
 .dock-frame {
@@ -212,7 +217,7 @@ html {
   position: absolute;
   left: 0.75rem;
   right: 0.75rem;
-  bottom: calc(var(--dock-safe) + var(--dock-gap));
+  bottom: var(--dock-bottom);
   height: var(--dock-row);
   padding-inline: 0.375rem;
   pointer-events: auto;
@@ -227,6 +232,22 @@ html {
 }
 /* bản đồ full-bleed: đáy chừa dock (bản cài iOS: cao đúng vùng nhìn thấy) */
 .full-map {
+  bottom: var(--dock-total);
+}
+/*  LỚP BẢN ĐỒ CHẠY SAU DOCK NỔI (2026-10-22, chủ dự án chụp màn: "nó có nguyên cái khoảng trống bên dưới").
+    Dock là viên nổi (lề hai bên + hở đáy), nhưng .full-map chừa CẢ chiều cao --dock-total ⇒ quanh và dưới viên
+    lộ dải nền trống. Giữ .full-map (mọi thẻ nổi vẫn neo theo nó, không phải dời số nào), chỉ cho LỚP BẢN ĐỒ
+    tràn xuống thêm --dock-total: khung bỏ overflow-hidden, cắt ba phía bằng clip-path (iOS 13.4+) để ngăn kéo
+    trượt ngoài mép vẫn bị che như cũ. Dòng ghi nguồn bản đồ (giấy phép OSM) nâng lên trên dock. */
+.ban-do-khung {
+  overflow: visible;
+  clip-path: inset(0 0 calc(-1 * var(--dock-total)) 0);
+}
+.ban-do-duoi-dock {
+  bottom: calc(-1 * var(--dock-total));
+}
+.ban-do-duoi-dock .maplibregl-ctrl-bottom-left,
+.ban-do-duoi-dock .maplibregl-ctrl-bottom-right {
   bottom: var(--dock-total);
 }
 
@@ -588,6 +609,12 @@ textarea,
   border-radius: 0.75rem;
   font-size: 0.625rem;
   line-height: 1.35;
+}
+
+/* Kính trên nút tròn / viên thuốc: .glass nằm ngoài @layer nên đè `rounded-full` của Tailwind —
+   trả lại hình tròn cho đúng nút (2026-10-22, kính hoá thanh nổi màn Bản đồ). */
+.glass.rounded-full {
+  border-radius: 9999px;
 }
 
 /* Máy không hỗ trợ blur → nền đặc hơn cho chữ khỏi chìm vào bản đồ */
