@@ -942,7 +942,8 @@ Chủ dự án 19/10: *"nâng n-gram lên phân biệt hơn 2000 câu hỏi"*; r
 | Lệnh rõ / câu bản đồ / chợ có tên món | làm ngay (trước luồng này, chạy mất sóng) | như cũ |
 | Kho trong máy trúng chắc | đọc kho | câu kho |
 | Ý việc-trong-app (`traLoiApp` có câu) + n-gram **chắc** ≥ `NGRAM_CHAC` 0,5 — **trừ `hoi_mo` / `khong_hieu`** (`traLoiApp` trả null: câu `answer.ts` của hai ý này là ngõ cụt "…Bác chờ chút." rồi im — dính 2026-10-23 "nó bị ngắt giữa chừng" khi bộ v6 đoán chắc hai ý này) | `app` — dữ liệu trong máy | câu `answer.ts` |
-| Đã có lời đáp thật (`daTraLoi`, hỏi lại `r.ask`, ngoài phạm vi **chắc**) | `noi` | đúng câu đó |
+| Đã có lời đáp thật (`daTraLoi`, hỏi lại `r.ask`, ngoài phạm vi **chắc** với lý do nhạy cảm y_te · phap_ly · tien · tra_nguoi) | `noi` | đúng câu đó |
+| Ngoài phạm vi lý do `khac` — chuyện vui, tán gẫu (`ngram.lyDoChan`, 2026-10-23 rà luồng: "kể chuyện cười nghe coi" từng bị từ chối khô) | như "còn lại" bên dưới: máy nhà / câu lảng | câu máy nhà |
 | Câu một chữ ("hả") | `noi` | câu của máy |
 | Còn lại (n-gram kém chắc · không hiểu · ngoài phạm vi kém chắc · kho trượt) + có sóng + đăng nhập | `may-nha` — chỉ báo `DANG_HOI` "Để Sen Biển hỏi thêm.", **KHÔNG đọc câu đoán trước** | câu máy nhà |
 | như trên, mất sóng | `noi` | `cauTruot("mat_song")` "Câu này cần sóng để Sen Biển hỏi thêm…" |
@@ -955,7 +956,7 @@ Chủ dự án 19/10: *"nâng n-gram lên phân biệt hơn 2000 câu hỏi"*; r
 
 **Câu nói có duyên** (`lib/sen-bien/cau-vui.ts`, 2026-10-22, anh Long: *"những câu hài hước những câu vui những câu nói lảng nói tránh khi mà ngram ko trả lời được khi offline, rồi câu giờ nếu online để đợi câu trả lời"*): `cauTruot` chọn trong `CAU_LANG[lyDo]` (mất sóng 8 câu — luôn chỉ sang việc làm được không cần sóng; chưa đăng nhập · chậm · bí 3 câu mỗi nhóm), xoay vòng không lặp liền (`chonCau`). Chờ máy nhà: `CAU_GIO` ba nhịp — mở lời ngay, `henCauGio` nói nhịp 2 ở 2,5 s và nhịp 3 ở 5 s (trước trần 6 s), có kết quả / lượt mới là huỷ, không chen câu trả lời. Thay `DANG_HOI` (đã gỡ). Test `sen-bien-cau-vui.test.ts`.
 
-`hoiMayChu` trả `DapMayNha | { loi: LyDoTruot }` (401 ⇒ chua_dang_nhap · 504/TimeoutError ⇒ het_gio · fetch ném ⇒ mat_song · còn lại ⇒ may_nha). Ngoài phạm vi kém chắc ("một năm có mấy tháng" 0,29) đi máy nhà vì máy nhà tự chặn chính trị/chủ quyền. Test `sen-bien-luong-tra-loi.test.ts` + `sen-bien-hoi-kho.test.ts` (lý do trượt).
+`hoiMayChu` trả `DapMayNha | { loi: LyDoTruot }` (401 ⇒ chua_dang_nhap · 504/TimeoutError ⇒ het_gio · fetch ném ⇒ mat_song · còn lại ⇒ may_nha). Ngoài phạm vi kém chắc ("một năm có mấy tháng" 0,29) đi máy nhà vì máy nhà tự chặn chính trị/chủ quyền. Test `sen-bien-luong-tra-loi.test.ts` + `sen-bien-hoi-kho.test.ts` (lý do trượt). **Rà luồng 2026-10-23** (39 câu mẫu qua đúng chuỗi thật, có sóng + mất sóng): ngoài nghề ⇒ máy nhà / câu lảng; SDVICO + kiến thức nghề ⇒ kho; lệnh / app / chợ đúng chỗ. Độ phủ kho trên 2.297 câu hỏi gốc: v4 trả đúng 1.523 ⇒ v6 **1.802** (sai 5 cả hai). Nợ đã biết: kho còn trả nhầm câu ngoài nghề lọt bộ lọc ("đội tuyển Việt Nam đá mấy giờ" ⇒ câu thời tiết biển) — chặn theo `khong_hieu` ≥ 0,9 sẽ chặn nhầm 30 câu hỏi kho thật (1,3 %) nên KHÔNG chặn; "tuần sau ở Phan Thiết sao bác" v6 đoán doi_thoi_diem 0,42 — để vòng train sau.
 
 **Tải**: màn bản đồ tải kho sau bộ hiểu ý (8 s sau mở). Màn khác: ý `hoi_mo`/`khong_hieu` chờ kho lần đầu; ý khác chỉ dùng kho đã sẵn (lệnh trong app không chờ 5 MB). Hỏng ⇒ thử lại ngầm, không chờ.
 

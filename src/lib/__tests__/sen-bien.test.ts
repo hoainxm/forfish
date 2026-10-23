@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { foldVn, guessIntent, loadNgram, NGRAM_BYTES } from "@/lib/sen-bien/ngram";
+import { foldVn, guessIntent, lyDoChan, loadNgram, NGRAM_BYTES } from "@/lib/sen-bien/ngram";
 import { coordSpeech, findDests, findDestsGan, senBienReply, type SenDest } from "@/lib/sen-bien/hieu-y";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 
@@ -54,6 +54,15 @@ describe("ngram Sen Biển v6 — chép y bản train (AI Assistant train/tro-ly
     expect(g.conf).toBeCloseTo(conf, 2);
   });
   it("fold bỏ dấu + đ", () => expect(foldVn("Đà Nẵng, Cảng!")).toBe("da nang cang"));
+  // đầu lý do chặn (2026-10-23): chuyện vui ⇒ khac (không từ chối); chuyện nhạy cảm ⇒ đúng lý do
+  it.each([
+    ["kể chuyện cười nghe coi", "khac"],
+    ["hát một bài đi", "khac"],
+    ["tôi bị đau đầu uống thuốc gì", "y_te"],
+    ["vô vùng cấm bị bắt không", "phap_ly"],
+    ["cho tui vay tiền", "tien"],
+    ["tra số điện thoại ông Ba", "tra_nguoi"],
+  ] as const)("lý do chặn '%s' → %s", (cau, ly) => expect(lyDoChan(model, cau)).toBe(ly));
 });
 
 describe("cổng phụ chợ (v4): luật hụt câu sàn ⇒ n-gram ⇒ hỏi lại kèm câu mẫu", () => {

@@ -7,6 +7,7 @@
 covers: src/app
 last_verified: 2026-10-19
 <!-- re-verified: 2026-10-20s — sen-bien-sheet.tsx: hiệu ứng mở thẻ (chào → nghe) bỏ cờ một-lần, chạy lại được dưới StrictMode (trước kẹt "chào", không bao giờ xin micro). Chi tiết 15 §21. -->
+<!-- re-verified: 2026-10-23 — `lib/sen-bien/ngram.ts` thêm `lyDoChan` (đầu lý do chặn, lớp NY…NLOP của cùng bảng) + type `LyDoChan`; `hieu-y.ts` ngoai_pham_vi lý do `khac` không còn `daTraLoi`; `tra-loi-app.ts` trả null cho hoi_mo · khong_hieu · ngoai_pham_vi. Chi tiết 15 §luồng một cửa. -->
 <!-- re-verified: 2026-10-22c — Sen Biển `lib/sen-bien/cau-vui.ts` mới (`CAU_LANG` · `CAU_GIO` · `chonCau` · `henCauGio` · `MOC_GIO_MS`): câu lảng khi trượt (qua `luong-tra-loi.cauTruot`) + câu giờ ba nhịp khi chờ máy nhà ở `fishing-map-view senHeard` và `sen-bien-toan-app onHeard`; `hoi-may-chu.ts` gỡ `DANG_HOI`. Chi tiết 15 §luồng một cửa. -->
 <!-- re-verified: 2026-10-22b — Sen Biển LUỒNG MỘT CỬA: `lib/sen-bien/luong-tra-loi.ts` mới (`chonBuoc` · `cauTruot` · `luotMoi` · `NGRAM_CHAC`) — bước cuối chung của `fishing-map-view senHeard` và `sen-bien-toan-app onHeard`; `hoi-may-chu.ts` gỡ `nenHoiMayChu`, `hoiMayChu` trả `{ loi }` thay null. Bảng: 15 §luồng một cửa. -->
 <!-- re-verified: 2026-10-22 — Sen Biển micro: `lib/sen-bien/nghe.ts` thêm `phienThuAm()` (export, gọi đầu `listenOnce`) — đổi Audio Session iOS "playback" → "play-and-record" trước khi mở micro; `nghe-may.ts` xin lại getUserMedia một lần sau 0,4 s khi micro bận. `voice/tts.ts` thêm `phienPhat()` (đầu `ttsSpeak`/`ttsSpeakMp3`) trả phiên về "playback"; `hieu-y.ts` thêm `HOWFAR_GOI` (lệnh còn bao xa phải có chữ chỉ quãng đường). Chi tiết 15 §micro. -->
@@ -367,7 +368,7 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 
 
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-22) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-23) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 <!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->

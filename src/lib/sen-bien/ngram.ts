@@ -100,6 +100,25 @@ export function loadNgram(buf: ArrayBuffer): NgramModel | null {
   return { w: new Int8Array(buf) };
 }
 
+export type LyDoChan = (typeof REASONS)[number];
+
+/**
+ * ĐẦU "LÝ DO CHẶN" của cùng bảng trọng số (lớp NY…NLOP — train cùng lúc với ý định, chỉ học trên câu ngoai_pham_vi).
+ * Chỉ có nghĩa khi ý là `ngoai_pham_vi`: y_te / phap_ly / tien / tra_nguoi là chuyện phải từ chối; `khac` là chuyện
+ * vui, tán gẫu (hát một bài, kể chuyện cười…) — 2026-10-23, anh Long muốn Sen Biển có duyên chứ không từ chối khô.
+ */
+export function lyDoChan(m: NgramModel, cau: string, ctx: NgramCtx = {}): LyDoChan {
+  const x = dacTrung(cau, ctx);
+  const z = new Array<number>(REASONS.length).fill(0);
+  for (const [i, v] of x) {
+    const o = i * NLOP + NY;
+    for (let c = 0; c < REASONS.length; c++) z[c] += m.w[o + c] * THANG * v;
+  }
+  let b = 0;
+  for (let i = 1; i < z.length; i++) if (z[i] > z[b]) b = i;
+  return REASONS[b];
+}
+
 export function guessIntent(m: NgramModel, cau: string, ctx: NgramCtx = {}): { y: SenIntent; conf: number } {
   const x = dacTrung(cau, ctx);
   const z = new Array<number>(NY).fill(0);

@@ -43,6 +43,19 @@ describe("traLoiApp — trả lời việc trong app từ dữ liệu trong máy
       expect(chonBuoc({ r: rr, conf: 0.99, coApp: a != null, online: true, coChuoi: true, text: c }).buoc).toBe("may-nha");
     },
   );
+  // rà luồng 2026-10-23: chuyện vui KHÔNG bị từ chối khô — có sóng hỏi máy nhà; chuyện nhạy cảm vẫn từ chối
+  it.each(["kể chuyện cười nghe coi", "hát một bài đi"])("'%s' ⇒ máy nhà (không từ chối)", (c) => {
+    const rr = r(c);
+    expect(rr.kind === "say" && rr.daTraLoi).toBeFalsy();
+    expect(chonBuoc({ r: rr, conf: 0.9, coApp: app(c, snap({ online: true })) != null, online: true, coChuoi: true, text: c }).buoc).toBe("may-nha");
+  });
+  it("'tôi bị đau đầu uống thuốc gì' (y tế) ⇒ vẫn từ chối, không hỏi máy nhà", () => {
+    const c = "tôi bị đau đầu uống thuốc gì";
+    expect(chonBuoc({ r: r(c), conf: 0.99, coApp: app(c, snap({ online: true })) != null, online: true, coChuoi: true, text: c })).toEqual({
+      buoc: "noi",
+      say: "Việc này Sen Biển không trả lời được.",
+    });
+  });
   // anh Long 2026-10-22: "gà có mấy chân" ⇒ "Tôi mở chợ tìm '' nhé." (n-gram đoán tim_mon, không tách được món)
   it.each(["gà có mấy chân", "con chó có mấy chân"])("'%s' ⇒ không mở chợ với ô tìm trống", (c) => {
     const a = app(c, snap({ online: true }));

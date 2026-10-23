@@ -11,7 +11,7 @@ import { parseSpokenCoordPair } from "@/lib/parse-coord";
 
 import { cauHoiTuY, hoiGi, tachThamSo, timLoaiCa, type CauHoi } from "./hoi-ban-do";
 import { lenhLuat, lenhTuY, type LenhBanDo } from "./lenh-ban-do";
-import { foldVn, guessIntent, type NgramModel, type SenIntent } from "./ngram";
+import { foldVn, guessIntent, lyDoChan, type NgramModel, type SenIntent } from "./ngram";
 
 export type SenDest = {
   name: string;
@@ -302,7 +302,14 @@ export function senBienReply(
   }
   if (y === "thoi_tiet" || y === "bao" || y === "con_nuoc")
     return { kind: "say", say: seaLine ? `Chỗ đang xem: ${seaLine}.` : "Bà con chạm vào biển chỗ muốn xem, Sen Biển đọc sóng gió chỗ đó.", y, ...(seaLine ? { daTraLoi: true } : {}) };
-  if (y === "ngoai_pham_vi") return { kind: "say", say: "Việc này Sen Biển không trả lời được.", y, daTraLoi: true };
+  if (y === "ngoai_pham_vi") {
+    /*  Chuyện vui / tán gẫu (lý do "khac") KHÔNG phải chuyện cấm — để luồng một cửa đưa lên máy nhà (có sóng) hoặc
+        nói lảng có duyên (mất sóng); chỉ y tế / pháp lý / tiền / tra người mới từ chối thẳng (2026-10-23, rà luồng:
+        "kể chuyện cười nghe coi" ⇒ "Việc này Sen Biển không trả lời được."). */
+    if (model && lyDoChan(model, text, senNgramCtx(dests, ctx.awaitingGo)) === "khac")
+      return { kind: "say", say: "Việc này Sen Biển không trả lời được.", y };
+    return { kind: "say", say: "Việc này Sen Biển không trả lời được.", y, daTraLoi: true };
+  }
   if (y === "chao_hoi") return { kind: "say", say: "Chào bà con. Muốn đi đâu, cứ nói tên cảng, điểm đã ghim hoặc toạ độ.", y };
   /*  "đi Vũng Tàu" / "vào Rạch Giá" — tên không có trong danh sách, mô hình đoán
       lạc sang việc khác ("tàu" ⇒ tàu của tôi) ⇒ từng đáp "chỉ giúp trên bản

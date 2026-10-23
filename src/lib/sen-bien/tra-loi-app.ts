@@ -58,7 +58,7 @@ export function traLoiApp(
       lên máy nhà hoặc nói câu lảng đúng lý do. Dính 2026-10-23 (anh Long: "vẫn ko được, nó bị ngắt giữa chừng"): bộ
       hiểu ý v6 đoán hai ý này CHẮC ⇒ chonBuoc chọn "app" ⇒ Sen Biển nói "Bác chờ chút." rồi thôi, không hỏi ai. Chốt
       cũ ở sen-bien-toan-app (bỏ traLoiApp khi kho trượt + hoi_mo/khong_hieu) rơi mất lúc gom luồng 0ea50470. */
-  if (y === "hoi_mo" || y === "khong_hieu") return null;
+  if (y === "hoi_mo" || y === "khong_hieu" || y === "ngoai_pham_vi") return null; // ngoai_pham_vi "khac" (chuyện vui) — answer.ts lại từ chối
   const intent = y as Intent;
   // Chợ vật tư đã gộp (2026-10-18): câu chợ có tham số rõ đi lenh-cho.ts trước; câu chợ chung n-gram
   // nhận (tìm món, giỏ, đơn, gọi shop) trả bằng bộ trả lời cũ của Trợ lý (answer.ts) như mọi ý khác.
