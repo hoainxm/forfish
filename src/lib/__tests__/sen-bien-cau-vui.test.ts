@@ -12,15 +12,15 @@ describe("luật chữ của kho", () => {
   it("câu mất sóng luôn chỉ sang việc làm được không cần sóng hoặc hẹn hỏi lại", () => {
     for (const c of CAU_LANG.mat_song) expect(c).toMatch(/có sóng|bản đồ|gió sóng|đường về|cảng/i);
   });
-  it("mỗi nhóm có ít nhất 3 câu (nhịp câu giờ: 3 nhịp, mỗi nhịp ≥ 3)", () => {
+  it("mỗi nhóm có ít nhất 3 câu (nhịp câu giờ: 4 nhịp, mỗi nhịp ≥ 3)", () => {
     for (const nhom of Object.values(CAU_LANG)) expect(nhom.length).toBeGreaterThanOrEqual(3);
-    expect(CAU_GIO).toHaveLength(3);
+    expect(CAU_GIO).toHaveLength(MOC_GIO_MS.length + 1);
     for (const nhom of CAU_GIO) expect(nhom.length).toBeGreaterThanOrEqual(3);
   });
   it("câu ngắn để đọc (≤ 140 ký tự)", () => {
     for (const c of moiCau) expect(c.length).toBeLessThanOrEqual(140);
   });
-  it("nhịp câu giờ cuối nói TRƯỚC trần chờ máy nhà", () => expect(MOC_GIO_MS[1]).toBeLessThan(HOI_HAN_MS));
+  it("nhịp câu giờ cuối nói TRƯỚC trần chờ máy nhà", () => expect(MOC_GIO_MS[MOC_GIO_MS.length - 1]).toBeLessThan(HOI_HAN_MS));
 });
 
 describe("chonCau — xoay vòng, không lặp liền", () => {
@@ -38,7 +38,7 @@ describe("chonCau — xoay vòng, không lặp liền", () => {
 
 describe("henCauGio — câu giờ theo nhịp, có kết quả là cắt", () => {
   afterEach(() => vi.useRealTimers());
-  it("chờ đủ lâu ⇒ nói nhịp 2 rồi nhịp 3", () => {
+  it("chờ đủ lâu ⇒ nói lần lượt nhịp 2, 3, 4", () => {
     vi.useFakeTimers();
     const noi = vi.fn();
     henCauGio(noi, () => true);
@@ -48,6 +48,9 @@ describe("henCauGio — câu giờ theo nhịp, có kết quả là cắt", () =
     vi.advanceTimersByTime(MOC_GIO_MS[1] - MOC_GIO_MS[0]);
     expect(noi).toHaveBeenCalledTimes(2);
     expect(CAU_GIO[2]).toContain(noi.mock.calls[1][0]);
+    vi.advanceTimersByTime(MOC_GIO_MS[2] - MOC_GIO_MS[1]);
+    expect(noi).toHaveBeenCalledTimes(3);
+    expect(CAU_GIO[3]).toContain(noi.mock.calls[2][0]);
   });
   it("huỷ (đã có câu trả lời) ⇒ không nói thêm", () => {
     vi.useFakeTimers();

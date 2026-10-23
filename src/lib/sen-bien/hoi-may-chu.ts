@@ -21,8 +21,10 @@ function hangTrongMay(): "premium" | "thuong" | null {
   }
 }
 
-/** Trần chờ phía máy: route chờ máy nhà 5 s + đường truyền — quá là Sen Biển nói câu của máy, bà con không phải chờ. */
-export const HOI_HAN_MS = 6_000;
+/** Trần chờ phía máy: route chờ máy nhà 9 s + đường truyền. Đo 2026-10-23 trọn đường (tài khoản test, máy nhà nóng):
+ *  máy nhà 0,6–0,7 s nhưng cả lượt 3,0–6,5 s (Vercel khởi động lạnh + kiểm danh tính + máy nhà đọc mp3) — trần cũ 6 s
+ *  cắt đúng lượt đầu sau lúc nghỉ. Trong lúc chờ có câu giờ ba nhịp (cau-vui.henCauGio), bà con không ngồi im. */
+export const HOI_HAN_MS = 12_000;
 
 /** Hỏi máy nhà. Trả câu đọc được, hoặc `{ loi }` (mọi lỗi kèm lý do). Không bao giờ ném. */
 export type DapMayNha = { text: string; speak: string[]; amThanh: string | null };

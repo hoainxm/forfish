@@ -37,14 +37,15 @@ export const CAU_LANG: Record<LyDoTruot, readonly string[]> = {
   ],
 };
 
-/** Ba nhịp câu giờ khi đang chờ máy nhà: [mở lời ngay, ~2,5 s, ~5 s]. */
+/** Bốn nhịp câu giờ khi đang chờ máy nhà: [mở lời ngay, ~2,5 s, ~5 s, ~8 s]. */
 export const CAU_GIO: readonly (readonly string[])[] = [
   ["Để Sen Biển hỏi thêm.", "Câu hay đó, để Sen Biển hỏi coi.", "Chờ Sen Biển chút xíu nghen.", "Để Sen Biển lục lại coi."],
   ["Sen Biển đang lục sổ, bác chờ chút.", "Đang hỏi rồi, sắp có bác ơi.", "Đợi xíu, câu này Sen Biển phải hỏi kỹ."],
   ["Sóng hơi yếu, chờ thêm xíu nữa nghen.", "Gần xong rồi, bác đừng đi đâu nha.", "Sắp có câu trả lời rồi bác."],
+  ["Máy chủ đang nghĩ kỹ, bác chờ chút nữa thôi.", "Câu này khó nên lâu, Sen Biển vẫn đang đợi.", "Ráng chờ chút, sắp xong rồi bác."],
 ];
-/** Mốc nói nhịp 2 và 3 (ms sau lúc bắt đầu hỏi). Trần chờ máy nhà là HOI_HAN_MS 6 s — nhịp 3 phải trước mốc đó. */
-export const MOC_GIO_MS = [2_500, 5_000] as const;
+/** Mốc nói nhịp 2, 3, 4 (ms sau lúc bắt đầu hỏi). Trần chờ máy nhà là HOI_HAN_MS 12 s — nhịp cuối phải trước mốc đó. */
+export const MOC_GIO_MS = [2_500, 5_000, 8_000] as const;
 
 const cuoi = new Map<string, number>();
 

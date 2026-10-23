@@ -16,8 +16,8 @@ import { amThanhHopLe, cachKy, dauKy, DUONG_HOI, GW_URL_MAC_DINH, kiemCauHoi, ma
 
 export const dynamic = "force-dynamic";
 // Máy nhà trả lời trong 0,5 s lúc khoẻ và tự cắt ở 3 s (+0,8 s đọc câu đầu) khi bận (train chiếm GPU, nạp lạnh) ⇒ route chờ 5 s rồi để máy tự nói (19/10: "hỏi chỉ được <1s")
-export const maxDuration = 10;
-const HAN_MS = 5_000;
+export const maxDuration = 15;
+const HAN_MS = 9_000; // máy nhà 0,6–0,7 s + đọc mp3; trần dư cho lúc máy nhà vừa nạp lại mô hình (đo 2026-10-23)
 
 /*  GHI LÝ DO TỪ CHỐI (2026-10-22, anh Long: câu hỏi không tới máy nhà mà log Vercel trống — route lỗi im lặng
     nên không biết chặn ở đâu). Chỉ ghi MÃ + trạng thái, KHÔNG ghi câu hỏi hay số điện thoại. */
