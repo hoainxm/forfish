@@ -9,6 +9,7 @@ import {
   BellIcon,
   ChevronRightIcon,
   LockIcon,
+  StarIcon,
   TrashIcon,
   UsersIcon,
 } from "@/components/icons";
@@ -565,16 +566,28 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             ? "h-(--h-ctl) gap-1.5 border border-line bg-card pl-1.5 pr-3 text-navy"
             : "mt-3 gap-2 bg-white/15 pl-2 pr-3.5 text-white"
         }`}
+        aria-label={
+          signedIn && phone
+            ? `Tài khoản ${name || prettyPhone(phone)}${badge ? `, ${badge.label}` : ""}`
+            : "Đăng nhập"
+        }
       >
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${light ? "bg-card" : "bg-white/20"}`}>
-          <UsersIcon className="h-4.5 w-4.5" />
+        {/* Hạng hiện bằng HUY HIỆU tròn đầu chip (anh Long 2026-10-23: "nên thể hiện là tk
+            gì"): Premium = sao trên nền ok; thường/đang tra = người. Không thêm chữ
+            "Premium" — 360px không còn chỗ cạnh "Chào bà con". */}
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+            badge?.tone === "premium" ? "bg-ok-bg text-ok" : light ? "bg-field" : "bg-white/20"
+          }`}
+        >
+          {badge?.tone === "premium" ? <StarIcon className="h-4.5 w-4.5" /> : <UsersIcon className="h-4.5 w-4.5" />}
         </span>
         <span className={`min-w-0 truncate font-semibold ${light ? "text-[0.875rem]" : "text-[0.9375rem]"}`}>
           {/* khách lạ thấy thẳng "Đăng nhập" — "Tài khoản" trung tính không
-              mời ai làm gì (roadmap hội đồng UX 2026-06-11). Biến thể `light`
-              (đầu màn sáng, rà Codex lần 2): nhãn CỐ ĐỊNH 2 chữ "Tài khoản" —
-              SĐT/tên/hạng nằm trong sheet, chip không nở theo độ dài số. */}
-          {signedIn && phone ? (light ? "Tài khoản" : name || prettyPhone(phone)) : "Đăng nhập"}
+              mời ai làm gì (roadmap hội đồng UX 2026-06-11). Đã đăng nhập: chip
+              nói ĐÚNG tài khoản nào — tên (nếu có) hoặc SĐT; dài thì cắt "…"
+              (2026-10-23, thay nhãn cố định "Tài khoản" của rà Codex lần 2). */}
+          {signedIn && phone ? name || prettyPhone(phone) : "Đăng nhập"}
         </span>
         <ChevronRightIcon className={`h-4 w-4 shrink-0 rotate-90 ${light ? "text-navy/60" : "text-white/60"}`} />
       </button>
