@@ -143,7 +143,8 @@ export function buildDevSeed(now: Date): DevSeed {
   const sdvico: Shop = {
     id: uuid(), ownerPhone: "0902000001", name: "SDVICO", slug: "sdvico",
     description: "Thiết bị hàng hải, giám sát hành trình và vật tư tàu cá chính hãng.",
-    phone: "0902000001", province: "Khánh Hòa", address: "Cảng Hòn Rớ, Nha Trang",
+    // SDVICO ở TP.HCM (anh Long 2026-10-23: "sdvico là ở hcm") — khớp dòng shop thật trên prod
+    phone: "0902000001", province: "Thành phố Hồ Chí Minh", address: "TP. Hồ Chí Minh",
     shippingFlatVnd: 0, status: "hoat_dong", paused: false, ratingAvg: 0, ratingCount: 0,
     approvedAt: created, createdAt: created, updatedAt: created,
   };

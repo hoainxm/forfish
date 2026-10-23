@@ -52,6 +52,18 @@ export function provinceKey(s?: string): string {
   return k;
 }
 
+/**
+ * Tên tỉnh GỌN chỉ để HIỂN THỊ ở chỗ chật (thẻ món chợ — anh Long 2026-10-23):
+ * "Thành phố Hồ Chí Minh" → "TP.HCM", "Thành phố Đà Nẵng" → "TP. Đà Nẵng"; tên khác giữ
+ * nguyên. Dữ liệu và bộ lọc vẫn dùng tên CHUẨN — đừng lưu kết quả hàm này.
+ */
+export function tenTinhGon(s?: string | null): string {
+  const t = (s ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  if (provinceKey(t) === "hochiminh") return "TP.HCM";
+  return t.replace(/^(thành phố|tp\.?)\s*/iu, "TP. ");
+}
+
 const KEY_TO_REGION: Record<string, Region> = Object.fromEntries(
   COASTAL_PROVINCES.map((p) => [provinceKey(p.name), p.region]),
 );

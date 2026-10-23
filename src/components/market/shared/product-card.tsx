@@ -7,6 +7,7 @@ import {
 } from "@/components/icons";
 import { CATEGORY_ICON } from "@/lib/market/categories";
 import { discountPercent } from "@/lib/market/pricing";
+import { tenTinhGon } from "@/lib/region";
 import type { ProductCard, ProductCategory } from "@/lib/market/types";
 import { PriceText } from "./price-text";
 import { useState } from "react";
@@ -116,10 +117,12 @@ export function MarketProductCard({
             </p>
           )}
           {/* shop · tỉnh: chữ phụ thường một khối (rà Codex lần 2 — tên, giá, shop
-              cùng đậm làm thẻ đặc chữ). Vẫn tách dòng khi dài, không cắt. */}
+              cùng đậm làm thẻ đặc chữ). Vẫn tách dòng khi dài, không cắt.
+              Tỉnh viết GỌN (anh Long 2026-10-23: "Thành phố Hồ Chí Minh" → "TP.HCM") — chỉ
+              hiển thị; dữ liệu và bộ lọc vẫn tên chuẩn. */}
           <p className="mt-auto pt-2 text-[0.8125rem] leading-snug text-foreground/65">
             {product.shopName}
-            {product.shopProvince && <> · {product.shopProvince}</>}
+            {product.shopProvince && <> · {tenTinhGon(product.shopProvince)}</>}
           </p>
         </div>
       </Link>
