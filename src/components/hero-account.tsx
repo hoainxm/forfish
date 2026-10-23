@@ -1,5 +1,6 @@
 "use client";
 
+import { clearKairosLocal } from "@/lib/kairos/cache";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -465,6 +466,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
     clearMarketCart(phone);
     clearCachedMarketOrders();
     clearShopFlag();
+    clearKairosLocal(); // dòng tin Kairos đã lưu + nháp (14 §8) — mang "Hay của tôi", "bài của tôi"
     // qua CỔNG DUY NHẤT (K7): "user-signed-out" = bà con TỰ BẤM và máy chủ đã
     // xác nhận — khác hẳn `SIGNED_OUT` auth-js tự bắn khi nó tự xoá phiên (C-7)
     // (cổng đã xoá luôn dấu hạng — `forgetIdentity` gọi `clearTierMark`, quan
@@ -500,6 +502,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
     clearMarketCart(phone);
     clearCachedMarketOrders();
     clearShopFlag();
+    clearKairosLocal(); // dòng tin Kairos đã lưu + nháp (14 §8) — mang "Hay của tôi", "bài của tôi"
     /* GỠ TÀI KHOẢN KHỎI ĐĂNG KÝ THÔNG BÁO — thiếu chỗ này (bản trước quên,
        R7) thì endpoint push VĨNH VIỄN còn trỏ về chủ tàu: `syncPushAccount`
        chỉ chạy khi đã đăng nhập lại, nên không có đường bù nào. Tin nhắm riêng

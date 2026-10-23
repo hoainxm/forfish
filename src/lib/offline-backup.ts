@@ -208,6 +208,12 @@ export const NEVER_BACKUP_PREFIXES = [
    *    "đã hỏi, bị từ chối" cho một máy chưa hỏi bao giờ. Mất khoá này không
    *    mất gì: lần mở app kế tiếp hỏi lại. */
   "forfish.persist.",
+  /*  · `kairos.` — DÒNG TIN KAIROS đã lưu, NHÁP bài/bình luận, THÓI QUEN ĐỌC
+   *    (lib/kairos/cache + thoi-quen, 2026-10-23). Bản lưu dòng tin keyed theo
+   *    SĐT, mang "Hay của tôi"/"bài của tôi" — có sóng là tải lại. Thói quen đọc
+   *    là hồ sơ riêng, spec 14 §8 chốt KHÔNG rời máy. Nháp là chữ đang gõ dở trên
+   *    đúng máy này. Mất cả ba không mất gì của bà con. */
+  "forfish.kairos.",
   /*  · `orders.` — ĐƠN ĐÃ ĐẶT của người đang đăng nhập (lib/catalog-orders,
    *    2026-08-18). Mang SĐT nhận hàng, tên người nhận, điểm giao — dữ liệu cá
    *    nhân, và CÓ SÓNG LÀ TẢI LẠI ĐƯỢC. Không có lý do gì để nó đi theo tệp
