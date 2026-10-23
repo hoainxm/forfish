@@ -1,4 +1,5 @@
-// hop.mjs — MỘT nguồn định nghĩa hộp nước trồi Nam VN cho mọi script "Dòng Dẫn".
+// hop.mjs — MỘT nguồn định nghĩa hộp nước trồi Nam VN cho mọi script "Dòng Dẫn" VÀ cho app: dung-chain-params.mjs
+// chép nguyên vào src/data/fish-chain-params.json (khối "hop"), lib/fish-chain.ts đọc từ đó. Sửa ở đây rồi dựng lại.
 // Theo mô tả Herrmann và cộng sự 2023 (Ocean Science 19, 453–467); bài KHÔNG in toạ độ hộp (chỉ có trên hình 1b)
 // nên toạ độ dưới đây là giả định của nghiên cứu (docs/research/du-bao-ca-dong-dan-2026-10/10-buoc-C2-ekman.md §1).
 //   [vĩ độ nam, vĩ độ bắc, kinh độ tây, kinh độ đông]

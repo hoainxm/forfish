@@ -43,6 +43,9 @@ import reefGridJson from "@/data/reef-grid-025.v1.json";
 import fleetEffortJson from "@/data/fleet-effort-025.v1.json";
 import speciesCatchJson from "@/data/species-catch-025.v1.json";
 import fishBaseJson from "@/data/fish-base.v1.json";
+import fishChainParams from "@/data/fish-chain-params.json";
+import { assembleDrivers, fetchChainExternal } from "@/lib/fish-chain-drivers";
+import type { ChainParams } from "@/lib/fish-chain";
 import type { BaseParams } from "@/lib/fish-base";
 import type { FleetEffortGrid } from "@/lib/fleet-effort";
 
@@ -316,7 +319,7 @@ export async function computeFishForecast(opts?: {
     // MỌI ứng viên của MỌI trường chạy SONG SONG (resolveField dùng allSettled
     // bên trong, các trường lại nằm trong một Promise.all) — tổng thời gian =
     // lưới CHẬM NHẤT, không cộng dồn. Ngân sách route 60s giữ nguyên.
-    const [sstR, chlR, slaR, anomR, curR, hycomR, bathyR, sstFineR, chlFineR] =
+    const [sstR, chlR, slaR, anomR, curR, hycomR, bathyR, sstFineR, chlFineR, chainExt] =
       await Promise.all([
         resolveField(SST_CANDIDATES, todayIso),
         resolveField(CHL_CANDIDATES, todayIso),
@@ -327,6 +330,8 @@ export async function computeFishForecast(opts?: {
         resolveField(bathyCandidates(todayIso), todayIso),
         resolveField(SST_FRONT_CANDIDATES, todayIso),
         resolveField(CHL_FRONT_CANDIDATES, todayIso),
+        // lớp chuỗi thức ăn: ONI, PDO, Kuroshio–Luzon (mỗi nguồn đồng hồ 8 s, hỏng ⇒ dự phòng/null, không ném)
+        fetchChainExternal().catch(() => null),
       ]);
 
     // SST + phù du BẮT BUỘC: hết sạch nguồn thì không bịa bản đồ cá
@@ -338,6 +343,9 @@ export async function computeFishForecast(opts?: {
     const month = monthOfIsoDate(targetDate) || monthOfIsoDate(todayIso);
 
     const hycom = hycomR?.grid ?? null;
+    // ĐẦU VÀO lớp chuỗi thức ăn cho NGÀY HÔM NAY (giờ VN — đêm bà con đi đánh), phù du/nhiệt theo hộp từ chính lưới vừa tải
+    const chainParams = fishChainParams as unknown as ChainParams;
+    const chainDrivers = assembleDrivers(todayIso, chainExt, { sst: sstR.grid, chl: chlR.grid }, chainParams);
 
     // LÝ LỊCH NGUỒN (provenance) — trường nào KHÔNG có mặt trong `sources` tức
     // là không nguồn nào dùng được cho trường đó.
@@ -412,6 +420,9 @@ export async function computeFishForecast(opts?: {
         // NỀN "bãi cá theo mùa" (đợt 2A): `s`/`sp` = điểm nền, HSI vệ tinh chỉ ra `cell.hint`. Bundle server,
         // KHÔNG request mạng mới; hệ số/bảng tĩnh ở src/data/fish-base.v1.json (scripts/fish-base-build.mjs)
         base: fishBaseJson as unknown as BaseParams,
+        // LỚP CHUỖI THỨC ĂN (lib/fish-chain.ts): trăng theo nhóm loài, phù du/gió/ENSO/Luzon theo vùng — chỉ thành
+        // phần đã qua cổng bằng chứng mới cộng điểm; đầu vào mọi thành phần đi kèm payload (`chain`) và kho drivers/
+        chain: { params: chainParams, drivers: chainDrivers },
       }),
       // `generatedAt` = LÚC TÍNH bản đồ này (khác `date` = ngày ẢNH vệ tinh).
       generatedAt: new Date().toISOString(),

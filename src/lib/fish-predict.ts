@@ -31,6 +31,7 @@ import { timeoutSignal } from "@/lib/abort";
 import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 import { seasonalThermalBand, type SstClimatology } from "@/lib/thermal-band";
 import { fleetPresenceLookup, FLEET_FULL_HOURS, type FleetEffortGrid } from "@/lib/fleet-effort";
+import { applyDayShift, cellDeltaLogKg, chainDay, dayShiftFor, moonWhy, type ChainCategory, type ChainDay, type ChainDrivers, type ChainParams } from "@/lib/fish-chain";
 
 // Bán kính (độ) gán ô biển về vùng gần nhất — đủ phủ kín toàn EEZ + Hoàng Sa/
 // Trường Sa, vẫn loại nước ngoài xa hẳn (Hải Nam, Philippines). PFZ tính cho
@@ -1243,6 +1244,11 @@ export interface FishForecast {
    * `MAX_GRID_SKEW_DAYS`.
    */
   dateSkewDays?: number;
+  /**
+   * LỚP CHUỖI THỨC ĂN (lib/fish-chain.ts, 2026-10-23): đầu vào của ngày (trăng, ONI, PDO, Kuroshio–Luzon, phù du/nhiệt
+   * theo hộp nước trồi) + mức đã áp theo nhóm loài + thành phần đang áp / chưa áp. Vắng = bản cũ hoặc nhánh HSI.
+   */
+  chain?: ChainDay;
 }
 
 /** Cặp lưới dòng chảy mặt u (đông+) / v (bắc+) — CÙNG trục lat/lon */
@@ -1835,6 +1841,11 @@ export function buildFishForecast(
     /** CHỈ để ĐO nhánh nền: tắt cổng nhiệt / cổng lịch mùa vụ theo vùng. Runtime KHÔNG truyền (cả hai bật). */
     baseGates?: { thermal?: boolean; season?: boolean };
     /**
+     * LỚP CHUỖI THỨC ĂN (lib/fish-chain.ts): thông số (src/data/fish-chain-params.json) + đầu vào của ngày
+     * (lib/fish-chain-drivers.ts). Chỉ dùng ở nhánh NỀN. Thiếu ⇒ điểm y như cũ.
+     */
+    chain?: { params: ChainParams; drivers: ChainDrivers } | null;
+    /**
      * CHỈ để FIT/ĐO (mảnh 2B 2026-10-18): trả điểm LIÊN TỤC — `s` và `sp[loài]` là số thực
      * 0..100, KHÔNG làm tròn, KHÔNG cắt KEEP_MIN, giữ mọi ô có loài chấm được. Runtime KHÔNG
      * truyền (payload vẫn nguyên số + ngưỡng như cũ).
@@ -1867,6 +1878,7 @@ export function buildFishForecast(
       catchGrid: extra.catchGrid,
       raw,
       gates: extra.baseGates,
+      chain: extra.chain ?? null,
     });
     const date0 =
       [sst.date, chl.date, sla?.date, extra?.anom?.date, extra?.cur?.u.date, extra?.thermo?.date]
@@ -1878,6 +1890,7 @@ export function buildFishForecast(
       cells: res.cells,
       species: [...res.speciesBest.entries()].sort((a, b) => b[1] - a[1]).map(([short]) => short),
       baseMode: res.mode,
+      ...(res.chain ? { chain: res.chain } : {}),
     };
   }
 
@@ -1966,14 +1979,23 @@ function buildBaseCells(
   month: number,
   consts: ScoreConsts,
   profileOf: Map<string, SpeciesProfile>,
-  o: { fleet?: FleetEffortGrid | null; catchGrid?: FleetEffortGrid | null; raw: boolean; gates?: { thermal?: boolean; season?: boolean } },
-): { cells: FishCell[]; speciesBest: Map<string, number>; mode: "catch-fleet-static" | "fleet-static" } {
+  o: {
+    fleet?: FleetEffortGrid | null;
+    catchGrid?: FleetEffortGrid | null;
+    raw: boolean;
+    gates?: { thermal?: boolean; season?: boolean };
+    chain?: { params: ChainParams; drivers: ChainDrivers } | null;
+  },
+): { cells: FishCell[]; speciesBest: Map<string, number>; mode: "catch-fleet-static" | "fleet-static"; chain: ChainDay | null } {
   const Fs = [...feats];
   const sameMonth = base.catchSameMonth[String(month)] === true;
   const fleetOnly = new Set(base.fleetOnly ?? []);
   const fleetX = fleetPresenceLookup(o.fleet, month, FLEET_FULL_HOURS);
   const byShort = new Map<string, SpeciesProfile>();
   for (const p of profileOf.values()) if (!byShort.has(p.short)) byShort.set(p.short, p);
+  // lớp chuỗi thức ăn: theo NGÀY (trăng) cộng SAU xếp hạng; theo VÙNG cộng vào điểm thô TRƯỚC xếp hạng
+  const chain = o.chain ? chainDay(o.chain.drivers, o.chain.params) : null;
+  const chainRegional = !!o.chain && chain!.dangAp.some((k) => !k.startsWith("trang:"));
 
   const scores = new Map<string, Uint8Array>();
   for (const p of byShort.values()) {
@@ -1990,13 +2012,16 @@ function buildBaseCells(
       staticLogLift(table, staticBins(F.depthM ?? NaN, F.coastKm != null && Number.isFinite(F.coastKm) ? F.coastKm : 700, F.lat)),
       season,
     ]);
-    scores.set(p.short, scoreBase(base, baseGroup(p.category), arr, useCatch));
+    const offset = chainRegional
+      ? Fs.map((F) => cellDeltaLogKg(p.category as ChainCategory, F.lat, F.lon, o.chain!.drivers, o.chain!.params) * o.chain!.params.doiDiem.rawMoiLogKg)
+      : undefined;
+    scores.set(p.short, scoreBase(base, baseGroup(p.category), arr, useCatch, offset));
   }
 
   const cells: FishCell[] = [];
   const speciesBest = new Map<string, number>();
   Fs.forEach((F, n) => {
-    const scored: { short: string; v: number; fit: number }[] = [];
+    const scored: { short: string; v: number; fit: number; shift: number | undefined }[] = [];
     const season = seasonWeights(F.regionId, month);
     const list: [string, number][] = (o.gates?.season ?? BASE_SEASON_LIST_GATE) ? [...season] : [...profileOf.keys()].map((n) => [n, 1]);
     for (const [speciesName, sW] of list) {
@@ -2004,7 +2029,8 @@ function buildBaseCells(
       const sc = p && scores.get(p.short);
       if (!p || !sc) continue;
       if (o.gates?.thermal !== false && thermalFit(F, p, consts) <= 0) continue; // cổng nhiệt: ngoài dải chịu đựng thì không vẽ
-      scored.push({ short: p.short, v: sc[n], fit: scoreCell(F, p, sW, 0, 0, consts) });
+      const shift = dayShiftFor(chain, p.species, p.category as ChainCategory);
+      scored.push({ short: p.short, v: applyDayShift(sc[n], shift), fit: scoreCell(F, p, sW, 0, 0, consts), shift });
     }
     if (scored.length === 0) return;
     scored.sort((a, b) => b.v - a.v);
@@ -2016,11 +2042,14 @@ function buildBaseCells(
     }
     if (!o.raw && s < KEEP_MIN) return;
     const satFit = Math.round(scored[0].fit * 100);
-    const why = HINT_WHY.map(([f, label]) => [f(F), label] as const)
-      .filter(([v]) => v >= HINT_WHY_MIN)
-      .sort((a, b) => b[0] - a[0])
-      .slice(0, 3)
-      .map(([, label]) => label);
+    const chainWhy = moonWhy(scored[0].shift);
+    const why = [
+      ...(chainWhy ? [chainWhy] : []),
+      ...HINT_WHY.map(([f, label]) => [f(F), label] as const)
+        .filter(([v]) => v >= HINT_WHY_MIN)
+        .sort((a, b) => b[0] - a[0])
+        .map(([, label]) => label),
+    ].slice(0, 3);
     cells.push({
       lat: Math.round(F.lat * 100) / 100,
       lon: Math.round(F.lon * 100) / 100,
@@ -2032,7 +2061,7 @@ function buildBaseCells(
       hint: { sat: satFit > 0 ? satFit : null, why },
     });
   });
-  return { cells, speciesBest, mode: sameMonth ? "catch-fleet-static" : "fleet-static" };
+  return { cells, speciesBest, mode: sameMonth ? "catch-fleet-static" : "fleet-static", chain };
 }
 
 /** Kiểu `extra` của `buildFishForecast` — dùng chung với `buildCellFeatures`. */
@@ -2068,7 +2097,7 @@ export const CHL_FRONT_STRIDE = 1;
  * loài / lịch mùa / hằng số đã liệt kê trong `fishModelSignature`. Những thứ đó
  * TỰ vào dấu vân tay, không cần nhớ tăng tay.
  */
-export const FISH_ALGO_REV = 2; // 2 = nối NỀN bãi cá theo mùa (đợt 2A, 2026-10-19): `s`/`sp` = điểm nền, HSI ra `hint`
+export const FISH_ALGO_REV = 3; // 2 = nối NỀN bãi cá theo mùa (đợt 2A, 2026-10-19); 3 = + LỚP CHUỖI THỨC ĂN (lib/fish-chain.ts, 2026-10-23)
 
 /**
  * CHỮ KÝ MÔ HÌNH CÁ — chuỗi chuẩn hoá mọi thứ quyết định bản đồ cá ra sao: hồ sơ

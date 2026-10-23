@@ -12,6 +12,7 @@ import reefGridJson from "@/data/reef-grid-025.v1.json";
 import fleetEffortJson from "@/data/fleet-effort-025.v1.json";
 import speciesCatchJson from "@/data/species-catch-025.v1.json";
 import fishBaseJson from "@/data/fish-base.v1.json";
+import fishChainParams from "@/data/fish-chain-params.json";
 
 /*
   SNAPSHOT DỰ BÁO CÁ — precompute lưu trên Supabase (2026-07-26).
@@ -53,6 +54,8 @@ export function fishSnapshotRowId(): string {
   h.update(JSON.stringify(speciesCatchJson.effort));
   // nền bãi cá theo mùa (hệ số + bảng tĩnh + K_s): toàn bộ file ⇒ fit lại = hàng snapshot mới
   h.update(JSON.stringify(fishBaseJson));
+  // lớp chuỗi thức ăn (hệ số + cổng + hộp): dựng lại thông số = mô hình khác ⇒ hàng snapshot mới
+  h.update(JSON.stringify(fishChainParams));
   rowIdMemo = snapshotRowId(h.digest("hex").slice(0, 12));
   return rowIdMemo;
 }

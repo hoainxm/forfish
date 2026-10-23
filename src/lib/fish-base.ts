@@ -226,6 +226,8 @@ export function scoreBase(
   category: string,
   feats: BaseFeatures[],
   hasCatch: boolean,
+  /** cộng vào điểm thô TRƯỚC khi xếp hạng (lớp chuỗi thức ăn theo vùng, lib/fish-chain.ts); vắng = như cũ */
+  offset?: ArrayLike<number>,
 ): Uint8Array {
   const n = feats.length;
   const out = new Uint8Array(n);
@@ -244,6 +246,7 @@ export function scoreBase(
     if (!coef) return out;
     raw = feats.map((f) => baseRaw(coef, f, hasCatch));
   }
+  if (offset && offset.length === n) raw = Array.from(raw, (v, i) => v + (Number.isFinite(offset[i]) ? offset[i] : 0));
   const r = rankFraction(raw);
   for (let i = 0; i < n; i++) out[i] = rankToScore(r[i], p.hotShare);
   return out;

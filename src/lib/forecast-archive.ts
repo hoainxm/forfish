@@ -8,6 +8,9 @@
 //                  lưới mịn) — không lưu thì không bao giờ dựng lại được bản production
 //   actual/…       (2026-10-19) THỰC TẾ ERA5 theo ngày cho 10 cảng (gió/giật/mưa/sóng) —
 //                  vế "thật ra hôm đó thế nào" để đo skill liên tục (lib/sea-actual.ts)
+//   drivers/…      (2026-10-23) ĐẦU VÀO + MỨC ĐÃ ÁP của lớp chuỗi thức ăn (lib/fish-chain.ts): trăng, ONI, PDO,
+//                  Kuroshio–Luzon, phù du/nhiệt theo hộp nước trồi, thành phần đang áp/chưa áp, phiên bản thông số —
+//                  chuỗi ngày này là thứ để FIT LẠI thông số (scripts/dong-dan) khi có thêm năm nhãn
 // Đường dẫn: <loại>/<YYYY>/<YYYY-MM-DD>/<tên>.json.gz. Ghi đè trong ngày (upsert) — lượt sau
 // trong cùng ngày thay lượt trước, mỗi ngày đúng một bản.
 //
@@ -19,7 +22,7 @@ import { gzipSync } from "node:zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const ARCHIVE_BUCKET = "forecast-archive";
-export type ArchiveKind = "weather" | "fish" | "fish-inputs" | "actual";
+export type ArchiveKind = "weather" | "fish" | "fish-inputs" | "actual" | "drivers";
 
 /**
  * Đường dẫn file trong kho. `day` phải là YYYY-MM-DD; `name` lấy từ id snapshot (`grid:d16`,
