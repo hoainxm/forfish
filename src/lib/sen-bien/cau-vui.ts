@@ -3,7 +3,7 @@
 //
 //   CAU_LANG  — không có câu trả lời: nói lảng có duyên theo ĐÚNG lý do (mất sóng / chưa đăng nhập / máy chủ chậm / bí),
 //               câu mất sóng luôn chỉ sang việc làm được KHÔNG cần sóng (bản đồ, gió sóng, đường về).
-//   CAU_GIO   — có sóng, đang chờ máy nhà: ba nhịp (mở lời ngay · ~2,5 s · ~5 s); câu trả lời về là cắt (henCauGio).
+//   CAU_GIO   — có sóng, đang chờ máy nhà: bốn nhịp (1,2 s · 4 s · 7 s · 10 s); câu trả lời về thì đợi câu giờ đang đọc nói xong (henCauGio).
 // Luật chữ: gọi đủ "Sen Biển", xưng bà con / bác, không chê người hỏi, không hứa điều máy không làm được, câu ngắn để đọc.
 // Mỗi nhóm xoay vòng, không lặp liền câu vừa nói (chonCau).
 
@@ -37,15 +37,20 @@ export const CAU_LANG: Record<LyDoTruot, readonly string[]> = {
   ],
 };
 
-/** Bốn nhịp câu giờ khi đang chờ máy nhà: [mở lời ngay, ~2,5 s, ~5 s, ~8 s]. */
+/** Bốn nhịp câu giờ khi đang chờ máy nhà — nói theo MOC_GIO_MS. */
 export const CAU_GIO: readonly (readonly string[])[] = [
   ["Để Sen Biển hỏi thêm.", "Câu hay đó, để Sen Biển hỏi coi.", "Chờ Sen Biển chút xíu nghen.", "Để Sen Biển lục lại coi."],
   ["Sen Biển đang lục sổ, bác chờ chút.", "Đang hỏi rồi, sắp có bác ơi.", "Đợi xíu, câu này Sen Biển phải hỏi kỹ."],
   ["Sóng hơi yếu, chờ thêm xíu nữa nghen.", "Gần xong rồi, bác đừng đi đâu nha.", "Sắp có câu trả lời rồi bác."],
   ["Máy chủ đang nghĩ kỹ, bác chờ chút nữa thôi.", "Câu này khó nên lâu, Sen Biển vẫn đang đợi.", "Ráng chờ chút, sắp xong rồi bác."],
 ];
-/** Mốc nói nhịp 2, 3, 4 (ms sau lúc bắt đầu hỏi). Trần chờ máy nhà là HOI_HAN_MS 12 s — nhịp cuối phải trước mốc đó. */
-export const MOC_GIO_MS = [2_500, 5_000, 8_000] as const;
+/*  Mốc nói từng nhịp (ms sau lúc bắt đầu hỏi). NHỊP ĐẦU KHÔNG NÓI NGAY (anh Long 2026-10-23: "chồng lấn giữa 2 câu,
+    vừa nghe vừa nói ko mượt"): máy nhà thường trả lời < 1 s, nói câu giờ ngay rồi câu trả lời về CẮT ngang nó giữa chữ
+    là đúng cái tiếng chồng bà con nghe. Nay chỉ mở lời khi đã chờ 1,2 s; các nhịp cách ~3 s cho câu giờ nói trọn.
+    Trần chờ máy nhà là HOI_HAN_MS 12 s — nhịp cuối phải trước mốc đó. */
+export const MOC_GIO_MS = [1_200, 4_000, 7_000, 10_000] as const;
+/** Câu trả lời về khi câu giờ đang đọc ⇒ đợi nó nói XONG (không cắt giữa chữ), tối đa chừng này. */
+export const DOI_CAU_GIO_MS = 2_500;
 
 const cuoi = new Map<string, number>();
 
@@ -61,14 +66,27 @@ export function chonCau(bo: readonly string[], khoa: string, rnd: () => number =
 }
 
 /**
- * Hẹn câu giờ nhịp 2, 3 trong lúc chờ máy nhà. `conCho()` false (đã có câu trả lời / lượt mới) thì không nói.
- * Trả hàm huỷ — gọi ngay khi có kết quả (kể cả trượt) để câu giờ không chen vào câu trả lời.
+ * Hẹn câu giờ trong lúc chờ máy nhà. `noi(cau, xong)` đọc câu và gọi `xong` khi đọc hết / bị cắt (không gọi cũng
+ * được — có trần DOI_CAU_GIO_MS). `conCho()` false (lượt mới) thì không nói.
+ * Trả hàm KẾT THÚC: gọi khi có kết quả (kể cả trượt) — huỷ các nhịp chưa tới, rồi Promise xong khi câu giờ ĐANG ĐỌC
+ * (nếu có) đọc hết, để câu trả lời nói tiếp sau nó chứ không đè lên nó.
  */
-export function henCauGio(noi: (cau: string) => void, conCho: () => boolean): () => void {
+export function henCauGio(
+  noi: (cau: string, xong: () => void) => void,
+  conCho: () => boolean,
+  doiToiDa: number = DOI_CAU_GIO_MS,
+): () => Promise<void> {
+  let dangDoc: Promise<void> | null = null;
   const hen = MOC_GIO_MS.map((ms, k) =>
     setTimeout(() => {
-      if (conCho()) noi(chonCau(CAU_GIO[k + 1], `gio-${k + 1}`));
+      if (!conCho()) return;
+      dangDoc = new Promise<void>((xong) => noi(chonCau(CAU_GIO[k], `gio-${k}`), xong));
     }, ms),
   );
-  return () => hen.forEach(clearTimeout);
+  return () => {
+    hen.forEach(clearTimeout);
+    if (!dangDoc) return Promise.resolve();
+    let t: ReturnType<typeof setTimeout> | undefined;
+    return Promise.race([dangDoc, new Promise<void>((r) => (t = setTimeout(r, doiToiDa)))]).finally(() => clearTimeout(t));
+  };
 }

@@ -788,6 +788,7 @@ export function ttsSpeak(
     ended = true;
     for (const t of timers) clearTimeout(t);
     if (activeCancel === cancel) activeCancel = null;
+    if (cauNoi) cauNoi.xong = Date.now();
     setSenSignal({ speaking: false });
     opts.onEnd?.(completed);
   };
@@ -798,6 +799,7 @@ export function ttsSpeak(
     end(false);
   };
   activeCancel = cancel;
+  ghiCauNoi(text);
   const parts = speechParts(text);
   if (parts.length === 0) {
     end(true);
@@ -867,6 +869,7 @@ export function ttsSpeakMp3(
     ended = true;
     for (const t of timers) clearTimeout(t);
     if (activeCancel === cancel) activeCancel = null;
+    if (cauNoi) cauNoi.xong = Date.now();
     setSenSignal({ speaking: false });
     opts.onEnd?.(completed);
   };
@@ -877,6 +880,7 @@ export function ttsSpeakMp3(
     end(false);
   };
   activeCancel = cancel;
+  ghiCauNoi(doan.map((d) => d.text).join(" "));
   if (doan.length === 0) {
     end(true);
     return () => {};
@@ -910,6 +914,17 @@ export function ttsSpeakMp3(
   };
   next();
   return cancel;
+}
+
+/*  CÂU VỪA NÓI (2026-10-23, anh Long: "vừa nghe vừa nói ko ổn, lẫn lộn"): bộ nghe so chữ nghe được với câu này để
+    bỏ TIẾNG VỌNG — micro thu đuôi giọng loa thành "câu hỏi" (nghe.laTiengVong). `xong` = lúc loa im (0 = đang đọc). */
+let cauNoi: { text: string; xong: number } | null = null;
+function ghiCauNoi(text: string): void {
+  cauNoi = { text, xong: 0 };
+}
+/** Câu Sen Biển nói gần nhất và lúc đọc xong (0 = còn đang đọc); null = chưa nói gì trong phiên. */
+export function cauVuaNoi(): { text: string; xong: number } | null {
+  return cauNoi;
 }
 
 /*  Lượt nói đang chạy. Dừng một ĐOẠN không đủ: bộ chạy coi đoạn bị dừng là
