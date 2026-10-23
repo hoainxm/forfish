@@ -17,7 +17,8 @@ export type AdminTab =
   | "du-lieu"
   | "he-thong"
   | "phan-quyen"
-  | "nhat-ky";
+  | "nhat-ky"
+  | "kairos";
 
 /** Nhãn MỘT nguồn cho cả admin lẫn quản lý (trước lệch: "Chỗ bán" vs "Điểm thu mua"). */
 export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
@@ -35,6 +36,8 @@ export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
   "nhat-ky": "Nhật ký hoạt động",
   "du-lieu": "Dữ liệu hệ thống",
   "he-thong": "Cấu hình hệ thống",
+  // Kairos — đọc báo + mạng xã hội của bà con (14 §3.11): báo xấu, hàng chờ agent, Chính thức
+  kairos: "Kairos",
 };
 
 export type AdminNavGroupId = "khach" | "cho" | "noi-dung" | "nhan-su" | "he-thong";
@@ -58,7 +61,7 @@ export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
   {
     id: "noi-dung",
     label: "Nội dung",
-    tabs: ["cho-ban", "canh-bao", "vung-bien"],
+    tabs: ["cho-ban", "canh-bao", "vung-bien", "kairos"],
   },
   { id: "nhan-su", label: "Nhân sự", tabs: ["phan-quyen", "nhat-ky"] },
   { id: "he-thong", label: "Hệ thống", tabs: ["du-lieu", "he-thong"] },

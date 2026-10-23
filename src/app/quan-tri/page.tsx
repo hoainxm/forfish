@@ -16,6 +16,7 @@
   — trang này chỉ là vỏ hiển thị. Đăng nhập = chuỗi cứng như app (hạn 7 ngày).
 */
 
+import { clearKairosLocal } from "@/lib/kairos/cache";
 import dynamic from "next/dynamic";
 import { AdminNav, AdminSkeleton } from "@/components/admin/admin-nav";
 import { MarketAdminTab } from "@/components/admin/market-admin-tab";
@@ -49,6 +50,7 @@ const ProductsTab = dynamic(() => import("@/components/admin/tab-san-pham").then
 const AccountsTab = dynamic(() => import("@/components/admin/tab-tai-khoan").then((m) => m.AccountsTab), { loading: () => <AdminSkeleton label="Đang mở mục…" /> });
 const PushNotificationsTab = dynamic(() => import("@/components/admin/tab-thong-bao").then((m) => m.PushNotificationsTab), { loading: () => <AdminSkeleton label="Đang mở mục…" /> });
 const CrewReportsTab = dynamic(() => import("@/components/admin/tab-thuyen-vien").then((m) => m.CrewReportsTab), { loading: () => <AdminSkeleton label="Đang mở mục…" /> });
+const KairosTab = dynamic(() => import("@/components/admin/tab-kairos").then((m) => m.KairosTab), { loading: () => <AdminSkeleton label="Đang mở mục…" /> });
 const VmsZonesTab = dynamic(() => import("@/components/admin/tab-vung-vms").then((m) => m.VmsZonesTab), { loading: () => <AdminSkeleton label="Đang mở mục…" /> });
 
 type Tab = AdminTab;
@@ -97,6 +99,7 @@ export default function QuanTriPage() {
        không cần đồng hồ như hero-account: mất sóng thì cùng lắm phiên còn trên
        máy chủ, phần trong máy vẫn phải sạch. */
     clearInbox();
+    clearKairosLocal(); // bản lưu dòng tin + nháp Kairos (14 §8)
     /*  THU HỒI CHUỖI Ở MÁY CHỦ rồi xoá ở máy (2026-10-02). Bản cũ chỉ bỏ phiên
         Supabase: chuỗi cứng vẫn nằm trong máy ⇒ bấm Đăng xuất xong /quan-tri
         vẫn vào được, và chuỗi admin (nhiều máy) sống tiếp trên máy dùng chung.
@@ -254,6 +257,7 @@ export default function QuanTriPage() {
       {activeTab === "he-thong" && isAdmin && <SystemTab health={health} />}
       {activeTab === "phan-quyen" && isAdmin && <PermissionsTab />}
       {activeTab === "nhat-ky" && isAdmin && <ActivityLogTab />}
+      {activeTab === "kairos" && <KairosTab perms={permsFor(me, "kairos")} />}
         </section>
       </div>
     </div>

@@ -9,7 +9,7 @@
 //   apply: customers.role + customers.staff_permissions — 0007/0028): quyền
 //   theo TAB × HÀNH ĐỘNG, admin cấu hình trong /quan-tri.
 //
-// 6 TAB được phép cho quản lý (chốt user 2026-07-30; thêm don-hang 2026-08-11).
+// 7 TAB được phép cho quản lý (chốt user 2026-07-30; thêm don-hang 2026-08-11; kairos 2026-10-23).
 // 4 tab còn lại (yeu-cau · vung-bien · du-lieu · he-thong) ADMIN-ONLY CỨNG —
 // không nằm ở đây.
 
@@ -27,7 +27,8 @@ export type ManagerTab =
   | "don-hang"
   | "canh-bao"
   | "thong-bao"
-  | "cho-ban";
+  | "cho-ban"
+  | "kairos";
 export const MANAGER_TABS: readonly ManagerTab[] = [
   "tai-khoan",
   "san-pham",
@@ -35,6 +36,7 @@ export const MANAGER_TABS: readonly ManagerTab[] = [
   "canh-bao",
   "thong-bao",
   "cho-ban",
+  "kairos",
 ] as const;
 
 /** Nhãn tab — GIỮ ĐỒNG BỘ với nhãn tab trong /quan-tri (03-design-system). */
@@ -45,6 +47,7 @@ export const TAB_LABEL: Record<ManagerTab, string> = {
   "canh-bao": "Thuyền viên",
   "thong-bao": "Thông báo",
   "cho-ban": "Chỗ bán",
+  kairos: "Kairos",
 };
 
 export const ACTION_LABEL: Record<PermAction, string> = {
@@ -95,6 +98,10 @@ export const DEFAULT_MANAGER_PERMISSIONS: StaffPermissions = Object.freeze({
   "canh-bao": { ...VIEW_CREATE_EDIT },
   "thong-bao": { ...VIEW_CREATE_EDIT },
   "cho-ban": { ...VIEW_CREATE_EDIT },
+  /*  KAIROS (14 §3.11, 2026-10-23): view = xem hàng đợi · edit = ẩn/hiện/ghim/đảo quyết
+      định agent · delete = cấm SĐT · create = đăng bài Chính thức ĐỨNG TÊN SDVICO. Preset
+      KHÔNG cấp create: đăng thay SDVICO là nói thay công ty — admin tick riêng từng người. */
+  kairos: { view: true, create: false, edit: true, delete: false },
   resetPassword: false,
 });
 
