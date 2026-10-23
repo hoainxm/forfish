@@ -1094,15 +1094,23 @@ async function main() {
       await unlockAudio(page);
       r.shots.push(await shot(page, "f1-mat-mang-mo-lai"));
       await stopCruise(page);
-      const icon = page.getByRole("button", { name: "Sen Biển — nói chỗ muốn tới" });
+      // nhãn icon đổi THEO TRẠNG THÁI từ 2026-10-19 (lib/sen-bien-state.ts `senAria`):
+      // "Sen Biển — chạm để nói" / "đang nói" / "đang nghe" / "không nghe được — chạm để gõ"
+      // (± "· đang canh dẫn đường"). Mở lại bản đồ là đang đọc bản tin ⇒ thường "đang nói".
+      const icon = page.getByRole("button", { name: /^Sen Biển/ }).first();
       await icon.click({ timeout: 10_000 });
       await sleep(1000);
-      const input = page.getByRole("textbox", { name: "Gõ cho Sen Biển" });
+      const input = page.getByRole("textbox", { name: "Nhắn Sen Biển" });
       r.notes.push(`navigator.onLine khi mất mạng = ${await page.evaluate(() => navigator.onLine)}`);
       const imgOk = await page.evaluate(() =>
         [...document.querySelectorAll('img[src="/icons/sen-bien.png"]')].every((i) => i.complete && i.naturalWidth > 0),
       );
       check("mất sóng: ảnh con cá Sen Biển vẫn hiện (không vỡ)", imgOk);
+      /* Từ 2026-10-18 mất sóng thì bong bóng NÓI "Mất sóng nên máy chưa nghe được. Bà con
+         chạm ô chat để gõ." kèm nút "Nhắn chữ" — chạm như bà con, không tự bung ô gõ. */
+      if (!(await input.isVisible().catch(() => false))) {
+        await page.getByRole("button", { name: "Nhắn chữ" }).first().click({ timeout: 8000 }).catch(() => {});
+      }
       check(
         "mất sóng: Sen Biển chuyển sang ô gõ",
         await input
@@ -1114,10 +1122,22 @@ async function main() {
       const n0 = (await spoken(page)).length;
       await input.fill("dẫn về cảng Sa Huỳnh");
       await page.getByRole("button", { name: "Gửi" }).click();
-      const hieu = await waitSpoken(page, /Đi Sa Huỳnh/, 10_000, n0);
+      /* Từ giọng ghép mảnh (2026-10-18) câu xác nhận là mp3 "Đang vẽ đường." thay vì
+         "Đi Sa Huỳnh…"; tóm tắt tuyến có thể chỉ hiện chữ trên ngăn dẫn đường
+         ("N hải lý · M phút") — nhận cả hai, chữ trên màn là bằng chứng tuyến đã vẽ. */
+      const hieu = await waitSpoken(page, /Đi Sa Huỳnh|Đang vẽ đường/, 10_000, n0);
       check("mất sóng: hiểu ý vẫn chạy", hieu, hieu);
-      const tom = await waitSpoken(page, /Tới Sa Huỳnh|Chưa vẽ được/, 120_000);
-      check("mất sóng: vẫn vẽ được đường tới Sa Huỳnh", tom && /Tới Sa Huỳnh/.test(tom), tom);
+      const tom = await waitSpoken(page, /Tới Sa Huỳnh|Chưa vẽ được/, 60_000);
+      const tuyenTrenMan = await page
+        .getByText(/\d+ hải lý · \d+ (phút|giờ)/)
+        .first()
+        .isVisible()
+        .catch(() => false);
+      check(
+        "mất sóng: vẫn vẽ được đường tới Sa Huỳnh",
+        (tom && /Tới Sa Huỳnh/.test(tom)) || (tuyenTrenMan && !/Chưa vẽ được/.test(tom ?? "")),
+        tom ?? (tuyenTrenMan ? "tuyến hiện trên ngăn dẫn đường" : null),
+      );
       const wk = await page.evaluate(() => window.__workers.filter((w) => /turbopack-worker/.test(w.url)));
       check("mất sóng: worker tìm đường dựng được (không lỗi)", wk.length > 0 && wk.every((w) => w.errors.length === 0), JSON.stringify(wk.map((w) => w.errors)));
       // một câu cố định có mp3: "Dạ, chưa chạy…" khi bấm Thôi
