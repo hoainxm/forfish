@@ -44,6 +44,8 @@ export async function GET(req: Request) {
     const puts = await mapPool(Object.entries(inputs as Record<string, object>), ARCHIVE_CONCURRENCY, ([k, r]) =>
       putArchive(admin, archivePath("fish-inputs", day, k), { field: k, ...meta, ...r }),
     );
+    // lớp chuỗi thức ăn: đầu vào + mức đã áp của ngày — chuỗi để fit lại thông số (lib/fish-chain.ts)
+    if (payload.ok === true && payload.chain) puts.push(await putArchive(admin, archivePath("drivers", day, "chain"), { ...meta, ...payload.chain }));
     archive = summarizePuts(puts);
   }
   return Response.json({

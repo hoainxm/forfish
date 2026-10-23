@@ -80,6 +80,15 @@ node scripts/dong-dan/buoc17-san-luong.mjs         # → dong-dan/buoc17/buoc17.
 
 Giả thuyết và luật quyết đăng ký trước ở `docs/research/du-bao-ca-dong-dan-2026-10/17-san-luong-nhieu-nam.md` §2 — sửa script thì không sửa luật.
 
+Thông số lớp chuỗi thức ăn của app (`src/data/fish-chain-params.json`, doc `docs/research/du-bao-ca-dong-dan-2026-10/19-lop-chuoi-thuc-an.md`):
+
+```bash
+SDFISH_DATA_DIR=/mnt/c/Users/admin/sdfish-data node --max-old-space-size=14000 scripts/dong-dan/fit-trang-loai.mjs   # GPU: lịch trăng theo nhóm loài × nghề
+node scripts/dong-dan/dung-chain-params.mjs    # Mac: gom trang/ + buoc-b/ (chép về $SDFISH_DATA_DIR/dong-dan) → src/data/fish-chain-params.json
+```
+
+`hop.mjs` là nguồn hộp cho cả app (bộ dựng chép vào file thông số; test `fish-chain.test.ts` canh hai bên khớp).
+
 `hop.mjs` là MỘT nguồn định nghĩa hộp; `zarr-cmems.mjs` đọc Zarr ẩn danh của Copernicus Marine bằng bộ giải nén blosc của app (`src/lib/copernicus.ts`, nạp qua `jiti` có sẵn trong node_modules — không thêm phụ thuộc). Muốn chạy ở thư mục ngoài repo (như `~/.local/forlife/train/dong-dan` trên GPU) thì giữ đúng bố cục: `scripts/dong-dan/`, `scripts/lib/data-dir.mjs`, `src/lib/{copernicus,abort}.ts`, `node_modules` (liên kết tới repo).
 
 Bước 0 (chỉ chạy ở gpu-desktop, cần `dl-all` + `fc-full`):

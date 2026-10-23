@@ -27,7 +27,7 @@ import { loadPlaces } from "@/lib/places";
 import { loadHome, saveHome } from "@/lib/region";
 import { readToken } from "@/lib/device-token-store";
 import { doanMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
-import { CAU_GIO, chonCau, henCauGio } from "@/lib/sen-bien/cau-vui";
+import { henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { chonCauHoi } from "@/lib/sen-bien/gemma";
 import { senBienReply, senNgramCtx } from "@/lib/sen-bien/hieu-y";
@@ -142,12 +142,14 @@ export function SenBienToanApp() {
   const truot = useRef(0);
   /** lượt đọc hiện tại — câu mới cắt câu cũ (ttsSpeak) thì onEnd của câu cũ đến SAU, không được tắt cờ của câu mới */
   const luotDoc = useRef(0);
-  const noi = useCallback((t: string, ngheTiep = true) => {
-    if (!t) return;
+  /** `daXong` — gọi khi câu này đọc hết / bị cắt (câu giờ báo để câu trả lời nói SAU nó, không đè) */
+  const noi = useCallback((t: string, ngheTiep = true, daXong?: () => void) => {
+    if (!t) return daXong?.();
     const luot = ++luotDoc.current;
     setDangDoc(true);
     ttsSpeak(t, {
       onEnd: (xong) => {
+        daXong?.();
         if (luot !== luotDoc.current) return;
         setDangDoc(false);
         if (xong && ngheTiep) setTuNghe((n) => n + 1);
@@ -286,13 +288,13 @@ export function SenBienToanApp() {
         return { show: `${a.text}${them}` };
       }
       if (buoc.buoc === "may-nha") {
-        // câu giờ: mở lời ngay + nhịp ~2,5 s / ~5 s (cau-vui.henCauGio), có kết quả là cắt
-        noi(chonCau(CAU_GIO[0], "gio-0"), false);
+        // câu giờ CHỈ khi máy nhà chậm > 1,2 s (cau-vui.MOC_GIO_MS); có kết quả thì đợi câu giờ đang đọc nói XONG rồi
+        // mới đọc câu trả lời — không cắt giữa chữ (anh Long 2026-10-23: "chồng lấn giữa 2 câu")
         let dangCho = true;
-        const huyGio = henCauGio((c) => noi(c, false), () => dangCho && conLuot());
+        const xongGio = henCauGio((c, xong) => noi(c, false, xong), () => dangCho && conLuot());
         const kqN = await hoiMayChu(text, pathname, loadHome().province ?? null);
         dangCho = false;
-        huyGio();
+        await xongGio();
         if (!conLuot()) return null;
         if (!("text" in kqN)) {
           const say = cauTruot(kqN.loi);

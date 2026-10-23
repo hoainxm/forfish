@@ -94,6 +94,37 @@ export function autoListenOk(s: {
   return s.stt && !s.typing && s.granted && !s.hidden && s.online && !s.busy && !s.listening;
 }
 
+/*  NGHỈ SAU KHI LOA IM rồi mới mở micro (2026-10-23, anh Long: "chồng lấn giữa 2 câu, vừa nghe vừa nói"). "Đọc xong"
+    là lúc trình duyệt báo hết câu — loa (nhất là tai nghe Bluetooth, loa ngoài máy rẻ) còn kêu thêm vài trăm ms và
+    phòng/cabin còn vang; mở micro ngay là thu đuôi giọng Sen Biển thành câu hỏi. */
+export const NGHE_SAU_DOC_MS = 500;
+/** Chữ nghe được trong khoảng này sau lúc loa im mà trùng câu vừa nói ⇒ coi là tiếng vọng. */
+export const VONG_MS = 4_000;
+
+const tuCua = (t: string): string[] =>
+  t
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+/**
+ * TIẾNG VỌNG: micro thu lại chính giọng Sen Biển (THUẦN — test được). Đúng khi chữ nghe được có ≥ 3 tiếng và ≥ 70 %
+ * số tiếng nằm trong câu Sen Biển vừa nói, trong lúc loa còn đọc (`msTuLucXong` null) hoặc chưa quá VONG_MS sau khi
+ * im. Câu đáp NGẮN ("đi", "có", "thôi", "về cảng") KHÔNG bao giờ bị coi là vọng — chúng hay trùng chữ câu hỏi
+ * ("…đi không?") mà lại là câu bà con trả lời thật.
+ */
+export function laTiengVong(nghe: string, vuaNoi: string | null | undefined, msTuLucXong: number | null): boolean {
+  if (!vuaNoi) return false;
+  if (msTuLucXong != null && msTuLucXong > VONG_MS) return false;
+  const tu = tuCua(nghe);
+  if (tu.length < 3) return false;
+  const noi = new Set(tuCua(vuaNoi));
+  const trung = tu.filter((w) => noi.has(w)).length;
+  return trung / tu.length >= 0.7;
+}
+
 let live: { rec: SR; done: boolean } | null = null;
 
 function mapError(code: string | undefined): ListenErrorCode {

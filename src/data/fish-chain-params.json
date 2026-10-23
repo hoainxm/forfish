@@ -1,0 +1,410 @@
+{
+ "v": 1,
+ "phienBan": "chain-1-2026-10-23",
+ "builtAt": "2026-10-23T12:48:16.715Z",
+ "hop": {
+  "SCU": [
+   10.5,
+   12.5,
+   108.5,
+   110.5
+  ],
+  "NCU": [
+   12.5,
+   14.5,
+   109,
+   110.5
+  ],
+  "OFU": [
+   11,
+   13,
+   110.5,
+   112.5
+  ],
+  "MKU": [
+   8,
+   10.5,
+   106.5,
+   109
+  ],
+  "REF": [
+   11,
+   13,
+   113,
+   115
+  ]
+ },
+ "doiDiem": {
+  "diemMoiLogKg": 40,
+  "dichToiDa": 8,
+  "rawMoiLogKg": 1
+ },
+ "trang": {
+  "pelagic-small": {
+   "c": 0.0243,
+   "s": -0.0474,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 31034 (bỏ Tết), biên độ 0.0533 log kg (≈ 5 %), đỉnh 0.825 (T1–5 0.731, T6–10 0.886); ngoài mẫu T1–5→T6–10 r 0.0265 [0.0045,0.0494]; biên độ T6–10 0.0477 so giả khối tuần 0.0591; sin trội (lệch trăng lên/xuống — giống nhịp lịch âm hơn ánh sáng) — chưa qua: bienDoNuaSau, dinhOnDinh"
+  },
+  "pelagic-large": {
+   "c": 0.0462,
+   "s": -0.0206,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 28843 (bỏ Tết), biên độ 0.0506 log kg (≈ 5 %), đỉnh 0.933 (T1–5 0.951, T6–10 0.904); ngoài mẫu T1–5→T6–10 r 0.0365 [0.0129,0.063]; biên độ T6–10 0.0508 so giả khối tuần 0.0613 — chưa qua: bienDoNuaSau"
+  },
+  "cephalopod": {
+   "c": 0.0099,
+   "s": -0.0463,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 34584 (bỏ Tết), biên độ 0.0473 log kg (≈ 5 %), đỉnh 0.784 (T1–5 0.798, T6–10 0.732); ngoài mẫu T1–5→T6–10 r 0.037 [0.0097,0.0617]; biên độ T6–10 0.0378 so giả khối tuần 0.0501; sin trội (lệch trăng lên/xuống — giống nhịp lịch âm hơn ánh sáng) — chưa qua: bienDoNuaSau"
+  },
+  "demersal": {
+   "c": 0.0112,
+   "s": 0.0035,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 19870 (bỏ Tết), biên độ 0.0118 log kg (≈ 1 %), đỉnh 0.048 (T1–5 0.708, T6–10 0.126); ngoài mẫu T1–5→T6–10 r -0.0265 [-0.0561,0.0009]; biên độ T6–10 0.0297 so giả khối tuần 0.0538 — chưa qua: ngoaiMau, bienDoNuaSau, dinhOnDinh"
+  }
+ },
+ "trangLoai": {
+  "Cá cơm": {
+   "c": -0.1339,
+   "s": -0.0598,
+   "quaCong": false,
+   "ap": false,
+   "coDuLieu": true,
+   "lyDo": "n 3425 (bỏ Tết), biên độ 0.1467 log kg (≈ 16 %), đỉnh 0.567 (T1–5 0.629, T6–10 0.541); ngoài mẫu T1–5→T6–10 r 0.0436 [-0.0305,0.114]; biên độ T6–10 0.0566 so giả khối tuần 0.1554 — chưa qua: ngoaiMau, bienDoNuaSau, chieu"
+  },
+  "Cá nục": {
+   "c": 0.0861,
+   "s": -0.0848,
+   "quaCong": true,
+   "ap": true,
+   "coDuLieu": true,
+   "lyDo": "n 10975 (bỏ Tết), biên độ 0.1208 log kg (≈ 13 %), đỉnh 0.876 (T1–5 0.872, T6–10 0.898); ngoài mẫu T1–5→T6–10 r 0.0884 [0.0536,0.1184]; biên độ T6–10 0.1121 so giả khối tuần 0.101 — QUA cổng"
+  },
+  "Mực xà": {
+   "c": 0.0101,
+   "s": -0.0862,
+   "quaCong": false,
+   "ap": false,
+   "coDuLieu": true,
+   "lyDo": "n 13966 (bỏ Tết), biên độ 0.0868 log kg (≈ 9 %), đỉnh 0.769 (T1–5 0.76, T6–10 0.723); ngoài mẫu T1–5→T6–10 r 0.053 [0.029,0.086]; biên độ T6–10 0.0515 so giả khối tuần 0.0751; sin trội (lệch trăng lên/xuống — giống nhịp lịch âm hơn ánh sáng) — chưa qua: bienDoNuaSau"
+  },
+  "Mực ống": {
+   "c": 0.0132,
+   "s": -0.0433,
+   "quaCong": false,
+   "ap": false,
+   "coDuLieu": true,
+   "lyDo": "n 12585 (bỏ Tết), biên độ 0.0452 log kg (≈ 5 %), đỉnh 0.797 (T1–5 0.862, T6–10 0.758); ngoài mẫu T1–5→T6–10 r 0.0521 [0.0159,0.0806]; biên độ T6–10 0.0581 so giả khối tuần 0.0908; sin trội (lệch trăng lên/xuống — giống nhịp lịch âm hơn ánh sáng) — chưa qua: bienDoNuaSau"
+  }
+ },
+ "moi": {
+  "SCU|pelagic-small": {
+   "beta": -0.0023,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 1047, β -0.0023 [-0.0521,0.0388], z 0.1, kiểm giả |β| 0.0084 — chưa qua: ci, z, chieu, hon_gia"
+  },
+  "SCU|cephalopod": {
+   "beta": -0.052,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 471, β -0.052 [-0.0969,-0.0107], z 2.0, kiểm giả |β| 0.0087 — chưa qua: z, chieu"
+  },
+  "SCU|pelagic-large": {
+   "beta": -0.0803,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 502, β -0.0803 [-0.1295,-0.0228], z 2.5, kiểm giả |β| 0.1200 — chưa qua: chieu, hon_gia"
+  },
+  "NCU|pelagic-small": {
+   "beta": 0.0062,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 639, β 0.0062 [-0.0276,0.0408], z 0.3, kiểm giả |β| 0.0407 — chưa qua: ci, z, hon_gia"
+  },
+  "NCU|cephalopod": {
+   "beta": -0.0167,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 548, β -0.0167 [-0.0602,0.0242], z 0.7, kiểm giả |β| 0.0484 — chưa qua: ci, z, chieu, hon_gia"
+  },
+  "NCU|pelagic-large": {
+   "beta": -0.0031,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 1121, β -0.0031 [-0.0449,0.0318], z 0.1, kiểm giả |β| 0.0284 — chưa qua: ci, z, chieu, hon_gia"
+  },
+  "OFU|pelagic-small": {
+   "beta": 0,
+   "ap": false,
+   "lyDo": "ít chuyến (139)"
+  },
+  "OFU|cephalopod": {
+   "beta": 0.0076,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 179, β 0.0076 [-0.0293,0.0513], z 0.3, kiểm giả |β| 0.0423 — chưa qua: ci, z, hon_gia"
+  },
+  "OFU|pelagic-large": {
+   "beta": -0.0008,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 243, β -0.0008 [-0.0222,0.0382], z 0.0, kiểm giả |β| 0.1346 — chưa qua: ci, z, chieu, hon_gia"
+  },
+  "MKU|pelagic-small": {
+   "beta": -0.0595,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 4778, β -0.0595 [-0.079,-0.0428], z 5.4, kiểm giả |β| 0.0346 — chưa qua: chieu"
+  },
+  "MKU|cephalopod": {
+   "beta": -0.0332,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 1338, β -0.0332 [-0.0574,-0.0045], z 2.1, kiểm giả |β| 0.0307 — chưa qua: chieu"
+  },
+  "MKU|pelagic-large": {
+   "beta": 0.0447,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 2273, β 0.0447 [0.0056,0.0825], z 1.9, kiểm giả |β| 0.0273 — chưa qua: z"
+  }
+ },
+ "gio": {
+  "SCU|pelagic-small": {
+   "beta": -0.0047,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 1047, β -0.0047 [-0.0401,0.0452], z 0.2, kiểm giả |β| 0.0073 — chưa qua: ci, z, chieu, hon_gia"
+  },
+  "SCU|cephalopod": {
+   "beta": 0.0689,
+   "quaCong": true,
+   "ap": false,
+   "lyDo": "n 471, β 0.0689 [0.0176,0.1134], z 2.4, kiểm giả |β| 0.0145 — QUA cổng thống kê nhưng cron cá production chưa kéo gió theo hộp — chưa áp"
+  },
+  "SCU|pelagic-large": {
+   "beta": -0.0614,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 502, β -0.0614 [-0.1249,-0.0062], z 1.7, kiểm giả |β| 0.0560 — chưa qua: z, chieu"
+  },
+  "NCU|pelagic-small": {
+   "beta": 0.013,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 639, β 0.013 [-0.0251,0.0485], z 0.6, kiểm giả |β| 0.0348 — chưa qua: ci, z, hon_gia"
+  },
+  "NCU|cephalopod": {
+   "beta": -0.0216,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 548, β -0.0216 [-0.0757,0.0253], z 0.7, kiểm giả |β| 0.0121 — chưa qua: ci, z, chieu"
+  },
+  "NCU|pelagic-large": {
+   "beta": -0.0558,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 1121, β -0.0558 [-0.0939,-0.0077], z 2.1, kiểm giả |β| 0.0198 — chưa qua: chieu"
+  },
+  "OFU|pelagic-small": {
+   "beta": 0,
+   "ap": false,
+   "lyDo": "ít chuyến (139)"
+  },
+  "OFU|cephalopod": {
+   "beta": 0.0383,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 179, β 0.0383 [-0.0061,0.0905], z 1.3, kiểm giả |β| 0.0290 — chưa qua: ci, z"
+  },
+  "OFU|pelagic-large": {
+   "beta": 0.0828,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 243, β 0.0828 [0.0532,0.1152], z 4.4, kiểm giả |β| 0.1977 — chưa qua: hon_gia"
+  },
+  "MKU|pelagic-small": {
+   "beta": -0.0077,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 4778, β -0.0077 [-0.0268,0.0103], z 0.7, kiểm giả |β| 0.0746 — chưa qua: ci, z, chieu, hon_gia"
+  },
+  "MKU|cephalopod": {
+   "beta": -0.0038,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 1338, β -0.0038 [-0.0367,0.0245], z 0.2, kiểm giả |β| 0.0437 — chưa qua: ci, z, chieu, hon_gia"
+  },
+  "MKU|pelagic-large": {
+   "beta": 0.0103,
+   "quaCong": false,
+   "ap": false,
+   "lyDo": "n 2273, β 0.0103 [-0.017,0.0392], z 0.6, kiểm giả |β| 0.0375 — chưa qua: ci, z, hon_gia"
+  }
+ },
+ "enso": {
+  "SCU|pelagic-small": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "ENSO → phù du đo được (09, 10, 12: sau El Niño chl hè SCU thấp 4/4) nhưng ENSO → CÁ cần sản lượng NHIỀU NĂM — chưa có; thu ONI mỗi ngày"
+  },
+  "SCU|cephalopod": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "ENSO → phù du đo được (09, 10, 12: sau El Niño chl hè SCU thấp 4/4) nhưng ENSO → CÁ cần sản lượng NHIỀU NĂM — chưa có; thu ONI mỗi ngày"
+  },
+  "OFU|pelagic-small": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "ENSO → phù du đo được (09, 10, 12: sau El Niño chl hè SCU thấp 4/4) nhưng ENSO → CÁ cần sản lượng NHIỀU NĂM — chưa có; thu ONI mỗi ngày"
+  },
+  "OFU|cephalopod": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "ENSO → phù du đo được (09, 10, 12: sau El Niño chl hè SCU thấp 4/4) nhưng ENSO → CÁ cần sản lượng NHIỀU NĂM — chưa có; thu ONI mỗi ngày"
+  },
+  "MKU|pelagic-small": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "ENSO → phù du đo được (09, 10, 12: sau El Niño chl hè SCU thấp 4/4) nhưng ENSO → CÁ cần sản lượng NHIỀU NĂM — chưa có; thu ONI mỗi ngày"
+  },
+  "MKU|cephalopod": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "ENSO → phù du đo được (09, 10, 12: sau El Niño chl hè SCU thấp 4/4) nhưng ENSO → CÁ cần sản lượng NHIỀU NĂM — chưa có; thu ONI mỗi ngày"
+  }
+ },
+ "luzon": {
+  "SCU|pelagic-small": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "chưa đo được độ trễ / chiều Luzon → thềm VN (01 §2.7 chỉ là ước); thu ΔADT mỗi ngày để fit khi đủ chuỗi"
+  },
+  "SCU|cephalopod": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "chưa đo được độ trễ / chiều Luzon → thềm VN (01 §2.7 chỉ là ước); thu ΔADT mỗi ngày để fit khi đủ chuỗi"
+  },
+  "OFU|pelagic-small": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "chưa đo được độ trễ / chiều Luzon → thềm VN (01 §2.7 chỉ là ước); thu ΔADT mỗi ngày để fit khi đủ chuỗi"
+  },
+  "OFU|cephalopod": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "chưa đo được độ trễ / chiều Luzon → thềm VN (01 §2.7 chỉ là ước); thu ΔADT mỗi ngày để fit khi đủ chuỗi"
+  },
+  "MKU|pelagic-small": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "chưa đo được độ trễ / chiều Luzon → thềm VN (01 §2.7 chỉ là ước); thu ΔADT mỗi ngày để fit khi đủ chuỗi"
+  },
+  "MKU|cephalopod": {
+   "beta": 0,
+   "ap": false,
+   "thang": [
+    6,
+    7,
+    8,
+    9
+   ],
+   "lyDo": "chưa đo được độ trễ / chiều Luzon → thềm VN (01 §2.7 chỉ là ước); thu ΔADT mỗi ngày để fit khi đủ chuỗi"
+  }
+ },
+ "khiHau": {},
+ "duPhong": {
+  "oni": {
+   "mua": "JAS",
+   "nam": 2026,
+   "giaTri": 2.16
+  },
+  "pdo": {
+   "thang": "2026-09",
+   "giaTri": -1.55
+  }
+ },
+ "nguon": {
+  "trang": {
+   "builtAt": "2026-10-23T12:47:09.448Z",
+   "nguon": "nhãn chuyến DataLake 2026 (bang-chuyen.mjs), tàu ≥ 15 m có VMS, BỎ cửa sổ Tết 2026-01-25→2026-03-10"
+  },
+  "buocB": {
+   "builtAt": "2026-10-22T14:33:51.215Z"
+  },
+  "nghienCuu": "docs/research/du-bao-ca-dong-dan-2026-10 (README §0, 08–14)"
+ }
+}

@@ -2,8 +2,8 @@
 
 > Load khi: lỗi liên quan nguồn dữ liệu ngoài (timeout, rate limit, đổi format, token hết hạn), thêm nguồn mới, hoặc audit phụ thuộc.
 
-covers: src/lib/abort.ts, src/lib/sea-actual.ts, src/lib/tile-proxy.ts, src/lib/offline-basemap.ts, src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/route-grid.ts, src/lib/route-grid-server.ts, src/lib/forecast-grid.ts, src/lib/scalar-field.ts, src/lib/copernicus-salinity.ts, src/lib/copernicus-wav.ts, src/lib/copernicus-cur-depth.ts, src/lib/cur-depth.ts, src/lib/snapshot-merge.ts, src/lib/pretrip.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/fish-forecast-run.ts, src/lib/fish-snapshot.ts, src/lib/fish-snapshot-policy.ts, src/lib/weather-snapshot.ts, src/lib/weather-snapshot-id.ts, src/lib/hycom.ts, src/lib/copernicus.ts, src/lib/source-registry.ts, src/lib/sst-tendency.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts, src/lib/ocean-map.ts, src/lib/kairos/thu-core.mjs
-last_verified: 2026-10-19
+covers: src/lib/abort.ts, src/lib/sea-actual.ts, src/lib/tile-proxy.ts, src/lib/offline-basemap.ts, src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/route-grid.ts, src/lib/route-grid-server.ts, src/lib/forecast-grid.ts, src/lib/scalar-field.ts, src/lib/copernicus-salinity.ts, src/lib/copernicus-wav.ts, src/lib/copernicus-cur-depth.ts, src/lib/cur-depth.ts, src/lib/snapshot-merge.ts, src/lib/pretrip.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/fish-forecast-run.ts, src/lib/fish-snapshot.ts, src/lib/fish-snapshot-policy.ts, src/lib/weather-snapshot.ts, src/lib/weather-snapshot-id.ts, src/lib/hycom.ts, src/lib/copernicus.ts, src/lib/source-registry.ts, src/lib/sst-tendency.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts, src/lib/ocean-map.ts
+last_verified: 2026-10-23
 <!-- re-verified: 2026-10-23 — KAIROS: thêm dòng "RSS 5 báo" + "Claude CLI claude -p" vào bảng service + mục "Kairos — máy thu tin + agent kiểm duyệt" (đồng hồ 15 s/120 s/30 s, lùi mô tả RSS, bài báo nằm lại hàng chờ khi agent hỏng). Chạy trên máy GPU, không phải Vercel/app. -->
 <!-- re-verified: 2026-10-19 — rà Codex: dòng Open-Meteo sửa theo code (tuyến lấy ô routegrid qua server từ 2026-10-16, máy không gọi Open-Meteo); link ADR 0010 sai → ADR 0011; link tram-o-bo / brain-pack ghi "chưa có trong repo". -->
 ttl_days: 180
@@ -390,6 +390,18 @@ Hai việc chạy NGOÀI Vercel, trên gpu-desktop, gọi ngược vào app bằ
 | `POST /api/kairos/kiem` gói ≤100 | 30 s | lượt sau chấm lại (máy chủ áp từng quyết định độc lập, không đè người trực) |
 
 Chặn trùng ở máy thu (sổ `da-thay.json`, link 120 ngày, tiêu đề 7 ngày) chỉ để **khỏi tốn hạn mức** tóm tắt lại; máy chủ chặn lại bằng cùng hàm `lien-ket.mjs` (link vĩnh viễn). Bài báo vào kho ở `cho-kiem`, lên dòng tin chỉ khi agent cho `dat`.
+
+## Lớp chuỗi thức ăn của dự báo cá — ONI, PDO, Kuroshio–Luzon (2026-10-23)
+
+`lib/fish-chain-drivers.ts` (server-only), gọi trong `computeFishForecast` SONG SONG các nguồn khác (cron `refresh-fish` và route `/api/fish-forecast` khi tính live). Ba nguồn mới, mỗi yêu cầu `timeoutSignal(8000)`, KHÔNG BAO GIỜ ném — hỏng thì lớp chỉ góp 0, bản đồ cá y như không có lớp:
+
+| Nguồn | Dùng để | Auth / giấy phép | Khi chết |
+|---|---|---|---|
+| NOAA CPC `oni.ascii.txt` | ONI mùa gần nhất + DJF năm nay (thành phần ENSO, hiện CHƯA áp — chỉ thu) | Không key, công thuộc Mỹ | dùng `duPhong.oni` trong `src/data/fish-chain-params.json`, ghi `nguon: "du-phong"` |
+| NOAA NCEI `ersst.v5.pdo.dat` | PDO tháng gần nhất (điều biến ENSO, 01/09) | Không key, công thuộc Mỹ | dùng `duPhong.pdo` |
+| CMEMS `SEALEVEL_GLO_PHY_L4_NRT_008_046` 0,125° ADT — Zarr ẩn danh `mdl-arco-geo-045/.../geoChunked.zarr` | Chênh mực nước hai bờ eo Luzon (20,5°N 122,5°E − 20,5°N 119,5°E): chỉ số Kuroshio xâm nhập (thành phần Luzon, hiện CHƯA áp — chỉ thu) | Không key; Copernicus: dùng tự do kể cả thương mại, ghi nguồn | `luzon.dAdt = null`. Kho trả **403** cho khối trống (không phải 404); đuôi khối thời gian đệm NaN ⇒ lùi về ngày cuối có số ở CẢ HAI điểm |
+
+Đo từ Mac 2026-10-23: cả ba trong ~6 s; một khối ADT ~1 MB. Phù du/nhiệt theo hộp nước trồi lấy từ CHÍNH lưới SST/phù du cron vừa tải — không gọi thêm mạng. Đầu vào + mức đã áp lưu mỗi ngày ở kho `forecast-archive` `drivers/` (04). Căn cứ, cổng bằng chứng, cách học lại thông số: `docs/research/du-bao-ca-dong-dan-2026-10/19-lop-chuoi-thuc-an.md`.
 
 ## Quy tắc
 

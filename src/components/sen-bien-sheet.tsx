@@ -18,7 +18,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchDataBytes, fetchDataJson } from "@/lib/data-fetch";
 import type { SenDest } from "@/lib/sen-bien/hieu-y";
-import { autoListenOk, listenOnce, micDenied, micGranted, setMicDenied, sttSupported, type ListenHandle } from "@/lib/sen-bien/nghe";
+import {
+  autoListenOk,
+  laTiengVong,
+  listenOnce,
+  micDenied,
+  micGranted,
+  NGHE_SAU_DOC_MS,
+  setMicDenied,
+  sttSupported,
+  type ListenHandle,
+} from "@/lib/sen-bien/nghe";
 import { boNgheSan } from "@/lib/sen-bien/nghe-may";
 import { DAU_KHO_PATH, loadDauKho } from "@/lib/sen-bien/dau-kho";
 import { docKho, HOI_DAP_PATH } from "@/lib/sen-bien/hoi-dap";
@@ -26,7 +36,7 @@ import type { BoKho } from "@/lib/sen-bien/hoi-kho";
 import { loadLoc, LOC_PATH } from "@/lib/sen-bien/loc";
 import { loadNgram, NGRAM_PATH, type NgramModel } from "@/lib/sen-bien/ngram";
 import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC, viTriGocApp, type ViTriIcon } from "@/lib/sen-bien/vi-tri";
-import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
+import { cauVuaNoi, ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
 import { SenBienIcon, useSenAria } from "@/components/sen-bien-icon";
 import { lyDoMicro, setSenSignal } from "@/lib/sen-bien-state";
 import { useEscape } from "@/lib/use-escape";
@@ -266,10 +276,19 @@ export function SenBienSheet({
     f?.();
   };
 
+  /*  HẸN MỞ MICRO sau khi loa im NGHE_SAU_DOC_MS (nghe.ts) — mở ngay là thu đuôi giọng Sen Biển. Một hẹn một lúc;
+      loa nói câu khác / thẻ đóng thì huỷ. */
+  const henNgheRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const huyHenNghe = () => {
+    if (henNgheRef.current) clearTimeout(henNgheRef.current);
+    henNgheRef.current = null;
+  };
+
   useEffect(
     () => () => {
       dungNghe();
       catChao();
+      huyHenNghe();
       if (imRef.current) clearTimeout(imRef.current);
     },
     [],
@@ -331,6 +350,13 @@ export function SenBienSheet({
       onFinal: (t) => {
         xongIm();
         live.current = null;
+        // micro thu lại chính giọng Sen Biển ⇒ bỏ, không trả lời (khỏi vòng nói–nghe mình–nói)
+        const c = cauVuaNoi();
+        if (laTiengVong(t, c?.text, c ? (c.xong ? Date.now() - c.xong : null) : null)) {
+          setHeard("");
+          setPhase("ranh");
+          return;
+        }
         void answer(t);
       },
       onError: (code) => {
@@ -363,24 +389,37 @@ export function SenBienSheet({
 
   // câu hỏi đọc XONG ⇒ tự nghe một lượt (luật `autoListenOk`; bộ nghe trong máy thì không cần sóng)
   const autoSeen = useRef(autoListen);
+  // luật kiểm LẠI lúc hẹn tới (sau NGHE_SAU_DOC_MS) — đọc ref, không đọc giá trị đóng băng lúc hẹn
+  const busyRef = useRef(speakerBusy);
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    busyRef.current = speakerBusy;
+    modeRef.current = mode;
+  }, [speakerBusy, mode]);
   useEffect(() => {
     if (autoListen === autoSeen.current) return;
     autoSeen.current = autoListen;
-    const ok = autoListenOk({
-      stt: canVoice,
-      typing: mode === "chat",
-      granted: micGranted(),
-      hidden: typeof document !== "undefined" && document.visibilityState === "hidden",
-      online: typeof navigator === "undefined" || navigator.onLine !== false || boNgheSan(),
-      busy: speakerBusy,
-      listening: live.current != null,
-    });
-    if (ok) ghi(true);
+    huyHenNghe();
+    henNgheRef.current = setTimeout(() => {
+      henNgheRef.current = null;
+      const ok = autoListenOk({
+        stt: canVoice,
+        typing: modeRef.current === "chat",
+        granted: micGranted(),
+        hidden: typeof document !== "undefined" && document.visibilityState === "hidden",
+        online: typeof navigator === "undefined" || navigator.onLine !== false || boNgheSan(),
+        busy: busyRef.current,
+        listening: live.current != null,
+      });
+      if (ok) ghi(true);
+    }, NGHE_SAU_DOC_MS);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo tín hiệu "đọc xong"
   }, [autoListen]);
-  // loa đọc câu khác (cảnh báo chen) giữa lượt tự nghe ⇒ huỷ
+  // loa đọc câu khác (cảnh báo chen, câu giờ) ⇒ huỷ hẹn mở micro; đang tự nghe thì tắt micro
   useEffect(() => {
-    if (speakerBusy && tuRef.current && live.current) {
+    if (!speakerBusy) return;
+    huyHenNghe();
+    if (tuRef.current && live.current) {
       dungNghe();
       setPhase("ranh");
     }
@@ -490,13 +529,19 @@ export function SenBienSheet({
           return;
         }
         huyChao.current = null;
-        ghi();
+        // câu chào đọc xong ⇒ nghỉ cho loa im hẳn rồi mới mở micro (khỏi thu "…cho bạn?" thành câu hỏi)
+        huyHenNghe();
+        henNgheRef.current = setTimeout(() => {
+          henNgheRef.current = null;
+          if (conSong) ghi();
+        }, NGHE_SAU_DOC_MS);
       },
     });
     if (xongNgay) ghi();
     else huyChao.current = huy;
     return () => {
       conSong = false;
+      huyHenNghe();
       if (huyChao.current === huy) huyChao.current = null;
       huy();
     };
