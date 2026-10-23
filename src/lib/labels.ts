@@ -35,6 +35,7 @@ export const NHAN = {
   chon: "Chọn",
   chep: "Chép",
   chiaSe: "Chia sẻ",
+  camDang: "Cấm đăng",
   // tài khoản
   dangNhap: "Đăng nhập",
   dangKy: "Đăng ký",

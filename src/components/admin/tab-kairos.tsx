@@ -316,7 +316,7 @@ function ReportsSection({ perms }: { perms: TabPerms }) {
                   )}
                   {perms.delete && author && !author.official && (
                     <button type="button" className={btnSoft} disabled={busy === key} onClick={() => setBanFor({ profileId: author.profileId, handle: author.handle })}>
-                      Cấm người đăng
+                      {NHAN.camDang}
                     </button>
                   )}
                 </div>

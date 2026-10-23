@@ -309,7 +309,7 @@ export async function hayToggle(req: Request, t: "post" | "comment", rawId: stri
       if (!postVisible(await store.getPost(id), phone, blocked)) return kErr(404, "not_found");
     } else {
       const c = await store.getComment(id);
-      if (!c || c.hidden || !postVisible(await store.getPost(c.post_id), phone, blocked)) return kErr(404, "not_found");
+      if (!c || c.hidden || blocked.includes(c.author_phone) || !postVisible(await store.getPost(c.post_id), phone, blocked)) return kErr(404, "not_found");
     }
     await store.setHay(t, id, phone, on);
     const fresh = t === "post" ? await store.getPost(id) : await store.getComment(id);

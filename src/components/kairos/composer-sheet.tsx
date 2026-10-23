@@ -113,6 +113,11 @@ export function ComposerSheet({
   useEffect(() => {
     if (ready && signedIn) void loadMe();
   }, [ready, signedIn]);
+  // Mở khung lúc mất sóng ⇒ có sóng lại thì tự hỏi lại, khỏi đóng/mở khung (AC07).
+  const meS = me.s;
+  useEffect(() => {
+    if (online && ready && signedIn && meS === "offline") void loadMe();
+  }, [online, ready, signedIn, meS]);
 
   const onText = (v: string) => {
     setText(v);
