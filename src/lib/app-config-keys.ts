@@ -7,7 +7,8 @@ export type ConfigKey =
   | "vapid_subject"
   | "cron_secret"
   | "data_key_current"
-  | "data_key_prev";
+  | "data_key_prev"
+  | "kairos_ingest_key";
 
 export interface ConfigKeyMeta {
   key: ConfigKey;
@@ -79,6 +80,19 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     envVar: "SDFISH_DATA_KEY_PREV",
     help: "Tự chuyển từ khoá hiện hành khi đổi khoá — máy đã tải file bằng khoá cũ vẫn đọc được. Xoá bằng cách dán một khoá mới đè lên.",
   },
+  /*  KHOÁ NHẬP TIN KAIROS (14 §9, AC17/AC21/AC24, 2026-10-23): máy GPU nhà gửi bài báo đã
+      tóm tắt lên /api/kairos/nhap và quyết định kiểm duyệt lên /api/kairos/kiem, kèm khoá
+      này ở header `x-kairos-key`. Env KAIROS_INGEST_KEY đặt thì ĐÈ ô này (lib/kairos/
+      ingest-key.ts). Thiếu cả hai ⇒ hai route trả 503, không bao giờ mở cửa. */
+  {
+    key: "kairos_ingest_key",
+    label: "Khoá nhập tin Kairos",
+    risk: "Đổi khoá mà chưa đổi trên máy thu tin ở nhà là Kairos ngừng nhận tin báo mới và agent kiểm duyệt ngừng chạy.",
+    secret: true,
+    envVar: "KAIROS_INGEST_KEY",
+    generate: "hex32",
+    help: "Máy thu tin trên máy GPU gửi kèm khoá này. Bấm Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào tệp env của máy GPU (KAIROS_INGEST_KEY).",
+  },
 ];
 
 /** Khoá dữ liệu phải đúng 64 ký tự hex (32 byte). */
@@ -108,6 +122,9 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
       return /^(mailto:[^\s@]+@[^\s@]+|https:\/\/\S+)$/.test(v);
     case "cron_secret":
       return v.length >= 16 && !/\s/.test(v);
+    case "kairos_ingest_key":
+      // khoá chung với máy GPU — đủ dài để không đoán được, không khoảng trắng (dán lỗi)
+      return v.length >= 32 && v.length <= 200 && !/\s/.test(v);
     default:
       return true;
   }
