@@ -21,8 +21,16 @@ describe("moonPhase", () => {
     expect(moonPhase(new Date(NEW + 29.530589 * day)).label).toContain("Trăng non");
   });
 
-  it("lời khuyên nghề đèn: tối trời thuận, sáng trăng kém", () => {
-    expect(moonPhase(new Date(NEW)).note).toContain("thuận");
-    expect(moonPhase(new Date(NEW + 14.77 * day)).note).toContain("kém");
+  it("lời nghề đèn: tối trời đèn nổi rõ, sáng trăng đèn kém nổi", () => {
+    expect(moonPhase(new Date(NEW)).note).toContain("nổi rõ");
+    expect(moonPhase(new Date(NEW + 14.77 * day)).note).toContain("kém nổi");
+  });
+
+  it("không khẳng định cá ăn kém dưới trăng sáng — dữ liệu 2026 không thấy (Dòng Dẫn bước 15)", () => {
+    for (let d = 0; d < 29.5; d += 0.5) {
+      const note = moonPhase(new Date(NEW + d * day)).note;
+      expect(note).not.toMatch(/kém ăn|ăn kém|cá kém|đánh đèn thuận/);
+    }
+    expect(moonPhase(new Date(NEW + 14.77 * day)).note).toContain("chưa thấy mực, cá cơm ít đi");
   });
 });
