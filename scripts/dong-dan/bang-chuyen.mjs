@@ -24,6 +24,7 @@ export const defaultPaths = () => ({
 /**
  * Dựng bảng chuyến. `hook()` được gọi MỖI chuyến đã qua lọc, trả { seg(s), done(base, cov) → trường thêm }:
  *   seg(s) chạy trên từng đoạn giờ đánh (s = {t, lat, lon, dtH, kn}); done nhận dòng gốc + bộ đếm, trả trường thêm.
+ *   segAny(s, verdict) (tuỳ chọn) chạy trên MỌI đoạn của chuyến kèm phán quyết "fish"|"gap"|"band"|"inport"|"port".
  * `covExtra`: tên bộ đếm riêng của bước (chèn trước "used", giữ đúng thứ tự in như bản cũ).
  */
 export function buildTrips({ dir, ports: portsFile, enc: encFile, limit = 0, covExtra = [] }, hook) {
@@ -74,7 +75,9 @@ export function buildTrips({ dir, ports: portsFile, enc: encFile, limit = 0, cov
     const fishing = [];
     for (const s of segs) {
       tripH += s.dtH;
-      if (fishingVerdict(s, group, ctx, ivs) !== "fish") continue;
+      const verdict = fishingVerdict(s, group, ctx, ivs);
+      h.segAny?.(s, verdict); // tuỳ chọn: mọi đoạn kèm phán quyết (bước 15 cần giờ đêm trên biển, không chỉ giờ đánh)
+      if (verdict !== "fish") continue;
       H += s.dtH; sumLat += s.lat * s.dtH; sumLon += s.lon * s.dtH; sumT += s.t * s.dtH;
       fishing.push(s);
       h.seg(s);
@@ -84,7 +87,7 @@ export function buildTrips({ dir, ports: portsFile, enc: encFile, limit = 0, cov
     // bán kính hồi chuyển (độ) của dấu vết đánh, trọng số giờ
     let rg = 0; for (const s of fishing) rg += ((s.lat - cLat) ** 2 + (s.lon - cLon) ** 2) * s.dtH; rg = Math.sqrt(rg / H);
     const base = {
-      vid, gear, group, cls: lenClass(ves?.lengthM ?? lb.vessel?.lengthM), kg, H, tripH, days: (arr - dep) / 86400,
+      vid, gear, group, cls: lenClass(ves?.lengthM ?? lb.vessel?.lengthM), kg, H, tripH, days: (arr - dep) / 86400, dep, arr,
       month: Number(vnDate(dep).slice(5, 7)), week: Math.floor(dep / (7 * 86400)), lat: cLat, lon: cLon, rg,
       reg: `${Math.floor(cLat * 2) / 2},${Math.floor(cLon * 2) / 2}`, moon: moonPhase(tMid), tMid,
       sp: Object.fromEntries(sp.map((x) => [x.code, x.kg])), electronic: lb.form === "ELECTRONIC", monitored: lb.landingMonitored === true,
