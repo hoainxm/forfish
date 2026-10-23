@@ -11,6 +11,7 @@ import { MarketProductCard } from "@/components/market/shared/product-card";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import type { ProductCard } from "@/lib/market/types";
 import { rememberPeek } from "./product-peek";
+import { NOTIFY_HIDE_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 /** Chấm số trên nút — giỏ / đơn chưa xong. Không hiện khi 0. */
 function Dot({ n }: { n: number }) {
@@ -191,7 +192,7 @@ export function CartFeedback({ note, count }: { note: string | null; count: numb
   useEffect(() => {
     if (!note) return;
     setShown(true);
-    const t = setTimeout(() => setShown(false), 3000);
+    const t = setTimeout(() => setShown(false), NOTIFY_HIDE_MS);
     return () => clearTimeout(t);
   }, [note]);
   if (!note || !shown) return null;

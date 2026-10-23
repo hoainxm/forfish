@@ -10,6 +10,7 @@ import { tokenHeader } from "@/lib/device-token-store";
 import { SELL_KINDS, SELL_KIND_LABEL, type SellContactDraft, type SellKind, validateSellContactDraft } from "@/lib/sell-contacts";
 import { type TabPerms } from "@/lib/staff-permissions";
 import { useCallback, useEffect, useState } from "react";
+import { useEscape } from "@/lib/use-escape";
 
 // ── Tab CHỖ BÁN — danh bạ "Bán ở đâu" (nậu vựa/chợ/nhà máy): sửa/ẩn/hiện/xóa/thêm ──
 
@@ -291,6 +292,7 @@ export function SellContactForm({
   onSaved: () => void;
   onError: (m: string) => void;
 }) {
+  useEscape(true, onClose); // rà bố cục 2026-10-22: hộp quản trị đóng được bằng Escape
   const [kind, setKind] = useState<SellKind>(
     (initial?.kind as SellKind) ?? "vua",
   );
@@ -350,8 +352,10 @@ export function SellContactForm({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-[27.5rem] overflow-y-auto rounded-2xl bg-card p-5"
+        className="max-h-[85dvh] w-full max-w-[27.5rem] overflow-y-auto rounded-2xl bg-card p-5"
       >
         <p className="display text-[1.25rem] font-bold text-navy">
           {initial ? "Sửa thông tin đầu mối" : "Thêm đầu mối mới"}

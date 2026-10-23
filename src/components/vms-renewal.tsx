@@ -13,7 +13,6 @@ import {
   PlusIcon,
   CheckIcon,
   ChevronRightIcon,
-  CloseIcon,
 } from "@/components/icons";
 import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { apiUrl } from "@/lib/api-base";
@@ -106,14 +105,14 @@ function VmsRenewalInner() {
   return (
     // Khối phẳng KHỚP format "Sổ nhắc bảo dưỡng": tiêu đề + phụ đề + nút cam.
     <div>
-      <h3 className="display mb-1 px-1 text-[1rem] font-semibold text-navy">
+      <h3 className="display mb-1 text-[1.125rem] font-semibold text-navy">
         Giám sát hành trình
       </h3>
 
       {/*  Ô nút INLINE cuối hàng phụ đề (2026-08-29, luật A2/A3/A4): trước là
           4 nút full-width ăn riêng hàng LIÊN TIẾP nhau trong một khối. Nhãn rút
           còn "Gia hạn" — ô SQ_BTN chỉ có 64px bề ngang. */}
-      <div className="mb-2 flex items-stretch gap-2 px-1">
+      <div className="mb-2 flex items-stretch gap-2">
         <div className="flex min-w-0 flex-1 items-center">
           <p className="text-[0.875rem] text-foreground/70">
             Gia hạn thiết bị để tàu đủ điều kiện ra khơi.
@@ -143,7 +142,7 @@ function VmsRenewalInner() {
       <button
         type="button"
         onClick={() => setStatusOpen(true)}
-        className="mt-2.5 flex w-full items-stretch gap-2 rounded-2xl px-1 text-left active:opacity-70"
+        className="mt-2.5 flex w-full items-stretch gap-2 rounded-2xl text-left active:opacity-70"
       >
         <span className="flex min-w-0 flex-1 items-center text-[1rem] font-semibold text-sea">
           {NHAN.yeuCau}
@@ -183,17 +182,7 @@ function VmsRenewalInner() {
               </div>
             </>
           )}
-          {/* "Đóng" về ô w-16 inline (luật A2/A3) — không dải ngang ăn hàng */}
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setGuardOpen(false)}
-              className={`${SQ_BTN} bg-field text-foreground/70`}
-            >
-              <CloseIcon className="h-6 w-6" />
-              Đóng
-            </button>
-          </div>
+          {/* "Đóng" đáy đã bỏ — ngăn xem có × góc (rà bố cục 2026-10-22) */}
         </BottomSheet>
       )}
 
@@ -303,7 +292,7 @@ function RenewalWizard({
 
   if (phase === "done" && result) {
     return (
-      <BottomSheet title="Chuyển khoản để gia hạn" onClose={onClose}>
+      <BottomSheet kieu="form" title="Chuyển khoản để gia hạn" onClose={onClose}>
         <StatusBanner level="warn">
           Yêu cầu đã tạo · mã {result.requestCode}
         </StatusBanner>
@@ -414,7 +403,7 @@ function RenewalWizard({
           "Cần hỏi? Gọi SDVICO 1900xxxx" → CallButton nhãn "Gọi". Hai nút về ô
           inline cuối một hàng có nội dung, không dải ngang ăn hàng. */}
       <div className="mt-4 flex items-stretch gap-2">
-        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+        <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p className="text-[0.875rem] text-foreground/70">
             Nhân viên SDVICO gọi lại xác nhận.
           </p>

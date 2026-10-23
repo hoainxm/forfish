@@ -1,43 +1,40 @@
+import { MarketHeader } from "@/components/market/shared/market-header";
+
 /**
- * Shared page header — HERO tràn viền (redesign "Mặt nước" 2026-06-10).
- * Gradient biển sâu + quầng sáng, bo đáy 28px, tiêu đề display lớn.
- * `toColor` = màu trục để người dùng nhận diện "khu" bằng màu.
+ * Đầu màn PHỤ ngoài chợ (đăng nhập, đăng ký, đổi/quên mật khẩu, quyền riêng tư, danh bạ cảng).
+ *
+ * 2026-10-22 (rà bố cục, theo app đông người dùng): KHÔNG còn dải gradient bo đáy + nhãn nhỏ
+ * trên tiêu đề ("Tài khoản", "Thông tin pháp lý" — kiểu Impeccable/Taste cấm) + tiêu đề 28px.
+ * Nay dựng trên thanh sáng chung `MarketHeader` ([‹] + tiêu đề 20px) + một dòng mô tả,
+ * lề 16px như mọi màn. `kicker`/`toColor` giữ trong props cho nơi gọi cũ, không còn vẽ.
  */
 export function PageHeader({
-  kicker,
   title,
   sub,
-  toColor = "var(--sea)",
+  fallback = "/",
   children,
 }: {
-  kicker: string;
+  /** nhãn nhỏ trên tiêu đề — KHÔNG còn vẽ (2026-10-22) */
+  kicker?: string;
   title: React.ReactNode;
   sub?: string;
-  /** right colour of the gradient, e.g. `var(--t4)` */
+  /** màu gradient cũ — KHÔNG còn dùng (2026-10-22) */
   toColor?: string;
+  /** về đâu khi không có trang trước */
+  fallback?: string;
   children?: React.ReactNode;
 }) {
   return (
-    <header
-      className="hero px-5 pb-10"
-      style={{
-        background: `linear-gradient(150deg, var(--navy) 35%, ${toColor})`,
-        // edge-to-edge: tiêu đề luôn dưới status bar/Dynamic Island
-        paddingTop: "calc(1.5rem + env(safe-area-inset-top))",
-      }}
-    >
-      <p className="text-[0.75rem] font-semibold text-white/60">
-        {kicker}
-      </p>
-      <h1 className="display mt-0.5 text-[1.75rem] font-semibold leading-[1.15]">
-        {title}
-      </h1>
-      {sub && (
-        <p className="mt-1 max-w-[34ch] text-[0.9375rem] leading-snug text-white/80">
-          {sub}
-        </p>
+    <>
+      <MarketHeader title={title} fallback={fallback} />
+      {(sub || children) && (
+        <div className="px-4">
+          {sub && (
+            <p className="max-w-[40ch] text-[0.9375rem] leading-snug text-foreground/70">{sub}</p>
+          )}
+          {children}
+        </div>
       )}
-      {children}
-    </header>
+    </>
   );
 }

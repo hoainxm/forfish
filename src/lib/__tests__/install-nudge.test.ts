@@ -58,3 +58,24 @@ describe("shouldShowInstallNudge", () => {
     expect(shouldShowInstallNudge(s, t + 30 * DAY)).toBe(false);
   });
 });
+
+describe("markInstallNudgeSnoozed — bấm Ẩn là hoãn, không tắt vĩnh viễn (2026-10-22)", () => {
+  it("trong 7 ngày im, quá 7 ngày nhắc lại (còn trong trần lần)", async () => {
+    const m = await import("@/lib/install-nudge");
+    const now = 1_000_000_000_000;
+    const s = m.markInstallNudgeSnoozed(m.markInstallNudgeShown(m.EMPTY_NUDGE, now), now);
+    expect(m.shouldShowInstallNudge(s, now + 2 * 24 * 3600_000)).toBe(false);
+    expect(m.shouldShowInstallNudge(s, now + m.INSTALL_NUDGE_SNOOZE_MS + 1)).toBe(true);
+    expect(s.dismissed).toBe(false);
+  });
+  it("đọc lại mốc hoãn từ chuỗi đã lưu; rác thì bỏ qua", async () => {
+    const m = await import("@/lib/install-nudge");
+    expect(m.parseInstallNudge(JSON.stringify({ count: 1, lastAt: 5, dismissed: false, snoozeUntil: 99 }), null).snoozeUntil).toBe(99);
+    expect(m.parseInstallNudge(JSON.stringify({ count: 1, snoozeUntil: "x" }), null).snoozeUntil).toBeUndefined();
+  });
+  it("hết trần MAX lần thì im dù đã hết hoãn", async () => {
+    const m = await import("@/lib/install-nudge");
+    const s = { ...m.EMPTY_NUDGE, count: m.INSTALL_NUDGE_MAX, snoozeUntil: 0 };
+    expect(m.shouldShowInstallNudge(s, Date.now())).toBe(false);
+  });
+});

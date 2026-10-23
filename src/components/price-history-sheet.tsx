@@ -266,13 +266,8 @@ export function PriceHistorySheet({
         </>
       )}
 
-      <button
-        type="button"
-        onClick={onClose}
-        className="mt-4 min-h-(--h-row) w-full rounded-xl bg-navy text-[1rem] font-semibold text-white transition active:scale-[0.99]"
-      >
-        Xong
-      </button>
+      {/* nút "Xong" ĐÃ BỎ — ngăn xem có × góc (03 §Nút X mục 2: không để cả × lẫn nút đóng; rà
+          bố cục 2026-10-22) */}
     </BottomSheet>
   );
 }

@@ -240,6 +240,7 @@ import {
   type ChatDayInfo, type LegInfo, type DenInfo, type DepthInfo, type DiaDanhInfo, type KhuTruBaoInfo, type LaneInfo, type MarkInfo,
   type ReefInfo, type StormPtInfo, type VungInfo, type XacTauInfo,
 } from "@/components/ban-do/the-thong-tin";
+import { kepTheTrongKhung } from "@/components/ban-do/kep-the";
 import { BangChuGiai, SEAMARK_HIT_LAYERS, CLUSTER_HIT_LAYERS, SEAMARK_FAR, SEAMARK_MID, SEAMARK_AN, SEAMARK_ICON_LAYOUT, KHONG_PHAI_CUM, cumLayers, type LegendRow } from "@/components/ban-do/hai-do";
 import {
   loadSavedRoutes,
@@ -787,6 +788,10 @@ export default function FishingMapView() {
   //   Dữ liệu tự già đi và hết giá trị sau ≤16 ngày nên không cần khoá thêm.
   // ⇒ Màn mời đăng nhập/nâng cấp CHỈ hiện khi thật sự KHÔNG CÓ GÌ để xem.
   const { access: premiumAccess } = useFeatureAccess();
+  /*  Ô "Đi đâu?" với tài khoản CHƯA premium: trước đây bấm không ra gì (ô toạ độ chỉ dành
+      cho premium). Nay kiểu freemium của app đông người dùng (thấy tính năng, chạm thì mời
+      mở khoá): ngăn đáy nói rõ + lời mời Premium (rà bố cục 2026-10-22). */
+  const [moiTimDiem, setMoiTimDiem] = useState(false);
   const premiumLocked =
     premiumAccess === "login" || premiumAccess === "upgrade";
   /* CHƯA CHẮC LÀ PREMIUM — dùng cho MỌI quyết định "xin bao nhiêu ngày".
@@ -1579,6 +1584,25 @@ export default function FishingMapView() {
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressFrom = useRef<{ x: number; y: number } | null>(null);
   const closePressMenu = useCallback(() => setPressMenu(null), []);
+  /*  MỘT THẺ THÔNG TIN MỘT LÚC (rà bố cục 2026-10-22): trước đây mỗi loại thẻ một state
+      riêng, chạm phao rồi chạm điểm đo sâu là HAI thẻ cùng nổi chồng nhau; thẻ còn NẰM MÃI
+      khi bà con kéo bản đồ đi chỗ khác (thẻ neo theo điểm chạm trên MÀN, kéo đi là chỉ sai
+      chỗ). Nay: mỗi cú chạm bản đồ đóng thẻ cũ trước khi mở thẻ mới; tự tay kéo bản đồ
+      (dragstart — không phải flyTo của app) cũng đóng. Chạm ra chỗ trống = đóng. */
+  const dongTheThongTin = useCallback(() => {
+    setMarkInfo(null);
+    setDepthInfo(null);
+    setDenInfo(null);
+    setXacTauInfo(null);
+    setChatDayInfo(null);
+    setKhuTruBaoInfo(null);
+    setVungInfo(null);
+    setReefInfo(null);
+    setLaneInfo(null);
+    setDiaDanhInfo(null);
+    setStormPtInfo(null);
+    setLegInfo(null);
+  }, []);
   const cancelPress = useCallback(() => {
     if (pressTimer.current) clearTimeout(pressTimer.current);
     pressTimer.current = null;
@@ -4964,7 +4988,10 @@ export default function FishingMapView() {
       <MapGL
         ref={mapRef}
         initialViewState={DEFAULT_VIEW}
-        onDragStart={cancelPress}
+        onDragStart={() => {
+          cancelPress();
+          dongTheThongTin();
+        }}
         onZoomStart={cancelPress}
         onZoomEnd={(e) => setMapZoom(e.viewState.zoom)}
         onMoveStart={closePressMenu}
@@ -5070,6 +5097,7 @@ export default function FishingMapView() {
              `queryRenderedFeatures` nhận id lớp chưa tồn tại. */
         interactiveLayerIds={liveHitLayers}
         onClick={(e) => {
+          dongTheThongTin(); // một thẻ một lúc — thẻ mới (nếu trúng) mở ngay dưới
           /*  ĐỆM VÙNG CHẠM ±28 px (reviewer B.5 2026-09-03): trước đây bắt đúng
               điểm ngón tay nên chấm 2–6 px chạm hụt → xoá điểm xem / bung sheet
               gió oan. Nay quét hộp 56 px quanh ngón, lấy vật GẦN NHẤT theo
@@ -5380,6 +5408,16 @@ export default function FishingMapView() {
             setSize("hidden");
             return;
           }
+          /*  NGĂN LỚP ĐANG MỞ ⇒ cú chạm này CHỈ ĐÓNG NGĂN, không dời con trỏ (kiểu Google Maps,
+              rà bố cục 2026-10-22). Đặt TRƯỚC setPoint. Sát ranh giới (≤6 hl) thì đi tiếp như cũ
+              để bung cảnh báo — nhánh `if (railLayerOpen)` phía dưới. */
+          if (railLayerOpen && !routeMode) {
+            const prox0 = borderProximity(lat, lon, borderSrc);
+            if (!(prox0.applies && prox0.level === "very_near")) {
+              setCloseRailSignal((n) => n + 1);
+              return;
+            }
+          }
           setDayIdx(0);
           setGeoError(false);
           setPinning(false);
@@ -5429,12 +5467,12 @@ export default function FishingMapView() {
               theo `point` của lượt render TRƯỚC, còn đang là điểm cũ). */
           const proxHere = borderProximity(lat, lon, borderSrc);
           const satBien = proxHere.applies && proxHere.level === "very_near";
+          /*  CHẠM BẢN ĐỒ KHI NGĂN LỚP ĐANG MỞ = ĐÓNG NGĂN (kiểu Google Maps, rà bố cục 2026-10-22):
+              trước đây chỉ bay tới chỗ chạm, ngăn vẫn nằm đó. Một cú chạm một việc — chạm lần
+              nữa mới chọn điểm. Sát ranh giới vẫn đi tiếp để bung cảnh báo (ngoại lệ Tầng 1). */
           if (railLayerOpen) {
-            if (!satBien) {
-              flyToPoint(lon, lat);
-              return;
-            }
             setCloseRailSignal((n) => n + 1);
+            if (!satBien) return;
           }
           // kiểu Windy: chạm là sheet nằm GỌN ở đáy (peek) — bản đồ vẫn
           // thấy nguyên, số liệu tóm tắt hiện ngay, chi tiết bấm "Xem thêm"
@@ -7209,13 +7247,23 @@ export default function FishingMapView() {
           nổi ngay TRÊN tâm (lật xuống dưới khi tâm sát mép trên). Tự ẩn 3s. */}
       {stormPtInfo && <TheMocBao info={stormPtInfo} onClose={() => setStormPtInfo(null)} prefs={prefs} />}
 
+      {moiTimDiem && (
+        <BottomSheet title="Đi tới toạ độ" onClose={() => setMoiTimDiem(false)}>
+          <p className="mb-3 text-[1rem] leading-snug text-foreground/80">
+            Gõ toạ độ hoặc chọn chỗ đã lưu để bản đồ dẫn tới đó.
+            {/* PremiumLock tự ẩn khi mất sóng — lúc đó vẫn phải nói rõ vì sao chưa dùng được */}
+            {typeof navigator !== "undefined" && navigator.onLine === false && " Đây là tính năng Premium."}
+          </p>
+          <PremiumLock access={premiumAccess} feature="đi tới toạ độ" compact />
+        </BottomSheet>
+      )}
+
       {pressMenu && (
         <div
-          className="pointer-events-auto absolute z-40 w-56 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 shadow-xl"
-          style={{
-            left: Math.min(Math.max(8, pressMenu.x - 112), window.innerWidth - 232),
-            top: Math.min(pressMenu.y + 12, window.innerHeight - 190),
-          }}
+          /* kẹp theo KHUNG BẢN ĐỒ thật (lib/the-noi-vi-tri, rà bố cục 2026-10-22) — trước kẹp
+             theo window.innerWidth/Height với cao đoán 190px ⇒ lệch khỏi khung 480px trên máy tính */
+          ref={(el) => kepTheTrongKhung(el, pressMenu.x, pressMenu.y)}
+          className="pointer-events-auto absolute z-40 w-56 max-w-[calc(100%-1rem)] overflow-hidden rounded-2xl bg-card/97 shadow-xl"
         >
           <p className="truncate px-3 pt-2.5 text-[0.8125rem] font-semibold text-foreground/60">
             {fmtCoordPair(pressMenu.lat, pressMenu.lon, prefs.coordFormat)}
@@ -7437,9 +7485,6 @@ export default function FishingMapView() {
             onShelter={stormOn && navKhuReady ? openShelter : undefined}
           />
         )}
-        {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
-            dòng nhỏ rồi tự tắt — xem components/pretrip-auto-notify.tsx */}
-        {navMode == null && <PretripAutoNotify points={pretripPoints} />}
         {/*  GHIM CHƯA LƯU ĐƯỢC — nói thẳng, đừng để ghim hiện trên bản đồ như đã
              lưu rồi đóng app là mất. Chỗ đánh cá là thứ bà con đo bằng cả chuyến
              biển, tải lại không được từ đâu (xem lib/places.ts). */}
@@ -7461,7 +7506,15 @@ export default function FishingMapView() {
              hiện (cảnh báo an toàn không ai được che). */}
         <div className="flex items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            {navMode == null && <OTimDiem onOpen={() => setOpenCoordSignal((n) => n + 1)} />}
+            {navMode == null && (
+              <OTimDiem
+                onOpen={() =>
+                  premiumAccess === "login" || premiumAccess === "upgrade"
+                    ? setMoiTimDiem(true)
+                    : setOpenCoordSignal((n) => n + 1)
+                }
+              />
+            )}
             <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
             {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
                 không có bão thật); component tự bung 1 lần rồi thu về chip. */}
@@ -7605,6 +7658,11 @@ export default function FishingMapView() {
             onClearMeasure={() => setMeasurePts([])}
           />
         </div>
+        {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
+            dòng nhỏ rồi tự tắt — xem components/pretrip-auto-notify.tsx. ĐẶT CUỐI cụm
+            trên (rà bố cục 2026-10-22): đặt đầu cụm thì lúc hiện đẩy ô tìm + tin bão
+            xuống ~50px, lúc tắt cả cụm nhảy ngược lên. */}
+        {navMode == null && <PretripAutoNotify points={pretripPoints} />}
 
         {/* KHÔNG có badge tuổi lớp cá (bỏ 2026-07-25 theo quyết định sản phẩm:
             màn hình bị rối vì quá nhiều chữ thường trực). Bản đồ cá vẫn tự lấy

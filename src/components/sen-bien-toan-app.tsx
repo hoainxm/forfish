@@ -37,6 +37,7 @@ import { guessIntent } from "@/lib/sen-bien/ngram";
 import { useAuthUser } from "@/lib/use-auth";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
 import { ttsSpeak, ttsSpeakMp3, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
+import { anKhiCuon } from "@/lib/sen-bien/an-khi-cuon";
 
 const LOAI_CA = Object.keys(SPECIES_META);
 const CHAO = "Sen Biển giúp gì được cho bạn?";
@@ -84,6 +85,29 @@ export function SenBienToanApp() {
       document.removeEventListener("focusout", ra);
     };
   }, []);
+  /*  CUỘN XUỐNG ⇒ icon lùi (mờ, không nhận chạm); cuộn lên / về đầu trang ⇒ quay lại
+      (lib/sen-bien/an-khi-cuon.ts — kiểu Gmail/Facebook, rà bố cục 2026-10-22). Đổi trang
+      thì hiện lại. Không ẩn khi thẻ đang mở. */
+  const [anCuon, setAnCuon] = useState(false);
+  useEffect(() => {
+    setAnCuon(false);
+    let yCu = window.scrollY;
+    let khung = 0;
+    const onScroll = () => {
+      if (khung) return;
+      khung = requestAnimationFrame(() => {
+        khung = 0;
+        const y = window.scrollY;
+        setAnCuon((an) => anKhiCuon(yCu, y, an));
+        yCu = y;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (khung) cancelAnimationFrame(khung);
+    };
+  }, [pathname]);
   useEffect(() => {
     try {
       const u = new URL(window.location.href);
@@ -298,14 +322,21 @@ export function SenBienToanApp() {
       style={{ bottom: "var(--dock-total)" }}
     >
       {!open && !dangGo && (
-        <SenBienNoi
-          gocApp
-          onOpen={() => {
-            ttsUnlock();
-            setTitle("");
-            setOpen(true);
-          }}
-        />
+        /* bọc chỉ để làm mờ khi cuộn xuống — KHÔNG translate/transform ở lớp bọc (sẽ thành
+           khung chứa của icon absolute, icon nhảy về góc trên-trái) */
+        <div
+          inert={anCuon}
+          className={`transition-opacity duration-200 ${anCuon ? "opacity-0" : "opacity-100"}`}
+        >
+          <SenBienNoi
+            gocApp
+            onOpen={() => {
+              ttsUnlock();
+              setTitle("");
+              setOpen(true);
+            }}
+          />
+        </div>
       )}
       {open && (
         <SenBienSheet

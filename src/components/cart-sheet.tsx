@@ -221,7 +221,7 @@ export function CartSheet({
   // ── Đặt xong ──────────────────────────────────────────────────────────
   if (state === "done") {
     return (
-      <BottomSheet title="Đã đặt đơn" onClose={onClose}>
+      <BottomSheet kieu="form" title="Đã đặt đơn" onClose={onClose}>
         <div
           className="rounded-[1.25rem] px-4 py-8 text-center"
           style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
@@ -256,21 +256,13 @@ export function CartSheet({
         <EmptyState icon={<CartIcon className="h-10 w-10" />}>
           Giỏ đang trống. Chọn hàng ở cửa hàng rồi thêm vào giỏ.
         </EmptyState>
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[3.75rem] w-full rounded-full bg-field text-[1.125rem] font-semibold text-foreground/70"
-          >
-            Đóng
-          </button>
-        </div>
+        {/* "Đóng" đáy đã bỏ — ngăn xem có × góc (rà bố cục 2026-10-22) */}
       </BottomSheet>
     );
   }
 
   return (
-    <BottomSheet title="Giỏ hàng" onClose={onClose}>
+    <BottomSheet kieu="form" title="Giỏ hàng" onClose={onClose}>
       {/* ── Danh sách dòng hàng ─────────────────────────────────────── */}
       <ul className="space-y-2.5">
         {resolved.map(({ line, product, available }) => (
@@ -368,7 +360,7 @@ export function CartSheet({
       <form onSubmit={submit} className="mt-4">
         {/* MỘT dòng đọc-được thay 4 ô bày sẵn + ô nút "Sửa" inline (luật C1) */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] leading-snug text-foreground/80">
               Giao:{" "}
               <span className="font-semibold text-navy">
@@ -445,7 +437,7 @@ export function CartSheet({
 
         {/* Ghi chú — tự nhãn đã nhận là tuỳ chọn ⇒ thu sau một ô nút */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Ghi chú:{" "}
               <span className="font-semibold text-navy">

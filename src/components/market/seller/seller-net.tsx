@@ -16,6 +16,7 @@ import { saveShopFlag } from "@/lib/market/seller-flag";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import type { Shop } from "@/lib/market/types";
 import { useAuthUser } from "@/lib/use-auth";
+import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 export type LoadState<T> =
   | { kind: "loading" }
@@ -247,7 +248,7 @@ export function InlineNote({ text, level = "ok" }: { text: string; level?: "ok" 
   const [shown, setShown] = useState(true);
   useEffect(() => {
     setShown(true);
-    const t = setTimeout(() => setShown(false), 5000);
+    const t = setTimeout(() => setShown(false), NOTIFY_HIDE_LONG_MS);
     return () => clearTimeout(t);
   }, [text]);
   if (!shown || !text) return null;

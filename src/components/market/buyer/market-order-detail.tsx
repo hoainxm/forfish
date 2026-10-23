@@ -32,6 +32,7 @@ import { REVIEW_MAX } from "@/lib/market/validate";
 import { useAuthUser } from "@/lib/use-auth";
 import { ErrorBlock } from "./ui";
 import { useMarketCart, useOnlineState } from "./hooks";
+import { NOTIFY_HIDE_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 type Act = "huy" | "da-nhan" | "bao-chuyen";
 
@@ -196,7 +197,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
     try {
       await navigator.clipboard.writeText(order.code);
       setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
+      setTimeout(() => setCopied(false), NOTIFY_HIDE_MS);
     } catch {
       setCopied(false);
     }
@@ -543,7 +544,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
       )}
 
       {reviewLine && (
-        <BottomSheet title={`Đánh giá ${reviewLine.title}`} onClose={() => setReviewLine(null)}>
+        <BottomSheet kieu="form" title={`Đánh giá ${reviewLine.title}`} onClose={() => setReviewLine(null)}>
           <div className="pb-3">
             <RatingStars value={rating} interactive onChange={setRating} className="justify-center" />
             <textarea

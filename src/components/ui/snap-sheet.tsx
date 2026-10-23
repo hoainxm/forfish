@@ -413,7 +413,10 @@ export function SnapSheet({
            onScrollCapture ở <section> trên — cuộn quán tính (buông tay trang vẫn
            trôi) KHÔNG bắn pointerdown, thiếu thì đang trôi giữa chừng sheet sập. */
         <div
-          className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2 [overscroll-behavior:contain]"
+          /* KHÔNG cộng env(safe-area-inset-bottom) lần nữa (rà bố cục 2026-10-22): khung bản đồ
+             (.full-map) đã dừng ở --dock-total — gồm --dock-safe — nên vùng an toàn đã nằm
+             dưới khung; cộng thêm là chừa trống hai lần trên iPhone có thanh home. */
+          className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2 [overscroll-behavior:contain]"
         >
           {children}
         </div>

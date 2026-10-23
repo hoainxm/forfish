@@ -41,8 +41,8 @@ export function EtaSheet({
   const pick: EtaPick | null = preset == null ? null : preset === "chon" ? { etaFrom: from, etaTo: to < from ? from : to } : presetRange(preset, today);
   const err = pick ? validateEta(pick.etaFrom, pick.etaTo, today) : null;
   return (
-    <BottomSheet title={title} onClose={onClose}>
-      <div className="px-4 pb-4">
+    <BottomSheet kieu="form" title={title} onClose={onClose}>
+      <div className="pb-4">{/* không lề riêng — BottomSheet đã p-5 (rà bố cục 2026-10-22) */}
         <p className="mb-3 text-[1rem] text-foreground/80">Người mua sẽ thấy ngày hẹn này. Chưa chắc thì chọn khoảng rộng.</p>
         <div className="grid grid-cols-2 gap-2">
           {ETA_PRESETS.map((p) => (

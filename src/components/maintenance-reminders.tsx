@@ -303,7 +303,7 @@ export function MaintenanceReminders() {
                   mà nó thao tác lên. */}
               <div className="tau-record space-y-2 p-3">
                 <div className="flex items-stretch gap-2">
-                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                  <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                     <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
                       {entry.item}
                     </p>
@@ -328,7 +328,7 @@ export function MaintenanceReminders() {
                 </div>
 
                 <div className="flex items-stretch gap-2">
-                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                  <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                     <p className="text-[1rem] text-foreground/70">
                       Chu kỳ: mỗi {entry.intervalDays} ngày · làm gần nhất{" "}
                       <strong>{formatVnDate(entry.lastDone)}</strong>
@@ -349,7 +349,7 @@ export function MaintenanceReminders() {
 
                 {entry.note && (
                   <div className="flex items-stretch gap-2">
-                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                    <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                       <p className="text-[0.875rem] text-foreground/70">
                         {entry.note}
                       </p>
@@ -458,7 +458,7 @@ function MaintenanceForm({
   }
 
   return (
-    <BottomSheet
+    <BottomSheet kieu="form"
       title={initial ? "Sửa nhắc nhở bảo dưỡng" : "Thêm nhắc nhở bảo dưỡng"}
       onClose={onCancel}
     >
@@ -540,7 +540,7 @@ function MaintenanceForm({
         {/*  "Làm gần nhất" MÁY ĐÃ ĐIỀN SẴN hôm nay ⇒ dòng đọc-được + ô "Sửa";
             "Ghi chú thêm" là tuỳ chọn ⇒ thu sau ô "Mở" (luật C1). */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] text-foreground/80">
               Làm gần nhất:{" "}
               <span className="font-semibold text-navy">
@@ -570,7 +570,7 @@ function MaintenanceForm({
         )}
 
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Ghi chú:{" "}
               <span className="font-semibold text-navy">
@@ -601,7 +601,7 @@ function MaintenanceForm({
 
         {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
         <div className="mt-3 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[0.875rem] text-foreground/70">
               Nhắc lại sau mỗi {Math.max(1, Number(intervalDays) || 60)} ngày.
             </p>

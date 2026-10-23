@@ -144,13 +144,7 @@ export function FishSpeciesSheet({
           onClose();
         }}
       />
-      <button
-        type="button"
-        onClick={onClose}
-        className="mt-1 min-h-[3.5rem] w-full rounded-xl bg-navy text-[1.125rem] font-semibold text-white transition active:scale-[0.99]"
-      >
-        Xong
-      </button>
+      {/* nút "Xong" ĐÃ BỎ — chọn loài là áp ngay + đóng; ngăn có × góc (rà bố cục 2026-10-22) */}
     </BottomSheet>
   );
 }

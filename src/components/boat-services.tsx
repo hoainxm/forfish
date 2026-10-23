@@ -41,7 +41,9 @@ export function BoatServices() {
           (luật A4 — gọi TÊN VIỆC, không hứa kết quả). */}
       <div className="mb-5">
         <div className="flex items-center gap-2">
-          <p className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">
+          {/* cùng cỡ tiêu đề mục 1.125rem như "Tủ giấy tờ", "Sổ nhắc bảo dưỡng", "Thiết bị
+              đang dùng" (rà bố cục 2026-10-22 — trước 1rem, lệch bậc) */}
+          <p className="min-w-0 flex-1 text-[1.125rem] font-semibold text-navy">
             {activeServices.length} dịch vụ đang dùng
           </p>
           <SdvicoRequestButton topic="sua-chua" label="Gọi SDVICO" />

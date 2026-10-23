@@ -17,6 +17,7 @@ import { marketSend } from "@/lib/market/client";
 import type { Product, Shop } from "@/lib/market/types";
 import { InlineNote, LoadView, marketErrorText, useInlineNote, useMarketData, useMyShop } from "./seller-net";
 import { SELLER_BTN, SELLER_BTN_WIDE } from "./ui";
+import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 type Filter = "all" | "dang_ban" | "an" | "het_hang" | "bi_go";
 const FILTERS: readonly ChipOption<Filter>[] = [
@@ -160,7 +161,7 @@ function Rows({
   // "Hoàn lại" chỉ sống 5 s như dòng báo cạnh nó — quá đó coi như bà con đã đồng ý
   useEffect(() => {
     if (!undo) return;
-    const t = setTimeout(() => setUndo(null), 5000);
+    const t = setTimeout(() => setUndo(null), NOTIFY_HIDE_LONG_MS);
     return () => clearTimeout(t);
   }, [undo]);
 

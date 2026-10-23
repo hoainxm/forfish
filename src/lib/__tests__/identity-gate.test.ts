@@ -316,9 +316,11 @@ describe("gỡ tài khoản khỏi máy — cả hai đường đều gỡ push"
     expect(src).toContain("onClick={() => setConfirmForget(true)}");
     // `forgetThisDevice` chỉ được nối vào ĐÚNG MỘT nút, và nút đó nằm TRONG
     // sheet xác nhận (sau tiêu đề sheet), không phải nút ngoài danh sách
-    const wired = src.match(/onClick=\{forgetThisDevice\}/g) ?? [];
+    // 2026-10-22: hộp xác nhận chuyển sang ConfirmDialog dùng chung (rà bố cục) — nối qua
+    // `onConfirm`, vẫn ĐÚNG MỘT chỗ và nằm sau tiêu đề hộp
+    const wired = src.match(/(onClick|onConfirm)=\{forgetThisDevice\}/g) ?? [];
     expect(wired).toHaveLength(1);
-    expect(src.indexOf("onClick={forgetThisDevice}")).toBeGreaterThan(
+    expect(src.indexOf("onConfirm={forgetThisDevice}")).toBeGreaterThan(
       src.indexOf("Xoá tài khoản khỏi máy này?"),
     );
     // câu chữ đã chốt: nói thẳng đăng nhập lại cần sóng
@@ -326,9 +328,9 @@ describe("gỡ tài khoản khỏi máy — cả hai đường đều gỡ push"
     expect(src).toContain("đăng nhập lại — việc đó cần sóng");
     // CẶP NÚT MỘT KHUÔN: `Thôi` / `<động từ>` — cùng số chữ, không dài ngắn
     // lệch nhau giữa các sheet (luật nhãn cụm ngang hàng, 03-design-system)
-    expect(src).toMatch(/>\s*Thôi\s*<\/button>/);
+    expect(src).toContain('cancelLabel="Thôi"');
     expect(src).not.toContain("Thôi, để nguyên");
-    expect(src).toMatch(/>\s*Xoá\s*<\/button>/);
+    expect(src).toContain('confirmLabel="Xoá"');
     // và KHÔNG còn câu trấn an sai hoàn cảnh
     expect(src).not.toContain("đăng nhập lại là thấy");
   });

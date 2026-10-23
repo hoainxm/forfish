@@ -401,8 +401,8 @@ function CancelSheet({
   const [reason, setReason] = useState("");
   const short = reason.trim().length < 5;
   return (
-    <BottomSheet title="Huỷ đơn — vì sao?" onClose={onClose}>
-      <div className="px-4 pb-4">
+    <BottomSheet kieu="form" title="Huỷ đơn — vì sao?" onClose={onClose}>
+      <div className="pb-4">{/* không lề riêng — BottomSheet đã p-5 (rà bố cục 2026-10-22) */}
         {refundVnd > 0 && (
           <div className="mb-3 rounded-2xl px-4 py-3" style={{ backgroundColor: "var(--danger-bg)" }}>
             <p className="text-[1rem] font-semibold leading-snug" style={{ color: "var(--danger)" }}>
@@ -446,8 +446,8 @@ function ShipSheet({ busy, onClose, onSend }: { busy: boolean; onClose: () => vo
   const [carrier, setCarrier] = useState("");
   const [tracking, setTracking] = useState("");
   return (
-    <BottomSheet title="Giao hàng" onClose={onClose}>
-      <div className="px-4 pb-4">
+    <BottomSheet kieu="form" title="Giao hàng" onClose={onClose}>
+      <div className="pb-4">{/* không lề riêng — BottomSheet đã p-5 (rà bố cục 2026-10-22) */}
         <div className="-mx-4 mb-3">
           <ChipRow options={CARRIER_CHIPS} value={carrier} onChange={setCarrier} accent="t3" level={1} ariaLabel="Cách giao" />
         </div>
@@ -470,8 +470,8 @@ function PayNoteSheet({ busy, onClose, onSend }: { busy: boolean; onClose: () =>
   const [reason, setReason] = useState("");
   const short = reason.trim().length < 5;
   return (
-    <BottomSheet title="Chưa thấy tiền về" onClose={onClose}>
-      <div className="px-4 pb-4">
+    <BottomSheet kieu="form" title="Chưa thấy tiền về" onClose={onClose}>
+      <div className="pb-4">{/* không lề riêng — BottomSheet đã p-5 (rà bố cục 2026-10-22) */}
         <Field label="Nói rõ cho người mua kiểm lại">
           <textarea
             className={inputClass}

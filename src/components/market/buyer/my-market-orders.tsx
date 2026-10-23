@@ -164,16 +164,19 @@ export function MyMarketOrders() {
 
   return (
     <div className="pb-[7rem]">
-      <div className="mb-3 grid grid-cols-4 gap-1 px-3 pt-3" role="group" aria-label="Lọc đơn">
+      {/* lề 16px như khối dưới; "đang chọn" = NAVY như ChipRow (trước màu khu t3 nâu cam —
+          kiểu đang-chọn thứ ba của app); chữ 0.875rem như chip tầng 1 để "Đang xử lý" không
+          gãy dòng trong ô 1/4 bề ngang (rà bố cục 2026-10-22) */}
+      <div className="mb-3 grid grid-cols-4 gap-1.5 px-4 pt-3" role="group" aria-label="Lọc đơn">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
             aria-pressed={t.id === tab}
-            className="flex min-h-(--row-h) flex-col items-center justify-center rounded-2xl px-1 text-[1rem] font-semibold leading-tight"
+            className="flex min-h-(--row-h) flex-col items-center justify-center rounded-2xl px-1 text-[0.875rem] font-semibold leading-tight"
             style={{
-              backgroundColor: t.id === tab ? "var(--t3)" : "var(--field)",
+              backgroundColor: t.id === tab ? "var(--navy)" : "var(--field)",
               color: t.id === tab ? "var(--card)" : "var(--navy)",
             }}
           >

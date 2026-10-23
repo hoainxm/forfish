@@ -552,7 +552,7 @@ function CrewForm({
   }
 
   return (
-    <BottomSheet
+    <BottomSheet kieu="form"
       title={initial ? "Sửa thông tin bạn thuyền" : "Thêm bạn thuyền"}
       onClose={onCancel}
     >
@@ -600,7 +600,7 @@ function CrewForm({
             hạ xuống một DÒNG ĐỌC-ĐƯỢC + ô nút "Đổi" (luật C1 câu hỏi 2: máy
             biết rồi thì điền sẵn, đừng hỏi — nhưng luôn kèm đường sửa). */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] text-foreground/80">
               Làm việc:{" "}
               <span className="font-semibold text-navy">{ROLE_LABELS[role]}</span>
@@ -637,7 +637,7 @@ function CrewForm({
             trong nhóm này chặn Lưu, bỏ đi việc vẫn xong ⇒ không phải KEY.
             Trước: 6 thứ bày cùng lúc kéo sheet lên 690px = 85% màn. */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] text-foreground/80">
               Giấy tờ, bảo hiểm:{" "}
               <span className="font-semibold text-navy">
@@ -725,7 +725,7 @@ function CrewForm({
         {/*  Hàng cuối theo khuôn B1: [thân nói việc còn thiếu / lỗi] + hai ô nút
             w-16. Trước là cặp Hủy/Lưu 162×60 ăn riêng một hàng (luật A2/A3). */}
         <div className="mt-3 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p
               className={`text-[0.875rem] ${err ? "font-semibold text-danger" : "text-foreground/70"}`}
             >
@@ -1012,7 +1012,7 @@ function ReportSheet({
   }, []);
 
   return (
-    <BottomSheet title="Gửi báo cáo bạn thuyền" onClose={onClose}>
+    <BottomSheet kieu="form" title="Gửi báo cáo bạn thuyền" onClose={onClose}>
       {locked ? (
         <PremiumLock
           access={access}
@@ -1031,7 +1031,7 @@ function ReportSheet({
               cái tên đó vào một ô nhập 61px. Nay tên nằm ở đây, muốn sửa thì bấm
               ô "Sửa" ngay cuối chính hàng nó. */}
           <div className="mb-3 -mt-1 flex items-stretch gap-2">
-            <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
               <p className="text-[0.875rem] tabular-nums text-foreground/70">
                 {subjName ? (
                   <strong className="text-navy">{subjName} · </strong>
@@ -1173,7 +1173,7 @@ function ReportForm({
       {/* Loại vấn đề: một hàng chuẩn, bấm mới bung — chọn xong đóng lại và thân
           hàng in tên loại đã chọn. */}
       <div className="mb-2 flex items-stretch gap-2">
-        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+        <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p className="text-[1rem] text-foreground/80">
             Vấn đề:{" "}
             <span className="font-semibold text-navy">
@@ -1214,7 +1214,7 @@ function ReportForm({
       )}
 
       <div className="mb-2 flex items-stretch gap-2">
-        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+        <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p className="text-[1rem] text-foreground/80">
             Kể rõ hơn{" "}
             <span className="font-semibold text-navy">
@@ -1246,7 +1246,7 @@ function ReportForm({
 
       {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
       <div className="mt-2 flex items-stretch gap-2">
-        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+        <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p
             className={`text-[0.875rem] ${msg ? "font-semibold text-danger" : "text-foreground/70"}`}
           >

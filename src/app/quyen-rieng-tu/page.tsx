@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
-import { ChevronLeftIcon } from "@/components/icons";
 import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
 
 export const metadata = {
@@ -71,18 +69,10 @@ export default function QuyenRiengTuPage() {
         sub="Xem chi tiết về việc ứng dụng thu thập và sử dụng dữ liệu của bà con (không cần đăng nhập)."
         toColor="var(--sea)"
       />
-      <div className="px-4 pt-3">
-        <Link
-          href="/"
-          className="inline-flex min-h-[3.5rem] items-center gap-1.5 text-[1rem] font-semibold text-sea"
-        >
-          <ChevronLeftIcon className="h-5 w-5" />
-          Quay lại
-        </Link>
-      </div>
+      {/* link "‹ Quay lại" riêng ĐÃ BỎ — đầu trang (thanh sáng chung) có nút ‹ (rà bố cục 2026-10-22) */}
 
 
-      <div className="px-5 pt-5">
+      <div className="px-4 pt-5">
         <p className="mb-5 rounded-2xl bg-field px-4 py-3 text-[1rem] leading-relaxed text-foreground/80">
           <b>SDFish</b> là ứng dụng đồng hành cùng ngư dân do <b>Công ty SDVICO</b> phát
           hành. Chính sách này giải thích bằng lời dễ hiểu: app giữ những gì, để

@@ -29,6 +29,7 @@ import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC
 import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
 import { SenBienIcon, useSenAria } from "@/components/sen-bien-icon";
 import { lyDoMicro, setSenSignal } from "@/lib/sen-bien-state";
+import { useEscape } from "@/lib/use-escape";
 
 let modelP: Promise<NgramModel | null> | null = null;
 /** Tải trọng số một lần / phiên. Lỗi ⇒ null (lùi về dò tên), lần sau thử lại. */
@@ -514,6 +515,10 @@ export function SenBienSheet({
     return () => document.removeEventListener("pointerdown", ngoai, true);
   }, [awaitingGo, onClose, keoProps.ref]);
 
+  // PHÍM ESCAPE đóng như mọi hộp (rà bố cục 2026-10-22 — bong bóng có role=dialog mà
+  // không đóng được bằng bàn phím). Lúc chờ "Đi/Thôi" vẫn giữ — cùng luật chạm ra ngoài.
+  useEscape(!awaitingGo, onClose);
+
   // TỰ THU VỀ khi rảnh — không có nút ×. Loa còn đọc câu trả lời thì CHƯA rảnh (2026-10-18: câu dài > 5 s
   // làm thẻ thu giữa chừng, mất lượt tự nghe tiếp — "giao tiếp 2 chiều"); đếm lại từ lúc đọc xong.
   useEffect(() => {
@@ -561,7 +566,7 @@ export function SenBienSheet({
           ...(huong.phai ? { right: Math.max(8, khung.w - pos.left - ICON_PX) } : { left: pos.left }),
           transformOrigin: `${huong.phai ? "calc(100% - 2rem)" : "2rem"} ${huong.len ? "100%" : "0%"}`,
         }}
-        className={`anim-giot pointer-events-auto absolute z-40 space-y-1.5 rounded-3xl bg-card p-1.5 shadow-float ${
+        className={`anim-giot pointer-events-auto absolute z-40 space-y-1.5 max-h-[70dvh] overflow-y-auto rounded-2xl bg-card p-1.5 shadow-float [overscroll-behavior:contain] ${
           // chat: ~2/3 bề ngang (chủ dự án: "bong bóng chỉ chiếm 2/3 thôi, không phải full")
           mode === "chat" ? "w-[66%] min-w-[15rem]" : "w-max max-w-[min(22rem,calc(100%-1rem))]"
         }`}

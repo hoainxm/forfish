@@ -270,7 +270,7 @@ export function ProductDetail({ id }: { id: string }) {
 
         {/* ── Tên + giá ─────────────────────────────────────────────────── */}
         <div className="flex items-start gap-3">
-          <h2 className="display min-w-0 flex-1 text-[1.375rem] font-semibold leading-snug text-navy">{product.title}</h2>
+          <h1 className="display min-w-0 flex-1 text-[1.375rem] font-bold leading-snug text-navy">{product.title}</h1>
           <button
             type="button"
             onClick={onFav}

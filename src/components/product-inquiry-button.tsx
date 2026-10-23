@@ -136,7 +136,7 @@ function InquiryForm({
 
   if (state === "done") {
     return (
-      <BottomSheet title="Đã gửi yêu cầu" onClose={onClose}>
+      <BottomSheet kieu="form" title="Đã gửi yêu cầu" onClose={onClose}>
         <div
           className="rounded-[1.25rem] px-4 py-8 text-center"
           style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
@@ -157,7 +157,7 @@ function InquiryForm({
   }
 
   return (
-    <BottomSheet title="Để lại yêu cầu tư vấn" onClose={onClose}>
+    <BottomSheet kieu="form" title="Để lại yêu cầu tư vấn" onClose={onClose}>
       <form onSubmit={submit}>
         <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy">
           Về: {listingTitle}

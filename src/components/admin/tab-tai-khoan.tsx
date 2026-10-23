@@ -13,6 +13,7 @@ import { DEFAULT_CUSTOMER_PASSWORD } from "@/lib/temp-password";
 import { PREMIUM_TERM_MAX_MONTHS, PREMIUM_TERM_MIN_MONTHS, PREMIUM_TERM_MONTHS, PREMIUM_TERM_PRESETS, clampTermMonths, nextPremiumUntil, premiumTermLabel, resolveTier } from "@/lib/tier";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Me, fmtD, fmtDT, fold, permsFor } from "@/components/admin/quan-tri-chung";
+import { useEscape } from "@/lib/use-escape";
 
 export type Account = {
   phone: string;
@@ -119,6 +120,7 @@ export function AccountsTab({ me }: { me: Me }) {
   const [toRevoke, setToRevoke] = useState<Account | null>(null);
   // NV3 — ghi thu tiền: khách đang nhập mã + nội dung ô mã CK
   const [toPay, setToPay] = useState<Account | null>(null);
+  useEscape(toPay != null, () => setToPay(null)); // rà bố cục 2026-10-22: Escape đóng hộp ghi thu
   const [payCode, setPayCode] = useState("");
   // thông báo thành công (đặt lại mật khẩu…) — tách khỏi error để không đỏ oan
   const [notice, setNotice] = useState<string | null>(null);
@@ -1009,8 +1011,10 @@ export function AccountsTab({ me }: { me: Me }) {
 
       {/* NV3 — dialog nhập MÃ CK ghi thu tiền */}
       {toPay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="surface w-full max-w-[26.25rem] p-5">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4">
+          {/* z-40 + nền đen 50% như ConfirmDialog (trước z-50/40%: ConfirmDialog mở từ đây nằm
+              DƯỚI hộp này); giới hạn cao + cuộn trong (rà bố cục 2026-10-22) */}
+          <div role="dialog" aria-modal="true" className="surface max-h-[85dvh] w-full max-w-[26.25rem] overflow-y-auto p-5">
             <p className="display text-[1.125rem] font-bold text-navy">
               Ghi thu tiền — {toPay.phone}
             </p>

@@ -453,7 +453,7 @@ function DocumentForm({
   }
 
   return (
-    <BottomSheet
+    <BottomSheet kieu="form"
       title={initial ? "Sửa thông tin giấy tờ" : "Thêm giấy tờ mới"}
       onClose={onCancel}
     >
@@ -476,7 +476,7 @@ function DocumentForm({
             kind tới khi user gõ tay) ⇒ form đang hỏi thứ mình vừa tự trả lời.
             Hạ xuống MỘT DÒNG đọc-được + ô nút "Sửa" (luật C1 câu hỏi 2). */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Tên gọi:{" "}
               <span className="font-semibold text-navy">
@@ -520,7 +520,7 @@ function DocumentForm({
             lưu được ⇒ không phải KEY, thu sau một nút (luật C1/C2 — sheet đo
             thật 690px = 85% màn, trần ~40%). */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Số giấy:{" "}
               <span className="font-semibold text-navy">
@@ -571,16 +571,16 @@ function DocumentForm({
         )}
 
         {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
-        <div className="mt-3 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-            <p className="text-[0.875rem] text-foreground/70">
+        {/* câu nhắc DÒNG RIÊNG, hai ô nút lệch phải dòng dưới (rà bố cục 2026-10-22: chung một
+            hàng với hai ô 64px thì câu nhắc bị ép thành cột ~190px, gãy 4 dòng) */}
+        <p className="mt-3 text-[0.875rem] leading-snug text-foreground/70">
               {expiresOn
                 ? "Thông tin đã đủ để app nhắc hạn."
                 : kindUsuallyNoExpiry(kind)
                   ? "Giấy này thường không thời hạn — để trống ngày hết hạn."
                   : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc nhở giúp bà con."}
             </p>
-          </div>
+        <div className="mt-2 flex items-stretch justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}

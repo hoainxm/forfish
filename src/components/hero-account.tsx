@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   BellIcon,
   ChevronRightIcon,
-  CloseIcon,
   LockIcon,
   TrashIcon,
   UsersIcon,
@@ -589,7 +589,9 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             /*  Nút "Đăng xuất" về INLINE cuối hàng danh tính (luật A2/A3) —
                 trước là dải full-width ăn riêng một hàng. */
             <div className="mb-4 flex items-stretch gap-2">
-              <div className="min-w-0 flex-1 surface px-4 py-3">
+              {/* KHÔNG khung viền (rà bố cục 2026-10-22): thẻ viền 1px trông y hệt ô nhập liệu ⇒
+                  bà con tưởng gõ được số. Danh tính là CHỮ, sát mép tiêu đề ngăn. */}
+              <div className="min-w-0 flex-1 py-1">
               {name && (
                 <p className="display text-[1.125rem] font-semibold text-navy">
                   Bác {name}
@@ -722,7 +724,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             <Link
               href="/ban-hang/dang-ky"
               onClick={() => setOpen(false)}
-              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left text-[1rem] text-foreground/65"
+              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 text-left text-[1rem] text-foreground/65"
             >
               <span className="min-w-0 flex-1">Bà con có bán vật tư? Đăng ký shop</span>
               <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
@@ -738,7 +740,8 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
               hành động; phần còn lại thu lại. CHỈ đổi CHỖ ĐẶT, KHÔNG đụng cơ chế
               "gọn"/"to" (ngoài phạm vi đợt này). */}
           <div className="mb-4 flex items-stretch gap-2">
-            <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
+            {/* sát mép tiêu đề ngăn (trước px-4 trên nền trùng màu ngăn = thụt 16px vô cớ) */}
+            <div className="flex min-w-0 flex-1 items-center py-3">
               <p className="text-[1rem] font-semibold text-navy">Cài đặt khác</p>
             </div>
             <button
@@ -757,7 +760,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
           {showSettings && (
             <>
           {/* cỡ giao diện — auto theo máy là NỀN; chỉ bày 2 tùy chọn ghi đè */}
-          <p className="mb-1.5 px-1 text-[0.8125rem] font-semibold text-foreground/65">
+          <p className="mb-1.5 text-[0.8125rem] font-semibold text-foreground/65">
             Cỡ chữ và nút
           </p>
           {/*  Bỏ hai dòng hướng dẫn (D1): hai hàng chọn ngay dưới đã tự nói
@@ -934,55 +937,30 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
           Một chạm mà xoá luôn dấu đó thì bác mất dự báo cá cả chuyến — và
           "đăng nhập lại" là việc cần sóng, tức là không làm được ngay. */}
       {confirmForget && (
-        <BottomSheet
+        /*  HỘP XÁC NHẬN DÙNG CHUNG (rà bố cục 2026-10-22): trước dựng bằng BottomSheet thứ hai
+            với hai ô vuông lệch phải — khác mọi xác nhận phá huỷ khác của app. Nay qua
+            ConfirmDialog: cặp "Thôi | Xoá" nằm ngang, Thôi trái, focus vào Thôi trước. */
+        <ConfirmDialog
           title="Xoá tài khoản khỏi máy này?"
-          onClose={() => setConfirmForget(false)}
+          cancelLabel="Thôi"
+          confirmLabel="Xoá"
+          onCancel={() => setConfirmForget(false)}
+          onConfirm={forgetThisDevice}
         >
-          <p className="text-[1.125rem] leading-snug text-navy">
-            Máy sẽ quên: thư cũ · số điện thoại · hồ sơ tàu · sổ thuyền viên ·
-            giấy tờ · danh bạ · quyền premium đã lưu.
+          <p className="mt-1 text-[1rem] leading-snug text-navy">
+            Máy sẽ quên: thư cũ · số điện thoại · hồ sơ tàu · sổ thuyền viên · giấy tờ · danh
+            bạ · quyền premium đã lưu.
           </p>
           <p className="mt-2 text-[1rem] leading-snug text-foreground/75">
             Muốn dùng lại thì phải{" "}
-            <span className="font-semibold text-navy">
-              đăng nhập lại — việc đó cần sóng
-            </span>
-            .
+            <span className="font-semibold text-navy">đăng nhập lại — việc đó cần sóng</span>.
           </p>
-          {/* NÓI ĐÚNG CÁI MÌNH LÀM ĐƯỢC (sửa 2026-08-02c): `detachPushAccount()`
-              là bắn-rồi-quên, mất sóng là hụt và KHÔNG có hàng đợi thử lại;
-              đường bù duy nhất là `syncPushAccount`, mà nó chỉ chạy lúc ĐĂNG
-              NHẬP. Nên "cho tới lần có sóng sau" là một lời hứa sai — có sóng
-              mà không ai đăng nhập thì endpoint vẫn trỏ về chủ tàu. */}
+          {/* NÓI ĐÚNG CÁI MÌNH LÀM ĐƯỢC (sửa 2026-08-02c): `detachPushAccount()` là bắn-rồi-quên,
+              mất sóng là hụt — "cho tới lần có sóng sau" là lời hứa sai. */}
           <p className="mt-2 text-[0.9375rem] leading-snug text-foreground/70">
-            Tin nhắn riêng cho chủ tàu có thể vẫn hiện trên máy này cho tới khi
-            có người đăng nhập.
+            Tin nhắn riêng cho chủ tàu có thể vẫn hiện trên máy này cho tới khi có người đăng nhập.
           </p>
-          {/* CẶP NÚT XÁC NHẬN — MỘT KHUÔN CHO CẢ APP: `Thôi` / `<động từ>`.
-              Cùng số chữ, cùng min-h 3.5rem (56px, sàn tap target); phân vai
-              bằng NỀN (giữ nguyên có nền, hành động có nền trong suốt + màu
-              trim), không bằng chiều cao. */}
-          {/*  MỘT hàng ngang hai ô w-16 (luật A2/A3) — GIỮ NGUYÊN đường lùi:
-              "Không" vẫn là ô đầu tiên, vẫn đóng sheet mà không xoá gì. */}
-          <div className="mt-5 flex items-stretch justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setConfirmForget(false)}
-              className={`${SQ_BTN} min-h-[3.5rem] bg-field text-navy`}
-            >
-              <CloseIcon className="h-6 w-6" />
-              Thôi
-            </button>
-            <button
-              type="button"
-              onClick={forgetThisDevice}
-              className={`${SQ_BTN} min-h-[3.5rem] bg-field text-trim`}
-            >
-              <TrashIcon className="h-6 w-6" />
-              Xoá
-            </button>
-          </div>
-        </BottomSheet>
+        </ConfirmDialog>
       )}
     </>
   );

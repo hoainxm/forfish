@@ -510,6 +510,15 @@ textarea,
   Thẻ theo mẫu Codex (2026-10-19): trắng, VIỀN 1px line, bo 1rem, bóng rất nhẹ —
   ít lớp, nền sáng; thay bản "không viền + bóng mềm bo 20px" cũ.
 */
+/*  Ô CHỮ KHUÔN B1 ([thân flex-1] + [ô nút]) TRONG NGĂN/HỘP (rà bố cục 2026-10-22, theo form
+    iOS/Material): nền `bg-background` trùng màu ngăn nên ô vô hình, chỉ còn lề 12px làm chữ
+    thụt lệch khỏi mép nhãn trường. Trong hộp thoại: bỏ nền + lề ngang ⇒ chữ thẳng mép. Ngoài
+    trang (thẻ trắng) ô vẫn là mảng nền như cũ. Luật KHÔNG nằm trong @layer ⇒ thắng utility. */
+[role="dialog"] .o-chu {
+  background: transparent;
+  padding-inline: 0;
+}
+
 .surface {
   background: var(--card);
   border: 1px solid var(--line);

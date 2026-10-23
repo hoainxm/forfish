@@ -220,8 +220,10 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
       </div>
 
       {addrSheet && addr && (
-        <BottomSheet title="Địa chỉ nhận hàng" onClose={() => setAddrSheet(false)}>
-          <div className="px-4 pb-4">
+        <BottomSheet kieu="form" title="Địa chỉ nhận hàng" onClose={() => setAddrSheet(false)}>
+          {/* KHÔNG lề riêng: BottomSheet đã p-5 — px-4 thêm làm nhãn thụt 16px so với tiêu đề
+              ngăn (rà bố cục 2026-10-22) */}
+          <div className="pb-4">
             <AddressForm value={addr} onChange={setAddr} homeProvince={homeProvince} />
             <PrimaryButton
               onClick={() => {

@@ -4,6 +4,7 @@
 
 covers: src/lib/boats.ts, src/lib/region.ts, src/lib/places.ts, src/lib/sea.ts, src/lib/forecast-cache.ts, src/lib/offline-identity.ts, src/lib/inbox.ts, src/lib/offline-backup.ts, src/lib/auth-scope.ts, src/lib/user-sync.ts
 last_verified: 2026-10-07
+<!-- re-verified: 2026-10-22d — `forfish.installNudge.v2` thêm trường TUỲ CHỌN `snoozeUntil` (ms): bấm "Ẩn" trên thẻ Cài app = HOÃN 7 ngày (`markInstallNudgeSnoozed`, `INSTALL_NUDGE_SNOOZE_MS`), không còn tắt vĩnh viễn; Cài-rồi-huỷ hộp của máy vẫn `dismissed`. Bản lưu đời trước không có trường này đọc như cũ; vẫn KHÔNG sao lưu. -->
 <!-- re-verified: 2026-10-07 16:20 — KHOÁ MỚI `forfish.push.rekey.v1` (dấu đổi khoá VAPID đang dở, lib/push-client.ts) — thêm hàng + xếp `EXCLUDED` trong offline-backup.test (máy-riêng). Không đổi khoá cũ nào, không bump phiên bản kho. -->
 ttl_days: 180
 <!-- re-verified: 2026-10-06 17:25 — `user-sync.ts` đối chiếu code: metaCache/readMeta/setMeta/clearSyncMeta + nhánh kéo không đè dirty — khớp. THÊM hàng `forfish.sync.v1` (trước chỉ có trong ghi chú — trái luật "không có trong bảng = không tồn tại") với `ids` + `_owner`; không key mới, không bump. -->

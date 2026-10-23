@@ -49,7 +49,7 @@ import {
 } from "@/lib/storage-persist";
 import { isShellReady } from "@/lib/shell-ready";
 import { isOffline, subscribeOnline } from "@/lib/use-online";
-import { NOTIFY_HIDE_MS } from "@/lib/notify";
+import { NOTIFY_HIDE_LONG_MS, NOTIFY_HIDE_MS } from "@/lib/notify";
 import { AlertIcon, CheckIcon } from "@/components/icons";
 import { SQ_BTN } from "@/components/ui/sq-btn";
 
@@ -195,7 +195,9 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
   // tự tắt sau khi đã nói xong (lúc đang tải thì cứ để đó)
   useEffect(() => {
     if (!note || note.kind === "busy") return;
-    const t = setTimeout(() => setNote(null), NOTIFY_HIDE_MS);
+    // cảnh báo (vàng) = luật 8 giây của lib/notify (rà bố cục 2026-10-22 — trước 3 giây
+    // cho cả câu cảnh báo hai dòng, chưa đọc xong đã tắt)
+    const t = setTimeout(() => setNote(null), note.kind === "warn" ? NOTIFY_HIDE_LONG_MS : NOTIFY_HIDE_MS);
     return () => clearTimeout(t);
   }, [note]);
 
@@ -758,13 +760,8 @@ function PretripSavedSheet({
         </div>
       )}
 
-      {/*  "Đóng" thành nút chữ gọn canh phải (bỏ dải xám full-width): sheet này
-          không có X, vuốt/chạm nền ngoài vẫn đóng. */}
-      <div className="mt-4 flex justify-end">
-        <button type="button" onClick={onClose} className={`${SQ_BTN} bg-field text-navy`}>
-          Đóng
-        </button>
-      </div>
+      {/* nút "Đóng" ở đáy ĐÃ BỎ (rà bố cục 2026-10-22): BottomSheet ngăn xem nay có × góc
+          trên-phải — 03 §Nút X mục 2: không để cả × lẫn nút đóng. */}
     </BottomSheet>
   );
 }

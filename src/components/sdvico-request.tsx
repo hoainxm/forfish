@@ -211,7 +211,7 @@ function RequestForm({
   if (state === "done") {
     const wasOrder = topic === "mua" && !!productName?.trim();
     return (
-      <BottomSheet
+      <BottomSheet kieu="form"
         title={wasOrder ? "Đã gửi đơn mua" : "Đã gửi yêu cầu tới SDVICO"}
         onClose={onClose}
       >
@@ -254,7 +254,7 @@ function RequestForm({
   }
 
   return (
-    <BottomSheet title="Gọi tổng đài SDVICO" onClose={onClose}>
+    <BottomSheet kieu="form" title="Gọi tổng đài SDVICO" onClose={onClose}>
       <form onSubmit={submit}>
         {productName && (
           <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy">

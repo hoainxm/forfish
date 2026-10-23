@@ -38,7 +38,7 @@ export function SdvicoAssignPrompt({ assets }: { assets: OwnedAssets | null }) {
   }
 
   return (
-    <BottomSheet title="Đồ này của tàu nào?" onClose={save}>
+    <BottomSheet kieu="form" title="Đồ này của tàu nào?" onClose={save}>
       <p className="mb-3 text-[0.9375rem] leading-snug text-foreground/70">
         Bà con có nhiều tàu — món này của tàu nào thì chọn tàu đó để app nhắc
         đúng. Không rõ thì cứ để &ldquo;Dùng chung&rdquo;.

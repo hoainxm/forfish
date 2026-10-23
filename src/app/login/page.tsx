@@ -329,7 +329,9 @@ export default function LoginPage() {
         </p>
         <p className="mt-1 text-center text-[0.9375rem] leading-snug text-foreground/60">
           Đăng nhập tức là bà con đồng ý với{" "}
-          <Link href="/quyen-rieng-tu" className="font-semibold text-sea underline">
+          {/* py-3 trên phần tử INLINE: nới vùng chạm lên ~44px mà không xô dòng chữ (rà bố cục
+              2026-10-22 — trước cao 19px, tay ướt bấm trượt) */}
+          <Link href="/quyen-rieng-tu" className="py-3 font-semibold text-sea underline">
             Chính sách quyền riêng tư
           </Link>
           .

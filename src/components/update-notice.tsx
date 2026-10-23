@@ -59,7 +59,10 @@ export function UpdateNotice() {
   return (
     <div
       role="status"
-      className="surface fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-50 mx-auto flex max-w-md items-center gap-2 py-2 pl-4 pr-2"
+      /* z-[28]: DƯỚI nền mờ của ngăn/hộp (z-30/40) — trước z-50 nổi đè lên hộp xác nhận
+         đang hỏi; rộng theo khung app --w-app (trước max-w-md 448px lệch khung 480px) —
+         rà bố cục 2026-10-22 */
+      className="surface fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[28] mx-auto flex max-w-[calc(var(--w-app)-1.5rem)] items-center gap-2 py-2 pl-4 pr-2"
     >
       <p className="min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-foreground">
         Có bản mới của app — cập nhật để dùng bản sửa lỗi mới nhất

@@ -150,7 +150,7 @@ export function StormBanner({
           <button
             type="button"
             onClick={() => setNoticeOpen(true)}
-            className="pointer-events-auto mx-auto flex h-(--h-ctl) w-fit items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-semibold text-warn shadow-md"
+            className="pointer-events-auto mx-auto flex min-h-(--h-ctl) w-fit items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-semibold text-warn shadow-md"
           >
             <AlertIcon className="h-4 w-4 shrink-0" />
             {stormNoticeShort(status, nowMs)} — chạm xem
@@ -173,7 +173,7 @@ export function StormBanner({
     return (
       <p
         role="status"
-        className="flex items-start gap-2 rounded-xl bg-warn-bg px-3 py-2.5 text-[1rem] font-semibold leading-snug text-warn"
+        className="flex items-start gap-2 rounded-2xl bg-warn-bg px-3 py-2.5 text-[1rem] font-semibold leading-snug text-warn"
       >
         <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
         <span>{noticeText}</span>
@@ -206,7 +206,7 @@ export function StormBanner({
         nhưng phủ nền xanh + chữ đậm làm tin "yên ổn" nặng như banner cảnh báo.
         Nền trạng thái chỉ dành cho có bão / không hỏi được (hai nhánh trên dưới). */
     return (
-      <p role="status" className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5">
+      <p role="status" className="flex items-center gap-3 rounded-2xl border border-line px-3 py-2.5">
         <CheckIcon className="h-5 w-5 shrink-0 text-ok" />
         <span className="min-w-0 leading-snug">
           <span className="block text-[1rem] text-navy">Không có tin bão trên Biển Đông</span>
@@ -222,7 +222,7 @@ export function StormBanner({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`pointer-events-auto mx-auto flex h-(--h-ctl) w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8125rem] font-semibold shadow-md ${
+        className={`pointer-events-auto mx-auto flex min-h-(--h-ctl) w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8125rem] font-semibold shadow-md ${
           anyDanger ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn"
         }`}
       >
@@ -256,7 +256,7 @@ export function StormBanner({
             role="alert"
             /*  nền màu cả thẻ + viền mảnh cùng tông, KHÔNG sọc màu dày bên trái
                 (sàn chất lượng Impeccable 2026-10-22: sọc trái >1px là khuôn mặc định) */
-            className={`flex items-start rounded-xl border ${variant === "overlay" ? "gap-2 p-3" : "gap-3 p-4"} ${
+            className={`flex items-start rounded-2xl border ${variant === "overlay" ? "gap-2 p-3" : "gap-3 p-4"} ${
               danger
                 ? "border-danger/30 bg-danger-bg"
                 : "border-warn/30 bg-warn-bg"

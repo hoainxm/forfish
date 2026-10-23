@@ -13,14 +13,18 @@ export const INSTALL_NUDGE_KEY = "forfish.installNudge.v2";
 export const INSTALL_NUDGE_LEGACY_KEY = "forfish.installNudge.dismissed.v1";
 export const INSTALL_NUDGE_MAX = 3;
 export const INSTALL_NUDGE_GAP_MS = 24 * 60 * 60 * 1000;
+/** "Ẩn" = HOÃN chừng này rồi mới nhắc lại (vẫn trong trần MAX lần) — 2026-10-22. */
+export const INSTALL_NUDGE_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type InstallNudgeState = {
   /** số lần đã hiện */
   count: number;
   /** mốc lần hiện gần nhất (ms), null = chưa lần nào */
   lastAt: number | null;
-  /** bà con đã tắt (X, hoặc Cài rồi huỷ) → im vĩnh viễn */
+  /** đã tắt hẳn (Cài rồi huỷ hộp cài của máy) → im vĩnh viễn */
   dismissed: boolean;
+  /** bấm "Ẩn" → im tới mốc này (ms); null = không hoãn */
+  snoozeUntil?: number | null;
 };
 
 export const EMPTY_NUDGE: InstallNudgeState = {
@@ -49,6 +53,10 @@ export function parseInstallNudge(
           ? j.lastAt
           : null,
       dismissed: j.dismissed === true,
+      // chỉ có khi bà con từng bấm "Ẩn" (khoá đời trước không có trường này)
+      ...(typeof j.snoozeUntil === "number" && Number.isFinite(j.snoozeUntil)
+        ? { snoozeUntil: j.snoozeUntil }
+        : {}),
     };
   } catch {
     return EMPTY_NUDGE;
@@ -62,6 +70,7 @@ export function shouldShowInstallNudge(
 ): boolean {
   if (s.dismissed) return false;
   if (s.count >= INSTALL_NUDGE_MAX) return false;
+  if (s.snoozeUntil != null && now < s.snoozeUntil) return false;
   if (s.lastAt != null && now - s.lastAt < INSTALL_NUDGE_GAP_MS) return false;
   return true;
 }
@@ -79,4 +88,13 @@ export function markInstallNudgeDismissed(
   s: InstallNudgeState,
 ): InstallNudgeState {
   return { ...s, dismissed: true };
+}
+
+/**
+ * Bà con bấm "Ẩn" trên thẻ (rà bố cục 2026-10-22, theo app đông người dùng): HOÃN 7 ngày rồi
+ * nhắc lại — không tắt vĩnh viễn (trước đây "Ẩn" = không bao giờ thấy lại, kể cả khi bà con
+ * chỉ muốn dẹp tạm lúc đang vội). Vẫn tính trong trần INSTALL_NUDGE_MAX lần.
+ */
+export function markInstallNudgeSnoozed(s: InstallNudgeState, now: number): InstallNudgeState {
+  return { ...s, snoozeUntil: now + INSTALL_NUDGE_SNOOZE_MS };
 }

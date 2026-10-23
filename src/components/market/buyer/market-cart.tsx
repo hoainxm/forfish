@@ -32,6 +32,7 @@ import { useOnlineRefetch } from "@/lib/market/use-online";
 import { CHECKOUT_MAX_SHOPS, ORDER_MAX_LINES } from "@/lib/market/validate";
 import { LoginInvite } from "./ui";
 import { useMarketCart, useOnlineState } from "./hooks";
+import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 type QuoteRes = { quote: CartQuote; titles: Record<string, string> };
 
@@ -210,7 +211,7 @@ export function MarketCart() {
     applyItems(removeMarketLine(prev, productId, variantLabel));
     setUndo({ items: prev, label });
     if (undoTimer.current) clearTimeout(undoTimer.current);
-    undoTimer.current = setTimeout(() => setUndo(null), 5000);
+    undoTimer.current = setTimeout(() => setUndo(null), NOTIFY_HIDE_LONG_MS);
   };
 
   // ── ma trận trạng thái ─────────────────────────────────────────────────

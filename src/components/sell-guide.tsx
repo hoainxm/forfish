@@ -447,7 +447,7 @@ function MyBuyers() {
           ngang cho MỘT việc, ăn trọn một hàng. Khuôn hàng lấy lại của mục Nậu
           vựa ("{list.length} vựa"). */}
       <div className="my-3 flex items-stretch gap-2">
-        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+        <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p className="text-[0.875rem] font-semibold text-foreground/70">
             {buyers.length} mối quen
           </p>
@@ -601,7 +601,7 @@ function BuyerForm({
   }
 
   return (
-    <BottomSheet
+    <BottomSheet kieu="form"
       title={initial ? "Sửa thông tin mối quen" : "Thêm mối quen"}
       onClose={onCancel}
     >
@@ -641,7 +641,7 @@ function BuyerForm({
 
         {/* Loại: đã có mặc định "Nậu vựa" ⇒ dòng đọc-được + ô sửa */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] text-foreground/80">
               Loại:{" "}
               <span className="font-semibold text-navy">{typeLabel(type)}</span>
@@ -674,7 +674,7 @@ function BuyerForm({
 
         {/* Cảng/bến + loài + ghi chú: thu sau một nút */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Bến:{" "}
               <span className="font-semibold text-navy">

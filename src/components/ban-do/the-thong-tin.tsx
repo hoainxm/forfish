@@ -6,6 +6,7 @@
 */
 import { type PlannedRoute } from "@/components/route-planner";
 import { CloseButton } from "@/components/ui/close-button";
+import { kepTheTrongKhung } from "@/components/ban-do/kep-the";
 import { CHART_FEATURE_ICON, diaDanhNgamSymbolId, reefSymbolId } from "@/lib/chart-symbols";
 import { chatDayLabel, laDayCung, type ChatDayMa } from "@/lib/chat-day";
 import { moTaDenBien, tenDayDu, type DenBien } from "@/lib/den-bien";
@@ -146,16 +147,10 @@ export type StormPtInfo = {
 export function TheBaoHieu({ info, onClose, prefs }: { info: MarkInfo; onClose: () => void; prefs: MapPrefs }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(
-          Math.max(8, info.x - 120),
-          window.innerWidth - 248,
-        ),
-        top: Math.min(info.y + 12, window.innerHeight - 180),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         <div className="min-w-0 flex-1">
           <p className="text-[1rem] font-semibold leading-tight text-navy">
             {seamarkLabel(info.mark.type)}
@@ -190,7 +185,7 @@ export function TheBaoHieu({ info, onClose, prefs }: { info: MarkInfo; onClose: 
             )}
           </p>
         </div>
-        <CloseButton
+        <CloseButton variant="goc"
           onClose={() => onClose()}
           label="Đóng thông tin báo hiệu"
         />
@@ -202,16 +197,10 @@ export function TheBaoHieu({ info, onClose, prefs }: { info: MarkInfo; onClose: 
 export function TheDoSau({ info, onClose, prefs, tideStations, todayIso }: { info: DepthInfo; onClose: () => void; prefs: MapPrefs; tideStations: TideStation[] | null; todayIso: string }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(
-          Math.max(8, info.x - 128),
-          window.innerWidth - 264,
-        ),
-        top: Math.min(info.y + 12, window.innerHeight - 200),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         <div className="min-w-0 flex-1">
           <p className="text-[1.25rem] font-semibold leading-tight text-navy">
             Sâu {fmtDepthM(info.s.depthM)} m
@@ -305,7 +294,7 @@ export function TheDoSau({ info, onClose, prefs, tideStations, todayIso }: { inf
             Thông báo hàng hải {info.s.notice.so}
           </p>
         </div>
-        <CloseButton
+        <CloseButton variant="goc"
           onClose={() => onClose()}
           label="Đóng thông tin độ sâu"
         />
@@ -317,13 +306,10 @@ export function TheDoSau({ info, onClose, prefs, tideStations, todayIso }: { inf
 export function TheDen({ info, onClose, prefs }: { info: DenInfo; onClose: () => void; prefs: MapPrefs }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(Math.max(8, info.x - 128), window.innerWidth - 264),
-        top: Math.min(info.y + 12, window.innerHeight - 210),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         <div className="min-w-0 flex-1">
           <p className="text-[1.125rem] font-semibold leading-tight text-navy">
             {tenDayDu(info.d)}
@@ -342,7 +328,7 @@ export function TheDen({ info, onClose, prefs }: { info: DenInfo; onClose: () =>
             {fmtCoordPair(info.d.lat, info.d.lon, prefs.coordFormat)}
           </p>
         </div>
-        <CloseButton onClose={() => onClose()} label="Đóng thông tin đèn biển" />
+        <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin đèn biển" />
       </div>
     </div>
   );
@@ -351,13 +337,10 @@ export function TheDen({ info, onClose, prefs }: { info: DenInfo; onClose: () =>
 export function TheXacTau({ info, onClose, prefs }: { info: XacTauInfo; onClose: () => void; prefs: MapPrefs }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(Math.max(8, info.px - 128), window.innerWidth - 264),
-        top: Math.min(info.py + 12, window.innerHeight - 200),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.px, info.py)}
+      className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         <div className="min-w-0 flex-1">
           <p className="text-[1.125rem] font-semibold leading-tight text-navy">
             {xacTauLabel(info.x.loai)}
@@ -375,7 +358,7 @@ export function TheXacTau({ info, onClose, prefs }: { info: XacTauInfo; onClose:
             </p>
           )}
         </div>
-        <CloseButton onClose={() => onClose()} label="Đóng thông tin vật chìm" />
+        <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin vật chìm" />
       </div>
     </div>
   );
@@ -384,16 +367,10 @@ export function TheXacTau({ info, onClose, prefs }: { info: XacTauInfo; onClose:
 export function TheChatDay({ info, onClose }: { info: ChatDayInfo; onClose: () => void }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(
-          Math.max(8, info.x - 120),
-          window.innerWidth - 248,
-        ),
-        top: Math.min(info.y + 12, window.innerHeight - 180),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         <span
           className="mt-1 inline-block h-4 w-4 flex-none rounded-full"
           style={{
@@ -431,7 +408,7 @@ export function TheChatDay({ info, onClose }: { info: ChatDayInfo; onClose: () =
             Theo ảnh vệ tinh — tham khảo
           </p>
         </div>
-        <CloseButton onClose={() => onClose()} label="Đóng thông tin chất đáy" />
+        <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin chất đáy" />
       </div>
     </div>
   );
@@ -440,16 +417,10 @@ export function TheChatDay({ info, onClose }: { info: ChatDayInfo; onClose: () =
 export function TheKhuTruBao({ info, onClose }: { info: KhuTruBaoInfo; onClose: () => void }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(
-          Math.max(8, info.x - 128),
-          window.innerWidth - 264,
-        ),
-        top: Math.min(info.y + 12, window.innerHeight - 210),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         <span
           className="mt-1 inline-block h-4 w-4 flex-none rounded-full"
           style={{ backgroundColor: KHU_TRU_BAO_COLOR }}
@@ -485,7 +456,7 @@ export function TheKhuTruBao({ info, onClose }: { info: KhuTruBaoInfo; onClose: 
             Vị trí theo {info.k.nguonToaDo} · theo quy hoạch nhà nước (tham khảo)
           </p>
         </div>
-        <CloseButton onClose={() => onClose()} label="Đóng thông tin khu trú bão" />
+        <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin khu trú bão" />
       </div>
     </div>
   );
@@ -494,13 +465,10 @@ export function TheKhuTruBao({ info, onClose }: { info: KhuTruBaoInfo; onClose: 
 export function TheVung({ info, onClose }: { info: VungInfo; onClose: () => void }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(Math.max(8, info.x - 144), window.innerWidth - 296),
-        top: Math.min(info.y + 12, window.innerHeight - 240),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-72 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         <span
           className="mt-1 inline-block h-4 w-4 flex-none rounded-sm border-2"
           style={{
@@ -561,7 +529,7 @@ export function TheVung({ info, onClose }: { info: VungInfo; onClose: () => void
               : ""}
           </p>
         </div>
-        <CloseButton onClose={() => onClose()} label="Đóng thông tin khu bảo tồn, vùng cấm" />
+        <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin khu bảo tồn, vùng cấm" />
       </div>
     </div>
   );
@@ -570,14 +538,10 @@ export function TheVung({ info, onClose }: { info: VungInfo; onClose: () => void
 export function TheRan({ info, onClose, bieuTuong, prefs }: { info: ReefInfo; onClose: () => void; bieuTuong: (id: string) => React.ReactNode; prefs: MapPrefs }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(Math.max(8, info.x - 120), window.innerWidth - 248),
-        /*  Chừa 208px như thẻ địa danh ngầm — thẻ cao thêm dòng toạ độ. */
-        top: Math.min(info.y + 12, window.innerHeight - 208),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         {bieuTuong(reefSymbolId(info.type))}
         <div className="min-w-0 flex-1">
           <p className="text-[1.125rem] font-semibold leading-tight text-navy">{info.ten}</p>
@@ -601,7 +565,7 @@ export function TheRan({ info, onClose, bieuTuong, prefs }: { info: ReefInfo; on
             Tên theo danh mục địa danh nhà nước (tham khảo)
           </p>
         </div>
-        <CloseButton onClose={() => onClose()} label="Đóng thông tin rạn" />
+        <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin rạn" />
       </div>
     </div>
   );
@@ -610,14 +574,10 @@ export function TheRan({ info, onClose, bieuTuong, prefs }: { info: ReefInfo; on
 export function TheLuong({ info, onClose, bieuTuong, prefs }: { info: LaneInfo; onClose: () => void; bieuTuong: (id: string) => React.ReactNode; prefs: MapPrefs }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(Math.max(8, info.x - 120), window.innerWidth - 248),
-        /*  Chừa 208px — giàn khoan / cáp cập bờ có thêm dòng toạ độ. */
-        top: Math.min(info.y + 12, window.innerHeight - 208),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         {bieuTuong(
           info.kind === "giankhoan"
             ? "platform"
@@ -661,7 +621,7 @@ export function TheLuong({ info, onClose, bieuTuong, prefs }: { info: LaneInfo; 
             Tham khảo — không thay hải đồ chính thức
           </p>
         </div>
-        <CloseButton onClose={() => onClose()} label="Đóng thông tin hạ tầng" />
+        <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin hạ tầng" />
       </div>
     </div>
   );
@@ -670,15 +630,10 @@ export function TheLuong({ info, onClose, bieuTuong, prefs }: { info: LaneInfo; 
 export function TheDiaDanh({ info, onClose, bieuTuong, prefs }: { info: DiaDanhInfo; onClose: () => void; bieuTuong: (id: string) => React.ReactNode; prefs: MapPrefs }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(Math.max(8, info.x - 120), window.innerWidth - 248),
-        /*  Thẻ cao hơn các thẻ khác vì có thêm dòng toạ độ → chừa 208px
-            để dòng cuối không chui xuống dưới mép màn. */
-        top: Math.min(info.y + 12, window.innerHeight - 208),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         {bieuTuong(diaDanhNgamSymbolId(info.loai))}
         <div className="min-w-0 flex-1">
           <p className="text-[1.125rem] font-semibold leading-tight text-navy">{info.ten}</p>
@@ -707,7 +662,7 @@ export function TheDiaDanh({ info, onClose, bieuTuong, prefs }: { info: DiaDanhI
             Tên theo danh mục địa danh nhà nước (tham khảo)
           </p>
         </div>
-        <CloseButton onClose={() => onClose()} label="Đóng thông tin địa danh" />
+        <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin địa danh" />
       </div>
     </div>
   );
@@ -716,20 +671,10 @@ export function TheDiaDanh({ info, onClose, bieuTuong, prefs }: { info: DiaDanhI
 export function TheMocBao({ info, onClose, prefs }: { info: StormPtInfo; onClose: () => void; prefs: MapPrefs }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-56 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(
-          Math.max(116, info.x),
-          window.innerWidth - 116,
-        ),
-        top: info.y > 210 ? info.y - 14 : info.y + 14,
-        transform:
-          info.y > 210
-            ? "translate(-50%, -100%)"
-            : "translate(-50%, 0)",
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-56 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         <div className="min-w-0 flex-1">
           <p className="text-[1rem] font-semibold leading-tight text-navy">
             {info.ten}
@@ -776,7 +721,7 @@ export function TheMocBao({ info, onClose, prefs }: { info: StormPtInfo; onClose
             </p>
           )}
         </div>
-        <CloseButton
+        <CloseButton variant="goc"
           onClose={() => onClose()}
           label="Đóng thông tin mốc bão"
         />
@@ -796,16 +741,10 @@ export type LegInfo = {
 export function TheChang({ info, route, prefs, onClose }: { info: LegInfo; route: PlannedRoute; prefs: MapPrefs; onClose: () => void }) {
   return (
     <div
-      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
-      style={{
-        left: Math.min(
-          Math.max(8, info.x - 120),
-          window.innerWidth - 248,
-        ),
-        top: Math.min(info.y + 12, window.innerHeight - 180),
-      }}
+      ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
+      className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
         <div className="min-w-0 flex-1">
           <p className="text-[1rem] font-semibold leading-tight text-navy">
             {route.stops.length > 1
@@ -831,7 +770,7 @@ export function TheChang({ info, route, prefs, onClose }: { info: LegInfo; route
               "Không có thông tin đáng lưu ý ở chặng này"}
           </p>
         </div>
-        <CloseButton onClose={() => onClose()} label="Đóng thông tin chặng" />
+        <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin chặng" />
       </div>
     </div>
   );

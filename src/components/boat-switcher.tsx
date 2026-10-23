@@ -361,7 +361,7 @@ export function BoatForm({
   const kw = parseBoatNumber(d.engineKw, 10000);
 
   return (
-    <BottomSheet title={isNew ? "Thêm tàu" : "Sửa thông tin tàu"} onClose={onCancel}>
+    <BottomSheet kieu="form" title={isNew ? "Thêm tàu" : "Sửa thông tin tàu"} onClose={onCancel}>
       <form onSubmit={submit}>
         <Field label="Tên tàu (để dễ nhớ)">
           <input
@@ -409,7 +409,7 @@ export function BoatForm({
         {/*  HÀNG MỞ HỒ SƠ THEO GIẤY — khuôn [thân flex-1] + [ô nút], như "Chi
             tiết" của form giấy tờ. Đếm số ô đã ghi để bà con biết còn thiếu. */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[1rem] leading-snug text-foreground/80">
               Theo giấy đăng ký, đăng kiểm, giấy phép:{" "}
               <span className="font-semibold text-navy">

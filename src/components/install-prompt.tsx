@@ -31,6 +31,7 @@ import {
   INSTALL_NUDGE_KEY,
   INSTALL_NUDGE_LEGACY_KEY,
   markInstallNudgeDismissed,
+  markInstallNudgeSnoozed,
   markInstallNudgeShown,
   parseInstallNudge,
   shouldShowInstallNudge,
@@ -163,8 +164,9 @@ export function InstallBanner() {
   // MẤT SÓNG → ẩn (không huỷ state; sóng về thì hiện lại)
   if (!mode || !online) return null;
 
+  // "Ẩn" = hoãn 7 ngày (lib/install-nudge) — Cài-rồi-huỷ hộp của máy vẫn là tắt hẳn (dưới)
   const dismiss = () => {
-    writeNudge(markInstallNudgeDismissed(readNudge()));
+    writeNudge(markInstallNudgeSnoozed(readNudge(), Date.now()));
     setMode(null);
   };
 

@@ -39,6 +39,30 @@
   min-width: 0;
 }
 
+/*  NỀN THANH KÉO XUỐNG SAU DOCK (rà bố cục 2026-10-22): dock là viên NỔI bo tròn, nằm thấp
+    hơn mép trên khung dock (--dock-total gồm cả hở --dock-gap) ⇒ giữa thanh mua và dock lộ
+    một dải nội dung trang trôi qua. Phần tử giả lấp đúng vùng khung dock bằng nền thẻ; dock
+    vẽ SAU (cùng z-20) nên vẫn nằm trên và bấm được. */
+.market-purchase-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: var(--dock-total);
+  background: var(--card);
+  pointer-events: none;
+}
+
+/*  Ô LẺ CUỐI LƯỚI (rà Taste 2026-10-22 "không để ô mồ côi nửa hàng"): số món lẻ thì món
+    cuối trải hết hàng, ảnh 2:1 — cùng khuôn lưới một cột của máy hẹp bên dưới. */
+.market-product-grid > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.market-product-grid > :last-child:nth-child(odd) .market-product-image {
+  aspect-ratio: 2 / 1;
+}
+
 /* Large display mode and narrow phones: protect product names and amounts. */
 @media (max-width: 359px) {
   .market-product-grid { grid-template-columns: minmax(0, 1fr); }

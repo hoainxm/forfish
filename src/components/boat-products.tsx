@@ -402,7 +402,7 @@ export function BoatProducts() {
                   hàng grid-cols-2 chỉ để chứa hai nút, không nội dung nào khác. */}
               <div className="space-y-1.5 p-2">
                 <div className="flex items-stretch gap-2">
-                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                  <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                     <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
                       {product.name}
                     </p>
@@ -428,7 +428,7 @@ export function BoatProducts() {
 
                 {product.warrantyUntil && (
                   <div className="flex items-stretch gap-2">
-                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                    <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                       <p className="text-[1rem] text-foreground/70">
                         Bảo hành tới:{" "}
                         <strong>{formatVnDate(product.warrantyUntil)}</strong>
@@ -439,7 +439,7 @@ export function BoatProducts() {
                 )}
                 {(product.serial || product.purchasedOn) && (
                   <div className="flex items-stretch gap-2">
-                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                    <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                       <p className="text-[1rem] text-foreground/70">
                         {product.serial ? `Serial ${product.serial}` : ""}
                         {product.serial && product.purchasedOn ? " · " : ""}
@@ -453,7 +453,7 @@ export function BoatProducts() {
                 )}
                 {product.note && (
                   <div className="flex items-stretch gap-2">
-                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                    <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                       <p className="text-[0.875rem] text-foreground/70">
                         {product.note}
                       </p>
@@ -562,7 +562,7 @@ function ProductForm({
   }
 
   return (
-    <BottomSheet
+    <BottomSheet kieu="form"
       title={initial ? "Sửa thông tin sản phẩm" : "Thêm sản phẩm SDVICO"}
       onClose={onCancel}
     >
@@ -606,7 +606,7 @@ function ProductForm({
             hành. Serial và ghi chú tự nhãn đã nhận là tuỳ chọn; ngày mua để
             trống không ảnh hưởng việc nhắc ⇒ thu sau một nút (luật C1). */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Serial:{" "}
               <span className="font-semibold text-navy">
@@ -656,15 +656,15 @@ function ProductForm({
           </>
         )}
 
-        {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
-        <div className="mt-3 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-            <p className="text-[0.875rem] text-foreground/70">
-              {warrantyUntil
-                ? "Thông tin đã đủ để app nhắc bảo hành."
-                : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc bảo hành giúp bà con."}
-            </p>
-          </div>
+        {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng. Câu nhắc DÒNG
+            RIÊNG phía trên (rà bố cục 2026-10-22: chung hàng với hai ô 64px thì bị ép thành cột
+            ~190px, gãy 4 dòng). */}
+        <p className="mt-3 text-[0.875rem] leading-snug text-foreground/70">
+          {warrantyUntil
+            ? "Thông tin đã đủ để app nhắc bảo hành."
+            : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc bảo hành giúp bà con."}
+        </p>
+        <div className="mt-2 flex items-stretch justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}

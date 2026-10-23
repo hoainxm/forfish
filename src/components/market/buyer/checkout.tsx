@@ -34,6 +34,7 @@ import { NOTE_MAX, validateAddress } from "@/lib/market/validate";
 import { useAuthUser } from "@/lib/use-auth";
 import { loadHome } from "@/lib/region";
 import { useMarketCart, useOnlineState } from "./hooks";
+import { NOTIFY_HIDE_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 type QuoteRes = { quote: CartQuote; titles: Record<string, string> };
 type OrderRes = { results: PlaceOrderResult[] };
@@ -241,7 +242,7 @@ export function Checkout() {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(tag);
-      setTimeout(() => setCopied(null), 3000);
+      setTimeout(() => setCopied(null), NOTIFY_HIDE_MS);
     } catch {
       setCopied(null);
     }
@@ -528,7 +529,7 @@ export function Checkout() {
       )}
 
       {addrSheet === "form" && draft && (
-        <BottomSheet title="Thêm địa chỉ nhận" onClose={() => setAddrSheet(addresses.length > 0 ? "list" : null)}>
+        <BottomSheet kieu="form" title="Thêm địa chỉ nhận" onClose={() => setAddrSheet(addresses.length > 0 ? "list" : null)}>
           <AddressForm value={draft} onChange={setDraft} error={addrError} homeProvince={homeProvince} />
           <PrimaryButton className="mb-3 mt-1" onClick={saveDraft}>
             Lưu địa chỉ này

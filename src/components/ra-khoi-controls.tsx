@@ -292,7 +292,7 @@ export function RaKhoiControls({
   }, [placesOpen]);
   /*  BÁO CHA: rail đang có lớp nổi nào mở không. Cha (fishing-map-view) dùng để
       chạm bản đồ chỉ dời con trỏ, khỏi bung sheet gió sóng đè lên panel. */
-  const anyLayerOpen = open !== null || placesOpen || coordOpen;
+  const anyLayerOpen = !collapsed || open !== null || placesOpen || coordOpen;
   useEffect(() => {
     onLayerOpenChange?.(anyLayerOpen);
   }, [anyLayerOpen, onLayerOpenChange]);
@@ -302,6 +302,8 @@ export function RaKhoiControls({
     setOpen(null);
     setCoordOpen(false);
     setPlacesOpen(false);
+    setCollapsed(true); // chạm bản đồ = đóng hẳn ngăn Lớp (kiểu Google Maps, rà bố cục 2026-10-22)
+    setMore(false);
   }, [closeLayersSignal]);
   /*  LUẬT HIỂN THỊ — MỘT LỚP NỔI MỘT LÚC (chủ dự án 2026-08-29: "2 chế độ lúc
       lưu và lúc dẫn đường đang hiển thị 1 lúc nó bị chồng chéo và rối nhau").
@@ -395,22 +397,24 @@ export function RaKhoiControls({
           khi vào trang và chỉ báo một dòng nhỏ tự tắt — xem
           components/pretrip-auto-notify.tsx. Bản đồ nhờ vậy sạch chữ. */}
 
-      {/* PANEL neo TRÁI rail, bounded trong màn (không tràn/đè banner).
-          Panel nhiều nội dung (Điểm đã lưu, Chọn loài) rộng hơn cho dễ nhìn,
-          khỏi chồng chéo (user 2026-06-23); panel đơn giản giữ cân đối. */}
+      {/*  NGĂN LỚP ĐÁY KIỂU GOOGLE MAPS (rà bố cục 2026-10-22, anh Long: "xử lý theo các app
+          hiện đại nhất, đông user nhất"). Trước: danh sách xổ từ nút Lớp + panel neo trái
+          rail, nổi ĐÈ góc trên ⇒ che tin bão + thẻ Tàu/Trỏ. Nay MỘT ngăn đáy (trên dock,
+          trong khung 480px): mở = lưới 5 ô lớp; chọn ô = nội dung lớp đó với ‹ về lưới,
+          × đóng hẳn. Góc trên (tin bão, ô tìm, toạ độ) KHÔNG bao giờ bị lớp này che.
+          Chạm bản đồ = đóng (fishing-map-view → closeLayersSignal). */}
       {open && !collapsed && (
-        <div
-          className={`pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] overflow-y-auto rounded-xl border border-line bg-card p-3 shadow-float [overscroll-behavior:contain] ${
-            open === "diem"
-              ? "w-[22rem] max-w-[calc(100vw-4.25rem)]"
-              : "w-[16.5rem] max-w-[calc(100vw-5rem)]"
-          }`}
-        >
+        <div className="anim-sheet-in pointer-events-auto fixed inset-x-0 bottom-(--dock-total) z-30 mx-auto max-h-[55dvh] w-full max-w-(--w-app) overflow-y-auto rounded-t-[1.75rem] border-t border-line bg-card px-4 pb-4 pt-3 shadow-sheet-up [overscroll-behavior:contain]">
           {
             <>
+              {/* "‹" về danh sách lớp (danh sách tạm ẩn khi panel mở — xem RAIL PHẢI) */}
               <PanelHeader
                 title={PANEL_TITLE[open]}
-                onClose={() => setOpen(null)}
+                onClose={() => {
+                  setOpen(null);
+                  setCollapsed(true); // × = đóng hẳn; ‹ = về danh sách lớp
+                }}
+                onBack={() => setOpen(null)}
               />
               {open === "hai-do" && (
                 <HaiDoPanel
@@ -480,7 +484,7 @@ export function RaKhoiControls({
 
       {/* ĐIỂM ĐÃ LƯU — nổi cạnh nút, cùng khuôn ô toạ độ (premium) */}
       {premiumTools && placesOpen && (
-        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-xl border border-line bg-card p-3 shadow-floatow-xl">
+        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl border border-line bg-card p-3 shadow-float">
           <DiemPanel
             cursor={cursor}
             prefillTick={prefillTick}
@@ -498,7 +502,7 @@ export function RaKhoiControls({
 
       {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm", độc lập với panel rail (premium) */}
       {premiumTools && coordOpen && (
-        <div className="pointer-events-auto absolute right-[4.5rem] top-0 w-[19rem] max-w-[calc(100vw-5rem)] rounded-xl border border-line bg-card p-3 shadow-float">
+        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl border border-line bg-card p-3 shadow-float [overscroll-behavior:contain]">
           <GoToPointPopup
             onGoCoord={onGoCoord}
             onClose={() => setCoordOpen(false)}
@@ -514,7 +518,11 @@ export function RaKhoiControls({
           rail (không giấu trong Thêm) cùng HUD. Ô theo mẫu ảnh anh Long chọn: vuông
           bo, nền trắng, icon trên nhãn dưới, cùng cỡ (03 §0 bậc control). CHỈ MỘT
           bảng mở một lúc: mở Lớp đóng Thêm và ngược lại. */}
-      <div ref={railRef} className="pointer-events-auto flex flex-col items-end gap-1.5">
+      {/*  DANH SÁCH LỚP + KHAY "THÊM" NỔI ĐÈ (absolute), KHÔNG nằm trong luồng cột (rà bố
+           cục 2026-10-22): bung trong luồng làm cột nút rộng ra 11rem ⇒ cột trái (tin bão,
+           ô tìm, thẻ Tàu/Trỏ) bị ép còn ~140px, thẻ bão một chữ một dòng. Cột nút giữ
+           đúng bề ngang một nút. */}
+      <div ref={railRef} className="pointer-events-auto relative flex flex-col items-end gap-1.5">
         <RailBtn
           active={!collapsed}
           aria-expanded={!collapsed}
@@ -536,7 +544,9 @@ export function RaKhoiControls({
              giữ "Thêm" để vẫn mở được Vị trí / Toạ độ / Điểm lưu khi đang chạy. */}
         {routeOn && onRoutePanel ? (
           <RailBtn variant="fab" active dot aria-pressed onClick={onRoutePanel} aria-label="Đang dẫn đường — chạm để đóng" icon={RouteIcon} label="Dẫn đường" />
-        ) : collapsed ? (
+        ) : collapsed && premiumTools ? (
+          /*  ⋯ CHỈ HIỆN KHI CÓ VIỆC (rà bố cục 2026-10-22): ba mục trong khay đều premium —
+              tài khoản thường bấm ra một khay RỖNG. Không có mục thì không có nút. */
           <RailBtn
             active={more}
             aria-expanded={more}
@@ -553,11 +563,11 @@ export function RaKhoiControls({
             variant="fab"
           />
         ) : null}
-        {more && !routeOn && (
+        {more && !routeOn && premiumTools && (
           <div
             role="group"
             aria-label="Thêm việc"
-            className="anim-pop-in flex w-[11rem] flex-col gap-0.5 rounded-xl border border-line bg-card p-1 shadow-float"
+            className="anim-pop-in absolute right-0 top-full mt-1.5 flex w-[11rem] flex-col gap-0.5 rounded-xl border border-line bg-card p-1 shadow-float"
           >
             {/*  "Vị trí" và "Chạy tàu" (loa) đã ra NGOÀI bản đồ — nút về tàu + nút loa
                  ở cột góc phải dưới (khung 2026-10-20) — không lặp trong khay. */}
@@ -597,23 +607,42 @@ export function RaKhoiControls({
           </div>
         )}
         {/* danh sách lớp mở được cả khi loa đang bật — loa không còn là chế độ dẫn đường */}
-        {!collapsed && (
-          <div className="anim-pop-in flex max-h-[calc(100dvh-14rem)] w-[11rem] flex-col gap-0.5 overflow-y-auto rounded-xl border border-line bg-card p-1 shadow-float [overscroll-behavior:contain]">
-            {RAIL.map((r) => {
-              const active = open === r.id;
-              return (
-                <RailBtn
-                  key={r.id}
-                  active={active}
-                  aria-pressed={active}
-                  onClick={() => setOpen(active ? null : r.id)}
-                  icon={r.icon}
-                  label={r.label}
-                  dot={!!r.dot && !active}
-                  dotColor={r.color}
-                />
-              );
-            })}
+        {/*  Danh sách TẠM ẨN khi một panel đang mở (rà bố cục 2026-10-22): trước đây chọn
+             "Thời tiết" xong danh sách vẫn nằm đè lên panel, che tiêu đề + cảnh báo bão +
+             công tắc. Panel có "‹" để về lại danh sách. */}
+        {!collapsed && open === null && (
+          <div role="dialog" aria-label="Lớp bản đồ" className="anim-sheet-in pointer-events-auto fixed inset-x-0 bottom-(--dock-total) z-30 mx-auto max-h-[55dvh] w-full max-w-(--w-app) overflow-y-auto rounded-t-[1.75rem] border-t border-line bg-card px-4 pb-4 pt-3 shadow-sheet-up [overscroll-behavior:contain]">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="display text-[1.125rem] font-semibold text-navy">Lớp bản đồ</h3>
+              <CloseButton
+                onClose={() => setCollapsed(true)}
+                label="Đóng lớp bản đồ"
+              />
+            </div>
+            {/* LƯỚI Ô như "Map type / Map details" của Google Maps — icon trên, tên dưới */}
+            <div className="grid grid-cols-3 gap-2">
+              {RAIL.map((r) => {
+                const Icon = r.icon;
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setOpen(r.id)}
+                    className="relative flex min-h-[4.5rem] flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-card px-1 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97] active:bg-field"
+                  >
+                    <Icon className="h-6 w-6" />
+                    {r.label}
+                    {r.dot && (
+                      <span
+                        aria-hidden
+                        className="absolute right-2 top-2 h-2 w-2 rounded-full"
+                        style={{ background: r.color }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -718,19 +747,16 @@ function PanelHeader({
               type="button"
               onClick={onBack}
               aria-label="Quay lại"
-              className="-ml-1 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-field text-navy"
+              className="-my-1.5 -ml-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-navy active:bg-field"
             >
               <ChevronLeftIcon className="h-5 w-5" />
             </button>
           )}
-          <div className="min-w-0">
-            <span className="inline-block rounded-md bg-navy px-2 py-0.5 text-[0.625rem] font-semibold text-white">
-              Điều khiển
-            </span>
-            <h3 className="display mt-1 text-[1rem] font-semibold leading-tight text-navy">
-              {title}
-            </h3>
-          </div>
+          {/* BỎ nhãn "Điều khiển" trên tiêu đề (rà bố cục 2026-10-22: nhãn nhỏ trên tiêu đề
+              là thứ Impeccable/Taste cấm — tiêu đề tự nói nó là gì) */}
+          <h3 className="display min-w-0 pt-1.5 text-[1rem] font-semibold leading-tight text-navy">
+            {title}
+          </h3>
         </div>
         <CloseButton onClose={onClose} />
       </div>

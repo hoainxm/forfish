@@ -3,6 +3,7 @@
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-22c — rà bố cục toàn app chạm các ngăn đa tàu (boat-switcher, document-vault, crew-list, maintenance, boat-products, vms-renewal, tau-tabs): BottomSheet `kieu="form"` (không ×, hỏi trước khi bỏ chữ đang gõ), câu nhắc chân ngăn dòng riêng, mục Giám sát hành trình phẳng — AC đa tàu không đổi. -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 <!-- re-verified: 2026-10-22b — rà 3 skill lần 2 chỉ đổi độ đậm chữ (font-bold→font-semibold), transition nút bấm, chip 44px ở các component đa tàu (boat-switcher, document-photos…) — AC đa tàu không đổi. -->
 <!-- re-verified: 2026-10-22 — rà thẩm mỹ theo skill (cỡ chữ, chữ hoa, cuộn ngang) chạm crew-list/fishing-map-view/document-* — AC đa-tàu không đổi. -->
@@ -49,7 +50,6 @@ cố-định/động (R1/R2), cascade R3, guard R7 không bị chạm. AC-1..7 k
 Phan loai co-dinh-theo-tau vs dong-theo-chu (R1/R2) va guard R7 "luon con >=1 tau" giu nguyen; `removeBoat` khong doi chu ky. Cong test moi: `src/lib/__tests__/local-write-atomic.test.ts` (kho day -> cascade KHONG chay, danh sach tau giu nguyen). -->
 
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-22) — code 'src/components/urgent-strip.tsx' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-10-06 16:45 — đối chiếu code: R1/R2 (document-vault lọc `boatId`, crew-list KHÔNG gắn boatId), NV5 dải khẩn gom mọi tàu + `boatLabel` khi >1 tàu (urgent-strip.tsx), cổng `readToken()` của dải khẩn — khớp. THÊM: NV1 19 ô theo giấy (boats.ts + BoatForm), NV5 kênh push nhắc hạn + AC-8 (doc-reminders.ts). -->
 <!-- re-verified: 2026-07-25 - boat-switcher/crew-list/urgent-strip chỉ thêm anchor data-tour (chon-tau, them-thuyen-vien, nhac-viec) cho coach-tour hướng dẫn; KHÔNG đổi hành vi đa-tàu — NV1–NV5, handoff H1, vòng đời thêm/xóa/đổi tàu, AC §8 giữ nguyên. -->
 <!-- re-verified: 2026-07-29 — GỠ seed mẫu (app lên thật): crew-list bỏ demoCrew/isDemo/startRealCrew, maintenance-reminders bỏ demoEntries/isDemo, boat-products bỏ filter demo-sp-. User mới thấy màn RỖNG + empty state, tự nhập. KHÔNG đụng hành vi đa-tàu: thuyền viên vẫn động-theo-chủ R2 (không boatId), lịch bảo dưỡng/sản phẩm vẫn gắn tàu + cascade R3 khi xóa tàu giữ nguyên. AC §8 không đổi. -->

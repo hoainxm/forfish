@@ -9,6 +9,7 @@ import { CHART_FEATURE_ICON, CHART_ICON_SIZE } from "@/lib/chart-symbols";
 import { ghiChuChatDayTrong } from "@/lib/chat-day";
 import { CHART_TIER, CHAT_DAY_COLORS, CLUSTER_BADGE, DEPTH_BANDS, DEPTH_DANGER_COLOR, DEPTH_SAFE_COLOR, DEPTH_SHALLOW_COLOR, ISLAND_DOT_COLOR, SAFETY_CONTOUR_STYLE, SEA_CABLE_COLOR, SEA_LANE_COLOR, SEA_RESTRICTED_COLOR } from "@/lib/ocean-map";
 import { type FilterSpecification } from "maplibre-gl";
+import { useEscape } from "@/lib/use-escape";
 
 /*  BÁO HIỆU HÀNG HẢI — id lớp bắt chạm, và NẤC ZOOM cho từng loại.
 
@@ -200,6 +201,8 @@ export function BangChuGiai({
   kyHieu: (d: LegendRow) => React.ReactNode;
   onClose: () => void;
 }) {
+  // Escape đóng như mọi hộp (rà bố cục 2026-10-22 — bảng có role=dialog mà phím không đóng được)
+  useEscape(true, onClose);
   return (
     <div
       className="pointer-events-auto absolute inset-x-2 bottom-2 top-16 z-50 flex flex-col overflow-hidden rounded-2xl bg-card/98 shadow-2xl"

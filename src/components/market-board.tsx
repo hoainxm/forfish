@@ -154,7 +154,7 @@ export function MarketBoard() {
           ("{list.length} vựa") và thay luôn RefNote 343×97px (12% chiều cao màn
           toàn chữ giải thích) mà chip "Tin mua/bán" ngay trên đã nói xong. */}
       <div className="my-3 flex items-stretch gap-2">
-        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+        <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p className="text-[0.875rem] font-semibold text-foreground/70">
             {listings.length} tin đang mở
           </p>
@@ -429,7 +429,7 @@ function ListingForm({
   }
 
   return (
-    <BottomSheet title="Đăng tin mua/bán" onClose={onCancel}>
+    <BottomSheet kieu="form" title="Đăng tin mua/bán" onClose={onCancel}>
       <form onSubmit={submit}>
         <div className="mb-3.5">
           <span className="mb-1.5 block text-[1rem] font-semibold text-navy">
@@ -468,7 +468,7 @@ function ListingForm({
 
         {/* Người đăng — máy đã biết, chỉ hiện dòng đọc-được + đường sửa */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Người đăng:{" "}
               <span className="font-semibold text-navy">
@@ -533,7 +533,7 @@ function ListingForm({
 
         {/* Khối lượng · giá · ghi chú: bỏ đi vẫn đăng được ⇒ thu sau một nút */}
         <div className="mb-3.5 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="truncate text-[1rem] text-foreground/80">
               Khối lượng, giá:{" "}
               <span className="font-semibold text-navy">
@@ -585,7 +585,7 @@ function ListingForm({
 
         {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
         <div className="mt-2 flex items-stretch gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p
               className={`text-[0.875rem] ${error ? "font-semibold text-danger" : "text-foreground/70"}`}
             >

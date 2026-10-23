@@ -95,11 +95,11 @@ export function PasswordField({
     ĐỒNG ĐỀU VỚI HERO + MÀN HÌNH (user 2026-09-25): trước có `max-w-[26.25rem]`
     khiến thẻ HẸP hơn header 52px trên khung 480 (thụt vào 26px mỗi bên), nhìn
     thẻ lọt thỏm/lệch so với hero tràn viền phía trên. Nay thẻ rộng đúng cột
-    app-shell (đã cap 480) và dùng `px-5` để MÉP thẻ thẳng hàng với mép chữ hero
-    (PageHeader cũng px-5) — trên/dưới một trục, không so le. */
+    app-shell (đã cap 480) và dùng `px-4` để MÉP thẻ thẳng hàng với mép chữ hero
+    (PageHeader cũng px-4 từ 2026-10-22 — một lề 16px cho cả app) — một trục, không so le. */
 export function AuthCard({ children }: { children: ReactNode }) {
   return (
-    <div className="mt-6 w-full px-5">
+    <div className="mt-6 w-full px-4">
       <div className="surface p-5">{children}</div>
     </div>
   );

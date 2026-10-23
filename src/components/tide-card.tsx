@@ -15,8 +15,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { SQ_BTN } from "@/components/ui/sq-btn";
-import { ChevronRightIcon, ClockIcon, CloseIcon, MoonIcon, WavesIcon } from "@/components/icons";
+import { ChevronRightIcon, ClockIcon, MoonIcon, WavesIcon } from "@/components/icons";
 import { chipLabel } from "@/lib/day-labels";
 import { moonPhase } from "@/lib/moon";
 import {
@@ -574,12 +573,7 @@ export function TideStationSheet({
   return (
     <BottomSheet title={title ?? `Con nước · trạm ${station.name}`} onClose={onClose}>
       <TideDaysView station={station} distanceKm={distanceKm} nowMs={nowMs} />
-      <div className="mt-4 flex justify-end">
-        <button type="button" onClick={onClose} className={`${SQ_BTN} bg-card text-t1`}>
-          <CloseIcon className="h-6 w-6" />
-          Đóng
-        </button>
-      </div>
+      {/* "Đóng" đáy đã bỏ — ngăn xem có × góc (rà bố cục 2026-10-22) */}
     </BottomSheet>
   );
 }

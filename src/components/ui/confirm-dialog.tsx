@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useExitTransition } from "@/lib/use-exit-transition";
 import { tapFeedback } from "@/lib/haptics";
+import { focusablesIn, lockBodyScroll, unlockBodyScroll, vongFocus } from "@/lib/dialog-focus";
 
 /*
   ConfirmDialog dùng chung — thay 4 bản copy-paste (xác nhận xóa…), kèm a11y:
@@ -33,22 +34,37 @@ export function ConfirmDialog({
   onConfirm: () => void;
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const { closing, requestClose } = useExitTransition(onCancel);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
+    // khoá cuộn nền + GIỮ FOCUS trong hộp (rà bố cục 2026-10-22 — trước đây Tab chạy ra
+    // trang dưới nền mờ, cuộn được trang sau lưng hộp). Dùng chung với BottomSheet.
+    lockBodyScroll();
     cancelRef.current?.focus();
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
+        e.stopImmediatePropagation(); // hộp nằm TRÊN sheet: Escape chỉ đóng hộp, không đóng luôn sheet
         requestClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      // hộp mở TỪ TRONG sheet: chặn để bẫy focus của sheet bên dưới không giành focus lại
+      e.stopImmediatePropagation();
+      const next = vongFocus(focusablesIn(cardRef.current), document.activeElement, e.shiftKey);
+      if (next) {
+        e.preventDefault();
+        next.focus();
       }
     }
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     return () => {
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
+      unlockBodyScroll();
       opener?.focus?.();
     };
   }, [requestClose]);
@@ -65,10 +81,13 @@ export function ConfirmDialog({
       onClick={requestClose}
     >
       <div
+        ref={cardRef}
         role="alertdialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-[25rem] surface p-5 text-center ${
+        /* giới hạn cao + cuộn trong (rà bố cục 2026-10-22): lời nhắn dài / nội dung phụ
+           (chọn kỳ hạn…) trước đây tràn khỏi màn, không tới được hai nút */
+        className={`max-h-[85dvh] w-full max-w-[25rem] overflow-y-auto surface p-5 text-center [overscroll-behavior:contain] ${
           closing ? "anim-pop-out" : "anim-pop-in"
         }`}
       >

@@ -48,7 +48,9 @@ function HoSoTau() {
       >
         <section aria-label="Dịch vụ và bảo dưỡng" className="mt-6"><BoatServices /></section>
         {/* Gia hạn VMS đặt NGAY SAU sổ nhắc bảo dưỡng (mục cuối của BoatServices) */}
-        <section aria-label="Giám sát hành trình" className="mx-4 mt-6 rounded-2xl bg-card p-4"><VmsRenewal /></section>
+        {/* PHẲNG như mọi mục khác của Tàu tôi (rà bố cục 2026-10-22): trước bọc thẻ trắng p-4 ⇒
+            nội dung thụt 36px, lệch mép 16px của các mục; tiêu đề 1rem lệch bậc 1.125rem */}
+        <section aria-label="Giám sát hành trình" className="mt-6 px-4"><VmsRenewal /></section>
         <section aria-label="Thiết bị đang dùng" className="mt-6"><div className="tau-section-title"><h2>Thiết bị đang dùng</h2></div><BoatProducts /></section>
       </LoginGate>
     </div>
