@@ -53,6 +53,12 @@ export function traLoiApp(
   if (r.kind !== "say" || r.daTraLoi || r.ask || !r.y) return null;
   const y = r.y as SenIntent;
   if (!(APP_INTENTS as readonly string[]).includes(y)) return null;
+  /*  hoi_mo / khong_hieu KHÔNG phải việc trong app — câu của answer.ts cho hai ý này là ngõ cụt ("Câu này tôi cần hỏi
+      thêm khi có sóng. Bác chờ chút." rồi im; "chưa hiểu…"). Trả null để luồng một cửa (luong-tra-loi.chonBuoc) đưa
+      lên máy nhà hoặc nói câu lảng đúng lý do. Dính 2026-10-23 (anh Long: "vẫn ko được, nó bị ngắt giữa chừng"): bộ
+      hiểu ý v6 đoán hai ý này CHẮC ⇒ chonBuoc chọn "app" ⇒ Sen Biển nói "Bác chờ chút." rồi thôi, không hỏi ai. Chốt
+      cũ ở sen-bien-toan-app (bỏ traLoiApp khi kho trượt + hoi_mo/khong_hieu) rơi mất lúc gom luồng 0ea50470. */
+  if (y === "hoi_mo" || y === "khong_hieu") return null;
   const intent = y as Intent;
   // Chợ vật tư đã gộp (2026-10-18): câu chợ có tham số rõ đi lenh-cho.ts trước; câu chợ chung n-gram
   // nhận (tìm món, giỏ, đơn, gọi shop) trả bằng bộ trả lời cũ của Trợ lý (answer.ts) như mọi ý khác.

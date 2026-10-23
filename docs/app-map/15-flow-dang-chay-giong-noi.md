@@ -941,7 +941,7 @@ Chủ dự án 19/10: *"nâng n-gram lên phân biệt hơn 2000 câu hỏi"*; r
 |---|---|---|
 | Lệnh rõ / câu bản đồ / chợ có tên món | làm ngay (trước luồng này, chạy mất sóng) | như cũ |
 | Kho trong máy trúng chắc | đọc kho | câu kho |
-| Ý việc-trong-app (`traLoiApp` có câu) + n-gram **chắc** ≥ `NGRAM_CHAC` 0,5 | `app` — dữ liệu trong máy | câu `answer.ts` |
+| Ý việc-trong-app (`traLoiApp` có câu) + n-gram **chắc** ≥ `NGRAM_CHAC` 0,5 — **trừ `hoi_mo` / `khong_hieu`** (`traLoiApp` trả null: câu `answer.ts` của hai ý này là ngõ cụt "…Bác chờ chút." rồi im — dính 2026-10-23 "nó bị ngắt giữa chừng" khi bộ v6 đoán chắc hai ý này) | `app` — dữ liệu trong máy | câu `answer.ts` |
 | Đã có lời đáp thật (`daTraLoi`, hỏi lại `r.ask`, ngoài phạm vi **chắc**) | `noi` | đúng câu đó |
 | Câu một chữ ("hả") | `noi` | câu của máy |
 | Còn lại (n-gram kém chắc · không hiểu · ngoài phạm vi kém chắc · kho trượt) + có sóng + đăng nhập | `may-nha` — chỉ báo `DANG_HOI` "Để Sen Biển hỏi thêm.", **KHÔNG đọc câu đoán trước** | câu máy nhà |

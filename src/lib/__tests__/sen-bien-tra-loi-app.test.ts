@@ -5,6 +5,7 @@ import type { DeviceSnapshot } from "@/lib/assistant/types";
 import { SPECIES_META } from "@/lib/fish-predict";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
 import { loadNgram } from "@/lib/sen-bien/ngram";
+import { chonBuoc } from "@/lib/sen-bien/luong-tra-loi";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
 
 const NOW = Date.UTC(2026, 9, 18, 3);
@@ -30,6 +31,18 @@ describe("veBanDo — việc nào phải sang màn bản đồ", () => {
 });
 
 describe("traLoiApp — trả lời việc trong app từ dữ liệu trong máy", () => {
+  // anh Long 2026-10-23: "nó bị ngắt giữa chừng" — hoi_mo trả "…Bác chờ chút." rồi im, khong_hieu trả "chưa hiểu"
+  it.each(["con gà có mấy chân", "máy lọc nước SDWATER tốn điện không", "SDVICO là công ty gì"])(
+    "'%s' (hoi_mo / khong_hieu) ⇒ traLoiApp KHÔNG trả lời, để luồng hỏi máy nhà",
+    (c) => {
+      const rr = r(c);
+      expect(rr.kind === "say" && ["hoi_mo", "khong_hieu"].includes(rr.y ?? "")).toBe(true);
+      const a = app(c, snap({ online: true }));
+      expect(a).toBeNull();
+      // bộ v6 đoán CHẮC (≥ 0,96) mà vẫn phải đi máy nhà, không dừng ở câu ngõ cụt
+      expect(chonBuoc({ r: rr, conf: 0.99, coApp: a != null, online: true, coChuoi: true, text: c }).buoc).toBe("may-nha");
+    },
+  );
   // anh Long 2026-10-22: "gà có mấy chân" ⇒ "Tôi mở chợ tìm '' nhé." (n-gram đoán tim_mon, không tách được món)
   it.each(["gà có mấy chân", "con chó có mấy chân"])("'%s' ⇒ không mở chợ với ô tìm trống", (c) => {
     const a = app(c, snap({ online: true }));
