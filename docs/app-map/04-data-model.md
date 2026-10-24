@@ -6,6 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24r — thêm migration 0071_kairos_nhac_ten (mentions jsonb cho kairos_posts + kairos_comments) — 14 §3.12 -->
 <!-- re-verified: 2026-10-24q — thêm migration 0070_kairos_binh_luan_anh (kairos_comments.image_path + link_preview, body có thể trống khi có ảnh) — 14 §3.4b -->
 <!-- re-verified: 2026-10-24c — thêm migration 0069_kairos_cam_xuc (cột kind cho kairos_post_hay / kairos_comment_hay) — 14 §7 -->
 <!-- re-verified: 2026-10-24b — thêm migration 0068_kairos_sen_bien (seed hồ sơ Sen Biển) — 14 §14 -->
@@ -904,6 +905,12 @@ Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng 
 - **Đối soát bản ghi dở dang trước đó** (đo 2026-10-19): 0 đơn `da_huy` chưa hoàn kho, 0 yêu cầu `da_dat` thiếu `order_id` ⇒ không cần dọn. Truy vấn đối soát giữ ở ops/runbook.md.
 - Tương thích: cột có default + hàm mới ⇒ code cũ chạy nguyên trên DB đã apply. Thứ tự: **apply 0064 → deploy** (code mới gọi hàm 0064).
 - file-store (dev) không đổi: một tiến trình, ghi cả tệp một lần nên vốn nguyên tử.
+
+### KAIROS — nhắc tên "@Tên" — migration [`0071_kairos_nhac_ten.sql`](../../supabase/migrations/0071_kairos_nhac_ten.sql) (2026-10-24) — ✅ **ĐÃ APPLY** 2026-10-24 qua Management API (kiểm: cột `mentions` có ở kairos_posts + kairos_comments)
+
+- `kairos_posts.mentions`, `kairos_comments.mentions` — `jsonb not null default '[]'`, check mảng ≤10. Phần tử `{id: profileId, ten: tên gọi lúc tag}`; chữ "@ten" vẫn trong `body`. Route server ghi (lọc ở `server.nhacTenHopLe`), dto đọc qua `nhac-ten.docNhacTen` (bản hỏng ⇒ bỏ).
+- Tìm người: `kairos_profiles.handle_norm ilike '%q%'` (≤8, route `GET /api/kairos/users`) — nợ chỉ mục trigram khi bảng hồ sơ vượt ~50 nghìn.
+- RLS: không đổi (revoke all, chỉ route server).
 
 ### KAIROS — bình luận có ảnh + xem trước link — migration [`0070_kairos_binh_luan_anh.sql`](../../supabase/migrations/0070_kairos_binh_luan_anh.sql) (2026-10-24) — ✅ **ĐÃ APPLY** 2026-10-24 qua Management API (kiểm: 2 cột có, ràng buộc `kairos_comments_body_chk` thay `kairos_comments_body_check`)
 

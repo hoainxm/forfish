@@ -1,4 +1,5 @@
 import type { CamXuc } from "./cam-xuc";
+import type { NhacTen } from "./nhac-ten";
 import "server-only";
 // KAIROS — HỢP ĐỒNG KHO (khuôn market/store.ts). Hai bản: supabase-store.ts (prod, bảng 0065 +
 // bucket kairos-media) · file-store.ts (dev, `.local/kairos-dev.json`, chỉ khi isDevFileMode).
@@ -60,6 +61,8 @@ export interface NewPost {
   provinces: string[];
   ports: string[];
   reshare_of: string | null;
+  /** 0071 — [{id, ten}] */
+  mentions?: NhacTen[];
   pinned_until?: string | null;
   mod_state?: ModState;
   // chỉ bài báo
@@ -78,7 +81,7 @@ export interface NewPost {
 export type PostPatch = Partial<
   Pick<
     PostFull,
-    "body" | "images" | "topic" | "regions" | "provinces" | "ports" | "edited_at" | "pinned_until" | "hidden" | "hidden_reason" | "mod_state" | "mod_checked_at" | "feed_at"
+    "body" | "images" | "topic" | "regions" | "provinces" | "ports" | "mentions" | "edited_at" | "pinned_until" | "hidden" | "hidden_reason" | "mod_state" | "mod_checked_at" | "feed_at"
   >
 >;
 export type CommentPatch = Partial<Pick<CommentFull, "hidden" | "mod_state" | "mod_checked_at">>;
@@ -160,6 +163,10 @@ export interface KairosStore {
   profileByPhone(phone: string): Promise<ProfileFull | null>;
   profileById(id: string): Promise<ProfileFull | null>;
   profilesByPhones(phones: string[]): Promise<ProfileFull[]>;
+  /** hồ sơ theo id công khai (≤ IN_MAX) — nhắc tên (0071) */
+  profilesByIds(ids: string[]): Promise<ProfileFull[]>;
+  /** tìm người để nhắc tên: `handle_norm` chứa chữ đã bỏ dấu, bỏ SĐT trong `bo`; ≤ limit */
+  searchProfiles(qNorm: string, limit: number, bo: string[]): Promise<ProfileFull[]>;
   /** khoá handle_norm nào trong danh sách đã có người dùng */
   takenNorms(norms: string[]): Promise<Set<string>>;
   /** trùng handle_norm ⇒ KairosError('handle_taken'); trùng phone (hai lượt chen) ⇒ trả hồ sơ có sẵn */
@@ -197,7 +204,7 @@ export interface KairosStore {
   /** bình luận GỐC nhiều Hay nhất (hay desc, created asc), không ẩn, bỏ người bị chặn */
   topComments(postId: string, n: number, excludeAuthors: string[]): Promise<CommentFull[]>;
   getComment(id: string): Promise<CommentFull | null>;
-  insertComment(row: { post_id: string; parent_id: string | null; author_phone: string; body: string; image_path?: string | null; link_preview?: unknown }): Promise<CommentFull>;
+  insertComment(row: { post_id: string; parent_id: string | null; author_phone: string; body: string; image_path?: string | null; link_preview?: unknown; mentions?: NhacTen[] }): Promise<CommentFull>;
   /** cascade xoá trả lời con */
   deleteComment(id: string): Promise<void>;
   updateComment(id: string, patch: CommentPatch): Promise<CommentFull>;

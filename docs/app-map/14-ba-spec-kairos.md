@@ -2,6 +2,7 @@
 
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
+<!-- re-verified: 2026-10-24r — §3.12 nhắc tên "@Tên" kiểu FB (gõ @ gợi ý người trong bài + tìm máy chủ, link đậm, thông báo "nhắc đến bạn", agent L5b); §7 route GET /api/kairos/users?q=, bài/bình luận nhận mentions. -->
 <!-- re-verified: 2026-10-24q — §3.4b ảnh trong bình luận (≤1, nút ảnh trong ô viết), thẻ xem trước link (máy chủ đọc lúc ghi, chống SSRF), thông báo trỏ #bl-<id> + cuộn tới; §7 route bình luận nhận image. -->
 <!-- re-verified: 2026-10-24p — RÀ FB VÒNG 2 (anh Long: "tổ chức team agent rà vòng 2 về giao diện và tương tác facebook"): §4/A74/AC05 BỎ nhãn "Cả nước" trên thẻ (ca-nuoc chỉ là dữ liệu), nhãn nơi chốn "Tên ▸ Bến X" trên dòng tên chạm sang Bến; §3.2 ⋯ lên đầu thẻ, lưới ảnh 1/2/3/4+ + trình xem toàn màn, dòng tổng "N bình luận", bài đăng lại có ảnh + link bài gốc, giữ chỗ 10 phút; §3.3 × hỏi Lưu nháp/Bỏ bài/Viết tiếp (nháp giữ ảnh), gỡ cảng "Không gắn"; §3.4 viên Trả lời, gập "Xem N phản hồi", ô viết dính đáy; §3.8 cảng nhà chạm được; §3.9 thẻ đầu Bến + màn phụ ‹ + kéo làm mới. A94–A98. -->
 <!-- re-verified: 2026-10-24k — TIN NÓNG NGOÀI THUỶ SẢN (anh Long: "các bài mà tin nóng thu hút thì lấy để bà con biết thứ gì đang nóng ngoài thuỷ sản"): nguồn mới `gn-noi-bat` = Google News "Tin nổi bật" Việt Nam (news.google.com/rss, biên tập + số báo cùng đưa tin; vẫn lọc baoDuocPhep + gộp trùng sự kiện). §13: 15 % suất ngoài biển ƯU TIÊN tin nóng (W_NONG 0.6 cộng cho bài báo nguồn nóng KHÔNG phải chuyện biển) — 85 % biển giữ nguyên. Thẻ bài nóng có nhãn đỏ "Đang nóng" cạnh giờ. -->
@@ -119,6 +120,15 @@ Server render, không cần đăng nhập: tên báo/tên gọi, chữ, ảnh, s
 ### 3.10 Báo xấu, chặn (AC15)
 **Báo xấu**: lý do sẵn (Lừa đảo · Bậy bạ · Sai sự thật · Xúc phạm · Quảng cáo · Khác + ≤200 ký tự), một người một đích một lần. **Chặn**: ẩn mọi bài + bình luận người đó với mình (lọc ở máy chủ). Lọc chữ bậy `lib/kairos/loc-chu.ts` (thuần, test) chạy **ở route** khi ghi bài/bình luận/tên ⇒ 400 `bad_words`.
 
+### 3.12 Nhắc tên "@Tên" kiểu Facebook (2026-10-24, migration 0071)
+Anh Long: "các hành vi comment tag tên nhau đăng bài kèm tag thì sao? ko thấy có".
+- **Gõ "@"** (đầu chữ / sau khoảng trắng) trong ô bình luận hoặc khung soạn bài ⇒ danh sách ≤5 người ngay trên/dưới ô: người TRONG BÀI trước (chủ bài + người đã bình luận — có sẵn, không mạng), rồi người tìm trên máy chủ `GET /api/kairos/users?q=` (chờ 250 ms sau phím cuối, chỉ khi có sóng; khớp tên gọi bỏ dấu; bỏ mình + người mình chặn; không SĐT). Chạm ⇒ "@chữ" thành "@Tên " (`nhac-ten.chenTen`). Escape đóng danh sách (không đóng khung soạn). Mất sóng ⇒ chỉ gợi ý người trong bài.
+- **Lưu**: chữ "@Tên" nằm trong body; cột `mentions` [{id, ten}] chỉ giữ người có thật mà "@tên" CÓ trong chữ, không tự tag, không tag người chặn mình/mình chặn, ≤10 (`server.nhacTenHopLe`). Xoá chữ "@Tên" (kể cả khi sửa bài) ⇒ hết tag. Tag KHÔNG vào nháp (nháp chỉ chữ ⇒ mở lại nháp, "@Tên" thành chữ thường cho tới khi chọn lại).
+- **Hiện**: đoạn "@Tên" chữ đậm màu `sea`, chạm sang trang người đó (`ChuXemThem nhac`), không lan ra thẻ.
+- **Báo**: người được tag nhận "**Có người nhắc đến bạn** — X đã nhắc đến bạn trong một bình luận/bài viết", trỏ `#bl-<id>` / trang bài. Chung dấu gộp với tin bình luận (1 tin/bài/người/giờ) và gửi TRƯỚC ⇒ người vừa bị tag nhận câu cụ thể. Sửa bài chỉ báo người MỚI được tag. Agent không nhận thông báo.
+- **2000 agent**: [16 §4 2b](16-ba-spec-agent-kairos.md) — trả lời trong luồng có "@Tên", được gọi thì đáp, rủ bạn; chỉ tag người thật khi trả lời đúng người đó (L5b).
+- Test `kairos-nhac-ten.test.ts`.
+
 ### 3.11 Quản trị — tab "Kairos" (AC16)
 `AdminTab "kairos"`, nhóm **Nội dung**. Bốn mục: **Báo xấu** (xếp theo số lượt; Ẩn / Bỏ qua / Cấm người đăng) · **Bài** (tìm, Ẩn/Hiện bài và bình luận) · **Chính thức** (soạn bài SDVICO, Ghim tới ngày / Bỏ ghim) · **Cờ chủ quyền** (bài bị loại + cụm trúng, chỉ xem). Cấm: 7 ngày / 30 ngày / vĩnh viễn + lý do; bị cấm vẫn đọc, ghi ⇒ 403 `banned`. Quyền: admin đủ; quản lý qua `staff-permissions` (`ManagerTab "kairos"`, `can()`: view = xem, edit = ẩn/hiện/ghim, delete = cấm, create = đăng chính thức). Mọi thao tác ghi `kairos_audit`.
 
@@ -169,7 +179,8 @@ Ghi: `identityFromRequest(req)` (401 chưa đăng nhập, 503 không tra đượ
 | POST | `/api/kairos/posts` | SĐT | 10/ngày; chưa đồng ý nội quy ⇒ 409 `rules` |
 | PATCH · DELETE | `/api/kairos/posts/[id]` | chủ bài | DELETE xoá ảnh kho trước; lỗi kho ⇒ 500, không xoá nửa vời |
 | POST | `/api/kairos/upload` | SĐT + nội quy | 1 ảnh/lượt, magic bytes jpeg/png/webp, ≤500 KB (dùng chung `readImageUpload` của Chợ — chặt hơn trần 512 KB của bucket), 30/ngày; trả `{path, url}` |
-| GET · POST | `/api/kairos/posts/[id]/comments` | khách · SĐT | 60/ngày; POST `{body, parentId?, image?}` (0070: ảnh của mình, chữ có thể trống khi có ảnh; link đầu ⇒ thẻ xem trước) |
+| GET | `/api/kairos/users?q=` | khách | tìm người để nhắc tên (≤8, không SĐT) — §3.12 |
+| GET · POST | `/api/kairos/posts/[id]/comments` | khách · SĐT | 60/ngày; POST `{body, parentId?, image?, mentions?}` (0070: ảnh của mình, chữ có thể trống khi có ảnh; link đầu ⇒ thẻ xem trước) |
 | DELETE | `/api/kairos/comments/[id]` | chủ bình luận | xoá cả trả lời con + ảnh kèm |
 | PUT | `/api/kairos/posts/[id]/hay` · `/api/kairos/comments/[id]/hay` | SĐT | `{on}` idempotent; 300/giờ |
 | POST | `/api/kairos/reports` | SĐT | 20/ngày; trùng ⇒ 200 |

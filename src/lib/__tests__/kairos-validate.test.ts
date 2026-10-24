@@ -11,7 +11,7 @@ const codeOf = (r: { ok: boolean; code?: string }) => (r.ok ? "ok" : r.code);
 describe("validatePost — bài bà con", () => {
   it("bài thường hợp lệ, chủ đề mặc định nghe-ca", () => {
     const r = post({});
-    expect(r.ok && r.value).toEqual({ body: "Biển êm, cá nhiều", images: [], topic: "nghe-ca", ports: [], reshareOf: null });
+    expect(r.ok && r.value).toEqual({ body: "Biển êm, cá nhiều", images: [], topic: "nghe-ca", ports: [], reshareOf: null, mentions: [] });
   });
 
   it("2.000 ký tự được, 2.001 ⇒ too_long (đếm ký tự như Postgres)", () => {

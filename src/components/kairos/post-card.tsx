@@ -32,6 +32,7 @@ import { countLabel, portLabel, postTimeLabel } from "@/lib/kairos/feed-client";
 import type { KairosComment, KairosPost } from "@/lib/kairos/types";
 import { NHAN, NHAN_CHIP_KAIROS } from "@/lib/labels";
 import { isPinned } from "@/lib/kairos/xep-bai";
+import type { NhacTen } from "@/lib/kairos/nhac-ten";
 import { ChuXemThem } from "./chu-xem-them";
 import { DongCamXuc, NutCamXuc } from "./nut-cam-xuc";
 import { KairosAvatar } from "./kairos-avatar";
@@ -52,11 +53,11 @@ export interface PostActions {
 const topicLabel = (t: string) => (NHAN_CHIP_KAIROS as Record<string, string>)[t] ?? "";
 
 /** Thân bài bà con: cắt 6 dòng + "… Xem thêm" kiểu FB (đo tràn thật — chu-xem-them). */
-function Body({ text }: { text: string }) {
+function Body({ text, nhac }: { text: string; nhac?: NhacTen[] }) {
   if (!text) return null;
   return (
     <div className="px-4 pb-2">
-      <ChuXemThem text={text} dong={6} className="text-[1rem] leading-relaxed" />
+      <ChuXemThem text={text} dong={6} nhac={nhac} className="text-[1rem] leading-relaxed" />
     </div>
   );
 }
@@ -280,7 +281,7 @@ function TopComment({ c }: { c: KairosComment }) {
       <div className="min-w-0 rounded-2xl bg-field px-3 py-1.5">
         <p className="truncate text-[0.8125rem] font-bold text-navy">{c.author.handle}</p>
         {c.body ? (
-          <ChuXemThem text={c.body} dong={3} nen="field" className="text-[1rem]" />
+          <ChuXemThem text={c.body} dong={3} nen="field" nhac={c.mentions} className="text-[1rem]" />
         ) : (
           !c.image && <p className="text-[1rem] text-foreground/65">Đã gửi một ảnh</p>
         )}
@@ -360,7 +361,7 @@ export function PostCard({
         </>
       ) : (
         <>
-          <Body text={post.body} />
+          <Body text={post.body} nhac={post.mentions} />
           <Images urls={post.images} count={post.imageCount ?? post.images.length} />
           <Reshare post={post} now={now} benPort={benPort} />
         </>

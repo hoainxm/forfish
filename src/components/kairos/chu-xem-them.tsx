@@ -7,10 +7,13 @@
   theo số ký tự. Tràn ⇒ cuối dòng cuối hiện "… Xem thêm" (nền mờ dần cùng màu khung để chữ không lẫn), chạm là MỞ HẾT
   ngay tại chỗ (không sang trang). Như FB: mở rồi không có "Thu gọn" — đọc tiếp xuống dưới.
   `nen` = màu khung chứa chữ (thẻ trắng / bong bóng bình luận) để dải mờ khớp nền.
+  `nhac` = người được nhắc tên (0071): đoạn "@Tên" thành link đậm sang trang người đó (chạm không lan ra thẻ).
 */
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { NHAN } from "@/lib/labels";
+import { chiaDoan, type NhacTen } from "@/lib/kairos/nhac-ten";
 
 const useIsoLayout = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
@@ -24,7 +27,9 @@ export function ChuXemThem({
   dong = 5,
   nen = "card",
   className = "",
+  nhac,
 }: {
+  nhac?: NhacTen[];
   text: string;
   dong?: 2 | 3 | 4 | 5 | 6 | 8;
   nen?: "card" | "field";
@@ -51,7 +56,22 @@ export function ChuXemThem({
   return (
     <div className="relative">
       <p ref={ref} className={`whitespace-pre-line break-words ${mo ? "" : CLAMP[dong]} ${className}`}>
-        {text}
+        {nhac?.length
+          ? chiaDoan(text, nhac).map((d, i) =>
+              "nhac" in d ? (
+                <Link
+                  key={i}
+                  href={`/kairos/u/${d.nhac.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-semibold text-sea"
+                >
+                  {d.chu}
+                </Link>
+              ) : (
+                d.chu
+              ),
+            )
+          : text}
       </p>
       {!mo && cat && (
         <button

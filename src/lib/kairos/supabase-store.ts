@@ -24,8 +24,8 @@ const PROFILE_HO_SO_COLS = HO_SO_FIELDS.join(",");
 /** Đã thấy cột 0067 thiếu ⇒ đọc bằng cột gốc, hỏi lại sau 5 phút (migration áp xong tự nhận). */
 const HO_SO_RECHECK_MS = 5 * 60_000;
 const POST_COLS =
-  "id,kind,author_phone,source_id,outlet,url,url_hash,title,title_norm,body,summary,summary_by,cover_url,images,topic,regions,provinces,ports,reshare_of,pinned_until,hidden,hidden_reason,mod_state,mod_checked_at,hay_count,comment_count,published_at,feed_at,created_at,edited_at";
-const COMMENT_COLS = "id,post_id,parent_id,author_phone,body,hay_count,hidden,mod_state,mod_checked_at,created_at,image_path,link_preview";
+  "id,kind,author_phone,source_id,outlet,url,url_hash,title,title_norm,body,summary,summary_by,cover_url,images,topic,regions,provinces,ports,reshare_of,pinned_until,hidden,hidden_reason,mod_state,mod_checked_at,hay_count,comment_count,published_at,feed_at,created_at,edited_at,mentions";
+const COMMENT_COLS = "id,post_id,parent_id,author_phone,body,hay_count,hidden,mod_state,mod_checked_at,created_at,image_path,link_preview,mentions";
 const IN_MAX = 200;
 /** trần số lượt cảm xúc đọc một lô để đếm theo loại */
 const DEM_TOI_DA = 10_000;
@@ -91,6 +91,21 @@ export function createKairosSupabaseStore(): KairosStore | null {
       const uniq = [...new Set(phones)].slice(0, IN_MAX);
       if (!uniq.length) return [];
       return many<ProfileFull>("profilesByPhones", profileQuery((c) => db.from("kairos_profiles").select(c).in("phone", uniq)));
+    },
+    async profilesByIds(ids) {
+      const uniq = [...new Set(ids)].filter(isUuid).slice(0, IN_MAX);
+      if (!uniq.length) return [];
+      return many<ProfileFull>("profilesByIds", profileQuery((c) => db.from("kairos_profiles").select(c).in("id", uniq)));
+    },
+    async searchProfiles(qNorm, limit, bo) {
+      const q = qNorm.replace(/[%_\\]/g, "").trim();
+      if (!q) return [];
+      // nợ: ilike '%q%' quét cả bảng hồ sơ (vài nghìn dòng) — thêm chỉ mục trigram handle_norm khi bảng vượt ~50 nghìn
+      const rows = await many<ProfileFull>(
+        "searchProfiles",
+        profileQuery((c) => db.from("kairos_profiles").select(c).ilike("handle_norm", `%${q}%`).limit(limit + bo.length)),
+      );
+      return rows.filter((r) => !bo.includes(r.phone)).slice(0, limit);
     },
     async takenNorms(norms) {
       const uniq = [...new Set(norms)].slice(0, IN_MAX);

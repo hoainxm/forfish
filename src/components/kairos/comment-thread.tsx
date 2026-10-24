@@ -52,6 +52,7 @@ import { RulesBox } from "./rules-box";
 import { NutMic } from "./de-dung";
 import { BL_NHANH } from "@/lib/kairos/de-dung";
 import { useVungNhin } from "./use-vung-nhin";
+import { useNhacTen, type NguoiNhac } from "./nhac-ten-o-viet";
 import { XemAnh } from "./xem-anh";
 import type { LinkPreview } from "@/lib/kairos/types";
 
@@ -119,7 +120,7 @@ function CommentRow({
             {c.author.isAgent && <span title="Trợ lý AI" className="ml-1.5 rounded-full bg-navy/10 px-1.5 text-[0.6875rem] font-bold text-navy">AI</span>}
           </Link>
           {c.body ? (
-            <ChuXemThem text={c.body} dong={8} nen="field" className="text-[1rem]" />
+            <ChuXemThem text={c.body} dong={8} nen="field" nhac={c.mentions} className="text-[1rem]" />
           ) : (
             !c.image && <p className="text-[1rem] text-foreground/65">Đã gửi một ảnh</p>
           )}
@@ -319,6 +320,13 @@ export function CommentThread({
     setDraftFail(!saveDraft(phone, dKey, v));
   };
 
+  // người trong bài để gợi ý "@" trước (chủ bài + người đã bình luận, trừ mình) — có sẵn, không mạng
+  const quen: NguoiNhac[] = [];
+  for (const a of [post.author, ...comments.filter((c) => !c.mine).map((c) => c.author)]) {
+    if (a?.profileId && !quen.some((x) => x.id === a.profileId)) quen.push({ id: a.profileId, ten: a.handle, avatarUrl: a.avatarUrl, isAgent: a.isAgent });
+  }
+  const nt = useNhacTen({ text, setText: onText, box, quen });
+
   /** Chỉ đổi người đang trả lời — chữ đang gõ giữ nguyên, không chèn "@tên" vào ô. */
   const startReply = (c: KairosComment) => {
     const t = replyTarget(c);
@@ -365,6 +373,7 @@ export function CommentThread({
       body: (nhanh ?? text).trim() ? ghepTraLoi(nhanh ?? text, replyTo, !!replyTo?.sau) : "",
       parentId: replyTo?.parentId ?? null,
       ...(!nhanh && anh ? { image: anh.path } : {}),
+      ...(!nhanh && nt.nhac.length ? { mentions: nt.nhac.map((m) => m.id) } : {}),
     });
     setSending(false);
     if (!r.ok) {
@@ -380,6 +389,7 @@ export function CommentThread({
       setText("");
       saveDraft(phone, dKey, "");
       setAnh(null);
+      nt.xoa();
     }
     setReplyTo(null);
   };
@@ -529,6 +539,7 @@ export function CommentThread({
                 </button>
               </div>
             )}
+            {nt.danhSach}
             {!text.trim() && !anh && canQuick && (
               <div className="mb-2 flex gap-2 overflow-x-auto" role="group" aria-label="Bình luận nhanh">
                 {BL_NHANH.map((c) => (
@@ -556,7 +567,16 @@ export function CommentThread({
                 ref={box}
                 rows={1}
                 value={text}
-                onChange={(e) => onText(e.target.value)}
+                onChange={(e) => {
+                  onText(e.target.value);
+                  nt.theoDoi(e.target.value, e.target.selectionStart);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape" && nt.mo) {
+                    e.stopPropagation();
+                    nt.dong();
+                  }
+                }}
                 placeholder={toi?.handle ? `Bình luận với tên ${toi.handle}` : "Viết bình luận…"}
                 className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-line bg-field px-4 py-2.5 text-[1rem] leading-snug outline-none focus-visible:ring-2 focus-visible:ring-sea"
               />

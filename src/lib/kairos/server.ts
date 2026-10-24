@@ -20,7 +20,9 @@ import { BAO_FEED_MS, type FeedFilter, type FeedParams } from "./feed-query";
 import { aboutDto, authorDto, postDto, commentDto, type DtoCtx } from "./dto";
 import { checkIngestKey, effectiveIngestKey, INGEST_KEY_HEADER } from "./ingest-key";
 import { isKairosError, kairosErrorStatus, KairosError } from "./errors";
-import { commentRecipients, notifyMessage, NOTIFY_WINDOW_MS, KAIROS_PUSH_SENT_BY } from "./notify-gop";
+import { commentRecipients, nhacTenMessage, notifyMessage, NOTIFY_WINDOW_MS, KAIROS_PUSH_SENT_BY } from "./notify-gop";
+import { locNhacTen, type NhacTen } from "./nhac-ten";
+import { laAgent } from "./agent-doi.mjs";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
 import { agentMayDecide, feedAtOnApprove, shouldTellAuthor, stateFor, type Verdict } from "./quyet-dinh";
 import { isBanned, KAIROS_RATES, overLimit, RATE_AUDIT_ACTIONS, rateUsed, windowStart, type KairosRateKey } from "./rate";
@@ -298,6 +300,57 @@ export async function notifyComment(
     }
   } catch (e) {
     console.error("[kairos] báo bình luận hỏng (bỏ qua):", (e as Error)?.message);
+  }
+}
+
+/**
+ * Người được nhắc tên (0071) ⇒ danh sách lưu được + SĐT để báo. Chỉ giữ hồ sơ có thật mà "@tên" (tên HIỆN TẠI) có
+ * trong chữ; bỏ chính mình và người chặn mình/mình chặn (hai chiều). `chiCho` (agent) ⇒ người thật chỉ được tag khi
+ * nằm trong danh sách này (chủ bài / người đang được trả lời) — agent không đi tag bà con lung tung.
+ */
+export async function nhacTenHopLe(
+  store: KairosStore,
+  ids: readonly string[],
+  body: string,
+  me: string,
+  myBlocks: readonly string[],
+  chiCho?: readonly string[],
+): Promise<{ ds: NhacTen[]; phones: string[] }> {
+  if (!ids.length) return { ds: [], phones: [] };
+  const profs = await store.profilesByIds([...ids]);
+  const theoId = new Map(profs.map((p) => [p.id, p]));
+  const ds: NhacTen[] = [];
+  const phones: string[] = [];
+  for (const id of ids) {
+    const p = theoId.get(id);
+    if (!p || p.phone === me) continue;
+    if (chiCho && !laAgent(p.phone) && !chiCho.includes(p.phone)) continue;
+    if (await blockedEitherWay(store, me, myBlocks, p.phone)) continue;
+    const giu = locNhacTen(body, [{ id: p.id, ten: p.handle }]);
+    if (!giu.length) continue;
+    ds.push(giu[0]);
+    phones.push(p.phone);
+  }
+  return { ds, phones };
+}
+
+/**
+ * Báo người được nhắc tên — chung dấu gộp với thông báo bình luận (1 tin/bài/người/giờ), gọi TRƯỚC `notifyComment`
+ * để người vừa được tag nhận câu cụ thể "nhắc đến bạn" thay câu chung. Agent không nhận. Hỏng ⇒ log, không ném.
+ */
+export async function notifyNhacTen(
+  store: KairosStore,
+  input: { postId: string; phones: readonly string[]; byHandle: string; commentId?: string },
+): Promise<void> {
+  try {
+    const nowIso = new Date().toISOString();
+    for (const phone of input.phones) {
+      if (laAgent(phone)) continue;
+      if (!(await store.takeNotifyMark(input.postId, phone, nowIso, NOTIFY_WINDOW_MS))) continue;
+      await notifyMarket(phone, { ...nhacTenMessage(input.byHandle, input.postId, input.commentId), sentBy: KAIROS_PUSH_SENT_BY });
+    }
+  } catch (e) {
+    console.error("[kairos] báo nhắc tên hỏng (bỏ qua):", (e as Error)?.message);
   }
 }
 

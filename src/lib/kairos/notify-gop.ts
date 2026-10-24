@@ -44,3 +44,14 @@ export function notifyMessage(t: NotifyTarget, commenterHandle: string, postId: 
     ? { title: "Có người trả lời bạn", body: `${who} vừa trả lời bình luận của bạn trên Kairos.`, url, tag: `kairos-${postId}` }
     : { title: "Bài của bạn có bình luận mới", body: `${who} vừa bình luận bài của bạn trên Kairos.`, url, tag: `kairos-${postId}` };
 }
+
+/** Tin "được nhắc tên" (0071) — trỏ thẳng chỗ nhắc: bình luận ⇒ `#bl-<id>`, bài ⇒ trang bài. */
+export function nhacTenMessage(byHandle: string, postId: string, commentId?: string): { title: string; body: string; url: string; tag: string } {
+  const who = byHandle.slice(0, 20) || "Bà con";
+  return {
+    title: "Có người nhắc đến bạn",
+    body: `${who} đã nhắc đến bạn trong ${commentId ? "một bình luận" : "một bài viết"} trên Kairos.`,
+    url: `/kairos/p/${postId}${commentId ? `#bl-${commentId}` : ""}`,
+    tag: `kairos-${postId}`,
+  };
+}

@@ -2,8 +2,10 @@
 // này đóng vai trò là agent khung … truyền tải tri thức cho người đọc", "tần suất xuất hiện đan xen").
 //
 // Cửa: header `x-kairos-key` như /nhap (máy GPU, scripts/kairos-agent.mjs). Thân {viec: [...]} ≤ 30 việc:
-//   {loai:"bai", agentId, body, topic?}                     — đăng bài (kind ba-con, đứng tên agent, chấm AI)
-//   {loai:"binh-luan", agentId, postId, parentId?, body}    — bình luận / trả lời (1 cấp như người thường)
+//   {loai:"bai", agentId, body, topic?, nhacAgent?}         — đăng bài (kind ba-con, đứng tên agent, chấm AI)
+//   {loai:"binh-luan", agentId, postId, parentId?, body, nhac?, nhacAgent?} — bình luận / trả lời (1 cấp như người thường)
+//   Nhắc tên "@Tên" (0071): `nhacAgent` = id agent bạn (hồ sơ tạo nếu chưa có); `nhac` = profileId người THẬT — chỉ
+//   nhận khi là chủ bài / người đang được trả lời (agent không tag bà con lung tung); "@tên" phải có trong chữ.
 //   {loai:"hay", agentId, postId? | commentId?}             — Hay bài/bình luận của BÀ CON (không Hay agent khác)
 // Agent chỉ có trong danh sách cố định agent-doi.mjs; hồ sơ tạo khi agent hành động lần đầu (SĐT sentinel `agent:<id>`).
 // Luật (L1–L5 của spec 16): chữ qua loiChuAgent + lọc chữ bậy + chủ quyền; trần mỗi agent (1 bài + 4 bình luận/ngày) và
@@ -17,7 +19,8 @@ import { isTopic } from "@/lib/kairos/chu-de.mjs";
 import { chuQuyenFlag } from "@/lib/kairos/chu-quyen.mjs";
 import { tagArea } from "@/lib/kairos/khu-vuc.mjs";
 import { badWordHit } from "@/lib/kairos/loc-chu";
-import { auditQuiet, ingestKeyDenied, jsonBody, kErr, notifyComment, postVisible, storeOr503 } from "@/lib/kairos/server";
+import { auditQuiet, ingestKeyDenied, jsonBody, kErr, nhacTenHopLe, notifyComment, notifyNhacTen, postVisible, storeOr503 } from "@/lib/kairos/server";
+import { docIdNhac } from "@/lib/kairos/nhac-ten";
 import type { KairosStore, ProfileFull } from "@/lib/kairos/store";
 import { handleNorm } from "@/lib/kairos/ten-goi";
 import { isUuid, replyRoot } from "@/lib/kairos/validate";
@@ -36,6 +39,18 @@ async function hoSo(store: KairosStore, a: Agent): Promise<ProfileFull | null> {
   } catch {
     return null; // tên đã có người dùng thật lấy ⇒ agent này không hoạt động (không giành tên của bà con)
   }
+}
+
+/** id hồ sơ cần tag: agent bạn (tạo hồ sơ nếu chưa có) + profileId người thật khách gửi. Agent lạ ⇒ bỏ. */
+async function idNhac(store: KairosStore, v: Record<string, unknown>, me: Agent): Promise<string[]> {
+  const ids = docIdNhac(v.nhac);
+  for (const x of Array.isArray(v.nhacAgent) ? v.nhacAgent.slice(0, 3) : []) {
+    const b = agentTheoId(x);
+    if (!b || b.id === me.id) continue;
+    const p = await hoSo(store, b);
+    if (p && !ids.includes(p.id)) ids.push(p.id);
+  }
+  return ids;
 }
 
 function loiChu(text: unknown, loai: "bai" | "binh-luan"): string | null {
@@ -87,6 +102,7 @@ async function mot(store: KairosStore, v: Record<string, unknown>, since: string
     if (!p) return { ok: false, code: "no_profile" };
     if ((await store.countSince("posts", a.phone, since)) >= TRAN.baiMoiAgentNgay) return { ok: false, code: "tran_agent" };
     const body = String(v.body).trim();
+    const nhac = await nhacTenHopLe(store, await idNhac(store, v, a), body, a.phone, [], []);
     const area = tagArea(body, { ports: FISHING_PORTS });
     const row = await store.insertPost({
       kind: "ba-con",
@@ -98,6 +114,7 @@ async function mot(store: KairosStore, v: Record<string, unknown>, since: string
       provinces: area.provinces,
       ports: area.ports.slice(0, 3),
       reshare_of: null,
+      mentions: nhac.ds,
       mod_state: "cho-kiem",
     });
     dem.bai++;
@@ -124,11 +141,15 @@ async function mot(store: KairosStore, v: Record<string, unknown>, since: string
       parentId = replyRoot({ id: t.id, parentId: t.parent_id });
       parentAuthor = t.author_phone;
     }
-    const row = await store.insertComment({ post_id: post.id, parent_id: parentId, author_phone: a.phone, body: String(v.body).trim() });
+    const body = String(v.body).trim();
+    const chiCho = [post.author_phone, parentAuthor].filter((x): x is string => !!x);
+    const nhac = await nhacTenHopLe(store, await idNhac(store, v, a), body, a.phone, [], chiCho);
+    const row = await store.insertComment({ post_id: post.id, parent_id: parentId, author_phone: a.phone, body, mentions: nhac.ds });
     dem.bl++;
     await auditQuiet(store, { actor: ACTOR, actor_kind: "he-thong", action: "agent_binh_luan", target_type: "comment", target_id: row.id, detail: { agentId: a.id, postId: post.id } });
     // bà con được báo như khi người thật trả lời — thông báo gộp 1 tin/bài/giờ (notify-gop)
-    await notifyComment(store, { post, parentAuthor, commenter: a.phone, commenterHandle: p.handle });
+    await notifyNhacTen(store, { postId: post.id, phones: nhac.phones, byHandle: p.handle, commentId: row.id });
+    await notifyComment(store, { post, parentAuthor, commenter: a.phone, commenterHandle: p.handle, commentId: row.id });
     return { ok: true, id: row.id };
   }
 

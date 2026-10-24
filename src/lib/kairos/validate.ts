@@ -5,6 +5,7 @@
 // (bỏ qua app) vẫn bị chặn. Độ dài đếm theo KÝ TỰ (code point) — khớp `char_length` của Postgres,
 // không phải `.length` UTF-16 (một biểu tượng đếm 2).
 
+import { docIdNhac } from "./nhac-ten";
 import { badWordHit } from "./loc-chu";
 import { chuQuyenFlag } from "./chu-quyen.mjs";
 import { isTopic, type Topic } from "./chu-de.mjs";
@@ -70,6 +71,8 @@ export interface PostInput {
   topic: Topic;
   ports: string[];
   reshareOf: string | null;
+  /** id người được nhắc tên (0071) — route lọc lại theo chữ */
+  mentions: string[];
 }
 
 /**
@@ -115,7 +118,7 @@ export function validatePost(
   if (!body && !images.length && !reshareOf) return { ok: false, code: "empty" };
   const flag = contentFlag(body);
   if (flag) return { ok: false, code: flag.code, term: flag.term };
-  return { ok: true, value: { body, images, topic, ports, reshareOf: reshareOf as string | null } };
+  return { ok: true, value: { body, images, topic, ports, reshareOf: reshareOf as string | null, mentions: docIdNhac(r.mentions) } };
 }
 
 export interface CommentInput {
@@ -123,6 +126,8 @@ export interface CommentInput {
   parentId: string | null;
   /** một ảnh trong thư mục của chính người viết (0070) */
   image: string | null;
+  /** id người được nhắc tên (0071) — route lọc lại theo chữ */
+  mentions: string[];
 }
 
 /** `profileId` = người viết — ảnh phải nằm trong thư mục của họ; thiếu ⇒ không nhận ảnh. */
@@ -139,7 +144,7 @@ export function validateComment(raw: unknown, profileId?: string): Checked<Comme
   if (parentId !== null && !isUuid(parentId)) return { ok: false, code: "empty" };
   const flag = contentFlag(body);
   if (flag) return { ok: false, code: flag.code, term: flag.term };
-  return { ok: true, value: { body, parentId: parentId as string | null, image: image as string | null } };
+  return { ok: true, value: { body, parentId: parentId as string | null, image: image as string | null, mentions: docIdNhac(r.mentions) } };
 }
 
 /**

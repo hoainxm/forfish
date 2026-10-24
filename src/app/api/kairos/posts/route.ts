@@ -8,9 +8,7 @@
 import { NextResponse } from "next/server";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { tagArea } from "@/lib/kairos/khu-vuc.mjs";
-import {
-  auditQuiet, clientIp, hydratePosts, jsonBody, kErr, kairosErrorResponse, PORT_IDS, postVisible, rateDenied, requireWriter,
-} from "@/lib/kairos/server";
+import { auditQuiet, clientIp, hydratePosts, jsonBody, kErr, kairosErrorResponse, PORT_IDS, postVisible, rateDenied, requireWriter, nhacTenHopLe, notifyNhacTen } from "@/lib/kairos/server";
 import { MAX_POST_PORTS, validatePost } from "@/lib/kairos/validate";
 
 export async function POST(req: Request) {
@@ -25,9 +23,9 @@ export async function POST(req: Request) {
     const limited = await rateDenied(store, "posts", phone);
     if (limited) return limited;
 
+    const blocked = await store.edgesFrom("block", phone);
     let reshareOf: string | null = null;
     if (v.value.reshareOf) {
-      const blocked = await store.edgesFrom("block", phone);
       const target = await store.getPost(v.value.reshareOf);
       const rootId = target?.reshare_of ?? target?.id ?? null;
       const root = rootId && rootId !== target?.id ? await store.getPost(rootId) : target;
@@ -35,6 +33,7 @@ export async function POST(req: Request) {
       reshareOf = root.id;
     }
 
+    const nhac = await nhacTenHopLe(store, v.value.mentions, v.value.body, phone, blocked);
     const area = tagArea(v.value.body, { ports: FISHING_PORTS, chosenPorts: v.value.ports });
     const row = await store.insertPost({
       kind: "ba-con",
@@ -46,8 +45,10 @@ export async function POST(req: Request) {
       provinces: area.provinces,
       ports: area.ports.slice(0, MAX_POST_PORTS),
       reshare_of: reshareOf,
+      mentions: nhac.ds,
       mod_state: "cho-kiem",
     });
+    await notifyNhacTen(store, { postId: row.id, phones: nhac.phones, byHandle: profile.handle });
     await auditQuiet(store, {
       actor: phone, actor_kind: "ba-con", action: reshareOf ? "post_reshare" : "post_create",
       target_type: "post", target_id: row.id, detail: { images: v.value.images.length, reshareOf }, ip: clientIp(req),

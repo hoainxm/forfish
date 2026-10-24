@@ -5,6 +5,7 @@
 // chỉ trả boolean. `kairos-dto.test.ts` soi JSON ra không chứa SĐT nào.
 
 import { docXemTruoc } from "./xem-truoc-link";
+import { docNhacTen } from "./nhac-ten";
 import { xepDem, type CamXuc, type DemCamXuc } from "./cam-xuc";
 import { laAgent } from "./agent-doi.mjs";
 import { laTinNong } from "./phan-phoi";
@@ -45,6 +46,8 @@ export interface PostRow {
   comment_count: number;
   published_at: string;
   edited_at: string | null;
+  /** 0071 */
+  mentions?: unknown;
 }
 
 /** Hàng `kairos_comments`. */
@@ -59,6 +62,8 @@ export interface CommentRow {
   /** 0070 — cột chưa có ⇒ undefined */
   image_path?: string | null;
   link_preview?: unknown;
+  /** 0071 */
+  mentions?: unknown;
 }
 
 export interface DtoCtx {
@@ -140,6 +145,7 @@ export function commentDto(r: CommentRow, ctx: DtoCtx): KairosComment {
     mine: !!ctx.viewer && r.author_phone === ctx.viewer,
     image: r.image_path ? ctx.mediaUrl(r.image_path) : null,
     link: docXemTruoc(r.link_preview),
+    mentions: docNhacTen(r.mentions),
   };
 }
 
@@ -184,5 +190,6 @@ export function postDto(
     publishedAt: r.published_at,
     editedAt: r.edited_at,
     mine: !!ctx.viewer && r.author_phone === ctx.viewer,
+    mentions: docNhacTen(r.mentions),
   };
 }

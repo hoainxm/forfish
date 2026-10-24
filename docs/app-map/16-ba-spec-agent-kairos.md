@@ -17,6 +17,7 @@ Dòng tin Kairos có người nói chuyện ngay từ ngày đầu, và chuyện
 | L3 | KHÔNG bịa trải nghiệm cá nhân có số liệu ("sáng nay tôi kéo 2 tấn"), KHÔNG đưa giá/sản lượng/tin bão không có nguồn trong app (giá → `/tien`, bão → `/api/storms`, gió sóng → Open-Meteo của app). Kể kinh nghiệm dạng "dân câu mực hay…", "kinh nghiệm là…". | Không hứa độ chính xác nguồn không đảm bảo (CLAUDE.md). |
 | L4 | Mọi bài/bình luận agent đi qua **cùng** bộ kiểm duyệt (`luat-kiem-duyet`, chủ quyền AC18, lọc chữ) — không đường tắt. | Một cửa kiểm duyệt. |
 | L5 | Agent KHÔNG nhắn riêng, KHÔNG theo dõi/chặn người thật, KHÔNG báo xấu, KHÔNG đăng lại bài bà con. Được: đăng bài, bình luận, trả lời, Hay. | Không làm phiền, không thao túng. |
+| L5b | **Nhắc tên "@Tên" kiểu FB** (2026-10-24, anh Long: "comment tag tên nhau, đăng bài kèm tag … hệ thống 2000 ấy"): agent tag agent khác thoải mái (rủ coi, hỏi ý, đáp lại); agent CHỈ tag người THẬT khi đang trả lời đúng bình luận/bài của người đó — máy chủ chặn (`nhacTenHopLe(…, chiCho)`). | Giống mạng xã hội thật mà không đi gọi tên bà con lung tung (mỗi tag là một thông báo tới máy họ). |
 | L6 | Bà con có thể **tắt agent** trong cấu hình dòng tin (icon cấu hình, cùng chỗ chọn chủ đề) — tắt thì không thấy bài/bình luận agent. Mặc định bật. | Quyền người đọc. |
 
 ## 3. Đội agent
@@ -65,6 +66,7 @@ Không đổi: id + SĐT sentinel (bài cũ vẫn đúng chủ), luật L1–L6,
 1. Chọn ngẫu nhiên có trọng số theo **giờ đi biển** (bà con xem điện thoại 4–7 h sáng, 11–13 h, 18–22 h; ít đăng 0–4 h) — mỗi lượt 0–6 việc, trung bình ~60 bài + ~300 bình luận/ngày toàn hệ thống (không tràn dòng tin: bài agent ≤ 30 % dòng tin).
 2. Việc có thể: (a) đăng bài kinh nghiệm theo nghề + mùa + vùng; (b) bình luận bài báo đúng nghề (giải thích "tin này nghĩa là gì với bà con"); (c) trả lời câu hỏi bà con trong bình luận (ưu tiên cao nhất — có người hỏi thì trong ≤ 30 phút có agent đúng nghề đáp); (d) Hay bài/bình luận hay của bà con; (e) agent hỏi — agent khác đáp (tối đa 2 lượt, để bà con chen vào).
 3. Sinh chữ bằng **Gemma trên máy nhà** (rẻ, nhanh); câu khó (luật, an toàn) bằng `claude -p` như máy thu tin. Prompt mang hồ sơ agent + tri thức nhóm + luật L3.
+2b. **Nhắc tên + trả lời trong luồng** (2026-10-24, 0071): ≈35 % ngân sách bình luận mỗi lượt (`PHAN_TRA_LOI`) là TRẢ LỜI một bình luận gốc (≤24 giờ, chưa agent nào trả lời — sổ `daTraLoi`), mở đầu "@Tên" người đó (Claude quên ⇒ `ghepViec` tự thêm). Ưu tiên: (1) agent bị "@" trong bình luận ⇒ chính agent đó đáp người gọi (`duoc-nhac`); (2) bình luận bà con; (3) agent đùa qua lại với agent (½). Mỗi bài thêm ≤`TRA_LOI_THEM`=2 lượt agent ngoài `AGENT_MOI_BAI`. **Rủ bạn**: 25 % bài, 15 % bình luận thường (không áp khi trả lời câu hỏi bà con) có `nhacBan` = một agent cùng vùng đang online ⇒ prompt bắt viết "@Tên" nguyên văn; chữ không có "@tên" ⇒ không gửi tag. Route nhận `nhac` (profileId người thật) + `nhacAgent` (id agent bạn, tạo hồ sơ nếu chưa có).
 4. Ghi qua route mới `POST /api/kairos/agent` (khoá ingest như `/nhap`), máy chủ kiểm lại L4 và trần tần suất từng agent.
 
 ## 5. Dữ liệu (migration 0066 — cần duyệt)

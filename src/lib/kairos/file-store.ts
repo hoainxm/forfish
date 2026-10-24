@@ -162,6 +162,9 @@ export function createKairosFileStore(opts: { dir?: string; now?: () => Date } =
     profileByPhone: (phone) => read((s) => s.profiles.find((p) => p.phone === phone) ?? null),
     profileById: (id) => read((s) => s.profiles.find((p) => p.id === id) ?? null),
     profilesByPhones: (phones) => read((s) => s.profiles.filter((p) => phones.includes(p.phone))),
+    profilesByIds: (ids) => read((s) => s.profiles.filter((p) => ids.includes(p.id))),
+    searchProfiles: (qNorm, limit, bo) =>
+      read((s) => s.profiles.filter((p) => !bo.includes(p.phone) && qNorm.trim() && p.handle_norm.includes(qNorm.trim())).slice(0, limit)),
     takenNorms: (norms) => read((s) => s.profiles.filter((p) => norms.includes(p.handle_norm)).map((p) => p.handle_norm)).then((x) => new Set(x)),
     createProfile: (row) =>
       mutate((s) => {

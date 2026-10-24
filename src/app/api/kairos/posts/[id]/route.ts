@@ -11,12 +11,10 @@ import { NextResponse } from "next/server";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { tagArea } from "@/lib/kairos/khu-vuc.mjs";
 import { decodeCursor, encodeCursor } from "@/lib/kairos/cursor";
-import {
-  auditQuiet, clientIp, hydrateComments, hydratePosts, jsonBody, kErr, kairosErrorResponse, PORT_IDS, postVisible, readerOf,
-  rateDenied, requireWriter, storeOr503,
-} from "@/lib/kairos/server";
+import { auditQuiet, clientIp, hydrateComments, hydratePosts, jsonBody, kErr, kairosErrorResponse, PORT_IDS, postVisible, readerOf, rateDenied, requireWriter, storeOr503, nhacTenHopLe, notifyNhacTen } from "@/lib/kairos/server";
 import { LIMITS } from "@/lib/kairos/types";
 import { isUuid, MAX_POST_PORTS, validatePost } from "@/lib/kairos/validate";
+import { docNhacTen } from "@/lib/kairos/nhac-ten";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -61,9 +59,11 @@ export async function PATCH(req: Request, ctx: Ctx) {
     // đăng lại giữ nguyên bài gốc — sửa không đổi được đích đăng lại
     const v = validatePost({ ...(body as Record<string, unknown>), reshareOf: row.reshare_of }, { profileId: profile.id, portIds: PORT_IDS });
     if (!v.ok) return kErr(400, v.code);
+    const nhac = await nhacTenHopLe(store, v.value.mentions, v.value.body, phone, await store.edgesFrom("block", phone));
     const area = tagArea(v.value.body, { ports: FISHING_PORTS, chosenPorts: v.value.ports });
     const updated = await store.updatePost(row.id, {
       body: v.value.body,
+      mentions: nhac.ds,
       images: v.value.images,
       topic: v.value.topic,
       regions: area.regions,
@@ -79,6 +79,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
       // Bài đã lưu xong — ảnh mồ côi chỉ tốn chỗ kho, không mất gì của bà con ⇒ log, không 500.
       await store.removeImages(dropped).catch((e) => console.error("[kairos] xoá ảnh bỏ khi sửa hỏng:", (e as Error)?.message));
     }
+    // chỉ báo người MỚI được tag lúc sửa (người đã tag từ trước không bị báo lại)
+    const cu = new Set(docNhacTen(row.mentions).map((m) => m.id));
+    const moi = nhac.ds.map((m, i) => (cu.has(m.id) ? null : nhac.phones[i])).filter((x): x is string => !!x);
+    await notifyNhacTen(store, { postId: row.id, phones: moi, byHandle: profile.handle });
     await auditQuiet(store, { actor: phone, actor_kind: "ba-con", action: "post_edit", target_type: "post", target_id: row.id, ip: clientIp(req) });
     const [post] = await hydratePosts(store, [updated], phone, []);
     return NextResponse.json({ ok: true, post });

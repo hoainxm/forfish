@@ -101,6 +101,9 @@ export interface KairosAbout {
   homePort: string | null;
 }
 
+export type { NhacTen } from "./nhac-ten";
+import type { NhacTen } from "./nhac-ten";
+
 /** Thẻ xem trước link trong bình luận (0070, xem-truoc-link.ts). */
 export interface LinkPreview {
   url: string;
@@ -127,6 +130,8 @@ export interface KairosComment {
   image?: string | null;
   /** thẻ xem trước link đầu tiên trong chữ — máy chủ đọc lúc ghi (0070) */
   link?: LinkPreview | null;
+  /** người được nhắc tên "@Tên" trong chữ (0071) */
+  mentions?: NhacTen[];
 }
 
 export interface KairosPost {
@@ -167,4 +172,6 @@ export interface KairosPost {
   publishedAt: string;
   editedAt: string | null;
   mine: boolean;
+  /** người được nhắc tên trong bài (0071) */
+  mentions?: NhacTen[];
 }

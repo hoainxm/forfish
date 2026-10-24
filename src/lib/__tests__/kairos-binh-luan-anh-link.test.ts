@@ -20,7 +20,7 @@ const img = (owner = PID) => `${owner}/00000001-aaaa-4bbb-8ccc-dddddddddddd.jpg`
 describe("validateComment — ảnh kèm", () => {
   it("chỉ ảnh, không chữ ⇒ nhận", () => {
     const r = validateComment({ body: "", image: img() }, PID);
-    expect(r.ok && r.value).toEqual({ body: "", parentId: null, image: img() });
+    expect(r.ok && r.value).toEqual({ body: "", parentId: null, image: img(), mentions: [] });
   });
   it("ảnh thư mục người khác / không biết người viết ⇒ bad_image", () => {
     expect(validateComment({ body: "hay", image: img(OTHER) }, PID)).toMatchObject({ ok: false, code: "bad_image" });
