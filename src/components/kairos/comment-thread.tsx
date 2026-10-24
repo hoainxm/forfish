@@ -256,7 +256,24 @@ export function CommentThread({
   useEffect(() => {
     if (!troToi || daCuon.current || !comments.some((c) => c.id === troToi)) return;
     daCuon.current = true;
-    requestAnimationFrame(() => document.getElementById(`bl-${troToi}`)?.scrollIntoView({ block: "center" }));
+    // Ảnh bài phía trên tải sau đẩy bình luận xuống (lúc đầu trang còn ngắn, cuộn không tới) ⇒ canh lại
+    // mỗi lần trang đổi cao trong 2,5 s đầu; bà con tự chạm/cuộn là thôi.
+    const go = () => document.getElementById(`bl-${troToi}`)?.scrollIntoView({ block: "center" });
+    let thoi = false;
+    const dung = () => {
+      thoi = true;
+    };
+    // hẹn giờ thường (không rAF: rAF đứng khi trang chưa hiện) + mốc phòng khi ResizeObserver không có
+    for (const ms of [60, 400, 1200]) setTimeout(() => !thoi && go(), ms);
+    window.addEventListener("touchstart", dung, { once: true, passive: true });
+    window.addEventListener("wheel", dung, { once: true, passive: true });
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => !thoi && go());
+    ro?.observe(document.body);
+    setTimeout(() => {
+      ro?.disconnect();
+      window.removeEventListener("touchstart", dung);
+      window.removeEventListener("wheel", dung);
+    }, 2500);
   }, [troToi, comments]);
   const loadFirst = useCallback(async () => {
     setFirst("loading");

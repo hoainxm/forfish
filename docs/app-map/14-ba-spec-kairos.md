@@ -89,7 +89,7 @@ Anh Long: "cho các icon cảm xúc tương tự fb ấy". 6 cảm xúc (`lib/ka
 - **Nút ảnh** trong ô viết (cạnh micro): chọn ⇒ nén như ảnh bài (`resizeForMarket`) ⇒ tải lên ngay (`/api/kairos/upload`), hiện ảnh nhỏ trên ô viết + × "Bỏ ảnh" (xoá khỏi kho). **≤1 ảnh/bình luận**, chỉ ảnh không chữ cũng gửi được. Ảnh KHÔNG vào nháp (nháp chỉ chữ); mất sóng ⇒ nút ảnh tắt, "Cần sóng để gửi ảnh".
 - Bình luận có ảnh: ảnh dưới bong bóng (≤15rem), chạm ⇒ trình xem toàn màn (`xem-anh`); ảnh hỏng/mất sóng ⇒ "Cần sóng để xem ảnh". Bình luận nổi trên thẻ: ảnh nhỏ 4rem. Bản lưu offline bỏ ảnh ⇒ bình luận chỉ có ảnh hiện "Đã gửi một ảnh".
 - **Xem trước link**: chữ có link http(s) ⇒ máy chủ đọc trang link ĐẦU TIÊN lúc ghi (`lib/kairos/xem-truoc-link.ts`: og:title/og:site_name/og:image; chống SSRF — chỉ tên miền phân giải ra IP công khai, kiểm lại mỗi lần chuyển hướng ≤3, cổng mặc định, 3 s, ≤256 KB, chỉ text/html). Thẻ: ảnh trái + tên trang + tiêu đề 2 dòng, mở tab mới. Đọc hỏng ⇒ không thẻ, bình luận vẫn lên. Người đọc không gọi mạng ra ngoài.
-- **Thông báo trỏ đúng bình luận**: link tin "có bình luận / có người trả lời" = `/kairos/p/<bài>#bl-<bình luận>` ⇒ trang bài bung luồng chứa nó và cuộn tới (một lần, khi đã tải). Tin gộp 1/bài/giờ trỏ bình luận ĐẦU của giờ đó.
+- **Thông báo trỏ đúng bình luận**: link tin "có bình luận / có người trả lời" = `/kairos/p/<bài>#bl-<bình luận>` ⇒ trang bài bung luồng chứa nó và cuộn tới giữa màn khi đã tải; ảnh phía trên tải sau đẩy xuống thì canh lại trong 2,5 s đầu (hẹn giờ thường + ResizeObserver, KHÔNG rAF — rAF đứng khi trang chưa hiện), bà con tự chạm/cuộn là thôi. Tin gộp 1/bài/giờ trỏ bình luận ĐẦU của giờ đó.
 - Dữ liệu: migration 0070 (04). Test `kairos-binh-luan-anh-link.test.ts`.
 
 ### 3.5 Chia sẻ (AC11)
