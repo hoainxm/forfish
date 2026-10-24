@@ -2,6 +2,7 @@
 
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
+<!-- re-verified: 2026-10-24s — §3.2 trình xem ảnh bố cục FB + hàng chân ở đáy ảnh. -->
 <!-- re-verified: 2026-10-24r — §3.12 nhắc tên "@Tên" kiểu FB (gõ @ gợi ý người trong bài + tìm máy chủ, link đậm, thông báo "nhắc đến bạn", agent L5b); §7 route GET /api/kairos/users?q=, bài/bình luận nhận mentions. -->
 <!-- re-verified: 2026-10-24q — §3.4b ảnh trong bình luận (≤1, nút ảnh trong ô viết), thẻ xem trước link (máy chủ đọc lúc ghi, chống SSRF), thông báo trỏ #bl-<id> + cuộn tới; §7 route bình luận nhận image. -->
 <!-- re-verified: 2026-10-24p — RÀ FB VÒNG 2 (anh Long: "tổ chức team agent rà vòng 2 về giao diện và tương tác facebook"): §4/A74/AC05 BỎ nhãn "Cả nước" trên thẻ (ca-nuoc chỉ là dữ liệu), nhãn nơi chốn "Tên ▸ Bến X" trên dòng tên chạm sang Bến; §3.2 ⋯ lên đầu thẻ, lưới ảnh 1/2/3/4+ + trình xem toàn màn, dòng tổng "N bình luận", bài đăng lại có ảnh + link bài gốc, giữ chỗ 10 phút; §3.3 × hỏi Lưu nháp/Bỏ bài/Viết tiếp (nháp giữ ảnh), gỡ cảng "Không gắn"; §3.4 viên Trả lời, gập "Xem N phản hồi", ô viết dính đáy; §3.8 cảng nhà chạm được; §3.9 thẻ đầu Bến + màn phụ ‹ + kéo làm mới. A94–A98. -->
@@ -62,7 +63,7 @@ Chốt 2026-10-23. Kairos (καιρός) = đúng thời điểm.
 
 **Đầu thẻ kiểu Facebook** (rà FB vòng 2, 2026-10-24): `Tên ▸ Bến X` — nhãn nơi chốn đứng TRÊN DÒNG TÊN như tên nhóm FB, CHỈ khi bài gắn cảng có trong danh mục `fishing-ports.ts` (`ports[0]`), là liên kết riêng sang `/kairos/ben/<cảng>`, ẩn khi đang ở chính Bến đó (prop `benPort`). Bài chỉ gắn tỉnh/vùng hoặc `ca-nuoc` ⇒ **không nhãn nơi chốn** (bỏ nhãn "Cả nước" — §4, A74). Ba chấm **⋯** (Sửa/Xoá hoặc Báo xấu/Chặn, Lưu/Bỏ lưu) lên góc phải đầu thẻ cạnh nút Nghe (trước ở chân). Ảnh đại diện và tên đều dẫn trang cá nhân (ảnh bỏ khỏi thứ tự Tab).
 
-**Lưới ảnh kiểu FB** (`lib/kairos/anh-luoi.boCucAnh`): 1 ảnh theo tỉ lệ thật (dọc ⇒ 4:5, ngang theo ảnh, kẹp 12–34rem) · 2 ảnh hai cột vuông · 3 ảnh ô trái cao hai hàng · ≥4 ảnh lưới 2×2, ô thứ tư phủ "+N". Chạm ô ảnh ⇒ **trình xem ảnh toàn màn** (`xem-anh.tsx`, vuốt ngang qua từng ảnh, "i/N", Tải ảnh, Esc/back đóng; ảnh không tải được ⇒ "Cần sóng để xem ảnh").
+**Lưới ảnh kiểu FB** (`lib/kairos/anh-luoi.boCucAnh`): 1 ảnh theo tỉ lệ thật (dọc ⇒ 4:5, ngang theo ảnh, kẹp 12–34rem) · 2 ảnh hai cột vuông · 3 ảnh ô trái cao hai hàng · ≥4 ảnh lưới 2×2, ô thứ tư phủ "+N". Chạm ô ảnh ⇒ **trình xem ảnh toàn màn** (`xem-anh.tsx`, bố cục FB: × trái · "i/N" giữa · ⋯ phải (Tải ảnh); đáy ảnh tên người đăng + giờ + hàng 👍 💬 ↗ dùng chung với thẻ — 💬/↗ đóng trình xem rồi mở bình luận/bảng chia sẻ; vuốt ngang qua từng ảnh, Esc/back đóng; ảnh không tải được ⇒ "Cần sóng để xem ảnh").
 
 **Bài đăng lại**: thẻ bài gốc có đầu thẻ (dẫn trang người đăng), tiêu đề/chữ cắt 3 dòng là liên kết sang `/kairos/p/<id gốc>`, và ẢNH của bài gốc (bài báo: ảnh bìa) mở được trình xem.
 

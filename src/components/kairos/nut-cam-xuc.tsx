@@ -22,9 +22,12 @@ export function NutCamXuc({
   disabled = false,
   nho = false,
   dem,
+  toi = false,
   className = "",
 }: {
   my: CamXuc | null;
+  /** trên nền tối (đáy trình xem ảnh) — chưa chọn thì chữ trắng thay vì chữ đậm */
+  toi?: boolean;
   /** kiểu FB mới (chân thẻ một hàng): hiện SỐ lượt thay cho tên cảm xúc; 0 ⇒ chỉ biểu tượng */
   dem?: number;
   /** loại người chọn; trùng loại đang có ⇒ bên gọi gỡ (chonCamXuc) */
@@ -128,7 +131,7 @@ export function NutCamXuc({
           setMo(false);
           onChon(my ?? "hay");
         }}
-        className={`${className} select-none ${cx ? cx.mau : nho ? "" : "text-foreground/75"} disabled:active:scale-100`}
+        className={`${className} select-none ${cx ? cx.mau : nho ? "" : toi ? "text-white/90" : "text-foreground/75"} disabled:active:scale-100`}
       >
         {cx ? (
           <span aria-hidden className={nho ? "text-[1rem] leading-none" : "text-[1.25rem] leading-none"}>

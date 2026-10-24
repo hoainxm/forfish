@@ -25,7 +25,8 @@
 
 import type { CamXuc } from "@/lib/kairos/cam-xuc";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, type ReactNode } from "react";
 import { CommentIcon, ShareIcon } from "@/components/icons";
 import { boCucAnh } from "@/lib/kairos/anh-luoi";
 import { countLabel, portLabel, postTimeLabel } from "@/lib/kairos/feed-client";
@@ -66,7 +67,7 @@ function Body({ text, nhac }: { text: string; nhac?: NhacTen[] }) {
  * Lưới ảnh kiểu FB (anh-luoi.boCucAnh): 1 ảnh theo tỉ lệ thật (dọc 4:5, ngang theo ảnh, kẹp cao) · 2 ảnh hai
  * cột vuông · 3 ảnh ô trái cao hai hàng · ≥4 ảnh lưới 2×2, ô thứ tư phủ "+N". Mỗi ô là nút mở trình xem toàn màn.
  */
-function Images({ urls, count }: { urls: string[]; count: number }) {
+function Images({ urls, count, chan }: { urls: string[]; count: number; chan?: (dong: (sau?: () => void) => void) => ReactNode }) {
   const hoan = useHoanAnh();
   const [xem, setXem] = useState(false);
   const [mo, setMo] = useState<number | null>(null);
@@ -115,7 +116,7 @@ function Images({ urls, count }: { urls: string[]; count: number }) {
           </button>
         ))}
       </div>
-      {mo !== null && <XemAnh urls={urls} start={mo} onClose={() => setMo(null)} />}
+      {mo !== null && <XemAnh urls={urls} start={mo} onClose={() => setMo(null)} chan={chan} />}
     </div>
   );
 }
@@ -316,6 +317,7 @@ export function PostCard({
   const btn = "flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl px-2.5 [&>svg]:shrink-0 text-[0.9375rem] font-semibold transition active:scale-[0.97]"; // kiểu FB mới: icon + số, dồn trái, không chia đều
   const detail = `/kairos/p/${post.id}`;
   const inline = !inDetail && !!actions.binhLuan;
+  const router = useRouter();
   const [moBL, setMoBL] = useState(false);
   // true ⇒ ô viết nhận con trỏ (bàn phím bật) — chỉ khi bấm nút Bình luận; chạm "N bình luận" chỉ để ĐỌC
   const [vietNgay, setVietNgay] = useState(false);
@@ -324,6 +326,81 @@ export function PostCard({
     setVietNgay(viet);
     setMoBL(true);
   };
+  /**
+   * Hàng chân kiểu FB — dùng ở thẻ VÀ ở đáy trình xem ảnh (`dongXem` có ⇒ nền tối: chữ trắng; Bình luận / Chia sẻ
+   * đóng trình xem rồi mới mở, khỏi chồng bảng lên ảnh).
+   */
+  const hangChan = (dongXem?: (sau?: () => void) => void) => {
+    const mau = dongXem ? "text-white/90" : "text-foreground/75";
+    const nhanBL = `${NHAN.binhLuan}${post.commentCount ? `, ${post.commentCount}` : ""}`;
+    const soBL = post.commentCount > 0 && <span className="tabular-nums">{countLabel(post.commentCount)}</span>;
+    return (
+      <>
+        <NutCamXuc
+          my={post.myCamXuc ?? (post.hayByMe ? "hay" : null)}
+          disabled={!actions.onHay}
+          onChon={(k) => actions.onHay?.(post, k)}
+          dem={post.hayCount}
+          toi={!!dongXem}
+          className={btn}
+        />
+        {dongXem ? (
+          <button
+            type="button"
+            aria-label={nhanBL}
+            onClick={() => dongXem(inline ? () => moBinhLuan(post.commentCount === 0) : inDetail ? undefined : () => router.push(detail))}
+            className={`${btn} ${mau}`}
+          >
+            <CommentIcon className="h-5 w-5" />
+            {soBL}
+          </button>
+        ) : inline ? (
+          <button
+            type="button"
+            aria-expanded={moBL}
+            aria-label={nhanBL}
+            onClick={() => (moBL ? setMoBL(false) : moBinhLuan(post.commentCount === 0))}
+            className={`${btn} ${moBL ? "text-sea" : mau}`}
+          >
+            <CommentIcon className="h-5 w-5" />
+            {soBL}
+          </button>
+        ) : (
+          <Link href={detail} onClick={() => onRead?.(post)} aria-label={nhanBL} className={`${btn} ${mau}`}>
+            <CommentIcon className="h-5 w-5" />
+            {soBL}
+          </Link>
+        )}
+        <button
+          type="button"
+          disabled={!actions.onShare}
+          aria-label={NHAN.chiaSe}
+          onClick={() => (dongXem ? dongXem(() => actions.onShare?.(post)) : actions.onShare?.(post))}
+          className={`${btn} ${mau} disabled:active:scale-100`}
+        >
+          <ShareIcon className="h-5 w-5" />
+        </button>
+        {post.hayCount > 0 && (
+          <span className="ml-auto pr-2">
+            <DongCamXuc camXuc={post.camXuc} tong={post.hayCount} chiBieuTuong />
+          </span>
+        )}
+      </>
+    );
+  };
+
+  /** Đáy trình xem ảnh kiểu FB: tên người đăng + giờ, rồi hàng chân. */
+  const chanXemAnh = (dongXem: (sau?: () => void) => void) => (
+    <div className="px-2">
+      <p className="truncate px-2 text-[1rem] font-bold">
+        {post.author?.handle ?? (post.kind === "chinh-thuc" ? "SDVICO" : "")}
+        {(post.kind === "chinh-thuc" || post.author?.official) && <span className="ml-1.5 text-[0.8125rem] font-semibold text-white/80">{NHAN.chinhThuc}</span>}
+      </p>
+      <p className="px-2 text-[0.8125rem] text-white/70">{postTimeLabel(post.publishedAt, now)}</p>
+      <div className="mt-1 flex items-center gap-1">{hangChan(dongXem)}</div>
+    </div>
+  );
+
   const onMore = actions.onMore ? () => actions.onMore?.(post) : undefined;
   const hoanAnh = useHoanAnh();
   const [xemBia, setXemBia] = useState(false);
@@ -362,58 +439,14 @@ export function PostCard({
       ) : (
         <>
           <Body text={post.body} nhac={post.mentions} />
-          <Images urls={post.images} count={post.imageCount ?? post.images.length} />
+          <Images urls={post.images} count={post.imageCount ?? post.images.length} chan={chanXemAnh} />
           <Reshare post={post} now={now} benPort={benPort} />
         </>
       )}
 
       {/*  CHÂN THẺ KIỂU FACEBOOK MỚI (mẫu anh Long gửi 2026-10-24): MỘT hàng — cảm xúc + số · bình luận + số · chia sẻ,
           cụm biểu tượng cảm xúc nhiều nhất bên phải. Chạm số bình luận = mở đọc (không bật bàn phím); chạm lại = gập. */}
-      <div className="flex items-center gap-1 border-t border-line px-2 py-1">
-        <NutCamXuc
-          my={post.myCamXuc ?? (post.hayByMe ? "hay" : null)}
-          disabled={!actions.onHay}
-          onChon={(k) => actions.onHay?.(post, k)}
-          dem={post.hayCount}
-          className={btn}
-        />
-        {inline ? (
-          <button
-            type="button"
-            aria-expanded={moBL}
-            aria-label={`${NHAN.binhLuan}${post.commentCount ? `, ${post.commentCount}` : ""}`}
-            onClick={() => (moBL ? setMoBL(false) : moBinhLuan(post.commentCount === 0))}
-            className={`${btn} ${moBL ? "text-sea" : "text-foreground/75"}`}
-          >
-            <CommentIcon className="h-5 w-5" />
-            {post.commentCount > 0 && <span className="tabular-nums">{countLabel(post.commentCount)}</span>}
-          </button>
-        ) : (
-          <Link
-            href={detail}
-            onClick={() => onRead?.(post)}
-            aria-label={`${NHAN.binhLuan}${post.commentCount ? `, ${post.commentCount}` : ""}`}
-            className={`${btn} text-foreground/75`}
-          >
-            <CommentIcon className="h-5 w-5" />
-            {post.commentCount > 0 && <span className="tabular-nums">{countLabel(post.commentCount)}</span>}
-          </Link>
-        )}
-        <button
-          type="button"
-          disabled={!actions.onShare}
-          aria-label={NHAN.chiaSe}
-          onClick={() => actions.onShare?.(post)}
-          className={`${btn} text-foreground/75 disabled:active:scale-100`}
-        >
-          <ShareIcon className="h-5 w-5" />
-        </button>
-        {post.hayCount > 0 && (
-          <span className="ml-auto pr-2">
-            <DongCamXuc camXuc={post.camXuc} tong={post.hayCount} chiBieuTuong />
-          </span>
-        )}
-      </div>
+      <div className="flex items-center gap-1 border-t border-line px-2 py-1">{hangChan()}</div>
 
       {inline && moBL && actions.binhLuan && (
         <div className="border-t border-line px-4 py-3">
