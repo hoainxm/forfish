@@ -21,6 +21,12 @@
   THÓI QUEN (AC04) chỉ sống trong máy: chủ đề hay đọc + cảng nhà xếp bài TRONG TỪNG TRANG
   (lib/kairos/xep-bai) — bà con không phải bấm gì, như Facebook tự xếp.
 
+  TẢI TIN MANG ĐI (14 §19, CHỈ dòng tin chung — không Bến): lần đầu trang đầu tải được trên màn này, có sóng tốt
+  (tai-mang-di.songTot) mà bản lưu LÚC MỞ MÀN cũ hơn 6 giờ hoặc bản lưu dưới 40 bài ⇒ một dòng gợi ý dưới ô mời
+  "Sắp ra khơi? Tải 100 bài mới…" + Để sau · Tải. Bấm Tải ⇒ ≤5 trang (fetchFeedPage, đồng hồ, không ném) gộp vào
+  bản lưu (cắt bài Kairos cũ khi đầy, không đụng forfish.fc.*). Để sau ⇒ ẩn 24 giờ (`forfish.kairos.taimangdi.v1`).
+  Không bấm thì không gửi gì.
+
   TUỲ CHỌN DÒNG TIN (14 §13, nút bánh răng ở kairos-screen): chủ đề "Thích đọc" + cờ ẩn bài trợ lý AI đi kèm
   MỌI request trang của dòng tin chung (`thich`, `ai=0` — lib/kairos/tuy-chon.ts), không request mới. Đổi ⇒ tải
   lại trang đầu, GIỮ bài đang hiện khi mất sóng. Bến không dùng.
@@ -43,8 +49,12 @@ import {
   saveFeedCache,
   saveHabit,
   loadTuyChon,
+  loadTaiMangDiAn,
+  saveTaiMangDiAn,
   type FeedPage,
 } from "@/lib/kairos/feed-client";
+import { nenGoiY, soBaiConLuu, songTot, taiNhieuTrang, TMD_TRANG } from "@/lib/kairos/tai-mang-di";
+import { LIMITS } from "@/lib/kairos/types";
 import { emptyHabit, recordRead, setHome, type ChipId, type Habit } from "@/lib/kairos/thoi-quen";
 import { giongNhau, themThamSo, tuyChonMacDinh, type TuyChon } from "@/lib/kairos/tuy-chon";
 import type { KairosPost } from "@/lib/kairos/types";
@@ -57,6 +67,9 @@ import { PostCard, type PostActions } from "./post-card";
 import { PostSkeleton } from "./post-skeleton";
 
 type Load = "loading" | "ready" | "error" | "offline";
+/** Dòng gợi ý "Tải tin mang đi" (14 §19). */
+type GoiY = { k: "an" | "hien" | "dang" | "loi" | "day" } | { k: "xong"; n: number };
+const SO_BAI_MANG_DI = TMD_TRANG * LIMITS.pageSize;
 /** Kéo xuống chừng này (rem) ở đầu trang rồi thả ⇒ làm mới dòng tin. */
 const KEO_LAM_MOI = 4.5;
 
@@ -119,6 +132,9 @@ export function KairosFeed({
   const [more, setMore] = useState<"idle" | "loading" | "error">("idle");
   const [newCount, setNewCount] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  const [goiY, setGoiY] = useState<GoiY>({ k: "an" });
+  /** giờ bản lưu LÚC MỞ MÀN (trước khi trang đầu ghi đè) + đã xét gợi ý chưa — xét MỘT lần mỗi lần mở màn */
+  const goiYRef = useRef<{ savedAt0: number | null; xet: boolean }>({ savedAt0: null, xet: false });
 
   // Ref cho các nghe sự kiện (visibilitychange/online/IntersectionObserver) — khỏi gắn lại.
   const st = useRef({ chip, habit, load, next, more, since: null as string | null, phone, gen: 0, hasPosts: false, pinnedIds: new Set<string>(), tuyChon: tuyChonMacDinh() });
@@ -187,6 +203,17 @@ export function KairosFeed({
         const w = saveFeedCache(st.current.phone, [...page.pinned, ...page.posts], t);
         // nợ: ghi bản lưu hỏng chỉ báo console, trần = lần sau mất sóng thấy bản cũ hơn; nâng khi có chỗ báo "máy đầy" chung
         if (!w.ok) console.warn("[kairos] không ghi được bản lưu dòng tin:", w.reason);
+        if (!port && !goiYRef.current.xet) {
+          goiYRef.current.xet = true;
+          const hien = nenGoiY({
+            songTot: songTot(typeof navigator === "undefined" ? null : navigator),
+            savedAt: goiYRef.current.savedAt0,
+            soBai: loadFeedCache(st.current.phone)?.posts.length ?? 0,
+            anDen: loadTaiMangDiAn(),
+            now: t,
+          });
+          if (hien) setGoiY({ k: "hien" });
+        }
         return;
       }
       if (res.kind === "offline") {
@@ -217,9 +244,10 @@ export function KairosFeed({
       }
     }
     setHabitState(h);
+    goiYRef.current.savedAt0 = loadFeedCache(phone)?.savedAt ?? null;
     if (!port) st.current.tuyChon = loadTuyChon();
     void loadFirst("moi", h, false);
-  }, [authReady, loadFirst, port]);
+  }, [authReady, loadFirst, port, phone]);
 
   // Đổi Tuỳ chọn dòng tin ⇒ tải lại trang đầu (giữ bài đang hiện nếu mất sóng/lỗi). Giống hệt ⇒ không tải.
   useEffect(() => {
@@ -453,6 +481,37 @@ export function KairosFeed({
   }, [shownPosts, shownPinned]);
   const retry = () => void loadFirst(chip, habit, true);
 
+  /** Bấm Tải: ≤5 trang dòng tin chung gộp vào bản lưu. KHÔNG đổi bài đang hiện. */
+  const taiMangDi = async () => {
+    const s = st.current;
+    const q = feedQuery("moi", s.habit.home, { port });
+    if (!q.ok || goiY.k === "dang") return;
+    setGoiY({ k: "dang" });
+    const base = voiNha(q.params, s.habit, port, s.tuyChon);
+    base.set("hat", String(Math.floor(Math.random() * 2147483647)));
+    const r = await taiNhieuTrang((c) => fetchFeedPage(base, c));
+    if (r.kind !== "ok") {
+      setGoiY({ k: "loi" });
+      return;
+    }
+    const w = saveFeedCache(st.current.phone, r.posts, Date.now());
+    if (!w.ok) {
+      setGoiY({ k: "day" });
+      return;
+    }
+    setGoiY({ k: "xong", n: soBaiConLuu(r.posts, loadFeedCache(st.current.phone)?.posts ?? []) });
+  };
+  const deSau = () => {
+    saveTaiMangDiAn(Date.now());
+    setGoiY({ k: "an" });
+  };
+  // báo xong tự tắt sau 8 s
+  useEffect(() => {
+    if (goiY.k !== "xong") return;
+    const t = setTimeout(() => setGoiY({ k: "an" }), 8000);
+    return () => clearTimeout(t);
+  }, [goiY.k]);
+
   return (
     <div className="pb-4">
       {(keo > 0 || dangLamMoi) && (
@@ -473,6 +532,46 @@ export function KairosFeed({
           Bà con có chuyện gì?
         </button>
       </div>
+
+      {!port && goiY.k !== "an" && (
+        <div className="px-4 pb-3">
+          <div className="surface flex items-center gap-2 p-3">
+            <p role="status" className="min-w-0 flex-1 text-[0.875rem]">
+              {goiY.k === "hien"
+                ? `Sắp ra khơi? Tải ${SO_BAI_MANG_DI} bài mới để đọc trên biển`
+                : goiY.k === "dang"
+                  ? "Đang tải bài mang đi…"
+                  : goiY.k === "xong"
+                    ? goiY.n > 0
+                      ? `Đã tải ${goiY.n} bài — mất sóng vẫn đọc được`
+                      : "Chưa lưu được bài nào vào máy."
+                    : goiY.k === "day"
+                      ? "Máy đầy, chưa lưu được bài mang đi."
+                      : "Chưa tải được — thử lại khi sóng tốt."}
+            </p>
+            {(goiY.k === "hien" || goiY.k === "loi") && (
+              <button type="button" onClick={deSau} className="h-10 shrink-0 rounded-xl px-3 font-semibold text-foreground/75">
+                {NHAN.deSau}
+              </button>
+            )}
+            {goiY.k === "xong" || goiY.k === "day" ? (
+              <button type="button" onClick={() => setGoiY({ k: "an" })} className="h-10 shrink-0 rounded-xl border border-line px-3 font-semibold text-sea">
+                {NHAN.dong}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void taiMangDi()}
+                disabled={goiY.k === "dang"}
+                aria-busy={goiY.k === "dang"}
+                className="h-10 shrink-0 rounded-xl bg-sea px-4 font-semibold text-white disabled:opacity-60"
+              >
+                {goiY.k === "dang" ? NHAN.dangTai : goiY.k === "loi" ? NHAN.thuLai : NHAN.tai}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {load === "offline" && !empty && (
         <StatusBanner level="warn">{savedAt ? `Mất sóng — bài lưu lúc ${savedAtLabel(savedAt)}` : "Mất sóng — đang xem bài đã tải"}</StatusBanner>

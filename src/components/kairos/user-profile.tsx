@@ -16,7 +16,9 @@
    · Của mình: Sửa (sheet Sửa trang: tên, ảnh, số hiệu tàu, Giới thiệu) + ô "Bà con có chuyện gì?".
      Người khác: Theo dõi (một chiều, bấm lại để bỏ) + ⋯ (Chặn). KHÔNG có nút Nhắn — chưa có
      tính năng nhắn tin, không hứa thứ không có. Đã chặn ⇒ "Bạn đã chặn người này" + Bỏ chặn.
-   · Thẻ Bài viết · Ảnh (lưới ảnh từ bài của chính họ) · Giới thiệu.
+   · Thẻ Bài viết · Ảnh (lưới ảnh từ bài của chính họ) · Giới thiệu · (trang mình) Đã lưu — bài lưu MANG
+     THEO trong máy, cả ảnh (14 §18, saved-posts.tsx). Mất sóng / chưa đăng nhập mà mở /kairos/u/toi ⇒ vẫn
+     hiện "Đã lưu" ngay dưới câu báo (đọc trong máy, không request).
    · Mất sóng: bài của người này trong bản lưu dòng tin (chỉ chữ — lưới ảnh báo cần sóng); số
      theo dõi không hiện (bản lưu không có); nút ghi "Cần sóng".
 */
@@ -48,6 +50,7 @@ import { KairosAvatar } from "./kairos-avatar";
 import { PostCard } from "./post-card";
 import { PostSkeleton } from "./post-skeleton";
 import { ProfileSheet } from "./profile-sheet";
+import { SavedPosts } from "./saved-posts";
 import { usePostActions } from "./use-post-actions";
 
 type Load = "loading" | "ready" | "missing" | "error" | "offline" | "login";
@@ -134,7 +137,8 @@ export function UserProfile({ id }: { id: string }) {
       if (au) {
         setUser(
           (u) =>
-            u ?? { ...au, ...USER_DEFAULTS, postCount: mine.length, following: false, blockedByMe: false, me: false },
+            // `mine` của bài trong bản lưu ⇒ biết đây là trang mình (hiện thẻ Đã lưu khi mất sóng)
+            u ?? { ...au, ...USER_DEFAULTS, postCount: mine.length, following: false, blockedByMe: false, me: !!mine[0]?.mine },
         );
         setPosts((cur) => (cur.length ? cur : mine));
         setSavedAt(cache?.savedAt ?? null);
@@ -305,6 +309,15 @@ export function UserProfile({ id }: { id: string }) {
           </EmptyState>
         )}
         {!user && load === "offline" && <EmptyState>Mất sóng. Có sóng sẽ tải.</EmptyState>}
+      </div>
+      {/* trang MÌNH mà chưa dựng được (mất sóng / chưa đăng nhập): bài đã lưu vẫn đọc được — nằm trong máy */}
+      {!user && id === "toi" && (load === "offline" || load === "login") && (
+        <section aria-label={NHAN.daLuu} className="mt-3">
+          <h2 className="px-4 pb-2 text-[1.125rem] font-bold text-navy">{NHAN.daLuu}</h2>
+          <SavedPosts phone={phone} now={now} actions={a.actions} view={a.view} />
+        </section>
+      )}
+      <div className="space-y-3 px-4">
         {load === "error" && (
           <div className="surface p-4 text-center">
             <p className="mb-3">Chưa tải được trang này.</p>
@@ -499,6 +512,9 @@ export function UserProfile({ id }: { id: string }) {
                   label: NHAN.gioiThieu,
                   content: <About user={user} cached={cached} onEdit={() => void openEdit()} canEdit={online && busy !== "me"} />,
                 },
+                ...(user.me
+                  ? [{ id: "da-luu", label: NHAN.daLuu, content: <SavedPosts phone={phone} now={now} actions={a.actions} view={a.view} /> }]
+                  : []),
               ]}
             />
           )}

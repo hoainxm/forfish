@@ -124,6 +124,9 @@ export const NHAN = {
   gioiThieu: "Giới thiệu",
   deSau: "Để sau",
   cungCang: "Cùng cảng",
+  // Kairos — lưu bài mang theo + tải tin mang đi (14 §18–§19). "Lưu" / "Đã lưu" / "Để sau" dùng nhãn chung ở trên
+  boLuu: "Bỏ lưu",
+  tai: "Tải",
   // nhãn khu vực trên thẻ bài không rõ vùng (14 §4, feed-client.areaTag)
   caNuoc: "Cả nước",
 } as const;

@@ -16,6 +16,7 @@ import { provinceIdOf, regionsOfProvince } from "./khu-vuc.mjs";
 import { HABIT_KEY, parseHabit, serializeHabit, type ChipId, type Habit } from "./thoi-quen";
 import { parseTuyChon, serializeTuyChon, TUY_CHON_KEY, type TuyChon } from "./tuy-chon";
 import { KAIROS_CACHE_KEY, mergeAndTrim, parseCache, writeCache, type CacheWrite, type KairosCache } from "./cache";
+import { parseAnDen, serializeAnDen, TAI_MANG_DI_KEY } from "./tai-mang-di";
 import type { KairosPost } from "./types";
 
 /** Đồng hồ một trang dòng tin — trang đầu là thứ bà con đang chờ nhìn. */
@@ -255,6 +256,24 @@ export function saveTuyChon(t: TuyChon): boolean {
   }
 }
 
+/** Mốc "Để sau" của gợi ý Tải tin mang đi (tai-mang-di.ts). Đọc hỏng ⇒ 0 (hiện được). */
+export function loadTaiMangDiAn(): number {
+  try {
+    return parseAnDen(storage()?.getItem(TAI_MANG_DI_KEY));
+  } catch {
+    return 0;
+  }
+}
+
+/** Bấm "Để sau" ⇒ ẩn 24 giờ. Ghi hỏng bỏ qua CÓ CHỦ Ý: chỉ là gợi ý hiện lại lần sau, không mất gì. */
+export function saveTaiMangDiAn(now: number): void {
+  try {
+    storage()?.setItem(TAI_MANG_DI_KEY, serializeAnDen(now));
+  } catch {
+    /* đầy / riêng tư ⇒ gợi ý hiện lại lần mở sau */
+  }
+}
+
 /** Bản lưu của ĐÚNG ngăn SĐT này (khác ngăn ⇒ null — cách ly tài khoản). */
 export function loadFeedCache(phone: string | null): KairosCache | null {
   try {
@@ -264,7 +283,7 @@ export function loadFeedCache(phone: string | null): KairosCache | null {
   }
 }
 
-/** Gộp bài vừa tải vào bản lưu (≤200 bài chỉ chữ, ≤300 KB). */
+/** Gộp bài vừa tải vào bản lưu (≤200 bài chỉ chữ, ≤400 KB). */
 export function saveFeedCache(phone: string | null, incoming: readonly KairosPost[], now: number): CacheWrite {
   const s = storage();
   if (!s) return { ok: false, reason: "error" };

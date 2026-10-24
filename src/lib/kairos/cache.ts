@@ -1,7 +1,7 @@
 // KAIROS — BẢN LƯU ĐỌC KHI MẤT SÓNG + NHÁP (14 §8, AC19). Luật THUẦN; đọc/ghi qua `Storage`
 // truyền vào (localStorage ở app, giả ở test) — không React, không fetch.
 //
-// forfish.kairos.v1     = { bucket, savedAt, posts[] } ≤200 bài CHỈ CHỮ, trần ~300 KB.
+// forfish.kairos.v1     = { bucket, savedAt, posts[] } ≤200 bài CHỈ CHỮ, trần ~400 KB.
 // forfish.kairos.nhap.v1 = { [khoá]: { text, at } } ≤20 nháp, chỉ chữ.
 //
 // ⚠️ CÁCH LY TÀI KHOẢN như inbox.ts: bản lưu mang NGĂN = SĐT chủ máy đã chuẩn hoá (hoặc ngăn
@@ -13,11 +13,18 @@
 import { normalizeVnPhone } from "@/lib/phone";
 import type { KairosAuthor, KairosComment, KairosPost } from "./types";
 import { LIMITS } from "./types";
+import { xoaAnh } from "./luu-anh";
+import { xoaLuuTaiKhoan } from "./luu-bai";
 
 export const KAIROS_CACHE_KEY = "forfish.kairos.v1";
 export const KAIROS_DRAFT_KEY = "forfish.kairos.nhap.v1";
 export const CACHE_MAX_POSTS = 200;
-export const CACHE_MAX_BYTES = 300 * 1024;
+/*  Trần chữ bản lưu dòng tin. NÂNG 300 ⇒ 400 KB (2026-10-24, "Tải tin mang đi" 14 §19): đo bài dựng như thật
+    (toCachedPost) — bài báo ~1,18 KB, bài bà con kèm 2 bình luận ~1,95 KB; dòng tin thật ~70 % báo ⇒ 200 bài
+    ~234 KB, nhưng ngày bà con đăng nhiều 200 bài toàn bài bà con ~390 KB — 300 KB cắt mất ~50 bài cũ đúng lúc
+    vừa tải 100 bài mang đi. 400 KB UTF-8 (~0,8 MB UTF-16 trong localStorage ~5 MB của WebKit) vẫn xa mép
+    lỗi iOS 16 xoá sạch localStorage (forecast-store.ts) vì gói dự báo đã ra IndexedDB. */
+export const CACHE_MAX_BYTES = 400 * 1024;
 export const DRAFT_MAX = 20;
 const GUEST = "__khach__";
 
@@ -181,21 +188,25 @@ export function putDraft(drafts: Drafts, key: string, text: string, now: number)
   return next;
 }
 
-/** Đăng xuất: xoá bản lưu + nháp Kairos (KHÔNG đụng khoá khác). */
-export function clearKairosStorage(storage: Storage): void {
+/**
+ * Đăng xuất: xoá bản lưu + nháp Kairos + MỌI NGĂN TÀI KHOẢN của bài đã lưu (`forfish.kairos.luu.v1`, giữ
+ * ngăn khách). KHÔNG đụng khoá khác. Trả URL ảnh bài lưu không còn ai dùng — bên gọi xoá khỏi kho ảnh.
+ */
+export function clearKairosStorage(storage: Storage): string[] {
   storage.removeItem(KAIROS_CACHE_KEY);
   storage.removeItem(KAIROS_DRAFT_KEY);
+  return xoaLuuTaiKhoan(storage, GUEST);
 }
 
 /**
- * Đăng xuất / gỡ máy: xoá bản lưu dòng tin + nháp Kairos (14 §8). Thói quen chip ở lại — nó
- * không mang gì của tài khoản (chỉ đếm bấm + nơi nhà), người sau dùng máy chỉ thấy chip xếp
- * theo thói quen cũ. KHÔNG ném.
+ * Đăng xuất / gỡ máy: xoá bản lưu dòng tin + nháp Kairos + bài đã lưu của tài khoản (chữ + ảnh, 14 §8/§18).
+ * Thói quen chip ở lại — nó không mang gì của tài khoản (chỉ đếm bấm + nơi nhà), người sau dùng máy chỉ
+ * thấy chip xếp theo thói quen cũ. Bài khách đã lưu ở lại (không gắn tài khoản). KHÔNG ném.
  */
 export function clearKairosLocal(): void {
   try {
     if (typeof window === "undefined") return;
-    clearKairosStorage(window.localStorage);
+    void xoaAnh(clearKairosStorage(window.localStorage));
   } catch {
     /* chế độ riêng tư chặn ghi — bản lưu vẫn cách ly theo ngăn SĐT (cache.ts) */
   }

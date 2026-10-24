@@ -12,6 +12,9 @@
    · Chặn ⇒ ẩn NGAY mọi bài của người đó trên màn, cả 2 bình luận nổi của họ dưới bài người
      khác và thẻ bài gốc của họ trong bài đăng lại (social.hideBlocked; máy chủ lọc từ lần tải sau).
    · Chia sẻ ⇒ ShareSheet; Đăng lại ⇒ khung soạn kiểu `reshare`.
+   · Lưu / Bỏ lưu (mọi bài, cả khách — 14 §18): MANG THEO chữ + ảnh vào máy (luu-client) để đọc ngoài khơi
+     ở Trang tôi › Đã lưu. Đầy ⇒ "Bộ nhớ lưu đầy — bỏ bớt bài đã lưu", không tự xoá bài cũ. Xoá bài mình ⇒
+     gỡ luôn bản đã lưu.
   KHÔNG gửi ngầm: mọi request đi từ một cú bấm.
 */
 
@@ -20,6 +23,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import type { KairosPost } from "@/lib/kairos/types";
 import { errorText, flipHay, hideBlocked, kairosSend, settleHay, type HayState } from "@/lib/kairos/write-client";
+import { luuLoiText } from "@/lib/kairos/luu-bai";
+import { boLuuBai, daLuuBai, luuBaiMangTheo } from "@/lib/kairos/luu-client";
 import { NHAN } from "@/lib/labels";
 import { useAuthUser } from "@/lib/use-auth";
 import { ComposerSheet, type ComposeMode } from "./composer-sheet";
@@ -30,7 +35,7 @@ import { ShareSheet } from "./share-sheet";
 type Notice = { text: string; bad?: boolean } | null;
 
 export function usePostActions(opts: { onDeleted?: (id: string) => void; onPosted?: (p: KairosPost) => void } = {}) {
-  const { signedIn } = useAuthUser();
+  const { signedIn, phone } = useAuthUser();
   const [over, setOver] = useState<Record<string, Partial<KairosPost>>>({});
   const [removed, setRemoved] = useState<Set<string>>(() => new Set());
   const [blockedAuthors, setBlockedAuthors] = useState<Set<string>>(() => new Set());
@@ -38,11 +43,14 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
   const [compose, setCompose] = useState<ComposeMode | null>(null);
   const [share, setShare] = useState<KairosPost | null>(null);
   const [more, setMore] = useState<KairosPost | null>(null);
+  /** bài đang mở ba chấm đã nằm trong "Đã lưu" chưa (đọc lúc mở bảng) */
+  const [moreSaved, setMoreSaved] = useState(false);
   const [report, setReport] = useState<{ type: "post" | "comment"; id: string } | null>(null);
   const [confirmDel, setConfirmDel] = useState<KairosPost | null>(null);
   const [confirmBlock, setConfirmBlock] = useState<KairosPost | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const inflight = useRef(new Set<string>());
+  const luuBusy = useRef(new Set<string>());
   const optsRef = useRef(opts);
   useEffect(() => {
     optsRef.current = opts;
@@ -85,7 +93,30 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
     },
     onHay: (p) => void onHay(p),
     onShare: (p) => setShare(p),
-    onMore: (p) => setMore(p),
+    onMore: (p) => {
+      setMoreSaved(daLuuBai(phone, p.id));
+      setMore(p);
+    },
+  };
+
+  /** Lưu mang theo / bỏ lưu — chỉ chạy khi bấm; bấm lại khi lượt trước chưa xong ⇒ bỏ qua. */
+  const doLuu = async (p: KairosPost, on: boolean) => {
+    if (luuBusy.current.has(p.id)) return;
+    luuBusy.current.add(p.id);
+    try {
+      if (on) {
+        setNotice({ text: "Đang lưu…" });
+        const r = await luuBaiMangTheo(phone, p);
+        if (!r.ok) setNotice({ text: luuLoiText(r.reason), bad: true });
+        else if (r.anhThieu > 0) setNotice({ text: `Đã lưu chữ. ${r.anhThieu} ảnh chưa lưu được — cần sóng.` });
+        else setNotice({ text: "Đã lưu. Mất sóng vẫn đọc được ở Trang tôi." });
+      } else {
+        const ok = await boLuuBai(phone, p.id);
+        setNotice(ok ? { text: "Đã bỏ lưu." } : { text: "Máy không ghi được. Thử lại.", bad: true });
+      }
+    } finally {
+      luuBusy.current.delete(p.id);
+    }
   };
 
   /** Áp thay đổi cục bộ (Hay, sửa, xoá, chặn) lên danh sách màn đang giữ. */
@@ -108,6 +139,7 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
     setRemoved((s) => new Set(s).add(p.id));
     setAdded((a) => a.filter((x) => x.id !== p.id));
     setNotice({ text: "Đã xoá bài và ảnh." });
+    void boLuuBai(phone, p.id); // bài đã xoá thì bản mang theo cũng gỡ (cả ảnh)
     optsRef.current.onDeleted?.(p.id);
   };
 
@@ -161,6 +193,17 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
       {more && (
         <BottomSheet title="Thêm việc" onClose={() => setMore(null)}>
           <div className="divide-y divide-line">
+            <button
+              type="button"
+              className={`${sheetBtn} text-navy`}
+              onClick={() => {
+                const p = more;
+                setMore(null);
+                void doLuu(p, !moreSaved);
+              }}
+            >
+              {moreSaved ? NHAN.boLuu : NHAN.luu}
+            </button>
             {more.mine ? (
               <>
                 <button type="button" className={`${sheetBtn} text-navy`} onClick={() => (setCompose({ kind: "edit", post: more }), setMore(null))}>
