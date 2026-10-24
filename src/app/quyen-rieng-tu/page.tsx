@@ -15,6 +15,7 @@ export const metadata = {
   mục đích + không chia sẻ để tracking. Trước đây app KHÔNG có → reject.
 
   Nội dung PHẢI khớp thực tế (đối chiếu ops/native-deploy.md §5a + code):
+   · Bài Tài trợ Kairos (2026-10-24, 14 §20) là nội dung SDVICO tự đăng — KHÔNG phải SDK/mạng quảng cáo.
    · Không SDK quảng cáo/analytics/attribution (AdMob/Firebase/FB/AppsFlyer/
      Adjust/Sentry/GA đều KHÔNG có) → không tracking theo định nghĩa Apple.
    · Sổ (hồ sơ tàu/giấy tờ/thuyền viên gồm CCCD/bảo dưỡng/vật tư) nằm localStorage
@@ -32,7 +33,7 @@ export const metadata = {
   Cập nhật nội dung ở ĐÂY thì đổi luôn "Cập nhật lần cuối" bên dưới.
 */
 
-const UPDATED = "17/10/2026";
+const UPDATED = "24/10/2026";
 
 function Section({
   id,
@@ -88,8 +89,10 @@ export default function QuyenRiengTuPage() {
               được, đổi/mất máy vẫn còn.
             </li>
             <li>
-              App <b>không chứa quảng cáo</b>, <b>không theo dõi người dùng</b> bà con, không
-              bán dữ liệu cho ai.
+              Kairos có <b>bài Tài trợ</b> do SDVICO tự đăng (luôn ghi chữ <b>Tài trợ</b> và tên nhà tài trợ; có
+              thể là đường dẫn tiếp thị liên kết, ví dụ Shopee). Bài Tài trợ <b>không nhắm theo người đọc</b>, không
+              đếm lượt xem hay lượt bấm — ai cũng thấy như nhau. App <b>không theo dõi người dùng</b> bà con, không
+              bán dữ liệu cho ai. Bấm vào bài Tài trợ thì trang đích (của nhà tài trợ) áp dụng chính sách của họ.
             </li>
             <li>
               Vị trí GPS chỉ dùng để <b>tự động căn chỉnh bản đồ và cung cấp thông tin gió sóng đúng khu vực</b> —
@@ -273,8 +276,9 @@ export default function QuyenRiengTuPage() {
             stored <b>on your device</b>. Precise location is used only, with your
             permission, to center the map and fetch marine weather for that spot —
             it is <b>not stored and not linked to your account</b>. We do{" "}
-            <b>not</b> track you, show ads, or sell data. No advertising or
-            analytics SDKs are present. Data is shared only with Supabase (auth
+            <b>not</b> track you or sell data. Kairos shows clearly labelled <b>Sponsored</b> posts placed by SDVICO
+            itself (may include affiliate links, e.g. Shopee) — not targeted, no view or click counting. No
+            advertising or analytics SDKs are present. Data is shared only with Supabase (auth
             &amp; hosting), SDVICO&apos;s internal CRM, and public weather/marine
             APIs which receive <b>coordinates only</b>. To delete your account,
             call SDVICO {SDVICO_HOTLINE_DISPLAY}. Last updated: {UPDATED}.

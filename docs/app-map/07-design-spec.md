@@ -5,6 +5,7 @@
 ```
 covers: src/app, src/components
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24m — THẺ TÀI TRỢ Kairos (14 §20): `.surface` như thẻ bài; dòng đầu 0.8125rem "**Tài trợ** · <nhà tài trợ>" (foreground/65, chữ Tài trợ đậm); tiêu đề 1.0625rem đậm navy; nội dung 1rem; ảnh 16:9 (mạng yếu ⇒ KhungAnh h-16); nút đầy bg-sea chữ trắng h-11 + icon mở ngoài. Không hàng chân Hay/Bình luận. Vị trí: sau bài thứ 5 mỗi khối 20, chỉ dòng tin chung khi load=ready (mất sóng/Bến: không có). /quan-tri › Kairos thêm mục "Tài trợ" (thẻ sửa tại chỗ, Thêm bài · Lưu → hộp xác nhận; lỗi dòng nào hiện chữ đỏ dưới nút). -->
 <!-- re-verified: 2026-10-24s — §5 1b trình xem ảnh theo FB: × trái · i/N giữa · ⋯ phải (Tải ảnh); đáy ảnh tên + giờ + hàng 👍💬↗; con trỏ vào hộp (bỏ khung xanh ở nút Tải). -->
 <!-- re-verified: 2026-10-24r — §5 1d + khung soạn: gõ "@" ⇒ danh sách nhắc tên (14 §3.12); "@Tên" trong bài/bình luận chữ đậm sea, chạm sang trang người. -->
 <!-- re-verified: 2026-10-24q — §5 1d ô bình luận thêm nút ảnh + ảnh chờ gửi + ảnh trong bình luận + thẻ xem trước link + cuộn tới #bl-<id> (14 §3.4b). -->

@@ -2,6 +2,7 @@
 
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
+<!-- re-verified: 2026-10-24m — BÀI TÀI TRỢ §20 (anh Long: "t muốn kairos có ads"): quảng cáo tự quản, không SDK/không nhắm/không đếm; soạn ở /quan-tri › Kairos › Tài trợ; ô app_config.kairos_ads (không migration); 1 thẻ/20 bài, nhãn "Tài trợ · <nhà tài trợ>" bắt buộc (Luật QC 75/2025). A99–A100. -->
 <!-- re-verified: 2026-10-24s — §3.2 trình xem ảnh bố cục FB + hàng chân ở đáy ảnh. -->
 <!-- re-verified: 2026-10-24r — §3.12 nhắc tên "@Tên" kiểu FB (gõ @ gợi ý người trong bài + tìm máy chủ, link đậm, thông báo "nhắc đến bạn", agent L5b); §7 route GET /api/kairos/users?q=, bài/bình luận nhận mentions. -->
 <!-- re-verified: 2026-10-24q — §3.4b ảnh trong bình luận (≤1, nút ảnh trong ô viết), thẻ xem trước link (máy chủ đọc lúc ghi, chống SSRF), thông báo trỏ #bl-<id> + cuộn tới; §7 route bình luận nhận image. -->
@@ -301,6 +302,17 @@ FB không biết bà con sắp mất sóng nhiều ngày; Kairos thì biết. **
 - **Để sau** ⇒ ẩn 24 giờ (`forfish.kairos.taimangdi.v1`).
 - **Số đo nâng trần 300 ⇒ 400 KB**: bài dựng như thật qua `toCachedPost` — bài báo ~1,18 KB, bài bà con kèm 2 bình luận ~1,95 KB; dòng tin ~70 % báo ⇒ 200 bài ~234 KB; ngày bà con đăng nhiều 200 bài toàn bài bà con ~390 KB — 300 KB cắt ~50 bài cũ ngay lúc vừa tải 100 bài mang đi. 400 KB UTF-8 ≈ 0,8 MB UTF-16 trong localStorage ~5 MB của WebKit, xa mép lỗi iOS 16 (gói dự báo đã ra IndexedDB).
 
+## 20. Bài Tài trợ — quảng cáo tự quản (2026-10-24)
+
+Anh Long: *"t muốn kairos có ads"* (sau khi hỏi phối hợp quảng cáo + affiliate Shopee). Chọn **quảng cáo TỰ QUẢN**, không mạng quảng cáo:
+
+- **Không SDK** (AdMob/FB Audience/…), không mã quảng cáo IDFA/AAID, **không nhắm theo người đọc** (không dùng tỉnh/cảng/thói quen — mọi người cùng danh sách), **không đếm lượt xem/bấm** ⇒ "không theo dõi" ở /quyen-rieng-tu + khai báo kho vẫn đúng; chỉ đổi câu "không chứa quảng cáo" ⇒ "có bài Tài trợ gắn nhãn".
+- **Soạn**: `/quan-tri` › Kairos › **Tài trợ** (`components/admin/kairos-tai-tro.tsx`; xem `kairos:view`, sửa `kairos:create`). Mỗi bài: nhà tài trợ (≤40) · tiêu đề (≤80) · nội dung (≤200, tuỳ chọn) · ảnh (tuỳ chọn) · đường dẫn **https** (đại lý, **link Shopee tiếp thị liên kết**…) · chữ nút ≤2 chữ (mặc định "Xem ngay") · từ ngày/đến hết ngày · bật/tắt. ≤20 bài. Lưu = PUT cả danh sách, máy chủ kiểm từng dòng (`lib/kairos/quang-cao.ts` `kiemDanhSach`), sai một dòng ⇒ không ghi gì; nhật ký `admin_ads` trước khi ghi.
+- **Kho**: MỘT ô `app_config.kairos_ads` (JSON) — không migration (`lib/kairos/quang-cao-store.ts`, cache 60 s, đọc hỏng ⇒ giữ bản cũ / [] — quảng cáo không bao giờ làm hỏng dòng tin).
+- **Hiện**: chỉ dòng tin chung (không Bến), trang đầu `/api/kairos/feed` trả `ads` (bài đang chạy, xoay vòng theo hạt làm mới); app chèn **1 thẻ / 20 bài, sau bài thứ 5 mỗi khối** (`theSauBai`). Thẻ (`components/kairos/the-tai-tro.tsx`): đầu thẻ **"Tài trợ · <nhà tài trợ>"** không tắt được (Luật Quảng cáo 75/2025/QH15, hiệu lực 01/01/2026 — quảng cáo phải nhận biết được), tiêu đề, nội dung, ảnh (mạng yếu ⇒ khung chạm xem), nút mở thẻ mới `rel="sponsored"`. Không Hay/Bình luận/Chia sẻ. **Tính riêng**, không ăn vào 85 % tin biển.
+- **Mất sóng**: không vẽ thẻ (bản lưu không giữ quảng cáo; trang đích cũng cần sóng).
+- **Không làm (cố ý)**: mạng quảng cáo/SDK · nhắm theo vị trí/thói quen · đếm lượt xem/bấm · Sen Biển tự giới thiệu sản phẩm. Bà con TỰ dán link tiếp thị liên kết vẫn bị luật kiểm duyệt `quang-cao` chặn — chỉ SDVICO đăng tài trợ.
+
 ## 10. Ma trận trạng thái
 
 | Màn | Đang tải | Trống | Lỗi | Mất sóng | Cực đoan |
@@ -444,4 +456,6 @@ Last updated: 2026-10-23
 - **A95** "N bài gần đây" ở thẻ đầu Bến chỉ đếm bài ĐÃ TẢI / bản lưu đang hiện (gồm ghim), KHÔNG gọi API đếm — cuộn thêm thì số tăng; 0 bài ⇒ không hiện số. Không có số thành viên/nút Tham gia: Bến là cảng, không phải nhóm có thành viên. "Cảng nhà" ở thẻ đầu chỉ đổi thói quen trong máy, không sửa hồ sơ/sổ tàu.
 - **A96** Khung soạn: × chỉ hỏi khi có thứ để mất (bài mới: có chữ hoặc ảnh; sửa bài: khác bản cũ). Ảnh của nháp đã "Lưu nháp" GIỮ trên kho. // nợ (ghi ở composer-sheet): ảnh nháp quá 24 giờ có thể bị việc dọn ảnh mồ côi (A76) xoá ⇒ mở nháp thấy ảnh hỏng; nâng khi kho biết ảnh thuộc nháp.
 - **A97** Trả lời: viên ghi "Trả lời **tên**" (không chữ "@" trong viên); tiền tố "@tên " chỉ ghép vào chữ GỬI ĐI khi trả lời một trả lời (giữ đúng luật 1 cấp §3.4), trả lời bình luận gốc thì không ghép. Gập luồng từ **2** trả lời trở lên (1 trả lời hiện luôn — gập một dòng thay một dòng không bớt gì).
+- **A99** (2026-10-24, §20) Bài Tài trợ KHÔNG nhắm người đọc và KHÔNG đếm lượt xem/bấm — giữ đúng lời "không theo dõi" đã khai ở /quyen-rieng-tu + kho ứng dụng. Muốn báo cáo cho nhà tài trợ ⇒ dùng số liệu bên họ (vd báo cáo Shopee Affiliate), không thêm đo đếm trong app trừ khi chủ dự án chốt + sửa lại chính sách.
+- **A100** (§20) Danh sách tài trợ chỉ ở TRANG ĐẦU; app giữ trong bộ nhớ phiên (quay lại màn vẫn còn), không ghi máy. Bài hết hạn giữa phiên vẫn hiện tới lần làm mới kế tiếp.
 - **A98** Chạm 💬 số ở hàng chân chỉ mở để ĐỌC (không con trỏ, không bật bàn phím che bài); nút Bình luận mới đặt con trỏ vào ô viết — đúng thói quen FB, tránh bàn phím bật bất ngờ.

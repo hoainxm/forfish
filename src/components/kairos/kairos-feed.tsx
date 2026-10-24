@@ -41,7 +41,7 @@
 */
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon, PlusIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
@@ -76,6 +76,11 @@ import { DUNG_TOI_DA_MS, XEM_TOI_THIEU_MS } from "@/lib/kairos/tin-hieu-doc";
 import { NHAN } from "@/lib/labels";
 import { useAuthUser } from "@/lib/use-auth";
 import { PostCard, type PostActions } from "./post-card";
+import { TheTaiTroCard } from "./the-tai-tro";
+import { theSauBai, type TheTaiTro } from "@/lib/kairos/quang-cao";
+
+/** Bài Tài trợ của lượt tải trang đầu gần nhất — giữ qua lần quay lại màn (dựng lại từ ảnh chụp không có `ads`). */
+let adsNho: TheTaiTro[] = [];
 import { PostSkeleton } from "./post-skeleton";
 
 type Load = "loading" | "ready" | "error" | "offline";
@@ -155,6 +160,8 @@ export function KairosFeed({
   const chip: ChipId = "moi";
   const [posts, setPosts] = useState<KairosPost[]>([]);
   const [pinned, setPinned] = useState<KairosPost[]>([]);
+  /** bài Tài trợ (14 §20) — 1 thẻ / 20 bài, chỉ dòng tin chung, chỉ khi có sóng (load "ready") */
+  const [ads, setAds] = useState<TheTaiTro[]>(() => adsNho);
   const [next, setNext] = useState<string | null>(null);
   const [load, setLoad] = useState<Load>("loading");
   const [errStatus, setErrStatus] = useState(0);
@@ -227,6 +234,10 @@ export function KairosFeed({
         const page: FeedPage = res.value;
         setPosts(xepApp(page.posts, h, t, port));
         setPinned(page.pinned);
+        if (page.ads) {
+          adsNho = page.ads;
+          setAds(page.ads);
+        }
         setNext(page.next);
         setSavedAt(null);
         setLoad("ready");
@@ -779,11 +790,17 @@ export function KairosFeed({
             <PostCard post={p} now={now} actions={actions} onRead={onRead} benPort={port} />
           </div>
         ))}
-        {shownPosts.map((p) => (
-          <div key={p.id} data-kairos-id={p.id}>
-            <PostCard post={p} now={now} actions={actions} onRead={onRead} benPort={port} />
-          </div>
-        ))}
+        {shownPosts.map((p, i) => {
+          const qc = !port && load === "ready" ? theSauBai(i, ads.length) : null;
+          return (
+            <Fragment key={p.id}>
+              <div data-kairos-id={p.id}>
+                <PostCard post={p} now={now} actions={actions} onRead={onRead} benPort={port} />
+              </div>
+              {qc != null && <TheTaiTroCard ad={ads[qc]} />}
+            </Fragment>
+          );
+        })}
 
         {more === "loading" && <PostSkeleton count={1} />}
         {more === "error" && (

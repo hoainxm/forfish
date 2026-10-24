@@ -3,7 +3,7 @@
 /*
   TAB "Kairos" của /quan-tri — nhóm Nội dung (14 §3.11, AC16/AC24).
 
-  Năm mục: Báo xấu (gộp theo đích, nhiều lượt trước) · Hàng chờ (agent kiểm duyệt chặn/nghi,
+  Sáu mục (thêm Tài trợ 2026-10-24 — kairos-tai-tro.tsx, 14 §20): Báo xấu (gộp theo đích, nhiều lượt trước) · Hàng chờ (agent kiểm duyệt chặn/nghi,
   kèm lý do + điểm + phiên bản luật — người trực đảo lại) · Bài (tìm, Ẩn/Hiện bài + bình luận,
   Ghim bài Chính thức) · Chính thức (SDVICO đăng) · Cờ chủ quyền (chỉ xem + sức khoẻ máy thu tin).
   Dòng nhắc đầu tab khi quá 2 giờ không có bài báo mới (máy GPU tắt / hết hạn mức / khoá lệch).
@@ -20,6 +20,7 @@ import { ImagePicker } from "@/components/market/shared/image-picker";
 import { inputClass } from "@/components/ui/primitives";
 import { REPORT_REASON_TEXT } from "@/components/kairos/report-sheet";
 import { fmtDT } from "@/components/admin/quan-tri-chung";
+import { TaiTroSection } from "@/components/admin/kairos-tai-tro";
 import { EmptyBox, ErrorBox, FilterChip, LoadingBox, ReasonDialog } from "@/components/admin/market-admin-shared";
 import { timeoutSignal } from "@/lib/abort";
 import { apiUrl } from "@/lib/api-base";
@@ -46,12 +47,13 @@ type QueueItem = {
 type Flag = { sourceId: string | null; titleNorm: string | null; term: string | null; at: string | null };
 type SourceStat = { id: string; outlet: string; section: string; enabled: boolean; lastOkAt: string | null; lastError: string | null };
 
-type Section = "bao-xau" | "hang-cho" | "bai" | "chinh-thuc" | "co";
+type Section = "bao-xau" | "hang-cho" | "bai" | "chinh-thuc" | "tai-tro" | "co";
 const SECTIONS: [Section, string][] = [
   ["bao-xau", "Báo xấu"],
   ["hang-cho", "Hàng chờ"],
   ["bai", "Bài"],
   ["chinh-thuc", "Chính thức"],
+  ["tai-tro", "Tài trợ"],
   ["co", "Cờ chủ quyền"],
 ];
 
@@ -219,6 +221,7 @@ export function KairosTab({ perms }: { perms: TabPerms }) {
       {section === "hang-cho" && <QueueSection perms={perms} />}
       {section === "bai" && <PostsSection perms={perms} />}
       {section === "chinh-thuc" && perms.create && <OfficialSection />}
+      {section === "tai-tro" && <TaiTroSection perms={perms} />}
       {section === "co" &&
         (newsErr ? (
           <ErrorBox text={newsErr} onRetry={loadNews} />

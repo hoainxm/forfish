@@ -20,6 +20,8 @@ import { NextResponse } from "next/server";
 import { encodeCursor } from "@/lib/kairos/cursor";
 import { parseFeedParams } from "@/lib/kairos/feed-query";
 import { PROVINCE_IDS, regionsOfProvince } from "@/lib/kairos/khu-vuc.mjs";
+import { dangChay, raApp, xoayVong, type TheTaiTro } from "@/lib/kairos/quang-cao";
+import { docQuangCao } from "@/lib/kairos/quang-cao-store";
 import { docHat, giaiMaPP, laBaiAgent, maHoaPP, UNG_VIEN, xepDongTin } from "@/lib/kairos/phan-phoi";
 import { tinHieuCua } from "@/lib/kairos/phan-phoi-store";
 import { feedFilterFor, hydratePosts, kErr, kairosErrorResponse, PORT_IDS, readerOf, storeOr503 } from "@/lib/kairos/server";
@@ -95,7 +97,15 @@ export async function GET(req: Request) {
       hydratePosts(store, page.filter((r) => !pinnedIds.has(r.id)), who.phone, f.blocked),
       hydratePosts(store, pinnedRows, who.phone, f.blocked),
     ]);
-    return NextResponse.json({ ok: true, posts, pinned, next, at: new Date(now).toISOString() });
+    // BÀI TÀI TRỢ (14 §20): chỉ dòng tin chung, chỉ trang đầu — app giữ danh sách cho các trang sau (1 thẻ/20 bài).
+    // KHÔNG nhắm theo người đọc; xoay vòng theo hạt làm mới. Kho hỏng ⇒ không thẻ, dòng tin vẫn trả.
+    let ads: TheTaiTro[] = [];
+    if (firstMoi) {
+      ads = await docQuangCao()
+        .then((l) => xoayVong(dangChay(l, now), docHat(sp.get("hat"))).map(raApp))
+        .catch(() => []);
+    }
+    return NextResponse.json({ ok: true, posts, pinned, next, at: new Date(now).toISOString(), ...(firstMoi ? { ads } : {}) });
   } catch (e) {
     return kairosErrorResponse(e);
   }

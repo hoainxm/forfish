@@ -120,6 +120,8 @@ export const NHAN = {
   tuyChon: "Tuỳ chọn",
   // Kairos — chuông chỉ 2 loại tin: bình luận bài mình / trả lời mình (14 §16, aria-label/title — nút chỉ icon)
   thongBao: "Thông báo",
+  // Kairos — nhãn bài Tài trợ, BẮT BUỘC trên mọi thẻ quảng cáo (14 §20, Luật Quảng cáo 75/2025)
+  taiTro: "Tài trợ",
   // Kairos — trang cá nhân kiểu Facebook (14 §3.8, AC13 bản 2026-10-24)
   baiViet: "Bài viết",
   gioiThieu: "Giới thiệu",

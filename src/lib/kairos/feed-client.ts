@@ -8,6 +8,7 @@
 // ⚠️ HỒ SƠ ĐỌC KHÔNG RỜI MÁY (AC04): request chỉ mang mã chip + MÃ cảng/tỉnh khi chip cần,
 // không bao giờ mang số lần bấm/đọc. Test soi điều đó.
 
+import { docTheTaiTro, type TheTaiTro } from "./quang-cao";
 import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import { noteResponse, tokenHeader } from "@/lib/device-token-store";
@@ -60,6 +61,8 @@ export interface FeedPage {
   next: string | null;
   /** giờ máy chủ lúc trả trang — mốc `since` cho "Có N bài mới" */
   at: string;
+  /** bài Tài trợ (14 §20) — CHỈ trang đầu dòng tin chung có trường này; undefined = giữ danh sách đang có */
+  ads?: TheTaiTro[];
 }
 
 const isPost = (p: unknown): p is KairosPost =>
@@ -77,6 +80,7 @@ export function parseFeedPage(j: unknown, now: number): FeedPage | null {
     pinned: Array.isArray(o.pinned) ? o.pinned.filter(isPost) : [],
     next: typeof o.next === "string" && o.next ? o.next : null,
     at,
+    ...("ads" in o ? { ads: docTheTaiTro(o.ads) } : {}),
   };
 }
 

@@ -6,6 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24m — app_config thêm khoá NỘI DUNG `kairos_ads` (JSON ≤20 bài Tài trợ, 14 §20) — KHÔNG thuộc CONFIG_KEYS (không hiện ở tab Hệ thống), ghi qua /api/admin/kairos/ads (service-role). Không migration (bảng là KV). -->
 <!-- re-verified: 2026-10-24r — thêm migration 0071_kairos_nhac_ten (mentions jsonb cho kairos_posts + kairos_comments) — 14 §3.12 -->
 <!-- re-verified: 2026-10-24q — thêm migration 0070_kairos_binh_luan_anh (kairos_comments.image_path + link_preview, body có thể trống khi có ảnh) — 14 §3.4b -->
 <!-- re-verified: 2026-10-24c — thêm migration 0069_kairos_cam_xuc (cột kind cho kairos_post_hay / kairos_comment_hay) — 14 §7 -->
@@ -964,7 +965,7 @@ Hành vi: [14-ba-spec-kairos.md](14-ba-spec-kairos.md) §6. Khuôn 0037/0060/006
 - **Hàng chờ agent** (`/api/kairos/kiem` GET): bài/bình luận `cho-kiem` + đích có báo xấu `moi` MỚI HƠN `mod_checked_at` (14 A67) — đích agent đã chấm không gửi lại tới khi có báo mới.
 - **Đọc chéo `market_listings`** (chỉ đọc, service-role): dòng phụ "tên cơ sở bên mua" = `poster_name` tin `side='mua'` mới nhất của SĐT, `poster_kind` ≠ `ngu-dan` (14 A23).
 - **Bucket `kairos-media`**: public đọc (cần cho `/k/[id]`, A10), 512 KB, jpeg/png/webp, đường `<profileId>/<uuid>.<ext>` (không SĐT), không policy ghi — chỉ service-role. `images` lưu ĐƯỜNG kho (không URL) để xoá bài xoá được ảnh. Ảnh mồ côi (tải mà không thuộc bài nào / không là `avatar_path`): Huỷ khung soạn xoá ngay, sót thì agent dọn sau 24 giờ (14 A76).
-- **`app_config`**: seed `kairos_enabled='true'`. Khoá `kairos_ingest_key` **không seed** (secret không vào git) — admin đặt ở `/quan-tri` tab Hệ thống, env `KAIROS_INGEST_KEY` đè (khoá DUY NHẤT env thắng DB — `ConfigKeyMeta.envFirst`, tab Hệ thống cảnh báo khi env đang đè, 14 A79); thiếu cả hai ⇒ `/api/kairos/nhap` + route kiểm duyệt 503.
+- **`app_config`**: seed `kairos_enabled='true'`. Khoá nội dung **`kairos_ads`** (2026-10-24, 14 §20): JSON danh sách bài Tài trợ, không seed, ghi qua `/api/admin/kairos/ads`, đọc ở `lib/kairos/quang-cao-store.ts`. Khoá `kairos_ingest_key` **không seed** (secret không vào git) — admin đặt ở `/quan-tri` tab Hệ thống, env `KAIROS_INGEST_KEY` đè (khoá DUY NHẤT env thắng DB — `ConfigKeyMeta.envFirst`, tab Hệ thống cảnh báo khi env đang đè, 14 A79); thiếu cả hai ⇒ `/api/kairos/nhap` + route kiểm duyệt 503.
 - Chạy lại an toàn (`if not exists`, `on conflict do nothing`, `drop trigger if exists`). Thứ tự: **apply 0065 → deploy** (route Kairos đọc các bảng này; chưa apply ⇒ tab Kairos lỗi, phần app khác không ảnh hưởng). Demo mode: kho file dev theo khuôn `MarketStore`.
 - Luật thuần dùng chung (route + máy thu tin + app): `lib/kairos/` — `khu-vuc.mjs` (34 tỉnh + tên cũ, vùng biển, cảng), `chu-quyen.mjs`, `loc-chu.ts`, `ten-goi.ts`, `validate.ts`, `chu-de.mjs`, `lien-ket.mjs`, `cursor.ts`, `dto.ts`, `thoi-quen.ts` + `xep-bai.ts` (chỉ trong máy), `cache.ts` (`forfish.kairos.v1`, `forfish.kairos.nhap.v1`). Test: `src/lib/__tests__/kairos-*.test.ts`.
 
