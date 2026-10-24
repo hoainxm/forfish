@@ -6,6 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24b — thêm migration 0068_kairos_sen_bien (seed hồ sơ Sen Biển) — 14 §14 -->
 <!-- re-verified: 2026-10-24 — thêm migration 0066_kairos_phan_phoi (kairos_reads + kairos_record_reads + default rules_accepted_at) — 14 §13 -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 <!-- re-verified: 2026-10-19 — MIGRATION MỚI 0064_atomic_writes.sql (§ GHI NGUYÊN TỬ): user_docs.rev + 3 hàm market_transition_order/market_patch_request/market_accept_request. ĐÃ APPLY prod 2026-10-19, kiểm thật trên Postgres (rollback). -->
@@ -900,6 +901,10 @@ Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng 
 - **Đối soát bản ghi dở dang trước đó** (đo 2026-10-19): 0 đơn `da_huy` chưa hoàn kho, 0 yêu cầu `da_dat` thiếu `order_id` ⇒ không cần dọn. Truy vấn đối soát giữ ở ops/runbook.md.
 - Tương thích: cột có default + hàm mới ⇒ code cũ chạy nguyên trên DB đã apply. Thứ tự: **apply 0064 → deploy** (code mới gọi hàm 0064).
 - file-store (dev) không đổi: một tiến trình, ghi cả tệp một lần nên vốn nguyên tử.
+
+### KAIROS — hồ sơ Sen Biển — migration [`0068_kairos_sen_bien.sql`](../../supabase/migrations/0068_kairos_sen_bien.sql) (2026-10-24) — ⛔ **CHƯA APPLY** (chờ anh Long cho phép)
+
+- Chỉ DỮ LIỆU: thêm một dòng `kairos_profiles` (phone sentinel `sen-bien:tro-ly`, handle "Sen Biển", `official` true, đã đồng ý nội quy) — khuôn hồ sơ SDVICO ở 0065. Không đổi cấu trúc. Chạy lại an toàn (`on conflict do nothing`). Chưa áp ⇒ /api/kairos/sen-bien trả 503, app không ảnh hưởng.
 
 ### KAIROS — phân phối dòng tin + nội quy một lần — migration [`0066_kairos_phan_phoi.sql`](../../supabase/migrations/0066_kairos_phan_phoi.sql) (2026-10-24) — ✅ **ĐÃ APPLY** 2026-10-24 qua connector Supabase (advisor: không cảnh báo mới; anon đọc bảng 401, gọi hàm 42501). Hàm gộp theo bài trước khi upsert (một lô hai dòng cùng bài không lỗi ON CONFLICT)
 

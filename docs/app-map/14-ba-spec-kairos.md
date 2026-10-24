@@ -8,6 +8,7 @@
 <!-- re-verified: 2026-10-24c — CỖ MÁY PHÂN PHỐI Ở MÁY CHỦ (§13, anh Long "nâng lên") + TỈ LỆ BIỂN 85 % + NỘI QUY ĐỒNG Ý MỘT LẦN (0066 default rules_accepted_at). AC04 "thói quen không gửi lên" ĐỔI: tín hiệu xem/mở/dừng đọc gửi lên kairos_reads (giữ 90 ngày, chỉ xếp cho chính người đó, khách không lưu). -->
 <!-- re-verified: 2026-10-24d — AC10 bình luận: mở INLINE dưới thẻ trên dòng tin (như FB) thay vì sang /kairos/p/[id]; trang bài vẫn có, dùng chung comment-thread.tsx. Migration 0066 ĐÃ ÁP 2026-10-24 (connector Supabase, advisor sạch). -->
 <!-- re-verified: 2026-10-24e — NGUỒN TIN BIỂN cho 85 % (anh Long: "cả 2 làm hết đi"): (1) Google News tìm kiếm (kieu google-news: 8 feed tàu cá · ngư dân · bão Biển Đông · IUU · thủy sản · VASEP · biển đảo · thời tiết biển) — báo gốc từ <source>, CHỈ báo trong baoDuocPhep (57 tên miền báo chính thống trong nước; chặn trang gom tin + báo hải ngoại), tiêu đề cắt đuôi " - Tên báo", mô tả bỏ, bài chỉ có tiêu đề KHÔNG đưa Claude tóm tắt; (2) RSS trực tiếp: Người Nuôi Tôm, Báo Đà Nẵng thủy sản/biển đảo + feed CHUNG (VOV kinh tế, VietnamPlus, Nhân Dân, VTV, Dân trí thời tiết, Quảng Ninh, Hà Tĩnh) có chiTinBien (chu-de.laChuyenBien — từ dễ trùng khi bỏ dấu so CÒN DẤU: biển đông≠biến động, bão≠báo, hải quân≠hải quan). Tắt nnmt-* (RSS đứng từ 05/10). Tin bão/biển đảo nâng chủ đề nghe-ca; bỏ từ khoá "cứu nạn" đứng một mình. Gộp trùng bài chỉ có tiêu đề (cung-su-kien). ⚠ Điều khoản Google News RSS cho sản phẩm thương mại CHƯA RÕ — anh Long chọn dùng 2026-10-24. -->
+<!-- re-verified: 2026-10-24f — SEN BIỂN GIỚI THIỆU (§14): hồ sơ Chính thức `sen-bien:tro-ly` (0068), máy GPU đăng 1 bài/ngày qua /api/kairos/sen-bien. -->
 Chốt 2026-10-23. Kairos (καιρός) = đúng thời điểm.
 
 ## 1. Mục tiêu
@@ -170,6 +171,15 @@ Anh Long: "đã có cỗ máy phân phối tin theo người đọc chưa" → "
 - **Phân trang**: con trỏ `pp.<base64>` = {mốc chụp, vị trí}; xếp xác định ⇒ không lặp. Hết danh sách ⇒ `next` chuyển sang con trỏ theo giờ từ bài cũ nhất của ứng viên.
 - **Tín hiệu**: app đo thẻ nằm ≥ 50 % trên màn ≥ 1 s (một lần xem + thời gian dừng, trần 2 phút/lần), chạm mở bài = opened; hàng đợi `forfish.kairos.doc.v1` (ngăn SĐT, ≤ 300 bài) gửi lô ≤ 100 mỗi 20 s + khi vào nền ⇒ `POST /api/kairos/doc` ⇒ `kairos_record_reads` (gộp nguyên tử, 0066). Khách: không ghi. Bảng chưa có ⇒ dòng tin vẫn chạy, không cá nhân hoá.
 - **Riêng tư**: /quyen-rieng-tu khai "Bài đã xem trên Kairos — giữ 90 ngày, chỉ để xếp dòng tin cho chính bà con".
+
+## 14. Sen Biển giới thiệu app (2026-10-24)
+
+Anh Long: "tổ chức cho con gpu thêm 1 task là cho sen biển giới thiệu về mạng xã hội dành riêng cho bà con, đọc báo, trợ lý ...".
+
+- **Ai đăng**: hồ sơ **Sen Biển** (sentinel `sen-bien:tro-ly`, `official` ⇒ dấu Chính thức, seed migration 0068) — trợ lý của SDVICO, KHÔNG giả làm người dùng.
+- **Nhịp**: 1 bài/ngày, giờ ngẫu nhiên 7h–19h (timer `kairos-sen-bien` trên gpu-desktop). Máy chủ chặn > 2 bài/20 giờ.
+- **Nội dung** (`lib/kairos/sen-bien-gioi-thieu.mjs`, thuần + test): 12 chủ đề — Kairos là gì, đọc báo tóm tắt, bình luận/Hay, Bến theo cảng, hỏi Sen Biển, mất sóng vẫn đọc, bản đồ ngư trường, tin bão, tủ giấy tờ, Chợ cá, theo dõi/chặn/báo xấu, nội quy. Mỗi chủ đề có DỮ KIỆN (chỉ tính năng ĐANG CÓ — không hứa Nhắn tin, livestream…) + bài MẪU. Claude (`claude -p`) chỉ viết lại từ dữ kiện; hỏng/hết hạn mức/bài không qua `loiBai` (80–900 ký tự, không link/emoji/hashtag, cờ chủ quyền) ⇒ đăng bài mẫu. Không lặp chủ đề trong 10 ngày (sổ `sen-bien.json`).
+- **Route** `POST /api/kairos/sen-bien` (khoá ingest như /nhap): kiểm chủ đề ∈ CHU_DE + `loiBai` + lọc chữ bậy; kind `chinh-thuc`, không ghim, `mod_state` dat, chủ đề `doi-song` (bài không phải báo ⇒ tính là tin biển ở phân phối); nhật ký `sen_bien_post` trước khi đăng; thiếu hồ sơ ⇒ 503 `no_sen_bien_profile`.
 
 ## 10. Ma trận trạng thái
 

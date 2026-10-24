@@ -4,6 +4,7 @@
 
 covers: scripts/train/run.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24c — thêm timer kairos-sen-bien (1 bài/ngày 7h–19h, scripts/kairos-sen-bien.mjs); lam-moi.sh xuất ':(glob)scripts/kairos-*' (script mới tự có, file chưa có trên main không làm hỏng lần làm mới). -->
 <!-- re-verified: 2026-10-24b — kairos-thu.mjs đọc baoDuocPhep + nguồn kieu google-news/chiTinBien (thu-core.tuGoogleNews, chu-de.laChuyenBien); bài chỉ có tiêu đề không tóm tắt bằng Claude. Sự cố: nguồn Google News trả 0 bài mới liên tục ⇒ kiểm baoDuocPhep (báo đổi tên miền) hoặc Google đổi định dạng <source>. -->
 <!-- re-verified: 2026-10-24 — KAIROS ĐÃ CÀI THẬT trên gpu-desktop: timer kairos-thu 15 phút + kairos-kiem 5 phút (systemd user, linger), chạy bản xuất từ origin/main ở ~/.local/forlife/kairos/app (KHÔNG từ checkout đang có người sửa), KAIROS_API_BASE=https://forfish.vercel.app (production repo Long-Forfun/ForFish — KHÔNG phải sdfish.sdvico.vn); sổ mới gan-day.json chặn tin cùng sự kiện khác báo (cung-su-kien.mjs) -->
 <!-- re-verified: 2026-10-19b — thêm "Bảng môi trường" (rà Codex mục 10: "một bảng môi trường thống nhất: web domain, native origin, API, cron, DB, build ID"); đối chiếu capacitor.config.ts + android/ios capacitor.config.json (server.url), vercel.json crons, .github/workflows/{deploy,cron-prod,deploy.windows-iis,doc-health}.yml, /api/version. doc-health --ci đã chạy thật trên máy: exit 1 vì doc lệch có sẵn (forecast-accuracy 87 ngày…) — nên để workflow RIÊNG, không gộp vào `ci`. -->
@@ -240,6 +241,8 @@ systemctl --user disable --now kairos-thu.timer kairos-kiem.timer   # tạm dừ
 ```
 
 **3b. Bản chạy thật (2026-10-24)** — unit gọi `/home/long/.local/node/bin/node` (Node không nằm trên PATH WSL) và chạy script từ `~/.local/forlife/kairos/app`: bản xuất `git archive origin/main` (scripts/kairos-*.mjs + kairos-nguon.json + src/lib/kairos) từ `/mnt/c/Code/ForFish/.git`, `kairos-thu.service` làm mới ở ExecStartPre (hỏng thì chạy bản cũ). Không chạy từ checkout có người đang sửa dở. `KAIROS_API_BASE=https://forfish.vercel.app`. Sổ `gan-day.json` (≤3000 mục, 48 giờ) là vân tay bài đã gửi — bài báo khác cùng sự kiện bị bỏ (`[trùng sự kiện] bỏ N bài`).
+
+**3c. Sen Biển giới thiệu (2026-10-24)** — `kairos-sen-bien.service` (ExecStartPre lam-moi.sh, `node …/app/scripts/kairos-sen-bien.mjs`) + `kairos-sen-bien.timer` (`OnCalendar=*-*-* 07:00:00`, `RandomizedDelaySec=12h`, `Persistent=true`). Thử: `node scripts/kairos-sen-bien.mjs --thu` (gọi Claude, KHÔNG đăng). 503 `no_sen_bien_profile` ⇒ migration 0068 chưa áp. 429 ⇒ đã đủ 2 bài/20 giờ, bỏ lượt (mã 0).
 
 **4. Sự cố**
 

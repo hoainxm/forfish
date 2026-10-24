@@ -8,6 +8,9 @@
 
 /** SĐT sentinel của hồ sơ SDVICO (seed ở 0065) — bài Chính thức đứng tên hồ sơ này. MỘT chỗ. */
 export const SDVICO_PHONE = "sdvico:chinh-thuc";
+/** SĐT sentinel của hồ sơ SEN BIỂN — trợ lý của SDVICO, dấu Chính thức (seed ở 0068). Máy GPU đăng bài giới thiệu
+ *  app/Kairos mỗi ngày qua /api/kairos/sen-bien (lib/kairos/sen-bien-gioi-thieu.mjs). */
+export const SEN_BIEN_PHONE = "sen-bien:tro-ly";
 
 export type { Topic as KairosTopic } from "./chu-de.mjs";
 
