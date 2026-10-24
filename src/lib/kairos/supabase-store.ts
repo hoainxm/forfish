@@ -1,3 +1,4 @@
+import { laCamXuc, type CamXuc } from "./cam-xuc";
 import "server-only";
 // KAIROS — KHO SUPABASE (prod). Service-role, bảng 0065 (RLS bật, không policy) + bucket
 // kairos-media. Không nghiệp vụ (xem store.ts). Lỗi DB ⇒ KairosError; KHÔNG trả rỗng giả khi
@@ -26,6 +27,10 @@ const POST_COLS =
   "id,kind,author_phone,source_id,outlet,url,url_hash,title,title_norm,body,summary,summary_by,cover_url,images,topic,regions,provinces,ports,reshare_of,pinned_until,hidden,hidden_reason,mod_state,mod_checked_at,hay_count,comment_count,published_at,feed_at,created_at,edited_at";
 const COMMENT_COLS = "id,post_id,parent_id,author_phone,body,hay_count,hidden,mod_state,mod_checked_at,created_at";
 const IN_MAX = 200;
+/** trần số lượt cảm xúc đọc một lô để đếm theo loại */
+const DEM_TOI_DA = 10_000;
+/** Cột `kind` chưa có (0069 chưa áp) — Postgres 42703 / PostgREST PGRST204 ⇒ chạy như trước (mọi lượt là 'hay'). */
+const thieuCotKind = (e: { code?: string; message?: string }) => e.code === "42703" || e.code === "PGRST204" || /\bkind\b/.test(e.message ?? "");
 
 type PgErr = { code?: string; message?: string } | null;
 
@@ -254,12 +259,13 @@ export function createKairosSupabaseStore(): KairosStore | null {
     },
 
     // ── Hay ──
-    async setHay(t, targetId, phone, on) {
+    async setHay(t, targetId, phone, on, kind = "hay") {
       const table = t === "post" ? "kairos_post_hay" : "kairos_comment_hay";
       const col = t === "post" ? "post_id" : "comment_id";
       if (on) {
-        const row: Record<string, string> = { [col]: targetId, phone };
-        const { error } = await db.from(table).upsert(row, { onConflict: `${col},phone`, ignoreDuplicates: true });
+        // đổi cảm xúc = UPDATE kind (upsert không bỏ qua trùng); tổng hay_count chỉ đổi khi INSERT (trigger)
+        let { error } = await db.from(table).upsert({ [col]: targetId, phone, kind }, { onConflict: `${col},phone` });
+        if (error && thieuCotKind(error)) ({ error } = await db.from(table).upsert({ [col]: targetId, phone }, { onConflict: `${col},phone`, ignoreDuplicates: true }));
         if (error) {
           if (error.code === "23503") throw new KairosError("not_found");
           fail("setHay", error);
@@ -276,6 +282,40 @@ export function createKairosSupabaseStore(): KairosStore | null {
       const col = t === "post" ? "post_id" : "comment_id";
       const rows = await many<Record<string, string>>("hayOf", db.from(table).select(col).eq("phone", phone).in(col, uniq));
       return new Set(rows.map((r) => r[col]));
+    },
+    async camXucOf(t, phone, ids) {
+      const uniq = [...new Set(ids)].slice(0, IN_MAX);
+      const out = new Map<string, CamXuc>();
+      if (!phone || !uniq.length) return out;
+      const table = t === "post" ? "kairos_post_hay" : "kairos_comment_hay";
+      const col = t === "post" ? "post_id" : "comment_id";
+      const r = await db.from(table).select(`${col},kind`).eq("phone", phone).in(col, uniq);
+      if (r.error && thieuCotKind(r.error)) {
+        const rows = await many<Record<string, string>>("camXucOf", db.from(table).select(col).eq("phone", phone).in(col, uniq));
+        for (const x of rows) out.set(x[col], "hay");
+        return out;
+      }
+      if (r.error) fail("camXucOf", r.error);
+      for (const x of (r.data ?? []) as Record<string, string>[]) out.set(x[col], laCamXuc(x.kind) ? x.kind : "hay");
+      return out;
+    },
+    async demCamXuc(t, ids) {
+      const uniq = [...new Set(ids)].slice(0, IN_MAX);
+      const out = new Map<string, Partial<Record<CamXuc, number>>>();
+      if (!uniq.length) return out;
+      const table = t === "post" ? "kairos_post_hay" : "kairos_comment_hay";
+      const col = t === "post" ? "post_id" : "comment_id";
+      // nợ: gom ở máy chủ app từ từng lượt (trần DEM_TOI_DA dòng/lô) — nâng lên view/RPC đếm nhóm khi bài có hàng nghìn lượt
+      const r = await db.from(table).select(`${col},kind`).in(col, uniq).limit(DEM_TOI_DA);
+      if (r.error && thieuCotKind(r.error)) return out;
+      if (r.error) fail("demCamXuc", r.error);
+      for (const x of (r.data ?? []) as Record<string, string>[]) {
+        const k: CamXuc = laCamXuc(x.kind) ? x.kind : "hay";
+        const m = out.get(x[col]) ?? {};
+        m[k] = (m[k] ?? 0) + 1;
+        out.set(x[col], m);
+      }
+      return out;
     },
 
     // ── Theo dõi / chặn ──

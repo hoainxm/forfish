@@ -1,3 +1,4 @@
+import type { CamXuc } from "./cam-xuc";
 import "server-only";
 // KAIROS — HỢP ĐỒNG KHO (khuôn market/store.ts). Hai bản: supabase-store.ts (prod, bảng 0065 +
 // bucket kairos-media) · file-store.ts (dev, `.local/kairos-dev.json`, chỉ khi isDevFileMode).
@@ -205,8 +206,13 @@ export interface KairosStore {
   getComments(ids: string[]): Promise<CommentFull[]>;
 
   // ── Hay — idempotent (PK cặp) ────────────────────────────────────────
-  setHay(t: TargetType, targetId: string, phone: string, on: boolean): Promise<void>;
+  /** bật (kèm loại cảm xúc — đổi loại nếu đã có) / tắt. `kind` mặc định 'hay'. */
+  setHay(t: TargetType, targetId: string, phone: string, on: boolean, kind?: CamXuc): Promise<void>;
   hayOf(t: TargetType, phone: string, ids: string[]): Promise<Set<string>>;
+  /** cảm xúc của MỘT người trên một lô (0069; cột chưa có ⇒ mọi lượt là 'hay') */
+  camXucOf(t: TargetType, phone: string, ids: string[]): Promise<Map<string, CamXuc>>;
+  /** đếm theo loại trên một lô — id ⇒ {loại: số} (cột chưa có ⇒ map rỗng, UI dùng tổng hay_count) */
+  demCamXuc(t: TargetType, ids: string[]): Promise<Map<string, Partial<Record<CamXuc, number>>>>;
 
   // ── Theo dõi / chặn ──────────────────────────────────────────────────
   setEdge(kind: "follow" | "block", from: string, to: string, on: boolean): Promise<void>;

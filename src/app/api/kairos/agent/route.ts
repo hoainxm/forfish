@@ -9,6 +9,7 @@
 // Luật (L1–L5 của spec 16): chữ qua loiChuAgent + lọc chữ bậy + chủ quyền; trần mỗi agent (1 bài + 4 bình luận/ngày) và
 // cả đội (80 bài · 400 bình luận · 600 Hay /ngày) đếm ở máy chủ; agent không nhắn riêng, không theo dõi/chặn/báo xấu.
 // Bài agent vào `cho-kiem` như bài bà con (hiện ngay, agent kiểm duyệt quét sau). Trả kết quả TỪNG việc.
+import { laCamXuc } from "@/lib/kairos/cam-xuc";
 import { NextResponse } from "next/server";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { agentTheoId, laAgent, loiChuAgent, TRAN, type Agent } from "@/lib/kairos/agent-doi.mjs";
@@ -140,11 +141,11 @@ async function mot(store: KairosStore, v: Record<string, unknown>, since: string
       if (!postVisible(post, null, [])) return { ok: false, code: "gone" };
       // Hay chỉ cho bài BÀ CON (không bài báo, không agent khác) — khỏi làm số Hay ảo (spec 16 §7.3)
       if (post.kind !== "ba-con" || laAgent(post.author_phone)) return { ok: false, code: "khong_hay_agent" };
-      await store.setHay("post", post.id, a.phone, true);
+      await store.setHay("post", post.id, a.phone, true, laCamXuc(v.kind) ? v.kind : "hay");
     } else if (isUuid(v.commentId)) {
       const c = await store.getComment(String(v.commentId).toLowerCase());
       if (!c || c.hidden || laAgent(c.author_phone)) return { ok: false, code: "khong_hay_agent" };
-      await store.setHay("comment", c.id, a.phone, true);
+      await store.setHay("comment", c.id, a.phone, true, laCamXuc(v.kind) ? v.kind : "hay");
     } else return { ok: false, code: "bad_target" };
     dem.hay++;
     await auditQuiet(store, { actor: ACTOR, actor_kind: "he-thong", action: "agent_hay", detail: { agentId: a.id } });

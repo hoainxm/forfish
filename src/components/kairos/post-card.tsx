@@ -19,14 +19,16 @@
   cần sóng", ảnh đại diện về chữ cái, ảnh bìa bỏ.
 */
 
+import type { CamXuc } from "@/lib/kairos/cam-xuc";
 import Link from "next/link";
 import { useState } from "react";
-import { CommentIcon, ShareIcon, ThumbIcon } from "@/components/icons";
+import { CommentIcon, ShareIcon } from "@/components/icons";
 import { areaTag, countLabel, portLabel, postTimeLabel } from "@/lib/kairos/feed-client";
 import type { KairosComment, KairosPost } from "@/lib/kairos/types";
 import { NHAN, NHAN_CHIP_KAIROS } from "@/lib/labels";
 import { isPinned } from "@/lib/kairos/xep-bai";
 import { ChuXemThem } from "./chu-xem-them";
+import { DongCamXuc, NutCamXuc } from "./nut-cam-xuc";
 import { KairosAvatar } from "./kairos-avatar";
 import { CommentThread, type CommentKit } from "./comment-thread";
 import { KhungAnh, NutNghe, useHoanAnh } from "./de-dung";
@@ -34,7 +36,8 @@ import { KhungAnh, NutNghe, useHoanAnh } from "./de-dung";
 export interface PostActions {
   /** có ⇒ bình luận mở INLINE dưới thẻ (comment-thread) thay vì sang trang bài */
   binhLuan?: CommentKit;
-  onHay?: (p: KairosPost) => void;
+  /** cảm xúc (mặc định 👍 Hay); trùng loại đang có ⇒ gỡ */
+  onHay?: (p: KairosPost, kind?: CamXuc) => void;
   onShare?: (p: KairosPost) => void;
   /** ba chấm: Sửa/Xoá (bài mình) hoặc Báo xấu/Chặn */
   onMore?: (p: KairosPost) => void;
@@ -250,19 +253,18 @@ export function PostCard({
         </span>
       )}
 
+      {post.hayCount > 0 && (
+        <div className="px-4 pb-1.5">
+          <DongCamXuc camXuc={post.camXuc} tong={post.hayCount} />
+        </div>
+      )}
       <div className="flex items-center gap-1 border-t border-line px-2 py-1">
-        <button
-          type="button"
-          aria-pressed={post.hayByMe}
-          aria-label={`${NHAN.hay}, ${post.hayCount}`}
+        <NutCamXuc
+          my={post.myCamXuc ?? (post.hayByMe ? "hay" : null)}
           disabled={!actions.onHay}
-          onClick={() => actions.onHay?.(post)}
-          className={`${btn} ${post.hayByMe ? "text-sea" : "text-foreground/75"} disabled:active:scale-100`}
-        >
-          <ThumbIcon className="h-5 w-5" />
-          {NHAN.hay}
-          {post.hayCount > 0 && <span className="tabular-nums">{countLabel(post.hayCount)}</span>}
-        </button>
+          onChon={(k) => actions.onHay?.(post, k)}
+          className={`${btn} w-full`}
+        />
         {inline ? (
           <button type="button" aria-expanded={moBL} onClick={() => (moBL ? setMoBL(false) : moBinhLuan())} className={`${btn} ${moBL ? "text-sea" : "text-foreground/75"}`}>
             <CommentIcon className="h-5 w-5" />

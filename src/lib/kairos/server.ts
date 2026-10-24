@@ -1,3 +1,4 @@
+import { laCamXuc, type CamXuc } from "./cam-xuc";
 import "server-only";
 // KAIROS — TRỢ GIÚP CHUNG CHO MỌI ROUTE /api/kairos/* (14 §7, AC21). Route mỏng gọi đây; luật
 // thuần nằm ở validate/feed-query/dto/rate/… (có test).
@@ -159,13 +160,20 @@ async function dtoCtx(
   extraPhones: string[] = [],
 ): Promise<DtoCtx> {
   const phones = [...posts.map((p) => p.author_phone), ...comments.map((c) => c.author_phone), ...extraPhones].filter((x): x is string => !!x);
-  const [profiles, boats, buyers, hayPosts, hayComments] = await Promise.all([
+  const idBai = posts.map((p) => p.id);
+  const idBl = comments.map((c) => c.id);
+  const coLuot = <T extends { id: string; hay_count: number }>(xs: T[]) => xs.filter((x) => x.hay_count > 0).map((x) => x.id);
+  const [profiles, boats, buyers, camXucPosts, camXucComments, demPosts, demComments] = await Promise.all([
     store.profilesByPhones(phones),
     store.boatsOf(phones),
     store.buyerNamesOf(phones),
-    viewer ? store.hayOf("post", viewer, posts.map((p) => p.id)) : Promise.resolve(new Set<string>()),
-    viewer ? store.hayOf("comment", viewer, comments.map((c) => c.id)) : Promise.resolve(new Set<string>()),
+    viewer ? store.camXucOf("post", viewer, idBai) : Promise.resolve(new Map<string, CamXuc>()),
+    viewer ? store.camXucOf("comment", viewer, idBl) : Promise.resolve(new Map<string, CamXuc>()),
+    store.demCamXuc("post", coLuot(posts)),
+    store.demCamXuc("comment", coLuot(comments)),
   ]);
+  const hayPosts = new Set(camXucPosts.keys());
+  const hayComments = new Set(camXucComments.keys());
   const sublines = new Map<string, string>();
   const boatRegs = new Map<string, string>();
   const homePort = new Map(profiles.map((p) => [p.phone, p.home_port ?? null]));
@@ -182,6 +190,10 @@ async function dtoCtx(
     mediaUrl: (p) => store.mediaUrl(p),
     hayPosts,
     hayComments,
+    camXucPosts,
+    camXucComments,
+    demPosts,
+    demComments,
   };
 }
 
@@ -314,6 +326,9 @@ export async function hayToggle(req: Request, t: "post" | "comment", rawId: stri
   const body = await jsonBody(req);
   const on = (body as { on?: unknown } | null)?.on;
   if (typeof on !== "boolean") return kErr(400, "bad_body");
+  const rawKind = (body as { kind?: unknown } | null)?.kind;
+  if (rawKind !== undefined && !laCamXuc(rawKind)) return kErr(400, "bad_body");
+  const kind: CamXuc = laCamXuc(rawKind) ? rawKind : "hay";
   const w = await requireWriter(req, { allowBanned: !on });
   if (!w.ok) return w.res;
   const { store, phone } = w;
@@ -334,9 +349,9 @@ export async function hayToggle(req: Request, t: "post" | "comment", rawId: stri
         return kErr(404, "not_found");
       }
     }
-    await store.setHay(t, id, phone, on);
-    const fresh = t === "post" ? await store.getPost(id) : await store.getComment(id);
-    return NextResponse.json({ ok: true, on, hayCount: fresh?.hay_count ?? 0 });
+    await store.setHay(t, id, phone, on, kind);
+    const [fresh, dem] = await Promise.all([t === "post" ? store.getPost(id) : store.getComment(id), store.demCamXuc(t, [id])]);
+    return NextResponse.json({ ok: true, on, kind: on ? kind : null, hayCount: fresh?.hay_count ?? 0, camXuc: dem.get(id) ?? {} });
   } catch (e) {
     return kairosErrorResponse(e);
   }

@@ -4,6 +4,7 @@
 // giờ ra client: tác giả = `profileId` (uuid công khai); "mine" tính ở máy chủ bằng so SĐT rồi
 // chỉ trả boolean. `kairos-dto.test.ts` soi JSON ra không chứa SĐT nào.
 
+import { xepDem, type CamXuc, type DemCamXuc } from "./cam-xuc";
 import { laAgent } from "./agent-doi.mjs";
 import { laTinNong } from "./phan-phoi";
 import type { KairosAbout, KairosAuthor, KairosComment, KairosPost, KairosPostKind, KairosRegion } from "./types";
@@ -70,6 +71,17 @@ export interface DtoCtx {
   /** id bài / bình luận người xem đã bấm Hay */
   hayPosts?: ReadonlySet<string>;
   hayComments?: ReadonlySet<string>;
+  /** cảm xúc của người xem + đếm theo loại (0069) — không có ⇒ 👍 'hay' + chỉ tổng */
+  camXucPosts?: ReadonlyMap<string, CamXuc>;
+  camXucComments?: ReadonlyMap<string, CamXuc>;
+  demPosts?: ReadonlyMap<string, Partial<Record<CamXuc, number>>>;
+  demComments?: ReadonlyMap<string, Partial<Record<CamXuc, number>>>;
+}
+
+/** Đếm theo loại cho một bài/bình luận: có số theo loại ⇒ dùng; không (cột chưa có / chưa nạp) ⇒ cả tổng là 👍. */
+function demCua(m: Partial<Record<CamXuc, number>> | undefined, tong: number): DemCamXuc {
+  const d = xepDem(m);
+  return d.length ? d : tong > 0 ? [{ kind: "hay", n: tong }] : [];
 }
 
 /** Tác giả công khai. Không có hồ sơ (lỗi dữ liệu) ⇒ "Bà con" ẩn danh, KHÔNG lộ SĐT. */
@@ -118,6 +130,8 @@ export function commentDto(r: CommentRow, ctx: DtoCtx): KairosComment {
     body: r.body,
     hayCount: r.hay_count,
     hayByMe: ctx.hayComments?.has(r.id) ?? false,
+    myCamXuc: ctx.camXucComments?.get(r.id) ?? (ctx.hayComments?.has(r.id) ? "hay" : null),
+    camXuc: demCua(ctx.demComments?.get(r.id), r.hay_count),
     createdAt: r.created_at,
     mine: !!ctx.viewer && r.author_phone === ctx.viewer,
   };
@@ -158,6 +172,8 @@ export function postDto(
     hayCount: r.hay_count,
     commentCount: r.comment_count,
     hayByMe: ctx.hayPosts?.has(r.id) ?? false,
+    myCamXuc: ctx.camXucPosts?.get(r.id) ?? (ctx.hayPosts?.has(r.id) ? "hay" : null),
+    camXuc: demCua(ctx.demPosts?.get(r.id), r.hay_count),
     topComments: (extra.topComments ?? []).map((c) => commentDto(c, ctx)),
     publishedAt: r.published_at,
     editedAt: r.edited_at,

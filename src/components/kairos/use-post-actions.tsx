@@ -18,11 +18,12 @@
   KHÔNG gửi ngầm: mọi request đi từ một cú bấm.
 */
 
+import { chonCamXuc, chotCamXuc, type CamXuc, type CamXucState } from "@/lib/kairos/cam-xuc";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import type { KairosPost } from "@/lib/kairos/types";
-import { errorText, flipHay, hideBlocked, kairosSend, settleHay, type HayState } from "@/lib/kairos/write-client";
+import { errorText, hideBlocked, kairosSend } from "@/lib/kairos/write-client";
 import { luuLoiText } from "@/lib/kairos/luu-bai";
 import { boLuuBai, daLuuBai, luuBaiMangTheo } from "@/lib/kairos/luu-client";
 import { NHAN } from "@/lib/labels";
@@ -66,19 +67,24 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
   const patch = useCallback((id: string, p: Partial<KairosPost>) => setOver((o) => ({ ...o, [id]: { ...o[id], ...p } })), []);
 
   const onHay = useCallback(
-    async (p: KairosPost) => {
+    async (p: KairosPost, kind: CamXuc = "hay") => {
       if (!signedIn) {
-        setNotice({ text: "Đăng nhập để bấm Hay.", bad: true });
+        setNotice({ text: "Đăng nhập để bày tỏ cảm xúc.", bad: true });
         return;
       }
       if (inflight.current.has(p.id)) return;
       inflight.current.add(p.id);
-      const before: HayState = { hayByMe: p.hayByMe, hayCount: p.hayCount };
-      const next = flipHay(before);
-      patch(p.id, next);
-      const r = await kairosSend<{ on: boolean; hayCount: number }>("PUT", `/api/kairos/posts/${p.id}/hay`, { on: next.hayByMe });
+      const before: CamXucState = { myCamXuc: p.myCamXuc ?? (p.hayByMe ? "hay" : null), hayCount: p.hayCount, camXuc: p.camXuc ?? [] };
+      const next = chonCamXuc(before, kind);
+      patch(p.id, { ...next, hayByMe: !!next.myCamXuc });
+      const r = await kairosSend<{ on: boolean; kind?: string | null; hayCount: number; camXuc?: Record<string, number> }>(
+        "PUT",
+        `/api/kairos/posts/${p.id}/hay`,
+        next.myCamXuc ? { on: true, kind: next.myCamXuc } : { on: false },
+      );
       inflight.current.delete(p.id);
-      patch(p.id, settleHay(before, r));
+      const chot = chotCamXuc(before, r);
+      patch(p.id, { ...chot, hayByMe: !!chot.myCamXuc });
       if (!r.ok) setNotice({ text: errorText(r, "hay"), bad: true });
     },
     [signedIn, patch],
@@ -91,7 +97,7 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
       report: (t) => (needLogin("báo xấu") ? undefined : setReport(t)),
       patch,
     },
-    onHay: (p) => void onHay(p),
+    onHay: (p, kind) => void onHay(p, kind),
     onShare: (p) => setShare(p),
     onMore: (p) => {
       setMoreSaved(daLuuBai(phone, p.id));

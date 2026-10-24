@@ -63,6 +63,12 @@ function nguoiDap(nhom, vung, daCo, rnd, { gio = 12, topic = null } = {}) {
 const vungCua = (p) => (p.regions ?? []).find((r) => r !== "ca-nuoc") ?? null;
 const chuBai = (p) => `${p.title ?? ""} ${p.summary ?? ""} ${p.body ?? ""}`;
 
+/** Cảm xúc agent bấm (như người thật: phần lớn 👍, có ❤️ 😆, ít 😮 😢; agent KHÔNG 😡 bài bà con). */
+export function camXucAgent(rnd = Math.random) {
+  const x = rnd();
+  return x < 0.6 ? "hay" : x < 0.82 ? "thuong" : x < 0.94 ? "haha" : x < 0.98 ? "wow" : "buon";
+}
+
 /**
  * Lên kế hoạch MỘT lượt. Trả việc cần chữ (Claude viết) + việc Hay (không cần chữ).
  * @param {BaiFeed[]} feed
@@ -75,7 +81,7 @@ export function keHoach(feed, so, now, rnd = Math.random) {
   const can = { bai: soViec("bai", gio, rnd), binhLuan: soViec("binhLuan", gio, rnd), hay: soViec("hay", gio, rnd) };
   /** @type {{ loai: "bai" | "binh-luan", agent: ReturnType<typeof doiAgent>[number], muc: string, post?: BaiFeed, parent?: { id: string, body: string }, chuDe?: string, topic?: string }[]} */
   const viecChu = [];
-  /** @type {{ loai: "hay", agentId: string, postId?: string, commentId?: string }[]} */
+  /** @type {{ loai: "hay", agentId: string, kind: string, postId?: string, commentId?: string }[]} */
   const viecHay = [];
   const moi = feed.filter((p) => Number.isFinite(Date.parse(p.publishedAt)) && tuoiGio(p.publishedAt, now) < 36);
   const daCo = (pid) => so.daBinhLuan[pid] ?? [];
@@ -127,7 +133,7 @@ export function keHoach(feed, so, now, rnd = Math.random) {
     ...baCon.map((p) => ({ postId: p.id })),
     ...moi.flatMap((p) => (p.topComments ?? []).filter((c) => !c.author?.isAgent).map((c) => ({ commentId: c.id }))),
   ];
-  for (let i = 0; i < can.hay && hayDuoc.length; i++) viecHay.push({ loai: "hay", agentId: chon(doi, rnd).id, ...chon(hayDuoc, rnd) });
+  for (let i = 0; i < can.hay && hayDuoc.length; i++) viecHay.push({ loai: "hay", agentId: chon(doi, rnd).id, kind: camXucAgent(rnd), ...chon(hayDuoc, rnd) });
 
   return { viecChu, viecHay, can };
 }

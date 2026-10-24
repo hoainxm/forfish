@@ -13,28 +13,28 @@
    · `initialNext === undefined` ⇒ tự tải trang bình luận đầu (dùng ở thẻ dòng tin: thẻ chỉ mang 2 bình luận nổi).
 */
 
+import { chonCamXuc, chotCamXuc, type CamXuc, type CamXucState } from "@/lib/kairos/cam-xuc";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SendIcon, ThumbIcon } from "@/components/icons";
+import { SendIcon } from "@/components/icons";
 import { draftKey } from "@/lib/kairos/cache";
-import { countLabel, postTimeLabel } from "@/lib/kairos/feed-client";
+import { postTimeLabel } from "@/lib/kairos/feed-client";
 import { LIMITS, type KairosComment, type KairosPost } from "@/lib/kairos/types";
 import { charLen } from "@/lib/kairos/validate";
 import {
   dropComment,
   errorText,
-  flipHay,
   kairosSend,
   loadDraft,
   replyTarget,
   saveDraft,
-  settleHay,
   threadComments,
 } from "@/lib/kairos/write-client";
 import { NHAN } from "@/lib/labels";
 import { useAuthUser } from "@/lib/use-auth";
 import { useOnline } from "@/lib/use-online";
 import { ChuXemThem } from "./chu-xem-them";
+import { DongCamXuc, NutCamXuc } from "./nut-cam-xuc";
 import { KairosAvatar } from "./kairos-avatar";
 import { RulesBox } from "./rules-box";
 import { NutMic } from "./de-dung";
@@ -59,7 +59,7 @@ function CommentRow({
   c: KairosComment;
   now: number;
   reply?: boolean;
-  onHay: (c: KairosComment) => void;
+  onHay: (c: KairosComment, kind?: CamXuc) => void;
   onReply: (c: KairosComment) => void;
   onDelete: (c: KairosComment) => Promise<boolean>;
   onReport: (c: KairosComment) => void;
@@ -104,17 +104,8 @@ function CommentRow({
         ) : (
           <div className="flex flex-wrap items-center gap-1 text-foreground/65">
             <span className="px-2 text-[0.8125rem]">{postTimeLabel(c.createdAt, now)}</span>
-            <button
-              type="button"
-              aria-pressed={c.hayByMe}
-              aria-label={`${NHAN.hay}, ${c.hayCount}`}
-              onClick={() => onHay(c)}
-              className={`${small} flex items-center gap-1 ${c.hayByMe ? "text-sea" : ""}`}
-            >
-              <ThumbIcon className="h-4 w-4" />
-              {NHAN.hay}
-              {c.hayCount > 0 && <span className="tabular-nums">{countLabel(c.hayCount)}</span>}
-            </button>
+            <NutCamXuc nho my={c.myCamXuc ?? (c.hayByMe ? "hay" : null)} onChon={(k) => onHay(c, k)} className={`${small} flex items-center gap-1`} />
+            {c.hayCount > 0 && <DongCamXuc nho camXuc={c.camXuc} tong={c.hayCount} />}
             <button type="button" onClick={() => onReply(c)} className={small}>
               {NHAN.traLoi}
             </button>
@@ -251,19 +242,24 @@ export function CommentThread({
     setReplyTo(null);
   };
 
-  const hayComment = async (c: KairosComment) => {
+  const hayComment = async (c: KairosComment, kind: CamXuc = "hay") => {
     if (!signedIn) {
-      kit.notify("Đăng nhập để bấm Hay.", true);
+      kit.notify("Đăng nhập để bày tỏ cảm xúc.", true);
       return;
     }
     if (hayBusy.current.has(c.id)) return;
     hayBusy.current.add(c.id);
-    const before = { hayByMe: c.hayByMe, hayCount: c.hayCount };
-    const set = (s: typeof before) => setComments((cur) => cur.map((x) => (x.id === c.id ? { ...x, ...s } : x)));
-    set(flipHay(before));
-    const r = await kairosSend<{ on: boolean; hayCount: number }>("PUT", `/api/kairos/comments/${c.id}/hay`, { on: !c.hayByMe });
+    const before: CamXucState = { myCamXuc: c.myCamXuc ?? (c.hayByMe ? "hay" : null), hayCount: c.hayCount, camXuc: c.camXuc ?? [] };
+    const set = (s: CamXucState) => setComments((cur) => cur.map((x) => (x.id === c.id ? { ...x, ...s, hayByMe: !!s.myCamXuc } : x)));
+    const next = chonCamXuc(before, kind);
+    set(next);
+    const r = await kairosSend<{ on: boolean; kind?: string | null; hayCount: number; camXuc?: Record<string, number> }>(
+      "PUT",
+      `/api/kairos/comments/${c.id}/hay`,
+      next.myCamXuc ? { on: true, kind: next.myCamXuc } : { on: false },
+    );
     hayBusy.current.delete(c.id);
-    set(settleHay(before, r));
+    set(chotCamXuc(before, r));
     if (!r.ok) kit.notify(errorText(r, "hay"), true);
   };
 

@@ -7,6 +7,8 @@
 // Mã (kind/topic/region/reason) khớp từng ký tự với check của 0065_kairos.sql.
 
 /** SĐT sentinel của hồ sơ SDVICO (seed ở 0065) — bài Chính thức đứng tên hồ sơ này. MỘT chỗ. */
+import type { CamXuc, DemCamXuc } from "./cam-xuc";
+
 export const SDVICO_PHONE = "sdvico:chinh-thuc";
 /** SĐT sentinel của hồ sơ SEN BIỂN — trợ lý của SDVICO, dấu Chính thức (seed ở 0068). Máy GPU đăng bài giới thiệu
  *  app/Kairos mỗi ngày qua /api/kairos/sen-bien (lib/kairos/sen-bien-gioi-thieu.mjs). */
@@ -108,6 +110,9 @@ export interface KairosComment {
   hayCount: number;
   /** người đang xem đã bấm Hay chưa (khách ⇒ false) */
   hayByMe: boolean;
+  /** cảm xúc của người xem (null = chưa bấm) + đếm theo loại, nhiều nhất trước — kiểu FB (0069) */
+  myCamXuc?: CamXuc | null;
+  camXuc?: DemCamXuc;
   createdAt: string;
   mine: boolean;
 }
@@ -143,6 +148,9 @@ export interface KairosPost {
   hayCount: number;
   commentCount: number;
   hayByMe: boolean;
+  /** cảm xúc của người xem + đếm theo loại (0069) */
+  myCamXuc?: CamXuc | null;
+  camXuc?: DemCamXuc;
   topComments: KairosComment[];
   publishedAt: string;
   editedAt: string | null;

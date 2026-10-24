@@ -6,6 +6,7 @@
 // Ràng buộc DB được làm lại ở đây cho đúng hành vi prod: unique handle_norm/url_hash/(đích,
 // người báo), PK Hay/theo dõi/chặn, cascade xoá, trigger đếm, trả lời đúng 1 cấp.
 
+import type { CamXuc } from "./cam-xuc";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { assertDevFileMode } from "@/lib/market/dev-mode";
@@ -27,8 +28,8 @@ interface State {
   profiles: ProfileFull[];
   posts: PostFull[];
   comments: CommentFull[];
-  postHay: { post_id: string; phone: string; created_at: string }[];
-  commentHay: { comment_id: string; phone: string; created_at: string }[];
+  postHay: { post_id: string; phone: string; created_at: string; kind?: CamXuc }[];
+  commentHay: { comment_id: string; phone: string; created_at: string; kind?: CamXuc }[];
   follows: { from: string; to: string; created_at: string }[];
   blocks: { from: string; to: string; created_at: string }[];
   reports: ReportRow[];
@@ -283,27 +284,29 @@ export function createKairosFileStore(opts: { dir?: string; now?: () => Date } =
     allComments: (postId, limit) => read((s) => s.comments.filter((c) => c.post_id === postId).sort(byAsc).slice(0, limit)),
     getComments: (ids) => read((s) => s.comments.filter((c) => ids.includes(c.id))),
 
-    setHay: (t, targetId, phone, on) =>
+    setHay: (t, targetId, phone, on, kind = "hay") =>
       mutate((s) => {
         if (t === "post") {
           const p = getPostIn(s, targetId);
           if (!p) throw new KairosError("not_found");
-          const has = s.postHay.some((h) => h.post_id === targetId && h.phone === phone);
+          const has = s.postHay.find((h) => h.post_id === targetId && h.phone === phone);
           if (on && !has) {
-            s.postHay.push({ post_id: targetId, phone, created_at: nowIso() });
+            s.postHay.push({ post_id: targetId, phone, created_at: nowIso(), kind });
             p.hay_count += 1;
-          } else if (!on && has) {
+          } else if (on && has) has.kind = kind; // đổi cảm xúc, tổng không đổi
+          else if (!on && has) {
             s.postHay = s.postHay.filter((h) => !(h.post_id === targetId && h.phone === phone));
             p.hay_count = Math.max(0, p.hay_count - 1);
           }
         } else {
           const c = getCommentIn(s, targetId);
           if (!c) throw new KairosError("not_found");
-          const has = s.commentHay.some((h) => h.comment_id === targetId && h.phone === phone);
+          const has = s.commentHay.find((h) => h.comment_id === targetId && h.phone === phone);
           if (on && !has) {
-            s.commentHay.push({ comment_id: targetId, phone, created_at: nowIso() });
+            s.commentHay.push({ comment_id: targetId, phone, created_at: nowIso(), kind });
             c.hay_count += 1;
-          } else if (!on && has) {
+          } else if (on && has) has.kind = kind;
+          else if (!on && has) {
             s.commentHay = s.commentHay.filter((h) => !(h.comment_id === targetId && h.phone === phone));
             c.hay_count = Math.max(0, c.hay_count - 1);
           }
@@ -315,6 +318,25 @@ export function createKairosFileStore(opts: { dir?: string; now?: () => Date } =
           ? s.postHay.filter((h) => h.phone === phone && ids.includes(h.post_id)).map((h) => h.post_id)
           : s.commentHay.filter((h) => h.phone === phone && ids.includes(h.comment_id)).map((h) => h.comment_id),
       ).then((xs) => new Set(xs)),
+    camXucOf: (t, phone, ids) =>
+      read((s) => {
+        const out = new Map<string, CamXuc>();
+        if (t === "post") for (const h of s.postHay) if (h.phone === phone && ids.includes(h.post_id)) out.set(h.post_id, h.kind ?? "hay");
+        if (t === "comment") for (const h of s.commentHay) if (h.phone === phone && ids.includes(h.comment_id)) out.set(h.comment_id, h.kind ?? "hay");
+        return out;
+      }),
+    demCamXuc: (t, ids) =>
+      read((s) => {
+        const out = new Map<string, Partial<Record<CamXuc, number>>>();
+        const them = (id: string, k: CamXuc) => {
+          const m = out.get(id) ?? {};
+          m[k] = (m[k] ?? 0) + 1;
+          out.set(id, m);
+        };
+        if (t === "post") for (const h of s.postHay) if (ids.includes(h.post_id)) them(h.post_id, h.kind ?? "hay");
+        if (t === "comment") for (const h of s.commentHay) if (ids.includes(h.comment_id)) them(h.comment_id, h.kind ?? "hay");
+        return out;
+      }),
 
     setEdge: (kind, from, to, on) =>
       mutate((s) => {

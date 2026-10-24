@@ -6,6 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24c — thêm migration 0069_kairos_cam_xuc (cột kind cho kairos_post_hay / kairos_comment_hay) — 14 §7 -->
 <!-- re-verified: 2026-10-24b — thêm migration 0068_kairos_sen_bien (seed hồ sơ Sen Biển) — 14 §14 -->
 <!-- re-verified: 2026-10-24 — thêm migration 0067_kairos_ho_so (kairos_profiles + cover_path/que_tinh/nghe/gioi_thieu/home_port — trang cá nhân kiểu FB, 14 §3.8) — ⛔ CHƯA APPLY -->
 <!-- re-verified: 2026-10-24 — thêm migration 0066_kairos_phan_phoi (kairos_reads + kairos_record_reads + default rules_accepted_at) — 14 §13 -->
@@ -902,6 +903,12 @@ Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng 
 - **Đối soát bản ghi dở dang trước đó** (đo 2026-10-19): 0 đơn `da_huy` chưa hoàn kho, 0 yêu cầu `da_dat` thiếu `order_id` ⇒ không cần dọn. Truy vấn đối soát giữ ở ops/runbook.md.
 - Tương thích: cột có default + hàm mới ⇒ code cũ chạy nguyên trên DB đã apply. Thứ tự: **apply 0064 → deploy** (code mới gọi hàm 0064).
 - file-store (dev) không đổi: một tiến trình, ghi cả tệp một lần nên vốn nguyên tử.
+
+### KAIROS — cảm xúc kiểu Facebook — migration [`0069_kairos_cam_xuc.sql`](../../supabase/migrations/0069_kairos_cam_xuc.sql) (2026-10-24)
+
+- **CỘNG THÊM** cột `kind text not null default 'hay'` + check (`hay` 👍 · `thuong` ❤️ · `haha` 😆 · `wow` 😮 · `buon` 😢 · `gian` 😡) cho `kairos_post_hay` và `kairos_comment_hay`. Lượt Hay cũ = `hay`.
+- PK `(post_id|comment_id, phone)` giữ nguyên ⇒ **một người một cảm xúc**; đổi cảm xúc = UPDATE `kind` (upsert), trigger đếm `hay_count` chỉ chạy insert/delete ⇒ tổng không đổi khi đổi loại. Đếm theo loại: route đọc `(id, kind)` của lô bài đang hiện rồi gộp (`lib/kairos/cam-xuc.xepDem`).
+- RLS: không đổi (revoke all, chỉ route server). Code chịu được lúc cột CHƯA có (lỗi cột ⇒ coi như `hay`, ghi không kèm `kind`).
 
 ### KAIROS — hồ sơ Sen Biển — migration [`0068_kairos_sen_bien.sql`](../../supabase/migrations/0068_kairos_sen_bien.sql) (2026-10-24) — ✅ **ĐÃ APPLY** 2026-10-24 qua connector Supabase (anh Long: "áp đi")
 
