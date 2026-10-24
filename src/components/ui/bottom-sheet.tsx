@@ -97,6 +97,13 @@ export function BottomSheet({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  /*  Hiệu ứng MỞ chỉ chạy MỘT LẦN mỗi lần mở (khoá cuộn, đặt con trỏ vào ô đầu, trả con trỏ khi đóng). Đọc
+      `dongNhe` mới nhất qua ref — KHÔNG để nó vào deps: bên gọi đổi onClose mỗi lần vẽ thì hiệu ứng chạy lại MỖI PHÍM,
+      con trỏ nhảy khỏi ô đang gõ ("gõ từng chữ một", khung soạn Kairos 2026-10-24). */
+  const dongNheRef = useRef(dongNhe);
+  useEffect(() => {
+    dongNheRef.current = dongNhe;
+  });
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     lockBodyScroll();
@@ -108,7 +115,7 @@ export function BottomSheet({
       if (hoiBoRef.current) return; // hộp "Bỏ phần đang ghi?" đang lo phím
       if (e.key === "Escape") {
         e.preventDefault();
-        dongNhe();
+        dongNheRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -125,7 +132,7 @@ export function BottomSheet({
       unlockBodyScroll();
       opener?.focus?.();
     };
-  }, [dongNhe]);
+  }, []);
 
   if (!mounted) return null;
 

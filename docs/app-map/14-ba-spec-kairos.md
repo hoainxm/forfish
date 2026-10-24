@@ -184,6 +184,8 @@ Phần thuần: `src/lib/kairos/thu-core.mjs` + test.
 
 ## 13. Cỗ máy phân phối ở máy chủ (2026-10-24)
 
+**Bài người thật luôn đứng đầu (2026-10-24, anh Long: "sao t đăng bài lên nó ko có, luôn ưu tiên bài do người thật")**: bài bà con (`kind = ba-con`, SĐT thật, không phải `agent:`) lên dòng tin trong `UU_TIEN_NGUOI_THAT_H` = 72 giờ mà người đọc CHƯA mở ⇒ xếp TRƯỚC mọi bài báo/agent, mới nhất trước, không qua luật đan xen, trần tác giả hay trần 85 % tin biển (trước đó bài "Giao lưu" chủ đề đời sống bị trần ngoài-biển đẩy xuống sâu, bà con đăng xong tải lại tưởng mất bài). Đã mở bài ⇒ về máy chấm điểm như thường để đầu dòng tin không đứng yên mãi. Bài vừa đăng vẫn được chèn ngay đầu màn ở máy người đăng (`use-post-actions` → `added`). Luật: `laBaiNguoiThat` + nhánh đầu `xepDongTin` (`lib/kairos/phan-phoi.ts`), test `kairos-phan-phoi.test.ts`.
+
 Anh Long: "đã có cỗ máy phân phối tin theo người đọc chưa" → "nâng lên"; "tỷ lệ tin liên quan biển và nghề thuỷ sản phải chiếm 85%"; agent "tần suất xuất hiện đan xen để tránh bị nhàm, nghiên cứu áp mô hình mạng xã hội".
 
 - **Ai dùng**: dòng tin MẶC ĐỊNH (không Bến/người/theo dõi). Bến, trang người dùng, theo dõi vẫn theo giờ.

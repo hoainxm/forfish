@@ -185,6 +185,12 @@ export function diemBai(
   return s;
 }
 
+/** Bài người thật được ưu tiên trong chừng này giờ kể từ lúc lên dòng tin. */
+export const UU_TIEN_NGUOI_THAT_H = 72;
+
+/** Bài do NGƯỜI THẬT đăng (bà con, không phải agent AI, không phải bài báo/chính thức). */
+export const laBaiNguoiThat = (p: Pick<PPPost, "kind" | "author_phone">): boolean => p.kind === "ba-con" && !!p.author_phone && !laBaiAgent(p);
+
 const tranTacGia = (tg: string) => (tg.startsWith("bao:") ? TRAN_TAC_GIA.bao : TRAN_TAC_GIA.nguoi);
 
 /**
@@ -201,7 +207,18 @@ export function xepDongTin<T extends PPPost>(posts: readonly T[], r: Reader, now
     daXem.set(x.post_id, { opened: (cu?.opened ?? false) || x.opened });
   }
   const ctx = { chuDe, tacGia, daXem };
-  const con = posts.map((p, i) => ({
+  /*  BÀI NGƯỜI THẬT LUÔN ĐỨNG ĐẦU (anh Long 2026-10-24: "luôn ưu tiên bài do người thật"): bài bà con đăng trong
+      UU_TIEN_NGUOI_THAT_H giờ mà người đọc CHƯA mở ⇒ lên trước mọi bài báo/agent, mới nhất trước, KHÔNG qua luật đan xen
+      hay trần 85 % tin biển (bài "Giao lưu" chủ đề đời sống trước đây bị trần ngoài-biển đẩy xuống sâu). Đã mở rồi
+      ⇒ về lại máy chấm điểm như mọi bài, để đầu dòng tin không đứng yên mãi. */
+  const truoc: T[] = [];
+  const conLai: T[] = [];
+  for (const p of posts) {
+    if (laBaiNguoiThat(p) && tuoiGio(p.feed_at, now) <= UU_TIEN_NGUOI_THAT_H && !daXem.get(p.id)?.opened) truoc.push(p);
+    else conLai.push(p);
+  }
+  truoc.sort((a, b) => Date.parse(b.feed_at) - Date.parse(a.feed_at) || (a.id < b.id ? 1 : -1));
+  const con = conLai.map((p, i) => ({
     p,
     s: diemBai(p, r, now, ctx) + (r.hat != null ? NHIEU_XAO * nhieu(r.hat, p.id) : 0),
     i,
@@ -209,7 +226,7 @@ export function xepDongTin<T extends PPPost>(posts: readonly T[], r: Reader, now
   }));
   con.sort((a, b) => b.s - a.s || a.i - b.i);
 
-  const out: T[] = [];
+  const out: T[] = [...truoc];
   let demTrang = new Map<string, number>();
   let khongBien = 0;
   const tranKhongBien = Math.round((TRAN_KHONG_BIEN * trang) / 20);

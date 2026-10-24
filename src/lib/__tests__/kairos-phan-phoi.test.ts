@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   diemBai, docHat, giaiMaPP, guDoc, laBaiAgent, nhieu, NHIEU_XAO, laTinBien, laTinNong, maHoaPP, NGUON_NONG, W_NONG, tacGiaCua, TRAN_KHONG_BIEN, TRAN_TAC_GIA, W_THICH, xepDongTin,
+  laBaiNguoiThat, UU_TIEN_NGUOI_THAT_H,
   type PPPost, type Reader, type ReadSignal,
 } from "@/lib/kairos/phan-phoi";
 
@@ -90,9 +91,9 @@ describe("xepDongTin — đan xen", () => {
   });
   it("không quá 3 bài cùng chủ đề liền nhau khi còn chủ đề khác", () => {
     const ps = [
-      // bài bà con (đều là tin biển) — chỉ thử luật chủ đề, không dính luật 85 %
-      ...Array.from({ length: 12 }, (_, i) => bai({ kind: "ba-con", author_phone: `b${i}`, topic: "doi-song", feed_at: h(0.5) })),
-      ...Array.from({ length: 6 }, (_, i) => bai({ kind: "ba-con", author_phone: `c${i}`, topic: "nghe-ca", feed_at: h(10) })),
+      // bài agent (không phải người thật ⇒ đi máy chấm điểm) — chỉ thử luật chủ đề, không dính luật 85 %
+      ...Array.from({ length: 12 }, (_, i) => bai({ kind: "ba-con", author_phone: `agent:b${i}`, topic: "doi-song", feed_at: h(0.5) })),
+      ...Array.from({ length: 6 }, (_, i) => bai({ kind: "ba-con", author_phone: `agent:c${i}`, topic: "nghe-ca", feed_at: h(10) })),
     ];
     const out = xepDongTin(ps, khach, NOW).slice(0, 14);
     for (let i = 3; i < out.length; i++) {
@@ -207,7 +208,7 @@ describe("Tuỳ chọn dòng tin — Thích đọc + ẩn bài trợ lý AI (14 
 
 describe("xáo mỗi lần làm mới (hạt)", () => {
   // 40 bài cùng giờ, cùng mọi thứ — chỉ khác id ⇒ thứ tự do hạt quyết định
-  const ps = Array.from({ length: 40 }, (_, i) => bai({ kind: "ba-con", author_phone: `x${i}`, topic: "nghe-ca", feed_at: h(2) }));
+  const ps = Array.from({ length: 40 }, (_, i) => bai({ kind: "ba-con", author_phone: `agent:x${i}`, topic: "nghe-ca", feed_at: h(2) }));
   const thuTu = (hat?: number) => xepDongTin(ps, { ...khach, hat }, NOW).map((p) => p.id).join(",");
   it("cùng hạt ⇒ cùng thứ tự (phân trang không lặp); khác hạt ⇒ thứ tự khác", () => {
     expect(thuTu(7)).toBe(thuTu(7));
@@ -230,5 +231,31 @@ describe("xáo mỗi lần làm mới (hạt)", () => {
     expect(giaiMaPP(maHoaPP({ at: h(0.2), off: 20 }), NOW)).toEqual({ at: h(0.2), off: 20 });
     expect(docHat("42")).toBe(42);
     for (const x of ["-1", "abc", "99999999999", "1.5", null]) expect(docHat(x)).toBeUndefined();
+  });
+});
+
+describe("bài người thật luôn đứng đầu", () => {
+  it("bài bà con (đời sống, ngoài 85 % biển) vẫn lên TRƯỚC mọi bài báo/agent, mới nhất trước", () => {
+    const bao = Array.from({ length: 30 }, (_, i) => bai({ topic: "nghe-ca", feed_at: h(0.1 + i * 0.01), hay_count: 30 }));
+    const agent = bai({ kind: "ba-con", author_phone: "agent:bay-muc-ly-son", topic: "nghe-ca", feed_at: h(0.05) });
+    const cu = bai({ kind: "ba-con", author_phone: "0901000001", topic: "doi-song", feed_at: h(20) });
+    const moi = bai({ kind: "ba-con", author_phone: "0901000002", topic: "doi-song", feed_at: h(2) });
+    const out = xepDongTin([...bao, agent, cu, moi], khach, NOW);
+    expect(out.slice(0, 2).map((p) => p.id)).toEqual([moi.id, cu.id]);
+    expect(out).toHaveLength(33);
+  });
+  it("quá hạn ưu tiên, hoặc người đọc đã mở bài ⇒ về máy chấm điểm như thường", () => {
+    const qua = bai({ kind: "ba-con", author_phone: "0901000003", topic: "doi-song", feed_at: h(UU_TIEN_NGUOI_THAT_H + 1) });
+    const daMo = bai({ kind: "ba-con", author_phone: "0901000004", topic: "doi-song", feed_at: h(1) });
+    const bao1 = bai({ topic: "nghe-ca", feed_at: h(0.1), hay_count: 30 });
+    const r: Reader = { ...khach, reads: [doc(daMo, { opened: true })] };
+    const out = xepDongTin([qua, daMo, bao1], r, NOW);
+    expect(out[0].id).toBe(bao1.id);
+  });
+  it("laBaiNguoiThat: chỉ bài bà con có SĐT thật", () => {
+    expect(laBaiNguoiThat({ kind: "ba-con", author_phone: "0901" })).toBe(true);
+    expect(laBaiNguoiThat({ kind: "ba-con", author_phone: "agent:x" })).toBe(false);
+    expect(laBaiNguoiThat({ kind: "bao", author_phone: null })).toBe(false);
+    expect(laBaiNguoiThat({ kind: "chinh-thuc", author_phone: "sdvico:chinh-thuc" })).toBe(false);
   });
 });
