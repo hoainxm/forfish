@@ -26,6 +26,7 @@ import { areaTag, countLabel, portLabel, postTimeLabel } from "@/lib/kairos/feed
 import type { KairosComment, KairosPost } from "@/lib/kairos/types";
 import { NHAN, NHAN_CHIP_KAIROS } from "@/lib/labels";
 import { isPinned } from "@/lib/kairos/xep-bai";
+import { ChuXemThem } from "./chu-xem-them";
 import { KairosAvatar } from "./kairos-avatar";
 import { CommentThread, type CommentKit } from "./comment-thread";
 import { KhungAnh, NutNghe, useHoanAnh } from "./de-dung";
@@ -41,21 +42,12 @@ export interface PostActions {
 
 const topicLabel = (t: string) => (NHAN_CHIP_KAIROS as Record<string, string>)[t] ?? "";
 
-/** Thân bài dài: hơn ~6 dòng thì cắt + "Xem thêm" (14 §10 cực đoan: 2.000 ký tự). */
-const isLong = (s: string) => s.length > 280 || s.split("\n").length > 6;
-
+/** Thân bài bà con: cắt 6 dòng + "… Xem thêm" kiểu FB (đo tràn thật — chu-xem-them). */
 function Body({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
   if (!text) return null;
-  const long = isLong(text);
   return (
     <div className="px-4 pb-2">
-      <p className={`whitespace-pre-line break-words text-[1rem] leading-relaxed ${long && !open ? "line-clamp-6" : ""}`}>{text}</p>
-      {long && (
-        <button type="button" onClick={() => setOpen((v) => !v)} className="mt-1 text-[0.875rem] font-semibold text-sea">
-          {open ? NHAN.thuGon : NHAN.xemThem}
-        </button>
-      )}
+      <ChuXemThem text={text} dong={6} className="text-[1rem] leading-relaxed" />
     </div>
   );
 }
@@ -159,7 +151,9 @@ function Reshare({ post, now }: { post: KairosPost; now: number }) {
     <div className="mx-4 mb-2 overflow-hidden rounded-2xl border border-line">
       <Head post={r} now={now} nghe={false} />
       {r.title && <p className="px-4 pb-1 font-bold text-navy">{r.title}</p>}
-      <p className="line-clamp-3 px-4 pb-3 text-[1rem]">{r.kind === "bao" ? r.summary || r.body : r.body}</p>
+      <div className="px-4 pb-3">
+        <ChuXemThem text={(r.kind === "bao" ? r.summary || r.body : r.body) ?? ""} dong={3} className="text-[1rem]" />
+      </div>
     </div>
   );
 }
@@ -170,7 +164,7 @@ function TopComment({ c }: { c: KairosComment }) {
       <KairosAvatar id={c.author.profileId || c.id} name={c.author.handle} url={c.author.avatarUrl} small />
       <div className="min-w-0 rounded-2xl bg-field px-3 py-1.5">
         <p className="truncate text-[0.8125rem] font-bold text-navy">{c.author.handle}</p>
-        <p className="line-clamp-3 break-words text-[1rem]">{c.body}</p>
+        <ChuXemThem text={c.body} dong={3} nen="field" className="text-[1rem]" />
       </div>
     </li>
   );
@@ -194,7 +188,7 @@ export function PostCard({
   /** mở đọc (Đọc bài gốc / xem bình luận) — để ghi thói quen chủ đề TRONG MÁY */
   onRead?: (p: KairosPost) => void;
 }) {
-  const btn = "flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl text-[0.875rem] font-semibold transition active:scale-[0.97]";
+  const btn = "flex h-11 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-xl px-1 [&>svg]:shrink-0 text-[0.875rem] font-semibold transition active:scale-[0.97]"; // không gãy "Bình luận 3" làm hai dòng ở máy 360–375px
   const detail = `/kairos/p/${post.id}`;
   const inline = !inDetail && !!actions.binhLuan;
   const [moBL, setMoBL] = useState(false);
@@ -212,7 +206,11 @@ export function PostCard({
       {post.kind === "bao" ? (
         <>
           {post.title && <h2 className="px-4 pb-1 text-[1.125rem] font-bold leading-snug text-navy">{post.title}</h2>}
-          {(post.summary || post.body) && <p className="px-4 pb-2 text-[1rem] leading-relaxed">{post.summary || post.body}</p>}
+          {(post.summary || post.body) && (
+            <div className="px-4 pb-2">
+              <ChuXemThem text={(post.summary || post.body) ?? ""} dong={inDetail ? 8 : 4} className="text-[1rem] leading-relaxed" />
+            </div>
+          )}
           {post.coverUrl && hoanAnh && !xemBia && <KhungAnh soAnh={1} onXem={() => setXemBia(true)} className="h-16" />}
           {post.coverUrl && (!hoanAnh || xemBia) && (
             <div className="aspect-[16/9] bg-field">

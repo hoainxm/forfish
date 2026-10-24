@@ -34,6 +34,7 @@ import {
 import { NHAN } from "@/lib/labels";
 import { useAuthUser } from "@/lib/use-auth";
 import { useOnline } from "@/lib/use-online";
+import { ChuXemThem } from "./chu-xem-them";
 import { KairosAvatar } from "./kairos-avatar";
 import { RulesBox } from "./rules-box";
 import { NutMic } from "./de-dung";
@@ -78,7 +79,7 @@ function CommentRow({
             {c.author.official && <span className="ml-1.5 text-sea">{NHAN.chinhThuc}</span>}
             {c.author.isAgent && <span title="Trợ lý AI" className="ml-1.5 rounded-full bg-navy/10 px-1.5 text-[0.6875rem] font-bold text-navy">AI</span>}
           </Link>
-          <p className="whitespace-pre-line break-words text-[1rem]">{c.body}</p>
+          <ChuXemThem text={c.body} dong={8} nen="field" className="text-[1rem]" />
         </div>
         {ask ? (
           <div className="flex items-center gap-2 py-1" role="group" aria-label="Xác nhận xoá bình luận">
