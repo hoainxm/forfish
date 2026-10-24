@@ -256,7 +256,7 @@ export function ComposerSheet({
       {mode.kind === "reshare" ? (
         <div className="mb-3 rounded-2xl border border-line px-3 py-2">
           <p className="truncate text-[0.8125rem] font-semibold text-foreground/65">
-            {mode.post.kind === "bao" ? mode.post.outlet : mode.post.kind === "chinh-thuc" ? "SDVICO" : mode.post.author?.handle}
+            {mode.post.kind === "bao" ? mode.post.outlet : mode.post.author?.handle || (mode.post.kind === "chinh-thuc" ? "SDVICO" : "")}
           </p>
           <p className="line-clamp-2 text-[1rem]">{mode.post.title || mode.post.summary || mode.post.body}</p>
         </div>

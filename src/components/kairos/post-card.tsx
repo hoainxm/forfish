@@ -4,7 +4,7 @@
   THẺ BÀI KAIROS (14-ba-spec-kairos §3.2 bảng "Thẻ bài 3 loại", AC02). Chung khung `.surface`,
   khác ĐẦU THẺ:
    · `bao`        — tên báo + giờ + chủ đề · tiêu đề + tóm tắt + ảnh bìa · "Đọc bài gốc"
-   · `chinh-thuc` — "SDVICO" + dấu Chính thức + Ghim · chữ + ảnh
+   · `chinh-thuc` — tên hồ sơ (SDVICO / Sen Biển) + dấu Chính thức + Ghim · chữ + ảnh
    · `ba-con`     — ảnh đại diện chữ cái + tên gọi + dòng phụ + giờ · chữ (6 dòng, Xem thêm)
                     + lưới ảnh + thẻ bài gốc khi đăng lại
   Chân: Hay · Bình luận · Chia sẻ + 2 bình luận nhiều Hay nhất + "Xem N bình luận".
@@ -95,7 +95,9 @@ function Head({ post, now }: { post: KairosPost; now: number }) {
   }
   const a = post.author;
   const official = post.kind === "chinh-thuc" || !!a?.official;
-  const name = official ? "SDVICO" : a?.handle || "Bà con";
+  // tên theo HỒ SƠ người đăng — bài Chính thức có thể là SDVICO hoặc Sen Biển (2026-10-24: bài Sen Biển từng
+  // hiện nhầm "SDVICO" vì tên gắn cứng); thiếu hồ sơ mới lùi về "SDVICO"/"Bà con"
+  const name = a?.handle || (official ? "SDVICO" : "Bà con");
   const sub = [a?.subline, a?.boatReg].filter(Boolean).join(" · ");
   const pinned = isPinned(post, now);
   const head = (
@@ -119,7 +121,7 @@ function Head({ post, now }: { post: KairosPost; now: number }) {
   );
   return (
     <div className="flex items-center gap-3 px-4 pt-3 pb-2">
-      {a?.profileId && !official ? (
+      {a?.profileId ? (
         <Link href={`/kairos/u/${a.profileId}`} className="flex min-w-0 flex-1 items-center gap-3">
           {head}
         </Link>
