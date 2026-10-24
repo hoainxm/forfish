@@ -37,13 +37,18 @@ begin
   if p_phone is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) > 100 then
     raise exception 'bad_input' using errcode = 'P0001';
   end if;
+  -- gộp theo bài TRƯỚC (một lô có hai dòng cùng bài ⇒ ON CONFLICT đụng một hàng hai lần là lỗi)
   insert into public.kairos_reads as r (phone, post_id, views, opened, dwell_ms)
-  select p_phone, (x->>'post_id')::uuid,
-         greatest(0, least(coalesce((x->>'views')::int, 1), 1000)),
-         coalesce((x->>'opened')::boolean, false),
-         greatest(0, least(coalesce((x->>'dwell_ms')::int, 0), 3600000))
-  from jsonb_array_elements(p_items) x
-  where exists (select 1 from public.kairos_posts p where p.id = (x->>'post_id')::uuid)
+  select p_phone, g.post_id, least(g.views, 1000), g.opened, least(g.dwell_ms, 3600000)
+  from (
+    select (x->>'post_id')::uuid as post_id,
+           sum(greatest(0, least(coalesce((x->>'views')::int, 1), 1000)))::int as views,
+           bool_or(coalesce((x->>'opened')::boolean, false)) as opened,
+           sum(greatest(0, least(coalesce((x->>'dwell_ms')::int, 0), 3600000)))::int as dwell_ms
+    from jsonb_array_elements(p_items) x
+    group by 1
+  ) g
+  where exists (select 1 from public.kairos_posts p where p.id = g.post_id)
   on conflict (phone, post_id) do update set
     last_at  = now(),
     views    = least(r.views + excluded.views, 100000),

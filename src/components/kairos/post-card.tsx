@@ -10,8 +10,10 @@
   Chân: Hay · Bình luận · Chia sẻ + 2 bình luận nhiều Hay nhất + "Xem N bình luận".
 
   HÀNH VI Hay / Chia sẻ / ba chấm do màn gọi truyền vào (`actions`) — thiếu thì nút vẫn hiện
-  số đếm nhưng không bấm được (agent sau nối hành vi, khung không đổi). Bình luận là liên kết
-  sang /kairos/p/[id] nên luôn bấm được.
+  số đếm nhưng không bấm được (agent sau nối hành vi, khung không đổi).
+  BÌNH LUẬN INLINE như Facebook (anh Long 2026-10-24: "inline chứ đừng nhảy ra tab khác"): màn có
+  `actions.binhLuan` ⇒ bấm Bình luận / "Xem N bình luận" mở khối comment-thread NGAY DƯỚI THẺ (tải đủ
+  bình luận, trả lời, Hay, xoá, ô viết có sẵn con trỏ); không có ⇒ liên kết sang /kairos/p/[id] như cũ.
 
   BẢN LƯU MẤT SÓNG chỉ có chữ (cache.ts): `images` rỗng + `imageCount` ⇒ dòng "Có N ảnh —
   cần sóng", ảnh đại diện về chữ cái, ảnh bìa bỏ.
@@ -25,8 +27,11 @@ import type { KairosComment, KairosPost } from "@/lib/kairos/types";
 import { NHAN, NHAN_CHIP_KAIROS } from "@/lib/labels";
 import { isPinned } from "@/lib/kairos/xep-bai";
 import { KairosAvatar } from "./kairos-avatar";
+import { CommentThread, type CommentKit } from "./comment-thread";
 
 export interface PostActions {
+  /** có ⇒ bình luận mở INLINE dưới thẻ (comment-thread) thay vì sang trang bài */
+  binhLuan?: CommentKit;
   onHay?: (p: KairosPost) => void;
   onShare?: (p: KairosPost) => void;
   /** ba chấm: Sửa/Xoá (bài mình) hoặc Báo xấu/Chặn */
@@ -173,6 +178,12 @@ export function PostCard({
 }) {
   const btn = "flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl text-[0.875rem] font-semibold transition active:scale-[0.97]";
   const detail = `/kairos/p/${post.id}`;
+  const inline = !inDetail && !!actions.binhLuan;
+  const [moBL, setMoBL] = useState(false);
+  const moBinhLuan = () => {
+    onRead?.(post);
+    setMoBL(true);
+  };
   const area = areaTag(post);
   return (
     <article className="surface overflow-hidden" aria-label={post.kind === "bao" ? post.title ?? "Bài báo" : "Bài đăng"}>
@@ -233,10 +244,18 @@ export function PostCard({
           {NHAN.hay}
           {post.hayCount > 0 && <span className="tabular-nums">{countLabel(post.hayCount)}</span>}
         </button>
-        <Link href={detail} onClick={() => onRead?.(post)} className={`${btn} text-foreground/75`}>
-          <CommentIcon className="h-5 w-5" />
-          {NHAN.binhLuan}
-        </Link>
+        {inline ? (
+          <button type="button" aria-expanded={moBL} onClick={() => (moBL ? setMoBL(false) : moBinhLuan())} className={`${btn} ${moBL ? "text-sea" : "text-foreground/75"}`}>
+            <CommentIcon className="h-5 w-5" />
+            {NHAN.binhLuan}
+            {post.commentCount > 0 && <span className="tabular-nums">{countLabel(post.commentCount)}</span>}
+          </button>
+        ) : (
+          <Link href={detail} onClick={() => onRead?.(post)} className={`${btn} text-foreground/75`}>
+            <CommentIcon className="h-5 w-5" />
+            {NHAN.binhLuan}
+          </Link>
+        )}
         <button
           type="button"
           disabled={!actions.onShare}
@@ -258,7 +277,13 @@ export function PostCard({
         )}
       </div>
 
-      {!inDetail && (post.topComments.length > 0 || post.commentCount > 0) && (
+      {inline && moBL && actions.binhLuan && (
+        <div className="border-t border-line px-4 py-3">
+          <CommentThread post={post} initial={post.topComments} kit={actions.binhLuan} now={now} autoFocus />
+        </div>
+      )}
+
+      {!inDetail && !moBL && (post.topComments.length > 0 || post.commentCount > 0) && (
         <div className="px-4 pb-3">
           {post.topComments.length > 0 && (
             <ul className="mb-1.5 space-y-2">
@@ -267,11 +292,16 @@ export function PostCard({
               ))}
             </ul>
           )}
-          {post.commentCount > post.topComments.length && (
-            <Link href={detail} onClick={() => onRead?.(post)} className="text-[0.875rem] font-semibold text-foreground/65">
-              Xem {countLabel(post.commentCount)} bình luận
-            </Link>
-          )}
+          {post.commentCount > post.topComments.length &&
+            (inline ? (
+              <button type="button" onClick={moBinhLuan} className="text-[0.875rem] font-semibold text-foreground/65">
+                Xem {countLabel(post.commentCount)} bình luận
+              </button>
+            ) : (
+              <Link href={detail} onClick={() => onRead?.(post)} className="text-[0.875rem] font-semibold text-foreground/65">
+                Xem {countLabel(post.commentCount)} bình luận
+              </Link>
+            ))}
         </div>
       )}
     </article>

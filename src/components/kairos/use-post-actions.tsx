@@ -77,6 +77,12 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
   );
 
   const actions: PostActions = {
+    // bình luận INLINE dưới thẻ (comment-thread) — cùng hộp báo, hộp báo xấu, sửa số đếm với màn này
+    binhLuan: {
+      notify: (text, bad = false) => setNotice({ text, bad }),
+      report: (t) => (needLogin("báo xấu") ? undefined : setReport(t)),
+      patch,
+    },
     onHay: (p) => void onHay(p),
     onShare: (p) => setShare(p),
     onMore: (p) => setMore(p),

@@ -6,6 +6,7 @@
 <!-- re-verified: 2026-10-24 — BỎ HÀNG CHIP LỌC (AC03) theo anh Long; `kairos-feed.tsx` cố định chip "moi", gỡ ChipRow + thẻ "Vào Bến" + hỏi cảng nhà ở dòng tin (HomePortSheet vẫn dùng ở khung soạn). Migration 0065 ĐÃ ÁP lên znzgugvfhgmiszqgjulk 2026-10-24 (anh Long dán SQL Editor; kiểm: 13 bảng 200 service-role, anon 401, bucket kairos-media, kairos_enabled=true, hồ sơ SDVICO). -->
 <!-- re-verified: 2026-10-24b — CHẶN TIN CÙNG SỰ KIỆN khác báo (anh Long: "đang bị trùng tin" — Thanh Niên + VnExpress cùng vụ đâm người trên tàu cá An Giang): `lib/kairos/cung-su-kien.mjs` (thuần, test `kairos-cung-su-kien.test.ts`) so tên riêng ≥2 tiếng + cặp từ của tiêu đề+mô tả; máy thu bỏ bài cùng vụ với bài đã gửi 48 giờ (sổ `gan-day.json`) hoặc bài báo khác cùng lượt, giữ bài thấy trước. Đo trên 240 bài thật: 19 bài trùng. -->
 <!-- re-verified: 2026-10-24c — CỖ MÁY PHÂN PHỐI Ở MÁY CHỦ (§13, anh Long "nâng lên") + TỈ LỆ BIỂN 85 % + NỘI QUY ĐỒNG Ý MỘT LẦN (0066 default rules_accepted_at). AC04 "thói quen không gửi lên" ĐỔI: tín hiệu xem/mở/dừng đọc gửi lên kairos_reads (giữ 90 ngày, chỉ xếp cho chính người đó, khách không lưu). -->
+<!-- re-verified: 2026-10-24d — AC10 bình luận: mở INLINE dưới thẻ trên dòng tin (như FB) thay vì sang /kairos/p/[id]; trang bài vẫn có, dùng chung comment-thread.tsx. Migration 0066 ĐÃ ÁP 2026-10-24 (connector Supabase, advisor sạch). -->
 Chốt 2026-10-23. Kairos (καιρός) = đúng thời điểm.
 
 ## 1. Mục tiêu

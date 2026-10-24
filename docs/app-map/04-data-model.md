@@ -901,7 +901,7 @@ Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng 
 - Tương thích: cột có default + hàm mới ⇒ code cũ chạy nguyên trên DB đã apply. Thứ tự: **apply 0064 → deploy** (code mới gọi hàm 0064).
 - file-store (dev) không đổi: một tiến trình, ghi cả tệp một lần nên vốn nguyên tử.
 
-### KAIROS — phân phối dòng tin + nội quy một lần — migration [`0066_kairos_phan_phoi.sql`](../../supabase/migrations/0066_kairos_phan_phoi.sql) (2026-10-24) — ⛔ **CHƯA APPLY** (anh Long dán SQL Editor như 0065)
+### KAIROS — phân phối dòng tin + nội quy một lần — migration [`0066_kairos_phan_phoi.sql`](../../supabase/migrations/0066_kairos_phan_phoi.sql) (2026-10-24) — ✅ **ĐÃ APPLY** 2026-10-24 qua connector Supabase (advisor: không cảnh báo mới; anon đọc bảng 401, gọi hàm 42501). Hàm gộp theo bài trước khi upsert (một lô hai dòng cùng bài không lỗi ON CONFLICT)
 
 - `kairos_reads` (PK `phone, post_id`; FK bài cascade): `first_at`, `last_at`, `views`, `opened`, `dwell_ms` — tín hiệu đọc cho cỗ máy phân phối (14 §13). Chỉ mục `(phone, last_at desc)`. RLS bật, KHÔNG policy, revoke anon/authenticated.
 - `kairos_record_reads(p_phone, p_items jsonb)` security definer, search_path rỗng: upsert cộng dồn (views/dwell cộng, opened chỉ bật), bỏ bài không tồn tại, xoá dòng > 90 ngày của chính người đó. Revoke khỏi public/anon/authenticated (chỉ service-role gọi).
