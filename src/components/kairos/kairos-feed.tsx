@@ -43,6 +43,8 @@ import {
 import { emptyHabit, recordRead, setHome, type ChipId, type Habit } from "@/lib/kairos/thoi-quen";
 import type { KairosPost } from "@/lib/kairos/types";
 import { rankPage } from "@/lib/kairos/xep-bai";
+import { ghiNhan, guiTinHieu } from "@/lib/kairos/gui-tin-hieu";
+import { DUNG_TOI_DA_MS, XEM_TOI_THIEU_MS } from "@/lib/kairos/tin-hieu-doc";
 import { NHAN } from "@/lib/labels";
 import { useAuthUser } from "@/lib/use-auth";
 import { PostCard, type PostActions } from "./post-card";
@@ -57,6 +59,17 @@ function homeFromBoats(): Habit["home"] {
   const b = boats.find((x) => x.id === cur) ?? boats[0];
   return homeFromPort(b?.homePortId);
 }
+
+/*  Dòng tin mặc định (không Bến) do MÁY CHỦ xếp theo người đọc (lib/kairos/phan-phoi.ts) ⇒ gửi kèm MÃ cảng/tỉnh
+    nhà (không gửi hồ sơ đọc) và KHÔNG xếp lại đè lên. Bến: máy chủ trả theo giờ ⇒ app xếp trong trang như cũ. */
+function voiNha(params: URLSearchParams, h: Habit, port: string | undefined): URLSearchParams {
+  if (port) return params;
+  const q = new URLSearchParams(params);
+  if (h.home.port) q.set("nha", h.home.port);
+  if (h.home.province) q.set("tinh", h.home.province);
+  return q;
+}
+const xepApp = (list: KairosPost[], h: Habit, t: number, port: string | undefined) => (port ? rankPage(list, h, t) : list);
 
 const dedupe = (a: KairosPost[], b: KairosPost[]) => {
   const seen = new Set(a.map((p) => p.id));
@@ -143,13 +156,13 @@ export function KairosFeed({
         setErrStatus(401);
         return;
       }
-      const res = await fetchFeedPage(q.params, null);
+      const res = await fetchFeedPage(voiNha(q.params, h, port), null);
       if (gen !== st.current.gen) return; // bà con đã đổi chip — bỏ phản hồi cũ
       const t = Date.now();
       setNow(t);
       if (res.kind === "ok") {
         const page: FeedPage = res.value;
-        setPosts(rankPage(page.posts, h, t));
+        setPosts(xepApp(page.posts, h, t, port));
         setPinned(page.pinned);
         setNext(page.next);
         setSavedAt(null);
@@ -238,7 +251,7 @@ export function KairosFeed({
     const gen = s.gen;
     setMore("loading");
     st.current.more = "loading";
-    const res = await fetchFeedPage(q.params, s.next);
+    const res = await fetchFeedPage(voiNha(q.params, s.habit, port), s.next);
     if (gen !== st.current.gen) return;
     if (res.kind !== "ok") {
       setMore("error");
@@ -246,7 +259,7 @@ export function KairosFeed({
     }
     const t = Date.now();
     // trang sau có thể lọt bài đang ghim (máy chủ chỉ bỏ ghim khỏi TRANG ĐẦU) ⇒ so cả dải ghim
-    setPosts((cur) => dedupe(cur, rankPage(res.value.posts.filter((p) => !st.current.pinnedIds.has(p.id)), st.current.habit, t)));
+    setPosts((cur) => dedupe(cur, xepApp(res.value.posts.filter((p) => !st.current.pinnedIds.has(p.id)), st.current.habit, t, port)));
     setNext(res.value.next);
     setMore("idle");
     const w = saveFeedCache(st.current.phone, res.value.posts, t);
@@ -268,9 +281,71 @@ export function KairosFeed({
   }, [loadMore, next]);
 
   const onRead = useCallback(
-    (p: KairosPost) => updateHabit(recordRead(st.current.habit, p.topic)),
+    (p: KairosPost) => {
+      updateHabit(recordRead(st.current.habit, p.topic));
+      ghiNhan(st.current.phone, [{ post_id: p.id, views: 0, opened: true, dwell_ms: 0 }]);
+    },
     [updateHabit],
   );
+
+  /*  TÍN HIỆU ĐỌC cho cỗ máy phân phối (gui-tin-hieu.ts): thẻ nằm ≥ 50 % trên màn ≥ 1 s = một lần XEM, cộng thời
+      gian dừng (trần 2 phút/lần). Gửi lô mỗi 20 s và khi app vào nền; mất sóng thì hàng đợi trong máy giữ lại.
+      Khách chưa đăng nhập: không ghi gì. Không đổi gì trên màn. */
+  const khungRef = useRef<HTMLDivElement>(null);
+  const dangThay = useRef(new Map<string, number>());
+  const ioRef = useRef<IntersectionObserver | null>(null);
+  // MỘT bộ quan sát cho cả đời màn (tạo lại mỗi lần vẽ là đếm "xem" sai)
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const thay = dangThay.current;
+    const ket = (id: string, t: number) => {
+      const t0 = thay.get(id);
+      thay.delete(id);
+      if (t0 == null) return;
+      const ms = Math.min(t - t0, DUNG_TOI_DA_MS);
+      if (ms >= XEM_TOI_THIEU_MS) ghiNhan(st.current.phone, [{ post_id: id, views: 1, opened: false, dwell_ms: ms }]);
+    };
+    const io = new IntersectionObserver(
+      (es) => {
+        const t = Date.now();
+        for (const e of es) {
+          const id = (e.target as HTMLElement).dataset.kairosId;
+          if (!id) continue;
+          if (e.isIntersecting) {
+            if (!thay.has(id)) thay.set(id, t);
+          } else ket(id, t);
+        }
+      },
+      { threshold: 0.5 },
+    );
+    ioRef.current = io;
+    return () => {
+      io.disconnect();
+      ioRef.current = null;
+      const t = Date.now();
+      for (const id of [...thay.keys()]) ket(id, t);
+    };
+  }, []);
+  useEffect(() => {
+    const gui = () => void guiTinHieu(st.current.phone);
+    const nen = () => {
+      if (document.visibilityState !== "hidden") return;
+      const t = Date.now();
+      for (const [id, t0] of [...dangThay.current]) {
+        dangThay.current.set(id, t);
+        const ms = Math.min(t - t0, DUNG_TOI_DA_MS);
+        if (ms >= XEM_TOI_THIEU_MS) ghiNhan(st.current.phone, [{ post_id: id, views: 1, opened: false, dwell_ms: ms }]);
+      }
+      gui();
+    };
+    const iv = setInterval(gui, 20_000);
+    document.addEventListener("visibilitychange", nen);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener("visibilitychange", nen);
+      gui();
+    };
+  }, []);
 
   const showNew = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -287,6 +362,11 @@ export function KairosFeed({
     return [...fresh, ...list];
   }, [view, posts, added, shownPinned]);
   const empty = shownPosts.length === 0 && shownPinned.length === 0;
+  useEffect(() => {
+    const io = ioRef.current;
+    if (!io) return;
+    khungRef.current?.querySelectorAll<HTMLElement>("[data-kairos-id]").forEach((el) => io.observe(el));
+  }, [shownPosts, shownPinned]);
   const retry = () => void loadFirst(chip, habit, true);
 
   return (
@@ -313,7 +393,7 @@ export function KairosFeed({
         </div>
       )}
 
-      <div className="space-y-3 px-4">
+      <div ref={khungRef} className="space-y-3 px-4">
         {load === "error" && !empty && (
           <div className="surface flex items-center gap-3 p-3">
             <p className="flex-1 text-[1rem]">Chưa tải được bài mới.</p>
@@ -350,10 +430,14 @@ export function KairosFeed({
         )}
 
         {shownPinned.map((p) => (
-          <PostCard key={`pin-${p.id}`} post={p} now={now} actions={actions} onRead={onRead} benPort={port} />
+          <div key={`pin-${p.id}`} data-kairos-id={p.id}>
+            <PostCard post={p} now={now} actions={actions} onRead={onRead} benPort={port} />
+          </div>
         ))}
         {shownPosts.map((p) => (
-          <PostCard key={p.id} post={p} now={now} actions={actions} onRead={onRead} benPort={port} />
+          <div key={p.id} data-kairos-id={p.id}>
+            <PostCard post={p} now={now} actions={actions} onRead={onRead} benPort={port} />
+          </div>
         ))}
 
         {more === "loading" && <PostSkeleton count={1} />}

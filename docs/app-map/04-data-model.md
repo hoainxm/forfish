@@ -6,6 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24 — thêm migration 0066_kairos_phan_phoi (kairos_reads + kairos_record_reads + default rules_accepted_at) — 14 §13 -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 <!-- re-verified: 2026-10-19 — MIGRATION MỚI 0064_atomic_writes.sql (§ GHI NGUYÊN TỬ): user_docs.rev + 3 hàm market_transition_order/market_patch_request/market_accept_request. ĐÃ APPLY prod 2026-10-19, kiểm thật trên Postgres (rollback). -->
 <!-- re-verified: 2026-10-18 — MIGRATION MỚI 0063_market_requests_eta.sql (§7g): market_orders + eta_from/eta_to/request_id (nullable) · bảng market_requests (RLS bật, 0 policy, revoke anon/authenticated). ĐÃ APPLY prod 2026-10-18 (chủ dự án duyệt) — xem §7g. -->
@@ -899,6 +900,13 @@ Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng 
 - **Đối soát bản ghi dở dang trước đó** (đo 2026-10-19): 0 đơn `da_huy` chưa hoàn kho, 0 yêu cầu `da_dat` thiếu `order_id` ⇒ không cần dọn. Truy vấn đối soát giữ ở ops/runbook.md.
 - Tương thích: cột có default + hàm mới ⇒ code cũ chạy nguyên trên DB đã apply. Thứ tự: **apply 0064 → deploy** (code mới gọi hàm 0064).
 - file-store (dev) không đổi: một tiến trình, ghi cả tệp một lần nên vốn nguyên tử.
+
+### KAIROS — phân phối dòng tin + nội quy một lần — migration [`0066_kairos_phan_phoi.sql`](../../supabase/migrations/0066_kairos_phan_phoi.sql) (2026-10-24) — ⛔ **CHƯA APPLY** (anh Long dán SQL Editor như 0065)
+
+- `kairos_reads` (PK `phone, post_id`; FK bài cascade): `first_at`, `last_at`, `views`, `opened`, `dwell_ms` — tín hiệu đọc cho cỗ máy phân phối (14 §13). Chỉ mục `(phone, last_at desc)`. RLS bật, KHÔNG policy, revoke anon/authenticated.
+- `kairos_record_reads(p_phone, p_items jsonb)` security definer, search_path rỗng: upsert cộng dồn (views/dwell cộng, opened chỉ bật), bỏ bài không tồn tại, xoá dòng > 90 ngày của chính người đó. Revoke khỏi public/anon/authenticated (chỉ service-role gọi).
+- `kairos_profiles.rules_accepted_at` **default now()** + đánh dấu hồ sơ cũ = `created_at` — nội quy coi như đồng ý lúc đăng ký app (anh Long: "cho đồng ý 1 lần thôi"); hộp Nội quy không hiện nữa.
+- Deploy trước khi apply vẫn chạy: đọc tín hiệu hỏng ⇒ xếp không cá nhân hoá; ghi hỏng ⇒ 503, app giữ hàng đợi.
 
 ### KAIROS — đọc báo + mạng xã hội của bà con — migration [`0065_kairos.sql`](../../supabase/migrations/0065_kairos.sql) (2026-10-23) — ⛔ **CHƯA APPLY** (chờ anh Long duyệt)
 

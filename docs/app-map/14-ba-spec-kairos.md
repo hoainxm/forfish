@@ -4,6 +4,7 @@
 
 <!-- re-verified: 2026-10-24 — BỎ HÀNG CHIP LỌC (AC03) theo anh Long; `kairos-feed.tsx` cố định chip "moi", gỡ ChipRow + thẻ "Vào Bến" + hỏi cảng nhà ở dòng tin (HomePortSheet vẫn dùng ở khung soạn). Migration 0065 ĐÃ ÁP lên znzgugvfhgmiszqgjulk 2026-10-24 (anh Long dán SQL Editor; kiểm: 13 bảng 200 service-role, anon 401, bucket kairos-media, kairos_enabled=true, hồ sơ SDVICO). -->
 <!-- re-verified: 2026-10-24b — CHẶN TIN CÙNG SỰ KIỆN khác báo (anh Long: "đang bị trùng tin" — Thanh Niên + VnExpress cùng vụ đâm người trên tàu cá An Giang): `lib/kairos/cung-su-kien.mjs` (thuần, test `kairos-cung-su-kien.test.ts`) so tên riêng ≥2 tiếng + cặp từ của tiêu đề+mô tả; máy thu bỏ bài cùng vụ với bài đã gửi 48 giờ (sổ `gan-day.json`) hoặc bài báo khác cùng lượt, giữ bài thấy trước. Đo trên 240 bài thật: 19 bài trùng. -->
+<!-- re-verified: 2026-10-24c — CỖ MÁY PHÂN PHỐI Ở MÁY CHỦ (§13, anh Long "nâng lên") + TỈ LỆ BIỂN 85 % + NỘI QUY ĐỒNG Ý MỘT LẦN (0066 default rules_accepted_at). AC04 "thói quen không gửi lên" ĐỔI: tín hiệu xem/mở/dừng đọc gửi lên kairos_reads (giữ 90 ngày, chỉ xếp cho chính người đó, khách không lưu). -->
 Chốt 2026-10-23. Kairos (καιρός) = đúng thời điểm.
 
 ## 1. Mục tiêu
@@ -154,6 +155,18 @@ Ghi: `identityFromRequest(req)` (401 chưa đăng nhập, 503 không tra đượ
 5. Hết hạn mức / lỗi / JSON hỏng / tóm tắt trúng cờ ⇒ **mô tả RSS gốc** (`summary_by='rss'`, cắt 300 ký tự).
 6. `POST /api/kairos/nhap` (khoá ở env máy GPU); lỗi mạng ⇒ hàng đợi file cục bộ, lượt sau gửi.
 Phần thuần: `src/lib/kairos/thu-core.mjs` + test.
+
+## 13. Cỗ máy phân phối ở máy chủ (2026-10-24)
+
+Anh Long: "đã có cỗ máy phân phối tin theo người đọc chưa" → "nâng lên"; "tỷ lệ tin liên quan biển và nghề thuỷ sản phải chiếm 85%"; agent "tần suất xuất hiện đan xen để tránh bị nhàm, nghiên cứu áp mô hình mạng xã hội".
+
+- **Ai dùng**: dòng tin MẶC ĐỊNH (không Bến/người/theo dõi). Bến, trang người dùng, theo dõi vẫn theo giờ.
+- **Cách** (`lib/kairos/phan-phoi.ts`, thuần + test): route lấy ≤ 400 bài mới nhất trước mốc chụp ⇒ điểm = độ mới (nửa đời 18 giờ) + gu chủ đề + gu tác giả (học từ tín hiệu: mỗi lần XEM là một phép thử, MỞ hoặc dừng ≥ 20 s là "thích", so với tỉ lệ chung của người đó; nửa đời 14 ngày, cửa sổ 30 ngày) + gần nhà (cảng > tỉnh > vùng, app gửi MÃ `nha`/`tinh`) + tương tác (Hay + 2×bình luận, mờ theo tuổi) + đang theo dõi; đã mở ⇒ xuống đáy, đã lướt qua ⇒ nửa điểm.
+- **Đan xen** (như diversity re-rank của FB/IG): một người/agent ≤ 2 bài/trang 20, một báo ≤ 6; không cùng tác giả đứng liền; không quá 3 bài cùng chủ đề liền; cứ 7 bài chừa một chỗ khám phá (chủ đề bà con chưa đọc nhiều). Không bài nào qua đủ luật ⇒ nới dần từ luật mềm; trần tác giả nới sau cùng.
+- **Tỉ lệ biển 85 %**: trang 20 bài tối đa 3 bài không phải chuyện biển (`laTinBien`: bài bà con/agent/SDVICO, bài báo Nghề cá, tin Hoàng Sa–Trường Sa). Hết tin biển trong ứng viên ⇒ nới (dòng tin không tắt ngang). ⚠️ Nguồn RSS hiện chỉ ~5 % tin biển (Nông nghiệp & Môi trường đứng RSS từ 05/10) — cần thêm nguồn.
+- **Phân trang**: con trỏ `pp.<base64>` = {mốc chụp, vị trí}; xếp xác định ⇒ không lặp. Hết danh sách ⇒ `next` chuyển sang con trỏ theo giờ từ bài cũ nhất của ứng viên.
+- **Tín hiệu**: app đo thẻ nằm ≥ 50 % trên màn ≥ 1 s (một lần xem + thời gian dừng, trần 2 phút/lần), chạm mở bài = opened; hàng đợi `forfish.kairos.doc.v1` (ngăn SĐT, ≤ 300 bài) gửi lô ≤ 100 mỗi 20 s + khi vào nền ⇒ `POST /api/kairos/doc` ⇒ `kairos_record_reads` (gộp nguyên tử, 0066). Khách: không ghi. Bảng chưa có ⇒ dòng tin vẫn chạy, không cá nhân hoá.
+- **Riêng tư**: /quyen-rieng-tu khai "Bài đã xem trên Kairos — giữ 90 ngày, chỉ để xếp dòng tin cho chính bà con".
 
 ## 10. Ma trận trạng thái
 

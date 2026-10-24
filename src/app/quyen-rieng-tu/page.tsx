@@ -129,6 +129,11 @@ export default function QuyenRiengTuPage() {
               về chỗ mình đứng và hỏi gió sóng theo toạ độ. <b>Không lưu lại,
               không gắn với tài khoản.</b>
             </li>
+            <li>
+              <b>Bài đã xem trên Kairos</b> — khi bà con đã đăng nhập: bài nào hiện trên màn, bài nào bà con
+              mở đọc và đọc bao lâu. Chỉ dùng để <b>xếp dòng tin Kairos cho chính bà con</b> (đưa tin hợp với
+              mình lên trước), giữ <b>90 ngày</b> rồi tự xoá, không chia cho ai khác. Khách chưa đăng nhập: không lưu.
+            </li>
           </ul>
           <p>
             App <b>cam kết không</b> đọc kho ảnh, danh bạ, tin nhắn hay lịch sử duyệt web
@@ -144,6 +149,7 @@ export default function QuyenRiengTuPage() {
             <li>Hỗ trợ tự động hiển thị bản đồ biển, dự báo thời tiết tại đúng khu vực tàu đang hoạt động.</li>
             <li>Tính năng nhắc nhở khi đến hạn giấy tờ, bảo hiểm, bảo dưỡng định kỳ.</li>
             <li>Hỗ trợ kết nối bà con với đội ngũ chăm sóc khách hàng của SDVICO khi có yêu cầu.</li>
+            <li>Xếp dòng tin Kairos theo bài bà con hay đọc và theo cảng nhà.</li>
           </ul>
           <p>
             <b>Không sử dụng</b> dùng dữ liệu cho quảng cáo, không xây hồ sơ theo dõi hành
