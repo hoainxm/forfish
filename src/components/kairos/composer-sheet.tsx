@@ -52,6 +52,7 @@ import { useAuthUser } from "@/lib/use-auth";
 import { useOnline } from "@/lib/use-online";
 import { HomePortSheet } from "./home-port-sheet";
 import { RulesBox } from "./rules-box";
+import { NutMic } from "./de-dung";
 
 export type ComposeMode =
   | { kind: "new"; port?: string }
@@ -236,9 +237,13 @@ export function ComposerSheet({
         </div>
       )}
 
-      <label className="mb-1 block text-[0.875rem] font-semibold text-navy" htmlFor="kairos-soan">
-        {mode.kind === "reshare" ? "Lời của bạn" : "Nội dung"}
-      </label>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <label className="block text-[0.875rem] font-semibold text-navy" htmlFor="kairos-soan">
+          {mode.kind === "reshare" ? "Lời của bạn" : "Nội dung"}
+        </label>
+        {/* nói để viết (14 §15) — chữ nghe được nối vào ô, bà con sửa rồi mới Đăng */}
+        <NutMic onChu={(t) => onText(text.trim() ? `${text.trimEnd()} ${t}` : t)} onLoi={setErr} />
+      </div>
       <textarea
         id="kairos-soan"
         value={text}

@@ -28,6 +28,7 @@ import { NHAN, NHAN_CHIP_KAIROS } from "@/lib/labels";
 import { isPinned } from "@/lib/kairos/xep-bai";
 import { KairosAvatar } from "./kairos-avatar";
 import { CommentThread, type CommentKit } from "./comment-thread";
+import { KhungAnh, NutNghe, useHoanAnh } from "./de-dung";
 
 export interface PostActions {
   /** có ⇒ bình luận mở INLINE dưới thẻ (comment-thread) thay vì sang trang bài */
@@ -61,9 +62,12 @@ function Body({ text }: { text: string }) {
 
 /** Lưới ảnh 1 / 2 / 3+ (≤5; quá 3 hiện "+N" trên ô cuối). */
 function Images({ urls, count }: { urls: string[]; count: number }) {
+  const hoan = useHoanAnh();
+  const [xem, setXem] = useState(false);
   if (!urls.length) {
     return count > 0 ? <p className="px-4 pb-2 text-[0.875rem] text-foreground/65">Có {count} ảnh — cần sóng để xem</p> : null;
   }
+  if (hoan && !xem) return <KhungAnh soAnh={urls.length} onXem={() => setXem(true)} className="mb-2 h-24" />;
   const shown = urls.slice(0, 3);
   const extra = urls.length - shown.length;
   return (
@@ -81,15 +85,23 @@ function Images({ urls, count }: { urls: string[]; count: number }) {
   );
 }
 
-function Head({ post, now }: { post: KairosPost; now: number }) {
+/** `nghe=false` trong thẻ bài gốc đăng lại (Reshare cũng dùng Head) — một thẻ một nút Nghe. */
+function Head({ post, now, nghe = true }: { post: KairosPost; now: number; nghe?: boolean }) {
   const time = postTimeLabel(post.publishedAt, now);
   const topic = topicLabel(post.topic);
   if (post.kind === "bao") {
     return (
-      <div className="flex items-baseline gap-2 px-4 pt-3 pb-1 text-[0.875rem]">
+      <div className="flex items-center gap-2 pl-4 pr-1 pt-1.5 text-[0.875rem]">
         <span className="min-w-0 truncate font-bold text-navy">{post.outlet || "Báo"}</span>
         <span className="shrink-0 text-foreground/65">{time}</span>
         {topic && <span className="ml-auto shrink-0 font-semibold text-sea">{topic}</span>}
+        {nghe ? (
+          <span className={topic ? "" : "ml-auto"}>
+            <NutNghe post={post} />
+          </span>
+        ) : (
+          <span className="h-9" />
+        )}
       </div>
     );
   }
@@ -130,6 +142,7 @@ function Head({ post, now }: { post: KairosPost; now: number }) {
       ) : (
         head
       )}
+      {nghe && <NutNghe post={post} />}
     </div>
   );
 }
@@ -143,7 +156,7 @@ function Reshare({ post, now }: { post: KairosPost; now: number }) {
   if (!r) return null;
   return (
     <div className="mx-4 mb-2 overflow-hidden rounded-2xl border border-line">
-      <Head post={r} now={now} />
+      <Head post={r} now={now} nghe={false} />
       {r.title && <p className="px-4 pb-1 font-bold text-navy">{r.title}</p>}
       <p className="line-clamp-3 px-4 pb-3 text-[1rem]">{r.kind === "bao" ? r.summary || r.body : r.body}</p>
     </div>
@@ -189,6 +202,8 @@ export function PostCard({
     setMoBL(true);
   };
   const area = areaTag(post);
+  const hoanAnh = useHoanAnh();
+  const [xemBia, setXemBia] = useState(false);
   return (
     <article className="surface overflow-hidden" aria-label={post.kind === "bao" ? post.title ?? "Bài báo" : "Bài đăng"}>
       <Head post={post} now={now} />
@@ -197,7 +212,8 @@ export function PostCard({
         <>
           {post.title && <h2 className="px-4 pb-1 text-[1.125rem] font-bold leading-snug text-navy">{post.title}</h2>}
           {(post.summary || post.body) && <p className="px-4 pb-2 text-[1rem] leading-relaxed">{post.summary || post.body}</p>}
-          {post.coverUrl && (
+          {post.coverUrl && hoanAnh && !xemBia && <KhungAnh soAnh={1} onXem={() => setXemBia(true)} className="h-16" />}
+          {post.coverUrl && (!hoanAnh || xemBia) && (
             <div className="aspect-[16/9] bg-field">
               {/* eslint-disable-next-line @next/next/no-img-element -- ảnh bìa là link RSS của báo (A12), không qua next/image */}
               <img src={post.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />

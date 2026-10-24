@@ -197,6 +197,25 @@ Anh Long: "tổ chức cho con gpu thêm 1 task là cho sen biển giới thiệ
 - **Nội dung** (`lib/kairos/sen-bien-gioi-thieu.mjs`, thuần + test): 13 chủ đề — Vì sao tên là Kairos (ý nghĩa kết nối, 2026-10-24), Kairos là gì, đọc báo tóm tắt, bình luận/Hay, Bến theo cảng, hỏi Sen Biển, mất sóng vẫn đọc, bản đồ ngư trường, tin bão, tủ giấy tờ, Chợ cá, theo dõi/chặn/báo xấu, nội quy. Mỗi chủ đề có DỮ KIỆN (chỉ tính năng ĐANG CÓ — không hứa Nhắn tin, livestream…) + bài MẪU. Claude (`claude -p`) chỉ viết lại từ dữ kiện; hỏng/hết hạn mức/bài không qua `loiBai` (80–900 ký tự, không link/emoji/hashtag, cờ chủ quyền) ⇒ đăng bài mẫu. Không lặp chủ đề trong 10 ngày (sổ `sen-bien.json`).
 - **Route** `POST /api/kairos/sen-bien` (khoá ingest như /nhap): kiểm chủ đề ∈ CHU_DE + `loiBai` + lọc chữ bậy; kind `chinh-thuc`, không ghim, `mod_state` dat, chủ đề `doi-song` (bài không phải báo ⇒ tính là tin biển ở phân phối); nhật ký `sen_bien_post` trước khi đăng; thiếu hồ sơ ⇒ 503 `no_sen_bien_profile`.
 
+## 15. Dễ dùng hơn Facebook — nghiên cứu hành vi, làm tuần tự (2026-10-24)
+
+> Anh Long: *"thống kê các hành vi của user thường dùng trên facebook … áp vào làm tuần tự cho phía kairos đảm bảo phải đơn giản hơn hoặc thông minh hơn"*. Mỗi việc dưới đây hoặc BỚT một bước so với FB, hoặc biết hoàn cảnh ngư dân (tay ướt, nắng, sóng yếu, mất sóng nhiều ngày). Logic thuần: `lib/kairos/de-dung.ts` (test `kairos-de-dung.test.ts`); giao diện: `components/kairos/de-dung.tsx`.
+
+| # | Hành vi FB | Kairos làm | Hơn FB ở đâu | Trạng thái |
+|---|---|---|---|---|
+| 1 | Đọc bằng mắt | **Nút loa** trên mọi thẻ (đầu thẻ, bên phải): chạm ⇒ Sen Biển đọc tên báo + tiêu đề + tóm tắt (bài người: tên + nội dung, ≤700 ký tự, cắt ở dấu câu); chạm lại ⇒ dừng. Máy không đọc được tiếng Việt ⇒ ẩn nút | Tay ướt/nắng chói/mắt kém vẫn nghe; chạy cả khi mất sóng | ĐÃ LÀM |
+| 3 | Tiết kiệm dữ liệu nằm trong Cài đặt / cài FB Lite | **Tự đoán**: `saveData` hoặc mạng 2G ⇒ ảnh chưa tải, hiện khung "Mạng yếu — chạm xem ảnh". Không biết mạng (Safari) ⇒ tải như thường | Không phải vào cài đặt | ĐÃ LÀM |
+| 4 | Gõ phím | **Nút micro** ở ô bình luận + ô soạn bài: nói ⇒ chữ ĐIỀN vào ô (nối sau chữ có sẵn), xem lại rồi mới bấm gửi. Không nghe được ⇒ ẩn nút; mất sóng/chặn micro ⇒ câu báo dưới ô | Không gửi thẳng lời nghe nhầm | ĐÃ LÀM |
+| 8 | Gõ bình luận / chọn cảm xúc | **Bình luận nhanh**: ô trống ⇒ hàng "Cảm ơn · Đúng rồi · Hay quá · Ở đâu?" — một chạm là gửi (cần sóng + đã đồng ý nội quy, như gửi thường); có chữ trong ô thì hàng ẩn | Một chạm thay vì gõ | ĐÃ LÀM |
+| 5 | "Lưu" chỉ là đánh dấu, mất sóng không mở được | Lưu bài mang theo cả chữ + ảnh | Đọc được ngoài khơi | ĐANG LÀM |
+| 6 | — | "Tải tin mang đi" trước khi ra khơi | Biết sắp mất sóng | ĐANG LÀM |
+| 7 | Chuông trộn mọi loại | Chuông Kairos chỉ 2 loại (bình luận bài mình / trả lời mình) | Ít ồn | ĐANG LÀM |
+| 10 | Ô tìm kiếm | Hỏi Sen Biển ("có tin bão gì không") — lọc bản lưu trong máy | Nói thay gõ, chạy khi mất sóng | ĐANG LÀM |
+| 2 | "Ẩn bài"/"Ít hơn" | "Ít bài này" — cần thêm trường vào `kairos_reads` (migration) | | CHỜ DUYỆT DB |
+| 9 | Nhóm hỏi đáp | Bài "Hỏi nghề" | | CHỜ DUYỆT (migration) |
+| 11 | Trang nhóm/địa phương | Lối vào "Bến của tôi" | | CHỜ anh Long (đã bỏ lối Bến trước đó) |
+| 12 | Hàng chờ gửi khi mất sóng | Hay/bình luận xếp hàng gửi sau | | CHỜ anh Long (trái luật "không tự gửi") |
+
 ## 10. Ma trận trạng thái
 
 | Màn | Đang tải | Trống | Lỗi | Mất sóng | Cực đoan |

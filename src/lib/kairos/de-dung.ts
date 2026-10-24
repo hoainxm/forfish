@@ -1,0 +1,58 @@
+// KAIROS DỄ DÙNG HƠN FACEBOOK — đợt 1 từ nghiên cứu hành vi FB (anh Long 2026-10-24: "thống kê các hành vi của user thường
+// dùng trên facebook … rồi tổ chức áp vào làm tuần tự cho phía kairos đảm bảo phải đơn giản hơn hoặc thông minh hơn").
+// THUẦN, có test (kairos-de-dung.test.ts). Báo cáo: docs/app-map/14-ba-spec-kairos.md §15.
+//   · Nghe bài (việc 1): FB không đọc bài cho ai — tay ướt, nắng chói, mắt kém thì một chạm là nghe.
+//   · Tự tắt ảnh khi mạng yếu (việc 3): FB bắt vào Cài đặt / cài FB Lite — Kairos tự đoán.
+//   · Bình luận nhanh (việc 8): một chạm gửi câu có sẵn thay vì gõ bằng tay ướt.
+
+/** Bài tối thiểu để đọc to. */
+export interface BaiDoc {
+  kind: string;
+  outlet?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  body?: string | null;
+  author?: { handle?: string } | null;
+}
+
+/** Đọc tối đa chừng này ký tự (bài dài thì đọc phần đầu — bấm Đọc bài gốc để đọc đủ). */
+export const DOC_TOI_DA = 700;
+
+/** Chữ để Sen Biển đọc to một bài: báo ⇒ tên báo + tiêu đề + tóm tắt; bài người ⇒ tên + nội dung. Rỗng ⇒ "". */
+export function chuDeDoc(p: BaiDoc): string {
+  const cat = (s: string) => {
+    const t = s.replace(/\s+/g, " ").trim();
+    if ([...t].length <= DOC_TOI_DA) return t;
+    const cut = [...t].slice(0, DOC_TOI_DA).join("");
+    const dau = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "), cut.lastIndexOf("! "));
+    return (dau > DOC_TOI_DA / 2 ? cut.slice(0, dau + 1) : cut).trim();
+  };
+  if (p.kind === "bao") {
+    const tieuDe = p.title?.trim() ?? "";
+    const phan = [p.outlet ? `Tin ${p.outlet}.` : "", tieuDe && !/[.!?]$/.test(tieuDe) ? `${tieuDe}.` : tieuDe, p.summary ?? p.body ?? ""];
+    return cat(phan.filter(Boolean).join(" "));
+  }
+  const body = (p.body ?? "").trim();
+  if (!body) return "";
+  const ten = p.author?.handle?.trim();
+  return cat(ten ? `${ten} viết: ${body}` : body);
+}
+
+/** Thông tin mạng (navigator.connection — Chrome/Android; Safari không có ⇒ undefined). */
+export interface KetNoi {
+  saveData?: boolean;
+  effectiveType?: string;
+}
+
+/**
+ * Có nên HOÃN tải ảnh không (hiện khung "Chạm xem ảnh"): bật Tiết kiệm dữ liệu, hoặc mạng 2G/chậm hơn. Không biết
+ * (trình duyệt không báo) ⇒ tải bình thường. 3G vẫn tải — ảnh kho đã nén ≤ 512 KB.
+ */
+export function nenHoanAnh(c: KetNoi | null | undefined): boolean {
+  if (!c) return false;
+  if (c.saveData === true) return true;
+  return c.effectiveType === "slow-2g" || c.effectiveType === "2g";
+}
+
+/** Câu bình luận nhanh (≤ 2 chữ — luật nhãn nút) — một chạm là gửi. */
+export const BL_NHANH = ["Cảm ơn", "Đúng rồi", "Hay quá", "Ở đâu?"] as const;

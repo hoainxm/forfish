@@ -8,6 +8,8 @@
    · Hay lạc quan + hoàn tác; xoá của mình (xác nhận tại chỗ); báo xấu của người khác.
    · Ô viết dạng viên (như FB): chữ + nút gửi; Enter xuống dòng (bàn phím điện thoại), bấm nút mới gửi.
    · Nháp theo bài `forfish.kairos.nhap.v1` khoá `bl:<id>` — mất sóng vẫn giữ chữ, KHÔNG tự gửi khi có sóng lại.
+   · Bình luận nhanh (14 §15): ô trống ⇒ hàng câu có sẵn (Cảm ơn · Đúng rồi…) một chạm là gửi; nút micro
+     nói để viết — chữ nghe được ĐIỀN vào ô, bà con xem lại rồi mới bấm gửi.
    · `initialNext === undefined` ⇒ tự tải trang bình luận đầu (dùng ở thẻ dòng tin: thẻ chỉ mang 2 bình luận nổi).
 */
 
@@ -34,6 +36,8 @@ import { useAuthUser } from "@/lib/use-auth";
 import { useOnline } from "@/lib/use-online";
 import { KairosAvatar } from "./kairos-avatar";
 import { RulesBox } from "./rules-box";
+import { NutMic } from "./de-dung";
+import { BL_NHANH } from "@/lib/kairos/de-dung";
 
 /** Việc của màn chứa (usePostActions): báo một dòng, mở hộp báo xấu, sửa số bình luận của bài đang hiện. */
 export interface CommentKit {
@@ -220,13 +224,15 @@ export function CommentThread({
   const len = charLen(text.trim());
   const left = LIMITS.commentBody - len;
   const canSend = online && signedIn && canWrite && !sending && len > 0 && left >= 0 && !needRules;
+  const canQuick = online && signedIn && canWrite && !sending && !needRules;
 
-  const send = async () => {
-    if (!canSend) return;
+  /** `nhanh` = câu bình luận nhanh (gửi thẳng, không qua ô); không có ⇒ gửi chữ trong ô. */
+  const send = async (nhanh?: string) => {
+    if (nhanh ? !canQuick : !canSend) return;
     setSending(true);
     setSendErr("");
     const r = await kairosSend<{ comment: KairosComment }>("POST", `/api/kairos/posts/${encodeURIComponent(id)}/comments`, {
-      body: text,
+      body: nhanh ?? text,
       parentId: replyTo?.parentId ?? null,
     });
     setSending(false);
@@ -237,8 +243,10 @@ export function CommentThread({
     }
     setComments((cur) => [...cur, r.data.comment]);
     kit.patch(id, { commentCount: post.commentCount + 1 });
-    setText("");
-    saveDraft(phone, dKey, "");
+    if (!nhanh) {
+      setText("");
+      saveDraft(phone, dKey, "");
+    }
     setReplyTo(null);
   };
 
@@ -335,6 +343,20 @@ export function CommentThread({
               </button>
             </div>
           )}
+          {!text.trim() && canQuick && (
+            <div className="mb-2 flex gap-2 overflow-x-auto" role="group" aria-label="Bình luận nhanh">
+              {BL_NHANH.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => void send(c)}
+                  className="h-9 shrink-0 rounded-full border border-line px-3 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <label htmlFor={`kairos-bl-${id}`} className="sr-only">
               Viết bình luận
@@ -347,6 +369,14 @@ export function CommentThread({
               onChange={(e) => onText(e.target.value)}
               placeholder="Viết bình luận…"
               className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-line bg-field px-4 py-2.5 text-[1rem] leading-snug outline-none focus-visible:ring-2 focus-visible:ring-sea"
+            />
+            <NutMic
+              disabled={sending}
+              onChu={(t) => {
+                onText(text.trim() ? `${text.trimEnd()} ${t}` : t);
+                box.current?.focus();
+              }}
+              onLoi={(t) => setSendErr(t)}
             />
             <button
               type="button"
