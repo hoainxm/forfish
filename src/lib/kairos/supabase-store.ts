@@ -9,14 +9,19 @@ import { postgrestFeedExpr, pgQuote } from "./feed-query";
 import { KairosError } from "./errors";
 import { reportNeedsCheck } from "./quyet-dinh";
 import { isUuid } from "./validate";
+import { HO_SO_FIELDS } from "./store";
 import type {
   AuditRow, CommentFull, DecisionRow, KairosStore, NewDecision, PostFull, ProfileFull, RateTable, ReportRow,
   SeenRow, SourceRow, TargetType,
 } from "./store";
 
 const BUCKET = "kairos-media";
-const PROFILE_COLS =
+const PROFILE_BASE_COLS =
   "id,phone,handle,handle_norm,handle_changed_at,avatar_path,show_boat,official,rules_accepted_at,banned_until,ban_reason,created_at";
+/** Cột trang cá nhân (0067) — có thể CHƯA có trên DB khi deploy đi trước migration. */
+const PROFILE_HO_SO_COLS = HO_SO_FIELDS.join(",");
+/** Đã thấy cột 0067 thiếu ⇒ đọc bằng cột gốc, hỏi lại sau 5 phút (migration áp xong tự nhận). */
+const HO_SO_RECHECK_MS = 5 * 60_000;
 const POST_COLS =
   "id,kind,author_phone,source_id,outlet,url,url_hash,title,title_norm,body,summary,summary_by,cover_url,images,topic,regions,provinces,ports,reshare_of,pinned_until,hidden,hidden_reason,mod_state,mod_checked_at,hay_count,comment_count,published_at,feed_at,created_at,edited_at";
 const COMMENT_COLS = "id,post_id,parent_id,author_phone,body,hay_count,hidden,mod_state,mod_checked_at,created_at";
@@ -29,6 +34,9 @@ function fail(where: string, e: PgErr): never {
   throw new KairosError("unavailable");
 }
 const isUnique = (e: PgErr) => e?.code === "23505";
+/** Lỗi "cột không có" của Postgres (42703) / PostgREST (PGRST204 khi ghi cột lạ). */
+export const isMissingColumn = (e: PgErr) =>
+  e?.code === "42703" || e?.code === "PGRST204" || /column .* does not exist|could not find the '.*' column/i.test(e?.message ?? "");
 
 export function createKairosSupabaseStore(): KairosStore | null {
   const admin = createAdminClient();
@@ -36,6 +44,26 @@ export function createKairosSupabaseStore(): KairosStore | null {
   const db: SupabaseClient = admin;
 
   const posts = () => db.from("kairos_posts");
+
+  // Cột 0067 có chưa: null = chưa biết; false = thiếu (từ lúc `missingAt`).
+  let hoSoCols: boolean | null = null;
+  let missingAt = 0;
+  const tryHoSo = () => hoSoCols !== false || Date.now() - missingAt > HO_SO_RECHECK_MS;
+  /**
+   * Chạy một truy vấn hồ sơ với đủ cột; cột 0067 chưa có ⇒ chạy lại bằng cột gốc (trường mới
+   * = undefined, trang vẫn hiện). Lỗi khác trả nguyên cho bên gọi.
+   */
+  async function profileQuery<R extends { error: PgErr }>(build: (cols: string) => PromiseLike<R>): Promise<R> {
+    if (tryHoSo()) {
+      const r = await build(`${PROFILE_BASE_COLS},${PROFILE_HO_SO_COLS}`);
+      if (!r.error) hoSoCols = true;
+      if (!r.error || !isMissingColumn(r.error)) return r;
+      if (hoSoCols !== false) console.warn("[kairos] cột trang cá nhân (0067) chưa có — đọc hồ sơ bằng cột gốc:", r.error?.message);
+      hoSoCols = false;
+      missingAt = Date.now();
+    }
+    return build(PROFILE_BASE_COLS);
+  }
   const comments = () => db.from("kairos_comments");
 
   async function one<T>(where: string, q: PromiseLike<{ data: unknown; error: PgErr }>): Promise<T | null> {
@@ -51,12 +79,13 @@ export function createKairosSupabaseStore(): KairosStore | null {
 
   const store: KairosStore = {
     // ── Hồ sơ ──
-    profileByPhone: (phone) => one<ProfileFull>("profileByPhone", db.from("kairos_profiles").select(PROFILE_COLS).eq("phone", phone).maybeSingle()),
-    profileById: (id) => one<ProfileFull>("profileById", db.from("kairos_profiles").select(PROFILE_COLS).eq("id", id).maybeSingle()),
+    profileByPhone: (phone) =>
+      one<ProfileFull>("profileByPhone", profileQuery((c) => db.from("kairos_profiles").select(c).eq("phone", phone).maybeSingle())),
+    profileById: (id) => one<ProfileFull>("profileById", profileQuery((c) => db.from("kairos_profiles").select(c).eq("id", id).maybeSingle())),
     async profilesByPhones(phones) {
       const uniq = [...new Set(phones)].slice(0, IN_MAX);
       if (!uniq.length) return [];
-      return many<ProfileFull>("profilesByPhones", db.from("kairos_profiles").select(PROFILE_COLS).in("phone", uniq));
+      return many<ProfileFull>("profilesByPhones", profileQuery((c) => db.from("kairos_profiles").select(c).in("phone", uniq)));
     },
     async takenNorms(norms) {
       const uniq = [...new Set(norms)].slice(0, IN_MAX);
@@ -65,8 +94,8 @@ export function createKairosSupabaseStore(): KairosStore | null {
       return new Set(rows.map((r) => r.handle_norm));
     },
     async createProfile(row) {
-      const { data, error } = await db.from("kairos_profiles").insert(row).select(PROFILE_COLS).single();
-      if (!error) return data as ProfileFull;
+      const { data, error } = await profileQuery((c) => db.from("kairos_profiles").insert(row).select(c).single());
+      if (!error) return data as unknown as ProfileFull;
       if (isUnique(error)) {
         const existing = await store.profileByPhone(row.phone);
         if (existing) return existing;
@@ -75,13 +104,15 @@ export function createKairosSupabaseStore(): KairosStore | null {
       fail("createProfile", error);
     },
     async updateProfile(phone, patch) {
-      const { data, error } = await db.from("kairos_profiles").update(patch).eq("phone", phone).select(PROFILE_COLS).maybeSingle();
+      const { data, error } = await profileQuery((c) => db.from("kairos_profiles").update(patch).eq("phone", phone).select(c).maybeSingle());
       if (error) {
         if (isUnique(error)) throw new KairosError("handle_taken");
+        // ghi trường 0067 khi cột chưa có ⇒ 503 có mã (màn: "Phần giới thiệu chưa mở"), không 500 mù
+        if (isMissingColumn(error) && HO_SO_FIELDS.some((k) => k in patch)) throw new KairosError("fields_missing");
         fail("updateProfile", error);
       }
       if (!data) throw new KairosError("not_found");
-      return data as ProfileFull;
+      return data as unknown as ProfileFull;
     },
     async customerName(phone) {
       const r = await one<{ name: string | null }>("customerName", db.from("customers").select("name").eq("phone", phone).maybeSingle());
@@ -264,6 +295,23 @@ export function createKairosSupabaseStore(): KairosStore | null {
       const [table, a, b] = kind === "follow" ? ["kairos_follows", "follower_phone", "followee_phone"] : ["kairos_blocks", "blocker_phone", "blocked_phone"];
       const rows = await many<Record<string, string>>("edgesFrom", db.from(table).select(b).eq(a, from).limit(2000));
       return rows.map((r) => r[b]);
+    },
+    async followCounts(phone) {
+      const cnt = async (col: "followee_phone" | "follower_phone") => {
+        const { count, error } = await db.from("kairos_follows").select("follower_phone", { count: "exact", head: true }).eq(col, phone);
+        if (error) fail("followCounts", error);
+        return count ?? 0;
+      };
+      const [followers, following] = await Promise.all([cnt("followee_phone"), cnt("follower_phone")]);
+      return { followers, following };
+    },
+    async followList(dir, phone, limit) {
+      const [where, pick] = dir === "followers" ? ["followee_phone", "follower_phone"] : ["follower_phone", "followee_phone"];
+      const rows = await many<Record<string, string>>(
+        "followList",
+        db.from("kairos_follows").select(pick).eq(where, phone).order("created_at", { ascending: false }).limit(limit),
+      );
+      return rows.map((r) => r[pick]);
     },
 
     // ── Báo xấu ──
@@ -459,8 +507,9 @@ export function createKairosSupabaseStore(): KairosStore | null {
       // đường kho = '<profileId>/<uuid>.<ext>' ⇒ chỉ cần soi bài + ảnh đại diện của chủ thư mục
       const ids = [...new Set([...want].map((p) => p.split("/")[0]).filter(isUuid))];
       if (!ids.length) return used;
-      const owners = await many<{ phone: string; avatar_path: string | null }>("mediaInUse", db.from("kairos_profiles").select("phone,avatar_path").in("id", ids));
-      for (const o of owners) if (o.avatar_path && want.has(o.avatar_path)) used.add(o.avatar_path);
+      // ảnh bìa (0067) cũng là ảnh đang dùng — cột chưa có thì chỉ soi ảnh đại diện
+      const owners = await many<ProfileFull>("mediaInUse", profileQuery((c) => db.from("kairos_profiles").select(c).in("id", ids)));
+      for (const o of owners) for (const x of [o.avatar_path, o.cover_path]) if (x && want.has(x)) used.add(x);
       if (!owners.length) return used;
       // nợ: đọc mọi bài của chủ thư mục (≤10 bài/ngày/người); đổi sang lọc jsonb `images @> [path]` khi một người vượt vài nghìn bài
       const rows = await many<{ images: unknown }>("mediaInUse", posts().select("images").in("author_phone", owners.map((o) => o.phone)));

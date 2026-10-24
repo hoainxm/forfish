@@ -6,6 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24 — thêm migration 0067_kairos_ho_so (kairos_profiles + cover_path/que_tinh/nghe/gioi_thieu/home_port — trang cá nhân kiểu FB, 14 §3.8) — ⛔ CHƯA APPLY -->
 <!-- re-verified: 2026-10-24 — thêm migration 0066_kairos_phan_phoi (kairos_reads + kairos_record_reads + default rules_accepted_at) — 14 §13 -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 <!-- re-verified: 2026-10-19 — MIGRATION MỚI 0064_atomic_writes.sql (§ GHI NGUYÊN TỬ): user_docs.rev + 3 hàm market_transition_order/market_patch_request/market_accept_request. ĐÃ APPLY prod 2026-10-19, kiểm thật trên Postgres (rollback). -->
@@ -900,6 +901,13 @@ Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng 
 - **Đối soát bản ghi dở dang trước đó** (đo 2026-10-19): 0 đơn `da_huy` chưa hoàn kho, 0 yêu cầu `da_dat` thiếu `order_id` ⇒ không cần dọn. Truy vấn đối soát giữ ở ops/runbook.md.
 - Tương thích: cột có default + hàm mới ⇒ code cũ chạy nguyên trên DB đã apply. Thứ tự: **apply 0064 → deploy** (code mới gọi hàm 0064).
 - file-store (dev) không đổi: một tiến trình, ghi cả tệp một lần nên vốn nguyên tử.
+
+### KAIROS — trang cá nhân kiểu Facebook — migration [`0067_kairos_ho_so.sql`](../../supabase/migrations/0067_kairos_ho_so.sql) (2026-10-24) — ⛔ **CHƯA APPLY** (áp bằng tay ở SQL Editor, anh Long duyệt)
+
+- `kairos_profiles` thêm 5 cột (`add column if not exists`, mỗi cột kèm check — chạy lại an toàn): `cover_path` ≤200 (ảnh bìa, đường kho `kairos-media` `<profileId>/<uuid>.<ext>` như `avatar_path`) · `que_tinh` ∈ 34 mã tỉnh `lib/kairos/khu-vuc.mjs` · `nghe` ∈ mã `lib/kairos/ho-so.ts NGHE` (`cau-muc`,`luoi-vay`,`luoi-re`,`luoi-keo`,`cau-tay`,`lan`,`nuoi-trong`,`thu-mua`,`khac`) · `gioi_thieu` 1–150 ký tự · `home_port` 1–60 (mã `fishing-ports.ts`, route kiểm danh mục). Test `kairos-ho-so.test.ts` đỏ khi danh mục trong code lệch check.
+- RLS: bật sẵn từ 0065 (nhắc lại + revoke anon/authenticated), **KHÔNG policy mới**. Số người theo dõi / đang theo dõi đếm từ `kairos_follows` — không cột. Cờ agent (`isAgent`) chưa có cột.
+- **Deploy đi trước migration vẫn chạy**: `supabase-store.profileQuery` thấy cột thiếu (42703 / PGRST204) ⇒ đọc lại bằng cột gốc, nhớ 5 phút rồi thử lại; trường mới = trống. Ghi trường 0067 khi cột chưa có ⇒ `KairosError("fields_missing")` ⇒ 503, màn nói "Phần giới thiệu chưa mở trên máy chủ". `mediaInUse` coi `cover_path` là ảnh đang dùng (Huỷ khung soạn / dọn ảnh mồ côi không xoá ảnh bìa).
+- Thứ tự an toàn: deploy (code chịu được cột thiếu) → apply 0067 → trong ≤5 phút mỗi instance tự nhận cột.
 
 ### KAIROS — phân phối dòng tin + nội quy một lần — migration [`0066_kairos_phan_phoi.sql`](../../supabase/migrations/0066_kairos_phan_phoi.sql) (2026-10-24) — ✅ **ĐÃ APPLY** 2026-10-24 qua connector Supabase (advisor: không cảnh báo mới; anon đọc bảng 401, gọi hàm 42501). Hàm gộp theo bài trước khi upsert (một lô hai dòng cùng bài không lỗi ON CONFLICT)
 
