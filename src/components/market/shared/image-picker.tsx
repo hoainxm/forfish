@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { PlusIcon } from "@/components/icons";
 import { CloseButton } from "@/components/ui/close-button";
 import { resizeForMarket } from "@/lib/market/image-resize";
@@ -19,14 +19,27 @@ export function ImagePicker({
   max = PRODUCT_IMAGE_MAX,
   upload,
   label = "Ảnh sản phẩm",
+  openRef,
+  chiAnh = false,
 }: {
   value: string[];
   onChange: (urls: string[]) => void;
   max?: number;
   upload: (blob: Blob) => Promise<string>;
   label?: string;
+  /** bên ngoài mở hộp chọn ảnh (vd nút Ảnh ở thanh công cụ khung soạn Kairos) */
+  openRef?: MutableRefObject<(() => void) | null>;
+  /** chỉ hiện ảnh (to hơn), không nhãn, không ô "Thêm ảnh" — nút thêm nằm chỗ khác */
+  chiAnh?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!openRef) return;
+    openRef.current = () => inputRef.current?.click();
+    return () => {
+      openRef.current = null;
+    };
+  }, [openRef]);
   const [pending, setPending] = useState<Pending[]>([]);
   // `value` đổi giữa chừng (bà con bỏ một ảnh lúc ảnh khác đang tải) ⇒ luôn
   // cộng vào bản MỚI NHẤT, không đè bằng bản cũ trong closure.
@@ -83,17 +96,21 @@ export function ImagePicker({
       return cur.filter((x) => x.key !== key);
     });
 
+  const o = chiAnh ? "h-36 w-36" : "h-28 w-28";
+  const coAnh = value.length + pending.length > 0;
   return (
-    <div className="mb-3.5">
-      <p className="mb-1.5 text-[1rem] font-semibold text-navy">
-        {label} <span className="font-normal text-foreground/65">({value.length}/{max})</span>
-      </p>
-      <div className="-mx-4 flex gap-2 overflow-x-auto cuon-an px-4 pb-1">
+    <div className={chiAnh ? (coAnh ? "mb-2" : "") : "mb-3.5"}>
+      {!chiAnh && (
+        <p className="mb-1.5 text-[1rem] font-semibold text-navy">
+          {label} <span className="font-normal text-foreground/65">({value.length}/{max})</span>
+        </p>
+      )}
+      <div className={`-mx-4 flex gap-2 overflow-x-auto cuon-an px-4 ${coAnh || !chiAnh ? "pb-1" : "hidden"}`}>
         {value.map((url, i) => (
-          <div key={url} className="relative h-28 w-28 shrink-0 overflow-hidden rounded-2xl bg-field">
+          <div key={url} className={`relative ${o} shrink-0 overflow-hidden rounded-2xl bg-field`}>
             {/* eslint-disable-next-line @next/next/no-img-element -- ảnh vừa tải lên bucket public / dev */}
             <img src={url} alt={`Ảnh ${i + 1}`} className="h-full w-full object-cover" />
-            {i === 0 && (
+            {i === 0 && !chiAnh && (
               <span className="absolute bottom-1 left-1 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold" style={{ backgroundColor: "var(--card)", color: "var(--navy)" }}>
                 Ảnh bìa
               </span>
@@ -104,7 +121,7 @@ export function ImagePicker({
         {pending.map((p) => (
           <div
             key={p.key}
-            className="relative h-28 w-28 shrink-0 overflow-hidden rounded-2xl"
+            className={`relative ${o} shrink-0 overflow-hidden rounded-2xl`}
             style={p.state === "loi" ? { backgroundColor: "var(--danger-bg)" } : { backgroundColor: "var(--field)" }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- xem trước từ máy (blob:) */}
@@ -131,7 +148,7 @@ export function ImagePicker({
             {p.state === "loi" && <CloseButton onClose={() => dropPending(p.key)} label="Bỏ ảnh lỗi" className="absolute right-0 top-0" />}
           </div>
         ))}
-        {room > 0 && (
+        {room > 0 && !chiAnh && (
           <button
             type="button"
             onClick={() => inputRef.current?.click()}

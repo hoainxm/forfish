@@ -39,9 +39,9 @@ export const CHU_DE = [
     duKien: [
       "Kairos là mạng xã hội riêng của bà con đi biển, nằm ngay trong app (ô thứ hai dưới đáy màn hình).",
       "Ở Kairos bà con đọc tin biển, kể chuyện nghề, hỏi kinh nghiệm, bình luận và bấm Hay.",
-      "Đăng bài: chạm ô \"Bà con có chuyện gì?\", viết chữ, gắn tối đa 5 ảnh.",
+      "Đăng bài: chạm ô \"Bà con muốn chia sẻ gì?\", viết chữ, gắn tối đa 5 ảnh.",
     ],
-    mau: "Chào bà con, Sen Biển đây! Kairos là chỗ của riêng bà con đi biển: đọc tin biển, kể chuyện nghề, hỏi nhau kinh nghiệm. Muốn đăng bài thì chạm ô \"Bà con có chuyện gì?\" ở đầu trang, viết vài dòng, gắn thêm ảnh nếu có (tối đa 5 ảnh). Chuyến này bà con đi đâu, cá mực ra sao, kể Sen Biển với bà con cùng nghe nghen.",
+    mau: "Chào bà con, Sen Biển đây! Kairos là chỗ của riêng bà con đi biển: đọc tin biển, kể chuyện nghề, hỏi nhau kinh nghiệm. Muốn đăng bài thì chạm ô \"Bà con muốn chia sẻ gì?\" ở đầu trang, viết vài dòng, gắn thêm ảnh nếu có (tối đa 5 ảnh). Chuyến này bà con đi đâu, cá mực ra sao, kể Sen Biển với bà con cùng nghe nghen.",
   },
   {
     id: "doc-bao",

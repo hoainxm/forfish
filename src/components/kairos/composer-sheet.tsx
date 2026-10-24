@@ -21,14 +21,15 @@
 */
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { ChipRow } from "@/components/ui/chip-row";
 import { ImagePicker } from "@/components/market/shared/image-picker";
-import { inputClass } from "@/components/ui/primitives";
+import { ChevronDownIcon, CloseIcon, ImageIcon, NewsIcon, PinIcon } from "@/components/icons";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/dialog-focus";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
-import { TOPICS, type Topic } from "@/lib/kairos/chu-de.mjs";
+import { laChuyenBien, TOPICS, type Topic } from "@/lib/kairos/chu-de.mjs";
 import { draftKey } from "@/lib/kairos/cache";
 import { loadHabit } from "@/lib/kairos/feed-client";
 import { LIMITS, type KairosPost } from "@/lib/kairos/types";
@@ -53,6 +54,7 @@ import { useOnline } from "@/lib/use-online";
 import { HomePortSheet } from "./home-port-sheet";
 import { RulesBox } from "./rules-box";
 import { NutMic } from "./de-dung";
+import { KairosAvatar } from "./kairos-avatar";
 
 export type ComposeMode =
   | { kind: "new"; port?: string }
@@ -69,6 +71,31 @@ function homePort(): string | null {
   const boats = loadBoats();
   const b = boats.find((x) => x.id === loadCurrentBoatId()) ?? boats[0];
   return b?.homePortId && PORT_NAME.has(b.homePortId) ? b.homePortId : null;
+}
+
+/** Chủ đề tự đoán khi bà con chưa tự chọn: có chuyện biển/nghề ⇒ Nghề cá, không thì Đời sống (FB không bắt chọn). */
+export function doanChuDe(text: string): Topic {
+  return laChuyenBien(text) || RE_CHUYEN_BIEN.test(text.toLowerCase()) ? "nghe-ca" : "doi-song";
+}
+/** Từ bà con hay viết khi kể chuyện đi biển (bổ sung cho laChuyenBien vốn soạn cho tin báo). */
+const RE_CHUYEN_BIEN = /(ra khơi|đi biển|ngoài khơi|ghe|tàu|thuyền|lưới|câu mực|mực|cá |cá$|tôm|cua|ghẹ|sóng|gió|bão|biển|cảng|bến|neo|hải sản|ngư trường|luồng cá)/u;
+
+/** Vùng nhìn thấy thật (trừ bàn phím) — thanh công cụ + nút Đăng luôn nằm trên bàn phím như Facebook. */
+function useVungNhin(): { top: number; height: number } | null {
+  const [v, setV] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const cap = () => setV({ top: vv.offsetTop, height: vv.height });
+    cap();
+    vv.addEventListener("resize", cap);
+    vv.addEventListener("scroll", cap);
+    return () => {
+      vv.removeEventListener("resize", cap);
+      vv.removeEventListener("scroll", cap);
+    };
+  }, []);
+  return v;
 }
 
 function keyOf(mode: ComposeMode): string {
@@ -96,7 +123,13 @@ export function ComposerSheet({
   const [draftFail, setDraftFail] = useState(false);
   const [images, setImages] = useState<string[]>(() => editing?.images.filter((u) => mediaPathFromUrl(u)) ?? []);
   const paths = useRef(new Map<string, string>());
-  const [topic, setTopic] = useState<Topic>(() => (editing && (TOPICS as readonly string[]).includes(editing.topic) ? (editing.topic as Topic) : "nghe-ca"));
+  // chủ đề TỰ ĐOÁN theo chữ tới khi bà con tự chọn (sửa bài: giữ chủ đề cũ)
+  const [topicTay, setTopicTay] = useState<Topic | null>(() => (editing && (TOPICS as readonly string[]).includes(editing.topic) ? (editing.topic as Topic) : null));
+  const [pickTopic, setPickTopic] = useState(false);
+  const anhMo = useRef<(() => void) | null>(null);
+  const oChu = useRef<HTMLTextAreaElement>(null);
+  const tieuDeId = useId();
+  const vung = useVungNhin();
   const [port, setPort] = useState<string | null>(() =>
     editing ? editing.ports[0] ?? null : mode.kind === "new" && mode.port ? mode.port : null,
   );
@@ -159,6 +192,7 @@ export function ComposerSheet({
     return r.data.url;
   };
 
+  const topic: Topic = topicTay ?? doanChuDe(text);
   const len = charLen(text.trim());
   const left = LIMITS.postBody - len;
   const tooLong = left < 0;
@@ -188,12 +222,31 @@ export function ComposerSheet({
     setErr(errorText(r, "bai"));
   };
 
+  // Khung toàn màn: khoá cuộn trang dưới, đặt con trỏ vào ô chữ (bàn phím bật như FB), Escape đóng. Chạy MỘT LẦN.
+  const cancelRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    lockBodyScroll();
+    oChu.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      // Escape đang dành cho ngăn con (chọn chủ đề / cảng) thì để ngăn đó đóng, không đóng cả khung soạn.
+      if (e.key === "Escape" && document.querySelectorAll('[role="dialog"]').length <= 1) cancelRef.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      unlockBodyScroll();
+    };
+  }, []);
+
   /** Huỷ / đóng khung: ảnh vừa tải trong phiên này chưa thuộc bài nào ⇒ xoá khỏi kho. */
   const cancel = () => {
     void discardUploads(orphanUploads(paths.current.values(), []));
     paths.current.clear();
     onClose();
   };
+  useEffect(() => {
+    cancelRef.current = cancel;
+  });
 
   const title = editing ? "Sửa bài" : mode.kind === "reshare" ? "Đăng lại" : mode.kind === "new" && mode.port ? `Đăng vào Bến ${PORT_NAME.get(mode.port) ?? ""}` : "Đăng bài";
 
@@ -208,108 +261,173 @@ export function ComposerSheet({
     );
   }
 
-  return (
-    <BottomSheet title={title} onClose={cancel} kieu="form">
-      {me.s === "ok" && me.me.bannedUntil && (
-        <p role="alert" className="mb-3 rounded-xl bg-danger-bg px-3 py-2 text-[0.875rem] font-semibold text-danger">
-          {errorText({ code: "banned", status: 403, offline: false, extra: { until: me.me.bannedUntil } })}
-          {me.me.banReason ? ` Lý do: ${me.me.banReason}` : ""}
-        </p>
-      )}
-      {(needRules || (me.s === "ok" && !me.me.rulesAccepted)) && (
-        <div className="mb-3">
-          <RulesBox
-            onAccepted={(m) => {
-              setMe({ s: "ok", me: m });
-              setNeedRules(false);
-            }}
-          />
-        </div>
-      )}
-      {gate.retry && (
-        <div className={`mb-3 flex items-center gap-2 rounded-xl px-3 py-2 ${me.s === "error" ? "bg-danger-bg" : "bg-field"}`}>
-          <p className={`flex-1 text-[0.875rem] font-semibold ${me.s === "error" ? "text-danger" : "text-foreground/75"}`}>
-            {me.s === "error" ? me.text : "Mất sóng — viết trước, có sóng bấm Đăng."}
-          </p>
-          <button type="button" onClick={() => void loadMe()} className="h-10 rounded-xl bg-card px-3 font-semibold text-sea">
-            {NHAN.thuLai}
-          </button>
-        </div>
-      )}
+  const nutDang = gate.button === "dang" && editing ? NHAN.luu : NHAN[gate.button];
+  const tenToi = me.s === "ok" ? me.me.handle : "";
+  const chuTo = !images.length && mode.kind !== "reshare" && charLen(text) < 90; // bài ngắn chữ to như FB
+  const nutPhu = "flex h-8 items-center gap-1 rounded-lg bg-field px-2.5 text-[0.8125rem] font-semibold text-foreground/80";
+  const nutCong = "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-navy transition active:scale-[0.95] disabled:opacity-40";
 
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <label className="block text-[0.875rem] font-semibold text-navy" htmlFor="kairos-soan">
-          {mode.kind === "reshare" ? "Lời của bạn" : "Nội dung"}
-        </label>
-        {/* nói để viết (14 §15) — chữ nghe được nối vào ô, bà con sửa rồi mới Đăng */}
-        <NutMic onChu={(t) => onText(text.trim() ? `${text.trimEnd()} ${t}` : t)} onLoi={setErr} />
-      </div>
-      <textarea
-        id="kairos-soan"
-        value={text}
-        onChange={(e) => onText(e.target.value)}
-        rows={5}
-        placeholder={mode.kind === "reshare" ? "Bà con nghĩ gì về bài này?" : "Bà con có chuyện gì?"}
-        aria-describedby="kairos-soan-dem"
-        className={`${inputClass} h-auto min-h-32 py-3 leading-relaxed`}
-      />
-      <div id="kairos-soan-dem" className="mb-3 flex min-h-5 justify-between gap-2 text-[0.8125rem]">
-        <span className="text-foreground/65">{draftFail ? "Máy đầy — nháp chưa lưu được" : !online && text.trim() ? "Đã giữ nháp trong máy" : ""}</span>
-        {left <= 200 && <span className={`font-semibold tabular-nums ${tooLong ? "text-danger" : "text-foreground/65"}`}>{left}</span>}
-      </div>
-
-      {mode.kind === "reshare" ? (
-        <div className="mb-3 rounded-2xl border border-line px-3 py-2">
-          <p className="truncate text-[0.8125rem] font-semibold text-foreground/65">
-            {mode.post.kind === "bao" ? mode.post.outlet : mode.post.author?.handle || (mode.post.kind === "chinh-thuc" ? "SDVICO" : "")}
-          </p>
-          <p className="line-clamp-2 text-[1rem]">{mode.post.title || mode.post.summary || mode.post.body}</p>
-        </div>
-      ) : (
-        <ImagePicker value={images} onChange={setImages} max={LIMITS.images} upload={upload} label="Ảnh" />
-      )}
-
-      <p className="mb-1.5 text-[0.875rem] font-semibold text-navy">Chủ đề</p>
-      <div className="-mx-5 mb-3">
-        <ChipRow options={TOPIC_OPTIONS} value={topic} onChange={(t) => setTopic(t as Topic)} ariaLabel="Chủ đề bài" />
-      </div>
-
-      <div className="mb-4 flex items-center gap-2">
-        <p className="min-w-0 flex-1 truncate text-[1rem]">
-          <span className="text-foreground/65">Cảng: </span>
-          <span className="font-semibold text-navy">{port ? `Cảng ${PORT_NAME.get(port) ?? port}` : "Không gắn"}</span>
-        </p>
-        <button type="button" onClick={() => setPickPort(true)} className="h-10 rounded-xl border border-line px-3 font-semibold text-sea">
-          {NHAN.doi}
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={tieuDeId}
+      className="anim-sheet-in fixed inset-x-0 z-30 mx-auto flex w-full max-w-(--w-app) flex-col bg-background"
+      style={vung ? { top: vung.top, height: vung.height } : { top: 0, height: "100dvh" }}
+    >
+      {/* THANH TRÊN — ✕ · tên khung · Đăng (luôn thấy, kể cả khi bàn phím mở) */}
+      <header className="flex h-14 shrink-0 items-center gap-1 border-b border-line px-2 pt-[env(safe-area-inset-top)]">
+        <button type="button" onClick={cancel} aria-label={NHAN.dong} className={nutCong}>
+          <CloseIcon className="h-6 w-6" />
         </button>
-        {port && (
-          <button type="button" onClick={() => setPort(null)} className="h-10 rounded-xl border border-line px-3 font-semibold text-foreground/75">
-            {NHAN.bo}
-          </button>
-        )}
-      </div>
-
-      {err && (
-        <p role="alert" className="mb-2 text-[0.875rem] font-semibold text-danger">
-          {err}
-        </p>
-      )}
-
-      <div className="grid grid-cols-2 gap-3">
-        <button type="button" onClick={cancel} className="h-(--h-cta) rounded-xl bg-field font-semibold text-foreground/75">
-          {NHAN.huy}
-        </button>
+        <h2 id={tieuDeId} className="min-w-0 flex-1 truncate text-center text-[1.0625rem] font-semibold text-navy">
+          {title}
+        </h2>
         <button
           type="button"
           onClick={() => void submit()}
           disabled={!canSend}
           aria-busy={busy}
-          className="h-(--h-cta) rounded-xl bg-sea font-semibold text-white disabled:opacity-40"
+          className="h-10 min-w-20 rounded-xl bg-sea px-4 font-semibold text-white disabled:opacity-40"
         >
-          {gate.button === "dang" && editing ? NHAN.luu : NHAN[gate.button]}
+          {nutDang}
+        </button>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-3 [overscroll-behavior:contain]">
+        {me.s === "ok" && me.me.bannedUntil && (
+          <p role="alert" className="mb-3 rounded-xl bg-danger-bg px-3 py-2 text-[0.875rem] font-semibold text-danger">
+            {errorText({ code: "banned", status: 403, offline: false, extra: { until: me.me.bannedUntil } })}
+            {me.me.banReason ? ` Lý do: ${me.me.banReason}` : ""}
+          </p>
+        )}
+        {(needRules || (me.s === "ok" && !me.me.rulesAccepted)) && (
+          <div className="mb-3">
+            <RulesBox
+              onAccepted={(m) => {
+                setMe({ s: "ok", me: m });
+                setNeedRules(false);
+              }}
+            />
+          </div>
+        )}
+        {gate.retry && (
+          <div className={`mb-3 flex items-center gap-2 rounded-xl px-3 py-2 ${me.s === "error" ? "bg-danger-bg" : "bg-field"}`}>
+            <p className={`flex-1 text-[0.875rem] font-semibold ${me.s === "error" ? "text-danger" : "text-foreground/75"}`}>
+              {me.s === "error" ? me.text : "Mất sóng — viết trước, có sóng bấm Đăng."}
+            </p>
+            <button type="button" onClick={() => void loadMe()} className="h-10 rounded-xl bg-card px-3 font-semibold text-sea">
+              {NHAN.thuLai}
+            </button>
+          </div>
+        )}
+
+        {/* NGƯỜI ĐĂNG + chủ đề + cảng (như dòng "Công khai ▾" của FB) */}
+        <div className="mb-2 flex items-center gap-3">
+          <KairosAvatar id={me.s === "ok" ? me.me.profileId : "toi"} name={tenToi || "Tôi"} url={me.s === "ok" ? me.me.avatarUrl : null} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[1rem] font-semibold text-navy">{tenToi || " "}</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              <button type="button" onClick={() => setPickTopic(true)} className={nutPhu} aria-label={`Chủ đề: ${NHAN_CHIP_KAIROS[topic]}. Đổi`}>
+                {NHAN_CHIP_KAIROS[topic]}
+                <ChevronDownIcon className="h-3.5 w-3.5" />
+              </button>
+              {mode.kind !== "reshare" && (
+                <button type="button" onClick={() => setPickPort(true)} className={nutPhu} aria-label={port ? `Cảng ${PORT_NAME.get(port) ?? port}. Đổi` : "Gắn cảng"}>
+                  <PinIcon className="h-3.5 w-3.5" />
+                  {port ? (PORT_NAME.get(port) ?? port) : "Gắn cảng"}
+                  <ChevronDownIcon className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <textarea
+          ref={oChu}
+          id="kairos-soan"
+          aria-label={mode.kind === "reshare" ? "Lời của bạn" : "Nội dung bài"}
+          value={text}
+          onChange={(e) => {
+            onText(e.target.value);
+            // ô tự cao theo chữ (không cuộn trong ô nhỏ)
+            const el = e.currentTarget;
+            el.style.height = "auto";
+            el.style.height = `${el.scrollHeight}px`;
+          }}
+          rows={4}
+          placeholder={mode.kind === "reshare" ? "Bà con nghĩ gì về bài này?" : "Bà con muốn chia sẻ gì?"}
+          aria-describedby="kairos-soan-dem"
+          className="block w-full resize-none rounded-lg border-0 bg-transparent p-0 leading-snug text-foreground placeholder:text-foreground/45"
+          // cỡ chữ đặt inline: luật `textarea { font-size: max(16px,1em) }` của globals.css nằm ngoài @layer nên thắng
+          // utility. Viền tiêu điểm GIỮ (không huỷ trắng) nhưng nhạt — ô chữ toàn màn không trông như ô biểu mẫu.
+          style={{ fontSize: chuTo ? "1.5rem" : "1.0625rem", outlineWidth: 2, outlineColor: "var(--line)", outlineOffset: 6 }}
+        />
+        <div id="kairos-soan-dem" className="mb-2 mt-1 flex min-h-5 justify-between gap-2 text-[0.8125rem]">
+          <span className="text-foreground/65">{draftFail ? "Máy đầy — nháp chưa lưu được" : !online && text.trim() ? "Đã giữ nháp trong máy" : ""}</span>
+          {left <= 200 && <span className={`font-semibold tabular-nums ${tooLong ? "text-danger" : "text-foreground/65"}`}>{left}</span>}
+        </div>
+
+        {mode.kind === "reshare" ? (
+          <div className="mb-3 rounded-2xl border border-line px-3 py-2">
+            <p className="truncate text-[0.8125rem] font-semibold text-foreground/65">
+              {mode.post.kind === "bao" ? mode.post.outlet : mode.post.author?.handle || (mode.post.kind === "chinh-thuc" ? "SDVICO" : "")}
+            </p>
+            <p className="line-clamp-2 text-[1rem]">{mode.post.title || mode.post.summary || mode.post.body}</p>
+          </div>
+        ) : (
+          <ImagePicker value={images} onChange={setImages} max={LIMITS.images} upload={upload} label="Ảnh" openRef={anhMo} chiAnh />
+        )}
+
+        {err && (
+          <p role="alert" className="mt-2 text-[0.875rem] font-semibold text-danger">
+            {err}
+          </p>
+        )}
+      </div>
+
+      {/* THANH CÔNG CỤ — dính trên bàn phím: Ảnh · Nói · Cảng · Chủ đề */}
+      <div className="flex shrink-0 items-center gap-1 border-t border-line bg-card px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+        <span className="px-2 text-[0.875rem] text-foreground/65">Thêm vào bài</span>
+        <span className="flex-1" />
+        {mode.kind !== "reshare" && (
+          <button type="button" onClick={() => anhMo.current?.()} disabled={images.length >= LIMITS.images} aria-label={NHAN.anh} className={nutCong}>
+            <ImageIcon className="h-6 w-6" />
+          </button>
+        )}
+        <NutMic khongVien onChu={(t) => onText(text.trim() ? `${text.trimEnd()} ${t}` : t)} onLoi={setErr} />
+        {mode.kind !== "reshare" && (
+          <button type="button" onClick={() => setPickPort(true)} aria-label="Gắn cảng" className={nutCong}>
+            <PinIcon className="h-6 w-6" />
+          </button>
+        )}
+        <button type="button" onClick={() => setPickTopic(true)} aria-label="Chủ đề" className={nutCong}>
+          <NewsIcon className="h-6 w-6" />
         </button>
       </div>
 
+      {pickTopic && (
+        <BottomSheet title="Chủ đề bài" onClose={() => setPickTopic(false)}>
+          <p className="mb-2 text-[0.875rem] text-foreground/65">Không chọn thì máy tự đoán theo chữ bà con viết.</p>
+          <div className="grid gap-1">
+            {TOPIC_OPTIONS.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                aria-pressed={topic === o.id}
+                onClick={() => {
+                  setTopicTay(o.id as Topic);
+                  setPickTopic(false);
+                }}
+                className={`flex h-12 items-center rounded-xl px-3 text-left text-[1rem] font-semibold ${topic === o.id ? "bg-sea/12 text-sea" : "text-navy"}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </BottomSheet>
+      )}
       {pickPort && (
         <HomePortSheet
           title="Gắn cảng cho bài"
@@ -321,6 +439,7 @@ export function ComposerSheet({
           onClose={() => setPickPort(false)}
         />
       )}
-    </BottomSheet>
+    </div>,
+    document.body,
   );
 }

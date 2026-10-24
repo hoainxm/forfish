@@ -127,10 +127,13 @@ export function NutMic({
   onChu,
   onLoi,
   disabled = false,
+  khongVien = false,
 }: {
   onChu: (t: string) => void;
   onLoi?: (t: string) => void;
   disabled?: boolean;
+  /** không viền (thanh công cụ khung soạn — đồng bộ với các nút icon cạnh nó) */
+  khongVien?: boolean;
 }) {
   const [co, setCo] = useState(false);
   const [nghe, setNghe] = useState(false);
@@ -188,7 +191,7 @@ export function NutMic({
       disabled={disabled}
       aria-pressed={nghe}
       aria-label={nghe ? "Dừng nghe" : "Nói để viết"}
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-[0.95] disabled:opacity-40 ${nghe ? "bg-sea text-white" : "border border-line text-navy"}`}
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-[0.95] disabled:opacity-40 ${nghe ? "bg-sea text-white" : khongVien ? "text-navy" : "border border-line text-navy"}`}
     >
       <MicIcon className="h-5 w-5" />
     </button>

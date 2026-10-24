@@ -3,7 +3,7 @@
 /*
   DÒNG TIN KAIROS (14-ba-spec-kairos §3.2, §10; AC02 · AC03 · AC04 · AC06 · AC19).
 
-  Thứ tự trên màn: ô mời "Bà con có chuyện gì?" · thanh "Có N bài mới" · dải ghim · dòng tin một
+  Thứ tự trên màn: ô mời "Bà con muốn chia sẻ gì?" · thanh "Có N bài mới" · dải ghim · dòng tin một
   cột cuộn vô tận (cursor 20 bài). KHÔNG hàng chip lọc (anh Long 2026-10-24: "dòng tin thì cứ cho
   đọc thôi, tổ chức lọc làm gì? facebook có lọc đâu?") — một dòng tin "Mới" duy nhất; Bến theo
   cảng vẫn ở /kairos/ben/[port] (vào từ bài gắn cảng).
@@ -529,7 +529,7 @@ export function KairosFeed({
           onClick={onCompose}
           className="surface flex h-14 w-full items-center px-4 text-left text-[1rem] text-foreground/65 transition active:scale-[0.99]"
         >
-          Bà con có chuyện gì?
+          Bà con muốn chia sẻ gì?
         </button>
       </div>
 

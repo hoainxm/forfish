@@ -312,6 +312,17 @@ export function RouteIcon(p: IconProps) {
   );
 }
 
+// Ảnh (khung + núi + mặt trời) — nút thêm ảnh ở thanh công cụ khung soạn bài.
+export function ImageIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <circle cx="9" cy="9.5" r="1.6" />
+      <path d="m4 17 4.5-4.5 3.5 3.5 2.5-2.5L20 18" />
+    </svg>
+  );
+}
+
 export function PinIcon(p: IconProps) {
   return (
     <svg {...base(p)}>

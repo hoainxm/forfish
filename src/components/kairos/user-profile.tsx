@@ -13,7 +13,7 @@
      dõi · M đang theo dõi (chạm ⇒ sheet danh sách) · dòng tự giới thiệu.
    · Tên còn mặc định ("Bà con 5689") + chưa đổi lần nào ⇒ mời "Bà con muốn được gọi là gì?"
      ngay trên trang (một ô + Lưu, có Để sau — nhớ trong máy `forfish.kairos.moiten.v1`).
-   · Của mình: Sửa (sheet Sửa trang: tên, ảnh, số hiệu tàu, Giới thiệu) + ô "Bà con có chuyện gì?".
+   · Của mình: Sửa (sheet Sửa trang: tên, ảnh, số hiệu tàu, Giới thiệu) + ô "Bà con muốn chia sẻ gì?".
      Người khác: Theo dõi (một chiều, bấm lại để bỏ) + ⋯ (Chặn). KHÔNG có nút Nhắn — chưa có
      tính năng nhắn tin, không hứa thứ không có. Đã chặn ⇒ "Bạn đã chặn người này" + Bỏ chặn.
    · Thẻ Bài viết · Ảnh (lưới ảnh từ bài của chính họ) · Giới thiệu · (trang mình) Đã lưu — bài lưu MANG
@@ -482,7 +482,7 @@ export function UserProfile({ id }: { id: string }) {
                           className="surface flex h-14 w-full items-center gap-3 px-4 text-left text-[1rem] text-foreground/65 transition active:scale-[0.99]"
                         >
                           <KairosAvatar id={user.profileId} name={user.handle} url={user.avatarUrl} small />
-                          Bà con có chuyện gì?
+                          Bà con muốn chia sẻ gì?
                         </button>
                       )}
                       {shown.length === 0
