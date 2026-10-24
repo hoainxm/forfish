@@ -79,6 +79,8 @@ export interface KairosAuthor {
   official: boolean;
   /** chỉ có khi chủ bật "Hiện số hiệu tàu" */
   boatReg?: string;
+  /** tài khoản AGENT tri thức (SĐT sentinel `agent:` — agent-doi.mjs) ⇒ chấm "AI" cạnh tên */
+  isAgent?: boolean;
 }
 
 /**

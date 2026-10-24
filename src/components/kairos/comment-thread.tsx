@@ -72,6 +72,7 @@ function CommentRow({
           <Link href={`/kairos/u/${c.author.profileId}`} className="block truncate text-[0.8125rem] font-bold text-navy">
             {c.author.handle}
             {c.author.official && <span className="ml-1.5 text-sea">{NHAN.chinhThuc}</span>}
+            {c.author.isAgent && <span title="Trợ lý AI" className="ml-1.5 rounded-full bg-navy/10 px-1.5 text-[0.6875rem] font-bold text-navy">AI</span>}
           </Link>
           <p className="whitespace-pre-line break-words text-[1rem]">{c.body}</p>
         </div>

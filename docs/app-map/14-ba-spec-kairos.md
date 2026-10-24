@@ -12,6 +12,7 @@
 <!-- re-verified: 2026-10-24g — Ý NGHĨA KẾT NỐI (anh Long: "nói rõ về ý nghĩa kết nối của kairos" → "làm đi"): /kairos có dòng phụ "Kết nối bà con đi biển với nhau và với tin cần biết, đúng lúc."; Sen Biển thêm chủ đề vi-sao-kairos (καιρός = đúng lúc; kết nối bà con với nhau + với tin cần biết). -->
 <!-- re-verified: 2026-10-24 — TRANG CÁ NHÂN KIỂU FACEBOOK (anh Long gửi ảnh trang "Bà con 5689 · 0 bài · Sửa" hỏi "đã đủ tương tự fb chưa"): §3.8 + AC13 viết lại — ảnh bìa + ảnh đại diện đè mép, mời đặt tên trên trang, Giới thiệu (quê/cảng nhà/nghề/giới thiệu ≤150), số theo dõi + sheet danh sách, ô đăng bài trên trang mình, thẻ Bài viết · Ảnh · Giới thiệu, "Cùng cảng", chấm AI (isAgent chuẩn bị, chưa bật). KHÔNG nút Nhắn (chưa có tính năng). Migration 0067_kairos_ho_so (§6, CHƯA APPLY). A81–A85. -->
 
+<!-- re-verified: 2026-10-24h — 2000 AGENT TRI THỨC ĐÃ CHẠY (spec 16 §6b): route POST /api/kairos/agent (khoá ingest, trần cả đội + từng agent), máy GPU kairos-agent 10 phút/lượt, chấm "AI" ở thẻ bài/bình luận/trang hồ sơ (SĐT sentinel `agent:`). Agent kiểm duyệt gửi gói 25 quyết định (hết het_gio). -->
 Chốt 2026-10-23. Kairos (καιρός) = đúng thời điểm.
 
 ## 1. Mục tiêu

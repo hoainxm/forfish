@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24d — route MỚI `POST /api/kairos/agent` (2000 agent tri thức — lib/kairos/agent-doi.mjs + agent-dieu-phoi.mjs, script GPU scripts/kairos-agent.mjs); KairosAuthor.isAgent (dto suy từ SĐT `agent:`); post-card + comment-thread vẽ chấm AI. luat-kiem-duyet GOI_QUYET_DINH_TOI_DA 100 ⇒ 25. -->
 <!-- re-verified: 2026-10-24c — route MỚI `POST /api/kairos/sen-bien` (khoá ingest; Sen Biển đăng bài giới thiệu, lib/kairos/sen-bien-gioi-thieu.mjs) + script GPU `scripts/kairos-sen-bien.mjs`; types.ts thêm SEN_BIEN_PHONE. -->
 <!-- re-verified: 2026-10-24b — component MỚI `components/kairos/comment-thread.tsx` (khối bình luận dùng chung: inline dưới PostCard khi `actions.binhLuan` có — use-post-actions cấp notify/report/patch — và ở post-detail); post-detail bỏ CommentRow + logic bình luận riêng. -->
 <!-- re-verified: 2026-10-24 — KAIROS PHÂN PHỐI Ở MÁY CHỦ: `/api/kairos/feed` dòng tin mặc định xếp theo người đọc (lib/kairos/phan-phoi.ts thuần + phan-phoi-store.ts đọc kairos_reads, con trỏ `pp.`), route MỚI `POST /api/kairos/doc` (tín hiệu xem/mở — lib/kairos/tin-hieu-doc.ts thuần + gui-tin-hieu.ts phía app); kairos-feed.tsx đo thẻ trên màn bằng IntersectionObserver, không xếp lại dòng tin mặc định trong máy nữa (Bến vẫn rankPage). Máy thu tin: lib/kairos/cung-su-kien.mjs chặn tin cùng sự kiện. /quyen-rieng-tu khai bài đã xem trên Kairos. -->

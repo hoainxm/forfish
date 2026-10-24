@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  chuanKetLuan, docQuyetDinh, goiQuyetDinh, kiemCung, LUAT, LUAT_PHIEN_BAN, mucTuHangCho, NGUONG_CHAN, promptKiem,
+  chuanKetLuan, docQuyetDinh, GOI_QUYET_DINH_TOI_DA, goiQuyetDinh, kiemCung, LUAT, LUAT_PHIEN_BAN, mucTuHangCho, NGUONG_CHAN, promptKiem,
 } from "@/lib/kairos/luat-kiem-duyet.mjs";
 import { validateAgentBatch, MAX_DECISIONS_PER_CALL } from "@/lib/kairos/quyet-dinh";
 
@@ -107,12 +107,13 @@ describe("luat-kiem-duyet — đọc JSON mô hình", () => {
     expect(docQuyetDinh(null, lo)).toEqual([]);
     expect(docQuyetDinh({ quyet_dinh: "x" }, lo)).toEqual([]);
   });
-  it("gói gửi qua được validateAgentBatch của máy chủ, chia ≤100", () => {
+  it("gói gửi qua được validateAgentBatch của máy chủ, chia gói 25 (≤ trần máy chủ)", () => {
     const ds = docQuyetDinh([{ loai: "post", id: P2, ket_luan: "chan", luat: "lua-dao", ly_do: "Lừa đảo", diem: 0.9 }], lo);
     const [goi] = goiQuyetDinh(ds, "claude-haiku-5-5");
     expect(validateAgentBatch(goi)).toMatchObject({ ok: true });
     const many = Array.from({ length: 230 }, (_, i) => ({ targetType: "post" as const, targetId: P1, verdict: "dat" as const, reason: null, score: i / 1000 }));
-    expect(goiQuyetDinh(many, "haiku").map((g) => g.decisions.length)).toEqual([MAX_DECISIONS_PER_CALL, 100, 30]);
+    expect(goiQuyetDinh(many, "haiku").map((g) => g.decisions.length)).toEqual([25, 25, 25, 25, 25, 25, 25, 25, 25, 5]);
+    expect(GOI_QUYET_DINH_TOI_DA).toBeLessThanOrEqual(MAX_DECISIONS_PER_CALL);
     expect(validateAgentBatch({ ...goiQuyetDinh(ds, "luat-cung")[0] })).toMatchObject({ ok: true });
   });
 });

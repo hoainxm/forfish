@@ -32,7 +32,7 @@ const dry = argv.includes("--thu") || argv.includes("--dry");
 async function gui(c, decisions, model) {
   let hong = false;
   for (const goi of goiQuyetDinh(decisions, model)) {
-    const r = await goiApi(c, "/api/kairos/kiem", { method: "POST", body: goi, timeoutMs: 30_000 });
+    const r = await goiApi(c, "/api/kairos/kiem", { method: "POST", body: goi, timeoutMs: 60_000 });
     if (r.ok) log(`[gửi] ${goi.decisions.length} quyết định (${model}) ⇒ áp ${r.json.applied} · bỏ qua ${r.json.skipped} · không thấy ${r.json.missing}`);
     else {
       log(`[gửi] hỏng (${r.status || r.error}${r.json?.error ? ` ${r.json.error}` : ""}) — lượt sau chấm lại`);

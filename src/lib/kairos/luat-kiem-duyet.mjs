@@ -19,8 +19,9 @@ export const LUAT_PHIEN_BAN = "kd-2026-10-23.1";
 
 /** Mỗi lượt gọi mô hình chấm tối đa bấy nhiêu mục. */
 export const LO_KIEM = 20;
-/** POST /api/kairos/kiem nhận tối đa 100 quyết định một gói (khớp MAX_DECISIONS_PER_CALL). */
-export const GOI_QUYET_DINH_TOI_DA = 100;
+/** Gói POST /api/kairos/kiem: 25 quyết định (máy chủ nhận tới MAX_DECISIONS_PER_CALL 100). 2026-10-24: gói 100 làm route chạy
+ *  quá 30 s trên Vercel (mỗi quyết định vài lượt ghi) ⇒ máy thu báo het_gio dù máy chủ vẫn ghi — gói nhỏ hết báo động giả. */
+export const GOI_QUYET_DINH_TOI_DA = 25;
 /** `chan` chỉ giữ khi điểm ≥ ngưỡng này — dưới ngưỡng ⇒ `nghi` (người xem). */
 export const NGUONG_CHAN = 0.8;
 /** `dat` mà điểm vi phạm ≥ ngưỡng này ⇒ `nghi` (mô hình tự mâu thuẫn — để người xem). */

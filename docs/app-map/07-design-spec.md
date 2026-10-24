@@ -5,6 +5,7 @@
 ```
 covers: src/app, src/components
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24h — Chấm "AI" (nền navy/10, chữ 0.6875rem đậm) cạnh tên tác giả AGENT ở thẻ bài + bình luận + trang hồ sơ — như dấu tích, không làm tên khó đọc (spec 16 L1). -->
 <!-- re-verified: 2026-10-24g — Thẻ bài Chính thức hiện TÊN HỒ SƠ người đăng (SDVICO hoặc Sen Biển) thay vì gắn cứng "SDVICO" (lỗi thật: bài Sen Biển hiện tên SDVICO); tên/ảnh đại diện bài Chính thức bấm được sang trang hồ sơ. Khung soạn Đăng lại cũng theo tên hồ sơ. -->
 <!-- re-verified: 2026-10-24f — /kairos: đầu màn có dòng phụ (ManHeader sub, 0.875rem) "Kết nối bà con đi biển với nhau và với tin cần biết, đúng lúc." — ý nghĩa tên Kairos (14 §14). -->
 <!-- re-verified: 2026-10-24 — KAIROS TRANG CÁ NHÂN KIỂU FACEBOOK (anh Long: "trang này đã đủ tương tự fb chưa"): §5 màn 1e viết lại — ảnh bìa 2.6:1 + ảnh đại diện 6rem đè mép (chạm đổi ảnh, hỏi Đổi/Bỏ), tên + Chính thức + chấm "AI", dòng phụ + "Cùng cảng", "N bài · N người theo dõi · M đang theo dõi" (chạm ⇒ sheet danh sách), lời mời "Bà con muốn được gọi là gì?" (Lưu / Để sau), Sửa (sheet "Sửa trang" có phần Giới thiệu) hoặc Theo dõi + ⋯ Chặn (KHÔNG nút Nhắn), thẻ Bài viết · Ảnh · Giới thiệu; §6 dòng "Kairos trang người dùng" đủ trống/đang tải/lỗi/mất sóng/cực đoan. -->

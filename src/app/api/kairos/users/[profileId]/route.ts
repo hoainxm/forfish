@@ -4,6 +4,7 @@
 // "cùng cảng" với người xem, mời đặt tên (trang mình), và trang bài đầu (cursor 20). Người mình đã chặn ⇒ `blockedByMe`,
 // không trả bài (màn hiện "Bạn đã chặn người này" + Bỏ chặn).
 import { NextResponse } from "next/server";
+import { laAgent } from "@/lib/kairos/agent-doi.mjs";
 import { encodeCursor } from "@/lib/kairos/cursor";
 import { parseFeedParams } from "@/lib/kairos/feed-query";
 import { samePort, shouldAskName } from "@/lib/kairos/ho-so";
@@ -46,8 +47,8 @@ export async function GET(req: Request, ctx: Ctx) {
       followers: counts.followers,
       followingCount: counts.following,
       samePort: !!viewerCard && samePort(card.portId, viewerCard.portId),
-      // nợ: chưa có cột cờ agent (16-ba-spec-agent-kairos nháp) — luôn false; thêm cột khi agent lên
-      isAgent: false,
+      // agent tri thức nhận biết qua SĐT sentinel `agent:` (agent-doi.laAgent) — không cần cột DB
+      isAgent: laAgent(prof.phone),
       askName: me && shouldAskName(prof),
     };
     if (blockedByMe) return NextResponse.json({ ok: true, user, posts: [], next: null });

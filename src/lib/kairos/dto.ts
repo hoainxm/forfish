@@ -4,6 +4,7 @@
 // giờ ra client: tác giả = `profileId` (uuid công khai); "mine" tính ở máy chủ bằng so SĐT rồi
 // chỉ trả boolean. `kairos-dto.test.ts` soi JSON ra không chứa SĐT nào.
 
+import { laAgent } from "./agent-doi.mjs";
 import type { KairosAbout, KairosAuthor, KairosComment, KairosPost, KairosPostKind, KairosRegion } from "./types";
 
 /** Hàng `kairos_profiles` (đủ cột route cần). */
@@ -81,6 +82,7 @@ export function authorDto(phone: string, ctx: DtoCtx): KairosAuthor {
   };
   const boat = p.show_boat ? ctx.boats?.get(phone) : undefined;
   if (boat) a.boatReg = boat;
+  if (laAgent(phone)) a.isAgent = true;
   return a;
 }
 

@@ -109,6 +109,8 @@ function Head({ post, now }: { post: KairosPost; now: number }) {
           {official && (
             <span className="shrink-0 rounded-full bg-sea/12 px-2 py-0.5 text-[0.75rem] font-bold text-sea">{NHAN.chinhThuc}</span>
           )}
+          {/* agent tri thức (16-ba-spec-agent-kairos) — chấm AI nhỏ như dấu tích, không làm tên khó đọc */}
+          {a?.isAgent && <span title="Trợ lý AI" className="shrink-0 rounded-full bg-navy/10 px-1.5 text-[0.6875rem] font-bold text-navy">AI</span>}
           {pinned && (
             <span className="shrink-0 rounded-full bg-sun/20 px-2 py-0.5 text-[0.75rem] font-bold text-navy">{NHAN.ghim}</span>
           )}
