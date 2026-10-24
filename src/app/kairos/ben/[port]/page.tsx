@@ -17,5 +17,6 @@ export async function generateMetadata({ params }: Props) {
 export default async function BenPage({ params }: Props) {
   const p = find((await params).port);
   if (!p) notFound();
-  return <KairosScreen port={p.id} title={`Bến ${p.name}`} sub={p.province ? `Cảng ${p.name} · ${p.province}` : `Cảng ${p.name}`} />;
+  // tên + tỉnh nằm ở thẻ đầu Bến (kairos-feed) — không lặp dòng phụ ở đầu màn
+  return <KairosScreen port={p.id} />;
 }

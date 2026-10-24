@@ -244,17 +244,26 @@ export interface Thread {
   replies: KairosComment[];
 }
 
+/** Giờ tăng dần, trùng giờ thì so id — nối trang 2 hay chèn bình luận vừa gửi đều về đúng chỗ. */
+function theoGio(a: KairosComment, b: KairosComment): number {
+  const ta = Date.parse(a.createdAt);
+  const tb = Date.parse(b.createdAt);
+  const d = (Number.isFinite(ta) ? ta : 0) - (Number.isFinite(tb) ? tb : 0);
+  return d !== 0 ? d : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
 /**
- * Danh sách phẳng (máy chủ trả theo giờ tăng dần, nhiều trang) ⇒ luồng 1 cấp: gốc theo thứ tự
- * đến, trả lời dưới gốc của nó. Trả lời mà gốc chưa tải tới (trang sau) / đã xoá ⇒ đứng như
- * gốc để không mất chữ. Trùng id (trang chồng) ⇒ giữ bản sau.
+ * Danh sách phẳng (nhiều trang, có thể lẫn bình luận vừa gửi) ⇒ luồng 1 cấp: gốc và trả lời
+ * trong từng luồng XẾP THEO GIỜ tăng dần (trùng giờ so id), không theo thứ tự đến. Trả lời mà
+ * gốc chưa tải tới (trang sau) / đã xoá ⇒ đứng như gốc để không mất chữ. Trùng id (trang chồng)
+ * ⇒ giữ bản sau.
  */
 export function threadComments(list: readonly KairosComment[]): Thread[] {
   const byId = new Map<string, KairosComment>();
   for (const c of list) byId.set(c.id, c);
   const roots: Thread[] = [];
   const idx = new Map<string, Thread>();
-  const all = [...byId.values()];
+  const all = [...byId.values()].sort(theoGio);
   for (const c of all) {
     if (c.parentId && byId.has(c.parentId)) continue;
     const t = { root: c, replies: [] };
@@ -265,9 +274,54 @@ export function threadComments(list: readonly KairosComment[]): Thread[] {
   return roots;
 }
 
+/**
+ * Trả lời được HIỆN của một luồng (như FB "Xem N phản hồi"): 1 trả lời ⇒ hiện luôn; ≥2 ⇒ gập
+ * hết, trừ khi luồng đang mở (`moSet` chứa id gốc) hoặc chứa bình luận được trỏ tới (`#bl-<id>`
+ * từ thông báo).
+ */
+export function traLoiHien(thread: Thread, moSet: ReadonlySet<string>, idTroToi?: string | null): KairosComment[] {
+  const r = thread.replies;
+  if (r.length <= 1 || moSet.has(thread.root.id)) return r;
+  if (idTroToi && r.some((c) => c.id === idTroToi)) return r;
+  return [];
+}
+
 /** Trả lời một trả lời ⇒ gắn vào gốc kèm "@tên " ở đầu (14 §3.4). Trả lời gốc ⇒ không chèn. */
 export function replyTarget(c: KairosComment): { parentId: string; prefix: string } {
   return c.parentId ? { parentId: c.parentId, prefix: `@${c.author.handle} ` } : { parentId: c.id, prefix: "" };
+}
+
+/**
+ * Chữ gửi đi của ô bình luận. Ô KHÔNG chèn "@tên" khi bấm Trả lời (viên "Trả lời …" nói thay);
+ * lúc gửi mới ghép: chỉ khi đang trả lời MỘT TRẢ LỜI và chữ chưa mở đầu bằng đúng tiền tố đó.
+ */
+export function ghepTraLoi(text: string, replyTo: { handle: string } | null, laTraLoiCuaTraLoi: boolean): string {
+  if (!replyTo || !laTraLoiCuaTraLoi) return text;
+  const pre = `@${replyTo.handle} `;
+  return text.startsWith(pre) ? text : `${pre}${text}`;
+}
+
+/**
+ * Nháp cũ (bản chèn "@tên " vào ô) ⇒ bóc tiền tố khi mở lại. Chỉ bóc khi khớp ĐÚNG một tên đã
+ * biết (tên gọi có dấu cách nên không đoán theo khoảng trắng); tên dài nhất thắng.
+ */
+export function bocTienTo(text: string, handles: Iterable<string>): string {
+  if (!text.startsWith("@")) return text;
+  let best = "";
+  for (const h of handles) {
+    const pre = `@${h} `;
+    if (h && text.startsWith(pre) && pre.length > best.length) best = pre;
+  }
+  return best ? text.slice(best.length) : text;
+}
+
+/**
+ * Khung soạn có gì để mất không (bấm × / Escape mới hỏi Lưu nháp · Bỏ bài · Viết tiếp).
+ * Bài mới / đăng lại: có chữ hoặc có ảnh. Sửa bài: so với nội dung cũ — không đổi gì ⇒ đóng ngay.
+ */
+export function khungCoThayDoi(text: string, images: readonly string[], cu?: { body: string; images: readonly string[] } | null): boolean {
+  if (!cu) return !!text.trim() || images.length > 0;
+  return text.trim() !== cu.body.trim() || images.length !== cu.images.length || images.some((u, i) => u !== cu.images[i]);
 }
 
 /** Bỏ một bình luận khỏi danh sách; xoá gốc ⇒ bỏ luôn trả lời con (máy chủ cascade). */

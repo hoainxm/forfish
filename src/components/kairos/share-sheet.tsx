@@ -12,34 +12,15 @@
 import { useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { inputClass } from "@/components/ui/primitives";
-import { timeoutSignal } from "@/lib/abort";
 import type { KairosPost } from "@/lib/kairos/types";
 import { shareLink, shareText } from "@/lib/kairos/write-client";
+import { downloadOne } from "@/lib/kairos/tai-anh";
 import { NHAN } from "@/lib/labels";
 import { useOnline } from "@/lib/use-online";
 
 async function copy(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function downloadOne(url: string, name: string): Promise<boolean> {
-  try {
-    const r = await fetch(url, { signal: timeoutSignal(30_000) });
-    if (!r.ok) return false;
-    const blob = await r.blob();
-    const href = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = href;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(href), 10_000);
     return true;
   } catch {
     return false;

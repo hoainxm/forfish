@@ -36,6 +36,7 @@ export const NHAN = {
   chep: "Chép",
   chiaSe: "Chia sẻ",
   camDang: "Cấm đăng",
+  cangNha: "Cảng nhà",
   // tài khoản
   dangNhap: "Đăng nhập",
   dangKy: "Đăng ký",
@@ -127,8 +128,11 @@ export const NHAN = {
   // Kairos — lưu bài mang theo + tải tin mang đi (14 §18–§19). "Lưu" / "Đã lưu" / "Để sau" dùng nhãn chung ở trên
   boLuu: "Bỏ lưu",
   tai: "Tải",
-  // nhãn khu vực trên thẻ bài không rõ vùng (14 §4, feed-client.areaTag)
-  caNuoc: "Cả nước",
+  // Kairos — khung soạn: × khi đã viết hỏi Lưu nháp · Bỏ bài · Viết tiếp; hộp gắn cảng có dòng "Không gắn" (14 §3.3)
+  luuNhap: "Lưu nháp",
+  boBai: "Bỏ bài",
+  vietTiep: "Viết tiếp",
+  khongGan: "Không gắn",
 } as const;
 
 /**

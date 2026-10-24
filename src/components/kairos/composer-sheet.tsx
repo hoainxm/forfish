@@ -40,7 +40,8 @@ import {
   errorText,
   kairosSend,
   kairosUpload,
-  loadDraft,
+  khungCoThayDoi,
+  loadDraftFull,
   mediaPathFromUrl,
   meRefetchOnOnline,
   orphanUploads,
@@ -55,6 +56,7 @@ import { HomePortSheet } from "./home-port-sheet";
 import { RulesBox } from "./rules-box";
 import { NutMic } from "./de-dung";
 import { KairosAvatar } from "./kairos-avatar";
+import { useVungNhin } from "./use-vung-nhin";
 
 export type ComposeMode =
   | { kind: "new"; port?: string }
@@ -80,24 +82,6 @@ export function doanChuDe(text: string): Topic {
 /** Từ bà con hay viết khi kể chuyện đi biển (bổ sung cho laChuyenBien vốn soạn cho tin báo). */
 const RE_CHUYEN_BIEN = /(ra khơi|đi biển|ngoài khơi|ghe|tàu|thuyền|lưới|câu mực|mực|cá |cá$|tôm|cua|ghẹ|sóng|gió|bão|biển|cảng|bến|neo|hải sản|ngư trường|luồng cá)/u;
 
-/** Vùng nhìn thấy thật (trừ bàn phím) — thanh công cụ + nút Đăng luôn nằm trên bàn phím như Facebook. */
-function useVungNhin(): { top: number; height: number } | null {
-  const [v, setV] = useState<{ top: number; height: number } | null>(null);
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const cap = () => setV({ top: vv.offsetTop, height: vv.height });
-    cap();
-    vv.addEventListener("resize", cap);
-    vv.addEventListener("scroll", cap);
-    return () => {
-      vv.removeEventListener("resize", cap);
-      vv.removeEventListener("scroll", cap);
-    };
-  }, []);
-  return v;
-}
-
 function keyOf(mode: ComposeMode): string {
   if (mode.kind === "edit") return draftKey("sua", mode.post.id);
   if (mode.kind === "reshare") return `lai:${mode.post.id}`;
@@ -119,10 +103,23 @@ export function ComposerSheet({
   const editing = mode.kind === "edit" ? mode.post : null;
   const dKey = keyOf(mode);
 
-  const [text, setText] = useState(() => loadDraft(phone, dKey) || editing?.body || "");
+  // Nháp đọc MỘT lần lúc mở khung: chữ + ảnh đã "Lưu nháp" (nháp cũ chỉ có chữ vẫn đọc được).
+  const [nhap] = useState(() => loadDraftFull(phone, dKey));
+  const anhCu = editing?.images.filter((u) => mediaPathFromUrl(u)) ?? [];
+  const [text, setText] = useState(() => nhap?.text || editing?.body || "");
   const [draftFail, setDraftFail] = useState(false);
-  const [images, setImages] = useState<string[]>(() => editing?.images.filter((u) => mediaPathFromUrl(u)) ?? []);
-  const paths = useRef(new Map<string, string>());
+  const [images, setImages] = useState<string[]>(() => (nhap?.images.length ? nhap.images.filter((u) => mediaPathFromUrl(u)) : anhCu));
+  // Ảnh của nháp (không thuộc bài đang sửa) tính như ảnh tải trong phiên ⇒ Bỏ bài / gỡ khỏi bài thì xoá khỏi kho.
+  const [pathsDau] = useState(() => {
+    const m = new Map<string, string>();
+    for (const u of nhap?.images ?? []) {
+      const p = mediaPathFromUrl(u);
+      if (p && !editing?.images.includes(u)) m.set(u, p);
+    }
+    return m;
+  });
+  const paths = useRef(pathsDau);
+  const [hoiDong, setHoiDong] = useState(false);
   // chủ đề TỰ ĐOÁN theo chữ tới khi bà con tự chọn (sửa bài: giữ chủ đề cũ)
   const [topicTay, setTopicTay] = useState<Topic | null>(() => (editing && (TOPICS as readonly string[]).includes(editing.topic) ? (editing.topic as Topic) : null));
   const [pickTopic, setPickTopic] = useState(false);
@@ -238,15 +235,44 @@ export function ComposerSheet({
     };
   }, []);
 
-  /** Huỷ / đóng khung: ảnh vừa tải trong phiên này chưa thuộc bài nào ⇒ xoá khỏi kho. */
+  /** Bỏ bài: ảnh vừa tải trong phiên này (và ảnh của nháp) chưa thuộc bài nào ⇒ xoá khỏi kho. */
   const cancel = () => {
     void discardUploads(orphanUploads(paths.current.values(), []));
     paths.current.clear();
     onClose();
   };
+  /** × / Escape: có chữ hay ảnh (sửa bài: khác bản cũ) ⇒ hỏi Lưu nháp · Bỏ bài · Viết tiếp; trống ⇒ đóng ngay. */
+  const dong = () => {
+    if (khungCoThayDoi(text, images, editing ? { body: editing.body, images: anhCu } : null)) setHoiDong(true);
+    else cancel();
+  };
+  const luuNhap = () => {
+    if (!saveDraft(phone, dKey, text, Date.now(), images)) {
+      setHoiDong(false);
+      setDraftFail(true);
+      setErr("Máy đầy — nháp chưa lưu được. Đăng luôn hoặc bỏ bớt ảnh.");
+      return;
+    }
+    // GIỮ ảnh trên kho (nháp còn dùng) — KHÔNG discardUploads.
+    // nợ: ảnh nháp quá 24 giờ có thể bị agent dọn ảnh mồ côi xoá; nâng cấp khi kho biết ảnh thuộc nháp.
+    paths.current.clear();
+    onClose();
+  };
+  const boBai = () => {
+    saveDraft(phone, dKey, "", Date.now(), []);
+    cancel();
+  };
   useEffect(() => {
-    cancelRef.current = cancel;
+    cancelRef.current = dong;
   });
+
+  // Ô chữ tự cao theo chữ — theo `text` (gõ, micro, nháp mở lại đều cao theo), không cuộn trong ô nhỏ.
+  useEffect(() => {
+    const el = oChu.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text]);
 
   const title = editing ? "Sửa bài" : mode.kind === "reshare" ? "Đăng lại" : mode.kind === "new" && mode.port ? `Đăng vào Bến ${PORT_NAME.get(mode.port) ?? ""}` : "Đăng bài";
 
@@ -278,7 +304,7 @@ export function ComposerSheet({
     >
       {/* THANH TRÊN — ✕ · tên khung · Đăng (luôn thấy, kể cả khi bàn phím mở) */}
       <header className="flex h-14 shrink-0 items-center gap-1 border-b border-line px-2 pt-[env(safe-area-inset-top)]">
-        <button type="button" onClick={cancel} aria-label={NHAN.dong} className={nutCong}>
+        <button type="button" onClick={dong} aria-label={NHAN.dong} className={nutCong}>
           <CloseIcon className="h-6 w-6" />
         </button>
         <h2 id={tieuDeId} className="min-w-0 flex-1 truncate text-center text-[1.0625rem] font-semibold text-navy">
@@ -334,11 +360,23 @@ export function ComposerSheet({
                 <ChevronDownIcon className="h-3.5 w-3.5" />
               </button>
               {mode.kind !== "reshare" && (
-                <button type="button" onClick={() => setPickPort(true)} className={nutPhu} aria-label={port ? `Cảng ${PORT_NAME.get(port) ?? port}. Đổi` : "Gắn cảng"}>
-                  <PinIcon className="h-3.5 w-3.5" />
-                  {port ? (PORT_NAME.get(port) ?? port) : "Gắn cảng"}
-                  <ChevronDownIcon className="h-3.5 w-3.5" />
-                </button>
+                <span className="flex items-center gap-0.5">
+                  <button type="button" onClick={() => setPickPort(true)} className={nutPhu} aria-label={port ? `Cảng ${PORT_NAME.get(port) ?? port}. Đổi` : "Gắn cảng"}>
+                    <PinIcon className="h-3.5 w-3.5" />
+                    {port ? (PORT_NAME.get(port) ?? port) : "Gắn cảng"}
+                    <ChevronDownIcon className="h-3.5 w-3.5" />
+                  </button>
+                  {port && (
+                    <button
+                      type="button"
+                      onClick={() => setPort(null)}
+                      aria-label={`Gỡ cảng ${PORT_NAME.get(port) ?? port}`}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/65"
+                    >
+                      <CloseIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                </span>
               )}
             </div>
           </div>
@@ -349,13 +387,7 @@ export function ComposerSheet({
           id="kairos-soan"
           aria-label={mode.kind === "reshare" ? "Lời của bạn" : "Nội dung bài"}
           value={text}
-          onChange={(e) => {
-            onText(e.target.value);
-            // ô tự cao theo chữ (không cuộn trong ô nhỏ)
-            const el = e.currentTarget;
-            el.style.height = "auto";
-            el.style.height = `${el.scrollHeight}px`;
-          }}
+          onChange={(e) => onText(e.target.value)}
           rows={4}
           placeholder={mode.kind === "reshare" ? "Bà con nghĩ gì về bài này?" : "Bà con muốn chia sẻ gì?"}
           aria-describedby="kairos-soan-dem"
@@ -432,12 +464,29 @@ export function ComposerSheet({
         <HomePortSheet
           title="Gắn cảng cho bài"
           note="Bài sẽ hiện ở Bến của cảng này."
+          choBo
           onPick={(id) => {
             setPort(id);
             setPickPort(false);
           }}
           onClose={() => setPickPort(false)}
         />
+      )}
+      {hoiDong && (
+        <BottomSheet title={editing ? "Bỏ phần đã sửa?" : "Bỏ bài đang viết?"} onClose={() => setHoiDong(false)}>
+          <p className="mb-3 text-[0.875rem] text-foreground/65">Lưu nháp thì lần sau mở lại viết tiếp được, kể cả ảnh.</p>
+          <div className="grid gap-2">
+            <button type="button" onClick={luuNhap} className="h-(--h-cta) rounded-xl bg-sea font-semibold text-white">
+              {NHAN.luuNhap}
+            </button>
+            <button type="button" onClick={boBai} className="h-(--h-cta) rounded-xl border border-line font-semibold text-danger">
+              {NHAN.boBai}
+            </button>
+            <button type="button" onClick={() => setHoiDong(false)} className="h-(--h-cta) rounded-xl font-semibold text-navy">
+              {NHAN.vietTiep}
+            </button>
+          </div>
+        </BottomSheet>
       )}
     </div>,
     document.body,

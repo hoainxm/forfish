@@ -5,13 +5,16 @@
   soạn. Bến truyền `port` ⇒ dòng tin lọc theo cảng, ô mời đăng THẲNG vào Bến (AC14).
   Góc phải: chuông "Thông báo" (chỉ tin bình luận/trả lời mình, chấm đếm chưa đọc — 14 §16, dòng tin chung) + nút bánh răng "Tuỳ chọn dòng tin" (CHỈ dòng tin chung, không ở Bến — 14 §13) + "Trang tôi" ⇒
   /kairos/u/toi (đổi tên gọi, ảnh, số hiệu tàu — AC12).
+  Bến (có `port`) là màn PHỤ ⇒ MarketHeader "‹ Bến X" (không trang trước ⇒ về /kairos), "Trang tôi" ở ô phải;
+  tab Kairos gốc giữ tiêu đề lớn ManHeader.
 */
 
 import Link from "next/link";
 import { useState } from "react";
 import { SettingsIcon } from "@/components/icons";
 import { ManHeader } from "@/components/man-header";
-import { loadTuyChon } from "@/lib/kairos/feed-client";
+import { MarketHeader } from "@/components/market/shared/market-header";
+import { loadTuyChon, portLabel } from "@/lib/kairos/feed-client";
 import type { TuyChon } from "@/lib/kairos/tuy-chon";
 import { NHAN } from "@/lib/labels";
 import { ChuongKairos } from "./chuong-kairos";
@@ -25,15 +28,23 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
   const [tuyChon, setTuyChon] = useState<TuyChon | null>(null);
   /** ngăn đang mở: bản tuỳ chọn lúc mở (đọc lại từ máy để khớp cái dòng tin đang dùng) */
   const [mo, setMo] = useState<TuyChon | null>(null);
+  const trangToi = (
+    <Link href="/kairos/u/toi" className="flex h-11 items-center rounded-xl border border-line px-3 text-[0.875rem] font-semibold text-sea">
+      {NHAN.trangToi}
+    </Link>
+  );
   return (
     <div>
-      <ManHeader
-        title={title}
-        sub={sub}
-        right={
-          <div className="flex items-center gap-2">
-            {!port && <ChuongKairos />}
-            {!port && (
+      {port ? (
+        // Bến = màn PHỤ (vào từ nhãn cảng trên bài / trang cá nhân) ⇒ thanh ‹ Quay lại như mọi màn phụ
+        <MarketHeader title={`Bến ${portLabel(port) ?? ""}`.trim()} fallback="/kairos" right={trangToi} />
+      ) : (
+        <ManHeader
+          title={title}
+          sub={sub}
+          right={
+            <div className="flex items-center gap-2">
+              <ChuongKairos />
               <button
                 type="button"
                 aria-label={NHAN.tuyChon}
@@ -43,13 +54,11 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
               >
                 <SettingsIcon className="h-5 w-5" />
               </button>
-            )}
-            <Link href="/kairos/u/toi" className="flex h-11 items-center rounded-xl border border-line px-3 text-[0.875rem] font-semibold text-sea">
-              {NHAN.trangToi}
-            </Link>
-          </div>
-        }
-      />
+              {trangToi}
+            </div>
+          }
+        />
+      )}
       <KairosFeed
         port={port}
         tuyChon={port ? undefined : (tuyChon ?? undefined)}

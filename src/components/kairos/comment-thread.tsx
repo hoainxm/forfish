@@ -4,7 +4,10 @@
   KHỐI BÌNH LUẬN DÙNG CHUNG (14 §3.4, AC09 · AC10 · AC15) — INLINE NGAY DƯỚI THẺ BÀI như Facebook (anh Long
   2026-10-24: "thao tác bình luận các kiểu giống fb, inline chứ đừng nhảy ra tab khác") và ở /kairos/p/[id].
 
-   · Trả lời 1 cấp: trả lời một trả lời ⇒ gắn vào bình luận gốc kèm "@tên" (write-client.replyTarget).
+   · Trả lời 1 cấp: trả lời một trả lời ⇒ gắn vào bình luận gốc kèm "@tên" — KHÔNG chèn vào ô (viên
+     "Trả lời …" + × nói thay), chỉ ghép lúc gửi (social.ghepTraLoi). Đổi người trả lời / huỷ giữ chữ.
+   · Luồng ≥2 trả lời gập thành "Xem N phản hồi" (social.traLoiHien); `#bl-<id>` hoặc mình vừa trả lời ⇒ bung.
+   · `dinhDay` (trang chi tiết): ô viết dính đáy trên dock, bàn phím mở thì dịch lên theo use-vung-nhin.
    · Hay lạc quan + hoàn tác; xoá của mình (xác nhận tại chỗ); báo xấu của người khác.
    · Ô viết dạng viên (như FB): chữ + nút gửi; Enter xuống dòng (bàn phím điện thoại), bấm nút mới gửi.
    · Nháp theo bài `forfish.kairos.nhap.v1` khoá `bl:<id>` — mất sóng vẫn giữ chữ, KHÔNG tự gửi khi có sóng lại.
@@ -16,19 +19,22 @@
 import { chonCamXuc, chotCamXuc, type CamXuc, type CamXucState } from "@/lib/kairos/cam-xuc";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SendIcon } from "@/components/icons";
+import { CloseIcon, SendIcon } from "@/components/icons";
 import { draftKey } from "@/lib/kairos/cache";
-import { postTimeLabel } from "@/lib/kairos/feed-client";
+import { countLabel, postTimeLabel } from "@/lib/kairos/feed-client";
 import { LIMITS, type KairosComment, type KairosPost } from "@/lib/kairos/types";
 import { charLen } from "@/lib/kairos/validate";
 import {
+  bocTienTo,
   dropComment,
   errorText,
+  ghepTraLoi,
   kairosSend,
   loadDraft,
   replyTarget,
   saveDraft,
   threadComments,
+  traLoiHien,
 } from "@/lib/kairos/write-client";
 import { NHAN } from "@/lib/labels";
 import { useAuthUser } from "@/lib/use-auth";
@@ -39,6 +45,7 @@ import { KairosAvatar } from "./kairos-avatar";
 import { RulesBox } from "./rules-box";
 import { NutMic } from "./de-dung";
 import { BL_NHANH } from "@/lib/kairos/de-dung";
+import { useVungNhin } from "./use-vung-nhin";
 
 /** Việc của màn chứa (usePostActions): báo một dòng, mở hộp báo xấu, sửa số bình luận của bài đang hiện. */
 export interface CommentKit {
@@ -68,7 +75,7 @@ function CommentRow({
   const [busy, setBusy] = useState(false);
   const small = "h-9 px-2 text-[0.8125rem] font-semibold";
   return (
-    <li className={`flex gap-2 ${reply ? "pl-10" : ""}`}>
+    <li id={`bl-${c.id}`} className={`flex scroll-mt-20 gap-2 ${reply ? "pl-10" : ""}`}>
       <Link href={`/kairos/u/${c.author.profileId}`} aria-label={c.author.handle} className="shrink-0">
         <KairosAvatar id={c.author.profileId || c.id} name={c.author.handle} url={c.author.avatarUrl} small />
       </Link>
@@ -132,6 +139,7 @@ export function CommentThread({
   kit,
   canWrite = true,
   autoFocus = false,
+  dinhDay = false,
   now,
 }: {
   post: KairosPost;
@@ -142,6 +150,8 @@ export function CommentThread({
   /** bài đang là bản lưu (mất sóng) ⇒ ô viết "Cần sóng" */
   canWrite?: boolean;
   autoFocus?: boolean;
+  /** trang chi tiết bài: ô viết dính đáy màn (trên dock / trên bàn phím) như Facebook */
+  dinhDay?: boolean;
   now: number;
 }) {
   const { phone, signedIn, ready: authReady } = useAuthUser();
@@ -154,15 +164,41 @@ export function CommentThread({
   const dKey = draftKey("bl", id);
   const [text, setText] = useState("");
   const [draftFail, setDraftFail] = useState(false);
-  const [replyTo, setReplyTo] = useState<{ parentId: string; handle: string } | null>(null);
+  /** `sau` = đang trả lời MỘT TRẢ LỜI (lúc gửi mới ghép "@tên ") */
+  const [replyTo, setReplyTo] = useState<{ parentId: string; handle: string; sau: boolean } | null>(null);
+  /** id gốc các luồng đang bung "Xem N phản hồi" */
+  const [mo, setMo] = useState<Set<string>>(() => new Set());
+  const [troToi, setTroToi] = useState<string | null>(null);
+  const vung = useVungNhin();
+  /** nháp cũ (bản chèn "@tên " vào ô) chờ bóc khi biết tên trong luồng */
+  const bocRef = useRef(false);
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState("");
   const [needRules, setNeedRules] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
   const hayBusy = useRef(new Set<string>());
 
-  useEffect(() => setText(loadDraft(phone, dKey)), [phone, dKey]);
+  useEffect(() => {
+    const t = loadDraft(phone, dKey);
+    bocRef.current = t.startsWith("@");
+    setText(t);
+  }, [phone, dKey]);
 
+  // Nháp cũ lỡ mở đầu bằng "@tên " ⇒ bóc khi danh sách có tên đó (chỉ một lần, bà con gõ là thôi).
+  useEffect(() => {
+    if (!bocRef.current || !comments.length) return;
+    const t = bocTienTo(text, comments.map((c) => c.author.handle));
+    if (t === text) return;
+    bocRef.current = false;
+    setText(t);
+    setDraftFail(!saveDraft(phone, dKey, t));
+  }, [comments, text, phone, dKey]);
+
+  // Thông báo trỏ tới `#bl-<id>` ⇒ bung luồng chứa nó.
+  useEffect(() => {
+    const h = window.location.hash;
+    if (h.startsWith("#bl-")) setTroToi(decodeURIComponent(h.slice(4)));
+  }, []);
   const loadFirst = useCallback(async () => {
     setFirst("loading");
     const r = await kairosSend<{ comments: KairosComment[]; next: string | null }>("GET", `/api/kairos/posts/${encodeURIComponent(id)}/comments`);
@@ -201,15 +237,16 @@ export function CommentThread({
   };
 
   const onText = (v: string) => {
+    bocRef.current = false;
     setText(v);
     setSendErr("");
     setDraftFail(!saveDraft(phone, dKey, v));
   };
 
+  /** Chỉ đổi người đang trả lời — chữ đang gõ giữ nguyên, không chèn "@tên" vào ô. */
   const startReply = (c: KairosComment) => {
     const t = replyTarget(c);
-    setReplyTo({ parentId: t.parentId, handle: c.author.handle });
-    if (t.prefix && !text.startsWith(t.prefix)) onText(`${t.prefix}${text}`);
+    setReplyTo({ parentId: t.parentId, handle: c.author.handle, sau: !!t.prefix });
     box.current?.focus();
   };
 
@@ -224,7 +261,7 @@ export function CommentThread({
     setSending(true);
     setSendErr("");
     const r = await kairosSend<{ comment: KairosComment }>("POST", `/api/kairos/posts/${encodeURIComponent(id)}/comments`, {
-      body: nhanh ?? text,
+      body: ghepTraLoi(nhanh ?? text, replyTo, !!replyTo?.sau),
       parentId: replyTo?.parentId ?? null,
     });
     setSending(false);
@@ -234,6 +271,8 @@ export function CommentThread({
       return;
     }
     setComments((cur) => [...cur, r.data.comment]);
+    const goc = replyTo?.parentId;
+    if (goc) setMo((m) => (m.has(goc) ? m : new Set(m).add(goc)));
     kit.patch(id, { commentCount: post.commentCount + 1 });
     if (!nhanh) {
       setText("");
@@ -277,6 +316,7 @@ export function CommentThread({
   };
 
   const threads = threadComments(comments);
+  const toi = comments.find((c) => c.mine)?.author ?? null;
   const report = (c: KairosComment) => kit.report({ type: "comment", id: c.id });
   const sendLabel = !online || !canWrite ? NHAN.canSong : sending ? NHAN.dangGui : NHAN.gui;
 
@@ -297,9 +337,26 @@ export function CommentThread({
             <li key={t.root.id}>
               <ul className="space-y-2">
                 <CommentRow c={t.root} now={now} onHay={hayComment} onReply={startReply} onDelete={deleteComment} onReport={report} />
-                {t.replies.map((r) => (
+                {traLoiHien(t, mo, troToi).map((r) => (
                   <CommentRow key={r.id} c={r} now={now} reply onHay={hayComment} onReply={startReply} onDelete={deleteComment} onReport={report} />
                 ))}
+                {traLoiHien(t, mo, troToi).length < t.replies.length && (
+                  <li className="pl-10">
+                    <button
+                      type="button"
+                      onClick={() => setMo((m) => new Set(m).add(t.root.id))}
+                      className="flex h-9 items-center gap-2 rounded-lg pr-2 text-[0.8125rem] font-semibold text-foreground/75"
+                    >
+                      <KairosAvatar
+                        id={t.replies[t.replies.length - 1].author.profileId || t.replies[t.replies.length - 1].id}
+                        name={t.replies[t.replies.length - 1].author.handle}
+                        url={t.replies[t.replies.length - 1].author.avatarUrl}
+                        small
+                      />
+                      {`Xem ${countLabel(t.replies.length)} phản hồi`}
+                    </button>
+                  </li>
+                )}
               </ul>
             </li>
           ))}
@@ -324,86 +381,104 @@ export function CommentThread({
           để bình luận.
         </p>
       ) : (
-        <div>
+        <>
           {needRules && (
             <div className="mb-3">
               <RulesBox onAccepted={() => setNeedRules(false)} />
             </div>
           )}
-          {replyTo && (
-            <div className="mb-1 flex items-center gap-2 text-[0.8125rem]">
-              <span className="text-foreground/65">
-                Trả lời <span className="font-semibold text-navy">{replyTo.handle}</span>
+          {/* Thanh viết là con TRỰC TIẾP của khối gốc (bao cả danh sách bình luận): sticky chỉ dính
+              trong khối cha, bọc thêm <div> riêng là nó đứng yên ở cuối (lỗi vòng kiểm 2026-10-24). */}
+          <div
+            className={dinhDay ? "sticky z-10 -mx-4 border-t border-line bg-card px-4 pb-2 pt-2" : ""}
+            // trên dock nổi — --dock-total đã gồm safe-area đáy (--dock-safe), không cộng env() lần hai;
+            // bàn phím mở (vùng nhìn thấy < innerHeight) ⇒ đứng ngay trên bàn phím
+            style={dinhDay ? { bottom: vung && vung.ban > 0 ? vung.ban : "var(--dock-total)" } : undefined}
+          >
+            {replyTo && (
+              <div className="mb-1 flex items-center gap-1 pl-10 text-[0.8125rem]">
+                <span className="min-w-0 truncate text-foreground/65">
+                  Trả lời <span className="font-semibold text-navy">{replyTo.handle}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setReplyTo(null)}
+                  aria-label="Huỷ trả lời"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-foreground/65"
+                >
+                  <CloseIcon className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            {!text.trim() && canQuick && (
+              <div className="mb-2 flex gap-2 overflow-x-auto" role="group" aria-label="Bình luận nhanh">
+                {BL_NHANH.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => void send(c)}
+                    className="h-9 shrink-0 rounded-full border border-line px-3 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              {/* avatar của mình — chỉ từ dữ liệu sẵn có (bình luận của mình trong luồng), không gọi thêm mạng */}
+              <span className="flex h-11 shrink-0 items-center">
+                <KairosAvatar id={toi?.profileId || "toi"} name={toi?.handle || "Tôi"} url={toi?.avatarUrl ?? null} small />
               </span>
-              <button type="button" onClick={() => setReplyTo(null)} className="h-8 px-2 font-semibold text-sea">
-                {NHAN.huy}
+              <label htmlFor={`kairos-bl-${id}`} className="sr-only">
+                Viết bình luận
+              </label>
+              <textarea
+                id={`kairos-bl-${id}`}
+                ref={box}
+                rows={1}
+                value={text}
+                onChange={(e) => onText(e.target.value)}
+                placeholder="Viết bình luận…"
+                className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-line bg-field px-4 py-2.5 text-[1rem] leading-snug outline-none focus-visible:ring-2 focus-visible:ring-sea"
+              />
+              <NutMic
+                disabled={sending}
+                onChu={(t) => {
+                  onText(text.trim() ? `${text.trimEnd()} ${t}` : t);
+                  box.current?.focus();
+                }}
+                onLoi={(t) => setSendErr(t)}
+              />
+              <button
+                type="button"
+                onClick={() => void send()}
+                disabled={!canSend}
+                aria-busy={sending}
+                aria-label={sendLabel}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sea text-white disabled:opacity-40"
+              >
+                <SendIcon className="h-5 w-5" />
               </button>
             </div>
-          )}
-          {!text.trim() && canQuick && (
-            <div className="mb-2 flex gap-2 overflow-x-auto" role="group" aria-label="Bình luận nhanh">
-              {BL_NHANH.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => void send(c)}
-                  className="h-9 shrink-0 rounded-full border border-line px-3 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
-                >
-                  {c}
-                </button>
-              ))}
+            <div className="mt-1 flex min-h-5 items-center justify-between gap-2 px-2 text-[0.8125rem]">
+              <span className="text-foreground/65">
+                {draftFail
+                  ? "Máy đầy — nháp chưa lưu được"
+                  : !online || !canWrite
+                    ? text.trim()
+                      ? "Mất sóng — đã giữ nháp trong máy"
+                      : "Mất sóng — có sóng mới gửi được"
+                    : ""}
+              </span>
+              {left <= 100 && <span className={`font-semibold tabular-nums ${left < 0 ? "text-danger" : "text-foreground/65"}`}>{left}</span>}
             </div>
-          )}
-          <div className="flex items-end gap-2">
-            <label htmlFor={`kairos-bl-${id}`} className="sr-only">
-              Viết bình luận
-            </label>
-            <textarea
-              id={`kairos-bl-${id}`}
-              ref={box}
-              rows={1}
-              value={text}
-              onChange={(e) => onText(e.target.value)}
-              placeholder="Viết bình luận…"
-              className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-line bg-field px-4 py-2.5 text-[1rem] leading-snug outline-none focus-visible:ring-2 focus-visible:ring-sea"
-            />
-            <NutMic
-              disabled={sending}
-              onChu={(t) => {
-                onText(text.trim() ? `${text.trimEnd()} ${t}` : t);
-                box.current?.focus();
-              }}
-              onLoi={(t) => setSendErr(t)}
-            />
-            <button
-              type="button"
-              onClick={() => void send()}
-              disabled={!canSend}
-              aria-busy={sending}
-              aria-label={sendLabel}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sea text-white disabled:opacity-40"
-            >
-              <SendIcon className="h-5 w-5" />
-            </button>
+            {sendErr && (
+              <p role="alert" className="mt-1 px-2 text-[0.875rem] font-semibold text-danger">
+                {sendErr}
+              </p>
+            )}
           </div>
-          <div className="mt-1 flex min-h-5 items-center justify-between gap-2 px-2 text-[0.8125rem]">
-            <span className="text-foreground/65">
-              {draftFail
-                ? "Máy đầy — nháp chưa lưu được"
-                : !online || !canWrite
-                  ? text.trim()
-                    ? "Mất sóng — đã giữ nháp trong máy"
-                    : "Mất sóng — có sóng mới gửi được"
-                  : ""}
-            </span>
-            {left <= 100 && <span className={`font-semibold tabular-nums ${left < 0 ? "text-danger" : "text-foreground/65"}`}>{left}</span>}
-          </div>
-          {sendErr && (
-            <p role="alert" className="mt-1 px-2 text-[0.875rem] font-semibold text-danger">
-              {sendErr}
-            </p>
-          )}
-        </div>
+        </>
       )}
     </div>
   );

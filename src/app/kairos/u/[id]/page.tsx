@@ -1,5 +1,5 @@
 import { UserProfile } from "@/components/kairos/user-profile";
-import { ManHeader } from "@/components/man-header";
+import { MarketHeader } from "@/components/market/shared/market-header";
 
 export const metadata = { title: "Trang trên Kairos — SDFish" };
 
@@ -9,7 +9,7 @@ export default async function KairosUserPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   return (
     <div>
-      <ManHeader title="Kairos" compact />
+      <MarketHeader title="Trang cá nhân" fallback="/kairos" />
       <UserProfile id={id} />
     </div>
   );

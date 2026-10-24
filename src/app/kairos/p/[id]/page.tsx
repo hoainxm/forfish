@@ -1,5 +1,5 @@
 import { PostDetail } from "@/components/kairos/post-detail";
-import { ManHeader } from "@/components/man-header";
+import { MarketHeader } from "@/components/market/shared/market-header";
 
 export const metadata = { title: "Bài trên Kairos — SDFish" };
 
@@ -8,7 +8,7 @@ export default async function KairosPostPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   return (
     <div>
-      <ManHeader title="Kairos" compact />
+      <MarketHeader title="Bài viết" fallback="/kairos" />
       <PostDetail id={id} />
     </div>
   );

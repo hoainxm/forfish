@@ -25,15 +25,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { CheckIcon } from "@/components/icons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState, inputClass } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { Tabs } from "@/components/ui/tabs";
-import { FISHING_PORTS } from "@/data/fishing-ports";
-import { loadFeedCache, savedAtLabel } from "@/lib/kairos/feed-client";
+import { loadFeedCache, portLabel, savedAtLabel } from "@/lib/kairos/feed-client";
 import { addMoiTen, gridPhotos, MOI_TEN_KEY, ngheName, parseMoiTen, tinhName } from "@/lib/kairos/ho-so";
 import { validateHandle } from "@/lib/kairos/ten-goi";
 import type { KairosPost } from "@/lib/kairos/types";
@@ -57,7 +56,8 @@ type Load = "loading" | "ready" | "missing" | "error" | "offline" | "login";
 type Page = { user: KairosUser; posts: KairosPost[]; next: string | null };
 type Photo = "avatar" | "cover";
 
-const PORT_NAME = new Map(FISHING_PORTS.map((p) => [p.id, p.name]));
+/** Nhãn cảng chạm được ⇒ Bến cảng đó (như tên nhóm trên Facebook) — rà FB vòng 2, 2026-10-24. */
+const LINK_BEN = "inline-flex min-h-11 items-center rounded-md font-semibold text-sea underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sea";
 /** Trường trang cá nhân khi máy chủ cũ chưa trả / dựng từ bản lưu mất sóng — mặc định an toàn. */
 const USER_DEFAULTS = { about: EMPTY_ABOUT, followers: 0, followingCount: 0, samePort: false, isAgent: false, askName: false };
 
@@ -386,7 +386,16 @@ export function UserProfile({ id }: { id: string }) {
               </h2>
               {(user.subline || user.boatReg || user.samePort) && (
                 <p className="flex min-w-0 items-center gap-1.5 text-[0.875rem] text-foreground/65">
-                  <span className="min-w-0 truncate">{[user.subline, user.boatReg].filter(Boolean).join(" · ")}</span>
+                  {portLabel(user.about.homePort) ? (
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Link href={`/kairos/ben/${user.about.homePort}`} className={`${LINK_BEN} min-w-0 truncate`}>
+                        {user.subline || `Cảng ${portLabel(user.about.homePort)}`}
+                      </Link>
+                      {user.boatReg && <span className="shrink-0">· {user.boatReg}</span>}
+                    </span>
+                  ) : (
+                    <span className="min-w-0 truncate">{[user.subline, user.boatReg].filter(Boolean).join(" · ")}</span>
+                  )}
                   {user.samePort && <span className="shrink-0 rounded-full bg-ok-bg px-2 py-0.5 text-[0.75rem] font-semibold text-ok">{NHAN.cungCang}</span>}
                 </p>
               )}
@@ -654,7 +663,16 @@ function PhotoGrid({
 /** Thẻ Giới thiệu — quê, cảng nhà, nghề, tàu (khi chủ bật), dòng tự giới thiệu. */
 function About({ user, cached, onEdit, canEdit }: { user: KairosUser; cached: boolean; onEdit: () => void; canEdit: boolean }) {
   const ab = user.about;
-  const port = ab.homePort ? `Cảng ${PORT_NAME.get(ab.homePort) ?? ab.homePort}` : user.subline;
+  const ten = portLabel(ab.homePort);
+  const port: ReactNode = ten ? (
+    <Link href={`/kairos/ben/${ab.homePort}`} className={LINK_BEN}>
+      Cảng {ten}
+    </Link>
+  ) : ab.homePort ? (
+    `Cảng ${ab.homePort}`
+  ) : (
+    user.subline
+  );
   const rows = [
     { k: "Quê", v: tinhName(ab.queTinh) },
     { k: ab.homePort || /^cảng|^bến/iu.test(user.subline) ? "Cảng nhà" : "Cơ sở", v: port },

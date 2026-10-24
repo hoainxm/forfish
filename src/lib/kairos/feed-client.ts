@@ -183,16 +183,6 @@ export function portLabel(portId: string | null | undefined): string | null {
   return (portId && FISHING_PORTS.find((x) => x.id === portId)?.name) || null;
 }
 
-/**
- * Nhãn khu vực "Cả nước" trên thẻ (14 §4, AC05): bài máy không gắn được vùng/tỉnh/cảng nào
- * (`regions = ["ca-nuoc"]`) ⇒ "Cả nước". Bài có cảng đã có nhãn "Bến X" (lối vào Bến) ⇒ null;
- * bài có vùng/tỉnh ⇒ null (tên vùng như "Vịnh Bắc Bộ" quá luật nhãn ≤2 chữ).
- */
-export function areaTag(p: Pick<KairosPost, "regions" | "ports">): "caNuoc" | null {
-  if (portLabel(p.ports?.[0])) return null;
-  return p.regions?.includes("ca-nuoc") ? "caNuoc" : null;
-}
-
 /** Màu ảnh đại diện chữ cái: băm id ⇒ 1..6 (`--kairos-av-N`, A15). Ổn định theo id. */
 export function avatarTone(id: string): number {
   let h = 0;

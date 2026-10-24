@@ -143,6 +143,8 @@ export interface Draft {
   text: string;
   /** ms */
   at: number;
+  /** URL ảnh đã tải của khung soạn (bấm "Lưu nháp"); nháp cũ không có trường này vẫn đọc được */
+  images?: string[];
 }
 export type Drafts = Record<string, Draft>;
 
@@ -168,7 +170,8 @@ export function parseDrafts(raw: string | null | undefined): Drafts {
     for (const [k, v] of Object.entries(j as Record<string, unknown>)) {
       const d = v as Draft;
       if (k.length <= 90 && d && typeof d.text === "string" && typeof d.at === "number") {
-        out[k] = { text: d.text.slice(0, LIMITS.postBody), at: d.at };
+        const imgs = Array.isArray(d.images) ? d.images.filter((u): u is string => typeof u === "string" && u.length <= 500).slice(0, LIMITS.images) : [];
+        out[k] = imgs.length ? { text: d.text.slice(0, LIMITS.postBody), at: d.at, images: imgs } : { text: d.text.slice(0, LIMITS.postBody), at: d.at };
       }
     }
     return out;
@@ -177,11 +180,16 @@ export function parseDrafts(raw: string | null | undefined): Drafts {
   }
 }
 
-/** Đặt/xoá một nháp (chữ rỗng ⇒ xoá); giữ ≤20 nháp mới nhất. */
-export function putDraft(drafts: Drafts, key: string, text: string, now: number): Drafts {
+/**
+ * Đặt/xoá một nháp; giữ ≤20 nháp mới nhất. `images` không truyền ⇒ chữ còn thì GIỮ ảnh cũ của
+ * nháp (gõ từng phím không làm rơi ảnh đã lưu), chữ rỗng thì xoá cả nháp như trước. Truyền
+ * `images` ⇒ đặt đúng danh sách đó; chữ rỗng + ảnh rỗng ⇒ xoá.
+ */
+export function putDraft(drafts: Drafts, key: string, text: string, now: number, images?: readonly string[]): Drafts {
   const next = { ...drafts };
   const t = text.slice(0, LIMITS.postBody);
-  if (t.trim()) next[key] = { text: t, at: now };
+  const imgs = (images ?? (t.trim() ? drafts[key]?.images ?? [] : [])).slice(0, LIMITS.images);
+  if (t.trim() || imgs.length) next[key] = imgs.length ? { text: t, at: now, images: [...imgs] } : { text: t, at: now };
   else delete next[key];
   const keys = Object.keys(next).sort((a, b) => next[b].at - next[a].at);
   for (const k of keys.slice(DRAFT_MAX)) delete next[k];

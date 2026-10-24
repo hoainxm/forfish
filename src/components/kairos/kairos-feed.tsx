@@ -30,12 +30,22 @@
   TUỲ CHỌN DÒNG TIN (14 §13, nút bánh răng ở kairos-screen): chủ đề "Thích đọc" + cờ ẩn bài trợ lý AI đi kèm
   MỌI request trang của dòng tin chung (`thich`, `ai=0` — lib/kairos/tuy-chon.ts), không request mới. Đổi ⇒ tải
   lại trang đầu, GIỮ bài đang hiện khi mất sóng. Bến không dùng.
+
+  GIỮ CHỖ ĐANG ĐỌC (rà FB vòng 2, 2026-10-24): rời màn (mở bài, trang cá nhân…) ⇒ cất ảnh chụp bài đang hiện + chỗ
+  cuộn vào BỘ NHỚ (lib/kairos/giu-cho, không localStorage, sống 10 phút, theo cảng + SĐT). Quay lại ⇒ dựng lại y
+  nguyên, KHÔNG tải lại trang đầu, cuộn về chỗ cũ sau hai nhịp vẽ, rồi chỉ hỏi "Có N bài mới" (fetchNewCount sẵn
+  có — không thêm request). Kéo làm mới ⇒ xoá ảnh chụp.
+
+  BẾN (port) giống NHÓM Facebook: thẻ đầu (dải bìa + "Bến X" + tỉnh · số bài đã tải + câu mô tả + Đăng · Cảng nhà).
+  "Cảng nhà" chỉ ghi THÓI QUEN TRONG MÁY (setHome — như hộp chọn cảng), không gửi đi, không đếm thành viên.
 */
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CheckIcon, PlusIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
+import { FISHING_PORTS } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import {
   feedQuery,
@@ -53,6 +63,8 @@ import {
   saveTaiMangDiAn,
   type FeedPage,
 } from "@/lib/kairos/feed-client";
+import { cat as catCho, lay as layCho, xoa as xoaCho } from "@/lib/kairos/giu-cho";
+import { nguongKeo, trangThaiKeo } from "@/lib/kairos/keo-lam-moi";
 import { nenGoiY, soBaiConLuu, songTot, taiNhieuTrang, TMD_TRANG } from "@/lib/kairos/tai-mang-di";
 import { LIMITS } from "@/lib/kairos/types";
 import { emptyHabit, recordRead, setHome, type ChipId, type Habit } from "@/lib/kairos/thoi-quen";
@@ -70,8 +82,27 @@ type Load = "loading" | "ready" | "error" | "offline";
 /** Dòng gợi ý "Tải tin mang đi" (14 §19). */
 type GoiY = { k: "an" | "hien" | "dang" | "loi" | "day" } | { k: "xong"; n: number };
 const SO_BAI_MANG_DI = TMD_TRANG * LIMITS.pageSize;
-/** Kéo xuống chừng này (rem) ở đầu trang rồi thả ⇒ làm mới dòng tin. */
-const KEO_LAM_MOI = 4.5;
+/** Ảnh chụp dòng tin cất khi rời màn (giu-cho) — quay lại thì dựng lại, không tải lại. */
+type AnhChup = {
+  phone: string | null;
+  posts: KairosPost[];
+  pinned: KairosPost[];
+  next: string | null;
+  savedAt: number | null;
+  since: string | null;
+  load: "ready" | "offline";
+  scrollY: number;
+  at: number;
+};
+const khoaCho = (port: string | undefined) => `feed:${port ?? ""}`;
+
+/** Đang mở hộp/ngăn (BottomSheet, khung soạn, xem ảnh) hoặc trang đang khoá cuộn ⇒ không bắt vuốt làm mới. */
+function dangCoHop(target: EventTarget | null): boolean {
+  if (target instanceof Element && target.closest("[role=dialog]")) return true;
+  if (document.querySelector('[aria-modal="true"]')) return true;
+  const b = document.body;
+  return b.style.overflow === "hidden" || b.style.position === "fixed" || getComputedStyle(b).overflowY === "hidden";
+}
 
 /** Cảng nhà từ sổ tàu (tàu đang chọn, không thì tàu đầu) — KHÔNG từ vị trí máy. */
 function homeFromBoats(): Habit["home"] {
@@ -232,6 +263,9 @@ export function KairosFeed({
 
   // Mở màn: thói quen + cảng nhà (sổ tàu) rồi tải. Chờ auth để biết NGĂN bản lưu nào.
   const started = useRef(false);
+  /** chỗ cuộn mới nhất + ảnh chụp đang có (giu-cho) */
+  const yRef = useRef(0);
+  const chupRef = useRef<{ snap: Omit<AnhChup, "scrollY" | "at"> | null; huy: (() => void) | null }>({ snap: null, huy: null });
   useEffect(() => {
     if (!authReady || started.current) return;
     started.current = true;
@@ -246,8 +280,62 @@ export function KairosFeed({
     setHabitState(h);
     goiYRef.current.savedAt0 = loadFeedCache(phone)?.savedAt ?? null;
     if (!port) st.current.tuyChon = loadTuyChon();
+    const snap = layCho<AnhChup>(khoaCho(port), Date.now());
+    if (snap && snap.phone === phone) {
+      // Quay lại từ bài/trang cá nhân: dựng y nguyên, KHÔNG tải lại (giữ chỗ đang đọc như Facebook)
+      goiYRef.current.xet = true;
+      st.current.since = snap.since;
+      st.current.load = snap.load;
+      st.current.habit = h;
+      setPosts(snap.posts);
+      setPinned(snap.pinned);
+      setNext(snap.next);
+      setSavedAt(snap.savedAt);
+      setLoad(snap.load);
+      setNow(Date.now());
+      yRef.current = snap.scrollY;
+      let r2 = 0;
+      const r1 = requestAnimationFrame(() => {
+        r2 = requestAnimationFrame(() => {
+          window.scrollTo(0, snap.scrollY);
+          if (snap.load !== "ready" || !snap.since) return;
+          const q = feedQuery("moi", h.home, { port });
+          if (!q.ok) return;
+          const gen = st.current.gen;
+          void fetchNewCount(q.params, snap.since).then((n) => {
+            if (gen === st.current.gen) setNewCount(n);
+          });
+        });
+      });
+      chupRef.current.huy = () => {
+        cancelAnimationFrame(r1);
+        cancelAnimationFrame(r2);
+      };
+      return;
+    }
     void loadFirst("moi", h, false);
   }, [authReady, loadFirst, port, phone]);
+
+  /*  Cất ảnh chụp khi rời màn. Chỗ cuộn ghi theo sự kiện cuộn CHỈ khi khung dòng tin còn trên trang — lúc Next
+      chuyển màn, trang mới cuộn về đầu sau khi khung cũ đã gỡ ⇒ không ghi đè chỗ đang đọc bằng 0. */
+  useEffect(() => {
+    chupRef.current.snap =
+      (load === "ready" || load === "offline") && posts.length + pinned.length > 0
+        ? { phone, posts, pinned, next, savedAt, since: st.current.since, load }
+        : null;
+  }, [phone, posts, pinned, next, savedAt, load]);
+  useEffect(() => {
+    const ghi = () => {
+      if (khungRef.current?.isConnected) yRef.current = window.scrollY;
+    };
+    window.addEventListener("scroll", ghi, { passive: true });
+    const chup = chupRef.current;
+    return () => {
+      window.removeEventListener("scroll", ghi);
+      chup.huy?.();
+      if (chup.snap) catCho(khoaCho(port), { ...chup.snap, scrollY: yRef.current, at: Date.now() });
+    };
+  }, [port]);
 
   // Đổi Tuỳ chọn dòng tin ⇒ tải lại trang đầu (giữ bài đang hiện nếu mất sóng/lỗi). Giống hệt ⇒ không tải.
   useEffect(() => {
@@ -412,8 +500,12 @@ export function KairosFeed({
   const [dangLamMoi, setDangLamMoi] = useState(false);
   const keoRef = useRef<{ y0: number | null; d: number }>({ y0: null, d: 0 });
   const lamMoiRef = useRef<() => Promise<void>>(async () => {});
+  /** px của 1rem trên máy này (chế độ chữ to ⇒ lớn hơn 16) — ngưỡng kéo + chiều cao vùng kéo dùng chung */
+  const [rem, setRem] = useState(16);
+  const nguong = nguongKeo(rem);
   useEffect(() => {
     lamMoiRef.current = async () => {
+      xoaCho(khoaCho(port));
       setDangLamMoi(true);
       try {
         await loadFirst(st.current.chip, st.current.habit, true);
@@ -421,16 +513,18 @@ export function KairosFeed({
         setDangLamMoi(false);
       }
     };
-  }, [loadFirst]);
+  }, [loadFirst, port]);
   useEffect(() => {
-    if (port) return; // Bến: không xáo
+    // Bến cũng kéo được (máy chủ trả theo giờ ⇒ làm mới = lấy bài mới nhất)
     const html = document.documentElement;
     const cu = html.style.overscrollBehaviorY;
     html.style.overscrollBehaviorY = "contain";
-    const rem = parseFloat(getComputedStyle(html).fontSize) || 16;
-    const nguong = KEO_LAM_MOI * rem;
+    const r = parseFloat(getComputedStyle(html).fontSize);
+    setRem(Number.isFinite(r) && r > 0 ? r : 16);
+    const nguong = nguongKeo(r);
     const bat = (e: TouchEvent) => {
-      keoRef.current = { y0: window.scrollY <= 0 && e.touches.length === 1 ? e.touches[0].clientY : null, d: 0 };
+      const ok = window.scrollY <= 0 && e.touches.length === 1 && !dangCoHop(e.target);
+      keoRef.current = { y0: ok ? e.touches[0].clientY : null, d: 0 };
     };
     const di = (e: TouchEvent) => {
       const k = keoRef.current;
@@ -446,7 +540,7 @@ export function KairosFeed({
     };
     const tha = () => {
       const k = keoRef.current;
-      const du = k.d >= nguong;
+      const du = trangThaiKeo(k.d, nguong) === "tha";
       keoRef.current = { y0: null, d: 0 };
       setKeo(0);
       if (du) void lamMoiRef.current();
@@ -462,7 +556,7 @@ export function KairosFeed({
       window.removeEventListener("touchend", tha);
       window.removeEventListener("touchcancel", tha);
     };
-  }, [port]);
+  }, []);
 
   const shownPinned = view ? view(pinned) : pinned;
   const shownPosts = useMemo(() => {
@@ -480,6 +574,15 @@ export function KairosFeed({
     khungRef.current?.querySelectorAll<HTMLElement>("[data-kairos-id]").forEach((el) => io.observe(el));
   }, [shownPosts, shownPinned]);
   const retry = () => void loadFirst(chip, habit, true);
+
+  // Thẻ đầu Bến: số bài đếm từ bài ĐÃ TẢI/bản lưu đang hiện — không gọi thêm API
+  const ben = useMemo(() => (port ? FISHING_PORTS.find((p) => p.id === port) ?? null : null), [port]);
+  const soBaiBen = shownPosts.length + shownPinned.length;
+  const laCangNha = !!port && habit.home.port === port;
+  const datCangNha = () => {
+    if (!port || laCangNha) return;
+    updateHabit(setHome(habit, homeFromPort(port)));
+  };
 
   /** Bấm Tải: ≤5 trang dòng tin chung gộp vào bản lưu. KHÔNG đổi bài đang hiện. */
   const taiMangDi = async () => {
@@ -518,9 +621,54 @@ export function KairosFeed({
         <div
           aria-live="polite"
           className="flex items-end justify-center overflow-hidden text-[0.875rem] font-semibold text-foreground/65"
-          style={{ height: dangLamMoi ? "2.5rem" : `${keo / 16}rem` }}
+          style={{ height: dangLamMoi ? "2.5rem" : `${keo / rem}rem` }}
         >
-          <span className="pb-2">{dangLamMoi ? "Đang làm mới…" : keo >= KEO_LAM_MOI * 16 ? "Thả để làm mới" : "Kéo để làm mới"}</span>
+          <span className="flex items-center gap-2 pb-2">
+            {dangLamMoi && (
+              <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-sea border-t-transparent motion-reduce:animate-none" />
+            )}
+            {dangLamMoi ? "Đang làm mới…" : trangThaiKeo(keo, nguong) === "tha" ? "Thả để làm mới" : "Kéo để làm mới"}
+          </span>
+        </div>
+      )}
+      {ben && (
+        <div className="px-4 pb-3">
+          <section className="surface overflow-hidden" aria-label={`Bến ${ben.name}`}>
+            <div className="flex h-24 items-end bg-sea/15 px-4 pb-2">
+              <span className="display text-[1.5rem] font-bold leading-tight text-sea">{ben.name}</span>
+            </div>
+            <div className="p-4">
+              <h2 className="display text-[1.25rem] font-bold leading-snug text-navy">Bến {ben.name}</h2>
+              {(ben.province || soBaiBen > 0) && (
+                <p className="mt-0.5 text-[0.875rem] text-foreground/65">
+                  {[ben.province ? (/^(Tỉnh|Thành phố)\s/.test(ben.province) ? ben.province : `Tỉnh ${ben.province}`) : null, soBaiBen > 0 ? `${soBaiBen} bài gần đây` : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+              <p className="mt-2 text-[1rem]">Chỗ bà con cảng {ben.name} kể chuyện, hỏi giá, báo tin</p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={onCompose}
+                  className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-sea px-4 font-semibold text-white transition active:scale-[0.98]"
+                >
+                  <PlusIcon className="h-5 w-5" />
+                  {NHAN.dang}
+                </button>
+                <button
+                  type="button"
+                  onClick={datCangNha}
+                  disabled={laCangNha}
+                  aria-pressed={laCangNha}
+                  className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-line px-4 font-semibold text-sea transition active:scale-[0.98] disabled:opacity-75"
+                >
+                  {laCangNha && <CheckIcon className="h-5 w-5" />}
+                  {NHAN.cangNha}
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
       )}
       <div className="px-4 pb-3">
@@ -529,7 +677,7 @@ export function KairosFeed({
           onClick={onCompose}
           className="surface flex h-14 w-full items-center px-4 text-left text-[1rem] text-foreground/65 transition active:scale-[0.99]"
         >
-          Bà con muốn chia sẻ gì?
+          {ben ? `Đăng vào Bến ${ben.name}…` : "Bà con muốn chia sẻ gì?"}
         </button>
       </div>
 

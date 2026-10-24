@@ -94,15 +94,26 @@ export function loadDraft(phone: string | null, key: string): string {
   }
 }
 
+/** Nháp đủ (chữ + ảnh khung soạn); không có ⇒ null. Nháp cũ không có ảnh ⇒ `images: []`. */
+export function loadDraftFull(phone: string | null, key: string): { text: string; images: string[] } | null {
+  try {
+    const d = parseDrafts(storage()?.getItem(KAIROS_DRAFT_KEY))[draftSlot(phone, key)];
+    return d ? { text: d.text, images: d.images ?? [] } : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Ghi/xoá một nháp (chữ rỗng ⇒ xoá). Trả false khi máy không ghi được — màn báo "Máy đầy,
+ * Ghi/xoá một nháp (chữ rỗng ⇒ xoá). `images` (khung soạn bấm "Lưu nháp") — không truyền thì giữ
+ * ảnh đã lưu của nháp đó (cache.putDraft). Trả false khi máy không ghi được — màn báo "Máy đầy,
  * nháp chưa lưu" thay vì im lặng (CLAUDE.md nguyên tắc 4: nuốt lỗi là mất chữ của bà con).
  */
-export function saveDraft(phone: string | null, key: string, text: string, now = Date.now()): boolean {
+export function saveDraft(phone: string | null, key: string, text: string, now = Date.now(), images?: readonly string[]): boolean {
   const s = storage();
   if (!s) return false;
   try {
-    s.setItem(KAIROS_DRAFT_KEY, JSON.stringify(putDraft(parseDrafts(s.getItem(KAIROS_DRAFT_KEY)), draftSlot(phone, key), text, now)));
+    s.setItem(KAIROS_DRAFT_KEY, JSON.stringify(putDraft(parseDrafts(s.getItem(KAIROS_DRAFT_KEY)), draftSlot(phone, key), text, now, images)));
     return true;
   } catch {
     return false;
