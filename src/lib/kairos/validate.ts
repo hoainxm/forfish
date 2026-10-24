@@ -56,7 +56,7 @@ export function cleanText(s: string): string {
 }
 
 /** Chữ bậy rồi chủ quyền — mã lỗi đầu tiên trúng. */
-function contentFlag(text: string): { code: "bad_words" | "sovereignty"; term: string } | null {
+export function contentFlag(text: string): { code: "bad_words" | "sovereignty"; term: string } | null {
   const bad = badWordHit(text);
   if (bad) return { code: "bad_words", term: bad };
   const sov = chuQuyenFlag(text);

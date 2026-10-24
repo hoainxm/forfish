@@ -16,7 +16,7 @@ import { getConfigValue } from "@/lib/app-config";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { boatExtra } from "./author-extra";
 import { BAO_FEED_MS, type FeedFilter, type FeedParams } from "./feed-query";
-import { authorDto, postDto, commentDto, type DtoCtx } from "./dto";
+import { aboutDto, authorDto, postDto, commentDto, type DtoCtx } from "./dto";
 import { checkIngestKey, effectiveIngestKey, INGEST_KEY_HEADER } from "./ingest-key";
 import { isKairosError, kairosErrorStatus, KairosError } from "./errors";
 import { commentRecipients, notifyMessage, NOTIFY_WINDOW_MS, KAIROS_PUSH_SENT_BY } from "./notify-gop";
@@ -26,7 +26,7 @@ import { isBanned, KAIROS_RATES, overLimit, RATE_AUDIT_ACTIONS, rateUsed, window
 import { isUuid } from "./validate";
 import { orphanUploads } from "./social";
 import { defaultHandle, handleNorm } from "./ten-goi";
-import { LIMITS, type KairosComment, type KairosPost } from "./types";
+import { LIMITS, type KairosAuthor, type KairosComment, type KairosPost } from "./types";
 import { getKairosStore, type CommentFull, type KairosStore, type PostFull, type ProfileFull, type RateTable } from "./store";
 
 export const PORT_IDS: ReadonlySet<string> = new Set(FISHING_PORTS.map((p) => p.id));
@@ -156,8 +156,9 @@ async function dtoCtx(
   viewer: string | null,
   posts: PostFull[],
   comments: CommentFull[],
+  extraPhones: string[] = [],
 ): Promise<DtoCtx> {
-  const phones = [...posts.map((p) => p.author_phone), ...comments.map((c) => c.author_phone)].filter((x): x is string => !!x);
+  const phones = [...posts.map((p) => p.author_phone), ...comments.map((c) => c.author_phone), ...extraPhones].filter((x): x is string => !!x);
   const [profiles, boats, buyers, hayPosts, hayComments] = await Promise.all([
     store.profilesByPhones(phones),
     store.boatsOf(phones),
@@ -167,8 +168,9 @@ async function dtoCtx(
   ]);
   const sublines = new Map<string, string>();
   const boatRegs = new Map<string, string>();
-  for (const phone of new Set([...boats.keys(), ...buyers.keys()])) {
-    const x = boatExtra(boats.get(phone), portName, buyers.get(phone));
+  const homePort = new Map(profiles.map((p) => [p.phone, p.home_port ?? null]));
+  for (const phone of new Set([...boats.keys(), ...buyers.keys(), ...homePort.keys()])) {
+    const x = boatExtra(boats.get(phone), portName, buyers.get(phone), homePort.get(phone));
     if (x.subline) sublines.set(phone, x.subline);
     if (x.boatReg) boatRegs.set(phone, x.boatReg);
   }
@@ -342,15 +344,32 @@ export async function hayToggle(req: Request, t: "post" | "comment", rawId: stri
 
 /** Tác giả công khai của MỘT hồ sơ (trang người dùng, /me) — cùng luật dto.authorDto. */
 export async function profileAuthor(store: KairosStore, profile: ProfileFull) {
+  return (await profileCard(store, profile)).author;
+}
+
+/**
+ * Tác giả + phần Giới thiệu + cảng nhà hiệu lực (hồ sơ > sổ tàu) của MỘT hồ sơ. `portId` chỉ
+ * dùng ở máy chủ (so "cùng cảng"); số hiệu tàu vẫn theo cờ show_boat (authorDto).
+ */
+export async function profileCard(store: KairosStore, profile: ProfileFull) {
   const [boats, buyers] = await Promise.all([store.boatsOf([profile.phone]), store.buyerNamesOf([profile.phone])]);
-  const x = boatExtra(boats.get(profile.phone), portName, buyers.get(profile.phone));
-  return authorDto(profile.phone, {
+  const x = boatExtra(boats.get(profile.phone), portName, buyers.get(profile.phone), profile.home_port);
+  const mediaUrl = (p: string) => store.mediaUrl(p);
+  const author = authorDto(profile.phone, {
     viewer: null,
     profiles: new Map([[profile.phone, profile]]),
     sublines: new Map(x.subline ? [[profile.phone, x.subline]] : []),
     boats: new Map(x.boatReg ? [[profile.phone, x.boatReg]] : []),
-    mediaUrl: (p) => store.mediaUrl(p),
+    mediaUrl,
   });
+  return { author, about: aboutDto(profile, mediaUrl), portId: x.portId };
+}
+
+/** Danh sách người (sheet theo dõi) — tác giả công khai theo thứ tự `phones`, bỏ ai không còn hồ sơ. */
+export async function authorsOf(store: KairosStore, phones: string[]): Promise<KairosAuthor[]> {
+  if (!phones.length) return [];
+  const ctx = await dtoCtx(store, null, [], [], phones);
+  return phones.filter((p) => ctx.profiles.has(p)).map((p) => authorDto(p, ctx));
 }
 
 /** Theo dõi / chặn một hồ sơ. Chặn = bỏ luôn theo dõi hai chiều (kiểu Facebook). */

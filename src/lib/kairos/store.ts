@@ -21,6 +21,13 @@ export interface ProfileFull extends ProfileRow {
   banned_until: string | null;
   ban_reason: string | null;
   created_at: string;
+  // ── Trang cá nhân (0067). TUỲ CHỌN: deploy có thể đi trước migration — cột chưa có thì kho
+  // trả hồ sơ không có các trường này (undefined = trống), trang vẫn chạy.
+  cover_path?: string | null;
+  que_tinh?: string | null;
+  nghe?: string | null;
+  gioi_thieu?: string | null;
+  home_port?: string | null;
 }
 
 export interface PostFull extends PostRow {
@@ -75,8 +82,15 @@ export type PostPatch = Partial<
 >;
 export type CommentPatch = Partial<Pick<CommentFull, "hidden" | "mod_state" | "mod_checked_at">>;
 export type ProfilePatch = Partial<
-  Pick<ProfileFull, "handle" | "handle_norm" | "handle_changed_at" | "avatar_path" | "show_boat" | "rules_accepted_at" | "banned_until" | "ban_reason">
+  Pick<
+    ProfileFull,
+    | "handle" | "handle_norm" | "handle_changed_at" | "avatar_path" | "show_boat" | "rules_accepted_at" | "banned_until" | "ban_reason"
+    | "cover_path" | "que_tinh" | "nghe" | "gioi_thieu" | "home_port"
+  >
 >;
+
+/** Các trường 0067 trong ProfilePatch — kho Supabase ném `fields_missing` khi cột chưa có. */
+export const HO_SO_FIELDS = ["cover_path", "que_tinh", "nghe", "gioi_thieu", "home_port"] as const;
 
 export interface ReportRow {
   id: string;
@@ -149,7 +163,7 @@ export interface KairosStore {
   takenNorms(norms: string[]): Promise<Set<string>>;
   /** trùng handle_norm ⇒ KairosError('handle_taken'); trùng phone (hai lượt chen) ⇒ trả hồ sơ có sẵn */
   createProfile(row: { phone: string; handle: string; handle_norm: string }): Promise<ProfileFull>;
-  /** trùng handle_norm ⇒ 'handle_taken'; không có ⇒ 'not_found' */
+  /** trùng handle_norm ⇒ 'handle_taken'; không có ⇒ 'not_found'; patch có trường 0067 mà cột chưa có ⇒ 'fields_missing' */
   updateProfile(phone: string, patch: ProfilePatch): Promise<ProfileFull>;
   /** tên khách hàng (customers.name) cho tên mặc định — không có ⇒ null */
   customerName(phone: string): Promise<string | null>;
@@ -198,6 +212,10 @@ export interface KairosStore {
   setEdge(kind: "follow" | "block", from: string, to: string, on: boolean): Promise<void>;
   /** SĐT mà `from` đang theo dõi / đã chặn */
   edgesFrom(kind: "follow" | "block", from: string): Promise<string[]>;
+  /** số người theo dõi `phone` + số người `phone` đang theo dõi (trang người dùng) */
+  followCounts(phone: string): Promise<{ followers: number; following: number }>;
+  /** danh sách theo dõi của `phone`, mới nhất trước, tối đa `limit` SĐT */
+  followList(dir: "followers" | "following", phone: string, limit: number): Promise<string[]>;
 
   // ── Báo xấu ──────────────────────────────────────────────────────────
   /** 'dup' khi người này đã báo đích này */

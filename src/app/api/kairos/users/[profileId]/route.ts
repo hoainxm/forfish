@@ -1,11 +1,13 @@
 // GET /api/kairos/users/[profileId] — TRANG NGƯỜI DÙNG (14 §3.8, §7, AC13).
 // Khách đọc được. `profileId` = uuid công khai (KHÔNG SĐT): tên, dòng phụ, số bài, đang theo
-// dõi chưa, đã chặn chưa, và trang bài đầu (cursor 20). Người mình đã chặn ⇒ `blockedByMe`,
+// dõi chưa, đã chặn chưa, ảnh bìa + Giới thiệu (0067), số người theo dõi / đang theo dõi,
+// "cùng cảng" với người xem, mời đặt tên (trang mình), và trang bài đầu (cursor 20). Người mình đã chặn ⇒ `blockedByMe`,
 // không trả bài (màn hiện "Bạn đã chặn người này" + Bỏ chặn).
 import { NextResponse } from "next/server";
 import { encodeCursor } from "@/lib/kairos/cursor";
 import { parseFeedParams } from "@/lib/kairos/feed-query";
-import { feedFilterFor, hydratePosts, kErr, kairosErrorResponse, PORT_IDS, profileAuthor, readerOf, storeOr503 } from "@/lib/kairos/server";
+import { samePort, shouldAskName } from "@/lib/kairos/ho-so";
+import { feedFilterFor, hydratePosts, kErr, kairosErrorResponse, PORT_IDS, profileCard, readerOf, storeOr503 } from "@/lib/kairos/server";
 import { LIMITS } from "@/lib/kairos/types";
 import { isUuid } from "@/lib/kairos/validate";
 
@@ -27,12 +29,26 @@ export async function GET(req: Request, ctx: Ctx) {
       ? await Promise.all([store.edgesFrom("follow", who.phone), store.edgesFrom("block", who.phone)])
       : [[], []];
     const blockedByMe = blocked.includes(prof.phone);
+    const viewerProf = who.phone && !me ? await store.profileByPhone(who.phone) : null;
+    const [card, viewerCard, postCount, counts] = await Promise.all([
+      profileCard(store, prof),
+      viewerProf ? profileCard(store, viewerProf) : Promise.resolve(null),
+      store.countAuthorPosts(prof.phone),
+      store.followCounts(prof.phone),
+    ]);
     const user = {
-      ...(await profileAuthor(store, prof)),
-      postCount: await store.countAuthorPosts(prof.phone),
+      ...card.author,
+      postCount,
       following: following.includes(prof.phone),
       blockedByMe,
       me,
+      about: card.about,
+      followers: counts.followers,
+      followingCount: counts.following,
+      samePort: !!viewerCard && samePort(card.portId, viewerCard.portId),
+      // nợ: chưa có cột cờ agent (16-ba-spec-agent-kairos nháp) — luôn false; thêm cột khi agent lên
+      isAgent: false,
+      askName: me && shouldAskName(prof),
     };
     if (blockedByMe) return NextResponse.json({ ok: true, user, posts: [], next: null });
 

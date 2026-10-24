@@ -81,6 +81,22 @@ export interface KairosAuthor {
   boatReg?: string;
 }
 
+/**
+ * Phần "Giới thiệu" + ảnh bìa của trang người dùng (0067). Mã, không tên: màn tra tên bằng
+ * danh mục (ho-so.ts, fishing-ports.ts). Cột chưa có trên DB ⇒ mọi trường rỗng.
+ */
+export interface KairosAbout {
+  coverUrl: string | null;
+  /** mã tỉnh (khu-vuc.mjs PROVINCES) */
+  queTinh: string | null;
+  /** mã nghề (ho-so.ts NGHE) */
+  nghe: string | null;
+  /** ≤150 ký tự, "" = chưa viết */
+  gioiThieu: string;
+  /** mã cảng chủ tự chọn (fishing-ports.ts); null ⇒ cảng theo sổ tàu (nếu có) */
+  homePort: string | null;
+}
+
 export interface KairosComment {
   id: string;
   postId: string;

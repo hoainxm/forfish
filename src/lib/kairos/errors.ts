@@ -7,7 +7,9 @@ export type KairosStoreCode =
   | "handle_taken"
   | "unavailable"
   | "insert_failed"
-  | "storage_failed";
+  | "storage_failed"
+  /** cột trang cá nhân (0067) chưa có trên DB — deploy đi trước migration */
+  | "fields_missing";
 
 export class KairosError extends Error {
   constructor(public code: KairosStoreCode, message?: string) {
@@ -29,6 +31,7 @@ export function kairosErrorStatus(code: KairosStoreCode): number {
     case "handle_taken":
       return 409;
     case "unavailable":
+    case "fields_missing":
       return 503;
     default:
       return 500;

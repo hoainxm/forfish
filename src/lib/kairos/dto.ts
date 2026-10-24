@@ -4,7 +4,7 @@
 // giờ ra client: tác giả = `profileId` (uuid công khai); "mine" tính ở máy chủ bằng so SĐT rồi
 // chỉ trả boolean. `kairos-dto.test.ts` soi JSON ra không chứa SĐT nào.
 
-import type { KairosAuthor, KairosComment, KairosPost, KairosPostKind, KairosRegion } from "./types";
+import type { KairosAbout, KairosAuthor, KairosComment, KairosPost, KairosPostKind, KairosRegion } from "./types";
 
 /** Hàng `kairos_profiles` (đủ cột route cần). */
 export interface ProfileRow {
@@ -82,6 +82,26 @@ export function authorDto(phone: string, ctx: DtoCtx): KairosAuthor {
   const boat = p.show_boat ? ctx.boats?.get(phone) : undefined;
   if (boat) a.boatReg = boat;
   return a;
+}
+
+/** Cột trang cá nhân (0067) của một hồ sơ — vắng (cột chưa có) ⇒ undefined. */
+export interface ProfileAboutRow {
+  cover_path?: string | null;
+  que_tinh?: string | null;
+  nghe?: string | null;
+  gioi_thieu?: string | null;
+  home_port?: string | null;
+}
+
+/** Phần Giới thiệu + ảnh bìa ra client. Cột chưa có / rỗng ⇒ trường trống (không lỗi). */
+export function aboutDto(p: ProfileAboutRow, mediaUrl: (path: string) => string): KairosAbout {
+  return {
+    coverUrl: p.cover_path ? mediaUrl(p.cover_path) : null,
+    queTinh: p.que_tinh || null,
+    nghe: p.nghe || null,
+    gioiThieu: p.gioi_thieu ?? "",
+    homePort: p.home_port || null,
+  };
 }
 
 export function commentDto(r: CommentRow, ctx: DtoCtx): KairosComment {

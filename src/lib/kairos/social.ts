@@ -5,7 +5,8 @@
 // thành luồng 1 cấp, link + chữ chia sẻ (không SĐT), đổi URL ảnh về đường kho (sửa bài giữ ảnh).
 
 import { apiBase } from "@/lib/api-base";
-import { LIMITS, type KairosAuthor, type KairosComment, type KairosPost } from "./types";
+import { GIOI_THIEU_MAX } from "./ho-so";
+import { LIMITS, type KairosAbout, type KairosAuthor, type KairosComment, type KairosPost } from "./types";
 
 export type SendResult<T> =
   | { ok: true; data: T }
@@ -28,6 +29,10 @@ export interface KairosMe extends KairosAuthor {
   bannedUntil: string | null;
   banReason: string | null;
   postCount: number;
+  /** ảnh bìa + quê, nghề, giới thiệu, cảng nhà (0067) */
+  about: KairosAbout;
+  /** tên còn mặc định chưa đổi lần nào ⇒ trang mình mời đặt tên */
+  askName: boolean;
 }
 
 /** GET /api/kairos/users/[id] — hồ sơ công khai nhìn từ người đang xem. */
@@ -36,7 +41,22 @@ export interface KairosUser extends KairosAuthor {
   following: boolean;
   blockedByMe: boolean;
   me: boolean;
+  /** ảnh bìa + Giới thiệu (0067) — cột chưa có ⇒ trống */
+  about: KairosAbout;
+  /** số người theo dõi người này */
+  followers: number;
+  /** số người người này đang theo dõi */
+  followingCount: number;
+  /** cùng cảng nhà với người đang xem (không phải trang mình) */
+  samePort: boolean;
+  /** hồ sơ là agent AI (16-ba-spec-agent-kairos, nháp) — chưa có cột, luôn false */
+  isAgent: boolean;
+  /** trang của mình + tên còn mặc định chưa đổi lần nào ⇒ mời đặt tên ngay trên trang */
+  askName: boolean;
 }
+
+/** Phần Giới thiệu rỗng — bản lưu mất sóng / cột chưa có. */
+export const EMPTY_ABOUT: KairosAbout = { coverUrl: null, queTinh: null, nghe: null, gioiThieu: "", homePort: null };
 
 // ── Câu lỗi ─────────────────────────────────────────────────────────────
 
@@ -54,10 +74,11 @@ const dayLabel = (iso: unknown) => {
  */
 export function errorText(
   r: { code: string; status: number; offline: boolean; extra?: Record<string, unknown> },
-  what: "bai" | "binh-luan" | "ten" | "anh" | "hay" | "bao-xau" | "theo-doi" | "chan" | "xoa" = "bai",
+  what: "bai" | "binh-luan" | "ten" | "anh" | "hay" | "bao-xau" | "theo-doi" | "chan" | "xoa" | "ho-so" = "bai",
 ): string {
   if (r.offline) return "Cần sóng — chưa gửi được. Có sóng bà con bấm lại.";
-  const max = what === "binh-luan" ? LIMITS.commentBody : what === "bao-xau" ? LIMITS.reportNote : LIMITS.postBody;
+  const max =
+    what === "binh-luan" ? LIMITS.commentBody : what === "bao-xau" ? LIMITS.reportNote : what === "ho-so" ? GIOI_THIEU_MAX : LIMITS.postBody;
   switch (r.code) {
     case "empty":
       return what === "binh-luan" ? "Bà con viết vài chữ đã." : "Bà con viết vài chữ hoặc thêm ảnh đã.";
@@ -105,6 +126,15 @@ export function errorText(
       return "Bình luận này không còn.";
     case "not_owner":
       return "Chỉ chủ bài mới sửa, xoá được.";
+    case "bad_province":
+    case "bad_job":
+    case "bad_port":
+      return "Chọn lại trong danh sách giúp.";
+    case "bad_avatar":
+    case "bad_cover":
+      return "Ảnh này không dùng được, chọn ảnh khác.";
+    case "fields_missing":
+      return "Phần giới thiệu chưa mở trên máy chủ, thử lại sau.";
     case "storage_failed":
       return "Chưa xoá được ảnh trong kho. Bài vẫn còn nguyên, thử lại sau.";
     case "unavailable":

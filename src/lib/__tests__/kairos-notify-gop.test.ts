@@ -77,16 +77,23 @@ describe("boatExtra — dòng phụ + số hiệu tàu từ sổ tàu đồng b�
     expect(boatExtra([{ _deleted: true, homePortId: "xx" }, { homePortId: "sa-huynh", maTau: " QNg-90123-TS " }], name)).toEqual({
       subline: "Cảng Sa Huỳnh",
       boatReg: "QNg-90123-TS",
+      portId: "sa-huynh",
     });
   });
   it("không cảng nhà ⇒ tên cơ sở bên mua; có cảng thì cảng thắng", () => {
-    expect(boatExtra(undefined, name, "Vựa cá Bà Tư")).toEqual({ subline: "Vựa cá Bà Tư", boatReg: null });
+    expect(boatExtra(undefined, name, "Vựa cá Bà Tư")).toEqual({ subline: "Vựa cá Bà Tư", boatReg: null, portId: null });
     expect(boatExtra([{ homePortId: "sa-huynh" }], name, "Vựa cá Bà Tư").subline).toBe("Cảng Sa Huỳnh");
   });
+  it("cảng nhà chủ tự chọn (0067 home_port) thắng sổ tàu; mã lạ bị bỏ, về sổ tàu", () => {
+    const name2 = (id: string) => ({ "sa-huynh": "Sa Huỳnh", "ly-son": "Lý Sơn" })[id] ?? null;
+    expect(boatExtra([{ homePortId: "sa-huynh" }], name2, null, "ly-son")).toMatchObject({ subline: "Cảng Lý Sơn", portId: "ly-son" });
+    expect(boatExtra([{ homePortId: "sa-huynh" }], name2, null, "rac")).toMatchObject({ subline: "Cảng Sa Huỳnh", portId: "sa-huynh" });
+    expect(boatExtra(undefined, name2, "Vựa Tư", "ly-son").subline).toBe("Cảng Lý Sơn");
+  });
   it("không sổ / sổ hỏng / cảng lạ ⇒ trống, không ném", () => {
-    expect(boatExtra(undefined, name)).toEqual({ subline: "", boatReg: null });
-    expect(boatExtra("rác", name)).toEqual({ subline: "", boatReg: null });
-    expect(boatExtra([{ homePortId: "khong-co" }], name)).toEqual({ subline: "", boatReg: null });
+    expect(boatExtra(undefined, name)).toEqual({ subline: "", boatReg: null, portId: null });
+    expect(boatExtra("rác", name)).toEqual({ subline: "", boatReg: null, portId: null });
+    expect(boatExtra([{ homePortId: "khong-co" }], name)).toEqual({ subline: "", boatReg: null, portId: null });
   });
 });
 

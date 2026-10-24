@@ -114,6 +114,11 @@ export const NHAN = {
   boAnh: "Bỏ ảnh",
   bo: "Bỏ",
   trangToi: "Trang tôi",
+  // Kairos — trang cá nhân kiểu Facebook (14 §3.8, AC13 bản 2026-10-24)
+  baiViet: "Bài viết",
+  gioiThieu: "Giới thiệu",
+  deSau: "Để sau",
+  cungCang: "Cùng cảng",
   // nhãn khu vực trên thẻ bài không rõ vùng (14 §4, feed-client.areaTag)
   caNuoc: "Cả nước",
 } as const;

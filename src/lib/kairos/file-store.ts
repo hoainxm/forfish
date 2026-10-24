@@ -324,6 +324,16 @@ export function createKairosFileStore(opts: { dir?: string; now?: () => Date } =
         if (!on && i >= 0) list.splice(i, 1);
       }),
     edgesFrom: (kind, from) => read((s) => (kind === "follow" ? s.follows : s.blocks).filter((e) => e.from === from).map((e) => e.to)),
+    followCounts: (phone) =>
+      read((s) => ({ followers: s.follows.filter((e) => e.to === phone).length, following: s.follows.filter((e) => e.from === phone).length })),
+    followList: (dir, phone, limit) =>
+      read((s) =>
+        s.follows
+          .filter((e) => (dir === "followers" ? e.to : e.from) === phone)
+          .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+          .slice(0, limit)
+          .map((e) => (dir === "followers" ? e.from : e.to)),
+      ),
 
     insertReport: (row) =>
       mutate((s) => {
@@ -469,7 +479,7 @@ export function createKairosFileStore(opts: { dir?: string; now?: () => Date } =
         const want = new Set(paths);
         const used = new Set<string>();
         for (const p of s.posts) for (const img of Array.isArray(p.images) ? (p.images as string[]) : []) if (want.has(img)) used.add(img);
-        for (const pr of s.profiles) if (pr.avatar_path && want.has(pr.avatar_path)) used.add(pr.avatar_path);
+        for (const pr of s.profiles) for (const x of [pr.avatar_path, pr.cover_path]) if (x && want.has(x)) used.add(x);
         return used;
       }),
     uploadsToCheck: (since, before, limit) =>
