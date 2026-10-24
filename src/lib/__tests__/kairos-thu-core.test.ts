@@ -8,7 +8,7 @@ import { topicFor } from "@/lib/kairos/chu-de.mjs";
 import nguonJson from "../../../scripts/kairos-nguon.json";
 
 const NOW = Date.parse("2026-10-23T15:00:00Z");
-const NGUON = { id: "vne-thoi-su", outlet: "VnExpress", feedUrl: "https://vnexpress.net/rss/thoi-su.rss", section: "thoi-su", topic: "thoi-su", enabled: true };
+const NGUON = { id: "vne-thoi-su", outlet: "VnExpress", feedUrl: "https://vnexpress.net/rss/thoi-su.rss", section: "thoi-su", topic: "thoi-su", enabled: true, kieu: "rss" as const, chiTinBien: false };
 
 // Mẫu rút gọn từ RSS thật 2026-10-23 (định dạng từng báo)
 const VNE = `<rss><channel><item>
