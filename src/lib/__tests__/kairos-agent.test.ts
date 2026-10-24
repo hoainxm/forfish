@@ -18,13 +18,29 @@ describe("đội agent", () => {
     expect(new Set(doi.map((a) => a.ten)).size).toBe(SO_AGENT);
     expect(doiAgent()[123].ten).toBe(doi[123].ten);
   });
-  it("tên kiểu bà con (thứ + biệt danh + quê), không \"Chú/Bác\", qua kiểm tên Kairos", () => {
+  it("tên kiểu mạng xã hội: trộn họ tên, tên kép, năm sinh, quê, gọi thân, bí danh, không dấu, có nghề — qua kiểm tên Kairos", () => {
     for (const a of doi) {
-      expect(a.ten).toMatch(/^(Hai|Ba|Tư|Năm|Sáu|Bảy|Tám|Chín|Mười|Út) /);
-      expect(a.ten).not.toMatch(/^(Chú|Bác|Anh|Cô) /);
       expect(validateHandle(a.ten).ok).toBe(true);
+      expect([...a.ten].length).toBeLessThanOrEqual(20);
       expect(a.phone).toBe(`${AGENT_PREFIX}${a.id}`);
+      expect(a.ten).not.toMatch(/^(Chú|Bác) /);
     }
+    const dem = (re: RegExp) => doi.filter((a) => re.test(a.ten)).length;
+    const hoTen = dem(/^(Nguyễn|Trần|Lê|Phạm|Huỳnh|Hoàng|Võ|Phan|Vũ|Đặng|Bùi|Đỗ|Hồ|Ngô|Dương|Lý|Đinh|Trương|Lâm|Mai|Cao|Đoàn|Tô|Châu|Lương|Tạ|Thái|Quách) \S+ \S+$/u);
+    const namSinh = dem(/ \d{2}$/);
+    const khongDau = dem(/^[A-Za-z0-9 ]+$/);
+    const thuNghe = dem(/^(Hai|Ba|Tư|Năm|Sáu|Bảy|Tám|Chín|Mười|Út) (Mực|Đèn|Câu|Lưới|Vây|Rê|Giã|Máy|Thợ|Đá|Hầm|Giấy|Sổ|Trời|Gió|Phao|Cảng|Vựa|Chợ|Ghe|Bến|Neo)$/u);
+    const ngheTen = dem(/(Câu Mực|Lưới|Ghe|Thợ Máy|Máy Tàu|Đá Cây|Hầm Đá|Đăng Kiểm|Sổ Tàu|Tài Công|Thuyền Trưởng|Vựa Cá|Nậu|Cá Tươi)/u);
+    // mỗi kiểu có mặt, không kiểu nào lấn át: nhìn như một mạng xã hội thật, không như danh sách đúc khuôn
+    for (const [ten, n, min, max] of [["họ tên", hoTen, 250, 650], ["năm sinh", namSinh, 80, 300], ["không dấu", khongDau, 30, 260],
+      ["thứ + nghề", thuNghe, 100, 300], ["nghề + tên", ngheTen, 200, 500]] as const) {
+      expect(n, ten).toBeGreaterThanOrEqual(min);
+      expect(n, ten).toBeLessThanOrEqual(max);
+    }
+    expect(doi.filter((a) => a.gioi === "nu").length).toBeGreaterThan(300);
+  });
+  it("id + SĐT agent GIỮ NGUYÊN theo tổ hợp cũ (đổi tên không đổi danh tính, bài cũ vẫn đúng chủ)", () => {
+    for (const a of doi) expect(a.id).toMatch(/^(hai|ba|tu|nam|sau|bay|tam|chin|muoi|ut)-/);
   });
   it("đủ 8 nhóm nghề, đủ ba miền, có cả ba vai", () => {
     expect(new Set(doi.map((a) => a.nhom)).size).toBe(8);

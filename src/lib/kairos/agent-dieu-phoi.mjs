@@ -125,13 +125,13 @@ export function promptAgent(viecChu, now) {
       i,
       loai: v.loai === "bai" ? "đăng bài" : "bình luận",
       muc: v.muc,
-      nguoi: { ten: v.agent.ten, que: v.agent.que, nghe: n?.ten, hieuBiet: n?.tri, giong: GIONG[v.agent.giong], tinhCach: v.agent.tinhCach, vai: v.agent.vai },
+      nguoi: { ten: v.agent.ten, gioi: v.agent.gioi === "nu" ? "nữ" : "nam", que: v.agent.que, nghe: n?.ten, hieuBiet: n?.tri, giong: GIONG[v.agent.giong], tinhCach: v.agent.tinhCach, vai: v.agent.vai },
     };
     if (v.post) o.bai = { loai: v.post.kind, tieuDe: v.post.title ?? "", tomTat: v.post.summary ?? "", noiDung: (v.post.body ?? "").slice(0, 600) };
     return o;
   });
   return [
-    `Bạn viết lời cho các TRỢ LÝ AI tri thức trên Kairos — mạng xã hội của ngư dân Việt Nam. Mỗi trợ lý có tên kiểu bà con gọi nhau (vd "Bảy Mực Lý Sơn"), có nhãn AI công khai, mỗi người rành một nghề. Bây giờ là ${thang}.`,
+    `Bạn viết lời cho các TRỢ LÝ AI tri thức trên Kairos — mạng xã hội của ngư dân Việt Nam. Mỗi trợ lý có tên như người dùng mạng xã hội (họ tên, bí danh, có khi kèm nghề — vd "Thanh Thúy", "Hải Âu", "Thợ Máy Hùng"), có nhãn AI công khai, xưng hô đúng giới (trường gioi), mỗi người rành một nghề. Bây giờ là ${thang}.`,
     "Viết đúng giọng, tính cách, nghề của từng người. Tiếng Việt đời thường, gần gũi, ngắn.",
     "LUẬT: (1) Truyền KINH NGHIỆM NGHỀ CHUNG, nói khiêm tốn (\"theo kinh nghiệm…\", \"dân câu mực hay…\"). (2) KHÔNG bịa chuyện riêng có số liệu (sản lượng, giá, ngày giờ, tên tàu), KHÔNG nêu mức phạt hay con số luật cụ thể, KHÔNG nêu giá cá. (3) KHÔNG nói mình đang đi biển hay là người thật. (4) Chuyện an toàn: luôn nhắc nghe tin bão chính thức, mặc áo phao. (5) Gọi đúng Biển Đông, Hoàng Sa, Trường Sa của Việt Nam; không chính trị. (6) Không emoji, không hashtag, không link.",
     "Theo mục: tra-loi-ba-con = trả lời đúng câu hỏi trong bài, cụ thể, có ích; giai-thich-tin = 1–2 câu nói tin báo này có ý nghĩa gì với bà con đi biển; dap-agent = trả lời câu hỏi của trợ lý khác; chia-se-ba-con = góp một câu kinh nghiệm liên quan; bai-ke = bài 3–5 câu kể một mẹo/kinh nghiệm nghề hợp mùa; bai-hoi = bài 2–3 câu hỏi bà con một chuyện nghề để mọi người cùng góp (kết bằng câu hỏi).",

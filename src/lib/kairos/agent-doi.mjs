@@ -4,8 +4,12 @@
 // /api/kairos/agent và máy GPU (scripts/kairos-agent.mjs).
 //
 // Danh sách SINH CỐ ĐỊNH (không ngẫu nhiên theo lần chạy): thứ × biệt danh nghề × quê ⇒ trộn bằng hạt giống cố định ⇒
-// 2000 agent đầu. Tên kiểu bà con gọi nhau ngoài bến: "Bảy Mực Lý Sơn", "Tư Lưới Phú Quý". Agent là tài khoản AI CÓ
-// NHÃN (chấm "AI" cạnh tên — nhận biết qua SĐT sentinel `agent:<id>`), không giả làm người dùng thật.
+// 2000 agent đầu. `id` (và SĐT sentinel) lấy từ tổ hợp đó và GIỮ NGUYÊN mãi — đổi tên không đổi danh tính.
+// TÊN HIỂN THỊ (anh Long 2026-10-24: "đặt tên random theo đúng mô hình mạng xã hội, tên bí danh, cái có nghề cái ko
+// nghề, nó phải đúng như mạng xã hội"): trộn kiểu tên người Việt hay đặt trên Facebook — họ tên đầy đủ, tên kép, tên +
+// năm sinh, tên + quê, gọi thân (Út/Bé), bí danh (Biển Xanh, Hải Âu…), tên không dấu, và một phần có nghề (Bảy Mực,
+// Thợ Máy Hùng, Vựa Cá Lan…). Agent là tài khoản AI CÓ NHÃN (chấm "AI" cạnh tên — nhận biết qua SĐT sentinel
+// `agent:<id>`), không giả làm người dùng thật.
 
 import { foldVi } from "./lien-ket.mjs";
 
@@ -92,9 +96,60 @@ function prng(seed) {
 }
 
 /**
- * @typedef {{ id: string, phone: string, ten: string, nhom: string, que: string, tinh: string, vung: string,
+ * @typedef {{ id: string, phone: string, ten: string, gioi: "nam" | "nu", nhom: string, que: string, tinh: string, vung: string,
  *   giong: "bac" | "trung" | "nam", vai: "ke" | "hoi" | "giai-thich", tinhCach: string }} Agent
  */
+
+
+// ───────── Tên hiển thị kiểu mạng xã hội ─────────
+const HO = ["Nguyễn", "Trần", "Lê", "Phạm", "Huỳnh", "Hoàng", "Võ", "Phan", "Vũ", "Đặng", "Bùi", "Đỗ", "Hồ", "Ngô", "Dương", "Lý",
+  "Đinh", "Trương", "Lâm", "Mai", "Cao", "Đoàn", "Tô", "Châu", "Lương", "Tạ", "Thái", "Quách"];
+const DEM_NAM = ["Văn", "Hữu", "Minh", "Thanh", "Quốc", "Đức", "Công", "Ngọc", "Xuân", "Tấn", "Thành", "Hoàng", "Đình", "Bá"];
+const DEM_NU = ["Thị", "Ngọc", "Thanh", "Thu", "Kim", "Mỹ", "Bích", "Hồng", "Diệu", "Thúy", "Phương", "Bảo"];
+const TEN_NAM = ["Hùng", "Dũng", "Tuấn", "Hải", "Long", "Nam", "Phong", "Sơn", "Tâm", "Thắng", "Tài", "Lộc", "Phúc", "Hiếu",
+  "Trung", "Hòa", "Bình", "Lợi", "Cường", "Toàn", "Khánh", "Vinh", "Quang", "Đạt", "Nhân", "Thịnh", "Tín", "Hậu", "Trí",
+  "Duy", "Hưng", "Tú", "Kiên", "Lực", "Mạnh", "Nghĩa", "Phát", "Sang", "Thuận", "Tùng", "Vũ", "Khoa", "Luân", "Đông"];
+const TEN_NU = ["Mai", "Lan", "Hoa", "Hằng", "Hương", "Thảo", "Trang", "Nhung", "Hiền", "Liên", "Yến", "Thủy", "Ngân", "Linh",
+  "Vy", "Hạnh", "Diễm", "Phượng", "Loan", "Oanh", "Tuyết", "Hồng", "Nga", "My", "Ly", "Thư", "Nhi", "Trinh", "Duyên", "Xuân"];
+const TEN_KEP_NAM = ["Tuấn Anh", "Hoàng Long", "Quốc Bảo", "Đức Huy", "Gia Huy", "Minh Tâm", "Văn Tú", "Hải Đăng", "Thành Đạt",
+  "Minh Quân", "Trọng Nghĩa", "Quang Vinh", "Hữu Phước", "Tấn Lộc", "Anh Khoa", "Hoài Nam", "Phúc Hậu", "Duy Khánh"];
+const TEN_KEP_NU = ["Minh Châu", "Thanh Hằng", "Ngọc Ánh", "Bảo Ngọc", "Thu Hà", "Kim Ngân", "Mỹ Linh", "Hải Yến", "Phương Thảo",
+  "Thanh Thúy", "Ngọc Hân", "Diễm My", "Bích Trâm", "Hồng Nhung", "Thu Trang", "Kiều Oanh", "Mỹ Duyên", "Cẩm Tú"];
+const BI_DANH = ["Biển Xanh", "Gió Chướng", "Sóng Bạc Đầu", "Hải Âu", "Cánh Buồm Nâu", "Trăng Biển", "Mây Trắng", "Muối Mặn",
+  "Cát Trắng", "Sao Biển", "Gió Nồm", "Nắng Chiều", "Bình Minh Biển", "Phố Biển", "Lãng Tử Biển", "Hạt Muối", "Con Nước",
+  "Đèn Biển", "Mũi Thuyền", "Sóng Vỗ", "Gió Bấc", "Chân Trời", "Bọt Biển", "Hoàng Hôn", "Tàu Lạc", "Ngọn Hải Đăng",
+  "Kẻ Đi Biển", "Dân Chài", "Người Miền Biển", "Gió Lộng"];
+const GOI_THAN_NAM = ["Út", "Cu", "Tèo", "Bin", "Tí", "Bờm"];
+const GOI_THAN_NU = ["Út", "Bé", "Mít", "Tí"];
+// Có nghề: theo nhóm của agent (khớp kiến thức nó nói).
+const NGHE_TIEN_TO = {
+  "cau-muc": ["Câu Mực", "Mực Lý Sơn", "Ghe Mực"], luoi: ["Lưới Vây", "Lưới Rê", "Ghe Lưới"],
+  "may-tau": ["Thợ Máy", "Máy Tàu"], "bao-quan": ["Đá Cây", "Hầm Đá"], "giay-to": ["Đăng Kiểm", "Sổ Tàu"],
+  "thoi-tiet": ["Tài Công", "Thuyền Trưởng"], "cho-gia": ["Vựa Cá", "Nậu", "Cá Tươi"], "doi-song": ["Vợ Ghe", "Ghe Bến"],
+};
+const NGHE_NU = { "cho-gia": ["Vựa Cá", "Cá Tươi"], "doi-song": ["Vợ Ghe"], "bao-quan": ["Đá Cây"], "giay-to": ["Đăng Kiểm"] };
+const KHONG_DAU = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+
+/** Một tên hiển thị cho agent — r() là PRNG riêng của agent (cố định). */
+function sinhTen(r, a) {
+  const chon = (xs) => xs[Math.floor(r() * xs.length)];
+  const nu = r() < (a.nhom === "cho-gia" || a.nhom === "doi-song" ? 0.55 : 0.22);
+  const ho = chon(HO), dem = chon(nu ? DEM_NU : DEM_NAM), ten = chon(nu ? TEN_NU : TEN_NAM), kep = chon(nu ? TEN_KEP_NU : TEN_KEP_NAM);
+  const nam = String(chon([68, 72, 75, 78, 80, 82, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 95, 97, 98, 99]));
+  const x = r();
+  let t;
+  if (x < 0.22) t = `${ho} ${dem} ${ten}`;                                   // họ tên đầy đủ
+  else if (x < 0.34) t = kep;                                                  // tên kép
+  else if (x < 0.42) t = `${chon([ten, kep])} ${nam}`;                        // tên + năm sinh
+  else if (x < 0.52) t = `${ten} ${a.que}`;                                    // tên + quê
+  else if (x < 0.58) t = `${chon(nu ? GOI_THAN_NU : GOI_THAN_NAM)} ${ten}`;                           // gọi thân
+  else if (x < 0.68) t = r() < 0.5 ? chon(BI_DANH) : `${chon(BI_DANH)} ${a.que}`; // bí danh
+  else if (x < 0.72) t = KHONG_DAU(r() < 0.5 ? `${ho} ${dem} ${ten}` : `${kep} ${nam}`); // không dấu
+  else if (x < 0.82) t = `${chon(THU)} ${a.bietDanh}`;                         // có nghề: thứ + biệt danh nghề
+  else if (x < 0.94) t = `${chon(nu ? NGHE_NU[a.nhom] ?? ["Cá Tươi"] : NGHE_TIEN_TO[a.nhom])} ${ten}`; // có nghề: nghề + tên
+  else t = `${ten} ${chon(NGHE_TIEN_TO[a.nhom])}`;                              // có nghề: tên + nghề
+  return { ten: t, gioi: nu ? "nu" : "nam" };
+}
 
 /** @type {Agent[] | null} */
 let doi = null;
@@ -106,19 +161,27 @@ export function doiAgent() {
   for (const nhom of NHOM) for (const bd of nhom.bietDanh) for (const thu of THU) for (const q of QUE) {
     const ten = `${thu} ${bd} ${q.ten}`;
     if ([...ten].length > 20) continue;
-    tat.push({ ten, nhom: nhom.id, q });
+    tat.push({ ten, nhom: nhom.id, bietDanh: bd, q });
   }
   const r = prng(20261024);
   for (let i = tat.length - 1; i > 0; i--) {
     const j = Math.floor(r() * (i + 1));
     [tat[i], tat[j]] = [tat[j], tat[i]];
   }
+  const daCo = new Set();
   doi = tat.slice(0, SO_AGENT).map((x, i) => {
+    // id + SĐT từ tổ hợp gốc ("bay-muc-ly-son") — GIỮ NGUYÊN, hồ sơ/bài cũ vẫn gắn đúng agent.
     const id = foldVi(x.ten).replace(/\s+/g, "-");
+    const rt = prng(20261024 ^ (i * 2654435761));
+    let t = sinhTen(rt, { nhom: x.nhom, bietDanh: x.bietDanh, que: x.q.ten });
+    for (let k = 0; k < 40 && ([...t.ten].length > 20 || daCo.has(foldVi(t.ten))); k++) t = sinhTen(rt, { nhom: x.nhom, bietDanh: x.bietDanh, que: x.q.ten });
+    if ([...t.ten].length > 20 || daCo.has(foldVi(t.ten))) t = { ten: `${t.ten.slice(0, 14)} ${i}`.replace(/\s+/g, " ").trim(), gioi: t.gioi };
+    daCo.add(foldVi(t.ten));
     return {
       id,
       phone: `${AGENT_PREFIX}${id}`,
-      ten: x.ten,
+      ten: t.ten,
+      gioi: /** @type {"nam" | "nu"} */ (t.gioi),
       nhom: x.nhom,
       que: x.q.ten,
       tinh: x.q.tinh,
