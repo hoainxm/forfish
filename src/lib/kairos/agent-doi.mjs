@@ -97,9 +97,67 @@ function prng(seed) {
 
 /**
  * @typedef {{ id: string, phone: string, ten: string, gioi: "nam" | "nu", nhom: string, que: string, tinh: string, vung: string,
- *   giong: "bac" | "trung" | "nam", vai: "ke" | "hoi" | "giai-thich", tinhCach: string }} Agent
+ *   giong: "bac" | "trung" | "nam", vai: "ke" | "hoi" | "giai-thich", tinhCach: string,
+ *   tuoi: number, lopTuoi: "tre" | "trung-nien" | "lon-tuoi", giongDieu: string, quanTam: string[] }} Agent
  */
 
+
+
+// ───────── Chân dung: tuổi · giọng điệu · mối quan tâm · giờ hay online (anh Long 2026-10-24: "agent chia theo độ
+// tuổi, già trẻ, giọng điệu, vùng miền, mối quan tâm") ─────────
+/** Ba lớp tuổi; `ti` = tỉ lệ trong đội; `gio` = hệ số theo giờ VN (0–23) — trẻ hay lướt tối khuya, lớn tuổi dậy sớm. */
+export const LOP_TUOI = {
+  tre: { ten: "trẻ", tu: 19, den: 32, ti: 0.3,
+    gio: [0.6, 0.4, 0.2, 0.1, 0.2, 0.4, 0.6, 0.7, 0.6, 0.6, 0.7, 1, 1, 0.8, 0.6, 0.6, 0.7, 0.9, 1, 1, 1, 1, 1, 0.9] },
+  "trung-nien": { ten: "trung niên", tu: 33, den: 52, ti: 0.45,
+    gio: [0.1, 0.05, 0.05, 0.2, 0.8, 1, 1, 0.8, 0.6, 0.5, 0.6, 1, 1, 0.8, 0.5, 0.5, 0.6, 0.8, 1, 1, 0.9, 0.7, 0.4, 0.2] },
+  "lon-tuoi": { ten: "lớn tuổi", tu: 53, den: 72, ti: 0.25,
+    gio: [0.05, 0.05, 0.1, 0.5, 1, 1, 1, 0.8, 0.6, 0.5, 0.6, 0.8, 0.6, 0.4, 0.4, 0.5, 0.7, 0.9, 1, 0.8, 0.5, 0.2, 0.1, 0.05] },
+};
+/** Giọng điệu theo tuổi — đưa vào prompt (cách nói, không phải giọng miền). */
+export const GIONG_DIEU = {
+  tre: ["sôi nổi, câu ngắn, hay dùng \"nha\", \"nè\", \"ok\"", "hài hước, hay trêu nhẹ, chịu khó hỏi", "nhanh nhẹn, hay rủ mọi người góp ý", "thẳng, gọn, hay chia sẻ mẹo dùng điện thoại, máy móc"],
+  "trung-nien": ["thẳng thắn, thực tế, nói vào việc", "điềm đạm, rõ ràng, hay chỉ cách làm từng bước", "nhiệt tình, hay hỏi han bà con", "cẩn thận, hay nhắc an toàn"],
+  "lon-tuoi": ["chậm rãi, hay kể chuyện ngày xưa để so sánh", "từ tốn, hay dặn dò lớp trẻ", "nghiêm, nói ít mà chắc", "hiền, khiêm tốn, hay nói \"theo tui biết\""],
+};
+/** Mối quan tâm ngoài nghề — `topic` khớp chủ đề dòng tin (bài báo cùng chủ đề ⇒ người quan tâm vào bàn). */
+export const QUAN_TAM = [
+  { id: "an-toan-bien", ten: "an toàn trên biển, thời tiết", topic: "nghe-ca", w: { tre: 1, "trung-nien": 2, "lon-tuoi": 2 } },
+  { id: "gia-ca", ten: "giá cá, chợ, làm ăn", topic: "kinh-te", w: { tre: 1, "trung-nien": 2, "lon-tuoi": 1 } },
+  { id: "thoi-su", ten: "thời sự trong nước", topic: "thoi-su", w: { tre: 1, "trung-nien": 2, "lon-tuoi": 2 } },
+  { id: "luat-le", ten: "luật lệ, giấy tờ, chính sách cho ngư dân", topic: "phap-luat", w: { tre: 0.5, "trung-nien": 2, "lon-tuoi": 1 } },
+  { id: "bong-da", ten: "bóng đá, thể thao", topic: "the-thao", w: { tre: 3, "trung-nien": 2, "lon-tuoi": 0.7 } },
+  { id: "giai-tri", ten: "phim, ca nhạc, chuyện vui", topic: "giai-tri", w: { tre: 2.5, "trung-nien": 0.8, "lon-tuoi": 0.4 } },
+  { id: "gia-dinh", ten: "con cái, học hành, gia đình", topic: "doi-song", w: { tre: 0.6, "trung-nien": 2.5, "lon-tuoi": 1.5 } },
+  { id: "suc-khoe", ten: "sức khỏe, thuốc men", topic: "doi-song", w: { tre: 0.4, "trung-nien": 1, "lon-tuoi": 2.5 } },
+  { id: "chuyen-xua", ten: "chuyện xưa, lễ hội làng chài, cúng Ông", topic: "doi-song", w: { tre: 0.3, "trung-nien": 0.8, "lon-tuoi": 2.5 } },
+  { id: "cong-nghe", ten: "điện thoại, máy định vị, mạng", topic: null, w: { tre: 3, "trung-nien": 1, "lon-tuoi": 0.3 } },
+  { id: "may-moc", ten: "máy móc, sửa chữa", topic: null, w: { tre: 1.5, "trung-nien": 1.5, "lon-tuoi": 0.8 } },
+];
+/** Chọn có trọng số. */
+function chonTrongSo(xs, w, r) {
+  const tong = xs.reduce((s, x) => s + w(x), 0);
+  let k = r() * tong;
+  for (const x of xs) if ((k -= w(x)) < 0) return x;
+  return xs[xs.length - 1];
+}
+/** Lớp tuổi theo tỉ lệ đội; người trông vựa/đời sống bến nghiêng trung niên–lớn tuổi, máy tàu nghiêng trẻ. */
+function lopTuoiCho(nhom, r) {
+  const nghieng = { "may-tau": { tre: 1.6 }, "cho-gia": { "lon-tuoi": 1.3 }, "doi-song": { "lon-tuoi": 1.4 }, "giay-to": { "trung-nien": 1.3 } }[nhom] ?? {};
+  return chonTrongSo(Object.keys(LOP_TUOI), (k) => LOP_TUOI[k].ti * (nghieng[k] ?? 1), r);
+}
+/** 2–3 mối quan tâm, không trùng, theo trọng số tuổi. */
+function quanTamCho(lop, r) {
+  const n = r() < 0.5 ? 2 : 3;
+  const con = [...QUAN_TAM];
+  const out = [];
+  while (out.length < n && con.length) {
+    const x = chonTrongSo(con, (q) => q.w[lop], r);
+    out.push(x.id);
+    con.splice(con.indexOf(x), 1);
+  }
+  return out;
+}
 
 // ───────── Tên hiển thị kiểu mạng xã hội ─────────
 const HO = ["Nguyễn", "Trần", "Lê", "Phạm", "Huỳnh", "Hoàng", "Võ", "Phan", "Vũ", "Đặng", "Bùi", "Đỗ", "Hồ", "Ngô", "Dương", "Lý",
@@ -128,26 +186,32 @@ const NGHE_TIEN_TO = {
   "thoi-tiet": ["Tài Công", "Thuyền Trưởng"], "cho-gia": ["Vựa Cá", "Nậu", "Cá Tươi"], "doi-song": ["Vợ Ghe", "Ghe Bến"],
 };
 const NGHE_NU = { "cho-gia": ["Vựa Cá", "Cá Tươi"], "doi-song": ["Vợ Ghe"], "bao-quan": ["Đá Cây"], "giay-to": ["Đăng Kiểm"] };
+const NAM_NAY = 2026;
 const KHONG_DAU = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
 
-/** Một tên hiển thị cho agent — r() là PRNG riêng của agent (cố định). */
+/** Một tên hiển thị cho agent — r() là PRNG riêng của agent (cố định). Kiểu tên khớp tuổi: trẻ hay đặt bí danh,
+ *  gọi thân, tên + năm sinh, không dấu; lớn tuổi hay để họ tên đầy đủ, thứ + nghề. Năm sinh trong tên = đúng tuổi. */
 function sinhTen(r, a) {
   const chon = (xs) => xs[Math.floor(r() * xs.length)];
   const nu = r() < (a.nhom === "cho-gia" || a.nhom === "doi-song" ? 0.55 : 0.22);
   const ho = chon(HO), dem = chon(nu ? DEM_NU : DEM_NAM), ten = chon(nu ? TEN_NU : TEN_NAM), kep = chon(nu ? TEN_KEP_NU : TEN_KEP_NAM);
-  const nam = String(chon([68, 72, 75, 78, 80, 82, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 95, 97, 98, 99]));
-  const x = r();
+  const nam = String((NAM_NAY - a.tuoi) % 100).padStart(2, "0");
+  /** [kiểu, trọng số trẻ, trung niên, lớn tuổi] */
+  const KIEU = [["ho-ten", 1, 2.5, 3.5], ["kep", 1.6, 1.2, 0.6], ["nam-sinh", 1.6, 0.8, 0.2], ["que", 0.8, 1, 1.2], ["goi-than", 1.4, 0.3, 0],
+    ["bi-danh", 1.6, 0.8, 0.3], ["khong-dau", 0.8, 0.4, 0.1], ["thu-nghe", 0.4, 1.2, 2.2], ["nghe-ten", 0.8, 1.4, 1], ["ten-nghe", 0.5, 0.6, 0.4]];
+  const cot = { tre: 1, "trung-nien": 2, "lon-tuoi": 3 }[a.lop];
+  const k = chonTrongSo(KIEU, (x) => x[cot], r)[0];
   let t;
-  if (x < 0.22) t = `${ho} ${dem} ${ten}`;                                   // họ tên đầy đủ
-  else if (x < 0.34) t = kep;                                                  // tên kép
-  else if (x < 0.42) t = `${chon([ten, kep])} ${nam}`;                        // tên + năm sinh
-  else if (x < 0.52) t = `${ten} ${a.que}`;                                    // tên + quê
-  else if (x < 0.58) t = `${chon(nu ? GOI_THAN_NU : GOI_THAN_NAM)} ${ten}`;                           // gọi thân
-  else if (x < 0.68) t = r() < 0.5 ? chon(BI_DANH) : `${chon(BI_DANH)} ${a.que}`; // bí danh
-  else if (x < 0.72) t = KHONG_DAU(r() < 0.5 ? `${ho} ${dem} ${ten}` : `${kep} ${nam}`); // không dấu
-  else if (x < 0.82) t = `${chon(THU)} ${a.bietDanh}`;                         // có nghề: thứ + biệt danh nghề
-  else if (x < 0.94) t = `${chon(nu ? NGHE_NU[a.nhom] ?? ["Cá Tươi"] : NGHE_TIEN_TO[a.nhom])} ${ten}`; // có nghề: nghề + tên
-  else t = `${ten} ${chon(NGHE_TIEN_TO[a.nhom])}`;                              // có nghề: tên + nghề
+  if (k === "ho-ten") t = `${ho} ${dem} ${ten}`;
+  else if (k === "kep") t = kep;
+  else if (k === "nam-sinh") t = `${chon([ten, kep])} ${nam}`;
+  else if (k === "que") t = `${ten} ${a.que}`;
+  else if (k === "goi-than") t = `${chon(nu ? GOI_THAN_NU : GOI_THAN_NAM)} ${ten}`;
+  else if (k === "bi-danh") t = r() < 0.5 ? chon(BI_DANH) : `${chon(BI_DANH)} ${a.que}`;
+  else if (k === "khong-dau") t = KHONG_DAU(r() < 0.5 ? `${ho} ${dem} ${ten}` : `${kep} ${nam}`);
+  else if (k === "thu-nghe") t = `${chon(THU)} ${a.bietDanh}`;
+  else if (k === "nghe-ten") t = `${chon(nu ? NGHE_NU[a.nhom] ?? ["Cá Tươi"] : NGHE_TIEN_TO[a.nhom])} ${ten}`;
+  else t = `${ten} ${chon(NGHE_TIEN_TO[a.nhom])}`;
   return { ten: t, gioi: nu ? "nu" : "nam" };
 }
 
@@ -173,8 +237,11 @@ export function doiAgent() {
     // id + SĐT từ tổ hợp gốc ("bay-muc-ly-son") — GIỮ NGUYÊN, hồ sơ/bài cũ vẫn gắn đúng agent.
     const id = foldVi(x.ten).replace(/\s+/g, "-");
     const rt = prng(20261024 ^ (i * 2654435761));
-    let t = sinhTen(rt, { nhom: x.nhom, bietDanh: x.bietDanh, que: x.q.ten });
-    for (let k = 0; k < 40 && ([...t.ten].length > 20 || daCo.has(foldVi(t.ten))); k++) t = sinhTen(rt, { nhom: x.nhom, bietDanh: x.bietDanh, que: x.q.ten });
+    const lop = lopTuoiCho(x.nhom, rt);
+    const tuoi = LOP_TUOI[lop].tu + Math.floor(rt() * (LOP_TUOI[lop].den - LOP_TUOI[lop].tu + 1));
+    const vao = { nhom: x.nhom, bietDanh: x.bietDanh, que: x.q.ten, lop, tuoi };
+    let t = sinhTen(rt, vao);
+    for (let k = 0; k < 40 && ([...t.ten].length > 20 || daCo.has(foldVi(t.ten))); k++) t = sinhTen(rt, vao);
     if ([...t.ten].length > 20 || daCo.has(foldVi(t.ten))) t = { ten: `${t.ten.slice(0, 14)} ${i}`.replace(/\s+/g, " ").trim(), gioi: t.gioi };
     daCo.add(foldVi(t.ten));
     return {
@@ -189,6 +256,10 @@ export function doiAgent() {
       giong: /** @type {Agent["giong"]} */ (x.q.giong),
       vai: /** @type {Agent["vai"]} */ (VAI[i % VAI.length]),
       tinhCach: TINH_CACH[Math.floor(r() * TINH_CACH.length)],
+      tuoi,
+      lopTuoi: /** @type {Agent["lopTuoi"]} */ (lop),
+      giongDieu: GIONG_DIEU[lop][Math.floor(rt() * GIONG_DIEU[lop].length)],
+      quanTam: quanTamCho(lop, rt),
     };
   });
   return doi;
@@ -233,6 +304,9 @@ export const TRAN = {
  * Trọng số giờ (giờ Việt Nam 0–23): bà con xem điện thoại 4–7 h sáng, 11–13 h, 18–22 h; khuya gần như im.
  * Máy GPU nhân với nhịp gốc để ra số việc mỗi lượt 10 phút.
  */
+/** Hệ số online của MỘT agent lúc giờ VN `gio` (theo lớp tuổi). */
+export const gioCua = (a, gio) => LOP_TUOI[a.lopTuoi]?.gio[gio] ?? 1;
+
 export const GIO = [0.05, 0.05, 0.05, 0.1, 0.8, 1, 1, 0.8, 0.5, 0.4, 0.5, 0.9, 1, 0.8, 0.4, 0.4, 0.5, 0.7, 1, 1, 1, 0.9, 0.5, 0.15];
 
 /**

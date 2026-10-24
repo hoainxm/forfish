@@ -1,6 +1,6 @@
 // 2000 agent tri thức Kairos — danh sách cố định, đan xen, luật chữ, kế hoạch lượt (16-ba-spec-agent-kairos).
 import { describe, expect, it } from "vitest";
-import { agentTheoId, AGENT_PREFIX, doiAgent, GIO, laAgent, loiChuAgent, nhomHopVoi, SO_AGENT } from "@/lib/kairos/agent-doi.mjs";
+import { agentTheoId, AGENT_PREFIX, doiAgent, GIO, gioCua, laAgent, LOP_TUOI, loiChuAgent, nhomHopVoi, QUAN_TAM, SO_AGENT } from "@/lib/kairos/agent-doi.mjs";
 import { AGENT_MOI_BAI, chuanSoAgent, ghepViec, ghiSoAgent, gioVN, keHoach, promptAgent, soViec } from "@/lib/kairos/agent-dieu-phoi.mjs";
 import { validateHandle } from "@/lib/kairos/ten-goi";
 
@@ -41,6 +41,40 @@ describe("đội agent", () => {
   });
   it("id + SĐT agent GIỮ NGUYÊN theo tổ hợp cũ (đổi tên không đổi danh tính, bài cũ vẫn đúng chủ)", () => {
     for (const a of doi) expect(a.id).toMatch(/^(hai|ba|tu|nam|sau|bay|tam|chin|muoi|ut)-/);
+  });
+  it("chân dung: đủ ba lớp tuổi theo tỉ lệ, tuổi trong khoảng của lớp, 2–3 mối quan tâm không trùng, giọng điệu theo tuổi", () => {
+    const dem = (l: string) => doi.filter((a) => a.lopTuoi === l).length;
+    expect(dem("tre")).toBeGreaterThan(450);
+    expect(dem("trung-nien")).toBeGreaterThan(700);
+    expect(dem("lon-tuoi")).toBeGreaterThan(400);
+    for (const a of doi) {
+      const lop = LOP_TUOI[a.lopTuoi as keyof typeof LOP_TUOI];
+      expect(a.tuoi).toBeGreaterThanOrEqual(lop.tu);
+      expect(a.tuoi).toBeLessThanOrEqual(lop.den);
+      expect(a.quanTam.length).toBeGreaterThanOrEqual(2);
+      expect(a.quanTam.length).toBeLessThanOrEqual(3);
+      expect(new Set(a.quanTam).size).toBe(a.quanTam.length);
+      for (const q of a.quanTam) expect(QUAN_TAM.some((x) => x.id === q)).toBe(true);
+      expect(a.giongDieu.length).toBeGreaterThan(5);
+    }
+    // mọi mối quan tâm đều có người
+    for (const q of QUAN_TAM) expect(doi.some((a) => a.quanTam.includes(q.id)), q.id).toBe(true);
+  });
+  it("tên khớp tuổi: năm sinh trong tên = đúng tuổi; gọi thân chỉ người trẻ/trung niên; người trẻ mê bóng đá hơn người lớn tuổi", () => {
+    for (const a of doi) {
+      const m = / (\d{2})$/.exec(a.ten);
+      if (m) expect((2026 - a.tuoi) % 100).toBe(Number(m[1]));
+      if (/^(Cu|Tèo|Bin|Bờm|Bé|Mít) /.test(a.ten)) expect(a.lopTuoi).not.toBe("lon-tuoi");
+    }
+    const ti = (l: string, q: string) => doi.filter((a) => a.lopTuoi === l && a.quanTam.includes(q)).length / doi.filter((a) => a.lopTuoi === l).length;
+    expect(ti("tre", "bong-da")).toBeGreaterThan(ti("lon-tuoi", "bong-da"));
+    expect(ti("lon-tuoi", "chuyen-xua")).toBeGreaterThan(ti("tre", "chuyen-xua"));
+  });
+  it("giờ online: người trẻ hay vào khuya, người lớn tuổi dậy sớm", () => {
+    const tre = doi.find((a) => a.lopTuoi === "tre")!;
+    const gia = doi.find((a) => a.lopTuoi === "lon-tuoi")!;
+    expect(gioCua(tre, 23)).toBeGreaterThan(gioCua(gia, 23));
+    expect(gioCua(gia, 4)).toBeGreaterThan(gioCua(tre, 4));
   });
   it("đủ 8 nhóm nghề, đủ ba miền, có cả ba vai", () => {
     expect(new Set(doi.map((a) => a.nhom)).size).toBe(8);
@@ -117,5 +151,30 @@ describe("keHoach — một lượt", () => {
     const so = ghiSoAgent(chuanSoAgent(null, SANG), gui, [{ ok: true }], SANG);
     expect(so.daBinhLuan.p1).toEqual([gui[0].agentId]);
     expect(ghepViec(viecChu, "hỏng")).toEqual([]);
+  });
+  it("tin báo ngoài nghề (thể thao) ⇒ người QUAN TÂM bóng đá vào bàn (mục ban-tin)", () => {
+    const bong = { id: "p9", kind: "bao", title: "Tuyển Việt Nam thắng 2-0", summary: "Đội tuyển thắng trận giao hữu", topic: "the-thao", commentCount: 0, publishedAt: h(1) };
+    let gap = 0;
+    for (let k = 0; k < 30; k++) {
+      let seed = k + 1;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const { viecChu } = keHoach([bong], chuanSoAgent(null, SANG), SANG + 5 * 3_600_000 * 2, rnd);
+      const v = viecChu.find((x) => x.loai === "binh-luan" && x.post?.id === "p9");
+      if (!v) continue;
+      gap++;
+      expect(v.muc).toBe("ban-tin");
+      expect(v.agent.quanTam).toContain("bong-da");
+    }
+    expect(gap).toBeGreaterThan(0);
+  });
+  it("prompt mang đủ chân dung (tuổi, giọng điệu, giọng miền, mối quan tâm); bài đời thường giữ chủ đề", () => {
+    const a = doiAgent().find((x) => x.lopTuoi === "tre")!;
+    const pr = promptAgent([{ loai: "bai", agent: a, muc: "bai-doi-thuong", chuDe: "bóng đá, thể thao", topic: "the-thao" }], SANG);
+    expect(pr).toContain(`"tuoi":${a.tuoi}`);
+    expect(pr).toContain(a.giongDieu.replace(/"/g, '\\"'));
+    expect(pr).toContain("giongMien");
+    expect(pr).toContain("bai-doi-thuong");
+    const gui = ghepViec([{ loai: "bai", agent: a, muc: "bai-doi-thuong", topic: "the-thao" }], [{ i: 0, body: "Tối qua coi tuyển đá mà vui ghê bà con, ai coi chưa nè?" }]);
+    expect(gui[0]).toMatchObject({ loai: "bai", topic: "the-thao" });
   });
 });
