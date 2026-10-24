@@ -903,7 +903,7 @@ Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng 
 - Tương thích: cột có default + hàm mới ⇒ code cũ chạy nguyên trên DB đã apply. Thứ tự: **apply 0064 → deploy** (code mới gọi hàm 0064).
 - file-store (dev) không đổi: một tiến trình, ghi cả tệp một lần nên vốn nguyên tử.
 
-### KAIROS — hồ sơ Sen Biển — migration [`0068_kairos_sen_bien.sql`](../../supabase/migrations/0068_kairos_sen_bien.sql) (2026-10-24) — ⛔ **CHƯA APPLY** (chờ anh Long cho phép)
+### KAIROS — hồ sơ Sen Biển — migration [`0068_kairos_sen_bien.sql`](../../supabase/migrations/0068_kairos_sen_bien.sql) (2026-10-24) — ✅ **ĐÃ APPLY** 2026-10-24 qua connector Supabase (anh Long: "áp đi")
 
 - Chỉ DỮ LIỆU: thêm một dòng `kairos_profiles` (phone sentinel `sen-bien:tro-ly`, handle "Sen Biển", `official` true, đã đồng ý nội quy) — khuôn hồ sơ SDVICO ở 0065. Không đổi cấu trúc. Chạy lại an toàn (`on conflict do nothing`). Chưa áp ⇒ /api/kairos/sen-bien trả 503, app không ảnh hưởng.
 ### KAIROS — trang cá nhân kiểu Facebook — migration [`0067_kairos_ho_so.sql`](../../supabase/migrations/0067_kairos_ho_so.sql) (2026-10-24) — ⛔ **CHƯA APPLY** (áp bằng tay ở SQL Editor, anh Long duyệt)
