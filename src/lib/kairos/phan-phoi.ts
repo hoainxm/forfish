@@ -34,6 +34,15 @@ export const TRAN_KHONG_BIEN = 3;
 export const laTinBien = (p: Pick<PPPost, "kind" | "topic" | "regions">): boolean =>
   p.kind !== "bao" || p.topic === "nghe-ca" || !!p.regions?.includes("hoang-sa-truong-sa");
 
+/**
+ * "Thích đọc" (Tuỳ chọn dòng tin, tuy-chon.ts): chủ đề bà con chọn được cộng ngần này. Bằng nửa điểm độ mới của bài
+ * vừa đăng ⇒ đẩy lên rõ nhưng không đè bài mới hơn hẳn, và KHÔNG phá trần tin biển (luật đan xen áp sau điểm).
+ */
+export const W_THICH = 0.5;
+
+/** Bài của agent tri thức (16-ba-spec-agent-kairos): SĐT sentinel `agent:<mã>` — không phụ thuộc cột is_agent. */
+export const laBaiAgent = (p: Pick<PPPost, "author_phone">): boolean => !!p.author_phone?.startsWith("agent:");
+
 const W = { moi: 1, chuDe: 0.7, tacGia: 0.4, cang: 0.6, tinh: 0.4, vung: 0.2, tuongTac: 0.5, theoDoi: 0.6 } as const;
 
 export interface PPPost {
@@ -66,6 +75,8 @@ export interface Reader {
   /** SĐT đang theo dõi */
   follows: ReadonlySet<string>;
   home: { port: string | null; province: string | null; regions: readonly string[] };
+  /** chủ đề "Thích đọc" bà con tự chọn (Tuỳ chọn dòng tin) — ưu tiên, không lọc */
+  thich?: ReadonlySet<string>;
 }
 
 /** Khoá tác giả: người/agent theo SĐT (hoặc sentinel), bài báo theo tên báo. */
@@ -120,6 +131,7 @@ export function diemBai(
   const age = tuoiGio(p.feed_at, now);
   let s = W.moi * Math.pow(0.5, age / NUA_DOI_MOI_H);
   s += W.chuDe * (ctx.chuDe.get(p.topic) ?? 0);
+  if (r.thich?.has(p.topic)) s += W_THICH;
   const tg = tacGiaCua(p);
   s += W.tacGia * (ctx.tacGia.get(tg) ?? 0);
   if (r.home.port && p.ports?.includes(r.home.port)) s += W.cang;

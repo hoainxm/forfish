@@ -157,6 +157,7 @@ Ghi: `identityFromRequest(req)` (401 chưa đăng nhập, 503 không tra đượ
 |---|---|---|
 | `forfish.kairos.v1` | `{bucket, savedAt, posts[]}` ≤200 bài **chỉ chữ**, cách ly ngăn SĐT như `inbox.ts`; writer `lib/kairos/cache.ts` | ~300 KB; vượt ⇒ cắt bài cũ; đầy bộ nhớ ⇒ cắt nửa thử lại; không đụng `forfish.fc.*` |
 | `forfish.kairos.thoiquen.v1` | đếm bấm chip, đọc theo chủ đề, cảng/tỉnh/vùng nhà | ≤4 KB, không gửi đi |
+| `forfish.kairos.tuychon.v1` | Tuỳ chọn dòng tin: chủ đề Thích đọc + công tắc bài trợ lý AI (§13) | ≤2 KB; chỉ gửi mã chủ đề + `ai=0` |
 | `forfish.kairos.nhap.v1` | nháp bài + nháp bình luận theo `postId`, chỉ chữ | ≤20 nháp |
 
 Đăng xuất ⇒ xoá ngăn SĐT đó + nháp.
@@ -182,6 +183,7 @@ Anh Long: "đã có cỗ máy phân phối tin theo người đọc chưa" → "
 - **Tỉ lệ biển 85 %**: trang 20 bài tối đa 3 bài không phải chuyện biển (`laTinBien`: bài bà con/agent/SDVICO, bài báo Nghề cá, tin Hoàng Sa–Trường Sa). Hết tin biển trong ứng viên ⇒ nới (dòng tin không tắt ngang). ⚠️ Nguồn RSS hiện chỉ ~5 % tin biển (Nông nghiệp & Môi trường đứng RSS từ 05/10) — cần thêm nguồn.
 - **Phân trang**: con trỏ `pp.<base64>` = {mốc chụp, vị trí}; xếp xác định ⇒ không lặp. Hết danh sách ⇒ `next` chuyển sang con trỏ theo giờ từ bài cũ nhất của ứng viên.
 - **Tín hiệu**: app đo thẻ nằm ≥ 50 % trên màn ≥ 1 s (một lần xem + thời gian dừng, trần 2 phút/lần), chạm mở bài = opened; hàng đợi `forfish.kairos.doc.v1` (ngăn SĐT, ≤ 300 bài) gửi lô ≤ 100 mỗi 20 s + khi vào nền ⇒ `POST /api/kairos/doc` ⇒ `kairos_record_reads` (gộp nguyên tử, 0066). Khách: không ghi. Bảng chưa có ⇒ dòng tin vẫn chạy, không cá nhân hoá.
+- **Tuỳ chọn dòng tin** (2026-10-24, anh Long: "cho 1 cái icon dạng cấu hình của fb để chọn chủ đề thích đọc"): nút bánh răng cạnh "Trang tôi" (chỉ dòng tin chung, không ở Bến) ⇒ ngăn "Tuỳ chọn dòng tin". **Ưu tiên, KHÔNG lọc** (như "Tuỳ chọn bảng feed" của Facebook): chọn nhiều chủ đề "Thích đọc" (7 chủ đề, mặc định không chọn = như cũ) ⇒ app gửi `thich=<mã,mã>`, máy chủ cộng `W_THICH = 0.5` vào điểm bài chủ đề đó (bằng nửa điểm độ mới của bài vừa đăng — đẩy lên rõ nhưng không đè bài mới hơn hẳn); chủ đề khác vẫn hiện; **luật 85 % tin biển giữ nguyên** (thích Thể thao vẫn tối đa 3/20 bài ngoài biển — ngăn ghi "Tin biển vẫn luôn chiếm phần lớn"). Công tắc **"Hiện bài trợ lý AI"** (mặc định bật; tắt ⇒ `ai=0`, máy chủ bỏ bài có `author_phone` bắt đầu `agent:` TRƯỚC khi xếp và ở đoạn nối theo giờ — không phụ thuộc cột `is_agent`). Mã lạ bỏ qua, không 400. Lưu trong máy `forfish.kairos.tuychon.v1` (hỏng ⇒ mặc định; ghi hỏng ⇒ "chỉ dùng lần này", vẫn áp trong phiên); đóng ngăn ⇒ tải lại trang đầu nếu có đổi. Không request mới; mất sóng vẫn đọc bản lưu như cũ (bản lưu không xếp lại theo Thích đọc), có sóng sẽ áp.
 - **Riêng tư**: /quyen-rieng-tu khai "Bài đã xem trên Kairos — giữ 90 ngày, chỉ để xếp dòng tin cho chính bà con".
 
 ## 14. Sen Biển giới thiệu app (2026-10-24)

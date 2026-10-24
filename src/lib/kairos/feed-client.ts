@@ -14,6 +14,7 @@ import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { provinceIdOf, regionsOfProvince } from "./khu-vuc.mjs";
 import { HABIT_KEY, parseHabit, serializeHabit, type ChipId, type Habit } from "./thoi-quen";
+import { parseTuyChon, serializeTuyChon, TUY_CHON_KEY, type TuyChon } from "./tuy-chon";
 import { KAIROS_CACHE_KEY, mergeAndTrim, parseCache, writeCache, type CacheWrite, type KairosCache } from "./cache";
 import type { KairosPost } from "./types";
 
@@ -230,6 +231,27 @@ export function saveHabit(h: Habit): void {
     storage()?.setItem(HABIT_KEY, serializeHabit(h));
   } catch {
     /* đầy bộ nhớ / chế độ riêng tư: mất thói quen = chip về thứ tự mặc định, không mất gì của bà con */
+  }
+}
+
+/** Tuỳ chọn dòng tin (tuy-chon.ts). Đọc hỏng ⇒ mặc định. */
+export function loadTuyChon(): TuyChon {
+  try {
+    return parseTuyChon(storage()?.getItem(TUY_CHON_KEY));
+  } catch {
+    return parseTuyChon(null);
+  }
+}
+
+/** Ghi tuỳ chọn; false = máy không ghi được (đầy / riêng tư) — màn báo "chỉ dùng lần này", vẫn áp trong phiên. */
+export function saveTuyChon(t: TuyChon): boolean {
+  try {
+    const s = storage();
+    if (!s) return false;
+    s.setItem(TUY_CHON_KEY, serializeTuyChon(t));
+    return true;
+  } catch {
+    return false;
   }
 }
 

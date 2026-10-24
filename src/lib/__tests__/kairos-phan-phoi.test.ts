@@ -1,7 +1,7 @@
 // Cỗ máy phân phối dòng tin ở máy chủ (anh Long 2026-10-24: "nâng lên"; agent "đan xen để tránh nhàm").
 import { describe, expect, it } from "vitest";
 import {
-  diemBai, giaiMaPP, guDoc, laTinBien, maHoaPP, tacGiaCua, TRAN_KHONG_BIEN, TRAN_TAC_GIA, xepDongTin,
+  diemBai, giaiMaPP, guDoc, laBaiAgent, laTinBien, maHoaPP, tacGiaCua, TRAN_KHONG_BIEN, TRAN_TAC_GIA, W_THICH, xepDongTin,
   type PPPost, type Reader, type ReadSignal,
 } from "@/lib/kairos/phan-phoi";
 
@@ -144,5 +144,44 @@ describe("con trỏ pp", () => {
     expect(giaiMaPP(maHoaPP({ at: h(72), off: 0 }), NOW)).toBeNull();
     expect(giaiMaPP(maHoaPP({ at: new Date(NOW + 3_600_000).toISOString(), off: 0 }), NOW)).toBeNull();
     expect(giaiMaPP(`pp.${Buffer.from('{"a":"x","o":-1}').toString("base64url")}`, NOW)).toBeNull();
+  });
+});
+
+describe("Tuỳ chọn dòng tin — Thích đọc + ẩn bài trợ lý AI (14 §13)", () => {
+  it("chủ đề Thích đọc được cộng đúng W_THICH; chủ đề khác không đổi", () => {
+    const r: Reader = { ...khach, thich: new Set(["the-thao"]) };
+    const tt = bai({ topic: "the-thao" });
+    const ts = bai({ topic: "thoi-su" });
+    expect(diemBai(tt, r, NOW, ctx0) - diemBai(tt, khach, NOW, ctx0)).toBeCloseTo(W_THICH);
+    expect(diemBai(ts, r, NOW, ctx0)).toBeCloseTo(diemBai(ts, khach, NOW, ctx0));
+  });
+  it("ưu tiên, KHÔNG lọc: bài chủ đề thích lên trước bài cùng giờ, chủ đề khác vẫn còn đủ", () => {
+    const ps = [
+      ...Array.from({ length: 6 }, (_, i) => bai({ kind: "ba-con", author_phone: `a${i}`, topic: "doi-song", feed_at: h(2) })),
+      ...Array.from({ length: 6 }, (_, i) => bai({ kind: "ba-con", author_phone: `b${i}`, topic: "kinh-te", feed_at: h(2) })),
+    ];
+    const r: Reader = { ...khach, thich: new Set(["kinh-te"]) };
+    const out = xepDongTin(ps, r, NOW);
+    expect(out).toHaveLength(12);
+    expect(out.slice(0, 3).every((p) => p.topic === "kinh-te")).toBe(true);
+  });
+  it("không đè độ mới: bài vừa đăng vẫn trên bài chủ đề thích đã 2 ngày", () => {
+    const r: Reader = { ...khach, thich: new Set(["the-thao"]) };
+    const moi = bai({ kind: "ba-con", author_phone: "m", topic: "nghe-ca", feed_at: h(0) });
+    const cu = bai({ kind: "ba-con", author_phone: "c", topic: "the-thao", feed_at: h(48) });
+    expect(xepDongTin([cu, moi], r, NOW)[0].id).toBe(moi.id);
+  });
+  it("thích Thể thao KHÔNG phá trần tin biển 3/20", () => {
+    const chung = Array.from({ length: 30 }, (_, i) => bai({ outlet: `B${i % 8}`, topic: "the-thao", feed_at: h(0.2) }));
+    const bien = Array.from({ length: 30 }, (_, i) => bai({ outlet: `T${i % 8}`, topic: "nghe-ca", feed_at: h(20) }));
+    const r: Reader = { ...khach, thich: new Set(["the-thao"]) };
+    const trang1 = xepDongTin([...chung, ...bien], r, NOW).slice(0, 20);
+    expect(trang1.filter((p) => !laTinBien(p)).length).toBeLessThanOrEqual(TRAN_KHONG_BIEN);
+  });
+  it("laBaiAgent: chỉ SĐT sentinel `agent:`", () => {
+    expect(laBaiAgent(bai({ kind: "ba-con", author_phone: "agent:bay-muc" }))).toBe(true);
+    expect(laBaiAgent(bai({ kind: "ba-con", author_phone: "0901234567" }))).toBe(false);
+    expect(laBaiAgent(bai({ kind: "chinh-thuc", author_phone: "sdvico:chinh-thuc" }))).toBe(false);
+    expect(laBaiAgent(bai())).toBe(false);
   });
 });

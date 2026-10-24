@@ -20,6 +20,10 @@
 
   THÓI QUEN (AC04) chỉ sống trong máy: chủ đề hay đọc + cảng nhà xếp bài TRONG TỪNG TRANG
   (lib/kairos/xep-bai) — bà con không phải bấm gì, như Facebook tự xếp.
+
+  TUỲ CHỌN DÒNG TIN (14 §13, nút bánh răng ở kairos-screen): chủ đề "Thích đọc" + cờ ẩn bài trợ lý AI đi kèm
+  MỌI request trang của dòng tin chung (`thich`, `ai=0` — lib/kairos/tuy-chon.ts), không request mới. Đổi ⇒ tải
+  lại trang đầu, GIỮ bài đang hiện khi mất sóng. Bến không dùng.
 */
 
 import Link from "next/link";
@@ -38,9 +42,11 @@ import {
   savedAtLabel,
   saveFeedCache,
   saveHabit,
+  loadTuyChon,
   type FeedPage,
 } from "@/lib/kairos/feed-client";
 import { emptyHabit, recordRead, setHome, type ChipId, type Habit } from "@/lib/kairos/thoi-quen";
+import { giongNhau, themThamSo, tuyChonMacDinh, type TuyChon } from "@/lib/kairos/tuy-chon";
 import type { KairosPost } from "@/lib/kairos/types";
 import { rankPage } from "@/lib/kairos/xep-bai";
 import { ghiNhan, guiTinHieu } from "@/lib/kairos/gui-tin-hieu";
@@ -62,9 +68,9 @@ function homeFromBoats(): Habit["home"] {
 
 /*  Dòng tin mặc định (không Bến) do MÁY CHỦ xếp theo người đọc (lib/kairos/phan-phoi.ts) ⇒ gửi kèm MÃ cảng/tỉnh
     nhà (không gửi hồ sơ đọc) và KHÔNG xếp lại đè lên. Bến: máy chủ trả theo giờ ⇒ app xếp trong trang như cũ. */
-function voiNha(params: URLSearchParams, h: Habit, port: string | undefined): URLSearchParams {
+function voiNha(params: URLSearchParams, h: Habit, port: string | undefined, tc: TuyChon): URLSearchParams {
   if (port) return params;
-  const q = new URLSearchParams(params);
+  const q = themThamSo(params, tc);
   if (h.home.port) q.set("nha", h.home.port);
   if (h.home.province) q.set("tinh", h.home.province);
   return q;
@@ -82,6 +88,7 @@ export function KairosFeed({
   onCompose,
   view,
   added = [],
+  tuyChon,
 }: {
   /** Bến (/kairos/ben/[port]): dòng tin chỉ bài gắn cảng này, không hàng chip */
   port?: string;
@@ -93,6 +100,8 @@ export function KairosFeed({
   view?: (list: readonly KairosPost[]) => KairosPost[];
   /** bài mình vừa đăng ở màn này — hiện đầu dòng tin tới lần tải sau */
   added?: KairosPost[];
+  /** Tuỳ chọn dòng tin vừa đổi ở ngăn bánh răng (không có = đọc trong máy lúc mở màn). Bến bỏ qua. */
+  tuyChon?: TuyChon;
 }) {
   const { phone, ready: authReady } = useAuthUser();
   const [habit, setHabitState] = useState<Habit>(emptyHabit);
@@ -110,7 +119,7 @@ export function KairosFeed({
   const [now, setNow] = useState(() => Date.now());
 
   // Ref cho các nghe sự kiện (visibilitychange/online/IntersectionObserver) — khỏi gắn lại.
-  const st = useRef({ chip, habit, load, next, more, since: null as string | null, phone, gen: 0, hasPosts: false, pinnedIds: new Set<string>() });
+  const st = useRef({ chip, habit, load, next, more, since: null as string | null, phone, gen: 0, hasPosts: false, pinnedIds: new Set<string>(), tuyChon: tuyChonMacDinh() });
   const hasPosts = posts.length + pinned.length > 0;
   useEffect(() => {
     st.current = { ...st.current, chip, habit, load, next, more, phone, hasPosts, pinnedIds: new Set(pinned.map((p) => p.id)) };
@@ -156,7 +165,7 @@ export function KairosFeed({
         setErrStatus(401);
         return;
       }
-      const res = await fetchFeedPage(voiNha(q.params, h, port), null);
+      const res = await fetchFeedPage(voiNha(q.params, h, port, st.current.tuyChon), null);
       if (gen !== st.current.gen) return; // bà con đã đổi chip — bỏ phản hồi cũ
       const t = Date.now();
       setNow(t);
@@ -201,8 +210,17 @@ export function KairosFeed({
       }
     }
     setHabitState(h);
+    if (!port) st.current.tuyChon = loadTuyChon();
     void loadFirst("moi", h, false);
-  }, [authReady, loadFirst]);
+  }, [authReady, loadFirst, port]);
+
+  // Đổi Tuỳ chọn dòng tin ⇒ tải lại trang đầu (giữ bài đang hiện nếu mất sóng/lỗi). Giống hệt ⇒ không tải.
+  useEffect(() => {
+    if (!started.current || !tuyChon || port || giongNhau(tuyChon, st.current.tuyChon)) return;
+    st.current.tuyChon = tuyChon;
+    window.scrollTo({ top: 0 });
+    void loadFirst(st.current.chip, st.current.habit, true);
+  }, [tuyChon, port, loadFirst]);
 
   // Đổi tài khoản giữa chừng ⇒ tải lại theo ngăn mới (bản lưu cách ly theo SĐT).
   const lastPhone = useRef(phone);
@@ -251,7 +269,7 @@ export function KairosFeed({
     const gen = s.gen;
     setMore("loading");
     st.current.more = "loading";
-    const res = await fetchFeedPage(voiNha(q.params, s.habit, port), s.next);
+    const res = await fetchFeedPage(voiNha(q.params, s.habit, port, s.tuyChon), s.next);
     if (gen !== st.current.gen) return;
     if (res.kind !== "ok") {
       setMore("error");
