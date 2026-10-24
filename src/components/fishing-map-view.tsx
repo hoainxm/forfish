@@ -297,11 +297,11 @@ import type { VoiceMode } from "@/lib/nav-voice/announcer";
 import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { setSenSignal } from "@/lib/sen-bien-state";
-import { apDungGemma, canGemma, chonCauHoi, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
+import { apDungGemma, canGemma, chonKho, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
 import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { henCauGio } from "@/lib/sen-bien/cau-vui";
-import { cauTruot, chonBuoc, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
+import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { readToken } from "@/lib/device-token-store";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
@@ -310,7 +310,7 @@ import { useRouter } from "next/navigation";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
 import { Capacitor } from "@capacitor/core";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
-import { foldVn, guessIntent } from "@/lib/sen-bien/ngram";
+import { doTin, foldVn, guessIntent } from "@/lib/sen-bien/ngram";
 import { CruiseIntroSheet } from "@/components/nav-voice-ui";
 import { SenBienNoi, SenBienSheet, boKhoSan, loadBoKho, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { senBienReply, senNgramCtx, type SenDest } from "@/lib/sen-bien/hieu-y";
@@ -3972,14 +3972,29 @@ export default function FishingMapView() {
     [...ds].sort((a, b) => haversineKm(v.lat, v.lon, a.lat, a.lon) - haversineKm(v.lat, v.lon, b.lat, b.lon)).slice(0, n);
   /** số lượt nghe — câu máy nhà về muộn của lượt cũ không được đọc chèn câu mới (luong-tra-loi.luotMoi) */
   const senLuotRef = useRef(0);
+  /** lượt đang chờ máy nhà — lượt mới / đóng thẻ thì ngắt */
+  const senHuyRef = useRef<AbortController | null>(null);
   const senHeard = useCallback(
-    async (text: string): Promise<SenHeard> => {
+    async (text: string, o?: { tu: boolean }): Promise<SenHeard> => {
       const conLuot = luotMoi(senLuotRef);
+      senHuyRef.current?.abort();
+      const huy = typeof AbortController === "undefined" ? null : new AbortController();
+      senHuyRef.current = huy;
+      // lượt hỏi mới ⇒ câu ĐÁP cũ còn trong hàng / đang đọc thôi (cảnh báo giữ nguyên) — rà "chồng chéo" 2026-10-24
+      navVoice.boCauDapCu();
+      // micro tự mở sau câu trả lời thu "ừm"/"ờ"/"cảm ơn" ⇒ không phải câu hỏi mới (luong-tra-loi.laCauDem)
+      const dem = o?.tu ? laCauDem(text) : null;
+      if (dem) {
+        if (dem === "cam_on") senSay(DAP_CAM_ON);
+        setSenOpen(false);
+        return null;
+      }
       // VIỆC CHỢ VẬT TƯ nói ở bản đồ ⇒ sang chợ, Sen Biển ở đó làm tiếp (sen-bien-toan-app đọc ?sen=) — 2026-10-18
       // Luật hụt mà n-gram v4 chắc là việc sàn cũng sang chợ — ở đó Sen Biển hỏi lại kèm câu mẫu (lenh-cho.hoiLaiCho)
       const senModel = await loadSenBienModel();
+      if (!conLuot()) return null;
       const gCho = !senAwait && !navOn && senModel ? guessIntent(senModel, text) : null;
-      if (!senAwait && !navOn && (hieuLenhCho(text) || (gCho && hoiLaiCho(gCho.y, gCho.conf)))) {
+      if (!senAwait && !navOn && (hieuLenhCho(text) || (gCho && hoiLaiCho(gCho.y, doTin(gCho))))) {
         router.push(`/cho?sen=${encodeURIComponent(text)}`);
         return { show: "Mở chợ…" };
       }
@@ -4002,6 +4017,7 @@ export default function FishingMapView() {
               tau: [],
             })
         : null;
+      if (!conLuot()) return null;
       // luật "nhắc lại"/"còn bao xa" bắt nhầm đuôi câu hỏi ("…là gì vậy", "…bao lâu một lần") ⇒ bộ lọc gỡ (hoi-kho.goLenhNgan)
       const r = goLenhNgan(
         text,
@@ -4065,6 +4081,7 @@ export default function FishingMapView() {
               ? { lat: tracking.pos.lat, lon: tracking.pos.lon, nguon: "tau", huongChay: tracking.headingDeg }
               : { lat: c?.lat ?? point.lat, lon: c?.lng ?? point.lon, nguon: "ban-do" };
           const kho = { ...(await napKhoBanDo()), cang: senDests.filter((d) => d.kind === "cang"), ca: senCaRef.current() };
+          if (!conLuot()) return null;
           const t = traLoi(r.q, kho, v, prefs.distUnit === "km" ? "km" : "nm", Date.now());
           if (t.di) {
             senSay(`${t.say} Đang vẽ đường.`);
@@ -4097,7 +4114,8 @@ export default function FishingMapView() {
               (3) còn lại ⇒ có sóng + đăng nhập hỏi máy nhà (chỉ báo "đang hỏi", KHÔNG đọc câu đoán trước), không thì nói
               đúng lý do · máy nhà trượt ⇒ câu theo lý do. Câu về muộn của lượt cũ bị bỏ (conLuot). */
           const bo = r.daTraLoi ? null : r.y === "hoi_mo" || r.y === "khong_hieu" ? await loadBoKho() : boKhoSan();
-          const kq = await hoiKho(text, r, bo, senNgramCtx(senDests, senAwait != null), chonCauHoi);
+          const online = typeof navigator === "undefined" || navigator.onLine !== false;
+          const kq = await hoiKho(text, r, bo, senNgramCtx(senDests, senAwait != null), chonKho, online && !!readToken());
           if (!conLuot()) return null;
           if (kq.vao && kq.dap) {
             senSay(kq.dap.say);
@@ -4112,9 +4130,9 @@ export default function FishingMapView() {
           );
           const buoc = chonBuoc({
             r,
-            conf: senModel ? guessIntent(senModel, text).conf : null,
+            conf: senModel ? doTin(guessIntent(senModel, text)) : null,
             coApp: a != null,
-            online: typeof navigator === "undefined" || navigator.onLine !== false,
+            online,
             coChuoi: !!readToken(),
             text,
           });
@@ -4133,8 +4151,8 @@ export default function FishingMapView() {
             // câu giờ CHỈ khi máy nhà chậm > 1,2 s; có kết quả thì đợi câu giờ đang đọc nói xong (trần 2,5 s) rồi mới
             // đọc câu trả lời — không đè giữa chữ (cau-vui.henCauGio, anh Long 2026-10-23: "chồng lấn giữa 2 câu")
             let dangCho = true;
-            const xongGio = henCauGio((c, xong) => senSay(c, { onSpoken: xong }), () => dangCho && conLuot());
-            const kqN = await hoiMayChu(text, "/ngu-truong", null);
+            const xongGio = henCauGio((c, xong) => senSay(c, { onXong: xong }), () => dangCho && conLuot());
+            const kqN = await hoiMayChu(text, "/ngu-truong", null, huy?.signal);
             dangCho = false;
             await xongGio();
             if (!conLuot()) return null;
@@ -7414,6 +7432,11 @@ export default function FishingMapView() {
           onStart={senStart}
           onCancel={senCancel}
           onClose={() => {
+            // bà con đóng thẻ ⇒ thôi lượt đang nghĩ + ngắt máy nhà + bỏ câu đáp còn chờ (cảnh báo dẫn đường vẫn đọc)
+            senLuotRef.current++;
+            senHuyRef.current?.abort();
+            senHuyRef.current = null;
+            navVoice.boCauDapCu();
             setSenOpen(false);
             setSenAwait(null);
           }}

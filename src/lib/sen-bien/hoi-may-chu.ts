@@ -32,7 +32,21 @@ export type DapMayNha = { text: string; speak: string[]; amThanh: string | null 
 /** Kết quả một lượt hỏi: câu đọc được, hoặc LÝ DO trượt để chỗ gọi nói đúng (luong-tra-loi.cauTruot). */
 export type KqMayNha = DapMayNha | { loi: LyDoTruot };
 
-export async function hoiMayChu(text: string, man: string | null, cang: string | null): Promise<KqMayNha> {
+/** Đồng hồ HOI_HAN_MS + `huy` của chỗ gọi (lượt mới / đóng thẻ) gộp một tín hiệu — không dùng AbortSignal.any (Safari cũ). */
+function tinHieu(huy?: AbortSignal): AbortSignal | undefined {
+  const het = timeoutSignal(HOI_HAN_MS);
+  if (!huy || typeof AbortController === "undefined") return het;
+  const c = new AbortController();
+  const bo = () => c.abort();
+  if (huy.aborted) bo();
+  huy.addEventListener("abort", bo, { once: true });
+  het?.addEventListener("abort", bo, { once: true });
+  return c.signal;
+}
+
+/** `huy` = chỗ gọi bỏ lượt này (bà con hỏi câu mới / đóng thẻ) ⇒ ngắt yêu cầu, trả `{ loi: "het_gio" }` (chỗ gọi đã bỏ
+ *  lượt, không đọc). */
+export async function hoiMayChu(text: string, man: string | null, cang: string | null, huy?: AbortSignal): Promise<KqMayNha> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return { loi: "mat_song" };
   if (!readToken()) return { loi: "chua_dang_nhap" };
   const hang = hangTrongMay();
@@ -41,7 +55,7 @@ export async function hoiMayChu(text: string, man: string | null, cang: string |
       method: "POST",
       headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ text: text.slice(0, 300), ...(man ? { man } : {}), ...(cang ? { cang } : {}), ...(hang ? { hang } : {}) }),
-      signal: timeoutSignal(HOI_HAN_MS),
+      signal: tinHieu(huy),
     });
     void noteResponse(r);
     if (r.status === 401) return { loi: "chua_dang_nhap" };
@@ -53,7 +67,9 @@ export async function hoiMayChu(text: string, man: string | null, cang: string |
     const amThanh = typeof j.am_thanh === "string" && /^[A-Za-z0-9+/]+=*$/.test(j.am_thanh) ? j.am_thanh : null;
     return { text: j.text.trim(), speak: speak.length ? speak : [j.text.trim()], amThanh };
   } catch (e) {
-    const het = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+    // so theo TÊN: lỗi ngắt là DOMException — có môi trường không coi nó là Error (từng báo nhầm "mất sóng")
+    const ten = (e as { name?: unknown } | null)?.name;
+    const het = ten === "TimeoutError" || ten === "AbortError";
     if (het) return { loi: "het_gio" };
     // fetch ném khi rớt mạng giữa chừng (navigator.onLine vẫn báo có) ⇒ coi như mất sóng
     return { loi: "mat_song" };

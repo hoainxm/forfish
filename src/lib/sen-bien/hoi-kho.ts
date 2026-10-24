@@ -21,8 +21,13 @@ export type BoKho = { dk: DauKho; kho: KhoHoiDap; loc: BoLoc | null };
 
 /** Số câu đưa Gemma chọn — đúng lúc train (dung-chon.mjs K). */
 export const SO_UNG_VIEN = 9;
-/** Không có Gemma: câu nhất từ ngưỡng này thì đọc (test-hd 19/10: phủ 91,7 %, đúng 82,8 %). */
+/** Không có Gemma: câu nhất từ ngưỡng này thì đọc (test-hd 19/10: phủ 91,7 %, đúng 82,8 %). Dùng khi MẤT SÓNG /
+ *  chưa đăng nhập — ngoài biển có câu trả lời (đúng 4/5) vẫn hơn không. */
 export const Q_CHAC = 0.5;
+/** CÓ máy nhà để hỏi (có sóng + đăng nhập) ⇒ ngưỡng cao hơn, câu dưới ngưỡng để máy nhà trả lời. Đo 2026-10-24 (đầu kho
+ *  v5b, test-hd 6.930 câu + bản ASR): 0,5 ⇒ phủ 92,8 % đúng 81,8 %; 0,8 ⇒ phủ 76,5 % đúng 88,4 %. Câu ngoài kho bị đọc
+ *  nhầm câu kho (test-ngoai): 21,1 % ⇒ 11,0 %. Rà "trả lời sai nhiều": câu sai tệ hơn chờ máy nhà 3–6 s. */
+export const Q_CHAC_MANG = 0.8;
 /** Kho trượt + không hỏi được máy nhà. */
 export const CAU_CHUA_CHAC = "Câu này Sen Biển chưa chắc. Có sóng bà con hỏi lại, Sen Biển hỏi máy nhà cho.";
 
@@ -75,13 +80,23 @@ export type KetQuaKho = { vao: false } | { vao: true; dap: { id: string; say: st
 export type ChonFn = (cau: string, hoi: readonly string[]) => Promise<number | null>;
 
 /** Bước (b). Không bao giờ ném. `bo` null (chưa tải được kho) ⇒ vào mà trượt — chỗ gọi đi (c). */
-export async function hoiKho(text: string, r: SenReply, bo: BoKho | null, ctx: NgramCtx, chon: ChonFn | null): Promise<KetQuaKho> {
+/** `coMayNha` = có sóng + đăng nhập (hỏi được máy nhà): ngưỡng Q_CHAC_MANG, và câu "cần hỏi Chi cục" (canKiem — 30 % kho)
+ *  KHÔNG đọc câu đẩy đi mà để máy nhà trả lời. Mất sóng ⇒ như cũ. */
+export async function hoiKho(
+  text: string,
+  r: SenReply,
+  bo: BoKho | null,
+  ctx: NgramCtx,
+  chon: ChonFn | null,
+  coMayNha = false,
+): Promise<KetQuaKho> {
   if (!vaoKho(text, r, bo?.loc ?? null, ctx)) return { vao: false };
   if (!bo) return { vao: true, dap: null };
   try {
     const uv = ungVien(bo, text, ctx);
     if (!uv.length) return { vao: true, dap: null };
     const doc = (u: UngVien, cach: CachChon) => {
+      if (coMayNha && bo.kho.canKiem.has(u.id)) return { vao: true as const, dap: null };
       const say = cauTraLoi(bo.kho, u.id);
       return { vao: true as const, dap: say ? { id: u.id, say, cach } : null };
     };
@@ -93,7 +108,7 @@ export async function hoiKho(text: string, r: SenReply, bo: BoKho | null, ctx: N
     if (k === 1) return doc(uv[0], "gemma");
     if (k != null && k >= 0 && k <= 9) return { vao: true, dap: null };
     // không có Gemma / Gemma không ra chữ số (mô hình hiện tại chưa học vai chọn — nợ ở gemma.ts) ⇒ như web
-    return uv[0].p >= Q_CHAC ? doc(uv[0], "ngram") : { vao: true, dap: null };
+    return uv[0].p >= (coMayNha ? Q_CHAC_MANG : Q_CHAC) ? doc(uv[0], "ngram") : { vao: true, dap: null };
   } catch {
     return { vao: true, dap: null };
   }

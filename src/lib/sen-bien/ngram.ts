@@ -119,7 +119,9 @@ export function lyDoChan(m: NgramModel, cau: string, ctx: NgramCtx = {}): LyDoCh
   return REASONS[b];
 }
 
-export function guessIntent(m: NgramModel, cau: string, ctx: NgramCtx = {}): { y: SenIntent; conf: number } {
+/** `conf` = xác suất ý nhất; `cach` = khoảng cách tới ý NHÌ (conf − p nhì) — hai ý sát nhau là mô hình đang phân
+ *  vân dù conf trông cao (đo 2026-10-24: "con gà có mấy chân" ra "còn bao xa"/"tìm món" lắc qua lắc lại). */
+export function guessIntent(m: NgramModel, cau: string, ctx: NgramCtx = {}): { y: SenIntent; conf: number; cach: number } {
   const x = dacTrung(cau, ctx);
   const z = new Array<number>(NY).fill(0);
   for (const [i, v] of x) {
@@ -131,5 +133,17 @@ export function guessIntent(m: NgramModel, cau: string, ctx: NgramCtx = {}): { y
   const s = e.reduce((a, b) => a + b, 0);
   let b = 0;
   for (let i = 1; i < NY; i++) if (e[i] > e[b]) b = i;
-  return { y: INTENTS[b], conf: +(e[b] / s).toFixed(3) };
+  let n = b === 0 ? 1 : 0;
+  for (let i = 0; i < NY; i++) if (i !== b && e[i] > e[n]) n = i;
+  return { y: INTENTS[b], conf: +(e[b] / s).toFixed(3), cach: +((e[b] - e[n]) / s).toFixed(3) };
+}
+
+/** Khoảng cách tối thiểu ý nhất − ý nhì để coi là CHẮC. Đo 2026-10-24 trên 2.765 câu có nhãn (13 bộ test, có ASR + câu
+ *  thật): không chặn ⇒ đúng 91,7 %; conf ≥ 0,5 ⇒ phủ 92 % đúng 94,8 %; conf ≥ 0,5 + cách ≥ 0,25 ⇒ phủ 91 % đúng 95,5 %
+ *  (câu đoán sai giảm ~một nửa). Câu không đạt ⇒ coi như chưa hiểu ⇒ máy nhà (có sóng) / nói thật là chưa hiểu. */
+export const NGRAM_CACH = 0.25;
+
+/** Độ tin ĐÃ TRỪ PHÂN VÂN: hai ý sát nhau (cách < NGRAM_CACH) ⇒ 0. Mọi chỗ so ngưỡng NGRAM_CHAC dùng số này. */
+export function doTin(g: { conf: number; cach: number } | null | undefined): number {
+  return g && g.cach >= NGRAM_CACH ? g.conf : 0;
 }

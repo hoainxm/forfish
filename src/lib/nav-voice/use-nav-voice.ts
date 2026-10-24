@@ -132,9 +132,14 @@ export type NavVoice = {
   unmuteVoice: () => void;
   /** "nhắc lại" — đọc lại câu cảnh báo/tin gần nhất */
   repeatLast: () => void;
+  /** LƯỢT HỎI MỚI của Sen Biển: bỏ các câu ĐÁP cũ còn chờ + cắt câu đáp cũ đang đọc — cảnh báo / bản tin giữ nguyên.
+      (2026-10-24, rà "chồng chéo": hỏi câu mới khi câu trả lời trước còn trong hàng ⇒ hai câu đọc nối nhau.) */
+  boCauDapCu: () => void;
 };
 
-export type SayOpts = { onSpoken?: () => void };
+/** `onSpoken` = đọc XONG thật (mở micro được) · `onXong` = câu đã thôi đọc, xong hay bị cắt (câu giờ báo để câu trả lời
+ *  nói tiếp ngay, không ngồi chờ hết trần khi câu giờ bị cảnh báo cắt ngang). */
+export type SayOpts = { onSpoken?: () => void; onXong?: () => void };
 
 export function useNavVoice(inp: NavVoiceInput): NavVoice {
   const [prefs, setPrefs] = useState<NavVoicePrefs>({ muc: "day-du", daXem: true, tuDoc: false });
@@ -187,11 +192,11 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
   /** hàng câu đáp lúc CHẾ ĐỘ TẮT (xem `sayOff` dưới) — khai trước `run` vì `run` nhìn nó */
   const offQRef = useRef<{ text: string; key: string }[]>([]);
   /** "đọc xong thì báo" của câu đáp Sen Biển, theo key — câu bị cắt thì bỏ (không gọi) */
-  const spokenCbRef = useRef(new Map<string, () => void>());
+  const spokenCbRef = useRef(new Map<string, (completed: boolean) => void>());
   const fireSpoken = useCallback((key: string, completed: boolean) => {
     const cb = spokenCbRef.current.get(key);
     spokenCbRef.current.delete(key);
-    if (completed) cb?.();
+    cb?.(completed);
   }, []);
   const offBusyRef = useRef(false);
   const runRef = useRef<(r: AnnounceResult) => void>(() => {});
@@ -665,7 +670,11 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     (text: string, opts?: SayOpts) => {
       if (!text) return;
       const key = replyKey();
-      if (opts?.onSpoken) spokenCbRef.current.set(key, opts.onSpoken);
+      if (opts?.onSpoken || opts?.onXong)
+        spokenCbRef.current.set(key, (completed) => {
+          if (completed) opts.onSpoken?.();
+          opts.onXong?.();
+        });
       if (!onRef.current) {
         sayOff(text, key);
         return;
@@ -686,6 +695,18 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     if (modeRef.current === "tat") setMode("day-du");
   }, [setMode]);
 
+  const boCauDapCu = useCallback(() => {
+    if (!onRef.current) {
+      // hàng tắt chế độ chỉ có câu đáp: dọn hết, câu đang đọc thì cắt (onEnd của nó gọi next ⇒ hàng rỗng ⇒ rảnh)
+      for (const t of offQRef.current) fireSpoken(t.key, false);
+      offQRef.current = [];
+      if (offBusyRef.current) ttsCancel();
+      return;
+    }
+    stRef.current = { ...stRef.current, queue: stRef.current.queue.filter((u) => !u.reply) };
+    if (stRef.current.current?.reply) ttsCancel();
+  }, [fireSpoken]);
+
   const repeatLast = useCallback(() => {
     const t = lastTextRef.current;
     say(t ? `Nhắc lại: ${t}` : "Chưa có cảnh báo nào.");
@@ -696,6 +717,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     mute,
     unmuteVoice,
     repeatLast,
+    boCauDapCu,
     level,
     cycleLevel,
     setMode,

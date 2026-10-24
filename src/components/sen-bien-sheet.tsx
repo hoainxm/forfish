@@ -231,7 +231,9 @@ export function SenBienSheet({
   speakerBusy?: boolean;
   /** nghe được tiếng mà không ra chữ ⇒ màn bản đồ hỏi lại (rồi tự nghe tiếp) */
   onMissed?: () => void;
-  onHeard: (text: string) => SenHeard | Promise<SenHeard>;
+  /** `o.tu` = câu này nghe trong lượt micro TỰ mở sau câu trả lời (không phải bà con chạm gọi) — màn chứa bỏ qua tiếng
+   *  đệm ("ừm", "ờ", "cảm ơn") thay vì coi là câu hỏi mới (luong-tra-loi.laCauDem) */
+  onHeard: (text: string, o?: { tu: boolean }) => SenHeard | Promise<SenHeard>;
   onPick: (d: SenDest) => void;
   onStart: () => void;
   onCancel: () => void;
@@ -278,6 +280,10 @@ export function SenBienSheet({
 
   /*  HẸN MỞ MICRO sau khi loa im NGHE_SAU_DOC_MS (nghe.ts) — mở ngay là thu đuôi giọng Sen Biển. Một hẹn một lúc;
       loa nói câu khác / thẻ đóng thì huỷ. */
+  /*  MÃ LƯỢT TRẢ LỜI (2026-10-24, rà "chồng chéo"): câu trả lời của lượt CŨ về muộn (máy nhà, kho tải lần đầu) không được
+      ghi đè câu đang hiện của lượt mới, và không được đưa thẻ về "rảnh" (bộ đếm 5 s tự thu thẻ) khi lượt mới còn đang
+      nghĩ. Lượt nghe mới / thẻ đóng ⇒ tăng số ⇒ mọi lượt cũ thành vô hiệu. */
+  const luotTra = useRef(0);
   const henNgheRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const huyHenNghe = () => {
     if (henNgheRef.current) clearTimeout(henNgheRef.current);
@@ -289,6 +295,7 @@ export function SenBienSheet({
       dungNghe();
       catChao();
       huyHenNghe();
+      luotTra.current++;
       if (imRef.current) clearTimeout(imRef.current);
     },
     [],
@@ -300,14 +307,16 @@ export function SenBienSheet({
   };
 
   const answer = useCallback(
-    async (text: string) => {
+    async (text: string, tu = false) => {
+      const luot = ++luotTra.current;
       setHeard(text);
       setShown(null);
       setPhase("nghi");
       try {
-        setShown(await onHeard(text));
+        const kq = await onHeard(text, { tu });
+        if (luot === luotTra.current) setShown(kq);
       } finally {
-        setPhase("ranh");
+        if (luot === luotTra.current) setPhase("ranh");
       }
     },
     [onHeard],
@@ -318,6 +327,7 @@ export function SenBienSheet({
   const tuRef = useRef(false);
   const ghi = useCallback((tu = false) => {
     tuRef.current = tu;
+    luotTra.current++; // nghe lượt mới ⇒ câu trả lời lượt cũ còn chờ thôi hiện
     catChao();
     ttsUnlock();
     dungNghe();
@@ -357,7 +367,7 @@ export function SenBienSheet({
           setPhase("ranh");
           return;
         }
-        void answer(t);
+        void answer(t, tuRef.current);
       },
       onError: (code) => {
         xongIm();

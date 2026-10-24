@@ -12,6 +12,7 @@
 
 import { CAU_LANG, chonCau } from "@/lib/sen-bien/cau-vui";
 import type { SenReply } from "@/lib/sen-bien/hieu-y";
+import { foldVn } from "@/lib/sen-bien/ngram";
 
 /** Độ tin n-gram từ đó mới làm theo đoán — cùng mốc NGRAM_CHAC của hieu-y / lenh-cho. */
 export const NGRAM_CHAC = 0.5;
@@ -61,3 +62,23 @@ export function luotMoi(ref: { current: number }): () => boolean {
   const toi = ++ref.current;
   return () => ref.current === toi;
 }
+
+/*  TIẾNG ĐỆM SAU CÂU TRẢ LỜI (2026-10-24, rà "chồng chéo" trên 39 câu thật đã gửi về): micro tự mở sau mỗi câu trả lời
+    thu phải "ừm", "ủa", "Yeah", "em hiểu rồi", "trong khi" — Sen Biển coi là câu hỏi mới và trả lời tiếp, thành nói
+    mãi không dứt. Trong lượt micro TỰ mở, câu là tiếng đệm ⇒ không trả lời, khép cuộc nói. Cảm ơn ⇒ đáp một câu rồi khép.
+    Lượt bà con CHẠM gọi thì không lọc (bà con chủ động nói "ừ" là có ý). */
+const DEM = /^(u+m*|u+h+|o+|a+|a ha|ha+|hm+|ui|uh huh|ok|oke|okay|yeah|yes|ya|vang|da|da vang|uh|um|roi|duoc|duoc roi|hieu roi|em hieu roi|toi hieu roi|tui hieu roi|biet roi|vay ha|the a|the ha|ua|ua vay|trong khi|thoi|thoi duoc roi|khong co gi)$/;
+const CAM_ON = /^((da |vang )?(cam on|thank you|thanks|cam on nha|cam on nhieu|cam on sen bien|cam on em|cam on con)( nha| nhe| nhieu| em| con| sen bien)*)$/;
+
+export type CauDem = "dem" | "cam_on" | null;
+
+/** Câu nghe được trong lượt micro tự mở là tiếng đệm / cảm ơn không. */
+export function laCauDem(text: string): CauDem {
+  const f = foldVn(text);
+  if (!f) return "dem";
+  if (CAM_ON.test(f)) return "cam_on";
+  return DEM.test(f) ? "dem" : null;
+}
+
+/** Câu đáp lời cảm ơn rồi khép cuộc nói. */
+export const DAP_CAM_ON = "Dạ, có gì bà con cứ gọi Sen Biển.";

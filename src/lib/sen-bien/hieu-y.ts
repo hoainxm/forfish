@@ -11,7 +11,7 @@ import { parseSpokenCoordPair } from "@/lib/parse-coord";
 
 import { cauHoiTuY, hoiGi, tachThamSo, timLoaiCa, type CauHoi } from "./hoi-ban-do";
 import { lenhLuat, lenhTuY, type LenhBanDo } from "./lenh-ban-do";
-import { foldVn, guessIntent, lyDoChan, type NgramModel, type SenIntent } from "./ngram";
+import { doTin, foldVn, guessIntent, lyDoChan, type NgramModel, type SenIntent } from "./ngram";
 
 export type SenDest = {
   name: string;
@@ -183,9 +183,27 @@ const NGOAI_BAN_DO: SenIntent[] = [
 const NEG = /(^thoi( |$))|((^| )(khong|dung|huy|ngung|khoi)( |$))|^(chua|de sau|khoan|doi chut|doi da)( |$)/;
 const STOP = /^(dung|dung lai|dung chay|ngung|huy|thoi|tat dan duong|dung dan duong|ngung dan duong|thoi khoi)( |$)/;
 const CONFIRM = /^(di|di thoi|di di|bat dau|chay|chay di|chay thoi|xuat phat|ok|oke|duoc|u|uh|vang|da|co|dong y)( |$)/;
-const MUTE = /^(im|im di|im lang|tat tieng|tat loa|nho tieng)( |$)/;
-const UNMUTE = /(^| )(bat tieng|bat loa|mo loa|doc tiep|noi tiep)( |$)/;
-const REPEAT = /(^| )(noi lai|nhac lai|doc lai|lap lai|noi gi|gi vay)( |$)/;
+// cả câu LÀ lệnh (chỉ thêm chữ đệm cuối) — "đọc tiếp tin bão" không phải "bật tiếng"
+const MUTE = /^(im|im di|im lang|tat tieng|tat loa|nho tieng)( (di|nha|nhe|dum|gium|coi|lai|lai di|chut))*$/;
+const UNMUTE = /^(bat tieng|bat loa|mo loa|doc tiep|noi tiep)( (di|nha|nhe|lai|len|coi))*$/;
+const REPEAT = /(^| )(noi lai|nhac lai|doc lai|lap lai)( |$)|^(noi gi|gi vay|ha)( |$)/;
+/*  CÙNG BỘ LỆNH NGẮN NHƯNG SO TRÊN CHỮ CÒN DẤU (2026-10-24, rà "trả lời sai nhiều"): bỏ dấu thì "bão"="bao", "tới"="tôi",
+    "còn"="con" ⇒ "bão bao giờ tới" thành "còn bao xa", "tôi chưa…" thành "tới chưa", "đọc tiếp tin bão" thành "bật
+    tiếng". Câu CÓ dấu (giọng nói, gõ có dấu) ⇒ dùng bộ có dấu; câu gõ không dấu mới dùng bộ bỏ dấu ở trên. Lệnh ngắn
+    chỉ nhận khi câu NGẮN (≤ LENH_NGAN_TOI_DA chữ) — câu dài có chữ "nhắc lại" là câu hỏi, không phải lệnh. */
+const MUTE_D = /^(im|im đi|im lặng|tắt tiếng|tắt loa|nhỏ tiếng)( (đi|nha|nhé|giùm|dùm|coi|lại|chút))*$/;
+const UNMUTE_D = /^(bật tiếng|bật loa|mở loa|đọc tiếp|nói tiếp)( (đi|nha|nhé|lại|lên|coi))*$/;
+const REPEAT_D = /(^| )(nói lại|nhắc lại|đọc lại|lặp lại)( |$)|^(nói gì|gì vậy|hả)( |$)/;
+const HOWFAR_D = /(^| )(bao xa|bao lâu|bao giờ tới|bao giờ đến|tới chưa|đến chưa|còn mấy|còn bao nhiêu)( |$)/;
+/** câu hỏi bão / thời tiết — không bao giờ là "còn bao xa" */
+const KHONG_HOWFAR_D = /(^| )(bão|áp thấp|gió|sóng|mưa)( |$)/;
+const LENH_NGAN_TOI_DA = 5;
+/** HOWFAR_GOI bản có dấu: "tới"≠"tôi", và KHÔNG có "chưa" trần ("tôi chưa ăn cơm" từng thành "còn bao xa") */
+const HOWFAR_GOI_D = /(^| )(xa|hải lý|km|cây số|tới|đến|về|nữa|bao lâu|bao giờ|tiếng|phút)( |$)/;
+/** chữ thường, giữ dấu (NFC), dấu câu ⇒ khoảng trắng */
+const giuDau = (s: string) => s.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+/** câu có dấu tiếng Việt không */
+const coDau = (s: string) => /[\u0300-\u036f]/.test(s.normalize("NFD")) || /đ/i.test(s);
 const TOI_DO = /^(dan|di|chay|toi|ra|ve|dua)( toi| ra| ve| vo)? (do|cho do|cho nay|cho kia|ben do|dao do|ran do)( di| nha| luon)?$/;
 const HOWFAR = /(^| )(bao xa|bao lau|bao gio toi|toi chua|con may|con bao nhieu)( |$)/;
 /*  CÓ CHỮ CHỈ QUÃNG ĐƯỜNG / THỜI GIAN — mô hình đoán "còn bao xa" thì câu PHẢI có một chữ này mới chạy lệnh,
@@ -224,10 +242,12 @@ export function senBienReply(
   }
   // (2) lệnh khi đang chạy
   if (ctx.running && STOP.test(f)) return { kind: "stop", say: "Đã dừng dẫn đường." };
-  if (MUTE.test(f)) return { kind: "mute", say: "Im ba mươi phút. Cảnh báo nguy hiểm vẫn đọc." };
-  if (UNMUTE.test(f)) return { kind: "unmute", say: "Bật tiếng lại." };
-  if (REPEAT.test(f)) return { kind: "repeat" };
-  if (HOWFAR.test(f)) return { kind: "howfar" };
+  const d = coDau(text) ? giuDau(text) : null;
+  const ngan = f.split(" ").length <= LENH_NGAN_TOI_DA;
+  if (ngan && (d ? MUTE_D.test(d) : MUTE.test(f))) return { kind: "mute", say: "Im ba mươi phút. Cảnh báo nguy hiểm vẫn đọc." };
+  if (ngan && (d ? UNMUTE_D.test(d) : UNMUTE.test(f))) return { kind: "unmute", say: "Bật tiếng lại." };
+  if (ngan && (d ? REPEAT_D.test(d) : REPEAT.test(f))) return { kind: "repeat" };
+  if (d ? HOWFAR_D.test(d) && !KHONG_HOWFAR_D.test(d) && HOWFAR_GOI_D.test(d) : HOWFAR.test(f) && !/(^| )bao bao( |$)/.test(f)) return { kind: "howfar" };
 
   // (2b) "dẫn tới đó" — chỗ vừa trả lời
   if (ctx.choVuaNoi && TOI_DO.test(f)) return { kind: "go", dest: ctx.choVuaNoi, say: `Đi ${ctx.choVuaNoi.name}.` };
@@ -241,17 +261,20 @@ export function senBienReply(
 
   let hits = findDests(text, dests);
   const g = model ? guessIntent(model, text, senNgramCtx(dests, ctx.awaitingGo)) : null;
-  const yM = g?.y ?? null;
+  // CHẮC = đủ tin + không phân vân giữa hai ý (ngram.doTin). Không chắc ⇒ KHÔNG lấy đoán của mô hình làm ý (2026-10-24,
+  // rà "trả lời sai nhiều": đoán 0,1 từng thành câu hỏi bản đồ / "còn bao xa" / đọc sóng gió — đúng ra là chưa hiểu).
+  const chac = doTin(g) >= NGRAM_CHAC;
+  const yM = chac ? g!.y : null;
 
   // (3a) thao tác bản đồ — mô hình chắc thì theo mô hình, không thì luật chỉ bắt câu rất rõ
   const tim = (t: string) => timLoaiCa(t, ctx.loaiCa ?? []);
-  if (g && g.conf >= NGRAM_CHAC && LENH_Y.has(g.y)) {
+  if (g && chac && LENH_Y.has(g.y)) {
     const lenh = lenhTuY(g.y, text, tim);
     if (lenh) return { kind: "map", lenh };
     if (g.y === "mo_lop")
       return { kind: "say", say: "Bà con muốn xem lớp nào: sóng, gió, dòng chảy, mưa, mây, hay bản đồ cá?" };
     if (g.y === "doi_thoi_diem") return { kind: "say", say: "Bà con nói rõ ngày giờ, ví dụ: chiều mai, ba giờ chiều mốt." };
-  } else if (!g || g.conf < NGRAM_CHAC) {
+  } else if (!chac) {
     const lenh = lenhLuat(text, tim);
     if (lenh) return { kind: "map", lenh };
   }
@@ -263,9 +286,10 @@ export function senBienReply(
   // Mô hình chỉ chọn LOẠI câu hỏi; hướng/loài/đi luôn vẫn do luật trích (tachThamSo).
   // Ngoại lệ: câu có TÊN chỗ + động từ đi ("chạy ra Hòn Mù có rạn") ⇒ để bước (4) dẫn đi.
   const tuMoHinh = (y: SenIntent) => (hits.length && tachThamSo(text).muonDi ? null : cauHoiTuY(y, text, ctx.loaiCa));
-  const hoi = g && g.conf >= NGRAM_CHAC ? tuMoHinh(g.y) : (hoiGi(text, ctx.loaiCa) ?? (g ? tuMoHinh(g.y) : null));
+  // không chắc ⇒ chỉ LUẬT (hoiGi) — bỏ lối lùi "đoán kém chắc vẫn thành câu hỏi bản đồ"
+  const hoi = g && chac ? tuMoHinh(g.y) : hoiGi(text, ctx.loaiCa);
   if (hoi) return { kind: "hoi", q: hoi };
-  if (yM === "con_bao_xa" && HOWFAR_GOI.test(f)) return { kind: "howfar" };
+  if (yM === "con_bao_xa" && (d ? HOWFAR_GOI_D.test(d) && !KHONG_HOWFAR_D.test(d) : HOWFAR_GOI.test(f))) return { kind: "howfar" };
 
   // (4) chọn chỗ theo tên
   const home = dests.find((d) => d.kind === "nha");
