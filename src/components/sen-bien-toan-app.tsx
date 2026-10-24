@@ -40,6 +40,8 @@ import { useAuthUser } from "@/lib/use-auth";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
 import { ttsSpeak, ttsSpeakMp3, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { anKhiCuon } from "@/lib/sen-bien/an-khi-cuon";
+import { KAIROS_CACHE_KEY, parseCache } from "@/lib/kairos/cache";
+import { hieuTimTinKairos, traLoiTinKairos } from "@/lib/kairos/tim-tin";
 
 const LOAI_CA = Object.keys(SPECIES_META);
 const CHAO = "Sen Biển giúp gì được cho bạn?";
@@ -225,6 +227,24 @@ export function SenBienToanApp() {
     async (text: string): Promise<SenHeard> => {
       const conLuot = luotMoi(luotNghe);
       truot.current = 0;
+      /*  TÌM TIN KAIROS (14 §15): "bài về câu mực", "tin Kairos về Lý Sơn", "đọc báo" ⇒ lọc BẢN LƯU dòng tin
+          (forfish.kairos.v1) — không mạng, mất sóng vẫn chạy — đọc 2–3 bài rồi mở bài đầu. Luật từ khoá đòi dấu hiệu
+          Kairos rõ; "có tin bão gì không" trần KHÔNG vào đây (tin bão chính thức trả lời, lib/kairos/tim-tin.ts). */
+      const tk = hieuTimTinKairos(text);
+      if (tk) {
+        let cache: ReturnType<typeof parseCache> = null;
+        try {
+          // đọc thẳng qua cache.ts (không qua feed-client — khỏi kéo danh mục cảng vào gói chung mọi màn)
+          cache = parseCache(window.localStorage.getItem(KAIROS_CACHE_KEY), phone);
+        } catch {
+          // chế độ riêng tư chặn đọc ⇒ coi như chưa có bản lưu
+        }
+        const kq = traLoiTinKairos(tk, cache, Date.now());
+        ghiMau(text, { tra: "kairos", ct: tk.chuDe ?? undefined });
+        noi(kq.noi);
+        if (kq.den !== pathname) router.push(kq.den);
+        return { show: kq.noi };
+      }
       const cho = hieuLenhCho(text);
       if (cho) {
         ghiMau(text, { tra: "cho", ct: cho.k });

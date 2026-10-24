@@ -3,6 +3,7 @@
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
 <!-- re-verified: 2026-10-24k — TIN NÓNG NGOÀI THUỶ SẢN (anh Long: "các bài mà tin nóng thu hút thì lấy để bà con biết thứ gì đang nóng ngoài thuỷ sản"): nguồn mới `gn-noi-bat` = Google News "Tin nổi bật" Việt Nam (news.google.com/rss, biên tập + số báo cùng đưa tin; vẫn lọc baoDuocPhep + gộp trùng sự kiện). §13: 15 % suất ngoài biển ƯU TIÊN tin nóng (W_NONG 0.6 cộng cho bài báo nguồn nóng KHÔNG phải chuyện biển) — 85 % biển giữ nguyên. Thẻ bài nóng có nhãn đỏ "Đang nóng" cạnh giờ. -->
+<!-- re-verified: 2026-10-24k — HỎI SEN BIỂN THAY Ô TÌM (§15, việc 10 nghiên cứu FB): "bài về câu mực" / "tin Kairos về Lý Sơn" / "đọc báo" ⇒ Sen Biển toàn app lọc BẢN LƯU forfish.kairos.v1 (lib/kairos/tim-tin.ts, thuần + test), đọc ≤3 bài, mở bài đầu; không mạng. CHUÔNG GỌN (§16, việc 7): nút chuông + chấm đếm ở đầu /kairos, ngăn danh sách tin bình luận/trả lời mình lấy từ hộp thư (lib/kairos/chuong.ts). A86–A88. -->
 <!-- re-verified: 2026-10-24b — VÒNG SỬA CUỐI: A1 thêm trần sửa bài · A48 ảnh mồ côi đã có việc dọn · A73–A80 (Cài app ở /k, nhãn Cả nước, khung soạn mất sóng, Huỷ xoá ảnh, Hay chặn hai chiều, chặn gỡ bình luận nổi, khoá Kairos env thắng DB, nhật ký agent_hide khi đã ẩn). -->
 <!-- re-verified: 2026-10-24 — BỎ HÀNG CHIP LỌC (AC03) theo anh Long; `kairos-feed.tsx` cố định chip "moi", gỡ ChipRow + thẻ "Vào Bến" + hỏi cảng nhà ở dòng tin (HomePortSheet vẫn dùng ở khung soạn). Migration 0065 ĐÃ ÁP lên znzgugvfhgmiszqgjulk 2026-10-24 (anh Long dán SQL Editor; kiểm: 13 bảng 200 service-role, anon 401, bucket kairos-media, kairos_enabled=true, hồ sơ SDVICO). -->
 <!-- re-verified: 2026-10-24b — CHẶN TIN CÙNG SỰ KIỆN khác báo (anh Long: "đang bị trùng tin" — Thanh Niên + VnExpress cùng vụ đâm người trên tàu cá An Giang): `lib/kairos/cung-su-kien.mjs` (thuần, test `kairos-cung-su-kien.test.ts`) so tên riêng ≥2 tiếng + cặp từ của tiêu đề+mô tả; máy thu bỏ bài cùng vụ với bài đã gửi 48 giờ (sổ `gan-day.json`) hoặc bài báo khác cùng lượt, giữ bài thấy trước. Đo trên 240 bài thật: 19 bài trùng. -->
@@ -211,12 +212,29 @@ Anh Long: "tổ chức cho con gpu thêm 1 task là cho sen biển giới thiệ
 | 8 | Gõ bình luận / chọn cảm xúc | **Bình luận nhanh**: ô trống ⇒ hàng "Cảm ơn · Đúng rồi · Hay quá · Ở đâu?" — một chạm là gửi (cần sóng + đã đồng ý nội quy, như gửi thường); có chữ trong ô thì hàng ẩn | Một chạm thay vì gõ | ĐÃ LÀM |
 | 5 | "Lưu" chỉ là đánh dấu, mất sóng không mở được | Lưu bài mang theo cả chữ + ảnh | Đọc được ngoài khơi | ĐANG LÀM |
 | 6 | — | "Tải tin mang đi" trước khi ra khơi | Biết sắp mất sóng | ĐANG LÀM |
-| 7 | Chuông trộn mọi loại | Chuông Kairos chỉ 2 loại (bình luận bài mình / trả lời mình) | Ít ồn | ĐANG LÀM |
-| 10 | Ô tìm kiếm | Hỏi Sen Biển ("có tin bão gì không") — lọc bản lưu trong máy | Nói thay gõ, chạy khi mất sóng | ĐANG LÀM |
+| 7 | Chuông trộn mọi loại | Chuông Kairos chỉ 2 loại (bình luận bài mình / trả lời mình) — §17 | Ít ồn | ĐÃ LÀM |
+| 10 | Ô tìm kiếm | Hỏi Sen Biển ("bài về câu mực", "tin Kairos về Lý Sơn") — lọc bản lưu trong máy — §16 | Nói thay gõ, chạy khi mất sóng | ĐÃ LÀM |
 | 2 | "Ẩn bài"/"Ít hơn" | "Ít bài này" — cần thêm trường vào `kairos_reads` (migration) | | CHỜ DUYỆT DB |
 | 9 | Nhóm hỏi đáp | Bài "Hỏi nghề" | | CHỜ DUYỆT (migration) |
 | 11 | Trang nhóm/địa phương | Lối vào "Bến của tôi" | | CHỜ anh Long (đã bỏ lối Bến trước đó) |
 | 12 | Hàng chờ gửi khi mất sóng | Hay/bình luận xếp hàng gửi sau | | CHỜ anh Long (trái luật "không tự gửi") |
+## 16. Hỏi Sen Biển thay ô tìm kiếm (2026-10-24)
+
+FB bắt gõ chữ + chọn tab. Ở Kairos bà con **nói** với Sen Biển (icon nổi mọi màn, `sen-bien-toan-app.tsx`):
+
+- **Nhận ý** (`lib/kairos/tim-tin.ts` `hieuTimTinKairos`, luật từ khoá, chạy TRƯỚC lệnh chợ): dấu hiệu MẠNH "Kairos" (cả "kai rốt"… máy nghe ra), "bài", "đọc báo"/"bài báo"/"báo chí" ⇒ nhận, kể cả không nói chủ đề (đọc bài mới nhất). Dấu hiệu YẾU "tin tức", "bản tin", "tin về", "có tin", "đọc tin"… ⇒ chỉ nhận khi câu có chủ đề/nơi; câu có "thông tin", "tin nhắn", "thông báo", "hộp thư" ⇒ không nhận.
+- **Lọc** (`timTinKairos`): bản lưu `forfish.kairos.v1` đúng ngăn SĐT (§8). Cụm còn lại sau khi bỏ chữ đệm so **chữ có dấu** (bỏ dấu thì "bão" trùng "báo", "câu" trùng "cầu"); câu gõ không dấu mới so bỏ dấu. Khớp cụm liền hoặc đủ mọi tiếng; tên chip ("nghề cá", "thời sự"…) ⇒ lọc theo chủ đề; tên tỉnh ⇒ mã tỉnh của bài; mã cảng của bài; bài đăng lại xét cả bài gốc; "bão" khớp cả "áp thấp".
+- **Trả lời** (`traLoiTinKairos`): "Có N bài về X. Bài 1: … Bài 2: … Bài 3: …" (tiêu đề bài báo, hoặc "Tên: câu đầu" bài bà con, ≤90 ký tự), rồi mở `/kairos/p/<id>` bài đầu (trang bài đọc bản lưu khi mất sóng). Bản lưu cũ >6 giờ ⇒ thêm "Bản lưu lúc HH:mm ngày dd/MM". Không khớp ⇒ "Bản lưu Kairos chưa có bài về X. Có sóng thì mở Kairos xem thêm." + mở `/kairos`. Chưa có bản lưu ⇒ "Máy chưa lưu tin Kairos nào…".
+- **Offline**: không request nào (đọc localStorage). Không hỏi máy chủ khi có sóng — bản lưu đã là dòng tin bà con vừa cuộn; nợ ghi ở A88.
+
+## 17. Chuông Kairos gọn (2026-10-24)
+
+Chuông FB trộn sinh nhật, gợi ý, live… Chuông Kairos chỉ **2 loại**: có người bình luận bài mình / trả lời bình luận mình (§3.4, đã gộp 1 tin/bài/giờ).
+
+- **Chỗ**: đầu `/kairos` (dòng tin chung, không ở Bến), trước nút Tuỳ chọn: nút chuông `h-11 w-11` (aria-label/title "Thông báo" hoặc "Thông báo: N tin mới") + **chấm đếm** cam số tin chưa đọc (>9 ⇒ "9+"; 0 ⇒ không chấm).
+- **Nguồn**: HỘP THƯ đã có (`lib/inbox.ts`, `forfish.inbox.v2`) — tin Kairos = tin **nhắm riêng** (`mine`) có đường dẫn `/kairos/p/<id>` (`notifyMessage` đặt). Lọc thuần `lib/kairos/chuong.ts`, ≤30 tin mới nhất. Mở màn CHỈ đọc bản lưu (cả lúc quay lại app) — không request.
+- **Chạm chuông** ⇒ ngăn "Thông báo Kairos": mỗi dòng tiêu đề (đậm, chấm cam nếu chưa đọc) + nội dung ("Tư vừa bình luận bài của bạn…") + giờ (`postTimeLabel`); chạm dòng ⇒ mở bài, đóng ngăn. Trống: "Chưa có ai bình luận hay trả lời bạn." / khách: "Đăng nhập để biết khi có người bình luận bài của bạn."
+- **Đã đọc** dùng ĐÚNG sổ của hộp thư (`forfish.inbox.read.v1`, `unreportedIds` + `markRead`): mở ngăn = các tin đang hiện đã tới mắt ⇒ báo về (8 s, mất sóng tự bỏ). Đọc ở chuông thì mục Thông báo trang chủ cũng tắt chấm và ngược lại. Mở ngăn kèm làm mới hộp thư (`refreshInbox` 10 s, so ngăn `acceptRefresh`) vì bà con TỰ bấm.
 
 ## 10. Ma trận trạng thái
 
@@ -228,6 +246,8 @@ Anh Long: "tổ chức cho con gpu thêm 1 task là cho sen biển giới thiệ
 | Khung soạn | — | Đăng xám khi rỗng | câu theo mã: `bad_words`, `sovereignty`, `too_long`, `rate_limited`, `banned`, `rules` | Đăng xám + nháp | ảnh lớn ⇒ nén; ảnh thứ 6 ⇒ "Tối đa 5 ảnh" |
 | Người dùng / Bến | skeleton (bìa + ảnh đại diện + 2 thẻ) | trang mình: mời đăng bài đầu tiên + nút Đăng; người khác "Chưa có bài"; Ảnh "Chưa có ảnh."; Giới thiệu trống (mình: "Thêm quê…" / khác: "Chưa có giới thiệu.") | Thử lại; đổi ảnh/Giới thiệu lỗi ⇒ câu theo mã (`fields_missing` "Phần giới thiệu chưa mở…") | bản lưu khớp người/cảng (chỉ chữ: không số theo dõi, Ảnh "cần sóng", Giới thiệu "Có sóng sẽ xem"); nút ghi "Cần sóng"; sheet theo dõi "Mất sóng…" | mã lạ ⇒ "Không tìm thấy"; tên 20 ký tự cắt "…"; giới thiệu 150 ký tự xuống dòng; danh sách theo dõi >100 ⇒ "Hiện 100 người mới nhất." |
 | Quản trị | skeleton | "Không có báo xấu nào" | Thử lại | — | |
+| Chuông (§17) | — (đọc bản lưu, tức thì) | không chấm; ngăn "Chưa có ai bình luận hay trả lời bạn." / khách "Đăng nhập để biết…" | làm mới hỏng ⇒ giữ bản đang hiện | bản lưu hộp thư; chấm tắt trong phiên, báo đọc khi có sóng | >9 ⇒ "9+"; ≤30 tin |
+| Sen Biển tìm tin (§16) | — | "Bản lưu Kairos chưa có bài về X…" / "Máy chưa lưu tin Kairos nào…" | localStorage bị chặn ⇒ như chưa có bản lưu | chạy y hệt (chỉ bản lưu) | đọc ≤3 bài, mỗi dòng ≤90 ký tự; bản lưu >6 giờ khai giờ lưu |
 
 ## 11. Pháp lý
 
@@ -345,3 +365,6 @@ Last updated: 2026-10-23
 - **A83** Danh sách theo dõi công khai (như FB): ai cũng xem được người X theo dõi ai / ai theo dõi X — chỉ tên gọi + ảnh + dòng phụ, không SĐT. Một trang 100 người mới nhất (nợ ghi ở route).
 - **A84** Báo xấu MỘT NGƯỜI (không phải bài/bình luận) chưa có — `kairos_reports.target_type` chỉ `post`/`comment`; nút ⋯ trên trang người khác chỉ có Chặn. Muốn thêm ⇒ mở rộng check 0065 + hàng chờ quản trị.
 - **A85** Lời mời đặt tên "Để sau" nhớ theo máy (`forfish.kairos.moiten.v1`, ≤20 profileId) — đổi máy/xoá dữ liệu thì mời lại, không hỏng gì. Lưới ảnh lấy từ các trang bài ĐÃ TẢI (Xem thêm tải tiếp), không route riêng.
+- **A86** (2026-10-24, §16) "Có tin bão gì không" chỉ có dấu hiệu yếu ⇒ Sen Biển **không** đọc báo mà để luồng cũ trả lời bằng tin bão CHÍNH THỨC trong máy (`answer.ts`, nhắc đài duyên hải) — câu hỏi an toàn không được nhận tin báo thay tin bão. Muốn đọc báo về bão: "bài về bão", "tin bão trên Kairos"; khi đó câu trả lời vẫn thêm "Tin bão chính thức bà con nghe đài duyên hải."
+- **A87** (§17) Chấm đếm tắt ngay trong phiên khi mở ngăn, nhưng sổ "đã đọc" chỉ ghi khi máy chủ xác nhận (luật hộp thư 0024) ⇒ mở ngăn lúc mất sóng rồi vào lại màn có thể thấy chấm lại tới khi có sóng. Chuông không vẽ ở Bến (đầu màn Bến đã chật, chuông là chuyện của tài khoản, không của cảng).
+- **A88** (§16) Sen Biển chỉ lọc BẢN LƯU (≤200 bài đã cuộn qua), chưa hỏi máy chủ khi có sóng — `// nợ`: thêm route tìm bài có timeout khi bà con hỏi mà bản lưu không có bài khớp, điều kiện: có ghi nhận câu "chưa có bài về X" trong mẫu học `tra: "kairos"`.

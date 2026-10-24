@@ -3,7 +3,7 @@
 /*
   MÀN KAIROS ĐẦY ĐỦ (dòng tin chung + Bến) = KairosFeed + hành vi thẻ (usePostActions) + khung
   soạn. Bến truyền `port` ⇒ dòng tin lọc theo cảng, ô mời đăng THẲNG vào Bến (AC14).
-  Góc phải: nút bánh răng "Tuỳ chọn dòng tin" (CHỈ dòng tin chung, không ở Bến — 14 §13) + "Trang tôi" ⇒
+  Góc phải: chuông "Thông báo" (chỉ tin bình luận/trả lời mình, chấm đếm chưa đọc — 14 §16, dòng tin chung) + nút bánh răng "Tuỳ chọn dòng tin" (CHỈ dòng tin chung, không ở Bến — 14 §13) + "Trang tôi" ⇒
   /kairos/u/toi (đổi tên gọi, ảnh, số hiệu tàu — AC12).
 */
 
@@ -14,6 +14,7 @@ import { ManHeader } from "@/components/man-header";
 import { loadTuyChon } from "@/lib/kairos/feed-client";
 import type { TuyChon } from "@/lib/kairos/tuy-chon";
 import { NHAN } from "@/lib/labels";
+import { ChuongKairos } from "./chuong-kairos";
 import { KairosFeed } from "./kairos-feed";
 import { TuyChonSheet } from "./tuy-chon-sheet";
 import { usePostActions } from "./use-post-actions";
@@ -31,6 +32,7 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
         sub={sub}
         right={
           <div className="flex items-center gap-2">
+            {!port && <ChuongKairos />}
             {!port && (
               <button
                 type="button"
