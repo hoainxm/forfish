@@ -11,7 +11,7 @@
 
 import { normalizeUrl, urlHash, titleNorm, isDupTitle, TITLE_DUP_WINDOW_MS } from "./lien-ket.mjs";
 import { chuQuyenFlag, chuQuyenFlagAll, CHU_QUYEN_PROMPT } from "./chu-quyen.mjs";
-import { isTopic, topicFor } from "./chu-de.mjs";
+import { isTopic, laChuyenBien, topicFor } from "./chu-de.mjs";
 
 /** Gom bao nhiêu bài một lượt gọi Claude (14 §9 bước 4). */
 export const LO_TOM_TAT = 20;
@@ -138,7 +138,9 @@ export function parsePubDate(raw) {
 }
 
 /**
- * @typedef {{ title: string, link: string, description: string, publishedAt: string | null, coverUrl: string | null }} RssItem
+ * @typedef {{ title: string, link: string, description: string, publishedAt: string | null, coverUrl: string | null,
+ *   sourceName?: string | null, sourceUrl?: string | null }} RssItem
+ *   sourceName/sourceUrl: thẻ `<source url="…">Tên báo</source>` (Google News — báo gốc của tin)
  */
 
 /**
@@ -176,10 +178,13 @@ export function parseFeed(xml) {
     ].find((u) => u && u.startsWith("https:")) ?? null;
     // WordPress: "The post X appeared first on Y." — rác, cắt bỏ
     const description = stripHtml(descRaw).replace(/\s*The post .{0,400}? appeared first on .{0,120}?\.?$/i, "").trim();
+    const srcName = tagText(b, "source");
     out.push({
       title,
       link,
       description,
+      sourceName: srcName ? stripHtml(srcName) || null : null,
+      sourceUrl: httpUrl(tagAttr(b, "source", "url")),
       publishedAt: parsePubDate(tagText(b, "pubDate") ?? tagText(b, "published") ?? tagText(b, "updated") ?? tagText(b, "dc:date")),
       coverUrl: cover,
     });
@@ -190,7 +195,11 @@ export function parseFeed(xml) {
 // ───────── Nguồn ─────────
 
 /**
- * @typedef {{ id: string, outlet: string, feedUrl: string, section: string, topic: string, enabled: boolean }} Nguon
+ * @typedef {{ id: string, outlet: string, feedUrl: string, section: string, topic: string, enabled: boolean,
+ *   kieu: "rss" | "google-news", chiTinBien: boolean }} Nguon
+ *   kieu "google-news": feed TÌM KIẾM news.google.com/rss/search — báo gốc lấy ở <source>, chỉ nhận báo trong
+ *     `baoDuocPhep`, tiêu đề cắt đuôi " - Tên báo", mô tả (danh sách link) bỏ.
+ *   chiTinBien: feed CHUNG của báo — chỉ nhận bài nói chuyện biển (chu-de.laChuyenBien), 85 % tin biển.
  */
 
 const ID_RE = /^[a-z0-9-]{2,60}$/;
@@ -221,8 +230,56 @@ export function docNguon(raw) {
       throw bad("feedUrl sai");
     }
     if (u.protocol !== "https:") throw bad("feedUrl phải https");
-    return { id: x.id, outlet: x.outlet.trim(), feedUrl: u.toString(), section: x.section, topic: x.topic, enabled: x.enabled !== false };
+    if (x.kieu != null && x.kieu !== "rss" && x.kieu !== "google-news") throw bad("kieu sai");
+    const kieu = x.kieu === "google-news" ? "google-news" : "rss";
+    if (kieu === "google-news" && u.hostname !== "news.google.com") throw bad("google-news phải là news.google.com");
+    return {
+      id: x.id, outlet: x.outlet.trim(), feedUrl: u.toString(), section: x.section, topic: x.topic, enabled: x.enabled !== false,
+      kieu, chiTinBien: x.chiTinBien === true,
+    };
   });
+}
+
+/**
+ * Danh sách báo được phép (tên miền, không "www.") cho nguồn Google News — Google gom cả trang gom tin và báo
+ * hải ngoại; chỉ nhận báo chính thống trong nước. Thiếu / rỗng ⇒ Google News không nhận bài nào.
+ * @param {unknown} raw
+ * @returns {Set<string>}
+ */
+export function docBaoDuocPhep(raw) {
+  const list = raw && typeof raw === "object" ? /** @type {any} */ (raw).baoDuocPhep : null;
+  const out = new Set();
+  if (!Array.isArray(list)) return out;
+  for (const d of list) if (typeof d === "string" && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) out.add(d.toLowerCase());
+  return out;
+}
+
+/** Tên miền `host` có thuộc danh sách (chính nó hoặc tên miền con) không. */
+export function trongDanhSach(host, phep) {
+  const h = String(host ?? "").toLowerCase().replace(/^www\./, "");
+  for (const d of phep) if (h === d || h.endsWith(`.${d}`)) return true;
+  return false;
+}
+
+/**
+ * Mục Google News ⇒ mục RSS thường: báo gốc (<source>), tiêu đề bỏ đuôi " - Tên báo", mô tả bỏ (là danh sách
+ * link, không phải tóm tắt). Báo ngoài danh sách / thiếu <source> ⇒ null.
+ * @param {RssItem} it
+ * @param {Set<string>} phep
+ * @returns {(RssItem & { outlet: string }) | null}
+ */
+export function tuGoogleNews(it, phep) {
+  if (!it.sourceUrl || !it.sourceName) return null;
+  let host;
+  try {
+    host = new URL(it.sourceUrl).hostname;
+  } catch {
+    return null;
+  }
+  if (!trongDanhSach(host, phep)) return null;
+  const duoi = ` - ${it.sourceName}`;
+  const title = it.title.endsWith(duoi) ? it.title.slice(0, -duoi.length).trim() : it.title.replace(/\s+-\s+[^-]{2,60}$/, "").trim();
+  return { ...it, title, description: "", outlet: [...it.sourceName].slice(0, 60).join("") };
 }
 
 // ───────── Sổ trạng thái (chặn trùng cục bộ) ─────────
@@ -275,12 +332,21 @@ export function chuanSo(raw, now) {
  * @param {SoThay} so
  * @param {number} now
  * @param {Set<string>} [daChonLuotNay] link đã nhận ở nguồn khác trong cùng lượt (VnExpress đăng một bài ở hai mục)
+ * @param {Set<string>} [baoDuocPhep] tên miền báo được nhận từ nguồn Google News (docBaoDuocPhep)
  * @returns {BaiMoi[]}
  */
-export function locBaiMoi(nguon, items, so, now, daChonLuotNay = new Set()) {
+export function locBaiMoi(nguon, items, so, now, daChonLuotNay = new Set(), baoDuocPhep = new Set()) {
   const out = [];
   const titles = [...so.titles];
-  for (const it of items) {
+  for (const goc of items) {
+    /** @type {RssItem & { outlet?: string }} */
+    let it = goc;
+    if (nguon.kieu === "google-news") {
+      const g = tuGoogleNews(goc, baoDuocPhep);
+      if (!g) continue;
+      it = g;
+    }
+    if (nguon.chiTinBien && !laChuyenBien(`${it.title}\n${it.description}`)) continue;
     const h = urlHash(it.link);
     const url = normalizeUrl(it.link);
     if (!h || !url || so.links[h] || daChonLuotNay.has(h)) continue;
@@ -291,7 +357,7 @@ export function locBaiMoi(nguon, items, so, now, daChonLuotNay = new Set()) {
     const description = [...it.description].slice(0, MO_TA_TOI_DA).join("");
     out.push({
       sourceId: nguon.id,
-      outlet: nguon.outlet,
+      outlet: it.outlet ?? nguon.outlet,
       url,
       title: [...it.title].slice(0, 300).join(""),
       description,

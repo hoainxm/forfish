@@ -8,6 +8,10 @@
 // Cùng sự kiện khi: chung một tên ≥ 3 tiếng (thường là tên người) và ≥ 15 % cặp từ, HOẶC chung ≥ 2 tên riêng và
 // ≥ 20 % cặp từ, HOẶC ≥ 40 % cặp từ. Tỉ lệ tính trên bài NGẮN hơn (mô tả RSS dài ngắn khác nhau giữa các báo).
 // Giữ bài thấy TRƯỚC (thứ tự nguồn trong kairos-nguon.json), bỏ bài sau.
+// BÀI CHỈ CÓ TIÊU ĐỀ (Google News — mô tả bỏ, 2026-10-24): so riêng tiêu đề hai bên — chung một tên riêng
+// (≥ 2 tiếng) và ≥ 25 % cặp từ tiêu đề, hoặc ≥ 50 % cặp từ tiêu đề. "Bắt ngư dân sát hại đồng nghiệp trên tàu cá
+// ở An Giang" = "Công an tỉnh An Giang bắt nghi phạm giết người trên tàu cá"; hai bản tin bão Champi khác giờ
+// (mạnh lên / suy yếu) KHÔNG gộp.
 
 import { foldVi } from "./lien-ket.mjs";
 
@@ -38,8 +42,15 @@ export function capTu(text) {
 
 /** @param {{ title?: string, description?: string, summary?: string }} b */
 export function vanTay(b) {
-  const t = `${b.title ?? ""}. ${b.description ?? b.summary ?? ""}`;
-  return { ten: tenRieng(t), cap: capTu(t) };
+  const moTa = String(b.description ?? b.summary ?? "");
+  const t = `${b.title ?? ""}. ${moTa}`;
+  return {
+    ten: tenRieng(t),
+    cap: capTu(t),
+    tenTd: tenRieng(b.title ?? ""),
+    capTd: capTu(b.title ?? ""),
+    chiTd: moTa.trim().length < 40,
+  };
 }
 
 const chung = (a, b) => {
@@ -54,6 +65,12 @@ const chung = (a, b) => {
  * @param {{ ten: Set<string>, cap: Set<string> }} b
  */
 export function cungSuKien(a, b) {
+  if ((a.chiTd || b.chiTd) && a.capTd && b.capTd) {
+    const nhoTd = Math.min(a.capTd.size, b.capTd.size);
+    if (nhoTd < 4) return false;
+    const tl = chung(a.capTd, b.capTd) / nhoTd;
+    return tl >= 0.5 || (tl >= 0.25 && chung(a.tenTd, b.tenTd) >= 1);
+  }
   const nho = Math.min(a.cap.size, b.cap.size);
   if (nho < 4) return false;
   const tiLe = chung(a.cap, b.cap) / nho;

@@ -1,5 +1,5 @@
 {
-  "_ghi_chu": "Nguồn RSS của máy thu tin Kairos (14 §9, AC17). Kiểm sống bằng curl 2026-10-23: cả 27 nguồn trả RSS hợp lệ. Tắt một nguồn: enabled=false (đừng xoá — id là khoá kairos_sources). NN&MT không có mục RSS riêng cho pháp luật (trả 0 bài) nên chỉ lấy thuy-san + bien-dao như spec.",
+  "_ghi_chu": "Nguồn của máy thu tin Kairos (14 §9 + §13). 2026-10-24: tắt nnmt-* (RSS đứng từ 05/10); thêm Google News tìm kiếm (kieu google-news — chỉ nhận báo trong baoDuocPhep) + RSS trực tiếp chuyên/chung (chiTinBien = chỉ nhận bài chuyện biển) để đạt 85 % tin biển. Tắt một nguồn: enabled=false (đừng xoá — id là khoá kairos_sources).",
   "nguon": [
     {
       "id": "nnmt-thuy-san",
@@ -7,7 +7,7 @@
       "feedUrl": "https://nongnghiepmoitruong.vn/thuy-san.rss",
       "section": "thuy-san",
       "topic": "nghe-ca",
-      "enabled": true
+      "enabled": false
     },
     {
       "id": "nnmt-bien-dao",
@@ -15,7 +15,7 @@
       "feedUrl": "https://nongnghiepmoitruong.vn/bien-dao.rss",
       "section": "bien-dao",
       "topic": "nghe-ca",
-      "enabled": true
+      "enabled": false
     },
     {
       "id": "tsvn",
@@ -216,6 +216,235 @@
       "section": "doi-song",
       "topic": "doi-song",
       "enabled": true
+    },
+    {
+      "id": "gn-tau-ca",
+      "outlet": "Google News",
+      "feedUrl": "https://news.google.com/rss/search?q=%22t%C3%A0u%20c%C3%A1%22%20OR%20%22c%E1%BA%A3ng%20c%C3%A1%22%20when%3A2d&hl=vi&gl=VN&ceid=VN:vi",
+      "section": "nghe-ca",
+      "topic": "nghe-ca",
+      "kieu": "google-news",
+      "enabled": true
+    },
+    {
+      "id": "gn-ngu-dan",
+      "outlet": "Google News",
+      "feedUrl": "https://news.google.com/rss/search?q=%22ng%C6%B0%20d%C3%A2n%22%20when%3A2d&hl=vi&gl=VN&ceid=VN:vi",
+      "section": "nghe-ca",
+      "topic": "nghe-ca",
+      "kieu": "google-news",
+      "enabled": true
+    },
+    {
+      "id": "gn-bao-bien-dong",
+      "outlet": "Google News",
+      "feedUrl": "https://news.google.com/rss/search?q=b%C3%A3o%20OR%20%22%C3%A1p%20th%E1%BA%A5p%20nhi%E1%BB%87t%20%C4%91%E1%BB%9Bi%22%20%22Bi%E1%BB%83n%20%C4%90%C3%B4ng%22%20when%3A2d&hl=vi&gl=VN&ceid=VN:vi",
+      "section": "bien-dao",
+      "topic": "nghe-ca",
+      "kieu": "google-news",
+      "enabled": true
+    },
+    {
+      "id": "gn-iuu",
+      "outlet": "Google News",
+      "feedUrl": "https://news.google.com/rss/search?q=IUU%20OR%20%22th%E1%BA%BB%20v%C3%A0ng%22%20th%E1%BB%A7y%20s%E1%BA%A3n%20when%3A2d&hl=vi&gl=VN&ceid=VN:vi",
+      "section": "nghe-ca",
+      "topic": "nghe-ca",
+      "kieu": "google-news",
+      "enabled": true
+    },
+    {
+      "id": "gn-thuy-san",
+      "outlet": "Google News",
+      "feedUrl": "https://news.google.com/rss/search?q=%22th%E1%BB%A7y%20s%E1%BA%A3n%22%20when%3A2d&hl=vi&gl=VN&ceid=VN:vi",
+      "section": "thuy-san",
+      "topic": "nghe-ca",
+      "kieu": "google-news",
+      "enabled": true
+    },
+    {
+      "id": "gn-vasep",
+      "outlet": "Google News",
+      "feedUrl": "https://news.google.com/rss/search?q=site%3Avasep.com.vn%20when%3A3d&hl=vi&gl=VN&ceid=VN:vi",
+      "section": "thuy-san",
+      "topic": "nghe-ca",
+      "kieu": "google-news",
+      "enabled": true
+    },
+    {
+      "id": "gn-bien-dao",
+      "outlet": "Google News",
+      "feedUrl": "https://news.google.com/rss/search?q=%22Ho%C3%A0ng%20Sa%22%20OR%20%22Tr%C6%B0%E1%BB%9Dng%20Sa%22%20OR%20%22bi%E1%BB%83n%20%C4%91%E1%BA%A3o%22%20OR%20%22c%E1%BA%A3nh%20s%C3%A1t%20bi%E1%BB%83n%22%20when%3A2d&hl=vi&gl=VN&ceid=VN:vi",
+      "section": "bien-dao",
+      "topic": "nghe-ca",
+      "kieu": "google-news",
+      "chiTinBien": true,
+      "enabled": true
+    },
+    {
+      "id": "gn-thoi-tiet-bien",
+      "outlet": "Google News",
+      "feedUrl": "https://news.google.com/rss/search?q=%22th%E1%BB%9Di%20ti%E1%BA%BFt%20bi%E1%BB%83n%22%20OR%20%22s%C3%B3ng%20l%E1%BB%9Bn%22%20OR%20%22gi%C3%B3%20m%E1%BA%A1nh%20tr%C3%AAn%20bi%E1%BB%83n%22%20when%3A2d&hl=vi&gl=VN&ceid=VN:vi",
+      "section": "bien-dao",
+      "topic": "nghe-ca",
+      "kieu": "google-news",
+      "enabled": true
+    },
+    {
+      "id": "nguoinuoitom",
+      "outlet": "Người Nuôi Tôm",
+      "feedUrl": "https://nguoinuoitom.vn/feed/",
+      "section": "thuy-san",
+      "topic": "nghe-ca",
+      "enabled": true
+    },
+    {
+      "id": "dng-thuy-san",
+      "outlet": "Báo Đà Nẵng",
+      "feedUrl": "https://baodanang.vn/rss/nong-nghiep-nong-thon/thuy-san",
+      "section": "thuy-san",
+      "topic": "nghe-ca",
+      "enabled": true
+    },
+    {
+      "id": "dng-bien-dao",
+      "outlet": "Báo Đà Nẵng",
+      "feedUrl": "https://baodanang.vn/rss/quoc-phong-an-ninh/bien-gioi-hai-dao",
+      "section": "bien-dao",
+      "topic": "nghe-ca",
+      "chiTinBien": true,
+      "enabled": true
+    },
+    {
+      "id": "vov-kinh-te",
+      "outlet": "VOV",
+      "feedUrl": "https://vov.vn/rss/kinh-te.rss",
+      "section": "kinh-te",
+      "topic": "kinh-te",
+      "chiTinBien": true,
+      "enabled": true
+    },
+    {
+      "id": "vnp-moi-truong",
+      "outlet": "VietnamPlus",
+      "feedUrl": "https://www.vietnamplus.vn/rss/moitruong-270.rss",
+      "section": "thoi-su",
+      "topic": "thoi-su",
+      "chiTinBien": true,
+      "enabled": true
+    },
+    {
+      "id": "vnp-xa-hoi",
+      "outlet": "VietnamPlus",
+      "feedUrl": "https://www.vietnamplus.vn/rss/xahoi-314.rss",
+      "section": "thoi-su",
+      "topic": "thoi-su",
+      "chiTinBien": true,
+      "enabled": true
+    },
+    {
+      "id": "nd-moi-truong",
+      "outlet": "Nhân Dân",
+      "feedUrl": "https://nhandan.vn/rss/moi-truong-1296.rss",
+      "section": "thoi-su",
+      "topic": "thoi-su",
+      "chiTinBien": true,
+      "enabled": true
+    },
+    {
+      "id": "vtv-xa-hoi",
+      "outlet": "VTV",
+      "feedUrl": "https://vtv.vn/rss/xa-hoi.rss",
+      "section": "thoi-su",
+      "topic": "thoi-su",
+      "chiTinBien": true,
+      "enabled": true
+    },
+    {
+      "id": "dt-thoi-tiet",
+      "outlet": "Dân trí",
+      "feedUrl": "https://dantri.com.vn/rss/thoi-tiet.rss",
+      "section": "thoi-su",
+      "topic": "thoi-su",
+      "chiTinBien": true,
+      "enabled": true
+    },
+    {
+      "id": "qni-nong-nghiep",
+      "outlet": "Báo Quảng Ninh",
+      "feedUrl": "https://baoquangninh.vn/rss/kinh-te/nong-nghiep-nong-thon-26.rss",
+      "section": "kinh-te",
+      "topic": "kinh-te",
+      "chiTinBien": true,
+      "enabled": true
+    },
+    {
+      "id": "hti-nong-nghiep",
+      "outlet": "Báo Hà Tĩnh",
+      "feedUrl": "https://baohatinh.vn/rss/kinh-te/nong-nghiep-74.rss",
+      "section": "kinh-te",
+      "topic": "kinh-te",
+      "chiTinBien": true,
+      "enabled": true
     }
+  ],
+  "baoDuocPhep": [
+    "vnexpress.net",
+    "tuoitre.vn",
+    "thanhnien.vn",
+    "dantri.com.vn",
+    "vietnamnet.vn",
+    "nhandan.vn",
+    "qdnd.vn",
+    "bienphong.com.vn",
+    "baohaiquanvietnam.vn",
+    "vov.vn",
+    "vtv.vn",
+    "vietnamplus.vn",
+    "baochinhphu.vn",
+    "nongnghiepmoitruong.vn",
+    "thuysanvietnam.com.vn",
+    "nguoinuoitom.vn",
+    "vasep.com.vn",
+    "nchmf.gov.vn",
+    "cand.com.vn",
+    "laodong.vn",
+    "nld.com.vn",
+    "sggp.org.vn",
+    "tienphong.vn",
+    "plo.vn",
+    "znews.vn",
+    "baotintuc.vn",
+    "vneconomy.vn",
+    "daibieunhandan.vn",
+    "congthuong.vn",
+    "vtcnews.vn",
+    "vietnamfinance.vn",
+    "baoquangngai.vn",
+    "baogialai.com.vn",
+    "baokhanhhoa.vn",
+    "baodanang.vn",
+    "baocamau.vn",
+    "baoangiang.com.vn",
+    "baoquangninh.vn",
+    "baohaiphong.vn",
+    "baothanhhoa.vn",
+    "baonghean.vn",
+    "baohatinh.vn",
+    "baoquangtri.vn",
+    "baohue.vn",
+    "baolamdong.vn",
+    "baodaklak.vn",
+    "baocantho.com.vn",
+    "baotayninh.vn",
+    "baohungyen.vn",
+    "baoninhbinh.org.vn",
+    "baodongnai.com.vn",
+    "baovinhlong.com.vn",
+    "thoibaonganhang.vn",
+    "kinhtemoitruong.vn",
+    "danviet.vn",
+    "nongthonviet.com.vn",
+    "baodautu.vn"
   ]
 }

@@ -4,6 +4,7 @@
 
 covers: scripts/train/run.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24b — kairos-thu.mjs đọc baoDuocPhep + nguồn kieu google-news/chiTinBien (thu-core.tuGoogleNews, chu-de.laChuyenBien); bài chỉ có tiêu đề không tóm tắt bằng Claude. Sự cố: nguồn Google News trả 0 bài mới liên tục ⇒ kiểm baoDuocPhep (báo đổi tên miền) hoặc Google đổi định dạng <source>. -->
 <!-- re-verified: 2026-10-24 — KAIROS ĐÃ CÀI THẬT trên gpu-desktop: timer kairos-thu 15 phút + kairos-kiem 5 phút (systemd user, linger), chạy bản xuất từ origin/main ở ~/.local/forlife/kairos/app (KHÔNG từ checkout đang có người sửa), KAIROS_API_BASE=https://forfish.vercel.app (production repo Long-Forfun/ForFish — KHÔNG phải sdfish.sdvico.vn); sổ mới gan-day.json chặn tin cùng sự kiện khác báo (cung-su-kien.mjs) -->
 <!-- re-verified: 2026-10-19b — thêm "Bảng môi trường" (rà Codex mục 10: "một bảng môi trường thống nhất: web domain, native origin, API, cron, DB, build ID"); đối chiếu capacitor.config.ts + android/ios capacitor.config.json (server.url), vercel.json crons, .github/workflows/{deploy,cron-prod,deploy.windows-iis,doc-health}.yml, /api/version. doc-health --ci đã chạy thật trên máy: exit 1 vì doc lệch có sẵn (forecast-accuracy 87 ngày…) — nên để workflow RIÊNG, không gộp vào `ci`. -->
 ttl_days: 90

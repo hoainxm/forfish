@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  BAI_CU_MS, CAM_CONG_CU, chiaLo, chonBai, chuanSo, cliArgs, decodeEntities, docKetQuaCli, docNguon, docTomTat, ghiSo,
+  BAI_CU_MS, CAM_CONG_CU, chiaLo, chonBai, chuanSo, cliArgs, decodeEntities, docBaoDuocPhep, docKetQuaCli, docNguon, docTomTat, ghiSo,
   gopHangDoi, layJson, locBaiMoi, mucGui, nguonGui, parseFeed, parsePubDate, promptTomTat, soRong, stripHtml,
 } from "@/lib/kairos/thu-core.mjs";
 import { urlHash } from "@/lib/kairos/lien-ket.mjs";
@@ -86,12 +86,19 @@ describe("thu-core — đọc RSS các báo thật", () => {
 });
 
 describe("thu-core — danh sách nguồn", () => {
-  it("scripts/kairos-nguon.json hợp lệ: đủ 5 báo, đủ 8 mục cho 3 báo lớn, https", () => {
+  it("scripts/kairos-nguon.json hợp lệ: 5 báo gốc còn đủ, 8 mục cho 3 báo lớn, https; nguồn biển 2026-10-24", () => {
     const ds = docNguon(nguonJson);
     const outlets = new Set(ds.map((n) => n.outlet));
-    expect(outlets).toEqual(new Set(["Nông nghiệp và Môi trường", "Thủy sản Việt Nam", "VnExpress", "Tuổi Trẻ", "Thanh Niên"]));
+    for (const o of ["Nông nghiệp và Môi trường", "Thủy sản Việt Nam", "VnExpress", "Tuổi Trẻ", "Thanh Niên"]) expect(outlets.has(o)).toBe(true);
     for (const o of ["VnExpress", "Tuổi Trẻ", "Thanh Niên"]) expect(ds.filter((n) => n.outlet === o)).toHaveLength(8);
-    expect(ds.filter((n) => n.topic === "nghe-ca").map((n) => n.id)).toEqual(["nnmt-thuy-san", "nnmt-bien-dao", "tsvn"]);
+    // 85 % tin biển: có nguồn Google News + nguồn chuyên nghề; NN&MT tắt (RSS đứng từ 05/10)
+    expect(ds.filter((n) => n.kieu === "google-news" && n.enabled).length).toBeGreaterThanOrEqual(6);
+    expect(ds.filter((n) => n.id.startsWith("nnmt-")).every((n) => !n.enabled)).toBe(true);
+    expect(docBaoDuocPhep(nguonJson).size).toBeGreaterThanOrEqual(30);
+    // feed chung của báo khác (không phải 3 báo lớn) đều phải lọc tin biển, trừ nguồn chuyên nghề
+    for (const n of ds.filter((x) => x.kieu === "rss" && x.topic !== "nghe-ca" && !["VnExpress", "Tuổi Trẻ", "Thanh Niên"].includes(x.outlet))) {
+      expect(n.chiTinBien).toBe(true);
+    }
     // chủ đề khai trong file khớp luật mục ⇒ chủ đề của máy chủ
     for (const n of ds) expect(topicFor(n.section, "")).toBe(n.topic);
   });

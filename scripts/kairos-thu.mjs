@@ -23,7 +23,7 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
-  chuanSo, chiaLo, chonBai, docNguon, docTomTat, ghiSo, gopHangDoi, GOI_NHAP_TOI_DA, locBaiMoi, mucGui, nguonGui,
+  chuanSo, chiaLo, chonBai, docBaoDuocPhep, docNguon, docTomTat, ghiSo, gopHangDoi, GOI_NHAP_TOI_DA, locBaiMoi, mucGui, nguonGui,
   parseFeed, promptTomTat,
 } from "../src/lib/kairos/thu-core.mjs";
 import { tagArea } from "../src/lib/kairos/khu-vuc.mjs";
@@ -81,7 +81,9 @@ async function main() {
     }
   }
   const now = Date.now();
-  const nguon = docNguon(JSON.parse(readFileSync(path.join(HERE, "kairos-nguon.json"), "utf8"))).filter(
+  const cauHinhNguon = JSON.parse(readFileSync(path.join(HERE, "kairos-nguon.json"), "utf8"));
+  const baoDuocPhep = docBaoDuocPhep(cauHinhNguon);
+  const nguon = docNguon(cauHinhNguon).filter(
     (n) => n.enabled && (!chiNguon.length || chiNguon.includes(n.id)),
   );
   const soFile = path.join(c.stateDir, "da-thay.json");
@@ -93,7 +95,7 @@ async function main() {
   const daChon = new Set();
   const moi = [];
   nguon.forEach((n, k) => {
-    const b = locBaiMoi(n, ket[k].items, so, now, daChon);
+    const b = locBaiMoi(n, ket[k].items, so, now, daChon, baoDuocPhep);
     log(`[nguồn] ${n.id}: ${ket[k].loi ? `LỖI ${ket[k].loi}` : `${ket[k].items.length} bài, ${b.length} mới`}`);
     moi.push(...b);
   });
@@ -108,7 +110,8 @@ async function main() {
   log(`[chọn] ${chon.length} bài (${chon.filter((b) => b.chuQuyen).length} trúng cờ chủ quyền), bỏ ${quaCu.length} bài quá 48 giờ, để lượt sau ${conLai}`);
 
   // 3. Tóm tắt — bài trúng cờ KHÔNG đưa vào prompt
-  const canTomTat = chon.filter((b) => !b.chuQuyen);
+  // bài chỉ có TIÊU ĐỀ (Google News) KHÔNG đưa Claude tóm tắt — tóm tắt từ một dòng tiêu đề là mời mô hình bịa
+  const canTomTat = chon.filter((b) => !b.chuQuyen && [...b.description].length >= 40);
   let dung = null;
   let ai = 0;
   for (const lo of chiaLo(canTomTat)) {
