@@ -23,6 +23,17 @@ export const DAI_TOI_DA = 900;
 /** @type {readonly ChuDeGioiThieu[]} */
 export const CHU_DE = [
   {
+    id: "vi-sao-kairos",
+    ten: "Vì sao tên là Kairos",
+    duKien: [
+      "Kairos là chữ Hy Lạp cổ, nghĩa là \"đúng lúc\" — thời cơ, khoảnh khắc nên làm.",
+      "Với nghề biển, đúng lúc là chuyện sống còn: ra khơi đúng con nước, về trước bão, bán cá lúc được giá.",
+      "Kairos kết nối bà con đi biển với nhau: kể chuyện nghề, hỏi kinh nghiệm, gặp người cùng cảng ở Bến.",
+      "Kairos kết nối bà con với tin cần biết: tin biển, tin bão, giá thủy sản được đưa lên trước, mất sóng vẫn đọc lại được.",
+    ],
+    mau: "Bà con có biết vì sao chỗ này tên là Kairos không? Kairos là chữ Hy Lạp cổ, nghĩa là \"đúng lúc\". Nghề biển mình sống nhờ đúng lúc: ra khơi đúng con nước, về trước bão, bán cá lúc được giá. Kairos kết nối bà con đi biển với nhau, và với tin cần biết như tin bão, tin biển, giá thủy sản, đến đúng lúc bà con cần.",
+  },
+  {
     id: "kairos-la-gi",
     ten: "Kairos là gì",
     duKien: [
