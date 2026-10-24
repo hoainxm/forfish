@@ -325,7 +325,7 @@ export function CommentThread({
   for (const a of [post.author, ...comments.filter((c) => !c.mine).map((c) => c.author)]) {
     if (a?.profileId && !quen.some((x) => x.id === a.profileId)) quen.push({ id: a.profileId, ten: a.handle, avatarUrl: a.avatarUrl, isAgent: a.isAgent });
   }
-  const nt = useNhacTen({ text, setText: onText, box, quen });
+  const nt = useNhacTen({ text, setText: onText, box, quen, nguoc: true });
 
   /** Chỉ đổi người đang trả lời — chữ đang gõ giữ nguyên, không chèn "@tên" vào ô. */
   const startReply = (c: KairosComment) => {

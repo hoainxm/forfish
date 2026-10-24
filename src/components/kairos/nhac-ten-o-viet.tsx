@@ -4,7 +4,7 @@
   GÕ "@" ĐỂ NHẮC TÊN kiểu Facebook (14 §3.12, 0071) — dùng chung ô bình luận + khung soạn bài.
 
   Gõ "@" (đầu chữ hoặc sau khoảng trắng) + vài chữ ⇒ danh sách ≤5 người ngay trên ô viết: người TRONG BÀI trước
-  (chủ bài, người đã bình luận — có sẵn, không mạng), rồi người tìm trên máy chủ (`/api/kairos/users?q=`, chờ 250 ms
+  (chủ bài, người đã bình luận — có sẵn, không mạng; nằm SÁT ô viết), rồi người tìm trên máy chủ (`/api/kairos/users?q=`, chờ 250 ms
   sau phím cuối, chỉ khi có sóng). Chạm một người ⇒ đoạn "@chữ" thành "@Tên " và con trỏ đứng sau. Xoá chữ "@Tên"
   ⇒ hết tag (`locNhacTen`). Escape đóng danh sách. Tag KHÔNG vào nháp — nháp chỉ giữ chữ.
 */
@@ -28,6 +28,7 @@ export function useNhacTen({
   box,
   quen = [],
   dau = [],
+  nguoc = false,
 }: {
   text: string;
   /** đổi chữ ô viết (bên gọi lo lưu nháp) */
@@ -37,6 +38,8 @@ export function useNhacTen({
   quen?: readonly NguoiNhac[];
   /** người đã tag sẵn (sửa bài) */
   dau?: readonly NhacTen[];
+  /** danh sách nằm TRÊN ô viết (thanh dính đáy, mọc ngược lên) ⇒ người hợp nhất ở dưới cùng, sát ô */
+  nguoc?: boolean;
 }) {
   const online = useOnline();
   const [chon, setChon] = useState<NhacTen[]>(() => [...dau]);
@@ -80,7 +83,13 @@ export function useNhacTen({
 
   const danhSach =
     go && ds.length > 0 ? (
-      <ul role="listbox" aria-label="Nhắc tên" className="mb-2 overflow-hidden rounded-2xl border border-line bg-card shadow-float">
+      // `nguoc`: người hợp nhất nằm SÁT ô viết; kết quả máy chủ về sau mọc thêm phía xa ô ⇒ hàng đang nhắm không
+      // xê dịch dưới ngón tay
+      <ul
+        role="listbox"
+        aria-label="Nhắc tên"
+        className={`mb-2 flex overflow-hidden rounded-2xl border border-line bg-card shadow-float ${nguoc ? "flex-col-reverse" : "flex-col"}`}
+      >
         {ds.map((n) => (
           <li key={n.id} role="option" aria-selected={false}>
             <button
