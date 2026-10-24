@@ -20,7 +20,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { CommentIcon, ShareIcon, ThumbIcon } from "@/components/icons";
-import { countLabel, portLabel, postTimeLabel } from "@/lib/kairos/feed-client";
+import { areaTag, countLabel, portLabel, postTimeLabel } from "@/lib/kairos/feed-client";
 import type { KairosComment, KairosPost } from "@/lib/kairos/types";
 import { NHAN, NHAN_CHIP_KAIROS } from "@/lib/labels";
 import { isPinned } from "@/lib/kairos/xep-bai";
@@ -173,6 +173,7 @@ export function PostCard({
 }) {
   const btn = "flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl text-[0.875rem] font-semibold transition active:scale-[0.97]";
   const detail = `/kairos/p/${post.id}`;
+  const area = areaTag(post);
   return (
     <article className="surface overflow-hidden" aria-label={post.kind === "bao" ? post.title ?? "Bài báo" : "Bài đăng"}>
       <Head post={post} now={now} />
@@ -212,6 +213,11 @@ export function PostCard({
         <Link href={`/kairos/ben/${post.ports[0]}`} className="mx-4 mb-2 inline-flex h-8 items-center rounded-full bg-field px-3 text-[0.8125rem] font-semibold text-sea">
           Bến {portLabel(post.ports[0])}
         </Link>
+      )}
+      {area && (
+        <span className="mx-4 mb-2 inline-flex h-8 items-center rounded-full bg-field px-3 text-[0.8125rem] font-semibold text-foreground/70">
+          {NHAN[area]}
+        </span>
       )}
 
       <div className="flex items-center gap-1 border-t border-line px-2 py-1">

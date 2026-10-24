@@ -9,14 +9,19 @@
      TỪNG ảnh ngay khi chọn, lỗi ⇒ Thử lại ảnh đó) · chủ đề (mặc định Nghề cá) · cảng.
    · LẦN ĐẦU: nội quy + Đồng ý (RulesBox). Route trả 409 `rules` cũng mở lại nội quy.
    · MẤT SÓNG: nút Đăng xám "Cần sóng"; chữ vào nháp `forfish.kairos.nhap.v1` từng phím;
-     có sóng lại KHÔNG tự gửi — bà con bấm Đăng.
+     có sóng lại KHÔNG tự gửi — bà con bấm Đăng. Mở khung lúc mất sóng: `/me` chưa về ⇒ nút
+     Thử lại; sự kiện `online` tự hỏi lại `/me` ⇒ nút Đăng sáng lại, khỏi đóng khung
+     (social.composerGate — luật thuần có test).
+   · HUỶ khi đã tải ảnh: ảnh vừa tải trong phiên này (chưa thuộc bài nào) xoá khỏi kho qua
+     DELETE /api/kairos/upload — không để ảnh mồ côi. Ảnh sót (mất sóng lúc Huỷ, đóng app)
+     agent kiểm duyệt dọn sau 24 giờ.
    · Lỗi: câu theo mã ngay trên nút (bad_words, sovereignty, too_long, rate_limited, banned…),
      chữ vẫn nguyên để sửa.
   Chưa đăng nhập ⇒ mời đăng nhập (đọc không cần tài khoản, ghi thì cần).
 */
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ChipRow } from "@/components/ui/chip-row";
 import { ImagePicker } from "@/components/market/shared/image-picker";
@@ -29,12 +34,17 @@ import { loadHabit } from "@/lib/kairos/feed-client";
 import { LIMITS, type KairosPost } from "@/lib/kairos/types";
 import { charLen } from "@/lib/kairos/validate";
 import {
+  composerGate,
+  discardUploads,
   errorText,
   kairosSend,
   kairosUpload,
   loadDraft,
   mediaPathFromUrl,
+  meRefetchOnOnline,
+  orphanUploads,
   saveDraft,
+  type ComposerMe,
   type KairosMe,
 } from "@/lib/kairos/write-client";
 import { NHAN, NHAN_CHIP_KAIROS } from "@/lib/labels";
@@ -66,8 +76,6 @@ function keyOf(mode: ComposeMode): string {
   return mode.port ? `ben:${mode.port}` : draftKey("bai");
 }
 
-type MeState = { s: "loading" } | { s: "ok"; me: KairosMe } | { s: "offline" } | { s: "error"; text: string };
-
 export function ComposerSheet({
   mode,
   onClose,
@@ -92,7 +100,7 @@ export function ComposerSheet({
     editing ? editing.ports[0] ?? null : mode.kind === "new" && mode.port ? mode.port : null,
   );
   const [pickPort, setPickPort] = useState(false);
-  const [me, setMe] = useState<MeState>({ s: "loading" });
+  const [me, setMe] = useState<ComposerMe>({ s: "loading" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [needRules, setNeedRules] = useState(false);
@@ -103,21 +111,36 @@ export function ComposerSheet({
   }, [mode]);
 
   // Hồ sơ của mình — biết đã đồng ý nội quy chưa. Chỉ gọi khi bà con MỞ khung (không lúc mở app).
-  const loadMe = async () => {
+  // Một lượt một lúc (bấm Thử lại dồn + sự kiện online không bắn hai request).
+  const meBusy = useRef(false);
+  const loadMe = useCallback(async () => {
+    if (meBusy.current) return;
+    meBusy.current = true;
     setMe({ s: "loading" });
     const r = await kairosSend<{ me: KairosMe }>("GET", "/api/kairos/me");
+    meBusy.current = false;
     if (r.ok) setMe({ s: "ok", me: r.data.me });
     else if (r.offline) setMe({ s: "offline" });
     else setMe({ s: "error", text: errorText(r) });
-  };
+  }, []);
   useEffect(() => {
     if (ready && signedIn) void loadMe();
-  }, [ready, signedIn]);
-  // Mở khung lúc mất sóng ⇒ có sóng lại thì tự hỏi lại, khỏi đóng/mở khung (AC07).
-  const meS = me.s;
+  }, [ready, signedIn, loadMe]);
+  // Mở khung lúc mất sóng ⇒ có sóng lại (sự kiện `online`) thì tự hỏi lại, khỏi đóng/mở khung
+  // (AC07). Nghe SỰ KIỆN, không nghe cờ: máy báo "có sóng" mà sóng chết thì `/me` về offline
+  // lại — nghe cờ sẽ hỏi lại liên tục không nghỉ.
+  const meRef = useRef(me);
   useEffect(() => {
-    if (online && ready && signedIn && meS === "offline") void loadMe();
-  }, [online, ready, signedIn, meS]);
+    meRef.current = me;
+  });
+  useEffect(() => {
+    if (!ready || !signedIn) return;
+    const on = () => {
+      if (meRefetchOnOnline(meRef.current)) void loadMe();
+    };
+    window.addEventListener("online", on);
+    return () => window.removeEventListener("online", on);
+  }, [ready, signedIn, loadMe]);
 
   const onText = (v: string) => {
     setText(v);
@@ -139,8 +162,8 @@ export function ComposerSheet({
   const left = LIMITS.postBody - len;
   const tooLong = left < 0;
   const empty = !text.trim() && images.length === 0 && mode.kind !== "reshare";
-  const rulesOk = me.s === "ok" && me.me.rulesAccepted && !needRules;
-  const canSend = online && !busy && !empty && !tooLong && rulesOk;
+  const gate = composerGate({ online, me, busy, empty, tooLong, needRules });
+  const canSend = gate.canSend;
 
   const submit = async () => {
     if (!canSend) return;
@@ -154,11 +177,21 @@ export function ComposerSheet({
     setBusy(false);
     if (r.ok) {
       saveDraft(phone, dKey, "");
+      // ảnh đã tải rồi gỡ khỏi khung trước khi Đăng ⇒ không thuộc bài nào
+      void discardUploads(orphanUploads(paths.current.values(), imgPaths));
+      paths.current.clear();
       onDone(r.data.post);
       return;
     }
     if (r.code === "rules") setNeedRules(true);
     setErr(errorText(r, "bai"));
+  };
+
+  /** Huỷ / đóng khung: ảnh vừa tải trong phiên này chưa thuộc bài nào ⇒ xoá khỏi kho. */
+  const cancel = () => {
+    void discardUploads(orphanUploads(paths.current.values(), []));
+    paths.current.clear();
+    onClose();
   };
 
   const title = editing ? "Sửa bài" : mode.kind === "reshare" ? "Đăng lại" : mode.kind === "new" && mode.port ? `Đăng vào Bến ${PORT_NAME.get(mode.port) ?? ""}` : "Đăng bài";
@@ -175,7 +208,7 @@ export function ComposerSheet({
   }
 
   return (
-    <BottomSheet title={title} onClose={onClose} kieu="form">
+    <BottomSheet title={title} onClose={cancel} kieu="form">
       {me.s === "ok" && me.me.bannedUntil && (
         <p role="alert" className="mb-3 rounded-xl bg-danger-bg px-3 py-2 text-[0.875rem] font-semibold text-danger">
           {errorText({ code: "banned", status: 403, offline: false, extra: { until: me.me.bannedUntil } })}
@@ -192,9 +225,11 @@ export function ComposerSheet({
           />
         </div>
       )}
-      {me.s === "error" && (
-        <div className="mb-3 flex items-center gap-2 rounded-xl bg-danger-bg px-3 py-2">
-          <p className="flex-1 text-[0.875rem] font-semibold text-danger">{me.text}</p>
+      {gate.retry && (
+        <div className={`mb-3 flex items-center gap-2 rounded-xl px-3 py-2 ${me.s === "error" ? "bg-danger-bg" : "bg-field"}`}>
+          <p className={`flex-1 text-[0.875rem] font-semibold ${me.s === "error" ? "text-danger" : "text-foreground/75"}`}>
+            {me.s === "error" ? me.text : "Mất sóng — viết trước, có sóng bấm Đăng."}
+          </p>
           <button type="button" onClick={() => void loadMe()} className="h-10 rounded-xl bg-card px-3 font-semibold text-sea">
             {NHAN.thuLai}
           </button>
@@ -254,10 +289,9 @@ export function ComposerSheet({
           {err}
         </p>
       )}
-      {me.s === "offline" && <p className="mb-2 text-[0.875rem] text-foreground/65">Mất sóng — viết trước, có sóng bấm Đăng.</p>}
 
       <div className="grid grid-cols-2 gap-3">
-        <button type="button" onClick={onClose} className="h-(--h-cta) rounded-xl bg-field font-semibold text-foreground/75">
+        <button type="button" onClick={cancel} className="h-(--h-cta) rounded-xl bg-field font-semibold text-foreground/75">
           {NHAN.huy}
         </button>
         <button
@@ -267,7 +301,7 @@ export function ComposerSheet({
           aria-busy={busy}
           className="h-(--h-cta) rounded-xl bg-sea font-semibold text-white disabled:opacity-40"
         >
-          {!online ? NHAN.canSong : busy ? NHAN.dangGui : editing ? NHAN.luu : NHAN.dang}
+          {gate.button === "dang" && editing ? NHAN.luu : NHAN[gate.button]}
         </button>
       </div>
 

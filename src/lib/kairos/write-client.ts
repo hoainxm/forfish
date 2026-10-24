@@ -66,6 +66,15 @@ export async function kairosUpload(blob: Blob): Promise<SendResult<{ path: strin
   }
 }
 
+/**
+ * Xoá ảnh MÌNH vừa tải mà không dùng (Huỷ khung soạn). Chạy từ cú bấm Huỷ; hỏng/mất sóng thì
+ * thôi — agent kiểm duyệt dọn ảnh mồ côi quá 24 giờ. KHÔNG ném.
+ */
+export async function discardUploads(paths: readonly string[]): Promise<void> {
+  if (!paths.length) return;
+  await kairosSend("DELETE", "/api/kairos/upload", { paths });
+}
+
 // ── Nháp chữ (forfish.kairos.nhap.v1) ───────────────────────────────────
 
 function storage(): Storage | null {

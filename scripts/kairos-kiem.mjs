@@ -3,6 +3,7 @@
 // user timer — hướng dẫn ở docs/app-map/ops/runbook.md, mục "Kairos").
 //
 //   node scripts/kairos-kiem.mjs          đọc hàng chờ ⇒ luật cứng + claude -p chấm ⇒ POST quyết định
+//                                         ⇒ dọn ảnh mồ côi >24 giờ (DELETE /api/kairos/kiem?scope=media)
 //   node scripts/kairos-kiem.mjs --thu    chạy thử (cũng nhận --dry): đọc hàng chờ + in prompt lô đầu,
 //                                         KHÔNG gọi claude, KHÔNG gửi quyết định
 //
@@ -41,7 +42,24 @@ async function gui(c, decisions, model) {
   return !hong;
 }
 
+/** Dọn ảnh mồ côi — không cần Claude, chạy cả khi hàng chờ trống / Claude hết hạn mức. */
+async function donAnh(c) {
+  const r = await goiApi(c, "/api/kairos/kiem?scope=media", { method: "DELETE", timeoutMs: 60_000 });
+  if (r.ok) {
+    if (r.json.checked) log(`[ảnh] soi ${r.json.checked} ảnh cũ >24 giờ · xoá ${r.json.removed} ảnh mồ côi`);
+    return true;
+  }
+  log(`[ảnh] dọn hỏng (${r.status || r.error}) — lượt sau thử lại`);
+  return false;
+}
+
 async function main() {
+  const code = await chamHangCho();
+  if (dry || code === 2) return code;
+  return (await donAnh(cauHinh())) ? code : 1;
+}
+
+async function chamHangCho() {
   const c = cauHinh();
   const thieu = canCauHinh(c);
   if (thieu.length) {

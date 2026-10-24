@@ -20,6 +20,26 @@ export function isUuid(v: unknown): v is string {
   return typeof v === "string" && UUID_RE.test(v);
 }
 
+/** Đường kho là ảnh trong thư mục của CHÍNH người này (`<profileId>/<uuid>.<ext>`). */
+export function isOwnMediaPath(p: unknown, profileId: string): p is string {
+  const m = typeof p === "string" ? p.match(IMAGE_PATH_RE) : null;
+  return !!m && m[1].toLowerCase() === profileId.toLowerCase();
+}
+
+/** Trần một lượt xoá ảnh vừa tải (bằng trần tải ảnh mỗi ngày — A1). */
+export const MAX_DISCARD = 30;
+
+/**
+ * DELETE /api/kairos/upload `{paths}` — Huỷ khung soạn xoá ảnh mình vừa tải. Chỉ ảnh trong thư
+ * mục của mình; một đường lạ ⇒ cả gói 400 (không xoá nửa vời theo ý người gọi).
+ */
+export function validateDiscard(body: unknown, profileId: string): Checked<string[]> {
+  const raw = (body as { paths?: unknown } | null)?.paths;
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_DISCARD) return { ok: false, code: "bad_body" };
+  if (!raw.every((p) => isOwnMediaPath(p, profileId))) return { ok: false, code: "bad_image" };
+  return { ok: true, value: [...new Set(raw as string[])] };
+}
+
 /** Số ký tự như Postgres đếm. */
 export function charLen(s: string): number {
   return [...s].length;
@@ -74,9 +94,8 @@ export function validatePost(
   if (imgs.length > LIMITS.images) return { ok: false, code: "too_many_images" };
   const images: string[] = [];
   for (const p of imgs) {
-    const m = typeof p === "string" ? p.match(IMAGE_PATH_RE) : null;
-    if (!m || m[1].toLowerCase() !== ctx.profileId.toLowerCase()) return { ok: false, code: "bad_image" };
-    if (!images.includes(p as string)) images.push(p as string);
+    if (!isOwnMediaPath(p, ctx.profileId)) return { ok: false, code: "bad_image" };
+    if (!images.includes(p)) images.push(p);
   }
 
   const topic = r.topic ?? "nghe-ca";

@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { postgrestFeedExpr, pgQuote } from "./feed-query";
 import { KairosError } from "./errors";
 import { reportNeedsCheck } from "./quyet-dinh";
+import { isUuid } from "./validate";
 import type {
   AuditRow, CommentFull, DecisionRow, KairosStore, NewDecision, PostFull, ProfileFull, RateTable, ReportRow,
   SeenRow, SourceRow, TargetType,
@@ -452,6 +453,47 @@ export function createKairosSupabaseStore(): KairosStore | null {
       }
     },
     mediaUrl: (path) => db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,
+    async mediaInUse(paths) {
+      const want = new Set(paths.slice(0, IN_MAX));
+      const used = new Set<string>();
+      // đường kho = '<profileId>/<uuid>.<ext>' ⇒ chỉ cần soi bài + ảnh đại diện của chủ thư mục
+      const ids = [...new Set([...want].map((p) => p.split("/")[0]).filter(isUuid))];
+      if (!ids.length) return used;
+      const owners = await many<{ phone: string; avatar_path: string | null }>("mediaInUse", db.from("kairos_profiles").select("phone,avatar_path").in("id", ids));
+      for (const o of owners) if (o.avatar_path && want.has(o.avatar_path)) used.add(o.avatar_path);
+      if (!owners.length) return used;
+      // nợ: đọc mọi bài của chủ thư mục (≤10 bài/ngày/người); đổi sang lọc jsonb `images @> [path]` khi một người vượt vài nghìn bài
+      const rows = await many<{ images: unknown }>("mediaInUse", posts().select("images").in("author_phone", owners.map((o) => o.phone)));
+      for (const r of rows) for (const img of Array.isArray(r.images) ? (r.images as string[]) : []) if (want.has(img)) used.add(img);
+      return used;
+    },
+    async uploadsToCheck(since, before, limit) {
+      const out: string[] = [];
+      const seen = new Set<string>();
+      // nợ: lật tối đa 10 trang × 500 dấu `upload` mỗi lượt — đủ cho 5.000 ảnh/tuần; nâng bằng dấu mốc quét khi vượt
+      for (let page = 0; page < 10 && out.length < limit; page++) {
+        const ups = await many<{ target_id: string | null }>(
+          "uploadsToCheck",
+          db.from("kairos_audit").select("target_id").eq("action", "upload").gte("at", since).lt("at", before)
+            .order("at", { ascending: true }).order("id", { ascending: true }).range(page * 500, page * 500 + 499),
+        );
+        const ids = [...new Set(ups.map((u) => u.target_id).filter((x): x is string => !!x && !seen.has(x)))];
+        ids.forEach((x) => seen.add(x));
+        if (ids.length) {
+          const done = new Set<string>();
+          for (let i = 0; i < ids.length; i += IN_MAX) {
+            const marks = await many<{ target_id: string }>(
+              "uploadsToCheck",
+              db.from("kairos_audit").select("target_id").in("action", ["media_discard", "media_gc"]).in("target_id", ids.slice(i, i + IN_MAX)),
+            );
+            marks.forEach((m) => done.add(m.target_id));
+          }
+          for (const x of ids) if (!done.has(x) && out.length < limit) out.push(x);
+        }
+        if (ups.length < 500) break;
+      }
+      return out;
+    },
   };
   return store;
 }

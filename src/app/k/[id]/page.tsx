@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
+import { InstallBanner } from "@/components/install-prompt";
 import { EmptyState } from "@/components/ui/primitives";
 import { loadPublicPost } from "@/lib/kairos/server";
 import type { KairosPost } from "@/lib/kairos/types";
@@ -10,7 +11,10 @@ import { NHAN } from "@/lib/labels";
 /*
   TRANG CÔNG KHAI MỘT BÀI `/k/[id]` (14 §3.6, AC11, A34) — cho người CHƯA có app mở link Zalo.
   Server render, nhìn như KHÁCH (loadPublicPost): tên báo / tên gọi, chữ, ảnh, số Hay, 2 bình
-  luận đầu, nút Cài app; thẻ og:* để Zalo hiện khung xem trước. KHÔNG SĐT (DTO không có trường
+  luận đầu, nút Cài app; thẻ og:* để Zalo hiện khung xem trước.
+  Cài app = hộp cài PWA sẵn có (InstallBanner `force`: Android bung hộp cài của Chrome / chỉ
+  đường menu ⋮, iPhone chỉ "Thêm vào Màn hình chính") — repo chưa có link CH Play công khai
+  (14 A73). Máy không cài được (máy tính, đã cài, mất sóng) ⇒ nút "Mở app" về `/`. KHÔNG SĐT (DTO không có trường
   nào mang SĐT — AC21), KHÔNG nút ghi. Bài ẩn / xoá / báo chưa duyệt ⇒ "Bài này không còn".
 */
 
@@ -53,9 +57,14 @@ const when = (iso: string) => {
 export default async function PublicPostPage({ params }: Props) {
   const { post, down } = await getPost((await params).id);
   const install = (
-    <Link href="/" className="flex h-(--h-cta) w-full items-center justify-center rounded-xl bg-trim font-semibold text-white">
-      {NHAN.caiApp}
-    </Link>
+    <InstallBanner
+      force
+      fallback={
+        <Link href="/" className="flex h-(--h-cta) w-full items-center justify-center rounded-xl bg-trim font-semibold text-white">
+          {NHAN.moApp}
+        </Link>
+      }
+    />
   );
   if (!post) {
     return (

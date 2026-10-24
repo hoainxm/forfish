@@ -7,11 +7,13 @@
 //        reason?, score? (0..1) }] } ≤100 — nghi/chan bắt buộc có lý do. Một quyết định hỏng ⇒ cả
 //      gói 400. Áp bằng applyDecision: agent KHÔNG đè người trực; bài báo chỉ lên khi `dat`;
 //      `chan` bài bà con ⇒ tự ẩn + báo người đăng lý do + nhật ký.
+// DELETE ?scope=media  dọn ảnh mồ côi kairos-media (>24 giờ, không thuộc bài nào / không là ảnh
+//      đại diện — server.gcOrphanMedia). Agent gọi cuối mỗi lượt; không cần Claude.
 // Hết hạn mức / agent lỗi ⇒ agent không gửi gì ⇒ bài báo nằm lại hàng chờ (không tự lên), bài
 // bà con vẫn hiện.
 import { NextResponse } from "next/server";
 import { validateAgentBatch } from "@/lib/kairos/quyet-dinh";
-import { applyDecision, ingestKeyDenied, jsonBody, kErr, kairosErrorResponse, storeOr503 } from "@/lib/kairos/server";
+import { applyDecision, gcOrphanMedia, ingestKeyDenied, jsonBody, kErr, kairosErrorResponse, storeOr503 } from "@/lib/kairos/server";
 import type { CommentFull, PostFull } from "@/lib/kairos/store";
 
 const postForAgent = (p: PostFull, reasons: Record<string, string[]>) => ({
@@ -64,6 +66,19 @@ export async function POST(req: Request) {
   } catch (e) {
     // gói áp dở dang: phần đã áp giữ nguyên (mỗi quyết định độc lập), agent gửi lại phần còn lại
     console.error("[kairos] áp quyết định agent dừng giữa chừng:", tally);
+    return kairosErrorResponse(e);
+  }
+}
+
+export async function DELETE(req: Request) {
+  const denied = await ingestKeyDenied(req);
+  if (denied) return denied;
+  if (new URL(req.url).searchParams.get("scope") !== "media") return kErr(400, "bad_scope");
+  const s = await storeOr503();
+  if (!s.ok) return s.res;
+  try {
+    return NextResponse.json({ ok: true, ...(await gcOrphanMedia(s.store)) });
+  } catch (e) {
     return kairosErrorResponse(e);
   }
 }

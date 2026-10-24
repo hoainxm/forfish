@@ -101,7 +101,16 @@ export function UrgentWithInstall({ children }: { children: ReactNode }) {
   );
 }
 
-export function InstallBanner() {
+export function InstallBanner({
+  force = false,
+  fallback = null,
+}: {
+  /** trang người NGOÀI app mở từ link chia sẻ (`/k/[id]`): hiện bất kể lượt nhắc đã dùng,
+      KHÔNG tính vào 3 lượt nhắc của Trang chủ, Ẩn chỉ ẩn tại chỗ */
+  force?: boolean;
+  /** vẽ thay khi không mời cài được (đã cài, máy tính, mất sóng) */
+  fallback?: ReactNode;
+} = {}) {
   /*  `android`     = Chrome cho cài, có nút bung hộp cài
       `android-tay` = Chrome KHÔNG hỏi (thường vì máy đã có bản CH Play) →
                       chỉ đường qua menu ⋮
@@ -121,7 +130,7 @@ export function InstallBanner() {
 
   useEffect(() => {
     if (isStandalone()) return; // đã cài rồi → thôi
-    if (!shouldShowInstallNudge(readNudge(), Date.now())) return;
+    if (!force && !shouldShowInstallNudge(readNudge(), Date.now())) return;
 
     // iOS Safari: KHÔNG có beforeinstallprompt → hướng dẫn tay
     if (isIOS()) {
@@ -152,21 +161,21 @@ export function InstallBanner() {
       window.removeEventListener("beforeinstallprompt", onBIP);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, []);
+  }, [force]);
 
   // ghi "đã hiện 1 lượt" đúng lúc thẻ ra màn (không tính lúc đang chờ BIP)
   useEffect(() => {
-    if (!mode || marked.current) return;
+    if (!mode || marked.current || force) return;
     marked.current = true;
     writeNudge(markInstallNudgeShown(readNudge(), Date.now()));
-  }, [mode]);
+  }, [mode, force]);
 
   // MẤT SÓNG → ẩn (không huỷ state; sóng về thì hiện lại)
-  if (!mode || !online) return null;
+  if (!mode || !online) return <>{fallback}</>;
 
   // "Ẩn" = hoãn 7 ngày (lib/install-nudge) — Cài-rồi-huỷ hộp của máy vẫn là tắt hẳn (dưới)
   const dismiss = () => {
-    writeNudge(markInstallNudgeSnoozed(readNudge(), Date.now()));
+    if (!force) writeNudge(markInstallNudgeSnoozed(readNudge(), Date.now()));
     setMode(null);
   };
 
@@ -182,7 +191,7 @@ export function InstallBanner() {
     }
     deferred.current = null;
     // bấm Cài rồi HUỶ = đã trả lời rồi, ghi như đã tắt (audit S7)
-    if (outcome === "dismissed") writeNudge(markInstallNudgeDismissed(readNudge()));
+    if (outcome === "dismissed" && !force) writeNudge(markInstallNudgeDismissed(readNudge()));
     setMode(null);
   };
 

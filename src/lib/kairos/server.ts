@@ -24,6 +24,7 @@ import { allowRequest, type RateStore } from "@/lib/rate-limit";
 import { agentMayDecide, feedAtOnApprove, shouldTellAuthor, stateFor, type Verdict } from "./quyet-dinh";
 import { isBanned, KAIROS_RATES, overLimit, RATE_AUDIT_ACTIONS, rateUsed, windowStart, type KairosRateKey } from "./rate";
 import { isUuid } from "./validate";
+import { orphanUploads } from "./social";
 import { defaultHandle, handleNorm } from "./ten-goi";
 import { LIMITS, type KairosComment, type KairosPost } from "./types";
 import { getKairosStore, type CommentFull, type KairosStore, type PostFull, type ProfileFull, type RateTable } from "./store";
@@ -290,8 +291,21 @@ export async function notifyComment(
 const HAY_STORE: RateStore = new Map();
 
 /**
+ * Hai người có chặn nhau không — CẢ HAI chiều (mình chặn họ, họ chặn mình). `myBlocks` = SĐT
+ * mình đã chặn (đã đọc sẵn ở route); chiều kia hỏi kho. Chính mình ⇒ false.
+ */
+export async function blockedEitherWay(store: KairosStore, me: string, myBlocks: readonly string[], other: string | null): Promise<boolean> {
+  if (!other || other === me) return false;
+  if (myBlocks.includes(other)) return true;
+  return (await store.edgesFrom("block", other)).includes(me);
+}
+
+/**
  * PUT Hay `{on: boolean}` — idempotent (PK cặp ở DB: bấm trùng không đếm 2, AC09). Trả số Hay
  * SAU khi ghi để app đối chiếu bản lạc quan. Bỏ Hay vẫn được khi bị cấm; bật thì không.
+ * Chặn hai chiều (AC15): mình chặn họ HOẶC họ chặn mình ⇒ không Hay được bài/bình luận của họ
+ * (404 như không thấy — không lộ ai chặn ai). Hay bình luận còn soi cả chủ bài. Bỏ Hay luôn được
+ * (gỡ dấu của mình không làm phiền ai).
  */
 export async function hayToggle(req: Request, t: "post" | "comment", rawId: string): Promise<NextResponse> {
   if (!isUuid(rawId)) return kErr(404, "not_found");
@@ -306,10 +320,17 @@ export async function hayToggle(req: Request, t: "post" | "comment", rawId: stri
   try {
     const blocked = await store.edgesFrom("block", phone);
     if (t === "post") {
-      if (!postVisible(await store.getPost(id), phone, blocked)) return kErr(404, "not_found");
+      const p = await store.getPost(id);
+      if (!postVisible(p, phone, blocked)) return kErr(404, "not_found");
+      if (on && (await blockedEitherWay(store, phone, blocked, p.author_phone))) return kErr(404, "not_found");
     } else {
       const c = await store.getComment(id);
-      if (!c || c.hidden || blocked.includes(c.author_phone) || !postVisible(await store.getPost(c.post_id), phone, blocked)) return kErr(404, "not_found");
+      if (!c || c.hidden || blocked.includes(c.author_phone)) return kErr(404, "not_found");
+      const p = await store.getPost(c.post_id);
+      if (!postVisible(p, phone, blocked)) return kErr(404, "not_found");
+      if (on && ((await blockedEitherWay(store, phone, blocked, c.author_phone)) || (await blockedEitherWay(store, phone, blocked, p.author_phone)))) {
+        return kErr(404, "not_found");
+      }
     }
     await store.setHay(t, id, phone, on);
     const fresh = t === "post" ? await store.getPost(id) : await store.getComment(id);
@@ -415,18 +436,52 @@ export async function applyDecision(
   else if (d.by === "staff" && d.verdict === "dat") await store.resolveReports(d.targetType, d.targetId, "bo-qua", d.actor, nowIso);
 
   const kind = isPost ? (target as PostFull).kind : "ba-con";
-  if (shouldTellAuthor(d.verdict, d.by, kind) && target.author_phone && !target.hidden) {
-    const postId = isPost ? target.id : (target as CommentFull).post_id;
-    await notifyMarket(target.author_phone, {
-      title: isPost ? "Bài của bạn đã bị ẩn" : "Bình luận của bạn đã bị ẩn",
-      body: `Lý do: ${(d.reason ?? "vi phạm nội quy Kairos").slice(0, 200)}. Người trực SDVICO sẽ xem lại nếu bạn liên hệ.`,
-      url: `/kairos/p/${postId}`,
-      sentBy: KAIROS_PUSH_SENT_BY,
-      pushOs: false,
+  if (shouldTellAuthor(d.verdict, d.by, kind)) {
+    // Đã ẩn sẵn (người trực / ≥5 báo xấu ẩn trước) ⇒ KHÔNG báo người đăng lần nữa, nhưng VẪN ghi
+    // nhật ký: mọi quyết định ẩn của agent phải truy được, kể cả khi trùng việc đã làm.
+    const already = target.hidden;
+    if (target.author_phone && !already) {
+      const postId = isPost ? target.id : (target as CommentFull).post_id;
+      await notifyMarket(target.author_phone, {
+        title: isPost ? "Bài của bạn đã bị ẩn" : "Bình luận của bạn đã bị ẩn",
+        body: `Lý do: ${(d.reason ?? "vi phạm nội quy Kairos").slice(0, 200)}. Người trực SDVICO sẽ xem lại nếu bạn liên hệ.`,
+        url: `/kairos/p/${postId}`,
+        sentBy: KAIROS_PUSH_SENT_BY,
+        pushOs: false,
+      });
+    }
+    await auditQuiet(store, {
+      actor: "agent", actor_kind: "he-thong", action: "agent_hide", target_type: d.targetType, target_id: d.targetId,
+      detail: { reason: d.reason, score: d.score, rulesVersion: d.rulesVersion, ...(already ? { alreadyHidden: true, note: "đích đã ẩn sẵn trước quyết định này — không báo lại người đăng" } : {}) },
     });
-    await auditQuiet(store, { actor: "agent", actor_kind: "he-thong", action: "agent_hide", target_type: d.targetType, target_id: d.targetId, detail: { reason: d.reason, score: d.score, rulesVersion: d.rulesVersion } });
   }
   return "applied";
+}
+
+// ── Dọn ảnh mồ côi (agent kiểm duyệt gọi mỗi lượt) ─────────────────────────
+
+/** Ảnh tải lên quá ngần này mà không thuộc bài nào / không là ảnh đại diện ⇒ mồ côi. */
+export const MEDIA_GC_AGE_MS = 24 * 60 * 60 * 1000;
+/** Chỉ soi ảnh tải trong 7 ngày qua (cũ hơn đã soi ở các lượt trước). */
+export const MEDIA_GC_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+const MEDIA_GC_BATCH = 200;
+
+/**
+ * Xoá ảnh kairos-media tải lên >24 giờ mà không dùng (Huỷ khung soạn lúc mất sóng, đóng app giữa
+ * chừng, ảnh đại diện tải rồi Huỷ — A48). Mỗi ảnh đã soi để dấu `media_gc` (removed true/false)
+ * ⇒ không soi lại. Kho xoá lỗi ⇒ ném (route 500), không đóng dấu — lượt sau thử lại.
+ */
+export async function gcOrphanMedia(store: KairosStore, now = Date.now()): Promise<{ checked: number; removed: number }> {
+  const cands = await store.uploadsToCheck(new Date(now - MEDIA_GC_LOOKBACK_MS).toISOString(), new Date(now - MEDIA_GC_AGE_MS).toISOString(), MEDIA_GC_BATCH);
+  if (!cands.length) return { checked: 0, removed: 0 };
+  const inUse = await store.mediaInUse(cands);
+  const drop = orphanUploads(cands, [...inUse]);
+  await store.removeImages(drop);
+  const dropped = new Set(drop);
+  for (const p of cands) {
+    await auditQuiet(store, { actor: "agent", actor_kind: "he-thong", action: "media_gc", target_type: "image", target_id: p, detail: { removed: dropped.has(p) } });
+  }
+  return { checked: cands.length, removed: drop.length };
 }
 
 // ── Quản trị ───────────────────────────────────────────────────────────

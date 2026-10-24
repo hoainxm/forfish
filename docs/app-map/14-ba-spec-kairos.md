@@ -2,6 +2,7 @@
 
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
+<!-- re-verified: 2026-10-24b — VÒNG SỬA CUỐI: A1 thêm trần sửa bài · A48 ảnh mồ côi đã có việc dọn · A73–A80 (Cài app ở /k, nhãn Cả nước, khung soạn mất sóng, Huỷ xoá ảnh, Hay chặn hai chiều, chặn gỡ bình luận nổi, khoá Kairos env thắng DB, nhật ký agent_hide khi đã ẩn). -->
 <!-- re-verified: 2026-10-24 — BỎ HÀNG CHIP LỌC (AC03) theo anh Long; `kairos-feed.tsx` cố định chip "moi", gỡ ChipRow + thẻ "Vào Bến" + hỏi cảng nhà ở dòng tin (HomePortSheet vẫn dùng ở khung soạn). Migration 0065 ĐÃ ÁP lên znzgugvfhgmiszqgjulk 2026-10-24 (anh Long dán SQL Editor; kiểm: 13 bảng 200 service-role, anon 401, bucket kairos-media, kairos_enabled=true, hồ sơ SDVICO). -->
 Chốt 2026-10-23. Kairos (καιρός) = đúng thời điểm.
 
@@ -202,7 +203,7 @@ Giấy phép trang tổng hợp và mạng xã hội (NĐ 147/2024) là **việc
 
 Spec tự quyết, chưa có câu chốt của anh Long — đổi thì sửa ở đây trước.
 
-- **A1** Giới hạn: 10 bài/ngày · 60 bình luận/ngày · 30 ảnh/ngày · 20 báo xấu/ngày · 100 theo dõi+chặn/ngày · 300 Hay/giờ. Theo ngày đếm **trong DB** (Vercel nhiều instance); Hay đếm bằng `rate-limit.ts` (nợ đã ghi ở file đó).
+- **A1** Giới hạn: 10 bài/ngày · 60 bình luận/ngày · 30 ảnh/ngày · 20 báo xấu/ngày · 100 theo dõi+chặn/ngày · 300 Hay/giờ · **30 lần sửa bài/ngày** (thêm 2026-10-24: mỗi lần sửa đưa bài về hàng chờ agent = một lượt gọi Claude; đếm nhật ký `post_edit`). Theo ngày đếm **trong DB** (Vercel nhiều instance); Hay đếm bằng `rate-limit.ts` (nợ đã ghi ở file đó).
 - **A2** Bình luận ≤1.000 ký tự; ảnh ≤512 KB sau nén, cạnh dài 1.600.
 - **A3** Thông báo trả lời gộp 1 tin/bài/người nhận/giờ, có đẩy lên máy.
 - **A4** Xếp theo thói quen chỉ trong từng trang 20 bài — cuộn vô tận không nhảy bài.
@@ -248,7 +249,7 @@ Spec tự quyết, chưa có câu chốt của anh Long — đổi thì sửa �
 - **A45** Khoá nháp: `bai` (ô mời chung) · `ben:<port>` (đăng vào Bến) · `sua:<postId>` · `lai:<postId>` (đăng lại) · `bl:<postId>` (bình luận) — chung kho `forfish.kairos.nhap.v1` ≤20 nháp. Đăng/gửi xong xoá nháp đó.
 - **A46** "Trang tôi" = `/kairos/u/toi` (chữ, không uuid) ⇒ màn hỏi `/me` rồi thay URL bằng id thật; chưa đăng nhập ⇒ mời đăng nhập.
 - **A47** Gửi đi (navigator.share) gửi link `/k/[id]` + một dòng chữ ("Tên báo: tiêu đề" / "Tên gọi: 120 ký tự đầu") — KHÔNG SĐT. Bản native lấy host từ `NEXT_PUBLIC_API_BASE`. Tải ảnh tải từng ảnh kho; tải hỏng (CORS/mất sóng) ⇒ mở ảnh ở tab mới để giữ ngón lưu.
-- **A48** Ảnh đại diện đã tải mà bà con Huỷ sheet ⇒ ảnh nằm lại kho (chỉ tốn chỗ). // nợ: chưa dọn ảnh mồ côi, nâng khi có việc dọn theo lịch.
+- **A48** Ảnh đại diện đã tải mà bà con Huỷ sheet ⇒ ảnh nằm lại kho tới khi agent dọn ảnh mồ côi >24 giờ (A76).
 - **A49** `/k/[id]` KHÔNG vào SHELL sw.js (trang cho người ngoài app); `/kairos/p|u|ben/*` cũng không vào SHELL (đường động) — mất sóng mở được khi trình duyệt còn giữ trang, không thì vỏ `/kairos` vẫn đọc bản lưu.
 
 - **A60** (vận hành, 2026-10-23) Nguồn RSS kiểm sống bằng curl 2026-10-23 — 27 nguồn, **không nguồn chết** (`scripts/kairos-nguon.json`). NN&MT đúng đường là `https://nongnghiepmoitruong.vn/<mục>.rss` (đường `/rss/<mục>.rss` trả trang HTML 200), không có mục pháp luật (0 bài) ⇒ chỉ lấy `thuy-san` + `bien-dao`; Thủy sản Việt Nam một feed `/feed/`; VnExpress Đời sống = `gia-dinh.rss`; Tuổi Trẻ Đời sống = `nhip-song-tre.rss`; Thanh Niên Pháp luật = `/rss/thoi-su/phap-luat.rss`, Kinh doanh = `kinh-te.rss`.
@@ -268,3 +269,11 @@ Last updated: 2026-10-23
 - **A70** (UI, sửa vòng 1) Lối vào Bến: thẻ bài gắn cảng có nhãn "Bến X" (cảng đầu tiên, ẩn khi đang ở chính Bến đó); chip **Cảng tôi** có thẻ "Vào Bến X" khi đã biết cảng nhà.
 - **A71** (bảo mật, sửa vòng 1) Route ĐỌC Kairos (feed, new-count, posts/[id], bình luận, users) qua `readerOf`: trần **600 lượt/10 phút** (bằng trần "data" của dataGate) theo SĐT, khách theo IP ⇒ 429. Không qua dataGate 401 vì khách đọc được. // nợ: đếm bộ nhớ instance như Hay — chuyển sang bảng đếm chung khi dataGate chuyển.
 - **A72** (dòng tin, sửa vòng 2) Xếp/cursor/"Có N bài mới" theo **`feed_at`** (giờ bài LÊN dòng tin), không theo `published_at`. Bài báo: `feed_at` đặt lại lúc agent/người trực cho `dat` **lần đầu** (`quyet-dinh.feedAtOnApprove`) — giờ báo đăng có thể cũ hơn hàng giờ so với lúc bà con thấy được, xếp theo nó thì bài vừa duyệt nằm sâu và không bao giờ được đếm là mới. Thẻ vẫn hiện giờ báo đăng (`published_at`). Bài đang ghim chỉ hiện ở dải ghim (trang sau lọt bài ghim thì bỏ).
+- **A73** (vòng sửa cuối 2026-10-24) `/k/[id]` nút **Cài app**: repo KHÔNG có link CH Play công khai (chỉ có runbook nộp store, `applicationId` chưa thống nhất) ⇒ dùng hộp cài PWA sẵn có của Trang chủ (`InstallBanner` với `force`: hiện bất kể đã nhắc mấy lần, không tính vào 3 lượt nhắc, Ẩn chỉ ẩn tại chỗ). Máy không cài được (máy tính, đã cài, mất sóng) ⇒ nút **Mở app** về `/`. Có link CH Play thật thì thay nhánh Android bằng link đó.
+- **A74** Nhãn khu vực trên thẻ: bài gắn cảng ⇒ "Bến X"; bài `regions = ["ca-nuoc"]` (không rõ vùng/tỉnh/cảng) ⇒ nhãn tĩnh **"Cả nước"** (`NHAN.caNuoc`, 2 chữ); bài có vùng/tỉnh ⇒ không nhãn (tên vùng như "Vịnh Bắc Bộ" quá luật nhãn ≤2 chữ).
+- **A75** Khung soạn mở lúc mất sóng: hộp "Mất sóng — viết trước, có sóng bấm Đăng." + **Thử lại**; tự hỏi lại `/me` khi trình duyệt bắn SỰ KIỆN `online` (không theo cờ `navigator.onLine` — máy báo có sóng mà sóng chết thì nghe cờ sẽ hỏi lại không nghỉ). `/me` về offline dù máy báo có sóng ⇒ vẫn "Cần sóng". Luật ở `social.composerGate` / `meRefetchOnOnline`.
+- **A76** Ảnh mồ côi: Huỷ khung soạn (và Đăng xong còn ảnh đã gỡ khỏi khung) ⇒ `DELETE /api/kairos/upload {paths}` xoá ảnh MÌNH vừa tải — chỉ thư mục của mình, ảnh đang thuộc một bài / là ảnh đại diện thì GIỮ, dấu nhật ký `media_discard`. Sót (mất sóng lúc Huỷ, đóng app, ảnh đại diện Huỷ) ⇒ agent kiểm duyệt mỗi lượt gọi `DELETE /api/kairos/kiem?scope=media`: ảnh tải 24 giờ–7 ngày trước, không dùng ⇒ xoá; mọi ảnh đã soi để dấu `media_gc` (không soi lại).
+- **A77** Hay chặn HAI chiều: mình chặn họ HOẶC họ chặn mình ⇒ bật Hay bài/bình luận của họ trả 404 (không lộ ai chặn ai); Hay bình luận soi cả chủ bình luận lẫn chủ bài. Bỏ Hay luôn được.
+- **A78** Chặn xong, màn gỡ ngay bài của họ + bình luận nổi của họ dưới bài người khác + thẻ bài gốc của họ trong bài đăng lại (hiện "không còn") — như máy chủ trả ở lần tải sau (`social.hideBlocked`). Danh sách bình luận đầy đủ ở chi tiết bài lọc từ lần tải sau.
+- **A79** Khoá `kairos_ingest_key`: **env `KAIROS_INGEST_KEY` thắng DB** (ngược luật chung "DB đè env" của app_config — `ConfigKeyMeta.envFirst`). Tab Hệ thống ghi thứ tự ưu tiên ở từng ô; env đang đè mà DB cũng có giá trị ⇒ cảnh báo đỏ "ô này KHÔNG có hiệu lực".
+- **A80** Agent tự ẩn một đích ĐÃ ẩn sẵn (người trực / ≥5 báo xấu ẩn trước) ⇒ không báo lại người đăng, nhưng VẪN ghi nhật ký `agent_hide` kèm `alreadyHidden: true` + lý do — mọi quyết định ẩn của agent đều truy được.

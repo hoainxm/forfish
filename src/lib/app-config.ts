@@ -83,12 +83,12 @@ export function invalidateConfigCache() {
   cache = null;
 }
 
-/** Giá trị hiệu lực của 1 khoá: DB (nếu có) rồi tới env cùng tên. */
+/** Giá trị hiệu lực của 1 khoá: DB (nếu có) rồi tới env cùng tên — trừ khoá `envFirst` (env trước). */
 export async function getConfigValue(key: ConfigKey): Promise<string | null> {
   const meta = CONFIG_META.get(key);
   if (!meta) return null;
   const map = await loadMap();
-  return resolveConfigCell(map[key], process.env[meta.envVar], false).value;
+  return resolveConfigCell(map[key], process.env[meta.envVar], false, meta.envFirst).value;
 }
 
 /** Bộ 3 khoá VAPID (đủ để gửi Web Push); null nếu thiếu bất kỳ khoá nào. */
@@ -154,7 +154,7 @@ export async function setConfigValues(
 export async function configStatus(): Promise<ConfigStatusRow[]> {
   const map = await loadMap();
   return CONFIG_KEYS.map((m) => {
-    const cell = resolveConfigCell(map[m.key], process.env[m.envVar], m.secret);
+    const cell = resolveConfigCell(map[m.key], process.env[m.envVar], m.secret, m.envFirst);
     return {
       key: m.key,
       label: m.label,
@@ -165,6 +165,9 @@ export async function configStatus(): Promise<ConfigStatusRow[]> {
       value: cell.value,
       generate: m.generate,
       risk: m.risk,
+      envFirst: !!m.envFirst,
+      envVar: m.envVar,
+      overridden: cell.overridden,
     };
   });
 }

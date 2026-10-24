@@ -6,6 +6,7 @@ import {
   CONFIG_KEYS,
   isConfigKey,
   resolveConfigCell,
+  configPrecedenceText,
 } from "@/lib/app-config-keys";
 
 describe("resolveConfigCell — DB đè env, che secret", () => {
@@ -14,6 +15,7 @@ describe("resolveConfigCell — DB đè env, che secret", () => {
       source: "db",
       set: true,
       value: "dbval",
+      overridden: true,
     });
   });
   it("chỉ env → nguồn env", () => {
@@ -21,6 +23,7 @@ describe("resolveConfigCell — DB đè env, che secret", () => {
       source: "env",
       set: true,
       value: "envval",
+      overridden: false,
     });
   });
   it("không có gì → none, value null", () => {
@@ -28,6 +31,7 @@ describe("resolveConfigCell — DB đè env, che secret", () => {
       source: "none",
       set: false,
       value: null,
+      overridden: false,
     });
   });
   it("khoá secret: set=true nhưng value KHÔNG lộ (null)", () => {
@@ -38,6 +42,30 @@ describe("resolveConfigCell — DB đè env, che secret", () => {
   });
   it("bỏ khoảng trắng thừa", () => {
     expect(resolveConfigCell("  x  ", undefined, false).value).toBe("x");
+  });
+  it("khoá envFirst (nhập tin Kairos): env THẮNG DB, báo DB đang bị bỏ qua", () => {
+    expect(resolveConfigCell("dbval", "envval", false, true)).toEqual({ source: "env", set: true, value: "envval", overridden: true });
+    // không có env ⇒ DB có hiệu lực, không ai bị đè
+    expect(resolveConfigCell("dbval", " ", false, true)).toEqual({ source: "db", set: true, value: "dbval", overridden: false });
+    expect(resolveConfigCell(undefined, undefined, true, true)).toEqual({ source: "none", set: false, value: null, overridden: false });
+  });
+  it("chỉ khoá nhập tin Kairos đi theo env-thắng — các khoá khác giữ DB đè env", () => {
+    expect(CONFIG_KEYS.filter((k) => k.envFirst).map((k) => k.key)).toEqual(["kairos_ingest_key"]);
+  });
+});
+
+describe("configPrecedenceText — trang quản trị nói đúng bên thắng", () => {
+  it("khoá Kairos: nói env thắng; env đang đè thì cảnh báo ô không hiệu lực", () => {
+    const quiet = configPrecedenceText({ envFirst: true, envVar: "KAIROS_INGEST_KEY", overridden: false });
+    expect(quiet.order).toMatch(/env KAIROS_INGEST_KEY .*thắng ô này/);
+    expect(quiet.warn).toBeNull();
+    const shadow = configPrecedenceText({ envFirst: true, envVar: "KAIROS_INGEST_KEY", overridden: true });
+    expect(shadow.warn).toMatch(/đang đè.*KHÔNG có hiệu lực/);
+  });
+  it("khoá thường: nói ô này thắng env, KHÔNG bao giờ nói env đè", () => {
+    const t = configPrecedenceText({ envFirst: false, envVar: "CRON_SECRET", overridden: true });
+    expect(t.order).toMatch(/ô này thắng env CRON_SECRET/);
+    expect(t.warn).toMatch(/Ô này đang đè env/);
   });
 });
 

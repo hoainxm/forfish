@@ -13,6 +13,9 @@ export const KAIROS_RATES = {
   uploads: { limit: 30, windowMs: DAY_MS },
   reports: { limit: 20, windowMs: DAY_MS },
   "follows+blocks": { limit: 100, windowMs: DAY_MS },
+  // SỬA bài (PATCH): mỗi lần sửa đưa bài về hàng chờ agent (một lượt gọi Claude) — không trần là
+  // một người sửa đi sửa lại đốt hạn mức kiểm duyệt của cả cộng đồng. Đếm bằng nhật ký `post_edit`.
+  edits: { limit: 30, windowMs: DAY_MS },
   hay: { limit: 300, windowMs: HOUR_MS },
   // ĐỌC (dòng tin, bài, bình luận, trang người, đếm bài mới) — cùng trần "data" của dataGate
   // (600/10 phút). Đăng nhập đếm theo SĐT; khách theo IP (khách không có SĐT).
@@ -26,6 +29,7 @@ export const RATE_AUDIT_ACTIONS: Partial<Record<KairosRateKey, readonly string[]
   posts: ["post_create", "post_reshare"],
   comments: ["comment_create"],
   uploads: ["upload"],
+  edits: ["post_edit"],
 };
 
 /** Số đã dùng = số lớn hơn giữa dòng còn trong bảng và dấu nhật ký (nhật ký ghi hỏng thì bảng vẫn chặn). */

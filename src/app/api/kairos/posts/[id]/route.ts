@@ -3,7 +3,8 @@
 // GET    khách đọc được: bài + trang bình luận đầu (30, cursor). Bài ẩn / báo chưa duyệt / của
 //        người mình chặn ⇒ 404 `gone` ("Bài này không còn").
 // PATCH  chủ bài (bà con): sửa chữ/ảnh/chủ đề/cảng — kiểm như lúc đăng; thẻ hiện "đã sửa";
-//        bài quay về hàng chờ agent. Ảnh bị bỏ khi sửa được xoá khỏi kho SAU khi lưu.
+//        bài quay về hàng chờ agent. Ảnh bị bỏ khi sửa được xoá khỏi kho SAU khi lưu. Trần
+//        30 lần sửa/ngày/SĐT (rate.KAIROS_RATES.edits, đếm nhật ký `post_edit`) ⇒ 429.
 // DELETE chủ bài: XOÁ ẢNH KHO TRƯỚC — kho lỗi ⇒ 500, bài còn nguyên (không xoá nửa vời,
 //        AC08); rồi xoá bài (cascade bình luận + Hay).
 import { NextResponse } from "next/server";
@@ -12,7 +13,7 @@ import { tagArea } from "@/lib/kairos/khu-vuc.mjs";
 import { decodeCursor, encodeCursor } from "@/lib/kairos/cursor";
 import {
   auditQuiet, clientIp, hydrateComments, hydratePosts, jsonBody, kErr, kairosErrorResponse, PORT_IDS, postVisible, readerOf,
-  requireWriter, storeOr503,
+  rateDenied, requireWriter, storeOr503,
 } from "@/lib/kairos/server";
 import { LIMITS } from "@/lib/kairos/types";
 import { isUuid, MAX_POST_PORTS, validatePost } from "@/lib/kairos/validate";
@@ -55,6 +56,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const row = await store.getPost(id.toLowerCase());
     if (!row || row.hidden) return kErr(404, "not_found");
     if (row.kind !== "ba-con" || row.author_phone !== phone) return kErr(403, "not_owner");
+    const limited = await rateDenied(store, "edits", phone);
+    if (limited) return limited;
     // đăng lại giữ nguyên bài gốc — sửa không đổi được đích đăng lại
     const v = validatePost({ ...(body as Record<string, unknown>), reshareOf: row.reshare_of }, { profileId: profile.id, portIds: PORT_IDS });
     if (!v.ok) return kErr(400, v.code);

@@ -9,7 +9,8 @@
      câu lỗi thật. Bấm lại khi lượt trước chưa về ⇒ bỏ qua (chống bấm trùng; DB có PK cặp).
    · Ba chấm: bài mình ⇒ Sửa / Xoá (xác nhận; xoá luôn ảnh kho — máy chủ lo); bài người khác
      ⇒ Báo xấu / Chặn (xác nhận). Bài báo ⇒ Báo xấu.
-   · Chặn ⇒ ẩn NGAY mọi bài của người đó trên màn (máy chủ lọc từ lần tải sau).
+   · Chặn ⇒ ẩn NGAY mọi bài của người đó trên màn, cả 2 bình luận nổi của họ dưới bài người
+     khác và thẻ bài gốc của họ trong bài đăng lại (social.hideBlocked; máy chủ lọc từ lần tải sau).
    · Chia sẻ ⇒ ShareSheet; Đăng lại ⇒ khung soạn kiểu `reshare`.
   KHÔNG gửi ngầm: mọi request đi từ một cú bấm.
 */
@@ -18,7 +19,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import type { KairosPost } from "@/lib/kairos/types";
-import { errorText, flipHay, kairosSend, settleHay, type HayState } from "@/lib/kairos/write-client";
+import { errorText, flipHay, hideBlocked, kairosSend, settleHay, type HayState } from "@/lib/kairos/write-client";
 import { NHAN } from "@/lib/labels";
 import { useAuthUser } from "@/lib/use-auth";
 import { ComposerSheet, type ComposeMode } from "./composer-sheet";
@@ -84,9 +85,10 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
   /** Áp thay đổi cục bộ (Hay, sửa, xoá, chặn) lên danh sách màn đang giữ. */
   const view = useCallback(
     (list: readonly KairosPost[]) =>
-      list
-        .filter((p) => !removed.has(p.id) && !(p.author && blockedAuthors.has(p.author.profileId)))
-        .map((p) => (over[p.id] ? { ...p, ...over[p.id] } : p)),
+      hideBlocked(
+        list.filter((p) => !removed.has(p.id)).map((p) => (over[p.id] ? { ...p, ...over[p.id] } : p)),
+        blockedAuthors,
+      ),
     [over, removed, blockedAuthors],
   );
 
