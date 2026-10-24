@@ -3,8 +3,10 @@
 /*
   DÒNG TIN KAIROS (14-ba-spec-kairos §3.2, §10; AC02 · AC03 · AC04 · AC06 · AC19).
 
-  Thứ tự trên màn: ô mời "Bà con có chuyện gì?" · hàng chip · thanh "Có N bài mới" · dải ghim ·
-  dòng tin một cột cuộn vô tận (cursor 20 bài).
+  Thứ tự trên màn: ô mời "Bà con có chuyện gì?" · thanh "Có N bài mới" · dải ghim · dòng tin một
+  cột cuộn vô tận (cursor 20 bài). KHÔNG hàng chip lọc (anh Long 2026-10-24: "dòng tin thì cứ cho
+  đọc thôi, tổ chức lọc làm gì? facebook có lọc đâu?") — một dòng tin "Mới" duy nhất; Bến theo
+  cảng vẫn ở /kairos/ben/[port] (vào từ bài gắn cảng).
 
   OFFLINE (ADR 0004, CLAUDE.md "ẢNH HƯỞNG OFFLINE"):
    · ĐỌC BẢN LƯU TRƯỚC (`forfish.kairos.v1`, ngăn theo SĐT), có sóng mới làm mới — mất sóng
@@ -16,13 +18,12 @@
      không realtime, không tự chèn bài. Có sóng lại mà đang ở trạng thái mất sóng/lỗi ⇒ tự
      tải lại trang đầu.
 
-  THÓI QUEN (AC03/AC04) chỉ sống trong máy: thứ tự chip tính MỘT LẦN lúc mở màn (chip không
-  nhảy dưới ngón tay khi đang bấm), xếp bài TRONG TỪNG TRANG (lib/kairos/xep-bai).
+  THÓI QUEN (AC04) chỉ sống trong máy: chủ đề hay đọc + cảng nhà xếp bài TRONG TỪNG TRANG
+  (lib/kairos/xep-bai) — bà con không phải bấm gì, như Facebook tự xếp.
 */
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChipRow } from "@/components/ui/chip-row";
 import { EmptyState } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
@@ -32,7 +33,6 @@ import {
   fetchNewCount,
   filterCached,
   homeFromPort,
-  portLabel,
   loadFeedCache,
   loadHabit,
   savedAtLabel,
@@ -40,12 +40,11 @@ import {
   saveHabit,
   type FeedPage,
 } from "@/lib/kairos/feed-client";
-import { CHIPS, emptyHabit, orderChips, recordChip, recordRead, setHome, type ChipId, type Habit } from "@/lib/kairos/thoi-quen";
+import { emptyHabit, recordRead, setHome, type ChipId, type Habit } from "@/lib/kairos/thoi-quen";
 import type { KairosPost } from "@/lib/kairos/types";
 import { rankPage } from "@/lib/kairos/xep-bai";
-import { NHAN, NHAN_CHIP_KAIROS } from "@/lib/labels";
+import { NHAN } from "@/lib/labels";
 import { useAuthUser } from "@/lib/use-auth";
-import { HomePortSheet } from "./home-port-sheet";
 import { PostCard, type PostActions } from "./post-card";
 import { PostSkeleton } from "./post-skeleton";
 
@@ -84,8 +83,8 @@ export function KairosFeed({
 }) {
   const { phone, ready: authReady } = useAuthUser();
   const [habit, setHabitState] = useState<Habit>(emptyHabit);
-  const [chipOrder, setChipOrder] = useState<ChipId[]>(() => [...CHIPS]);
-  const [chip, setChip] = useState<ChipId>("moi");
+  /** một dòng tin duy nhất — bỏ hàng chip lọc 2026-10-24 */
+  const chip: ChipId = "moi";
   const [posts, setPosts] = useState<KairosPost[]>([]);
   const [pinned, setPinned] = useState<KairosPost[]>([]);
   const [next, setNext] = useState<string | null>(null);
@@ -95,7 +94,6 @@ export function KairosFeed({
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [more, setMore] = useState<"idle" | "loading" | "error">("idle");
   const [newCount, setNewCount] = useState(0);
-  const [askHome, setAskHome] = useState<ChipId | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   // Ref cho các nghe sự kiện (visibilitychange/online/IntersectionObserver) — khỏi gắn lại.
@@ -117,10 +115,7 @@ export function KairosFeed({
       let c = chipWanted;
       let q = feedQuery(c, h.home, { port });
       if (!q.ok) {
-        // chip cần cảng nhà mà không có (vd đổi tài khoản giữa chừng) ⇒ hỏi cảng, tạm về "Mới" —
-        // KHÔNG để skeleton quay mãi.
-        setAskHome(c);
-        setChip("moi");
+        // lưới an toàn: dòng tin cần cảng nhà mà không có ⇒ về "Mới", KHÔNG để skeleton quay mãi
         c = "moi";
         q = feedQuery(c, h.home, { port });
       }
@@ -193,7 +188,6 @@ export function KairosFeed({
       }
     }
     setHabitState(h);
-    setChipOrder(orderChips(h));
     void loadFirst("moi", h, false);
   }, [authReady, loadFirst]);
 
@@ -273,26 +267,6 @@ export function KairosFeed({
     return () => io.disconnect();
   }, [loadMore, next]);
 
-  const pickChip = (c: ChipId) => {
-    const h = recordChip(habit, c);
-    updateHabit(h);
-    if (!feedQuery(c, h.home).ok) {
-      setAskHome(c);
-      return;
-    }
-    setChip(c);
-    void loadFirst(c, h, false);
-  };
-
-  const pickHome = (portId: string) => {
-    const c = askHome ?? "cang-toi";
-    const h = setHome(habit, homeFromPort(portId));
-    updateHabit(h);
-    setAskHome(null);
-    setChip(c);
-    void loadFirst(c, h, false);
-  };
-
   const onRead = useCallback(
     (p: KairosPost) => updateHabit(recordRead(st.current.habit, p.topic)),
     [updateHabit],
@@ -303,7 +277,6 @@ export function KairosFeed({
     void loadFirst(chip, habit, true);
   };
 
-  const chipOptions = useMemo(() => chipOrder.map((id) => ({ id, label: NHAN_CHIP_KAIROS[id] })), [chipOrder]);
   const shownPinned = view ? view(pinned) : pinned;
   const shownPosts = useMemo(() => {
     // một bài chỉ hiện MỘT lần: đang ghim thì chỉ ở dải ghim
@@ -327,17 +300,6 @@ export function KairosFeed({
           Bà con có chuyện gì?
         </button>
       </div>
-
-      {!port && <ChipRow options={chipOptions} value={chip} onChange={pickChip} ariaLabel="Lọc bài" />}
-
-      {!port && chip === "cang-toi" && habit.home.port && portLabel(habit.home.port) && (
-        <div className="px-4">
-          <Link href={`/kairos/ben/${habit.home.port}`} className="surface flex h-12 items-center justify-between px-4 text-[1rem] font-semibold text-sea">
-            Vào Bến {portLabel(habit.home.port)}
-            <span aria-hidden>›</span>
-          </Link>
-        </div>
-      )}
 
       {load === "offline" && !empty && (
         <StatusBanner level="warn">{savedAt ? `Mất sóng — bài lưu lúc ${savedAtLabel(savedAt)}` : "Mất sóng — đang xem bài đã tải"}</StatusBanner>
@@ -363,7 +325,7 @@ export function KairosFeed({
 
         {empty && load === "loading" && <PostSkeleton />}
         {empty && load === "offline" && (
-          <EmptyState>{chip === "theo-doi" ? "Bài người bạn theo dõi chưa lưu trong máy. Có sóng sẽ tải." : "Mất sóng. Có sóng sẽ tải."}</EmptyState>
+          <EmptyState>Mất sóng. Có sóng sẽ tải.</EmptyState>
         )}
         {empty && load === "error" &&
           (errStatus === 401 ? (
@@ -383,7 +345,7 @@ export function KairosFeed({
           ))}
         {empty && load === "ready" && (
           <EmptyState>
-            {chip === "theo-doi" ? "Bạn chưa theo dõi ai." : port ? "Bến này chưa có bài nào." : "Chưa có bài nào. Bà con đăng bài đầu tiên nhé."}
+            {port ? "Bến này chưa có bài nào." : "Chưa có bài nào. Bà con đăng bài đầu tiên nhé."}
           </EmptyState>
         )}
 
@@ -409,7 +371,6 @@ export function KairosFeed({
         <div ref={sentinel} aria-hidden className="h-[0.0625rem]" />
       </div>
 
-      {askHome && <HomePortSheet onPick={pickHome} onClose={() => setAskHome(null)} />}
     </div>
   );
 }

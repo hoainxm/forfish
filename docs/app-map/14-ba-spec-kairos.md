@@ -2,6 +2,7 @@
 
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
+<!-- re-verified: 2026-10-24 — BỎ HÀNG CHIP LỌC (AC03) theo anh Long; `kairos-feed.tsx` cố định chip "moi", gỡ ChipRow + thẻ "Vào Bến" + hỏi cảng nhà ở dòng tin (HomePortSheet vẫn dùng ở khung soạn). Migration 0065 ĐÃ ÁP lên znzgugvfhgmiszqgjulk 2026-10-24 (anh Long dán SQL Editor; kiểm: 13 bảng 200 service-role, anon 401, bucket kairos-media, kairos_enabled=true, hồ sơ SDVICO). -->
 Chốt 2026-10-23. Kairos (καιρός) = đúng thời điểm.
 
 ## 1. Mục tiêu
@@ -174,7 +175,7 @@ Giấy phép trang tổng hợp và mạng xã hội (NĐ 147/2024) là **việc
 |---|---|---|
 | AC01 | Dock 6 ô chỉ icon: Trang chủ · Kairos · Bản đồ · Tàu tôi · Chợ cá · Vật tư (src/lib/dock-nav.ts + bottom-nav.tsx + test); nhãn từ labels.ts ≤2 chữ; 07 §4 cập nhật | `dock-nav.test.ts` (6 mục, `dockActive("/kairos/u/x")="kairos"`), `labels.test.ts`; xem dock ở 375 px; grep 07 §4 |
 | AC02 | Trang /kairos: dòng tin cuộn vô tận (phân trang cursor), trộn 3 loại bài (báo tóm tắt có tên báo + 'Đọc bài gốc' · SDVICO 'Chính thức' có ghim · bà con), có skeleton, trạng thái trống/lỗi/mất sóng/cực đoan | test cursor (`lib/kairos/cursor.ts`); chạy local kho file với 3 loại bài; giả lập offline/lỗi theo §10 |
-| AC03 | Hàng chip ≤2 chữ: Mới · Nghề cá · Cảng tôi · Gần tôi · Theo dõi · Thời sự · Pháp luật · Đời sống · Thể thao · Giải trí · Kinh tế; chip hay bấm tự lên đầu (thói quen lưu trong máy) | `labels.test.ts`; `thoi-quen.test.ts` (xếp chip, "Mới" luôn đầu) |
+| AC03 | ~~ĐÃ BỎ 2026-10-24 (anh Long: "dòng tin thì cứ cho đọc thôi, tổ chức lọc làm gì? facebook có lọc đâu?") — dòng tin KHÔNG có hàng chip lọc; một dòng "Mới", thói quen đọc (AC04) vẫn xếp bài trong máy; Bến theo cảng vẫn vào từ nhãn Bến trên bài.~~ Bản gốc: Hàng chip ≤2 chữ: Mới · Nghề cá · Cảng tôi · Gần tôi · Theo dõi · Thời sự · Pháp luật · Đời sống · Thể thao · Giải trí · Kinh tế; chip hay bấm tự lên đầu (thói quen lưu trong máy) | `labels.test.ts`; `thoi-quen.test.ts` (xếp chip, "Mới" luôn đầu) |
 | AC04 | Xếp bài theo thói quen TRONG MÁY (forfish.kairos.thoiquen.v1): mới + chủ đề hay đọc + cảng/tỉnh/vùng nhà; luật thuần có test; không gửi hồ sơ đọc lên máy chủ | `xep-bai.test.ts`; soi request mạng không có trường thói quen |
 | AC05 | Mỗi bài gắn khu vực bằng luật: vùng biển (Vịnh Bắc Bộ · Miền Trung · Đông Nam Bộ · Tây Nam Bộ · Hoàng Sa–Trường Sa) · tỉnh (34 tỉnh sau sáp nhập, nhận cả tên cũ) · cảng (danh mục src/data/fishing-ports.ts); 'Cả nước' khi không rõ; có test | `khu-vuc.test.ts` (đủ 34 tỉnh, tên cũ ⇒ mới, cảng, Hoàng Sa, cả nước) |
 | AC06 | 'Có N bài mới' khi quay lại màn/app (không realtime), tự tải lại khi có sóng lại (sự kiện online), mọi fetch có đồng hồ + .catch | đọc code: `timeoutSignal` + `.catch` mọi fetch; thử ẩn/hiện tab, tắt/bật mạng |
