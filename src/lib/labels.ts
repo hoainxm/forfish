@@ -114,6 +114,8 @@ export const NHAN = {
   boAnh: "Bỏ ảnh",
   bo: "Bỏ",
   trangToi: "Trang tôi",
+  // Kairos — nút bánh răng "Tuỳ chọn dòng tin" (14 §13, aria-label/title — nút chỉ icon)
+  tuyChon: "Tuỳ chọn",
   // Kairos — trang cá nhân kiểu Facebook (14 §3.8, AC13 bản 2026-10-24)
   baiViet: "Bài viết",
   gioiThieu: "Giới thiệu",

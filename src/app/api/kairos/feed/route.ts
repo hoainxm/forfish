@@ -9,15 +9,19 @@
 //     cảng/tỉnh nhà app gửi (`nha`, `tinh` — chỉ MÃ, không hồ sơ đọc), chia trang bằng con trỏ `pp.`.
 //     Hết danh sách xếp ⇒ `next` chuyển sang con trỏ theo giờ ⇒ dòng tin cũ hơn tiếp tục như trước.
 //   · Bến / trang người dùng / theo dõi / con trỏ theo giờ ⇒ (feed_at desc, id desc) như cũ.
+// TUỲ CHỌN DÒNG TIN (lib/kairos/tuy-chon.ts, chỉ dòng tin mặc định): `thich=<mã,mã>` ⇒ chủ đề đó được cộng điểm
+// (ưu tiên, không lọc; mã lạ bỏ qua, không 400) · `ai=0` ⇒ bỏ bài agent tri thức (`agent:` sentinel) TRƯỚC khi xếp,
+// và cả ở đoạn nối tiếp theo giờ.
 //
 // ⚠️ KHÔNG cache ở service worker: gắn danh tính (hayByMe, mine, chặn). Không vào API_CACHE_ALLOW.
 import { NextResponse } from "next/server";
 import { encodeCursor } from "@/lib/kairos/cursor";
 import { parseFeedParams } from "@/lib/kairos/feed-query";
 import { PROVINCE_IDS, regionsOfProvince } from "@/lib/kairos/khu-vuc.mjs";
-import { giaiMaPP, maHoaPP, UNG_VIEN, xepDongTin } from "@/lib/kairos/phan-phoi";
+import { giaiMaPP, laBaiAgent, maHoaPP, UNG_VIEN, xepDongTin } from "@/lib/kairos/phan-phoi";
 import { tinHieuCua } from "@/lib/kairos/phan-phoi-store";
 import { feedFilterFor, hydratePosts, kErr, kairosErrorResponse, PORT_IDS, readerOf, storeOr503 } from "@/lib/kairos/server";
+import { docThamSo } from "@/lib/kairos/tuy-chon";
 import { LIMITS } from "@/lib/kairos/types";
 
 const PROVINCE_SET = new Set<string>(PROVINCE_IDS as readonly string[]);
@@ -36,6 +40,8 @@ export async function GET(req: Request) {
   const rawCursor = sp.get("cursor");
   const pp = giaiMaPP(rawCursor, now);
   const macDinh = p.chip === "moi" && !p.ports && !p.authorProfileId && !p.near && !p.topic && !p.theoDoi;
+  const tuyChon = docThamSo(sp);
+  const boAgent = macDinh && !tuyChon.ai;
   try {
     const f = await feedFilterFor(store, p, who.phone, now);
     if (!f.ok) return f.res;
@@ -59,7 +65,9 @@ export async function GET(req: Request) {
         tinHieuCua(who.phone),
         who.phone ? store.edgesFrom("follow", who.phone) : Promise.resolve([] as string[]),
       ]);
-      const xep = xepDongTin(ungVien, { reads, follows: new Set(follows), home }, Date.parse(at), LIMITS.pageSize);
+      const conLai = boAgent ? ungVien.filter((r) => !laBaiAgent(r)) : ungVien;
+      const thich = tuyChon.thich.size ? tuyChon.thich : undefined;
+      const xep = xepDongTin(conLai, { reads, follows: new Set(follows), home, thich }, Date.parse(at), LIMITS.pageSize);
       page = xep.slice(off, off + LIMITS.pageSize);
       if (off + LIMITS.pageSize < xep.length) next = maHoaPP({ at, off: off + LIMITS.pageSize });
       else {
@@ -69,9 +77,11 @@ export async function GET(req: Request) {
       }
     } else {
       const rows = await store.listPosts(f.filter, LIMITS.pageSize + 1);
-      page = rows.slice(0, LIMITS.pageSize);
-      const last = page[page.length - 1];
+      const trang = rows.slice(0, LIMITS.pageSize);
+      const last = trang[trang.length - 1];
       next = rows.length > LIMITS.pageSize && last ? encodeCursor({ at: last.feed_at, id: last.id }) : null;
+      // con trỏ tính TRƯỚC khi bỏ bài agent ⇒ trang ngắn hơn nhưng không lặp/không mất bài
+      page = boAgent ? trang.filter((r) => !laBaiAgent(r)) : trang;
     }
 
     const firstMoi = !rawCursor && macDinh;
