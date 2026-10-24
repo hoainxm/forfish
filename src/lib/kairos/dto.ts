@@ -5,6 +5,7 @@
 // chỉ trả boolean. `kairos-dto.test.ts` soi JSON ra không chứa SĐT nào.
 
 import { laAgent } from "./agent-doi.mjs";
+import { laTinNong } from "./phan-phoi";
 import type { KairosAbout, KairosAuthor, KairosComment, KairosPost, KairosPostKind, KairosRegion } from "./types";
 
 /** Hàng `kairos_profiles` (đủ cột route cần). */
@@ -22,6 +23,8 @@ export interface PostRow {
   id: string;
   kind: KairosPostKind;
   author_phone: string | null;
+  /** nguồn thu của bài báo — nhận tin nóng (phan-phoi.NGUON_NONG) */
+  source_id?: string | null;
   outlet: string | null;
   url: string | null;
   title: string | null;
@@ -143,6 +146,7 @@ export function postDto(
     summary: r.summary,
     summaryBy: r.summary_by,
     coverUrl: r.cover_url,
+    ...(r.kind === "bao" && laTinNong(r) ? { nong: true } : {}),
     images: strArr(r.images).map(ctx.mediaUrl),
     topic: r.topic,
     regions: (r.regions ?? []) as KairosRegion[],

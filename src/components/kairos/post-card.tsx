@@ -94,6 +94,7 @@ function Head({ post, now, nghe = true }: { post: KairosPost; now: number; nghe?
       <div className="flex items-center gap-2 pl-4 pr-1 pt-1.5 text-[0.875rem]">
         <span className="min-w-0 truncate font-bold text-navy">{post.outlet || "Báo"}</span>
         <span className="shrink-0 text-foreground/65">{time}</span>
+        {post.nong && <span className="shrink-0 rounded-full bg-danger-bg px-2 py-0.5 text-[0.75rem] font-bold text-danger">{NHAN.dangNong}</span>}
         {topic && <span className="ml-auto shrink-0 font-semibold text-sea">{topic}</span>}
         {nghe ? (
           <span className={topic ? "" : "ml-auto"}>

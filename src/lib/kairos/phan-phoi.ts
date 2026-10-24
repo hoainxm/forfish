@@ -35,6 +35,17 @@ export const laTinBien = (p: Pick<PPPost, "kind" | "topic" | "regions">): boolea
   p.kind !== "bao" || p.topic === "nghe-ca" || !!p.regions?.includes("hoang-sa-truong-sa");
 
 /**
+ * TIN NÓNG NGOÀI BIỂN (anh Long 2026-10-24: "các bài mà tin nóng thu hút thì lấy để bà con biết thứ gì đang nóng
+ * ngoài thuỷ sản"): 15 % suất không-phải-biển ưu tiên tin ĐANG NÓNG thay vì tin chung chung. "Nóng" = bài vào qua
+ * nguồn "Tin nổi bật" của Google News (biên tập + số báo cùng đưa tin — scripts/kairos-nguon.json `gn-noi-bat`).
+ * Tin nóng mà là chuyện biển (bão, Biển Đông) thì đã nằm trong 85 % — không cộng thêm.
+ */
+export const NGUON_NONG: ReadonlySet<string> = new Set(["gn-noi-bat"]);
+export const laTinNong = (p: Pick<PPPost, "source_id">): boolean => !!p.source_id && NGUON_NONG.has(p.source_id);
+/** Cộng cho tin nóng ngoài biển — hơn nửa điểm độ mới ⇒ chiếm suất ngoài biển trước tin thường cùng tuổi. */
+export const W_NONG = 0.6;
+
+/**
  * "Thích đọc" (Tuỳ chọn dòng tin, tuy-chon.ts): chủ đề bà con chọn được cộng ngần này. Bằng nửa điểm độ mới của bài
  * vừa đăng ⇒ đẩy lên rõ nhưng không đè bài mới hơn hẳn, và KHÔNG phá trần tin biển (luật đan xen áp sau điểm).
  */
@@ -49,6 +60,8 @@ export interface PPPost {
   id: string;
   kind: string;
   author_phone: string | null;
+  /** nguồn thu (bài báo) — để nhận tin nóng (NGUON_NONG); bài người ⇒ null */
+  source_id?: string | null;
   outlet: string | null;
   topic: string;
   regions: readonly string[] | null;
@@ -157,6 +170,7 @@ export function diemBai(
   let s = W.moi * Math.pow(0.5, age / NUA_DOI_MOI_H);
   s += W.chuDe * (ctx.chuDe.get(p.topic) ?? 0);
   if (r.thich?.has(p.topic)) s += W_THICH;
+  if (laTinNong(p) && !laTinBien(p)) s += W_NONG;
   const tg = tacGiaCua(p);
   s += W.tacGia * (ctx.tacGia.get(tg) ?? 0);
   if (r.home.port && p.ports?.includes(r.home.port)) s += W.cang;

@@ -92,6 +92,7 @@ export const NHAN = {
   binhLuan: "Bình luận",
   chinhThuc: "Chính thức",
   ghim: "Ghim",
+  dangNong: "Đang nóng",
   // Kairos — đăng bài, bình luận, chia sẻ, hồ sơ (AC07–AC15)
   dang: "Đăng",
   dangGui: "Đang gửi",

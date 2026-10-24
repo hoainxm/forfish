@@ -126,6 +126,8 @@ export interface KairosPost {
   summary: string | null;
   summaryBy: "ai" | "rss" | null;
   coverUrl: string | null;
+  /** bài báo ĐANG NÓNG (vào qua nguồn Tin nổi bật — phan-phoi.NGUON_NONG) ⇒ thẻ có nhãn "Đang nóng" */
+  nong?: boolean;
   /** URL công khai kho kairos-media (bản lưu offline: [] — chỉ chữ, xem imageCount) */
   images: string[];
   /** CHỈ ở bản lưu offline (cache.ts): bài có mấy ảnh, để thẻ ghi "Có N ảnh — cần sóng" */

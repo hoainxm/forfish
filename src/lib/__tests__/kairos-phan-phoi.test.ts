@@ -1,7 +1,7 @@
 // Cỗ máy phân phối dòng tin ở máy chủ (anh Long 2026-10-24: "nâng lên"; agent "đan xen để tránh nhàm").
 import { describe, expect, it } from "vitest";
 import {
-  diemBai, docHat, giaiMaPP, guDoc, laBaiAgent, nhieu, NHIEU_XAO, laTinBien, maHoaPP, tacGiaCua, TRAN_KHONG_BIEN, TRAN_TAC_GIA, W_THICH, xepDongTin,
+  diemBai, docHat, giaiMaPP, guDoc, laBaiAgent, nhieu, NHIEU_XAO, laTinBien, laTinNong, maHoaPP, NGUON_NONG, W_NONG, tacGiaCua, TRAN_KHONG_BIEN, TRAN_TAC_GIA, W_THICH, xepDongTin,
   type PPPost, type Reader, type ReadSignal,
 } from "@/lib/kairos/phan-phoi";
 
@@ -127,6 +127,25 @@ describe("tỉ lệ biển 85 %", () => {
     const bien = Array.from({ length: 30 }, (_, i) => bai({ outlet: `T${i % 8}`, topic: "nghe-ca", feed_at: h(20) }));
     const trang1 = xepDongTin([...chung, ...bien], khach, NOW).slice(0, 20);
     expect(trang1.filter((p) => !laTinBien(p)).length).toBeLessThanOrEqual(TRAN_KHONG_BIEN);
+  });
+  it("tin NÓNG ngoài biển (nguồn Tin nổi bật) chiếm suất ngoài biển trước tin thường cùng tuổi", () => {
+    expect(NGUON_NONG.has("gn-noi-bat")).toBe(true);
+    const nong = Array.from({ length: 3 }, (_, i) => bai({ outlet: `N${i}`, source_id: "gn-noi-bat", topic: "thoi-su", feed_at: h(3) }));
+    const thuong = Array.from({ length: 20 }, (_, i) => bai({ outlet: `B${i % 8}`, source_id: "vne-the-thao", topic: "the-thao", feed_at: h(1) }));
+    const bien = Array.from({ length: 30 }, (_, i) => bai({ outlet: `T${i % 8}`, topic: "nghe-ca", feed_at: h(2) }));
+    const trang1 = xepDongTin([...thuong, ...nong, ...bien], khach, NOW).slice(0, 20);
+    const ngoai = trang1.filter((p) => !laTinBien(p));
+    expect(ngoai.length).toBeLessThanOrEqual(TRAN_KHONG_BIEN);
+    expect(ngoai.every((p) => laTinNong(p))).toBe(true);
+  });
+  it("tin nóng là chuyện biển thì không cộng thêm (đã trong 85 %); bài người không bao giờ nóng", () => {
+    const a = bai({ topic: "nghe-ca", source_id: "gn-noi-bat" });
+    const b = bai({ topic: "nghe-ca", source_id: "gn-tau-ca", feed_at: a.feed_at });
+    expect(diemBai(a, khach, NOW, ctx0)).toBeCloseTo(diemBai(b, khach, NOW, ctx0));
+    const c = bai({ topic: "thoi-su", source_id: "gn-noi-bat" });
+    const d = bai({ topic: "thoi-su", source_id: "vne-thoi-su", feed_at: c.feed_at });
+    expect(diemBai(c, khach, NOW, ctx0) - diemBai(d, khach, NOW, ctx0)).toBeCloseTo(W_NONG);
+    expect(laTinNong(bai({ kind: "ba-con", author_phone: "x", source_id: null }))).toBe(false);
   });
   it("hết tin biển thì dòng tin vẫn chạy tiếp bằng tin chung (không tắt ngang)", () => {
     const chung = Array.from({ length: 25 }, (_, i) => bai({ outlet: `B${i % 8}`, topic: "the-thao" }));

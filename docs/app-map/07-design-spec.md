@@ -5,6 +5,7 @@
 ```
 covers: src/app, src/components
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24k — thẻ bài báo ĐANG NÓNG (KairosPost.nong): nhãn viên bg-danger-bg chữ danger 0.75rem đậm "Đang nóng" ngay sau giờ, trước chủ đề. Bản lưu mất sóng giữ nhãn (chữ). -->
 <!-- re-verified: 2026-10-24j — KAIROS DỄ DÙNG (14 §15): thẻ bài có nút loa h-11 ở đầu thẻ (báo: sau chủ đề; người: cuối hàng tên) — đang đọc thì nền sea chữ trắng, aria "Dừng đọc"; ẩn khi máy không đọc được tiếng Việt và trong thẻ bài gốc đăng lại. Mạng yếu (saveData/2G): lưới ảnh ⇒ khung bg-field h-24 "Mạng yếu — chạm xem N ảnh", ảnh bìa báo ⇒ khung h-16; chạm ⇒ hiện ảnh. Ô bình luận: ô trống + gửi được ⇒ hàng chip viên h-9 "Cảm ơn · Đúng rồi · Hay quá · Ở đâu?" (cuộn ngang, một chạm gửi); nút micro tròn h-11 viền line giữa ô và nút gửi (đang nghe: nền sea); ô soạn bài có micro cạnh nhãn "Nội dung". Lỗi micro ⇒ câu đỏ dưới ô như lỗi gửi. -->
 <!-- re-verified: 2026-10-24i — /kairos VUỐT XUỐNG LÀM MỚI: ở đầu trang kéo xuống (nặng tay ×0.5) hiện dòng "Kéo để làm mới" → ≥ 4.5rem "Thả để làm mới" → thả: "Đang làm mới…" + tải trang đầu với thứ tự mới (xáo). Bến không có. Mất sóng: giữ bài đang hiện + băng mất sóng như Thử lại. -->
 <!-- re-verified: 2026-10-24h — Chấm "AI" (nền navy/10, chữ 0.6875rem đậm) cạnh tên tác giả AGENT ở thẻ bài + bình luận + trang hồ sơ — như dấu tích, không làm tên khó đọc (spec 16 L1). -->

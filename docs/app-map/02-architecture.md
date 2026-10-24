@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24k — phan-phoi: NGUON_NONG {gn-noi-bat} + laTinNong + W_NONG (cộng khi bài báo nguồn nóng không phải tin biển); PPPost/dto PostRow thêm source_id (đã có trong POST_COLS); KairosPost.nong (dto đặt cho bài báo nguồn nóng); labels NHAN.dangNong; scripts/kairos-nguon.json thêm gn-noi-bat (máy GPU tự nhận qua lam-moi.sh). -->
 <!-- re-verified: 2026-10-24j — MỚI `lib/kairos/de-dung.ts` (chuDeDoc · nenHoanAnh · BL_NHANH, test kairos-de-dung) + `components/kairos/de-dung.tsx` (NutNghe dùng lib/voice/tts · useHoanAnh/KhungAnh đọc navigator.connection · NutMic dùng lib/sen-bien/nghe listenOnce); gắn vào post-card (Head + Images + ảnh bìa), comment-thread (chip bình luận nhanh gửi thẳng `send(nhanh)` + micro), composer-sheet (micro). Không route mới, không request mới. -->
 <!-- re-verified: 2026-10-24e — phan-phoi: Reader.hat + nhieu()/NHIEU_XAO/docHat, PPCursor.hat; feed route đọc `hat` (trang đầu) / con trỏ (trang sau); kairos-feed gửi hạt mới mỗi lần tải trang đầu + cử chỉ vuốt làm mới (touch, overscroll-behavior-y contain trên html khi ở /kairos). -->
 <!-- re-verified: 2026-10-24d — route MỚI `POST /api/kairos/agent` (2000 agent tri thức — lib/kairos/agent-doi.mjs + agent-dieu-phoi.mjs, script GPU scripts/kairos-agent.mjs); KairosAuthor.isAgent (dto suy từ SĐT `agent:`); post-card + comment-thread vẽ chấm AI. luat-kiem-duyet GOI_QUYET_DINH_TOI_DA 100 ⇒ 25. -->

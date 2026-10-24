@@ -218,6 +218,15 @@
       "enabled": true
     },
     {
+      "id": "gn-noi-bat",
+      "outlet": "Google News",
+      "feedUrl": "https://news.google.com/rss?hl=vi&gl=VN&ceid=VN:vi",
+      "section": "thoi-su",
+      "topic": "thoi-su",
+      "kieu": "google-news",
+      "enabled": true
+    },
+    {
       "id": "gn-tau-ca",
       "outlet": "Google News",
       "feedUrl": "https://news.google.com/rss/search?q=%22t%C3%A0u%20c%C3%A1%22%20OR%20%22c%E1%BA%A3ng%20c%C3%A1%22%20when%3A2d&hl=vi&gl=VN&ceid=VN:vi",
