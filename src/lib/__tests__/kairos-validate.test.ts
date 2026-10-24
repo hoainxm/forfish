@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { charLen, cleanText, isUuid, replyRoot, validateComment, validatePost, validateReport } from "@/lib/kairos/validate";
+import { charLen, cleanText, isOwnMediaPath, isUuid, MAX_DISCARD, replyRoot, validateComment, validateDiscard, validatePost, validateReport } from "@/lib/kairos/validate";
 
 const PID = "6f1c2a8e-1111-4222-8333-944455556666";
 const OTHER = "7a2d3b9f-2222-4333-8444-a55566667777";
@@ -99,5 +99,20 @@ describe("cleanText + isUuid", () => {
   it("uuid", () => {
     expect(isUuid(PID)).toBe(true);
     expect(isUuid("0901234567")).toBe(false);
+  });
+});
+
+describe("validateDiscard — Huỷ khung soạn xoá ảnh vừa tải", () => {
+  it("chỉ ảnh trong thư mục của mình; trùng gộp lại", () => {
+    expect(validateDiscard({ paths: [img(), img(), img(PID, 2)] }, PID)).toEqual({ ok: true, value: [img(), img(PID, 2)] });
+    expect(isOwnMediaPath(img(), PID.toUpperCase())).toBe(true);
+    expect(isOwnMediaPath(img(OTHER), PID)).toBe(false);
+  });
+  it("một đường lạ ⇒ cả gói 400 (không xoá nửa vời); rỗng / quá trần / không phải mảng ⇒ bad_body", () => {
+    expect(codeOf(validateDiscard({ paths: [img(), img(OTHER)] }, PID))).toBe("bad_image");
+    expect(codeOf(validateDiscard({ paths: ["../x.jpg"] }, PID))).toBe("bad_image");
+    expect(codeOf(validateDiscard({ paths: [] }, PID))).toBe("bad_body");
+    expect(codeOf(validateDiscard({ paths: Array.from({ length: MAX_DISCARD + 1 }, () => img()) }, PID))).toBe("bad_body");
+    expect(codeOf(validateDiscard(null, PID))).toBe("bad_body");
   });
 });

@@ -464,6 +464,25 @@ export function createKairosFileStore(opts: { dir?: string; now?: () => Date } =
       }
     },
     mediaUrl: (p) => `/api/dev/kairos-media/${devMediaName(p)}`,
+    mediaInUse: (paths) =>
+      read((s) => {
+        const want = new Set(paths);
+        const used = new Set<string>();
+        for (const p of s.posts) for (const img of Array.isArray(p.images) ? (p.images as string[]) : []) if (want.has(img)) used.add(img);
+        for (const pr of s.profiles) if (pr.avatar_path && want.has(pr.avatar_path)) used.add(pr.avatar_path);
+        return used;
+      }),
+    uploadsToCheck: (since, before, limit) =>
+      read((s) => {
+        const done = new Set(s.audit.filter((a) => a.action === "media_discard" || a.action === "media_gc").map((a) => a.target_id));
+        const out: string[] = [];
+        for (const a of [...s.audit].sort((x, y) => (x.at < y.at ? -1 : 1))) {
+          if (a.action !== "upload" || !a.target_id || a.at < since || a.at >= before || done.has(a.target_id)) continue;
+          if (!out.includes(a.target_id)) out.push(a.target_id);
+          if (out.length >= limit) break;
+        }
+        return out;
+      }),
   };
   return store;
 }

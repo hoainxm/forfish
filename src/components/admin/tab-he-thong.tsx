@@ -6,7 +6,7 @@
 import { AdminSkeleton } from "@/components/admin/admin-nav";
 import { timeoutSignal } from "@/lib/abort";
 import { apiUrl } from "@/lib/api-base";
-import { type ConfigKey, validateConfigValue } from "@/lib/app-config-keys";
+import { type ConfigKey, configPrecedenceText, validateConfigValue } from "@/lib/app-config-keys";
 import { tokenHeader } from "@/lib/device-token-store";
 import { useCallback, useEffect, useState } from "react";
 import { type Health, fmtD, fmtDT } from "@/components/admin/quan-tri-chung";
@@ -395,6 +395,9 @@ export type ConfigRow = {
   value: string | null;
   generate?: "hex32";
   risk: string;
+  envFirst: boolean;
+  envVar: string;
+  overridden: boolean;
 };
 
 /** 32 byte ngẫu nhiên → 64 hex, sinh ngay trên máy admin (khoá dữ liệu bản đồ). */
@@ -489,7 +492,8 @@ export function AppConfigCard() {
       </p>
       <p className="mt-0.5 text-[0.875rem] text-foreground/70">
         Dán khoá/cấu hình vào đây (lưu DB) để KHÔNG lệ thuộc env máy chủ deploy —
-        áp dụng ngay, không cần redeploy. DB đè lên env cùng tên.
+        áp dụng ngay, không cần redeploy. Thường DB đè lên env cùng tên; riêng
+        Khoá nhập tin Kairos thì ngược lại (env đè DB) — mỗi ô ghi rõ bên nào thắng.
       </p>
       {error && (
         <p className="mt-2 text-[0.875rem] font-semibold text-danger">{error}</p>
@@ -504,6 +508,7 @@ export function AppConfigCard() {
           const b = badge(row.source);
           const draft = drafts[row.key] ?? "";
           const bad = !!draft.trim() && !validateConfigValue(row.key as ConfigKey, draft);
+          const prec = configPrecedenceText(row);
           return (
             <div key={row.key} className="rounded-xl bg-field/50 p-3">
               <div className="flex items-center justify-between gap-2">
@@ -519,6 +524,12 @@ export function AppConfigCard() {
               {row.help && (
                 <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
                   {row.help}
+                </p>
+              )}
+              <p className="mt-0.5 text-[0.8125rem] text-foreground/60">{prec.order}</p>
+              {prec.warn && (
+                <p role={row.envFirst ? "alert" : undefined} className={`mt-1 text-[0.8125rem] font-semibold ${row.envFirst ? "text-danger" : "text-foreground/70"}`}>
+                  {prec.warn}
                 </p>
               )}
               {!row.secret && row.value && (

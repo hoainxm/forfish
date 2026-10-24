@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  composerGate,
   dropComment,
   errorText,
   flipHay,
+  hideBlocked,
+  meRefetchOnOnline,
+  orphanUploads,
   mediaPathFromUrl,
   replyTarget,
   settleHay,
@@ -13,7 +17,8 @@ import {
 } from "@/lib/kairos/social";
 import { loadDraft, saveDraft } from "@/lib/kairos/write-client";
 import { KAIROS_DRAFT_KEY } from "@/lib/kairos/cache";
-import type { KairosComment } from "@/lib/kairos/types";
+import type { KairosComment, KairosPost } from "@/lib/kairos/types";
+import type { KairosMe } from "@/lib/kairos/social";
 
 const PID = "11111111-2222-4333-8444-555555555555";
 const IMG = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -55,6 +60,70 @@ describe("kairos social — câu lỗi theo mã (14 §10)", () => {
   it("401 ⇒ cần đăng nhập; mã lạ ⇒ nói số lỗi + Thử lại", () => {
     expect(errorText(fail("login_required", {}, 401))).toBe("Cần đăng nhập.");
     expect(errorText(fail("internal", {}, 500))).toMatch(/lỗi 500/);
+  });
+});
+
+describe("kairos social — khung soạn mở lúc mất sóng không kẹt (AC07)", () => {
+  const me = () => ({ s: "ok" as const, me: { rulesAccepted: true, bannedUntil: null } as KairosMe });
+  const base = { online: true, busy: false, empty: false, tooLong: false, needRules: false };
+
+  it("mở lúc mất sóng: Cần sóng + Thử lại; có sóng, /me về ⇒ Đăng sáng lại mà không đóng khung", () => {
+    const off = composerGate({ ...base, online: false, me: { s: "offline" } });
+    expect(off).toEqual({ canSend: false, button: "canSong", retry: true, offlineNote: true });
+    // sự kiện online ⇒ hỏi lại /me
+    expect(meRefetchOnOnline({ s: "offline" })).toBe(true);
+    const loading = composerGate({ ...base, me: { s: "loading" } });
+    expect(loading).toMatchObject({ canSend: false, button: "dangTai", retry: false });
+    expect(composerGate({ ...base, me: me() })).toEqual({ canSend: true, button: "dang", retry: false, offlineNote: false });
+  });
+
+  it("máy báo có sóng mà sóng chết (/me về offline) ⇒ vẫn Cần sóng + Thử lại, không sáng Đăng", () => {
+    expect(composerGate({ ...base, online: true, me: { s: "offline" } })).toMatchObject({ canSend: false, button: "canSong", retry: true });
+  });
+
+  it("/me lỗi máy chủ ⇒ Thử lại; có sóng lại cũng tự hỏi lại; đã về thì không hỏi lại", () => {
+    expect(composerGate({ ...base, me: { s: "error", text: "lỗi" } })).toMatchObject({ canSend: false, retry: true, offlineNote: false });
+    expect(meRefetchOnOnline({ s: "error", text: "x" })).toBe(true);
+    expect(meRefetchOnOnline(me())).toBe(false);
+    expect(meRefetchOnOnline({ s: "loading" })).toBe(false);
+  });
+
+  it("chưa đồng ý nội quy / chữ rỗng / quá dài / đang gửi ⇒ không Đăng được", () => {
+    expect(composerGate({ ...base, me: { s: "ok", me: { rulesAccepted: false } as KairosMe } }).canSend).toBe(false);
+    expect(composerGate({ ...base, me: me(), needRules: true }).canSend).toBe(false);
+    expect(composerGate({ ...base, me: me(), empty: true }).canSend).toBe(false);
+    expect(composerGate({ ...base, me: me(), tooLong: true }).canSend).toBe(false);
+    expect(composerGate({ ...base, me: me(), busy: true })).toMatchObject({ canSend: false, button: "dangGui" });
+  });
+
+  it("ảnh mồ côi: Huỷ ⇒ mọi ảnh tải trong phiên; Đăng xong ⇒ ảnh đã gỡ khỏi khung", () => {
+    expect(orphanUploads(["a", "b", "a"], [])).toEqual(["a", "b"]);
+    expect(orphanUploads(new Set(["a", "b", "c"]).values(), ["a", "c"])).toEqual(["b"]);
+    expect(orphanUploads([], ["x"])).toEqual([]);
+  });
+});
+
+describe("kairos social — chặn người gỡ ngay trên màn (AC15)", () => {
+  const author = (profileId: string) => ({ profileId, handle: profileId, subline: "", avatarUrl: null, official: false });
+  const p = (id: string, by: string, over: Partial<KairosPost> = {}) =>
+    ({ id, kind: "ba-con", author: author(by), topComments: [], reshareOf: null, ...over }) as KairosPost;
+
+  it("bỏ bài của họ, bình luận nổi của họ dưới bài người khác, thẻ bài gốc của họ", () => {
+    const list = [
+      p("1", "X"),
+      p("2", "Y", { topComments: [{ ...cm("c1"), author: author("X") }, { ...cm("c2"), author: author("Z") }] }),
+      p("3", "Y", { reshareOf: p("1", "X") }),
+    ];
+    const out = hideBlocked(list, new Set(["X"]));
+    expect(out.map((x) => x.id)).toEqual(["2", "3"]);
+    expect(out[0].topComments.map((c) => c.id)).toEqual(["c2"]);
+    expect(out[1]).toMatchObject({ reshareOf: null, reshareGone: true });
+  });
+
+  it("không chặn ai ⇒ nguyên danh sách; bài không dính người bị chặn giữ nguyên đối tượng", () => {
+    const list = [p("1", "Y")];
+    expect(hideBlocked(list, new Set())).toBe(list);
+    expect(hideBlocked(list, new Set(["X"]))[0]).toBe(list[0]);
   });
 });
 

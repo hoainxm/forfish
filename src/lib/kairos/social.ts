@@ -135,6 +135,78 @@ export function settleHay(before: HayState, res: SendResult<{ on: boolean; hayCo
   return { hayByMe: res.data.on, hayCount: typeof n === "number" && Number.isFinite(n) && n >= 0 ? n : before.hayCount };
 }
 
+// ── Khung soạn: trạng thái `/me` ⇒ nút Đăng, dòng báo, Thử lại (AC07, A44) ─────
+
+export type ComposerMe = { s: "loading" } | { s: "ok"; me: KairosMe } | { s: "offline" } | { s: "error"; text: string };
+
+export interface ComposerGate {
+  canSend: boolean;
+  /** nhãn nút ghi (màn đổi `dang` ⇒ `luu` khi đang sửa) — khoá NHAN */
+  button: "canSong" | "dangGui" | "dangTai" | "dang";
+  /** `/me` chưa hỏi được (mất sóng / lỗi) ⇒ hiện nút Thử lại */
+  retry: boolean;
+  /** dòng báo dưới khung khi `/me` mất sóng */
+  offlineNote: boolean;
+}
+
+/**
+ * Quyết định MỘT chỗ: mở khung lúc mất sóng không được kẹt. `online` = máy không báo mất sóng;
+ * `/me` hỏng vì sóng chết (máy vẫn báo có sóng) cũng coi là "cần sóng" + Thử lại. Đăng chỉ sáng
+ * khi `/me` đã về, đã đồng ý nội quy, chữ hợp lệ.
+ */
+export function composerGate(i: {
+  online: boolean;
+  me: ComposerMe;
+  busy: boolean;
+  empty: boolean;
+  tooLong: boolean;
+  needRules: boolean;
+}): ComposerGate {
+  const noNet = !i.online || i.me.s === "offline";
+  const rulesOk = i.me.s === "ok" && i.me.me.rulesAccepted && !i.needRules;
+  return {
+    canSend: !noNet && !i.busy && !i.empty && !i.tooLong && rulesOk,
+    button: noNet ? "canSong" : i.busy ? "dangGui" : i.me.s === "loading" ? "dangTai" : "dang",
+    retry: i.me.s === "offline" || i.me.s === "error",
+    offlineNote: i.me.s === "offline",
+  };
+}
+
+/** Có sóng lại (sự kiện `online`) thì hỏi lại `/me` khi lượt trước chưa về được. */
+export function meRefetchOnOnline(me: ComposerMe): boolean {
+  return me.s === "offline" || me.s === "error";
+}
+
+/**
+ * Ảnh tải lên TRONG phiên khung soạn này mà không nằm trong bài đã lưu ⇒ xoá khỏi kho (Huỷ
+ * khung: `kept` rỗng; Đăng xong: `kept` = ảnh của bài). Ảnh có sẵn của bài đang sửa không
+ * bao giờ ở `session` nên không bị đụng.
+ */
+export function orphanUploads(session: Iterable<string>, kept: readonly string[]): string[] {
+  const keep = new Set(kept);
+  return [...new Set(session)].filter((p) => !keep.has(p));
+}
+
+// ── Chặn người: gỡ ngay trên màn (AC15) ───────────────────────────────────
+
+/**
+ * Bỏ khỏi danh sách đang hiện MỌI dấu vết của người mình vừa chặn: bài của họ, bình luận nổi
+ * của họ dưới bài người khác, thẻ bài gốc của họ trong bài đăng lại (⇒ "không còn", như máy chủ
+ * trả ở lần tải sau). Không chặn ai ⇒ trả nguyên danh sách.
+ */
+export function hideBlocked(list: readonly KairosPost[], blocked: ReadonlySet<string>): KairosPost[] {
+  if (!blocked.size) return list as KairosPost[];
+  const by = (a: KairosAuthor | null | undefined) => !!a && blocked.has(a.profileId);
+  return list
+    .filter((p) => !by(p.author))
+    .map((p) => {
+      const tops = p.topComments.filter((c) => !by(c.author));
+      const gone = !!p.reshareOf && by(p.reshareOf.author);
+      if (tops.length === p.topComments.length && !gone) return p;
+      return { ...p, topComments: tops, ...(gone ? { reshareOf: null, reshareGone: true } : {}) };
+    });
+}
+
 // ── Bình luận ───────────────────────────────────────────────────────────
 
 export interface Thread {

@@ -44,6 +44,7 @@ export const LIMITS = {
 
 /** Mã lỗi route trả về (`{ error: code }`) — khung soạn đổi mã thành câu (14 §10). */
 export type KairosErrorCode =
+  | "bad_body"
   | "empty"
   | "too_long"
   | "too_many_images"

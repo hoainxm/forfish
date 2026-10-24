@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  areaTag,
   avatarLetter,
   avatarTone,
   countLabel,
@@ -118,6 +119,15 @@ describe("filterCached — mất sóng lọc bản lưu theo chip (14 §10)", ()
     expect(filterCached(list, "gan-toi", home).map((p) => p.id)).toEqual(["a"]);
     expect(filterCached(list, "cang-toi", NO_HOME)).toEqual([]);
     expect(filterCached(list, "moi", NO_HOME, "sa-huynh").map((p) => p.id)).toEqual(["a"]);
+  });
+});
+
+describe("areaTag — nhãn Cả nước (14 §4)", () => {
+  it("không rõ khu vực ⇒ Cả nước; có cảng ⇒ đã có nhãn Bến; có vùng/tỉnh ⇒ không nhãn", () => {
+    expect(areaTag(post({ regions: ["ca-nuoc"], provinces: [], ports: [] }))).toBe("caNuoc");
+    expect(areaTag(post({ regions: ["ca-nuoc"], ports: ["sa-huynh"] }))).toBeNull();
+    expect(areaTag(post({ regions: ["ca-nuoc"], ports: ["cang-la"] }))).toBe("caNuoc"); // cảng lạ không có nhãn Bến
+    expect(areaTag(post({ regions: ["mien-trung"], ports: [] }))).toBeNull();
   });
 });
 

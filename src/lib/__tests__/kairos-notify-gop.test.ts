@@ -97,4 +97,10 @@ describe("rateUsed — xoá bài rồi đăng lại không lách trần", () => 
     expect(rateUsed(5, [])).toBe(5); // nhật ký ghi hỏng ⇒ bảng vẫn chặn
     expect(RATE_AUDIT_ACTIONS.posts).toEqual(["post_create", "post_reshare"]);
   });
+  it("sửa bài: 30 lần/ngày, đếm bằng nhật ký post_edit (không bảng nào đếm được lần sửa)", () => {
+    expect(KAIROS_RATES.edits).toEqual({ limit: 30, windowMs: 24 * 60 * 60 * 1000 });
+    expect(RATE_AUDIT_ACTIONS.edits).toEqual(["post_edit"]);
+    expect(overLimit("edits", rateUsed(0, [29]))).toBe(false);
+    expect(overLimit("edits", rateUsed(0, [30]))).toBe(true);
+  });
 });

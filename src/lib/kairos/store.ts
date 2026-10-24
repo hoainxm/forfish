@@ -244,6 +244,13 @@ export interface KairosStore {
   /** ném KairosError('storage_failed') khi kho không xoá được — route KHÔNG xoá bài nửa vời */
   removeImages(paths: string[]): Promise<void>;
   mediaUrl(path: string): string;
+  /** đường kho nào trong `paths` đang được dùng: ảnh của một bài (kể cả bài ẩn) hoặc ảnh đại diện */
+  mediaInUse(paths: string[]): Promise<Set<string>>;
+  /**
+   * Ảnh đã tải (nhật ký `upload`) trong [sinceIso, beforeIso) CHƯA có dấu dọn (`media_discard` /
+   * `media_gc`) — ứng viên ảnh mồ côi, cũ trước, tối đa `limit`.
+   */
+  uploadsToCheck(sinceIso: string, beforeIso: string, limit: number): Promise<string[]>;
 }
 
 // ── Singleton sống qua HMR ──────────────────────────────────────────────

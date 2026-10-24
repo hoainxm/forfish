@@ -77,6 +77,7 @@ export const NHAN = {
   saoLuu: "Sao lưu",
   taiXuong: "Tải xuống",
   caiApp: "Cài app",
+  moApp: "Mở app",
   huongDan: "Hướng dẫn",
   chinhSach: "Chính sách",
   // dock 6 mục (lib/dock-nav.ts) — chỉ icon, tên đọc qua aria-label
@@ -113,6 +114,8 @@ export const NHAN = {
   boAnh: "Bỏ ảnh",
   bo: "Bỏ",
   trangToi: "Trang tôi",
+  // nhãn khu vực trên thẻ bài không rõ vùng (14 §4, feed-client.areaTag)
+  caNuoc: "Cả nước",
 } as const;
 
 /**

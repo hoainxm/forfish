@@ -171,7 +171,7 @@ Hai việc, cùng khuôn gọi `claude -p` bằng **gói Claude của anh Long**
 | Việc | Script | Nhịp | Làm gì |
 |---|---|---|---|
 | Thu tin | `scripts/kairos-thu.mjs` | 15 phút | RSS 27 nguồn ⇒ chặn trùng ⇒ tóm tắt lô 20 ⇒ `POST /api/kairos/nhap` |
-| Kiểm duyệt | `scripts/kairos-kiem.mjs` | 5 phút | hàng chờ ⇒ luật cứng chủ quyền + mô hình chấm ⇒ `POST /api/kairos/kiem` |
+| Kiểm duyệt | `scripts/kairos-kiem.mjs` | 5 phút | hàng chờ ⇒ luật cứng chủ quyền + mô hình chấm ⇒ `POST /api/kairos/kiem`; cuối lượt `DELETE /api/kairos/kiem?scope=media` dọn ảnh mồ côi >24 giờ (không cần Claude — log `[ảnh]`) |
 
 Hai script chỉ dùng thư viện có sẵn của Node (≥20) + file `.mjs` trong repo — **không cần `node_modules`** (bản trong `C:\Code\ForFish` là bản Windows, không chạy được trong WSL — không sao). Chạy thẳng từ `~/ForFish` (symlink tới checkout Windows — đừng clone thêm).
 
