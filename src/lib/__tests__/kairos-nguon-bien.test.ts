@@ -2,7 +2,10 @@
 import { describe, expect, it } from "vitest";
 import { laChuyenBien, topicFor } from "@/lib/kairos/chu-de.mjs";
 import { cungSuKien, vanTay } from "@/lib/kairos/cung-su-kien.mjs";
-import { docBaoDuocPhep, docNguon, locBaiMoi, parseFeed, soRong, trongDanhSach, tuGoogleNews } from "@/lib/kairos/thu-core.mjs";
+import {
+  docBaoDuocPhep, docGarturl, docNguon, docOg, ghiSo, idTuLinkGN, khoaTrangGN, locBaiMoi, parseFeed, soRong, thanGarturl, trongDanhSach,
+  tuGoogleNews,
+} from "@/lib/kairos/thu-core.mjs";
 
 const NOW = Date.parse("2026-10-24T08:00:00Z");
 const PHEP = docBaoDuocPhep({ baoDuocPhep: ["thanhnien.vn", "vov.vn", "BAD DOMAIN", 3] });
@@ -83,5 +86,36 @@ describe("cùng sự kiện — bài chỉ có tiêu đề (Google News)", () =>
   });
   it("hai bản tin bão Champi khác giờ (mạnh lên / suy yếu) ⇒ KHÔNG gộp", () => {
     expect(cungSuKien(td("Bão Champi mạnh lên dữ dội khi tiến gần đất liền"), td("Bão Champi suy yếu, Biển Đông vẫn có sóng cao đến 6m"))).toBe(false);
+  });
+});
+
+describe("lần ra bài gốc của tin Google News (ảnh + mô tả)", () => {
+  it("idTuLinkGN: lấy id từ link rss/articles; link khác ⇒ null", () => {
+    expect(idTuLinkGN("https://news.google.com/rss/articles/CBMiwgFBVV95cUxPU0ZsOG9qMTU4?oc=5")).toBe("CBMiwgFBVV95cUxPU0ZsOG9qMTU4");
+    expect(idTuLinkGN("https://vnexpress.net/a.html")).toBeNull();
+    expect(idTuLinkGN("rác")).toBeNull();
+  });
+  it("khoaTrangGN đọc data-n-a-ts / data-n-a-sg; thiếu ⇒ null", () => {
+    expect(khoaTrangGN('<c-wiz data-n-a-id="x" data-n-a-ts="1792811460" data-n-a-sg="AbIaSL-48gjDRH9gQ6b3I2">')).toEqual({ ts: 1792811460, sg: "AbIaSL-48gjDRH9gQ6b3I2" });
+    expect(khoaTrangGN("<html></html>")).toBeNull();
+  });
+  it("thanGarturl mang id/ts/sg; docGarturl lấy URL bài gốc, bỏ link google", () => {
+    const body = decodeURIComponent(thanGarturl("ID123", 42, "SG456").slice("f.req=".length));
+    expect(body).toContain("garturlreq");
+    expect(body).toContain("ID123");
+    expect(body).toContain("SG456");
+    expect(docGarturl('[["wrb.fr","Fbv4je","[\\"garturlres\\",\\"https://congan.com.vn/bai_1.html\\",1]"]]')).toBe("https://congan.com.vn/bai_1.html");
+    expect(docGarturl('[["wrb.fr","Fbv4je","[\\"garturlres\\",\\"https://news.google.com/x\\",1]"]]')).toBeNull();
+    expect(docGarturl("rỗng")).toBeNull();
+  });
+  it("docOg: og:image https (tương đối ⇒ tuyệt đối), og:description đã giải thực thể; http ⇒ bỏ ảnh", () => {
+    const html = `<head><meta property="og:image" content="/anh/a.jpg"><meta property="og:description" content="Bốn ngư d&#226;n được cứu"></head>`;
+    expect(docOg(html, "https://congan.com.vn/bai.html")).toEqual({ image: "https://congan.com.vn/anh/a.jpg", description: "Bốn ngư dân được cứu" });
+    expect(docOg(`<meta content="http://x.vn/a.jpg" property="og:image"><meta name="description" content="Mô tả">`, "http://x.vn/")).toEqual({ image: null, description: "Mô tả" });
+    expect(docOg("", "https://a.vn")).toEqual({ image: null, description: null });
+  });
+  it("ghiSo ghi cả link Google News khi đã lần ra bài gốc (lượt sau không lần lại)", () => {
+    const so = ghiSo(soRong(), [{ url: "https://congan.com.vn/bai_1.html", title: "Bốn ngư dân được cứu sau vụ chìm tàu", linkGN: "https://news.google.com/rss/articles/CBMiwgFBVV95cUxPU0ZsOG9qMTU4" }], NOW);
+    expect(Object.keys(so.links)).toHaveLength(2);
   });
 });

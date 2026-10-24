@@ -23,8 +23,8 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
-  chuanSo, chiaLo, chonBai, docBaoDuocPhep, docNguon, docTomTat, ghiSo, gopHangDoi, GOI_NHAP_TOI_DA, locBaiMoi, mucGui, nguonGui,
-  parseFeed, promptTomTat,
+  chuanSo, chiaLo, chonBai, docBaoDuocPhep, docGarturl, docNguon, docOg, docTomTat, ghiSo, gopHangDoi, GN_BATCH_URL, GOI_NHAP_TOI_DA,
+  idTuLinkGN, khoaTrangGN, locBaiMoi, mucGui, nguonGui, parseFeed, promptTomTat, thanGarturl,
 } from "../src/lib/kairos/thu-core.mjs";
 import { tagArea } from "../src/lib/kairos/khu-vuc.mjs";
 import { topicFor } from "../src/lib/kairos/chu-de.mjs";
@@ -71,6 +71,38 @@ async function taiHet(nguon) {
   return out;
 }
 
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
+/** fetch có đồng hồ — không bao giờ ném (null khi hỏng). */
+async function layChu(url, init = {}, ms = 8_000) {
+  try {
+    const r = await fetch(url, { ...init, headers: { "user-agent": UA, ...(init.headers ?? {}) }, redirect: "follow", signal: AbortSignal.timeout(ms) });
+    return r.ok ? await r.text() : null;
+  } catch {
+    return null;
+  }
+}
+/** Link Google News ⇒ { url bài gốc, ảnh, mô tả } (thu-core: idTuLinkGN · khoaTrangGN · thanGarturl · docGarturl · docOg). */
+async function baiGoc(linkGN) {
+  const id = idTuLinkGN(linkGN);
+  if (!id) return null;
+  const trang = await layChu(`https://news.google.com/rss/articles/${id}?hl=vi&gl=VN&ceid=VN:vi`);
+  const k = trang && khoaTrangGN(trang);
+  if (!k) return null;
+  const tl = await layChu(GN_BATCH_URL, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: thanGarturl(id, k.ts, k.sg) });
+  const url = tl && docGarturl(tl);
+  if (!url) return null;
+  const html = await layChu(url, {}, 10_000);
+  const og = html ? docOg(html, url) : { image: null, description: null };
+  return { url, image: og.image, description: og.description };
+}
+/** Chạy `viec` trên từng phần tử, tối đa `n` việc cùng lúc. */
+async function chayLo(xs, n, viec) {
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, xs.length) }, async () => {
+    while (i < xs.length) await viec(xs[i++]);
+  }));
+}
+
 async function main() {
   const c = cauHinh();
   if (!dry) {
@@ -108,6 +140,23 @@ async function main() {
   const { chon, quaCu: cuQua, conLai } = chonBai(khongTrung, now);
   const quaCu = [...cuQua, ...trung];
   log(`[chọn] ${chon.length} bài (${chon.filter((b) => b.chuQuyen).length} trúng cờ chủ quyền), bỏ ${quaCu.length} bài quá 48 giờ, để lượt sau ${conLai}`);
+
+  // 2b. Tin Google News chỉ có tiêu đề ⇒ lần ra BÀI GỐC (ảnh + đoạn mở đầu) để tóm tắt được (anh Long: "sao ko có tóm
+  //     tắt có ảnh?"). Hỏng bước nào ⇒ bài giữ như cũ (chỉ tiêu đề), không chặn cả lượt.
+  if (!dry || process.argv.includes("--goc")) {
+    const gn = chon.filter((b) => idTuLinkGN(b.url) && !b.description);
+    let duoc = 0;
+    await chayLo(gn, 6, async (b) => {
+      const g = await baiGoc(b.url);
+      if (!g) return;
+      b.linkGN = b.url;
+      b.url = g.url;
+      if (g.description) b.description = [...g.description].slice(0, 1500).join("");
+      if (g.image && !b.coverUrl) b.coverUrl = g.image;
+      duoc++;
+    });
+    if (gn.length) log(`[bài gốc] Google News ${duoc}/${gn.length} bài lần ra bài gốc (ảnh + mô tả)`);
+  }
 
   // 3. Tóm tắt — bài trúng cờ KHÔNG đưa vào prompt
   // bài chỉ có TIÊU ĐỀ (Google News) KHÔNG đưa Claude tóm tắt — tóm tắt từ một dòng tiêu đề là mời mô hình bịa

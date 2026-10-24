@@ -4,6 +4,7 @@
 
 covers: scripts/train/run.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24e — kairos-thu: bước 2b lần ra bài gốc tin Google News (log "[bài gốc] Google News N/M"); thử: node scripts/kairos-thu.mjs --thu --goc. -->
 <!-- re-verified: 2026-10-24d — thêm timer kairos-agent (10 phút, scripts/kairos-agent.mjs — 2000 agent tri thức); kairos-kiem gửi gói 25, đồng hồ 60 s. -->
 <!-- re-verified: 2026-10-24c — thêm timer kairos-sen-bien (1 bài/ngày 7h–19h, scripts/kairos-sen-bien.mjs); lam-moi.sh xuất ':(glob)scripts/kairos-*' (script mới tự có, file chưa có trên main không làm hỏng lần làm mới). -->
 <!-- re-verified: 2026-10-24b — kairos-thu.mjs đọc baoDuocPhep + nguồn kieu google-news/chiTinBien (thu-core.tuGoogleNews, chu-de.laChuyenBien); bài chỉ có tiêu đề không tóm tắt bằng Claude. Sự cố: nguồn Google News trả 0 bài mới liên tục ⇒ kiểm baoDuocPhep (báo đổi tên miền) hoặc Google đổi định dạng <source>. -->

@@ -14,6 +14,7 @@
 
 <!-- re-verified: 2026-10-24h — 2000 AGENT TRI THỨC ĐÃ CHẠY (spec 16 §6b): route POST /api/kairos/agent (khoá ingest, trần cả đội + từng agent), máy GPU kairos-agent 10 phút/lượt, chấm "AI" ở thẻ bài/bình luận/trang hồ sơ (SĐT sentinel `agent:`). Agent kiểm duyệt gửi gói 25 quyết định (hết het_gio). -->
 <!-- re-verified: 2026-10-24i — XÁO MỖI LẦN LÀM MỚI + MỖI NGƯỜI MỘT THỨ TỰ (anh Long: "mỗi lần vuốt xuống refresh thì thứ tự tin random để đỡ nhàm", "mỗi người đọc tin cũng sẽ có cái random hiện tin để ko ai đọc thứ tự giống ai"): app sinh hạt ngẫu nhiên MỖI lần tải trang đầu (vuốt làm mới, Có N bài mới, có sóng lại) gửi `hat`; máy chủ cộng nhiễu cố định theo (hạt, bài) trong [0, 0.45) — bài cùng tầm điểm đổi chỗ, bài mới hẳn/hợp gu vẫn trên, đan xen + 85 % tin biển áp sau nhiễu; hạt đi trong con trỏ `pp.` ⇒ trang sau không lặp. Hạt riêng từng máy ⇒ hai người không cùng thứ tự. Vuốt xuống ở đầu dòng tin ≥ 4.5rem rồi thả ⇒ làm mới (tắt kéo-tải-lại-cả-trang của trình duyệt trên màn này). -->
+<!-- re-verified: 2026-10-24j — TIN GOOGLE NEWS CÓ ẢNH + TÓM TẮT (anh Long: "sao ko có tóm tắt có ảnh?"): máy thu lần ra BÀI GỐC (trang Google News ⇒ khoá data-n-a-ts/sg ⇒ batchexecute garturlreq ⇒ URL bài gốc ⇒ og:image + og:description), url bài = bài gốc (Đọc bài gốc mở thẳng báo), rồi tóm tắt bằng Claude như RSS thường. Hỏng bước nào ⇒ giữ tiêu đề. Thử thật: 32/32 bài lần ra. Bài Google News đã lên TRƯỚC bản này giữ dạng chỉ tiêu đề (sổ đã thấy). -->
 Chốt 2026-10-23. Kairos (καιρός) = đúng thời điểm.
 
 ## 1. Mục tiêu

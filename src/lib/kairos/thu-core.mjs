@@ -282,6 +282,87 @@ export function tuGoogleNews(it, phep) {
   return { ...it, title, description: "", outlet: [...it.sourceName].slice(0, 60).join("") };
 }
 
+// ───────── Lần ra BÀI GỐC của tin Google News (2026-10-24, anh Long: "sao ko có tóm tắt có ảnh?") ─────────
+// Feed Google News chỉ có tiêu đề + link chuyển tiếp news.google.com/rss/articles/<id>. Máy thu (GPU) lần ra bài gốc:
+// tải trang Google News lấy hai khoá data-n-a-ts / data-n-a-sg ⇒ POST batchexecute (garturlreq) ⇒ URL bài gốc ⇒ tải bài
+// lấy og:image + og:description ⇒ tóm tắt như bài RSS thường. Phần THUẦN ở đây; gọi mạng ở scripts/kairos-thu.mjs.
+
+export const GN_BATCH_URL = "https://news.google.com/_/DotsSplashUi/data/batchexecute";
+
+/** id bài từ link Google News (`/rss/articles/<id>` hoặc `/articles/<id>`); không phải ⇒ null. */
+export function idTuLinkGN(link) {
+  try {
+    const u = new URL(link);
+    if (u.hostname !== "news.google.com") return null;
+    const m = /\/articles\/([A-Za-z0-9_-]{20,})/.exec(u.pathname);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Hai khoá ký trên trang bài Google News; thiếu ⇒ null. */
+export function khoaTrangGN(html) {
+  const ts = /data-n-a-ts="(\d{6,})"/.exec(String(html ?? ""))?.[1];
+  const sg = /data-n-a-sg="([A-Za-z0-9_-]{10,})"/.exec(String(html ?? ""))?.[1];
+  return ts && sg ? { ts: Number(ts), sg } : null;
+}
+
+/** Thân form POST batchexecute để đổi id ⇒ URL bài gốc. */
+export function thanGarturl(id, ts, sg) {
+  const inner = JSON.stringify([
+    "garturlreq",
+    [["X", "X", ["X", "X"], null, null, 1, 1, "US:en", null, 1, null, null, null, null, null, 0, 1], "X", "X", 1, [1, 1, 1], 1, 1, null, 0, 0, null, 0],
+    id,
+    ts,
+    sg,
+  ]);
+  return `f.req=${encodeURIComponent(JSON.stringify([[["Fbv4je", inner, null, "generic"]]]))}`;
+}
+
+/** URL bài gốc trong phản hồi batchexecute (chỉ http/https, không phải news.google.com); không có ⇒ null. */
+export function docGarturl(txt) {
+  const m = /garturlres\\",\\"(https?:\/\/[^\\"]+)/.exec(String(txt ?? ""));
+  if (!m) return null;
+  try {
+    const u = new URL(m[1]);
+    return u.hostname.endsWith("google.com") ? null : u.toString();
+  } catch {
+    return null;
+  }
+}
+
+const metaNoiDung = (html, ten) => {
+  const re = new RegExp(`<meta[^>]+(?:property|name)=["']${ten}["'][^>]*>`, "i");
+  const the = re.exec(html)?.[0];
+  if (!the) return null;
+  return /content=["']([^"']*)["']/i.exec(the)?.[1] ?? null;
+};
+
+/**
+ * Ảnh + mô tả của bài gốc: og:image (chỉ https, đường tương đối ⇒ tuyệt đối theo `base`) và og:description ⇒
+ * description ⇒ twitter:description. Đã giải thực thể HTML, bỏ thẻ. Thiếu ⇒ null.
+ * @param {string} html
+ * @param {string} base
+ * @returns {{ image: string | null, description: string | null }}
+ */
+export function docOg(html, base) {
+  const s = String(html ?? "").slice(0, 300_000);
+  let image = null;
+  const rawImg = metaNoiDung(s, "og:image") ?? metaNoiDung(s, "twitter:image");
+  if (rawImg) {
+    try {
+      const u = new URL(decodeEntities(rawImg).trim(), base);
+      if (u.protocol === "https:") image = u.toString();
+    } catch {
+      image = null;
+    }
+  }
+  const rawDesc = metaNoiDung(s, "og:description") ?? metaNoiDung(s, "description") ?? metaNoiDung(s, "twitter:description");
+  const description = rawDesc ? stripHtml(decodeEntities(rawDesc)).replace(/^\s*​?\s*/, "").trim() || null : null;
+  return { image, description };
+}
+
 // ───────── Sổ trạng thái (chặn trùng cục bộ) ─────────
 
 /**
@@ -319,7 +400,8 @@ export function chuanSo(raw, now) {
 /**
  * @typedef {{ sourceId: string, outlet: string, url: string, title: string, description: string,
  *   summary: string | null, summaryBy: "ai" | "rss", coverUrl: string | null, section: string,
- *   publishedAt: string | null, chuQuyen: string | null }} BaiMoi
+ *   publishedAt: string | null, chuQuyen: string | null, linkGN?: string }} BaiMoi
+ *   linkGN: link Google News gốc khi đã lần ra bài gốc (url = bài gốc) — ghiSo ghi cả hai
  */
 
 /**
@@ -375,7 +457,7 @@ export function locBaiMoi(nguon, items, so, now, daChonLuotNay = new Set(), baoD
 /**
  * Ghi bài vào sổ (sau khi đã gửi hoặc đã xếp hàng gửi lại). Trả sổ MỚI.
  * @param {SoThay} so
- * @param {{ url: string, title: string }[]} bai
+ * @param {{ url: string, title: string, linkGN?: string }[]} bai
  * @param {number} now
  * @returns {SoThay}
  */
@@ -385,6 +467,9 @@ export function ghiSo(so, bai, now) {
   for (const b of bai) {
     const h = urlHash(b.url);
     if (h) next.links[h] = now;
+    // tin Google News đã lần ra bài gốc: ghi cả link Google News để lượt sau không lần lại
+    const hg = b.linkGN ? urlHash(b.linkGN) : null;
+    if (hg) next.links[hg] = now;
     const tn = titleNorm(b.title);
     if (tn && !next.titles.some((t) => t.titleNorm === tn)) next.titles.push({ titleNorm: tn, firstSeenAt: iso });
   }
