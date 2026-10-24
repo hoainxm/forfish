@@ -9,6 +9,7 @@ import { useTodayVN } from "@/lib/use-today";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 import { readToken } from "@/lib/device-token-store";
 import { useOnline } from "@/lib/use-online";
+import { USER_SYNC_EVENT } from "@/lib/user-sync";
 import {
   AlertIcon,
   ClockIcon,
@@ -71,6 +72,17 @@ export function UrgentStrip() {
     setItems(computeUrgent(today, buildBoatCtx()));
     setSignedIn(readToken() != null);
     setMounted(true);
+  }, [today]);
+
+  /*  ĐỒNG BỘ NHẬN BẢN MỚI ⇒ ĐỌC LẠI (2026-10-24, anh Long: giấy tờ / bạn thuyền
+      đã xoá vẫn hiện ở đây). Dải đọc kho máy NGAY khi mở app, trước khi
+      `syncAll` kịp kéo bản server về — xoá ở máy khác thì máy này vẫn bày mục
+      cũ suốt phiên vì không ai bảo dải đọc lại. Nay nghe `USER_SYNC_EVENT`
+      (bắn khi nhận bản server) như tủ giấy tờ / sổ thuyền viên. */
+  useEffect(() => {
+    const onSync = () => setItems(computeUrgent(today, buildBoatCtx()));
+    window.addEventListener(USER_SYNC_EVENT, onSync);
+    return () => window.removeEventListener(USER_SYNC_EVENT, onSync);
   }, [today]);
 
   const sdvicoItems = useMemo(

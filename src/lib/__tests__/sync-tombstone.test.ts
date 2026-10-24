@@ -1,12 +1,14 @@
 import { describe, it, expect } from "vitest";
 
 import {
+  dropDeleted,
   keepDeleted,
   stripDeleted,
   isDeleted,
   DELETED_FLAG,
   DELETED_AT,
 } from "../sync-tombstone";
+import { decidePut } from "../user-sync-core";
 
 const NOW = "2026-09-01T10:00:00.000Z";
 
@@ -106,16 +108,30 @@ describe("stripDeleted — máy bà con KHÔNG BAO GIỜ nhận lại thứ đã
     expect(stripDeleted(server2)).toEqual([{ id: "a", item: "sửa" }]);
   });
 
-  it("MÁY CŨ chưa biết tin xoá mà đẩy sau ⇒ bản ghi sống lại (hệ quả của LWW cả cuốn sổ)", () => {
-    /*  Ghi thành test để đây là QUYẾT ĐỊNH chứ không phải tai nạn: sổ đồng bộ
-        theo luật "bên ghi sau thắng, tính cả cuốn" (user-sync.ts dòng đầu).
-        Máy B chưa kéo tin xoá của máy A mà lại sửa sau ⇒ cả cuốn của B thắng,
-        việc đã xoá quay lại. KHÔNG phải lỗ mới do cờ `_deleted` đẻ ra — muốn
-        hết hẳn thì phải merge TỪNG DÒNG, là món nợ đã ghi sẵn ở user-sync. */
-    const server = [{ id: "b", [DELETED_FLAG]: true, [DELETED_AT]: NOW }];
-    const mayB = [{ id: "b", item: "máy B vẫn còn" }];
-    expect(isDeleted((keepDeleted(server, mayB, NOW) as Record<string, unknown>[])[0])).toBe(
-      false,
-    );
+  it("MÁY CŨ chưa biết tin xoá mà đẩy sau ⇒ KHÔNG sống lại (dấu xoá thắng, 2026-10-24)", () => {
+    /*  Trước đây test này CHỐT điều ngược lại ("hệ quả của LWW cả cuốn sổ",
+        chủ dự án bỏ qua ca hai máy 2026-09-01). Anh Long 2026-10-24 gặp đúng
+        nó: giấy tờ + bạn thuyền đã xoá, mở lại app lại hiện. Nay nhánh "ghi
+        sau thắng cả cuốn" của `decidePut` lọc qua `dropDeleted` — cùng luật
+        nhánh gộp theo mục. `keepDeleted` một mình vẫn cho id quay lại thắng
+        (ca dưới), nhưng đường thật đi qua `decidePut` không tới được đó. */
+    const server = [{ id: "a" }, { id: "b", [DELETED_FLAG]: true, [DELETED_AT]: NOW }];
+    const mayB = [{ id: "a" }, { id: "b", item: "máy B vẫn còn" }];
+    expect(dropDeleted(server, mayB)).toEqual([{ id: "a" }]);
+    const d = decidePut({ data: server, clientUpdatedAt: 1 }, { kind: "crew", data: mayB, clientUpdatedAt: 2 }, NOW);
+    expect(d.action).toBe("write");
+    if (d.action !== "write") return;
+    expect(stripDeleted(d.write.data)).toEqual([{ id: "a" }]);
+    expect(isDeleted((d.write.data as { id: string }[]).find((x) => x.id === "b"))).toBe(true);
+    // trả cuốn đã lọc để máy B bỏ theo
+    expect(d.reply.server?.data).toEqual([{ id: "a" }]);
+  });
+
+  it("không có gì đã xoá ⇒ dropDeleted trả NGUYÊN cuốn (không đổi tham chiếu, không trả server)", () => {
+    const moi = [{ id: "a" }];
+    expect(dropDeleted([{ id: "a" }], moi)).toBe(moi);
+    const d = decidePut({ data: [{ id: "a" }], clientUpdatedAt: 1 }, { kind: "crew", data: moi, clientUpdatedAt: 2 }, NOW);
+    expect(d.reply.server).toBeUndefined();
+    expect(dropDeleted({ x: 1 }, moi)).toBe(moi);
   });
 });

@@ -18,6 +18,21 @@ User: *"mỗi tài khoản lưu trữ và quản lý hồ sơ tàu của họ, �
 
 Nợ còn lại: hai máy sửa CÙNG MỘT mục lúc mất sóng ⇒ bên ghi sau thắng nguyên mục (chưa gộp từng trường). Ảnh giấy tờ vẫn cần sóng để thêm/xem.
 
+## Dấu xoá phải THẮNG ở mọi nhánh — vá 2026-10-24 ("xoá rồi mở lại vẫn hiện")
+
+Anh Long gửi ảnh dải "Việc cần làm": *Đăng kiểm tàu cá · Giấy phép khai thác thủy sản* (Giấy tờ), *Nguyễn Văn Hai · Lê Thành Tâm* (Bạn thuyền) — đã xoá trên máy, mở lại app lại hiện. Không phải seed (code không còn seed nào; tên trùng sổ mẫu đời trước 2026-07-29 — bản ghi còn nằm trong máy/server từ hồi đó). Dò bằng test mô phỏng trọn vòng nhiều máy + server (`sync-xoa-khong-hien-lai.test.ts`), ra bốn đường:
+
+| # | Đường sống lại | Vá |
+|---|---|---|
+| 1 | Nhánh "ghi sau thắng cả cuốn" của `decidePut` (máy chạy bản app cũ không gửi `baseIds`, hoặc cuốn có mục không mang `id` chuỗi) lấy NGUYÊN cuốn máy đẩy ⇒ máy chưa kéo tin xoá mà sửa gì đó là mục đã gắn `_deleted` sống lại trên server, mọi máy kéo về thấy lại. Test cũ trong `sync-tombstone.test.ts` còn CHỐT hành vi này là "quyết định" | `dropDeleted` (lib/sync-tombstone): bỏ khỏi cuốn máy gửi mọi id server đã gắn `_deleted`, trả cuốn đã lọc để máy đó bỏ theo. Nay cả hai nhánh cùng một luật: **đã xoá thì không sống lại**. Đánh đổi: máy cũ sửa một mục mà máy khác đã xoá thì phần sửa đó bỏ — chấp nhận, đúng ý "đã xoá thì xoá" |
+| 2 | Xoá tàu (`purgeBoatData`) ghi thẳng localStorage, KHÔNG `markLocalWrite` ⇒ giấy tờ/bảo dưỡng của tàu đó còn nguyên trên server, đăng nhập máy khác là thấy lại | cascade gọi `markLocalWrite` cho sổ đồng bộ (documents, maintenance, materials) khi ghi được |
+| 3 | `pushKind` nhánh trả `{ok}` trần XOÁ cờ "chưa đẩy" kể cả khi máy đã ghi thêm trong lúc chờ ⇒ lượt đẩy sau (một lần xoá) rớt sóng thì máy tưởng xong, không bao giờ đẩy lại | chỉ xoá cờ khi mốc không đổi; trả lời đọc không ra cũng giữ cờ |
+| 4 | Cùng ca trên: lượt trước đã lên server nhưng máy bỏ qua câu trả lời ⇒ BASE không học các id vừa gửi ⇒ lượt sau máy đã xoá một mục, server thấy "không có ở base" ⇒ tưởng máy khác thêm ⇒ giữ | lượt đẩy được server nhận (không `stale`) thì base HỢP thêm id vừa gửi, dù không nhận cuốn trả về. Chỉ hợp thêm, không bớt — an toàn: id có ở base mà server không còn thì đúng là đã xoá ở đâu đó |
+
+Kèm: dải "Việc cần làm" (`urgent-strip`) nay nghe `USER_SYNC_EVENT` như tủ giấy tờ/sổ thuyền viên — trước chỉ đọc kho lúc mở app, TRƯỚC khi `syncAll` kịp kéo bản server, nên xoá ở máy khác thì máy này vẫn bày mục cũ suốt phiên.
+
+**Còn để nguyên (quyết định 2026-10-06, không đổi):** máy mang sổ mốc đời trước 2026-10-06 (chưa có `ids`) mà đã có sửa chưa đẩy ⇒ lần đẩy đầu gộp kiểu HỢP, một mục xoá lúc đó có thể hiện lại MỘT lần (xoá lại là hết, base đã có). Thà hiện lại một lần còn hơn mất đồ không lấy lại được.
+
 ## Hai lỗ làm việc ĐÃ XOÁ sống lại — vá 2026-09-01
 
 Chủ dự án báo: *"t xoá việc đó rồi thì có lý do gì nó hiện lại ko? bug?"*. Có, và là lỗi của chính lớp đồng bộ này chứ không phải seed.

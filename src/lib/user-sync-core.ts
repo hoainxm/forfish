@@ -1,6 +1,6 @@
 // ĐỒNG BỘ SỔ per-máy — phần THUẦN dùng chung route (server) + client.
 // (không import gì phía trình duyệt/Node để cả hai bên dùng được, có test.)
-import { keepDeleted, stripDeleted } from "./sync-tombstone";
+import { dropDeleted, keepDeleted, stripDeleted } from "./sync-tombstone";
 
 /** Các "sổ" được đồng bộ. P1 đấu boats/maintenance/materials; crew/documents ở P2/P3.
  *  PHẢI khớp check `kind in (...)` của migration 0050_user_docs.sql. */
@@ -115,11 +115,17 @@ export function decidePut(
     };
   }
   /*  GIỮ BẢN ĐÃ XOÁ Ở SERVER (chủ dự án 2026-09-01): bản ghi biến mất so với
-      lần đẩy trước thì Ở LẠI trong cuốn với cờ `_deleted` — GET lọc bỏ. */
+      lần đẩy trước thì Ở LẠI trong cuốn với cờ `_deleted` — GET lọc bỏ.
+      DẤU XOÁ THẮNG (2026-10-24): máy chưa biết tin xoá mà đẩy cả cuốn còn mục
+      đó thì KHÔNG cho nó sống lại; trả cuốn đã lọc để máy đó bỏ theo. */
+  const sach = dropDeleted(cur?.data, data);
+  const boBot = sach !== data;
   return {
     action: "write",
-    write: { data: keepDeleted(cur?.data, data, nowIso), clientUpdatedAt },
-    reply: { ok: true },
+    write: { data: keepDeleted(cur?.data, sach, nowIso), clientUpdatedAt },
+    reply: boBot
+      ? { ok: true, server: { kind, data: sach, clientUpdatedAt } }
+      : { ok: true },
   };
 }
 

@@ -265,16 +265,29 @@ async function pushKind(kind: SyncKind): Promise<void> {
     merged?: boolean;
     server?: { data: unknown; clientUpdatedAt: number };
   } | null;
-  if (j?.server) {
-    /*  Server trả cuốn ĐÃ GỘP (hoặc bản mới hơn — server đời cũ). Chỉ nhận về
-        khi máy KHÔNG ghi thêm gì trong lúc chờ: có ghi thêm thì lượt đẩy của
-        lần ghi đó đang đi, server sẽ gộp tiếp — nhận bây giờ là đè mất nó. */
-    if (metaOf(kind).at === at) {
-      adoptServer(kind, j.server.data, j.server.clientUpdatedAt);
+  const ghiThem = metaOf(kind).at !== at;
+  if (ghiThem) {
+    /*  Máy ghi thêm trong lúc chờ ⇒ KHÔNG nhận cuốn trả về (lượt đẩy của lần
+        ghi đó đang đi, nhận bây giờ là đè mất nó) và GIỮ cờ "chưa đẩy" (bản
+        trước xoá cờ ở nhánh không-có-`server`: lượt đẩy sau rớt sóng thì máy
+        tưởng đã xong, không bao giờ đẩy lại ⇒ server còn mục đã xoá).
+
+        Nhưng BASE vẫn phải học (2026-10-24): server đã NHẬN các mục vừa gửi
+        (trừ khi trả `stale` = không ghi). Không học thì lượt sau, máy đã xoá
+        một mục trong số đó, server thấy mục "không có ở base" ⇒ tưởng máy khác
+        thêm ⇒ giữ ⇒ mục đã xoá sống lại. Chỉ HỢP thêm, không bớt: id nằm trong
+        base mà server không còn thì đúng là đã bị xoá ở đâu đó. */
+    const daGui = j && !j.stale ? liveIds(data) : null;
+    if (daGui) {
+      const ids = new Set([...(metaOf(kind).ids ?? []), ...daGui]);
+      setMeta(kind, { ids: [...ids] });
     }
-  } else {
+  } else if (j?.server) {
+    // Server trả cuốn ĐÃ GỘP (hoặc bản mới hơn — server đời cũ) ⇒ nhận về.
+    adoptServer(kind, j.server.data, j.server.clientUpdatedAt);
+  } else if (j) {
     setMeta(kind, { dirty: false, ids: liveIds(data) ?? undefined });
-  }
+  } // trả lời đọc không ra ⇒ giữ "chưa đẩy", lần sau gửi lại
 }
 
 /** Gọi SAU khi ghi 1 sổ thành công (saveUserJson trả true). Đánh dấu + đẩy. */

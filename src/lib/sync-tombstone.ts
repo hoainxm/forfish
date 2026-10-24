@@ -77,3 +77,24 @@ export function stripDeleted(data: unknown): unknown {
   if (!Array.isArray(data)) return data;
   return data.filter((x) => !isDeleted(x));
 }
+
+/**
+ * DẤU XOÁ THẮNG (anh Long 2026-10-24: *"đã xoá trên máy, mở lại app vẫn hiện"*).
+ *
+ * Bỏ khỏi cuốn MÁY VỪA ĐẨY mọi mục mà server đã gắn `_deleted`. Dùng ở nhánh
+ * "ghi sau thắng cả cuốn" của `decidePut` (máy chạy bản app cũ không gửi
+ * `baseIds`, hoặc cuốn có mục không mang `id` chuỗi nên không gộp theo mục
+ * được). Trước đây nhánh đó lấy nguyên cuốn của máy ⇒ một máy còn bản cũ,
+ * chưa kéo tin xoá mà sửa gì đó rồi đẩy là cả giấy tờ / bạn thuyền đã xoá
+ * SỐNG LẠI trên server, rồi mọi máy kéo về thấy lại. Nhánh gộp theo mục
+ * (`mergeById`) vốn đã coi `_deleted` là xoá — nay hai nhánh cùng một luật.
+ *
+ * Tạo lại đúng id cũ không xảy ra ngoài đời: id sinh theo `Date.now()`.
+ * Không phải mảng mục có `id` ⇒ trả nguyên, không đoán.
+ */
+export function dropDeleted(cu: unknown, moi: unknown): unknown {
+  if (!isItemArray(cu) || !isItemArray(moi)) return moi;
+  const chet = new Set(cu.filter(isDeleted).map((x) => String(x.id)));
+  if (chet.size === 0) return moi;
+  return moi.filter((x) => !chet.has(String(x.id)));
+}
