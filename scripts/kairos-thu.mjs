@@ -28,6 +28,7 @@ import {
 } from "../src/lib/kairos/thu-core.mjs";
 import { tagArea } from "../src/lib/kairos/khu-vuc.mjs";
 import { topicFor } from "../src/lib/kairos/chu-de.mjs";
+import { ghiGanDay, locCungSuKien } from "../src/lib/kairos/cung-su-kien.mjs";
 import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiClaude, log } from "./kairos-chung.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -97,8 +98,13 @@ async function main() {
     moi.push(...b);
   });
 
-  // 2. Chọn bài lượt này
-  const { chon, quaCu, conLai } = chonBai(moi, now);
+  // 2. Bỏ bài CÙNG SỰ KIỆN với bài đã gửi 48 giờ qua hoặc bài báo khác trong lượt (cung-su-kien.mjs —
+  //    "đang bị trùng tin"), rồi chọn bài lượt này. Bài bị bỏ vẫn ghi sổ link cho khỏi xét lại.
+  const ganDayFile = path.join(c.stateDir, "gan-day.json");
+  const { giu: khongTrung, trung } = locCungSuKien(moi, docJson(ganDayFile, []), now);
+  if (trung.length) log(`[trùng sự kiện] bỏ ${trung.length} bài cùng vụ với báo khác`);
+  const { chon, quaCu: cuQua, conLai } = chonBai(khongTrung, now);
+  const quaCu = [...cuQua, ...trung];
   log(`[chọn] ${chon.length} bài (${chon.filter((b) => b.chuQuyen).length} trúng cờ chủ quyền), bỏ ${quaCu.length} bài quá 48 giờ, để lượt sau ${conLai}`);
 
   // 3. Tóm tắt — bài trúng cờ KHÔNG đưa vào prompt
@@ -141,6 +147,7 @@ async function main() {
   ghiJson(hangDoiFile, hangDoi);
   so = ghiSo(so, [...chon, ...quaCu], now);
   ghiJson(soFile, so);
+  ghiJson(ganDayFile, ghiGanDay(docJson(ganDayFile, []), chon, now));
 
   // 5. Gửi theo gói ≤50; gói đầu kèm trạng thái nguồn (máy chủ biết nguồn nào chết)
   const sources = nguon.map((n, k) => nguonGui(n, ket[k].loi));

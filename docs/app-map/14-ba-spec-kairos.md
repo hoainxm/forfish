@@ -3,6 +3,7 @@
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
 <!-- re-verified: 2026-10-24 — BỎ HÀNG CHIP LỌC (AC03) theo anh Long; `kairos-feed.tsx` cố định chip "moi", gỡ ChipRow + thẻ "Vào Bến" + hỏi cảng nhà ở dòng tin (HomePortSheet vẫn dùng ở khung soạn). Migration 0065 ĐÃ ÁP lên znzgugvfhgmiszqgjulk 2026-10-24 (anh Long dán SQL Editor; kiểm: 13 bảng 200 service-role, anon 401, bucket kairos-media, kairos_enabled=true, hồ sơ SDVICO). -->
+<!-- re-verified: 2026-10-24b — CHẶN TIN CÙNG SỰ KIỆN khác báo (anh Long: "đang bị trùng tin" — Thanh Niên + VnExpress cùng vụ đâm người trên tàu cá An Giang): `lib/kairos/cung-su-kien.mjs` (thuần, test `kairos-cung-su-kien.test.ts`) so tên riêng ≥2 tiếng + cặp từ của tiêu đề+mô tả; máy thu bỏ bài cùng vụ với bài đã gửi 48 giờ (sổ `gan-day.json`) hoặc bài báo khác cùng lượt, giữ bài thấy trước. Đo trên 240 bài thật: 19 bài trùng. -->
 Chốt 2026-10-23. Kairos (καιρός) = đúng thời điểm.
 
 ## 1. Mục tiêu
