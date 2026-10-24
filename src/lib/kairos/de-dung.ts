@@ -38,6 +38,31 @@ export function chuDeDoc(p: BaiDoc): string {
   return cat(ten ? `${ten} viết: ${body}` : body);
 }
 
+/** Một câu gửi máy nhà đọc tối đa chừng này ký tự (route /api/sen-bien/doc nhận ≤200). */
+export const CAU_TOI_DA = 180;
+
+/**
+ * Chia chữ đọc thành từng câu cho giọng Mỹ Duyên online (mỗi câu một mp3). Cắt ở . ! ? … xuống dòng; câu quá dài cắt ở
+ * dấu phẩy/chấm phẩy rồi khoảng trắng gần nhất trước trần. Không câu rỗng, giữ nguyên thứ tự và chữ.
+ */
+export function chiaCau(text: string, max = CAU_TOI_DA): string[] {
+  const out: string[] = [];
+  const tho = text.replace(/\s+/g, " ").trim().match(/[^.!?…]+[.!?…]+["”)]*\s*|[^.!?…]+$/g) ?? [];
+  for (let c of tho) {
+    c = c.trim();
+    while ([...c].length > max) {
+      const dau = [...c].slice(0, max).join("");
+      let cat = Math.max(dau.lastIndexOf(", "), dau.lastIndexOf("; "), dau.lastIndexOf(": "));
+      if (cat < max / 3) cat = dau.lastIndexOf(" ");
+      if (cat < max / 3) cat = dau.length - 1;
+      out.push(c.slice(0, cat + 1).trim());
+      c = c.slice(cat + 1).trim();
+    }
+    if (c) out.push(c);
+  }
+  return out;
+}
+
 /** Thông tin mạng (navigator.connection — Chrome/Android; Safari không có ⇒ undefined). */
 export interface KetNoi {
   saveData?: boolean;

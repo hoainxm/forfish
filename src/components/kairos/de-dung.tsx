@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MicIcon, SpeakerIcon, SpeakerOffIcon } from "@/components/icons";
 import {
+  chiaCau,
   chuDeDoc,
   nenHoanAnh,
   type BaiDoc,
@@ -21,6 +22,12 @@ import type { ListenHandle } from "@/lib/sen-bien/nghe";
 // tts / nghe kéo theo plugin Capacitor chạm `window` ngay lúc nạp ⇒ KHÔNG import tĩnh (thẻ bài prerender ở máy
 // chủ — build Vercel từng đỏ "window is not defined" 2026-10-24). Nạp lúc chạy trong trình duyệt.
 const napTts = () => import("@/lib/voice/tts");
+const napMayNha = () => import("@/lib/sen-bien/hoi-may-chu");
+const napToken = () => import("@/lib/device-token-store");
+
+/** Đọc cả bài bằng GIỌNG MỸ DUYÊN qua máy nhà (có sóng + đã đăng nhập): mỗi câu một mp3; xin trước tối đa 2 câu
+ *  (câu i chờ câu i-2 tải xong) ⇒ nối liền mà không dồn máy nhà. Câu nào chưa có mp3 ⇒ giọng máy câu đó. */
+const DOC_BAI_MS = 150_000;
 const napNghe = () => import("@/lib/sen-bien/nghe");
 
 let docDuoc: Promise<boolean> | null = null;
@@ -54,14 +61,27 @@ export function NutNghe({ post }: { post: BaiDoc }) {
       return;
     }
     setDang(true);
-    void napTts()
-      .then((m) => {
-        huy.current = m.ttsSpeak(chu, {
-          onEnd: () => {
-            huy.current = null;
-            setDang(false);
-          },
+    const xong = () => {
+      huy.current = null;
+      setDang(false);
+    };
+    void Promise.all([napTts(), napToken()])
+      .then(async ([m, tk]) => {
+        const online = typeof navigator === "undefined" || navigator.onLine !== false;
+        if (!online || !tk.readToken()) {
+          huy.current = m.ttsSpeak(chu, { onEnd: xong }); // mất sóng / khách: giọng máy như cũ
+          return;
+        }
+        const { xinMp3 } = await napMayNha();
+        const cau = chiaCau(chu);
+        const mp3: Promise<string | null>[] = [];
+        cau.forEach((c, i) => {
+          mp3.push(i < 2 ? xinMp3(c) : mp3[i - 2].catch(() => null).then(() => xinMp3(c)));
         });
+        huy.current = m.ttsSpeakMp3(
+          cau.map((text, i) => ({ text, mp3: mp3[i] })),
+          { onEnd: xong, maxMs: DOC_BAI_MS },
+        );
       })
       .catch(() => setDang(false));
   };

@@ -78,8 +78,9 @@ function urlMp3(b64: string | null): string | null {
   }
 }
 
-/** Xin mp3 Mỹ Duyên của MỘT câu (/api/sen-bien/doc). Lỗi gì cũng null — câu đó đọc giọng máy. */
-async function xinMp3(cau: string): Promise<string | null> {
+/** Xin mp3 Mỹ Duyên của MỘT câu (/api/sen-bien/doc). Lỗi gì cũng null — câu đó đọc giọng máy.
+ *  Dùng chung: câu trả lời máy nhà + nút Nghe trên thẻ bài Kairos. */
+export async function xinMp3(cau: string): Promise<string | null> {
   try {
     const r = await fetch(apiUrl("/api/sen-bien/doc"), {
       method: "POST",

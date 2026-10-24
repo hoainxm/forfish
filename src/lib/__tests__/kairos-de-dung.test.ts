@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BL_NHANH, DOC_TOI_DA, chuDeDoc, nenHoanAnh } from "@/lib/kairos/de-dung";
+import { BL_NHANH, CAU_TOI_DA, DOC_TOI_DA, chiaCau, chuDeDoc, nenHoanAnh } from "@/lib/kairos/de-dung";
 
 describe("chuDeDoc — chữ để đọc to một bài", () => {
   it("bài báo: tên báo + tiêu đề có dấu chấm + tóm tắt", () => {
@@ -43,5 +43,29 @@ describe("nenHoanAnh — mạng yếu thì hoãn ảnh", () => {
 describe("BL_NHANH — câu bình luận nhanh", () => {
   it("mỗi câu ≤ 2 chữ (luật nhãn nút)", () => {
     for (const c of BL_NHANH) expect(c.split(/\s+/).length).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("chiaCau — từng câu cho giọng Mỹ Duyên online", () => {
+  it("cắt ở . ! ? …, giữ thứ tự, không câu rỗng", () => {
+    expect(chiaCau("Tin Báo Thanh Niên. Bão Champi gây thiệt hại! Bà con có biết không?  Cẩn thận…")).toEqual([
+      "Tin Báo Thanh Niên.",
+      "Bão Champi gây thiệt hại!",
+      "Bà con có biết không?",
+      "Cẩn thận…",
+    ]);
+    expect(chiaCau("ae di bien can than nha")).toEqual(["ae di bien can than nha"]);
+    expect(chiaCau("   ")).toEqual([]);
+  });
+  it("câu quá trần ⇒ cắt ở dấu phẩy/khoảng trắng, mọi mảnh ≤ trần, ghép lại đủ chữ", () => {
+    const dai = "Sau siêu bão Champi, dự báo bão In-fa sẽ mạnh lên, hướng về phía bắc, gió giật cấp mười hai, sóng biển cao từ bốn đến sáu mét, biển động dữ dội, tàu thuyền hoạt động trong vùng nguy hiểm cần chủ động phòng tránh và giữ liên lạc với bờ";
+    const cau = chiaCau(dai, 80);
+    expect(cau.length).toBeGreaterThan(2);
+    for (const c of cau) expect([...c].length).toBeLessThanOrEqual(80);
+    expect(cau.join(" ").replace(/\s+/g, " ")).toBe(dai);
+  });
+  it("mặc định mọi câu ≤ CAU_TOI_DA (route /api/sen-bien/doc nhận ≤200)", () => {
+    expect(CAU_TOI_DA).toBeLessThanOrEqual(200);
+    for (const c of chiaCau("chữ ".repeat(400))) expect([...c].length).toBeLessThanOrEqual(CAU_TOI_DA);
   });
 });
