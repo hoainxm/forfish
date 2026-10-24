@@ -345,7 +345,7 @@ export function CommentThread({
                     <button
                       type="button"
                       onClick={() => setMo((m) => new Set(m).add(t.root.id))}
-                      className="flex h-9 items-center gap-2 rounded-lg pr-2 text-[0.8125rem] font-semibold text-foreground/75"
+                      className="flex h-11 items-center gap-2 rounded-lg pr-2 text-[0.8125rem] font-semibold text-foreground/75"
                     >
                       <KairosAvatar
                         id={t.replies[t.replies.length - 1].author.profileId || t.replies[t.replies.length - 1].id}
@@ -404,7 +404,7 @@ export function CommentThread({
                   type="button"
                   onClick={() => setReplyTo(null)}
                   aria-label="Huỷ trả lời"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-foreground/65"
+                  className="-m-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground/65"
                 >
                   <CloseIcon className="h-4 w-4" />
                 </button>
@@ -438,7 +438,7 @@ export function CommentThread({
                 rows={1}
                 value={text}
                 onChange={(e) => onText(e.target.value)}
-                placeholder="Viết bình luận…"
+                placeholder={toi?.handle ? `Bình luận với tên ${toi.handle}` : "Viết bình luận…"}
                 className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-line bg-field px-4 py-2.5 text-[1rem] leading-snug outline-none focus-visible:ring-2 focus-visible:ring-sea"
               />
               <NutMic

@@ -281,7 +281,9 @@ export function KairosFeed({
     goiYRef.current.savedAt0 = loadFeedCache(phone)?.savedAt ?? null;
     if (!port) st.current.tuyChon = loadTuyChon();
     const snap = layCho<AnhChup>(khoaCho(port), Date.now());
-    if (snap && snap.phone === phone) {
+    // ảnh chụp lúc MẤT SÓNG mà giờ đã có sóng ⇒ đi đường tải mới (sự kiện online đã qua, không bắn lại)
+    const songLai = snap?.load === "offline" && typeof navigator !== "undefined" && navigator.onLine !== false;
+    if (snap && snap.phone === phone && !songLai) {
       // Quay lại từ bài/trang cá nhân: dựng y nguyên, KHÔNG tải lại (giữ chỗ đang đọc như Facebook)
       goiYRef.current.xet = true;
       st.current.since = snap.since;
@@ -318,12 +320,6 @@ export function KairosFeed({
 
   /*  Cất ảnh chụp khi rời màn. Chỗ cuộn ghi theo sự kiện cuộn CHỈ khi khung dòng tin còn trên trang — lúc Next
       chuyển màn, trang mới cuộn về đầu sau khi khung cũ đã gỡ ⇒ không ghi đè chỗ đang đọc bằng 0. */
-  useEffect(() => {
-    chupRef.current.snap =
-      (load === "ready" || load === "offline") && posts.length + pinned.length > 0
-        ? { phone, posts, pinned, next, savedAt, since: st.current.since, load }
-        : null;
-  }, [phone, posts, pinned, next, savedAt, load]);
   useEffect(() => {
     const ghi = () => {
       if (khungRef.current?.isConnected) yRef.current = window.scrollY;
@@ -568,6 +564,15 @@ export function KairosFeed({
     return [...fresh, ...list];
   }, [view, posts, added, shownPinned]);
   const empty = shownPosts.length === 0 && shownPinned.length === 0;
+  /*  Ảnh chụp giữ chỗ cất danh sách ĐÃ áp lớp lạc quan của usePostActions (Hay, sửa, xoá, chặn, bài vừa đăng) —
+      lớp đó nằm ở state màn, mất khi rời màn; cất bản gốc thì quay lại thấy thẻ như chưa Hay, bài vừa đăng biến mất
+      (giám khảo rà FB vòng 2). */
+  useEffect(() => {
+    chupRef.current.snap =
+      (load === "ready" || load === "offline") && shownPosts.length + shownPinned.length > 0
+        ? { phone, posts: shownPosts, pinned: shownPinned, next, savedAt, since: st.current.since, load }
+        : null;
+  }, [phone, shownPosts, shownPinned, next, savedAt, load]);
   useEffect(() => {
     const io = ioRef.current;
     if (!io) return;
@@ -641,7 +646,7 @@ export function KairosFeed({
               <h2 className="display text-[1.25rem] font-bold leading-snug text-navy">Bến {ben.name}</h2>
               {(ben.province || soBaiBen > 0) && (
                 <p className="mt-0.5 text-[0.875rem] text-foreground/65">
-                  {[ben.province ? (/^(Tỉnh|Thành phố)\s/.test(ben.province) ? ben.province : `Tỉnh ${ben.province}`) : null, soBaiBen > 0 ? `${soBaiBen} bài gần đây` : null]
+                  {[ben.province || null, soBaiBen > 0 ? `${soBaiBen} bài gần đây` : null]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>

@@ -371,7 +371,7 @@ export function ComposerSheet({
                       type="button"
                       onClick={() => setPort(null)}
                       aria-label={`Gỡ cảng ${PORT_NAME.get(port) ?? port}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/65"
+                      className="-m-1.5 flex h-11 w-11 items-center justify-center rounded-full text-foreground/65"
                     >
                       <CloseIcon className="h-4 w-4" />
                     </button>

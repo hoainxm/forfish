@@ -14,7 +14,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CloseButton } from "@/components/ui/close-button";
-import { lockBodyScroll, unlockBodyScroll } from "@/lib/dialog-focus";
+import { focusablesIn, lockBodyScroll, unlockBodyScroll, vongFocus } from "@/lib/dialog-focus";
 import { downloadOne } from "@/lib/kairos/tai-anh";
 import { NHAN } from "@/lib/labels";
 import { useOnline } from "@/lib/use-online";
@@ -31,6 +31,7 @@ function TaiIcon({ className }: { className?: string }) {
 
 export function XemAnh({ urls, start, onClose }: { urls: string[]; start: number; onClose: () => void }) {
   const khung = useRef<HTMLDivElement>(null);
+  const hop = useRef<HTMLDivElement>(null);
   const dong = useRef(onClose);
   useLayoutEffect(() => {
     dong.current = onClose;
@@ -54,6 +55,11 @@ export function XemAnh({ urls, start, onClose }: { urls: string[]; start: number
     xinRef.current = xin;
   });
 
+  // hộp vẽ qua portal SAU lần chạy đầu (mounted) ⇒ đưa con trỏ vào hộp khi đã có trên trang
+  useEffect(() => {
+    if (mounted) focusablesIn(hop.current)[0]?.focus();
+  }, [mounted]);
+
   useEffect(() => {
     setMounted(true);
     const opener = document.activeElement as HTMLElement | null;
@@ -67,8 +73,15 @@ export function XemAnh({ urls, start, onClose }: { urls: string[]; start: number
       }
     }
     const onPop = () => dong.current();
+    // bẫy Tab trong hộp (aria-modal: không lọt ra thẻ bài phía sau); đưa con trỏ vào hộp ở hiệu ứng `mounted` dưới
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") xinRef.current();
+      if (e.key !== "Tab") return;
+      const k = vongFocus(focusablesIn(hop.current), document.activeElement, e.shiftKey);
+      if (k) {
+        e.preventDefault();
+        k.focus();
+      }
     };
     window.addEventListener("popstate", onPop);
     document.addEventListener("keydown", onKey);
@@ -112,7 +125,7 @@ export function XemAnh({ urls, start, onClose }: { urls: string[]; start: number
 
   if (!mounted || !n) return null;
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label="Xem ảnh" className="fixed inset-0 z-40 flex flex-col bg-navy text-white">
+    <div ref={hop} role="dialog" aria-modal="true" aria-label="Xem ảnh" className="fixed inset-0 z-40 flex flex-col bg-navy text-white">
       <div className="flex h-14 shrink-0 items-center gap-2 px-4 pt-[env(safe-area-inset-top)]">
         <span className="text-[0.9375rem] font-semibold tabular-nums" aria-live="polite">
           {n > 1 ? `${i + 1}/${n}` : ""}

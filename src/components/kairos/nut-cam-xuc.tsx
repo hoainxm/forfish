@@ -21,9 +21,12 @@ export function NutCamXuc({
   onChon,
   disabled = false,
   nho = false,
+  dem,
   className = "",
 }: {
   my: CamXuc | null;
+  /** kiểu FB mới (chân thẻ một hàng): hiện SỐ lượt thay cho tên cảm xúc; 0 ⇒ chỉ biểu tượng */
+  dem?: number;
   /** loại người chọn; trùng loại đang có ⇒ bên gọi gỡ (chonCamXuc) */
   onChon: (kind: CamXuc) => void;
   disabled?: boolean;
@@ -65,7 +68,7 @@ export function NutCamXuc({
   return (
     <span
       ref={vung}
-      className={`relative flex min-w-0 ${nho ? "" : "flex-1"}`}
+      className={`relative flex min-w-0 ${nho || dem !== undefined ? "" : "flex-1"}`}
       onMouseEnter={() => {
         if (disabled) return;
         huyHen();
@@ -102,7 +105,7 @@ export function NutCamXuc({
         disabled={disabled}
         aria-pressed={!!my}
         aria-haspopup="true"
-        aria-label={cx ? `${cx.nhan} — chạm để gỡ, giữ để đổi cảm xúc` : `${NHAN.hay} — giữ để chọn cảm xúc khác`}
+        aria-label={`${cx ? `${cx.nhan} — chạm để gỡ, giữ để đổi cảm xúc` : `${NHAN.hay} — giữ để chọn cảm xúc khác`}${dem ? `, ${dem} lượt` : ""}`}
         style={{ WebkitTouchCallout: "none" }}
         onContextMenu={(e) => e.preventDefault()}
         onPointerDown={(e) => {
@@ -134,14 +137,14 @@ export function NutCamXuc({
         ) : (
           <ThumbIcon className={nho ? "h-4 w-4" : "h-5 w-5"} />
         )}
-        {cx ? cx.nhan : NHAN.hay}
+        {dem === undefined ? (cx ? cx.nhan : NHAN.hay) : dem > 0 ? <span className="tabular-nums">{dem}</span> : null}
       </button>
     </span>
   );
 }
 
 /** Dòng tổng kiểu FB: ≤3 biểu tượng nhiều nhất chồng nhau + tổng số. Không ai bấm ⇒ không vẽ. */
-export function DongCamXuc({ camXuc, tong, nho = false }: { camXuc: DemCamXuc | undefined; tong: number; nho?: boolean }) {
+export function DongCamXuc({ camXuc, tong, nho = false, chiBieuTuong = false }: { camXuc: DemCamXuc | undefined; tong: number; nho?: boolean; /** chỉ cụm biểu tượng (số đã ở nút) */ chiBieuTuong?: boolean }) {
   if (tong <= 0) return null;
   const top = (camXuc?.length ? camXuc : [{ kind: "hay" as CamXuc, n: tong }]).slice(0, 3);
   return (
@@ -156,7 +159,7 @@ export function DongCamXuc({ camXuc, tong, nho = false }: { camXuc: DemCamXuc | 
           </span>
         ))}
       </span>
-      <span className={`tabular-nums text-foreground/65 ${nho ? "text-[0.8125rem]" : "text-[0.875rem]"}`}>{tong}</span>
+      {!chiBieuTuong && <span className={`tabular-nums text-foreground/65 ${nho ? "text-[0.8125rem]" : "text-[0.875rem]"}`}>{tong}</span>}
     </span>
   );
 }

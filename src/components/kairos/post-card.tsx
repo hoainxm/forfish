@@ -304,7 +304,7 @@ export function PostCard({
   onRead?: (p: KairosPost) => void;
 }) {
   // ba nút chia đều; số bình luận đã lên dòng tổng nên "Bình luận" không còn kèm số, khỏi ép một dòng
-  const btn = "flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-xl [&>svg]:shrink-0 text-[0.875rem] font-semibold transition active:scale-[0.97]";
+  const btn = "flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl px-2.5 [&>svg]:shrink-0 text-[0.9375rem] font-semibold transition active:scale-[0.97]"; // kiểu FB mới: icon + số, dồn trái, không chia đều
   const detail = `/kairos/p/${post.id}`;
   const inline = !inDetail && !!actions.binhLuan;
   const [moBL, setMoBL] = useState(false);
@@ -358,60 +358,52 @@ export function PostCard({
         </>
       )}
 
-      {(post.hayCount > 0 || post.commentCount > 0) && (
-        <div className="flex min-h-11 items-center gap-2 px-4">
-          {post.hayCount > 0 && <DongCamXuc camXuc={post.camXuc} tong={post.hayCount} />}
-          {post.commentCount > 0 &&
-            (inline ? (
-              <button
-                type="button"
-                aria-expanded={moBL}
-                onClick={() => (moBL ? setMoBL(false) : moBinhLuan(false))}
-                className="-my-1 ml-auto flex h-11 shrink-0 items-center rounded-lg text-[0.875rem] text-foreground/65"
-              >
-                {countLabel(post.commentCount)} bình luận
-              </button>
-            ) : inDetail ? (
-              <span className="ml-auto shrink-0 text-[0.875rem] text-foreground/65">{countLabel(post.commentCount)} bình luận</span>
-            ) : (
-              <Link href={detail} onClick={() => onRead?.(post)} className="-my-1 ml-auto flex h-11 shrink-0 items-center rounded-lg text-[0.875rem] text-foreground/65">
-                {countLabel(post.commentCount)} bình luận
-              </Link>
-            ))}
-        </div>
-      )}
+      {/*  CHÂN THẺ KIỂU FACEBOOK MỚI (mẫu anh Long gửi 2026-10-24): MỘT hàng — cảm xúc + số · bình luận + số · chia sẻ,
+          cụm biểu tượng cảm xúc nhiều nhất bên phải. Chạm số bình luận = mở đọc (không bật bàn phím); chạm lại = gập. */}
       <div className="flex items-center gap-1 border-t border-line px-2 py-1">
         <NutCamXuc
           my={post.myCamXuc ?? (post.hayByMe ? "hay" : null)}
           disabled={!actions.onHay}
           onChon={(k) => actions.onHay?.(post, k)}
-          className={`${btn} w-full`}
+          dem={post.hayCount}
+          className={btn}
         />
         {inline ? (
           <button
             type="button"
             aria-expanded={moBL}
-            onClick={() => (moBL && vietNgay ? setMoBL(false) : moBinhLuan(true))}
+            aria-label={`${NHAN.binhLuan}${post.commentCount ? `, ${post.commentCount}` : ""}`}
+            onClick={() => (moBL ? setMoBL(false) : moBinhLuan(post.commentCount === 0))}
             className={`${btn} ${moBL ? "text-sea" : "text-foreground/75"}`}
           >
             <CommentIcon className="h-5 w-5" />
-            {NHAN.binhLuan}
+            {post.commentCount > 0 && <span className="tabular-nums">{countLabel(post.commentCount)}</span>}
           </button>
         ) : (
-          <Link href={detail} onClick={() => onRead?.(post)} className={`${btn} text-foreground/75`}>
+          <Link
+            href={detail}
+            onClick={() => onRead?.(post)}
+            aria-label={`${NHAN.binhLuan}${post.commentCount ? `, ${post.commentCount}` : ""}`}
+            className={`${btn} text-foreground/75`}
+          >
             <CommentIcon className="h-5 w-5" />
-            {NHAN.binhLuan}
+            {post.commentCount > 0 && <span className="tabular-nums">{countLabel(post.commentCount)}</span>}
           </Link>
         )}
         <button
           type="button"
           disabled={!actions.onShare}
+          aria-label={NHAN.chiaSe}
           onClick={() => actions.onShare?.(post)}
           className={`${btn} text-foreground/75 disabled:active:scale-100`}
         >
           <ShareIcon className="h-5 w-5" />
-          {NHAN.chiaSe}
         </button>
+        {post.hayCount > 0 && (
+          <span className="ml-auto pr-2">
+            <DongCamXuc camXuc={post.camXuc} tong={post.hayCount} chiBieuTuong />
+          </span>
+        )}
       </div>
 
       {inline && moBL && actions.binhLuan && (
