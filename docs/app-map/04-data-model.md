@@ -906,7 +906,7 @@ Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng 
 ### KAIROS — hồ sơ Sen Biển — migration [`0068_kairos_sen_bien.sql`](../../supabase/migrations/0068_kairos_sen_bien.sql) (2026-10-24) — ✅ **ĐÃ APPLY** 2026-10-24 qua connector Supabase (anh Long: "áp đi")
 
 - Chỉ DỮ LIỆU: thêm một dòng `kairos_profiles` (phone sentinel `sen-bien:tro-ly`, handle "Sen Biển", `official` true, đã đồng ý nội quy) — khuôn hồ sơ SDVICO ở 0065. Không đổi cấu trúc. Chạy lại an toàn (`on conflict do nothing`). Chưa áp ⇒ /api/kairos/sen-bien trả 503, app không ảnh hưởng.
-### KAIROS — trang cá nhân kiểu Facebook — migration [`0067_kairos_ho_so.sql`](../../supabase/migrations/0067_kairos_ho_so.sql) (2026-10-24) — ⛔ **CHƯA APPLY** (áp bằng tay ở SQL Editor, anh Long duyệt)
+### KAIROS — trang cá nhân kiểu Facebook — migration [`0067_kairos_ho_so.sql`](../../supabase/migrations/0067_kairos_ho_so.sql) (2026-10-24) — ✅ **ĐÃ APPLY** 2026-10-24 qua connector Supabase (anh Long: "áp đi chạy đi"); kiểm: 5 cột có, anon đọc bảng 401
 
 - `kairos_profiles` thêm 5 cột (`add column if not exists`, mỗi cột kèm check — chạy lại an toàn): `cover_path` ≤200 (ảnh bìa, đường kho `kairos-media` `<profileId>/<uuid>.<ext>` như `avatar_path`) · `que_tinh` ∈ 34 mã tỉnh `lib/kairos/khu-vuc.mjs` · `nghe` ∈ mã `lib/kairos/ho-so.ts NGHE` (`cau-muc`,`luoi-vay`,`luoi-re`,`luoi-keo`,`cau-tay`,`lan`,`nuoi-trong`,`thu-mua`,`khac`) · `gioi_thieu` 1–150 ký tự · `home_port` 1–60 (mã `fishing-ports.ts`, route kiểm danh mục). Test `kairos-ho-so.test.ts` đỏ khi danh mục trong code lệch check.
 - RLS: bật sẵn từ 0065 (nhắc lại + revoke anon/authenticated), **KHÔNG policy mới**. Số người theo dõi / đang theo dõi đếm từ `kairos_follows` — không cột. Cờ agent (`isAgent`) chưa có cột.
