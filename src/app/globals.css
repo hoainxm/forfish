@@ -58,6 +58,14 @@
   --cadence-day: #eab308; /* 🟨 theo ngày */
   --cadence-fixed: #64748b; /* ⬛ cố định, không đổi theo ngày */
   --fish: #2d8659; /* xanh lá — cá/ngư trường (Phương án A) */
+  /*  ẢNH ĐẠI DIỆN CHỮ CÁI của Kairos (14-ba-spec-kairos §3.7, A15) — chữ trắng đậm trên nền,
+      mỗi nền ≥4.5:1 với trắng. Chọn nền theo băm profileId (lib/kairos/feed-client avatarTone). */
+  --kairos-av-1: #086e73; /* teal thương hiệu */
+  --kairos-av-2: #1d5f8a; /* xanh biển */
+  --kairos-av-3: #6b4a9e; /* tím */
+  --kairos-av-4: #9a4a16; /* nâu cam */
+  --kairos-av-5: #2b6e3f; /* xanh lá */
+  --kairos-av-6: #8a3a55; /* mận */
   /*  Chấm "Tất cả các loài" trong bảng chọn loài = dải màu thang mật độ cá trên
       bản đồ (nhạt → đậm). Dời từ hex rời trong fish-species-sheet (rà Codex lần 8). */
   --fish-all-from: #95d5b2;

@@ -1,0 +1,457 @@
+import "server-only";
+// KAIROS — KHO SUPABASE (prod). Service-role, bảng 0065 (RLS bật, không policy) + bucket
+// kairos-media. Không nghiệp vụ (xem store.ts). Lỗi DB ⇒ KairosError; KHÔNG trả rỗng giả khi
+// truy vấn hỏng (rỗng giả = dòng tin trắng mà máy tưởng thật, đè mất bản lưu offline).
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { postgrestFeedExpr, pgQuote } from "./feed-query";
+import { KairosError } from "./errors";
+import { reportNeedsCheck } from "./quyet-dinh";
+import type {
+  AuditRow, CommentFull, DecisionRow, KairosStore, NewDecision, PostFull, ProfileFull, RateTable, ReportRow,
+  SeenRow, SourceRow, TargetType,
+} from "./store";
+
+const BUCKET = "kairos-media";
+const PROFILE_COLS =
+  "id,phone,handle,handle_norm,handle_changed_at,avatar_path,show_boat,official,rules_accepted_at,banned_until,ban_reason,created_at";
+const POST_COLS =
+  "id,kind,author_phone,source_id,outlet,url,url_hash,title,title_norm,body,summary,summary_by,cover_url,images,topic,regions,provinces,ports,reshare_of,pinned_until,hidden,hidden_reason,mod_state,mod_checked_at,hay_count,comment_count,published_at,feed_at,created_at,edited_at";
+const COMMENT_COLS = "id,post_id,parent_id,author_phone,body,hay_count,hidden,mod_state,mod_checked_at,created_at";
+const IN_MAX = 200;
+
+type PgErr = { code?: string; message?: string } | null;
+
+function fail(where: string, e: PgErr): never {
+  console.error(`[kairos] ${where} hỏng:`, e?.code, e?.message);
+  throw new KairosError("unavailable");
+}
+const isUnique = (e: PgErr) => e?.code === "23505";
+
+export function createKairosSupabaseStore(): KairosStore | null {
+  const admin = createAdminClient();
+  if (!admin) return null;
+  const db: SupabaseClient = admin;
+
+  const posts = () => db.from("kairos_posts");
+  const comments = () => db.from("kairos_comments");
+
+  async function one<T>(where: string, q: PromiseLike<{ data: unknown; error: PgErr }>): Promise<T | null> {
+    const { data, error } = await q;
+    if (error) fail(where, error);
+    return (data as T | null) ?? null;
+  }
+  async function many<T>(where: string, q: PromiseLike<{ data: unknown; error: PgErr }>): Promise<T[]> {
+    const { data, error } = await q;
+    if (error) fail(where, error);
+    return (data as T[] | null) ?? [];
+  }
+
+  const store: KairosStore = {
+    // ── Hồ sơ ──
+    profileByPhone: (phone) => one<ProfileFull>("profileByPhone", db.from("kairos_profiles").select(PROFILE_COLS).eq("phone", phone).maybeSingle()),
+    profileById: (id) => one<ProfileFull>("profileById", db.from("kairos_profiles").select(PROFILE_COLS).eq("id", id).maybeSingle()),
+    async profilesByPhones(phones) {
+      const uniq = [...new Set(phones)].slice(0, IN_MAX);
+      if (!uniq.length) return [];
+      return many<ProfileFull>("profilesByPhones", db.from("kairos_profiles").select(PROFILE_COLS).in("phone", uniq));
+    },
+    async takenNorms(norms) {
+      const uniq = [...new Set(norms)].slice(0, IN_MAX);
+      if (!uniq.length) return new Set();
+      const rows = await many<{ handle_norm: string }>("takenNorms", db.from("kairos_profiles").select("handle_norm").in("handle_norm", uniq));
+      return new Set(rows.map((r) => r.handle_norm));
+    },
+    async createProfile(row) {
+      const { data, error } = await db.from("kairos_profiles").insert(row).select(PROFILE_COLS).single();
+      if (!error) return data as ProfileFull;
+      if (isUnique(error)) {
+        const existing = await store.profileByPhone(row.phone);
+        if (existing) return existing;
+        throw new KairosError("handle_taken");
+      }
+      fail("createProfile", error);
+    },
+    async updateProfile(phone, patch) {
+      const { data, error } = await db.from("kairos_profiles").update(patch).eq("phone", phone).select(PROFILE_COLS).maybeSingle();
+      if (error) {
+        if (isUnique(error)) throw new KairosError("handle_taken");
+        fail("updateProfile", error);
+      }
+      if (!data) throw new KairosError("not_found");
+      return data as ProfileFull;
+    },
+    async customerName(phone) {
+      const r = await one<{ name: string | null }>("customerName", db.from("customers").select("name").eq("phone", phone).maybeSingle());
+      return r?.name ?? null;
+    },
+    async boatsOf(phones) {
+      const uniq = [...new Set(phones)].filter((p) => /^\d+$/.test(p)).slice(0, IN_MAX);
+      const out = new Map<string, unknown>();
+      if (!uniq.length) return out;
+      // Phụ — dòng phụ/số hiệu tàu hỏng thì thẻ vẫn hiện, không làm hỏng dòng tin.
+      const { data, error } = await db.from("user_docs").select("owner_phone,data").eq("kind", "boats").in("owner_phone", uniq);
+      if (error) {
+        console.error("[kairos] đọc sổ tàu hỏng (bỏ dòng phụ):", error.code, error.message);
+        return out;
+      }
+      for (const r of (data ?? []) as { owner_phone: string; data: unknown }[]) out.set(r.owner_phone, r.data);
+      return out;
+    },
+    async buyerNamesOf(phones) {
+      const uniq = [...new Set(phones)].filter((p) => /^\d+$/.test(p)).slice(0, IN_MAX);
+      const out = new Map<string, string>();
+      if (!uniq.length) return out;
+      // Phụ như sổ tàu: hỏng thì bỏ dòng phụ, thẻ vẫn hiện. Bên mua = tin 'mua' của cơ sở
+      // (không phải ngư dân), lấy tin mới nhất.
+      const { data, error } = await db
+        .from("market_listings")
+        .select("owner_phone,poster_name,created_at")
+        .eq("side", "mua")
+        .in("poster_kind", ["nau", "vua", "nha-may", "cho"])
+        .in("owner_phone", uniq)
+        .order("created_at", { ascending: false })
+        .limit(uniq.length * 5);
+      if (error) {
+        console.error("[kairos] đọc tên cơ sở bên mua hỏng (bỏ dòng phụ):", error.code, error.message);
+        return out;
+      }
+      for (const r of (data ?? []) as { owner_phone: string; poster_name: string | null }[]) {
+        const name = r.poster_name?.trim();
+        if (name && !out.has(r.owner_phone)) out.set(r.owner_phone, name);
+      }
+      return out;
+    },
+
+    // ── Bài ──
+    async listPosts(f, limit) {
+      const expr = postgrestFeedExpr(f);
+      if (!expr) return [];
+      return many<PostFull>(
+        "listPosts",
+        posts().select(POST_COLS).eq("hidden", false).or(expr).order("feed_at", { ascending: false }).order("id", { ascending: false }).limit(limit),
+      );
+    },
+    async countPosts(f, cap) {
+      const expr = postgrestFeedExpr(f);
+      if (!expr) return 0;
+      const { count, error } = await posts().select("id", { count: "exact", head: true }).eq("hidden", false).or(expr);
+      if (error) fail("countPosts", error);
+      return Math.min(count ?? 0, cap);
+    },
+    pinnedPosts: (nowIso) =>
+      many<PostFull>(
+        "pinnedPosts",
+        posts().select(POST_COLS).eq("kind", "chinh-thuc").eq("hidden", false).gt("pinned_until", nowIso).order("feed_at", { ascending: false }).limit(5),
+      ),
+    getPost: (id) => one<PostFull>("getPost", posts().select(POST_COLS).eq("id", id).maybeSingle()),
+    async getPosts(ids) {
+      const uniq = [...new Set(ids)].slice(0, IN_MAX);
+      if (!uniq.length) return [];
+      return many<PostFull>("getPosts", posts().select(POST_COLS).in("id", uniq));
+    },
+    async insertPost(row) {
+      const { data, error } = await posts().insert(row).select(POST_COLS).single();
+      if (error) {
+        console.error("[kairos] thêm bài hỏng:", error.code, error.message);
+        throw new KairosError("insert_failed");
+      }
+      return data as PostFull;
+    },
+    async updatePost(id, patch) {
+      const { data, error } = await posts().update(patch).eq("id", id).select(POST_COLS).maybeSingle();
+      if (error) fail("updatePost", error);
+      if (!data) throw new KairosError("not_found");
+      return data as PostFull;
+    },
+    async deletePost(id) {
+      const { error } = await posts().delete().eq("id", id);
+      if (error) fail("deletePost", error);
+    },
+    async countAuthorPosts(phone) {
+      const { count, error } = await posts().select("id", { count: "exact", head: true }).eq("author_phone", phone).eq("hidden", false);
+      if (error) fail("countAuthorPosts", error);
+      return count ?? 0;
+    },
+    async searchPosts(q, limit) {
+      let query = posts().select(POST_COLS).order("created_at", { ascending: false }).limit(limit);
+      const s = q.trim().replace(/[%_\\]/g, "").slice(0, 80);
+      if (s) query = query.or(`title.ilike.${pgQuote(`%${s}%`)},body.ilike.${pgQuote(`%${s}%`)}`);
+      return many<PostFull>("searchPosts", query);
+    },
+
+    // ── Bình luận ──
+    async listComments(postId, cursor, limit, excludeAuthors) {
+      let q = comments().select(COMMENT_COLS).eq("post_id", postId).eq("hidden", false);
+      if (excludeAuthors.length) q = q.not("author_phone", "in", `(${excludeAuthors.map(pgQuote).join(",")})`);
+      if (cursor) q = q.or(`created_at.gt.${pgQuote(cursor.at)},and(created_at.eq.${pgQuote(cursor.at)},id.gt.${cursor.id})`);
+      return many<CommentFull>("listComments", q.order("created_at", { ascending: true }).order("id", { ascending: true }).limit(limit));
+    },
+    async topComments(postId, n, excludeAuthors) {
+      let q = comments().select(COMMENT_COLS).eq("post_id", postId).eq("hidden", false).is("parent_id", null);
+      if (excludeAuthors.length) q = q.not("author_phone", "in", `(${excludeAuthors.map(pgQuote).join(",")})`);
+      return many<CommentFull>("topComments", q.order("hay_count", { ascending: false }).order("created_at", { ascending: true }).limit(n));
+    },
+    getComment: (id) => one<CommentFull>("getComment", comments().select(COMMENT_COLS).eq("id", id).maybeSingle()),
+    async insertComment(row) {
+      const { data, error } = await comments().insert(row).select(COMMENT_COLS).single();
+      if (error) {
+        console.error("[kairos] thêm bình luận hỏng:", error.code, error.message);
+        throw new KairosError(error.code === "P0001" || error.code === "23503" ? "not_found" : "insert_failed");
+      }
+      return data as CommentFull;
+    },
+    async deleteComment(id) {
+      const { error } = await comments().delete().eq("id", id);
+      if (error) fail("deleteComment", error);
+    },
+    async updateComment(id, patch) {
+      const { data, error } = await comments().update(patch).eq("id", id).select(COMMENT_COLS).maybeSingle();
+      if (error) fail("updateComment", error);
+      if (!data) throw new KairosError("not_found");
+      return data as CommentFull;
+    },
+
+    allComments: (postId, limit) =>
+      many<CommentFull>("allComments", comments().select(COMMENT_COLS).eq("post_id", postId).order("created_at", { ascending: true }).limit(limit)),
+    async getComments(ids) {
+      const uniq = [...new Set(ids)].slice(0, IN_MAX);
+      if (!uniq.length) return [];
+      return many<CommentFull>("getComments", comments().select(COMMENT_COLS).in("id", uniq));
+    },
+
+    // ── Hay ──
+    async setHay(t, targetId, phone, on) {
+      const table = t === "post" ? "kairos_post_hay" : "kairos_comment_hay";
+      const col = t === "post" ? "post_id" : "comment_id";
+      if (on) {
+        const row: Record<string, string> = { [col]: targetId, phone };
+        const { error } = await db.from(table).upsert(row, { onConflict: `${col},phone`, ignoreDuplicates: true });
+        if (error) {
+          if (error.code === "23503") throw new KairosError("not_found");
+          fail("setHay", error);
+        }
+      } else {
+        const { error } = await db.from(table).delete().eq(col, targetId).eq("phone", phone);
+        if (error) fail("unsetHay", error);
+      }
+    },
+    async hayOf(t, phone, ids) {
+      const uniq = [...new Set(ids)].slice(0, IN_MAX);
+      if (!phone || !uniq.length) return new Set();
+      const table = t === "post" ? "kairos_post_hay" : "kairos_comment_hay";
+      const col = t === "post" ? "post_id" : "comment_id";
+      const rows = await many<Record<string, string>>("hayOf", db.from(table).select(col).eq("phone", phone).in(col, uniq));
+      return new Set(rows.map((r) => r[col]));
+    },
+
+    // ── Theo dõi / chặn ──
+    async setEdge(kind, from, to, on) {
+      const [table, a, b] = kind === "follow" ? ["kairos_follows", "follower_phone", "followee_phone"] : ["kairos_blocks", "blocker_phone", "blocked_phone"];
+      if (on) {
+        const row: Record<string, string> = { [a]: from, [b]: to };
+        const { error } = await db.from(table).upsert(row, { onConflict: `${a},${b}`, ignoreDuplicates: true });
+        if (error) fail("setEdge", error);
+      } else {
+        const { error } = await db.from(table).delete().eq(a, from).eq(b, to);
+        if (error) fail("unsetEdge", error);
+      }
+    },
+    async edgesFrom(kind, from) {
+      if (!from) return [];
+      const [table, a, b] = kind === "follow" ? ["kairos_follows", "follower_phone", "followee_phone"] : ["kairos_blocks", "blocker_phone", "blocked_phone"];
+      const rows = await many<Record<string, string>>("edgesFrom", db.from(table).select(b).eq(a, from).limit(2000));
+      return rows.map((r) => r[b]);
+    },
+
+    // ── Báo xấu ──
+    async insertReport(row) {
+      const { error } = await db.from("kairos_reports").insert(row);
+      if (!error) return "new";
+      if (isUnique(error)) return "dup";
+      fail("insertReport", error);
+    },
+    async distinctReporters(t, targetId) {
+      const { count, error } = await db.from("kairos_reports").select("id", { count: "exact", head: true }).eq("target_type", t).eq("target_id", targetId);
+      if (error) fail("distinctReporters", error);
+      return count ?? 0; // unique (đích, người báo) ⇒ số dòng = số người
+    },
+    listReports: (status, limit) =>
+      many<ReportRow>("listReports", db.from("kairos_reports").select("*").eq("status", status).order("created_at", { ascending: false }).limit(limit)),
+    async resolveReports(t, targetId, status, by, atIso) {
+      const { error } = await db
+        .from("kairos_reports")
+        .update({ status, handled_by: by, handled_at: atIso })
+        .eq("target_type", t)
+        .eq("target_id", targetId)
+        .eq("status", "moi");
+      if (error) fail("resolveReports", error);
+    },
+
+    // ── Tần suất + nhật ký ──
+    async countSince(table: RateTable, phone, sinceIso) {
+      const cnt = async (tbl: string, col: string) => {
+        const { count, error } = await db.from(tbl).select("*", { count: "exact", head: true }).eq(col, phone).gte("created_at", sinceIso);
+        if (error) fail(`countSince ${tbl}`, error);
+        return count ?? 0;
+      };
+      switch (table) {
+        case "posts":
+          return cnt("kairos_posts", "author_phone");
+        case "comments":
+          return cnt("kairos_comments", "author_phone");
+        case "reports":
+          return cnt("kairos_reports", "reporter_phone");
+        case "follows+blocks":
+          return (await cnt("kairos_follows", "follower_phone")) + (await cnt("kairos_blocks", "blocker_phone"));
+      }
+    },
+    async audit(row: AuditRow) {
+      const { error } = await db.from("kairos_audit").insert({ ...row, detail: row.detail ?? {} });
+      if (error) {
+        console.error("[kairos] ghi nhật ký hỏng:", error.code, error.message);
+        throw new KairosError("insert_failed");
+      }
+    },
+    async countAudit(actor, action, sinceIso) {
+      const { count, error } = await db.from("kairos_audit").select("id", { count: "exact", head: true }).eq("actor", actor).eq("action", action).gte("at", sinceIso);
+      if (error) fail("countAudit", error);
+      return count ?? 0;
+    },
+
+    // ── Thông báo gộp ──
+    async takeNotifyMark(postId, phone, nowIso, windowMs) {
+      const cutoff = new Date(Date.parse(nowIso) - windowMs).toISOString();
+      // Đóng dấu có điều kiện: chỉ đè dấu CŨ hơn cửa sổ; chưa có dấu thì thêm. Hai lượt chen
+      // nhau ⇒ một lượt thắng (update có điều kiện / PK), lượt kia không gửi.
+      const upd = await db.from("kairos_notify_marks").update({ last_at: nowIso }).eq("post_id", postId).eq("phone", phone).lt("last_at", cutoff).select("post_id");
+      if (upd.error) fail("notifyMark", upd.error);
+      if ((upd.data ?? []).length > 0) return true;
+      const ins = await db.from("kairos_notify_marks").insert({ post_id: postId, phone, last_at: nowIso });
+      if (!ins.error) return true;
+      if (isUnique(ins.error) || ins.error.code === "23503") return false;
+      fail("notifyMark insert", ins.error);
+    },
+
+    // ── Kiểm duyệt ──
+    async modQueue(limit) {
+      const [p, c, reps] = await Promise.all([
+        many<PostFull>("modQueue posts", posts().select(POST_COLS).eq("mod_state", "cho-kiem").order("created_at", { ascending: true }).limit(limit)),
+        many<CommentFull>("modQueue comments", comments().select(COMMENT_COLS).eq("mod_state", "cho-kiem").order("created_at", { ascending: true }).limit(limit)),
+        // mới trước: báo cũ đã chấm (còn 'moi' chờ người trực) không chèn ép báo vừa tới
+        many<{ target_type: TargetType; target_id: string; created_at: string }>(
+          "modQueue reports",
+          db.from("kairos_reports").select("target_type,target_id,created_at").eq("status", "moi").order("created_at", { ascending: false }).limit(limit * 3),
+        ),
+      ]);
+      const seenP = new Set(p.map((x) => x.id));
+      const seenC = new Set(c.map((x) => x.id));
+      const times = new Map<string, string[]>();
+      for (const r of reps) {
+        const k = `${r.target_type}:${r.target_id}`;
+        times.set(k, [...(times.get(k) ?? []), r.created_at]);
+      }
+      const rp = [...new Set(reps.filter((r) => r.target_type === "post" && !seenP.has(r.target_id)).map((r) => r.target_id))].slice(0, limit);
+      const rc = [...new Set(reps.filter((r) => r.target_type === "comment" && !seenC.has(r.target_id)).map((r) => r.target_id))].slice(0, limit);
+      const [reportedPosts, reportedComments] = await Promise.all([
+        rp.length ? many<PostFull>("modQueue rposts", posts().select(POST_COLS).in("id", rp)) : Promise.resolve([] as PostFull[]),
+        rc.length ? many<CommentFull>("modQueue rcomments", comments().select(COMMENT_COLS).in("id", rc)) : Promise.resolve([] as CommentFull[]),
+      ]);
+      return {
+        posts: p,
+        comments: c,
+        reportedPosts: reportedPosts.filter((x) => reportNeedsCheck(times.get(`post:${x.id}`) ?? [], x.mod_checked_at)),
+        reportedComments: reportedComments.filter((x) => reportNeedsCheck(times.get(`comment:${x.id}`) ?? [], x.mod_checked_at)),
+      };
+    },
+    async insertDecision(row: NewDecision) {
+      const { data, error } = await db.from("kairos_mod_decisions").insert(row).select("*").single();
+      if (error) {
+        console.error("[kairos] ghi quyết định hỏng:", error.code, error.message);
+        throw new KairosError("insert_failed");
+      }
+      return data as DecisionRow;
+    },
+    getDecision: (id) => one<DecisionRow>("getDecision", db.from("kairos_mod_decisions").select("*").eq("id", id).maybeSingle()),
+    agentFlagged: (limit) =>
+      many<DecisionRow>(
+        "agentFlagged",
+        db.from("kairos_mod_decisions").select("*").eq("decided_by", "agent").in("verdict", ["nghi", "chan"]).order("created_at", { ascending: false }).limit(limit),
+      ),
+    async latestDecisions(t, ids) {
+      const uniq = [...new Set(ids)].slice(0, IN_MAX);
+      const out = new Map<string, DecisionRow>();
+      if (!uniq.length) return out;
+      const rows = await many<DecisionRow>(
+        "latestDecisions",
+        db.from("kairos_mod_decisions").select("*").eq("target_type", t).in("target_id", uniq).order("created_at", { ascending: false }).limit(uniq.length * 5),
+      );
+      for (const r of rows) if (!out.has(r.target_id)) out.set(r.target_id, r);
+      return out;
+    },
+
+    // ── Máy thu tin ──
+    async seenHashes(hashes) {
+      const uniq = [...new Set(hashes)].slice(0, IN_MAX);
+      if (!uniq.length) return new Set();
+      const rows = await many<{ url_hash: string }>("seenHashes", db.from("kairos_seen").select("url_hash").in("url_hash", uniq));
+      return new Set(rows.map((r) => r.url_hash));
+    },
+    async recentTitles(norms, sinceIso) {
+      const uniq = [...new Set(norms)].slice(0, IN_MAX);
+      if (!uniq.length) return [];
+      const rows = await many<{ title_norm: string; first_seen_at: string }>(
+        "recentTitles",
+        db.from("kairos_seen").select("title_norm,first_seen_at").in("title_norm", uniq).gte("first_seen_at", sinceIso),
+      );
+      return rows.map((r) => ({ titleNorm: r.title_norm, firstSeenAt: r.first_seen_at }));
+    },
+    async insertSeen(rows) {
+      if (!rows.length) return;
+      const { error } = await db.from("kairos_seen").upsert(rows, { onConflict: "url_hash", ignoreDuplicates: true });
+      if (error) fail("insertSeen", error);
+    },
+    async insertBao(rows) {
+      if (!rows.length) return 0;
+      const { data, error } = await posts().upsert(rows, { onConflict: "url_hash", ignoreDuplicates: true }).select("id");
+      if (error) fail("insertBao", error);
+      return (data ?? []).length;
+    },
+    async upsertSources(rows) {
+      if (!rows.length) return;
+      const { error } = await db.from("kairos_sources").upsert(rows, { onConflict: "id" });
+      if (error) fail("upsertSources", error);
+    },
+    sovereigntyFlags: (limit) =>
+      many<SeenRow>("sovereigntyFlags", db.from("kairos_seen").select("*").eq("outcome", "loai-chu-quyen").order("first_seen_at", { ascending: false }).limit(limit)),
+    async newsStatus() {
+      // nợ: quét kind='bao' theo created_at chưa có chỉ mục riêng — bảng còn nhỏ; thêm chỉ mục
+      // (kind, created_at desc) khi kairos_posts vượt ~100 nghìn dòng.
+      const [last, sources] = await Promise.all([
+        many<{ created_at: string }>("newsStatus", posts().select("created_at").eq("kind", "bao").order("created_at", { ascending: false }).limit(1)),
+        many<SourceRow>("newsStatus", db.from("kairos_sources").select("*").order("id")),
+      ]);
+      return { lastBaoAt: last[0]?.created_at ?? null, sources };
+    },
+
+    // ── Ảnh ──
+    async uploadImage(path, bytes, mime) {
+      const { error } = await db.storage.from(BUCKET).upload(path, bytes, { contentType: mime, upsert: false });
+      if (error) {
+        console.error("[kairos] tải ảnh lên hỏng:", error.message);
+        throw new KairosError("storage_failed");
+      }
+    },
+    async removeImages(paths) {
+      if (!paths.length) return;
+      const { error } = await db.storage.from(BUCKET).remove(paths);
+      if (error) {
+        console.error("[kairos] xoá ảnh kho hỏng:", error.message);
+        throw new KairosError("storage_failed");
+      }
+    },
+    mediaUrl: (path) => db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,
+  };
+  return store;
+}

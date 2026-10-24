@@ -393,6 +393,12 @@ const SHELL = [
   "/nguoi",
   "/tien",
   "/cang",
+  /*  KAIROS (2026-10-23, 14-ba-spec-kairos AC19) — ô thứ hai của dock. Vỏ màn nằm sẵn thì giữa
+      biển bấm Kairos vẫn ra màn, dòng tin đọc bản lưu `forfish.kairos.v1` (chỉ chữ) kèm "Lưu
+      lúc…". CHỈ THÊM URL ⇒ KHÔNG bump SDFISH_CACHE_V (luật đầu file: sw.js đổi byte là trình
+      duyệt cài lại, `c.add` nhét entry mới vào kho đang dùng; bump là xoá vỏ đang chạy được).
+      /api/kairos/* KHÔNG vào API_CACHE_ALLOW — gắn danh tính (hayByMe, mine, chặn). */
+  "/kairos",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",

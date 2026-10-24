@@ -1,0 +1,140 @@
+// KAIROS — HÀNG DB ⇒ DỮ LIỆU RA CLIENT (14 §7, AC21). THUẦN.
+//
+// Cửa DUY NHẤT từ hàng có `*_phone` sang DTO. Mọi route đọc Kairos đi qua đây ⇒ SĐT không bao
+// giờ ra client: tác giả = `profileId` (uuid công khai); "mine" tính ở máy chủ bằng so SĐT rồi
+// chỉ trả boolean. `kairos-dto.test.ts` soi JSON ra không chứa SĐT nào.
+
+import type { KairosAuthor, KairosComment, KairosPost, KairosPostKind, KairosRegion } from "./types";
+
+/** Hàng `kairos_profiles` (đủ cột route cần). */
+export interface ProfileRow {
+  id: string;
+  phone: string;
+  handle: string;
+  avatar_path: string | null;
+  show_boat: boolean;
+  official: boolean;
+}
+
+/** Hàng `kairos_posts`. */
+export interface PostRow {
+  id: string;
+  kind: KairosPostKind;
+  author_phone: string | null;
+  outlet: string | null;
+  url: string | null;
+  title: string | null;
+  body: string;
+  summary: string | null;
+  summary_by: "ai" | "rss" | null;
+  cover_url: string | null;
+  images: unknown;
+  topic: string;
+  regions: string[] | null;
+  provinces: string[] | null;
+  ports: string[] | null;
+  reshare_of: string | null;
+  pinned_until: string | null;
+  hay_count: number;
+  comment_count: number;
+  published_at: string;
+  edited_at: string | null;
+}
+
+/** Hàng `kairos_comments`. */
+export interface CommentRow {
+  id: string;
+  post_id: string;
+  parent_id: string | null;
+  author_phone: string;
+  body: string;
+  hay_count: number;
+  created_at: string;
+}
+
+export interface DtoCtx {
+  /** SĐT người xem (null = khách) — chỉ để tính `mine`, không bao giờ ra ngoài */
+  viewer: string | null;
+  /** hồ sơ theo SĐT */
+  profiles: ReadonlyMap<string, ProfileRow>;
+  /** dòng phụ theo SĐT ("Cảng X" / tên cơ sở) — route tính bằng `sublineFor` */
+  sublines?: ReadonlyMap<string, string>;
+  /** số hiệu tàu theo SĐT — chỉ dùng khi hồ sơ bật show_boat */
+  boats?: ReadonlyMap<string, string>;
+  /** đường kho ⇒ URL công khai (kairos-media) */
+  mediaUrl: (path: string) => string;
+  /** id bài / bình luận người xem đã bấm Hay */
+  hayPosts?: ReadonlySet<string>;
+  hayComments?: ReadonlySet<string>;
+}
+
+/** Tác giả công khai. Không có hồ sơ (lỗi dữ liệu) ⇒ "Bà con" ẩn danh, KHÔNG lộ SĐT. */
+export function authorDto(phone: string, ctx: DtoCtx): KairosAuthor {
+  const p = ctx.profiles.get(phone);
+  if (!p) return { profileId: "", handle: "Bà con", subline: "", avatarUrl: null, official: false };
+  const a: KairosAuthor = {
+    profileId: p.id,
+    handle: p.handle,
+    subline: ctx.sublines?.get(phone) ?? "",
+    avatarUrl: p.avatar_path ? ctx.mediaUrl(p.avatar_path) : null,
+    official: p.official,
+  };
+  const boat = p.show_boat ? ctx.boats?.get(phone) : undefined;
+  if (boat) a.boatReg = boat;
+  return a;
+}
+
+export function commentDto(r: CommentRow, ctx: DtoCtx): KairosComment {
+  return {
+    id: r.id,
+    postId: r.post_id,
+    parentId: r.parent_id,
+    author: authorDto(r.author_phone, ctx),
+    body: r.body,
+    hayCount: r.hay_count,
+    hayByMe: ctx.hayComments?.has(r.id) ?? false,
+    createdAt: r.created_at,
+    mine: !!ctx.viewer && r.author_phone === ctx.viewer,
+  };
+}
+
+const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+
+/**
+ * `reshare`: hàng bài gốc khi `reshare_of` có và bài gốc còn hiện (route đã lọc ẩn/chặn);
+ * `reshare_of` có mà không truyền ⇒ "Bài gốc không còn" (A11).
+ */
+export function postDto(
+  r: PostRow,
+  ctx: DtoCtx,
+  extra: { topComments?: CommentRow[]; reshare?: PostRow | null } = {},
+): KairosPost {
+  const reshare = extra.reshare && r.reshare_of ? postDto({ ...extra.reshare, reshare_of: null }, ctx) : null;
+  return {
+    id: r.id,
+    kind: r.kind,
+    author: r.author_phone && r.kind !== "bao" ? authorDto(r.author_phone, ctx) : null,
+    outlet: r.outlet,
+    url: r.url,
+    title: r.title,
+    body: r.body,
+    summary: r.summary,
+    summaryBy: r.summary_by,
+    coverUrl: r.cover_url,
+    images: strArr(r.images).map(ctx.mediaUrl),
+    topic: r.topic,
+    regions: (r.regions ?? []) as KairosRegion[],
+    provinces: r.provinces ?? [],
+    ports: r.ports ?? [],
+    reshareOf: reshare,
+    ...(r.reshare_of && !reshare ? { reshareGone: true } : {}),
+    pinnedUntil: r.pinned_until,
+    hayCount: r.hay_count,
+    commentCount: r.comment_count,
+    hayByMe: ctx.hayPosts?.has(r.id) ?? false,
+    topComments: (extra.topComments ?? []).map((c) => commentDto(c, ctx)),
+    publishedAt: r.published_at,
+    editedAt: r.edited_at,
+    mine: !!ctx.viewer && r.author_phone === ctx.viewer,
+  };
+}

@@ -1,0 +1,221 @@
+{
+  "_ghi_chu": "Nguồn RSS của máy thu tin Kairos (14 §9, AC17). Kiểm sống bằng curl 2026-10-23: cả 27 nguồn trả RSS hợp lệ. Tắt một nguồn: enabled=false (đừng xoá — id là khoá kairos_sources). NN&MT không có mục RSS riêng cho pháp luật (trả 0 bài) nên chỉ lấy thuy-san + bien-dao như spec.",
+  "nguon": [
+    {
+      "id": "nnmt-thuy-san",
+      "outlet": "Nông nghiệp và Môi trường",
+      "feedUrl": "https://nongnghiepmoitruong.vn/thuy-san.rss",
+      "section": "thuy-san",
+      "topic": "nghe-ca",
+      "enabled": true
+    },
+    {
+      "id": "nnmt-bien-dao",
+      "outlet": "Nông nghiệp và Môi trường",
+      "feedUrl": "https://nongnghiepmoitruong.vn/bien-dao.rss",
+      "section": "bien-dao",
+      "topic": "nghe-ca",
+      "enabled": true
+    },
+    {
+      "id": "tsvn",
+      "outlet": "Thủy sản Việt Nam",
+      "feedUrl": "https://thuysanvietnam.com.vn/feed/",
+      "section": "thuy-san",
+      "topic": "nghe-ca",
+      "enabled": true
+    },
+    {
+      "id": "vne-thoi-su",
+      "outlet": "VnExpress",
+      "feedUrl": "https://vnexpress.net/rss/thoi-su.rss",
+      "section": "thoi-su",
+      "topic": "thoi-su",
+      "enabled": true
+    },
+    {
+      "id": "vne-the-gioi",
+      "outlet": "VnExpress",
+      "feedUrl": "https://vnexpress.net/rss/the-gioi.rss",
+      "section": "the-gioi",
+      "topic": "thoi-su",
+      "enabled": true
+    },
+    {
+      "id": "vne-phap-luat",
+      "outlet": "VnExpress",
+      "feedUrl": "https://vnexpress.net/rss/phap-luat.rss",
+      "section": "phap-luat",
+      "topic": "phap-luat",
+      "enabled": true
+    },
+    {
+      "id": "vne-the-thao",
+      "outlet": "VnExpress",
+      "feedUrl": "https://vnexpress.net/rss/the-thao.rss",
+      "section": "the-thao",
+      "topic": "the-thao",
+      "enabled": true
+    },
+    {
+      "id": "vne-giai-tri",
+      "outlet": "VnExpress",
+      "feedUrl": "https://vnexpress.net/rss/giai-tri.rss",
+      "section": "giai-tri",
+      "topic": "giai-tri",
+      "enabled": true
+    },
+    {
+      "id": "vne-suc-khoe",
+      "outlet": "VnExpress",
+      "feedUrl": "https://vnexpress.net/rss/suc-khoe.rss",
+      "section": "suc-khoe",
+      "topic": "doi-song",
+      "enabled": true
+    },
+    {
+      "id": "vne-kinh-doanh",
+      "outlet": "VnExpress",
+      "feedUrl": "https://vnexpress.net/rss/kinh-doanh.rss",
+      "section": "kinh-doanh",
+      "topic": "kinh-te",
+      "enabled": true
+    },
+    {
+      "id": "vne-doi-song",
+      "outlet": "VnExpress",
+      "feedUrl": "https://vnexpress.net/rss/gia-dinh.rss",
+      "section": "doi-song",
+      "topic": "doi-song",
+      "enabled": true
+    },
+    {
+      "id": "tt-thoi-su",
+      "outlet": "Tuổi Trẻ",
+      "feedUrl": "https://tuoitre.vn/rss/thoi-su.rss",
+      "section": "thoi-su",
+      "topic": "thoi-su",
+      "enabled": true
+    },
+    {
+      "id": "tt-the-gioi",
+      "outlet": "Tuổi Trẻ",
+      "feedUrl": "https://tuoitre.vn/rss/the-gioi.rss",
+      "section": "the-gioi",
+      "topic": "thoi-su",
+      "enabled": true
+    },
+    {
+      "id": "tt-phap-luat",
+      "outlet": "Tuổi Trẻ",
+      "feedUrl": "https://tuoitre.vn/rss/phap-luat.rss",
+      "section": "phap-luat",
+      "topic": "phap-luat",
+      "enabled": true
+    },
+    {
+      "id": "tt-the-thao",
+      "outlet": "Tuổi Trẻ",
+      "feedUrl": "https://tuoitre.vn/rss/the-thao.rss",
+      "section": "the-thao",
+      "topic": "the-thao",
+      "enabled": true
+    },
+    {
+      "id": "tt-giai-tri",
+      "outlet": "Tuổi Trẻ",
+      "feedUrl": "https://tuoitre.vn/rss/giai-tri.rss",
+      "section": "giai-tri",
+      "topic": "giai-tri",
+      "enabled": true
+    },
+    {
+      "id": "tt-suc-khoe",
+      "outlet": "Tuổi Trẻ",
+      "feedUrl": "https://tuoitre.vn/rss/suc-khoe.rss",
+      "section": "suc-khoe",
+      "topic": "doi-song",
+      "enabled": true
+    },
+    {
+      "id": "tt-kinh-doanh",
+      "outlet": "Tuổi Trẻ",
+      "feedUrl": "https://tuoitre.vn/rss/kinh-doanh.rss",
+      "section": "kinh-doanh",
+      "topic": "kinh-te",
+      "enabled": true
+    },
+    {
+      "id": "tt-doi-song",
+      "outlet": "Tuổi Trẻ",
+      "feedUrl": "https://tuoitre.vn/rss/nhip-song-tre.rss",
+      "section": "doi-song",
+      "topic": "doi-song",
+      "enabled": true
+    },
+    {
+      "id": "tn-thoi-su",
+      "outlet": "Thanh Niên",
+      "feedUrl": "https://thanhnien.vn/rss/thoi-su.rss",
+      "section": "thoi-su",
+      "topic": "thoi-su",
+      "enabled": true
+    },
+    {
+      "id": "tn-the-gioi",
+      "outlet": "Thanh Niên",
+      "feedUrl": "https://thanhnien.vn/rss/the-gioi.rss",
+      "section": "the-gioi",
+      "topic": "thoi-su",
+      "enabled": true
+    },
+    {
+      "id": "tn-phap-luat",
+      "outlet": "Thanh Niên",
+      "feedUrl": "https://thanhnien.vn/rss/thoi-su/phap-luat.rss",
+      "section": "phap-luat",
+      "topic": "phap-luat",
+      "enabled": true
+    },
+    {
+      "id": "tn-the-thao",
+      "outlet": "Thanh Niên",
+      "feedUrl": "https://thanhnien.vn/rss/the-thao.rss",
+      "section": "the-thao",
+      "topic": "the-thao",
+      "enabled": true
+    },
+    {
+      "id": "tn-giai-tri",
+      "outlet": "Thanh Niên",
+      "feedUrl": "https://thanhnien.vn/rss/giai-tri.rss",
+      "section": "giai-tri",
+      "topic": "giai-tri",
+      "enabled": true
+    },
+    {
+      "id": "tn-suc-khoe",
+      "outlet": "Thanh Niên",
+      "feedUrl": "https://thanhnien.vn/rss/suc-khoe.rss",
+      "section": "suc-khoe",
+      "topic": "doi-song",
+      "enabled": true
+    },
+    {
+      "id": "tn-kinh-te",
+      "outlet": "Thanh Niên",
+      "feedUrl": "https://thanhnien.vn/rss/kinh-te.rss",
+      "section": "kinh-te",
+      "topic": "kinh-te",
+      "enabled": true
+    },
+    {
+      "id": "tn-doi-song",
+      "outlet": "Thanh Niên",
+      "feedUrl": "https://thanhnien.vn/rss/doi-song.rss",
+      "section": "doi-song",
+      "topic": "doi-song",
+      "enabled": true
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 
 covers: public/sw.js
 last_verified: 2026-10-16
+<!-- re-verified: 2026-10-23 — THÊM TC-16 Kairos mất sóng (bản lưu forfish.kairos.v1, 'Lưu lúc…', có sóng lại tự tải, cách ly tài khoản); TC-03 nay bấm 6 ô dock. sw.js: '/kairos' vào SHELL (chỉ thêm URL ⇒ không bump SDFISH_CACHE_V). -->
 <!-- re-verified: 2026-10-23 — TRẢ NỢ commit 4f88f292 (rà bố cục: `forfish.installNudge.v2` THÊM trường tuỳ chọn `snoozeUntil`; không đụng sw.js/SHELL/tên kho). Đã chạy TỰ ĐỘNG trên bản build production chế độ demo (Chromium headless 375×812, `context.setOffline` — KHÔNG thay được máy bay / hotspot-không-internet theo mục 0): (1) `scripts/e2e-sen-bien.mjs --only f` 7/7 — mất mạng mở lại bản đồ, ảnh Sen Biển không vỡ, chạm "Nhắn chữ" ra ô gõ, hiểu ý ("Đang vẽ đường."), vẽ được tuyến tới Sa Huỳnh, worker tìm đường không lỗi, mp3 phát từ kho SW; kịch bản cập nhật nhãn icon (`senAria`, đổi 2026-10-19), ô gõ "Nhắn Sen Biển" / nút "Nhắn chữ" (đổi 2026-10-18), câu xác nhận mp3. Luồng c, d, n của kịch bản VẪN dò nhãn cũ "Sen Biển — nói lệnh" / "nói chỗ muốn tới" — chưa sửa. (2) Kịch bản tạm ngoài repo: mở nguội khi mất mạng đủ 5 tab dock (/, /ngu-truong, /tau, /tien, /cho) đều có nội dung dưới 1 s từ kho SW (chế độ demo, chưa đăng nhập); `installNudge.v2` dạng cũ / có `snoozeUntil` / `snoozeUntil` là chữ / không phải JSON ⇒ Trang chủ mở, 0 lỗi trang. Sao lưu / phục hồi cố ý KHÔNG chứa khoá này (offline-backup.ts). CHƯA chạy trên máy thật: bộ bắt buộc §2 (TC-02 · TC-03 · TC-06 · TC-07 · TC-10 · TC-13) vẫn phải chạy tay trước khi đồng bộ sang company/main. -->
 <!-- re-verified: 2026-10-22 — `public/sw.js` CÓ ĐỔI: `SHELL` (tier best-effort, KHÔNG phải CRITICAL) THÊM `/data/reef-depth.v1.bin` (0,66 MB, độ sâu rạn Hoàng Sa/Trường Sa) cạnh `reef-shapes`; THÊM url, không bump `sdfish-v6`, không đổi tên kho/allowlist `/api/*`/khoá `forfish.*`. Bốn câu offline: (a) request mới: tải file này khi bấm Tính đường (cùng chín kho hải đồ, trần chờ kho 5 s giữ nguyên) và khi chạm thẻ rạn ở hai quần đảo — có trần 30 s + `.catch`, hỏng thì tuyến tính bằng mặt nạ rạn cũ; KHÔNG có request nào lúc mở app; (b) đụng SHELL (chỉ THÊM) ⇒ bộ bắt buộc §2; (c) không xoá/đè dữ liệu bà con; (d) không màn mới — thẻ cũ thêm một dòng, thiếu số thì im. CHƯA chạy §2 trên máy thật. -->
 <!-- re-verified: 2026-10-16b — `public/sw.js` CÓ ĐỔI (rà soát prod): (1) `CRITICAL_SHELL` THÊM `/icons/sen-bien.png` (13 KB — nút nổi Sen Biển chỉ có hình, thiếu thì mất sóng là nút trong suốt); THÊM url, không bump `sdfish-v6`. (2) Nhánh asset tĩnh: logic cũ tách nguyên vào `staticFirst()` (đồng hồ, kho, trần GIỮ NGUYÊN — `sw-timeouts.test` xanh), riêng yêu cầu `destination === "worker"` thì phản hồi được gói lại `asWorkerScript()` để worker giữ `#params` — trước đó máy có SW luôn rơi về tính tuyến đồng bộ trên luồng chính. KHÔNG đổi tên kho/allowlist `/api/*`/khoá `forfish.*`. Bốn câu offline: (a) không request runtime mới — chỉ mẻ cài lại vỏ một lần/máy vì sw.js đổi byte; (b) đụng SHELL (chỉ THÊM) + nhánh asset ⇒ chạy bộ bắt buộc §2; (c) không xoá/đè dữ liệu bà con; (d) không màn mới. Đã chạy tự động (Chromium, `context.setOffline`): mở lại bản đồ khi mất mạng · ảnh cá không vỡ · Sen Biển chuyển ô gõ · hiểu ý + tự vẽ đường + worker tìm đường dựng được · mp3 phát từ kho — `scripts/e2e-sen-bien.mjs` luồng f. CHƯA chạy trên máy thật (iOS/Android bản cài) — vẫn phải chạy §2 + TC-07 trước khi coi là xong. -->
@@ -12,6 +13,7 @@ last_verified: 2026-10-16
 <!-- re-verified: 2026-08-18b — `public/sw.js` CÓ ĐỔI (gói F push server): CHỈ ở options của `showNotification` trong nhánh `push` — thêm `{tag: data.tag, renotify: true}` khi payload có `tag` (bão `bao-<khoá>`, đơn `don-<id>`; tin tay không tag → như cũ). KHÔNG chạm `SHELL`/`CRITICAL_SHELL`/tên kho/danh sách cache/allowlist `/api/*`/khoá `forfish.*` ⇒ bộ ca §1–§2 KHÔNG đổi. THÊM ca **N-8** (gom thông báo cùng `tag`) và ghi chú CHẠY LẠI **N-4** vì `/api/push/ack` + `/api/me/messages/read` nay BỎ QUA endpoint không có trong `push_subscriptions` (`counted:0`) — máy đã huỷ đăng ký/endpoint bịa không được đếm nữa. Delta gọi ca mới là "N-6" nhưng N-6/N-7 đã có (đặt hàng / chợ tin) → đánh số N-8. -->
 <!-- re-verified: 2026-08-18 - doi chieu bo ca QA voi `public/sw.js` hien tai (ban doi lan cuoi 2026-08-07, mach nay KHONG dung sw.js): 5 kho + ten kho (`sdfish-v6`/`static-v1`/`rsc-v1`/`api-v1`/`tiles-v1`), `SHELL`/`CRITICAL_SHELL`, dau `/__sdfish-shell-ready`, allowlist 9 route `/api/*` va luat cuu 401/403 - tat ca van khop cau chu trong TC-01..TC-13. Them ba ca N-5 (ve tuyen khi chua hoi duoc tin bao) - N-6 (dat hang khi song chap chon, khong duoc ra hai don) - N-7 (cho tin khi mat song), va mot ghi chu dau N-7 tro ve ADR 0004 de lan sau khong ai mo rong ca nay thanh 'kiem co cache chua'. -->
 ttl_days: 120
+<!-- DOC-STATUS: SUSPECT (2026-10-24) — code 'public/sw.js' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
 <!-- re-verified: 2026-09-04 — Đợt 0 tuyến/dẫn đường: `public/sw.js` CHỈ thêm chú thích cạnh `/data/depth-grid.v1.bin` (không đổi SHELL/CRITICAL_SHELL/tên kho/khoá `forfish.*`). File `depth-grid.v1.bin` ĐỔI NỘI DUNG + ĐỔI CỠ (4,26 → 8,53 MB, 2 bit → 4 bit/ô) nhưng GIỮ ĐƯỜNG DẪN ⇒ như 21 file của đợt 2026-09-03c: `addAll` + `cache:"reload"` + `put` ghi đè khi SW cài, KHÔNG bump vỏ. Nếu máy còn giữ bản cũ (SW chưa cài lại), `decodeDepthGrid` từ chối theo cỡ file → tuyến tính được nhưng báo "chưa né được vùng cạn" (`depthChecked=false`) — không đọc sai lớp trong im lặng. Bốn câu offline: (a) không request mới; (b) đụng sw.js chỉ ở chú thích; (c) không xoá/đè dữ liệu bà con, chỉ đè asset tĩnh; (d) không màn mới. CA CẦN CHẠY đợt tới: TC-03/TC-04 sau khi cài bản mới rồi mất sóng — chạm bản đồ vịnh Rạch Giá (10,02°B 104,99°Đ) phải ra "Rất cạn, chưa tới 2 m nước", KHÔNG phải "Trên bờ"; vẽ tuyến Rạch Giá → Côn Đảo với mớn 1,2 m khai trong Tuỳ chọn phải CÓ tuyến. -->
@@ -112,10 +114,10 @@ Mỗi ca ghi: **mã ca · mã máy · ĐẠT/HỎNG · ảnh chụp màn hình �
 1. Làm xong TC-01 (máy đã có dữ liệu).
 2. **Tắt hẳn app** (vuốt khỏi đa nhiệm), bật **Chế độ máy bay**.
 3. Mở app từ icon.
-4. Bấm lần lượt **cả 5 tab dock**: Trang chủ · Ra khơi · Tàu cá · Bạn thuyền · Giao dịch. Mỗi tab đợi tối đa 10 giây.
+4. Bấm lần lượt **cả 6 ô dock** (2026-10-23): Trang chủ · Kairos · Bản đồ · Tàu tôi · Chợ cá · Vật tư. Mỗi ô đợi tối đa 10 giây. (Kairos chi tiết ở TC-16.)
 5. Trong **Tàu cá** → mở tủ giấy tờ. Trong **Bạn thuyền** → mở sổ thuyền viên. Trong **Giao dịch** → xem bảng giá.
 
-**ĐẠT**: cả 5 tab mở được, KHÔNG trắng màn, KHÔNG kẹt xoay quá 10 giây; giấy tờ và thuyền viên đã nhập trước đó **hiện đúng**; bảng giá hiện kèm **tuần/ngày của bản tin**.
+**ĐẠT**: cả 6 ô mở được, KHÔNG trắng màn, KHÔNG kẹt xoay quá 10 giây; giấy tờ và thuyền viên đã nhập trước đó **hiện đúng**; bảng giá hiện kèm **tuần/ngày của bản tin**.
 **HỎNG (chặn)**: bất kỳ tab nào trắng màn; hoặc tủ giấy tờ hiện **dữ liệu mẫu** trong khi máy đã có giấy tờ thật (báo gấp — đây là nói dối).
 
 ---
@@ -301,6 +303,21 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 **ĐẠT**: bước 2 và 3 đều nghe **giọng nữ Sen Biển** đọc câu cố định (không phải giọng máy); không màn nào treo.
 **HỎNG (chặn)**: bước 3 mất giọng Sen Biển (kho `sdfish-tro-ly-v1` bị xoá khi đổi vỏ) — hoặc Sen Biển treo "Đang nghĩ…" khi mất sóng.
+
+---
+
+### TC-16 — Kairos đọc được khi mất sóng (2026-10-23, 14-ba-spec-kairos AC19) 🔴
+**Máy**: A, B, D · 5 phút.
+
+1. Có sóng: mở ô **Kairos** trên dock, cuộn xuống 2–3 trang (để máy lưu bài). Bấm chip **Nghề cá** một lần.
+2. **Tắt hẳn app**, bật **Chế độ máy bay**, mở app từ icon → bấm ô **Kairos**.
+3. Bấm chip **Mới**, **Nghề cá**, **Theo dõi**.
+4. Còn chế độ máy bay: chuyển sang tab khác rồi quay lại Kairos.
+5. Tắt chế độ máy bay, đứng yên ở màn Kairos.
+6. (Máy dùng chung) Đăng xuất, đăng nhập tài khoản khác, bật máy bay, mở Kairos.
+
+**ĐẠT**: bước 2 màn Kairos mở được (không trắng), hiện bài đã lưu + băng vàng **"Mất sóng — bài lưu lúc HH:mm dd/MM"**; bài có ảnh ghi "Có N ảnh — cần sóng để xem", không ô ảnh vỡ. Bước 3: Nghề cá chỉ còn bài nghề cá; Theo dõi nói "…chưa lưu trong máy. Có sóng sẽ tải." Không nút nào quay vòng quá 12 giây. Bước 5: dòng tin **tự tải lại**, băng vàng biến mất. Bước 6: KHÔNG thấy bài/“Hay của tôi” của tài khoản trước ("Mất sóng. Có sóng sẽ tải.").
+**HỎNG (chặn)**: màn Kairos trắng khi mất sóng; xoay mãi không dừng; bản đồ cá / dự báo đã tải (`forfish.fc.*`) bị mất sau khi đọc Kairos nhiều; bước 6 lộ bản lưu người trước.
 
 ---
 

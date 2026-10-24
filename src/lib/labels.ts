@@ -35,6 +35,7 @@ export const NHAN = {
   chon: "Chọn",
   chep: "Chép",
   chiaSe: "Chia sẻ",
+  camDang: "Cấm đăng",
   // tài khoản
   dangNhap: "Đăng nhập",
   dangKy: "Đăng ký",
@@ -78,6 +79,58 @@ export const NHAN = {
   caiApp: "Cài app",
   huongDan: "Hướng dẫn",
   chinhSach: "Chính sách",
+  // dock 6 mục (lib/dock-nav.ts) — chỉ icon, tên đọc qua aria-label
+  trangChu: "Trang chủ",
+  kairos: "Kairos",
+  banDo: "Bản đồ",
+  tauToi: "Tàu tôi",
+  choCa: "Chợ cá",
+  vatTu: "Vật tư",
+  // Kairos (14-ba-spec-kairos) — chân thẻ bài
+  hay: "Hay",
+  binhLuan: "Bình luận",
+  chinhThuc: "Chính thức",
+  ghim: "Ghim",
+  // Kairos — đăng bài, bình luận, chia sẻ, hồ sơ (AC07–AC15)
+  dang: "Đăng",
+  dangGui: "Đang gửi",
+  dangTai: "Đang tải",
+  dangMo: "Đang mở",
+  anh: "Ảnh",
+  canSong: "Cần sóng",
+  dongY: "Đồng ý",
+  traLoi: "Trả lời",
+  dangLai: "Đăng lại",
+  guiDi: "Gửi đi",
+  chepLink: "Chép link",
+  taiAnh: "Tải ảnh",
+  baoXau: "Báo xấu",
+  chan: "Chặn",
+  boChan: "Bỏ chặn",
+  theoDoi: "Theo dõi",
+  doiTen: "Đổi tên",
+  doiAnh: "Đổi ảnh",
+  boAnh: "Bỏ ảnh",
+  bo: "Bỏ",
+  trangToi: "Trang tôi",
+} as const;
+
+/**
+ * Nhãn chip Kairos theo mã chip (`lib/kairos/thoi-quen.ts` CHIPS). Bảng riêng vì "Nghề cá",
+ * "Đời sống"… cũng là TÊN CHỦ ĐỀ trên thẻ bài — đọc chung một bảng, khỏi lệch.
+ */
+export const NHAN_CHIP_KAIROS = {
+  moi: "Mới",
+  "nghe-ca": "Nghề cá",
+  "cang-toi": "Cảng tôi",
+  "gan-toi": "Gần tôi",
+  "theo-doi": "Theo dõi",
+  "thoi-su": "Thời sự",
+  "phap-luat": "Pháp luật",
+  "doi-song": "Đời sống",
+  "the-thao": "Thể thao",
+  "giai-tri": "Giải trí",
+  "kinh-te": "Kinh tế",
 } as const;
 
 export type NhanId = keyof typeof NHAN;

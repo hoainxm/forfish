@@ -4,7 +4,7 @@
 | Doc | Trang thai | Ly do |
 |---|---|---|
 | docs/app-map/01-product.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/02-architecture.md | VERIFIED | ok |
+| docs/app-map/02-architecture.md | SUSPECT | code 'src/app' doi sau last_verified |
 | docs/app-map/03-design-system.md | VERIFIED | ok |
 | docs/app-map/04-data-model.md | SUSPECT | code 'supabase/migrations' doi sau last_verified |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
@@ -14,8 +14,9 @@
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | SUSPECT | code 'src/lib/fish-blend.ts' doi sau last_verified |
 | docs/app-map/10-ba-spec-quan-tri-van-hanh.md | VERIFIED | ok |
 | docs/app-map/11-ba-spec-san-thuong-mai.md | SUSPECT | code 'src/components/market/' doi sau last_verified |
-| docs/app-map/12-kien-truc-san-thuong-mai.md | VERIFIED | ok |
+| docs/app-map/12-kien-truc-san-thuong-mai.md | SUSPECT | code 'src/app/api/dev' doi sau last_verified |
 | docs/app-map/13-ba-spec-tro-ly-giong-noi.md | SUSPECT | code 'src/lib/assistant/' doi sau last_verified |
+| docs/app-map/14-ba-spec-kairos.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/15-flow-dang-chay-giong-noi.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-notify-2026-08-18.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
@@ -25,7 +26,7 @@
 | docs/app-map/ops/dan-duong-khoa-hoc.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/deploy-windows-iis.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/dot1-setup.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/external-services.md | VERIFIED | ok |
+| docs/app-map/ops/external-services.md | SUSPECT | code 'src/lib/fish-snapshot.ts' doi sau last_verified |
 | docs/app-map/ops/fish-review-2026-10-03/00-brief.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/fish-review-2026-10-03/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/fish-review-2026-10-03/report-algorithm.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
@@ -42,11 +43,11 @@
 | docs/app-map/ops/fish-validate-positions.md | VERIFIED | ok |
 | docs/app-map/ops/forecast-accuracy.md | SUSPECT | code 'src/lib/sea-actual.ts' doi sau last_verified |
 | docs/app-map/ops/native-deploy.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/qa-offline-acceptance.md | SUSPECT | code 'public/sw.js' doi sau last_verified |
+| docs/app-map/ops/qa-offline-acceptance.md | VERIFIED | ok |
 | docs/app-map/ops/rbac-runbook.md | VERIFIED | ok |
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/runbook.md | SUSPECT | code 'scripts/train/run.mjs' doi sau last_verified |
+| docs/app-map/ops/runbook.md | VERIFIED | ok |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/auth-scope.ts' doi sau last_verified |
+| docs/app-map/ops/state-registry.md | VERIFIED | ok |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/test-tai-khoan.md | VERIFIED | ok |
