@@ -1,7 +1,7 @@
 // Cỗ máy phân phối dòng tin ở máy chủ (anh Long 2026-10-24: "nâng lên"; agent "đan xen để tránh nhàm").
 import { describe, expect, it } from "vitest";
 import {
-  diemBai, giaiMaPP, guDoc, laBaiAgent, laTinBien, maHoaPP, tacGiaCua, TRAN_KHONG_BIEN, TRAN_TAC_GIA, W_THICH, xepDongTin,
+  diemBai, docHat, giaiMaPP, guDoc, laBaiAgent, nhieu, NHIEU_XAO, laTinBien, maHoaPP, tacGiaCua, TRAN_KHONG_BIEN, TRAN_TAC_GIA, W_THICH, xepDongTin,
   type PPPost, type Reader, type ReadSignal,
 } from "@/lib/kairos/phan-phoi";
 
@@ -183,5 +183,33 @@ describe("Tuỳ chọn dòng tin — Thích đọc + ẩn bài trợ lý AI (14 
     expect(laBaiAgent(bai({ kind: "ba-con", author_phone: "0901234567" }))).toBe(false);
     expect(laBaiAgent(bai({ kind: "chinh-thuc", author_phone: "sdvico:chinh-thuc" }))).toBe(false);
     expect(laBaiAgent(bai())).toBe(false);
+  });
+});
+
+describe("xáo mỗi lần làm mới (hạt)", () => {
+  // 40 bài cùng giờ, cùng mọi thứ — chỉ khác id ⇒ thứ tự do hạt quyết định
+  const ps = Array.from({ length: 40 }, (_, i) => bai({ kind: "ba-con", author_phone: `x${i}`, topic: "nghe-ca", feed_at: h(2) }));
+  const thuTu = (hat?: number) => xepDongTin(ps, { ...khach, hat }, NOW).map((p) => p.id).join(",");
+  it("cùng hạt ⇒ cùng thứ tự (phân trang không lặp); khác hạt ⇒ thứ tự khác", () => {
+    expect(thuTu(7)).toBe(thuTu(7));
+    expect(thuTu(7)).not.toBe(thuTu(8));
+    expect(new Set(thuTu(9).split(",")).size).toBe(40);
+  });
+  it("nhiễu trong [0, 1), biên độ nhỏ hơn trọng số độ mới ⇒ bài mới hẳn vẫn ở trên", () => {
+    for (let i = 0; i < 200; i++) {
+      const u = nhieu(i, `id-${i}`);
+      expect(u).toBeGreaterThanOrEqual(0);
+      expect(u).toBeLessThan(1);
+    }
+    expect(NHIEU_XAO).toBeLessThan(1);
+    const moiHan = bai({ kind: "ba-con", author_phone: "moi", topic: "nghe-ca", feed_at: h(0) });
+    const cu = Array.from({ length: 10 }, (_, i) => bai({ kind: "ba-con", author_phone: `c${i}`, topic: "nghe-ca", feed_at: h(60) }));
+    for (const hat of [1, 2, 3, 4, 5]) expect(xepDongTin([...cu, moiHan], { ...khach, hat }, NOW)[0].id).toBe(moiHan.id);
+  });
+  it("con trỏ mang hạt; docHat nhận số nguyên 0…2^31-1, lạ ⇒ undefined", () => {
+    expect(giaiMaPP(maHoaPP({ at: h(0.2), off: 20, hat: 12345 }), NOW)).toEqual({ at: h(0.2), off: 20, hat: 12345 });
+    expect(giaiMaPP(maHoaPP({ at: h(0.2), off: 20 }), NOW)).toEqual({ at: h(0.2), off: 20 });
+    expect(docHat("42")).toBe(42);
+    for (const x of ["-1", "abc", "99999999999", "1.5", null]) expect(docHat(x)).toBeUndefined();
   });
 });

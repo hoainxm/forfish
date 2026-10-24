@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24e — phan-phoi: Reader.hat + nhieu()/NHIEU_XAO/docHat, PPCursor.hat; feed route đọc `hat` (trang đầu) / con trỏ (trang sau); kairos-feed gửi hạt mới mỗi lần tải trang đầu + cử chỉ vuốt làm mới (touch, overscroll-behavior-y contain trên html khi ở /kairos). -->
 <!-- re-verified: 2026-10-24d — route MỚI `POST /api/kairos/agent` (2000 agent tri thức — lib/kairos/agent-doi.mjs + agent-dieu-phoi.mjs, script GPU scripts/kairos-agent.mjs); KairosAuthor.isAgent (dto suy từ SĐT `agent:`); post-card + comment-thread vẽ chấm AI. luat-kiem-duyet GOI_QUYET_DINH_TOI_DA 100 ⇒ 25. -->
 <!-- re-verified: 2026-10-24 — component MỚI `components/kairos/tuy-chon-sheet.tsx` (ngăn "Tuỳ chọn dòng tin", mở từ nút bánh răng trong `kairos-screen.tsx`, chỉ dòng tin chung) + lib thuần `lib/kairos/tuy-chon.ts` (khoá `forfish.kairos.tuychon.v1`, `themThamSo`/`docThamSo`); `GET /api/kairos/feed` nhận thêm `thich=<mã,mã>` (mã lạ bỏ qua, không 400 — cộng `W_THICH` trong `phan-phoi.ts` qua `Reader.thich`) + `ai=0` (bỏ bài tác giả `agent:` sentinel TRƯỚC khi xếp, cả đoạn nối theo giờ). Không route mới, không request mới. -->
 <!-- re-verified: 2026-10-24c — route MỚI `POST /api/kairos/sen-bien` (khoá ingest; Sen Biển đăng bài giới thiệu, lib/kairos/sen-bien-gioi-thieu.mjs) + script GPU `scripts/kairos-sen-bien.mjs`; types.ts thêm SEN_BIEN_PHONE. -->

@@ -57,6 +57,8 @@ import { PostCard, type PostActions } from "./post-card";
 import { PostSkeleton } from "./post-skeleton";
 
 type Load = "loading" | "ready" | "error" | "offline";
+/** Kéo xuống chừng này (rem) ở đầu trang rồi thả ⇒ làm mới dòng tin. */
+const KEO_LAM_MOI = 4.5;
 
 /** Cảng nhà từ sổ tàu (tàu đang chọn, không thì tàu đầu) — KHÔNG từ vị trí máy. */
 function homeFromBoats(): Habit["home"] {
@@ -165,7 +167,12 @@ export function KairosFeed({
         setErrStatus(401);
         return;
       }
-      const res = await fetchFeedPage(voiNha(q.params, h, port, st.current.tuyChon), null);
+      // HẠT XÁO MỚI mỗi lần tải trang đầu (vuốt làm mới, "Có N bài mới", có sóng lại…) ⇒ máy chủ xếp lại thứ tự,
+      // bài cùng tầm điểm đổi chỗ (phan-phoi.NHIEU_XAO) — anh Long: "mỗi lần vuốt xuống refresh thì thứ tự tin random".
+      // Bến (port) xếp theo giờ ⇒ không gửi.
+      const dau = voiNha(q.params, h, port, st.current.tuyChon);
+      if (!port) dau.set("hat", String(Math.floor(Math.random() * 2147483647)));
+      const res = await fetchFeedPage(dau, null);
       if (gen !== st.current.gen) return; // bà con đã đổi chip — bỏ phản hồi cũ
       const t = Date.now();
       setNow(t);
@@ -370,6 +377,65 @@ export function KairosFeed({
     void loadFirst(chip, habit, true);
   };
 
+  /*  VUỐT XUỐNG LÀM MỚI (như Facebook): đang ở đầu trang mà kéo xuống ≥ KEO_LAM_MOI ⇒ thả ra là tải lại trang đầu với
+      hạt xáo mới (thứ tự đổi, đỡ nhàm). Tắt "kéo tải lại cả trang" của trình duyệt trên màn này (overscroll-behavior-y)
+      để không tải lại cả app. Mất sóng: vẫn cho kéo — loadFirst giữ bài đang hiện + báo mất sóng như nút Thử lại. */
+  const [keo, setKeo] = useState(0);
+  const [dangLamMoi, setDangLamMoi] = useState(false);
+  const keoRef = useRef<{ y0: number | null; d: number }>({ y0: null, d: 0 });
+  const lamMoiRef = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => {
+    lamMoiRef.current = async () => {
+      setDangLamMoi(true);
+      try {
+        await loadFirst(st.current.chip, st.current.habit, true);
+      } finally {
+        setDangLamMoi(false);
+      }
+    };
+  }, [loadFirst]);
+  useEffect(() => {
+    if (port) return; // Bến: không xáo
+    const html = document.documentElement;
+    const cu = html.style.overscrollBehaviorY;
+    html.style.overscrollBehaviorY = "contain";
+    const rem = parseFloat(getComputedStyle(html).fontSize) || 16;
+    const nguong = KEO_LAM_MOI * rem;
+    const bat = (e: TouchEvent) => {
+      keoRef.current = { y0: window.scrollY <= 0 && e.touches.length === 1 ? e.touches[0].clientY : null, d: 0 };
+    };
+    const di = (e: TouchEvent) => {
+      const k = keoRef.current;
+      if (k.y0 == null) return;
+      const d = e.touches[0].clientY - k.y0;
+      if (d <= 0 || window.scrollY > 0) {
+        if (k.d) setKeo(0);
+        k.d = 0;
+        return;
+      }
+      k.d = Math.min(d * 0.5, nguong * 1.4); // kéo nặng tay như FB
+      setKeo(k.d);
+    };
+    const tha = () => {
+      const k = keoRef.current;
+      const du = k.d >= nguong;
+      keoRef.current = { y0: null, d: 0 };
+      setKeo(0);
+      if (du) void lamMoiRef.current();
+    };
+    window.addEventListener("touchstart", bat, { passive: true });
+    window.addEventListener("touchmove", di, { passive: true });
+    window.addEventListener("touchend", tha);
+    window.addEventListener("touchcancel", tha);
+    return () => {
+      html.style.overscrollBehaviorY = cu;
+      window.removeEventListener("touchstart", bat);
+      window.removeEventListener("touchmove", di);
+      window.removeEventListener("touchend", tha);
+      window.removeEventListener("touchcancel", tha);
+    };
+  }, [port]);
+
   const shownPinned = view ? view(pinned) : pinned;
   const shownPosts = useMemo(() => {
     // một bài chỉ hiện MỘT lần: đang ghim thì chỉ ở dải ghim
@@ -389,6 +455,15 @@ export function KairosFeed({
 
   return (
     <div className="pb-4">
+      {(keo > 0 || dangLamMoi) && (
+        <div
+          aria-live="polite"
+          className="flex items-end justify-center overflow-hidden text-[0.875rem] font-semibold text-foreground/65"
+          style={{ height: dangLamMoi ? "2.5rem" : `${keo / 16}rem` }}
+        >
+          <span className="pb-2">{dangLamMoi ? "Đang làm mới…" : keo >= KEO_LAM_MOI * 16 ? "Thả để làm mới" : "Kéo để làm mới"}</span>
+        </div>
+      )}
       <div className="px-4 pb-3">
         <button
           type="button"

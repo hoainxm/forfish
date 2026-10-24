@@ -77,6 +77,31 @@ export interface Reader {
   home: { port: string | null; province: string | null; regions: readonly string[] };
   /** chủ đề "Thích đọc" bà con tự chọn (Tuỳ chọn dòng tin) — ưu tiên, không lọc */
   thich?: ReadonlySet<string>;
+  /**
+   * HẠT XÁO của lượt làm mới (anh Long 2026-10-24: "mỗi lần vuốt xuống refresh thì thứ tự tin random để đỡ nhàm").
+   * Có ⇒ mỗi bài cộng một nhiễu cố định theo (hạt, id) trong [0, NHIEU_XAO): bài cùng tầm điểm đổi chỗ mỗi lần làm
+   * mới, tin rất mới / rất hợp gu vẫn ở trên; cùng hạt ⇒ cùng thứ tự (phân trang không lặp). Luật đan xen + 85 % tin
+   * biển áp SAU nhiễu nên vẫn giữ.
+   */
+  hat?: number;
+}
+
+/** Biên độ nhiễu xáo — nhỏ hơn W.moi (1) để bài mới hẳn không bị đẩy xuống đáy. */
+export const NHIEU_XAO = 0.45;
+
+/** Số giả ngẫu nhiên [0, 1) cố định theo (hạt, id) — FNV-1a + trộn bit. Thuần. */
+export function nhieu(hat: number, id: string): number {
+  let h = (2166136261 ^ (hat >>> 0)) >>> 0;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x7feb352d) >>> 0;
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x846ca68b) >>> 0;
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
 }
 
 /** Khoá tác giả: người/agent theo SĐT (hoặc sentinel), bài báo theo tên báo. */
@@ -150,7 +175,7 @@ const tranTacGia = (tg: string) => (tg.startsWith("bao:") ? TRAN_TAC_GIA.bao : T
 
 /**
  * Xếp TOÀN BỘ ứng viên cho một người đọc: chấm điểm rồi đan xen theo từng trang `trang` bài.
- * Thứ tự hoàn toàn xác định (hoà điểm ⇒ giữ thứ tự máy chủ: feed_at desc) ⇒ cùng dữ liệu cùng kết quả,
+ * Thứ tự hoàn toàn xác định (hoà điểm ⇒ giữ thứ tự máy chủ: feed_at desc) ⇒ cùng dữ liệu + cùng hạt xáo cùng kết quả,
  * phân trang bằng vị trí không lặp bài.
  */
 export function xepDongTin<T extends PPPost>(posts: readonly T[], r: Reader, now: number, trang = 20): T[] {
@@ -162,7 +187,12 @@ export function xepDongTin<T extends PPPost>(posts: readonly T[], r: Reader, now
     daXem.set(x.post_id, { opened: (cu?.opened ?? false) || x.opened });
   }
   const ctx = { chuDe, tacGia, daXem };
-  const con = posts.map((p, i) => ({ p, s: diemBai(p, r, now, ctx), i, tg: tacGiaCua(p) }));
+  const con = posts.map((p, i) => ({
+    p,
+    s: diemBai(p, r, now, ctx) + (r.hat != null ? NHIEU_XAO * nhieu(r.hat, p.id) : 0),
+    i,
+    tg: tacGiaCua(p),
+  }));
   con.sort((a, b) => b.s - a.s || a.i - b.i);
 
   const out: T[] = [];
@@ -209,21 +239,30 @@ export interface PPCursor {
   at: string;
   /** vị trí trong danh sách đã xếp */
   off: number;
+  /** hạt xáo của lượt làm mới — trang sau dùng lại để cùng thứ tự */
+  hat?: number;
+}
+
+/** Hạt xáo hợp lệ: số nguyên 0…2^31-1; lạ ⇒ undefined (xếp không xáo). */
+export function docHat(raw: unknown): number | undefined {
+  const n = typeof raw === "string" && /^\d{1,10}$/.test(raw) ? Number(raw) : typeof raw === "number" ? raw : NaN;
+  return Number.isInteger(n) && n >= 0 && n <= 2147483647 ? n : undefined;
 }
 
 export function maHoaPP(c: PPCursor): string {
-  return `pp.${Buffer.from(JSON.stringify({ a: c.at, o: c.off })).toString("base64url")}`;
+  return `pp.${Buffer.from(JSON.stringify({ a: c.at, o: c.off, ...(c.hat != null ? { h: c.hat } : {}) })).toString("base64url")}`;
 }
 
 export function giaiMaPP(raw: string | null | undefined, now: number): PPCursor | null {
   if (!raw || !raw.startsWith("pp.") || raw.length > 200) return null;
   try {
-    const o = JSON.parse(Buffer.from(raw.slice(3), "base64url").toString("utf8")) as { a?: unknown; o?: unknown };
+    const o = JSON.parse(Buffer.from(raw.slice(3), "base64url").toString("utf8")) as { a?: unknown; o?: unknown; h?: unknown };
     if (typeof o.a !== "string" || typeof o.o !== "number" || !Number.isInteger(o.o) || o.o < 0 || o.o > UNG_VIEN) return null;
     const t = Date.parse(o.a);
     // mốc quá cũ (app để nền nhiều ngày) hoặc ở tương lai ⇒ coi như hỏng, app tải lại trang đầu
     if (!Number.isFinite(t) || t > now + 60_000 || now - t > 2 * 86_400_000) return null;
-    return { at: new Date(t).toISOString(), off: o.o };
+    const hat = docHat(o.h);
+    return { at: new Date(t).toISOString(), off: o.o, ...(hat != null ? { hat } : {}) };
   } catch {
     return null;
   }

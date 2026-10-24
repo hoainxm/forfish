@@ -9,6 +9,8 @@
 //     cảng/tỉnh nhà app gửi (`nha`, `tinh` — chỉ MÃ, không hồ sơ đọc), chia trang bằng con trỏ `pp.`.
 //     Hết danh sách xếp ⇒ `next` chuyển sang con trỏ theo giờ ⇒ dòng tin cũ hơn tiếp tục như trước.
 //   · Bến / trang người dùng / theo dõi / con trỏ theo giờ ⇒ (feed_at desc, id desc) như cũ.
+// XÁO MỖI LẦN LÀM MỚI (2026-10-24): `hat=<số>` ⇒ nhiễu cố định theo (hạt, bài) — app đổi hạt mỗi lần vuốt xuống làm mới;
+// trang sau mang hạt trong con trỏ `pp.` (phan-phoi.NHIEU_XAO).
 // TUỲ CHỌN DÒNG TIN (lib/kairos/tuy-chon.ts, chỉ dòng tin mặc định): `thich=<mã,mã>` ⇒ chủ đề đó được cộng điểm
 // (ưu tiên, không lọc; mã lạ bỏ qua, không 400) · `ai=0` ⇒ bỏ bài agent tri thức (`agent:` sentinel) TRƯỚC khi xếp,
 // và cả ở đoạn nối tiếp theo giờ.
@@ -18,7 +20,7 @@ import { NextResponse } from "next/server";
 import { encodeCursor } from "@/lib/kairos/cursor";
 import { parseFeedParams } from "@/lib/kairos/feed-query";
 import { PROVINCE_IDS, regionsOfProvince } from "@/lib/kairos/khu-vuc.mjs";
-import { giaiMaPP, laBaiAgent, maHoaPP, UNG_VIEN, xepDongTin } from "@/lib/kairos/phan-phoi";
+import { docHat, giaiMaPP, laBaiAgent, maHoaPP, UNG_VIEN, xepDongTin } from "@/lib/kairos/phan-phoi";
 import { tinHieuCua } from "@/lib/kairos/phan-phoi-store";
 import { feedFilterFor, hydratePosts, kErr, kairosErrorResponse, PORT_IDS, readerOf, storeOr503 } from "@/lib/kairos/server";
 import { docThamSo } from "@/lib/kairos/tuy-chon";
@@ -51,6 +53,8 @@ export async function GET(req: Request) {
     if (macDinh && (!rawCursor || pp)) {
       // ── xếp theo người đọc ──
       const at = pp?.at ?? new Date(now).toISOString();
+      // hạt xáo: trang đầu lấy từ `hat` app gửi (đổi mỗi lần vuốt làm mới), trang sau lấy lại từ con trỏ
+      const hat = pp ? pp.hat : docHat(sp.get("hat"));
       const off = pp?.off ?? 0;
       const nha = sp.get("nha");
       const tinh = sp.get("tinh");
@@ -67,9 +71,9 @@ export async function GET(req: Request) {
       ]);
       const conLai = boAgent ? ungVien.filter((r) => !laBaiAgent(r)) : ungVien;
       const thich = tuyChon.thich.size ? tuyChon.thich : undefined;
-      const xep = xepDongTin(conLai, { reads, follows: new Set(follows), home, thich }, Date.parse(at), LIMITS.pageSize);
+      const xep = xepDongTin(conLai, { reads, follows: new Set(follows), home, thich, hat }, Date.parse(at), LIMITS.pageSize);
       page = xep.slice(off, off + LIMITS.pageSize);
-      if (off + LIMITS.pageSize < xep.length) next = maHoaPP({ at, off: off + LIMITS.pageSize });
+      if (off + LIMITS.pageSize < xep.length) next = maHoaPP({ at, off: off + LIMITS.pageSize, hat });
       else {
         // hết danh sách xếp ⇒ tiếp theo giờ từ bài CŨ NHẤT trong ứng viên (danh sách ứng viên theo feed_at desc)
         const cuoi = ungVien.length === UNG_VIEN ? ungVien[ungVien.length - 1] : null;

@@ -5,6 +5,7 @@
 ```
 covers: src/app, src/components
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24i — /kairos VUỐT XUỐNG LÀM MỚI: ở đầu trang kéo xuống (nặng tay ×0.5) hiện dòng "Kéo để làm mới" → ≥ 4.5rem "Thả để làm mới" → thả: "Đang làm mới…" + tải trang đầu với thứ tự mới (xáo). Bến không có. Mất sóng: giữ bài đang hiện + băng mất sóng như Thử lại. -->
 <!-- re-verified: 2026-10-24h — Chấm "AI" (nền navy/10, chữ 0.6875rem đậm) cạnh tên tác giả AGENT ở thẻ bài + bình luận + trang hồ sơ — như dấu tích, không làm tên khó đọc (spec 16 L1). -->
 <!-- re-verified: 2026-10-24 — KAIROS TUỲ CHỌN DÒNG TIN (anh Long: "icon dạng cấu hình của fb để chọn chủ đề thích đọc"): /kairos đầu màn thêm nút bánh răng 2.75rem (`SettingsIcon`, aria-label `NHAN.tuyChon`) cạnh "Trang tôi" — CHỈ dòng tin chung, không ở Bến ⇒ BottomSheet "Tuỳ chọn dòng tin": câu "Chủ đề bà con thích sẽ lên trước, chủ đề khác vẫn hiện. Tin biển vẫn luôn chiếm phần lớn." · nhóm "Thích đọc" 7 công tắc chủ đề (role=switch, chọn nhiều, mặc định tắt hết) · nhóm "Trợ lý AI" công tắc "Hiện bài trợ lý AI" (mặc định bật). Ưu tiên, KHÔNG lọc. Chạm là lưu trong máy; đóng ngăn ⇒ tải lại trang đầu nếu có đổi (giữ bài đang hiện nếu mất sóng). Máy không ghi được ⇒ dòng đỏ "Máy chưa lưu được tuỳ chọn — chỉ dùng lần này." (§5 1b, §6 Kairos). -->
 <!-- re-verified: 2026-10-24g — Thẻ bài Chính thức hiện TÊN HỒ SƠ người đăng (SDVICO hoặc Sen Biển) thay vì gắn cứng "SDVICO" (lỗi thật: bài Sen Biển hiện tên SDVICO); tên/ảnh đại diện bài Chính thức bấm được sang trang hồ sơ. Khung soạn Đăng lại cũng theo tên hồ sơ. -->
