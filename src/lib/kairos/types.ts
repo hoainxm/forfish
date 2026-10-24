@@ -101,6 +101,14 @@ export interface KairosAbout {
   homePort: string | null;
 }
 
+/** Thẻ xem trước link trong bình luận (0070, xem-truoc-link.ts). */
+export interface LinkPreview {
+  url: string;
+  site: string;
+  title: string;
+  image: string | null;
+}
+
 export interface KairosComment {
   id: string;
   postId: string;
@@ -115,6 +123,10 @@ export interface KairosComment {
   camXuc?: DemCamXuc;
   createdAt: string;
   mine: boolean;
+  /** ảnh kèm (một ảnh, URL công khai kairos-media) — 0070 */
+  image?: string | null;
+  /** thẻ xem trước link đầu tiên trong chữ — máy chủ đọc lúc ghi (0070) */
+  link?: LinkPreview | null;
 }
 
 export interface KairosPost {

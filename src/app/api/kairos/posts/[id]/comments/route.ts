@@ -3,7 +3,9 @@
 // GET  khách đọc: trang 30 theo (created_at, id) tăng dần, con trỏ `next`; bỏ người mình chặn.
 // POST SĐT + đã đồng ý nội quy: ≤1.000 ký tự, chữ bậy/chủ quyền ⇒ 400, 60/ngày ⇒ 429. Trả lời
 //      đúng 1 cấp: trả lời một trả lời ⇒ gắn vào bình luận GỐC (replyRoot; trigger 0065 là lưới
-//      cuối). Báo chủ bài + người được trả lời, gộp 1 tin/bài/giờ, không tự báo mình.
+//      cuối). Báo chủ bài + người được trả lời, gộp 1 tin/bài/giờ, không tự báo mình (link trỏ `#bl-<id>`).
+//      Kèm ≤1 ảnh của chính mình (0070; chỉ ảnh không chữ cũng được). Link đầu tiên trong chữ ⇒ máy chủ
+//      đọc trang làm thẻ xem trước (xem-truoc-link: chống SSRF, 3 s, lỗi ⇒ không thẻ, bình luận vẫn lên).
 import { NextResponse } from "next/server";
 import { decodeCursor, encodeCursor } from "@/lib/kairos/cursor";
 import {
@@ -12,6 +14,7 @@ import {
 } from "@/lib/kairos/server";
 import { LIMITS } from "@/lib/kairos/types";
 import { isUuid, replyRoot, validateComment } from "@/lib/kairos/validate";
+import { layXemTruoc, timLink } from "@/lib/kairos/xem-truoc-link";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -45,7 +48,7 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!w.ok) return w.res;
   const { store, phone, profile } = w;
   const body = await jsonBody(req);
-  const v = validateComment(body);
+  const v = validateComment(body, profile.id);
   if (!v.ok) return kErr(400, v.code);
   try {
     const limited = await rateDenied(store, "comments", phone);
@@ -62,9 +65,11 @@ export async function POST(req: Request, ctx: Ctx) {
       parentId = replyRoot({ id: target.id, parentId: target.parent_id });
       parentAuthor = target.author_phone; // báo đúng người được trả lời
     }
-    const row = await store.insertComment({ post_id: post.id, parent_id: parentId, author_phone: phone, body: v.value.body });
+    const link = timLink(v.value.body);
+    const link_preview = link ? await layXemTruoc(link) : null;
+    const row = await store.insertComment({ post_id: post.id, parent_id: parentId, author_phone: phone, body: v.value.body, image_path: v.value.image, link_preview });
     await auditQuiet(store, { actor: phone, actor_kind: "ba-con", action: "comment_create", target_type: "comment", target_id: row.id, detail: { postId: post.id, parentId }, ip: clientIp(req) });
-    await notifyComment(store, { post, parentAuthor, commenter: phone, commenterHandle: profile.handle });
+    await notifyComment(store, { post, parentAuthor, commenter: phone, commenterHandle: profile.handle, commentId: row.id });
     const [comment] = await hydrateComments(store, [row], phone);
     return NextResponse.json({ ok: true, comment }, { status: 201 });
   } catch (e) {

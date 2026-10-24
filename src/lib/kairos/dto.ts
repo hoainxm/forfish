@@ -4,6 +4,7 @@
 // giờ ra client: tác giả = `profileId` (uuid công khai); "mine" tính ở máy chủ bằng so SĐT rồi
 // chỉ trả boolean. `kairos-dto.test.ts` soi JSON ra không chứa SĐT nào.
 
+import { docXemTruoc } from "./xem-truoc-link";
 import { xepDem, type CamXuc, type DemCamXuc } from "./cam-xuc";
 import { laAgent } from "./agent-doi.mjs";
 import { laTinNong } from "./phan-phoi";
@@ -55,6 +56,9 @@ export interface CommentRow {
   body: string;
   hay_count: number;
   created_at: string;
+  /** 0070 — cột chưa có ⇒ undefined */
+  image_path?: string | null;
+  link_preview?: unknown;
 }
 
 export interface DtoCtx {
@@ -134,6 +138,8 @@ export function commentDto(r: CommentRow, ctx: DtoCtx): KairosComment {
     camXuc: demCua(ctx.demComments?.get(r.id), r.hay_count),
     createdAt: r.created_at,
     mine: !!ctx.viewer && r.author_phone === ctx.viewer,
+    image: r.image_path ? ctx.mediaUrl(r.image_path) : null,
+    link: docXemTruoc(r.link_preview),
   };
 }
 

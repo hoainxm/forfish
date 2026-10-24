@@ -14,22 +14,28 @@
    · Bình luận nhanh (14 §15): ô trống ⇒ hàng câu có sẵn (Cảm ơn · Đúng rồi…) một chạm là gửi; nút micro
      nói để viết — chữ nghe được ĐIỀN vào ô, bà con xem lại rồi mới bấm gửi.
    · `initialNext === undefined` ⇒ tự tải trang bình luận đầu (dùng ở thẻ dòng tin: thẻ chỉ mang 2 bình luận nổi).
+   · Ảnh + link kiểu FB (0070): nút ảnh trong ô viết (≤1 ảnh, nén như ảnh bài, tải lên khi CHỌN; bỏ ảnh ⇒ xoá khỏi
+     kho), chạm ảnh ⇒ trình xem toàn màn; link trong chữ ⇒ thẻ xem trước máy chủ đã đọc lúc ghi. Ảnh KHÔNG vào
+     nháp (nháp chỉ chữ). `#bl-<id>` ⇒ cuộn tới bình luận đó khi đã tải.
 */
 
 import { chonCamXuc, chotCamXuc, type CamXuc, type CamXucState } from "@/lib/kairos/cam-xuc";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CloseIcon, SendIcon } from "@/components/icons";
+import { CloseIcon, ImageIcon, SendIcon } from "@/components/icons";
+import { resizeForMarket } from "@/lib/market/image-resize";
 import { draftKey } from "@/lib/kairos/cache";
 import { countLabel, postTimeLabel } from "@/lib/kairos/feed-client";
 import { LIMITS, type KairosComment, type KairosPost } from "@/lib/kairos/types";
 import { charLen } from "@/lib/kairos/validate";
 import {
   bocTienTo,
+  discardUploads,
   dropComment,
   errorText,
   ghepTraLoi,
   kairosSend,
+  kairosUpload,
   loadDraft,
   replyTarget,
   saveDraft,
@@ -46,6 +52,30 @@ import { RulesBox } from "./rules-box";
 import { NutMic } from "./de-dung";
 import { BL_NHANH } from "@/lib/kairos/de-dung";
 import { useVungNhin } from "./use-vung-nhin";
+import { XemAnh } from "./xem-anh";
+import type { LinkPreview } from "@/lib/kairos/types";
+
+/** Thẻ xem trước link (máy chủ đã đọc lúc ghi) — ảnh trái, tên trang + tiêu đề phải; mở tab mới. */
+function TheLink({ l }: { l: LinkPreview }) {
+  const [hong, setHong] = useState(false);
+  return (
+    <a
+      href={l.url}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      className="mt-1 flex max-w-[20rem] overflow-hidden rounded-xl border border-line bg-card"
+    >
+      {l.image && !hong && (
+        // eslint-disable-next-line @next/next/no-img-element -- ảnh trang ngoài, không qua next/image
+        <img src={l.image} alt="" loading="lazy" onError={() => setHong(true)} className="h-20 w-20 shrink-0 object-cover" />
+      )}
+      <span className="flex min-w-0 flex-col justify-center gap-0.5 px-3 py-2">
+        <span className="truncate text-[0.75rem] text-foreground/65">{l.site}</span>
+        <span className="line-clamp-2 text-[0.875rem] font-semibold leading-snug text-navy">{l.title}</span>
+      </span>
+    </a>
+  );
+}
 
 /** Việc của màn chứa (usePostActions): báo một dòng, mở hộp báo xấu, sửa số bình luận của bài đang hiện. */
 export interface CommentKit {
@@ -73,6 +103,8 @@ function CommentRow({
 }) {
   const [ask, setAsk] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [xem, setXem] = useState(false);
+  const [anhHong, setAnhHong] = useState(false);
   const small = "h-9 px-2 text-[0.8125rem] font-semibold";
   return (
     <li id={`bl-${c.id}`} className={`flex scroll-mt-20 gap-2 ${reply ? "pl-10" : ""}`}>
@@ -86,8 +118,24 @@ function CommentRow({
             {c.author.official && <span className="ml-1.5 text-sea">{NHAN.chinhThuc}</span>}
             {c.author.isAgent && <span title="Trợ lý AI" className="ml-1.5 rounded-full bg-navy/10 px-1.5 text-[0.6875rem] font-bold text-navy">AI</span>}
           </Link>
-          <ChuXemThem text={c.body} dong={8} nen="field" className="text-[1rem]" />
+          {c.body ? (
+            <ChuXemThem text={c.body} dong={8} nen="field" className="text-[1rem]" />
+          ) : (
+            !c.image && <p className="text-[1rem] text-foreground/65">Đã gửi một ảnh</p>
+          )}
         </div>
+        {c.image && (
+          <button type="button" onClick={() => setXem(true)} aria-label="Xem ảnh bình luận" className="mt-1 block overflow-hidden rounded-2xl">
+            {anhHong ? (
+              <span className="flex h-24 w-40 items-center justify-center bg-field text-[0.8125rem] text-foreground/65">Cần sóng để xem ảnh</span>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- ảnh kho kairos-media, cùng cách thẻ bài
+              <img src={c.image} alt="" loading="lazy" onError={() => setAnhHong(true)} className="max-h-60 max-w-[15rem] object-cover" />
+            )}
+          </button>
+        )}
+        {xem && c.image && <XemAnh urls={[c.image]} start={0} onClose={() => setXem(false)} />}
+        {c.link && <TheLink l={c.link} />}
         {ask ? (
           <div className="flex items-center gap-2 py-1" role="group" aria-label="Xác nhận xoá bình luận">
             <span className="text-[0.8125rem] text-danger">Xoá bình luận{reply ? "" : " và các trả lời"}?</span>
@@ -176,6 +224,11 @@ export function CommentThread({
   const [sendErr, setSendErr] = useState("");
   const [needRules, setNeedRules] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
+  /** ảnh đính kèm đang chờ gửi (đã tải lên kho) */
+  const [anh, setAnh] = useState<{ url: string; path: string } | null>(null);
+  const [anhBusy, setAnhBusy] = useState(false);
+  const chonAnh = useRef<HTMLInputElement>(null);
+  const daCuon = useRef(false);
   const hayBusy = useRef(new Set<string>());
 
   useEffect(() => {
@@ -199,6 +252,12 @@ export function CommentThread({
     const h = window.location.hash;
     if (h.startsWith("#bl-")) setTroToi(decodeURIComponent(h.slice(4)));
   }, []);
+  // …và cuộn tới nó một lần khi đã có trong danh sách (luồng vừa bung ở lượt vẽ này).
+  useEffect(() => {
+    if (!troToi || daCuon.current || !comments.some((c) => c.id === troToi)) return;
+    daCuon.current = true;
+    requestAnimationFrame(() => document.getElementById(`bl-${troToi}`)?.scrollIntoView({ block: "center" }));
+  }, [troToi, comments]);
   const loadFirst = useCallback(async () => {
     setFirst("loading");
     const r = await kairosSend<{ comments: KairosComment[]; next: string | null }>("GET", `/api/kairos/posts/${encodeURIComponent(id)}/comments`);
@@ -252,8 +311,33 @@ export function CommentThread({
 
   const len = charLen(text.trim());
   const left = LIMITS.commentBody - len;
-  const canSend = online && signedIn && canWrite && !sending && len > 0 && left >= 0 && !needRules;
+  const canSend = online && signedIn && canWrite && !sending && !anhBusy && (len > 0 || !!anh) && left >= 0 && !needRules;
   const canQuick = online && signedIn && canWrite && !sending && !needRules;
+
+  const layAnh = async (f: File | undefined) => {
+    if (!f) return;
+    setAnhBusy(true);
+    setSendErr("");
+    try {
+      const r = await kairosUpload(await resizeForMarket(f));
+      if (!r.ok) {
+        if (r.code === "rules") setNeedRules(true);
+        setSendErr(r.offline ? "Cần sóng để gửi ảnh." : errorText(r, "anh"));
+        return;
+      }
+      if (anh) void discardUploads([anh.path]);
+      setAnh({ url: r.data.url, path: r.data.path });
+    } catch {
+      setSendErr("Ảnh này không đọc được — chọn ảnh khác.");
+    } finally {
+      setAnhBusy(false);
+    }
+  };
+
+  const boAnh = () => {
+    if (anh) void discardUploads([anh.path]);
+    setAnh(null);
+  };
 
   /** `nhanh` = câu bình luận nhanh (gửi thẳng, không qua ô); không có ⇒ gửi chữ trong ô. */
   const send = async (nhanh?: string) => {
@@ -261,8 +345,9 @@ export function CommentThread({
     setSending(true);
     setSendErr("");
     const r = await kairosSend<{ comment: KairosComment }>("POST", `/api/kairos/posts/${encodeURIComponent(id)}/comments`, {
-      body: ghepTraLoi(nhanh ?? text, replyTo, !!replyTo?.sau),
+      body: (nhanh ?? text).trim() ? ghepTraLoi(nhanh ?? text, replyTo, !!replyTo?.sau) : "",
       parentId: replyTo?.parentId ?? null,
+      ...(!nhanh && anh ? { image: anh.path } : {}),
     });
     setSending(false);
     if (!r.ok) {
@@ -277,6 +362,7 @@ export function CommentThread({
     if (!nhanh) {
       setText("");
       saveDraft(phone, dKey, "");
+      setAnh(null);
     }
     setReplyTo(null);
   };
@@ -410,7 +496,23 @@ export function CommentThread({
                 </button>
               </div>
             )}
-            {!text.trim() && canQuick && (
+            {anh && (
+              <div className="relative mb-2 ml-12 inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element -- ảnh vừa tải lên kho */}
+                <img src={anh.url} alt="Ảnh sẽ gửi kèm" className="h-24 w-24 rounded-xl object-cover" />
+                <button
+                  type="button"
+                  onClick={boAnh}
+                  aria-label="Bỏ ảnh"
+                  className="absolute -right-3 -top-3 flex h-11 w-11 items-center justify-center"
+                >
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-navy text-white">
+                    <CloseIcon className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+              </div>
+            )}
+            {!text.trim() && !anh && canQuick && (
               <div className="mb-2 flex gap-2 overflow-x-auto" role="group" aria-label="Bình luận nhanh">
                 {BL_NHANH.map((c) => (
                   <button
@@ -441,6 +543,26 @@ export function CommentThread({
                 placeholder={toi?.handle ? `Bình luận với tên ${toi.handle}` : "Viết bình luận…"}
                 className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-line bg-field px-4 py-2.5 text-[1rem] leading-snug outline-none focus-visible:ring-2 focus-visible:ring-sea"
               />
+              <input
+                ref={chonAnh}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  void layAnh(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => chonAnh.current?.click()}
+                disabled={!online || !canWrite || sending || anhBusy || needRules}
+                aria-busy={anhBusy}
+                aria-label={anh ? "Đổi ảnh" : "Gửi ảnh"}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground/65 disabled:opacity-40"
+              >
+                <ImageIcon className="h-6 w-6" />
+              </button>
               <NutMic
                 disabled={sending}
                 onChu={(t) => {

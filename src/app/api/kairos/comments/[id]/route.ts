@@ -1,5 +1,7 @@
 // DELETE /api/kairos/comments/[id] — XOÁ BÌNH LUẬN CỦA MÌNH (14 §3.4, §7, AC10).
 // Chỉ chủ bình luận; xoá luôn trả lời con (FK cascade). Đang bị cấm vẫn xoá được của mình.
+// Ảnh kèm (0070) xoá khỏi kho ngay; kho lỗi ⇒ chỉ log (agent dọn ảnh mồ côi sau 24 giờ). Ảnh của
+// trả lời con bị cascade cũng do agent dọn.
 import { NextResponse } from "next/server";
 import { auditQuiet, clientIp, kErr, kairosErrorResponse, requireWriter } from "@/lib/kairos/server";
 import { isUuid } from "@/lib/kairos/validate";
@@ -17,6 +19,7 @@ export async function DELETE(req: Request, ctx: Ctx) {
     if (!row) return kErr(404, "not_found");
     if (row.author_phone !== phone) return kErr(403, "not_owner");
     await store.deleteComment(row.id);
+    if (row.image_path) await store.removeImages([row.image_path]).catch((e) => console.error("[kairos] xoá ảnh bình luận hỏng:", (e as Error)?.message));
     await auditQuiet(store, { actor: phone, actor_kind: "ba-con", action: "comment_delete", target_type: "comment", target_id: row.id, detail: { postId: row.post_id }, ip: clientIp(req) });
     return NextResponse.json({ ok: true });
   } catch (e) {

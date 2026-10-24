@@ -502,6 +502,7 @@ export function createKairosFileStore(opts: { dir?: string; now?: () => Date } =
         const used = new Set<string>();
         for (const p of s.posts) for (const img of Array.isArray(p.images) ? (p.images as string[]) : []) if (want.has(img)) used.add(img);
         for (const pr of s.profiles) for (const x of [pr.avatar_path, pr.cover_path]) if (x && want.has(x)) used.add(x);
+        for (const c of s.comments) if (c.image_path && want.has(c.image_path)) used.add(c.image_path);
         return used;
       }),
     uploadsToCheck: (since, before, limit) =>

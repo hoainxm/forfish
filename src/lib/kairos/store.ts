@@ -197,7 +197,7 @@ export interface KairosStore {
   /** bình luận GỐC nhiều Hay nhất (hay desc, created asc), không ẩn, bỏ người bị chặn */
   topComments(postId: string, n: number, excludeAuthors: string[]): Promise<CommentFull[]>;
   getComment(id: string): Promise<CommentFull | null>;
-  insertComment(row: { post_id: string; parent_id: string | null; author_phone: string; body: string }): Promise<CommentFull>;
+  insertComment(row: { post_id: string; parent_id: string | null; author_phone: string; body: string; image_path?: string | null; link_preview?: unknown }): Promise<CommentFull>;
   /** cascade xoá trả lời con */
   deleteComment(id: string): Promise<void>;
   updateComment(id: string, patch: CommentPatch): Promise<CommentFull>;

@@ -279,7 +279,15 @@ function TopComment({ c }: { c: KairosComment }) {
       <KairosAvatar id={c.author.profileId || c.id} name={c.author.handle} url={c.author.avatarUrl} small />
       <div className="min-w-0 rounded-2xl bg-field px-3 py-1.5">
         <p className="truncate text-[0.8125rem] font-bold text-navy">{c.author.handle}</p>
-        <ChuXemThem text={c.body} dong={3} nen="field" className="text-[1rem]" />
+        {c.body ? (
+          <ChuXemThem text={c.body} dong={3} nen="field" className="text-[1rem]" />
+        ) : (
+          !c.image && <p className="text-[1rem] text-foreground/65">Đã gửi một ảnh</p>
+        )}
+        {c.image && (
+          // eslint-disable-next-line @next/next/no-img-element -- ảnh kho kairos-media; bản lưu offline đã bỏ ảnh
+          <img src={c.image} alt="Ảnh bình luận" loading="lazy" className="mt-1 h-16 w-16 rounded-lg object-cover" />
+        )}
       </div>
     </li>
   );

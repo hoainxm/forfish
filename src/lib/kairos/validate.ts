@@ -121,21 +121,25 @@ export function validatePost(
 export interface CommentInput {
   body: string;
   parentId: string | null;
+  /** một ảnh trong thư mục của chính người viết (0070) */
+  image: string | null;
 }
 
-/** Bình luận / trả lời. Trả lời một trả lời ⇒ route quy về bình luận gốc (`replyRoot`). */
-export function validateComment(raw: unknown): Checked<CommentInput> {
+/** `profileId` = người viết — ảnh phải nằm trong thư mục của họ; thiếu ⇒ không nhận ảnh. */
+export function validateComment(raw: unknown, profileId?: string): Checked<CommentInput> {
   if (!raw || typeof raw !== "object") return { ok: false, code: "empty" };
   const r = raw as Record<string, unknown>;
-  if (typeof r.body !== "string") return { ok: false, code: "empty" };
-  const body = cleanText(r.body);
-  if (!body) return { ok: false, code: "empty" };
+  if (r.body != null && typeof r.body !== "string") return { ok: false, code: "empty" };
+  const body = cleanText((r.body as string | undefined) ?? "");
   if (charLen(body) > LIMITS.commentBody) return { ok: false, code: "too_long" };
+  const image = r.image ?? null;
+  if (image !== null && (!profileId || !isOwnMediaPath(image, profileId))) return { ok: false, code: "bad_image" };
+  if (!body && !image) return { ok: false, code: "empty" };
   const parentId = r.parentId ?? null;
   if (parentId !== null && !isUuid(parentId)) return { ok: false, code: "empty" };
   const flag = contentFlag(body);
   if (flag) return { ok: false, code: flag.code, term: flag.term };
-  return { ok: true, value: { body, parentId: parentId as string | null } };
+  return { ok: true, value: { body, parentId: parentId as string | null, image: image as string | null } };
 }
 
 /**

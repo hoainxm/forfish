@@ -25,7 +25,7 @@ const PROFILE_HO_SO_COLS = HO_SO_FIELDS.join(",");
 const HO_SO_RECHECK_MS = 5 * 60_000;
 const POST_COLS =
   "id,kind,author_phone,source_id,outlet,url,url_hash,title,title_norm,body,summary,summary_by,cover_url,images,topic,regions,provinces,ports,reshare_of,pinned_until,hidden,hidden_reason,mod_state,mod_checked_at,hay_count,comment_count,published_at,feed_at,created_at,edited_at";
-const COMMENT_COLS = "id,post_id,parent_id,author_phone,body,hay_count,hidden,mod_state,mod_checked_at,created_at";
+const COMMENT_COLS = "id,post_id,parent_id,author_phone,body,hay_count,hidden,mod_state,mod_checked_at,created_at,image_path,link_preview";
 const IN_MAX = 200;
 /** trần số lượt cảm xúc đọc một lô để đếm theo loại */
 const DEM_TOI_DA = 10_000;
@@ -551,6 +551,9 @@ export function createKairosSupabaseStore(): KairosStore | null {
       const owners = await many<ProfileFull>("mediaInUse", profileQuery((c) => db.from("kairos_profiles").select(c).in("id", ids)));
       for (const o of owners) for (const x of [o.avatar_path, o.cover_path]) if (x && want.has(x)) used.add(x);
       if (!owners.length) return used;
+      // ảnh bình luận (0070)
+      const cm = await many<{ image_path: string | null }>("mediaInUse", comments().select("image_path").in("image_path", [...want]));
+      for (const c of cm) if (c.image_path) used.add(c.image_path);
       // nợ: đọc mọi bài của chủ thư mục (≤10 bài/ngày/người); đổi sang lọc jsonb `images @> [path]` khi một người vượt vài nghìn bài
       const rows = await many<{ images: unknown }>("mediaInUse", posts().select("images").in("author_phone", owners.map((o) => o.phone)));
       for (const r of rows) for (const img of Array.isArray(r.images) ? (r.images as string[]) : []) if (want.has(img)) used.add(img);

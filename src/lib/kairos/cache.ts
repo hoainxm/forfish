@@ -43,7 +43,13 @@ export function cacheBucket(phone: string | null | undefined): string {
 }
 
 const textAuthor = (a: KairosAuthor | null): KairosAuthor | null => (a ? { ...a, avatarUrl: null } : null);
-const textComment = (c: KairosComment): KairosComment => ({ ...c, author: textAuthor(c.author)! });
+// ảnh bình luận + ảnh thẻ link cũng bỏ (bản lưu chỉ chữ) — thẻ link giữ tên trang + tiêu đề
+const textComment = (c: KairosComment): KairosComment => ({
+  ...c,
+  author: textAuthor(c.author)!,
+  image: null,
+  link: c.link ? { ...c.link, image: null } : c.link,
+});
 
 /** Bỏ mọi thứ không phải chữ: ảnh, ảnh bìa, ảnh đại diện; giữ ≤2 bình luận đầu; đăng lại 1 tầng. */
 export function toCachedPost(p: KairosPost): KairosPost {

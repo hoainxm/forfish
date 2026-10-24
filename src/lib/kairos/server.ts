@@ -282,7 +282,7 @@ export async function feedFilterFor(
  */
 export async function notifyComment(
   store: KairosStore,
-  input: { post: PostFull; parentAuthor: string | null; commenter: string; commenterHandle: string },
+  input: { post: PostFull; parentAuthor: string | null; commenter: string; commenterHandle: string; commentId?: string },
 ): Promise<void> {
   try {
     const targets = commentRecipients({
@@ -294,7 +294,7 @@ export async function notifyComment(
     const nowIso = new Date().toISOString();
     for (const t of targets) {
       if (!(await store.takeNotifyMark(input.post.id, t.phone, nowIso, NOTIFY_WINDOW_MS))) continue;
-      await notifyMarket(t.phone, { ...notifyMessage(t, input.commenterHandle, input.post.id), sentBy: KAIROS_PUSH_SENT_BY });
+      await notifyMarket(t.phone, { ...notifyMessage(t, input.commenterHandle, input.post.id, input.commentId), sentBy: KAIROS_PUSH_SENT_BY });
     }
   } catch (e) {
     console.error("[kairos] báo bình luận hỏng (bỏ qua):", (e as Error)?.message);

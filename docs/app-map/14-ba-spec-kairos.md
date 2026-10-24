@@ -2,6 +2,7 @@
 
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
+<!-- re-verified: 2026-10-24q — §3.4b ảnh trong bình luận (≤1, nút ảnh trong ô viết), thẻ xem trước link (máy chủ đọc lúc ghi, chống SSRF), thông báo trỏ #bl-<id> + cuộn tới; §7 route bình luận nhận image. -->
 <!-- re-verified: 2026-10-24p — RÀ FB VÒNG 2 (anh Long: "tổ chức team agent rà vòng 2 về giao diện và tương tác facebook"): §4/A74/AC05 BỎ nhãn "Cả nước" trên thẻ (ca-nuoc chỉ là dữ liệu), nhãn nơi chốn "Tên ▸ Bến X" trên dòng tên chạm sang Bến; §3.2 ⋯ lên đầu thẻ, lưới ảnh 1/2/3/4+ + trình xem toàn màn, dòng tổng "N bình luận", bài đăng lại có ảnh + link bài gốc, giữ chỗ 10 phút; §3.3 × hỏi Lưu nháp/Bỏ bài/Viết tiếp (nháp giữ ảnh), gỡ cảng "Không gắn"; §3.4 viên Trả lời, gập "Xem N phản hồi", ô viết dính đáy; §3.8 cảng nhà chạm được; §3.9 thẻ đầu Bến + màn phụ ‹ + kéo làm mới. A94–A98. -->
 <!-- re-verified: 2026-10-24k — TIN NÓNG NGOÀI THUỶ SẢN (anh Long: "các bài mà tin nóng thu hút thì lấy để bà con biết thứ gì đang nóng ngoài thuỷ sản"): nguồn mới `gn-noi-bat` = Google News "Tin nổi bật" Việt Nam (news.google.com/rss, biên tập + số báo cùng đưa tin; vẫn lọc baoDuocPhep + gộp trùng sự kiện). §13: 15 % suất ngoài biển ƯU TIÊN tin nóng (W_NONG 0.6 cộng cho bài báo nguồn nóng KHÔNG phải chuyện biển) — 85 % biển giữ nguyên. Thẻ bài nóng có nhãn đỏ "Đang nóng" cạnh giờ. -->
 <!-- re-verified: 2026-10-24k — HỎI SEN BIỂN THAY Ô TÌM (§15, việc 10 nghiên cứu FB): "bài về câu mực" / "tin Kairos về Lý Sơn" / "đọc báo" ⇒ Sen Biển toàn app lọc BẢN LƯU forfish.kairos.v1 (lib/kairos/tim-tin.ts, thuần + test), đọc ≤3 bài, mở bài đầu; không mạng. CHUÔNG GỌN (§16, việc 7): nút chuông + chấm đếm ở đầu /kairos, ngăn danh sách tin bình luận/trả lời mình lấy từ hộp thư (lib/kairos/chuong.ts). A86–A88. -->
@@ -84,6 +85,13 @@ Anh Long: "cho các icon cảm xúc tương tự fb ấy". 6 cảm xúc (`lib/ka
 - **Gập luồng**: luồng có 1 trả lời ⇒ hiện luôn; ≥2 ⇒ gập thành nút "**Xem N phản hồi**" (ảnh đại diện người trả lời cuối) — bung khi bấm, khi luồng chứa bình luận được trỏ tới (`#bl-<id>` từ thông báo) hoặc mình vừa trả lời (`social.traLoiHien`). Gốc và trả lời xếp theo giờ tăng dần, trùng giờ so id (`threadComments`).
 - **Ô viết dính đáy** ở trang bài (`dinhDay`): đứng trên dock, bàn phím mở ⇒ đứng ngay trên bàn phím (`use-vung-nhin.ts`, `visualViewport`); thanh là con trực tiếp của khối bình luận (sticky không ra khỏi khối cha), khoảng trên vạch home đã nằm trong `--dock-total` nên không cộng `env(safe-area-inset-bottom)` lần hai. Inline dưới thẻ: ô viết nằm cuối khối bình luận. Thông báo chủ bài (bình luận mới) và chủ bình luận (trả lời) qua `notifyAccount`, **gộp 1 tin/bài/người nhận/giờ** ("Có 3 bình luận mới ở bài của bạn"); không tự báo mình.
 
+### 3.4b Ảnh + link trong bình luận, thông báo trỏ đúng bình luận (2026-10-24, theo ảnh FB anh Long gửi)
+- **Nút ảnh** trong ô viết (cạnh micro): chọn ⇒ nén như ảnh bài (`resizeForMarket`) ⇒ tải lên ngay (`/api/kairos/upload`), hiện ảnh nhỏ trên ô viết + × "Bỏ ảnh" (xoá khỏi kho). **≤1 ảnh/bình luận**, chỉ ảnh không chữ cũng gửi được. Ảnh KHÔNG vào nháp (nháp chỉ chữ); mất sóng ⇒ nút ảnh tắt, "Cần sóng để gửi ảnh".
+- Bình luận có ảnh: ảnh dưới bong bóng (≤15rem), chạm ⇒ trình xem toàn màn (`xem-anh`); ảnh hỏng/mất sóng ⇒ "Cần sóng để xem ảnh". Bình luận nổi trên thẻ: ảnh nhỏ 4rem. Bản lưu offline bỏ ảnh ⇒ bình luận chỉ có ảnh hiện "Đã gửi một ảnh".
+- **Xem trước link**: chữ có link http(s) ⇒ máy chủ đọc trang link ĐẦU TIÊN lúc ghi (`lib/kairos/xem-truoc-link.ts`: og:title/og:site_name/og:image; chống SSRF — chỉ tên miền phân giải ra IP công khai, kiểm lại mỗi lần chuyển hướng ≤3, cổng mặc định, 3 s, ≤256 KB, chỉ text/html). Thẻ: ảnh trái + tên trang + tiêu đề 2 dòng, mở tab mới. Đọc hỏng ⇒ không thẻ, bình luận vẫn lên. Người đọc không gọi mạng ra ngoài.
+- **Thông báo trỏ đúng bình luận**: link tin "có bình luận / có người trả lời" = `/kairos/p/<bài>#bl-<bình luận>` ⇒ trang bài bung luồng chứa nó và cuộn tới (một lần, khi đã tải). Tin gộp 1/bài/giờ trỏ bình luận ĐẦU của giờ đó.
+- Dữ liệu: migration 0070 (04). Test `kairos-binh-luan-anh-link.test.ts`.
+
 ### 3.5 Chia sẻ (AC11)
 `BottomSheet` 4 việc: **Đăng lại** (khung soạn kèm thẻ bài gốc + lời mình) · **Gửi đi** (`navigator.share` link `/k/[id]`, không có ⇒ chép) · **Chép link** · **Tải ảnh** (khi bài có ảnh).
 
@@ -161,8 +169,8 @@ Ghi: `identityFromRequest(req)` (401 chưa đăng nhập, 503 không tra đượ
 | POST | `/api/kairos/posts` | SĐT | 10/ngày; chưa đồng ý nội quy ⇒ 409 `rules` |
 | PATCH · DELETE | `/api/kairos/posts/[id]` | chủ bài | DELETE xoá ảnh kho trước; lỗi kho ⇒ 500, không xoá nửa vời |
 | POST | `/api/kairos/upload` | SĐT + nội quy | 1 ảnh/lượt, magic bytes jpeg/png/webp, ≤500 KB (dùng chung `readImageUpload` của Chợ — chặt hơn trần 512 KB của bucket), 30/ngày; trả `{path, url}` |
-| GET · POST | `/api/kairos/posts/[id]/comments` | khách · SĐT | 60/ngày |
-| DELETE | `/api/kairos/comments/[id]` | chủ bình luận | xoá cả trả lời con |
+| GET · POST | `/api/kairos/posts/[id]/comments` | khách · SĐT | 60/ngày; POST `{body, parentId?, image?}` (0070: ảnh của mình, chữ có thể trống khi có ảnh; link đầu ⇒ thẻ xem trước) |
+| DELETE | `/api/kairos/comments/[id]` | chủ bình luận | xoá cả trả lời con + ảnh kèm |
 | PUT | `/api/kairos/posts/[id]/hay` · `/api/kairos/comments/[id]/hay` | SĐT | `{on}` idempotent; 300/giờ |
 | POST | `/api/kairos/reports` | SĐT | 20/ngày; trùng ⇒ 200 |
 | PUT · DELETE | `/api/kairos/follows/[profileId]` · `/api/kairos/blocks/[profileId]` | SĐT | 100/ngày |

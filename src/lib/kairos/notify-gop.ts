@@ -36,9 +36,11 @@ export function commentRecipients(input: {
 }
 
 /** Câu chữ thông báo — tiếng Việt đời thường, không lộ SĐT, có tên gọi người bình luận. */
-export function notifyMessage(t: NotifyTarget, commenterHandle: string, postId: string): { title: string; body: string; url: string; tag: string } {
+export function notifyMessage(t: NotifyTarget, commenterHandle: string, postId: string, commentId?: string): { title: string; body: string; url: string; tag: string } {
   const who = commenterHandle.slice(0, 20) || "Bà con";
+  // `#bl-<id>` ⇒ trang bài cuộn tới + bung luồng chứa bình luận đó (comment-thread)
+  const url = `/kairos/p/${postId}${commentId ? `#bl-${commentId}` : ""}`;
   return t.why === "reply"
-    ? { title: "Có người trả lời bạn", body: `${who} vừa trả lời bình luận của bạn trên Kairos.`, url: `/kairos/p/${postId}`, tag: `kairos-${postId}` }
-    : { title: "Bài của bạn có bình luận mới", body: `${who} vừa bình luận bài của bạn trên Kairos.`, url: `/kairos/p/${postId}`, tag: `kairos-${postId}` };
+    ? { title: "Có người trả lời bạn", body: `${who} vừa trả lời bình luận của bạn trên Kairos.`, url, tag: `kairos-${postId}` }
+    : { title: "Bài của bạn có bình luận mới", body: `${who} vừa bình luận bài của bạn trên Kairos.`, url, tag: `kairos-${postId}` };
 }
