@@ -1,6 +1,6 @@
 // 2000 agent tri thức Kairos — danh sách cố định, đan xen, luật chữ, kế hoạch lượt (16-ba-spec-agent-kairos).
 import { describe, expect, it } from "vitest";
-import { agentTheoId, AGENT_PREFIX, doiAgent, GIO, gioCua, laAgent, LOP_TUOI, loiChuAgent, nhomHopVoi, QUAN_TAM, SO_AGENT } from "@/lib/kairos/agent-doi.mjs";
+import { agentTheoId, AGENT_PREFIX, doiAgent, GIO, gioCua, KIEU_GO, laAgent, LOP_TUOI, loiChuAgent, nhomHopVoi, QUAN_TAM, SO_AGENT } from "@/lib/kairos/agent-doi.mjs";
 import { AGENT_MOI_BAI, chuanSoAgent, ghepViec, ghiSoAgent, gioVN, keHoach, promptAgent, soViec } from "@/lib/kairos/agent-dieu-phoi.mjs";
 import { validateHandle } from "@/lib/kairos/ten-goi";
 
@@ -70,6 +70,16 @@ describe("đội agent", () => {
     const ti = (l: string, q: string) => doi.filter((a) => a.lopTuoi === l && a.quanTam.includes(q)).length / doi.filter((a) => a.lopTuoi === l).length;
     expect(ti("tre", "bong-da")).toBeGreaterThan(ti("lon-tuoi", "bong-da"));
     expect(ti("lon-tuoi", "chuyen-xua")).toBeGreaterThan(ti("tre", "chuyen-xua"));
+  });
+  it("kiểu gõ đi theo người: đủ 4 kiểu; người trẻ gõ tắt nhiều hơn người lớn tuổi; tên không dấu phần lớn gõ không dấu", () => {
+    for (const a of doi) expect(Object.keys(KIEU_GO)).toContain(a.kieuGo);
+    const ti = (l: string, k: string) => doi.filter((a) => a.lopTuoi === l && a.kieuGo === k).length / doi.filter((a) => a.lopTuoi === l).length;
+    expect(ti("tre", "tat-nhieu")).toBeGreaterThan(ti("lon-tuoi", "tat-nhieu"));
+    expect(ti("lon-tuoi", "du-chu")).toBeGreaterThan(ti("tre", "du-chu"));
+    // tên kiểu không dấu (có họ + đệm không dấu, hoặc tên kép + năm sinh không dấu)
+    const tenKd = doi.filter((a) => /^(Nguyen|Tran|Le|Pham|Huynh|Hoang|Vo|Phan|Vu|Dang|Bui|Do|Ho|Ngo|Duong|Ly|Dinh|Truong|Lam|Mai|Cao|Doan|To|Chau|Luong|Ta|Thai|Quach) [A-Za-z]+ [A-Za-z]+$/.test(a.ten));
+    expect(tenKd.length).toBeGreaterThan(20);
+    expect(tenKd.filter((a) => a.kieuGo === "khong-dau").length / tenKd.length).toBeGreaterThan(0.6);
   });
   it("giờ online: người trẻ hay vào khuya, người lớn tuổi dậy sớm", () => {
     const tre = doi.find((a) => a.lopTuoi === "tre")!;
@@ -174,6 +184,8 @@ describe("keHoach — một lượt", () => {
     expect(pr).toContain(`"tuoi":${a.tuoi}`);
     expect(pr).toContain(a.giongDieu.replace(/"/g, '\\"'));
     expect(pr).toContain("giongMien");
+    expect(pr).toContain(KIEU_GO[a.kieuGo].mo.replace(/"/g, '\\"'));
+    expect(pr).toContain("KHÔNG NHƯ AI");
     expect(pr).toContain("bai-doi-thuong");
     const gui = ghepViec([{ loai: "bai", agent: a, muc: "bai-doi-thuong", topic: "the-thao" }], [{ i: 0, body: "Tối qua coi tuyển đá mà vui ghê bà con, ai coi chưa nè?" }]);
     expect(gui[0]).toMatchObject({ loai: "bai", topic: "the-thao" });

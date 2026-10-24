@@ -98,7 +98,8 @@ function prng(seed) {
 /**
  * @typedef {{ id: string, phone: string, ten: string, gioi: "nam" | "nu", nhom: string, que: string, tinh: string, vung: string,
  *   giong: "bac" | "trung" | "nam", vai: "ke" | "hoi" | "giai-thich", tinhCach: string,
- *   tuoi: number, lopTuoi: "tre" | "trung-nien" | "lon-tuoi", giongDieu: string, quanTam: string[] }} Agent
+ *   tuoi: number, lopTuoi: "tre" | "trung-nien" | "lon-tuoi", giongDieu: string, quanTam: string[],
+ *   kieuGo: "du-chu" | "tat-vua" | "tat-nhieu" | "khong-dau" }} Agent
  */
 
 
@@ -120,6 +121,23 @@ export const GIONG_DIEU = {
   "trung-nien": ["thẳng thắn, thực tế, nói vào việc", "điềm đạm, rõ ràng, hay chỉ cách làm từng bước", "nhiệt tình, hay hỏi han bà con", "cẩn thận, hay nhắc an toàn"],
   "lon-tuoi": ["chậm rãi, hay kể chuyện ngày xưa để so sánh", "từ tốn, hay dặn dò lớp trẻ", "nghiêm, nói ít mà chắc", "hiền, khiêm tốn, hay nói \"theo tui biết\""],
 };
+/** Kiểu GÕ trên mạng (anh Long 2026-10-24: "văn đa dạng, social, kiểu ngôn ngữ việt nam, casual, ko AI, viết tắt
+ *  theo đúng cái người hay dùng"). `ti` theo lớp tuổi — người trẻ gõ tắt, không dấu nhiều; người lớn tuổi gõ đủ chữ. */
+export const KIEU_GO = {
+  "du-chu": { mo: "gõ đủ chữ, có dấu, câu ngắn gọn, ít dấu chấm câu, không viết hoa đầu câu cũng được", ti: { tre: 0.1, "trung-nien": 0.35, "lon-tuoi": 0.65 } },
+  "tat-vua": { mo: "gõ tắt vừa phải như người thường: ko, k, đc, r, j, mn, ae, bn, nha, nhé, thui; hay bỏ dấu chấm cuối câu", ti: { tre: 0.35, "trung-nien": 0.45, "lon-tuoi": 0.3 } },
+  "tat-nhieu": { mo: "gõ tắt nhiều kiểu người trẻ: k, ko, dc, r, j, z, vs, ntn, bt, ak, ạ, nma, ơi, kk, haha, =)), :v; câu cụt, không viết hoa, đôi khi sai chính tả nhẹ", ti: { tre: 0.4, "trung-nien": 0.15, "lon-tuoi": 0 } },
+  "khong-dau": { mo: "gõ KHÔNG DẤU toàn bộ (vd \"ae di bien can than nha\"), có viết tắt", ti: { tre: 0.15, "trung-nien": 0.05, "lon-tuoi": 0.05 } },
+};
+
+/** Kiểu gõ đi theo NGƯỜI: tên không dấu ⇒ phần lớn gõ không dấu; tên gọi thân / tên + năm sinh ⇒ hay gõ tắt; còn lại
+ *  theo tỉ lệ lớp tuổi. Một người MỘT kiểu gõ cho cả tên, bài, bình luận — mô phỏng 2000 con người, không phải 2000 giọng. */
+function kieuGoCho(kieuTen, lop, r) {
+  if (kieuTen === "khong-dau") return r() < 0.8 ? "khong-dau" : "tat-nhieu";
+  const nghieng = kieuTen === "goi-than" || kieuTen === "nam-sinh" ? { "tat-nhieu": 2, "tat-vua": 1.3, "du-chu": 0.5 } : kieuTen === "ho-ten" || kieuTen === "thu-nghe" ? { "du-chu": 1.4 } : {};
+  return chonTrongSo(Object.keys(KIEU_GO), (k) => KIEU_GO[k].ti[lop] * (nghieng[k] ?? 1), r);
+}
+
 /** Mối quan tâm ngoài nghề — `topic` khớp chủ đề dòng tin (bài báo cùng chủ đề ⇒ người quan tâm vào bàn). */
 export const QUAN_TAM = [
   { id: "an-toan-bien", ten: "an toàn trên biển, thời tiết", topic: "nghe-ca", w: { tre: 1, "trung-nien": 2, "lon-tuoi": 2 } },
@@ -214,7 +232,7 @@ function sinhTen(r, a) {
   else if (k === "thu-nghe") t = `${chon(THU)} ${a.bietDanh}`;
   else if (k === "nghe-ten") t = `${chon(nu ? NGHE_NU[a.nhom] ?? ["Cá Tươi"] : NGHE_TIEN_TO[a.nhom])} ${ten}`;
   else t = `${ten} ${chon(NGHE_TIEN_TO[a.nhom])}`;
-  return { ten: t, gioi: nu ? "nu" : "nam" };
+  return { ten: t, gioi: nu ? "nu" : "nam", kieuTen: k };
 }
 
 /** @type {Agent[] | null} */
@@ -262,6 +280,7 @@ export function doiAgent() {
       lopTuoi: /** @type {Agent["lopTuoi"]} */ (lop),
       giongDieu: GIONG_DIEU[lop][Math.floor(rt() * GIONG_DIEU[lop].length)],
       quanTam: quanTamCho(lop, rt),
+      kieuGo: /** @type {Agent["kieuGo"]} */ (kieuGoCho(t.kieuTen, lop, rt)),
     };
   });
   return doi;
@@ -320,7 +339,8 @@ export const GIO = [0.05, 0.05, 0.05, 0.1, 0.8, 1, 1, 0.8, 0.5, 0.4, 0.5, 0.9, 1
 export function loiChuAgent(text, loai) {
   if (typeof text !== "string") return "khong_phai_chu";
   const n = [...text.trim()].length;
-  const [min, max] = loai === "bai" ? [60, 900] : [4, 400];
+  // bài trên mạng phần lớn NGẮN ("Biển êm quá ae") — sàn 15 ký tự, không bắt bài dài kiểu bài văn
+  const [min, max] = loai === "bai" ? [15, 900] : [3, 400];
   if (n < min) return "qua_ngan";
   if (n > max) return "qua_dai";
   if (/https?:\/\/|www\./i.test(text)) return "co_link";
