@@ -200,7 +200,9 @@ function sinhTen(r, a) {
   const KIEU = [["ho-ten", 1, 2.5, 3.5], ["kep", 1.6, 1.2, 0.6], ["nam-sinh", 1.6, 0.8, 0.2], ["que", 0.8, 1, 1.2], ["goi-than", 1.4, 0.3, 0],
     ["bi-danh", 1.6, 0.8, 0.3], ["khong-dau", 0.8, 0.4, 0.1], ["thu-nghe", 0.4, 1.2, 2.2], ["nghe-ten", 0.8, 1.4, 1], ["ten-nghe", 0.5, 0.6, 0.4]];
   const cot = { tre: 1, "trung-nien": 2, "lon-tuoi": 3 }[a.lop];
-  const k = chonTrongSo(KIEU, (x) => x[cot], r)[0];
+  let k = chonTrongSo(KIEU, (x) => x[cot], r)[0];
+  // Nữ mà "thứ + nghề" chỉ hợp nghề phụ nữ hay làm ở bến (bà Tư chợ, chị Ba đá) — không "Mười Thợ", "Bảy Lưới" nữ.
+  if (nu && (k === "thu-nghe" || k === "ten-nghe") && !["cho-gia", "doi-song", "bao-quan"].includes(a.nhom)) k = "ho-ten";
   let t;
   if (k === "ho-ten") t = `${ho} ${dem} ${ten}`;
   else if (k === "kep") t = kep;

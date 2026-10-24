@@ -65,6 +65,7 @@ describe("đội agent", () => {
       const m = / (\d{2})$/.exec(a.ten);
       if (m) expect((2026 - a.tuoi) % 100).toBe(Number(m[1]));
       if (/^(Cu|Tèo|Bin|Bờm|Bé|Mít) /.test(a.ten)) expect(a.lopTuoi).not.toBe("lon-tuoi");
+      if (a.gioi === "nu" && /^(Hai|Ba|Tư|Năm|Sáu|Bảy|Tám|Chín|Mười|Út) \S+$/.test(a.ten) && !/^(Út) /.test(a.ten)) expect(["cho-gia", "doi-song", "bao-quan"]).toContain(a.nhom);
     }
     const ti = (l: string, q: string) => doi.filter((a) => a.lopTuoi === l && a.quanTam.includes(q)).length / doi.filter((a) => a.lopTuoi === l).length;
     expect(ti("tre", "bong-da")).toBeGreaterThan(ti("lon-tuoi", "bong-da"));
