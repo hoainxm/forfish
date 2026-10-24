@@ -550,6 +550,12 @@ describe("chống sập giữa biển", () => {
     }
   }, 40_000);
 
+  /*  CÙNG CỠ VỚI TEST TRÊN (2026-10-24, chập chờn quá 5 s khi chạy cả bộ): 83 trạm × 28 ngày,
+      mỗi ngày ~300 mẫu quét 6 phút + chia ba tinh chỉnh từng đỉnh ⇒ ~1,2 triệu lượt
+      `tideHeightAt`, mỗi lượt tính lại đối số thiên văn cho cả bộ sóng thành phần. Đo riêng
+      ~3 s; chạy song song 350 file thì CPU chia ra, vượt trần 5 s mặc định. KHÔNG cắt trạm hay
+      ngày: gợn nước nông (sinh hai đỉnh liền nhau) chỉ có ở vài trạm và vài pha triều cường —
+      bớt đầu vào là bớt đúng chỗ cần soi. Trần riêng như test bên trên. */
   it("đỉnh và chân luân phiên, không bao giờ hai đỉnh liền nhau", () => {
     for (const st of stations) {
       for (let d = 1; d <= 28; d++) {
@@ -560,7 +566,7 @@ describe("chống sập giữa biển", () => {
         }
       }
     }
-  });
+  }, 40_000);
 });
 
 /* ── THẺ CON NƯỚC (2026-09-04) — dữ liệu cho một thẻ dùng chung ở bốn chỗ ── */

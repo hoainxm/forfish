@@ -530,8 +530,10 @@ describe("vòng 8 — mục bị đĩa từ chối KHÔNG được đông cứng
     // đĩa lành, thẻ tin bão tự làm mới — KHÔNG kèm flush, đúng đường đời thường
     ghiHong = false;
     fcSet(bao, JSON.stringify({ savedAt: 2, data: "tin-bao-moi" }));
-    await new Promise((r) => setTimeout(r, 80)); // để `xepLichDay` đẩy xuống
-    expect(dia.get(bao)).toContain("tin-bao-moi");
+    /*  Chờ `xepLichDay` (hẹn 50 ms) đẩy xuống đĩa. Chờ ĐÚNG SỰ KIỆN, không ngủ cứng 80 ms
+        (2026-10-24: chạy song song 350 file thì hẹn 50 ms + lượt ghi giả có khi trễ quá 80 ms
+        ⇒ đỏ chập chờn). Điều kiện kiểm giữ nguyên; trần 2 s chỉ để không treo. */
+    await vi.waitFor(() => expect(dia.get(bao)).toContain("tin-bao-moi"), { timeout: 2000, interval: 10 });
 
     // mẻ tải sẵn kế tiếp gọi flush — TUYỆT ĐỐI không được lôi bản v1 ra đè lại
     expect(await forecastStoreFlush()).toBe(true);
