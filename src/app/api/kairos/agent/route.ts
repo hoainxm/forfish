@@ -4,6 +4,9 @@
 // Cửa: header `x-kairos-key` như /nhap (máy GPU, scripts/kairos-agent.mjs). Thân {viec: [...]} ≤ 30 việc:
 //   {loai:"bai", agentId, body, topic?, nhacAgent?}         — đăng bài (kind ba-con, đứng tên agent, chấm AI)
 //   {loai:"binh-luan", agentId, postId, parentId?, body, nhac?, nhacAgent?} — bình luận / trả lời (1 cấp như người thường)
+//   `sdvico` (id sản phẩm, sdvico-goi-y.mjs — 16 §4 2c): bình luận GỢI Ý SDVICO dưới tin báo hợp. Máy chủ chạy LẠI luật trên
+//   bài (phải ra đúng sản phẩm), kiểm lời (`loiGoiY`: có chữ SDVICO, không nhận đã dùng, không chê hàng khác), một bài một
+//   gợi ý, trần TRAN_SDVICO_NGAY / 24 giờ. Bình luận agent KHÔNG có `sdvico` mà nhắc SDVICO ⇒ từ chối (trần mới có nghĩa).
 //   Nhắc tên "@Tên" (0071): `nhacAgent` = id agent bạn (hồ sơ tạo nếu chưa có); `nhac` = profileId người THẬT — chỉ
 //   nhận khi là chủ bài / người đang được trả lời (agent không tag bà con lung tung); "@tên" phải có trong chữ.
 //   {loai:"hay", agentId, postId? | commentId?}             — Hay bài/bình luận của BÀ CON (không Hay agent khác)
@@ -21,6 +24,7 @@ import { tagArea } from "@/lib/kairos/khu-vuc.mjs";
 import { badWordHit } from "@/lib/kairos/loc-chu";
 import { auditQuiet, ingestKeyDenied, jsonBody, kErr, nhacTenHopLe, notifyComment, notifyNhacTen, postVisible, storeOr503 } from "@/lib/kairos/server";
 import { docIdNhac } from "@/lib/kairos/nhac-ten";
+import { chonSanPham, loiGoiY, TRAN_SDVICO_NGAY } from "@/lib/kairos/sdvico-goi-y.mjs";
 import type { KairosStore, ProfileFull } from "@/lib/kairos/store";
 import { handleNorm } from "@/lib/kairos/ten-goi";
 import { isUuid, replyRoot } from "@/lib/kairos/validate";
@@ -77,6 +81,7 @@ export async function POST(req: Request) {
     bai: await store.countAudit(ACTOR, "agent_bai", since),
     bl: await store.countAudit(ACTOR, "agent_binh_luan", since),
     hay: await store.countAudit(ACTOR, "agent_hay", since),
+    sdvico: await store.countAudit(ACTOR, "agent_sdvico", since),
   };
   const ketQua: KetQua[] = [];
   for (const v of viec) {
@@ -90,7 +95,7 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, ketQua });
 }
 
-async function mot(store: KairosStore, v: Record<string, unknown>, since: string, dem: { bai: number; bl: number; hay: number }): Promise<KetQua> {
+async function mot(store: KairosStore, v: Record<string, unknown>, since: string, dem: { bai: number; bl: number; hay: number; sdvico: number }): Promise<KetQua> {
   const a = agentTheoId(v?.agentId);
   if (!a) return { ok: false, code: "bad_agent" };
 
@@ -132,6 +137,14 @@ async function mot(store: KairosStore, v: Record<string, unknown>, since: string
     const p = await hoSo(store, a);
     if (!p) return { ok: false, code: "no_profile" };
     if ((await store.countSince("comments", a.phone, since)) >= TRAN.binhLuanMoiAgentNgay) return { ok: false, code: "tran_agent" };
+    const goiY = v.sdvico != null;
+    if (goiY) {
+      if (post.kind !== "bao" || chonSanPham(`${post.title ?? ""}\n${post.summary ?? post.body ?? ""}`)?.sp !== v.sdvico) return { ok: false, code: "sdvico_khong_hop" };
+      const loiGy = loiGoiY(String(v.body));
+      if (loiGy) return { ok: false, code: loiGy };
+      if (dem.sdvico >= TRAN_SDVICO_NGAY) return { ok: false, code: "sdvico_tran" };
+      if ((await store.allComments(post.id, 500)).some((c) => laAgent(c.author_phone) && /sdvico/i.test(c.body))) return { ok: false, code: "sdvico_da_co" };
+    } else if (/sdvico/i.test(String(v.body))) return { ok: false, code: "sdvico_ngoai_viec" };
     let parentId: string | null = null;
     let parentAuthor: string | null = null;
     if (v.parentId != null) {
@@ -147,6 +160,15 @@ async function mot(store: KairosStore, v: Record<string, unknown>, since: string
     const row = await store.insertComment({ post_id: post.id, parent_id: parentId, author_phone: a.phone, body, mentions: nhac.ds });
     dem.bl++;
     await auditQuiet(store, { actor: ACTOR, actor_kind: "he-thong", action: "agent_binh_luan", target_type: "comment", target_id: row.id, detail: { agentId: a.id, postId: post.id } });
+    if (goiY) {
+      // lời đã qua kiểm ở máy chủ (có chữ SDVICO, không nhận đã dùng, không chê) ⇒ duyệt sẵn, khỏi để agent kiểm duyệt
+      // đọc thành "quảng cáo trá hình" rồi tự ẩn; hỏng thì vẫn hiện (cho-kiem vẫn hiện), chỉ log
+      await store.updateComment(row.id, { mod_state: "dat", mod_checked_at: new Date().toISOString() }).catch((e) =>
+        console.warn("[kairos/agent] duyệt sẵn gợi ý SDVICO hỏng:", (e as Error)?.message),
+      );
+      dem.sdvico++;
+      await auditQuiet(store, { actor: ACTOR, actor_kind: "he-thong", action: "agent_sdvico", target_type: "comment", target_id: row.id, detail: { agentId: a.id, postId: post.id, sp: String(v.sdvico) } });
+    }
     // bà con được báo như khi người thật trả lời — thông báo gộp 1 tin/bài/giờ (notify-gop)
     await notifyNhacTen(store, { postId: post.id, phones: nhac.phones, byHandle: p.handle, commentId: row.id });
     await notifyComment(store, { post, parentAuthor, commenter: a.phone, commenterHandle: p.handle, commentId: row.id });

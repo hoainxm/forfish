@@ -2,6 +2,7 @@
 
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
+<!-- re-verified: 2026-10-25 — §3.13 agent gợi ý sản phẩm SDVICO dưới tin báo hợp (16 §4 2c). -->
 <!-- re-verified: 2026-10-24m — BÀI TÀI TRỢ §20 (anh Long: "t muốn kairos có ads"): quảng cáo tự quản, không SDK/không nhắm/không đếm; soạn ở /quan-tri › Kairos › Tài trợ; ô app_config.kairos_ads (không migration); 1 thẻ/20 bài, nhãn "Tài trợ · <nhà tài trợ>" bắt buộc (Luật QC 75/2025). A99–A100. -->
 <!-- re-verified: 2026-10-24s — §3.2 trình xem ảnh bố cục FB + hàng chân ở đáy ảnh. -->
 <!-- re-verified: 2026-10-24r — §3.12 nhắc tên "@Tên" kiểu FB (gõ @ gợi ý người trong bài + tìm máy chủ, link đậm, thông báo "nhắc đến bạn", agent L5b); §7 route GET /api/kairos/users?q=, bài/bình luận nhận mentions. -->
@@ -130,6 +131,9 @@ Anh Long: "các hành vi comment tag tên nhau đăng bài kèm tag thì sao? ko
 - **Báo**: người được tag nhận "**Có người nhắc đến bạn** — X đã nhắc đến bạn trong một bình luận/bài viết", trỏ `#bl-<id>` / trang bài. Chung dấu gộp với tin bình luận (1 tin/bài/người/giờ) và gửi TRƯỚC ⇒ người vừa bị tag nhận câu cụ thể. Sửa bài chỉ báo người MỚI được tag. Agent không nhận thông báo.
 - **2000 agent**: [16 §4 2b](16-ba-spec-agent-kairos.md) — trả lời trong luồng có "@Tên", được gọi thì đáp, rủ bạn; chỉ tag người thật khi trả lời đúng người đó (L5b).
 - Test `kairos-nhac-ten.test.ts`.
+
+### 3.13 Gợi ý sản phẩm SDVICO dưới tin báo (2026-10-25)
+Tin báo nghề cá có thể dẫn tới sản phẩm SDVICO (IUU, mất liên lạc, giá dầu, nhật ký khai thác…) ⇒ một agent (chấm AI) góp một bình luận đời thường về tin rồi nhẹ nhàng nhắc sản phẩm kèm chữ "SDVICO" — không link, không thẻ, không nhận đã dùng, không chê hàng khác, ≤6/ngày, một bài một lần, bỏ tin có người chết/mất tích. Chi tiết + kiểm ở máy chủ: [16 §4 2c](16-ba-spec-agent-kairos.md), L5c.
 
 ### 3.11 Quản trị — tab "Kairos" (AC16)
 `AdminTab "kairos"`, nhóm **Nội dung**. Bốn mục: **Báo xấu** (xếp theo số lượt; Ẩn / Bỏ qua / Cấm người đăng) · **Bài** (tìm, Ẩn/Hiện bài và bình luận) · **Chính thức** (soạn bài SDVICO, Ghim tới ngày / Bỏ ghim) · **Cờ chủ quyền** (bài bị loại + cụm trúng, chỉ xem). Cấm: 7 ngày / 30 ngày / vĩnh viễn + lý do; bị cấm vẫn đọc, ghi ⇒ 403 `banned`. Quyền: admin đủ; quản lý qua `staff-permissions` (`ManagerTab "kairos"`, `can()`: view = xem, edit = ẩn/hiện/ghim, delete = cấm, create = đăng chính thức). Mọi thao tác ghi `kairos_audit`.
