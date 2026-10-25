@@ -20,7 +20,7 @@ const DESTS: SenDest[] = [
   { name: "Bến nhà", lat: 14.6, lon: 109.0, kind: "nha" },
 ];
 
-canBin("ngram Sen Biển v7 — chép y bản train (AI Assistant train/tro-ly, 74 ý = 65 ý v6 + 9 ý cơ cấu app mới 25/10; số tin cậy 3 câu chợ/dẫn đường đo lại bằng ngram.mjs doan trên gpu-desktop, hạt 123)", () => {
+canBin("ngram Sen Biển v7 — chép y bản train (AI Assistant train/tro-ly, 74 ý = 65 ý v6 + 9 ý cơ cấu app mới 25/10; số tin cậy 3 câu chợ/dẫn đường đo lại bằng ngram.mjs doan trên gpu-desktop, hạt 7, vòng 5 26/10)", () => {
   it("file trọng số đúng cỡ, sai cỡ thì từ chối", () => {
     expect(buf.byteLength).toBe(NGRAM_BYTES);
     expect(loadNgram(new ArrayBuffer(10))).toBeNull();
@@ -45,14 +45,14 @@ canBin("ngram Sen Biển v7 — chép y bản train (AI Assistant train/tro-ly, 
     ["tắt lớp gió đi", "tat_lop", 0.997],
     ["phóng to", "phong_to", 1],
     // v4 — chợ vật tư: câu luật lenh-cho HỤT, n-gram vẫn ra đúng việc (cổng phụ hỏi lại)
-    ["đơn đá đó tui hổng lấy nữa", "don_huy", 0.935],
+    ["đơn đá đó tui hổng lấy nữa", "don_huy", 0.939],
     ["tui bắn tiền qua cho shop rồi", "bao_chuyen", 0.99],
     ["khách trả đủ tiền rồi nha", "shop_nhan_tien", 1],
     ["món tui nhờ kiếm có giá chưa", "yc_xem", 0.998],
     ["lùi lại hai bữa mới giao được", "shop_doi_hen", 0.998],
-    ["mấy ghe nhờ tìm món gì", "san_yc_moi", 0.893],
+    ["mấy ghe nhờ tìm món gì", "san_yc_moi", 0.913],
     // tên chỗ bộ nghe viết lệch thành chữ sàn vẫn là dẫn đường
-    ["chạy ra tiền hòa", "dan_duong", 0.872],
+    ["chạy ra tiền hòa", "dan_duong", 0.849],
   ])("%s → %s (đúng số của bản train)", (cau, y, conf) => {
     const g = guessIntent(model, cau);
     expect(g.y).toBe(y);

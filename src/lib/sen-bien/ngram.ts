@@ -42,8 +42,8 @@ const REASONS = ["y_te", "phap_ly", "tien", "tra_nguoi", "khac"] as const;
 const DIM = 1 << 16;
 const NY = INTENTS.length;
 const NLOP = NY + REASONS.length;
-/** thang int8 → số thực, ghi lúc train (meta.json của bản v7, gpu-desktop 2026-10-25, hạt 123) */
-const THANG = 0.22715401837206262;
+/** thang int8 → số thực, ghi lúc train (meta.json của bản v7 (vòng 5 "cơ cấu app mới", gpu-desktop 2026-10-26, hạt 7)) */
+const THANG = 0.22774250300850454;
 export const NGRAM_BYTES = DIM * NLOP;
 
 /** Bỏ dấu + chữ thường + chỉ giữ a-z0-9 — giống `foldVn` bên train. */
