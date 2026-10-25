@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-25e — chấm THEO VÙNG: `forecastFleetDensity` mốc = max nền×trăng trong `DENSITY_LOCAL_RADIUS_KM` 250 (quét n², ≤1 500 ô), kẹp sàn `DENSITY_LOCAL_FLOOR` 0,15 × p98 cả nước (`ref` trả về nay là sàn này). Test 19 ca (vùng xa yếu vẫn có ô 100 điểm; ô lẻ dưới sàn không tô). -->
 <!-- re-verified: 2026-10-25d — "đừng tô tím cả biển": `forecastFleetDensity` chấm `score` 0–100 (÷ p98 nền×trăng `DENSITY_REF_Q`), CHỈ trả ô ≥ `DENSITY_MIN_SCORE` 25, mức cố định `DENSITY_SCORE_BANDS` [50, 75]; trả `ref` thay `thresholds`. Test 18 ca. -->
 <!-- re-verified: 2026-10-25c — tối 25/10 anh Long: lọc theo NGHỀ, bỏ loài: `forecastFleetDensity({gear})`, `seasonBase(d, mm, gear)`, `moonFactors(d, bin, gear)`, bỏ `densitySpeciesList`; `BaiTauDuBao` chip nghề `DENSITY_GEARS` thay `FishSpeciesContent`; props `fleetGear/onFleetGear` thay `fleetSpecies/onFleetSpecies/fleetSpeciesList`; `fishing-map-view` state `fleetGear`. Test 18 ca. -->
 <!-- re-verified: 2026-10-25b — MẬT ĐỘ TÀU thành DỰ BÁO 16 NGÀY (anh Long chiều 25/10): `lib/fleet-density.ts` thêm `forecastFleetDensity` (nền mùa `seasonBase` × `moonFactors` × `windFactor` × bão × loài; ngưỡng p50/p85 nền×loài), `WindStation`, `addDaysIso`, `densitySpeciesList`, `FLEET_FORECAST_DAYS` 16 (test 18 ca). `ra-khoi-controls`: `BaiTauChon` → `BaiTauDuBao` (chip 16 ngày `chipLabel` + `FishSpeciesContent`); props `fleetDay/onFleetDay/fleetSpecies/onFleetSpecies/fleetSpeciesList/todayIso/fleetWindMissing/fleetStorm` thay `fleetSel/fleetData`. `fishing-map-view`: state `fleetDay/fleetSpecies/fleetWind`; effect MỚI tải gió 9 cảng `PORTS` qua `fetchSeaForecast` (đệm máy + đường lùi mất sóng sẵn có, cảng hỏng bỏ qua) CHỈ khi lớp bật; `fleetStormDays` từ `stormInfo` (hôm nay + 2 ngày, Assumptions 01); `fleetForecast` memo → ô/mức; thẻ chạm "Mật độ tàu dự kiến đông — Ngày mai · ước N tàu". OFFLINE: gió đi qua đệm dự báo cảng (không request mới ngoài đường sẵn có), thiếu ⇒ hệ số 1 + chú thích. Các hàm lát lịch sử (`densityCells`…) giữ làm đầu vào. -->
@@ -407,6 +408,7 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 
 
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-10-25) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 <!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->

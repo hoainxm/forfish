@@ -253,7 +253,7 @@ describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão, 
     const calm = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat" });
     expect(calm.windMissing).toBe(true);
     expect(calm.storm).toBe(false);
-    expect(calm.cells.length).toBe(2); // 10 và 20 giờ/ngày: ô 20 = 100 điểm (Đông), ô 10 ≈ 50 điểm (Vừa) — cả hai ≥ sàn 25
+    expect(calm.cells.length).toBe(2); // 10 và 20 giờ/ngày cùng vùng: ô 20 = 100 điểm (Đông), ô 10 ≈ 50 điểm (Vừa)
     expect(calm.cells.find((c) => c.score === 100)?.level).toBe(2);
     expect(calm.cells.every((c) => c.score >= 25)).toBe(true);
     const stormy = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat", stormDays: new Set([today]) });
@@ -283,6 +283,18 @@ describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão, 
     expect(vay.cells[0].score).toBe(100); // một ô ⇒ chính nó là ô mạnh
     expect(forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "cau" }).cells).toHaveLength(0);
     expect(seasonBase(d, "10", "vay").size).toBe(1);
+  });
+
+  it("chấm theo VÙNG: vùng xa yếu hơn vẫn có ô 100 điểm của nó; vùng lác đác dưới sàn 15 % cả nước thì không", () => {
+    const d = fx();
+    // thêm một vùng khơi cách >250 km (lat +6°): 3 ô 2 giờ/ngày… và một ô lẻ rất xa 0,2 giờ/ngày
+    d.month["2026-10"].tat!.push([55, 54, 80, 4], [55, 55, 40, 3], [56, 54, 40, 3], [10, 10, 4, 3]);
+    const f = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat" });
+    const at = (i: number, j: number) => f.cells.find((c) => Math.abs(c.lat - (5.025 + i * 0.25)) < 1e-6 && Math.abs(c.lon - (102.025 + j * 0.25)) < 1e-6);
+    expect(at(32, 54)?.score).toBe(100); // vùng Nam: ô mạnh nhất của nó
+    expect(at(55, 54)?.score).toBe(100); // vùng khơi: 4 giờ/ngày vẫn là 100 điểm CỦA VÙNG (không bị ô 20 giờ ở xa đè)
+    expect(at(55, 55)?.score).toBe(50); // 2 giờ ÷ 4 giờ
+    expect(at(10, 10)).toBeUndefined(); // ô lẻ 0,2 giờ: mốc vùng kẹp sàn 15 % × p98 cả nước ⇒ dưới 25 điểm ⇒ không tô
   });
 
   it("16 ngày: addDaysIso qua tháng, mỗi ngày tự có pha trăng", () => {

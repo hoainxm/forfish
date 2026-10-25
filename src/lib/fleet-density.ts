@@ -240,8 +240,11 @@ export async function fetchFleetDensity(): Promise<FleetDensity> {
  *   trăng    : giờ/ngày của pha đó (nghề đó) chia trung bình 8 pha, kẹp [0,5; 1,5] — ô không có số liệu ⇒ 1.
  *   gió      : gió mạnh nhất trong ngày ở trạm gần ô nhất: < 39 km/h ⇒ 1 · cấp 6 ⇒ 0,6 · cấp 7 ⇒ 0,3 · ≥ cấp 8 ⇒ 0,1.
  *   bão      : ngày nằm trong tập ngày bão ⇒ 0,1 (tàu nằm bờ).
- *   ĐIỂM 0–100 = giá trị ô ÷ ô mạnh (p98 của nền×trăng trong ngày, KHÔNG tính gió/bão) × 100; CHỈ TÔ ô
- *   ≥ DENSITY_MIN_SCORE (anh Long 25/10: "đừng tô tím cả biển, từ tỷ lệ nào trở lên thôi"); mức cố định
+ *   ĐIỂM 0–100 = giá trị ô ÷ "ô mạnh QUANH ĐÓ" × 100 — ô mạnh = max nền×trăng trong bán kính
+ *   DENSITY_LOCAL_RADIUS_KM, nhưng không thấp hơn DENSITY_LOCAL_FLOOR × p98 cả nước (anh Long 25/10 tối:
+ *   một thang cả nước thì ô 337 tàu ngoài Côn Đảo "nuốt" hết thang, khơi Hoàng Sa/Trường Sa 59 tàu/ô trông
+ *   như không ai — chấm theo vùng để mỗi vùng có Đông/Vừa/Thưa của nó; sàn tuyệt đối để vùng lác đác vài
+ *   tàu không tự thành Đông). CHỈ TÔ ô ≥ DENSITY_MIN_SCORE ("đừng tô tím cả biển"); mức cố định
  *   Thưa 25–50 · Vừa 50–75 · Đông ≥75 như lớp cá ⇒ ngày gió bão ô rớt điểm, biến mất hẳn.
  *   Thuần, không mạng; thiếu gió ⇒ hệ số 1 + cờ `windMissing`.
  *   Loài KHÔNG lọc — thẻ chạm ô vẫn nói "cá vùng này hay có" (densitySpeciesAt).
@@ -279,14 +282,18 @@ export interface FleetForecastCell extends DensityCell {
 /** Sàn tô + ranh mức (điểm 0–100, cố định — cùng ngữ pháp FISH_LEVEL_BANDS). */
 export const DENSITY_MIN_SCORE = 25;
 export const DENSITY_SCORE_BANDS: [number, number] = [50, 75];
-/** Phân vị lấy làm "ô mạnh" — không lấy max để một ô cá biệt không đè cả bản đồ. */
+/** Phân vị cả nước — chỉ còn dùng làm SÀN tuyệt đối cho mốc vùng. */
 export const DENSITY_REF_Q = 0.98;
+/** Bán kính "quanh đây" khi chấm theo vùng (~135 hải lý). */
+export const DENSITY_LOCAL_RADIUS_KM = 250;
+/** Mốc vùng không được thấp hơn tỷ lệ này của p98 cả nước (vùng lác đác vài tàu không tự thành Đông). */
+export const DENSITY_LOCAL_FLOOR = 0.15;
 
 export interface FleetForecast {
   dateIso: string;
   /** CHỈ ô ≥ DENSITY_MIN_SCORE */
   cells: FleetForecastCell[];
-  /** giờ/ngày ứng với 100 điểm (p98 nền×trăng) */
+  /** sàn tuyệt đối của mốc vùng (DENSITY_LOCAL_FLOOR × p98 cả nước), giờ/ngày */
   ref: number;
   windMissing: boolean;
   storm: boolean;
@@ -386,7 +393,21 @@ export function forecastFleetDensity(inp: FleetForecastInput): FleetForecast {
     const x = p * (n - 1), lo = Math.floor(x), hi = Math.min(n - 1, lo + 1);
     return sorted[lo] + (sorted[hi] - sorted[lo]) * (x - lo);
   };
-  const ref = q(DENSITY_REF_Q);
+  const ref = q(DENSITY_REF_Q) * DENSITY_LOCAL_FLOOR;
+
+  // mốc VÙNG: max nền×trăng trong bán kính quanh ô (quét n² — ≤ ~1 500 ô/ngày, vài ms), không dưới sàn `ref`
+  const rad2 = DENSITY_LOCAL_RADIUS_KM ** 2;
+  const kmPerDegLat = 111.32;
+  const localRef = (c: DensityCell): number => {
+    let m = ref;
+    const cosLat = Math.cos((c.lat * Math.PI) / 180);
+    for (const o of pre) {
+      const dy = (o.c.lat - c.lat) * kmPerDegLat;
+      const dx = (o.c.lon - c.lon) * kmPerDegLat * cosLat;
+      if (dx * dx + dy * dy <= rad2 && o.v > m) m = o.v;
+    }
+    return m;
+  };
 
   const cells: FleetForecastCell[] = [];
   if (ref > 0) {
@@ -395,7 +416,7 @@ export function forecastFleetDensity(inp: FleetForecastInput): FleetForecast {
       const wf = windFactor(st?.byDate[dateIso]);
       const f = wf * (storm ? STORM_FACTOR : 1);
       const value = v * f;
-      const score = Math.min(100, Math.round((value / ref) * 100));
+      const score = Math.min(100, Math.round((value / localRef(c)) * 100));
       if (score < DENSITY_MIN_SCORE) continue;
       const level: 0 | 1 | 2 = score >= DENSITY_SCORE_BANDS[1] ? 2 : score >= DENSITY_SCORE_BANDS[0] ? 1 : 0;
       cells.push({ lat: c.lat, lon: c.lon, hoursPerDay: c.hoursPerDay, vessels: Math.max(0, Math.round(c.vessels * moonF * f)), value, score, level });
