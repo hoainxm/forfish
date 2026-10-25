@@ -84,3 +84,34 @@ describe("lưới văn nói (anh Long 2026-10-25: \"ngắn gọn tự nhiên nh�
     expect(laCauSao("ừ ".repeat(CHU_TOI_DA.binhLuan + 1), bong, CHU_TOI_DA.traLoi)).toBe(false);
   });
 });
+
+describe("lỗi gõ ngẫu nhiên (anh Long 2026-10-25: \"cho cả random sai lỗi chính tả\")", () => {
+  // hạt rải đều (nhân số lớn) + bỏ số đầu — hạt nhỏ liền nhau cho số đầu quá bé, lần nào cũng "sai"
+  const seed = (n: number) => {
+    let s = ((n * 2654435761) % 2147483646) + 1;
+    const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    r();
+    return r;
+  };
+  it("có lời bị sai, lời đọc vẫn gần như nguyên; tên / @tag / SDVICO không bị đụng", async () => {
+    const { goSai } = await import("@/lib/kairos/go-sai.mjs");
+    const cau = "@Hải Âu bên SDVICO có phụ gia AdNANO đó, dầu cháy hết hơn nghen";
+    let khac = 0;
+    for (let k = 1; k <= 200; k++) {
+      const ra = goSai(cau, "tat-nhieu", seed(k));
+      if (ra !== cau) khac++;
+      expect(ra.startsWith("@Hải Âu ")).toBe(true);
+      expect(ra).toContain("SDVICO");
+      expect(ra).toContain("AdNANO");
+      expect(Math.abs(ra.length - cau.length)).toBeLessThanOrEqual(4);
+    }
+    expect(khac).toBeGreaterThan(40); // ~45 % có lỗi
+    expect(khac).toBeLessThan(140);
+  });
+  it("gõ đủ chữ ít sai hơn gõ tắt nhiều; lời rỗng trả nguyên", async () => {
+    const { goSai } = await import("@/lib/kairos/go-sai.mjs");
+    const dem = (kieu: string) => Array.from({ length: 300 }, (_, k) => goSai("trời đất mưa dữ thiệt hả ta", kieu, seed(k + 1))).filter((x) => x !== "trời đất mưa dữ thiệt hả ta").length;
+    expect(dem("du-chu")).toBeLessThan(dem("tat-nhieu"));
+    expect(goSai("", "tat-nhieu", seed(3))).toBe("");
+  });
+});

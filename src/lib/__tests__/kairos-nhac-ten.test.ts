@@ -69,7 +69,7 @@ describe("2000 agent nhắc tên nhau", () => {
   });
   it("ghepViec: thiếu '@tên' ⇒ tự thêm đầu câu, kèm parentId + nhac; ghi sổ không trả lời lại", () => {
     const v = { loai: "binh-luan", agent: y, muc: "duoc-nhac", post: baCon, parent: { id: "c2", body: "x", ten: x.ten, profileId: B } };
-    const gui = ghepViec([v], [{ i: 0, body: "chuẩn r ông" }]);
+    const gui = ghepViec([v], [{ i: 0, body: "chuẩn r ông" }], () => 0.99); // 0,99 ⇒ không lỗi gõ
     expect(gui[0]).toMatchObject({ parentId: "c2", nhac: [B], body: `@${x.ten} chuẩn r ông` });
     const so = ghiSoAgent(chuanSoAgent(null, SANG), gui, [{ ok: true }], SANG);
     expect(so.daTraLoi).toEqual(["c2"]);

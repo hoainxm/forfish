@@ -8,6 +8,7 @@
 
 import { doiAgent, GIO, GIONG, gioCua, KIEU_GO, laAgent, LOP_TUOI, NHOM, nhomHopVoi, QUAN_TAM } from "./agent-doi.mjs";
 import { loiGoiY, ungVienSdvico } from "./sdvico-goi-y.mjs";
+import { goSai } from "./go-sai.mjs";
 
 /** Mục tiêu mỗi ngày của cả đội (máy chủ còn trần cứng ở agent-doi.TRAN). */
 export const MUC_TIEU_NGAY = { bai: 60, binhLuan: 200, hay: 300 };
@@ -287,7 +288,8 @@ export function laCauSao(body, p, toiDa = CHU_TOI_DA.binhLuan) {
 }
 
 /** Ghép chữ Claude trả về vào việc ⇒ thân gửi /api/kairos/agent (bỏ việc thiếu chữ). */
-export function ghepViec(viecChu, ketQua) {
+/** `rnd` = nguồn ngẫu nhiên cho lỗi gõ (go-sai.mjs) — test truyền hạt cố định. */
+export function ghepViec(viecChu, ketQua, rnd = Math.random) {
   const theoI = new Map();
   if (Array.isArray(ketQua)) for (const x of ketQua) if (x && Number.isInteger(x.i) && typeof x.body === "string") theoI.set(x.i, x.body.trim());
   const out = [];
@@ -300,12 +302,14 @@ export function ghepViec(viecChu, ketQua) {
     const toiDa = v.loai === "bai" ? CHU_TOI_DA.bai : v.muc === "tra-loi-ba-con" || v.muc === "tra-loi-binh-luan" ? CHU_TOI_DA.traLoi : CHU_TOI_DA.binhLuan;
     if (laCauSao(chu, v.post, toiDa)) return;
     const ban = v.ban && coNhac(chu, v.ban.ten) ? { nhacAgent: [v.ban.id] } : {};
-    if (v.loai === "bai") out.push({ loai: "bai", agentId: v.agent.id, body: chu, topic: v.topic ?? "nghe-ca", ...ban });
+    // gợi ý SDVICO sai luật (quên chữ SDVICO, nhận đã dùng, chê hàng khác) ⇒ bỏ luôn, không gửi
+    if (v.loai !== "bai" && v.sdvico && loiGoiY(chu)) return;
+    // LỖI GÕ NGẪU NHIÊN theo kiểu gõ của người đó — thêm SAU mọi bước kiểm; tên, @tag, SDVICO không bị đụng
+    const goRa = goSai(chu, v.agent.kieuGo, rnd);
+    if (v.loai === "bai") out.push({ loai: "bai", agentId: v.agent.id, body: goRa, topic: v.topic ?? "nghe-ca", ...ban });
     else {
-      // gợi ý SDVICO sai luật (quên chữ SDVICO, nhận đã dùng, chê hàng khác) ⇒ bỏ luôn, không gửi
-      if (v.sdvico && loiGoiY(chu)) return;
       out.push({
-        loai: "binh-luan", agentId: v.agent.id, postId: v.post.id, body: chu, ...ban,
+        loai: "binh-luan", agentId: v.agent.id, postId: v.post.id, body: goRa, ...ban,
         ...(v.parent ? { parentId: v.parent.id, nhac: [v.parent.profileId] } : {}),
         ...(v.sdvico ? { sdvico: v.sdvico.sp } : {}),
       });
