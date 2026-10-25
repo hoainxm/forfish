@@ -231,6 +231,43 @@ const CASES: Case[] = [
   { say: "SDVICO nhắn gì", intent: "hop_thu" },
   { say: "đọc tin mới", intent: "hop_thu" },
   { say: "hộp thư có gì", intent: "hop_thu" },
+  // ── cơ cấu app mới 2026-10-25 (hợp đồng SEN-BIEN-CO-CAU-MOI §B) ──
+  { say: "chọn tỉnh Khánh Hoà", intent: "chon_tinh", slots: { province: "Khánh Hòa" } },
+  { say: "xem vựa ở Bình Định", intent: "chon_tinh", slots: { province: "Gia Lai" } },
+  { say: "đổi sang Kiên Giang", intent: "chon_tinh", slots: { province: "An Giang" } },
+  { say: "loc theo tinh ca mau", intent: "chon_tinh", slots: { province: "Cà Mau" } },
+  { say: "nhắn Zalo cho vựa", intent: "nhan_zalo" },
+  { say: "nhắn cho chủ tin này", intent: "nhan_zalo" },
+  { say: "gửi tin Zalo cho ông Ba Hùng", intent: "nhan_zalo" },
+  { say: "nhan zalo cho shop di", intent: "nhan_zalo" },
+  { say: "tải bài đọc trên biển", intent: "tai_bai" },
+  { say: "tải tin mang đi", intent: "tai_bai" },
+  { say: "lưu bài để ra khơi đọc", intent: "tai_bai" },
+  { say: "tai bai kairos ve may", intent: "tai_bai" },
+  { say: "bật chuông báo bão", intent: "bat_chuong" },
+  { say: "bật thông báo", intent: "bat_chuong" },
+  { say: "cho máy reo khi có bão", intent: "bat_chuong" },
+  { say: "bat chuong len", intent: "bat_chuong" },
+  { say: "đăng xuất", intent: "dang_xuat" },
+  { say: "thoát tài khoản", intent: "dang_xuat" },
+  { say: "gỡ tài khoản khỏi máy", intent: "dang_xuat" },
+  { say: "dang xuat ra", intent: "dang_xuat" },
+  { say: "có tin nào chưa đọc không", intent: "chua_doc" },
+  { say: "có ai nhắn gì không", intent: "chua_doc" },
+  { say: "mấy tin chưa đọc", intent: "chua_doc" },
+  { say: "bao nhieu tin moi", intent: "chua_doc" },
+  { say: "hoàn tác", intent: "hoan_tac" },
+  { say: "lấy lại", intent: "hoan_tac" },
+  { say: "khoan, đừng xoá", intent: "hoan_tac" },
+  { say: "undo", intent: "hoan_tac" },
+  { say: "tạm nghỉ bán", intent: "shop_tam_nghi" },
+  { say: "nghỉ bán vài bữa", intent: "shop_tam_nghi" },
+  { say: "đóng gian hàng tạm", intent: "shop_tam_nghi" },
+  { say: "tam nghi ban may bua", intent: "shop_tam_nghi" },
+  { say: "mở bán lại", intent: "shop_mo_ban" },
+  { say: "bán lại rồi", intent: "shop_mo_ban" },
+  { say: "hết nghỉ", intent: "shop_mo_ban" },
+  { say: "mo lai gian hang", intent: "shop_mo_ban" },
   // ── tro_giup (INT-23) ──
   { say: "bác nói được gì", intent: "tro_giup" },
   { say: "may lam duoc gi", intent: "tro_giup" },
@@ -353,11 +390,13 @@ describe("assistant-parse — bảng câu nói thật (13 §3 / 14 §4.5)", () =
     expect(P("mua 2 thùng nhớt")).toMatchObject({ intent: "tim_mon", slots: { qty: 2 } });
     expect(P("bỏ 2 thùng nhớt vô giỏ")).toMatchObject({ intent: "them_gio", slots: { qty: 2 } });
     // hành động có hậu quả — KHÔNG có mã (13 P8, AC-T45)
-    for (const s of ["huỷ đơn SD260906ABCD", "đặt hàng luôn", "xoá giấy đăng kiểm", "đăng xuất"]) {
+    for (const s of ["huỷ đơn SD260906ABCD", "đặt hàng luôn", "xoá giấy đăng kiểm", "đổi mật khẩu"]) {
       const p = P(s);
       expect(p.intent, s).toBe("khong_hieu");
       expect(p.followUp, s).toBeTruthy();
     }
+    // "đăng xuất" nay là ý riêng `dang_xuat` (cơ cấu mới 2026-10-25) — answer CHỈ hướng dẫn, vẫn không tự làm
+    expect(P("đăng xuất").intent).toBe("dang_xuat");
     // >40 chữ → qua_dai
     const dai = Array.from({ length: 45 }, (_, i) => `chữ${i}`).join(" ");
     expect(P(dai)).toMatchObject({ intent: "khong_hieu", reason: "qua_dai" });

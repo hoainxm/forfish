@@ -1,10 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { DAU_KHO_PATH, loadDauKho, sbn5Bytes, topK } from "@/lib/sen-bien/dau-kho";
+import { DAU_KHO_PATH, loadDauKho, NY_KHO, sbn5Bytes, topK } from "@/lib/sen-bien/dau-kho";
 import { CAU_CAN_KIEM, cauTraLoi, docKho, HOI_DAP_PATH, KHO_CHUA_DUYET, KHO_DA_DUYET } from "@/lib/sen-bien/hoi-dap";
 import { LOC_BYTES, LOC_PATH, loadLoc, pHoi } from "@/lib/sen-bien/loc";
-import { INTENTS } from "@/lib/sen-bien/ngram";
 
 // Kho hỏi–đáp v2 (v5c ĐÃ DUYỆT, 2026-10-22) + đầu kho v5c + bộ lọc (2026-10-19). Chỉ câu đã duyệt mang câu trả lời.
 const ab = (p: string) => {
@@ -36,7 +35,7 @@ describe("đầu kho v5c — tệp SBN5 (chỉ đọc đầu kho, đầu ý đ�
     new DataView(sai).setUint8(3, 0x34);
     expect(loadDauKho(sai)).toBeNull();
     const lech = b.slice(0);
-    new DataView(lech).setUint32(12, INTENTS.length + 1, true);
+    new DataView(lech).setUint32(12, NY_KHO + 1, true);
     expect(loadDauKho(lech)).toBeNull();
   });
   it("topK giảm dần, tổng xác suất ≤ 1, đúng câu (số bản train — so topk.mjs 2.056 câu lệch 0)", () => {

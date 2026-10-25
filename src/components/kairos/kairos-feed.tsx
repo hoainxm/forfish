@@ -562,6 +562,25 @@ export function KairosFeed({
     saveTaiMangDiAn(Date.now());
     setGoiY({ k: "an" });
   };
+  /*  SEN BIỂN "tải bài đọc trên biển" (cơ cấu mới 2026-10-25): mở `/kairos?sen=tai` ⇒ bấm Tải hộ MỘT lần rồi dọn tham số
+      (replaceState — lùi lại không tải lần hai). Không tự tải khi không có lệnh; mất sóng thì `taiMangDi` tự báo lỗi
+      bằng pill như bấm tay. Dòng tin chung thôi — Bến (`port`) không có pill. */
+  const taiRef = useRef(taiMangDi);
+  useEffect(() => {
+    taiRef.current = taiMangDi;
+  });
+  useEffect(() => {
+    if (port) return;
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get("sen") !== "tai") return;
+      u.searchParams.delete("sen");
+      window.history.replaceState(window.history.state, "", u.pathname + (u.search || "") + u.hash);
+      void taiRef.current();
+    } catch {
+      // URL lạ — bỏ qua, bà con bấm Tải tay
+    }
+  }, [port]);
   /*  Báo màn cha dòng tin có TRỐNG không (câu phụ E K3-03). Lúc còn đang tải mà chưa có bài trên màn thì nhìn bản lưu:
       có bản lưu ⇒ bài sắp hiện (không trống); không ⇒ trống thật. Không bắn khi còn chưa đọc máy ⇒ header không chớp. */
   useEffect(() => {

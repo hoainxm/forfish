@@ -110,8 +110,56 @@ export function UrgentWithInstall({ children }: { children: ReactNode }) {
     <div ref={ref} className="space-y-4 empty:hidden">
       {children}
       {rows < URGENT_ROWS_HIDE_INSTALL && <KhoiTang5 />}
+      <SenChuong />
     </div>
   );
+}
+
+/*  SEN BIỂN "bật chuông báo bão" (cơ cấu mới 2026-10-25): Sen Biển mở `/?sen=chuong` ⇒ Trang chủ chạy ĐÚNG luồng của
+    nút Bật (`subscribeToPush` — hộp hệ thống xin quyền) một lần rồi dọn tham số. Đã đăng ký ⇒ toast "Chuông đang bật
+    rồi." Kết quả báo bằng toast chung (như HangChuong). Không vẽ gì. */
+function SenChuong() {
+  const { phone } = useAuthUser();
+  const chay = useRef(false);
+  useEffect(() => {
+    if (chay.current) return;
+    let u: URL;
+    try {
+      u = new URL(window.location.href);
+      if (u.searchParams.get("sen") !== "chuong") return;
+      u.searchParams.delete("sen");
+      window.history.replaceState(window.history.state, "", u.pathname + (u.search || "") + u.hash);
+    } catch {
+      return;
+    }
+    chay.current = true;
+    void (async () => {
+      if (!isPushSupported()) {
+        baoToast("Máy này không nhận thông báo đẩy — bà con mở app xem tin bão.", { loai: "xau" });
+        return;
+      }
+      if (await getExistingPushSubscription()) {
+        baoToast("Chuông đang bật rồi.");
+        return;
+      }
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        baoToast("Cần sóng để bật chuông — có sóng lại thử giúp.", { loai: "xau" });
+        return;
+      }
+      const key = await fetchVapidPublicKey();
+      const r = key ? await subscribeToPush(key, phone) : { ok: false, error: "unconfigured" };
+      if (r.ok) {
+        void syncPushAccount();
+        baoToast("Đã bật chuông báo bão.");
+        return;
+      }
+      baoToast(
+        r.error === "denied" ? "Máy đang chặn thông báo — vào cài đặt máy để bật lại." : "Chưa bật được — kiểm tra mạng rồi thử lại.",
+        { loai: "xau" },
+      );
+    })();
+  }, [phone]);
+  return null;
 }
 
 /*  KHỐI TẦNG 5 — MỘT khối, ưu tiên cố định (quyết định D, 2026-10-25): Chọn cảng nhà ›

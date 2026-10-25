@@ -26,7 +26,9 @@ import { getExpiryStatus, kindLabel } from "@/lib/documents";
 import { haversineKm } from "@/lib/geo";
 import { loadForecast } from "@/lib/forecast-cache";
 import type { FuelPrice } from "@/lib/fuel-price";
-import { loadInbox, INBOX_READ_KEY } from "@/lib/inbox";
+import { chuaDocIds, loadHidden, loadInbox, loadSeen, locTinAn } from "@/lib/inbox";
+import { demChuaDocTrongMay } from "@/lib/kairos/chuong";
+import { coHoanTacDangHien } from "@/lib/toast";
 import { loadMarketCart } from "@/lib/market/cart";
 import { loadCachedMarketOrders } from "@/lib/market/orders-cache";
 import { offlineIdentityPhone } from "@/lib/offline-identity";
@@ -191,18 +193,32 @@ function fuelOf(): DeviceSnapshot["fuel"] {
   return { savedAt: c.savedAt, date: c.data.date, priceVnd: c.data.do005Zone1 };
 }
 
-function inboxUnreadOf(phone: string | null): number {
-  const msgs = loadInbox(phone);
+/** Cùng công thức với huy hiệu "N chưa đọc" ở Trang chủ (inbox-section, TC-05): chưa có trong sổ ĐÃ THẤY + gửi trong 7 ngày,
+ *  bỏ tin bà con đã ẩn. Trước đây đếm theo sổ "đã báo về máy chủ" — mất sóng cả chuyến thì số không bao giờ khớp màn. */
+function inboxUnreadOf(phone: string | null, now: number): number {
+  const msgs = locTinAn(loadInbox(phone), loadHidden(phone));
   if (msgs.length === 0) return 0;
-  let read = new Set<string>();
-  try {
-    const raw = window.localStorage.getItem(INBOX_READ_KEY);
-    const arr = raw ? (JSON.parse(raw) as unknown) : [];
-    if (Array.isArray(arr)) read = new Set(arr.filter((x): x is string => typeof x === "string"));
-  } catch {
-    read = new Set();
+  return chuaDocIds(msgs, loadSeen(phone), now).size;
+}
+
+/*  Số di động DUY NHẤT đang hiện nút Nhắn (Zalo) trên màn — thẻ tin / vựa đang mở (cơ cấu mới 2026-10-25, hợp đồng §B
+    nhan_zalo). Đọc THẲNG các link `zalo.me/<số>` đang vẽ (lien-he.tsx vẽ nút Nhắn bằng link đó) thay vì bắt từng màn
+    đăng ký số: màn nào có nút Nhắn là Sen Biển thấy. Có 0 hoặc ≥2 số ⇒ undefined (answer hướng dẫn chạm Nhắn). */
+function soZaloDangMo(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const so = new Set<string>();
+  for (const a of Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href*="zalo.me/"]'))) {
+    const m = /zalo\.me\/(\d{9,11})/.exec(a.href);
+    if (m) so.add(m[1]);
+    if (so.size > 1) return undefined;
   }
-  return msgs.filter((m) => !read.has(m.id)).length;
+  return so.size === 1 ? [...so][0] : undefined;
+}
+
+/** Máy đã đăng ký chuông báo bão chưa — tra bất đồng bộ ở vỏ (service worker), ghi lại đây để snapshot đọc đồng bộ. null = chưa biết. */
+let chuongBatNho: boolean | null = null;
+export function nhoChuongBat(v: boolean): void {
+  chuongBatNho = v;
 }
 
 function premiumOf(): boolean {
@@ -234,8 +250,13 @@ export function gomSnapshot(route: string): DeviceSnapshot {
     orders: safe(() => ordersOf(phone), null),
     fishPrices: safe(fishPricesOf, null),
     fuel: safe(fuelOf, null),
-    inboxUnread: safe(() => inboxUnreadOf(phone), 0),
+    inboxUnread: safe(() => inboxUnreadOf(phone, now), 0),
     placeNames: safe(() => loadPlaces().slice(0, 12).map((p) => cut(p.name)), []),
+    // cơ cấu mới 2026-10-25 — chỉ ở client (stripForServer bỏ)
+    kairosChuaDoc: safe(() => demChuaDocTrongMay(phone), 0),
+    ...(safe(soZaloDangMo, undefined) ? { soZaloDangMo: safe(soZaloDangMo, undefined) } : {}),
+    ...(chuongBatNho === null ? {} : { chuongBat: chuongBatNho }),
+    coHoanTac: safe(coHoanTacDangHien, false),
   };
 }
 
@@ -262,8 +283,10 @@ function scrub(v: unknown): unknown {
  * ≤12 điểm, escape thẻ, sort key; ≤8 KB (vượt → bỏ dần fishPrices → tide → maintenance).
  */
 export function stripForServer(s: DeviceSnapshot): DeviceSnapshot {
+  const rest = { ...s };
+  delete rest.soZaloDangMo; // SĐT đang hiện trên màn — CHỈ cho action client (14 luật 6: không gửi SĐT)
   const base: DeviceSnapshot = {
-    ...s,
+    ...rest,
     weather: s.weather ? { ...s.weather, days: s.weather.days.slice(0, 3) } : null,
     // Bão: giữ tên/loại/gió/mức (tin công khai), BỎ toạ độ — 13 §7.3 không gửi toạ độ,
     // và validate.ts cấm khoá lat/lon (bug UI bắt được 2026-09-06: máy có tin bão ⇒ 400).

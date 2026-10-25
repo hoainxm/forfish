@@ -62,3 +62,16 @@ export function bamHanhDong(t: Toast): void {
   t.hanhDong?.onClick();
   tatToast(t.id);
 }
+
+/** Toast đang hiện có nút Hoàn tác (hay nút phụ bất kỳ) không — Sen Biển dùng để trả lời "hoàn tác" thật. */
+export function coHoanTacDangHien(): boolean {
+  return !!hienTai?.hanhDong;
+}
+
+/** Sen Biển "hoàn tác" (cơ cấu mới 2026-10-25): bấm hộ nút phụ của toast đang hiện. `false` = không có gì để hoàn tác
+ *  (toast đã tắt / không có nút) — chỗ gọi nói thật, không giả vờ đã làm. */
+export function hoanTacDangHien(): boolean {
+  if (!hienTai?.hanhDong) return false;
+  bamHanhDong(hienTai);
+  return true;
+}

@@ -37,7 +37,7 @@ const day = (offset: number, level: "good" | "caution" | "bad" = "good", score =
 });
 const WEATHER = { portId: "quy-nhon", portName: "Quy Nhơn", savedAt: NOW - 2 * H, days: [day(0), day(1), day(2), day(3), day(4), day(5, "bad", 20)] };
 
-const ALLOWED: AssistantAction["type"][] = ["navigate", "search", "addToCart", "call", "setHomePort", "setBoat", "mute"];
+const ALLOWED: AssistantAction["type"][] = ["navigate", "search", "addToCart", "call", "setHomePort", "setBoat", "mute", "setProvince", "zalo", "undo", "shopPaused"];
 
 describe("assistant-answer — thời tiết / bão", () => {
   it("AC-T09: có bản lưu → sóng/gió/điểm + 'lưu 2 giờ trước' + savedAt; speak ≤2 câu", () => {
@@ -335,7 +335,7 @@ describe("assistant-answer — điều hướng / điều khiển / an toàn", (
         expect(r.intent, intent).toBe(intent);
         expect(r.source).toBe("offline");
         if (r.action) expect(ALLOWED, intent).toContain(r.action.type);
-        if (r.action?.type === "call" || r.action?.type === "addToCart") expect(r.confirm, intent).toBeTruthy();
+        if (r.action?.type === "call" || r.action?.type === "addToCart" || r.action?.type === "shopPaused") expect(r.confirm, intent).toBeTruthy();
         expect((r.speak.match(/[.!?…]+/g) ?? []).length, `${intent}: ${r.speak}`).toBeLessThanOrEqual(2);
         expect(r.speak).not.toMatch(/\d\.\d{3}/);
       }

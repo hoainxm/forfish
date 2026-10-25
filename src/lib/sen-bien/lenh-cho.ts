@@ -35,6 +35,9 @@ export type LenhCho =
   | { k: "shop_da_giao"; ma?: string }
   | { k: "shop_doi_hen"; ma?: string; hen?: Hen }
   | { k: "shop_nhan_tien"; ma?: string }
+  /** công tắc Tạm nghỉ bán (cơ cấu mới 2026-10-25; PATCH /api/ban-hang/shop {paused}) */
+  | { k: "shop_tam_nghi" }
+  | { k: "shop_mo_ban" }
   | { k: "san_yc_moi" }
   | { k: "san_bao_gia"; ma?: string; tienHang?: number; phiGiao?: number; hen?: Hen }
   | { k: "san_khong_tim_duoc"; ma?: string; lyDo?: string };
@@ -189,6 +192,9 @@ export function hieuLenhCho(text: string): LenhCho | null {
   if (/\b(da giao xong|giao xong( roi)?|giao toi noi roi|khach nhan roi|giao roi)\b/.test(f)) return { k: "shop_da_giao", ma: sd };
   if (/\b(bat dau giao|di giao|giao don|gui hang|gui xe|xuat hang|cho di giao)\b/.test(f)) return { k: "shop_giao", ma: sd, nhaXe: tachNhaXe(goc) };
   if (/\b(da nhan (duoc )?tien|tien ve roi|nhan du tien|tien da ve)\b/.test(f)) return { k: "shop_nhan_tien", ma: sd };
+  // công tắc Tạm nghỉ bán / mở bán lại — "mở bán lại" xét trước vì "bán lại" cũng chứa "ban"
+  if (/\b(mo ban lai|ban lai( roi)?|het nghi( roi)?|mo lai (gian hang|shop)|mo (gian hang|shop) lai|ban tiep|ngung nghi|nghi xong( roi)?|bo tam nghi|tat tam nghi|hoat dong lai)\b/.test(f)) return { k: "shop_mo_ban" };
+  if (/\b(tam nghi( ban)?|nghi ban|dong (gian hang|shop)( tam| vai bua| may bua| it bua)?|tam dong( cua| gian hang)?|ngung ban( tam| vai bua)?|nghi (vai|may|it) bua|khong ban nua|treo bang nghi)\b/.test(f)) return { k: "shop_tam_nghi" };
   if (/\b(shop|cua hang)\b.*\b(co )?don (moi|cho)\b|\bdon (moi|cho xac nhan)\b.*\b(shop|khach)\b|\b(co|may) don moi\b|\bdon cho xac nhan\b/.test(f))
     return { k: "shop_don_moi" };
   if (/\bhuy don\b/.test(f) && /\b(cho khach|cua khach|het hang|khong giao|shop huy)\b/.test(f))
@@ -229,7 +235,7 @@ export function hieuLenhCho(text: string): LenhCho | null {
 
 /** Lệnh nào là việc GHI có hậu quả ⇒ phải bấm xác nhận một chạm trước khi làm (13 §4.3). */
 export function canXacNhan(l: LenhCho): boolean {
-  return ["don_huy", "da_nhan", "bao_chuyen", "yc_dong_y", "yc_huy", "shop_xac_nhan", "shop_giao", "shop_da_giao", "shop_doi_hen", "shop_nhan_tien", "san_bao_gia", "san_khong_tim_duoc"].includes(l.k);
+  return ["don_huy", "da_nhan", "bao_chuyen", "yc_dong_y", "yc_huy", "shop_xac_nhan", "shop_giao", "shop_da_giao", "shop_doi_hen", "shop_nhan_tien", "shop_tam_nghi", "shop_mo_ban", "san_bao_gia", "san_khong_tim_duoc"].includes(l.k);
 }
 
 /*  CỔNG PHỤ n-gram (v4, 2026-10-18). Luật trên trả null mà bộ n-gram CHẮC đây là việc sàn ⇒ Sen Biển
@@ -238,6 +244,7 @@ export function canXacNhan(l: LenhCho): boolean {
 export const Y_CHO = [
   "don_huy", "da_nhan", "bao_chuyen", "yc_moi", "yc_xem", "yc_dong_y",
   "shop_xac_nhan", "shop_giao", "shop_da_giao", "shop_doi_hen", "shop_nhan_tien", "san_yc_moi", "san_bao_gia",
+  "shop_tam_nghi", "shop_mo_ban",
 ] as const satisfies readonly LenhCho["k"][];
 export type YCho = (typeof Y_CHO)[number];
 
@@ -256,6 +263,8 @@ export const CAU_MAU_CHO: Record<YCho, { viec: string; mau: string }> = {
   shop_nhan_tien: { viec: "báo đã nhận tiền", mau: "đã nhận tiền đơn UY3Y" },
   san_yc_moi: { viec: "xem yêu cầu mới", mau: "có yêu cầu mới không" },
   san_bao_gia: { viec: "báo giá", mau: "báo giá 3 triệu 6 phí giao 50 nghìn giao 2 3 ngày" },
+  shop_tam_nghi: { viec: "tạm nghỉ bán", mau: "tạm nghỉ bán vài bữa" },
+  shop_mo_ban: { viec: "mở bán lại", mau: "mở bán lại" },
 };
 
 /** Độ tin n-gram từ đó mới coi là việc sàn — cùng mốc với hieu-y (NGRAM_CHAC). */

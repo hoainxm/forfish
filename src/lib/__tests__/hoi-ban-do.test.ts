@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { SPECIES_META } from "@/lib/fish-predict";
@@ -125,9 +125,13 @@ describe("tên loài giữ dấu", () => {
   it("gõ không dấu vẫn nhận", () => expect(hoiGi("cho nao nhieu ca ngu van", LOAI)?.loaiCa?.ds).toEqual(["ngừ vằn"]));
 });
 
-describe("n-gram v2 chọn loại câu hỏi, luật làm lưới (2026-10-16)", () => {
-  const buf = readFileSync("public/data/sen-bien-ngram.v6.bin");
-  const model = loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)!;
+// bin v7 (cơ cấu mới 2026-10-25) giao sau — chưa có thì khối cần trọng số skip có lý do
+const BIN = "public/data/sen-bien-ngram.v7.bin";
+const coBin = existsSync(BIN);
+describe.skipIf(!coBin)("n-gram v2 chọn loại câu hỏi, luật làm lưới (2026-10-16)", () => {
+  // thân describe vẫn được gom khi skip ⇒ không đọc file lúc chưa có
+  const buf = coBin ? readFileSync(BIN) : Buffer.alloc(0);
+  const model = coBin ? loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)! : null;
   const hoi = (cau: string) => {
     const r = senBienReply(cau, model, [], null, { awaitingGo: false, running: false, loaiCa: LOAI });
     return r.kind === "hoi" ? r.q : r.kind;

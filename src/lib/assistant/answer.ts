@@ -543,7 +543,67 @@ function answerScreen(p: ParsedIntent): AssistantReply {
     });
   }
   if (t === "hop_thu") return reply("mo_man", "Mở Trang chủ, bác kéo xuống hộp thư nhé.", nav(SCREEN_HREF.hop_thu));
+  // Cài đặt không có URL (ngăn trong menu avatar — hợp đồng cơ cấu mới §A): chỉ chỉ đường, không nav
+  if (t === "cai_dat") return reply("mo_man", HUONG_DAN_CAI_DAT);
   return reply("mo_man", `Mở ${SCREEN_LABEL[t]}.`, nav(SCREEN_HREF[t]));
+}
+
+/* ───────────────── cơ cấu app mới 2026-10-25 (hợp đồng SEN-BIEN-CO-CAU-MOI §B) ───────────────── */
+
+const HUONG_DAN_CAI_DAT = "Cài đặt nằm trong menu tài khoản: bác chạm hình tròn góc phải Trang chủ, rồi chọn Cài đặt.";
+
+/** Tỉnh gợi ý khi chưa rõ: tỉnh nhà trước, rồi ba tỉnh nhiều tàu — ≤4 chip. */
+function answerProvince(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
+  const province = p.slots.province;
+  if (province) {
+    return reply("chon_tinh", `Đã chọn ${province}. Sen Biển mở Đầu mối ở đó.`, { action: { type: "setProvince", province } });
+  }
+  const goiY = [s.home?.province, "Khánh Hòa", "Gia Lai", "Cà Mau", "An Giang"].filter((x): x is string => !!x);
+  const options = [...new Set(goiY)].slice(0, 4).map((t) => chip(t, `chọn tỉnh ${t}`));
+  return reply("chon_tinh", "Bác muốn xem tỉnh nào?", { clarify: { question: "Chọn tỉnh:", options } });
+}
+
+function answerZalo(s: DeviceSnapshot): AssistantReply {
+  if (!s.online) return reply("nhan_zalo", "Cần sóng để nhắn Zalo. Có sóng lại bác nói lại nhé.");
+  const so = (s.soZaloDangMo ?? "").replace(/\D/g, "");
+  if (/^0\d{9}$/.test(so)) return reply("nhan_zalo", "Sen Biển mở Zalo cho bác.", { action: { type: "zalo", href: `https://zalo.me/${so}` } });
+  return reply("nhan_zalo", "Bà con chạm nút Nhắn ở thẻ muốn nhắn, Sen Biển mở Zalo đúng số đó.");
+}
+
+function answerTaiBai(s: DeviceSnapshot): AssistantReply {
+  if (!s.online) return reply("tai_bai", "Cần sóng để tải bài. Có sóng lại bác nói lại, Sen Biển tải liền.");
+  return reply("tai_bai", "Sen Biển mở Kairos và tải bài để đọc trên biển.", nav(`${SCREEN_HREF.kairos}?sen=tai`));
+}
+
+function answerBatChuong(s: DeviceSnapshot): AssistantReply {
+  if (s.chuongBat) return reply("bat_chuong", "Chuông đang bật rồi. Có bão máy sẽ báo.");
+  if (!s.online) return reply("bat_chuong", "Cần sóng để bật chuông báo bão. Có sóng lại bác nói lại nhé.");
+  return reply("bat_chuong", "Sen Biển mở Trang chủ để bật chuông báo bão. Máy sẽ hỏi cho phép thông báo, bác bấm Cho phép.", nav(`${SCREEN_HREF.trang_chu}?sen=chuong`));
+}
+
+/** Hộp thư chưa đọc (sổ đã thấy) + tin Kairos chưa đọc — một câu, đọc được; có tin thì mở Trang chủ. */
+function answerChuaDoc(s: DeviceSnapshot): AssistantReply {
+  const n = Math.max(0, s.inboxUnread | 0);
+  const k = Math.max(0, (s.kairosChuaDoc ?? 0) | 0);
+  if (n === 0 && k === 0) return reply("chua_doc", "Không có tin mới.");
+  const parts = [n > 0 ? `${n} tin chưa đọc` : "", k > 0 ? `${k} tin Kairos` : ""].filter(Boolean);
+  return reply("chua_doc", `Có ${parts.join(", ")}. Bác kéo xuống Thông báo ở Trang chủ.`, nav(SCREEN_HREF.hop_thu));
+}
+
+function answerHoanTac(s: DeviceSnapshot): AssistantReply {
+  if (!s.coHoanTac) return reply("hoan_tac", "Không có gì để hoàn tác.");
+  return reply("hoan_tac", "Sen Biển hoàn tác cho bác.", { action: { type: "undo" } });
+}
+
+/** Công tắc Tạm nghỉ bán — việc ghi có hậu quả: luôn `confirm`; UI đưa qua lam-cho (PATCH /api/ban-hang/shop). */
+function answerShopPaused(paused: boolean, s: DeviceSnapshot): AssistantReply {
+  const intent: Intent = paused ? "shop_tam_nghi" : "shop_mo_ban";
+  if (!s.online) return reply(intent, "Việc này cần có sóng — có sóng lại bác nói lại giúp.");
+  return reply(
+    intent,
+    paused ? "Tạm nghỉ bán gian hàng? Khách sẽ không đặt được hàng tới khi bác mở lại." : "Mở bán lại gian hàng? Khách đặt hàng được ngay.",
+    { action: { type: "shopPaused", paused }, confirm: { question: paused ? "Tạm nghỉ bán?" : "Mở bán lại?" } },
+  );
 }
 
 function answerHomePort(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
@@ -687,6 +747,8 @@ const FOLLOW_CHIP: Partial<Record<Intent, Suggestion>> = {
   gia_ca: chip("Giá cá", "giá cá hôm nay"),
   gia_dau: chip("Giá dầu", "giá dầu"),
   hop_thu: chip("Tin mới", "có tin mới không"),
+  chua_doc: chip("Chưa đọc", "có tin nào chưa đọc không"),
+  tai_bai: chip("Tải bài", "tải bài đọc trên biển"),
 };
 
 function withFollowUp(r: AssistantReply, p: ParsedIntent): AssistantReply {
@@ -727,6 +789,16 @@ function answerOne(p: ParsedIntent, s: DeviceSnapshot, now: number): AssistantRe
     case "dat_cang_nha": return answerHomePort(p, s);
     case "dan_duong": return answerNavigate(p, s);
     case "hop_thu": return answerInbox(s);
+    // cơ cấu app mới 2026-10-25
+    case "chon_tinh": return answerProvince(p, s);
+    case "nhan_zalo": return answerZalo(s);
+    case "tai_bai": return answerTaiBai(s);
+    case "bat_chuong": return answerBatChuong(s);
+    case "dang_xuat": return reply("dang_xuat", "Đăng xuất bác tự làm cho chắc: chạm hình tròn góc phải Trang chủ, kéo xuống cuối menu, bấm Đăng xuất.");
+    case "chua_doc": return answerChuaDoc(s);
+    case "hoan_tac": return answerHoanTac(s);
+    case "shop_tam_nghi": return answerShopPaused(true, s);
+    case "shop_mo_ban": return answerShopPaused(false, s);
     case "tro_giup": return answerHelp(s, now);
     case "lap_lai": return reply("lap_lai", "");
     case "tat_tieng": return reply("tat_tieng", "Đã tắt tiếng — tôi chỉ hiện chữ.", { action: { type: "mute", on: true } });

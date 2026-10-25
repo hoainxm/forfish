@@ -26,6 +26,8 @@ export const CONTROL: { intent: Intent; re: RegExp }[] = [
   { intent: "lap_lai", re: /^(noi lai|nhac lai|doc lai|gi co|nghe lai|noi lai lan nua|lap lai|noi lai cai|hoi lai cau truoc|cau truoc)$/ },
   { intent: "tro_giup", re: /^((bac|may|ban|em|toi|tro ly) )?(noi|lam|hoi|giup|tra loi)( duoc| dc)? (gi|cai gi|nhung gi)( duoc| dc)?( khong)?$|^(tro giup|huong dan|chi toi cach dung|chi cach dung|giup toi|giup|hoi gi duoc|hoi gi|cach dung|dung sao|dung the nao)$/ },
   { intent: "chao_hoi", re: /^(alo|a lo|chao|xin chao|chao bac|chao em|cam on|cam on nhieu|cam on nha|cam on ban|cam on nhe|da|o|u ha|hello|hi|hey)$/ },
+  // hoàn tác (cơ cấu mới 2026-10-25): bấm hộ nút Hoàn tác đang hiện — cả câu là lệnh, kèm chữ đệm
+  { intent: "hoan_tac", re: /^(hoan tac|undo|lay lai|lay lai di|lay lai cai (vua|moi) xoa|khoan dung xoa|khoan khoan|dung xoa|dung co xoa|chua xoa dau|khoi phuc|phuc hoi|hoan tac di|hoan tac lai|quay lai nhu cu|lam lai nhu cu|thoi dung xoa|khoan da|khoan)( (di|nha|nhe|gium|giup|coi|da|cai))*$/ },
 ];
 
 /** "ừ / được / đồng ý" — chỉ có nghĩa khi đang chờ xác nhận. */
@@ -48,7 +50,8 @@ export const DESTRUCTIVE: { re: RegExp; goto: Intent }[] = [
   { re: /\b(xoa|bo|huy) (diem|cho|bai)\b/, goto: "dan_duong" },
   // "đăng tin bán cá" = INT-19 mở màn Giao dịch (13 §3.3) — chỉ chặn gửi/nhắn cho người
   { re: /\b(gui tin|nhan tin cho|gui cho|dang bai)\b/, goto: "tin_mua_ban" },
-  { re: /\b(dang xuat|doi mat khau|xoa tai khoan|thoat tai khoan)\b/, goto: "mo_man" },
+  // đăng xuất / thoát tài khoản nay là ý `dang_xuat` (hướng dẫn) — ở đây chỉ còn đổi mật khẩu / xoá tài khoản (ngăn Cài đặt)
+  { re: /\b(doi mat khau|xoa tai khoan)\b/, goto: "mo_man" },
 ];
 
 /* ───────────────── 3. CÂU HỎI MỞ (13 INT-25) ───────────────── */
@@ -62,18 +65,26 @@ export const OPEN_WEAK = /\b(the nao|nen|cach|nao|tot|nhu the nao|ra sao|hay kho
 
 /** Cụm (đã fold) → màn. Cụm dài đứng trước để khớp trước. */
 export const SCREEN_PHRASES: [string, ScreenTarget][] = [
-  ["kenh nguoi ban", "ban_hang"], ["ban hang", "ban_hang"], ["nguoi ban", "ban_hang"],
+  // cơ cấu mới 2026-10-25 (hợp đồng §A): Chợ cá tách ba mục ?muc= · Kairos · Yêu cầu đặt món · Cài đặt (không URL)
+  ["bang gia ca", "gia_ca"], ["gia ca hom nay", "gia_ca"], ["gia ca", "gia_ca"], ["bang gia", "gia_ca"],
+  ["tin mua ban", "mua_ban"], ["mua ban", "mua_ban"], ["tin ban ca", "mua_ban"], ["tin rao", "mua_ban"], ["dang tin", "mua_ban"], ["ban ca", "mua_ban"],
+  ["danh ba dau moi", "dau_moi"], ["dau moi", "dau_moi"], ["vua ca", "dau_moi"], ["vua", "dau_moi"], ["cho si", "dau_moi"], ["nha may", "dau_moi"],
+  ["moi quen", "dau_moi"], ["cho thu mua", "dau_moi"], ["thu mua", "dau_moi"],
+  ["kairos", "kairos"], ["doc bao", "kairos"], ["dong tin", "kairos"], ["tin tuc", "kairos"],
+  ["yeu cau dat mon", "yeu_cau"], ["yeu cau cua toi", "yeu_cau"], ["yeu cau", "yeu_cau"], ["dat mon", "yeu_cau"], ["nho bao gia", "yeu_cau"],
+  ["cai dat", "cai_dat"], ["co chu", "cai_dat"], ["doi mat khau", "cai_dat"], ["go may", "cai_dat"],
+  ["kenh nguoi ban", "ban_hang"], ["gian hang cua toi", "ban_hang"], ["gian hang", "ban_hang"], ["ban hang", "ban_hang"], ["nguoi ban", "ban_hang"],
   ["tu giay to", "giay_to"], ["giay to", "giay_to"], ["giay phep", "giay_to"], ["tab giay to", "giay_to"],
   ["so bao duong", "bao_duong"], ["bao duong", "bao_duong"], ["dich vu", "bao_duong"],
   ["san pham", "san_pham"], ["do sdvico", "san_pham"], ["cua hang sdvico", "san_pham"], ["do da mua", "san_pham"],
   ["ban thuyen", "ban_thuyen"], ["thuyen vien", "ban_thuyen"], ["so thuyen vien", "ban_thuyen"], ["nguoi", "ban_thuyen"],
-  ["giao dich", "giao_dich"], ["cho ca", "giao_dich"], ["tin mua ban", "giao_dich"], ["bang gia", "giao_dich"], ["mua ban", "giao_dich"], ["ban ca", "giao_dich"],
+  ["giao dich", "giao_dich"], ["cho ca", "giao_dich"],
   ["cua hang vat tu", "cho"], ["cua hang", "cho"], ["cho vat tu", "cho"], ["vat tu", "cho"], ["cho", "cho"], ["tiem", "cho"], ["tim mon", "cho"], ["mua sam", "cho"],
   ["gio hang", "gio_hang"], ["gio", "gio_hang"],
   ["don cua toi", "don_hang"], ["don", "don_hang"], ["dang giao", "don_hang"],
   ["trang chu", "trang_chu"], ["trang dau", "trang_chu"], ["man chinh", "trang_chu"], ["nha", "trang_chu"], ["man dau", "trang_chu"],
   ["hop thu", "hop_thu"], ["tin nhan", "hop_thu"], ["thong bao", "hop_thu"], ["tin moi", "hop_thu"],
-  ["danh sach cang", "cang_ca"], ["cang ca", "cang_ca"], ["cang", "cang_ca"],
+  ["danh sach cang", "cang_ca"], ["danh ba cang", "cang_ca"], ["cang ca", "cang_ca"], ["cang", "cang_ca"],
   ["huong dan", "huong_dan"], ["cach dung", "huong_dan"],
   ["ra khoi", "ra_khoi"], ["ngu truong", "ra_khoi"], ["ban do", "ra_khoi"], ["ra bien", "ra_khoi"], ["di bien", "ra_khoi"], ["thoi tiet", "ra_khoi"], ["du bao", "ra_khoi"],
   ["tau ca", "tau"], ["tau cua toi", "tau"], ["tau toi", "tau"], ["tau", "tau"],
@@ -95,7 +106,24 @@ export const SCREEN_LABEL: Record<ScreenTarget, string> = {
   hop_thu: "Hộp thư",
   cang_ca: "Cảng cá",
   huong_dan: "Hướng dẫn",
+  gia_ca: "Giá cá",
+  mua_ban: "Mua bán",
+  dau_moi: "Đầu mối",
+  kairos: "Kairos",
+  yeu_cau: "Yêu cầu",
+  cai_dat: "Cài đặt",
 };
+
+/*  TỈNH VEN BIỂN — tên CŨ (trước sáp nhập 2025) bà con vẫn gọi → tên chuẩn trong `region.COASTAL_PROVINCES`.
+    Khoá đã fold (foldVn). Tên chuẩn tự khớp qua provinceKey, bảng này chỉ cho tên cũ / tên gọi tắt. */
+export const PROVINCE_ALIASES: [string, string][] = [
+  ["binh dinh", "Gia Lai"], ["phu yen", "Đắk Lắk"], ["ninh thuan", "Khánh Hòa"], ["binh thuan", "Lâm Đồng"],
+  ["ba ria vung tau", "Thành phố Hồ Chí Minh"], ["ba ria", "Thành phố Hồ Chí Minh"], ["vung tau", "Thành phố Hồ Chí Minh"],
+  ["sai gon", "Thành phố Hồ Chí Minh"], ["ho chi minh", "Thành phố Hồ Chí Minh"], ["tp hcm", "Thành phố Hồ Chí Minh"], ["hcm", "Thành phố Hồ Chí Minh"],
+  ["kien giang", "An Giang"], ["bac lieu", "Cà Mau"], ["soc trang", "Cần Thơ"], ["tra vinh", "Vĩnh Long"], ["ben tre", "Vĩnh Long"],
+  ["tien giang", "Đồng Tháp"], ["nam dinh", "Ninh Bình"], ["thai binh", "Hưng Yên"], ["quang binh", "Quảng Trị"],
+  ["quang nam", "Đà Nẵng"], ["hue", "Thừa Thiên Huế"], ["thua thien", "Thừa Thiên Huế"],
+];
 
 /** Động từ mở màn (13 §3 ưu tiên #6: chỉ khi có động từ + tên màn). */
 export const OPEN_VERBS = "mo|vao|vo|qua|xem|di toi|toi|ve|chuyen sang|mo man|chuyen qua|bam vao|bam|vao lai|mo lai|len|xuong";
@@ -123,6 +151,16 @@ export const KEYWORDS: Partial<Record<Intent, string[]>> = {
   goi_sdvico: ["goi", "sdvico", "cong ty", "tong dai"],
   mo_man: ["mo", "vao", "qua", "man"],
   hop_thu: ["hop thu", "tin", "thong bao", "tin nhan"],
+  // cơ cấu mới 2026-10-25
+  chon_tinh: ["tinh", "chon tinh", "doi tinh", "loc theo"],
+  nhan_zalo: ["zalo", "nhan", "nhan tin"],
+  tai_bai: ["tai bai", "tai tin", "mang di", "doc tren bien"],
+  bat_chuong: ["chuong", "bat chuong", "reo", "rung"],
+  dang_xuat: ["dang xuat", "thoat", "tai khoan"],
+  chua_doc: ["chua doc", "tin moi", "ai nhan"],
+  hoan_tac: ["hoan tac", "lay lai", "undo"],
+  shop_tam_nghi: ["tam nghi", "nghi ban", "dong gian hang"],
+  shop_mo_ban: ["mo ban", "ban lai", "het nghi"],
 };
 
 /** Tên loài cá hay hỏi giá (đã fold) — để tách slot species khỏi câu thường. */

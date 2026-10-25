@@ -172,6 +172,8 @@ const NGRAM_CHAC = 0.5;
 const NGOAI_BAN_DO: SenIntent[] = [
   "giay_to", "bao_duong", "thuyen_vien", "tau_cua_toi", "tim_mon", "them_gio", "xem_gio",
   "don_cua_toi", "gia_ca", "gia_dau", "tin_mua_ban", "goi_shop", "goi_sdvico", "hop_thu", "mo_man", "hoi_mo",
+  // v7 (cơ cấu app mới 2026-10-25) — màn bản đồ không làm; lớp toàn app (tra-loi-app → answer.ts) trả lời
+  "chon_tinh", "nhan_zalo", "tai_bai", "bat_chuong", "dang_xuat", "chua_doc", "hoan_tac", "shop_tam_nghi", "shop_mo_ban",
 ];
 
 /*  LỆNH NGẮN = LUẬT TỪ KHOÁ, KHÔNG HỎI MÔ HÌNH. Đo 2026-10-16: n-gram đoán

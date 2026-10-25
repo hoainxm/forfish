@@ -18,14 +18,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { SEN_NEP_MS, SenBienNoi, SenBienSheet, boKhoSan, loadBoKho, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
-import { gomSnapshot } from "@/lib/assistant/device-snapshot";
+import { gomSnapshot, nhoChuongBat } from "@/lib/assistant/device-snapshot";
 import type { AssistantAction } from "@/lib/assistant/types";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
-import { loadBoats, saveCurrentBoatId } from "@/lib/boats";
+import { updateBoat } from "@/lib/boat-store";
+import { loadBoats, loadCurrentBoatId, saveCurrentBoatId } from "@/lib/boats";
 import { SPECIES_META } from "@/lib/fish-predict";
 import { loadPlaces } from "@/lib/places";
-import { loadHome, saveHome } from "@/lib/region";
+import { ghiHomePhien, loadHome, saveHome } from "@/lib/region";
 import { readToken } from "@/lib/device-token-store";
+import { getExistingPushSubscription, isPushSupported } from "@/lib/push-client";
+import { hoanTacDangHien } from "@/lib/toast";
 import { doanMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
@@ -50,6 +53,8 @@ const NGHE_LAI = "Sen Biển chưa nghe rõ. Bà con nói lại nhé.";
 const TAI_SAN_MS = 8_000;
 /** màn KHÔNG vẽ Sen Biển toàn app: bản đồ có bản riêng; đăng nhập/đăng ký/pháp lý không cần */
 const KHONG_VE = /^\/(ngu-truong|login|dang-ky|quen-mat-khau|doi-mat-khau|quyen-rieng-tu)(\/|$)/;
+/** `?sen=` là LỆNH CHO MÀN, không phải câu hỏi: `/kairos?sen=tai` (feed bấm Tải) · `/?sen=chuong` (Trang chủ bật chuông) — cơ cấu mới 2026-10-25 */
+const SEN_LENH_MAN = new Set(["tai", "chuong"]);
 
 export function SenBienToanApp() {
   const pathname = usePathname() ?? "/";
@@ -171,7 +176,7 @@ export function SenBienToanApp() {
     try {
       const u = new URL(window.location.href);
       const t = u.searchParams.get("sen");
-      if (!t || KHONG_VE.test(u.pathname)) return;
+      if (!t || KHONG_VE.test(u.pathname) || SEN_LENH_MAN.has(t)) return;
       u.searchParams.delete("sen");
       window.history.replaceState(window.history.state, "", u.pathname + (u.search || "") + u.hash);
       setHoiNgay(t.slice(0, 300));
@@ -234,6 +239,8 @@ export function SenBienToanApp() {
           return warmVoiceClips();
         })
         .catch(() => undefined);
+      // chuông báo bão đã đăng ký chưa — đọc service worker trong máy (không mạng), để "bật chuông" biết nói "đang bật rồi"
+      if (isPushSupported()) getExistingPushSubscription().then((sub) => nhoChuongBat(!!sub)).catch(() => undefined);
     }, TAI_SAN_MS);
     return () => clearTimeout(t);
   }, []);
@@ -257,6 +264,26 @@ export function SenBienToanApp() {
           case "search":
             router.push(`/cho/tim?q=${encodeURIComponent(a.q)}`);
             return "";
+          // cơ cấu mới 2026-10-25
+          case "setProvince": {
+            // có tàu ⇒ ghi homeProvince của tàu đang chọn (nguồn sự thật, region-filter); chưa tàu ⇒ tỉnh phiên
+            const boats = loadBoats();
+            const cur = boats.find((b) => b.id === loadCurrentBoatId()) ?? boats[0];
+            const ok = cur ? updateBoat({ ...cur, homeProvince: a.province }) : ghiHomePhien(a.province);
+            if (!ok) return " Máy chưa lưu được tỉnh — bà con chọn tay ở Đầu mối.";
+            router.push("/tien?muc=dau-moi");
+            return "";
+          }
+          case "zalo": {
+            // Zalo là app ngoài — mở tab/app mới; bị chặn popup (Capacitor, trình duyệt cũ) thì đi thẳng
+            const w = window.open(a.href, "_blank", "noopener,noreferrer");
+            if (!w) window.location.assign(a.href);
+            return "";
+          }
+          case "undo":
+            return hoanTacDangHien() ? "" : " Không còn gì để hoàn tác.";
+          case "shopPaused":
+            return ""; // đi qua lam-cho (nút xác nhận) ở onHeard — không tới đây
           default:
             return "";
         }
@@ -408,6 +435,12 @@ export function SenBienToanApp() {
         text,
       });
       if (buoc.buoc === "app" && a) {
+        // công tắc Tạm nghỉ bán: việc ghi có hậu quả ⇒ cùng đường với lệnh sàn (lam-cho: đọc gian hàng, nút xác nhận, PATCH)
+        if (a.action?.type === "shopPaused") {
+          const kqShop = await lamLenhCho({ k: a.action.paused ? "shop_tam_nghi" : "shop_mo_ban" }, phone);
+          if (!conLuot()) return null;
+          return choRaThe(kqShop);
+        }
         const them = lam(a.action);
         noi(`${a.speak}${them}`);
         return { show: `${a.text}${them}` };

@@ -1214,8 +1214,8 @@ async function main() {
       const dupBad = dup.filter(([k, n]) => !k.startsWith("/api/") && !(TWO_OK.includes(k) && n <= 2));
       r.notes.push(`trùng (chấp nhận): ${dup.filter((d) => !dupBad.includes(d)).map(([k, n]) => `${k}×${n}`).join(", ")}`);
       check("không tải trùng file dữ liệu / mp3 / model", dupBad.length === 0, dupBad.map(([k, n]) => `${k}×${n}`).join(", "));
-      check("model hiểu ý tải đúng 1 lượt", count["/data/sen-bien-ngram.v6.bin"] === 1, count["/data/sen-bien-ngram.v6.bin"]);
-      const big = ["/data/sen-bien-ngram.v6.bin", "/data/vn-islands.v1.json", "/data/coral-reefs.v1.json"];
+      check("model hiểu ý tải đúng 1 lượt", count["/data/sen-bien-ngram.v7.bin"] === 1, count["/data/sen-bien-ngram.v7.bin"]);
+      const big = ["/data/sen-bien-ngram.v7.bin", "/data/vn-islands.v1.json", "/data/coral-reefs.v1.json"];
       for (const b of big) r.notes.push(`${b}: ${count[b] ?? 0} lượt`);
       // lỗi do MÔI TRƯỜNG chạy thử (demo mode không khoá dữ liệu, máy không có kho
       // snapshot dự báo, nguồn ô hải đồ ngoài chập chờn) — ghi lại, không tính

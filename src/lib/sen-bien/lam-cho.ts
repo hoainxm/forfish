@@ -18,7 +18,7 @@ import { ORDER_STATUS_LABEL } from "@/lib/market/order-state";
 import { loadCachedMarketOrders, saveCachedMarketOrders } from "@/lib/market/orders-cache";
 import { quoteTotal, REQUEST_STATUS_LABEL } from "@/lib/market/request-state";
 import { loadCachedRequests, saveCachedRequests } from "@/lib/market/requests-cache";
-import type { MarketRequest, Order, ProductCard } from "@/lib/market/types";
+import type { MarketRequest, Order, ProductCard, Shop } from "@/lib/market/types";
 import type { Hen, LenhCho } from "./lenh-cho";
 
 export interface ChoKetQua {
@@ -225,6 +225,31 @@ export async function lamLenhCho(l: LenhCho, phone: string | null): Promise<ChoK
       }
 
       // ── chủ shop ───────────────────────────────────────────────────────
+      case "shop_tam_nghi":
+      case "shop_mo_ban": {
+        /*  Công tắc "Tạm nghỉ bán" (cơ cấu mới 2026-10-25) — cùng route nút trên màn Kênh người bán gọi
+            (`shop-settings.tsx` PATCH /api/ban-hang/shop {paused}). Việc ghi có hậu quả (khách không đặt được) ⇒ xác
+            nhận một chạm; đã ở đúng trạng thái thì nói, không gửi thừa. */
+        const paused = l.k === "shop_tam_nghi";
+        if (!online()) return { noi: CAN_SONG };
+        const r = await marketGet<{ shop: Shop | null }>("/api/ban-hang/shop");
+        if (!r.ok) return r.status === 401 || r.status === 403 ? { noi: "Máy này chưa đăng nhập tài khoản chủ shop." } : loi(r, "đọc gian hàng");
+        const shop = r.data.shop;
+        if (!shop) return { noi: "Máy này chưa có gian hàng. Mở Kênh người bán để đăng ký.", den: "/ban-hang" };
+        if (shop.paused === paused) return { noi: paused ? "Gian hàng đang tạm nghỉ rồi." : "Gian hàng đang mở bán rồi.", den: "/ban-hang" };
+        return {
+          noi: paused ? `Tạm nghỉ bán ${shop.name}? Khách sẽ không đặt được hàng tới khi bà con mở lại.` : `Mở bán lại ${shop.name}? Khách đặt hàng được ngay.`,
+          den: "/ban-hang",
+          xacNhan: {
+            nhan: paused ? "Tạm nghỉ" : "Mở bán",
+            lam: async () => {
+              if (!online()) return { noi: CAN_SONG };
+              const x = await marketSend<{ shop: Shop }>("PATCH", "/api/ban-hang/shop", { paused });
+              return x.ok ? { noi: paused ? "Đã tạm nghỉ bán — bà con không đặt được hàng tới khi mở lại." : "Đã mở bán lại.", den: "/ban-hang" } : loi(x, paused ? "tạm nghỉ bán" : "mở bán lại");
+            },
+          },
+        };
+      }
       case "shop_don_moi": {
         const list = await donShop("cho_xac_nhan");
         if (laKetQua(list)) return list;

@@ -9,9 +9,10 @@
 // Nhiều ý một câu ("coi thời tiết rồi gọi SDVICO") → ý đầu + followUp.
 
 import { foldVn } from "@/lib/market/text";
+import { COASTAL_PROVINCES, provinceKey } from "@/lib/region";
 import {
   BLOCKLIST, CLOSE_RE, CONTROL, DESTRUCTIVE, KEYWORDS, NO_RE, OPEN_STRONG, OPEN_WEAK,
-  OPEN_VERBS, SCREEN_PHRASES, SPECIES_WORDS, YES_RE,
+  OPEN_VERBS, PROVINCE_ALIASES, SCREEN_PHRASES, SPECIES_WORDS, YES_RE,
 } from "./intents";
 import { normalizeUtterance, rawSlot, UNIT_DISPLAY, UNIT_WORDS, wordCount } from "./normalize";
 import { matchPortKeys } from "./ports";
@@ -101,8 +102,8 @@ function portIn(s: string, ctx: ParseContext): string | undefined {
 const WEATHER_WORDS = /\b(thoi tiet|song|gio|mua|bien|troi|dong|em|nang|diem di bien|du bao|sap mua|gio giat|cap may|cap \d)\b/;
 const DI_DUOC = /\b(di duoc khong|di duoc ko|di duoc|nen di|ra khoi duoc|di bien duoc|co nen|ok khong|ra khoi ok|diem di bien|di bien ok|di dc khong|di dc|xuat ben duoc|chay duoc khong)\b/;
 const BAO_STRONG = /\b(ap thap|atnd|bao so|tin bao)\b/;
-/** "bao" đứng SAU chữ này là thông báo/đảm bảo/bao bao, không phải bão. */
-const BAO_PREV_NOT = new Set(["thong", "dam", "bao"]);
+/** "bao" đứng SAU chữ này là thông báo/đảm bảo/bao bao/đọc báo (Kairos), không phải bão. */
+const BAO_PREV_NOT = new Set(["thong", "dam", "bao", "doc"]);
 /** "bao" đứng TRƯỚC chữ này là bảo hiểm/bảo dưỡng/bao nhiêu/bao gạo…, không phải bão. */
 const BAO_NEXT_NOT = new Set(["hiem", "duong", "nhieu", "cao", "gio", "lau", "xa", "lon", "tri", "ve", "ho", "muoi", "da", "gao", "dam", "cat", "tay", "gia", "cho"]);
 /** Không dùng lookbehind (Safari <16.4 chết cả chunk — safari-cu.test.ts). */
@@ -118,11 +119,66 @@ function isStorm(s: string): boolean {
   return false;
 }
 
+/* ───────────────── cơ cấu app mới 2026-10-25 (hợp đồng §B) ───────────────── */
+
+/** Tỉnh ven biển nói trong câu (đã fold) → tên CHUẨN `COASTAL_PROVINCES`; tên cũ qua `PROVINCE_ALIASES`. Cụm dài khớp trước. */
+export function provinceIn(s: string): string | undefined {
+  const cands: [string, string][] = [
+    ...COASTAL_PROVINCES.map((p): [string, string] => [foldVn(p.name).replace(/^thanh pho /, ""), p.name]),
+    ...PROVINCE_ALIASES,
+  ].sort((a, b) => b[0].length - a[0].length);
+  for (const [k, name] of cands) if (includesWord(s, k)) return name;
+  // "tp hcm" / "hồ chí minh" viết liền, dạng lạ — qua khoá vùng
+  const kw = provinceKey(s);
+  if (/hochiminh/.test(kw)) return "Thành phố Hồ Chí Minh";
+  return undefined;
+}
+
+/** "nhắn Zalo cho vựa" / "gửi tin Zalo cho ông Ba" / "nhắn cho chủ tin này" — đứng TRƯỚC bảng DESTRUCTIVE ("gui tin", "nhan tin cho"). */
+const ZALO_RE = /\bzalo\b|^(?:toi |tui |cho toi |giup toi )?(?:muon |can |nho )?(?:nhan|nhan tin|gui tin|gui tin nhan|chat|inbox)\s+(?:zalo\s+)?(?:cho|voi|qua)\s+\S/;
+const TAI_BAI_RE = /\b(?:tai|luu|down|tai ve|tai san|tai truoc|tai het)\s+(?:may |mot it |it |vai |them )?(?:bai|tin|bao|bai doc|bai bao|tin tuc|bai kairos|tin kairos)\b|\btai (?:bai|tin) mang di\b|\b(?:bai|tin) doc tren bien\b|\bmang di doc\b|\bde ra khoi doc\b/;
+const BAT_CHUONG_RE = /^(?:cho toi |giup toi |lam on |nho )?(?:bat|cai|dang ky|mo|kich hoat)\s+(?:cai |cho |lai )?chuong\b|\bbat (?:cai |lai )?(?:thong bao|canh bao|bao dong)\b|\b(?:cho |de |cai )?may (?:reo|rung|keu|hu|bao dong|bao)(?: len)? khi (?:co |sap |sap co )?bao\b|\bchuong bao bao\b|\bbat (?:bao|tin) bao\b/;
+const DANG_XUAT_RE = /\b(dang xuat|thoat tai khoan|go tai khoan|thoat ra khoi tai khoan|logout|log out|thoat ra khoi app|dang xuat ra)\b/;
+const CHUA_DOC_RE = /\b(chua doc|chua xem|chua coi|co ai nhan|ai nhan gi|ai nhan khong|may tin (moi|chua)|bao nhieu tin|tin nao (moi|chua)|co tin nao|con tin nao|co ai (goi|hoi|nhan))\b/;
+const SHOP_TAM_NGHI_RE = /\b(tam nghi( ban)?|nghi ban|dong (gian hang|shop)( tam| vai bua| may bua| it bua)?|tam dong( cua| gian hang)?|ngung ban( tam| vai bua)?|nghi (vai|may|it) bua|khong ban nua|treo bang nghi)\b/;
+const SHOP_MO_BAN_RE = /\b(mo ban lai|ban lai( roi)?|het nghi( roi)?|mo lai (gian hang|shop)|mo (gian hang|shop) lai|ban tiep|ngung nghi|nghi xong( roi)?|bo tam nghi|tat tam nghi|hoat dong lai)\b/;
+/** "chọn tỉnh Khánh Hoà" / "đổi sang Kiên Giang" / "lọc theo tỉnh Cà Mau" — động từ chọn/đổi/lọc: phần sau là tỉnh. */
+const CHON_TINH_RE = /^(?:toi |tui |cho toi )?(?:chon|chon lai|doi|doi lai|doi sang|doi qua|chuyen|chuyen sang|chuyen qua|loc|loc theo|dat|lay theo)\s+(?:tinh |vua |cho |dau moi |o |sang |qua |ve |theo |theo tinh )*(.+)$/;
+/** "xem vựa ở Bình Định" / "coi đầu mối Cà Mau" — động từ xem/coi chỉ tính khi ngay sau là vựa/chợ/đầu mối/cảng/tỉnh
+ *  ("coi thời tiết Vũng Tàu" là thời tiết, không phải chọn tỉnh). */
+const XEM_TINH_RE = /^(?:toi |tui |cho toi )?(?:(?:xem|coi|lay|tim|kiem)\s+)?(?:vua|cho|dau moi|cang|tinh|nha may|moi quen|cho si)(?: ca)?(?:\s+(?:o|tai|ben|cua|tinh|duoi|tren|ngoai|trong))*\s+(.+)$/;
+
+/** Ý mới, ưu tiên cao: đứng trước DESTRUCTIVE (nhắn Zalo) và trước mẫu bão / hộp thư (bật chuông, chưa đọc). */
+function matchCoCauMoi(s: string): Hit | null {
+  if (ZALO_RE.test(s)) return hit("nhan_zalo", 0.9);
+  if (DANG_XUAT_RE.test(s)) return hit("dang_xuat", 0.95);
+  if (BAT_CHUONG_RE.test(s)) return hit("bat_chuong", 0.9);
+  if (TAI_BAI_RE.test(s)) return hit("tai_bai", 0.9);
+  if (CHUA_DOC_RE.test(s)) return hit("chua_doc", 0.85);
+  if (SHOP_TAM_NGHI_RE.test(s) && !SHOP_MO_BAN_RE.test(s)) return hit("shop_tam_nghi", 0.85);
+  if (SHOP_MO_BAN_RE.test(s)) return hit("shop_mo_ban", 0.85);
+  // chọn tỉnh — không giành câu cảng nhà / đổi tàu ("đổi cảng nhà Cà Mau" là đặt cảng nhà); "Vũng Tàu" là tỉnh, không phải tàu
+  if (!/\bcang nha\b/.test(s) && !/\btau\b/.test(s.replace(/\bvung tau\b/g, ""))) {
+    const m = CHON_TINH_RE.exec(s) ?? XEM_TINH_RE.exec(s);
+    if (m) {
+      const province = provinceIn(m[1]);
+      if (province) return hit("chon_tinh", 0.9, { province });
+      // "chọn tỉnh" / "đổi tỉnh khác" mà chưa nói tên ⇒ answer hỏi lại
+      if (/\btinh\b/.test(s) && /^(?:toi |tui |cho toi )?(?:chon|doi|loc|chuyen)/.test(s)) return hit("chon_tinh", 0.6);
+    }
+  }
+  return null;
+}
+
 function matchPatterns(s: string, ctx: ParseContext): Hit | null {
   let m: RegExpExecArray | null;
 
   /* ── câu hỏi mở (chỉ báo mạnh) — trước cả chợ để "mùa này cá gì được giá" không thành "mua" ── */
   if (OPEN_STRONG.test(s)) return hit("hoi_mo", 0.8);
+
+  /* ── cơ cấu mới 2026-10-25: bật chuông ("bật chuông báo bão" có chữ bão) · tải bài · chưa đọc · tạm nghỉ bán · chọn tỉnh ── */
+  const cc = matchCoCauMoi(s);
+  if (cc) return cc;
 
   /* ── them_gio (13 AC-T05: chỉ khi có giỏ hoặc "lấy N") ── */
   if ((m = new RegExp(`^(?:them|bo|cho|lay|mua gium|mua giup|them gium|them giup|them cho toi)\\s+(\\d+(?:[.,]\\d+)?)\\s*(?:(${U})\\s+)?(.+?)\\s+(?:vao|vo|bo|vao trong|vo trong)\\s+gio(?: hang)?$`).exec(s))) {
@@ -364,7 +420,11 @@ const ROUTE_BIAS: [RegExp, Intent[]][] = [
   [/^\/cho/, ["tim_mon", "xem_gio", "don_cua_toi", "them_gio"]],
   [/^\/tau/, ["giay_to", "bao_duong", "tau_cua_toi"]],
   [/^\/ngu-truong/, ["thoi_tiet", "bao", "con_nuoc"]],
-  [/^\/tien/, ["gia_ca", "gia_dau", "tin_mua_ban"]],
+  // cơ cấu mới 2026-10-25: /tien?muc= (giá · mua bán · đầu mối: chọn tỉnh, nhắn Zalo) · /kairos · /cang · /ban-hang
+  [/^\/tien/, ["gia_ca", "gia_dau", "tin_mua_ban", "chon_tinh", "nhan_zalo"]],
+  [/^\/kairos/, ["tai_bai", "chua_doc"]],
+  [/^\/cang/, ["dat_cang_nha", "chon_tinh"]],
+  [/^\/ban-hang/, ["shop_tam_nghi", "shop_mo_ban"]],
   [/^\/nguoi/, ["thuyen_vien"]],
 ];
 
@@ -409,6 +469,8 @@ function parseOne(s: string, ctx: ParseContext): Hit {
   if (CLOSE_RE.test(s)) return hit("huy", 1);
   for (const c of CONTROL) if (c.re.test(s)) return hit(c.intent, 1);
 
+  // nhắn Zalo (cơ cấu mới): "gửi tin Zalo cho…" đứng trước bảng chặn "gui tin / nhan tin cho" bên dưới
+  if (ZALO_RE.test(s)) return hit("nhan_zalo", 0.9);
   // hành động có hậu quả → không có mã, chỉ đường tới màn
   for (const d of DESTRUCTIVE) {
     if (d.re.test(s)) return hit("khong_hieu", 0.5, {}, d.goto);

@@ -45,7 +45,17 @@ export type Intent =
   | "hoi_mo"         // INT-25: câu hỏi mở (kinh nghiệm, so sánh, giải thích) → online
   | "ngoai_pham_vi"  // INT-26: y tế/pháp lý/tiền cá nhân/chính trị/tra người — chặn, KHÔNG lên máy chủ
   | "chao_hoi"       // INT-27: chào / cảm ơn / "alo"
-  | "khong_hieu";    // INT-27: không khớp gì — hỏi lại / online nếu có sóng
+  | "khong_hieu"     // INT-27: không khớp gì — hỏi lại / online nếu có sóng
+  // ── Cơ cấu app mới 2026-10-25 (hợp đồng SEN-BIEN-CO-CAU-MOI §B — 9 ý cuối bảng n-gram v7) ──
+  | "chon_tinh"      // chọn/đổi tỉnh để lọc vựa, cảng — slot province (22 tỉnh ven biển)
+  | "nhan_zalo"      // nhắn Zalo cho vựa / chủ tin đang mở — chỉ khi màn có đúng MỘT số di động
+  | "tai_bai"        // tải bài Kairos đọc trên biển → /kairos?sen=tai (feed bấm Tải)
+  | "bat_chuong"     // bật chuông báo bão → /?sen=chuong (Trang chủ xin quyền thông báo)
+  | "dang_xuat"      // đăng xuất — CHỈ hướng dẫn, không tự làm
+  | "chua_doc"       // có tin chưa đọc không — đếm hộp thư + chuông Kairos
+  | "hoan_tac"       // hoàn tác việc vừa xoá — bấm hộ nút Hoàn tác trên toast đang hiện
+  | "shop_tam_nghi"  // chủ shop tạm nghỉ bán — xác nhận rồi PATCH {paused:true}
+  | "shop_mo_ban";   // chủ shop mở bán lại — xác nhận rồi PATCH {paused:false}
 
 export const INTENTS: readonly Intent[] = [
   "thoi_tiet", "bao", "con_nuoc", "dan_duong", "dat_cang_nha",
@@ -54,6 +64,7 @@ export const INTENTS: readonly Intent[] = [
   "mo_man", "hop_thu",
   "tro_giup", "lap_lai", "tat_tieng", "bat_tieng", "xac_nhan", "tu_choi", "huy",
   "hoi_mo", "ngoai_pham_vi", "chao_hoi", "khong_hieu",
+  "chon_tinh", "nhan_zalo", "tai_bai", "bat_chuong", "dang_xuat", "chua_doc", "hoan_tac", "shop_tam_nghi", "shop_mo_ban",
 ] as const;
 
 /** Ý định KHÔNG BAO GIỜ gửi lên máy chủ (13 INT-26, AC-T06). */
@@ -62,10 +73,13 @@ export const NEVER_ONLINE: readonly Intent[] = ["ngoai_pham_vi"] as const;
 /** Ý định NÊN đi online nếu có sóng (dù offline có khớp): câu hỏi mở. */
 export const ONLINE_FIRST: readonly Intent[] = ["hoi_mo"] as const;
 
-/** Màn mở được bằng giọng — khớp route thật (07 §4), không có route mới. */
+/** Màn mở được bằng giọng — khớp route thật (07 §4), không có route mới.
+ *  2026-10-25 (cơ cấu mới, hợp đồng §A): thêm Chợ cá › Giá cá / Mua bán / Đầu mối (`/tien?muc=`), Kairos, Yêu cầu đặt
+ *  món; `cai_dat` KHÔNG có URL (ngăn trong menu avatar) — answer chỉ hướng dẫn, không navigate. */
 export type ScreenTarget =
   | "trang_chu" | "ra_khoi" | "tau" | "giay_to" | "bao_duong" | "san_pham" | "ban_thuyen"
-  | "giao_dich" | "cho" | "gio_hang" | "don_hang" | "ban_hang" | "hop_thu" | "cang_ca" | "huong_dan";
+  | "giao_dich" | "cho" | "gio_hang" | "don_hang" | "ban_hang" | "hop_thu" | "cang_ca" | "huong_dan"
+  | "gia_ca" | "mua_ban" | "dau_moi" | "kairos" | "yeu_cau" | "cai_dat";
 
 export const SCREEN_HREF: Record<ScreenTarget, string> = {
   trang_chu: "/",
@@ -83,6 +97,12 @@ export const SCREEN_HREF: Record<ScreenTarget, string> = {
   hop_thu: "/",            // Trang chủ không nhận ?tab; hộp thư là InboxSection inline → câu trả lời nói "kéo xuống hộp thư"
   cang_ca: "/cang",
   huong_dan: "/huong-dan.html",
+  gia_ca: "/tien?muc=gia",
+  mua_ban: "/tien?muc=tin",
+  dau_moi: "/tien?muc=dau-moi",
+  kairos: "/kairos",
+  yeu_cau: "/cho/yeu-cau",
+  cai_dat: "",             // không có URL: ngăn "Cài đặt" trong menu avatar — answer hướng dẫn, KHÔNG nav (chuỗi rỗng = đừng push)
 };
 
 /** Tham số rút từ câu nói. Mọi trường tuỳ chọn; parse chỉ điền cái thấy. */
@@ -120,6 +140,8 @@ export interface Slots {
   nameRaw?: string;
   /** don_cua_toi: chỉ đơn đang giao hay tất cả */
   orderFilter?: "dang_giao" | "tat_ca";
+  /** tên tỉnh CHUẨN trong `COASTAL_PROVINCES` (có dấu, sau sáp nhập 2025) — chon_tinh; thiếu = chưa rõ tỉnh, hỏi lại */
+  province?: string;
 }
 
 export interface ParsedIntent {
@@ -227,11 +249,20 @@ export interface DeviceSnapshot {
   inboxUnread: number;
   /** tên điểm đã lưu (≤12) — chỉ tên, không toạ độ */
   placeNames: string[];
+  /** tin Kairos chưa đọc trong máy (`kairos/chuong.demChuaDocTrongMay`) — chua_doc; thiếu = 0 */
+  kairosChuaDoc?: number;
+  /** số di động DUY NHẤT đang hiện nút Nhắn trên màn (thẻ tin / vựa đang mở) — nhan_zalo mở `zalo.me/<số>`;
+   *  thiếu = không có hoặc có nhiều hơn một ⇒ answer chỉ hướng dẫn chạm Nhắn. CHỈ ở client, không gửi máy chủ */
+  soZaloDangMo?: string;
+  /** máy đã đăng ký chuông báo bão (push) — bat_chuong nói "đang bật rồi"; thiếu = chưa biết ⇒ coi như chưa bật */
+  chuongBat?: boolean;
+  /** toast đang hiện có nút Hoàn tác — hoan_tac; thiếu/false ⇒ "Không có gì để hoàn tác." */
+  coHoanTac?: boolean;
 }
 
 /* ───────────────────── TRẢ LỜI + HÀNH ĐỘNG ───────────────────── */
 
-/** Tập hành động ĐÓNG (13 AC-T24): không có đặt hàng/huỷ/xoá/gửi. `confirm` bắt buộc cho addToCart + call. */
+/** Tập hành động ĐÓNG (13 AC-T24): không có đặt hàng/huỷ/xoá/gửi. `confirm` bắt buộc cho addToCart + call + shopPaused. */
 export type AssistantAction =
   | { type: "navigate"; href: string }
   | { type: "search"; q: string }                          // → /cho/tim?q=
@@ -239,7 +270,12 @@ export type AssistantAction =
   | { type: "call"; tel: string; label: string }
   | { type: "setHomePort"; portId: string; portName: string; province?: string }   // đảo được — chip "Đổi lại" (utterance đặt lại cảng cũ), không confirm; `province` tra từ danh sách để UI ghi đúng tỉnh
   | { type: "setBoat"; boatId: string; boatName: string }       // đảo được — chip "Đổi lại", không confirm
-  | { type: "mute"; on: boolean };
+  | { type: "mute"; on: boolean }
+  // cơ cấu mới 2026-10-25
+  | { type: "setProvince"; province: string }   // ghi tỉnh (tàu đang chọn / tỉnh phiên) rồi UI mở /tien?muc=dau-moi — đảo được bằng cách nói tỉnh khác
+  | { type: "zalo"; href: string }              // mở `https://zalo.me/<số>` — số lấy từ chính màn đang mở (snapshot.soZaloDangMo), không tra sổ
+  | { type: "undo" }                            // bấm hộ nút Hoàn tác đang hiện (lib/toast.hoanTacDangHien)
+  | { type: "shopPaused"; paused: boolean };    // công tắc Tạm nghỉ bán — `confirm` bắt buộc; UI đi qua lam-cho (PATCH /api/ban-hang/shop)
 
 export type ReplySource = "offline" | "online" | "mock";
 

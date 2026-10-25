@@ -6,13 +6,16 @@
 // chép nguyên byte bằng `scripts/build-sen-bien-hoi-dap.mjs`. Phép tính = `topk.mjs topK` bên train (đặc trưng
 // băm y hệt v4: `ngram.dacTrung`). Đổi bố cục ở đó thì đổi ở đây.
 
-import { dacTrung, INTENTS, type NgramCtx } from "./ngram";
+import { dacTrung, type NgramCtx } from "./ngram";
 
 export const DAU_KHO_PATH = "/data/sen-bien-ngram.v5.bin";
 
 const DIM = 1 << 16;
 const NR = 5; // y_te · phap_ly · tien · tra_nguoi · khac — đầu lý do chặn của v5b (không dùng)
-const NYR = INTENTS.length + NR;
+/** Số ý định LÚC TRAIN kho v5b (65) — đầu ý định bỏ qua nên KHÔNG đi theo `ngram.INTENTS` (v7 có 74 ý; buộc khớp
+ *  thì file kho đang có sẽ bị từ chối oan). Chỉ dùng để kiểm đầu file + tính bố cục byte. */
+export const NY_KHO = 65;
+const NYR = NY_KHO + NR;
 
 /** Giữ int8 + thang mỗi hàng (giải ra số thực bảng E là 16 MB RAM). */
 export type DauKho = { h: number; nq: number; qE: Int8Array; sE: Float32Array; qQ: Int8Array; sQ: Float32Array; bq: Float32Array };
@@ -31,7 +34,7 @@ export function loadDauKho(buf: ArrayBuffer): DauKho | null {
   const dv = new DataView(buf);
   if (String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3)) !== "SBN5") return null;
   const [dim, h, ny, nr, nq] = [0, 1, 2, 3, 4].map((i) => dv.getUint32(4 + 4 * i, true));
-  if (dim !== DIM || ny !== INTENTS.length || nr !== NR || h < 1 || h > 1024 || nq < 1 || nq > 100000) return null;
+  if (dim !== DIM || ny !== NY_KHO || nr !== NR || h < 1 || h > 1024 || nq < 1 || nq > 100000) return null;
   if (buf.byteLength !== sbn5Bytes(h, nq)) return null;
   const qE = new Int8Array(buf, 24, DIM * h);
   const qQ = new Int8Array(buf, 24 + (DIM + NYR) * h, nq * h);

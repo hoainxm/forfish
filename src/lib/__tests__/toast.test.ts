@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { bamHanhDong, baoToast, docToast, tatToast, theoDoiToast, TOAST_MS } from "@/lib/toast";
+import { bamHanhDong, baoToast, coHoanTacDangHien, docToast, hoanTacDangHien, tatToast, theoDoiToast, TOAST_MS } from "@/lib/toast";
 import { NHAN, nhanHopLe } from "@/lib/labels";
 
 describe("toast — kho module một câu một lúc", () => {
@@ -47,5 +47,20 @@ describe("toast — kho module một câu một lúc", () => {
     bamHanhDong(t);
     expect(hoan).toHaveBeenCalledTimes(1);
     expect(docToast()).toBeNull();
+  });
+
+  // Sen Biển "hoàn tác" (cơ cấu mới 2026-10-25)
+  it("hoanTacDangHien: có nút ⇒ bấm hộ + tắt toast, trả true; không có ⇒ false, không ném", () => {
+    expect(hoanTacDangHien()).toBe(false);
+    baoToast("Đã lưu.");
+    expect(coHoanTacDangHien()).toBe(false);
+    expect(hoanTacDangHien()).toBe(false);
+    const lam = vi.fn();
+    baoToast("Đã xoá giấy.", { hanhDong: { nhan: "Hoàn tác", onClick: lam } });
+    expect(coHoanTacDangHien()).toBe(true);
+    expect(hoanTacDangHien()).toBe(true);
+    expect(lam).toHaveBeenCalledTimes(1);
+    expect(docToast()).toBeNull();
+    expect(hoanTacDangHien()).toBe(false);
   });
 });

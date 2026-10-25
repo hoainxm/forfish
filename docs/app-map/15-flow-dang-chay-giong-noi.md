@@ -1035,3 +1035,27 @@ Mô hình: GIỮ v6 (cổng vòng train: ngang v4 ở bộ cũ ±0,8, ngoài ngh
 Test: `sen-bien-sua-goc.test.ts`. Chưa kiểm trên điện thoại thật (khung trình duyệt chặn micro).
 
 **Assumptions**: ngưỡng `NGRAM_CACH` 0,25 / `Q_CHAC_MANG` 0,8 chọn trên bộ test có sẵn, chưa đo trên câu thật đủ nhiều — khi `sen_bien_mau` đủ vài trăm câu có nhãn thì đo lại. Lọc tiếng đệm chỉ áp lượt micro tự mở.
+
+## 29. SEN BIỂN THEO CƠ CẤU APP MỚI — n-gram v7 + Gemma máy nhà (2026-10-25, anh Long: "với cơ cấu toàn app mới tối, tổ chức train ở gpu cho ngram và gemma online cho sen biển đi")
+
+Cơ cấu mới = hai lô rà FB cùng ngày ([design-review/08](../design-review/08-ra-fb-toan-app.md); 07 re-verified 2026-10-25e/f). Hợp đồng chung cho ba việc (code app · train GPU · Gemma máy nhà) chốt một bảng màn/đường + 9 ý mới; tóm tắt ở đây là nguồn sự thật.
+
+**Bộ hiểu ý v7** (`public/data/sen-bien-ngram.v7.bin` 5,2 MB int8, DIM 65536 × 79; `ngram.ts` INTENTS **74** = 65 ý v6 GIỮ THỨ TỰ + 9 ý cuối; `THANG` 0.22715401837206262; đầu kho v5b tách `NY_KHO=65` nên không bị từ chối oan):
+| Ý mới | Câu bà con hay nói | App làm gì |
+|---|---|---|
+| `chon_tinh` | "chọn tỉnh Khánh Hoà", "xem vựa ở Bình Định" | slot `province` (22 tỉnh ven biển, bỏ dấu); có tàu ⇒ `updateBoat({homeProvince})`, chưa tàu ⇒ `ghiHomePhien`; mở `/tien?muc=dau-moi` |
+| `nhan_zalo` | "nhắn Zalo cho vựa", "nhắn cho chủ tin này" | chỉ khi màn đang vẽ đúng MỘT link `zalo.me/<số di động>` (`DeviceSnapshot.soZaloDangMo`, đọc DOM) ⇒ mở; không ⇒ "chạm nút Nhắn ở thẻ"; mất sóng ⇒ nói |
+| `tai_bai` | "tải bài đọc trên biển" | `/kairos?sen=tai` ⇒ feed bấm Tải (không tự tải khi không có lệnh) |
+| `bat_chuong` | "bật chuông báo bão" | `/?sen=chuong` ⇒ `install-prompt.SenChuong` gọi `subscribeToPush`; đã bật ⇒ nói |
+| `dang_xuat` | "đăng xuất", "thoát tài khoản" | CHỈ hướng dẫn (menu hình tròn góc phải › cuối › Đăng xuất) — không tự làm |
+| `chua_doc` | "có tin nào chưa đọc", "mấy tin mới" | đếm `chuaDocIds` (TC-05) + chuông Kairos `demChuaDocTrongMay` ⇒ "Có N tin chưa đọc…" + về Trang chủ |
+| `hoan_tac` | "hoàn tác", "khoan, đừng xoá" | `toast.hoanTacDangHien()` bấm hộ nút Hoàn tác đang hiện; không có ⇒ nói |
+| `shop_tam_nghi` / `shop_mo_ban` | "tạm nghỉ bán" / "mở bán lại" | khuôn ý shop_* (`lenh-cho`/`lam-cho`): GET shop → hỏi xác nhận → PATCH `{paused}` |
+
+`mo_man` thêm đích: Giá cá `/tien?muc=gia` · Mua bán `/tien?muc=tin` · Đầu mối `/tien?muc=dau-moi` · Kairos `/kairos` · Yêu cầu `/cho/yeu-cau` · Cài đặt KHÔNG URL (hướng dẫn). "có tin mới không" vẫn là `hop_thu`; câu hỏi số/"ai nhắn" là `chua_doc`. `ROUTE_BIAS` theo route mới. Test: `sen-bien-co-cau-moi.test.ts` (63 ca) + parse/answer/toast; 6 test nạp bin đọc v7.
+
+**Train (gpu-desktop, AI-Assistant `feat/sen-bien-train-dem` 307847d→5ea1020, thư mục `~/.local/forlife/train/sen-bien-cocau/`, ứng viên `sen-bien-dem/ung-vien/2026-10-25-cocau/`)**: Opus (`claude -p`, `soan-cocau.mjs`) soạn **2 595 câu** (9 ý mới 208–258 câu/ý · ý cũ chữ mới ≈500 · nhiễu ngược ≈270) + bộ kín `test-cocau` 225 / `test-cocau-asr` 135; 3 vòng (cocau 70 → 80 → **88,0 %**, asr **89,6 %**), hạt 123, 32 vòng. Bộ cũ v6→v7: bd/bd-asr 0 · lenh +1,8 · lenh-asr +1,8 · sdvico +1 · that +12,5 · a −1,7 · a-nhiễu −2,0 · b −2,7 · cho −2,1 · ngoai −1,6. **Cổng nguyên bản KHÔNG qua**, nhưng soi từng câu: 14 câu tụt là **xung đột định nghĩa** (bộ kín cũ gán `hop_thu` cho "có ai nhắn gì tui hông", `khong_hieu` cho "đăng xuất") — chấm lại với nhãn theo hợp đồng: a ±0 · a-nhiễu ±0 · b −0,9 · cho −0,4 · cho-asr +0,8 · chỉ test-ngoai −1,6 (4 câu; 3 câu y tế v7 đoán `ngoai_pham_vi:y_te` — tuyến chặn an toàn hơn `khong_hieu`). **Quyết định (điều phối, 25/10)**: nhận v7 vào `feat/toi-uu-codex` (anh duyệt khi merge main); việc còn: cập nhật 14 nhãn bộ kín cũ trong `train/data` (ngoài git) + vòng tiếp nhắm `chon_tinh` (17/25, yếu nhất). Bản train và app khớp y: 3 câu ghim trong `sen-bien.test.ts` đo lại bằng `ngram.mjs doan` trên GPU (0,935 · 0,893 · 0,872).
+
+**Gemma máy nhà (AI-Assistant main @ GPU, commit ae0736d)**: `forfish-thue-bao.mjs` — `MAN_APP` nền <700 ký tự theo dock 6 mục; MỚI `CHI_TIET_MAN` 16 dòng + `manAppCho(text, boiCanh)` chỉ chèn ≤3 dòng khớp câu hỏi/màn đang mở (prompt vẫn gọn, <1 s); `LUAT_TB` "hướng dẫn màn là bản mới nhất, tài liệu khác thì theo hướng dẫn, không bịa nút". Kho ForFish dựng lại từ `feat/toi-uu-codex` @134b8ba1 (214 file, 4.779 đoạn; `ingest.mjs --commit`, trần .md 2 MB — 07/02 trước bị bỏ lặng). Giữ gemma4:e2b, num_ctx 4096, nóng 24 h. Kiểm 11 câu ở màn kiểm máy nhà: đúng cơ cấu mới, 0,9–1,7 s. **Trọn đường Vercel chưa đo được** 25/10: Funnel Tailscale đang sự cố (502 `may_nha_tat`, không phải OIDC) — đo lại khi Funnel ổn.
+
+**Offline**: không request mới lúc mở màn (bin v7 tải như v6 qua `fetchDataBytes`, SW cache-first theo tên mới); `?sen=tai|chuong` chỉ chạy khi bà con nói; Zalo/Maps là link ngoài. Nợ: kho hỏi–đáp v5c (2.300 câu) còn câu tả màn cũ — cần soạn lại + anh duyệt trên trang duyệt (chưa làm vòng này).
