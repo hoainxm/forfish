@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { tagArea } from "@/lib/kairos/khu-vuc.mjs";
-import { auditQuiet, clientIp, hydratePosts, jsonBody, kErr, kairosErrorResponse, PORT_IDS, postVisible, rateDenied, requireWriter, nhacTenHopLe, notifyNhacTen } from "@/lib/kairos/server";
+import { auditQuiet, clientIp, hydratePosts, jsonBody, kErr, kairosErrorResponse, PORT_IDS, postVisible, rateDenied, requireWriter, nhacTenHopLe, notifyNhacTen, trucKhachHoi } from "@/lib/kairos/server";
 import { MAX_POST_PORTS, validatePost } from "@/lib/kairos/validate";
 
 export async function POST(req: Request) {
@@ -53,6 +53,8 @@ export async function POST(req: Request) {
       actor: phone, actor_kind: "ba-con", action: reshareOf ? "post_reshare" : "post_create",
       target_type: "post", target_id: row.id, detail: { images: v.value.images.length, reshareOf }, ip: clientIp(req),
     });
+    // bài HỎI MUA sản phẩm SDVICO ⇒ SDVICO trả lời dưới bài (14 §3.14) — hỏng không ảnh hưởng bài
+    await trucKhachHoi(store, { post: row, comment: null, askerPhone: phone, askerProfile: profile, text: v.value.body, nguCanh: "" });
     const [post] = await hydratePosts(store, [row], phone, []);
     return NextResponse.json({ ok: true, post }, { status: 201 });
   } catch (e) {

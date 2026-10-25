@@ -6,6 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-25b — thêm migration 0072_sdvico_khach_hoi (phiếu khách hỏi sản phẩm SDVICO) + khoá app_config sdvico_lead_key — 14 §3.14 -->
 <!-- re-verified: 2026-10-24m — app_config thêm khoá NỘI DUNG `kairos_ads` (JSON ≤20 bài Tài trợ, 14 §20) — KHÔNG thuộc CONFIG_KEYS (không hiện ở tab Hệ thống), ghi qua /api/admin/kairos/ads (service-role). Không migration (bảng là KV). -->
 <!-- re-verified: 2026-10-24r — thêm migration 0071_kairos_nhac_ten (mentions jsonb cho kairos_posts + kairos_comments) — 14 §3.12 -->
 <!-- re-verified: 2026-10-24q — thêm migration 0070_kairos_binh_luan_anh (kairos_comments.image_path + link_preview, body có thể trống khi có ảnh) — 14 §3.4b -->
@@ -906,6 +907,12 @@ Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng 
 - **Đối soát bản ghi dở dang trước đó** (đo 2026-10-19): 0 đơn `da_huy` chưa hoàn kho, 0 yêu cầu `da_dat` thiếu `order_id` ⇒ không cần dọn. Truy vấn đối soát giữ ở ops/runbook.md.
 - Tương thích: cột có default + hàm mới ⇒ code cũ chạy nguyên trên DB đã apply. Thứ tự: **apply 0064 → deploy** (code mới gọi hàm 0064).
 - file-store (dev) không đổi: một tiến trình, ghi cả tệp một lần nên vốn nguyên tử.
+
+### SDVICO — phiếu khách hỏi sản phẩm — migration [`0072_sdvico_khach_hoi.sql`](../../supabase/migrations/0072_sdvico_khach_hoi.sql) (2026-10-25) — ✅ **ĐÃ APPLY** 2026-10-25 qua connector Supabase (kiểm: 15 cột, RLS bật)
+
+- `sdvico_khach_hoi`: một dòng = một lần khách để lại thông tin qua phiếu riêng (14 §3.14). Cột: `nguon` (kairos / san-pham / sen-bien), `san_pham` (tên SP SDVICO), `ten`, `phone` (`^0[0-9]{9}$`), `so_tau` (3–30), `cang` (2–80), `loi_nhan` (≤500), `kairos_post_id` + `kairos_comment_id` (dẫn về luồng khách đã hỏi), `nguoi_gui` (SĐT tài khoản gửi, null = khách chưa đăng nhập), `trang_thai` (moi / da_bao), `bao_luc`, `bao_lan`.
+- Chỉ mục: phiếu `moi` theo giờ (AI Assistant lấy), theo SĐT (trần 5 phiếu / SĐT / 24 giờ).
+- RLS bật + revoke all, KHÔNG policy — chỉ route server (service role). Khoá lấy phiếu `app_config.sdvico_lead_key` (sinh ngẫu nhiên 32 byte trong Postgres lúc áp; env `SDVICO_LEAD_KEY` đè được — DB thắng như khoá thường).
 
 ### KAIROS — nhắc tên "@Tên" — migration [`0071_kairos_nhac_ten.sql`](../../supabase/migrations/0071_kairos_nhac_ten.sql) (2026-10-24) — ✅ **ĐÃ APPLY** 2026-10-24 qua Management API (kiểm: cột `mentions` có ở kairos_posts + kairos_comments)
 

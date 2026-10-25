@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { decodeCursor, encodeCursor } from "@/lib/kairos/cursor";
 import {
-  auditQuiet, clientIp, hydrateComments, jsonBody, kErr, kairosErrorResponse, nhacTenHopLe, notifyComment, notifyNhacTen, postVisible, rateDenied, readerOf,
+  auditQuiet, clientIp, hydrateComments, jsonBody, kErr, kairosErrorResponse, nhacTenHopLe, notifyComment, notifyNhacTen, postVisible, rateDenied, readerOf, trucKhachHoi,
   requireWriter, storeOr503,
 } from "@/lib/kairos/server";
 import { LIMITS } from "@/lib/kairos/types";
@@ -60,8 +60,9 @@ export async function POST(req: Request, ctx: Ctx) {
 
     let parentId: string | null = null;
     let parentAuthor: string | null = null;
+    let target: Awaited<ReturnType<typeof store.getComment>> = null;
     if (v.value.parentId) {
-      const target = await store.getComment(v.value.parentId.toLowerCase());
+      target = await store.getComment(v.value.parentId.toLowerCase());
       if (!target || target.hidden || target.post_id !== post.id) return kErr(404, "comment_gone");
       parentId = replyRoot({ id: target.id, parentId: target.parent_id });
       parentAuthor = target.author_phone; // báo đúng người được trả lời
@@ -74,8 +75,14 @@ export async function POST(req: Request, ctx: Ctx) {
     // người được tag nhận câu "nhắc đến bạn" trước (chung dấu gộp ⇒ không nhận thêm câu chung)
     await notifyNhacTen(store, { postId: post.id, phones: nhac.phones, byHandle: profile.handle, commentId: row.id });
     await notifyComment(store, { post, parentAuthor, commenter: phone, commenterHandle: profile.handle, commentId: row.id });
-    const [comment] = await hydrateComments(store, [row], phone);
-    return NextResponse.json({ ok: true, comment }, { status: 201 });
+    // SDVICO trực khách (14 §3.14): hỏi mua / hỏi giá sản phẩm SDVICO ⇒ SDVICO trả lời ngay trong luồng, trả kèm để hiện liền
+    const goc = target?.parent_id ? await store.getComment(target.parent_id) : target;
+    const truc = await trucKhachHoi(store, {
+      post, comment: row, askerPhone: phone, askerProfile: profile, text: v.value.body,
+      nguCanh: `${goc?.body ?? ""}\n${post.title ?? ""}\n${post.summary ?? post.body ?? ""}`,
+    });
+    const [comment, kem] = await hydrateComments(store, truc ? [row, truc] : [row], phone);
+    return NextResponse.json({ ok: true, comment, ...(kem ? { kem } : {}) }, { status: 201 });
   } catch (e) {
     return kairosErrorResponse(e);
   }

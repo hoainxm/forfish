@@ -12,7 +12,7 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { decodeEntities, stripHtml } from "./thu-core.mjs";
-import type { LinkPreview } from "./types";
+import { laNoiBo, type LinkPreview } from "./types";
 
 export type { LinkPreview };
 
@@ -112,8 +112,8 @@ export function docXemTruoc(raw: unknown): LinkPreview | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   if (typeof r.url !== "string" || typeof r.title !== "string" || !r.title) return null;
-  if (!/^https?:\/\//i.test(r.url)) return null;
-  const image = typeof r.image === "string" && r.image.startsWith("https://") ? r.image : null;
+  if (!/^https?:\/\//i.test(r.url) && !laNoiBo(r.url)) return null;
+  const image = typeof r.image === "string" && (r.image.startsWith("https://") || laNoiBo(r.image)) ? r.image : null;
   return { url: r.url, site: typeof r.site === "string" ? r.site : "", title: r.title, image };
 }
 

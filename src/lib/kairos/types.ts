@@ -104,6 +104,9 @@ export interface KairosAbout {
 export type { NhacTen } from "./nhac-ten";
 import type { NhacTen } from "./nhac-ten";
 
+/** Đường dẫn NỘI BỘ của app ("/kairos/hoi-mua?…", ảnh "/sdvico/…") — thẻ do máy chủ tự dựng (SDVICO trực khách, 14 §3.14). */
+export const laNoiBo = (u: string) => /^\/(?!\/)[\w\-./?=&%]*$/.test(u);
+
 /** Thẻ xem trước link trong bình luận (0070, xem-truoc-link.ts). */
 export interface LinkPreview {
   url: string;

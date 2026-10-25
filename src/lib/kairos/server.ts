@@ -21,7 +21,8 @@ import { aboutDto, authorDto, postDto, commentDto, type DtoCtx } from "./dto";
 import { checkIngestKey, effectiveIngestKey, INGEST_KEY_HEADER } from "./ingest-key";
 import { isKairosError, kairosErrorStatus, KairosError } from "./errors";
 import { commentRecipients, nhacTenMessage, notifyMessage, NOTIFY_WINDOW_MS, KAIROS_PUSH_SENT_BY } from "./notify-gop";
-import { locNhacTen, type NhacTen } from "./nhac-ten";
+import { docNhacTen, locNhacTen, type NhacTen } from "./nhac-ten";
+import { canTruc, duongPhieu, loiTruc, TRUC_MOI_NGUOI_NGAY } from "@/lib/sdvico/khach-hoi";
 import { laAgent } from "./agent-doi.mjs";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
 import { agentMayDecide, feedAtOnApprove, shouldTellAuthor, stateFor, type Verdict } from "./quyet-dinh";
@@ -29,7 +30,7 @@ import { isBanned, KAIROS_RATES, overLimit, RATE_AUDIT_ACTIONS, rateUsed, window
 import { isUuid } from "./validate";
 import { orphanUploads } from "./social";
 import { defaultHandle, handleNorm } from "./ten-goi";
-import { LIMITS, type KairosAuthor, type KairosComment, type KairosPost } from "./types";
+import { LIMITS, SDVICO_PHONE, SEN_BIEN_PHONE, type KairosAuthor, type KairosComment, type KairosPost } from "./types";
 import { getKairosStore, type CommentFull, type KairosStore, type PostFull, type ProfileFull, type RateTable } from "./store";
 
 export const PORT_IDS: ReadonlySet<string> = new Set(FISHING_PORTS.map((p) => p.id));
@@ -351,6 +352,51 @@ export async function notifyNhacTen(
     }
   } catch (e) {
     console.error("[kairos] báo nhắc tên hỏng (bỏ qua):", (e as Error)?.message);
+  }
+}
+
+/**
+ * SDVICO TRỰC KHÁCH (14 §3.14, lib/sdvico/khach-hoi): bà con THẬT hỏi mua / hỏi giá / muốn đặt sản phẩm SDVICO trong bình
+ * luận hoặc bài ⇒ hồ sơ SDVICO trả lời NGAY trong luồng, gọi tên (thông báo "nhắc đến bạn"), kèm thẻ mở PHIẾU RIÊNG để lại
+ * SĐT + số tàu + cảng lắp. Không trả lời agent / SDVICO / Sen Biển; một người một lần mỗi bài, ≤ TRUC_MOI_NGUOI_NGAY / 24 giờ.
+ * Hỏng ⇒ log, không ném (bình luận của bà con đã lên rồi).
+ */
+export async function trucKhachHoi(
+  store: KairosStore,
+  input: { post: PostFull; comment: CommentFull | null; askerPhone: string; askerProfile: ProfileFull; text: string; nguCanh: string },
+): Promise<CommentFull | null> {
+  try {
+    const { post, comment, askerPhone, askerProfile } = input;
+    if (laAgent(askerPhone) || askerPhone === SDVICO_PHONE || askerPhone === SEN_BIEN_PHONE) return null;
+    const can = canTruc(input.text, input.nguCanh);
+    if (!can) return null;
+    const since = new Date(Date.now() - 24 * 3_600_000).toISOString();
+    if ((await store.countAudit(askerPhone, "sdvico_truc", since)) >= TRUC_MOI_NGUOI_NGAY) return null;
+    const daCo = await store.allComments(post.id, 500);
+    if (daCo.some((c) => c.author_phone === SDVICO_PHONE && docNhacTen(c.mentions).some((m) => m.id === askerProfile.id))) return null;
+    const sdvico = await store.profileByPhone(SDVICO_PHONE);
+    if (!sdvico) return null;
+    const body = loiTruc(askerProfile.handle, can.sp);
+    const row = await store.insertComment({
+      post_id: post.id,
+      parent_id: comment ? comment.parent_id ?? comment.id : null,
+      author_phone: SDVICO_PHONE,
+      body,
+      mentions: locNhacTen(body, [{ id: askerProfile.id, ten: askerProfile.handle }]),
+      link_preview: {
+        url: duongPhieu(can.sp?.id ?? null, post.id, comment?.id ?? null),
+        site: "SDVICO · Nhờ gọi lại",
+        title: can.sp?.title ?? "Để lại SĐT, số tàu, cảng lắp",
+        image: can.sp?.image || null,
+      },
+    });
+    await store.updateComment(row.id, { mod_state: "dat", mod_checked_at: new Date().toISOString() }).catch(() => undefined);
+    await auditQuiet(store, { actor: askerPhone, actor_kind: "he-thong", action: "sdvico_truc", target_type: "comment", target_id: row.id, detail: { postId: post.id, sp: can.sp?.id ?? null } });
+    await notifyNhacTen(store, { postId: post.id, phones: [askerPhone], byHandle: sdvico.handle, commentId: row.id });
+    return row;
+  } catch (e) {
+    console.error("[kairos] SDVICO trực khách hỏng (bỏ qua):", (e as Error)?.message);
+    return null;
   }
 }
 

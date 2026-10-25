@@ -54,11 +54,26 @@ import { BL_NHANH } from "@/lib/kairos/de-dung";
 import { useVungNhin } from "./use-vung-nhin";
 import { useNhacTen, type NguoiNhac } from "./nhac-ten-o-viet";
 import { XemAnh } from "./xem-anh";
-import type { LinkPreview } from "@/lib/kairos/types";
+import { laNoiBo, type LinkPreview } from "@/lib/kairos/types";
 
 /** Thẻ xem trước link (máy chủ đã đọc lúc ghi) — ảnh trái, tên trang + tiêu đề phải; mở tab mới. */
-function TheLink({ l }: { l: LinkPreview }) {
+export function TheLink({ l }: { l: LinkPreview }) {
   const [hong, setHong] = useState(false);
+  // THẺ NỘI BỘ (SDVICO trực khách, 14 §3.14): mở NGAY trong app, ảnh sản phẩm to phía trên + nút hành động
+  if (laNoiBo(l.url))
+    return (
+      <Link href={l.url} onClick={(e) => e.stopPropagation()} className="mt-1 block max-w-[16rem] overflow-hidden rounded-xl border border-line bg-card">
+        {l.image && !hong && (
+          // eslint-disable-next-line @next/next/no-img-element -- ảnh sản phẩm tĩnh /sdvico (public)
+          <img src={l.image} alt="" loading="lazy" onError={() => setHong(true)} className="aspect-[4/3] w-full bg-white object-contain" />
+        )}
+        <span className="flex flex-col gap-0.5 px-3 py-2">
+          <span className="text-[0.75rem] text-foreground/65">{l.site}</span>
+          <span className="line-clamp-2 text-[0.875rem] font-semibold leading-snug text-navy">{l.title}</span>
+          <span className="mt-1 flex h-9 items-center justify-center rounded-lg bg-sea text-[0.875rem] font-semibold text-white">Để lại thông tin</span>
+        </span>
+      </Link>
+    );
   return (
     <a
       href={l.url}
@@ -369,7 +384,7 @@ export function CommentThread({
     if (nhanh ? !canQuick : !canSend) return;
     setSending(true);
     setSendErr("");
-    const r = await kairosSend<{ comment: KairosComment }>("POST", `/api/kairos/posts/${encodeURIComponent(id)}/comments`, {
+    const r = await kairosSend<{ comment: KairosComment; kem?: KairosComment }>("POST", `/api/kairos/posts/${encodeURIComponent(id)}/comments`, {
       body: (nhanh ?? text).trim() ? ghepTraLoi(nhanh ?? text, replyTo, !!replyTo?.sau) : "",
       parentId: replyTo?.parentId ?? null,
       ...(!nhanh && anh ? { image: anh.path } : {}),
@@ -381,10 +396,12 @@ export function CommentThread({
       setSendErr(errorText(r, "binh-luan"));
       return;
     }
-    setComments((cur) => [...cur, r.data.comment]);
-    const goc = replyTo?.parentId;
+    // `kem` = SDVICO trực khách trả lời ngay (14 §3.14) — hiện liền, bung luồng chứa nó
+    const kem = r.data.kem;
+    setComments((cur) => [...cur, r.data.comment, ...(kem ? [kem] : [])]);
+    const goc = replyTo?.parentId ?? (kem ? kem.parentId : null);
     if (goc) setMo((m) => (m.has(goc) ? m : new Set(m).add(goc)));
-    kit.patch(id, { commentCount: post.commentCount + 1 });
+    kit.patch(id, { commentCount: post.commentCount + (kem ? 2 : 1) });
     if (!nhanh) {
       setText("");
       saveDraft(phone, dKey, "");

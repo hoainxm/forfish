@@ -8,7 +8,8 @@ export type ConfigKey =
   | "cron_secret"
   | "data_key_current"
   | "data_key_prev"
-  | "kairos_ingest_key";
+  | "kairos_ingest_key"
+  | "sdvico_lead_key";
 
 export interface ConfigKeyMeta {
   key: ConfigKey;
@@ -99,6 +100,18 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     generate: "hex32",
     help: "Máy thu tin trên máy GPU gửi kèm khoá này. Bấm Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào tệp env của máy GPU (KAIROS_INGEST_KEY).",
   },
+  /*  KHOÁ LẤY PHIẾU KHÁCH SDVICO (14 §3.14, 0072, 2026-10-25): AI Assistant (máy nhà) lấy phiếu khách hỏi sản phẩm qua
+      GET /api/sdvico/khach-hoi và báo đã nhắn nhóm Zalo KD qua POST …/da-bao, kèm khoá ở header `x-sdvico-key`. Thiếu
+      khoá ⇒ hai route 503 (phiếu vẫn nhận, nằm chờ). */
+  {
+    key: "sdvico_lead_key",
+    label: "Khoá lấy phiếu khách SDVICO",
+    risk: "Đổi khoá mà chưa đổi bên AI Assistant là phiếu khách hỏi không còn được chuyển sang nhóm Zalo KD (phiếu vẫn lưu, nằm chờ).",
+    secret: true,
+    envVar: "SDVICO_LEAD_KEY",
+    generate: "hex32",
+    help: "AI Assistant gửi kèm khoá này (header x-sdvico-key) khi lấy phiếu khách để nhắn nhóm Zalo KD. Bấm Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào cấu hình AI Assistant.",
+  },
 ];
 
 /** Khoá dữ liệu phải đúng 64 ký tự hex (32 byte). */
@@ -129,7 +142,8 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
     case "cron_secret":
       return v.length >= 16 && !/\s/.test(v);
     case "kairos_ingest_key":
-      // khoá chung với máy GPU — đủ dài để không đoán được, không khoảng trắng (dán lỗi)
+    case "sdvico_lead_key":
+      // khoá chung với máy GPU / AI Assistant — đủ dài để không đoán được, không khoảng trắng (dán lỗi)
       return v.length >= 32 && v.length <= 200 && !/\s/.test(v);
     default:
       return true;

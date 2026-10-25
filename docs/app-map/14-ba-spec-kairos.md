@@ -2,6 +2,7 @@
 
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
+<!-- re-verified: 2026-10-25b — §3.14 SDVICO trực khách: nhận hỏi mua dưới bình luận/bài, trả lời gọi tên + thẻ phiếu riêng (SĐT, số tàu, cảng), hàng chờ cho AI Assistant ⇒ Zalo KD. -->
 <!-- re-verified: 2026-10-25 — §3.13 agent gợi ý sản phẩm SDVICO dưới tin báo hợp (16 §4 2c). -->
 <!-- re-verified: 2026-10-24m — BÀI TÀI TRỢ §20 (anh Long: "t muốn kairos có ads"): quảng cáo tự quản, không SDK/không nhắm/không đếm; soạn ở /quan-tri › Kairos › Tài trợ; ô app_config.kairos_ads (không migration); 1 thẻ/20 bài, nhãn "Tài trợ · <nhà tài trợ>" bắt buộc (Luật QC 75/2025). A99–A100. -->
 <!-- re-verified: 2026-10-24s — §3.2 trình xem ảnh bố cục FB + hàng chân ở đáy ảnh. -->
@@ -134,6 +135,14 @@ Anh Long: "các hành vi comment tag tên nhau đăng bài kèm tag thì sao? ko
 
 ### 3.13 Gợi ý sản phẩm SDVICO dưới tin báo (2026-10-25)
 Tin báo nghề cá có thể dẫn tới sản phẩm SDVICO (IUU, mất liên lạc, giá dầu, nhật ký khai thác…) ⇒ một agent (chấm AI) góp một bình luận đời thường về tin rồi nhẹ nhàng nhắc sản phẩm kèm chữ "SDVICO" — không link, không thẻ, không nhận đã dùng, không chê hàng khác, ≤6/ngày, một bài một lần, bỏ tin có người chết/mất tích. Chi tiết + kiểm ở máy chủ: [16 §4 2c](16-ba-spec-agent-kairos.md), L5c.
+
+### 3.14 SDVICO trực khách — nhận hỏi mua, chuyển nhóm Zalo KD (2026-10-25, migration 0072)
+Anh Long: "tổ chức luôn 1 agent để trực trên sdfish, nếu có người hỏi thăm về sản phẩm hoặc đặt thì nhận và sau đó chuyển vào Zalo công ty nhắn cho nhóm KD SDVico (bước này cấu hình sau trên AI Assistant)… trước đó bot phải làm rõ được các thông số cơ bản như sđt, số tàu, lắp ở cảng nào".
+- **Nhận biết** (`lib/sdvico/khach-hoi.ts` `canTruc`): bình luận / bài của bà con THẬT (không agent, không SDVICO/Sen Biển) có ý hỏi mua / hỏi giá / muốn đặt / muốn lắp VÀ nhắc sản phẩm SDVICO (tên gọi: thuraya, giám sát hành trình, s-tracking, adnano, lọc nước, lọc dầu, nhớt, ắc quy, sơn, ngư dân 247…) — hoặc hỏi trong luồng mà bình luận gốc / bài có nhắc SDVICO (vd trả lời gợi ý của agent §3.13).
+- **Trực** (`server.trucKhachHoi`, gọi trong POST bình luận + POST bài): hồ sơ SDVICO (Chính thức) trả lời NGAY trong luồng, gọi "@Tên" (thông báo "nhắc đến bạn"), lời KHÔNG xin số công khai mà mời chạm thẻ "Để lại thông tin" (thẻ nội bộ ảnh SP + nút) mở phiếu riêng; kèm hotline. Duyệt sẵn. Một người một lần mỗi bài, ≤2 lần / 24 giờ (nhật ký `sdvico_truc`). Route bình luận trả kèm `kem` ⇒ câu trả lời hiện liền dưới bình luận vừa gửi.
+- **Phiếu riêng** `/kairos/hoi-mua?sp=&p=&bl=` (`components/sdvico-phieu-hoi-mua.tsx`): SP quan tâm · tên · SĐT · số tàu · cảng muốn lắp · lời nhắn; điền sẵn SĐT tài khoản, số đăng ký tàu đầu tiên, cảng nhà; gợi ý tàu/cảng bằng datalist. Máy chủ (`POST /api/sdvico/khach-hoi`, `kiemPhieu`) chỉ nhận khi ĐỦ SĐT hợp lệ + số tàu + cảng, báo đúng ô thiếu; chưa đăng nhập vẫn gửi được; ≤5 phiếu / SĐT / 24 giờ. Mất sóng ⇒ "Cần sóng để gửi", chữ giữ trên màn, không tự gửi.
+- **Chuyển KD**: AI Assistant lấy phiếu `moi` `GET /api/sdvico/khach-hoi` (header `x-sdvico-key` = `app_config.sdvico_lead_key`, đổi ở /quan-tri › Hệ thống) — mỗi phiếu kèm `tinNhan` soạn sẵn (SP, tên, SĐT, số tàu, cảng, lời nhắn, nguồn, link về đúng bình luận) — nhắn nhóm Zalo KD SDVICO, rồi `POST /api/sdvico/khach-hoi/da-bao {ids}` ⇒ `da_bao`. Phần Zalo cấu hình sau ở AI Assistant; tới lúc đó phiếu nằm chờ, không mất.
+- Test `sdvico-khach-hoi.test.ts`.
 
 ### 3.11 Quản trị — tab "Kairos" (AC16)
 `AdminTab "kairos"`, nhóm **Nội dung**. Bốn mục: **Báo xấu** (xếp theo số lượt; Ẩn / Bỏ qua / Cấm người đăng) · **Bài** (tìm, Ẩn/Hiện bài và bình luận) · **Chính thức** (soạn bài SDVICO, Ghim tới ngày / Bỏ ghim) · **Cờ chủ quyền** (bài bị loại + cụm trúng, chỉ xem). Cấm: 7 ngày / 30 ngày / vĩnh viễn + lý do; bị cấm vẫn đọc, ghi ⇒ 403 `banned`. Quyền: admin đủ; quản lý qua `staff-permissions` (`ManagerTab "kairos"`, `can()`: view = xem, edit = ẩn/hiện/ghim, delete = cấm, create = đăng chính thức). Mọi thao tác ghi `kairos_audit`.
