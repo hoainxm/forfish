@@ -37,6 +37,7 @@ import { useMarketCart, useOnlineState } from "./hooks";
 import { NOTIFY_HIDE_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 type QuoteRes = { quote: CartQuote; titles: Record<string, string> };
+import { Popover } from "@/components/ui/popover";
 type OrderRes = { results: PlaceOrderResult[] };
 /** Sheet địa chỉ tách hai bước (F-11): danh sách đã lưu → "Thêm địa chỉ mới" → form. */
 type AddrSheet = "list" | "form" | null;
@@ -88,6 +89,8 @@ export function Checkout() {
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [draft, setDraft] = useState<Address | null>(null);
   const [addrSheet, setAddrSheet] = useState<AddrSheet>(null);
+  /** nút "Đổi" địa chỉ — danh sách địa chỉ NEO vào nó */
+  const [nutDoiDiaChi, setNutDoiDiaChi] = useState<HTMLButtonElement | null>(null);
   const [addrError, setAddrError] = useState<string | null>(null);
   const [method, setMethod] = useState<PaymentMethod>("cod");
   /*  GHI CHÚ THEO TỪNG SHOP (2026-09-06): một lần đặt sinh N đơn cho N shop, mà
@@ -390,6 +393,7 @@ export function Checkout() {
           </div>
           <button
             type="button"
+            ref={setNutDoiDiaChi}
             onClick={() => (addresses.length > 0 ? setAddrSheet("list") : openNewAddress())}
             className="flex min-h-(--row-h) shrink-0 items-center gap-0.5 rounded-full px-3 text-[1rem] font-semibold text-t3"
           >
@@ -493,7 +497,15 @@ export function Checkout() {
       </p>
 
       {addrSheet === "list" && (
-        <BottomSheet title="Địa chỉ nhận hàng" onClose={() => setAddrSheet(null)}>
+        /* danh sách địa chỉ NEO cạnh nút "Đổi" (03 §6 mục 9, 2026-10-23 — trước ngăn đáy);
+           form thêm địa chỉ mới vẫn là ngăn đáy (nhiều ô nhập) */
+        <Popover
+          anchor={nutDoiDiaChi}
+          label="Địa chỉ nhận hàng"
+          onClose={() => setAddrSheet(null)}
+          className="w-[21rem] max-w-[calc(100vw-1rem)] p-3"
+        >
+          <h3 className="display mb-2 text-[1.125rem] font-semibold text-navy">Địa chỉ nhận hàng</h3>
           <ul className="mb-3 flex flex-col gap-2">
             {addresses.map((a) => (
               <li key={a.id}>
@@ -525,7 +537,7 @@ export function Checkout() {
           >
             + Thêm địa chỉ mới
           </button>
-        </BottomSheet>
+        </Popover>
       )}
 
       {addrSheet === "form" && draft && (

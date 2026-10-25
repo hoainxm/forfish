@@ -1,10 +1,8 @@
 "use client";
 
-import { clearKairosLocal } from "@/lib/kairos/cache";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   BellIcon,
@@ -57,6 +55,7 @@ import {
   unsubscribeFromPush,
   detachPushAccount,
 } from "@/lib/push-client";
+import { Popover } from "@/components/ui/popover";
 
 /*
   Tài khoản trên hero — GỌN (sửa 2026-06-11 theo góp ý "design thô"):
@@ -221,6 +220,8 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
   // bật lớp Cá mới biết. `null` = chưa chắc, không bày gì (luật ở lib/tier.ts).
   const { access, premiumUntil, savedAccess } = useFeatureAccess();
   const [open, setOpen] = useState(false);
+  /** chip mở menu — menu NEO vào nó (Popover) */
+  const [chipEl, setChipEl] = useState<HTMLButtonElement | null>(null);
   /* sheet xác nhận cho nút Gỡ tài khoản khỏi máy này (xem forgetThisDevice) */
   const [confirmForget, setConfirmForget] = useState(false);
   const [mode, setMode] = useState<Mode>("gon");
@@ -467,7 +468,6 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
     clearMarketCart(phone);
     clearCachedMarketOrders();
     clearShopFlag();
-    clearKairosLocal(); // dòng tin Kairos đã lưu + nháp (14 §8) — mang "Hay của tôi", "bài của tôi"
     // qua CỔNG DUY NHẤT (K7): "user-signed-out" = bà con TỰ BẤM và máy chủ đã
     // xác nhận — khác hẳn `SIGNED_OUT` auth-js tự bắn khi nó tự xoá phiên (C-7)
     // (cổng đã xoá luôn dấu hạng — `forgetIdentity` gọi `clearTierMark`, quan
@@ -503,7 +503,6 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
     clearMarketCart(phone);
     clearCachedMarketOrders();
     clearShopFlag();
-    clearKairosLocal(); // dòng tin Kairos đã lưu + nháp (14 §8) — mang "Hay của tôi", "bài của tôi"
     /* GỠ TÀI KHOẢN KHỎI ĐĂNG KÝ THÔNG BÁO — thiếu chỗ này (bản trước quên,
        R7) thì endpoint push VĨNH VIỄN còn trỏ về chủ tàu: `syncPushAccount`
        chỉ chạy khi đã đăng nhập lại, nên không có đường bù nào. Tin nhắm riêng
@@ -556,7 +555,9 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
       {/* MỘT chip duy nhất trên hero — bấm mở menu phụ */}
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        ref={setChipEl}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
         /*  Sàn chạm 3.5rem = 56px (luật A5 + sàn dự án): đo thật 164×44px, mà
             đây là CỬA DUY NHẤT vào sheet Tài khoản, lại nằm trên nền gradient
             tối nên viền không rõ ngoài nắng. */
@@ -599,7 +600,16 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
           trong thân màn (xem page.tsx), ngoài hàng tiêu đề. */}
 
       {open && (
-        <BottomSheet title="Tài khoản" onClose={() => setOpen(false)}>
+        /*  MENU TÀI KHOẢN NEO NGAY DƯỚI CHIP (03 §6 mục 9, anh Long 2026-10-23: bấm nút thì phần
+            hiện ra nằm cạnh nút — tay đang ở góc trên phải, không bắt kéo xuống đáy màn). Trước
+            là BottomSheet. Chạm ra ngoài / Escape đóng, focus về chip. */
+        <Popover
+          anchor={chipEl}
+          label="Tài khoản"
+          onClose={() => setOpen(false)}
+          className="w-[20rem] max-w-[calc(100vw-1rem)] p-4"
+        >
+          <h3 className="display mb-3 text-[1.125rem] font-semibold text-navy">Tài khoản</h3>
           {/* danh tính / đăng nhập */}
           {signedIn && phone ? (
             /*  Nút "Đăng xuất" về INLINE cuối hàng danh tính (luật A2/A3) —
@@ -945,7 +955,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
               </button>
             </div>
           )}
-        </BottomSheet>
+        </Popover>
       )}
 
       {/* XÁC NHẬN TRƯỚC KHI GỠ (sửa 2026-08-02). Nút trên nằm đúng chỗ bác Tư

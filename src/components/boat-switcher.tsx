@@ -33,6 +33,7 @@ import {
 } from "@/components/icons";
 import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { useAuthUser } from "@/lib/use-auth";
+import { Popover } from "@/components/ui/popover";
 
 /*
   Quản lý nhiều tàu + chọn tàu đang xem. Mọi màn dữ liệu gắn theo tàu này.
@@ -48,6 +49,8 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
     useBoats();
   const { signedIn, ready: authReady } = useAuthUser();
   const [pick, setPick] = useState(false);
+  /** chip tàu — danh sách tàu NEO vào nó (Popover) */
+  const [chipTau, setChipTau] = useState<HTMLButtonElement | null>(null);
   const [form, setForm] = useState<Boat | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Boat | null>(null);
   /*  Ghi hồ sơ tàu HỎNG (máy hết chỗ) — phải nói, không thì tàu hiện đúng trên
@@ -95,7 +98,9 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
     // chip tàu NỔI đè lên mép hero (tràn viền hiện đại) — mọi trang dùng chung
     <div className={`relative z-10 px-4 ${compact ? "" : "-mt-6"}`}>
       <button
-        onClick={() => setPick(true)}
+        ref={setChipTau}
+        onClick={() => setPick((v) => !v)}
+        aria-expanded={pick}
         className="flex min-h-[4.5rem] w-full items-center gap-3 surface px-4 py-3 transition active:scale-[0.99]"
       >
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-field text-navy">
@@ -130,7 +135,14 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
       )}
 
       {pick && (
-        <BottomSheet title="Chọn tàu" onClose={() => setPick(false)}>
+        /*  DANH SÁCH TÀU NEO NGAY DƯỚI CHIP (03 §6 mục 9, 2026-10-23 — trước là BottomSheet ở đáy
+            màn trong khi chip nằm đầu màn). Thêm/sửa tàu vẫn là ngăn form (nhiều ô nhập). */
+        <Popover
+          anchor={chipTau}
+          label="Chọn tàu"
+          onClose={() => setPick(false)}
+          className="w-[21rem] max-w-[calc(100vw-1rem)] p-3"
+        >
           <ul className="space-y-2">
             {boats.map((b) => (
               <li key={b.id}>
@@ -183,7 +195,7 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
               Thêm tàu
             </button>
           </div>
-        </BottomSheet>
+        </Popover>
       )}
 
       {form && (
