@@ -244,8 +244,9 @@ export async function fetchFleetDensity(): Promise<FleetDensity> {
  *   DENSITY_LOCAL_RADIUS_KM, nhưng không thấp hơn DENSITY_LOCAL_FLOOR × p98 cả nước (anh Long 25/10 tối:
  *   một thang cả nước thì ô 337 tàu ngoài Côn Đảo "nuốt" hết thang, khơi Hoàng Sa/Trường Sa 59 tàu/ô trông
  *   như không ai — chấm theo vùng để mỗi vùng có Đông/Vừa/Thưa của nó; sàn tuyệt đối để vùng lác đác vài
- *   tàu không tự thành Đông). CHỈ TÔ ô ≥ DENSITY_MIN_SCORE ("đừng tô tím cả biển"); mức cố định
- *   Thưa 25–50 · Vừa 50–75 · Đông ≥75 như lớp cá ⇒ ngày gió bão ô rớt điểm, biến mất hẳn.
+ *   tàu không tự thành Đông). CHỈ TÔ ô ≥ DENSITY_MIN_SCORE ("đừng tô tím cả biển"; 25 → 21 tối 25/10,
+ *   anh Long "tăng thêm tầm 30 %": tháng 10 mọi nghề 261 → ~340 ô); mức cố định Thưa 21–50 · Vừa 50–75 ·
+ *   Đông ≥75 như lớp cá ⇒ ngày gió bão ô rớt điểm, biến mất hẳn.
  *   Thuần, không mạng; thiếu gió ⇒ hệ số 1 + cờ `windMissing`.
  *   Loài KHÔNG lọc — thẻ chạm ô vẫn nói "cá vùng này hay có" (densitySpeciesAt).
  * ────────────────────────────────────────────────────────────────────────────── */
@@ -280,7 +281,7 @@ export interface FleetForecastCell extends DensityCell {
 }
 
 /** Sàn tô + ranh mức (điểm 0–100, cố định — cùng ngữ pháp FISH_LEVEL_BANDS). */
-export const DENSITY_MIN_SCORE = 25;
+export const DENSITY_MIN_SCORE = 21;
 export const DENSITY_SCORE_BANDS: [number, number] = [50, 75];
 /** Phân vị cả nước — chỉ còn dùng làm SÀN tuyệt đối cho mốc vùng. */
 export const DENSITY_REF_Q = 0.98;

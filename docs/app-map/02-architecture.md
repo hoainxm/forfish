@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-25f — `DENSITY_MIN_SCORE` 25 → 21 (anh Long: tô nhiều hơn ~30 %; đo tháng 10 mọi nghề 261 → ~340 ô). -->
 <!-- re-verified: 2026-10-25e — chấm THEO VÙNG: `forecastFleetDensity` mốc = max nền×trăng trong `DENSITY_LOCAL_RADIUS_KM` 250 (quét n², ≤1 500 ô), kẹp sàn `DENSITY_LOCAL_FLOOR` 0,15 × p98 cả nước (`ref` trả về nay là sàn này). Test 19 ca (vùng xa yếu vẫn có ô 100 điểm; ô lẻ dưới sàn không tô). -->
 <!-- re-verified: 2026-10-25d — "đừng tô tím cả biển": `forecastFleetDensity` chấm `score` 0–100 (÷ p98 nền×trăng `DENSITY_REF_Q`), CHỈ trả ô ≥ `DENSITY_MIN_SCORE` 25, mức cố định `DENSITY_SCORE_BANDS` [50, 75]; trả `ref` thay `thresholds`. Test 18 ca. -->
 <!-- re-verified: 2026-10-25c — tối 25/10 anh Long: lọc theo NGHỀ, bỏ loài: `forecastFleetDensity({gear})`, `seasonBase(d, mm, gear)`, `moonFactors(d, bin, gear)`, bỏ `densitySpeciesList`; `BaiTauDuBao` chip nghề `DENSITY_GEARS` thay `FishSpeciesContent`; props `fleetGear/onFleetGear` thay `fleetSpecies/onFleetSpecies/fleetSpeciesList`; `fishing-map-view` state `fleetGear`. Test 18 ca. -->

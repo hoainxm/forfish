@@ -14,6 +14,7 @@ import {
   windFactor,
   forecastFleetDensity,
   addDaysIso,
+  DENSITY_MIN_SCORE,
   FLEET_FORECAST_DAYS,
   densityCells,
   densityKeyLabel,
@@ -255,10 +256,10 @@ describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão, 
     expect(calm.storm).toBe(false);
     expect(calm.cells.length).toBe(2); // 10 và 20 giờ/ngày cùng vùng: ô 20 = 100 điểm (Đông), ô 10 ≈ 50 điểm (Vừa)
     expect(calm.cells.find((c) => c.score === 100)?.level).toBe(2);
-    expect(calm.cells.every((c) => c.score >= 25)).toBe(true);
+    expect(calm.cells.every((c) => c.score >= DENSITY_MIN_SCORE)).toBe(true);
     const stormy = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat", stormDays: new Set([today]) });
     expect(stormy.storm).toBe(true);
-    expect(stormy.cells).toHaveLength(0); // ×0,1 ⇒ mọi ô dưới sàn 25 điểm ⇒ không tô (không tô tím cả biển)
+    expect(stormy.cells).toHaveLength(0); // ×0,1 ⇒ mọi ô dưới sàn ⇒ không tô (không tô tím cả biển)
     const windy = forecastFleetDensity({
       d, todayIso: today, dayOffset: 1, gear: "tat",
       wind: [{ lat: 12.775, lon: 115.525, byDate: { "2026-10-26": 70 } }],
@@ -294,7 +295,7 @@ describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão, 
     expect(at(32, 54)?.score).toBe(100); // vùng Nam: ô mạnh nhất của nó
     expect(at(55, 54)?.score).toBe(100); // vùng khơi: 4 giờ/ngày vẫn là 100 điểm CỦA VÙNG (không bị ô 20 giờ ở xa đè)
     expect(at(55, 55)?.score).toBe(50); // 2 giờ ÷ 4 giờ
-    expect(at(10, 10)).toBeUndefined(); // ô lẻ 0,2 giờ: mốc vùng kẹp sàn 15 % × p98 cả nước ⇒ dưới 25 điểm ⇒ không tô
+    expect(at(10, 10)).toBeUndefined(); // ô lẻ 0,2 giờ: mốc vùng kẹp sàn 15 % × p98 cả nước ⇒ dưới sàn ⇒ không tô
   });
 
   it("16 ngày: addDaysIso qua tháng, mỗi ngày tự có pha trăng", () => {
