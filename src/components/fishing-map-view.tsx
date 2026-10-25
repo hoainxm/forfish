@@ -289,6 +289,7 @@ import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { FishHotspotMarker, SavedPlaceMarker, type FishHotspot } from "@/components/ban-do/diem-ghim";
 import { DongHoTocDo, NutLoa, NutViTri, OTimDiem } from "@/components/ban-do/khung";
+import { bamSau, laThaoTacTay, nenBayTheoFix } from "@/lib/bam-tau";
 import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
 import { useNavVoice } from "@/lib/nav-voice/use-nav-voice";
@@ -2054,6 +2055,10 @@ export default function FishingMapView() {
       canh hải đồ + đọc cảnh báo. Dùng CHUNG mọi bộ não của dẫn đường live (ranh
       giới, hiểm hoạ, phao/đèn) — `navOn` dưới đây = có tuyến HOẶC đang chạy. */
   const [cruise, setCruise] = useState(false);
+  /*  CAMERA BÁM TÀU (lib/bam-tau.ts, 2026-10-25 — anh Long: "bản đồ hay tự kéo về vị trí hiện tại trong khi người
+      dùng đang muốn xem chỗ khác"). Chỉ bật khi bà con CHỦ ĐỘNG chạy (dẫn đường / bấm loa Chạy tàu / chạm vòng
+      ngắm lúc đang chạy); Đang chạy TỰ BẬT khi mở bản đồ thì KHÔNG bám. Kéo/zoom tay ⇒ thôi bám. */
+  const [bamTau, setBamTau] = useState(false);
   /*  Sen Biển "đang canh" (icon có chấm xanh thường trực — lib/sen-bien-state, 2026-10-19):
       bật khi Đang chạy hoặc đang dẫn đường, kể cả lúc loa im. Rời màn ⇒ tắt. */
   useEffect(() => {
@@ -3127,18 +3132,19 @@ export default function FishingMapView() {
       navFollowZoomed.current = false;
       return;
     }
-    if (tracking.pos && tracking.status === "tracking") {
+    if (tracking.pos && nenBayTheoFix(navOn, bamTau, tracking.status, true)) {
       const z = mapRef.current?.getZoom() ?? NAV_FOLLOW_ZOOM;
       const zoom = !navFollowZoomed.current && z < NAV_FOLLOW_ZOOM ? NAV_FOLLOW_ZOOM : undefined;
       navFollowZoomed.current = true;
       flyToPoint(tracking.pos.lon, tracking.pos.lat, zoom, NAV_FOLLOW_OFFSET);
     }
-  }, [navOn, tracking.pos, tracking.status, flyToPoint]);
+  }, [navOn, bamTau, tracking.pos, tracking.status, flyToPoint]);
 
   const startNav = useCallback(
     (r: PlannedRoute) => {
       ttsUnlock(); // trong cử chỉ chạm — mở khoá loa iOS cho giọng đọc
       setCruise(false); // đang chạy không tuyến → nâng lên có tuyến, vòng canh KHÔNG dừng
+      setBamTau((b) => bamSau(b, "bat-dan-duong", true));
       setNavMode(r);
       setRoute(r); // đảm bảo tuyến đang vẽ đúng tuyến đang dẫn
       setSize("peek"); // để bản đồ + HUD lộ tối đa
@@ -3148,11 +3154,13 @@ export default function FishingMapView() {
   const stopNav = useCallback(() => {
     setNavMode(null);
     setCruise(false);
+    setBamTau((b) => bamSau(b, "dung", false));
   }, []);
   const startCruise = useCallback(() => {
     ttsUnlock();
     setCruiseIntro(false);
     setCruise(true);
+    setBamTau((b) => bamSau(b, "bat-dan-duong", true)); // bà con TỰ bấm Chạy tàu ⇒ bám (khác Đang chạy tự bật)
     setSize("peek"); // bản đồ + HUD lộ tối đa, như bắt đầu dẫn đường
   }, [setSize]);
 
@@ -4388,7 +4396,10 @@ export default function FishingMapView() {
     const live = trackingPosRef.current;
     if (live) {
       setSize("peek"); // để chấm tàu không bị sheet che
-      flyToPoint(live.lon, live.lat, 7);
+      // đang chạy ⇒ BÁM LẠI (kiểu Google Maps), giữ tầm zoom bà con đang dùng, dồn tàu xuống dưới HUD như lúc bám
+      setBamTau((b) => bamSau(b, "ve-tau", navOn));
+      if (navOn) flyToPoint(live.lon, live.lat, undefined, NAV_FOLLOW_OFFSET);
+      else flyToPoint(live.lon, live.lat, 7);
       return;
     }
     // Máy không có GPS (hoặc vỏ app không xin quyền vị trí) → NÓI RA, đừng
@@ -4414,7 +4425,7 @@ export default function FishingMapView() {
       },
       { enableHighAccuracy: true, timeout: 12000 },
     );
-  }, [locating, flyToPoint, setLocating, setGeoError, setGpsOn, setSize]);
+  }, [locating, flyToPoint, setLocating, setGeoError, setGpsOn, setSize, navOn]);
   useEffect(() => {
     senVeTauRef.current = goToMyBoat;
   }, [goToMyBoat]);
@@ -5038,11 +5049,15 @@ export default function FishingMapView() {
       <MapGL
         ref={mapRef}
         initialViewState={DEFAULT_VIEW}
-        onDragStart={() => {
+        onDragStart={(e) => {
           cancelPress();
           dongTheThongTin();
+          if (laThaoTacTay(e)) setBamTau(false); // bà con tự kéo xem chỗ khác ⇒ thôi bám tàu
         }}
-        onZoomStart={cancelPress}
+        onZoomStart={(e) => {
+          cancelPress();
+          if (laThaoTacTay(e)) setBamTau(false);
+        }}
         onZoomEnd={(e) => setMapZoom(e.viewState.zoom)}
         onMoveStart={closePressMenu}
         mapStyle={mapStyle}
@@ -7955,7 +7970,7 @@ export default function FishingMapView() {
                     tuyến: khung dẫn đường đã có điều khiển giọng riêng */}
                 {!navMode && <NutLoa on={cruise} onClick={toggleCruise} />}
                 {/* luôn hiện: chưa có vị trí thì bấm là XIN QUYỀN + lấy vị trí lần đầu */}
-                <NutViTri onClick={goToMyBoat} disabled={locating} />
+                <NutViTri onClick={goToMyBoat} disabled={locating} dangBam={navOn && bamTau} />
               </div>
             </div>
               {/* thanh giờ gió/sóng/mây/mưa/nhiệt XUỐNG ĐÁY kiểu Windy — tay với

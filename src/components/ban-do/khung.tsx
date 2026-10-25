@@ -54,16 +54,21 @@ export function DongHoTocDo({ kmh, unit, stale }: { kmh: number; unit: DistUnit;
   );
 }
 
-export function NutViTri({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+/**
+ * `dangBam` (lib/bam-tau.ts): camera đang bám tàu ⇒ nền sea đặc (như Google Maps xanh khi đang bám); kéo tay thôi
+ * bám ⇒ về nền kính — chạm là bám lại.
+ */
+export function NutViTri({ onClick, disabled, dangBam = false }: { onClick: () => void; disabled?: boolean; dangBam?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label="Về chỗ tàu đang đứng"
+      aria-pressed={dangBam}
+      aria-label={dangBam ? "Bản đồ đang bám theo tàu" : "Về chỗ tàu đang đứng"}
       /*  CÙNG CỠ nút ⚠ chip dữ liệu ngay trên (anh Long: "kích thước nó nhỏ bằng
           cái dấu !"): vuông --h-ctl, viền mảnh, bóng nhẹ — hai nút một cột thẳng. */
-      className="pointer-events-auto flex h-(--h-ctl) w-(--h-ctl) items-center justify-center glass rounded-full text-sea transition active:scale-95 disabled:opacity-50"
+      className={`pointer-events-auto flex h-(--h-ctl) w-(--h-ctl) items-center justify-center rounded-full transition active:scale-95 disabled:opacity-50 ${dangBam ? "bg-sea text-white shadow-sm" : "glass text-sea"}`}
     >
       <CrosshairIcon className="h-[1.125rem] w-[1.125rem]" aria-hidden />
     </button>
