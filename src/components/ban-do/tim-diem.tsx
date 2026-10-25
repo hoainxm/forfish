@@ -27,7 +27,6 @@ import {
 import { NHAN } from "@/lib/labels";
 import type { SavedPlace } from "@/lib/places";
 
-// nợ: "Cảng"/"Toạ độ" chưa có trong labels.ts (chỉ khu chợ cá được thêm nhãn lô này); có nhãn thì trỏ NHAN.*
 const NHAN_CANG = NHAN.cang;
 const NHAN_TOA_DO = NHAN.toaDo;
 

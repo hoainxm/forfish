@@ -5,7 +5,7 @@
 |---|---|---|
 | docs/app-map/01-product.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/02-architecture.md | VERIFIED | ok |
-| docs/app-map/03-design-system.md | VERIFIED | ok |
+| docs/app-map/03-design-system.md | SUSPECT | code 'src/app/globals.css' doi sau last_verified |
 | docs/app-map/04-data-model.md | VERIFIED | ok |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
@@ -13,7 +13,7 @@
 | docs/app-map/08-ba-spec-da-tau.md | VERIFIED | ok |
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | SUSPECT | code 'src/lib/fish-blend.ts' doi sau last_verified |
 | docs/app-map/10-ba-spec-quan-tri-van-hanh.md | SUSPECT | code 'src/app/api/admin' doi sau last_verified |
-| docs/app-map/11-ba-spec-san-thuong-mai.md | SUSPECT | code 'src/components/market/' doi sau last_verified |
+| docs/app-map/11-ba-spec-san-thuong-mai.md | SUSPECT | code 'src/app/api/ban-hang/' doi sau last_verified |
 | docs/app-map/12-kien-truc-san-thuong-mai.md | VERIFIED | ok |
 | docs/app-map/13-ba-spec-tro-ly-giong-noi.md | SUSPECT | code 'src/lib/assistant/' doi sau last_verified |
 | docs/app-map/14-ba-spec-kairos.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
