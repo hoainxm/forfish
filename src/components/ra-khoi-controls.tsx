@@ -23,7 +23,7 @@ import {
 } from "@/lib/scalar-field";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
-import { FLEET_FORECAST_DAYS, addDaysIso } from "@/lib/fleet-density";
+import { DENSITY_GEARS, FLEET_FORECAST_DAYS, addDaysIso, type DensityGear } from "@/lib/fleet-density";
 import type { FeatureAccess } from "@/lib/tier";
 import { PremiumLock } from "@/components/premium-gate";
 import { stormNoticeText, type StormStatus } from "@/lib/storms";
@@ -122,9 +122,8 @@ export function RaKhoiControls({
   onFleet,
   fleetDay,
   onFleetDay,
-  fleetSpecies,
-  onFleetSpecies,
-  fleetSpeciesList,
+  fleetGear,
+  onFleetGear,
   todayIso,
   fleetState,
   fleetEmpty,
@@ -235,12 +234,11 @@ export function RaKhoiControls({
   fleetAllowed: boolean;
   fleetOn: boolean;
   onFleet: (on: boolean) => void;
-  /** dự báo 16 ngày: ngày tới (0 = hôm nay) + lọc loài (tên ngắn, null = mọi loài) */
+  /** dự báo 16 ngày: ngày tới (0 = hôm nay) + lọc theo nghề ("tat" = mọi nghề) */
   fleetDay: number;
   onFleetDay: (k: number) => void;
-  fleetSpecies: string | null;
-  onFleetSpecies: (sp: string | null) => void;
-  fleetSpeciesList: string[];
+  fleetGear: DensityGear;
+  onFleetGear: (g: DensityGear) => void;
   todayIso: string;
   /** trạng thái để panel nói đúng: đang tải / lỗi / ngày trống; gió thiếu ⇒ nói "chưa tính gió" */
   fleetState: "idle" | "loading" | "error" | "ok";
@@ -504,9 +502,8 @@ export function RaKhoiControls({
                   onFleet={onFleet}
                   fleetDay={fleetDay}
                   onFleetDay={onFleetDay}
-                  fleetSpecies={fleetSpecies}
-                  onFleetSpecies={onFleetSpecies}
-                  fleetSpeciesList={fleetSpeciesList}
+                  fleetGear={fleetGear}
+                  onFleetGear={onFleetGear}
                   todayIso={todayIso}
                   fleetState={fleetState}
                   fleetEmpty={fleetEmpty}
@@ -1045,9 +1042,8 @@ function NguTruongPanel({
   onFleet,
   fleetDay,
   onFleetDay,
-  fleetSpecies,
-  onFleetSpecies,
-  fleetSpeciesList,
+  fleetGear,
+  onFleetGear,
   todayIso,
   fleetState,
   fleetEmpty,
@@ -1068,9 +1064,8 @@ function NguTruongPanel({
   onFleet: (on: boolean) => void;
   fleetDay: number;
   onFleetDay: (k: number) => void;
-  fleetSpecies: string | null;
-  onFleetSpecies: (sp: string | null) => void;
-  fleetSpeciesList: string[];
+  fleetGear: DensityGear;
+  onFleetGear: (g: DensityGear) => void;
   todayIso: string;
   fleetState: "idle" | "loading" | "error" | "ok";
   fleetEmpty: boolean;
@@ -1181,10 +1176,8 @@ function NguTruongPanel({
           <BaiTauDuBao
             day={fleetDay}
             onDay={onFleetDay}
-            species={fleetSpecies}
-            onSpecies={onFleetSpecies}
-            speciesList={fleetSpeciesList}
-            regionShorts={regionShorts}
+            gear={fleetGear}
+            onGear={onFleetGear}
             todayIso={todayIso}
             state={fleetState}
             empty={fleetEmpty}
@@ -1217,16 +1210,14 @@ function Chip({ on, onClick, children, title }: { on: boolean; onClick: () => vo
 }
 
 /**
- * Bộ chọn DỰ BÁO mật độ tàu (anh Long 25/10: không chọn lịch sử): chip 16 ngày tới + lọc theo loài
- * (cùng kiểu chọn loài của lớp cá). Ma trận: đang tải · lỗi (chạm thử lại) · ngày trống · chưa có gió · có bão.
+ * Bộ chọn DỰ BÁO mật độ tàu (anh Long 25/10: không chọn lịch sử, lọc theo NGHỀ — không lọc loài): chip 16 ngày
+ * tới + chip nghề. Ma trận: đang tải · lỗi (chạm thử lại) · ngày trống · chưa có gió · có bão.
  */
 function BaiTauDuBao({
   day,
   onDay,
-  species,
-  onSpecies,
-  speciesList,
-  regionShorts,
+  gear,
+  onGear,
   todayIso,
   state,
   empty,
@@ -1236,10 +1227,8 @@ function BaiTauDuBao({
 }: {
   day: number;
   onDay: (k: number) => void;
-  species: string | null;
-  onSpecies: (sp: string | null) => void;
-  speciesList: string[];
-  regionShorts: Set<string>;
+  gear: DensityGear;
+  onGear: (g: DensityGear) => void;
   todayIso: string;
   state: "idle" | "loading" | "error" | "ok";
   empty: boolean;
@@ -1247,7 +1236,6 @@ function BaiTauDuBao({
   storm: boolean;
   onRetry: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   if (state === "loading" || state === "idle") {
     return <p className="mt-2 px-1 text-[0.8125rem] text-foreground/75">Đang tải mật độ tàu…</p>;
   }
@@ -1258,7 +1246,6 @@ function BaiTauDuBao({
       </button>
     );
   }
-  const name = species ? SPECIES_META[species]?.full ?? species : "Mọi loài";
   return (
     <div className="mt-2 space-y-2">
       <div className="flex gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Ngày">
@@ -1268,31 +1255,13 @@ function BaiTauDuBao({
           </Chip>
         ))}
       </div>
-
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        className="flex w-full items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-left transition active:scale-[0.99]"
-      >
-        <span className="min-w-0 flex-1 break-words text-[0.9375rem] font-semibold leading-snug text-navy">
-          {expanded ? "Chọn loài" : name}
-        </span>
-        <ChevronRightIcon className={`h-4 w-4 shrink-0 text-navy/55 transition-transform ${expanded ? "rotate-90" : ""}`} />
-      </button>
-      {expanded && (
-        <FishSpeciesContent
-          species={speciesList}
-          current={species}
-          regionShorts={regionShorts}
-          cols={1}
-          onPick={(sp) => {
-            onSpecies(sp);
-            setExpanded(false);
-          }}
-        />
-      )}
-
+      <div className="flex gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Nghề">
+        {DENSITY_GEARS.map((g) => (
+          <Chip key={g.id} on={gear === g.id} onClick={() => onGear(g.id)}>
+            {g.label}
+          </Chip>
+        ))}
+      </div>
       <p className="px-1 text-[0.75rem] text-foreground/75">
         {empty
           ? "Ngày này chưa ước được ô nào."

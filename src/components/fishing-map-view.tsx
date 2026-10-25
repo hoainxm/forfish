@@ -200,10 +200,10 @@ import {
   canSeeDensity,
   densityCellAt,
   densitySpeciesAt,
-  densitySpeciesList,
   fetchFleetDensity,
   forecastFleetDensity,
   speciesAmountLabel,
+  type DensityGear,
   type FleetDensity,
   type WindStation,
 } from "@/lib/fleet-density";
@@ -746,7 +746,7 @@ export default function FishingMapView() {
   const [fleetData, setFleetData] = useState<FleetDensity | null>(null);
   const [fleetState, setFleetState] = useState<"idle" | "loading" | "error" | "ok">("idle");
   const [fleetDay, setFleetDay] = useState(0);
-  const [fleetSpecies, setFleetSpecies] = useState<string | null>(null);
+  const [fleetGear, setFleetGear] = useState<DensityGear>("tat");
   const [fleetWind, setFleetWind] = useState<WindStation[] | null>(null);
   const [fleetRetry, setFleetRetry] = useState(0);
   // xem trước nội bộ: chỉ tài khoản trong danh sách mới thấy nút + được tải lưới
@@ -4663,12 +4663,11 @@ export default function FishingMapView() {
   const fleetForecast = useMemo(
     () =>
       fleetOn && fleetAllowed && fleetData && !anyExclusiveOverlay && !premiumLocked
-        ? forecastFleetDensity({ d: fleetData, todayIso, dayOffset: fleetDay, species: fleetSpecies, wind: fleetWind ?? undefined, stormDays: fleetStormDays })
+        ? forecastFleetDensity({ d: fleetData, todayIso, dayOffset: fleetDay, gear: fleetGear, wind: fleetWind ?? undefined, stormDays: fleetStormDays })
         : null,
-    [fleetOn, fleetAllowed, fleetData, anyExclusiveOverlay, premiumLocked, todayIso, fleetDay, fleetSpecies, fleetWind, fleetStormDays],
+    [fleetOn, fleetAllowed, fleetData, anyExclusiveOverlay, premiumLocked, todayIso, fleetDay, fleetGear, fleetWind, fleetStormDays],
   );
   const fleetCells = useMemo(() => fleetForecast?.cells ?? [], [fleetForecast]);
-  const fleetSpeciesList = useMemo(() => (fleetData ? densitySpeciesList(fleetData) : []), [fleetData]);
   // Ô mật độ dưới điểm đang chạm + cá vùng đó hay có (theo tháng của ngày) — cho thẻ chạm.
   const fleetAtPoint = useMemo(() => {
     if (!fleetCells.length || !fleetData || !fleetForecast) return null;
@@ -7950,9 +7949,8 @@ export default function FishingMapView() {
             }}
             fleetDay={fleetDay}
             onFleetDay={setFleetDay}
-            fleetSpecies={fleetSpecies}
-            onFleetSpecies={setFleetSpecies}
-            fleetSpeciesList={fleetSpeciesList}
+            fleetGear={fleetGear}
+            onFleetGear={setFleetGear}
             todayIso={todayIso}
             fleetState={fleetState}
             fleetEmpty={fleetState === "ok" && fleetCells.length === 0}

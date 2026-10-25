@@ -13,7 +13,6 @@ import {
   moonFactors,
   windFactor,
   forecastFleetDensity,
-  densitySpeciesList,
   addDaysIso,
   FLEET_FORECAST_DAYS,
   densityCells,
@@ -213,11 +212,11 @@ describe("fleet-density — file thật public/data/fleet-density.v1.json (riên
   });
 });
 
-describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão × loài)", () => {
+describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão, theo nghề)", () => {
   function fx(): FleetDensity {
     const d = tiny();
     d.month = {
-      "2026-10": { tat: [[31, 54, 200, 10], [32, 54, 400, 20]] },
+      "2026-10": { tat: [[31, 54, 200, 10], [32, 54, 400, 20]], vay: [[32, 54, 300, 15]] },
       "2026-09": { tat: [[31, 54, 100, 5]] },
     };
     d.days = { ...d.days, month: { "2026-10": 2, "2026-09": 1 }, moon: { "0": 1, "4": 1 } };
@@ -251,15 +250,15 @@ describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão �
     expect(windFactor(62)).toBe(0.1);
     expect(windFactor(undefined)).toBe(1);
     const d = fx();
-    const calm = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, species: null });
+    const calm = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat" });
     expect(calm.windMissing).toBe(true);
     expect(calm.storm).toBe(false);
     expect(calm.cells.length).toBe(2);
-    const stormy = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, species: null, stormDays: new Set([today]) });
+    const stormy = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat", stormDays: new Set([today]) });
     expect(stormy.storm).toBe(true);
     for (const c of stormy.cells) expect(c.level).toBe(0); // rớt mức vì ngưỡng lấy từ nền
     const windy = forecastFleetDensity({
-      d, todayIso: today, dayOffset: 1, species: null,
+      d, todayIso: today, dayOffset: 1, gear: "tat",
       wind: [{ lat: 12.775, lon: 115.525, byDate: { "2026-10-26": 70 } }],
     });
     expect(windy.windMissing).toBe(false);
@@ -267,20 +266,21 @@ describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão �
     for (const c of windy.cells) expect(c.value).toBeLessThanOrEqual(0.1 * c.hoursPerDay * 1.5 + 1e-9); // gió ≥ cấp 8 ⇒ ×0,1
   });
 
-  it("lọc loài: nhân tỷ trọng loài, ô không có loài đó thì ẩn; danh sách loài theo tỷ trọng", () => {
+  it("lọc theo nghề: nền + trăng lấy đúng lát nghề đó; nghề không có số liệu ⇒ không ô", () => {
     const d = fx();
-    const nuc = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, species: "cá nục" });
-    expect(nuc.cells).toHaveLength(1); // ô 32,54 không có bảng loài ⇒ ẩn
-    expect(nuc.cells[0].value).toBeCloseTo(10 * 0.5 * 1.5, 6); // nền 10 × 50 % × trăng (pha hôm đó có số liệu ⇒ 1,5) — hoặc 1 nếu pha khác
-    expect(densitySpeciesList(d)).toEqual(["cá nục", "mực ống"]);
-    expect(forecastFleetDensity({ d, todayIso: today, dayOffset: 0, species: "cá lạ" }).cells).toHaveLength(0);
+    const vay = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "vay" });
+    expect(vay.cells).toHaveLength(1);
+    expect(vay.cells[0].lat).toBeCloseTo(5.025 + 32 * 0.25, 6);
+    expect(vay.cells[0].hoursPerDay).toBeCloseTo(15, 6); // 300/10/2 ngày; trăng pha này không có số liệu nghề vây ⇒ 1
+    expect(forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "cau" }).cells).toHaveLength(0);
+    expect(seasonBase(d, "10", "vay").size).toBe(1);
   });
 
   it("16 ngày: addDaysIso qua tháng, mỗi ngày tự có pha trăng", () => {
     expect(addDaysIso("2026-10-25", 15)).toBe("2026-11-09");
     const d = fx();
     const bins = new Set<string>();
-    for (let k = 0; k < FLEET_FORECAST_DAYS; k++) bins.add(forecastFleetDensity({ d, todayIso: today, dayOffset: k, species: null }).moonBin);
+    for (let k = 0; k < FLEET_FORECAST_DAYS; k++) bins.add(forecastFleetDensity({ d, todayIso: today, dayOffset: k, gear: "tat" }).moonBin);
     expect(bins.size).toBeGreaterThan(2);
   });
 });

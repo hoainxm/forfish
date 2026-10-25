@@ -232,17 +232,17 @@ export async function fetchFleetDensity(): Promise<FleetDensity> {
 
 /* ──────────────────────────────────────────────────────────────────────────────
  * DỰ BÁO MẬT ĐỘ TÀU 16 NGÀY TỚI (anh Long 25/10: "cứ tính toán rồi hiện từ ngày hiện tại trở đi,
- * trọng số trăng, gió, bão, mùa vụ; lọc chỉ theo loài").
+ * trọng số trăng, gió, bão, mùa vụ"; lọc theo NGHỀ như bản sáng, không lọc loài — anh chốt lại tối 25/10).
  *
- *   dự kiến(ô, ngày) = nền mùa(ô, tháng của ngày) × trăng(ô, pha của ngày) × gió(ngày, vùng) × bão(ngày) × loài(ô, tháng)
+ *   dự kiến(ô, ngày, nghề) = nền mùa(ô, tháng của ngày, nghề) × trăng(ô, pha của ngày, nghề) × gió(ngày, vùng) × bão(ngày)
  *
- *   nền mùa  : lát tháng cùng tháng-trong-năm (giờ/ngày, mọi nghề); thiếu thì hai tháng kề ×0,5.
- *   trăng    : giờ/ngày của pha đó chia trung bình 8 pha, kẹp [0,5; 1,5] — ô không có số liệu trăng ⇒ 1.
+ *   nền mùa  : lát tháng cùng tháng-trong-năm của nghề (giờ/ngày); thiếu thì hai tháng kề ×0,5.
+ *   trăng    : giờ/ngày của pha đó (nghề đó) chia trung bình 8 pha, kẹp [0,5; 1,5] — ô không có số liệu ⇒ 1.
  *   gió      : gió mạnh nhất trong ngày ở trạm gần ô nhất: < 39 km/h ⇒ 1 · cấp 6 ⇒ 0,6 · cấp 7 ⇒ 0,3 · ≥ cấp 8 ⇒ 0,1.
  *   bão      : ngày nằm trong tập ngày bão ⇒ 0,1 (tàu nằm bờ).
- *   loài     : chọn loài ⇒ nhân tỷ trọng loài trong ô (bảng tháng, lùi cả năm); không có ⇒ ô ẩn.
- *   Mức Thưa/Vừa/Đông theo phân vị p50/p85 của nền×loài trong ngày (KHÔNG tính gió/bão) ⇒ ngày gió
+ *   Mức Thưa/Vừa/Đông theo phân vị p50/p85 của nền×trăng trong ngày (KHÔNG tính gió/bão) ⇒ ngày gió
  *   bão thì ô rớt mức nhìn thấy được. Thuần, không mạng; thiếu gió ⇒ hệ số 1 + cờ `windMissing`.
+ *   Loài KHÔNG lọc — thẻ chạm ô vẫn nói "cá vùng này hay có" (densitySpeciesAt).
  * ────────────────────────────────────────────────────────────────────────────── */
 
 export const FLEET_FORECAST_DAYS = 16;
@@ -260,8 +260,8 @@ export interface FleetForecastInput {
   todayIso: string;
   /** 0 = hôm nay … 15 */
   dayOffset: number;
-  /** tên ngắn loài, null = mọi loài */
-  species: string | null;
+  /** nhóm nghề, "tat" = mọi nghề */
+  gear: DensityGear;
   wind?: WindStation[];
   stormDays?: Set<string>;
 }
@@ -295,8 +295,8 @@ export function windFactor(kmh: number | undefined): number {
 export const STORM_FACTOR = 0.1;
 export const MOON_CLAMP: [number, number] = [0.5, 1.5];
 
-/** Nền mùa: giờ/ngày + số tàu theo ô cho tháng-trong-năm `mm` ("01".."12"); thiếu ⇒ hai tháng kề ×0,5. */
-export function seasonBase(d: FleetDensity, mm: string): Map<string, DensityCell> {
+/** Nền mùa: giờ/ngày + số tàu theo ô cho tháng-trong-năm `mm` ("01".."12") của nghề; thiếu ⇒ hai tháng kề ×0,5. */
+export function seasonBase(d: FleetDensity, mm: string, gear: DensityGear = "tat"): Map<string, DensityCell> {
   const keys = Object.keys(d.month).sort();
   const sameMonth = keys.filter((k) => k.slice(5, 7) === mm);
   const prev = String(((Number(mm) + 10) % 12) + 1).padStart(2, "0");
@@ -308,7 +308,7 @@ export function seasonBase(d: FleetDensity, mm: string): Map<string, DensityCell
   let wSum = 0;
   for (const [k, w] of picks) {
     wSum += w;
-    for (const c of densityCells(d, { mode: "month", key: k, gear: "tat" })) {
+    for (const c of densityCells(d, { mode: "month", key: k, gear })) {
       const id = `${c.lat},${c.lon}`;
       const a = acc.get(id) ?? { lat: c.lat, lon: c.lon, hoursPerDay: 0, vessels: 0, w: 0 };
       a.hoursPerDay += w * c.hoursPerDay;
@@ -323,17 +323,17 @@ export function seasonBase(d: FleetDensity, mm: string): Map<string, DensityCell
   return out;
 }
 
-/** Hệ số trăng theo ô cho pha `bin`: giờ/ngày pha đó ÷ trung bình 8 pha, kẹp MOON_CLAMP. */
-export function moonFactors(d: FleetDensity, bin: string): Map<string, number> {
+/** Hệ số trăng theo ô cho pha `bin` (nghề `gear`): giờ/ngày pha đó ÷ trung bình 8 pha, kẹp MOON_CLAMP. */
+export function moonFactors(d: FleetDensity, bin: string, gear: DensityGear = "tat"): Map<string, number> {
   const mean = new Map<string, number>();
   for (const b of DENSITY_MOONS) {
-    for (const c of densityCells(d, { mode: "moon", key: b.id, gear: "tat" })) {
+    for (const c of densityCells(d, { mode: "moon", key: b.id, gear })) {
       const id = `${c.lat},${c.lon}`;
       mean.set(id, (mean.get(id) ?? 0) + c.hoursPerDay / DENSITY_MOONS.length);
     }
   }
   const out = new Map<string, number>();
-  for (const c of densityCells(d, { mode: "moon", key: bin, gear: "tat" })) {
+  for (const c of densityCells(d, { mode: "moon", key: bin, gear })) {
     const id = `${c.lat},${c.lon}`;
     const m = mean.get(id) ?? 0;
     if (m > 0) out.set(id, Math.min(MOON_CLAMP[1], Math.max(MOON_CLAMP[0], c.hoursPerDay / m)));
@@ -351,33 +351,21 @@ function nearestStation(st: WindStation[], lat: number, lon: number): WindStatio
 }
 
 export function forecastFleetDensity(inp: FleetForecastInput): FleetForecast {
-  const { d, todayIso, species } = inp;
+  const { d, todayIso, gear } = inp;
   const dateIso = addDaysIso(todayIso, inp.dayOffset);
   const mm = dateIso.slice(5, 7);
   const moonBin = moonBinOf(new Date(`${dateIso}T05:00:00Z`)); // trưa giờ VN
-  const base = seasonBase(d, mm);
-  const moon = moonFactors(d, moonBin);
+  const base = seasonBase(d, mm, gear);
+  const moon = moonFactors(d, moonBin, gear);
   const storm = !!inp.stormDays?.has(dateIso);
   const stations = inp.wind?.filter((s) => s.byDate[dateIso] != null) ?? [];
   const windMissing = stations.length === 0;
-  const spTable = d.species?.[mm] ?? null;
-  const spAll = d.species?.tat ?? null;
-  const { lat0, lon0, step } = d.axis;
 
-  // nền × loài (để lấy ngưỡng mức, không gió/bão)
+  // nền × trăng (để lấy ngưỡng mức, không gió/bão)
   const pre: { c: DensityCell; v: number; moonF: number }[] = [];
   for (const c of base.values()) {
-    let share = 1;
-    if (species) {
-      const i = Math.round((c.lat - lat0) / step), j = Math.round((c.lon - lon0) / step);
-      const ij = `${i},${j}`;
-      const row = spTable?.[ij] ?? spAll?.[ij];
-      const hit = row?.find(([sp]) => sp === species);
-      share = hit ? hit[1] / 100 : 0;
-    }
-    if (share <= 0) continue;
     const moonF = moon.get(`${c.lat},${c.lon}`) ?? 1;
-    pre.push({ c, v: c.hoursPerDay * share * moonF, moonF });
+    pre.push({ c, v: c.hoursPerDay * moonF, moonF });
   }
   const sorted = pre.map((p) => p.v).sort((a, b) => a - b);
   const q = (p: number) => {
@@ -399,11 +387,4 @@ export function forecastFleetDensity(inp: FleetForecastInput): FleetForecast {
     cells.push({ lat: c.lat, lon: c.lon, hoursPerDay: c.hoursPerDay, vessels: Math.max(0, Math.round(c.vessels * (v / Math.max(c.hoursPerDay, 1e-9)) * f)), value, level });
   }
   return { dateIso, cells, thresholds: [t1, t2], windMissing, storm, moonBin };
-}
-
-/** Loài có trong bảng (tên ngắn), xếp theo tổng tỷ trọng cả năm — danh sách cho bộ lọc loài. */
-export function densitySpeciesList(d: FleetDensity): string[] {
-  const sum = new Map<string, number>();
-  for (const top of Object.values(d.species?.tat ?? {})) for (const [sp, p] of top) sum.set(sp, (sum.get(sp) ?? 0) + p);
-  return [...sum.entries()].sort((a, b) => b[1] - a[1]).map(([sp]) => sp);
 }
