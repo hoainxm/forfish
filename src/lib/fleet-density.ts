@@ -38,7 +38,7 @@ export interface FleetDensity {
   storms?: Record<string, string[]>;
   /** số ngày có số liệu của từng khoá (đã trừ ngày bão ở tháng/mùa/trăng) — chia giờ/ngày để so được giữa các lát */
   days: Record<DensityMode, Record<string, number>>;
-  /** loài hay đánh theo ô: khoá "nam"/"bac" (mùa), "01".."12" (tháng trong năm), "tat" (cả năm) → "i,j" → [[tên ngắn, %kg]] top 3 */
+  /** cá vùng đó hay có theo ô: khoá "nam"/"bac" (mùa), "01".."12" (tháng trong năm), "tat" (cả năm) → "i,j" → [[tên ngắn, %kg]] top 3 */
   species?: Record<string, Record<string, [string, number][]>>;
   day: Record<string, DensityRow[]>;
   month: Record<string, Partial<Record<DensityGear, DensityRow[]>>>;
@@ -172,7 +172,7 @@ export function speciesKeyFor(sel: DensitySel): string {
   return "tat";
 }
 
-/** Ô (lat, lon) gần nhất trên trục lưới (trong nửa ô) → loài hay đánh ở lát đó; không có ⇒ []. Lùi về "tat" khi tháng/mùa trống. */
+/** Ô (lat, lon) gần nhất trên trục lưới (trong nửa ô) → cá hay có ở lát đó; không có ⇒ []. Lùi về "tat" khi tháng/mùa trống. */
 export function densitySpeciesAt(d: FleetDensity, sel: DensitySel, lat: number, lon: number): [string, number][] {
   if (!d.species) return [];
   const { lat0, lon0, step, nLat, nLon } = d.axis;

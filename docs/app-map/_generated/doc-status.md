@@ -47,6 +47,6 @@
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/runbook.md | SUSPECT | code 'scripts/train/run.mjs' doi sau last_verified |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/auth-scope.ts' doi sau last_verified |
+| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/user-sync.ts' doi sau last_verified |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/test-tai-khoan.md | VERIFIED | ok |

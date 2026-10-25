@@ -4606,7 +4606,7 @@ export default function FishingMapView() {
     () => (fleetOn && fleetAllowed && fleetData && !anyExclusiveOverlay && !premiumLocked ? densityCells(fleetData, fleetSel) : []),
     [fleetOn, fleetAllowed, fleetData, fleetSel, anyExclusiveOverlay, premiumLocked],
   );
-  // Ô mật độ dưới điểm đang chạm + loài vùng đó hay đánh (lát đang xem) — cho thẻ chạm.
+  // Ô mật độ dưới điểm đang chạm + cá vùng đó hay có (lát đang xem) — cho thẻ chạm.
   const fleetAtPoint = useMemo(() => {
     if (!fleetCells.length || !fleetData) return null;
     const cell = densityCellAt(fleetCells, fleetData.axis.step, point.lat, point.lon);
@@ -8631,7 +8631,7 @@ export default function FishingMapView() {
                 </div>
               ) : null}
 
-              {/* MẬT ĐỘ TÀU DỰ KIẾN tại ô + "vùng này hay đánh cá gì" (anh Long 25/10) — chỉ khi lớp đang bật */}
+              {/* MẬT ĐỘ TÀU DỰ KIẾN tại ô + "cá vùng này hay có" (anh Long 25/10: không ghi "đánh") — chỉ khi lớp đang bật */}
               {fleetAtPoint && (
                 <div className="flex items-start gap-2.5 surface p-3.5">
                   <RadarIcon className="mt-0.5 h-5 w-5 shrink-0 text-navy/70" />
@@ -8642,7 +8642,7 @@ export default function FishingMapView() {
                     </p>
                     {fleetAtPoint.species.length > 0 ? (
                       <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
-                        Vùng này hay đánh:{" "}
+                        Cá vùng này hay có:{" "}
                         <b>
                           {fleetAtPoint.species
                             .map(([sp, pct]) => `${SPECIES_META[sp]?.full ?? sp} ${pct} %`)
@@ -8651,7 +8651,7 @@ export default function FishingMapView() {
                         <span className="text-foreground/60">(tham khảo)</span>
                       </p>
                     ) : (
-                      <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/60">Chưa rõ vùng này hay đánh cá gì.</p>
+                      <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/60">Chưa rõ vùng này hay có cá gì.</p>
                     )}
                   </div>
                 </div>
