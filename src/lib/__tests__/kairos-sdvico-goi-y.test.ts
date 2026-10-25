@@ -70,3 +70,17 @@ describe("điều phối", () => {
     expect(keHoach([bao], so, SANG, () => 0.3).viecChu.some((x) => x.muc === "goi-y-sdvico")).toBe(false);
   });
 });
+
+describe("lưới văn nói (anh Long 2026-10-25: \"ngắn gọn tự nhiên như văn nói\")", () => {
+  const bong = { title: "Arsenal thắng Everton 2-0", summary: "", body: "" };
+  it("câu cụt ngắn qua; từ nối văn viết / câu sáo / quá dài bị bỏ", async () => {
+    const { laCauSao, CHU_TOI_DA } = await import("@/lib/kairos/agent-dieu-phoi.mjs");
+    expect(laCauSao("2-0 gọn ghẽ hỉ", bong)).toBe(false);
+    expect(laCauSao("vàng rớt dữ, hoang mang ghê", bong)).toBe(false);
+    expect(laCauSao("thắng đẹp, tuy nhiên hàng thủ còn yếu", bong)).toBe(true);
+    expect(laCauSao("theo tui biết Arsenal mạnh", bong)).toBe(true);
+    expect(laCauSao("2-0 ngon, ae nhớ nghe tin bão chính thức nha", bong)).toBe(true);
+    expect(laCauSao("ừ ".repeat(CHU_TOI_DA.binhLuan + 1), bong)).toBe(true);
+    expect(laCauSao("ừ ".repeat(CHU_TOI_DA.binhLuan + 1), bong, CHU_TOI_DA.traLoi)).toBe(false);
+  });
+});
