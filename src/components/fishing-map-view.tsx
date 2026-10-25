@@ -304,6 +304,7 @@ import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { FishHotspotMarker, SavedPlaceMarker, type FishHotspot } from "@/components/ban-do/diem-ghim";
 import { DongHoTocDo, NutLoa, NutViTri, OTimDiem } from "@/components/ban-do/khung";
+import { TimDiemPopover } from "@/components/ban-do/tim-diem";
 import { bamSau, laThaoTacTay, nenBayTheoFix } from "@/lib/bam-tau";
 import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
@@ -869,9 +870,12 @@ export default function FishingMapView() {
   //   Dữ liệu tự già đi và hết giá trị sau ≤16 ngày nên không cần khoá thêm.
   // ⇒ Màn mời đăng nhập/nâng cấp CHỈ hiện khi thật sự KHÔNG CÓ GÌ để xem.
   const { access: premiumAccess } = useFeatureAccess();
-  /*  Ô "Đi đâu?" với tài khoản CHƯA premium: trước đây bấm không ra gì (ô toạ độ chỉ dành
-      cho premium). Nay kiểu freemium của app đông người dùng (thấy tính năng, chạm thì mời
-      mở khoá): ngăn đáy nói rõ + lời mời Premium (rà bố cục 2026-10-22). */
+  /*  Ô "Đi đâu?" (BD-02, rà FB 2026-10-25): ô TÌM MIỄN PHÍ cho mọi tài khoản đã đăng
+      nhập — cảng · điểm đã lưu · toạ độ (ban-do/tim-diem.tsx; luật lib/ban-do-tim.ts).
+      Tier chỉ nói "Premium = dự báo cá + thời tiết >3 ngày"; đi tới một cảng không nằm
+      trong câu đó. Chỉ Dẫn đường còn Premium. Khách CHƯA đăng nhập giữ lời mời đăng
+      nhập (bản 2026-10-22, gọt câu). */
+  const [timMo, setTimMo] = useState(false);
   const [moiTimDiem, setMoiTimDiem] = useState(false);
   /** ô "Đi đâu?" — lời mời neo NGAY DƯỚI nó (Popover, 03 §6 mục 9) */
   const [oTimEl, setOTimEl] = useState<HTMLDivElement | null>(null);
@@ -7620,21 +7624,37 @@ export default function FishingMapView() {
           nổi ngay TRÊN tâm (lật xuống dưới khi tâm sát mép trên). Tự ẩn 3s. */}
       {stormPtInfo && <TheMocBao info={stormPtInfo} onClose={() => setStormPtInfo(null)} prefs={prefs} />}
 
+      {timMo && (
+        <TimDiemPopover
+          anchor={oTimEl}
+          places={places}
+          onClose={() => setTimMo(false)}
+          onToaDo={() => {
+            setTimMo(false);
+            setOpenCoordSignal((n) => n + 1);
+          }}
+          onChon={(lat, lon) => {
+            // cùng hành vi thẻ cảng ở /cang (BD-04): ghim + bay tới + ngăn gió sóng nửa màn
+            setTimMo(false);
+            setPinning(false);
+            goToCoord(lat, lon, 10);
+            setPick("picked");
+            setSize("half");
+          }}
+        />
+      )}
       {moiTimDiem && (
-        /* neo ngay dưới ô "Đi đâu?" (03 §6 mục 9, 2026-10-23 — trước là ngăn đáy) */
+        /* khách chưa đăng nhập — neo ngay dưới ô "Đi đâu?" (03 §6 mục 9) */
         <Popover
           anchor={oTimEl}
-          label="Đi tới toạ độ"
+          label="Đăng nhập để tìm"
           onClose={() => setMoiTimDiem(false)}
           className="w-[20rem] max-w-[calc(100vw-1rem)] p-4"
         >
-          <h3 className="display mb-2 text-[1.125rem] font-semibold text-navy">Đi tới toạ độ</h3>
-          <p className="mb-3 text-[1rem] leading-snug text-foreground/80">
-            Gõ toạ độ hoặc chọn chỗ đã lưu để bản đồ dẫn tới đó.
-            {/* PremiumLock tự ẩn khi mất sóng — lúc đó vẫn phải nói rõ vì sao chưa dùng được */}
-            {typeof navigator !== "undefined" && navigator.onLine === false && " Đây là tính năng Premium."}
+          <p className="text-[1rem] leading-snug text-foreground/80">
+            Đăng nhập để tìm cảng, điểm đã lưu hay toạ độ trên bản đồ.
           </p>
-          <PremiumLock access={premiumAccess} feature="đi tới toạ độ" compact />
+          <PremiumLock access={premiumAccess} feature="ô tìm trên bản đồ" compact />
         </Popover>
       )}
 
@@ -7891,11 +7911,7 @@ export default function FishingMapView() {
             {navMode == null && (
               <div ref={setOTimEl}>
               <OTimDiem
-                onOpen={() =>
-                  premiumAccess === "login" || premiumAccess === "upgrade"
-                    ? setMoiTimDiem(true)
-                    : setOpenCoordSignal((n) => n + 1)
-                }
+                onOpen={() => (premiumAccess === "login" ? setMoiTimDiem(true) : setTimMo(true))}
               />
               </div>
             )}

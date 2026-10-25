@@ -66,17 +66,9 @@ export function PortDirectory() {
     <div className="px-4">
       {/*  Chưa có tỉnh ⇒ MỘT hàng mảnh + ô Chọn (BD-05), thay thẻ nhắc 3 dòng của
            HomeBar (vẫn dùng HomeBar cho nhánh đã có tỉnh — hai nút Gần/Cả nước). */}
-      {home.province ? (
-        <HomeBar home={home} near={near} setNear={setNear} />
-      ) : (
-        <div className="mb-3 flex min-h-(--h-row) items-center gap-2 border-b border-line">
-          <p className="min-w-0 flex-1 text-[0.875rem] text-foreground/65">Chưa có tỉnh cảng nhà</p>
-          <Link href="/tau" className={`${SQ_BTN} bg-field text-sea`}>
-            <AnchorIcon className="h-4 w-4" aria-hidden />
-            {NHAN.chon}
-          </Link>
-        </div>
-      )}
+      {/*  Lô 2 (QĐ C): HomeBar tự vẽ hàng mảnh "Chưa có tỉnh cảng nhà · Chọn" mở Popover chọn tỉnh
+           TẠI CHỖ (ghi vào tàu đang chọn, chưa có tàu thì nhớ trong phiên) — không bắt sang /tau nữa. */}
+      <HomeBar home={home} near={near} setNear={setNear} />
 
       <SearchField
         value={q}

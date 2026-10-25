@@ -22,6 +22,7 @@
 */
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon, LockIcon } from "@/components/icons";
 import { useLichSuDong } from "@/lib/dialog-focus";
+import { NHAN } from "@/lib/labels";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 export type SheetSize = "hidden" | "peek" | "half";
@@ -281,13 +282,13 @@ export function SnapSheet({
                 <button
                   type="button"
                   aria-pressed={sideHold}
-                  aria-label="Giữ mở"
+                  aria-label={NHAN.giuMo}
                   onClick={() => onSideHoldChange(!sideHold)}
                   className={`flex h-(--h-ctl) shrink-0 items-center justify-center rounded-full px-2.5 text-[0.8125rem] font-semibold active:scale-95 @max-[15rem]:h-9 @max-[15rem]:w-9 @max-[15rem]:px-0 ${
                     sideHold ? "bg-sea text-white" : "bg-field text-navy"
                   }`}
                 >
-                  <span className="@max-[15rem]:sr-only">Giữ mở</span>
+                  <span className="@max-[15rem]:sr-only">{NHAN.giuMo}</span>
                   <LockIcon className="hidden h-4 w-4 @max-[15rem]:block" aria-hidden />
                 </button>
               )}

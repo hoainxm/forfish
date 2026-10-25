@@ -88,14 +88,16 @@ export function laTinTam(id: string): boolean {
 }
 
 /** Dựng thẻ tin tại máy từ bản nháp vừa gửi THÀNH CÔNG — đúng luật route POST:
- *  trim, ô trống bỏ, SĐT trống thì lấy SĐT tài khoản, status open, mine. */
+ *  trim, ô trống bỏ, SĐT trống thì lấy SĐT tài khoản, status open, mine.
+ *  `idThat` = id máy chủ trả về ngay sau POST (2026-10-25) ⇒ thẻ có ⋯ luôn, không phải
+ *  chờ tải lại; thiếu (máy chủ cũ) ⇒ id tạm có tiền tố. */
 export function tinTamTuDraft(
   d: ListingDraft,
-  opt: { id: string; accountPhone: string | null; today: string },
+  opt: { id: string; accountPhone: string | null; today: string; idThat?: string | null },
 ): MarketListing {
   const trim = (s?: string) => (s && s.trim() ? s.trim() : undefined);
   return {
-    id: TAM_ID_PREFIX + opt.id,
+    id: opt.idThat && opt.idThat.trim() ? opt.idThat : TAM_ID_PREFIX + opt.id,
     side: d.side,
     posterKind: d.posterKind,
     posterName: d.posterName.trim(),

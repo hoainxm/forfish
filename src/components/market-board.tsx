@@ -14,9 +14,10 @@ import { ChipRow } from "@/components/ui/chip-row";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Popover } from "@/components/ui/popover";
-import { StatusBanner } from "@/components/ui/status-banner";
+import { OfflineLine } from "@/components/ui/offline-line";
+import { LienHe } from "@/components/ui/lien-he";
+import { applyHome, HomeBar, useHome } from "@/components/ui/region-filter";
 import {
-  CallButton,
   Card,
   EmptyState,
   Field,
@@ -71,6 +72,9 @@ export function MarketBoard() {
   const { signedIn, ready } = useAuthUser();
   const online = useOnline();
   const [filter, setFilter] = useState<Filter>("all");
+  /** lọc nơi "Gần tôi / Cả nước" (CC-07) — tái dùng HomeBar + applyHome, lọc tại máy theo `province` */
+  const { home } = useHome();
+  const [near, setNear] = useState(true);
   const [real, setReal] = useState<MarketListing[] | null>(null);
   const [loading, setLoading] = useState(true);
   /** chưa tải được vì SÓNG (khác hẳn "chợ chưa có tin nào") */
@@ -133,12 +137,18 @@ export function MarketBoard() {
   /** lần tải ĐẦU chưa về — chưa có số nào để in (CC-04: trước đây in "0 tin đang
    *  mở" suốt lúc chờ, trông như chợ trống) */
   const dangTaiLanDau = loading && real === null;
-  // server đã lọc "đang mở + tin của mình"; ở đây chỉ còn lọc theo chip
-  const listings = source.filter(
-    (l) =>
-      (filter === "all" || l.side === filter) &&
-      (l.status === "open" || l.mine),
+  // server đã lọc "đang mở + tin của mình"; ở đây chỉ còn lọc theo chip + nơi (gần → xa)
+  const listings = applyHome(
+    source.filter(
+      (l) =>
+        (filter === "all" || l.side === filter) &&
+        (l.status === "open" || l.mine),
+    ),
+    (l) => l.province,
+    home.province,
+    near,
   );
+  const locGan = Boolean(home.province) && near;
 
   return (
     <div>
@@ -147,12 +157,7 @@ export function MarketBoard() {
           tưởng chợ vắng hoặc tưởng tin mình vừa biến mất. */}
       {netFailed && (
         <div className="mt-3 overflow-hidden rounded-2xl">
-          <StatusBanner level="warn">
-            Chưa tải được tin mới — máy đang không có sóng.{" "}
-            {real && real.length > 0
-              ? "Bên dưới là danh sách tải về gần nhất."
-              : "Bà con thử lại lúc có sóng nhé."}
-          </StatusBanner>
+          <OfflineLine extra={real && real.length > 0 ? " · đang xem bản tải gần nhất" : undefined} />
         </div>
       )}
 
@@ -219,11 +224,16 @@ export function MarketBoard() {
         />
       </div>
 
+      {/* lọc nơi như FB Marketplace (CC-07): chưa có tỉnh ⇒ hàng "Chọn" tại chỗ (CC-09) */}
+      <HomeBar home={home} near={near} setNear={setNear} />
+
       {/* MẤT SÓNG mà chưa có bản nào → CHỈ băng vàng ở trên, KHÔNG mời "đăng tin
           đầu tiên" (audit 2026-08-18 G8: hai câu trái nhau cùng màn) */}
       {!loading && listings.length === 0 && !netFailed && (
         <EmptyState icon={<UsersIcon className="h-9 w-9" />}>
-          Chưa có tin nào ở mục này. Bà con đăng tin đầu tiên đi.
+          {locGan && source.length > 0
+            ? `Chưa có tin nào gần ${home.province}. Bà con xem "Cả nước" nhé.`
+            : "Chưa có tin nào ở mục này. Bà con đăng tin đầu tiên đi."}
         </EmptyState>
       )}
 
@@ -246,11 +256,12 @@ export function MarketBoard() {
 
       {showForm && (
         <ListingForm
+          tinhNha={home.province}
           onCancel={() => setShowForm(false)}
           onSaved={(tin) => {
             /*  HIỆN NGAY (CC-05): máy chủ đã nhận (POST ok) nên chèn thẻ tạm lên đầu
                 rồi mới tải lại nền — bà con không phải nhìn màn trống chờ một vòng
-                mạng. Thẻ tạm chưa có id thật ⇒ chưa đóng/xoá được tới khi tải xong. */
+                mạng. Máy chủ trả id ⇒ thẻ có ⋯ ngay; không trả ⇒ chưa đóng/xoá được tới khi tải xong. */
             setShowForm(false);
             setReal((prev) => [tin, ...(prev ?? [])]);
             setDaDang(true);
@@ -328,26 +339,29 @@ function ListingCard({
           bấm là xoá thẳng. Thân thẻ nay giống hệt thẻ người khác. */}
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          {/* pill + meta về MỘT dòng */}
-          <p className="flex min-w-0 items-center gap-2 text-[0.75rem] font-semibold text-foreground/65">
-            <span
-              className="shrink-0 rounded-full px-2.5 py-0.5"
-              style={
-                sell
-                  ? { backgroundColor: "var(--ok-bg)", color: "var(--ok)" }
-                  : { backgroundColor: "var(--t2-bg)", color: "var(--t2)" }
-              }
+          {/*  Thẻ kiểu Marketplace (CC-07): hàng đầu = TÊN LOÀI đậm (trái) + GIÁ to (phải) —
+              hai thứ bà con nhìn trước; hàng 2 = meta mờ một dòng. Trước đây giá là chữ
+              thường "Giá: …" giữa thân thẻ. */}
+          <div className="flex items-start justify-between gap-3">
+            <p className="display min-w-0 flex-1 break-words text-[1rem] font-semibold leading-snug text-navy">
+              {l.species}
+            </p>
+            <p
+              className={`shrink-0 text-right text-[1.125rem] font-semibold leading-snug tabular-nums ${
+                l.priceText ? "text-navy" : "text-foreground/65"
+              }`}
             >
+              {l.priceText || "Thoả thuận"}
+            </p>
+          </div>
+          <p className="mt-0.5 truncate text-[0.75rem] font-semibold text-foreground/65">
+            <span style={sell ? { color: "var(--ok)" } : { color: "var(--t2)" }}>
               {SIDE_LABEL[l.side]}
               {l.status === "closed" ? " · đã đóng" : ""}
             </span>
-            <span className="min-w-0 truncate">
-              {POSTER_KIND_LABEL[l.posterKind]}
-              {l.province ? ` · ${l.province}` : ""}
-            </span>
-          </p>
-          <p className="display mt-1 break-words text-[1rem] font-semibold leading-snug text-navy">
-            {l.species}
+            {` · ${POSTER_KIND_LABEL[l.posterKind]}`}
+            {l.province ? ` · ${l.province}` : ""}
+            {` · ${formatVnDate(l.postedOn).slice(0, 5)}`}
           </p>
         </div>
         {coMenu && (
@@ -366,32 +380,27 @@ function ListingCard({
         )}
       </div>
 
-      <div className="mt-2 space-y-1">
-        {l.quantity && (
-          <p className="text-[1rem] text-foreground/80">
-            Khối lượng: <strong>{l.quantity}</strong>
-          </p>
-        )}
-        {l.priceText && (
-          <p className="text-[1rem] text-foreground/80">
-            Giá: <strong>{l.priceText}</strong>
-          </p>
-        )}
-        {l.note && (
-          <p className="rounded-xl bg-background px-3 py-1.5 text-[0.875rem] text-foreground/70">
-            {l.note}
-          </p>
-        )}
-      </div>
+      {(l.quantity || l.note) && (
+        <div className="mt-2 space-y-1">
+          {l.quantity && (
+            <p className="text-[0.875rem] text-foreground/80">
+              Khối lượng: <strong>{l.quantity}</strong>
+            </p>
+          )}
+          {l.note && (
+            <p className="rounded-xl bg-background px-3 py-1.5 text-[0.875rem] text-foreground/70">
+              {l.note}
+            </p>
+          )}
+        </div>
+      )}
 
-      <div className="mt-2.5 flex items-center justify-between gap-2">
-        <p className="min-w-0 truncate text-[0.8125rem] text-foreground/65">
-          {l.posterName} · đăng {formatVnDate(l.postedOn)}
-          {busy ? ` · ${pending ? NHAN.dangGui : NHAN.dangXoa}…` : ""}
-        </p>
-        {/* pill mua/bán đã nói ngữ cảnh ⇒ chỉ "Gọi" (CC-20, nhãn ≤2 chữ) */}
-        {l.phone ? <CallButton phone={l.phone} label={NHAN.goi} /> : null}
-      </div>
+      <p className="mt-2 truncate text-[0.8125rem] text-foreground/65">
+        {l.posterName}
+        {busy ? ` · ${pending ? NHAN.dangGui : NHAN.dangXoa}…` : ""}
+      </p>
+      {/* Gọi · Nhắn (Zalo) chia hai cột — như FB/Zalo (CC-18); pill đã nói ngữ cảnh ⇒ nhãn ≤2 chữ */}
+      {l.phone ? <LienHe phone={l.phone} className="mt-2" /> : null}
 
       {menuMo && (
         <Popover anchor={menuEl} label="Tin của tôi" role="menu" onClose={() => setMenuMo(false)} className="w-[11rem] py-1">
@@ -458,9 +467,12 @@ const POSTER_KINDS: { value: PosterKind; label: string }[] = [
 ];
 
 function ListingForm({
+  tinhNha,
   onCancel,
   onSaved,
 }: {
+  /** tỉnh đang lọc (tàu hoặc tỉnh tạm của phiên) — điền sẵn ô Tỉnh khi tàu chưa khai */
+  tinhNha?: string;
   onCancel: () => void;
   /** máy chủ đã nhận — trả thẻ tạm để cha hiện ngay (CC-05) */
   onSaved: (tin: MarketListing) => void;
@@ -477,7 +489,7 @@ function ListingForm({
   const [species, setSpecies] = useState("");
   const [quantity, setQuantity] = useState("");
   const [priceText, setPriceText] = useState("");
-  const [province, setProvince] = useState(current?.homeProvince ?? "");
+  const [province, setProvince] = useState(current?.homeProvince ?? tinhNha ?? "");
   const [phone, setPhone] = useState(accountPhone ?? "");
   const [note, setNote] = useState("");
   /** lỗi MÁY CHỦ / MẠNG — hàng đáy. Lỗi từng ô nằm dưới ô (`loiO`) */
@@ -531,11 +543,13 @@ function ListingForm({
       setError(res.error ?? "Hiện chưa đăng được, bà con thử lại sau ít phút nhé.");
       return;
     }
+    // máy chủ trả id thật ⇒ thẻ có ⋯ ngay (không chờ tải lại); máy chủ cũ ⇒ id tạm
     onSaved(
       tinTamTuDraft(draft, {
         id: String(Date.now()),
+        idThat: res.id,
         accountPhone: accountPhone ?? null,
-        today: new Date().toISOString().slice(0, 10),
+        today: (res.createdAt ?? new Date().toISOString()).slice(0, 10),
       }),
     );
   }

@@ -45,13 +45,13 @@ Trạng thái cột cuối được cập nhật khi lô 1 commit (xem §5).
 |---|---|---|---|
 | 01 | CAO | Back không đóng lớp nổi (X1) | ✅ |
 | 02 | CAO | Sen Biển nổi đè nút (X2) — vị trí 0.75rem trên dock + nâng theo thanh mua + rảnh 4 s nép mép | ✅ |
-| 03 | VỪA | Dock không badge số (Kairos chưa đọc / giỏ) | ❓ |
+| 03 | VỪA | Dock không badge số (Kairos chưa đọc / giỏ) | ✅ lô 2 |
 | 04 | VỪA | Lỗi auth đầu thẻ, không viền ô, 2 câu/1 lỗi | ✅ |
 | 05 | VỪA | "Quên mật khẩu?" to như nút, "Đăng ký" bé — ngược FB | ✅ |
 | 06 | VỪA | Dock hiện trên 5 màn auth/pháp lý trái 07 §5 | ✅ |
-| 07 | VỪA | Header 3 khuôn: chip SĐT 177 px · Kairos 107 px + câu phụ + nút chữ · ‹ 56 vs icon 44 | ⏭ (Kairos "Trang tôi" → avatar ✅) |
-| 08 | VỪA | 25 biến thể câu mất sóng → `OfflineLine` chung | ⏭ |
-| 09 | VỪA | `lockBodyScroll` chỉ `overflow:hidden` (iOS bỏ qua) | ⏭ (tạm: scrim `touch-none`; body fixed chờ kiểm iPhone thật) |
+| 07 | VỪA | Header 3 khuôn: chip SĐT 177 px · Kairos 107 px + câu phụ + nút chữ · ‹ 56 vs icon 44 | ✅ lô 2 |
+| 08 | VỪA | 25 biến thể câu mất sóng → `OfflineLine` chung | ✅ lô 2 |
+| 09 | VỪA | `lockBodyScroll` chỉ `overflow:hidden` (iOS bỏ qua) | ✅ lô 2 |
 | 10 | VỪA | UpdateNotice đè header, reload không kiểm form | ✅ |
 | 11 | VỪA | Đăng xuất một chạm (= TC-03) | ✅ |
 | 12–17 | THẤP | câu phụ auth · "Hiện/Ẩn" chữ · focus radius 4px · chạm lại tab cuộn lên · quên-mật-khẩu nhánh không ô · nhãn luật mật khẩu thường trực | 12/14/16/17 ✅ · 13 ❓ · 15 ⏭ |
@@ -63,13 +63,13 @@ Trạng thái cột cuối được cập nhật khi lô 1 commit (xem §5).
 | 02 | CAO | 26/28 link `/ngu-truong?bao=` là ngõ cụt — bản đồ không đọc | ✅ (khu bản đồ) |
 | 03 | CAO | Đăng xuất đầu menu, không hỏi, xoá sổ trong máy | ✅ |
 | 04 | VỪA | Back không đóng popover (X1) | ✅ |
-| 05 | VỪA | "25 mới" ≠ chưa đọc thật; đọc offline không tắt chấm | ❓ (một dòng §12) |
+| 05 | VỪA | "25 mới" ≠ chưa đọc thật; đọc offline không tắt chấm | ✅ lô 2 |
 | 06 | VỪA | "Tin cũ N giờ" vàng cho mọi tin, nói giờ hai lần | ✅ (chỉ tô cho bão ≤14 ngày) |
-| 07 | VỪA | "Cài đặt khác" xoè Popover 708 px cuộn trong | ⏭ |
+| 07 | VỪA | "Cài đặt khác" xoè Popover 708 px cuộn trong | ✅ lô 2 |
 | 08 | VỪA | "Gọi SDVICO để mở…" không có nút | ✅ |
-| 09 | VỪA | Bật push chôn 3 nấc | ❓ |
+| 09 | VỪA | Bật push chôn 3 nấc | ✅ lô 2 |
 | 10 | VỪA | 2 request lúc mở app chỉ để nuôi menu đóng | ✅ |
-| 11 | VỪA | Chưa khai cảng nhà ⇒ Trang chủ trống, không mời | ❓ |
+| 11 | VỪA | Chưa khai cảng nhà ⇒ Trang chủ trống, không mời | ✅ lô 2 |
 | 12 | VỪA | "Xem thêm 25" xoè một lượt, Thu gọn nhảy | ✅ |
 | 13–18 | THẤP | body=title in 2 lần · chevron › xoè tại chỗ · "theo dõi máy" · xưng hô · px-1 · ⋯ ẩn tin | 13–17 ✅ · 18 ⏭ |
 
@@ -77,12 +77,12 @@ Trạng thái cột cuối được cập nhật khi lô 1 commit (xem §5).
 | Mã | Mức | Tóm tắt | Lô |
 |---|---|---|---|
 | 01 | CAO | `/cang` không có đường vào nào trên UI | ✅ |
-| 02 | CAO | "Đi đâu?" = tường Premium / 2 ô toạ độ, không gõ tên cảng | ❓ ranh giới premium (CLAUDE.md: bản đồ miễn phí) |
+| 02 | CAO | "Đi đâu?" = tường Premium / 2 ô toạ độ, không gõ tên cảng | ✅ lô 2 |
 | 03 | CAO | Back văng về `/` khi mở ngăn/Lớp (X1) | ✅ |
 | 04 | CAO | Thẻ cảng không chạm được, không hành động | ✅ |
 | 05–06 | VỪA | 3 khối chữ trước cảng đầu (44 % màn) · câu trống trỏ nút không có | ✅ |
-| 07 | VỪA | Panel Thời tiết 85 % màn, jargon, lặp tin bão | ⏭ |
-| 08 | VỪA | ⚠ ba nghĩa trên một màn | ⏭ (repo không có icon tải/đám mây, cấm đẻ bộ icon mới) |
+| 07 | VỪA | Panel Thời tiết 85 % màn, jargon, lặp tin bão | ✅ lô 2 |
+| 08 | VỪA | ⚠ ba nghĩa trên một màn | ✅ lô 2 |
 | 09–12 | VỪA | chip ngày 36 px nở theo chữ · pill ranh giới luôn đỏ · loa tự bật khi định vị chặn · bảng Lớp 2 nút đóng | ✅ |
 | 13 | VỪA | Ngăn "Dữ liệu đã lưu" băng iPhone 4 dòng | ✅ |
 | 14–19 | THẤP | dấu chấm thừa aria · pill bão 360 px · chip "Cảng loại II" · ô tìm không × · "Giữ mở" chưa vào labels · Esc không đóng ngăn | 14–17/19 ✅ · 18 ⏭ |
@@ -94,14 +94,14 @@ Trạng thái cột cuối được cập nhật khi lô 1 commit (xem §5).
 | 02 | CAO | Modal "Đồ này của tàu nào?" tự bật khi mở màn / sau Lưu | ✅ |
 | 03 | CAO | Lỗi nhập 3 kiểu (bong bóng tiếng Anh, chân sheet, treo sau khi sửa) | ✅ |
 | 04 | CAO | Sen Biển đè nút "Thêm" bảo dưỡng (X2) | ✅ |
-| 05 | VỪA | 4 khuôn bản ghi trên một màn (bảo dưỡng/đồ tự ghi còn thẻ băng màu) | ⏭ |
+| 05 | VỪA | 4 khuôn bản ghi trên một màn (bảo dưỡng/đồ tự ghi còn thẻ băng màu) | ✅ lô 2 |
 | 06 | VỪA | Chip tàu "Chạm để ghi tên, mã tàu" dù đã có tên | ✅ |
-| 07 | VỪA | Bấm "Hủy" sau khi gõ đóng thẳng (vuốt thì hỏi) | ⏭ (`BottomSheet kieu=form` tự vẽ chân) |
+| 07 | VỪA | Bấm "Hủy" sau khi gõ đóng thẳng (vuốt thì hỏi) | ✅ lô 2 |
 | 08 | VỪA | PremiumLock chèn giữa form; nút "Cảnh báo" bật rồi mới rào | ✅ |
-| 09 | VỪA | Người mới đỏ "Chưa có bảo hiểm · N kẹt giấy tờ" | ❓ BA |
-| 10 | VỪA | Chân sheet 5 kiểu, Xoá đỏ ngang Lưu, "Hủy/Xóa" lệch `NHAN` | ⏭ (cùng 07) |
+| 09 | VỪA | Người mới đỏ "Chưa có bảo hiểm · N kẹt giấy tờ" | ✅ lô 2 |
+| 10 | VỪA | Chân sheet 5 kiểu, Xoá đỏ ngang Lưu, "Hủy/Xóa" lệch `NHAN` | ✅ lô 2 |
 | 11 | VỪA | Lưu giấy trống tạo hàng rỗng trùng | ✅ |
-| 12 | VỪA | Xoá im lặng, không Hoàn tác; "Xong" không biên nhận | ⏭ (toast chung) |
+| 12 | VỪA | Xoá im lặng, không Hoàn tác; "Xong" không biên nhận | ✅ lô 2 |
 | 13 | VỪA | Focus ô đầu không chạy (effect lúc `mounted=false`) | ✅ |
 | 14 | VỪA | Mất cuộn khi `/tau`↔`/nguoi` | ✅ |
 | 15–16 | VỪA | 3 nút màu cạnh tranh · "Gia hạn" thêm ngăn trung gian | ✅ |
@@ -115,14 +115,14 @@ Trạng thái cột cuối được cập nhật khi lô 1 commit (xem §5).
 | 03 | CAO | Nút trên thẻ ghi "Xác nhận xóa" (3 chữ, trùng nút hộp) | ✅ |
 | 04–05 | VỪA | đang tải in "0 tin" · đăng xong không biên nhận | ✅ |
 | 06 | VỪA | Chip không nhớ, không deep-link `?muc=` | ✅ |
-| 07 | VỪA | Thẻ tin chưa có hình dáng Marketplace, không lọc nơi | ⏭ |
+| 07 | VỪA | Thẻ tin chưa có hình dáng Marketplace, không lọc nơi | ✅ lô 2 |
 | 08 | VỪA | 4 `RefNote` nền màu ở trạng thái yên | ✅ |
-| 09 | VỪA | Chưa khai cảng nhà phải sang Tàu tôi — chọn tỉnh tạm tại chỗ? | ❓ |
+| 09 | VỪA | Chưa khai cảng nhà phải sang Tàu tôi — chọn tỉnh tạm tại chỗ? | ✅ lô 2 |
 | 10–13 | VỪA | Gọi chỉ số đầu · Chợ sỉ không Gọi · ô tìm chỉ ở Nhà máy · BuyerForm Lưu ở đầu | ✅ |
 | 14 | VỪA | Hai "tuần mới nhất" lệch nhau | ✅ |
 | 15 | VỪA | Thẻ tin mình: 2 nút chen pill | ✅ (⋯ Popover) |
 | 16–17, 20–22 | THẤP | ô tìm không × · skeleton sheet · nhãn 3 chữ · bảng tĩnh nhảy · Mối quen im lặng | ✅ |
-| 18–19 | THẤP | "Nhắn" Zalo · địa chỉ mở bản đồ | ❓ |
+| 18–19 | THẤP | "Nhắn" Zalo · địa chỉ mở bản đồ | ✅ lô 2 |
 
 ### 3.6 Vật tư — người mua `/cho/**` (VT, 25)
 | Mã | Mức | Tóm tắt | Lô |
@@ -134,13 +134,13 @@ Trạng thái cột cuối được cập nhật khi lô 1 commit (xem §5).
 | 05 | CAO | ConfirmDialog huỷ/nhận không khoá, bấm đúp ra lỗi giả | ✅ |
 | 06 | CAO | Back rời trang khi ngăn mở (X1) | ✅ |
 | 07–10 | VỪA | gõ mỗi phím 1 request · mất sóng xoá kết quả · "N món" x=435 · ngăn form 1 nút không Huỷ | ✅ |
-| 11 | VỪA | Yêu cầu: gõ rồi ‹ mất, lỗi trên nút Gửi | ⏭ |
+| 11 | VỪA | Yêu cầu: gõ rồi ‹ mất, lỗi trên nút Gửi | ✅ lô 2 |
 | 12–13 | VỪA | textarea 44 px · "Không còn món mua được" khi giỏ trống | ✅ |
-| 14 | VỪA | Tab đơn không giữ qua back, số đếm theo trang | ⏭ |
+| 14 | VỪA | Tab đơn không giữ qua back, số đếm theo trang | ✅ lô 2 |
 | 15–17 | VỪA | chip `t3` nâu · 2 hình nút cam · 5 khuôn offline | ✅ |
-| 18 | VỪA | Không kéo-làm-mới | ⏭ |
+| 18 | VỪA | Không kéo-làm-mới | ✅ lô 2 |
 | 19 | VỪA | Skeleton sai tỉ lệ ⇒ nhảy | ✅ |
-| 20 | VỪA | Nút cam 3.75 rem + 2 dòng hướng dẫn + khối trống lặp | ⏭ |
+| 20 | VỪA | Nút cam 3.75 rem + 2 dòng hướng dẫn + khối trống lặp | ✅ lô 2 |
 | 21–25 | THẤP | ảnh không fallback · "Xem thêm" luôn hiện · "Đã bán 0" · control 56 px · undo mất khi giỏ trống | 21/23/24/25 ✅ · 22 ⏭ |
 
 ### 3.7 Kênh người bán `/ban-hang/**` (BH, 19)
@@ -152,29 +152,33 @@ Trạng thái cột cuối được cập nhật khi lô 1 commit (xem §5).
 | 04 | VỪA | "Chưa có gian hàng" 4 kiểu ở 6 chỗ, `/don` ngõ cụt "Thử lại" | ✅ |
 | 05–06 | VỪA | Trước/Sau thay "Xem thêm" · sau Lưu không thấy món | ✅ |
 | 07, 09, 12, 13, 18, 19 | VỪA/THẤP | chip kỳ đứng sai · băng không chạm · 2 lời nhắc 48/72h · checkbox thô · chip+ô chung state · 2 kiểu tìm | ✅ |
-| 08 | VỪA | Ô "Báo đã CK" link sai tab | ⏭ (cần lọc API) |
+| 08 | VỪA | Ô "Báo đã CK" link sai tab | ✅ lô 2 |
 | 10 | VỪA | Form trang gõ rồi ‹/back mất sạch | ✅ |
-| 11 | VỪA | Sheet Tài khoản không badge đơn chờ | ⏭ |
-| 14–17 | VỪA/THẤP | kéo-làm-mới · "mặt" gian hàng · đơn vị chip · làm bìa | ⏭ |
+| 11 | VỪA | Sheet Tài khoản không badge đơn chờ | ✅ lô 2 |
+| 14–17 | VỪA/THẤP | kéo-làm-mới · "mặt" gian hàng · đơn vị chip · làm bìa | ✅ lô 2 |
 
 ### 3.8 Kairos — vòng 3 (K3, 18)
 | Mã | Mức | Tóm tắt | Lô |
 |---|---|---|---|
 | 01 | CAO | Ô viết bình luận inline nằm DƯỚI dock, pill 128 px | ✅ |
 | 02 | CAO | Tên báo cắt "Báo …" (35–50 px cho chữ 104–113) | ✅ |
-| 03 | VỪA | Câu phụ 2 dòng + thẻ "Sắp ra khơi?" ⇒ bài đầu ở 254 px | ❓ (câu phụ anh chốt 24/10) |
+| 03 | VỪA | Câu phụ 2 dòng + thẻ "Sắp ra khơi?" ⇒ bài đầu ở 254 px | ✅ lô 2 |
 | 04 | VỪA | "Đọc bài gốc ↗" nút viền full-width, icon trùng Chia sẻ | ✅ (thẻ link preview) |
 | 05 | VỪA | ⋯ mở ngăn đáy "Thêm việc" thay Popover (03 §6 mục 9) | ✅ |
 | 06 | VỪA | Chuông: câu dẫn, tiêu đề lặp, không avatar | ✅ |
 | 07 | VỪA | Không "Xem thêm bình luận" | ✅ |
-| 08 | VỪA | Chấm cam cố định trên logo dock trông như badge | ❓ |
+| 08 | VỪA | Chấm cam cố định trên logo dock trông như badge | ✅ lô 2 |
 | 09 | VỪA | "Trang tôi" nút chữ thay avatar | ✅ |
 | 10 | VỪA | "Báo xấu" thường trực dưới mọi bình luận | ✅ |
 | 11–13 | VỪA | Bến lặp tên 3 lần · tab "Giới thiệu" gãy dòng (`Tabs` chung) · hộp Bỏ bài có cả × lẫn "Viết tiếp" | ✅ |
 | 14–17 | THẤP | viền focus ô soạn · 2 nhãn/thẻ báo · câu dẫn Tuỳ chọn · "✕ Ẩn" Cài app | ✅ |
 | 18 | THẤP | Sen Biển đè chip (X2) | ✅ (khu vỏ) |
 
-## 4. Câu hỏi cần anh Long / BA chốt (không tự làm)
+## 4. Câu hỏi treo — ĐÃ CHỐT 2026-10-25 bởi agent chuyên gia UX (anh Long: "tổ chức 1 agent chuyên gia để quyết rồi thực hiện hết")
+
+Quyết định (đã thực hiện ở lô 2): (1) badge số đỏ CHỈ ô Kairos + Vật tư, logo dock bỏ chấm cam · (2) "Đi đâu?" = ô tìm miễn phí (đã lưu · cảng · toạ độ), chỉ Dẫn đường Premium · (3) chọn tỉnh tại chỗ bằng Popover, ghi vào tàu / phiên · (4) "N chưa đọc" thật + đã-thấy trong máy + tầng 5 ưu tiên Cảng nhà › Chuông › Cài app · (5) câu phụ Kairos chỉ khi trống/khách, thẻ Tải thành pill · (6) Nhắn Zalo cạnh Gọi · (7) bảo hiểm chưa khai = xám, kẹt = quá hạn · (8) icon mắt · (9) + J/K/L/M/N kỹ thuật (xem QUYET-DINH trong lịch sử phiên; tóm tắt đưa vào 07/03 re-verified 2026-10-25f). Danh sách câu hỏi gốc giữ dưới đây làm lịch sử.
+
+### Câu hỏi gốc (lịch sử)
 
 1. **Dock có badge số không?** (VO-03) — Kairos chưa đọc + số dòng giỏ. FB có; 03 §Trợ lý "chấm không số" là luật cho nút trợ lý, không phải dock. Kèm: chấm cam cố định trên logo Kairos (K3-08) bỏ hay chỉ hiện khi có mới?
 2. **"Đi đâu?" trên bản đồ** (BD-02): khoá "đi tới toạ độ / điểm đã lưu" sau Premium không nằm trong luật `tier.ts` ("Premium mở: dự báo cá + thời tiết >3 ngày") — có cho ô tìm miễn phí (cảng · điểm đã lưu · toạ độ), chỉ dẫn đường mới cần hạng?
@@ -199,5 +203,8 @@ Trạng thái cột cuối được cập nhật khi lô 1 commit (xem §5).
 4. `useKeoLamMoi` tách từ Kairos ⇒ VT-18, BH-14, Thông báo, `/tien`, `/cang`.
 5. Khuôn bản ghi hàng-bung cho bảo dưỡng + đồ tự ghi (TAU-05); "Cài đặt khác" thành BottomSheet (TC-07); panel Thời tiết ≤40 % (BD-07); thẻ tin Marketplace + lọc nơi (CC-07); header một cỡ icon (VO-07); yêu cầu đặt hàng giữ nháp + lỗi theo ô (VT-11); tab đơn qua URL + số đếm thật (VT-14); badge đơn chờ ở sheet Tài khoản (BH-11); "mặt" gian hàng (BH-15).
 
+### Lô 2 — ĐÃ LÀM (cùng ngày, commit kế tiếp)
+Mọi mục ⏭ ở §3 và 9 câu ❓ ở §4 đã đóng theo quyết định chuyên gia: mảnh dùng chung (toast · offline-line · kéo-làm-mới · chân sheet Huỷ|Lưu · 21 nhãn mới) + 8 khu (≈95 việc). Còn ghi nợ: kiểm iPhone thật cho khoá cuộn/back; `lib/tier.ts` không đổi luật, chỉ UI bỏ gác Đến điểm.
+
 ## History
-- 2026-10-25: rà 8 khu, 158 phát hiện; lô 1 sửa theo §3 (xem commit kèm).
+- 2026-10-25: rà 8 khu, 158 phát hiện; lô 1 sửa theo §3 (commit f4d8fea2); lô 2 đóng toàn bộ backlog + 9 câu treo theo agent chuyên gia (commit kế tiếp).

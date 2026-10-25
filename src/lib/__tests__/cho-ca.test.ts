@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  banDoHref,
   boDau,
   datThamSo,
+  laSoDiDong,
+  zaloHref,
   docThamSo,
   ghepTuanHienTai,
   tachSdt,
@@ -65,5 +68,31 @@ describe("cho-ca — helper thuần khu Chợ cá", () => {
     expect(ghepTuanHienTai(pts, null)).toBe(pts);
     // chuỗi rỗng (kho chưa có loài) + tuần bảng → 1 điểm (sheet vẫn báo <2 tuần)
     expect(ghepTuanHienTai([], moi)).toHaveLength(1);
+  });
+});
+
+describe("cho-ca — Nhắn Zalo + bản đồ (CC-18/CC-19)", () => {
+  it("laSoDiDong: đầu 03/05/07/08/09 đủ 10 số; số bàn 02xx, số thiếu ⇒ false", () => {
+    expect(laSoDiDong("0905 568 899")).toBe(true);
+    expect(laSoDiDong("+84 35 123 4567")).toBe(true);
+    expect(laSoDiDong("0812345678")).toBe(true);
+    expect(laSoDiDong("028 3759 0001")).toBe(false);
+    expect(laSoDiDong("090123456")).toBe(false);
+    expect(laSoDiDong("")).toBe(false);
+  });
+  it("zaloHref: lấy số di động ĐẦU TIÊN trong chuỗi, bỏ khoảng trắng; không có ⇒ null", () => {
+    expect(zaloHref("028 3759 0001 / 0905 568 899")).toBe("https://zalo.me/0905568899");
+    expect(zaloHref("0905 568 899 / 0902 869 888")).toBe("https://zalo.me/0905568899");
+    expect(zaloHref("028 3759 0001")).toBeNull();
+  });
+  it("banDoHref: địa chỉ + tỉnh (không lặp tỉnh đã có trong địa chỉ); ngắn/trống ⇒ null", () => {
+    expect(banDoHref("Khu phố 25, Đinh Bộ Lĩnh", "Đồng Tháp")).toBe(
+      `https://maps.google.com/?q=${encodeURIComponent("Khu phố 25, Đinh Bộ Lĩnh, Đồng Tháp")}`,
+    );
+    expect(banDoHref("Phường Sa Huỳnh, tỉnh Quảng Ngãi", "Quảng Ngãi")).toBe(
+      `https://maps.google.com/?q=${encodeURIComponent("Phường Sa Huỳnh, tỉnh Quảng Ngãi")}`,
+    );
+    expect(banDoHref("—", "Cà Mau")).toBeNull();
+    expect(banDoHref(undefined)).toBeNull();
   });
 });

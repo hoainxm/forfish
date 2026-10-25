@@ -11,16 +11,64 @@ import { useCallback, useEffect, useId, useRef } from "react";
     hộp tự lưu/khôi phục body.overflow → hộp đóng trước mở khóa nền trong khi hộp sau còn). */
 let lockCount = 0;
 let savedOverflow = "";
+let savedOverscroll = "";
 export function lockBodyScroll(): void {
   if (lockCount === 0) {
     savedOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // VO-APP-09: chặn lan cuộn ra ngoài tài liệu trong lúc có hộp (iOS 16+ nghe; cùng đếm tham chiếu)
+    savedOverscroll = document.documentElement.style.overscrollBehavior;
+    document.documentElement.style.overscrollBehavior = "none";
   }
   lockCount += 1;
 }
 export function unlockBodyScroll(): void {
   lockCount = Math.max(0, lockCount - 1);
-  if (lockCount === 0) document.body.style.overflow = savedOverflow;
+  if (lockCount === 0) {
+    document.body.style.overflow = savedOverflow;
+    document.documentElement.style.overscrollBehavior = savedOverscroll;
+  }
+}
+
+/*
+  KHOÁ VUỐT NỀN TRÊN iOS SAFARI (VO-APP-09, QUYET-DINH J 2026-10-25). iOS bỏ qua `overflow:hidden` trên body:
+  vuốt trên nền mờ (hay trên phần KHÔNG cuộn được của panel) vẫn trôi trang phía sau. Không dùng khuôn
+  body `position:fixed; top:-scrollY` vì ba thứ đang đo scrollY/vị trí thật (anKhiCuon Sen Biển, Popover
+  viTriNeoNut, bàn phím iOS resizes-content) sẽ nhảy. Chặn tại nguồn: listener `touchmove` NON-PASSIVE trên
+  scrim — ngoài panel ⇒ chặn; trong panel ⇒ chỉ chặn khi từ chỗ chạm lên tới panel KHÔNG có vùng nào cuộn
+  được (vùng cuộn được thì native lo, `overscroll-behavior: contain` chặn lan). Phần quyết định là hàm thuần.
+  // nợ: iOS Safari còn có thể trôi nền khi vuốt ở vùng không cuộn của panel lúc panel có vùng cuộn con;
+  // nâng lên body position:fixed CHỈ sau khi kiểm trên iPhone thật với anKhiCuon + Popover + bàn phím
+  // (ops/qa-offline-acceptance).
+*/
+/** THUẦN: có chặn touchmove không — ngoài panel luôn chặn; trong panel chỉ khi không có gì cuộn được. */
+export function chanVuotNen(trongPanel: boolean, coVungCuon: boolean): boolean {
+  return !trongPanel || !coVungCuon;
+}
+
+/** Từ `tu` đi lên tới `panel` (kể cả panel) có phần tử nào thật sự cuộn được không. */
+export function coVungCuonTrong(tu: EventTarget | null, panel: HTMLElement): boolean {
+  let el: HTMLElement | null = tu instanceof HTMLElement ? tu : null;
+  while (el) {
+    if (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) {
+      const ov = el === panel ? "auto" : getComputedStyle(el).overflow;
+      if (/auto|scroll/.test(ov)) return true;
+    }
+    if (el === panel) break;
+    el = el.parentElement;
+  }
+  return false;
+}
+
+/** Gắn khoá vuốt lên scrim; trả hàm gỡ. `panel()` đọc qua hàm vì ref có thể gắn sau. */
+export function khoaVuotNen(scrim: HTMLElement, panel: () => HTMLElement | null): () => void {
+  const fn = (e: TouchEvent) => {
+    const p = panel();
+    const trong = !!p && e.target instanceof Node && p.contains(e.target);
+    if (chanVuotNen(trong, !!p && trong && coVungCuonTrong(e.target, p)) && e.cancelable) e.preventDefault();
+  };
+  scrim.addEventListener("touchmove", fn, { passive: false });
+  return () => scrim.removeEventListener("touchmove", fn);
 }
 
 export const FOCUSABLE =

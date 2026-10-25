@@ -4,6 +4,7 @@
 // trong price-board.tsx).
 
 import type { PricePoint } from "@/lib/port-price-history";
+import { normalizeVnPhone } from "@/lib/phone";
 
 /** "cá hố" → "ca ho": so khớp bỏ dấu cho người gõ vội / bàn phím thiếu dấu. */
 export function boDau(s: string): string {
@@ -27,6 +28,28 @@ export function tachSdt(phone: string): string[] {
 /** `tel:` chỉ nhận số và dấu + — bỏ khoảng trắng, dấu chấm. */
 export function telHref(so: string): string {
   return `tel:${so.replace(/[^\d+]/g, "")}`;
+}
+
+/** Số DI ĐỘNG VN (đầu 03/05/07/08/09, 10 số) — chỉ số này mới có Zalo; số bàn 02xx thì
+ *  không (CC-18). Nhận cả "+84 905…" / "0905 568 899". */
+export function laSoDiDong(so: string): boolean {
+  return /^0(3|5|7|8|9)\d{8}$/.test(normalizeVnPhone(so));
+}
+
+/** Đường mở Zalo tới số di động ĐẦU TIÊN trong chuỗi SĐT ("09xx / 02yy" ⇒ 09xx);
+ *  không có số di động ⇒ null (chỗ gọi chỉ vẽ "Gọi"). */
+export function zaloHref(phone: string): string | null {
+  const so = tachSdt(phone).find(laSoDiDong);
+  return so ? `https://zalo.me/${normalizeVnPhone(so)}` : null;
+}
+
+/** Địa chỉ vựa/chợ ⇒ link mở bản đồ máy (Google Maps mở app nếu có — `geo:` không có trên
+ *  iOS) (CC-19). Địa chỉ ngắn hơn 6 ký tự ("—", trống) ⇒ null, không hứa bản đồ. */
+export function banDoHref(diaChi: string | undefined, tinh?: string): string | null {
+  const d = (diaChi ?? "").trim();
+  if (d.length < 6) return null;
+  const q = tinh && !boDau(d).includes(boDau(tinh)) ? `${d}, ${tinh}` : d;
+  return `https://maps.google.com/?q=${encodeURIComponent(q)}`;
 }
 
 /** Đọc một tham số trong `?a=b&c=d`, chỉ nhận giá trị trong `cho` — lạ thì về

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { PlusIcon } from "@/components/icons";
 import { CloseButton } from "@/components/ui/close-button";
+import { NHAN } from "@/lib/labels";
 import { resizeForMarket } from "@/lib/market/image-resize";
 import { PRODUCT_IMAGE_MAX } from "@/lib/market/validate";
 
@@ -12,6 +13,7 @@ type Pending = { key: string; file: File; state: "dang_nen" | "dang_tai" | "loi"
  * Chọn + nén + tải ảnh sản phẩm (12 §8.1). Mỗi ảnh đi riêng: nén qua
  * `resizeForMarket` rồi gọi `upload`; ảnh lỗi ⇒ thẻ đỏ + Thử lại ảnh đó (không
  * chặn ảnh khác). Hàng ảnh cuộn ngang, nút X `<CloseButton>` để bỏ ảnh đã lên.
+ * Ảnh 1 là bìa; ảnh sau có nút "Làm bìa" đưa lên đầu (BH-17) — không kéo thả.
  */
 export function ImagePicker({
   value,
@@ -89,6 +91,8 @@ export function ImagePicker({
   }
 
   const remove = (url: string) => onChange(latest.current.filter((u) => u !== url));
+  /** đưa ảnh lên đầu mảng = thành ảnh bìa (BH-17) — thứ tự còn lại giữ nguyên */
+  const lamBia = (url: string) => onChange([url, ...latest.current.filter((u) => u !== url)]);
   const dropPending = (key: string) =>
     setPending((cur) => {
       const it = cur.find((x) => x.key === key);
@@ -114,6 +118,17 @@ export function ImagePicker({
               <span className="absolute bottom-1 left-1 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold" style={{ backgroundColor: "var(--card)", color: "var(--navy)" }}>
                 Ảnh bìa
               </span>
+            )}
+            {i > 0 && !chiAnh && (
+              <button
+                type="button"
+                onClick={() => lamBia(url)}
+                aria-label={`Lấy ảnh ${i + 1} làm ảnh bìa`}
+                className="absolute bottom-1 left-1 min-h-[2.25rem] rounded-full px-2.5 text-[0.75rem] font-semibold transition active:scale-95"
+                style={{ backgroundColor: "var(--card)", color: "var(--navy)" }}
+              >
+                {NHAN.lamBia}
+              </button>
             )}
             <CloseButton onClose={() => remove(url)} label={`Bỏ ảnh ${i + 1}`} className="absolute right-0 top-0 bg-card/80" />
           </div>

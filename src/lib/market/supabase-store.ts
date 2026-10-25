@@ -10,7 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isProductCategory } from "./categories";
 import { MarketError } from "./errors";
 import { makeOrderCode, makeRequestCode } from "./order-code";
-import { isOrderStatus, isPaymentMethod, isPaymentStatus } from "./order-state";
+import { choXacNhanTien, ENDED_STATUSES, isOrderStatus, isPaymentMethod, isPaymentStatus } from "./order-state";
 import { isRequestStatus, type RequestPatch } from "./request-state";
 import type { MarketStore, OrderListQuery, OrderPatch, PreparedShopOrder, RequestListQuery } from "./store";
 import { foldVn, maskPhone } from "./text";
@@ -233,6 +233,8 @@ export function createSupabaseStore(): MarketStore {
   /** Builder lọc đơn — kiểu nới lỏng (supabase-js generic quá sâu cho tsc). */
   type OrderQb = {
     eq: (col: string, val: string) => OrderQb;
+    /** PostgREST `not(col, "in", "(a,b)")` — loại đơn đã kết thúc */
+    not: (col: string, op: string, val: string) => OrderQb;
     order: (col: string, o: { ascending: boolean }) => OrderQb;
     range: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown; count: number | null }>;
   };
@@ -242,6 +244,8 @@ export function createSupabaseStore(): MarketStore {
     /*  status + code + buyerPhone áp Ở ĐÂY để ba đường (buyer / shop / admin)
         cùng một luật — trước đây code+SĐT chỉ có ở `listAllOrders`. */
     if (q?.status) qb = qb.eq("status", q.status);
+    if (q?.paymentStatus) qb = qb.eq("payment_status", q.paymentStatus);
+    if (q?.open) qb = qb.not("status", "in", `(${ENDED_STATUSES.join(",")})`);
     if (q?.code?.trim()) qb = qb.eq("code", q.code.trim().toUpperCase());
     if (q?.buyerPhone?.trim()) qb = qb.eq("buyer_phone", q.buyerPhone.trim());
     const { data, error, count } = await withSig(qb.order("created_at", { ascending: false }).range(from, to));
@@ -598,7 +602,10 @@ export function createSupabaseStore(): MarketStore {
         revenueVnd: completed.reduce((t, o) => t + num(o.total_vnd), 0),
         pendingOrders: byStatus.cho_xac_nhan,
         shippingOrders: byStatus.dang_giao,
-        awaitingPaymentConfirm: all.filter((o) => o.payment_status === "bao_da_chuyen" && o.status !== "da_huy" && o.status !== "hoan_thanh").length,
+        // cùng luật với lọc ?tt=bao_da_chuyen (BH-08) — hàng chưa map nên đưa ba cột cần dùng
+        awaitingPaymentConfirm: all.filter((o) =>
+          isOrderStatus(o.status) && isPaymentMethod(o.payment_method) && isPaymentStatus(o.payment_status) &&
+          choXacNhanTien({ status: o.status, paymentMethod: o.payment_method, paymentStatus: o.payment_status })).length,
         topProducts: [...qtyBy.entries()].map(([productId, v]) => ({ productId, ...v })).sort((a, b) => b.qty - a.qty).slice(0, 5),
         lowStock: ((low ?? []) as Row[]).map((p) => ({ productId: String(p.id), title: str(p.title) ?? "", stock: num(p.stock) })),
         byStatus,

@@ -67,6 +67,18 @@ describe("tinTamTuDraft — thẻ tin hiện ngay sau khi đăng (CC-05)", () =>
     expect(laTinTam(l.id)).toBe(true);
     expect(laTinTam("row-1")).toBe(false);
   });
+  it("máy chủ trả id thật ⇒ dùng luôn, không còn tiền tố tạm (có ⋯ ngay)", () => {
+    const l = tinTamTuDraft(draft(), {
+      id: "9",
+      idThat: "a1b2-uuid",
+      accountPhone: "0900000777",
+      today: "2026-10-25",
+    });
+    expect(l.id).toBe("a1b2-uuid");
+    expect(laTinTam(l.id)).toBe(false);
+    // idThat rỗng/null ⇒ về id tạm
+    expect(laTinTam(tinTamTuDraft(draft(), { id: "9", idThat: "", accountPhone: null, today: "2026-10-25" }).id)).toBe(true);
+  });
   it("SĐT bà con nhập thì giữ số đó", () => {
     expect(
       tinTamTuDraft(draft({ phone: "0901234567" }), {

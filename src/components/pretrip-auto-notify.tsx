@@ -50,7 +50,7 @@ import {
 import { isShellReady } from "@/lib/shell-ready";
 import { isOffline, subscribeOnline } from "@/lib/use-online";
 import { NOTIFY_HIDE_LONG_MS, NOTIFY_HIDE_MS } from "@/lib/notify";
-import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons";
+import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DownloadIcon } from "@/components/icons";
 import { SQ_BTN } from "@/components/ui/sq-btn";
 
 /** byte → "~1,2 MB" / "~340 KB" (rỗng nếu 0 — lớp nằm kho khác) */
@@ -387,7 +387,8 @@ export function PretripSavedStatus({
         ) : allSaved ? (
           <CheckIcon className="h-4 w-4 shrink-0" aria-hidden />
         ) : (
-          <AlertIcon className="h-4 w-4 shrink-0" aria-hidden />
+          /* mũi tên tải xuống, KHÔNG ⚠ (BD-08): nghĩa thật là "chưa tải xong gói" — ⚠ để cho bão · ranh giới · định vị */
+          <DownloadIcon className="h-4 w-4 shrink-0" aria-hidden />
         )}
         {/* máy hẹp (<380px): chỉ icon — hàng đáy bản đồ còn bước ngày + nút ⌃;
             chữ đầy đủ vẫn ở aria-label/title, chạm mở sheet */}
@@ -647,7 +648,7 @@ function PretripSavedSheet({
                 {l.saved ? (
                   <CheckIcon className="h-4 w-4" />
                 ) : (
-                  <AlertIcon className="h-4 w-4" />
+                  <DownloadIcon className="h-4 w-4" />
                 )}
               </span>
               <span className="min-w-0 flex-1">

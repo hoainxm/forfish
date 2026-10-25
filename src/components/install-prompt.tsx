@@ -23,10 +23,23 @@
  */
 
 import { NHAN } from "@/lib/labels";
+import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { isStandalone, isIOS, isAndroid } from "@/lib/storage-persist";
 import { useOnline } from "@/lib/use-online";
+import { useAuthUser } from "@/lib/use-auth";
+import { CHUONG_NUDGE_KEY, chonKhoiTang5, type KhoiTang5 as LoaiKhoi } from "@/lib/tang-5";
+import {
+  fetchVapidPublicKey,
+  getExistingPushSubscription,
+  isPushSupported,
+  subscribeToPush,
+  syncPushAccount,
+} from "@/lib/push-client";
+import { cangBienHomNay } from "@/components/sea-today-card";
+import { SQ_BTN } from "@/components/ui/sq-btn";
+import { baoToast } from "@/components/ui/toast";
 import {
   INSTALL_NUDGE_KEY,
   INSTALL_NUDGE_LEGACY_KEY,
@@ -37,7 +50,7 @@ import {
   shouldShowInstallNudge,
   type InstallNudgeState,
 } from "@/lib/install-nudge";
-import { AnchorIcon, ChevronDownIcon } from "@/components/icons";
+import { AnchorIcon, BellIcon, ChevronDownIcon, ChevronRightIcon } from "@/components/icons";
 import { CloseButton } from "@/components/ui/close-button";
 
 /** Dải khẩn từ ngần này dòng trở lên thì nhắc cài nhường chỗ. */
@@ -54,11 +67,11 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-function readNudge(): InstallNudgeState {
+function readNudge(key = INSTALL_NUDGE_KEY): InstallNudgeState {
   try {
     return parseInstallNudge(
-      localStorage.getItem(INSTALL_NUDGE_KEY),
-      localStorage.getItem(INSTALL_NUDGE_LEGACY_KEY),
+      localStorage.getItem(key),
+      key === INSTALL_NUDGE_KEY ? localStorage.getItem(INSTALL_NUDGE_LEGACY_KEY) : null,
     );
   } catch {
     // không đọc được localStorage — coi như chưa nhắc lần nào
@@ -66,17 +79,17 @@ function readNudge(): InstallNudgeState {
   }
 }
 
-function writeNudge(s: InstallNudgeState) {
+function writeNudge(s: InstallNudgeState, key = INSTALL_NUDGE_KEY) {
   try {
-    localStorage.setItem(INSTALL_NUDGE_KEY, JSON.stringify(s));
+    localStorage.setItem(key, JSON.stringify(s));
   } catch {
     // storage đầy/chặn — vẫn áp dụng cho phiên này
   }
 }
 
 /**
- * Bọc dải khẩn + nhắc cài (Trang chủ): đếm số dòng `li` của dải khẩn ngay
- * trong cây con của mình để ẩn nhắc cài khi dải ≥3 dòng. Không đụng
+ * Bọc dải khẩn + khối tầng 5 (Trang chủ): đếm số dòng `li` của dải khẩn ngay
+ * trong cây con của mình để ẩn khối tầng 5 khi dải ≥3 dòng. Không đụng
  * urgent-strip; không đọc lại localStorage lần hai. `children` = UrgentStrip.
  */
 export function UrgentWithInstall({ children }: { children: ReactNode }) {
@@ -96,7 +109,126 @@ export function UrgentWithInstall({ children }: { children: ReactNode }) {
     // khoảng trống trong space-y của trang
     <div ref={ref} className="space-y-4 empty:hidden">
       {children}
-      {rows < URGENT_ROWS_HIDE_INSTALL && <InstallBanner />}
+      {rows < URGENT_ROWS_HIDE_INSTALL && <KhoiTang5 />}
+    </div>
+  );
+}
+
+/*  KHỐI TẦNG 5 — MỘT khối, ưu tiên cố định (quyết định D, 2026-10-25): Chọn cảng nhà ›
+    Bật chuông báo bão › Cài app. Luật thuần ở `lib/tang-5.ts`; ở đây chỉ đọc trạng thái
+    máy (không mạng lúc mở màn: cảng nhà từ kho, đăng ký push từ service worker, sổ nhắc
+    chuông từ localStorage) rồi vẽ đúng một hàng. Mất sóng ⇒ null. */
+function KhoiTang5() {
+  const online = useOnline();
+  const [coCangNha, setCoCangNha] = useState<boolean | null>(null);
+  const [pushState, setPushState] = useState<"off" | "on" | "unknown">("unknown");
+  const [chuongXong, setChuongXong] = useState(false);
+  const [nhip, setNhip] = useState(0); // tính lại sau khi "Ẩn" chuông (sổ đổi trong máy)
+  const [khoi, setKhoi] = useState<LoaiKhoi>(null);
+  useEffect(() => {
+    setCoCangNha(cangBienHomNay() !== null);
+    if (!isPushSupported()) return;
+    let alive = true;
+    // đọc máy, không tốn sóng; không có SW (dev) ⇒ 3 s rồi coi là "off"
+    getExistingPushSubscription().then((sub) => alive && setPushState(sub ? "on" : "off"));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // tính trong effect (đọc kho + Date.now() không nằm trong lúc vẽ); chưa đọc kho ⇒ không nháy khối sai
+  useEffect(() => {
+    if (coCangNha === null) return;
+    setKhoi(
+      chonKhoiTang5({
+        online,
+        coCangNha,
+        pushHoTro: isPushSupported(),
+        pushState: chuongXong ? "on" : pushState,
+        chuongNudge: readNudge(CHUONG_NUDGE_KEY),
+        caiAppHienDuoc: !isStandalone(),
+        now: Date.now(),
+      }),
+    );
+  }, [online, coCangNha, pushState, chuongXong, nhip]);
+  if (khoi === "cang-nha") return <HangCangNha />;
+  if (khoi === "chuong") return <HangChuong onXong={() => setChuongXong(true)} onAn={() => setNhip((n) => n + 1)} />;
+  if (khoi === "cai-app") return <InstallBanner />;
+  return null;
+}
+
+/** Hàng nhẹ "Chọn cảng nhà để xem biển hôm nay ›" → /tau (TC-11); đã khai thì không bao giờ hiện lại. */
+function HangCangNha() {
+  return (
+    <Link
+      href="/tau"
+      className="surface flex min-h-(--h-row) items-center gap-3 px-4 py-3 transition active:bg-field"
+    >
+      <AnchorIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
+      <span className="min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-navy">
+        Chọn cảng nhà để xem biển hôm nay
+      </span>
+      <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/50" />
+    </Link>
+  );
+}
+
+/**
+ * Hàng "Bật chuông báo bão" + nút Bật + × Ẩn (TC-09). Bấm Bật ⇒ luồng `subscribeToPush` hiện
+ * có (khoá VAPID lấy lúc bấm — có sóng vì hàng chỉ hiện khi online); xong ⇒ "Đã bật chuông"
+ * 3 s rồi ẩn. Ẩn = hoãn 7 ngày (cùng khuôn nhắc cài). Mỗi lần hàng ra màn tính một lượt.
+ */
+function HangChuong({ onXong, onAn }: { onXong: () => void; onAn: () => void }) {
+  const { phone } = useAuthUser();
+  const [busy, setBusy] = useState(false);
+  const [daBat, setDaBat] = useState(false);
+  const marked = useRef(false);
+  useEffect(() => {
+    if (marked.current) return;
+    marked.current = true;
+    writeNudge(markInstallNudgeShown(readNudge(CHUONG_NUDGE_KEY), Date.now()), CHUONG_NUDGE_KEY);
+  }, []);
+  useEffect(() => {
+    if (!daBat) return;
+    const t = window.setTimeout(onXong, 3000);
+    return () => window.clearTimeout(t);
+  }, [daBat, onXong]);
+
+  const bat = async () => {
+    if (busy) return;
+    setBusy(true);
+    const key = await fetchVapidPublicKey();
+    const r = key ? await subscribeToPush(key, phone) : { ok: false, error: "unconfigured" };
+    setBusy(false);
+    if (r.ok) {
+      setDaBat(true);
+      void syncPushAccount(); // gắn ngay vào tài khoản, đừng đợi lần mở app sau
+      return;
+    }
+    baoToast(
+      r.error === "denied"
+        ? "Máy đang chặn thông báo — vào cài đặt máy để bật lại."
+        : "Chưa bật được — kiểm tra mạng rồi thử lại.",
+      { loai: "xau" },
+    );
+  };
+  const an = () => {
+    writeNudge(markInstallNudgeSnoozed(readNudge(CHUONG_NUDGE_KEY), Date.now()), CHUONG_NUDGE_KEY);
+    onAn();
+  };
+
+  return (
+    // pr-8: chừa chỗ cho chấm × đè góc, không đè lên nút Bật
+    <div className="surface relative flex min-h-(--h-row) items-center gap-3 py-2 pl-4 pr-8">
+      <BellIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
+      <span className="min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-navy">
+        {daBat ? "Đã bật chuông" : "Bật chuông báo bão"}
+      </span>
+      {!daBat && (
+        <button type="button" onClick={bat} disabled={busy} className={`${SQ_BTN} bg-navy text-white disabled:opacity-60`}>
+          {busy ? "Đang bật" : "Bật"}
+        </button>
+      )}
+      {!daBat && <CloseButton variant="goc" onClose={an} label={NHAN.an} />}
     </div>
   );
 }

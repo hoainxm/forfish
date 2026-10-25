@@ -2,6 +2,7 @@ import { ManHeader } from "@/components/man-header";
 import { TauToiNav } from "@/components/tau-toi-nav";
 import { TauTabs } from "@/components/tau-tabs";
 import { RequireLogin } from "@/components/require-login";
+import { ToastHost } from "@/components/ui/toast";
 import "@/components/market/market-ui.css";
 import "./tau.css";
 
@@ -24,6 +25,8 @@ export default function TauPage() {
       <RequireLogin what="hồ sơ tàu">
         <TauTabs />
       </RequireLogin>
+      {/* biên nhận nổi (xoá có Hoàn tác, "Đã ghi: làm hôm nay") — dự phòng tới khi vỏ app gắn <ToastHost/>; host thứ hai tự im */}
+      <ToastHost />
     </div>
   );
 }

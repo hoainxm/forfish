@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
+import { EyeIcon, EyeOffIcon } from "@/components/icons";
 import { Field, inputClass } from "@/components/ui/primitives";
 import { passwordRuleHint } from "@/lib/password";
 
@@ -20,7 +21,9 @@ export {
 } from "@/lib/phone";
 
 /** Ô mật khẩu có nút HIỆN/ẨN — thấy mình gõ gì thì khỏi cần ô "nhập lại"
- *  (roadmap hội đồng UX 2026-06-11).
+ *  (roadmap hội đồng UX 2026-06-11). Nút là ICON MẮT không chữ (VO-APP-13, 2026-10-25,
+ *  03 §6 mục 8 "icon quen thuộc không kèm chữ"): mắt mở/gạch bà con đã gặp ở Zalo, MoMo,
+ *  app ngân hàng; vùng chạm 2.75rem (--h-ctl), tên đọc qua aria-label + aria-pressed.
  *
  *  ⚠️ Bấm "Hiện" đổi input sang type="text" → iOS/iPadOS TỰ viết hoa chữ đầu +
  *  tự sửa chính tả (password field không bị, text field thì bị). Mật khẩu gõ
@@ -75,7 +78,7 @@ export function PasswordField({
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          className={`${inputClass} pr-16`}
+          className={`${inputClass} pr-12`}
           placeholder={goiY}
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -89,9 +92,11 @@ export function PasswordField({
           type="button"
           onClick={() => setShown((s) => !s)}
           aria-pressed={shown}
-          className="absolute inset-y-0 right-0 flex min-w-[3.5rem] items-center justify-center rounded-r-2xl text-[0.9375rem] font-semibold text-sea"
+          aria-label={shown ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+          title={shown ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+          className="absolute right-1 top-1/2 grid h-(--h-ctl) w-(--h-ctl) -translate-y-1/2 place-items-center rounded-full text-foreground/60 active:bg-field"
         >
-          {shown ? "Ẩn" : "Hiện"}
+          {shown ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
         </button>
       </span>
       {/*  NHÃN KIỂM TRA TẠI CHỖ (aria-live): nói ĐÚNG luật + trạng thái hiện tại

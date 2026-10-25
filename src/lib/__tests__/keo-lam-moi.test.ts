@@ -25,3 +25,13 @@ describe("kairos keo-lam-moi — ngưỡng theo cỡ chữ", () => {
     expect(trangThaiKeo(90, nguongKeo(20))).toBe("tha");
   });
 });
+
+describe("quangKeo — kéo nặng tay", () => {
+  it("nửa quãng ngón, trần 1,4 ngưỡng, không âm", async () => {
+    const { quangKeo } = await import("@/lib/kairos/keo-lam-moi");
+    expect(quangKeo(100, 72)).toBe(50);
+    expect(quangKeo(1000, 72)).toBeCloseTo(72 * 1.4);
+    expect(quangKeo(0, 72)).toBe(0);
+    expect(quangKeo(-30, 72)).toBe(0);
+  });
+});

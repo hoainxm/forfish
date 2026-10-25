@@ -16,3 +16,9 @@ export function trangThaiKeo(d: number, nguong: number): TrangThaiKeo {
   if (!(d > 0)) return "nghi";
   return d >= nguong ? "tha" : "keo";
 }
+
+/** Quãng kéo "nặng tay" như FB: ngón đi `d` px thì danh sách chỉ xuống nửa, và không quá 1,4 ngưỡng. */
+export function quangKeo(d: number, nguong: number): number {
+  if (!(d > 0)) return 0;
+  return Math.min(d * 0.5, nguong * 1.4);
+}

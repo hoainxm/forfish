@@ -60,6 +60,10 @@ export interface OrderListQuery {
   code?: string;
   /** SĐT người mua, đã chuẩn hoá trước khi truyền vào */
   buyerPhone?: string;
+  /** trạng thái thanh toán (BH-08: ô "Báo đã CK" ⇒ `bao_da_chuyen`) */
+  paymentStatus?: PaymentStatus;
+  /** chỉ đơn CHƯA kết thúc (∉ da_huy/hoan_thanh) — áp trong adapter để `total` khớp danh sách, không lọc sau */
+  open?: boolean;
 }
 
 export interface RequestListQuery {

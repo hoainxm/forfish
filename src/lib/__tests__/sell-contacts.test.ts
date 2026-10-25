@@ -61,3 +61,15 @@ describe("validateSellContactDraft", () => {
     ).toMatch(/nhóm/i);
   });
 });
+
+describe("STATIC_SELL_CONTACTS — chợ sỉ mang số BQL (CC-11)", () => {
+  it("chợ có `phone` trong market-channels thì bản tĩnh gộp cũng có", async () => {
+    const { STATIC_SELL_CONTACTS } = await import("@/lib/sell-contacts");
+    const { WHOLESALE_MARKETS } = await import("@/data/market-channels");
+    const coSo = WHOLESALE_MARKETS.filter((m) => m.phone);
+    expect(coSo.length).toBeGreaterThan(0);
+    for (const m of coSo) {
+      expect(STATIC_SELL_CONTACTS.find((c) => c.id === `m-${m.id}`)?.phone).toBe(m.phone);
+    }
+  });
+});

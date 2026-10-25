@@ -1,28 +1,72 @@
 "use client";
 
-import Link from "next/link";
-import { AnchorIcon } from "@/components/icons";
+import { useCallback, useState, useSyncExternalStore } from "react";
+import { CheckIcon, PinIcon } from "@/components/icons";
+import { Popover } from "@/components/ui/popover";
+import { SearchField } from "@/components/ui/search-field";
 import { SQ_BTN } from "@/components/ui/sq-btn";
-import { useBoats } from "@/components/boat-switcher";
-import { HomePref, relevanceRank } from "@/lib/region";
+import { useBoats } from "@/lib/boat-store";
+import { boDau } from "@/lib/cho-ca";
+import { NHAN } from "@/lib/labels";
+import {
+  COASTAL_PROVINCES,
+  docHomePhien,
+  ghiHomePhien,
+  HomePref,
+  provinceKey,
+  relevanceRank,
+} from "@/lib/region";
 
 /*
   Lọc theo "tàu của tôi ở đâu" — để chỉ hiện thông tin GẦN bà con.
 
-  NGUỒN SỰ THẬT DUY NHẤT = `current boat.homeProvince` (khai báo ở BoatSwitcher).
-  Trước đây có 1 nguồn localStorage riêng (`forfish.home.v1`) trùng với phần
-  khai báo trong tàu → user thấy 3 chỗ hỏi cùng câu, không sync. Đã xóa.
+  NGUỒN SỰ THẬT = `current boat.homeProvince` (khai báo ở BoatSwitcher). Trước đây có 1 nguồn
+  localStorage riêng (`forfish.home.v1`) trùng với khai báo trong tàu → 3 chỗ hỏi cùng câu,
+  không sync. Đã xóa, KHÔNG tạo lại.
 
-  useHome(): đọc tỉnh nhà từ tàu đang chọn.
-  HomeBar:   chỉ còn toggle "Chỉ gần tôi / Cả nước" — KHÔNG còn select tỉnh
-             (tỉnh nằm ở khai báo tàu); nếu tàu chưa có cảng nhà → nhắc khai báo.
+  CHỌN TẠI CHỖ (CC-09 + BD-05, 2026-10-25, như chip địa điểm của FB Marketplace): nút "Chọn"
+  mở Popover danh sách tỉnh ven biển ngay trên màn — bà con không phải rời Chợ cá sang Tàu tôi
+  chỉ để xem vựa Khánh Hòa.
+   · Có tàu đang chọn ⇒ ghi thẳng `homeProvince` của tàu đó (vẫn một nguồn).
+   · Chưa có tàu ⇒ chỉ nhớ trong PHIÊN (`sessionStorage forfish.home.phien.v1`, lib/region) —
+     đóng tab là quên, nên không có nguồn thứ hai sống lâu để lệch.
+  useHome(): đọc tỉnh nhà từ tàu trước, phiên sau; `chonTinh()` ghi theo luật trên.
+  HomeBar:   chưa có tỉnh ⇒ một hàng mảnh "Chưa có tỉnh cảng nhà · Chọn"; có tỉnh ⇒ toggle
+             "Gần <Tỉnh> / Cả nước" + nút "Đổi" mở lại Popover.
 */
 
-export function useHome(): { home: HomePref; ready: boolean } {
-  const { current, ready } = useBoats();
+/* kho phiên không bắn sự kiện ⇒ tự thông báo cho mọi useHome() đang gắn khi đổi tỉnh */
+const nghe = new Set<() => void>();
+function theoDoiPhien(cb: () => void) {
+  nghe.add(cb);
+  return () => void nghe.delete(cb);
+}
+const docPhien = () => docHomePhien();
+const docPhienServer = () => undefined;
+
+export function useHome(): {
+  home: HomePref;
+  ready: boolean;
+  /** ghi tỉnh: vào tàu đang chọn nếu có, không thì vào phiên. `false` = máy không ghi được. */
+  chonTinh: (province: string) => boolean;
+} {
+  const { current, ready, updateBoat } = useBoats();
+  const phien = useSyncExternalStore(theoDoiPhien, docPhien, docPhienServer);
+  const chonTinh = useCallback(
+    (province: string) => {
+      if (current) return updateBoat({ ...current, homeProvince: province });
+      const ok = ghiHomePhien(province);
+      if (ok) nghe.forEach((f) => f());
+      return ok;
+    },
+    [current, updateBoat],
+  );
   return {
-    home: { province: current?.homeProvince, portId: current?.homePortId },
+    home: current?.homeProvince
+      ? { province: current.homeProvince, portId: current.homePortId }
+      : { province: phien },
     ready,
+    chonTinh,
   };
 }
 
@@ -43,8 +87,8 @@ export function applyHome<T>(
 }
 
 /**
- * Thanh lọc — chỉ hiện khi tàu đã khai báo tỉnh cảng nhà.
- * Không khai báo → hiện link gọn nhắc bà con chỉnh thông tin tàu.
+ * Thanh lọc "Gần tôi / Cả nước". Chưa có tỉnh ⇒ hàng mảnh + nút Chọn (mở Popover tỉnh).
+ * `home` vẫn nhận từ caller (giữ chữ ký cũ); việc ghi đi qua `useHome().chonTinh`.
  */
 export function HomeBar({
   home,
@@ -57,51 +101,143 @@ export function HomeBar({
   near: boolean;
   setNear: (v: boolean) => void;
 }) {
+  const { chonTinh } = useHome();
+  const [nutEl, setNutEl] = useState<HTMLButtonElement | null>(null);
+  const [mo, setMo] = useState(false);
+  /** máy không ghi được tỉnh (kho tàu / phiên hỏng) — nói một dòng, không nuốt */
+  const [luuHong, setLuuHong] = useState(false);
+
+  const chon = (p: string) => {
+    const ok = chonTinh(p);
+    setLuuHong(!ok);
+    setMo(false);
+    if (ok) setNear(true);
+  };
+
+  const popover = mo && (
+    <ChonTinhPopover anchor={nutEl} dangChon={home.province} onChon={chon} onClose={() => setMo(false)} />
+  );
+  const loi = luuHong && (
+    <p role="alert" className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] font-semibold text-warn">
+      Máy chưa lưu được tỉnh — bà con thử lại nhé.
+    </p>
+  );
+
   if (!home.province) {
     return (
-      <div className="mb-3 surface p-3">
-        {/* "ở trên" là sai chỗ — thẻ tàu nằm ở khu Tàu cá, không phải màn này
-            (audit 2026-08-18 G10). Chữ ≥1rem cho người lớn tuổi. */}
-        {/*  Ô nút INLINE cuối chính hàng câu nhắc mà nó thao tác lên (luật A3),
-            và nâng vùng chạm lên sàn: đo thật link cũ 96×44px, lại nằm riêng
-            một dòng dưới câu nhắc. */}
-        <div className="flex items-stretch gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-[1rem] leading-snug text-foreground/70">
-              Khai báo <strong>tỉnh của cảng nhà</strong> trong mục Tàu tôi để app chỉ
-              hiện nơi gần bà con.
-            </p>
-          </div>
-          <Link href="/tau" className={`${SQ_BTN} bg-field text-sea`}>
-            <AnchorIcon className="h-6 w-6" />
-            Tàu tôi
-          </Link>
+      <>
+        {/* một hàng mảnh (BD-05) thay thẻ nhắc 3 dòng; "Chọn" mở danh sách ngay tại chỗ */}
+        <div className="mb-3 flex min-h-(--h-row) items-center gap-2 border-b border-line">
+          <p className="min-w-0 flex-1 text-[0.875rem] text-foreground/65">Chưa có tỉnh cảng nhà</p>
+          <button
+            ref={setNutEl}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={mo}
+            onClick={() => setMo((v) => !v)}
+            className={`${SQ_BTN} bg-field text-sea`}
+          >
+            <PinIcon className="h-4 w-4" />
+            {NHAN.chon}
+          </button>
         </div>
-      </div>
+        {loi}
+        {popover}
+      </>
     );
   }
   return (
-    <div className="mb-3 grid grid-cols-2 gap-2">
-      <button
-        type="button"
-        onClick={() => setNear(true)}
-        aria-pressed={near}
-        className={`min-h-(--h-row) rounded-xl text-[0.875rem] font-semibold ${
-          near ? "bg-navy text-white" : "bg-field text-foreground/70"
-        }`}
+    <>
+      <div className="mb-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setNear(true)}
+          aria-pressed={near}
+          className={`min-h-(--h-row) min-w-0 flex-1 truncate rounded-xl px-2 text-[0.875rem] font-semibold ${
+            near ? "bg-navy text-white" : "bg-field text-foreground/70"
+          }`}
+        >
+          Gần {home.province}
+        </button>
+        <button
+          type="button"
+          onClick={() => setNear(false)}
+          aria-pressed={!near}
+          className={`min-h-(--h-row) min-w-0 flex-1 rounded-xl px-2 text-[0.875rem] font-semibold ${
+            !near ? "bg-navy text-white" : "bg-field text-foreground/70"
+          }`}
+        >
+          Cả nước
+        </button>
+        {/* đổi tỉnh ngay tại chỗ — không bắt sang Tàu tôi */}
+        <button
+          ref={setNutEl}
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={mo}
+          aria-label={NHAN.chonTinh}
+          onClick={() => setMo((v) => !v)}
+          className={`${SQ_BTN} min-w-0 bg-field text-sea`}
+        >
+          {NHAN.doi}
+        </button>
+      </div>
+      {loi}
+      {popover}
+    </>
+  );
+}
+
+/** Danh sách tỉnh ven biển Bắc→Nam (`COASTAL_PROVINCES`), ✓ ở tỉnh đang chọn, cuộn trong
+ *  Popover; ô lọc nhanh vì 22 hàng (>8). */
+function ChonTinhPopover({
+  anchor,
+  dangChon,
+  onChon,
+  onClose,
+}: {
+  anchor: HTMLElement | null;
+  dangChon?: string;
+  onChon: (province: string) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const qf = boDau(q.trim());
+  const kChon = provinceKey(dangChon);
+  const ds = COASTAL_PROVINCES.filter((p) => !qf || boDau(p.name).includes(qf));
+  return (
+    <Popover anchor={anchor} label={NHAN.chonTinh} onClose={onClose} className="w-[16rem] p-2">
+      <SearchField value={q} onChange={setQ} placeholder="Tìm tỉnh…" label="Tìm tỉnh" className="mb-1" />
+      {/* cuộn TRONG danh sách (không để Popover tự cuộn): Popover đo lại khi cuộn và tạm bỏ
+          maxHeight ⇒ scrollTop về 0 — kiểm thật 2026-10-25, chạm hàng dưới bị trượt */}
+      <ul
+        role="listbox"
+        aria-label={NHAN.chonTinh}
+        className="max-h-[42dvh] overflow-y-auto [overscroll-behavior:contain]"
       >
-        Gần {home.province}
-      </button>
-      <button
-        type="button"
-        onClick={() => setNear(false)}
-        aria-pressed={!near}
-        className={`min-h-(--h-row) rounded-xl text-[0.875rem] font-semibold ${
-          !near ? "bg-navy text-white" : "bg-field text-foreground/70"
-        }`}
-      >
-        Cả nước
-      </button>
-    </div>
+        {ds.map((p) => {
+          const on = kChon !== "" && provinceKey(p.name) === kChon;
+          return (
+            <li key={p.name}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={on}
+                onClick={() => onChon(p.name)}
+                className={`flex min-h-(--h-row) w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-[0.9375rem] font-semibold ${
+                  on ? "text-sea" : "text-navy"
+                }`}
+              >
+                <span className="min-w-0 truncate">{p.name}</span>
+                {on && <CheckIcon className="h-5 w-5 shrink-0" />}
+              </button>
+            </li>
+          );
+        })}
+        {ds.length === 0 && (
+          <li className="px-3 py-3 text-[0.875rem] text-foreground/65">Không có tỉnh ven biển tên này.</li>
+        )}
+      </ul>
+    </Popover>
   );
 }

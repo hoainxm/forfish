@@ -680,3 +680,35 @@ export function ShareIcon(p: IconProps) {
     </svg>
   );
 }
+
+/** Mắt mở — hiện mật khẩu (VO-APP-13; icon quen từ Zalo/ngân hàng, không kèm chữ). */
+export function EyeIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+/** Mắt gạch — ẩn mật khẩu. */
+export function EyeOffIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M3.5 3.5l17 17" />
+      <path d="M10.6 6c.5-.1.9-.1 1.4-.1 6 0 9.5 6.5 9.5 6.5s-1 1.9-2.9 3.7" />
+      <path d="M6.3 7.5C3.8 9.3 2.5 12 2.5 12s3.5 6.5 9.5 6.5c1.6 0 3-.4 4.2-1" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  );
+}
+
+/** Mũi tên xuống vào khay — tải về / gói dữ liệu (BD-08: chip "Dữ liệu đi biển"; Google Maps dạy nghĩa này). */
+export function DownloadIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 17v3h16v-3" />
+      <path d="M12 4v11m-4-4 4 4 4-4" />
+    </svg>
+  );
+}

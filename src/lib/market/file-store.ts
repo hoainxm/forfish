@@ -14,6 +14,7 @@ import { buildDevSeed, type DevSeed, type SeedOrder, type SeedProduct, type Seed
 import { assertDevFileMode } from "./dev-mode";
 import { MarketError } from "./errors";
 import { makeOrderCode, makeRequestCode } from "./order-code";
+import { choXacNhanTien, isEnded } from "./order-state";
 import { patchRequest as applyRequestPatch } from "./request-state";
 import { recountRating } from "./rating";
 import type { MarketStore, OrderListQuery, PreparedShopOrder } from "./store";
@@ -241,6 +242,8 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
         (o) =>
           pred(o) &&
           (!q?.status || o.status === q.status) &&
+          (!q?.paymentStatus || o.paymentStatus === q.paymentStatus) &&
+          (!q?.open || !isEnded(o.status)) &&
           (!code || o.code === code) &&
           (!buyer || o.buyerPhone === buyer),
       )
@@ -633,7 +636,7 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
         revenueVnd: completed.reduce((t, o) => t + o.totalVnd, 0),
         pendingOrders: byStatus.cho_xac_nhan,
         shippingOrders: byStatus.dang_giao,
-        awaitingPaymentConfirm: mine.filter((o) => o.paymentStatus === "bao_da_chuyen" && o.status !== "da_huy" && o.status !== "hoan_thanh").length,
+        awaitingPaymentConfirm: mine.filter(choXacNhanTien).length, // cùng luật với lọc ?tt=bao_da_chuyen (BH-08)
         topProducts: [...qtyBy.entries()].map(([productId, v]) => ({ productId, ...v })).sort((a, b) => b.qty - a.qty).slice(0, 5),
         lowStock: s.products
           .filter((p) => p.shopId === shopId && !p.deletedAt && p.stock <= 3)

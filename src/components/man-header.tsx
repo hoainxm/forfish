@@ -10,8 +10,12 @@
     thẻ "đăng nhập ở máy khác" từng nằm cạnh "Chào bà con").
   - Thông báo trạng thái đặt NGOÀI header, đầu thân màn, nguyên bề ngang.
 
-  `compact` giữ cho tương thích: tiêu đề 1.25rem không xuống dòng. Trang chủ thôi
-  dùng từ khi chip tài khoản chỉ còn nhãn cố định 2 chữ.
+  `compact` giữ cho tương thích: tiêu đề 1.25rem không xuống dòng.
+
+  CỠ CONTROL BÊN PHẢI (VO-APP-07, QUYET-DINH L 2026-10-25): tối đa 3 control, MỖI control
+  vùng chạm 2.75rem (--h-ctl), glyph 1.5rem, cách nhau 0.5rem — ‹, ×, icon, avatar tròn
+  (Trang chủ = `KairosAvatar` chữ cái, không SĐT, không ▾) cùng MỘT cỡ. Slot ép min-h để
+  hàng tiêu đề không nhấp nhô theo nội dung bên phải.
 */
 export function ManHeader({
   title,
@@ -21,7 +25,7 @@ export function ManHeader({
 }: {
   title: React.ReactNode;
   sub?: string;
-  /** MỘT nút ngắn bên phải. Không đặt thẻ/thông báo vào đây. */
+  /** Tối đa 3 control 2.75rem bên phải (icon tròn / ‹ / × / avatar). Không đặt thẻ/thông báo vào đây. */
   right?: React.ReactNode;
   /** Tiêu đề 1.25rem, không xuống dòng. */
   compact?: boolean;
@@ -36,7 +40,7 @@ export function ManHeader({
         >
           {title}
         </h1>
-        {right && <div className="shrink-0">{right}</div>}
+        {right && <div className="flex min-h-(--h-ctl) shrink-0 items-center gap-2">{right}</div>}
       </div>
       {sub && <p className="text-[0.875rem] leading-snug text-foreground/65">{sub}</p>}
     </header>

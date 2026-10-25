@@ -23,7 +23,7 @@ import {
 import type { OwnedAssets } from "@/lib/owned-assets";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, inputClass } from "@/components/ui/primitives";
-import { CheckIcon, CloseIcon } from "@/components/icons";
+import { CheckIcon } from "@/components/icons";
 import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { NHAN } from "@/lib/labels";
 
@@ -66,7 +66,13 @@ export function SdvicoAssignPrompt({ assets }: { assets: OwnedAssets | null }) {
       </div>
 
       {open && (
-        <BottomSheet kieu="form" title="Đồ này của tàu nào?" onClose={cancel}>
+        <BottomSheet
+          kieu="form"
+          title="Đồ này của tàu nào?"
+          onClose={cancel}
+          /* chân Huỷ|Lưu do ngăn vẽ (TAU-07/TAU-10) */
+          chan={{ luu: NHAN.luu, onLuu: save }}
+        >
           <p className="mb-3 text-[0.9375rem] leading-snug text-foreground/70">
             Bà con có nhiều tàu — món này của tàu nào thì chọn tàu đó để app nhắc
             đúng. Không rõ thì cứ để &ldquo;Dùng chung&rdquo;.
@@ -93,16 +99,6 @@ export function SdvicoAssignPrompt({ assets }: { assets: OwnedAssets | null }) {
               </li>
             ))}
           </ul>
-          <div className="mt-2 flex items-stretch justify-end gap-2">
-            <button type="button" onClick={cancel} className={`${SQ_BTN} bg-background text-foreground/70`}>
-              <CloseIcon className="h-6 w-6" />
-              {NHAN.huy}
-            </button>
-            <button type="button" onClick={save} className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}>
-              <CheckIcon className="h-6 w-6" />
-              {NHAN.luu}
-            </button>
-          </div>
         </BottomSheet>
       )}
     </>

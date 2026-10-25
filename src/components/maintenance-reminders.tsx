@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertIcon,
   CheckIcon,
-  CloseIcon,
+  ChevronDownIcon,
   EditIcon,
   PlusIcon,
   TrashIcon,
@@ -16,7 +16,10 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass } from "@/components/ui/primitives";
+import { baoToast } from "@/components/ui/toast";
 import { formatVnDate } from "@/lib/format";
+import { NHAN } from "@/lib/labels";
+import { useXoaCho } from "@/lib/xoa-cho";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
 import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
@@ -31,11 +34,11 @@ import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
 
 /*
-  Nhắc bảo dưỡng — same shape as the document vault so users learn it once:
-  · each job is ONE card with ONE colour-coded status banner
-  · "Vừa làm xong hôm nay" is the most common action, so it sits right
-    on the card — one tap and the clock resets
-  · add/edit happens in a bottom sheet with big inputs and two big buttons
+  Nhắc bảo dưỡng — cùng khuôn Tủ giấy tờ để bà con học một lần (03 §0b, TAU-05 2026-10-25):
+  · mỗi việc MỘT HÀNG trong `ul.surface divide-y`: tên + tình trạng chữ màu; chạm bung chi tiết
+    (chu kỳ, ghi chú) + Sửa · Xoá — một hàng bung một lúc
+  · "Xong" (vừa làm hôm nay) là việc bấm nhiều nhất ⇒ ở NGOÀI hàng, như "Gọi" của bạn thuyền
+  · thêm/sửa trong ngăn `kieu="form"` có chân Huỷ|Lưu do ngăn vẽ
 */
 
 export const MAINTENANCE_STORAGE_KEY = "forfish.maintenance.v1";
@@ -126,6 +129,8 @@ export function MaintenanceReminders() {
   const [readFailed, setReadFailed] = useState(false);
   const [editing, setEditing] = useState<MaintenanceEntry | null>(null);
   const [showForm, setShowForm] = useState(false);
+  /** việc đang bung chi tiết — một hàng một lúc */
+  const [openId, setOpenId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<MaintenanceEntry | null>(
     null,
   );
@@ -155,11 +160,21 @@ export function MaintenanceReminders() {
       effect cũ `if (ready) save(entries)` chạy ngay khi mở màn ⇒ máy đầy thì
       băng đỏ "CHƯA lưu được" bật dù chưa nhập gì. Nay chỉ `commit()` từ upsert
       / vừa làm xong / xoá. Đọc hỏng thì KHÔNG ghi. */
-  function commit(next: MaintenanceEntry[]) {
+  function commit(next: MaintenanceEntry[]): boolean {
     setEntries(next);
-    if (readFailed) return;
-    setSaveFailed(!saveEntries(next));
+    if (readFailed) return false;
+    const ok = saveEntries(next);
+    setSaveFailed(!ok);
+    return ok;
   }
+
+  // Xoá chờ 5 s + Hoàn tác (TAU-12): hàng biến ngay, ghi máy sau — lib/xoa-cho
+  const xoaCho = useXoaCho<MaintenanceEntry>({
+    list: entries,
+    hien: setEntries,
+    ghi: commit,
+    ten: (e) => e.item,
+  });
 
   // Xóa tàu → lịch bảo dưỡng tàu đó đã bị purge (ba-spec 08 R3); đọc lại.
   // Đọc lại không được → GIỮ NGUYÊN thứ đang hiện, khoá cửa ghi.
@@ -206,13 +221,8 @@ export function MaintenanceReminders() {
     const next = entries.map((e) =>
       e.id === id ? { ...e, lastDone: todayIso } : e,
     );
-    commit(next);
-  }
-
-  function remove(id: string) {
-    const next = entries.filter((e) => e.id !== id);
-    commit(next);
-    setConfirmDelete(null);
+    // biên nhận (TAU-12): lastDone đã là hôm nay thì màn không đổi gì — không toast là bấm câm
+    if (commit(next)) baoToast("Đã ghi: làm hôm nay");
   }
 
   return (
@@ -280,89 +290,88 @@ export function MaintenanceReminders() {
         </div>
       )}
 
-      <ul className="space-y-3">
-        {sorted.map((entry) => {
-          const status = getDueStatus(entry, today);
-          const level =
-            status.level === "overdue"
-              ? ("danger" as const)
-              : status.level === "soon"
-                ? ("warn" as const)
-                : ("ok" as const);
-          return (
-            <li
-              key={entry.id}
-              className="overflow-hidden surface"
-            >
-              {/* status banner — the first thing the eye lands on */}
-              <StatusBanner level={level}>{status.label}</StatusBanner>
-
-              {/*  THÂN THẺ theo khuôn hàng chung (luật B1): mỗi dòng là
-                  [thân flex-1 min-w-0] + [ô nút w-16]. Nút "Xong" (trước là
-                  "Vừa làm xong hôm nay" full-width, bấm nhiều nhất màn nên trả
-                  giá chiều cao trên MỌI thẻ) nay inline cuối chính hàng "Chu kỳ"
-                  mà nó thao tác lên. */}
-              <div className="tau-record space-y-2 p-3">
-                <div className="flex items-stretch gap-2">
-                  <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                    <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
-                      {entry.item}
-                    </p>
-                  </div>
+      {/*  MỖI VIỆC MỘT HÀNG (TAU-05, 2026-10-25) — cùng khuôn Tủ giấy tờ: trước mỗi việc là một
+          thẻ băng màu đặc + 3 hộp nền + Sửa/Xóa/Xong bày thường trực (230px cho một việc). Nay
+          hàng = tên + tình trạng chữ màu (màu luôn kèm chữ) + ▾; "Xong" ngoài hàng; bung ⇒ chu
+          kỳ, ghi chú, Sửa · Xoá. Không đổi shape localStorage. */}
+      {sorted.length > 0 && (
+        <ul className="surface divide-y divide-line overflow-hidden">
+          {sorted.map((entry) => {
+            const status = getDueStatus(entry, today);
+            const tone =
+              status.level === "overdue"
+                ? "text-danger"
+                : status.level === "soon"
+                  ? "text-warn"
+                  : "text-ok";
+            const open = openId === entry.id;
+            return (
+              <li key={entry.id}>
+                <div className="flex min-h-(--h-row) items-center gap-2 px-4 py-2.5">
                   <button
-                    onClick={() => {
-                      setEditing(entry);
-                      setShowForm(true);
-                    }}
-                    className={`${SQ_BTN} bg-background text-sea`}
+                    type="button"
+                    onClick={() => setOpenId(open ? null : entry.id)}
+                    aria-expanded={open}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    <EditIcon className="h-6 w-6" />
-                    Sửa
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words text-[1rem] font-semibold leading-snug text-navy">
+                        {entry.item}
+                      </span>
+                      <span className={`mt-0.5 block text-[0.8125rem] leading-snug ${tone}`}>
+                        {status.label}
+                      </span>
+                    </span>
+                    <ChevronDownIcon
+                      className={`h-4 w-4 shrink-0 text-foreground/40 transition ${open ? "rotate-180" : ""}`}
+                    />
                   </button>
+                  {/* việc bấm nhiều nhất ⇒ ngoài hàng (03 §0b cho phép, như "Gọi" của bạn thuyền) */}
                   <button
-                    onClick={() => setConfirmDelete(entry)}
-                    className={`${SQ_BTN} bg-background text-danger`}
+                    type="button"
+                    onClick={() => markDoneToday(entry.id)}
+                    className={`${SQ_BTN} bg-field text-ok`}
                   >
-                    <TrashIcon className="h-6 w-6" />
-                    Xóa
+                    <CheckIcon className="h-4 w-4" />
+                    {NHAN.xong}
                   </button>
                 </div>
 
-                <div className="flex items-stretch gap-2">
-                  <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                    <p className="text-[1rem] text-foreground/70">
+                {open && (
+                  <div className="space-y-1.5 bg-background/60 px-4 pb-3 pt-1">
+                    <p className="text-[0.875rem] text-foreground/75">
                       Chu kỳ: mỗi {entry.intervalDays} ngày · làm gần nhất{" "}
                       <strong>{formatVnDate(entry.lastDone)}</strong>
                     </p>
-                  </div>
-                  <button
-                    onClick={() => markDoneToday(entry.id)}
-                    className={SQ_BTN}
-                    style={{
-                      backgroundColor: "var(--ok-bg)",
-                      color: "var(--ok)",
-                    }}
-                  >
-                    <CheckIcon className="h-6 w-6" />
-                    Xong
-                  </button>
-                </div>
-
-                {entry.note && (
-                  <div className="flex items-stretch gap-2">
-                    <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[0.875rem] text-foreground/70">
-                        {entry.note}
-                      </p>
+                    {entry.note && (
+                      <p className="text-[0.875rem] text-foreground/75">{entry.note}</p>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          setEditing(entry);
+                          setShowForm(true);
+                        }}
+                        className={`${SQ_BTN} bg-field text-navy`}
+                      >
+                        <EditIcon className="h-4 w-4" />
+                        {NHAN.sua}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(entry)}
+                        className={`${SQ_BTN} bg-field text-danger`}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                        {NHAN.xoa}
+                      </button>
                     </div>
-                    <span className="w-16 shrink-0" aria-hidden />
                   </div>
                 )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {/*  Bỏ dòng chân trang "lưu ngay trên máy" (D1) — không cấp dữ liệu,
           không dặn dò an toàn, chỉ giải thích app hoạt động thế nào; chỗ đúng
@@ -382,12 +391,15 @@ export function MaintenanceReminders() {
       {confirmDelete && (
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
-          title="Xóa nhắc nhở này?"
-          message={`“${confirmDelete.item}” sẽ bị xóa khỏi danh sách và không thể khôi phục.`}
-          cancelLabel="Không xóa"
-          confirmLabel="Xác nhận xóa"
+          title="Xoá nhắc nhở này?"
+          message={`“${confirmDelete.item}” sẽ bị xoá khỏi danh sách. Có 5 giây để hoàn tác.`}
+          cancelLabel={NHAN.khongXoa}
+          confirmLabel={NHAN.xoa}
           onCancel={() => setConfirmDelete(null)}
-          onConfirm={() => remove(confirmDelete.id)}
+          onConfirm={() => {
+            xoaCho(confirmDelete.id);
+            setConfirmDelete(null);
+          }}
         />
       )}
     </div>
@@ -447,8 +459,9 @@ function MaintenanceForm({
   const [loiChuKy, setLoiChuKy] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  /** Gọi từ Enter trong form (có event) lẫn nút Lưu ở chân ngăn (không event). */
+  function submit(e?: React.FormEvent) {
+    e?.preventDefault();
     const item =
       picked === OTHER ? customItem.trim() || "Việc bảo dưỡng" : picked;
     const interval = Math.round(Number(intervalDays));
@@ -468,9 +481,12 @@ function MaintenanceForm({
   }
 
   return (
-    <BottomSheet kieu="form"
+    <BottomSheet
+      kieu="form"
       title={initial ? "Sửa nhắc nhở bảo dưỡng" : "Thêm nhắc nhở bảo dưỡng"}
       onClose={onCancel}
+      /* chân Huỷ|Lưu do ngăn vẽ (TAU-07/TAU-10): Huỷ sau khi gõ hỏi "Bỏ phần đang ghi?" */
+      chan={{ luu: NHAN.luu, onLuu: () => submit() }}
     >
       <form ref={formRef} onSubmit={submit} noValidate>
         <Field label="Bà con cần bảo dưỡng gì?">
@@ -615,29 +631,10 @@ function MaintenanceForm({
           </Field>
         )}
 
-        {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
-        <div className="mt-3 flex items-stretch gap-2">
-          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-            <p className="text-[0.875rem] text-foreground/70">
-              Nhắc lại sau mỗi {Math.max(1, Number(intervalDays) || 60)} ngày.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className={`${SQ_BTN} bg-background text-foreground/70`}
-          >
-            <CloseIcon className="h-6 w-6" />
-            Hủy
-          </button>
-          <button
-            type="submit"
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
-          >
-            <CheckIcon className="h-6 w-6" />
-            Lưu
-          </button>
-        </div>
+        {/* câu nhắc đứng riêng, KHÔNG chen vào hàng nút (TAU-10) */}
+        <p className="mt-3 text-[0.875rem] leading-snug text-foreground/70">
+          Nhắc lại sau mỗi {Math.max(1, Number(intervalDays) || 60)} ngày.
+        </p>
       </form>
     </BottomSheet>
   );

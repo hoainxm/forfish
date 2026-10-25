@@ -16,6 +16,7 @@ import { SettingsIcon } from "@/components/icons";
 import { ManHeader } from "@/components/man-header";
 import { MarketHeader } from "@/components/market/shared/market-header";
 import { loadFeedCache, loadTuyChon, portLabel } from "@/lib/kairos/feed-client";
+import { hienCauPhu } from "@/lib/kairos/dau-man";
 import { authorToi } from "@/lib/kairos/ho-so";
 import { useAuthUser } from "@/lib/use-auth";
 import type { TuyChon } from "@/lib/kairos/tuy-chon";
@@ -33,7 +34,9 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
   const [tuyChon, setTuyChon] = useState<TuyChon | null>(null);
   /** ngăn đang mở: bản tuỳ chọn lúc mở (đọc lại từ máy để khớp cái dòng tin đang dùng) */
   const [mo, setMo] = useState<TuyChon | null>(null);
-  const { phone } = useAuthUser();
+  const { phone, ready: authReady, signedIn } = useAuthUser();
+  /** dòng tin trống? (KairosFeed báo; null = chưa đọc máy) — câu phụ chỉ hiện khi trống hoặc khách (E K3-03) */
+  const [trong, setTrong] = useState<boolean | null>(null);
   /** mình trong bản lưu dòng tin (chỉ localStorage, không mạng) — null ⇒ chữ cái "T" */
   const [toi, setToi] = useState<{ profileId: string; handle: string } | null>(null);
   useEffect(() => {
@@ -59,7 +62,8 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
               {title}
             </span>
           }
-          sub={sub}
+          // câu phụ chỉ khi chưa có gì để đọc hoặc khách chưa đăng nhập — có bài thì header 68px như màn khác
+          sub={hienCauPhu({ authReady, signedIn, trong }) ? sub : undefined}
           right={
             <div className="flex items-center gap-2">
               <ChuongKairos />
@@ -84,6 +88,7 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
         view={a.view}
         added={a.added}
         onCompose={() => a.compose({ kind: "new", port })}
+        onTrong={port ? undefined : setTrong}
       />
       {mo && (
         <TuyChonSheet

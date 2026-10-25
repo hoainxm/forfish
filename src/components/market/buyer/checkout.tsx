@@ -20,9 +20,10 @@ import { EmptyNet } from "@/components/market/shared/empty-net";
 import { LineThumb } from "@/components/market/shared/line-thumb";
 import { MoneyText } from "@/components/market/shared/price-text";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { Field, PrimaryButton } from "@/components/ui/primitives";
+import { Field, PrimaryButton, textareaClass } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { formatVnd } from "@/lib/format";
+import { NHAN } from "@/lib/labels";
 import {
   loadAddresses, saveAddresses, seedAddress, setDefaultAddress, upsertAddress, type SavedAddress,
 } from "@/lib/market/addresses";
@@ -35,7 +36,7 @@ import { NOTE_MAX, validateAddress } from "@/lib/market/validate";
 import { useAuthUser } from "@/lib/use-auth";
 import { loadHome } from "@/lib/region";
 import { useMarketCart, useOnlineState } from "./hooks";
-import { ErrorBlock, SheetActions, primaryLinkClass, textareaClass } from "./ui";
+import { ErrorBlock, SheetActions, primaryLinkClass } from "./ui";
 import { NOTIFY_HIDE_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 type QuoteRes = { quote: CartQuote; titles: Record<string, string> };
@@ -352,7 +353,7 @@ export function Checkout() {
           {gioTrong ? "Giỏ đang trống." : items.length === 0 ? "Chưa chọn món nào để đặt." : "Không còn món nào mua được trong giỏ."}
         </p>
         <Link href={gioTrong ? "/cho" : "/cho/gio"} className={`${gioTrong ? primaryLinkClass : "sq-btn bg-field text-navy"} mx-auto mt-4 max-w-[15rem]`}>
-          {gioTrong ? "Mua đồ" : "Về giỏ"}
+          {gioTrong ? "Mua đồ" : NHAN.veGio}
         </Link>
       </div>
     );
@@ -392,9 +393,9 @@ export function Checkout() {
       <section className="mt-3">
         <p className="mb-2 text-[1rem] font-semibold text-navy">2. Cách trả tiền</p>
         <div className="flex flex-wrap gap-2">
-          <PayChip on={method === "cod"} onClick={() => setMethod("cod")}>Tiền mặt</PayChip>
+          <PayChip on={method === "cod"} onClick={() => setMethod("cod")}>{NHAN.tienMat}</PayChip>
           <PayChip on={method === "chuyen_khoan"} disabled={!canBank} onClick={() => setMethod("chuyen_khoan")}>
-            Chuyển khoản
+            {NHAN.chuyenKhoan}
           </PayChip>
         </div>
         {!canBank && (

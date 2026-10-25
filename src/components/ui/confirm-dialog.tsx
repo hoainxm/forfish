@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useExitTransition } from "@/lib/use-exit-transition";
 import { tapFeedback } from "@/lib/haptics";
-import { focusablesIn, lockBodyScroll, unlockBodyScroll, useLichSuDong, vongFocus } from "@/lib/dialog-focus";
+import { focusablesIn, khoaVuotNen, lockBodyScroll, unlockBodyScroll, useLichSuDong, vongFocus } from "@/lib/dialog-focus";
 
 /*
   ConfirmDialog dùng chung — thay 4 bản copy-paste (xác nhận xóa…), kèm a11y:
@@ -35,6 +35,7 @@ export function ConfirmDialog({
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
   const { closing, requestClose } = useExitTransition(onCancel);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -53,6 +54,8 @@ export function ConfirmDialog({
     // khoá cuộn nền + GIỮ FOCUS trong hộp (rà bố cục 2026-10-22 — trước đây Tab chạy ra
     // trang dưới nền mờ, cuộn được trang sau lưng hộp). Dùng chung với BottomSheet.
     lockBodyScroll();
+    // VO-APP-09: touchmove non-passive trên scrim — iOS không trôi trang sau (lib/dialog-focus khoaVuotNen)
+    const goVuot = scrimRef.current ? khoaVuotNen(scrimRef.current, () => cardRef.current) : undefined;
     cancelRef.current?.focus();
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -73,6 +76,7 @@ export function ConfirmDialog({
     document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("keydown", onKey, true);
+      goVuot?.();
       unlockBodyScroll();
       opener?.focus?.();
     };
@@ -84,7 +88,8 @@ export function ConfirmDialog({
   // card `relative z-10`) để dialog z-40 luôn nổi trên bottom-nav/sheet.
   return createPortal(
     <div
-      /* touch-none: iOS bỏ qua overflow:hidden trên body — vuốt trên nền mờ không trôi trang sau (VO-APP-09) */
+      ref={scrimRef}
+      /* touch-none + touchmove preventDefault: iOS bỏ qua overflow:hidden trên body — vuốt trên nền mờ không trôi trang sau (VO-APP-09) */
       className={`fixed inset-0 z-40 flex touch-none items-center justify-center bg-black/50 px-6 ${
         closing ? "anim-scrim-out" : "anim-scrim-in"
       }`}

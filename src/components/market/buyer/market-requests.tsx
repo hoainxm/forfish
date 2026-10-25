@@ -8,22 +8,31 @@
 // Mất sóng: hiện bản lưu (requests-cache) + tuổi bản lưu; nút gửi vô hiệu kèm lý do.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRightIcon, DocIcon } from "@/components/icons";
 import { AddressForm } from "@/components/market/shared/address-form";
 import { EmptyNet } from "@/components/market/shared/empty-net";
+import { useLeaveGuard } from "@/components/market/shared/market-header";
+import { NetChip } from "@/components/market/shared/net-chip";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { EmptyState, Field, PrimaryButton, inputClass } from "@/components/ui/primitives";
+import { OfflineLine } from "@/components/ui/offline-line";
+import { EmptyState, Field, PrimaryButton, inputClass, textareaClass } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
+import { KeoLamMoiChi, useKeoLamMoi } from "@/components/ui/use-keo-lam-moi";
 import { clockVN } from "@/lib/day-labels";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { formatVnd } from "@/lib/format";
+import { NHAN } from "@/lib/labels";
 import { loadAddresses, saveAddresses, seedAddress, upsertAddress } from "@/lib/market/addresses";
 import { marketGet, marketPost, marketSend } from "@/lib/market/client";
 import { etaLabel, vnToday } from "@/lib/market/eta";
 import { PAYMENT_METHOD_LABEL } from "@/lib/market/order-state";
+import {
+  coChuMoi, docNhapYeuCau, duDeGui, loiTungO, luuNhapYeuCau, oDauSai, xoaNhapYeuCau,
+  type RequestFieldErrors, type RequestFieldKey, type RequestFormDraft,
+} from "@/lib/market/request-form";
 import { loadCachedRequests, saveCachedRequests } from "@/lib/market/requests-cache";
 import { quoteTotal, REQUEST_STATUS_CHIP, REQUEST_STATUS_LABEL } from "@/lib/market/request-state";
 import type { Address, MarketRequest, Order, PaymentMethod, RequestStatus } from "@/lib/market/types";
@@ -32,7 +41,7 @@ import { validateAddress, validateRequestDraft } from "@/lib/market/validate";
 import { loadHome } from "@/lib/region";
 import { useAuthUser } from "@/lib/use-auth";
 import { useOnlineState } from "./hooks";
-import { ErrorBlock, SheetActions, primaryLinkClass, textareaClass } from "./ui";
+import { ErrorBlock, SheetActions, primaryLinkClass } from "./ui";
 
 export function RequestStatusChip({ status }: { status: RequestStatus }) {
   const c = REQUEST_STATUS_CHIP[status];
@@ -53,10 +62,18 @@ export function MyRequests() {
   const [status, setStatus] = useState<"loading" | "ok" | "error" | "offline">("loading");
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
-    setStatus("loading");
+  /** chip báo khi KÉO LÀM MỚI mà mất sóng/lỗi — giữ danh sách đang xem (VT-18) */
+  const [netNote, setNetNote] = useState<{ state: "offline" | "error"; text: string } | null>(null);
+
+  /** `im` = làm mới lặng (kéo xuống): không skeleton lại cả màn, hỏng thì giữ danh sách + một chip */
+  const load = useCallback(async (im = false) => {
+    if (!im) setStatus("loading");
     const res = await marketGet<{ items: MarketRequest[] }>("/api/cho/yeu-cau");
     if (!res.ok) {
+      if (im) {
+        setNetNote({ state: res.offline ? "offline" : "error", text: res.offline ? "Không có sóng — đang xem bản đã tải" : "Chợ trục trặc — đang xem bản đã tải" });
+        return;
+      }
       const c = loadCachedRequests(phone);
       if (c) {
         setItems(c.items);
@@ -65,6 +82,7 @@ export function MyRequests() {
       } else setStatus(res.offline ? "offline" : "error");
       return;
     }
+    setNetNote(null);
     setItems(res.data.items);
     setSavedAt(null);
     setStatus("ok");
@@ -72,26 +90,30 @@ export function MyRequests() {
   }, [phone]);
   useEffect(() => void load(), [load]);
   useOnlineRefetch(() => void load());
+  const lamMoi = useKeoLamMoi(() => load(true), { disabled: status === "loading" });
 
   return (
     <div className="px-4 pb-[7rem] pt-3">
-      <Link href="/cho/yeu-cau/moi" className={primaryLinkClass}>
-        + Đặt món không có trên chợ
-      </Link>
-      <p className="mt-2 text-[1rem] text-foreground/75">
-        Ghi món cần — chủ sàn tìm hàng, báo giá và ngày giao. Bà con đồng ý thì mới thành đơn.
-      </p>
-      {savedAt != null && (
-        <p className="mt-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">
+      {/*  VT-20: nút "+ Đặt món" đã lên header (`MarketHeader right`, app/cho/yeu-cau/page.tsx);
+          bỏ nút cam 3.75rem + hai dòng hướng dẫn — ba lớp chữ nói cùng một điều. */}
+      {netNote && <NetChip state={netNote.state} text={netNote.text} />}
+      {savedAt != null && (online ? (
+        <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">
           Đang xem bản lưu trong máy ({savedAgoLabel(savedAt)}) — có sóng sẽ tự tải mới.
         </p>
-      )}
-      <div className="mt-4">
+      ) : (
+        <div className="mb-3 overflow-hidden rounded-2xl"><OfflineLine savedAt={savedAt} /></div>
+      ))}
+      <KeoLamMoiChi {...lamMoi.chi} />
+      <div>
         {status === "loading" && <div className="surface h-28 animate-pulse" role="status" aria-label="Đang tải" />}
         {status === "error" && <ErrorBlock what="yêu cầu đặt hàng" onRetry={() => void load()} />}
         {status === "offline" && <EmptyNet what="yêu cầu đặt hàng" onRetry={() => void load()} />}
         {status === "ok" && items.length === 0 && (
-          <EmptyState icon={<DocIcon className="h-8 w-8" />}>Chưa có yêu cầu nào. Cần món gì chợ chưa bán thì bấm nút cam ở trên.</EmptyState>
+          <EmptyState icon={<DocIcon className="h-8 w-8" />}>
+            Chưa có yêu cầu nào.
+            <span className="mt-3 block"><Link href="/cho/yeu-cau/moi" className="sq-btn bg-field text-navy">Đặt món</Link></span>
+          </EmptyState>
         )}
         {status === "ok" && items.length > 0 && (
           <ul className="flex flex-col gap-3">
@@ -117,19 +139,25 @@ export function MyRequests() {
           </ul>
         )}
       </div>
-      {!online && status !== "loading" && <p className="mt-3 text-[1rem] text-foreground/70">Gửi yêu cầu mới cần có sóng.</p>}
+      {!online && status !== "loading" && savedAt == null && (
+        <div className="mt-3 overflow-hidden rounded-2xl"><OfflineLine extra=" · gửi yêu cầu mới cần có sóng" /></div>
+      )}
     </div>
   );
 }
 
 // ── Gửi yêu cầu mới ──────────────────────────────────────────────────────
 const UNITS = ["cái", "bộ", "thùng", "cuộn", "kg", "lít", "tấm"];
-/* nhãn ≤2 chữ (03 §Nhãn) — `PAYMENT_METHOD_LABEL` ("Trả tiền khi nhận hàng") dành cho câu đọc,
-   không cho chip; chưa có trong labels.ts nên tạm đặt tại chỗ (ghi DONE.md cho khu cho-ca) */
+/* nhãn ≤2 chữ (03 §Nhãn) — `PAYMENT_METHOD_LABEL` ("Trả tiền khi nhận hàng") dành cho câu đọc, không cho chip */
 const PAY_OPTIONS: readonly ChipOption<PaymentMethod>[] = [
-  { id: "cod", label: "Tiền mặt" },
-  { id: "chuyen_khoan", label: "Chuyển khoản" },
+  { id: "cod", label: NHAN.tienMat },
+  { id: "chuyen_khoan", label: NHAN.chuyenKhoan },
 ];
+
+/** Bản đầu của form — để biết bà con đã gõ gì chưa (hỏi "Bỏ phần đang ghi?") */
+const banDau = (title: string, qty: number, unit: string): RequestFormDraft => ({
+  title, qty: String(qty), unit, description: "", needBy: "", pay: "cod",
+});
 
 /** điền sẵn từ ?ten= &sl= &dv= (ô tìm không ra món · Sen Biển "nhờ chủ sàn tìm 2 cái …") */
 export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "cái" }: { initialTitle?: string; initialQty?: number; initialUnit?: string }) {
@@ -137,20 +165,43 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
   const online = useOnlineState();
   const { phone, ready } = useAuthUser();
   const homeProvince = loadHome()?.province;
-  const [title, setTitle] = useState(initialTitle);
-  const [qty, setQty] = useState(String(initialQty));
-  const [unit, setUnit] = useState(initialUnit);
-  const [description, setDescription] = useState("");
-  const [needBy, setNeedBy] = useState("");
-  const [pay, setPay] = useState<PaymentMethod>("cod");
+  /*  VT-11: một object cho cả form — nháp ghi/đọc một cục, lỗi theo ô dò theo khoá.
+      Mở từ link có ?ten= là việc MỚI (Sen Biển / trang món "Nhờ báo giá") ⇒ dùng link, không
+      nhả nháp cũ; mở trơn thì khôi phục nháp còn trong phiên (gõ dở rồi chạm ‹ / lỡ sang màn). */
+  const goc = banDau(initialTitle, initialQty, initialUnit);
+  const [d, setD] = useState<RequestFormDraft>(goc);
+  const [daDocNhap, setDaDocNhap] = useState(false);
   const [addr, setAddr] = useState<Address | null>(null);
   const [addrSheet, setAddrSheet] = useState(false);
-  /** lỗi tên món / số lượng — vẽ ở trang */
+  /** lỗi THEO Ô — câu ngay dưới ô sai, viền đỏ (Field error), focus + cuộn tới ô đầu sai */
+  const [loiO, setLoiO] = useState<RequestFieldErrors>({});
+  /** lỗi gửi (mạng / máy chủ) — vẽ trên nút Gửi; lỗi ô không còn nằm đây */
   const [err, setErr] = useState<string | null>(null);
   /** lỗi địa chỉ — vẽ TRONG ngăn, đúng dưới ô sai (VT-01: trước đây dùng chung `err` nên
       câu lỗi nằm sau lưng tấm che, bà con bấm không thấy gì đổi) */
   const [addrErr, setAddrErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const oRef = useRef<Record<RequestFieldKey, HTMLInputElement | null>>({ title: null, qty: null, unit: null, needBy: null });
+
+  useEffect(() => {
+    if (!initialTitle) {
+      const nhap = docNhapYeuCau();
+      if (nhap) setD(nhap);
+    }
+    setDaDocNhap(true);
+    // chỉ đọc một lần lúc mở màn
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // nháp theo từng phím (sessionStorage, nhỏ) — chỉ sau khi đã đọc nháp cũ, kẻo bản đầu đè mất nháp
+  const daGo = coChuMoi(d, goc);
+  useEffect(() => {
+    if (!daDocNhap) return;
+    if (daGo) luuNhapYeuCau(d);
+    else xoaNhapYeuCau();
+  }, [d, daGo, daDocNhap]);
+  // chạm ‹ khi đã gõ ⇒ header hỏi "Bỏ phần đang ghi?" (nháp vẫn còn trong phiên — quay lại là có)
+  useLeaveGuard(daGo && !busy);
 
   useEffect(() => {
     if (!ready) return;
@@ -161,12 +212,29 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
     setAddr(chosen ?? seedAddress({ phone: phone ?? "", province: homeProvince }));
   }, [ready, phone, homeProvince]);
 
+  const set = <K extends keyof RequestFormDraft>(k: K, v: RequestFormDraft[K]) => {
+    setD((cu) => ({ ...cu, [k]: v }));
+    // sửa ô đang đỏ ⇒ tắt câu lỗi của ô đó ngay, không chờ bấm Gửi lại
+    if (k in loiO) setLoiO((cu) => { const { [k as RequestFieldKey]: _bo, ...con } = cu; void _bo; return con; });
+  };
+
   const submit = async () => {
     if (busy || !addr) return;
-    const draft = { title: title.trim(), qty: Number(qty), unit: unit.trim(), description: description.trim() || undefined, needBy: needBy || undefined, address: addr, paymentMethod: pay };
-    const bad = validateRequestDraft(draft, vnToday());
+    const today = vnToday();
+    const loi = loiTungO(d, today);
+    const oDau = oDauSai(loi);
+    if (oDau) {
+      setLoiO(loi);
+      setErr(null);
+      const el = oRef.current[oDau];
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      el?.focus({ preventScroll: true });
+      return;
+    }
+    const draft = { title: d.title.trim(), qty: Number(d.qty), unit: d.unit.trim(), description: d.description.trim() || undefined, needBy: d.needBy || undefined, address: addr, paymentMethod: d.pay };
+    // cổng cuối — cùng luật server; tới đây chỉ còn địa chỉ (hay cách trả tiền) có thể sai
+    const bad = validateRequestDraft(draft, today);
     if (bad) {
-      // lỗi địa chỉ ⇒ mở ngăn và báo trong ngăn; lỗi khác ⇒ báo ở trang
       if (validateAddress(addr)) { setErr(null); setAddrErr(bad); setAddrSheet(true); return; }
       setErr(bad);
       return;
@@ -179,29 +247,30 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
       setErr(res.offline ? "Chưa gửi được — cần có sóng. Nội dung vẫn còn đây." : res.message || "Chưa gửi được — thử lại giúp.");
       return;
     }
+    xoaNhapYeuCau();
     saveCachedRequests(phone, [res.data.request]);
     router.replace(`/cho/yeu-cau/${res.data.request.id}?moi=1`);
   };
 
   return (
     <div className="px-4 pb-[7rem] pt-3">
-      <Field label="Cần món gì?">
-        <input className={inputClass} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="Ví dụ: chân vịt inox 3 cánh 18 inch" />
+      <Field label="Cần món gì?" error={loiO.title}>
+        <input ref={(el) => { oRef.current.title = el; }} className={inputClass} value={d.title} onChange={(e) => set("title", e.target.value)} maxLength={120} placeholder="Ví dụ: chân vịt inox 3 cánh 18 inch" />
       </Field>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Số lượng">
-          <input className={inputClass} inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, "").slice(0, 4))} />
+        <Field label="Số lượng" error={loiO.qty}>
+          <input ref={(el) => { oRef.current.qty = el; }} className={inputClass} inputMode="numeric" value={d.qty} onChange={(e) => set("qty", e.target.value.replace(/\D/g, "").slice(0, 4))} />
         </Field>
-        <Field label="Đơn vị">
-          <input className={inputClass} value={unit} onChange={(e) => setUnit(e.target.value)} maxLength={20} list="yc-units" />
-          <datalist id="yc-units">{UNITS.map((u) => <option key={u} value={u} />)}</datalist>
+        <Field label="Đơn vị" error={loiO.unit}>
+          <input ref={(el) => { oRef.current.unit = el; }} className={inputClass} value={d.unit} onChange={(e) => set("unit", e.target.value)} maxLength={20} list="yc-units" />
         </Field>
       </div>
+      <datalist id="yc-units">{UNITS.map((u) => <option key={u} value={u} />)}</datalist>
       <Field label="Mô tả thêm (hiệu, cỡ, đời máy…)">
-        <textarea className={textareaClass} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} placeholder="Càng rõ chủ sàn càng tìm đúng hàng" />
+        <textarea className={textareaClass} rows={3} value={d.description} onChange={(e) => set("description", e.target.value)} maxLength={1000} placeholder="Càng rõ chủ sàn càng tìm đúng hàng" />
       </Field>
-      <Field label="Cần trước ngày (không bắt buộc)">
-        <input type="date" className={inputClass} min={vnToday()} value={needBy} onChange={(e) => setNeedBy(e.target.value)} />
+      <Field label="Cần trước ngày (không bắt buộc)" error={loiO.needBy}>
+        <input ref={(el) => { oRef.current.needBy = el; }} type="date" className={inputClass} min={vnToday()} value={d.needBy} onChange={(e) => set("needBy", e.target.value)} />
       </Field>
 
       <div className="surface mt-2 px-4 py-3">
@@ -212,7 +281,7 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
           <p className="mt-1 text-[1rem] text-foreground/70">Chưa có địa chỉ nhận.</p>
         )}
         <button type="button" onClick={() => { setAddrErr(null); setAddrSheet(true); }} className="sq-btn mt-2 bg-field text-navy">
-          {addr && !validateAddress(addr) ? "Đổi" : "Thêm"}
+          {addr && !validateAddress(addr) ? NHAN.sua : NHAN.them}
         </button>
       </div>
 
@@ -220,15 +289,16 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
       {/* chip chọn = navy như ChipRow (03 §0b), nhãn ≤2 chữ (VT-15) — trước là pill nâu t3 với
           "Trả tiền khi nhận hàng" gãy 2 dòng */}
       <div className="-mx-4">
-        <ChipRow options={PAY_OPTIONS} value={pay} onChange={setPay} level={1} ariaLabel="Trả tiền" />
+        <ChipRow options={PAY_OPTIONS} value={d.pay} onChange={(v) => set("pay", v)} level={1} ariaLabel="Trả tiền" />
       </div>
 
-      {err && <p className="mt-3 text-[1rem] font-semibold" style={{ color: "var(--danger)" }} role="alert">{err}</p>}
+      {err && <p className="mt-3 text-[1rem] font-semibold text-danger" role="alert">{err}</p>}
       <div className="mt-4">
-        <PrimaryButton disabled={busy || !online} onClick={() => void submit()}>
+        {/* mờ tới khi có tên món (VT-11) — các ô khác báo dưới ô lúc bấm, không mờ nút vì thiếu chúng */}
+        <PrimaryButton disabled={busy || !online || !duDeGui(d.title)} onClick={() => void submit()}>
           {busy ? "Đang gửi…" : "Gửi cho chủ sàn"}
         </PrimaryButton>
-        {!online && <p className="mt-2 text-center text-[1rem] text-foreground/70">Cần có sóng để gửi — nội dung vẫn giữ.</p>}
+        {!online && <div className="mt-2 overflow-hidden rounded-2xl"><OfflineLine extra=" · gửi cần có sóng, nội dung vẫn giữ" /></div>}
       </div>
 
       {addrSheet && addr && (
@@ -239,7 +309,7 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
             <AddressForm value={addr} onChange={setAddr} error={addrErr} homeProvince={homeProvince} />
             <SheetActions
               className="mt-1"
-              okLabel="Lưu"
+              okLabel={NHAN.luu}
               onCancel={() => setAddrSheet(false)}
               onOk={() => {
                 const bad = validateAddress(addr);
@@ -323,11 +393,13 @@ export function RequestDetail({ id }: { id: string }) {
           <StatusBanner level="ok">Đã gửi cho chủ sàn. Có giá sẽ báo vào hộp thư của bà con.</StatusBanner>
         </div>
       )}
-      {savedAt != null && (
+      {savedAt != null && (online ? (
         <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">
           Đang xem bản lưu ({savedAgoLabel(savedAt)}) — có sóng sẽ tự tải mới.
         </p>
-      )}
+      ) : (
+        <div className="mb-3 overflow-hidden rounded-2xl"><OfflineLine savedAt={savedAt} /></div>
+      ))}
       {note && <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">{note}</p>}
 
       <section className="surface px-4 py-3">
@@ -395,8 +467,8 @@ export function RequestDetail({ id }: { id: string }) {
           </button>
         </div>
       )}
-      {!online && (r.status === "moi" || r.status === "da_bao_gia") && (
-        <p className="mt-2 text-center text-[1rem] text-foreground/70">Đồng ý / huỷ cần có sóng.</p>
+      {!online && (r.status === "moi" || r.status === "da_bao_gia") && savedAt == null && (
+        <div className="mt-2 overflow-hidden rounded-2xl"><OfflineLine extra=" · đồng ý / huỷ cần có sóng" /></div>
       )}
 
       {ask && (

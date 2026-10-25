@@ -17,6 +17,7 @@ import { PriceText } from "@/components/market/shared/price-text";
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { CallButton, EmptyState, inputClass } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
+import { KeoLamMoiChi, useKeoLamMoi } from "@/components/ui/use-keo-lam-moi";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import { marketSend } from "@/lib/market/client";
 import { saveListState, takeListState } from "@/lib/market/list-state";
@@ -138,6 +139,8 @@ function Inner({ shop }: { shop: Shop }) {
   }, [pinId, list.items.length]);
 
   const noShop = list.state.kind === "error" && list.state.code === "no_shop";
+  // kéo xuống ở đầu trang ⇒ tải lại danh sách (BH-14)
+  const lamMoi = useKeoLamMoi(() => list.reload(), { disabled: !ready || noShop });
 
   return (
     <div className="pb-10">
@@ -208,6 +211,7 @@ function Inner({ shop }: { shop: Shop }) {
         </>
       )}
 
+      <KeoLamMoiChi {...lamMoi.chi} />
       <LoadView state={list.state} what="danh sách món" onRetry={list.reload}>
         {() => (
           <>

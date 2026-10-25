@@ -53,29 +53,27 @@ export function formatCccd(raw: string): string {
   return `${n.slice(0, 4)} ${n.slice(4, 8)} ${n.slice(8, 12)}`;
 }
 
-/** neutral = có bảo hiểm nhưng CHƯA GHI hạn — không dám nói "ổn" (T2, 2026-08-18) */
+/** neutral = CHƯA GHI (hạn bảo hiểm, hoặc chưa ghi bảo hiểm) — thiếu dữ liệu, không phải vi phạm; không dám nói "ổn" (T2, 2026-08-18) */
 export type CrewIssueLevel = "danger" | "warn" | "neutral" | "ok";
 
 export interface CrewIssue {
   level: CrewIssueLevel;
   label: string;
   /** số ngày (có dấu) tới hạn gần nhất — để dải khẩn xếp theo ngày THẬT (S3);
-   *  "chưa có bảo hiểm" = -1 (đứng trên mọi thứ sắp hết, dưới thứ đã quá hạn
-   *  lâu); neutral/ok = null */
+   *  neutral/ok = null */
   days: number | null;
 }
 
 /**
- * Vấn đề cần để ý nhất của một thuyền viên, ưu tiên:
- * không bảo hiểm > giấy tờ quá hạn (kể cả HÔM NAY) > sắp hết hạn > chưa ghi hạn > ổn.
- * Ngày tính theo lịch VN qua lib/days.ts (không UTC).
+ * Vấn đề cần để ý nhất của một thuyền viên, ưu tiên (QUYET-DINH H, TAU-09, 2026-10-25):
+ * giấy tờ quá hạn (kể cả HÔM NAY) > sắp hết hạn (≤30 ngày) > chưa ghi hạn bảo hiểm > chưa ghi bảo hiểm > ổn.
+ * "Chưa ghi bảo hiểm" là XÁM trung tính: `hasInsurance=false` mặc định không phân biệt "không có" với
+ * "chưa ghi" ⇒ là thiếu dữ liệu, không phải vi phạm — đỏ chỉ dành cho quá hạn (màu đỏ mất giá nếu
+ * người vừa thêm đã đỏ 3 chỗ). Ngày tính theo lịch VN qua lib/days.ts (không UTC).
  */
 export function crewIssue(m: CrewMember, today: Date): CrewIssue {
-  if (!m.hasInsurance) {
-    return { level: "danger", label: "Chưa có bảo hiểm", days: -1 };
-  }
   const expiries: { what: string; date: string }[] = [];
-  if (m.insuranceExpiry)
+  if (m.hasInsurance && m.insuranceExpiry)
     expiries.push({ what: "Bảo hiểm", date: m.insuranceExpiry });
   if (m.certExpiry)
     expiries.push({ what: m.certLabel || "Chứng chỉ", date: m.certExpiry });
@@ -105,10 +103,29 @@ export function crewIssue(m: CrewMember, today: Date): CrewIssue {
         days: worst.days,
       };
   }
+  if (!m.hasInsurance) {
+    return { level: "neutral", label: "Chưa ghi bảo hiểm", days: null };
+  }
   // Có bảo hiểm mà không ghi ngày hết hạn: KHÔNG được xanh "Giấy tờ ổn" — app
   // không biết còn hạn hay không, phải nói là chưa ghi (T2, 2026-08-18).
   if (!m.insuranceExpiry) {
     return { level: "neutral", label: "Chưa ghi hạn bảo hiểm", days: null };
   }
   return { level: "ok", label: "Giấy tờ ổn", days: null };
+}
+
+/**
+ * Đếm đầu màn Bạn thuyền (TAU-09): `quaHan` = người có giấy QUÁ HẠN/hết hạn hôm nay (đỏ "N kẹt giấy tờ");
+ * `sapHet` = người chỉ SẮP hết hạn ≤30 ngày (vàng "N sắp hết hạn"). Chưa ghi bảo hiểm KHÔNG đếm,
+ * không lên dải khẩn.
+ */
+export function demKet(list: CrewMember[], today: Date): { quaHan: number; sapHet: number } {
+  let quaHan = 0;
+  let sapHet = 0;
+  for (const m of list) {
+    const lv = crewIssue(m, today).level;
+    if (lv === "danger") quaHan += 1;
+    else if (lv === "warn") sapHet += 1;
+  }
+  return { quaHan, sapHet };
 }

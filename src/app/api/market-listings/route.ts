@@ -97,7 +97,8 @@ export async function POST(req: Request) {
   const contact =
     draft.phone && draft.phone.trim() ? normalizeVnPhone(draft.phone) : ownerPhone;
 
-  const { error } = await admin.from(TABLE).insert({
+  // trả `id`+`created_at` của dòng vừa chèn để thẻ tạm trên máy có id thật ngay (CC-05)
+  const { data, error } = await admin.from(TABLE).insert({
     owner_phone: ownerPhone,
     side: draft.side,
     poster_kind: draft.posterKind,
@@ -108,8 +109,9 @@ export async function POST(req: Request) {
     province: draft.province?.trim() || null,
     phone: contact || null,
     note: draft.note?.trim() || null,
-  });
+  }).select("id,created_at").single();
   if (error) return err(500, "insert_failed");
 
-  return NextResponse.json({ ok: true });
+  const row = data as { id?: string; created_at?: string } | null;
+  return NextResponse.json({ ok: true, id: row?.id, createdAt: row?.created_at });
 }

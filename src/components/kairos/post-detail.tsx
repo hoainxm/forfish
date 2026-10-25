@@ -14,8 +14,8 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/ui/primitives";
-import { StatusBanner } from "@/components/ui/status-banner";
-import { countLabel, loadFeedCache, savedAtLabel } from "@/lib/kairos/feed-client";
+import { OfflineLine } from "@/components/ui/offline-line";
+import { countLabel, loadFeedCache } from "@/lib/kairos/feed-client";
 import type { KairosComment, KairosPost } from "@/lib/kairos/types";
 import { kairosSend } from "@/lib/kairos/write-client";
 import { NHAN } from "@/lib/labels";
@@ -92,7 +92,7 @@ export function PostDetail({ id }: { id: string }) {
   return (
     <div className="space-y-3 px-4 pb-6">
       {load === "offline" && post && (
-        <StatusBanner level="warn">{savedAt ? `Mất sóng — bài lưu lúc ${savedAtLabel(savedAt)}` : "Mất sóng — đang xem bài đã tải"}</StatusBanner>
+        <OfflineLine savedAt={savedAt} />
       )}
 
       {!post && load === "loading" && <PostSkeleton count={1} />}

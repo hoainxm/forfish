@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { Field, inputClass, PrimaryButton, textareaClass } from "@/components/ui/primitives";
 import { apiUrl } from "@/lib/api-base";
 import { CheckIcon, PhoneIcon } from "@/components/icons";
 import { sanitizePhoneInput } from "@/components/auth-form";
@@ -185,7 +185,7 @@ function InquiryForm({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             rows={2}
-            className={inputClass}
+            className={textareaClass}
             placeholder="VD: còn hàng không, giá bao nhiêu"
           />
         </Field>

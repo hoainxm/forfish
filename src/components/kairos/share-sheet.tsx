@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { inputClass } from "@/components/ui/primitives";
+import { baoToast } from "@/components/ui/toast";
 import type { KairosPost } from "@/lib/kairos/types";
 import { shareLink, shareText } from "@/lib/kairos/write-client";
 import { downloadOne } from "@/lib/kairos/tai-anh";
@@ -37,16 +38,18 @@ export function ShareSheet({
   onReshare: (p: KairosPost) => void;
 }) {
   const online = useOnline();
-  const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null);
   const [showLink, setShowLink] = useState(false);
   const [busy, setBusy] = useState(false);
   const link = shareLink(post.id, typeof window === "undefined" ? "" : window.location.origin);
 
   const doCopy = async () => {
-    if (await copy(link)) setMsg({ text: "Đã chép link. Dán vào Zalo hoặc tin nhắn để gửi." });
-    else {
+    if (await copy(link)) {
+      // như FB: chép xong là đóng bảng, biên nhận nổi trên dock (toast chung) — không để câu nằm trong sheet
+      baoToast("Đã chép link. Dán vào Zalo hoặc tin nhắn để gửi.");
+      onClose();
+    } else {
+      // không chép tự động được ⇒ hiện link ngay trong bảng để giữ ngón chép tay (câu dẫn đi kèm ô, không toast)
       setShowLink(true);
-      setMsg({ text: "Máy không cho chép tự động — giữ ngón lên link dưới đây để chép.", bad: true });
     }
   };
 
@@ -57,7 +60,7 @@ export function ShareSheet({
         onClose();
       } catch (e) {
         // bà con tự đóng bảng của máy ⇒ không báo lỗi
-        if ((e as Error)?.name !== "AbortError") setMsg({ text: "Chưa gửi được. Thử Chép link.", bad: true });
+        if ((e as Error)?.name !== "AbortError") baoToast("Chưa gửi được. Thử Chép link.", { loai: "xau" });
       }
       return;
     }
@@ -66,7 +69,6 @@ export function ShareSheet({
 
   const doDownload = async () => {
     setBusy(true);
-    setMsg(null);
     let fail = 0;
     for (let i = 0; i < post.images.length; i++) {
       const ok = await downloadOne(post.images[i], `kairos-${post.id.slice(0, 8)}-${i + 1}.jpg`);
@@ -76,11 +78,8 @@ export function ShareSheet({
       }
     }
     setBusy(false);
-    setMsg(
-      fail
-        ? { text: "Có ảnh chưa tải về được — đã mở ảnh ở tab mới, giữ ngón lên ảnh để lưu.", bad: true }
-        : { text: `Đã tải ${post.images.length} ảnh về máy.` },
-    );
+    if (fail) baoToast("Có ảnh chưa tải về được — đã mở ảnh ở tab mới, giữ ngón lên ảnh để lưu.", { loai: "xau" });
+    else baoToast(`Đã tải ${post.images.length} ảnh về máy.`);
   };
 
   const row = "flex min-h-14 w-full items-center rounded-xl px-3 text-left text-[1rem] font-semibold text-navy active:bg-field disabled:opacity-40";
@@ -107,11 +106,13 @@ export function ShareSheet({
           </button>
         )}
       </div>
-      {showLink && <input readOnly value={link} aria-label="Link bài" className={`${inputClass} mt-3`} onFocus={(e) => e.currentTarget.select()} />}
-      {msg && (
-        <p role="status" className={`mt-3 text-[0.875rem] font-semibold ${msg.bad ? "text-danger" : "text-ok"}`}>
-          {msg.text}
-        </p>
+      {showLink && (
+        <>
+          <input readOnly value={link} aria-label="Link bài" className={`${inputClass} mt-3`} onFocus={(e) => e.currentTarget.select()} />
+          <p role="status" className="mt-2 text-[0.875rem] text-foreground/65">
+            Máy không cho chép tự động — giữ ngón lên link để chép.
+          </p>
+        </>
       )}
     </BottomSheet>
   );

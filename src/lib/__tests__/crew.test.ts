@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CrewMember,
   crewIssue,
+  demKet,
   formatCccd,
   isValidCccd,
   normalizeCccd,
@@ -21,13 +22,28 @@ function member(over: Partial<CrewMember>): CrewMember {
 }
 
 describe("crewIssue", () => {
-  it("không bảo hiểm là nặng nhất", () => {
+  it("chưa ghi bảo hiểm = XÁM trung tính, không đỏ (TAU-09, 2026-10-25); chứng chỉ còn xa vẫn neutral", () => {
     const m = member({ hasInsurance: false, certExpiry: "2027-01-01" });
     expect(crewIssue(m, TODAY)).toEqual({
-      level: "danger",
-      label: "Chưa có bảo hiểm",
-      days: -1,
+      level: "neutral",
+      label: "Chưa ghi bảo hiểm",
+      days: null,
     });
+  });
+
+  it("chưa ghi bảo hiểm nhưng chứng chỉ sắp hết / quá hạn ⇒ hạn thắng (vàng / đỏ)", () => {
+    expect(
+      crewIssue(member({ hasInsurance: false, certLabel: "TT hạng II", certExpiry: "2026-06-20" }), TODAY),
+    ).toEqual({ level: "warn", label: "TT hạng II còn 10 ngày", days: 10 });
+    expect(
+      crewIssue(member({ hasInsurance: false, certExpiry: "2026-06-01" }), TODAY).level,
+    ).toBe("danger");
+  });
+
+  it("hasInsurance=false mà còn insuranceExpiry cũ ⇒ bỏ qua hạn bảo hiểm (không có bảo hiểm thì không có hạn)", () => {
+    expect(
+      crewIssue(member({ hasInsurance: false, insuranceExpiry: "2026-01-01" }), TODAY),
+    ).toEqual({ level: "neutral", label: "Chưa ghi bảo hiểm", days: null });
   });
 
   it("giấy tờ quá hạn → danger kèm số ngày", () => {
@@ -99,6 +115,21 @@ describe("crewIssue", () => {
       crewIssue(member({ certLabel: "TT hạng II", certExpiry: "2027-06-20" }), TODAY)
         .level,
     ).toBe("neutral");
+  });
+});
+
+describe("demKet — đếm đầu màn Bạn thuyền (TAU-09)", () => {
+  it("kẹt = chỉ QUÁ HẠN (kể cả hôm nay); sắp hết đếm riêng; chưa ghi bảo hiểm không đếm", () => {
+    const list = [
+      member({ id: "1", insuranceExpiry: "2026-06-01" }), // quá hạn
+      member({ id: "2", insuranceExpiry: "2026-06-10" }), // hết hạn hôm nay
+      member({ id: "3", insuranceExpiry: "2026-06-25" }), // sắp hết
+      member({ id: "4", hasInsurance: false }), // chưa ghi
+      member({ id: "5", insuranceExpiry: "2027-01-01" }), // ổn
+      member({ id: "6" }), // chưa ghi hạn
+    ];
+    expect(demKet(list, TODAY)).toEqual({ quaHan: 2, sapHet: 1 });
+    expect(demKet([], TODAY)).toEqual({ quaHan: 0, sapHet: 0 });
   });
 });
 

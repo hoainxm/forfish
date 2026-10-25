@@ -43,7 +43,8 @@ const LEVEL_TEXT: Record<SeaLevel, string> = {
   bad: "text-danger",
 };
 
-function chonCang(): FishingPort | null {
+/** Cảng để vẽ Biển hôm nay; null = chưa khai gì ⇒ tầng 5 mời "Chọn cảng nhà" (lib/tang-5, TC-11). */
+export function cangBienHomNay(): FishingPort | null {
   const nha = cangNhaCuaToi();
   if (nha) return cangDuBaoGanNhat({ lat: nha.lat, lon: nha.lon });
   try {
@@ -62,7 +63,7 @@ export function SeaTodayCard() {
 
   // đọc localStorage SAU hydrate — SSR không có cảng nhà
   useEffect(() => {
-    setPort(chonCang());
+    setPort(cangBienHomNay());
   }, []);
 
   useEffect(() => {

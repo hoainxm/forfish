@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { createFileStore, DEV_FILE_NAME, type FileMarketStore } from "@/lib/market/file-store";
 import { isMarketError, MarketError, marketErrorStatus } from "@/lib/market/errors";
-import { settleOverdue } from "@/lib/market/order-state";
+import { choXacNhanTien, settleOverdue } from "@/lib/market/order-state";
 import { buildMarketLines, computeTotals } from "@/lib/market/pricing";
 import type { PreparedShopOrder } from "@/lib/market/store";
 import { foldVn } from "@/lib/market/text";
@@ -369,6 +369,22 @@ describe("đơn: đọc + transitionOrder", () => {
     expect(ref?.clientRef).toBe("m1-test-hd-1");
     expect(await store.getOrderByClientRef("0901000009", "m1-test-hd-1")).toBeNull();
     expect(await store.getOrder("khong-co")).toBeNull();
+  });
+
+  it("paymentStatus + open (BH-08): danh sách 'Báo đã CK' = đúng số ô Tổng quan đếm; không `open` thì kèm cả đơn đã huỷ còn nợ hoàn tiền", async () => {
+    const tatCa = await store.listShopOrders(haidang.id, { paymentStatus: "bao_da_chuyen", pageSize: 50 });
+    expect(tatCa.items.length).toBeGreaterThan(0);
+    expect(tatCa.items.every((o) => o.paymentStatus === "bao_da_chuyen")).toBe(true);
+    expect(tatCa.items.some((o) => o.status === "da_huy" && o.needsRefund)).toBe(true); // seed: SD260902F4GH
+    const conSong = await store.listShopOrders(haidang.id, { paymentStatus: "bao_da_chuyen", open: true, pageSize: 50 });
+    expect(conSong.items.every(choXacNhanTien)).toBe(true);
+    expect(conSong.total).toBe(conSong.items.length);
+    expect(conSong.total).toBeLessThan(tatCa.total);
+    const st = await store.stats(haidang.id, "30d");
+    expect(st.awaitingPaymentConfirm).toBe(conSong.total);
+    // `open` một mình: không còn đơn kết thúc
+    const mo = await store.listShopOrders(haidang.id, { open: true, pageSize: 50 });
+    expect(mo.items.every((o) => o.status !== "da_huy" && o.status !== "hoan_thanh")).toBe(true);
   });
   it("expectStatus lệch ⇒ bad_transition; ghi vá + timelineAppend nối cuối + needsRefund", async () => {
     const o = (await store.listAllOrders({ code: "SD260906K7PQ" })).items[0]; // cho_xac_nhan CK bao_da_chuyen

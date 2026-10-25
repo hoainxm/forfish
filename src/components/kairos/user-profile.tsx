@@ -30,9 +30,9 @@ import { CheckIcon } from "@/components/icons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState, inputClass } from "@/components/ui/primitives";
-import { StatusBanner } from "@/components/ui/status-banner";
+import { OfflineLine } from "@/components/ui/offline-line";
 import { Tabs } from "@/components/ui/tabs";
-import { loadFeedCache, portLabel, savedAtLabel } from "@/lib/kairos/feed-client";
+import { loadFeedCache, portLabel } from "@/lib/kairos/feed-client";
 import { addMoiTen, gridPhotos, MOI_TEN_KEY, ngheName, parseMoiTen, tinhName } from "@/lib/kairos/ho-so";
 import { validateHandle } from "@/lib/kairos/ten-goi";
 import type { KairosPost } from "@/lib/kairos/types";
@@ -285,7 +285,7 @@ export function UserProfile({ id }: { id: string }) {
     <div className="pb-6">
       <div className="space-y-3 px-4">
         {load === "offline" && user && (
-          <StatusBanner level="warn">{savedAt ? `Mất sóng — bài lưu lúc ${savedAtLabel(savedAt)}` : "Mất sóng — đang xem bài đã tải"}</StatusBanner>
+          <OfflineLine savedAt={savedAt} />
         )}
         {!user && load === "loading" && (
           <>

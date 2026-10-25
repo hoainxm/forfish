@@ -4,16 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  BellIcon,
-  ChevronRightIcon,
-  LockIcon,
-  PhoneIcon,
-  StarIcon,
-  TrashIcon,
-  UsersIcon,
-} from "@/components/icons";
+import { ChevronRightIcon, LockIcon, PhoneIcon, TrashIcon } from "@/components/icons";
 import { SQ_BTN } from "@/components/ui/sq-btn";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { KairosAvatar } from "@/components/kairos/kairos-avatar";
+import { authorToi } from "@/lib/kairos/ho-so";
+import { loadFeedCache } from "@/lib/kairos/feed-client";
+import { nhanDem } from "@/lib/kairos/chuong";
+import { cartBucket } from "@/lib/cart";
 import { createClient } from "@/lib/supabase/client";
 import { clearInbox } from "@/lib/inbox";
 import { clearCachedOrders } from "@/lib/catalog-orders";
@@ -26,7 +24,7 @@ import {
 } from "@/lib/user-sync";
 import { clearMarketCart } from "@/lib/market/cart";
 import { clearCachedMarketOrders } from "@/lib/market/orders-cache";
-import { clearShopFlag, loadShopFlag, saveShopFlag, type ShopFlag } from "@/lib/market/seller-flag";
+import { MARKET_SHOP_FLAG_KEY, clearShopFlag, loadShopFlag, saveShopFlag, type ShopFlag } from "@/lib/market/seller-flag";
 import {
   applyIdentityAction,
   offlineIdentityPhone,
@@ -128,16 +126,30 @@ function wipeOwnerDataFromDevice(): void {
 
 type Mode = "auto" | "to" | "gon";
 
-// "Theo máy" (auto) không bày thành lựa chọn (góp ý user 2026-06-11) — chỉ
-// 2 tùy chọn; bấm lại cái đang chọn = về auto. MẶC ĐỊNH là "gon" (2026-07-28).
-const MODES: { id: Exclude<Mode, "auto">; label: string; sub: string }[] = [
-  /*  NHÃN PHẢI NÓI ĐÚNG THỨ CÔNG TẮC LÀM (sửa 2026-08-29h). Từ khi gốc chữ
-      của cả hai chế độ cùng là 16px (chống iOS tự phóng to), "Chữ to" KHÔNG
-      còn đổi cỡ chữ một điểm nào — nhãn hứa một việc nó không làm. Thứ thật
-      sự đổi là chiều cao hàng và nút: 56px (to) so với 37px (gọn). */
+/*  SEGMENT 3 NẤC trong ngăn Cài đặt (quyết định M, 2026-10-25): Gọn / Nút to / Theo máy.
+    Trước đây "Theo máy" ẩn sau "bấm lại cái đang chọn" — một luật không ai đoán ra.
+    NHÃN PHẢI NÓI ĐÚNG THỨ CÔNG TẮC LÀM (2026-08-29h): gốc chữ hai chế độ cùng 16px (chống
+    iOS tự phóng), thứ thật sự đổi là chiều cao hàng và nút. MẶC ĐỊNH "gon" (2026-07-28). */
+const MODES: { id: Mode; label: string; sub: string }[] = [
+  { id: "gon", label: "Gọn", sub: "Nút thấp gọn — thấy nhiều hàng hơn" },
   { id: "to", label: "Nút to", sub: "Nút to, hàng cao — dễ bấm tay ướt" },
-  { id: "gon", label: "Gọn", sub: "Nút thấp gọn — thấy được nhiều hàng hơn" },
+  { id: "auto", label: "Theo máy", sub: "Theo cỡ chữ máy đang đặt" },
 ];
+
+/*  SỐ ĐƠN CHỜ của người bán (BH-11): đọc trường `pending` mà khu bán hàng ghi vào cờ
+    `forfish.mshop.v1` lúc Tổng quan tải xong — KHÔNG request lúc mở app, badge cũ là gợi ý.
+    `loadShopFlag` bỏ trường lạ nên đọc thô ở đây, cùng ngăn SĐT với cờ. */
+function docDonCho(phone: string | null | undefined): number {
+  try {
+    const raw = window.localStorage.getItem(MARKET_SHOP_FLAG_KEY);
+    if (!raw) return 0;
+    const s = JSON.parse(raw) as { phone?: string; pending?: unknown } | null;
+    if (!s || s.phone !== cartBucket(phone)) return 0;
+    return typeof s.pending === "number" && Number.isFinite(s.pending) && s.pending > 0 ? Math.floor(s.pending) : 0;
+  } catch {
+    return 0;
+  }
+}
 
 function prettyPhone(p: string): string {
   let local = p.replace(/\D/g, "");
@@ -225,8 +237,8 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
       KHÔNG xoá chuỗi — máy thành "quên người, vẫn còn chuỗi".
       `user` chỉ giữ cho `full_name` (metadata của phiên, có thì hiện). */
   const { user, phone, ready, signedIn } = useAuthUser();
-  /* Nhóm "Cài đặt khác" thu lại mặc định — xem ghi chú ở chỗ dựng hàng */
-  const [showSettings, setShowSettings] = useState(false);
+  /* Ngăn đáy "Cài đặt" (TC-07): mở từ hàng "Cài đặt ›" trong menu, menu đóng trước */
+  const [caiDat, setCaiDat] = useState(false);
   // HẠNG CỦA TÔI (2026-08-01): premium gán ngoài đời ở /quan-tri, trong app
   // trước nay không có chỗ nào xác nhận ⇒ khách trả tiền phải vào Ra khơi thử
   // bật lớp Cá mới biết. `null` = chưa chắc, không bày gì (luật ở lib/tier.ts).
@@ -247,6 +259,13 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
   const [isStaff, setIsStaff] = useState(false);
   // Khoá VAPID lấy RUNTIME (DB-trước rồi env) — undefined = đang lấy.
   const [vapidKey, setVapidKey] = useState<string | null | undefined>(undefined);
+  /* mình trong bản lưu Kairos (chỉ localStorage) — chữ cái + màu avatar, KHÔNG gọi /me */
+  const [toi, setToi] = useState<{ profileId: string; handle: string } | null>(null);
+  useEffect(() => {
+    setToi(authorToi(loadFeedCache(phone ?? null)?.posts ?? []));
+  }, [phone]);
+  /* số đơn chờ (BH-11) — đọc cờ máy lúc menu mở */
+  const [donCho, setDonCho] = useState(0);
 
   useEffect(() => {
     /*  ⚠️ `signedIn`, KHÔNG `user` (sửa sau sync base 2026-08-04): app bỏ phiên
@@ -255,12 +274,12 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
         admin đã đăng nhập (hoặc chỉ hiện chớp nhoáng lúc phiên tạm chưa bỏ).
         Và /api/admin/health xác thực bằng CHUỖI CỨNG nên PHẢI gửi tokenHeader()
         — fetch trần không kèm chuỗi thì luôn 401 ⇒ isStaff false.
-        CHỈ HỎI KHI MENU MỞ (TC-10) — như `shopFlag` bên dưới. */
+        CHỈ HỎI KHI NGĂN CÀI ĐẶT MỞ (TC-10/TC-07) — dòng "Trang quản trị" nằm ở đó. */
     if (!signedIn) {
       setIsStaff(false);
       return;
     }
-    if (!open) return;
+    if (!caiDat) return;
     if (staffCache && staffCache.phone === (phone ?? null)) {
       setIsStaff(staffCache.ok);
       return;
@@ -284,7 +303,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
     return () => {
       alive = false;
     };
-  }, [open, signedIn, online, phone]);
+  }, [caiDat, signedIn, online, phone]);
 
   /*  KÊNH NGƯỜI BÁN — hai dạng dòng (LEAD §4 #16 / 12 §9). Cờ `forfish.mshop.v1`
       trả lời "máy này có shop không" mà KHÔNG gọi mạng lúc mở app; chỉ khi SHEET
@@ -295,6 +314,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
   useEffect(() => {
     if (!open || !signedIn) return;
     setShopFlag(loadShopFlag(phone));
+    setDonCho(docDonCho(phone));
     if (!online) return; // mất sóng: dùng cờ đã có, không đụng mạng
     let alive = true;
     fetch(apiUrl("/api/ban-hang/shop"), {
@@ -326,10 +346,10 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
       setPushState("unsupported");
       return;
     }
-    /*  Khoá VAPID + trạng thái đăng ký CHỈ tra khi menu mở (TC-10): nút "Bật" nằm trong
-        "Cài đặt khác", chưa ai bấm thì chưa cần. Trong lúc tra, nút xám "checking" một nhịp.
+    /*  Khoá VAPID + trạng thái đăng ký CHỈ tra khi ngăn Cài đặt mở (TC-10): công tắc nằm
+        trong đó, chưa ai mở thì chưa cần. Trong lúc tra, công tắc xám "checking" một nhịp.
         Khoá nhớ ở mức module; `getExistingPushSubscription` đọc máy, không tốn sóng. */
-    if (!open) return;
+    if (!caiDat) return;
     let alive = true;
     const key$ = vapidCache !== undefined ? Promise.resolve(vapidCache) : fetchVapidPublicKey();
     key$.then((key) => {
@@ -347,7 +367,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
     return () => {
       alive = false;
     };
-  }, [open]);
+  }, [caiDat]);
 
   /* GẮN MÁY ↔ TÀI KHOẢN có nói ra kết quả (2026-08-01p). Trước đây việc gắn
      chạy ngầm và im lặng, nên khi /quan-tri báo "chưa gán account nào" thì
@@ -552,6 +572,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
     setDeviceBound(false);
     setConfirmForget(false);
     setOpen(false);
+    setCaiDat(false);
     router.refresh();
   }
 
@@ -584,59 +605,53 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
   const name = (user?.user_metadata?.full_name as string | undefined)?.trim();
   const badge = tierBadge({ access, premiumUntil });
 
+  const chuCai = toi?.handle ?? name ?? "Bà con"; // không tên ⇒ "B" (Bà con), KHÔNG lấy số đầu SĐT ("0" vô nghĩa)
+
   return (
     <>
-      {/* MỘT chip duy nhất trên hero — bấm mở menu phụ */}
+      {/*  AVATAR TRÒN 2.75rem (quyết định L, 2026-10-25) — như FB/Zalo: góc phải header là ảnh đại
+          diện của chính mình, không SĐT, không ▾. Dùng chung khuôn `KairosAvatar nav` với "Trang
+          tôi" của Kairos (một khuôn, không rẽ đôi); premium = vòng viền trim, không chữ. SĐT đầy
+          đủ + hạng nằm trong menu. Chưa đăng nhập ⇒ nút chữ "Đăng nhập" (SQ_BTN navy) — VẪN mở
+          menu (ở đó có Đăng ký/Đăng nhập, Cài đặt, và đường "Gỡ máy này" không cần sóng). */}
       <button
         type="button"
         ref={setChipEl}
         onClick={() => setOpen((o) => !o)}
+        aria-haspopup="dialog"
         aria-expanded={open}
-        /*  Sàn chạm 3.5rem = 56px (luật A5 + sàn dự án): đo thật 164×44px, mà
-            đây là CỬA DUY NHẤT vào sheet Tài khoản, lại nằm trên nền gradient
-            tối nên viền không rõ ngoài nắng. */
-        /*  Biến thể `light` (đầu màn gọn, 2026-10-19): chip NHƯỜNG chỗ cho tiêu đề —
-            min-w-0 + nhãn truncate, đệm hẹp hơn, chữ 1rem. Đo 360px: tiêu đề
-            "Chào bà con" 1.25rem 121px + chip SĐT ≈192px vừa một hàng; dài hơn
-            (tên khách) thì nhãn cắt "…" chứ tiêu đề không vỡ dòng. */
-        className={`flex min-w-0 max-w-full items-center rounded-full transition active:scale-[0.97] ${
-          light
-            ? "h-(--h-ctl) gap-1.5 border border-line bg-card pl-1.5 pr-3 text-navy"
-            : "mt-3 gap-2 bg-white/15 pl-2 pr-3.5 text-white"
-        }`}
         aria-label={
           signedIn && phone
             ? `Tài khoản ${name || prettyPhone(phone)}${badge ? `, ${badge.label}` : ""}`
-            : "Đăng nhập"
+            : NHAN.dangNhap
+        }
+        className={
+          signedIn && phone
+            ? "flex shrink-0 rounded-full transition active:scale-[0.95]"
+            : `${SQ_BTN} bg-navy text-white`
         }
       >
-        {/* Hạng hiện bằng HUY HIỆU tròn đầu chip (anh Long 2026-10-23: "nên thể hiện là tk
-            gì"): Premium = sao trên nền ok; thường/đang tra = người. Không thêm chữ
-            "Premium" — 360px không còn chỗ cạnh "Chào bà con". */}
-        <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-            badge?.tone === "premium" ? "bg-ok-bg text-ok" : light ? "bg-field" : "bg-white/20"
-          }`}
-        >
-          {badge?.tone === "premium" ? <StarIcon className="h-4.5 w-4.5" /> : <UsersIcon className="h-4.5 w-4.5" />}
-        </span>
-        <span className={`min-w-0 truncate font-semibold ${light ? "text-[0.875rem]" : "text-[0.9375rem]"}`}>
-          {/* khách lạ thấy thẳng "Đăng nhập" — "Tài khoản" trung tính không
-              mời ai làm gì (roadmap hội đồng UX 2026-06-11). Đã đăng nhập: chip
-              nói ĐÚNG tài khoản nào — tên (nếu có) hoặc SĐT; dài thì cắt "…"
-              (2026-10-23, thay nhãn cố định "Tài khoản" của rà Codex lần 2). */}
-          {signedIn && phone ? name || prettyPhone(phone) : "Đăng nhập"}
-        </span>
-        <ChevronRightIcon className={`h-4 w-4 shrink-0 rotate-90 ${light ? "text-navy/60" : "text-white/60"}`} />
+        {signedIn && phone ? (
+          <KairosAvatar
+            id={toi?.profileId ?? phone}
+            name={chuCai}
+            url={null}
+            nav
+            className={badge?.tone === "premium" ? "border-2 border-trim" : ""}
+          />
+        ) : (
+          NHAN.dangNhap
+        )}
       </button>
 
       {/* bị đá tài khoản: thẻ đỏ KHÔNG còn ở đây — trang đặt `<KickedNotice />`
           trong thân màn (xem page.tsx), ngoài hàng tiêu đề. */}
 
       {open && (
-        /*  MENU TÀI KHOẢN NEO NGAY DƯỚI CHIP (03 §6 mục 9, anh Long 2026-10-23: bấm nút thì phần
-            hiện ra nằm cạnh nút — tay đang ở góc trên phải, không bắt kéo xuống đáy màn). Trước
-            là BottomSheet. Chạm ra ngoài / Escape đóng, focus về chip. */
+        /*  MENU TÀI KHOẢN NEO NGAY DƯỚI AVATAR (03 §6 mục 9, anh Long 2026-10-23: bấm nút thì phần
+            hiện ra nằm cạnh nút — tay đang ở góc trên phải, không bắt kéo xuống đáy màn). Còn 4
+            dòng (TC-07): danh tính · hạng · kênh bán · Cài đặt › — và Đăng xuất ở cuối. Chạm ra
+            ngoài / Escape đóng, focus về avatar. */
         <Popover
           anchor={chipEl}
           label="Tài khoản"
@@ -760,14 +775,11 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
           )}
 
           {/*  LỐI VÀO KÊNH NGƯỜI BÁN (12 §9) — hai dạng dòng:
-               (a) đã có shop ⇒ dòng thường "Kênh người bán";
+               (a) đã có shop ⇒ dòng thường "Kênh người bán" + badge đỏ số đơn chờ (BH-11, đọc cờ máy);
                (b) chưa có shop ⇒ dòng MỜ, không icon nổi, chỉ mời một câu;
                (c) chưa biết (chưa có cờ, mất sóng) ⇒ không dòng nào.
-               ĐẶT NGAY DƯỚI KHỐI DANH TÍNH, TRÊN nhóm "Cài đặt khác" thu gọn
-               (2026-09-06): nằm trong nhóm thu gọn thì bà con phải bấm "Mở" mới
-               thấy — người bán không tìm ra kênh của mình, còn lời mời đăng ký
-               shop thì không ai đọc. Đây là lối vào một TRỤC việc, không phải
-               một tuỳ chọn cài đặt. */}
+               ĐẶT NGAY DƯỚI KHỐI DANH TÍNH, TRÊN hàng Cài đặt (2026-09-06): đây là lối vào một
+               TRỤC việc, không phải một tuỳ chọn cài đặt. */}
           {signedIn && shopFlag?.hasShop && (
             <Link
               href="/ban-hang"
@@ -783,6 +795,14 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
                   Đăng sản phẩm, xử lý đơn, thống kê
                 </span>
               </span>
+              {donCho > 0 && (
+                <span
+                  className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-danger px-1.5 text-[0.75rem] font-bold text-white"
+                  aria-label={`${donCho} đơn chờ`}
+                >
+                  {nhanDem(donCho)}
+                </span>
+              )}
               <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
             </Link>
           )}
@@ -797,177 +817,24 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             </Link>
           )}
 
-          {/*  MỘT HÀNG "Cài đặt khác" gom năm nhóm việc không liên quan nhau
-              (2026-08-29, luật C1/C2). Đo trước: sheet 527px/812px = 65% màn Ở
-              TRẠNG THÁI NHẸ NHẤT (chưa đăng nhập, 11 dòng chữ); đã đăng nhập còn
-              thêm thẻ danh tính + huy hiệu + nút Đăng xuất. Trần C2 là ~40%.
-              Bà con mở chip này để ĐĂNG NHẬP / XEM HẠNG, không phải để đổi cỡ
-              chữ hay đọc chính sách — nên KEY là danh tính + huy hiệu + một hàng
-              hành động; phần còn lại thu lại. CHỈ đổi CHỖ ĐẶT, KHÔNG đụng cơ chế
-              "gọn"/"to" (ngoài phạm vi đợt này). */}
-          <div className="mb-4 flex items-stretch gap-2">
-            {/* sát mép tiêu đề ngăn (trước px-4 trên nền trùng màu ngăn = thụt 16px vô cớ) */}
-            <div className="flex min-w-0 flex-1 items-center py-3">
-              <p className="text-[1rem] font-semibold text-navy">Cài đặt khác</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowSettings((v) => !v)}
-              aria-expanded={showSettings}
-              className={`${SQ_BTN} bg-background text-sea`}
-            >
-              <ChevronRightIcon
-                className={`h-6 w-6 ${showSettings ? "-rotate-90" : "rotate-90"}`}
-              />
-              {showSettings ? "Thu" : "Mở"}
-            </button>
-          </div>
-
-          {showSettings && (
-            <>
-          {/* cỡ giao diện — auto theo máy là NỀN; chỉ bày 2 tùy chọn ghi đè */}
-          <p className="mb-1.5 text-[0.8125rem] font-semibold text-foreground/65">
-            Cỡ chữ và nút
-          </p>
-          {/*  Bỏ hai dòng hướng dẫn (D1): hai hàng chọn ngay dưới đã tự nói
-              ("Chữ to — Luôn to rõ, dễ đọc ngoài nắng"). Đường về "auto" nay nói
-              bằng TRẠNG THÁI trên chính hàng đang chọn, không bằng chữ dạy. */}
-          <div className="mb-4 overflow-hidden surface">
-            {MODES.map((m, i) => {
-              const on = mode === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => applyMode(on ? "auto" : m.id)}
-                  aria-pressed={on}
-                  className={`flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left ${
-                    i > 0 ? "border-t border-line" : ""
-                  }`}
-                >
-                  <span
-                    className={`h-5 w-5 shrink-0 rounded-full border-2 ${
-                      on ? "border-sea bg-sea" : "border-line"
-                    }`}
-                    aria-hidden
-                  >
-                    {on && (
-                      <span className="m-auto mt-1 block h-1.5 w-1.5 rounded-full bg-white" />
-                    )}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[1rem] font-semibold text-navy">
-                      {m.label}
-                    </span>
-                    <span className="block text-[0.8125rem] leading-snug text-foreground/70">
-                      {m.sub}
-                      {on ? " · bấm lại để về theo máy" : ""}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Bật thông báo (Web Push, 2026-07-28) — ẩn hẳn nếu máy không hỗ
-              trợ hoặc server chưa cấu hình VAPID (không hiện nút vô dụng) */}
-          {pushState !== "unsupported" && pushState !== "unconfigured" && (
-            /* Hàng B1: [thân "Thông báo" + trạng thái flex-1] + [ô w-16] */
-            <div className="mb-4 flex items-stretch gap-2">
-              <div className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl bg-field px-4 py-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white">
-                  <BellIcon className="h-5 w-5 text-navy" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[1rem] font-semibold text-navy">
-                    Thông báo
-                  </span>
-                  <span className="block text-[0.8125rem] leading-snug text-foreground/70">
-                    {pushState === "on"
-                      ? attach === "attached"
-                        ? "Đang bật · đã gắn tài khoản này"
-                        : attach === "no-session"
-                          ? "Đang bật · Chưa gắn tài khoản — bà con đăng nhập rồi mở lại app nhé"
-                          : attach === "failed"
-                            ? "Đang bật · chưa liên kết được (do mất sóng)"
-                            : "Đang bật trên máy này"
-                      : "Đang tắt · tin nhắn từ SDVICO sẽ không hiện lên máy"}
-                  </span>
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={togglePush}
-                disabled={pushState === "checking" || pushState === "busy"}
-                className={`${SQ_BTN} bg-field text-navy disabled:opacity-60`}
-              >
-                <BellIcon className="h-6 w-6" />
-                {pushState === "on" ? "Tắt" : "Bật"}
-              </button>
-            </div>
-          )}
-          {pushError && (
-            <p className="-mt-2.5 mb-4 px-1 text-[1rem] font-semibold leading-snug text-danger">
-              {pushError}
-            </p>
-          )}
-
-          {/* Lối vào TRANG QUẢN TRỊ — chỉ STAFF thấy (isStaff dò từ
-              /api/admin/health). Ngư dân thường không thấy; quyền thật vẫn ở API. */}
-          {isStaff && (
-            <Link
-              href="/quan-tri"
-              onClick={() => setOpen(false)}
-              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
-            >
-              <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">
-                Trang quản trị
-              </span>
-              <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
-            </Link>
-          )}
-
-          {/* Đổi mật khẩu tự nguyện (2026-07-29) — trang /doi-mat-khau hỏi
-              mật khẩu hiện tại rồi mới cho đổi */}
-          {signedIn && (
-            <Link
-              href="/doi-mat-khau"
-              onClick={() => setOpen(false)}
-              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl bg-field px-4 text-left"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white">
-                <LockIcon className="h-5 w-5 text-navy" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[1rem] font-semibold text-navy">
-                  Đổi mật khẩu
-                </span>
-                <span className="block text-[0.8125rem] leading-snug text-foreground/70">
-                  Đặt mật khẩu mới cho tài khoản của bà con
-                </span>
-              </span>
-              <ChevronRightIcon className="h-4 w-4 shrink-0 text-foreground/40" />
-            </Link>
-          )}
-
-          {/* Chính sách quyền riêng tư — công khai, luôn tới được (App Store
-              5.1.2 bắt buộc app có link trong ứng dụng, không chỉ trong hồ sơ). */}
-          <Link
-            href="/quyen-rieng-tu"
-            onClick={() => setOpen(false)}
+          {/*  HÀNG "Cài đặt ›" (TC-07, 2026-10-25): trước là nhóm thu/mở xoè ngay trong Popover —
+              708px cuộn trong một lớp nổi lệch phải không có ×, chính `ui/popover.tsx` cấm nội
+              dung dài. Nay ĐÓNG menu rồi mở ngăn đáy (có tiêu đề, ×, back đóng). */}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setCaiDat(true);
+            }}
             className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
           >
-            <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">
-              Chính sách quyền riêng tư
-            </span>
+            <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">{NHAN.caiDat}</span>
             <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
-          </Link>
-            </>
-          )}
+          </button>
 
           {/*  ĐĂNG XUẤT Ở CUỐI MENU + XÁC NHẬN (TC-03, 2026-10-25). Việc phá huỷ (máy quên
               hồ sơ tàu, danh bạ, điểm ghim — thứ KHÔNG đồng bộ) không đứng cạnh số điện
-              thoại cho chạm nhầm; hàng này nằm sau Chính sách, cùng khuôn với "Gỡ máy này". */}
+              thoại cho chạm nhầm; hàng này nằm cuối, cùng khuôn với "Gỡ máy này". */}
           {signedIn && (
             <div className="flex items-stretch gap-2">
               <p className="min-w-0 flex-1 self-center text-[0.9375rem] leading-snug text-foreground/70">
@@ -989,30 +856,153 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
               {signOutError}
             </p>
           )}
-
-          {/* CHƯA đăng nhập được (phiên hết hạn / mất sóng) mà máy VẪN còn dấu
-              tài khoản người trước → phải có đường gỡ, và đường đó không được
-              cần sóng. Không có nó thì tàu dùng chung máy sẽ mang theo hộp thư
-              và quyền premium của chủ tàu ra khơi. */}
-          {!signedIn && deviceBound && (
-            <div className="flex items-stretch gap-2">
-              {/* dòng này mang TIN CHÍNH (nút xoá cái gì) — không được 14px */}
-              <p className="min-w-0 flex-1 px-1 text-[0.9375rem] leading-snug text-foreground/70">
-                Xoá khỏi máy: thư cũ, số điện thoại, hồ sơ tàu, sổ thuyền viên,
-                giấy tờ, danh bạ đã lưu. Không cần sóng. Đăng nhập lại (có sóng)
-                để lấy lại phần đã lưu trên mạng.
-              </p>
-              <button
-                type="button"
-                onClick={() => setConfirmForget(true)}
-                className={`${SQ_BTN} bg-field text-navy`}
-              >
-                <TrashIcon className="h-6 w-6" />
-                Gỡ máy này
-              </button>
-            </div>
-          )}
         </Popover>
+      )}
+
+      {caiDat && (
+        /*  NGĂN "CÀI ĐẶT" (quyết định M): danh sách kẻ mảnh — Cỡ chữ · Thông báo · Đổi mật khẩu ·
+            Trang quản trị (staff) · Quyền riêng tư · Gỡ máy này (đỏ, cuối). Đóng ⇒ focus về avatar
+            (Popover đã đóng trước nên ngăn không tự biết nút mở). */
+        <BottomSheet
+          title={NHAN.caiDat}
+          kieu="xem"
+          onClose={() => {
+            setCaiDat(false);
+            chipEl?.focus({ preventScroll: true });
+          }}
+        >
+          <ul className="divide-y divide-line">
+            {/* Cỡ chữ — segment 3 nấc, nhãn ≤2 chữ; dòng phụ nói đúng thứ nấc đang chọn làm */}
+            <li className="py-3">
+              <p className="text-[1rem] font-semibold text-navy">Cỡ chữ</p>
+              <p className="mt-0.5 text-[0.8125rem] leading-snug text-foreground/70">
+                {MODES.find((m) => m.id === mode)?.sub}
+              </p>
+              <div className="mt-2 flex rounded-xl bg-field p-0.5" role="group" aria-label="Cỡ chữ">
+                {MODES.map((m) => {
+                  const on = mode === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => applyMode(m.id)}
+                      className={`h-(--h-ctl) flex-1 rounded-[0.625rem] text-[0.9375rem] font-semibold transition ${
+                        on ? "bg-card text-navy shadow-sm" : "text-foreground/70"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </li>
+
+            {/* Thông báo (Web Push) — công tắc + trạng thái một dòng; ẩn hẳn nếu máy không hỗ trợ
+                hoặc server chưa cấu hình VAPID (không hiện công tắc vô dụng) */}
+            {pushState !== "unsupported" && pushState !== "unconfigured" && (
+              <li>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={pushState === "on"}
+                  onClick={togglePush}
+                  disabled={pushState === "checking" || pushState === "busy"}
+                  className="flex min-h-(--h-row) w-full items-center gap-3 py-2 text-left disabled:opacity-60"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[1rem] font-semibold text-navy">Thông báo</span>
+                    <span className="block text-[0.8125rem] leading-snug text-foreground/70">
+                      {pushState === "checking" || pushState === "busy"
+                        ? "Đang kiểm tra…"
+                        : pushState === "on"
+                          ? attach === "attached"
+                            ? "Đang bật · đã gắn tài khoản này"
+                            : attach === "no-session"
+                              ? "Đang bật · chưa gắn tài khoản — đăng nhập rồi mở lại app"
+                              : attach === "failed"
+                                ? "Đang bật · chưa liên kết được (mất sóng)"
+                                : "Đang bật trên máy này"
+                          : "Đang tắt · tin bão và tin SDVICO không hiện lên máy"}
+                    </span>
+                  </span>
+                  <span
+                    aria-hidden
+                    className={`flex h-7 w-12 shrink-0 items-center rounded-full px-0.5 transition ${
+                      pushState === "on" ? "justify-end bg-ok" : "justify-start bg-line"
+                    }`}
+                  >
+                    <span className="h-6 w-6 rounded-full bg-white shadow" />
+                  </span>
+                </button>
+                {pushError && (
+                  <p className="pb-3 text-[1rem] font-semibold leading-snug text-danger">{pushError}</p>
+                )}
+              </li>
+            )}
+
+            {/* Đổi mật khẩu tự nguyện (2026-07-29) — /doi-mat-khau hỏi mật khẩu hiện tại rồi mới cho đổi */}
+            {signedIn && (
+              <li>
+                <Link
+                  href="/doi-mat-khau"
+                  onClick={() => setCaiDat(false)}
+                  className="flex min-h-(--h-row) w-full items-center gap-3 py-2 text-left active:bg-field"
+                >
+                  <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">Đổi mật khẩu</span>
+                  <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+                </Link>
+              </li>
+            )}
+
+            {/* Lối vào TRANG QUẢN TRỊ — chỉ STAFF thấy (isStaff dò từ /api/admin/health); quyền thật vẫn ở API */}
+            {isStaff && (
+              <li>
+                <Link
+                  href="/quan-tri"
+                  onClick={() => setCaiDat(false)}
+                  className="flex min-h-(--h-row) w-full items-center gap-3 py-2 text-left active:bg-field"
+                >
+                  <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">Trang quản trị</span>
+                  <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+                </Link>
+              </li>
+            )}
+
+            {/* Chính sách quyền riêng tư — công khai, luôn tới được (App Store 5.1.2 bắt buộc link trong app) */}
+            <li>
+              <Link
+                href="/quyen-rieng-tu"
+                onClick={() => setCaiDat(false)}
+                className="flex min-h-(--h-row) w-full items-center gap-3 py-2 text-left active:bg-field"
+              >
+                <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">Quyền riêng tư</span>
+                <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+              </Link>
+            </li>
+
+            {/* CHƯA đăng nhập được (phiên hết hạn / mất sóng) mà máy VẪN còn dấu tài khoản người
+                trước → phải có đường gỡ, và đường đó không được cần sóng. Không có nó thì tàu dùng
+                chung máy sẽ mang theo hộp thư và quyền premium của chủ tàu ra khơi. */}
+            {!signedIn && deviceBound && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setConfirmForget(true)}
+                  className="flex min-h-(--h-row) w-full items-center gap-3 py-2 text-left active:bg-field"
+                >
+                  <TrashIcon className="h-5 w-5 shrink-0 text-danger" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[1rem] font-semibold text-danger">Gỡ máy này</span>
+                    <span className="block text-[0.8125rem] leading-snug text-foreground/70">
+                      Xoá thư cũ, số điện thoại, hồ sơ tàu, giấy tờ, danh bạ khỏi máy. Không cần sóng.
+                    </span>
+                  </span>
+                </button>
+              </li>
+            )}
+          </ul>
+        </BottomSheet>
       )}
 
       {/* XÁC NHẬN TRƯỚC KHI GỠ (sửa 2026-08-02). Nút trên nằm đúng chỗ bác Tư

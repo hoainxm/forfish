@@ -18,6 +18,7 @@ import { apiUrl } from "@/lib/api-base";
 import { normalizeVnPhone } from "@/lib/phone";
 import { timeoutSignal } from "@/lib/abort";
 import { noteResponse, tokenHeader } from "@/lib/device-token-store";
+import { saveUserJson } from "@/lib/user-store";
 
 export interface InboxMessage {
   id: string;
@@ -40,6 +41,16 @@ export const INBOX_KEY = "forfish.inbox.v2";
 const INBOX_KEY_V1 = "forfish.inbox.v1";
 /** Tin đã BÁO VỀ được là "đã đọc" — để khỏi báo lại mỗi lần mở app (0024) */
 export const INBOX_READ_KEY = "forfish.inbox.read.v1";
+/** Tin ĐÃ TỚI MẮT bà con — ghi máy ngay, không cần sóng (TC-05, 2026-10-25). Khác hẳn `read.v1` (biên nhận thống kê). */
+export const INBOX_SEEN_KEY = "forfish.inbox.seen.v1";
+/** Tin bà con tự ẨN bằng ⋯ (TC-18) — chỉ bỏ khỏi màn, kho `inbox.v2` giữ nguyên. */
+export const INBOX_HIDDEN_KEY = "forfish.inbox.an.v1";
+/** Huy hiệu "chưa đọc" không đếm tin cũ hơn ngần này (FB: tin hàng tháng không còn được đếm). */
+export const CHUA_DOC_TOI_DA_MS = 7 * 24 * 3600000;
+/** Tin bão quá ngần này ngày thì hết hiệu lực: không còn link, "Tin cũ" không còn là cảnh báo (TC-06, khu bản đồ). */
+export const BAO_HIEU_LUC_MS = 14 * 24 * 3600000;
+/** Trần sổ seen/ẩn — gấp 10 hộp thư (≤50 tin) để tin bị cắt khỏi hộp thư vẫn nhớ là đã thấy. */
+const SO_MAY_TRAN = 500;
 
 type Stored = { phone: string; savedAt: number; messages: InboxMessage[] };
 
@@ -163,6 +174,8 @@ export function clearInbox(): void {
     window.localStorage.removeItem(INBOX_KEY);
     window.localStorage.removeItem(INBOX_KEY_V1);
     window.localStorage.removeItem(INBOX_READ_KEY);
+    window.localStorage.removeItem(INBOX_SEEN_KEY);
+    window.localStorage.removeItem(INBOX_HIDDEN_KEY);
   } catch {
     /* bỏ qua */
   }
@@ -205,6 +218,107 @@ function saveReported(phone: string | null, ids: Set<string>): void {
   } catch {
     /* máy hết chỗ — thà báo trùng còn hơn chen chỗ của dự báo */
   }
+}
+
+/* ── ĐÃ THẤY · ĐÃ ẨN — sổ trong máy, KHÔNG mạng (TC-05 / TC-18, 2026-10-25) ────
+   Vì sao tách khỏi `read.v1`: sổ kia chỉ ghi khi MÁY CHỦ xác nhận, nên mất sóng
+   cả chuyến thì chấm "chưa đọc" không bao giờ tắt dù đã đọc — lấy biên nhận
+   thống kê làm trạng thái giao diện là sai tầng. Sổ này ghi NGAY khi hàng tới
+   mắt, qua `saveUserJson` (không nuốt lỗi im). Cùng luật cách ly tài khoản. */
+
+type SoMay = { phone: string; ids: string[] };
+
+function loadSoMay(key: string, phone: string | null): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return new Set();
+    const s = JSON.parse(raw) as SoMay;
+    if (s?.phone !== inboxBucket(phone) || !Array.isArray(s.ids)) return new Set();
+    return new Set(s.ids.filter((x) => typeof x === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Ghi sổ; trả `false` khi máy không giữ được (chỗ gọi quyết định nói hay thôi). */
+function saveSoMay(key: string, phone: string | null, ids: Set<string>): boolean {
+  return saveUserJson(key, {
+    phone: inboxBucket(phone),
+    ids: [...ids].slice(-SO_MAY_TRAN), // cắt từ đầu — id cũ nhất rụng trước
+  } satisfies SoMay);
+}
+
+/** Id đã tới mắt của ĐÚNG tài khoản này. */
+export function loadSeen(phone: string | null): Set<string> {
+  return loadSoMay(INBOX_SEEN_KEY, phone);
+}
+
+/** Đánh dấu đã thấy — thuần ghi máy. Trả `false` nếu máy không ghi được (chấm sẽ hiện lại lần sau, không mất gì). */
+export function markSeen(phone: string | null, ids: string[]): boolean {
+  if (typeof window === "undefined" || ids.length === 0) return false;
+  const seen = loadSeen(phone);
+  let moi = false;
+  for (const id of ids) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      moi = true;
+    }
+  }
+  return moi ? saveSoMay(INBOX_SEEN_KEY, phone, seen) : true;
+}
+
+/**
+ * Id CHƯA ĐỌC để vẽ chấm + đếm huy hiệu — THUẦN: chưa có trong `seen` VÀ gửi trong
+ * `CHUA_DOC_TOI_DA_MS` gần đây. Tin không có giờ hợp lệ coi như cũ (không đếm).
+ */
+export function chuaDocIds(list: readonly InboxMessage[], seen: ReadonlySet<string>, now: number): Set<string> {
+  const out = new Set<string>();
+  for (const m of list) {
+    if (seen.has(m.id)) continue;
+    const t = Date.parse(m.sentAt);
+    if (!Number.isFinite(t) || now - t > CHUA_DOC_TOI_DA_MS) continue;
+    out.add(m.id);
+  }
+  return out;
+}
+
+/** Id bà con đã ẩn, của ĐÚNG tài khoản này. */
+export function loadHidden(phone: string | null): Set<string> {
+  return loadSoMay(INBOX_HIDDEN_KEY, phone);
+}
+
+/** Ẩn một nhóm tin (mọi id của dòng). Trả `false` nếu máy không ghi được — chỗ gọi báo đỏ. */
+export function anTin(phone: string | null, ids: string[]): boolean {
+  if (typeof window === "undefined" || ids.length === 0) return false;
+  const h = loadHidden(phone);
+  for (const id of ids) h.add(id);
+  return saveSoMay(INBOX_HIDDEN_KEY, phone, h);
+}
+
+/** Hoàn tác ẩn. */
+export function boAnTin(phone: string | null, ids: string[]): boolean {
+  if (typeof window === "undefined" || ids.length === 0) return false;
+  const h = loadHidden(phone);
+  for (const id of ids) h.delete(id);
+  return saveSoMay(INBOX_HIDDEN_KEY, phone, h);
+}
+
+/** Bỏ tin đã ẩn khỏi danh sách vẽ — THUẦN. */
+export function locTinAn(list: readonly InboxMessage[], hidden: ReadonlySet<string>): InboxMessage[] {
+  return hidden.size === 0 ? [...list] : list.filter((m) => !hidden.has(m.id));
+}
+
+/**
+ * Link của tin còn dùng được không — THUẦN. Tin bão (`bao=`) quá `BAO_HIEU_LUC_MS` thì
+ * bản đồ đã nói "đã tan"; hàng không còn chevron/link để khỏi hứa (khu bản đồ 2026-10-25).
+ * Tin thường: có url là còn.
+ */
+export function linkConHieuLuc(m: Pick<InboxMessage, "url" | "sentAt">, now: number): boolean {
+  if (!m.url) return false;
+  if (khoaBaoTuUrl(m.url) === null) return true;
+  const t = Date.parse(m.sentAt);
+  return Number.isFinite(t) && now - t <= BAO_HIEU_LUC_MS;
 }
 
 /** Một dòng trên màn = một nội dung; `ids` = mọi tin cùng nhóm (mới nhất đứng đầu). */

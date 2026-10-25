@@ -12,9 +12,7 @@ import {
 } from "@/lib/documents";
 import {
   AlertIcon,
-  CheckIcon,
   ChevronDownIcon,
-  CloseIcon,
   DocIcon,
   EditIcon,
   PlusIcon,
@@ -36,6 +34,7 @@ import { useBoats } from "@/components/boat-switcher";
 import { showsUnderBoat } from "@/lib/boats";
 import { DocReminderBell } from "@/components/doc-reminder-bell";
 import { NHAN } from "@/lib/labels";
+import { useXoaCho } from "@/lib/xoa-cho";
 
 // BoatDocument lives in @/lib/documents (shared, not edited). We attach a boat
 // dimension here without touching that file: the localStorage shape is freeform
@@ -155,6 +154,16 @@ export function DocumentVault() {
     setSaveFailed(!saveDocs(next));
   }
 
+  /*  Xoá chờ 5 s + Hoàn tác (TAU-12, lib/xoa-cho): hàng biến ngay, ghi máy sau. Ảnh trên Storage
+      chỉ dọn khi ĐÃ chốt (`khiChot`) — Hoàn tác không mất ảnh. */
+  const xoaCho = useXoaCho<StoredDocument>({
+    list: docs,
+    hien: setDocs,
+    ghi: commit,
+    ten: (d) => d.label,
+    khiChot: (d) => d.photos?.forEach((ph) => void deleteDocPhoto(ph)),
+  });
+
   // Xóa tàu → giấy tờ tàu đó đã bị purge khỏi máy (ba-spec 08 R3); đọc lại để
   // list đang mở bỏ theo, không tự ghi lại bản cũ.
   useEffect(() => {
@@ -186,14 +195,6 @@ export function DocumentVault() {
     commit(next);
     setShowForm(false);
     setEditing(null);
-  }
-
-  function remove(id: string) {
-    // Dọn ảnh giấy tờ ở Storage (best-effort, nền) trước khi bỏ giấy tờ.
-    docs.find((d) => d.id === id)?.photos?.forEach((p) => void deleteDocPhoto(p));
-    const next = docs.filter((d) => d.id !== id);
-    commit(next);
-    setConfirmDelete(null);
   }
 
   return (
@@ -357,14 +358,14 @@ export function DocumentVault() {
                         className={`${SQ_BTN} bg-field text-navy`}
                       >
                         <EditIcon className="h-4 w-4" />
-                        Sửa
+                        {NHAN.sua}
                       </button>
                       <button
                         onClick={() => setConfirmDelete(doc)}
                         className={`${SQ_BTN} bg-field text-danger`}
                       >
                         <TrashIcon className="h-4 w-4" />
-                        Xóa
+                        {NHAN.xoa}
                       </button>
                     </div>
                   </div>
@@ -396,12 +397,15 @@ export function DocumentVault() {
       {confirmDelete && (
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
-          title="Xóa giấy tờ này?"
-          message={`“${confirmDelete.label}” sẽ bị xóa khỏi hồ sơ và không thể khôi phục.`}
-          cancelLabel="Không xóa"
-          confirmLabel="Xác nhận xóa"
+          title="Xoá giấy tờ này?"
+          message={`“${confirmDelete.label}” sẽ bị xoá khỏi hồ sơ. Có 5 giây để hoàn tác.`}
+          cancelLabel={NHAN.khongXoa}
+          confirmLabel={NHAN.xoa}
           onCancel={() => setConfirmDelete(null)}
-          onConfirm={() => remove(confirmDelete.id)}
+          onConfirm={() => {
+            xoaCho(confirmDelete.id);
+            setConfirmDelete(null);
+          }}
         />
       )}
     </div>
@@ -466,8 +470,9 @@ function DocumentForm({
     };
   }
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  /** Gọi từ Enter trong form (có event) lẫn nút Lưu ở chân ngăn (không event). */
+  function submit(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!luuDuoc) return;
     const doc = giayTuForm();
     // giấy MỚI trùng loại với giấy đã có ⇒ hỏi, không lặng lẽ thêm hàng thứ hai
@@ -493,9 +498,12 @@ function DocumentForm({
   }
 
   return (
-    <BottomSheet kieu="form"
+    <BottomSheet
+      kieu="form"
       title={initial ? "Sửa thông tin giấy tờ" : "Thêm giấy tờ mới"}
       onClose={onCancel}
+      /* chân Huỷ|Lưu do ngăn vẽ (TAU-07/TAU-10); Lưu mờ khi chưa có thông tin (TAU-11) qua `dangLuu` */
+      chan={{ luu: NHAN.luu, onLuu: () => submit(), dangLuu: !luuDuoc }}
     >
       <form onSubmit={submit} noValidate>
         <Field label="Loại giấy tờ">
@@ -611,36 +619,16 @@ function DocumentForm({
           </>
         )}
 
-        {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
-        {/* câu nhắc DÒNG RIÊNG, hai ô nút lệch phải dòng dưới (rà bố cục 2026-10-22: chung một
-            hàng với hai ô 64px thì câu nhắc bị ép thành cột ~190px, gãy 4 dòng) */}
+        {/* câu nhắc đứng riêng, KHÔNG chen vào hàng nút (TAU-10) — Huỷ|Lưu là chân ngăn */}
         <p className="mt-3 text-[0.875rem] leading-snug text-foreground/70">
-              {!luuDuoc
-                ? `Tàu này đã có “${kindLabel(kind)}” — ghi hạn hoặc số giấy để thêm giấy mới.`
-                : expiresOn
-                  ? "Thông tin đã đủ để app nhắc hạn."
-                  : kindUsuallyNoExpiry(kind)
-                    ? "Giấy này thường không thời hạn — để trống ngày hết hạn."
-                    : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc nhở giúp bà con."}
-            </p>
-        <div className="mt-2 flex items-stretch justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className={`${SQ_BTN} bg-background text-foreground/70`}
-          >
-            <CloseIcon className="h-6 w-6" />
-            Hủy
-          </button>
-          <button
-            type="submit"
-            disabled={!luuDuoc}
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta disabled:opacity-40 disabled:shadow-none`}
-          >
-            <CheckIcon className="h-6 w-6" />
-            Lưu
-          </button>
-        </div>
+          {!luuDuoc
+            ? `Tàu này đã có “${kindLabel(kind)}” — ghi hạn hoặc số giấy để thêm giấy mới.`
+            : expiresOn
+              ? "Thông tin đã đủ để app nhắc hạn."
+              : kindUsuallyNoExpiry(kind)
+                ? "Giấy này thường không thời hạn — để trống ngày hết hạn."
+                : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc nhở giúp bà con."}
+        </p>
       </form>
 
       {/*  TRÙNG LOẠI (TAU-11): nền/Escape/"Quay lại" = về form (không ghi gì); "Cập nhật" = ghi lên
@@ -651,7 +639,7 @@ function DocumentForm({
           title={`Tàu này đã có “${kindLabel(kind)}”`}
           message="Cập nhật giấy cũ hay thêm giấy mới?"
           cancelLabel={NHAN.quayLai}
-          confirmLabel="Cập nhật"
+          confirmLabel={NHAN.capNhat}
           danger={false}
           onCancel={() => setHoiTrung(null)}
           onConfirm={() => capNhatGiayCu(hoiTrung)}

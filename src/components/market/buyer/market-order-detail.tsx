@@ -18,10 +18,12 @@ import { RatingStars } from "@/components/market/shared/rating-stars";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ChipRow } from "@/components/ui/chip-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { CallButton, PrimaryButton } from "@/components/ui/primitives";
+import { OfflineLine } from "@/components/ui/offline-line";
+import { CallButton, PrimaryButton, textareaClass } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { formatVnd } from "@/lib/format";
+import { NHAN } from "@/lib/labels";
 import { marketLineKey } from "@/lib/market/cart";
 import { marketGet, marketPost } from "@/lib/market/client";
 import {
@@ -32,13 +34,15 @@ import type { CartQuote, Order, OrderLine } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import { REVIEW_MAX } from "@/lib/market/validate";
 import { useAuthUser } from "@/lib/use-auth";
-import { ErrorBlock, SheetActions, textareaClass } from "./ui";
+import { ErrorBlock, SheetActions } from "./ui";
 import { useMarketCart, useOnlineState } from "./hooks";
 import { NOTIFY_HIDE_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 type Act = "huy" | "da-nhan" | "bao-chuyen";
 
-const CANCEL_REASONS = ["Đặt nhầm món", "Không cần nữa", "Tìm được chỗ gần hơn", "Shop lâu xác nhận"];
+/*  Lý do huỷ là CHIP (ChipRow) ⇒ nhãn ≤2 chữ (03 §Nhãn). Rút từ "Đặt nhầm món" · "Không cần nữa" ·
+    "Tìm được chỗ gần hơn" · "Shop lâu xác nhận" — gửi server đúng chuỗi này (buyer: tự do ≤200 chữ). */
+const CANCEL_REASONS = ["Đặt nhầm", "Hết cần", "Nơi khác", "Shop chậm"];
 
 export function MarketOrderDetail({ id }: { id: string }) {
   const online = useOnlineState();
@@ -428,7 +432,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
           <p className="text-[1rem] font-semibold text-navy">{order.shopName ?? "Shop"}</p>
           {order.shopSlug && (
             <Link href={`/cho/shop/${order.shopSlug}`} className="flex min-h-(--row-h) items-center text-[1rem] font-semibold text-t3">
-              Xem shop
+              {NHAN.xemShop}
             </Link>
           )}
         </div>
@@ -496,7 +500,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
               {doing === "huy" ? "Đang gửi…" : "Huỷ đơn"}
             </button>
           )}
-          {!online && <p className="text-center text-[1rem] text-foreground/65">Việc này cần có sóng.</p>}
+          {!online && <div className="overflow-hidden rounded-2xl"><OfflineLine extra=" · việc này cần có sóng" /></div>}
         </div>
       )}
 

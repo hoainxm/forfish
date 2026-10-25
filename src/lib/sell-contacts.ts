@@ -103,6 +103,7 @@ export const STATIC_SELL_CONTACTS: SellContact[] = (() => {
       name: m.name,
       province: m.province,
       address: m.address,
+      phone: m.phone, // số BQL chợ ⇒ thẻ Chợ sỉ có Gọi/Nhắn (CC-11)
       hours: m.hours,
       species: m.species ?? [],
       markets: [],

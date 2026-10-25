@@ -6,6 +6,7 @@ import {
   CrewRole,
   ROLE_LABELS,
   crewIssue,
+  demKet,
   formatCccd,
   isValidCccd,
   normalizeCccd,
@@ -32,7 +33,7 @@ import {
 } from "@/components/icons";
 import { SQ_BTN } from "@/components/ui/sq-btn";
 import { LoiO, O_LOI, cuonToiOSai } from "@/components/tau-form";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { BottomSheet, useDongSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass } from "@/components/ui/primitives";
@@ -47,6 +48,8 @@ import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
 import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import { useTodayVN } from "@/lib/use-today";
+import { NHAN } from "@/lib/labels";
+import { useXoaCho } from "@/lib/xoa-cho";
 
 /** Định danh một bạn thuyền để tra/báo cảnh báo — CCCD hoặc SĐT (1 trong 2). */
 type Identity = { cccd?: string; phone?: string };
@@ -190,9 +193,18 @@ export function CrewList() {
   // Thuyền viên theo CHỦ (ba-spec 08 R2): hiện toàn bộ, không lọc theo tàu.
   const boatCrew = crew;
 
-  const issueCount = boatCrew.filter(
-    (m) => crewIssue(m, today).level === "danger",
-  ).length;
+  /*  Đếm đầu màn (TAU-09, QUYET-DINH H): "N kẹt giấy tờ" ĐỎ chỉ đếm QUÁ HẠN (kể cả hôm nay);
+      "N sắp hết hạn" VÀNG đếm riêng (≤30 ngày); chưa ghi bảo hiểm không đếm — đỏ dành cho việc
+      cần làm ngay, không cho thiếu dữ liệu. */
+  const ket = demKet(boatCrew, today);
+
+  // Xoá chờ 5 s + Hoàn tác (TAU-12): hàng biến ngay, ghi máy sau — lib/xoa-cho
+  const xoaCho = useXoaCho<StoredCrew>({
+    list: crew,
+    hien: setCrew,
+    ghi: commitCrew,
+    ten: (m) => m.name,
+  });
 
   // người có chuyện xếp lên đầu: đỏ → vàng → chưa ghi hạn → ổn
   const sortedCrew = useMemo(() => {
@@ -235,8 +247,11 @@ export function CrewList() {
         <div className="flex min-w-0 flex-1 items-center px-1 py-2">
           <p className="text-[1rem] font-semibold text-navy">
             {boatCrew.length} bạn thuyền
-            {issueCount > 0 && (
-              <span className="text-danger"> · {issueCount} kẹt giấy tờ</span>
+            {ket.quaHan > 0 && (
+              <span className="text-danger"> · {ket.quaHan} kẹt giấy tờ</span>
+            )}
+            {ket.sapHet > 0 && (
+              <span className="text-warn"> · {ket.sapHet} sắp hết hạn</span>
             )}
           </p>
         </div>
@@ -396,7 +411,7 @@ export function CrewList() {
                         className={`${SQ_BTN} bg-field text-navy`}
                       >
                         <EditIcon className="h-4 w-4" />
-                        Sửa
+                        {NHAN.sua}
                       </button>
                       <button
                         disabled={!canWarn}
@@ -418,7 +433,7 @@ export function CrewList() {
                         className={`${SQ_BTN} bg-field text-danger`}
                       >
                         <TrashIcon className="h-4 w-4" />
-                        Xóa
+                        {NHAN.xoa}
                       </button>
                     </div>
                   </div>
@@ -462,14 +477,13 @@ export function CrewList() {
       {confirmDelete && (
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
-          title="Xóa khỏi sổ thuyền viên?"
-          message={`“${confirmDelete.name}” sẽ bị xóa khỏi sổ trên máy này (nhưng không ảnh hưởng đến các cảnh báo đã gửi).`}
-          cancelLabel="Không xóa"
-          confirmLabel="Xác nhận xóa"
+          title="Xoá khỏi sổ thuyền viên?"
+          message={`“${confirmDelete.name}” sẽ bị xoá khỏi sổ trên máy này (không ảnh hưởng cảnh báo đã gửi). Có 5 giây để hoàn tác.`}
+          cancelLabel={NHAN.khongXoa}
+          confirmLabel={NHAN.xoa}
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => {
-            const next = crew.filter((x) => x.id !== confirmDelete.id);
-            commitCrew(next);
+            xoaCho(confirmDelete.id);
             setConfirmDelete(null);
           }}
         />
@@ -521,8 +535,9 @@ function CrewForm({
   const needsCert = role !== "thuyen_vien";
   const initialCccdNorm = initial ? normalizeCccd(initial.cccd) : "";
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  /** Gọi từ Enter trong form (có event) lẫn nút Lưu ở chân ngăn (không event). */
+  function submit(e?: React.FormEvent) {
+    e?.preventDefault();
     const loi: typeof errs = {};
     if (!name.trim()) loi.name = "Chưa nhập tên thuyền viên.";
     const cccdEntered = cccd.trim() !== "";
@@ -563,9 +578,12 @@ function CrewForm({
   }
 
   return (
-    <BottomSheet kieu="form"
+    <BottomSheet
+      kieu="form"
       title={initial ? "Sửa thông tin bạn thuyền" : "Thêm bạn thuyền"}
       onClose={onCancel}
+      /* chân Huỷ|Lưu do ngăn vẽ (TAU-07/TAU-10): Huỷ sau khi gõ hỏi "Bỏ phần đang ghi?" */
+      chan={{ luu: NHAN.luu, onLuu: () => submit() }}
     >
       <form ref={formRef} onSubmit={submit} noValidate>
         <Field label="Họ và tên (bắt buộc)">
@@ -674,7 +692,7 @@ function CrewForm({
             <p className="text-[1rem] text-foreground/80">
               Giấy tờ, bảo hiểm:{" "}
               <span className="font-semibold text-navy">
-                {hasInsurance ? "có bảo hiểm" : "chưa có bảo hiểm"}
+                {hasInsurance ? "có bảo hiểm" : "chưa ghi bảo hiểm"}
               </span>
             </p>
           </div>
@@ -706,9 +724,10 @@ function CrewForm({
                 <button
                   type="button"
                   onClick={() => setHasInsurance(false)}
+                  /* "Chưa có" = chưa ghi, KHÔNG đỏ (TAU-09) — cùng màu chọn như mọi chip */
                   className={`min-h-(--row-h) rounded-xl text-[1rem] font-semibold ${
                     !hasInsurance
-                      ? "bg-danger text-white"
+                      ? "bg-navy text-white"
                       : "bg-field text-foreground/70"
                   }`}
                 >
@@ -755,30 +774,10 @@ function CrewForm({
           </>
         )}
 
-        {/*  Hàng cuối theo khuôn B1: [thân nhắc trung tính] + hai ô nút w-16. Lỗi ô KHÔNG còn
-            nằm ở đây (TAU-03) — đã về ngay dưới từng ô. */}
-        <div className="mt-3 flex items-stretch gap-2">
-          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-            <p className="text-[0.875rem] text-foreground/70">
-              Cần tên + CCCD hoặc số điện thoại.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className={`${SQ_BTN} bg-background text-foreground/70`}
-          >
-            <CloseIcon className="h-6 w-6" />
-            Hủy
-          </button>
-          <button
-            type="submit"
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
-          >
-            <CheckIcon className="h-6 w-6" />
-            Lưu
-          </button>
-        </div>
+        {/* câu nhắc đứng riêng, KHÔNG chen vào hàng nút (TAU-10) — Huỷ|Lưu là chân ngăn; lỗi ô đã về dưới ô (TAU-03) */}
+        <p className="mt-3 text-[0.875rem] leading-snug text-foreground/70">
+          Cần tên + CCCD hoặc số điện thoại.
+        </p>
       </form>
     </BottomSheet>
   );
@@ -1105,7 +1104,6 @@ function ReportSheet({
             cccd={idValidCccd ? normalizeCccd(cccd) : ""}
             phone={idValidPhone ? phone : ""}
             subjectName={subjName}
-            onCancel={onClose}
             onDone={onClose}
           />
         </>
@@ -1118,16 +1116,17 @@ function ReportForm({
   cccd,
   phone,
   subjectName,
-  onCancel,
   onDone,
 }: {
   cccd: string;
   phone: string;
   subjectName: string;
-  onCancel: () => void;
   onDone: () => void;
 }) {
   const { current } = useBoats();
+  /*  Nút "Quay lại" tự chế đi đúng đường của ngăn (TAU-07): đã gõ thì hỏi "Bỏ phần đang ghi?", lùi
+      lịch sử đúng. Ngăn báo cáo giữ hàng nút riêng vì phần gửi nằm trong form con, không ở ngăn cha. */
+  const dongNgan = useDongSheet();
   const [category, setCategory] = useState<CrewReportCategory | "">("");
   const [detail, setDetail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1286,11 +1285,11 @@ function ReportForm({
         </div>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={dongNgan}
           className={`${SQ_BTN} bg-background text-foreground/70`}
         >
           <CloseIcon className="h-6 w-6" />
-          Quay lại
+          {NHAN.quayLai}
         </button>
         <button
           type="submit"
@@ -1298,7 +1297,7 @@ function ReportForm({
           className={`${SQ_BTN} bg-trim text-white shadow-trim-cta disabled:opacity-40 disabled:shadow-none`}
         >
           <CheckIcon className="h-6 w-6" />
-          {busy ? "Đang gửi" : "Gửi báo cáo"}
+          {busy ? NHAN.dangGui : NHAN.gui}
         </button>
       </div>
     </form>

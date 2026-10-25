@@ -172,6 +172,10 @@ Thêm 2026-10-25 (rà FB toàn app, [design-review/08](../../design-review/08-ra
 | `forfish.mlist.v1` (ngăn `cho-home`, `cho-shop:<slug>`, `ban-hang/don`, `ban-hang/san-pham`, cùng ngăn `/cho/tim` có sẵn) | bản chụp danh sách + trang + chip + scrollY, ≤10 phút | `lib/market/list-state.ts` | màn danh sách tương ứng |
 | `tau.cuon:/tau`, `tau.cuon:/nguoi` | scrollY khi rời màn (`lib/giu-cuon.ts`) | `tau-toi-nav.tsx` | cùng |
 | `tau.gia-han.so-yeu-cau` | số yêu cầu gia hạn VMS đã gửi (để không fetch lúc mở) | `vms-renewal.tsx` | cùng |
+| `forfish.home.phien.v1` (lô 2, 2026-10-25) | tỉnh chọn tạm khi chưa có tàu (`{province}`) | `lib/region.ts ghiHomePhien` | `useHome()` (Đầu mối, Mua bán, Cảng) |
+| `forfish.yeucau-nhap.v1` (lô 2) | nháp form "Đặt món" | `lib/market/request-form.ts` | `/cho/yeu-cau/moi` |
+
+**localStorage mới lô 2 (2026-10-25, đều NEVER backup — chỉ của máy này):** `forfish.inbox.seen.v1` (id tin đã tới mắt, ≤500, ngăn SĐT, `clearInbox` xoá) · `forfish.inbox.an.v1` (id tin bà con ẩn) · `forfish.chuongNudge.v1` (sổ nhắc bật chuông `{count,lastAt,dismissed,snoozeUntil}`); cờ `forfish.mshop.v1` thêm trường `pending`/`pendingAt`. Sự kiện window `forfish-dock-badge` (dock đọc lại badge).
 
 Ngoài ra `history.state.sdfLop` (không phải storage): dấu "lớp nổi đang chiếm một mục lịch sử" của `lib/dialog-focus useLichSuDong`.
 

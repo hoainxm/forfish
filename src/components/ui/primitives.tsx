@@ -195,7 +195,7 @@ export function CallButton({
   );
 }
 
-/** Trạng thái rỗng — icon + lời nhắc thân thiện, nền tonal nhẹ. */
+/** Trạng thái rỗng — icon + lời nhắc thân thiện, viền đứt KHÔNG nền đặc (03 §0b, rà FB 2026-10-25 X8: 3 kiểu khối trống). */
 export function EmptyState({
   icon,
   children,
@@ -204,7 +204,7 @@ export function EmptyState({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-line bg-card px-4 py-8 text-center">
+    <div className="rounded-2xl border border-dashed border-line px-4 py-8 text-center">
       {icon && <div className="mx-auto mb-3 w-fit text-foreground/65">{icon}</div>}
       <p className="text-[1rem] text-foreground/65">{children}</p>
     </div>

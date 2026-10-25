@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MinusIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import { ImagePicker } from "@/components/market/shared/image-picker";
+import { NHAN } from "@/lib/labels";
 import { useLeaveGuard } from "@/components/market/shared/market-header";
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -27,6 +28,15 @@ import { NoShop, Switch, focusField, invalidProps, SELLER_BTN } from "./ui";
 const CATEGORY_OPTIONS: readonly ChipOption<ProductCategory>[] = PRODUCT_CATEGORIES.map((c) => ({
   id: c, label: CATEGORY_LABEL[c],
 }));
+/*  ĐƠN VỊ TÍNH chọn nhanh (BH-16, kiểu Shopee Seller): 6 đơn vị hay dùng là chip, "Khác" mở ô
+    gõ. Cùng state `unit` — chip chỉ là cách điền nhanh, validate không đổi. */
+const UNIT_QUICK = ["cái", "lít", "kg", "bao", "thùng", "bộ"] as const;
+const UNIT_KHAC = "khac";
+const UNIT_OPTIONS: readonly ChipOption<string>[] = [
+  ...UNIT_QUICK.map((u) => ({ id: u, label: u })),
+  { id: UNIT_KHAC, label: NHAN.khac },
+];
+const isQuickUnit = (u: string): boolean => (UNIT_QUICK as readonly string[]).includes(u.trim());
 
 interface VForm { label: string; priceDigits: string }
 interface PForm {
@@ -173,6 +183,8 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
   const [saving, setSaving] = useState(false);
   const [more, setMore] = useState(false);
   const [askDelete, setAskDelete] = useState(false);
+  /** bà con chọn "Khác" ⇒ mở ô gõ dù unit còn trống; món sửa có đơn vị lạ ⇒ tự mở */
+  const [unitKhac, setUnitKhac] = useState(() => !!product && product.unit.trim() !== "" && !isQuickUnit(product.unit));
   const canEdit = shop.status === "cho_duyet" || shop.status === "hoat_dong";
   // gõ dở mà chạm "‹" ⇒ hỏi "Bỏ phần đang ghi?" (BH-10)
   const [dirty, setDirty] = useState(false);
@@ -357,16 +369,37 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
         )}
 
         <div id={pFieldDomId("unit")}>
-          <Field label="Đơn vị tính">
-            <input
-              className={inputClass}
-              value={form.unit}
-              onChange={(e) => set({ unit: e.target.value })}
-              placeholder="lít, cái, bao, thùng…"
-              maxLength={20}
-              {...invalidProps(badField === "unit")}
+          <p className="mb-1.5 text-[1rem] font-semibold text-navy">Đơn vị tính</p>
+          <div className="-mx-4 mb-2">
+            <ChipRow
+              options={UNIT_OPTIONS}
+              value={unitKhac || (form.unit && !isQuickUnit(form.unit)) ? UNIT_KHAC : form.unit.trim()}
+              onChange={(id) => {
+                if (id === UNIT_KHAC) {
+                  setUnitKhac(true);
+                  if (isQuickUnit(form.unit)) set({ unit: "" });
+                } else {
+                  setUnitKhac(false);
+                  set({ unit: id });
+                }
+              }}
+              level={2}
+              ariaLabel="Đơn vị tính"
             />
-          </Field>
+          </div>
+          {(unitKhac || (form.unit !== "" && !isQuickUnit(form.unit))) && (
+            <Field label="Đơn vị khác">
+              <input
+                className={inputClass}
+                value={form.unit}
+                onChange={(e) => set({ unit: e.target.value })}
+                placeholder="Ví dụ: cuộn, mét, cặp…"
+                maxLength={20}
+                autoFocus={unitKhac && form.unit === ""}
+                {...invalidProps(badField === "unit")}
+              />
+            </Field>
+          )}
         </div>
         <ErrLine msg={at("unit")} />
 

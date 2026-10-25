@@ -2,6 +2,7 @@ import { CrewList } from "@/components/crew-list";
 import { ManHeader } from "@/components/man-header";
 import { TauToiNav } from "@/components/tau-toi-nav";
 import { RequireLogin } from "@/components/require-login";
+import { ToastHost } from "@/components/ui/toast";
 
 export const metadata = { title: "Bạn thuyền — SDFish" };
 
@@ -21,6 +22,8 @@ export default function NguoiPage() {
         {/* Bỏ BoatSwitcher (2026-10-19): sổ bạn thuyền là danh bạ CHUNG của chủ tàu, bộ chọn tàu ở đây làm tưởng danh sách bị lọc */}
         <CrewList />
       </RequireLogin>
+      {/* biên nhận nổi (xoá có Hoàn tác) — dự phòng tới khi vỏ app gắn <ToastHost/>; host thứ hai tự im */}
+      <ToastHost />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import {
 import { addOptimisticRequest } from "@/lib/use-sdvico-assets";
 import { timeoutSignal } from "@/lib/abort";
 import { tokenHeader } from "@/lib/device-token-store";
+import { NHAN } from "@/lib/labels";
 
 /*
   "Gọi SDVICO" — kênh CSKH ngay trong app: bà con để lại tên + SĐT + việc
@@ -147,8 +148,9 @@ function RequestForm({
 
   const [errText, setErrText] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  /** Gọi từ Enter trong form (có event) lẫn nút Gửi ở chân ngăn (không event). */
+  async function submit(e?: React.FormEvent) {
+    e?.preventDefault();
     // Chặn cứng ở logic (hội đồng UX 2026-06-11): ô SĐT chỉ render sau khi
     // check đăng nhập xong — `required` của DOM không bảo vệ được lúc chưa
     // render → không bao giờ để yêu cầu bay đi mà CSKH không có số gọi lại.
@@ -263,7 +265,18 @@ function RequestForm({
   }
 
   return (
-    <BottomSheet kieu="form" title="Gọi tổng đài SDVICO" onClose={onClose}>
+    <BottomSheet
+      kieu="form"
+      title="Gọi tổng đài SDVICO"
+      onClose={onClose}
+      /*  Chân Huỷ|Gửi do ngăn vẽ (TAU-07/TAU-10) — trước là cặp nút tự chế chia đôi. Chưa check xong
+          đăng nhập thì chưa cho gửi (tránh gửi thiếu số) — qua `dangLuu`. */
+      chan={{
+        luu: state === "sending" ? NHAN.dangGui : NHAN.gui,
+        onLuu: () => void submit(),
+        dangLuu: state === "sending" || !checked,
+      }}
+    >
       <form onSubmit={submit}>
         {productName && (
           <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy">
@@ -336,20 +349,6 @@ function RequestForm({
               "Chưa gửi được — bà con kiểm tra lại số điện thoại hoặc có thể gọi thẳng đại lý SDVICO gần nhất nhé."}
           </p>
         )}
-
-        <div className="mt-2 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-semibold text-foreground/70"
-          >
-            Hủy
-          </button>
-          {/* chưa check xong đăng nhập thì chưa cho gửi — tránh gửi thiếu số */}
-          <PrimaryButton type="submit" disabled={state === "sending" || !checked}>
-            {state === "sending" ? "Đang gửi yêu cầu…" : "Gửi yêu cầu"}
-          </PrimaryButton>
-        </div>
 
         {/* gấp thì gọi thẳng — hỗ trợ tức thì */}
         <a

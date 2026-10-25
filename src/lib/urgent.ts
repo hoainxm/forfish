@@ -192,7 +192,7 @@ export function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
   }
 
   // 3. Bạn thuyền — không seed demo (như trên); days = hạn gần nhất thật
-  // ("chưa có bảo hiểm" = -1 theo crewIssue) — không còn -9999 (S3)
+  // ("chưa ghi bảo hiểm" = neutral, days=null từ 2026-10-25 QĐ H — không lên dải) — không còn -9999 (S3)
   const crew = loadStored<CrewMember>(CREW_KEY);
   for (const m of crew) {
     const s = crewIssue(m, today);

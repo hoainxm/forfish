@@ -15,16 +15,6 @@ import { rememberPeek } from "./product-peek";
 import { useMarketCart } from "./hooks";
 import { NOTIFY_HIDE_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
-/**
- * Ô NHIỀU DÒNG — `inputClass` mang `h-(--h-ctl)` nên `<textarea rows=3>` vẫn chỉ cao
- * một dòng và cuộn trong (VT-12). Ô tự cao theo chữ (`field-sizing: content`), tối
- * thiểu 2 dòng, tới ~6 dòng rồi cuộn.
- * // nợ: Safari chưa có field-sizing ⇒ ô dừng ở 2 dòng và cuộn trong, nâng khi Safari hỗ trợ
- * Đặt ở đây (không ở ui/primitives) vì khu auth đang sửa file đó cùng lúc — gộp về sau.
- */
-export const textareaClass =
-  "w-full min-h-[5.5rem] max-h-[12rem] rounded-xl border border-line bg-card px-3.5 py-2.5 text-[1rem] leading-snug [field-sizing:content] focus:outline-none focus:ring-2 focus:ring-sea";
-
 /** Nút chính hình LINK — cùng hình `PrimaryButton` (bậc --h-cta, bo 0.75rem) cho đường đi chính. */
 export const primaryLinkClass =
   "display flex h-(--h-cta) w-full items-center justify-center gap-2 rounded-xl bg-trim text-[1rem] font-semibold text-white transition active:scale-[0.98]";

@@ -3,11 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  BasketIcon,
-  CheckIcon,
-  ChevronRightIcon,
+  ChevronDownIcon,
   ClockIcon,
-  CloseIcon,
   DocIcon,
   EditIcon,
   LockIcon,
@@ -34,6 +31,8 @@ import {
 } from "@/lib/products";
 import { SdvicoAssignPrompt } from "@/components/sdvico-assign-prompt";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
+import { NHAN } from "@/lib/labels";
+import { useXoaCho } from "@/lib/xoa-cho";
 
 /*
   Tab SẢN PHẨM — ĐỒ TRÊN TÀU CỦA BÀ CON, một cột, không còn chip.
@@ -46,8 +45,9 @@ import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
   (đồng bộ SDVICO, nhắc bảo hành) + đồ tự ghi — và MỘT thẻ dẫn sang chợ đặt
   đúng chỗ hai chip cũ đứng, để tay quen của bà con vẫn chạm trúng.
 
-  Mỗi sản phẩm là MỘT thẻ với MỘT băng trạng thái bảo hành màu trên cùng;
-  thêm/sửa trong bottom sheet; dữ liệu gắn theo tàu đang chọn (boatId).
+  Đồ tự ghi: mỗi món MỘT HÀNG trong `ul.surface divide-y` cùng khuôn Tủ giấy tờ (TAU-05,
+  2026-10-25) — tên + tình trạng bảo hành chữ màu, chạm bung chi tiết + Sửa · Xoá; thêm/sửa trong
+  ngăn `kieu="form"` có chân Huỷ|Lưu; dữ liệu gắn theo tàu đang chọn (boatId).
 */
 
 const STORAGE_KEY = "forfish.products.v1";
@@ -85,6 +85,8 @@ export function BoatProducts() {
   const [saveFailed, setSaveFailed] = useState(false);
   const [editing, setEditing] = useState<BoatProduct | null>(null);
   const [showForm, setShowForm] = useState(false);
+  /** món đang bung chi tiết — một hàng một lúc */
+  const [openId, setOpenId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<BoatProduct | null>(null);
   // đồ mua của SDVICO — hook dùng chung 4 nấc (loading/guest/error/ok),
   // KHÔNG còn nuốt lỗi mạng thành "chưa đăng nhập"
@@ -128,6 +130,14 @@ export function BoatProducts() {
     setSaveFailed(!saveProducts(next));
   }
 
+  // Xoá chờ 5 s + Hoàn tác (TAU-12): hàng biến ngay, ghi máy sau — lib/xoa-cho
+  const xoaCho = useXoaCho<BoatProduct>({
+    list: products,
+    hien: setProducts,
+    ghi: commit,
+    ten: (p) => p.name,
+  });
+
   // Xóa tàu → hàng gán tàu đó đã được nhả về "của chung" (ba-spec 08 R3);
   // đọc lại để boatId trong state khớp máy, không tự ghi đè bản cũ.
   useEffect(() => {
@@ -163,12 +173,6 @@ export function BoatProducts() {
     commit(next);
     setShowForm(false);
     setEditing(null);
-  }
-
-  function remove(id: string) {
-    const next = products.filter((p) => p.id !== id);
-    commit(next);
-    setConfirmDelete(null);
   }
 
   return (
@@ -372,101 +376,85 @@ export function BoatProducts() {
           </div>
         )}
 
-      <ul className="space-y-3">
-        {sorted.map((product) => {
-          const status = getWarrantyStatus(product, today);
-          const level =
-            status.level === "expired"
-              ? "danger"
-              : status.level === "soon"
-                ? "warn"
-                : status.level === "ok"
-                  ? "ok"
-                  : "neutral";
-          return (
-            <li
-              key={product.id}
-              className="overflow-hidden surface"
-            >
-              {/* status banner — the first thing the eye lands on */}
-              <StatusBanner
-                level={level}
-                icon={
-                  level === "neutral" ? <ClockIcon className="h-5 w-5" /> : undefined
-                }
-              >
-                {status.label}
-              </StatusBanner>
-
-              {/*  THÂN THẺ theo khuôn hàng chung (luật B1): [thân flex-1
-                  min-w-0] + [ô nút w-16]; hàng không mang nút vẫn chừa ô. Trước:
-                  hàng grid-cols-2 chỉ để chứa hai nút, không nội dung nào khác. */}
-              <div className="space-y-1.5 p-2">
-                <div className="flex items-stretch gap-2">
-                  <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                    <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
+      {/*  MỖI MÓN MỘT HÀNG (TAU-05, 2026-10-25) — cùng khuôn Tủ giấy tờ; trước là thẻ băng màu
+          đặc + hộp nền + Sửa/Xóa bày thường trực. Màu tình trạng luôn kèm chữ. */}
+      {sorted.length > 0 && (
+        <ul className="surface divide-y divide-line overflow-hidden">
+          {sorted.map((product) => {
+            const status = getWarrantyStatus(product, today);
+            const tone =
+              status.level === "expired"
+                ? "text-danger"
+                : status.level === "soon"
+                  ? "text-warn"
+                  : status.level === "ok"
+                    ? "text-ok"
+                    : "text-foreground/65";
+            const open = openId === product.id;
+            return (
+              <li key={product.id}>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(open ? null : product.id)}
+                  aria-expanded={open}
+                  className="flex min-h-(--h-row) w-full items-center gap-3 px-4 py-2.5 text-left"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words text-[1rem] font-semibold leading-snug text-navy">
                       {product.name}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setEditing(product);
-                      setShowForm(true);
-                    }}
-                    className={`${SQ_BTN} bg-background text-sea`}
-                  >
-                    <EditIcon className="h-6 w-6" />
-                    Sửa
-                  </button>
-                  <button
-                    onClick={() => setConfirmDelete(product)}
-                    className={`${SQ_BTN} bg-background text-danger`}
-                  >
-                    <TrashIcon className="h-6 w-6" />
-                    Xóa
-                  </button>
-                </div>
+                    </span>
+                    <span className={`mt-0.5 block text-[0.8125rem] leading-snug ${tone}`}>
+                      {status.label}
+                    </span>
+                  </span>
+                  <ChevronDownIcon
+                    className={`h-4 w-4 shrink-0 text-foreground/40 transition ${open ? "rotate-180" : ""}`}
+                  />
+                </button>
 
-                {product.warrantyUntil && (
-                  <div className="flex items-stretch gap-2">
-                    <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[1rem] text-foreground/70">
-                        Bảo hành tới:{" "}
-                        <strong>{formatVnDate(product.warrantyUntil)}</strong>
+                {open && (
+                  <div className="space-y-1.5 bg-background/60 px-4 pb-3 pt-1">
+                    {product.warrantyUntil && (
+                      <p className="text-[0.875rem] text-foreground/75">
+                        Bảo hành tới: <strong>{formatVnDate(product.warrantyUntil)}</strong>
                       </p>
-                    </div>
-                    <span className="w-16 shrink-0" aria-hidden />
-                  </div>
-                )}
-                {(product.serial || product.purchasedOn) && (
-                  <div className="flex items-stretch gap-2">
-                    <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[1rem] text-foreground/70">
+                    )}
+                    {(product.serial || product.purchasedOn) && (
+                      <p className="text-[0.875rem] text-foreground/75">
                         {product.serial ? `Serial ${product.serial}` : ""}
                         {product.serial && product.purchasedOn ? " · " : ""}
-                        {product.purchasedOn
-                          ? `mua ${formatVnDate(product.purchasedOn)}`
-                          : ""}
+                        {product.purchasedOn ? `mua ${formatVnDate(product.purchasedOn)}` : ""}
                       </p>
+                    )}
+                    {product.note && (
+                      <p className="text-[0.875rem] text-foreground/75">{product.note}</p>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          setEditing(product);
+                          setShowForm(true);
+                        }}
+                        className={`${SQ_BTN} bg-field text-navy`}
+                      >
+                        <EditIcon className="h-4 w-4" />
+                        {NHAN.sua}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(product)}
+                        className={`${SQ_BTN} bg-field text-danger`}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                        {NHAN.xoa}
+                      </button>
                     </div>
-                    <span className="w-16 shrink-0" aria-hidden />
                   </div>
                 )}
-                {product.note && (
-                  <div className="flex items-stretch gap-2">
-                    <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-                      <p className="text-[0.875rem] text-foreground/70">
-                        {product.note}
-                      </p>
-                    </div>
-                    <span className="w-16 shrink-0" aria-hidden />
-                  </div>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {/*  Bỏ dòng chân trang "lưu ngay trên máy" (D1) — chỉ giải thích app hoạt
           động thế nào, không cấp dữ liệu, không dặn dò an toàn. */}
@@ -487,12 +475,15 @@ export function BoatProducts() {
       {confirmDelete && (
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
-          title="Xóa sản phẩm này?"
-          message={`“${confirmDelete.name}” sẽ bị xóa khỏi danh sách và không thể khôi phục.`}
-          cancelLabel="Không xóa"
-          confirmLabel="Xác nhận xóa"
+          title="Xoá sản phẩm này?"
+          message={`“${confirmDelete.name}” sẽ bị xoá khỏi danh sách. Có 5 giây để hoàn tác.`}
+          cancelLabel={NHAN.khongXoa}
+          confirmLabel={NHAN.xoa}
           onCancel={() => setConfirmDelete(null)}
-          onConfirm={() => remove(confirmDelete.id)}
+          onConfirm={() => {
+            xoaCho(confirmDelete.id);
+            setConfirmDelete(null);
+          }}
         />
       )}
     </div>
@@ -547,8 +538,9 @@ function ProductForm({
     Boolean(initial?.serial || initial?.purchasedOn || initial?.note),
   );
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  /** Gọi từ Enter trong form (có event) lẫn nút Lưu ở chân ngăn (không event). */
+  function submit(e?: React.FormEvent) {
+    e?.preventDefault();
     const name =
       picked === OTHER ? customName.trim() || "Sản phẩm SDVICO" : picked;
     onSave({
@@ -563,9 +555,12 @@ function ProductForm({
   }
 
   return (
-    <BottomSheet kieu="form"
+    <BottomSheet
+      kieu="form"
       title={initial ? "Sửa thông tin sản phẩm" : "Thêm sản phẩm SDVICO"}
       onClose={onCancel}
+      /* chân Huỷ|Lưu do ngăn vẽ (TAU-07/TAU-10): Huỷ sau khi gõ hỏi "Bỏ phần đang ghi?" */
+      chan={{ luu: NHAN.luu, onLuu: () => submit() }}
     >
       <form onSubmit={submit}>
         <Field label="Tên sản phẩm">
@@ -657,31 +652,12 @@ function ProductForm({
           </>
         )}
 
-        {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng. Câu nhắc DÒNG
-            RIÊNG phía trên (rà bố cục 2026-10-22: chung hàng với hai ô 64px thì bị ép thành cột
-            ~190px, gãy 4 dòng). */}
+        {/* câu nhắc đứng riêng, KHÔNG chen vào hàng nút (TAU-10) — Huỷ|Lưu là chân ngăn */}
         <p className="mt-3 text-[0.875rem] leading-snug text-foreground/70">
           {warrantyUntil
             ? "Thông tin đã đủ để app nhắc bảo hành."
             : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc bảo hành giúp bà con."}
         </p>
-        <div className="mt-2 flex items-stretch justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className={`${SQ_BTN} bg-background text-foreground/70`}
-          >
-            <CloseIcon className="h-6 w-6" />
-            Hủy
-          </button>
-          <button
-            type="submit"
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
-          >
-            <CheckIcon className="h-6 w-6" />
-            Lưu
-          </button>
-        </div>
       </form>
     </BottomSheet>
   );

@@ -9,16 +9,23 @@
 // khuôn `buyer/market-search.tsx`. Bản chụp CHỈ ghi khi rời sang một đơn (hoặc
 // trang bị che), và CHỈ dùng khi tab/chữ tra trên URL khớp — link mới từ Tổng
 // quan vẫn tải mới, không bày đơn cũ.
+//
+// `?tt=bao_da_chuyen` (BH-08, 2026-10-25): ô "Báo đã CK" ở Tổng quan mở CHẾ ĐỘ TRA — bỏ tab,
+// danh sách = đúng các đơn ô đó đếm (`choXacNhanTien`, cùng luật với /thong-ke); "Xoá tra" về tab.
+// Kéo xuống đầu trang làm mới cả danh sách + số đếm (BH-14).
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { OrderStatusChip } from "@/components/market/shared/order-status-chip";
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { EmptyState, inputClass } from "@/components/ui/primitives";
+import { KeoLamMoiChi, useKeoLamMoi } from "@/components/ui/use-keo-lam-moi";
 import { CartIcon, ChevronRightIcon } from "@/components/icons";
 import { formatVnd } from "@/lib/format";
 import { saveListState, takeListState } from "@/lib/market/list-state";
-import { isPendingTooLong, ORDER_STATUSES, ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/market/order-state";
-import type { Order, OrderStatus, ShopStats } from "@/lib/market/types";
+import {
+  isPaymentStatus, isPendingTooLong, ORDER_STATUSES, ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL,
+} from "@/lib/market/order-state";
+import type { Order, OrderStatus, PaymentStatus, ShopStats } from "@/lib/market/types";
 import { AutoCancelNote, EtaLine } from "@/components/market/shared/eta";
 import { LineThumb } from "@/components/market/shared/line-thumb";
 import {
@@ -44,11 +51,17 @@ function searchParamOf(raw: string): string {
 function tabOf(v: string | null): OrderStatus {
   return v && (ORDER_STATUSES as readonly string[]).includes(v) ? (v as OrderStatus) : TAB_MAC_DINH;
 }
+/** `?tt=` hợp lệ ⇒ chế độ tra theo thanh toán; sai/thiếu ⇒ null (về tab) */
+function ttOf(v: string | null): PaymentStatus | null {
+  return isPaymentStatus(v) ? v : null;
+}
 
 export function ShopOrders() {
   const [tab, setTab] = useState<OrderStatus>(TAB_MAC_DINH);
   const [qRaw, setQRaw] = useState("");
   const [q, setQ] = useState("");           // chỉ đổi khi bấm Tìm / Enter — không gõ tới đâu gọi tới đó
+  /** tra theo thanh toán (`?tt=bao_da_chuyen` từ ô "Báo đã CK") — bỏ tab như tra mã/SĐT */
+  const [tt, setTt] = useState<PaymentStatus | null>(null);
   /** đã đọc URL + bản chụp sau mount — trước đó danh sách đứng yên, không tải nhầm tab mặc định */
   const [ready, setReady] = useState(false);
   const stats = useMarketData<{ stats: ShopStats }>("/api/ban-hang/thong-ke?range=30d");
@@ -62,8 +75,10 @@ export function ShopOrders() {
     (page: number) =>
       q
         ? `/api/ban-hang/don?page=${page}${searchParamOf(q)}`
-        : `/api/ban-hang/don?status=${tab}&page=${page}`,
-    [q, tab],
+        : tt
+          ? `/api/ban-hang/don?page=${page}&tt=${tt}`
+          : `/api/ban-hang/don?status=${tab}&page=${page}`,
+    [q, tab, tt],
   );
   const list = useMarketList<Order>(ready ? path : null);
   const restore = list.restore; // ổn định — effect mount dưới chỉ chạy một lần
@@ -72,12 +87,14 @@ export function ShopOrders() {
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const tab0 = tabOf(sp.get("tab"));
+    const tt0 = ttOf(sp.get("tt"));
     const q0 = sp.get("q") ?? "";
     setTab(tab0);
+    setTt(tt0);
     setQ(q0);
     setQRaw(q0);
     const cu = takeListState<Order>(LIST_ID);
-    if (cu && cu.q === q0 && cu.filters.tab === tab0) {
+    if (cu && cu.q === q0 && cu.filters.tab === tab0 && (cu.filters.tt ?? null) === tt0) {
       restore(cu);
       scrollBackTo(cu.scrollY);
     }
@@ -87,8 +104,8 @@ export function ShopOrders() {
   // tab / chữ tra lên URL — back từ chi tiết về đúng tab
   useEffect(() => {
     if (!ready) return;
-    writeUrlParams({ tab, q: q || null });
-  }, [ready, tab, q]);
+    writeUrlParams({ tab: tt ? null : tab, q: q || null, tt }); // đang tra theo thanh toán thì URL không mang tab
+  }, [ready, tab, q, tt]);
 
   const ghi = useCallback(
     (luc: "pagehide" | "unmount") => {
@@ -96,18 +113,20 @@ export function ShopOrders() {
       if (luc === "unmount" && !sangChiTiet.current) return; // rời sang màn khác (không phải một đơn) ⇒ lần tới tải mới
       saveListState<Order>(LIST_ID, {
         q,
-        filters: { tab },
+        filters: { tab, tt },
         items: list.items,
         total: list.total,
         page: list.page,
         scrollY: cuon.current,
       });
     },
-    [ready, q, tab, list.items, list.total, list.page, cuon],
+    [ready, q, tab, tt, list.items, list.total, list.page, cuon],
   );
   useSaveOnLeave(ghi);
 
   const noShop = list.state.kind === "error" && list.state.code === "no_shop";
+  // kéo xuống ở đầu trang ⇒ tải lại danh sách + số đếm tab (BH-14); chờ cả hai xong mới cất vòng quay
+  const lamMoi = useKeoLamMoi(async () => { await Promise.all([list.reload(), stats.reload()]); }, { disabled: !ready || noShop });
   const byStatus = stats.state.kind === "ok" ? stats.state.data.stats.byStatus : null;
   const options: readonly ChipOption<OrderStatus>[] = ORDER_STATUSES.map((s) => ({
     id: s,
@@ -156,6 +175,18 @@ export function ShopOrders() {
                 Xoá tra, về danh sách
               </button>
             </div>
+          ) : tt ? (
+            /*  Tra theo thanh toán từ ô "Báo đã CK" (BH-08): chip đang tra + đường về tab —
+                cùng khuôn "Kết quả tra" để bà con biết đang xem gì. */
+            <div className="mb-3 flex flex-wrap items-center gap-2 px-4">
+              <span className="rounded-full px-3 py-1 text-[1rem] font-semibold"
+                style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}>
+                Báo đã CK
+              </span>
+              <button type="button" onClick={() => setTt(null)} className={`${SELLER_BTN} bg-field px-4 text-navy`}>
+                Xoá tra, về danh sách
+              </button>
+            </div>
           ) : (
             <div className="mb-3">
               <ChipRow options={options} value={tab} onChange={setTab} accent="t3" level={1} ariaLabel="Trạng thái đơn" />
@@ -164,7 +195,7 @@ export function ShopOrders() {
 
           {/*  Số đếm trên tab lấy từ /thống-kê. Hỏng thì NÓI, đừng để tab trơ số:
               không số bà con hiểu là "không có đơn nào". */}
-          {!q && stats.state.kind !== "ok" && stats.state.kind !== "loading" && (
+          {!q && !tt && stats.state.kind !== "ok" && stats.state.kind !== "loading" && (
             <p className="mb-2 px-4 text-[1rem] text-foreground/70">
               Chưa đếm được số đơn từng mục — danh sách bên dưới vẫn đúng.
             </p>
@@ -172,10 +203,11 @@ export function ShopOrders() {
         </>
       )}
 
+      <KeoLamMoiChi {...lamMoi.chi} />
       <LoadView state={list.state} what="đơn hàng của shop" onRetry={list.reload}>
         {() => (
           <>
-            <Rows items={list.items} tab={tab} searching={!!q} onOpen={() => { sangChiTiet.current = true; }} />
+            <Rows items={list.items} tab={tab} searching={!!q} choTien={!q && !!tt} onOpen={() => { sangChiTiet.current = true; }} />
             <div className="px-4">
               <MoreButton more={list.more} busy={list.loadingMore} onMore={list.loadMore} what="đơn" />
             </div>
@@ -187,9 +219,11 @@ export function ShopOrders() {
 }
 
 function Rows({
-  items, tab, searching, onOpen,
+  items, tab, searching, choTien, onOpen,
 }: {
   items: Order[]; tab: OrderStatus; searching: boolean;
+  /** đang tra "Báo đã CK" — câu trống nói đúng việc */
+  choTien: boolean;
   /** bà con chạm vào một đơn — màn ghi bản chụp để quay lại đúng chỗ */
   onOpen: () => void;
 }) {
@@ -199,7 +233,9 @@ function Rows({
         <EmptyState icon={<CartIcon className="h-8 w-8" />}>
           {searching
             ? "Không có đơn nào khớp. Coi lại mã đơn hoặc số điện thoại giúp."
-            : `Không có đơn ${ORDER_STATUS_LABEL[tab].toLowerCase()}.`}
+            : choTien
+              ? "Không có đơn nào đang báo đã chuyển khoản."
+              : `Không có đơn ${ORDER_STATUS_LABEL[tab].toLowerCase()}.`}
         </EmptyState>
       </div>
     );

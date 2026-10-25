@@ -14,10 +14,11 @@ import { useCallback, useEffect, useState } from "react";
 import { BellIcon } from "@/components/icons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { acceptRefresh, loadInbox, markRead, refreshInbox, unreportedIds, type InboxMessage } from "@/lib/inbox";
-import { nhanDem, tinChuongKairos, type TinChuong } from "@/lib/kairos/chuong";
+import { demChuaDoc, nhanDem, tinChuongKairos, type TinChuong } from "@/lib/kairos/chuong";
 import { KairosAvatar } from "./kairos-avatar";
 import { postTimeLabel } from "@/lib/kairos/feed-client";
 import { NHAN } from "@/lib/labels";
+import { DOCK_BADGE_EVENT } from "@/lib/dock-nav";
 import { useAuthUser } from "@/lib/use-auth";
 
 export function ChuongKairos() {
@@ -53,7 +54,15 @@ export function ChuongKairos() {
       const ids = l.filter((t) => t.chuaDoc).map((t) => t.id);
       if (!ids.length) return;
       setDaXem((s) => new Set([...s, ...ids]));
-      void markRead(phone, ids).then(() => tinh(loadInbox(phone)));
+      void markRead(phone, ids).then(() => {
+        tinh(loadInbox(phone));
+        // dock tắt badge Kairos NGAY khi đã báo đọc (không chờ đổi màn)
+        try {
+          window.dispatchEvent(new Event(DOCK_BADGE_EVENT));
+        } catch {
+          /* không có Event — badge đợi lần đổi màn */
+        }
+      });
     },
     [phone, tinh],
   );
@@ -68,7 +77,7 @@ export function ChuongKairos() {
     });
   };
 
-  const soMoi = list.filter((t) => t.chuaDoc && !daXem.has(t.id)).length;
+  const soMoi = demChuaDoc(list, daXem);
   const nhan = soMoi ? `${NHAN.thongBao}: ${soMoi} tin mới` : NHAN.thongBao;
 
   return (

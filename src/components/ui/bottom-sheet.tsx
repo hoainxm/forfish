@@ -1,11 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useExitTransition } from "@/lib/use-exit-transition";
-import { focusablesIn, lockBodyScroll, unlockBodyScroll, useLichSuDong, vongFocus, vuotDeDong } from "@/lib/dialog-focus";
+import { focusablesIn, khoaVuotNen, lockBodyScroll, unlockBodyScroll, useLichSuDong, vongFocus, vuotDeDong } from "@/lib/dialog-focus";
+import { NHAN } from "@/lib/labels";
 import { CloseButton } from "@/components/ui/close-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { PrimaryButton } from "@/components/ui/primitives";
+import { useVungNhin } from "@/components/kairos/use-vung-nhin";
+
+/*
+  ĐÓNG NGĂN TỪ TRONG THÂN (rà FB 2026-10-25, TAU-07/TAU-10): nút Huỷ tự chế trong ngăn `kieu="form"` gọi
+  `useDongSheet()()` thay cho `onClose` thẳng ⇒ đi đúng đường của ngăn: đã gõ thì hỏi "Bỏ phần đang ghi?", lùi
+  mục lịch sử để back sau không bấm hai lần. Ngoài ngăn ⇒ hàm rỗng (không văng lỗi).
+*/
+const DongSheetCtx = createContext<(() => void) | null>(null);
+const khongLam = () => {};
+export function useDongSheet(): () => void {
+  return useContext(DongSheetCtx) ?? khongLam;
+}
+
+/** Chân Huỷ|Lưu sheet tự vẽ (03 §6 mục 3). `xoa` = hàng chữ đỏ riêng DƯỚI cặp nút, không ngang hàng Lưu. */
+export type ChanSheet = {
+  luu: string;
+  onLuu: () => void;
+  dangLuu?: boolean;
+  huy?: string;
+  xoa?: { nhan: string; onXoa: () => void };
+};
 
 /*
   Khoá cuộn nền ĐẾM THAM CHIẾU + giữ focus: dời sang lib/dialog-focus.ts (2026-10-22) để
@@ -23,10 +46,16 @@ export function BottomSheet({
   onClose,
   children,
   kieu = "xem",
+  chan,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /**
+   * Chân Huỷ|Lưu do sheet vẽ, dính đáy trên bàn phím; thân cuộn riêng. Chỉ có nghĩa với `kieu="form"`.
+   * Không truyền ⇒ y như cũ (21 ngăn đang tự vẽ chân, chuyển dần).
+   */
+  chan?: ChanSheet;
   /**
    * 03 §Nút X mục 2 (rà bố cục 2026-10-22 — trước đây KHÔNG sheet nào có ×):
    *  · `xem` (mặc định) — ngăn đọc/chọn: có × góc trên-phải + vuốt + chạm nền.
@@ -37,6 +66,11 @@ export function BottomSheet({
   kieu?: "xem" | "form";
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
+  /*  BÀN PHÍM: ngăn có chân thì cả ngăn đứng lên trên bàn phím (visualViewport) để Huỷ|Lưu luôn bấm được —
+      cùng cách khung soạn Kairos. Không chân ⇒ không đụng (bố cục cũ). */
+  const vung = useVungNhin();
+  const ban = chan ? (vung?.ban ?? 0) : 0;
   const titleId = useId();
   // đóng có animation trượt xuống (API ngoài giữ nguyên: vẫn nhận onClose)
   const { closing, requestClose } = useExitTransition(onClose);
@@ -71,6 +105,9 @@ export function BottomSheet({
   };
   const onKeoXuong = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
+    // Chạm vào NÚT trong hàng tiêu đề (× đóng…) thì không bắt kéo: setPointerCapture
+    // chuyển cả click về lớp bọc, nút × không bao giờ nhận click (thấy 2026-10-25 lô 2).
+    if (e.target instanceof Element && e.target.closest("button, a")) return;
     keoRef.current = { y0: e.clientY, t0: performance.now(), dy: 0 };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
@@ -114,6 +151,8 @@ export function BottomSheet({
     if (!mounted) return;
     const opener = document.activeElement as HTMLElement | null;
     lockBodyScroll();
+    // VO-APP-09: touchmove non-passive trên scrim — iOS không trôi trang sau (lib/dialog-focus khoaVuotNen)
+    const goVuot = scrimRef.current ? khoaVuotNen(scrimRef.current, () => panelRef.current) : undefined;
     // focus phần tử đầu tiên trong sheet (bỏ qua nút × để không bung bàn phím/đọc "Đóng" trước)
     const dau = focusablesIn(panelRef.current).find((el) => !el.closest("[data-dong-sheet]"));
     (dau ?? focusablesIn(panelRef.current)[0])?.focus();
@@ -136,6 +175,7 @@ export function BottomSheet({
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
+      goVuot?.();
       unlockBodyScroll();
       opener?.focus?.();
     };
@@ -150,11 +190,14 @@ export function BottomSheet({
   return createPortal(
     <>
     <div
-      /*  touch-none (VO-APP-09, 2026-10-25): iOS Safari bỏ qua overflow:hidden trên body — vuốt trên nền mờ vẫn trôi
-          trang phía sau; chặn cử chỉ ngay trên nền. Thân ngăn là vùng cuộn riêng nên không bị ảnh hưởng. */
+      ref={scrimRef}
+      /*  touch-none + touchmove preventDefault (VO-APP-09, 2026-10-25): iOS Safari bỏ qua overflow:hidden trên body —
+          vuốt trên nền mờ vẫn trôi trang phía sau; chặn cử chỉ ngay trên nền. Thân ngăn là vùng cuộn riêng nên không
+          bị ảnh hưởng (khoaVuotNen chỉ chặn trong panel khi không có gì cuộn được). */
       className={`fixed inset-0 z-30 flex touch-none items-end justify-center bg-black/50 ${
         closing ? "anim-scrim-out" : "anim-scrim-in"
       }`}
+      style={ban > 0 ? { bottom: ban } : undefined}
       onClick={dongTay}
     >
       <div
@@ -166,9 +209,10 @@ export function BottomSheet({
         onInputCapture={() => {
           daGoRef.current = true;
         }}
-        className={`max-h-[85dvh] w-full max-w-(--w-app) overflow-y-auto rounded-t-[1.75rem] bg-background p-5 pb-[max(2rem,env(safe-area-inset-bottom))] [overscroll-behavior:contain] ${
-          vuotDong ? "" : closing ? "anim-sheet-out" : "anim-sheet-in"
-        }`}
+        className={`w-full max-w-(--w-app) overflow-y-auto rounded-t-[1.75rem] bg-background p-5 [overscroll-behavior:contain] ${
+          chan ? "pb-0" : "pb-[max(2rem,env(safe-area-inset-bottom))]"
+        } ${vuotDong ? "" : closing ? "anim-sheet-out" : "anim-sheet-in"}`}
+        style={{ maxHeight: ban > 0 ? `calc(85dvh - ${ban}px)` : "85dvh" }}
       >
         {/* thanh kéo + hàng tiêu đề = vùng VUỐT xuống để đóng (touch-action none: trình
             duyệt không giành cử chỉ để cuộn trang) */}
@@ -191,7 +235,35 @@ export function BottomSheet({
             )}
           </div>
         </div>
-        {children}
+        <DongSheetCtx.Provider value={dongTay}>
+          {children}
+          {chan && (
+            /* chân DÍNH đáy vùng cuộn của ngăn — thân dài thì cuộn, cặp nút vẫn thấy */
+            <div className="sticky bottom-0 -mx-5 bg-background px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={dongTay}
+                  className="display flex h-(--h-cta) items-center justify-center rounded-xl bg-field text-[1rem] font-semibold text-foreground/70"
+                >
+                  {chan.huy ?? NHAN.huy}
+                </button>
+                <PrimaryButton onClick={chan.onLuu} disabled={chan.dangLuu}>
+                  {chan.luu}
+                </PrimaryButton>
+              </div>
+              {chan.xoa && (
+                <button
+                  type="button"
+                  onClick={chan.xoa.onXoa}
+                  className="mt-1 flex h-(--h-ctl) w-full items-center justify-center text-[1rem] font-semibold text-danger"
+                >
+                  {chan.xoa.nhan}
+                </button>
+              )}
+            </div>
+          )}
+        </DongSheetCtx.Provider>
       </div>
     </div>
       {/* NGOÀI lớp nền mờ của ngăn — cú bấm trong hộp hỏi không dội lên nền (React cho sự

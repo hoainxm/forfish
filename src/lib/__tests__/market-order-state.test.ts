@@ -6,6 +6,9 @@ import {
   canReview,
   canTransitionOrder,
   canTransitionPayment,
+  choXacNhanTien,
+  ENDED_STATUSES,
+  isEnded,
   isPendingTooLong,
   ORDER_STATUS_CHIP,
   ORDER_STATUSES,
@@ -168,6 +171,23 @@ describe("isPendingTooLong — biên 48h", () => {
     expect(isPendingTooLong(o, "2026-09-02T23:59:00.000Z")).toBe(false);
     expect(isPendingTooLong(o, "2026-09-03T00:00:00.000Z")).toBe(true);
     expect(isPendingTooLong(order({ createdAt: created, status: "da_xac_nhan" }), "2026-09-10T00:00:00Z")).toBe(false);
+  });
+});
+
+describe("choXacNhanTien — một luật cho ô 'Báo đã CK' và lọc ?tt=bao_da_chuyen (BH-08)", () => {
+  it("CK + bao_da_chuyen + đơn còn sống ⇒ true ở mọi trạng thái chưa kết thúc", () => {
+    for (const st of ORDER_STATUSES.filter((s) => !isEnded(s))) {
+      expect(choXacNhanTien(order({ paymentMethod: "chuyen_khoan", paymentStatus: "bao_da_chuyen", status: st }))).toBe(true);
+    }
+  });
+  it("đã huỷ / hoàn thành ⇒ false (dù needsRefund); COD ⇒ false; chưa báo / đã nhận tiền ⇒ false", () => {
+    for (const st of ENDED_STATUSES) {
+      expect(choXacNhanTien(order({ paymentMethod: "chuyen_khoan", paymentStatus: "bao_da_chuyen", status: st, needsRefund: true }))).toBe(false);
+    }
+    expect(choXacNhanTien(order({ paymentMethod: "cod", paymentStatus: "bao_da_chuyen" }))).toBe(false);
+    expect(choXacNhanTien(order({ paymentMethod: "chuyen_khoan", paymentStatus: "chua_thanh_toan" }))).toBe(false);
+    expect(choXacNhanTien(order({ paymentMethod: "chuyen_khoan", paymentStatus: "da_thanh_toan", status: "dang_giao" }))).toBe(false);
+    expect(ENDED_STATUSES).toEqual(["da_huy", "hoan_thanh"]);
   });
 });
 

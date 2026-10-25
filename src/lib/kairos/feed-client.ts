@@ -145,11 +145,8 @@ export function filterCached(posts: readonly KairosPost[], chip: ChipId, home: H
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** "Lưu lúc 14:05 23/10" (14 §10). Giờ máy của bà con. */
-export function savedAtLabel(ms: number): string {
-  const d = new Date(ms);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
-}
+/** "Lưu lúc 14:05 23/10" (14 §10). Giờ máy của bà con — cùng một nguồn với dòng mất sóng toàn app (`lib/offline-line`). */
+export { gioLuu as savedAtLabel } from "@/lib/offline-line";
 
 /** Giờ trên thẻ: "Vừa xong" · "5 phút" · "3 giờ" · "Hôm qua" · "23/10" (năm khác: "23/10/2025"). */
 export function postTimeLabel(iso: string, now: number): string {

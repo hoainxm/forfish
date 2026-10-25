@@ -72,9 +72,11 @@ export async function fetchListings(): Promise<ListingsRead> {
   return { ok: false, reason: "mang" };
 }
 
+/** `id`/`createdAt` = dòng máy chủ vừa chèn (route trả từ 2026-10-25) — thẻ tạm nhận id thật
+ *  ngay, có ⋯ mà không chờ `refresh()`. Máy chủ cũ không trả ⇒ undefined, thẻ tạm như trước. */
 export async function createListing(
   d: ListingDraft,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; id?: string; createdAt?: string }> {
   const err = validateDraft(d);
   if (err) return { ok: false, error: err };
 
@@ -91,9 +93,14 @@ export async function createListing(
     return { ok: false, error: "Chưa gửi được — máy chưa có sóng. Thử lại sau." };
   }
   const j = (await res.json().catch(() => null)) as
-    | { ok?: boolean; code?: string }
+    | { ok?: boolean; code?: string; id?: string; createdAt?: string }
     | null;
-  if (res.ok) return { ok: true };
+  if (res.ok)
+    return {
+      ok: true,
+      id: typeof j?.id === "string" ? j.id : undefined,
+      createdAt: typeof j?.createdAt === "string" ? j.createdAt : undefined,
+    };
 
   if (res.status === 401 || j?.code === "login_required" || j?.code === "no_token")
     return { ok: false, error: "Cần đăng nhập để đăng tin." };

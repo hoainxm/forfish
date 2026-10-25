@@ -4,6 +4,7 @@
 
 **Load khi / Load when**: cần hiểu scope một trục, quyết định feature thuộc trục nào, đụng tới data vendor (OceanByte, SDWork), hoặc viết copy/positioning.
 <!-- re-verified: 2026-10-24m — KAIROS CÓ BÀI TÀI TRỢ (anh Long: "t muốn kairos có ads"): quảng cáo tự quản do SDVICO đăng (đại lý vật tư, link Shopee tiếp thị liên kết) — thêm một nguồn thu bên cạnh premium + Chợ vật tư; không SDK, không nhắm, không đếm (14 §20). Link Shopee chỉ nên cho món Chợ vật tư CHƯA bán — không kéo khách khỏi Chợ. -->
+<!-- re-verified: 2026-10-25f — RÀ FB lô 2 (quyết định chuyên gia + backlog: [design-review/08-ra-fb-toan-app](../design-review/08-ra-fb-toan-app.md) §4–§5): Trục 1 ranh giới Premium: đi tới cảng / điểm đã lưu / toạ độ (ô "Đi đâu?") MIỄN PHÍ cho tài khoản đã đăng nhập; chỉ Dẫn đường (lộ trình né sóng gió, ước lít dầu) là Premium — khớp "Bản đồ là MIỄN PHÍ, cái bán là DỰ BÁO CÁ". Trục 2: liên hệ đầu mối/tin mua bán có "Nhắn" = deep-link Zalo (không chat trong app) + địa chỉ mở Google Maps. -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 
 ---

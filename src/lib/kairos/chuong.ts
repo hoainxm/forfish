@@ -7,7 +7,7 @@
 // "Chưa đọc" dùng ĐÚNG sổ của hộp thư (forfish.inbox.read.v1, unreportedIds) — đọc ở chuông thì mục
 // Thông báo trang chủ cũng tắt chấm, và ngược lại.
 
-import type { InboxMessage } from "@/lib/inbox";
+import { loadInbox, unreportedIds, type InboxMessage } from "@/lib/inbox";
 
 const KAIROS_BAI = /^\/kairos\/p\/([^/?#]+)/;
 
@@ -53,6 +53,21 @@ export function tinChuongKairos(list: readonly InboxMessage[], chuaBao: Readonly
     out.push({ id: m.id, postId, title: m.title, body: m.body, url: m.url!, sentAt: m.sentAt, chuaDoc: chuaBao.has(m.id), nguoi: nguoiCuaTin(m.body) });
   }
   return out.sort((a, b) => ms(b.sentAt) - ms(a.sentAt)).slice(0, CHUONG_TOI_DA);
+}
+
+/** Số tin chưa đọc (trừ tin đã hiện trong ngăn phiên này) — MỘT công thức cho chuông và badge dock Kairos (QĐ A). */
+export function demChuaDoc(list: readonly TinChuong[], daXem: ReadonlySet<string> = new Set()): number {
+  return list.filter((t) => t.chuaDoc && !daXem.has(t.id)).length;
+}
+
+/**
+ * Số chưa đọc đọc THẲNG bản lưu hộp thư trong máy (`forfish.inbox.v2` + sổ đã đọc) — không request. Cho badge dock
+ * (`dockBadge` kairosChuaDoc): vỏ app gọi lúc vẽ dock, nghe `visibilitychange`/`storage` để vẽ lại. SSR ⇒ 0.
+ */
+export function demChuaDocTrongMay(phone: string | null): number {
+  if (typeof window === "undefined") return 0;
+  const msgs = loadInbox(phone);
+  return demChuaDoc(tinChuongKairos(msgs, new Set(unreportedIds(phone, msgs.map((m) => m.id)))));
 }
 
 /** Số trên chấm đếm: 0 ⇒ không vẽ chấm; >9 ⇒ "9+". */

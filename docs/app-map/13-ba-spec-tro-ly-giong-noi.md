@@ -3,6 +3,7 @@
 > Load khi: task chạm `src/lib/assistant/**`, `src/components/assistant/**`, `/api/tro-ly`, nút nổi mic trên app ngư dân, chip gợi ý theo màn, hoặc bất kỳ câu hỏi "bà con nói gì thì app hiểu gì, trả lời ra sao, làm gì, khi nào cần sóng".
 covers: src/lib/assistant/
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-25f — lô 2 ([design-review/08](../design-review/08-ra-fb-toan-app.md)): chạm lại ô dock đang sáng ⇒ cuộn đầu trang (không đụng Sen Biển); toast chung `ui/toast` thay host riêng; không đổi hành vi trợ lý. -->
 <!-- re-verified: 2026-10-25e — §5.1 icon Sen Biển toàn app: mặc định 0.75rem trên dock (code `VI_TRI_GOC_APP_BOTTOM = 12`, trước 96 px trái spec); màn có thanh mua dính đáy ⇒ khung nâng theo chiều cao thanh; rảnh 4 s (`SEN_NEP_MS`) ⇒ nép nửa icon ra mép gần + mờ 60 %, chạm/cuộn/gõ là về; thẻ Sen Biển chiếm một mục lịch sử (back đóng thẻ). Nợ: lệnh giọng nói `router.push` khi thẻ còn mở để lại mục lịch sử dưới trang đích (back 2 lần). (bằng chứng + backlog: [design-review/08-ra-fb-toan-app](../design-review/08-ra-fb-toan-app.md)) -->
 <!-- re-verified: 2026-10-19b — covers chỉ còn src/lib/assistant/: `src/components/assistant/` và `src/app/api/tro-ly/` KHÔNG còn trong repo (Trợ lý cũ đã gộp vào Sen Biển — sen-bien-toan-app.tsx dùng lib/assistant/answer.ts + device-snapshot.ts, chạy TRONG MÁY, không route /api/tro-ly). Các mục bên dưới nhắc hai đường dẫn đó là LỊCH SỬ thiết kế. -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->

@@ -5,7 +5,7 @@
 // do (đó là chuyện giữa shop và SDVICO).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AlertIcon } from "@/components/icons";
 import { CategoryChips, type CategoryChipValue } from "@/components/market/shared/category-chips";
 import { EmptyNet } from "@/components/market/shared/empty-net";
@@ -14,6 +14,7 @@ import { RatingStars } from "@/components/market/shared/rating-stars";
 import { CallButton, EmptyState } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { formatVnd } from "@/lib/format";
+import { NHAN } from "@/lib/labels";
 import { isProductCategory } from "@/lib/market/categories";
 import { marketGet } from "@/lib/market/client";
 import { saveListState, takeListState } from "@/lib/market/list-state";
@@ -49,6 +50,10 @@ export function ShopPage({ slug }: { slug: string }) {
   const [sort, setSort] = useState<Sort>("moi"); // F-24: sắp xếp trong shop (route đã nhận `?sort`)
   const [status, setStatus] = useState<"loading" | "ok" | "error" | "offline" | "closed" | "gone">("loading");
   const [descOpen, setDescOpen] = useState(false);
+  /*  "Xem thêm" CHỈ khi mô tả thật sự bị cắt (VT-22, cùng khuôn F-17 trang món): đo
+      `scrollHeight > clientHeight` sau khi vẽ — bản cũ luôn hiện nút dù mô tả 2 dòng. */
+  const [descClamped, setDescClamped] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
   /** mất sóng / lỗi khi đổi chip mà đang có món ⇒ giữ lưới + chip báo (VT-08) */
   const [netNote, setNetNote] = useState<{ state: "offline" | "error"; text: string } | null>(null);
   const [ready, setReady] = useState(false);
@@ -159,6 +164,13 @@ export function ShopPage({ slug }: { slug: string }) {
   }, [ready, load, category, sort]);
   useOnlineRefetch(() => void load(1, true));
 
+  const moTa = data?.shop?.description;
+  useLayoutEffect(() => {
+    if (descOpen) return;
+    const el = descRef.current;
+    setDescClamped(el ? el.scrollHeight > el.clientHeight + 1 : false);
+  }, [moTa, descOpen]);
+
   const onFav = (p: ProductCard) => {
     if (!cart.signedIn) {
       router.push(`/cho/sp/${p.id}`);
@@ -225,14 +237,16 @@ export function ShopPage({ slug }: { slug: string }) {
           </div>
           {shop.description && (
             <div className="px-4 pt-3">
-              <p className={`text-[1rem] leading-relaxed ${descOpen ? "" : "line-clamp-3"}`}>{shop.description}</p>
-              <button
-                type="button"
-                onClick={() => setDescOpen((v) => !v)}
-                className="min-h-(--row-h) text-[1rem] font-semibold text-t3"
-              >
-                {descOpen ? "Thu gọn" : "Xem thêm"}
-              </button>
+              <p ref={descRef} className={`text-[1rem] leading-relaxed ${descOpen ? "" : "line-clamp-3"}`}>{shop.description}</p>
+              {(descClamped || descOpen) && (
+                <button
+                  type="button"
+                  onClick={() => setDescOpen((v) => !v)}
+                  className="min-h-(--row-h) text-[1rem] font-semibold text-t3"
+                >
+                  {descOpen ? NHAN.thuGon : NHAN.xemThem}
+                </button>
+              )}
             </div>
           )}
         </>

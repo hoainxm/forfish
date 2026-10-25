@@ -11,11 +11,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRightIcon, DocIcon } from "@/components/icons";
 import { EmptyNet } from "@/components/market/shared/empty-net";
+import { NetChip } from "@/components/market/shared/net-chip";
 import { AutoCancelNote, EtaLine } from "@/components/market/shared/eta";
 import { LineThumb } from "@/components/market/shared/line-thumb";
 import { OrderStatusChip } from "@/components/market/shared/order-status-chip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { OfflineLine } from "@/components/ui/offline-line";
 import { EmptyState } from "@/components/ui/primitives";
+import { KeoLamMoiChi, useKeoLamMoi } from "@/components/ui/use-keo-lam-moi";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { formatVnd } from "@/lib/format";
 import { marketGet, marketPost } from "@/lib/market/client";
@@ -35,6 +38,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "xong", label: "Xong" },
   { id: "huy", label: "Đã huỷ" },
 ];
+
+const laTab = (v: string | null): v is Tab => TABS.some((t) => t.id === v);
 
 const inTab = (o: Order, t: Tab) =>
   t === "dang_xu_ly"
@@ -90,7 +95,24 @@ export function MyMarketOrders() {
   const online = useOnlineState();
   const { phone } = useAuthUser();
 
-  const [tab, setTab] = useState<Tab>("dang_xu_ly");
+  /*  TAB NẰM TRONG URL `?tab=` (VT-14): sang "Yêu cầu đặt hàng" rồi ‹ về vẫn đúng tab (trước
+      `useState` ⇒ về "Đang xử lý"). Đọc lúc mount, ghi bằng replaceState — không thêm mục lịch sử. */
+  const [tab, setTabState] = useState<Tab>("dang_xu_ly");
+  useEffect(() => {
+    const muon = new URLSearchParams(window.location.search).get("tab");
+    if (laTab(muon)) setTabState(muon);
+  }, []);
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    try {
+      const url = new URL(window.location.href);
+      if (t === "dang_xu_ly") url.searchParams.delete("tab");
+      else url.searchParams.set("tab", t);
+      window.history.replaceState(window.history.state, "", url);
+    } catch {
+      /* không ghi được URL thì tab vẫn đổi trong màn */
+    }
+  };
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -100,12 +122,19 @@ export function MyMarketOrders() {
   const [note, setNote] = useState<string | null>(null);
   /** việc đang gửi — nút nguồn đổi "Đang gửi…" (VT-05); null = rảnh */
   const [busy, setBusy] = useState<Pending | null>(null);
+  /** chip báo khi KÉO LÀM MỚI mà mất sóng/lỗi — giữ danh sách đang xem (VT-18) */
+  const [netNote, setNetNote] = useState<{ state: "offline" | "error"; text: string } | null>(null);
 
+  /** `im` = làm mới lặng (kéo xuống): không skeleton lại cả màn, hỏng thì giữ danh sách + một chip */
   const load = useCallback(
-    async (p: number, replace: boolean) => {
-      if (replace) setStatus("loading");
+    async (p: number, replace: boolean, im = false) => {
+      if (replace && !im) setStatus("loading");
       const res = await marketGet<{ items: Order[]; total: number }>(`/api/cho/don?page=${p}`);
       if (!res.ok) {
+        if (im) {
+          setNetNote({ state: res.offline ? "offline" : "error", text: res.offline ? "Không có sóng — đang xem đơn đã tải" : "Chợ trục trặc — đang xem đơn đã tải" });
+          return;
+        }
         const cache = loadCachedMarketOrders(phone);
         if (cache && replace) {
           setOrders(cache.orders);
@@ -117,6 +146,7 @@ export function MyMarketOrders() {
         return;
       }
       const next = replace ? res.data.items : [...orders, ...res.data.items];
+      setNetNote(null);
       setOrders(next);
       setTotal(res.data.total);
       setPage(p);
@@ -134,6 +164,7 @@ export function MyMarketOrders() {
     void load(1, true);
   }, [first, load]);
   useOnlineRefetch(() => void load(1, true));
+  const lamMoi = useKeoLamMoi(() => load(1, true, true), { disabled: status === "loading" || !!pending });
 
   /*  VT-05: hộp xác nhận ĐÓNG NGAY khi bấm (ở `onConfirm`), nút nguồn đổi "Đang gửi…"
       + khoá; `busy` chặn bấm đúp — mạng bến 10–20 s là bà con bấm lại, lần hai trả
@@ -167,6 +198,10 @@ export function MyMarketOrders() {
   const nowIso = new Date().toISOString();
   const shown = orders.filter((o) => inTab(o, tab));
   const count = (t: Tab) => orders.filter((o) => inTab(o, t)).length;
+  /*  Số đếm trên tab chỉ in khi ĐÃ CÓ ĐỦ đơn (VT-14): route trả `items` theo trang 20 + `total`,
+      không có `counts` theo nhóm — quá 20 đơn hay đang xem bản lưu thì số đếm từ trang đã tải
+      là số sai, thà không in. */
+  const inSo = status === "ok" && savedAt == null && orders.length >= total;
   const sending = (o: Order, kind: Pending["kind"]) => busy?.order.id === o.id && busy.kind === kind;
 
   return (
@@ -188,7 +223,7 @@ export function MyMarketOrders() {
             }}
           >
             <span>{t.label}</span>
-            <span className="text-[0.875rem] font-semibold opacity-80">{count(t.id)}</span>
+            {inSo && <span className="text-[0.875rem] font-semibold opacity-80">{count(t.id)}</span>}
           </button>
         ))}
       </div>
@@ -202,11 +237,15 @@ export function MyMarketOrders() {
           </span>
           <ChevronRightIcon className="h-6 w-6 shrink-0 text-navy" />
         </Link>
-        {savedAt != null && (
+        {netNote && <NetChip state={netNote.state} text={netNote.text} />}
+        {savedAt != null && (online ? (
           <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">
             Đang xem đơn đã lưu trong máy ({savedAgoLabel(savedAt)}) — có sóng sẽ tự tải mới.
           </p>
-        )}
+        ) : (
+          <div className="mb-3 overflow-hidden rounded-2xl"><OfflineLine savedAt={savedAt} /></div>
+        ))}
+        <KeoLamMoiChi {...lamMoi.chi} />
         {note && (
           <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">
             {note}

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/bottom-nav";
 import { dockActive } from "@/lib/dock-nav";
 import { NativeGpsPrime } from "@/components/native-gps-prime";
+import { ToastHost } from "@/components/ui/toast";
 import { UserSyncInit } from "@/components/user-sync-init";
 
 // CHỈ dựng ở máy: tts.ts (plugin TTS Capacitor) đụng `window` lúc nạp module ⇒ dựng trên máy chủ là 500 mọi trang
@@ -41,6 +42,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <NativeGpsPrime />
       {/* Sen Biển — trợ lý giọng nói ở MỌI màn (màn bản đồ có bản riêng, tự ẩn ở đó) */}
       <SenBienToanApp />
+      {/* toast dùng chung (dung-chung 2026-10-25): một host cho cả app; host dự phòng ở use-post-actions tự im */}
+      <ToastHost />
       <UserSyncInit />
     </div>
   );

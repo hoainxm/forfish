@@ -7,6 +7,7 @@ import { SellGuide } from "@/components/sell-guide";
 import { MarketBoard } from "@/components/market-board";
 import { RequireLogin } from "@/components/require-login";
 import { ChipRow } from "@/components/ui/chip-row";
+import { ToastHost } from "@/components/ui/toast";
 
 /*
   Khu CHỢ CÁ (dock "Chợ cá" từ 2026-10-19; trước là "Giao dịch", user chốt 2026-07-27
@@ -45,6 +46,8 @@ export function TradeHub() {
 
   return (
     <div>
+      {/* dự phòng tới khi app-shell gắn <ToastHost/> (toast "Cần sóng" của nút Nhắn): host thứ hai tự im */}
+      <ToastHost />
       {/*  BỎ thẻ "Cửa hàng vật tư" ở đây (2026-10-19, chủ dự án: "chợ cá vẫn còn cái
            cửa hàng vật tư thế?"): Vật tư nay là mục dock riêng — một việc một chỗ.
            Chợ cá chỉ còn việc của cá: giá, tin mua/bán, chỗ thu mua. */}

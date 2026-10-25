@@ -4,7 +4,8 @@
   KHUNG MÀN BẢN ĐỒ (2026-10-20, anh Long gửi ảnh mẫu app hải đồ: "ô tìm trên
   cùng, tốc độ góc trái dưới, la bàn góc phải dưới, thẻ trạng thái đáy").
   Ba mảnh nổi cố định trên bản đồ, tách khỏi fishing-map-view:
-    · `OTimDiem`   — ô "Đi đâu?" đầu màn → mở ô gõ toạ độ (đến điểm).
+    · `OTimDiem`   — ô "Đi đâu?" đầu màn → hộp tìm cảng · điểm đã lưu · toạ độ
+      (ban-do/tim-diem.tsx, miễn phí — BD-02 2026-10-25).
     · `DongHoTocDo` — tròn góc trái dưới: tốc độ GPS theo đơn vị bà con chọn.
     · `NutViTri`   — tròn góc phải dưới: đưa bản đồ về chỗ tàu đứng. Hình VÒNG
       NGẮM định vị (quen như Google Maps), KHÔNG chữ (anh Long: "bỏ chữ về tàu
@@ -20,7 +21,7 @@ export function OTimDiem({ onOpen }: { onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      aria-label="Đi đâu — nhập toạ độ để đến điểm"
+      aria-label="Đi đâu — tìm cảng, điểm đã lưu hoặc toạ độ"
       className="pointer-events-auto flex h-(--h-ctl) w-full min-w-0 items-center gap-2 glass rounded-full px-3.5 text-left transition active:scale-[0.98]"
     >
       <SearchIcon className="h-5 w-5 shrink-0 text-sea" aria-hidden />

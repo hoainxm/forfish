@@ -9,6 +9,8 @@ import {
 } from "@/lib/doc-photos";
 import { CloseIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { OfflineLine } from "@/components/ui/offline-line";
+import { NHAN } from "@/lib/labels";
 
 // Dải ẢNH GIẤY TỜ của một giấy tờ (P3). Xem lib/doc-photos + /api/me/docs/photo.
 // v1: cần CÓ SÓNG để thêm/xem ảnh (signed URL). Offline → chặn thêm + báo rõ.
@@ -144,11 +146,8 @@ export function DocPhotoStrip({
           </button>
         )}
       </div>
-      {!online && (
-        <p className="text-[0.8125rem] text-navy/60">
-          {photos.length ? "Cần có mạng để xem hoặc sửa ảnh." : "Bà con có thể thêm ảnh giấy tờ khi điện thoại kết nối mạng."}
-        </p>
-      )}
+      {/* MỘT câu mất sóng toàn app (OfflineLine) thay câu tự chế — ảnh là thứ "có sóng sẽ tải" */}
+      {!online && <OfflineLine extra=" · ảnh giấy tờ" />}
       {err && <p className="mt-1 text-[0.8125rem] text-danger">{err}</p>}
       <input
         ref={inputRef}
@@ -163,7 +162,7 @@ export function DocPhotoStrip({
           icon={<TrashIcon className="h-8 w-8 text-danger" />}
           title="Xác nhận xoá ảnh này?"
           message="Nếu xoá, bà con sẽ cần chụp lại và cần có mạng để tải lên lần nữa."
-          cancelLabel="Không xoá"
+          cancelLabel={NHAN.khongXoa}
           confirmLabel="Xác nhận xoá"
           onCancel={() => setConfirmDel(null)}
           onConfirm={() => {

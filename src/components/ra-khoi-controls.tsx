@@ -26,9 +26,8 @@ import { SPECIES_META } from "@/lib/fish-predict";
 import { DENSITY_GEARS, FLEET_FORECAST_DAYS, addDaysIso, type DensityGear } from "@/lib/fleet-density";
 import type { FeatureAccess } from "@/lib/tier";
 import { PremiumLock } from "@/components/premium-gate";
-import { stormNoticeText, type StormStatus } from "@/lib/storms";
-import { useOnline } from "@/lib/use-online";
-import { clockVN, chipLabel } from "@/lib/day-labels";
+import { type StormStatus } from "@/lib/storms";
+import { chipLabel } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
 import { SQ_TILE } from "@/components/ui/sq-btn";
 import {
@@ -420,12 +419,14 @@ export function RaKhoiControls({
     { id: "cai-dat", label: "Cài đặt", icon: SettingsIcon, color: "var(--navy)" },
   ];
 
-  // ĐẾN ĐIỂM · ĐIỂM ĐÃ LƯU · DẪN ĐƯỜNG = TÍNH NĂNG PREMIUM (user chốt 2026-08-29):
-  // ẨN HẲN khỏi acc thường (chưa đăng nhập "login" / hạng thường "upgrade"). Chỉ
-  // hiện ở nấc "open" (fishAccess = access tài khoản, dùng chung nấc với lớp cá).
-  // "checking" cũng ẩn — thà premium thấy nút hiện chậm một nhịp còn hơn nháy
-  // tính năng premium cho người thường rồi rút đi. Lớp + Vị trí vẫn cho mọi người.
+  // RANH GIỚI PREMIUM (BD-02, chuyên gia UX chốt 2026-10-25 — thay chốt 2026-08-29):
+  // CHỈ DẪN ĐƯỜNG (tuyến né sóng gió nhiều ngày + ước dầu) còn Premium — khớp câu duy
+  // nhất của tier.ts "Premium = dự báo cá + thời tiết >3 ngày". Đến điểm · Điểm đã lưu
+  // là đi tới MỘT toạ độ / dữ liệu của chính bà con trong máy ⇒ MIỄN PHÍ cho mọi tài
+  // khoản đã đăng nhập; khách chưa đăng nhập ("login") vẫn chưa thấy khay (ô "Đi đâu?"
+  // mời đăng nhập). "checking" ẩn — thà hiện chậm một nhịp còn hơn nháy rồi rút.
   const premiumTools = fishAccess === "open";
+  const daDangNhap = fishAccess === "open" || fishAccess === "upgrade";
 
   return (
     <div
@@ -514,7 +515,6 @@ export function RaKhoiControls({
               )}
               {open === "thoi-tiet" && (
                 <ThoiTietPanel
-                  stormInfo={stormInfo}
                   forecastKind={forecastKind}
                   onForecast={onForecast}
                   overlayField={overlayField}
@@ -548,8 +548,8 @@ export function RaKhoiControls({
         </Popover>
       )}
 
-      {/* ĐIỂM ĐÃ LƯU — nổi cạnh nút, cùng khuôn ô toạ độ (premium) */}
-      {premiumTools && placesOpen && (
+      {/* ĐIỂM ĐÃ LƯU — nổi cạnh nút, cùng khuôn ô toạ độ (miễn phí, BD-02) */}
+      {placesOpen && (
         <Popover
           anchor={nutThem ?? nutLop}
           label="Điểm đã lưu"
@@ -571,8 +571,8 @@ export function RaKhoiControls({
         </Popover>
       )}
 
-      {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm", độc lập với panel rail (premium) */}
-      {premiumTools && coordOpen && (
+      {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm" / dưới ô "Đi đâu?", độc lập với panel rail (miễn phí, BD-02) */}
+      {coordOpen && (
         <Popover
           anchor={(coordTuTim ? nutTimDiem : null) ?? nutThem ?? nutLop}
           label="Đến điểm — nhập toạ độ"
@@ -625,9 +625,9 @@ export function RaKhoiControls({
              giữ "Thêm" để vẫn mở được Vị trí / Toạ độ / Điểm lưu khi đang chạy. */}
         {routeOn && onRoutePanel ? (
           <RailBtn variant="fab" active dot aria-pressed onClick={onRoutePanel} aria-label="Đang dẫn đường — chạm để đóng" icon={RouteIcon} label="Dẫn đường" />
-        ) : collapsed && premiumTools ? (
-          /*  ⋯ CHỈ HIỆN KHI CÓ VIỆC (rà bố cục 2026-10-22): ba mục trong khay đều premium —
-              tài khoản thường bấm ra một khay RỖNG. Không có mục thì không có nút. */
+        ) : collapsed && daDangNhap ? (
+          /*  ⋯ CHỈ HIỆN KHI CÓ VIỆC (rà bố cục 2026-10-22): khách chưa đăng nhập bấm ra
+              một khay RỔNG. Không có mục thì không có nút. */
           <div ref={setNutThem}>
           <RailBtn
             active={more}
@@ -646,7 +646,7 @@ export function RaKhoiControls({
           />
           </div>
         ) : null}
-        {more && !routeOn && premiumTools && (
+        {more && !routeOn && daDangNhap && (
           <Popover
             anchor={nutThem}
             role="menu"
@@ -667,8 +667,7 @@ export function RaKhoiControls({
                 label="Lộ trình"
               />
             )}
-            {premiumTools && (
-              <RailBtn
+            <RailBtn
                 onClick={() => {
                   setMore(false);
                   setCoordTuTim(false); // mở từ khay ⋯ ⇒ neo nút ⋯
@@ -678,9 +677,7 @@ export function RaKhoiControls({
                 icon={PinIcon}
                 label="Toạ độ"
               />
-            )}
-            {premiumTools && (
-              <RailBtn
+            <RailBtn
                 onClick={() => {
                   setMore(false);
                   setPlacesOpen(true);
@@ -689,7 +686,6 @@ export function RaKhoiControls({
                 icon={StarIcon}
                 label="Điểm lưu"
               />
-            )}
           </Popover>
         )}
         {/* danh sách lớp mở được cả khi loa đang bật — loa không còn là chế độ dẫn đường */}
@@ -808,7 +804,7 @@ function DotsIcon({ className = "" }: { className?: string }) {
 const PANEL_TITLE: Record<PanelId, string> = {
   "hai-do": "Hải đồ — Lớp nền",
   "ngu-truong": "Ngư trường — Phân bố cá",
-  "thoi-tiet": "Thời tiết — gió, sóng, bão",
+  "thoi-tiet": "Thời tiết — gió, sóng, mưa",
   diem: "Điểm đã lưu của tôi",
   "cong-cu": "Công cụ — đo khoảng cách",
   "cai-dat": "Cài đặt — đơn vị & toạ độ",
@@ -1279,7 +1275,6 @@ function BaiTauDuBao({
 }
 
 function ThoiTietPanel({
-  stormInfo,
   forecastKind,
   onForecast,
   overlayField,
@@ -1287,7 +1282,6 @@ function ThoiTietPanel({
   scalarKind,
   onScalar,
 }: {
-  stormInfo: StormStatus;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
   overlayField: FetchScalarKind | null;
@@ -1295,126 +1289,57 @@ function ThoiTietPanel({
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
 }) {
-  const online = useOnline();
-  // mốc lúc mở panel — panel chỉ sống khi bà con tự mở và tự thu sau 5s, đủ
-  // tươi để tính tuổi tin bão (không gọi Date.now() trong lúc vẽ)
-  const [openedAt] = useState(() => Date.now());
+  /*  PANEL GỌN KIỂU "Map details" (BD-07, rà FB 2026-10-25): hàng = icon + tên ≤2 chữ
+      + công tắc, cao --h-row; câu mô tả chuyển vào `title` (nhấn giữ / trỏ chuột) và
+      MỘT dòng ngắn chỉ hiện khi lớp đang bật. Bỏ khối tin bão: StormBanner đã thường
+      trực ngay trên bản đồ, lặp ở đây là hai chỗ nói một tin. Trần ≤40 % màn
+      (03 §Khung nhập): cuộn trong panel. */
+  const gioSong: { k: ForecastKind; label: string; tomTat: string; title: string; icon: React.ReactNode }[] = [
+    { k: "wind", label: "Gió", tomTat: "Theo giờ", title: "Gió theo giờ · cập nhật vài giờ một lần", icon: <WindIcon className="h-5 w-5 text-t1" /> },
+    { k: "wave", label: "Sóng", tomTat: "Theo giờ", title: "Sóng theo giờ · cập nhật vài giờ một lần", icon: <WindIcon className="h-5 w-5 text-t2" /> },
+    /* DÒNG CHẢY mặt biển — nguồn dự báo tới ~10 ngày (SMOC), ngày xa hơn lớp tự trống. Mũi tên chỉ hướng nước CHẢY VỀ. */
+    {
+      k: "current",
+      label: "Dòng chảy",
+      tomTat: "Tới ~10 ngày",
+      title: "Dòng chảy mặt biển theo giờ · dự báo lên tới ~10 ngày · mũi tên chỉ hướng nước chảy về",
+      icon: <span className="block h-5 w-5 shrink-0 rounded" style={{ background: scalarGradientCss("currentspeed") }} aria-hidden />,
+    },
+  ];
   return (
-    <div>
-      <p className="mb-1 flex items-center justify-between text-[0.75rem] font-semibold text-foreground/55">
-        <span>Cảnh báo bão</span>
-        <span className="text-danger">Ưu tiên cao nhất</span>
-      </p>
-      {/* BỐN trạng thái tách bạch — "chưa hỏi được" KHÔNG bao giờ được hiện
-          thành "không có bão" (lib/storms.ts stormStatus) */}
-      {stormInfo.kind === "co-bao" &&
-        stormInfo.storms.map((s) => (
-          <div
-            key={s.id}
-            className="mb-2 flex items-center gap-2 rounded-xl bg-danger-bg px-2.5 py-2"
-          >
-            <AlertIcon className="h-5 w-5 shrink-0 text-danger" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[0.9375rem] font-semibold leading-tight text-danger">
-                {s.kindLabel} {s.name}
-              </span>
-              <span
-                className={`block text-[0.8125rem] leading-snug ${
-                  stormInfo.cu ? "font-semibold text-warn" : "text-foreground/75"
-                }`}
-              >
-                {stormInfo.checkedAt != null
-                  ? `Cập nhật lúc ${clockVN(stormInfo.checkedAt)}`
-                  : "Chưa rõ giờ báo tin"}
-                {stormInfo.cu && " · bản tin cũ lưu trong máy"}
-              </span>
-            </span>
-          </div>
-        ))}
-      {stormInfo.kind === "khong-co" && (
-        <p className="mb-2 rounded-xl bg-ok-bg px-2.5 py-2 text-[0.8125rem] font-semibold leading-snug text-ok">
-          Không có tin bão trên Biển Đông (hỏi lúc{" "}
-          {clockVN(stormInfo.checkedAt)}).
-        </p>
-      )}
-      {stormInfo.kind === "khong-hoi-duoc" && (
-        <p className="mb-2 flex items-start gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-semibold leading-snug text-warn">
-          <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-          {/* CÙNG MỘT CÂU với banner bão (lib/storms.ts stormNoticeText) — nói
-              bằng tuổi tin, không đổ cho máy khi nguồn lỗi (audit S13/M5).
-              Giờ lấy lúc mở panel (openedAt). */}
-          <span>{stormNoticeText(stormInfo, openedAt, online)}</span>
-        </p>
-      )}
-      {stormInfo.kind === "dang-hoi" && (
-        <p className="mb-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.8125rem] font-semibold text-foreground/70">
-          Đang hỏi tin bão…
-        </p>
-      )}
-
-      <p className="mb-1 mt-3 text-[0.75rem] font-semibold text-foreground/55">
-        Lớp thời tiết khác
-      </p>
-      <Toggle
-        label="Gió"
-        sub="Theo giờ · cập nhật vài giờ một lần"
-        on={forecastKind === "wind"}
-        onToggle={() => onForecast(forecastKind === "wind" ? null : "wind")}
-        icon={<WindIcon className="h-5 w-5 text-t1" />}
-      />
-      <Toggle
-        label="Sóng"
-        sub="Theo giờ · cập nhật vài giờ một lần"
-        on={forecastKind === "wave"}
-        onToggle={() => onForecast(forecastKind === "wave" ? null : "wave")}
-        icon={<WindIcon className="h-5 w-5 text-t2" />}
-      />
-      {/* DÒNG CHẢY mặt biển — nguồn dự báo tới ~10 ngày (SMOC), ngày xa hơn lớp
-          tự trống. Mũi tên chỉ hướng nước CHẢY VỀ. */}
-      <Toggle
-        label="Dòng chảy"
-        sub="Theo giờ · dự báo lên tới ~10 ngày"
-        on={forecastKind === "current"}
-        onToggle={() => onForecast(forecastKind === "current" ? null : "current")}
-        icon={
-          <span
-            className="h-5 w-5 shrink-0 rounded"
-            style={{ background: scalarGradientCss("currentspeed") }}
-            aria-hidden
-          />
-        }
-      />
-      {/* LỚP DẢI MÀU (mây/mưa/nhiệt) — dự báo theo giờ, dùng chung thanh giờ với
+    <div className="max-h-[30dvh] overflow-y-auto [overscroll-behavior:contain]">
+      {gioSong.map((g) => (
+        <Toggle
+          key={g.k}
+          label={g.label}
+          sub={forecastKind === g.k ? g.tomTat : undefined}
+          title={g.title}
+          on={forecastKind === g.k}
+          onToggle={() => onForecast(forecastKind === g.k ? null : g.k)}
+          icon={g.icon}
+        />
+      ))}
+      {/* LỚP DẢI MÀU (mây/mưa/nhiệt…) — dự báo theo giờ, dùng chung thanh giờ với
           gió/sóng, LOẠI TRỪ nhau (một lớp overlay mỗi lần, như Windy). */}
-      {(
-        ["cloud", "rain", "airtemp", "storm", "pressure", "salinity"] as FetchScalarKind[]
-      ).map((k) => (
+      {(["cloud", "rain", "airtemp", "storm", "pressure", "salinity"] as FetchScalarKind[]).map((k) => (
         <Toggle
           key={k}
           label={SCALAR_META[k].label}
-          sub={SCALAR_META[k].help}
+          sub={overlayField === k ? SCALAR_META[k].tomTat : undefined}
+          title={SCALAR_META[k].help}
           on={overlayField === k}
           onToggle={() => onOverlayField(overlayField === k ? null : k)}
-          icon={
-            <span
-              className="h-5 w-5 shrink-0 rounded"
-              style={{ background: scalarGradientCss(k) }}
-              aria-hidden
-            />
-          }
+          icon={<span className="block h-5 w-5 shrink-0 rounded" style={{ background: scalarGradientCss(k) }} aria-hidden />}
         />
       ))}
       <Toggle
-        label="Nước dâng/xoáy"
-        sub="Theo ngày · độ trễ ~2 ngày"
+        label="Nước xoáy"
+        sub={scalarKind === "ssha" ? "Theo ngày · trễ ~2 ngày" : undefined}
+        title="Nước dâng / xoáy nước (độ cao mặt biển) · theo ngày · độ trễ ~2 ngày"
         on={scalarKind === "ssha"}
         onToggle={() => onScalar(scalarKind === "ssha" ? null : "ssha")}
         icon={<EddyIcon className="h-5 w-5 text-t4" />}
       />
-      <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/75">
-        Mấy lớp này chỉ để coi cho biết; lúc mạng chập chờn máy sẽ báo “thử
-        lại”. Muốn biết gió, sóng ngay chỗ nào thì chạm vào chỗ đó trên bản đồ.
-      </p>
     </div>
   );
 }
@@ -1822,11 +1747,14 @@ function ToolsPanel({
 function Toggle({
   label,
   sub,
+  title,
   on,
   onToggle,
   icon,
 }: {
   label: string;
+  /** câu mô tả đầy đủ — nhấn giữ / trỏ chuột mới thấy (BD-07), không chiếm chỗ */
+  title?: string;
   /*  Dòng phụ TUỲ CHỌN (2026-08-29): chủ dự án yêu cầu bỏ các câu giải thích
       không cấp dữ liệu. Toggle nào mà nhãn đã tự nói hết thì không truyền
       `sub` — đỡ một dòng chữ trong panel vốn đã chật. */
@@ -1841,7 +1769,9 @@ function Toggle({
       role="switch"
       aria-checked={on}
       onClick={onToggle}
-      className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl bg-field px-3 text-left transition active:scale-[0.99]"
+      title={title}
+      // cao theo bậc hàng danh sách --h-row (03 §0), không số rời 3.25rem (BD-07)
+      className="flex min-h-(--h-row) w-full items-center gap-2.5 rounded-xl bg-field px-3 text-left transition active:scale-[0.99]"
     >
       <span className="shrink-0">{icon}</span>
       <span className="min-w-0 flex-1">

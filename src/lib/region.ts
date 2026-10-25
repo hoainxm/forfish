@@ -94,6 +94,52 @@ export interface HomePref {
 
 const HOME_KEY = "forfish.home.v1";
 
+/*  TỈNH TẠM TRONG PHIÊN (CC-09/BD-05, 2026-10-25): bà con CHƯA có tàu vẫn chọn được tỉnh
+    ngay tại chỗ để lọc vựa/cảng gần mình. Chỉ sống trong `sessionStorage` — đóng tab là
+    quên — nên KHÔNG có nguồn thứ hai sống lâu để lệch với tàu (bệnh cũ của `forfish.home.v1`).
+    Có tàu thì ghi thẳng `homeProvince` của tàu (nguồn sự thật), không dùng khoá này. */
+export const HOME_PHIEN_KEY = "forfish.home.phien.v1";
+
+type KhoPhien = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+function khoPhien(): KhoPhien | null {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage;
+  } catch {
+    return null; // Safari chế độ riêng tư / bị chặn — coi như không có
+  }
+}
+
+/** Tỉnh tạm của phiên; chỉ nhận tỉnh có trong `COASTAL_PROVINCES` (dữ liệu lạ ⇒ bỏ). */
+export function docHomePhien(kho: KhoPhien | null = khoPhien()): string | undefined {
+  if (!kho) return undefined;
+  try {
+    const raw = kho.getItem(HOME_PHIEN_KEY);
+    if (!raw) return undefined;
+    const v = (JSON.parse(raw) as { province?: unknown } | null)?.province;
+    if (typeof v !== "string") return undefined;
+    const k = provinceKey(v);
+    return COASTAL_PROVINCES.find((p) => provinceKey(p.name) === k)?.name;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Ghi/xoá tỉnh tạm của phiên. `false` = máy không ghi được (chỗ gọi phải nói, đừng im). */
+export function ghiHomePhien(
+  province: string | null,
+  kho: KhoPhien | null = khoPhien(),
+): boolean {
+  if (!kho) return false;
+  try {
+    if (province) kho.setItem(HOME_PHIEN_KEY, JSON.stringify({ province }));
+    else kho.removeItem(HOME_PHIEN_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function loadHome(): HomePref {
   if (typeof window === "undefined") return {};
   try {

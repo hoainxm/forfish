@@ -10,12 +10,12 @@ import { CloseIcon } from "@/components/icons";
   cái này — CẤM tự chế, CẤM ký tự `✕`/`×` thô (không design system nào dùng;
   glyph vẽ nét scale sắc + cân baseline).
 
-  Chuẩn (khớp sàn tap dự án + Material 48dp, WCAG AAA 44px — ForFish nhỉnh hơn
-  vì tay ướt/găng, tàu lắc, nắng chói):
-  · vùng chạm 56×56px (h-14 w-14) — sàn tuyệt đối của app
-  · glyph icon 24px (h-6 w-6) — cỡ X đồng nhất mọi nơi
+  Chuẩn (MỘT cỡ cho mọi control hàng header — ‹ · × · icon · avatar — VO-APP-07,
+  QUYET-DINH L 2026-10-25; trước 56px, nay theo 03 §6 mục 5 "X đóng/icon-only =
+  control 2.75rem", 44px đủ WCAG AAA và khớp FB):
+  · vùng chạm 2.75rem (h-11 w-11) — bằng --h-ctl
+  · glyph icon 1.5rem (h-6 w-6) — cỡ X đồng nhất mọi nơi
   · nền TRONG SUỐT lúc nghỉ (không "boxy"), chỉ hiện `bg-field` lúc bấm
-  · `-m-1` để vùng chạm 56px KHÔNG phình layout của header nhỏ gọn
   · luôn ở góc trên-phải của panel/sheet (bên gọi tự đặt trong flex)
 
   Chỉ dùng cho panel ĐỌC-XEM / auto-apply (đóng không mất dữ liệu). Form có
@@ -59,7 +59,7 @@ export function CloseButton({
       type="button"
       onClick={onClose}
       aria-label={label}
-      className={`-m-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-foreground/50 transition active:bg-field ${className}`}
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground/50 transition active:bg-field ${className}`}
     >
       <CloseIcon className="h-6 w-6" />
     </button>

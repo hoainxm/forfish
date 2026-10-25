@@ -15,6 +15,7 @@ import {
   TrendUpIcon,
 } from "@/components/icons";
 import { SearchField } from "@/components/ui/search-field";
+import { OfflineLine } from "@/components/ui/offline-line";
 import { boDau, ghepTuanHienTai, weekEndIso } from "@/lib/cho-ca";
 import { formatVnDate } from "@/lib/format";
 import { useOnline } from "@/lib/use-online";
@@ -168,12 +169,17 @@ export function PriceBoard() {
             `netFailed` bật cả khi máy chủ trả lỗi HTTP — lúc đó máy VẪN có sóng.
             `onLine=true` không chứng minh nguồn lỗi (có thể sóng yếu), nên câu
             có-sóng chỉ nói điều chắc chắn: chưa tải được + lịch thử lại thật. */
-        <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] leading-snug text-warn">
-          {online
-            ? "Chưa tải được giá tuần này — máy tự thử lại mỗi phút."
-            : "Chưa tải được giá tuần này — máy đang không có sóng."}{" "}
-          Bên dưới là giá tham khảo ngày {formatVnDate(PRICE_DATE)}.
-        </p>
+        online ? (
+          <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] leading-snug text-warn">
+            Chưa tải được giá tuần này — máy tự thử lại mỗi phút. Bên dưới là giá tham khảo ngày{" "}
+            {formatVnDate(PRICE_DATE)}.
+          </p>
+        ) : (
+          /* một câu mất sóng chung toàn app (VO-APP-08) — vế thêm nói bảng đang xem là bản gì */
+          <div className="mb-2 overflow-hidden rounded-xl">
+            <OfflineLine extra={` · giá tham khảo ngày ${formatVnDate(PRICE_DATE)}`} />
+          </div>
+        )
       ) : (
         <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] leading-snug text-warn">
           Giá tham khảo, tổng hợp ngày {formatVnDate(PRICE_DATE)}. Giá thật tại

@@ -21,6 +21,7 @@ import { ChipRow } from "@/components/ui/chip-row";
 import { CallButton, PrimaryButton } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { clockVN } from "@/lib/day-labels";
+import { NHAN } from "@/lib/labels";
 import { marketGet } from "@/lib/market/client";
 import { discountPercent, unitPriceFor } from "@/lib/market/pricing";
 import type { ProductCard, Review, ShopPublic } from "@/lib/market/types";
@@ -409,7 +410,7 @@ export function ProductDetail({ id }: { id: string }) {
               className="text-[1rem]"
             />
             <span className="mt-0.5 flex items-center gap-1 text-[0.875rem] font-semibold text-t3">
-              Xem shop <ChevronRightIcon className="h-4 w-4" />
+              {NHAN.xemShop} <ChevronRightIcon className="h-4 w-4" />
             </span>
           </Link>
           {/*  "Gọi shop" chỉ ở thanh đáy dính (F-14) — hai nút cùng tên một màn là thừa. */}
@@ -496,7 +497,7 @@ export function ProductDetail({ id }: { id: string }) {
           ) : (
             <>
               <Link href={`/cho/shop/${product.shopSlug}`} className="sq-btn bg-field text-navy">
-                Xem shop
+                {NHAN.xemShop}
               </Link>
               <Link
                 href={`/cho/yeu-cau/moi?ten=${encodeURIComponent(product.title)}&dv=${encodeURIComponent(product.unit)}`}
@@ -512,7 +513,7 @@ export function ProductDetail({ id }: { id: string }) {
               <CallButton phone={shop.phone} label="Gọi shop" />
             ) : (
               <Link href={`/cho/shop/${product.shopSlug}`} className="sq-btn bg-field text-navy">
-                Xem shop
+                {NHAN.xemShop}
               </Link>
             )}
             <PrimaryButton onClick={onAdd} disabled={!canAdd} className="flex-1">

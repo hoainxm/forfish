@@ -50,7 +50,8 @@ export function marketErrorText(r: Extract<MarketResult<unknown>, { ok: false }>
 /** Tải một đường dẫn GET; nghe `online` để tự tải lại. `path = null` ⇒ đứng yên. */
 export function useMarketData<T>(path: string | null): {
   state: LoadState<T>;
-  reload: () => void;
+  /** trả Promise để kéo-làm-mới (BH-14) chờ xong mới cất vòng quay */
+  reload: () => Promise<void>;
   set: (data: T) => void;
 } {
   const [state, setState] = useState<LoadState<T>>({ kind: "loading" });
@@ -71,7 +72,7 @@ export function useMarketData<T>(path: string | null): {
 
   return {
     state,
-    reload: () => void load(),
+    reload: () => load(),
     set: (data: T) => setState({ kind: "ok", data }),
   };
 }
@@ -120,7 +121,8 @@ export function useMarketList<T>(path: ((page: number) => string) | null): {
   /** còn bao nhiêu món/đơn chưa tải — 0 là hết */
   more: number;
   loadingMore: boolean;
-  reload: () => void;
+  /** trả Promise để kéo-làm-mới (BH-14) chờ xong mới cất vòng quay */
+  reload: () => Promise<void>;
   loadMore: () => void;
   /** sửa tại chỗ sau PATCH (vd đặt Hết hàng) — không tải lại cả danh sách */
   setItems: (fn: (cur: T[]) => T[]) => void;
@@ -188,7 +190,7 @@ export function useMarketList<T>(path: ((page: number) => string) | null): {
     page,
     more: Math.max(0, total - items.length),
     loadingMore,
-    reload: () => void fetchPage(1, false),
+    reload: () => fetchPage(1, false),
     loadMore: () => void fetchPage(page + 1, true),
     setItems,
     restore,
@@ -256,7 +258,7 @@ export function writeUrlParams(params: Record<string, string | null>): void {
 /** Shop của người đang đăng nhập + ghi cờ `forfish.mshop.v1` (LEAD §4 #16). */
 export function useMyShop(): {
   state: LoadState<{ shop: Shop | null }>;
-  reload: () => void;
+  reload: () => Promise<void>;
   set: (shop: Shop) => void;
 } {
   const { phone } = useAuthUser();

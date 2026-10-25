@@ -23,6 +23,7 @@ import { chonCamXuc, chotCamXuc, type CamXuc, type CamXucState } from "@/lib/kai
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Popover } from "@/components/ui/popover";
+import { baoToast, ToastHost } from "@/components/ui/toast";
 import { AlertIcon, EditIcon, LockIcon, StarIcon, TrashIcon } from "@/components/icons";
 import type { KairosPost } from "@/lib/kairos/types";
 import { errorText, hideBlocked, kairosSend } from "@/lib/kairos/write-client";
@@ -34,8 +35,6 @@ import { ComposerSheet, type ComposeMode } from "./composer-sheet";
 import type { PostActions } from "./post-card";
 import { ReportSheet } from "./report-sheet";
 import { ShareSheet } from "./share-sheet";
-
-type Notice = { text: string; bad?: boolean } | null;
 
 export function usePostActions(opts: { onDeleted?: (id: string) => void; onPosted?: (p: KairosPost) => void } = {}) {
   const { signedIn, phone } = useAuthUser();
@@ -52,20 +51,17 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
   const [report, setReport] = useState<{ type: "post" | "comment"; id: string } | null>(null);
   const [confirmDel, setConfirmDel] = useState<KairosPost | null>(null);
   const [confirmBlock, setConfirmBlock] = useState<KairosPost | null>(null);
-  const [notice, setNotice] = useState<Notice>(null);
+  /*  Biên nhận nổi đi qua `ui/toast` chung (2026-10-25, lô 2 rà FB) — khuôn 5 s / role=status / hai màu vốn sinh ra
+      ở đây nay là của toàn app. `setNotice` giữ tên để các lời gọi bên dưới không đổi. */
+  const setNotice = (n: { text: string; bad?: boolean } | null) => {
+    if (n) baoToast(n.text, { loai: n.bad ? "xau" : "tot" });
+  };
   const inflight = useRef(new Set<string>());
   const luuBusy = useRef(new Set<string>());
   const optsRef = useRef(opts);
   useEffect(() => {
     optsRef.current = opts;
   });
-
-  // Thông báo nhỏ tự tắt sau 5 s (không chặn màn).
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 5000);
-    return () => clearTimeout(t);
-  }, [notice]);
 
   const patch = useCallback((id: string, p: Partial<KairosPost>) => setOver((o) => ({ ...o, [id]: { ...o[id], ...p } })), []);
 
@@ -287,18 +283,8 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
           }}
         />
       )}
-      {notice && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4">
-          <p
-            role="status"
-            className={`pointer-events-auto max-w-(--w-app) rounded-2xl px-4 py-3 text-[1rem] font-semibold shadow-md ${
-              notice.bad ? "bg-danger-bg text-danger" : "bg-navy text-white"
-            }`}
-          >
-            {notice.text}
-          </p>
-        </div>
-      )}
+      {/* dự phòng tới khi app-shell gắn <ToastHost/>: host thứ hai tự im (chỉ host đầu vẽ) */}
+      <ToastHost />
     </>
   );
 

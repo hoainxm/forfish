@@ -27,7 +27,7 @@ import {
   AnchorIcon,
   CheckIcon,
   ChevronRightIcon,
-  CloseIcon,
+  EditIcon,
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
@@ -35,6 +35,7 @@ import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { LoiO, O_LOI, cuonToiOSai } from "@/components/tau-form";
 import { useAuthUser } from "@/lib/use-auth";
 import { Popover } from "@/components/ui/popover";
+import { NHAN } from "@/lib/labels";
 
 /*
   Quản lý nhiều tàu + chọn tàu đang xem. Mọi màn dữ liệu gắn theo tàu này.
@@ -102,11 +103,12 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
         ref={setChipTau}
         onClick={() => setPick((v) => !v)}
         aria-expanded={pick}
-        className="flex min-h-[4.5rem] w-full items-center gap-3 surface px-4 py-3 transition active:scale-[0.99]"
+        /*  Bớt tín hiệu thừa (TAU-17, 2026-10-25): trước icon nền tròn + chevron + chữ "Chọn tàu" — 3 tín
+            hiệu cho một việc. Nay icon neo đứng trần (nhận diện), chevron là tín hiệu bấm; chữ chỉ còn
+            "N tàu" khi có nhiều tàu. */
+        className="flex min-h-(--h-row) w-full items-center gap-3 surface px-4 py-2.5 transition active:scale-[0.99]"
       >
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-field text-navy">
-          <AnchorIcon className="h-6 w-6" />
-        </span>
+        <AnchorIcon className="h-6 w-6 shrink-0 text-navy" />
         <span className="min-w-0 flex-1 text-left">
           <span className="block text-[1rem] font-semibold leading-snug text-navy">
             {current.name}
@@ -118,9 +120,9 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
             {current.maTau ? `Mã tàu: ${current.maTau}` : "Chưa có mã tàu"}
           </span>
         </span>
-        <span className="flex shrink-0 flex-col items-center gap-1 text-[0.875rem] font-semibold text-sea">
+        <span className="flex shrink-0 items-center gap-1 text-[0.875rem] font-semibold text-sea">
+          {boats.length > 1 && `${boats.length} tàu`}
           <ChevronRightIcon className="h-6 w-6 rotate-90" />
-          {boats.length > 1 ? `${boats.length} tàu` : "Chọn tàu"}
         </span>
       </button>
 
@@ -147,40 +149,38 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
           onClose={() => setPick(false)}
           className="w-[21rem] max-w-[calc(100vw-1rem)] p-3"
         >
-          <ul className="space-y-2">
+          <ul className="divide-y divide-line">
             {boats.map((b) => (
               <li key={b.id}>
-                {/* 2 nút THẬT cạnh nhau (chọn tàu / sửa) — không lồng nút trong nút */}
-                <div
-                  className={`flex w-full items-stretch gap-1 rounded-xl ${
-                    b.id === current.id ? "bg-navy text-white" : "bg-field"
-                  }`}
-                >
+                {/*  Hàng = [tên · mã] [✓ nếu đang chọn] + icon bút "Sửa" (TAU-17): bộ chọn kiểu FB — hàng
+                    đang chọn đánh ✓, không tô navy đặc; "Sửa" là icon, không chữ gạch chân. 2 nút THẬT cạnh
+                    nhau, không lồng nút trong nút. */}
+                <div className="flex w-full items-center gap-1">
                   <button
                     onClick={() => {
                       setCurrent(b.id);
                       setPick(false);
                     }}
-                    className="min-w-0 flex-1 rounded-l-xl px-3.5 py-3 text-left"
+                    aria-current={b.id === current.id ? "true" : undefined}
+                    className="flex min-h-(--h-row) min-w-0 flex-1 items-center gap-2 rounded-xl px-2 text-left"
                   >
-                    <span className="block truncate text-[1rem] font-semibold">
-                      {b.name}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[1rem] font-semibold text-navy">{b.name}</span>
+                      <span className="block truncate text-[0.8125rem] text-foreground/70">
+                        {b.maTau || "chưa có mã tàu"}
+                      </span>
                     </span>
-                    <span
-                      className={`block truncate text-[0.8125rem] ${b.id === current.id ? "text-white/75" : "text-foreground/70"}`}
-                    >
-                      {b.maTau || "chưa có mã tàu"}
-                    </span>
+                    {b.id === current.id && <CheckIcon className="h-5 w-5 shrink-0 text-navy" />}
                   </button>
                   <button
                     onClick={() => {
                       setForm(b);
                       setPick(false);
                     }}
-                    aria-label={`Sửa thông tin tàu ${b.name}`}
-                    className={`shrink-0 rounded-r-xl px-3 text-[0.875rem] font-semibold ${b.id === current.id ? "text-white underline" : "text-sea"}`}
+                    aria-label={`${NHAN.sua} ${b.name}`}
+                    className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-xl text-sea"
                   >
-                    Sửa
+                    <EditIcon className="h-5 w-5" />
                   </button>
                 </div>
               </li>
@@ -232,10 +232,10 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
       {confirmDelete && (
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
-          title={`Xóa tàu "${confirmDelete.name}"?`}
-          message="Giấy tờ và lịch bảo dưỡng của tàu này sẽ bị xóa. Thuyền viên và đồ đã mua từ SDVICO vẫn được giữ lại."
-          cancelLabel="Không xóa"
-          confirmLabel="Xác nhận xóa"
+          title={`Xoá tàu "${confirmDelete.name}"?`}
+          message="Giấy tờ và lịch bảo dưỡng của tàu này sẽ bị xoá. Thuyền viên và đồ đã mua từ SDVICO vẫn được giữ lại."
+          cancelLabel={NHAN.khongXoa}
+          confirmLabel={NHAN.xoa}
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => {
             /*  Xoá hỏng cũng phải nói (2026-08-16): `removeBoat` nay ghi danh
@@ -337,8 +337,9 @@ export function BoatForm({
     if (errors[k]) setErrors((e) => ({ ...e, [k]: undefined }));
   };
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  /** Gọi từ Enter trong form (có event) lẫn nút Lưu ở chân ngăn (không event). */
+  function submit(e?: React.FormEvent) {
+    e?.preventDefault();
     /*  KIỂM Ở RANH GIỚI (CLAUDE.md quy tắc 4): số gõ sai thì NÓI và KHÔNG lưu,
         đừng lặng lẽ cắt "55,60" thành 55 như parseFloat cũ. Tên trống cũng NÓI
         dưới ô (TAU-03) — trước `return` im + bong bóng tiếng Anh của `required`. */
@@ -391,7 +392,18 @@ export function BoatForm({
   const kw = parseBoatNumber(d.engineKw, 10000);
 
   return (
-    <BottomSheet kieu="form" title={isNew ? "Thêm tàu" : "Sửa thông tin tàu"} onClose={onCancel}>
+    <BottomSheet
+      kieu="form"
+      title={isNew ? "Thêm tàu" : "Sửa thông tin tàu"}
+      onClose={onCancel}
+      /*  Chân Huỷ|Lưu do ngăn vẽ (TAU-07/TAU-10); "Xoá tàu" là hàng chữ đỏ RIÊNG dưới cặp nút — không
+          đứng ngang hàng, cùng cỡ với Lưu (tay to bấm trượt là vào Xoá). ConfirmDialog phía gọi giữ. */
+      chan={{
+        luu: NHAN.luu,
+        onLuu: () => submit(),
+        xoa: onDelete ? { nhan: `${NHAN.xoa} tàu`, onXoa: onDelete } : undefined,
+      }}
+    >
       <form ref={formRef} onSubmit={submit} noValidate>
         <Field label="Tên tàu (để dễ nhớ)">
           <input
@@ -527,37 +539,6 @@ export function BoatForm({
           </>
         )}
 
-        {/*  BA hành động về MỘT hàng cuối form (2026-08-29, luật A2/A3): trước
-            là ba dải ngang xếp chồng (cặp Hủy/Lưu grid-cols-2 + "Xóa tàu này"
-            full-width). "Xoá" giữ màu danger và GIỮ NGUYÊN ConfirmDialog ở phía
-            gọi — không bỏ đường lùi. */}
-        <div className="mt-2 flex items-stretch justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className={`${SQ_BTN} bg-field text-foreground/70`}
-          >
-            <CloseIcon className="h-6 w-6" />
-            Hủy
-          </button>
-          <button
-            type="submit"
-            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
-          >
-            <CheckIcon className="h-6 w-6" />
-            Lưu
-          </button>
-          {onDelete && (
-            <button
-              type="button"
-              onClick={onDelete}
-              className={`${SQ_BTN} bg-field text-danger`}
-            >
-              <TrashIcon className="h-6 w-6" />
-              Xoá
-            </button>
-          )}
-        </div>
       </form>
     </BottomSheet>
   );

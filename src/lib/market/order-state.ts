@@ -44,6 +44,20 @@ export function isPaymentMethod(v: unknown): v is PaymentMethod {
   return v === "cod" || v === "chuyen_khoan";
 }
 
+/** Đơn đã KẾT THÚC — không còn việc gì để làm (huỷ hoặc xong). */
+export const ENDED_STATUSES: readonly OrderStatus[] = ["da_huy", "hoan_thanh"] as const;
+export function isEnded(status: OrderStatus): boolean {
+  return (ENDED_STATUSES as readonly string[]).includes(status);
+}
+/**
+ * "BÁO ĐÃ CK" — tiền khách nói đã chuyển mà shop chưa xác nhận, đơn còn sống (BH-08, 2026-10-25).
+ * MỘT hàm cho cả ô đếm ở Tổng quan lẫn lọc danh sách `?tt=bao_da_chuyen` — trước đây hai chỗ hai
+ * điều kiện nên "ô nói 2 mà tab mở ra trống".
+ */
+export function choXacNhanTien(o: Pick<Order, "paymentMethod" | "paymentStatus" | "status">): boolean {
+  return o.paymentMethod === "chuyen_khoan" && o.paymentStatus === "bao_da_chuyen" && !isEnded(o.status);
+}
+
 /** Bảng chuyển hợp lệ theo ACTOR (một chiều, không quay lui) — 11 §4.1. Admin = mọi việc seller làm được + huỷ tới dang_giao (LEAD §4 #2). */
 export const TRANSITIONS: Record<OrderStatus, Partial<Record<Actor, OrderStatus[]>>> = {
   // system: TỰ HUỶ khi shop không xác nhận sau AUTO_CANCEL_MS (kiểu Shopee, 2026-10-18)

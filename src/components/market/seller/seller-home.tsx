@@ -5,19 +5,28 @@
 // màn chờ (VẪN thêm được món trước) · tu_choi ⇒ lý do + sửa · tam_khoa ⇒ băng
 // đỏ nhưng VẪN vào Đơn hàng (đơn treo không bỏ rơi người mua) · hoat_dong ⇒
 // việc cần làm ngay + số liệu theo kỳ + bán chạy + sắp hết hàng.
-// Không cache gì: mất sóng thì nói thật (11 §9).
+// Không cache gì: mất sóng thì nói thật (11 §9). Ngoại lệ duy nhất: số đơn chờ ghi vào cờ
+// `forfish.mshop.v1` sau khi Tổng quan tải xong (BH-11) để sheet Tài khoản/dock vẽ badge —
+// gợi ý thôi, không hứa đúng.
+// Hàng đầu = logo tròn · tên shop · chip trạng thái, chạm ⇒ xem shop trên cửa hàng (BH-15,
+// kiểu trang quản trị FB) — không hộp.
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  BasketIcon, BoxIcon, CartIcon, ChevronRightIcon, PlusIcon, SettingsIcon, TrendUpIcon,
+  BoxIcon, CartIcon, ChevronRightIcon, PlusIcon, SettingsIcon, TrendUpIcon,
 } from "@/components/icons";
+import { KairosAvatar } from "@/components/kairos/kairos-avatar";
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { CallButton } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import { formatVnd } from "@/lib/format";
 import { marketSend } from "@/lib/market/client";
+import { savePendingFlag } from "@/lib/market/seller-flag";
+import { NHAN } from "@/lib/labels";
+import { DOCK_BADGE_EVENT } from "@/lib/dock-nav";
 import type { Shop, ShopStats, StatsRange } from "@/lib/market/types";
+import { useAuthUser } from "@/lib/use-auth";
 import { InlineNote, LoadView, marketErrorText, useInlineNote, useMarketData, useMyShop } from "./seller-net";
 import { NoShop, SELLER_BTN } from "./ui";
 
@@ -63,6 +72,7 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
 
   return (
     <div className="pb-10">
+      <ShopRow shop={shop} />
       {shop.status === "cho_duyet" && (
         <div className="mb-4 overflow-hidden">
           <StatusBanner level="neutral">
@@ -129,16 +139,42 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
         <HomeLink href="/ban-hang/san-pham" icon={<BoxIcon className="h-6 w-6" />} label="Sản phẩm" sub="Thêm, sửa giá, sửa tồn kho" />
         <HomeLink href="/ban-hang/don" icon={<CartIcon className="h-6 w-6" />} label="Đơn hàng" sub="Xác nhận, giao hàng, xem tiền" />
         <HomeLink href="/ban-hang/cai-dat" icon={<SettingsIcon className="h-6 w-6" />} label="Cài đặt shop" sub="Hồ sơ, số tài khoản, tạm nghỉ bán" />
-        {shop.status === "hoat_dong" && (
-          <HomeLink
-            href={`/cho/shop/${shop.slug}`}
-            icon={<BasketIcon className="h-6 w-6" />}
-            label="Xem shop trên cửa hàng"
-            sub="Đúng thứ bà con nhìn thấy"
-          />
-        )}
+        {/* "Xem shop trên cửa hàng" nay là hàng đầu trang (ShopRow) — không lặp (BH-15) */}
       </nav>
     </div>
+  );
+}
+
+/** Chip trạng thái shop — một chữ cho bà con, không mã. */
+function trangThaiShop(shop: Shop): { label: string; bg: string; fg: string } {
+  if (shop.status === "tam_khoa") return { label: NHAN.tamKhoa, bg: "var(--danger-bg)", fg: "var(--danger)" };
+  if (shop.status === "tu_choi") return { label: NHAN.chuaDuyet, bg: "var(--danger-bg)", fg: "var(--danger)" };
+  if (shop.status === "cho_duyet") return { label: NHAN.choDuyet, bg: "var(--field)", fg: "var(--navy)" };
+  if (shop.paused) return { label: NHAN.tamNghi, bg: "var(--warn-bg)", fg: "var(--warn)" };
+  return { label: NHAN.dangBan, bg: "var(--ok-bg)", fg: "var(--ok)" };
+}
+
+/** Hàng đầu Tổng quan (BH-15): logo tròn 2.5rem (chữ cái khi chưa có ảnh) · tên · chip; shop hoạt động ⇒ chạm cả hàng xem shop. */
+function ShopRow({ shop }: { shop: Shop }) {
+  const tt = trangThaiShop(shop);
+  const mo = shop.status === "hoat_dong";
+  const inner = (
+    <>
+      <KairosAvatar id={shop.id} name={shop.name} url={shop.logoUrl ?? null} />
+      <span className="min-w-0 flex-1 truncate text-[1rem] font-semibold text-navy">{shop.name}</span>
+      <span className="shrink-0 rounded-full px-2.5 py-0.5 text-[0.875rem] font-semibold" style={{ backgroundColor: tt.bg, color: tt.fg }}>
+        {tt.label}
+      </span>
+      {mo && <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />}
+    </>
+  );
+  const cls = "mb-3 flex min-h-(--row-h) items-center gap-3 px-4";
+  return mo ? (
+    <Link href={`/cho/shop/${shop.slug}`} aria-label={`Xem shop ${shop.name} trên cửa hàng`} className={cls}>
+      {inner}
+    </Link>
+  ) : (
+    <div className={cls}>{inner}</div>
   );
 }
 
@@ -158,6 +194,19 @@ function HomeLink({ href, icon, label, sub }: { href: string; icon: React.ReactN
 function Stats({ shopStatus }: { shopStatus: Shop["status"] }) {
   const [range, setRange] = useState<StatsRange>("7d");
   const { state, reload } = useMarketData<{ stats: ShopStats }>(`/api/ban-hang/thong-ke?range=${range}`);
+  const { phone } = useAuthUser();
+  // Tổng quan tải xong ⇒ ghi số đơn chờ vào cờ máy (BH-11); sheet Tài khoản/dock đọc, không gọi mạng
+  useEffect(() => {
+    if (state.kind === "ok") {
+      savePendingFlag(phone, state.data.stats.pendingOrders);
+      // dock vẽ lại badge Vật tư ngay (không chờ đổi màn) — lib/dock-nav DOCK_BADGE_EVENT
+      try {
+        window.dispatchEvent(new Event(DOCK_BADGE_EVENT));
+      } catch {
+        /* môi trường không có Event — badge đợi lần đổi màn */
+      }
+    }
+  }, [state, phone]);
 
   return (
     <section>
@@ -184,7 +233,8 @@ function StatsBody({
         {/* đã xác nhận, chưa đi giao — việc kế tiếp của shop (2026-10-18) */}
         <Tile n={stats.byStatus.da_xac_nhan} label="Cần đi giao" href="/ban-hang/don?tab=da_xac_nhan" />
         <Tile n={stats.shippingOrders} label="Đang giao" href="/ban-hang/don?tab=dang_giao" />
-        <Tile n={stats.awaitingPaymentConfirm} label="Báo đã CK" href="/ban-hang/don?tab=cho_xac_nhan" />
+        {/* mở chế độ tra đúng các đơn được đếm — cùng luật `choXacNhanTien` (BH-08) */}
+        <Tile n={stats.awaitingPaymentConfirm} label="Báo đã CK" href="/ban-hang/don?tt=bao_da_chuyen" />
       </div>
 
       {/* chip kỳ chỉ chi phối khối Đơn · Hoàn thành · Doanh thu ⇒ đứng sát ngay trên nó (BH-07) */}

@@ -12,9 +12,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CartIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
 import { CategoryChips, type CategoryChipValue } from "@/components/market/shared/category-chips";
 import { EmptyNet } from "@/components/market/shared/empty-net";
+import { NetChip } from "@/components/market/shared/net-chip";
 import { OrderStatusChip } from "@/components/market/shared/order-status-chip";
 import { PriceText } from "@/components/market/shared/price-text";
 import { EmptyState, SectionHeader } from "@/components/ui/primitives";
+import { KeoLamMoiChi, useKeoLamMoi } from "@/components/ui/use-keo-lam-moi";
 import { marketGet } from "@/lib/market/client";
 import { saveListState, takeListState } from "@/lib/market/list-state";
 import type { ProductCard } from "@/lib/market/types";
@@ -41,6 +43,8 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
   const [fresh, setFresh] = useState<ProductCard[]>([]);
   const [status, setStatus] = useState<Status>("loading");
   const [note, setNote] = useState<string | null>(null);
+  /** chip báo khi KÉO LÀM MỚI mà mất sóng/lỗi — giữ hai lưới đang xem (VT-18) */
+  const [netNote, setNetNote] = useState<{ state: "offline" | "error"; text: string } | null>(null);
   const khoiPhuc = useRef<number | null>(null);
   /** vừa khôi phục bản chụp ⇒ bỏ lượt tải đầu (bản chụp ≤10 phút) */
   const vuaKhoiPhuc = useRef(false);
@@ -87,8 +91,9 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
     };
   }, [status, fresh, near, cuonRef]);
 
-  const load = useCallback(async () => {
-    setStatus("loading");
+  /** `im` = làm mới lặng (kéo xuống): không skeleton lại cả màn, hỏng thì giữ lưới + một chip */
+  const load = useCallback(async (im = false) => {
+    if (!im) setStatus("loading");
     const home = loadHome().province ?? "";
     const [freshRes, nearRes] = await Promise.all([
       marketGet<ListRes>("/api/cho/san-pham?sort=moi&pageSize=20"),
@@ -97,9 +102,14 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
         : Promise.resolve(null),
     ]);
     if (!freshRes.ok) {
+      if (im) {
+        setNetNote({ state: freshRes.offline ? "offline" : "error", text: freshRes.offline ? "Không có sóng — đang xem món đã tải" : "Chợ trục trặc — đang xem món đã tải" });
+        return;
+      }
       setStatus(freshRes.offline ? "offline" : "error");
       return;
     }
+    setNetNote(null);
     setFresh(freshRes.data.items);
     setNear(nearRes && nearRes.ok ? nearRes.data.items : []);
     setStatus("ok");
@@ -114,6 +124,8 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
     void load();
   }, [ready, load]);
   useOnlineRefetch(() => void load());
+  // kéo xuống ở đầu trang ⇒ làm mới lặng (VT-18, như FB/Shopee); đang tải lần đầu thì không bắt
+  const lamMoi = useKeoLamMoi(() => load(true), { disabled: status === "loading" });
 
   const onFav = (p: ProductCard) => {
     if (!cart.signedIn) {
@@ -159,6 +171,8 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
       </div>
 
       <div className="px-4">
+        {netNote && <NetChip state={netNote.state} text={netNote.text} />}
+        <KeoLamMoiChi {...lamMoi.chi} />
         <CartFeedback note={note} count={cart.count} />
 
         {cart.saveFailed && (

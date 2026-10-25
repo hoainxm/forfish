@@ -121,6 +121,17 @@ export const NHAN = {
   boAnh: "Bỏ ảnh",
   bo: "Bỏ",
   trangToi: "Trang tôi",
+  // rà FB lô 2 (2026-10-25) — nhãn các khu xin thêm
+  cang: "Cảng",
+  toaDo: "Toạ độ",
+  datMon: "Đặt món",
+  khongXoa: "Không xoá",
+  khac: "Khác",
+  dangBan: "Đang bán",
+  tamNghi: "Tạm nghỉ",
+  choDuyet: "Chờ duyệt",
+  chuaDuyet: "Chưa duyệt",
+  tamKhoa: "Tạm khoá",
   // Kairos — nút bánh răng "Tuỳ chọn dòng tin" (14 §13, aria-label/title — nút chỉ icon)
   tuyChon: "Tuỳ chọn",
   // Kairos — chuông chỉ 2 loại tin: bình luận bài mình / trả lời mình (14 §16, aria-label/title — nút chỉ icon)
@@ -140,6 +151,18 @@ export const NHAN = {
   boBai: "Bỏ bài",
   vietTiep: "Viết tiếp",
   khongGan: "Không gắn",
+  // Mảnh dùng chung lô 2 rà FB (2026-10-25): toast "Hoàn tác", chân sheet, chợ/vật tư/Kairos
+  hoanTac: "Hoàn tác",
+  capNhat: "Cập nhật",
+  giuMo: "Giữ mở",
+  nhan: "Nhắn",
+  lamBia: "Làm bìa",
+  anTin: "Ẩn tin",
+  chonTinh: "Chọn tỉnh",
+  xemShop: "Xem shop",
+  veGio: "Về giỏ",
+  tienMat: "Tiền mặt",
+  chuyenKhoan: "Chuyển khoản",
 } as const;
 
 /**

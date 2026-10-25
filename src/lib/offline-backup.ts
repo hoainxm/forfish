@@ -177,6 +177,16 @@ export const NEVER_BACKUP_PREFIXES = [
    *    bảng giá CŨ của phiên người khác vào màn đang mở. Mất thì danh sách tải lại,
    *    không mất gì của bà con. */
   "forfish.mlist.",
+  /*  · `home.phien.` — TỈNH CHỌN TẠM trong PHIÊN (sessionStorage, lib/region
+   *    docHomePhien/ghiHomePhien, rà FB 2026-10-25 QĐ C): bà con chưa có tàu bấm
+   *    "Chọn" ở Đầu mối/Cảng. Đóng tab là quên, nguồn sự thật vẫn là tàu. */
+  "forfish.home.phien.",
+  /*  · `yeucau-nhap.` — NHÁP form "Đặt món" (sessionStorage, lib/market/request-form,
+   *    VT-11): chữ đang gõ dở của phiên này. Không phải sổ của tàu. */
+  "forfish.yeucau-nhap.",
+  /*  · `chuongNudge.` — NHỊP NHẮC "Bật chuông báo bão" trên MÁY NÀY (lib/tang-5,
+   *    QĐ D): cùng loại installNudge — máy khác chưa bật mà đã bị tắt lời nhắc. */
+  "forfish.chuongNudge.",
   /*  · `sync.` — SỔ BOOKKEEPING đồng bộ per-máy (lib/user-sync): mỗi kind đã ghi
    *    lúc nào (mốc client) + còn dirty không. Của RIÊNG máy này. Chép sang máy
    *    khác là dán mốc/dirty sai → máy nhận tưởng đã đẩy/đã mới, bỏ qua sổ thật

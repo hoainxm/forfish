@@ -622,54 +622,65 @@ export const SCALAR_RAMP: Record<ScalarKind, ScalarRampStop[]> = {
   ],
 };
 
+/*  `label` ≤2 chữ (nhãn công tắc, 03 §0) · `tomTat` ≤6 chữ — một dòng hiện khi lớp
+    đang bật · `help` câu đủ — vào `title`/thẻ chú giải (BD-07, 2026-10-25). */
 export const SCALAR_META: Record<
   ScalarKind,
-  { label: string; unit: string; help: string }
+  { label: string; unit: string; tomTat: string; help: string }
 > = {
   cloud: {
     label: "Mây",
     unit: "%",
+    tomTat: "Xám đậm là mây dày",
     help: "Xám đậm là mây dày; trắng nhạt là mây thưa; chỗ trong là trời quang.",
   },
   rain: {
     label: "Mưa",
     unit: "mm/giờ",
+    tomTat: "Đậm là mưa to · tím hay dông",
     help: "Chỗ đậm là mưa to; tím là hay có dông — nên né.",
   },
   airtemp: {
-    label: "Nhiệt không khí",
+    label: "Nhiệt độ",
     unit: "°C",
+    tomTat: "Không khí mặt biển, theo giờ",
     help: "Nhiệt độ không khí trên mặt biển theo giờ.",
   },
   storm: {
     label: "Dông",
     unit: "CAPE",
+    tomTat: "Nguy cơ dông, chưa phải sét",
     help: "Nguy cơ dông/sét (chỉ số CAPE) — càng đậm càng dễ dông. Là dự báo NGUY CƠ, không phải sét thật.",
   },
   salinity: {
     label: "Độ mặn",
     unit: "PSU",
+    tomTat: "Nhạt là gần cửa sông",
     help: "Độ mặn nước biển (PSU) — chỗ nhạt gần cửa sông. Nguồn Copernicus Marine, theo ngày.",
   },
   pressure: {
     label: "Áp suất",
     unit: "hPa",
+    tomTat: "Lam áp thấp · nâu áp cao",
     help: "Áp suất mực biển — lam là áp thấp (dễ xấu trời), nâu là áp cao (thường êm).",
   },
   // 3 kind render-only (nền màu lớp Gió/Sóng/Dòng chảy) — không có toggle riêng
   windspeed: {
     label: "Sức gió",
     unit: "km/h",
+    tomTat: "Đậm là gió mạnh",
     help: "Nền màu theo sức gió — đậm là gió mạnh.",
   },
   waveheight: {
     label: "Độ cao sóng",
     unit: "m",
+    tomTat: "Đậm là sóng lớn",
     help: "Nền màu theo độ cao sóng — đậm là sóng lớn.",
   },
   currentspeed: {
     label: "Dòng chảy",
     unit: "km/h",
+    tomTat: "Đậm là nước chảy xiết",
     help: "Nền màu theo tốc độ dòng chảy — đậm là nước chảy xiết.",
   },
 };

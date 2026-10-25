@@ -20,14 +20,25 @@ import { NHAN } from "@/lib/labels";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDownIcon, ChevronRightIcon } from "@/components/icons";
+import { Popover } from "@/components/ui/popover";
+import { baoToast } from "@/components/ui/toast";
 import { useAuthUser } from "@/lib/use-auth";
 import { staleWarningVN } from "@/lib/push-message";
 import {
+  BAO_HIEU_LUC_MS,
   acceptRefresh,
+  anTin,
+  boAnTin,
+  chuaDocIds,
   gomTinTrung,
   khoaBaoTuUrl,
+  linkConHieuLuc,
+  loadHidden,
   loadInbox,
+  loadSeen,
+  locTinAn,
   markRead,
+  markSeen,
   refreshInbox,
   unreportedIds,
   type InboxMessage,
@@ -39,8 +50,8 @@ const PREVIEW_COUNT = 3;
 const PAGE_COUNT = 10;
 /** Nhớ số hàng đang xoè trong PHIÊN — sang màn khác quay lại không gập mất chỗ đang đọc */
 const SHOWN_SS_KEY = "forfish.inbox.shown.v1";
-/** Tin bão quá ngần này ngày thì "Tin cũ" không còn là cảnh báo — chỉ còn là mốc thời gian */
-const BAO_CANH_BAO_MS = 14 * 24 * 3600000;
+/** Tin bão quá ngần này ngày thì "Tin cũ" không còn là cảnh báo — chỉ còn là mốc thời gian (cùng mốc hết link) */
+const BAO_CANH_BAO_MS = BAO_HIEU_LUC_MS;
 
 /** Nửa thẻ lọt vào màn hình thì tính là đã tới mắt bà con */
 const SEEN_RATIO = 0.5;
@@ -96,22 +107,22 @@ export function InboxSection() {
       /* không ghi được thì vẫn đổi cho lần vẽ này */
     }
   }, []);
-  /*  TIN CHƯA ĐỌC = chưa nằm trong `forfish.inbox.read.v1` (đã báo về được theo
-      IO) — chấm + viền đậm (audit 2026-08-18 P4). Tính trong effect (đọc kho),
-      tính lại khi hộp thư đổi hoặc khi vừa báo về xong. Không badge dock. */
+  /*  TIN CHƯA ĐỌC (TC-05, 2026-10-25) = chưa có trong sổ ĐÃ THẤY `forfish.inbox.seen.v1`
+      VÀ gửi trong 7 ngày. Trước đây lấy theo `read.v1` (đã báo về MÁY CHỦ) — mất sóng
+      cả chuyến thì chấm không bao giờ tắt, tin chưa xoè ra thì "mới" mãi; số nói dối
+      thì bà con bỏ qua luôn cả số thật. Sổ seen ghi máy ngay khi hàng tới mắt, không
+      cần sóng; "đã báo về" vẫn chạy riêng bên dưới (thống kê). Không badge dock. */
   const [unread, setUnread] = useState<Set<string>>(new Set());
   const recomputeUnread = useCallback(
-    (list: InboxMessage[]) =>
-      setUnread(
-        new Set(
-          unreportedIds(
-            phone,
-            list.map((m) => m.id),
-          ),
-        ),
-      ),
+    (list: InboxMessage[]) => setUnread(chuaDocIds(list, loadSeen(phone), Date.now())),
     [phone],
   );
+  /*  TIN ĐÃ ẨN (TC-18): bà con bấm ⋯ › Ẩn tin — chỉ bỏ khỏi màn, kho tin giữ nguyên.
+      Đọc trong effect (kho máy), theo ngăn SĐT. */
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setHidden(loadHidden(phone));
+  }, [phone]);
   /*  "TIN CŨ N NGÀY —" tính từ giờ GỬI tới lúc VẼ (audit P5): tin bão đọc muộn
       2 tuần phải tự khai tuổi, cùng luật với thông báo hệ điều hành (sw.js).
       `now` chốt trong effect mỗi khi hộp thư đổi — đủ cho hộp thư, không cần
@@ -185,23 +196,8 @@ export function InboxSection() {
       pendingRef.current.clear();
       if (ids.length === 0) return;
       for (const id of ids) sentRef.current.add(id);
-      // báo về xong (máy chủ xác nhận, kho đã ghi) → chấm "chưa đọc" tự tắt
-      void markRead(phone, ids).then(() => recomputeUnread(messages));
+      void markRead(phone, ids); // biên nhận thống kê — không còn quyết định chấm "chưa đọc"
     };
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (!e.isIntersecting) continue;
-          // một dòng có thể gom nhiều tin trùng (gomTinTrung) — tới mắt là đọc cả nhóm
-          for (const id of idsOf(e.target as HTMLElement)) pendingRef.current.add(id);
-          io.unobserve(e.target); // tới mắt một lần là đủ
-        }
-        if (pendingRef.current.size > 0 && timerRef.current === null) {
-          timerRef.current = setTimeout(flush, BATCH_MS);
-        }
-      },
-      { threshold: SEEN_RATIO },
-    );
     // chỉ ngó tin CHƯA báo được lần nào — mở app lần thứ mười không gọi lại
     const fresh = new Set(
       unreportedIds(
@@ -209,8 +205,40 @@ export function InboxSection() {
         [...root.querySelectorAll<HTMLElement>("[data-msg-id]")].flatMap(idsOf),
       ),
     );
+    const seen = loadSeen(phone);
+    const io = new IntersectionObserver(
+      (entries) => {
+        const vuaThay: string[] = [];
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          // một dòng có thể gom nhiều tin trùng (gomTinTrung) — tới mắt là đọc cả nhóm
+          for (const id of idsOf(e.target as HTMLElement)) {
+            if (!seen.has(id)) vuaThay.push(id);
+            if (fresh.has(id)) pendingRef.current.add(id);
+          }
+          io.unobserve(e.target); // tới mắt một lần là đủ
+        }
+        /*  ĐÃ THẤY ghi máy NGAY (TC-05): không chờ gom, không chờ sóng — chấm tắt
+            đúng lúc mắt vừa lướt qua, như FB. Máy không ghi được ⇒ chấm hiện lại lần
+            sau, không mất gì nên không báo đỏ. */
+        if (vuaThay.length > 0) {
+          markSeen(phone, vuaThay);
+          for (const id of vuaThay) seen.add(id);
+          setUnread((u) => {
+            const n = new Set(u);
+            for (const id of vuaThay) n.delete(id);
+            return n;
+          });
+        }
+        if (pendingRef.current.size > 0 && timerRef.current === null) {
+          timerRef.current = setTimeout(flush, BATCH_MS);
+        }
+      },
+      { threshold: SEEN_RATIO },
+    );
     for (const el of root.querySelectorAll<HTMLElement>("[data-msg-id]")) {
-      if (idsOf(el).some((id) => fresh.has(id) && !sentRef.current.has(id))) io.observe(el);
+      const ids = idsOf(el);
+      if (ids.some((id) => !seen.has(id) || (fresh.has(id) && !sentRef.current.has(id)))) io.observe(el);
     }
     return () => {
       io.disconnect();
@@ -220,17 +248,43 @@ export function InboxSection() {
       }
       flush(); // rời trang giữa chừng vẫn báo nốt phần đã thấy
     };
-  }, [messages, shownCount, phone, recomputeUnread]);
+  }, [messages, shownCount, phone]);
+
+  /*  ⋯ TRÊN HÀNG (TC-18): Popover neo nút, một dòng "Ẩn tin". Ẩn ghi kho máy, hàng biến
+      mất, toast "Đã ẩn · Hoàn tác" (khuôn `baoToast` dùng chung). Máy không ghi được ⇒ nói
+      thật, không ẩn giả. */
+  const [menu, setMenu] = useState<{ anchor: HTMLElement; ids: string[] } | null>(null);
+  const an = useCallback(
+    (ids: string[]) => {
+      setMenu(null);
+      if (!anTin(phone, ids)) {
+        baoToast("Máy không ghi được. Thử lại.", { loai: "xau" });
+        return;
+      }
+      setHidden(loadHidden(phone));
+      baoToast("Đã ẩn.", {
+        hanhDong: {
+          nhan: NHAN.hoanTac,
+          onClick: () => {
+            boAnTin(phone, ids);
+            setHidden(loadHidden(phone));
+          },
+        },
+      });
+    },
+    [phone],
+  );
 
   /* Chưa có tin nào → ẩn hẳn, không để khối trống. KHÔNG chặn theo đăng nhập:
      máy chưa gắn tài khoản vẫn nhận được tin gửi chung qua push, mà vuốt tắt là
      mất — đúng cái lỗ hộp thư sinh ra để bịt (sửa 2026-08-01n). Tin nhắm riêng
      thì server vốn chỉ trả khi đã đăng nhập. */
-  if (messages.length === 0) return null;
+  const conLai = locTinAn(messages, hidden);
+  if (conLai.length === 0) return null;
 
   /*  MỘT DÒNG MỘT CƠN / MỘT NỘI DUNG (rà Taste 2026-10-22 · TC-01 2026-10-25): tin bão gom
       theo khoá cơn trong url (`bao=`), tin khác gom khi trùng chữ. Gom lúc vẽ, đuôi "N bản tin". */
-  const groups = gomTinTrung(messages);
+  const groups = gomTinTrung(conLai);
   const shown = groups.slice(0, shownCount);
   const rest = groups.length - shown.length;
   const thuGonDuoc = shownCount > PREVIEW_COUNT;
@@ -246,8 +300,9 @@ export function InboxSection() {
     <section aria-label="Thông báo" ref={headRef}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="display text-[1rem] font-semibold text-navy">Thông báo</h2>
+        {/* "N chưa đọc" (TC-05): số = dòng có tin chưa tới mắt trong 7 ngày — khác hẳn số hàng ẩn ở "Xem thêm" */}
         {soMoi > 0 && (
-          <span className="rounded-full bg-trim px-2.5 py-0.5 text-[0.75rem] font-semibold text-white">{soMoi} mới</span>
+          <span className="rounded-full bg-trim px-2.5 py-0.5 text-[0.75rem] font-semibold text-white">{soMoi} chưa đọc</span>
         )}
       </div>
       <ul ref={listRef} className="divide-y divide-line overflow-hidden surface overflow-hidden">
@@ -269,6 +324,9 @@ export function InboxSection() {
           const canhBao = stale !== null && laBao && now - sentMs <= BAO_CANH_BAO_MS;
           const mocCu = stale ? stale.replace(/^tin cũ\s*/i, "") : null;
           const [gio, ngay] = fmt(m.sentAt).split(" · ");
+          /*  Tin bão quá 14 ngày KHÔNG còn link (khu bản đồ 2026-10-25): bản đồ đã nói thật
+              "đã tan", hàng không chevron để khỏi hứa một chỗ bay tới. */
+          const coLink = now > 0 && linkConHieuLuc(m, now);
           const inner = (
             <>
               <span className="flex items-start gap-2">
@@ -278,7 +336,7 @@ export function InboxSection() {
                 <span className={`min-w-0 flex-1 text-[1rem] leading-snug text-navy ${isUnread ? "font-semibold" : "font-semibold"}`}>
                   {m.title}
                 </span>
-                {m.url && <ChevronRightIcon className="mt-0.5 h-5 w-5 shrink-0 text-foreground/50" />}
+                {coLink && <ChevronRightIcon className="mt-0.5 h-5 w-5 shrink-0 text-foreground/50" />}
               </span>
               {/* TC-13: tin tay có body y hệt title ⇒ không in hai lần liền nhau */}
               {m.body !== m.title && (
@@ -295,14 +353,24 @@ export function InboxSection() {
             </>
           );
           return (
-            <li key={m.id} data-msg-id={ids.join(" ")}>
-              {m.url ? (
-                <Link href={m.url} className="block min-h-(--h-row) px-4 py-3 active:bg-field">
+            <li key={m.id} data-msg-id={ids.join(" ")} className="flex items-start">
+              {coLink && m.url ? (
+                <Link href={m.url} className="block min-h-(--h-row) min-w-0 flex-1 py-3 pl-4 pr-1 active:bg-field">
                   {inner}
                 </Link>
               ) : (
-                <div className="px-4 py-3">{inner}</div>
+                <div className="min-w-0 flex-1 py-3 pl-4 pr-1">{inner}</div>
               )}
+              {/* ⋯ sát phải như Kairos (post-card NutThem) — vùng chạm 2.75rem, không chữ */}
+              <button
+                type="button"
+                aria-label="Thêm"
+                aria-haspopup="menu"
+                onClick={(e) => setMenu({ anchor: e.currentTarget, ids })}
+                className="mr-1 mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-foreground/65 transition active:scale-[0.95]"
+              >
+                ⋯
+              </button>
             </li>
           );
         })}
@@ -336,6 +404,18 @@ export function InboxSection() {
           </li>
         )}
       </ul>
+      {menu && (
+        <Popover anchor={menu.anchor} label="Tuỳ chọn thông báo" role="menu" onClose={() => setMenu(null)} className="w-[12rem] p-1">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => an(menu.ids)}
+            className="flex min-h-(--h-row) w-full items-center rounded-xl px-3 text-left text-[1rem] font-semibold text-navy active:bg-field"
+          >
+            {NHAN.anTin}
+          </button>
+        </Popover>
+      )}
     </section>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baiCuaTin, nguoiCuaTin, nhanDem, tinChuongKairos } from "@/lib/kairos/chuong";
+import { baiCuaTin, demChuaDoc, nguoiCuaTin, nhanDem, tinChuongKairos, type TinChuong } from "@/lib/kairos/chuong";
 import { dongDoc, hieuTimTinKairos, timTinKairos, traLoiTinKairos } from "@/lib/kairos/tim-tin";
 import type { KairosPost } from "@/lib/kairos/types";
 import type { InboxMessage } from "@/lib/inbox";
@@ -174,5 +174,15 @@ describe("chuông Kairos — tên người gây ra tin (K3-06)", () => {
   it("tinChuongKairos mang nguoi", () => {
     const l = tinChuongKairos([{ id: "m1", title: "t", body: "Hai Lý Sơn vừa trả lời bình luận của bạn trên Kairos.", url: "/kairos/p/p1#bl-c1", sentAt: "2026-10-24T01:00:00Z", mine: true }], new Set());
     expect(l[0].nguoi).toBe("Hai Lý Sơn");
+  });
+});
+
+describe("demChuaDoc — một công thức cho chuông + badge dock (QĐ A)", () => {
+  const tin = (id: string, chuaDoc: boolean): TinChuong => ({ id, postId: "p", title: "", body: "", url: "/kairos/p/p", sentAt: "2026-10-25T00:00:00Z", chuaDoc, nguoi: "" });
+  it("đếm tin chưa đọc, trừ tin đã hiện trong ngăn phiên này", () => {
+    const l = [tin("a", true), tin("b", true), tin("c", false)];
+    expect(demChuaDoc(l)).toBe(2);
+    expect(demChuaDoc(l, new Set(["a"]))).toBe(1);
+    expect(demChuaDoc([], new Set())).toBe(0);
   });
 });

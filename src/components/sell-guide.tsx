@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type SavedBuyer } from "@/data/market-channels";
-import { boDau, datThamSo, docThamSo, tachSdt, telHref } from "@/lib/cho-ca";
+import { banDoHref, boDau, datThamSo, docThamSo, tachSdt, telHref } from "@/lib/cho-ca";
 import { NHAN } from "@/lib/labels";
 import { SearchField } from "@/components/ui/search-field";
 import {
@@ -19,8 +19,8 @@ import { saveUserJson } from "@/lib/user-store";
 import { createClient } from "@/lib/supabase/client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { LienHe } from "@/components/ui/lien-he";
 import {
-  CallButton,
   Card,
   EmptyState,
   Field,
@@ -82,6 +82,30 @@ function SdtLinks({ phone }: { phone: string }) {
         </span>
       ))}
     </p>
+  );
+}
+
+/** Địa chỉ vựa/chợ là LINK mở bản đồ máy (CC-19) — chữ địa chỉ chết là ngõ cụt; giữ icon ghim.
+ *  Mất sóng vẫn giữ link (app bản đồ có bản đã tải). Địa chỉ quá ngắn ⇒ chữ thường. */
+function DiaChi({ diaChi, tinh }: { diaChi: string; tinh?: string }) {
+  const href = banDoHref(diaChi, tinh);
+  const than = (
+    <>
+      <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-t2" />
+      <span>{diaChi}</span>
+    </>
+  );
+  if (!href) return <p className="mt-1 flex gap-1.5 text-[0.875rem] text-foreground/70">{than}</p>;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener"
+      aria-label={`Mở bản đồ: ${diaChi}`}
+      className="mt-1 flex gap-1.5 text-[0.875rem] text-sea underline-offset-2 active:underline"
+    >
+      {than}
+    </a>
   );
 }
 
@@ -248,14 +272,8 @@ function Wholesalers({
                     {w.name}
                   </p>
                 </div>
-                {w.phone && <CallButton phone={w.phone} />}
               </div>
-              {w.address && (
-                <p className="mt-1 flex gap-1.5 text-[0.875rem] text-foreground/70">
-                  <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-t2" />
-                  <span>{w.address}</span>
-                </p>
-              )}
+              {w.address && <DiaChi diaChi={w.address} tinh={w.province} />}
               {w.phone && <SdtLinks phone={w.phone} />}
               {w.species.length > 0 && (
                 <p className="text-[0.875rem] text-foreground/70">
@@ -272,6 +290,8 @@ function Wholesalers({
                   Nguồn
                 </a>
               )}
+              {/* Gọi · Nhắn Zalo chia hai cột (CC-18) */}
+              {w.phone && <LienHe phone={w.phone} className="mt-2" />}
             </Card>
           </li>
         ))}
@@ -324,14 +344,8 @@ function Markets({
                 {m.name}
               </p>
             </div>
-            {m.phone && <CallButton phone={m.phone} />}
           </div>
-          {m.address && (
-            <p className="mt-1 flex gap-1.5 text-[0.875rem] text-foreground/70">
-              <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-t2" />
-              <span>{m.address}</span>
-            </p>
-          )}
+          {m.address && <DiaChi diaChi={m.address} tinh={m.province} />}
           {m.phone && <SdtLinks phone={m.phone} />}
           {m.hours && (
             <p className="text-[0.875rem] text-foreground/70">Giờ họp: {m.hours}</p>
@@ -341,6 +355,7 @@ function Markets({
               Loài chính: {m.species.join(", ")}
             </p>
           )}
+          {m.phone && <LienHe phone={m.phone} className="mt-2" />}
         </Card>
       ))}
       {list.length === 0 && (
@@ -584,11 +599,8 @@ function MyBuyers({ q }: { q: string }) {
               {/* SĐT là DỮ LIỆU (đọc/chép được); nút GỌI inline cuối chính
                   hàng đó — hàng nó thao tác lên (luật A3/B1). */}
               {b.phone && (
-                <div className="mt-1.5 flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <SdtLinks phone={b.phone} />
-                  </div>
-                  <CallButton phone={b.phone} />
+                <div className="mt-1.5">
+                  <SdtLinks phone={b.phone} />
                 </div>
               )}
               {b.port && (
@@ -604,6 +616,7 @@ function MyBuyers({ q }: { q: string }) {
                   {b.note}
                 </p>
               )}
+              {b.phone && <LienHe phone={b.phone} className="mt-2" />}
             </Card>
           </li>
         ))}

@@ -2,8 +2,9 @@
 
 // ĐẦU MÀN PHỤ — MỘT KIỂU CHO CẢ APP (rà bố cục 2026-10-22, anh Long: "xử lý theo các app hiện
 // đại nhất, đông user nhất"). Màn GỐC của dock dùng tiêu đề lớn `ManHeader` (24px, như "large
-// title" iOS); màn PHỤ (đẩy vào từ màn gốc) dùng thanh SÁNG một hàng `[‹ 3.5rem] [tiêu đề 20px]`
-// như Shopee · Grab · Facebook. Trước đây có ba kiểu: thanh navy đặc (chợ), dải gradient bo đáy
+// title" iOS); màn PHỤ (đẩy vào từ màn gốc) dùng thanh SÁNG một hàng `[‹ 2.75rem] [tiêu đề 20px]`
+// như Shopee · Grab · Facebook. ‹ = MỘT cỡ với mọi control hàng header (×, icon, avatar): vùng chạm
+// 2.75rem, glyph 1.5rem (quyết định L rà FB 2026-10-25, 03 §6 mục 5). Trước đây có ba kiểu: thanh navy đặc (chợ), dải gradient bo đáy
 // có nhãn nhỏ trên tiêu đề (`PageHeader` — đăng nhập, cảng, quyền riêng tư) và ManHeader.
 // Tên file giữ (17 màn chợ import) — `PageHeader` cũng dựng trên component này.
 // Mọi màn phụ có nút Quay lại — dock không phải "trang trước"; back của trình duyệt bà con
@@ -88,9 +89,9 @@ export function MarketHeader({
         type="button"
         onClick={back}
         aria-label="Quay lại"
-        className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-navy transition active:bg-field"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-navy transition active:bg-field"
       >
-        <ChevronLeftIcon className="h-7 w-7" />
+        <ChevronLeftIcon className="h-6 w-6" />
       </button>
       {title != null && title !== "" && (
         <h1 className="display min-w-0 flex-1 text-[1.25rem] font-bold leading-snug">{title}</h1>

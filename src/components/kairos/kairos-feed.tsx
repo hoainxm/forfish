@@ -44,7 +44,9 @@ import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/primitives";
-import { StatusBanner } from "@/components/ui/status-banner";
+import { CloseButton } from "@/components/ui/close-button";
+import { OfflineLine } from "@/components/ui/offline-line";
+import { baoToast } from "@/components/ui/toast";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import {
@@ -55,7 +57,6 @@ import {
   homeFromPort,
   loadFeedCache,
   loadHabit,
-  savedAtLabel,
   saveFeedCache,
   saveHabit,
   loadTuyChon,
@@ -64,9 +65,9 @@ import {
   type FeedPage,
 } from "@/lib/kairos/feed-client";
 import { cat as catCho, lay as layCho, xoa as xoaCho } from "@/lib/kairos/giu-cho";
-import { nguongKeo, trangThaiKeo } from "@/lib/kairos/keo-lam-moi";
-import { nenGoiY, soBaiConLuu, songTot, taiNhieuTrang, TMD_TRANG } from "@/lib/kairos/tai-mang-di";
-import { LIMITS } from "@/lib/kairos/types";
+import { KeoLamMoiChi, useKeoLamMoi } from "@/components/ui/use-keo-lam-moi";
+import { nenGoiY, soBaiConLuu, songTot, taiNhieuTrang } from "@/lib/kairos/tai-mang-di";
+import { pillTaiMangDi, toastTaiMangDi } from "@/lib/kairos/dau-man";
 import { emptyHabit, recordRead, setHome, type ChipId, type Habit } from "@/lib/kairos/thoi-quen";
 import { giongNhau, themThamSo, tuyChonMacDinh, type TuyChon } from "@/lib/kairos/tuy-chon";
 import type { KairosPost } from "@/lib/kairos/types";
@@ -85,9 +86,8 @@ import { KairosFishIcon } from "./kairos-fish-icon";
 import { PostSkeleton } from "./post-skeleton";
 
 type Load = "loading" | "ready" | "error" | "offline";
-/** Dòng gợi ý "Tải tin mang đi" (14 §19). */
-type GoiY = { k: "an" | "hien" | "dang" | "loi" | "day" } | { k: "xong"; n: number };
-const SO_BAI_MANG_DI = TMD_TRANG * LIMITS.pageSize;
+/** Pill "Tải tin mang đi" (14 §19, E K3-03): xong/đầy báo bằng toast rồi về `an` — chữ ở `lib/kairos/dau-man`. */
+type GoiY = { k: "an" | "hien" | "dang" | "loi" };
 /** Ảnh chụp dòng tin cất khi rời màn (giu-cho) — quay lại thì dựng lại, không tải lại. */
 type AnhChup = {
   phone: string | null;
@@ -101,14 +101,6 @@ type AnhChup = {
   at: number;
 };
 const khoaCho = (port: string | undefined) => `feed:${port ?? ""}`;
-
-/** Đang mở hộp/ngăn (BottomSheet, khung soạn, xem ảnh) hoặc trang đang khoá cuộn ⇒ không bắt vuốt làm mới. */
-function dangCoHop(target: EventTarget | null): boolean {
-  if (target instanceof Element && target.closest("[role=dialog]")) return true;
-  if (document.querySelector('[aria-modal="true"]')) return true;
-  const b = document.body;
-  return b.style.overflow === "hidden" || b.style.position === "fixed" || getComputedStyle(b).overflowY === "hidden";
-}
 
 /** Cảng nhà từ sổ tàu (tàu đang chọn, không thì tàu đầu) — KHÔNG từ vị trí máy. */
 function homeFromBoats(): Habit["home"] {
@@ -141,6 +133,7 @@ export function KairosFeed({
   view,
   added = [],
   tuyChon,
+  onTrong,
 }: {
   /** Bến (/kairos/ben/[port]): dòng tin chỉ bài gắn cảng này, không hàng chip */
   port?: string;
@@ -154,6 +147,8 @@ export function KairosFeed({
   added?: KairosPost[];
   /** Tuỳ chọn dòng tin vừa đổi ở ngăn bánh răng (không có = đọc trong máy lúc mở màn). Bến bỏ qua. */
   tuyChon?: TuyChon;
+  /** dòng tin TRỐNG (không bài trên màn, không bản lưu) — màn cha quyết hiện câu phụ dưới tiêu đề (E K3-03) */
+  onTrong?: (trong: boolean) => void;
 }) {
   const { phone, ready: authReady } = useAuthUser();
   const [habit, setHabitState] = useState<Habit>(emptyHabit);
@@ -501,70 +496,13 @@ export function KairosFeed({
     void loadFirst(chip, habit, true);
   };
 
-  /*  VUỐT XUỐNG LÀM MỚI (như Facebook): đang ở đầu trang mà kéo xuống ≥ KEO_LAM_MOI ⇒ thả ra là tải lại trang đầu với
-      hạt xáo mới (thứ tự đổi, đỡ nhàm). Tắt "kéo tải lại cả trang" của trình duyệt trên màn này (overscroll-behavior-y)
-      để không tải lại cả app. Mất sóng: vẫn cho kéo — loadFirst giữ bài đang hiện + báo mất sóng như nút Thử lại. */
-  const [keo, setKeo] = useState(0);
-  const [dangLamMoi, setDangLamMoi] = useState(false);
-  const keoRef = useRef<{ y0: number | null; d: number }>({ y0: null, d: 0 });
-  const lamMoiRef = useRef<() => Promise<void>>(async () => {});
-  /** px của 1rem trên máy này (chế độ chữ to ⇒ lớn hơn 16) — ngưỡng kéo + chiều cao vùng kéo dùng chung */
-  const [rem, setRem] = useState(16);
-  const nguong = nguongKeo(rem);
-  useEffect(() => {
-    lamMoiRef.current = async () => {
-      xoaCho(khoaCho(port));
-      setDangLamMoi(true);
-      try {
-        await loadFirst(st.current.chip, st.current.habit, true);
-      } finally {
-        setDangLamMoi(false);
-      }
-    };
-  }, [loadFirst, port]);
-  useEffect(() => {
-    // Bến cũng kéo được (máy chủ trả theo giờ ⇒ làm mới = lấy bài mới nhất)
-    const html = document.documentElement;
-    const cu = html.style.overscrollBehaviorY;
-    html.style.overscrollBehaviorY = "contain";
-    const r = parseFloat(getComputedStyle(html).fontSize);
-    setRem(Number.isFinite(r) && r > 0 ? r : 16);
-    const nguong = nguongKeo(r);
-    const bat = (e: TouchEvent) => {
-      const ok = window.scrollY <= 0 && e.touches.length === 1 && !dangCoHop(e.target);
-      keoRef.current = { y0: ok ? e.touches[0].clientY : null, d: 0 };
-    };
-    const di = (e: TouchEvent) => {
-      const k = keoRef.current;
-      if (k.y0 == null) return;
-      const d = e.touches[0].clientY - k.y0;
-      if (d <= 0 || window.scrollY > 0) {
-        if (k.d) setKeo(0);
-        k.d = 0;
-        return;
-      }
-      k.d = Math.min(d * 0.5, nguong * 1.4); // kéo nặng tay như FB
-      setKeo(k.d);
-    };
-    const tha = () => {
-      const k = keoRef.current;
-      const du = trangThaiKeo(k.d, nguong) === "tha";
-      keoRef.current = { y0: null, d: 0 };
-      setKeo(0);
-      if (du) void lamMoiRef.current();
-    };
-    window.addEventListener("touchstart", bat, { passive: true });
-    window.addEventListener("touchmove", di, { passive: true });
-    window.addEventListener("touchend", tha);
-    window.addEventListener("touchcancel", tha);
-    return () => {
-      html.style.overscrollBehaviorY = cu;
-      window.removeEventListener("touchstart", bat);
-      window.removeEventListener("touchmove", di);
-      window.removeEventListener("touchend", tha);
-      window.removeEventListener("touchcancel", tha);
-    };
-  }, []);
+  /*  VUỐT XUỐNG LÀM MỚI (như Facebook) — hook chung `useKeoLamMoi` (tách 2026-10-25): thả ra là tải lại trang
+      đầu với hạt xáo mới (thứ tự đổi, đỡ nhàm). Bến cũng kéo được (máy chủ trả theo giờ ⇒ làm mới = lấy bài mới nhất).
+      Mất sóng: vẫn cho kéo — loadFirst giữ bài đang hiện + báo mất sóng như nút Thử lại. */
+  const lamMoi = useKeoLamMoi(async () => {
+    xoaCho(khoaCho(port));
+    await loadFirst(st.current.chip, st.current.habit, true);
+  });
 
   const shownPinned = view ? view(pinned) : pinned;
   const shownPosts = useMemo(() => {
@@ -615,39 +553,31 @@ export function KairosFeed({
       return;
     }
     const w = saveFeedCache(st.current.phone, r.posts, Date.now());
-    if (!w.ok) {
-      setGoiY({ k: "day" });
-      return;
-    }
-    setGoiY({ k: "xong", n: soBaiConLuu(r.posts, loadFeedCache(st.current.phone)?.posts ?? []) });
+    // xong / máy đầy ⇒ biên nhận nổi (toast chung), pill thu lại — không chiếm chỗ trước bài đầu
+    const t = toastTaiMangDi(w.ok ? { kind: "xong", n: soBaiConLuu(r.posts, loadFeedCache(st.current.phone)?.posts ?? []) } : { kind: "day" });
+    baoToast(t.text, { loai: t.loai });
+    setGoiY({ k: "an" });
   };
   const deSau = () => {
     saveTaiMangDiAn(Date.now());
     setGoiY({ k: "an" });
   };
-  // báo xong tự tắt sau 8 s
+  /*  Báo màn cha dòng tin có TRỐNG không (câu phụ E K3-03). Lúc còn đang tải mà chưa có bài trên màn thì nhìn bản lưu:
+      có bản lưu ⇒ bài sắp hiện (không trống); không ⇒ trống thật. Không bắn khi còn chưa đọc máy ⇒ header không chớp. */
   useEffect(() => {
-    if (goiY.k !== "xong") return;
-    const t = setTimeout(() => setGoiY({ k: "an" }), 8000);
-    return () => clearTimeout(t);
-  }, [goiY.k]);
+    if (!onTrong || port) return;
+    if (!empty) {
+      onTrong(false);
+      return;
+    }
+    if (load === "loading" && (loadFeedCache(phone)?.posts.length ?? 0) > 0) return;
+    onTrong(true);
+  }, [onTrong, port, empty, load, phone]);
+  const pill = port ? null : pillTaiMangDi(goiY.k);
 
   return (
     <div className="pb-4">
-      {(keo > 0 || dangLamMoi) && (
-        <div
-          aria-live="polite"
-          className="flex items-end justify-center overflow-hidden text-[0.875rem] font-semibold text-foreground/65"
-          style={{ height: dangLamMoi ? "2.5rem" : `${keo / rem}rem` }}
-        >
-          <span className="flex items-center gap-2 pb-2">
-            {dangLamMoi && (
-              <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-sea border-t-transparent motion-reduce:animate-none" />
-            )}
-            {dangLamMoi ? "Đang làm mới…" : trangThaiKeo(keo, nguong) === "tha" ? "Thả để làm mới" : "Kéo để làm mới"}
-          </span>
-        </div>
-      )}
+      <KeoLamMoiChi {...lamMoi.chi} />
       {ben && (
         <div className="px-4 pb-3">
           <section className="surface overflow-hidden" aria-label={`Bến ${ben.name}`}>
@@ -688,48 +618,26 @@ export function KairosFeed({
         </button>
       </div>
 
-      {!port && goiY.k !== "an" && (
+      {pill && (
         <div className="px-4 pb-3">
-          <div className="surface flex items-center gap-2 p-3">
-            <p role="status" className="min-w-0 flex-1 text-[0.875rem]">
-              {goiY.k === "hien"
-                ? `Sắp ra khơi? Tải ${SO_BAI_MANG_DI} bài mới để đọc trên biển`
-                : goiY.k === "dang"
-                  ? "Đang tải bài mang đi…"
-                  : goiY.k === "xong"
-                    ? goiY.n > 0
-                      ? `Đã tải ${goiY.n} bài — mất sóng vẫn đọc được`
-                      : "Chưa lưu được bài nào vào máy."
-                    : goiY.k === "day"
-                      ? "Máy đầy, chưa lưu được bài mang đi."
-                      : "Chưa tải được — thử lại khi sóng tốt."}
+          {/* MỘT hàng pill cùng khuôn "Có N bài mới" (E K3-03): chữ ngắn · nút chữ · × góc = Để sau 24 h. Không tự tải. */}
+          <div className="relative flex h-(--h-chip) items-center gap-2 rounded-full bg-sea/8 pl-4 pr-8">
+            <p role="status" className="min-w-0 flex-1 truncate text-[0.875rem]">
+              {pill.chu}
             </p>
-            {(goiY.k === "hien" || goiY.k === "loi") && (
-              <button type="button" onClick={deSau} className="h-10 shrink-0 rounded-xl px-3 font-semibold text-foreground/75">
-                {NHAN.deSau}
+            {pill.dangTai && <span aria-hidden className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-sea" />}
+            {pill.nut && (
+              <button type="button" onClick={() => void taiMangDi()} className="h-9 shrink-0 rounded-full px-3 text-[0.875rem] font-semibold text-navy active:bg-sea/15">
+                {pill.nut}
               </button>
             )}
-            {goiY.k === "xong" || goiY.k === "day" ? (
-              <button type="button" onClick={() => setGoiY({ k: "an" })} className="h-10 shrink-0 rounded-xl border border-line px-3 font-semibold text-sea">
-                {NHAN.dong}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void taiMangDi()}
-                disabled={goiY.k === "dang"}
-                aria-busy={goiY.k === "dang"}
-                className="h-10 shrink-0 rounded-xl bg-sea px-4 font-semibold text-white disabled:opacity-60"
-              >
-                {goiY.k === "dang" ? NHAN.dangTai : goiY.k === "loi" ? NHAN.thuLai : NHAN.tai}
-              </button>
-            )}
+            {pill.x && <CloseButton variant="goc" label={NHAN.deSau} onClose={deSau} />}
           </div>
         </div>
       )}
 
       {load === "offline" && !empty && (
-        <StatusBanner level="warn">{savedAt ? `Mất sóng — bài lưu lúc ${savedAtLabel(savedAt)}` : "Mất sóng — đang xem bài đã tải"}</StatusBanner>
+        <OfflineLine savedAt={savedAt} />
       )}
 
       {newCount > 0 && (
