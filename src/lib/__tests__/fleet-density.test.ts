@@ -253,17 +253,25 @@ describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão, 
     const calm = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat" });
     expect(calm.windMissing).toBe(true);
     expect(calm.storm).toBe(false);
-    expect(calm.cells.length).toBe(2);
+    expect(calm.cells.length).toBe(2); // 10 và 20 giờ/ngày: ô 20 = 100 điểm (Đông), ô 10 ≈ 50 điểm (Vừa) — cả hai ≥ sàn 25
+    expect(calm.cells.find((c) => c.score === 100)?.level).toBe(2);
+    expect(calm.cells.every((c) => c.score >= 25)).toBe(true);
     const stormy = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat", stormDays: new Set([today]) });
     expect(stormy.storm).toBe(true);
-    for (const c of stormy.cells) expect(c.level).toBe(0); // rớt mức vì ngưỡng lấy từ nền
+    expect(stormy.cells).toHaveLength(0); // ×0,1 ⇒ mọi ô dưới sàn 25 điểm ⇒ không tô (không tô tím cả biển)
     const windy = forecastFleetDensity({
       d, todayIso: today, dayOffset: 1, gear: "tat",
       wind: [{ lat: 12.775, lon: 115.525, byDate: { "2026-10-26": 70 } }],
     });
     expect(windy.windMissing).toBe(false);
     expect(windy.dateIso).toBe("2026-10-26");
-    for (const c of windy.cells) expect(c.value).toBeLessThanOrEqual(0.1 * c.hoursPerDay * 1.5 + 1e-9); // gió ≥ cấp 8 ⇒ ×0,1
+    expect(windy.cells).toHaveLength(0); // gió ≥ cấp 8 ⇒ ×0,1 ⇒ dưới sàn
+    const breezy = forecastFleetDensity({
+      d, todayIso: today, dayOffset: 1, gear: "tat",
+      wind: [{ lat: 12.775, lon: 115.525, byDate: { "2026-10-26": 45 } }],
+    });
+    expect(breezy.cells.length).toBeGreaterThan(0); // cấp 6 ⇒ ×0,6 ⇒ ô mạnh còn 60 điểm (Vừa)
+    expect(breezy.cells.every((c) => c.score <= 60)).toBe(true);
   });
 
   it("lọc theo nghề: nền + trăng lấy đúng lát nghề đó; nghề không có số liệu ⇒ không ô", () => {
@@ -272,6 +280,7 @@ describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão, 
     expect(vay.cells).toHaveLength(1);
     expect(vay.cells[0].lat).toBeCloseTo(5.025 + 32 * 0.25, 6);
     expect(vay.cells[0].hoursPerDay).toBeCloseTo(15, 6); // 300/10/2 ngày; trăng pha này không có số liệu nghề vây ⇒ 1
+    expect(vay.cells[0].score).toBe(100); // một ô ⇒ chính nó là ô mạnh
     expect(forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "cau" }).cells).toHaveLength(0);
     expect(seasonBase(d, "10", "vay").size).toBe(1);
   });

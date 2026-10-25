@@ -240,8 +240,10 @@ export async function fetchFleetDensity(): Promise<FleetDensity> {
  *   trăng    : giờ/ngày của pha đó (nghề đó) chia trung bình 8 pha, kẹp [0,5; 1,5] — ô không có số liệu ⇒ 1.
  *   gió      : gió mạnh nhất trong ngày ở trạm gần ô nhất: < 39 km/h ⇒ 1 · cấp 6 ⇒ 0,6 · cấp 7 ⇒ 0,3 · ≥ cấp 8 ⇒ 0,1.
  *   bão      : ngày nằm trong tập ngày bão ⇒ 0,1 (tàu nằm bờ).
- *   Mức Thưa/Vừa/Đông theo phân vị p50/p85 của nền×trăng trong ngày (KHÔNG tính gió/bão) ⇒ ngày gió
- *   bão thì ô rớt mức nhìn thấy được. Thuần, không mạng; thiếu gió ⇒ hệ số 1 + cờ `windMissing`.
+ *   ĐIỂM 0–100 = giá trị ô ÷ ô mạnh (p98 của nền×trăng trong ngày, KHÔNG tính gió/bão) × 100; CHỈ TÔ ô
+ *   ≥ DENSITY_MIN_SCORE (anh Long 25/10: "đừng tô tím cả biển, từ tỷ lệ nào trở lên thôi"); mức cố định
+ *   Thưa 25–50 · Vừa 50–75 · Đông ≥75 như lớp cá ⇒ ngày gió bão ô rớt điểm, biến mất hẳn.
+ *   Thuần, không mạng; thiếu gió ⇒ hệ số 1 + cờ `windMissing`.
  *   Loài KHÔNG lọc — thẻ chạm ô vẫn nói "cá vùng này hay có" (densitySpeciesAt).
  * ────────────────────────────────────────────────────────────────────────────── */
 
@@ -269,13 +271,23 @@ export interface FleetForecastInput {
 export interface FleetForecastCell extends DensityCell {
   /** giờ/ngày dự kiến sau mọi hệ số */
   value: number;
+  /** 0–100 so với ô mạnh trong ngày (p98 nền×trăng) */
+  score: number;
   level: 0 | 1 | 2;
 }
 
+/** Sàn tô + ranh mức (điểm 0–100, cố định — cùng ngữ pháp FISH_LEVEL_BANDS). */
+export const DENSITY_MIN_SCORE = 25;
+export const DENSITY_SCORE_BANDS: [number, number] = [50, 75];
+/** Phân vị lấy làm "ô mạnh" — không lấy max để một ô cá biệt không đè cả bản đồ. */
+export const DENSITY_REF_Q = 0.98;
+
 export interface FleetForecast {
   dateIso: string;
+  /** CHỈ ô ≥ DENSITY_MIN_SCORE */
   cells: FleetForecastCell[];
-  thresholds: [number, number];
+  /** giờ/ngày ứng với 100 điểm (p98 nền×trăng) */
+  ref: number;
   windMissing: boolean;
   storm: boolean;
   moonBin: string;
@@ -374,17 +386,20 @@ export function forecastFleetDensity(inp: FleetForecastInput): FleetForecast {
     const x = p * (n - 1), lo = Math.floor(x), hi = Math.min(n - 1, lo + 1);
     return sorted[lo] + (sorted[hi] - sorted[lo]) * (x - lo);
   };
-  const flat = sorted.length < 2 || sorted[0] === sorted[sorted.length - 1];
-  const t1 = flat ? 0 : q(0.5), t2 = flat ? 0 : q(0.85);
+  const ref = q(DENSITY_REF_Q);
 
   const cells: FleetForecastCell[] = [];
-  for (const { c, v, moonF } of pre) {
-    const st = windMissing ? null : nearestStation(stations, c.lat, c.lon);
-    const wf = windFactor(st?.byDate[dateIso]);
-    const f = wf * (storm ? STORM_FACTOR : 1);
-    const value = v * f;
-    const level: 0 | 1 | 2 = flat ? 0 : value >= t2 ? 2 : value >= t1 ? 1 : 0;
-    cells.push({ lat: c.lat, lon: c.lon, hoursPerDay: c.hoursPerDay, vessels: Math.max(0, Math.round(c.vessels * (v / Math.max(c.hoursPerDay, 1e-9)) * f)), value, level });
+  if (ref > 0) {
+    for (const { c, v, moonF } of pre) {
+      const st = windMissing ? null : nearestStation(stations, c.lat, c.lon);
+      const wf = windFactor(st?.byDate[dateIso]);
+      const f = wf * (storm ? STORM_FACTOR : 1);
+      const value = v * f;
+      const score = Math.min(100, Math.round((value / ref) * 100));
+      if (score < DENSITY_MIN_SCORE) continue;
+      const level: 0 | 1 | 2 = score >= DENSITY_SCORE_BANDS[1] ? 2 : score >= DENSITY_SCORE_BANDS[0] ? 1 : 0;
+      cells.push({ lat: c.lat, lon: c.lon, hoursPerDay: c.hoursPerDay, vessels: Math.max(0, Math.round(c.vessels * moonF * f)), value, score, level });
+    }
   }
-  return { dateIso, cells, thresholds: [t1, t2], windMissing, storm, moonBin };
+  return { dateIso, cells, ref, windMissing, storm, moonBin };
 }
