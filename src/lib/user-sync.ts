@@ -201,6 +201,12 @@ function phoneKey(raw: string | null | undefined): string | null {
   return p.length >= 10 ? p : null;
 }
 
+/** SĐT chủ sổ server đã xác nhận cho máy này (null khi chưa đồng bộ lần nào) — đường lùi cho màn cần biết "ai đang dùng" khi không có phiên Supabase. */
+export function syncOwnerPhone(): string | null {
+  if (typeof window === "undefined") return null;
+  return readMeta()._owner ?? null;
+}
+
 function setOwner(phone: string): void {
   const m = readMeta();
   m._owner = phone;

@@ -38,6 +38,8 @@ export interface FleetDensity {
   storms?: Record<string, string[]>;
   /** số ngày có số liệu của từng khoá (đã trừ ngày bão ở tháng/mùa/trăng) — chia giờ/ngày để so được giữa các lát */
   days: Record<DensityMode, Record<string, number>>;
+  /** loài hay đánh theo ô: khoá "nam"/"bac" (mùa), "01".."12" (tháng trong năm), "tat" (cả năm) → "i,j" → [[tên ngắn, %kg]] top 3 */
+  species?: Record<string, Record<string, [string, number][]>>;
   day: Record<string, DensityRow[]>;
   month: Record<string, Partial<Record<DensityGear, DensityRow[]>>>;
   season: Partial<Record<DensitySeason, Partial<Record<DensityGear, DensityRow[]>>>>;
@@ -161,6 +163,30 @@ export function densityLevel(cells: DensityCell[]): { thresholds: [number, numbe
     thresholds: [t1, t2],
     levelOf: (c) => (flat ? 0 : c.hoursPerDay >= t2 ? 2 : c.hoursPerDay >= t1 ? 1 : 0),
   };
+}
+
+/** Khoá bảng loài ứng với lát đang xem: ngày/tháng → tháng-trong-năm, mùa → mùa, trăng → cả năm. */
+export function speciesKeyFor(sel: DensitySel): string {
+  if (sel.mode === "day" || sel.mode === "month") return sel.key.slice(5, 7) || "tat";
+  if (sel.mode === "season") return sel.key;
+  return "tat";
+}
+
+/** Ô (lat, lon) gần nhất trên trục lưới (trong nửa ô) → loài hay đánh ở lát đó; không có ⇒ []. Lùi về "tat" khi tháng/mùa trống. */
+export function densitySpeciesAt(d: FleetDensity, sel: DensitySel, lat: number, lon: number): [string, number][] {
+  if (!d.species) return [];
+  const { lat0, lon0, step, nLat, nLon } = d.axis;
+  const i = Math.round((lat - lat0) / step), j = Math.round((lon - lon0) / step);
+  if (i < 0 || j < 0 || i >= nLat || j >= nLon) return [];
+  if (Math.abs(lat - (lat0 + i * step)) > step / 2 || Math.abs(lon - (lon0 + j * step)) > step / 2) return [];
+  const ij = `${i},${j}`;
+  return d.species[speciesKeyFor(sel)]?.[ij] ?? d.species.tat?.[ij] ?? [];
+}
+
+/** Ô mật độ chứa điểm (lat, lon) trong lát — để thẻ chạm nói "Đông · N tàu · X giờ/ngày". */
+export function densityCellAt(cells: DensityCell[], step: number, lat: number, lon: number): DensityCell | null {
+  const h = step / 2;
+  return cells.find((c) => Math.abs(c.lat - lat) <= h && Math.abs(c.lon - lon) <= h) ?? null;
 }
 
 /** Nhãn người đọc cho khoá của một chế độ ("12/10", "Tháng 10/2026", "Vụ Nam", "Rằm"). */

@@ -5,6 +5,9 @@ import {
   DENSITY_MOONS,
   canSeeDensity,
   defaultDensityKey,
+  densityCellAt,
+  densitySpeciesAt,
+  speciesKeyFor,
   densityCells,
   densityKeyLabel,
   densityKeys,
@@ -31,6 +34,11 @@ function tiny(): FleetDensity {
     month: { "2026-10": { tat: [[31, 54, 180, 6], [32, 54, 600, 12]], vay: [[32, 54, 600, 12]] } },
     season: { bac: { tat: [[31, 54, 180, 6]] } },
     moon: { "4": { tat: [[31, 54, 180, 6]] } },
+    species: {
+      tat: { "31,54": [["cá nục", 60], ["mực ống", 25]] },
+      "10": { "31,54": [["cá nục", 80]] },
+      bac: { "31,54": [["cá ngừ", 50], ["cá nục", 30]] },
+    },
   };
 }
 
@@ -105,6 +113,23 @@ describe("fleet-density — bãi tàu đánh theo ngày/tháng/mùa/trăng", () 
     expect(canSeeDensity("")).toBe(false);
   });
 
+  it("loài hay đánh theo ô: khoá theo lát (ngày/tháng → tháng, mùa → mùa, trăng → cả năm), lùi về cả năm khi trống", () => {
+    const d = tiny();
+    const lat = 5.025 + 31 * 0.25, lon = 102.025 + 54 * 0.25;
+    expect(speciesKeyFor({ mode: "day", key: "2026-10-02", gear: "tat" })).toBe("10");
+    expect(speciesKeyFor({ mode: "moon", key: "4", gear: "tat" })).toBe("tat");
+    expect(densitySpeciesAt(d, { mode: "day", key: "2026-10-02", gear: "tat" }, lat, lon)).toEqual([["cá nục", 80]]);
+    expect(densitySpeciesAt(d, { mode: "season", key: "bac", gear: "tat" }, lat, lon)[0]).toEqual(["cá ngừ", 50]);
+    expect(densitySpeciesAt(d, { mode: "moon", key: "4", gear: "tat" }, lat, lon)).toHaveLength(2);
+    expect(densitySpeciesAt(d, { mode: "month", key: "2026-09", gear: "tat" }, lat, lon)).toHaveLength(2); // tháng 9 trống → cả năm
+    expect(densitySpeciesAt(d, { mode: "day", key: "2026-10-02", gear: "tat" }, lat + 0.2, lon)).toEqual([]); // ngoài nửa ô
+    expect(densitySpeciesAt({ ...d, species: undefined }, { mode: "day", key: "2026-10-02", gear: "tat" }, lat, lon)).toEqual([]);
+    const cells = densityCells(d, { mode: "day", key: "2026-10-02", gear: "tat" });
+    expect(densityCellAt(cells, 0.25, lat + 0.1, lon - 0.1)?.vessels).toBe(3);
+    expect(densityCellAt(cells, 0.25, lat + 0.25, lon)?.vessels).toBe(12);
+    expect(densityCellAt(cells, 0.25, 20, 110)).toBeNull();
+  });
+
   it("nhãn khoá đọc được", () => {
     expect(densityKeyLabel("day", "2026-10-02")).toBe("2/10/2026");
     expect(densityKeyLabel("month", "2026-10")).toBe("Tháng 10/2026");
@@ -140,6 +165,17 @@ describe("fleet-density — file thật public/data/fleet-density.v1.json (riên
     expect(raw).not.toMatch(/-TS"/); // số đăng ký kiểu "QNa-91579-TS"
     expect(raw).not.toMatch(/"VF[0-9A-F]{9}"/); // mã định danh tàu
     expect(raw).not.toMatch(/VMS|snapshot|carrier|gearMap|bands|IBTrACS/i); // file ra ngoài không mang dấu vết nguồn
+  });
+
+  it("bảng loài: có khoá mùa + cả năm, mỗi ô ≤3 loài, % 5..100, tên ngắn không rỗng", () => {
+    const sp = d.species!;
+    expect(sp.tat && sp.nam && sp.bac).toBeTruthy();
+    let n = 0;
+    for (const byCell of Object.values(sp)) for (const top of Object.values(byCell)) {
+      n++;
+      if (top.length > 3 || top.some(([name, p]) => !name || p < 5 || p > 100)) throw new Error(JSON.stringify(top));
+    }
+    expect(n).toBeGreaterThan(1000);
   });
 
   it("trăng chia đều 8 pha (không pha nào trống), tổng ngày phủ ≥ 10 tháng", () => {

@@ -198,8 +198,10 @@ import {
   DENSITY_LEVELS,
   canSeeDensity,
   defaultDensityKey,
+  densityCellAt,
   densityCells,
   densityLevel,
+  densitySpeciesAt,
   fetchFleetDensity,
   type DensitySel,
   type FleetDensity,
@@ -340,6 +342,7 @@ import { distSpeech } from "@/lib/nav-voice/phrases";
 import { ACTIVE_PORTS, PORT_COORD_SAI } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import { useAuthUser } from "@/lib/use-auth";
+import { syncOwnerPhone } from "@/lib/user-sync";
 import type { NavInfoLine } from "@/lib/nav-context";
 import {
   computeNavProgress,
@@ -454,6 +457,7 @@ import {
   HomeIcon,
   LockIcon,
   MoonIcon,
+  RadarIcon,
   PauseIcon,
   PinIcon,
   PlayIcon,
@@ -740,7 +744,8 @@ export default function FishingMapView() {
   const [fleetRetry, setFleetRetry] = useState(0);
   // xem trước nội bộ: chỉ tài khoản trong danh sách mới thấy nút + được tải lưới
   const { phone: authPhone } = useAuthUser();
-  const fleetAllowed = canSeeDensity(authPhone);
+  // không có phiên Supabase (chuỗi thiết bị) thì lùi về SĐT chủ sổ server đã xác nhận khi đồng bộ
+  const fleetAllowed = canSeeDensity(authPhone ?? syncOwnerPhone());
   /*  SỐ ĐO SÂU CHÍNH THỨC — mặc định BẬT. Đây là dữ liệu khảo sát của cơ quan
       nhà nước, thứ mà máy hải đồ trên tàu lớn có mà app điện thoại thường
       không; giấu sau một công tắc tắt sẵn thì coi như không có. Chỉ hiện từ
@@ -4601,6 +4606,15 @@ export default function FishingMapView() {
     () => (fleetOn && fleetAllowed && fleetData && !anyExclusiveOverlay && !premiumLocked ? densityCells(fleetData, fleetSel) : []),
     [fleetOn, fleetAllowed, fleetData, fleetSel, anyExclusiveOverlay, premiumLocked],
   );
+  // Ô mật độ dưới điểm đang chạm + loài vùng đó hay đánh (lát đang xem) — cho thẻ chạm.
+  const fleetAtPoint = useMemo(() => {
+    if (!fleetCells.length || !fleetData) return null;
+    const cell = densityCellAt(fleetCells, fleetData.axis.step, point.lat, point.lon);
+    if (!cell) return null;
+    const lv = densityLevel(fleetCells).levelOf(cell);
+    const species = densitySpeciesAt(fleetData, fleetSel, cell.lat, cell.lon);
+    return { cell, lv, species };
+  }, [fleetCells, fleetData, fleetSel, point]);
   const fleetGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!fleetCells.length || !fleetData) return null;
     const { levelOf } = densityLevel(fleetCells);
@@ -8616,6 +8630,32 @@ export default function FishingMapView() {
                   </p>
                 </div>
               ) : null}
+
+              {/* MẬT ĐỘ TÀU DỰ KIẾN tại ô + "vùng này hay đánh cá gì" (anh Long 25/10) — chỉ khi lớp đang bật */}
+              {fleetAtPoint && (
+                <div className="flex items-start gap-2.5 surface p-3.5">
+                  <RadarIcon className="mt-0.5 h-5 w-5 shrink-0 text-navy/70" />
+                  <div className="min-w-0">
+                    <p className="text-[0.9375rem] leading-snug text-foreground/80">
+                      Mật độ tàu <b>{DENSITY_LEVELS[fleetAtPoint.lv].label.toLowerCase()}</b> — ước{" "}
+                      {fleetAtPoint.cell.vessels} tàu · {formatNumberVN(Math.round(fleetAtPoint.cell.hoursPerDay * 10) / 10)} giờ/ngày
+                    </p>
+                    {fleetAtPoint.species.length > 0 ? (
+                      <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
+                        Vùng này hay đánh:{" "}
+                        <b>
+                          {fleetAtPoint.species
+                            .map(([sp, pct]) => `${SPECIES_META[sp]?.full ?? sp} ${pct} %`)
+                            .join(", ")}
+                        </b>{" "}
+                        <span className="text-foreground/60">(tham khảo)</span>
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/60">Chưa rõ vùng này hay đánh cá gì.</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* tuần trăng đêm nay — cho nghề đèn (mực, cá cơm) */}
               <div className="flex items-start gap-2.5 surface p-3.5">
