@@ -203,6 +203,7 @@ import {
   densityLevel,
   densitySpeciesAt,
   fetchFleetDensity,
+  speciesAmountLabel,
   type DensitySel,
   type FleetDensity,
 } from "@/lib/fleet-density";
@@ -8645,7 +8646,7 @@ export default function FishingMapView() {
                         Cá vùng này hay có:{" "}
                         <b>
                           {fleetAtPoint.species
-                            .map(([sp]) => SPECIES_META[sp]?.full ?? sp)
+                            .map(([sp, pct]) => `${SPECIES_META[sp]?.full ?? sp} (${speciesAmountLabel(pct)})`)
                             .join(", ")}
                         </b>{" "}
                         <span className="text-foreground/60">(tham khảo)</span>

@@ -7,6 +7,7 @@ import {
   defaultDensityKey,
   densityCellAt,
   densitySpeciesAt,
+  speciesAmountLabel,
   speciesKeyFor,
   densityCells,
   densityKeyLabel,
@@ -128,6 +129,13 @@ describe("fleet-density — bãi tàu đánh theo ngày/tháng/mùa/trăng", () 
     expect(densityCellAt(cells, 0.25, lat + 0.1, lon - 0.1)?.vessels).toBe(3);
     expect(densityCellAt(cells, 0.25, lat + 0.25, lon)?.vessels).toBe(12);
     expect(densityCellAt(cells, 0.25, 20, 110)).toBeNull();
+  });
+
+  it("mức loài: ≥40 nhiều, ≥20 trung bình, còn lại ít", () => {
+    expect(speciesAmountLabel(80)).toBe("nhiều");
+    expect(speciesAmountLabel(40)).toBe("nhiều");
+    expect(speciesAmountLabel(21)).toBe("trung bình");
+    expect(speciesAmountLabel(5)).toBe("ít");
   });
 
   it("nhãn khoá đọc được", () => {

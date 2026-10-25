@@ -183,6 +183,11 @@ export function densitySpeciesAt(d: FleetDensity, sel: DensitySel, lat: number, 
   return d.species[speciesKeyFor(sel)]?.[ij] ?? d.species.tat?.[ij] ?? [];
 }
 
+/** Mức của một loài trong ô theo phần trăm — chữ cho bà con, KHÔNG in số (anh Long 25/10): ≥40 nhiều · ≥20 trung bình · còn lại ít. */
+export function speciesAmountLabel(pct: number): "nhiều" | "trung bình" | "ít" {
+  return pct >= 40 ? "nhiều" : pct >= 20 ? "trung bình" : "ít";
+}
+
 /** Ô mật độ chứa điểm (lat, lon) trong lát — để thẻ chạm nói "Đông · N tàu · X giờ/ngày". */
 export function densityCellAt(cells: DensityCell[], step: number, lat: number, lon: number): DensityCell | null {
   const h = step / 2;
