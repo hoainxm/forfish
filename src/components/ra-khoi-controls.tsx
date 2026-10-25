@@ -23,21 +23,12 @@ import {
 } from "@/lib/scalar-field";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
-import {
-  DENSITY_GEARS,
-  DENSITY_MODES,
-  DENSITY_MOONS,
-  DENSITY_SEASONS,
-  densityKeyLabel,
-  densityKeys,
-  type DensitySel,
-  type FleetDensity,
-} from "@/lib/fleet-density";
+import { FLEET_FORECAST_DAYS, addDaysIso } from "@/lib/fleet-density";
 import type { FeatureAccess } from "@/lib/tier";
 import { PremiumLock } from "@/components/premium-gate";
 import { stormNoticeText, type StormStatus } from "@/lib/storms";
 import { useOnline } from "@/lib/use-online";
-import { clockVN } from "@/lib/day-labels";
+import { clockVN, chipLabel } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
 import { SQ_TILE } from "@/components/ui/sq-btn";
 import {
@@ -129,11 +120,16 @@ export function RaKhoiControls({
   fleetAllowed,
   fleetOn,
   onFleet,
-  fleetSel,
-  onFleetSel,
-  fleetData,
+  fleetDay,
+  onFleetDay,
+  fleetSpecies,
+  onFleetSpecies,
+  fleetSpeciesList,
+  todayIso,
   fleetState,
   fleetEmpty,
+  fleetWindMissing,
+  fleetStorm,
   onFleetRetry,
   stormInfo,
   showPlaces,
@@ -239,12 +235,18 @@ export function RaKhoiControls({
   fleetAllowed: boolean;
   fleetOn: boolean;
   onFleet: (on: boolean) => void;
-  fleetSel: DensitySel;
-  onFleetSel: (sel: DensitySel) => void;
-  /** lưới đã tải (null = chưa) + trạng thái để panel nói đúng: đang tải / lỗi / lát trống */
-  fleetData: FleetDensity | null;
+  /** dự báo 16 ngày: ngày tới (0 = hôm nay) + lọc loài (tên ngắn, null = mọi loài) */
+  fleetDay: number;
+  onFleetDay: (k: number) => void;
+  fleetSpecies: string | null;
+  onFleetSpecies: (sp: string | null) => void;
+  fleetSpeciesList: string[];
+  todayIso: string;
+  /** trạng thái để panel nói đúng: đang tải / lỗi / ngày trống; gió thiếu ⇒ nói "chưa tính gió" */
   fleetState: "idle" | "loading" | "error" | "ok";
   fleetEmpty: boolean;
+  fleetWindMissing: boolean;
+  fleetStorm: boolean;
   onFleetRetry: () => void;
   /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
       rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
@@ -500,11 +502,16 @@ export function RaKhoiControls({
                   fleetAllowed={fleetAllowed}
                   fleetOn={fleetOn}
                   onFleet={onFleet}
-                  fleetSel={fleetSel}
-                  onFleetSel={onFleetSel}
-                  fleetData={fleetData}
+                  fleetDay={fleetDay}
+                  onFleetDay={onFleetDay}
+                  fleetSpecies={fleetSpecies}
+                  onFleetSpecies={onFleetSpecies}
+                  fleetSpeciesList={fleetSpeciesList}
+                  todayIso={todayIso}
                   fleetState={fleetState}
                   fleetEmpty={fleetEmpty}
+                  fleetWindMissing={fleetWindMissing}
+                  fleetStorm={fleetStorm}
                   onFleetRetry={onFleetRetry}
                 />
               )}
@@ -1036,11 +1043,16 @@ function NguTruongPanel({
   fleetAllowed,
   fleetOn,
   onFleet,
-  fleetSel,
-  onFleetSel,
-  fleetData,
+  fleetDay,
+  onFleetDay,
+  fleetSpecies,
+  onFleetSpecies,
+  fleetSpeciesList,
+  todayIso,
   fleetState,
   fleetEmpty,
+  fleetWindMissing,
+  fleetStorm,
   onFleetRetry,
 }: {
   fishOn: boolean;
@@ -1054,11 +1066,16 @@ function NguTruongPanel({
   fleetAllowed: boolean;
   fleetOn: boolean;
   onFleet: (on: boolean) => void;
-  fleetSel: DensitySel;
-  onFleetSel: (sel: DensitySel) => void;
-  fleetData: FleetDensity | null;
+  fleetDay: number;
+  onFleetDay: (k: number) => void;
+  fleetSpecies: string | null;
+  onFleetSpecies: (sp: string | null) => void;
+  fleetSpeciesList: string[];
+  todayIso: string;
   fleetState: "idle" | "loading" | "error" | "ok";
   fleetEmpty: boolean;
+  fleetWindMissing: boolean;
+  fleetStorm: boolean;
   onFleetRetry: () => void;
 }) {
   const fishLocked = fishAccess === "login" || fishAccess === "upgrade";
@@ -1150,7 +1167,7 @@ function NguTruongPanel({
       <div className="mt-2">
         <Toggle
           label="Mật độ tàu dự kiến"
-          sub="Ước từ vệ tinh · ngày, tháng, mùa, trăng"
+          sub="16 ngày tới · trăng, gió, bão, mùa"
           on={fleetOn}
           onToggle={() => onFleet(!fleetOn)}
           icon={
@@ -1161,12 +1178,18 @@ function NguTruongPanel({
         />
         {fleetOn && fishLocked && <PremiumLock access={fishAccess} feature="mật độ tàu" compact />}
         {fleetOn && !fishLocked && (
-          <BaiTauChon
-            sel={fleetSel}
-            onSel={onFleetSel}
-            data={fleetData}
+          <BaiTauDuBao
+            day={fleetDay}
+            onDay={onFleetDay}
+            species={fleetSpecies}
+            onSpecies={onFleetSpecies}
+            speciesList={fleetSpeciesList}
+            regionShorts={regionShorts}
+            todayIso={todayIso}
             state={fleetState}
             empty={fleetEmpty}
+            windMissing={fleetWindMissing}
+            storm={fleetStorm}
             onRetry={onFleetRetry}
           />
         )}
@@ -1194,115 +1217,91 @@ function Chip({ on, onClick, children, title }: { on: boolean; onClick: () => vo
 }
 
 /**
- * Bộ chọn lát mật độ tàu: chế độ (Ngày/Tháng/Mùa/Trăng) → khoá → nghề (trừ Ngày: gộp mọi nghề cho file
- * không phình). Ma trận trạng thái: đang tải · lỗi (chạm thử lại) · lát trống · ngày có bão.
+ * Bộ chọn DỰ BÁO mật độ tàu (anh Long 25/10: không chọn lịch sử): chip 16 ngày tới + lọc theo loài
+ * (cùng kiểu chọn loài của lớp cá). Ma trận: đang tải · lỗi (chạm thử lại) · ngày trống · chưa có gió · có bão.
  */
-function BaiTauChon({
-  sel,
-  onSel,
-  data,
+function BaiTauDuBao({
+  day,
+  onDay,
+  species,
+  onSpecies,
+  speciesList,
+  regionShorts,
+  todayIso,
   state,
   empty,
+  windMissing,
+  storm,
   onRetry,
 }: {
-  sel: DensitySel;
-  onSel: (s: DensitySel) => void;
-  data: FleetDensity | null;
+  day: number;
+  onDay: (k: number) => void;
+  species: string | null;
+  onSpecies: (sp: string | null) => void;
+  speciesList: string[];
+  regionShorts: Set<string>;
+  todayIso: string;
   state: "idle" | "loading" | "error" | "ok";
   empty: boolean;
+  windMissing: boolean;
+  storm: boolean;
   onRetry: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   if (state === "loading" || state === "idle") {
     return <p className="mt-2 px-1 text-[0.8125rem] text-foreground/75">Đang tải mật độ tàu…</p>;
   }
-  if (state === "error" || !data) {
+  if (state === "error") {
     return (
       <button type="button" onClick={onRetry} className="mt-2 w-full rounded-xl bg-field px-3 py-2.5 text-left text-[0.8125rem] text-navy">
         Chưa tải được mật độ tàu — cần có sóng lần đầu. Chạm để thử lại.
       </button>
     );
   }
-  const keys = densityKeys(data, sel.mode);
-  const idx = keys.indexOf(sel.key);
-  const setMode = (mode: DensitySel["mode"]) => {
-    if (mode === sel.mode) return;
-    const ks = densityKeys(data, mode);
-    // Ngày/Tháng: về lát MỚI NHẤT; Mùa/Trăng: giữ khoá hợp lệ nếu có, không thì lát đầu
-    const key = mode === "day" || mode === "month" ? ks.at(-1) ?? "" : ks.includes(sel.key) ? sel.key : ks[0] ?? "";
-    onSel({ ...sel, mode, key });
-  };
-  const storm = sel.mode === "day" ? data.storms?.[sel.key] : undefined;
-  const keyLabel = (k: string) =>
-    sel.mode === "month" ? k.slice(5, 7).replace(/^0/, "") + "/" + k.slice(0, 4) : densityKeyLabel(sel.mode, k);
+  const name = species ? SPECIES_META[species]?.full ?? species : "Mọi loài";
   return (
     <div className="mt-2 space-y-2">
-      <div className="flex gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Xem theo">
-        {DENSITY_MODES.map((m) => (
-          <Chip key={m.id} on={sel.mode === m.id} onClick={() => setMode(m.id)}>
-            {m.label}
+      <div className="flex gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Ngày">
+        {Array.from({ length: FLEET_FORECAST_DAYS }, (_, k) => (
+          <Chip key={k} on={day === k} onClick={() => onDay(k)}>
+            {chipLabel(addDaysIso(todayIso, k), todayIso)}
           </Chip>
         ))}
       </div>
 
-      {sel.mode === "day" ? (
-        <div className="flex items-center gap-1.5 rounded-xl bg-field px-2 py-1.5">
-          <button
-            type="button"
-            aria-label="Ngày trước"
-            disabled={idx <= 0}
-            onClick={() => onSel({ ...sel, key: keys[idx - 1] })}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-navy disabled:opacity-30"
-          >
-            <ChevronLeftIcon className="h-5 w-5" />
-          </button>
-          <span className="min-w-0 flex-1 text-center text-[0.9375rem] font-semibold text-navy">
-            {densityKeyLabel("day", sel.key)}
-            {storm && (
-              <span className="block text-[0.75rem] font-medium text-foreground/75">Có bão {storm.join(", ")} — tàu nằm bờ</span>
-            )}
-          </span>
-          <button
-            type="button"
-            aria-label="Ngày sau"
-            disabled={idx < 0 || idx >= keys.length - 1}
-            onClick={() => onSel({ ...sel, key: keys[idx + 1] })}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-navy disabled:opacity-30"
-          >
-            <ChevronRightIcon className="h-5 w-5" />
-          </button>
-        </div>
-      ) : (
-        <div className="flex gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Chọn lát">
-          {(sel.mode === "season"
-            ? DENSITY_SEASONS.filter((x) => keys.includes(x.id)).map((x) => ({ id: x.id, label: x.label, title: x.sub }))
-            : sel.mode === "moon"
-              ? DENSITY_MOONS.filter((x) => keys.includes(x.id)).map((x) => ({ id: x.id, label: x.label, title: undefined }))
-              : keys.map((k) => ({ id: k, label: keyLabel(k), title: undefined }))
-          ).map((k) => (
-            <Chip key={k.id} on={sel.key === k.id} onClick={() => onSel({ ...sel, key: k.id })} title={k.title}>
-              {k.label}
-            </Chip>
-          ))}
-        </div>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-left transition active:scale-[0.99]"
+      >
+        <span className="min-w-0 flex-1 break-words text-[0.9375rem] font-semibold leading-snug text-navy">
+          {expanded ? "Chọn loài" : name}
+        </span>
+        <ChevronRightIcon className={`h-4 w-4 shrink-0 text-navy/55 transition-transform ${expanded ? "rotate-90" : ""}`} />
+      </button>
+      {expanded && (
+        <FishSpeciesContent
+          species={speciesList}
+          current={species}
+          regionShorts={regionShorts}
+          cols={1}
+          onPick={(sp) => {
+            onSpecies(sp);
+            setExpanded(false);
+          }}
+        />
       )}
 
-      {sel.mode !== "day" && (
-        <div className="flex gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Nghề">
-          {DENSITY_GEARS.map((g) => (
-            <Chip key={g.id} on={sel.gear === g.id} onClick={() => onSel({ ...sel, gear: g.id })}>
-              {g.label}
-            </Chip>
-          ))}
-        </div>
-      )}
-
-      {empty ? (
-        <p className="px-1 text-[0.8125rem] text-foreground/75">Lát này chưa ước được ô nào.</p>
-      ) : (
-        <p className="px-1 text-[0.75rem] text-foreground/75">
-          {sel.mode === "day" ? "Mọi nghề gộp." : "Tháng, mùa, trăng đã bỏ ngày có bão."} Ước tính để tham khảo.
-        </p>
-      )}
+      <p className="px-1 text-[0.75rem] text-foreground/75">
+        {empty
+          ? "Ngày này chưa ước được ô nào."
+          : storm
+            ? "Có bão — tàu nằm bờ, mật độ hạ thấp."
+            : windMissing
+              ? "Chưa có gió ngày này — ước theo trăng, mùa."
+              : "Ước theo trăng, gió, bão, mùa — tham khảo."}
+      </p>
     </div>
   );
 }

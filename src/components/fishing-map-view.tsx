@@ -196,17 +196,19 @@ import {
 } from "@/lib/fish-predict";
 import {
   DENSITY_LEVELS,
+  addDaysIso,
   canSeeDensity,
-  defaultDensityKey,
   densityCellAt,
-  densityCells,
-  densityLevel,
   densitySpeciesAt,
+  densitySpeciesList,
   fetchFleetDensity,
+  forecastFleetDensity,
   speciesAmountLabel,
-  type DensitySel,
   type FleetDensity,
+  type WindStation,
 } from "@/lib/fleet-density";
+import { fetchSeaForecast } from "@/lib/sea";
+import { PORTS } from "@/data/ports";
 import {
   fetchClimatology,
   blendFishCells,
@@ -737,12 +739,15 @@ export default function FishingMapView() {
   // "Ngư trường" ở panel. Trước đây mặc định hiện, phủ sẵn gây rối cho người chỉ
   // xem gió/sóng/hải đồ. State in-memory (không lưu) — mỗi lần mở đều bắt đầu ẩn.
   const [fishOn, setFishOn] = useState(false);
-  // LỚP MẬT ĐỘ TÀU DỰ KIẾN (2026-10-25): theo ngày/tháng/mùa/trăng. Lưới 0,25° CÙNG
-  // TRỤC lớp cá nên LOẠI TRỪ với lớp cá (hai lớp cùng tô ô). Tải MỘT lần khi bật (không tải lúc mở app).
+  // LỚP MẬT ĐỘ TÀU DỰ KIẾN (2026-10-25): DỰ BÁO 16 ngày tới = nền mùa × trăng × gió × bão × loài
+  // (lib/fleet-density forecastFleetDensity). Lưới 0,25° CÙNG TRỤC lớp cá nên LOẠI TRỪ với lớp cá.
+  // Tải MỘT lần khi bật (không tải lúc mở app); gió lấy từ dự báo các cảng (đã có đệm trong máy).
   const [fleetOn, setFleetOn] = useState(false);
   const [fleetData, setFleetData] = useState<FleetDensity | null>(null);
   const [fleetState, setFleetState] = useState<"idle" | "loading" | "error" | "ok">("idle");
-  const [fleetSel, setFleetSel] = useState<DensitySel>({ mode: "season", key: "nam", gear: "tat" });
+  const [fleetDay, setFleetDay] = useState(0);
+  const [fleetSpecies, setFleetSpecies] = useState<string | null>(null);
+  const [fleetWind, setFleetWind] = useState<WindStation[] | null>(null);
   const [fleetRetry, setFleetRetry] = useState(0);
   // xem trước nội bộ: chỉ tài khoản trong danh sách mới thấy nút + được tải lưới
   const { phone: authPhone } = useAuthUser();
@@ -872,7 +877,6 @@ export default function FishingMapView() {
         if (!alive) return;
         setFleetData(d);
         setFleetState("ok");
-        setFleetSel((sel) => ({ ...sel, key: defaultDensityKey(d, sel.mode, new Date()) }));
       })
       .catch(() => {
         if (alive) setFleetState("error");
@@ -881,6 +885,24 @@ export default function FishingMapView() {
       alive = false;
     };
   }, [fleetOn, fleetAllowed, fleetData, fleetRetry, premiumLocked]);
+  useEffect(() => {
+    // GIÓ cho dự báo mật độ: dự báo cảng (fetchSeaForecast đã có đệm + đường lùi mất sóng); cảng nào hỏng
+    // thì bỏ, không chặn lớp — thiếu hết ⇒ hệ số 1 và panel nói "chưa có gió".
+    if (!fleetOn || !fleetAllowed || fleetWind) return;
+    let alive = true;
+    Promise.all(
+      PORTS.map((p) =>
+        fetchSeaForecast(p)
+          .then((days) => ({ lat: p.lat, lon: p.lon, byDate: Object.fromEntries(days.map((x) => [x.date, x.windMaxKmh])) }))
+          .catch(() => null),
+      ),
+    ).then((st) => {
+      if (alive) setFleetWind(st.filter((x): x is WindStation => !!x));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [fleetOn, fleetAllowed, fleetWind]);
   /* CHƯA CHẮC LÀ PREMIUM — dùng cho MỌI quyết định "xin bao nhiêu ngày".
      LỖI ĐÃ SỬA (2026-08-02): lúc mới mở màn `premiumAccess` là "checking" nên
      `premiumLocked` = false ⇒ app xin thẳng khung 16 ngày, mà máy chủ chắc
@@ -4630,30 +4652,39 @@ export default function FishingMapView() {
     return { type: "FeatureCollection", features };
   }, [fishOn, fishView, fishSpecies, fishGridStep, anyExclusiveOverlay]);
 
-  // Ô MẬT ĐỘ TÀU — mức Thưa/Vừa/Đông theo phân vị TRONG lát (ngày thưa vẫn chỉ ra chỗ tàu tụ).
+  // DỰ BÁO MẬT ĐỘ TÀU cho ngày đang chọn — mức Thưa/Vừa/Đông theo phân vị nền×loài (gió/bão kéo rớt mức).
   // Cùng luật với lớp cá: không hiện cùng lớp động, khoá premium thì không vẽ.
-  const fleetCells = useMemo(
-    () => (fleetOn && fleetAllowed && fleetData && !anyExclusiveOverlay && !premiumLocked ? densityCells(fleetData, fleetSel) : []),
-    [fleetOn, fleetAllowed, fleetData, fleetSel, anyExclusiveOverlay, premiumLocked],
+  const fleetStormDays = useMemo(() => {
+    // tin bão hiện tại không có ngày kết thúc ⇒ coi hôm nay + 2 ngày là ngày bão (`## Assumptions` 01)
+    const s = new Set<string>();
+    if (stormInfo.kind === "co-bao" && !stormInfo.cu) for (let k = 0; k <= 2; k++) s.add(addDaysIso(todayIso, k));
+    return s;
+  }, [stormInfo, todayIso]);
+  const fleetForecast = useMemo(
+    () =>
+      fleetOn && fleetAllowed && fleetData && !anyExclusiveOverlay && !premiumLocked
+        ? forecastFleetDensity({ d: fleetData, todayIso, dayOffset: fleetDay, species: fleetSpecies, wind: fleetWind ?? undefined, stormDays: fleetStormDays })
+        : null,
+    [fleetOn, fleetAllowed, fleetData, anyExclusiveOverlay, premiumLocked, todayIso, fleetDay, fleetSpecies, fleetWind, fleetStormDays],
   );
-  // Ô mật độ dưới điểm đang chạm + cá vùng đó hay có (lát đang xem) — cho thẻ chạm.
+  const fleetCells = useMemo(() => fleetForecast?.cells ?? [], [fleetForecast]);
+  const fleetSpeciesList = useMemo(() => (fleetData ? densitySpeciesList(fleetData) : []), [fleetData]);
+  // Ô mật độ dưới điểm đang chạm + cá vùng đó hay có (theo tháng của ngày) — cho thẻ chạm.
   const fleetAtPoint = useMemo(() => {
-    if (!fleetCells.length || !fleetData) return null;
-    const cell = densityCellAt(fleetCells, fleetData.axis.step, point.lat, point.lon);
+    if (!fleetCells.length || !fleetData || !fleetForecast) return null;
+    const cell = densityCellAt(fleetCells, fleetData.axis.step, point.lat, point.lon) as (typeof fleetCells)[number] | null;
     if (!cell) return null;
-    const lv = densityLevel(fleetCells).levelOf(cell);
-    const species = densitySpeciesAt(fleetData, fleetSel, cell.lat, cell.lon);
-    return { cell, lv, species };
-  }, [fleetCells, fleetData, fleetSel, point]);
+    const species = densitySpeciesAt(fleetData, { mode: "month", key: fleetForecast.dateIso.slice(0, 7), gear: "tat" }, cell.lat, cell.lon);
+    return { cell, lv: cell.level, species, dateIso: fleetForecast.dateIso };
+  }, [fleetCells, fleetData, fleetForecast, point]);
   const fleetGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!fleetCells.length || !fleetData) return null;
-    const { levelOf } = densityLevel(fleetCells);
     const h = fleetData.axis.step / 2;
     return {
       type: "FeatureCollection",
       features: fleetCells.map((c) => ({
         type: "Feature",
-        properties: { lv: levelOf(c), n: c.vessels, h: Math.round(c.hoursPerDay * 10) / 10 },
+        properties: { lv: c.level, n: c.vessels, h: Math.round(c.value * 10) / 10 },
         geometry: {
           type: "Polygon",
           coordinates: [
@@ -7917,11 +7948,16 @@ export default function FishingMapView() {
               }
               setFleetOn(on);
             }}
-            fleetSel={fleetSel}
-            onFleetSel={setFleetSel}
-            fleetData={fleetData}
+            fleetDay={fleetDay}
+            onFleetDay={setFleetDay}
+            fleetSpecies={fleetSpecies}
+            onFleetSpecies={setFleetSpecies}
+            fleetSpeciesList={fleetSpeciesList}
+            todayIso={todayIso}
             fleetState={fleetState}
             fleetEmpty={fleetState === "ok" && fleetCells.length === 0}
+            fleetWindMissing={!!fleetForecast?.windMissing}
+            fleetStorm={!!fleetForecast?.storm}
             onFleetRetry={() => setFleetRetry((n) => n + 1)}
             stormInfo={stormInfo}
             showPlaces={showPlaces}
@@ -8676,8 +8712,8 @@ export default function FishingMapView() {
                   <RadarIcon className="mt-0.5 h-5 w-5 shrink-0 text-navy/70" />
                   <div className="min-w-0">
                     <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                      Mật độ tàu <b>{DENSITY_LEVELS[fleetAtPoint.lv].label.toLowerCase()}</b> — ước{" "}
-                      {fleetAtPoint.cell.vessels} tàu · {formatNumberVN(Math.round(fleetAtPoint.cell.hoursPerDay * 10) / 10)} giờ/ngày
+                      Mật độ tàu dự kiến <b>{DENSITY_LEVELS[fleetAtPoint.lv].label.toLowerCase()}</b> —{" "}
+                      {chipLabel(fleetAtPoint.dateIso, todayIso)} · ước {fleetAtPoint.cell.vessels} tàu
                     </p>
                     {fleetAtPoint.species.length > 0 ? (
                       <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
