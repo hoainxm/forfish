@@ -75,14 +75,14 @@ export async function POST(req: Request, ctx: Ctx) {
     // người được tag nhận câu "nhắc đến bạn" trước (chung dấu gộp ⇒ không nhận thêm câu chung)
     await notifyNhacTen(store, { postId: post.id, phones: nhac.phones, byHandle: profile.handle, commentId: row.id });
     await notifyComment(store, { post, parentAuthor, commenter: phone, commenterHandle: profile.handle, commentId: row.id });
-    // SDVICO trực khách (14 §3.14): hỏi mua / hỏi giá sản phẩm SDVICO ⇒ SDVICO trả lời ngay trong luồng, trả kèm để hiện liền
+    // SDVICO trực khách (14 §3.14): hỏi mua / nhắn tiếp luồng tư vấn ⇒ hội thoại chờ bộ trực (GPU) trả lời
     const goc = target?.parent_id ? await store.getComment(target.parent_id) : target;
-    const truc = await trucKhachHoi(store, {
+    await trucKhachHoi(store, {
       post, comment: row, askerPhone: phone, askerProfile: profile, text: v.value.body,
       nguCanh: `${goc?.body ?? ""}\n${post.title ?? ""}\n${post.summary ?? post.body ?? ""}`,
     });
-    const [comment, kem] = await hydrateComments(store, truc ? [row, truc] : [row], phone);
-    return NextResponse.json({ ok: true, comment, ...(kem ? { kem } : {}) }, { status: 201 });
+    const [comment] = await hydrateComments(store, [row], phone);
+    return NextResponse.json({ ok: true, comment }, { status: 201 });
   } catch (e) {
     return kairosErrorResponse(e);
   }

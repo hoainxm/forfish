@@ -1,7 +1,7 @@
 // SDVICO trực khách trên SDFish (14 §3.14, 0072) — nhận biết hỏi mua, sản phẩm, lời trực, phiếu, tin nhắn KD.
 import { describe, expect, it } from "vitest";
-import { canTruc, duongPhieu, kiemPhieu, laHoiMua, loiTruc, timSanPham, tinNhanKd } from "@/lib/sdvico/khach-hoi";
-import { laNoiBo } from "@/lib/kairos/types";
+import { canTruc, kiemPhieu, laHoiMua, timSanPham, tinNhanKd } from "@/lib/sdvico/khach-hoi";
+import { docKetQuaTuVan, docSoTau, loiTuVan, promptTuVan, soDuoi, timCang } from "@/lib/sdvico/tu-van.mjs";
 
 describe("nhận biết khách hỏi", () => {
   it.each([
@@ -24,22 +24,6 @@ describe("nhận biết khách hỏi", () => {
   });
 });
 
-describe("lời trực + thẻ phiếu", () => {
-  it("gọi tên, xin thông tin qua phiếu riêng — KHÔNG xin số công khai trong chữ", () => {
-    const t = loiTruc("Năm Giã", { title: "Giám sát hành trình Viettel S-Tracking" });
-    expect(t.startsWith("@Năm Giã ")).toBe(true);
-    expect(t).toContain("chạm thẻ dưới");
-    expect(t).toContain("số tàu");
-    expect(t).toContain("cảng");
-  });
-  it("đường phiếu là đường nội bộ hợp lệ", () => {
-    const u = duongPhieu("gsht-viettel-s-tracking", "6f1c2a8e-1111-4222-8333-944455556666", null);
-    expect(u).toBe("/kairos/hoi-mua?sp=gsht-viettel-s-tracking&p=6f1c2a8e-1111-4222-8333-944455556666");
-    expect(laNoiBo(u)).toBe(true);
-    expect(laNoiBo("//evil.com/x")).toBe(false);
-  });
-});
-
 describe("phiếu khách — đủ SĐT, số tàu, cảng mới nhận", () => {
   const du = { ten: "Anh Tư", phone: "0905 123 456", soTau: "QNg-90123-TS", cang: "Sa Huỳnh", sanPham: "gsht-viettel-s-tracking" };
   it("đủ ⇒ nhận, SĐT chuẩn hoá, sản phẩm thành tên", () => {
@@ -59,5 +43,39 @@ describe("phiếu khách — đủ SĐT, số tàu, cảng mới nhận", () => 
     if (!r.ok) throw new Error("phiếu hỏng");
     const t = tinNhanKd({ ...r.value, createdAt: "2026-10-25T03:00:00Z" }, "https://forfish.vercel.app/kairos/p/x#bl-y");
     for (const s of ["0905123456", "QNg-90123-TS", "Sa Huỳnh", "lắp gấp trước Tết", "#bl-y", "Viettel S-Tracking"]) expect(t).toContain(s);
+  });
+});
+
+describe("tư vấn bằng Claude — luật + tách thông tin", () => {
+  it("prompt: vai tư vấn, xưng em, KHÔNG hỏi SĐT, KHÔNG báo giá, hỏi số tàu + cảng", () => {
+    const p = promptTuVan([], "0939 243 222");
+    expect(p).toContain("xưng \"em\"");
+    expect(p).toContain("KHÔNG hỏi số điện thoại");
+    expect(p).toContain("KHÔNG báo giá");
+    expect(p).toContain("SỐ TÀU và CẢNG MUỐN LẮP");
+  });
+  it.each([
+    ["Dạ máy này lọc nước biển ra nước ngọt ngay trên tàu anh ạ. Tàu anh số mấy để em ghi lại nha?", null],
+    ["Giá tầm 15 triệu anh ơi", "co_gia"],
+    ["dạ 2.500.000đ một bộ", "co_gia"],
+    ["anh cho em xin sđt nha", "hoi_sdt"],
+    ["em gọi anh số 0905123456 nha", "co_sdt"],
+    ["xem ở https://sdvico.vn", "co_link"],
+    ["Gấp thì anh gọi 0939 243 222 nha", null],
+  ])("'%s' ⇒ %s", (body, loi) => expect(loiTuVan(body)).toBe(loi));
+  it("tách số tàu nhiều kiểu gõ", () => {
+    expect(docSoTau("tàu tui BĐ-91234-TS nha")).toBe("BĐ-91234-TS");
+    expect(docSoTau("so tau bd 91234 ts")).toBe("BD-91234-TS");
+    expect(docSoTau("QNg90123TS")).toBe("Qng-90123-TS");
+    expect(docSoTau("chưa có số")).toBeNull();
+  });
+  it("tìm cảng trong danh mục, khớp dài nhất", () => {
+    expect(timCang("lắp ở Sa Huỳnh luôn em", ["Sa Huỳnh", "Huỳnh"])).toBe("Sa Huỳnh");
+    expect(timCang("lap o sa huynh", ["Sa Huỳnh"])).toBe("Sa Huỳnh");
+    expect(timCang("chưa biết", ["Sa Huỳnh"])).toBeNull();
+  });
+  it("đọc kết quả Claude, bỏ phần tử hỏng; số đuôi chỉ 3 số", () => {
+    expect(docKetQuaTuVan([{ id: "a", body: " dạ ", soTau: "", cang: "Sa Huỳnh" }, { id: 1 }, "x"])).toEqual([{ id: "a", body: "dạ", soTau: null, cang: "Sa Huỳnh" }]);
+    expect(soDuoi("0905123456")).toBe("456");
   });
 });

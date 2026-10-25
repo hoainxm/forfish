@@ -21,8 +21,10 @@ import { aboutDto, authorDto, postDto, commentDto, type DtoCtx } from "./dto";
 import { checkIngestKey, effectiveIngestKey, INGEST_KEY_HEADER } from "./ingest-key";
 import { isKairosError, kairosErrorStatus, KairosError } from "./errors";
 import { commentRecipients, nhacTenMessage, notifyMessage, NOTIFY_WINDOW_MS, KAIROS_PUSH_SENT_BY } from "./notify-gop";
-import { docNhacTen, locNhacTen, type NhacTen } from "./nhac-ten";
-import { canTruc, duongPhieu, loiTruc, TRUC_MOI_NGUOI_NGAY } from "@/lib/sdvico/khach-hoi";
+import { locNhacTen, type NhacTen } from "./nhac-ten";
+import { canTruc, TRUC_MOI_NGUOI_NGAY } from "@/lib/sdvico/khach-hoi";
+import { docSoTau, timCang } from "@/lib/sdvico/tu-van.mjs";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { laAgent } from "./agent-doi.mjs";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
 import { agentMayDecide, feedAtOnApprove, shouldTellAuthor, stateFor, type Verdict } from "./quyet-dinh";
@@ -32,6 +34,8 @@ import { orphanUploads } from "./social";
 import { defaultHandle, handleNorm } from "./ten-goi";
 import { LIMITS, SDVICO_PHONE, SEN_BIEN_PHONE, type KairosAuthor, type KairosComment, type KairosPost } from "./types";
 import { getKairosStore, type CommentFull, type KairosStore, type PostFull, type ProfileFull, type RateTable } from "./store";
+/** Tên cảng trong danh mục — tách "lắp ở Sa Huỳnh" trong lời khách. */
+const TEN_CANG = FISHING_PORTS.map((p) => p.name);
 
 export const PORT_IDS: ReadonlySet<string> = new Set(FISHING_PORTS.map((p) => p.id));
 const PORT_NAME = new Map(FISHING_PORTS.map((p) => [p.id, p.name]));
@@ -356,47 +360,46 @@ export async function notifyNhacTen(
 }
 
 /**
- * SDVICO TRỰC KHÁCH (14 §3.14, lib/sdvico/khach-hoi): bà con THẬT hỏi mua / hỏi giá / muốn đặt sản phẩm SDVICO trong bình
- * luận hoặc bài ⇒ hồ sơ SDVICO trả lời NGAY trong luồng, gọi tên (thông báo "nhắc đến bạn"), kèm thẻ mở PHIẾU RIÊNG để lại
- * SĐT + số tàu + cảng lắp. Không trả lời agent / SDVICO / Sen Biển; một người một lần mỗi bài, ≤ TRUC_MOI_NGUOI_NGAY / 24 giờ.
- * Hỏng ⇒ log, không ném (bình luận của bà con đã lên rồi).
+ * SDVICO TRỰC KHÁCH (14 §3.14, 0073): bà con THẬT hỏi mua / hỏi giá / muốn đặt sản phẩm SDVICO, hoặc nhắn tiếp trong luồng
+ * đang tư vấn ⇒ mở / cập nhật HỘI THOẠI `cho_tra_loi` (tách sẵn số tàu + cảng nếu khách vừa nói). Câu tư vấn do bộ trực
+ * trên máy GPU viết (Claude, scripts/kairos-truc.mjs, mỗi phút) rồi gửi /api/kairos/truc — không có câu soạn sẵn. Không
+ * trực agent / SDVICO / Sen Biển; ≤ TRUC_MOI_NGUOI_NGAY hội thoại MỚI / người / 24 giờ. Hỏng ⇒ log, không ném.
  */
 export async function trucKhachHoi(
-  store: KairosStore,
+  _store: KairosStore,
   input: { post: PostFull; comment: CommentFull | null; askerPhone: string; askerProfile: ProfileFull; text: string; nguCanh: string },
-): Promise<CommentFull | null> {
+): Promise<void> {
   try {
-    const { post, comment, askerPhone, askerProfile } = input;
-    if (laAgent(askerPhone) || askerPhone === SDVICO_PHONE || askerPhone === SEN_BIEN_PHONE) return null;
-    const can = canTruc(input.text, input.nguCanh);
-    if (!can) return null;
+    const { post, comment, askerPhone, askerProfile, text } = input;
+    if (laAgent(askerPhone) || askerPhone === SDVICO_PHONE || askerPhone === SEN_BIEN_PHONE) return;
+    const db = createAdminClient();
+    if (!db) return;
+    const goc = comment ? comment.parent_id ?? comment.id : null;
+    const { data: cu } = await db.from("sdvico_hoi_thoai").select("id,goc_comment_id,trang_thai,so_tau,cang").eq("post_id", post.id).eq("asker_phone", askerPhone).maybeSingle();
+    const soTau = docSoTau(text);
+    const cang = timCang(text, TEN_CANG);
+    if (cu && cu.trang_thai !== "dong") {
+      // nhắn tiếp trong ĐÚNG luồng đang tư vấn (hoặc gọi SDVICO) ⇒ chờ bot trả lời
+      if (!(goc && goc === cu.goc_comment_id) && !/sdvico/i.test(text)) return;
+      await db
+        .from("sdvico_hoi_thoai")
+        .update({ trang_thai: "cho_tra_loi", updated_at: new Date().toISOString(), ...(!cu.so_tau && soTau ? { so_tau: soTau } : {}), ...(!cu.cang && cang ? { cang } : {}) })
+        .eq("id", cu.id);
+      return;
+    }
+    const can = canTruc(text, input.nguCanh);
+    if (!can) return;
     const since = new Date(Date.now() - 24 * 3_600_000).toISOString();
-    if ((await store.countAudit(askerPhone, "sdvico_truc", since)) >= TRUC_MOI_NGUOI_NGAY) return null;
-    const daCo = await store.allComments(post.id, 500);
-    if (daCo.some((c) => c.author_phone === SDVICO_PHONE && docNhacTen(c.mentions).some((m) => m.id === askerProfile.id))) return null;
-    const sdvico = await store.profileByPhone(SDVICO_PHONE);
-    if (!sdvico) return null;
-    const body = loiTruc(askerProfile.handle, can.sp);
-    const row = await store.insertComment({
-      post_id: post.id,
-      parent_id: comment ? comment.parent_id ?? comment.id : null,
-      author_phone: SDVICO_PHONE,
-      body,
-      mentions: locNhacTen(body, [{ id: askerProfile.id, ten: askerProfile.handle }]),
-      link_preview: {
-        url: duongPhieu(can.sp?.id ?? null, post.id, comment?.id ?? null),
-        site: "SDVICO · Nhờ gọi lại",
-        title: can.sp?.title ?? "Để lại SĐT, số tàu, cảng lắp",
-        image: can.sp?.image || null,
-      },
-    });
-    await store.updateComment(row.id, { mod_state: "dat", mod_checked_at: new Date().toISOString() }).catch(() => undefined);
-    await auditQuiet(store, { actor: askerPhone, actor_kind: "he-thong", action: "sdvico_truc", target_type: "comment", target_id: row.id, detail: { postId: post.id, sp: can.sp?.id ?? null } });
-    await notifyNhacTen(store, { postId: post.id, phones: [askerPhone], byHandle: sdvico.handle, commentId: row.id });
-    return row;
+    const { count } = await db.from("sdvico_hoi_thoai").select("id", { count: "exact", head: true }).eq("asker_phone", askerPhone).gte("created_at", since);
+    if ((count ?? 0) >= TRUC_MOI_NGUOI_NGAY) return;
+    const hang = {
+      post_id: post.id, goc_comment_id: goc, asker_phone: askerPhone, asker_profile_id: askerProfile.id, san_pham: can.sp?.id ?? null,
+      so_tau: soTau, cang, trang_thai: "cho_tra_loi", updated_at: new Date().toISOString(),
+    };
+    if (cu) await db.from("sdvico_hoi_thoai").update({ ...hang, lan_tra_loi: 0 }).eq("id", cu.id);
+    else await db.from("sdvico_hoi_thoai").insert(hang);
   } catch (e) {
     console.error("[kairos] SDVICO trực khách hỏng (bỏ qua):", (e as Error)?.message);
-    return null;
   }
 }
 

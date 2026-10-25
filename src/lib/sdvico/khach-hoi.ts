@@ -2,11 +2,11 @@
 // nếu có người hỏi thăm về sản phẩm hoặc đặt thì nhận và sau đó chuyển vào Zalo công ty nhắn cho nhóm KD SDVico… trước đó
 // bot phải làm rõ được các thông số cơ bản như sđt, số tàu, lắp ở cảng nào"). THUẦN — có test.
 //
-// Luồng: bà con (người thật) bình luận / đăng bài hỏi mua, hỏi giá, muốn đặt một sản phẩm SDVICO ⇒ hồ sơ SDVICO trả lời
-// ngay trong luồng, gọi tên ⇒ thẻ "Để lại thông tin" mở PHIẾU RIÊNG (SĐT KHÔNG xin công khai dưới bình luận) ⇒ phiếu đủ
-// SĐT + số tàu + cảng lắp mới gửi được ⇒ bảng sdvico_khach_hoi ⇒ AI Assistant lấy phiếu, nhắn nhóm Zalo KD.
+// Luồng: bà con (người thật) bình luận / đăng bài hỏi mua, hỏi giá, muốn đặt một sản phẩm SDVICO ⇒ hội thoại trực (0073)
+// ⇒ bộ trực trên GPU (Claude, tu-van.mjs) tư vấn ngay trong luồng, hỏi dần số tàu + cảng lắp (KHÔNG hỏi SĐT — tài khoản là
+// SĐT) ⇒ đủ thì máy chủ lập phiếu sdvico_khach_hoi ⇒ AI Assistant lấy phiếu, nhắn nhóm Zalo KD.
 
-import { SDVICO_SHOWCASE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
+import { SDVICO_SHOWCASE } from "@/data/sdvico-showcase";
 import { foldVn } from "@/lib/market/text";
 import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
 
@@ -51,22 +51,6 @@ export function canTruc(text: string, nguCanh = ""): { sp: ReturnType<typeof tim
   const sp = timSanPham(text) ?? (/sdvico/i.test(nguCanh) || /sdvico/i.test(text) ? timSanPham(nguCanh) : null);
   if (sp) return { sp };
   return /sdvico/i.test(text) || /sdvico/i.test(nguCanh) ? { sp: null } : null;
-}
-
-/** Lời SDVICO trả lời trong luồng (gọi tên, KHÔNG xin số công khai — mời mở phiếu riêng). */
-export function loiTruc(ten: string, sp: { title: string } | null): string {
-  const mon = sp ? ` ${sp.title}` : "";
-  return `@${ten} dạ SDVICO đây ạ. Bác chạm thẻ dưới để lại SĐT, số tàu với cảng muốn lắp${mon}, bên kinh doanh SDVICO gọi lại tư vấn liền nha. Gấp thì gọi ${SDVICO_HOTLINE_DISPLAY}.`;
-}
-
-/** Đường dẫn phiếu riêng (thẻ trong bình luận mở trang này, ngay trong app). */
-export function duongPhieu(spId: string | null, postId: string | null, commentId: string | null): string {
-  const q = [
-    spId ? `sp=${encodeURIComponent(spId)}` : "",
-    postId ? `p=${encodeURIComponent(postId)}` : "",
-    commentId ? `bl=${encodeURIComponent(commentId)}` : "",
-  ].filter(Boolean).join("&");
-  return `/kairos/hoi-mua${q ? `?${q}` : ""}`;
 }
 
 export interface PhieuKhach {
@@ -140,7 +124,5 @@ export function tinNhanKd(p: PhieuKhach & { createdAt: string }, linkBinhLuan: s
     .join("\n");
 }
 
-/** Trần: một SĐT tối đa chừng này phiếu / 24 giờ (chống gửi ồ ạt). */
-export const PHIEU_MOI_SDT_NGAY = 5;
 /** Trần: SDVICO trực trả lời một người tối đa chừng này lần / 24 giờ (không đeo bám). */
 export const TRUC_MOI_NGUOI_NGAY = 2;
