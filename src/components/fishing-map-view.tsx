@@ -8645,7 +8645,7 @@ export default function FishingMapView() {
                         Cá vùng này hay có:{" "}
                         <b>
                           {fleetAtPoint.species
-                            .map(([sp, pct]) => `${SPECIES_META[sp]?.full ?? sp} ${pct} %`)
+                            .map(([sp]) => SPECIES_META[sp]?.full ?? sp)
                             .join(", ")}
                         </b>{" "}
                         <span className="text-foreground/60">(tham khảo)</span>
