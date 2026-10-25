@@ -47,9 +47,7 @@ export function TuyChonSheet({ value, onClose }: { value: TuyChon; onClose: (t: 
   };
   return (
     <BottomSheet title="Tuỳ chọn dòng tin" onClose={() => onClose(moiNhat.current)}>
-      <p className="mb-3 text-[0.9375rem] text-foreground/75">
-        Chủ đề bà con thích sẽ lên trước, chủ đề khác vẫn hiện. Tin biển vẫn luôn chiếm phần lớn.
-      </p>
+      <p className="mb-3 text-[0.9375rem] text-foreground/75">Chủ đề thích sẽ lên trước, tin biển vẫn nhiều nhất.</p>
       <p className="mb-2 text-[0.75rem] font-semibold text-foreground/55">Thích đọc</p>
       <div className="space-y-2">
         {TOPICS.map((topic) => (

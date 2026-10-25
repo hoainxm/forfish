@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type SavedBuyer } from "@/data/market-channels";
+import { boDau, datThamSo, docThamSo, tachSdt, telHref } from "@/lib/cho-ca";
+import { NHAN } from "@/lib/labels";
+import { SearchField } from "@/components/ui/search-field";
 import {
   fetchPublicSellContacts,
   STATIC_SELL_CONTACTS,
@@ -21,7 +24,6 @@ import {
   Card,
   EmptyState,
   Field,
-  RefNote,
   inputClass,
 } from "@/components/ui/primitives";
 import {
@@ -47,7 +49,10 @@ import { SQ_BTN } from "@/components/ui/sq-btn";
 */
 
 
+/* id = giá trị `?cho=` trên URL (CC-06): chip tầng 2 được nhớ khi lùi về, link mở
+   thẳng được một mục. Ghi bằng replaceState, không đẻ mục lịch sử. */
 type Section = "vua" | "cho" | "nhamay" | "moiquen";
+const SECTION_IDS: readonly Section[] = ["vua", "cho", "nhamay", "moiquen"];
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "vua", label: "Nậu vựa" },
@@ -56,8 +61,47 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: "moiquen", label: "Mối quen" },
 ];
 
+/** Khớp bỏ dấu một từ khoá với nhiều trường (tên, loài, tỉnh…) — rỗng thì khớp hết. */
+function khop(q: string, ...fields: (string | undefined)[]): boolean {
+  if (!q) return true;
+  return fields.some((f) => f && boDau(f).includes(q));
+}
+
+/** "SĐT: 0905… / 0902…" — MỖI số là một đường `tel:` (CC-10). Trước đây chỉ `CallButton`
+ *  gọi số đầu, ba số còn lại là chữ chết. */
+function SdtLinks({ phone }: { phone: string }) {
+  return (
+    <p className="text-[0.875rem] text-foreground/70">
+      SĐT:{" "}
+      {tachSdt(phone).map((so, i) => (
+        <span key={so}>
+          {i > 0 ? " / " : ""}
+          <a href={telHref(so)} className="font-semibold tabular-nums text-sea underline-offset-2 active:underline">
+            {so}
+          </a>
+        </span>
+      ))}
+    </p>
+  );
+}
+
 export function SellGuide() {
   const [section, setSection] = useState<Section>("vua");
+  useEffect(() => {
+    setSection(docThamSo(window.location.search, "cho", SECTION_IDS, "vua"));
+  }, []);
+  const chonCho = (c: Section) => {
+    setSection(c);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${datThamSo(window.location.search, "cho", c === "vua" ? null : c)}`,
+    );
+  };
+  /*  MỘT ô tìm cho cả bốn mục (CC-12): trước chỉ Nhà máy có ô tìm (khác khuôn ô tìm bảng
+      giá), 93 vựa không tìm được. Lọc bỏ dấu theo tên / loài / tỉnh. */
+  const [q, setQ] = useState("");
+  const qf = boDau(q.trim());
   const { home } = useHome();
   const [near, setNear] = useState(true);
   // các mục danh bạ có lọc theo vùng (nậu vựa / chợ / nhà máy)
@@ -96,11 +140,18 @@ export function SellGuide() {
   return (
     <div className="px-4">
       {/* tầng 2 — mục con của "Bán ở đâu" (nằm dưới chip Giao dịch tầng 1) */}
+      <SearchField
+        className="mb-2"
+        value={q}
+        onChange={setQ}
+        placeholder={section === "moiquen" ? "Tìm mối quen…" : "Tìm tên, loài, tỉnh…"}
+        label="Tìm đầu mối"
+      />
       <div className="-mx-4">
         <ChipRow
           options={SECTIONS}
           value={section}
-          onChange={setSection}
+          onChange={chonCho}
           accent="t2"
           level={2}
           ariaLabel="Chỗ bán"
@@ -117,11 +168,20 @@ export function SellGuide() {
         <HomeBar home={home} near={near} setNear={setNear} />
       )}
 
+      {/*  MỘT dòng chữ phụ thay 3 RefNote nền vàng (CC-08, 03 §0b: nền warn chỉ khi có
+          việc cần biết; chữ giải thích ở trạng thái yên là chữ thường). */}
+      {geo && (
+        <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-foreground/65">
+          Danh bạ công khai, tham khảo · gọi hỏi trước khi chở hàng.
+        </p>
+      )}
+
       {section === "vua" && (
         <Wholesalers
           list={contacts.filter((c) => c.kind === "vua")}
           home={home}
           near={near}
+          q={qf}
         />
       )}
       {section === "cho" && (
@@ -129,6 +189,7 @@ export function SellGuide() {
           list={contacts.filter((c) => c.kind === "cho")}
           home={home}
           near={near}
+          q={qf}
         />
       )}
       {section === "nhamay" && (
@@ -136,9 +197,10 @@ export function SellGuide() {
           list={contacts.filter((c) => c.kind === "nhamay")}
           home={home}
           near={near}
+          q={qf}
         />
       )}
-      {section === "moiquen" && <MyBuyers />}
+      {section === "moiquen" && <MyBuyers q={qf} />}
     </div>
   );
 }
@@ -147,25 +209,28 @@ function Wholesalers({
   list: all,
   home,
   near,
+  q,
 }: {
   list: SellContact[];
   home: HomePref;
   near: boolean;
+  /** từ khoá đã bỏ dấu (ô tìm chung) */
+  q: string;
 }) {
   const list = useMemo(
-    () => applyHome(all, (w) => w.province, home.province, near),
-    [all, home.province, near],
+    () =>
+      applyHome(
+        all.filter((w) => khop(q, w.name, w.province, w.subLabel, ...w.species)),
+        (w) => w.province,
+        home.province,
+        near,
+      ),
+    [all, home.province, near, q],
   );
 
   return (
     <div>
-      {/* Bỏ câu hai (D1): nó chỉ đường tới chip "Mối quen" đang HIỆN NGAY TRÊN
-          nó — chữ nhắc lại thứ vừa hiện. */}
-      <RefNote>
-        Vựa/cơ sở thu mua có đăng tin công khai — gọi hỏi cho chắc trước khi bán.
-      </RefNote>
-
-      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
+      <p className="mb-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
         {list.length} vựa
         {home.province && near ? ` gần ${home.province}` : ""}
       </p>
@@ -191,9 +256,7 @@ function Wholesalers({
                   <span>{w.address}</span>
                 </p>
               )}
-              {w.phone && (
-                <p className="text-[0.875rem] text-foreground/70">SĐT: {w.phone}</p>
-              )}
+              {w.phone && <SdtLinks phone={w.phone} />}
               {w.species.length > 0 && (
                 <p className="text-[0.875rem] text-foreground/70">
                   Thu mua: {w.species.join(", ")}
@@ -214,8 +277,9 @@ function Wholesalers({
         ))}
         {list.length === 0 && (
           <EmptyState icon={<UsersIcon className="h-9 w-9" />}>
-            Chưa có vựa công khai ở tỉnh này. Bà con thêm mối quen ở mục
-            “Mối quen”.
+            {q
+              ? "Không thấy vựa nào khớp. Bà con thử từ ngắn hơn."
+              : "Chưa có vựa công khai ở tỉnh này. Bà con thêm mối quen ở mục “Mối quen”."}
           </EmptyState>
         )}
       </ul>
@@ -227,34 +291,48 @@ function Markets({
   list: all,
   home,
   near,
+  q,
 }: {
   list: SellContact[];
   home: HomePref;
   near: boolean;
+  q: string;
 }) {
-  const list = applyHome(all, (m) => m.province, home.province, near);
+  const list = applyHome(
+    all.filter((m) => khop(q, m.name, m.province, ...m.species)),
+    (m) => m.province,
+    home.province,
+    near,
+  );
   return (
     <div className="space-y-3">
-      <RefNote>
-        Địa chỉ và giờ họp chợ là tham khảo, có thể đã đổi — gọi hỏi trước khi
-        chở hàng tới.
-      </RefNote>
+      <p className="px-1 text-[0.875rem] font-semibold text-foreground/70">
+        {list.length} chợ
+        {home.province && near ? ` gần ${home.province}` : ""}
+      </p>
       {list.map((m) => (
         <Card key={m.id} className="p-4">
-          <p className="display text-[1rem] font-semibold leading-snug text-navy">
-            {m.name}
-          </p>
-          {m.province && (
-            <p className="text-[0.875rem] font-semibold text-foreground/70">
-              {m.province}
-            </p>
-          )}
+          {/* Gọi cùng vị trí thẻ vựa — chợ có số BQL thì gọi hỏi giờ họp được (CC-11) */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              {m.province && (
+                <p className="text-[0.75rem] font-semibold text-foreground/65">
+                  {m.province}
+                </p>
+              )}
+              <p className="display text-[1rem] font-semibold leading-snug text-navy">
+                {m.name}
+              </p>
+            </div>
+            {m.phone && <CallButton phone={m.phone} />}
+          </div>
           {m.address && (
             <p className="mt-1 flex gap-1.5 text-[0.875rem] text-foreground/70">
               <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-t2" />
               <span>{m.address}</span>
             </p>
           )}
+          {m.phone && <SdtLinks phone={m.phone} />}
           {m.hours && (
             <p className="text-[0.875rem] text-foreground/70">Giờ họp: {m.hours}</p>
           )}
@@ -265,6 +343,11 @@ function Markets({
           )}
         </Card>
       ))}
+      {list.length === 0 && (
+        <EmptyState icon={<SearchIcon className="h-9 w-9" />}>
+          {q ? "Không thấy chợ nào khớp." : "Chưa có chợ đầu mối ở vùng này."}
+        </EmptyState>
+      )}
     </div>
   );
 }
@@ -273,41 +356,29 @@ function Factories({
   list: all,
   home,
   near,
+  q,
 }: {
   list: SellContact[];
   home: HomePref;
   near: boolean;
+  q: string;
 }) {
-  const [q, setQ] = useState("");
-  const list = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    const base = query
-      ? all.filter(
-          (b) =>
-            b.name.toLowerCase().includes(query) ||
-            b.species.some((s) => s.toLowerCase().includes(query)),
-        )
-      : all;
-    return applyHome(base, (b) => b.province, home.province, near);
-  }, [all, q, home.province, near]);
+  const list = useMemo(
+    () =>
+      applyHome(
+        all.filter((b) => khop(q, b.name, b.province, ...b.species)),
+        (b) => b.province,
+        home.province,
+        near,
+      ),
+    [all, q, home.province, near],
+  );
 
   return (
     <div>
-      <div className="relative mb-3">
-        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/65" />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm theo loại: cá ngừ, tôm, mực…"
-          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-11 pr-4 text-[1rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
-        />
-      </div>
-      <RefNote>
-        Danh sách tham khảo từ nguồn công khai (VASEP…). Phần lớn nhà máy mua qua
-        đại lý — hỏi đại lý/cảng để bán được cho họ.
-      </RefNote>
-      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
+      <p className="mb-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
         {list.length} nhà máy
+        {home.province && near ? ` gần ${home.province}` : ""}
       </p>
       <ul className="space-y-2.5">
         {list.map((b) => (
@@ -379,8 +450,9 @@ const typeLabel = (t: SavedBuyer["type"]) =>
       ĐÈ LÊN chuỗi gốc: cú "khôi phục" tự xoá sổ mối quen của bà con.
     · `setItem` trần trong `try/catch` RỖNG: máy đầy là mất im lặng, mở lại app
       mới biết. Nay ghi qua `saveUserJson` (dự báo nhường chỗ) + BÁO ĐỎ. */
-function MyBuyers() {
+function MyBuyers({ q }: { q: string }) {
   const [buyers, setBuyers] = useState<SavedBuyer[]>([]);
+  const shown = buyers.filter((b) => khop(q, b.name, b.port, b.phone, ...(b.species ?? [])));
   const [ready, setReady] = useState(false);
   /** máy KHÔNG ĐỌC ĐƯỢC sổ đã lưu → không mở cửa ghi, và nói ra */
   const [readFailed, setReadFailed] = useState(false);
@@ -417,11 +489,6 @@ function MyBuyers() {
 
   return (
     <div>
-      <RefNote tone="var(--t2)" bg="var(--t2-bg)">
-        Lưu mối quen của riêng bà con — nậu, vựa, nhà máy hay mua, kèm giá
-        thường trả, có ứng tổn không. Chỉ máy bà con thấy.
-      </RefNote>
-
       {/* KHÔNG ĐỌC ĐƯỢC SỔ CŨ — nói ngay, và KHÔNG ghi đè lên nó (thêm mới lúc
           này là xoá mất sổ gốc). */}
       {readFailed && (
@@ -449,7 +516,7 @@ function MyBuyers() {
       <div className="my-3 flex items-stretch gap-2">
         <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p className="text-[0.875rem] font-semibold text-foreground/70">
-            {buyers.length} mối quen
+            {q ? `${shown.length}/${buyers.length}` : buyers.length} mối quen
           </p>
         </div>
         <button
@@ -460,18 +527,27 @@ function MyBuyers() {
           className={`${SQ_BTN} bg-trim text-white `}
         >
           <PlusIcon className="h-6 w-6" />
-          Thêm mối
+          {NHAN.themMoi}
         </button>
       </div>
+      {/* một dòng chữ phụ thay RefNote nền xanh (CC-08) */}
+      <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-foreground/65">
+        Sổ riêng của bà con — chỉ máy này thấy.
+      </p>
 
       {ready && buyers.length === 0 && (
         <EmptyState icon={<UsersIcon className="h-9 w-9" />}>
           Chưa lưu mối nào. Thêm nậu/vựa/nhà máy hay bán để so giá lần sau.
         </EmptyState>
       )}
+      {ready && buyers.length > 0 && shown.length === 0 && (
+        <EmptyState icon={<SearchIcon className="h-9 w-9" />}>
+          Không thấy mối nào khớp. Bà con thử từ ngắn hơn.
+        </EmptyState>
+      )}
 
       <ul className="space-y-2.5">
-        {buyers.map((b) => (
+        {shown.map((b) => (
           <li key={b.id}>
             <Card className="p-3.5">
               {/*  "Sửa"/"Xóa" về INLINE cuối hàng tên mối quen (luật A3/A5):
@@ -509,9 +585,9 @@ function MyBuyers() {
                   hàng đó — hàng nó thao tác lên (luật A3/B1). */}
               {b.phone && (
                 <div className="mt-1.5 flex items-center gap-2">
-                  <p className="min-w-0 flex-1 text-[0.875rem] tabular-nums text-foreground/70">
-                    SĐT: {b.phone}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <SdtLinks phone={b.phone} />
+                  </div>
                   <CallButton phone={b.phone} />
                 </div>
               )}
@@ -582,10 +658,18 @@ function BuyerForm({
       = 85% màn, trần ~40%). */
   const [showType, setShowType] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  /** lỗi ô Tên — hiện dưới ô + con trỏ vào ô (CC-22: trước `return` im lặng, chỉ nhờ
+   *  bong bóng `required` của trình duyệt — tiếng Anh, tuỳ WebView) */
+  const [loiTen, setLoiTen] = useState<string | null>(null);
+  const oTen = useRef<HTMLInputElement>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setLoiTen("Nhập tên mối (vựa, nậu, nhà máy).");
+      oTen.current?.focus();
+      return;
+    }
     onSave({
       id: initial?.id ?? `buyer-${Date.now()}`,
       name: name.trim(),
@@ -606,27 +690,20 @@ function BuyerForm({
       onClose={onCancel}
     >
       <form onSubmit={submit}>
-        {/* Hàng KEY 1: tên + ô "Lưu" inline ngay cuối hàng nó */}
-        <div className="mb-3.5 flex items-end gap-2">
-          <div className="min-w-0 flex-1">
-            <Field label="Tên (bắt buộc)">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={inputClass}
-                placeholder="VD: Vựa cô Ba"
-                required
-              />
-            </Field>
-          </div>
-          <button
-            type="submit"
-            className={`${SQ_BTN} mb-3.5 bg-trim text-white `}
-          >
-            <CheckIcon className="h-6 w-6" />
-            Lưu
-          </button>
-        </div>
+        {/* Hàng KEY 1: tên. Nút Lưu về hàng đáy cùng Hủy — một khuôn với form Đăng tin
+            (CC-13); trước Lưu nằm cạnh ô Tên ở đầu, Hủy lẻ loi dưới. */}
+        <Field label="Tên (bắt buộc)" error={loiTen ?? undefined}>
+          <input
+            ref={oTen}
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (loiTen) setLoiTen(null);
+            }}
+            className={inputClass}
+            placeholder="VD: Vựa cô Ba"
+          />
+        </Field>
 
         {/* Hàng KEY 2: số điện thoại — mục đích của cả sổ này */}
         <Field label="Số điện thoại liên hệ">
@@ -722,14 +799,22 @@ function BuyerForm({
           </>
         )}
 
-        <div className="mt-2 flex justify-end">
+        {/* Hàng cuối theo khuôn B1 (như ListingForm): dòng trạng thái · Hủy · Lưu */}
+        <div className="mt-2 flex items-stretch gap-2">
+          <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="text-[0.875rem] text-foreground/70">Chỉ lưu trong máy này.</p>
+          </div>
           <button
             type="button"
             onClick={onCancel}
             className={`${SQ_BTN} bg-background text-foreground/70`}
           >
             <CloseIcon className="h-6 w-6" />
-            Hủy
+            {NHAN.huy}
+          </button>
+          <button type="submit" className={`${SQ_BTN} bg-trim text-white `}>
+            <CheckIcon className="h-6 w-6" />
+            {NHAN.luu}
           </button>
         </div>
       </form>

@@ -5,20 +5,23 @@
 // do (đó là chuyện giữa shop và SDVICO).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertIcon } from "@/components/icons";
 import { CategoryChips, type CategoryChipValue } from "@/components/market/shared/category-chips";
 import { EmptyNet } from "@/components/market/shared/empty-net";
+import { NetChip } from "@/components/market/shared/net-chip";
 import { RatingStars } from "@/components/market/shared/rating-stars";
 import { CallButton, EmptyState } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { formatVnd } from "@/lib/format";
+import { isProductCategory } from "@/lib/market/categories";
 import { marketGet } from "@/lib/market/client";
+import { saveListState, takeListState } from "@/lib/market/list-state";
 import type { Page, ProductCard, ProductQuery, ShopPublic } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import { SORT_LABEL, SORTS, SortChip } from "./market-search";
-import { ErrorBlock, GridSkeleton, ProductGrid } from "./ui";
-import { useFavorites, useMarketCart } from "./hooks";
+import { ErrorBlock, GridSkeleton, ProductGrid, primaryLinkClass } from "./ui";
+import { useFavorites, useKhoiPhucCuon, useMarketCart, useNhoCuon } from "./hooks";
 
 type Sort = NonNullable<ProductQuery["sort"]>;
 
@@ -46,19 +49,93 @@ export function ShopPage({ slug }: { slug: string }) {
   const [sort, setSort] = useState<Sort>("moi"); // F-24: sắp xếp trong shop (route đã nhận `?sort`)
   const [status, setStatus] = useState<"loading" | "ok" | "error" | "offline" | "closed" | "gone">("loading");
   const [descOpen, setDescOpen] = useState(false);
+  /** mất sóng / lỗi khi đổi chip mà đang có món ⇒ giữ lưới + chip báo (VT-08) */
+  const [netNote, setNetNote] = useState<{ state: "offline" | "error"; text: string } | null>(null);
+  const [ready, setReady] = useState(false);
+
+  /*  QUAY LẠI ĐÚNG CHỖ (VT-03, cùng khuôn `/cho/tim` 11 §5b.2): bản chụp giữ thẻ shop, món
+      đã tải, trang, nhóm, sắp xếp, vị trí cuộn trong `sessionStorage` ≤10 phút. */
+  const LIST_ID = `cho-shop:${slug}`;
+  const khoiPhuc = useRef<number | null>(null);
+  const vuaKhoiPhuc = useRef(false);
+  const daAp = useRef<{ category: CategoryChipValue; sort: Sort } | null>(null);
+  const dangHoan = useRef(false);
+  const itemsRef = useRef<ProductCard[]>([]);
+  const cuonRef = useNhoCuon();
+  useKhoiPhucCuon(khoiPhuc, items.length);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  useEffect(() => {
+    const cu = takeListState<ProductCard>(LIST_ID);
+    const shop = cu?.extra?.shop as ShopPublic | undefined;
+    if (cu && shop) {
+      const f = cu.filters;
+      if (typeof f.category === "string" && isProductCategory(f.category)) setCategory(f.category);
+      if (typeof f.sort === "string" && (SORTS as readonly string[]).includes(f.sort)) setSort(f.sort as Sort);
+      setData({ shop, products: { items: cu.items, total: cu.total, page: cu.page, pageSize: cu.items.length } });
+      setItems(cu.items);
+      setPage(cu.page);
+      setStatus("ok");
+      khoiPhuc.current = cu.scrollY;
+      vuaKhoiPhuc.current = true;
+    }
+    setReady(true);
+  }, [LIST_ID]);
+
+  // Ghi bản chụp trước khi rời màn (pagehide + unmount) — chỉ khi đang có món để quay lại
+  useEffect(() => {
+    const ghi = () => {
+      if (status !== "ok" || items.length === 0 || !data) return;
+      saveListState<ProductCard>(LIST_ID, {
+        q: "",
+        filters: { category, sort },
+        items,
+        total: data.products.total,
+        page,
+        scrollY: cuonRef.current,
+        extra: { shop: data.shop },
+      });
+    };
+    window.addEventListener("pagehide", ghi);
+    return () => {
+      window.removeEventListener("pagehide", ghi);
+      ghi();
+    };
+  }, [LIST_ID, status, items, data, category, sort, page, cuonRef]);
 
   const load = useCallback(
     async (p: number, replace: boolean) => {
-      if (replace) setStatus("loading");
+      // đã có món ⇒ không thay lưới bằng skeleton khi đổi chip (cùng luật VT-07 ở /cho/tim)
+      if (replace && itemsRef.current.length === 0) setStatus("loading");
       const sp = new URLSearchParams({ page: String(p), sort });
       if (category !== "tat_ca") sp.set("category", category);
       const res = await marketGet<ShopRes>(`/api/cho/shop/${encodeURIComponent(slug)}?${sp.toString()}`);
       if (!res.ok) {
         if (res.code === "shop_not_active") setStatus("closed");
         else if (res.status === 404) setStatus("gone");
-        else if (replace) setStatus(res.offline ? "offline" : "error");
+        else if (replace) {
+          const loai = res.offline ? "offline" : "error";
+          /*  VT-08: đang có món mà mất sóng ⇒ giữ lưới, báo một chip, hoàn chip sắp xếp/nhóm
+              về bộ của lần tải được gần nhất — bản cũ thay cả lưới bằng khối mất sóng. */
+          if (itemsRef.current.length > 0 && daAp.current) {
+            setNetNote({
+              state: loai,
+              text: loai === "offline" ? "Không có sóng — đang xem món đã tải" : "Chợ trục trặc — đang xem món đã tải",
+            });
+            const cu = daAp.current;
+            if (cu.category !== category || cu.sort !== sort) {
+              dangHoan.current = true;
+              setCategory(cu.category);
+              setSort(cu.sort);
+            }
+          } else setStatus(loai);
+        }
         return;
       }
+      daAp.current = { category, sort };
+      setNetNote(null);
       setData(res.data);
       setItems((prev) => (replace ? res.data.products.items : [...prev, ...res.data.products.items]));
       setPage(p);
@@ -68,8 +145,18 @@ export function ShopPage({ slug }: { slug: string }) {
   );
 
   useEffect(() => {
+    if (!ready) return;
+    if (vuaKhoiPhuc.current) {
+      vuaKhoiPhuc.current = false; // bản chụp vừa khôi phục là kết quả của đúng bộ lọc này
+      daAp.current = { category, sort };
+      return;
+    }
+    if (dangHoan.current) {
+      dangHoan.current = false; // lượt này do hoàn chip gây ra
+      return;
+    }
     void load(1, true);
-  }, [load]);
+  }, [ready, load, category, sort]);
   useOnlineRefetch(() => void load(1, true));
 
   const onFav = (p: ProductCard) => {
@@ -99,10 +186,7 @@ export function ShopPage({ slug }: { slug: string }) {
           {status === "closed" ? "Shop này đang tạm đóng." : "Không tìm thấy shop này."}
         </p>
         {/*  F-09: màn cụt phải có đường ra — trước đây chỉ có câu, không nút. */}
-        <Link
-          href="/cho"
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-        >
+        <Link href="/cho" className={`${primaryLinkClass} mx-auto mt-4 max-w-[15rem]`}>
           Về cửa hàng
         </Link>
       </div>
@@ -157,16 +241,21 @@ export function ShopPage({ slug }: { slug: string }) {
       <div className="pt-2">
         <CategoryChips value={category} onChange={setCategory} />
       </div>
-      <div className="mb-3 flex items-center gap-1.5 overflow-x-auto cuon-an px-4" role="group" aria-label="Sắp xếp">
+      <div className="mb-2 flex items-center gap-1.5 overflow-x-auto cuon-an px-4" role="group" aria-label="Sắp xếp">
         {SORTS.map((s) => (
           <SortChip key={s} on={s === sort} onClick={() => setSort(s)}>
             {SORT_LABEL[s]}
           </SortChip>
         ))}
-        {data && status === "ok" && (
-          <span className="ml-auto shrink-0 pl-2 text-[1rem] font-semibold text-foreground/65">{data.products.total} món</span>
-        )}
       </div>
+      {/* "N món" DÒNG RIÊNG dưới dải chip (VT-09, như R-02 ở /cho/tim) — trong dải cuộn ngang
+          nó nằm ở x=435, ngoài màn 390px */}
+      {data && status === "ok" && (
+        <p className="mb-3 px-4 text-[1rem] font-semibold text-foreground/65" aria-live="polite">
+          {data.products.total} món
+        </p>
+      )}
+      {status === "ok" && netNote && <NetChip state={netNote.state} text={netNote.text} />}
 
       <div className="px-4">
         {status === "loading" && <GridSkeleton n={4} />}
@@ -182,7 +271,7 @@ export function ShopPage({ slug }: { slug: string }) {
               <button
                 type="button"
                 onClick={() => void load(page + 1, false)}
-                className="display mx-auto mt-3 flex min-h-(--row-h) w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
+                className="sq-btn mx-auto mt-3 flex bg-field text-navy"
               >
                 Xem thêm
               </button>

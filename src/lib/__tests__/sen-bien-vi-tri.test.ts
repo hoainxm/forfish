@@ -39,4 +39,6 @@ describe("vị trí icon Sen Biển kéo được", () => {
     expect(docViTri(g)).toEqual({ left: 20, bottom: 200 });
   });
   it("chưa đo được khung (w=0) ⇒ không ra toạ độ âm", () => expect(viTriGocApp(0).left).toBe(VI_TRI_GOC.left));
+  it("chỗ gốc toàn app đứng 0.75rem (12px) trên dock — 13 §5.1, không rơi vào hàng danh sách (VO-APP-02)", () =>
+    expect(VI_TRI_GOC_APP_BOTTOM).toBe(12));
 });

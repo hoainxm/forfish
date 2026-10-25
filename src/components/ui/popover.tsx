@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useLichSuDong } from "@/lib/dialog-focus";
 import { viTriNeoNut } from "@/lib/the-noi-vi-tri";
 import { useEscape } from "@/lib/use-escape";
 
@@ -96,18 +97,20 @@ export function Popover({
     };
   }, [mounted, anchor]);
 
-  useEscape(true, onClose);
+  // BACK CỦA MÁY ĐÓNG MENU TRƯỚC KHI RỜI TRANG (rà FB 2026-10-25) — Escape/chạm ngoài đi qua `dongTay` để lùi mục
+  const { dongTay } = useLichSuDong(onClose);
+  useEscape(true, dongTay);
 
   // chạm ra ngoài ⇒ đóng (pha capture; bỏ qua chính nút mở — nút tự bật/tắt)
   useEffect(() => {
     const ngoai = (e: PointerEvent) => {
       const t = e.target as Node | null;
       if (!t || ref.current?.contains(t) || anchor?.contains(t)) return;
-      onClose();
+      dongTay();
     };
     document.addEventListener("pointerdown", ngoai, true);
     return () => document.removeEventListener("pointerdown", ngoai, true);
-  }, [anchor, onClose]);
+  }, [anchor, dongTay]);
 
   if (!mounted) return null;
   return createPortal(
@@ -117,7 +120,7 @@ export function Popover({
       aria-label={label}
       tabIndex={-1}
       style={{ transformOrigin: goc }}
-      className={`anim-pop-in fixed z-40 overflow-y-auto rounded-2xl outline-none border border-line bg-card shadow-float [overscroll-behavior:contain] ${
+      className={`anim-pop-in fixed z-40 overflow-y-auto rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-sea/60 border border-line bg-card shadow-float [overscroll-behavior:contain] ${
         className || "w-[16rem]"
       }`}
     >

@@ -15,11 +15,13 @@ export type ViTriIcon = { left: number; bottom: number };
 export const VI_TRI_GOC: ViTriIcon = { left: 8, bottom: 184 };
 
 /**
- * Chỗ gốc ở MÀN NGOÀI BẢN ĐỒ (Sen Biển toàn app, rà Codex 2026-10-19): mép PHẢI,
- * cách đỉnh dock 96px. Chỗ gốc bản đồ (trái, 144px) đè tên món ở lưới Chợ; sát
- * dock thì đè thanh mua hàng/giỏ dính đáy (cao ~80px) ⇒ 96px.
+ * Chỗ gốc ở MÀN NGOÀI BẢN ĐỒ (Sen Biển toàn app): mép PHẢI, cách đỉnh dock 0.75rem = 12px
+ * (khung chứa đã đứng trên dock) — đúng 13 §5.1. Trước là 96px (rà Codex 2026-10-19, né thanh
+ * mua hàng dính đáy ở Chợ) nhưng 96px rơi ĐÚNG hàng danh sách của mọi màn, đè chevron/nút
+ * "+ Thêm"/link (rà FB 2026-10-25, VO-APP-02); `.app-content` chừa thêm đáy để cuối trang không
+ * còn gì nằm dưới icon. Chỗ đã kéo (`forfish.senbien.vitri.v1`) không đổi — `kepViTri` vẫn kẹp.
  */
-export const VI_TRI_GOC_APP_BOTTOM = 96;
+export const VI_TRI_GOC_APP_BOTTOM = 12;
 export function viTriGocApp(w: number): ViTriIcon {
   return { left: w > 0 ? w - ICON_PX - LE : VI_TRI_GOC.left, bottom: VI_TRI_GOC_APP_BOTTOM };
 }

@@ -39,6 +39,7 @@ import { docViTri, ghiViTri, huongBongBong, ICON_PX, kepViTri, laKeo, VI_TRI_GOC
 import { cauVuaNoi, ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
 import { SenBienIcon, useSenAria } from "@/components/sen-bien-icon";
 import { lyDoMicro, setSenSignal } from "@/lib/sen-bien-state";
+import { useLichSuDong } from "@/lib/dialog-focus";
 import { useEscape } from "@/lib/use-escape";
 
 let modelP: Promise<NgramModel | null> | null = null;
@@ -173,16 +174,23 @@ export function useSenKeo(gocApp = false) {
 }
 
 /** Icon Sen Biển nổi khi thẻ ĐÓNG — kéo đi được; chạm = gọi. */
-export function SenBienNoi({ onOpen, gocApp = false }: { onOpen: () => void; gocApp?: boolean }) {
-  const { props } = useSenKeo(gocApp);
+/** Rảnh ngần này không chạm/cuộn thì icon nép nửa mình ra mép (kiểu AssistiveTouch / chat head Messenger) — rà FB 2026-10-25, VO-APP-02. */
+export const SEN_NEP_MS = 4000;
+
+export function SenBienNoi({ onOpen, gocApp = false, nep = false }: { onOpen: () => void; gocApp?: boolean; nep?: boolean }) {
+  const { pos, khung, props } = useSenKeo(gocApp);
   const aria = useSenAria();
+  /* nép về mép GẦN hơn: icon ở nửa phải thì trượt sang phải, nửa trái thì sang trái.
+     Transform đặt trên chính nút (không trên lớp bọc — lớp bọc có transform là icon mất mốc absolute). */
+  const benPhai = khung.w > 0 ? pos.left + ICON_PX / 2 > khung.w / 2 : true;
+  const nepCls = nep ? `${benPhai ? "translate-x-1/2" : "-translate-x-1/2"} opacity-60` : "";
   return (
     <button
       type="button"
       {...props}
       onClick={onOpen}
       aria-label={aria}
-      className="absolute z-20 h-14 w-14 select-none rounded-full transition-transform active:scale-[0.97]"
+      className={`absolute z-20 h-14 w-14 select-none rounded-full transition-[transform,opacity] duration-300 active:scale-[0.97] ${nepCls}`}
     >
       <SenBienIcon className="fab-mascot block h-full w-full" />
     </button>
@@ -558,21 +566,26 @@ export function SenBienSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ lúc mở thẻ
   }, []);
 
+  /*  BACK CỦA MÁY THU THẺ TRƯỚC KHI RỜI TRANG (rà FB 2026-10-25, VO-APP-01): thẻ mở chiếm một mục lịch sử (lib/
+      dialog-focus useLichSuDong). Lúc chờ "Đi/Thôi" không bắt back — cùng luật chạm ngoài/Escape (không đóng, và
+      cũng không giữ bà con lại trang). Tự thu khi rảnh gọi onClose thẳng ⇒ hook dọn mục ở cleanup. */
+  const { dongTay } = useLichSuDong(onClose, !awaitingGo);
+
   // CHẠM RA NGOÀI (bản đồ, nút khác) ⇒ thu về, như mọi khung bật lên — trừ lúc chờ "Đi/Thôi"
   useEffect(() => {
     if (awaitingGo) return;
     const ngoai = (e: PointerEvent) => {
       const t = e.target as Node | null;
       if (!t || bongRef.current?.contains(t) || keoProps.ref.current?.contains(t)) return;
-      onClose();
+      dongTay();
     };
     document.addEventListener("pointerdown", ngoai, true);
     return () => document.removeEventListener("pointerdown", ngoai, true);
-  }, [awaitingGo, onClose, keoProps.ref]);
+  }, [awaitingGo, dongTay, keoProps.ref]);
 
   // PHÍM ESCAPE đóng như mọi hộp (rà bố cục 2026-10-22 — bong bóng có role=dialog mà
   // không đóng được bằng bàn phím). Lúc chờ "Đi/Thôi" vẫn giữ — cùng luật chạm ra ngoài.
-  useEscape(!awaitingGo, onClose);
+  useEscape(!awaitingGo, dongTay);
 
   // TỰ THU VỀ khi rảnh — không có nút ×. Loa còn đọc câu trả lời thì CHƯA rảnh (2026-10-18: câu dài > 5 s
   // làm thẻ thu giữa chừng, mất lượt tự nghe tiếp — "giao tiếp 2 chiều"); đếm lại từ lúc đọc xong.
@@ -590,7 +603,7 @@ export function SenBienSheet({
   const dangChao = mode === "goi" && phase === "chao";
   // icon Sen Biển là nút BẬT/TẮT (chủ dự án 2026-10-17: "click icon sen thì mở ra, click tiếp thì thu lại
   // chứ không phải treo"): thẻ đang mở thì chạm là THU VỀ — dừng nghe, dừng đọc (dọn ở cleanup khi gỡ)
-  const bamSen = () => onClose();
+  const bamSen = () => dongTay();
 
   return (
     <>

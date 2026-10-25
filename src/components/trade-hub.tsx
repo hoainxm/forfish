@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { datThamSo, docThamSo } from "@/lib/cho-ca";
 import { PriceBoard } from "@/components/price-board";
 import { SellGuide } from "@/components/sell-guide";
 import { MarketBoard } from "@/components/market-board";
@@ -15,16 +16,32 @@ import { ChipRow } from "@/components/ui/chip-row";
   bằng chip cùng khổ với sell-guide.
 */
 
-type Section = "gia" | "tin" | "ban-o-dau";
+/*  id = giá trị của `?muc=` trên URL (CC-06, 2026-10-25): chip được NHỚ khi lùi về
+    từ màn khác và Thông báo / Sen Biển mở thẳng được một mục (`/tien?muc=tin`). Đổi
+    chip ghi bằng `replaceState` — không đẻ mục lịch sử, back vẫn lùi đúng một trang. */
+type Section = "gia" | "tin" | "dau-moi";
+const SECTION_IDS: readonly Section[] = ["gia", "tin", "dau-moi"];
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "gia", label: "Giá cá" },
   { id: "tin", label: "Mua bán" },
-  { id: "ban-o-dau", label: "Đầu mối" },
+  { id: "dau-moi", label: "Đầu mối" },
 ];
 
 export function TradeHub() {
   const [section, setSection] = useState<Section>("gia");
+  // đọc `?muc=` sau khi gắn (trang vẽ sẵn từ máy chủ không biết URL) — một lần
+  useEffect(() => {
+    setSection(docThamSo(window.location.search, "muc", SECTION_IDS, "gia"));
+  }, []);
+  const chonMuc = (m: Section) => {
+    setSection(m);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${datThamSo(window.location.search, "muc", m === "gia" ? null : m)}`,
+    );
+  };
 
   return (
     <div>
@@ -34,7 +51,7 @@ export function TradeHub() {
       <ChipRow
         options={SECTIONS}
         value={section}
-        onChange={setSection}
+        onChange={chonMuc}
         accent="t2"
         level={1}
         ariaLabel="Mục giao dịch"
@@ -60,7 +77,7 @@ export function TradeHub() {
           </div>
         </RequireLogin>
       )}
-      {section === "ban-o-dau" && (
+      {section === "dau-moi" && (
         <RequireLogin what="danh bạ chỗ bán">
           <SellGuide />
         </RequireLogin>

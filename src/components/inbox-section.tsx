@@ -25,6 +25,7 @@ import { staleWarningVN } from "@/lib/push-message";
 import {
   acceptRefresh,
   gomTinTrung,
+  khoaBaoTuUrl,
   loadInbox,
   markRead,
   refreshInbox,
@@ -34,6 +35,12 @@ import {
 
 /** Mấy tin hiện sẵn khi chưa mở rộng */
 const PREVIEW_COUNT = 3;
+/** Mỗi lần "Xem thêm" xoè thêm bấy nhiêu hàng (TC-12: 25 hàng một lượt là trang dài 3 800px) */
+const PAGE_COUNT = 10;
+/** Nhớ số hàng đang xoè trong PHIÊN — sang màn khác quay lại không gập mất chỗ đang đọc */
+const SHOWN_SS_KEY = "forfish.inbox.shown.v1";
+/** Tin bão quá ngần này ngày thì "Tin cũ" không còn là cảnh báo — chỉ còn là mốc thời gian */
+const BAO_CANH_BAO_MS = 14 * 24 * 3600000;
 
 /** Nửa thẻ lọt vào màn hình thì tính là đã tới mắt bà con */
 const SEEN_RATIO = 0.5;
@@ -67,7 +74,28 @@ export function InboxSection() {
      danh tính offline nên vẫn chỉ đúng ngăn. */
   const { phone, ready } = useAuthUser();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
-  const [expanded, setExpanded] = useState(false);
+  /* SỐ HÀNG ĐANG XOÈ (TC-12): mặc định 3, mỗi "Xem thêm" +10, "Thu gọn" về 3 và cuộn
+     về tiêu đề mục (nút nằm ở đáy — bấm xong nội dung co lại, màn nhảy). Đọc lại từ
+     sessionStorage trong effect (không đọc lúc vẽ — bản máy chủ và bản vẽ đầu phải khớp). */
+  const [shownCount, setShownCount] = useState(PREVIEW_COUNT);
+  const headRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    try {
+      const n = Number(window.sessionStorage.getItem(SHOWN_SS_KEY));
+      if (Number.isFinite(n) && n > PREVIEW_COUNT) setShownCount(n);
+    } catch {
+      /* sessionStorage bị chặn — dùng mặc định */
+    }
+  }, []);
+  const datShown = useCallback((n: number) => {
+    setShownCount(n);
+    try {
+      if (n > PREVIEW_COUNT) window.sessionStorage.setItem(SHOWN_SS_KEY, String(n));
+      else window.sessionStorage.removeItem(SHOWN_SS_KEY);
+    } catch {
+      /* không ghi được thì vẫn đổi cho lần vẽ này */
+    }
+  }, []);
   /*  TIN CHƯA ĐỌC = chưa nằm trong `forfish.inbox.read.v1` (đã báo về được theo
       IO) — chấm + viền đậm (audit 2026-08-18 P4). Tính trong effect (đọc kho),
       tính lại khi hộp thư đổi hoặc khi vừa báo về xong. Không badge dock. */
@@ -192,7 +220,7 @@ export function InboxSection() {
       }
       flush(); // rời trang giữa chừng vẫn báo nốt phần đã thấy
     };
-  }, [messages, expanded, phone, recomputeUnread]);
+  }, [messages, shownCount, phone, recomputeUnread]);
 
   /* Chưa có tin nào → ẩn hẳn, không để khối trống. KHÔNG chặn theo đăng nhập:
      máy chưa gắn tài khoản vẫn nhận được tin gửi chung qua push, mà vuốt tắt là
@@ -200,11 +228,12 @@ export function InboxSection() {
      thì server vốn chỉ trả khi đã đăng nhập. */
   if (messages.length === 0) return null;
 
-  /*  MỘT DÒNG MỘT NỘI DUNG (rà Taste 2026-10-22): nhắc lại cùng cơn bão từng chiếm
-      trọn 3 dòng đầu bằng 3 tin y hệt chữ. Gom lúc vẽ, ghi "báo N lần". */
+  /*  MỘT DÒNG MỘT CƠN / MỘT NỘI DUNG (rà Taste 2026-10-22 · TC-01 2026-10-25): tin bão gom
+      theo khoá cơn trong url (`bao=`), tin khác gom khi trùng chữ. Gom lúc vẽ, đuôi "N bản tin". */
   const groups = gomTinTrung(messages);
-  const shown = expanded ? groups : groups.slice(0, PREVIEW_COUNT);
+  const shown = groups.slice(0, shownCount);
   const rest = groups.length - shown.length;
+  const thuGonDuoc = shownCount > PREVIEW_COUNT;
   const soMoi = groups.filter((g) => g.ids.some((id) => unread.has(id))).length;
 
   /*  DỄ ĐỌC (làm lại 2026-10-19, chủ dự án: "làm sao đọc thông báo"): trước đây
@@ -214,7 +243,7 @@ export function InboxSection() {
       (và tuổi tin) một dòng riêng cùng cỡ; tin có đường dẫn thì cả hàng chạm được,
       mũi tên nằm TRONG hàng. Số tin mới lên hàng tiêu đề. Xem thêm = hàng cuối. */
   return (
-    <section aria-label="Thông báo">
+    <section aria-label="Thông báo" ref={headRef}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="display text-[1rem] font-semibold text-navy">Thông báo</h2>
         {soMoi > 0 && (
@@ -232,6 +261,14 @@ export function InboxSection() {
           // nhãn tuổi tin dùng chung với thông báo hệ điều hành (sw.js — IN HOA cho nổi
           // trên khay); trong app viết thường để không mất dấu, không gào
           const stale = staleRaw ? staleRaw.charAt(0) + staleRaw.slice(1).toLowerCase().replace(/\s*—\s*$/, "") : null;
+          /*  TC-06: chữ "Tin cũ …" màu cảnh báo CHỈ cho tin bão còn trong 14 ngày — đó là tin
+              mà đọc muộn mới nguy. Tin khác (nhắc tên trên Kairos, quảng bá) và bão đã qua
+              lâu: một mốc tương đối "4 giờ trước · 25/10" màu phụ, không nói giờ hai lần.
+              Luật §12 (tin tự khai tuổi) giữ nguyên — chỉ đổi cách tô. */
+          const laBao = khoaBaoTuUrl(m.url) !== null;
+          const canhBao = stale !== null && laBao && now - sentMs <= BAO_CANH_BAO_MS;
+          const mocCu = stale ? stale.replace(/^tin cũ\s*/i, "") : null;
+          const [gio, ngay] = fmt(m.sentAt).split(" · ");
           const inner = (
             <>
               <span className="flex items-start gap-2">
@@ -243,12 +280,17 @@ export function InboxSection() {
                 </span>
                 {m.url && <ChevronRightIcon className="mt-0.5 h-5 w-5 shrink-0 text-foreground/50" />}
               </span>
-              <span className="mt-1 block text-[1rem] leading-snug text-foreground/85">{m.body}</span>
+              {/* TC-13: tin tay có body y hệt title ⇒ không in hai lần liền nhau */}
+              {m.body !== m.title && (
+                <span className="mt-1 block text-[1rem] leading-snug text-foreground/85">{m.body}</span>
+              )}
               <span className="mt-1 block text-[0.8125rem] leading-snug text-foreground/65">
-                {fmt(m.sentAt)}
-                {stale && <span className="font-semibold text-warn"> · {stale}</span>}
-                {ids.length > 1 && ` · báo ${ids.length} lần`}
-                {m.mine && " · Gửi riêng cho bà con"}
+                {canhBao || !mocCu ? gio : mocCu}
+                {ngay && ` · ${ngay}`}
+                {canhBao && <span className="font-semibold text-warn"> · {stale}</span>}
+                {ids.length > 1 && ` · ${ids.length} bản tin`}
+                {/* TC-16: tin nhắc tên trên Kairos đương nhiên là riêng — không thêm đuôi */}
+                {m.mine && !(m.url ?? "").startsWith("/kairos/") && " · Gửi riêng cho bà con"}
               </span>
             </>
           );
@@ -264,20 +306,33 @@ export function InboxSection() {
             </li>
           );
         })}
-        {(rest > 0 || expanded) && (
-          <li>
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              aria-expanded={expanded}
-              className="flex min-h-(--h-row) w-full items-center justify-center gap-2 px-4 text-[1rem] font-semibold text-navy active:bg-field"
-            >
-              <ChevronDownIcon className={`h-5 w-5 ${expanded ? "rotate-180" : ""}`} />
-              {expanded ? NHAN.thuGon : NHAN.xemThem}
-              {!expanded && rest > 0 && (
+        {(rest > 0 || thuGonDuoc) && (
+          /* TC-12: "Xem thêm" mỗi lần +10 hàng; "Thu gọn" về 3 hàng và cuộn về tiêu đề mục */
+          <li className="flex divide-x divide-line">
+            {rest > 0 && (
+              <button
+                type="button"
+                onClick={() => datShown(shownCount + PAGE_COUNT)}
+                className="flex min-h-(--h-row) flex-1 items-center justify-center gap-2 px-4 text-[1rem] font-semibold text-navy active:bg-field"
+              >
+                <ChevronDownIcon className="h-5 w-5" />
+                {NHAN.xemThem}
                 <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-semibold text-foreground/70">{rest}</span>
-              )}
-            </button>
+              </button>
+            )}
+            {thuGonDuoc && (
+              <button
+                type="button"
+                onClick={() => {
+                  datShown(PREVIEW_COUNT);
+                  headRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+                }}
+                className="flex min-h-(--h-row) flex-1 items-center justify-center gap-2 px-4 text-[1rem] font-semibold text-navy active:bg-field"
+              >
+                <ChevronDownIcon className="h-5 w-5 rotate-180" />
+                {NHAN.thuGon}
+              </button>
+            )}
           </li>
         )}
       </ul>

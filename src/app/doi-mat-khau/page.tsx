@@ -51,7 +51,10 @@ export default function DoiMatKhauPage() {
 
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
+  /** lỗi HỆ THỐNG (mạng, sai mật khẩu hiện tại, máy chủ) — băng trên form */
   const [error, setError] = useState<string | null>(null);
+  /** lỗi NHẬP ô mật khẩu mới — hiện dưới ô (VO-APP-04) */
+  const [pwErr, setPwErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   /** Đổi xong — nói "Đã đổi mật khẩu" ngay tại chỗ ~1,5 giây rồi mới về Trang
    *  chủ (audit 2026-08-18 G4: trước đây replace im lặng, bà con không chắc
@@ -59,12 +62,9 @@ export default function DoiMatKhauPage() {
   const [done, setDone] = useState(false);
 
   const header = (
-    <PageHeader
-      kicker="Tài khoản"
-      title="Đổi mật khẩu"
-      sub="Đặt mật khẩu riêng để giữ sổ tàu của bà con an toàn."
-      toColor="var(--sea)"
-    />
+    /* VO-APP-12: bỏ câu phụ dưới tiêu đề; câu cấp dữ liệu thật (lần đầu bắt đổi)
+       vẫn ở AuthNote trong thẻ */
+    <PageHeader kicker="Tài khoản" title="Đổi mật khẩu" toColor="var(--sea)" />
   );
 
   // Chưa cấu hình Supabase → không có gì để đổi, app vẫn dùng được.
@@ -122,10 +122,12 @@ export default function DoiMatKhauPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setPwErr(null);
 
     const pwProblem = passwordProblem(password);
     if (pwProblem) {
-      setError(pwProblem);
+      setPwErr(pwProblem);
+      document.getElementById("dmk-moi")?.focus();
       return;
     }
 
@@ -255,11 +257,16 @@ export default function DoiMatKhauPage() {
               type=password> TRẦN, tức ba lần gõ MÙ mật khẩu, tay ướt, trên tàu
               lắc. Ngả tự nguyện nay còn 2 ô, ngả ép còn 1 ô. */}
           <PasswordField
+            id="dmk-moi"
             label="Mật khẩu mới"
             value={password}
-            onChange={setPassword}
+            onChange={(v) => {
+              setPassword(v);
+              setPwErr(null);
+            }}
             autoComplete="new-password"
             minLength={PASSWORD_MIN_LENGTH}
+            error={pwErr ?? undefined}
           />
           <PrimaryButton type="submit" disabled={loading || done}>
             {loading ? "Đang lưu…" : done ? "Đã đổi" : "Lưu mật khẩu mới"}

@@ -17,12 +17,7 @@ import {
 import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  EmptyState,
-  Field,
-  inputClass,
-  RefNote,
-} from "@/components/ui/primitives";
+import { Field, inputClass, RefNote } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { useBoats } from "@/components/boat-switcher";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
@@ -183,9 +178,6 @@ export function BoatProducts() {
           ở đây là hai lối vào cho cùng một chỗ, và là đúng cái "nhảy qua nhảy
           lại" mà chủ dự án chê. */}
 
-      {/* Hỏi gán hàng SDVICO cho tàu khi có >1 tàu (ba-spec 08 AC-6) */}
-      <SdvicoAssignPrompt assets={synced} />
-
       {/* MÁY KHÔNG ĐỌC / KHÔNG GIỮ ĐƯỢC đồ tự ghi — nói ngay, đừng nuốt im rồi
           để bà con phát hiện lúc hết bảo hành (K4) */}
       {readFailed && (
@@ -253,6 +245,10 @@ export function BoatProducts() {
           <RefNote>Đang kiểm tra các sản phẩm SDVICO của bà con…</RefNote>
         )}
       </div>
+
+      {/*  Hàng "N món chưa rõ của tàu nào · Chọn" khi có >1 tàu (ba-spec 08 AC-6) —
+          KHÔNG còn modal tự bật (TAU-02, 2026-10-25), bà con bấm mới mở ngăn. */}
+      <SdvicoAssignPrompt assets={synced} />
 
       {/* ── ĐỒ MUA CỦA SDVICO — tự đồng bộ, chỉ xem ───────────────────── */}
       {synced && (
@@ -354,21 +350,26 @@ export function BoatProducts() {
       {(ready || readFailed) &&
         sorted.length === 0 &&
         !(synced && synced.products.length > 0) && (
-          <EmptyState icon={<DocIcon className="h-10 w-10" />}>
-            {readFailed ? (
-              <>
-                Chưa mở được danh sách đồ trong máy.
-                <br />
-                Đồ cũ chưa mất — xem dải đỏ ở trên.
-              </>
-            ) : (
-              <>
-                Chưa ghi món đồ nào cho tàu này.
-                <br />
-                Bấm “Thêm” ở trên để thêm.
-              </>
-            )}
-          </EmptyState>
+          /*  Khối trống CÙNG MỘT KHUÔN với Tủ giấy tờ (viền đứt, không nền đặc — TAU-19,
+              2026-10-25); trước dùng `EmptyState` có bg-card ⇒ ba kiểu khối trống một màn. */
+          <div className="rounded-xl border border-dashed border-line px-4 py-6 text-center">
+            <DocIcon className="mx-auto h-10 w-10 text-foreground/30" />
+            <p className="mt-3 text-[1rem] text-foreground/70">
+              {readFailed ? (
+                <>
+                  Chưa mở được danh sách đồ trong máy.
+                  <br />
+                  Đồ cũ chưa mất — xem dải đỏ ở trên.
+                </>
+              ) : (
+                <>
+                  Chưa ghi món đồ nào cho tàu này.
+                  <br />
+                  Bấm “Thêm” ở trên để thêm.
+                </>
+              )}
+            </p>
+          </div>
         )}
 
       <ul className="space-y-3">

@@ -32,6 +32,7 @@ export interface WholesaleMarket {
   address?: string;
   species?: string[];
   hours?: string;       // giờ họp chợ (tham khảo)
+  phone?: string;       // ĐT ban quản lý chợ — để thẻ chợ có nút Gọi (CC-11, 2026-10-25)
   note?: string;
 }
 
@@ -137,7 +138,8 @@ export const WHOLESALE_MARKETS: WholesaleMarket[] = [
     province: "Thành phố Hồ Chí Minh",
     address: "Đại lộ Nguyễn Văn Linh, khu phố 6, phường 7, Quận 8, TP.HCM",
     species: ["tôm sú", "tôm hùm", "cua", "cá basa", "cá lóc", "cá tra", "mực", "nghêu sò", "cá biển"],
-    hours: "Nhà lồng thủy hải sản tươi sống họp về đêm tới sáng (đông nhất ~22h–3h); ĐT BQL 028.3759.0001",
+    hours: "Nhà lồng thủy hải sản tươi sống họp về đêm tới sáng (đông nhất ~22h–3h)",
+    phone: "028 3759 0001",
     note: "Chợ đầu mối thủy sản lớn nhất phía Nam, ~700 tấn thủy sản tươi/đêm-ngày (tham khảo)",
   },
   {

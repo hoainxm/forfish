@@ -11,7 +11,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRightIcon, DocIcon } from "@/components/icons";
 import { AddressForm } from "@/components/market/shared/address-form";
+import { EmptyNet } from "@/components/market/shared/empty-net";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState, Field, PrimaryButton, inputClass } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
@@ -30,7 +32,7 @@ import { validateAddress, validateRequestDraft } from "@/lib/market/validate";
 import { loadHome } from "@/lib/region";
 import { useAuthUser } from "@/lib/use-auth";
 import { useOnlineState } from "./hooks";
-import { ErrorBlock } from "./ui";
+import { ErrorBlock, SheetActions, primaryLinkClass, textareaClass } from "./ui";
 
 export function RequestStatusChip({ status }: { status: RequestStatus }) {
   const c = REQUEST_STATUS_CHIP[status];
@@ -73,7 +75,7 @@ export function MyRequests() {
 
   return (
     <div className="px-4 pb-[7rem] pt-3">
-      <Link href="/cho/yeu-cau/moi" className="display flex min-h-[3.75rem] items-center justify-center rounded-full bg-trim px-5 text-[1rem] font-semibold text-white ">
+      <Link href="/cho/yeu-cau/moi" className={primaryLinkClass}>
         + Đặt món không có trên chợ
       </Link>
       <p className="mt-2 text-[1rem] text-foreground/75">
@@ -87,9 +89,7 @@ export function MyRequests() {
       <div className="mt-4">
         {status === "loading" && <div className="surface h-28 animate-pulse" role="status" aria-label="Đang tải" />}
         {status === "error" && <ErrorBlock what="yêu cầu đặt hàng" onRetry={() => void load()} />}
-        {status === "offline" && (
-          <EmptyState icon={<DocIcon className="h-8 w-8" />}>Mất sóng và máy chưa lưu yêu cầu nào — có sóng sẽ tự tải.</EmptyState>
-        )}
+        {status === "offline" && <EmptyNet what="yêu cầu đặt hàng" onRetry={() => void load()} />}
         {status === "ok" && items.length === 0 && (
           <EmptyState icon={<DocIcon className="h-8 w-8" />}>Chưa có yêu cầu nào. Cần món gì chợ chưa bán thì bấm nút cam ở trên.</EmptyState>
         )}
@@ -124,6 +124,12 @@ export function MyRequests() {
 
 // ── Gửi yêu cầu mới ──────────────────────────────────────────────────────
 const UNITS = ["cái", "bộ", "thùng", "cuộn", "kg", "lít", "tấm"];
+/* nhãn ≤2 chữ (03 §Nhãn) — `PAYMENT_METHOD_LABEL` ("Trả tiền khi nhận hàng") dành cho câu đọc,
+   không cho chip; chưa có trong labels.ts nên tạm đặt tại chỗ (ghi DONE.md cho khu cho-ca) */
+const PAY_OPTIONS: readonly ChipOption<PaymentMethod>[] = [
+  { id: "cod", label: "Tiền mặt" },
+  { id: "chuyen_khoan", label: "Chuyển khoản" },
+];
 
 /** điền sẵn từ ?ten= &sl= &dv= (ô tìm không ra món · Sen Biển "nhờ chủ sàn tìm 2 cái …") */
 export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "cái" }: { initialTitle?: string; initialQty?: number; initialUnit?: string }) {
@@ -139,22 +145,32 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
   const [pay, setPay] = useState<PaymentMethod>("cod");
   const [addr, setAddr] = useState<Address | null>(null);
   const [addrSheet, setAddrSheet] = useState(false);
+  /** lỗi tên món / số lượng — vẽ ở trang */
   const [err, setErr] = useState<string | null>(null);
+  /** lỗi địa chỉ — vẽ TRONG ngăn, đúng dưới ô sai (VT-01: trước đây dùng chung `err` nên
+      câu lỗi nằm sau lưng tấm che, bà con bấm không thấy gì đổi) */
+  const [addrErr, setAddrErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
     const list = loadAddresses(phone);
     const chosen = list.find((a) => a.isDefault) ?? list[0];
+    // KHÔNG tự bật ngăn khi chưa có địa chỉ (VT-01): bà con gõ món trước, hàng "Giao tới ·
+    // Chưa có địa chỉ · Thêm" chờ ở dưới như Shopee; thiếu thì lúc Gửi mới mở ngăn.
     setAddr(chosen ?? seedAddress({ phone: phone ?? "", province: homeProvince }));
-    if (!chosen) setAddrSheet(true);
   }, [ready, phone, homeProvince]);
 
   const submit = async () => {
     if (busy || !addr) return;
     const draft = { title: title.trim(), qty: Number(qty), unit: unit.trim(), description: description.trim() || undefined, needBy: needBy || undefined, address: addr, paymentMethod: pay };
     const bad = validateRequestDraft(draft, vnToday());
-    if (bad) { setErr(bad); return; }
+    if (bad) {
+      // lỗi địa chỉ ⇒ mở ngăn và báo trong ngăn; lỗi khác ⇒ báo ở trang
+      if (validateAddress(addr)) { setErr(null); setAddrErr(bad); setAddrSheet(true); return; }
+      setErr(bad);
+      return;
+    }
     setErr(null);
     setBusy(true);
     const res = await marketPost<{ request: MarketRequest }>("/api/cho/yeu-cau", draft);
@@ -182,7 +198,7 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
         </Field>
       </div>
       <Field label="Mô tả thêm (hiệu, cỡ, đời máy…)">
-        <textarea className={inputClass} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} placeholder="Càng rõ chủ sàn càng tìm đúng hàng" />
+        <textarea className={textareaClass} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} placeholder="Càng rõ chủ sàn càng tìm đúng hàng" />
       </Field>
       <Field label="Cần trước ngày (không bắt buộc)">
         <input type="date" className={inputClass} min={vnToday()} value={needBy} onChange={(e) => setNeedBy(e.target.value)} />
@@ -195,20 +211,16 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
         ) : (
           <p className="mt-1 text-[1rem] text-foreground/70">Chưa có địa chỉ nhận.</p>
         )}
-        <button type="button" onClick={() => setAddrSheet(true)} className="mt-2 min-h-(--row-h) rounded-full bg-field px-4 text-[1rem] font-semibold text-navy">
-          Đổi địa chỉ
+        <button type="button" onClick={() => { setAddrErr(null); setAddrSheet(true); }} className="sq-btn mt-2 bg-field text-navy">
+          {addr && !validateAddress(addr) ? "Đổi" : "Thêm"}
         </button>
       </div>
 
       <p className="mb-2 mt-4 text-[1rem] font-semibold text-navy">Trả tiền</p>
-      <div className="flex gap-2">
-        {(["cod", "chuyen_khoan"] as const).map((m) => (
-          <button key={m} type="button" aria-pressed={pay === m} onClick={() => setPay(m)}
-            className="min-h-(--row-h) flex-1 rounded-full px-3 text-[1rem] font-semibold"
-            style={{ backgroundColor: pay === m ? "var(--t3)" : "var(--field)", color: pay === m ? "var(--card)" : "var(--navy)" }}>
-            {PAYMENT_METHOD_LABEL[m]}
-          </button>
-        ))}
+      {/* chip chọn = navy như ChipRow (03 §0b), nhãn ≤2 chữ (VT-15) — trước là pill nâu t3 với
+          "Trả tiền khi nhận hàng" gãy 2 dòng */}
+      <div className="-mx-4">
+        <ChipRow options={PAY_OPTIONS} value={pay} onChange={setPay} level={1} ariaLabel="Trả tiền" />
       </div>
 
       {err && <p className="mt-3 text-[1rem] font-semibold" style={{ color: "var(--danger)" }} role="alert">{err}</p>}
@@ -224,19 +236,20 @@ export function RequestForm({ initialTitle = "", initialQty = 1, initialUnit = "
           {/* KHÔNG lề riêng: BottomSheet đã p-5 — px-4 thêm làm nhãn thụt 16px so với tiêu đề
               ngăn (rà bố cục 2026-10-22) */}
           <div className="pb-4">
-            <AddressForm value={addr} onChange={setAddr} homeProvince={homeProvince} />
-            <PrimaryButton
-              onClick={() => {
+            <AddressForm value={addr} onChange={setAddr} error={addrErr} homeProvince={homeProvince} />
+            <SheetActions
+              className="mt-1"
+              okLabel="Lưu"
+              onCancel={() => setAddrSheet(false)}
+              onOk={() => {
                 const bad = validateAddress(addr);
-                if (bad) { setErr(bad); return; }
+                if (bad) { setAddrErr(bad); return; }
                 // lưu vào sổ địa chỉ chung của chợ (cùng sổ với Đặt hàng) — lỗi ghi không chặn gửi
                 saveAddresses(phone, upsertAddress(loadAddresses(phone), { ...addr, id: newId(), isDefault: loadAddresses(phone).length === 0 }));
-                setErr(null);
+                setAddrErr(null);
                 setAddrSheet(false);
               }}
-            >
-              Dùng địa chỉ này
-            </PrimaryButton>
+            />
           </div>
         </BottomSheet>
       )}
@@ -297,7 +310,7 @@ export function RequestDetail({ id }: { id: string }) {
   if (status === "loading") return <div className="px-4 pt-3"><div className="surface h-40 animate-pulse" role="status" aria-label="Đang tải" /></div>;
   if (status === "missing") return <div className="px-4 pt-3"><EmptyState icon={<DocIcon className="h-8 w-8" />}>Không thấy yêu cầu này.</EmptyState></div>;
   if (status === "error") return <div className="px-4 pt-3"><ErrorBlock what="yêu cầu" onRetry={() => void load()} /></div>;
-  if (status === "offline" || !r) return <div className="px-4 pt-3"><EmptyState icon={<DocIcon className="h-8 w-8" />}>Mất sóng và máy chưa lưu yêu cầu này.</EmptyState></div>;
+  if (status === "offline" || !r) return <div className="px-4 pt-3"><EmptyNet what="yêu cầu này" onRetry={() => void load()} /></div>;
 
   const today = vnToday();
   const q = r.quote;
@@ -362,7 +375,7 @@ export function RequestDetail({ id }: { id: string }) {
         </p>
       )}
       {r.status === "da_dat" && (r.orderId || order) && (
-        <Link href={`/cho/don/${r.orderId ?? order?.id}`} className="display mt-3 flex min-h-[3.75rem] items-center justify-center rounded-full bg-trim px-5 text-[1rem] font-semibold text-white ">
+        <Link href={`/cho/don/${r.orderId ?? order?.id}`} className={`${primaryLinkClass} mt-3`}>
           Xem đơn hàng {order?.code ?? ""}
         </Link>
       )}

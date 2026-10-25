@@ -5,6 +5,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { apiUrl } from "@/lib/api-base";
 import { CheckIcon, PhoneIcon } from "@/components/icons";
+import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { createClient } from "@/lib/supabase/client";
 import { withDeadline } from "@/lib/auth-error";
 import { sanitizePhoneInput } from "@/components/auth-form";
@@ -35,10 +36,14 @@ export function SdvicoRequestButton({
   topic = "khac",
   productName,
   label = "Gọi tổng đài SDVICO",
+  phu = false,
 }: {
   topic?: RequestTopicId;
   productName?: string;
   label?: string;
+  /** Nút PHỤ trung tính (`SQ_BTN bg-field text-sea`) — cho hàng tiêu đề /tau, nơi cam/sea đặc
+   *  cạnh tranh với hành động chính (TAU-15, 2026-10-25). Mặc định vẫn là chip sea trong thẻ. */
+  phu?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -46,7 +51,11 @@ export function SdvicoRequestButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-(--h-ctl) min-w-[5.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full bg-sea px-4 text-[0.875rem] font-semibold text-white transition active:scale-[0.97]"
+        className={
+          phu
+            ? `${SQ_BTN} bg-field text-sea`
+            : "inline-flex h-(--h-ctl) min-w-[5.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full bg-sea px-4 text-[0.875rem] font-semibold text-white transition active:scale-[0.97]"
+        }
       >
         <PhoneIcon className="h-4 w-4" />
         {label}

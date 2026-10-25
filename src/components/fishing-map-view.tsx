@@ -430,6 +430,13 @@ import {
   isPastDay,
 } from "@/lib/day-labels";
 import {
+  cauConTan,
+  dichDenTuQuery,
+  docQueryBanDo,
+  nhanChipNgay,
+  THAM_SO_BAN_DO,
+} from "@/lib/ban-do-link";
+import {
   beaufort,
   fetchSeaPoint,
   forecastConfidence,
@@ -457,6 +464,9 @@ import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify";
 import { premiumLine } from "@/components/premium-gate";
 import {
   AlertIcon,
+  AnchorIcon,
+  ChevronRightIcon,
+  ClockIcon,
   FishIcon,
   HomeIcon,
   LockIcon,
@@ -2929,6 +2939,65 @@ export default function FishingMapView() {
     [flyToPoint, setPoint, setDayIdx],
   );
 
+  /*  LINK VÀO BẢN ĐỒ (BD-04 + TC-02, 2026-10-25): `/ngu-truong?lat=&lon=` từ danh
+      bạ cảng ⇒ ghim + bay tới + mở ngăn gió sóng chỗ đó; `?bao=<khoá cơn>` từ
+      thông báo bão ⇒ cơn còn trong tin đang có (mới hay bản lưu) thì bay tới tâm
+      + bung thẻ bão; cơn đã tan ⇒ bay tới toạ độ cũ (nếu link mang) + chip
+      "Cơn này đã tan — bản tin dd/mm". Luật thuần ở lib/ban-do-link.ts.
+      KHÔNG hỏi mạng thêm: chờ `stormCheck` (useStormCheck đang hỏi sẵn, mất
+      sóng thì trả bản lưu / ok:false) rồi tra trong đó. Chờ map dựng (mapRef)
+      để flyTo không rơi vào khoảng trống; đọc xong dọn tham số khỏi địa chỉ
+      như ?sen, quay lại không chạy lại. */
+  const [stormMoKhoa, setStormMoKhoa] = useState<string | null>(null);
+  const [conTanNote, setConTanNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!conTanNote) return;
+    const t = setTimeout(() => setConTanNote(null), NOTIFY_HIDE_LONG_MS);
+    return () => clearTimeout(t);
+  }, [conTanNote]);
+  const linkDaXuLy = useRef(false);
+  useEffect(() => {
+    if (linkDaXuLy.current) return;
+    const q = docQueryBanDo(window.location.search);
+    if (!q.bao && q.lat == null) {
+      linkDaXuLy.current = true;
+      return;
+    }
+    if (q.bao && stormCheck == null) return; // tin bão chưa về (bản lưu đọc rất nhanh) — chờ, không hỏi thêm
+    let lan = 0;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const chay = () => {
+      if (!mapRef.current && lan++ < 40) {
+        t = setTimeout(chay, 250);
+        return;
+      }
+      linkDaXuLy.current = true;
+      try {
+        const u = new URL(window.location.href);
+        for (const k of THAM_SO_BAN_DO) u.searchParams.delete(k);
+        window.history.replaceState(window.history.state, "", u.toString());
+      } catch {
+        // không sửa được địa chỉ — vẫn đi tới đích
+      }
+      const dich = dichDenTuQuery(q, stormCheck?.ok ? stormCheck.storms : [], nowMs);
+      if (dich.kind === "toa-do") {
+        goToCoord(dich.lat, dich.lon, 10);
+        setPick("picked");
+        setSize("half");
+      } else if (dich.kind === "con-bao") {
+        flyToPoint(dich.storm.lon, dich.storm.lat, 6);
+        setStormMoKhoa(q.bao);
+      } else if (dich.kind === "con-tan") {
+        if (dich.lat != null && dich.lon != null) flyToPoint(dich.lon, dich.lat, 6);
+        setConTanNote(cauConTan(dich.banTinMs));
+      }
+    };
+    chay();
+    return () => {
+      if (t) clearTimeout(t);
+    };
+  }, [stormCheck, nowMs, goToCoord, flyToPoint, setSize, setPick]);
+
   /*  SEN BIỂN — chọn điểm đến bằng giọng (doc 07 §Sen Biển). Tên dò trong cảng
       cá + điểm đã ghim, đều nằm trong máy. Nói xong: bay tới + mở khung dẫn
       đường; bà con tự bấm Bắt đầu. */
@@ -3683,6 +3752,15 @@ export default function FishingMapView() {
         : "";
     return `Hướng ${windDirectionVN(tracking.headingDeg)} · ${tocDo}${nuoc}`;
   }, [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh, navMoving, prefs.distUnit, navDepthHere]);
+  /*  LOA KHI ĐỊNH VỊ BỊ CHẶN (BD-11, 2026-10-25): bật loa mà không có vị trí thì
+      nó không canh được gì — nói thật một dòng rồi gọi lại luồng xin định vị
+      (`goToMyBoat`, nối ở chỗ dựng NutLoa vì hàm đó khai báo phía dưới). */
+  const [loaNote, setLoaNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!loaNote) return;
+    const t = setTimeout(() => setLoaNote(null), NOTIFY_HIDE_LONG_MS);
+    return () => clearTimeout(t);
+  }, [loaNote]);
   const toggleCruise = useCallback(() => {
     if (navOn) {
       stopNav();
@@ -3699,16 +3777,21 @@ export default function FishingMapView() {
       và đọc cảnh báo, không chờ bấm "Bắt đầu chạy". Một lần mỗi lần mở màn;
       bà con bấm Dừng thì thôi tới lần mở sau. Tắt hẳn ở Cài đặt → Giọng đọc.
       Trình duyệt chỉ cho phát tiếng sau một cú chạm ⇒ chạm đầu tiên ở đâu
-      cũng mở khoá loa (bản app native không cần). */
+      cũng mở khoá loa (bản app native không cần).
+      CHỈ TỰ BẬT KHI ĐANG CÓ VỊ TRÍ (BD-11, 2026-10-25): bản cũ bật ngay lúc mở
+      màn bất kể `tracking.status` ⇒ loa sáng "đang đọc theo vị trí tàu" trong khi
+      thẻ góc trên nói "Định vị bị chặn" — hai chỗ nói hai kiểu. Nay chờ fix đầu;
+      bị chặn thì loa tắt, chạm loa mới báo (toggleCruise). */
   const autoReadDone = useRef(false);
   useEffect(() => {
     if (autoReadDone.current || !navVoice.prefs.tuDoc) return;
+    if (tracking.status !== "tracking") return;
     autoReadDone.current = true;
     if (!navOn) {
       setCruise(true);
       if (!navVoice.prefs.daXem) navVoice.markIntroSeen();
     }
-  }, [navVoice.prefs.tuDoc, navVoice.prefs.daXem, navOn, navVoice]);
+  }, [navVoice.prefs.tuDoc, navVoice.prefs.daXem, navOn, navVoice, tracking.status]);
   useEffect(() => {
     const unlock = () => ttsUnlock();
     window.addEventListener("pointerdown", unlock, { once: true, capture: true });
@@ -4978,13 +5061,17 @@ export default function FishingMapView() {
               /*  Chip ngày MỘT DÒNG, bo tròn, rộng theo nhãn (2026-10-20, "thiết
                   kế vẫn to"): bản cũ flex-1 + chữ 0.9375 đậm ⇒ "Hôm / nay" gãy
                   hai dòng trong ngăn hẹp. Cao vẫn bậc chip --h-chip. */
-              className={`flex h-9 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[0.8125rem] font-semibold transition active:scale-[0.97] ${
+              /*  BẬC CHIP CỐ ĐỊNH (BD-09, 2026-10-25): bản `h-9` + rộng theo chữ đo
+                  thật 36 px cao, rộng 75–104 px — trái luật "cỡ cố định theo loại,
+                  chip ≥5.5rem" (03 §0). Nay cao --h-chip, rộng tối thiểu 5.5rem,
+                  nhãn ngắn "T3 27" (nhanChipNgay) để không nở. */
+              className={`flex h-(--h-chip) min-w-[5.5rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[0.8125rem] font-semibold transition active:scale-[0.97] ${
                 active ? "bg-navy text-white" : "border border-line bg-card text-navy"
               } ${past ? "opacity-40" : ""}`}
             >
               {/* CHỈ NGÀY — bỏ số sóng/gió cho gọn (user 2026-07-28);
                   số chi tiết xem ở thân sheet cho ngày đang chọn */}
-              <span>{chipLabel(d.date, todayIso)}</span>
+              <span>{nhanChipNgay(d.date, todayIso)}</span>
               {locked && (
                 <LockIcon
                   className="h-3.5 w-3.5 text-foreground/45"
@@ -7299,7 +7386,18 @@ export default function FishingMapView() {
                lệch không đáng kể so với `--danger`, mà token thì đã được đo
                tương phản sẵn. Hex chỉ được phép nằm trong `paint` của MapLibre,
                không phải trong className. */}
-          <span className="whitespace-nowrap rounded-full border border-white/80 bg-danger px-2 py-0.5 text-[0.75rem] font-semibold text-white shadow-md">
+          {/*  MÀU THEO MỨC (BD-10, 2026-10-25): "159 hải lý tới ranh giới" mà đỏ đặc là
+               giật mình giữa vùng biển mình — đỏ để dành cho sát ranh / đã ngoài;
+               gần = warn; xa = pill kính trung tính (Maps: khoảng cách là nhãn). */}
+          <span
+            className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[0.75rem] font-semibold shadow-md ${
+              prox.outside || prox.level === "very_near"
+                ? "border-white/80 bg-danger text-white"
+                : prox.level === "near"
+                  ? "border-white/80 bg-warn text-white"
+                  : "glass border-line text-navy"
+            }`}
+          >
             {prox.outside ? "ngoài ranh giới " : ""}
             {fmtDist(
               prox.distanceNm * 1.852,
@@ -7801,7 +7899,7 @@ export default function FishingMapView() {
               />
               </div>
             )}
-            <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
+            <StormBanner variant="overlay" myPos={tracking.pos ?? null} moTheoKhoa={stormMoKhoa} />
             {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
                 không có bão thật); component tự bung 1 lần rồi thu về chip. */}
             {earlyWarning && <StormEarlyBanner ew={earlyWarning} />}
@@ -8057,6 +8155,27 @@ export default function FishingMapView() {
             {offlineNote}
           </p>
         )}
+        {/* LOA bị chặn định vị (BD-11): chạm loa ⇒ một dòng nói lý do rồi tự tắt, cùng khuôn chip */}
+        {loaNote && (
+          <p
+            role="status"
+            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-semibold leading-snug text-warn shadow-md"
+          >
+            <AlertIcon className="h-4 w-4 shrink-0" />
+            {loaNote}
+          </p>
+        )}
+        {/* THÔNG BÁO BÃO CŨ dẫn tới đây (TC-02): cơn không còn ⇒ nói thật một dòng,
+            tông trung tính (không phải cảnh báo), tự tắt — bản đồ vẫn bay tới chỗ cũ */}
+        {conTanNote && (
+          <p
+            role="status"
+            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full border border-line bg-card/95 px-3 py-1.5 text-[0.875rem] font-semibold leading-snug text-navy shadow-md"
+          >
+            <ClockIcon className="h-4 w-4 shrink-0 text-foreground/65" />
+            {conTanNote}
+          </p>
+        )}
 
       </div>
 
@@ -8195,7 +8314,20 @@ export default function FishingMapView() {
                 )}
                 {/* LOA — luôn đọc cảnh báo (chế độ Chạy tàu); ẩn khi đang dẫn đường theo
                     tuyến: khung dẫn đường đã có điều khiển giọng riêng */}
-                {!navMode && <NutLoa on={cruise} onClick={toggleCruise} />}
+                {!navMode && (
+                  <NutLoa
+                    on={cruise}
+                    onClick={
+                      geoError && !cruise && !navOn
+                        ? () => {
+                            // định vị bị chặn ⇒ loa không canh được gì: nói một dòng + xin lại vị trí (BD-11)
+                            setLoaNote("Cần bật định vị để đọc cảnh báo");
+                            goToMyBoat();
+                          }
+                        : toggleCruise
+                    }
+                  />
+                )}
                 {/* luôn hiện: chưa có vị trí thì bấm là XIN QUYỀN + lấy vị trí lần đầu */}
                 <NutViTri onClick={goToMyBoat} disabled={locating} dangBam={navOn && bamTau} />
               </div>
@@ -8546,6 +8678,18 @@ export default function FishingMapView() {
                 onMore={(st, km) => setTramInfo({ st, km })}
                 numbersShown
               />
+
+              {/* ĐƯỜNG VÀO DANH BẠ CẢNG (BD-01, 2026-10-25): màn /cang từng không có
+                  lối chạm nào (nút nổi cũ đã bỏ). Một hàng kẻ mảnh cạnh con nước —
+                  chạm một cảng bên đó là bản đồ ghim lại đúng cảng. */}
+              <Link
+                href="/cang"
+                className="flex min-h-(--h-row) items-center gap-2 border-t border-line px-1 text-[1rem] text-navy active:bg-field"
+              >
+                <AnchorIcon className="h-5 w-5 shrink-0 text-t3" aria-hidden />
+                <span className="flex-1">Cảng gần đây</span>
+                <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/50" aria-hidden />
+              </Link>
 
               {/* độ tin dự báo — chỉ ở "Xem đủ" (câu dặn, không phải số) */}
               <p

@@ -17,7 +17,7 @@ import { Capacitor } from "@capacitor/core";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { SenBienNoi, SenBienSheet, boKhoSan, loadBoKho, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
+import { SEN_NEP_MS, SenBienNoi, SenBienSheet, boKhoSan, loadBoKho, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
 import type { AssistantAction } from "@/lib/assistant/types";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
@@ -89,6 +89,61 @@ export function SenBienToanApp() {
       document.removeEventListener("focusout", ra);
     };
   }, []);
+  /*  THANH DÍNH ĐÁY (thanh mua `/cho/sp`, giỏ `/cho/gio`) ⇒ nâng cả khung Sen Biển lên đúng
+      chiều cao thanh đó. Rà FB 2026-10-25 (VO-APP-02) hạ icon về 0.75rem trên dock cho khỏi
+      đè cột nút của danh sách; cái giá là ở màn có thanh mua thì icon rơi lên nút "Thêm vào
+      giỏ" — số 96px cũ chính là để né thanh này. Đo thanh thật thay vì số cứng. */
+  const [nangThanh, setNangThanh] = useState(0);
+  useEffect(() => {
+    let ro: ResizeObserver | null = null;
+    const bat = () => {
+      const thanh = document.querySelector<HTMLElement>(".market-purchase-bar");
+      ro?.disconnect();
+      ro = null;
+      if (!thanh) {
+        setNangThanh(0);
+        return;
+      }
+      const doLai = () => setNangThanh(Math.round(thanh.getBoundingClientRect().height));
+      doLai();
+      if (typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(doLai);
+        ro.observe(thanh);
+      }
+    };
+    bat();
+    // thanh mua dựng sau khi dữ liệu món về ⇒ nghe cây DOM thay vì chỉ đo lúc đổi trang
+    const mo = new MutationObserver(bat);
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      mo.disconnect();
+      ro?.disconnect();
+    };
+  }, [pathname]);
+  /*  RẢNH ⇒ NÉP MÉP: không chạm/cuộn/gõ trong SEN_NEP_MS thì icon trượt nửa mình ra mép +
+      mờ (vẫn bấm được), có động là trở lại. Vì sao: icon nổi đứng giữa cột nút phải của mọi
+      danh sách (rà FB 2026-10-25, VO-APP-02/TAU-04) — FB không có FAB, Messenger để chat head
+      nép mép khi rảnh. Không nép khi thẻ đang mở. Đổi trang thì hiện lại rồi đếm lại. */
+  const [nep, setNep] = useState(false);
+  useEffect(() => {
+    setNep(false);
+    let dongHo = window.setTimeout(() => setNep(true), SEN_NEP_MS);
+    const dong = () => {
+      setNep(false);
+      window.clearTimeout(dongHo);
+      dongHo = window.setTimeout(() => setNep(true), SEN_NEP_MS);
+    };
+    const opts = { passive: true } as const;
+    window.addEventListener("scroll", dong, opts);
+    window.addEventListener("pointerdown", dong, opts);
+    window.addEventListener("keydown", dong);
+    return () => {
+      window.clearTimeout(dongHo);
+      window.removeEventListener("scroll", dong);
+      window.removeEventListener("pointerdown", dong);
+      window.removeEventListener("keydown", dong);
+    };
+  }, [pathname]);
   /*  CUỘN XUỐNG ⇒ icon lùi (mờ, không nhận chạm); cuộn lên / về đầu trang ⇒ quay lại
       (lib/sen-bien/an-khi-cuon.ts — kiểu Gmail/Facebook, rà bố cục 2026-10-22). Đổi trang
       thì hiện lại. Không ẩn khi thẻ đang mở. */
@@ -399,7 +454,7 @@ export function SenBienToanApp() {
     // (z-40) — z-40 cũ làm icon đè lên sheet Tài khoản (thấy 2026-10-19).
     <div
       className="pointer-events-none fixed inset-x-0 top-0 z-[25] mx-auto max-w-(--w-app) [&>*]:pointer-events-auto"
-      style={{ bottom: "var(--dock-total)" }}
+      style={{ bottom: nangThanh ? `calc(var(--dock-total) + ${nangThanh}px)` : "var(--dock-total)" }}
     >
       {!open && !dangGo && (
         /* bọc chỉ để làm mờ khi cuộn xuống — KHÔNG translate/transform ở lớp bọc (sẽ thành
@@ -410,6 +465,7 @@ export function SenBienToanApp() {
         >
           <SenBienNoi
             gocApp
+            nep={nep}
             onOpen={() => {
               ttsUnlock();
               setTitle("");

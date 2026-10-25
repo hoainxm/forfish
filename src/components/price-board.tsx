@@ -11,10 +11,11 @@ import { fetchFuelPrice, type FuelPrice } from "@/lib/fuel-price";
 import {
   ChevronRightIcon,
   MinusIcon,
-  SearchIcon,
   TrendDownIcon,
   TrendUpIcon,
 } from "@/components/icons";
+import { SearchField } from "@/components/ui/search-field";
+import { boDau, ghepTuanHienTai, weekEndIso } from "@/lib/cho-ca";
 import { formatVnDate } from "@/lib/format";
 import { useOnline } from "@/lib/use-online";
 import { savedAgoLabel } from "@/lib/forecast-cache";
@@ -29,15 +30,6 @@ import {
   Bảng giá — giá nguyên liệu tại bến TUẦN từ VASEP (live, fallback bảng tĩnh
   khi nguồn fail). Giá dầu DO hôm nay từ Petrolimex. Trend luôn icon + chữ.
 */
-
-// "cá hố" -> "ca ho": diacritic-insensitive matching for careless typing.
-function fold(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d");
-}
 
 function formatRange(p: PortPrice): string {
   return `${p.minVnd.toLocaleString("vi-VN")} – ${p.maxVnd.toLocaleString("vi-VN")} ${p.unit}`;
@@ -60,6 +52,9 @@ export function PriceBoard() {
   const [query, setQuery] = useState("");
   // mặc định bảng tĩnh; thay bằng giá tuần khi tải xong (async → không lint effect)
   const [result, setResult] = useState<LivePriceResult>(STATIC_RESULT);
+  /** chưa có kết quả tải đầu — vẽ khung chờ thay bảng tĩnh (CC-21: máy chưa có bản
+   *  lưu từng thấy bảng 10/06 + băng vàng rồi 1–2 s sau nhảy sang giá tuần) */
+  const [dangTaiLanDau, setDangTaiLanDau] = useState(true);
   /** giá dầu: `undefined` = đang hỏi, `null` = không lấy được (nói ra, đừng biến mất) */
   const [fuel, setFuel] = useState<FuelPrice | null | undefined>(undefined);
   // biểu đồ lịch sử: mở theo id loài; lịch sử tải LƯỜI (1 lần, khi chạm thẻ đầu)
@@ -103,7 +98,10 @@ export function PriceBoard() {
       Promise.all([
         fetchLivePrices().then((r) => {
           hong = !!r.netFailed;
-          if (alive) setResult(r);
+          if (alive) {
+            setResult(r);
+            setDangTaiLanDau(false);
+          }
         }),
         fetchFuelPrice().then((f) => {
           if (alive) setFuel(f);
@@ -127,9 +125,9 @@ export function PriceBoard() {
   }, []);
 
   const shown = useMemo(() => {
-    const q = fold(query.trim());
+    const q = boDau(query.trim());
     if (!q) return result.prices;
-    return result.prices.filter((p) => fold(p.species).includes(q));
+    return result.prices.filter((p) => boDau(p.species).includes(q));
   }, [query, result]);
 
   const isLive = result.source === "vasep";
@@ -142,22 +140,22 @@ export function PriceBoard() {
       navy (đọc số), xu hướng là chữ nhỏ có màu, không đậm cả hàng. */
   return (
     <div>
-      <label className="relative mb-2 block">
-        <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/55" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Tìm loại cá…"
-          aria-label="Tìm loại cá"
-          className="h-(--h-ctl) w-full rounded-xl border border-line bg-card pl-11 pr-4 text-[1rem] focus:outline-none focus:ring-2 focus:ring-sea"
-        />
-      </label>
+      {/* ô tìm chung khu Chợ cá — type=search + × xoá nhanh (CC-16) */}
+      <SearchField
+        className="mb-2"
+        value={query}
+        onChange={setQuery}
+        placeholder="Tìm loại cá…"
+        label="Tìm loại cá"
+      />
 
       {/* nguồn + tuần — trung thực: live thì ghi VASEP (kèm "bản lưu" nếu đang
           đọc từ máy), không thì bảng tĩnh; MẤT SÓNG mà chưa có bản lưu → nói
           thẳng là chưa tải được, đừng để bảng tĩnh đội lốt giá tuần (audit G3).
           Lúc bình thường là MỘT dòng chữ phụ, không hộp; cảnh báo mới có nền vàng. */}
-      {isLive ? (
+      {dangTaiLanDau ? (
+        <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-foreground/65">Đang tải giá tuần…</p>
+      ) : isLive ? (
         <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-foreground/65">
           Giá tại bến {result.province}, tuần {result.week} · VASEP
           {result.savedAt != null
@@ -183,7 +181,22 @@ export function PriceBoard() {
         </p>
       )}
 
-      {shown.length === 0 && (
+      {/* lần mở đầu: 5 hàng khung chờ cùng khuôn bảng, không nhảy khi giá về (CC-21) */}
+      {dangTaiLanDau && (
+        <ul aria-busy="true" aria-label="Đang tải bảng giá" className="surface animate-pulse divide-y divide-line overflow-hidden">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <li key={i} className="flex min-h-(--h-row) items-center gap-3 px-4 py-3">
+              <span className="min-w-0 flex-1">
+                <span className="block h-4 w-2/5 rounded bg-field" />
+                <span className="mt-1.5 block h-4 w-3/5 rounded bg-field" />
+                <span className="mt-1.5 block h-3 w-1/3 rounded bg-field" />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {!dangTaiLanDau && shown.length === 0 && (
         <div className="rounded-xl border border-line px-4 py-8 text-center">
           <p className="text-[1rem] text-foreground/70">
             Không thấy loại cá này trong bảng.
@@ -193,7 +206,7 @@ export function PriceBoard() {
         </div>
       )}
 
-      {shown.length > 0 && (
+      {!dangTaiLanDau && shown.length > 0 && (
         <ul className="surface divide-y divide-line overflow-hidden">
           {shown.map((p) => {
             const t = TREND[p.trend];
@@ -269,7 +282,22 @@ export function PriceBoard() {
             result.prices.find((p) => p.id === openId)?.species ?? "cá"
           }
           unit={result.prices.find((p) => p.id === openId)?.unit ?? "đ/kg"}
-          points={history ? seriesForSpecies(history.weeks, openId) : []}
+          /*  GHÉP TUẦN HIỆN TẠI (CC-14): kho lịch sử (cron) có thể dừng ở tuần trước
+              trong khi bảng đã là tuần này ⇒ hai "mới nhất" lệch nhau trên cùng màn.
+              Chỉ ghép giá LIVE của tuần bảng, và chỉ khi mới hơn điểm cuối. */
+          points={
+            history
+              ? ghepTuanHienTai(
+                  seriesForSpecies(history.weeks, openId),
+                  (() => {
+                    const p = result.prices.find((x) => x.id === openId);
+                    return isLive && p?.live
+                      ? { date: weekEndIso(result.week), minVnd: p.minVnd, maxVnd: p.maxVnd }
+                      : null;
+                  })(),
+                )
+              : []
+          }
           loading={historyLoading && !history}
           failed={!history && !historyLoading && historyFailed}
           onClose={() => setOpenId(null)}

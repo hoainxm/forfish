@@ -46,7 +46,8 @@ export function BoatServices() {
           <p className="min-w-0 flex-1 text-[1.125rem] font-semibold text-navy">
             {activeServices.length} dịch vụ đang dùng
           </p>
-          <SdvicoRequestButton topic="sua-chua" label="Gọi SDVICO" />
+          {/* nút phụ trung tính — cam chỉ cho MỘT hành động chính mỗi màn (TAU-15, 2026-10-25) */}
+          <SdvicoRequestButton topic="sua-chua" label="Gọi SDVICO" phu />
         </div>
         {/* 4 nấc — chỉ mời đăng nhập khi THẬT SỰ chưa đăng nhập */}
         {syncStatus === "guest" && (
@@ -222,7 +223,8 @@ export function BoatServices() {
           })}
 
           {synced.payments.length === 0 && activeServices.length === 0 && (
-            <p className="rounded-2xl bg-field/70 px-4 py-6 text-center text-[1rem] text-foreground/70">
+            // khối trống cùng khuôn viền đứt với Tủ giấy tờ (TAU-19, 2026-10-25) — trước là hộp nền xám đặc
+            <p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-[1rem] text-foreground/70">
               Chưa thấy dịch vụ nào đang dùng bên SDVICO.
             </p>
           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CrewMember,
   CrewRole,
@@ -24,12 +24,14 @@ import {
   CloseIcon,
   DocIcon,
   EditIcon,
+  LockIcon,
   PhoneIcon,
   PlusIcon,
   TrashIcon,
   UsersIcon,
 } from "@/components/icons";
 import { SQ_BTN } from "@/components/ui/sq-btn";
+import { LoiO, O_LOI, cuonToiOSai } from "@/components/tau-form";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -182,6 +184,8 @@ export function CrewList() {
 
   const { access } = useFeatureAccess();
   const configured = isSupabaseConfigured();
+  /** tra cảnh báo đang bị khoá (chưa Premium / chưa đăng nhập) — nút "Cảnh báo" kèm ổ khoá mờ (TAU-08) */
+  const khoaCanhBao = access === "login" || access === "upgrade";
 
   // Thuyền viên theo CHỦ (ba-spec 08 R2): hiện toàn bộ, không lọc theo tàu.
   const boatCrew = crew;
@@ -330,9 +334,12 @@ export function CrewList() {
                     <span className="min-w-0 flex-1">
                       <span className="block break-words text-[1rem] font-semibold leading-snug text-navy">
                         {m.name}
-                        <span className="font-normal text-foreground/60">
-                          {" "}· {ROLE_LABELS[m.role]}
-                        </span>
+                        {/* vai mặc định "Bạn thuyền" KHÔNG in (TAU-20): đầu màn + tab đã nói chữ đó rồi */}
+                        {m.role !== "thuyen_vien" && (
+                          <span className="font-normal text-foreground/60">
+                            {" "}· {ROLE_LABELS[m.role]}
+                          </span>
+                        )}
                       </span>
                       <span className={`mt-0.5 block text-[0.8125rem] leading-snug ${tone}`}>
                         {issue.label}
@@ -400,9 +407,10 @@ export function CrewList() {
                             name: m.name,
                           })
                         }
-                        className={`${SQ_BTN} bg-field text-navy disabled:opacity-40`}
+                        /* khoá Premium ⇒ ổ khoá mờ ngay trên nút như khuôn thiếu định danh (TAU-08) — không để bấm rồi mới gặp rào */
+                        className={`${SQ_BTN} bg-field text-navy disabled:opacity-40 ${khoaCanhBao ? "opacity-40" : ""}`}
                       >
-                        <AlertIcon className="h-4 w-4" />
+                        {khoaCanhBao ? <LockIcon className="h-4 w-4" /> : <AlertIcon className="h-4 w-4" />}
                         Cảnh báo
                       </button>
                       <button
@@ -497,7 +505,12 @@ function CrewForm({
   );
   const [certLabel, setCertLabel] = useState(initial?.certLabel ?? "");
   const [certExpiry, setCertExpiry] = useState(initial?.certExpiry ?? "");
-  const [err, setErr] = useState<string | null>(null);
+  /** lỗi THEO Ô (TAU-03): đỏ ngay dưới ô sai, gõ lại là xoá — không còn treo ở chân sheet */
+  const [errs, setErrs] = useState<{ name?: string; cccd?: string; phone?: string }>({});
+  const formRef = useRef<HTMLFormElement>(null);
+  const xoaLoi = (k: "name" | "cccd" | "phone") => {
+    if (errs[k]) setErrs((x) => ({ ...x, [k]: undefined }));
+  };
   /*  Hai nhóm THU LẠI mặc định (luật C1). Mở sẵn khi SỬA một người đã có sẵn
       dữ liệu trong nhóm đó — không giấu thứ bà con đã nhập. */
   const [showRole, setShowRole] = useState(false);
@@ -510,30 +523,28 @@ function CrewForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
-    if (!name.trim()) {
-      setErr("Chưa nhập tên thuyền viên.");
-      return;
-    }
+    const loi: typeof errs = {};
+    if (!name.trim()) loi.name = "Chưa nhập tên thuyền viên.";
     const cccdEntered = cccd.trim() !== "";
     const phoneEntered = phone.trim() !== "";
     // Định danh = CCCD HOẶC SĐT (1 trong 2). Cái nào có nhập thì phải đúng.
     if (cccdEntered && !isValidCccd(cccd)) {
-      setErr("Bà con nhập đủ 12 số CCCD (nếu không nhớ, có thể để trống và dùng số điện thoại).");
-      return;
+      loi.cccd = "Nhập đủ 12 số CCCD (không nhớ thì để trống, dùng số điện thoại).";
     }
     if (phoneEntered && !isValidVnPhone(phone)) {
-      setErr("Số điện thoại không đúng định dạng.");
-      return;
+      loi.phone = "Số điện thoại chưa đúng.";
     }
-    if (!isValidCccd(cccd) && !isValidVnPhone(phone)) {
-      setErr("Bà con cần nhập số CCCD (12 số) hoặc số điện thoại để hệ thống nhận diện đúng người nhé.");
-      return;
+    if (!cccdEntered && !phoneEntered) {
+      loi.cccd = "Cần số CCCD (12 số) hoặc số điện thoại để nhận đúng người.";
     }
     const cccdNorm = isValidCccd(cccd) ? normalizeCccd(cccd) : "";
     // trùng CCCD với người khác trong sổ (cho phép giữ nguyên của chính mình)
     if (cccdNorm && cccdNorm !== initialCccdNorm && takenCccds.has(cccdNorm)) {
-      setErr("Số CCCD này đã có trong sổ thuyền viên. Mỗi người chỉ dùng một số CCCD.");
+      loi.cccd = "Số CCCD này đã có trong sổ. Mỗi người một số CCCD.";
+    }
+    if (loi.name || loi.cccd || loi.phone) {
+      setErrs(loi);
+      cuonToiOSai(formRef.current);
       return;
     }
     onSave({
@@ -556,44 +567,66 @@ function CrewForm({
       title={initial ? "Sửa thông tin bạn thuyền" : "Thêm bạn thuyền"}
       onClose={onCancel}
     >
-      <form onSubmit={submit}>
+      <form ref={formRef} onSubmit={submit} noValidate>
         <Field label="Họ và tên (bắt buộc)">
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={inputClass}
+            onChange={(e) => {
+              setName(e.target.value);
+              xoaLoi("name");
+            }}
+            className={`${inputClass} ${errs.name ? O_LOI : ""}`}
             placeholder="VD: Nguyễn Văn Hai"
-            required
+            aria-invalid={errs.name ? true : undefined}
           />
+          {errs.name && <LoiO>{errs.name}</LoiO>}
         </Field>
 
         <Field label="Số CCCD (12 số — nếu không có thì điền số điện thoại bên dưới)">
           <input
             value={cccd}
-            onChange={(e) => setCccd(e.target.value)}
-            className={inputClass}
+            onChange={(e) => {
+              setCccd(e.target.value);
+              xoaLoi("cccd");
+            }}
+            className={`${inputClass} ${errs.cccd ? O_LOI : ""}`}
             inputMode="numeric"
             maxLength={16}
             placeholder="VD: 079090001234"
+            aria-invalid={errs.cccd ? true : undefined}
           />
+          {errs.cccd && <LoiO>{errs.cccd}</LoiO>}
         </Field>
 
         <Field label="Số điện thoại (dùng thay cho CCCD nếu chưa có)">
           <input
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className={inputClass}
+            onChange={(e) => {
+              setPhone(e.target.value);
+              xoaLoi("phone");
+              xoaLoi("cccd"); // lỗi "cần CCCD hoặc SĐT" treo ở ô CCCD — gõ SĐT là hết lý do
+            }}
+            className={`${inputClass} ${errs.phone ? O_LOI : ""}`}
             inputMode="tel"
             placeholder="VD: 0901234567"
+            aria-invalid={errs.phone ? true : undefined}
           />
-          {/* Tra cảnh báo NGAY khi có đủ định danh (CCCD 12 số HOẶC SĐT) — ✓
-              xanh nếu sạch, hiện cảnh báo nếu có (không cần nút tra riêng) */}
-          <IdentityCheck
-            cccd={cccd}
-            phone={phone}
-            access={access}
-            configured={configured}
-          />
+          {errs.phone && <LoiO>{errs.phone}</LoiO>}
+          {/*  Tra cảnh báo NGAY khi có đủ định danh (CCCD 12 số HOẶC SĐT) — ✓ xanh nếu sạch,
+              hiện cảnh báo nếu có. CHƯA Premium / chưa đăng nhập: KHÔNG chèn khối bán hàng
+              (PremiumLock) giữa form — một dòng xám là đủ (TAU-08, 2026-10-25). */}
+          {access === "login" || access === "upgrade" ? (
+            <span className="mt-1.5 block text-[0.875rem] text-foreground/60">
+              Tra cảnh báo: {access === "login" ? "cần đăng nhập" : "gói Premium"}
+            </span>
+          ) : (
+            <IdentityCheck
+              cccd={cccd}
+              phone={phone}
+              access={access}
+              configured={configured}
+            />
+          )}
         </Field>
 
         {/*  VAI TRÒ: máy đã đoán sẵn "Bạn thuyền" và validate KHÔNG đòi nó ⇒
@@ -722,14 +755,12 @@ function CrewForm({
           </>
         )}
 
-        {/*  Hàng cuối theo khuôn B1: [thân nói việc còn thiếu / lỗi] + hai ô nút
-            w-16. Trước là cặp Hủy/Lưu 162×60 ăn riêng một hàng (luật A2/A3). */}
+        {/*  Hàng cuối theo khuôn B1: [thân nhắc trung tính] + hai ô nút w-16. Lỗi ô KHÔNG còn
+            nằm ở đây (TAU-03) — đã về ngay dưới từng ô. */}
         <div className="mt-3 flex items-stretch gap-2">
           <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
-            <p
-              className={`text-[0.875rem] ${err ? "font-semibold text-danger" : "text-foreground/70"}`}
-            >
-              {err ?? "Yêu cầu có Tên + CCCD hoặc số điện thoại."}
+            <p className="text-[0.875rem] text-foreground/70">
+              Cần tên + CCCD hoặc số điện thoại.
             </p>
           </div>
           <button

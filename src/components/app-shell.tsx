@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/bottom-nav";
+import { dockActive } from "@/lib/dock-nav";
 import { NativeGpsPrime } from "@/components/native-gps-prime";
 import { UserSyncInit } from "@/components/user-sync-init";
 
@@ -29,10 +30,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // --app-vh (globals.css) → tab viewport NHỎ (Trang chủ/Ra khơi) cao bằng
   // --app-vh max nên iOS tự NỞ viewport bằng tab dài → dock max không còn bị
   // che (user 2026-07-29: "khung view của tab 1/2 phải nở theo vh mới").
+  /*  MÀN KHÔNG THUỘC MỤC DOCK NÀO (đăng nhập · đăng ký · quên/đổi mật khẩu · quyền riêng tư — `dockActive` null,
+      07 §5 hàng 8–9 "không dock"): luồng tập trung kiểu FB, thoát bằng "‹"; không vẽ dock, không chừa đáy
+      (rà FB 2026-10-25, VO-APP-06). Sen Biển đã tự ẩn ở các màn này. */
+  const coDock = dockActive(pathname) !== null;
   return (
     <div className="app-shell mx-auto flex min-h-dvh max-w-(--w-app) flex-col bg-background shadow-sm">
-      <main className="app-content flex-1">{children}</main>
-      <BottomNav />
+      <main className={coDock ? "app-content flex-1" : "flex-1"}>{children}</main>
+      {coDock && <BottomNav />}
       <NativeGpsPrime />
       {/* Sen Biển — trợ lý giọng nói ở MỌI màn (màn bản đồ có bản riêng, tự ẩn ở đó) */}
       <SenBienToanApp />

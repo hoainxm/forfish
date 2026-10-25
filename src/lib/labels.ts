@@ -47,6 +47,11 @@ export const NHAN = {
   goi: "Gọi",
   lienHe: "Liên hệ",
   dangTin: "Đăng tin",
+  // Chợ cá — menu ⋯ của tin mình (CC-03/CC-15/CC-20, 2026-10-25)
+  daXong: "Đã xong",
+  moLai: "Mở lại",
+  dangXoa: "Đang xoá",
+  themMoi: "Thêm mối",
   datHang: "Đặt hàng",
   muaLai: "Mua lại",
   baoGia: "Báo giá",

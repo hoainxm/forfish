@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { rowToListing, validateDraft, type ListingDraft } from "@/lib/market-listings-core";
+import {
+  laTinTam,
+  rowToListing,
+  tinTamTuDraft,
+  validateDraft,
+  validateDraftField,
+  type ListingDraft,
+} from "@/lib/market-listings-core";
 
 function draft(over: Partial<ListingDraft> = {}): ListingDraft {
   return {
@@ -28,6 +35,46 @@ describe("validateDraft", () => {
     expect(validateDraft(draft({ phone: "123" }))).toMatch(/điện thoại/i);
     expect(validateDraft(draft({ phone: "" }))).toBeNull();
     expect(validateDraft(draft({ phone: "0901234567" }))).toBeNull();
+  });
+});
+
+describe("validateDraftField — ô nào sai (CC-02)", () => {
+  it("thiếu tên → posterName (ô đang thu phải mở ra), thiếu loài → species", () => {
+    expect(validateDraftField(draft({ posterName: " " }))?.field).toBe("posterName");
+    expect(validateDraftField(draft({ species: "" }))?.field).toBe("species");
+    expect(validateDraftField(draft({ phone: "123" }))?.field).toBe("phone");
+    expect(validateDraftField(draft())).toBeNull();
+  });
+  it("câu lỗi khớp validateDraft (một nguồn)", () => {
+    const d = draft({ posterName: "" });
+    expect(validateDraftField(d)?.message).toBe(validateDraft(d));
+  });
+});
+
+describe("tinTamTuDraft — thẻ tin hiện ngay sau khi đăng (CC-05)", () => {
+  it("trim, ô trống bỏ, SĐT trống lấy số tài khoản, id có tiền tố tạm, mine", () => {
+    const l = tinTamTuDraft(
+      draft({ posterName: " Tàu ông Bảy ", quantity: "  ", phone: "", note: " ướp đá " }),
+      { id: "1", accountPhone: "0900000777", today: "2026-10-25" },
+    );
+    expect(l.posterName).toBe("Tàu ông Bảy");
+    expect(l.quantity).toBeUndefined();
+    expect(l.phone).toBe("0900000777");
+    expect(l.note).toBe("ướp đá");
+    expect(l.status).toBe("open");
+    expect(l.mine).toBe(true);
+    expect(l.postedOn).toBe("2026-10-25");
+    expect(laTinTam(l.id)).toBe(true);
+    expect(laTinTam("row-1")).toBe(false);
+  });
+  it("SĐT bà con nhập thì giữ số đó", () => {
+    expect(
+      tinTamTuDraft(draft({ phone: "0901234567" }), {
+        id: "2",
+        accountPhone: "0900000777",
+        today: "2026-10-25",
+      }).phone,
+    ).toBe("0901234567");
   });
 });
 

@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { aboutDto } from "@/lib/kairos/dto";
 import {
-  addMoiTen, GIOI_THIEU_MAX, gridPhotos, isDefaultHandle, NGHE, ngheName, parseMoiTen, samePort, shouldAskName, tinhName, TINH_LIST,
+  addMoiTen, authorToi, GIOI_THIEU_MAX, gridPhotos, isDefaultHandle, NGHE, ngheName, parseMoiTen, samePort, shouldAskName, tinhName, TINH_LIST,
 } from "@/lib/kairos/ho-so";
 import { PROVINCES } from "@/lib/kairos/khu-vuc.mjs";
 import { validateMePatch } from "@/lib/kairos/me-patch";
@@ -157,5 +157,18 @@ describe("aboutDto + câu lỗi", () => {
     expect(e("too_long", "ho-so")).toContain("150");
     expect(e("bad_province")).toBe("Chọn lại trong danh sách giúp.");
     expect(errorText({ code: "fields_missing", status: 503, offline: false })).toContain("chưa mở");
+  });
+});
+
+describe("authorToi — hồ sơ mình từ bản lưu (K3-09, không gọi /me)", () => {
+  const au = (profileId: string, handle: string) => ({ profileId, handle, subline: "", avatarUrl: null, official: false });
+  const bai = (over: Partial<KairosPost>): KairosPost =>
+    ({ id: "x", kind: "ba-con", author: au("a", "A"), topComments: [], mine: false, ...over }) as KairosPost;
+  it("bài của mình trước, rồi bình luận của mình; không có ⇒ null", () => {
+    expect(authorToi([bai({ author: au("t", "Tôi đây"), mine: true })])).toEqual({ profileId: "t", handle: "Tôi đây" });
+    const c = { id: "c", author: au("t2", "Tư"), mine: true } as KairosPost["topComments"][number];
+    expect(authorToi([bai({}), bai({ topComments: [c] })])).toEqual({ profileId: "t2", handle: "Tư" });
+    expect(authorToi([bai({})])).toBeNull();
+    expect(authorToi([])).toBeNull();
   });
 });

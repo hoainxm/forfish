@@ -10,6 +10,7 @@ export function KairosAvatar({
   name,
   url,
   small = false,
+  nav = false,
   large = false,
   xl = false,
   className = "",
@@ -18,6 +19,8 @@ export function KairosAvatar({
   name: string;
   url: string | null;
   small?: boolean;
+  /** nút "Trang tôi" góc phải đầu màn (2.75rem = cỡ control, K3-09) */
+  nav?: boolean;
   /** sheet Tên trên Kairos */
   large?: boolean;
   /** đầu trang người dùng — tròn đè mép dưới ảnh bìa (kiểu Facebook) */
@@ -29,9 +32,11 @@ export function KairosAvatar({
     ? "h-24 w-24 text-[2.5rem]"
     : large
       ? "h-20 w-20 text-[2rem]"
-      : small
-        ? "h-8 w-8 text-[0.875rem]"
-        : "h-10 w-10 text-[1rem]";
+      : nav
+        ? "h-11 w-11 text-[1.125rem]"
+        : small
+          ? "h-8 w-8 text-[0.875rem]"
+          : "h-10 w-10 text-[1rem]";
   if (url) {
     // eslint-disable-next-line @next/next/no-img-element -- ảnh kho kairos-media đã nén
     return <img src={url} alt="" loading="lazy" className={`${size} shrink-0 rounded-full bg-field object-cover ${className}`} />;

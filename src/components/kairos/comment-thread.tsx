@@ -7,9 +7,13 @@
    · Trả lời 1 cấp: trả lời một trả lời ⇒ gắn vào bình luận gốc kèm "@tên" — KHÔNG chèn vào ô (viên
      "Trả lời …" + × nói thay), chỉ ghép lúc gửi (social.ghepTraLoi). Đổi người trả lời / huỷ giữ chữ.
    · Luồng ≥2 trả lời gập thành "Xem N phản hồi" (social.traLoiHien); `#bl-<id>` hoặc mình vừa trả lời ⇒ bung.
-   · `dinhDay` (trang chi tiết): ô viết dính đáy trên dock, bàn phím mở thì dịch lên theo use-vung-nhin.
-   · Hay lạc quan + hoàn tác; xoá của mình (xác nhận tại chỗ); báo xấu của người khác.
-   · Ô viết dạng viên (như FB): chữ + nút gửi; Enter xuống dòng (bàn phím điện thoại), bấm nút mới gửi.
+   · Ô viết DÍNH ĐÁY ở mọi chỗ (K3-01, 2026-10-25 — trước chỉ trang chi tiết; inline thì ô rơi xuống dưới dock):
+     sticky trên dock, bàn phím mở thì dịch lên theo use-vung-nhin. Thẻ bài phải KHÔNG `overflow-hidden`
+     (overflow ≠ visible biến thẻ thành khung cuộn, sticky không dính nữa).
+   · Hay lạc quan + hoàn tác; xoá của mình (xác nhận tại chỗ); báo xấu của người khác — hai việc này nằm trong
+     menu GIỮ LÂU bong bóng (K3-10: Popover Chép · Xoá / Báo xấu), hàng dưới bình luận chỉ còn giờ · Hay · Trả lời.
+   · Ô viết dạng viên (như FB): nút ảnh + micro NẰM TRONG viên bên phải, nút gửi tròn chỉ hiện khi có chữ/ảnh
+     (03 §6 mục 8); Enter xuống dòng (bàn phím điện thoại), bấm nút mới gửi.
    · Nháp theo bài `forfish.kairos.nhap.v1` khoá `bl:<id>` — mất sóng vẫn giữ chữ, KHÔNG tự gửi khi có sóng lại.
    · Bình luận nhanh (14 §15): ô trống ⇒ hàng câu có sẵn (Cảm ơn · Đúng rồi…) một chạm là gửi; nút micro
      nói để viết — chữ nghe được ĐIỀN vào ô, bà con xem lại rồi mới bấm gửi.
@@ -22,7 +26,8 @@
 import { chonCamXuc, chotCamXuc, type CamXuc, type CamXucState } from "@/lib/kairos/cam-xuc";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CloseIcon, ImageIcon, SendIcon } from "@/components/icons";
+import { AlertIcon, CloseIcon, DocIcon, ImageIcon, SendIcon, TrashIcon } from "@/components/icons";
+import { Popover } from "@/components/ui/popover";
 import { resizeForMarket } from "@/lib/market/image-resize";
 import { draftKey } from "@/lib/kairos/cache";
 import { countLabel, postTimeLabel } from "@/lib/kairos/feed-client";
@@ -93,6 +98,7 @@ function CommentRow({
   onReply,
   onDelete,
   onReport,
+  onChep,
 }: {
   c: KairosComment;
   now: number;
@@ -101,19 +107,66 @@ function CommentRow({
   onReply: (c: KairosComment) => void;
   onDelete: (c: KairosComment) => Promise<boolean>;
   onReport: (c: KairosComment) => void;
+  onChep: (c: KairosComment) => void;
 }) {
   const [ask, setAsk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [xem, setXem] = useState(false);
   const [anhHong, setAnhHong] = useState(false);
+  /** menu giữ lâu (K3-10): phần tử bong bóng đang neo (null = đóng) */
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
+  const hen = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const daGiu = useRef(false);
+  const goc = useRef<{ x: number; y: number } | null>(null);
+  const huyHen = () => {
+    if (hen.current) clearTimeout(hen.current);
+    hen.current = null;
+    goc.current = null;
+  };
+  useEffect(() => huyHen, []);
   const small = "h-9 px-2 text-[0.8125rem] font-semibold";
+  const mucMenu = "flex h-12 w-full items-center gap-3 px-4 text-left text-[1rem] font-semibold active:bg-field";
   return (
     <li id={`bl-${c.id}`} className={`flex scroll-mt-20 gap-2 ${reply ? "pl-10" : ""}`}>
       <Link href={`/kairos/u/${c.author.profileId}`} aria-label={c.author.handle} className="shrink-0">
         <KairosAvatar id={c.author.profileId || c.id} name={c.author.handle} url={c.author.avatarUrl} small />
       </Link>
       <div className="min-w-0 flex-1">
-        <div className="inline-block max-w-full rounded-2xl bg-field px-3 py-1.5">
+        {/* GIỮ LÂU (~0,45 s, ngón không rê quá 8px) hoặc chuột phải ⇒ menu Chép · Xoá / Báo xấu như FB; chạm thường
+            vẫn là chạm (tên dẫn trang). Sau khi giữ, cú click theo sau bị nuốt để không mở nhầm liên kết. */}
+        <div
+          className={`inline-block max-w-full select-none rounded-2xl px-3 py-1.5 ${menu ? "bg-sea/12" : "bg-field"}`}
+          style={{ WebkitTouchCallout: "none" }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            huyHen();
+            daGiu.current = true;
+            setMenu(e.currentTarget);
+          }}
+          onPointerDown={(e) => {
+            if (e.pointerType === "mouse" || e.button !== 0) return;
+            daGiu.current = false;
+            huyHen();
+            goc.current = { x: e.clientX, y: e.clientY };
+            const el = e.currentTarget;
+            hen.current = setTimeout(() => {
+              daGiu.current = true;
+              setMenu(el);
+            }, 450);
+          }}
+          onPointerMove={(e) => {
+            const g = goc.current;
+            if (g && Math.hypot(e.clientX - g.x, e.clientY - g.y) > 8) huyHen();
+          }}
+          onPointerUp={huyHen}
+          onPointerCancel={huyHen}
+          onClickCapture={(e) => {
+            if (!daGiu.current) return;
+            daGiu.current = false;
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
           <Link href={`/kairos/u/${c.author.profileId}`} className="block truncate text-[0.8125rem] font-bold text-navy">
             {c.author.handle}
             {c.author.official && <span className="ml-1.5 text-sea">{NHAN.chinhThuc}</span>}
@@ -125,6 +178,51 @@ function CommentRow({
             !c.image && <p className="text-[1rem] text-foreground/65">Đã gửi một ảnh</p>
           )}
         </div>
+        {menu && (
+          <Popover anchor={menu} onClose={() => setMenu(null)} label="Việc với bình luận" role="menu" className="w-[11rem] py-1">
+            {c.body && (
+              <button
+                type="button"
+                role="menuitem"
+                className={`${mucMenu} text-navy`}
+                onClick={() => {
+                  setMenu(null);
+                  onChep(c);
+                }}
+              >
+                <DocIcon className="h-5 w-5" />
+                {NHAN.chep}
+              </button>
+            )}
+            {c.mine ? (
+              <button
+                type="button"
+                role="menuitem"
+                className={`${mucMenu} text-danger`}
+                onClick={() => {
+                  setMenu(null);
+                  setAsk(true);
+                }}
+              >
+                <TrashIcon className="h-5 w-5" />
+                {NHAN.xoa}
+              </button>
+            ) : (
+              <button
+                type="button"
+                role="menuitem"
+                className={`${mucMenu} text-danger`}
+                onClick={() => {
+                  setMenu(null);
+                  onReport(c);
+                }}
+              >
+                <AlertIcon className="h-5 w-5" />
+                {NHAN.baoXau}
+              </button>
+            )}
+          </Popover>
+        )}
         {c.image && (
           <button type="button" onClick={() => setXem(true)} aria-label="Xem ảnh bình luận" className="mt-1 block overflow-hidden rounded-2xl">
             {anhHong ? (
@@ -165,15 +263,6 @@ function CommentRow({
             <button type="button" onClick={() => onReply(c)} className={small}>
               {NHAN.traLoi}
             </button>
-            {c.mine ? (
-              <button type="button" onClick={() => setAsk(true)} className={`${small} text-danger`}>
-                {NHAN.xoa}
-              </button>
-            ) : (
-              <button type="button" onClick={() => onReport(c)} className={small}>
-                {NHAN.baoXau}
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -188,7 +277,6 @@ export function CommentThread({
   kit,
   canWrite = true,
   autoFocus = false,
-  dinhDay = false,
   now,
 }: {
   post: KairosPost;
@@ -199,8 +287,6 @@ export function CommentThread({
   /** bài đang là bản lưu (mất sóng) ⇒ ô viết "Cần sóng" */
   canWrite?: boolean;
   autoFocus?: boolean;
-  /** trang chi tiết bài: ô viết dính đáy màn (trên dock / trên bàn phím) như Facebook */
-  dinhDay?: boolean;
   now: number;
 }) {
   const { phone, signedIn, ready: authReady } = useAuthUser();
@@ -293,8 +379,10 @@ export function CommentThread({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ lúc mở khối
   }, []);
 
+  // Ô viết đã dính đáy (luôn trong tầm) ⇒ không để trình duyệt tự cuộn khi đặt con trỏ — bên mở khối (thẻ bài)
+  // đã cuộn khối vào tầm; cuộn hai lần thì bài nhảy.
   useEffect(() => {
-    if (autoFocus) box.current?.focus({ preventScroll: false });
+    if (autoFocus) box.current?.focus({ preventScroll: true });
   }, [autoFocus]);
 
   const loadMore = async () => {
@@ -431,6 +519,14 @@ export function CommentThread({
   const threads = threadComments(comments);
   const toi = comments.find((c) => c.mine)?.author ?? null;
   const report = (c: KairosComment) => kit.report({ type: "comment", id: c.id });
+  const chep = async (c: KairosComment) => {
+    try {
+      await navigator.clipboard.writeText(c.body);
+      kit.notify("Đã chép.");
+    } catch {
+      kit.notify("Máy không cho chép chữ.", true);
+    }
+  };
   const sendLabel = !online || !canWrite ? NHAN.canSong : sending ? NHAN.dangGui : NHAN.gui;
 
   return (
@@ -449,9 +545,9 @@ export function CommentThread({
           {threads.map((t) => (
             <li key={t.root.id}>
               <ul className="space-y-2">
-                <CommentRow c={t.root} now={now} onHay={hayComment} onReply={startReply} onDelete={deleteComment} onReport={report} />
+                <CommentRow c={t.root} now={now} onHay={hayComment} onReply={startReply} onDelete={deleteComment} onReport={report} onChep={chep} />
                 {traLoiHien(t, mo, troToi).map((r) => (
-                  <CommentRow key={r.id} c={r} now={now} reply onHay={hayComment} onReply={startReply} onDelete={deleteComment} onReport={report} />
+                  <CommentRow key={r.id} c={r} now={now} reply onHay={hayComment} onReply={startReply} onDelete={deleteComment} onReport={report} onChep={chep} />
                 ))}
                 {traLoiHien(t, mo, troToi).length < t.replies.length && (
                   <li className="pl-10">
@@ -501,12 +597,13 @@ export function CommentThread({
             </div>
           )}
           {/* Thanh viết là con TRỰC TIẾP của khối gốc (bao cả danh sách bình luận): sticky chỉ dính
-              trong khối cha, bọc thêm <div> riêng là nó đứng yên ở cuối (lỗi vòng kiểm 2026-10-24). */}
+              trong khối cha, bọc thêm <div> riêng là nó đứng yên ở cuối (lỗi vòng kiểm 2026-10-24).
+              Bo góc dưới theo thẻ: lúc nằm cuối thẻ bài (không overflow-hidden) không lòi góc vuông. */}
           <div
-            className={dinhDay ? "sticky z-10 -mx-4 border-t border-line bg-card px-4 pb-2 pt-2" : ""}
+            className="sticky z-10 -mx-4 rounded-b-(--r-card) border-t border-line bg-card px-4 pb-3 pt-2"
             // trên dock nổi — --dock-total đã gồm safe-area đáy (--dock-safe), không cộng env() lần hai;
             // bàn phím mở (vùng nhìn thấy < innerHeight) ⇒ đứng ngay trên bàn phím
-            style={dinhDay ? { bottom: vung && vung.ban > 0 ? vung.ban : "var(--dock-total)" } : undefined}
+            style={{ bottom: vung && vung.ban > 0 ? vung.ban : "var(--dock-total)" }}
           >
             {replyTo && (
               <div className="mb-1 flex items-center gap-1 pl-10 text-[0.8125rem]">
@@ -559,65 +656,73 @@ export function CommentThread({
               <span className="flex h-11 shrink-0 items-center">
                 <KairosAvatar id={toi?.profileId || "toi"} name={toi?.handle || "Tôi"} url={toi?.avatarUrl ?? null} small />
               </span>
-              <label htmlFor={`kairos-bl-${id}`} className="sr-only">
-                Viết bình luận
-              </label>
-              <textarea
-                id={`kairos-bl-${id}`}
-                ref={box}
-                rows={1}
-                value={text}
-                onChange={(e) => {
-                  onText(e.target.value);
-                  nt.theoDoi(e.target.value, e.target.selectionStart);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape" && nt.mo) {
-                    e.stopPropagation();
-                    nt.dong();
-                  }
-                }}
-                placeholder={toi?.handle ? `Bình luận với tên ${toi.handle}` : "Viết bình luận…"}
-                className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-line bg-field px-4 py-2.5 text-[1rem] leading-snug outline-none focus-visible:ring-2 focus-visible:ring-sea"
-              />
-              <input
-                ref={chonAnh}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  void layAnh(e.target.files?.[0]);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => chonAnh.current?.click()}
-                disabled={!online || !canWrite || sending || anhBusy || needRules}
-                aria-busy={anhBusy}
-                aria-label={anh ? "Đổi ảnh" : "Gửi ảnh"}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground/65 disabled:opacity-40"
-              >
-                <ImageIcon className="h-6 w-6" />
-              </button>
-              <NutMic
-                disabled={sending}
-                onChu={(t) => {
-                  onText(text.trim() ? `${text.trimEnd()} ${t}` : t);
-                  box.current?.focus();
-                }}
-                onLoi={(t) => setSendErr(t)}
-              />
-              <button
-                type="button"
-                onClick={() => void send()}
-                disabled={!canSend}
-                aria-busy={sending}
-                aria-label={sendLabel}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sea text-white disabled:opacity-40"
-              >
-                <SendIcon className="h-5 w-5" />
-              </button>
+              {/* VIÊN kiểu FB: ảnh + micro nằm TRONG viên, góc phải dưới; chữ chừa phải 5.25rem cho hai nút */}
+              <div className="relative min-w-0 flex-1">
+                <label htmlFor={`kairos-bl-${id}`} className="sr-only">
+                  Viết bình luận
+                </label>
+                <textarea
+                  id={`kairos-bl-${id}`}
+                  ref={box}
+                  rows={1}
+                  value={text}
+                  onChange={(e) => {
+                    onText(e.target.value);
+                    nt.theoDoi(e.target.value, e.target.selectionStart);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && nt.mo) {
+                      e.stopPropagation();
+                      nt.dong();
+                    }
+                  }}
+                  placeholder={toi?.handle ? `Bình luận với tên ${toi.handle}` : "Viết bình luận…"}
+                  className="block max-h-32 min-h-11 w-full resize-none rounded-3xl border border-line bg-field py-2.5 pl-4 pr-[5.25rem] text-[1rem] leading-snug outline-none focus-visible:ring-2 focus-visible:ring-sea"
+                />
+                <input
+                  ref={chonAnh}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    void layAnh(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                <span className="absolute bottom-0 right-0.5 flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => chonAnh.current?.click()}
+                    disabled={!online || !canWrite || sending || anhBusy || needRules}
+                    aria-busy={anhBusy}
+                    aria-label={anh ? "Đổi ảnh" : "Gửi ảnh"}
+                    className="flex h-11 w-10 shrink-0 items-center justify-center rounded-full text-foreground/65 disabled:opacity-40"
+                  >
+                    <ImageIcon className="h-6 w-6" />
+                  </button>
+                  <NutMic
+                    khongVien
+                    disabled={sending}
+                    onChu={(t) => {
+                      onText(text.trim() ? `${text.trimEnd()} ${t}` : t);
+                      box.current?.focus();
+                    }}
+                    onLoi={(t) => setSendErr(t)}
+                  />
+                </span>
+              </div>
+              {(len > 0 || anh) && (
+                <button
+                  type="button"
+                  onClick={() => void send()}
+                  disabled={!canSend}
+                  aria-busy={sending}
+                  aria-label={sendLabel}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sea text-white disabled:opacity-40"
+                >
+                  <SendIcon className="h-5 w-5" />
+                </button>
+              )}
             </div>
             <div className="mt-1 flex min-h-5 items-center justify-between gap-2 px-2 text-[0.8125rem]">
               <span className="text-foreground/65">

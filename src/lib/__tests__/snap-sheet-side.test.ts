@@ -7,7 +7,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement, useState } from "react";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { SnapSheet } from "@/components/ui/snap-sheet";
 
@@ -50,17 +50,18 @@ describe("ngăn gió sóng bên phải", () => {
     expect(screen.getByText("LƯỚI SỐ")).toBeTruthy();
   });
 
-  it("mở thì focus vào ngăn; 'Thu' thì focus quay về viên", () => {
+  it("mở thì focus vào ngăn; 'Thu' thì focus quay về viên", async () => {
     render(createElement(Harness));
     act(() => fireEvent.click(vien()));
     const ngan = screen.getByText("LƯỚI SỐ").closest("[id$='-ngan']") as HTMLElement;
     expect(document.activeElement).toBe(ngan);
     const thu = screen.getByRole("button", { name: "Thu bảng sang phải" });
-    act(() => {
+    // ngăn mở chiếm một mục lịch sử (rà FB 2026-10-25): "Thu" lùi mục rồi popstate mới thu ⇒ đợi
+    await act(async () => {
       thu.focus();
       fireEvent.click(thu);
     });
-    expect(document.activeElement).toBe(vien());
+    await waitFor(() => expect(document.activeElement).toBe(vien()));
   });
 
   it("'Giữ mở' bật/tắt có aria-pressed và báo cha", () => {

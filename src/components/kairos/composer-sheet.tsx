@@ -403,10 +403,11 @@ export function ComposerSheet({
           rows={4}
           placeholder={mode.kind === "reshare" ? "Bà con nghĩ gì về bài này?" : "Bà con muốn chia sẻ gì?"}
           aria-describedby="kairos-soan-dem"
-          className="block w-full resize-none rounded-lg border-0 bg-transparent p-0 leading-snug text-foreground placeholder:text-foreground/45"
+          className="block w-full resize-none rounded-lg border-0 bg-transparent p-0 leading-snug text-foreground outline-none placeholder:text-foreground/45 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-line"
           // cỡ chữ đặt inline: luật `textarea { font-size: max(16px,1em) }` của globals.css nằm ngoài @layer nên thắng
-          // utility. Viền tiêu điểm GIỮ (không huỷ trắng) nhưng nhạt — ô chữ toàn màn không trông như ô biểu mẫu.
-          style={{ fontSize: chuTo ? "1.5rem" : "1.0625rem", outlineWidth: 2, outlineColor: "var(--line)", outlineOffset: 6 }}
+          // utility. Viền tiêu điểm GIỮ (không huỷ trắng) nhưng chỉ `focus-visible` + nhạt + sát (K3-14) — ô chữ toàn
+          // màn không trông như ô biểu mẫu; trình duyệt vẫn coi ô chữ là focus-visible khi chạm, nên viền mỏng/nhạt.
+          style={{ fontSize: chuTo ? "1.5rem" : "1.0625rem" }}
         />
         {nt.danhSach && <div className="mt-2">{nt.danhSach}</div>}
         <div id="kairos-soan-dem" className="mb-2 mt-1 flex min-h-5 justify-between gap-2 text-[0.8125rem]">
@@ -486,8 +487,8 @@ export function ComposerSheet({
         />
       )}
       {hoiDong && (
-        <BottomSheet title={editing ? "Bỏ phần đã sửa?" : "Bỏ bài đang viết?"} onClose={() => setHoiDong(false)}>
-          <p className="mb-3 text-[0.875rem] text-foreground/65">Lưu nháp thì lần sau mở lại viết tiếp được, kể cả ảnh.</p>
+        // kieu="form": KHÔNG × góc (03 §6 mục 2 — một lối huỷ là "Viết tiếp"); vuốt/chạm nền = Viết tiếp (K3-13)
+        <BottomSheet title={editing ? "Bỏ phần đã sửa?" : "Bỏ bài đang viết?"} kieu="form" onClose={() => setHoiDong(false)}>
           <div className="grid gap-2">
             <button type="button" onClick={luuNhap} className="h-(--h-cta) rounded-xl bg-sea font-semibold text-white">
               {NHAN.luuNhap}

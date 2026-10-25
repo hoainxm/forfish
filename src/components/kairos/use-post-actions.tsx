@@ -7,8 +7,9 @@
 
    · Hay (AC09): LẠC QUAN — đếm đổi ngay, máy chủ trả số thật; hỏng ⇒ trả về như trước bấm +
      câu lỗi thật. Bấm lại khi lượt trước chưa về ⇒ bỏ qua (chống bấm trùng; DB có PK cặp).
-   · Ba chấm: bài mình ⇒ Sửa / Xoá (xác nhận; xoá luôn ảnh kho — máy chủ lo); bài người khác
-     ⇒ Báo xấu / Chặn (xác nhận). Bài báo ⇒ Báo xấu.
+   · Ba chấm: `Popover` NEO CẠNH NÚT ⋯ (03 §6 mục 9, K3-05 — hết ngăn đáy "Thêm việc"): icon + nhãn ≤2 chữ.
+     Bài mình ⇒ Lưu · Sửa · Xoá (xác nhận; xoá luôn ảnh kho — máy chủ lo); bài người khác ⇒ Lưu · Báo xấu ·
+     Chặn (xác nhận). Bài báo ⇒ Lưu · Báo xấu. Việc phá huỷ chữ danger.
    · Chặn ⇒ ẩn NGAY mọi bài của người đó trên màn, cả 2 bình luận nổi của họ dưới bài người
      khác và thẻ bài gốc của họ trong bài đăng lại (social.hideBlocked; máy chủ lọc từ lần tải sau).
    · Chia sẻ ⇒ ShareSheet; Đăng lại ⇒ khung soạn kiểu `reshare`.
@@ -21,7 +22,8 @@
 import { chonCamXuc, chotCamXuc, type CamXuc, type CamXucState } from "@/lib/kairos/cam-xuc";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Popover } from "@/components/ui/popover";
+import { AlertIcon, EditIcon, LockIcon, StarIcon, TrashIcon } from "@/components/icons";
 import type { KairosPost } from "@/lib/kairos/types";
 import { errorText, hideBlocked, kairosSend } from "@/lib/kairos/write-client";
 import { luuLoiText } from "@/lib/kairos/luu-bai";
@@ -43,7 +45,8 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
   const [added, setAdded] = useState<KairosPost[]>([]);
   const [compose, setCompose] = useState<ComposeMode | null>(null);
   const [share, setShare] = useState<KairosPost | null>(null);
-  const [more, setMore] = useState<KairosPost | null>(null);
+  /** bài đang mở ⋯ + chính nút ⋯ để neo Popover */
+  const [more, setMore] = useState<{ post: KairosPost; anchor: HTMLElement } | null>(null);
   /** bài đang mở ba chấm đã nằm trong "Đã lưu" chưa (đọc lúc mở bảng) */
   const [moreSaved, setMoreSaved] = useState(false);
   const [report, setReport] = useState<{ type: "post" | "comment"; id: string } | null>(null);
@@ -99,9 +102,9 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
     },
     onHay: (p, kind) => void onHay(p, kind),
     onShare: (p) => setShare(p),
-    onMore: (p) => {
+    onMore: (p, anchor) => {
       setMoreSaved(daLuuBai(phone, p.id));
-      setMore(p);
+      setMore((cur) => (cur?.post.id === p.id ? null : { post: p, anchor }));
     },
   };
 
@@ -182,7 +185,7 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
     return true;
   };
 
-  const sheetBtn = "flex min-h-14 w-full items-center rounded-xl px-3 text-left text-[1rem] font-semibold active:bg-field";
+  const mucMenu = "flex h-12 w-full items-center gap-3 px-4 text-left text-[1rem] font-semibold active:bg-field";
   const ui = (
     <>
       {compose && <ComposerSheet mode={compose} onClose={() => setCompose(null)} onDone={onDone} />}
@@ -197,58 +200,65 @@ export function usePostActions(opts: { onDeleted?: (id: string) => void; onPoste
         />
       )}
       {more && (
-        <BottomSheet title="Thêm việc" onClose={() => setMore(null)}>
-          <div className="divide-y divide-line">
-            <button
-              type="button"
-              className={`${sheetBtn} text-navy`}
-              onClick={() => {
-                const p = more;
-                setMore(null);
-                void doLuu(p, !moreSaved);
-              }}
-            >
-              {moreSaved ? NHAN.boLuu : NHAN.luu}
-            </button>
-            {more.mine ? (
-              <>
-                <button type="button" className={`${sheetBtn} text-navy`} onClick={() => (setCompose({ kind: "edit", post: more }), setMore(null))}>
-                  {NHAN.sua}
-                </button>
-                <button type="button" className={`${sheetBtn} text-danger`} onClick={() => (setConfirmDel(more), setMore(null))}>
-                  {NHAN.xoa}
-                </button>
-              </>
-            ) : (
-              <>
+        <Popover anchor={more.anchor} onClose={() => setMore(null)} label="Việc với bài" role="menu" className="w-[12rem] py-1">
+          <button
+            type="button"
+            role="menuitem"
+            className={`${mucMenu} text-navy`}
+            onClick={() => {
+              const p = more.post;
+              setMore(null);
+              void doLuu(p, !moreSaved);
+            }}
+          >
+            <StarIcon className="h-5 w-5" />
+            {moreSaved ? NHAN.boLuu : NHAN.luu}
+          </button>
+          {more.post.mine ? (
+            <>
+              <button type="button" role="menuitem" className={`${mucMenu} text-navy`} onClick={() => (setCompose({ kind: "edit", post: more.post }), setMore(null))}>
+                <EditIcon className="h-5 w-5" />
+                {NHAN.sua}
+              </button>
+              <button type="button" role="menuitem" className={`${mucMenu} text-danger`} onClick={() => (setConfirmDel(more.post), setMore(null))}>
+                <TrashIcon className="h-5 w-5" />
+                {NHAN.xoa}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                className={`${mucMenu} text-danger`}
+                onClick={() => {
+                  if (needLogin("báo xấu")) return;
+                  setReport({ type: "post", id: more.post.id });
+                  setMore(null);
+                }}
+              >
+                <AlertIcon className="h-5 w-5" />
+                {NHAN.baoXau}
+              </button>
+              {more.post.kind === "ba-con" && more.post.author && !more.post.author.official && (
                 <button
                   type="button"
-                  className={`${sheetBtn} text-danger`}
+                  role="menuitem"
+                  aria-label={`${NHAN.chan} ${more.post.author.handle}`}
+                  className={`${mucMenu} text-danger`}
                   onClick={() => {
-                    if (needLogin("báo xấu")) return;
-                    setReport({ type: "post", id: more.id });
+                    if (needLogin("chặn")) return;
+                    setConfirmBlock(more.post);
                     setMore(null);
                   }}
                 >
-                  {NHAN.baoXau}
+                  <LockIcon className="h-5 w-5" />
+                  {NHAN.chan}
                 </button>
-                {more.kind === "ba-con" && more.author && !more.author.official && (
-                  <button
-                    type="button"
-                    className={`${sheetBtn} text-navy`}
-                    onClick={() => {
-                      if (needLogin("chặn")) return;
-                      setConfirmBlock(more);
-                      setMore(null);
-                    }}
-                  >
-                    {NHAN.chan} {more.author.handle}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </BottomSheet>
+              )}
+            </>
+          )}
+        </Popover>
       )}
       {report && <ReportSheet target={report} onClose={() => setReport(null)} />}
       {confirmDel && (

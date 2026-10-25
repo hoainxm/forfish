@@ -18,7 +18,7 @@ import {
 import { loadDraft, saveDraft } from "@/lib/kairos/write-client";
 import { KAIROS_DRAFT_KEY } from "@/lib/kairos/cache";
 import type { KairosComment, KairosPost } from "@/lib/kairos/types";
-import type { KairosMe } from "@/lib/kairos/social";
+import { tenMien, type KairosMe } from "@/lib/kairos/social";
 
 const PID = "11111111-2222-4333-8444-555555555555";
 const IMG = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -213,5 +213,14 @@ describe("kairos nháp chữ (forfish.kairos.nhap.v1)", () => {
     } finally {
       Storage.prototype.setItem = orig;
     }
+  });
+});
+
+describe("tenMien — dải thẻ link bài báo (K3-04)", () => {
+  it("bỏ www., giữ tên miền con; link hỏng/rỗng ⇒ rỗng", () => {
+    expect(tenMien("https://www.laodong.vn/a/b?c=1")).toBe("laodong.vn");
+    expect(tenMien("https://thanhnien.vn/x")).toBe("thanhnien.vn");
+    expect(tenMien("khong-phai-link")).toBe("");
+    expect(tenMien(null)).toBe("");
   });
 });

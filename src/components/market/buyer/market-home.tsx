@@ -8,7 +8,7 @@
 // hai lưới món cần mạng, và lúc đó nói thật + nút Thử lại + đường sang đơn.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CartIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
 import { CategoryChips, type CategoryChipValue } from "@/components/market/shared/category-chips";
 import { EmptyNet } from "@/components/market/shared/empty-net";
@@ -16,14 +16,18 @@ import { OrderStatusChip } from "@/components/market/shared/order-status-chip";
 import { PriceText } from "@/components/market/shared/price-text";
 import { EmptyState, SectionHeader } from "@/components/ui/primitives";
 import { marketGet } from "@/lib/market/client";
+import { saveListState, takeListState } from "@/lib/market/list-state";
 import type { ProductCard } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import { loadHome } from "@/lib/region";
 import { CartFeedback, ErrorBlock, GridSkeleton, MarketTopBar, ProductGrid } from "./ui";
-import { isOpenOrder, useCachedOrders, useFavorites, useMarketCart } from "./hooks";
+import { isOpenOrder, useCachedOrders, useFavorites, useKhoiPhucCuon, useMarketCart, useNhoCuon } from "./hooks";
 
 type ListRes = { items: ProductCard[]; total: number };
 type Status = "loading" | "ok" | "error" | "offline";
+
+/** Ngăn của màn này trong sổ bản chụp (11 §5b.2) — VT-03: ‹ từ trang món về đúng chỗ, không tải lại. */
+const LIST_ID = "cho-home";
 
 export function MarketHome({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
@@ -37,8 +41,51 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
   const [fresh, setFresh] = useState<ProductCard[]>([]);
   const [status, setStatus] = useState<Status>("loading");
   const [note, setNote] = useState<string | null>(null);
+  const khoiPhuc = useRef<number | null>(null);
+  /** vừa khôi phục bản chụp ⇒ bỏ lượt tải đầu (bản chụp ≤10 phút) */
+  const vuaKhoiPhuc = useRef(false);
+  /** đã đọc xong bản chụp (hay biết là không có) — chặn lượt tải khi chưa đọc; Strict Mode dev
+      chạy effect mount hai lần, không gác thì cờ `vuaKhoiPhuc` bị tiêu ở lượt đầu rồi lượt hai tải lại */
+  const [ready, setReady] = useState(false);
+  const cuonRef = useNhoCuon();
+  useKhoiPhucCuon(khoiPhuc, fresh.length);
 
-  useEffect(() => setProvince(loadHome().province ?? null), []);
+  useEffect(() => {
+    setProvince(loadHome().province ?? null);
+    /*  QUAY LẠI ĐÚNG CHỖ (VT-03): cuộn 900px, chạm một món, bấm ‹ ⇒ bản cũ về y≈239 và hai lưới
+        tải lại từ đầu; `/cho/tim` kề bên thì về đúng chỗ. Cùng một khuôn `list-state`. */
+    const cu = takeListState<ProductCard>(LIST_ID);
+    if (cu) {
+      const near = cu.extra?.near;
+      setFresh(cu.items);
+      setNear(Array.isArray(near) ? (near as ProductCard[]) : []);
+      setStatus("ok");
+      khoiPhuc.current = cu.scrollY;
+      vuaKhoiPhuc.current = true;
+    }
+    setReady(true);
+  }, []);
+
+  // Ghi bản chụp trước khi rời màn (pagehide + unmount) — chỉ khi hai lưới đã tải được
+  useEffect(() => {
+    const ghi = () => {
+      if (status !== "ok" || fresh.length === 0) return;
+      saveListState<ProductCard>(LIST_ID, {
+        q: "",
+        filters: {},
+        items: fresh,
+        total: fresh.length,
+        page: 1,
+        scrollY: cuonRef.current,
+        extra: { near },
+      });
+    };
+    window.addEventListener("pagehide", ghi);
+    return () => {
+      window.removeEventListener("pagehide", ghi);
+      ghi();
+    };
+  }, [status, fresh, near, cuonRef]);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -59,8 +106,13 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
   }, []);
 
   useEffect(() => {
+    if (!ready) return;
+    if (vuaKhoiPhuc.current) {
+      vuaKhoiPhuc.current = false; // bản chụp là đủ cho lượt quay lại này
+      return;
+    }
     void load();
-  }, [load]);
+  }, [ready, load]);
   useOnlineRefetch(() => void load());
 
   const onFav = (p: ProductCard) => {
@@ -181,10 +233,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
             what="cửa hàng"
             onRetry={() => void load()}
             extra={
-              <Link
-                href="/cho/don"
-                className="inline-flex min-h-(--row-h) items-center justify-center rounded-full bg-field px-5 text-[1rem] font-semibold text-navy"
-              >
+              <Link href="/cho/don" className="sq-btn bg-field text-navy">
                 Đơn hàng
               </Link>
             }

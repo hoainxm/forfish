@@ -3,21 +3,25 @@
 /*
   MÀN KAIROS ĐẦY ĐỦ (dòng tin chung + Bến) = KairosFeed + hành vi thẻ (usePostActions) + khung
   soạn. Bến truyền `port` ⇒ dòng tin lọc theo cảng, ô mời đăng THẲNG vào Bến (AC14).
-  Góc phải: chuông "Thông báo" (chỉ tin bình luận/trả lời mình, chấm đếm chưa đọc — 14 §16, dòng tin chung) + nút bánh răng "Tuỳ chọn dòng tin" (CHỈ dòng tin chung, không ở Bến — 14 §13) + "Trang tôi" ⇒
-  /kairos/u/toi (đổi tên gọi, ảnh, số hiệu tàu — AC12).
+  Góc phải: chuông "Thông báo" (chỉ tin bình luận/trả lời mình, chấm đếm chưa đọc — 14 §16, dòng tin chung) + nút bánh răng "Tuỳ chọn dòng tin" (CHỈ dòng tin chung, không ở Bến — 14 §13) + "Trang tôi" = ẢNH ĐẠI DIỆN TRÒN
+  của mình như FB (K3-09: `KairosAvatar nav`, aria-label "Trang tôi"; tên đọc từ bản lưu dòng tin `authorToi`, KHÔNG gọi /me
+  lúc mở màn; chưa có bài nào ⇒ chữ "T" của "Tôi") ⇒ /kairos/u/toi (đổi tên gọi, ảnh, số hiệu tàu — AC12).
   Bến (có `port`) là màn PHỤ ⇒ MarketHeader "‹ Bến X" (không trang trước ⇒ về /kairos), "Trang tôi" ở ô phải;
   tab Kairos gốc giữ tiêu đề lớn ManHeader.
 */
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SettingsIcon } from "@/components/icons";
 import { ManHeader } from "@/components/man-header";
 import { MarketHeader } from "@/components/market/shared/market-header";
-import { loadTuyChon, portLabel } from "@/lib/kairos/feed-client";
+import { loadFeedCache, loadTuyChon, portLabel } from "@/lib/kairos/feed-client";
+import { authorToi } from "@/lib/kairos/ho-so";
+import { useAuthUser } from "@/lib/use-auth";
 import type { TuyChon } from "@/lib/kairos/tuy-chon";
 import { NHAN } from "@/lib/labels";
 import { ChuongKairos } from "./chuong-kairos";
+import { KairosAvatar } from "./kairos-avatar";
 import { KairosFeed } from "./kairos-feed";
 import { KairosFishIcon } from "./kairos-fish-icon";
 import { TuyChonSheet } from "./tuy-chon-sheet";
@@ -29,9 +33,15 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
   const [tuyChon, setTuyChon] = useState<TuyChon | null>(null);
   /** ngăn đang mở: bản tuỳ chọn lúc mở (đọc lại từ máy để khớp cái dòng tin đang dùng) */
   const [mo, setMo] = useState<TuyChon | null>(null);
+  const { phone } = useAuthUser();
+  /** mình trong bản lưu dòng tin (chỉ localStorage, không mạng) — null ⇒ chữ cái "T" */
+  const [toi, setToi] = useState<{ profileId: string; handle: string } | null>(null);
+  useEffect(() => {
+    setToi(authorToi(loadFeedCache(phone)?.posts ?? []));
+  }, [phone]);
   const trangToi = (
-    <Link href="/kairos/u/toi" className="flex h-11 items-center rounded-xl border border-line px-3 text-[0.875rem] font-semibold text-sea">
-      {NHAN.trangToi}
+    <Link href="/kairos/u/toi" aria-label={NHAN.trangToi} title={NHAN.trangToi} className="flex shrink-0 rounded-full transition active:scale-[0.95]">
+      <KairosAvatar id={toi?.profileId ?? phone ?? "toi"} name={toi?.handle ?? "Tôi"} url={null} nav />
     </Link>
   );
   return (

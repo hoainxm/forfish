@@ -56,14 +56,59 @@ export interface ListingDraft {
   note?: string;
 }
 
+/** Ô nào sai — để form MỞ đúng nhóm ô đang thu và đặt câu lỗi ngay dưới ô
+ *  (CC-02: trước đây câu "Nhập tên" nằm ở hàng đáy trong khi ô Tên đang ẩn). */
+export type DraftField = "posterName" | "species" | "side" | "phone";
+
+/** Lỗi đầu tiên theo thứ tự ô trên form; null nếu OK. */
+export function validateDraftField(
+  d: ListingDraft,
+): { field: DraftField; message: string } | null {
+  if (!d.posterName.trim())
+    return { field: "posterName", message: "Nhập tên (tàu hoặc cơ sở)." };
+  if (!d.species.trim()) return { field: "species", message: "Nhập loài cá." };
+  if (d.side !== "mua" && d.side !== "ban")
+    return { field: "side", message: "Chọn tin bán hay tin mua." };
+  if (d.phone && d.phone.trim() && !isValidVnPhone(d.phone))
+    return { field: "phone", message: "Số điện thoại chưa đúng." };
+  return null;
+}
+
 /** Trả câu lỗi tiếng Việt nếu draft chưa hợp lệ, null nếu OK. */
 export function validateDraft(d: ListingDraft): string | null {
-  if (!d.posterName.trim()) return "Nhập tên (tàu hoặc cơ sở).";
-  if (!d.species.trim()) return "Nhập loài cá.";
-  if (d.side !== "mua" && d.side !== "ban") return "Chọn tin bán hay tin mua.";
-  if (d.phone && d.phone.trim() && !isValidVnPhone(d.phone))
-    return "Số điện thoại chưa đúng.";
-  return null;
+  return validateDraftField(d)?.message ?? null;
+}
+
+/** Tiền tố id của tin VỪA ĐĂNG chưa kịp tải lại từ máy chủ (CC-05): thẻ hiện
+ *  ngay, nhưng chưa có id thật nên chưa đóng/xoá được tới khi `refresh()` xong. */
+export const TAM_ID_PREFIX = "tam-";
+
+export function laTinTam(id: string): boolean {
+  return id.startsWith(TAM_ID_PREFIX);
+}
+
+/** Dựng thẻ tin tại máy từ bản nháp vừa gửi THÀNH CÔNG — đúng luật route POST:
+ *  trim, ô trống bỏ, SĐT trống thì lấy SĐT tài khoản, status open, mine. */
+export function tinTamTuDraft(
+  d: ListingDraft,
+  opt: { id: string; accountPhone: string | null; today: string },
+): MarketListing {
+  const trim = (s?: string) => (s && s.trim() ? s.trim() : undefined);
+  return {
+    id: TAM_ID_PREFIX + opt.id,
+    side: d.side,
+    posterKind: d.posterKind,
+    posterName: d.posterName.trim(),
+    species: d.species.trim(),
+    quantity: trim(d.quantity),
+    priceText: trim(d.priceText),
+    province: trim(d.province),
+    phone: trim(d.phone) ?? (opt.accountPhone || undefined),
+    note: trim(d.note),
+    status: "open",
+    postedOn: opt.today,
+    mine: true,
+  };
 }
 
 export type Row = {

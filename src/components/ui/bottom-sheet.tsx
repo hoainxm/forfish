@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useExitTransition } from "@/lib/use-exit-transition";
-import { focusablesIn, lockBodyScroll, unlockBodyScroll, vongFocus, vuotDeDong } from "@/lib/dialog-focus";
+import { focusablesIn, lockBodyScroll, unlockBodyScroll, useLichSuDong, vongFocus, vuotDeDong } from "@/lib/dialog-focus";
 import { CloseButton } from "@/components/ui/close-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -53,6 +53,10 @@ export function BottomSheet({
     if (kieu === "form" && daGoRef.current) setHoiBo(true);
     else requestClose();
   }, [kieu, requestClose]);
+  /*  BACK CỦA MÁY ĐÓNG NGĂN TRƯỚC KHI RỜI TRANG (rà FB 2026-10-25, TAU-01/VT-06): ngăn mở chiếm một mục lịch sử;
+      back ⇒ `dongNhe` (form đã gõ vẫn hỏi "Bỏ phần đang ghi?" — chọn "Ghi tiếp" thì `giuLai` đẩy mục lại). Mọi
+      đường đóng do bà con (×, Escape, chạm nền) đi qua `dongTay` để lần back sau không phải bấm hai lần. */
+  const { dongTay, giuLai } = useLichSuDong(dongNhe);
 
   /*  VUỐT XUỐNG ĐỂ ĐÓNG (03 mục 4 — thanh kéo trước đây chỉ để trang trí). Bắt trên thanh
       kéo + hàng tiêu đề (không bắt trong thân: thân còn phải cuộn). Ngón theo tay; thả
@@ -98,13 +102,16 @@ export function BottomSheet({
   useEffect(() => setMounted(true), []);
 
   /*  Hiệu ứng MỞ chỉ chạy MỘT LẦN mỗi lần mở (khoá cuộn, đặt con trỏ vào ô đầu, trả con trỏ khi đóng). Đọc
-      `dongNhe` mới nhất qua ref — KHÔNG để nó vào deps: bên gọi đổi onClose mỗi lần vẽ thì hiệu ứng chạy lại MỖI PHÍM,
-      con trỏ nhảy khỏi ô đang gõ ("gõ từng chữ một", khung soạn Kairos 2026-10-24). */
-  const dongNheRef = useRef(dongNhe);
+      `dongTay` mới nhất qua ref — KHÔNG để nó vào deps: bên gọi đổi onClose mỗi lần vẽ thì hiệu ứng chạy lại MỖI PHÍM,
+      con trỏ nhảy khỏi ô đang gõ ("gõ từng chữ một", khung soạn Kairos 2026-10-24).
+      CHẠY SAU `mounted` (TAU-13, 2026-10-25): lần vẽ đầu chưa có portal ⇒ panelRef null ⇒ trước đây không bao giờ
+      đặt được con trỏ vào ô đầu (bàn phím Android không tự lên). */
+  const dongTayRef = useRef(dongTay);
   useEffect(() => {
-    dongNheRef.current = dongNhe;
+    dongTayRef.current = dongTay;
   });
   useEffect(() => {
+    if (!mounted) return;
     const opener = document.activeElement as HTMLElement | null;
     lockBodyScroll();
     // focus phần tử đầu tiên trong sheet (bỏ qua nút × để không bung bàn phím/đọc "Đóng" trước)
@@ -115,7 +122,7 @@ export function BottomSheet({
       if (hoiBoRef.current) return; // hộp "Bỏ phần đang ghi?" đang lo phím
       if (e.key === "Escape") {
         e.preventDefault();
-        dongNheRef.current();
+        dongTayRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -132,7 +139,7 @@ export function BottomSheet({
       unlockBodyScroll();
       opener?.focus?.();
     };
-  }, []);
+  }, [mounted]);
 
   if (!mounted) return null;
 
@@ -143,10 +150,12 @@ export function BottomSheet({
   return createPortal(
     <>
     <div
-      className={`fixed inset-0 z-30 flex items-end justify-center bg-black/50 ${
+      /*  touch-none (VO-APP-09, 2026-10-25): iOS Safari bỏ qua overflow:hidden trên body — vuốt trên nền mờ vẫn trôi
+          trang phía sau; chặn cử chỉ ngay trên nền. Thân ngăn là vùng cuộn riêng nên không bị ảnh hưởng. */
+      className={`fixed inset-0 z-30 flex touch-none items-end justify-center bg-black/50 ${
         closing ? "anim-scrim-out" : "anim-scrim-in"
       }`}
-      onClick={dongNhe}
+      onClick={dongTay}
     >
       <div
         ref={panelRef}
@@ -177,7 +186,7 @@ export function BottomSheet({
             </h3>
             {kieu === "xem" && (
               <span data-dong-sheet="1" className="contents">
-                <CloseButton onClose={() => requestClose()} label={`Đóng ${title}`} />
+                <CloseButton onClose={dongTay} label={`Đóng ${title}`} />
               </span>
             )}
           </div>
@@ -193,7 +202,10 @@ export function BottomSheet({
           message="Những gì bà con vừa gõ chưa được lưu."
           cancelLabel="Ghi tiếp"
           confirmLabel="Bỏ"
-          onCancel={() => setHoiBo(false)}
+          onCancel={() => {
+            setHoiBo(false);
+            giuLai(); // back đã ăn mất mục của ngăn ⇒ đẩy lại, lần back sau vẫn hỏi trước khi rời trang
+          }}
           onConfirm={() => {
             setHoiBo(false);
             requestClose();

@@ -24,7 +24,7 @@ import { loadCachedMarketOrders, saveCachedMarketOrders } from "@/lib/market/ord
 import type { Order } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import { useAuthUser } from "@/lib/use-auth";
-import { ErrorBlock } from "./ui";
+import { ErrorBlock, primaryLinkClass } from "./ui";
 import { useOnlineState } from "./hooks";
 
 type Tab = "dang_xu_ly" | "cho_nhan" | "xong" | "huy";
@@ -98,7 +98,8 @@ export function MyMarketOrders() {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  /** việc đang gửi — nút nguồn đổi "Đang gửi…" (VT-05); null = rảnh */
+  const [busy, setBusy] = useState<Pending | null>(null);
 
   const load = useCallback(
     async (p: number, replace: boolean) => {
@@ -134,11 +135,16 @@ export function MyMarketOrders() {
   }, [first, load]);
   useOnlineRefetch(() => void load(1, true));
 
-  const run = async ({ order, kind }: Pending) => {
-    setBusy(true);
+  /*  VT-05: hộp xác nhận ĐÓNG NGAY khi bấm (ở `onConfirm`), nút nguồn đổi "Đang gửi…"
+      + khoá; `busy` chặn bấm đúp — mạng bến 10–20 s là bà con bấm lại, lần hai trả
+      `bad_transition` ⇒ màn in "đã sang bước khác" dù huỷ đã thành công. */
+  const run = async (p: Pending) => {
+    if (busy) return;
+    const { order, kind } = p;
+    setBusy(p);
+    setNote(null);
     const res = await marketPost<{ order: Order }>(`/api/cho/don/${order.id}/${kind}`, {});
-    setBusy(false);
-    setPending(null);
+    setBusy(null);
     if (!res.ok) {
       setNote(
         res.offline
@@ -161,6 +167,7 @@ export function MyMarketOrders() {
   const nowIso = new Date().toISOString();
   const shown = orders.filter((o) => inTab(o, tab));
   const count = (t: Tab) => orders.filter((o) => inTab(o, t)).length;
+  const sending = (o: Order, kind: Pending["kind"]) => busy?.order.id === o.id && busy.kind === kind;
 
   return (
     <div className="pb-[7rem]">
@@ -216,10 +223,7 @@ export function MyMarketOrders() {
               {orders.length === 0 ? "Chưa có đơn nào." : "Không có đơn nào ở mục này."}
             </EmptyState>
             {orders.length === 0 && (
-              <Link
-                href="/cho"
-                className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-              >
+              <Link href="/cho" className={`${primaryLinkClass} mx-auto mt-4 max-w-[15rem]`}>
                 Mua đồ
               </Link>
             )}
@@ -260,18 +264,18 @@ export function MyMarketOrders() {
                       <span className="mr-auto text-[0.875rem] text-foreground/65">Việc này cần có sóng.</span>
                     )}
                     {canCancel && (
-                      <ActionButton tone="danger" disabled={!online || busy} onClick={() => setPending({ order: o, kind: "huy" })}>
-                        Huỷ đơn
+                      <ActionButton tone="danger" disabled={!online || !!busy} onClick={() => setPending({ order: o, kind: "huy" })}>
+                        {sending(o, "huy") ? "Đang gửi…" : "Huỷ đơn"}
                       </ActionButton>
                     )}
                     {canPay && (
-                      <ActionButton tone="warn" disabled={!online || busy} onClick={() => setPending({ order: o, kind: "bao-chuyen" })}>
-                        Đã chuyển khoản
+                      <ActionButton tone="warn" disabled={!online || !!busy} onClick={() => setPending({ order: o, kind: "bao-chuyen" })}>
+                        {sending(o, "bao-chuyen") ? "Đang gửi…" : "Đã chuyển khoản"}
                       </ActionButton>
                     )}
                     {canReceive && (
-                      <ActionButton tone="ok" disabled={!online || busy} onClick={() => setPending({ order: o, kind: "da-nhan" })}>
-                        Đã nhận hàng
+                      <ActionButton tone="ok" disabled={!online || !!busy} onClick={() => setPending({ order: o, kind: "da-nhan" })}>
+                        {sending(o, "da-nhan") ? "Đang gửi…" : "Đã nhận hàng"}
                       </ActionButton>
                     )}
                   </div>
@@ -312,7 +316,7 @@ export function MyMarketOrders() {
           confirmLabel={pending.kind === "huy" ? "Huỷ đơn" : "Đúng rồi"}
           cancelLabel="Không"
           onCancel={() => setPending(null)}
-          onConfirm={() => void run(pending)}
+          onConfirm={() => { const p = pending; setPending(null); void run(p); }}
         />
       )}
     </div>

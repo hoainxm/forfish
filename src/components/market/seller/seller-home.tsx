@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  BasketIcon, BoxIcon, CartIcon, PlusIcon, SettingsIcon, TrendUpIcon,
+  BasketIcon, BoxIcon, CartIcon, ChevronRightIcon, PlusIcon, SettingsIcon, TrendUpIcon,
 } from "@/components/icons";
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { CallButton } from "@/components/ui/primitives";
@@ -19,7 +19,7 @@ import { formatVnd } from "@/lib/format";
 import { marketSend } from "@/lib/market/client";
 import type { Shop, ShopStats, StatsRange } from "@/lib/market/types";
 import { InlineNote, LoadView, marketErrorText, useInlineNote, useMarketData, useMyShop } from "./seller-net";
-import { SELLER_BTN } from "./ui";
+import { NoShop, SELLER_BTN } from "./ui";
 
 const RANGE_OPTIONS: readonly ChipOption<StatsRange>[] = [
   { id: "today", label: "Hôm nay" },
@@ -36,29 +36,7 @@ export function SellerHome() {
   );
 }
 
-/** Chưa có gian hàng — một lời mời, một nút (11 §6). */
-function NoShop() {
-  return (
-    <div className="px-4 pb-10">
-      <div className="surface px-5 py-6">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-t3-bg text-t3" aria-hidden>
-          <BasketIcon className="h-7 w-7" />
-        </span>
-        <p className="display mt-3 text-[1rem] font-semibold text-navy">Mở gian hàng trên SDFish</p>
-        <p className="mt-1 text-[1rem] leading-snug text-foreground/70">
-          Bà con có bán máy, ngư cụ, dầu nhớt, đá… thì đăng ký shop để bán thẳng cho tàu cá cả nước.
-          SDVICO duyệt trong 1–2 ngày.
-        </p>
-        <Link
-          href="/ban-hang/dang-ky"
-          className="display mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1rem] font-semibold text-white  transition active:scale-[0.98]"
-        >
-          Đăng ký gian hàng
-        </Link>
-      </div>
-    </div>
-  );
-}
+// `NoShop` (chưa có gian hàng) dùng chung ở ./ui — 6 lối vào một màn (BH-04)
 
 function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
   const note = useInlineNote();
@@ -183,27 +161,35 @@ function Stats({ shopStatus }: { shopStatus: Shop["status"] }) {
 
   return (
     <section>
-      <div className="-mx-0 mb-3">
-        <ChipRow options={RANGE_OPTIONS} value={range} onChange={setRange} accent="t3" level={1} ariaLabel="Khoảng thời gian" />
-      </div>
       <LoadView state={state} what="số liệu shop" onRetry={reload}>
-        {(d) => <StatsBody stats={d.stats} shopStatus={shopStatus} />}
+        {(d) => <StatsBody stats={d.stats} shopStatus={shopStatus} range={range} onRange={setRange} />}
       </LoadView>
     </section>
   );
 }
 
-function StatsBody({ stats, shopStatus }: { stats: ShopStats; shopStatus: Shop["status"] }) {
+function StatsBody({
+  stats, shopStatus, range, onRange,
+}: {
+  stats: ShopStats; shopStatus: Shop["status"]; range: StatsRange; onRange: (r: StatsRange) => void;
+}) {
   const empty =
     stats.orders === 0 && stats.pendingOrders === 0 && stats.shippingOrders === 0 && stats.awaitingPaymentConfirm === 0;
   return (
     <div className="px-4">
+      {/*  4 Ô VIỆC đếm TOÀN BỘ đơn, không theo kỳ — nên đứng đầu, trên hàng chip kỳ (BH-07):
+           chip đứng trên 4 ô làm chúng đọc như "số đơn chờ trong 7 ngày". */}
       <div className="grid grid-cols-2 gap-2">
         <Tile n={stats.pendingOrders} label="Chờ xác nhận" href="/ban-hang/don?tab=cho_xac_nhan" strong />
         {/* đã xác nhận, chưa đi giao — việc kế tiếp của shop (2026-10-18) */}
         <Tile n={stats.byStatus.da_xac_nhan} label="Cần đi giao" href="/ban-hang/don?tab=da_xac_nhan" />
         <Tile n={stats.shippingOrders} label="Đang giao" href="/ban-hang/don?tab=dang_giao" />
         <Tile n={stats.awaitingPaymentConfirm} label="Báo đã CK" href="/ban-hang/don?tab=cho_xac_nhan" />
+      </div>
+
+      {/* chip kỳ chỉ chi phối khối Đơn · Hoàn thành · Doanh thu ⇒ đứng sát ngay trên nó (BH-07) */}
+      <div className="-mx-4 mt-3 -mb-3">
+        <ChipRow options={RANGE_OPTIONS} value={range} onChange={onRange} accent="t3" level={1} ariaLabel="Khoảng thời gian" />
       </div>
 
       <div className="mt-3 surface px-4 py-3">
@@ -214,12 +200,18 @@ function StatsBody({ stats, shopStatus }: { stats: ShopStats; shopStatus: Shop["
         <p className="mt-0.5 text-[0.875rem] text-foreground/65">Tính theo đơn đã hoàn thành (tiền hàng + phí giao).</p>
       </div>
 
+      {/* "N thứ cần làm" phải chạm đi thẳng tới chỗ làm (BH-09): cả băng là Link mở chip Hết hàng */}
       {stats.lowStock.length > 0 && (
-        <div className="mt-3 overflow-hidden rounded-2xl">
-          <StatusBanner level="warn">
-            {stats.lowStock.length} món sắp hết hoặc đã hết hàng — vào Sản phẩm thêm tồn giúp bà con đặt được.
-          </StatusBanner>
-        </div>
+        <Link
+          href="/ban-hang/san-pham?tt=het_hang"
+          className="mt-3 flex min-h-(--row-h) items-center gap-3 rounded-2xl px-4 py-2.5"
+          style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
+        >
+          <span className="min-w-0 flex-1 text-[1rem] font-semibold leading-snug">
+            {stats.lowStock.length} món sắp hết hoặc đã hết hàng — thêm tồn để bà con đặt được.
+          </span>
+          <ChevronRightIcon className="h-5 w-5 shrink-0" />
+        </Link>
       )}
 
       {stats.topProducts.length > 0 && (
@@ -229,9 +221,13 @@ function StatsBody({ stats, shopStatus }: { stats: ShopStats; shopStatus: Shop["
           </p>
           <ol className="space-y-1">
             {stats.topProducts.map((p) => (
-              <li key={p.productId} className="flex min-h-[2.5rem] items-center justify-between gap-3 text-[1rem]">
-                <span className="min-w-0 flex-1 truncate text-foreground/85">{p.title}</span>
-                <span className="shrink-0 font-semibold text-navy">{p.qty}</span>
+              <li key={p.productId}>
+                {/* mỗi dòng mở thẳng món để sửa giá / thêm tồn (BH-09) */}
+                <Link href={`/ban-hang/san-pham/${p.productId}`} className="flex min-h-[2.5rem] items-center justify-between gap-3 text-[1rem]">
+                  <span className="min-w-0 flex-1 truncate text-foreground/85">{p.title}</span>
+                  <span className="shrink-0 font-semibold text-navy">{p.qty}</span>
+                  <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+                </Link>
               </li>
             ))}
           </ol>

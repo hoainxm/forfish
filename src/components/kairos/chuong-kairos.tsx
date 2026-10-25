@@ -15,6 +15,7 @@ import { BellIcon } from "@/components/icons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { acceptRefresh, loadInbox, markRead, refreshInbox, unreportedIds, type InboxMessage } from "@/lib/inbox";
 import { nhanDem, tinChuongKairos, type TinChuong } from "@/lib/kairos/chuong";
+import { KairosAvatar } from "./kairos-avatar";
 import { postTimeLabel } from "@/lib/kairos/feed-client";
 import { NHAN } from "@/lib/labels";
 import { useAuthUser } from "@/lib/use-auth";
@@ -91,7 +92,8 @@ export function ChuongKairos() {
       </button>
       {mo && (
         <BottomSheet title="Thông báo Kairos" onClose={() => setMo(false)}>
-          <p className="mb-3 text-[0.9375rem] text-foreground/75">Chỉ báo khi có người bình luận bài của bạn hoặc trả lời bạn.</p>
+          {/* K3-06 kiểu FB: hàng = ảnh người gây ra tin · MỘT câu · giờ; chưa đọc nền xanh nhạt. Không câu dẫn, không
+              tiêu đề lặp ý (ý "chỉ báo khi…" đã nằm trong câu trống). */}
           {list.length === 0 ? (
             <p className="rounded-xl bg-field px-4 py-5 text-center text-[1rem] text-foreground/75">
               {phone ? "Chưa có ai bình luận hay trả lời bạn." : "Đăng nhập để biết khi có người bình luận bài của bạn."}
@@ -100,13 +102,17 @@ export function ChuongKairos() {
             <ul className="divide-y divide-line overflow-hidden surface">
               {list.map((t) => (
                 <li key={t.id}>
-                  <Link href={t.url} onClick={() => setMo(false)} className="block min-h-(--h-row) px-4 py-3 active:bg-field">
-                    <span className="flex items-start gap-2">
-                      {t.chuaDoc && <span className="mt-2 inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-trim" aria-label="Chưa đọc" />}
-                      <span className="min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-navy">{t.title}</span>
+                  <Link
+                    href={t.url}
+                    onClick={() => setMo(false)}
+                    aria-label={t.chuaDoc ? `Chưa đọc: ${t.body}` : undefined}
+                    className={`flex min-h-(--h-row) items-center gap-3 px-4 py-3 active:bg-field ${t.chuaDoc ? "bg-sea/8" : ""}`}
+                  >
+                    <KairosAvatar id={t.nguoi || t.id} name={t.nguoi || "Kairos"} url={null} />
+                    <span className="min-w-0 flex-1">
+                      <span className={`block text-[1rem] leading-snug ${t.chuaDoc ? "font-semibold text-navy" : "text-foreground/85"}`}>{t.body}</span>
+                      <span className={`mt-0.5 block text-[0.8125rem] ${t.chuaDoc ? "font-semibold text-sea" : "text-foreground/65"}`}>{now ? postTimeLabel(t.sentAt, now) : ""}</span>
                     </span>
-                    <span className="mt-1 block text-[1rem] leading-snug text-foreground/85">{t.body}</span>
-                    <span className="mt-1 block text-[0.8125rem] text-foreground/65">{now ? postTimeLabel(t.sentAt, now) : ""}</span>
                   </Link>
                 </li>
               ))}

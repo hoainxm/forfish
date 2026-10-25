@@ -7,7 +7,7 @@
 //
 // Kênh người bán KHÔNG cache gì (11 §9: seller ở bờ, dữ liệu đổi liên tục) —
 // mất sóng thì nói thật, không bày số cũ.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { EmptyNet } from "@/components/market/shared/empty-net";
 import { PrimaryButton } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
@@ -17,11 +17,13 @@ import { useOnlineRefetch } from "@/lib/market/use-online";
 import type { Shop } from "@/lib/market/types";
 import { useAuthUser } from "@/lib/use-auth";
 import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
+import { NoShop } from "./ui";
 
 export type LoadState<T> =
   | { kind: "loading" }
   | { kind: "offline" }
-  | { kind: "error"; msg: string }
+  /** `code` = mã lỗi của route — `LoadView` nhìn `no_shop` để vẽ màn mời thay băng đỏ (BH-04) */
+  | { kind: "error"; msg: string; code?: string }
   | { kind: "ok"; data: T };
 
 /** Câu cho bà con từ mã lỗi của route (12 §7). `invalid` mang câu của validate. */
@@ -59,7 +61,7 @@ export function useMarketData<T>(path: string | null): {
     const res = await marketGet<T>(path);
     if (res.ok) setState({ kind: "ok", data: res.data });
     else if (res.offline) setState({ kind: "offline" });
-    else setState({ kind: "error", msg: marketErrorText(res) });
+    else setState({ kind: "error", msg: marketErrorText(res), code: res.code });
   }, [path]);
 
   useEffect(() => {
@@ -109,15 +111,21 @@ export interface PagedRes<T> { items: T[]; total: number; page: number; pageSize
     không được phép đè bản tab mới.
     // nợ: đây là bản phân trang THỨ BA trong repo (buyer my-market-orders tự
     // làm, admin có useAdminList) — gom một hook dùng chung khi chạm lần sau. */
-export function useMarketList<T>(path: (page: number) => string): {
+export function useMarketList<T>(path: ((page: number) => string) | null): {
   state: LoadState<PagedRes<T>>;
   items: T[];
   total: number;
+  /** đã gom tới trang mấy — để ghi bản chụp lúc rời màn */
+  page: number;
   /** còn bao nhiêu món/đơn chưa tải — 0 là hết */
   more: number;
   loadingMore: boolean;
   reload: () => void;
   loadMore: () => void;
+  /** sửa tại chỗ sau PATCH (vd đặt Hết hàng) — không tải lại cả danh sách */
+  setItems: (fn: (cur: T[]) => T[]) => void;
+  /** nhận lại bản đã gom từ bản chụp phiên (quay lại từ chi tiết) — lượt tải kế tiếp của bộ lọc đó BỊ BỎ */
+  restore: (snap: { items: T[]; total: number; page: number }) => void;
 } {
   const [state, setState] = useState<LoadState<PagedRes<T>>>({ kind: "loading" });
   const [items, setItems] = useState<T[]>([]);
@@ -125,10 +133,14 @@ export function useMarketList<T>(path: (page: number) => string): {
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const runRef = useRef(0);
-  const first = path(1);
+  /*  `path = null` ⇒ đứng yên (màn còn đang đọc URL / bản chụp sau mount, chưa
+      biết tab nào) — cùng khuôn `useMarketData(null)`. */
+  const first = path ? path(1) : null;
+  const skipRef = useRef(false);
 
   const fetchPage = useCallback(
     async (p: number, append: boolean) => {
+      if (!path) return;
       const run = ++runRef.current;
       if (append) setLoadingMore(true);
       else setState({ kind: "loading" });
@@ -137,7 +149,7 @@ export function useMarketList<T>(path: (page: number) => string): {
       if (append) setLoadingMore(false);
       if (!res.ok) {
         // Tải thêm mà hỏng thì GIỮ phần đã có, chỉ báo ở nhánh chung khi là lượt đầu
-        if (!append) setState(res.offline ? { kind: "offline" } : { kind: "error", msg: marketErrorText(res) });
+        if (!append) setState(res.offline ? { kind: "offline" } : { kind: "error", msg: marketErrorText(res), code: res.code });
         return;
       }
       setTotal(res.data.total);
@@ -149,20 +161,96 @@ export function useMarketList<T>(path: (page: number) => string): {
   );
 
   useEffect(() => {
+    if (first == null) return;
+    // vừa nhận bản chụp cho đúng bộ lọc này ⇒ không xin lại trang 1..n (BH-03)
+    if (skipRef.current) {
+      skipRef.current = false;
+      return;
+    }
     void fetchPage(1, false);
     // `first` là vân tay của bộ lọc: đổi tab / đổi ô tìm ⇒ gom lại từ đầu
   }, [first, fetchPage]);
   useOnlineRefetch(() => void fetchPage(1, false));
 
+  // ổn định (không phụ thuộc gì) để màn gọi được trong effect mount mà không cần ref
+  const restore = useCallback((snap: { items: T[]; total: number; page: number }) => {
+    skipRef.current = true;
+    setItems(snap.items);
+    setTotal(snap.total);
+    setPage(snap.page);
+    setState({ kind: "ok", data: { items: snap.items, total: snap.total, page: snap.page, pageSize: snap.items.length } });
+  }, []);
+
   return {
     state,
     items,
     total,
+    page,
     more: Math.max(0, total - items.length),
     loadingMore,
     reload: () => void fetchPage(1, false),
     loadMore: () => void fetchPage(page + 1, true),
+    setItems,
+    restore,
   };
+}
+
+/*  NHỚ CHỖ CUỘN LIÊN TỤC (BH-03) — chép khuôn `buyer/market-search.tsx`: khi bấm
+    vào một đơn, Next đưa cuộn về 0 TRƯỚC khi cleanup chạy, nên đọc scrollY lúc
+    rời màn là ghi 0. Ghi qua rAF để không giật; chốt thêm ở pointerdown vì lúc
+    bà con chạm vào thẻ thì trang vẫn đang ở đúng chỗ cần nhớ. */
+export function useScrollMemory(): MutableRefObject<number> {
+  const cuon = useRef(0);
+  useEffect(() => {
+    let cho = false;
+    const theo = () => {
+      if (cho) return;
+      cho = true;
+      requestAnimationFrame(() => {
+        cho = false;
+        if (window.scrollY > 0) cuon.current = window.scrollY;
+      });
+    };
+    const cham = () => {
+      if (window.scrollY > 0) cuon.current = window.scrollY;
+    };
+    window.addEventListener("scroll", theo, { passive: true });
+    window.addEventListener("pointerdown", cham, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("scroll", theo);
+      window.removeEventListener("pointerdown", cham, { capture: true });
+    };
+  }, []);
+  return cuon;
+}
+
+/** Chạy `ghi` đúng hai lúc bà con rời màn: trang bị che (`pagehide`) hoặc component bị gỡ (`unmount`). */
+export function useSaveOnLeave(ghi: (luc: "pagehide" | "unmount") => void): void {
+  useEffect(() => {
+    const che = () => ghi("pagehide");
+    window.addEventListener("pagehide", che);
+    return () => {
+      window.removeEventListener("pagehide", che);
+      ghi("unmount");
+    };
+  }, [ghi]);
+}
+
+/** Cuộn về `y` SAU khi danh sách vẽ xong — hai khung hình: React gắn thẻ, trình duyệt tính chiều cao ảnh. */
+export function scrollBackTo(y: number): void {
+  if (y <= 0) return;
+  requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+}
+
+/** Ghi `tab`/`q`… vào URL hiện tại không đẩy lịch sử — back từ chi tiết về đúng tab (BH-03). */
+export function writeUrlParams(params: Record<string, string | null>): void {
+  const url = new URL(window.location.href);
+  for (const [k, v] of Object.entries(params)) {
+    if (v) url.searchParams.set(k, v);
+    else url.searchParams.delete(k);
+  }
+  const next = url.pathname + url.search;
+  if (next !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, "", next);
 }
 
 /** Shop của người đang đăng nhập + ghi cờ `forfish.mshop.v1` (LEAD §4 #16). */
@@ -239,7 +327,8 @@ export function LoadView<T>({
       </div>
     );
   }
-  if (state.kind === "error") return <ErrorBox msg={state.msg} onRetry={onRetry} />;
+  // chưa có gian hàng KHÔNG phải lỗi: "Thử lại" là ngõ cụt — đưa về màn mời (BH-04)
+  if (state.kind === "error") return state.code === "no_shop" ? <NoShop /> : <ErrorBox msg={state.msg} onRetry={onRetry} />;
   return <>{children(state.data)}</>;
 }
 

@@ -100,3 +100,17 @@ export function parseMoiTen(raw: string | null | undefined): string[] {
 export function addMoiTen(list: readonly string[], profileId: string): string[] {
   return [...list.filter((x) => x !== profileId), profileId].slice(-MOI_TEN_MAX);
 }
+
+/**
+ * Hồ sơ CỦA MÌNH lấy từ bản lưu dòng tin (bài/bình luận có `mine`) — để góc "Trang tôi" vẽ ảnh đại diện
+ * chữ cái ngay lúc mở màn KHÔNG gọi `/me` (K3-09). Bản lưu đã bỏ ảnh đại diện ⇒ chỉ có tên; không có bài nào
+ * của mình ⇒ null (màn dùng "Tôi").
+ */
+export function authorToi(posts: readonly KairosPost[]): { profileId: string; handle: string } | null {
+  for (const p of posts) {
+    if (p.mine && p.author?.profileId) return { profileId: p.author.profileId, handle: p.author.handle };
+    const c = p.topComments.find((x) => x.mine && x.author?.profileId);
+    if (c) return { profileId: c.author.profileId, handle: c.author.handle };
+  }
+  return null;
+}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useExitTransition } from "@/lib/use-exit-transition";
 import { tapFeedback } from "@/lib/haptics";
-import { focusablesIn, lockBodyScroll, unlockBodyScroll, vongFocus } from "@/lib/dialog-focus";
+import { focusablesIn, lockBodyScroll, unlockBodyScroll, useLichSuDong, vongFocus } from "@/lib/dialog-focus";
 
 /*
   ConfirmDialog dùng chung — thay 4 bản copy-paste (xác nhận xóa…), kèm a11y:
@@ -38,6 +38,15 @@ export function ConfirmDialog({
   const { closing, requestClose } = useExitTransition(onCancel);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  /*  BACK CỦA MÁY ĐÓNG HỘP TRƯỚC (rà FB 2026-10-25): hộp chiếm một mục lịch sử; back = "Không". Hai nút cũng đi
+      qua `dongTay` (lùi lịch sử rồi popstate mới đóng) để lần back sau không "chết" một nhịp; nút xác nhận gửi việc
+      cần làm qua `ket` vì popstate chỉ biết gọi một hàm đóng. */
+  const ket = useRef<(() => void) | null>(null);
+  const { dongTay } = useLichSuDong(() => {
+    const k = ket.current;
+    ket.current = null;
+    requestClose(k ?? undefined);
+  });
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -49,7 +58,7 @@ export function ConfirmDialog({
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopImmediatePropagation(); // hộp nằm TRÊN sheet: Escape chỉ đóng hộp, không đóng luôn sheet
-        requestClose();
+        dongTay();
         return;
       }
       if (e.key !== "Tab") return;
@@ -67,7 +76,7 @@ export function ConfirmDialog({
       unlockBodyScroll();
       opener?.focus?.();
     };
-  }, [requestClose]);
+  }, [dongTay]);
 
   if (!mounted) return null;
 
@@ -75,10 +84,11 @@ export function ConfirmDialog({
   // card `relative z-10`) để dialog z-40 luôn nổi trên bottom-nav/sheet.
   return createPortal(
     <div
-      className={`fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-6 ${
+      /* touch-none: iOS bỏ qua overflow:hidden trên body — vuốt trên nền mờ không trôi trang sau (VO-APP-09) */
+      className={`fixed inset-0 z-40 flex touch-none items-center justify-center bg-black/50 px-6 ${
         closing ? "anim-scrim-out" : "anim-scrim-in"
       }`}
-      onClick={requestClose}
+      onClick={dongTay}
     >
       <div
         ref={cardRef}
@@ -100,7 +110,7 @@ export function ConfirmDialog({
         <div className="mt-4 grid grid-cols-2 gap-3">
           <button
             ref={cancelRef}
-            onClick={() => requestClose()}
+            onClick={dongTay}
             className="min-h-[3.5rem] rounded-2xl bg-field text-[1.125rem] font-semibold text-foreground/70"
           >
             {cancelLabel}
@@ -108,7 +118,8 @@ export function ConfirmDialog({
           <button
             onClick={() => {
               tapFeedback();
-              requestClose(onConfirm);
+              ket.current = onConfirm;
+              dongTay();
             }}
             className={`min-h-[3.5rem] rounded-2xl text-[1.125rem] font-semibold text-white ${
               danger ? "bg-danger" : "bg-sea"

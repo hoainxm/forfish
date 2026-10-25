@@ -2,9 +2,12 @@
 
 // /ban-hang/cai-dat — CÀI ĐẶT SHOP (11 §6.6). Cùng bộ ô với màn đăng ký, điền
 // sẵn, thêm logo và công tắc "Tạm nghỉ bán" (`paused` — LEAD §4 #8: món vẫn
-// hiện trên chợ, bà con KHÔNG đặt được). Không có nút xoá shop — gọi SDVICO.
+// hiện trên chợ, bà con KHÔNG đặt được). Công tắc gạt là có hiệu lực NGAY, tách
+// khỏi nút Lưu của form (BH-01 — cùng luật với "Mở bán lại" ở Tổng quan).
+// Không có nút xoá shop — gọi SDVICO.
 import { useState } from "react";
 import { ImagePicker } from "@/components/market/shared/image-picker";
+import { useLeaveGuard } from "@/components/market/shared/market-header";
 import { CallButton, PrimaryButton } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
@@ -13,7 +16,7 @@ import type { Shop } from "@/lib/market/types";
 import { validateShopDraft } from "@/lib/market/validate";
 import { useOnline } from "@/lib/use-online";
 import { LoadView, marketErrorText, useInlineNote, useMyShop } from "./seller-net";
-import { focusField } from "./ui";
+import { NoShop, Switch, focusField } from "./ui";
 import {
   ShopForm, shopDraftOf, shopFieldDomId, shopFieldOfError, shopFormFrom, type ShopFormValue,
 } from "./shop-form";
@@ -23,13 +26,7 @@ export function ShopSettings() {
   return (
     <LoadView state={state} what="cài đặt shop" onRetry={reload}>
       {(d) =>
-        d.shop ? (
-          <Inner shop={d.shop} onShop={set} />
-        ) : (
-          <p className="px-4 py-8 text-center text-[1rem] text-foreground/70">
-            Chưa có gian hàng để cài đặt — đăng ký shop trước đã.
-          </p>
-        )
+        d.shop ? <Inner shop={d.shop} onShop={set} /> : <NoShop />
       }
     </LoadView>
   );
@@ -39,9 +36,42 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
   const online = useOnline();
   const [form, setForm] = useState<ShopFormValue>(() => shopFormFrom(shop));
   const [paused, setPaused] = useState(shop.paused);
+  const [pausing, setPausing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const note = useInlineNote();
   const [saving, setSaving] = useState(false);
+  /*  Có chữ chưa lưu ⇒ "‹" hỏi trước khi bỏ (BH-10). Công tắc Tạm nghỉ không tính:
+      nó đã gửi ngay. */
+  const [dirty, setDirty] = useState(false);
+  useLeaveGuard(dirty);
+  const edit = (v: ShopFormValue) => {
+    setForm(v);
+    setDirty(true);
+  };
+
+  /*  TẠM NGHỈ BÁN — gạt là gửi ngay, lạc quan rồi hoàn lại nếu hỏng (BH-01).
+      Trước đây là checkbox trong form, chỉ có hiệu lực sau "Lưu cài đặt", nên
+      shop tưởng đã nghỉ mà vẫn nhận đơn. Mất sóng thì KHÔNG gạt — nói thẳng. */
+  async function togglePaused() {
+    if (pausing) return;
+    if (!online) {
+      note.show("Cần sóng để đổi Tạm nghỉ bán — thử lại khi có mạng.", "danger");
+      return;
+    }
+    const next = !paused;
+    setPaused(next);
+    setPausing(true);
+    const res = await marketSend<{ shop: Shop }>("PATCH", "/api/ban-hang/shop", { paused: next });
+    setPausing(false);
+    if (res.ok) {
+      onShop(res.data.shop);
+      setPaused(res.data.shop.paused);
+      note.show(res.data.shop.paused ? "Shop đang tạm nghỉ — bà con không đặt được hàng." : "Đã mở bán lại.");
+      return;
+    }
+    setPaused(!next); // hoàn lại đúng trạng thái máy chủ đang giữ
+    note.show(res.offline ? "Chưa đổi được — mất sóng giữa chừng. Công tắc giữ như cũ." : marketErrorText(res), "danger");
+  }
 
   async function upload(blob: Blob): Promise<string> {
     const res = await marketUpload("/api/ban-hang/upload", blob);
@@ -60,12 +90,14 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
     }
     setError(null);
     setSaving(true);
-    const res = await marketSend<{ shop: Shop }>("PATCH", "/api/ban-hang/shop", { ...draft, paused });
+    // form KHÔNG gửi `paused` nữa — công tắc đã tự gửi (BH-01)
+    const res = await marketSend<{ shop: Shop }>("PATCH", "/api/ban-hang/shop", draft);
     setSaving(false);
     if (res.ok) {
       onShop(res.data.shop);
       setForm(shopFormFrom(res.data.shop));
       setPaused(res.data.shop.paused);
+      setDirty(false);
       note.show("Đã lưu cài đặt shop.");
       return;
     }
@@ -89,29 +121,25 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
       )}
       {note.node}
 
-      <div className="px-4">
-        <label className="mb-4 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl px-4 py-2"
-          style={paused ? { backgroundColor: "var(--warn-bg)" } : { backgroundColor: "var(--field)" }}>
-          <span className="min-w-0">
-            <span className="block text-[1rem] font-semibold" style={{ color: paused ? "var(--warn)" : "var(--navy)" }}>
-              Tạm nghỉ bán
-            </span>
-            <span className="block text-[0.875rem] leading-snug text-foreground/70">
-              Món vẫn hiện trên cửa hàng nhưng bà con không đặt được. Nhớ bấm Lưu.
-            </span>
-          </span>
-          <input type="checkbox" className="h-7 w-7 shrink-0" checked={paused} onChange={(e) => setPaused(e.target.checked)} />
-        </label>
+      <div className="mb-4 px-4">
+        <Switch
+          label="Tạm nghỉ bán"
+          sub={pausing ? "Đang gửi…" : "Món vẫn hiện trên cửa hàng nhưng bà con không đặt được."}
+          on={paused}
+          onToggle={() => void togglePaused()}
+          disabled={pausing}
+          warn
+        />
       </div>
 
       <ShopForm
         value={form}
-        onChange={setForm}
+        onChange={edit}
         error={error}
         logoSlot={
           <ImagePicker
             value={form.logoUrl ? [form.logoUrl] : []}
-            onChange={(urls) => setForm({ ...form, logoUrl: urls[0] ?? "" })}
+            onChange={(urls) => edit({ ...form, logoUrl: urls[0] ?? "" })}
             max={1}
             upload={upload}
             label="Logo shop"

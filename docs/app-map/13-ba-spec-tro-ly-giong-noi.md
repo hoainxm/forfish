@@ -3,10 +3,11 @@
 > Load khi: task chạm `src/lib/assistant/**`, `src/components/assistant/**`, `/api/tro-ly`, nút nổi mic trên app ngư dân, chip gợi ý theo màn, hoặc bất kỳ câu hỏi "bà con nói gì thì app hiểu gì, trả lời ra sao, làm gì, khi nào cần sóng".
 covers: src/lib/assistant/
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-25e — §5.1 icon Sen Biển toàn app: mặc định 0.75rem trên dock (code `VI_TRI_GOC_APP_BOTTOM = 12`, trước 96 px trái spec); màn có thanh mua dính đáy ⇒ khung nâng theo chiều cao thanh; rảnh 4 s (`SEN_NEP_MS`) ⇒ nép nửa icon ra mép gần + mờ 60 %, chạm/cuộn/gõ là về; thẻ Sen Biển chiếm một mục lịch sử (back đóng thẻ). Nợ: lệnh giọng nói `router.push` khi thẻ còn mở để lại mục lịch sử dưới trang đích (back 2 lần). (bằng chứng + backlog: [design-review/08-ra-fb-toan-app](../design-review/08-ra-fb-toan-app.md)) -->
 <!-- re-verified: 2026-10-19b — covers chỉ còn src/lib/assistant/: `src/components/assistant/` và `src/app/api/tro-ly/` KHÔNG còn trong repo (Trợ lý cũ đã gộp vào Sen Biển — sen-bien-toan-app.tsx dùng lib/assistant/answer.ts + device-snapshot.ts, chạy TRONG MÁY, không route /api/tro-ly). Các mục bên dưới nhắc hai đường dẫn đó là LỊCH SỬ thiết kế. -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-22) — code 'src/lib/assistant/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-25) — code 'src/lib/assistant/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện (_generated/phan-bien-tro-ly-2026-09-06 *(chưa có trong repo)*); CHƯA build. **14-kien-truc = nguồn TÊN** (mã `Intent`, type, export, mã lỗi, khoá — bảng mã dùng chung ở 14 §3.0); **13 = nguồn HÀNH VI + câu chữ**; **TROLY-BRIEF §4 = luật cao nhất** (§0 dưới).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — bà con nói câu gì thì app hiểu thành ý định nào, trả lời bằng dữ liệu nào, làm hành động gì, hỏi lại khi nào, và im/nói thật khi thiếu gì. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả prompt/SDK/tool schema (việc của 14-kien-truc + ADR 0009).
@@ -518,7 +519,6 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = tầng · hàm/route chịu 
 
 ## History
 
-- 2026-10-22: kho v5c ĐÃ DUYỆT (1.607 câu, theo văn bản luật hiện hành + tài liệu SDVICO; 690 câu chưa duyệt đọc câu an toàn) thay bản test — doc 15 §26.
 - 2026-10-19 (bản test `test/ban-gop`): INT-25 đọc kho hỏi–đáp trong máy (v4 hiểu lệnh + v5b đầu kho + bộ lọc + Gemma chọn câu; kho chưa duyệt, câu cần kiểm ⇒ câu an toàn; trượt ⇒ máy nhà / câu an toàn) — Assumptions 2026-10-19, 15 §26.
 - v1.3 (2026-09-06, Core+UI sau audit vòng 2): §6 chốt ngưỡng bão xa (dẫn đầu chỉ khi `danger` hoặc ≤500 km tới cảng nhà; thiếu toạ độ = gần); §4.3 nút "Mở …" giữ việc treo cho tiếng "ừ" (P1-N1) và hai đường lùi cảng nhà khác chữ (P2-N2); §4.1 im lặng lần 1 phải ĐỌC "chưa nghe rõ" rồi mới nghe lại (P1-18); tên cảng khớp một phần không được nuốt cụm dài ("Đà Nẵng" ≠ "Bến Đá" — P1-N2), không thấy tên → gợi ý cảng cùng tỉnh.
 - v1.4 (2026-09-07, học phương pháp): đối chiếu với `anthropics/commerce-agents` (Apache 2.0, 2026-09-02) — KHÔNG lấy phần gọi API, chỉ lấy cách đặt luật: lọc chữ bên thứ ba, cổng nguồn gốc cho hành động ghi, ba câu tách bạch mất sóng/máy chưa có/app không có, eval ca độc + ca hiền, gói não chia theo flow. Bảng việc P1–P3 ở [research/commerce-agents-hoc-phuong-phap-2026-09](../research/commerce-agents-hoc-phuong-phap-2026-09.md); ý định mới "chính sách chợ" chờ BA duyệt.

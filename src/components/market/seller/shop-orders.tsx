@@ -3,19 +3,32 @@
 // /ban-hang/don — ĐƠN CỦA SHOP (11 §6.5). Tab theo 6 trạng thái, badge số lấy
 // từ `stats.byStatus` (route thống kê đã settle đơn quá hạn). Danh sách KHÔNG
 // cache — đơn đổi liên tục và người bán ở bờ (11 §9).
-import { useCallback, useEffect, useState } from "react";
+//
+// QUAY LẠI TỪ CHI TIẾT PHẢI THẤY ĐÚNG CHỖ CŨ (BH-03, 2026-10-25): tab + chữ tra
+// ghi vào URL (`replaceState`), bản đã gom + chỗ cuộn ghi `sessionStorage` theo
+// khuôn `buyer/market-search.tsx`. Bản chụp CHỈ ghi khi rời sang một đơn (hoặc
+// trang bị che), và CHỈ dùng khi tab/chữ tra trên URL khớp — link mới từ Tổng
+// quan vẫn tải mới, không bày đơn cũ.
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { OrderStatusChip } from "@/components/market/shared/order-status-chip";
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { EmptyState, inputClass } from "@/components/ui/primitives";
 import { CartIcon, ChevronRightIcon } from "@/components/icons";
 import { formatVnd } from "@/lib/format";
+import { saveListState, takeListState } from "@/lib/market/list-state";
 import { isPendingTooLong, ORDER_STATUSES, ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/market/order-state";
 import type { Order, OrderStatus, ShopStats } from "@/lib/market/types";
 import { AutoCancelNote, EtaLine } from "@/components/market/shared/eta";
 import { LineThumb } from "@/components/market/shared/line-thumb";
-import { LoadView, agoLabel, useMarketData, useMarketList } from "./seller-net";
+import {
+  LoadView, agoLabel, scrollBackTo, useMarketData, useMarketList, useSaveOnLeave, useScrollMemory, writeUrlParams,
+} from "./seller-net";
 import { MoreButton, SELLER_BTN, linesSummary } from "./ui";
+
+/** ngăn sessionStorage của màn này (khoá chung `forfish.mlist.v1`, lib/market/list-state) */
+const LIST_ID = "ban-hang/don";
+const TAB_MAC_DINH: OrderStatus = "cho_xac_nhan";
 
 /*  TRA ĐƠN: bà con gọi và đọc "SD260907ABCD" hoặc đọc số điện thoại. Một ô duy
     nhất, tự đoán là mã hay số — bắt bà con chọn trước "tìm theo gì" là thêm một
@@ -28,11 +41,20 @@ function searchParamOf(raw: string): string {
   return looksCode ? `&ma=${encodeURIComponent(s)}` : `&sdt=${encodeURIComponent(digits || s)}`;
 }
 
+function tabOf(v: string | null): OrderStatus {
+  return v && (ORDER_STATUSES as readonly string[]).includes(v) ? (v as OrderStatus) : TAB_MAC_DINH;
+}
+
 export function ShopOrders() {
-  const [tab, setTab] = useState<OrderStatus>("cho_xac_nhan");
+  const [tab, setTab] = useState<OrderStatus>(TAB_MAC_DINH);
   const [qRaw, setQRaw] = useState("");
   const [q, setQ] = useState("");           // chỉ đổi khi bấm Tìm / Enter — không gõ tới đâu gọi tới đó
+  /** đã đọc URL + bản chụp sau mount — trước đó danh sách đứng yên, không tải nhầm tab mặc định */
+  const [ready, setReady] = useState(false);
   const stats = useMarketData<{ stats: ShopStats }>("/api/ban-hang/thong-ke?range=30d");
+  const cuon = useScrollMemory();
+  /** bà con vừa chạm vào một đơn ⇒ lúc gỡ màn mới ghi bản chụp */
+  const sangChiTiet = useRef(false);
 
   /*  ĐANG TRA thì BỎ lọc trạng thái: bà con cầm mã đơn trong tay, không biết nó
       đang ở tab nào — tra mà vẫn ép tab là lý do chính khiến "tìm không ra". */
@@ -43,14 +65,49 @@ export function ShopOrders() {
         : `/api/ban-hang/don?status=${tab}&page=${page}`,
     [q, tab],
   );
-  const list = useMarketList<Order>(path);
+  const list = useMarketList<Order>(ready ? path : null);
+  const restore = list.restore; // ổn định — effect mount dưới chỉ chạy một lần
 
-  // deep-link từ Tổng quan: /ban-hang/don?tab=dang_giao (đọc sau mount)
+  // đọc URL (`?tab=` từ Tổng quan, `?q=` khi quay lại) + bản chụp phiên — SAU mount để trang vẫn dựng tĩnh
   useEffect(() => {
-    const wanted = new URLSearchParams(window.location.search).get("tab");
-    if (wanted && (ORDER_STATUSES as readonly string[]).includes(wanted)) setTab(wanted as OrderStatus);
-  }, []);
+    const sp = new URLSearchParams(window.location.search);
+    const tab0 = tabOf(sp.get("tab"));
+    const q0 = sp.get("q") ?? "";
+    setTab(tab0);
+    setQ(q0);
+    setQRaw(q0);
+    const cu = takeListState<Order>(LIST_ID);
+    if (cu && cu.q === q0 && cu.filters.tab === tab0) {
+      restore(cu);
+      scrollBackTo(cu.scrollY);
+    }
+    setReady(true);
+  }, [restore]);
 
+  // tab / chữ tra lên URL — back từ chi tiết về đúng tab
+  useEffect(() => {
+    if (!ready) return;
+    writeUrlParams({ tab, q: q || null });
+  }, [ready, tab, q]);
+
+  const ghi = useCallback(
+    (luc: "pagehide" | "unmount") => {
+      if (!ready || list.items.length === 0) return;
+      if (luc === "unmount" && !sangChiTiet.current) return; // rời sang màn khác (không phải một đơn) ⇒ lần tới tải mới
+      saveListState<Order>(LIST_ID, {
+        q,
+        filters: { tab },
+        items: list.items,
+        total: list.total,
+        page: list.page,
+        scrollY: cuon.current,
+      });
+    },
+    [ready, q, tab, list.items, list.total, list.page, cuon],
+  );
+  useSaveOnLeave(ghi);
+
+  const noShop = list.state.kind === "error" && list.state.code === "no_shop";
   const byStatus = stats.state.kind === "ok" ? stats.state.data.stats.byStatus : null;
   const options: readonly ChipOption<OrderStatus>[] = ORDER_STATUSES.map((s) => ({
     id: s,
@@ -59,61 +116,66 @@ export function ShopOrders() {
 
   return (
     <div className="pb-10">
-      {/*  Ô TRA ĐƠN — đứng trên hàng tab vì nó bỏ qua tab. */}
-      <form
-        className="mb-3 flex items-center gap-2 px-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setQ(qRaw.trim());
-        }}
-      >
-        <input
-          className={inputClass}
-          value={qRaw}
-          onChange={(e) => setQRaw(e.target.value)}
-          placeholder="Mã đơn hoặc số điện thoại"
-          aria-label="Tra đơn theo mã đơn hoặc số điện thoại người mua"
-          inputMode="search"
-        />
-        <button type="submit" className={`${SELLER_BTN} shrink-0 bg-trim px-5 text-white`}>
-          Tìm
-        </button>
-      </form>
-
-      {q ? (
-        /*  Đang tra thì nói rõ ĐANG XEM GÌ và cho đường quay về — nếu không, bà
-            con thấy danh sách lạ mà tưởng đơn của mình mất. */
-        <div className="mb-3 flex flex-wrap items-center gap-2 px-4">
-          <span className="text-[1rem] font-semibold text-navy">Kết quả tra &quot;{q}&quot;</span>
-          <button
-            type="button"
-            onClick={() => {
-              setQ("");
-              setQRaw("");
+      {/* chưa có gian hàng ⇒ chỉ còn màn mời (LoadView vẽ), không bày ô tra + chip + câu đếm (BH-04) */}
+      {!noShop && (
+        <>
+          {/*  Ô TRA ĐƠN — đứng trên hàng tab vì nó bỏ qua tab. */}
+          <form
+            className="mb-3 flex items-center gap-2 px-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setQ(qRaw.trim());
             }}
-            className={`${SELLER_BTN} bg-field px-4 text-navy`}
           >
-            Xoá tra, về danh sách
-          </button>
-        </div>
-      ) : (
-        <div className="mb-3">
-          <ChipRow options={options} value={tab} onChange={setTab} accent="t3" level={1} ariaLabel="Trạng thái đơn" />
-        </div>
-      )}
+            <input
+              className={inputClass}
+              value={qRaw}
+              onChange={(e) => setQRaw(e.target.value)}
+              placeholder="Mã đơn hoặc số điện thoại"
+              aria-label="Tra đơn theo mã đơn hoặc số điện thoại người mua"
+              inputMode="search"
+            />
+            <button type="submit" className={`${SELLER_BTN} shrink-0 bg-trim px-5 text-white`}>
+              Tìm
+            </button>
+          </form>
 
-      {/*  Số đếm trên tab lấy từ /thống-kê. Hỏng thì NÓI, đừng để tab trơ số:
-          không số bà con hiểu là "không có đơn nào". */}
-      {!q && stats.state.kind !== "ok" && stats.state.kind !== "loading" && (
-        <p className="mb-2 px-4 text-[1rem] text-foreground/70">
-          Chưa đếm được số đơn từng mục — danh sách bên dưới vẫn đúng.
-        </p>
+          {q ? (
+            /*  Đang tra thì nói rõ ĐANG XEM GÌ và cho đường quay về — nếu không, bà
+                con thấy danh sách lạ mà tưởng đơn của mình mất. */
+            <div className="mb-3 flex flex-wrap items-center gap-2 px-4">
+              <span className="text-[1rem] font-semibold text-navy">Kết quả tra &quot;{q}&quot;</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setQ("");
+                  setQRaw("");
+                }}
+                className={`${SELLER_BTN} bg-field px-4 text-navy`}
+              >
+                Xoá tra, về danh sách
+              </button>
+            </div>
+          ) : (
+            <div className="mb-3">
+              <ChipRow options={options} value={tab} onChange={setTab} accent="t3" level={1} ariaLabel="Trạng thái đơn" />
+            </div>
+          )}
+
+          {/*  Số đếm trên tab lấy từ /thống-kê. Hỏng thì NÓI, đừng để tab trơ số:
+              không số bà con hiểu là "không có đơn nào". */}
+          {!q && stats.state.kind !== "ok" && stats.state.kind !== "loading" && (
+            <p className="mb-2 px-4 text-[1rem] text-foreground/70">
+              Chưa đếm được số đơn từng mục — danh sách bên dưới vẫn đúng.
+            </p>
+          )}
+        </>
       )}
 
       <LoadView state={list.state} what="đơn hàng của shop" onRetry={list.reload}>
         {() => (
           <>
-            <Rows items={list.items} tab={tab} searching={!!q} />
+            <Rows items={list.items} tab={tab} searching={!!q} onOpen={() => { sangChiTiet.current = true; }} />
             <div className="px-4">
               <MoreButton more={list.more} busy={list.loadingMore} onMore={list.loadMore} what="đơn" />
             </div>
@@ -124,7 +186,13 @@ export function ShopOrders() {
   );
 }
 
-function Rows({ items, tab, searching }: { items: Order[]; tab: OrderStatus; searching: boolean }) {
+function Rows({
+  items, tab, searching, onOpen,
+}: {
+  items: Order[]; tab: OrderStatus; searching: boolean;
+  /** bà con chạm vào một đơn — màn ghi bản chụp để quay lại đúng chỗ */
+  onOpen: () => void;
+}) {
   if (items.length === 0) {
     return (
       <div className="px-4">
@@ -146,7 +214,7 @@ function Rows({ items, tab, searching }: { items: Order[]; tab: OrderStatus; sea
         const soMon = o.items.length;
         return (
           <li key={o.id}>
-            <Link href={`/ban-hang/don/${o.id}`} className="flex min-h-(--row-h) items-start gap-3 px-4 py-3 surface">
+            <Link href={`/ban-hang/don/${o.id}`} onClick={onOpen} className="flex min-h-(--row-h) items-start gap-3 px-4 py-3 surface">
               <LineThumb image={o.items[0]?.image} size={3.5} />
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">

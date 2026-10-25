@@ -96,7 +96,8 @@ export function DocReminderBell({ hasExpiring }: { hasExpiring: boolean }) {
           type="button"
           onClick={enable}
           disabled={state === "busy"}
-          className={`${SQ_BTN} bg-trim text-white shadow-trim-cta disabled:opacity-60`}
+          /* trung tính + icon chuông — cam chỉ cho MỘT hành động chính mỗi màn (TAU-15, 2026-10-25) */
+          className={`${SQ_BTN} bg-field text-navy disabled:opacity-60`}
         >
           <BellIcon className="h-6 w-6" />
           {state === "busy" ? "Đang bật" : "Bật"}

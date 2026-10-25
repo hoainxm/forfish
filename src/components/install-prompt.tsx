@@ -37,8 +37,8 @@ import {
   shouldShowInstallNudge,
   type InstallNudgeState,
 } from "@/lib/install-nudge";
-import { AnchorIcon, ChevronRightIcon, CloseIcon } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
+import { AnchorIcon, ChevronDownIcon } from "@/components/icons";
+import { CloseButton } from "@/components/ui/close-button";
 
 /** Dải khẩn từ ngần này dòng trở lên thì nhắc cài nhường chỗ. */
 const URGENT_ROWS_HIDE_INSTALL = 3;
@@ -243,21 +243,15 @@ export function InstallBanner({
             <span className="display block text-[1rem] font-semibold leading-tight text-navy">Cài app</span>
             <span className="block text-[0.8125rem] leading-snug text-foreground/65">Dùng được khi mất sóng</span>
           </span>
-          <ChevronRightIcon
-            className={`h-5 w-5 shrink-0 text-foreground/60 transition-transform ${open ? "rotate-90" : ""}`}
+          {/* TC-14: xoè TẠI CHỖ ⇒ mũi tên xuống + xoay 180 khi mở, cùng khuôn "Xem thêm" của Thông báo
+              (› ngụ ý sang trang) */}
+          <ChevronDownIcon
+            className={`h-5 w-5 shrink-0 text-foreground/60 transition-transform ${open ? "rotate-180" : ""}`}
           />
         </button>
-        {/*  Nút đóng theo khuôn ô vuông chung (2026-08-29, luật A2/A3/A5): sàn
-            chạm 56px, tay ướt tàu lắc không bấm nhầm. aria-label giữ nguyên. */}
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="Ẩn nhắc cài về máy"
-          className={`${SQ_BTN} text-foreground/70 active:bg-background`}
-        >
-          <CloseIcon className="h-6 w-6" />
-          Ẩn
-        </button>
+        {/*  K3-17: × đóng theo khuôn chung `CloseButton` — icon KHÔNG kèm chữ (luật thẻ nổi
+            toàn app), vùng chạm 56px giữ nguyên cho tay ướt tàu lắc. */}
+        <CloseButton onClose={dismiss} label={NHAN.an} className="m-0" />
       </div>
       {open && (
         <div className="space-y-2 px-2 pb-2 pt-1">

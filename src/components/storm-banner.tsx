@@ -31,7 +31,7 @@ import {
 import { useStormCheck } from "@/lib/use-storm-check";
 import { useOnline } from "@/lib/use-online";
 import { NOTIFY_HIDE_LONG_MS, NOTIFY_HIDE_MS } from "@/lib/notify";
-import { clockVN } from "@/lib/day-labels";
+import { clockVN, isoDateVN } from "@/lib/day-labels";
 import { beaufort } from "@/lib/marine-weather";
 import { capGioTuKmh } from "@/lib/storm-push";
 import { routeStormConflict } from "@/lib/route-storm";
@@ -50,6 +50,7 @@ export function StormBanner({
   variant = "page",
   myPos = null,
   always = false,
+  moTheoKhoa = null,
 }: {
   /** page: luôn có một dòng tin bão (cả khi đang hỏi / không có bão) */
   always?: boolean;
@@ -57,6 +58,8 @@ export function StormBanner({
   variant?: "page" | "overlay";
   /** Vị trí tàu (GPS) — để biết tàu có TRONG vùng bão không; null = chưa định vị */
   myPos?: { lat: number; lon: number } | null;
+  /** Overlay: bản đồ được mở từ thông báo bão (`?bao=`) ⇒ bung lại thẻ đầy đủ khi khoá đổi (TC-02) */
+  moTheoKhoa?: string | null;
 }) {
   // Hỏi tin bão + TỰ THỬ LẠI khi có sóng lại / mở lại app / định kỳ.
   // KHÔNG gọi fetchStormCheck một lần rồi thôi — xem lib/use-storm-check.ts.
@@ -105,6 +108,12 @@ export function StormBanner({
     const t = setTimeout(() => setOpen(false), anyDanger ? NOTIFY_HIDE_LONG_MS : NOTIFY_HIDE_MS);
     return () => clearTimeout(t);
   }, [stormKey, anyDanger, trongVungBao, variant]);
+
+  // Tới từ thông báo bão: thẻ phải ĐANG MỞ lúc bản đồ bay tới tâm cơn (TC-02) —
+  // dù nhịp tự thu ở trên đã chạy. Sau đó vẫn thu theo luật thường.
+  useEffect(() => {
+    if (variant === "overlay" && moTheoKhoa) setOpen(true);
+  }, [moTheoKhoa, variant]);
 
   // Overlay chưa hỏi được: bung câu đầy đủ 8s (2 dòng) mỗi khi CÂU ĐỔI (tin
   // vừa quá 12h, tuổi nhảy giờ→ngày, mất sóng↔nguồn lỗi), rồi thu về chip.
@@ -184,7 +193,12 @@ export function StormBanner({
   // Hỏi được thật và không có bão → nói kèm GIỜ ĐÃ HỎI (chỉ trên bản đồ —
   // Trang chủ đã return null ở trên).
   if (status.kind === "khong-co") {
-    const at = clockVN(status.checkedAt);
+    /*  GIỜ HỎI: cùng ngày thì chỉ "20:08" (BD-15, 2026-10-25) — "hỏi 20:08 ngày
+        25/10" làm pill rớt hai dòng ở máy 360 px; ngày chỉ đáng nói khi là hôm khác. */
+    const at =
+      isoDateVN(status.checkedAt) === isoDateVN(nowMs)
+        ? clockVN(status.checkedAt).slice(0, 5)
+        : clockVN(status.checkedAt);
     if (variant === "overlay") {
       return (
         /*  LÚC YÊN trên bản đồ = pill trắng nhỏ, chữ thường (tối ưu bố cục bản đồ

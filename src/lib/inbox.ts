@@ -207,19 +207,37 @@ function saveReported(phone: string | null, ids: Set<string>): void {
   }
 }
 
-/** Một dòng trên màn = một nội dung; `ids` = mọi tin trùng nội dung đó (mới nhất đứng đầu). */
+/** Một dòng trên màn = một nội dung; `ids` = mọi tin cùng nhóm (mới nhất đứng đầu). */
 export interface InboxGroup {
-  /** Tin MỚI NHẤT của nhóm — giờ gửi của nó là giờ hiện trên dòng */
+  /** Tin MỚI NHẤT của nhóm — tiêu đề/cấp/giờ hiện trên dòng là của nó */
   msg: InboxMessage;
   ids: string[];
 }
 
 /**
- * GOM TIN TRÙNG NỘI DUNG (rà Taste 2026-10-22): nhắc lại cùng một cơn bão sinh ra
- * 4 tin y hệt chữ ⇒ danh sách 3 dòng đầu toàn một tin, tin khác bị đẩy khỏi tầm mắt.
- * Trùng = cùng tiêu đề + nội dung + đường dẫn (khác một chữ là tin khác, KHÔNG gom).
- * Thứ tự nhóm theo tin mới nhất của nhóm; giữ nguyên dữ liệu trong máy (chỉ gom
- * lúc vẽ), nên đọc/báo-đã-đọc vẫn theo từng id.
+ * Khoá cơn bão trong đường dẫn push (`/ngu-truong?bao=gdacs-champi&lat=…&t=…`) —
+ * cùng tham số `storm-push.ts` ghi. Không có `bao=` ⇒ null (tin thường).
+ */
+export function khoaBaoTuUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const q = url.indexOf("?");
+  if (q < 0) return null;
+  try {
+    return new URLSearchParams(url.slice(q + 1)).get("bao") || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * GOM TIN (rà Taste 2026-10-22 · sửa 2026-10-25 TC-01): nhắc lại cùng một cơn bão
+ * sinh ra nhiều tin ⇒ danh sách 3 dòng đầu toàn một cơn, tin khác bị đẩy khỏi tầm mắt.
+ * Khoá gom:
+ *  · tin bão (url có `bao=`) ⇒ theo KHOÁ CƠN — mỗi bản tin mang lat/lon/t khác
+ *    nhau và cấp bão đổi ("Bão mạnh" → "Siêu bão"), trùng từng chữ không bao giờ trúng;
+ *  · tin khác ⇒ trùng tiêu đề + nội dung + đường dẫn như cũ.
+ * Dòng hiện tin MỚI NHẤT của nhóm; giữ nguyên dữ liệu trong máy (chỉ gom lúc vẽ),
+ * nên đọc/báo-đã-đọc vẫn theo từng id.
  */
 export function gomTinTrung(list: InboxMessage[]): InboxGroup[] {
   const ms = (m: InboxMessage) => {
@@ -228,7 +246,8 @@ export function gomTinTrung(list: InboxMessage[]): InboxGroup[] {
   };
   const byKey = new Map<string, InboxGroup>();
   for (const m of list) {
-    const key = `${m.title}\u0000${m.body}\u0000${m.url ?? ""}`;
+    const bao = khoaBaoTuUrl(m.url);
+    const key = bao ? `bao\u0000${bao}` : `${m.title}\u0000${m.body}\u0000${m.url ?? ""}`;
     const g = byKey.get(key);
     if (!g) {
       byKey.set(key, { msg: m, ids: [m.id] });

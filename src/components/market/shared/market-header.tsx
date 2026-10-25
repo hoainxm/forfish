@@ -9,8 +9,34 @@
 // Mọi màn phụ có nút Quay lại — dock không phải "trang trước"; back của trình duyệt bà con
 // không tìm (F-08/F-09 vòng fix UX 2026-09-06).
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeftIcon } from "@/components/icons";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+
+/*  FORM TRANG GÕ DỞ MÀ CHẠM "‹" (BH-10, 2026-10-25). `BottomSheet kieu="form"` đã có
+    luật hỏi "Bỏ phần đang ghi?" (03 §6 mục 4); form TRANG (đăng ký shop, món, cài đặt)
+    thì chưa — gõ 8 ô rồi chạm "‹" là mất sạch, không một lời. Header nằm ở page
+    (server) còn chữ đang gõ nằm trong form (client) nên không truyền prop được: form
+    gọi `useLeaveGuard(dirty)`, header hỏi lại cái cờ này lúc bấm. Một màn một
+    header ⇒ một cờ là đủ; form gỡ khỏi màn là cờ tự hạ. KHÔNG lưu nháp — chỉ hỏi. */
+const guard = { dirty: false };
+
+/** Form trang báo "đang có chữ chưa lưu" — "‹" sẽ hỏi trước khi bỏ; đóng tab/tải lại cũng hỏi (beforeunload). */
+export function useLeaveGuard(dirty: boolean): void {
+  useEffect(() => {
+    guard.dirty = dirty;
+    if (!dirty) return;
+    const hoi = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = ""; // Chrome cũ cần chuỗi mới hiện hộp
+    };
+    window.addEventListener("beforeunload", hoi);
+    return () => {
+      window.removeEventListener("beforeunload", hoi);
+      guard.dirty = false;
+    };
+  }, [dirty]);
+}
 
 export function MarketHeader({
   title,
@@ -25,12 +51,32 @@ export function MarketHeader({
   right?: ReactNode;
 }) {
   const router = useRouter();
-  const back = () => {
+  const [hoiBo, setHoiBo] = useState(false);
+  const go = () => {
     // history.length ≤ 1 = mở thẳng vào màn này, back sẽ rời app ⇒ về màn cha
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
     else router.push(fallback);
   };
+  const back = () => {
+    if (guard.dirty) setHoiBo(true);
+    else go();
+  };
   return (
+    <>
+    {hoiBo && (
+      <ConfirmDialog
+        title="Bỏ phần đang ghi?"
+        message="Chữ vừa gõ sẽ mất, không lưu lại."
+        cancelLabel="Ghi tiếp"
+        confirmLabel="Bỏ"
+        onCancel={() => setHoiBo(false)}
+        onConfirm={() => {
+          guard.dirty = false;
+          setHoiBo(false);
+          go();
+        }}
+      />
+    )}
     <header
       className="flex items-center gap-1 bg-background px-2 pb-1 text-navy"
       style={{
@@ -51,5 +97,6 @@ export function MarketHeader({
       )}
       {right && <div className="ml-auto shrink-0">{right}</div>}
     </header>
+    </>
   );
 }

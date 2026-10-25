@@ -357,3 +357,13 @@ export function mediaPathFromUrl(url: string): string | null {
   const m = url.match(/([0-9a-f-]{36})(?:\/|__)([0-9a-f-]{36}\.(?:jpg|png|webp))(?:[?#].*)?$/i);
   return m ? `${m[1]}/${m[2]}` : null;
 }
+
+/** Tên miền hiện trên dải thẻ link bài báo ("laodong.vn") — bỏ "www.", link hỏng ⇒ "". */
+export function tenMien(url: string | null | undefined): string {
+  if (!url) return "";
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}

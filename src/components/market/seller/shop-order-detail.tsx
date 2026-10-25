@@ -17,9 +17,7 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { CartIcon, CheckIcon, CloseIcon, RouteIcon } from "@/components/icons";
 import { formatVnd } from "@/lib/format";
 import { marketSend } from "@/lib/market/client";
-import {
-  isPendingTooLong, ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL,
-} from "@/lib/market/order-state";
+import { ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/market/order-state";
 import type { Order, OrderStatus } from "@/lib/market/types";
 import { agoLabel, LoadView, marketErrorText, useInlineNote, useMarketData } from "./seller-net";
 import { SELLER_BTN } from "./ui";
@@ -81,7 +79,6 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
   const move = (to: OrderStatus, extra: Record<string, unknown> = {}) =>
     send({ status: to, ...extra }, `Đã chuyển sang ${ORDER_STATUS_LABEL[to]}.`);
 
-  const late = isPendingTooLong(order, new Date().toISOString());
   const byAdmin = order.timeline.some((t) => t.by.startsWith("admin"));
   // ĐẾM SỐ DÒNG, không cộng số lượng (B-06/F-18)
   const soMon = order.items.length;
@@ -95,11 +92,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
           </StatusBanner>
         </div>
       )}
-      {late && (
-        <div className="mb-3 overflow-hidden">
-          <StatusBanner level="warn">Đơn chờ quá 2 ngày — xác nhận hoặc gọi người mua giúp.</StatusBanner>
-        </div>
-      )}
+      {/* băng "chờ quá 2 ngày" BỎ (BH-12): `AutoCancelNote` bên dưới đã đếm ngược — một việc một lời nhắc */}
       {byAdmin && (
         <div className="mb-3 overflow-hidden">
           <StatusBanner level="neutral">SDVICO đã xử lý thay shop ở một bước trong đơn này.</StatusBanner>
@@ -443,21 +436,26 @@ function CancelSheet({
 
 /** Giao hàng — cách giao / nhà xe / mã vận đơn đều TUỲ CHỌN (11 §6.5). */
 function ShipSheet({ busy, onClose, onSend }: { busy: boolean; onClose: () => void; onSend: (carrier: string, tracking: string) => void }) {
-  const [carrier, setCarrier] = useState("");
+  /*  Chip CÁCH GIAO và ô NHÀ XE là hai state (BH-18): trước đây dùng chung một
+      `carrier`, chọn "Gửi xe" rồi gõ "Phương Trang" là chip tắt và chữ "Gửi xe"
+      bị đè — người mua chỉ còn thấy "Phương Trang". Gửi lên ghép "Gửi xe · Phương Trang". */
+  const [method, setMethod] = useState("");
+  const [carrierName, setCarrierName] = useState("");
   const [tracking, setTracking] = useState("");
+  const carrier = [method, carrierName.trim()].filter(Boolean).join(" · ");
   return (
     <BottomSheet kieu="form" title="Giao hàng" onClose={onClose}>
       <div className="pb-4">{/* không lề riêng — BottomSheet đã p-5 (rà bố cục 2026-10-22) */}
         <div className="-mx-4 mb-3">
-          <ChipRow options={CARRIER_CHIPS} value={carrier} onChange={setCarrier} accent="t3" level={1} ariaLabel="Cách giao" />
+          <ChipRow options={CARRIER_CHIPS} value={method} onChange={setMethod} accent="t3" level={1} ariaLabel="Cách giao" />
         </div>
         <Field label="Đơn vị / nhà xe (không bắt buộc)">
-          <input className={inputClass} value={carrier} onChange={(e) => setCarrier(e.target.value)} maxLength={40} placeholder="Ví dụ: Xe Phương Trang" />
+          <input className={inputClass} value={carrierName} onChange={(e) => setCarrierName(e.target.value)} maxLength={40} placeholder="Ví dụ: Xe Phương Trang" />
         </Field>
         <Field label="Mã vận đơn (không bắt buộc)">
           <input className={inputClass} value={tracking} onChange={(e) => setTracking(e.target.value)} maxLength={40} placeholder="Ví dụ: PT-88213" />
         </Field>
-        <PrimaryButton disabled={busy} onClick={() => onSend(carrier.trim(), tracking.trim())}>
+        <PrimaryButton disabled={busy} onClick={() => onSend(carrier, tracking.trim())}>
           {busy ? "Đang gửi…" : "Chuyển sang Đang giao"}
         </PrimaryButton>
       </div>

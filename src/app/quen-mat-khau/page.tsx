@@ -47,17 +47,28 @@ export default function QuenMatKhauPage() {
 
   const [phone, setPhone] = useState("");
   const [fullName, setFullName] = useState("");
+  /** lỗi HỆ THỐNG (CRM từ chối, mất mạng) — băng trên form */
   const [error, setError] = useState<string | null>(null);
+  /** lỗi NHẬP từng ô — hiện dưới ô (VO-APP-04) */
+  const [phoneErr, setPhoneErr] = useState<string | null>(null);
+  const [nameErr, setNameErr] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setPhoneErr(null);
+    setNameErr(null);
 
+    // validateResetInput kiểm SĐT trước rồi tới họ tên → câu lỗi thuộc ô nào
+    // suy từ chính thứ tự đó, không tách lib.
     const loi = validateResetInput(phone, fullName, isValidVnPhone);
     if (loi) {
-      setError(loi);
+      const oSdt = !isValidVnPhone(phone);
+      if (oSdt) setPhoneErr(loi);
+      else setNameErr(loi);
+      document.getElementById(oSdt ? "qmk-sdt" : "qmk-ten")?.focus();
       return;
     }
     if (!endpoint) return;
@@ -107,12 +118,9 @@ export default function QuenMatKhauPage() {
 
   return (
     <div>
-      <PageHeader
-        kicker="Tài khoản"
-        title="Quên mật khẩu"
-        sub="Bà con điền số điện thoại và họ tên, SDVICO sẽ gọi lại báo mật khẩu mới."
-        toColor="var(--sea)"
-      />
+      {/* VO-APP-12/16: bỏ câu phụ dưới tiêu đề — nhánh chưa cấu hình không có ô nào
+          để "điền"; vế cấp dữ liệu (gọi lại trong 24 giờ) đã nằm ở AuthNote trong thẻ */}
+      <PageHeader kicker="Tài khoản" title="Quên mật khẩu" toColor="var(--sea)" />
       <AuthCard>
         {/*  ĐẢO NGƯỢC ƯU TIÊN (2026-08-29, luật A5/D1): ở nhánh chưa cấu hình
             endpoint, việc DUY NHẤT bà con làm được là GỌI HOTLINE — mà link đó
@@ -134,26 +142,34 @@ export default function QuenMatKhauPage() {
             </AuthNote>
             {error && <AuthError>{error}</AuthError>}
             <form onSubmit={handleSubmit}>
-              <Field label="Số điện thoại">
+              <Field label="Số điện thoại" error={phoneErr ?? undefined}>
                 <input
+                  id="qmk-sdt"
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
                   className={inputClass}
                   placeholder="0901 234 567"
                   value={phone}
-                  onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+                  onChange={(e) => {
+                    setPhone(sanitizePhoneInput(e.target.value));
+                    setPhoneErr(null);
+                  }}
                   required
                 />
               </Field>
-              <Field label="Họ và tên">
+              <Field label="Họ và tên" error={nameErr ?? undefined}>
                 <input
+                  id="qmk-ten"
                   type="text"
                   autoComplete="name"
                   className={inputClass}
                   placeholder="Ví dụ: Nguyễn Văn Ba"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    setNameErr(null);
+                  }}
                   required
                 />
               </Field>

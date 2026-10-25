@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 /*
   Tabs trong trang — segmented control hiện đại, thay kiểu xếp chồng dọc
   (cuộn dài). Một page lớn = vài mục; mỗi lần chỉ hiện 1 mục → màn ngắn,
   gọn, "khoa học". Thanh tab dính (sticky) dưới header khi cuộn.
 
-  · ≤4 tab: chia đều (flex-1) kiểu segmented; nhiều hơn thì cuộn ngang.
+  · ≤4 tab VÀ chữ vừa một hàng: chia đều (flex-1) kiểu segmented; không vừa (nhãn dài,
+    chữ phóng to, nhiều tab) thì rơi về cuộn ngang — nhãn KHÔNG bao giờ gãy hai dòng trong
+    pill (rà FB 2026-10-25, K3-12: "Giới thiệu" gãy ở trang cá nhân Kairos). Đo thật
+    `scrollWidth > clientWidth` của thanh, đo lại khi đổi cỡ.
   · tap ≥48px, active = navy đặc, có aria-selected/role=tab cho a11y.
   · chỉ render mục đang chọn (nhẹ; component tự hydrate lại từ localStorage).
   · DEEP-LINK (hội đồng UX 2026-06-11): truyền paramKey="tab" là Tabs đọc
@@ -60,7 +63,21 @@ export function Tabs({
   }, [paramKey]);
 
   const current = tabs.find((t) => t.id === active) ?? tabs[0];
-  const segmented = tabs.length <= 4;
+  /*  Chữ nowrap nên khi không vừa, pill tràn khỏi thanh ⇒ scrollWidth > clientWidth ⇒ đổi sang cuộn ngang;
+      ở chế độ cuộn mà nội dung lại vừa (xoay máy) ⇒ về segmented. Đo trong layout effect để không nháy. */
+  const thanhRef = useRef<HTMLDivElement>(null);
+  const [tran, setTran] = useState(false);
+  const nhan = tabs.map((t) => t.label).join("\u0000");
+  useLayoutEffect(() => {
+    const el = thanhRef.current;
+    if (!el) return;
+    const do_ = () => setTran(el.scrollWidth > el.clientWidth + 1);
+    do_();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(do_) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [nhan]);
+  const segmented = tabs.length <= 4 && !tran;
 
   return (
     <div>
@@ -71,6 +88,7 @@ export function Tabs({
           trắng quá"). Desktop safe-area=0 nên y như cũ. */}
       <div className="sticky top-[env(safe-area-inset-top)] z-10 bg-background px-4 pb-2.5 pt-2.5">
         <div
+          ref={thanhRef}
           role="tablist"
           aria-label={ariaLabel}
           className={`flex gap-1 rounded-full bg-field p-1 ${
@@ -85,7 +103,7 @@ export function Tabs({
                 role="tab"
                 aria-selected={on}
                 onClick={() => setActive(t.id)}
-                className={`relative h-(--h-chip) rounded-full px-3 text-[0.875rem] font-semibold leading-tight transition ${
+                className={`relative h-(--h-chip) whitespace-nowrap rounded-full px-3 text-[0.875rem] font-semibold leading-tight transition ${
                   segmented ? "flex-1" : "shrink-0"
                 } ${
                   on

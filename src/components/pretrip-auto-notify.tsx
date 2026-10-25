@@ -50,7 +50,7 @@ import {
 import { isShellReady } from "@/lib/shell-ready";
 import { isOffline, subscribeOnline } from "@/lib/use-online";
 import { NOTIFY_HIDE_LONG_MS, NOTIFY_HIDE_MS } from "@/lib/notify";
-import { AlertIcon, CheckIcon } from "@/components/icons";
+import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons";
 import { SQ_BTN } from "@/components/ui/sq-btn";
 
 /** byte → "~1,2 MB" / "~340 KB" (rỗng nếu 0 — lớp nằm kho khác) */
@@ -372,7 +372,8 @@ export function PretripSavedStatus({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={`Dữ liệu đi biển: ${text}. Chạm để xem.`}
+        // câu `text` đã có dấu chấm cuối — bỏ trước khi ghép, kẻo trình đọc đọc ".." (BD-14)
+        aria-label={`Dữ liệu đi biển: ${text.replace(/[.\s]+$/, "")}. Chạm để xem.`}
         title={text}
         className={`pointer-events-auto inline-flex h-(--h-ctl) items-center gap-1.5 rounded-full border border-line bg-card/95 text-[0.8125rem] font-semibold shadow-sm transition active:scale-95 ${
           iconOnly ? "w-(--h-ctl) justify-center" : "px-3"
@@ -466,6 +467,8 @@ function PretripSavedSheet({
   // đừng để nút bấm xong im ru như hỏng
   const [failed, setFailed] = useState<Set<SavedLayerId>>(new Set());
   const [exporting, setExporting] = useState(false);
+  // băng iPhone gập/bung (BD-13) — mặc định gập
+  const [iosMo, setIosMo] = useState(false);
 
   const refresh = useCallback(() => {
     const c = savedCoverage({ fishLocked });
@@ -614,19 +617,9 @@ function PretripSavedSheet({
           cốc, mà không API nào chống được. Bản THÊM VÀO MÀN HÌNH CHÍNH được
           miễn luật đó. Nói trước một câu ở đúng chỗ bà con sắp bấm Tải, còn
           hơn để họ tin nhầm rồi ra khơi mới biết. */}
-      {isIOS() && !isStandalone() && (
-        <p
-          className="mb-3 rounded-xl px-3.5 py-3 text-[0.9375rem] font-semibold leading-snug"
-          style={{ color: "var(--warn)", backgroundColor: "var(--warn-bg)" }}
-        >
-          Máy iPhone: hãy <b>Thêm vào Màn hình chính</b> rồi tải trong app vừa
-          thêm. Chạy trong Safari thì máy có thể tự xoá sạch dữ liệu đã tải sau
-          khoảng 7 ngày không mở.
-        </p>
-      )}
-      <p className="mb-3 text-[0.875rem] leading-snug text-foreground/65">
-        Tải sẵn lúc còn sóng để ra khơi mất sóng vẫn xem được.
-      </p>
+      {/*  BD-13 (2026-10-25): băng iPhone 4 dòng + câu dẫn đứng TRƯỚC danh sách đẩy
+           mục đầu xuống ~400 px. Nay danh sách lên đầu; băng iPhone gập một hàng
+           ở dưới danh sách (chạm mới bung — khuôn InstallBanner); bỏ câu dẫn. */}
       {/*  KHO CHƯA MỞ XONG ⇒ NÓI THẬT, ĐỪNG LIỆT KÊ "CHƯA LƯU" (2026-08-02k).
            Danh sách bên dưới đọc kho ĐỒNG BỘ; kho nạp chưa xong thì mọi dòng ra
            "chưa lưu" — 12 dòng đỏ trên một máy đang giữ đủ 16 ngày. Giữa biển đó
@@ -734,6 +727,36 @@ function PretripSavedSheet({
           Tổng trong máy: ~{fmtBytes(total)} · cần sóng để tải; mất sóng chỉ
           xem được thứ đã tải.
         </p>
+      )}
+
+      {/* CHẶN Ở CỬA VÀO thay vì chữa hậu quả (2026-08-01c): iPhone chạy trong
+          TAB Safari bị iOS xoá sạch dữ liệu website sau ~7 ngày không mở —
+          xoá cả kho lẫn service worker, nên tải sẵn bao nhiêu cũng thành công
+          cốc, mà không API nào chống được. Bản THÊM VÀO MÀN HÌNH CHÍNH được
+          miễn luật đó. Gập một hàng, chạm mới đọc đủ (BD-13). */}
+      {isIOS() && !isStandalone() && (
+        <div className="mt-3 rounded-xl bg-warn-bg text-warn">
+          <button
+            type="button"
+            onClick={() => setIosMo((v) => !v)}
+            aria-expanded={iosMo}
+            className="flex min-h-(--h-row) w-full items-center gap-2 px-3.5 text-left text-[0.9375rem] font-semibold"
+          >
+            <AlertIcon className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="flex-1">iPhone: nên cài ra màn hình chính</span>
+            {iosMo ? (
+              <ChevronUpIcon className="h-5 w-5 shrink-0" aria-hidden />
+            ) : (
+              <ChevronDownIcon className="h-5 w-5 shrink-0" aria-hidden />
+            )}
+          </button>
+          {iosMo && (
+            <p className="px-3.5 pb-3 text-[0.875rem] leading-snug">
+              Hãy <b>Thêm vào Màn hình chính</b> rồi tải trong app vừa thêm. Chạy trong
+              Safari thì máy có thể tự xoá sạch dữ liệu đã tải sau khoảng 7 ngày không mở.
+            </p>
+          )}
+        </div>
       )}
 
       {/* SAO LƯU dự báo ra tệp — CHỈ PREMIUM (user chốt: chỉ premium xem được

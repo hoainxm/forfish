@@ -42,7 +42,7 @@
 
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckIcon, PlusIcon } from "@/components/icons";
+import { CheckIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { FISHING_PORTS } from "@/data/fishing-ports";
@@ -651,9 +651,8 @@ export function KairosFeed({
       {ben && (
         <div className="px-4 pb-3">
           <section className="surface overflow-hidden" aria-label={`Bến ${ben.name}`}>
-            <div className="flex h-24 items-end bg-sea/15 px-4 pb-2">
-              <span className="display text-[1.5rem] font-bold leading-tight text-sea">{ben.name}</span>
-            </div>
+            {/* dải bìa TRƠN h-16 (K3-11): tên cảng đã ở thanh ‹ và h2, không lặp lần ba */}
+            <div className="h-16 bg-sea/15" />
             <div className="p-4">
               <h2 className="display text-[1.25rem] font-bold leading-snug text-navy">Bến {ben.name}</h2>
               {(ben.province || soBaiBen > 0) && (
@@ -664,26 +663,17 @@ export function KairosFeed({
                 </p>
               )}
               <p className="mt-2 text-[1rem]">Chỗ bà con cảng {ben.name} kể chuyện, hỏi giá, báo tin</p>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={onCompose}
-                  className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-sea px-4 font-semibold text-white transition active:scale-[0.98]"
-                >
-                  <PlusIcon className="h-5 w-5" />
-                  {NHAN.dang}
-                </button>
-                <button
-                  type="button"
-                  onClick={datCangNha}
-                  disabled={laCangNha}
-                  aria-pressed={laCangNha}
-                  className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-line px-4 font-semibold text-sea transition active:scale-[0.98] disabled:opacity-75"
-                >
-                  {laCangNha && <CheckIcon className="h-5 w-5" />}
-                  {NHAN.cangNha}
-                </button>
-              </div>
+              {/* một lối đăng duy nhất = ô mời "Đăng vào Bến…" bên dưới (K3-11 bỏ nút Đăng trùng) */}
+              <button
+                type="button"
+                onClick={datCangNha}
+                disabled={laCangNha}
+                aria-pressed={laCangNha}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-line px-4 font-semibold text-sea transition active:scale-[0.98] disabled:opacity-75"
+              >
+                {laCangNha && <CheckIcon className="h-5 w-5" />}
+                {NHAN.cangNha}
+              </button>
             </div>
           </section>
         </div>

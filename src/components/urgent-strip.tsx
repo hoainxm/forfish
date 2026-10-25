@@ -141,7 +141,8 @@ export function UrgentStrip() {
       w-16 rỗng; "Xem hết" là HÀNG CUỐI danh sách (trước là nút 11px trên tiêu đề). */
   return (
     <section aria-label="Việc cần làm ngay">
-      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+      {/* không px-1 — thẳng mép với tiêu đề "Thông báo" ngay dưới (TC-17) */}
+      <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="display text-[1rem] font-semibold text-navy">Việc cần làm</h2>
         <span className="text-[0.8125rem] font-medium text-foreground/65">{all.length} việc</span>
       </div>

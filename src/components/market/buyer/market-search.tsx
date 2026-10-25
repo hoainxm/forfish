@@ -20,7 +20,7 @@ import type { ProductCard, ProductQuery } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import { loadHome } from "@/lib/region";
 import { ErrorBlock, GridSkeleton, MarketTopBar, ProductGrid } from "./ui";
-import { isOpenOrder, useCachedOrders, useFavorites, useMarketCart, useSeenLabel } from "./hooks";
+import { isOpenOrder, useCachedOrders, useFavorites, useKhoiPhucCuon, useMarketCart, useNhoCuon, useSeenLabel } from "./hooks";
 
 type Sort = NonNullable<ProductQuery["sort"]>;
 type ListRes = { items: ProductCard[]; total: number };
@@ -36,23 +36,25 @@ export const SORT_LABEL: Record<Sort, string> = {
 };
 export const SORTS: Sort[] = ["moi", "ban_chay", "gia_tang", "gia_giam"];
 
-/** Chip 3.5rem đặc/tonal — cùng hình với chip "Gần tôi" (không phải ChipRow tầng 2 = 52px). */
+/** Chip sắp xếp — CÙNG HÌNH `ChipRow` tầng 1 (navy, bậc chip 03 §0; VT-15). Giữ component riêng
+ *  vì chip "Gần tôi · Tỉnh" là công tắc đứng chung hàng, không phải một giá trị của ChipRow. */
 export function SortChip({ on, onClick, children, pressed = true }: { on: boolean; onClick: () => void; children: React.ReactNode; pressed?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={pressed ? on : undefined}
-      className="min-h-(--row-h) shrink-0 rounded-full px-4 text-[1rem] font-semibold"
-      style={{
-        backgroundColor: on ? "var(--t3)" : "var(--field)",
-        color: on ? "var(--card)" : "var(--navy)",
-      }}
+      className={`inline-flex h-(--h-chip) min-w-[5.5rem] shrink-0 items-center justify-center rounded-full border px-3 text-[0.875rem] font-semibold transition active:scale-[0.97] ${
+        on ? "border-navy bg-navy text-white" : "border-line bg-card text-foreground/75"
+      }`}
     >
       {children}
     </button>
   );
 }
+
+/** Gõ xong 400 ms mới hỏi máy chủ (VT-07) — trước là một request mỗi phím. */
+const GO_CHO_MS = 400;
 
 /** Ngăn riêng của màn này trong sổ bản chụp (11 §5b.2). */
 const LIST_ID = "cho-tim";
@@ -64,6 +66,8 @@ export function MarketSearch() {
   const cache = useCachedOrders();
 
   const [q, setQ] = useState("");
+  /** chữ tìm ĐÃ ÁP (sau 400 ms im hay bấm Tìm/Enter) — fetch theo cái này, không theo `q` */
+  const [qApplied, setQApplied] = useState("");
   const [category, setCategory] = useState<CategoryChipValue>("tat_ca");
   const [nearOn, setNearOn] = useState(false);
   const [homeProvince, setHomeProvince] = useState<string>("");
@@ -74,36 +78,21 @@ export function MarketSearch() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<"loading" | "ok" | "error" | "offline">("loading");
   const [moreError, setMoreError] = useState<"error" | "offline" | null>(null);
+  /** đang tải lại trang 1 mà ĐÃ có kết quả ⇒ lưới mờ, không thay bằng skeleton (VT-07) */
+  const [refreshing, setRefreshing] = useState(false);
+  /** mất sóng / lỗi khi đổi chữ, chip mà đang có kết quả ⇒ giữ lưới + một chip báo (VT-08) */
+  const [netNote, setNetNote] = useState<{ state: "offline" | "error"; text: string } | null>(null);
   const [ready, setReady] = useState(false);
   /** vị trí cuộn lấy từ bản chụp, chờ danh sách vẽ xong mới nhảy tới */
   const khoiPhuc = useRef<number | null>(null);
-  /*  Vị trí cuộn phải NHỚ LIÊN TỤC, không đọc lúc rời màn: đo thật 2026-09-08 —
-      khi bấm vào một món, Next đưa cuộn về 0 TRƯỚC khi cleanup chạy, nên bản chụp
-      ghi 0 và quay lại vẫn nhảy lên đầu. Ghi qua rAF để cuộn không giật. */
-  const cuonRef = useRef(0);
-  useEffect(() => {
-    let cho = false;
-    const theo = () => {
-      if (cho) return;
-      cho = true;
-      requestAnimationFrame(() => {
-        cho = false;
-        if (window.scrollY > 0) cuonRef.current = window.scrollY;
-      });
-    };
-    window.addEventListener("scroll", theo, { passive: true });
-    /*  Chốt thêm ở lúc CHẠM: cuộn có thể do phần tử con xử lý nên sự kiện scroll
-        không chắc tới window; còn pointerdown thì luôn tới, và lúc bà con chạm vào
-        một món thì trang vẫn đang ở đúng chỗ cần nhớ. */
-    const cham = () => {
-      if (window.scrollY > 0) cuonRef.current = window.scrollY;
-    };
-    window.addEventListener("pointerdown", cham, { capture: true, passive: true });
-    return () => {
-      window.removeEventListener("scroll", theo);
-      window.removeEventListener("pointerdown", cham, { capture: true });
-    };
-  }, []);
+  /** vừa khôi phục từ bản chụp ⇒ bỏ lượt tải tự động đầu tiên (bản chụp ≤10 phút, giữ đủ trang đã tải) */
+  const vuaKhoiPhuc = useRef(false);
+  /** bộ lọc của lần tải THÀNH CÔNG gần nhất — mất sóng thì hoàn chip về đây (VT-08) */
+  const daAp = useRef<{ category: CategoryChipValue; nearOn: boolean; sort: Sort } | null>(null);
+  /** đang hoàn chip về bộ lọc cũ ⇒ bỏ lượt fetch do chính việc hoàn đó gây ra */
+  const dangHoan = useRef(false);
+  const itemsRef = useRef<ProductCard[]>([]);
+  const cuonRef = useNhoCuon();
 
   // ── đọc tham số URL sau mount ──────────────────────────────────────────
   /*  QUAY LẠI PHẢI THẤY ĐÚNG CHỖ CŨ (11 §5b.2, chủ dự án 2026-09-08).
@@ -125,6 +114,7 @@ export function MarketSearch() {
     // Bản chụp chỉ dùng khi URL KHÔNG mang chữ tìm mới — link mới luôn thắng bản cũ
     if (cu && !sp.get("q") && !c) {
       setQ(cu.q);
+      setQApplied(cu.q);
       const f = cu.filters;
       if (typeof f.category === "string" && isProductCategory(f.category)) setCategory(f.category);
       setNearOn(f.nearOn === true && !!home);
@@ -134,24 +124,29 @@ export function MarketSearch() {
       setPage(cu.page);
       setStatus("ok");
       khoiPhuc.current = cu.scrollY;
+      vuaKhoiPhuc.current = true;
       setReady(true);
       return;
     }
 
     setQ(sp.get("q") ?? "");
+    setQApplied(sp.get("q") ?? "");
     if (c && isProductCategory(c)) setCategory(c);
     if (sp.get("province") && home) setNearOn(true);
     setReady(true);
   }, []);
 
-  /*  Cuộn về đúng chỗ SAU khi danh sách đã vẽ xong. Hai khung hình: một để
-      React gắn thẻ món, một để trình duyệt tính xong chiều cao ảnh. */
+  useKhoiPhucCuon(khoiPhuc, items.length);
   useEffect(() => {
-    const y = khoiPhuc.current;
-    if (y == null || items.length === 0) return;
-    khoiPhuc.current = null;
-    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
-  }, [items.length]);
+    itemsRef.current = items;
+  }, [items]);
+
+  // gõ ⇒ chờ 400 ms im mới áp (VT-07); Tìm/Enter áp ngay ở `onSubmit`
+  useEffect(() => {
+    if (q === qApplied) return;
+    const t = setTimeout(() => setQApplied(q), GO_CHO_MS);
+    return () => clearTimeout(t);
+  }, [q, qApplied]);
 
   /*  Ghi bản chụp TRƯỚC KHI RỜI MÀN. Không ghi mỗi lần cuộn (tốn), chỉ ghi khi
       màn sắp bị che hoặc bị gỡ — đúng hai lúc bà con rời đi. */
@@ -172,37 +167,72 @@ export function MarketSearch() {
       window.removeEventListener("pagehide", ghi);
       ghi();
     };
-  }, [q, category, nearOn, sort, items, total, page]);
+  }, [q, category, nearOn, sort, items, total, page, cuonRef]);
 
   const fetchPage = useCallback(
     async (p: number, replace: boolean) => {
       const sp = new URLSearchParams();
-      if (q.trim()) sp.set("q", q.trim());
+      if (qApplied.trim()) sp.set("q", qApplied.trim());
       if (category !== "tat_ca") sp.set("category", category);
       if (nearOn && homeProvince) sp.set("province", homeProvince);
       sp.set("sort", sort);
       sp.set("page", String(p));
       const res = await marketGet<ListRes>(`/api/cho/san-pham?${sp.toString()}`);
+      setRefreshing(false);
       if (!res.ok) {
-        if (replace) setStatus(res.offline ? "offline" : "error");
-        else setMoreError(res.offline ? "offline" : "error");
+        const loai = res.offline ? "offline" : "error";
+        if (!replace) {
+          setMoreError(loai);
+          return;
+        }
+        /*  VT-08: đang có kết quả mà mất sóng ⇒ GIỮ lưới đang xem, báo một chip, hoàn chip
+            lọc về bộ của lần tải được gần nhất — bản cũ thay cả lưới bằng "tìm món cần mạng". */
+        if (itemsRef.current.length > 0 && daAp.current) {
+          setNetNote({
+            state: loai,
+            text: loai === "offline" ? "Không có sóng — đang xem kết quả đã tải" : "Chợ trục trặc — đang xem kết quả đã tải",
+          });
+          const cu = daAp.current;
+          if (cu.category !== category || cu.nearOn !== nearOn || cu.sort !== sort) {
+            dangHoan.current = true;
+            setCategory(cu.category);
+            setNearOn(cu.nearOn);
+            setSort(cu.sort);
+          }
+          return;
+        }
+        setStatus(loai);
         return;
       }
+      daAp.current = { category, nearOn, sort };
+      setNetNote(null);
       setTotal(res.data.total);
       setItems((prev) => (replace ? res.data.items : [...prev, ...res.data.items]));
       setPage(p);
       setMoreError(null);
       setStatus("ok");
     },
-    [q, category, nearOn, homeProvince, sort],
+    [qApplied, category, nearOn, homeProvince, sort],
   );
 
-  // Đổi chữ tìm / nhóm / Gần tôi / sắp xếp ⇒ về trang 1.
+  // Đổi chữ tìm (đã áp) / nhóm / Gần tôi / sắp xếp ⇒ về trang 1.
   useEffect(() => {
     if (!ready) return;
-    setStatus("loading");
+    if (vuaKhoiPhuc.current) {
+      // bản chụp vừa khôi phục chính là kết quả của bộ lọc này — không tải lại
+      vuaKhoiPhuc.current = false;
+      daAp.current = { category, nearOn, sort };
+      return;
+    }
+    if (dangHoan.current) {
+      dangHoan.current = false; // lượt này do hoàn chip gây ra, không hỏi máy chủ lần nữa
+      return;
+    }
+    // đã có kết quả ⇒ lưới mờ thay vì skeleton (VT-07) — không xoá thứ đang xem để chờ
+    if (itemsRef.current.length > 0) setRefreshing(true);
+    else setStatus("loading");
     void fetchPage(1, true);
-  }, [ready, fetchPage]);
+  }, [ready, fetchPage, category, nearOn, sort]);
 
   useOnlineRefetch(() => {
     if (items.length === 0) void fetchPage(1, true);
@@ -233,7 +263,7 @@ export function MarketSearch() {
       <MarketTopBar
         q={q}
         onQ={setQ}
-        onSubmit={() => void fetchPage(1, true)}
+        onSubmit={() => (q === qApplied ? void fetchPage(1, true) : setQApplied(q))}
         cartCount={cart.count}
         openOrders={openOrders}
       />
@@ -262,11 +292,12 @@ export function MarketSearch() {
         </p>
       )}
 
-      {status === "ok" && moreError === "offline" && (
+      {status === "ok" && moreError === "offline" && !netNote && (
         <NetChip state="offline" text="Không có sóng — đang xem kết quả đã tải" />
       )}
+      {status === "ok" && netNote && <NetChip state={netNote.state} text={netNote.text} />}
 
-      <div className="px-4">
+      <div className={`px-4 transition-opacity ${refreshing ? "opacity-60" : ""}`} aria-busy={refreshing || undefined}>
         {status === "loading" && <GridSkeleton />}
         {status === "error" && <ErrorBlock onRetry={() => void fetchPage(1, true)} />}
         {status === "offline" && <EmptyNet what="tìm món" onRetry={() => void fetchPage(1, true)} />}
@@ -300,7 +331,7 @@ export function MarketSearch() {
               <button
                 type="button"
                 onClick={() => void fetchPage(page + 1, false)}
-                className="display mx-auto mt-3 flex min-h-(--row-h) w-full max-w-[17.5rem] items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
+                className="sq-btn mx-auto mt-3 flex bg-field text-navy"
               >
                 Xem thêm
               </button>

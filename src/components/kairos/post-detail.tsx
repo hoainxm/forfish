@@ -4,7 +4,7 @@
   CHI TIẾT BÀI + BÌNH LUẬN `/kairos/p/[id]` (14 §3.4, §10; AC09 · AC10 · AC15 · AC19).
 
    · Bình luận: khối dùng chung `comment-thread.tsx` (cũng mở INLINE dưới thẻ ở dòng tin, như FB);
-     ở đây `dinhDay` — ô viết dính đáy màn trên dock / trên bàn phím.
+     ô viết dính đáy màn trên dock / trên bàn phím (khối tự lo, K3-01).
    · ĐỌC: bài ẩn / đã xoá / người mình chặn ⇒ "Bài này không còn".
    · MẤT SÓNG: lấy bài trong bản lưu dòng tin (`forfish.kairos.v1`, có 2 bình luận nổi) — ô
      bình luận "Cần sóng", chữ vào nháp `forfish.kairos.nhap.v1` (khoá `bl:<id>`); có sóng lại
@@ -123,7 +123,6 @@ export function PostDetail({ id }: { id: string }) {
               initialNext={next}
               kit={{ notify: a.notify, report: a.report, patch: a.patch }}
               canWrite={load === "ready"}
-              dinhDay
               now={now}
             />
           </section>

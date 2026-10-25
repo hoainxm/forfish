@@ -527,7 +527,7 @@ export function QtyStepper({
         type="button"
         onClick={() => onChange(qty - 1)}
         aria-label={`Bớt ${label}`}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-card text-navy shadow-sm transition active:scale-[0.95]"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-card text-navy transition active:scale-[0.95]"
       >
         <MinusIcon className="h-6 w-6" />
       </button>
@@ -541,7 +541,7 @@ export function QtyStepper({
         type="button"
         onClick={() => onChange(qty + 1)}
         aria-label={`Thêm ${label}`}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-card text-navy shadow-sm transition active:scale-[0.95]"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-card text-navy transition active:scale-[0.95]"
       >
         <PlusIcon className="h-6 w-6" />
       </button>

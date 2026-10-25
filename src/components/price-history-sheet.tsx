@@ -194,11 +194,19 @@ export function PriceHistorySheet({
 
   return (
     <BottomSheet title={`Giá ${species}`} onClose={onClose}>
+      {/*  KHUNG CHỜ ĐÚNG HÌNH (CC-17, 2026-10-25): một thẻ số + một khối biểu đồ cùng cỡ
+          với lúc có dữ liệu (208px) — sheet không đổi chiều cao khi dữ liệu về. Trước là
+          hộp chữ viền đứt "Đang tải…" rồi nhảy. */}
       {loading && (
-        <div className="rounded-xl border border-dashed border-line px-4 py-6 text-center">
-          <p className="text-[1rem] text-foreground/70">
-            Đang tải lịch sử giá…
-          </p>
+        <div aria-busy="true" aria-label="Đang tải lịch sử giá" className="animate-pulse">
+          <div className="mb-3 surface px-4 py-3">
+            <div className="h-3.5 w-2/5 rounded bg-field" />
+            <div className="mt-2 h-6 w-3/5 rounded bg-field" />
+            <div className="mt-2 h-4 w-1/3 rounded bg-field" />
+          </div>
+          <div className="mb-1 h-3.5 w-1/2 rounded bg-field" />
+          <div className="h-[13rem] rounded-2xl bg-field" />
+          <div className="mt-3 h-9 rounded-xl bg-field" />
         </div>
       )}
 

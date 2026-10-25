@@ -5,7 +5,7 @@ import { InstallBanner } from "@/components/install-prompt";
 import { EmptyState } from "@/components/ui/primitives";
 import { loadPublicPost } from "@/lib/kairos/server";
 import type { KairosPost } from "@/lib/kairos/types";
-import { shareText } from "@/lib/kairos/social";
+import { shareText, tenMien } from "@/lib/kairos/social";
 import { NHAN } from "@/lib/labels";
 
 /*
@@ -86,13 +86,26 @@ export default async function PublicPostPage({ params }: Props) {
           </p>
           <p className="text-[0.8125rem] text-foreground/65">{[post.author?.subline, when(post.publishedAt)].filter(Boolean).join(" · ")}</p>
         </div>
-        {post.title && <h1 className="px-4 pb-1 text-[1.25rem] font-bold leading-snug text-navy">{post.title}</h1>}
+        {post.title && post.kind !== "bao" && <h1 className="px-4 pb-1 text-[1.25rem] font-bold leading-snug text-navy">{post.title}</h1>}
         {text && <p className="whitespace-pre-line break-words px-4 pb-3 text-[1rem] leading-relaxed">{text}</p>}
+        {/* bài báo: THẺ LINK như thẻ bài trong app (K3-04) — ảnh bìa + dải tên miền · tiêu đề, chạm cả khối mở bài gốc */}
+        {post.kind === "bao" && (post.title || post.coverUrl) && (
+          <a href={post.url ?? undefined} target="_blank" rel="noopener noreferrer" className="mb-2 block border-y border-line">
+            {post.coverUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- ảnh bìa là link RSS của báo (A12)
+              <img src={post.coverUrl} alt="" referrerPolicy="no-referrer" className="aspect-[16/9] w-full bg-field object-cover" />
+            )}
+            <span className="flex flex-col gap-0.5 bg-field px-4 py-2">
+              {tenMien(post.url) && <span className="truncate text-[0.75rem] uppercase tracking-wide text-foreground/55">{tenMien(post.url)}</span>}
+              {post.title && <h1 className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{post.title}</h1>}
+            </span>
+          </a>
+        )}
         {post.images.map((u, i) => (
           // eslint-disable-next-line @next/next/no-img-element -- ảnh kho kairos-media public, đã nén ở máy
           <img key={u} src={u} alt={`Ảnh ${i + 1}`} className="w-full bg-field object-cover" />
         ))}
-        {!post.images.length && post.coverUrl && (
+        {!post.images.length && post.coverUrl && post.kind !== "bao" && (
           // eslint-disable-next-line @next/next/no-img-element -- ảnh bìa là link RSS của báo (A12)
           <img src={post.coverUrl} alt="" referrerPolicy="no-referrer" className="aspect-[16/9] w-full bg-field object-cover" />
         )}
@@ -101,11 +114,6 @@ export default async function PublicPostPage({ params }: Props) {
             <p className="text-[0.8125rem] font-semibold text-foreground/65">{who(post.reshareOf)}</p>
             <p className="line-clamp-3">{post.reshareOf.title || post.reshareOf.summary || post.reshareOf.body}</p>
           </div>
-        )}
-        {post.url && (
-          <a href={post.url} target="_blank" rel="noopener noreferrer" className="mx-4 my-2 flex h-11 items-center justify-center rounded-xl border border-line font-semibold text-sea">
-            Đọc bài gốc
-          </a>
         )}
         <p className="border-t border-line px-4 py-2 text-[0.875rem] text-foreground/65">
           {countLabel(post.hayCount)} {NHAN.hay} · {countLabel(post.commentCount)} {NHAN.binhLuan.toLowerCase()}

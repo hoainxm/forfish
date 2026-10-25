@@ -37,6 +37,8 @@ export type ListSnapshot<T> = {
   scrollY: number;
   /** mốc ghi (epoch ms) — để tính hạn */
   at: number;
+  /** thứ đi kèm danh sách mà màn cần giữ cùng (vd thẻ shop ở `/cho/shop`, lưới "gần bà con" ở `/cho`) */
+  extra?: Record<string, unknown>;
 };
 
 function kho(): Storage | null {

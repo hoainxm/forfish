@@ -13,9 +13,11 @@ import { QtyStepper } from "@/components/cart-sheet";
 import { AlertIcon, CartIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
 import { EmptyNet } from "@/components/market/shared/empty-net";
 import { PriceText } from "@/components/market/shared/price-text";
+import { CategoryIcon } from "@/components/market/shared/product-card";
 import { RatingStars } from "@/components/market/shared/rating-stars";
 import { ShopBadge } from "@/components/market/shared/shop-badge";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { ChipRow } from "@/components/ui/chip-row";
 import { CallButton, PrimaryButton } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { clockVN } from "@/lib/day-labels";
@@ -23,7 +25,7 @@ import { marketGet } from "@/lib/market/client";
 import { discountPercent, unitPriceFor } from "@/lib/market/pricing";
 import type { ProductCard, Review, ShopPublic } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
-import { CartFeedback, ErrorBlock, LoginInvite } from "./ui";
+import { CartFeedback, ErrorBlock, LoginInvite, primaryLinkClass } from "./ui";
 import { readPeek } from "./product-peek";
 import { useFavorites, useMarketCart, useOnlineState } from "./hooks";
 
@@ -52,6 +54,8 @@ export function ProductDetail({ id }: { id: string }) {
   const [descClamped, setDescClamped] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);
   const [imgIdx, setImgIdx] = useState(0); // nhãn "1/3" của dải ảnh (F-23)
+  /** ảnh hỏng / mất sóng ⇒ thế icon nhóm hàng như thẻ lưới (VT-21), không để ô vỡ của trình duyệt */
+  const [imgBroken, setImgBroken] = useState<Record<number, true>>({});
   /*  R-03 (2026-09-06): nút chính KHÔNG mờ khi chưa chọn loại — bấm là cuộn tới
       khối loại/cỡ và làm nó nháy viền. Nút mờ + chữ "Chọn loại" là hướng dẫn
       mù: bà con bấm, không thấy gì đổi, tưởng app hỏng. */
@@ -106,7 +110,8 @@ export function ProductDetail({ id }: { id: string }) {
   if (status === "loading") {
     return (
       <div className="px-4 py-4 pb-[7rem]" role="status">
-        <div className="aspect-square w-full animate-pulse rounded-2xl bg-field" />
+        {/* 4:3 như ảnh thật (VT-19) — skeleton vuông làm trang co lại khi dữ liệu về */}
+        <div className="aspect-[4/3] w-full animate-pulse rounded-2xl bg-field" />
         <div className="mt-4 h-6 w-3/4 animate-pulse rounded bg-field" />
         <div className="mt-2 h-6 w-1/3 animate-pulse rounded bg-field" />
         <p className="mt-4 text-[1rem] text-foreground/65">Đang tải món…</p>
@@ -120,10 +125,7 @@ export function ProductDetail({ id }: { id: string }) {
           <AlertIcon className="h-8 w-8" />
         </div>
         <p className="text-[1rem] font-semibold text-navy">Món này không còn trên chợ.</p>
-        <Link
-          href="/cho"
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-        >
+        <Link href="/cho" className={`${primaryLinkClass} mx-auto mt-4 max-w-[15rem]`}>
           Về cửa hàng
         </Link>
       </div>
@@ -222,14 +224,26 @@ export function ProductDetail({ id }: { id: string }) {
           >
             {product.images.map((src, i) => (
               <li key={`${src}-${i}`} className="w-full shrink-0 snap-center">
-                {/* eslint-disable-next-line @next/next/no-img-element -- ảnh sàn: bucket public / data-URI seed, không qua optimizer */}
-                <img src={src} alt={`${product.title} — ảnh ${i + 1}`} className="aspect-[4/3] w-full object-contain bg-card" />
+                {imgBroken[i] ? (
+                  <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 bg-field text-foreground/40">
+                    <CategoryIcon category={product.category} className="h-16 w-16" />
+                    <span className="text-[0.875rem] font-semibold">Chưa tải được ảnh</span>
+                  </div>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- ảnh sàn: bucket public / data-URI seed, không qua optimizer
+                  <img
+                    src={src}
+                    alt={`${product.title} — ảnh ${i + 1}`}
+                    className="aspect-[4/3] w-full object-contain bg-card"
+                    onError={() => setImgBroken((v) => ({ ...v, [i]: true }))}
+                  />
+                )}
               </li>
             ))}
           </ul>
         ) : (
           <div className="flex aspect-[4/3] w-full items-center justify-center bg-field text-foreground/40">
-            <CartIcon className="h-16 w-16" />
+            <CategoryIcon category={product.category} className="h-16 w-16" />
           </div>
         )}
         {product.images.length > 1 && (
@@ -276,10 +290,11 @@ export function ProductDetail({ id }: { id: string }) {
             onClick={onFav}
             aria-pressed={isFav}
             aria-label={isFav ? "Bỏ khỏi món đã lưu" : "Lưu món này"}
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field"
+            /* bậc control, không nền tròn sau icon (03 §0, VT-24) */
+            className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full transition active:bg-field"
             style={{ color: isFav ? "var(--trim)" : "var(--foreground)" }}
           >
-            <StarIcon className={`h-7 w-7 ${isFav ? "fill-current" : ""}`} />
+            <StarIcon className={`h-6 w-6 ${isFav ? "fill-current" : ""}`} />
           </button>
         </div>
 
@@ -297,28 +312,35 @@ export function ProductDetail({ id }: { id: string }) {
           {!quoteOnly && <span className="text-[1rem] text-foreground/65">/ {product.unit}</span>}
         </div>
 
-        {/*  F-14: một dòng như Shopee "★ 4.5 (2) · Đã bán 11 · Còn 5" — chưa có
-             đánh giá thì nói thẳng, không để trống. */}
-        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[1rem] text-foreground/65">
-          {product.ratingCount > 0 ? (
-            <span className="inline-flex items-center gap-1">
-              <span style={{ color: "var(--sun)" }} aria-hidden><StarIcon className="h-4 w-4 fill-current" /></span>
-              <span className="font-semibold text-navy">{product.ratingAvg.toFixed(1)}</span>
-              <span>({product.ratingCount})</span>
-            </span>
-          ) : (
-            <span>Chưa có đánh giá</span>
-          )}
-          <span aria-hidden>·</span>
-          <span>Đã bán {product.soldCount}</span>
-          {/* Món liên hệ báo giá không đếm kho — im chỗ này còn hơn nói "Hết hàng" sai. */}
-          {!quoteOnly && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{outOfStock ? "Hết hàng" : product.stock <= 20 ? `Còn ${product.stock} ${product.unit}` : "Còn hàng"}</span>
-            </>
-          )}
-        </p>
+        {/*  F-14: một dòng như Shopee "★ 4.5 (2) · Đã bán 11 · Còn 5". VT-23: ẩn "Đã bán 0"
+             (thẻ lưới đã ẩn), "chưa có đánh giá" nói MỘT lần ở mục Đánh giá bên dưới;
+             không còn gì thì không vẽ dòng. */}
+        {(() => {
+          const parts: React.ReactNode[] = [];
+          if (product.ratingCount > 0) {
+            parts.push(
+              <span key="r" className="inline-flex items-center gap-1">
+                <span style={{ color: "var(--sun)" }} aria-hidden><StarIcon className="h-4 w-4 fill-current" /></span>
+                <span className="font-semibold text-navy">{product.ratingAvg.toFixed(1)}</span>
+                <span>({product.ratingCount})</span>
+              </span>,
+            );
+          }
+          if (product.soldCount > 0) parts.push(<span key="s">Đã bán {product.soldCount}</span>);
+          // Món liên hệ báo giá không đếm kho — im chỗ này còn hơn nói "Hết hàng" sai.
+          if (!quoteOnly) parts.push(<span key="k">{outOfStock ? "Hết hàng" : product.stock <= 20 ? `Còn ${product.stock} ${product.unit}` : "Còn hàng"}</span>);
+          if (parts.length === 0) return null;
+          return (
+            <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[1rem] text-foreground/65">
+              {parts.map((p, i) => (
+                <span key={i} className="inline-flex items-center gap-x-1.5">
+                  {i > 0 && <span aria-hidden>·</span>}
+                  {p}
+                </span>
+              ))}
+            </p>
+          );
+        })()}
 
         {gate && <LoginInvite verb="lưu món" online={online} onClose={() => setGate(false)} />}
 
@@ -329,23 +351,15 @@ export function ProductDetail({ id }: { id: string }) {
             className="-mx-2 mt-2 rounded-2xl px-2 py-2 transition-shadow"
             style={variantHint ? { boxShadow: "0 0 0 3px var(--trim)" } : undefined}
           >
-            <p className="mb-1.5 text-[1rem] font-semibold text-navy">Chọn loại / cỡ</p>
-            <div className="flex flex-wrap gap-2">
-              {product.variants.map((v) => (
-                <button
-                  key={v.label}
-                  type="button"
-                  onClick={() => setVariant(v.label)}
-                  aria-pressed={variant === v.label}
-                  className="min-h-(--row-h) rounded-full px-4 text-[1rem] font-semibold"
-                  style={{
-                    backgroundColor: variant === v.label ? "var(--t3)" : "var(--field)",
-                    color: variant === v.label ? "var(--card)" : "var(--navy)",
-                  }}
-                >
-                  {v.label}
-                </button>
-              ))}
+            <p className="mb-1.5 px-2 text-[1rem] font-semibold text-navy">Chọn loại / cỡ</p>
+            {/* chip chọn = navy như mọi chip (VT-15); ChipRow có px-4 nên bù -mx-2 của khối */}
+            <div className="-mx-2 [&>div]:mb-0">
+              <ChipRow
+                options={product.variants.map((v) => ({ id: v.label, label: v.label }))}
+                value={variant ?? ""}
+                onChange={(v) => setVariant(v)}
+                ariaLabel="Chọn loại / cỡ"
+              />
             </div>
             {variantHint && (
               <p role="status" className="mt-1.5 text-[1rem] font-semibold text-trim">
@@ -373,14 +387,16 @@ export function ProductDetail({ id }: { id: string }) {
             )}
           </>
         )}
+        {/*  VT-02: có số thì mời gọi; KHÔNG số thì đưa sang Nhờ báo giá (chủ sàn hỏi shop) —
+             bản cũ bảo "gọi hỏi giá" trong khi shop không có số nào để gọi. */}
         {quoteOnly && (
           <p className="mt-4 text-[1rem] leading-snug text-foreground/75">
-            Món này shop báo giá theo từng tàu nên chưa để giá sẵn. Bà con gọi hỏi
-            giá, shop tư vấn loại hợp tàu mình rồi chốt.
+            Món này shop báo giá theo từng tàu nên chưa để giá sẵn.{" "}
+            {shop?.phone
+              ? "Bà con gọi shop hỏi giá, shop tư vấn loại hợp tàu mình rồi chốt."
+              : "Bấm Nhờ báo giá — chủ sàn hỏi shop rồi báo giá và ngày giao cho bà con."}
           </p>
         )}
-
-        <CartFeedback note={note} count={cart.count} />
 
         {/* ── Shop ─────────────────────────────────────────────────────── */}
         <div className="surface mt-4 flex items-center gap-3 px-4 py-3">
@@ -470,28 +486,32 @@ export function ProductDetail({ id }: { id: string }) {
              Không để nút "Thêm vào giỏ" mờ nằm cạnh: nút mờ là hướng dẫn mù
              (R-03), bà con bấm mãi không hiểu vì sao không được. Shop chưa khai
              số thì đưa về trang shop để còn đường hỏi. */}
+        {/*  Biên nhận "Đã thêm …" nằm NGAY TRÊN hai nút trong thanh dính (VT-04) — thanh
+             `flex-wrap`, `basis-full` cho nó một hàng riêng; trước nó vẽ giữa trang, bà con
+             cuộn xuống đọc mô tả rồi bấm thêm là không thấy gì đổi. */}
+        <CartFeedback note={note} count={cart.count} className="basis-full" />
         {quoteOnly ? (
           shop?.phone ? (
             <CallButton phone={shop.phone} label="Gọi hỏi giá" className="flex-1" />
           ) : (
-            <Link
-              href={`/cho/shop/${product.shopSlug}`}
-              className="flex min-h-(--row-h) flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-[1rem] font-semibold"
-              style={{ backgroundColor: "var(--trim)", color: "var(--card)" }}
-            >
-              Xem shop để hỏi giá
-            </Link>
+            <>
+              <Link href={`/cho/shop/${product.shopSlug}`} className="sq-btn bg-field text-navy">
+                Xem shop
+              </Link>
+              <Link
+                href={`/cho/yeu-cau/moi?ten=${encodeURIComponent(product.title)}&dv=${encodeURIComponent(product.unit)}`}
+                className={`${primaryLinkClass} flex-1`}
+              >
+                Nhờ báo giá
+              </Link>
+            </>
           )
         ) : (
           <>
             {shop?.phone ? (
               <CallButton phone={shop.phone} label="Gọi shop" />
             ) : (
-              <Link
-                href={`/cho/shop/${product.shopSlug}`}
-                className="flex min-h-(--row-h) shrink-0 items-center gap-1.5 rounded-full px-4 text-[1rem] font-semibold"
-                style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}
-              >
+              <Link href={`/cho/shop/${product.shopSlug}`} className="sq-btn bg-field text-navy">
                 Xem shop
               </Link>
             )}

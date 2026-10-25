@@ -16,10 +16,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckIcon, ChevronRightIcon } from "@/components/icons";
 import { AddressForm } from "@/components/market/shared/address-form";
+import { EmptyNet } from "@/components/market/shared/empty-net";
 import { LineThumb } from "@/components/market/shared/line-thumb";
 import { MoneyText } from "@/components/market/shared/price-text";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { Field, PrimaryButton, inputClass } from "@/components/ui/primitives";
+import { Field, PrimaryButton } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { formatVnd } from "@/lib/format";
 import {
@@ -34,6 +35,7 @@ import { NOTE_MAX, validateAddress } from "@/lib/market/validate";
 import { useAuthUser } from "@/lib/use-auth";
 import { loadHome } from "@/lib/region";
 import { useMarketCart, useOnlineState } from "./hooks";
+import { ErrorBlock, SheetActions, primaryLinkClass, textareaClass } from "./ui";
 import { NOTIFY_HIDE_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 type QuoteRes = { quote: CartQuote; titles: Record<string, string> };
@@ -60,7 +62,8 @@ function failLine(r: Extract<PlaceOrderResult, { ok: false }>, shopName: string)
   }
 }
 
-/** Chip cách trả tiền — 3.5rem; `disabled` hiện mờ chứ không biến mất. */
+/** Chip cách trả tiền — CÙNG HÌNH `ChipRow` tầng 1 (navy, bậc chip 03 §0; VT-15), giữ riêng
+ *  vì cần `disabled` hiện MỜ chứ không biến mất (F-16) — ChipRow chưa có. Nhãn ≤2 chữ. */
 function PayChip({ on, disabled, onClick, children }: { on: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
@@ -68,11 +71,9 @@ function PayChip({ on, disabled, onClick, children }: { on: boolean; disabled?: 
       onClick={onClick}
       disabled={disabled}
       aria-pressed={on}
-      className="min-h-(--row-h) flex-1 rounded-full px-4 text-[1rem] font-semibold disabled:opacity-40"
-      style={{
-        backgroundColor: on ? "var(--t3)" : "var(--field)",
-        color: on ? "var(--card)" : "var(--navy)",
-      }}
+      className={`inline-flex h-(--h-chip) min-w-[5.5rem] shrink-0 items-center justify-center rounded-full border px-3 text-[0.875rem] font-semibold transition active:scale-[0.97] disabled:opacity-40 ${
+        on ? "border-navy bg-navy text-white" : "border-line bg-card text-foreground/75"
+      }`}
     >
       {children}
     </button>
@@ -307,10 +308,7 @@ export function Checkout() {
             </li>
           ))}
         </ul>
-        <Link
-          href="/cho/don"
-          className="display mx-auto mt-5 flex min-h-[3.75rem] w-full items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-        >
+        <Link href="/cho/don" className={`${primaryLinkClass} mt-5`}>
           Xem đơn hàng
         </Link>
         {/*  F-09: màn kết quả là màn cụt — thêm đường quay lại chợ. */}
@@ -328,45 +326,33 @@ export function Checkout() {
   if (status === "loading") {
     return <p role="status" className="px-4 py-10 pb-[7rem] text-center text-[1rem] text-foreground/65">Đang tra lại giỏ…</p>;
   }
+  // một khuôn mất sóng / lỗi cho cả khu (VT-17)
   if (status === "offline" || !online) {
     return (
-      <div className="px-4 py-8 pb-[7rem] text-center">
-        <p className="text-[1rem] font-semibold text-navy">Đặt hàng cần có sóng. Giỏ vẫn giữ nguyên.</p>
-        <button
-          type="button"
-          onClick={() => void reload()}
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-        >
-          Thử lại
-        </button>
+      <div className="px-4 py-4 pb-[7rem]">
+        <EmptyNet what="đặt hàng" onRetry={() => void reload()} extra={<p className="text-[1rem] text-foreground/70">Giỏ vẫn giữ nguyên.</p>} />
       </div>
     );
   }
   if (status === "error") {
     return (
-      <div className="px-4 py-8 pb-[7rem] text-center" role="alert">
-        <p className="text-[1rem] font-semibold text-danger">Chợ đang trục trặc, chưa tra được giỏ. Thử lại giúp.</p>
-        <button
-          type="button"
-          onClick={() => void reload()}
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-        >
-          Thử lại
-        </button>
+      <div className="px-4 py-4 pb-[7rem]">
+        <ErrorBlock what="giỏ" onRetry={() => void reload()} />
       </div>
     );
   }
   if (groups.length === 0) {
+    /*  Ba câu cho ba ca (VT-13): giỏ trống · chưa chọn món · chọn rồi nhưng rớt hết — bản cũ
+        mở /cho/thanh-toan với giỏ trống cũng nói "không còn món nào mua được" làm bà con
+        tưởng món vừa thêm bị lỗi. */
+    const gioTrong = cart.items.length === 0;
     return (
       <div className="px-4 py-8 pb-[7rem] text-center">
         <p className="text-[1rem] font-semibold text-navy">
-          {items.length === 0 && cart.items.length > 0 ? "Chưa chọn món nào để đặt." : "Không còn món nào mua được trong giỏ."}
+          {gioTrong ? "Giỏ đang trống." : items.length === 0 ? "Chưa chọn món nào để đặt." : "Không còn món nào mua được trong giỏ."}
         </p>
-        <Link
-          href="/cho/gio"
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
-        >
-          Về giỏ
+        <Link href={gioTrong ? "/cho" : "/cho/gio"} className={`${gioTrong ? primaryLinkClass : "sq-btn bg-field text-navy"} mx-auto mt-4 max-w-[15rem]`}>
+          {gioTrong ? "Mua đồ" : "Về giỏ"}
         </Link>
       </div>
     );
@@ -406,7 +392,7 @@ export function Checkout() {
       <section className="mt-3">
         <p className="mb-2 text-[1rem] font-semibold text-navy">2. Cách trả tiền</p>
         <div className="flex flex-wrap gap-2">
-          <PayChip on={method === "cod"} onClick={() => setMethod("cod")}>Trả khi nhận hàng</PayChip>
+          <PayChip on={method === "cod"} onClick={() => setMethod("cod")}>Tiền mặt</PayChip>
           <PayChip on={method === "chuyen_khoan"} disabled={!canBank} onClick={() => setMethod("chuyen_khoan")}>
             Chuyển khoản
           </PayChip>
@@ -455,7 +441,7 @@ export function Checkout() {
             <div className="mt-3">
               <Field label={`Ghi chú cho ${g.shop.name} (không bắt buộc)`}>
                 <textarea
-                  className={inputClass}
+                  className={textareaClass}
                   rows={2}
                   maxLength={NOTE_MAX}
                   value={notes[g.shop.id] ?? ""}
@@ -543,9 +529,7 @@ export function Checkout() {
       {addrSheet === "form" && draft && (
         <BottomSheet kieu="form" title="Thêm địa chỉ nhận" onClose={() => setAddrSheet(addresses.length > 0 ? "list" : null)}>
           <AddressForm value={draft} onChange={setDraft} error={addrError} homeProvince={homeProvince} />
-          <PrimaryButton className="mb-3 mt-1" onClick={saveDraft}>
-            Lưu địa chỉ này
-          </PrimaryButton>
+          <SheetActions className="mb-3 mt-1" okLabel="Lưu" onCancel={() => setAddrSheet(addresses.length > 0 ? "list" : null)} onOk={saveDraft} />
         </BottomSheet>
       )}
     </div>

@@ -5,6 +5,8 @@
 // vào những chỗ chỉ cần một chuỗi class. Thanh đầu màn và ảnh dòng hàng dùng
 // bản CHUNG của chợ: `shared/market-header.tsx`, `shared/line-thumb.tsx`.
 
+import Link from "next/link";
+import { BasketIcon } from "@/components/icons";
 import type { OrderLine } from "@/lib/market/types";
 
 /*  NÚT CHỮ CỦA MÀN CHỢ (fix UX 2026-09-06, lead §6 F-07).
@@ -71,4 +73,79 @@ export function focusField(domId: string): void {
 export function linesSummary(lines: readonly OrderLine[], max = 3): string {
   const head = lines.slice(0, max).map((l) => `${l.title} ×${l.qty}`).join(", ");
   return lines.length > max ? `${head} và ${lines.length - max} món nữa` : head;
+}
+
+/*  CÔNG TẮC BẬT/TẮT (BH-13, 2026-10-25) — chép khuôn `role="switch"` của
+    kairos/tuy-chon-sheet.tsx (không import chéo khu). Thay 4 ô `<input
+    type="checkbox">` thô của kênh người bán: ô vuông tick không nói "đang
+    bật/tắt" rõ dưới nắng và lệch với phần còn lại của app. Cả hàng là nút ⇒
+    chạm đâu cũng gạt; `sub` là một câu nói hậu quả, không phải câu nhắc. */
+export function Switch({
+  label,
+  sub,
+  on,
+  onToggle,
+  disabled,
+  warn,
+}: {
+  label: string;
+  sub?: string;
+  on: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
+  /** đang bật là trạng thái ĐÁNG ĐỂ Ý (vd Tạm nghỉ bán) ⇒ nền vàng khi bật */
+  warn?: boolean;
+}) {
+  const hot = warn && on;
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      disabled={disabled}
+      onClick={onToggle}
+      className="flex min-h-(--row-h) w-full items-center justify-between gap-3 rounded-2xl px-4 py-2 text-left transition active:scale-[0.99] disabled:opacity-40"
+      style={{ backgroundColor: hot ? "var(--warn-bg)" : "var(--field)" }}
+    >
+      <span className="min-w-0">
+        <span className="block text-[1rem] font-semibold" style={{ color: hot ? "var(--warn)" : "var(--navy)" }}>
+          {label}
+        </span>
+        {sub && <span className="block text-[0.875rem] leading-snug text-foreground/70">{sub}</span>}
+      </span>
+      <span
+        aria-hidden
+        className={`flex h-7 w-12 shrink-0 items-center rounded-full px-0.5 transition ${on ? "justify-end bg-ok" : "justify-start bg-line"}`}
+      >
+        <span className="h-6 w-6 rounded-full bg-white shadow" />
+      </span>
+    </button>
+  );
+}
+
+/*  CHƯA CÓ GIAN HÀNG — MỘT màn cho cả 6 lối vào (BH-04, 2026-10-25). Trước đây
+    4 route vẽ 4 kiểu (thẻ mời · empty+nút · băng đỏ "Thử lại" ngõ cụt · một
+    dòng chữ trơ); FB chỉ có một màn "Tạo Trang". `LoadView` tự vẽ cái này khi
+    route trả `no_shop`, các màn còn lại gọi thẳng khi `shop == null`. */
+export function NoShop() {
+  return (
+    <div className="px-4 pb-10">
+      <div className="surface px-5 py-6">
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-t3-bg text-t3" aria-hidden>
+          <BasketIcon className="h-7 w-7" />
+        </span>
+        <p className="display mt-3 text-[1rem] font-semibold text-navy">Mở gian hàng trên SDFish</p>
+        <p className="mt-1 text-[1rem] leading-snug text-foreground/70">
+          Bà con có bán máy, ngư cụ, dầu nhớt, đá… thì đăng ký shop để bán thẳng cho tàu cá cả nước.
+          SDVICO duyệt trong 1–2 ngày.
+        </p>
+        <Link
+          href="/ban-hang/dang-ky"
+          className="display mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1rem] font-semibold text-white transition active:scale-[0.98]"
+        >
+          Đăng ký gian hàng
+        </Link>
+      </div>
+    </div>
+  );
 }

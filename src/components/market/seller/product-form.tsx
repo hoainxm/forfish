@@ -5,10 +5,13 @@
 // giá gạch · loại/cỡ · mô tả · Ẩn-Hiện thu sau một nút. Tồn kho tính CHUNG cho
 // mọi loại/cỡ (LEAD §5 #5) — nói thẳng một dòng, không để bà con đoán.
 // Gửi hỏng (mất sóng / máy chủ) KHÔNG xoá nội dung đang gõ (AC-61).
+// Món MỚI để tồn kho TRỐNG và bắt ghi (BH-02): mặc định 0 câm là món lên chợ với
+// nhãn "Hết hàng" mà shop không biết.
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MinusIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import { ImagePicker } from "@/components/market/shared/image-picker";
+import { useLeaveGuard } from "@/components/market/shared/market-header";
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, MoneyField, PrimaryButton, inputClass } from "@/components/ui/primitives";
@@ -19,7 +22,7 @@ import type { Product, ProductCategory, ProductDraftM, Shop } from "@/lib/market
 import { PRICE_MAX, PRICE_MIN, STOCK_MAX, validateMarketProductDraft, VARIANT_MAX } from "@/lib/market/validate";
 import { useOnline } from "@/lib/use-online";
 import { LoadView, marketErrorText, useMarketData, useMyShop } from "./seller-net";
-import { focusField, invalidProps, SELLER_BTN } from "./ui";
+import { NoShop, Switch, focusField, invalidProps, SELLER_BTN } from "./ui";
 
 const CATEGORY_OPTIONS: readonly ChipOption<ProductCategory>[] = PRODUCT_CATEGORIES.map((c) => ({
   id: c, label: CATEGORY_LABEL[c],
@@ -43,7 +46,7 @@ interface PForm {
 }
 
 const emptyForm = (): PForm => ({
-  title: "", category: "", quoteOnly: false, priceDigits: "", compareDigits: "", unit: "", stock: "0",
+  title: "", category: "", quoteOnly: false, priceDigits: "", compareDigits: "", unit: "", stock: "",
   description: "", images: [], variantsOn: false, variants: [{ label: "", priceDigits: "" }, { label: "", priceDigits: "" }],
   hidden: false,
 });
@@ -121,7 +124,7 @@ function productFieldOfError(msg: string, f: PForm): PField {
     return Number.isInteger(v) && v >= PRICE_MIN && v <= PRICE_MAX ? "variants" : "price";
   }
   if (/đơn vị tính/i.test(msg)) return "unit";
-  if (/^Tồn kho/.test(msg)) return "stock";
+  if (/^Tồn kho/.test(msg) || /^Ghi số lượng/.test(msg)) return "stock";
   if (/^Mô tả/.test(msg)) return "description";
   if (/ảnh/i.test(msg)) return "images";
   if (/loại/i.test(msg)) return "variants";
@@ -146,9 +149,7 @@ export function SellerProductForm({ id }: { id: string }) {
     <LoadView state={shopState.state} what="gian hàng" onRetry={shopState.reload}>
       {(s) =>
         !s.shop ? (
-          <p className="px-4 py-8 text-center text-[1rem] text-foreground/70">
-            Chưa có gian hàng — đăng ký shop trước đã.
-          </p>
+          <NoShop />
         ) : isNew ? (
           <Inner shop={s.shop} product={null} />
         ) : (
@@ -173,7 +174,13 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
   const [more, setMore] = useState(false);
   const [askDelete, setAskDelete] = useState(false);
   const canEdit = shop.status === "cho_duyet" || shop.status === "hoat_dong";
-  const set = (patch: Partial<PForm>) => setForm((f) => ({ ...f, ...patch }));
+  // gõ dở mà chạm "‹" ⇒ hỏi "Bỏ phần đang ghi?" (BH-10)
+  const [dirty, setDirty] = useState(false);
+  useLeaveGuard(dirty);
+  const set = (patch: Partial<PForm>) => {
+    setForm((f) => ({ ...f, ...patch }));
+    setDirty(true);
+  };
 
   useEffect(() => {
     if (product) setForm(formOf(product));
@@ -188,7 +195,11 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
   async function save() {
     if (saving) return; // chống bấm đúp
     const draft = draftOf(form);
-    const err = validateMarketProductDraft(draft);
+    /*  Ô tồn TRỐNG là lỗi của form, không phải của draft (draft chỉ mang số):
+        validate dùng chung với server nên không biết "chưa ghi" khác "0". */
+    const err = (!form.quoteOnly && form.stock.trim() === "")
+      ? "Ghi số lượng còn trong kho — ghi 0 nếu đang hết."
+      : validateMarketProductDraft(draft);
     if (err) {
       setError(err);
       setServerNote(null);
@@ -209,7 +220,13 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
       : await marketPost<{ product: Product }>("/api/ban-hang/san-pham", draft);
     setSaving(false);
     if (res.ok) {
-      router.push(`/ban-hang/san-pham?luu=${encodeURIComponent(draft.title)}`);
+      setDirty(false);
+      /*  Mang theo id + trạng thái thật máy chủ trả (BH-06): danh sách mở chip
+          "Tất cả", ghim món lên đầu và cuộn tới; Hết hàng thì dòng báo nói thêm. */
+      const p = res.data.product;
+      router.push(
+        `/ban-hang/san-pham?luu=${encodeURIComponent(p.title)}&id=${encodeURIComponent(p.id)}&tt=${p.status}`,
+      );
       return;
     }
     setServerNote(res.offline ? "Chưa lưu được — cần sóng. Nội dung vẫn ở trên màn." : marketErrorText(res));
@@ -222,6 +239,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
     const res = await marketSend<Record<string, never>>("DELETE", `/api/ban-hang/san-pham/${product.id}`);
     setSaving(false);
     if (res.ok) {
+      setDirty(false);
       router.push(`/ban-hang/san-pham?xoa=${encodeURIComponent(product.title)}`);
       return;
     }
@@ -293,20 +311,14 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
              thường báo giá từng chiếc. Không có bậc này thì shop buộc phải bịa
              một con số, hoặc không đăng được món lên cửa hàng. Bật lên thì giấu luôn
              giá · tồn kho · giá gạch · loại-cỡ cho khỏi rối. */}
-        <label className="mb-3 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl bg-field px-4">
-          <span className="min-w-0">
-            <span className="block text-[1rem] font-semibold text-navy">Chưa để giá — bà con gọi hỏi</span>
-            <span className="block text-[0.875rem] leading-snug text-foreground/70">
-              Món báo giá theo từng tàu. Chợ hiện &quot;Liên hệ báo giá&quot; và nút gọi shop.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            className="h-7 w-7 shrink-0"
-            checked={form.quoteOnly}
-            onChange={(e) => set({ quoteOnly: e.target.checked })}
+        <div className="mb-3">
+          <Switch
+            label="Chưa để giá — bà con gọi hỏi"
+            sub='Món báo giá theo từng tàu. Chợ hiện "Liên hệ báo giá" và nút gọi shop.'
+            on={form.quoteOnly}
+            onToggle={() => set({ quoteOnly: !form.quoteOnly })}
           />
-        </label>
+        </div>
 
         {!form.quoteOnly && (
           <>
@@ -330,6 +342,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
             inputMode="numeric"
             value={form.stock}
             onChange={(e) => set({ stock: e.target.value.replace(/\D/g, "").slice(0, 5) })}
+            placeholder="Số lượng"
             aria-label="Số lượng còn trong kho"
             {...invalidProps(badField === "stock")}
           />
@@ -381,15 +394,9 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
             </div>
             <ErrLine msg={at("compare")} />
 
-            <label className="mb-2 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl bg-field px-4">
-              <span className="text-[1rem] font-semibold text-navy">Món có nhiều loại/cỡ</span>
-              <input
-                type="checkbox"
-                className="h-7 w-7"
-                checked={form.variantsOn}
-                onChange={(e) => set({ variantsOn: e.target.checked })}
-              />
-            </label>
+            <div className="mb-2">
+              <Switch label="Món có nhiều loại/cỡ" on={form.variantsOn} onToggle={() => set({ variantsOn: !form.variantsOn })} />
+            </div>
             {form.variantsOn && (
               <div className="mb-3.5" id={pFieldDomId("variants")}>
                 <p className="mb-2 text-[0.875rem] leading-snug text-foreground/70">
@@ -458,19 +465,15 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
             </div>
             <ErrLine msg={at("description")} />
 
-            <label className="mb-4 flex min-h-(--row-h) items-center justify-between gap-3 rounded-2xl bg-field px-4">
-              <span className="min-w-0">
-                <span className="block text-[1rem] font-semibold text-navy">Ẩn món khỏi chợ</span>
-                <span className="block text-[0.875rem] leading-snug text-foreground/70">Bà con không thấy món này nữa.</span>
-              </span>
-              <input
-                type="checkbox"
-                className="h-7 w-7"
-                checked={form.hidden}
+            <div className="mb-4">
+              <Switch
+                label="Ẩn món khỏi chợ"
+                sub="Bà con không thấy món này nữa."
+                on={form.hidden}
                 disabled={!!product?.adminHidden}
-                onChange={(e) => set({ hidden: e.target.checked })}
+                onToggle={() => set({ hidden: !form.hidden })}
               />
-            </label>
+            </div>
           </>
         )}
 

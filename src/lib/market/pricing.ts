@@ -14,7 +14,7 @@ export const DROP_LABEL: Record<DropReason, string> = {
   sai_bien_the: "Loại/cỡ này không còn",
   shop_dong: "Shop đang tạm đóng",
   shop_nghi: "Shop đang tạm nghỉ, mở lại sau",
-  chua_co_gia: "Món này bán qua tư vấn — gọi shop hỏi giá",
+  chua_co_gia: "Món này bán qua tư vấn, chưa có giá sẵn", // giỏ kèm nút "Nhờ báo giá" (VT-02)
 };
 
 /** Gom giỏ theo shop — giữ thứ tự xuất hiện; dòng không tìm thấy sản phẩm ⇒ dropped. */

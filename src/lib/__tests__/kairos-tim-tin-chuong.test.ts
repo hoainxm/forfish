@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baiCuaTin, nhanDem, tinChuongKairos } from "@/lib/kairos/chuong";
+import { baiCuaTin, nguoiCuaTin, nhanDem, tinChuongKairos } from "@/lib/kairos/chuong";
 import { dongDoc, hieuTimTinKairos, timTinKairos, traLoiTinKairos } from "@/lib/kairos/tim-tin";
 import type { KairosPost } from "@/lib/kairos/types";
 import type { InboxMessage } from "@/lib/inbox";
@@ -158,5 +158,21 @@ describe("chuông Kairos", () => {
     expect(nhanDem(0)).toBe("");
     expect(nhanDem(4)).toBe("4");
     expect(nhanDem(12)).toBe("9+");
+  });
+});
+
+describe("chuông Kairos — tên người gây ra tin (K3-06)", () => {
+  it("bóc tên đầu câu của notify-gop", () => {
+    expect(nguoiCuaTin("Tư Sa Huỳnh vừa bình luận bài của bạn trên Kairos.")).toBe("Tư Sa Huỳnh");
+    expect(nguoiCuaTin("SDVICO đã nhắc đến bạn trong một bình luận trên Kairos.")).toBe("SDVICO");
+  });
+  it("câu lạ / rỗng ⇒ rỗng, không ném", () => {
+    expect(nguoiCuaTin("Bài của bạn đã bị ẩn vì vi phạm nội quy.")).toBe("");
+    expect(nguoiCuaTin("Có 3 bình luận mới")).toBe("");
+    expect(nguoiCuaTin("")).toBe("");
+  });
+  it("tinChuongKairos mang nguoi", () => {
+    const l = tinChuongKairos([{ id: "m1", title: "t", body: "Hai Lý Sơn vừa trả lời bình luận của bạn trên Kairos.", url: "/kairos/p/p1#bl-c1", sentAt: "2026-10-24T01:00:00Z", mine: true }], new Set());
+    expect(l[0].nguoi).toBe("Hai Lý Sơn");
   });
 });

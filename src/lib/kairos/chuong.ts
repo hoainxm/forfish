@@ -26,6 +26,15 @@ export interface TinChuong {
   url: string;
   sentAt: string;
   chuaDoc: boolean;
+  /** tên người gây ra tin ("Tư Sa Huỳnh vừa trả lời…") — vẽ ảnh đại diện chữ cái; không bóc được ⇒ "" */
+  nguoi: string;
+}
+
+/** Tên đứng đầu câu tin của notify-gop ("X vừa bình luận…", "X đã nhắc đến bạn…"); câu lạ ⇒ "". */
+export function nguoiCuaTin(body: string): string {
+  // chỉ câu của notify-gop (kết "trên Kairos.") — tin quản trị "Bài của bạn đã bị ẩn…" không lẫn tên
+  const m = /^(.{1,40}?) (?:vừa|đã) .*trên Kairos\.?$/u.exec(body.trim());
+  return m ? m[1] : "";
 }
 
 /** Trần dòng trong ngăn — hộp thư giữ ≤50 tin, chuông không cần hơn. */
@@ -41,7 +50,7 @@ export function tinChuongKairos(list: readonly InboxMessage[], chuaBao: Readonly
   for (const m of list) {
     const postId = baiCuaTin(m);
     if (!postId) continue;
-    out.push({ id: m.id, postId, title: m.title, body: m.body, url: m.url!, sentAt: m.sentAt, chuaDoc: chuaBao.has(m.id) });
+    out.push({ id: m.id, postId, title: m.title, body: m.body, url: m.url!, sentAt: m.sentAt, chuaDoc: chuaBao.has(m.id), nguoi: nguoiCuaTin(m.body) });
   }
   return out.sort((a, b) => ms(b.sentAt) - ms(a.sentAt)).slice(0, CHUONG_TOI_DA);
 }

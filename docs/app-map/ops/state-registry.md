@@ -12,6 +12,7 @@ last_verified: 2026-10-07
 <!-- re-verified: 2026-10-22d — `forfish.installNudge.v2` thêm trường TUỲ CHỌN `snoozeUntil` (ms): bấm "Ẩn" trên thẻ Cài app = HOÃN 7 ngày (`markInstallNudgeSnoozed`, `INSTALL_NUDGE_SNOOZE_MS`), không còn tắt vĩnh viễn; Cài-rồi-huỷ hộp của máy vẫn `dismissed`. Bản lưu đời trước không có trường này đọc như cũ; vẫn KHÔNG sao lưu. -->
 <!-- re-verified: 2026-10-07 16:20 — KHOÁ MỚI `forfish.push.rekey.v1` (dấu đổi khoá VAPID đang dở, lib/push-client.ts) — thêm hàng + xếp `EXCLUDED` trong offline-backup.test (máy-riêng). Không đổi khoá cũ nào, không bump phiên bản kho. -->
 ttl_days: 180
+<!-- DOC-STATUS: SUSPECT (2026-10-25) — code 'src/lib/user-sync.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-10-24 — `user-sync.ts` pushKind: máy ghi thêm trong lúc chờ ⇒ GIỮ `dirty` (trước nhánh `{ok}` trần xoá cờ), và `ids` (BASE) HỢP thêm id vừa gửi khi server đã nhận (không `stale`); trả lời đọc không ra ⇒ giữ `dirty`. Không key mới, không bump `forfish.sync.v1`, hình `{at, dirty, ids?}` giữ nguyên. Lý do: giấy tờ/bạn thuyền đã xoá hiện lại (docs/specs/dong-bo-so-per-may.md §vá 2026-10-24). -->
 <!-- re-verified: 2026-10-06 17:25 — `user-sync.ts` đối chiếu code: metaCache/readMeta/setMeta/clearSyncMeta + nhánh kéo không đè dirty — khớp. THÊM hàng `forfish.sync.v1` (trước chỉ có trong ghi chú — trái luật "không có trong bảng = không tồn tại") với `ids` + `_owner`; không key mới, không bump. -->
 <!-- re-verified: 2026-10-06 16:50 — KHÔNG key mới, KHÔNG bump khoá. `forfish.boats.v1` thêm 19 ô tuỳ chọn trong `Boat` (lib/boats.ts) — tàu cũ đọc nguyên vẹn (test boats.test.ts); `forfish.documents.v1` dùng thêm `issuedOn` (trường đã có) + kind `dang_ky_tau`. Nhắc hạn đổ chuông chạy ở MÁY CHỦ (cron notify-docs đọc user_docs), không thêm state phía máy. -->
@@ -19,7 +20,7 @@ covers: src/lib/assistant/history.ts, src/lib/float-pos.ts, src/lib/boats.ts, sr
 last_verified: 2026-10-18
 <!-- re-verified: 2026-10-18 — KHOÁ MỚI `forfish.myc.v1` (bản lưu yêu cầu đặt hàng của tôi, lib/market/requests-cache.ts — single-writer `saveCachedRequests`, gộp theo id, ≤30, ngăn SĐT). `forfish.myc.` ∈ NEVER_BACKUP_PREFIXES (offline-backup.ts) — PII + có sóng tải lại, cùng luật `morders.`. Không bump khoá nào. -->
 ttl_days: 180
-<!-- DOC-STATUS: SUSPECT (2026-10-24) — code 'src/lib/auth-scope.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-25) — code 'src/lib/user-sync.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-09-18 — WIRE CỔNG CÁCH LY TÀI KHOẢN VÀO ĐĂNG XUẤT (bug rò rỉ: đăng xuất xong người sau vẫn thấy TÊN + SỐ TÀU chủ cũ). Đối chiếu `lib/auth-scope.ts` + `lib/user-sync.ts` + `components/hero-account.tsx`: `clearUserScopedData()` (auth-scope) — cổng dựng sẵn cho "clear data KH khi user CHANGE hoặc logout" — TRƯỚC NAY CHƯA TỪNG được gọi ở đâu (grep 0 caller ngoài test). Ghi chú 2026-07-29c/07-30 mô tả các khoá "wipe khi đổi user/logout" là mô tả Ý ĐỊNH chứ hành vi thật thiếu (escaped-drift, đã ghi log). NAY đấu dây: `hero-account.tsx` gọi `wipeOwnerDataFromDevice()` ở CẢ hai nhánh TỰ ĐĂNG XUẤT (`doSignOut`) và GỠ TÀI KHOẢN (`forgetThisDevice`) — chủ dự án chốt "cả hai nút" 2026-09-18. Hàm này: (a) `clearUserScopedData()` xoá boats/currentBoat/boat/sdvico-boat/products/documents/maintenance/buyers/debts/trips/crew/tier.premium + nhờ SW `caches.delete(SDFISH_API_V)` (rò `/api/me/*` cache chéo user khi offline); (b) `clearSyncMeta()` (user-sync — MỚI) reset `forfish.sync.v1` CẢ trong bộ nhớ (`metaCache`) lẫn localStorage, BẮT BUỘC nếu không LWW `server.at > metaOf().at` = false ⇒ đăng nhập lại KHÔNG kéo bản server ⇒ chủ thật thấy trống; (c) `clearCart(null)` (giỏ giữ SĐT+điểm giao); (d) bắn `USER_SYNC_EVENT` từng kind để boat-store/crew-list/document-vault/maintenance/products đọc lại về TRỐNG ngay (router.refresh KHÔNG reset state client). KHÔNG gọi ở nhánh BỊ ĐÁ (`signOutLocal("kicked")`) — nhánh đó GIỮ dữ liệu tải. ⚠️ 2026-09-18: 0050/0051 apply NHẦM project — đúng prod (znzgugvfhgmiszqgjulk) CHƯA có ⇒ route `/api/me/sync` còn trả 503 ở prod thật, hồ sơ tay CHƯA recoverable khi đăng nhập lại tới khi apply LẠI đúng project. Khi đã apply đúng: boats/crew/documents/maintenance/materials kéo lại được; chỉ buyers/places/routes/cart (không đồng bộ) là mất hẳn — copy sheet Gỡ-máy chỉ hứa "phần đã đồng bộ" (07 §2026-09-18). Test khoá: `clear-sync-meta.test.ts`. -->
 
@@ -160,6 +161,19 @@ gate: warn
 
 
 > `urgent-strip.tsx` là reader chéo: đọc `documents` + `maintenance` + `crew` để hiện cảnh báo gần đến hạn.
+
+## Khoá `sessionStorage` (chỉ sống trong phiên tab — KHÔNG sao lưu, KHÔNG đồng bộ)
+
+Thêm 2026-10-25 (rà FB toàn app, [design-review/08](../../design-review/08-ra-fb-toan-app.md)). Mất là mất chỗ đang đọc, không mất dữ liệu bà con.
+
+| Key | Nội dung | Writer | Reader |
+|---|---|---|---|
+| `forfish.inbox.shown.v1` | số hàng Thông báo đang xoè ở Trang chủ | `inbox-section.tsx` | `inbox-section.tsx` |
+| `forfish.mlist.v1` (ngăn `cho-home`, `cho-shop:<slug>`, `ban-hang/don`, `ban-hang/san-pham`, cùng ngăn `/cho/tim` có sẵn) | bản chụp danh sách + trang + chip + scrollY, ≤10 phút | `lib/market/list-state.ts` | màn danh sách tương ứng |
+| `tau.cuon:/tau`, `tau.cuon:/nguoi` | scrollY khi rời màn (`lib/giu-cuon.ts`) | `tau-toi-nav.tsx` | cùng |
+| `tau.gia-han.so-yeu-cau` | số yêu cầu gia hạn VMS đã gửi (để không fetch lúc mở) | `vms-renewal.tsx` | cùng |
+
+Ngoài ra `history.state.sdfLop` (không phải storage): dấu "lớp nổi đang chiếm một mục lịch sử" của `lib/dialog-focus useLichSuDong`.
 
 ## Tệp sao lưu `.json` — khoá nào VÀO, khoá nào KHÔNG BAO GIỜ
 

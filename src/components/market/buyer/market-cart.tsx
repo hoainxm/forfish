@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QtyStepper } from "@/components/cart-sheet";
 import { CartIcon, CheckIcon, TrashIcon } from "@/components/icons";
+import { EmptyNet } from "@/components/market/shared/empty-net";
 import { LineThumb } from "@/components/market/shared/line-thumb";
 import { MoneyText, PriceText } from "@/components/market/shared/price-text";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -30,7 +31,7 @@ import { computeCartSummary, computeTotals, DROP_LABEL } from "@/lib/market/pric
 import type { CartQuote, CartQuoteGroup, MarketCartLine } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import { CHECKOUT_MAX_SHOPS, ORDER_MAX_LINES } from "@/lib/market/validate";
-import { LoginInvite } from "./ui";
+import { ErrorBlock, LoginInvite, primaryLinkClass } from "./ui";
 import { useMarketCart, useOnlineState } from "./hooks";
 import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
@@ -77,8 +78,8 @@ function pickSelected(groups: CartQuoteGroup[], off: readonly string[]): CartQuo
 }
 
 /**
- * Ô chọn 3.5rem — nút `role="checkbox"` vẽ tay, KHÔNG `<input type=checkbox>`
- * gốc (ô gốc 1rem, tay ướt không trúng; luật tap 56px của app).
+ * Ô chọn bậc control (--h-ctl, VT-24) — nút `role="checkbox"` vẽ tay, KHÔNG
+ * `<input type=checkbox>` gốc (ô gốc 1rem, tay ướt không trúng).
  */
 function CheckBox({ on, onChange, label, some = false }: { on: boolean; onChange: (v: boolean) => void; label: string; some?: boolean }) {
   return (
@@ -88,10 +89,10 @@ function CheckBox({ on, onChange, label, some = false }: { on: boolean; onChange
       aria-checked={some && !on ? "mixed" : on}
       aria-label={label}
       onClick={() => onChange(!on)}
-      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition active:bg-field"
+      className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full transition active:bg-field"
     >
       <span
-        className="flex h-7 w-7 items-center justify-center rounded-lg border-2"
+        className="flex h-6 w-6 items-center justify-center rounded-lg border-2"
         style={{
           borderColor: on || some ? "var(--t3)" : "var(--line)",
           backgroundColor: on ? "var(--t3)" : some ? "var(--t3-bg)" : "var(--card)",
@@ -214,15 +215,31 @@ export function MarketCart() {
     undoTimer.current = setTimeout(() => setUndo(null), NOTIFY_HIDE_LONG_MS);
   };
 
+  /*  "Đã bỏ … · Hoàn lại" vẽ CẢ KHI GIỎ VỀ TRỐNG (VT-25): bỏ dòng cuối là màn trống ngay,
+      bản cũ return sớm trước khối undo nên không còn đường hoàn lại. */
+  const undoBar = undo && (
+    <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-field px-3.5 py-2.5" role="status">
+      <span className="min-w-0 text-[1rem] font-semibold text-navy">Đã bỏ {undo.label}.</span>
+      <button
+        type="button"
+        onClick={() => {
+          applyItems(undo.items);
+          setUndo(null);
+        }}
+        className="min-h-(--row-h) shrink-0 px-2 text-[1rem] font-semibold text-t3"
+      >
+        Hoàn lại
+      </button>
+    </div>
+  );
+
   // ── ma trận trạng thái ─────────────────────────────────────────────────
   if (cart.items.length === 0) {
     return (
       <div className="px-4 py-6">
+        {undoBar}
         <EmptyState icon={<CartIcon className="h-8 w-8" />}>Giỏ đang trống.</EmptyState>
-        <Link
-          href="/cho"
-          className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-        >
+        <Link href="/cho" className={`${primaryLinkClass} mx-auto mt-4 max-w-[15rem]`}>
           Mua đồ
         </Link>
       </div>
@@ -280,48 +297,17 @@ export function MarketCart() {
         {status === "loading" && (
           <p role="status" className="py-8 text-center text-[1rem] text-foreground/65">Đang tra giá…</p>
         )}
+        {/* một khuôn mất sóng / lỗi cho cả khu (VT-17) */}
         {status === "offline" && (
-          <div className="rounded-2xl bg-field/70 px-4 py-8 text-center" role="status">
-            <p className="text-[1rem] font-semibold text-navy">
-              Giỏ có {cart.items.length} dòng. Chưa tải được giá — máy không có sóng.
-            </p>
-            <button
-              type="button"
-              onClick={() => void fetchQuote(cart.items)}
-              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-            >
-              Thử lại
-            </button>
-          </div>
+          <EmptyNet
+            what="tra giá"
+            onRetry={() => void fetchQuote(cart.items)}
+            extra={<p className="text-[1rem] text-foreground/70">Giỏ có {cart.items.length} dòng, vẫn giữ nguyên.</p>}
+          />
         )}
-        {status === "error" && (
-          <div className="rounded-2xl bg-danger-bg px-4 py-8 text-center" role="alert">
-            <p className="text-[1rem] font-semibold text-danger">Chợ đang trục trặc, chưa tra được giá. Thử lại giúp.</p>
-            <button
-              type="button"
-              onClick={() => void fetchQuote(cart.items)}
-              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-            >
-              Thử lại
-            </button>
-          </div>
-        )}
+        {status === "error" && <ErrorBlock what="giá" onRetry={() => void fetchQuote(cart.items)} />}
 
-        {undo && (
-          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-field px-3.5 py-2.5" role="status">
-            <span className="min-w-0 text-[1rem] font-semibold text-navy">Đã bỏ {undo.label}.</span>
-            <button
-              type="button"
-              onClick={() => {
-                applyItems(undo.items);
-                setUndo(null);
-              }}
-              className="min-h-(--row-h) shrink-0 px-2 text-[1rem] font-semibold text-t3"
-            >
-              Hoàn lại
-            </button>
-          </div>
-        )}
+        {undoBar}
 
         {/* ── Chọn tất cả ─────────────────────────────────────────────────── */}
         {groups.length > 0 && (
@@ -450,6 +436,16 @@ export function MarketCart() {
                       {DROP_LABEL[d.reason].replace("{n}", String(d.available ?? 0))}
                     </p>
                   </div>
+                  {/*  Món bán qua tư vấn: đưa đường đi tiếp ngay tại dòng (VT-02) — chủ sàn hỏi
+                       shop rồi báo giá; bản cũ chỉ bảo "gọi shop" mà không có số nào để gọi. */}
+                  {d.reason === "chua_co_gia" && titles[d.productId] && (
+                    <Link
+                      href={`/cho/yeu-cau/moi?ten=${encodeURIComponent(titles[d.productId] ?? "")}`}
+                      className="sq-btn bg-trim text-white"
+                    >
+                      Nhờ báo giá
+                    </Link>
+                  )}
                   <RemoveButton
                     onClick={() => removeLine(d.productId, d.variantLabel, titles[d.productId] ?? "món này")}
                     label="Bỏ món không mua được"

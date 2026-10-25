@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AlertIcon, CheckIcon } from "@/components/icons";
+import { EmptyNet } from "@/components/market/shared/empty-net";
 import { AutoCancelNote, EtaLine, OrderSteps } from "@/components/market/shared/eta";
 import { LineThumb } from "@/components/market/shared/line-thumb";
 import { MoneyText } from "@/components/market/shared/price-text";
@@ -15,8 +16,9 @@ import { OrderStatusChip, PaymentStatusChip } from "@/components/market/shared/o
 import { OrderTimeline } from "@/components/market/shared/order-timeline";
 import { RatingStars } from "@/components/market/shared/rating-stars";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { ChipRow } from "@/components/ui/chip-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { CallButton, PrimaryButton, inputClass } from "@/components/ui/primitives";
+import { CallButton, PrimaryButton } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { formatVnd } from "@/lib/format";
@@ -30,7 +32,7 @@ import type { CartQuote, Order, OrderLine } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import { REVIEW_MAX } from "@/lib/market/validate";
 import { useAuthUser } from "@/lib/use-auth";
-import { ErrorBlock } from "./ui";
+import { ErrorBlock, SheetActions, textareaClass } from "./ui";
 import { useMarketCart, useOnlineState } from "./hooks";
 import { NOTIFY_HIDE_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
@@ -49,6 +51,8 @@ export function MarketOrderDetail({ id }: { id: string }) {
   const [act, setAct] = useState<Act | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  /** việc đang gửi — nút nguồn đổi "Đang gửi…" (VT-05) */
+  const [doing, setDoing] = useState<Act | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [reviewLine, setReviewLine] = useState<OrderLine | null>(null);
@@ -89,13 +93,17 @@ export function MarketOrderDetail({ id }: { id: string }) {
   }, [load]);
   useOnlineRefetch(() => void load());
 
+  /*  VT-05: hộp đóng ngay ở `onConfirm`; `busy` chặn bấm đúp (lần hai trả `bad_transition`
+      rồi màn nói "đã sang bước khác" dù việc đầu đã xong); nút nguồn "Đang gửi…". */
   const run = async (kind: Act) => {
-    if (!order) return;
+    if (!order || busy) return;
     setBusy(true);
+    setDoing(kind);
+    setNote(null);
     const body = kind === "huy" && reason.trim() ? { reason: reason.trim() } : {};
     const res = await marketPost<{ order: Order }>(`/api/cho/don/${order.id}/${kind}`, body);
     setBusy(false);
-    setAct(null);
+    setDoing(null);
     if (!res.ok) {
       setNote(
         res.offline
@@ -231,18 +239,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
     return (
       <div className="px-4 py-4 pb-[7rem]">
         {status === "offline" ? (
-          <div className="rounded-2xl bg-field/70 px-4 py-8 text-center" role="status">
-            <p className="text-[1rem] font-semibold text-navy">
-              Máy đang không có sóng — chưa mở được đơn này và máy chưa lưu bản nào.
-            </p>
-            <button
-              type="button"
-              onClick={() => void load()}
-              className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-            >
-              Thử lại
-            </button>
-          </div>
+          <EmptyNet what="đơn này" onRetry={() => void load()} />
         ) : (
           <ErrorBlock what="đơn này" onRetry={() => void load()} />
         )}
@@ -471,7 +468,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
         <div className="mt-4 flex flex-col gap-2">
           {canReceive && (
             <PrimaryButton disabled={!online || busy} onClick={() => setAct("da-nhan")}>
-              Đã nhận hàng
+              {doing === "da-nhan" ? "Đang gửi…" : "Đã nhận hàng"}
             </PrimaryButton>
           )}
           {canPay && (
@@ -482,7 +479,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
               className="min-h-(--row-h) w-full rounded-full text-[1rem] font-semibold disabled:opacity-40"
               style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
             >
-              Tôi đã chuyển khoản
+              {doing === "bao-chuyen" ? "Đang gửi…" : "Tôi đã chuyển khoản"}
             </button>
           )}
           {canCancel && (
@@ -496,7 +493,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
               className="min-h-(--row-h) w-full rounded-full text-[1rem] font-semibold disabled:opacity-40"
               style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}
             >
-              Huỷ đơn
+              {doing === "huy" ? "Đang gửi…" : "Huỷ đơn"}
             </button>
           )}
           {!online && <p className="text-center text-[1rem] text-foreground/65">Việc này cần có sóng.</p>}
@@ -519,25 +516,12 @@ export function MarketOrderDetail({ id }: { id: string }) {
           confirmLabel={act === "huy" ? "Huỷ đơn" : "Đúng rồi"}
           cancelLabel="Không"
           onCancel={() => setAct(null)}
-          onConfirm={() => void run(act)}
+          onConfirm={() => { const a = act; setAct(null); void run(a); }}
         >
           {act === "huy" && (
-            <div className="mt-3 flex flex-wrap justify-center gap-2">
-              {CANCEL_REASONS.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setReason(r)}
-                  aria-pressed={reason === r}
-                  className="min-h-(--row-h) rounded-full px-3.5 text-[1rem] font-semibold"
-                  style={{
-                    backgroundColor: reason === r ? "var(--t3)" : "var(--field)",
-                    color: reason === r ? "var(--card)" : "var(--navy)",
-                  }}
-                >
-                  {r}
-                </button>
-              ))}
+            /* chip chọn = navy như ChipRow (VT-15); hộp p-5 nên -mx-5 cho dải cuộn sát mép */
+            <div className="-mx-5 mt-3">
+              <ChipRow options={CANCEL_REASONS.map((r) => ({ id: r, label: r }))} value={reason} onChange={setReason} ariaLabel="Lý do huỷ" />
             </div>
           )}
         </ConfirmDialog>
@@ -548,7 +532,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
           <div className="pb-3">
             <RatingStars value={rating} interactive onChange={setRating} className="justify-center" />
             <textarea
-              className={`${inputClass} mt-3`}
+              className={`${textareaClass} mt-3`}
               rows={4}
               maxLength={REVIEW_MAX}
               value={comment}
@@ -558,9 +542,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
             {reviewNote && (
               <p role="alert" className="mt-2 text-[1rem] font-semibold text-danger">{reviewNote}</p>
             )}
-            <PrimaryButton className="mt-3" disabled={busy || !online} onClick={() => void sendReview()}>
-              {busy ? "Đang gửi…" : "Gửi đánh giá"}
-            </PrimaryButton>
+            <SheetActions className="mt-3" okLabel={busy ? "Đang gửi…" : "Gửi"} disabled={busy || !online} onCancel={() => setReviewLine(null)} onOk={() => void sendReview()} />
           </div>
         </BottomSheet>
       )}

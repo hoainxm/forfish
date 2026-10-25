@@ -8,11 +8,12 @@
 // nhập. MẤT SÓNG thì nói thật "chưa tải được" và GIỮ danh sách đang hiện,
 // KHÔNG đội lốt "chợ chưa ai đăng" (2026-08-16, thẩm định P0).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChipRow } from "@/components/ui/chip-row";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Popover } from "@/components/ui/popover";
 import { StatusBanner } from "@/components/ui/status-banner";
 import {
   CallButton,
@@ -33,7 +34,15 @@ import { SQ_BTN } from "@/components/ui/sq-btn";
 import { useBoats } from "@/components/boat-switcher";
 import { useAuthUser } from "@/lib/use-auth";
 import { formatVnDate } from "@/lib/format";
+import { NHAN } from "@/lib/labels";
+import { NOTIFY_HIDE_MS } from "@/lib/notify";
 import { useOnline } from "@/lib/use-online";
+import {
+  laTinTam,
+  tinTamTuDraft,
+  validateDraftField,
+  type DraftField,
+} from "@/lib/market-listings-core";
 import {
   POSTER_KIND_LABEL,
   SIDE_LABEL,
@@ -72,6 +81,13 @@ export function MarketBoard() {
   const [confirmDel, setConfirmDel] = useState<MarketListing | null>(null);
   /** tin đang xoá — thẻ đó khoá nút + "Đang xoá…" (audit G8) */
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  /** biên nhận ngắn sau khi đăng ("Đã đăng.") — tự tắt theo nhịp chung (CC-05) */
+  const [daDang, setDaDang] = useState(false);
+  useEffect(() => {
+    if (!daDang) return;
+    const t = window.setTimeout(() => setDaDang(false), NOTIFY_HIDE_MS);
+    return () => window.clearTimeout(t);
+  }, [daDang]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -114,6 +130,9 @@ export function MarketBoard() {
   // state, tin thật hiện khi bà con đăng. real=null (chưa cấu hình / lỗi) coi
   // như rỗng; mất sóng thì `netFailed` lo phần báo, danh sách cũ giữ nguyên.
   const source = real ?? [];
+  /** lần tải ĐẦU chưa về — chưa có số nào để in (CC-04: trước đây in "0 tin đang
+   *  mở" suốt lúc chờ, trông như chợ trống) */
+  const dangTaiLanDau = loading && real === null;
   // server đã lọc "đang mở + tin của mình"; ở đây chỉ còn lọc theo chip
   const listings = source.filter(
     (l) =>
@@ -147,6 +166,14 @@ export function MarketBoard() {
           {actionErr}
         </p>
       )}
+      {daDang && (
+        <p
+          role="status"
+          className="mt-3 rounded-2xl bg-ok-bg px-3.5 py-3 text-[1rem] font-semibold text-ok"
+        >
+          Đã đăng.
+        </p>
+      )}
 
       {/*  Ô nút INLINE cuối hàng cấp dữ liệu (2026-08-29, luật A2/A3/A4): trước
           là nút full-width nằm một mình trong <div className="my-3"> ở CẢ HAI
@@ -156,7 +183,7 @@ export function MarketBoard() {
       <div className="my-3 flex items-stretch gap-2">
         <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
           <p className="text-[0.875rem] font-semibold text-foreground/70">
-            {listings.length} tin đang mở
+            {dangTaiLanDau ? "Đang tải…" : `${listings.length} tin đang mở`}
           </p>
         </div>
         {ready && signedIn ? (
@@ -200,6 +227,9 @@ export function MarketBoard() {
         </EmptyState>
       )}
 
+      {/* đang tải lần đầu → 2 khung thẻ đúng hình, không in số đếm (CC-04) */}
+      {dangTaiLanDau && !netFailed && <ListingSkeleton />}
+
       <ul className="space-y-3">
         {listings.map((l) => (
           <li key={l.id}>
@@ -217,8 +247,13 @@ export function MarketBoard() {
       {showForm && (
         <ListingForm
           onCancel={() => setShowForm(false)}
-          onSaved={() => {
+          onSaved={(tin) => {
+            /*  HIỆN NGAY (CC-05): máy chủ đã nhận (POST ok) nên chèn thẻ tạm lên đầu
+                rồi mới tải lại nền — bà con không phải nhìn màn trống chờ một vòng
+                mạng. Thẻ tạm chưa có id thật ⇒ chưa đóng/xoá được tới khi tải xong. */
             setShowForm(false);
+            setReal((prev) => [tin, ...(prev ?? [])]);
+            setDaDang(true);
             void refresh();
           }}
         />
@@ -270,70 +305,64 @@ function ListingCard({
    *  bấm được liên tiếp suốt 20 giây chờ) */
   const [pending, setPending] = useState(false);
   const busy = pending || deleting;
+  /** menu ⋯ của tin mình — neo nút (03 §6 mục 9) */
+  const [menuEl, setMenuEl] = useState<HTMLButtonElement | null>(null);
+  const [menuMo, setMenuMo] = useState(false);
+  // thẻ tạm (vừa đăng, chưa tải lại) chưa có id thật ⇒ chưa có ⋯
+  const coMenu = l.mine && !laTinTam(l.id);
+
+  async function doiTrangThai() {
+    // ĐỌC KẾT QUẢ (2026-08-16) — xem ghi chú ở nút Xoá.
+    setPending(true);
+    const xong = await setListingStatus(l.id, l.status === "open" ? "closed" : "open");
+    setPending(false);
+    onFailed(xong ? null : "Chưa cập nhật được trạng thái. Bà con thử lại khi có mạng nhé.");
+    if (xong) onChanged();
+  }
+
   return (
     <Card className="p-4">
-      {/*  Hai nút của tin MÌNH về INLINE cuối hàng tiêu đề thẻ (2026-08-29, luật
-          A3/A5): trước là hàng footer border-t riêng, cả hai chỉ min-h-[2.75rem]
-          = 44px — dưới sàn A5 52px và dưới sàn 56px của CLAUDE.md, mà "Xóa" là
-          hành động phá huỷ. */}
-      <div className="flex items-stretch gap-2">
+      {/*  Thao tác của tin MÌNH nằm sau ⋯ góc trên-phải (CC-03/CC-15, 2026-10-25, như FB):
+          trước là hai nút "Đã xong" / "Xác nhận xóa" chen cùng hàng pill ⇒ pill vỡ hai
+          dòng, và nhãn "Xác nhận xóa" trên thẻ trùng nút đỏ trong hộp — bà con tưởng
+          bấm là xoá thẳng. Thân thẻ nay giống hệt thẻ người khác. */}
+      <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <span
-            className="inline-block rounded-full px-2.5 py-0.5 text-[0.75rem] font-semibold"
-            style={
-              sell
-                ? { backgroundColor: "var(--ok-bg)", color: "var(--ok)" }
-                : { backgroundColor: "var(--t2-bg)", color: "var(--t2)" }
-            }
-          >
-            {SIDE_LABEL[l.side]}
-            {l.status === "closed" ? " · đã đóng" : ""}
-          </span>
-          <p className="mt-1 text-[0.75rem] font-semibold text-foreground/65">
-            {POSTER_KIND_LABEL[l.posterKind]}
-            {l.province ? ` · ${l.province}` : ""}
+          {/* pill + meta về MỘT dòng */}
+          <p className="flex min-w-0 items-center gap-2 text-[0.75rem] font-semibold text-foreground/65">
+            <span
+              className="shrink-0 rounded-full px-2.5 py-0.5"
+              style={
+                sell
+                  ? { backgroundColor: "var(--ok-bg)", color: "var(--ok)" }
+                  : { backgroundColor: "var(--t2-bg)", color: "var(--t2)" }
+              }
+            >
+              {SIDE_LABEL[l.side]}
+              {l.status === "closed" ? " · đã đóng" : ""}
+            </span>
+            <span className="min-w-0 truncate">
+              {POSTER_KIND_LABEL[l.posterKind]}
+              {l.province ? ` · ${l.province}` : ""}
+            </span>
           </p>
-          <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">
+          <p className="display mt-1 break-words text-[1rem] font-semibold leading-snug text-navy">
             {l.species}
           </p>
         </div>
-        {l.mine ? (
-          <>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={async () => {
-                // ĐỌC KẾT QUẢ (2026-08-16) — xem ghi chú ở nút Xoá.
-                setPending(true);
-                const xong = await setListingStatus(
-                  l.id,
-                  l.status === "open" ? "closed" : "open",
-                );
-                setPending(false);
-                onFailed(
-                  xong
-                    ? null
-                    : "Chưa cập nhật được trạng thái. Bà con thử lại khi có mạng nhé.",
-                );
-                if (xong) onChanged();
-              }}
-              className={`${SQ_BTN} bg-background text-sea disabled:opacity-50`}
-            >
-              <CheckIcon className="h-6 w-6" />
-              {pending ? "Đang gửi" : l.status === "open" ? "Đã xong" : "Mở lại tin"}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={onDelete}
-              className={`${SQ_BTN} bg-background text-danger disabled:opacity-50`}
-            >
-              <TrashIcon className="h-6 w-6" />
-              {deleting ? "Đang xoá" : "Xác nhận xóa"}
-            </button>
-          </>
-        ) : (
-          <span className="w-16 shrink-0" aria-hidden />
+        {coMenu && (
+          <button
+            ref={setMenuEl}
+            type="button"
+            aria-label="Thêm"
+            aria-haspopup="menu"
+            aria-expanded={menuMo}
+            disabled={busy}
+            onClick={() => setMenuMo((v) => !v)}
+            className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-foreground/65 transition active:scale-[0.95] disabled:opacity-50"
+          >
+            ⋯
+          </button>
         )}
       </div>
 
@@ -358,13 +387,65 @@ function ListingCard({
       <div className="mt-2.5 flex items-center justify-between gap-2">
         <p className="min-w-0 truncate text-[0.8125rem] text-foreground/65">
           {l.posterName} · đăng {formatVnDate(l.postedOn)}
+          {busy ? ` · ${pending ? NHAN.dangGui : NHAN.dangXoa}…` : ""}
         </p>
-        {l.phone ? (
-          <CallButton phone={l.phone} label={sell ? "Gọi hỏi mua" : "Gọi chào bán"} />
-        ) : null}
+        {/* pill mua/bán đã nói ngữ cảnh ⇒ chỉ "Gọi" (CC-20, nhãn ≤2 chữ) */}
+        {l.phone ? <CallButton phone={l.phone} label={NHAN.goi} /> : null}
       </div>
 
+      {menuMo && (
+        <Popover anchor={menuEl} label="Tin của tôi" role="menu" onClose={() => setMenuMo(false)} className="w-[11rem] py-1">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenuMo(false);
+              void doiTrangThai();
+            }}
+            className="flex h-11 w-full items-center gap-2 px-4 text-left text-[0.9375rem] font-semibold text-navy"
+          >
+            <CheckIcon className="h-5 w-5" />
+            {l.status === "open" ? NHAN.daXong : NHAN.moLai}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenuMo(false);
+              onDelete();
+            }}
+            className="flex h-11 w-full items-center gap-2 px-4 text-left text-[0.9375rem] font-semibold text-danger"
+          >
+            <TrashIcon className="h-5 w-5" />
+            {NHAN.xoa}
+          </button>
+        </Popover>
+      )}
     </Card>
+  );
+}
+
+/** Khung chờ 2 thẻ đúng hình thẻ tin (pill+meta · tên · 2 dòng · chân) — lúc tải về
+ *  không nhảy bố cục (CC-04). `animate-pulse` tự dừng khi máy bật giảm chuyển động. */
+function ListingSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Đang tải tin" className="space-y-3">
+      {[0, 1].map((i) => (
+        <div key={i} className="surface animate-pulse p-4">
+          <div className="flex items-center gap-2">
+            <span className="h-5 w-16 rounded-full bg-field" />
+            <span className="h-3 w-1/3 rounded bg-field" />
+          </div>
+          <div className="mt-2 h-4 w-1/2 rounded bg-field" />
+          <div className="mt-3 h-3.5 w-2/3 rounded bg-field" />
+          <div className="mt-2 h-3.5 w-1/2 rounded bg-field" />
+          <div className="mt-3 flex items-center justify-between">
+            <span className="h-3 w-2/5 rounded bg-field" />
+            <span className="h-(--h-ctl) w-[5.5rem] rounded-full bg-field" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -381,7 +462,8 @@ function ListingForm({
   onSaved,
 }: {
   onCancel: () => void;
-  onSaved: () => void;
+  /** máy chủ đã nhận — trả thẻ tạm để cha hiện ngay (CC-05) */
+  onSaved: (tin: MarketListing) => void;
 }) {
   /*  ĐIỀN SẴN thứ MÁY ĐÃ BIẾT (luật C1 câu hỏi 2): tên hiển thị + tỉnh/bến lấy
       từ hồ sơ tàu đang chọn, SĐT lấy từ tài khoản — chính nhãn cũ đã tự thú
@@ -398,16 +480,22 @@ function ListingForm({
   const [province, setProvince] = useState(current?.homeProvince ?? "");
   const [phone, setPhone] = useState(accountPhone ?? "");
   const [note, setNote] = useState("");
+  /** lỗi MÁY CHỦ / MẠNG — hàng đáy. Lỗi từng ô nằm dưới ô (`loiO`) */
   const [error, setError] = useState<string | null>(null);
+  /** lỗi của một ô — hiện ngay dưới ô đó, ô tự mở + nhận con trỏ (CC-02) */
+  const [loiO, setLoiO] = useState<{ field: DraftField; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
   /* Hai nhóm THU LẠI mặc định — 9 ô bày sẵn trong sheet trần 85dvh là quá tay */
   const [showWho, setShowWho] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const oTen = useRef<HTMLInputElement>(null);
+  const oLoai = useRef<HTMLInputElement>(null);
+  const oSdt = useRef<HTMLInputElement>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
     setError(null);
+    setLoiO(null);
     const draft: ListingDraft = {
       side,
       posterKind,
@@ -419,14 +507,39 @@ function ListingForm({
       phone,
       note,
     };
+    /*  Ô SAI THÌ MỞ Ô ĐÓ RA (CC-02): "Nhập tên" từng báo ở hàng đáy trong khi ô Tên
+        đang thu sau nút "Sửa" — bà con không thấy ô nào để sửa. Nay nhóm ô đang thu
+        tự mở, câu lỗi nằm ngay dưới ô, con trỏ nhảy vào ô. */
+    const loi = validateDraftField(draft);
+    if (loi) {
+      setLoiO(loi);
+      const trongNhomNguoiDang = loi.field === "posterName" || loi.field === "phone";
+      if (trongNhomNguoiDang) setShowWho(true);
+      // chờ ô vẽ ra (nhóm vừa mở) rồi mới đưa con trỏ vào
+      window.requestAnimationFrame(() => {
+        const o =
+          loi.field === "posterName" ? oTen.current : loi.field === "phone" ? oSdt.current : oLoai.current;
+        o?.focus();
+        o?.scrollIntoView?.({ block: "center" });
+      });
+      return;
+    }
+    setSaving(true);
     const res = await createListing(draft);
     setSaving(false);
     if (!res.ok) {
       setError(res.error ?? "Hiện chưa đăng được, bà con thử lại sau ít phút nhé.");
       return;
     }
-    onSaved();
+    onSaved(
+      tinTamTuDraft(draft, {
+        id: String(Date.now()),
+        accountPhone: accountPhone ?? null,
+        today: new Date().toISOString().slice(0, 10),
+      }),
+    );
   }
+
 
   return (
     <BottomSheet kieu="form" title="Đăng tin mua/bán" onClose={onCancel}>
@@ -456,13 +569,16 @@ function ListingForm({
           </div>
         </div>
 
-        <Field label="Loài cá (bắt buộc)">
+        <Field label="Loài cá (bắt buộc)" error={loiO?.field === "species" ? loiO.message : undefined}>
           <input
+            ref={oLoai}
             value={species}
-            onChange={(e) => setSpecies(e.target.value)}
+            onChange={(e) => {
+              setSpecies(e.target.value);
+              if (loiO?.field === "species") setLoiO(null);
+            }}
             className={inputClass}
             placeholder="VD: cá ngừ đại dương, mực ống"
-            required
           />
         </Field>
 
@@ -489,13 +605,19 @@ function ListingForm({
 
         {showWho && (
           <>
-            <Field label="Tên người đăng (bắt buộc)">
+            <Field
+              label="Tên người đăng (bắt buộc)"
+              error={loiO?.field === "posterName" ? loiO.message : undefined}
+            >
               <input
+                ref={oTen}
                 value={posterName}
-                onChange={(e) => setPosterName(e.target.value)}
+                onChange={(e) => {
+                  setPosterName(e.target.value);
+                  if (loiO?.field === "posterName") setLoiO(null);
+                }}
                 className={inputClass}
                 placeholder="VD: Tàu ông Bảy, Vựa cô Ba"
-                required
               />
             </Field>
             <Field label="Bà con là">
@@ -519,10 +641,17 @@ function ListingForm({
                 placeholder="VD: Khánh Hòa"
               />
             </Field>
-            <Field label="Số điện thoại (nếu để trống sẽ dùng số tài khoản)">
+            <Field
+              label="Số điện thoại (nếu để trống sẽ dùng số tài khoản)"
+              error={loiO?.field === "phone" ? loiO.message : undefined}
+            >
               <input
+                ref={oSdt}
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (loiO?.field === "phone") setLoiO(null);
+                }}
                 className={inputClass}
                 inputMode="tel"
                 placeholder="VD: 0901234567"

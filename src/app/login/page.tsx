@@ -57,7 +57,10 @@ export default function LoginPage() {
 
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  /** lỗi HỆ THỐNG (mạng, sai mật khẩu, cấp chuỗi hỏng) — băng trên form */
   const [error, setError] = useState<string | null>(null);
+  /** lỗi NHẬP của ô SĐT — hiện dưới ô (VO-APP-04) */
+  const [phoneErr, setPhoneErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   /** Vừa đăng nhập xong và máy TRƯỚC đã bị đăng xuất — nói một dòng rồi mới vào
    *  (audit 2026-08-18 G1: route đã trả `kicked:true` từ lâu mà màn này không
@@ -96,8 +99,10 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setPhoneErr(null);
     if (!isValidVnPhone(phone)) {
-      setError("Bà con nhập đủ 10 số nhé (ví dụ: 0901234567).");
+      setPhoneErr("Bà con nhập đủ 10 số nhé (ví dụ: 0901234567).");
+      document.getElementById("login-sdt")?.focus();
       return;
     }
     setLoading(true);
@@ -250,12 +255,8 @@ export default function LoginPage() {
 
   return (
     <div>
-      <PageHeader
-        kicker="Tài khoản"
-        title="Đăng nhập"
-        sub="Nhập số điện thoại và mật khẩu để xem đồ đã mua, bảo hành và được SDVICO chăm sóc."
-        toColor="var(--sea)"
-      />
+      {/* VO-APP-12: bỏ câu phụ dưới tiêu đề — ô + placeholder đã nói đủ việc */}
+      <PageHeader kicker="Tài khoản" title="Đăng nhập" toColor="var(--sea)" />
       <AuthCard>
         {createdNote && !error && (
           <AuthNote>
@@ -270,15 +271,19 @@ export default function LoginPage() {
         )}
         {error && <AuthError>{error}</AuthError>}
         <form onSubmit={handleSubmit}>
-          <Field label="Số điện thoại">
+          <Field label="Số điện thoại" error={phoneErr ?? undefined}>
             <input
+              id="login-sdt"
               type="tel"
               inputMode="tel"
               autoComplete="tel"
               className={inputClass}
               placeholder="0901 234 567"
               value={phone}
-              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+              onChange={(e) => {
+                setPhone(sanitizePhoneInput(e.target.value));
+                setPhoneErr(null);
+              }}
               required
             />
           </Field>
@@ -296,38 +301,18 @@ export default function LoginPage() {
             2026-07-21) — trước đây chỉ có số hotline, KH ngoài giờ làm việc
             không biết bấu víu vào đâu.
 
-            ĐƯA LÊN NGAY DƯỚI NÚT ĐĂNG NHẬP (2026-08-29): đo thật 375×812 ở
-            scrollY=0, ba đoạn văn 220px đẩy hàng này xuống y=747-807 trong khi
-            dock bắt đầu y=739 ⇒ `document.elementFromPoint` đúng tâm nút trả về
-            svg của dock. Đường LẤY LẠI MẬT KHẨU DUY NHẤT của app bị bịt kín ở
-            trạng thái nghỉ — đó là lỗi chặn, không phải chuyện đẹp xấu.
-
-            Ba đoạn văn đã BỎ (luật D1 — chữ không cấp dữ liệu thì bỏ):
-            (a) "dùng SĐT + mật khẩu nhân viên báo khi mua" nhắc lại đúng
-                placeholder của ô mật khẩu ngay trên;
-            (b) luật một-máy dạy trước khi gặp — lúc bị đá đã có câu riêng
-                (`kickedNote`) nói đúng lúc;
-            (c) mẹo cài PWA không liên quan việc đang gõ mật khẩu — `InstallPrompt`
-                ở trang chủ mới là chỗ của nó. */}
+            VO-APP-05 (2026-10-25): về khuôn FB — "Quên mật khẩu?" là LINK CHỮ canh
+            giữa ngay dưới nút cam (vùng chạm `--h-ctl`), không còn là viên to
+            3.75rem/rounded-full ngoài thang 03 §0 trông như nút phụ thứ hai. Lý do
+            lịch sử đưa nó lên sát nút (2026-08-29: dock che ở 375×812) vẫn giữ
+            vị trí này — không dựa vào việc dock có bị gỡ khỏi màn auth hay không. */}
         <Link
           href="/quen-mat-khau"
-          className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center rounded-full border-2 border-line text-[1rem] font-semibold text-foreground/80 transition active:scale-[0.98]"
+          className="mt-2 flex min-h-(--h-ctl) w-full items-center justify-center text-[0.9375rem] font-semibold text-sea"
         >
           Quên mật khẩu?
         </Link>
-        {/*  Đường sang tự đăng ký (mở lại 2026-09-23): người ngoài chưa có tài
-             khoản tạo nhanh bằng SĐT — câu lỗi "chưa có tài khoản" ở
-             login-error.ts chỉ thẳng xuống nút này. */}
-        <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/70">
-          Chưa có tài khoản?{" "}
-          <Link
-            href="/dang-ky"
-            className="inline-flex min-h-[3.5rem] items-center px-2 font-semibold text-sea"
-          >
-            Đăng ký
-          </Link>
-        </p>
-        <p className="mt-1 text-center text-[0.9375rem] leading-snug text-foreground/60">
+        <p className="mt-1 text-center text-[0.875rem] leading-snug text-foreground/60">
           Đăng nhập tức là bà con đồng ý với{" "}
           {/* py-3 trên phần tử INLINE: nới vùng chạm lên ~44px mà không xô dòng chữ (rà bố cục
               2026-10-22 — trước cao 19px, tay ướt bấm trượt) */}
@@ -336,6 +321,17 @@ export default function LoginPage() {
           </Link>
           .
         </p>
+        {/*  Đường sang tự đăng ký (mở lại 2026-09-23): người ngoài chưa có tài
+             khoản tạo nhanh bằng SĐT — câu lỗi "chưa có tài khoản" ở
+             login-error.ts chỉ thẳng xuống nút này. VO-APP-05: NÚT VIỀN full-width
+             cao `--h-cta` cuối thẻ (khuôn FB "Tạo tài khoản mới"); cam vẫn chỉ MỘT
+             nút Đăng nhập. */}
+        <Link
+          href="/dang-ky"
+          className="display mt-4 flex h-(--h-cta) w-full items-center justify-center rounded-(--r-ctl) border border-line text-[1rem] font-semibold text-navy transition active:scale-[0.98]"
+        >
+          Tạo tài khoản mới
+        </Link>
       </AuthCard>
     </div>
   );

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Field, inputClass } from "@/components/ui/primitives";
 import { passwordRuleHint } from "@/lib/password";
 
 /*
   Mảnh dùng chung cho các form đăng nhập / đổi mật khẩu.
-  Giữ tông bình tĩnh, chữ to (≥18px), dễ đọc ngoài nắng.
+  Giữ tông bình tĩnh, cỡ theo thang 03 §0.
 */
 
 // Helper SĐT chuyển sang lib/phone.ts (thuần, dùng cả server) — re-export để
@@ -28,13 +28,17 @@ export {
  *  (Apple App Review từ chối 2026-07-17, Guideline 2.1, máy iPad Air M3).
  *  Khoá autoCapitalize/autoCorrect/spellCheck cho CẢ hai trạng thái. */
 export function PasswordField({
+  id,
   label,
   value,
   onChange,
   autoComplete = "current-password",
   placeholder,
   minLength,
+  error,
 }: {
+  /** id ô nhập — để màn cha đưa con trỏ vào ô khi submit lỗi (VO-APP-04) */
+  id?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -44,24 +48,41 @@ export function PasswordField({
       label verify chính xác… chỉ báo lỗi"). Chỉ truyền cho ô mật khẩu MỚI —
       ô "mật khẩu hiện tại" không cần vì không phải đang đặt luật. */
   minLength?: number;
+  /** lỗi submit của riêng ô này — hiện dưới ô qua `Field error`, thay nhãn luật */
+  error?: string;
 }) {
   const [shown, setShown] = useState(false);
+  /*  VO-APP-17 (2026-10-25): nhãn luật chỉ nói khi ô CÓ FOCUS hoặc ĐÃ GÕ — ô trống
+      lúc mở màn thì luật nằm trong placeholder, không thành câu hướng dẫn thường trực. */
+  const [focused, setFocused] = useState(false);
+  const uid = useId();
+  const idLoi = `${uid}-loi`;
+  const idLuat = `${uid}-luat`;
   const hint =
-    typeof minLength === "number" ? passwordRuleHint(value, minLength) : null;
+    typeof minLength === "number" && !error && (focused || value.length > 0)
+      ? passwordRuleHint(value, minLength)
+      : null;
+  const goiY =
+    placeholder ??
+    (typeof minLength === "number" ? `Ít nhất ${minLength} ký tự` : undefined);
   return (
-    <Field label={label}>
+    <Field label={label} error={error} errorId={idLoi}>
       <span className="relative block">
         <input
+          id={id}
           type={shown ? "text" : "password"}
           autoComplete={autoComplete}
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
           className={`${inputClass} pr-16`}
-          placeholder={placeholder}
+          placeholder={goiY}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          aria-describedby={hint ? "pw-rule" : undefined}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? idLoi : hint ? idLuat : undefined}
           required
         />
         <button
@@ -75,17 +96,18 @@ export function PasswordField({
       </span>
       {/*  NHÃN KIỂM TRA TẠI CHỖ (aria-live): nói ĐÚNG luật + trạng thái hiện tại
           ngay khi gõ, không đợi bấm Lưu. Chưa đủ = giọng NHẮC (neutral, không
-          đỏ hoảng — đỏ để dành cho lỗi submit); đủ = xanh ok kèm dấu ✓. Nội dung
-          từ passwordRuleHint (thuần, có test). */}
+          đỏ hoảng — đỏ để dành cho lỗi submit, lúc đó nhãn này nhường chỗ cho
+          câu lỗi dưới ô, không nói hai câu cho một lỗi); đủ = xanh ok kèm dấu ✓.
+          Nội dung từ passwordRuleHint (thuần, có test). */}
       {hint && (
-        <p
-          id="pw-rule"
+        <span
+          id={idLuat}
           aria-live="polite"
-          className="mt-1.5 text-[0.9375rem] font-semibold leading-snug"
+          className="mt-1.5 block text-[0.875rem] leading-snug"
           style={{ color: hint.ok ? "var(--ok)" : "var(--foreground)" }}
         >
           {hint.text}
-        </p>
+        </span>
       )}
     </Field>
   );
@@ -105,7 +127,9 @@ export function AuthCard({ children }: { children: ReactNode }) {
   );
 }
 
-/** Lời nhắc lỗi — đỏ nhẹ, chữ đậm, không làm người dùng hoảng. */
+/** Băng lỗi HỆ THỐNG (mạng yếu, sai mật khẩu, bị khoá, bị đá, cấp chuỗi hỏng) —
+ *  đỏ nhẹ, chữ đậm. Lỗi NHẬP (SĐT sai dạng, mật khẩu ngắn…) KHÔNG đi đường này
+ *  mà hiện dưới ô qua `Field error` (VO-APP-04, 2026-10-25). */
 export function AuthError({ children }: { children: ReactNode }) {
   return (
     <p

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertIcon,
   CheckIcon,
@@ -11,6 +11,7 @@ import {
   WrenchIcon,
 } from "@/components/icons";
 import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
+import { LoiO, O_LOI, cuonToiOSai } from "@/components/tau-form";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -442,12 +443,21 @@ function MaintenanceForm({
   );
   const [showLastDone, setShowLastDone] = useState(false);
   const [showNote, setShowNote] = useState(Boolean(initial?.note));
+  /** chu kỳ "Khác" gõ sai (0, âm, chữ) — lỗi đỏ ngay dưới ô, không bong bóng trình duyệt (TAU-03) */
+  const [loiChuKy, setLoiChuKy] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const item =
       picked === OTHER ? customItem.trim() || "Việc bảo dưỡng" : picked;
-    const interval = Math.max(1, Math.round(Number(intervalDays) || 60));
+    const interval = Math.round(Number(intervalDays));
+    if (!Number.isInteger(interval) || interval < 1) {
+      setLoiChuKy("Số ngày phải từ 1 trở lên (VD 45).");
+      setCustomInterval(true);
+      cuonToiOSai(formRef.current);
+      return;
+    }
     onSave({
       id: initial?.id ?? `bd-${Date.now()}`,
       item,
@@ -462,7 +472,7 @@ function MaintenanceForm({
       title={initial ? "Sửa nhắc nhở bảo dưỡng" : "Thêm nhắc nhở bảo dưỡng"}
       onClose={onCancel}
     >
-      <form onSubmit={submit}>
+      <form ref={formRef} onSubmit={submit} noValidate>
         <Field label="Bà con cần bảo dưỡng gì?">
           <select
             value={picked}
@@ -502,6 +512,7 @@ function MaintenanceForm({
                 onClick={() => {
                   setIntervalDays(String(d));
                   setCustomInterval(false);
+                  setLoiChuKy(null);
                 }}
                 className={`min-h-[3.25rem] rounded-xl text-[1rem] font-semibold transition active:scale-[0.97] ${
                   !customInterval && Number(intervalDays) === d
@@ -525,15 +536,20 @@ function MaintenanceForm({
             </button>
           </div>
           {customInterval && (
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              value={intervalDays}
-              onChange={(e) => setIntervalDays(e.target.value)}
-              className={`${inputClass} mt-2`}
-              aria-label="Số ngày giữa hai lần làm"
-            />
+            <>
+              <input
+                inputMode="numeric"
+                value={intervalDays}
+                onChange={(e) => {
+                  setIntervalDays(e.target.value);
+                  setLoiChuKy(null);
+                }}
+                className={`${inputClass} mt-2 ${loiChuKy ? O_LOI : ""}`}
+                aria-label="Số ngày giữa hai lần làm"
+                aria-invalid={loiChuKy ? true : undefined}
+              />
+              {loiChuKy && <LoiO>{loiChuKy}</LoiO>}
+            </>
           )}
         </Field>
 

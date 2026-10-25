@@ -1,7 +1,7 @@
 "use client";
 
 import { NHAN } from "@/lib/labels";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useBoats } from "@/lib/boat-store";
 import { BoatForm } from "@/components/boat-switcher";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -58,6 +58,18 @@ function fmtDate(iso: string | null | undefined): string | null {
   }).format(new Date(t));
 }
 
+const KHOA_SO_YEU_CAU = "tau.gia-han.so-yeu-cau";
+function docSoYeuCau(): number | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const v = sessionStorage.getItem(KHOA_SO_YEU_CAU);
+    const n = v == null ? NaN : Number(v);
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 export function VmsRenewal() {
   return (
     // Đặt trong tab Dịch vụ, NGAY SAU sổ nhắc bảo dưỡng — pt-5 tách khỏi mục trên.
@@ -80,26 +92,29 @@ function VmsRenewalInner() {
   const [saveFailed, setSaveFailed] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
-  // Modal chặn khi chưa đủ điều kiện gia hạn (chưa có tàu / tàu chưa có mã đăng ký).
-  const [guardOpen, setGuardOpen] = useState(false);
+  /*  Số yêu cầu đã gửi — nhớ trong phiên tab (sessionStorage, KHÔNG khoá forfish.*): lúc mở
+      màn KHÔNG gọi mạng (luật offline), chỉ cập nhật khi ngăn trạng thái tải xong. null = chưa
+      biết ⇒ vẫn hiện hàng "Yêu cầu" (không giấu lối vào); 0 = ẩn hàng (TAU-16). */
+  const [soYeuCau, setSoYeuCau] = useState<number | null>(() => docSoYeuCau());
+  function nhoSoYeuCau(n: number) {
+    setSoYeuCau(n);
+    try {
+      sessionStorage.setItem(KHOA_SO_YEU_CAU, String(n));
+    } catch {
+      /* kho phiên hỏng ⇒ chỉ mất số đếm */
+    }
+  }
 
   if (!ready) return null;
 
   const hasMaTau = !!current?.maTau?.trim();
 
-  // Bấm "Yêu cầu gia hạn": đủ điều kiện → wizard; chưa → mở modal nhắc thêm tàu/mã.
+  /*  Bấm "Gia hạn": đủ mã tàu → wizard; chưa → MỞ THẲNG form tàu, con trỏ vào ô Mã tàu, lý do
+      nằm trong form (TAU-16, 2026-10-25) — bỏ ngăn trung gian "Chưa gia hạn được" chỉ để bấm
+      thêm một lần. */
   function onRequest() {
     if (hasMaTau) setWizardOpen(true);
-    else setGuardOpen(true);
-  }
-  function openAddBoat() {
-    setGuardOpen(false);
-    setBoatForm({ id: `boat-${Date.now()}`, name: "" });
-  }
-  function openEditBoat() {
-    if (!current) return;
-    setGuardOpen(false);
-    setBoatForm(current);
+    else setBoatForm(current ?? { id: `boat-${Date.now()}`, name: "" });
   }
 
   return (
@@ -139,6 +154,7 @@ function VmsRenewalInner() {
 
       {/*  Hàng disclosure theo khuôn B1: [thân flex-1] + [ô w-16 mang chevron].
           Nó CÓ nội dung nên không phải "nút ăn riêng hàng", chỉ cần vào khuôn. */}
+      {soYeuCau !== 0 && (
       <button
         type="button"
         onClick={() => setStatusOpen(true)}
@@ -146,51 +162,20 @@ function VmsRenewalInner() {
       >
         <span className="flex min-w-0 flex-1 items-center text-[1rem] font-semibold text-sea">
           {NHAN.yeuCau}
+          {soYeuCau != null && soYeuCau > 0 ? ` · ${soYeuCau}` : ""}
         </span>
         <span className="flex w-16 shrink-0 items-center justify-center text-sea">
           <ChevronRightIcon className="h-6 w-6" />
         </span>
       </button>
-
-      {/* MODAL chặn: chưa có tàu (hoặc tàu chưa có mã) → nút mở form thêm/sửa tàu */}
-      {guardOpen && (
-        <BottomSheet title="Chưa gia hạn được" onClose={() => setGuardOpen(false)}>
-          {!current ? (
-            <>
-              <p className="text-[1rem] leading-snug text-foreground/80">
-                Bà con chưa thêm tàu nào trong máy. Thêm tàu (kèm mã đăng ký) để
-                gia hạn giám sát hành trình.
-              </p>
-              <div className="mt-4">
-                <PrimaryButton onClick={openAddBoat}>
-                  <PlusIcon className="h-5 w-5" />
-                  {NHAN.them} tàu
-                </PrimaryButton>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-[1rem] leading-snug text-foreground/80">
-                Tàu “{current.name}” chưa có mã đăng ký. Thêm mã tàu để gia hạn
-                giám sát hành trình.
-              </p>
-              <div className="mt-4">
-                <PrimaryButton onClick={openEditBoat}>
-                  <PlusIcon className="h-5 w-5" />
-                  Thêm mã tàu
-                </PrimaryButton>
-              </div>
-            </>
-          )}
-          {/* "Đóng" đáy đã bỏ — ngăn xem có × góc (rà bố cục 2026-10-22) */}
-        </BottomSheet>
       )}
 
-      {/* Modal thêm/sửa tàu CÓ SẴN (tái dùng BoatForm) */}
+      {/* Form thêm/sửa tàu CÓ SẴN (tái dùng BoatForm) — mở vì thiếu mã tàu nên focus + lý do ở ô Mã tàu */}
       {boatForm && (
         <BoatForm
           initial={boatForm}
           isNew={!boats.some((b) => b.id === boatForm.id)}
+          canMaTau="Cần mã đăng ký để gia hạn giám sát hành trình."
           onCancel={() => setBoatForm(null)}
           onSave={(b) => {
             const ok = boats.some((x) => x.id === b.id)
@@ -213,7 +198,9 @@ function VmsRenewalInner() {
         />
       )}
 
-      {statusOpen && <RenewalStatusSheet onClose={() => setStatusOpen(false)} />}
+      {statusOpen && (
+        <RenewalStatusSheet onClose={() => setStatusOpen(false)} onCount={nhoSoYeuCau} />
+      )}
     </div>
   );
 }
@@ -433,11 +420,23 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 // ── Màn theo dõi trạng thái ───────────────────────────────────────────────
-function RenewalStatusSheet({ onClose }: { onClose: () => void }) {
+function RenewalStatusSheet({
+  onClose,
+  onCount,
+}: {
+  onClose: () => void;
+  /** Báo số yêu cầu tải được — hàng "Yêu cầu · N" ngoài màn dùng, không gọi mạng thêm. */
+  onCount?: (n: number) => void;
+}) {
   const [state, setState] = useState<"loading" | "ok" | "empty" | "error">(
     "loading",
   );
   const [requests, setRequests] = useState<RenewalRequestSummary[]>([]);
+  // onCount mới nhất qua ref — bên gọi truyền hàm mới mỗi lần vẽ, không được làm `load` đổi rồi tải lại vòng vô tận
+  const onCountRef = useRef(onCount);
+  useEffect(() => {
+    onCountRef.current = onCount;
+  });
 
   const load = useCallback(() => {
     setState("loading");
@@ -450,6 +449,7 @@ function RenewalStatusSheet({ onClose }: { onClose: () => void }) {
         if (j?.ok && Array.isArray(j.requests)) {
           setRequests(j.requests as RenewalRequestSummary[]);
           setState(j.requests.length === 0 ? "empty" : "ok");
+          onCountRef.current?.(j.requests.length);
         } else {
           setState("error");
         }

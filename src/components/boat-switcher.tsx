@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BOAT_PAPER_FIELDS,
   FISHING_ZONE_LABEL,
@@ -32,6 +32,7 @@ import {
   TrashIcon,
 } from "@/components/icons";
 import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
+import { LoiO, O_LOI, cuonToiOSai } from "@/components/tau-form";
 import { useAuthUser } from "@/lib/use-auth";
 import { Popover } from "@/components/ui/popover";
 
@@ -110,14 +111,17 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
           <span className="block text-[1rem] font-semibold leading-snug text-navy">
             {current.name}
           </span>
+          {/*  Dòng meta NÓI SỰ THẬT về trạng thái, không ra lệnh (TAU-06, 2026-10-25): trước
+              tàu có tên vẫn ghi "Chạm để ghi tên, mã tàu" và dính thêm "· 2 tàu". Số tàu
+              chuyển sang nhãn nút phải (số không tính là chữ). */}
           <span className="mt-1 block text-[0.875rem] text-foreground/80">
-            {current.maTau
-              ? `Mã tàu: ${current.maTau}`
-              : "Chạm để ghi tên, mã tàu"}
-            {boats.length > 1 ? ` · ${boats.length} tàu` : ""}
+            {current.maTau ? `Mã tàu: ${current.maTau}` : "Chưa có mã tàu"}
           </span>
         </span>
-        <span className="flex shrink-0 flex-col items-center gap-1 text-[0.875rem] font-semibold text-sea"><ChevronRightIcon className="h-6 w-6 rotate-90" />Chọn tàu</span>
+        <span className="flex shrink-0 flex-col items-center gap-1 text-[0.875rem] font-semibold text-sea">
+          <ChevronRightIcon className="h-6 w-6 rotate-90" />
+          {boats.length > 1 ? `${boats.length} tàu` : "Chọn tàu"}
+        </span>
       </button>
 
       {/*  MÁY HẾT CHỖ — vẽ NGOÀI sheet (S14, audit 2026-08-18): `saveFailed`
@@ -298,6 +302,7 @@ export function BoatForm({
   onCancel,
   onSave,
   onDelete,
+  canMaTau,
 }: {
   initial: Boat;
   isNew: boolean;
@@ -305,12 +310,23 @@ export function BoatForm({
   onSave: (b: Boat) => void;
   /** Có giá trị → hiện nút xóa tàu (chỉ khi tàu đã lưu + còn >1 tàu). */
   onDelete?: () => void;
+  /** Mở form VÌ thiếu mã tàu (gia hạn VMS — TAU-16): con trỏ vào ô Mã tàu + một dòng lý do. */
+  canMaTau?: string;
 }) {
   const [name, setName] = useState(initial.name);
   const [maTau, setMaTau] = useState(initial.maTau ?? "");
   const [province, setProvince] = useState(initial.homeProvince ?? "");
   const [d, setD] = useState<Draft>(() => draftOf(initial));
-  const [errors, setErrors] = useState<Partial<Record<keyof Draft, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof Draft | "name", string>>>({});
+  const formRef = useRef<HTMLFormElement>(null);
+  const maTauRef = useRef<HTMLInputElement>(null);
+  /*  Con trỏ vào ô Mã tàu SAU mọi effect (setTimeout 0): BottomSheet đặt con trỏ vào ô đầu
+      trong effect của nó, chạy sau effect của con — phải tới lượt sau mới giành lại được. */
+  useEffect(() => {
+    if (!canMaTau) return;
+    const t = setTimeout(() => maTauRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, [canMaTau]);
   /*  CÁC Ô THEO GIẤY THU LẠI MẶC ĐỊNH (luật C1/C2 — sheet không quá ~40% màn).
       Tàu ĐÃ ghi ô nào thì mở sẵn — không giấu thứ bà con đã nhập. */
   const [showPaper, setShowPaper] = useState(countPaperFields(initial) > 0);
@@ -323,10 +339,11 @@ export function BoatForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
     /*  KIỂM Ở RANH GIỚI (CLAUDE.md quy tắc 4): số gõ sai thì NÓI và KHÔNG lưu,
-        đừng lặng lẽ cắt "55,60" thành 55 như parseFloat cũ. */
-    const errs: Partial<Record<keyof Draft, string>> = {};
+        đừng lặng lẽ cắt "55,60" thành 55 như parseFloat cũ. Tên trống cũng NÓI
+        dưới ô (TAU-03) — trước `return` im + bong bóng tiếng Anh của `required`. */
+    const errs: Partial<Record<keyof Draft | "name", string>> = {};
+    if (!name.trim()) errs.name = "Chưa ghi tên tàu.";
     const nums: Partial<Record<keyof Draft, number | undefined>> = {};
     for (const [k, rule] of Object.entries(NUMBER_RULES) as [keyof Draft, { max: number; int?: boolean }][]) {
       const r = parseBoatNumber(d[k], rule.max);
@@ -338,7 +355,8 @@ export function BoatForm({
     if (!year.ok) errs.builtYear = "Năm đóng gõ đủ 4 số (VD 2018).";
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
-      if (Object.keys(errs).some((k) => k !== "lengthM")) setShowPaper(true);
+      if (Object.keys(errs).some((k) => k !== "lengthM" && k !== "name")) setShowPaper(true);
+      cuonToiOSai(formRef.current);
       return;
     }
     const txt = (v: string) => v.trim() || undefined;
@@ -374,23 +392,31 @@ export function BoatForm({
 
   return (
     <BottomSheet kieu="form" title={isNew ? "Thêm tàu" : "Sửa thông tin tàu"} onClose={onCancel}>
-      <form onSubmit={submit}>
+      <form ref={formRef} onSubmit={submit} noValidate>
         <Field label="Tên tàu (để dễ nhớ)">
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={inputClass}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (errors.name) setErrors((x) => ({ ...x, name: undefined }));
+            }}
+            className={`${inputClass} ${errors.name ? O_LOI : ""}`}
             placeholder="VD: Tàu câu Bình Minh"
-            required
+            aria-invalid={errors.name ? true : undefined}
           />
+          {errors.name && <LoiO>{errors.name}</LoiO>}
         </Field>
         <Field label="Mã tàu / số đăng ký">
           <input
+            ref={maTauRef}
             value={maTau}
             onChange={(e) => setMaTau(e.target.value)}
             className={inputClass}
             placeholder="VD: BV-1234-TS"
           />
+          {canMaTau && (
+            <span className="mt-1 block text-[0.875rem] leading-snug text-foreground/70">{canMaTau}</span>
+          )}
         </Field>
         <Field label="Tỉnh cảng nhà (để hiện nơi gần tàu)">
           <select
@@ -595,15 +621,13 @@ function NumField({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`${inputClass} ${error ? "ring-2 ring-danger" : ""}`}
+        className={`${inputClass} ${error ? O_LOI : ""}`}
         inputMode="decimal"
         placeholder={placeholder}
         aria-invalid={error ? true : undefined}
       />
       {error ? (
-        <span role="alert" className="mt-1 block text-[0.875rem] font-semibold leading-snug text-danger">
-          {error}
-        </span>
+        <LoiO>{error}</LoiO>
       ) : hint ? (
         <span className="mt-1 block text-[0.875rem] text-foreground/70">{hint}</span>
       ) : null}

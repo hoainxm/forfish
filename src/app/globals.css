@@ -234,9 +234,10 @@ html {
   border-radius: 9999px;
   box-shadow: var(--shadow-float);
 }
-/* nội dung trang cuộn: chừa đúng chiều cao dock + thở 1rem */
+/*  nội dung trang cuộn: chừa dock + thở 1rem + icon Sen Biển nổi (3.5rem, đứng 0.75rem trên dock — 13 §5.1)
+    để dòng cuối trang không bao giờ nằm dưới icon (rà FB 2026-10-25, VO-APP-02). Màn không dock bỏ class này. */
 .app-content {
-  padding-bottom: calc(var(--dock-total) + 1rem);
+  padding-bottom: calc(var(--dock-total) + 1rem + 3.5rem);
 }
 /* bản đồ full-bleed: đáy chừa dock (bản cài iOS: cao đúng vùng nhìn thấy) */
 .full-map {
@@ -558,7 +559,8 @@ textarea,
 :focus-visible {
   outline: 3px solid var(--sea);
   outline-offset: 2px;
-  border-radius: 4px;
+  /* KHÔNG ép border-radius: trình duyệt vẽ outline theo bo góc của chính phần tử — ô dock/nút tròn
+     từng bị vòng focus vuông (rà FB 2026-10-25, VO-APP-14) */
 }
 
 /*

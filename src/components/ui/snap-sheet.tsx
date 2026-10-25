@@ -21,6 +21,7 @@
   Đặt trong container relative của màn hình map; chiều cao tính theo container.
 */
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon, LockIcon } from "@/components/icons";
+import { useLichSuDong } from "@/lib/dialog-focus";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 export type SheetSize = "hidden" | "peek" | "half";
@@ -125,6 +126,18 @@ export function SnapSheet({
       tabRef.current?.focus({ preventScroll: true });
     }
   }, [side, sideOpen]);
+  /*  NGĂN BÊN MỞ = một lớp nổi (rà FB 2026-10-25, BD-03/BD-19): back của máy thu ngăn trước khi rời bản đồ;
+      Escape cũng thu (trước đây chỉ bàn phím là không có đường đóng). "Thu ›" và vuốt phải đi qua `dongTay`.
+      Tự thu sau 3 s (cha gọi onSizeChange) ⇒ hook dọn mục lịch sử ở cleanup. Sheet đáy không phải lớp nổi. */
+  const { dongTay: thuNgan } = useLichSuDong(() => onSizeChange("hidden"), sideOpen);
+  useEffect(() => {
+    if (!sideOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") thuNgan();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sideOpen, thuNgan]);
   const onPointerDown = (e: React.PointerEvent) => {
     dragY.current = e.clientY;
   };
@@ -164,7 +177,7 @@ export function SnapSheet({
       if (start == null) return;
       const dx = e.clientX - start;
       if (!wasOpen && (dx < -24 || Math.abs(dx) < 8)) onSizeChange("half");
-      else if (wasOpen && dx > 36) onSizeChange("hidden");
+      else if (wasOpen && dx > 36) thuNgan();
     };
     return (
       <section
@@ -280,7 +293,7 @@ export function SnapSheet({
               )}
               <button
                 type="button"
-                onClick={() => onSizeChange("hidden")}
+                onClick={thuNgan}
                 aria-label="Thu bảng sang phải"
                 className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 @max-[15rem]:h-9 @max-[15rem]:w-9 items-center justify-center rounded-full bg-field text-navy transition active:scale-95"
               >

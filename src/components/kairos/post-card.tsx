@@ -3,7 +3,9 @@
 /*
   THẺ BÀI KAIROS (14-ba-spec-kairos §3.2 bảng "Thẻ bài 3 loại", AC02). Chung khung `.surface`,
   khác ĐẦU THẺ:
-   · `bao`        — tên báo + giờ + chủ đề · tiêu đề + tóm tắt + ảnh bìa · "Đọc bài gốc"
+   · `bao`        — MỘT KHUÔN đầu thẻ với bà con (K3-02, 2026-10-25): ảnh tròn chữ cái tên báo · tên báo đậm
+                    nguyên dòng · dòng 2 mờ "3 giờ · Thời sự" + chip Đang nóng nhỏ · tóm tắt · THẺ LINK (K3-04:
+                    ảnh bìa + dải xám tên miền + tiêu đề, chạm cả khối mở bài gốc; không còn nút "Đọc bài gốc")
    · `chinh-thuc` — tên hồ sơ (SDVICO / Sen Biển) + dấu Chính thức + Ghim · chữ + ảnh
    · `ba-con`     — ảnh đại diện chữ cái + tên gọi + dòng phụ + giờ · chữ (6 dòng, Xem thêm)
                     + lưới ảnh + thẻ bài gốc khi đăng lại
@@ -18,6 +20,9 @@
   BÌNH LUẬN INLINE như Facebook (anh Long 2026-10-24: "inline chứ đừng nhảy ra tab khác"): màn có
   `actions.binhLuan` ⇒ bấm Bình luận / "N bình luận" (dòng tổng) mở khối comment-thread NGAY DƯỚI THẺ (tải đủ
   bình luận, trả lời, Hay, xoá; con trỏ vào ô viết CHỈ khi bấm nút Bình luận); không có ⇒ liên kết sang /kairos/p/[id] như cũ.
+  Mở khối ⇒ cuộn đầu khối vào tầm (chừa dock + ô viết); ô viết trong khối DÍNH ĐÁY trên dock nên thẻ KHÔNG được
+  `overflow-hidden` (K3-01). Dưới 2 bình luận nổi: "Xem thêm bình luận" khi bài còn bình luận khác (K3-07).
+  ⋯ truyền kèm chính nút ⇒ màn mở Popover neo cạnh nút (03 §6 mục 9, K3-05).
 
   BẢN LƯU MẤT SÓNG chỉ có chữ (cache.ts): `images` rỗng + `imageCount` ⇒ dòng "Có N ảnh —
   cần sóng", ảnh đại diện về chữ cái, ảnh bìa bỏ.
@@ -26,7 +31,7 @@
 import type { CamXuc } from "@/lib/kairos/cam-xuc";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CommentIcon, ShareIcon } from "@/components/icons";
 import { boCucAnh } from "@/lib/kairos/anh-luoi";
 import { countLabel, portLabel, postTimeLabel } from "@/lib/kairos/feed-client";
@@ -34,6 +39,8 @@ import type { KairosComment, KairosPost } from "@/lib/kairos/types";
 import { NHAN, NHAN_CHIP_KAIROS } from "@/lib/labels";
 import { isPinned } from "@/lib/kairos/xep-bai";
 import type { NhacTen } from "@/lib/kairos/nhac-ten";
+import { tenMien } from "@/lib/kairos/social";
+import { useOnline } from "@/lib/use-online";
 import { ChuXemThem } from "./chu-xem-them";
 import { DongCamXuc, NutCamXuc } from "./nut-cam-xuc";
 import { KairosAvatar } from "./kairos-avatar";
@@ -47,8 +54,8 @@ export interface PostActions {
   /** cảm xúc (mặc định 👍 Hay); trùng loại đang có ⇒ gỡ */
   onHay?: (p: KairosPost, kind?: CamXuc) => void;
   onShare?: (p: KairosPost) => void;
-  /** ba chấm: Sửa/Xoá (bài mình) hoặc Báo xấu/Chặn */
-  onMore?: (p: KairosPost) => void;
+  /** ba chấm: Sửa/Xoá (bài mình) hoặc Báo xấu/Chặn — kèm nút để màn neo Popover cạnh nút */
+  onMore?: (p: KairosPost, anchor: HTMLElement) => void;
 }
 
 const topicLabel = (t: string) => (NHAN_CHIP_KAIROS as Record<string, string>)[t] ?? "";
@@ -122,12 +129,13 @@ function Images({ urls, count, chan }: { urls: string[]; count: number; chan?: (
 }
 
 /** Nút ⋯ đầu thẻ (Sửa/Xoá bài mình · Báo xấu/Chặn) — sát phải cạnh Nghe, như FB. */
-function NutThem({ onMore }: { onMore: () => void }) {
+function NutThem({ onMore }: { onMore: (anchor: HTMLElement) => void }) {
   return (
     <button
       type="button"
       aria-label="Thêm"
-      onClick={onMore}
+      aria-haspopup="menu"
+      onClick={(e) => onMore(e.currentTarget)}
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-foreground/65 transition active:scale-[0.95]"
     >
       ⋯
@@ -160,7 +168,9 @@ function NhanBen({ post, benPort }: { post: KairosPost; benPort?: string }) {
 
 /**
  * `nghe=false` trong thẻ bài gốc đăng lại (Reshare cũng dùng Head) — một thẻ một nút Nghe, và không có ⋯.
- * `onMore` có ⇒ nút ⋯ sát phải.
+ * `onMore` có ⇒ nút ⋯ sát phải. MỘT khuôn cho cả ba loại (K3-02): ảnh tròn · tên đậm nguyên dòng (co trước
+ * nhãn Bến/Chính thức) · dòng 2 mờ. Báo: chữ cái tên báo (bỏ "Báo " để không báo nào cũng "B"), màu băm theo
+ * tên ⇒ cùng báo cùng màu; dòng 2 "3 giờ · Thời sự" + chip Đang nóng nhỏ (hết chữ "Báo …" bị cắt).
  */
 function Head({
   post,
@@ -173,7 +183,7 @@ function Head({
   now: number;
   nghe?: boolean;
   benPort?: string;
-  onMore?: () => void;
+  onMore?: (anchor: HTMLElement) => void;
 }) {
   const time = postTimeLabel(post.publishedAt, now);
   const topic = topicLabel(post.topic);
@@ -183,29 +193,20 @@ function Head({
       {nghe && onMore && <NutThem onMore={onMore} />}
     </>
   );
-  if (post.kind === "bao") {
-    return (
-      <div className="flex min-h-11 items-center gap-2 pl-4 pr-1 pt-1.5 text-[0.875rem]">
-        <span className="min-w-0 truncate font-bold text-navy">{post.outlet || "Báo"}</span>
-        <NhanBen post={post} benPort={benPort} />
-        <span className="shrink-0 text-foreground/65">{time}</span>
-        {post.nong && <span className="shrink-0 rounded-full bg-danger-bg px-2 py-0.5 text-[0.75rem] font-bold text-danger">{NHAN.dangNong}</span>}
-        <span className="ml-auto flex shrink-0 items-center gap-2">
-          {topic && <span className="font-semibold text-sea">{topic}</span>}
-          {nut}
-        </span>
-      </div>
-    );
-  }
+  const bao = post.kind === "bao";
   const a = post.author;
-  const official = post.kind === "chinh-thuc" || !!a?.official;
+  const official = !bao && (post.kind === "chinh-thuc" || !!a?.official);
   // tên theo HỒ SƠ người đăng — bài Chính thức có thể là SDVICO hoặc Sen Biển (2026-10-24: bài Sen Biển từng
   // hiện nhầm "SDVICO" vì tên gắn cứng); thiếu hồ sơ mới lùi về "SDVICO"/"Bà con"
-  const name = a?.handle || (official ? "SDVICO" : "Bà con");
-  const sub = [a?.subline, a?.boatReg].filter(Boolean).join(" · ");
-  const pinned = isPinned(post, now);
-  const hoSo = a?.profileId ? `/kairos/u/${a.profileId}` : null;
-  const avatar = <KairosAvatar id={a?.profileId || post.id} name={name} url={a?.avatarUrl ?? null} />;
+  const name = bao ? post.outlet || "Báo" : a?.handle || (official ? "SDVICO" : "Bà con");
+  const sub = (bao ? [time, topic] : [[a?.subline, a?.boatReg].filter(Boolean).join(" · "), time, post.editedAt ? "đã sửa" : ""])
+    .filter(Boolean)
+    .join(" · ");
+  const pinned = !bao && isPinned(post, now);
+  const hoSo = !bao && a?.profileId ? `/kairos/u/${a.profileId}` : null;
+  const avatar = (
+    <KairosAvatar id={bao ? `bao:${name}` : a?.profileId || post.id} name={bao ? name.replace(/^báo\s+/i, "") : name} url={bao ? null : (a?.avatarUrl ?? null)} />
+  );
   return (
     <div className="flex items-center gap-3 pl-4 pr-1 pt-3 pb-2">
       {hoSo ? (
@@ -235,11 +236,59 @@ function Head({
             <span className="shrink-0 rounded-full bg-sun/20 px-2 py-0.5 text-[0.75rem] font-bold text-navy">{NHAN.ghim}</span>
           )}
         </div>
-        <p className="truncate text-[0.8125rem] text-foreground/65">
-          {[sub, time, post.editedAt ? "đã sửa" : ""].filter(Boolean).join(" · ")}
+        <p className="flex items-center gap-1.5 text-[0.8125rem] text-foreground/65">
+          <span className="truncate">{sub}</span>
+          {bao && post.nong && <span className="shrink-0 rounded-full bg-danger-bg px-1.5 text-[0.6875rem] font-bold leading-4 text-danger">{NHAN.dangNong}</span>}
         </p>
       </div>
       {nut}
+    </div>
+  );
+}
+
+/**
+ * THẺ LINK bài báo kiểu FB (K3-04): ảnh bìa + dải xám (tên miền mờ · tiêu đề 2 dòng) — chạm CẢ KHỐI mở bài gốc
+ * (giữ `onRead` ghi thói quen). Mất sóng / bản lưu (không ảnh bìa): dải xám vẫn hiện, chạm báo "Cần sóng".
+ * Tiết kiệm dữ liệu: khung "chạm xem ảnh" đứng NGOÀI liên kết (nút trong liên kết là lồng tương tác).
+ */
+function TheBao({ post, onRead, notify }: { post: KairosPost; onRead?: (p: KairosPost) => void; notify?: (text: string, bad?: boolean) => void }) {
+  const online = useOnline();
+  const hoan = useHoanAnh();
+  const [xem, setXem] = useState(false);
+  const mien = tenMien(post.url);
+  if (!post.title && !post.coverUrl) return null;
+  const anh = post.coverUrl && (!hoan || xem) && (
+    <span className="block aspect-[16/9] bg-field">
+      {/* eslint-disable-next-line @next/next/no-img-element -- ảnh bìa là link RSS của báo (A12), không qua next/image */}
+      <img src={post.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+    </span>
+  );
+  const dai = (
+    <span className="flex flex-col gap-0.5 bg-field px-4 py-2 text-left">
+      {mien && <span className="truncate text-[0.75rem] uppercase tracking-wide text-foreground/55">{mien}</span>}
+      {post.title && <span className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{post.title}</span>}
+    </span>
+  );
+  const lop = "block w-full border-y border-line transition active:bg-line/40";
+  return (
+    <div className="mb-2">
+      {post.coverUrl && hoan && !xem && <KhungAnh soAnh={1} onXem={() => setXem(true)} className="h-16" />}
+      {post.url && online ? (
+        <a href={post.url} target="_blank" rel="noopener noreferrer" onClick={() => onRead?.(post)} className={lop}>
+          {anh}
+          {dai}
+        </a>
+      ) : post.url ? (
+        <button type="button" onClick={() => notify?.("Cần sóng để mở bài gốc.", true)} className={lop}>
+          {anh}
+          {dai}
+        </button>
+      ) : (
+        <div className={lop}>
+          {anh}
+          {dai}
+        </div>
+      )}
     </div>
   );
 }
@@ -401,40 +450,26 @@ export function PostCard({
     </div>
   );
 
-  const onMore = actions.onMore ? () => actions.onMore?.(post) : undefined;
-  const hoanAnh = useHoanAnh();
-  const [xemBia, setXemBia] = useState(false);
+  const onMore = actions.onMore ? (anchor: HTMLElement) => actions.onMore?.(post, anchor) : undefined;
+  const khoiBL = useRef<HTMLDivElement>(null);
+  // Mở khối bình luận ⇒ đưa đầu khối vào tầm, chừa đáy = dock + ô viết (scroll-mb); ô viết dính đáy trong khối
+  // tự lo phần còn lại. Không cuộn lần hai khi khối tải xong (bài sẽ nhảy).
+  useEffect(() => {
+    if (moBL) khoiBL.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [moBL]);
+  // KHÔNG `overflow-hidden`: ô viết bình luận sticky cần thẻ không phải khung cuộn (K3-01); con nào chạm góc tự bo
   return (
-    <article className="surface overflow-hidden" aria-label={post.kind === "bao" ? post.title ?? "Bài báo" : "Bài đăng"}>
+    <article className="surface" aria-label={post.kind === "bao" ? post.title ?? "Bài báo" : "Bài đăng"}>
       <Head post={post} now={now} benPort={benPort} onMore={onMore} />
 
       {post.kind === "bao" ? (
         <>
-          {post.title && <h2 className="px-4 pb-1 text-[1.125rem] font-bold leading-snug text-navy">{post.title}</h2>}
           {(post.summary || post.body) && (
             <div className="px-4 pb-2">
               <ChuXemThem text={(post.summary || post.body) ?? ""} dong={inDetail ? 8 : 4} className="text-[1rem] leading-relaxed" />
             </div>
           )}
-          {post.coverUrl && hoanAnh && !xemBia && <KhungAnh soAnh={1} onXem={() => setXemBia(true)} className="h-16" />}
-          {post.coverUrl && (!hoanAnh || xemBia) && (
-            <div className="aspect-[16/9] bg-field">
-              {/* eslint-disable-next-line @next/next/no-img-element -- ảnh bìa là link RSS của báo (A12), không qua next/image */}
-              <img src={post.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-            </div>
-          )}
-          {post.url && (
-            <a
-              href={post.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => onRead?.(post)}
-              className="mx-4 my-2 flex h-11 items-center justify-center gap-2 rounded-xl border border-line text-[1rem] font-semibold text-sea"
-            >
-              Đọc bài gốc
-              <ShareIcon className="h-4 w-4" />
-            </a>
-          )}
+          <TheBao post={post} onRead={onRead} notify={actions.binhLuan?.notify} />
         </>
       ) : (
         <>
@@ -449,17 +484,32 @@ export function PostCard({
       <div className="flex items-center gap-1 border-t border-line px-2 py-1">{hangChan()}</div>
 
       {inline && moBL && actions.binhLuan && (
-        <div className="border-t border-line px-4 py-3">
+        <div ref={khoiBL} className="scroll-mb-[calc(var(--dock-total)+7rem)] border-t border-line px-4 pt-3">
           <CommentThread post={post} initial={post.topComments} kit={actions.binhLuan} now={now} autoFocus={vietNgay} />
         </div>
       )}
 
-      {!inDetail && !moBL && post.topComments.length > 0 && (
-        <ul className="space-y-2 px-4 pb-3">
-          {post.topComments.map((c) => (
-            <TopComment key={c.id} c={c} />
-          ))}
-        </ul>
+      {!inDetail && !moBL && (post.topComments.length > 0 || post.commentCount > post.topComments.length) && (
+        <div className="space-y-2 px-4 pb-3">
+          {post.topComments.length > 0 && (
+            <ul className="space-y-2">
+              {post.topComments.map((c) => (
+                <TopComment key={c.id} c={c} />
+              ))}
+            </ul>
+          )}
+          {/* còn bình luận ngoài 2 bình luận nổi ⇒ lối mở ĐỌC (không bật bàn phím — A98) */}
+          {post.commentCount > post.topComments.length &&
+            (inline ? (
+              <button type="button" onClick={() => moBinhLuan(false)} className="flex h-9 items-center text-[0.875rem] font-semibold text-foreground/65">
+                Xem thêm bình luận
+              </button>
+            ) : (
+              <Link href={detail} onClick={() => onRead?.(post)} className="flex h-9 items-center text-[0.875rem] font-semibold text-foreground/65">
+                Xem thêm bình luận
+              </Link>
+            ))}
+        </div>
       )}
     </article>
   );

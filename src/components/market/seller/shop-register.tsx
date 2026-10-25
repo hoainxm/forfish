@@ -6,6 +6,7 @@
 // CÙNG shop (route POST tự lo, 11 §6.1) — không đẻ shop thứ hai cho một SĐT.
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLeaveGuard } from "@/components/market/shared/market-header";
 import { CallButton, PrimaryButton } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
@@ -42,6 +43,13 @@ function RegisterInner({ shop }: { shop: Shop | null }) {
   const [error, setError] = useState<string | null>(null);
   const [serverNote, setServerNote] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // gõ dở mà chạm "‹" ⇒ hỏi "Bỏ phần đang ghi?" (BH-10); SĐT điền sẵn không tính là gõ
+  const [dirty, setDirty] = useState(false);
+  useLeaveGuard(dirty);
+  const edit = (v: ShopFormValue) => {
+    setForm(v);
+    setDirty(true);
+  };
 
   /*  Đã có shop (khác `tu_choi`) thì đây không phải màn của bà con — về Tổng
       quan, không bày form đăng ký lần hai (R1: 1 SĐT = 1 shop). */
@@ -74,6 +82,7 @@ function RegisterInner({ shop }: { shop: Shop | null }) {
     setSending(false);
     if (res.ok) {
       saveShopFlag(phone, { hasShop: true, status: res.data.shop.status, at: Date.now() });
+      setDirty(false);
       /*  BIÊN NHẬN: trước đây nhảy thẳng về Tổng quan, không một lời. Bà con
           vừa gõ 8 ô cho việc một-lần-trong-đời mà màn đổi trang câm là tưởng
           hỏng, gõ lại lần nữa. Băng "chờ duyệt" ở Tổng quan là MÔ TẢ TRẠNG
@@ -105,7 +114,7 @@ function RegisterInner({ shop }: { shop: Shop | null }) {
         </div>
       )}
 
-      <ShopForm value={form} onChange={setForm} error={error} />
+      <ShopForm value={form} onChange={edit} error={error} />
 
       {serverNote && (
         <p className="mx-4 mb-3 rounded-2xl px-3.5 py-2.5 text-[1rem] font-semibold" role="alert"

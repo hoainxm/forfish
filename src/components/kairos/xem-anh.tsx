@@ -18,12 +18,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "@/components/icons";
-import { focusablesIn, lockBodyScroll, unlockBodyScroll, vongFocus } from "@/lib/dialog-focus";
+import { focusablesIn, lockBodyScroll, unlockBodyScroll, useLichSuDong, vongFocus } from "@/lib/dialog-focus";
 import { downloadOne } from "@/lib/kairos/tai-anh";
 import { NHAN } from "@/lib/labels";
 import { useOnline } from "@/lib/use-online";
-
-const DAU = "kairosXemAnh";
 
 function TaiIcon({ className }: { className?: string }) {
   return (
@@ -71,11 +69,9 @@ export function XemAnh({
   const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  /** Đóng: có mục lịch sử của mình thì lùi (popstate đóng) — để nút back sau đó không phải bấm hai lần. */
-  const xin = () => {
-    if ((window.history.state as Record<string, unknown> | null)?.[DAU]) window.history.back();
-    else dong.current();
-  };
+  /** Đóng: có mục lịch sử của mình thì lùi (popstate đóng) — để nút back sau đó không phải bấm hai lần.
+   *  Cơ chế nay là của chung mọi lớp nổi: lib/dialog-focus `useLichSuDong` (rà FB 2026-10-25). */
+  const { dongTay: xin } = useLichSuDong(() => dong.current());
   // `chan` gọi trong lúc vẽ ⇒ hàm đưa cho nó KHÔNG đụng ref: chỉ đặt yêu cầu, hiệu ứng dưới mới đóng
   const [yeuCau, setYeuCau] = useState<{ sau?: () => void } | null>(null);
   const dongRoi = (sau?: () => void) => setYeuCau({ sau });
@@ -100,15 +96,6 @@ export function XemAnh({
     setMounted(true);
     const opener = document.activeElement as HTMLElement | null;
     lockBodyScroll();
-    // nút back của máy: đẩy một mục lịch sử cùng URL; StrictMode chạy hiệu ứng hai lần ⇒ chỉ đẩy khi chưa có
-    if (!(window.history.state as Record<string, unknown> | null)?.[DAU]) {
-      try {
-        window.history.pushState({ ...(window.history.state ?? {}), [DAU]: true }, "");
-      } catch {
-        /* trình duyệt chặn lịch sử ⇒ vẫn còn × và Esc */
-      }
-    }
-    const onPop = () => dong.current();
     // bẫy Tab trong hộp (aria-modal: không lọt ra thẻ bài phía sau); đưa con trỏ vào hộp ở hiệu ứng `mounted` dưới
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -122,10 +109,8 @@ export function XemAnh({
         k.focus();
       }
     };
-    window.addEventListener("popstate", onPop);
     document.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("popstate", onPop);
       document.removeEventListener("keydown", onKey);
       unlockBodyScroll();
       opener?.focus?.();

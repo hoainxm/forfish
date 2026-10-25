@@ -8,6 +8,7 @@ import {
   BellIcon,
   ChevronRightIcon,
   LockIcon,
+  PhoneIcon,
   StarIcon,
   TrashIcon,
   UsersIcon,
@@ -33,6 +34,8 @@ import {
 import { useAuthUser } from "@/lib/use-auth";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { tierBadge } from "@/lib/tier";
+import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
+import { NHAN } from "@/lib/labels";
 import {
   clearKickedMark,
   readKickedAt,
@@ -71,6 +74,15 @@ const MODE_KEY = "forfish.displaymode.v1";
 /** Đăng xuất chờ tối đa bấy nhiêu rồi coi như KHÔNG đăng xuất được (cùng khuôn
  *  đồng hồ với use-auth 8s / use-tier 12s — nút bấm thì phải ngắn hơn). */
 const SIGN_OUT_MS = 6000;
+
+/*  NHỚ TRONG PHIÊN (TC-10, 2026-10-25): hai câu hỏi mạng này chỉ để nuôi MENU đang
+    đóng (dòng "Trang quản trị" + nút Bật thông báo), trước đây bắn mỗi lần mount
+    cho mọi ngư dân (99 % nhận 401). Nay chỉ hỏi khi menu MỞ, có đồng hồ, và nhớ
+    câu trả lời ở mức module để mở menu lần hai không hỏi lại. Chỉ nhớ câu trả lời
+    CHẮC (máy chủ trả lời), không nhớ "mất sóng". */
+const MENU_FETCH_MS = 8000;
+let staffCache: { phone: string | null; ok: boolean } | null = null;
+let vapidCache: string | null | undefined;
 
 /*  DỌN HỒ SƠ CHỦ TÀU KHỎI MÁY — gọi khi bà con TỰ ĐĂNG XUẤT / GỠ TÀI KHOẢN
     (có ý trao máy cho người khác).
@@ -224,6 +236,8 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
   const [chipEl, setChipEl] = useState<HTMLButtonElement | null>(null);
   /* sheet xác nhận cho nút Gỡ tài khoản khỏi máy này (xem forgetThisDevice) */
   const [confirmForget, setConfirmForget] = useState(false);
+  /* hộp xác nhận cho Đăng xuất (TC-03): một chạm từng xoá hồ sơ tàu/danh bạ/điểm ghim khỏi máy */
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [mode, setMode] = useState<Mode>("gon");
   const [pushState, setPushState] = useState<PushUiState>("checking");
   const [pushError, setPushError] = useState<string | null>(null);
@@ -240,14 +254,28 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
         dân ⇒ gate theo `user` thì nút "Trang quản trị" KHÔNG BAO GIỜ hiện cho
         admin đã đăng nhập (hoặc chỉ hiện chớp nhoáng lúc phiên tạm chưa bỏ).
         Và /api/admin/health xác thực bằng CHUỖI CỨNG nên PHẢI gửi tokenHeader()
-        — fetch trần không kèm chuỗi thì luôn 401 ⇒ isStaff false. */
+        — fetch trần không kèm chuỗi thì luôn 401 ⇒ isStaff false.
+        CHỈ HỎI KHI MENU MỞ (TC-10) — như `shopFlag` bên dưới. */
     if (!signedIn) {
       setIsStaff(false);
       return;
     }
+    if (!open) return;
+    if (staffCache && staffCache.phone === (phone ?? null)) {
+      setIsStaff(staffCache.ok);
+      return;
+    }
+    if (!online) return; // mất sóng: không hiện dòng quản trị, không đụng mạng
     let alive = true;
-    fetch(apiUrl("/api/admin/health"), { headers: tokenHeader() })
+    fetch(apiUrl("/api/admin/health"), {
+      headers: tokenHeader(),
+      signal: timeoutSignal(MENU_FETCH_MS),
+    })
       .then((r) => {
+        // 200 = staff; 401/403 = không phải — đều là câu trả lời chắc, nhớ lại
+        if (r.ok || r.status === 401 || r.status === 403) {
+          staffCache = { phone: phone ?? null, ok: r.ok };
+        }
         if (alive) setIsStaff(r.ok);
       })
       .catch(() => {
@@ -256,7 +284,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
     return () => {
       alive = false;
     };
-  }, [signedIn]);
+  }, [open, signedIn, online, phone]);
 
   /*  KÊNH NGƯỜI BÁN — hai dạng dòng (LEAD §4 #16 / 12 §9). Cờ `forfish.mshop.v1`
       trả lời "máy này có shop không" mà KHÔNG gọi mạng lúc mở app; chỉ khi SHEET
@@ -298,9 +326,15 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
       setPushState("unsupported");
       return;
     }
+    /*  Khoá VAPID + trạng thái đăng ký CHỈ tra khi menu mở (TC-10): nút "Bật" nằm trong
+        "Cài đặt khác", chưa ai bấm thì chưa cần. Trong lúc tra, nút xám "checking" một nhịp.
+        Khoá nhớ ở mức module; `getExistingPushSubscription` đọc máy, không tốn sóng. */
+    if (!open) return;
     let alive = true;
-    fetchVapidPublicKey().then((key) => {
+    const key$ = vapidCache !== undefined ? Promise.resolve(vapidCache) : fetchVapidPublicKey();
+    key$.then((key) => {
       if (!alive) return;
+      if (key) vapidCache = key; // null có thể là mất sóng — không nhớ
       setVapidKey(key);
       if (!key) {
         setPushState("unconfigured");
@@ -313,7 +347,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [open]);
 
   /* GẮN MÁY ↔ TÀI KHOẢN có nói ra kết quả (2026-08-01p). Trước đây việc gắn
      chạy ngầm và im lặng, nên khi /quan-tri báo "chưa gán account nào" thì
@@ -612,8 +646,9 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
           <h3 className="display mb-3 text-[1.125rem] font-semibold text-navy">Tài khoản</h3>
           {/* danh tính / đăng nhập */}
           {signedIn && phone ? (
-            /*  Nút "Đăng xuất" về INLINE cuối hàng danh tính (luật A2/A3) —
-                trước là dải full-width ăn riêng một hàng. */
+            /*  Hàng danh tính CHỈ CÒN CHỮ (TC-03, 2026-10-25): nút "Đăng xuất" dời xuống
+                CUỐI menu và có hộp xác nhận — trước đứng sát số điện thoại, một chạm là
+                xoá hồ sơ tàu/danh bạ/điểm ghim khỏi máy. */
             <div className="mb-4 flex items-stretch gap-2">
               {/* KHÔNG khung viền (rà bố cục 2026-10-22): thẻ viền 1px trông y hệt ô nhập liệu ⇒
                   bà con tưởng gõ được số. Danh tính là CHỮ, sát mép tiêu đề ngăn. */}
@@ -630,30 +665,35 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
                   khỏi nháy "thường" rồi mới đổi thành "Premium" */}
               {badge && (
                 <div className="mt-3 border-t border-line pt-3">
-                  <span
-                    className={`inline-block rounded-full px-3 py-1 text-[0.875rem] font-semibold ${
-                      badge.tone === "premium"
-                        ? "bg-ok-bg text-ok"
-                        : "bg-field text-foreground/75"
-                    }`}
-                  >
-                    {badge.label}
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={`inline-block rounded-full px-3 py-1 text-[0.875rem] font-semibold ${
+                        badge.tone === "premium"
+                          ? "bg-ok-bg text-ok"
+                          : "bg-field text-foreground/75"
+                      }`}
+                    >
+                      {badge.label}
+                    </span>
+                    {/* TC-08: "Gọi SDVICO để mở…" là lời mời thì phải có nút. Ẩn khi mất
+                        sóng (tầng 5 — gọi cần sóng, mời vào ngõ cụt là vô ích). */}
+                    {badge.tone === "basic" && online && (
+                      <a
+                        href={`tel:${SDVICO_HOTLINE}`}
+                        className={`${SQ_BTN} bg-field text-navy`}
+                        aria-label="Gọi SDVICO"
+                      >
+                        <PhoneIcon className="h-4 w-4" />
+                        {NHAN.goi}
+                      </a>
+                    )}
+                  </div>
                   <p className="mt-1.5 text-[0.875rem] leading-snug text-foreground/70">
                     {badge.detail}
                   </p>
                 </div>
               )}
               </div>
-              <button
-                type="button"
-                disabled={signingOut}
-                onClick={() => void doSignOut()}
-                className={`${SQ_BTN} self-start bg-field text-trim disabled:opacity-60`}
-              >
-                <LockIcon className="h-6 w-6" />
-                {signingOut ? "Đang thoát" : "Đăng xuất"}
-              </button>
             </div>
           ) : (
             <>
@@ -821,7 +861,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
                     </span>
                     <span className="block text-[0.8125rem] leading-snug text-foreground/70">
                       {m.sub}
-                      {on ? " · bấm lại để theo dõi máy" : ""}
+                      {on ? " · bấm lại để về theo máy" : ""}
                     </span>
                   </span>
                 </button>
@@ -925,8 +965,25 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             </>
           )}
 
-          {/* Nút "Đăng xuất" đã dời lên INLINE cuối hàng danh tính ở đầu sheet
-              (luật A3) — chỉ còn câu báo lỗi ở lại. */}
+          {/*  ĐĂNG XUẤT Ở CUỐI MENU + XÁC NHẬN (TC-03, 2026-10-25). Việc phá huỷ (máy quên
+              hồ sơ tàu, danh bạ, điểm ghim — thứ KHÔNG đồng bộ) không đứng cạnh số điện
+              thoại cho chạm nhầm; hàng này nằm sau Chính sách, cùng khuôn với "Gỡ máy này". */}
+          {signedIn && (
+            <div className="flex items-stretch gap-2">
+              <p className="min-w-0 flex-1 self-center text-[0.9375rem] leading-snug text-foreground/70">
+                Thoát tài khoản khỏi máy này. Cần sóng.
+              </p>
+              <button
+                type="button"
+                disabled={signingOut}
+                onClick={() => setConfirmSignOut(true)}
+                className={`${SQ_BTN} bg-field text-trim disabled:opacity-60`}
+              >
+                <LockIcon className="h-6 w-6" />
+                {signingOut ? "Đang thoát" : NHAN.dangXuat}
+              </button>
+            </div>
+          )}
           {signedIn && signOutError && (
             <p className="mt-2 px-1 text-center text-[1rem] font-semibold leading-snug text-danger">
               {signOutError}
@@ -962,6 +1019,30 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
           thấy giữa biển: phiên đã hết, quyền đang chạy bằng dấu lưu trong máy.
           Một chạm mà xoá luôn dấu đó thì bác mất dự báo cá cả chuyến — và
           "đăng nhập lại" là việc cần sóng, tức là không làm được ngay. */}
+      {/* XÁC NHẬN ĐĂNG XUẤT (TC-03): cùng câu liệt kê với "Gỡ máy này" — máy quên gì
+          thì nói đúng thứ đó; phần đã đồng bộ đăng nhập lại là lấy lại. */}
+      {confirmSignOut && (
+        <ConfirmDialog
+          title="Đăng xuất khỏi máy này?"
+          cancelLabel="Thôi"
+          confirmLabel={NHAN.dangXuat}
+          onCancel={() => setConfirmSignOut(false)}
+          onConfirm={() => {
+            setConfirmSignOut(false);
+            void doSignOut();
+          }}
+        >
+          <p className="mt-1 text-[1rem] leading-snug text-navy">
+            Máy sẽ quên: thư cũ · số điện thoại · hồ sơ tàu · sổ thuyền viên · giấy tờ · danh
+            bạ · quyền premium đã lưu.
+          </p>
+          <p className="mt-2 text-[1rem] leading-snug text-foreground/75">
+            Đăng nhập lại là lấy lại phần đã đồng bộ. Đăng xuất{" "}
+            <span className="font-semibold text-navy">cần sóng</span>.
+          </p>
+        </ConfirmDialog>
+      )}
+
       {confirmForget && (
         /*  HỘP XÁC NHẬN DÙNG CHUNG (rà bố cục 2026-10-22): trước dựng bằng BottomSheet thứ hai
             với hai ô vuông lệch phải — khác mọi xác nhận phá huỷ khác của app. Nay qua

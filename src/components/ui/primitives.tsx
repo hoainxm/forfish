@@ -1,4 +1,10 @@
-import type { ReactNode } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useId,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { PhoneIcon } from "@/components/icons";
 import { formatDigits, parseDigits, readbackVnd } from "@/lib/format";
 
@@ -39,27 +45,66 @@ export function SectionHeader({
   );
 }
 
-/** Nhãn + ô nhập trong form (chốt cỡ chữ nhãn 16px). */
+/** Nhãn + ô nhập trong form (chốt cỡ chữ nhãn 16px).
+ *
+ *  `error` (VO-APP-04, 2026-10-25): câu lỗi NGAY DƯỚI ô + viền đỏ ô + `aria-invalid`/
+ *  `aria-describedby` — bà con thấy ngay ô nào phải sửa, không phải dò băng đỏ đầu thẻ.
+ *  Viền đỏ đi qua `data-invalid` trên label (group) nên ô bọc trong span (PasswordField)
+ *  vẫn đỏ; aria chỉ tự gắn được khi con là THẲNG một thẻ input/select/textarea —
+ *  ô có bọc thì nơi gọi truyền `errorId` và tự gắn. */
 export function Field({
   label,
+  error,
+  errorId,
   children,
 }: {
   label: string;
+  /** câu lỗi của riêng ô này; rỗng/undefined = ô bình thường */
+  error?: string;
+  /** id câu lỗi khi nơi gọi tự gắn aria-describedby (ô có bọc) */
+  errorId?: string;
   children: ReactNode;
 }) {
+  const uid = useId();
+  const idLoi = errorId ?? `${uid}-loi`;
+  const con =
+    error && isValidElement(children) && typeof children.type === "string"
+      ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+          "aria-invalid": true,
+          "aria-describedby": idLoi,
+        })
+      : children;
   return (
-    <label className="mb-3.5 block">
+    <label className="group mb-3.5 block" data-invalid={error ? "" : undefined}>
       <span className="mb-1.5 block text-[0.875rem] font-semibold text-navy">
         {label}
       </span>
-      {children}
+      {con}
+      {error && (
+        <span
+          id={idLoi}
+          role="alert"
+          className="mt-1.5 block text-[0.875rem] leading-snug text-danger"
+        >
+          {error}
+        </span>
+      )}
     </label>
   );
 }
 
-/** Class chuẩn cho ô nhập 1 dòng / select / textarea — kiểu FILLED hiện đại. */
-export const inputClass =
-  "h-(--h-ctl) w-full rounded-xl border border-line bg-card px-3.5 text-[1rem] focus:outline-none focus:ring-2 focus:ring-sea";
+/*  Phần chung của mọi control nhập — kiểu FILLED hiện đại. `group-data-invalid:`
+    nhận viền đỏ từ `Field error` (label mang `data-invalid`). */
+const ctlBase =
+  "w-full rounded-xl border border-line bg-card px-3.5 text-[1rem] focus:outline-none focus:ring-2 focus:ring-sea group-data-invalid:border-danger";
+
+/** Class chuẩn cho ô nhập 1 dòng / select. */
+export const inputClass = `h-(--h-ctl) ${ctlBase}`;
+
+/** Class chuẩn cho textarea (2026-10-25): KHÔNG ép `h-(--h-ctl)` (ô 1 dòng từng cắt chữ),
+ *  thấp nhất ~2 dòng, tự cao theo chữ bằng `field-sizing: content`; máy chưa có
+ *  field-sizing (Safari cũ) thì cao theo `rows` — nơi gọi đặt `rows={2}` làm sàn. */
+export const textareaClass = `field-sizing-content min-h-[3.75rem] resize-none py-2.5 leading-snug ${ctlBase}`;
 
 /** Nút chính (cam trim) — bậc nút chính 3.25rem, bo 0.75rem, không bóng (03 §0, 2026-10-19). */
 export function PrimaryButton({

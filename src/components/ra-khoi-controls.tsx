@@ -611,8 +611,11 @@ export function RaKhoiControls({
             if (!collapsed) setOpen(null);
             setCollapsed((c) => !c);
           }}
-          icon={collapsed ? LayersIcon : ChevronRightIcon}
-          label={collapsed ? "Lớp" : "Đóng"}
+          /*  MỘT NÚT ĐÓNG (BD-12, 2026-10-25): bản cũ đổi nút rail thành "› Đóng" trong
+              khi popover đã có × riêng — hai nút đóng cách 60 px cho một việc. Nay rail
+              giữ icon Lớp + sáng `active` (kiểu Maps), × trong popover là lối đóng. */
+          icon={LayersIcon}
+          label="Lớp"
           variant="fab"
         />
         </div>

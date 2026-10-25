@@ -63,6 +63,13 @@ describe("list-state — giữ danh sách qua một lần rời màn (11 §5b.2)
     expect(r!.scrollY, "đúng chỗ đang cuộn").toBe(1280);
   });
 
+  it("`extra` đi kèm (thẻ shop, lưới gần bà con) giữ nguyên qua một lượt ghi–đọc", () => {
+    expect(saveListState("shop", { ...snap(), extra: { shop: { name: "Đại lý Hải Đăng" } } })).toBe(true);
+    const r = takeListState<Mon>("shop");
+    expect(r!.extra).toEqual({ shop: { name: "Đại lý Hải Đăng" } });
+    expect(takeListState<Mon>("tim")?.extra, "không ghi thì không có").toBeUndefined();
+  });
+
   it("ĐỌC XONG LÀ XOÁ: quay lại thì khôi phục, vào lại lần nữa là việc mới", () => {
     saveListState("tim", snap());
     expect(takeListState<Mon>("tim")).not.toBeNull();

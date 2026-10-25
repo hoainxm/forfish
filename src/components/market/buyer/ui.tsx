@@ -9,12 +9,60 @@ import { AlertIcon, CartIcon, CloseIcon, DocIcon, SearchIcon } from "@/component
 import { LoginGate } from "@/components/login-gate";
 import { MarketProductCard } from "@/components/market/shared/product-card";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { PrimaryButton } from "@/components/ui/primitives";
 import type { ProductCard } from "@/lib/market/types";
 import { rememberPeek } from "./product-peek";
+import { useMarketCart } from "./hooks";
 import { NOTIFY_HIDE_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
+/**
+ * Ô NHIỀU DÒNG — `inputClass` mang `h-(--h-ctl)` nên `<textarea rows=3>` vẫn chỉ cao
+ * một dòng và cuộn trong (VT-12). Ô tự cao theo chữ (`field-sizing: content`), tối
+ * thiểu 2 dòng, tới ~6 dòng rồi cuộn.
+ * // nợ: Safari chưa có field-sizing ⇒ ô dừng ở 2 dòng và cuộn trong, nâng khi Safari hỗ trợ
+ * Đặt ở đây (không ở ui/primitives) vì khu auth đang sửa file đó cùng lúc — gộp về sau.
+ */
+export const textareaClass =
+  "w-full min-h-[5.5rem] max-h-[12rem] rounded-xl border border-line bg-card px-3.5 py-2.5 text-[1rem] leading-snug [field-sizing:content] focus:outline-none focus:ring-2 focus:ring-sea";
+
+/** Nút chính hình LINK — cùng hình `PrimaryButton` (bậc --h-cta, bo 0.75rem) cho đường đi chính. */
+export const primaryLinkClass =
+  "display flex h-(--h-cta) w-full items-center justify-center gap-2 rounded-xl bg-trim text-[1rem] font-semibold text-white transition active:scale-[0.98]";
+
+/**
+ * Cặp nút đáy ngăn form (03 §6 mục 2–3, VT-10): Huỷ trái · nút chính phải. Trước đây
+ * ba ngăn chỉ có một nút, đường ra duy nhất là vuốt/chạm nền — bà con không biết.
+ * Huỷ gọi `onCancel` = `onClose` của ngăn (ngăn tự hỏi "Bỏ phần đang ghi?" khi đã gõ).
+ */
+export function SheetActions({
+  onCancel,
+  onOk,
+  okLabel,
+  disabled = false,
+  className = "",
+}: {
+  onCancel: () => void;
+  onOk: () => void;
+  okLabel: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`grid grid-cols-2 gap-3 ${className}`}>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="display flex h-(--h-cta) items-center justify-center rounded-xl bg-field text-[1rem] font-semibold text-foreground/70"
+      >
+        Huỷ
+      </button>
+      <PrimaryButton onClick={onOk} disabled={disabled}>{okLabel}</PrimaryButton>
+    </div>
+  );
+}
+
 /** Chấm số trên nút — giỏ / đơn chưa xong. Không hiện khi 0. */
-function Dot({ n }: { n: number }) {
+export function Dot({ n }: { n: number }) {
   if (n <= 0) return null;
   return (
     <span
@@ -23,6 +71,25 @@ function Dot({ n }: { n: number }) {
     >
       {n > 99 ? "99+" : n}
     </span>
+  );
+}
+
+/**
+ * Nút GIỎ ở góc phải đầu màn phụ (VT-04, như Shopee): icon + chấm số dòng, về `/cho/gio`.
+ * Dùng qua `MarketHeader right={<CartHeaderLink />}` — trang món không có thanh tìm nên
+ * trước đây sau khi "Đã thêm" tắt 3 s là hết đường sang giỏ.
+ */
+export function CartHeaderLink() {
+  const cart = useMarketCart();
+  return (
+    <Link
+      href="/cho/gio"
+      aria-label={`Giỏ hàng, ${cart.count} món`}
+      className="relative mr-1 flex h-(--h-ctl) w-(--h-ctl) items-center justify-center rounded-full text-navy transition active:bg-field"
+    >
+      <CartIcon className="h-6 w-6" />
+      <Dot n={cart.count} />
+    </Link>
   );
 }
 
@@ -145,7 +212,8 @@ export function GridSkeleton({ n = 6 }: { n?: number }) {
     <div className="market-product-grid grid grid-cols-2 gap-3" role="status" aria-label="Đang tải danh sách món">
       {Array.from({ length: n }).map((_, i) => (
         <div key={i} className="surface overflow-hidden">
-          <div className="aspect-square w-full animate-pulse bg-field" />
+          {/* 4:3 như thẻ thật (VT-19) — skeleton vuông làm cả trang co lại ~1/4 chiều ảnh khi dữ liệu về */}
+          <div className="market-product-image aspect-[4/3] w-full animate-pulse bg-field" />
           <div className="space-y-2 p-3">
             <div className="h-4 w-full animate-pulse rounded bg-field" />
             <div className="h-4 w-2/3 animate-pulse rounded bg-field" />
@@ -172,13 +240,7 @@ export function ErrorBlock({
       <p className="text-[1rem] font-semibold text-danger">
         {what === "cửa hàng" ? "Cửa hàng đang trục trặc, chưa tải được." : `Chưa tải được ${what}.`} Thử lại giúp.
       </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1rem] font-semibold text-white "
-      >
-        Thử lại
-      </button>
+      <PrimaryButton className="mt-4" onClick={onRetry}>Thử lại</PrimaryButton>
     </div>
   );
 }
@@ -187,7 +249,7 @@ export function ErrorBlock({
  * Dòng "đã thêm vào giỏ" — 3 s rồi tự tắt, kèm đường sang giỏ. Không toast
  * (07 §12): xác nhận nằm ngay chỗ vừa bấm.
  */
-export function CartFeedback({ note, count }: { note: string | null; count: number }) {
+export function CartFeedback({ note, count, className = "mb-3" }: { note: string | null; count: number; className?: string }) {
   const [shown, setShown] = useState(false);
   useEffect(() => {
     if (!note) return;
@@ -200,7 +262,7 @@ export function CartFeedback({ note, count }: { note: string | null; count: numb
   return (
     <div
       role="status"
-      className="mb-3 flex items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5"
+      className={`flex items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5 ${className}`}
       style={{
         backgroundColor: good ? "var(--ok-bg)" : "var(--danger-bg)",
         color: good ? "var(--ok)" : "var(--danger)",

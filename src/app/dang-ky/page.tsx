@@ -46,7 +46,11 @@ export default function DangKyPage() {
 
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  /** lỗi HỆ THỐNG (mạng, máy chủ, cấp chuỗi hỏng) — băng trên form */
   const [error, setError] = useState<string | null>(null);
+  /** lỗi NHẬP từng ô — hiện dưới ô (VO-APP-04) */
+  const [phoneErr, setPhoneErr] = useState<string | null>(null);
+  const [pwErr, setPwErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   if (!supabase) {
@@ -65,15 +69,19 @@ export default function DangKyPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setPhoneErr(null);
+    setPwErr(null);
 
-    if (!isValidVnPhone(phone)) {
-      setError("Bà con nhập đủ 10 số nhé (ví dụ: 0901234567).");
-      return;
-    }
+    // Kiểm CẢ hai ô rồi mới dừng — hiện đủ lỗi, con trỏ vào ô sai ĐẦU TIÊN.
+    const loiSdt = isValidVnPhone(phone)
+      ? null
+      : "Bà con nhập đủ 10 số nhé (ví dụ: 0901234567).";
     const pw = normalizePassword(password);
-    const pwProblem = passwordProblem(password);
-    if (pwProblem) {
-      setError(pwProblem);
+    const loiPw = passwordProblem(password);
+    if (loiSdt || loiPw) {
+      setPhoneErr(loiSdt);
+      setPwErr(loiPw);
+      document.getElementById(loiSdt ? "dk-sdt" : "dk-mk")?.focus();
       return;
     }
 
@@ -89,11 +97,15 @@ export default function DangKyPage() {
 
     if (!res || !res.ok) {
       const j = res ? await res.json().catch(() => null) : null;
-      setError(
-        j?.code === "exists"
-          ? "Số điện thoại này đã có tài khoản — bà con bấm Đăng nhập bên dưới nhé."
-          : "Hiện tại chưa đăng ký được. Bà con thử lại sau ít phút nhé.",
-      );
+      // "exists" là chuyện của RIÊNG ô SĐT → nói dưới ô; còn lại là lỗi hệ thống.
+      if (j?.code === "exists") {
+        setPhoneErr(
+          "Số điện thoại này đã có tài khoản — bà con bấm Đăng nhập bên dưới nhé.",
+        );
+        document.getElementById("dk-sdt")?.focus();
+      } else {
+        setError("Hiện tại chưa đăng ký được. Bà con thử lại sau ít phút nhé.");
+      }
       setLoading(false);
       return;
     }
@@ -179,24 +191,24 @@ export default function DangKyPage() {
 
   return (
     <div>
-      <PageHeader
-        kicker="Tài khoản"
-        title="Đăng ký"
-        sub="Tạo tài khoản bằng số điện thoại để cất sổ tàu trên mạng, đổi máy vẫn còn."
-        toColor="var(--sea)"
-      />
+      {/* VO-APP-12: bỏ câu phụ dưới tiêu đề — ô + placeholder đã nói đủ việc */}
+      <PageHeader kicker="Tài khoản" title="Đăng ký" toColor="var(--sea)" />
       <AuthCard>
         {error && <AuthError>{error}</AuthError>}
         <form onSubmit={handleSubmit}>
-          <Field label="Số điện thoại">
+          <Field label="Số điện thoại" error={phoneErr ?? undefined}>
             <input
+              id="dk-sdt"
               type="tel"
               inputMode="tel"
               autoComplete="tel"
               className={inputClass}
               placeholder="0901 234 567"
               value={phone}
-              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+              onChange={(e) => {
+                setPhone(sanitizePhoneInput(e.target.value));
+                setPhoneErr(null);
+              }}
               required
             />
           </Field>
@@ -204,11 +216,16 @@ export default function DangKyPage() {
               Luật (ít nhất 6 ký tự) nay hiện ở NHÃN KIỂM TRA tại chỗ dưới ô
               (minLength) nên bỏ khỏi label cho gọn — không nhắc hai lần. */}
           <PasswordField
+            id="dk-mk"
             label="Mật khẩu"
             value={password}
-            onChange={setPassword}
+            onChange={(v) => {
+              setPassword(v);
+              setPwErr(null);
+            }}
             autoComplete="new-password"
             minLength={PASSWORD_MIN_LENGTH}
+            error={pwErr ?? undefined}
           />
           <PrimaryButton type="submit" disabled={loading}>
             {loading ? "Đang tạo…" : "Tạo tài khoản"}

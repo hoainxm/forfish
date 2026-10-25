@@ -3,7 +3,7 @@
 // TRẠNG THÁI MÁY của khu Chợ vật tư (giỏ · yêu thích · bản lưu đơn · có sóng
 // chưa) — gói lại để 8 màn không mỗi màn một kiểu đọc localStorage.
 // MỌI thao tác kho đều đi qua lib/market/* của Core; ở đây chỉ có React.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
   addMarketLine, loadMarketCart, loadMarketUnselected, MARKET_CART_EVENT, saveMarketCart, saveMarketUnselected,
   selectedMarketLines, setMarketSelection,
@@ -173,4 +173,50 @@ export function useCachedOrders(): { savedAt: number; orders: Order[] } | null {
 /** "40/500" — dòng cho bà con biết còn bao nhiêu, thay vì cuộn vô tận. */
 export function useSeenLabel(shown: number, total: number): string | null {
   return useMemo(() => (total > shown ? `Đang xem ${shown}/${total}` : null), [shown, total]);
+}
+
+/**
+ * NHỚ VỊ TRÍ CUỘN LIÊN TỤC cho bản chụp danh sách (11 §5b.2) — dùng chung
+ * `/cho` · `/cho/tim` · `/cho/shop` (VT-03). Đo thật 2026-09-08: khi bấm vào
+ * một món, Next đưa cuộn về 0 TRƯỚC khi cleanup chạy, nên đọc `scrollY` lúc rời
+ * màn là ghi 0. Ghi qua rAF để cuộn không giật; chốt thêm ở `pointerdown` vì
+ * cuộn có thể do phần tử con xử lý (sự kiện scroll không chắc tới window).
+ */
+export function useNhoCuon(): MutableRefObject<number> {
+  const cuonRef = useRef(0);
+  useEffect(() => {
+    let cho = false;
+    const theo = () => {
+      if (cho) return;
+      cho = true;
+      requestAnimationFrame(() => {
+        cho = false;
+        if (window.scrollY > 0) cuonRef.current = window.scrollY;
+      });
+    };
+    const cham = () => {
+      if (window.scrollY > 0) cuonRef.current = window.scrollY;
+    };
+    window.addEventListener("scroll", theo, { passive: true });
+    window.addEventListener("pointerdown", cham, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("scroll", theo);
+      window.removeEventListener("pointerdown", cham, { capture: true });
+    };
+  }, []);
+  return cuonRef;
+}
+
+/**
+ * Cuộn về chỗ cũ SAU khi danh sách đã vẽ (`soMon` > 0). Hai khung hình: một để
+ * React gắn thẻ món, một để trình duyệt tính xong chiều cao ảnh. Dùng một lần
+ * rồi tự xoá mốc.
+ */
+export function useKhoiPhucCuon(khoiPhucRef: MutableRefObject<number | null>, soMon: number): void {
+  useEffect(() => {
+    const y = khoiPhucRef.current;
+    if (y == null || soMon === 0) return;
+    khoiPhucRef.current = null;
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+  }, [khoiPhucRef, soMon]);
 }

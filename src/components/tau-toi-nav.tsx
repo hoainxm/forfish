@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useGiuCuon } from "@/lib/giu-cuon";
 
 /*
   TÀU TÔI = Hồ sơ tàu (/tau) | Bạn thuyền (/nguoi) — hai màn, MỘT mục dock
@@ -16,6 +17,8 @@ const MUC = [
 
 export function TauToiNav() {
   const p = usePathname() ?? "";
+  // giữ chỗ cuộn khi qua lại hai màn (TAU-14) — thanh này có mặt ở cả /tau và /nguoi
+  const { sapRoi } = useGiuCuon(p);
   return (
     <nav aria-label="Tàu tôi" className="grid grid-cols-2 border-b border-line px-4">
       {MUC.map(({ href, label }) => {
@@ -25,6 +28,7 @@ export function TauToiNav() {
             key={href}
             href={href}
             aria-current={on ? "page" : undefined}
+            onClick={on ? undefined : sapRoi}
             className={`relative flex h-[3.25rem] items-center justify-center text-[1rem] font-semibold ${
               on ? "text-navy after:absolute after:inset-x-3 after:bottom-0 after:h-[0.1875rem] after:rounded-full after:bg-navy" : "text-foreground/65"
             }`}
