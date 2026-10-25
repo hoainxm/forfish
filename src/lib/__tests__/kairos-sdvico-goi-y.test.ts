@@ -8,11 +8,14 @@ const SANG = Date.parse("2026-10-25T00:00:00Z"); // 7 giờ sáng VN
 const h = (gio: number) => new Date(SANG - gio * 3_600_000).toISOString();
 
 describe("luật ghép tin ⇒ sản phẩm", () => {
+  it("giám sát hành trình chỉ gợi ý S-Tracking, không Vifish (anh Long 2026-10-25)", () => {
+    expect(LUAT_SDVICO.some((l) => l.sp === "gsht-vifish-24")).toBe(false);
+  });
   it("mọi sản phẩm trong luật có thật trong danh mục SDVICO", () => {
     for (const l of LUAT_SDVICO) expect(SDVICO_SHOWCASE.some((p) => p.id === l.sp)).toBe(true);
   });
   it.each([
-    ["EC sắp thanh tra thẻ vàng IUU lần thứ 5, tàu vượt ranh bị xử lý nghiêm", "gsht-vifish-24"],
+    ["EC sắp thanh tra thẻ vàng IUU lần thứ 5, tàu vượt ranh bị xử lý nghiêm", "gsht-viettel-s-tracking"],
     ["Tàu cá Quảng Ngãi hỏng máy trôi dạt, mất liên lạc hai ngày", "thuraya-marine-star-mnb-01"],
     ["Giá xăng dầu tăng từ 15 giờ chiều nay", "phu-gia-adnano"],
     ["Hướng dẫn ghi nhật ký khai thác điện tử eCDT cho tàu trên 15 m", "app-ngu-dan-247"],

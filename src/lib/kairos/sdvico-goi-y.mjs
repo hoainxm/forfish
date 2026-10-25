@@ -24,17 +24,12 @@ export const LUAT_SDVICO = [
     y: "gọi điện qua vệ tinh ngay trên biển, có nút SOS riêng",
     re: /mất liên lạc|gặp nạn|trôi dạt|cứu nạn|cứu hộ|điện thoại vệ tinh|liên lạc vệ tinh|vùng lõm sóng/,
   },
-  {
-    sp: "gsht-vifish-24",
-    ten: "thiết bị giám sát hành trình Vifish.24",
-    y: "báo trước khoảng 1 hải lý khi gần vùng cấm, có nút khẩn cấp gửi tín hiệu về Đài duyên hải",
-    re: /\biuu\b|thẻ vàng|vượt ranh|vùng biển nước ngoài|xâm phạm vùng biển|khai thác bất hợp pháp|vùng cấm khai thác|ranh giới trên biển/,
-  },
+  // Giám sát hành trình: CHỈ gợi ý Viettel S-Tracking, KHÔNG Vifish.24 (anh Long 2026-10-25: "stracking chứ ko dùng vifish")
   {
     sp: "gsht-viettel-s-tracking",
     ten: "thiết bị giám sát hành trình Viettel S-Tracking",
     y: "định vị GPS, truyền qua di động và vệ tinh; SDVICO lắp tận bến, hỗ trợ hồ sơ đăng ký",
-    re: /giám sát hành trình|\bvms\b|thiết bị định vị|mất kết nối|hộp đen tàu/,
+    re: /\biuu\b|thẻ vàng|vượt ranh|vùng biển nước ngoài|xâm phạm vùng biển|khai thác bất hợp pháp|vùng cấm khai thác|ranh giới trên biển|giám sát hành trình|\bvms\b|thiết bị định vị|mất kết nối|hộp đen tàu/,
   },
   {
     sp: "app-ngu-dan-247",
