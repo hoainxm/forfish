@@ -3,6 +3,7 @@
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-23 — chip tàu (boat-switcher): danh sách "Chọn tàu" NEO ngay dưới chip (Popover, 03 §6 mục 9) thay ngăn đáy; chọn tàu/Sửa/Thêm tàu giữ nguyên hành vi (form thêm/sửa vẫn ngăn đáy) — AC đa tàu không đổi. -->
 <!-- re-verified: 2026-10-22c — rà bố cục toàn app chạm các ngăn đa tàu (boat-switcher, document-vault, crew-list, maintenance, boat-products, vms-renewal, tau-tabs): BottomSheet `kieu="form"` (không ×, hỏi trước khi bỏ chữ đang gõ), câu nhắc chân ngăn dòng riêng, mục Giám sát hành trình phẳng — AC đa tàu không đổi. -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 <!-- re-verified: 2026-10-22b — rà 3 skill lần 2 chỉ đổi độ đậm chữ (font-bold→font-semibold), transition nút bấm, chip 44px ở các component đa tàu (boat-switcher, document-photos…) — AC đa tàu không đổi. -->
