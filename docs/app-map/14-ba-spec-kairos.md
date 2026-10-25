@@ -2,6 +2,7 @@
 
 > **Load khi**: đụng tab Kairos — dòng tin, bài báo tóm tắt, đăng bài, Hay, bình luận, chia sẻ, tên gọi, theo dõi, Bến, báo xấu, quản trị Kairos, thu tin trên máy GPU, khoá `forfish.kairos.*`. **Nguồn đúng duy nhất** cho agent build; lệch với [research 4 khu §3.3](../research/kien-truc-moi-4-khu-2026-10-20.md) (route `/tin`, không bình luận bài báo, duyệt tay) thì file này thắng.
 
+<!-- re-verified: 2026-10-25d — ICON KAIROS do Codex vẽ (hai con cá + chấm cam) vào dock §3.1 + đầu màn §3.2 + hàng chờ §10; chuyển động theo bàn giao `kairos-motion/HANDOFF.md` của Codex (vào 340ms · bơi 1,5 s chỉ khi chờ · tin hiện 220ms · giảm chuyển động tắt bơi). -->
 <!-- re-verified: 2026-10-25c — §3.14 viết lại: hội thoại trực (0073) + tư vấn bằng Claude trên GPU mỗi phút, không hỏi SĐT, tự lập phiếu khi đủ số tàu + cảng; bỏ phiếu riêng /kairos/hoi-mua. -->
 <!-- re-verified: 2026-10-25 — §3.13 agent gợi ý sản phẩm SDVICO dưới tin báo hợp (16 §4 2c). -->
 <!-- re-verified: 2026-10-24m — BÀI TÀI TRỢ §20 (anh Long: "t muốn kairos có ads"): quảng cáo tự quản, không SDK/không nhắm/không đếm; soạn ở /quan-tri › Kairos › Tài trợ; ô app_config.kairos_ads (không migration); 1 thẻ/20 bài, nhãn "Tài trợ · <nhà tài trợ>" bắt buộc (Luật QC 75/2025). A99–A100. -->
@@ -49,10 +50,10 @@ Chốt 2026-10-23. Kairos (καιρός) = đúng thời điểm.
 ## 3. Màn hình và luồng
 
 ### 3.1 Dock (AC01)
-6 ô **chỉ icon** (nhãn trong `aria-label`, từ `labels.ts`): Trang chủ · Kairos · Bản đồ · Tàu tôi · Chợ cá · Vật tư. `DockId` thêm `"kairos"` (`/kairos`, khu `/kairos` + `/k`).
+6 ô **chỉ icon** (nhãn trong `aria-label`, từ `labels.ts`): Trang chủ · Kairos · Bản đồ · Tàu tôi · Chợ cá · Vật tư. `DockId` thêm `"kairos"` (`/kairos`, khu `/kairos` + `/k`). Ô Kairos là **ảnh riêng** `KairosFishIcon` (hai con cá lướt + chấm cam, Codex 2026-10-25, `public/icons/kairos-fish.png`) thay icon nét — nhận ra như logo cộng đồng; cao 1.125rem, chưa chọn mờ 70 %.
 
 ### 3.2 `/kairos` — dòng tin (AC02–AC06)
-`ManHeader` "Kairos" · **ô mời** "Bà con muốn chia sẻ gì?" · **hàng chip** cuộn ngang · dải **ghim** (Chính thức còn `pinned_until`) · dòng tin một cột cuộn vô tận (cursor 20 bài, skeleton 3 thẻ).
+`ManHeader` "Kairos" (cá `KairosFishIcon` 1.5rem lướt vào 340ms cạnh chữ; dòng tin trượt lên 220ms — bản lưu hiện ngay, không chờ cá) · **ô mời** "Bà con muốn chia sẻ gì?" · **hàng chip** cuộn ngang · dải **ghim** (Chính thức còn `pinned_until`) · dòng tin một cột cuộn vô tận (cursor 20 bài, skeleton 3 thẻ).
 
 **Chip** (nhãn vào `labels.ts`): Mới · Nghề cá · Cảng tôi · Gần tôi · Theo dõi · Thời sự · Pháp luật · Đời sống · Thể thao · Giải trí · Kinh tế. "Mới" luôn đầu; còn lại xếp theo số lần bấm (`forfish.kairos.thoiquen.v1`). Cảng tôi = bài gắn cảng nhà; Gần tôi = tỉnh hoặc vùng biển nhà; Theo dõi = bài người mình theo dõi. Chưa có cảng nhà ⇒ chip mở hộp chọn cảng.
 

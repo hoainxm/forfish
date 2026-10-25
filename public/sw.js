@@ -346,6 +346,10 @@ const CRITICAL_SHELL = [
       suốt, bà con không thấy Sen Biển đâu (bắt được bằng scripts/e2e-sen-bien
       luồng f). 13 KB (hạ từ 226 KB: 512 px → 192 px, đủ nét cho ô 64 px @3x). */
   "/icons/sen-bien.png",
+  /*  CÁ KAIROS (2026-10-25, icon Codex) — ô Kairos trên DOCK là ảnh này, không
+      phải icon nét trong bundle. Không trong vỏ thì ra khơi mất sóng ô dock
+      thành ô trống (alt rỗng) — bà con không thấy mục Kairos đâu. 14 KB. */
+  "/icons/kairos-fish.png",
   /*  BỘ KÝ HIỆU HẢI ĐỒ (2026-09-01) — phao/tiêu/đèn vẽ đúng hình như hải đồ
       giấy. VÀO NHÓM SỐNG-CÒN cùng lý do với chính lớp báo hiệu: thiếu sprite
       thì MapLibre **im lặng không vẽ** icon nào, tức mất TRẮNG cả lớp báo hiệu

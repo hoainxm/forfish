@@ -19,6 +19,7 @@ import type { TuyChon } from "@/lib/kairos/tuy-chon";
 import { NHAN } from "@/lib/labels";
 import { ChuongKairos } from "./chuong-kairos";
 import { KairosFeed } from "./kairos-feed";
+import { KairosFishIcon } from "./kairos-fish-icon";
 import { TuyChonSheet } from "./tuy-chon-sheet";
 import { usePostActions } from "./use-post-actions";
 
@@ -40,7 +41,14 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
         <MarketHeader title={`Bến ${portLabel(port) ?? ""}`.trim()} fallback="/kairos" right={trangToi} />
       ) : (
         <ManHeader
-          title={title}
+          // Icon cá lướt vào cạnh tiêu đề (Codex 2026-10-25) — chữ "Kairos" vẫn là tiêu đề, ảnh trang trí
+          title={
+            <span className="flex items-center gap-1.5">
+              {/* cao 1.5rem (≈ chữ tiêu đề) — 2rem ở máy 375px đẩy chữ "Kairos" chạm nút chuông */}
+              <KairosFishIcon anim="vao" className="h-6 w-auto shrink-0" />
+              {title}
+            </span>
+          }
           sub={sub}
           right={
             <div className="flex items-center gap-2">

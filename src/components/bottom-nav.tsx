@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AnchorIcon, CartIcon, FishIcon, HomeIcon, NewsIcon, PinIcon } from "@/components/icons";
+import { AnchorIcon, CartIcon, FishIcon, HomeIcon, PinIcon } from "@/components/icons";
+import { KairosFishIcon } from "@/components/kairos/kairos-fish-icon";
 import { DOCK, dockActive, type DockId } from "@/lib/dock-nav";
 
 /*
@@ -14,10 +15,13 @@ import { DOCK, dockActive, type DockId } from "@/lib/dock-nav";
   chủ · Kairos · Bản đồ · Tàu tôi · Chợ cá · Vật tư — mỗi việc một chỗ; mục nào sáng
   ở route nào: lib/dock-nav.ts. Sáu ô ở máy 360px: thanh rộng 360 − 2×0.75rem lề =
   21rem ⇒ mỗi ô 3.5rem; pill sáng thu từ 3.75rem về 3.25rem cho khỏi chạm ô bên.
+  KAIROS = ẢNH RIÊNG (2026-10-25, icon Codex vẽ: hai con cá + chấm cam, kairos-fish-icon.tsx)
+  thay icon nét tờ báo — ngoại lệ có chủ ý trong bộ icon nét một màu: Kairos là cộng đồng có
+  tên riêng, cần nhận ra ngay như logo. Ảnh nằm ngang (tỉ lệ ~2.5:1) nên cao 1.125rem, rộng
+  tối đa 2.75rem cho lọt pill 3.25rem; mục chưa chọn mờ 70 % như icon nét mờ màu.
 */
-const ICON: Record<DockId, typeof HomeIcon> = {
+const ICON: Record<Exclude<DockId, "kairos">, typeof HomeIcon> = {
   "trang-chu": HomeIcon,
-  kairos: NewsIcon,
   "ban-do": PinIcon,
   "tau-toi": AnchorIcon,
   "cho-ca": FishIcon,
@@ -33,7 +37,7 @@ export function BottomNav() {
         <ul className="grid h-full grid-cols-6 items-stretch">
           {DOCK.map(({ id, href, label }) => {
             const active = on === id;
-            const Icon = ICON[id];
+            const Icon = id === "kairos" ? null : ICON[id];
             return (
               <li key={id}>
                 {/*  KIỂU FACEBOOK (anh Long 2026-10-19): chỉ icon, mục đang chọn
@@ -51,7 +55,11 @@ export function BottomNav() {
                       active ? "bg-sea/12 text-sea" : "text-foreground/70"
                     }`}
                   >
-                    <Icon className="h-6 w-6 shrink-0" />
+                    {Icon ? (
+                      <Icon className="h-6 w-6 shrink-0" />
+                    ) : (
+                      <KairosFishIcon className={`h-[1.125rem] w-11 shrink-0 transition-opacity ${active ? "" : "opacity-70"}`} />
+                    )}
                   </span>
                 </Link>
               </li>

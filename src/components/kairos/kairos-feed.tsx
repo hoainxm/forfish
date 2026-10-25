@@ -81,6 +81,7 @@ import { theSauBai, type TheTaiTro } from "@/lib/kairos/quang-cao";
 
 /** Bài Tài trợ của lượt tải trang đầu gần nhất — giữ qua lần quay lại màn (dựng lại từ ảnh chụp không có `ads`). */
 let adsNho: TheTaiTro[] = [];
+import { KairosFishIcon } from "./kairos-fish-icon";
 import { PostSkeleton } from "./post-skeleton";
 
 type Load = "loading" | "ready" | "error" | "offline";
@@ -749,7 +750,8 @@ export function KairosFeed({
         </div>
       )}
 
-      <div ref={khungRef} className="space-y-3 px-4">
+      {/* dòng tin trượt lên 220 ms lúc mở màn (Codex 2026-10-25) — có bản lưu thì hiện ngay, không chờ mạng */}
+      <div ref={khungRef} className="anim-tin-hien space-y-3 px-4">
         {load === "error" && !empty && (
           <div className="surface flex items-center gap-3 p-3">
             <p className="flex-1 text-[1rem]">Chưa tải được bài mới.</p>
@@ -759,7 +761,17 @@ export function KairosFeed({
           </div>
         )}
 
-        {empty && load === "loading" && <PostSkeleton />}
+        {empty && load === "loading" && (
+          <>
+            {/*  Cá trôi theo nhịp CHỈ lúc thật sự chờ (chưa có bài nào, kể cả bản lưu) — Codex 2026-10-25.
+                 Mất sóng/lỗi/có bài: nhánh này không vẽ nên không có gì quay mãi. */}
+            <div role="status" className="flex items-center gap-3 px-1 pt-1 pb-2">
+              <KairosFishIcon anim="boi" className="h-6 w-auto shrink-0" />
+              <span className="text-[0.875rem] text-sea">Đang tải tin…</span>
+            </div>
+            <PostSkeleton />
+          </>
+        )}
         {empty && load === "offline" && (
           <EmptyState>Mất sóng. Có sóng sẽ tải.</EmptyState>
         )}

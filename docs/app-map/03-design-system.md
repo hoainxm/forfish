@@ -6,6 +6,7 @@
 
 covers: src/app/globals.css
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-25d — ICON KAIROS = ẢNH RIÊNG (Codex 2026-10-25, `kairos-fish-icon.tsx`): hai con cá lướt về phía trước + chấm cam, PNG trong suốt trong máy. NGOẠI LỆ CÓ CHỦ ĐÍCH trong bộ icon nét một màu: Kairos là cộng đồng có tên riêng nên nhận ra như logo. Cỡ: dock cao 1.125rem rộng ≤2.75rem (lọt pill 3.25rem; chưa chọn mờ 70 %), đầu màn /kairos 1.5rem cạnh tiêu đề, hàng chờ 1.5rem. CHUYỂN ĐỘNG (mục Chuyển động): `.anim-ca-vao` 340ms lướt vào (translate −0.6rem/0.25rem + scale .94, ease-out) · `.anim-ca-boi` 1,5 s trôi nhẹ lặp CHỈ khi chờ dữ liệu · `.anim-tin-hien` 220ms dòng tin trượt lên 0.375rem. Giảm chuyển động: bơi tắt, vào/tin hiện thành mờ 120ms. -->
 <!-- re-verified: 2026-10-24s — NutCamXuc thêm `toi` (nền tối, đáy trình xem ảnh). -->
 <!-- re-verified: 2026-10-24p — KAIROS RÀ FB VÒNG 2: mẫu trình xem ảnh toàn màn (nền navy, × CloseButton goc góc phải, vuốt snap, pinch-zoom) · mẫu nhãn nơi chốn chạm được trên dòng tên "Tên ▸ Bến X" (bỏ viên "Bến X" dưới thân + nhãn "Cả nước") · lưới ảnh 1/2/3/4+ · ⋯ lên đầu thẻ · thẻ đầu Bến · viên trả lời. Không token mới. -->
 <!-- re-verified: 2026-10-24 — KAIROS TRANG CÁ NHÂN: pattern đầu trang kiểu FB (ảnh bìa 2.6:1 + `KairosAvatar xl` 6rem đè mép, chấm AI, nhãn Cùng cảng, dòng đếm theo dõi, lưới Ảnh 3 cột) — không token mới. -->
@@ -72,7 +73,7 @@ Gốc `<html>` = **16px** (chế độ Gọn, mặc định). Chế độ **Nút
 | Bo góc thẻ | **0.75–1rem** (12–16) · thẻ 1rem, control 0.75rem | `--r-card`, `--r-ctl` |
 | Khoảng trong nhóm / giữa nhóm | 0.5–0.75rem / 1–1.25rem | `space-y-2` / `space-y-5` |
 | Bóng | thẻ: viền 1px `line` + bóng rất nhẹ; nổi trên bản đồ: `--shadow-float` | `.surface`, `.glass` |
-| Dock | **kiểu Facebook** (anh Long 2026-10-19): thanh trắng bo tròn NỔI, lề 0.75rem, hở đáy `--dock-gap` 0.5rem trên home-indicator, viền 1px line + `--shadow-float`; CHỈ ICON 1.5rem, mục đang chọn = pill xanh nhạt (`bg-sea/12`) + icon xanh; tên mục qua `aria-label`/`title` | `.bottom-dock`, `bottom-nav.tsx` |
+| Dock | **kiểu Facebook** (anh Long 2026-10-19): thanh trắng bo tròn NỔI, lề 0.75rem, hở đáy `--dock-gap` 0.5rem trên home-indicator, viền 1px line + `--shadow-float`; CHỈ ICON 1.5rem, mục đang chọn = pill xanh nhạt (`bg-sea/12`) + icon xanh; tên mục qua `aria-label`/`title`; riêng ô Kairos = ảnh `KairosFishIcon` 1.125rem (ngoại lệ có chủ đích, 2026-10-25) | `.bottom-dock`, `bottom-nav.tsx` |
 
 Luật đi kèm:
 - **Cỡ cố định theo loại** (anh Long 2026-10-19): cùng loại ⇒ cùng cao/rộng, chữ canh giữa; nút/chip KHÔNG nở theo độ dài chữ — vì nhãn ≤2 chữ (§Nhãn) nên ô cố định luôn đủ. Ô vuông bản đồ `.sq-tile` = 4rem × 2.75rem; nút phụ chữ `.sq-btn` ≥ 5.5rem rộng; chip ≥ 5.5rem.

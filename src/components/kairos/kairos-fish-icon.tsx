@@ -1,0 +1,30 @@
+/*
+  BIỂU TƯỢNG KAIROS — hai con cá lướt về phía trước + chấm cam (Codex vẽ 2026-10-25, bàn giao
+  `kairos-motion/`). Ảnh PNG nền trong suốt trong máy (`/icons/kairos-fish.png`, 384×156, 14 KB —
+  đã cắt lề + thu từ bản gốc 1774×887; KHÔNG dùng CDN). Một nguồn ảnh cho cả dock lẫn đầu màn
+  /kairos và hàng "Đang tải tin" — đổi ảnh thì đổi MỘT chỗ.
+
+  Chuyển động (03 §Chuyển động, 14 §3.2): `vao` = cá lướt vào 340 ms lúc mở màn (`.anim-ca-vao`);
+  `boi` = trôi nhẹ theo nhịp sóng 1,5 s CHỈ khi thật sự chờ dữ liệu (`.anim-ca-boi`); mất sóng /
+  lỗi / đã có bài ⇒ không có hàng chờ nên cá đứng yên. Giảm chuyển động: globals.css tắt `boi`,
+  `vao` thành mờ dần ngắn. Icon là trang trí (alt rỗng) — tên mục/màn đã ở chữ hoặc aria-label.
+*/
+export function KairosFishIcon({
+  className = "",
+  anim,
+}: {
+  className?: string;
+  /** vao = lướt vào một lần (mở màn) · boi = trôi theo nhịp (đang chờ dữ liệu) */
+  anim?: "vao" | "boi";
+}) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- ảnh tĩnh trong máy, cỡ cố định theo rem
+    <img
+      src="/icons/kairos-fish.png"
+      alt=""
+      draggable={false}
+      aria-hidden
+      className={`select-none object-contain ${anim === "vao" ? "anim-ca-vao" : anim === "boi" ? "anim-ca-boi" : ""} ${className}`}
+    />
+  );
+}
