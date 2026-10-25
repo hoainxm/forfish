@@ -76,8 +76,8 @@ export function loiTuVan(body) {
 export function docSoTau(text) {
   const m = /(?:^|[^\p{L}\d])(\p{L}{1,4})[\s.\-]*(\d{4,6})[\s.\-]*(ts)(?![\p{L}\d])/iu.exec(String(text ?? ""));
   if (!m) return null;
-  const tinh = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
-  const ma = /^[a-zđ]{2}$/i.test(m[1]) ? m[1].toUpperCase() : tinh;
+  // mã tỉnh có chữ thường xen hoa ("QNg", "BTh") ⇒ giữ y như khách gõ; gõ toàn chữ thường ⇒ viết hoa ("bd" ⇒ "BD")
+  const ma = /\p{Lu}/u.test(m[1]) ? m[1] : m[1].toUpperCase();
   return `${ma}-${m[2]}-TS`;
 }
 

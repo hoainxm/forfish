@@ -47,7 +47,7 @@
 | docs/app-map/ops/qa-offline-acceptance.md | VERIFIED | ok |
 | docs/app-map/ops/rbac-runbook.md | VERIFIED | ok |
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/runbook.md | VERIFIED | ok |
+| docs/app-map/ops/runbook.md | SUSPECT | code 'scripts/kairos-chung.mjs' doi sau last_verified |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/kairos/feed-client.ts' doi sau last_verified |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |

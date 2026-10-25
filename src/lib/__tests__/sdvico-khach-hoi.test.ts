@@ -66,7 +66,8 @@ describe("tư vấn bằng Claude — luật + tách thông tin", () => {
   it("tách số tàu nhiều kiểu gõ", () => {
     expect(docSoTau("tàu tui BĐ-91234-TS nha")).toBe("BĐ-91234-TS");
     expect(docSoTau("so tau bd 91234 ts")).toBe("BD-91234-TS");
-    expect(docSoTau("QNg90123TS")).toBe("Qng-90123-TS");
+    expect(docSoTau("QNg90123TS")).toBe("QNg-90123-TS");
+    expect(docSoTau("tàu QNg-90123-TS, tính lắp ở Sa Huỳnh")).toBe("QNg-90123-TS");
     expect(docSoTau("chưa có số")).toBeNull();
   });
   it("tìm cảng trong danh mục, khớp dài nhất", () => {
