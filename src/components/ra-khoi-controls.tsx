@@ -23,6 +23,16 @@ import {
 } from "@/lib/scalar-field";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
+import {
+  DENSITY_GEARS,
+  DENSITY_MODES,
+  DENSITY_MOONS,
+  DENSITY_SEASONS,
+  densityKeyLabel,
+  densityKeys,
+  type DensitySel,
+  type FleetDensity,
+} from "@/lib/fleet-density";
 import type { FeatureAccess } from "@/lib/tier";
 import { PremiumLock } from "@/components/premium-gate";
 import { stormNoticeText, type StormStatus } from "@/lib/storms";
@@ -52,6 +62,7 @@ import {
   FishIcon,
   PinIcon,
   PlusIcon,
+  RadarIcon,
   RouteIcon,
   RulerIcon,
   SettingsIcon,
@@ -63,6 +74,7 @@ import { parseCoordPair } from "@/lib/parse-coord";
 import { CloseButton } from "@/components/ui/close-button";
 import { AppVersionLine } from "@/components/app-version-line";
 import { VoiceSettingsSection } from "@/components/nav-voice-ui";
+import { Popover } from "@/components/ui/popover";
 
 const FISH_COLOR = "var(--fish)"; // xanh lá — cá/ngư trường (token globals, Phương án A)
 
@@ -114,6 +126,15 @@ export function RaKhoiControls({
   species,
   regionShorts,
   onPickSpecies,
+  fleetAllowed,
+  fleetOn,
+  onFleet,
+  fleetSel,
+  onFleetSel,
+  fleetData,
+  fleetState,
+  fleetEmpty,
+  onFleetRetry,
   stormInfo,
   showPlaces,
   onShowPlaces,
@@ -129,6 +150,7 @@ export function RaKhoiControls({
   cursor,
   addPlaceSignal,
   openCoordSignal,
+  nutTimDiem = null,
   onLayerOpenChange,
   closeLayersSignal,
   onRoutePanel,
@@ -155,6 +177,8 @@ export function RaKhoiControls({
   /** tăng số = mở ô "Toạ độ" (gõ tay toạ độ để đến điểm) — ô tìm "Đi đâu?" ở
    *  đầu màn bản đồ gọi qua đây (khung mới 2026-10-20, theo ảnh mẫu hải đồ) */
   openCoordSignal?: number;
+  /** ô "Đi đâu?" — ô Toạ độ mở từ đó thì NEO dưới nó (03 §6 mục 9) */
+  nutTimDiem?: HTMLElement | null;
   /*  BÁO LÊN CHA khi rail đang mở một LỚP NỔI (panel lớp · ô "Đến điểm" · ô
       "Điểm đã lưu"). Cha dùng để không bung sheet gió sóng đè lên — luật một
       lúc một lớp nổi ở 07 §10.7 I. */
@@ -209,6 +233,19 @@ export function RaKhoiControls({
   species: string[];
   regionShorts: Set<string>;
   onPickSpecies: (sp: string | null) => void;
+  /** LỚP MẬT ĐỘ TÀU DỰ KIẾN (2026-10-25): theo ngày/tháng/mùa/trăng — cùng khoá premium với lớp cá
+      (fishAccess); loại trừ với lớp cá vì hai lớp cùng tô ô 0,25° */
+  /** xem trước nội bộ — false thì panel KHÔNG hiện mục mật độ tàu (lib/fleet-density canSeeDensity) */
+  fleetAllowed: boolean;
+  fleetOn: boolean;
+  onFleet: (on: boolean) => void;
+  fleetSel: DensitySel;
+  onFleetSel: (sel: DensitySel) => void;
+  /** lưới đã tải (null = chưa) + trạng thái để panel nói đúng: đang tải / lỗi / lát trống */
+  fleetData: FleetDensity | null;
+  fleetState: "idle" | "loading" | "error" | "ok";
+  fleetEmpty: boolean;
+  onFleetRetry: () => void;
   /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
       rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
   stormInfo: StormStatus;
@@ -231,6 +268,14 @@ export function RaKhoiControls({
   // MẶC ĐỊNH THU GỌN (user 2026-07-28): map sạch, chạm "Lớp" mới xổ rail ra;
   // xổ rồi mà 5s không chạm gì (trong rail/panel) thì TỰ thu lại.
   const [collapsed, setCollapsed] = useState(true);
+  /** nút "Lớp" — panel/lưới lớp NEO vào nó (Popover, 03 §6 mục 9) */
+  const [nutLop, setNutLop] = useState<HTMLDivElement | null>(null);
+  /** nút "Thêm" (⋯) — khay + ô Toạ độ + Điểm lưu NEO vào nó; không có ⋯ (đang dẫn đường…) thì neo nút Lớp */
+  const [nutThem, setNutThem] = useState<HTMLDivElement | null>(null);
+  const dongLop = useCallback(() => {
+    setOpen(null);
+    setCollapsed(true);
+  }, []);
   // Ô GÕ TAY TOẠ ĐỘ (nút "Đến điểm") — luôn bấm được kể cả khi thu bảng lớp.
   const [coordOpen, setCoordOpen] = useState(false);
   /*  ĐIỂM ĐÃ LƯU tách khỏi danh sách panel rail thành NÚT RIÊNG dưới "Đến
@@ -263,11 +308,14 @@ export function RaKhoiControls({
     setAddPlaceOpen(true);
     setPrefillTick(addPlaceSignal);
   }, [addPlaceSignal]);
+  /** ô Toạ độ mở từ ô "Đi đâu?" (đầu cột trái) ⇒ neo dưới ô đó, không neo nút ⋯ */
+  const [coordTuTim, setCoordTuTim] = useState(false);
   useEffect(() => {
     if (!openCoordSignal) return;
     setOpen(null);
     setPlacesOpen(false);
     setMore(false);
+    setCoordTuTim(true);
     setCoordOpen(true);
   }, [openCoordSignal]);
   /*  ĐÓNG PANEL LÀ DỌN LUÔN TRẠNG THÁI FORM (2026-08-29h — chủ dự án: *"điểm
@@ -348,7 +396,7 @@ export function RaKhoiControls({
       label: "Ngư trường",
       icon: FishIcon,
       color: FISH_COLOR,
-      dot: fishOn,
+      dot: fishOn || fleetOn,
     },
     {
       id: "thoi-tiet",
@@ -397,14 +445,19 @@ export function RaKhoiControls({
           khi vào trang và chỉ báo một dòng nhỏ tự tắt — xem
           components/pretrip-auto-notify.tsx. Bản đồ nhờ vậy sạch chữ. */}
 
-      {/*  NGĂN LỚP ĐÁY KIỂU GOOGLE MAPS (rà bố cục 2026-10-22, anh Long: "xử lý theo các app
-          hiện đại nhất, đông user nhất"). Trước: danh sách xổ từ nút Lớp + panel neo trái
-          rail, nổi ĐÈ góc trên ⇒ che tin bão + thẻ Tàu/Trỏ. Nay MỘT ngăn đáy (trên dock,
-          trong khung 480px): mở = lưới 5 ô lớp; chọn ô = nội dung lớp đó với ‹ về lưới,
-          × đóng hẳn. Góc trên (tin bão, ô tìm, toạ độ) KHÔNG bao giờ bị lớp này che.
-          Chạm bản đồ = đóng (fishing-map-view → closeLayersSignal). */}
+      {/*  PANEL LỚP NEO NGAY DƯỚI NÚT "Lớp" (03 §6 mục 9, anh Long 2026-10-23: "click từ nút thì
+          nó hiện ra bên cạnh nút vì lúc đó tay họ đang ở gần nút rồi, tự dưng kéo xuống dưới cả
+          thì nó không thuận tiện"). Vòng trước đưa xuống ngăn đáy (Google Maps) — ngược luật này,
+          đã đảo lại. Primitive `Popover`: canh mép phải nút, thiếu chỗ thì cuộn trong, kẹp khung
+          480px; ‹ về lưới lớp, × đóng hẳn; chạm ra ngoài (bản đồ) / Escape đóng. Nổi đè một phần
+          cột trái (tin bão) trong lúc mở — người dùng tự mở, tự thu 5 s; không ép hẹp cột. */}
       {open && !collapsed && (
-        <div className="anim-sheet-in pointer-events-auto fixed inset-x-0 bottom-(--dock-total) z-30 mx-auto max-h-[55dvh] w-full max-w-(--w-app) overflow-y-auto rounded-t-[1.75rem] border-t border-line bg-card px-4 pb-4 pt-3 shadow-sheet-up [overscroll-behavior:contain]">
+        <Popover
+          anchor={nutLop}
+          label={PANEL_TITLE[open]}
+          onClose={dongLop}
+          className={`${open === "diem" ? "w-[22rem]" : "w-[18rem]"} max-w-[calc(100vw-1rem)] p-3`}
+        >
           {
             <>
               {/* "‹" về danh sách lớp (danh sách tạm ẩn khi panel mở — xem RAIL PHẢI) */}
@@ -444,6 +497,15 @@ export function RaKhoiControls({
                   species={species}
                   regionShorts={regionShorts}
                   onPickSpecies={onPickSpecies}
+                  fleetAllowed={fleetAllowed}
+                  fleetOn={fleetOn}
+                  onFleet={onFleet}
+                  fleetSel={fleetSel}
+                  onFleetSel={onFleetSel}
+                  fleetData={fleetData}
+                  fleetState={fleetState}
+                  fleetEmpty={fleetEmpty}
+                  onFleetRetry={onFleetRetry}
                 />
               )}
               {open === "thoi-tiet" && (
@@ -479,12 +541,17 @@ export function RaKhoiControls({
               {open === "cai-dat" && <SettingsPanel vmsZones={vmsZones} />}
             </>
           }
-        </div>
+        </Popover>
       )}
 
       {/* ĐIỂM ĐÃ LƯU — nổi cạnh nút, cùng khuôn ô toạ độ (premium) */}
       {premiumTools && placesOpen && (
-        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl border border-line bg-card p-3 shadow-float">
+        <Popover
+          anchor={nutThem ?? nutLop}
+          label="Điểm đã lưu"
+          onClose={() => setPlacesOpen(false)}
+          className="w-[20rem] max-w-[calc(100vw-1rem)] p-3"
+        >
           <DiemPanel
             cursor={cursor}
             prefillTick={prefillTick}
@@ -497,17 +564,22 @@ export function RaKhoiControls({
             onGoPlace={onGoPlace}
             onClose={() => setPlacesOpen(false)}
           />
-        </div>
+        </Popover>
       )}
 
       {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm", độc lập với panel rail (premium) */}
       {premiumTools && coordOpen && (
-        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl border border-line bg-card p-3 shadow-float [overscroll-behavior:contain]">
+        <Popover
+          anchor={(coordTuTim ? nutTimDiem : null) ?? nutThem ?? nutLop}
+          label="Đến điểm — nhập toạ độ"
+          onClose={() => setCoordOpen(false)}
+          className="w-[19rem] max-w-[calc(100vw-1rem)] p-3"
+        >
           <GoToPointPopup
             onGoCoord={onGoCoord}
             onClose={() => setCoordOpen(false)}
           />
-        </div>
+        </Popover>
       )}
 
       {/* RAIL PHẢI — CHỈ HAI Ô (anh Long 2026-10-19 mục 8: "các icon đang bị nhiều
@@ -523,6 +595,7 @@ export function RaKhoiControls({
            ô tìm, thẻ Tàu/Trỏ) bị ép còn ~140px, thẻ bão một chữ một dòng. Cột nút giữ
            đúng bề ngang một nút. */}
       <div ref={railRef} className="pointer-events-auto relative flex flex-col items-end gap-1.5">
+        <div ref={setNutLop}>
         <RailBtn
           active={!collapsed}
           aria-expanded={!collapsed}
@@ -538,6 +611,7 @@ export function RaKhoiControls({
           label={collapsed ? "Lớp" : "Đóng"}
           variant="fab"
         />
+        </div>
         {/*  ĐANG CHẠY (không tuyến): KHÔNG còn ô "Đang chạy" trên rail — HUD trên
              cùng đã có tiêu đề "Đang chạy" + nút Dừng (tối ưu bố cục bản đồ,
              anh Long 2026-10-19: một việc một chỗ, bớt icon che bản đồ). Rail
@@ -547,6 +621,7 @@ export function RaKhoiControls({
         ) : collapsed && premiumTools ? (
           /*  ⋯ CHỈ HIỆN KHI CÓ VIỆC (rà bố cục 2026-10-22): ba mục trong khay đều premium —
               tài khoản thường bấm ra một khay RỖNG. Không có mục thì không có nút. */
+          <div ref={setNutThem}>
           <RailBtn
             active={more}
             aria-expanded={more}
@@ -562,12 +637,15 @@ export function RaKhoiControls({
             label="Thêm"
             variant="fab"
           />
+          </div>
         ) : null}
         {more && !routeOn && premiumTools && (
-          <div
-            role="group"
-            aria-label="Thêm việc"
-            className="anim-pop-in absolute right-0 top-full mt-1.5 flex w-[11rem] flex-col gap-0.5 rounded-xl border border-line bg-card p-1 shadow-float"
+          <Popover
+            anchor={nutThem}
+            role="menu"
+            label="Thêm việc"
+            onClose={() => setMore(false)}
+            className="flex w-[11rem] flex-col gap-0.5 p-1"
           >
             {/*  "Vị trí" và "Chạy tàu" (loa) đã ra NGOÀI bản đồ — nút về tàu + nút loa
                  ở cột góc phải dưới (khung 2026-10-20) — không lặp trong khay. */}
@@ -586,6 +664,7 @@ export function RaKhoiControls({
               <RailBtn
                 onClick={() => {
                   setMore(false);
+                  setCoordTuTim(false); // mở từ khay ⋯ ⇒ neo nút ⋯
                   setCoordOpen(true);
                 }}
                 aria-label="Toạ độ — nhập toạ độ để đến điểm"
@@ -604,14 +683,14 @@ export function RaKhoiControls({
                 label="Điểm lưu"
               />
             )}
-          </div>
+          </Popover>
         )}
         {/* danh sách lớp mở được cả khi loa đang bật — loa không còn là chế độ dẫn đường */}
         {/*  Danh sách TẠM ẨN khi một panel đang mở (rà bố cục 2026-10-22): trước đây chọn
              "Thời tiết" xong danh sách vẫn nằm đè lên panel, che tiêu đề + cảnh báo bão +
              công tắc. Panel có "‹" để về lại danh sách. */}
         {!collapsed && open === null && (
-          <div role="dialog" aria-label="Lớp bản đồ" className="anim-sheet-in pointer-events-auto fixed inset-x-0 bottom-(--dock-total) z-30 mx-auto max-h-[55dvh] w-full max-w-(--w-app) overflow-y-auto rounded-t-[1.75rem] border-t border-line bg-card px-4 pb-4 pt-3 shadow-sheet-up [overscroll-behavior:contain]">
+          <Popover anchor={nutLop} label="Lớp bản đồ" onClose={dongLop} className="w-[18rem] max-w-[calc(100vw-1rem)] p-3">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="display text-[1.125rem] font-semibold text-navy">Lớp bản đồ</h3>
               <CloseButton
@@ -643,7 +722,7 @@ export function RaKhoiControls({
                 );
               })}
             </div>
-          </div>
+          </Popover>
         )}
       </div>
     </div>
@@ -954,6 +1033,15 @@ function NguTruongPanel({
   species,
   regionShorts,
   onPickSpecies,
+  fleetAllowed,
+  fleetOn,
+  onFleet,
+  fleetSel,
+  onFleetSel,
+  fleetData,
+  fleetState,
+  fleetEmpty,
+  onFleetRetry,
 }: {
   fishOn: boolean;
   onFish: (on: boolean) => void;
@@ -963,6 +1051,15 @@ function NguTruongPanel({
   species: string[];
   regionShorts: Set<string>;
   onPickSpecies: (sp: string | null) => void;
+  fleetAllowed: boolean;
+  fleetOn: boolean;
+  onFleet: (on: boolean) => void;
+  fleetSel: DensitySel;
+  onFleetSel: (sel: DensitySel) => void;
+  fleetData: FleetDensity | null;
+  fleetState: "idle" | "loading" | "error" | "ok";
+  fleetEmpty: boolean;
+  onFleetRetry: () => void;
 }) {
   const fishLocked = fishAccess === "login" || fishAccess === "upgrade";
   // Chọn loài XỔ RA ngay trong panel (dropdown), KHÔNG swap view/đổi bề rộng
@@ -1045,6 +1142,166 @@ function NguTruongPanel({
             </div>
           )}
         </>
+      )}
+
+      {/* MẬT ĐỘ TÀU DỰ KIẾN (2026-10-25): ước tính để tham khảo, chữ chỉ nói "mật độ tàu", không nói
+          "có cá". Cùng khoá premium với lớp cá. */}
+      {fleetAllowed && (
+      <div className="mt-2">
+        <Toggle
+          label="Mật độ tàu dự kiến"
+          sub="Ước từ vệ tinh · ngày, tháng, mùa, trăng"
+          on={fleetOn}
+          onToggle={() => onFleet(!fleetOn)}
+          icon={
+            <span className="text-navy">
+              <RadarIcon className="h-5 w-5" />
+            </span>
+          }
+        />
+        {fleetOn && fishLocked && <PremiumLock access={fishAccess} feature="mật độ tàu" compact />}
+        {fleetOn && !fishLocked && (
+          <BaiTauChon
+            sel={fleetSel}
+            onSel={onFleetSel}
+            data={fleetData}
+            state={fleetState}
+            empty={fleetEmpty}
+            onRetry={onFleetRetry}
+          />
+        )}
+      </div>
+      )}
+    </div>
+  );
+}
+
+/** Chip chọn lát — nhãn ≤2 chữ, nền navy khi đang chọn (cùng ngữ pháp với chip chọn loài). */
+function Chip({ on, onClick, children, title }: { on: boolean; onClick: () => void; children: React.ReactNode; title?: string }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      title={title}
+      onClick={onClick}
+      className={`shrink-0 rounded-full px-3 py-1.5 text-[0.8125rem] font-semibold leading-none transition active:scale-[0.97] ${
+        on ? "bg-navy text-white" : "bg-field text-navy"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Bộ chọn lát mật độ tàu: chế độ (Ngày/Tháng/Mùa/Trăng) → khoá → nghề (trừ Ngày: gộp mọi nghề cho file
+ * không phình). Ma trận trạng thái: đang tải · lỗi (chạm thử lại) · lát trống · ngày có bão.
+ */
+function BaiTauChon({
+  sel,
+  onSel,
+  data,
+  state,
+  empty,
+  onRetry,
+}: {
+  sel: DensitySel;
+  onSel: (s: DensitySel) => void;
+  data: FleetDensity | null;
+  state: "idle" | "loading" | "error" | "ok";
+  empty: boolean;
+  onRetry: () => void;
+}) {
+  if (state === "loading" || state === "idle") {
+    return <p className="mt-2 px-1 text-[0.8125rem] text-foreground/75">Đang tải mật độ tàu…</p>;
+  }
+  if (state === "error" || !data) {
+    return (
+      <button type="button" onClick={onRetry} className="mt-2 w-full rounded-xl bg-field px-3 py-2.5 text-left text-[0.8125rem] text-navy">
+        Chưa tải được mật độ tàu — cần có sóng lần đầu. Chạm để thử lại.
+      </button>
+    );
+  }
+  const keys = densityKeys(data, sel.mode);
+  const idx = keys.indexOf(sel.key);
+  const setMode = (mode: DensitySel["mode"]) => {
+    if (mode === sel.mode) return;
+    const ks = densityKeys(data, mode);
+    // Ngày/Tháng: về lát MỚI NHẤT; Mùa/Trăng: giữ khoá hợp lệ nếu có, không thì lát đầu
+    const key = mode === "day" || mode === "month" ? ks.at(-1) ?? "" : ks.includes(sel.key) ? sel.key : ks[0] ?? "";
+    onSel({ ...sel, mode, key });
+  };
+  const storm = sel.mode === "day" ? data.storms?.[sel.key] : undefined;
+  const keyLabel = (k: string) =>
+    sel.mode === "month" ? k.slice(5, 7).replace(/^0/, "") + "/" + k.slice(0, 4) : densityKeyLabel(sel.mode, k);
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="flex gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Xem theo">
+        {DENSITY_MODES.map((m) => (
+          <Chip key={m.id} on={sel.mode === m.id} onClick={() => setMode(m.id)}>
+            {m.label}
+          </Chip>
+        ))}
+      </div>
+
+      {sel.mode === "day" ? (
+        <div className="flex items-center gap-1.5 rounded-xl bg-field px-2 py-1.5">
+          <button
+            type="button"
+            aria-label="Ngày trước"
+            disabled={idx <= 0}
+            onClick={() => onSel({ ...sel, key: keys[idx - 1] })}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-navy disabled:opacity-30"
+          >
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+          <span className="min-w-0 flex-1 text-center text-[0.9375rem] font-semibold text-navy">
+            {densityKeyLabel("day", sel.key)}
+            {storm && (
+              <span className="block text-[0.75rem] font-medium text-foreground/75">Có bão {storm.join(", ")} — tàu nằm bờ</span>
+            )}
+          </span>
+          <button
+            type="button"
+            aria-label="Ngày sau"
+            disabled={idx < 0 || idx >= keys.length - 1}
+            onClick={() => onSel({ ...sel, key: keys[idx + 1] })}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-navy disabled:opacity-30"
+          >
+            <ChevronRightIcon className="h-5 w-5" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Chọn lát">
+          {(sel.mode === "season"
+            ? DENSITY_SEASONS.filter((x) => keys.includes(x.id)).map((x) => ({ id: x.id, label: x.label, title: x.sub }))
+            : sel.mode === "moon"
+              ? DENSITY_MOONS.filter((x) => keys.includes(x.id)).map((x) => ({ id: x.id, label: x.label, title: undefined }))
+              : keys.map((k) => ({ id: k, label: keyLabel(k), title: undefined }))
+          ).map((k) => (
+            <Chip key={k.id} on={sel.key === k.id} onClick={() => onSel({ ...sel, key: k.id })} title={k.title}>
+              {k.label}
+            </Chip>
+          ))}
+        </div>
+      )}
+
+      {sel.mode !== "day" && (
+        <div className="flex gap-1.5 overflow-x-auto" role="radiogroup" aria-label="Nghề">
+          {DENSITY_GEARS.map((g) => (
+            <Chip key={g.id} on={sel.gear === g.id} onClick={() => onSel({ ...sel, gear: g.id })}>
+              {g.label}
+            </Chip>
+          ))}
+        </div>
+      )}
+
+      {empty ? (
+        <p className="px-1 text-[0.8125rem] text-foreground/75">Lát này chưa ước được ô nào.</p>
+      ) : (
+        <p className="px-1 text-[0.75rem] text-foreground/75">
+          {sel.mode === "day" ? "Mọi nghề gộp." : "Tháng, mùa, trăng đã bỏ ngày có bão."} Ước tính để tham khảo.
+        </p>
       )}
     </div>
   );

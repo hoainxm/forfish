@@ -195,6 +195,16 @@ import {
   type FishCell,
 } from "@/lib/fish-predict";
 import {
+  DENSITY_LEVELS,
+  canSeeDensity,
+  defaultDensityKey,
+  densityCells,
+  densityLevel,
+  fetchFleetDensity,
+  type DensitySel,
+  type FleetDensity,
+} from "@/lib/fleet-density";
+import {
   fetchClimatology,
   blendFishCells,
   fishLeadDays,
@@ -329,6 +339,7 @@ import { napKhoBanDo } from "@/lib/sen-bien/kho-ban-do";
 import { distSpeech } from "@/lib/nav-voice/phrases";
 import { ACTIVE_PORTS, PORT_COORD_SAI } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
+import { useAuthUser } from "@/lib/use-auth";
 import type { NavInfoLine } from "@/lib/nav-context";
 import {
   computeNavProgress,
@@ -449,6 +460,7 @@ import {
   RouteIcon,
   StarIcon,
 } from "@/components/icons";
+import { Popover } from "@/components/ui/popover";
 
 /* Nhãn ngày ("Hôm nay" / "Ngày mai" / ngày thật) nằm ở lib/day-labels.ts —
    so NGÀY THẬT chứ không so vị trí mảng, để bản lưu trong máy không nói dối. */
@@ -647,6 +659,38 @@ function VmsZoneLayers({ zone }: { zone: VmsZone }) {
 /** Cách nhau tối thiểu giữa hai lần làm mới do "có sóng lại" (mạng chập chờn) */
 const ONLINE_REFRESH_GAP_MS = 2 * 60 * 1000;
 
+
+/*  KHUNG DANH SÁCH KHU TRÚ BÃO — neo cạnh nút "Trú bão" của bảng dẫn đường (Popover, 03 §6
+    mục 9, 2026-10-23); không có phần tử nút ⇒ lùi về ngăn đáy (không bao giờ mất danh sách). */
+function KhungTruBao({
+  anchor,
+  onClose,
+  children,
+}: {
+  anchor: HTMLElement | null;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (!anchor) {
+    return (
+      <BottomSheet title="Khu trú bão gần đây" onClose={onClose}>
+        {children}
+      </BottomSheet>
+    );
+  }
+  return (
+    <Popover
+      anchor={anchor}
+      label="Khu trú bão gần đây"
+      onClose={onClose}
+      className="w-[21rem] max-w-[calc(100vw-1rem)] p-3"
+    >
+      <h3 className="display mb-2 text-[1.125rem] font-semibold text-navy">Khu trú bão gần đây</h3>
+      {children}
+    </Popover>
+  );
+}
+
 export default function FishingMapView() {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
@@ -687,6 +731,16 @@ export default function FishingMapView() {
   // "Ngư trường" ở panel. Trước đây mặc định hiện, phủ sẵn gây rối cho người chỉ
   // xem gió/sóng/hải đồ. State in-memory (không lưu) — mỗi lần mở đều bắt đầu ẩn.
   const [fishOn, setFishOn] = useState(false);
+  // LỚP MẬT ĐỘ TÀU DỰ KIẾN (2026-10-25): theo ngày/tháng/mùa/trăng. Lưới 0,25° CÙNG
+  // TRỤC lớp cá nên LOẠI TRỪ với lớp cá (hai lớp cùng tô ô). Tải MỘT lần khi bật (không tải lúc mở app).
+  const [fleetOn, setFleetOn] = useState(false);
+  const [fleetData, setFleetData] = useState<FleetDensity | null>(null);
+  const [fleetState, setFleetState] = useState<"idle" | "loading" | "error" | "ok">("idle");
+  const [fleetSel, setFleetSel] = useState<DensitySel>({ mode: "season", key: "nam", gear: "tat" });
+  const [fleetRetry, setFleetRetry] = useState(0);
+  // xem trước nội bộ: chỉ tài khoản trong danh sách mới thấy nút + được tải lưới
+  const { phone: authPhone } = useAuthUser();
+  const fleetAllowed = canSeeDensity(authPhone);
   /*  SỐ ĐO SÂU CHÍNH THỨC — mặc định BẬT. Đây là dữ liệu khảo sát của cơ quan
       nhà nước, thứ mà máy hải đồ trên tàu lớn có mà app điện thoại thường
       không; giấu sau một công tắc tắt sẵn thì coi như không có. Chỉ hiện từ
@@ -797,8 +851,29 @@ export default function FishingMapView() {
       cho premium). Nay kiểu freemium của app đông người dùng (thấy tính năng, chạm thì mời
       mở khoá): ngăn đáy nói rõ + lời mời Premium (rà bố cục 2026-10-22). */
   const [moiTimDiem, setMoiTimDiem] = useState(false);
+  /** ô "Đi đâu?" — lời mời neo NGAY DƯỚI nó (Popover, 03 §6 mục 9) */
+  const [oTimEl, setOTimEl] = useState<HTMLDivElement | null>(null);
   const premiumLocked =
     premiumAccess === "login" || premiumAccess === "upgrade";
+  useEffect(() => {
+    // chỉ tải khi bật + chưa có + không khoá premium; lỗi ⇒ "error", chạm thử lại tăng fleetRetry
+    if (!fleetOn || !fleetAllowed || fleetData || premiumLocked) return;
+    let alive = true;
+    setFleetState("loading");
+    fetchFleetDensity()
+      .then((d) => {
+        if (!alive) return;
+        setFleetData(d);
+        setFleetState("ok");
+        setFleetSel((sel) => ({ ...sel, key: defaultDensityKey(d, sel.mode, new Date()) }));
+      })
+      .catch(() => {
+        if (alive) setFleetState("error");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [fleetOn, fleetAllowed, fleetData, fleetRetry, premiumLocked]);
   /* CHƯA CHẮC LÀ PREMIUM — dùng cho MỌI quyết định "xin bao nhiêu ngày".
      LỖI ĐÃ SỬA (2026-08-02): lúc mới mở màn `premiumAccess` là "checking" nên
      `premiumLocked` = false ⇒ app xin thẳng khung 16 ngày, mà máy chủ chắc
@@ -3457,7 +3532,13 @@ export default function FishingMapView() {
     );
   }, [shelterOpen, navPos, navSpeedKmh, navFmtDist]);
   const stormOn = stormInfo.kind === "co-bao";
-  const openShelter = useCallback(() => setShelterOpen(true), []);
+  /*  Danh sách khu trú NEO cạnh nút "Trú bão" của bảng dẫn đường (03 §6 mục 9, 2026-10-23 —
+      trước là ngăn đáy trong khi nút nằm đầu màn). Không có phần tử nút ⇒ lùi về ngăn đáy. */
+  const [shelterEl, setShelterEl] = useState<HTMLElement | null>(null);
+  const openShelter = useCallback((el?: HTMLElement) => {
+    setShelterEl(el ?? null);
+    setShelterOpen(true);
+  }, []);
 
   /*  "Vẽ đường tới đây" — ĐẶT ĐÍCH MỚI qua đúng cơ chế sẵn có của nút "Dẫn
       đường tới đây" trong menu nhấn-giữ (setPoint + routeMode + chuỗi điểm
@@ -3841,6 +3922,7 @@ export default function FishingMapView() {
       const fk = SEN_FORECAST[lop];
       const ok = SEN_OVERLAY[lop];
       setFishOn(lop === "ca" ? true : false);
+      if (lop === "ca") setFleetOn(false);
       if (fk) {
         setForecastKind(fk);
         setOverlayField(null);
@@ -4512,6 +4594,37 @@ export default function FishingMapView() {
     }
     return { type: "FeatureCollection", features };
   }, [fishOn, fishView, fishSpecies, fishGridStep, anyExclusiveOverlay]);
+
+  // Ô MẬT ĐỘ TÀU — mức Thưa/Vừa/Đông theo phân vị TRONG lát (ngày thưa vẫn chỉ ra chỗ tàu tụ).
+  // Cùng luật với lớp cá: không hiện cùng lớp động, khoá premium thì không vẽ.
+  const fleetCells = useMemo(
+    () => (fleetOn && fleetAllowed && fleetData && !anyExclusiveOverlay && !premiumLocked ? densityCells(fleetData, fleetSel) : []),
+    [fleetOn, fleetAllowed, fleetData, fleetSel, anyExclusiveOverlay, premiumLocked],
+  );
+  const fleetGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!fleetCells.length || !fleetData) return null;
+    const { levelOf } = densityLevel(fleetCells);
+    const h = fleetData.axis.step / 2;
+    return {
+      type: "FeatureCollection",
+      features: fleetCells.map((c) => ({
+        type: "Feature",
+        properties: { lv: levelOf(c), n: c.vessels, h: Math.round(c.hoursPerDay * 10) / 10 },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [c.lon - h, c.lat - h],
+              [c.lon + h, c.lat - h],
+              [c.lon + h, c.lat + h],
+              [c.lon - h, c.lat + h],
+              [c.lon - h, c.lat - h],
+            ],
+          ],
+        },
+      })),
+    };
+  }, [fleetCells, fleetData]);
 
   // điểm NÓNG (hồng tâm chạm-là-tới): ô điểm cao, cách nhau ≥0.7° cho khỏi
   // chùm, tối đa 8. ƯU TIÊN KHU VỰC GẦN MÌNH: cộng điểm thưởng cho ô gần cảng
@@ -5845,6 +5958,33 @@ export default function FishingMapView() {
 
         {/* lớp DẢI MÀU vô hướng (mây/mưa/nhiệt) — ô nội suy tô rgba sẵn (alpha
             trong màu), vẽ DƯỚI mũi tên/nhãn/bão để không che thông tin quan trọng */}
+        {/* MẬT ĐỘ TÀU DỰ KIẾN — ô 0,25° tô 3 mức tím (khác hẳn xanh/vàng/đỏ của cá), viền trắng mảnh như lớp cá */}
+        {fleetGridGeo && (
+          <Source id="fleet-grid" type="geojson" data={fleetGridGeo}>
+            <Layer
+              id="fleet-grid-fill"
+              type="fill"
+              paint={{
+                "fill-color": [
+                  "match",
+                  ["get", "lv"],
+                  1,
+                  DENSITY_LEVELS[1].color,
+                  2,
+                  DENSITY_LEVELS[2].color,
+                  DENSITY_LEVELS[0].color,
+                ] as unknown as string,
+                "fill-opacity": 0.55,
+              }}
+            />
+            <Layer
+              id="fleet-grid-line"
+              type="line"
+              paint={{ "line-color": "#ffffff", "line-width": 0.6, "line-opacity": 0.7 }}
+            />
+          </Source>
+        )}
+
         {scalarFC && (
           <Source id="scalar-field" type="geojson" data={scalarFC}>
             <Layer
@@ -7305,14 +7445,21 @@ export default function FishingMapView() {
       {stormPtInfo && <TheMocBao info={stormPtInfo} onClose={() => setStormPtInfo(null)} prefs={prefs} />}
 
       {moiTimDiem && (
-        <BottomSheet title="Đi tới toạ độ" onClose={() => setMoiTimDiem(false)}>
+        /* neo ngay dưới ô "Đi đâu?" (03 §6 mục 9, 2026-10-23 — trước là ngăn đáy) */
+        <Popover
+          anchor={oTimEl}
+          label="Đi tới toạ độ"
+          onClose={() => setMoiTimDiem(false)}
+          className="w-[20rem] max-w-[calc(100vw-1rem)] p-4"
+        >
+          <h3 className="display mb-2 text-[1.125rem] font-semibold text-navy">Đi tới toạ độ</h3>
           <p className="mb-3 text-[1rem] leading-snug text-foreground/80">
             Gõ toạ độ hoặc chọn chỗ đã lưu để bản đồ dẫn tới đó.
             {/* PremiumLock tự ẩn khi mất sóng — lúc đó vẫn phải nói rõ vì sao chưa dùng được */}
             {typeof navigator !== "undefined" && navigator.onLine === false && " Đây là tính năng Premium."}
           </p>
           <PremiumLock access={premiumAccess} feature="đi tới toạ độ" compact />
-        </BottomSheet>
+        </Popover>
       )}
 
       {pressMenu && (
@@ -7430,10 +7577,7 @@ export default function FishingMapView() {
         />
       )}
       {shelterOpen && (
-        <BottomSheet
-          title="Khu trú bão gần đây"
-          onClose={() => setShelterOpen(false)}
-        >
+        <KhungTruBao anchor={shelterEl} onClose={() => setShelterOpen(false)}>
           {shelterRows.length === 0 ? (
             <p className="rounded-2xl bg-field p-4 text-[1rem] font-semibold leading-snug text-foreground/75">
               Chưa tìm được khu trú nào quanh đây trong danh mục nhà nước. Gọi
@@ -7485,7 +7629,7 @@ export default function FishingMapView() {
             khảo). Trước khi vào, nghe hướng dẫn của địa phương và Thông báo
             hàng hải.
           </p>
-        </BottomSheet>
+        </KhungTruBao>
       )}
 
       {/* HẠT BAY animated kiểu Windy — canvas overlay TRÊN bản đồ + lớp màu
@@ -7564,6 +7708,7 @@ export default function FishingMapView() {
         <div className="flex items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             {navMode == null && (
+              <div ref={setOTimEl}>
               <OTimDiem
                 onOpen={() =>
                   premiumAccess === "login" || premiumAccess === "upgrade"
@@ -7571,6 +7716,7 @@ export default function FishingMapView() {
                     : setOpenCoordSignal((n) => n + 1)
                 }
               />
+              </div>
             )}
             <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
             {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
@@ -7603,9 +7749,22 @@ export default function FishingMapView() {
                 ))}
               </div>
             )}
+            {/* CHÚ GIẢI MẬT ĐỘ TÀU — cùng chỗ, cùng cỡ với chú giải cá (hai lớp loại trừ nhau nên không chồng) */}
+            {fleetGridGeo && (
+              <div className="glass pointer-events-none flex items-center gap-2 self-start px-2.5 py-1 @max-[15rem]/map:hidden text-[0.75rem] font-medium text-navy shadow-sm">
+                <span className="font-semibold">Mật độ tàu</span>
+                {DENSITY_LEVELS.map((b) => (
+                  <span key={b.key} className="flex items-center gap-1">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: b.color }} aria-hidden />
+                    {b.label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <RaKhoiControls
             openCoordSignal={openCoordSignal}
+            nutTimDiem={oTimEl}
             onLocateMe={goToMyBoat}
             cursor={point}
             addPlaceSignal={addPlaceSignal}
@@ -7684,6 +7843,7 @@ export default function FishingMapView() {
                 setOverlayField(null);
                 setScalarKind(null);
                 setPlaying(false);
+                setFleetOn(false); // cùng ô 0,25° — một lúc một lớp
               }
               setFishOn(on);
             }}
@@ -7692,6 +7852,24 @@ export default function FishingMapView() {
             species={fishCast?.species ?? []}
             regionShorts={regionShorts}
             onPickSpecies={setFishSpecies}
+            fleetAllowed={fleetAllowed}
+            fleetOn={fleetOn}
+            onFleet={(on) => {
+              if (on) {
+                setForecastKind(null);
+                setOverlayField(null);
+                setScalarKind(null);
+                setPlaying(false);
+                setFishOn(false);
+              }
+              setFleetOn(on);
+            }}
+            fleetSel={fleetSel}
+            onFleetSel={setFleetSel}
+            fleetData={fleetData}
+            fleetState={fleetState}
+            fleetEmpty={fleetState === "ok" && fleetCells.length === 0}
+            onFleetRetry={() => setFleetRetry((n) => n + 1)}
             stormInfo={stormInfo}
             showPlaces={showPlaces}
             onShowPlaces={setShowPlaces}
