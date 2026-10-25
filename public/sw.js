@@ -10,6 +10,8 @@
      xem bản đồ lâu là đầy bộ nhớ máy.
    · asset tĩnh same-origin (_next/static, icon, font, /data) → cache-first.
    · POST + khác origin (map tile nguồn ngoài) → KHÔNG đụng, để mạng lo.
+     Ngoại lệ DUY NHẤT: ẢNH khác origin (destination "image") tra kho bài Kairos
+     đã lưu `kairos-luu-anh-v1` trước, trượt thì đi mạng y như không có SW.
    · /api/admin/* → KHÔNG đụng (xem ghi chú ở nhánh fetch).
 
   BUMP SDFISH_CACHE_V khi nào (làm rõ 2026-08-01): chỉ khi cần XOÁ SẠCH kho vỏ
@@ -131,6 +133,14 @@ const SDFISH_BASEMAP_V = "sdfish-basemap-v2";
     ngoài biển; (2) nhánh fetch để `/tro-ly/*` đi thẳng mạng (xem dưới) — không
     để kho tĩnh cache-first giữ `manifest.json` cũ mãi. */
 const SDFISH_TROLY_V = "sdfish-tro-ly-v1";
+/*  ẢNH BÀI KAIROS ĐÃ LƯU MANG THEO (14 §18, 2026-10-24) — kho do CLIENT tự quản
+    (`src/lib/kairos/luu-anh.ts`: Lưu ⇒ ghi, Bỏ lưu / đăng xuất ⇒ xoá; trần 20 MB
+    tính ở `luu-bai.ts`). SW chỉ có hai việc: (1) `activate` KHÔNG xoá nó — bà con
+    đã chọn mang bài theo, bump vỏ mà mất ảnh là mất đúng thứ họ cất cho chuyến
+    biển; (2) nhánh fetch: ảnh khác origin (kho kairos-media, ảnh bìa báo) tra kho
+    này trước (`kairosLuuAnh`). Tên kho TRÙNG `LUU_ANH_CACHE` — test
+    kairos-luu-bai.test.ts bắt lệch. */
+const SDFISH_KAIROS_LUU_V = "kairos-luu-anh-v1";
 /*  DANH SÁCH KHO PMTILES — nhiều file, KHÔNG phải một (2026-08-30).
 
     LỖI SUÝT DÍNH: nhánh phục vụ Range trước đây gắn cứng vào ĐÚNG MỘT đường
@@ -336,6 +346,10 @@ const CRITICAL_SHELL = [
       suốt, bà con không thấy Sen Biển đâu (bắt được bằng scripts/e2e-sen-bien
       luồng f). 13 KB (hạ từ 226 KB: 512 px → 192 px, đủ nét cho ô 64 px @3x). */
   "/icons/sen-bien.png",
+  /*  CÁ KAIROS (2026-10-25, icon Codex) — ô Kairos trên DOCK là ảnh này, không
+      phải icon nét trong bundle. Không trong vỏ thì ra khơi mất sóng ô dock
+      thành ô trống (alt rỗng) — bà con không thấy mục Kairos đâu. 14 KB. */
+  "/icons/kairos-fish.png",
   /*  BỘ KÝ HIỆU HẢI ĐỒ (2026-09-01) — phao/tiêu/đèn vẽ đúng hình như hải đồ
       giấy. VÀO NHÓM SỐNG-CÒN cùng lý do với chính lớp báo hiệu: thiếu sprite
       thì MapLibre **im lặng không vẽ** icon nào, tức mất TRẮNG cả lớp báo hiệu
@@ -393,6 +407,12 @@ const SHELL = [
   "/nguoi",
   "/tien",
   "/cang",
+  /*  KAIROS (2026-10-23, 14-ba-spec-kairos AC19) — ô thứ hai của dock. Vỏ màn nằm sẵn thì giữa
+      biển bấm Kairos vẫn ra màn, dòng tin đọc bản lưu `forfish.kairos.v1` (chỉ chữ) kèm "Lưu
+      lúc…". CHỈ THÊM URL ⇒ KHÔNG bump SDFISH_CACHE_V (luật đầu file: sw.js đổi byte là trình
+      duyệt cài lại, `c.add` nhét entry mới vào kho đang dùng; bump là xoá vỏ đang chạy được).
+      /api/kairos/* KHÔNG vào API_CACHE_ALLOW — gắn danh tính (hayByMe, mine, chặn). */
+  "/kairos",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
@@ -871,7 +891,9 @@ self.addEventListener("activate", (event) => {
                 // kho nền bản đồ (16,9 MB, tải một lần) — bump vỏ KHÔNG xoá nó
                 k !== SDFISH_BASEMAP_V &&
                 // gói não trợ lý — client tự quản, bump vỏ KHÔNG xoá
-                k !== SDFISH_TROLY_V,
+                k !== SDFISH_TROLY_V &&
+                // ảnh bài Kairos đã lưu mang theo — client tự quản, bump vỏ KHÔNG xoá
+                k !== SDFISH_KAIROS_LUU_V,
             )
             .map((k) => caches.delete(k)),
         ),
@@ -1577,12 +1599,33 @@ function navigationFirst(event) {
   });
 }
 
+/*  Ảnh khác origin: có trong kho bài đã lưu ⇒ trả kho (ngoài khơi đọc bài lưu vẫn
+    thấy ảnh); không có ⇒ `fetch(req)` y như trình duyệt tự làm. `caches.match` có
+    `cacheName` KHÔNG tạo kho rỗng. Ảnh "mờ" (opaque) không được trả cho yêu cầu
+    `cors` (<img crossorigin>) — trình duyệt coi là lỗi mạng — nên lúc đó đi mạng.
+    Mạng có trần ASSET_NETWORK_MS như asset tĩnh (sóng "sống mà chết" không được
+    treo ảnh mãi) — hết giờ / mất sóng ⇒ 504, thẻ <img> hỏng như không có SW. */
+async function kairosLuuAnh(req) {
+  try {
+    const hit = await caches.match(req.url, { cacheName: SDFISH_KAIROS_LUU_V, ignoreVary: true });
+    if (hit && !(hit.type === "opaque" && req.mode === "cors")) return hit;
+  } catch {
+    /* kho hỏng ⇒ mạng */
+  }
+  const res = await raceTimeout(fetch(req), ASSET_NETWORK_MS).catch(() => undefined);
+  return res || new Response("", { status: 504, statusText: "offline" });
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return; // POST (login, gửi yêu cầu) → mạng lo
 
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return; // nguồn ngoài
+  if (url.origin !== self.location.origin) {
+    // nguồn ngoài: KHÔNG đụng — trừ ảnh, có thể nằm trong kho bài Kairos đã lưu
+    if (req.destination === "image" && url.protocol.startsWith("http")) event.respondWith(kairosLuuAnh(req));
+    return;
+  }
 
   const isNavigation = req.mode === "navigate";
   const isApi = url.pathname.startsWith("/api/");

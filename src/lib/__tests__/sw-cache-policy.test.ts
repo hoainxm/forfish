@@ -48,3 +48,17 @@ describe("public/sw.js giữ ĐÚNG bản sao danh sách", () => {
     expect(inSw).not.toContain("/api/admin");
   });
 });
+
+describe("Kairos (14-ba-spec-kairos AC19)", () => {
+  const sw = () => readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");
+  it("màn /kairos nằm trong SHELL (mất sóng vẫn mở được vỏ)", () => {
+    const block = sw().match(/const SHELL = \[([\s\S]*?)\n\];/);
+    expect(block, "sw.js phải có const SHELL = [...]").toBeTruthy();
+    expect([...block![1].matchAll(/^\s*"([^"]+)",/gm)].map((m) => m[1])).toContain("/kairos");
+  });
+  it("/api/kairos/* KHÔNG cache ở SW — gắn danh tính (hayByMe, mine, chặn)", () => {
+    expect(isCacheableApiPath("/api/kairos/feed")).toBe(false);
+    expect(isCacheableApiPath("/api/kairos/new-count")).toBe(false);
+    expect(isCacheableApiPath("/api/kairos/posts/x")).toBe(false);
+  });
+});

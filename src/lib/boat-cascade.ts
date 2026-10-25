@@ -6,6 +6,9 @@
   Ghi thẳng localStorage (các component mounted đọc lại qua effect boats.length).
 */
 
+import { markLocalWrite } from "@/lib/user-sync";
+import type { SyncKind } from "@/lib/user-sync-core";
+
 // Mirror STORAGE_KEY của từng component (giữ đồng bộ thủ công như urgent-strip).
 const FIXED_KEYS = [
   "forfish.documents.v1",
@@ -29,13 +32,24 @@ function read<T>(key: string): T[] {
   return [];
 }
 
-function write(key: string, value: unknown) {
+function write(key: string, value: unknown): boolean {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
     /* storage đầy/tắt → bỏ qua */
+    return false;
   }
 }
+
+/*  Sổ nào đang đồng bộ tài khoản thì xoá xong PHẢI báo `markLocalWrite`
+    (2026-10-24). Trước đây ghi thẳng localStorage rồi thôi: server không hay
+    biết, giấy tờ của tàu đã xoá vẫn nằm trên server ⇒ đăng nhập máy khác (hay
+    máy này nhận lại bản server) là chúng hiện lại ở dải "Việc cần làm". */
+const SYNC_OF: Partial<Record<string, SyncKind>> = {
+  "forfish.documents.v1": "documents",
+  "forfish.maintenance.v1": "maintenance",
+};
 
 /** Xóa hồ sơ cố định của tàu + nhả gán hàng SDVICO. Trả số bản ghi đã đụng. */
 export function purgeBoatData(boatId: string): {
@@ -48,7 +62,10 @@ export function purgeBoatData(boatId: string): {
     const next = items.filter((x) => x.boatId !== boatId);
     if (next.length !== items.length) {
       removed += items.length - next.length;
-      write(key, next);
+      if (write(key, next)) {
+        const kind = SYNC_OF[key];
+        if (kind) markLocalWrite(kind);
+      }
     }
   }
 
@@ -61,7 +78,7 @@ export function purgeBoatData(boatId: string): {
     }
     return p;
   });
-  if (unassigned > 0) write(PRODUCTS_KEY, nextProducts);
+  if (unassigned > 0 && write(PRODUCTS_KEY, nextProducts)) markLocalWrite("materials");
 
   return { removed, unassigned };
 }

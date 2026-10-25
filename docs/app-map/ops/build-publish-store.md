@@ -105,6 +105,7 @@ cd android
 4. **App content** (menu trái) — bắt buộc điền đủ trước khi phát hành:
    - **Privacy policy**: `https://sdfish.sdvico.vn/quyen-rieng-tu` (hoặc tạm `https://forfish.vercel.app/quyen-rieng-tu` cho tới khi xong §6).
    - **Data safety**: khai giống bảng §5.1 (Location, Personal info: phone/name, App activity — **không** dùng để tracking, **không** chia sẻ bên thứ ba quảng cáo).
+   - **Ads** (App content › Ads): từ 2026-10-24 chọn **"Yes, my app contains ads"** — Kairos có bài Tài trợ tự quản (14 §20). Không SDK nên Data safety KHÔNG đổi. App Store: nhãn quyền riêng tư không đổi (không tracking, không dữ liệu dùng cho quảng cáo).
    - **App access**: cung cấp **tài khoản demo** (SĐT + mật khẩu) để reviewer đăng nhập — xem §5.3.
 5. **Review → Rollout**. Bản đầu duyệt vài giờ–vài ngày.
 

@@ -28,18 +28,20 @@ import { loadHome, saveHome } from "@/lib/region";
 import { readToken } from "@/lib/device-token-store";
 import { doanMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { henCauGio } from "@/lib/sen-bien/cau-vui";
-import { cauTruot, chonBuoc, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
-import { chonCauHoi } from "@/lib/sen-bien/gemma";
+import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
+import { chonKho } from "@/lib/sen-bien/gemma";
 import { senBienReply, senNgramCtx } from "@/lib/sen-bien/hieu-y";
 import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
 import { lamLenhCho, type ChoKetQua } from "@/lib/sen-bien/lam-cho";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
-import { guessIntent } from "@/lib/sen-bien/ngram";
+import { doTin, guessIntent } from "@/lib/sen-bien/ngram";
 import { useAuthUser } from "@/lib/use-auth";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
-import { ttsSpeak, ttsSpeakMp3, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
+import { ttsCancel, ttsSpeak, ttsSpeakMp3, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { anKhiCuon } from "@/lib/sen-bien/an-khi-cuon";
+import { KAIROS_CACHE_KEY, parseCache } from "@/lib/kairos/cache";
+import { hieuTimTinKairos, traLoiTinKairos } from "@/lib/kairos/tim-tin";
 
 const LOAI_CA = Object.keys(SPECIES_META);
 const CHAO = "Sen Biển giúp gì được cho bạn?";
@@ -142,9 +144,12 @@ export function SenBienToanApp() {
   const truot = useRef(0);
   /** lượt đọc hiện tại — câu mới cắt câu cũ (ttsSpeak) thì onEnd của câu cũ đến SAU, không được tắt cờ của câu mới */
   const luotDoc = useRef(0);
+  /** câu vừa đọc — "nhắc lại" đọc lại đúng câu này */
+  const cauCuoi = useRef("");
   /** `daXong` — gọi khi câu này đọc hết / bị cắt (câu giờ báo để câu trả lời nói SAU nó, không đè) */
   const noi = useCallback((t: string, ngheTiep = true, daXong?: () => void) => {
     if (!t) return daXong?.();
+    cauCuoi.current = t;
     const luot = ++luotDoc.current;
     setDangDoc(true);
     ttsSpeak(t, {
@@ -167,8 +172,12 @@ export function SenBienToanApp() {
   useEffect(() => {
     const t = setTimeout(() => {
       if ((navigator as unknown as { connection?: { saveData?: boolean } }).connection?.saveData) return;
+      // kho hỏi–đáp + bộ lọc cũng nạp sẵn (rà "chậm" 2026-10-24: câu hỏi kiến thức đầu tiên từng chờ tải 5 MB, tới 20 s)
       void loadSenBienModel()
-        .then(() => warmVoiceClips())
+        .then(() => {
+          boKhoSan();
+          return warmVoiceClips();
+        })
         .catch(() => undefined);
     }, TAI_SAN_MS);
     return () => clearTimeout(t);
@@ -221,19 +230,63 @@ export function SenBienToanApp() {
 
   /** số lượt nghe — câu máy nhà về muộn của lượt cũ không được đọc chèn câu mới (luong-tra-loi.luotMoi) */
   const luotNghe = useRef(0);
+  /** lượt đang chờ máy nhà — lượt mới / bà con đóng thẻ thì ngắt */
+  const huyRef = useRef<AbortController | null>(null);
+  /*  BÀ CON ĐÓNG THẺ (×, vuốt, Esc): thôi hết — bỏ lượt đang nghĩ (câu về muộn không đọc), ngắt câu hỏi máy nhà, im loa.
+      Trước đây đóng thẻ mà câu trả lời vẫn đọc tiếp sau đó, chen cả câu chào lần mở sau (rà "chồng chéo" 2026-10-24). */
+  const dongTay = useCallback(() => {
+    luotNghe.current++;
+    huyRef.current?.abort();
+    huyRef.current = null;
+    luotDoc.current++;
+    setDangDoc(false);
+    ttsCancel();
+    dong();
+  }, [dong]);
   const onHeard = useCallback(
-    async (text: string): Promise<SenHeard> => {
+    async (text: string, o?: { tu: boolean }): Promise<SenHeard> => {
       const conLuot = luotMoi(luotNghe);
+      huyRef.current?.abort();
+      const huy = typeof AbortController === "undefined" ? null : new AbortController();
+      huyRef.current = huy;
       truot.current = 0;
+      // micro tự mở sau câu trả lời thu "ừm"/"ờ"/"cảm ơn" ⇒ không phải câu hỏi mới: khép cuộc nói, không trả lời
+      const dem = o?.tu ? laCauDem(text) : null;
+      if (dem) {
+        if (dem === "cam_on") noi(DAP_CAM_ON, false);
+        dong();
+        return null;
+      }
+      /*  TÌM TIN KAIROS (14 §15): "bài về câu mực", "tin Kairos về Lý Sơn", "đọc báo" ⇒ lọc BẢN LƯU dòng tin
+          (forfish.kairos.v1) — không mạng, mất sóng vẫn chạy — đọc 2–3 bài rồi mở bài đầu. Luật từ khoá đòi dấu hiệu
+          Kairos rõ; "có tin bão gì không" trần KHÔNG vào đây (tin bão chính thức trả lời, lib/kairos/tim-tin.ts). */
+      const tk = hieuTimTinKairos(text);
+      if (tk) {
+        let cache: ReturnType<typeof parseCache> = null;
+        try {
+          // đọc thẳng qua cache.ts (không qua feed-client — khỏi kéo danh mục cảng vào gói chung mọi màn)
+          cache = parseCache(window.localStorage.getItem(KAIROS_CACHE_KEY), phone);
+        } catch {
+          // chế độ riêng tư chặn đọc ⇒ coi như chưa có bản lưu
+        }
+        const kq = traLoiTinKairos(tk, cache, Date.now());
+        ghiMau(text, { tra: "kairos", ct: tk.chuDe ?? undefined });
+        noi(kq.noi);
+        if (kq.den !== pathname) router.push(kq.den);
+        return { show: kq.noi };
+      }
       const cho = hieuLenhCho(text);
       if (cho) {
         ghiMau(text, { tra: "cho", ct: cho.k });
-        return choRaThe(await lamLenhCho(cho, phone));
+        const kqCho = await lamLenhCho(cho, phone);
+        if (!conLuot()) return null;
+        return choRaThe(kqCho);
       }
       const model = await loadSenBienModel();
-      // cổng phụ (n-gram v4): luật hụt câu mà mô hình chắc là việc sàn ⇒ hỏi lại kèm câu mẫu, không đoán làm hộ
+      if (!conLuot()) return null;
+      // cổng phụ (n-gram): luật hụt câu mà mô hình CHẮC (không phân vân — doTin) là việc sàn ⇒ hỏi lại kèm câu mẫu
       const g = model ? guessIntent(model, text) : null;
-      const hoiLai = g ? hoiLaiCho(g.y, g.conf) : null;
+      const hoiLai = g ? hoiLaiCho(g.y, doTin(g)) : null;
       if (hoiLai) {
         ghiMau(text, { tra: "say", ct: g!.y });
         noi(hoiLai);
@@ -243,6 +296,22 @@ export function SenBienToanApp() {
       const r = goLenhNgan(text, senBienReply(text, model, [], null, { awaitingGo: false, running: false, loaiCa: LOAI_CA }), boKhoSan()?.loc ?? null, senNgramCtx([]));
       // câu việc bản đồ: màn bản đồ ghi lại khi chạy ?sen= ⇒ ở đây không ghi, khỏi đếm hai lần
       if (!veBanDo(r)) ghiMau(text, r);
+      /*  LỆNH NGẮN ở màn toàn app (rà "trả lời sai" 2026-10-24: trước đây ra câu rỗng ⇒ Sen Biển im): nhắc lại = đọc lại
+          câu vừa nói · im = thôi nói, khép thẻ · bật tiếng = đáp một câu. */
+      if (r.kind === "repeat") {
+        const t = cauCuoi.current || "Sen Biển chưa nói gì.";
+        noi(t);
+        return { show: t };
+      }
+      if (r.kind === "mute") {
+        ttsCancel();
+        dong();
+        return null;
+      }
+      if (r.kind === "unmute") {
+        noi(r.say);
+        return { show: r.say };
+      }
       if (veBanDo(r)) {
         noi("Mở bản đồ.", false);
         dong();
@@ -255,7 +324,8 @@ export function SenBienToanApp() {
           trong app không phải chờ tải 5 MB. */
       const ctxN = senNgramCtx([]);
       const bo = r.kind !== "say" || r.daTraLoi ? null : r.y === "hoi_mo" || r.y === "khong_hieu" ? await loadBoKho() : boKhoSan();
-      const kq = await hoiKho(text, r, bo, ctxN, chonCauHoi);
+      const online = typeof navigator === "undefined" || navigator.onLine !== false;
+      const kq = await hoiKho(text, r, bo, ctxN, chonKho, online && !!readToken());
       if (!conLuot()) return null;
       if (kq.vao && kq.dap) {
         noi(kq.dap.say);
@@ -276,9 +346,9 @@ export function SenBienToanApp() {
       const a = traLoiApp(text, r, gomSnapshot(pathname), { awaitingConfirm: false, boatNames: boats, portNames: [], placeNames: places, route: pathname }, Date.now());
       const buoc = chonBuoc({
         r,
-        conf: g?.conf ?? null,
+        conf: g ? doTin(g) : null,
         coApp: a != null,
-        online: typeof navigator === "undefined" || navigator.onLine !== false,
+        online,
         coChuoi: !!readToken(),
         text,
       });
@@ -292,7 +362,7 @@ export function SenBienToanApp() {
         // mới đọc câu trả lời — không cắt giữa chữ (anh Long 2026-10-23: "chồng lấn giữa 2 câu")
         let dangCho = true;
         const xongGio = henCauGio((c, xong) => noi(c, false, xong), () => dangCho && conLuot());
-        const kqN = await hoiMayChu(text, pathname, loadHome().province ?? null);
+        const kqN = await hoiMayChu(text, pathname, loadHome().province ?? null, huy?.signal);
         dangCho = false;
         await xongGio();
         if (!conLuot()) return null;
@@ -363,7 +433,7 @@ export function SenBienToanApp() {
           onPick={dong}
           onStart={dong}
           onCancel={dong}
-          onClose={dong}
+          onClose={dongTay}
         />
       )}
     </div>

@@ -7,7 +7,9 @@ export type ConfigKey =
   | "vapid_subject"
   | "cron_secret"
   | "data_key_current"
-  | "data_key_prev";
+  | "data_key_prev"
+  | "kairos_ingest_key"
+  | "sdvico_lead_key";
 
 export interface ConfigKeyMeta {
   key: ConfigKey;
@@ -21,6 +23,11 @@ export interface ConfigKeyMeta {
   generate?: "hex32";
   /** HẬU QUẢ nếu lưu sai — hiện ở bước xác nhận trước khi ghi (2026-09-17) */
   risk: string;
+  /**
+   * true = ENV THẮNG DB (ngược luật chung "DB đè env"). Chỉ khoá nhập tin Kairos: máy GPU giữ
+   * khoá trong tệp env của nó, deploy đặt env cùng giá trị để đổi khoá không phụ thuộc DB.
+   */
+  envFirst?: boolean;
 }
 
 export const CONFIG_KEYS: ConfigKeyMeta[] = [
@@ -79,6 +86,32 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     envVar: "SDFISH_DATA_KEY_PREV",
     help: "Tự chuyển từ khoá hiện hành khi đổi khoá — máy đã tải file bằng khoá cũ vẫn đọc được. Xoá bằng cách dán một khoá mới đè lên.",
   },
+  /*  KHOÁ NHẬP TIN KAIROS (14 §9, AC17/AC21/AC24, 2026-10-23): máy GPU nhà gửi bài báo đã
+      tóm tắt lên /api/kairos/nhap và quyết định kiểm duyệt lên /api/kairos/kiem, kèm khoá
+      này ở header `x-kairos-key`. Env KAIROS_INGEST_KEY đặt thì ĐÈ ô này (lib/kairos/
+      ingest-key.ts). Thiếu cả hai ⇒ hai route trả 503, không bao giờ mở cửa. */
+  {
+    key: "kairos_ingest_key",
+    label: "Khoá nhập tin Kairos",
+    risk: "Đổi khoá mà chưa đổi trên máy thu tin ở nhà là Kairos ngừng nhận tin báo mới và agent kiểm duyệt ngừng chạy.",
+    secret: true,
+    envVar: "KAIROS_INGEST_KEY",
+    envFirst: true,
+    generate: "hex32",
+    help: "Máy thu tin trên máy GPU gửi kèm khoá này. Bấm Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào tệp env của máy GPU (KAIROS_INGEST_KEY).",
+  },
+  /*  KHOÁ LẤY PHIẾU KHÁCH SDVICO (14 §3.14, 0072, 2026-10-25): AI Assistant (máy nhà) lấy phiếu khách hỏi sản phẩm qua
+      GET /api/sdvico/khach-hoi và báo đã nhắn nhóm Zalo KD qua POST …/da-bao, kèm khoá ở header `x-sdvico-key`. Thiếu
+      khoá ⇒ hai route 503 (phiếu vẫn nhận, nằm chờ). */
+  {
+    key: "sdvico_lead_key",
+    label: "Khoá lấy phiếu khách SDVICO",
+    risk: "Đổi khoá mà chưa đổi bên AI Assistant là phiếu khách hỏi không còn được chuyển sang nhóm Zalo KD (phiếu vẫn lưu, nằm chờ).",
+    secret: true,
+    envVar: "SDVICO_LEAD_KEY",
+    generate: "hex32",
+    help: "AI Assistant gửi kèm khoá này (header x-sdvico-key) khi lấy phiếu khách để nhắn nhóm Zalo KD. Bấm Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào cấu hình AI Assistant.",
+  },
 ];
 
 /** Khoá dữ liệu phải đúng 64 ký tự hex (32 byte). */
@@ -108,6 +141,10 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
       return /^(mailto:[^\s@]+@[^\s@]+|https:\/\/\S+)$/.test(v);
     case "cron_secret":
       return v.length >= 16 && !/\s/.test(v);
+    case "kairos_ingest_key":
+    case "sdvico_lead_key":
+      // khoá chung với máy GPU / AI Assistant — đủ dài để không đoán được, không khoảng trắng (dán lỗi)
+      return v.length >= 32 && v.length <= 200 && !/\s/.test(v);
     default:
       return true;
   }
@@ -142,21 +179,52 @@ export interface ConfigStatusRow {
   value: string | null;
   generate?: "hex32";
   risk: string;
+  /** env thắng DB với khoá này (ConfigKeyMeta.envFirst) */
+  envFirst: boolean;
+  /** tên env cùng nghĩa — trang quản trị nói rõ khoá nào đang thắng */
+  envVar: string;
+  /** cả DB lẫn env đều có giá trị ⇒ bên thua đang bị BỎ QUA */
+  overridden: boolean;
 }
 
-/** Nguồn hiệu lực của một khoá: DB đè env; giá trị secret KHÔNG trả ra. */
+/**
+ * Nguồn hiệu lực của một khoá: DB đè env (mặc định), hoặc env đè DB khi `envFirst`; giá trị
+ * secret KHÔNG trả ra. `overridden` = cả hai bên cùng có — bên thua không có hiệu lực.
+ */
 export function resolveConfigCell(
   dbVal: string | undefined,
   envVal: string | undefined,
   secret: boolean,
-): { source: "db" | "env" | "none"; value: string | null; set: boolean } {
+  envFirst = false,
+): { source: "db" | "env" | "none"; value: string | null; set: boolean; overridden: boolean } {
   const d = dbVal?.trim();
   const e = envVal?.trim();
-  const source = d ? "db" : e ? "env" : "none";
+  const source = envFirst ? (e ? "env" : d ? "db" : "none") : d ? "db" : e ? "env" : "none";
   return {
     source,
     set: source !== "none",
-    value: secret ? null : d || e || null,
+    value: secret ? null : (source === "db" ? d : source === "env" ? e : null) || null,
+    overridden: !!d && !!e,
+  };
+}
+
+/**
+ * Câu nói THỨ TỰ ƯU TIÊN cho trang quản trị — khoá nào thắng thì nói khoá đó (sửa 2026-10-24:
+ * trang ghi "DB đè env" cho mọi ô, nhưng khoá nhập tin Kairos thì env đè DB). `warn` khi bên
+ * thua đang có giá trị: lưu ô này mà env thắng thì ô KHÔNG có hiệu lực.
+ */
+export function configPrecedenceText(row: Pick<ConfigStatusRow, "envFirst" | "envVar" | "overridden">): { order: string; warn: string | null } {
+  if (row.envFirst) {
+    return {
+      order: `Thứ tự: env ${row.envVar} trên máy chủ (nếu đặt) thắng ô này.`,
+      warn: row.overridden
+        ? `Env ${row.envVar} đang đè — giá trị trong ô này KHÔNG có hiệu lực. Muốn dùng ô này: xoá env ${row.envVar} trên máy chủ rồi deploy lại.`
+        : null,
+    };
+  }
+  return {
+    order: `Thứ tự: ô này thắng env ${row.envVar}.`,
+    warn: row.overridden ? `Ô này đang đè env ${row.envVar} (env bị bỏ qua).` : null,
   };
 }
 

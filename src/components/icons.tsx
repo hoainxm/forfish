@@ -312,6 +312,17 @@ export function RouteIcon(p: IconProps) {
   );
 }
 
+// Ảnh (khung + núi + mặt trời) — nút thêm ảnh ở thanh công cụ khung soạn bài.
+export function ImageIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <circle cx="9" cy="9.5" r="1.6" />
+      <path d="m4 17 4.5-4.5 3.5 3.5 2.5-2.5L20 18" />
+    </svg>
+  );
+}
+
 export function PinIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
@@ -624,6 +635,48 @@ export function SendIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
       <path d="M4 12h15M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+/* ── KAIROS (14-ba-spec-kairos, 2026-10-23) ── */
+
+/** Tờ báo gấp — ô Kairos ở dock (đọc báo + bà con đăng bài). */
+export function NewsIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 5h13v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V5Z" />
+      <path d="M17 9h3v9a2 2 0 0 1-2 2" />
+      <path d="M7.5 9h6M7.5 12.5h6M7.5 16h4" />
+    </svg>
+  );
+}
+
+/** Ngón cái — nút "Hay" (một kiểu duy nhất, AC09). */
+export function ThumbIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M7 10v10H4V10h3Z" />
+      <path d="M7 10l4-7c1.4 0 2.4 1.1 2.2 2.5L12.8 9H19a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7" />
+    </svg>
+  );
+}
+
+/** Bong bóng lời — bình luận. */
+export function CommentIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 5h16v11H9l-5 4V5Z" />
+    </svg>
+  );
+}
+
+/** Mũi tên ra khỏi hộp — chia sẻ / mở bài gốc. */
+export function ShareIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" />
+      <path d="M5 12v8h14v-8" />
     </svg>
   );
 }

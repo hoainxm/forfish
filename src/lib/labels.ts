@@ -35,6 +35,8 @@ export const NHAN = {
   chon: "Chọn",
   chep: "Chép",
   chiaSe: "Chia sẻ",
+  camDang: "Cấm đăng",
+  cangNha: "Cảng nhà",
   // tài khoản
   dangNhap: "Đăng nhập",
   dangKy: "Đăng ký",
@@ -76,8 +78,81 @@ export const NHAN = {
   saoLuu: "Sao lưu",
   taiXuong: "Tải xuống",
   caiApp: "Cài app",
+  moApp: "Mở app",
   huongDan: "Hướng dẫn",
   chinhSach: "Chính sách",
+  // dock 6 mục (lib/dock-nav.ts) — chỉ icon, tên đọc qua aria-label
+  trangChu: "Trang chủ",
+  kairos: "Kairos",
+  banDo: "Bản đồ",
+  tauToi: "Tàu tôi",
+  choCa: "Chợ cá",
+  vatTu: "Vật tư",
+  // Kairos (14-ba-spec-kairos) — chân thẻ bài
+  hay: "Hay",
+  binhLuan: "Bình luận",
+  chinhThuc: "Chính thức",
+  ghim: "Ghim",
+  dangNong: "Đang nóng",
+  // Kairos — đăng bài, bình luận, chia sẻ, hồ sơ (AC07–AC15)
+  dang: "Đăng",
+  dangGui: "Đang gửi",
+  dangTai: "Đang tải",
+  dangMo: "Đang mở",
+  anh: "Ảnh",
+  canSong: "Cần sóng",
+  dongY: "Đồng ý",
+  traLoi: "Trả lời",
+  dangLai: "Đăng lại",
+  guiDi: "Gửi đi",
+  chepLink: "Chép link",
+  taiAnh: "Tải ảnh",
+  baoXau: "Báo xấu",
+  chan: "Chặn",
+  boChan: "Bỏ chặn",
+  theoDoi: "Theo dõi",
+  doiTen: "Đổi tên",
+  doiAnh: "Đổi ảnh",
+  boAnh: "Bỏ ảnh",
+  bo: "Bỏ",
+  trangToi: "Trang tôi",
+  // Kairos — nút bánh răng "Tuỳ chọn dòng tin" (14 §13, aria-label/title — nút chỉ icon)
+  tuyChon: "Tuỳ chọn",
+  // Kairos — chuông chỉ 2 loại tin: bình luận bài mình / trả lời mình (14 §16, aria-label/title — nút chỉ icon)
+  thongBao: "Thông báo",
+  // Kairos — nhãn bài Tài trợ, BẮT BUỘC trên mọi thẻ quảng cáo (14 §20, Luật Quảng cáo 75/2025)
+  taiTro: "Tài trợ",
+  // Kairos — trang cá nhân kiểu Facebook (14 §3.8, AC13 bản 2026-10-24)
+  baiViet: "Bài viết",
+  gioiThieu: "Giới thiệu",
+  deSau: "Để sau",
+  cungCang: "Cùng cảng",
+  // Kairos — lưu bài mang theo + tải tin mang đi (14 §18–§19). "Lưu" / "Đã lưu" / "Để sau" dùng nhãn chung ở trên
+  boLuu: "Bỏ lưu",
+  tai: "Tải",
+  // Kairos — khung soạn: × khi đã viết hỏi Lưu nháp · Bỏ bài · Viết tiếp; hộp gắn cảng có dòng "Không gắn" (14 §3.3)
+  luuNhap: "Lưu nháp",
+  boBai: "Bỏ bài",
+  vietTiep: "Viết tiếp",
+  khongGan: "Không gắn",
+} as const;
+
+/**
+ * Nhãn chip Kairos theo mã chip (`lib/kairos/thoi-quen.ts` CHIPS). Bảng riêng vì "Nghề cá",
+ * "Đời sống"… cũng là TÊN CHỦ ĐỀ trên thẻ bài — đọc chung một bảng, khỏi lệch.
+ */
+export const NHAN_CHIP_KAIROS = {
+  moi: "Mới",
+  "nghe-ca": "Nghề cá",
+  "cang-toi": "Cảng tôi",
+  "gan-toi": "Gần tôi",
+  "theo-doi": "Theo dõi",
+  "thoi-su": "Thời sự",
+  "phap-luat": "Pháp luật",
+  "doi-song": "Đời sống",
+  "the-thao": "Thể thao",
+  "giai-tri": "Giải trí",
+  "kinh-te": "Kinh tế",
 } as const;
 
 export type NhanId = keyof typeof NHAN;

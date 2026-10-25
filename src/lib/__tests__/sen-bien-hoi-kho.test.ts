@@ -126,8 +126,6 @@ describe("(b) vào kho: v4 hoi_mo, hoặc bộ lọc ≥ LOC_NGUONG khi v4 lạc
 describe("lọc đè ĐÚNG hai luật lệnh ngắn bắt nhầm đuôi câu hỏi (chủ dự án 2026-10-19)", () => {
   const go = (cau: string, l = loc) => goLenhNgan(cau, r4(cau), l, {});
   it.each([
-    ["máy giám sát hành trình là gì vậy", "repeat", "sdvico_thiet_bi-002"], // v5c: «gắn trên tàu để làm gì» (chủ đề SDVICO mới)
-    ["con nước rong là gì vậy", "repeat", null], // lọc 0,799 < 0,8 ⇒ vẫn là nhắc lại (ngưỡng giữ chặt)
     ["nhớt máy thay bao lâu một lần", "howfar", "may_tau-004"],
     ["đăng kiểm tàu bao lâu một lần", "howfar", "giay_to_tau-012"],
   ])("%s (luật cũ: %s) ⇒ tới kho", async (cau, luat, id) => {
@@ -137,6 +135,14 @@ describe("lọc đè ĐÚNG hai luật lệnh ngắn bắt nhầm đuôi câu h�
     expect(r).toEqual({ kind: "say", say: CAU_CHUA_CHAC, y: "hoi_mo" });
     const kq = await hoiKho(cau, r, BO, {}, null);
     expect(kq.vao && kq.dap?.id).toBe(id);
+  });
+  // 2026-10-24: luật "nhắc lại" chỉ còn bắt câu NGẮN (≤5 chữ) ⇒ "…là gì vậy" không bị bắt từ đầu, khỏi cần lọc gỡ
+  it("câu hỏi dài đuôi 'là gì vậy' không còn là nhắc lại — đi thẳng tới kho / câu hỏi", async () => {
+    const cau = "máy giám sát hành trình là gì vậy";
+    expect(r4(cau).kind).not.toBe("repeat");
+    const kq = await hoiKho(cau, go(cau), BO, {}, null);
+    expect(kq.vao && kq.dap?.id).toBe("sdvico_thiet_bi-002");
+    expect(r4("con nước rong là gì vậy").kind).not.toBe("repeat");
   });
   it("câu cần kiểm / chưa duyệt qua đường này vẫn ra câu an toàn", async () => {
     const cau = "giấy phép khai thác bao lâu phải gia hạn"; // v5c: giay_to_tau-017 cần kiểm, chưa duyệt

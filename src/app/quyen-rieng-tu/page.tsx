@@ -15,6 +15,7 @@ export const metadata = {
   mục đích + không chia sẻ để tracking. Trước đây app KHÔNG có → reject.
 
   Nội dung PHẢI khớp thực tế (đối chiếu ops/native-deploy.md §5a + code):
+   · Bài Tài trợ Kairos (2026-10-24, 14 §20) là nội dung SDVICO tự đăng — KHÔNG phải SDK/mạng quảng cáo.
    · Không SDK quảng cáo/analytics/attribution (AdMob/Firebase/FB/AppsFlyer/
      Adjust/Sentry/GA đều KHÔNG có) → không tracking theo định nghĩa Apple.
    · Sổ (hồ sơ tàu/giấy tờ/thuyền viên gồm CCCD/bảo dưỡng/vật tư) nằm localStorage
@@ -32,7 +33,7 @@ export const metadata = {
   Cập nhật nội dung ở ĐÂY thì đổi luôn "Cập nhật lần cuối" bên dưới.
 */
 
-const UPDATED = "17/10/2026";
+const UPDATED = "24/10/2026";
 
 function Section({
   id,
@@ -88,8 +89,10 @@ export default function QuyenRiengTuPage() {
               được, đổi/mất máy vẫn còn.
             </li>
             <li>
-              App <b>không chứa quảng cáo</b>, <b>không theo dõi người dùng</b> bà con, không
-              bán dữ liệu cho ai.
+              Kairos có <b>bài Tài trợ</b> do SDVICO tự đăng (luôn ghi chữ <b>Tài trợ</b> và tên nhà tài trợ; có
+              thể là đường dẫn tiếp thị liên kết, ví dụ Shopee). Bài Tài trợ <b>không nhắm theo người đọc</b>, không
+              đếm lượt xem hay lượt bấm — ai cũng thấy như nhau. App <b>không theo dõi người dùng</b> bà con, không
+              bán dữ liệu cho ai. Bấm vào bài Tài trợ thì trang đích (của nhà tài trợ) áp dụng chính sách của họ.
             </li>
             <li>
               Vị trí GPS chỉ dùng để <b>tự động căn chỉnh bản đồ và cung cấp thông tin gió sóng đúng khu vực</b> —
@@ -129,6 +132,11 @@ export default function QuyenRiengTuPage() {
               về chỗ mình đứng và hỏi gió sóng theo toạ độ. <b>Không lưu lại,
               không gắn với tài khoản.</b>
             </li>
+            <li>
+              <b>Bài đã xem trên Kairos</b> — khi bà con đã đăng nhập: bài nào hiện trên màn, bài nào bà con
+              mở đọc và đọc bao lâu. Chỉ dùng để <b>xếp dòng tin Kairos cho chính bà con</b> (đưa tin hợp với
+              mình lên trước), giữ <b>90 ngày</b> rồi tự xoá, không chia cho ai khác. Khách chưa đăng nhập: không lưu.
+            </li>
           </ul>
           <p>
             App <b>cam kết không</b> đọc kho ảnh, danh bạ, tin nhắn hay lịch sử duyệt web
@@ -144,6 +152,7 @@ export default function QuyenRiengTuPage() {
             <li>Hỗ trợ tự động hiển thị bản đồ biển, dự báo thời tiết tại đúng khu vực tàu đang hoạt động.</li>
             <li>Tính năng nhắc nhở khi đến hạn giấy tờ, bảo hiểm, bảo dưỡng định kỳ.</li>
             <li>Hỗ trợ kết nối bà con với đội ngũ chăm sóc khách hàng của SDVICO khi có yêu cầu.</li>
+            <li>Xếp dòng tin Kairos theo bài bà con hay đọc và theo cảng nhà.</li>
           </ul>
           <p>
             <b>Không sử dụng</b> dùng dữ liệu cho quảng cáo, không xây hồ sơ theo dõi hành
@@ -267,8 +276,9 @@ export default function QuyenRiengTuPage() {
             stored <b>on your device</b>. Precise location is used only, with your
             permission, to center the map and fetch marine weather for that spot —
             it is <b>not stored and not linked to your account</b>. We do{" "}
-            <b>not</b> track you, show ads, or sell data. No advertising or
-            analytics SDKs are present. Data is shared only with Supabase (auth
+            <b>not</b> track you or sell data. Kairos shows clearly labelled <b>Sponsored</b> posts placed by SDVICO
+            itself (may include affiliate links, e.g. Shopee) — not targeted, no view or click counting. No
+            advertising or analytics SDKs are present. Data is shared only with Supabase (auth
             &amp; hosting), SDVICO&apos;s internal CRM, and public weather/marine
             APIs which receive <b>coordinates only</b>. To delete your account,
             call SDVICO {SDVICO_HOTLINE_DISPLAY}. Last updated: {UPDATED}.

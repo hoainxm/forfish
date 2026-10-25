@@ -856,7 +856,7 @@ export function ttsSpeak(
  */
 export function ttsSpeakMp3(
   doan: readonly { text: string; mp3: Promise<string | null> }[],
-  opts: { onEnd?(completed: boolean): void; rate?: number } = {},
+  opts: { onEnd?(completed: boolean): void; rate?: number; /** trần cả lượt (mặc định MAX_UTTER_MS) — đọc cả bài báo cần dài hơn */ maxMs?: number } = {},
 ): () => void {
   activeCancel?.();
   phienPhat();
@@ -886,7 +886,7 @@ export function ttsSpeakMp3(
     return () => {};
   }
   const rate = opts.rate ?? TTS_RATE;
-  timers.push(setTimeout(cancel, MAX_UTTER_MS));
+  timers.push(setTimeout(cancel, opts.maxMs ?? MAX_UTTER_MS));
   let i = 0;
   const next = () => {
     if (ended) return;

@@ -58,6 +58,14 @@
   --cadence-day: #eab308; /* 🟨 theo ngày */
   --cadence-fixed: #64748b; /* ⬛ cố định, không đổi theo ngày */
   --fish: #2d8659; /* xanh lá — cá/ngư trường (Phương án A) */
+  /*  ẢNH ĐẠI DIỆN CHỮ CÁI của Kairos (14-ba-spec-kairos §3.7, A15) — chữ trắng đậm trên nền,
+      mỗi nền ≥4.5:1 với trắng. Chọn nền theo băm profileId (lib/kairos/feed-client avatarTone). */
+  --kairos-av-1: #086e73; /* teal thương hiệu */
+  --kairos-av-2: #1d5f8a; /* xanh biển */
+  --kairos-av-3: #6b4a9e; /* tím */
+  --kairos-av-4: #9a4a16; /* nâu cam */
+  --kairos-av-5: #2b6e3f; /* xanh lá */
+  --kairos-av-6: #8a3a55; /* mận */
   /*  Chấm "Tất cả các loài" trong bảng chọn loài = dải màu thang mật độ cá trên
       bản đồ (nhạt → đậm). Dời từ hex rời trong fish-species-sheet (rà Codex lần 8). */
   --fish-all-from: #95d5b2;
@@ -445,6 +453,29 @@ textarea,
 .anim-pop-out { animation: sdf-pop-out 140ms var(--ease-out) both; }
 .anim-fade-in { animation: sdf-scrim-in 180ms var(--ease-out) both; }
 
+/*  CÁ KAIROS (mẫu chuyển động Codex 2026-10-25, components/kairos/kairos-fish-icon.tsx):
+    · vào = mở màn /kairos: cá lướt từ trái-dưới về chỗ 340 ms, scale .94→1, mờ 0→1 — chỉ
+      transform + opacity; nội dung hiện ngay, không chờ cá.
+    · bơi = CHỈ khi thật sự chờ dữ liệu (chưa có bài nào): trôi nhẹ 1,5 s lặp — mất sóng/lỗi/
+      có bài thì hàng chờ không vẽ nên cá đứng yên, không quay vô hạn.
+    · tin hiện = dòng tin trượt lên 0.375rem trong 220 ms khi đổi trạng thái chờ → có bài.
+    Block prefers-reduced-motion bên dưới: bơi tắt hẳn, vào/tin hiện thành mờ dần ngắn. */
+@keyframes sdf-ca-vao {
+  from { opacity: 0; transform: translate(-0.6rem, 0.25rem) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sdf-ca-boi {
+  0%, 100% { transform: translate(-0.15rem, 0.1rem); }
+  50% { transform: translate(0.25rem, -0.1rem); }
+}
+@keyframes sdf-tin-hien {
+  from { opacity: 0; transform: translateY(0.375rem); }
+  to { opacity: 1; transform: none; }
+}
+.anim-ca-vao { animation: sdf-ca-vao 340ms var(--ease-out) both; }
+.anim-ca-boi { animation: sdf-ca-boi 1500ms ease-in-out infinite; }
+.anim-tin-hien { animation: sdf-tin-hien 220ms var(--ease-out) both; }
+
 /*  NHỊP THỞ NÚT TRỢ LÝ (03 §Trợ lý trong app, luật 11) — báo "có tôi ở đây" mà
     KHÔNG phiền. Đúng 3 nhịp × 1,4s = 4,2s rồi dừng hẳn: WCAG 2.2.2 (mức A) cấm
     chuyển động tự chạy quá 5 giây mà không có cách dừng. Nhịp là quầng sáng nở
@@ -498,7 +529,9 @@ textarea,
   .anim-pop-in,
   .anim-giot,
   .anim-fade-in,
-  .anim-scrim-in {
+  .anim-scrim-in,
+  .anim-ca-vao,
+  .anim-tin-hien {
     animation: sdf-scrim-in 120ms linear both !important;
   }
   .anim-sheet-out,
@@ -509,6 +542,7 @@ textarea,
   .anim-song,
   .anim-vong,
   .anim-fab-tho,
+  .anim-ca-boi,
   .sen-icon::before,
   .sen-icon::after {
     animation: none !important;

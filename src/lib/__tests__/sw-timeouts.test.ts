@@ -169,8 +169,8 @@ describe("cổng tự soi — bộ dò còn nhìn thấy mã không", () => {
 
   it("đếm được các nhánh respondWith (không phải 0 nhánh rồi kêu xanh)", () => {
     expect(BRANCHES.length).toBeGreaterThan(0);
-    // năm nhánh: ô bản đồ · nền .pmtiles · điều hướng · /api · asset tĩnh
-    expect(BRANCHES.length, "số nhánh respondWith đổi — soát lại cổng").toBe(5);
+    // sáu nhánh: ảnh khác origin (kho bài Kairos đã lưu, 2026-10-24) · ô bản đồ · nền .pmtiles · điều hướng · /api · asset tĩnh
+    expect(BRANCHES.length, "số nhánh respondWith đổi — soát lại cổng").toBe(6);
     for (const b of BRANCHES) expect(b.trim().length).toBeGreaterThan(0);
   });
 });

@@ -3,6 +3,7 @@
 > **Mục đích / Purpose**: Định nghĩa canonical về sản phẩm ForFish — bốn lời hứa, thứ tự build, nguồn dữ liệu và quy tắc adapter, vòng lặp giá trị giữa các trục.
 
 **Load khi / Load when**: cần hiểu scope một trục, quyết định feature thuộc trục nào, đụng tới data vendor (OceanByte, SDWork), hoặc viết copy/positioning.
+<!-- re-verified: 2026-10-24m — KAIROS CÓ BÀI TÀI TRỢ (anh Long: "t muốn kairos có ads"): quảng cáo tự quản do SDVICO đăng (đại lý vật tư, link Shopee tiếp thị liên kết) — thêm một nguồn thu bên cạnh premium + Chợ vật tư; không SDK, không nhắm, không đếm (14 §20). Link Shopee chỉ nên cho món Chợ vật tư CHƯA bán — không kéo khách khỏi Chợ. -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 
 ---

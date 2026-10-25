@@ -20,7 +20,8 @@ describe("normalizePermissions — fail-closed + preset mặc định", () => {
       for (const tab of MANAGER_TABS) {
         expect(p[tab]).toEqual({
           view: true,
-          create: true,
+          // kairos: create = đăng bài Chính thức đứng tên SDVICO — preset KHÔNG cấp (2026-10-23)
+          create: tab !== "kairos",
           edit: true,
           delete: false,
         });

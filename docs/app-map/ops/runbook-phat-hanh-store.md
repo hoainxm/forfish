@@ -175,7 +175,7 @@ Upload lên [play.google.com/console](https://play.google.com/console) → app S
 ### Trên Play Console (không phải code — làm cả 2 cách):
 - **Release notes** (tiếng Việt): tính năng mới + "bổ sung chính sách quyền riêng tư".
 - **App content**: **Privacy policy** = `https://forfish-alpha.vercel.app/quyen-rieng-tu` ·
-  **Data safety** khai theo bảng §5.1 build-publish-store (Location + Phone/Name + App activity, **không** tracking, **không** chia sẻ quảng cáo) · **App access** = tài khoản demo (§5 dưới).
+  **Data safety** khai theo bảng §5.1 build-publish-store (Location + Phone/Name + App activity, **không** tracking, **không** chia sẻ quảng cáo) · **Ads = Yes** (bài Tài trợ Kairos tự quản, 14 §20, từ 2026-10-24) · **App access** = tài khoản demo (§5 dưới).
 - **Review → Rollout**.
 
 ---

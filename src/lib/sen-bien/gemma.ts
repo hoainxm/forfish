@@ -218,6 +218,9 @@ export function docSoChon(txt: unknown, n: number): number | null {
 
 /** Trần chờ Gemma chọn câu — quá thì coi như không có Gemma. */
 export const CHON_HAN_MS = 4000;
+/** Mô hình Gemma ĐANG PHÁT HÀNH đã học vai chọn câu chưa. CHƯA (xem `nợ` ở trên): gọi chỉ tốn tới CHON_HAN_MS mỗi câu
+ *  kho rồi trả null (rà "chậm" 2026-10-24) ⇒ tắt. Bật `true` cùng lúc release `sen-bien-gemma-v2`. */
+export const GEMMA_BIET_CHON = false;
 
 /** Hỏi Gemma chọn câu (Android). Không có Gemma / lỗi / quá giờ / trả không phải chữ số ⇒ null. Không bao giờ ném. */
 export async function chonCauHoi(cau: string, hoi: readonly string[], tranMs = CHON_HAN_MS): Promise<number | null> {
@@ -237,3 +240,6 @@ export async function chonCauHoi(cau: string, hoi: readonly string[], tranMs = C
     if (t) clearTimeout(t);
   }
 }
+
+/** Hàm chọn đưa cho hoi-kho: null khi mô hình chưa biết chọn (khỏi chờ phí). */
+export const chonKho = GEMMA_BIET_CHON ? chonCauHoi : null;

@@ -198,7 +198,8 @@ export function NavHud({
   /*  CHỖ TRÚ BÃO — cha chỉ truyền hàm này khi ĐANG CÓ BÃO (`stormInfo.kind ===
       "co-bao"`) và kho khu trú đã nạp. Không có bão thì không có nút: nút trú
       bão nằm sẵn quanh năm là dạy mắt bỏ qua nó đúng hôm cần. */
-  onShelter?: () => void;
+  /** nhận chính nút "Trú bão" để danh sách khu trú neo cạnh nó (03 §6 mục 9) */
+  onShelter?: (nut: HTMLElement) => void;
   /*  CHỖ GHÉ KẾ TIẾP — chỉ có khi đường đi qua NHIỀU chỗ (chủ dự án
       2026-08-29g: *"rồi hiện thời gian và khoảng cách tới điểm tiếp theo"*).
       Đường đi một chỗ thì dòng "còn X · Y giờ" sẵn có ĐÃ nói đúng thứ này —
@@ -476,7 +477,7 @@ export function NavHud({
       {onShelter && (
         <button
           type="button"
-          onClick={onShelter}
+          onClick={(e) => onShelter(e.currentTarget)}
           className="flex min-h-[3.5rem] w-full items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-left text-[1rem] font-semibold leading-snug text-warn"
         >
           <AnchorIcon className="h-5 w-5 shrink-0" />

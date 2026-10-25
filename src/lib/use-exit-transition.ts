@@ -11,6 +11,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export function useExitTransition(onClose: () => void, ms = 200) {
   const [closing, setClosing] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /*  onClose MỚI NHẤT qua ref ⇒ requestClose GIỮ NGUYÊN danh tính dù bên gọi truyền hàm mới mỗi lần vẽ
+      (vd `onClose={() => …}` hay `cancel` không useCallback). Trước đây requestClose đổi theo onClose ⇒ BottomSheet
+      chạy lại hiệu ứng mở (khoá cuộn + đặt con trỏ vào ô đầu) MỖI PHÍM ⇒ gõ một chữ là mất con trỏ (2026-10-24). */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   // override: callback khác khi đóng (vd ConfirmDialog confirm chạy onConfirm).
   // typeof-guard vì onClick truyền sự kiện làm tham số đầu — bỏ qua nếu không
@@ -18,11 +25,11 @@ export function useExitTransition(onClose: () => void, ms = 200) {
   const requestClose = useCallback(
     (override?: unknown) => {
       if (timer.current) return; // đã trong lúc đóng — bỏ qua lần gọi thừa
-      const done = typeof override === "function" ? (override as () => void) : onClose;
+      const done = typeof override === "function" ? (override as () => void) : () => onCloseRef.current();
       setClosing(true);
       timer.current = setTimeout(() => done(), ms);
     },
-    [onClose, ms],
+    [ms],
   );
 
   // dọn timer nếu component biến mất giữa chừng

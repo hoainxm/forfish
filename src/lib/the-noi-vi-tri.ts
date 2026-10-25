@@ -38,3 +38,47 @@ export function viTriTheNoi({ x, y, w, h, pw, ph, le = 8, cach = 12 }: KhungTheN
   if (tren >= le) return { left, top: tren, tren: true };
   return { left, top: kep(duoi, le, ph - h - le), tren: false };
 }
+
+/*
+  NEO CẠNH NÚT (luật 03 §6 mục 9, anh Long 2026-10-23: "click từ nút thì nó hiện ra bên cạnh
+  nút vì lúc đó tay họ đang ở gần nút rồi, tự dưng kéo xuống dưới cả thì nó không thuận
+  tiện"). Popover / menu / danh sách chọn ngắn mở từ một nút nằm NGAY CẠNH nút đó.
+
+  Dọc: ưu tiên DƯỚI nút; không đủ chỗ thì lật LÊN; cả hai phía đều chật thì chọn phía rộng
+  hơn và trả `maxH` để lớp nổi cuộn trong (không bao giờ tràn khung). Ngang: nút ở nửa phải
+  khung ⇒ mép phải lớp nổi thẳng mép phải nút; nửa trái ⇒ thẳng mép trái — rồi kẹp trong
+  khung. Mọi toạ độ tính trong KHUNG (cột app 480px, đáy là mép trên dock).
+*/
+export type NutNeo = { left: number; top: number; right: number; bottom: number };
+
+export function viTriNeoNut({
+  nut,
+  w,
+  h,
+  pw,
+  ph,
+  le = 8,
+  cach = 6,
+}: {
+  nut: NutNeo;
+  /** kích thước tự nhiên của lớp nổi */
+  w: number;
+  h: number;
+  /** kích thước khung */
+  pw: number;
+  ph: number;
+  le?: number;
+  cach?: number;
+}): { left: number; top: number; maxH: number; tren: boolean; canhPhai: boolean } {
+  const kep = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+  const choDuoi = ph - le - (nut.bottom + cach);
+  const choTren = nut.top - cach - le;
+  let tren = false;
+  if (h > choDuoi && (h <= choTren || choTren > choDuoi)) tren = true;
+  const maxH = Math.max(0, tren ? choTren : choDuoi);
+  const hThat = Math.min(h, maxH);
+  const top = tren ? nut.top - cach - hThat : nut.bottom + cach;
+  const canhPhai = (nut.left + nut.right) / 2 > pw / 2;
+  const left = kep(canhPhai ? nut.right - w : nut.left, le, pw - w - le);
+  return { left, top, maxH, tren, canhPhai };
+}

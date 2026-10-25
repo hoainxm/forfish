@@ -16,6 +16,7 @@ last_verified: 2026-10-19
 <!-- re-verified: 2026-10-20k — fishing-map-view.tsx (Giữ mở, lớp bắt chạm theo style thật, tách SeaDensePanel/SeaTab) — AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20j — fishing-map-view.tsx (lưới số qua lib/sea-cells, hẹn lại tự thu khi focus bàn phím) — AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20i — fishing-map-view.tsx (cảnh báo đầu ngăn, tách SeaDenseGrid) — AC đa-tàu không đổi. -->
+<!-- re-verified: 2026-10-24 — urgent-strip.tsx nghe `USER_SYNC_EVENT` (đọc lại khi đồng bộ nhận bản server — trước chỉ đọc lúc mở app nên mục đã xoá ở máy khác còn bày cả phiên); `boat-cascade` (R3) nay `markLocalWrite` sổ đồng bộ sau khi purge để server cũng bỏ giấy tờ/bảo dưỡng của tàu đã xoá. Luật gom việc, gắn theo tàu, R1/R2/R3/R7, AC-1..7 không đổi. Chi tiết: docs/specs/dong-bo-so-per-may.md §vá 2026-10-24. -->
 <!-- re-verified: 2026-10-20h — fishing-map-view.tsx (lớp trên luôn hiện, dấu bản lưu) + crew-list.tsx (bỏ câu chân trang) — AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20g — fishing-map-view.tsx chỉ đổi lưới số ngăn gió sóng; AC đa-tàu không đổi. -->
 <!-- re-verified: 2026-10-20f — fishing-map-view.tsx chỉ đổi khung ngăn gió sóng (rộng như cũ, cao 1/3) + dòng âm lịch; AC đa-tàu không đổi. -->

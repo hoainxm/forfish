@@ -17,7 +17,8 @@ export const MARKET_PUSH_SENT_BY = "system:market";
 /** Best-effort. Prod: notifyAccount(createAdminClient(), phone, {...msg, sentBy:"system:market"}). File mode: push vào file-store.notifications (xem ở /dev). Không bao giờ ném. Bỏ qua khi phone không hợp lệ (sentinel). */
 export async function notifyMarket(
   phone: string,
-  msg: { title: string; body: string; url?: string; pushOs?: boolean; tag?: string },
+  /** sentBy: tiền tố `system:` riêng của mảng gọi (Kairos dùng "system:kairos") — mặc định chợ */
+  msg: { title: string; body: string; url?: string; pushOs?: boolean; tag?: string; sentBy?: string },
 ): Promise<void> {
   try {
     if (!phone || !isValidVnPhone(phone)) return; // sentinel 'sdvico:chua-gan' / rác
@@ -30,7 +31,7 @@ export async function notifyMarket(
     }
     const admin = createAdminClient();
     if (!admin) return;
-    await notifyAccount(admin, target, { ...msg, sentBy: MARKET_PUSH_SENT_BY });
+    await notifyAccount(admin, target, { ...msg, sentBy: msg.sentBy ?? MARKET_PUSH_SENT_BY });
   } catch (e) {
     console.error("[market] notifyMarket hỏng (bỏ qua):", (e as Error)?.message);
   }

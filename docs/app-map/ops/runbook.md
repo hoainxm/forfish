@@ -2,11 +2,16 @@
 
 > Load khi: cần deploy / build lỗi / regenerate asset tĩnh (icon, lưới độ sâu, isobath) / kiểm tra sức khỏe app trước khi push.
 
-covers: scripts/train/run.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
+covers: scripts/train/run.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-24e — kairos-thu: bước 2b lần ra bài gốc tin Google News (log "[bài gốc] Google News N/M"); thử: node scripts/kairos-thu.mjs --thu --goc. -->
+<!-- re-verified: 2026-10-24d — thêm timer kairos-agent (10 phút, scripts/kairos-agent.mjs — 2000 agent tri thức); kairos-kiem gửi gói 25, đồng hồ 60 s. -->
+<!-- re-verified: 2026-10-24c — thêm timer kairos-sen-bien (1 bài/ngày 7h–19h, scripts/kairos-sen-bien.mjs); lam-moi.sh xuất ':(glob)scripts/kairos-*' (script mới tự có, file chưa có trên main không làm hỏng lần làm mới). -->
+<!-- re-verified: 2026-10-24b — kairos-thu.mjs đọc baoDuocPhep + nguồn kieu google-news/chiTinBien (thu-core.tuGoogleNews, chu-de.laChuyenBien); bài chỉ có tiêu đề không tóm tắt bằng Claude. Sự cố: nguồn Google News trả 0 bài mới liên tục ⇒ kiểm baoDuocPhep (báo đổi tên miền) hoặc Google đổi định dạng <source>. -->
+<!-- re-verified: 2026-10-24 — KAIROS ĐÃ CÀI THẬT trên gpu-desktop: timer kairos-thu 15 phút + kairos-kiem 5 phút (systemd user, linger), chạy bản xuất từ origin/main ở ~/.local/forlife/kairos/app (KHÔNG từ checkout đang có người sửa), KAIROS_API_BASE=https://forfish.vercel.app (production repo Long-Forfun/ForFish — KHÔNG phải sdfish.sdvico.vn); sổ mới gan-day.json chặn tin cùng sự kiện khác báo (cung-su-kien.mjs) -->
 <!-- re-verified: 2026-10-19b — thêm "Bảng môi trường" (rà Codex mục 10: "một bảng môi trường thống nhất: web domain, native origin, API, cron, DB, build ID"); đối chiếu capacitor.config.ts + android/ios capacitor.config.json (server.url), vercel.json crons, .github/workflows/{deploy,cron-prod,deploy.windows-iis,doc-health}.yml, /api/version. doc-health --ci đã chạy thật trên máy: exit 1 vì doc lệch có sẵn (forecast-accuracy 87 ngày…) — nên để workflow RIÊNG, không gộp vào `ci`. -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-22) — code 'scripts/train/run.mjs' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-24) — code 'scripts/train/run.mjs' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-10-19 - thêm mục "Train dự báo cá" (runner scripts/train/run.mjs, SDFISH_DATA_DIR) -->
 <!-- re-verified: 2026-06-17 - lệnh regenerate asset (icons/depth-grid/isobaths) + deploy/health-check khớp scripts/ hiện tại -->
@@ -16,7 +21,7 @@ gate: warn
 
 > Viết cho người đang cuống: lệnh copy-paste được ngay. **ForFish KHÔNG có process nền** (Vercel serverless + Supabase Edge Functions) → không có start/stop daemon. "Vận hành" = build, deploy, regenerate asset, đọc registry khi nguồn ngoài chết.
 
-**Last updated**: 2026-10-19
+**Last updated**: 2026-10-23
 
 ## Bảng môi trường — bản nào đang phục vụ ai (2026-10-19)
 
@@ -160,6 +165,103 @@ Server ForFish cần, đặt ở env (Vercel / `.env` máy chủ IIS / secret `d
 - `FORLIFE_GW_KEY` — khoá cổng nhà, sinh trên máy GPU: `cd ~/forlife/app && node core/cli.mjs tao-khoa-cong` (in MỘT lần, băm vào `secrets.env` máy nhà, khởi động lại AI Assistant). Bản Vercel có thể bỏ khoá, dùng OIDC: thêm `sub` của project ForFish vào `FORLIFE_GW_OIDC_SUB` máy nhà (AI Assistant `ops/runbook-l3.md` §Nối ForFish).
 - `CREW_CCCD_PEPPER` (đã có) — muối mã thuê bao. `FORLIFE_GW_URL` tuỳ chọn.
 Thiếu ⇒ `/api/sen-bien/hoi` trả 503 `chua_noi`, Sen Biển nói câu trong máy. Thử: một câu máy không trả lời được (vd câu hỏi mở) trong thẻ Sen Biển ở màn Tàu tôi.
+
+## Kairos — máy thu tin + agent kiểm duyệt trên gpu-desktop (2026-10-23)
+
+> **ĐÃ CÀI 2026-10-24** trên gpu-desktop (xem mục "Bản chạy" cuối phần này). Phần dưới giữ làm hướng dẫn cài lại. Trước đó: chỉ hướng dẫn — chưa cài. Người cài làm tay trên gpu-desktop sau khi nhánh Kairos lên main và migration 0065 đã được anh Long duyệt + áp. Spec: [14 §9 + A17](../14-ba-spec-kairos.md); đồng hồ + lùi: [external-services.md › Kairos](external-services.md).
+
+Hai việc, cùng khuôn gọi `claude -p` bằng **gói Claude của anh Long** (không API key):
+
+| Việc | Script | Nhịp | Làm gì |
+|---|---|---|---|
+| Thu tin | `scripts/kairos-thu.mjs` | 15 phút | RSS 27 nguồn ⇒ chặn trùng ⇒ tóm tắt lô 20 ⇒ `POST /api/kairos/nhap` |
+| Kiểm duyệt | `scripts/kairos-kiem.mjs` | 5 phút | hàng chờ ⇒ luật cứng chủ quyền + mô hình chấm ⇒ `POST /api/kairos/kiem`; cuối lượt `DELETE /api/kairos/kiem?scope=media` dọn ảnh mồ côi >24 giờ (không cần Claude — log `[ảnh]`) |
+
+Hai script chỉ dùng thư viện có sẵn của Node (≥20) + file `.mjs` trong repo — **không cần `node_modules`** (bản trong `C:\Code\ForFish` là bản Windows, không chạy được trong WSL — không sao). Chạy thẳng từ `~/ForFish` (symlink tới checkout Windows — đừng clone thêm).
+
+**1. Tệp env ngoài repo** — `~/.config/forlife/kairos.env`, `chmod 600`:
+
+```bash
+KAIROS_INGEST_KEY=<cùng giá trị ô "Khoá nhập tin Kairos" ở /quan-tri › Hệ thống>
+KAIROS_API_BASE=https://<miền app, không có / cuối>
+# tuỳ chọn:
+# KAIROS_STATE_DIR=/home/long/.local/forlife/kairos   # sổ chặn trùng + hàng đợi gửi lại + thư mục rỗng cho claude
+# KAIROS_MODEL=claude-haiku-5-5                       # CLI không nhận ⇒ tự lùi "haiku"
+# CLAUDE_BIN=/home/long/.local/bin/claude
+```
+
+Khoá: /quan-tri › Hệ thống › **Khoá nhập tin Kairos** › Tạo ngẫu nhiên › Lưu, rồi dán CÙNG giá trị vào tệp trên. Env `KAIROS_INGEST_KEY` ở Vercel (nếu đặt) ĐÈ ô đó — đổi khoá thì đổi cả hai chỗ. Script đọc lại tệp mỗi lượt, không cần khởi động lại.
+
+**2. Kiểm tay trước khi cài timer**
+
+```bash
+node ~/ForFish/scripts/kairos-thu.mjs --thu              # đọc RSS thật, in 15 bài đầu; KHÔNG gọi claude, KHÔNG gửi, KHÔNG ghi sổ
+echo 'Trả lời đúng một chữ: ok' | claude -p --model claude-haiku-5-5 --output-format json --max-turns 1   # gói Claude còn đăng nhập?
+node ~/ForFish/scripts/kairos-kiem.mjs --thu             # cần khoá: đọc hàng chờ, in prompt lô đầu, KHÔNG gửi
+```
+
+**3. Unit systemd user** — `~/.config/systemd/user/kairos-thu.service`:
+
+```ini
+[Unit]
+Description=Kairos — thu tin bao (SDFish)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env node %h/ForFish/scripts/kairos-thu.mjs
+TimeoutStartSec=14min
+Nice=10
+```
+
+`~/.config/systemd/user/kairos-thu.timer`:
+
+```ini
+[Unit]
+Description=Kairos — thu tin bao moi 15 phut
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+`kairos-kiem.service` / `kairos-kiem.timer`: chép hai tệp trên, đổi tên script thành `kairos-kiem.mjs`, `TimeoutStartSec=20min` (100 mục × lô 20 × tối đa 120 s), `OnUnitActiveSec=5min`. Dịch vụ `oneshot` đang chạy thì timer không bật chồng lượt thứ hai.
+
+```bash
+loginctl enable-linger "$USER"        # timer chạy cả khi không ai đăng nhập (WSL: cần systemd=true trong /etc/wsl.conf và WSL còn chạy)
+systemctl --user daemon-reload
+systemctl --user enable --now kairos-thu.timer kairos-kiem.timer
+systemctl --user list-timers 'kairos-*'
+journalctl --user -u kairos-thu -n 50 --no-pager      # mỗi nguồn một dòng + [chọn] [tóm tắt] [gửi]
+journalctl --user -u kairos-kiem -n 50 --no-pager     # [hàng chờ] [kết luận] [gửi]
+systemctl --user disable --now kairos-thu.timer kairos-kiem.timer   # tạm dừng
+```
+
+**3b. Bản chạy thật (2026-10-24)** — unit gọi `/home/long/.local/node/bin/node` (Node không nằm trên PATH WSL) và chạy script từ `~/.local/forlife/kairos/app`: bản xuất `git archive origin/main` (scripts/kairos-*.mjs + kairos-nguon.json + src/lib/kairos) từ `/mnt/c/Code/ForFish/.git`, `kairos-thu.service` làm mới ở ExecStartPre (hỏng thì chạy bản cũ). Không chạy từ checkout có người đang sửa dở. `KAIROS_API_BASE=https://forfish.vercel.app`. Sổ `gan-day.json` (≤3000 mục, 48 giờ) là vân tay bài đã gửi — bài báo khác cùng sự kiện bị bỏ (`[trùng sự kiện] bỏ N bài`).
+
+**3c. Sen Biển giới thiệu (2026-10-24)** — `kairos-sen-bien.service` (ExecStartPre lam-moi.sh, `node …/app/scripts/kairos-sen-bien.mjs`) + `kairos-sen-bien.timer` (`OnCalendar=*-*-* 07:00:00`, `RandomizedDelaySec=12h`, `Persistent=true`). Thử: `node scripts/kairos-sen-bien.mjs --thu` (gọi Claude, KHÔNG đăng). 503 `no_sen_bien_profile` ⇒ migration 0068 chưa áp. 429 ⇒ đã đủ 2 bài/20 giờ, bỏ lượt (mã 0).
+
+**3d. 2000 agent tri thức (2026-10-24)** — `kairos-agent.service` (ExecStartPre lam-moi.sh, `node …/app/scripts/kairos-agent.mjs`, TimeoutStartSec 8min) + `kairos-agent.timer` (`OnBootSec=7min`, `OnUnitActiveSec=10min`, `RandomizedDelaySec=90`). Thử: `node scripts/kairos-agent.mjs --thu` (đọc dòng tin + gọi Claude, KHÔNG đăng). Log `[gửi] N/M việc nhận · bỏ {…}`: `tran_doi`/`tran_agent` = đủ trần ngày (bình thường), `no_profile` = tên agent trùng bà con thật (agent đó nghỉ). Tắt cả đội: `systemctl --user disable --now kairos-agent.timer`.
+
+**3f. SDVICO trực khách (2026-10-25, 14 §3.14)** — `kairos-truc.service` (KHÔNG lam-moi: dùng bản app do timer agent làm mới mỗi 10 phút — `lam-moi.sh` từ 2026-10-25 chép thêm `src/lib/sdvico/tu-van.mjs`, bản sao lưu `lam-moi.sh.bak-2026-10-25`; `node …/app/scripts/kairos-truc.mjs`, TimeoutStartSec 4min, Nice 5) + `kairos-truc.timer` (`OnBootSec=3min`, `OnUnitActiveSec=1min`). Không có hội thoại chờ ⇒ thoát ngay, không gọi Claude. Mô hình `KAIROS_TRUC_MODEL` (mặc định claude-sonnet-5-5) trong `~/.config/forlife/kairos.env` hoặc env service. Thử: `node scripts/kairos-truc.mjs --thu` (lấy + viết, KHÔNG gửi). Log `[trực] <id>: đã trả lời · LẬP PHIẾU cho KD` / `bỏ (422 co_gia)` = lời bị máy chủ chặn (lượt sau viết lại). Tắt: `systemctl --user disable --now kairos-truc.timer`.
+
+**4. Sự cố**
+
+| Thấy | Nghĩa | Làm |
+|---|---|---|
+| Tab quản trị Kairos: "Đã N giờ không có bài báo mới" | máy thu không chạy / không gửi được | `systemctl --user status kairos-thu.timer`, đọc `journalctl` |
+| `thiếu cấu hình: KAIROS_INGEST_KEY…` (mã 2) | tệp env thiếu / sai đường | sửa `~/.config/forlife/kairos.env` |
+| `[gửi] hỏng (401)` | khoá lệch giữa máy GPU và app | dán lại khoá (bước 1); bài nằm ở `cho-gui.json`, lượt sau tự gửi |
+| `[gửi] hỏng (503)` | app chưa đặt khoá hoặc kho chưa cấu hình (0065 chưa áp) | đặt khoá ở /quan-tri; KHÔNG tự áp migration |
+| `[claude] dừng gọi cả lượt: het_han_muc` | hết hạn mức gói | không làm gì: tin vẫn lên bằng mô tả RSS; bài báo chờ agent tới khi có hạn mức lại |
+| `chua_dang_nhap` | CLI mất đăng nhập | `claude` rồi `/login` trên máy GPU |
+| Bài báo không lên dòng tin dù máy thu chạy | agent kiểm duyệt không chạy (bài báo chỉ lên khi `dat`) | xem `journalctl --user -u kairos-kiem`. Tab Kairos › Hàng chờ chỉ có bài agent ĐÃ nghi/chặn — bài chưa chấm phải chờ agent chạy lại |
+| Một nguồn chết lâu | báo đổi đường RSS | sửa `scripts/kairos-nguon.json` (đừng xoá id — đặt `enabled: false`), kiểm bằng `--thu --nguon=<id>` |
 
 ## Escalation — KHÔNG được tự làm
 
