@@ -184,7 +184,7 @@ async function main() {
   const boQuaGov = [];
   nguon.forEach((n, k) => {
     let items = ket[k].items;
-    if (n.kieu === "gov") {
+    if (n.kieu === "gov" && !n.docTruoc) {
       const giu = items.filter((it) => laTinChoBaCon(`${it.title}\n${it.description}`));
       boQuaGov.push(...locBaiMoi(n, items.filter((it) => !giu.includes(it)), so, now, new Set(), baoDuocPhep));
       items = giu;
@@ -257,11 +257,14 @@ async function main() {
         }
       }
     }
-    // ngày ban hành đọc từ trang chi tiết có thể trước 2026 (danh mục xếp theo ngày đăng web) ⇒ bỏ như quaCu
+    // ngày ban hành đọc từ trang chi tiết có thể trước 2026 (danh mục xếp theo ngày đăng web) ⇒ bỏ như quaCu;
+    // nguồn docTruoc (tiêu đề chỉ có số hiệu) ⇒ GIỜ mới lọc chuyện bà con trên tiêu đề + mô tả trang chi tiết
+    const docTruoc = new Set(nguon.filter((n) => n.docTruoc).map((n) => n.id));
     for (let i = chon.length - 1; i >= 0; i--) {
       const b = chon[i];
       const t = laGov(b) && b.publishedAt ? Date.parse(b.publishedAt) : NaN;
       if (Number.isFinite(t) && now - t > chinhSachCuMs(now)) quaCu.push(...chon.splice(i, 1));
+      else if (docTruoc.has(b.sourceId) && !laTinChoBaCon(`${b.title}\n${b.description}`)) quaCu.push(...chon.splice(i, 1));
     }
   }
 

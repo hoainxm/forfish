@@ -196,7 +196,9 @@ export function parseFeed(xml) {
 
 /**
  * @typedef {{ id: string, outlet: string, feedUrl: string, section: string, topic: string, enabled: boolean,
- *   kieu: "rss" | "google-news" | "gov", chiTinBien: boolean, linkRe?: RegExp | null }} Nguon
+ *   kieu: "rss" | "google-news" | "gov", chiTinBien: boolean, linkRe?: RegExp | null, docTruoc?: boolean }} Nguon
+ *   docTruoc (chỉ gov): tiêu đề danh mục chỉ có số hiệu ("3773/QĐ-BNNMT" — Bộ NN&MT) ⇒ máy thu đọc trang chi tiết TRƯỚC
+ *     rồi mới lọc laTinChoBaCon trên tiêu đề + mô tả (thay vì lọc tiêu đề ở bước đọc danh mục).
  *   kieu "google-news": feed TÌM KIẾM news.google.com/rss/search — báo gốc lấy ở <source>, chỉ nhận báo trong
  *     `baoDuocPhep`, tiêu đề cắt đuôi " - Tên báo", mô tả (danh sách link) bỏ.
  *   kieu "gov" (2026-10-26, 14 §21): tên miền *.gov.vn, section/topic bắt buộc "chinh-sach"; feedUrl là RSS hoặc
@@ -250,7 +252,7 @@ export function docNguon(raw) {
     }
     return {
       id: x.id, outlet: x.outlet.trim(), feedUrl: u.toString(), section: x.section, topic: x.topic, enabled: x.enabled !== false,
-      kieu, chiTinBien: x.chiTinBien === true, linkRe,
+      kieu, chiTinBien: x.chiTinBien === true, linkRe, docTruoc: kieu === "gov" && x.docTruoc === true,
     };
   });
 }

@@ -1,5 +1,5 @@
 {
-  "_ghi_chu": "Nguồn của máy thu tin Kairos (14 §9 + §13). 2026-10-24: tắt nnmt-* (RSS đứng từ 05/10); thêm Google News tìm kiếm (kieu google-news — chỉ nhận báo trong baoDuocPhep) + RSS trực tiếp chuyên/chung (chiTinBien = chỉ nhận bài chuyện biển) để đạt 85 % tin biển. Tắt một nguồn: enabled=false (đừng xoá — id là khoá kairos_sources). 2026-10-26b: danh mục gialai.gov.vn phân trang bằng JS (?page= vô tác dụng) nhưng lọc tên GET được: `filters[title]=<từ>` + `pageNo=` — thêm 4 nguồn tìm theo tên (tàu cá · 48/2010 · ngư dân · nhiên liệu) để vớt quyết định hỗ trợ dầu các đợt nằm sâu trong danh mục.",
+  "_ghi_chu": "Nguồn của máy thu tin Kairos (14 §9 + §13). 2026-10-24: tắt nnmt-* (RSS đứng từ 05/10); thêm Google News tìm kiếm (kieu google-news — chỉ nhận báo trong baoDuocPhep) + RSS trực tiếp chuyên/chung (chiTinBien = chỉ nhận bài chuyện biển) để đạt 85 % tin biển. Tắt một nguồn: enabled=false (đừng xoá — id là khoá kairos_sources). 2026-10-26b: danh mục gialai.gov.vn phân trang bằng JS (?page= vô tác dụng) nhưng lọc tên GET được: `filters[title]=<từ>` + `pageNo=` — thêm 4 nguồn tìm theo tên (tàu cá · 48/2010 · ngư dân · nhiên liệu) để vớt quyết định hỗ trợ dầu các đợt nằm sâu trong danh mục. 2026-10-26c: thêm Bộ NN&MT (mae.gov.vn văn bản điều hành + thông báo, docTruoc vì tiêu đề chỉ có số hiệu) + 15 tỉnh/thành ven biển (trang mục thông báo/văn bản/chỉ đạo điều hành hoặc trang chủ — lưới laTinChoBaCon giữ tin cho bà con; trống hôm nay thì bắt tin ra sau).",
   "nguon": [
     {
       "id": "nnmt-thuy-san",
@@ -462,6 +462,190 @@
       "topic": "chinh-sach",
       "kieu": "gov",
       "linkRe": "^/van-ban-chi-dao-dieu-hanh/.+\\.html$",
+      "enabled": true
+    },
+    {
+      "id": "gov-mae-van-ban",
+      "outlet": "Bộ NN&MT",
+      "feedUrl": "https://mae.gov.vn/van-ban-dieu-hanh.htm",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "linkRe": "^/van-ban-dieu-hanh-\\d+\\.htm$",
+      "docTruoc": true,
+      "enabled": true
+    },
+    {
+      "id": "gov-mae-thong-bao",
+      "outlet": "Bộ NN&MT",
+      "feedUrl": "https://mae.gov.vn/",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "linkRe": "^/chi-tiet-thong-bao-bao-cao-\\d+\\.htm$",
+      "docTruoc": true,
+      "enabled": true
+    },
+    {
+      "id": "gov-khanhhoa-thong-bao",
+      "outlet": "UBND tỉnh Khánh Hòa",
+      "feedUrl": "https://khanhhoa.gov.vn/vi/thong-bao-moi-nhat",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-danang-trang-chu",
+      "outlet": "UBND TP Đà Nẵng",
+      "feedUrl": "https://danang.gov.vn/",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-quangninh-trang-chu",
+      "outlet": "UBND tỉnh Quảng Ninh",
+      "feedUrl": "https://www.quangninh.gov.vn/",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-vinhlong-qppl",
+      "outlet": "UBND tỉnh Vĩnh Long",
+      "feedUrl": "https://qppl.vinhlong.gov.vn/van-ban-quy-pham-phap-luat",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-vinhlong-tin",
+      "outlet": "UBND tỉnh Vĩnh Long",
+      "feedUrl": "https://tintuc.vinhlong.gov.vn/",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-dongnai-qppl",
+      "outlet": "UBND tỉnh Đồng Nai",
+      "feedUrl": "https://dongnai.gov.vn/vi/news/van-ban-quy-pham-phap-luat/",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-hcm-trang-chu",
+      "outlet": "UBND TP Hồ Chí Minh",
+      "feedUrl": "https://hochiminhcity.gov.vn/",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-hcm-van-ban",
+      "outlet": "UBND TP Hồ Chí Minh",
+      "feedUrl": "https://hochiminhcity.gov.vn/van-ban-chi-dao-dieu-hanh",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-nghean-van-ban",
+      "outlet": "UBND tỉnh Nghệ An",
+      "feedUrl": "https://nghean.gov.vn/van-ban-chi-dao-dieu-hanh",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-hatinh-van-ban",
+      "outlet": "UBND tỉnh Hà Tĩnh",
+      "feedUrl": "https://hatinh.gov.vn/vi/van-ban",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-dongthap-van-ban",
+      "outlet": "UBND tỉnh Đồng Tháp",
+      "feedUrl": "https://dongthap.gov.vn/van-ban-chi-dao-dieu-hanh",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-daklak-chi-dao",
+      "outlet": "UBND tỉnh Đắk Lắk",
+      "feedUrl": "https://daklak.gov.vn/thong-tin-chi-dao-dieu-hanh",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-quangtri-thong-bao",
+      "outlet": "UBND tỉnh Quảng Trị",
+      "feedUrl": "https://www.quangtri.gov.vn/chuyen-muc/thong-bao",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-quangtri-chi-dao",
+      "outlet": "UBND tỉnh Quảng Trị",
+      "feedUrl": "https://www.quangtri.gov.vn/chuyen-muc/chi-dao-dieu-hanh-cua-lanh-dao-tinh",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-thanhhoa-trang-chu",
+      "outlet": "UBND tỉnh Thanh Hóa",
+      "feedUrl": "https://thanhhoa.gov.vn/",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-haiphong-van-ban",
+      "outlet": "UBND TP Hải Phòng",
+      "feedUrl": "https://haiphong.gov.vn/he-thong-van-ban",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-ninhbinh-chi-dao",
+      "outlet": "UBND tỉnh Ninh Bình",
+      "feedUrl": "https://ninhbinh.gov.vn/thong-tin-chi-dao-dieu-hanh",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-cantho-van-ban",
+      "outlet": "UBND TP Cần Thơ",
+      "feedUrl": "https://cantho.gov.vn/Default.aspx?pageid=32084",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
       "enabled": true
     }
   ],
