@@ -45,7 +45,7 @@ export function laHostGov(url) {
  * chỉ có trong văn bản hành chính: số quyết định, tên khoản hỗ trợ, thủ tục.
  */
 const CHINH_SACH_KEYWORDS = [
-  "48/2010", "ho tro nhien lieu", "chi phi nhien lieu", "ho tro ngu dan", "ho tro chu tau", "vung bien xa",
+  "48 2010", "ho tro nhien lieu", "chi phi nhien lieu", "ho tro ngu dan", "ho tro chu tau", "vung bien xa",
   "bao hiem than tau", "bao hiem thuyen vien", "tai nan thuyen vien", "giay phep khai thac", "dang kiem tau ca",
   "giai ban tau ca", "chuyen doi nghe", "cang ca", "khu neo dau", "thiet bi giam sat hanh trinh", "iuu", "the vang",
   "mua vu khai thac", "cam khai thac", "vung cam", "khu bao ton bien", "nuoi bien", "nghe ca", "khai thac hai san",
@@ -446,4 +446,43 @@ export function dieuKienTra(q) {
   const s = String(q ?? "").trim();
   if ([...s].length < 2 || s.length > 40) return null;
   return laReg(s) ? { regNorm: chuanReg(s) } : { tenNorm: foldVi(s) };
+}
+
+// ───────── LOẠI TIN của tab Chính sách (14 §21d, anh Long 2026-10-26: "cho loại lọc thêm loại tin (ví dụ tin dầu, tin hỗ
+// trợ, tin cảnh báo, tin …)") ─────────
+// Phân loại bằng từ khoá trên tiêu đề + tóm tắt, chạy TRONG MÁY (không cột DB, không request): một bài có thể thuộc nhiều
+// loại. Mã ở đây, nhãn ≤2 chữ ở labels.ts (NHAN_LOAI_TIN). Thứ tự = thứ tự trong hộp chọn.
+
+export const LOAI_TIN = /** @type {const} */ (["dau", "ho-tro", "canh-bao", "quy-dinh", "iuu", "danh-sach"]);
+
+/** từ khoá so trên chữ ĐÃ BỎ DẤU (ranh giới từ) — foldVi đổi dấu câu thành khoảng trắng: "48/2010" ⇒ "48 2010" */
+const LOAI_KHOA = {
+  dau: ["nhien lieu", "48 2010", "tien dau", "ho tro dau", "xang dau"],
+  "ho-tro": ["ho tro", "boi thuong", "tro cap", "bao hiem", "vay von", "giai ngan", "kinh phi", "on dinh doi song"],
+  "canh-bao": ["canh bao", "gio manh", "song lon", "ung pho", "thien tai", "mat tich", "chay", "tranh tru", "nguy hiem", "khan cap", "ap thap"],
+  "quy-dinh": ["quy dinh", "quy che", "thong tu", "nghi dinh", "luat", "chi thi", "danh muc nghe", "ngu cu cam", "cam khai thac", "cam su dung", "ban hanh", "huong dan"],
+  iuu: ["iuu", "the vang", "giam sat hanh trinh", "khai thac bat hop phap", "khong du dieu kien", "vms"],
+  "danh-sach": ["phe duyet danh sach", "danh sach tau", "danh sach chu tau", "danh sach cac tau", "cac tau ca duoc"],
+};
+/** từ khoá so trên chữ CÒN DẤU (bỏ dấu là trùng nghĩa khác: "bão" ≠ "báo") */
+const LOAI_KHOA_DAU = { "canh-bao": ["bão", "siêu bão", "lốc"] };
+
+/**
+ * Loại của một thông báo. `coDanhSach` (máy chủ đã đọc được danh sách tàu/bà con) ⇒ luôn có "danh-sach".
+ * @param {string} text  tiêu đề + tóm tắt
+ * @param {boolean} [coDanhSach]
+ * @returns {string[]}
+ */
+export function loaiTin(text, coDanhSach = false) {
+  const f = ` ${foldVi(text)} `;
+  const d = ` ${String(text ?? "").normalize("NFC").toLowerCase().replace(/[^\p{L}\p{N}/]+/gu, " ").trim()} `;
+  const out = [];
+  for (const l of LOAI_TIN) {
+    const co =
+      (l === "danh-sach" && coDanhSach) ||
+      LOAI_KHOA[l].some((k) => f.includes(` ${k} `)) ||
+      (LOAI_KHOA_DAU[l] ?? []).some((k) => d.includes(` ${k} `));
+    if (co) out.push(l);
+  }
+  return out;
 }

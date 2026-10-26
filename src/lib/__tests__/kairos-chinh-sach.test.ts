@@ -313,3 +313,32 @@ describe("feed-client — tab Chính sách theo tỉnh (14 §21c)", () => {
     expect(filterCached(ds, "chinh-sach", home, undefined, null).map((x: { id: string }) => x.id)).toEqual(["a", "b", "c"]);
   });
 });
+
+// ───────── §21d loại tin (2026-10-26) ─────────
+import { LOAI_TIN, loaiTin } from "@/lib/kairos/chinh-sach.mjs";
+import { NHAN_LOAI_TIN } from "@/lib/labels";
+
+describe("loaiTin — phân loại thông báo theo từ khoá (tiêu đề thật 2026-10-26)", () => {
+  it("chỉ số hiệu 48/2010 cũng ra tiền dầu (foldVi đổi '/' thành khoảng trắng)", () => {
+    expect(loaiTin("QĐ phê duyệt danh sách các chủ tàu cá được hỗ trợ kinh phí theo Quyết định số 48/2010/QĐ-TTg")).toContain("dau");
+    expect(laTinChoBaCon("Đề nghị xem xét theo Quyết định 48/2010/QĐ-TTg")).toBe(true);
+  });
+  it("tiền dầu / hỗ trợ / danh sách", () => {
+    const l = loaiTin("Quyết định V/v phê duyệt đợt 05 năm 2025 các tàu cá được hỗ trợ chi phí nhiên liệu chuyến biển theo Quyết định số 48/2010/QĐ-TTg");
+    expect(l).toEqual(expect.arrayContaining(["dau", "ho-tro", "danh-sach"]));
+  });
+  it("cảnh báo: gió mạnh, mất tích, bão (còn dấu — 'báo cáo' KHÔNG là bão)", () => {
+    expect(loaiTin("Chủ động ứng phó với gió mạnh, sóng lớn trên biển (57/BCĐ-BNNMT)")).toEqual(["canh-bao"]);
+    expect(loaiTin("Thông báo tàu cá thuộc diện mất tích của thành phố Đà Nẵng")).toEqual(["canh-bao"]);
+    expect(loaiTin("Bão số 12 gây gió giật")).toContain("canh-bao");
+    expect(loaiTin("Báo cáo tình hình")).toEqual([]);
+  });
+  it("quy định, IUU; coDanhSach ⇒ luôn có danh-sach", () => {
+    expect(loaiTin("Quyết định quy định Danh mục nghề, ngư cụ cấm sử dụng khai thác thủy sản")).toContain("quy-dinh");
+    expect(loaiTin("Phiên họp lần thứ 36 Ban Chỉ đạo Quốc gia về IUU")).toEqual(["iuu"]);
+    expect(loaiTin("Văn bản bất kỳ", true)).toEqual(["danh-sach"]);
+  });
+  it("mỗi loại có nhãn ≤2 chữ", () => {
+    for (const l of LOAI_TIN) expect(nhanHopLe(NHAN_LOAI_TIN[l])).toBe(true);
+  });
+});

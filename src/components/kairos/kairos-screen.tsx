@@ -34,7 +34,7 @@ import { ChuongKairos } from "./chuong-kairos";
 import { KairosAvatar } from "./kairos-avatar";
 import { KairosFeed } from "./kairos-feed";
 import { KairosFishIcon } from "./kairos-fish-icon";
-import { LocTinhChinhSach } from "./loc-tinh-chinh-sach";
+import { LocLoaiTin, LocTinhChinhSach } from "./loc-tinh-chinh-sach";
 import { TuyChonSheet } from "./tuy-chon-sheet";
 import { usePostActions } from "./use-post-actions";
 
@@ -61,6 +61,8 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
       lọc tin). Gần ⇒ thông báo gắn tỉnh đó + thông báo không gắn tỉnh nào (bộ/cục, cả nước). Chưa có tỉnh ⇒ nút ghi "Cả nước". */
   const { home, chonTinh } = useHome();
   const [gan, setGan] = useState(true);
+  /** loại tin đang lọc (14 §21d) — null = tất cả; lọc trong máy */
+  const [loai, setLoai] = useState<string | null>(null);
   const tinh = chip === "chinh-sach" && gan ? provinceIdOf(home.province ?? null) : null;
   const trangToi = (
     <Link href="/kairos/u/toi" aria-label={NHAN.trangToi} title={NHAN.trangToi} className="flex shrink-0 rounded-full transition active:scale-[0.95]">
@@ -114,11 +116,17 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
           ]}
         />
       )}
-      {chip === "chinh-sach" && <LocTinhChinhSach home={home} gan={gan} setGan={setGan} chonTinh={chonTinh} />}
+      {chip === "chinh-sach" && (
+        <div className="flex flex-wrap items-start gap-2 px-4 pb-2">
+          <LocTinhChinhSach home={home} gan={gan} setGan={setGan} chonTinh={chonTinh} />
+          <LocLoaiTin loai={loai} setLoai={setLoai} />
+        </div>
+      )}
       <KairosFeed
         port={port}
         chip={chip}
         tinh={tinh}
+        loai={chip === "chinh-sach" ? loai : null}
         tuyChon={port ? undefined : (tuyChon ?? undefined)}
         actions={a.actions}
         view={a.view}

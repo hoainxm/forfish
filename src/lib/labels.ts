@@ -190,6 +190,16 @@ export const NHAN_CHIP_KAIROS = {
   "chinh-sach": "Chính sách",
 } as const;
 
+/** Nhãn loại tin tab Chính sách Kairos (mã ở `lib/kairos/chinh-sach.mjs` LOAI_TIN, 14 §21d) — ≤2 chữ. */
+export const NHAN_LOAI_TIN = {
+  dau: "Tiền dầu",
+  "ho-tro": "Hỗ trợ",
+  "canh-bao": "Cảnh báo",
+  "quy-dinh": "Quy định",
+  iuu: "IUU",
+  "danh-sach": "Danh sách",
+} as const;
+
 export type NhanId = keyof typeof NHAN;
 
 /** Số CHỮ (tiếng) của một nhãn — số và dấu câu không tính; "Sen Biển" đếm là 1. */

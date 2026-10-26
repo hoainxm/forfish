@@ -65,6 +65,7 @@ import {
   type FeedPage,
 } from "@/lib/kairos/feed-client";
 import { cat as catCho, lay as layCho, xoa as xoaCho } from "@/lib/kairos/giu-cho";
+import { loaiTin } from "@/lib/kairos/chinh-sach.mjs";
 import { KeoLamMoiChi, useKeoLamMoi } from "@/components/ui/use-keo-lam-moi";
 import { nenGoiY, soBaiConLuu, songTot, taiNhieuTrang } from "@/lib/kairos/tai-mang-di";
 import { pillTaiMangDi, toastTaiMangDi } from "@/lib/kairos/dau-man";
@@ -139,6 +140,7 @@ export function KairosFeed({
   onTrong,
   chip = "moi",
   tinh = null,
+  loai = null,
 }: {
   /** Bến (/kairos/ben/[port]): dòng tin chỉ bài gắn cảng này, không hàng chip */
   port?: string;
@@ -147,6 +149,9 @@ export function KairosFeed({
   chip?: ChipId;
   /** tab Chính sách: mã tỉnh đang xem (tỉnh cảng nhà / chọn tạm; null = cả nước) — 14 §21c */
   tinh?: string | null;
+  /** tab Chính sách: loại tin đang lọc (chinh-sach.loaiTin, 14 §21d) — null = tất cả. Lọc trong máy; danh sách lọc còn ngắn
+   *  thì mốc cuộn vô tận vẫn trong tầm nhìn ⇒ tự tải trang sau tới khi đủ hoặc hết. */
+  loai?: string | null;
   /** hành vi Hay / Chia sẻ / ba chấm — màn khác nối vào (thẻ vẫn hiện khi thiếu) */
   actions?: PostActions;
   /** mở khung soạn (AC07) */
@@ -545,12 +550,17 @@ export function KairosFeed({
     // một bài chỉ hiện MỘT lần: đang ghim thì chỉ ở dải ghim
     const pinIds = new Set(shownPinned.map((x) => x.id));
     // tab Chính sách CHẶN CỨNG: chỉ bài nhà nước (topic chinh-sach) — dù danh sách tới từ đâu (bản lưu, ảnh chụp, bài vừa đăng)
-    const list = (view ? view(posts) : posts).filter((p) => !pinIds.has(p.id) && (!chinhSach || p.topic === "chinh-sach"));
+    const list = (view ? view(posts) : posts).filter(
+      (p) =>
+        !pinIds.has(p.id) &&
+        (!chinhSach || p.topic === "chinh-sach") &&
+        (!chinhSach || !loai || loaiTin(`${p.title ?? ""}\n${p.summary ?? ""}`, !!p.coDanhSach).includes(loai)),
+    );
     if (chinhSach) return list;
     if (!added.length) return list;
     const fresh = added.filter((p) => !list.some((x) => x.id === p.id) && !shownPinned.some((x) => x.id === p.id));
     return [...fresh, ...list];
-  }, [view, posts, added, shownPinned, chinhSach]);
+  }, [view, posts, added, shownPinned, chinhSach, loai]);
   const empty = shownPosts.length === 0 && shownPinned.length === 0;
   /*  Ảnh chụp giữ chỗ cất danh sách ĐÃ áp lớp lạc quan của usePostActions (Hay, sửa, xoá, chặn, bài vừa đăng) —
       lớp đó nằm ở state màn, mất khi rời màn; cất bản gốc thì quay lại thấy thẻ như chưa Hay, bài vừa đăng biến mất
@@ -751,7 +761,15 @@ export function KairosFeed({
           ))}
         {empty && load === "ready" && (
           <EmptyState>
-            {port ? "Bến này chưa có bài nào." : chinhSach ? "Chưa có thông báo nào. Có tin mới sẽ hiện ở đây." : "Chưa có bài nào. Bà con đăng bài đầu tiên nhé."}
+            {port
+              ? "Bến này chưa có bài nào."
+              : chinhSach && loai
+                ? next
+                  ? "Đang tìm thêm tin loại này…"
+                  : "Chưa có tin loại này."
+                : chinhSach
+                  ? "Chưa có thông báo nào. Có tin mới sẽ hiện ở đây."
+                  : "Chưa có bài nào. Bà con đăng bài đầu tiên nhé."}
           </EmptyState>
         )}
 
