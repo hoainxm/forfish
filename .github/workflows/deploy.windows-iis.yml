@@ -59,7 +59,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       # Install có cache bằng hash lockfile: trùng hash → skip install (y hệt CRM).
       - name: Install dependencies

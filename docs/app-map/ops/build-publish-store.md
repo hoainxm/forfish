@@ -47,7 +47,7 @@ Còn lại phải làm **trong App Store Connect / Play Console** (không phải
 | **Android Studio + SDK** | build Android | máy Windows hiện tại OK |
 | **Tài khoản Apple Developer** ($99/năm) | App Store Connect | vai **Account Holder/Admin** để sửa nhãn Privacy |
 | **Google Play Console** ($25 một lần) | CH Play | |
-| **Node ≥ 20 + repo cài xong** | `npm i` | Capacitor v8 đã có trong `package.json` |
+| **Node 22 + repo cài xong** | `npm i` | Capacitor v8 đã có trong `package.json` |
 | **Chrome/Edge hệ thống** | `npm run guide`, screenshot | |
 
 Android signing đã có sẵn cơ chế: `android/app/build.gradle` đọc `android/keystore.properties`. **Giữ file keystore + mật khẩu an toàn** — mất là không cập nhật được app trên Play nữa. (`keystore.properties` KHÔNG commit — chứa mật khẩu.)
