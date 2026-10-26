@@ -1,5 +1,6 @@
 # 15 — Chế độ "ĐANG CHẠY": đọc & cảnh báo bằng giọng nói kiểu VietMap
 
+<!-- re-verified: 2026-10-26l — §30 mới: Sen Biển hỏi từng câu để nhập giấy tờ + tàu (`components/hoi-tung-cau.tsx`, `lib/sen-bien/nhap-giong.ts`) — anh Long 26/10: "cho bà con nhập bằng giọng nói cũng được, ví dụ trao đổi Sen Biển để thiết lập, Sen Biển hỏi từng câu rồi lưu lại, tàu, giấy tờ, chứng nhận". -->
 <!-- re-verified: 2026-10-27 — ĐỒNG BỘ sdvico/forfish `main` (562d36e8, 9 commit Nam/Hùng 19–21/10) vào main Forfun (anh Long 26/10: "lên hết cả Sen Biển lẫn Kairos sang SD"). NHẬN: thuỷ triều 21 trạm ngoài cửa biển + xem con nước theo giờ (`tide-card`, `lib/tides`, `use-pointer-scrub`), nhắc hạn giấy tờ 30·25·20·15·10 rồi 5→0 + `DocRemindOnOpen` ở trang chủ (`lib/doc-reminder-local`), chuông SDFish khi push tới lúc app mở (`sw.js`, `warning-sound`, `sw-register`), push thuyền viên mở /nguoi, `windows-paths.test`. GỠ: cờ demo `NEXT_PUBLIC_SEN_BIEN`/`lib/sen-bien/bat-tat.ts` (Sen Biển + Kairos phát hành ở SD; ops/sync-base-flow §0b đóng án lệ). KHÔNG LẤY: rail "Chức năng" của sdvico 21/10 (`ra-khoi-rail-menu.test` xoá) — main đã đi tiếp sang rail Lớp-popover + khay ⋯ (22/10, BD-12 25/10). Mảnh giọng "còn" giữ `con_m.mp3` (sdvico đặt `con_`). -->
 **Load khi / Load when**: sửa chế độ Đang chạy, giọng đọc cảnh báo, `src/lib/nav-voice/*`, `src/lib/voice/tts.ts`, HUD dẫn đường (nút Giọng), Sen Biển rảnh tay / giọng nữ (§17); cần bảng tiêu chí nghiệm thu VM-xx.
 
@@ -1064,3 +1065,29 @@ Cơ cấu mới = hai lô rà FB cùng ngày ([design-review/08](../design-revie
 **Gemma máy nhà (AI-Assistant main @ GPU, commit ae0736d)**: `forfish-thue-bao.mjs` — `MAN_APP` nền <700 ký tự theo dock 6 mục; MỚI `CHI_TIET_MAN` 16 dòng + `manAppCho(text, boiCanh)` chỉ chèn ≤3 dòng khớp câu hỏi/màn đang mở (prompt vẫn gọn, <1 s); `LUAT_TB` "hướng dẫn màn là bản mới nhất, tài liệu khác thì theo hướng dẫn, không bịa nút". Kho ForFish dựng lại từ `feat/toi-uu-codex` @134b8ba1 (214 file, 4.779 đoạn; `ingest.mjs --commit`, trần .md 2 MB — 07/02 trước bị bỏ lặng). Giữ gemma4:e2b, num_ctx 4096, nóng 24 h. Kiểm 11 câu ở màn kiểm máy nhà: đúng cơ cấu mới, 0,9–1,7 s. Trọn đường Vercel: đo lại 26/10 xanh (xem trên).
 
 **Offline**: không request mới lúc mở màn (bin v7 tải như v6 qua `fetchDataBytes`, SW cache-first theo tên mới); `?sen=tai|chuong` chỉ chạy khi bà con nói; Zalo/Maps là link ngoài. Nợ: kho hỏi–đáp v5c (2.300 câu) còn câu tả màn cũ — cần soạn lại + anh duyệt trên trang duyệt (chưa làm vòng này).
+
+## 30. SEN BIỂN HỎI TỪNG CÂU ĐỂ NHẬP — GIẤY TỜ, TÀU (2026-10-26)
+
+anh Long 26/10: "cho bà con nhập bằng giọng nói cũng được, ví dụ trao đổi Sen Biển để thiết lập, Sen Biển hỏi từng câu rồi lưu lại, tàu, giấy tờ, chứng nhận".
+
+**Ở đâu**: form "Thêm/Sửa giấy tờ" (nút mic VUÔNG chỉ icon cạnh "Chụp giấy", aria "Nhập bằng giọng nói — Sen Biển hỏi từng câu") và form "Thêm/Sửa tàu" (nút phụ trải ngang icon mic + nhãn "Nói" đầu form). Bấm ⇒ thẻ `components/hoi-tung-cau.tsx` mở NGAY ĐẦU form (không màn riêng): ô nào Sen Biển hiểu thì điền liền trước mắt — nghe sai thấy ngay, sửa tay được.
+
+**Một bước**: Sen Biển đọc câu hỏi (`voice/tts.ttsSpeak`, giọng chung) → chờ `NGHE_SAU_DOC_MS` cho loa im → nghe một câu (`sen-bien/nghe.listenOnce`, bộ nghe trong máy nếu đã nạp — mất sóng vẫn nghe được; không thì Web Speech) → bỏ câu là tiếng vọng (`laTiengVong`) → hiểu (`lib/sen-bien/nhap-giong.ts`) → "Dạ, <nhắc lại>." + điền ô + câu kế. Không rõ ⇒ hỏi lại MỘT lần ("Sen Biển chưa nghe rõ…"); lần hai vẫn không ⇒ ô được bỏ qua thì qua ("Để bác ghi tay sau"), ô bắt buộc (loại giấy, tên tàu) thì dừng. "bỏ qua / không nhớ / chưa có" ⇒ qua ô; "thôi / dừng" ⇒ dừng. Micro bị chặn / máy không nghe được ⇒ "Máy chưa cho Sen Biển nghe. Bác gõ tay giúp nhé." rồi dừng.
+
+**Kết thúc**: đọc tóm tắt "Bác xem lại: … Lưu nhé?" ⇒ "có / lưu / đúng / ừ / được" ⇒ "Dạ, Sen Biển lưu rồi." + bấm CHÍNH nút Lưu của form (cùng kiểm lỗi, cùng hỏi trùng loại giấy); "không / sửa / thôi" ⇒ "Bác sửa rồi bấm Lưu nhé." Thẻ có chấm × góc trên-phải để dừng bất cứ lúc nào.
+
+**Kịch bản** (`nhap-giong.ts`): giấy tờ = loại (bắt buộc) → ngày hết hạn → số giấy → ngày cấp; tàu = tên (bắt buộc) → số đăng ký → tỉnh cảng nhà (danh sách `COASTAL_PROVINCES`) → chiều dài (0–100 m) → chủ tàu → nghề → năm đóng. Ô theo giấy được điền ⇒ nhóm "theo giấy" tự mở.
+
+**Hiểu câu** (thuần, test `sen-bien-nhap-giong.test.ts`): ngày "mười một tháng ba năm hai không hai bảy" / "hai tư tháng chín năm hai sáu" / "mồng năm tháng tư năm hai lăm" / "11/3/2027" (THIẾU NĂM ⇒ hỏi lại, không đoán); số "hai mươi tư" = "hai tư" = 24, "hai nghìn không trăm hai mươi bảy", "hai không mười tám" (năm); thập phân "mười tám phẩy năm" / "mười tám mét rưỡi"; số giấy đọc rời ghép lại, "trên" ⇒ "/", "gạch" ⇒ "-" (≥2 chữ số); mã tàu đánh vần "gờ lờ chín chín hai tám không tê ét" ⇒ GL-99280-TS hoặc dạng gõ "GL 99280 TS"; loại giấy theo từ khoá (đăng kiểm/kỹ thuật, đăng ký, phép/khai thác, thực phẩm, bảo hiểm, thuyền trưởng/chứng chỉ/bằng). KHÔNG dùng `parse-coord.soBangChu` (nó coi "năm" là 5 cả khi là chữ "năm" trước số năm).
+
+| AC | Tiêu chí | Kiểm |
+|---|---|---|
+| NG-01 | Bấm mic/Nói ⇒ Sen Biển hỏi câu đầu bằng giọng, thẻ hiện câu hỏi + "Đang nghe…" khi nghe | tay (máy thật) |
+| NG-02 | Câu trả lời hiểu được ⇒ ô điền ngay + "Dạ, …"; không hiểu ⇒ hỏi lại một lần rồi bỏ qua/dừng | tay + `sen-bien-nhap-giong.test.ts` |
+| NG-03 | "có/lưu" ở câu cuối ⇒ đi qua đúng nút Lưu (kiểm lỗi giữ nguyên); "không" ⇒ không lưu | tay |
+| NG-04 | Ngày thiếu năm, ngày giả (30/2), số giấy không có ≥2 chữ số ⇒ KHÔNG điền | test |
+| NG-05 | Micro bị chặn / không hỗ trợ ⇒ một câu rõ rồi dừng, form vẫn gõ tay được | tay |
+
+**Offline**: không request mới — nghe/hiểu/điền chạy trong máy (bộ nghe trong máy) hoặc Web Speech (cần sóng như Sen Biển hiện nay); lưu vẫn là lưu trong máy + đồng bộ như cũ.
+
+**Assumptions** (anh Long bác thì sửa spec trước): (1) KHÔNG có bảng mã tỉnh ⇒ mã tàu nhận đánh vần / dạng gõ; chữ viết hoa hết ("QNG" thay "QNg") — sau gộp tỉnh 2025 mã đổi, không bịa bảng. (2) Lưu vẫn phải qua câu "Lưu nhé?" — Sen Biển không tự lưu im lặng. (3) Chưa nối vào Sen Biển toàn app ("thêm giấy tờ" nói với icon nổi) — chỉ từ form; nợ: thêm ý định "nhập giấy/tàu" vào n-gram rồi mở form + tự bắt đầu hỏi. (4) Thuyền viên (sổ bạn thuyền, CCCD) chưa có kịch bản — CCCD là dữ liệu nhạy cảm, cần chốt riêng.

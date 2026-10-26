@@ -14,6 +14,7 @@ import {
 import {
   AlertIcon,
   CameraIcon,
+  MicIcon,
   ChevronDownIcon,
   DocIcon,
   EditIcon,
@@ -34,6 +35,8 @@ import { DocPhotoStrip, MAX_PHOTOS } from "@/components/document-photos";
 import { OfflineLine } from "@/components/ui/offline-line";
 import { XuatTrinhGiay } from "@/components/xuat-trinh-giay";
 import { CanGiaySheet } from "@/components/can-giay-sheet";
+import { HoiTungCau } from "@/components/hoi-tung-cau";
+import { KICH_BAN_GIAY, type OGiayGiong } from "@/lib/sen-bien/nhap-giong";
 import { compressImage, deleteDocPhoto, luuSanAnhGiay, uploadDocPhoto } from "@/lib/doc-photos";
 import { ANH_DOC_GIAY, apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, coTheThuLai, docGiayTuAnh, type OGiay } from "@/lib/doc-giay";
 import { useTodayVN } from "@/lib/use-today";
@@ -526,6 +529,8 @@ function DocumentForm({
   /** ảnh NHỎ vừa gửi đọc — "Thử lại" dùng lại, không bắt chụp lại */
   const anhDocRef = useRef<Blob | null>(null);
   const [thuLaiDuoc, setThuLaiDuoc] = useState(false);
+  /** Sen Biển đang hỏi từng câu để nhập (hoi-tung-cau) */
+  const [nhapGiong, setNhapGiong] = useState(false);
   /** ảnh vừa chụp đang chờ CĂN GÓC (can-giay-sheet) — null = không mở màn căn */
   const [anhCan, setAnhCan] = useState<File | null>(null);
   /** ảnh lưu chưa tải lên được (mạng yếu) — ô đã điền vẫn lưu được, chỉ thiếu ảnh để xuất trình */
@@ -696,6 +701,26 @@ function DocumentForm({
     });
   }
 
+  /*  NHẬP BẰNG GIỌNG (2026-10-26): Sen Biển điền ô qua ref (cập nhật sau mỗi lượt vẽ — luôn là hàm mới nhất) và
+      "Lưu nhé? — có" bấm CHÍNH nút Lưu (cùng kiểm lỗi, cùng hỏi trùng loại). */
+  const giongRef = useRef<{ dien: (o: OGiayGiong, gt: string) => void; luu: () => void } | null>(null);
+  useEffect(() => {
+    giongRef.current = {
+      dien: (o, gt) => {
+        if (o === "kind") handleKind(gt as DocumentKind);
+        else if (o === "expiresOn") setExpiresOn(gt);
+        else if (o === "number") {
+          setNumber(gt);
+          setShowMore(true);
+        } else if (o === "issuedOn") {
+          setIssuedOn(gt);
+          setShowMore(true);
+        }
+      },
+      luu: () => submit(),
+    };
+  });
+
   return (
     <BottomSheet
       kieu="form"
@@ -709,16 +734,38 @@ function DocumentForm({
             xanh biển nhạt — nút chính của ngăn là Lưu ở chân, không để hai nút đặc tranh nhau. KHÔNG dòng hướng dẫn
             (03 §6 mục 8): kết quả đọc tự nói app làm gì. Đang đọc ⇒ "Đang đọc…" + icon nhấp nháy, Lưu khoá tới khi
             xong. Mất sóng ⇒ nút mờ + OfflineLine — bà con vẫn ghi tay như trước. */}
-        <button
-          type="button"
-          onClick={() => chupRef.current?.click()}
-          disabled={!online || dangDoc || dangTaiAnh}
-          aria-busy={dangDoc}
-          className="mb-3.5 flex h-(--h-cta) w-full items-center justify-center gap-2 rounded-xl border border-sea/30 bg-sea/10 text-[1rem] font-semibold text-sea transition active:scale-[0.99] disabled:opacity-60"
-        >
-          <CameraIcon className={`h-6 w-6 ${dangDoc ? "animate-pulse" : ""}`} />
-          {dangDoc ? "Đang đọc…" : dangTaiAnh ? "Đang lưu…" : NHAN.chupGiay}
-        </button>
+        {/*  Hàng [Chụp giấy flex-1][Mic vuông]: hai cách nhập nhanh cạnh nhau, cùng tông phụ, cùng cao --h-cta. Mic chỉ
+            icon (03 §6 mục 8 — icon quen, tên ở aria-label); bấm ⇒ Sen Biển hỏi từng câu ngay đầu form. Nghe/đọc chạy
+            được cả khi mất sóng nếu bộ nghe trong máy đã nạp (lib/sen-bien/nghe). */}
+        <div className="mb-3.5 flex gap-2">
+          <button
+            type="button"
+            onClick={() => chupRef.current?.click()}
+            disabled={!online || dangDoc || dangTaiAnh || nhapGiong}
+            aria-busy={dangDoc}
+            className="flex h-(--h-cta) min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-sea/30 bg-sea/10 text-[1rem] font-semibold text-sea transition active:scale-[0.99] disabled:opacity-60"
+          >
+            <CameraIcon className={`h-6 w-6 ${dangDoc ? "animate-pulse" : ""}`} />
+            {dangDoc ? "Đang đọc…" : dangTaiAnh ? "Đang lưu…" : NHAN.chupGiay}
+          </button>
+          <button
+            type="button"
+            onClick={() => setNhapGiong(true)}
+            disabled={nhapGiong || dangDoc}
+            aria-label="Nhập bằng giọng nói — Sen Biển hỏi từng câu"
+            className="flex h-(--h-cta) w-(--h-cta) shrink-0 items-center justify-center rounded-xl border border-sea/30 bg-sea/10 text-sea transition active:scale-[0.97] disabled:opacity-60"
+          >
+            <MicIcon className="h-6 w-6" />
+          </button>
+        </div>
+        {nhapGiong && (
+          <HoiTungCau
+            kichBan={KICH_BAN_GIAY}
+            onDien={(o, gt) => giongRef.current?.dien(o, gt)}
+            onLuu={() => giongRef.current?.luu()}
+            onXong={() => setNhapGiong(false)}
+          />
+        )}
         <input ref={chupRef} type="file" accept="image/*" capture="environment" onChange={chupGiay} className="hidden" />
         {!online && (
           <div className="mb-3.5">

@@ -28,6 +28,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   EditIcon,
+  MicIcon,
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
@@ -36,6 +37,11 @@ import { LoiO, O_LOI, cuonToiOSai } from "@/components/tau-form";
 import { useAuthUser } from "@/lib/use-auth";
 import { Popover } from "@/components/ui/popover";
 import { NHAN } from "@/lib/labels";
+import { HoiTungCau } from "@/components/hoi-tung-cau";
+import { kichBanTau, type OTauGiong } from "@/lib/sen-bien/nhap-giong";
+
+/** Kịch bản Sen Biển hỏi từng câu cho form tàu — tỉnh lấy đúng danh sách tỉnh ven biển của ô chọn. */
+const KICH_BAN_TAU = kichBanTau(COASTAL_PROVINCES.map((p) => p.name));
 
 /*
   Quản lý nhiều tàu + chọn tàu đang xem. Mọi màn dữ liệu gắn theo tàu này.
@@ -331,6 +337,8 @@ export function BoatForm({
       Tàu ĐÃ ghi ô nào thì mở sẵn — không giấu thứ bà con đã nhập. */
   const [showPaper, setShowPaper] = useState(countPaperFields(initial) > 0);
   const filled = countPaperFields({ ...initial, ...draftAsLoose(d) });
+  /** Sen Biển đang hỏi từng câu (2026-10-26) */
+  const [nhapGiong, setNhapGiong] = useState(false);
 
   const set = (k: keyof Draft) => (v: string) => {
     setD((x) => ({ ...x, [k]: v }));
@@ -391,6 +399,25 @@ export function BoatForm({
 
   const kw = parseBoatNumber(d.engineKw, 10000);
 
+  /*  NHẬP BẰNG GIỌNG (2026-10-26 — "Sen Biển hỏi từng câu rồi lưu lại, tàu, giấy tờ…"): điền ô qua ref (cập nhật sau
+      mỗi lượt vẽ), "Lưu nhé? — có" bấm CHÍNH nút Lưu (cùng kiểm số, kiểm tên). Ô theo giấy (chủ tàu, nghề, năm đóng)
+      điền thì mở nhóm "theo giấy" để bà con thấy. */
+  const giongRef = useRef<{ dien: (o: OTauGiong, gt: string) => void; luu: () => void } | null>(null);
+  useEffect(() => {
+    giongRef.current = {
+      dien: (o, gt) => {
+        if (o === "name") setName(gt);
+        else if (o === "maTau") setMaTau(gt);
+        else if (o === "province") setProvince(gt);
+        else {
+          set(o)(gt);
+          if (o !== "lengthM") setShowPaper(true);
+        }
+      },
+      luu: () => submit(),
+    };
+  });
+
   return (
     <BottomSheet
       kieu="form"
@@ -405,6 +432,26 @@ export function BoatForm({
       }}
     >
       <form ref={formRef} onSubmit={submit} noValidate>
+        {/*  NÓI = Sen Biển hỏi từng câu (tên, số đăng ký, tỉnh, chiều dài, chủ tàu, nghề, năm đóng), điền ô ngay trước
+            mắt. Nút phụ trải ngang tông xanh nhạt (nút chính của ngăn là Lưu ở chân), icon mic + nhãn chuẩn "Nói". */}
+        {nhapGiong ? (
+          <HoiTungCau
+            kichBan={KICH_BAN_TAU}
+            onDien={(o, gt) => giongRef.current?.dien(o, gt)}
+            onLuu={() => giongRef.current?.luu()}
+            onXong={() => setNhapGiong(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setNhapGiong(true)}
+            aria-label="Nói — Sen Biển hỏi từng câu để nhập"
+            className="mb-3.5 flex h-(--h-cta) w-full items-center justify-center gap-2 rounded-xl border border-sea/30 bg-sea/10 text-[1rem] font-semibold text-sea transition active:scale-[0.99]"
+          >
+            <MicIcon className="h-6 w-6" />
+            {NHAN.noi}
+          </button>
+        )}
         <Field label="Tên tàu (để dễ nhớ)">
           <input
             value={name}
