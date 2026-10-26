@@ -12,6 +12,8 @@ import {
   loadCurrentBoatId,
   saveCurrentBoatId,
   type Boat,
+  withBoatParam,
+  boatFromParam,
 } from "@/lib/boats";
 
 // Cùng pattern auth-scope.test.ts — stub window.localStorage (không cần jsdom).
@@ -140,5 +142,21 @@ describe("showsUnderBoat — mục trỏ vào tàu KHÔNG CÒN không được b
   });
   it("danh sách tàu CHƯA NẠP xong ⇒ chưa gọi là mồ côi", () => {
     expect(showsUnderBoat("b9", "b1", null)).toBe(false);
+  });
+});
+
+describe("lời nhắc mở đúng tàu — withBoatParam / boatFromParam (O2)", () => {
+  it("gắn ?tau= đúng dấu nối, mã lạ được mã hoá; không tàu ⇒ nguyên vẹn", () => {
+    expect(withBoatParam("/tau?tab=giay-to", "b2")).toBe("/tau?tab=giay-to&tau=b2");
+    expect(withBoatParam("/tau", "b 2&x")).toBe("/tau?tau=b%202%26x");
+    expect(withBoatParam("/tau?tab=dich-vu", undefined)).toBe("/tau?tab=dich-vu");
+  });
+  it("chỉ đổi sang tàu CÒN trong danh sách và khác tàu đang chọn", () => {
+    const boats = [{ id: "b1" }, { id: "b2" }];
+    expect(boatFromParam("b2", boats, "b1")).toBe("b2");
+    expect(boatFromParam("b1", boats, "b1")).toBeNull(); // đang ở đúng tàu
+    expect(boatFromParam("b9", boats, "b1")).toBeNull(); // tàu đã xoá
+    expect(boatFromParam(null, boats, "b1")).toBeNull();
+    expect(boatFromParam("", boats, "b1")).toBeNull();
   });
 });

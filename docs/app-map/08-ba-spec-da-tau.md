@@ -3,6 +3,7 @@
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
 last_verified: 2026-10-19
+<!-- re-verified: 2026-10-21 — O2 nhiều tàu: đối chiếu code `withBoatParam`/`boatFromParam` (lib/boats.ts), `tau-tabs.tsx` đọc `?tau=` ⇒ `setCurrentBoat` + gỡ tham số, `urgent.ts` href giấy tờ/bảo dưỡng, `remindBoatId`/`docRemindHref` (lib/doc-reminders) cho push + sheet. Soi trình duyệt 375px: Bình Minh → bấm việc Hải Âu ⇒ tàu đổi, lưu `forfish.currentBoat.v1`. -->
 <!-- re-verified: 2026-10-25f — RÀ FB lô 2 ([design-review/08](../design-review/08-ra-fb-toan-app.md)): AC đa-tàu KHÔNG đổi. 7 ngăn form khu Tàu tôi dùng chân `chan` của BottomSheet (Huỷ|Lưu, Xoá tàu hàng đỏ riêng); bảo dưỡng + đồ tự ghi về khuôn hàng-bung; xoá 4 sổ có Hoàn tác 5 s (`lib/xoa-cho`, ghi máy sau khi chốt — shape kho không đổi); chip tàu icon + chevron + "N tàu", popover [tên · mã][✓] + bút Sửa; bạn thuyền chưa ghi bảo hiểm = xám (`lib/crew demKet`). HomeBar chọn tỉnh tại chỗ ghi `homeProvince` của tàu đang chọn qua `updateBoat` (QĐ C). -->
 <!-- re-verified: 2026-10-20 19:00 — AUDIT nhắc hạn (ops/audit-notify-2026-10-20): đối chiếu code `stormYieldsToReminder` (nhường bão chỉ khi tin ≤12h), sheet đánh dấu lúc HIỆN, `docPushUrl` toàn giấy thuyền viên → `/nguoi`, `keepLatestDocReminder` trong `/api/me/messages`. -->
 <!-- re-verified: 2026-10-20 17:30 — NHẮC HẠN GIẤY TỜ: đối chiếu code `lib/doc-reminders.ts` (DOC_REMIND_DAYS 30·25·20·15·10 + 5→0, quá hạn ×3), `lib/doc-reminder-local.ts` + `components/doc-remind-on-open.tsx` (sheet khi mở Trang chủ, sổ `forfish.docRemindSeen.v1`, nhường bão qua `savedStormActive`), `public/sw.js` push `renotify: true` khi có tag. Soi trình duyệt 375px. -->
@@ -245,6 +246,12 @@ ttl_days: 90
 - **Then** hiện sheet nhắc (gấp nhất trước); đã hiện (bấm "Để sau"/"Xem giấy tờ" hay vuốt thoát app) ⇒ cùng ngày mở lại KHÔNG hiện; bản tin bão trong máy có cơn nhưng đã quá 12 giờ ⇒ VẪN hiện (`stormYieldsToReminder`, `storms.test.ts`); hôm sau (mốc 2) hiện lại; đã chạm thông báo điện thoại của mốc đó (`?nhac=`) ⇒ không hiện lại chuyện đó
 - **Assert**: `doc-reminder-local.test.ts` (`localDueReminders` + `markSeenKeys` + `markSeenFromUrl`)
 
+### AC-12 — Bấm lời nhắc mở đúng tàu của việc đó · Maps to: NV3/NV5 · Test: unit + trình duyệt (2026-10-21)
+- **Given** chủ có ≥2 tàu, đang chọn T1; giấy của T2 tới mốc nhắc (hoặc bảo dưỡng của T2 sắp hạn)
+- **When** bấm dòng đó ở dải khẩn, nút "Xem giấy tờ" của sheet nhắc, hoặc chạm thông báo điện thoại
+- **Then** /tau mở đúng tab VÀ tàu đang chọn ĐỔI LUÔN sang T2 (lưu như tự bấm chọn tàu — chủ dự án chốt 2026-10-21); tham số `tau` bị gỡ khỏi đường dẫn; tàu đã xoá / chỉ 1 tàu / giấy chưa gắn tàu ⇒ giữ tàu đang chọn; tin gộp nhiều tàu ⇒ tàu của giấy TÀU gấp nhất
+- **Assert**: `urgent-boat-href.test.ts` (href mang `&tau=`) && `boats.test.ts` (`boatFromParam`, `withBoatParam`) && `doc-reminders.test.ts` ("mở ĐÚNG TÀU", sổ đã gửi vẫn đọc lại đủ)
+
 > Mỗi AC: atomic · testable · map 1 flow · không từ UI. Flow mới (NV1–NV5) → mặc định E2E trừ AC-3/AC-5 logic thuần.
 
 ## 11. Assumptions / Open
@@ -260,6 +267,7 @@ ttl_days: 90
 ## History
 - v1 (2026-06-15): khởi tạo từ nhu cầu "đa tàu — hồ sơ cố định/động" của chủ tàu; 4 quyết định chốt qua elicitation; transfer-chủ OUT scope.
 - 2026-10-06b: R8 + AC-9 — hồ sơ theo tài khoản (gộp theo mục, chủ sổ, seed khi server chưa có, mục mồ côi hiện ở tàu đang xem).
+- 2026-10-21: AC-12 — lời nhắc (dải khẩn · sheet · push) mở đúng tàu, đổi luôn tàu đang chọn (O2 của ops/audit-notify-2026-10-20).
 - 2026-10-20: NV5 đổi lịch mốc nhắc hạn (AC-10) + thêm sheet nhắc khi mở app (AC-11). Có thể trùng: sheet hiện lúc 6h, push cùng mốc tới lúc 7h (sổ máy và sổ máy chủ tách nhau — chấp nhận, không thêm request mạng).
 - 2026-10-06: NV1 thêm 19 ô theo giấy tàu (cố định theo tàu); NV5 thêm kênh thông báo điện thoại + AC-8. Phân loại R1/R2 không đổi (CCCD/chứng chỉ thuyền trưởng vẫn ở sổ thuyền viên).
 

@@ -8,6 +8,8 @@ import { VmsRenewal } from "@/components/vms-renewal";
 import { BoatServices } from "@/components/boat-services";
 import { BoatProducts } from "@/components/boat-products";
 import { LoginGate } from "@/components/login-gate";
+import { useBoats } from "@/lib/boat-store";
+import { BOAT_URL_PARAM, boatFromParam } from "@/lib/boats";
 
 /*
   HỒ SƠ TÀU — nội dung /tau (dock "Tàu tôi", 2026-10-19): giấy tờ, dịch vụ +
@@ -36,6 +38,20 @@ function HoSoTau() {
   useEffect(() => {
     if (sangVatTu) router.replace(sangVatTu);
   }, [sangVatTu, router]);
+  /*  LỜI NHẮC MỞ ĐÚNG TÀU (O2, 2026-10-21): `?tau=<id>` từ dải khẩn / sheet
+      nhắc hạn / thông báo điện thoại ⇒ ĐỔI LUÔN tàu đang chọn (như tự bấm chọn
+      tàu), rồi gỡ tham số khỏi đường dẫn — tải lại trang không kéo bà con về
+      tàu cũ sau khi họ tự đổi. Tàu đã xoá / tham số rác ⇒ giữ tàu đang chọn. */
+  const { current, boats, ready: boatReady, setCurrent } = useBoats();
+  const wantedBoat = params.get(BOAT_URL_PARAM);
+  useEffect(() => {
+    if (!boatReady || !wantedBoat) return;
+    const target = boatFromParam(wantedBoat, boats, current?.id);
+    if (target) setCurrent(target);
+    const url = new URL(window.location.href);
+    url.searchParams.delete(BOAT_URL_PARAM);
+    window.history.replaceState(null, "", url.pathname + url.search);
+  }, [boatReady, wantedBoat, boats, current?.id, setCurrent]);
 
   return (
     <div className="tau-owned">

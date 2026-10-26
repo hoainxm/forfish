@@ -6,6 +6,7 @@ import {
   expiringItemsOf,
   keepLatestDocReminder,
   parseDocPushUrl,
+  remindBoatId,
   reminderStep,
   type ExpiringItem,
 } from "@/lib/doc-reminders";
@@ -133,6 +134,28 @@ describe("docPushUrl — mở đúng chỗ (audit 2026-10-20 O3)", () => {
   });
 });
 
+describe("mở ĐÚNG TÀU khi nhiều tàu (O2, 08 AC-12)", () => {
+  it("URL mang tàu của giấy TÀU gấp nhất; sổ đã gửi đọc lại đủ", () => {
+    const a = { ref: "doc:a", label: "Tàu A: Đăng kiểm", expiresOn: "2026-06-20", boatId: "b1" };
+    const b = { ref: "doc:b", label: "Tàu B: Giấy phép", expiresOn: "2026-05-28", boatId: "b2" };
+    const c = { ref: "crew-bh:c", label: "Bảo hiểm của Anh Tư", expiresOn: "2026-05-27" };
+    const due = dueReminders([a, b, c], new Set(), TODAY);
+    expect(due[0].item.ref).toBe("crew-bh:c"); // gấp nhất là thuyền viên (không tàu)
+    expect(remindBoatId(due)).toBe("b2"); // ⇒ lấy giấy TÀU gấp nhất
+    const url = docPushUrl(
+      due.map((d) => d.key),
+      remindBoatId(due),
+    );
+    expect(url.startsWith("/tau?tab=giay-to&tau=b2&nhac=")).toBe(true);
+    expect(parseDocPushUrl(url)).toEqual(due.map((d) => d.key));
+  });
+  it("không giấy nào gắn tàu ⇒ không ?tau=", () => {
+    const due = dueReminders([gp], new Set(), TODAY);
+    expect(remindBoatId(due)).toBeUndefined();
+    expect(docPushUrl([due[0].key], remindBoatId(due))).not.toContain("tau=");
+  });
+});
+
 describe("keepLatestDocReminder — hộp thư chỉ giữ tin nhắc hạn mới nhất (O1)", () => {
   it("giữ tin nhắc MỚI NHẤT + mọi tin khác, đúng thứ tự", () => {
     const rows = [
@@ -198,6 +221,24 @@ describe("expiringItemsOf — đọc bản đồng bộ, không tin shape", () =
       ],
     });
     expect(items[0].label).toBe("Tàu B: Đăng kiểm");
+    expect(items[0].boatId).toBe("b2"); // O2: mang tàu để mở đúng tàu
+  });
+  it("một tàu / tàu không còn ⇒ không mang boatId (khỏi đổi tàu vô ích)", () => {
+    const one = expiringItemsOf({
+      documents: [{ id: "d1", label: "Đăng kiểm", boatId: "b1", expiresOn: "2026-06-10" }],
+      crew: null,
+      boats: [{ id: "b1", name: "Tàu A" }],
+    });
+    expect(one[0].boatId).toBeUndefined();
+    const gone = expiringItemsOf({
+      documents: [{ id: "d1", label: "Đăng kiểm", boatId: "b9", expiresOn: "2026-06-10" }],
+      crew: null,
+      boats: [
+        { id: "b1", name: "Tàu A" },
+        { id: "b2", name: "Tàu B" },
+      ],
+    });
+    expect(gone[0].boatId).toBeUndefined();
   });
   it("dữ liệu không phải mảng ⇒ rỗng, không ném", () => {
     expect(expiringItemsOf({ documents: {}, crew: "x", boats: 3 })).toEqual([]);

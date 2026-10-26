@@ -29,6 +29,7 @@ import {
   dueReminders,
   expiringItemsOf,
   parseDocPushUrl,
+  remindBoatId,
 } from "@/lib/doc-reminders";
 
 export const maxDuration = 120;
@@ -124,7 +125,10 @@ export async function GET(req: Request) {
     const r = await notifyAccount(admin, phone, {
       title,
       body,
-      url: docPushUrl(due.map((d) => d.key)),
+      url: docPushUrl(
+        due.map((d) => d.key),
+        remindBoatId(due),
+      ),
       sentBy: DOC_PUSH_SENT_BY,
       tag: DOC_PUSH_TAG,
       onlyIfRecorded: true,

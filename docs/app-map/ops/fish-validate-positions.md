@@ -5,7 +5,7 @@
 covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs, scripts/dl-collect.mjs, scripts/dl-build-labels.mjs, scripts/dl-eval.mjs, scripts/dl-fit-profiles.mjs, scripts/build-fleet-effort-grid.mjs, scripts/build-species-catch-grid.mjs, scripts/dl-eval-fleet.mjs, scripts/dl-adapt-local.mjs, scripts/train/run.mjs, scripts/lib/data-dir.mjs
 last_verified: 2026-10-14
 ttl_days: 180
-<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'scripts/dl-eval-fleet.mjs' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-21) — code 'scripts/dl-eval-fleet.mjs' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
 Hồ sơ gốc: [fish-review-2026-10-03/report-algorithm.md](fish-review-2026-10-03/report-algorithm.md) mục **B8** (lỗ hổng: SDFish chỉ tự kiểm nội bộ) và **C1** (việc này). Chuẩn đo: Hsu et al. 2021 — % vị trí tàu nằm trong 5/50 km của ô HSI cao; không cần CPUE.

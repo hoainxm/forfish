@@ -217,3 +217,33 @@ export function showsUnderBoat(
   if (itemBoatId === currentId) return true;
   return knownBoatIds !== null && !knownBoatIds.has(itemBoatId);
 }
+
+/*  LỜI NHẮC MỞ ĐÚNG TÀU (audit nhắc hạn 2026-10-20 O2). Tủ giấy tờ / sổ bảo
+    dưỡng lọc theo TÀU ĐANG CHỌN (`showsUnderBoat`) ⇒ nhiều tàu mà bấm lời nhắc
+    giấy của T2 trong lúc đang chọn T1 là rơi vào màn KHÔNG có tờ giấy đó. Nay
+    lời nhắc (dải khẩn, sheet khi mở app, thông báo điện thoại) mang `&tau=<id>`
+    và /tau ĐỔI LUÔN tàu đang chọn (chủ dự án chốt "đổi luôn" — như tự bấm chọn
+    tàu, mở app lần sau vẫn ở tàu đó). */
+
+/** Tham số đường dẫn mang mã tàu. */
+export const BOAT_URL_PARAM = "tau";
+
+/** Gắn `&tau=<id>` vào `href` (`href` đã có `?`). Không có tàu ⇒ nguyên vẹn. */
+export function withBoatParam(href: string, boatId: string | null | undefined): string {
+  if (!boatId) return href;
+  const sep = href.includes("?") ? "&" : "?";
+  return `${href}${sep}${BOAT_URL_PARAM}=${encodeURIComponent(boatId)}`;
+}
+
+/**
+ * Tàu mà đường dẫn muốn mở — CHỈ khi đó là tàu đang có trong danh sách và khác
+ * tàu đang chọn; còn lại `null` (tàu đã xoá / tham số rác ⇒ giữ tàu đang chọn).
+ */
+export function boatFromParam(
+  param: string | null | undefined,
+  boats: ReadonlyArray<{ id: string }>,
+  currentId: string | null | undefined,
+): string | null {
+  if (!param || param === currentId) return null;
+  return boats.some((b) => b.id === param) ? param : null;
+}

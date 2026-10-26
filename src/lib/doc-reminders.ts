@@ -32,6 +32,7 @@ import { daysUntil } from "@/lib/days";
 import { formatVnDate } from "@/lib/format";
 import { kindLabel, type DocumentKind } from "@/lib/documents";
 import { isDeleted } from "@/lib/sync-tombstone";
+import { withBoatParam } from "@/lib/boats";
 
 export const DOC_PUSH_SENT_BY = "system:docs";
 export const DOC_PUSH_TAG = "giay-to";
@@ -53,6 +54,8 @@ export interface ExpiringItem {
   /** câu gọi tên cho bà con đọc, đã kèm tên tàu/người nếu cần */
   label: string;
   expiresOn: string; // YYYY-MM-DD
+  /** tàu của giấy — CHỈ khi chủ có >1 tàu và tàu còn trong danh sách (O2) */
+  boatId?: string;
 }
 
 /** Mốc HIỆN TẠI của một hạn; null = chưa tới mốc nào / đã nhắc đủ quá hạn. */
@@ -76,14 +79,25 @@ function urlSafe(k: string): string {
 }
 
 /**
- * Đường mở khi chạm thông báo. Toàn giấy THUYỀN VIÊN (`crew-*`) ⇒ `/nguoi`
- * (bảo hiểm/chứng chỉ nằm ở sổ thuyền viên, tab Giấy tờ tàu không có — audit
- * 2026-10-20 O3); có giấy tàu ⇒ tab Giấy tờ. `parseDocPushUrl` đọc được cả hai.
+ * Đường mở khi chạm lời nhắc (thông báo + sheet khi mở app). Toàn giấy THUYỀN
+ * VIÊN (`crew-*`) ⇒ `/nguoi` (bảo hiểm/chứng chỉ nằm ở sổ thuyền viên — audit
+ * 2026-10-20 O3); có giấy tàu ⇒ tab Giấy tờ, kèm `&tau=` của giấy gấp nhất để
+ * /tau đổi sang đúng tàu (O2).
  */
-export function docPushUrl(keys: string[]): string {
+export function docRemindHref(keys: string[], boatId?: string): string {
   const onlyCrew = keys.length > 0 && keys.every((k) => k.startsWith("crew-"));
-  const base = onlyCrew ? "/nguoi?" : "/tau?tab=giay-to&";
-  return `${base}nhac=${keys.map(urlSafe).join("~")}`;
+  return onlyCrew ? "/nguoi" : withBoatParam("/tau?tab=giay-to", boatId);
+}
+
+/** Tàu để mở: tàu của giấy TÀU gấp nhất có gắn tàu (`due` đã xếp gấp trước). */
+export function remindBoatId(due: ReadonlyArray<{ item: ExpiringItem }>): string | undefined {
+  return due.find((d) => d.item.boatId)?.item.boatId;
+}
+
+/** URL thông báo = đường mở + sổ đã gửi (`nhac=`). `parseDocPushUrl` đọc được mọi dạng. */
+export function docPushUrl(keys: string[], boatId?: string): string {
+  const href = docRemindHref(keys, boatId);
+  return `${href}${href.includes("?") ? "&" : "?"}nhac=${keys.map(urlSafe).join("~")}`;
 }
 
 /**
@@ -200,8 +214,14 @@ export function expiringItemsOf(input: {
     const kind = (str(d.kind) ?? "khac") as DocumentKind;
     const name = str(d.label) ?? kindLabel(kind);
     const bid = str(d.boatId);
-    const prefix = many && bid && boatName.has(bid) ? `${boatName.get(bid)}: ` : "";
-    items.push({ ref: `doc:${id}`, label: `${prefix}${name}`, expiresOn: exp });
+    const known = many && bid && boatName.has(bid) ? bid : undefined;
+    const prefix = known ? `${boatName.get(known)}: ` : "";
+    items.push({
+      ref: `doc:${id}`,
+      label: `${prefix}${name}`,
+      expiresOn: exp,
+      ...(known ? { boatId: known } : {}),
+    });
   }
 
   for (const c of asArray(input.crew)) {

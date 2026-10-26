@@ -11,6 +11,7 @@ import { getServiceDueStatus, type OwnedAssets } from "@/lib/owned-assets";
 import { getWarrantyStatus } from "@/lib/products";
 import { formatVnd } from "@/lib/format";
 import { readUserList } from "@/lib/user-list-store";
+import { withBoatParam } from "@/lib/boats";
 import { SOON_DAYS_SERVICE, addDaysIso, daysUntil, todayIsoVN } from "@/lib/days";
 
 // ── pillar storage keys (mirror the feature screens) ─────────────
@@ -152,6 +153,10 @@ export function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
   const items: UrgentItem[] = [];
   const boatLabelOf = (boatId?: string) =>
     boat.multi ? boat.nameOf(boatId) : undefined;
+  // Nhiều tàu ⇒ bấm việc là đổi sang ĐÚNG tàu của nó (O2 — tủ giấy / sổ bảo
+  // dưỡng lọc theo tàu đang chọn). Tàu không còn trong danh sách ⇒ không gắn.
+  const hrefFor = (href: string, boatId?: string) =>
+    boatLabelOf(boatId) ? withBoatParam(href, boatId) : href;
 
   // 1. Giấy tờ — KHÔNG seed demo (hội đồng UX 2026-06-11): dải nhắc chỉ nói
   // việc THẬT người dùng tự ghi; cảnh báo đỏ giả ở màn hình đầu = mất tin.
@@ -166,7 +171,7 @@ export function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
         status: s.label,
         tone: s.level === "expired" ? "danger" : "warn",
         pillar: "giay_to",
-        href: PILLAR_TAG.giay_to.href,
+        href: hrefFor(PILLAR_TAG.giay_to.href, doc.boatId),
         days: s.days ?? 0,
         boatLabel: boatLabelOf(doc.boatId),
       });
@@ -184,7 +189,7 @@ export function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
         status: s.label,
         tone: s.level === "overdue" ? "danger" : "warn",
         pillar: "bao_duong",
-        href: PILLAR_TAG.bao_duong.href,
+        href: hrefFor(PILLAR_TAG.bao_duong.href, entry.boatId),
         days: s.days,
         boatLabel: boatLabelOf(entry.boatId),
       });

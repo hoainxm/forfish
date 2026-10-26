@@ -6,7 +6,13 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { readToken } from "@/lib/device-token-store";
 import { useTodayVN } from "@/lib/use-today";
 import { savedStormActive } from "@/lib/storms";
-import { docPushMessage, reminderWhenText, type DueReminder } from "@/lib/doc-reminders";
+import {
+  docPushMessage,
+  docRemindHref,
+  reminderWhenText,
+  remindBoatId,
+  type DueReminder,
+} from "@/lib/doc-reminders";
 import { localDueReminders, markSeenKeys } from "@/lib/doc-reminder-local";
 
 /*
@@ -57,10 +63,12 @@ export function DocRemindOnOpen() {
 
   const close = () => setDue([]);
   const { title } = docPushMessage(due);
-  // Chỉ toàn giấy của thuyền viên ⇒ mở sổ thuyền viên; có giấy tàu ⇒ tab Giấy tờ
-  const href = due.some((d) => d.item.ref.startsWith("doc:"))
-    ? "/tau?tab=giay-to"
-    : "/nguoi";
+  // Toàn giấy thuyền viên ⇒ sổ thuyền viên; có giấy tàu ⇒ tab Giấy tờ của ĐÚNG
+  // tàu có giấy gấp nhất (cùng luật với thông báo điện thoại — lib/doc-reminders)
+  const href = docRemindHref(
+    due.map((d) => d.key),
+    remindBoatId(due),
+  );
   const rest = due.length - MAX_ROWS;
 
   return (
