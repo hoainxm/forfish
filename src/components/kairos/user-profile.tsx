@@ -30,7 +30,7 @@ import { CheckIcon } from "@/components/icons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState, inputClass } from "@/components/ui/primitives";
-import { OfflineLine } from "@/components/ui/offline-line";
+import { CauChuaTai, OfflineLine } from "@/components/ui/offline-line";
 import { Tabs } from "@/components/ui/tabs";
 import { loadFeedCache, portLabel } from "@/lib/kairos/feed-client";
 import { addMoiTen, gridPhotos, MOI_TEN_KEY, ngheName, parseMoiTen, tinhName } from "@/lib/kairos/ho-so";
@@ -308,7 +308,7 @@ export function UserProfile({ id }: { id: string }) {
             để có trang của bạn trên Kairos.
           </EmptyState>
         )}
-        {!user && load === "offline" && <EmptyState>Mất sóng. Có sóng sẽ tải.</EmptyState>}
+        {!user && load === "offline" && <EmptyState><CauChuaTai matSong="Mất sóng. Có sóng sẽ tải." /></EmptyState>}
       </div>
       {/* trang MÌNH mà chưa dựng được (mất sóng / chưa đăng nhập): bài đã lưu vẫn đọc được — nằm trong máy */}
       {!user && id === "toi" && (load === "offline" || load === "login") && (
@@ -682,7 +682,7 @@ function About({ user, cached, onEdit, canEdit }: { user: KairosUser; cached: bo
   return (
     <div className="space-y-3 px-4">
       {cached ? (
-        <EmptyState>Mất sóng. Có sóng sẽ xem được phần giới thiệu.</EmptyState>
+        <EmptyState><CauChuaTai matSong="Mất sóng. Có sóng sẽ xem được phần giới thiệu." /></EmptyState>
       ) : rows.length === 0 && !ab.gioiThieu ? (
         user.me ? (
           <div className="surface p-4 text-center">

@@ -34,7 +34,7 @@ import { DocPhotoStrip, MAX_PHOTOS } from "@/components/document-photos";
 import { OfflineLine } from "@/components/ui/offline-line";
 import { XuatTrinhGiay } from "@/components/xuat-trinh-giay";
 import { compressImage, deleteDocPhoto, luuSanAnhGiay, uploadDocPhoto } from "@/lib/doc-photos";
-import { apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, docGiayTuAnh, type OGiay } from "@/lib/doc-giay";
+import { ANH_DOC_GIAY, apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, coTheThuLai, docGiayTuAnh, type OGiay } from "@/lib/doc-giay";
 import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
 import { showsUnderBoat } from "@/lib/boats";
@@ -522,6 +522,13 @@ function DocumentForm({
   const [tuAnh, setTuAnh] = useState<ReadonlySet<OGiay>>(new Set());
   /** form đã đóng (Huỷ/Lưu) trong lúc ảnh đang tải/đọc — kết quả về muộn thì không điền, ảnh lỡ tải thì xoá */
   const daDong = useRef(false);
+  /** ảnh NHỎ vừa gửi đọc — "Thử lại" dùng lại, không bắt chụp lại */
+  const anhDocRef = useRef<Blob | null>(null);
+  const [thuLaiDuoc, setThuLaiDuoc] = useState(false);
+  /** ảnh lưu chưa tải lên được (mạng yếu) — ô đã điền vẫn lưu được, chỉ thiếu ảnh để xuất trình */
+  const [loiAnh, setLoiAnh] = useState(false);
+  /** ảnh LƯU (1600px) đang tải lên Storage — Lưu khoá tới khi xong để giấy không mất đường dẫn ảnh */
+  const [dangTaiAnh, setDangTaiAnh] = useState(false);
   const [kind, setKind] = useState<DocumentKind>(initial?.kind ?? kindMoi ?? "dang_kiem");
   const [label, setLabel] = useState(initial?.label ?? kindLabel(kindMoi ?? "dang_kiem"));
   const [labelTouched, setLabelTouched] = useState(Boolean(initial));
@@ -587,51 +594,75 @@ function DocumentForm({
       return n;
     });
 
+  /** Gửi ảnh nhỏ đi đọc rồi ĐIỀN ô. Lỗi ⇒ câu chỉ việc tiếp + nút Thử lại (cùng ảnh). */
+  async function docAnh(nho: Blob) {
+    setCauDoc(null);
+    setThuLaiDuoc(false);
+    setDangDoc(true);
+    const kq = await docGiayTuAnh(nho);
+    if (daDong.current) return;
+    setDangDoc(false);
+    if (!kq.ok) {
+      setCauDoc({ muc: "warn", text: cauLoiDoc(kq.loi) });
+      setThuLaiDuoc(coTheThuLai(kq.loi));
+      return;
+    }
+    const ap = apDungKqDocGiay({ kind, number, issuedOn, expiresOn }, kq.giay);
+    if (ap.form.kind !== kind) handleKind(ap.form.kind);
+    setNumber(ap.form.number);
+    setIssuedOn(ap.form.issuedOn);
+    setExpiresOn(ap.form.expiresOn);
+    // ô máy vừa điền phải NHÌN THẤY để xem lại — mở nhóm Chi tiết nếu có số/ngày cấp
+    if (ap.form.number || ap.form.issuedOn) setShowMore(true);
+    setTuAnh(new Set([...ap.daDien, ...ap.daDoi]));
+    const coO = ap.daDien.length + ap.daDoi.length > 0;
+    setCauDoc({ muc: coO && kq.giay.hetHan ? "neutral" : "warn", text: cauKetQuaDoc(ap.daDien, ap.daDoi, kq.giay.hetHan) });
+  }
+
+  /*  CHỤP GIẤY (sửa 2026-10-26 — ảnh 16:06 của anh Long: máy nhà đã đọc xong lúc 16:05:18 mà điện thoại vẫn báo
+      "Cần có sóng"): trước đây gửi CÙNG LÚC ảnh 1,8 MB lên Storage + 2,4 MB base64 đi đọc ⇒ sóng LÊN yếu nghẹn, quá
+      30 s, mọi lỗi bị gọi là mất sóng. Nay: (1) nén HAI cỡ — ảnh đọc 1280px ≤450 KB, ảnh lưu 1600px; (2) ĐỌC TRƯỚC
+      (ảnh nhỏ, vài giây) ⇒ ô điền ngay; (3) ảnh lưu tải lên SAU, Lưu khoá tới khi xong; (4) lỗi nói đúng (mạng yếu /
+      mất sóng / máy bận) + nút Thử lại dùng lại ảnh vừa chụp. */
   async function chupGiay(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
     setCauDoc(null);
+    setThuLaiDuoc(false);
+    setLoiAnh(false);
     setDangDoc(true);
+    let nho: Blob;
+    let lon: Blob;
     try {
-      const blob = await compressImage(file);
-      // hai việc song song: ảnh lên Storage (giữ giấy) + máy nhà đọc chữ (điền ô)
-      const [path, kq] = await Promise.all([
-        photos.length < MAX_PHOTOS ? uploadDocPhoto(docId, blob) : Promise.resolve(null),
-        docGiayTuAnh(blob),
-      ]);
-      // Huỷ trong lúc chờ ⇒ giấy mới không còn, ảnh vừa tải là ảnh mồ côi
-      if (daDong.current) {
-        if (path && !initial) void deleteDocPhoto(path);
-        return;
-      }
-      if (path) setPhotos((ds) => [...ds, path]);
-      if (!kq.ok) {
-        setCauDoc({ muc: "warn", text: cauLoiDoc(kq.loi) });
-        return;
-      }
-      const ap = apDungKqDocGiay({ kind, number, issuedOn, expiresOn }, kq.giay);
-      if (ap.form.kind !== kind) handleKind(ap.form.kind);
-      setNumber(ap.form.number);
-      setIssuedOn(ap.form.issuedOn);
-      setExpiresOn(ap.form.expiresOn);
-      // ô máy vừa điền phải NHÌN THẤY để xem lại — mở nhóm Chi tiết nếu có số/ngày cấp
-      if (ap.form.number || ap.form.issuedOn) setShowMore(true);
-      setTuAnh(new Set([...ap.daDien, ...ap.daDoi]));
-      const coO = ap.daDien.length + ap.daDoi.length > 0;
-      setCauDoc({ muc: coO && kq.giay.hetHan ? "neutral" : "warn", text: cauKetQuaDoc(ap.daDien, ap.daDoi, kq.giay.hetHan) });
+      [nho, lon] = await Promise.all([compressImage(file, ANH_DOC_GIAY), compressImage(file)]);
     } catch {
-      if (!daDong.current) setCauDoc({ muc: "warn", text: "Định dạng ảnh không hỗ trợ, bà con thử chụp lại nhé." });
-    } finally {
-      if (!daDong.current) setDangDoc(false);
+      if (!daDong.current) {
+        setDangDoc(false);
+        setCauDoc({ muc: "warn", text: "Định dạng ảnh không hỗ trợ, bà con thử chụp lại nhé." });
+      }
+      return;
     }
+    anhDocRef.current = nho;
+    await docAnh(nho);
+    if (daDong.current || photos.length >= MAX_PHOTOS) return;
+    setDangTaiAnh(true);
+    const path = await uploadDocPhoto(docId, lon);
+    // Huỷ trong lúc tải ⇒ giấy mới không còn, ảnh vừa tải là ảnh mồ côi
+    if (daDong.current) {
+      if (path && !initial) void deleteDocPhoto(path);
+      return;
+    }
+    setDangTaiAnh(false);
+    if (path) setPhotos((ds) => [...ds, path]);
+    else setLoiAnh(true);
   }
 
   /** Gọi từ Enter trong form (có event) lẫn nút Lưu ở chân ngăn (không event). */
   function submit(e?: React.FormEvent) {
     e?.preventDefault();
     if (!luuDuoc) return;
-    if (dangDoc) return; // đang đọc ảnh — chờ app điền xong rồi mới cho Lưu
+    if (dangDoc || dangTaiAnh) return; // đang đọc / đang tải ảnh — chờ xong rồi mới cho Lưu
     const doc = giayTuForm();
     // giấy MỚI trùng loại với giấy đã có ⇒ hỏi, không lặng lẽ thêm hàng thứ hai
     if (!initial && giayTrungLoai) {
@@ -661,7 +692,7 @@ function DocumentForm({
       title={initial ? "Sửa thông tin giấy tờ" : "Thêm giấy tờ mới"}
       onClose={huy}
       /* chân Huỷ|Lưu do ngăn vẽ (TAU-07/TAU-10); Lưu mờ khi chưa có thông tin (TAU-11) qua `dangLuu` */
-      chan={{ luu: NHAN.luu, onLuu: () => submit(), dangLuu: !luuDuoc || dangDoc }}
+      chan={{ luu: NHAN.luu, onLuu: () => submit(), dangLuu: !luuDuoc || dangDoc || dangTaiAnh }}
     >
       <form onSubmit={submit} noValidate>
         {/*  CHỤP GIẤY đứng đầu form (rà UI 2026-10-26, 03 §0/§0b): cao --h-cta bo 0.75rem chữ 1rem 600, tông PHỤ
@@ -671,12 +702,12 @@ function DocumentForm({
         <button
           type="button"
           onClick={() => chupRef.current?.click()}
-          disabled={!online || dangDoc}
+          disabled={!online || dangDoc || dangTaiAnh}
           aria-busy={dangDoc}
           className="mb-3.5 flex h-(--h-cta) w-full items-center justify-center gap-2 rounded-xl border border-sea/30 bg-sea/10 text-[1rem] font-semibold text-sea transition active:scale-[0.99] disabled:opacity-60"
         >
           <CameraIcon className={`h-6 w-6 ${dangDoc ? "animate-pulse" : ""}`} />
-          {dangDoc ? "Đang đọc…" : NHAN.chupGiay}
+          {dangDoc ? "Đang đọc…" : dangTaiAnh ? "Đang lưu…" : NHAN.chupGiay}
         </button>
         <input ref={chupRef} type="file" accept="image/*" capture="environment" onChange={chupGiay} className="hidden" />
         {!online && (
@@ -689,7 +720,23 @@ function DocumentForm({
             <StatusBanner level={cauDoc.muc} icon={<DocIcon className="h-5 w-5" />}>
               {cauDoc.text}
             </StatusBanner>
+            {/* Thử lại = đọc lại CÙNG ảnh nhỏ vừa chụp — không bắt chụp lại, không tải lại ảnh lưu */}
+            {thuLaiDuoc && (
+              <button
+                type="button"
+                onClick={() => anhDocRef.current && void docAnh(anhDocRef.current)}
+                disabled={dangDoc}
+                className={`${SQ_BTN} mt-2 bg-field text-navy`}
+              >
+                {NHAN.thuLai}
+              </button>
+            )}
           </div>
+        )}
+        {loiAnh && (
+          <p className="mb-3.5 text-[0.8125rem] leading-snug text-warn">
+            Ảnh chưa lưu lên được vì mạng yếu — ô đã điền vẫn Lưu được, ảnh chụp lại sau.
+          </p>
         )}
         {/* ảnh ngay dưới kết quả — soát ô app điền với tờ giấy thật mà không phải cuộn */}
         {photos.length > 0 && (

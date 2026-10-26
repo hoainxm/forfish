@@ -20,6 +20,7 @@ export interface KqDocGiay {
 
 export type LoiDocGiay =
   | "mat_song"
+  | "mang_yeu"
   | "chua_dang_nhap"
   | "qua_lon"
   | "khong_doc_duoc"
@@ -32,8 +33,21 @@ export type KqDocGiayHoacLoi = { ok: true; giay: KqDocGiay } | { ok: false; loi:
 
 /** Trần byte ảnh gửi đi — khớp máy nhà `ANH_GIAY_TOI_DA` 2 MB (compressImage nén ≤1,8 MB). */
 export const ANH_GIAY_TOI_DA = 2 * 1024 * 1024;
-/** Chờ cả đường (Vercel + máy nhà ≤12 s + đường truyền). */
-export const DOC_GIAY_HAN_MS = 30_000;
+/** Chờ cả đường (đẩy ảnh lên + Vercel + máy nhà ≤12 s + về). 45 s (trước 30 s) — ảnh đọc đã nhỏ, phần dư cho sóng lên yếu. */
+export const DOC_GIAY_HAN_MS = 45_000;
+/** Cỡ ảnh gửi ĐỌC (2026-10-26): 1280px, ≤450 KB — chữ trên giấy vẫn rõ cho mô hình (đọc ảnh ở cỡ nhỏ hơn thế),
+ *  nhẹ hơn ảnh lưu 4–6 lần. Ảnh LƯU để xuất trình giữ 1600px. */
+export const ANH_DOC_GIAY = { maxDim: 1280, targetBytes: 450 * 1024 } as const;
+
+/** Lỗi nào bấm "Thử lại" (cùng ảnh, không chụp lại) có ích. */
+export function coTheThuLai(loi: LoiDocGiay): boolean {
+  return loi === "mang_yeu" || loi === "mat_song" || loi === "timeout" || loi === "may_nha_tat" || loi === "chua_noi" || loi === "rate_limited";
+}
+
+/** Không có phản hồi (fetch ném / quá giờ): máy báo mất mạng ⇒ mất sóng; còn lại ⇒ MẠNG YẾU (không nói dối là mất sóng). */
+export function loiKhongPhanHoi(online: boolean): LoiDocGiay {
+  return online ? "mang_yeu" : "mat_song";
+}
 
 const KINDS = new Set<string>(DOCUMENT_KINDS.map((k) => k.value));
 const NGAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -111,21 +125,25 @@ export function cauKetQuaDoc(daDien: OGiay[], daDoi: OGiay[], hetHan: string | n
 /** Câu lỗi đời thường theo mã. */
 export function cauLoiDoc(loi: LoiDocGiay): string {
   switch (loi) {
+    // 2026-10-26 (anh Long: "ocr mà còn nhập tay? thế chụp làm gì"): câu lỗi chỉ ra việc làm TIẾP — bấm Thử lại
+    // (cùng ảnh); không đẩy bà con về gõ tay như lối thoát đầu tiên.
     case "mat_song":
-      return "Cần có sóng để app đọc giấy. Ảnh vẫn giữ, bà con ghi tay ngày hết hạn hoặc thử lại khi có mạng.";
+      return "Máy đang mất sóng. Ảnh đã giữ — có sóng bấm Thử lại.";
+    case "mang_yeu":
+      return "Mạng yếu, app đọc chưa xong. Bấm Thử lại.";
     case "chua_dang_nhap":
-      return "Đăng nhập để app đọc giấy giúp. Giờ bà con ghi tay ngày hết hạn nhé.";
+      return "Đăng nhập để app đọc giấy giúp.";
     case "qua_lon":
       return "Ảnh quá nặng, bà con chụp lại gần hơn một chút.";
     case "khong_doc_duoc":
-      return "App chưa đọc được chữ trên ảnh — chụp thẳng, đủ sáng, rõ chỗ ngày hết hạn rồi thử lại, hoặc ghi tay.";
+      return "App chưa đọc rõ chữ — chụp lại thẳng, đủ sáng, rõ chỗ ngày hết hạn.";
     case "rate_limited":
-      return "Bà con đọc nhiều ảnh liền quá, nghỉ một phút rồi thử lại.";
+      return "Bà con đọc nhiều ảnh liền quá, nghỉ một phút rồi bấm Thử lại.";
     case "timeout":
     case "may_nha_tat":
     case "chua_noi":
     default:
-      return "Máy đọc giấy đang bận, bà con ghi tay ngày hết hạn hoặc thử lại sau ít phút.";
+      return "Máy đọc giấy đang bận. Bấm Thử lại sau ít phút.";
   }
 }
 
@@ -154,7 +172,7 @@ export async function docGiayTuAnh(blob: Blob): Promise<KqDocGiayHoacLoi> {
     { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ anh }) },
     DOC_GIAY_HAN_MS,
   );
-  if (!res) return { ok: false, loi: "mat_song" };
+  if (!res) return { ok: false, loi: loiKhongPhanHoi(typeof navigator === "undefined" || navigator.onLine !== false) };
   const j = (await res.json().catch(() => null)) as { ok?: boolean; giay?: unknown; code?: string } | null;
   if (res.ok && j?.ok) {
     const giay = kiemKqDocGiay(j.giay);

@@ -921,7 +921,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
                             : attach === "no-session"
                               ? "Đang bật · chưa gắn tài khoản — đăng nhập rồi mở lại app"
                               : attach === "failed"
-                                ? "Đang bật · chưa liên kết được (mất sóng)"
+                                ? "Đang bật · chưa liên kết được — mở lại app khi sóng tốt"
                                 : "Đang bật trên máy này"
                           : "Đang tắt · tin bão và tin SDVICO không hiện lên máy"}
                     </span>

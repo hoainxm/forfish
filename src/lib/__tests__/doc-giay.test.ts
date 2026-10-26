@@ -1,6 +1,6 @@
 // Đọc giấy tờ tàu từ ảnh (ADR 0017, 2026-10-26) — luật thuần: kiểm JSON máy nhà, điền form, câu nhắc.
 import { describe, expect, it } from "vitest";
-import { apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, kiemKqDocGiay, ngayHopLe } from "@/lib/doc-giay";
+import { ANH_DOC_GIAY, apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, coTheThuLai, kiemKqDocGiay, loiKhongPhanHoi, ngayHopLe } from "@/lib/doc-giay";
 import { chuoiKy, dauKy, DUONG_GIAY } from "@/lib/sen-bien/cong-ai-ky";
 
 describe("ngayHopLe", () => {
@@ -62,7 +62,7 @@ describe("câu nhắc — luôn bảo xem lại", () => {
     expect(cauKetQuaDoc(["expiresOn"], ["number"], "2027-03-11")).toMatch(/ngày hết hạn, số giấy.*xem lại.*Lưu/);
   });
   it("mỗi mã lỗi một câu đời thường, không mã kỹ thuật", () => {
-    for (const loi of ["mat_song", "chua_dang_nhap", "qua_lon", "khong_doc_duoc", "may_nha_tat", "timeout", "rate_limited", "chua_noi"] as const) {
+    for (const loi of ["mat_song", "mang_yeu", "chua_dang_nhap", "qua_lon", "khong_doc_duoc", "may_nha_tat", "timeout", "rate_limited", "chua_noi"] as const) {
       const c = cauLoiDoc(loi);
       expect(c.length).toBeGreaterThan(20);
       expect(c).not.toMatch(/[_]|50\d|timeout/i);
@@ -76,5 +76,27 @@ describe("ký đường /gw/v1/forfish/giay", () => {
     expect(DUONG_GIAY).toBe("/gw/v1/forfish/giay");
     expect(h["x-forlife-sig"]).toBeTruthy();
     expect(chuoiKy({ ts: "1760000000000", nonce: "0".repeat(32), method: "POST", duong: DUONG_GIAY, nguoi: "tb-" + "a".repeat(24), khachThue: "forfish-thue-bao", body: '{"anh":"x"}' })).toContain("/gw/v1/forfish/giay");
+  });
+});
+
+describe("sửa 2026-10-26 — máy nhà đã đọc xong mà điện thoại báo 'Cần có sóng'", () => {
+  it("không phản hồi mà máy vẫn báo có mạng ⇒ MẠNG YẾU, không phải mất sóng", () => {
+    expect(loiKhongPhanHoi(true)).toBe("mang_yeu");
+    expect(loiKhongPhanHoi(false)).toBe("mat_song");
+    expect(cauLoiDoc("mang_yeu")).not.toMatch(/mất sóng|có sóng/i);
+  });
+  it("lỗi mạng / máy bận ⇒ có nút Thử lại; ảnh không đọc được / quá nặng / chưa đăng nhập ⇒ không (phải chụp lại / đăng nhập)", () => {
+    for (const l of ["mang_yeu", "mat_song", "timeout", "may_nha_tat", "chua_noi", "rate_limited"] as const) expect(coTheThuLai(l)).toBe(true);
+    for (const l of ["khong_doc_duoc", "qua_lon", "chua_dang_nhap"] as const) expect(coTheThuLai(l)).toBe(false);
+  });
+  it("câu lỗi chỉ việc tiếp theo (Thử lại / chụp lại), không đẩy về gõ tay", () => {
+    for (const l of ["mang_yeu", "mat_song", "timeout", "may_nha_tat"] as const) {
+      expect(cauLoiDoc(l)).toMatch(/Thử lại/);
+      expect(cauLoiDoc(l)).not.toMatch(/ghi tay/);
+    }
+  });
+  it("ảnh gửi ĐỌC nhỏ hơn ảnh lưu nhiều (1280px, ≤450 KB)", () => {
+    expect(ANH_DOC_GIAY.maxDim).toBe(1280);
+    expect(ANH_DOC_GIAY.targetBytes).toBeLessThanOrEqual(450 * 1024);
   });
 });

@@ -11,7 +11,7 @@
 // (test khớp /404/), mất sóng ⇒ fetch tự ném; chỗ gọi vẫn XOÁ đệm để lần sóng về
 // sau thử lại (án lệ fetchSeamarks).
 
-import { timeoutSignal } from "@/lib/abort";
+import { taiCoNhip } from "@/lib/tai-co-nhip";
 import { decodeData, hasDataHeader2 } from "@/lib/data-codec.mjs";
 import { decryptFile } from "@/lib/data-crypt";
 import { getDataKey } from "@/lib/data-key";
@@ -25,35 +25,11 @@ export function dataSourceUrl(path: string): string {
 }
 
 /**
- * Đồng hồ chặn `ms` GHÉP với tín hiệu ngoài (MapLibre huỷ khi gỡ nguồn). Không
- * có tín hiệu ngoài thì là `timeoutSignal` thuần. Không bao giờ ném.
- */
-function linkedTimeoutSignal(ms: number, outer?: AbortSignal): AbortSignal | undefined {
-  const timer = timeoutSignal(ms);
-  if (!outer) return timer;
-  if (!timer || typeof AbortController === "undefined") return outer;
-  try {
-    const c = new AbortController();
-    const relay = () => {
-      try {
-        c.abort();
-      } catch {
-        /* bỏ qua */
-      }
-    };
-    if (outer.aborted || timer.aborted) relay();
-    outer.addEventListener("abort", relay, { once: true });
-    timer.addEventListener("abort", relay, { once: true });
-    return c.signal;
-  } catch {
-    return timer;
-  }
-}
-
-/**
  * Tải + giải mã một file dữ liệu, trả THÂN RÕ dạng ArrayBuffer (cho .bin).
  * @param path  đường dẫn cùng origin, vd "/data/depth-grid.v1.bin"
- * @param ms    trần chờ mạng
+ * @param ms    trần NGỪNG CHẢY (2026-10-26): chờ phản hồi đầu / giữa hai gói tối đa bấy nhiêu — KHÔNG phải trần
+ *              tổng. Trước đây là trần tổng ⇒ file 8 MB trên mạng di động chậm bị cắt khi dữ liệu vẫn đang về đều
+ *              ("không down được" dù đang online). Treo thật vẫn cắt đúng hạn (lib/tai-co-nhip).
  * @param nhan  nhãn cho thông điệp lỗi ("depth grid 404")
  */
 export async function fetchDataBytes(
@@ -62,9 +38,8 @@ export async function fetchDataBytes(
   nhan: string,
   outer?: AbortSignal,
 ): Promise<ArrayBuffer> {
-  const r = await fetch(path, { signal: linkedTimeoutSignal(ms, outer) });
+  const { res: r, body: raw } = await taiCoNhip(path, {}, ms, outer);
   if (!r.ok) throw new Error(`${nhan} ${r.status}`);
-  const raw = new Uint8Array(await r.arrayBuffer());
   // SDF2 (nhóm biên tập): cần khoá theo tài khoản — thiếu khoá thì ném để chỗ
   // gọi xoá đệm, lần có sóng sau /api/data-key trả khoá rồi đọc lại được.
   const u8 = hasDataHeader2(raw) ? await decryptFile(raw, getDataKey) : decodeData(raw);

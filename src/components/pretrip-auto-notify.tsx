@@ -659,7 +659,7 @@ function PretripSavedSheet({
                   <span className="block text-[0.8125rem] leading-snug text-warn">
                     {l.saved
                       ? // lớp vốn đã có: nói đúng cái vừa hụt — bản MỚI
-                        "Chưa có bản mới — hệ thống chưa cập nhật hoặc đang mất sóng."
+                        "Chưa có bản mới — hệ thống chưa cập nhật hoặc mạng yếu, thử lại sau."
                       : "Chưa tải được — kiểm tra mạng rồi thử lại."}
                   </span>
                 ) : (

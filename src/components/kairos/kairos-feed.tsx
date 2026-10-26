@@ -45,7 +45,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { CheckIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/primitives";
 import { CloseButton } from "@/components/ui/close-button";
-import { OfflineLine } from "@/components/ui/offline-line";
+import { CauChuaTai, OfflineLine } from "@/components/ui/offline-line";
 import { baoToast } from "@/components/ui/toast";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
@@ -742,7 +742,7 @@ export function KairosFeed({
           </>
         )}
         {empty && load === "offline" && (
-          <EmptyState>Mất sóng. Có sóng sẽ tải.</EmptyState>
+          <EmptyState><CauChuaTai matSong="Mất sóng. Có sóng sẽ tải." thuLai="kéo xuống để thử lại" /></EmptyState>
         )}
         {empty && load === "error" &&
           (errStatus === 401 ? (

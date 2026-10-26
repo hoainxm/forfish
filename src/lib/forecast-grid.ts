@@ -24,7 +24,7 @@ import { forecastStoreReady } from "@/lib/forecast-store";
 import { apiUrl } from "@/lib/api-base";
 import { gridSnapshotId, SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
 import { isCacheCurrent } from "@/lib/source-cadence";
-import { timeoutSignal } from "@/lib/abort";
+import { taiJsonCoNhip } from "@/lib/tai-co-nhip";
 import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 
 export type ForecastKind = "wind" | "wave" | "current";
@@ -680,15 +680,15 @@ function layKhungDaiHon(
     DỰ BÁO ĐIỂM (2026-07-29: bản web mở lần đầu máy trống trơn + live 429). */
 export async function loadGridSnapshotClient(days: number): Promise<ForecastGrid | null> {
   try {
-    const r = await fetch(apiUrl(`/api/weather-snapshot?id=${gridSnapshotId(days)}`), {
+    // 10 s = trần NGỪNG CHẢY (lib/tai-co-nhip, 2026-10-26) — lưới vài MB trên mạng chậm không còn bị cắt giữa chừng
+    const { res: r, json } = await taiJsonCoNhip<ForecastGrid>(apiUrl(`/api/weather-snapshot?id=${gridSnapshotId(days)}`), {
       headers: tokenHeader(),
-      signal: timeoutSignal(10000),
-    });
+    }, 10000);
     /* MỘT DÒNG NÀY = chỗ này cũng phát hiện được máy bị đá. Bộ não vẫn
        nằm ở `noteResponse`; ở đây chỉ đưa phản hồi cho nó soi. */
     void noteResponse(r);
     if (!r.ok) return null;
-    const g = (await r.json()) as ForecastGrid;
+    const g = json;
     return g && Array.isArray(g.times) && g.times.length > 0 ? g : null;
   } catch {
     return null;
@@ -780,32 +780,36 @@ async function fetchGridCore(
   const fd = Math.min(16, Math.max(1, Math.round(days)) + 1);
   const common = `latitude=${lats}&longitude=${lons}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}`;
 
-  // Timeout 20s (tầm 16 ngày × 80 điểm là payload lớn) — thà báo lỗi rõ còn hơn treo UI
+  // 20 s = trần NGỪNG CHẢY (2026-10-26, lib/tai-co-nhip): payload 16 ngày × 80 điểm lớn — mạng chậm mà đều vẫn tải xong,
+  // treo thật vẫn cắt sau 20 s im lặng (thà báo lỗi rõ còn hơn treo UI)
   // DÒNG CHẢY là REQUEST RIÊNG (không models): probe 2026-07-29 cho thấy ghim
   // models=ncep_gfswave025 thì ocean_current_* trả toàn null (model sóng không
   // có biến dòng chảy). Nguồn dòng chảy = MeteoFrance SMOC (best_match), phủ
   // ~10 ngày — ngày 11–16 null, lớp vẽ tự trống, KHÔNG bịa số.
   const windModelQ = opts.windModel ? `&models=${opts.windModel}` : "";
   const [windRes, waveRes, curRes] = await Promise.all([
-    fetch(
+    taiJsonCoNhip(
       `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh${windModelQ}`,
-      { signal: timeoutSignal(20000) },
-    ).then((r) => {
-      if (!r.ok) throw new Error(`wind grid ${r.status}`);
-      return r.json();
+      {},
+      20000,
+    ).then(({ res: r, json }) => {
+      if (!r.ok || json == null) throw new Error(`wind grid ${r.status}`);
+      return json;
     }),
-    fetch(
+    taiJsonCoNhip(
       `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction&models=${opts.waveModel ?? WAVE_MODEL}`,
-      { signal: timeoutSignal(20000) },
+      {},
+      20000,
     )
-      .then((r) => (r.ok ? r.json() : null))
+      .then(({ res: r, json }) => (r.ok ? json : null))
       .catch(() => null),
     opts.withCurrent
-      ? fetch(
+      ? taiJsonCoNhip(
           `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=ocean_current_velocity,ocean_current_direction`,
-          { signal: timeoutSignal(20000) },
+          {},
+          20000,
         )
-          .then((r) => (r.ok ? r.json() : null))
+          .then(({ res: r, json }) => (r.ok ? json : null))
           .catch(() => null)
       : Promise.resolve(null),
   ]);

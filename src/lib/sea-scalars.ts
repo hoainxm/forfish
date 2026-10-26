@@ -13,6 +13,7 @@ import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { seaScalarSnapshotId } from "@/lib/weather-snapshot-id";
 import { timeoutSignal } from "@/lib/abort";
+import { taiJsonCoNhip } from "@/lib/tai-co-nhip";
 import { tokenHeader } from "@/lib/device-token-store";
 
 export type SeaScalarKind = "ssha" | "sss";
@@ -232,12 +233,10 @@ export async function fetchSeaScalar(
   }
   // 2) live
   try {
-    const r = await fetch(apiUrl(`/api/sea-scalar?kind=${kind}`), {
+    const { res: r, json: j } = await taiJsonCoNhip<SeaScalarResult>(apiUrl(`/api/sea-scalar?kind=${kind}`), {
       headers: tokenHeader(),
-      signal: timeoutSignal(25000),
-    });
-    if (r.ok) {
-      const j = (await r.json()) as SeaScalarResult;
+    }, 25000); // NGỪNG CHẢY, không tổng (lib/tai-co-nhip, 2026-10-26)
+    if (r.ok && j) {
       if (j.ok) {
         saveSeaScalarChecked(kind, j);
         return j;

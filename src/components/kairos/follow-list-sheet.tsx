@@ -14,6 +14,7 @@ import type { KairosAuthor } from "@/lib/kairos/types";
 import { kairosSend } from "@/lib/kairos/write-client";
 import { NHAN } from "@/lib/labels";
 import { KairosAvatar } from "./kairos-avatar";
+import { CauChuaTai } from "@/components/ui/offline-line";
 
 type State = { s: "loading" } | { s: "ok"; people: KairosAuthor[]; more: boolean } | { s: "offline" } | { s: "error" };
 
@@ -54,7 +55,7 @@ export function FollowListSheet({
           ))}
         </ul>
       )}
-      {st.s === "offline" && <p className="py-6 text-center text-foreground/65">Mất sóng. Có sóng sẽ xem được danh sách.</p>}
+      {st.s === "offline" && <p className="py-6 text-center text-foreground/65"><CauChuaTai matSong="Mất sóng. Có sóng sẽ xem được danh sách." /></p>}
       {st.s === "error" && (
         <div className="py-6 text-center">
           <p className="mb-3">Chưa tải được danh sách.</p>
