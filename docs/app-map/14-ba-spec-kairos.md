@@ -356,6 +356,15 @@ Anh Long: *"tổ chức phân phối tin chính sách thì chuẩn vào, tỉnh 
 - Tỉnh của bài = `tagArea` trên tiêu đề + tóm tắt + **tên cơ quan** (`outlet` "UBND tỉnh Gia Lai") — ingest đã gắn từ §21.
 - Mất sóng: bản lưu lọc cùng luật (`feed-client.filterCached(…, tinh)`); ảnh chụp giữ chỗ theo (tab, tỉnh) và **mang khoá của chính nó** — chỉ cất/dựng khi khoá khớp (lỗi prod 2026-10-26: ảnh chụp Dòng tin bị cất nhầm dưới khoá Chính sách lúc đổi tab/tỉnh ⇒ chạm "Cả nước" hiện tin Lao Động/Dân Việt). Tab Chính sách **chặn cứng** ở `shownPosts`: chỉ vẽ bài `topic=chinh-sach`, không dải ghim — dù danh sách tới từ đâu.
 
+### 21d. Lọc loại tin (2026-10-26)
+
+Anh Long: *"cho loại lọc thêm loại tin (ví dụ tin dầu, tin hỗ trợ, tin cảnh báo, tin …)"*.
+
+- Cạnh nút tỉnh, cùng khuôn: nút **"Loại tin ▾"** (`LocLoaiTin`, `components/kairos/loc-tinh-chinh-sach.tsx`) ⇒ Popover **Tất cả · Hỗ trợ 48 · Hỗ trợ · Cảnh báo · Quy định · IUU · Danh sách** (nhãn `labels.NHAN_LOAI_TIN`, ≤2 chữ). Đang lọc ⇒ nút đặc navy chữ trắng (thấy ngay danh sách bị thu hẹp).
+- Phân loại **trong máy** bằng từ khoá trên tiêu đề + tóm tắt (`chinh-sach.loaiTin`, bỏ dấu + còn dấu cho "bão"≠"báo"); một bài có thể nhiều loại; `coDanhSach` ⇒ luôn có "Danh sách". Không cột DB, không request mới.
+- Lọc ở `kairos-feed.shownPosts`; danh sách lọc còn ngắn thì mốc cuộn vô tận vẫn trong tầm nhìn ⇒ tự tải trang sau tới khi đủ/hết. Trống: còn trang ⇒ "Đang tìm thêm tin loại này…", hết ⇒ "Chưa có tin loại này.". Loại tin không lưu máy (về Tất cả khi mở lại màn).
+- Sửa kèm: từ khoá "48/2010" chưa bao giờ khớp vì `foldVi` đổi "/" thành khoảng trắng ⇒ "48 2010" (cả `laTinChoBaCon` lẫn `loaiTin`).
+
 ### 21b. Tra cứu tên tàu / chủ tàu trong danh sách đính kèm (2026-10-26)
 
 Anh Long: *"các tin dạng này cho click tra cứu tên tàu hoặc chủ tàu để show luôn đoạn đó cho nhanh"*. Danh sách được duyệt là PDF 30–45 trang (QĐ 1958/QĐ-UBND: 1.392 hồ sơ) — bà con không mở PDF tìm tên mình trên điện thoại.

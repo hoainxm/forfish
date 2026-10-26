@@ -192,7 +192,7 @@ export const NHAN_CHIP_KAIROS = {
 
 /** Nhãn loại tin tab Chính sách Kairos (mã ở `lib/kairos/chinh-sach.mjs` LOAI_TIN, 14 §21d) — ≤2 chữ. */
 export const NHAN_LOAI_TIN = {
-  dau: "Tiền dầu",
+  dau: "Hỗ trợ 48",
   "ho-tro": "Hỗ trợ",
   "canh-bao": "Cảnh báo",
   "quy-dinh": "Quy định",
