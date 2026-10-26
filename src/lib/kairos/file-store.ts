@@ -17,6 +17,7 @@ import { KairosError } from "./errors";
 import { reportNeedsCheck } from "./quyet-dinh";
 import type {
   AuditRow, CommentFull, DecisionRow, KairosStore, NewPost, PostFull, ProfileFull, ReportRow, SeenRow, SourceRow, TargetType,
+  DinhKemDongRow,
 } from "./store";
 import { SDVICO_PHONE } from "./types";
 
@@ -38,6 +39,8 @@ interface State {
   decisions: DecisionRow[];
   marks: { post_id: string; phone: string; last_at: string }[];
   audit: (AuditRow & { id: number; at: string })[];
+  /** 0075 — dòng danh sách file đính kèm; kho cũ không có ⇒ coi như [] */
+  dinhKem?: DinhKemDongRow[];
 }
 
 /** Tên tệp ảnh dev: đường kho `<profileId>/<uuid>.<ext>` ⇒ `<profileId>__<uuid>.<ext>` (một tầng). */
@@ -470,6 +473,23 @@ export function createKairosFileStore(opts: { dir?: string; now?: () => Date } =
         }
       }),
     sovereigntyFlags: (limit) => read((s) => s.seen.filter((x) => x.outcome === "loai-chu-quyen").reverse().slice(0, limit)),
+    postByUrlHash: (h) => read((s) => s.posts.find((p) => p.url_hash === h) ?? null),
+    replaceDinhKemDong: (postId, urlHash, rows) =>
+      mutate((s) => {
+        const giu = (s.dinhKem ?? []).filter((d) => !(d.post_id === postId && d.url_hash === urlHash));
+        let id = Math.max(0, ...giu.map((d) => d.id));
+        s.dinhKem = [...giu, ...rows.map((r) => ({ ...r, id: ++id, post_id: postId, url_hash: urlHash }))];
+        return rows.length;
+      }),
+    traDinhKemDong: (postId, q, limit) =>
+      read((s) => {
+        const regs = [...(q.regNorms ?? []), ...(q.regNorm ? [q.regNorm] : [])];
+        return (s.dinhKem ?? [])
+          .filter((d) => d.post_id === postId)
+          .filter((d) => (regs.length && regs.some((r) => d.regNorm.includes(r))) || (q.tenNorm && d.tenNorm.includes(q.tenNorm)))
+          .slice(0, limit);
+      }),
+    demDinhKemDong: (postId) => read((s) => (s.dinhKem ?? []).filter((d) => d.post_id === postId).length),
     newsStatus: () =>
       read((s) => ({
         lastBaoAt: s.posts.reduce<string | null>((m, p) => (p.kind === "bao" && (!m || p.created_at > m) ? p.created_at : m), null),

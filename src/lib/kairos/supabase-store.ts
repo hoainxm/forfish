@@ -14,6 +14,7 @@ import { HO_SO_FIELDS } from "./store";
 import type {
   AuditRow, CommentFull, DecisionRow, KairosStore, NewDecision, PostFull, ProfileFull, RateTable, ReportRow,
   SeenRow, SourceRow, TargetType,
+  DinhKemDongRow,
 } from "./store";
 
 const BUCKET = "kairos-media";
@@ -42,6 +43,14 @@ const isUnique = (e: PgErr) => e?.code === "23505";
 /** Lỗi "cột không có" của Postgres (42703) / PostgREST (PGRST204 khi ghi cột lạ). */
 export const isMissingColumn = (e: PgErr) =>
   e?.code === "42703" || e?.code === "PGRST204" || /column .* does not exist|could not find the '.*' column/i.test(e?.message ?? "");
+
+/** Hàng kairos_dinh_kem_dong ⇒ DinhKemDongRow (cột snake ⇒ camel như kho file). */
+function dongTuHang(r: Record<string, unknown>): DinhKemDongRow {
+  return {
+    id: Number(r.id), post_id: String(r.post_id), url_hash: String(r.url_hash), stt: Number(r.stt ?? 0), ten: String(r.ten ?? ""),
+    tenNorm: String(r.ten_norm ?? ""), reg: String(r.reg ?? ""), regNorm: String(r.reg_norm ?? ""), noiDung: String(r.noi_dung ?? ""), page: Number(r.page ?? 1),
+  };
+}
 
 export function createKairosSupabaseStore(): KairosStore | null {
   const admin = createAdminClient();
@@ -526,6 +535,40 @@ export function createKairosSupabaseStore(): KairosStore | null {
       if (!rows.length) return;
       const { error } = await db.from("kairos_sources").upsert(rows, { onConflict: "id" });
       if (error) fail("upsertSources", error);
+    },
+    // ── 0075 dòng danh sách đính kèm — bảng chưa có (42P01) ⇒ đọc trả rỗng, ghi ném unavailable (máy thu giữ hàng đợi)
+    postByUrlHash: (h) => one<PostFull>("postByUrlHash", posts().select(POST_COLS).eq("url_hash", h).maybeSingle()),
+    async replaceDinhKemDong(postId, urlHash, rows) {
+      const del = await db.from("kairos_dinh_kem_dong").delete().eq("post_id", postId).eq("url_hash", urlHash);
+      if (del.error) fail("replaceDinhKemDong.delete", del.error);
+      for (let i = 0; i < rows.length; i += 500) {
+        const lo = rows.slice(i, i + 500).map((r) => ({
+          post_id: postId, url_hash: urlHash, stt: r.stt, ten: r.ten, ten_norm: r.tenNorm, reg: r.reg, reg_norm: r.regNorm, noi_dung: r.noiDung, page: r.page,
+        }));
+        const { error } = await db.from("kairos_dinh_kem_dong").insert(lo);
+        if (error) fail("replaceDinhKemDong.insert", error);
+      }
+      return rows.length;
+    },
+    async traDinhKemDong(postId, q, limit) {
+      const regs = [...(q.regNorms ?? []), ...(q.regNorm ? [q.regNorm] : [])].map((r) => r.replace(/[%_,()"\\]/g, ""));
+      const or: string[] = regs.map((r) => `reg_norm.ilike.%${r}%`);
+      if (q.tenNorm) or.push(`ten_norm.ilike.%${q.tenNorm.replace(/[%_,()"\\]/g, "")}%`);
+      if (!or.length) return [];
+      const { data, error } = await db.from("kairos_dinh_kem_dong").select("*").eq("post_id", postId).or(or.join(",")).order("stt").limit(limit);
+      if (error) {
+        if (error.code === "42P01") return [];
+        fail("traDinhKemDong", error);
+      }
+      return ((data ?? []) as Record<string, unknown>[]).map(dongTuHang);
+    },
+    async demDinhKemDong(postId) {
+      const { count, error } = await db.from("kairos_dinh_kem_dong").select("id", { count: "exact", head: true }).eq("post_id", postId);
+      if (error) {
+        if (error.code === "42P01") return 0;
+        fail("demDinhKemDong", error);
+      }
+      return count ?? 0;
     },
     sovereigntyFlags: (limit) =>
       many<SeenRow>("sovereigntyFlags", db.from("kairos_seen").select("*").eq("outcome", "loai-chu-quyen").order("first_seen_at", { ascending: false }).limit(limit)),

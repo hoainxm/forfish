@@ -1,5 +1,5 @@
 {
-  "_ghi_chu": "Nguồn của máy thu tin Kairos (14 §9 + §13). 2026-10-24: tắt nnmt-* (RSS đứng từ 05/10); thêm Google News tìm kiếm (kieu google-news — chỉ nhận báo trong baoDuocPhep) + RSS trực tiếp chuyên/chung (chiTinBien = chỉ nhận bài chuyện biển) để đạt 85 % tin biển. Tắt một nguồn: enabled=false (đừng xoá — id là khoá kairos_sources).",
+  "_ghi_chu": "Nguồn của máy thu tin Kairos (14 §9 + §13). 2026-10-24: tắt nnmt-* (RSS đứng từ 05/10); thêm Google News tìm kiếm (kieu google-news — chỉ nhận báo trong baoDuocPhep) + RSS trực tiếp chuyên/chung (chiTinBien = chỉ nhận bài chuyện biển) để đạt 85 % tin biển. Tắt một nguồn: enabled=false (đừng xoá — id là khoá kairos_sources). 2026-10-26b: danh mục gialai.gov.vn phân trang bằng JS (?page= vô tác dụng) nhưng lọc tên GET được: `filters[title]=<từ>` + `pageNo=` — thêm 4 nguồn tìm theo tên (tàu cá · 48/2010 · ngư dân · nhiên liệu) để vớt quyết định hỗ trợ dầu các đợt nằm sâu trong danh mục.",
   "nguon": [
     {
       "id": "nnmt-thuy-san",
@@ -422,6 +422,46 @@
       "section": "chinh-sach",
       "topic": "chinh-sach",
       "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-gialai-vb-tau-ca",
+      "outlet": "UBND tỉnh Gia Lai",
+      "feedUrl": "https://gialai.gov.vn/van-ban-chi-dao-dieu-hanh?orderBy=publishTime%20DESC&itemsPerPage=24&pageNo=1&filters%5Btitle%5D=t%C3%A0u%20c%C3%A1",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "linkRe": "^/van-ban-chi-dao-dieu-hanh/.+\\.html$",
+      "enabled": true
+    },
+    {
+      "id": "gov-gialai-vb-48-2010",
+      "outlet": "UBND tỉnh Gia Lai",
+      "feedUrl": "https://gialai.gov.vn/van-ban-chi-dao-dieu-hanh?orderBy=publishTime%20DESC&itemsPerPage=24&pageNo=1&filters%5Btitle%5D=48%2F2010",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "linkRe": "^/van-ban-chi-dao-dieu-hanh/.+\\.html$",
+      "enabled": true
+    },
+    {
+      "id": "gov-gialai-vb-ngu-dan",
+      "outlet": "UBND tỉnh Gia Lai",
+      "feedUrl": "https://gialai.gov.vn/van-ban-chi-dao-dieu-hanh?orderBy=publishTime%20DESC&itemsPerPage=24&pageNo=1&filters%5Btitle%5D=ng%C6%B0%20d%C3%A2n",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "linkRe": "^/van-ban-chi-dao-dieu-hanh/.+\\.html$",
+      "enabled": true
+    },
+    {
+      "id": "gov-gialai-vb-nhien-lieu",
+      "outlet": "UBND tỉnh Gia Lai",
+      "feedUrl": "https://gialai.gov.vn/van-ban-chi-dao-dieu-hanh?orderBy=publishTime%20DESC&itemsPerPage=24&pageNo=1&filters%5Btitle%5D=nhi%C3%AAn%20li%E1%BB%87u",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "linkRe": "^/van-ban-chi-dao-dieu-hanh/.+\\.html$",
       "enabled": true
     }
   ],

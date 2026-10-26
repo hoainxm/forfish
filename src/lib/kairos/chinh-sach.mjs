@@ -127,7 +127,8 @@ export function docDanhMucGov(html, base, opt = {}) {
     if (u.hostname !== host) continue;
     if (opt.linkRe && !opt.linkRe.test(u.pathname + u.search)) continue;
     if (DUOI_TEP_RE.test(u.pathname)) continue; // file đính kèm không phải bài
-    const title = (a.title || a.text).replace(/\s+/g, " ").trim();
+    // title= của cổng tỉnh có thể chứa chữ "\n" nguyên văn ("Quyết định QUYẾT ĐỊNH\nV/v phê duyệt đợt 05…")
+    const title = (a.title || a.text).replace(/\\n/g, " ").replace(/\s+/g, " ").trim();
     if ([...title].length < 12) continue;
     const key = u.pathname + u.search;
     if (seen.has(key)) continue;
@@ -322,4 +323,127 @@ export function kiemDinhKem(raw, opt = {}) {
     if (out.length >= DINH_KEM_TOI_DA) break;
   }
   return out;
+}
+
+// ───────── TRA CỨU DANH SÁCH TRONG FILE ĐÍNH KÈM (14 §21b, anh Long 2026-10-26: "các tin dạng này cho click tra cứu
+// tên tàu hoặc chủ tàu để show luôn đoạn đó cho nhanh") ─────────
+// Máy thu (GPU) chạy `pdftotext -layout` lên file PDF danh sách ⇒ chữ ở đây ĐỌC THÀNH TỪNG DÒNG TÀU: dòng = một số thứ
+// tự + họ tên + địa chỉ + số đăng ký + … (cột cách nhau ≥2 khoảng trắng ở chế độ -layout; dòng nối tiếp không có
+// STT thì gộp vào dòng trước). CCCD/CMND che giữa (chỉ giữ 3 số đầu + 3 số cuối) — văn bản công khai nhưng app không
+// cần giữ nguyên số định danh. Máy chủ lưu `kairos_dinh_kem_dong` (0075), thẻ bài tra theo số đăng ký / tên chủ tàu.
+
+/** Số đăng ký tàu cá: 2–3 chữ tỉnh (QNg, BTh, BĐ, KG… — chữ sau có thể thường) + 4–6 số + TS (có/không gạch). */
+export const REG_RE = /(?<![\p{L}\d])([A-ZĐ][A-Za-zĐđ]{1,2})\s?-?\s?(\d{4,6})\s?-?\s?TS\b/u;
+export const DONG_TOI_DA = 5000;
+export const DONG_NOI_DUNG_TOI_DA = 400;
+export const DONG_TEN_TOI_DA = 80;
+
+/** "bđ-93333-ts" / "BĐ 93333 TS" ⇒ "BD93333TS" — cùng một chuẩn cho dòng lưu và chữ bà con gõ. */
+export function chuanReg(s) {
+  return foldVi(String(s ?? "")).toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/** Chữ gõ có vẻ là số đăng ký (có ≥4 số liền) chứ không phải tên. */
+export function laReg(q) {
+  return /\d{4}/.test(chuanReg(q));
+}
+
+const CCCD_RE = /\b(\d{3})\d{6}(\d{3})\b/g;
+const STT_RE = /^\s*(\d{1,4})\s+(\S.*)$/;
+const MUC_RE = /^\s*(?:[IVX]{1,5}|[A-Z])\s{2,}\S/;
+/** Dòng không thuộc bảng (tiêu đề cột, chữ ký, trang) — đang gộp dở thì kết dòng. */
+const DUNG_RE = /^\s*(TT\s|Nơi nhận|KT\. |CHỦ TỊCH|PHÓ CHỦ TỊCH|Phụ lục|DANH SÁCH|\(Kèm theo|Số:|Thời gian ký|Trang \d)/i;
+/** Dòng chữ IN HOA dài (chân trang "SỞ NÔNG NGHIỆP VÀ MÔI TRƯỜNG 32", tên mục) — không phải dòng tàu. */
+const IN_HOA_RE = /^\s*(?=.*\p{Lu}.*\p{Lu}.*\p{Lu})[^\p{Ll}]{12,}$/u;
+
+/**
+ * Chữ `pdftotext -layout` ⇒ dòng tàu [{stt, ten, reg, noiDung, page}]. Dòng không có số đăng ký bị bỏ (tổng, mục).
+ * Không ném; chữ rỗng ⇒ [].
+ * @param {string} text
+ * @param {number} [toiDa]
+ */
+export function docDongDanhSach(text, toiDa = DONG_TOI_DA) {
+  const out = [];
+  let page = 1;
+  /** @type {{ stt: number, cells: string[], page: number } | null} */
+  let dang = null;
+  const chot = () => {
+    if (!dang || out.length >= toiDa) {
+      dang = null;
+      return;
+    }
+    const chu = dang.cells.join(" ").replace(/\s+/g, " ").trim().replace(CCCD_RE, "$1******$2");
+    const m = REG_RE.exec(chu);
+    if (m) {
+      const ten = dang.cells[0].replace(/^\d{1,4}\s+/, "").replace(/\s+/g, " ").trim();
+      out.push({
+        stt: dang.stt,
+        ten: [...ten].slice(0, DONG_TEN_TOI_DA).join(""),
+        reg: `${m[1]}-${m[2]}-TS`.replace(/^BD-/, "BĐ-"),
+        noiDung: [...chu].slice(0, DONG_NOI_DUNG_TOI_DA).join(""),
+        page: dang.page,
+      });
+    }
+    dang = null;
+  };
+  for (const raw of String(text ?? "").split(/\r?\n/)) {
+    if (out.length >= toiDa) break;
+    const line = raw.replace(/\t/g, "  ");
+    if (line.includes("\f")) {
+      chot();
+      page += (line.match(/\f/g) ?? []).length;
+    }
+    const l = line.replace(/\f/g, "");
+    if (!l.trim()) continue;
+    const m = STT_RE.exec(l);
+    if (m && !/^\s*\d{1,4}\s+\d/.test(l)) {
+      // dòng mới: STT + họ tên (không phải "1 2 3" số liệu)
+      chot();
+      dang = { stt: Number(m[1]), cells: l.trim().split(/\s{2,}/), page };
+      continue;
+    }
+    if (MUC_RE.test(l) || DUNG_RE.test(l) || IN_HOA_RE.test(l)) {
+      chot();
+      continue;
+    }
+    if (dang) dang.cells.push(...l.trim().split(/\s{2,}/));
+  }
+  chot();
+  return out;
+}
+
+/**
+ * Kiểm dòng từ gói máy thu (máy chủ): phần tử hỏng bỏ, ≤ DONG_TOI_DA, reg phải đúng dạng. Trả thêm `regNorm`/`tenNorm`
+ * để lưu cột tìm.
+ * @param {unknown} raw
+ */
+export function kiemDongDanhSach(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const x of raw) {
+    if (!x || typeof x !== "object") continue;
+    const r = /** @type {any} */ (x);
+    const reg = typeof r.reg === "string" ? r.reg.trim() : "";
+    const m = REG_RE.exec(reg);
+    if (!m || reg.length > 20) continue;
+    const stt = Number.isInteger(r.stt) && r.stt >= 0 && r.stt <= 99999 ? r.stt : 0;
+    const page = Number.isInteger(r.page) && r.page >= 1 && r.page <= 9999 ? r.page : 1;
+    const ten = typeof r.ten === "string" ? [...r.ten.replace(/\s+/g, " ").trim()].slice(0, DONG_TEN_TOI_DA).join("") : "";
+    const noiDung = typeof r.noiDung === "string" ? [...r.noiDung.replace(/\s+/g, " ").trim()].slice(0, DONG_NOI_DUNG_TOI_DA).join("") : "";
+    if (!noiDung) continue;
+    out.push({ stt, ten, reg, regNorm: chuanReg(reg), tenNorm: foldVi(ten), noiDung, page });
+    if (out.length >= DONG_TOI_DA) break;
+  }
+  return out;
+}
+
+/**
+ * Chữ bà con gõ ⇒ điều kiện tìm: số đăng ký (chuẩn hoá, chứa) hoặc tên (bỏ dấu, chứa). q < 2 ký tự ⇒ null (không quét).
+ * @param {string} q
+ * @returns {{ regNorm: string } | { tenNorm: string } | null}
+ */
+export function dieuKienTra(q) {
+  const s = String(q ?? "").trim();
+  if ([...s].length < 2 || s.length > 40) return null;
+  return laReg(s) ? { regNorm: chuanReg(s) } : { tenNorm: foldVi(s) };
 }

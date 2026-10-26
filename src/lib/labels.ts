@@ -101,6 +101,8 @@ export const NHAN = {
   dongTin: "Dòng tin",
   nhaNuoc: "Nhà nước",
   dinhKem: "Đính kèm",
+  traCuu: "Tra cứu",
+  coTen: "Có tên",
   ghim: "Ghim",
   dangNong: "Đang nóng",
   // Kairos — đăng bài, bình luận, chia sẻ, hồ sơ (AC07–AC15)

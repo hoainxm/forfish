@@ -7,10 +7,14 @@
 //                                          KHÔNG POST, KHÔNG ghi sổ — không cần khoá
 //   --nguon=vne-thoi-su,tsvn               chỉ đọc mấy nguồn này
 //
+// TRA CỨU DANH SÁCH (14 §21b, 2026-10-26): file PDF đính kèm của bài gov ⇒ tải về (≤25 MB, 60 s) ⇒ `pdftotext -layout`
+// (poppler-utils trên máy GPU; thiếu ⇒ bỏ qua, log một dòng) ⇒ chinh-sach.docDongDanhSach ⇒ PUT /api/kairos/dinh-kem
+// SAU khi /nhap đã nhận bài (bài 404 ⇒ xếp hàng `cho-gui-dong.json`, lượt sau gửi lại). CCCD che ngay ở đây.
+//
 // NGUỒN GOV (14 §21, 2026-10-26 — tab "Chính sách"): kieu=gov trong kairos-nguon.json. feedUrl là RSS hoặc trang danh
 // mục HTML (chinh-sach.docDanhMucGov); chỉ giữ bài CHO BÀ CON ĐI BIỂN (laTinChoBaCon — bài khác ghi sổ, không xét lại);
 // mỗi bài giữ lại tải trang chi tiết lấy mô tả + ngày + FILE ĐÍNH KÈM (danh sách được duyệt theo đợt); tóm tắt bằng
-// prompt riêng (promptTomTatChinhSach); nhận bài tới 30 ngày (CHINH_SACH_CU_MS) vì văn bản ra thưa.
+// prompt riêng (promptTomTatChinhSach); nhận bài tới 365 ngày (CHINH_SACH_CU_MS) vì văn bản ra thưa.
 //
 // Cấu hình (env tiến trình đè tệp env ngoài repo, mặc định ~/.config/forlife/kairos.env):
 //   KAIROS_INGEST_KEY  khoá chung với máy chủ (app_config.kairos_ingest_key hoặc env Vercel)
@@ -31,7 +35,10 @@ import {
   CHINH_SACH_CU_MS, chuanSo, chiaLo, chonBai, docBaoDuocPhep, docGarturl, docNguon, docOg, docTomTat, ghiSo, gopHangDoi, GN_BATCH_URL,
   GOI_NHAP_TOI_DA, idTuLinkGN, khoaTrangGN, locBaiMoi, mucGui, nguonGui, parseFeed, promptTomTat, thanGarturl,
 } from "../src/lib/kairos/thu-core.mjs";
-import { docBaiGov, docDanhMucGov, laTinChoBaCon, promptTomTatChinhSach } from "../src/lib/kairos/chinh-sach.mjs";
+import { docBaiGov, docDanhMucGov, docDongDanhSach, laTinChoBaCon, promptTomTatChinhSach } from "../src/lib/kairos/chinh-sach.mjs";
+import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { tagArea } from "../src/lib/kairos/khu-vuc.mjs";
 import { topicFor } from "../src/lib/kairos/chu-de.mjs";
 import { ghiGanDay, locCungSuKien } from "../src/lib/kairos/cung-su-kien.mjs";
@@ -107,6 +114,41 @@ async function baiGoc(linkGN) {
   const og = html ? docOg(html, url) : { image: null, description: null };
   return { url, image: og.image, description: og.description };
 }
+const PDF_TOI_DA = 25 * 1024 * 1024;
+/** pdftotext -layout ⇒ chữ; thiếu lệnh / hỏng / quá giờ ⇒ null. */
+function pdfToText(file, ms = 60_000) {
+  return new Promise((resolve) => {
+    let out = "";
+    let xong = false;
+    const p = spawn("pdftotext", ["-layout", file, "-"], { stdio: ["ignore", "pipe", "ignore"] });
+    const t = setTimeout(() => { if (!xong) p.kill("SIGKILL"); }, ms);
+    p.stdout.on("data", (d) => { out += d; });
+    p.on("error", () => { xong = true; clearTimeout(t); resolve(null); });
+    p.on("close", (code) => { xong = true; clearTimeout(t); resolve(code === 0 ? out : null); });
+  });
+}
+/** Tải PDF đính kèm rồi đọc thành dòng tàu. Không ném; hỏng ⇒ { rows: [], loi }. */
+async function docDongTuPdf(url) {
+  let dir = null;
+  try {
+    const r = await fetch(url, { headers: { "user-agent": UA }, redirect: "follow", signal: AbortSignal.timeout(60_000) });
+    if (!r.ok) return { rows: [], loi: `HTTP ${r.status}` };
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > PDF_TOI_DA) return { rows: [], loi: "quá 25 MB" };
+    if (buf.subarray(0, 5).toString() !== "%PDF-") return { rows: [], loi: "không phải PDF" };
+    dir = mkdtempSync(path.join(tmpdir(), "kairos-pdf-"));
+    const f = path.join(dir, "a.pdf");
+    writeFileSync(f, buf);
+    const text = await pdfToText(f);
+    if (text == null) return { rows: [], loi: "pdftotext hỏng/thiếu" };
+    return { rows: docDongDanhSach(text), loi: null };
+  } catch (e) {
+    return { rows: [], loi: e?.name === "TimeoutError" ? "hết giờ 60 s" : String(e?.message ?? e).slice(0, 120) };
+  } finally {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 /** Chạy `viec` trên từng phần tử, tối đa `n` việc cùng lúc. */
 async function chayLo(xs, n, viec) {
   let i = 0;
@@ -155,10 +197,13 @@ async function main() {
   // 2. Bỏ bài CÙNG SỰ KIỆN với bài đã gửi 48 giờ qua hoặc bài báo khác trong lượt (cung-su-kien.mjs —
   //    "đang bị trùng tin"), rồi chọn bài lượt này. Bài bị bỏ vẫn ghi sổ link cho khỏi xét lại.
   const ganDayFile = path.join(c.stateDir, "gan-day.json");
-  const { giu: khongTrung, trung } = locCungSuKien(moi, docJson(ganDayFile, []), now);
-  if (trung.length) log(`[trùng sự kiện] bỏ ${trung.length} bài cùng vụ với báo khác`);
-  // bài gov chọn riêng: cửa sổ 30 ngày, không tranh trần 120 bài với báo
+  // văn bản gov KHÔNG qua chặn cùng sự kiện: "đợt 04 năm 2025" và "đợt 05 năm 2025" là hai quyết định khác nhau dù tiêu đề
+  // gần giống (thử khô 2026-10-26: bộ chặn bỏ 30/86 bài gov) — mỗi link một văn bản, trùng link đã có sổ
   const laGov = (b) => b.section === "chinh-sach";
+  const { giu: giuBao, trung } = locCungSuKien(moi.filter((b) => !laGov(b)), docJson(ganDayFile, []), now);
+  const khongTrung = [...giuBao, ...moi.filter(laGov)];
+  if (trung.length) log(`[trùng sự kiện] bỏ ${trung.length} bài cùng vụ với báo khác`);
+  // bài gov chọn riêng: cửa sổ 365 ngày (CHINH_SACH_CU_MS), không tranh trần 120 bài với báo
   const { chon: chonBao, quaCu: cuQua, conLai } = chonBai(khongTrung.filter((b) => !laGov(b)), now);
   const { chon: chonGov, quaCu: cuGov } = chonBai(khongTrung.filter(laGov), now, GOI_NHAP_TOI_DA, CHINH_SACH_CU_MS);
   const chon = [...chonBao, ...chonGov];
@@ -182,6 +227,9 @@ async function main() {
     if (gn.length) log(`[bài gốc] Google News ${duoc}/${gn.length} bài lần ra bài gốc (ảnh + mô tả)`);
   }
 
+  /** dòng danh sách đọc từ PDF, gửi ở bước 5b (sau /nhap) — kèm hàng đợi file lượt trước */
+  const dongFile = path.join(c.stateDir, "cho-gui-dong.json");
+  const dongChoGui = dry ? [] : docJson(dongFile, []).filter((x) => x && typeof x.postUrl === "string").slice(-50);
   // 2c. Bài gov: tải trang chi tiết lấy mô tả + ngày ban hành + FILE ĐÍNH KÈM (chinh-sach.docBaiGov). Hỏng ⇒ giữ như cũ
   //     (tiêu đề + mô tả RSS nếu có), không chặn lượt. Bài không có ngày lấy được ⇒ coi là mới (chonBai đã qua).
   if (!dry || process.argv.includes("--goc")) {
@@ -198,7 +246,18 @@ async function main() {
       duoc++;
     });
     if (gov.length) log(`[gov] ${duoc}/${gov.length} thông báo đọc được trang chi tiết · ${gov.filter((b) => b.attachments?.length).length} có file đính kèm`);
-    // ngày ban hành đọc từ trang chi tiết có thể quá 30 ngày (danh mục xếp theo ngày đăng web) ⇒ bỏ như quaCu
+    // 2d. Đọc danh sách tàu trong PDF đính kèm (14 §21b) — gửi sau khi bài đã vào kho (bước 5b)
+    for (const b of gov) {
+      for (const a of (b.attachments ?? []).filter((x) => /\.pdf(?:[?#]|$)/i.test(x.url)).slice(0, 3)) {
+        const { rows, loi } = await docDongTuPdf(a.url);
+        if (loi) log(`[dòng] ${a.url}: ${loi}`);
+        else if (rows.length) {
+          log(`[dòng] ${a.title}: ${rows.length} dòng tàu`);
+          dongChoGui.push({ postUrl: b.url, url: a.url, rows });
+        }
+      }
+    }
+    // ngày ban hành đọc từ trang chi tiết có thể quá 365 ngày (danh mục xếp theo ngày đăng web) ⇒ bỏ như quaCu
     for (let i = chon.length - 1; i >= 0; i--) {
       const b = chon[i];
       const t = laGov(b) && b.publishedAt ? Date.parse(b.publishedAt) : NaN;
@@ -233,6 +292,7 @@ async function main() {
   log(`[tóm tắt] AI ${ai} · mô tả RSS ${chon.length - ai}`);
 
   if (dry) {
+    for (const d of dongChoGui.slice(0, 3)) console.log(`\n— DÒNG ${d.url}: ${d.rows.length} dòng, vd: ${JSON.stringify(d.rows[0])}`);
     for (const b of chon.slice(0, 15)) {
       const area = tagArea(`${b.title}\n${b.description}`);
       console.log(
@@ -277,6 +337,20 @@ async function main() {
     loiGui = true;
     break;
   } while (hangDoi.length);
+
+  // 5b. Dòng danh sách ⇒ PUT /api/kairos/dinh-kem (bài phải đã vào kho). 404 (bài còn ở hàng đợi / bị loại) hoặc hỏng mạng
+  //     ⇒ giữ lại gửi lượt sau; 400 (gói sai / file không thuộc bài) ⇒ bỏ.
+  const conDong = [];
+  for (const d of dongChoGui) {
+    const r = await goiApi(c, "/api/kairos/dinh-kem", { method: "PUT", body: d, timeoutMs: 60_000 });
+    if (r.ok) log(`[dòng] gửi ${d.rows.length} dòng ⇒ nhận ${r.json.inserted}`);
+    else if (r.status === 400) log(`[dòng] máy chủ từ chối (400 ${r.json?.error ?? ""}) — bỏ ${d.url}`);
+    else {
+      log(`[dòng] chưa gửi được (${r.status || r.error}) — để lượt sau: ${d.url}`);
+      conDong.push(d);
+    }
+  }
+  ghiJson(dongFile, conDong.slice(-50));
   return loiGui ? 1 : 0;
 }
 

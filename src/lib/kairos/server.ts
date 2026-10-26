@@ -16,7 +16,7 @@ import { notifyMarket } from "@/lib/market/notify";
 import { getConfigValue } from "@/lib/app-config";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { boatExtra } from "./author-extra";
-import { BAO_FEED_MS, type FeedFilter, type FeedParams } from "./feed-query";
+import { BAO_FEED_MS, CHINH_SACH_FEED_MS, type FeedFilter, type FeedParams } from "./feed-query";
 import { aboutDto, authorDto, postDto, commentDto, type DtoCtx } from "./dto";
 import { checkIngestKey, effectiveIngestKey, INGEST_KEY_HEADER } from "./ingest-key";
 import { isKairosError, kairosErrorStatus, KairosError } from "./errors";
@@ -266,6 +266,7 @@ export async function feedFilterFor(
   const blocked = viewer ? await store.edgesFrom("block", viewer) : [];
   const filter: FeedFilter = {
     baoSince: new Date(now - BAO_FEED_MS).toISOString(),
+    chinhSachSince: new Date(now - CHINH_SACH_FEED_MS).toISOString(),
     topic: p.topic,
     ports: p.ports,
     near: p.near,

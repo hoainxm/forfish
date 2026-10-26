@@ -20,12 +20,18 @@ import { isUuid } from "./validate";
 /** Bài báo ở dòng tin bao lâu (A6). */
 export const BAO_FEED_DAYS = 30;
 export const BAO_FEED_MS = BAO_FEED_DAYS * 24 * 60 * 60 * 1000;
+/** Thông báo nhà nước (topic chinh-sach, 14 §21) ở lại 365 ngày: quyết định hỗ trợ dầu/đủ điều kiện ra theo đợt vài tháng một (đợt 01/2026 ký 06/04), bà con
+ *  tra tên mình cả tháng sau (anh Long 2026-10-26: "cái tin chính sách dầu đâu, mãi không thấy lên"). */
+export const CHINH_SACH_FEED_DAYS = 365;
+export const CHINH_SACH_FEED_MS = CHINH_SACH_FEED_DAYS * 24 * 60 * 60 * 1000;
 /** "Có N bài mới" đếm tới đây thôi (14 §7 new-count). */
 export const NEW_COUNT_CAP = 99;
 
 export interface FeedFilter {
   /** bài báo cũ hơn mốc này không lên (ISO) */
   baoSince: string;
+  /** thông báo chinh-sach cũ hơn mốc này không lên (ISO) — không có ⇒ dùng baoSince */
+  chinhSachSince?: string;
   topic?: Topic;
   /** bài gắn MỘT trong các cảng (Cảng tôi / Bến) */
   ports?: string[];
@@ -119,7 +125,11 @@ const overlap = (a: readonly string[] | null | undefined, b: readonly string[]) 
 /** Kho file dev: hàng này có lên dòng tin theo bộ lọc không. ĐÚNG luật của postgrestFeedExpr. */
 export function matchFeed(r: FilterableRow, f: FeedFilter): boolean {
   if (r.hidden) return false;
-  if (r.kind === "bao" && (r.mod_state !== "dat" || Date.parse(r.published_at) < Date.parse(f.baoSince))) return false;
+  if (r.kind === "bao") {
+    if (r.mod_state !== "dat") return false;
+    const moc = r.topic === "chinh-sach" && f.chinhSachSince ? f.chinhSachSince : f.baoSince;
+    if (Date.parse(r.published_at) < Date.parse(moc)) return false;
+  }
   if (f.topic && r.topic !== f.topic) return false;
   if (f.ports && !overlap(r.ports, f.ports)) return false;
   if (f.near && !overlap(r.provinces, f.near.provinces) && !overlap(r.regions, f.near.regions)) return false;
@@ -146,7 +156,10 @@ const pgList = (xs: readonly string[]) => `(${xs.map(pgQuote).join(",")})`;
  */
 export function postgrestFeedExpr(f: FeedFilter): string | null {
   if (f.authors && f.authors.length === 0) return null;
-  const parts: string[] = [`or(kind.neq.bao,and(mod_state.eq.dat,published_at.gte.${pgQuote(f.baoSince)}))`];
+  const cuaSo = f.chinhSachSince
+    ? `or(published_at.gte.${pgQuote(f.baoSince)},and(topic.eq.chinh-sach,published_at.gte.${pgQuote(f.chinhSachSince)}))`
+    : `published_at.gte.${pgQuote(f.baoSince)}`;
+  const parts: string[] = [`or(kind.neq.bao,and(mod_state.eq.dat,${cuaSo}))`];
   if (f.topic) parts.push(`topic.eq.${f.topic}`);
   if (f.ports?.length) parts.push(`ports.ov.${pgArray(f.ports)}`);
   if (f.near) {

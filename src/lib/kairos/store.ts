@@ -98,6 +98,22 @@ export type ProfilePatch = Partial<
 /** Các trường 0067 trong ProfilePatch — kho Supabase ném `fields_missing` khi cột chưa có. */
 export const HO_SO_FIELDS = ["cover_path", "que_tinh", "nghe", "gioi_thieu", "home_port"] as const;
 
+/** Dòng tàu trong danh sách đính kèm (0075) — đầu vào ghi (đã qua chinh-sach.kiemDongDanhSach). */
+export interface DinhKemDongNew {
+  stt: number;
+  ten: string;
+  tenNorm: string;
+  reg: string;
+  regNorm: string;
+  noiDung: string;
+  page: number;
+}
+export interface DinhKemDongRow extends DinhKemDongNew {
+  id: number;
+  post_id: string;
+  url_hash: string;
+}
+
 export interface ReportRow {
   id: string;
   target_type: TargetType;
@@ -271,6 +287,16 @@ export interface KairosStore {
   sovereigntyFlags(limit: number): Promise<SeenRow[]>;
   /** tab quản trị: giờ bài báo mới nhất vào kho (nhắc khi >2 giờ im) + trạng thái từng nguồn RSS */
   newsStatus(): Promise<{ lastBaoAt: string | null; sources: SourceRow[] }>;
+
+  // ── Dòng danh sách trong file đính kèm thông báo gov (0075, 14 §21b) ──
+  /** bài báo/thông báo theo băm link (máy thu gửi dòng sau khi /nhap) */
+  postByUrlHash(urlHash: string): Promise<PostFull | null>;
+  /** thay TOÀN BỘ dòng của (bài, file) — gửi lại thì không trùng; trả số dòng đã ghi */
+  replaceDinhKemDong(postId: string, urlHash: string, rows: DinhKemDongNew[]): Promise<number>;
+  /** tìm dòng của bài: theo số đăng ký (chuẩn hoá, chứa) hoặc tên (bỏ dấu, chứa); `regNorms` = nhiều tàu của bà con */
+  traDinhKemDong(postId: string, q: { regNorm?: string; regNorms?: string[]; tenNorm?: string }, limit: number): Promise<DinhKemDongRow[]>;
+  /** bài có dòng nào chưa (file chưa đọc được ⇒ 0) */
+  demDinhKemDong(postId: string): Promise<number>;
 
   // ── Ảnh (bucket kairos-media) ────────────────────────────────────────
   uploadImage(path: string, bytes: Uint8Array, mime: "image/jpeg" | "image/png" | "image/webp"): Promise<void>;

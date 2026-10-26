@@ -498,8 +498,9 @@ export function ghiSo(so, bai, now) {
 export const BAI_MOI_TOI_DA_MOI_LUOT = 120;
 /** Bài đăng quá 48 giờ: không tóm tắt, không gửi — ghi sổ cho khỏi xét lại (dòng tin là tin mới). */
 export const BAI_CU_MS = 48 * 60 * 60 * 1000;
-/** Thông báo nhà nước (nguồn gov, 14 §21): nhận tới 30 ngày — bằng BAO_FEED_DAYS, bài cũ hơn cũng không lên dòng tin. */
-export const CHINH_SACH_CU_MS = 30 * 24 * 60 * 60 * 1000;
+/** Thông báo nhà nước (nguồn gov, 14 §21): nhận tới 365 ngày — bằng CHINH_SACH_FEED_DAYS (quyết định hỗ trợ dầu ra theo đợt
+ *  vài tháng một; bài cũ hơn cũng không lên dòng tin). */
+export const CHINH_SACH_CU_MS = 365 * 24 * 60 * 60 * 1000;
 
 /**
  * Chọn bài cho lượt này: bỏ bài quá cũ; nghề cá trước, rồi mới trước; trần BAI_MOI_TOI_DA_MOI_LUOT.

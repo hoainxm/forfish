@@ -46,6 +46,7 @@ import { DongCamXuc, NutCamXuc } from "./nut-cam-xuc";
 import { KairosAvatar } from "./kairos-avatar";
 import { CommentThread, type CommentKit } from "./comment-thread";
 import { KhungAnh, NutNghe, useHoanAnh } from "./de-dung";
+import { TraCuuDanhSach } from "./tra-cuu-danh-sach";
 import { XemAnh } from "./xem-anh";
 
 export interface PostActions {
@@ -504,6 +505,8 @@ export function PostCard({
           )}
           <TheBao post={post} onRead={onRead} notify={actions.binhLuan?.notify} />
           <DinhKemList post={post} notify={actions.binhLuan?.notify} />
+          {/* thông báo có danh sách đính kèm ⇒ ô tra tên tàu/chủ tàu + tự so tàu trong sổ (14 §21b) */}
+          {post.topic === "chinh-sach" && !!post.attachments?.length && <TraCuuDanhSach post={post} notify={actions.binhLuan?.notify} />}
         </>
       ) : (
         <>

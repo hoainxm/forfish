@@ -221,3 +221,72 @@ describe("máy chủ /api/kairos/nhap — gác tin chính sách", () => {
     expect(r3.ok && r3.items[0].attachments).toEqual([]);
   });
 });
+
+// ───────── §21b tra cứu danh sách trong file đính kèm (2026-10-26) ─────────
+import { chuanReg, dieuKienTra, docDongDanhSach, kiemDongDanhSach, laReg } from "@/lib/kairos/chinh-sach.mjs";
+
+/** Mẫu `pdftotext -layout` thật của QĐ 1958/QĐ-UBND (Gia Lai, đợt 07/2024) — 2 trang, dòng nối, mục, chân trang. */
+const PDF_TEXT = `                                                Phụ lục:
+                  DANH SÁCH TÀU CÁ ĐỀ NGHỊ HỖ TRỢ NHIÊN LIỆU CHUYẾN BiỂN
+    TT        Họ và tên           Địa chỉ      Số đăng ký suất                               hỗ trợ chú
+I       Phù Cát                                                                                6.405
+      1 Trần Văn Hòa          Cát Tiến        BĐ-93333-TS    785 Câu mực, Mành  mực
+                                                                             052080018309        100 Lần 4
+      2 Huỳnh Thị Bảo Xuyên   Cát Tiến        BĐ-93875-TS    635 Câu cá ngừ, 052184016610
+                                                                             Mành mực             75 Lần 3
+      7 Trần Hoa              Cát Tiến        BĐ-93638-TS    400 Câu mực 052055009129             75 Lần 4
+\f                                                                          Số: 1958/QĐ-UBND
+II    Phù Mỹ                                                                       12.760
+ 961 Trương Nhựt Hưng    Tam Quan Bắc   BĐ-97805-TS   723 Câu cá ngừ 052079027870    100 Lần 1
+ 46 Nguyễn Đình Hổ       Trần Phú       BĐ-91597-TS   774 Vây cá ngừ 052064018479    100 Lần 1
+                                        SỞ NÔNG NGHIỆP VÀ MÔI TRƯỜNG 32
+ Nơi nhận:
+ - Như Điều 3;
+`;
+
+describe("docDongDanhSach — chữ pdftotext ⇒ dòng tàu", () => {
+  const rows = docDongDanhSach(PDF_TEXT);
+  it("mỗi STT một dòng, dòng nối gộp vào, mục/tiêu đề/chân trang bỏ, trang đếm theo \\f", () => {
+    expect(rows.map((r) => r.reg)).toEqual(["BĐ-93333-TS", "BĐ-93875-TS", "BĐ-93638-TS", "BĐ-97805-TS", "BĐ-91597-TS"]);
+    expect(rows[0]).toMatchObject({ stt: 1, ten: "Trần Văn Hòa", page: 1 });
+    expect(rows[3].page).toBe(2);
+    expect(rows[4].noiDung).not.toMatch(/SỞ NÔNG NGHIỆP/);
+  });
+  it("CCCD che giữa, tiền + lần giữ nguyên", () => {
+    expect(rows[0].noiDung).toBe("1 Trần Văn Hòa Cát Tiến BĐ-93333-TS 785 Câu mực, Mành mực 052******309 100 Lần 4");
+    expect(rows[1].noiDung).toMatch(/052\*{6}610 Mành mực 75 Lần 3$/);
+  });
+  it("trần số dòng; chữ rỗng ⇒ []", () => {
+    expect(docDongDanhSach(PDF_TEXT, 2).length).toBe(2);
+    expect(docDongDanhSach("")).toEqual([]);
+  });
+});
+
+describe("chuẩn hoá số đăng ký + điều kiện tra", () => {
+  it("BĐ/BD, gạch, khoảng trắng, hoa thường ⇒ một chuẩn", () => {
+    for (const s of ["BĐ-93333-TS", "bd 93333 ts", "BĐ93333TS", " Bđ-93333-Ts "]) expect(chuanReg(s)).toBe("BD93333TS");
+  });
+  it("có ≥4 số ⇒ tra theo số đăng ký, không thì theo tên bỏ dấu; quá ngắn/dài ⇒ null", () => {
+    expect(laReg("93333")).toBe(true);
+    expect(dieuKienTra("93333")).toEqual({ regNorm: "93333" });
+    expect(dieuKienTra("Trần Văn Hòa")).toEqual({ tenNorm: "tran van hoa" });
+    expect(dieuKienTra("a")).toBeNull();
+    expect(dieuKienTra("x".repeat(41))).toBeNull();
+  });
+});
+
+describe("kiemDongDanhSach — máy chủ kiểm gói máy thu", () => {
+  it("giữ dòng đúng dạng (kèm *_norm), bỏ dòng hỏng, cắt trần", () => {
+    const xs = kiemDongDanhSach([
+      { stt: 1, ten: "Trần Văn Hòa", reg: "BĐ-93333-TS", noiDung: "1 Trần Văn Hòa …", page: 3 },
+      { stt: 2, ten: "x", reg: "không phải", noiDung: "x", page: 1 },
+      { stt: -1, ten: 5, reg: "BĐ-1-TS", noiDung: "", page: 0 },
+      { stt: 100000, ten: "Lê", reg: "QNg-90123-TS", noiDung: "ok", page: 99999 },
+      "rác",
+    ]);
+    expect(xs.length).toBe(2);
+    expect(xs[0]).toMatchObject({ regNorm: "BD93333TS", tenNorm: "tran van hoa", page: 3 });
+    expect(xs[1]).toMatchObject({ stt: 0, page: 1, regNorm: "QNG90123TS" });
+    expect(kiemDongDanhSach("x")).toEqual([]);
+  });
+});

@@ -101,6 +101,18 @@ describe("postgrestFeedExpr — cùng luật, một tham số or=(and(...))", ()
     const e = postgrestFeedExpr(base)!;
     expect(e).toBe(`and(or(kind.neq.bao,and(mod_state.eq.dat,published_at.gte.${pgQuote(base.baoSince)})))`);
   });
+  it("có chinhSachSince ⇒ bài chinh-sach được cửa sổ riêng (365 ngày), bài báo khác vẫn 30 ngày — cả hai cách chạy", () => {
+    const cs = new Date(NOW - 200 * 24 * 3600_000).toISOString();
+    const f: FeedFilter = { ...base, chinhSachSince: cs };
+    expect(postgrestFeedExpr(f)).toBe(
+      `and(or(kind.neq.bao,and(mod_state.eq.dat,or(published_at.gte.${pgQuote(base.baoSince)},and(topic.eq.chinh-sach,published_at.gte.${pgQuote(cs)})))))`,
+    );
+    const cu = iso(100 * 24 * 60);
+    const bao = (topic: string) => row({ kind: "bao", author_phone: null, mod_state: "dat", published_at: cu, feed_at: cu, topic });
+    expect(matchFeed(bao("thoi-su"), f)).toBe(false);
+    expect(matchFeed(bao("chinh-sach"), f)).toBe(true);
+    expect(matchFeed(bao("chinh-sach"), base)).toBe(false);
+  });
   it("đủ các vế, giá trị có dấu dành riêng được bọc ngoặc kép", () => {
     const c = { at: iso(10), id: id(5) };
     const e = postgrestFeedExpr({
