@@ -2,7 +2,9 @@
 // này đóng vai trò là agent khung … truyền tải tri thức cho người đọc", "tần suất xuất hiện đan xen").
 //
 // Cửa: header `x-kairos-key` như /nhap (máy GPU, scripts/kairos-agent.mjs). Thân {viec: [...]} ≤ 30 việc:
-//   {loai:"bai", agentId, body, topic?, nhacAgent?}         — đăng bài (kind ba-con, đứng tên agent, chấm AI)
+//   {loai:"bai", agentId, body, topic?, nhacAgent?, anh?}   — đăng bài (kind ba-con, đứng tên agent, chấm AI)
+//   `anh` {data: base64 JPEG/PNG/WebP ≤ 500 KB} (16 §4 2f, 2026-10-26): ẢNH THỰC TẾ đội SDVICO (kho AI Assistant, đã duyệt) —
+//   chữ phải ghi nguồn SDVICO và không nhận là ảnh mình chụp (`loiAnhThucTe`); trần TRAN_ANH_NGAY bài ảnh / 24 giờ cả đội.
 //   {loai:"binh-luan", agentId, postId, parentId?, body, nhac?, nhacAgent?} — bình luận / trả lời (1 cấp như người thường)
 //   `sdvico` (id sản phẩm, sdvico-goi-y.mjs — 16 §4 2c): bình luận GỢI Ý SDVICO dưới tin báo hợp. Máy chủ chạy LẠI luật trên
 //   bài (phải ra đúng sản phẩm), kiểm lời (`loiGoiY`: có chữ SDVICO, không nhận đã dùng, không chê hàng khác), một bài một
@@ -19,6 +21,8 @@ import { NextResponse } from "next/server";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { agentTheoId, laAgent, loiChuAgent, TRAN, type Agent } from "@/lib/kairos/agent-doi.mjs";
 import { isTopic } from "@/lib/kairos/chu-de.mjs";
+import { loiAnhThucTe, TRAN_ANH_NGAY } from "@/lib/kairos/anh-thuc-te.mjs";
+import { sniffImageMime, UPLOAD_MAX_BYTES, type UploadMime } from "@/lib/market/route-utils";
 import { chuQuyenFlag } from "@/lib/kairos/chu-quyen.mjs";
 import { chongPhaFlag } from "@/lib/kairos/chong-pha.mjs";
 import { tagArea } from "@/lib/kairos/khu-vuc.mjs";
@@ -84,6 +88,7 @@ export async function POST(req: Request) {
     bl: await store.countAudit(ACTOR, "agent_binh_luan", since),
     hay: await store.countAudit(ACTOR, "agent_hay", since),
     sdvico: await store.countAudit(ACTOR, "agent_sdvico", since),
+    anh: await store.countAudit(ACTOR, "agent_anh", since),
   };
   const ketQua: KetQua[] = [];
   for (const v of viec) {
@@ -97,7 +102,7 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, ketQua });
 }
 
-async function mot(store: KairosStore, v: Record<string, unknown>, since: string, dem: { bai: number; bl: number; hay: number; sdvico: number }): Promise<KetQua> {
+async function mot(store: KairosStore, v: Record<string, unknown>, since: string, dem: { bai: number; bl: number; hay: number; sdvico: number; anh: number }): Promise<KetQua> {
   const a = agentTheoId(v?.agentId);
   if (!a) return { ok: false, code: "bad_agent" };
 
@@ -109,13 +114,33 @@ async function mot(store: KairosStore, v: Record<string, unknown>, since: string
     if (!p) return { ok: false, code: "no_profile" };
     if ((await store.countSince("posts", a.phone, since)) >= TRAN.baiMoiAgentNgay) return { ok: false, code: "tran_agent" };
     const body = String(v.body).trim();
+    // ảnh thực tế (16 §4 2f): kiểm TRƯỚC khi đụng kho — chữ ghi nguồn, bytes thật là ảnh, trần ngày
+    let anh: { bytes: Uint8Array; mime: UploadMime } | null = null;
+    if (v.anh != null) {
+      const loiAnh = loiAnhThucTe(body);
+      if (loiAnh) return { ok: false, code: loiAnh };
+      if (dem.anh >= TRAN_ANH_NGAY) return { ok: false, code: "tran_anh" };
+      const data = (v.anh as { data?: unknown })?.data;
+      if (typeof data !== "string" || data.length > UPLOAD_MAX_BYTES * 1.4) return { ok: false, code: "bad_image" };
+      const bytes = new Uint8Array(Buffer.from(data, "base64"));
+      const mime = bytes.length <= UPLOAD_MAX_BYTES ? sniffImageMime(bytes) : null;
+      if (!mime) return { ok: false, code: "bad_image" };
+      anh = { bytes, mime };
+    }
     const nhac = await nhacTenHopLe(store, await idNhac(store, v, a), body, a.phone, [], []);
     const area = tagArea(body, { ports: FISHING_PORTS });
+    let images: string[] = [];
+    if (anh) {
+      const ext = anh.mime === "image/png" ? "png" : anh.mime === "image/webp" ? "webp" : "jpg";
+      const duong = `${p.id}/${crypto.randomUUID()}.${ext}`;
+      await store.uploadImage(duong, anh.bytes, anh.mime);
+      images = [duong];
+    }
     const row = await store.insertPost({
       kind: "ba-con",
       author_phone: a.phone,
       body,
-      images: [],
+      images,
       topic: isTopic(v.topic) ? (v.topic as string) : "nghe-ca",
       regions: area.regions,
       provinces: area.provinces,
@@ -126,6 +151,10 @@ async function mot(store: KairosStore, v: Record<string, unknown>, since: string
     });
     dem.bai++;
     await auditQuiet(store, { actor: ACTOR, actor_kind: "he-thong", action: "agent_bai", target_type: "post", target_id: row.id, detail: { agentId: a.id } });
+    if (anh) {
+      dem.anh++;
+      await auditQuiet(store, { actor: ACTOR, actor_kind: "he-thong", action: "agent_anh", target_type: "post", target_id: row.id, detail: { agentId: a.id } });
+    }
     return { ok: true, id: row.id };
   }
 
