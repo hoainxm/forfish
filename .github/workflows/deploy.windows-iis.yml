@@ -59,8 +59,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          check-latest: true # luôn lấy bản vá bảo mật mới nhất của dòng 22 (runner cache có thể giữ bản cũ)
+          node-version: "24"
+          check-latest: true # luôn lấy bản vá bảo mật mới nhất của dòng 24 LTS (runner cache có thể giữ bản cũ)
 
       # Install có cache bằng hash lockfile: trùng hash → skip install (y hệt CRM).
       - name: Install dependencies

@@ -10,7 +10,7 @@
 //    trên Windows cmd/PowerShell (không hiểu cú pháp gán biến kiểu bash).
 //
 // Bọc ở đây: Node 20 → bỏ cờ (không cần + không hỏng); Node ≥22 → bật cờ. Chạy
-// được đồng nhất trên CI (Node 22 từ 2026-10-14), máy dev (Node 22/26), máy còn Node 20, và Windows.
+// được đồng nhất trên CI (Node 24 LTS từ 2026-10-26), máy dev (Node 24/26), máy còn Node 20/22, và Windows.
 //
 // Truyền tiếp mọi tham số: `npm test -- src/lib/__tests__/x.test.ts` vẫn chạy đúng.
 

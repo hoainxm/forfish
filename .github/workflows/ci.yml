@@ -42,8 +42,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          check-latest: true # luôn lấy bản vá bảo mật mới nhất của dòng 22 (runner cache có thể giữ bản cũ)
+          node-version: 24
+          check-latest: true # luôn lấy bản vá bảo mật mới nhất của dòng 24 LTS (runner cache có thể giữ bản cũ)
           cache: npm
 
       - name: Cài đúng bản trong lockfile
