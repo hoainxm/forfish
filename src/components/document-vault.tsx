@@ -33,6 +33,7 @@ import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import { DocPhotoStrip, MAX_PHOTOS } from "@/components/document-photos";
 import { OfflineLine } from "@/components/ui/offline-line";
 import { XuatTrinhGiay } from "@/components/xuat-trinh-giay";
+import { CanGiaySheet } from "@/components/can-giay-sheet";
 import { compressImage, deleteDocPhoto, luuSanAnhGiay, uploadDocPhoto } from "@/lib/doc-photos";
 import { ANH_DOC_GIAY, apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, coTheThuLai, docGiayTuAnh, type OGiay } from "@/lib/doc-giay";
 import { useTodayVN } from "@/lib/use-today";
@@ -525,6 +526,8 @@ function DocumentForm({
   /** ảnh NHỎ vừa gửi đọc — "Thử lại" dùng lại, không bắt chụp lại */
   const anhDocRef = useRef<Blob | null>(null);
   const [thuLaiDuoc, setThuLaiDuoc] = useState(false);
+  /** ảnh vừa chụp đang chờ CĂN GÓC (can-giay-sheet) — null = không mở màn căn */
+  const [anhCan, setAnhCan] = useState<File | null>(null);
   /** ảnh lưu chưa tải lên được (mạng yếu) — ô đã điền vẫn lưu được, chỉ thiếu ảnh để xuất trình */
   const [loiAnh, setLoiAnh] = useState(false);
   /** ảnh LƯU (1600px) đang tải lên Storage — Lưu khoá tới khi xong để giấy không mất đường dẫn ảnh */
@@ -624,10 +627,17 @@ function DocumentForm({
       30 s, mọi lỗi bị gọi là mất sóng. Nay: (1) nén HAI cỡ — ảnh đọc 1280px ≤450 KB, ảnh lưu 1600px; (2) ĐỌC TRƯỚC
       (ảnh nhỏ, vài giây) ⇒ ô điền ngay; (3) ảnh lưu tải lên SAU, Lưu khoá tới khi xong; (4) lỗi nói đúng (mạng yếu /
       mất sóng / máy bận) + nút Thử lại dùng lại ảnh vừa chụp. */
-  async function chupGiay(e: React.ChangeEvent<HTMLInputElement>) {
+  /** Máy ảnh trả ảnh ⇒ mở màn CĂN GÓC trước (2026-10-26, "chụp ảnh còn phải căn chỉnh sao cho dễ đọc"). */
+  function chupGiay(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    setAnhCan(file);
+  }
+
+  /** Bà con bấm "Dùng ảnh": ảnh đã nắn thẳng ⇒ nén hai cỡ ⇒ ĐỌC trước, LƯU sau. */
+  async function dungAnhDaCan(r: { luu: Blob; doc: Blob }) {
+    setAnhCan(null);
     setCauDoc(null);
     setThuLaiDuoc(false);
     setLoiAnh(false);
@@ -635,7 +645,7 @@ function DocumentForm({
     let nho: Blob;
     let lon: Blob;
     try {
-      [nho, lon] = await Promise.all([compressImage(file, ANH_DOC_GIAY), compressImage(file)]);
+      [nho, lon] = await Promise.all([compressImage(r.doc, ANH_DOC_GIAY), compressImage(r.luu)]);
     } catch {
       if (!daDong.current) {
         setDangDoc(false);
@@ -732,6 +742,17 @@ function DocumentForm({
               </button>
             )}
           </div>
+        )}
+        {anhCan && (
+          <CanGiaySheet
+            file={anhCan}
+            onDung={(r) => void dungAnhDaCan(r)}
+            onChupLai={() => {
+              setAnhCan(null);
+              chupRef.current?.click();
+            }}
+            onDong={() => setAnhCan(null)}
+          />
         )}
         {loiAnh && (
           <p className="mb-3.5 text-[0.8125rem] leading-snug text-warn">

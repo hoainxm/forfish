@@ -39,6 +39,9 @@ export const NHAN = {
   cangNha: "Cảng nhà",
   // giấy tờ tàu (2026-10-26): chụp để app đọc hạn · mở màn trình cho cán bộ
   chupGiay: "Chụp giấy",
+  // màn căn góc sau khi chụp (2026-10-26)
+  chupLai: "Chụp lại",
+  dungAnh: "Dùng ảnh",
   xuatTrinh: "Xuất trình",
   // tài khoản
   dangNhap: "Đăng nhập",
