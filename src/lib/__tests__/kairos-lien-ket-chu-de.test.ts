@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { TITLE_DUP_WINDOW_MS, foldVi, isDupTitle, normalizeUrl, titleNorm, urlHash } from "@/lib/kairos/lien-ket.mjs";
 import { TOPICS, hasFishKeyword, isTopic, topicFor } from "@/lib/kairos/chu-de.mjs";
@@ -31,6 +33,13 @@ describe("lien-ket — chuẩn hoá link", () => {
     const h = urlHash("https://vnexpress.net/a.html?utm_medium=x");
     expect(h).toMatch(/^[0-9a-f]{64}$/);
     expect(h).toBe(urlHash("http://www.vnexpress.net/a.html"));
+  });
+  it("băm KHÔNG đổi giá trị (cột url_hash unique — lệch là bài cũ lọt lại)", () => {
+    expect(urlHash("https://vnexpress.net/a.html")).toBe("02ba72c27e5e158f47228ed4480230f18a8cd0e720ca30bcd029d93f9b0ddae3");
+  });
+  it("không import tĩnh node:* — file đi vào JS phía điện thoại, import tĩnh kéo crypto giả lập ~420 KB", () => {
+    const src = readFileSync(join(process.cwd(), "src/lib/kairos/lien-ket.mjs"), "utf8");
+    expect(src).not.toMatch(/^\s*import[^;]*from\s*["']node:/m);
   });
 });
 

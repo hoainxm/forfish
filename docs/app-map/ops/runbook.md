@@ -111,6 +111,8 @@ git push origin main
 
 # PWA/native: xem ops/native-deploy.md (manifest/SW + Capacitor wrap)
 ```
+**Vùng chạy (2026-10-26)**: `vercel.json` ghim `"regions": ["icn1"]` (Seoul) cho cạnh Supabase ap-northeast-2. Kiểm: header `X-Vercel-Id` của một route `/api/*` phải có `::icn1::` (ví dụ `hkg1::icn1::…`); thấy `iad1` là vùng bị đè trong Settings → Functions của project.
+
 **Verify sau deploy**: mở route từng trục (`/ngu-truong` `/gia-ca` `/van-hanh` `/giay-to`), check nguồn ngoài degrade đúng (thẻ "Thử lại", không treo).
 
 **Deploy self-host PM2 — `.github/workflows/deploy.yml` (tối ưu 2026-09-29, trước ~20 phút/lần)**: runner `self-hosted` Windows, workflow `ci` xanh trên `main` → build standalone → PM2 `forfish` ở `C:\sdfish\forfish`.
