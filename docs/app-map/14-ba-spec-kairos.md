@@ -353,7 +353,7 @@ Anh Long: *"tổ chức phân phối tin chính sách thì chuẩn vào, tỉnh 
 - Tab Chính sách có **một nút nhỏ "📍 <Tỉnh> ▾"** (`components/kairos/loc-tinh-chinh-sach.tsx`, thay HomeBar ba nút — anh Long: "quá thô"); chạm ⇒ hộp chọn tỉnh dùng chung `ChonTinhPopover` có hàng "Cả nước" ở đầu. Tỉnh = **cảng nhà của tàu đang chọn** (`useHome`), chưa có tàu thì tỉnh chọn tạm trong phiên; chưa có tỉnh ⇒ hàng "Chưa có tỉnh cảng nhà · Chọn" + dòng tin cả nước. **Không dùng GPS** (không xin quyền vị trí chỉ để lọc tin; ngoài biển vị trí máy không phải nơi làm hồ sơ).
 - "Gần" (mặc định) ⇒ `/api/kairos/feed?chip=chinh-sach&province=<mã>` ⇒ `FeedFilter.tinhChinhSach`: bài **gắn tỉnh đó** HOẶC **không gắn tỉnh nào** (văn bản bộ/cục, cả nước). Bài tỉnh khác không lên. "Cả nước" ⇒ bỏ `province`. Tỉnh lạ ⇒ 400 `bad_area`.
 - Tỉnh của bài = `tagArea` trên tiêu đề + tóm tắt + **tên cơ quan** (`outlet` "UBND tỉnh Gia Lai") — ingest đã gắn từ §21.
-- Mất sóng: bản lưu lọc cùng luật (`feed-client.filterCached(…, tinh)`); ảnh chụp giữ chỗ theo (tab, tỉnh).
+- Mất sóng: bản lưu lọc cùng luật (`feed-client.filterCached(…, tinh)`); ảnh chụp giữ chỗ theo (tab, tỉnh) và **mang khoá của chính nó** — chỉ cất/dựng khi khoá khớp (lỗi prod 2026-10-26: ảnh chụp Dòng tin bị cất nhầm dưới khoá Chính sách lúc đổi tab/tỉnh ⇒ chạm "Cả nước" hiện tin Lao Động/Dân Việt). Tab Chính sách **chặn cứng** ở `shownPosts`: chỉ vẽ bài `topic=chinh-sach`, không dải ghim — dù danh sách tới từ đâu.
 
 ### 21b. Tra cứu tên tàu / chủ tàu trong danh sách đính kèm (2026-10-26)
 

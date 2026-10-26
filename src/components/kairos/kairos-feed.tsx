@@ -90,6 +90,9 @@ type Load = "loading" | "ready" | "error" | "offline";
 type GoiY = { k: "an" | "hien" | "dang" | "loi" };
 /** Ảnh chụp dòng tin cất khi rời màn (giu-cho) — quay lại thì dựng lại, không tải lại. */
 type AnhChup = {
+  /** khoá (cảng, tab, tỉnh) của danh sách LÚC CHỤP — chỉ cất/dựng khi khớp khoá đích (anh Long 2026-10-26: tab Chính sách
+   *  hiện tin Lao Động/Dân Việt — ảnh chụp Dòng tin bị cất nhầm dưới khoá Chính sách lúc đổi tab/tỉnh) */
+  khoa: string;
   phone: string | null;
   posts: KairosPost[];
   pinned: KairosPost[];
@@ -297,7 +300,7 @@ export function KairosFeed({
     const snap = layCho<AnhChup>(khoaCho(port, chip, tinh), Date.now());
     // ảnh chụp lúc MẤT SÓNG mà giờ đã có sóng ⇒ đi đường tải mới (sự kiện online đã qua, không bắn lại)
     const songLai = snap?.load === "offline" && typeof navigator !== "undefined" && navigator.onLine !== false;
-    if (snap && snap.phone === phone && !songLai) {
+    if (snap && snap.khoa === khoaCho(port, chip, tinh) && snap.phone === phone && !songLai) {
       // Quay lại từ bài/trang cá nhân: dựng y nguyên, KHÔNG tải lại (giữ chỗ đang đọc như Facebook)
       goiYRef.current.xet = true;
       st.current.since = snap.since;
@@ -344,7 +347,8 @@ export function KairosFeed({
       window.removeEventListener("scroll", ghi);
       chup.huy?.();
       // tab lúc rời màn lấy từ ref (đổi tab không gỡ component — effect đổi tab tự cất ảnh chụp của tab cũ)
-      if (chup.snap) catCho(khoaCho(port, st.current.chip, st.current.tinh), { ...chup.snap, scrollY: yRef.current, at: Date.now() });
+      const k = khoaCho(port, st.current.chip, st.current.tinh);
+      if (chup.snap && chup.snap.khoa === k) catCho(k, { ...chup.snap, scrollY: yRef.current, at: Date.now() });
     };
   }, [port]);
 
@@ -362,11 +366,12 @@ export function KairosFeed({
   useEffect(() => {
     if (!started.current || (lastChip.current.chip === chip && lastChip.current.tinh === tinh)) return;
     // cất ảnh chụp của tab/tỉnh đang rời (quay lại dựng y nguyên, như rời màn)
-    if (chupRef.current.snap) catCho(khoaCho(port, lastChip.current.chip, lastChip.current.tinh), { ...chupRef.current.snap, scrollY: yRef.current, at: Date.now() });
+    const kCu = khoaCho(port, lastChip.current.chip, lastChip.current.tinh);
+    if (chupRef.current.snap?.khoa === kCu) catCho(kCu, { ...chupRef.current.snap, scrollY: yRef.current, at: Date.now() });
     lastChip.current = { chip, tinh };
     window.scrollTo({ top: 0 });
     const snap = layCho<AnhChup>(khoaCho(port, chip, tinh), Date.now());
-    if (snap && snap.phone === phone && !(snap.load === "offline" && typeof navigator !== "undefined" && navigator.onLine !== false)) {
+    if (snap && snap.khoa === khoaCho(port, chip, tinh) && snap.phone === phone && !(snap.load === "offline" && typeof navigator !== "undefined" && navigator.onLine !== false)) {
       st.current.since = snap.since;
       setPosts(snap.posts);
       setPinned(snap.pinned);
@@ -535,15 +540,17 @@ export function KairosFeed({
     await loadFirst(st.current.chip, st.current.habit, true);
   });
 
-  const shownPinned = view ? view(pinned) : pinned;
+  const shownPinned = chinhSach ? [] : view ? view(pinned) : pinned;
   const shownPosts = useMemo(() => {
     // một bài chỉ hiện MỘT lần: đang ghim thì chỉ ở dải ghim
     const pinIds = new Set(shownPinned.map((x) => x.id));
-    const list = (view ? view(posts) : posts).filter((p) => !pinIds.has(p.id));
+    // tab Chính sách CHẶN CỨNG: chỉ bài nhà nước (topic chinh-sach) — dù danh sách tới từ đâu (bản lưu, ảnh chụp, bài vừa đăng)
+    const list = (view ? view(posts) : posts).filter((p) => !pinIds.has(p.id) && (!chinhSach || p.topic === "chinh-sach"));
+    if (chinhSach) return list;
     if (!added.length) return list;
     const fresh = added.filter((p) => !list.some((x) => x.id === p.id) && !shownPinned.some((x) => x.id === p.id));
     return [...fresh, ...list];
-  }, [view, posts, added, shownPinned]);
+  }, [view, posts, added, shownPinned, chinhSach]);
   const empty = shownPosts.length === 0 && shownPinned.length === 0;
   /*  Ảnh chụp giữ chỗ cất danh sách ĐÃ áp lớp lạc quan của usePostActions (Hay, sửa, xoá, chặn, bài vừa đăng) —
       lớp đó nằm ở state màn, mất khi rời màn; cất bản gốc thì quay lại thấy thẻ như chưa Hay, bài vừa đăng biến mất
@@ -551,9 +558,9 @@ export function KairosFeed({
   useEffect(() => {
     chupRef.current.snap =
       (load === "ready" || load === "offline") && shownPosts.length + shownPinned.length > 0
-        ? { phone, posts: shownPosts, pinned: shownPinned, next, savedAt, since: st.current.since, load }
+        ? { khoa: khoaCho(port, chip, tinh), phone, posts: shownPosts, pinned: shownPinned, next, savedAt, since: st.current.since, load }
         : null;
-  }, [phone, shownPosts, shownPinned, next, savedAt, load]);
+  }, [phone, shownPosts, shownPinned, next, savedAt, load, port, chip, tinh]);
   useEffect(() => {
     const io = ioRef.current;
     if (!io) return;
