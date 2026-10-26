@@ -554,7 +554,8 @@ export function KairosFeed({
       (p) =>
         !pinIds.has(p.id) &&
         (!chinhSach || p.topic === "chinh-sach") &&
-        (!chinhSach || !loai || loaiTin(`${p.title ?? ""}\n${p.summary ?? ""}`, !!p.coDanhSach).includes(loai)),
+        // bài Sen Biển tuyên truyền luật (kind chinh-thuc, topic chinh-sach, 14 §21e) không có title/summary ⇒ phân loại trên body
+        (!chinhSach || !loai || loaiTin(`${p.title ?? ""}\n${p.summary ?? p.body ?? ""}`, !!p.coDanhSach).includes(loai)),
     );
     if (chinhSach) return list;
     if (!added.length) return list;

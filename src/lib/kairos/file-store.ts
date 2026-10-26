@@ -19,7 +19,7 @@ import type {
   AuditRow, CommentFull, DecisionRow, KairosStore, NewPost, PostFull, ProfileFull, ReportRow, SeenRow, SourceRow, TargetType,
   DinhKemDongRow,
 } from "./store";
-import { SDVICO_PHONE } from "./types";
+import { SDVICO_PHONE, SEN_BIEN_PHONE } from "./types";
 
 export const KAIROS_DEV_FILE = "kairos-dev.json";
 export const KAIROS_DEV_UPLOADS = "kairos-uploads";
@@ -57,6 +57,11 @@ function seed(now: Date): State {
     id: crypto.randomUUID(), phone: SDVICO_PHONE, handle: "SDVICO", handle_norm: "sdvico", handle_changed_at: null,
     avatar_path: null, show_boat: false, official: true, rules_accepted_at: iso(0), banned_until: null, ban_reason: null, created_at: iso(0),
   };
+  // Sen Biển (gương seed migration 0068) — để dev file chạy được /api/kairos/sen-bien (giới thiệu + tuyên truyền luật)
+  const senBien: ProfileFull = {
+    id: crypto.randomUUID(), phone: SEN_BIEN_PHONE, handle: "Sen Biển", handle_norm: "sen bien", handle_changed_at: null,
+    avatar_path: null, show_boat: false, official: true, rules_accepted_at: iso(0), banned_until: null, ban_reason: null, created_at: iso(0),
+  };
   const base = (over: Partial<PostFull>): PostFull => ({
     id: crypto.randomUUID(), kind: "bao", author_phone: null, source_id: null, outlet: null, url: null, url_hash: null, title: null,
     title_norm: null, body: "", summary: null, summary_by: null, cover_url: null, images: [], topic: "nghe-ca", regions: ["ca-nuoc"],
@@ -65,7 +70,7 @@ function seed(now: Date): State {
   });
   return {
     version: 1,
-    profiles: [sdvico],
+    profiles: [sdvico, senBien],
     posts: [
       base({
         source_id: "dev-thuy-san", outlet: "Báo mẫu", url: "https://example.com/tin-cam-bien", url_hash: "dev-1",
