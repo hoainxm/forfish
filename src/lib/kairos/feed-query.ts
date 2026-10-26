@@ -20,10 +20,13 @@ import { isUuid } from "./validate";
 /** Bài báo ở dòng tin bao lâu (A6). */
 export const BAO_FEED_DAYS = 30;
 export const BAO_FEED_MS = BAO_FEED_DAYS * 24 * 60 * 60 * 1000;
-/** Thông báo nhà nước (topic chinh-sach, 14 §21) ở lại 365 ngày: quyết định hỗ trợ dầu/đủ điều kiện ra theo đợt vài tháng một (đợt 01/2026 ký 06/04), bà con
- *  tra tên mình cả tháng sau (anh Long 2026-10-26: "cái tin chính sách dầu đâu, mãi không thấy lên"). */
+/** Thông báo nhà nước (topic chinh-sach, 14 §21): CHỈ văn bản từ 01/01/2026 (anh Long 2026-10-26: "chỉ lấy từ 2026 thôi, lấy xa
+ *  quá nặng"), và không quá 365 ngày — quyết định hỗ trợ dầu/đủ điều kiện ra theo đợt vài tháng một, bà con tra tên cả tháng sau. */
+export const CHINH_SACH_TU_ISO = "2026-01-01T00:00:00+07:00";
 export const CHINH_SACH_FEED_DAYS = 365;
 export const CHINH_SACH_FEED_MS = CHINH_SACH_FEED_DAYS * 24 * 60 * 60 * 1000;
+/** Mốc "since" của bài chinh-sach tại `now`: muộn hơn giữa 01/01/2026 và now − 365 ngày. */
+export const chinhSachSince = (now: number): string => new Date(Math.max(Date.parse(CHINH_SACH_TU_ISO), now - CHINH_SACH_FEED_MS)).toISOString();
 /** "Có N bài mới" đếm tới đây thôi (14 §7 new-count). */
 export const NEW_COUNT_CAP = 99;
 
@@ -32,6 +35,8 @@ export interface FeedFilter {
   baoSince: string;
   /** thông báo chinh-sach cũ hơn mốc này không lên (ISO) — không có ⇒ dùng baoSince */
   chinhSachSince?: string;
+  /** tab Chính sách theo TỈNH (14 §21c): chỉ bài gắn tỉnh này HOẶC không gắn tỉnh nào (cả nước) */
+  tinhChinhSach?: string;
   topic?: Topic;
   /** bài gắn MỘT trong các cảng (Cảng tôi / Bến) */
   ports?: string[];
@@ -70,6 +75,8 @@ export interface FeedParams {
   near?: { provinces: string[]; regions: string[] };
   authorProfileId?: string;
   theoDoi: boolean;
+  /** chip chinh-sach + province= ⇒ lọc theo tỉnh (tỉnh nào xem tỉnh đó) */
+  tinhChinhSach?: string;
 }
 
 const TOPIC_CHIPS = new Set<string>(["nghe-ca", "thoi-su", "phap-luat", "doi-song", "the-thao", "giai-tri", "kinh-te", "chinh-sach"]);
@@ -101,6 +108,12 @@ export function parseFeedParams(
   }
   if (chip === "cang-toi" && !out.ports) return { ok: false, code: "bad_port" };
 
+  if (chip === "chinh-sach") {
+    const prov = sp.get("province") || "";
+    if (prov && !PROVINCE_SET.has(prov)) return { ok: false, code: "bad_area" };
+    if (prov) out.tinhChinhSach = prov;
+  }
+
   if (chip === "gan-toi") {
     const prov = sp.get("province") || "";
     const reg = sp.get("region") || "";
@@ -131,6 +144,7 @@ export function matchFeed(r: FilterableRow, f: FeedFilter): boolean {
     if (Date.parse(r.published_at) < Date.parse(moc)) return false;
   }
   if (f.topic && r.topic !== f.topic) return false;
+  if (f.tinhChinhSach && (r.provinces?.length ?? 0) > 0 && !r.provinces!.includes(f.tinhChinhSach)) return false;
   if (f.ports && !overlap(r.ports, f.ports)) return false;
   if (f.near && !overlap(r.provinces, f.near.provinces) && !overlap(r.regions, f.near.regions)) return false;
   if (f.authors && (!r.author_phone || !f.authors.includes(r.author_phone))) return false;
@@ -161,6 +175,7 @@ export function postgrestFeedExpr(f: FeedFilter): string | null {
     : `published_at.gte.${pgQuote(f.baoSince)}`;
   const parts: string[] = [`or(kind.neq.bao,and(mod_state.eq.dat,${cuaSo}))`];
   if (f.topic) parts.push(`topic.eq.${f.topic}`);
+  if (f.tinhChinhSach) parts.push(`or(provinces.ov.${pgArray([f.tinhChinhSach])},provinces.eq.${pgQuote("{}")})`);
   if (f.ports?.length) parts.push(`ports.ov.${pgArray(f.ports)}`);
   if (f.near) {
     const near: string[] = [];

@@ -100,7 +100,7 @@ type AnhChup = {
   scrollY: number;
   at: number;
 };
-const khoaCho = (port: string | undefined, chip: ChipId = "moi") => `feed:${port ?? ""}:${chip}`;
+const khoaCho = (port: string | undefined, chip: ChipId = "moi", tinh: string | null = null) => `feed:${port ?? ""}:${chip}:${tinh ?? ""}`;
 
 /** Cảng nhà từ sổ tàu (tàu đang chọn, không thì tàu đầu) — KHÔNG từ vị trí máy. */
 function homeFromBoats(): Habit["home"] {
@@ -135,12 +135,15 @@ export function KairosFeed({
   tuyChon,
   onTrong,
   chip = "moi",
+  tinh = null,
 }: {
   /** Bến (/kairos/ben/[port]): dòng tin chỉ bài gắn cảng này, không hàng chip */
   port?: string;
   /** "moi" = dòng tin chung (mặc định); "chinh-sach" = tab Chính sách (14 §21): chỉ thông báo nhà nước, không ô mời
    *  đăng, không bài Tài trợ, không pill Tải tin. Màn cha đổi tab ⇒ tải lại trang đầu (giữ bài khi mất sóng). */
   chip?: ChipId;
+  /** tab Chính sách: mã tỉnh đang xem (tỉnh cảng nhà / chọn tạm; null = cả nước) — 14 §21c */
+  tinh?: string | null;
   /** hành vi Hay / Chia sẻ / ba chấm — màn khác nối vào (thẻ vẫn hiện khi thiếu) */
   actions?: PostActions;
   /** mở khung soạn (AC07) */
@@ -175,11 +178,11 @@ export function KairosFeed({
   const goiYRef = useRef<{ savedAt0: number | null; xet: boolean }>({ savedAt0: null, xet: false });
 
   // Ref cho các nghe sự kiện (visibilitychange/online/IntersectionObserver) — khỏi gắn lại.
-  const st = useRef({ chip, habit, load, next, more, since: null as string | null, phone, gen: 0, hasPosts: false, pinnedIds: new Set<string>(), tuyChon: tuyChonMacDinh() });
+  const st = useRef({ chip, tinh, habit, load, next, more, since: null as string | null, phone, gen: 0, hasPosts: false, pinnedIds: new Set<string>(), tuyChon: tuyChonMacDinh() });
   const hasPosts = posts.length + pinned.length > 0;
   useEffect(() => {
-    st.current = { ...st.current, chip, habit, load, next, more, phone, hasPosts, pinnedIds: new Set(pinned.map((p) => p.id)) };
-  }, [chip, habit, load, next, more, phone, hasPosts, pinned]);
+    st.current = { ...st.current, chip, tinh, habit, load, next, more, phone, hasPosts, pinnedIds: new Set(pinned.map((p) => p.id)) };
+  }, [chip, tinh, habit, load, next, more, phone, hasPosts, pinned]);
 
   const updateHabit = useCallback((h: Habit) => {
     setHabitState(h);
@@ -191,7 +194,7 @@ export function KairosFeed({
     async (chipWanted: ChipId, h: Habit, keep: boolean) => {
       const gen = ++st.current.gen;
       let c = chipWanted;
-      let q = feedQuery(c, h.home, { port });
+      let q = feedQuery(c, h.home, { port, tinh: st.current.tinh });
       if (!q.ok) {
         // lưới an toàn: dòng tin cần cảng nhà mà không có ⇒ về "Mới", KHÔNG để skeleton quay mãi
         c = "moi";
@@ -201,7 +204,7 @@ export function KairosFeed({
       setMore("idle");
       const cache = loadFeedCache(st.current.phone);
       const t0 = Date.now();
-      const cached = cache ? rankPage(filterCached(cache.posts, c, h.home, port), h, t0) : [];
+      const cached = cache ? rankPage(filterCached(cache.posts, c, h.home, port, st.current.tinh), h, t0) : [];
       if (!keep) {
         // đọc bản lưu TRƯỚC: có bài cũ thì hiện ngay trong lúc chờ mạng (không quay vòng trắng)
         setPosts(cached);
@@ -291,7 +294,7 @@ export function KairosFeed({
     setHabitState(h);
     goiYRef.current.savedAt0 = loadFeedCache(phone)?.savedAt ?? null;
     if (!port) st.current.tuyChon = loadTuyChon();
-    const snap = layCho<AnhChup>(khoaCho(port, chip), Date.now());
+    const snap = layCho<AnhChup>(khoaCho(port, chip, tinh), Date.now());
     // ảnh chụp lúc MẤT SÓNG mà giờ đã có sóng ⇒ đi đường tải mới (sự kiện online đã qua, không bắn lại)
     const songLai = snap?.load === "offline" && typeof navigator !== "undefined" && navigator.onLine !== false;
     if (snap && snap.phone === phone && !songLai) {
@@ -341,7 +344,7 @@ export function KairosFeed({
       window.removeEventListener("scroll", ghi);
       chup.huy?.();
       // tab lúc rời màn lấy từ ref (đổi tab không gỡ component — effect đổi tab tự cất ảnh chụp của tab cũ)
-      if (chup.snap) catCho(khoaCho(port, st.current.chip), { ...chup.snap, scrollY: yRef.current, at: Date.now() });
+      if (chup.snap) catCho(khoaCho(port, st.current.chip, st.current.tinh), { ...chup.snap, scrollY: yRef.current, at: Date.now() });
     };
   }, [port]);
 
@@ -355,14 +358,14 @@ export function KairosFeed({
 
   // Đổi tab Dòng tin ⇄ Chính sách (14 §21): có ảnh chụp của tab đó ⇒ dựng lại, không thì tải trang đầu (bản lưu lọc
   // theo chủ đề hiện trước). Lần mount đầu do effect mở màn lo.
-  const lastChip = useRef(chip);
+  const lastChip = useRef<{ chip: ChipId; tinh: string | null }>({ chip, tinh });
   useEffect(() => {
-    if (!started.current || lastChip.current === chip) return;
-    // cất ảnh chụp của tab đang rời (quay lại dựng y nguyên, như rời màn)
-    if (chupRef.current.snap) catCho(khoaCho(port, lastChip.current), { ...chupRef.current.snap, scrollY: yRef.current, at: Date.now() });
-    lastChip.current = chip;
+    if (!started.current || (lastChip.current.chip === chip && lastChip.current.tinh === tinh)) return;
+    // cất ảnh chụp của tab/tỉnh đang rời (quay lại dựng y nguyên, như rời màn)
+    if (chupRef.current.snap) catCho(khoaCho(port, lastChip.current.chip, lastChip.current.tinh), { ...chupRef.current.snap, scrollY: yRef.current, at: Date.now() });
+    lastChip.current = { chip, tinh };
     window.scrollTo({ top: 0 });
-    const snap = layCho<AnhChup>(khoaCho(port, chip), Date.now());
+    const snap = layCho<AnhChup>(khoaCho(port, chip, tinh), Date.now());
     if (snap && snap.phone === phone && !(snap.load === "offline" && typeof navigator !== "undefined" && navigator.onLine !== false)) {
       st.current.since = snap.since;
       setPosts(snap.posts);
@@ -374,7 +377,7 @@ export function KairosFeed({
       return;
     }
     void loadFirst(chip, st.current.habit, false);
-  }, [chip, port, phone, loadFirst]);
+  }, [chip, tinh, port, phone, loadFirst]);
 
   // Đổi tài khoản giữa chừng ⇒ tải lại theo ngăn mới (bản lưu cách ly theo SĐT).
   const lastPhone = useRef(phone);
@@ -389,7 +392,7 @@ export function KairosFeed({
     const checkNew = () => {
       const s = st.current;
       if (s.load !== "ready" || !s.since) return;
-      const q = feedQuery(s.chip, s.habit.home, { port });
+      const q = feedQuery(s.chip, s.habit.home, { port, tinh: s.tinh });
       if (!q.ok) return;
       const gen = s.gen;
       void fetchNewCount(q.params, s.since).then((n) => {
@@ -418,7 +421,7 @@ export function KairosFeed({
   const loadMore = useCallback(async () => {
     const s = st.current;
     if (!s.next || s.more === "loading" || s.load !== "ready") return;
-    const q = feedQuery(s.chip, s.habit.home, { port });
+    const q = feedQuery(s.chip, s.habit.home, { port, tinh: s.tinh });
     if (!q.ok) return;
     const gen = s.gen;
     setMore("loading");
@@ -528,7 +531,7 @@ export function KairosFeed({
       đầu với hạt xáo mới (thứ tự đổi, đỡ nhàm). Bến cũng kéo được (máy chủ trả theo giờ ⇒ làm mới = lấy bài mới nhất).
       Mất sóng: vẫn cho kéo — loadFirst giữ bài đang hiện + báo mất sóng như nút Thử lại. */
   const lamMoi = useKeoLamMoi(async () => {
-    xoaCho(khoaCho(port, chip));
+    xoaCho(khoaCho(port, chip, tinh));
     await loadFirst(st.current.chip, st.current.habit, true);
   });
 

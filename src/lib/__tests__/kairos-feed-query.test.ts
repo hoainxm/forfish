@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeCursor, encodeCursor } from "@/lib/kairos/cursor";
-import {
+import { chinhSachSince,
   BAO_FEED_MS, matchFeed, NEW_COUNT_CAP, parseFeedParams, parseSince, pgQuote, postgrestFeedExpr, type FeedFilter, type FilterableRow,
 } from "@/lib/kairos/feed-query";
 
@@ -101,7 +101,22 @@ describe("postgrestFeedExpr — cùng luật, một tham số or=(and(...))", ()
     const e = postgrestFeedExpr(base)!;
     expect(e).toBe(`and(or(kind.neq.bao,and(mod_state.eq.dat,published_at.gte.${pgQuote(base.baoSince)})))`);
   });
-  it("có chinhSachSince ⇒ bài chinh-sach được cửa sổ riêng (365 ngày), bài báo khác vẫn 30 ngày — cả hai cách chạy", () => {
+  it("tab Chính sách theo tỉnh: province= hợp lệ ⇒ tinhChinhSach; tỉnh lạ ⇒ 400; chỉ bài gắn tỉnh đó hoặc không gắn tỉnh", () => {
+    const r = parseFeedParams(new URLSearchParams("chip=chinh-sach&province=gia-lai"), PORTS);
+    expect(r.ok && r.value.tinhChinhSach).toBe("gia-lai");
+    expect(parseFeedParams(new URLSearchParams("chip=chinh-sach&province=bac-kinh"), PORTS)).toEqual({ ok: false, code: "bad_area" });
+    const f: FeedFilter = { ...base, topic: "chinh-sach", tinhChinhSach: "gia-lai" };
+    const bai = (provinces: string[]) => row({ topic: "chinh-sach", provinces });
+    expect(matchFeed(bai(["gia-lai"]), f)).toBe(true);
+    expect(matchFeed(bai([]), f)).toBe(true);
+    expect(matchFeed(bai(["khanh-hoa"]), f)).toBe(false);
+    expect(postgrestFeedExpr(f)).toContain(`or(provinces.ov.${pgQuote("{gia-lai}")},provinces.eq.${pgQuote("{}")})`);
+  });
+  it("chinhSachSince(now) = muộn hơn giữa 01/01/2026 và now − 365 ngày", () => {
+    expect(chinhSachSince(Date.parse("2026-10-26T00:00:00Z"))).toBe("2025-12-31T17:00:00.000Z");
+    expect(chinhSachSince(Date.parse("2027-06-01T00:00:00Z"))).toBe("2026-06-01T00:00:00.000Z");
+  });
+  it("có chinhSachSince ⇒ bài chinh-sach được cửa sổ riêng, bài báo khác vẫn 30 ngày — cả hai cách chạy", () => {
     const cs = new Date(NOW - 200 * 24 * 3600_000).toISOString();
     const f: FeedFilter = { ...base, chinhSachSince: cs };
     expect(postgrestFeedExpr(f)).toBe(

@@ -37,7 +37,7 @@ export type FeedQuery = { ok: true; params: URLSearchParams } | { ok: false; nee
  * "Gần tôi" cần tỉnh nhà — thiếu ⇒ `need:"home"` (màn mở hộp chọn cảng, 14 §3.2).
  * `port` riêng (Bến) đè chip.
  */
-export function feedQuery(chip: ChipId, home: Habit["home"], opts: { port?: string; author?: string } = {}): FeedQuery {
+export function feedQuery(chip: ChipId, home: Habit["home"], opts: { port?: string; author?: string; tinh?: string | null } = {}): FeedQuery {
   const p = new URLSearchParams();
   if (opts.port) {
     p.set("port", opts.port);
@@ -54,6 +54,8 @@ export function feedQuery(chip: ChipId, home: Habit["home"], opts: { port?: stri
     p.set("province", home.province);
   } else if (chip !== "moi") {
     p.set("chip", chip);
+    // tab Chính sách theo tỉnh (14 §21c): tỉnh cảng nhà / tỉnh chọn tạm — không có ⇒ cả nước
+    if (chip === "chinh-sach" && opts.tinh) p.set("province", opts.tinh);
   }
   return { ok: true, params: p };
 }
@@ -133,8 +135,9 @@ export async function fetchNewCount(params: URLSearchParams, since: string): Pro
  * Mất sóng: lọc bản lưu theo chip đang chọn, cùng luật máy chủ ở mức dữ liệu bản lưu có.
  * "Theo dõi" cần danh sách người theo dõi (máy không giữ) ⇒ trả [] — màn nói "Có sóng sẽ tải".
  */
-export function filterCached(posts: readonly KairosPost[], chip: ChipId, home: Habit["home"], port?: string): KairosPost[] {
+export function filterCached(posts: readonly KairosPost[], chip: ChipId, home: Habit["home"], port?: string, tinh?: string | null): KairosPost[] {
   if (port) return posts.filter((p) => p.ports.includes(port));
+  if (chip === "chinh-sach") return posts.filter((p) => p.topic === "chinh-sach" && (!tinh || !p.provinces.length || p.provinces.includes(tinh)));
   if (chip === "moi") return [...posts];
   if (chip === "theo-doi") return [];
   if (chip === "cang-toi") return home.port ? posts.filter((p) => p.ports.includes(home.port!)) : [];

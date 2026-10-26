@@ -6,7 +6,7 @@ import {
   vungDinhKem,
 } from "@/lib/kairos/chinh-sach.mjs";
 import { isTopic, topicFor } from "@/lib/kairos/chu-de.mjs";
-import { CHINH_SACH_CU_MS, chonBai, docNguon, mucGui } from "@/lib/kairos/thu-core.mjs";
+import { chinhSachCuMs, chonBai, docNguon, mucGui } from "@/lib/kairos/thu-core.mjs";
 import { parseIngestBody, planIngest } from "@/lib/kairos/ingest";
 import { laTinBien } from "@/lib/kairos/phan-phoi";
 import { parseFeedParams } from "@/lib/kairos/feed-query";
@@ -178,13 +178,15 @@ describe("nguồn gov trong kairos-nguon.json + máy thu", () => {
     expect(() => docNguon(nguon({ kieu: "rss" }))).toThrow(/chỉ dành cho nguồn gov/);
     expect(() => docNguon(nguon({ linkRe: "(" }))).toThrow(/biểu thức/);
   });
-  it("mucGui mang attachments khi có; chonBai cửa sổ 30 ngày cho gov", () => {
+  it("mucGui mang attachments khi có; chonBai gov nhận từ 01/01/2026, bỏ văn bản 2025", () => {
     const b = { sourceId: "gov-x", outlet: "UBND", url: "https://x.gov.vn/a.html", title: "T", description: "", summary: null, summaryBy: "rss" as const, coverUrl: null, section: "chinh-sach", publishedAt: null, chuQuyen: null, attachments: [{ title: "A (PDF)", url: "https://x.gov.vn/a.pdf" }] };
     expect(mucGui(b)).toMatchObject({ attachments: b.attachments });
     expect("attachments" in mucGui({ ...b, attachments: [] })).toBe(false);
     const cu = { ...b, publishedAt: new Date(NOW - 10 * 24 * 3600_000).toISOString() };
     expect(chonBai([cu], NOW).quaCu.length).toBe(1);
-    expect(chonBai([cu], NOW, 50, CHINH_SACH_CU_MS).chon.length).toBe(1);
+    expect(chonBai([cu], NOW, 50, chinhSachCuMs(NOW)).chon.length).toBe(1);
+    const nam2025 = { ...b, publishedAt: "2025-12-31T10:00:00+07:00" };
+    expect(chonBai([nam2025], NOW, 50, chinhSachCuMs(NOW)).quaCu.length).toBe(1);
   });
 });
 
@@ -210,6 +212,12 @@ describe("máy chủ /api/kairos/nhap — gác tin chính sách", () => {
     const plan = planIngest(r.ok ? r.items : [], { seenHashes: new Set(), recentTitles: [], now: NOW, ports: [] });
     expect(plan.posts[0]).toMatchObject({ kind: "bao", topic: "chinh-sach", attachments: [goc.attachments[0]], mod_state: "cho-kiem" });
     expect(plan.posts[0].provinces).toContain("gia-lai");
+  });
+  it("mọi bài trong gói ĐỀU có trường attachments (kể cả []) — upsert nhiều hàng không được điền NULL", () => {
+    const r = parseIngestBody({ items: [goc, { ...goc, url: "https://vnexpress.net/tau-ca.html", title: "Tàu cá Quảng Ngãi về bờ an toàn sau bão", section: "thoi-su", attachments: undefined }] });
+    const plan = planIngest(r.ok ? r.items : [], { seenHashes: new Set(), recentTitles: [], now: NOW, ports: [] });
+    expect(plan.posts.length).toBe(2);
+    for (const p of plan.posts) expect(Array.isArray(p.attachments)).toBe(true);
   });
   it("section chinh-sach từ báo thường ⇒ bỏ (invalid); bài gov không phải chuyện bà con ⇒ bỏ; báo thường gửi attachments ⇒ []", () => {
     const r1 = parseIngestBody({ items: [{ ...goc, url: "https://vnexpress.net/x.html" }] });
@@ -288,5 +296,20 @@ describe("kiemDongDanhSach — máy chủ kiểm gói máy thu", () => {
     expect(xs[0]).toMatchObject({ regNorm: "BD93333TS", tenNorm: "tran van hoa", page: 3 });
     expect(xs[1]).toMatchObject({ stt: 0, page: 1, regNorm: "QNG90123TS" });
     expect(kiemDongDanhSach("x")).toEqual([]);
+  });
+});
+
+describe("feed-client — tab Chính sách theo tỉnh (14 §21c)", () => {
+  it("feedQuery gửi province khi có tỉnh, không có ⇒ cả nước; filterCached lọc bản lưu cùng luật", async () => {
+    const { feedQuery, filterCached } = await import("@/lib/kairos/feed-client");
+    const home = { port: null, province: null };
+    const q1 = feedQuery("chinh-sach", home, { tinh: "gia-lai" });
+    expect(q1.ok && q1.params.toString()).toBe("chip=chinh-sach&province=gia-lai");
+    const q2 = feedQuery("chinh-sach", home, { tinh: null });
+    expect(q2.ok && q2.params.toString()).toBe("chip=chinh-sach");
+    const p = (id: string, topic: string, provinces: string[]) => ({ id, topic, provinces, ports: [], regions: [] }) as never;
+    const ds = [p("a", "chinh-sach", ["gia-lai"]), p("b", "chinh-sach", []), p("c", "chinh-sach", ["khanh-hoa"]), p("d", "nghe-ca", ["gia-lai"])];
+    expect(filterCached(ds, "chinh-sach", home, undefined, "gia-lai").map((x: { id: string }) => x.id)).toEqual(["a", "b"]);
+    expect(filterCached(ds, "chinh-sach", home, undefined, null).map((x: { id: string }) => x.id)).toEqual(["a", "b", "c"]);
   });
 });

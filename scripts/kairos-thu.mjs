@@ -14,7 +14,7 @@
 // NGUỒN GOV (14 §21, 2026-10-26 — tab "Chính sách"): kieu=gov trong kairos-nguon.json. feedUrl là RSS hoặc trang danh
 // mục HTML (chinh-sach.docDanhMucGov); chỉ giữ bài CHO BÀ CON ĐI BIỂN (laTinChoBaCon — bài khác ghi sổ, không xét lại);
 // mỗi bài giữ lại tải trang chi tiết lấy mô tả + ngày + FILE ĐÍNH KÈM (danh sách được duyệt theo đợt); tóm tắt bằng
-// prompt riêng (promptTomTatChinhSach); nhận bài tới 365 ngày (CHINH_SACH_CU_MS) vì văn bản ra thưa.
+// prompt riêng (promptTomTatChinhSach); chỉ nhận văn bản ban hành từ 01/01/2026 (chinhSachCuMs — anh Long: "chỉ lấy từ 2026 thôi").
 //
 // Cấu hình (env tiến trình đè tệp env ngoài repo, mặc định ~/.config/forlife/kairos.env):
 //   KAIROS_INGEST_KEY  khoá chung với máy chủ (app_config.kairos_ingest_key hoặc env Vercel)
@@ -32,7 +32,7 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
-  CHINH_SACH_CU_MS, chuanSo, chiaLo, chonBai, docBaoDuocPhep, docGarturl, docNguon, docOg, docTomTat, ghiSo, gopHangDoi, GN_BATCH_URL,
+  chinhSachCuMs, chuanSo, chiaLo, chonBai, docBaoDuocPhep, docGarturl, docNguon, docOg, docTomTat, ghiSo, gopHangDoi, GN_BATCH_URL,
   GOI_NHAP_TOI_DA, idTuLinkGN, khoaTrangGN, locBaiMoi, mucGui, nguonGui, parseFeed, promptTomTat, thanGarturl,
 } from "../src/lib/kairos/thu-core.mjs";
 import { docBaiGov, docDanhMucGov, docDongDanhSach, laTinChoBaCon, promptTomTatChinhSach } from "../src/lib/kairos/chinh-sach.mjs";
@@ -203,9 +203,9 @@ async function main() {
   const { giu: giuBao, trung } = locCungSuKien(moi.filter((b) => !laGov(b)), docJson(ganDayFile, []), now);
   const khongTrung = [...giuBao, ...moi.filter(laGov)];
   if (trung.length) log(`[trùng sự kiện] bỏ ${trung.length} bài cùng vụ với báo khác`);
-  // bài gov chọn riêng: cửa sổ 365 ngày (CHINH_SACH_CU_MS), không tranh trần 120 bài với báo
+  // bài gov chọn riêng: chỉ từ 01/01/2026 (chinhSachCuMs), không tranh trần 120 bài với báo
   const { chon: chonBao, quaCu: cuQua, conLai } = chonBai(khongTrung.filter((b) => !laGov(b)), now);
-  const { chon: chonGov, quaCu: cuGov } = chonBai(khongTrung.filter(laGov), now, GOI_NHAP_TOI_DA, CHINH_SACH_CU_MS);
+  const { chon: chonGov, quaCu: cuGov } = chonBai(khongTrung.filter(laGov), now, GOI_NHAP_TOI_DA, chinhSachCuMs(now));
   const chon = [...chonBao, ...chonGov];
   const quaCu = [...cuQua, ...cuGov, ...trung, ...boQuaGov];
   log(`[chọn] ${chon.length} bài (${chon.filter((b) => b.chuQuyen).length} trúng cờ chủ quyền), bỏ ${quaCu.length} bài quá 48 giờ, để lượt sau ${conLai}`);
@@ -257,11 +257,11 @@ async function main() {
         }
       }
     }
-    // ngày ban hành đọc từ trang chi tiết có thể quá 365 ngày (danh mục xếp theo ngày đăng web) ⇒ bỏ như quaCu
+    // ngày ban hành đọc từ trang chi tiết có thể trước 2026 (danh mục xếp theo ngày đăng web) ⇒ bỏ như quaCu
     for (let i = chon.length - 1; i >= 0; i--) {
       const b = chon[i];
       const t = laGov(b) && b.publishedAt ? Date.parse(b.publishedAt) : NaN;
-      if (Number.isFinite(t) && now - t > CHINH_SACH_CU_MS) quaCu.push(...chon.splice(i, 1));
+      if (Number.isFinite(t) && now - t > chinhSachCuMs(now)) quaCu.push(...chon.splice(i, 1));
     }
   }
 

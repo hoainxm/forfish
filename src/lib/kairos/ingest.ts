@@ -205,7 +205,9 @@ export function planIngest(
       summary_by: summary ? summaryBy : null,
       cover_url: it.coverUrl,
       images: [],
-      ...(it.attachments.length ? { attachments: it.attachments } : {}),
+      // LUÔN có trường (kể cả []): upsert nhiều hàng của PostgREST lấy HỢP các cột — hàng thiếu trường bị điền NULL ⇒ vi
+      // phạm NOT NULL của 0074 và cả lô 503 (prod 2026-10-26: 41 bài gov kẹt hàng đợi)
+      attachments: it.attachments,
       topic: topicFor(it.section, text),
       regions: area.regions,
       provinces: area.provinces,

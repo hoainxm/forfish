@@ -20,7 +20,9 @@ import { useEffect, useState } from "react";
 import { SettingsIcon } from "@/components/icons";
 import { ManHeader } from "@/components/man-header";
 import { MarketHeader } from "@/components/market/shared/market-header";
+import { HomeBar, useHome } from "@/components/ui/region-filter";
 import { Tabs } from "@/components/ui/tabs";
+import { provinceIdOf } from "@/lib/kairos/khu-vuc.mjs";
 import { loadFeedCache, loadTuyChon, portLabel } from "@/lib/kairos/feed-client";
 import { hienCauPhu } from "@/lib/kairos/dau-man";
 import { authorToi } from "@/lib/kairos/ho-so";
@@ -52,6 +54,14 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
   /** tab đang xem: dòng tin chung hay Chính sách (14 §21) — chỉ màn gốc */
   const [tab, setTab] = useState<"dong-tin" | "chinh-sach">("dong-tin");
   const chip: ChipId = !port && tab === "chinh-sach" ? "chinh-sach" : "moi";
+  /*  TỈNH NÀO XEM TỈNH ĐÓ (14 §21c, anh Long 2026-10-26: "tổ chức phân phối tin chính sách thì chuẩn vào, tỉnh nào view
+      tỉnh đó, dựa vào vị trí… tránh rối"): thanh HomeBar "Gần <Tỉnh> | Cả nước | Đổi" dùng chung với Chợ cá. Tỉnh = cảng nhà
+      của tàu đang chọn, không có thì tỉnh chọn tạm trong phiên (useHome) — KHÔNG lấy GPS (không xin quyền vị trí chỉ để
+      lọc tin). Gần ⇒ thông báo gắn tỉnh đó + thông báo không gắn tỉnh nào (bộ/cục, cả nước). Chưa có tỉnh ⇒ HomeBar tự vẽ
+      "Chưa có tỉnh cảng nhà · Chọn", dòng tin là cả nước. */
+  const { home } = useHome();
+  const [gan, setGan] = useState(true);
+  const tinh = chip === "chinh-sach" && gan ? provinceIdOf(home.province ?? null) : null;
   const trangToi = (
     <Link href="/kairos/u/toi" aria-label={NHAN.trangToi} title={NHAN.trangToi} className="flex shrink-0 rounded-full transition active:scale-[0.95]">
       <KairosAvatar id={toi?.profileId ?? phone ?? "toi"} name={toi?.handle ?? "Tôi"} url={null} nav />
@@ -104,9 +114,15 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
           ]}
         />
       )}
+      {chip === "chinh-sach" && (
+        <div className="px-4 pb-2">
+          <HomeBar home={home} near={gan} setNear={setGan} />
+        </div>
+      )}
       <KairosFeed
         port={port}
         chip={chip}
+        tinh={tinh}
         tuyChon={port ? undefined : (tuyChon ?? undefined)}
         actions={a.actions}
         view={a.view}
