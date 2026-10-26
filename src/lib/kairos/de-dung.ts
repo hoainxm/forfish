@@ -13,6 +13,16 @@ export interface BaiDoc {
   summary?: string | null;
   body?: string | null;
   author?: { handle?: string } | null;
+  topic?: string | null;
+  publishedAt?: string | null;
+}
+
+/** Ngày ban hành đọc thành lời (giờ Việt Nam): "ban hành ngày 7 tháng 9 năm 2026". Hỏng ⇒ "". */
+export function ngayBanHanhDoc(iso: string | null | undefined): string {
+  const t = iso ? Date.parse(iso) : NaN;
+  if (!Number.isFinite(t)) return "";
+  const d = new Date(t + 7 * 3_600_000);
+  return `ban hành ngày ${d.getUTCDate()} tháng ${d.getUTCMonth() + 1} năm ${d.getUTCFullYear()}`;
 }
 
 /** Đọc tối đa chừng này ký tự (bài dài thì đọc phần đầu — bấm Đọc bài gốc để đọc đủ). */
@@ -29,7 +39,9 @@ export function chuDeDoc(p: BaiDoc): string {
   };
   if (p.kind === "bao") {
     const tieuDe = p.title?.trim() ?? "";
-    const phan = [p.outlet ? `Tin ${p.outlet}.` : "", tieuDe && !/[.!?]$/.test(tieuDe) ? `${tieuDe}.` : tieuDe, p.summary ?? p.body ?? ""];
+    // tin chính sách: đọc NGÀY BAN HÀNH có năm — tiêu đề "đợt 05 năm 2025" mà không nghe năm ký thì tưởng tin cũ (2026-10-26)
+    const ngay = p.topic === "chinh-sach" ? ngayBanHanhDoc(p.publishedAt) : "";
+    const phan = [p.outlet ? `Tin ${p.outlet}${ngay ? `, ${ngay}` : ""}.` : ngay ? `${ngay[0].toUpperCase()}${ngay.slice(1)}.` : "", tieuDe && !/[.!?]$/.test(tieuDe) ? `${tieuDe}.` : tieuDe, p.summary ?? p.body ?? ""];
     return cat(phan.filter(Boolean).join(" "));
   }
   const body = (p.body ?? "").trim();

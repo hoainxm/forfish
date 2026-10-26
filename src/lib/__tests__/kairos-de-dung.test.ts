@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BL_NHANH, CAU_TOI_DA, DOC_TOI_DA, chiaCau, chuDeDoc, nenHoanAnh } from "@/lib/kairos/de-dung";
+import { BL_NHANH, CAU_TOI_DA, DOC_TOI_DA, chiaCau, chuDeDoc, nenHoanAnh, ngayBanHanhDoc } from "@/lib/kairos/de-dung";
 
 describe("chuDeDoc — chữ để đọc to một bài", () => {
   it("bài báo: tên báo + tiêu đề có dấu chấm + tóm tắt", () => {
@@ -67,5 +67,17 @@ describe("chiaCau — từng câu cho giọng Mỹ Duyên online", () => {
   it("mặc định mọi câu ≤ CAU_TOI_DA (route /api/sen-bien/doc nhận ≤200)", () => {
     expect(CAU_TOI_DA).toBeLessThanOrEqual(200);
     for (const c of chiaCau("chữ ".repeat(400))) expect([...c].length).toBeLessThanOrEqual(CAU_TOI_DA);
+  });
+});
+
+describe("đọc to tin chính sách có NGÀY BAN HÀNH (2026-10-26)", () => {
+  it("đọc 'ban hành ngày … năm …' sau tên cơ quan; bài báo thường không đọc ngày", () => {
+    const p = { kind: "bao", topic: "chinh-sach", outlet: "UBND tỉnh Gia Lai", publishedAt: "2026-09-07T01:00:00.000Z", title: "Phê duyệt đợt 05 năm 2025 tàu cá được hỗ trợ dầu", summary: "Bà con mở file xem tên." };
+    expect(chuDeDoc(p)).toBe("Tin UBND tỉnh Gia Lai, ban hành ngày 7 tháng 9 năm 2026. Phê duyệt đợt 05 năm 2025 tàu cá được hỗ trợ dầu. Bà con mở file xem tên.");
+    expect(chuDeDoc({ ...p, outlet: null })).toMatch(/^Ban hành ngày 7 tháng 9 năm 2026\. /);
+    expect(chuDeDoc({ ...p, topic: "nghe-ca" })).not.toMatch(/ban hành/);
+    // 23:30 giờ VN ngày 06/09 vẫn là ngày 6 (không lệch múi giờ)
+    expect(ngayBanHanhDoc("2026-09-06T16:30:00.000Z")).toBe("ban hành ngày 6 tháng 9 năm 2026");
+    expect(ngayBanHanhDoc(null)).toBe("");
   });
 });
