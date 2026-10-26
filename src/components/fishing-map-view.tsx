@@ -202,11 +202,12 @@ import {
   densitySpeciesAt,
   fetchFleetDensity,
   forecastFleetDensity,
-  speciesAmountLabel,
   type DensityGear,
   type FleetDensity,
   type WindStation,
+  type StormZone,
 } from "@/lib/fleet-density";
+import { subscribeOnline } from "@/lib/use-online";
 import { fetchSeaForecast } from "@/lib/sea";
 import { PORTS } from "@/data/ports";
 import {
@@ -902,7 +903,9 @@ export default function FishingMapView() {
   useEffect(() => {
     // GIÓ cho dự báo mật độ: dự báo cảng (fetchSeaForecast đã có đệm + đường lùi mất sóng); cảng nào hỏng
     // thì bỏ, không chặn lớp — thiếu hết ⇒ hệ số 1 và panel nói "chưa có gió".
-    if (!fleetOn || !fleetAllowed || fleetWind) return;
+    // LỖI ĐÃ SỬA (rà Codex 2026-10-26, điểm 4): lượt đầu hỏng hết ⇒ `[]` là giá trị thật ⇒ không bao giờ thử lại
+    // trong phiên. Nay `[]` thử lại khi chạm "thử lại" (fleetRetry) hoặc khi có sóng trở lại (subscribeOnline bên dưới).
+    if (!fleetOn || !fleetAllowed || (fleetWind && fleetWind.length > 0)) return;
     let alive = true;
     Promise.all(
       PORTS.map((p) =>
@@ -916,7 +919,12 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, [fleetOn, fleetAllowed, fleetWind]);
+  }, [fleetOn, fleetAllowed, fleetWind, fleetRetry]);
+  useEffect(() => {
+    // có sóng lại mà gió còn trống ⇒ bơm fleetRetry để effect gió chạy lại (không tự lặp: chỉ khi sự kiện online)
+    if (!fleetOn || !fleetAllowed) return;
+    return subscribeOnline(() => setFleetRetry((n) => n + 1));
+  }, [fleetOn, fleetAllowed]);
   /* CHƯA CHẮC LÀ PREMIUM — dùng cho MỌI quyết định "xin bao nhiêu ngày".
      LỖI ĐÃ SỬA (2026-08-02): lúc mới mở màn `premiumAccess` là "checking" nên
      `premiumLocked` = false ⇒ app xin thẳng khung 16 ngày, mà máy chủ chắc
@@ -4742,17 +4750,30 @@ export default function FishingMapView() {
   // DỰ BÁO MẬT ĐỘ TÀU cho ngày đang chọn — mức Thưa/Vừa/Đông theo phân vị nền×loài (gió/bão kéo rớt mức).
   // Cùng luật với lớp cá: không hiện cùng lớp động, khoá premium thì không vẽ.
   const fleetStormDays = useMemo(() => {
-    // tin bão hiện tại không có ngày kết thúc ⇒ coi hôm nay + 2 ngày là ngày bão (`## Assumptions` 01)
+    // tin bão còn mới, không có ngày kết thúc ⇒ coi hôm nay + ngày mai là ngày bão (rà Codex 26/10: trước +2 ngày,
+    // và nhân 0,1 CẢ Biển Đông ⇒ một tin bão là lớp trống toàn vùng; nay hạ THEO VÙNG bão — fleetStormZones)
     const s = new Set<string>();
-    if (stormInfo.kind === "co-bao" && !stormInfo.cu) for (let k = 0; k <= 2; k++) s.add(addDaysIso(todayIso, k));
+    if (stormInfo.kind === "co-bao" && !stormInfo.cu) for (let k = 0; k <= 1; k++) s.add(addDaysIso(todayIso, k));
     return s;
   }, [stormInfo, todayIso]);
+  const fleetStormZones = useMemo<StormZone[]>(
+    () => (stormInfo.kind === "co-bao" ? stormInfo.storms.map((b) => ({ lat: b.lat, lon: b.lon, track: b.track, areas: b.areas })) : []),
+    [stormInfo],
+  );
   const fleetForecast = useMemo(
     () =>
       fleetOn && fleetAllowed && fleetData && !anyExclusiveOverlay && !premiumLocked
-        ? forecastFleetDensity({ d: fleetData, todayIso, dayOffset: fleetDay, gear: fleetGear, wind: fleetWind ?? undefined, stormDays: fleetStormDays })
+        ? forecastFleetDensity({
+            d: fleetData,
+            todayIso,
+            dayOffset: fleetDay,
+            gear: fleetGear,
+            wind: fleetWind ?? undefined,
+            stormDays: fleetStormDays,
+            storms: fleetStormZones,
+          })
         : null,
-    [fleetOn, fleetAllowed, fleetData, anyExclusiveOverlay, premiumLocked, todayIso, fleetDay, fleetGear, fleetWind, fleetStormDays],
+    [fleetOn, fleetAllowed, fleetData, anyExclusiveOverlay, premiumLocked, todayIso, fleetDay, fleetGear, fleetWind, fleetStormDays, fleetStormZones],
   );
   const fleetCells = useMemo(() => fleetForecast?.cells ?? [], [fleetForecast]);
   // Ô mật độ dưới điểm đang chạm + cá vùng đó hay có (theo tháng của ngày) — cho thẻ chạm.
@@ -8070,7 +8091,11 @@ export default function FishingMapView() {
             fleetState={fleetState}
             fleetEmpty={fleetState === "ok" && fleetCells.length === 0}
             fleetWindMissing={!!fleetForecast?.windMissing}
+            fleetWindPartial={!!fleetForecast?.windPartial}
             fleetStorm={!!fleetForecast?.storm}
+            fleetStormCells={fleetForecast?.stormCells ?? 0}
+            fleetThinBase={!!fleetForecast?.thinBase}
+            fleetBaseDays={fleetForecast?.baseDays ?? 0}
             onFleetRetry={() => setFleetRetry((n) => n + 1)}
             stormInfo={stormInfo}
             showPlaces={showPlaces}
@@ -8778,7 +8803,8 @@ export default function FishingMapView() {
                         <p className="text-[0.9375rem] leading-snug text-foreground/80">
                           <b>
                             Chỗ này có khả năng{" "}
-                            {v >= 70 ? "TỐT" : v >= 50 ? "khá" : "vừa"}
+                            {/* CÙNG THANG với màu ô (FISH_LEVEL_BANDS 75/60/40 — rà Codex 26/10: trước chữ 70/50 lệch màu) */}
+                            {v >= FISH_LEVEL_BANDS[2].min ? "TỐT" : v >= FISH_LEVEL_BANDS[1].min ? "khá" : "vừa"}
                           </b>{" "}
                           cho: <b>{names.join(", ")}</b>
                         </p>
@@ -8829,9 +8855,9 @@ export default function FishingMapView() {
                             {nearestHotspot.km <= 5.5
                               ? "Vùng có khả năng tập trung cá ngay tại điểm đang xem."
                               : `Điểm cá gần bạn nhất: ~${fmtDist(nearestHotspot.km, prefs.distUnit)} hướng ${nearestHotspot.dir} (khả năng ${
-                                  nearestHotspot.v >= 70
+                                  nearestHotspot.v >= FISH_LEVEL_BANDS[2].min
                                     ? "TỐT"
-                                    : nearestHotspot.v >= 50
+                                    : nearestHotspot.v >= FISH_LEVEL_BANDS[1].min
                                       ? "khá"
                                       : "vừa"
                                 }).`}
@@ -8845,7 +8871,8 @@ export default function FishingMapView() {
                 <div className="flex items-start gap-2.5 surface p-3.5">
                   <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
                   <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                    Chỗ này <b>không có gì nổi bật</b> trên ảnh vệ tinh mới nhất — dò
+                    Chỗ này <b>không có gì nổi bật</b>{" "}
+                    {fishCast.baseMode ? "trong bãi mùa này" : "trên ảnh vệ tinh mới nhất"} — dò
                     các vùng xanh lá trên bản đồ. Mùa này vùng{" "}
                     <b>{fishRegion?.name}</b> thường có:{" "}
                     {fishHere.join(", ")}{" "}
@@ -8871,17 +8898,20 @@ export default function FishingMapView() {
                   <RadarIcon className="mt-0.5 h-5 w-5 shrink-0 text-navy/70" />
                   <div className="min-w-0">
                     <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                      Mật độ tàu dự kiến <b>{DENSITY_LEVELS[fleetAtPoint.lv].label.toLowerCase()}</b> —{" "}
-                      {chipLabel(fleetAtPoint.dateIso, todayIso)} · ước {fleetAtPoint.cell.vessels} tàu
+                      {/* TÀU/NGÀY từ lát ngày (rà Codex 26/10 điểm 1: số lát tháng là tàu KHÁC NHAU cả tháng, không phải
+                          tàu/ngày); không có lát ngày ⇒ chỉ nói mức. "Đông" là so quanh vùng ~250 km. */}
+                      Mật độ tàu dự kiến <b>{DENSITY_LEVELS[fleetAtPoint.lv].label.toLowerCase()}</b> so với quanh vùng —{" "}
+                      {chipLabel(fleetAtPoint.dateIso, todayIso)}
+                      {fleetAtPoint.cell.vesselsPerDay != null && fleetAtPoint.cell.vesselsPerDay >= 3
+                        ? ` · khoảng ${fleetAtPoint.cell.vesselsPerDay} tàu/ngày`
+                        : ""}
                     </p>
                     {fleetAtPoint.species.length > 0 ? (
                       <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
-                        Cá vùng này hay có:{" "}
-                        <b>
-                          {fleetAtPoint.species
-                            .map(([sp, pct]) => `${SPECIES_META[sp]?.full ?? sp} (${speciesAmountLabel(pct)})`)
-                            .join(", ")}
-                        </b>{" "}
+                        {/* chỉ liệt kê theo thứ tự hay gặp — KHÔNG nói nhiều/ít: số gốc là tỷ trọng kg giữa các loài,
+                            không phải lượng cá tuyệt đối (rà Codex 26/10) */}
+                        Loài thường gặp quanh đây:{" "}
+                        <b>{fleetAtPoint.species.map(([sp]) => SPECIES_META[sp]?.full ?? sp).join(", ")}</b>{" "}
                         <span className="text-foreground/60">(tham khảo)</span>
                       </p>
                     ) : (

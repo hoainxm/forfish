@@ -130,7 +130,11 @@ export function RaKhoiControls({
   fleetState,
   fleetEmpty,
   fleetWindMissing,
+  fleetWindPartial,
   fleetStorm,
+  fleetStormCells,
+  fleetThinBase,
+  fleetBaseDays,
   onFleetRetry,
   stormInfo,
   showPlaces,
@@ -248,7 +252,14 @@ export function RaKhoiControls({
   fleetState: "idle" | "loading" | "error" | "ok";
   fleetEmpty: boolean;
   fleetWindMissing: boolean;
+  /** có gió nhưng khơi xa không có trạm trong tầm — ước theo trăng, mùa ở đó */
+  fleetWindPartial: boolean;
   fleetStorm: boolean;
+  /** số ô bị hạ vì bão (0 = ngày bão nhưng vùng bão xa) */
+  fleetStormCells: number;
+  /** tháng nền phủ ít ngày (tháng 10/2026 mới 6 ngày) */
+  fleetThinBase: boolean;
+  fleetBaseDays: number;
   onFleetRetry: () => void;
   /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
       rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
@@ -520,7 +531,11 @@ export function RaKhoiControls({
                   fleetState={fleetState}
                   fleetEmpty={fleetEmpty}
                   fleetWindMissing={fleetWindMissing}
+                  fleetWindPartial={fleetWindPartial}
                   fleetStorm={fleetStorm}
+                  fleetStormCells={fleetStormCells}
+                  fleetThinBase={fleetThinBase}
+                  fleetBaseDays={fleetBaseDays}
                   onFleetRetry={onFleetRetry}
                 />
               )}
@@ -1058,7 +1073,11 @@ function NguTruongPanel({
   fleetState,
   fleetEmpty,
   fleetWindMissing,
+  fleetWindPartial,
   fleetStorm,
+  fleetStormCells,
+  fleetThinBase,
+  fleetBaseDays,
   onFleetRetry,
 }: {
   fishOn: boolean;
@@ -1080,7 +1099,11 @@ function NguTruongPanel({
   fleetState: "idle" | "loading" | "error" | "ok";
   fleetEmpty: boolean;
   fleetWindMissing: boolean;
+  fleetWindPartial: boolean;
   fleetStorm: boolean;
+  fleetStormCells: number;
+  fleetThinBase: boolean;
+  fleetBaseDays: number;
   onFleetRetry: () => void;
 }) {
   const fishLocked = fishAccess === "login" || fishAccess === "upgrade";
@@ -1192,7 +1215,11 @@ function NguTruongPanel({
             state={fleetState}
             empty={fleetEmpty}
             windMissing={fleetWindMissing}
+            windPartial={fleetWindPartial}
             storm={fleetStorm}
+            stormCells={fleetStormCells}
+            thinBase={fleetThinBase}
+            baseDays={fleetBaseDays}
             onRetry={onFleetRetry}
           />
         )}
@@ -1221,7 +1248,9 @@ function Chip({ on, onClick, children, title }: { on: boolean; onClick: () => vo
 
 /**
  * Bộ chọn DỰ BÁO mật độ tàu (anh Long 25/10: không chọn lịch sử, lọc theo NGHỀ — không lọc loài): chip 16 ngày
- * tới + chip nghề. Ma trận: đang tải · lỗi (chạm thử lại) · ngày trống · chưa có gió · có bão.
+ * tới + chip nghề. Ma trận: đang tải · lỗi (chạm thử lại) · có bão (nói TRƯỚC "ngày trống" — rà Codex 26/10: trước
+ * bản đồ trống ưu tiên câu "chưa ước được ô nào", che mất lý do bão) · ngày trống · chưa có gió · gió chỉ gần bờ ·
+ * nền mỏng. "Đông/Vừa/Thưa" là so quanh vùng ~250 km, câu mặc định nói rõ.
  */
 function BaiTauDuBao({
   day,
@@ -1232,7 +1261,11 @@ function BaiTauDuBao({
   state,
   empty,
   windMissing,
+  windPartial,
   storm,
+  stormCells,
+  thinBase,
+  baseDays,
   onRetry,
 }: {
   day: number;
@@ -1243,9 +1276,28 @@ function BaiTauDuBao({
   state: "idle" | "loading" | "error" | "ok";
   empty: boolean;
   windMissing: boolean;
+  windPartial: boolean;
   storm: boolean;
+  stormCells: number;
+  thinBase: boolean;
+  baseDays: number;
   onRetry: () => void;
 }) {
+  const stormLine = storm
+    ? stormCells > 0
+      ? "Có bão — quanh vùng bão tàu nằm bờ, nơi khác ước bình thường."
+      : "Có bão nhưng vùng bão ở xa — ước như ngày thường."
+    : null;
+  const line = stormLine && (empty || stormCells > 0)
+    ? stormLine
+    : empty
+      ? "Ngày này chưa ước được ô nào."
+      : windMissing
+        ? "Chưa có gió ngày này — ước theo trăng, mùa."
+        : windPartial
+          ? "Gió chỉ có gần bờ — khơi xa ước theo trăng, mùa."
+          : "Đông hay thưa là so quanh vùng · ước theo trăng, gió, bão, mùa — tham khảo.";
+  const thinLine = thinBase ? ` Nền tháng này mới ${baseDays} ngày số liệu — độ tin cậy thấp.` : "";
   if (state === "loading" || state === "idle") {
     return <p className="mt-2 px-1 text-[0.8125rem] text-foreground/75">Đang tải mật độ tàu…</p>;
   }
@@ -1273,13 +1325,8 @@ function BaiTauDuBao({
         ))}
       </div>
       <p className="px-1 text-[0.75rem] text-foreground/75">
-        {empty
-          ? "Ngày này chưa ước được ô nào."
-          : storm
-            ? "Có bão — tàu nằm bờ, mật độ hạ thấp."
-            : windMissing
-              ? "Chưa có gió ngày này — ước theo trăng, mùa."
-              : "Ước theo trăng, gió, bão, mùa — tham khảo."}
+        {line}
+        {thinLine}
       </p>
     </div>
   );

@@ -83,6 +83,8 @@ Nên chạy lại mỗi mùa (`ttl_days: 90`) vì skill model đổi theo mùa g
 - **ERA5 = "thực tế" tham chiếu**, không phải quan trắc tại phao — bản thân nó cũng là mô hình tái phân tích.
 - Một cảng có thể thiếu sóng (vd Rạch Giá: gwam "no data" tại toạ độ trong vịnh) → `nWave` cảng đó = 0, đã tính vào tổng.
 
+**Nợ ghi 2026-10-26 (rà Codex, điểm 3 — CHƯA sửa, cần quyết định mô hình):** bản dự báo có `baseMode` thì `fishView` trả nguyên snapshot — chọn ngày sang tháng mới (16 ngày đã qua 1/11) vẫn xem nền tháng cũ, trăng không tính lại theo ngày chọn; máy chủ chọn tháng nền theo ngày ảnh cũ nhất giữa nhiệt/phù du. Việc đúng là tách ba thứ: tháng của bãi · ngày muốn xem · ngày của ảnh. Cũng lưu ý: AUC ≈0,802 (61 ngày 8–9/2026) KHÔNG phải "đúng 80 %", và test đang khoá vài số đo cố định nên test xanh không chứng minh mô hình mới giữ chất lượng.
+
 ## 8. Đo skill LIÊN TỤC từ kho (2026-10-19) — thay cho backtest tay mỗi quý
 
 Từ 2026-10-19, `/api/collect/archive` ghi mỗi ngày THỰC TẾ ERA5 của 10 cảng (`actual/<năm>/<ngày>/era5-ports.json.gz`, `lib/sea-actual.ts`): `windMaxKmh`, `gustMaxKmh`, `rainMm`, `waveMaxM` theo ngày GMT. `sea_daily` (0005) đã giữ DỰ BÁO 10 ngày/cảng liên tục từ 2026-07-07 (`collected_on`, `date`, `lead_days`). Ghép hai thứ theo (`port_id`, `date`) là có cặp dự báo–thực tế cho mọi tầm 0..9 ngày, mỗi ngày thêm 10 cảng × 10 tầm — không cần Single Runs API, không cần chạy `forecast-backtest.mjs` tay. Việc mở: script offline đọc kho + `sea_daily` → sinh `forecast-skill.json` (cùng công thức §4), chạy mỗi tháng; tới lúc đó bảng §6 (2026-07-25) vẫn là bản đang dùng. Giới hạn: `sea_daily` chỉ 10 tầm (0..9), còn bảng hiện có 15; ERA5 vẫn là tái phân tích, không phải phao.

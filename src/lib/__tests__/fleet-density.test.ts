@@ -7,12 +7,19 @@ import {
   defaultDensityKey,
   densityCellAt,
   densitySpeciesAt,
-  speciesAmountLabel,
   speciesKeyFor,
   seasonBase,
   moonFactors,
   windFactor,
   forecastFleetDensity,
+  FLEET_DENSITY_BUILT,
+  dailyVessels,
+  stormFactorAt,
+  nearestStation,
+  STORM_FACTOR,
+  STORM_FAR_FACTOR,
+  WIND_STATION_MAX_KM,
+  DENSITY_THIN_DAYS,
   addDaysIso,
   DENSITY_MIN_SCORE,
   FLEET_FORECAST_DAYS,
@@ -138,13 +145,6 @@ describe("fleet-density — bãi tàu đánh theo ngày/tháng/mùa/trăng", () 
     expect(densityCellAt(cells, 0.25, 20, 110)).toBeNull();
   });
 
-  it("mức loài: ≥40 nhiều, ≥20 trung bình, còn lại ít", () => {
-    expect(speciesAmountLabel(80)).toBe("nhiều");
-    expect(speciesAmountLabel(40)).toBe("nhiều");
-    expect(speciesAmountLabel(21)).toBe("trung bình");
-    expect(speciesAmountLabel(5)).toBe("ít");
-  });
-
   it("nhãn khoá đọc được", () => {
     expect(densityKeyLabel("day", "2026-10-02")).toBe("2/10/2026");
     expect(densityKeyLabel("month", "2026-10")).toBe("Tháng 10/2026");
@@ -156,6 +156,11 @@ describe("fleet-density — bãi tàu đánh theo ngày/tháng/mùa/trăng", () 
 describe("fleet-density — file thật public/data/fleet-density.v1.json (riêng tư + hình dạng)", () => {
   const file = path.join(process.cwd(), "public/data/fleet-density.v1.json");
   const d = JSON.parse(fs.readFileSync(file, "utf8")) as FleetDensity;
+
+  it("mốc FLEET_DENSITY_BUILT = builtFrom.to của file (đổi file phải đổi mốc — URL ?b= để máy đã cache nhận bản mới)", () => {
+    const d = JSON.parse(fs.readFileSync(file, "utf8")) as FleetDensity;
+    expect(FLEET_DENSITY_BUILT).toBe(d.builtFrom.to);
+  });
 
   it("cùng trục lưới cá, có đủ 4 chế độ, mọi ô ≥3 tàu, không có khoá định danh tàu", { timeout: 20000 }, () => {
     expect(d.v).toBe(1);
@@ -259,7 +264,8 @@ describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão, 
     expect(calm.cells.every((c) => c.score >= DENSITY_MIN_SCORE)).toBe(true);
     const stormy = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat", stormDays: new Set([today]) });
     expect(stormy.storm).toBe(true);
-    expect(stormy.cells).toHaveLength(0); // ×0,1 ⇒ mọi ô dưới sàn ⇒ không tô (không tô tím cả biển)
+    expect(stormy.cells).toHaveLength(0); // KHÔNG có vùng bão (tin không toạ độ) ⇒ ×0,1 cả vùng ⇒ dưới sàn
+    expect(stormy.stormCells).toBe(2);
     const windy = forecastFleetDensity({
       d, todayIso: today, dayOffset: 1, gear: "tat",
       wind: [{ lat: 12.775, lon: 115.525, byDate: { "2026-10-26": 70 } }],
@@ -304,5 +310,85 @@ describe("fleet-density — DỰ BÁO 16 ngày (mùa × trăng × gió × bão, 
     const bins = new Set<string>();
     for (let k = 0; k < FLEET_FORECAST_DAYS; k++) bins.add(forecastFleetDensity({ d, todayIso: today, dayOffset: k, gear: "tat" }).moonBin);
     expect(bins.size).toBeGreaterThan(2);
+  });
+});
+
+describe("fleet-density — rà Codex 2026-10-26: tàu/ngày · bão theo vùng · gió có bán kính · nền mỏng", () => {
+  const today = "2026-10-25";
+  function fx(): FleetDensity {
+    const d = tiny();
+    d.month = { "2026-10": { tat: [[31, 54, 200, 10], [32, 54, 400, 20]], vay: [[32, 54, 200, 15]] } };
+    d.days = { ...d.days, month: { "2026-10": 2 }, moon: { "4": 1 } };
+    d.moon = { "4": { tat: [] } };
+    return d;
+  }
+
+  it("tàu/ngày lấy từ lát NGÀY (trung bình tàu khác nhau mỗi ngày), không phải số tàu cả tháng", () => {
+    const d = fx();
+    // ô 31,54: ngày 1 = 5 tàu, ngày 2 = 3 tàu ⇒ 4 tàu/ngày; ô 32,54 chỉ có ngày 2 (12 tàu) ⇒ 6 tàu/ngày (ngày 1 vắng = 0)
+    const dv = dailyVessels(d, "2026-10");
+    expect(dv.get(`${5.025 + 31 * 0.25},${102.025 + 54 * 0.25}`)).toBeCloseTo(4, 6);
+    expect(dv.get(`${5.025 + 32 * 0.25},${102.025 + 54 * 0.25}`)).toBeCloseTo(6, 6);
+    const base = seasonBase(d, "10");
+    expect(base.get(`${5.025 + 32 * 0.25},${102.025 + 54 * 0.25}`)?.vessels).toBe(20); // số tàu cả tháng vẫn giữ
+    expect(base.get(`${5.025 + 32 * 0.25},${102.025 + 54 * 0.25}`)?.vesselsPerDay).toBeCloseTo(6, 6);
+    // nghề vây: 200 giờ / 400 giờ mọi nghề ⇒ nửa tàu/ngày
+    expect(seasonBase(d, "10", "vay").get(`${5.025 + 32 * 0.25},${102.025 + 54 * 0.25}`)?.vesselsPerDay).toBeCloseTo(3, 6);
+    const f = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat" });
+    expect(f.cells.find((c) => c.score === 100)?.vesselsPerDay).toBe(6);
+    // ngày bão bị loại khỏi trung bình; tháng không có lát ngày ⇒ null
+    d.storms = { "2026-10-01": ["X"] };
+    expect(dailyVessels(d, "2026-10").get(`${5.025 + 31 * 0.25},${102.025 + 54 * 0.25}`)).toBeCloseTo(3, 6);
+    d.day = {};
+    expect(seasonBase(d, "10").get(`${5.025 + 32 * 0.25},${102.025 + 54 * 0.25}`)?.vesselsPerDay).toBeNull();
+  });
+
+  it("bão hạ THEO VÙNG: ≤300 km tâm/đường đi ×0,1 · ≤600 km ×0,5 · xa hơn giữ nguyên · trong polygon ×0,1 · không toạ độ ⇒ ×0,1 cả vùng", () => {
+    expect(stormFactorAt(undefined, 10, 110)).toBe(STORM_FACTOR);
+    expect(stormFactorAt([], 10, 110)).toBe(STORM_FACTOR);
+    const z = [{ lat: 16, lon: 112 }];
+    expect(stormFactorAt(z, 16, 112)).toBe(STORM_FACTOR);
+    expect(stormFactorAt(z, 18, 112)).toBe(STORM_FACTOR); // ~222 km
+    expect(stormFactorAt(z, 20, 112)).toBe(STORM_FAR_FACTOR); // ~445 km
+    expect(stormFactorAt(z, 8, 106)).toBe(1); // >1 000 km (Côn Đảo)
+    // đường đi kéo vùng gần theo
+    expect(stormFactorAt([{ lat: 16, lon: 112, track: [[106.5, 9]] }], 9, 106.5)).toBe(STORM_FACTOR);
+    // polygon vùng ảnh hưởng
+    const areas = [[[[108, 14], [112, 14], [112, 18], [108, 18], [108, 14]]]];
+    expect(stormFactorAt([{ lat: 30, lon: 130, areas }], 16, 110)).toBe(STORM_FACTOR);
+    expect(stormFactorAt([{ lat: 30, lon: 130, areas }], 16, 105)).toBe(1);
+    // trong dự báo: bão ở xa ⇒ ô vẫn tô, stormCells = 0; bão gần ⇒ mất
+    const d = fx();
+    const far = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat", stormDays: new Set([today]), storms: [{ lat: 21, lon: 118 }] });
+    expect(far.storm).toBe(true);
+    expect(far.stormCells).toBe(0);
+    expect(far.cells.length).toBe(2);
+    const near = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat", stormDays: new Set([today]), storms: [{ lat: 13, lon: 115.5 }] });
+    expect(near.stormCells).toBe(2);
+    expect(near.cells).toHaveLength(0);
+    expect(near.cells.every((c) => c.stormF === STORM_FACTOR)).toBe(true);
+  });
+
+  it("trạm gió chỉ nói thay trong 250 km: trạm xa ⇒ ô hệ số 1 + windPartial, không phải windMissing", () => {
+    expect(nearestStation([{ lat: 10, lon: 107, byDate: {} }], 12.775, 115.525)).toBeNull(); // ~950 km
+    expect(nearestStation([{ lat: 12, lon: 114, byDate: {} }], 12.775, 115.525)?.lat).toBe(12); // ~190 km
+    expect(WIND_STATION_MAX_KM).toBe(250);
+    const d = fx();
+    const farWind = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat", wind: [{ lat: 10, lon: 107, byDate: { [today]: 70 } }] });
+    expect(farWind.windMissing).toBe(false);
+    expect(farWind.windPartial).toBe(true);
+    expect(farWind.cells.length).toBe(2); // gió cấp 8 ở cảng xa KHÔNG xoá khơi
+    const nearWind = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat", wind: [{ lat: 12, lon: 114, byDate: { [today]: 70 } }] });
+    expect(nearWind.windPartial).toBe(false);
+    expect(nearWind.cells).toHaveLength(0);
+  });
+
+  it("nền mỏng: tháng nền dưới DENSITY_THIN_DAYS ngày ⇒ thinBase + baseDays", () => {
+    const d = fx();
+    const f = forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat" });
+    expect(f.baseDays).toBe(2);
+    expect(f.thinBase).toBe(true);
+    d.days.month["2026-10"] = DENSITY_THIN_DAYS;
+    expect(forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat" }).thinBase).toBe(false);
   });
 });
