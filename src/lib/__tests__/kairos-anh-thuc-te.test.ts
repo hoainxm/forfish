@@ -17,7 +17,7 @@ const index = {
 
 describe("anhDaDuyet / chonAnh", () => {
   it("chỉ ảnh đã duyệt, id hợp lệ, duyệt sớm trước; index hỏng ⇒ []", () => {
-    expect(anhDaDuyet(index).map((a) => a.id)).toEqual(["cccccccccccccccc", "aaaaaaaaaaaaaaaa"]);
+    expect(anhDaDuyet(index).map((a: { id: string }) => a.id)).toEqual(["cccccccccccccccc", "aaaaaaaaaaaaaaaa"]);
     expect(anhDaDuyet(null)).toEqual([]);
     expect(anhDaDuyet({ anh: "x" })).toEqual([]);
   });
