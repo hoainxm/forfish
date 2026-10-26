@@ -4,7 +4,8 @@
 
 covers: src/lib/market, src/app/cho, src/app/ban-hang, src/app/api/cho, src/app/api/ban-hang, src/app/api/admin/cho, src/app/api/dev, src/app/dev, src/components/market, src/components/admin/market-admin-tab.tsx, src/components/admin/market-admin-requests.tsx, supabase/migrations/0060_marketplace.sql, supabase/migrations/0063_market_requests_eta.sql
 gate: warn
-last_verified: 2026-10-19
+last_verified: 2026-10-26
+<!-- re-verified: 2026-10-26 20:30 - market-home.tsx chỉ cắm thêm <KhuyenMaiCard> (ưu đãi SDVICO, data/khuyen-mai.ts) sau CartFeedback — không đụng MarketStore/route/đơn; kiến trúc sàn không đổi -->
 <!-- re-verified: 2026-10-25f — RÀ FB lô 2 ([design-review/08](../design-review/08-ra-fb-toan-app.md)): hợp đồng kho thêm lọc `paymentStatus`/`open` trong `OrderListQuery` (file-store + supabase-store cùng luật `choXacNhanTien` ở `lib/market/order-state.ts`), API `/api/ban-hang/don?tt=`; cờ `forfish.mshop.v1` thêm `pending`/`pendingAt` (`seller-flag savePendingFlag`); `lib/market/request-form.ts` (nháp + lỗi theo ô form yêu cầu). Không đổi DB. -->
 <!-- re-verified: 2026-10-25e — RÀ FB TOÀN APP lô 1 (bằng chứng + backlog: [design-review/08-ra-fb-toan-app](../design-review/08-ra-fb-toan-app.md)): hợp đồng kho/API KHÔNG đổi. Chạm presentation: `lib/market/list-state.ts` thêm `ListSnapshot.extra?` + ngăn `cho-home`, `cho-shop:<slug>`, `ban-hang/don`, `ban-hang/san-pham`; `lib/market/pricing.ts` chỉ đổi chữ `DROP_LABEL` (có số ⇒ "Gọi shop", không số ⇒ "Nhờ báo giá"); `seller-net.tsx` `useMarketList(path|null)` + restore/setItems/page, `LoadView` vẽ `NoShop` khi `code === "no_shop"`; `market-header.tsx` export `useLeaveGuard(dirty)`; `shop-settings` gửi PATCH `{paused}` riêng khi gạt công tắc (form Lưu không gửi `paused` nữa); món mới `stock` để trống bắt ghi (validate.ts giữ nguyên). -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->

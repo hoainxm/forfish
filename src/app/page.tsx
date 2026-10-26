@@ -7,6 +7,7 @@ import { StormBanner } from "@/components/storm-banner";
 import { TideHomeCard } from "@/components/tide-home-card";
 import { SeaTodayCard } from "@/components/sea-today-card";
 import { DocRemindOnOpen } from "@/components/doc-remind-on-open";
+import { KhuyenMaiCard } from "@/components/khuyen-mai-card";
 
 /*
   TRANG CHỦ — "hôm nay có gì cần biết, cần làm" (làm lại 2026-10-19, dock 5 mục
@@ -47,6 +48,9 @@ export default function Home() {
             sheet theo lịch mốc 30·25·20·15·10 rồi hằng ngày 5→0, mỗi mốc 1 lần,
             đọc kho máy; nhường tin bão. Xem lib/doc-reminder-local + 07 §12. */}
         <DocRemindOnOpen />
+        {/* Ưu đãi SDVICO (2026-10-26, tin của Quân): một thẻ, dưới việc cần làm, trên Thông
+            báo — không tranh chỗ với tin bão/việc gấp; đã đăng ký thì thẻ đổi trạng thái. */}
+        <KhuyenMaiCard />
         <InboxSection />
         <TideHomeCard />
       </div>

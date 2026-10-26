@@ -2,7 +2,8 @@
 
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/components/admin, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
-last_verified: 2026-10-19
+last_verified: 2026-10-26
+<!-- re-verified: 2026-10-26 20:30 - tab Yêu cầu hỗ trợ (tab-hoi-mua.tsx) thêm mục chỉ-xem "Khách hỏi / đăng ký khuyến mãi SDVICO" (GET /api/admin/sdvico-khach-hoi, requireAdmin) — phiếu sdvico_khach_hoi moi/da_bao đối chiếu tin Zalo Quân; luật phân quyền/tab không đổi (14 §3.14b) -->
 ttl_days: 90
 <!-- re-verified: 2026-10-26 — SPEC MỚI (CHƯA BUILD, chưa có code): NV9 người tạo thấy khách mình tạo (R13, AC-11..13) + NV10 hỗ trợ kỹ thuật tra đúng SĐT (R14, AC-14..19). Chủ dự án chốt hướng B + C sau phân tích: "khách của mình" trong code hôm nay = `premium_grants.granted_by` (accounts/route.ts GET + `managerTargetDenial`), tạo khách không tick premium ⇒ chính người tạo không thấy; quản lý không cứu được khách người khác/khách không chủ. Mục `last_verified` GIỮ NGUYÊN tới khi code khớp. -->
 <!-- re-verified: 2026-10-24b — tab Hệ thống → Cấu hình ứng dụng: mỗi ô ghi rõ bên nào thắng (`configPrecedenceText`); khoá nhập tin Kairos là `envFirst` — env máy chủ ĐÈ DB (ngược các khoá khác), cả hai cùng có thì ô báo đỏ "Env … đang đè — giá trị trong ô này KHÔNG có hiệu lực". `configStatus` trả thêm `envFirst`/`envVar`/`overridden`. Quyền (requireAdmin) + kiểm dạng giá trị không đổi. -->

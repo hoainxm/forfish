@@ -12,7 +12,7 @@
 | docs/app-map/07-design-spec.md | SUSPECT | code 'src/app' doi sau last_verified |
 | docs/app-map/08-ba-spec-da-tau.md | VERIFIED | ok |
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | SUSPECT | code 'src/lib/fish-blend.ts' doi sau last_verified |
-| docs/app-map/10-ba-spec-quan-tri-van-hanh.md | SUSPECT | code 'src/app/api/admin' doi sau last_verified |
+| docs/app-map/10-ba-spec-quan-tri-van-hanh.md | SUSPECT | code 'src/components/admin' doi sau last_verified |
 | docs/app-map/11-ba-spec-san-thuong-mai.md | SUSPECT | code 'src/app/api/ban-hang/' doi sau last_verified |
 | docs/app-map/12-kien-truc-san-thuong-mai.md | VERIFIED | ok |
 | docs/app-map/13-ba-spec-tro-ly-giong-noi.md | SUSPECT | code 'src/lib/assistant/' doi sau last_verified |

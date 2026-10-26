@@ -6,6 +6,7 @@
 // ⇒ bộ trực trên GPU (Claude, tu-van.mjs) tư vấn ngay trong luồng, hỏi dần số tàu + cảng lắp (KHÔNG hỏi SĐT — tài khoản là
 // SĐT) ⇒ đủ thì máy chủ lập phiếu sdvico_khach_hoi ⇒ AI Assistant lấy phiếu, nhắn nhóm Zalo KD.
 
+import { khuyenMaiCuaPhieu, soLuongTuLoiNhan, tienVn } from "@/data/khuyen-mai";
 import { SDVICO_SHOWCASE } from "@/data/sdvico-showcase";
 import { foldVn } from "@/lib/market/text";
 import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
@@ -107,9 +108,28 @@ export function kiemPhieu(raw: unknown): { ok: true; value: PhieuKhach } | { ok:
   };
 }
 
-/** Tin nhắn cho nhóm Zalo KD SDVICO (AI Assistant gửi nguyên văn). Chữ thường, không emoji. */
+/** Tin nhắn cho nhóm Zalo KD SDVICO (AI Assistant gửi nguyên văn). Chữ thường, không emoji.
+ *  Phiếu ĐĂNG KÝ KHUYẾN MÃI (`san_pham` = `KhuyenMai.tenPhieu`, 2026-10-26) ⇒ đầu tin "ĐĂNG KÝ MUA KM" + giá + số lượng,
+ *  "Cảng lắp" thành "Nhận tại" — Quân đọc một dòng là biết đơn hàng, không lẫn với khách hỏi thường. */
 export function tinNhanKd(p: PhieuKhach & { createdAt: string }, linkBinhLuan: string | null): string {
   const gio = new Date(p.createdAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour12: false });
+  const km = khuyenMaiCuaPhieu(p.sanPham);
+  const nguon = p.nguon === "kairos" ? "Kairos" : p.nguon === "san-pham" ? (km ? "thẻ khuyến mãi trong app" : "trang sản phẩm") : "Sen Biển";
+  if (km) {
+    const sl = soLuongTuLoiNhan(p.loiNhan);
+    return [
+      `[SDFish] ĐĂNG KÝ MUA KM: ${km.ten} ${tienVn(km.giaApp)} (giá thị trường ${tienVn(km.giaThiTruong)})`,
+      `- Tên: ${p.ten}`,
+      `- SĐT: ${p.phone}`,
+      `- Số tàu: ${p.soTau}`,
+      `- Nhận tại: ${p.cang}`,
+      sl ? `- Số lượng: ${sl}` : null,
+      p.loiNhan ? `- Khách ghi: ${p.loiNhan}` : null,
+      `- Nguồn: ${nguon} lúc ${gio}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
   return [
     `[SDFish] Khách hỏi ${p.sanPham ?? "sản phẩm SDVICO"}`,
     `- Tên: ${p.ten}`,
@@ -117,7 +137,7 @@ export function tinNhanKd(p: PhieuKhach & { createdAt: string }, linkBinhLuan: s
     `- Số tàu: ${p.soTau}`,
     `- Cảng lắp: ${p.cang}`,
     p.loiNhan ? `- Khách nhắn: ${p.loiNhan}` : null,
-    `- Nguồn: ${p.nguon === "kairos" ? "Kairos" : p.nguon === "san-pham" ? "trang sản phẩm" : "Sen Biển"} lúc ${gio}`,
+    `- Nguồn: ${nguon} lúc ${gio}`,
     linkBinhLuan ? `- Bình luận: ${linkBinhLuan}` : null,
   ]
     .filter(Boolean)

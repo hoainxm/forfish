@@ -117,6 +117,7 @@ export function InquiriesTab() {
 
   return (
     <div className="mt-4 space-y-4">
+      <PhieuSdvicoSection />
       <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
         Yêu cầu &ldquo;Để lại yêu cầu&rdquo; bà con gửi từ danh mục sản phẩm — chủ yếu sản
         phẩm của <b>đơn vị đối tác ngoài SDWork</b> (hàng SDVICO vẫn đi qua hộp tư vấn
@@ -235,5 +236,77 @@ export function InquiriesTab() {
         />
       )}
     </div>
+  );
+}
+
+/* ── PHIẾU KHÁCH HỎI / ĐĂNG KÝ KHUYẾN MÃI SDVICO (0072; 2026-10-26) ─────────────────────
+   Chỉ xem, để anh Long đối chiếu với tin Zalo AI Assistant đã nhắn Quân ("Vss Quân Bình Định").
+   `moi` = chưa nhắn Zalo (AI Assistant chưa lấy), `da_bao` = đã nhắn. Không sửa ở đây. */
+type PhieuSdvico = {
+  id: string;
+  created_at: string;
+  nguon: "kairos" | "san-pham" | "sen-bien";
+  san_pham: string | null;
+  ten: string;
+  phone: string;
+  so_tau: string;
+  cang: string;
+  loi_nhan: string | null;
+  trang_thai: "moi" | "da_bao";
+  bao_luc: string | null;
+  khuyenMai: string | null;
+};
+
+function PhieuSdvicoSection() {
+  const [rows, setRows] = useState<PhieuSdvico[] | null>(null);
+  const [loi, setLoi] = useState<string | null>(null);
+  const [mo, setMo] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    fetch(apiUrl("/api/admin/sdvico-khach-hoi?status=all"), { headers: tokenHeader() })
+      .then(async (r) => {
+        const j = (await r.json()) as { ok: boolean; code?: string; phieu?: PhieuSdvico[] };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        if (alive) setRows(j.phieu ?? []);
+      })
+      .catch((e: Error) => {
+        if (alive) setLoi(e.message === "not_configured" ? "Chưa kết nối cơ sở dữ liệu." : "Chưa tải được phiếu SDVICO.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const choNhan = rows?.filter((r) => r.trang_thai === "moi").length ?? 0;
+  return (
+    <section className="surface px-4 py-3">
+      <button type="button" onClick={() => setMo((v) => !v)} className="flex w-full items-center justify-between text-left" aria-expanded={mo}>
+        <span className="text-[1rem] font-semibold text-navy">Khách hỏi / đăng ký khuyến mãi SDVICO</span>
+        <span className="text-[0.875rem] text-foreground/60">
+          {rows ? `${rows.length} phiếu · ${choNhan} chưa nhắn Zalo` : loi ?? "Đang tải…"}
+        </span>
+      </button>
+      {mo && rows && rows.length > 0 && (
+        <ul className="mt-3 divide-y divide-line">
+          {rows.slice(0, 60).map((r) => (
+            <li key={r.id} className="py-2.5 text-[0.875rem] leading-snug">
+              <p className="font-semibold text-navy">
+                {r.khuyenMai ? `ĐĂNG KÝ KM · ${r.khuyenMai}` : `Hỏi · ${r.san_pham ?? "sản phẩm SDVICO"}`}
+                <span className={`ml-2 rounded-full px-2 py-0.5 text-[0.75rem] ${r.trang_thai === "moi" ? "bg-warn-bg text-warn" : "bg-ok-bg text-ok"}`}>
+                  {r.trang_thai === "moi" ? "Chưa nhắn Zalo" : `Đã nhắn ${r.bao_luc ? fmtDT(r.bao_luc) : ""}`}
+                </span>
+              </p>
+              <p className="text-foreground/75">
+                {r.ten} · {r.phone} · tàu {r.so_tau} · {r.cang}
+                {r.loi_nhan ? ` · ${r.loi_nhan}` : ""}
+              </p>
+              <p className="text-[0.75rem] text-foreground/50">
+                {fmtDT(r.created_at)} · nguồn {r.nguon}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+      {mo && rows && rows.length === 0 && <p className="mt-2 text-[0.875rem] text-foreground/60">Chưa có phiếu nào.</p>}
+    </section>
   );
 }

@@ -13,6 +13,7 @@ const LAST_PHONE_KEY = "forfish.auth.lastPhone.v1";
 /** Key localStorage chứa dữ liệu KH (xoá khi user đổi/logout). */
 const USER_SCOPED_KEYS = [
   "forfish.boats.v1",
+  "forfish.km.v1", // đã đăng ký khuyến mãi SDVICO (khuyen-mai-card) — của từng SĐT
   "forfish.currentBoat.v1",
   "forfish.boat.v1", // route-planner boat profile
   "forfish.products.v1",

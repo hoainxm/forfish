@@ -7,6 +7,7 @@
 // MẤT SÓNG: Giỏ, Đơn hàng, Mua lại, Yêu thích VẪN dùng được (đọc từ máy) — chỉ
 // hai lưới món cần mạng, và lúc đó nói thật + nút Thử lại + đường sang đơn.
 import Link from "next/link";
+import { KhuyenMaiCard } from "@/components/khuyen-mai-card";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CartIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
@@ -174,6 +175,8 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
         {netNote && <NetChip state={netNote.state} text={netNote.text} />}
         <KeoLamMoiChi {...lamMoi.chi} />
         <CartFeedback note={note} count={cart.count} />
+        {/* Ưu đãi SDVICO (2026-10-26) — đầu Vật tư, cùng thẻ với Trang chủ. */}
+        <KhuyenMaiCard className="mb-4" />
 
         {cart.saveFailed && (
           <p
