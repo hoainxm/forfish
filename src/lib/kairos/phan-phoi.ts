@@ -32,7 +32,7 @@ export const TRAN_KHONG_BIEN = 3;
  * chủ đề Nghề cá (chu-de.mjs đã nâng tin có từ khoá nghề cá ở mọi mục), hoặc gắn vùng Hoàng Sa–Trường Sa.
  */
 export const laTinBien = (p: Pick<PPPost, "kind" | "topic" | "regions">): boolean =>
-  p.kind !== "bao" || p.topic === "nghe-ca" || !!p.regions?.includes("hoang-sa-truong-sa");
+  p.kind !== "bao" || p.topic === "nghe-ca" || p.topic === "chinh-sach" || !!p.regions?.includes("hoang-sa-truong-sa");
 
 /**
  * TIN NÓNG NGOÀI BIỂN (anh Long 2026-10-24: "các bài mà tin nóng thu hút thì lấy để bà con biết thứ gì đang nóng

@@ -12,6 +12,20 @@
       "autoPort": true
     },
     {
+      "name": "forfish-dev-file",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "env": {
+        "MARKET_STORE": "file",
+        "KAIROS_INGEST_KEY": "dev-kairos-ingest-key-0123456789abcdefgh"
+      },
+      "port": 3000,
+      "autoPort": true
+    },
+    {
       "name": "forfish-dev-webpack",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

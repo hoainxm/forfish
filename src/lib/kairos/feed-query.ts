@@ -66,7 +66,7 @@ export interface FeedParams {
   theoDoi: boolean;
 }
 
-const TOPIC_CHIPS = new Set<string>(["nghe-ca", "thoi-su", "phap-luat", "doi-song", "the-thao", "giai-tri", "kinh-te"]);
+const TOPIC_CHIPS = new Set<string>(["nghe-ca", "thoi-su", "phap-luat", "doi-song", "the-thao", "giai-tri", "kinh-te", "chinh-sach"]);
 const PROVINCE_SET = new Set<string>(PROVINCE_IDS as readonly string[]);
 const REGION_SET = new Set<string>(SEA_REGIONS);
 

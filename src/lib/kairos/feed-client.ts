@@ -13,6 +13,7 @@ import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 import { FISHING_PORTS } from "@/data/fishing-ports";
+import { TOPICS } from "./chu-de.mjs";
 import { provinceIdOf, regionsOfProvince } from "./khu-vuc.mjs";
 import { HABIT_KEY, parseHabit, serializeHabit, type ChipId, type Habit } from "./thoi-quen";
 import { parseTuyChon, serializeTuyChon, TUY_CHON_KEY, type TuyChon } from "./tuy-chon";
@@ -25,7 +26,9 @@ export const FEED_TIMEOUT_MS = 12_000;
 /** Đồng hồ "Có N bài mới" (14 §3.2: 8 s). */
 export const NEW_COUNT_TIMEOUT_MS = 8_000;
 
-const TOPIC_CHIPS = new Set<ChipId>(["nghe-ca", "thoi-su", "phap-luat", "doi-song", "the-thao", "giai-tri", "kinh-te"]);
+// chip chủ đề = đúng danh sách TOPICS (chu-de.mjs) — từng là bản chép tay thiếu "chinh-sach" (2026-10-26: tab Chính sách
+// mất sóng hiện lẫn bài thường vì lọc bản lưu không nhận chip)
+const TOPIC_CHIPS = new Set<string>(TOPICS);
 
 export type FeedQuery = { ok: true; params: URLSearchParams } | { ok: false; need: "home" };
 

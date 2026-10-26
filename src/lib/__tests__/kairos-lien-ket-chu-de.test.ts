@@ -51,7 +51,7 @@ describe("lien-ket — trùng tiêu đề 7 ngày", () => {
 
 describe("chu-de — gắn chủ đề", () => {
   it("mã khớp check của 0065", () => {
-    expect([...TOPICS]).toEqual(["nghe-ca", "thoi-su", "phap-luat", "doi-song", "the-thao", "giai-tri", "kinh-te"]);
+    expect([...TOPICS]).toEqual(["nghe-ca", "thoi-su", "phap-luat", "doi-song", "the-thao", "giai-tri", "kinh-te", "chinh-sach"]);
     expect(isTopic("nghe-ca")).toBe(true);
     expect(isTopic("bao")).toBe(false);
   });

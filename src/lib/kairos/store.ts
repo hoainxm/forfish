@@ -11,7 +11,7 @@ import "server-only";
 import type { FeedFilter } from "./feed-query";
 import type { CommentRow, PostRow, ProfileRow } from "./dto";
 import type { Cursor } from "./cursor";
-import type { KairosPostKind, ReportReason } from "./types";
+import type { DinhKem, KairosPostKind, ReportReason } from "./types";
 
 export type ModState = "cho-kiem" | "dat" | "nghi" | "chan";
 export type TargetType = "post" | "comment";
@@ -76,6 +76,8 @@ export interface NewPost {
   summary_by?: "ai" | "rss" | null;
   cover_url?: string | null;
   published_at?: string;
+  /** 0074 — file đính kèm thông báo gov (14 §21): [{title, url}] ≤10 */
+  attachments?: DinhKem[];
 }
 
 export type PostPatch = Partial<

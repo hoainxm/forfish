@@ -395,6 +395,34 @@
       "topic": "kinh-te",
       "chiTinBien": true,
       "enabled": true
+    },
+    {
+      "id": "gov-gialai-van-ban",
+      "outlet": "UBND tỉnh Gia Lai",
+      "feedUrl": "https://gialai.gov.vn/van-ban-chi-dao-dieu-hanh",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "linkRe": "^/van-ban-chi-dao-dieu-hanh/.+\\.html$",
+      "enabled": true
+    },
+    {
+      "id": "gov-gialai-snnmt-thong-bao",
+      "outlet": "Sở NN&MT Gia Lai",
+      "feedUrl": "https://snnmt.gialai.gov.vn/vi/news/rss/thong-bao/",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
+    },
+    {
+      "id": "gov-gialai-snnmt-bien-dao",
+      "outlet": "Sở NN&MT Gia Lai",
+      "feedUrl": "https://snnmt.gialai.gov.vn/vi/news/rss/bien-va-hai-dao/",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "enabled": true
     }
   ],
   "baoDuocPhep": [

@@ -71,6 +71,12 @@ export type KairosErrorCode =
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; code: KairosErrorCode; term?: string };
 
+/** File đính kèm thông báo nhà nước (14 §21, 0074): tên hiển thị + link tải trên tên miền *.gov.vn. */
+export interface DinhKem {
+  title: string;
+  url: string;
+}
+
 /** Tác giả công khai — danh tính là `profileId` (uuid), KHÔNG BAO GIỜ SĐT. */
 export interface KairosAuthor {
   profileId: string;
@@ -150,6 +156,8 @@ export interface KairosPost {
   coverUrl: string | null;
   /** bài báo ĐANG NÓNG (vào qua nguồn Tin nổi bật — phan-phoi.NGUON_NONG) ⇒ thẻ có nhãn "Đang nóng" */
   nong?: boolean;
+  /** thông báo nhà nước (topic chinh-sach, 14 §21): file đính kèm — danh sách được duyệt theo đợt… Chỉ khi có. */
+  attachments?: DinhKem[];
   /** URL công khai kho kairos-media (bản lưu offline: [] — chỉ chữ, xem imageCount) */
   images: string[];
   /** CHỈ ở bản lưu offline (cache.ts): bài có mấy ảnh, để thẻ ghi "Có N ảnh — cần sóng" */

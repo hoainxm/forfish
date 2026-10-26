@@ -7,6 +7,11 @@
 //                                          KHÔNG POST, KHÔNG ghi sổ — không cần khoá
 //   --nguon=vne-thoi-su,tsvn               chỉ đọc mấy nguồn này
 //
+// NGUỒN GOV (14 §21, 2026-10-26 — tab "Chính sách"): kieu=gov trong kairos-nguon.json. feedUrl là RSS hoặc trang danh
+// mục HTML (chinh-sach.docDanhMucGov); chỉ giữ bài CHO BÀ CON ĐI BIỂN (laTinChoBaCon — bài khác ghi sổ, không xét lại);
+// mỗi bài giữ lại tải trang chi tiết lấy mô tả + ngày + FILE ĐÍNH KÈM (danh sách được duyệt theo đợt); tóm tắt bằng
+// prompt riêng (promptTomTatChinhSach); nhận bài tới 30 ngày (CHINH_SACH_CU_MS) vì văn bản ra thưa.
+//
 // Cấu hình (env tiến trình đè tệp env ngoài repo, mặc định ~/.config/forlife/kairos.env):
 //   KAIROS_INGEST_KEY  khoá chung với máy chủ (app_config.kairos_ingest_key hoặc env Vercel)
 //   KAIROS_API_BASE    https://<miền app>   (không có / cuối)
@@ -23,9 +28,10 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
-  chuanSo, chiaLo, chonBai, docBaoDuocPhep, docGarturl, docNguon, docOg, docTomTat, ghiSo, gopHangDoi, GN_BATCH_URL, GOI_NHAP_TOI_DA,
-  idTuLinkGN, khoaTrangGN, locBaiMoi, mucGui, nguonGui, parseFeed, promptTomTat, thanGarturl,
+  CHINH_SACH_CU_MS, chuanSo, chiaLo, chonBai, docBaoDuocPhep, docGarturl, docNguon, docOg, docTomTat, ghiSo, gopHangDoi, GN_BATCH_URL,
+  GOI_NHAP_TOI_DA, idTuLinkGN, khoaTrangGN, locBaiMoi, mucGui, nguonGui, parseFeed, promptTomTat, thanGarturl,
 } from "../src/lib/kairos/thu-core.mjs";
+import { docBaiGov, docDanhMucGov, laTinChoBaCon, promptTomTatChinhSach } from "../src/lib/kairos/chinh-sach.mjs";
 import { tagArea } from "../src/lib/kairos/khu-vuc.mjs";
 import { topicFor } from "../src/lib/kairos/chu-de.mjs";
 import { ghiGanDay, locCungSuKien } from "../src/lib/kairos/cung-su-kien.mjs";
@@ -49,7 +55,13 @@ async function taiRss(n) {
       signal: AbortSignal.timeout(RSS_HET_GIO_MS),
     });
     if (!r.ok) return { items: [], loi: `HTTP ${r.status}` };
-    const items = parseFeed(await r.text());
+    const text = await r.text();
+    // nguồn gov: trang danh mục HTML (không RSS) ⇒ đọc link bài; có <rss>/<feed> thì đọc như RSS thường
+    if (n.kieu === "gov" && !/<(rss|feed)[\s>]/i.test(text.slice(0, 4000))) {
+      const items = docDanhMucGov(text, n.feedUrl, { linkRe: n.linkRe });
+      return items.length ? { items, loi: null } : { items: [], loi: "không tìm thấy link bài trên trang danh mục" };
+    }
+    const items = parseFeed(text);
     // Trang lỗi trả 200 kèm HTML (NN&MT làm vậy với đường sai) ⇒ coi như lỗi để tab quản trị thấy
     return items.length ? { items, loi: null } : { items: [], loi: "không có bài (không phải RSS?)" };
   } catch (e) {
@@ -126,9 +138,17 @@ async function main() {
   const ket = await taiHet(nguon);
   const daChon = new Set();
   const moi = [];
+  /** bài gov không phải chuyện bà con đi biển — ghi sổ cho khỏi xét lại mỗi 15 phút, không gửi */
+  const boQuaGov = [];
   nguon.forEach((n, k) => {
-    const b = locBaiMoi(n, ket[k].items, so, now, daChon, baoDuocPhep);
-    log(`[nguồn] ${n.id}: ${ket[k].loi ? `LỖI ${ket[k].loi}` : `${ket[k].items.length} bài, ${b.length} mới`}`);
+    let items = ket[k].items;
+    if (n.kieu === "gov") {
+      const giu = items.filter((it) => laTinChoBaCon(`${it.title}\n${it.description}`));
+      boQuaGov.push(...locBaiMoi(n, items.filter((it) => !giu.includes(it)), so, now, new Set(), baoDuocPhep));
+      items = giu;
+    }
+    const b = locBaiMoi(n, items, so, now, daChon, baoDuocPhep);
+    log(`[nguồn] ${n.id}: ${ket[k].loi ? `LỖI ${ket[k].loi}` : `${ket[k].items.length} bài, ${b.length} mới${n.kieu === "gov" ? ` (gov: ${items.length} cho bà con)` : ""}`}`);
     moi.push(...b);
   });
 
@@ -137,8 +157,12 @@ async function main() {
   const ganDayFile = path.join(c.stateDir, "gan-day.json");
   const { giu: khongTrung, trung } = locCungSuKien(moi, docJson(ganDayFile, []), now);
   if (trung.length) log(`[trùng sự kiện] bỏ ${trung.length} bài cùng vụ với báo khác`);
-  const { chon, quaCu: cuQua, conLai } = chonBai(khongTrung, now);
-  const quaCu = [...cuQua, ...trung];
+  // bài gov chọn riêng: cửa sổ 30 ngày, không tranh trần 120 bài với báo
+  const laGov = (b) => b.section === "chinh-sach";
+  const { chon: chonBao, quaCu: cuQua, conLai } = chonBai(khongTrung.filter((b) => !laGov(b)), now);
+  const { chon: chonGov, quaCu: cuGov } = chonBai(khongTrung.filter(laGov), now, GOI_NHAP_TOI_DA, CHINH_SACH_CU_MS);
+  const chon = [...chonBao, ...chonGov];
+  const quaCu = [...cuQua, ...cuGov, ...trung, ...boQuaGov];
   log(`[chọn] ${chon.length} bài (${chon.filter((b) => b.chuQuyen).length} trúng cờ chủ quyền), bỏ ${quaCu.length} bài quá 48 giờ, để lượt sau ${conLai}`);
 
   // 2b. Tin Google News chỉ có tiêu đề ⇒ lần ra BÀI GỐC (ảnh + đoạn mở đầu) để tóm tắt được (anh Long: "sao ko có tóm
@@ -158,14 +182,40 @@ async function main() {
     if (gn.length) log(`[bài gốc] Google News ${duoc}/${gn.length} bài lần ra bài gốc (ảnh + mô tả)`);
   }
 
+  // 2c. Bài gov: tải trang chi tiết lấy mô tả + ngày ban hành + FILE ĐÍNH KÈM (chinh-sach.docBaiGov). Hỏng ⇒ giữ như cũ
+  //     (tiêu đề + mô tả RSS nếu có), không chặn lượt. Bài không có ngày lấy được ⇒ coi là mới (chonBai đã qua).
+  if (!dry || process.argv.includes("--goc")) {
+    const gov = chon.filter(laGov);
+    let duoc = 0;
+    await chayLo(gov, 4, async (b) => {
+      const html = await layChu(b.url, {}, 12_000);
+      if (!html) return;
+      const g = docBaiGov(html, b.url);
+      if ([...g.description].length > [...b.description].length) b.description = g.description;
+      if (!b.publishedAt && g.publishedAt) b.publishedAt = g.publishedAt;
+      if (!b.coverUrl && g.coverUrl) b.coverUrl = g.coverUrl;
+      if (g.attachments.length) b.attachments = g.attachments;
+      duoc++;
+    });
+    if (gov.length) log(`[gov] ${duoc}/${gov.length} thông báo đọc được trang chi tiết · ${gov.filter((b) => b.attachments?.length).length} có file đính kèm`);
+    // ngày ban hành đọc từ trang chi tiết có thể quá 30 ngày (danh mục xếp theo ngày đăng web) ⇒ bỏ như quaCu
+    for (let i = chon.length - 1; i >= 0; i--) {
+      const b = chon[i];
+      const t = laGov(b) && b.publishedAt ? Date.parse(b.publishedAt) : NaN;
+      if (Number.isFinite(t) && now - t > CHINH_SACH_CU_MS) quaCu.push(...chon.splice(i, 1));
+    }
+  }
+
   // 3. Tóm tắt — bài trúng cờ KHÔNG đưa vào prompt
   // bài chỉ có TIÊU ĐỀ (Google News) KHÔNG đưa Claude tóm tắt — tóm tắt từ một dòng tiêu đề là mời mô hình bịa
   const canTomTat = chon.filter((b) => !b.chuQuyen && [...b.description].length >= 40);
   let dung = null;
   let ai = 0;
-  for (const lo of chiaLo(canTomTat)) {
+  // bài báo và thông báo gov đi hai prompt khác nhau (gov: ai được, bao nhiêu, đợt nào, mở file xem tên)
+  const cacLo = [...chiaLo(canTomTat.filter((b) => !laGov(b))).map((lo) => ({ lo, prompt: promptTomTat(lo) })), ...chiaLo(canTomTat.filter(laGov)).map((lo) => ({ lo, prompt: promptTomTatChinhSach(lo) }))];
+  for (const { lo, prompt } of cacLo) {
     if (dry || dung) break;
-    const r = await goiClaude(c, { prompt: promptTomTat(lo), timeoutMs: CLAUDE_HET_GIO_MS, ten: "thu" });
+    const r = await goiClaude(c, { prompt, timeoutMs: CLAUDE_HET_GIO_MS, ten: "thu" });
     if (!r.ok) {
       log(`[claude] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — lô này dùng mô tả RSS`);
       if (DUNG_CA_LUOT.has(r.dung)) dung = r.dung;
@@ -187,7 +237,7 @@ async function main() {
       const area = tagArea(`${b.title}\n${b.description}`);
       console.log(
         `\n— ${b.outlet} · ${b.section} ⇒ ${topicFor(b.section, `${b.title}\n${b.description}`)} · ${area.regions.join("/")} ${area.provinces.join(",")}` +
-          `${b.chuQuyen ? ` · CỜ CHỦ QUYỀN "${b.chuQuyen}"` : ""}\n  ${b.title}\n  ${b.url}\n  ${[...b.description].slice(0, 160).join("")}`,
+          `${b.chuQuyen ? ` · CỜ CHỦ QUYỀN "${b.chuQuyen}"` : ""}${b.attachments?.length ? ` · ${b.attachments.length} file đính kèm` : ""}\n  ${b.title}\n  ${b.url}\n  ${[...b.description].slice(0, 160).join("")}`,
       );
     }
     log("[thử] không gọi claude, không gửi, không ghi sổ.");

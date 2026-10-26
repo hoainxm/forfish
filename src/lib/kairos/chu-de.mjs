@@ -15,6 +15,9 @@ export const TOPICS = /** @type {const} */ ([
   "the-thao",
   "giai-tri",
   "kinh-te",
+  // 2026-10-26: thông báo nhà nước cho bà con (tab "Chính sách" ở Kairos) — CHỈ máy thu gắn từ nguồn .gov.vn
+  // (chinh-sach.mjs); bà con không chọn được khi đăng bài (composer-sheet bỏ khỏi danh sách).
+  "chinh-sach",
 ]);
 
 /** @typedef {(typeof TOPICS)[number]} Topic */
@@ -33,6 +36,7 @@ const SECTION_TOPIC = {
   "doi-song": "doi-song",
   "kinh-doanh": "kinh-te",
   "kinh-te": "kinh-te",
+  "chinh-sach": "chinh-sach",
 };
 
 /** Từ khoá nghề cá (đã bỏ dấu, so theo ranh giới từ). */
@@ -91,7 +95,8 @@ export function hasFishKeyword(text) {
  */
 export function topicFor(section, text) {
   const base = /** @type {(typeof TOPICS)[number]} */ (SECTION_TOPIC[/** @type {keyof typeof SECTION_TOPIC} */ (section)] ?? "thoi-su");
-  if (base === "nghe-ca" || base === "the-thao" || base === "giai-tri") return base;
+  // chinh-sach: thông báo nhà nước giữ nguyên dù nói chuyện biển (tab Chính sách lọc theo mã này)
+  if (base === "nghe-ca" || base === "the-thao" || base === "giai-tri" || base === "chinh-sach") return base;
   return laChuyenBien(text) ? "nghe-ca" : base;
 }
 

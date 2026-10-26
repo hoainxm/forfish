@@ -97,6 +97,10 @@ export const NHAN = {
   hay: "Hay",
   binhLuan: "Bình luận",
   chinhThuc: "Chính thức",
+  // Kairos — tab "Chính sách" (14 §21): hai tab trên màn Kairos + nhãn nguồn nhà nước trên thẻ + liên kết file đính kèm
+  dongTin: "Dòng tin",
+  nhaNuoc: "Nhà nước",
+  dinhKem: "Đính kèm",
   ghim: "Ghim",
   dangNong: "Đang nóng",
   // Kairos — đăng bài, bình luận, chia sẻ, hồ sơ (AC07–AC15)
@@ -181,6 +185,7 @@ export const NHAN_CHIP_KAIROS = {
   "the-thao": "Thể thao",
   "giai-tri": "Giải trí",
   "kinh-te": "Kinh tế",
+  "chinh-sach": "Chính sách",
 } as const;
 
 export type NhanId = keyof typeof NHAN;

@@ -8,6 +8,11 @@
   lúc mở màn; chưa có bài nào ⇒ chữ "T" của "Tôi") ⇒ /kairos/u/toi (đổi tên gọi, ảnh, số hiệu tàu — AC12).
   Bến (có `port`) là màn PHỤ ⇒ MarketHeader "‹ Bến X" (không trang trước ⇒ về /kairos), "Trang tôi" ở ô phải;
   tab Kairos gốc giữ tiêu đề lớn ManHeader.
+  HAI TAB (14 §21, anh Long 2026-10-26 "tổ chức thêm 1 tab tin chính sách"): `Tabs` dùng chung (segmented, dính dưới
+  header) "Dòng tin" · "Chính sách" — CHỈ ở màn Kairos gốc (Bến không có). Tab Chính sách = cùng KairosFeed với
+  chip "chinh-sach": thông báo nhà nước từ tên miền .gov.vn, có file đính kèm; không ô mời đăng, không Tài trợ.
+  Deep-link `/kairos?tab=chinh-sach` (Sen Biển / thông báo). Chuyển tab không remount feed (Tabs chỉ làm thanh, nội dung
+  render một lần bên dưới) ⇒ giữ ảnh chụp từng tab.
 */
 
 import Link from "next/link";
@@ -15,11 +20,13 @@ import { useEffect, useState } from "react";
 import { SettingsIcon } from "@/components/icons";
 import { ManHeader } from "@/components/man-header";
 import { MarketHeader } from "@/components/market/shared/market-header";
+import { Tabs } from "@/components/ui/tabs";
 import { loadFeedCache, loadTuyChon, portLabel } from "@/lib/kairos/feed-client";
 import { hienCauPhu } from "@/lib/kairos/dau-man";
 import { authorToi } from "@/lib/kairos/ho-so";
 import { useAuthUser } from "@/lib/use-auth";
 import type { TuyChon } from "@/lib/kairos/tuy-chon";
+import type { ChipId } from "@/lib/kairos/thoi-quen";
 import { NHAN } from "@/lib/labels";
 import { ChuongKairos } from "./chuong-kairos";
 import { KairosAvatar } from "./kairos-avatar";
@@ -42,6 +49,9 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
   useEffect(() => {
     setToi(authorToi(loadFeedCache(phone)?.posts ?? []));
   }, [phone]);
+  /** tab đang xem: dòng tin chung hay Chính sách (14 §21) — chỉ màn gốc */
+  const [tab, setTab] = useState<"dong-tin" | "chinh-sach">("dong-tin");
+  const chip: ChipId = !port && tab === "chinh-sach" ? "chinh-sach" : "moi";
   const trangToi = (
     <Link href="/kairos/u/toi" aria-label={NHAN.trangToi} title={NHAN.trangToi} className="flex shrink-0 rounded-full transition active:scale-[0.95]">
       <KairosAvatar id={toi?.profileId ?? phone ?? "toi"} name={toi?.handle ?? "Tôi"} url={null} nav />
@@ -81,8 +91,22 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
           }
         />
       )}
+      {!port && (
+        <Tabs
+          ariaLabel="Kairos"
+          paramKey="tab"
+          value={tab}
+          onChange={(id) => setTab(id === "chinh-sach" ? "chinh-sach" : "dong-tin")}
+          // nội dung render MỘT lần bên dưới (không remount feed khi đổi tab) — content để trống
+          tabs={[
+            { id: "dong-tin", label: NHAN.dongTin, content: null },
+            { id: "chinh-sach", label: NHAN.chinhSach, content: null },
+          ]}
+        />
+      )}
       <KairosFeed
         port={port}
+        chip={chip}
         tuyChon={port ? undefined : (tuyChon ?? undefined)}
         actions={a.actions}
         view={a.view}

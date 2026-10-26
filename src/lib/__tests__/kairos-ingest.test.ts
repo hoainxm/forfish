@@ -20,6 +20,7 @@ const item = (over: Partial<IngestItem> = {}): IngestItem => ({
   coverUrl: null,
   section: "thoi-su",
   publishedAt: new Date(NOW - 3600_000).toISOString(),
+  attachments: [],
   ...over,
 });
 const ctx = (over: Partial<Parameters<typeof planIngest>[1]> = {}) => ({ seenHashes: new Set<string>(), recentTitles: [], now: NOW, ports: PORTS, ...over });

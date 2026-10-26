@@ -100,7 +100,7 @@ type AnhChup = {
   scrollY: number;
   at: number;
 };
-const khoaCho = (port: string | undefined) => `feed:${port ?? ""}`;
+const khoaCho = (port: string | undefined, chip: ChipId = "moi") => `feed:${port ?? ""}:${chip}`;
 
 /** Cảng nhà từ sổ tàu (tàu đang chọn, không thì tàu đầu) — KHÔNG từ vị trí máy. */
 function homeFromBoats(): Habit["home"] {
@@ -134,9 +134,13 @@ export function KairosFeed({
   added = [],
   tuyChon,
   onTrong,
+  chip = "moi",
 }: {
   /** Bến (/kairos/ben/[port]): dòng tin chỉ bài gắn cảng này, không hàng chip */
   port?: string;
+  /** "moi" = dòng tin chung (mặc định); "chinh-sach" = tab Chính sách (14 §21): chỉ thông báo nhà nước, không ô mời
+   *  đăng, không bài Tài trợ, không pill Tải tin. Màn cha đổi tab ⇒ tải lại trang đầu (giữ bài khi mất sóng). */
+  chip?: ChipId;
   /** hành vi Hay / Chia sẻ / ba chấm — màn khác nối vào (thẻ vẫn hiện khi thiếu) */
   actions?: PostActions;
   /** mở khung soạn (AC07) */
@@ -152,8 +156,8 @@ export function KairosFeed({
 }) {
   const { phone, ready: authReady } = useAuthUser();
   const [habit, setHabitState] = useState<Habit>(emptyHabit);
-  /** một dòng tin duy nhất — bỏ hàng chip lọc 2026-10-24 */
-  const chip: ChipId = "moi";
+  /** bỏ hàng chip lọc 2026-10-24 — chỉ còn hai dòng tin: chung ("moi") và Chính sách ("chinh-sach", 14 §21) */
+  const chinhSach = chip === "chinh-sach";
   const [posts, setPosts] = useState<KairosPost[]>([]);
   const [pinned, setPinned] = useState<KairosPost[]>([]);
   /** bài Tài trợ (14 §20) — 1 thẻ / 20 bài, chỉ dòng tin chung, chỉ khi có sóng (load "ready") */
@@ -287,7 +291,7 @@ export function KairosFeed({
     setHabitState(h);
     goiYRef.current.savedAt0 = loadFeedCache(phone)?.savedAt ?? null;
     if (!port) st.current.tuyChon = loadTuyChon();
-    const snap = layCho<AnhChup>(khoaCho(port), Date.now());
+    const snap = layCho<AnhChup>(khoaCho(port, chip), Date.now());
     // ảnh chụp lúc MẤT SÓNG mà giờ đã có sóng ⇒ đi đường tải mới (sự kiện online đã qua, không bắn lại)
     const songLai = snap?.load === "offline" && typeof navigator !== "undefined" && navigator.onLine !== false;
     if (snap && snap.phone === phone && !songLai) {
@@ -322,8 +326,8 @@ export function KairosFeed({
       };
       return;
     }
-    void loadFirst("moi", h, false);
-  }, [authReady, loadFirst, port, phone]);
+    void loadFirst(chip, h, false);
+  }, [authReady, loadFirst, port, phone, chip]);
 
   /*  Cất ảnh chụp khi rời màn. Chỗ cuộn ghi theo sự kiện cuộn CHỈ khi khung dòng tin còn trên trang — lúc Next
       chuyển màn, trang mới cuộn về đầu sau khi khung cũ đã gỡ ⇒ không ghi đè chỗ đang đọc bằng 0. */
@@ -336,7 +340,8 @@ export function KairosFeed({
     return () => {
       window.removeEventListener("scroll", ghi);
       chup.huy?.();
-      if (chup.snap) catCho(khoaCho(port), { ...chup.snap, scrollY: yRef.current, at: Date.now() });
+      // tab lúc rời màn lấy từ ref (đổi tab không gỡ component — effect đổi tab tự cất ảnh chụp của tab cũ)
+      if (chup.snap) catCho(khoaCho(port, st.current.chip), { ...chup.snap, scrollY: yRef.current, at: Date.now() });
     };
   }, [port]);
 
@@ -347,6 +352,29 @@ export function KairosFeed({
     window.scrollTo({ top: 0 });
     void loadFirst(st.current.chip, st.current.habit, true);
   }, [tuyChon, port, loadFirst]);
+
+  // Đổi tab Dòng tin ⇄ Chính sách (14 §21): có ảnh chụp của tab đó ⇒ dựng lại, không thì tải trang đầu (bản lưu lọc
+  // theo chủ đề hiện trước). Lần mount đầu do effect mở màn lo.
+  const lastChip = useRef(chip);
+  useEffect(() => {
+    if (!started.current || lastChip.current === chip) return;
+    // cất ảnh chụp của tab đang rời (quay lại dựng y nguyên, như rời màn)
+    if (chupRef.current.snap) catCho(khoaCho(port, lastChip.current), { ...chupRef.current.snap, scrollY: yRef.current, at: Date.now() });
+    lastChip.current = chip;
+    window.scrollTo({ top: 0 });
+    const snap = layCho<AnhChup>(khoaCho(port, chip), Date.now());
+    if (snap && snap.phone === phone && !(snap.load === "offline" && typeof navigator !== "undefined" && navigator.onLine !== false)) {
+      st.current.since = snap.since;
+      setPosts(snap.posts);
+      setPinned(snap.pinned);
+      setNext(snap.next);
+      setSavedAt(snap.savedAt);
+      setLoad(snap.load);
+      setNewCount(0);
+      return;
+    }
+    void loadFirst(chip, st.current.habit, false);
+  }, [chip, port, phone, loadFirst]);
 
   // Đổi tài khoản giữa chừng ⇒ tải lại theo ngăn mới (bản lưu cách ly theo SĐT).
   const lastPhone = useRef(phone);
@@ -500,7 +528,7 @@ export function KairosFeed({
       đầu với hạt xáo mới (thứ tự đổi, đỡ nhàm). Bến cũng kéo được (máy chủ trả theo giờ ⇒ làm mới = lấy bài mới nhất).
       Mất sóng: vẫn cho kéo — loadFirst giữ bài đang hiện + báo mất sóng như nút Thử lại. */
   const lamMoi = useKeoLamMoi(async () => {
-    xoaCho(khoaCho(port));
+    xoaCho(khoaCho(port, chip));
     await loadFirst(st.current.chip, st.current.habit, true);
   });
 
@@ -592,7 +620,7 @@ export function KairosFeed({
     if (load === "loading" && (loadFeedCache(phone)?.posts.length ?? 0) > 0) return;
     onTrong(true);
   }, [onTrong, port, empty, load, phone]);
-  const pill = port ? null : pillTaiMangDi(goiY.k);
+  const pill = port || chinhSach ? null : pillTaiMangDi(goiY.k);
 
   return (
     <div className="pb-4">
@@ -627,15 +655,18 @@ export function KairosFeed({
           </section>
         </div>
       )}
-      <div className="px-4 pb-3">
-        <button
-          type="button"
-          onClick={onCompose}
-          className="surface flex h-14 w-full items-center px-4 text-left text-[1rem] text-foreground/65 transition active:scale-[0.99]"
-        >
-          {ben ? `Đăng vào Bến ${ben.name}…` : "Bà con muốn chia sẻ gì?"}
-        </button>
-      </div>
+      {/* tab Chính sách không có ô mời đăng: chỉ thông báo nhà nước (14 §21) */}
+      {!chinhSach && (
+        <div className="px-4 pb-3">
+          <button
+            type="button"
+            onClick={onCompose}
+            className="surface flex h-14 w-full items-center px-4 text-left text-[1rem] text-foreground/65 transition active:scale-[0.99]"
+          >
+            {ben ? `Đăng vào Bến ${ben.name}…` : "Bà con muốn chia sẻ gì?"}
+          </button>
+        </div>
+      )}
 
       {pill && (
         <div className="px-4 pb-3">
@@ -710,7 +741,7 @@ export function KairosFeed({
           ))}
         {empty && load === "ready" && (
           <EmptyState>
-            {port ? "Bến này chưa có bài nào." : "Chưa có bài nào. Bà con đăng bài đầu tiên nhé."}
+            {port ? "Bến này chưa có bài nào." : chinhSach ? "Chưa có thông báo nào. Có tin mới sẽ hiện ở đây." : "Chưa có bài nào. Bà con đăng bài đầu tiên nhé."}
           </EmptyState>
         )}
 
@@ -720,7 +751,7 @@ export function KairosFeed({
           </div>
         ))}
         {shownPosts.map((p, i) => {
-          const qc = !port && load === "ready" ? theSauBai(i, ads.length) : null;
+          const qc = !port && !chinhSach && load === "ready" ? theSauBai(i, ads.length) : null;
           return (
             <Fragment key={p.id}>
               <div data-kairos-id={p.id}>

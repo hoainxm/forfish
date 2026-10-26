@@ -65,7 +65,8 @@ export type ComposeMode =
   | { kind: "reshare"; post: KairosPost };
 
 const PORT_NAME = new Map(FISHING_PORTS.map((p) => [p.id, p.name]));
-const TOPIC_OPTIONS = TOPICS.map((id) => ({ id, label: NHAN_CHIP_KAIROS[id] }));
+// chinh-sach là thông báo nhà nước do máy thu gắn từ nguồn .gov.vn (14 §21) — bà con không chọn khi đăng bài
+const TOPIC_OPTIONS = TOPICS.filter((id) => id !== "chinh-sach").map((id) => ({ id, label: NHAN_CHIP_KAIROS[id] }));
 
 /** Cảng nhà: thói quen trong máy (đã lấy từ sổ tàu ở dòng tin), không thì sổ tàu. */
 function homePort(): string | null {

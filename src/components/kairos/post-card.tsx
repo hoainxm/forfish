@@ -32,7 +32,7 @@ import type { CamXuc } from "@/lib/kairos/cam-xuc";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { CommentIcon, ShareIcon } from "@/components/icons";
+import { CommentIcon, DocIcon, ShareIcon } from "@/components/icons";
 import { boCucAnh } from "@/lib/kairos/anh-luoi";
 import { countLabel, portLabel, postTimeLabel } from "@/lib/kairos/feed-client";
 import type { KairosComment, KairosPost } from "@/lib/kairos/types";
@@ -239,10 +239,43 @@ function Head({
         <p className="flex items-center gap-1.5 text-[0.8125rem] text-foreground/65">
           <span className="truncate">{sub}</span>
           {bao && post.nong && <span className="shrink-0 rounded-full bg-danger-bg px-1.5 text-[0.6875rem] font-bold leading-4 text-danger">{NHAN.dangNong}</span>}
+          {/* thông báo nhà nước (topic chinh-sach, 14 §21) — nhãn nhỏ cùng khuôn "Đang nóng", màu sea cho khác tin nóng */}
+          {bao && post.topic === "chinh-sach" && <span className="shrink-0 rounded-full bg-sea/12 px-1.5 text-[0.6875rem] font-bold leading-4 text-sea">{NHAN.nhaNuoc}</span>}
         </p>
       </div>
       {nut}
     </div>
+  );
+}
+
+/**
+ * FILE ĐÍNH KÈM thông báo nhà nước (14 §21): mỗi file một hàng chạm được (≥44px) — icon tài liệu + tên ("Quyết định
+ * 1958/QĐ-UBND (PDF)"). Có sóng mở tab mới (PDF danh sách tàu được duyệt theo đợt — bà con tìm tên mình); mất sóng báo
+ * "Cần sóng". Chỉ bài có `attachments`.
+ */
+function DinhKemList({ post, notify }: { post: KairosPost; notify?: (text: string, bad?: boolean) => void }) {
+  const online = useOnline();
+  const ds = post.attachments ?? [];
+  if (!ds.length) return null;
+  const lop = "flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left text-[0.9375rem] font-semibold text-navy transition active:bg-line/40";
+  return (
+    <ul className="mb-2 border-b border-line" aria-label={NHAN.dinhKem}>
+      {ds.map((f) => (
+        <li key={f.url}>
+          {online ? (
+            <a href={f.url} target="_blank" rel="noopener noreferrer" className={lop}>
+              <DocIcon className="h-5 w-5 shrink-0 text-sea" />
+              <span className="min-w-0 flex-1 break-words">{f.title}</span>
+            </a>
+          ) : (
+            <button type="button" onClick={() => notify?.("Cần sóng để mở file.", true)} className={lop}>
+              <DocIcon className="h-5 w-5 shrink-0 text-sea" />
+              <span className="min-w-0 flex-1 break-words">{f.title}</span>
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -470,6 +503,7 @@ export function PostCard({
             </div>
           )}
           <TheBao post={post} onRead={onRead} notify={actions.binhLuan?.notify} />
+          <DinhKemList post={post} notify={actions.binhLuan?.notify} />
         </>
       ) : (
         <>

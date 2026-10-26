@@ -62,7 +62,7 @@ describe("thoi-quen — lưu trong máy", () => {
   it("hồ sơ đầy nhất vẫn ≤4 KB", () => {
     const h = emptyHabit();
     for (const c of CHIPS) h.chips[c] = 500;
-    for (const t of ["nghe-ca", "thoi-su", "phap-luat", "doi-song", "the-thao", "giai-tri", "kinh-te"] as const) h.topics[t] = 500;
+    for (const t of ["nghe-ca", "thoi-su", "phap-luat", "doi-song", "the-thao", "giai-tri", "kinh-te", "chinh-sach"] as const) h.topics[t] = 500;
     h.home = { port: "x".repeat(60), province: "ho-chi-minh" };
     expect(serializeHabit(h).length).toBeLessThanOrEqual(HABIT_MAX_BYTES);
   });

@@ -8,6 +8,7 @@ import { docXemTruoc } from "./xem-truoc-link";
 import { docNhacTen } from "./nhac-ten";
 import { xepDem, type CamXuc, type DemCamXuc } from "./cam-xuc";
 import { laAgent } from "./agent-doi.mjs";
+import { kiemDinhKem } from "./chinh-sach.mjs";
 import { laTinNong } from "./phan-phoi";
 import type { KairosAbout, KairosAuthor, KairosComment, KairosPost, KairosPostKind, KairosRegion } from "./types";
 
@@ -48,6 +49,8 @@ export interface PostRow {
   edited_at: string | null;
   /** 0071 */
   mentions?: unknown;
+  /** 0074 — file đính kèm thông báo gov; cột chưa có ⇒ undefined */
+  attachments?: unknown;
 }
 
 /** Hàng `kairos_comments`. */
@@ -108,6 +111,12 @@ export function authorDto(phone: string, ctx: DtoCtx): KairosAuthor {
   if (boat) a.boatReg = boat;
   if (laAgent(phone)) a.isAgent = true;
   return a;
+}
+
+/** File đính kèm (0074) ⇒ trường `attachments` chỉ khi có phần tử hợp lệ (bản hỏng/cột chưa có ⇒ không trường). */
+function dinhKem(raw: unknown): { attachments?: KairosPost["attachments"] } {
+  const xs = kiemDinhKem(raw);
+  return xs.length ? { attachments: xs } : {};
 }
 
 /** Cột trang cá nhân (0067) của một hồ sơ — vắng (cột chưa có) ⇒ undefined. */
@@ -173,6 +182,7 @@ export function postDto(
     summaryBy: r.summary_by,
     coverUrl: r.cover_url,
     ...(r.kind === "bao" && laTinNong(r) ? { nong: true } : {}),
+    ...(dinhKem(r.attachments)),
     images: strArr(r.images).map(ctx.mediaUrl),
     topic: r.topic,
     regions: (r.regions ?? []) as KairosRegion[],

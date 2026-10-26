@@ -196,9 +196,12 @@ export function parseFeed(xml) {
 
 /**
  * @typedef {{ id: string, outlet: string, feedUrl: string, section: string, topic: string, enabled: boolean,
- *   kieu: "rss" | "google-news", chiTinBien: boolean }} Nguon
+ *   kieu: "rss" | "google-news" | "gov", chiTinBien: boolean, linkRe?: RegExp | null }} Nguon
  *   kieu "google-news": feed TÌM KIẾM news.google.com/rss/search — báo gốc lấy ở <source>, chỉ nhận báo trong
  *     `baoDuocPhep`, tiêu đề cắt đuôi " - Tên báo", mô tả (danh sách link) bỏ.
+ *   kieu "gov" (2026-10-26, 14 §21): tên miền *.gov.vn, section/topic bắt buộc "chinh-sach"; feedUrl là RSS hoặc
+ *     trang danh mục HTML (chinh-sach.docDanhMucGov, `linkRe` lọc đường dẫn bài); chỉ nhận bài cho bà con
+ *     (chinh-sach.laTinChoBaCon), trang chi tiết đọc thêm mô tả + ngày + file đính kèm.
  *   chiTinBien: feed CHUNG của báo — chỉ nhận bài nói chuyện biển (chu-de.laChuyenBien), 85 % tin biển.
  */
 
@@ -230,12 +233,24 @@ export function docNguon(raw) {
       throw bad("feedUrl sai");
     }
     if (u.protocol !== "https:") throw bad("feedUrl phải https");
-    if (x.kieu != null && x.kieu !== "rss" && x.kieu !== "google-news") throw bad("kieu sai");
-    const kieu = x.kieu === "google-news" ? "google-news" : "rss";
+    if (x.kieu != null && x.kieu !== "rss" && x.kieu !== "google-news" && x.kieu !== "gov") throw bad("kieu sai");
+    const kieu = x.kieu === "google-news" || x.kieu === "gov" ? x.kieu : "rss";
     if (kieu === "google-news" && u.hostname !== "news.google.com") throw bad("google-news phải là news.google.com");
+    if (kieu === "gov" && !(u.hostname === "gov.vn" || u.hostname.endsWith(".gov.vn"))) throw bad("gov phải là tên miền *.gov.vn");
+    if (kieu === "gov" && (x.section !== "chinh-sach" || x.topic !== "chinh-sach")) throw bad("gov phải có section + topic chinh-sach");
+    if (kieu !== "gov" && x.topic === "chinh-sach") throw bad("chinh-sach chỉ dành cho nguồn gov");
+    let linkRe = null;
+    if (x.linkRe != null) {
+      if (typeof x.linkRe !== "string" || x.linkRe.length > 200) throw bad("linkRe sai");
+      try {
+        linkRe = new RegExp(x.linkRe);
+      } catch {
+        throw bad("linkRe không phải biểu thức hợp lệ");
+      }
+    }
     return {
       id: x.id, outlet: x.outlet.trim(), feedUrl: u.toString(), section: x.section, topic: x.topic, enabled: x.enabled !== false,
-      kieu, chiTinBien: x.chiTinBien === true,
+      kieu, chiTinBien: x.chiTinBien === true, linkRe,
     };
   });
 }
@@ -400,8 +415,10 @@ export function chuanSo(raw, now) {
 /**
  * @typedef {{ sourceId: string, outlet: string, url: string, title: string, description: string,
  *   summary: string | null, summaryBy: "ai" | "rss", coverUrl: string | null, section: string,
- *   publishedAt: string | null, chuQuyen: string | null, linkGN?: string }} BaiMoi
+ *   publishedAt: string | null, chuQuyen: string | null, linkGN?: string,
+ *   attachments?: { title: string, url: string }[] }} BaiMoi
  *   linkGN: link Google News gốc khi đã lần ra bài gốc (url = bài gốc) — ghiSo ghi cả hai
+ *   attachments: nguồn gov (14 §21) — file đính kèm đọc từ trang chi tiết (chinh-sach.docBaiGov)
  */
 
 /**
@@ -481,6 +498,8 @@ export function ghiSo(so, bai, now) {
 export const BAI_MOI_TOI_DA_MOI_LUOT = 120;
 /** Bài đăng quá 48 giờ: không tóm tắt, không gửi — ghi sổ cho khỏi xét lại (dòng tin là tin mới). */
 export const BAI_CU_MS = 48 * 60 * 60 * 1000;
+/** Thông báo nhà nước (nguồn gov, 14 §21): nhận tới 30 ngày — bằng BAO_FEED_DAYS, bài cũ hơn cũng không lên dòng tin. */
+export const CHINH_SACH_CU_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Chọn bài cho lượt này: bỏ bài quá cũ; nghề cá trước, rồi mới trước; trần BAI_MOI_TOI_DA_MOI_LUOT.
@@ -488,15 +507,17 @@ export const BAI_CU_MS = 48 * 60 * 60 * 1000;
  * @param {BaiMoi[]} bai
  * @param {number} now
  * @param {number} [toiDa]
+ * @param {number} [cuMs]  bài đăng quá bấy nhiêu ms thì bỏ (mặc định 48 giờ; nguồn gov dùng CHINH_SACH_CU_MS — văn bản
+ *   nhà nước ít, lượt đầu đọc trang danh mục phải nhận được quyết định tuần trước)
  * @returns {{ chon: BaiMoi[], quaCu: BaiMoi[], conLai: number }}
  */
-export function chonBai(bai, now, toiDa = BAI_MOI_TOI_DA_MOI_LUOT) {
+export function chonBai(bai, now, toiDa = BAI_MOI_TOI_DA_MOI_LUOT, cuMs = BAI_CU_MS) {
   const quaCu = [];
   const co = [];
   const thuong = [];
   for (const b of bai) {
     const t = b.publishedAt ? Date.parse(b.publishedAt) : NaN;
-    if (Number.isFinite(t) && now - t > BAI_CU_MS) quaCu.push(b);
+    if (Number.isFinite(t) && now - t > cuMs) quaCu.push(b);
     else if (b.chuQuyen) co.push(b);
     else thuong.push(b);
   }
@@ -648,6 +669,8 @@ export function mucGui(b) {
     coverUrl: b.coverUrl,
     section: b.section,
     publishedAt: b.publishedAt,
+    // nguồn gov (14 §21): file đính kèm — danh sách bà con được duyệt theo đợt; máy chủ kiểm lại (kiemDinhKem chiGov)
+    ...(Array.isArray(b.attachments) && b.attachments.length ? { attachments: b.attachments } : {}),
   };
 }
 

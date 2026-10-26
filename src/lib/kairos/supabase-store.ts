@@ -24,7 +24,7 @@ const PROFILE_HO_SO_COLS = HO_SO_FIELDS.join(",");
 /** Đã thấy cột 0067 thiếu ⇒ đọc bằng cột gốc, hỏi lại sau 5 phút (migration áp xong tự nhận). */
 const HO_SO_RECHECK_MS = 5 * 60_000;
 const POST_COLS =
-  "id,kind,author_phone,source_id,outlet,url,url_hash,title,title_norm,body,summary,summary_by,cover_url,images,topic,regions,provinces,ports,reshare_of,pinned_until,hidden,hidden_reason,mod_state,mod_checked_at,hay_count,comment_count,published_at,feed_at,created_at,edited_at,mentions";
+  "id,kind,author_phone,source_id,outlet,url,url_hash,title,title_norm,body,summary,summary_by,cover_url,images,topic,regions,provinces,ports,reshare_of,pinned_until,hidden,hidden_reason,mod_state,mod_checked_at,hay_count,comment_count,published_at,feed_at,created_at,edited_at,mentions,attachments";
 const COMMENT_COLS = "id,post_id,parent_id,author_phone,body,hay_count,hidden,mod_state,mod_checked_at,created_at,image_path,link_preview,mentions";
 const IN_MAX = 200;
 /** trần số lượt cảm xúc đọc một lô để đếm theo loại */

@@ -9,7 +9,9 @@ import { normalizeUrl, urlHash, titleNorm, isDupTitle, TITLE_DUP_WINDOW_MS } fro
 import { topicFor, isTopic } from "./chu-de.mjs";
 import { tagArea } from "./khu-vuc.mjs";
 import { chuQuyenFlag, chuQuyenFlagAll } from "./chu-quyen.mjs";
+import { kiemDinhKem, laHostGov, laTinChoBaCon } from "./chinh-sach.mjs";
 import { cleanText } from "./validate";
+import type { DinhKem } from "./types";
 import type { NewPost, SeenRow, SourceRow } from "./store";
 
 export const INGEST_MAX_ITEMS = 50;
@@ -27,6 +29,8 @@ export interface IngestItem {
   coverUrl: string | null;
   section: string;
   publishedAt: string | null;
+  /** nguồn gov (14 §21): file đính kèm trên tên miền *.gov.vn — bài khác luôn [] */
+  attachments: DinhKem[];
 }
 
 export interface IngestSource {
@@ -82,18 +86,27 @@ export function parseIngestBody(raw: unknown):
       invalid++;
       continue;
     }
+    // TIN CHÍNH SÁCH (14 §21): section chinh-sach CHỈ từ tên miền *.gov.vn và CHỈ bài cho bà con đi biển — máy chủ
+    // kiểm lại, máy thu cũ/lệch không đẩy được trang lạ vào tab Chính sách. File đính kèm chỉ nhận ở bài gov.
+    const gov = laHostGov(url);
+    const description = txt(x.description, 2000);
+    if (section === "chinh-sach" && (!gov || !laTinChoBaCon(`${title}\n${description}`))) {
+      invalid++;
+      continue;
+    }
     const pub = typeof x.publishedAt === "string" ? Date.parse(x.publishedAt) : NaN;
     items.push({
       sourceId,
       outlet,
       url,
       title,
-      description: txt(x.description, 2000),
+      description,
       summary: txt(x.summary, 1000) || null,
       summaryBy: x.summaryBy === "ai" ? "ai" : "rss",
       coverUrl: httpsUrl(x.coverUrl),
       section,
       publishedAt: Number.isFinite(pub) ? new Date(pub).toISOString() : null,
+      attachments: gov ? kiemDinhKem(x.attachments, { chiGov: true }) : [],
     });
   }
 
@@ -173,7 +186,8 @@ export function planIngest(
       summaryBy = "rss";
     }
     const text = `${it.title}\n${it.description}`;
-    const area = tagArea(`${it.title}\n${summary ?? it.description}`, { ports: ctx.ports });
+    // thông báo gov: tên cơ quan ("UBND tỉnh Gia Lai") cũng nói tỉnh nào — đưa vào chữ gắn khu vực
+    const area = tagArea(`${it.title}\n${summary ?? it.description}${it.section === "chinh-sach" ? `\n${it.outlet}` : ""}`, { ports: ctx.ports });
     const pub = it.publishedAt && Date.parse(it.publishedAt) <= ctx.now + 60 * 60 * 1000 ? it.publishedAt : nowIso;
     // tin cũ hơn cửa sổ trùng tiêu đề vẫn nhận, nhưng giờ đăng không được xa hơn 1 năm (RSS lỗi giờ)
     const published = Date.parse(pub) < ctx.now - 365 * 24 * 60 * 60 * 1000 ? nowIso : pub;
@@ -191,6 +205,7 @@ export function planIngest(
       summary_by: summary ? summaryBy : null,
       cover_url: it.coverUrl,
       images: [],
+      ...(it.attachments.length ? { attachments: it.attachments } : {}),
       topic: topicFor(it.section, text),
       regions: area.regions,
       provinces: area.provinces,

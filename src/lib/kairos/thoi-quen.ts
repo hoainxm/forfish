@@ -24,6 +24,8 @@ export const CHIPS = [
   "the-thao",
   "giai-tri",
   "kinh-te",
+  // 2026-10-26: tab "Chính sách" của màn Kairos (14 §21) — dòng tin chỉ bài topic chinh-sach (thông báo nhà nước)
+  "chinh-sach",
 ] as const;
 export type ChipId = (typeof CHIPS)[number];
 
