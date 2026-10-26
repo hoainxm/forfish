@@ -33,8 +33,8 @@ import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import { DocPhotoStrip, MAX_PHOTOS } from "@/components/document-photos";
 import { OfflineLine } from "@/components/ui/offline-line";
 import { XuatTrinhGiay } from "@/components/xuat-trinh-giay";
-import { compressImage, deleteDocPhoto, uploadDocPhoto } from "@/lib/doc-photos";
-import { apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, docGiayTuAnh } from "@/lib/doc-giay";
+import { compressImage, deleteDocPhoto, luuSanAnhGiay, uploadDocPhoto } from "@/lib/doc-photos";
+import { apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, docGiayTuAnh, type OGiay } from "@/lib/doc-giay";
 import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
 import { showsUnderBoat } from "@/lib/boats";
@@ -218,6 +218,18 @@ export function DocumentVault() {
     setKindMoi(kind);
     setShowForm(true);
   }, [ready, boatReady, readFailed, boatDocs, today]);
+
+  /*  CẤT SẴN ẢNH CHO XUẤT TRÌNH (rà UI 2026-10-26): mở tủ lúc CÓ SÓNG ⇒ ảnh giấy nào chưa nằm trong kho máy thì tải
+      về cất (lần lượt, dừng khi mất sóng/rời màn) — ra biển mở Xuất trình là có ảnh, kể cả giấy chụp từ máy khác hay
+      chưa từng bấm xem. Không chặn gì: chạy nền, lỗi thì thôi (lib/doc-photos luuSanAnhGiay). */
+  useEffect(() => {
+    if (!ready || !online) return;
+    const paths = boatDocs.flatMap((d) => d.photos ?? []);
+    if (!paths.length) return;
+    const c = new AbortController();
+    void luuSanAnhGiay(paths, c.signal);
+    return () => c.abort();
+  }, [ready, online, boatDocs]);
 
   const sorted = useMemo(
     () => [...boatDocs].sort(byUrgency(today)),
@@ -446,7 +458,13 @@ export function DocumentVault() {
       )}
 
       {xuatTrinh && (
-        <XuatTrinhGiay docs={sorted} tenTau={current?.name} today={today} onClose={() => setXuatTrinh(false)} />
+        <XuatTrinhGiay
+          docs={sorted}
+          tenTau={current?.name}
+          maTau={current?.maTau}
+          today={today}
+          onClose={() => setXuatTrinh(false)}
+        />
       )}
 
       {confirmDelete && (
@@ -493,7 +511,12 @@ function DocumentForm({
   const [photos, setPhotos] = useState<string[]>(initial?.photos ?? []);
   const chupRef = useRef<HTMLInputElement>(null);
   const [dangDoc, setDangDoc] = useState(false);
-  const [cauDoc, setCauDoc] = useState<{ muc: "ok" | "warn"; text: string } | null>(null);
+  /*  Rà UI 2026-10-26: đọc xong báo bằng băng `neutral` (03: xanh KHÔNG đeo băng), lỗi `warn`. Ô app vừa điền được
+      ĐÁNH DẤU (viền xanh biển + nhãn "· đọc từ ảnh") tới khi bà con tự sửa ô đó — nhìn là biết ô nào cần soát lại. */
+  const [cauDoc, setCauDoc] = useState<{ muc: "neutral" | "warn"; text: string } | null>(null);
+  const [tuAnh, setTuAnh] = useState<ReadonlySet<OGiay>>(new Set());
+  /** form đã đóng (Huỷ/Lưu) trong lúc ảnh đang tải/đọc — kết quả về muộn thì không điền, ảnh lỡ tải thì xoá */
+  const daDong = useRef(false);
   const [kind, setKind] = useState<DocumentKind>(initial?.kind ?? kindMoi ?? "dang_kiem");
   const [label, setLabel] = useState(initial?.label ?? kindLabel(kindMoi ?? "dang_kiem"));
   const [labelTouched, setLabelTouched] = useState(Boolean(initial));
@@ -543,9 +566,21 @@ function DocumentForm({
 
   /** Huỷ: giấy MỚI mà đã lỡ tải ảnh ⇒ xoá ảnh (giấy chưa tồn tại, ảnh không thuộc về ai). Giấy cũ giữ nguyên. */
   function huy() {
+    daDong.current = true;
     if (!initial) photos.forEach((p) => void deleteDocPhoto(p));
     onCancel();
   }
+
+  /** Ô app điền ⇒ nhãn + viền đánh dấu; bà con sửa ô đó ⇒ bỏ dấu (đã tự xác nhận). */
+  const nhanO = (o: OGiay, nhan: string) => (tuAnh.has(o) ? `${nhan} · đọc từ ảnh` : nhan);
+  const lopO = (o: OGiay) => (tuAnh.has(o) ? `${inputClass} ring-2 ring-sea/40` : inputClass);
+  const boDau = (o: OGiay) =>
+    setTuAnh((s) => {
+      if (!s.has(o)) return s;
+      const n = new Set(s);
+      n.delete(o);
+      return n;
+    });
 
   async function chupGiay(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -560,6 +595,11 @@ function DocumentForm({
         photos.length < MAX_PHOTOS ? uploadDocPhoto(docId, blob) : Promise.resolve(null),
         docGiayTuAnh(blob),
       ]);
+      // Huỷ trong lúc chờ ⇒ giấy mới không còn, ảnh vừa tải là ảnh mồ côi
+      if (daDong.current) {
+        if (path && !initial) void deleteDocPhoto(path);
+        return;
+      }
       if (path) setPhotos((ds) => [...ds, path]);
       if (!kq.ok) {
         setCauDoc({ muc: "warn", text: cauLoiDoc(kq.loi) });
@@ -572,12 +612,13 @@ function DocumentForm({
       setExpiresOn(ap.form.expiresOn);
       // ô máy vừa điền phải NHÌN THẤY để xem lại — mở nhóm Chi tiết nếu có số/ngày cấp
       if (ap.form.number || ap.form.issuedOn) setShowMore(true);
+      setTuAnh(new Set([...ap.daDien, ...ap.daDoi]));
       const coO = ap.daDien.length + ap.daDoi.length > 0;
-      setCauDoc({ muc: coO && kq.giay.hetHan ? "ok" : "warn", text: cauKetQuaDoc(ap.daDien, ap.daDoi, kq.giay.hetHan) });
+      setCauDoc({ muc: coO && kq.giay.hetHan ? "neutral" : "warn", text: cauKetQuaDoc(ap.daDien, ap.daDoi, kq.giay.hetHan) });
     } catch {
-      setCauDoc({ muc: "warn", text: "Định dạng ảnh không hỗ trợ, bà con thử chụp lại nhé." });
+      if (!daDong.current) setCauDoc({ muc: "warn", text: "Định dạng ảnh không hỗ trợ, bà con thử chụp lại nhé." });
     } finally {
-      setDangDoc(false);
+      if (!daDong.current) setDangDoc(false);
     }
   }
 
@@ -585,6 +626,7 @@ function DocumentForm({
   function submit(e?: React.FormEvent) {
     e?.preventDefault();
     if (!luuDuoc) return;
+    if (dangDoc) return; // đang đọc ảnh — chờ app điền xong rồi mới cho Lưu
     const doc = giayTuForm();
     // giấy MỚI trùng loại với giấy đã có ⇒ hỏi, không lặng lẽ thêm hàng thứ hai
     if (!initial && giayTrungLoai) {
@@ -614,24 +656,23 @@ function DocumentForm({
       title={initial ? "Sửa thông tin giấy tờ" : "Thêm giấy tờ mới"}
       onClose={huy}
       /* chân Huỷ|Lưu do ngăn vẽ (TAU-07/TAU-10); Lưu mờ khi chưa có thông tin (TAU-11) qua `dangLuu` */
-      chan={{ luu: NHAN.luu, onLuu: () => submit(), dangLuu: !luuDuoc }}
+      chan={{ luu: NHAN.luu, onLuu: () => submit(), dangLuu: !luuDuoc || dangDoc }}
     >
       <form onSubmit={submit} noValidate>
-        {/*  CHỤP GIẤY đứng đầu form: việc chính của bà con là giơ máy lên chụp, còn lại app điền. Nút cỡ CTA
-            (--h-cta), nhãn 2 chữ; dòng phụ nói app làm gì. Mất sóng ⇒ nút mờ + OfflineLine (ảnh cần mạng
-            để tải lên, máy nhà cần mạng để đọc) — bà con vẫn ghi tay được như trước. */}
+        {/*  CHỤP GIẤY đứng đầu form (rà UI 2026-10-26, 03 §0/§0b): cao --h-cta bo 0.75rem chữ 1rem 600, tông PHỤ
+            xanh biển nhạt — nút chính của ngăn là Lưu ở chân, không để hai nút đặc tranh nhau. KHÔNG dòng hướng dẫn
+            (03 §6 mục 8): kết quả đọc tự nói app làm gì. Đang đọc ⇒ "Đang đọc…" + icon nhấp nháy, Lưu khoá tới khi
+            xong. Mất sóng ⇒ nút mờ + OfflineLine — bà con vẫn ghi tay như trước. */}
         <button
           type="button"
           onClick={() => chupRef.current?.click()}
           disabled={!online || dangDoc}
-          className="mb-1.5 flex min-h-(--h-cta) w-full items-center justify-center gap-2 rounded-2xl bg-sea text-[1.125rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
+          aria-busy={dangDoc}
+          className="mb-3.5 flex h-(--h-cta) w-full items-center justify-center gap-2 rounded-xl border border-sea/30 bg-sea/10 text-[1rem] font-semibold text-sea transition active:scale-[0.99] disabled:opacity-60"
         >
-          <CameraIcon className="h-6 w-6" />
+          <CameraIcon className={`h-6 w-6 ${dangDoc ? "animate-pulse" : ""}`} />
           {dangDoc ? "Đang đọc…" : NHAN.chupGiay}
         </button>
-        <p className="mb-3.5 text-center text-[0.8125rem] leading-snug text-foreground/65">
-          {dangDoc ? "App đang đọc chữ trên giấy, chừng vài giây." : "Chụp tờ giấy, app tự điền loại, số và ngày hết hạn."}
-        </p>
         <input ref={chupRef} type="file" accept="image/*" capture="environment" onChange={chupGiay} className="hidden" />
         {!online && (
           <div className="mb-3.5">
@@ -645,12 +686,21 @@ function DocumentForm({
             </StatusBanner>
           </div>
         )}
+        {/* ảnh ngay dưới kết quả — soát ô app điền với tờ giấy thật mà không phải cuộn */}
+        {photos.length > 0 && (
+          <div className="mb-3.5">
+            <DocPhotoStrip docId={docId} photos={photos} online={online} onChange={setPhotos} />
+          </div>
+        )}
 
-        <Field label="Loại giấy tờ">
+        <Field label={nhanO("kind", "Loại giấy tờ")}>
           <select
             value={kind}
-            onChange={(e) => handleKind(e.target.value as DocumentKind)}
-            className={inputClass}
+            onChange={(e) => {
+              handleKind(e.target.value as DocumentKind);
+              boDau("kind");
+            }}
+            className={lopO("kind")}
           >
             {DOCUMENT_KINDS.map((k) => (
               <option key={k.value} value={k.value}>
@@ -696,20 +746,17 @@ function DocumentForm({
           </Field>
         )}
 
-        <Field label="Ngày hết hạn (ghi trên giấy)">
+        <Field label={nhanO("expiresOn", "Ngày hết hạn (ghi trên giấy)")}>
           <input
             type="date"
             value={expiresOn}
-            onChange={(e) => setExpiresOn(e.target.value)}
-            className={inputClass}
+            onChange={(e) => {
+              setExpiresOn(e.target.value);
+              boDau("expiresOn");
+            }}
+            className={lopO("expiresOn")}
           />
         </Field>
-
-        {photos.length > 0 && (
-          <div className="mb-3.5">
-            <DocPhotoStrip docId={docId} photos={photos} online={online} onChange={setPhotos} />
-          </div>
-        )}
 
         {/*  Số giấy tờ + ghi chú: cả hai tự nhãn đã nhận là tuỳ chọn, bỏ đi vẫn
             lưu được ⇒ không phải KEY, thu sau một nút (luật C1/C2 — sheet đo
@@ -735,21 +782,27 @@ function DocumentForm({
 
         {showMore && (
           <>
-            <Field label="Số giấy tờ (không nhớ có thể bỏ qua)">
+            <Field label={nhanO("number", "Số giấy tờ (không nhớ có thể bỏ qua)")}>
               <input
                 value={number}
-                onChange={(e) => setNumber(e.target.value)}
-                className={inputClass}
+                onChange={(e) => {
+                  setNumber(e.target.value);
+                  boDau("number");
+                }}
+                className={lopO("number")}
                 placeholder="VD: 1769/2025/GL-GPKTTS"
               />
             </Field>
 
-            <Field label="Ngày cấp (ghi trên giấy)">
+            <Field label={nhanO("issuedOn", "Ngày cấp (ghi trên giấy)")}>
               <input
                 type="date"
                 value={issuedOn}
-                onChange={(e) => setIssuedOn(e.target.value)}
-                className={inputClass}
+                onChange={(e) => {
+                  setIssuedOn(e.target.value);
+                  boDau("issuedOn");
+                }}
+                className={lopO("issuedOn")}
               />
             </Field>
 

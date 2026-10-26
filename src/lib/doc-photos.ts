@@ -12,7 +12,7 @@
 
 import { authedFetch } from "@/lib/device-token-store";
 import { timeoutSignal } from "@/lib/abort";
-import { catAnhGiay, layAnhGiay, xoaAnhGiay } from "@/lib/giay-anh-kho";
+import { catAnhGiay, coAnhGiay, layAnhGiay, xoaAnhGiay } from "@/lib/giay-anh-kho";
 
 const MAX_DIM = 1600; // cạnh dài tối đa (px)
 const TARGET_BYTES = 1.8 * 1024 * 1024; // dưới trần 2MB của server
@@ -116,6 +116,27 @@ export async function docPhotoUrl(path: string): Promise<string | null> {
   if (!res || !res.ok) return null;
   const j = (await res.json().catch(() => null)) as { url?: string } | null;
   return j?.url ?? null;
+}
+
+/**
+ * CẤT SẴN ảnh giấy tờ vào kho trong máy (rà UI 2026-10-26): trước đây ảnh chỉ vào kho khi tải lên TRÊN MÁY NÀY hoặc
+ * khi từng mở xem ⇒ giấy đồng bộ từ máy khác, hay giấy chưa từng bấm vào, ra biển mở Xuất trình là trống — đúng lúc
+ * cán bộ hỏi. Tủ giấy tờ gọi hàm này mỗi lần mở lúc CÓ SÓNG: ảnh nào chưa có trong kho thì tải về cất, LẦN LƯỢT (không
+ * dồn băng thông), dừng ngay khi mất sóng / bị huỷ. Không ném; trả số ảnh vừa cất.
+ */
+export async function luuSanAnhGiay(paths: readonly string[], huy?: AbortSignal): Promise<number> {
+  let n = 0;
+  for (const p of paths) {
+    if (huy?.aborted) break;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) break;
+    if (await coAnhGiay(p)) continue;
+    const r = await docAnhGiayUrl(p);
+    if (r?.url.startsWith("blob:")) {
+      URL.revokeObjectURL(r.url);
+      n++;
+    }
+  }
+  return n;
 }
 
 /** Xoá 1 ảnh khỏi Storage. Trả true nếu xoá được. */

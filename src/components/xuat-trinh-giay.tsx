@@ -1,35 +1,43 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "@/components/icons";
-import { type BoatDocument, DOCUMENT_KINDS, getExpiryStatus, kindLabel } from "@/lib/documents";
+import { createPortal } from "react-dom";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
+import { CloseButton } from "@/components/ui/close-button";
+import { type BoatDocument, kindLabel } from "@/lib/documents";
 import { docAnhGiayUrl } from "@/lib/doc-photos";
 import { lockBodyScroll, unlockBodyScroll, useLichSuDong } from "@/lib/dialog-focus";
 import { formatVnDate } from "@/lib/format";
+import { chuHanXuatTrinh, dongTauXuatTrinh, thuTuXuatTrinh } from "@/lib/xuat-trinh";
 
 /*
   XUẤT TRÌNH GIẤY TỜ CHO CÁN BỘ (ADR 0017, 2026-10-26 — anh Long: "lúc cần có thể show các bản này cho cán bộ,
   cơ quan… show nhanh cho cán bộ kiểm tra").
 
   Kiểm tra của biên phòng / kiểm ngư hay ở cửa lạch, trên biển — đúng chỗ không có sóng ⇒ màn này đọc ảnh từ KHO
-  TRONG MÁY (lib/giay-anh-kho qua docAnhGiayUrl), không chờ mạng. Toàn màn hình nền tối, chữ to, MỘT giấy một lúc
-  (vuốt / nút ‹ › đổi giấy) theo thứ tự bộ giấy bà con mang theo (DOCUMENT_KINDS) — cán bộ xem đúng thứ tự họ hỏi.
-  Chạm ảnh ⇒ phóng 2× (cuộn được) để đọc số, dấu; chạm lại ⇒ thu. Giữ màn hình sáng (wakeLock) khi đang trình —
-  đưa máy cho cán bộ mà màn tắt là phải mở khoá lại. Chỉ ×  góc trên phải đóng (luật thẻ nổi 03 §6), Escape, back.
+  TRONG MÁY (lib/giay-anh-kho qua docAnhGiayUrl), không chờ mạng. Tủ giấy tờ cất sẵn ảnh vào kho mỗi lần mở lúc có
+  sóng (`luuSanAnhGiay`) ⇒ ra biển là có.
 
-  Ma trận: giấy không ảnh ⇒ "Chưa có ảnh"; ảnh chưa vào kho + mất sóng ⇒ "Cần sóng lần đầu"; đang mở ⇒ "Đang mở…".
+  Rà UI 2026-10-26 (03 §0/§0b/§6 mục 5+8): nền SÁNG như mọi màn (không nền tối tự chế), × = `CloseButton` chung góc
+  trên-phải hàng tiêu đề, chip hạn dùng cặp token trạng thái (`*-bg` + chữ cùng màu, AA), nút ‹ › cao `--h-cta` bo
+  0.75rem, chấm vị trí là phần tử vẽ (không ký tự). Portal ra body + z-[90]: tủ giấy tờ nằm trong lớp `relative z-10`
+  (BoatSwitcher) — không portal thì dock z-20 đè lên. MỘT giấy một lúc theo thứ tự bộ giấy (DOCUMENT_KINDS) — cán bộ
+  xem đúng thứ tự họ hỏi. Chạm ảnh ⇒ phóng 2× (cuộn được), lúc đang phóng KHÔNG nhận vuốt đổi giấy (vuốt là để kéo
+  ảnh). Giữ màn sáng (wakeLock) khi đang trình. Đóng: × · Escape · back.
+
+  Ma trận: giấy không ảnh ⇒ "Chưa có ảnh giấy này."; ảnh chưa vào kho + mất sóng ⇒ "Ảnh chưa lưu trong máy — cần
+  sóng một lần."; đang mở ⇒ "Đang mở ảnh…".
 */
 
-/** Thứ tự trình: theo bộ giấy (đăng ký → đăng kiểm → phép → ATTP → bảo hiểm → chứng chỉ → khác), rồi tên. */
-export function thuTuXuatTrinh<T extends BoatDocument>(docs: T[]): T[] {
-  const bac = new Map(DOCUMENT_KINDS.map((k, i) => [k.value, i]));
-  return [...docs].sort((a, b) => (bac.get(a.kind) ?? 99) - (bac.get(b.kind) ?? 99) || a.label.localeCompare(b.label, "vi"));
-}
+const MAU_CHIP = {
+  expired: "bg-danger-bg text-danger",
+  soon: "bg-warn-bg text-warn",
+  ok: "bg-ok-bg text-ok",
+  none: "bg-field text-foreground/75",
+} as const;
 
-type AnhTrangThai = { url: string | null; trongMay: boolean; loi: boolean };
-
-function AnhGiay({ path }: { path: string }) {
-  const [a, setA] = useState<AnhTrangThai | null>(null);
+function AnhGiay({ path, onPhong }: { path: string; onPhong: (to: boolean) => void }) {
+  const [a, setA] = useState<{ url: string | null } | null>(null);
   const [to, setTo] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -40,7 +48,7 @@ function AnhGiay({ path }: { path: string }) {
         return;
       }
       if (r?.url.startsWith("blob:")) blobUrl = r.url;
-      setA(r ? { url: r.url, trongMay: r.trongMay, loi: false } : { url: null, trongMay: false, loi: true });
+      setA({ url: r?.url ?? null });
     });
     return () => {
       alive = false;
@@ -48,34 +56,61 @@ function AnhGiay({ path }: { path: string }) {
     };
   }, [path]);
 
-  if (!a) return <div className="flex h-56 items-center justify-center rounded-2xl bg-white/10 text-[1rem] text-white/80">Đang mở ảnh…</div>;
-  if (!a.url) {
+  if (!a || !a.url) {
     return (
-      <div className="flex h-56 items-center justify-center rounded-2xl bg-white/10 px-6 text-center text-[1rem] leading-snug text-white/80">
-        Ảnh chưa có trong máy — cần sóng một lần để tải về, lần sau mất sóng vẫn xem được.
+      <div className="flex h-48 items-center justify-center rounded-2xl border border-dashed border-line px-6 text-center text-[0.875rem] text-foreground/65">
+        {!a ? "Đang mở ảnh…" : "Ảnh chưa lưu trong máy — cần sóng một lần."}
       </div>
     );
   }
   return (
-    <div className={`overflow-auto rounded-2xl bg-black ${to ? "max-h-[70dvh]" : ""}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- ảnh kho trong máy / signed URL */}
+    <div data-phong={to ? "" : undefined} className={`overflow-auto rounded-2xl border border-line bg-field ${to ? "max-h-[70dvh]" : ""}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- ảnh kho trong máy (blob:) / signed URL */}
       <img
         src={a.url}
-        alt="Ảnh giấy tờ"
-        onClick={() => setTo((v) => !v)}
-        className={to ? "max-w-none w-[200%]" : "w-full object-contain max-h-[70dvh]"}
+        alt="Ảnh giấy tờ — chạm để phóng to"
+        onClick={() => {
+          setTo((v) => !v);
+          onPhong(!to);
+        }}
+        className={to ? "w-[200%] max-w-none" : "max-h-[70dvh] w-full object-contain"}
       />
     </div>
   );
 }
 
-export function XuatTrinhGiay({ docs, tenTau, today, onClose }: { docs: BoatDocument[]; tenTau?: string; today: Date; onClose: () => void }) {
+export function XuatTrinhGiay({
+  docs,
+  tenTau,
+  maTau,
+  today,
+  onClose,
+}: {
+  docs: BoatDocument[];
+  tenTau?: string;
+  maTau?: string;
+  today: Date;
+  onClose: () => void;
+}) {
   const ds = thuTuXuatTrinh(docs);
   const [i, setI] = useState(0);
+  const [phong, setPhong] = useState(false);
   const { dongTay } = useLichSuDong(onClose);
   const touchX = useRef<number | null>(null);
+  const hopRef = useRef<HTMLDivElement>(null);
+  const tieuDeRef = useRef<HTMLHeadingElement>(null);
 
-  // khoá cuộn nền + Escape + giữ màn sáng khi đang trình (best-effort, máy không có thì thôi)
+  // đổi giấy ⇒ về đầu thân + thôi phóng + đưa focus vào tên giấy (người đọc màn hình nghe giấy mới)
+  const toi = (k: number) => {
+    setI(Math.max(0, Math.min(ds.length - 1, k)));
+    setPhong(false);
+  };
+  useEffect(() => {
+    hopRef.current?.scrollTo({ top: 0 });
+    tieuDeRef.current?.focus({ preventScroll: true });
+  }, [i]);
+
+  // khoá cuộn nền + phím + giữ màn sáng khi đang trình (máy không có wakeLock thì thôi)
   useEffect(() => {
     lockBodyScroll();
     const onKey = (e: KeyboardEvent) => {
@@ -95,55 +130,49 @@ export function XuatTrinhGiay({ docs, tenTau, today, onClose }: { docs: BoatDocu
   }, [dongTay, ds.length]);
 
   const doc = ds[i];
-  if (!doc) return null;
-  const st = getExpiryStatus(doc, today);
-  const mau =
-    st.level === "expired" ? "bg-danger text-white" : st.level === "soon" ? "bg-warn text-navy" : st.level === "ok" ? "bg-ok text-white" : "bg-white/20 text-white";
-  const dong = (dx: number) => {
-    if (dx < -60) setI((v) => Math.min(ds.length - 1, v + 1));
-    if (dx > 60) setI((v) => Math.max(0, v - 1));
-  };
+  if (!doc || typeof document === "undefined") return null;
+  const han = chuHanXuatTrinh(doc, today);
+  const tau = dongTauXuatTrinh(tenTau, maTau);
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Xuất trình giấy tờ"
-      className="fixed inset-0 z-[90] flex flex-col bg-navy text-white"
-      onTouchStart={(e) => (touchX.current = e.touches[0]?.clientX ?? null)}
+      className="fixed inset-0 z-[90] mx-auto flex max-w-(--w-app) flex-col bg-background text-foreground"
+      onTouchStart={(e) => {
+        // đang phóng ảnh ⇒ vuốt là kéo ảnh, không đổi giấy
+        touchX.current = phong ? null : (e.touches[0]?.clientX ?? null);
+      }}
       onTouchEnd={(e) => {
-        if (touchX.current != null) dong((e.changedTouches[0]?.clientX ?? touchX.current) - touchX.current);
+        if (touchX.current == null) return;
+        const dx = (e.changedTouches[0]?.clientX ?? touchX.current) - touchX.current;
         touchX.current = null;
+        if (dx < -60) toi(i + 1);
+        if (dx > 60) toi(i - 1);
       }}
     >
-      <div className="flex items-center gap-2 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
+      <div className="flex items-center gap-2 border-b border-line px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[0.8125rem] text-white/70">{tenTau ? `Tàu ${tenTau}` : "Giấy tờ tàu"}</p>
-          <p className="text-[1rem] font-semibold">
+          <p className="break-words text-[0.8125rem] text-foreground/65">{tau}</p>
+          <p className="text-[1rem] font-semibold text-navy">
             Giấy {i + 1}/{ds.length}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={dongTay}
-          aria-label="Đóng"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 transition active:scale-95"
-        >
-          <CloseIcon className="h-6 w-6" />
-        </button>
+        <CloseButton onClose={dongTay} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        {doc.label !== kindLabel(doc.kind) && <p className="text-[0.875rem] text-white/70">{kindLabel(doc.kind)}</p>}
-        <h2 className="text-[1.5rem] font-bold leading-tight">{doc.label}</h2>
-        <p className={`mt-2 inline-block rounded-full px-3 py-1 text-[1rem] font-semibold ${mau}`}>
-          {doc.expiresOn ? `${st.label} · hết hạn ${formatVnDate(doc.expiresOn)}` : "Không thời hạn"}
-        </p>
+      <div ref={hopRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-3">
+        {doc.label !== kindLabel(doc.kind) && <p className="text-[0.875rem] text-foreground/65">{kindLabel(doc.kind)}</p>}
+        <h2 ref={tieuDeRef} tabIndex={-1} className="rounded-md text-[1.5rem] font-semibold leading-tight text-navy outline-none focus-visible:ring-2 focus-visible:ring-sea/40">
+          {doc.label}
+        </h2>
+        <p className={`mt-2 inline-block rounded-full px-3 py-1 text-[1rem] font-semibold ${MAU_CHIP[han.muc]}`}>{han.text}</p>
         {(doc.number || doc.issuedOn) && (
-          <p className="mt-2 text-[1rem] text-white/90">
+          <p className="mt-2 text-[1rem] text-foreground/85">
             {doc.number && (
               <>
-                Số: <strong>{doc.number}</strong>
+                Số: <span className="font-semibold text-navy">{doc.number}</span>
               </>
             )}
             {doc.number && doc.issuedOn && " · "}
@@ -152,40 +181,43 @@ export function XuatTrinhGiay({ docs, tenTau, today, onClose }: { docs: BoatDocu
         )}
         <div className="mt-3 space-y-3">
           {doc.photos?.length ? (
-            doc.photos.map((p) => <AnhGiay key={p} path={p} />)
+            doc.photos.map((p) => <AnhGiay key={`${doc.id}:${p}`} path={p} onPhong={setPhong} />)
           ) : (
-            <div className="flex h-40 items-center justify-center rounded-2xl bg-white/10 px-6 text-center text-[1rem] text-white/80">
-              Chưa có ảnh giấy này — về Tủ giấy tờ, Sửa › Chụp giấy.
+            <div className="flex h-32 items-center justify-center rounded-2xl border border-dashed border-line px-6 text-center text-[0.875rem] text-foreground/65">
+              Chưa có ảnh giấy này.
             </div>
           )}
         </div>
       </div>
 
       {ds.length > 1 && (
-        <div className="flex items-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-line px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
           <button
             type="button"
-            onClick={() => setI((v) => Math.max(0, v - 1))}
+            onClick={() => toi(i - 1)}
             disabled={i === 0}
             aria-label="Giấy trước"
-            className="flex h-14 flex-1 items-center justify-center rounded-2xl bg-white/15 text-[1.125rem] font-semibold disabled:opacity-40"
+            className="flex h-(--h-cta) items-center justify-center rounded-xl bg-field text-navy transition active:scale-[0.98] disabled:opacity-40"
           >
-            <ChevronLeftIcon className="h-7 w-7" />
+            <ChevronLeftIcon className="h-6 w-6" />
           </button>
-          <span className="text-[0.875rem] text-white/70" aria-hidden>
-            {ds.map((d, k) => (k === i ? "●" : "○")).join(" ")}
-          </span>
+          <div className="flex items-center gap-1.5" aria-hidden>
+            {ds.map((d, k) => (
+              <span key={d.id} className={`h-2 w-2 rounded-full ${k === i ? "bg-navy" : "bg-line"}`} />
+            ))}
+          </div>
           <button
             type="button"
-            onClick={() => setI((v) => Math.min(ds.length - 1, v + 1))}
+            onClick={() => toi(i + 1)}
             disabled={i === ds.length - 1}
             aria-label="Giấy sau"
-            className="flex h-14 flex-1 items-center justify-center rounded-2xl bg-white/15 text-[1.125rem] font-semibold disabled:opacity-40"
+            className="flex h-(--h-cta) items-center justify-center rounded-xl bg-field text-navy transition active:scale-[0.98] disabled:opacity-40"
           >
-            <ChevronRightIcon className="h-7 w-7" />
+            <ChevronRightIcon className="h-6 w-6" />
           </button>
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

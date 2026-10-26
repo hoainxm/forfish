@@ -81,6 +81,20 @@ async function donKho(st: IDBObjectStore): Promise<void> {
   }
 }
 
+/** Ảnh đã nằm trong kho chưa (chỉ đếm khoá, không đọc bytes). Kho hỏng ⇒ false (coi như chưa có). */
+export async function coAnhGiay(path: string): Promise<boolean> {
+  const db = await moKho();
+  if (!db) return false;
+  try {
+    const n = await xong(db.transaction(STORE, "readonly").objectStore(STORE).count(path));
+    return (n ?? 0) > 0;
+  } catch {
+    return false;
+  } finally {
+    db.close();
+  }
+}
+
 /** Lấy bytes ảnh đã cất; không có / kho hỏng ⇒ null. */
 export async function layAnhGiay(path: string): Promise<Blob | null> {
   const db = await moKho();
