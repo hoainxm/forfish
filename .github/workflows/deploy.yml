@@ -245,24 +245,47 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = "Continue"
-          $port = if ($env:PORT) { $env:PORT } else { "3000" }
+          # CONG CUA APP (2026-10-26): truoc chi lay $env:PORT (GitHub) roi mac dinh
+          # 3000 — nhung PM2 chay app bang PORT trong .env MAY CHU. GitHub thieu PORT
+          # ma .env la cong khac ⇒ go nham cua, het 20 luot, tu quay ban cu (nghi
+          # la goc ket prod tu 21/10). Nay thu lan luot: GitHub → .env → .env.production
+          # → 3000; cong nao tra /api/version thi dung cong do (va ghi cho smoke test).
+          function Get-EnvPort($file) {
+            if (-not (Test-Path $file)) { return $null }
+            $m = Select-String -Path $file -Pattern '^\s*PORT\s*=\s*(\d+)' | Select-Object -First 1
+            if ($m) { return $m.Matches[0].Groups[1].Value } else { return $null }
+          }
+          $ports = @($env:PORT, (Get-EnvPort "$env:APP_DIR\.env"), (Get-EnvPort "$env:APP_DIR\.env.production"), "3000") |
+            Where-Object { $_ } | Select-Object -Unique
+          Write-Host "Ports to try: $($ports -join ', ')"
           $want = (git rev-parse --short HEAD).Trim()
-          $ok = $false; $got = ""
+          $ok = $false; $got = ""; $port = $ports[0]; $lastErr = @{}
           foreach ($i in 1..20) {
-            try {
-              $r = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/version" -TimeoutSec 5
-              $got = "$($r.build)"
-              if ($got -and ($want.StartsWith($got) -or $got.StartsWith($want))) { $ok = $true; break }
-            } catch {}
+            foreach ($p in $ports) {
+              try {
+                $r = Invoke-RestMethod -Uri "http://127.0.0.1:$p/api/version" -TimeoutSec 3
+                $got = "$($r.build)"; $port = $p; $lastErr[$p] = "build '$got'"
+                if ($got -and ($want.StartsWith($got) -or $got.StartsWith($want))) { $ok = $true; break }
+              } catch { $lastErr[$p] = $_.Exception.Message }
+            }
+            if ($ok) { break }
             Start-Sleep -Seconds 3
           }
           if ($ok) {
-            Write-Host "Health OK: build $got"
+            "HEALTH_PORT=$port" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            Write-Host "Health OK: build $got (port $port)"
             # Do tuoi du lieu (khong chan deploy): server song nhung du bao co bi ket o hom qua khong
             try { $s = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/status" -TimeoutSec 15; Write-Host "Du lieu: $($s.duLieu) - ca: $($s.data.fishSnapshot.ageHours)h, thoi tiet: $($s.data.weatherSnapshot.ageHours)h" } catch { Write-Host "Chua doc duoc /api/status" }
             exit 0
           }
           Write-Host "Health FAIL: muon build $want, nhan '$got' - quay lai ban truoc"
+          # CHAN DOAN (2026-10-26): lan do truoc chi co mot dong, khong biet go cong
+          # nao / app co song khong / vi sao chet. In du de lan sau doc log la ra.
+          foreach ($p in $ports) { Write-Host "  port ${p}: $($lastErr[$p])" }
+          Write-Host "---- pm2 describe forfish ----"
+          pm2 describe forfish 2>&1 | Out-Host
+          Write-Host "---- pm2 logs forfish (40 dong cuoi) ----"
+          pm2 logs forfish --lines 40 --nostream 2>&1 | Out-Host
           if (Test-Path "$env:PREV_DIR\server.js") {
             pm2 stop forfish 2>$null
             robocopy $env:PREV_DIR $env:APP_DIR /MIR /MT:16 /R:2 /W:2 /NFL /NDL /NJH /NP | Out-Host
@@ -278,6 +301,7 @@ jobs:
         continue-on-error: true
         shell: powershell
         run: |
-          $port = if ($env:PORT) { $env:PORT } else { "3000" }
+          # cong health check vua tim ra (HEALTH_PORT) — cung luat do cong o tren
+          $port = if ($env:HEALTH_PORT) { $env:HEALTH_PORT } elseif ($env:PORT) { $env:PORT } else { "3000" }
           $sha = (git rev-parse --short HEAD).Trim()
           node scripts/smoke.mjs "http://127.0.0.1:$port" --build $sha
