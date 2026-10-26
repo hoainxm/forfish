@@ -158,6 +158,8 @@ export interface KairosPost {
   nong?: boolean;
   /** thông báo nhà nước (topic chinh-sach, 14 §21): file đính kèm — danh sách được duyệt theo đợt… Chỉ khi có. */
   attachments?: DinhKem[];
+  /** file đính kèm ĐÃ đọc ra danh sách tàu cá / bà con (bảng 0075 có dòng) ⇒ thẻ hiện ô Tra cứu (14 §21b). Chỉ khi true. */
+  coDanhSach?: boolean;
   /** URL công khai kho kairos-media (bản lưu offline: [] — chỉ chữ, xem imageCount) */
   images: string[];
   /** CHỈ ở bản lưu offline (cache.ts): bài có mấy ảnh, để thẻ ghi "Có N ảnh — cần sóng" */

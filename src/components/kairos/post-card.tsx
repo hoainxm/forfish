@@ -505,8 +505,9 @@ export function PostCard({
           )}
           <TheBao post={post} onRead={onRead} notify={actions.binhLuan?.notify} />
           <DinhKemList post={post} notify={actions.binhLuan?.notify} />
-          {/* thông báo có danh sách đính kèm ⇒ ô tra tên tàu/chủ tàu + tự so tàu trong sổ (14 §21b) */}
-          {post.topic === "chinh-sach" && !!post.attachments?.length && <TraCuuDanhSach post={post} notify={actions.binhLuan?.notify} />}
+          {/* CHỈ bài có danh sách tàu cá / bà con đọc được (máy chủ đếm dòng 0075 ⇒ coDanhSach) mới có ô tra + tự so tàu
+              trong sổ (14 §21b; anh Long 2026-10-26: "cái nào có danh sách tàu cá hay danh sách bà con thì mới tra cứu") */}
+          {post.topic === "chinh-sach" && post.coDanhSach && <TraCuuDanhSach post={post} notify={actions.binhLuan?.notify} />}
         </>
       ) : (
         <>

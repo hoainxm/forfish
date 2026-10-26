@@ -226,10 +226,20 @@ export async function hydratePosts(
   const tops = opts.topComments === false
     ? rows.map(() => [] as CommentFull[])
     : await Promise.all(rows.map((r) => (r.comment_count > 0 ? store.topComments(r.id, LIMITS.topComments, blocked) : Promise.resolve([] as CommentFull[]))));
-  const ctx = await dtoCtx(store, viewer, [...rows, ...visibleOrig.values()], tops.flat());
-  return rows.map((r, i) =>
-    postDto(r, ctx, { topComments: tops[i], reshare: r.reshare_of ? visibleOrig.get(r.reshare_of) ?? null : null }),
+  // Ô Tra cứu (14 §21b) chỉ cho bài CÓ danh sách tàu/bà con đọc được: đếm dòng 0075 cho bài chinh-sach có đính kèm
+  // (≤ một trang, song song, head-count). Kho hỏng ⇒ coi như không có (thẻ không hiện ô tra, dòng tin vẫn trả).
+  const coDs = await Promise.all(
+    rows.map((r) =>
+      r.topic === "chinh-sach" && Array.isArray((r as { attachments?: unknown }).attachments) && ((r as { attachments?: unknown[] }).attachments?.length ?? 0) > 0
+        ? store.demDinhKemDong(r.id).then((n) => n > 0).catch(() => false)
+        : Promise.resolve(false),
+    ),
   );
+  const ctx = await dtoCtx(store, viewer, [...rows, ...visibleOrig.values()], tops.flat());
+  return rows.map((r, i) => {
+    const p = postDto(r, ctx, { topComments: tops[i], reshare: r.reshare_of ? visibleOrig.get(r.reshare_of) ?? null : null });
+    return coDs[i] ? { ...p, coDanhSach: true } : p;
+  });
 }
 
 export async function hydrateComments(store: KairosStore, rows: CommentFull[], viewer: string | null): Promise<KairosComment[]> {
