@@ -245,11 +245,10 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = "Continue"
-          # CONG CUA APP (2026-10-26): truoc chi lay $env:PORT (GitHub) roi mac dinh
-          # 3000 — nhung PM2 chay app bang PORT trong .env MAY CHU. GitHub thieu PORT
-          # ma .env la cong khac ⇒ go nham cua, het 20 luot, tu quay ban cu (nghi
-          # la goc ket prod tu 21/10). Nay thu lan luot: GitHub → .env → .env.production
-          # → 3000; cong nao tra /api/version thi dung cong do (va ghi cho smoke test).
+          # CONG CUA APP (2026-10-26): PM2 chay app theo PORT trong .env MAY CHU, con
+          # $env:PORT la bien GitHub (co the trong). Thu lan luot: GitHub → .env →
+          # .env.production → 3000; cong nao tra /api/version thi dung (ghi cho smoke
+          # test). Phong ho — goc ket prod 21/10 la `git rev-parse` (xem $want duoi).
           function Get-EnvPort($file) {
             if (-not (Test-Path $file)) { return $null }
             $m = Select-String -Path $file -Pattern '^\s*PORT\s*=\s*(\d+)' | Select-Object -First 1
@@ -258,7 +257,12 @@ jobs:
           $ports = @($env:PORT, (Get-EnvPort "$env:APP_DIR\.env"), (Get-EnvPort "$env:APP_DIR\.env.production"), "3000") |
             Where-Object { $_ } | Select-Object -Unique
           Write-Host "Ports to try: $($ports -join ', ')"
-          $want = (git rev-parse --short HEAD).Trim()
+          # Mã bản mong đợi = SDFISH_BUILD_SHA (đúng mã build vừa nhúng vào /api/version),
+          # KHÔNG gọi git: 2026-10-26 git trên runner báo "dubious ownership" (workspace
+          # khác chủ với user chạy runner) ⇒ $want rỗng ⇒ bản mới chạy đúng vẫn bị rollback.
+          $want = "$env:SDFISH_BUILD_SHA".Trim()
+          # Rỗng thì DỪNG: "x".StartsWith("") = true ⇒ không chặn là bản nào cũng qua
+          if (-not $want) { Write-Host "Health FAIL: thieu SDFISH_BUILD_SHA"; exit 1 }
           $ok = $false; $got = ""; $port = $ports[0]; $lastErr = @{}
           foreach ($i in 1..20) {
             foreach ($p in $ports) {
@@ -303,5 +307,7 @@ jobs:
         run: |
           # cong health check vua tim ra (HEALTH_PORT) — cung luat do cong o tren
           $port = if ($env:HEALTH_PORT) { $env:HEALTH_PORT } elseif ($env:PORT) { $env:PORT } else { "3000" }
-          $sha = (git rev-parse --short HEAD).Trim()
+          # KHÔNG `git rev-parse` — cùng lỗi "dubious ownership" như health check
+          # (8262833a) ⇒ mã rỗng ⇒ smoke báo sai. Dùng mã build đã nhúng.
+          $sha = "$env:SDFISH_BUILD_SHA".Trim()
           node scripts/smoke.mjs "http://127.0.0.1:$port" --build $sha

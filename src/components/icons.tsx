@@ -312,6 +312,16 @@ export function RouteIcon(p: IconProps) {
   );
 }
 
+// Xoay 90° theo chiều kim đồng hồ — màn căn góc ảnh giấy tờ (2026-10-26).
+export function RotateIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M20 11a8 8 0 1 1-2.34-5.66" />
+      <path d="M20 4v5h-5" />
+    </svg>
+  );
+}
+
 // Máy ảnh — nút "Chụp giấy" trong form giấy tờ (app đọc hạn từ ảnh, 2026-10-26).
 export function CameraIcon(p: IconProps) {
   return (

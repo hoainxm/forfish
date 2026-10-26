@@ -77,6 +77,7 @@ const CODE_TEXT: Record<string, string> = {
   too_long: "Bài dài quá 2.000 ký tự.",
   bad_words: "Bài có chữ không phù hợp.",
   sovereignty: "Bài gọi sai tên Biển Đông hoặc quần đảo Hoàng Sa, Trường Sa của Việt Nam.",
+  anti_state: "Bài có nội dung chống phá Nhà nước.",
   too_many_images: "Tối đa 5 ảnh.",
   bad_image: "Có ảnh không hợp lệ — bỏ ảnh đó rồi đăng lại.",
   rules: "Tài khoản của bạn chưa đồng ý nội quy Kairos — mở app, vào Kairos đồng ý một lần rồi tải ảnh lại.",

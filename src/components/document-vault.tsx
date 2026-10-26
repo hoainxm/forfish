@@ -14,6 +14,7 @@ import {
 import {
   AlertIcon,
   CameraIcon,
+  MicIcon,
   ChevronDownIcon,
   DocIcon,
   EditIcon,
@@ -33,8 +34,11 @@ import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import { DocPhotoStrip, MAX_PHOTOS } from "@/components/document-photos";
 import { OfflineLine } from "@/components/ui/offline-line";
 import { XuatTrinhGiay } from "@/components/xuat-trinh-giay";
-import { compressImage, deleteDocPhoto, uploadDocPhoto } from "@/lib/doc-photos";
-import { apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, docGiayTuAnh } from "@/lib/doc-giay";
+import { CanGiaySheet } from "@/components/can-giay-sheet";
+import { HoiTungCau } from "@/components/hoi-tung-cau";
+import { KICH_BAN_GIAY, type OGiayGiong } from "@/lib/sen-bien/nhap-giong";
+import { compressImage, deleteDocPhoto, luuSanAnhGiay, uploadDocPhoto } from "@/lib/doc-photos";
+import { ANH_DOC_GIAY, apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, coTheThuLai, docGiayTuAnh, type OGiay } from "@/lib/doc-giay";
 import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
 import { showsUnderBoat } from "@/lib/boats";
@@ -219,6 +223,18 @@ export function DocumentVault() {
     setShowForm(true);
   }, [ready, boatReady, readFailed, boatDocs, today]);
 
+  /*  CẤT SẴN ẢNH CHO XUẤT TRÌNH (rà UI 2026-10-26): mở tủ lúc CÓ SÓNG ⇒ ảnh giấy nào chưa nằm trong kho máy thì tải
+      về cất (lần lượt, dừng khi mất sóng/rời màn) — ra biển mở Xuất trình là có ảnh, kể cả giấy chụp từ máy khác hay
+      chưa từng bấm xem. Không chặn gì: chạy nền, lỗi thì thôi (lib/doc-photos luuSanAnhGiay). */
+  useEffect(() => {
+    if (!ready || !online) return;
+    const paths = boatDocs.flatMap((d) => d.photos ?? []);
+    if (!paths.length) return;
+    const c = new AbortController();
+    void luuSanAnhGiay(paths, c.signal);
+    return () => c.abort();
+  }, [ready, online, boatDocs]);
+
   const sorted = useMemo(
     () => [...boatDocs].sort(byUrgency(today)),
     [boatDocs, today],
@@ -253,25 +269,16 @@ export function DocumentVault() {
         {readFailed ? (
           <span className="w-16 shrink-0" aria-hidden />
         ) : (
-          <>
-            {/* XUẤT TRÌNH (ADR 0017): chỉ khi có giấy — mở toàn màn cho cán bộ xem, ảnh đọc kho trong máy */}
-            {sorted.length > 0 && (
-              <button onClick={() => setXuatTrinh(true)} className={`${SQ_BTN} bg-field text-navy`}>
-                <EyeIcon className="h-6 w-6" />
-                {NHAN.xuatTrinh}
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setEditing(null);
-                setShowForm(true);
-              }}
-              className={`${SQ_BTN} bg-field text-navy`}
-            >
-              <PlusIcon className="h-6 w-6" />
-              Thêm
-            </button>
-          </>
+          <button
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
+            className={`${SQ_BTN} bg-field text-navy`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            Thêm
+          </button>
         )}
       </div>
 
@@ -424,6 +431,20 @@ export function DocumentVault() {
         </ul>
       )}
 
+      {/*  XUẤT TRÌNH (ADR 0017; rà UI 2026-10-26g): nút phụ trải ngang NGAY DƯỚI danh sách, chỉ khi có giấy. Không đặt ở
+          đầu nhóm: đầu nhóm giữ MỘT nút (Thêm) như mọi nhóm (03 §0b) — hai nút làm "Tủ giấy tờ · N giấy" gãy hai dòng ở
+          bề ngang 375px (thấy trên prod 26/10). Mở toàn màn cho cán bộ xem, ảnh đọc từ kho trong máy. */}
+      {!readFailed && sorted.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setXuatTrinh(true)}
+          className={`${SQ_BTN} mt-3 w-full justify-center bg-field text-navy`}
+        >
+          <EyeIcon className="h-4 w-4" />
+          {NHAN.xuatTrinh}
+        </button>
+      )}
+
       {/*  Bỏ dòng chân trang "Giấy tờ lưu ngay trên máy của bà con." (D1):
           không phải cấp dữ liệu, không phải dặn dò an toàn — chỉ giải thích app
           hoạt động thế nào, lại đứng cuối danh sách nên không ai đọc lúc cần.
@@ -446,7 +467,13 @@ export function DocumentVault() {
       )}
 
       {xuatTrinh && (
-        <XuatTrinhGiay docs={sorted} tenTau={current?.name} today={today} onClose={() => setXuatTrinh(false)} />
+        <XuatTrinhGiay
+          docs={sorted}
+          tenTau={current?.name}
+          maTau={current?.maTau}
+          today={today}
+          onClose={() => setXuatTrinh(false)}
+        />
       )}
 
       {confirmDelete && (
@@ -493,7 +520,23 @@ function DocumentForm({
   const [photos, setPhotos] = useState<string[]>(initial?.photos ?? []);
   const chupRef = useRef<HTMLInputElement>(null);
   const [dangDoc, setDangDoc] = useState(false);
-  const [cauDoc, setCauDoc] = useState<{ muc: "ok" | "warn"; text: string } | null>(null);
+  /*  Rà UI 2026-10-26: đọc xong báo bằng băng `neutral` (03: xanh KHÔNG đeo băng), lỗi `warn`. Ô app vừa điền được
+      ĐÁNH DẤU (viền xanh biển + nhãn "· đọc từ ảnh") tới khi bà con tự sửa ô đó — nhìn là biết ô nào cần soát lại. */
+  const [cauDoc, setCauDoc] = useState<{ muc: "neutral" | "warn"; text: string } | null>(null);
+  const [tuAnh, setTuAnh] = useState<ReadonlySet<OGiay>>(new Set());
+  /** form đã đóng (Huỷ/Lưu) trong lúc ảnh đang tải/đọc — kết quả về muộn thì không điền, ảnh lỡ tải thì xoá */
+  const daDong = useRef(false);
+  /** ảnh NHỎ vừa gửi đọc — "Thử lại" dùng lại, không bắt chụp lại */
+  const anhDocRef = useRef<Blob | null>(null);
+  const [thuLaiDuoc, setThuLaiDuoc] = useState(false);
+  /** Sen Biển đang hỏi từng câu để nhập (hoi-tung-cau) */
+  const [nhapGiong, setNhapGiong] = useState(false);
+  /** ảnh vừa chụp đang chờ CĂN GÓC (can-giay-sheet) — null = không mở màn căn */
+  const [anhCan, setAnhCan] = useState<File | null>(null);
+  /** ảnh lưu chưa tải lên được (mạng yếu) — ô đã điền vẫn lưu được, chỉ thiếu ảnh để xuất trình */
+  const [loiAnh, setLoiAnh] = useState(false);
+  /** ảnh LƯU (1600px) đang tải lên Storage — Lưu khoá tới khi xong để giấy không mất đường dẫn ảnh */
+  const [dangTaiAnh, setDangTaiAnh] = useState(false);
   const [kind, setKind] = useState<DocumentKind>(initial?.kind ?? kindMoi ?? "dang_kiem");
   const [label, setLabel] = useState(initial?.label ?? kindLabel(kindMoi ?? "dang_kiem"));
   const [labelTouched, setLabelTouched] = useState(Boolean(initial));
@@ -543,48 +586,98 @@ function DocumentForm({
 
   /** Huỷ: giấy MỚI mà đã lỡ tải ảnh ⇒ xoá ảnh (giấy chưa tồn tại, ảnh không thuộc về ai). Giấy cũ giữ nguyên. */
   function huy() {
+    daDong.current = true;
     if (!initial) photos.forEach((p) => void deleteDocPhoto(p));
     onCancel();
   }
 
-  async function chupGiay(e: React.ChangeEvent<HTMLInputElement>) {
+  /** Ô app điền ⇒ nhãn + viền đánh dấu; bà con sửa ô đó ⇒ bỏ dấu (đã tự xác nhận). */
+  const nhanO = (o: OGiay, nhan: string) => (tuAnh.has(o) ? `${nhan} · đọc từ ảnh` : nhan);
+  const lopO = (o: OGiay) => (tuAnh.has(o) ? `${inputClass} ring-2 ring-sea/40` : inputClass);
+  const boDau = (o: OGiay) =>
+    setTuAnh((s) => {
+      if (!s.has(o)) return s;
+      const n = new Set(s);
+      n.delete(o);
+      return n;
+    });
+
+  /** Gửi ảnh nhỏ đi đọc rồi ĐIỀN ô. Lỗi ⇒ câu chỉ việc tiếp + nút Thử lại (cùng ảnh). */
+  async function docAnh(nho: Blob) {
+    setCauDoc(null);
+    setThuLaiDuoc(false);
+    setDangDoc(true);
+    const kq = await docGiayTuAnh(nho);
+    if (daDong.current) return;
+    setDangDoc(false);
+    if (!kq.ok) {
+      setCauDoc({ muc: "warn", text: cauLoiDoc(kq.loi) });
+      setThuLaiDuoc(coTheThuLai(kq.loi));
+      return;
+    }
+    const ap = apDungKqDocGiay({ kind, number, issuedOn, expiresOn }, kq.giay);
+    if (ap.form.kind !== kind) handleKind(ap.form.kind);
+    setNumber(ap.form.number);
+    setIssuedOn(ap.form.issuedOn);
+    setExpiresOn(ap.form.expiresOn);
+    // ô máy vừa điền phải NHÌN THẤY để xem lại — mở nhóm Chi tiết nếu có số/ngày cấp
+    if (ap.form.number || ap.form.issuedOn) setShowMore(true);
+    setTuAnh(new Set([...ap.daDien, ...ap.daDoi]));
+    const coO = ap.daDien.length + ap.daDoi.length > 0;
+    setCauDoc({ muc: coO && kq.giay.hetHan ? "neutral" : "warn", text: cauKetQuaDoc(ap.daDien, ap.daDoi, kq.giay.hetHan) });
+  }
+
+  /*  CHỤP GIẤY (sửa 2026-10-26 — ảnh 16:06 của anh Long: máy nhà đã đọc xong lúc 16:05:18 mà điện thoại vẫn báo
+      "Cần có sóng"): trước đây gửi CÙNG LÚC ảnh 1,8 MB lên Storage + 2,4 MB base64 đi đọc ⇒ sóng LÊN yếu nghẹn, quá
+      30 s, mọi lỗi bị gọi là mất sóng. Nay: (1) nén HAI cỡ — ảnh đọc 1280px ≤450 KB, ảnh lưu 1600px; (2) ĐỌC TRƯỚC
+      (ảnh nhỏ, vài giây) ⇒ ô điền ngay; (3) ảnh lưu tải lên SAU, Lưu khoá tới khi xong; (4) lỗi nói đúng (mạng yếu /
+      mất sóng / máy bận) + nút Thử lại dùng lại ảnh vừa chụp. */
+  /** Máy ảnh trả ảnh ⇒ mở màn CĂN GÓC trước (2026-10-26, "chụp ảnh còn phải căn chỉnh sao cho dễ đọc"). */
+  function chupGiay(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    setAnhCan(file);
+  }
+
+  /** Bà con bấm "Dùng ảnh": ảnh đã nắn thẳng ⇒ nén hai cỡ ⇒ ĐỌC trước, LƯU sau. */
+  async function dungAnhDaCan(r: { luu: Blob; doc: Blob }) {
+    setAnhCan(null);
     setCauDoc(null);
+    setThuLaiDuoc(false);
+    setLoiAnh(false);
     setDangDoc(true);
+    let nho: Blob;
+    let lon: Blob;
     try {
-      const blob = await compressImage(file);
-      // hai việc song song: ảnh lên Storage (giữ giấy) + máy nhà đọc chữ (điền ô)
-      const [path, kq] = await Promise.all([
-        photos.length < MAX_PHOTOS ? uploadDocPhoto(docId, blob) : Promise.resolve(null),
-        docGiayTuAnh(blob),
-      ]);
-      if (path) setPhotos((ds) => [...ds, path]);
-      if (!kq.ok) {
-        setCauDoc({ muc: "warn", text: cauLoiDoc(kq.loi) });
-        return;
-      }
-      const ap = apDungKqDocGiay({ kind, number, issuedOn, expiresOn }, kq.giay);
-      if (ap.form.kind !== kind) handleKind(ap.form.kind);
-      setNumber(ap.form.number);
-      setIssuedOn(ap.form.issuedOn);
-      setExpiresOn(ap.form.expiresOn);
-      // ô máy vừa điền phải NHÌN THẤY để xem lại — mở nhóm Chi tiết nếu có số/ngày cấp
-      if (ap.form.number || ap.form.issuedOn) setShowMore(true);
-      const coO = ap.daDien.length + ap.daDoi.length > 0;
-      setCauDoc({ muc: coO && kq.giay.hetHan ? "ok" : "warn", text: cauKetQuaDoc(ap.daDien, ap.daDoi, kq.giay.hetHan) });
+      [nho, lon] = await Promise.all([compressImage(r.doc, ANH_DOC_GIAY), compressImage(r.luu)]);
     } catch {
-      setCauDoc({ muc: "warn", text: "Định dạng ảnh không hỗ trợ, bà con thử chụp lại nhé." });
-    } finally {
-      setDangDoc(false);
+      if (!daDong.current) {
+        setDangDoc(false);
+        setCauDoc({ muc: "warn", text: "Định dạng ảnh không hỗ trợ, bà con thử chụp lại nhé." });
+      }
+      return;
     }
+    anhDocRef.current = nho;
+    await docAnh(nho);
+    if (daDong.current || photos.length >= MAX_PHOTOS) return;
+    setDangTaiAnh(true);
+    const path = await uploadDocPhoto(docId, lon);
+    // Huỷ trong lúc tải ⇒ giấy mới không còn, ảnh vừa tải là ảnh mồ côi
+    if (daDong.current) {
+      if (path && !initial) void deleteDocPhoto(path);
+      return;
+    }
+    setDangTaiAnh(false);
+    if (path) setPhotos((ds) => [...ds, path]);
+    else setLoiAnh(true);
   }
 
   /** Gọi từ Enter trong form (có event) lẫn nút Lưu ở chân ngăn (không event). */
   function submit(e?: React.FormEvent) {
     e?.preventDefault();
     if (!luuDuoc) return;
+    if (dangDoc || dangTaiAnh) return; // đang đọc / đang tải ảnh — chờ xong rồi mới cho Lưu
     const doc = giayTuForm();
     // giấy MỚI trùng loại với giấy đã có ⇒ hỏi, không lặng lẽ thêm hàng thứ hai
     if (!initial && giayTrungLoai) {
@@ -608,30 +701,71 @@ function DocumentForm({
     });
   }
 
+  /*  NHẬP BẰNG GIỌNG (2026-10-26): Sen Biển điền ô qua ref (cập nhật sau mỗi lượt vẽ — luôn là hàm mới nhất) và
+      "Lưu nhé? — có" bấm CHÍNH nút Lưu (cùng kiểm lỗi, cùng hỏi trùng loại). */
+  const giongRef = useRef<{ dien: (o: OGiayGiong, gt: string) => void; luu: () => void } | null>(null);
+  useEffect(() => {
+    giongRef.current = {
+      dien: (o, gt) => {
+        if (o === "kind") handleKind(gt as DocumentKind);
+        else if (o === "expiresOn") setExpiresOn(gt);
+        else if (o === "number") {
+          setNumber(gt);
+          setShowMore(true);
+        } else if (o === "issuedOn") {
+          setIssuedOn(gt);
+          setShowMore(true);
+        }
+      },
+      luu: () => submit(),
+    };
+  });
+
   return (
     <BottomSheet
       kieu="form"
       title={initial ? "Sửa thông tin giấy tờ" : "Thêm giấy tờ mới"}
       onClose={huy}
       /* chân Huỷ|Lưu do ngăn vẽ (TAU-07/TAU-10); Lưu mờ khi chưa có thông tin (TAU-11) qua `dangLuu` */
-      chan={{ luu: NHAN.luu, onLuu: () => submit(), dangLuu: !luuDuoc }}
+      chan={{ luu: NHAN.luu, onLuu: () => submit(), dangLuu: !luuDuoc || dangDoc || dangTaiAnh }}
     >
       <form onSubmit={submit} noValidate>
-        {/*  CHỤP GIẤY đứng đầu form: việc chính của bà con là giơ máy lên chụp, còn lại app điền. Nút cỡ CTA
-            (--h-cta), nhãn 2 chữ; dòng phụ nói app làm gì. Mất sóng ⇒ nút mờ + OfflineLine (ảnh cần mạng
-            để tải lên, máy nhà cần mạng để đọc) — bà con vẫn ghi tay được như trước. */}
-        <button
-          type="button"
-          onClick={() => chupRef.current?.click()}
-          disabled={!online || dangDoc}
-          className="mb-1.5 flex min-h-(--h-cta) w-full items-center justify-center gap-2 rounded-2xl bg-sea text-[1.125rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
-        >
-          <CameraIcon className="h-6 w-6" />
-          {dangDoc ? "Đang đọc…" : NHAN.chupGiay}
-        </button>
-        <p className="mb-3.5 text-center text-[0.8125rem] leading-snug text-foreground/65">
-          {dangDoc ? "App đang đọc chữ trên giấy, chừng vài giây." : "Chụp tờ giấy, app tự điền loại, số và ngày hết hạn."}
-        </p>
+        {/*  CHỤP GIẤY đứng đầu form (rà UI 2026-10-26, 03 §0/§0b): cao --h-cta bo 0.75rem chữ 1rem 600, tông PHỤ
+            xanh biển nhạt — nút chính của ngăn là Lưu ở chân, không để hai nút đặc tranh nhau. KHÔNG dòng hướng dẫn
+            (03 §6 mục 8): kết quả đọc tự nói app làm gì. Đang đọc ⇒ "Đang đọc…" + icon nhấp nháy, Lưu khoá tới khi
+            xong. Mất sóng ⇒ nút mờ + OfflineLine — bà con vẫn ghi tay như trước. */}
+        {/*  Hàng [Chụp giấy flex-1][Mic vuông]: hai cách nhập nhanh cạnh nhau, cùng tông phụ, cùng cao --h-cta. Mic chỉ
+            icon (03 §6 mục 8 — icon quen, tên ở aria-label); bấm ⇒ Sen Biển hỏi từng câu ngay đầu form. Nghe/đọc chạy
+            được cả khi mất sóng nếu bộ nghe trong máy đã nạp (lib/sen-bien/nghe). */}
+        <div className="mb-3.5 flex gap-2">
+          <button
+            type="button"
+            onClick={() => chupRef.current?.click()}
+            disabled={!online || dangDoc || dangTaiAnh || nhapGiong}
+            aria-busy={dangDoc}
+            className="flex h-(--h-cta) min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-sea/30 bg-sea/10 text-[1rem] font-semibold text-sea transition active:scale-[0.99] disabled:opacity-60"
+          >
+            <CameraIcon className={`h-6 w-6 ${dangDoc ? "animate-pulse" : ""}`} />
+            {dangDoc ? "Đang đọc…" : dangTaiAnh ? "Đang lưu…" : NHAN.chupGiay}
+          </button>
+          <button
+            type="button"
+            onClick={() => setNhapGiong(true)}
+            disabled={nhapGiong || dangDoc}
+            aria-label="Nhập bằng giọng nói — Sen Biển hỏi từng câu"
+            className="flex h-(--h-cta) w-(--h-cta) shrink-0 items-center justify-center rounded-xl border border-sea/30 bg-sea/10 text-sea transition active:scale-[0.97] disabled:opacity-60"
+          >
+            <MicIcon className="h-6 w-6" />
+          </button>
+        </div>
+        {nhapGiong && (
+          <HoiTungCau
+            kichBan={KICH_BAN_GIAY}
+            onDien={(o, gt) => giongRef.current?.dien(o, gt)}
+            onLuu={() => giongRef.current?.luu()}
+            onXong={() => setNhapGiong(false)}
+          />
+        )}
         <input ref={chupRef} type="file" accept="image/*" capture="environment" onChange={chupGiay} className="hidden" />
         {!online && (
           <div className="mb-3.5">
@@ -643,14 +777,50 @@ function DocumentForm({
             <StatusBanner level={cauDoc.muc} icon={<DocIcon className="h-5 w-5" />}>
               {cauDoc.text}
             </StatusBanner>
+            {/* Thử lại = đọc lại CÙNG ảnh nhỏ vừa chụp — không bắt chụp lại, không tải lại ảnh lưu */}
+            {thuLaiDuoc && (
+              <button
+                type="button"
+                onClick={() => anhDocRef.current && void docAnh(anhDocRef.current)}
+                disabled={dangDoc}
+                className={`${SQ_BTN} mt-2 bg-field text-navy`}
+              >
+                {NHAN.thuLai}
+              </button>
+            )}
+          </div>
+        )}
+        {anhCan && (
+          <CanGiaySheet
+            file={anhCan}
+            onDung={(r) => void dungAnhDaCan(r)}
+            onChupLai={() => {
+              setAnhCan(null);
+              chupRef.current?.click();
+            }}
+            onDong={() => setAnhCan(null)}
+          />
+        )}
+        {loiAnh && (
+          <p className="mb-3.5 text-[0.8125rem] leading-snug text-warn">
+            Ảnh chưa lưu lên được vì mạng yếu — ô đã điền vẫn Lưu được, ảnh chụp lại sau.
+          </p>
+        )}
+        {/* ảnh ngay dưới kết quả — soát ô app điền với tờ giấy thật mà không phải cuộn */}
+        {photos.length > 0 && (
+          <div className="mb-3.5">
+            <DocPhotoStrip docId={docId} photos={photos} online={online} onChange={setPhotos} />
           </div>
         )}
 
-        <Field label="Loại giấy tờ">
+        <Field label={nhanO("kind", "Loại giấy tờ")}>
           <select
             value={kind}
-            onChange={(e) => handleKind(e.target.value as DocumentKind)}
-            className={inputClass}
+            onChange={(e) => {
+              handleKind(e.target.value as DocumentKind);
+              boDau("kind");
+            }}
+            className={lopO("kind")}
           >
             {DOCUMENT_KINDS.map((k) => (
               <option key={k.value} value={k.value}>
@@ -696,20 +866,17 @@ function DocumentForm({
           </Field>
         )}
 
-        <Field label="Ngày hết hạn (ghi trên giấy)">
+        <Field label={nhanO("expiresOn", "Ngày hết hạn (ghi trên giấy)")}>
           <input
             type="date"
             value={expiresOn}
-            onChange={(e) => setExpiresOn(e.target.value)}
-            className={inputClass}
+            onChange={(e) => {
+              setExpiresOn(e.target.value);
+              boDau("expiresOn");
+            }}
+            className={lopO("expiresOn")}
           />
         </Field>
-
-        {photos.length > 0 && (
-          <div className="mb-3.5">
-            <DocPhotoStrip docId={docId} photos={photos} online={online} onChange={setPhotos} />
-          </div>
-        )}
 
         {/*  Số giấy tờ + ghi chú: cả hai tự nhãn đã nhận là tuỳ chọn, bỏ đi vẫn
             lưu được ⇒ không phải KEY, thu sau một nút (luật C1/C2 — sheet đo
@@ -735,21 +902,27 @@ function DocumentForm({
 
         {showMore && (
           <>
-            <Field label="Số giấy tờ (không nhớ có thể bỏ qua)">
+            <Field label={nhanO("number", "Số giấy tờ (không nhớ có thể bỏ qua)")}>
               <input
                 value={number}
-                onChange={(e) => setNumber(e.target.value)}
-                className={inputClass}
+                onChange={(e) => {
+                  setNumber(e.target.value);
+                  boDau("number");
+                }}
+                className={lopO("number")}
                 placeholder="VD: 1769/2025/GL-GPKTTS"
               />
             </Field>
 
-            <Field label="Ngày cấp (ghi trên giấy)">
+            <Field label={nhanO("issuedOn", "Ngày cấp (ghi trên giấy)")}>
               <input
                 type="date"
                 value={issuedOn}
-                onChange={(e) => setIssuedOn(e.target.value)}
-                className={inputClass}
+                onChange={(e) => {
+                  setIssuedOn(e.target.value);
+                  boDau("issuedOn");
+                }}
+                className={lopO("issuedOn")}
               />
             </Field>
 

@@ -5,6 +5,7 @@
 // thành luồng 1 cấp, link + chữ chia sẻ (không SĐT), đổi URL ảnh về đường kho (sửa bài giữ ảnh).
 
 import { apiBase } from "@/lib/api-base";
+import { CAU_CHONG_PHA } from "./chong-pha.mjs";
 import { GIOI_THIEU_MAX } from "./ho-so";
 import { LIMITS, type KairosAbout, type KairosAuthor, type KairosComment, type KairosPost } from "./types";
 
@@ -93,6 +94,8 @@ export function errorText(
       return "Có chữ không hay, bà con sửa lại giúp.";
     case "sovereignty":
       return "Có tên gọi sai về biển đảo. Dùng \"Biển Đông\", \"Hoàng Sa, Trường Sa của Việt Nam\".";
+    case "anti_state":
+      return CAU_CHONG_PHA;
     case "rate_limited":
       return what === "hay" ? "Bấm nhanh quá, đợi chút rồi bấm lại." : "Hôm nay bà con gửi nhiều rồi, mai gửi tiếp nhé.";
     case "banned": {

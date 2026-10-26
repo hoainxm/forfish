@@ -14,7 +14,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/ui/primitives";
-import { OfflineLine } from "@/components/ui/offline-line";
+import { CauChuaTai, OfflineLine } from "@/components/ui/offline-line";
 import { countLabel, loadFeedCache } from "@/lib/kairos/feed-client";
 import type { KairosComment, KairosPost } from "@/lib/kairos/types";
 import { kairosSend } from "@/lib/kairos/write-client";
@@ -97,7 +97,7 @@ export function PostDetail({ id }: { id: string }) {
 
       {!post && load === "loading" && <PostSkeleton count={1} />}
       {load === "gone" && <EmptyState>Bài này không còn.</EmptyState>}
-      {!post && load === "offline" && <EmptyState>Mất sóng. Bài này chưa lưu trong máy — có sóng sẽ tải.</EmptyState>}
+      {!post && load === "offline" && <EmptyState><CauChuaTai matSong="Mất sóng. Bài này chưa lưu trong máy — có sóng sẽ tải." /></EmptyState>}
       {load === "error" && (
         <div className="surface p-4 text-center">
           <p className="mb-3">Chưa tải được bài.</p>

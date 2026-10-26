@@ -62,6 +62,7 @@ describe("ten-goi — validateHandle", () => {
   it("cấm chữ bậy và tên Trung Quốc đặt cho quần đảo", () => {
     expect(code("đéo sợ")).toBe("bad_words");
     expect(code("Xisha fan")).toBe("sovereignty");
+    expect(code("VNCH muôn năm")).toBe("anti_state"); // 2026-10-26: tên gọi cũng qua bộ lọc chống phá
     expect(code("Trường Sa 79")).toBe("ok");
   });
 });

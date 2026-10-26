@@ -1255,7 +1255,7 @@ function NguTruongPanel({
         {aisOn && aisState === "ok" && aisLuc && (
           <p className="mt-1.5 px-1 text-[0.75rem] text-foreground/60">
             {aisSoTau.toLocaleString("vi-VN")} tàu · bản lúc {new Date(aisLuc).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
-            {aisTuKho ? " · đang mất sóng, dùng bản lưu trong máy" : ""}
+            {aisTuKho ? " · chưa tải được bản mới, dùng bản lưu trong máy" : ""}
           </p>
         )}
       </div>

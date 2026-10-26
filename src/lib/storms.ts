@@ -144,7 +144,7 @@ export function stormGateForRoute(
   }
   return {
     known: false,
-    warnText: `Tin bão trong máy đã cũ ${tuoi} (mất sóng nên chưa hỏi lại được). ${base}`,
+    warnText: `Tin bão trong máy đã cũ ${tuoi} (chưa hỏi lại được — mất sóng hoặc mạng yếu). ${base}`,
   };
 }
 

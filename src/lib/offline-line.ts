@@ -15,9 +15,23 @@ export function gioLuu(ms: number): string {
 /**
  * Câu mất sóng. `savedAt` = epoch ms hoặc chuỗi ISO; hỏng/rỗng/ở tương lai (máy đặt sai giờ) ⇒ câu không bản lưu —
  * thà nói ít hơn là nói giờ sai.
+ *
+ * `mangYeu` (2026-10-26, anh Long: "toàn bị ko có sóng ko down đc… trong khi vẫn online"): máy VẪN báo có mạng mà
+ * tải không được ⇒ đó là MẠNG YẾU / máy chủ chậm, KHÔNG phải mất sóng — nói "Mất sóng" khi đang cầm máy 5G là nói dối,
+ * bà con mất tin app. Chỉ `navigator.onLine === false` mới được gọi là mất sóng (lib/use-online).
  */
-export function cauMatSong(savedAt?: number | string | null, now: number = Date.now()): string {
+/**
+ * Câu cho màn TRỐNG vì tải lỗi: máy báo mất mạng ⇒ câu mất sóng riêng của màn; máy VẪN có mạng ⇒ "Mạng yếu, chưa
+ * tải được — <thuLai>." (2026-10-26 — không gọi mạng chậm là mất sóng).
+ */
+export function cauChuaTai(online: boolean, matSong: string, thuLai = "thử lại sau"): string {
+  return online ? `Mạng yếu, chưa tải được — ${thuLai}.` : matSong;
+}
+
+export function cauMatSong(savedAt?: number | string | null, now: number = Date.now(), mangYeu = false): string {
   const t = typeof savedAt === "string" ? Date.parse(savedAt) : savedAt;
-  if (typeof t === "number" && Number.isFinite(t) && t > 0 && t <= now) return `Mất sóng — bản lúc ${gioLuu(t)}`;
+  const coBan = typeof t === "number" && Number.isFinite(t) && t > 0 && t <= now;
+  if (mangYeu) return coBan ? `Mạng yếu — đang xem bản lúc ${gioLuu(t as number)}` : "Mạng yếu — chưa tải được, thử lại sau";
+  if (coBan) return `Mất sóng — bản lúc ${gioLuu(t as number)}`;
   return "Mất sóng — có sóng sẽ tải";
 }

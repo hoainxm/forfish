@@ -20,6 +20,7 @@ import { FISHING_PORTS } from "@/data/fishing-ports";
 import { agentTheoId, laAgent, loiChuAgent, TRAN, type Agent } from "@/lib/kairos/agent-doi.mjs";
 import { isTopic } from "@/lib/kairos/chu-de.mjs";
 import { chuQuyenFlag } from "@/lib/kairos/chu-quyen.mjs";
+import { chongPhaFlag } from "@/lib/kairos/chong-pha.mjs";
 import { tagArea } from "@/lib/kairos/khu-vuc.mjs";
 import { badWordHit } from "@/lib/kairos/loc-chu";
 import { auditQuiet, ingestKeyDenied, jsonBody, kErr, nhacTenHopLe, notifyComment, notifyNhacTen, postVisible, storeOr503 } from "@/lib/kairos/server";
@@ -62,6 +63,7 @@ function loiChu(text: unknown, loai: "bai" | "binh-luan"): string | null {
   if (l) return l;
   if (badWordHit(String(text))) return "bad_words";
   if (chuQuyenFlag(String(text))) return "chu_quyen";
+  if (chongPhaFlag(String(text))) return "chong_pha";
   return null;
 }
 

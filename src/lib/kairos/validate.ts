@@ -8,6 +8,7 @@
 import { docIdNhac } from "./nhac-ten";
 import { badWordHit } from "./loc-chu";
 import { chuQuyenFlag } from "./chu-quyen.mjs";
+import { chongPhaFlag } from "./chong-pha.mjs";
 import { isTopic, type Topic } from "./chu-de.mjs";
 import { LIMITS, REPORT_REASONS, type Checked, type ReportReason } from "./types";
 
@@ -56,12 +57,15 @@ export function cleanText(s: string): string {
     .trim();
 }
 
-/** Chữ bậy rồi chủ quyền — mã lỗi đầu tiên trúng. */
-export function contentFlag(text: string): { code: "bad_words" | "sovereignty"; term: string } | null {
+/** Chữ bậy → chủ quyền → chống phá (chong-pha.mjs, 2026-10-26) — mã lỗi đầu tiên trúng. Chạy ở route ghi bài,
+ *  bình luận, giới thiệu hồ sơ: chặn NGAY, không chờ agent 5 phút. */
+export function contentFlag(text: string): { code: "bad_words" | "sovereignty" | "anti_state"; term: string } | null {
   const bad = badWordHit(text);
   if (bad) return { code: "bad_words", term: bad };
   const sov = chuQuyenFlag(text);
   if (sov) return { code: "sovereignty", term: sov };
+  const cp = chongPhaFlag(text);
+  if (cp) return { code: "anti_state", term: cp };
   return null;
 }
 

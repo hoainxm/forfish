@@ -12,10 +12,10 @@
 
 import { authedFetch } from "@/lib/device-token-store";
 import { timeoutSignal } from "@/lib/abort";
-import { catAnhGiay, layAnhGiay, xoaAnhGiay } from "@/lib/giay-anh-kho";
+import { catAnhGiay, coAnhGiay, layAnhGiay, xoaAnhGiay } from "@/lib/giay-anh-kho";
 
-const MAX_DIM = 1600; // cạnh dài tối đa (px)
-const TARGET_BYTES = 1.8 * 1024 * 1024; // dưới trần 2MB của server
+const MAX_DIM_LUU = 1600; // cạnh dài tối đa (px) — ảnh LƯU để xuất trình
+const TARGET_BYTES_LUU = 1.8 * 1024 * 1024; // dưới trần 2MB của server
 
 function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -27,8 +27,15 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob>
   });
 }
 
-/** Nén ảnh: resize cạnh dài ≤1600px → JPEG, hạ chất lượng tới khi ≤~1.8MB. */
-export async function compressImage(file: File): Promise<Blob> {
+/** Nén ảnh: resize cạnh dài ≤`maxDim` (mặc định 1600px) → JPEG, hạ chất lượng tới khi ≤`targetBytes` (~1.8MB).
+ *  Ảnh gửi đi ĐỌC dùng cỡ nhỏ hơn (doc-giay ANH_DOC_GIAY) — 2026-10-26: gửi 1,8 MB hai lần trên sóng lên yếu là lý do
+ *  điện thoại quá giờ dù máy nhà đã đọc xong. */
+export async function compressImage(
+  file: Blob,
+  opts: { maxDim?: number; targetBytes?: number } = {},
+): Promise<Blob> {
+  const MAX_DIM = opts.maxDim ?? MAX_DIM_LUU;
+  const TARGET_BYTES = opts.targetBytes ?? TARGET_BYTES_LUU;
   const bitmap = await createImageBitmap(file);
   let width = bitmap.width;
   let height = bitmap.height;
@@ -67,10 +74,11 @@ export async function uploadDocPhoto(
   form.append("docId", docId);
   form.append("file", blob, "photo.jpg");
   // KHÔNG set Content-Type — trình duyệt tự gắn boundary multipart.
+  // 90 s (trước 30 s): chiều ĐẨY LÊN trên sóng di động yếu chậm hơn tải về nhiều — 1,8 MB có thể mất cả phút
   const { res } = await authedFetch(
     "/api/me/docs/photo",
     { method: "POST", body: form },
-    30000,
+    90000,
   );
   if (!res || !res.ok) return null;
   const j = (await res.json().catch(() => null)) as { path?: string } | null;
@@ -116,6 +124,27 @@ export async function docPhotoUrl(path: string): Promise<string | null> {
   if (!res || !res.ok) return null;
   const j = (await res.json().catch(() => null)) as { url?: string } | null;
   return j?.url ?? null;
+}
+
+/**
+ * CẤT SẴN ảnh giấy tờ vào kho trong máy (rà UI 2026-10-26): trước đây ảnh chỉ vào kho khi tải lên TRÊN MÁY NÀY hoặc
+ * khi từng mở xem ⇒ giấy đồng bộ từ máy khác, hay giấy chưa từng bấm vào, ra biển mở Xuất trình là trống — đúng lúc
+ * cán bộ hỏi. Tủ giấy tờ gọi hàm này mỗi lần mở lúc CÓ SÓNG: ảnh nào chưa có trong kho thì tải về cất, LẦN LƯỢT (không
+ * dồn băng thông), dừng ngay khi mất sóng / bị huỷ. Không ném; trả số ảnh vừa cất.
+ */
+export async function luuSanAnhGiay(paths: readonly string[], huy?: AbortSignal): Promise<number> {
+  let n = 0;
+  for (const p of paths) {
+    if (huy?.aborted) break;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) break;
+    if (await coAnhGiay(p)) continue;
+    const r = await docAnhGiayUrl(p);
+    if (r?.url.startsWith("blob:")) {
+      URL.revokeObjectURL(r.url);
+      n++;
+    }
+  }
+  return n;
 }
 
 /** Xoá 1 ảnh khỏi Storage. Trả true nếu xoá được. */

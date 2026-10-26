@@ -59,6 +59,7 @@ export type KairosErrorCode =
   | "bad_reason"
   | "bad_words"
   | "sovereignty"
+  | "anti_state"
   | "rate_limited"
   | "banned"
   | "rules"

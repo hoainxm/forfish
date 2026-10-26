@@ -3,6 +3,8 @@
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/components/admin, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
 last_verified: 2026-10-19
+ttl_days: 90
+<!-- re-verified: 2026-10-26 — SPEC MỚI (CHƯA BUILD, chưa có code): NV9 người tạo thấy khách mình tạo (R13, AC-11..13) + NV10 hỗ trợ kỹ thuật tra đúng SĐT (R14, AC-14..19). Chủ dự án chốt hướng B + C sau phân tích: "khách của mình" trong code hôm nay = `premium_grants.granted_by` (accounts/route.ts GET + `managerTargetDenial`), tạo khách không tick premium ⇒ chính người tạo không thấy; quản lý không cứu được khách người khác/khách không chủ. Mục `last_verified` GIỮ NGUYÊN tới khi code khớp. -->
 <!-- re-verified: 2026-10-24b — tab Hệ thống → Cấu hình ứng dụng: mỗi ô ghi rõ bên nào thắng (`configPrecedenceText`); khoá nhập tin Kairos là `envFirst` — env máy chủ ĐÈ DB (ngược các khoá khác), cả hai cùng có thì ô báo đỏ "Env … đang đè — giá trị trong ô này KHÔNG có hiệu lực". `configStatus` trả thêm `envFirst`/`envVar`/`overridden`. Quyền (requireAdmin) + kiểm dạng giá trị không đổi. -->
 <!-- re-verified: 2026-10-23e — tab Kairos: nút Cấm người đăng đổi nhãn thành "Cấm đăng" (`NHAN.camDang`, luật nhãn ≤2 chữ); quyền (delete) + hộp lý do 7/30 ngày/vĩnh viễn KHÔNG đổi. -->
 <!-- re-verified: 2026-10-23 — TAB KAIROS (nhóm Nội dung, 14 §3.11): `components/admin/tab-kairos.tsx` (Báo xấu · Hàng chờ agent · Bài · Chính thức · Cờ chủ quyền) + `/api/admin/kairos/{queue,reports,posts,official,action,flags}`; quản lý thấy tab qua `ManagerTab "kairos"` (preset view+edit, KHÔNG create/delete — đăng Chính thức/cấm SĐT admin tick riêng); mọi thao tác ghi `kairos_audit`; Đăng xuất /quan-tri xoá thêm bản lưu Kairos (`clearKairosLocal`). -->
@@ -33,7 +35,6 @@ Nay `stats` đếm trên `visible`; nhãn ô đầu "Tổng tài khoản" → "�
 toàn bảng. Muốn tổng thật thì bỏ hết bộ lọc, đúng như mọi màn danh sách khác.
 KHÔNG đụng luật hạng: `resolveTier(tier, premium_until, now)` giữ nguyên, API `/api/admin/accounts`
 giữ nguyên, quyền và log cấp premium giữ nguyên. AC quản trị không đổi một dòng. -->
-ttl_days: 90
 <!-- re-verified: 2026-09-17 — /quan-tri tab Hệ thống → Cấu hình ứng dụng: thêm 2 ô `data_key_current` / `data_key_prev` (khoá AES mã file dữ liệu biên tập SDF2, secret); ô hiện hành có nút "Tạo ngẫu nhiên" (sinh 64 hex trên máy admin) rồi Lưu như mọi khoá. PATCH /api/admin/app-config: khoá phải 64 hex; ghi khoá hiện hành mới thì khoá cũ tự trượt xuống "trước đó". Build Vercel đầu TỰ SINH nếu trống — admin không bắt buộc làm gì; đổi khoá xong deploy lại. Nguồn: 02 re-verified 2026-09-17. CHỐNG TỰ ĐIỀN (ảnh prod cùng ngày: trình duyệt điền SĐT vào ô VAPID Public Key, mật khẩu vào Private Key): mọi ô cấu hình `autoComplete=new-password/off`, `name=cfg-<key>`, data-lpignore/1p-ignore; và PATCH kiểm dạng MỌI khoá (`validateConfigValue`: VAPID public 80–100 base64url, private 40–50, subject mailto:/https:, cron ≥16 ký tự, data key 64 hex) ⇒ 400 `bad_value`, không ghi. -->
 <!-- re-verified: 2026-08-19 — SYNC BASE (Long-Forfun→sdvico, 41 commit). Đối chiếu 4 vùng covers: (1) `lib/admin.ts` KHÔNG đổi (nguồn admin kép env+DB giữ nguyên như ghi chú 2026-08-04b); `lib/admin-auth.ts` nhận bản SIẾT FAIL-OPEN của base: `requireStaff` tra `staff_permissions` cho manager nay chỉ rơi về preset mặc định khi CỘT CHƯA CÓ (`isMissingColumnError`), còn lỗi tra khác (Postgres nghẹt / schema cache hỏng / driver ném) → **503 `unavailable`** thay vì cấp preset view+create+edit cho người mà máy chủ vừa không tra nổi quyền. Mô hình quyền admin/manager tab×hành động KHÔNG đổi; đường chuỗi-cứng-trước-phiên của sdvico (2026-08-04c) giữ nguyên. (2) `src/app/api/admin` nhận THÊM route đơn hàng `/api/admin/orders` (+`[id]`) của base — chuyển trạng thái đơn `moi→da_nhan→dang_giao→da_giao|da_huy`, gác bằng `requirePermission("don-hang",…)`, push chủ tàu `sent_by=system:order`; `accounts`/`push`/`products` chỉ thêm cột/field, VẪN ghi 2 nhật ký song song (writeAudit→admin_audit + logActivity→admin_activity_log). (3) `src/app/quan-tri/page.tsx` thêm tab **Đơn hàng** + ô nhóm/giá số/đơn vị/cho-đặt ở tab Sản phẩm; KỲ HẠN PREMIUM GIỮ NGUYÊN của sdvico (PREMIUM_TERM_MONTHS=18 + chọn được), KHÔNG lấy "1 năm/lần" của base. (4) Migration đơn hàng của base đổi số 0032/0033/0034 → **0045/0046/0047** và ⚠️ CHƯA APPLY prod SDVICO — tab Đơn hàng chỉ chạy thật sau khi apply. NV1–NV7 hành vi không đổi. -->
 <!-- re-verified: 2026-08-04c — FIX ĐĂNG NHẬP ADMIN dưới kiến trúc base (device-token): `requireStaff` nay xác thực CHUỖI CỨNG trước (tokenIdentity qua next/headers) rồi mới phiên Supabase (đường lùi) — base bỏ phiên nên admin/manager token-only trước bị 401, /quan-tri + nút Trang quản trị chết. Client /quan-tri: 41 call /api/admin/* nay gửi `tokenHeader()`. Phân quyền admin/manager KHÔNG đổi; KHÔNG-tra-được-sổ-chuỗi → 503 (không đá staff oan). -->
@@ -75,6 +76,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | `admin tổng` (hàng `staff_accounts` role='owner' — 0057; env `OWNER_LOGIN` tương thích; đăng nhập bằng TÊN — 2026-10-02) | Chủ dự án — người DUY NHẤT nâng/hạ/tạo/xoá quản trị viên; thay cửa cứu hộ `ADMIN_PHONES` | power | web /quan-tri |
 | `admin` (`staff_accounts` role='admin' — 0056) | Quản trị hệ thống toàn quyền — **mỗi người một tài khoản có tên** (tài khoản chung `0900000001` đang trong lộ trình gỡ, xem ops/rbac-runbook.md) | quen/power | web /quan-tri, desktop |
 | `đại lý` (= `staff_accounts` role='manager', `scope` own; **đại lý tổng** = `scope` all_premium) | Bán premium + chăm khách của mình; sau nhận chia doanh thu | quen | web /quan-tri (1–2 tab), mobile/desktop |
+| `nhân sự hỗ trợ` (quản lý/đại lý có **cờ riêng "hỗ trợ kỹ thuật"** — KHÔNG phải vai mới, 2026-10-26) | Nghe bà con báo quên mật khẩu / kẹt đăng nhập, gỡ giúp dù khách đó không phải khách mình | quen | web /quan-tri, điện thoại cầm tay khi nghe gọi |
 | `tài khoản thử` (`customers.account_kind` = test / demo / reviewer) | Test nội bộ, demo bán hàng, tài khoản duyệt App Store | — | app SDFish; KHÔNG BAO GIỜ vào /quan-tri |
 | `ngư dân` (customer basic/premium) | Người mua gói; KHÔNG vào /quan-tri | — | app SDFish |
 | `SDWork` (hệ ngoài / webhook) | CRM nhận trace tiền, xác nhận đã nhận, giữ sổ tiền + chia doanh thu | — | server-to-server |
@@ -93,6 +95,8 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | NV6 | Phân quyền đại lý: chỉ thấy 1–2 tab (Tài khoản + chăm khách của mình) | admin | đại lý | — | Must |
 | NV7 | Audit: ghi vết + xem hoạt động tài khoản quản trị | hệ thống / admin | — | — | Should |
 | NV8 | Đăng nhập quản trị (tách luồng, 1 tài khoản 1 máy) | admin/đại lý | — | — | Should |
+| NV9 | Người tạo khách thấy + chăm được khách mình tạo (kể cả chưa cấp premium) | đại lý | hệ thống (ghi người tạo) | — | Must (2026-10-26, CHƯA BUILD) |
+| NV10 | Hỗ trợ kỹ thuật khách bất kỳ: tra đúng SĐT → đặt lại mật khẩu / đăng xuất mọi máy, bắt ghi lý do | nhân sự hỗ trợ | admin (tick cờ) · ngư dân (báo sự cố) | — | Must (2026-10-26, CHƯA BUILD) |
 
 ## 4. Cross-user handoff map
 | Chặng | NV | Từ | → Nhận | Điều kiện | Điểm kết nếu treo |
@@ -100,6 +104,9 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | H1 | NV3→NV4 | đại lý (nhập mã CK) | hệ thống (bắn sang SDWork) | acc có mã CK + đánh dấu "đã thu" | mã chưa bắn được (SDWork lỗi) → hàng đợi retry, chip "chờ đồng bộ" |
 | H2 | NV4→NV5 | hệ thống (đã bắn) | SDWork (đối chiếu mã) | SDWork nhận được mã CK | SDWork không thấy mã sau X ngày → chip "chưa đối chiếu", đại lý xem lại |
 | H3 | NV5→NV2 | SDWork (xác nhận nhận) | đại lý (thấy "đã thu ✓") | SDWork trả trạng thái received | — |
+| H4 | NV6→NV10 | admin (tick cờ "hỗ trợ kỹ thuật" cho một nhân sự) | nhân sự hỗ trợ | cờ bật, vai còn là quản lý | cờ tắt / bị hạ vai ⇒ mọi thao tác NV10 kế tiếp trả `403 no_permission` ngay (đọc quyền mỗi request) |
+| H5 | ngư dân→NV10 | ngư dân (gọi báo quên mật khẩu / máy lạ đang đăng nhập) | nhân sự hỗ trợ | đọc được đủ SĐT đăng ký | SĐT không ra tài khoản ⇒ báo "không có tài khoản số này", khách tự đăng ký hoặc hỏi lại số |
+| H6 | NV10→ngư dân | nhân sự hỗ trợ (đặt lại xong) | ngư dân (đăng nhập lại bằng `sd123456`) | đặt lại trả 200 | khách chưa có sóng ⇒ mật khẩu đã đổi, chuỗi cũ đã thu hồi; khách đăng nhập khi có sóng (đúng R9) |
 
 > Tiền THẬT + chia doanh thu nằm ở SDWork (OUT). SDFish chỉ giữ **mã CK + cờ trạng thái vận hành** (đã liên hệ / đã thu / đã đối chiếu).
 
@@ -145,6 +152,22 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 - **End**: dòng audit lưu bền
 - **Cross**: —
 
+### Flow NV9 — Người tạo thấy khách mình tạo · owner: đại lý
+- **Start**: quản lý tạo một tài khoản khách cho bà con (có hay không cấp premium kèm)
+- **Input**: SĐT + tên khách; người tạo = quản lý đang đăng nhập
+- **Steps**: tạo thành công trên SĐT **chưa có tài khoản** ⇒ hệ thống ghi **người tạo** vào tài khoản (một lần, không đổi về sau) → danh sách khách của quản lý = khách mình **cấp premium** HỢP khách mình **tạo**
+- **Output**: khách vừa tạo nằm trong danh sách của người tạo; người tạo làm được mọi việc R3 cho "khách của mình" (gồm đặt lại mật khẩu nếu có cờ `resetPassword`)
+- **End**: khách có chủ chăm rõ ràng
+- **Cross**: — (SĐT đã có tài khoản: KHÔNG ghi người tạo, xem R13)
+
+### Flow NV10 — Hỗ trợ kỹ thuật khách bất kỳ · owner: nhân sự hỗ trợ
+- **Start**: bà con gọi báo quên mật khẩu / nghi máy lạ đăng nhập (H5); nhân sự có cờ "hỗ trợ kỹ thuật"
+- **Input**: SĐT đầy đủ khách đọc qua điện thoại + lý do hỗ trợ
+- **Steps**: (1) tra **đúng SĐT** (chuẩn hoá `normalizeVnPhone`, không tra theo tên, không tra một phần) → ra tối đa 1 tài khoản với thông tin tối thiểu (SĐT, tên, có đăng nhập được không, số máy đang đăng nhập) → (2) chọn **đặt lại mật khẩu** hoặc **đăng xuất mọi máy** + ghi lý do → (3) máy chủ kiểm cờ + đối tượng (khách thật, không phải nhân sự, không phải chính mình) → thực hiện
+- **Output**: khách về `sd123456` + nhắc đổi (R12) và/hoặc mọi chuỗi bị thu hồi (R9); 2 nhật ký ghi actor, vai thật, đối tượng, **lý do**; lượt tra cũng có nhật ký
+- **End**: nhân sự báo khách mật khẩu `sd123456` qua điện thoại (H6)
+- **Cross**: H4 (admin cấp cờ), H5, H6
+
 ## 6. Flow optimization log
 | Flow | Candidate | Chọn/Loại | Lý do (rubric) |
 |---|---|---|---|
@@ -152,9 +175,12 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | NV3 | A: bắt nhập số tiền + nội dung · B: chỉ MÃ CK | Chọn **B** | NVHòa chốt "chỉ cần mã"; ít bước, mã đủ để SDWork tra sao kê (rubric: ít bước) |
 | NV5 | A: SDFish tự đánh "đã nhận" · B: SDWork xác nhận rồi trả về | Chọn **B** | tiền là chân lý SDWork; A cho phép đánh dấu khống, sai chuẩn thu-chi (Domain: kế toán veto A) |
 | NV1-máy | A: 1 máy áp CẢ admin/đại lý · B: staff được nhiều phiên (web + mobile) | Chọn **A** (D2 chốt) | Chống chia sẻ tài khoản admin > tiện đa thiết bị; đánh đổi có chủ đích (rubric: an toàn) — R6 |
+| NV10 | A: mở rộng tầm nhìn mọi quản lý · B: cờ riêng "hỗ trợ kỹ thuật", chỉ 2 thao tác kỹ thuật · C (kèm): ghi người tạo | Chọn **B + C** (chủ dự án 2026-10-26) | A phá D1: đại lý thấy khách đại lý khác ⇒ giành khách, lệch chia doanh thu (Domain CSKH/bán hàng veto). B tách đúng hai vai trên cùng `manager` (bán hàng vs kỹ thuật) — cross tối thiểu. C vá lỗ "tạo mà không thấy" bất kể B |
+| NV10-tra | A: duyệt cả danh sách · B: tìm theo tên/một phần SĐT · C: chỉ đúng SĐT đầy đủ | Chọn **C** | A/B lộ danh bạ khách và dò được hàng loạt (Domain bảo mật veto). Khách gọi tới luôn đọc được SĐT mình ⇒ C đủ cho việc thật, ít lộ nhất |
+| NV10-thao tác | A: mọi thao tác R3 · B: chỉ đặt lại mật khẩu + đăng xuất mọi máy | Chọn **B** | Cấp premium/xoá/nhắn/ghi tiền là việc bán hàng, giữ trong "khách của mình" (R3). Hỗ trợ kỹ thuật chỉ cần gỡ đăng nhập |
 
 ## 7. Scope & Priority
-- **IN (SDFish repo này)**: NV1 (có sẵn) · NV2 chip chăm khách · NV3 nhập mã CK + cờ đã thu · NV4/NV5 trace + đồng bộ SDWork · NV6 giới hạn tab đại lý · NV7 audit (Should) · NV8 đăng nhập (Should).
+- **IN (SDFish repo này)**: NV1 (có sẵn) · NV2 chip chăm khách · NV3 nhập mã CK + cờ đã thu · NV4/NV5 trace + đồng bộ SDWork · NV6 giới hạn tab đại lý · NV7 audit (Should) · NV8 đăng nhập (Should). · **NV9 ghi người tạo + NV10 hỗ trợ kỹ thuật (2026-10-26, CHƯA BUILD; NV9 cần migration 🔴 — chưa apply)**.
 - **OUT (làm ở SDWork, KHÔNG dựng trong SDFish)**: trang sổ tiền/thuê bao/hạn dùng/ai tạo acc/doanh thu; **tính + chia doanh thu cho đại lý**; báo cáo tài chính. SDFish chỉ CUNG CẤP mã CK + metadata cho SDWork.
 - **OUT (nền tảng)**: build iOS (cần Mac) — ưu tiên push store nhưng ngoài spec này.
 
@@ -166,6 +192,9 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | NV4+NV5 | mã CK bắn SDWork thất bại không retry | = 0 (mọi mã vào hàng đợi đến khi đối chiếu) |
 | NV6 | đại lý thấy dữ liệu ngoài phạm vi mình | = 0 |
 | NV7 | mutation /api/admin/* không có dòng audit | = 0 |
+| NV9 | khách do quản lý tạo (sau ngày build) mà người tạo không thấy trong danh sách | = 0 |
+| NV10 | thao tác hỗ trợ kỹ thuật không có lý do trong nhật ký | = 0 |
+| NV10 | yêu cầu đặt lại mật khẩu khách phải nhờ admin (khi ca trực có nhân sự hỗ trợ) | giảm về 0 trong 30 ngày sau build |
 
 ## 9. Rules & Invariants
 | # | Rule | Edge case |
@@ -184,12 +213,18 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | R11 | **ADMIN TỔNG** (chủ dự án chốt 2026-10-02): một tài khoản đăng nhập bằng tên (hàng owner trong `staff_accounts`, 0057 — trước đó env `OWNER_LOGIN`), CHỈ người này nâng/hạ/tạo/xoá quản trị viên; quản trị viên quản lý vai Quản lý. Web không hạ/xoá được admin tổng. Mật khẩu ≥12 ký tự do chủ dự án tự gõ qua script (không bao giờ `admin/admin`); phiên 12 giờ | chưa có admin tổng ⇒ luật cũ (mọi admin quản lý admin); có admin tổng ⇒ hạ quản trị viên DB cuối cùng KHÔNG còn bị chặn `last_admin` |
 | R10 | Webhook SDWork **không đặt lại mật khẩu tài khoản nhân sự**; script test chỉ cấp cho tài khoản loại test, không bao giờ cho nhân sự, có ghi nhật ký | tra vai hỏng ⇒ coi là nhân sự (không đặt lại) |
 | R12 | **ĐẶT LẠI MẬT KHẨU** (2026-10-06, ADR 0008): admin luôn được; quản lý chỉ khi admin tick **cờ riêng `resetPassword`** (tab Phân quyền, mặc định tắt) và chỉ trên **khách của mình** (cùng cửa R3: cấm nhân sự, cấm chính mình). Khách ⇒ `sd123456` (một nguồn `DEFAULT_CUSTOMER_PASSWORD`, cũng là ô điền sẵn khi tạo khách), nhân sự ⇒ ngẫu nhiên; app nhắc đổi (có "để sau"); thu hồi chuỗi (R9); ghi 2 nhật ký với vai thật người bấm | tra vai đối tượng hỏng ⇒ coi là nhân sự (ra mật khẩu ngẫu nhiên); quản lý không cờ ⇒ 403 `no_permission`; khách người khác ⇒ 403 `not_your_customer` |
+| R13 | **NGƯỜI TẠO = CHỦ CHĂM** (2026-10-26, CHƯA BUILD): tạo tài khoản khách trên SĐT **chưa có tài khoản** ⇒ ghi người tạo (SĐT nhân sự) **một lần, không ghi đè**. "Khách của mình" ở R3/R12 = khách mình **cấp premium** (`premium_grants.granted_by`) HỢP khách mình **tạo**. Áp cả danh sách (GET) lẫn cửa thao tác (`managerTargetCheck`) — một luật, hai nơi dùng chung. Đại lý tổng (`all_premium`) thấy khách đang premium HỢP khách mình tạo | tạo trên SĐT ĐÃ có tài khoản (R3c) ⇒ KHÔNG ghi người tạo (chặn chiêu "tạo lại để nhận khách người khác"); khách từ webhook SDWork / tự đăng ký ⇒ người tạo trống (không chủ); admin tạo ⇒ vẫn ghi (tra được), admin vốn thấy hết; người tạo bị hạ vai/xoá ⇒ dấu người tạo giữ nguyên, không ai thừa hưởng tự động; ghi người tạo lỗi ⇒ huỷ cả lần tạo (500), không để khách mồ côi im lặng |
+| R14 | **HỖ TRỢ KỸ THUẬT** (2026-10-26, CHƯA BUILD): **cờ riêng** trong jsonb `permissions` (cạnh `resetPassword`), admin tick từng quản lý, **mặc định TẮT**, đọc hỏng ⇒ tắt; admin/admin tổng ngầm có. Có cờ được: (a) **tra đúng SĐT** — khớp nguyên số sau chuẩn hoá, trả ≤1 tài khoản, chỉ SĐT · tên · có đăng nhập được · số máy đang đăng nhập (KHÔNG hạng, hạn, tiền, cờ chăm, người chăm, ghi chú); (b) **đặt lại mật khẩu** (luật mật khẩu R12) và (c) **đăng xuất mọi máy** (R9) cho khách tra được. **Bắt buộc lý do** 10–500 ký tự sau khi bỏ khoảng trắng, ghi vào CẢ hai nhật ký. Mỗi lượt tra cũng ghi nhật ký (ai tra số nào, lúc nào). Trần **30 lượt tra / giờ / nhân sự** ⇒ quá trần `429`. KHÔNG mở thêm gì khác: cấp premium, xoá, nhắn, ghi tiền, cờ chăm vẫn theo R3 | đối tượng là nhân sự ⇒ `403 staff_target`; chính mình ⇒ `403 self`; tài khoản loại test/demo/reviewer ⇒ `403 not_real_account` (đặt lại phá tài khoản duyệt App Store); thiếu/ngắn lý do ⇒ `400 reason_required`, không đổi gì; SĐT không có tài khoản ⇒ `404 not_found` (vẫn ghi lượt tra); tra một phần số ⇒ 0 kết quả; không có cờ ⇒ `403 no_permission`; tra vai đối tượng hỏng ⇒ coi là nhân sự (chặn) |
 
 ## 10. Assumptions & Open decisions (elicitation)
 **Giả định an toàn đã chọn (fail-closed):**
 - **A**: `đại lý` = role `manager` sẵn có (đã cấp premium). Không tạo role mới.
 - **B**: NV3 chỉ lưu mã CK + cờ; số tiền/đối soát ở SDWork.
 - **C**: premium kích hoạt ĐỘC LẬP với thu tiền (đại lý có thể kích trước, thu sau) — cờ "đã thu" theo dõi riêng, KHÔNG chặn kích hoạt.
+- **E** (R13): KHÔNG điền ngược người tạo cho khách cũ — khách tạo trước ngày build giữ trống, vẫn theo luật cấp premium như cũ. Muốn điền ngược từ `admin_activity_log` (`account.create`) là quyết định riêng, phải đối chiếu tay vì nhật ký không phải nguồn sở hữu.
+- **F** (R14): ngưỡng lý do 10 ký tự và trần 30 lượt tra/giờ là mặc định an toàn tự chọn — chủ dự án chỉnh được, không đổi luật.
+- **G** (R14): `revoke-sessions` hôm nay CHỈ admin; R14 mở thêm cho nhân sự có cờ, CHỈ trên khách thật.
+- **H** (R13): lưu người tạo cần chỗ chứa mới trên tài khoản khách ⇒ **migration 🔴**, chưa viết, chưa apply; build phải hỏi chủ dự án trước khi apply (CLAUDE.md pre-flight).
 
 **Đã chốt (2026-07-30):**
 - **D1 → 1 khu "Khách của tôi"**: đại lý chỉ thấy DANH SÁCH KHÁCH của mình (scoped, chặn ở API — R3) gồm: kích/gia hạn premium + 2 cờ (đã dùng / đã liên hệ) + nhập mã CK + cờ đã thu. KHÔNG có Thuyền viên/Sản phẩm/Thông báo/Dữ liệu/Hệ thống. Chừa khu thứ 2 cho sau (bảng doanh thu — nhưng số liệu đó ở SDWork). Lý do: toàn bộ việc đại lý xoay quanh khách của họ; các khu kia là việc admin.
@@ -197,6 +232,9 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 - **D3 → WEBHOOK (SDWork→SDFish)**: tái dùng webhook inbound sẵn có (`/api/sdwork/webhook`, HMAC verify) — thêm event `payment_reconciled`. SDWork đối chiếu sao kê xong bắn về, SDFish set trạng-thái-đối-chiếu. Tức thì + ít hạ tầng mới. Poll bị loại (SDFish chưa có đường outbound-query; trễ). NV5 dùng cơ chế này.
 
 > NV4 (bắn mã CK sang SDWork) là outbound MỚI của SDFish — KHÁC luồng password-sync đã bỏ (2026-07-30 SDWork-master); trace tiền là mục đích chính đáng riêng.
+
+**Đã chốt (2026-10-26):**
+- **D4 → B + C** (chủ dự án): thêm cờ "hỗ trợ kỹ thuật" (tra đúng SĐT, chỉ đặt lại mật khẩu + đăng xuất mọi máy, bắt ghi lý do) VÀ ghi người tạo khi tạo khách. Thu hẹp một phần ADR 0008 §4 ("chỉ khách của mình") cho nhân sự có cờ — ADR 0008 giữ nguyên cho cờ `resetPassword`.
 
 ---
 
@@ -262,9 +300,64 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 - **Then** phiên máy A bị thu hồi; thao tác kế ở máy A bị đưa về đăng nhập (R6 — không miễn staff)
 - **Assert**: sau đăng nhập máy B, request tiếp theo của máy A trả HTTP `401` && `count(phiên hợp lệ của tài khoản)==1`
 
+### AC-11 — Người tạo thấy khách mình vừa tạo dù chưa cấp premium · Maps to: NV9 · Test: integration
+- **Given** quản lý Q (tầm `own`) chưa từng cấp premium cho SĐT K; K chưa có tài khoản
+- **When** Q tạo tài khoản K không kèm premium, rồi đọc danh sách khách
+- **Then** K có trong danh sách của Q; quản lý khác không thấy K
+- **Assert**: `GET /api/admin/accounts` của Q chứa K `==1` lần && của quản lý Q2 chứa K `==0` lần
+
+### AC-12 — Tạo lại trên SĐT đã có không chiếm khách người khác · Maps to: NV9 · Test: integration
+- **Given** K đã có tài khoản, người tạo là Q2 (hoặc trống)
+- **When** quản lý Q tạo lại tài khoản trên SĐT K
+- **Then** người tạo của K không đổi; Q vẫn không thấy và không thao tác được K
+- **Assert**: người tạo K sau thao tác `==` trước thao tác && đặt lại mật khẩu K bởi Q (có `resetPassword`) trả HTTP `403` `not_your_customer`
+
+### AC-13 — Người tạo đặt lại được mật khẩu khách mình tạo · Maps to: NV9 · Test: integration
+- **Given** Q có cờ `resetPassword`, K do Q tạo, chưa ai cấp premium
+- **When** Q đặt lại mật khẩu K
+- **Then** thành công theo R12
+- **Assert**: HTTP `200` && mật khẩu tạm `== "sd123456"` && `count(chuỗi sống của K)==0`
+
+### AC-14 — Nhân sự hỗ trợ đặt lại mật khẩu khách người khác, có lý do · Maps to: NV10 · Test: integration
+- **Given** S có cờ "hỗ trợ kỹ thuật"; K là khách thật do Q2 cấp premium
+- **When** S tra đúng SĐT K rồi đặt lại mật khẩu kèm lý do "khách quên mật khẩu, gọi 9h"
+- **Then** đặt lại thành công; mỗi nhật ký có lý do
+- **Assert**: HTTP `200` && `count(admin_audit mới)==1` && `count(admin_activity_log mới có detail.reason)==1`
+
+### AC-15 — Thiếu lý do thì không đổi gì · Maps to: NV10 · Test: unit
+- **Given** S có cờ hỗ trợ
+- **When** đặt lại mật khẩu / đăng xuất mọi máy với lý do rỗng hoặc dưới 10 ký tự sau khi bỏ khoảng trắng
+- **Then** bị từ chối, mật khẩu và chuỗi giữ nguyên
+- **Assert**: HTTP `400` `reason_required` && số chuỗi sống của K không đổi (`==` trước)
+
+### AC-16 — Tra chỉ khớp nguyên SĐT, trả thông tin tối thiểu · Maps to: NV10 · Test: integration
+- **Given** S có cờ hỗ trợ; tồn tại K = 0912345678
+- **When** S tra "0912345678", "+84912345678", rồi "091234"
+- **Then** hai lần đầu ra đúng K, lần ba không ra gì; kết quả không có hạng/hạn/tiền/người chăm
+- **Assert**: số kết quả lần lượt `1, 1, 0` && khoá trả về `⊆ {phone, name, canLogin, activeDevices}`
+
+### AC-17 — Cờ hỗ trợ không mở việc bán hàng · Maps to: NV10 · Test: integration
+- **Given** S có cờ hỗ trợ (không phải người cấp/tạo K)
+- **When** S gọi cấp premium, xoá, nhắn riêng, ghi thu tiền, đổi cờ chăm cho K
+- **Then** tất cả bị chặn như R3
+- **Assert**: cả `5` lệnh trả HTTP `403` `not_your_customer`
+
+### AC-18 — Không đụng nhân sự, chính mình, tài khoản thử · Maps to: NV10 · Test: unit
+- **Given** S có cờ hỗ trợ
+- **When** S đặt lại mật khẩu cho một quản lý khác, cho chính S, cho tài khoản loại reviewer
+- **Then** cả ba bị chặn
+- **Assert**: mã lỗi lần lượt `staff_target`, `self`, `not_real_account` với HTTP `403`
+
+### AC-19 — Không cờ hoặc vượt trần tra thì bị chặn · Maps to: NV10 · Test: integration
+- **Given** quản lý Q không có cờ hỗ trợ; nhân sự S có cờ đã tra 30 lần trong 60 phút
+- **When** Q tra một SĐT; S tra lần thứ 31
+- **Then** Q bị từ chối quyền; S bị từ chối vì quá trần; mỗi lượt tra của S vẫn có nhật ký
+- **Assert**: Q nhận HTTP `403` `no_permission` && S nhận HTTP `429` && `count(nhật ký lượt tra của S)>=30`
+
 ---
 
 ## History
+- 2026-10-26 — **SPEC NV9 + NV10 (CHƯA BUILD)**: phân tích BA cho thấy "khách của mình" chỉ tính người CẤP premium ⇒ tạo khách không kèm premium thì người tạo mất dấu; quản lý không hỗ trợ được khách người khác. Chủ dự án chốt **B + C** (D4): R13 người tạo = chủ chăm (ghi một lần, không ghi đè trên SĐT đã có) + R14 cờ "hỗ trợ kỹ thuật" (tra đúng SĐT, chỉ đặt lại mật khẩu + đăng xuất mọi máy, bắt lý do, trần 30 lượt tra/giờ). +AC-11..19. R13 cần migration 🔴 (chưa viết/apply).
 - 2026-10-06 — **R12 đặt lại mật khẩu** (ADR 0008): quyền tick riêng từng quản lý (chỉ khách mình), khách về `sd123456`, nhân sự ngẫu nhiên; ô mật khẩu khi tạo khách điền sẵn `sd123456`. Không migration (cờ trong jsonb 0056).
 - 2026-10-07 — Gửi thông báo báo lỗi theo mã (403 = khoá VAPID lệch, không xoá đăng ký); Cấu hình ứng dụng chặn lưu cặp VAPID lệch (409), đổi cặp phải dán cả hai ô.
 - 2026-07-30 — Tạo từ hội thoại team (Long/Nam/Hòa). Chốt ranh giới SDFish vận hành vs SDWork quản trị tiền; scope IN/OUT; NV1–NV8; AC-1..10.

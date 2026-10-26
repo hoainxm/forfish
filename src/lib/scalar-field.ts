@@ -37,7 +37,7 @@ import {
   GRID_N_LAT,
   GRID_N_LON,
 } from "@/lib/forecast-grid";
-import { timeoutSignal } from "@/lib/abort";
+import { taiJsonCoNhip } from "@/lib/tai-co-nhip";
 import { tokenHeader } from "@/lib/device-token-store";
 
 // mây/mưa/nhiệt/dông/áp suất = Open-Meteo (lưới gió, theo GIỜ);
@@ -107,12 +107,11 @@ export async function fetchScalarFieldsLive(
     `&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}&hourly=${hourly}` +
     (opts?.model ? `&models=${opts.model}` : "");
 
-  const res = await fetch(url, { signal: timeoutSignal(20000) }).then(
-    (r) => {
-      if (!r.ok) throw new Error(`scalar grid ${r.status}`);
-      return r.json();
-    },
-  );
+  // 20 s = trần NGỪNG CHẢY (lib/tai-co-nhip, 2026-10-26), không phải trần tổng
+  const res = await taiJsonCoNhip(url, {}, 20000).then(({ res: r, json }) => {
+    if (!r.ok || json == null) throw new Error(`scalar grid ${r.status}`);
+    return json as Record<string, unknown> | Record<string, unknown>[];
+  });
   const arr: unknown[] = Array.isArray(res) ? res : [res];
 
   const first = arr[0] as { hourly?: { time?: string[] } };
@@ -323,12 +322,11 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
     return snap;
   }
   try {
-    const r = await fetch(apiUrl(`/api/salinity?days=${Math.round(days)}`), {
+    const { res: r, json: j0 } = await taiJsonCoNhip(apiUrl(`/api/salinity?days=${Math.round(days)}`), {
       headers: tokenHeader(),
-      signal: timeoutSignal(35000),
-    });
+    }, 35000);
     if (!r.ok) throw new Error(`salinity ${r.status}`);
-    const j = (await r.json()) as {
+    const j = j0 as {
       ok?: boolean;
       times?: string[];
       cells?: ScalarGrid["cells"];
@@ -364,12 +362,12 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
 /** Snapshot ĐỘ MẶN do cron tính sẵn (same-origin) — null nếu chưa có */
 async function loadSalinitySnapshotClient(days: number): Promise<ScalarGrid | null> {
   try {
-    const r = await fetch(
+    const { res: r, json: g } = await taiJsonCoNhip<ScalarGrid>(
       apiUrl(`/api/weather-snapshot?id=${salinitySnapshotId(days)}`),
-      { headers: tokenHeader(), signal: timeoutSignal(10000) },
+      { headers: tokenHeader() },
+      10000, // NGỪNG CHẢY, không tổng (lib/tai-co-nhip)
     );
     if (!r.ok) return null;
-    const g = (await r.json()) as ScalarGrid;
     return g && Array.isArray(g.times) && g.times.length > 0 ? g : null;
   } catch {
     return null;
@@ -515,12 +513,12 @@ async function loadScalarSnapshotClient(
   days: number,
 ): Promise<ScalarGrid | null> {
   try {
-    const r = await fetch(
+    const { res: r, json: g } = await taiJsonCoNhip<ScalarGrid>(
       apiUrl(`/api/weather-snapshot?id=${scalarSnapshotId(kind, days)}`),
-      { headers: tokenHeader(), signal: timeoutSignal(10000) },
+      { headers: tokenHeader() },
+      10000, // NGỪNG CHẢY, không tổng (lib/tai-co-nhip)
     );
     if (!r.ok) return null;
-    const g = (await r.json()) as ScalarGrid;
     return g && Array.isArray(g.times) && g.times.length > 0 ? g : null;
   } catch {
     return null;

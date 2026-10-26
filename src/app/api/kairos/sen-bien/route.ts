@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { CHU_DE, loiBai } from "@/lib/kairos/sen-bien-gioi-thieu.mjs";
 import { MUC, loiBaiLuat } from "@/lib/kairos/tuyen-truyen-luat.mjs";
 import { badWordHit } from "@/lib/kairos/loc-chu";
+import { chongPhaFlag } from "@/lib/kairos/chong-pha.mjs";
 import { hydratePosts, ingestKeyDenied, jsonBody, kErr, kairosErrorResponse, storeOr503 } from "@/lib/kairos/server";
 import { SEN_BIEN_PHONE } from "@/lib/kairos/types";
 
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
   const detail = muc ? { luat: muc.id, dieu: muc.dieu } : { chuDe: chuDe!.id };
   const body = String(b.body).trim();
   if (badWordHit(body)) return kErr(400, "bad_words");
+  if (chongPhaFlag(body)) return kErr(400, "anti_state");
   const s = await storeOr503();
   if (!s.ok) return s.res;
   const { store } = s;

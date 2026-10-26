@@ -105,6 +105,7 @@ import {
   TrashIcon,
 } from "@/components/icons";
 import { SQ_TILE } from "@/components/ui/sq-btn";
+import { isOffline } from "@/lib/use-online";
 
 export type PlannedRoute = {
   plan: RoutePlan;
@@ -2401,7 +2402,9 @@ export function RouteMode({
                 `${
                   offlineRateLimited
                     ? "Máy chủ dự báo đang quá tải"
-                    : "Đang mất sóng"
+                    : isOffline()
+                      ? "Đang mất sóng"
+                      : "Mạng yếu, chưa hỏi được máy chủ"
                 } — tuyến tính từ lưới gió sóng ĐÃ LƯU trong máy${
                   offlineSavedAt != null ? ` (${savedAgoLabel(offlineSavedAt)})` : ""
                 }; lưới này thô hơn và CHƯA tính dòng chảy.`,

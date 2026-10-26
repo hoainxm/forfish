@@ -7,7 +7,8 @@ import {
   docAnhGiayUrl,
   deleteDocPhoto,
 } from "@/lib/doc-photos";
-import { CloseIcon, PlusIcon, TrashIcon } from "@/components/icons";
+import { PlusIcon, TrashIcon } from "@/components/icons";
+import { CloseButton } from "@/components/ui/close-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { OfflineLine } from "@/components/ui/offline-line";
 import { NHAN } from "@/lib/labels";
@@ -50,7 +51,11 @@ function Thumb({
   }, [path]);
 
   return (
-    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-line bg-field">
+    /*  Rà UI 2026-10-26: nút xoá = `CloseButton variant="goc"` (chấm 28px đè góc trên-phải, vùng chạm 44px — 03 §6
+        mục 8) thay ô tự chế 56px ĐÈ nửa tấm ảnh 96px (luật sàn 56px đã bỏ 2026-10-19). Khung ngoài KHÔNG overflow-hidden
+        để chấm lòi ra góc; ảnh bo trong khung trong. Xoá vẫn qua ConfirmDialog. */
+    <div className="relative h-24 w-24 shrink-0">
+      <div className="h-full w-full overflow-hidden rounded-xl border border-line bg-field">
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element -- signed URL động
         <img src={url} alt="Ảnh chụp giấy tờ" className="h-full w-full object-cover" />
@@ -59,18 +64,8 @@ function Thumb({
           {failed ? "Cần có mạng để xem" : "Đang tải…"}
         </div>
       )}
-      {canDelete && (
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label="Xoá ảnh này"
-          /*  56px chứ không 44px (luật A5): nút này nằm ĐÈ lên ảnh 96px, tay
-              ướt trượt một cái là mất ảnh giấy tờ thật. */
-          className="absolute right-1 top-1 flex h-14 w-14 items-center justify-center rounded-full bg-navy/70 text-white transition active:scale-95"
-        >
-          <CloseIcon className="h-6 w-6" />
-        </button>
-      )}
+      </div>
+      {canDelete && <CloseButton variant="goc" onClose={onDelete} label="Xoá ảnh này" />}
     </div>
   );
 }
@@ -124,7 +119,8 @@ export function DocPhotoStrip({
 
   return (
     <div className="mt-2.5">
-      <div className="flex gap-2 overflow-x-auto cuon-an pb-1">
+      {/* pt-3 pr-3 + gap-4: chừa chỗ cho chấm xoá lòi ra góc từng ảnh (không bị khung cuộn cắt, không đè ảnh kế) */}
+      <div className="flex gap-4 overflow-x-auto cuon-an pb-1 pr-3 pt-3">
         {photos.map((p) => (
           <Thumb
             key={p}

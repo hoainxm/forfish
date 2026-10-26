@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { SDVICO_HOTLINE_DISPLAY, SDVICO_SHOWCASE } from "@/data/sdvico-showcase";
 import { chuQuyenFlag } from "@/lib/kairos/chu-quyen.mjs";
+import { chongPhaFlag } from "@/lib/kairos/chong-pha.mjs";
 import { badWordHit } from "@/lib/kairos/loc-chu";
 import { auditQuiet, ingestKeyDenied, kErr, kairosErrorResponse, notifyNhacTen, storeOr503 } from "@/lib/kairos/server";
 import { locNhacTen } from "@/lib/kairos/nhac-ten";
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
     if (!post || post.hidden || !prof || !sdvico) return kErr(404, "gone");
     // Claude có lỡ mở bằng "@Tên" thì bỏ — máy gắn đúng một lần
     const chu = b.body.trim().replace(new RegExp(`^@${prof.handle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`, "i"), "");
-    const loi = loiTuVan(chu) ?? (badWordHit(chu) ? "bad_words" : chuQuyenFlag(chu) ? "chu_quyen" : null);
+    const loi = loiTuVan(chu) ?? (badWordHit(chu) ? "bad_words" : chuQuyenFlag(chu) ? "chu_quyen" : chongPhaFlag(chu) ? "chong_pha" : null);
     if (loi) return kErr(422, loi);
     // số tàu / cảng: giữ cái đã có; mới thì phải đúng dạng (số tàu) / có trong danh mục hoặc chữ gọn (cảng)
     const soTau = h.so_tau ?? (typeof b.soTau === "string" ? docSoTau(b.soTau) : null);

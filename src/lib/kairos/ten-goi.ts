@@ -8,6 +8,7 @@
 import { foldVi } from "./lien-ket.mjs";
 import { badWordHit } from "./loc-chu";
 import { chuQuyenFlag } from "./chu-quyen.mjs";
+import { chongPhaFlag } from "./chong-pha.mjs";
 import { LIMITS, type Checked } from "./types";
 
 export const HANDLE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
@@ -51,6 +52,8 @@ export function validateHandle(raw: unknown): Checked<{ handle: string; norm: st
   if (bad) return { ok: false, code: "bad_words", term: bad };
   const sov = chuQuyenFlag(handle);
   if (sov) return { ok: false, code: "sovereignty", term: sov };
+  const cp = chongPhaFlag(handle);
+  if (cp) return { ok: false, code: "anti_state", term: cp };
   const hay = ` ${norm} `;
   const reserved = RESERVED_ANYWHERE.find((w) => hay.includes(` ${w} `));
   if (reserved) return { ok: false, code: "handle_reserved", term: reserved };

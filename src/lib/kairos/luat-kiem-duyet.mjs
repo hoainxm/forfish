@@ -13,9 +13,11 @@
 // .mjs vì Node trần trên máy GPU dùng chung (cùng lý do lien-ket.mjs).
 
 import { chuQuyenFlag, CHU_QUYEN_PROMPT } from "./chu-quyen.mjs";
+import { chongPhaFlag } from "./chong-pha.mjs";
 
-/** Phiên bản bộ luật — khớp `^[\p{L}\p{N}._:+-]{1,40}$` của validateAgentBatch. */
-export const LUAT_PHIEN_BAN = "kd-2026-10-23.1";
+/** Phiên bản bộ luật — khớp `^[\p{L}\p{N}._:+-]{1,40}$` của validateAgentBatch.
+ *  kd-2026-10-26.1: thêm luật `chong-pha` + luật cứng chống phá cho bài bà con (anh Long: "fix đi luật cho phần chống phá"). */
+export const LUAT_PHIEN_BAN = "kd-2026-10-26.1";
 
 /** Mỗi lượt gọi mô hình chấm tối đa bấy nhiêu mục. */
 export const LO_KIEM = 20;
@@ -40,6 +42,12 @@ export const LUAT = Object.freeze([
     ap: ["bao", "ba-con"],
     nang: "chan",
     mo_ta: "Xuyên tạc chủ quyền Việt Nam: gọi Biển Đông là \"South China Sea\"/\"Nam Hải\", dùng tên Trung Quốc cho Hoàng Sa, Trường Sa (Tây Sa, Nam Sa, Tam Sa, Xisha, Nansha), coi các quần đảo là của nước khác, cổ vũ \"đường chín đoạn\".",
+  },
+  {
+    ma: "chong-pha",
+    ap: ["bao", "ba-con"],
+    nang: "chan",
+    mo_ta: "Chống phá Nhà nước Cộng hoà xã hội chủ nghĩa Việt Nam: xuyên tạc, bôi nhọ, xúc phạm Đảng, Nhà nước, lãnh đạo, lãnh tụ (kể cả nói lái, viết tắt, ẩn ý, ảnh chế); kêu gọi lật đổ chính quyền, biểu tình, nổi dậy chống chế độ; tuyên truyền, cổ vũ tổ chức phản động, khủng bố (Việt Tân…), cờ, khẩu hiệu của chế độ cũ; xuyên tạc lịch sử kháng chiến, phủ nhận chủ quyền, chia rẽ khối đoàn kết dân tộc. BÌNH THƯỜNG: phản ánh, góp ý, kiến nghị chính sách lịch sự (giá dầu, cấm biển, mức phạt, thủ tục giấy tờ); than phiền về cán bộ địa phương cụ thể; tin báo chí đưa về vụ án, xét xử tội chống phá; khen ngợi chính sách.",
   },
   {
     ma: "tin-sai",
@@ -130,14 +138,18 @@ export function mucTuHangCho(raw) {
 
 /**
  * Luật CỨNG chạy trước mô hình (không tốn lượt gọi, không phụ thuộc mô hình): trúng cờ chủ
- * quyền ⇒ chặn ngay, điểm 1. Không trúng ⇒ null (để mô hình chấm).
+ * quyền ⇒ chặn ngay, điểm 1; bài/bình luận NGƯỜI DÙNG (không phải bài báo) có khẩu hiệu/kêu gọi
+ * chống phá rõ ràng (chong-pha.mjs) ⇒ chặn ngay, điểm 1. Bài báo đưa tin vụ án chống phá là tin
+ * thật ⇒ không áp luật cứng chống phá, để mô hình chấm theo nghĩa. Không trúng ⇒ null.
  * @param {MucKiem} m
  * @returns {QuyetDinh | null}
  */
 export function kiemCung(m) {
   const term = chuQuyenFlag(m.chu);
-  if (!term) return null;
-  return { targetType: m.loai, targetId: m.id, verdict: "chan", reason: `[chu-quyen] Xuyên tạc chủ quyền: "${cut(term, 80)}"`, score: 1 };
+  if (term) return { targetType: m.loai, targetId: m.id, verdict: "chan", reason: `[chu-quyen] Xuyên tạc chủ quyền: "${cut(term, 80)}"`, score: 1 };
+  const cp = m.kind === "bao" ? null : chongPhaFlag(m.chu);
+  if (cp) return { targetType: m.loai, targetId: m.id, verdict: "chan", reason: `[chong-pha] Nội dung chống phá Nhà nước: "${cut(cp, 80)}"`, score: 1 };
+  return null;
 }
 
 /**
