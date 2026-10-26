@@ -121,4 +121,9 @@ describe("promptLuat", () => {
     expect(p).toMatch(/CHỈ dùng số tiền/);
     expect(p).toContain('{"giaiThich":"..."}');
   });
+  it("báo ngày hôm nay và nghị định ĐÃ có hiệu lực (bài thử GPU 26/10: Claude viết \"chuẩn bị trước 18/8/2026\" như chuyện sắp tới)", () => {
+    const p = promptLuat(MUC[0], Date.parse("2026-10-26T08:00:00Z"));
+    expect(p).toContain("HÔM NAY: 26/10/2026");
+    expect(p).toMatch(/ĐÃ có hiệu lực/);
+  });
 });

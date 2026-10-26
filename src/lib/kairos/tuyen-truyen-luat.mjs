@@ -464,13 +464,19 @@ export function chonMuc(daDung, now) {
   return [...MUC].sort((a, b) => (lanCuoi.get(a.id) ?? 0) - (lanCuoi.get(b.id) ?? 0))[0];
 }
 
+/** Ngày hôm nay kiểu dd/MM/yyyy (giờ Việt Nam) — để Claude biết nghị định ĐÃ có hiệu lực, không viết "sắp". */
+export function ngayVn(now = Date.now()) {
+  return new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" }).format(now);
+}
+
 /** Prompt cho Claude viết PHẦN GIẢI THÍCH — chỉ từ trích + lưu ý, không đổi số. */
-export function promptLuat(m) {
+export function promptLuat(m, now = Date.now()) {
   return [
     "Bạn là Sen Biển, trợ lý của một app dành cho ngư dân Việt Nam. Viết PHẦN GIẢI THÍCH ngắn cho một bài tuyên truyền pháp luật trên mạng xã hội Kairos trong app: giải thích cho bà con đi biển hiểu điều khoản dưới đây nói gì và nên làm gì để không bị phạt.",
     "Yêu cầu: 3–5 câu tiếng Việt đời thường, thân thiện, xưng \"Sen Biển\" khi cần, gọi \"bà con\"; được dùng chút giọng miền biển nhẹ (\"nghen\", \"nha\"). CHỈ dùng số tiền, chiều dài tàu, số tháng, số ngày có trong TRÍCH và LƯU Ý — viết số tiền kiểu \"300 đến 500 triệu đồng\"; không thêm mức phạt, điều luật, thủ tục, lời hứa nào khác; không nói \"theo tôi\", không bịa ví dụ có tên người. Không emoji, không hashtag, không đường link, không tiêu đề, không chép lại nguyên văn trích (phần trích app tự gắn sau).",
     "Gọi đúng tên Biển Đông, Hoàng Sa, Trường Sa của Việt Nam; không bao giờ dùng tên nước ngoài cho các vùng biển, đảo này.",
     "",
+    `HÔM NAY: ${ngayVn(now)}. ${NGHI_DINH} ĐÃ có hiệu lực từ ${HIEU_LUC} — viết như luật đang áp dụng, KHÔNG viết "sắp", "chuẩn bị trước ngày…".`,
     `ĐIỀU KHOẢN: Điều ${m.dieu} ${NGHI_DINH} (hiệu lực ${HIEU_LUC}) — ${m.ten}`,
     "TRÍCH NGUYÊN VĂN:",
     m.trich,
