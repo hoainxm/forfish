@@ -4,6 +4,7 @@
 
 covers: src/lib/abort.ts, src/lib/sea-actual.ts, src/lib/tile-proxy.ts, src/lib/offline-basemap.ts, src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/route-grid.ts, src/lib/route-grid-server.ts, src/lib/forecast-grid.ts, src/lib/scalar-field.ts, src/lib/copernicus-salinity.ts, src/lib/copernicus-wav.ts, src/lib/copernicus-cur-depth.ts, src/lib/cur-depth.ts, src/lib/snapshot-merge.ts, src/lib/pretrip.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/fish-forecast-run.ts, src/lib/fish-snapshot.ts, src/lib/fish-snapshot-policy.ts, src/lib/weather-snapshot.ts, src/lib/weather-snapshot-id.ts, src/lib/hycom.ts, src/lib/copernicus.ts, src/lib/source-registry.ts, src/lib/sst-tendency.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts, src/lib/ocean-map.ts
 last_verified: 2026-10-23
+<!-- re-verified: 2026-10-26 — TÀU XUNG QUANH: nguồn web AIS MarineTraffic đọc từ máy GPU nhà (mục riêng dưới); app chỉ gọi /api/tau-ais khi bật lớp. -->
 <!-- re-verified: 2026-10-25b — SDVICO phiếu khách: AI Assistant lấy phiếu qua GET /api/sdvico/khach-hoi (x-sdvico-key), báo da-bao; app không gọi ra ngoài. -->
 <!-- re-verified: 2026-10-24q — KAIROS thẻ xem trước link trong bình luận: máy chủ Vercel đọc trang bà con dán (3 s, 256 KB, chống SSRF), hỏng ⇒ không thẻ. -->
 <!-- re-verified: 2026-10-24k — Google News thêm feed TIN NỔI BẬT `https://news.google.com/rss?hl=vi&gl=VN&ceid=VN:vi` (nguồn gn-noi-bat, ~26 bài/lượt, cùng đồng hồ 15 s + đường giải bài gốc như feed tìm kiếm; hỏng ⇒ chỉ mất tin nóng, nguồn khác chạy). -->
@@ -396,6 +397,21 @@ Hai việc chạy NGOÀI Vercel, trên gpu-desktop, gọi ngược vào app bằ
 | `POST /api/kairos/kiem` gói ≤100 | 30 s | lượt sau chấm lại (máy chủ áp từng quyết định độc lập, không đè người trực) |
 
 Chặn trùng ở máy thu (sổ `da-thay.json`, link 120 ngày, tiêu đề 7 ngày) chỉ để **khỏi tốn hạn mức** tóm tắt lại; máy chủ chặn lại bằng cùng hàm `lien-ket.mjs` (link vĩnh viễn). Bài báo vào kho ở `cho-kiem`, lên dòng tin chỉ khi agent cho `dat`.
+
+## Tàu xung quanh — máy thu AIS trên máy GPU đọc web MarineTraffic (2026-10-26)
+
+Chạy NGOÀI Vercel, trên gpu-desktop (timer 10 phút), gọi ngược vào app bằng header `x-tau-ais-key` (khoá `app_config.tau_ais_key`, env `TAU_AIS_KEY` đè; thiếu cả hai ⇒ 503). Cài đặt + lệnh kiểm: [runbook.md](runbook.md) mục "Tàu xung quanh".
+
+**Nguồn**: trang bản đồ công khai `www.marinetraffic.com` — KHÔNG dùng API trả phí (anh Long chốt). Máy thu mở trang bằng Chromium thật có màn hình ảo (`xvfb-run`), rồi trong trang gọi đúng URL ô dữ liệu mà bản đồ của họ gọi: `GET /getData/get_data_json_4/z:8/X:<x>/Y:<y>/station:0` (ô 512 px ⇒ n = 2^(z−1); z:7 cắt bớt tàu, z:8 đủ — đo 26/10) → `{data:{rows:[{LAT, LON, SPEED (×10 kn), COURSE, HEADING, ELAPSED (phút), SHIPNAME ("[SAT-AIS]" = tàu vệ tinh không tên), SHIPTYPE 0–9 (2 = cá), SHIP_ID, FLAG, LENGTH, DESTINATION}]}}`. Khách chưa đăng nhập vẫn thấy đủ tàu ở z:8; `MT_EMAIL`/`MT_PASSWORD` trong env là tuỳ chọn (lối đăng nhập viết theo trang hiện tại, CHƯA kiểm vì chưa có tài khoản).
+
+| Bước | Đồng hồ | Hỏng thì |
+|---|---|---|
+| Mở trang chủ bản đồ | 60 s + chờ 9 s | tiêu đề "Attention Required" (Cloudflare 403) ⇒ dừng lượt, ghi `hoSoHong`, lượt sau XOÁ hồ sơ trình duyệt rồi mở lại (hồ sơ dính lượt headless là bị chặn vĩnh viễn — đo 26/10) |
+| Mỗi ô dữ liệu (42 ô, nghỉ 350 ms) | 20 s | ô hỏng bỏ qua; >8 ô hỏng ⇒ dừng lượt; một ô 403 ⇒ như trên |
+| `POST /api/tau-ais/nhap` (~1 MB) | 60 s | lượt sau gửi bản mới (không hàng đợi — bản cũ vô giá trị) |
+| App `GET /api/tau-ais` (khi bật lớp, làm mới 5 phút) | 12 s (`timeoutSignal`) | lùi bản máy `forfish.tau-ais.v1` + nói "bản lưu trong máy"; không có ⇒ nút thử lại |
+
+Điều khoản nguồn cấm lấy tự động — rủi ro IP/tài khoản bị chặn là của SDVICO (đã nêu với anh Long 26/10); máy chủ app không gọi nguồn này bao giờ, chỉ nhận bản từ máy nhà. Không hứa đủ tàu: chỉ tàu có AIS bật (tàu cá nhỏ VN phần lớn không có AIS; VMS khác AIS).
 
 ## Lớp chuỗi thức ăn của dự báo cá — ONI, PDO, Kuroshio–Luzon (2026-10-23)
 

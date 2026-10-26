@@ -16,6 +16,7 @@ import { fmtCoordPair, fmtDepthM, fmtDist, fmtLat, fmtLon, type CoordFormat } fr
 import { CHAT_DAY_COLORS, KHU_TRU_BAO_COLOR, RESTRICTED_FILL_COLOR, SEA_RESTRICTED_COLOR } from "@/lib/ocean-map";
 import { formatHoursVN, type BoatProfile } from "@/lib/route-plan";
 import { describeSeamark, huongDiQuaPhao, seamarkLabel, type Seamark } from "@/lib/seamarks";
+import { MAU_TAU, moTaTau, nhomTau, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
 import { soundingAgeDays, type Sounding } from "@/lib/soundings";
 import { ESTIMATED_DATE_NOTE, ageLine, isStale } from "@/lib/soundings-verified";
 import { nhanMoc } from "@/lib/storm-track";
@@ -64,6 +65,15 @@ export type DenInfo = {
   d: DenBien;
   x: number;
   y: number;
+};
+
+/** TÀU XUNG QUANH (AIS, 2026-10-26): chạm chấm tàu — luc/tuKho của bản để nói tin cũ bao lâu */
+export type TauAisInfo = {
+  t: TauAis;
+  luc: string;
+  tuKho: boolean;
+  px: number;
+  py: number;
 };
 
 export type XacTauInfo = {
@@ -361,6 +371,33 @@ export function TheXacTau({ info, onClose, prefs }: { info: XacTauInfo; onClose:
           )}
         </div>
         <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin vật chìm" />
+      </div>
+    </div>
+  );
+}
+
+export function TheTauAis({ info, onClose, prefs, now }: { info: TauAisInfo; onClose: () => void; prefs: MapPrefs; now: number }) {
+  const t = info.t;
+  return (
+    <div
+      ref={(el) => kepTheTrongKhung(el, info.px, info.py)}
+      className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
+    >
+      <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
+        <span className="mt-1.5 inline-block h-3.5 w-3.5 flex-none rounded-full" style={{ backgroundColor: MAU_TAU[nhomTau(t.loai)] }} />
+        <div className="min-w-0 flex-1">
+          <p className="text-[1.125rem] font-semibold leading-tight text-navy">{t.ten ?? "Tàu chưa rõ tên"}</p>
+          <p className="mt-0.5 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
+            {moTaTau(t)}
+            {t.dich ? ` · đến ${t.dich}` : ""}
+          </p>
+          <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">{fmtCoordPair(t.lat, t.lon, prefs.coordFormat)}</p>
+          <p className="mt-0.5 text-[0.8125rem] font-semibold text-foreground/45">
+            Tin {tuoiTinLabel(tuoiTinPhut(t, { luc: info.luc }, now))}
+            {info.tuKho ? " · bản lưu trong máy" : ""}
+          </p>
+        </div>
+        <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin tàu" />
       </div>
     </div>
   );

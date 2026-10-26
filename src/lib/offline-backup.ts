@@ -98,7 +98,8 @@ export type BackupMode = "forecast" | "transfer";
  * `forfish.fc.*` (lưới gió/sóng, điểm ghim, lớp dải màu, dòng chảy, nước dâng,
  * dấu bản đồ cá, TIN BÃO, bảng giá) + `forfish.sea.<port>.v3` (dự báo theo cảng).
  */
-export const FORECAST_PREFIXES = ["forfish.fc.", "forfish.sea."];
+// `tau-ais.` — bản vị trí tàu AIS công khai (lib/tau-ais, 2026-10-26): chia máy khác vô hại, mất thì xin lại
+export const FORECAST_PREFIXES = ["forfish.fc.", "forfish.sea.", "forfish.tau-ais."];
 
 /**
  * CÀI ĐẶT XEM — vô hại vì chỉ trả lời "xem thế nào", không trả lời "là ai" và

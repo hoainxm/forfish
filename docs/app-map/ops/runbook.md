@@ -264,6 +264,30 @@ systemctl --user disable --now kairos-thu.timer kairos-kiem.timer   # tạm dừ
 | Bài báo không lên dòng tin dù máy thu chạy | agent kiểm duyệt không chạy (bài báo chỉ lên khi `dat`) | xem `journalctl --user -u kairos-kiem`. Tab Kairos › Hàng chờ chỉ có bài agent ĐÃ nghi/chặn — bài chưa chấm phải chờ agent chạy lại |
 | Một nguồn chết lâu | báo đổi đường RSS | sửa `scripts/kairos-nguon.json` (đừng xoá id — đặt `enabled: false`), kiểm bằng `--thu --nguon=<id>` |
 
+## Tàu xung quanh — máy thu AIS trên gpu-desktop (2026-10-26)
+
+> **ĐÃ CÀI 2026-10-26** (bản tay `app-dev`, timer chưa bật tới khi nhánh lên main + khoá đặt). Máy thu mở web nguồn bằng Chromium thật có màn hình ảo, đọc ô dữ liệu, đẩy lên `POST /api/tau-ais/nhap`. Nguồn + đồng hồ: [external-services.md › Tàu xung quanh](external-services.md).
+
+1. **Khoá**: /quan-tri › Hệ thống › **Khoá máy thu tàu AIS** › Tạo ngẫu nhiên › Lưu — hoặc env `TAU_AIS_KEY` ở Vercel (ĐÈ ô DB). Dán CÙNG giá trị vào `~/.config/forlife/tau-ais.env`:
+   ```
+   TAU_AIS_KEY=<khoá>
+   TAU_AIS_API_BASE=https://forfish.vercel.app
+   # tuỳ chọn: MT_EMAIL=… MT_PASSWORD=… (đăng nhập nguồn; khách vẫn đủ tàu)
+   ```
+2. **Thư mục** `~/.local/forlife/tau-ais/`: `app` → symlink bản chạy (`app-dev` cài tay 26/10; `lam-moi.sh` tự xuất `scripts/tau-ais-thu.mjs` + `src/lib/tau-ais/chuan-hoa.mjs` từ origin/main của `C:\Code\ForFish` khi có) · `node_modules` → `~/ForFish/node_modules` (playwright 1.62 + chromium đã cài) · `profile/` hồ sơ Chromium (xoá là làm lại từ đầu, vô hại) · `lan-cuoi.json` kết quả lượt cuối · `man-hinh.png` khi chạy `--anh`.
+3. **Unit** `~/.config/systemd/user/tau-ais-thu.{service,timer}` (ExecStart `xvfb-run -a node app/scripts/tau-ais-thu.mjs`, 10 phút, TimeoutStartSec 8 phút). Bật: `systemctl --user enable --now tau-ais-thu.timer`. Xem: `journalctl --user -u tau-ais-thu -n 30`.
+4. **Chạy thử không gửi**: `cd ~/.local/forlife/tau-ais && xvfb-run -a node app/scripts/tau-ais-thu.mjs --thu` → dòng `42 ô (0 hỏng) · N hàng ⇒ M tàu (cá K) · 21 s` + cỡ bản (đo 26/10: ~16 nghìn tàu, ~1 MB, gzip nhỏ hơn nhiều).
+5. **Kiểm đầu app**: `curl -s -H "x-device-token: …" https://forfish.vercel.app/api/tau-ais | head -c 300` (cần chuỗi thiết bị — middleware gác) → `{"v":1,"luc":…,"soTau":…}`; 404 `chua_co` = máy thu chưa gửi lần nào.
+
+| Triệu chứng (journal) | Nguyên nhân | Làm gì |
+|---|---|---|
+| `thiếu cấu hình … TAU_AIS_KEY` (mã 2) | tệp env thiếu | sửa `~/.config/forlife/tau-ais.env` |
+| `bị chặn 403 ngay trang chủ` / `ô x/y bị chặn 403` | Cloudflare chặn hồ sơ (headless, hay bị đánh dấu) | không làm gì: lượt sau tự xoá `profile/`; vẫn 403 nhiều lượt ⇒ IP bị chặn, đổi mạng/đợi |
+| `gửi hỏng: HTTP 401 bad_key` | khoá lệch máy GPU ↔ app | dán lại khoá (bước 1) |
+| `gửi hỏng: HTTP 503 not_configured` | app chưa có khoá (DB lẫn env) | đặt khoá ở /quan-tri hoặc env Vercel |
+| `không có tàu nào — nguồn đổi định dạng?` | trang nguồn đổi URL/định dạng ô | chạy `--thu --anh`, soi `man-hinh.png`, sửa `TRANG_MO`/URL ô trong script |
+| Lớp trong app nói "bản lúc" cũ nhiều giờ | timer chết / lượt nào cũng hỏng | `systemctl --user status tau-ais-thu.timer`, journal |
+
 ## Escalation — KHÔNG được tự làm
 
 - 🔴 **Migration / RLS / schema** (`supabase/migrations/`, ref `znzgugvfhgmiszqgjulk`): KHÔNG tự apply lên remote. Dừng, hỏi user. Đi qua Supabase MCP có xác nhận.

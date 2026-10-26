@@ -208,6 +208,7 @@ import {
   type StormZone,
 } from "@/lib/fleet-density";
 import { subscribeOnline } from "@/lib/use-online";
+import { fetchTauAis, MAU_TAU, moTaTau, TAU_AIS_LAM_MOI_MS, tauGanDiem, tauGeoJson, tuoiTinLabel, tuoiTinPhut, type TauAisBan } from "@/lib/tau-ais";
 import { fetchSeaForecast } from "@/lib/sea";
 import { PORTS } from "@/data/ports";
 import {
@@ -254,7 +255,7 @@ const SEN_LOAI_CA = Object.keys(SPECIES_META);
 import {
   TheBaoHieu, TheChang, TheChatDay, TheDen, TheDiaDanh, TheDoSau, TheKhuTruBao, TheLuong, TheMocBao, TheRan, TheVung, TheXacTau,
   type ChatDayInfo, type LegInfo, type DenInfo, type DepthInfo, type DiaDanhInfo, type KhuTruBaoInfo, type LaneInfo, type MarkInfo,
-  type ReefInfo, type StormPtInfo, type VungInfo, type XacTauInfo,
+  type ReefInfo, type StormPtInfo, type VungInfo, type XacTauInfo, type TauAisInfo, TheTauAis,
 } from "@/components/ban-do/the-thong-tin";
 import { kepTheTrongKhung } from "@/components/ban-do/kep-the";
 import { BangChuGiai, SEAMARK_HIT_LAYERS, CLUSTER_HIT_LAYERS, SEAMARK_FAR, SEAMARK_MID, SEAMARK_AN, SEAMARK_ICON_LAYOUT, KHONG_PHAI_CUM, cumLayers, type LegendRow } from "@/components/ban-do/hai-do";
@@ -474,6 +475,7 @@ import {
   LockIcon,
   MoonIcon,
   RadarIcon,
+  NavArrowIcon,
   PauseIcon,
   PinIcon,
   PlayIcon,
@@ -761,6 +763,14 @@ export default function FishingMapView() {
   const [fleetGear, setFleetGear] = useState<DensityGear>("tat");
   const [fleetWind, setFleetWind] = useState<WindStation[] | null>(null);
   const [fleetRetry, setFleetRetry] = useState(0);
+  // TÀU XUNG QUANH (AIS, 2026-10-26): bản vị trí tàu máy thu gửi ~10 phút (lib/tau-ais) — miễn phí cho mọi
+  // tài khoản, chấm điểm nên KHÔNG loại trừ lớp nào; mất sóng dùng bản máy đã lưu (aisTuKho ⇒ nói "bản lúc …").
+  const [aisOn, setAisOn] = useState(false);
+  const [aisBan, setAisBan] = useState<TauAisBan | null>(null);
+  const [aisTuKho, setAisTuKho] = useState(false);
+  const [aisState, setAisState] = useState<"idle" | "loading" | "error" | "ok">("idle");
+  const [aisRetry, setAisRetry] = useState(0);
+  const aisGeo = useMemo(() => (aisOn && aisBan ? tauGeoJson(aisBan) : null), [aisOn, aisBan]);
   // xem trước nội bộ: chỉ tài khoản trong danh sách mới thấy nút + được tải lưới
   const { phone: authPhone } = useAuthUser();
   // không có phiên Supabase (chuỗi thiết bị) thì lùi về SĐT chủ sổ server đã xác nhận khi đồng bộ
@@ -925,6 +935,30 @@ export default function FishingMapView() {
     if (!fleetOn || !fleetAllowed) return;
     return subscribeOnline(() => setFleetRetry((n) => n + 1));
   }, [fleetOn, fleetAllowed]);
+  useEffect(() => {
+    // tải khi bật + làm mới mỗi 5 phút khi còn bật; lỗi (chưa có bản nào, kể cả trong máy) ⇒ "error", chạm thử lại
+    if (!aisOn) return;
+    let alive = true;
+    const tai = () => {
+      setAisState((st) => (st === "ok" ? st : "loading"));
+      fetchTauAis()
+        .then(({ ban, tuKho }) => {
+          if (!alive) return;
+          setAisBan(ban);
+          setAisTuKho(tuKho);
+          setAisState("ok");
+        })
+        .catch(() => {
+          if (alive) setAisState("error");
+        });
+    };
+    tai();
+    const id = window.setInterval(tai, TAU_AIS_LAM_MOI_MS);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [aisOn, aisRetry]);
   /* CHƯA CHẮC LÀ PREMIUM — dùng cho MỌI quyết định "xin bao nhiêu ngày".
      LỖI ĐÃ SỬA (2026-08-02): lúc mới mở màn `premiumAccess` là "checking" nên
      `premiumLocked` = false ⇒ app xin thẳng khung 16 ngày, mà máy chủ chắc
@@ -1607,6 +1641,7 @@ export default function FishingMapView() {
       chiếu nhịp chớp ngoài kia với con số trên màn, việc đó mất vài chục giây. */
   const [denInfo, setDenInfo] = useState<DenInfo | null>(null);
   const [xacTauInfo, setXacTauInfo] = useState<XacTauInfo | null>(null);
+  const [tauAisInfo, setTauAisInfo] = useState<TauAisInfo | null>(null);
   /*  Sheet con nước của MỘT trạm — mở khi chạm chấm trạm trên bản đồ hoặc bấm
       "Cả tháng" trong thẻ con nước của sheet điểm. `km` = trạm cách
       chỗ đang hỏi (0 khi chạm thẳng vào trạm) — để câu độ-tin nói đúng. */
@@ -1725,6 +1760,7 @@ export default function FishingMapView() {
     setDepthInfo(null);
     setDenInfo(null);
     setXacTauInfo(null);
+    setTauAisInfo(null);
     setChatDayInfo(null);
     setKhuTruBaoInfo(null);
     setVungInfo(null);
@@ -4492,6 +4528,8 @@ export default function FishingMapView() {
     /*  Xác tàu chạm được — tên tàu, năm, độ sâu vượt qua (nếu nhà nước
         ghi) và số thông báo tra ngược. */
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && xacTauGeo) ids.push("xac-tau");
+    /*  Chấm TÀU XUNG QUANH (AIS) chạm được — tên, loại, tốc độ, tin cũ bao lâu. Không theo công tắc hải đồ. */
+    if (aisGeo) ids.push("tau-ais-dot");
     /*  Báo hiệu chính thức chạm được — nó mang số hiệu + câu tác dụng của
         nhà nước, thứ lớp OSM không có. */
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && vnAidGeo) ids.push("vn-aid", "vn-aid-cum");
@@ -4509,7 +4547,7 @@ export default function FishingMapView() {
     // chạm MỐC bão (đã qua / dự báo) để bật popup thông tin mốc đó (A)
     if (trackGeo) ids.push("storm-moc-toi", "storm-moc-qua");
     return ids.length ? ids : undefined;
-  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo, prefs.vungQuanLy, vungQuanLyGeo]);
+  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo, prefs.vungQuanLy, vungQuanLyGeo, aisGeo]);
   /*  LỚP BẮT CHẠM ĐÃ DỰNG THẬT (lỗi bắt khi rà 2026-10-20): `hitLayers` tính từ
       STATE (dữ liệu đã tải, công tắc bật) nhưng lớp chỉ vào style sau một nhịp
       vẽ — nhất là lúc đổi lớp nền (setStyle dựng lại cả style). Chạm đúng khe đó
@@ -4807,6 +4845,7 @@ export default function FishingMapView() {
       })),
     };
   }, [fleetCells, fleetData]);
+  const aisAtPoint = useMemo(() => (aisOn && aisBan ? tauGanDiem(aisBan.tau, point.lat, point.lon) : null), [aisOn, aisBan, point]);
 
   // điểm NÓNG (hồng tâm chạm-là-tới): ô điểm cao, cách nhau ≥0.7° cho khỏi
   // chùm, tối đa 8. ƯU TIÊN KHU VỰC GẦN MÌNH: cộng điểm thưởng cho ô gần cảng
@@ -5532,6 +5571,16 @@ export default function FishingMapView() {
               return;
             }
           }
+          /*  CHẠM CHẤM TÀU AIS ⇒ thẻ tên/loại/tốc độ/tin cũ bao lâu — DỪNG (anh Long 26/10: "sao không click vô 1 tàu được"). */
+          const hitTauAis = measureMode ? undefined : nearFeats.find((f) => f.layer?.id === "tau-ais-dot");
+          if (hitTauAis && aisBan) {
+            const tid = String(hitTauAis.properties?.id ?? "");
+            const tt = aisBan.tau.find((v) => v.id === tid);
+            if (tt) {
+              setTauAisInfo({ t: tt, luc: aisBan.luc, tuKho: aisTuKho, px: e.point.x, py: e.point.y });
+              return;
+            }
+          }
           /*  CHẠM XÁC TÀU ⇒ thẻ nói vật gì, chìm năm nào, tránh ra sao — DỪNG. */
           const hitXacTau = measureMode
             ? undefined
@@ -6171,6 +6220,35 @@ export default function FishingMapView() {
               id="fleet-grid-line"
               type="line"
               paint={{ "line-color": "#ffffff", "line-width": 0.6, "line-opacity": 0.7 }}
+            />
+          </Source>
+        )}
+
+        {/* TÀU XUNG QUANH (AIS) — chấm theo loại, tàu cá cam nổi bật, tàu lớn xám; viền trắng để nổi trên mọi nền */}
+        {aisGeo && (
+          <Source id="tau-ais" type="geojson" data={aisGeo}>
+            <Layer
+              id="tau-ais-dot"
+              type="circle"
+              paint={{
+                "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2.2, 9, 4.5, 12, 7] as unknown as number,
+                "circle-color": [
+                  "match",
+                  ["get", "nhom"],
+                  "ca",
+                  MAU_TAU.ca,
+                  "hang",
+                  MAU_TAU.hang,
+                  "dau",
+                  MAU_TAU.dau,
+                  "khach",
+                  MAU_TAU.khach,
+                  MAU_TAU.khac,
+                ] as unknown as string,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": 0.8,
+                "circle-opacity": 0.9,
+              }}
             />
           </Source>
         )}
@@ -7572,6 +7650,7 @@ export default function FishingMapView() {
            nhà nước ghi (1/38 tin có — TBHH VN hiếm khi in con số này) + số
            thông báo để tra ngược. KHÔNG tự tắt. */}
       {xacTauInfo && <TheXacTau info={xacTauInfo} onClose={() => setXacTauInfo(null)} prefs={prefs} />}
+      {tauAisInfo && <TheTauAis info={tauAisInfo} onClose={() => setTauAisInfo(null)} prefs={prefs} now={nowMs} />}
 
       {/*  ĐÈN NÀO ĐÂY (2026-09-02).
 
@@ -8097,6 +8176,13 @@ export default function FishingMapView() {
             fleetThinBase={!!fleetForecast?.thinBase}
             fleetBaseDays={fleetForecast?.baseDays ?? 0}
             onFleetRetry={() => setFleetRetry((n) => n + 1)}
+            aisOn={aisOn}
+            onAis={setAisOn}
+            aisState={aisState}
+            aisSoTau={aisBan?.soTau ?? 0}
+            aisLuc={aisBan?.luc ?? null}
+            aisTuKho={aisTuKho}
+            onAisRetry={() => setAisRetry((n) => n + 1)}
             stormInfo={stormInfo}
             showPlaces={showPlaces}
             onShowPlaces={setShowPlaces}
@@ -8892,6 +8978,27 @@ export default function FishingMapView() {
                 </div>
               ) : null}
 
+              {/* TÀU XUNG QUANH (AIS): tàu gần điểm chạm nhất trong 3 km — tên, loại, tốc độ, tin cũ bao lâu */}
+              {aisAtPoint && aisBan && (
+                <div className="flex items-start gap-2.5 surface p-3.5">
+                  <span className="mt-0.5 shrink-0" style={{ color: MAU_TAU[aisAtPoint.tau.loai === 2 ? "ca" : "hang"] }}>
+                    <NavArrowIcon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[0.9375rem] leading-snug text-foreground/80">
+                      <b>{aisAtPoint.tau.ten ?? "Tàu chưa rõ tên"}</b> — cách điểm chạm {aisAtPoint.km < 1 ? `${Math.round(aisAtPoint.km * 1000)} m` : `${aisAtPoint.km.toFixed(1)} km`}
+                    </p>
+                    <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
+                      {moTaTau(aisAtPoint.tau)}
+                      {aisAtPoint.tau.dich ? ` · đến ${aisAtPoint.tau.dich}` : ""}
+                    </p>
+                    <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/60">
+                      Tin {tuoiTinLabel(tuoiTinPhut(aisAtPoint.tau, aisBan, nowMs))}
+                      {aisTuKho ? " · bản lưu trong máy" : ""}
+                    </p>
+                  </div>
+                </div>
+              )}
               {/* MẬT ĐỘ TÀU DỰ KIẾN tại ô + "cá vùng này hay có" (anh Long 25/10: không ghi "đánh") — chỉ khi lớp đang bật */}
               {fleetAtPoint && (
                 <div className="flex items-start gap-2.5 surface p-3.5">

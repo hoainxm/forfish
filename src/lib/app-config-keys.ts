@@ -9,6 +9,7 @@ export type ConfigKey =
   | "data_key_current"
   | "data_key_prev"
   | "kairos_ingest_key"
+  | "tau_ais_key"
   | "sdvico_lead_key";
 
 export interface ConfigKeyMeta {
@@ -100,6 +101,19 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     generate: "hex32",
     help: "Máy thu tin trên máy GPU gửi kèm khoá này. Bấm Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào tệp env của máy GPU (KAIROS_INGEST_KEY).",
   },
+  /*  KHOÁ MÁY THU TÀU AIS (2026-10-26): máy GPU nhà đọc web nguồn AIS rồi gửi bản vị trí tàu quanh
+      biển VN lên POST /api/tau-ais/nhap kèm header `x-tau-ais-key`. Cùng luật env-thắng như Kairos
+      (env TAU_AIS_KEY đè); thiếu cả hai ⇒ route 503. */
+  {
+    key: "tau_ais_key",
+    label: "Khoá máy thu tàu AIS",
+    risk: "Đổi khoá mà chưa đổi trên máy thu ở nhà là lớp Tàu xung quanh ngừng cập nhật (bà con vẫn thấy bản cũ, có giờ).",
+    secret: true,
+    envVar: "TAU_AIS_KEY",
+    envFirst: true,
+    generate: "hex32",
+    help: "Máy thu AIS trên máy GPU gửi kèm khoá này. Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào ~/.config/forlife/tau-ais.env (TAU_AIS_KEY).",
+  },
   /*  KHOÁ LẤY PHIẾU KHÁCH SDVICO (14 §3.14, 0072, 2026-10-25): AI Assistant (máy nhà) lấy phiếu khách hỏi sản phẩm qua
       GET /api/sdvico/khach-hoi và báo đã nhắn nhóm Zalo KD qua POST …/da-bao, kèm khoá ở header `x-sdvico-key`. Thiếu
       khoá ⇒ hai route 503 (phiếu vẫn nhận, nằm chờ). */
@@ -142,6 +156,7 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
     case "cron_secret":
       return v.length >= 16 && !/\s/.test(v);
     case "kairos_ingest_key":
+    case "tau_ais_key":
     case "sdvico_lead_key":
       // khoá chung với máy GPU / AI Assistant — đủ dài để không đoán được, không khoảng trắng (dán lỗi)
       return v.length >= 32 && v.length <= 200 && !/\s/.test(v);

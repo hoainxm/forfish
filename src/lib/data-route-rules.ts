@@ -43,6 +43,7 @@ export const DATA_ROUTE_MATCHER = [
   "/api/port-prices",
   "/api/port-prices/history",
   "/api/fuel-price",
+  "/api/tau-ais",
   "/api/tiles/:src/:z/:x/:y",
 ] as const;
 
@@ -82,6 +83,8 @@ export function dataRouteRule(pathname: string, search: URLSearchParams): DataRo
     "/api/port-prices",
     "/api/port-prices/history",
     "/api/fuel-price",
+    // tàu xung quanh (AIS) — lớp bản đồ miễn phí, bản gọn vài trăm KB nên xô data
+    "/api/tau-ais",
   ]);
   if (free.has(p)) return { premium: false, bucket: "data", rate: RATES.data };
   return null;

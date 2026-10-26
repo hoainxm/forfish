@@ -34,6 +34,7 @@ export const config = {
     "/api/port-prices",
     "/api/port-prices/history",
     "/api/fuel-price",
+    "/api/tau-ais",
     "/api/tiles/:src/:z/:x/:y",
   ],
 };

@@ -49,8 +49,8 @@ describe("resolveConfigCell — DB đè env, che secret", () => {
     expect(resolveConfigCell("dbval", " ", false, true)).toEqual({ source: "db", set: true, value: "dbval", overridden: false });
     expect(resolveConfigCell(undefined, undefined, true, true)).toEqual({ source: "none", set: false, value: null, overridden: false });
   });
-  it("chỉ khoá nhập tin Kairos đi theo env-thắng — các khoá khác giữ DB đè env", () => {
-    expect(CONFIG_KEYS.filter((k) => k.envFirst).map((k) => k.key)).toEqual(["kairos_ingest_key"]);
+  it("chỉ khoá máy thu ở nhà (Kairos, tàu AIS) đi theo env-thắng — các khoá khác giữ DB đè env", () => {
+    expect(CONFIG_KEYS.filter((k) => k.envFirst).map((k) => k.key)).toEqual(["kairos_ingest_key", "tau_ais_key"]);
   });
 });
 

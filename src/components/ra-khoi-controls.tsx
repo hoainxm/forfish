@@ -24,6 +24,7 @@ import {
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
 import { DENSITY_GEARS, FLEET_FORECAST_DAYS, addDaysIso, type DensityGear } from "@/lib/fleet-density";
+import { MAU_TAU } from "@/lib/tau-ais";
 import type { FeatureAccess } from "@/lib/tier";
 import { PremiumLock } from "@/components/premium-gate";
 import { type StormStatus } from "@/lib/storms";
@@ -54,6 +55,7 @@ import {
   PinIcon,
   PlusIcon,
   RadarIcon,
+  NavArrowIcon,
   RouteIcon,
   RulerIcon,
   SettingsIcon,
@@ -136,6 +138,13 @@ export function RaKhoiControls({
   fleetThinBase,
   fleetBaseDays,
   onFleetRetry,
+  aisOn,
+  onAis,
+  aisState,
+  aisSoTau,
+  aisLuc,
+  aisTuKho,
+  onAisRetry,
   stormInfo,
   showPlaces,
   onShowPlaces,
@@ -261,6 +270,14 @@ export function RaKhoiControls({
   fleetThinBase: boolean;
   fleetBaseDays: number;
   onFleetRetry: () => void;
+  /** TÀU XUNG QUANH (AIS, 2026-10-26): miễn phí; aisLuc = giờ bản; aisTuKho = đang dùng bản lưu trong máy */
+  aisOn: boolean;
+  onAis: (on: boolean) => void;
+  aisState: "idle" | "loading" | "error" | "ok";
+  aisSoTau: number;
+  aisLuc: string | null;
+  aisTuKho: boolean;
+  onAisRetry: () => void;
   /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
       rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
   stormInfo: StormStatus;
@@ -537,6 +554,13 @@ export function RaKhoiControls({
                   fleetThinBase={fleetThinBase}
                   fleetBaseDays={fleetBaseDays}
                   onFleetRetry={onFleetRetry}
+                  aisOn={aisOn}
+                  onAis={onAis}
+                  aisState={aisState}
+                  aisSoTau={aisSoTau}
+                  aisLuc={aisLuc}
+                  aisTuKho={aisTuKho}
+                  onAisRetry={onAisRetry}
                 />
               )}
               {open === "thoi-tiet" && (
@@ -1079,6 +1103,13 @@ function NguTruongPanel({
   fleetThinBase,
   fleetBaseDays,
   onFleetRetry,
+  aisOn,
+  onAis,
+  aisState,
+  aisSoTau,
+  aisLuc,
+  aisTuKho,
+  onAisRetry,
 }: {
   fishOn: boolean;
   onFish: (on: boolean) => void;
@@ -1105,6 +1136,14 @@ function NguTruongPanel({
   fleetThinBase: boolean;
   fleetBaseDays: number;
   onFleetRetry: () => void;
+  /** TÀU XUNG QUANH (AIS, 2026-10-26): miễn phí; aisLuc = giờ bản; aisTuKho = đang dùng bản lưu trong máy */
+  aisOn: boolean;
+  onAis: (on: boolean) => void;
+  aisState: "idle" | "loading" | "error" | "ok";
+  aisSoTau: number;
+  aisLuc: string | null;
+  aisTuKho: boolean;
+  onAisRetry: () => void;
 }) {
   const fishLocked = fishAccess === "login" || fishAccess === "upgrade";
   // Chọn loài XỔ RA ngay trong panel (dropdown), KHÔNG swap view/đổi bề rộng
@@ -1187,6 +1226,39 @@ function NguTruongPanel({
             </div>
           )}
         </>
+      )}
+
+      {/* TÀU XUNG QUANH (AIS, 2026-10-26): vị trí tàu đang phát AIS quanh biển VN, máy thu ở nhà đẩy lên
+          ~10 phút một bản — miễn phí, không loại trừ lớp nào. Dòng trạng thái nói thật: số tàu + giờ bản,
+          bản lưu trong máy khi mất sóng, chạm thử lại khi chưa có bản nào.
+          XEM TRƯỚC NỘI BỘ (anh Long 26/10: "cái lớp AIS này cũng chỉ acc 0938635689"): cùng cổng
+          `fleetAllowed` (canSeeDensity) với Mật độ tàu — người khác không thấy mục này. */}
+      {fleetAllowed && (
+      <div className="mt-2">
+        <Toggle
+          label="Tàu xung quanh"
+          sub="Đang phát AIS · ~10 phút một bản"
+          on={aisOn}
+          onToggle={() => onAis(!aisOn)}
+          icon={
+            <span style={{ color: MAU_TAU.ca }}>
+              <NavArrowIcon className="h-5 w-5" />
+            </span>
+          }
+        />
+        {aisOn && aisState === "loading" && <p className="mt-1.5 px-1 text-[0.75rem] text-foreground/60">Đang tải vị trí tàu…</p>}
+        {aisOn && aisState === "error" && (
+          <button type="button" onClick={onAisRetry} className="mt-1.5 w-full rounded-xl bg-field px-3 py-2 text-left text-[0.8125rem] text-foreground/75 active:scale-[0.99]">
+            Chưa tải được vị trí tàu — cần có sóng lần đầu. Chạm để thử lại.
+          </button>
+        )}
+        {aisOn && aisState === "ok" && aisLuc && (
+          <p className="mt-1.5 px-1 text-[0.75rem] text-foreground/60">
+            {aisSoTau.toLocaleString("vi-VN")} tàu · bản lúc {new Date(aisLuc).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+            {aisTuKho ? " · đang mất sóng, dùng bản lưu trong máy" : ""}
+          </p>
+        )}
+      </div>
       )}
 
       {/* MẬT ĐỘ TÀU DỰ KIẾN (2026-10-25): ước tính để tham khảo, chữ chỉ nói "mật độ tàu", không nói

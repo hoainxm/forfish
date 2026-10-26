@@ -56,7 +56,7 @@ describe("dataRouteRule", () => {
   });
 
   it("các route dữ liệu còn lại: đòi tài khoản, xô data, không premium", () => {
-    for (const p of ["/api/currents-depth", "/api/sea-scalar", "/api/salinity", "/api/storms", "/api/nautical", "/api/port-prices", "/api/port-prices/history", "/api/fuel-price"]) {
+    for (const p of ["/api/currents-depth", "/api/sea-scalar", "/api/salinity", "/api/storms", "/api/nautical", "/api/port-prices", "/api/port-prices/history", "/api/fuel-price", "/api/tau-ais"]) {
       expect(dataRouteRule(p, q("days=10")), p).toEqual({ premium: false, bucket: "data", rate: RATES.data });
     }
   });
