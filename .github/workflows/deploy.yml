@@ -91,6 +91,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          check-latest: true # luôn lấy bản vá bảo mật mới nhất của dòng 22 (runner cache có thể giữ bản cũ)
 
       # 3. Cài gói CHỈ khi package-lock.json hoặc bản Node đổi.
       - name: Install dependencies (only when lockfile changes)

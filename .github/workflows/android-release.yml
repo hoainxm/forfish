@@ -76,6 +76,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          check-latest: true # luôn lấy bản vá bảo mật mới nhất của dòng 22 (runner cache có thể giữ bản cũ)
           cache: "npm"
       - run: npm ci
 
