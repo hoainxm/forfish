@@ -34,7 +34,19 @@
 
 import { setSenSignal } from "@/lib/sen-bien-state";
 import { Capacitor } from "@capacitor/core";
-import { QueueStrategy, TextToSpeech } from "@capacitor-community/text-to-speech";
+/*  Plugin giọng native NẠP ĐỘNG (2026-10-26): `dist/esm/index.js` của gói chạy
+    `'speechSynthesis' in window` NGAY LÚC NẠP ⇒ import tĩnh làm chết prerender
+    mọi trang kéo tts.ts vào (`/cho/gio`, `/tien` qua boat-switcher → hoi-tung-cau,
+    deploy 8262833a đỏ). Chỉ native mới cần gói này; web đọc bằng speechSynthesis. */
+type TtsPlugin = typeof import("@capacitor-community/text-to-speech");
+let ttsPluginP: Promise<TtsPlugin> | null = null;
+function nativeTts(): Promise<TtsPlugin> {
+  ttsPluginP ??= import("@capacitor-community/text-to-speech").catch((e) => {
+    ttsPluginP = null; // nạp hỏng (mất chunk) ⇒ lần sau thử lại, không kẹt lỗi mãi
+    throw e;
+  });
+  return ttsPluginP;
+}
 import clipCatalog from "@/data/giong-sen-bien.json";
 // nợ: danh mục mảnh (~90 KB, gzip ~30 KB) nằm trong bundle màn bản đồ vì speechParts đồng bộ; nâng thành tải lười khi danh mục quá ~300 KB
 import manhCatalog from "@/data/giong-sen-bien-manh.json";
@@ -93,6 +105,10 @@ function isNative(): boolean {
     return false;
   }
 }
+
+// Nạp sẵn plugin khi app native vừa mở (thường còn sóng) — cảnh báo đầu tiên
+// ngoài biển không phải chờ/tải chunk. Server/web: không làm gì.
+if (typeof window !== "undefined" && isNative()) void nativeTts().catch(() => {});
 
 function webSupported(): boolean {
   return (
@@ -610,7 +626,7 @@ export async function ttsCheck(): Promise<TtsAvail> {
   if (isNative()) {
     try {
       const r = await Promise.race([
-        TextToSpeech.isLanguageSupported({ lang: LANG }),
+        nativeTts().then((m) => m.TextToSpeech.isLanguageSupported({ lang: LANG })),
         new Promise<{ supported: boolean }>((res) => setTimeout(() => res({ supported: false }), 2500)),
       ]);
       return {
@@ -659,7 +675,8 @@ export function ttsUnlock(): void {
     một lần; hỏng thì để engine tự chọn theo `lang`. */
 let nativeVoiceP: Promise<number | undefined> | null = null;
 function nativeVoice(): Promise<number | undefined> {
-  nativeVoiceP ??= TextToSpeech.getSupportedVoices()
+  nativeVoiceP ??= nativeTts()
+    .then((m) => m.TextToSpeech.getSupportedVoices())
     .then(({ voices: list }) => {
       let best: number | undefined;
       let bestR = Infinity;
@@ -689,7 +706,7 @@ function synthPart(text: string, rate: number, done: (ok: boolean) => void): () 
   };
 
   if (isNative()) {
-    void nativeVoice().then((voice) => {
+    void Promise.all([nativeVoice(), nativeTts()]).then(([voice, { TextToSpeech, QueueStrategy }]) => {
       if (over) return;
       TextToSpeech.speak({
         text,
@@ -706,10 +723,10 @@ function synthPart(text: string, rate: number, done: (ok: boolean) => void): () 
         .then(() => finish(true))
         // speak() xong (hoặc bị stop()) thì promise mới settle — `finish` chống gọi đôi
         .catch(() => finish(false));
-    });
+    }, () => finish(false)); // nạp plugin hỏng ⇒ coi như engine không phát (đi lùi như cũ)
     return () => {
       over = true;
-      TextToSpeech.stop().catch(() => {});
+      void nativeTts().then((m) => m.TextToSpeech.stop()).catch(() => {});
     };
   }
 
@@ -940,7 +957,7 @@ export function ttsCancel(): void {
     /* đã dừng */
   }
   if (isNative()) {
-    TextToSpeech.stop().catch(() => {});
+    void nativeTts().then((m) => m.TextToSpeech.stop()).catch(() => {});
     return;
   }
   if (!webSupported()) return;
@@ -955,7 +972,7 @@ export function ttsCancel(): void {
 export async function ttsOpenInstall(): Promise<void> {
   if (!isNative()) return;
   try {
-    await TextToSpeech.openInstall();
+    await (await nativeTts()).TextToSpeech.openInstall();
   } catch {
     /* máy không có màn này */
   }
