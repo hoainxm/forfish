@@ -85,6 +85,24 @@
       },
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "forfish-dev-3056",
+      "url": "http://localhost:3056",
+      "port": 3056
+    },
+    {
+      "name": "forfish-cho-sen-bien",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:cho"
+      ],
+      "env": {
+        "CREW_CCCD_PEPPER": "dev-chi-thu-sen-bien-khong-phai-muoi-that"
+      },
+      "port": 3020,
+      "autoPort": true
     }
   ]
 }
