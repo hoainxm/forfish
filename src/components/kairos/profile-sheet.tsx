@@ -108,7 +108,7 @@ export function ProfileSheet({ me, onClose, onSaved }: { me: KairosMe; onClose: 
       onSaved(r.data.me);
       return;
     }
-    if (r.code.startsWith("handle_") || r.code === "bad_words" || r.code === "sovereignty") setHandleErr(errorText(r, "ten"));
+    if (r.code.startsWith("handle_") || r.code === "bad_words" || r.code === "sovereignty" || r.code === "anti_state") setHandleErr(errorText(r, "ten"));
     else setErr(errorText(r, "gioiThieu" in body && r.code === "too_long" ? "ho-so" : "ten"));
   };
 

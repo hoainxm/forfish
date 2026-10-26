@@ -41,11 +41,34 @@ describe("luat-kiem-duyet — luật cứng chủ quyền (không qua mô hình)
   });
 });
 
+describe("luat-kiem-duyet — luật cứng chống phá (2026-10-26)", () => {
+  it("bài/bình luận bà con có khẩu hiệu chống phá ⇒ chặn ngay, điểm 1, lý do [chong-pha]", () => {
+    const [m] = mucTuHangCho({ posts: [{ id: P1, kind: "ba-con", body: "Đả đảo cộng sản, lật đổ chế độ!" }] });
+    expect(kiemCung(m)).toMatchObject({ targetType: "post", targetId: P1, verdict: "chan", score: 1 });
+    expect(kiemCung(m)!.reason).toMatch(/^\[chong-pha\]/);
+    const [c] = mucTuHangCho({ comments: [{ id: C1, postId: P1, body: "vnch muon nam" }] });
+    expect(kiemCung(c)?.reason).toMatch(/^\[chong-pha\]/);
+  });
+  it("bài BÁO đưa tin vụ án ⇒ không luật cứng (mô hình chấm); góp ý chính sách ⇒ null", () => {
+    const [b] = mucTuHangCho({ posts: [{ id: P1, kind: "bao", body: "Đả đảo cộng sản — khẩu hiệu nhóm đối tượng hô trước khi bị bắt" }] });
+    expect(kiemCung(b)).toBeNull();
+    const [g] = mucTuHangCho({ posts: [{ id: P2, kind: "ba-con", body: "Mong nhà nước xem lại giá dầu cho ngư dân" }] });
+    expect(kiemCung(g)).toBeNull();
+  });
+  it("bộ luật có chong-pha (mức chan, áp cả báo lẫn bà con) + phiên bản mới", () => {
+    const l = LUAT.find((x) => x.ma === "chong-pha");
+    expect(l).toMatchObject({ nang: "chan", ap: ["bao", "ba-con"] });
+    expect(l!.mo_ta).toMatch(/lật đổ/);
+    expect(l!.mo_ta).toMatch(/BÌNH THƯỜNG/);
+    expect(LUAT_PHIEN_BAN).toBe("kd-2026-10-26.1");
+  });
+});
+
 describe("luat-kiem-duyet — prompt", () => {
   const p = promptKiem(mucTuHangCho(HANG_CHO));
   it("có đủ mã luật, phiên bản, câu chủ quyền, nội dung là DỮ LIỆU", () => {
     for (const l of LUAT) expect(p).toContain(`- ${l.ma} `);
-    for (const ma of ["chu-quyen", "tin-sai", "giat-gan", "quang-cao", "kich-dong", "lua-dao"]) expect(LUAT.map((l) => l.ma)).toContain(ma);
+    for (const ma of ["chu-quyen", "chong-pha", "tin-sai", "giat-gan", "quang-cao", "kich-dong", "lua-dao"]) expect(LUAT.map((l) => l.ma)).toContain(ma);
     expect(p).toContain(LUAT_PHIEN_BAN);
     expect(p).toContain("Biển Đông");
     expect(p).toContain("quần đảo Hoàng Sa, Trường Sa của Việt Nam");

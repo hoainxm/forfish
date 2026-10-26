@@ -55,6 +55,13 @@ describe("validatePost — bài bà con", () => {
     expect(codeOf(post({ body: "Tàu ra Hoàng Sa đánh cá" }))).toBe("ok");
   });
 
+  it("khẩu hiệu chống phá ⇒ anti_state ngay ở route (2026-10-26); góp ý chính sách ⇒ ok", () => {
+    expect(codeOf(post({ body: "Đả đảo cộng sản!" }))).toBe("anti_state");
+    expect(codeOf(post({ body: "vnch muon nam" }))).toBe("anti_state");
+    expect(codeOf(post({ body: "Mong nhà nước hỗ trợ giá dầu cho bà con" }))).toBe("ok");
+    expect(codeOf(post({ body: "Bắt nhóm âm mưu lật đổ chính quyền" }))).toBe("ok");
+  });
+
   it("reshareOf phải là uuid", () => {
     expect(codeOf(post({ reshareOf: "abc" }))).toBe("empty");
   });
