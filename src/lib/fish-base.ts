@@ -10,7 +10,9 @@
  *   season prior mùa vụ của loài (seasonPrior, ∈ [0,1])
  * Gộp bằng ≤5 hệ số cho mỗi NHÓM loài (logistic use-availability), hoặc rank-combine không hệ số.
  *
- * THUẦN, chưa nối vào buildFishForecast (nối là đợt sau khi qua cổng). Lưới x lấy từ HAI lưới đã có
+ * THUẦN. ĐÃ NỐI vào buildFishForecast qua `extra.base` (2026-10-19, README §7.9); biến thể production = `irls`
+ * (`base_irls`, chủ dự án chọn — `mode` ghi trong fish-base.v1.json, sinh từ `BASE_MODE` mặc định "irls" của
+ * dl-eval-honest → fish-base-build). Lưới x lấy từ HAI lưới đã có
  * (fleet-effort-025 / species-catch-025) qua fleet-effort.ts ⇒ không thêm request, không thêm lưới theo ô.
  * Tệp tham số (`fish-base.v1.json`, vài chục KB) chỉ chứa K_s, bảng log-lift, hệ số, cờ tháng.
  */

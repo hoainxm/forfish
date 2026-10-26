@@ -9,8 +9,13 @@ import { BASE_LAT_BINS, type BaseParams } from "../fish-base";
 // Đọc file bằng readFileSync (không import JSON): cùng lý do với fish-blend.test.ts — build Vercel chạy TS trên file test.
 const fileBase = JSON.parse(readFileSync(join(process.cwd(), "src", "data", "fish-base.v1.json"), "utf8")) as BaseParams;
 
-/** Số đo production mới trên nhãn v2 (§7.9) — ghi để đổi nền mà tụt dưới mức này thì test nhắc phải đo lại */
-const MEASURED = { withinGear: 0.802, hotShare: 0.115, topOverMid: 2.3, fleetStaticWithinGear: 0.793 };
+/**
+ * Số đo production mới trên nhãn v2 (§7.9, B = 500 — logs-v3d "Bảng E", 2026-10-19) — ghi để đổi nền mà tụt dưới
+ * mức này thì test nhắc phải đo lại. Biến thể chủ dự án chọn = `base_irls` (nền logistic ≤5 hệ số/nhóm): 0,810 trên
+ * MỌI ô lưới đo; app chỉ vẽ ô trong tầm `REGION_REACH_DEG` của vùng biển VN + sàn `KEEP_MIN` ⇒ 0,802 (đo tách:
+ * bỏ KEEP_MIN 0,803, bỏ giới hạn vùng 0,809 — chênh là ô ngoài vùng biển VN, KHÔNG phải khác mô hình).
+ */
+const MEASURED = { withinGear: 0.802, baseIrlsWithinGear: 0.81, hotShare: 0.115, topOverMid: 2.3, fleetStaticWithinGear: 0.793 };
 
 const KEEP_MIN = 25; // sàn payload (fish-predict KEEP_MIN, không export)
 const lats = [12.525, 12.775, 13.025];
@@ -65,6 +70,17 @@ describe("tệp nền src/data/fish-base.v1.json", () => {
       expect(t.coast).toHaveLength(9);
       expect(t.lat).toHaveLength(BASE_LAT_BINS);
     }
+  });
+
+  it("biến thể production = base_irls (chủ dự án chọn 2026-10-19): mode irls, 4 nhóm có hệ số logistic thật", () => {
+    // rank-combine (base_rank 0,778) thua tĩnh −0,027 ⇒ không được làm production; đổi mode là đổi mô hình ⇒ đo lại
+    expect(fileBase.mode).toBe("irls");
+    for (const c of [...Object.values(fileBase.coef), ...Object.values(fileBase.coefNoCatch)]) {
+      expect(c.every(Number.isFinite)).toBe(true);
+      expect(c.slice(1).some((v) => v !== 0)).toBe(true); // không phải hệ số rỗng (fit hỏng ⇒ mọi ô bằng nhau)
+    }
+    // phần chênh base_irls ↔ production chỉ là miền vẽ (vùng biển VN) + sàn payload, không vượt 0,01
+    expect(MEASURED.baseIrlsWithinGear - MEASURED.withinGear).toBeLessThan(0.01);
   });
 
   it("số đo ghi lại thoả cổng 2A (bậc ≥75 ≥ 2× bậc dưới, ô ≥50 ≈ bản chốt 11,5 %)", () => {
