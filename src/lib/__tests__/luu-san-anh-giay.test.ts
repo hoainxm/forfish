@@ -44,13 +44,9 @@ describe("luuSanAnhGiay", () => {
       throw new TypeError("network");
     }));
     await expect(luuSanAnhGiay(["0901/a/1.jpg"])).resolves.toBe(0);
-    const goc = Object.getOwnPropertyDescriptor(navigator, "onLine");
-    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
-    try {
-      expect(await luuSanAnhGiay(["0901/b/2.jpg"])).toBe(0);
-    } finally {
-      if (goc) Object.defineProperty(navigator, "onLine", goc);
-      else delete (navigator as unknown as Record<string, unknown>).onLine;
-    }
+    // stubGlobal (không đè navigator.onLine): Node 20 của CI KHÔNG có navigator
+    // toàn cục (Node ≥21 mới có) ⇒ đụng thẳng là ReferenceError. afterEach gỡ lại.
+    vi.stubGlobal("navigator", { onLine: false });
+    expect(await luuSanAnhGiay(["0901/b/2.jpg"])).toBe(0);
   });
 });

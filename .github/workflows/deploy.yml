@@ -221,7 +221,12 @@ jobs:
         run: |
           $ErrorActionPreference = "Continue"
           $port = if ($env:PORT) { $env:PORT } else { "3000" }
-          $want = (git rev-parse --short HEAD).Trim()
+          # Mã bản mong đợi = SDFISH_BUILD_SHA (đúng mã build vừa nhúng vào /api/version),
+          # KHÔNG gọi git: 2026-10-26 git trên runner báo "dubious ownership" (workspace
+          # khác chủ với user chạy runner) ⇒ $want rỗng ⇒ bản mới chạy đúng vẫn bị rollback.
+          $want = "$env:SDFISH_BUILD_SHA".Trim()
+          # Rỗng thì DỪNG: "x".StartsWith("") = true ⇒ không chặn là bản nào cũng qua
+          if (-not $want) { Write-Host "Health FAIL: thieu SDFISH_BUILD_SHA"; exit 1 }
           $ok = $false; $got = ""
           foreach ($i in 1..20) {
             try {

@@ -118,6 +118,7 @@ git push origin main
 - Kích bằng `workflow_run` của `ci` (không còn `push`): ci đỏ/huỷ ⇒ KHÔNG deploy. Checkout đúng `head_sha` ci đã gác. Bấm tay (`workflow_dispatch`) vẫn được — tự chịu trách nhiệm.
 - `SDFISH_ENCODE_DATA=1` khai trong workflow + bước `encode-data.mjs --verify` trước khi đụng bản đang chạy ⇒ không bao giờ phát `public/data` bản rõ vì `.env` máy chủ thiếu cờ.
 - Trước khi tráo: `robocopy` bản đang chạy sang `C:\sdfish\forfish-prev`. Sau khi tráo: `GET /api/version` phải trả đúng mã commit (`SDFISH_BUILD_SHA`) trong ~60 s; sai/không lên ⇒ tự tráo lại `forfish-prev` + job ĐỎ.
+- Mã mong đợi lấy thẳng từ env `SDFISH_BUILD_SHA`, KHÔNG gọi `git` (2026-10-26): runner báo `fatal: detected dubious ownership` (workspace khác chủ với user chạy runner) ⇒ `git rev-parse` rỗng ⇒ bản mới chạy ĐÚNG vẫn bị rollback (`ba3c6f60`/`b9eee877`/`c3e12c60`, prod kẹt `562d36e8`). Env rỗng ⇒ job đỏ (không để `StartsWith("")` cho mọi bản qua). Bước nào sau `checkout` cần git trên runner thì phải tự `git config --global --add safe.directory <workspace>` trước.
 - Production thiếu env Supabase ⇒ route dữ liệu trả 503 `misconfigured` (lib/demo-mode.ts), không mở cổng. Thấy 503 này ngay sau deploy = `.env` sai.
 
 Chỗ nhanh lên, ĐỪNG gỡ ngược:
