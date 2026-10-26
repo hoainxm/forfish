@@ -15,9 +15,22 @@
 # ta sẽ học cách gõ --no-verify).
 name: ci
 
+#
+# TỐI ƯU THỜI GIAN (2026-10-26) — deploy.yml chờ ci XANH mới chạy, nên ci nằm
+# thẳng trên đường push → bản mới tới tay bà con:
+#   · BA JOB SONG SONG (lint · typecheck · test) thay một job nối đuôi ⇒ thời
+#     gian = cổng lâu nhất, không phải tổng. Mỗi job tự `npm ci` (có cache npm).
+#     deploy.yml nghe `workflow_run` của CẢ workflow ⇒ một job đỏ là không deploy.
+#   · Cache ESLint (`--cache-strategy content`, vì checkout đổi giờ sửa file) và
+#     tsbuildinfo (tsconfig `incremental`) ⇒ lần sau chỉ soi file đổi.
+#   · Push CHỈ sửa doc (docs/**, *.md) ⇒ không chạy ci ⇒ không deploy (không có
+#     gì đổi để phát). PR vẫn chạy đủ — không làm treo check bắt buộc của PR.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   pull_request: {}
 
 # Quyền tối thiểu (rà soát 2026-09-04, mục D): không khai là nhận MẶC ĐỊNH của
@@ -32,7 +45,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  gates:
+  lint:
     runs-on: ubuntu-latest
     # Trần thời gian (rà soát 2026-09-04, mục C): mặc định GitHub là 360 phút —
     # một lần treo tính đủ 6 giờ, bằng 18 % hạn mức tháng.
@@ -59,12 +72,56 @@ jobs:
       - name: Cú pháp vỏ offline (public/sw.js)
         run: node --check public/sw.js
 
+      # Cache kết quả lint theo NỘI DUNG file (giờ sửa đổi mỗi lần checkout).
+      # Đổi lockfile / eslint.config ⇒ khoá mới ⇒ lint lại từ đầu.
+      - uses: actions/cache@v4
+        with:
+          path: .eslintcache
+          key: eslint-${{ hashFiles('package-lock.json', 'eslint.config.mjs') }}-${{ github.sha }}
+          restore-keys: eslint-${{ hashFiles('package-lock.json', 'eslint.config.mjs') }}-
+
       - name: Lint
-        run: npm run lint
+        run: npm run lint -- --cache --cache-location .eslintcache --cache-strategy content
+
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Cài đúng bản trong lockfile
+        run: npm ci
+
+      # tsconfig `incremental: true` ⇒ tsc ghi tsconfig.tsbuildinfo (băm NỘI DUNG
+      # từng file) — giữ lại giữa các lượt thì chỉ kiểm file đổi + file phụ thuộc.
+      - uses: actions/cache@v4
+        with:
+          path: tsconfig.tsbuildinfo
+          key: tsc-${{ hashFiles('package-lock.json', 'tsconfig.json') }}-${{ github.sha }}
+          restore-keys: tsc-${{ hashFiles('package-lock.json', 'tsconfig.json') }}-
 
       - name: Typecheck
         run: npm run typecheck
 
-      # Chạy CUỐI vì đây là cổng đắt nhất và cũng là cổng nói nhiều nhất khi đỏ.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Cài đúng bản trong lockfile
+        run: npm ci
+
+      # Cổng đắt nhất — nay chạy SONG SONG với lint/typecheck, không phải chờ.
       - name: Test (gồm 7 cổng chặn khuôn lỗi)
         run: npm test

@@ -1,6 +1,7 @@
 name: Deploy Next.js via Self-hosted Runner
 
-# Tối ưu thời gian (2026-09-29, trước đó ~20 phút/lần) — xem ops/runbook.md "Deploy self-host":
+# Tối ưu thời gian (2026-09-29, trước đó ~20 phút/lần; vòng 2 2026-10-26: cài bù khi lockfile
+#   đổi + bỏ typecheck lúc build vì ci đã kiểm) — xem ops/runbook.md "Deploy self-host":
 #   - checkout clean:false  → giữ node_modules + .next/cache giữa các lần (không build lạnh)
 #   - npm ci CHỈ khi package-lock.json / bản Node đổi (node_modules 683 MB, 478 gói)
 #   - bỏ setup-node `cache: npm` (runner tự host đã có ~/.npm trên đĩa, khỏi up/down GitHub)
@@ -65,6 +66,10 @@ jobs:
       # VERCEL=1 hoặc cờ này. Trước đây workflow không khai ⇒ phụ thuộc .env trên
       # server có cờ hay không; thiếu là dữ liệu RÕ lên production mà build xanh.
       SDFISH_ENCODE_DATA: "1"
+      # BỎ TYPECHECK LÚC BUILD (2026-10-26, ~1/3 thời gian build) — CHỈ khi đến
+      # từ workflow_run: ci đã chạy `npm run typecheck` XANH trên đúng commit
+      # này. Bấm tay (workflow_dispatch) không qua ci ⇒ rỗng ⇒ vẫn kiểm.
+      SDFISH_SKIP_BUILD_TYPECHECK: ${{ github.event_name == 'workflow_run' && '1' || '' }}
       # Mã build = commit ĐANG build (next.config.ts), so ở bước health check.
       SDFISH_BUILD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
       NEXT_TELEMETRY_DISABLED: "1"
@@ -93,20 +98,40 @@ jobs:
           node-version: '20'
 
       # 3. Cài gói CHỈ khi package-lock.json hoặc bản Node đổi.
+      #    CÀI BÙ thay `npm ci` (2026-10-26): `npm ci` XOÁ SẠCH node_modules (683 MB)
+      #    rồi cài lại từ đầu — đo thật run #61: 8 phút 23 giây trên runner Windows.
+      #    `npm install` trên node_modules sẵn có chỉ thêm/gỡ/nâng gói KHÁC lockfile
+      #    (npm 7+ tự dọn gói thừa) ⇒ thường < 1 phút. Cài bù hỏng (node_modules
+      #    rách, lệch Node ABI…) ⇒ lùi `npm ci` sạch như cũ. Chưa có node_modules
+      #    (runner mới) ⇒ `npm ci` thẳng. Bản Node đổi ⇒ `npm ci` (gói native phải
+      #    build lại theo ABI mới, cài bù không làm việc đó).
       - name: Install dependencies (only when lockfile changes)
         shell: powershell
         run: |
           # npm in "npm warn …" ra stderr — đừng để PowerShell coi là lỗi; xét $LASTEXITCODE
           $ErrorActionPreference = "Continue"
-          $hash = (Get-FileHash package-lock.json -Algorithm SHA256).Hash + "|" + (node -v)
+          $nodeV = (node -v).Trim()
+          $hash = (Get-FileHash package-lock.json -Algorithm SHA256).Hash + "|" + $nodeV
           $mark = "node_modules\.deploy-lock-hash"
-          if ((Test-Path $mark) -and ((Get-Content $mark -Raw).Trim() -eq $hash)) {
-            Write-Host "package-lock.json + Node unchanged - skip npm ci"
-          } else {
+          $old = if (Test-Path $mark) { (Get-Content $mark -Raw).Trim() } else { "" }
+          if ($old -eq $hash) {
+            Write-Host "package-lock.json + Node unchanged - skip install"
+            exit 0
+          }
+          $sameNode = $old -and $old.EndsWith("|" + $nodeV)
+          $done = $false
+          if ($sameNode -and (Test-Path "node_modules")) {
+            Write-Host "Lockfile changed - incremental npm install"
+            npm install --prefer-offline --no-audit --no-fund
+            $done = ($LASTEXITCODE -eq 0)
+            if (-not $done) { Write-Host "Incremental install failed - fallback to clean npm ci" }
+          }
+          if (-not $done) {
             npm ci --prefer-offline --no-audit --no-fund
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            Set-Content -Path $mark -Value $hash -Encoding ascii
           }
+          Set-Content -Path $mark -Value $hash -Encoding ascii
+          exit 0
 
       # 4. Tạo file .env.production và .env để Next.js nhúng NEXT_PUBLIC_* lúc build và nạp runtime
       - name: Create .env files
