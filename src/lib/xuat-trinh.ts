@@ -22,9 +22,12 @@ export function chuHanXuatTrinh(doc: BoatDocument, today: Date): { muc: MucHan; 
   return { muc: st.level === "soon" ? "soon" : "ok", text: `${ngay} · còn ${st.days} ngày` };
 }
 
-/** Dòng nhận diện tàu trên đầu màn: "Tàu <tên> · <mã>" — thiếu gì bỏ nấy, không có gì ⇒ "Giấy tờ tàu". */
+/** Dòng nhận diện tàu trên đầu màn: "Tàu <tên> · <mã>" — tên đã bắt đầu bằng "Tàu" thì giữ nguyên; thiếu gì bỏ nấy,
+ *  không có gì ⇒ "Giấy tờ tàu". */
 export function dongTauXuatTrinh(tenTau?: string, maTau?: string): string {
   const ten = tenTau?.trim();
   const ma = maTau?.trim();
-  return [ten && `Tàu ${ten}`, ma].filter(Boolean).join(" · ") || "Giấy tờ tàu";
+  // tên bà con đặt hay đã có chữ "Tàu" ("Tàu Hai Lúa") ⇒ không thêm lần nữa (thấy "Tàu Tàu Hai Lúa" trên prod 26/10)
+  const coTau = !!ten && /^tàu\s/i.test(ten.normalize("NFC"));
+  return [ten && (coTau ? ten : `Tàu ${ten}`), ma].filter(Boolean).join(" · ") || "Giấy tờ tàu";
 }

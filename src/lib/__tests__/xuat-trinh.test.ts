@@ -33,5 +33,9 @@ describe("dongTauXuatTrinh", () => {
     expect(dongTauXuatTrinh("Phước Lộc")).toBe("Tàu Phước Lộc");
     expect(dongTauXuatTrinh(undefined, " BĐ-1-TS ")).toBe("BĐ-1-TS");
     expect(dongTauXuatTrinh("  ", "")).toBe("Giấy tờ tàu");
+    // tên đã có chữ "Tàu" (thấy trên prod: "Tàu Tàu Hai Lúa") ⇒ không lặp
+    expect(dongTauXuatTrinh("Tàu Hai Lúa")).toBe("Tàu Hai Lúa");
+    expect(dongTauXuatTrinh("TÀU Phước Lộc", "BĐ-1-TS")).toBe("TÀU Phước Lộc · BĐ-1-TS");
+    expect(dongTauXuatTrinh("Tàuthuy")).toBe("Tàu Tàuthuy"); // phải là chữ "Tàu" riêng
   });
 });

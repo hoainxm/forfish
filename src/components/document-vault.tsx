@@ -265,25 +265,16 @@ export function DocumentVault() {
         {readFailed ? (
           <span className="w-16 shrink-0" aria-hidden />
         ) : (
-          <>
-            {/* XUẤT TRÌNH (ADR 0017): chỉ khi có giấy — mở toàn màn cho cán bộ xem, ảnh đọc kho trong máy */}
-            {sorted.length > 0 && (
-              <button onClick={() => setXuatTrinh(true)} className={`${SQ_BTN} bg-field text-navy`}>
-                <EyeIcon className="h-6 w-6" />
-                {NHAN.xuatTrinh}
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setEditing(null);
-                setShowForm(true);
-              }}
-              className={`${SQ_BTN} bg-field text-navy`}
-            >
-              <PlusIcon className="h-6 w-6" />
-              Thêm
-            </button>
-          </>
+          <button
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
+            className={`${SQ_BTN} bg-field text-navy`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            Thêm
+          </button>
         )}
       </div>
 
@@ -434,6 +425,20 @@ export function DocumentVault() {
             );
           })}
         </ul>
+      )}
+
+      {/*  XUẤT TRÌNH (ADR 0017; rà UI 2026-10-26g): nút phụ trải ngang NGAY DƯỚI danh sách, chỉ khi có giấy. Không đặt ở
+          đầu nhóm: đầu nhóm giữ MỘT nút (Thêm) như mọi nhóm (03 §0b) — hai nút làm "Tủ giấy tờ · N giấy" gãy hai dòng ở
+          bề ngang 375px (thấy trên prod 26/10). Mở toàn màn cho cán bộ xem, ảnh đọc từ kho trong máy. */}
+      {!readFailed && sorted.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setXuatTrinh(true)}
+          className={`${SQ_BTN} mt-3 w-full justify-center bg-field text-navy`}
+        >
+          <EyeIcon className="h-4 w-4" />
+          {NHAN.xuatTrinh}
+        </button>
       )}
 
       {/*  Bỏ dòng chân trang "Giấy tờ lưu ngay trên máy của bà con." (D1):
