@@ -13,6 +13,7 @@ last_verified: 2026-10-19
 <!-- re-verified: 2026-09-06 - pha 2b: /cho (8 màn), /ban-hang (7 màn), tab admin, /api/cho|ban-hang|admin/cho đã hiện thực theo §5–§7; AC 77 mã; QA e2e 63 pass / 8 fixme; khác spec: ghi chú người mua là MỘT ô chung cho cả lần đặt (Core CheckoutDraft.buyerNote), giỏ khách lạ dời sang ngăn SĐT khi ngăn đó trống -->
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-10-25) — code 'src/components/market/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'src/app/api/admin/cho/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện, chưa build. 16 quyết định LEAD-BRIEF §4 + §5 đã đưa vào; tên trường/mã/route/trần số lấy NGUYÊN VĂN từ [12-kien-truc 1.1](12-kien-truc-san-thuong-mai.md) (12 = nguồn TÊN, 11 = nguồn HÀNH VI). Đối chiếu: [_generated/phan-bien-san-thuong-mai-2026-09-06.md](_generated/phan-bien-san-thuong-mai-2026-09-06.md).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — ai được làm gì, hệ thống phản ứng ra sao, đúng-sai đo bằng AC nào. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả schema cột (việc của [12-kien-truc-san-thuong-mai](12-kien-truc-san-thuong-mai.md) + [04-data-model](04-data-model.md)).

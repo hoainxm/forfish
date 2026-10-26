@@ -5,6 +5,8 @@ import { useEffect } from "react";
 import { ensurePersistentStorage } from "@/lib/storage-persist";
 import { refreshDataKeyOnce } from "@/lib/data-key";
 import { TOKEN_STORE_EVENT } from "@/lib/device-token-store";
+import { PUSH_CHIME_MSG, pushChimeUrgent } from "@/lib/push-message";
+import { armWarningSound, playPushChime } from "@/lib/warning-sound";
 
 /*
   Đăng ký service worker (public/sw.js) sau khi mount — CHỈ production
@@ -22,6 +24,8 @@ import { TOKEN_STORE_EVENT } from "@/lib/device-token-store";
   `pretrip-auto-notify` (ngay sau khi ghi được gói đi biển). Cửa giãn cách nằm
   trong `ensurePersistentStorage`, gọi thừa cũng không sao.
 */
+let chimeListening = false;
+
 export function SwRegister() {
   useEffect(() => {
     /*  KHOÁ DỮ LIỆU BẢN ĐỒ (2026-10-02): nền .pmtiles/bờ/đảo cũng là SDF2 — máy
@@ -33,6 +37,34 @@ export function SwRegister() {
     window.addEventListener("online", refreshDataKeyOnce);
 
     void ensurePersistentStorage();
+
+    /*  CHUÔNG RIÊNG KHI TIN TỚI LÚC APP ĐANG MỞ (2026-10-20). sw.js nhắn
+        PUSH_CHIME_MSG kèm một cổng trả lời; phát được chuông SDFish thì báo
+        `played:true` để thông báo im, không thì báo false để giữ tiếng mặc
+        định. armWarningSound mở khoá tiếng ở lần chạm đầu (luật autoplay) —
+        chưa chạm lần nào thì playPushChime trả false, thông báo vẫn kêu như cũ.
+        Đặt TRƯỚC cửa production: sw.js bản cũ đã cài vẫn có thể nhắn. */
+    armWarningSound();
+    const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
+    const onSwMessage = (e: MessageEvent) => {
+      const d = e.data as { type?: string; tag?: unknown } | null;
+      if (!d || d.type !== PUSH_CHIME_MSG) return;
+      const port = e.ports[0];
+      const reply = (played: boolean) => {
+        try {
+          port?.postMessage({ played });
+        } catch {
+          /* cổng đã đóng (sw hết chờ) — thông báo đã hiện bằng tiếng mặc định */
+        }
+      };
+      if (document.visibilityState !== "visible") return reply(false);
+      playPushChime({ urgent: pushChimeUrgent(d.tag) }).then(reply, () => reply(false));
+    };
+    // một listener cho cả đời tài liệu (StrictMode chạy effect 2 lần ⇒ 2 chuông)
+    if (!chimeListening) {
+      chimeListening = true;
+      sw?.addEventListener("message", onSwMessage);
+    }
 
     if (process.env.NODE_ENV !== "production") return;
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator))

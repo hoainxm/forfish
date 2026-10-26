@@ -15,9 +15,9 @@ import { SQ_BTN } from "@/components/ui/sq-btn";
 /*
   MỜI BẬT CHUÔNG NHẮC HẠN — ngay ở tab Giấy tờ (2026-10-06).
 
-  Cron /api/cron/notify-docs mỗi sáng đẩy thông báo khi giấy tới mốc 30/15/7/3/1/0
-  ngày, nhưng điện thoại CHỈ reo nếu máy đã bật thông báo. Đo prod cùng ngày: 6
-  chủ tàu có giấy tới mốc, 0 người bật thông báo — nút bật cũ nằm sâu trong sheet
+  Cron /api/cron/notify-docs mỗi sáng đẩy thông báo khi giấy tới mốc
+  30/25/20/15/10 rồi hằng ngày 5→0 (đổi 2026-10-20), nhưng điện thoại CHỈ reo
+  nếu máy đã bật thông báo. Đo prod cùng ngày: 6 chủ tàu có giấy tới mốc, 0 người bật thông báo — nút bật cũ nằm sâu trong sheet
   Tài khoản, không ai tìm tới. Đặt lời mời ở đúng chỗ bà con vừa nhập ngày hết hạn.
 
   Tầng 5 "mời gọi" (07 §12): một hàng, CHỈ hiện khi chưa bật + có giấy có hạn,
@@ -57,8 +57,8 @@ export function DocReminderBell({ hasExpiring }: { hasExpiring: boolean }) {
   if (state === "done") {
     return (
       <p role="status" className="mb-4 rounded-2xl bg-ok-bg px-4 py-3 text-[1rem] font-semibold leading-snug text-ok">
-        Đã bật chuông — điện thoại sẽ báo khi giấy còn 30, 15, 7, 3, 1 ngày và đúng
-        hôm hết hạn.
+        Đã bật chuông — điện thoại báo khi giấy còn 30 ngày, rồi cứ 5 ngày một lần;
+        5 ngày cuối ngày nào cũng báo.
       </p>
     );
   }

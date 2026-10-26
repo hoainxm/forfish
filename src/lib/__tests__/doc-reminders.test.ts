@@ -4,6 +4,7 @@ import {
   docPushUrl,
   dueReminders,
   expiringItemsOf,
+  keepLatestDocReminder,
   parseDocPushUrl,
   reminderStep,
   type ExpiringItem,
@@ -17,17 +18,43 @@ const gp: ExpiringItem = {
   expiresOn: "2026-06-10", // còn 15 ngày
 };
 
-describe("reminderStep — mốc 30/15/7/3/1/0 + quá hạn mỗi 30 ngày tối đa 3 lần", () => {
+describe("reminderStep — 30·25·20·15·10 rồi hằng ngày 5→0 + quá hạn mỗi 30 ngày ×3 (08 AC-10)", () => {
   it("trước hạn: rơi vào mốc gần nhất phía trên", () => {
     expect(reminderStep(31)).toBeNull();
     expect(reminderStep(30)).toBe("t30");
-    expect(reminderStep(20)).toBe("t30");
+    expect(reminderStep(28)).toBe("t30"); // nhập lúc còn 28 ngày ⇒ báo ngay
+    expect(reminderStep(26)).toBe("t30");
+    expect(reminderStep(25)).toBe("t25");
+    expect(reminderStep(20)).toBe("t20");
     expect(reminderStep(15)).toBe("t15");
-    expect(reminderStep(8)).toBe("t15");
-    expect(reminderStep(7)).toBe("t7");
-    expect(reminderStep(2)).toBe("t3");
+    expect(reminderStep(11)).toBe("t15");
+    expect(reminderStep(10)).toBe("t10");
+    expect(reminderStep(6)).toBe("t10");
+    expect(reminderStep(5)).toBe("t5");
+    expect(reminderStep(4)).toBe("t4");
+    expect(reminderStep(3)).toBe("t3");
+    expect(reminderStep(2)).toBe("t2");
     expect(reminderStep(1)).toBe("t1");
     expect(reminderStep(0)).toBe("t0");
+  });
+  it("chạy mỗi sáng suốt 31 ngày ⇒ đúng 11 lần: 30,25,20,15,10,5,4,3,2,1,0", () => {
+    const item: ExpiringItem = { ref: "doc:x", label: "Đăng kiểm", expiresOn: "2026-07-01" };
+    const sent = new Set<string>();
+    const daysSent: number[] = [];
+    for (let d = 35; d >= 0; d--) {
+      const today = new Date(Date.parse("2026-07-01T00:00:00Z") - d * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+      for (const r of dueReminders([item], sent, today)) {
+        sent.add(r.key);
+        daysSent.push(r.days);
+      }
+    }
+    expect(daysSent).toEqual([30, 25, 20, 15, 10, 5, 4, 3, 2, 1, 0]);
+  });
+  it("đổi từ lịch cũ: mốc đã gửi (t15) không gửi lại; giấy còn 12 ngày im", () => {
+    const sentOld = new Set(["doc:doc-1.2026-06-10.t15"]);
+    expect(dueReminders([gp], sentOld, "2026-05-29")).toHaveLength(0); // còn 12 ngày
   });
   it("quá hạn: q0 (1–30 ngày), q1, q2 rồi IM", () => {
     expect(reminderStep(-1)).toBe("q0");
@@ -48,16 +75,16 @@ describe("dueReminders — mỗi mốc MỘT lần, gia hạn thì nhắc lại 
     expect(due[0].days).toBe(15);
     expect(dueReminders([gp], new Set([due[0].key]), TODAY)).toHaveLength(0);
   });
-  it("sang mốc kế (7 ngày) là khoá MỚI ⇒ gửi tiếp", () => {
+  it("sang mốc kế (10 ngày) là khoá MỚI ⇒ gửi tiếp", () => {
     const k15 = dueReminders([gp], new Set(), TODAY)[0].key;
-    const due7 = dueReminders([gp], new Set([k15]), "2026-06-03");
+    const due7 = dueReminders([gp], new Set([k15]), "2026-05-31");
     expect(due7).toHaveLength(1);
     expect(due7[0].key).not.toBe(k15);
   });
   it("cron lỡ nhiều hôm: chỉ mốc HIỆN TẠI, không dồn mốc cũ", () => {
     const due = dueReminders([gp], new Set(), "2026-06-08"); // còn 2 ngày
     expect(due).toHaveLength(1);
-    expect(due[0].key).toMatch(/\.t3$/);
+    expect(due[0].key).toMatch(/\.t2$/);
   });
   it("gia hạn (ngày hết hạn mới) ⇒ khoá khác, không bị sổ cũ chặn", () => {
     const k = dueReminders([gp], new Set(), TODAY)[0].key;
@@ -92,6 +119,35 @@ describe("URL = đường mở app + sổ đã gửi", () => {
     const d = dueReminders([odd], new Set(), TODAY)[0];
     expect(parseDocPushUrl(docPushUrl([d.key]))).toEqual([d.key]);
     expect(dueReminders([odd], new Set(parseDocPushUrl(docPushUrl([d.key]))), TODAY)).toHaveLength(0);
+  });
+});
+
+describe("docPushUrl — mở đúng chỗ (audit 2026-10-20 O3)", () => {
+  it("toàn giấy thuyền viên ⇒ /nguoi; có giấy tàu ⇒ tab Giấy tờ; đọc lại được cả hai", () => {
+    const crew = ["crew-bh:c1.2026-06-01.t5", "crew-cc:c2.2026-06-03.t10"];
+    expect(docPushUrl(crew).startsWith("/nguoi?nhac=")).toBe(true);
+    expect(parseDocPushUrl(docPushUrl(crew))).toEqual(crew);
+    const mixed = [...crew, "doc:d1.2026-06-02.t5"];
+    expect(docPushUrl(mixed).startsWith("/tau?tab=giay-to&nhac=")).toBe(true);
+    expect(parseDocPushUrl(docPushUrl(mixed))).toEqual(mixed);
+  });
+});
+
+describe("keepLatestDocReminder — hộp thư chỉ giữ tin nhắc hạn mới nhất (O1)", () => {
+  it("giữ tin nhắc MỚI NHẤT + mọi tin khác, đúng thứ tự", () => {
+    const rows = [
+      { id: "1", sent_by: "system:docs" },
+      { id: "2", sent_by: "admin" },
+      { id: "3", sent_by: "system:docs" },
+      { id: "4", sent_by: "system:storm" },
+      { id: "5", sent_by: "system:docs" },
+      { id: "6", sent_by: null },
+    ];
+    expect(keepLatestDocReminder(rows).map((r) => r.id)).toEqual(["1", "2", "4", "6"]);
+  });
+  it("không có tin nhắc ⇒ nguyên vẹn", () => {
+    const rows = [{ id: "a", sent_by: "admin" }];
+    expect(keepLatestDocReminder(rows)).toEqual(rows);
   });
 });
 

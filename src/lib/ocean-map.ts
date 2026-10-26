@@ -481,7 +481,7 @@ export const VUNG_QUAN_LY_LINE_OPACITY = {
   "quy-hoach": 0.6,
 } as const;
 
-/*  TRẠM CON NƯỚC (thuỷ triều) — 11 trạm, lớp MIỄN PHÍ, mặc định bật, không
+/*  TRẠM CON NƯỚC (thuỷ triều) — 11 trạm VÙNG ở nấc cả nước (cả file 104 trạm, 2026-10-19), lớp MIỄN PHÍ, mặc định bật, không
     dính công tắc "Hải đồ chi tiết" (chủ dự án 2026-09-04). Ba nấc:
       LUÔN (z5): ký hiệu CỘT NƯỚC (tide gauge) — hình quen của Navionics /
                  C-MAP / OpenCPN: cột đứng có mực nước, xanh dương = đang
@@ -502,7 +502,8 @@ export const TIDE_STATION_TREND_MINZOOM = CHART_TIER.VUA;
     mô hình EOT20 lấy tại toạ độ cảng cá, dày dọc bờ: chỉ hiện từ nấc VỪA (z9,
     cùng nấc phao luồng) — ở nấc cả nước 11 trạm vùng đã đủ để hỏi giờ nước,
     thêm 70 khối nước nữa là bôi kín bờ. Cùng ký hiệu, cùng nhãn; nhãn "đang
-    lên/xuống" của cảng hiện ngay từ nấc này (không có nấc "chỉ tên"). */
+    lên/xuống" của cảng hiện ngay từ nấc này (không có nấc "chỉ tên").
+    Trạm NGOÀI CỬA BIỂN (2026-10-19, `cua-bien-*`, 21 trạm) đi chung hạng này. */
 export const TIDE_STATION_CANG_MINZOOM = CHART_TIER.VUA;
 /** Bộ lọc tách hai hạng — dùng cho cả lớp icon lẫn lớp nhãn. */
 export const TIDE_FILTER_VUNG = ["!=", ["get", "hang"], "cang"] as const;

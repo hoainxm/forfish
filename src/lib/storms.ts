@@ -406,3 +406,29 @@ export async function fetchStormCheck(): Promise<StormCheck> {
 export function savedStormAt(): number | null {
   return loadForecast<StormCheck>(STORM_NS, STORM_ID)?.savedAt ?? null;
 }
+
+/**
+ * Lớp nhắc tầng 3 (nhắc hạn giấy tờ khi mở app) có phải NHƯỜNG tin bão không —
+ * THUẦN, có test. Chỉ nhường khi có cơn VÀ bản tin còn mới (≤ STORM_MAX_AGE_MS):
+ * tầng 1 không bị lớp nào che (07 §12).
+ *
+ * VÌ SAO KHÔNG NHƯỜNG BẢN TIN CŨ (audit 2026-10-20): ngoài khơi mất sóng nhiều
+ * ngày, bản tin cuối cùng trong máy có cơn thì nó nằm đó mãi — nhường cả bản cũ
+ * là lời nhắc hạn giấy IM SUỐT CHUYẾN, đúng lúc nó là kênh nhắc duy nhất còn
+ * chạy. Tin bão cũ vẫn hiện trên Trang chủ (thẻ "tin bão cũ"), sheet chạm một
+ * lần là đóng.
+ */
+export function stormYieldsToReminder(
+  check: StormCheck | null | undefined,
+  now: number,
+): boolean {
+  const st = stormStatus(check, now);
+  return st.kind === "co-bao" && !st.cu;
+}
+
+/** Như trên, đọc bản tin ĐANG LƯU trong máy — KHÔNG gọi mạng. Chờ kho mở xong
+ *  như `fetchStormCheck`, không thì đọc ra rỗng. */
+export async function savedStormActive(now: number): Promise<boolean> {
+  await forecastStoreReady();
+  return stormYieldsToReminder(loadForecast<StormCheck>(STORM_NS, STORM_ID)?.data, now);
+}

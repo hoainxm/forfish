@@ -35,6 +35,8 @@ import { showsUnderBoat } from "@/lib/boats";
 import { DocReminderBell } from "@/components/doc-reminder-bell";
 import { NHAN } from "@/lib/labels";
 import { useXoaCho } from "@/lib/xoa-cho";
+import { markSeenFromUrl } from "@/lib/doc-reminder-local";
+import { todayIsoVN } from "@/lib/days";
 
 // BoatDocument lives in @/lib/documents (shared, not edited). We attach a boat
 // dimension here without touching that file: the localStorage shape is freeform
@@ -120,6 +122,12 @@ export function DocumentVault() {
       window.removeEventListener("online", upd);
       window.removeEventListener("offline", upd);
     };
+  }, []);
+
+  // Mở từ thông báo điện thoại (`?nhac=`) ⇒ đánh dấu đã báo, mở app lần sau
+  // không hiện lại đúng chuyện vừa đọc (lib/doc-reminder-local).
+  useEffect(() => {
+    markSeenFromUrl(window.location.href, todayIsoVN());
   }, []);
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).

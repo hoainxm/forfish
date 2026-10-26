@@ -58,6 +58,19 @@
       ],
       "port": 3020,
       "autoPort": true
+    },
+    {
+      "name": "forfish-dev-sen-bien-tat",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "env": {
+        "NEXT_PUBLIC_SEN_BIEN": "0"
+      },
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }

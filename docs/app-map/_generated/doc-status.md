@@ -21,6 +21,7 @@
 | docs/app-map/16-ba-spec-agent-kairos.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-notify-2026-08-18.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/audit-notify-2026-10-20.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-offline-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-offline-vong2-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/build-publish-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |

@@ -7097,7 +7097,7 @@ export default function FishingMapView() {
           </Source>
         )}
 
-        {/*  TRẠM CON NƯỚC (2026-09-04) — 11 trạm, chấm xanh dương (đặc = trạm
+        {/*  TRẠM CON NƯỚC (2026-09-04) — 11 trạm vùng (+ 93 trạm cảng/cửa biển từ z9, 2026-10-19), chấm xanh dương (đặc = trạm
              đo, rỗng = trạm mô hình), tên từ z7, "đang lên/xuống" từ z9. Lớp
              MIỄN PHÍ, công tắc riêng (prefs.tideStations, mặc định bật), KHÔNG
              theo `chartDetailOn` — chạm trạm phải ra con nước kể cả trên nền
@@ -8032,6 +8032,7 @@ export default function FishingMapView() {
               }
             }}
             vmsZones={vmsZones}
+            tideCount={tideStations?.length ?? null}
             fishOn={fishOn}
             onFish={(on) => {
               // bật cá = về nhóm "hải đồ + cá" → tắt mọi lớp động cho cá hiện ra

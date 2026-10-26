@@ -48,6 +48,7 @@ import {
   DepthIcon,
   GridIcon,
   LayersIcon,
+  MenuIcon,
   EddyIcon,
   FishIcon,
   PinIcon,
@@ -65,6 +66,7 @@ import { CloseButton } from "@/components/ui/close-button";
 import { AppVersionLine } from "@/components/app-version-line";
 import { VoiceSettingsSection } from "@/components/nav-voice-ui";
 import { Popover } from "@/components/ui/popover";
+import { tideToggleSub } from "@/lib/tides";
 
 const FISH_COLOR = "var(--fish)"; // xanh lá — cá/ngư trường (token globals, Phương án A)
 
@@ -109,6 +111,7 @@ export function RaKhoiControls({
   overlayField,
   onOverlayField,
   vmsZones,
+  tideCount,
   fishOn,
   onFish,
   fishSpecies,
@@ -217,6 +220,8 @@ export function RaKhoiControls({
   onOverlayField: (k: FetchScalarKind | null) => void;
   /** Vùng biển VMS (admin quản lý) — mỗi vùng 1 toggle trong panel Cài đặt */
   vmsZones: VmsZone[];
+  /** số trạm con nước trong file đã nạp (null = chưa nạp) — cho dòng phụ công tắc */
+  tideCount: number | null;
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
@@ -264,8 +269,14 @@ export function RaKhoiControls({
   onClearMeasure: () => void;
 }) {
   const [open, setOpen] = useState<PanelId | null>(null);
-  // MẶC ĐỊNH THU GỌN (user 2026-07-28): map sạch, chạm "Lớp" mới xổ rail ra;
-  // xổ rồi mà 5s không chạm gì (trong rail/panel) thì TỰ thu lại.
+  // MẶC ĐỊNH THU GỌN (user 2026-07-28): map sạch, chạm "Chức năng" mới xổ rail
+  // ra; xổ rồi mà 5s không chạm gì (trong rail/panel) thì TỰ thu lại.
+  // GOM NÚT (user 2026-10-21: "hàng nút bên phải chiếm quá nhiều giao diện
+  // khi xem và thao tác"): thu gọn chỉ còn nút "Chức năng" + "Vị trí" (Vị trí
+  // luôn ngoài menu — user chốt cùng ngày); Bắt đầu chạy · Đến điểm · Điểm đã
+  // lưu · Lộ trình · 5 panel đều nằm trong.
+  // NGOẠI LỆ: nút nào ĐANG BẬT (Đang chạy · Đang dẫn đường · ô Đến điểm / Điểm
+  // đã lưu đang mở) vẫn hiện khi thu — bà con phải tắt được bằng MỘT chạm.
   const [collapsed, setCollapsed] = useState(true);
   /** nút "Lớp" — panel/lưới lớp NEO vào nó (Popover, 03 §6 mục 9) */
   const [nutLop, setNutLop] = useState<HTMLDivElement | null>(null);
@@ -542,7 +553,7 @@ export function RaKhoiControls({
                   onClearMeasure={onClearMeasure}
                 />
               )}
-              {open === "cai-dat" && <SettingsPanel vmsZones={vmsZones} />}
+              {open === "cai-dat" && <SettingsPanel vmsZones={vmsZones} tideCount={tideCount} />}
             </>
           }
         </Popover>
@@ -1549,7 +1560,7 @@ function RadioCard({
   );
 }
 
-function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
+function SettingsPanel({ vmsZones, tideCount }: { vmsZones: VmsZone[]; tideCount: number | null }) {
   const prefs = useMapPrefs();
   return (
     <div>
@@ -1631,7 +1642,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
           khi đang xem nền vệ tinh. */}
       <Toggle
         label="Trạm con nước"
-        sub="11 trạm · chạm vào trạm để xem giờ nước lớn, nước ròng"
+        sub={tideToggleSub(tideCount)}
         on={prefs.tideStations}
         onToggle={() => setMapPrefs({ tideStations: !prefs.tideStations })}
         icon={<WavesIcon className="h-5 w-5 text-t1" />}

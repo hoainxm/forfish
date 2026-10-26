@@ -30,6 +30,7 @@ last_verified: 2026-10-19
 <!-- re-verified: 2026-10-19d — QUYẾT ĐỊNH (anh Long): "xoá cái quy tắc làm cho dân biển to chữ các kiểu đi, xoá hẳn đi" — §0 viết lại thành THANG CỠ Codex, §1 bỏ bảng cỡ theo đối tượng, §Nhãn mới (≤2 chữ, cỡ cố định theo loại, bảng nhãn chuẩn `lib/labels.ts`), §3 type-ramp theo thang mới. Mọi chỗ còn lại trong file nhắc sàn 18px/56px hay lý do nắng/tay ướt đều đã gỡ (xem các re-verified cùng ngày). -->
 <!-- re-verified: 2026-10-19c — GỌN = 37px Ở MỌI KHU (chủ dự án chốt): `--market-control: var(--row-h)`, `.tau-action min-height: var(--row-h)`, 86 chỗ `min-h-[3.5rem]` trong market/cho/ban-hang + khu Tàu tôi → `min-h-(--row-h)` (Tailwind v4 cú pháp biến). Đo 390 gọn: ô tìm/chip/nút Vật tư 37px, "Thêm"/"Gọi SDVICO" Tàu tôi 37px; hàng có nút stretch theo thân hàng (48/42px) đúng luật thân hàng = nút. Chip tài khoản biến thể `light` (ManHeader): chữ 1rem, đệm hẹp, min-w-0 + truncate — nhường chỗ cho tiêu đề. -->
 <!-- re-verified: 2026-10-19 — `.dock-label` đổi theo nhãn dock mới (Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư); từ 2026-10-19d là 0.75rem (0.6875rem dưới 345px) theo thang §0. Khuôn MỚI `ManHeader` (components/man-header.tsx): đầu màn nền sáng thay hero gradient ở các màn dock. Danh sách kẻ mảnh (`divide-y divide-line rounded-2xl bg-card`, hàng theo bậc hàng danh sách, chữ theo thang §0, chấm màu thay tag) là khuôn chung của Thông báo + Việc cần làm. HeroAccount có biến thể `light`. -->
+<!-- re-verified: 2026-10-19 11:20 — thêm pattern "chạm/kéo NGANG trên một trục trong sheet cuộn dọc" (`lib/use-pointer-scrub.ts`, touch-action pan-y) + "nút bước giữ-để-chạy" (◀ ▶ màn con nước); đối chiếu `components/ui/bottom-sheet.tsx`: grabber chỉ là hình, CHƯA có vuốt-xuống-đóng (mục 4 §Nút X đóng nói đúng là quy ước, không phải đã làm). -->
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-10-25) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
@@ -518,6 +519,15 @@ Chủ dự án 2026-08-29: *"kích thước cái x đóng làm cho đồng bộ�
     - Đã áp (2026-10-23): lưới + panel "Lớp bản đồ" (neo nút Lớp — đảo lại ngăn đáy vòng trước), khay ⋯, ô Toạ độ (neo ⋯, hoặc neo ô "Đi đâu?" khi mở từ đó), Điểm đã lưu, lời mời Premium ở "Đi đâu?", menu Tài khoản (chip Trang chủ), danh sách Chọn tàu, danh sách Khu trú bão (nút "Trú bão" ở bảng dẫn đường; không có phần tử nút thì lùi về ngăn đáy), danh sách địa chỉ khi đặt hàng (nút "Đổi").
 
 **Nguồn khảo sát**: Material 3 Dialogs (48dp/24dp) · Apple HIG Sheets (Cancel trái/Done phải, 44pt, `interactiveDismissDisabled` khi có thay đổi) · Shopify Polaris Modal (X/Cancel/Esc/chạm-ngoài, primary phải) · IBM Carbon Modal (Cancel ngoài-trái, primary ngoài-phải, X đóng không gửi) · WCAG 2.5.5 (44px AAA) / 2.5.8 (24px AA).
+
+### Chạm / kéo NGANG trên một trục trong sheet cuộn dọc (2026-10-19, anh Quân: "thao tác vuốt khó, phải làm nhiều lần mới được")
+
+Áp cho mọi dải/đồ thị chọn theo trục ngang nằm TRONG sheet hay trang cuộn dọc (dải 30 ngày, đường nước một ngày trong `tide-card.tsx`).
+
+1. **CẤM chỉ nghe `onClick`** trên vùng chọn kiểu dải/đồ thị. Trong sheet cuộn, ngón tay xê dịch một chút là trình duyệt coi như cuộn và **huỷ click** ⇒ bà con chạm 3 lần mới ăn 1 — đúng lỗi đã dính ở dải 30 ngày.
+2. Dùng **`usePointerScrub(onPick)`** (`lib/use-pointer-scrub.ts`): pointer events + `touch-action: pan-y` (KHÔNG `none` — vùng nằm giữa sheet, khoá hẳn là đặt ngón lên đồ thị không cuộn sheet được). Kéo ngang quá 6 px = chọn liên tục (+ pointer capture); chạm gọn = chọn khi nhấc tay; kéo dọc = trình duyệt cuộn (pointercancel, không chọn gì). Toạ độ trong SVG co giãn tính bằng `fracInPlot` (tính lề trục theo đơn vị viewBox).
+   Thanh thời gian bản đồ (`time-scrubber.tsx`) giữ `touch-none` vì nó nằm trên bản đồ, không trong sheet cuộn.
+3. **Mỗi chỗ kéo phải có đường KHÔNG cần kéo**: nút bước (◀ ▶) là cách CHÍNH, kéo là cách phụ. Nút bước dùng `sq-btn` 56 px; **giữ nút quá 450 ms thì chạy liên tục** (180 ms/nấc), nhấc tay thì dừng và KHÔNG cộng thêm một nấc từ cú click cuối; tới mép dải thì nút **tắt** (`disabled`, mờ 40 %), không bấm mà im. Vùng kéo là `role="slider"` có `aria-valuetext` + phím mũi tên.
 
 ### Trợ lý trong app — LUẬT CHUNG cho mọi trợ lý nổi (2026-09-07, chủ dự án chốt sau khảo sát)
 

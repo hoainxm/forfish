@@ -4,6 +4,8 @@
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
 last_verified: 2026-10-19
 <!-- re-verified: 2026-10-25f — RÀ FB lô 2 ([design-review/08](../design-review/08-ra-fb-toan-app.md)): AC đa-tàu KHÔNG đổi. 7 ngăn form khu Tàu tôi dùng chân `chan` của BottomSheet (Huỷ|Lưu, Xoá tàu hàng đỏ riêng); bảo dưỡng + đồ tự ghi về khuôn hàng-bung; xoá 4 sổ có Hoàn tác 5 s (`lib/xoa-cho`, ghi máy sau khi chốt — shape kho không đổi); chip tàu icon + chevron + "N tàu", popover [tên · mã][✓] + bút Sửa; bạn thuyền chưa ghi bảo hiểm = xám (`lib/crew demKet`). HomeBar chọn tỉnh tại chỗ ghi `homeProvince` của tàu đang chọn qua `updateBoat` (QĐ C). -->
+<!-- re-verified: 2026-10-20 19:00 — AUDIT nhắc hạn (ops/audit-notify-2026-10-20): đối chiếu code `stormYieldsToReminder` (nhường bão chỉ khi tin ≤12h), sheet đánh dấu lúc HIỆN, `docPushUrl` toàn giấy thuyền viên → `/nguoi`, `keepLatestDocReminder` trong `/api/me/messages`. -->
+<!-- re-verified: 2026-10-20 17:30 — NHẮC HẠN GIẤY TỜ: đối chiếu code `lib/doc-reminders.ts` (DOC_REMIND_DAYS 30·25·20·15·10 + 5→0, quá hạn ×3), `lib/doc-reminder-local.ts` + `components/doc-remind-on-open.tsx` (sheet khi mở Trang chủ, sổ `forfish.docRemindSeen.v1`, nhường bão qua `savedStormActive`), `public/sw.js` push `renotify: true` khi có tag. Soi trình duyệt 375px. -->
 <!-- re-verified: 2026-10-25e — RÀ FB TOÀN APP lô 1 (bằng chứng + backlog: [design-review/08-ra-fb-toan-app](../design-review/08-ra-fb-toan-app.md)): AC đa-tàu KHÔNG đổi. Chạm: boat-switcher (chip meta "Mã tàu: X"/"Chưa có mã tàu", nhãn phải "N tàu"; BoatForm noValidate + lỗi dưới ô + prop `canMaTau` focus ô Mã tàu khi mở từ Gia hạn), boat-products + sdvico-assign-prompt (gán đồ SDVICO cho tàu = MỘT hàng "N món chưa rõ của tàu nào · Chọn" trong Thiết bị đang dùng — KHÔNG còn modal tự bật khi mở /tau hay sau khi Lưu tàu thứ 2; ngăn có Huỷ, chạm nền không ghi; map gán vẫn localStorage như cũ), document-vault (Lưu giấy chỉ bật khi có hạn/số/ảnh hoặc loại chưa có trong tủ của TÀU ĐANG CHỌN; trùng loại ⇒ hỏi Cập nhật · Thêm mới · Quay lại), crew-list (lỗi dưới ô; chưa Premium = một dòng xám; vai "Bạn thuyền" không in), maintenance-reminders (lỗi chu kỳ dưới ô), vms-renewal ("Gia hạn" thiếu mã ⇒ mở thẳng BoatForm; "Yêu cầu · N" ẩn khi 0), tau-toi-nav (giữ cuộn /tau↔/nguoi, lib/giu-cuon.ts). Khuôn lỗi chung: components/tau-form.tsx. -->
 <!-- re-verified: 2026-10-23 — chip tàu (boat-switcher): danh sách "Chọn tàu" NEO ngay dưới chip (Popover, 03 §6 mục 9) thay ngăn đáy; chọn tàu/Sửa/Thêm tàu giữ nguyên hành vi (form thêm/sửa vẫn ngăn đáy) — AC đa tàu không đổi. -->
 <!-- re-verified: 2026-10-22c — rà bố cục toàn app chạm các ngăn đa tàu (boat-switcher, document-vault, crew-list, maintenance, boat-products, vms-renewal, tau-tabs): BottomSheet `kieu="form"` (không ×, hỏi trước khi bỏ chữ đang gõ), câu nhắc chân ngăn dòng riêng, mục Giám sát hành trình phẳng — AC đa tàu không đổi. -->
@@ -55,6 +57,7 @@ Phan loai co-dinh-theo-tau vs dong-theo-chu (R1/R2) va guard R7 "luon con >=1 ta
 
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-10-25) — code 'src/components/urgent-strip.tsx' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-20) — code 'src/components/boat-products.tsx' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-10-06 16:45 — đối chiếu code: R1/R2 (document-vault lọc `boatId`, crew-list KHÔNG gắn boatId), NV5 dải khẩn gom mọi tàu + `boatLabel` khi >1 tàu (urgent-strip.tsx), cổng `readToken()` của dải khẩn — khớp. THÊM: NV1 19 ô theo giấy (boats.ts + BoatForm), NV5 kênh push nhắc hạn + AC-8 (doc-reminders.ts). -->
 <!-- re-verified: 2026-07-25 - boat-switcher/crew-list/urgent-strip chỉ thêm anchor data-tour (chon-tau, them-thuyen-vien, nhac-viec) cho coach-tour hướng dẫn; KHÔNG đổi hành vi đa-tàu — NV1–NV5, handoff H1, vòng đời thêm/xóa/đổi tàu, AC §8 giữ nguyên. -->
 <!-- re-verified: 2026-07-29 — GỠ seed mẫu (app lên thật): crew-list bỏ demoCrew/isDemo/startRealCrew, maintenance-reminders bỏ demoEntries/isDemo, boat-products bỏ filter demo-sp-. User mới thấy màn RỖNG + empty state, tự nhập. KHÔNG đụng hành vi đa-tàu: thuyền viên vẫn động-theo-chủ R2 (không boatId), lịch bảo dưỡng/sản phẩm vẫn gắn tàu + cascade R3 khi xóa tàu giữ nguyên. AC §8 không đổi. -->
@@ -139,7 +142,7 @@ ttl_days: 90
 
 ### Flow NV5 — Nhắc việc theo tàu · owner: hệ thống
 - **Start**: chủ mở app
-- **Input**: hồ sơ cố định mọi tàu (quá hạn/tới hạn) + hàng SDVICO (bảo hành/cước) đã gán tàu. **2026-10-06**: thêm kênh THÔNG BÁO ĐIỆN THOẠI cho hạn giấy tờ + bảo hiểm/chứng chỉ thuyền viên (cron máy chủ đọc bản đồng bộ, 07 §12 ngoại lệ tầng 3) — cùng luật nhãn tàu (AC-8)
+- **Input**: hồ sơ cố định mọi tàu (quá hạn/tới hạn) + hàng SDVICO (bảo hành/cước) đã gán tàu. **2026-10-06**: thêm kênh THÔNG BÁO ĐIỆN THOẠI cho hạn giấy tờ + bảo hiểm/chứng chỉ thuyền viên (cron máy chủ đọc bản đồng bộ, 07 §12 ngoại lệ tầng 3) — cùng luật nhãn tàu (AC-8). **2026-10-20**: lịch mốc đổi thành 30·25·20·15·10 rồi HẰNG NGÀY 5→0 (AC-10) + kênh thứ ba **sheet khi mở app** đọc kho máy, cùng lịch, mỗi mốc 1 lần (AC-11) — tới được cả máy chưa bật chuông, giấy chưa đồng bộ, máy mất sóng lúc cron chạy
 - **Steps**: gom việc cần làm của TẤT CẢ tàu → mỗi việc gắn nhãn tàu của nó
 - **Output**: danh sách việc gộp đa-tàu, mỗi việc nêu rõ thuộc tàu nào; món "chưa gán" hiện không nhãn (của chung)
 - **End**: chủ thấy đúng việc nào của tàu nào
@@ -230,6 +233,18 @@ ttl_days: 90
 - **Then** chủ nhận ĐÚNG MỘT thông báo trong ngày, dòng giấy đó mở đầu bằng tên T2; lượt kế cùng ngày/cùng mốc KHÔNG gửi lại
 - **Assert**: `expiringItemsOf(...)[i].label.startsWith(name(T2)+":")` && `dueReminders(items, sentKeys∪{key}, today).length==0` (`doc-reminders.test.ts`)
 
+### AC-10 — Lịch mốc nhắc hạn: mỗi 5 ngày trong tháng cuối, hằng ngày 5 ngày cuối · Maps to: NV5 · Test: unit (2026-10-20)
+- **Given** một giấy hết hạn ngày H, chưa gửi mốc nào; lượt nhắc chạy mỗi sáng từ H−35 tới H
+- **When** đếm các ngày có thông báo
+- **Then** đúng 11 lần ở còn 30 · 25 · 20 · 15 · 10 · 5 · 4 · 3 · 2 · 1 · 0 ngày; giấy nhập lúc còn 28 ngày báo ngay (mốc 30) rồi tới 25; mốc đã gửi theo lịch cũ (t15) không gửi lại; quá hạn giữ mỗi 30 ngày ×3
+- **Assert**: `doc-reminders.test.ts` ("chạy mỗi sáng suốt 31 ngày ⇒ đúng 11 lần", `reminderStep` bảng ca, "đổi từ lịch cũ")
+
+### AC-11 — Mở app tới mốc thì hiện nhắc hạn, mỗi mốc một lần · Maps to: NV5 · Test: unit (2026-10-20)
+- **Given** máy đã đăng nhập, kho máy có giấy còn 3 ngày (chưa đồng bộ cũng được, mất sóng cũng được), bản tin bão trong máy không có cơn
+- **When** mở Trang chủ
+- **Then** hiện sheet nhắc (gấp nhất trước); đã hiện (bấm "Để sau"/"Xem giấy tờ" hay vuốt thoát app) ⇒ cùng ngày mở lại KHÔNG hiện; bản tin bão trong máy có cơn nhưng đã quá 12 giờ ⇒ VẪN hiện (`stormYieldsToReminder`, `storms.test.ts`); hôm sau (mốc 2) hiện lại; đã chạm thông báo điện thoại của mốc đó (`?nhac=`) ⇒ không hiện lại chuyện đó
+- **Assert**: `doc-reminder-local.test.ts` (`localDueReminders` + `markSeenKeys` + `markSeenFromUrl`)
+
 > Mỗi AC: atomic · testable · map 1 flow · không từ UI. Flow mới (NV1–NV5) → mặc định E2E trừ AC-3/AC-5 logic thuần.
 
 ## 11. Assumptions / Open
@@ -245,6 +260,7 @@ ttl_days: 90
 ## History
 - v1 (2026-06-15): khởi tạo từ nhu cầu "đa tàu — hồ sơ cố định/động" của chủ tàu; 4 quyết định chốt qua elicitation; transfer-chủ OUT scope.
 - 2026-10-06b: R8 + AC-9 — hồ sơ theo tài khoản (gộp theo mục, chủ sổ, seed khi server chưa có, mục mồ côi hiện ở tàu đang xem).
+- 2026-10-20: NV5 đổi lịch mốc nhắc hạn (AC-10) + thêm sheet nhắc khi mở app (AC-11). Có thể trùng: sheet hiện lúc 6h, push cùng mốc tới lúc 7h (sổ máy và sổ máy chủ tách nhau — chấp nhận, không thêm request mạng).
 - 2026-10-06: NV1 thêm 19 ô theo giấy tàu (cố định theo tàu); NV5 thêm kênh thông báo điện thoại + AC-8. Phân loại R1/R2 không đổi (CCCD/chứng chỉ thuyền trưởng vẫn ở sổ thuyền viên).
 
 <!-- re-verified: 2026-06-15 — build 5/5 XONG: AC-6 (lib/sdvico-assign.ts store + SdvicoAssignPrompt "Đồ này của tàu nào?" trên /tau Sản phẩm; verify unit, e2e cần SDVICO login) + AC-7 (urgent-strip gắn nhãn tàu mỗi việc, gộp mọi tàu, chưa-gán=của chung). TOÀN BỘ AC-1..7 đã hiện thực. -->

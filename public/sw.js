@@ -321,7 +321,7 @@ const CRITICAL_SHELL = [
       trong toàn bộ vỏ. */
   //  DẤU SINH LẠI TRẠM — sửa dòng này mỗi lần generate-tides.mjs đổi file
   //  (cùng luật với sprite ở dưới: đường dẫn giữ nguyên, sw.js phải đổi byte):
-  //    trạm 83 (4 đo + 7 vùng + 72 cảng), 2026-09-04
+  //    trạm 104 (4 đo + 7 vùng + 72 cảng + 21 cửa biển), 2026-10-19
   "/data/tide-stations.v1.json",
   /*  XÁC TÀU + CHƯỚNG NGẠI (2026-09-02) — 38 vật chìm, 8 KB. Tàu giã cào
       quét trúng là mất lưới, đêm chạy qua vật cạn là thủng vỏ — và chỗ có xác
@@ -1873,6 +1873,36 @@ const PUSH_FRESH_MS = 2 * 60 * 60 * 1000;
 /** Trần cho cú báo biên nhận — xem ghi chú tại chỗ dùng (audit F7) */
 const ACK_TIMEOUT_MS = 10000;
 
+/*  CHUÔNG RIÊNG KHI APP ĐANG MỞ (2026-10-20). Web Push không cho chọn âm, SW
+    không phát được tiếng ⇒ nhắn TRANG đang hiện trên màn phát chuông SDFish.
+    Trang trả lời "đã phát" kịp ⇒ thông báo hiện `silent` (khỏi hai tiếng chồng);
+    không trả lời / không phát được / không có trang nào đang hiện ⇒ GIỮ tiếng
+    mặc định — tin tới không bao giờ im cả hai đường.
+    GIỮ ĐỒNG BỘ với src/lib/push-message.ts (test đọc file này bắt lệch). */
+const PUSH_CHIME_MSG = "forfish:push-chime";
+const PUSH_CHIME_WAIT_MS = 600;
+
+function askPageChime(tag) {
+  return self.clients
+    .matchAll({ type: "window", includeUncontrolled: true })
+    .then((list) => {
+      const shown = list.filter((c) => c.visibilityState === "visible");
+      // một trang thôi — hai tab cùng mở thì một chuông, không phải hai
+      const target = shown.find((c) => c.focused) || shown[0];
+      if (!target) return false;
+      return new Promise((resolve) => {
+        const ch = new MessageChannel();
+        const timer = setTimeout(() => resolve(false), PUSH_CHIME_WAIT_MS);
+        ch.port1.onmessage = (e) => {
+          clearTimeout(timer);
+          resolve(!!(e.data && e.data.played));
+        };
+        target.postMessage({ type: PUSH_CHIME_MSG, tag: tag || null }, [ch.port2]);
+      });
+    })
+    .catch(() => false);
+}
+
 /*  ĐỒNG HỒ CHẶN CHO fetch — bản NỘI BỘ của `src/lib/abort.ts` (2026-08-02c).
     `sw.js` là script service worker thuần, KHÔNG import được `@/lib/abort`, nên
     phải chép ý tưởng chứ không chia sẻ mã được.
@@ -1988,9 +2018,19 @@ self.addEventListener("push", (event) => {
           .catch(() => {})
       : Promise.resolve();
 
-  event.waitUntil(
-    Promise.all([self.registration.showNotification(title, options), ack]),
+  // App đang hiện trên màn ⇒ trang phát chuông SDFish; phát được thì thông báo
+  // im (`silent`) để không kêu chồng. Xem askPageChime.
+  // `silent` hỏng (tổ hợp tuỳ chọn trình duyệt không nhận) ⇒ hiện bản thường:
+  // thà kêu hai tiếng còn hơn mất thông báo.
+  const show = askPageChime(data.tag).then((played) =>
+    played
+      ? self.registration
+          .showNotification(title, { ...options, silent: true })
+          .catch(() => self.registration.showNotification(title, options))
+      : self.registration.showNotification(title, options),
   );
+
+  event.waitUntil(Promise.all([show, ack]));
 });
 
 self.addEventListener("notificationclick", (event) => {

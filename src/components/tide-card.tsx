@@ -15,14 +15,24 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { ChevronRightIcon, ClockIcon, MoonIcon, WavesIcon } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
+import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, CloseIcon, MoonIcon, WavesIcon } from "@/components/icons";
 import { chipLabel } from "@/lib/day-labels";
 import { moonPhase } from "@/lib/moon";
+import { fracInPlot, usePointerScrub } from "@/lib/use-pointer-scrub";
 import {
   tideCardAt,
+  tideCursorAtEdge,
+  tideCursorReading,
+  tideHhmm,
+  tideMinuteFromFrac,
+  tideStepHour,
+  vnMinuteOfDay,
+  type TideCursor,
   tideDaySeries,
   tideExtremesForDay,
   tideExtremeText,
+  tideHeightAt,
   tideHeightText,
   tideMoonText,
   tideRangeText,
@@ -212,6 +222,7 @@ function TideCurve({
   loM,
   hiM,
   nowMs,
+  cursorMin,
 }: {
   station: TideStation;
   isoDate: string;
@@ -219,6 +230,8 @@ function TideCurve({
   hiM: number;
   /** có = vẽ vạch "bây giờ" (chỉ truyền khi đúng ngày hôm nay) */
   nowMs: number | null;
+  /** con trỏ giờ đang chọn (phút trong ngày) — vạch đặc + chấm trên đường nước */
+  cursorMin: number;
 }) {
   const series = tideDaySeries(station, isoDate, 30);
   const extremes = tideExtremesForDay(station, isoDate);
@@ -279,6 +292,17 @@ function TideCurve({
           </text>
         </g>
       )}
+      {(() => {
+        const h = tideHeightAt(station, dayStart + cursorMin * 60000);
+        if (!Number.isFinite(h)) return null;
+        const x = X(cursorMin);
+        return (
+          <g>
+            <line x1={x} x2={x} y1={PAD_T} y2={PAD_T + ph} className="stroke-navy" strokeWidth={2.5} />
+            <circle cx={x} cy={Y(h)} r={6} className="fill-navy stroke-white" strokeWidth={2} />
+          </g>
+        );
+      })()}
       {extremes.map((e) => {
         const min = (e.atMs - dayStart) / 60000;
         const x = X(min);
@@ -324,18 +348,19 @@ function TideMonthStrip({
   const n = days.length;
   const colW = SW / n;
   const ph = SH - S_TOP - S_BOT;
-  const chon = (e: React.MouseEvent<HTMLDivElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    if (r.width <= 0) return;
-    const i = Math.floor(((e.clientX - r.left) / r.width) * n);
-    onSel(Math.max(0, Math.min(n - 1, i)));
-  };
+  // chạm HOẶC kéo ngang dọc dải đều chọn ngày (trước chỉ nghe click — xê dịch
+  // ngón tay là trình duyệt huỷ, xem lib/use-pointer-scrub.ts)
+  const { className: scrubCls, ...scrub } = usePointerScrub((clientX, r) => {
+    const f = fracInPlot(clientX, r.left, r.width, SW);
+    if (!Number.isFinite(f)) return;
+    onSel(Math.max(0, Math.min(n - 1, Math.floor(f * n))));
+  });
   return (
     <div
       role="group"
-      aria-label="Dự báo con nước 30 ngày — chạm để chọn ngày"
-      onClick={chon}
-      className="mt-2 min-h-[3.5rem] cursor-pointer select-none"
+      aria-label="Dự báo con nước 30 ngày — chạm hoặc kéo để chọn ngày"
+      {...scrub}
+      className={`mt-2 min-h-[3.5rem] cursor-pointer ${scrubCls}`}
     >
       <svg viewBox={`0 0 ${SW} ${SH}`} className="block h-auto w-full" aria-hidden>
         {days.map((d, i) => {
@@ -418,6 +443,71 @@ function TideMonthStrip({
   );
 }
 
+/* ── NÚT ◀ ▶ TỪNG GIỜ ─────────────────────────────────────────────────────── */
+
+/** Giữ nút quá chừng này (ms) thì bắt đầu chạy liên tục, mỗi nấc cách nhau REPEAT_MS. */
+const HOLD_MS = 450;
+const REPEAT_MS = 180;
+
+/**
+ * Nút lùi/tới 1 giờ. Chạm = một nấc; giữ = chạy liên tục tới khi nhấc tay.
+ * Bấm bằng bàn phím (Enter/Space) đi qua onClick như nút thường.
+ */
+function HourStepButton({
+  dir,
+  disabled,
+  onStep,
+}: {
+  dir: 1 | -1;
+  disabled: boolean;
+  onStep: (d: 1 | -1) => void;
+}) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // đã chạy liên tục thì cú click lúc nhấc tay KHÔNG cộng thêm một nấc nữa
+  const repeated = useRef(false);
+  const stop = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => stop, []);
+  useEffect(() => {
+    if (disabled) stop();
+  }, [disabled]);
+  const Icon = dir < 0 ? ChevronLeftIcon : ChevronRightIcon;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label={dir < 0 ? "Lùi 1 giờ" : "Tới 1 giờ"}
+      onPointerDown={() => {
+        repeated.current = false;
+        stop();
+        const loop = () => {
+          repeated.current = true;
+          onStep(dir);
+          timer.current = setTimeout(loop, REPEAT_MS);
+        };
+        timer.current = setTimeout(loop, HOLD_MS);
+      }}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+      onContextMenu={(e) => e.preventDefault()}
+      onClick={() => {
+        if (repeated.current) {
+          repeated.current = false;
+          return;
+        }
+        onStep(dir);
+      }}
+      className={`${SQ_BTN} touch-manipulation select-none bg-field text-navy disabled:opacity-40`}
+    >
+      <Icon className="h-6 w-6" />
+      {dir < 0 ? "−1 giờ" : "+1 giờ"}
+    </button>
+  );
+}
+
 /* ── MÀN NHIỀU NGÀY ───────────────────────────────────────────────────────── */
 
 /**
@@ -438,7 +528,13 @@ export function TideDaysView({
     () => Array.from({ length: TIDE_DAYS }, (_, i) => vnIsoDate(nowMs + i * 86400000)),
     [nowMs],
   );
-  const [sel, setSel] = useState(0);
+  /*  CON TRỎ GIỜ (2026-10-19, anh Quân: "kéo theo từng giờ"): ngày + phút.
+      Mở màn ở "bây giờ" — màn luôn mở vào hôm nay nên luật "ngày khác mở ở
+      06:00" không bao giờ chạm tới. Đổi ngày (chip / dải tháng) GIỮ giờ đang
+      chọn: bà con so "6 giờ sáng mai với 6 giờ sáng kia". */
+  const [cursor, setCursor] = useState<TideCursor>(() => ({ dayIdx: 0, minute: vnMinuteOfDay(nowMs) }));
+  const sel = cursor.dayIdx;
+  const setSel = (i: number) => setCursor((c) => ({ ...c, dayIdx: i }));
   const iso = days[sel] ?? todayIso;
   const chipRefs = useRef<(HTMLButtonElement | null)[]>([]);
   // chọn ngày từ dải tháng thì hàng chip phải cuộn tới chip đó — không thì
@@ -487,6 +583,15 @@ export function TideDaysView({
   const moon = tideMoonText(Date.parse(`${iso}T12:00:00Z`) - VN_OFFSET_MS);
   const trust = tideTrustText(distanceKm, station);
   const isToday = iso === todayIso;
+  const doc = tideCursorReading(station, iso, cursor.minute);
+  const step = (d: 1 | -1) => setCursor((c) => tideStepHour(c, d, days.length));
+
+  // kéo / chạm trên đường nước → giờ (bắt nấc 15 phút), trong vùng vẽ PAD_L..W-PAD_R
+  const { className: scrubCls, ...scrub } = usePointerScrub((clientX, r) => {
+    const f = fracInPlot(clientX, r.left, r.width, W, PAD_L, PAD_R);
+    if (!Number.isFinite(f)) return;
+    setCursor((c) => ({ ...c, minute: tideMinuteFromFrac(f) }));
+  });
 
   return (
     <div>
@@ -510,7 +615,51 @@ export function TideDaysView({
       </div>
 
       <div className="surface mt-3 p-3">
-        <TideCurve station={station} isoDate={iso} loM={loM} hiM={hiM} nowMs={isToday ? nowMs : null} />
+        {/*  ◀ giờ đang chọn ▶ — cách CHÍNH để xem theo giờ (bà con vuốt khó);
+             kéo / chạm đồ thị là cách phụ. Giữ nút thì chạy liên tục. */}
+        <div className="flex items-center gap-2">
+          <HourStepButton dir={-1} disabled={tideCursorAtEdge(cursor, -1, days.length)} onStep={step} />
+          <div className="min-w-0 flex-1 text-center" aria-live="polite">
+            <p className="text-[1.125rem] font-bold leading-tight tabular-nums text-navy">
+              {tideHhmm(cursor.minute)} · {doc ? tideHeightText(doc.heightM) : "—"}
+            </p>
+            {doc && (
+              <p className="mt-0.5 text-[1rem] font-semibold leading-snug text-foreground/75">
+                {tideTrendText(doc.trend)}
+              </p>
+            )}
+          </div>
+          <HourStepButton dir={1} disabled={tideCursorAtEdge(cursor, 1, days.length)} onStep={step} />
+        </div>
+        <div
+          role="slider"
+          tabIndex={0}
+          aria-label={`Giờ trên đường nước ngày ${chipLabel(iso, todayIso)}`}
+          aria-valuemin={0}
+          aria-valuemax={1439}
+          aria-valuenow={cursor.minute}
+          aria-valuetext={`${tideHhmm(cursor.minute)}${doc ? `, ${tideHeightText(doc.heightM)}, ${tideTrendText(doc.trend)}` : ""}`}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowRight" || e.key === "ArrowUp") step(1);
+            else if (e.key === "ArrowLeft" || e.key === "ArrowDown") step(-1);
+            else return;
+            e.preventDefault();
+          }}
+          {...scrub}
+          className={`mt-2 cursor-pointer rounded-xl ${scrubCls}`}
+        >
+          <TideCurve
+            station={station}
+            isoDate={iso}
+            loM={loM}
+            hiM={hiM}
+            nowMs={isToday ? nowMs : null}
+            cursorMin={cursor.minute}
+          />
+        </div>
+        <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+          Bấm −1 giờ / +1 giờ (giữ nút để chạy nhanh), hoặc chạm, kéo trên đồ thị.
+        </p>
       </div>
 
       {/*  CẢ CHU KỲ — 30 cột, cột cao = nước lên xuống mạnh (rong/cường), cột
@@ -520,7 +669,7 @@ export function TideDaysView({
       <div className="surface mt-3 p-3">
         <p className="text-[0.9375rem] font-semibold leading-snug text-navy">Cả chu kỳ · 30 ngày tới</p>
         <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
-          Cột cao là nước rong (lên xuống mạnh), cột thấp là nước kém. Chạm cột để xem ngày đó.
+          Cột cao là nước rong (lên xuống mạnh), cột thấp là nước kém. Chạm hoặc kéo trên dải để xem ngày đó.
         </p>
         <TideMonthStrip thang={thang} days={days} sel={sel} onSel={setSel} />
       </div>

@@ -3,8 +3,8 @@
 // hạn hết giấy an toàn thực phẩm, phép khai thác, an toàn kỹ thuật, bảo hiểm").
 //
 // Đọc bản đồng bộ `user_docs` (kind documents · crew · boats — máy bà con tự đẩy
-// lên qua /api/me/sync) → luật thuần `lib/doc-reminders.ts` (mốc 30/15/7/3/1/0
-// ngày, quá hạn nhắc lại mỗi 30 ngày ×3) → MỘT tin/chủ tàu/lượt qua
+// lên qua /api/me/sync) → luật thuần `lib/doc-reminders.ts` (mốc 30/25/20/15/10
+// rồi hằng ngày 5→0, quá hạn nhắc lại mỗi 30 ngày ×3) → MỘT tin/chủ tàu/lượt qua
 // `notifyAccount` (ghi hộp thư TRƯỚC = sổ khử trùng, rồi mới đẩy).
 //
 // AUTH: Bearer CRON_SECRET như các cron khác. Gọi bởi .github/workflows/

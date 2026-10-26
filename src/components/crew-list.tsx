@@ -50,6 +50,8 @@ import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import { useTodayVN } from "@/lib/use-today";
 import { NHAN } from "@/lib/labels";
 import { useXoaCho } from "@/lib/xoa-cho";
+import { markSeenFromUrl } from "@/lib/doc-reminder-local";
+import { todayIsoVN } from "@/lib/days";
 
 /** Định danh một bạn thuyền để tra/báo cảnh báo — CCCD hoặc SĐT (1 trong 2). */
 type Identity = { cccd?: string; phone?: string };
@@ -189,6 +191,12 @@ export function CrewList() {
   const configured = isSupabaseConfigured();
   /** tra cảnh báo đang bị khoá (chưa Premium / chưa đăng nhập) — nút "Cảnh báo" kèm ổ khoá mờ (TAU-08) */
   const khoaCanhBao = access === "login" || access === "upgrade";
+
+  // Mở từ thông báo nhắc hạn bảo hiểm/chứng chỉ (`/nguoi?nhac=`) ⇒ đánh dấu
+  // đã báo, mở app lần sau không hiện lại đúng chuyện vừa đọc (lib/doc-reminder-local).
+  useEffect(() => {
+    markSeenFromUrl(window.location.href, todayIsoVN());
+  }, []);
 
   // Thuyền viên theo CHỦ (ba-spec 08 R2): hiện toàn bộ, không lọc theo tàu.
   const boatCrew = crew;
