@@ -13,6 +13,7 @@
 // (lib/auth-error.ts, lib/tier.ts): hạ tầng trục trặc đội lốt "đã đăng xuất".
 
 import { apiUrl } from "@/lib/api-base";
+import { xoaHetAnhGiay } from "@/lib/giay-anh-kho";
 import { DEVICE_TOKEN_HEADER, isValidTokenShape, shouldDropAccount, type TokenDenial } from "@/lib/device-token";
 import { applyIdentityAction } from "@/lib/offline-identity";
 import { TIER_CACHE_KEY, TIER_EVENT, TIER_UNTIL_KEY } from "@/lib/tier";
@@ -189,6 +190,8 @@ export function signOutLocal(reason: "user" | "kicked"): void {
     /* bỏ qua */
   }
   announceToken();
+  // ảnh giấy tờ cất trong máy để xuất trình offline (lib/giay-anh-kho) là dữ liệu riêng — không để lại cho người sau
+  void xoaHetAnhGiay();
   /*  QUA CỔNG `applyIdentityAction`, KHÔNG gọi thẳng `forgetIdentity` — luật K7:
       sổ danh tính chỉ có MỘT người ghi. Cổng `identity-gate.test.ts` bắt được
       đúng chỗ này lúc tôi viết tắt, và nó bắt đúng: mỗi đường ghi thứ hai là một

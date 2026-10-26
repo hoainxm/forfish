@@ -312,6 +312,16 @@ export function RouteIcon(p: IconProps) {
   );
 }
 
+// Máy ảnh — nút "Chụp giấy" trong form giấy tờ (app đọc hạn từ ảnh, 2026-10-26).
+export function CameraIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 8.5h3l1.5-2.5h7L17 8.5h3a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 20 19.5H4A1.5 1.5 0 0 1 2.5 18v-8A1.5 1.5 0 0 1 4 8.5Z" />
+      <circle cx="12" cy="13.5" r="3.2" />
+    </svg>
+  );
+}
+
 // Ảnh (khung + núi + mặt trời) — nút thêm ảnh ở thanh công cụ khung soạn bài.
 export function ImageIcon(p: IconProps) {
   return (

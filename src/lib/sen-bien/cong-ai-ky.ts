@@ -16,6 +16,8 @@ export const GW_URL_MAC_DINH = "https://gpu-desktop.tail1438a1.ts.net";
 export const DUONG_HOI = "/gw/v1/forfish/hoi";
 /** Đọc một câu bằng giọng Mỹ Duyên (máy nhà VieNeu ⇒ mp3) — câu thứ hai trở đi của câu trả lời máy nhà. */
 export const DUONG_DOC = "/gw/v1/forfish/doc";
+/** Đọc giấy tờ tàu từ ảnh — Gemma e2b (cùng Sen Biển) đọc loại/số/ngày cấp/hết hạn (ADR 0017, 2026-10-26). */
+export const DUONG_GIAY = "/gw/v1/forfish/giay";
 export const KHACH_THUE_TB = "forfish-thue-bao";
 const KHOA_RE = /^[A-Za-z0-9_-]{32,128}$/;
 const OIDC_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
@@ -59,7 +61,7 @@ export function dauKy(
   body: string,
   now = Date.now(),
   nonce = randomBytes(16).toString("hex"),
-  duong: typeof DUONG_HOI | typeof DUONG_DOC = DUONG_HOI,
+  duong: typeof DUONG_HOI | typeof DUONG_DOC | typeof DUONG_GIAY = DUONG_HOI,
 ): Record<string, string> {
   const t: TruongKy = { ts: String(now), nonce, method: "POST", duong, nguoi: tb, khachThue: KHACH_THUE_TB, body };
   return {

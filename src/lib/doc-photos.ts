@@ -4,10 +4,15 @@
 // Xem docs/specs/dong-bo-so-per-may.md §3b + §5. document.photos[] giữ ĐƯỜNG DẪN,
 // đồng bộ nhẹ qua user_docs (P2). Bytes ở bucket private, đọc bằng signed URL.
 //
-// v1: cần CÓ SÓNG để thêm/xem ảnh. Chụp offline chặn kèm thông báo (nợ: hàng đợi
+// v1: cần CÓ SÓNG để thêm ảnh. Chụp offline chặn kèm thông báo (nợ: hàng đợi
 // IndexedDB đẩy sau — ảnh giấy tờ thường chụp ở cảng có sóng).
+// 2026-10-26 (ADR 0017): XEM thì không cần sóng nữa — bytes ảnh vừa tải lên / vừa
+// xem được cất vào kho IndexedDB (lib/giay-anh-kho) để màn Xuất trình mở cho cán bộ
+// ngoài biển. `docAnhGiayUrl` = một cửa đọc: kho trước, mạng sau.
 
 import { authedFetch } from "@/lib/device-token-store";
+import { timeoutSignal } from "@/lib/abort";
+import { catAnhGiay, layAnhGiay, xoaAnhGiay } from "@/lib/giay-anh-kho";
 
 const MAX_DIM = 1600; // cạnh dài tối đa (px)
 const TARGET_BYTES = 1.8 * 1024 * 1024; // dưới trần 2MB của server
@@ -69,7 +74,37 @@ export async function uploadDocPhoto(
   );
   if (!res || !res.ok) return null;
   const j = (await res.json().catch(() => null)) as { path?: string } | null;
-  return j?.path ?? null;
+  if (!j?.path) return null;
+  await catAnhGiay(j.path, blob); // kho trong máy — hỏng thì thôi, ảnh vẫn ở Storage
+  return j.path;
+}
+
+/** Ảnh lấy về Storage ≤ ngần này ms (1,8 MB, sóng 3G yếu) — lâu hơn thì rơi về signed URL cho <img> tự tải. */
+const TAI_ANH_MS = 20_000;
+
+/**
+ * URL để <img> hiện một ảnh giấy tờ — ĐỌC KHO TRONG MÁY TRƯỚC (mất sóng vẫn xem), không có mới xin signed URL;
+ * có signed URL thì tải bytes về cất kho cho lần sau. `trongMay` = đang hiện từ kho. Null = không có kho lẫn mạng.
+ * URL `blob:` do chỗ gọi `URL.revokeObjectURL` khi gỡ.
+ */
+export async function docAnhGiayUrl(path: string): Promise<{ url: string; trongMay: boolean } | null> {
+  const kho = await layAnhGiay(path);
+  if (kho) return { url: URL.createObjectURL(kho), trongMay: true };
+  const signed = await docPhotoUrl(path);
+  if (!signed) return null;
+  try {
+    const r = await fetch(signed, { signal: timeoutSignal(TAI_ANH_MS) });
+    if (r.ok) {
+      const blob = await r.blob();
+      if (blob.size) {
+        await catAnhGiay(path, blob);
+        return { url: URL.createObjectURL(blob), trongMay: false };
+      }
+    }
+  } catch {
+    /* CORS/mạng — <img> tự tải bằng signed URL như trước */
+  }
+  return { url: signed, trongMay: false };
 }
 
 /** Lấy signed URL hiển thị 1 ảnh. Null nếu mất sóng / không có. */
@@ -85,6 +120,7 @@ export async function docPhotoUrl(path: string): Promise<string | null> {
 
 /** Xoá 1 ảnh khỏi Storage. Trả true nếu xoá được. */
 export async function deleteDocPhoto(path: string): Promise<boolean> {
+  void xoaAnhGiay(path); // kho trong máy — gỡ là gỡ, không chờ Storage
   const { res } = await authedFetch(
     `/api/me/docs/photo?path=${encodeURIComponent(path)}`,
     { method: "DELETE" },

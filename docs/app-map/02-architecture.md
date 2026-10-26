@@ -5,7 +5,8 @@
 **Load khi / Load when**: thêm/sửa page, route, navigation, component; cần hiểu app chạy thế nào khi env trống.
 
 covers: src/app
-last_verified: 2026-10-19
+last_verified: 2026-10-26
+<!-- re-verified: 2026-10-26e — ĐỌC GIẤY TỜ TỪ ẢNH + XUẤT TRÌNH OFFLINE (ADR 0017): bảng API có `/api/me/docs/doc-giay` (ký DUONG_GIAY → máy nhà /gw/v1/forfish/giay, Gemma e2b cùng Sen Biển, kiểm lại JSON, mã lỗi rõ); cây components có `xuat-trinh-giay.tsx`, `document-photos.tsx` đọc kho trước; cây lib có `doc-giay.ts`, `giay-anh-kho.ts` (IndexedDB, đăng xuất xoá), `doc-photos.ts docAnhGiayUrl`. Đối chiếu đúng với code trong commit này. -->
 <!-- re-verified: 2026-10-21 — O2 nhiều tàu: đối chiếu code `withBoatParam`/`boatFromParam` (lib/boats.ts), `tau-tabs.tsx` đọc `?tau=` ⇒ `setCurrentBoat` + gỡ tham số, `urgent.ts` href giấy tờ/bảo dưỡng, `remindBoatId`/`docRemindHref` (lib/doc-reminders) cho push + sheet. Soi trình duyệt 375px: Bình Minh → bấm việc Hải Âu ⇒ tàu đổi, lưu `forfish.currentBoat.v1`. -->
 <!-- re-verified: 2026-10-26f — `server.hydratePosts` gắn `KairosPost.coDanhSach` (đếm dòng 0075 qua `store.demDinhKemDong`, chỉ bài chinh-sach có đính kèm, song song, lỗi ⇒ false); `post-card` chỉ vẽ `TraCuuDanhSach` khi cờ này bật (14 §21b). Không request mới phía app. -->
 <!-- re-verified: 2026-10-26d — Kairos tab Chính sách theo TỈNH (14 §21c): `kairos-screen.tsx` vẽ `HomeBar` (ui/region-filter, useHome) khi tab Chính sách, truyền `tinh` (provinceIdOf tỉnh nhà, null = cả nước) cho `KairosFeed` (prop mới `tinh`, khoá giu-cho `feed:<cảng>:<chip>:<tỉnh>`); `feed-client.feedQuery` thêm opts.tinh ⇒ `province=`, `filterCached(…, tinh)`; `feed-query` FeedParams/FeedFilter `tinhChinhSach` (postgrest `or(provinces.ov.{x},provinces.eq.{})`) + `chinhSachSince(now)` mốc 01/01/2026; `thu-core.CHINH_SACH_TU_ISO`/`chinhSachCuMs`; `ingest.planIngest` luôn ghi `attachments`. Không route mới, không request mới (chỉ thêm tham số province khi bà con xem tab). -->
@@ -426,7 +427,7 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 
 
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-21) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-10-26) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 <!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->

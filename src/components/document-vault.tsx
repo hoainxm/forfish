@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BoatDocument,
   DOCUMENT_KINDS,
@@ -12,9 +12,11 @@ import {
 } from "@/lib/documents";
 import {
   AlertIcon,
+  CameraIcon,
   ChevronDownIcon,
   DocIcon,
   EditIcon,
+  EyeIcon,
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
@@ -27,8 +29,11 @@ import { formatVnDate } from "@/lib/format";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
 import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
-import { DocPhotoStrip } from "@/components/document-photos";
-import { deleteDocPhoto } from "@/lib/doc-photos";
+import { DocPhotoStrip, MAX_PHOTOS } from "@/components/document-photos";
+import { OfflineLine } from "@/components/ui/offline-line";
+import { XuatTrinhGiay } from "@/components/xuat-trinh-giay";
+import { compressImage, deleteDocPhoto, uploadDocPhoto } from "@/lib/doc-photos";
+import { apDungKqDocGiay, cauKetQuaDoc, cauLoiDoc, docGiayTuAnh } from "@/lib/doc-giay";
 import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
 import { showsUnderBoat } from "@/lib/boats";
@@ -109,6 +114,8 @@ export function DocumentVault() {
   const [confirmDelete, setConfirmDelete] = useState<StoredDocument | null>(
     null,
   );
+  /** màn Xuất trình cho cán bộ (toàn màn, ảnh từ kho trong máy) */
+  const [xuatTrinh, setXuatTrinh] = useState(false);
   // Có sóng không — ảnh giấy tờ (P3) cần mạng để thêm/xem (signed URL). Mặc
   // định true cho SSR (khớp hydrate), client cập nhật khi mount + online/offline.
   const [online, setOnline] = useState(true);
@@ -222,16 +229,25 @@ export function DocumentVault() {
         {readFailed ? (
           <span className="w-16 shrink-0" aria-hidden />
         ) : (
-          <button
-            onClick={() => {
-              setEditing(null);
-              setShowForm(true);
-            }}
-            className={`${SQ_BTN} bg-field text-navy`}
-          >
-            <PlusIcon className="h-6 w-6" />
-            Thêm
-          </button>
+          <>
+            {/* XUẤT TRÌNH (ADR 0017): chỉ khi có giấy — mở toàn màn cho cán bộ xem, ảnh đọc kho trong máy */}
+            {sorted.length > 0 && (
+              <button onClick={() => setXuatTrinh(true)} className={`${SQ_BTN} bg-field text-navy`}>
+                <EyeIcon className="h-6 w-6" />
+                {NHAN.xuatTrinh}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setEditing(null);
+                setShowForm(true);
+              }}
+              className={`${SQ_BTN} bg-field text-navy`}
+            >
+              <PlusIcon className="h-6 w-6" />
+              Thêm
+            </button>
+          </>
         )}
       </div>
 
@@ -394,12 +410,17 @@ export function DocumentVault() {
         <DocumentForm
           initial={editing}
           daCo={boatDocs.filter((d) => d.id !== editing?.id)}
+          online={online}
           onCancel={() => {
             setShowForm(false);
             setEditing(null);
           }}
           onSave={upsert}
         />
+      )}
+
+      {xuatTrinh && (
+        <XuatTrinhGiay docs={sorted} tenTau={current?.name} today={today} onClose={() => setXuatTrinh(false)} />
       )}
 
       {confirmDelete && (
@@ -423,15 +444,27 @@ export function DocumentVault() {
 function DocumentForm({
   initial,
   daCo,
+  online,
   onCancel,
   onSave,
 }: {
   initial: StoredDocument | null;
   /** giấy ĐÃ CÓ trong tủ của tàu này (trừ chính giấy đang sửa) — chặn hàng rỗng + hỏi khi trùng loại (TAU-11) */
   daCo: StoredDocument[];
+  /** có sóng — chụp giấy (tải ảnh + máy nhà đọc) cần mạng */
+  online: boolean;
   onCancel: () => void;
   onSave: (doc: StoredDocument) => void;
 }) {
+  /*  CHỤP GIẤY ⇒ APP TỰ ĐIỀN (ADR 0017, 2026-10-26 — anh Long: "chụp hình giấy tờ gửi lên app, app nội suy ra thời
+      gian hết hạn"). Ảnh nén rồi đi HAI đường song song: tải lên Storage (như DocPhotoStrip) + máy nhà đọc (Gemma e2b
+      cùng Sen Biển). Đọc xong CHỈ ĐIỀN vào ô — bà con xem lại rồi mới Lưu; câu nhắc nói rõ ô nào máy điền. Id giấy
+      cấp SỚM (docId) vì ảnh cần docId trước khi giấy được lưu; Huỷ giấy MỚI thì xoá ảnh đã lỡ tải (không để ảnh mồ côi). */
+  const [docId] = useState(() => initial?.id ?? `doc-${Date.now()}`);
+  const [photos, setPhotos] = useState<string[]>(initial?.photos ?? []);
+  const chupRef = useRef<HTMLInputElement>(null);
+  const [dangDoc, setDangDoc] = useState(false);
+  const [cauDoc, setCauDoc] = useState<{ muc: "ok" | "warn"; text: string } | null>(null);
   const [kind, setKind] = useState<DocumentKind>(initial?.kind ?? "dang_kiem");
   const [label, setLabel] = useState(initial?.label ?? kindLabel("dang_kiem"));
   const [labelTouched, setLabelTouched] = useState(Boolean(initial));
@@ -453,7 +486,7 @@ function DocumentForm({
       (hạn ∨ số giấy ∨ ảnh) HOẶC loại này chưa có trong tủ của tàu (giấy không thời hạn như
       đăng ký tàu vẫn thêm được một lần). Sửa giấy cũ luôn lưu được. */
   const giayTrungLoai = daCo.find((d) => d.kind === kind) ?? null;
-  const coThongTin = Boolean(expiresOn || number.trim() || initial?.photos?.length);
+  const coThongTin = Boolean(expiresOn || number.trim() || photos.length);
   const luuDuoc = Boolean(initial) || coThongTin || !giayTrungLoai;
 
   function handleKind(next: DocumentKind) {
@@ -468,14 +501,55 @@ function DocumentForm({
         vẫn nằm ở Storage mà thẻ không còn biết) — `...initial` giữ `photos`. */
     return {
       ...initial,
-      id: initial?.id ?? `doc-${Date.now()}`,
+      id: docId,
       kind,
       label: label.trim() || kindLabel(kind),
       number: number.trim() || undefined,
       issuedOn: issuedOn || undefined,
       expiresOn: expiresOn || undefined,
       note: note.trim() || undefined,
+      photos: photos.length ? photos : undefined,
     };
+  }
+
+  /** Huỷ: giấy MỚI mà đã lỡ tải ảnh ⇒ xoá ảnh (giấy chưa tồn tại, ảnh không thuộc về ai). Giấy cũ giữ nguyên. */
+  function huy() {
+    if (!initial) photos.forEach((p) => void deleteDocPhoto(p));
+    onCancel();
+  }
+
+  async function chupGiay(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setCauDoc(null);
+    setDangDoc(true);
+    try {
+      const blob = await compressImage(file);
+      // hai việc song song: ảnh lên Storage (giữ giấy) + máy nhà đọc chữ (điền ô)
+      const [path, kq] = await Promise.all([
+        photos.length < MAX_PHOTOS ? uploadDocPhoto(docId, blob) : Promise.resolve(null),
+        docGiayTuAnh(blob),
+      ]);
+      if (path) setPhotos((ds) => [...ds, path]);
+      if (!kq.ok) {
+        setCauDoc({ muc: "warn", text: cauLoiDoc(kq.loi) });
+        return;
+      }
+      const ap = apDungKqDocGiay({ kind, number, issuedOn, expiresOn }, kq.giay);
+      if (ap.form.kind !== kind) handleKind(ap.form.kind);
+      setNumber(ap.form.number);
+      setIssuedOn(ap.form.issuedOn);
+      setExpiresOn(ap.form.expiresOn);
+      // ô máy vừa điền phải NHÌN THẤY để xem lại — mở nhóm Chi tiết nếu có số/ngày cấp
+      if (ap.form.number || ap.form.issuedOn) setShowMore(true);
+      const coO = ap.daDien.length + ap.daDoi.length > 0;
+      setCauDoc({ muc: coO && kq.giay.hetHan ? "ok" : "warn", text: cauKetQuaDoc(ap.daDien, ap.daDoi, kq.giay.hetHan) });
+    } catch {
+      setCauDoc({ muc: "warn", text: "Định dạng ảnh không hỗ trợ, bà con thử chụp lại nhé." });
+    } finally {
+      setDangDoc(false);
+    }
   }
 
   /** Gọi từ Enter trong form (có event) lẫn nút Lưu ở chân ngăn (không event). */
@@ -509,11 +583,40 @@ function DocumentForm({
     <BottomSheet
       kieu="form"
       title={initial ? "Sửa thông tin giấy tờ" : "Thêm giấy tờ mới"}
-      onClose={onCancel}
+      onClose={huy}
       /* chân Huỷ|Lưu do ngăn vẽ (TAU-07/TAU-10); Lưu mờ khi chưa có thông tin (TAU-11) qua `dangLuu` */
       chan={{ luu: NHAN.luu, onLuu: () => submit(), dangLuu: !luuDuoc }}
     >
       <form onSubmit={submit} noValidate>
+        {/*  CHỤP GIẤY đứng đầu form: việc chính của bà con là giơ máy lên chụp, còn lại app điền. Nút cỡ CTA
+            (--h-cta), nhãn 2 chữ; dòng phụ nói app làm gì. Mất sóng ⇒ nút mờ + OfflineLine (ảnh cần mạng
+            để tải lên, máy nhà cần mạng để đọc) — bà con vẫn ghi tay được như trước. */}
+        <button
+          type="button"
+          onClick={() => chupRef.current?.click()}
+          disabled={!online || dangDoc}
+          className="mb-1.5 flex min-h-(--h-cta) w-full items-center justify-center gap-2 rounded-2xl bg-sea text-[1.125rem] font-semibold text-white transition active:scale-[0.99] disabled:opacity-60"
+        >
+          <CameraIcon className="h-6 w-6" />
+          {dangDoc ? "Đang đọc…" : NHAN.chupGiay}
+        </button>
+        <p className="mb-3.5 text-center text-[0.8125rem] leading-snug text-foreground/65">
+          {dangDoc ? "App đang đọc chữ trên giấy, chừng vài giây." : "Chụp tờ giấy, app tự điền loại, số và ngày hết hạn."}
+        </p>
+        <input ref={chupRef} type="file" accept="image/*" capture="environment" onChange={chupGiay} className="hidden" />
+        {!online && (
+          <div className="mb-3.5">
+            <OfflineLine extra=" · chụp giấy" />
+          </div>
+        )}
+        {cauDoc && (
+          <div className="mb-3.5">
+            <StatusBanner level={cauDoc.muc} icon={<DocIcon className="h-5 w-5" />}>
+              {cauDoc.text}
+            </StatusBanner>
+          </div>
+        )}
+
         <Field label="Loại giấy tờ">
           <select
             value={kind}
@@ -572,6 +675,12 @@ function DocumentForm({
             className={inputClass}
           />
         </Field>
+
+        {photos.length > 0 && (
+          <div className="mb-3.5">
+            <DocPhotoStrip docId={docId} photos={photos} online={online} onChange={setPhotos} />
+          </div>
+        )}
 
         {/*  Số giấy tờ + ghi chú: cả hai tự nhãn đã nhận là tuỳ chọn, bỏ đi vẫn
             lưu được ⇒ không phải KEY, thu sau một nút (luật C1/C2 — sheet đo

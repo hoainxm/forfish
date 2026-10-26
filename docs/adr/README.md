@@ -32,6 +32,7 @@ KHÔNG viết ADR cho: feature thường, UI tweak, fix bug — những thứ đ
 | [0013](0013-san-thuong-mai-da-nguoi-ban.md) | Chợ vật tư tàu cá: sàn ĐA NGƯỜI BÁN tách bảng mới, kho qua adapter MarketStore (supabase/file), định danh SĐT chuỗi cứng, COD + chuyển khoản | Proposed | 2026-09-06 |
 | [0015](0015-sen-bien-nghe-mo-hinh-sua-duoc.md) | Sen Biển nghe: đổi 30M (CC-BY-NC-ND, cấm sửa) sang zipformer 70.000 giờ Apache-2.0 tinh chỉnh bằng câu Sen Biển + tiếng máy tàu — đã thay bằng `sen-bien-nghe.v2.bin` (79 MB, vượt trần dữ liệu có ghi `data-budget`) | Accepted | 2026-10-22 |
 | [0016](0016-sen-bien-hoi-may-nha.md) | Sen Biển hỏi máy nhà (AI Assistant, Gemma trong máy) khi máy bà con không tự trả lời được — đường lùi có sóng, mã thuê bao giả danh, không gửi SĐT; đảo luật 17/10 "chỉ chạy trong máy" | Accepted | 2026-10-19 |
+| [0017](0017-doc-giay-to-tu-anh-may-nha.md) | Chụp giấy tờ ⇒ Gemma máy nhà (cùng mô hình Sen Biển) đọc loại/số/ngày hết hạn, app chỉ điền – bà con quyết; ảnh cất IndexedDB để Xuất trình cho cán bộ khi mất sóng | Accepted | 2026-10-26 |
 | [0014](0014-gop-cua-hang-vao-cho.md) | Gộp "Cửa hàng" cũ vào Chợ vật tư — một cửa hàng, SDVICO là một gian hàng; dữ liệu chuyển bằng 0061; thêm bậc sản phẩm "Liên hệ báo giá" | Accepted | 2026-09-07 |
 
 ## Cách thêm

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   compressImage,
   uploadDocPhoto,
-  docPhotoUrl,
+  docAnhGiayUrl,
   deleteDocPhoto,
 } from "@/lib/doc-photos";
 import { CloseIcon, PlusIcon, TrashIcon } from "@/components/icons";
@@ -13,11 +13,12 @@ import { OfflineLine } from "@/components/ui/offline-line";
 import { NHAN } from "@/lib/labels";
 
 // Dải ẢNH GIẤY TỜ của một giấy tờ (P3). Xem lib/doc-photos + /api/me/docs/photo.
-// v1: cần CÓ SÓNG để thêm/xem ảnh (signed URL). Offline → chặn thêm + báo rõ.
+// v1: cần CÓ SÓNG để thêm ảnh. XEM thì đọc kho trong máy trước (2026-10-26, lib/giay-anh-kho) —
+// mất sóng vẫn thấy ảnh đã từng tải lên/xem; chưa có trong kho mới cần mạng. Offline → chặn thêm + báo rõ.
 
-const MAX_PHOTOS = 4;
+export const MAX_PHOTOS = 4;
 
-/** Một ảnh: lấy signed URL rồi hiện; mất sóng → placeholder, KHÔNG vỡ layout. */
+/** Một ảnh: kho trong máy → signed URL; cả hai không có → placeholder, KHÔNG vỡ layout. */
 function Thumb({
   path,
   onDelete,
@@ -32,13 +33,19 @@ function Thumb({
 
   useEffect(() => {
     let alive = true;
-    docPhotoUrl(path).then((u) => {
-      if (!alive) return;
-      setUrl(u);
-      setFailed(!u);
+    let blobUrl: string | null = null;
+    docAnhGiayUrl(path).then((r) => {
+      if (!alive) {
+        if (r?.url.startsWith("blob:")) URL.revokeObjectURL(r.url);
+        return;
+      }
+      if (r?.url.startsWith("blob:")) blobUrl = r.url;
+      setUrl(r?.url ?? null);
+      setFailed(!r);
     });
     return () => {
       alive = false;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
   }, [path]);
 
