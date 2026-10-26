@@ -6,6 +6,7 @@ import {
   DOCUMENT_KINDS,
   DocumentKind,
   byUrgency,
+  giayTuUrl,
   getExpiryStatus,
   kindLabel,
   kindUsuallyNoExpiry,
@@ -196,6 +197,28 @@ export function DocumentVault() {
     return docs.filter((d) => showsUnderBoat(d.boatId, current?.id, known));
   }, [docs, current, boats, boatReady]);
 
+  /*  MỞ ĐÚNG GIẤY TỪ LINK `?giay=<loại>` (14 §21f — khối hạn giấy dưới bài luật Sen Biển: "Nhập"/"Sửa"): đã có giấy loại
+      đó trên tàu đang xem ⇒ mở form SỬA giấy còn hạn xa nhất; chưa có ⇒ form THÊM với loại chọn sẵn. Chạy MỘT lần khi
+      tủ + danh sách tàu đã đọc xong, rồi bỏ `giay=` khỏi URL (replaceState) để Quay lại / tải lại không bật form lần nữa.
+      Tủ đọc hỏng ⇒ không mở form (cấm ghi đè). */
+  const [kindMoi, setKindMoi] = useState<DocumentKind | null>(null);
+  const daMoGiay = useRef(false);
+  useEffect(() => {
+    if (!ready || !boatReady || daMoGiay.current) return;
+    daMoGiay.current = true;
+    const kind = giayTuUrl(window.location.search);
+    if (!kind) return;
+    const u = new URL(window.location.href);
+    u.searchParams.delete("giay");
+    window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
+    if (readFailed) return;
+    const cung = boatDocs.filter((d) => d.kind === kind);
+    const coNgay = cung.filter((d) => d.expiresOn).sort(byUrgency(today));
+    setEditing(coNgay[coNgay.length - 1] ?? cung[0] ?? null);
+    setKindMoi(kind);
+    setShowForm(true);
+  }, [ready, boatReady, readFailed, boatDocs, today]);
+
   const sorted = useMemo(
     () => [...boatDocs].sort(byUrgency(today)),
     [boatDocs, today],
@@ -210,6 +233,7 @@ export function DocumentVault() {
     commit(next);
     setShowForm(false);
     setEditing(null);
+    setKindMoi(null);
   }
 
   return (
@@ -409,11 +433,13 @@ export function DocumentVault() {
       {showForm && (
         <DocumentForm
           initial={editing}
+          kindMoi={kindMoi}
           daCo={boatDocs.filter((d) => d.id !== editing?.id)}
           online={online}
           onCancel={() => {
             setShowForm(false);
             setEditing(null);
+            setKindMoi(null);
           }}
           onSave={upsert}
         />
@@ -443,12 +469,15 @@ export function DocumentVault() {
 
 function DocumentForm({
   initial,
+  kindMoi,
   daCo,
   online,
   onCancel,
   onSave,
 }: {
   initial: StoredDocument | null;
+  /** giấy MỚI mở từ link `?giay=` ⇒ chọn sẵn loại này (14 §21f); null ⇒ mặc định đăng kiểm như cũ */
+  kindMoi?: DocumentKind | null;
   /** giấy ĐÃ CÓ trong tủ của tàu này (trừ chính giấy đang sửa) — chặn hàng rỗng + hỏi khi trùng loại (TAU-11) */
   daCo: StoredDocument[];
   /** có sóng — chụp giấy (tải ảnh + máy nhà đọc) cần mạng */
@@ -465,8 +494,8 @@ function DocumentForm({
   const chupRef = useRef<HTMLInputElement>(null);
   const [dangDoc, setDangDoc] = useState(false);
   const [cauDoc, setCauDoc] = useState<{ muc: "ok" | "warn"; text: string } | null>(null);
-  const [kind, setKind] = useState<DocumentKind>(initial?.kind ?? "dang_kiem");
-  const [label, setLabel] = useState(initial?.label ?? kindLabel("dang_kiem"));
+  const [kind, setKind] = useState<DocumentKind>(initial?.kind ?? kindMoi ?? "dang_kiem");
+  const [label, setLabel] = useState(initial?.label ?? kindLabel(kindMoi ?? "dang_kiem"));
   const [labelTouched, setLabelTouched] = useState(Boolean(initial));
   const [number, setNumber] = useState(initial?.number ?? "");
   const [issuedOn, setIssuedOn] = useState(initial?.issuedOn ?? "");

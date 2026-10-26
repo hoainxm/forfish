@@ -47,6 +47,7 @@ import { KairosAvatar } from "./kairos-avatar";
 import { CommentThread, type CommentKit } from "./comment-thread";
 import { KhungAnh, NutNghe, useHoanAnh } from "./de-dung";
 import { TraCuuDanhSach } from "./tra-cuu-danh-sach";
+import { HanGiayLuat } from "./han-giay-luat";
 import { XemAnh } from "./xem-anh";
 
 export interface PostActions {
@@ -512,6 +513,8 @@ export function PostCard({
       ) : (
         <>
           <Body text={post.body} nhac={post.mentions} />
+          {/* bài Sen Biển tuyên truyền luật về giấy có hạn ⇒ hạn giấy CỦA BÀ CON + mời nhập để được nhắc (14 §21f) */}
+          <HanGiayLuat post={post} />
           <Images urls={post.images} count={post.imageCount ?? post.images.length} chan={chanXemAnh} />
           <Reshare post={post} now={now} benPort={benPort} />
         </>

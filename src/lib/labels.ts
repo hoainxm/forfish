@@ -68,6 +68,7 @@ export const NHAN = {
   loc: "Lọc",
   // bản đồ / Sen Biển
   mo: "Mở",
+  nhap: "Nhập", // khối hạn giấy dưới bài luật Sen Biển (14 §21f): giấy chưa lưu / chưa có ngày hết hạn
   lop: "Lớp",
   viTri: "Vị trí",
   chayTau: "Chạy tàu",

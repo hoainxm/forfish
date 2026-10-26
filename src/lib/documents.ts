@@ -91,3 +91,11 @@ export function byUrgency(today: Date) {
   };
 }
 
+/**
+ * `?giay=<loại>` trong URL ⇒ loại giấy hợp lệ, không thì null. Tủ giấy tờ đọc lúc mở để bật form đúng giấy — link từ
+ * khối hạn giấy dưới bài luật Sen Biển (kairos/han-giay.linkGiay, 14 §21f).
+ */
+export function giayTuUrl(search: string): DocumentKind | null {
+  const v = new URLSearchParams(search).get("giay");
+  return v && DOCUMENT_KINDS.some((k) => k.value === v) ? (v as DocumentKind) : null;
+}
