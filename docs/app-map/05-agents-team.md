@@ -78,6 +78,7 @@ ba-flow-logic (nhu cầu→ba-spec) → ui-design-logic (→design-spec) → bui
 1. Lead viết brief: mục tiêu + **danh sách file được phép đụng** + facts canonical
 2. Teammate chạy `/fl` (hoặc đọc README app-map) → đọc đúng docs cần
 3. Teammate làm trong file set của mình, update doc cùng commit (invariant root [CLAUDE.md](../../CLAUDE.md))
+   - Trạng thái doc đọc ở `docs/app-map/_generated/doc-status.md` (hook sinh lại mỗi commit — file duy nhất máy được ghi/stage). Hook **không** sửa doc nào khác, nên mọi doc hiện `M` trong `git status` là **việc của người**, đừng coi là rác máy (bài học 2026-10-25: `popover.tsx` chốt 23/10 nằm lẫn giữa 15–20 doc máy sửa, bị bỏ quên 2 ngày).
 4. Teammate báo cáo: file đã tạo/sửa + điểm cần lead review
 5. Lead review + integrate
 

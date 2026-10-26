@@ -14,7 +14,7 @@ sedi() { _f=$1; shift; sed "$@" "$_f" > "$_f.tmp.$$" && mv "$_f.tmp.$$" "$_f"; }
 #     schtasks /create /tn "doc-health" /sc weekly /d MON /st 08:00 ^
 #       /tr "\"C:\Program Files\Git\bin\sh.exe\" -c \"cd /c/path/repo && sh scripts/doc-health-report.sh\""
 # Yêu cầu: git >= 1.9 (pathspec ':(exclude)'), GNU date (macOS: brew install coreutils).
-# Chủ sở hữu tín hiệu dead-symbol: --ci (fail PR) + full --status hằng tuần (đặt marker);
+# Chủ sở hữu tín hiệu dead-symbol: --ci (fail PR) + full --status hằng tuần (ghi doc-status.md);
 # hook per-commit dùng --fast nên KHÔNG bắt dead-symbol — by design, xem nguyên tắc 12.
 #   GitHub Actions (.github/workflows/doc-health.yml — fetch-depth: 0 bắt buộc cho timestamp):
 #     on: { schedule: [ { cron: "0 1 * * 1" } ], pull_request: {} }
@@ -119,18 +119,10 @@ doc_state() {
   echo "$STATE|$REASON|$LAG"
 }
 
-# Chèn/xóa marker DOC-STATUS trong chính doc. Anchor fallback: ttl_days -> last_verified
-# -> covers (doc cẩu thả frontmatter vẫn phải nhận marker — vòng 9 Bug 3).
-update_marker() {
-  sedi "$1" '/<!-- DOC-STATUS:/d'
-  if [ "$2" = "SUSPECT" ] || [ "$2" = "ORPHANED" ]; then
-    if grep -qi '^ttl_days:' "$1"; then A='^[Tt][Tt][Ll]_days:'
-    elif grep -qi '^last_verified:' "$1"; then A='^[Ll]ast_verified:'
-    else A='^[Cc]overs:'; fi
-    sedi "$1" "/$A/a\\
-<!-- DOC-STATUS: $2 ($(date +%Y-%m-%d)) — $3. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->"
-  fi
-}
+# Trạng thái doc CHỈ nằm ở docs/app-map/_generated/doc-status.md (một file máy sinh).
+# Trước 2026-10-25 script còn chèn dòng `<!-- DOC-STATUS: … -->` vào từng doc; hậu quả là
+# mỗi lần commit, hàng chục doc bị máy sửa dở trong working tree, sửa thật của người lẫn
+# vào đó và bị bỏ quên (popover.tsx 2026-10-23 → 25). Bỏ hẳn: KHÔNG ghi gì vào doc nữa.
 
 # ── chế độ --self-test: fixture tổng hợp trong temp repo, bắt regression lớp Bug A/B ──
 if [ "$1" = "--self-test" ]; then
@@ -183,11 +175,16 @@ if [ "$1" = "--self-test" ]; then
   git rm -rq src/a && git commit -qm c4
   ST=$(doc_state docs/app-map/01-t.md 2>/dev/null | cut -d'|' -f1)
   [ "$ST" = "ORPHANED" ] && echo "PASS: covers path xoa -> ORPHANED" || { echo "FAIL: mong ORPHANED, ra '$ST'"; RC=1; }
-  # Marker fallback anchor (vòng 9 Bug 3): doc thieu ttl_days van nhan marker
-  printf '# 02 t2\n> Load khi: t\ncovers: src/b\nlast_verified: 2026-01-01\n\nNoi dung.\n' > docs/app-map/02-t2.md
-  git add docs/app-map/02-t2.md; git commit -qm "re-verify(02-t2): init"
-  update_marker docs/app-map/02-t2.md SUSPECT "test"
-  grep -q 'DOC-STATUS: SUSPECT' docs/app-map/02-t2.md && echo "PASS: marker fallback anchor (thieu ttl_days)" || { echo "FAIL: doc thieu ttl khong nhan marker"; RC=1; }
+  # --status KHÔNG được đụng vào doc (2026-10-25): sau khi sinh doc-status.md, mọi doc giữ nguyên byte
+  mkdir -p docs/app-map/_generated
+  BEFORE=$(cat docs/app-map/01-t.md)
+  sh "$SELF" --status --fast >/dev/null 2>&1
+  AFTER=$(cat docs/app-map/01-t.md)
+  if [ "$BEFORE" = "$AFTER" ] && ! grep -q 'DOC-STATUS' docs/app-map/01-t.md && grep -q '01-t.md' docs/app-map/_generated/doc-status.md; then
+    echo "PASS: --status chi ghi _generated/doc-status.md, khong sua doc"
+  else
+    echo "FAIL: --status van sua doc hoac khong sinh doc-status.md"; RC=1
+  fi
   cd "$OLDPWD_ST" && rm -rf "$T"
   [ "$RC" -eq 0 ] && echo "self-test: ALL PASS" || echo "self-test: CO FAIL"
   exit $RC
@@ -213,15 +210,7 @@ if [ "$1" = "--status" ]; then
       echo "| $doc | $(echo "$DS" | cut -d'|' -f1) | $(echo "$DS" | cut -d'|' -f2) |"
     done
   } > "$OUT"
-  # Marker trong CHÍNH doc (đóng đường đọc-trực-tiếp không qua /fl — STALE mitigation
-  # phải hiện ở mọi lối vào). Máy quản lý dòng này: xóa marker cũ, chèn lại nếu != VERIFIED.
-  # Marker để unstaged có chủ đích — commit tự nhiên ở lần doc được sửa/verify kế tiếp.
-  for doc in $DOCS; do
-    DS=$(doc_state "$doc")
-    ST=$(echo "$DS" | cut -d'|' -f1)
-    update_marker "$doc" "$ST" "$(echo "$DS" | cut -d'|' -f2)"
-  done
-  echo "regenerated: $OUT (+ DOC-STATUS markers)"
+  echo "regenerated: $OUT"
   exit 0
 fi
 

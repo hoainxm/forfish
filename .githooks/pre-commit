@@ -525,10 +525,10 @@ for doc in $(git ls-files 'docs/app-map/*.md' 'docs/app-map/**/*.md' 2>/dev/null
     H=$(echo "$CHANGED" | while read -r c; do if [ -n "$(covers_hit "$c" "$p")" ]; then echo 1; break; fi; done)
     [ -n "$H" ] && { HIT=1; break; }
   done
-  # "Doc da duoc sua" = co it nhat 1 dong staged-diff KHONG phai marker DOC-STATUS may-ghi.
-  # Neu khong loai marker: hook ghi DOC-STATUS vao working tree o buoc 5 -> lan commit sau
-  # `git add -A` stage dong may-ghi do -> cong covers tuong "doc da sua" -> FALSE-PASS he thong
-  # (hoi dong Fable B1/M4: demo First-win cua README fail vi chinh ke nay).
+  # "Doc da duoc sua" = co it nhat 1 dong staged-diff KHONG phai dong DOC-STATUS.
+  # Tu 2026-10-25 may KHONG ghi dong nay vao doc nua (trang thai chi o _generated/doc-status.md);
+  # van loai no de dong cu con sot trong working tree cua phien khac khong tinh la "da sua doc"
+  # (hoi dong Fable B1/M4: FALSE-PASS khi `git add -A` stage dong may-ghi).
   DOCMOD=0
   if echo "$CHANGED" | grep -qx "$doc"; then
     REAL=$(git diff --cached -U0 -- "$doc" 2>/dev/null | grep -E '^[+-][^+-]' | grep -v 'DOC-STATUS')
@@ -970,8 +970,9 @@ for f in $(git diff --cached --name-only --diff-filter=A | grep -E '^[^/]+\.(jso
 done
 
 # ── 5. Regenerate doc-status (cổng đọc luôn fresh — meta-rot guard) ─────
-# doc-status.md phải fresh theo COMMIT chứ không theo tuần; marker DOC-STATUS trong doc
-# được --status quản lý (xem report). Chỉ stage doc-status.md — KHÔNG auto-stage doc khác.
+# doc-status.md phải fresh theo COMMIT chứ không theo tuần. Đây là FILE DUY NHẤT hook được
+# ghi/stage: --status KHÔNG chèn dòng DOC-STATUS vào doc nữa (2026-10-25) — trước đó mỗi commit
+# làm hàng chục doc "sửa dở" trong `git status`, sửa thật lẫn vào và bị bỏ quên. KHÔNG auto-stage doc khác.
 if [ "$FAIL" -eq 0 ] && [ -f scripts/doc-health-report.sh ]; then
   sh scripts/doc-health-report.sh --status --fast >/dev/null 2>&1 || true
   [ -f docs/app-map/_generated/doc-status.md ] && git add docs/app-map/_generated/doc-status.md 2>/dev/null

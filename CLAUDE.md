@@ -52,7 +52,7 @@ Mọi thay đổi `src/` phải update doc app-map tương ứng **TRONG CÙNG C
 | Shape đồ SDWork (CRM↔ForFish) | [docs/contracts/sdwork-assets.contract.md](docs/contracts/sdwork-assets.contract.md) — bump version nếu breaking |
 | Nguồn dữ liệu ngoài (timeout/fallback) | [docs/app-map/ops/external-services.md](docs/app-map/ops/external-services.md) |
 
-**Enforcement (nguyên tắc 8/12)**: pre-commit hook ở `.githooks/` (bật bằng `git config core.hooksPath .githooks`) chặn migration↔04 lệch, covers-gate, budget root, contract SDWork, spacing-px, BOM/mojibake. Verify: `sh .githooks/pre-commit --self-test`. Sức khoẻ doc: `sh scripts/doc-health-report.sh`. Audit định kỳ: `/audit`.
+**Enforcement (nguyên tắc 8/12)**: pre-commit hook ở `.githooks/` (bật bằng `git config core.hooksPath .githooks`) chặn migration↔04 lệch, covers-gate, budget root, contract SDWork, spacing-px, BOM/mojibake. Verify `sh .githooks/pre-commit --self-test`; doc-health `sh scripts/doc-health-report.sh` (trạng thái: `_generated/doc-status.md`); `/audit`.
 
 Test: **Vitest** (`npm test`, test tại `src/lib/__tests__/`) — thêm logic mới vào `src/lib/` thì viết test kèm cùng commit. **Node ≥ 20** (CI pin 20); script `test` = `node scripts/run-vitest.mjs` — file bọc CHỈ thêm cờ `--no-experimental-webstorage` khi Node ≥22 (để tắt localStorage native che localStorage của jsdom), còn Node 20 thì bỏ cờ (cờ chưa tồn tại → truyền qua NODE_OPTIONS sẽ làm Node exit 9). ⚠️ ĐỪNG quay lại `NODE_OPTIONS=--no-experimental-webstorage vitest run`: nó làm CI Node 20 đỏ (exit 9) và hỏng `npm test` trên Windows (cú pháp gán biến kiểu bash). Nhờ file bọc, `npm test` xanh trên CI (Node 20), máy dev (Node 22/26) và Windows. Skip chỉ cho phép với pure UI tweak / config-only / doc-only, note rõ trong commit message.
 
