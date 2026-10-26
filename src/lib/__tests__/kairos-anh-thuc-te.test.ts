@@ -1,4 +1,5 @@
-// Ảnh thực tế cho agent Kairos (16 §4 2f): chỉ ảnh đã duyệt, trần + khoảng cách, agent cố định theo ảnh, luật ghi nguồn SDVICO.
+// Ảnh thực tế cho agent Kairos (16 §4 2f): chỉ ảnh đã duyệt, trần + khoảng cách, agent cố định theo ảnh; ảnh là ảnh CỦA
+// NHÂN VẬT (2026-10-26) — chặn SĐT, số tàu, nhận đã dùng SDVICO, chê hàng khác.
 import { describe, expect, it } from "vitest";
 import { anhDaDuyet, chonAgentAnh, chonAnh, chuanSoAnh, ghiSoAnh, KHOANG_ANH_MS, loiAnhThucTe, promptAnh, TRAN_ANH_NGAY } from "@/lib/kairos/anh-thuc-te.mjs";
 
@@ -39,21 +40,30 @@ describe("anhDaDuyet / chonAnh", () => {
 
 describe("agent + prompt + luật chữ", () => {
   const anh = anhDaDuyet(index)[1];
-  it("agent người kể, cố định theo id ảnh", () => {
+  it("agent người kể (không phải người ít nói), cố định theo id ảnh", () => {
     const a = chonAgentAnh(anh);
     expect(a.vai).toBe("ke");
+    expect(a.kieuTraoDoi).not.toBe("it-noi");
     expect(chonAgentAnh(anh).id).toBe(a.id);
   });
-  it("prompt mang ghi chú trong thẻ dữ liệu + luật ghi nguồn SDVICO, không nhận ảnh mình", () => {
-    const p = promptAnh(chonAgentAnh(anh), anh);
+  it("prompt: ghi chú trong thẻ dữ liệu, ảnh là của nhân vật, mang hồ sơ đời tư; vẫn cấm nhận đã dùng + số liệu bịa", () => {
+    const a = chonAgentAnh(anh);
+    const p = promptAnh(a, anh);
     expect(p).toContain("<ghi_chu>Bến cá Tịnh Kỳ");
-    expect(p).toContain("SDVICO");
-    expect(p).toMatch(/KHÔNG nói mình chụp/);
+    expect(p).toContain("ẢNH CỦA CHÍNH NHÂN VẬT");
+    expect(p).toContain(a.chuyenNha[0]);
+    expect(p).toContain(`${a.tuoi} tuổi`);
+    expect(p).toMatch(/KHÔNG nói mình đã mua \/ dùng \/ lắp/);
+    expect(p).toMatch(/KHÔNG đưa giá, sản lượng/);
+    expect(p).not.toMatch(/KHÔNG nói mình chụp/);
   });
-  it("loiAnhThucTe: thiếu SDVICO / nhận là ảnh mình chụp ⇒ lỗi; ghi nguồn đúng ⇒ null", () => {
-    expect(loiAnhThucTe("Ảnh anh em SDVICO đi thực tế ở bến Tịnh Kỳ gửi về, bà con thấy sao?")).toBeNull();
-    expect(loiAnhThucTe("Ảnh bến Tịnh Kỳ sáng nay")).toBe("anh_thieu_nguon");
-    expect(loiAnhThucTe("SDVICO: tui mới chụp ở bến sáng nay")).toBe("anh_nhan_cua_minh");
-    expect(loiAnhThucTe("Mình vừa chụp, ảnh SDVICO")).toBe("anh_nhan_cua_minh");
+  it("loiAnhThucTe: nhận ảnh của mình ⇒ được; lộ SĐT / số tàu, nhận đã dùng SDVICO, chê hàng khác ⇒ lỗi", () => {
+    expect(loiAnhThucTe("tui mới chụp ở bến Tịnh Kỳ sáng nay, ghe về đông ghê")).toBeNull();
+    expect(loiAnhThucTe("Ảnh bến Tịnh Kỳ sáng nay")).toBeNull();
+    expect(loiAnhThucTe("bên SDVICO có cái máy giám sát hành trình nè, ai biết hông")).toBeNull();
+    expect(loiAnhThucTe("cần thì gọi 0905 123 456 nha")).toBe("anh_co_sdt");
+    expect(loiAnhThucTe("tàu QNg-90123-TS mới lên đà")).toBe("anh_co_so_tau");
+    expect(loiAnhThucTe("máy SDVICO tui lắp rồi, chạy ngon")).toBe("nhan_da_dung");
+    expect(loiAnhThucTe("hàng SDVICO xịn, đồ dỏm ngoài chợ thua xa")).toBe("che_hang_khac");
   });
 });

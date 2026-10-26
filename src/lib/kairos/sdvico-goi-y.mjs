@@ -84,10 +84,10 @@ export function chonSanPham(text) {
 }
 
 /** Nhận đã dùng / đã lắp / đã mua — agent chưa từng dùng ⇒ cấm (có dấu + không dấu, các kiểu xưng hô). */
-const NHAN_DA_DUNG =
+export const NHAN_DA_DUNG =
   /(tui|tôi|toi|mình|minh|tao|em|anh|chú|chu|bác|bac|nhà tui|nha tui|ghe tui|tàu tui|tau tui|tàu mình|tau minh|bên tui|ben tui)\s+(cũng\s+|cung\s+|đã\s+|da\s+|mới\s+|moi\s+|có\s+|co\s+)?(dùng|dung|xài|xai|lắp|lap|gắn|gan|mua|sắm|sam|thử|thu|chạy|chay)(?=[\s,.!?]|$)|(đã|da)\s+(dùng|dung|xài|xai|lắp|lap|mua|thử|thu)\s+(rồi|roi|qua)|dùng thấy|dung thay|xài thấy|xai thay|dùng rồi|xài rồi|lắp rồi/i;
 /** Chê hàng / hãng khác. */
-const CHE_KHAC = /(hãng|hang|hàng|loại|loai|bên|ben|đồ|do)\s+(khác|khac)|đồ dỏm|do dom|hàng dỏm|hang dom|hàng nhái|hang nhai|thua xa|không bằng|khong bang|tệ hơn|te hon/i;
+export const CHE_KHAC = /(hãng|hang|hàng|loại|loai|bên|ben|đồ|do)\s+(khác|khac)|đồ dỏm|do dom|hàng dỏm|hang dom|hàng nhái|hang nhai|thua xa|không bằng|khong bang|tệ hơn|te hon/i;
 
 /**
  * Kiểm lời gợi ý của agent. Lỗi ⇒ mã; ổn ⇒ null.

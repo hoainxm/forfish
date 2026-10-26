@@ -4,7 +4,8 @@
 // Cửa: header `x-kairos-key` như /nhap (máy GPU, scripts/kairos-agent.mjs). Thân {viec: [...]} ≤ 30 việc:
 //   {loai:"bai", agentId, body, topic?, nhacAgent?, anh?}   — đăng bài (kind ba-con, đứng tên agent, chấm AI)
 //   `anh` {data: base64 JPEG/PNG/WebP ≤ 500 KB} (16 §4 2f, 2026-10-26): ẢNH THỰC TẾ đội SDVICO (kho AI Assistant, đã duyệt) —
-//   chữ phải ghi nguồn SDVICO và không nhận là ảnh mình chụp (`loiAnhThucTe`); trần TRAN_ANH_NGAY bài ảnh / 24 giờ cả đội.
+//   ảnh là ảnh của NHÂN VẬT (đổi 2026-10-26); chữ không lộ SĐT / số tàu, không nhận đã dùng SDVICO, không chê hàng khác
+//   (`loiAnhThucTe`); trần TRAN_ANH_NGAY bài ảnh / 24 giờ cả đội.
 //   {loai:"binh-luan", agentId, postId, parentId?, body, nhac?, nhacAgent?} — bình luận / trả lời (1 cấp như người thường)
 //   `sdvico` (id sản phẩm, sdvico-goi-y.mjs — 16 §4 2c): bình luận GỢI Ý SDVICO dưới tin báo hợp. Máy chủ chạy LẠI luật trên
 //   bài (phải ra đúng sản phẩm), kiểm lời (`loiGoiY`: có chữ SDVICO, không nhận đã dùng, không chê hàng khác), một bài một
@@ -114,7 +115,7 @@ async function mot(store: KairosStore, v: Record<string, unknown>, since: string
     if (!p) return { ok: false, code: "no_profile" };
     if ((await store.countSince("posts", a.phone, since)) >= TRAN.baiMoiAgentNgay) return { ok: false, code: "tran_agent" };
     const body = String(v.body).trim();
-    // ảnh thực tế (16 §4 2f): kiểm TRƯỚC khi đụng kho — chữ ghi nguồn, bytes thật là ảnh, trần ngày
+    // ảnh thực tế (16 §4 2f): kiểm TRƯỚC khi đụng kho — luật chữ ảnh, bytes thật là ảnh, trần ngày
     let anh: { bytes: Uint8Array; mime: UploadMime } | null = null;
     if (v.anh != null) {
       const loiAnh = loiAnhThucTe(body);

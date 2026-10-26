@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-26
+<!-- re-verified: 2026-10-26n — `lib/kairos/anh-thuc-te.mjs` đổi LUẬT CHỮ (ảnh là ảnh của nhân vật AI, chặn SĐT / số tàu / nhận đã dùng SDVICO / chê hàng khác — 16 §4 2f) + `sdvico-goi-y` export `NHAN_DA_DUNG`/`CHE_KHAC`; route `POST /api/kairos/agent` chỉ đổi chú thích, đường đi + hợp đồng việc `bai`/`anh` không đổi; không route/page/nav mới -->
 <!-- re-verified: 2026-10-26j — lib MỚI `lib/kairos/anh-thuc-te.mjs` (ảnh thực tế SDVICO cho agent, 16 §4 2f); route `POST /api/kairos/agent` việc `bai` nhận `anh {data}` (sniffImageMime của market/route-utils, uploadImage kairos-media, trần agent_anh); script GPU scripts/kairos-agent.mjs đọc kho ảnh AI Assistant cùng máy. Không route/page/nav mới. -->
 <!-- re-verified: 2026-10-26m — `lib/voice/tts.ts` nạp plugin text-to-speech ĐỘNG chỉ khi native (gói đụng `window` lúc nạp ⇒ trước đó chết prerender `/cho/gio`, `/tien` qua boat-switcher → hoi-tung-cau); test MỚI `tts-ssr.test.ts` (nạp không window + cổng cấm import tĩnh). Không route/page/nav mới. -->
 <!-- re-verified: 2026-10-26l — NHẬP BẰNG GIỌNG (15 §30): lib MỚI `lib/sen-bien/nhap-giong.ts` (thuần, test `sen-bien-nhap-giong.test.ts`: `soTuChu`, `namTuChu`, `ngayTuChu`, `soThapPhan`, `soGiayTuChu`, `maTauTuChu`, `loaiGiayTuChu`, `tinhTuChu`, `chuTuDo`, `laBoQua`/`laDung`/`laCo`, `KICH_BAN_GIAY`, `kichBanTau`, `cauTomTat`); component MỚI `components/hoi-tung-cau.tsx` (ttsSpeak → NGHE_SAU_DOC_MS → listenOnce → hiểu → onDien/onLuu qua ref); gắn vào `document-vault` (DocumentForm, mic cạnh Chụp giấy) và `boat-switcher` (BoatForm, nút Nói). -->
@@ -434,7 +435,6 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 
 
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-26) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 <!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->
