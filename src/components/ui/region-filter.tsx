@@ -189,17 +189,20 @@ export function HomeBar({
 }
 
 /** Danh sách tỉnh ven biển Bắc→Nam (`COASTAL_PROVINCES`), ✓ ở tỉnh đang chọn, cuộn trong
- *  Popover; ô lọc nhanh vì 22 hàng (>8). */
-function ChonTinhPopover({
+ *  Popover; ô lọc nhanh vì 22 hàng (>8). `caNuoc` (Kairos tab Chính sách, 14 §21c) ⇒ thêm hàng "Cả nước" ở đầu —
+ *  `dangChon` rỗng + `caNuoc.on` thì ✓ ở hàng đó. Export để màn khác dùng lại hộp chọn, không chép. */
+export function ChonTinhPopover({
   anchor,
   dangChon,
   onChon,
   onClose,
+  caNuoc,
 }: {
   anchor: HTMLElement | null;
   dangChon?: string;
   onChon: (province: string) => void;
   onClose: () => void;
+  caNuoc?: { on: boolean; onChon: () => void };
 }) {
   const [q, setQ] = useState("");
   const qf = boDau(q.trim());
@@ -215,8 +218,24 @@ function ChonTinhPopover({
         aria-label={NHAN.chonTinh}
         className="max-h-[42dvh] overflow-y-auto [overscroll-behavior:contain]"
       >
+        {caNuoc && !qf && (
+          <li className="border-b border-line">
+            <button
+              type="button"
+              role="option"
+              aria-selected={caNuoc.on}
+              onClick={caNuoc.onChon}
+              className={`flex min-h-(--h-row) w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-[0.9375rem] font-semibold ${
+                caNuoc.on ? "text-sea" : "text-navy"
+              }`}
+            >
+              <span>Cả nước</span>
+              {caNuoc.on && <CheckIcon className="h-5 w-5 shrink-0" />}
+            </button>
+          </li>
+        )}
         {ds.map((p) => {
-          const on = kChon !== "" && provinceKey(p.name) === kChon;
+          const on = !caNuoc?.on && kChon !== "" && provinceKey(p.name) === kChon;
           return (
             <li key={p.name}>
               <button

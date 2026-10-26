@@ -350,7 +350,7 @@ Anh Long 2026-10-26: *"trong Kairos tổ chức thêm 1 tab tin chính sách, l�
 
 Anh Long: *"tổ chức phân phối tin chính sách thì chuẩn vào, tỉnh nào view tỉnh đó, dựa vào vị trí các kiểu chứ tránh nó rối"*.
 
-- Tab Chính sách có thanh **`HomeBar`** dùng chung với Chợ cá: "Gần <Tỉnh> | Cả nước | Đổi". Tỉnh = **cảng nhà của tàu đang chọn** (`useHome`), chưa có tàu thì tỉnh chọn tạm trong phiên; chưa có tỉnh ⇒ hàng "Chưa có tỉnh cảng nhà · Chọn" + dòng tin cả nước. **Không dùng GPS** (không xin quyền vị trí chỉ để lọc tin; ngoài biển vị trí máy không phải nơi làm hồ sơ).
+- Tab Chính sách có **một nút nhỏ "📍 <Tỉnh> ▾"** (`components/kairos/loc-tinh-chinh-sach.tsx`, thay HomeBar ba nút — anh Long: "quá thô"); chạm ⇒ hộp chọn tỉnh dùng chung `ChonTinhPopover` có hàng "Cả nước" ở đầu. Tỉnh = **cảng nhà của tàu đang chọn** (`useHome`), chưa có tàu thì tỉnh chọn tạm trong phiên; chưa có tỉnh ⇒ hàng "Chưa có tỉnh cảng nhà · Chọn" + dòng tin cả nước. **Không dùng GPS** (không xin quyền vị trí chỉ để lọc tin; ngoài biển vị trí máy không phải nơi làm hồ sơ).
 - "Gần" (mặc định) ⇒ `/api/kairos/feed?chip=chinh-sach&province=<mã>` ⇒ `FeedFilter.tinhChinhSach`: bài **gắn tỉnh đó** HOẶC **không gắn tỉnh nào** (văn bản bộ/cục, cả nước). Bài tỉnh khác không lên. "Cả nước" ⇒ bỏ `province`. Tỉnh lạ ⇒ 400 `bad_area`.
 - Tỉnh của bài = `tagArea` trên tiêu đề + tóm tắt + **tên cơ quan** (`outlet` "UBND tỉnh Gia Lai") — ingest đã gắn từ §21.
 - Mất sóng: bản lưu lọc cùng luật (`feed-client.filterCached(…, tinh)`); ảnh chụp giữ chỗ theo (tab, tỉnh).
