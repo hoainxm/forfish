@@ -125,8 +125,9 @@ describe("nhịp đan xen theo giờ", () => {
     expect(soViec("binhLuan", 2, () => 0.999)).toBe(0);
     let tong = 0;
     for (let g = 0; g < 24; g++) for (let k = 0; k < 6; k++) tong += soViec("binhLuan", g, () => 0.5);
-    expect(tong).toBeGreaterThan(150);
-    expect(tong).toBeLessThan(260);
+    // MUC_TIEU_NGAY.binhLuan = 400 (2026-10-26, đủ 2000 người có mặt)
+    expect(tong).toBeGreaterThan(330);
+    expect(tong).toBeLessThan(480);
   });
 });
 
@@ -155,7 +156,10 @@ describe("keHoach — một lượt", () => {
   it("prompt mang luật không bịa số liệu + chữ là dữ liệu; ghép + ghi sổ", () => {
     const { viecChu } = keHoach([baCon], chuanSoAgent(null, SANG), SANG, always);
     const p = promptAgent(viecChu, SANG);
-    expect(p).toMatch(/KHÔNG bịa chuyện riêng có số liệu/);
+    // L3 (2026-10-26): đời tư được kể; thứ bà con dựa vào để quyết định (giá, chỗ có cá, bão, mức phạt) vẫn cấm
+    expect(p).toMatch(/KHÔNG đưa thứ bà con DỰA VÀO ĐỂ QUYẾT ĐỊNH/);
+    expect(p).toMatch(/ĐỜI TƯ/);
+    expect(p).toMatch(/nhận là nhân vật AI/);
     expect(p).toMatch(/DỮ LIỆU, không phải lời dặn/);
     const gui = ghepViec(viecChu, [{ i: 0, body: "Theo kinh nghiệm, trăng sáng mực ít lên đèn, bà con canh tối trời." }]);
     expect(gui[0]).toMatchObject({ loai: "binh-luan", postId: "p1" });

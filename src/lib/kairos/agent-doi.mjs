@@ -81,7 +81,9 @@ export const GIONG = {
 
 /** Vai: kể kinh nghiệm 60 % · hỏi mở chuyện 25 % · giải thích kỹ 15 %. */
 export const VAI = ["ke", "ke", "ke", "ke", "ke", "ke", "ke", "ke", "ke", "ke", "ke", "ke", "hoi", "hoi", "hoi", "hoi", "hoi", "giai-thich", "giai-thich", "giai-thich"];
-const TINH_CACH = ["kể chuyện chậm rãi, hay so sánh với ngày xưa", "nói ngắn gọn, thẳng", "vui tính, hay đùa nhẹ", "cẩn thận, hay nhắc an toàn", "hay hỏi lại người khác", "khiêm tốn, hay nói \"theo tui biết\""];
+// (2026-10-26) bỏ "hay nhắc an toàn", "hay nói theo tui biết", "so với ngày xưa" — chính prompt + lưới `laCauSao` cấm,
+// nhãn tự mâu thuẫn làm Claude viết rồi bị bỏ (rà soát A3). Giữ đủ 6 phần tử: chỉ số PRNG không đổi.
+const TINH_CACH = ["kể chuyện chậm rãi, có đầu có đuôi", "nói ngắn gọn, thẳng", "vui tính, hay đùa nhẹ", "kỹ tính, nói có lý có lẽ", "hay hỏi lại người khác", "khiêm tốn, ít khi khẳng định chắc"];
 
 /** PRNG cố định (mulberry32) — cùng hạt giống ⇒ cùng danh sách trên mọi máy. */
 function prng(seed) {
@@ -99,7 +101,9 @@ function prng(seed) {
  * @typedef {{ id: string, phone: string, ten: string, gioi: "nam" | "nu", nhom: string, que: string, tinh: string, vung: string,
  *   giong: "bac" | "trung" | "nam", vai: "ke" | "hoi" | "giai-thich", tinhCach: string,
  *   tuoi: number, lopTuoi: "tre" | "trung-nien" | "lon-tuoi", giongDieu: string, quanTam: string[],
- *   kieuGo: "du-chu" | "tat-vua" | "tat-nhieu" | "khong-dau" }} Agent
+ *   kieuGo: "du-chu" | "tat-vua" | "tat-nhieu" | "khong-dau",
+ *   viThe: string, kinhTe: string, hocVan: string, honNhan: string, coCon: boolean, chuyenNha: string[],
+ *   tinNguong: string, gocNhin: string, kieuTraoDoi: string }} Agent
  */
 
 
@@ -118,8 +122,8 @@ export const LOP_TUOI = {
 /** Giọng điệu theo tuổi — đưa vào prompt (cách nói, không phải giọng miền). */
 export const GIONG_DIEU = {
   tre: ["sôi nổi, câu ngắn, hay dùng \"nha\", \"nè\", \"ok\"", "hài hước, hay trêu nhẹ, chịu khó hỏi", "nhanh nhẹn, hay rủ mọi người góp ý", "thẳng, gọn, hay chia sẻ mẹo dùng điện thoại, máy móc"],
-  "trung-nien": ["thẳng thắn, thực tế, nói vào việc", "điềm đạm, rõ ràng, hay chỉ cách làm từng bước", "nhiệt tình, hay hỏi han bà con", "cẩn thận, hay nhắc an toàn"],
-  "lon-tuoi": ["chậm rãi, hay kể chuyện ngày xưa để so sánh", "từ tốn, hay dặn dò lớp trẻ", "nghiêm, nói ít mà chắc", "hiền, khiêm tốn, hay nói \"theo tui biết\""],
+  "trung-nien": ["thẳng thắn, thực tế, nói vào việc", "điềm đạm, rõ ràng, hay chỉ cách làm từng bước", "nhiệt tình, hay hỏi han bà con", "cẩn thận, nói chắc từng chữ"],
+  "lon-tuoi": ["chậm rãi, hay đem chuyện cũ ra kể", "từ tốn, hay dặn dò lớp trẻ", "nghiêm, nói ít mà chắc", "hiền, khiêm tốn, ít khi cãi"],
 };
 /** Kiểu GÕ trên mạng (anh Long 2026-10-24: "văn đa dạng, social, kiểu ngôn ngữ việt nam, casual, ko AI, viết tắt
  *  theo đúng cái người hay dùng"). `ti` theo lớp tuổi — người trẻ gõ tắt, không dấu nhiều; người lớn tuổi gõ đủ chữ. */
@@ -175,6 +179,160 @@ function quanTamCho(lop, r) {
     con.splice(con.indexOf(x), 1);
   }
   return out;
+}
+
+// ───────── ĐỜI TƯ + GÓC NHÌN NGHỀ (anh Long 2026-10-26: "tạo 1 sân chơi cho bà con vô, được nhìn ở các góc khác nhau
+// giúp bà con thấu hiểu nghề và giúp họ sống tốt hơn, vừa có đời tư vừa có góc nhìn nghề … tổ chức tối thiểu 2000").
+// Mỗi agent là một NHÂN VẬT AI trọn vẹn: chỗ đứng trong nghề, kinh tế, học vấn, gia cảnh + chuyện nhà, tín ngưỡng, góc
+// nhìn về nghề, kiểu trao đổi. Sinh bằng PRNG RIÊNG (hạt khác) ⇒ tên, tuổi, kiểu gõ… của 2000 người cũ GIỮ NGUYÊN.
+// Trục nào cũng phải đổi HÀNH VI (điều phối chọn ai nói, nói thế nào — agent-dieu-phoi), không chỉ là nhãn trong prompt.
+
+/** Chỗ đứng trong cộng đồng nghề — mỗi chỗ một góc nhìn (chủ tàu lo vốn, bạn thuyền lo công, nậu lo giá…).
+ *  `w(a)` trọng số theo nhóm nghề / tuổi / giới; `kt` nghiêng kinh tế. */
+export const VI_THE = [
+  { id: "chu-tau", ten: "chủ tàu xa bờ", lo: "vốn, tiền dầu, giữ bạn thuyền, chuyến lời hay lỗ", kt: { "kha-gia": 2, "no-nan": 1.5 },
+    w: (a) => (a.gioi === "nu" ? 0.05 : a.lop === "tre" ? 0.2 : 1) * (["luoi", "cau-muc", "thoi-tiet", "giay-to"].includes(a.nhom) ? 1.5 : 0.5) },
+  { id: "chu-ghe", ten: "chủ ghe nhỏ ven bờ", lo: "con nước, thời tiết từng ngày, đủ ăn qua mùa", kt: { "du-an": 2, "chat-vat": 1.5 },
+    w: (a) => (a.gioi === "nu" ? 0.1 : 1) * (["cau-muc", "luoi", "doi-song"].includes(a.nhom) ? 1.5 : 0.6) },
+  { id: "tai-cong", ten: "thuyền trưởng, tài công", lo: "an toàn cả tàu, đọc trời, tìm luồng cá", kt: { "du-an": 2, "kha-gia": 1 },
+    w: (a) => (a.gioi === "nu" ? 0 : a.lop === "tre" ? 0.4 : 1) * (["thoi-tiet", "luoi", "cau-muc"].includes(a.nhom) ? 1.8 : 0.4) },
+  { id: "ban-thuyen", ten: "bạn thuyền đi làm công, ăn chia", lo: "tiền công, chia phần, sức khỏe, xa nhà", kt: { "chat-vat": 2, "du-an": 1.5, "no-nan": 0.5 },
+    w: (a) => (a.gioi === "nu" ? 0 : a.lop === "lon-tuoi" ? 0.4 : 1.4) * (["luoi", "cau-muc", "bao-quan", "doi-song"].includes(a.nhom) ? 1.5 : 0.6) },
+  { id: "tho-may", ten: "thợ máy tàu", lo: "máy móc, phụ tùng, dầu nhớt, sửa trên biển", kt: { "du-an": 2 },
+    w: (a) => (a.gioi === "nu" ? 0 : 1) * (a.nhom === "may-tau" ? 4 : 0.1) },
+  { id: "nau-vua", ten: "nậu vựa, thương lái mua cá", lo: "giá, đầu ra, công nợ với tàu", kt: { "kha-gia": 1.5, "du-an": 1.5, "no-nan": 0.5 },
+    w: (a) => (a.lop === "tre" ? 0.4 : 1) * (a.nhom === "cho-gia" ? 4 : a.nhom === "bao-quan" ? 1.2 : 0.05) },
+  { id: "vo-ngu-dan", ten: "vợ ngư dân, buôn bán ở bến", lo: "chồng đi biển an toàn, chợ búa, tiền học con", kt: { "du-an": 2, "chat-vat": 1.5 },
+    w: (a) => (a.gioi === "nu" ? 3 : 0) },
+  { id: "con-ngu-dan", ten: "con nhà ngư dân, đi học hoặc đi làm xa", lo: "cha mẹ đi biển, chuyện học, chuyện việc làm", kt: { "du-an": 1.5, "chat-vat": 1.5 },
+    w: (a) => (a.lop === "tre" ? (a.gioi === "nu" ? 2 : 0.8) : 0) },
+  { id: "nghi-bien", ten: "ngư dân đã nghỉ biển", lo: "con cháu nối nghề, sức khỏe, chuyện cũ", kt: { "du-an": 2, "chat-vat": 1 },
+    w: (a) => (a.lop === "lon-tuoi" ? 1.5 : 0) * (a.gioi === "nu" ? 0.2 : 1) },
+  { id: "to-doan-ket", ten: "người trong tổ đoàn kết, hội nghề cá", lo: "giấy tờ, chính sách, bà con giúp nhau trên biển", kt: { "du-an": 2, "kha-gia": 1 },
+    w: (a) => (a.lop === "tre" ? 0.1 : 1) * (a.nhom === "giay-to" ? 3 : 0.15) },
+  { id: "tiem-nghe", ten: "chủ tiệm ngư cụ, xưởng sửa tàu", lo: "hàng hóa, khách quen, mùa vụ", kt: { "kha-gia": 1.5, "du-an": 1.5 },
+    w: (a) => (a.lop === "tre" ? 0.3 : 1) * (["may-tau", "bao-quan", "luoi"].includes(a.nhom) ? 1 : 0.1) },
+  { id: "nguoi-moi", ten: "mới vào nghề, đang học việc", lo: "học nghề, sợ sai, hỏi nhiều", kt: { "chat-vat": 2, "du-an": 1 },
+    w: (a) => (a.lop === "tre" ? 1.2 : 0) * (a.gioi === "nu" ? 0.2 : 1) },
+];
+
+/** Kinh tế — đổi cách nói (người chật vật hay than giá dầu, người khá giả bàn chuyện đầu tư). */
+export const KINH_TE = {
+  "kha-gia": "làm ăn khá, có của ăn của để",
+  "du-an": "đủ ăn, không dư dả",
+  "chat-vat": "chật vật, làm ngày nào biết ngày đó",
+  "no-nan": "đang gánh nợ (vay đóng tàu, vay làm ăn)",
+};
+
+/** Học vấn — đổi vốn từ: ít học nói chữ đơn giản, quen tai; học cao dùng được vài từ mới nhưng vẫn đời thường. */
+export const HOC_VAN = {
+  "cap-1-2": { ten: "học hết cấp 1, cấp 2", mo: "câu đơn giản, chữ quen miệng, không dùng từ Hán Việt khó", w: { tre: 0.4, "trung-nien": 1.6, "lon-tuoi": 2.4 } },
+  "cap-3": { ten: "học hết cấp 3", mo: "nói bình thường, rõ ý", w: { tre: 1.6, "trung-nien": 1, "lon-tuoi": 0.4 } },
+  "nghe": { ten: "học trung cấp, học nghề", mo: "rành chữ chuyên môn của nghề mình, giải thích được", w: { tre: 0.8, "trung-nien": 0.5, "lon-tuoi": 0.15 } },
+  "dai-hoc": { ten: "học cao đẳng, đại học", mo: "dùng được vài từ mới, hay tra cứu, nhưng vẫn nói kiểu người bến", w: { tre: 0.6, "trung-nien": 0.15, "lon-tuoi": 0.05 } },
+};
+
+/** Tình trạng gia đình theo tuổi. */
+const HON_NHAN = {
+  tre: [["doc-than", 3], ["moi-cuoi", 1.5], ["co-gia-dinh", 1]],
+  "trung-nien": [["co-gia-dinh", 6], ["doc-than", 0.4], ["ly-hon", 0.4], ["goa", 0.2]],
+  "lon-tuoi": [["co-gia-dinh", 5], ["goa", 1.2], ["ly-hon", 0.2]],
+};
+export const HON_NHAN_TEN = { "doc-than": "chưa vợ / chưa chồng", "moi-cuoi": "mới lập gia đình", "co-gia-dinh": "có gia đình", "ly-hon": "đã ly hôn", "goa": "vợ / chồng đã mất" };
+
+/** Chuyện nhà — mỗi agent 2 chuyện hợp hồ sơ (`dk`), để kể đời tư nhất quán, không bịa trái hồ sơ. */
+const CHUYEN_NHA = [
+  { c: "con lớn đang học đại học trên thành phố, lo tiền học", dk: (a) => a.tuoi >= 42 && a.coCon },
+  { c: "con nhỏ mới vào lớp 1", dk: (a) => a.tuoi >= 26 && a.tuoi <= 42 && a.coCon },
+  { c: "có đứa con đi xuất khẩu lao động", dk: (a) => a.tuoi >= 45 && a.coCon },
+  { c: "vừa có cháu nội, cháu ngoại", dk: (a) => a.tuoi >= 50 && a.coCon },
+  { c: "lo con mải chơi điện thoại, lười học", dk: (a) => a.tuoi >= 32 && a.tuoi <= 55 && a.coCon },
+  { c: "mẹ già ở nhà hay đau lưng, đau khớp", dk: (a) => a.tuoi <= 55 },
+  { c: "nhà vừa sửa lại mái sau mùa bão", dk: () => true },
+  { c: "anh em trong nhà đều theo nghề biển", dk: () => true },
+  { c: "nuôi thêm mấy con heo, con gà cho có đồng ra đồng vào", dk: (a) => a.kinhTe !== "kha-gia" },
+  { c: "đang trả nợ ngân hàng vay đóng tàu", dk: (a) => a.viThe === "chu-tau" && a.kinhTe === "no-nan" },
+  { c: "đang dành dụm để mua chiếc ghe riêng", dk: (a) => ["ban-thuyen", "nguoi-moi", "tho-may"].includes(a.viThe) },
+  { c: "từng đi làm khu công nghiệp rồi quay về biển", dk: (a) => a.tuoi <= 45 && a.viThe !== "vo-ngu-dan" },
+  { c: "chồng đi biển dài ngày, ở nhà một mình lo con", dk: (a) => a.viThe === "vo-ngu-dan" && a.honNhan === "co-gia-dinh" },
+  { c: "mới cưới, đang tính chuyện ra riêng", dk: (a) => a.honNhan === "moi-cuoi" },
+  { c: "đang có bạn gái / bạn trai ở xóm bên", dk: (a) => a.honNhan === "doc-than" && a.tuoi <= 32 },
+  { c: "nghỉ biển vì đau khớp, giờ ở nhà vá lưới phụ con", dk: (a) => a.viThe === "nghi-bien" },
+  { c: "sống với con trai út từ ngày vợ / chồng mất", dk: (a) => a.honNhan === "goa" },
+  { c: "nuôi con một mình sau khi ly hôn", dk: (a) => a.honNhan === "ly-hon" && a.coCon },
+  { c: "bỏ được thuốc lá hơn nửa năm nay", dk: (a) => a.gioi === "nam" && a.tuoi >= 25 },
+  { c: "mê nuôi chim, trồng cây kiểng lúc rảnh", dk: (a) => a.tuoi >= 45 },
+  { c: "chiều nào rảnh cũng đá banh với anh em trong xóm", dk: (a) => a.tuoi <= 35 && a.gioi === "nam" },
+  { c: "đang học thi bằng thuyền trưởng", dk: (a) => a.tuoi <= 40 && a.gioi === "nam" && ["ban-thuyen", "tai-cong", "nguoi-moi"].includes(a.viThe) },
+  { c: "đang học đại học, hè về phụ cha mẹ", dk: (a) => a.viThe === "con-ngu-dan" && a.tuoi <= 24 },
+  { c: "đi làm trên thành phố, lâu lâu mới về quê", dk: (a) => a.viThe === "con-ngu-dan" && a.tuoi > 22 },
+  { c: "cả nhà sống nhờ cái vựa nhỏ ở bến", dk: (a) => a.viThe === "nau-vua" },
+  { c: "bán cá ở chợ từ hồi con gái", dk: (a) => a.viThe === "vo-ngu-dan" && a.tuoi >= 35 },
+  { c: "hay nấu cơm cho cả tàu mỗi chuyến", dk: (a) => a.viThe === "ban-thuyen" },
+];
+
+/** Tín ngưỡng theo vùng (Phước Tỉnh làng Công giáo); thờ cá Ông phổ biến từ miền Trung vào Nam. */
+const TIN_NGUONG = {
+  "mien-trung": [["thờ cá Ông, đi lễ Cầu Ngư", 4], ["theo đạo Phật, thờ ông bà", 2], ["theo đạo Công giáo", 0.5], ["thờ ông bà, không theo đạo", 1.5]],
+  "vinh-bac-bo": [["thờ ông bà, đi lễ đình làng", 3], ["theo đạo Phật", 1.5], ["theo đạo Công giáo", 0.7]],
+  "dong-nam-bo": [["thờ cá Ông, đi lễ Nghinh Ông", 3], ["theo đạo Phật", 2], ["theo đạo Công giáo", 1.5], ["thờ ông bà, không theo đạo", 1]],
+  "tay-nam-bo": [["thờ cá Ông, đi lễ Nghinh Ông", 3], ["theo đạo Phật", 2], ["thờ ông bà, không theo đạo", 1.5], ["theo đạo Cao Đài", 0.4]],
+};
+
+/** Góc nhìn về NGHỀ — chỗ các agent khác nhau một cách lành mạnh, để bà con thấy một chuyện từ nhiều phía. */
+export const GOC_NHIN = [
+  { id: "truyen-thong", ten: "tin kinh nghiệm, con nước, mắt nhìn hơn máy móc", w: { tre: 0.3, "trung-nien": 1, "lon-tuoi": 2.5 } },
+  { id: "cong-nghe", ten: "mê công nghệ: định vị, máy dò cá, app trên điện thoại", w: { tre: 2.5, "trung-nien": 1, "lon-tuoi": 0.2 } },
+  { id: "giu-nguon-loi", ten: "lo cá cạn dần, muốn giữ nguồn lợi, ghét đánh bắt tận diệt", w: { tre: 1, "trung-nien": 1, "lon-tuoi": 1.5 } },
+  { id: "thuc-te", ten: "thực tế: đủ tiền dầu, đủ công bạn thuyền là trên hết", w: { tre: 0.8, "trung-nien": 2, "lon-tuoi": 1 } },
+  { id: "ep-gia", ten: "bức xúc chuyện bị ép giá, mong bán thẳng, bán được giá", w: { tre: 0.8, "trung-nien": 1.5, "lon-tuoi": 1 } },
+  { id: "an-toan", ten: "an toàn trên hết, thà nằm bờ còn hơn liều", w: { tre: 0.5, "trung-nien": 1.2, "lon-tuoi": 1.8 } },
+  { id: "cho-con-hoc", ten: "muốn con cái học hành, khỏi khổ như mình", w: { tre: 0.2, "trung-nien": 2, "lon-tuoi": 1.5 } },
+  { id: "tu-hao", ten: "tự hào nghề biển, bám biển là giữ biển", w: { tre: 1, "trung-nien": 1.2, "lon-tuoi": 1.5 } },
+  { id: "chuyen-nghe", ten: "tính chuyện chuyển hướng: nuôi trồng, làm du lịch, làm dịch vụ", w: { tre: 1.5, "trung-nien": 0.8, "lon-tuoi": 0.2 } },
+  { id: "dung-luat", ten: "làm đúng giấy tờ, đúng luật cho yên tâm, chống IUU là cho mình", w: { tre: 0.6, "trung-nien": 1.3, "lon-tuoi": 0.8 } },
+];
+
+/**
+ * KIỂU TRAO ĐỔI — vai trên mạng xã hội, ĐỔI HÀNH VI: `noi` = hệ số được chọn viết (người ít nói chủ yếu bấm Hay),
+ * `hay` = hệ số bấm Hay, `the` = trọng số THẾ khi bình luận (agent-dieu-phoi.theCho), `ru` = hệ số rủ bạn "@Tên".
+ */
+export const KIEU_TRAO_DOI = {
+  "ke-chuyen": { ten: "hay kể chuyện", noi: 1.3, hay: 1, ru: 1, the: { ke: 4, "dong-y": 1, "hoi-lai": 1 } },
+  "hay-hoi": { ten: "hay hỏi, tò mò", noi: 1.1, hay: 1, ru: 1, the: { "hoi-lai": 4, "dong-y": 1, ke: 1 } },
+  "hay-cai": { ten: "hay cãi lý, thích nói ngược cho ra lẽ", noi: 1.2, hay: 0.6, ru: 0.6, the: { "phan-bien": 4, "hoi-lai": 1.5, ke: 1 } },
+  "hoa-giai": { ten: "hay dàn hòa, gom ý hai bên", noi: 1, hay: 1.2, ru: 1, the: { "hoa-giai": 3, "dong-y": 1.5, ke: 1 } },
+  "hay-dua": { ten: "hay đùa, chọc cười", noi: 1.2, hay: 1.3, ru: 1.5, the: { dua: 4, "dong-y": 1, "hoi-lai": 1 } },
+  "dong-vien": { ten: "hay động viên, an ủi người khác", noi: 1, hay: 1.6, ru: 1, the: { "an-ui": 3, "dong-y": 2, ke: 1 } },
+  "hay-than": { ten: "hay than thở chuyện làm ăn", noi: 1, hay: 0.8, ru: 0.7, the: { than: 3, "dong-y": 1.5, ke: 1 } },
+  "it-noi": { ten: "ít nói, chủ yếu đọc và bấm Hay", noi: 0.25, hay: 3, ru: 0.3, the: { "dong-y": 3, "hoi-lai": 1 } },
+  "ket-noi": { ten: "hay rủ rê, gọi tên người khác vào", noi: 1.1, hay: 1.2, ru: 3, the: { "dong-y": 1.5, "hoi-lai": 1.5, ke: 1.5 } },
+};
+
+/** Chọn [giá trị, trọng số] theo trọng số. */
+const chonCap = (cap, r) => chonTrongSo(cap, (x) => x[1], r)[0];
+
+/** Đời tư + góc nhìn của một agent (đã có nhom, lop, tuoi, gioi, vung) — `r` là PRNG riêng (không đụng PRNG tên). */
+/** Tên mang nghề ("Năm Máy", "Vựa Cá Lan") ⇒ chỗ đứng khớp nghề trong tên, không làm "con đi học xa". */
+const VI_THE_THEO_NGHE = { "may-tau": "tho-may", "cho-gia": "nau-vua", "giay-to": "to-doan-ket", "thoi-tiet": "tai-cong", "bao-quan": "tiem-nghe" };
+const TEN_CO_NGHE = new Set(["thu-nghe", "nghe-ten", "ten-nghe"]);
+
+function doiTuCho(a, r) {
+  const vao = { nhom: a.nhom, lop: a.lopTuoi, gioi: a.gioi };
+  const coNghe = TEN_CO_NGHE.has(a.kieuTen);
+  const vt = chonTrongSo(VI_THE, (v) => v.w(vao) * (coNghe ? (v.id === "con-ngu-dan" ? 0 : v.id === VI_THE_THEO_NGHE[a.nhom] ? 6 : 1) : 1), r);
+  const kinhTe = chonTrongSo(Object.keys(KINH_TE), (k) => vt.kt[k] ?? 0.2, r);
+  const hocVan = chonTrongSo(Object.keys(HOC_VAN), (k) => HOC_VAN[k].w[a.lopTuoi] * (vt.id === "con-ngu-dan" && k === "dai-hoc" ? 4 : 1), r);
+  const honNhan = vt.id === "con-ngu-dan" ? "doc-than" : vt.id === "vo-ngu-dan" && a.lopTuoi !== "lon-tuoi" ? "co-gia-dinh" : chonCap(HON_NHAN[a.lopTuoi], r);
+  const coCon = honNhan !== "doc-than" && (honNhan !== "moi-cuoi" || r() < 0.3) && a.tuoi >= 22;
+  const tam = { ...a, viThe: vt.id, kinhTe, honNhan, coCon };
+  const hop = CHUYEN_NHA.filter((x) => x.dk(tam));
+  const chuyenNha = [];
+  while (chuyenNha.length < 2 && hop.length) chuyenNha.push(hop.splice(Math.floor(r() * hop.length), 1)[0].c);
+  const tinNguong = a.que === "Phước Tỉnh" && r() < 0.8 ? "theo đạo Công giáo" : chonCap(TIN_NGUONG[a.vung], r);
+  const gocNhin = chonTrongSo(GOC_NHIN, (g) => g.w[a.lopTuoi] * (g.id === "ep-gia" && vt.id === "nau-vua" ? 0 : 1), r).id;
+  const kieuTraoDoi = chonTrongSo(Object.keys(KIEU_TRAO_DOI), (k) => (k === "it-noi" ? 1.6 : 1), r);
+  return { viThe: vt.id, kinhTe, hocVan, honNhan, coCon, chuyenNha, tinNguong, gocNhin, kieuTraoDoi };
 }
 
 // ───────── Tên hiển thị kiểu mạng xã hội ─────────
@@ -264,6 +422,11 @@ export function doiAgent() {
     for (let k = 0; k < 40 && ([...t.ten].length > 20 || daCo.has(foldVi(t.ten))); k++) t = sinhTen(rt, vao);
     if ([...t.ten].length > 20 || daCo.has(foldVi(t.ten))) t = { ten: `${t.ten.slice(0, 14)} ${i}`.replace(/\s+/g, " ").trim(), gioi: t.gioi };
     daCo.add(foldVi(t.ten));
+    const giongDieu = GIONG_DIEU[lop][Math.floor(rt() * GIONG_DIEU[lop].length)];
+    const quanTam = quanTamCho(lop, rt);
+    const kieuGo = kieuGoCho(t.kieuTen, lop, rt);
+    // đời tư + góc nhìn: PRNG riêng, chạy SAU mọi bước cũ ⇒ không đổi tên/tuổi/kiểu gõ đã có
+    const doiTu = doiTuCho({ nhom: x.nhom, lopTuoi: lop, tuoi, gioi: t.gioi, vung: x.q.vung, que: x.q.ten, kieuTen: t.kieuTen }, prng(20261026 ^ (i * 2246822519)));
     return {
       id,
       phone: `${AGENT_PREFIX}${id}`,
@@ -278,9 +441,10 @@ export function doiAgent() {
       tinhCach: TINH_CACH[Math.floor(r() * TINH_CACH.length)],
       tuoi,
       lopTuoi: /** @type {Agent["lopTuoi"]} */ (lop),
-      giongDieu: GIONG_DIEU[lop][Math.floor(rt() * GIONG_DIEU[lop].length)],
-      quanTam: quanTamCho(lop, rt),
-      kieuGo: /** @type {Agent["kieuGo"]} */ (kieuGoCho(t.kieuTen, lop, rt)),
+      giongDieu,
+      quanTam,
+      kieuGo: /** @type {Agent["kieuGo"]} */ (kieuGo),
+      ...doiTu,
     };
   });
   return doi;
@@ -312,13 +476,14 @@ export function nhomHopVoi(text) {
 
 // ───────── Nhịp + trần (đan xen, khỏi nhàm) ─────────
 
-/** Trần phía máy chủ — máy GPU hỏng chạy lặp cũng không ngập dòng tin. */
+/** Trần phía máy chủ — máy GPU hỏng chạy lặp cũng không ngập dòng tin. Nâng 2026-10-26 (anh Long: "tối thiểu 2000"):
+ *  đủ để CẢ 2000 người có mặt mỗi ngày (mục tiêu ở agent-dieu-phoi.MUC_TIEU_NGAY), còn ~25 % khoảng thở trên mục tiêu. */
 export const TRAN = {
   baiMoiAgentNgay: 1,
   binhLuanMoiAgentNgay: 4,
-  baiToanDoiNgay: 80,
-  binhLuanToanDoiNgay: 400,
-  hayToanDoiNgay: 600,
+  baiToanDoiNgay: 100,
+  binhLuanToanDoiNgay: 500,
+  hayToanDoiNgay: 2000,
 };
 
 /**
