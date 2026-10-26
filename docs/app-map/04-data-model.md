@@ -6,7 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-19
-<!-- re-verified: 2026-10-26c — thêm migration 0075_kairos_dinh_kem_dong (bảng dòng tàu trong PDF đính kèm thông báo gov, RLS + revoke) — 14 §21b. -->
+<!-- re-verified: 2026-10-26c — thêm migration 0075_kairos_dinh_kem_dong (bảng dòng tàu trong PDF đính kèm thông báo gov, RLS + revoke) — 14 §21b. ĐÃ APPLY 2026-10-26. -->
 <!-- re-verified: 2026-10-26b — thêm migration 0074_kairos_chinh_sach (check topic + `chinh-sach` ở kairos_sources/kairos_posts; cột `kairos_posts.attachments jsonb` ≤10) — 14 §21. ✅ ĐÃ APPLY 2026-10-26 qua connector Supabase (trước khi deploy — `supabase-store` POST_COLS chọn cột này). -->
 <!-- re-verified: 2026-10-26 — TÀU XUNG QUANH (AIS): KHÔNG migration — bản vị trí tàu ghi đè khoá `tau-ais:latest` trong bảng snapshot chung `weather_snapshot` (payload `{v:1, luc, soTau, tau[]}` ~1 MB, service-role qua lib/weather-snapshot); app_config thêm khoá `tau_ais_key` (secret, env-thắng TAU_AIS_KEY). -->
 <!-- re-verified: 2026-10-27 — ĐỒNG BỘ sdvico/forfish `main` (562d36e8, 9 commit Nam/Hùng 19–21/10) vào main Forfun (anh Long 26/10: "lên hết cả Sen Biển lẫn Kairos sang SD"). NHẬN: thuỷ triều 21 trạm ngoài cửa biển + xem con nước theo giờ (`tide-card`, `lib/tides`, `use-pointer-scrub`), nhắc hạn giấy tờ 30·25·20·15·10 rồi 5→0 + `DocRemindOnOpen` ở trang chủ (`lib/doc-reminder-local`), chuông SDFish khi push tới lúc app mở (`sw.js`, `warning-sound`, `sw-register`), push thuyền viên mở /nguoi, `windows-paths.test`. GỠ: cờ demo `NEXT_PUBLIC_SEN_BIEN`/`lib/sen-bien/bat-tat.ts` (Sen Biển + Kairos phát hành ở SD; ops/sync-base-flow §0b đóng án lệ). KHÔNG LẤY: rail "Chức năng" của sdvico 21/10 (`ra-khoi-rail-menu.test` xoá) — main đã đi tiếp sang rail Lớp-popover + khay ⋯ (22/10, BD-12 25/10). Mảnh giọng "còn" giữ `con_m.mp3` (sdvico đặt `con_`). -->
@@ -915,7 +915,7 @@ Rà kiến trúc Codex 2026-10-18 chỉ ra ba cửa sổ ghi dở dang: đồng 
 - Tương thích: cột có default + hàm mới ⇒ code cũ chạy nguyên trên DB đã apply. Thứ tự: **apply 0064 → deploy** (code mới gọi hàm 0064).
 - file-store (dev) không đổi: một tiến trình, ghi cả tệp một lần nên vốn nguyên tử.
 
-### KAIROS — tra cứu danh sách đính kèm — migration [`0075_kairos_dinh_kem_dong.sql`](../../supabase/migrations/0075_kairos_dinh_kem_dong.sql) (2026-10-26) — ⛔ **CHƯA APPLY** lúc viết (code đọc chịu bảng chưa có: 42P01 ⇒ rows rỗng; ghi từ máy thu ⇒ unavailable, máy thu giữ hàng đợi)
+### KAIROS — tra cứu danh sách đính kèm — migration [`0075_kairos_dinh_kem_dong.sql`](../../supabase/migrations/0075_kairos_dinh_kem_dong.sql) (2026-10-26) — ✅ **ĐÃ APPLY** 2026-10-26 qua connector Supabase (anh Long duyệt; code vẫn chịu bảng chưa có: 42P01 ⇒ rows rỗng)
 
 Hành vi: [14 §21b](14-ba-spec-kairos.md). Bảng `kairos_dinh_kem_dong`: `id bigserial` · `post_id` → kairos_posts cascade · `url_hash` (băm link file) · `stt` · `ten`/`ten_norm` ≤80 · `reg`/`reg_norm` ≤20 · `noi_dung` 1–400 (cả dòng, CCCD đã che) · `page` · `created_at`; idx `(post_id, url_hash)` + `(post_id, reg_norm)`; RLS bật, không policy, revoke anon/authenticated (cả sequence). Ghi: chỉ route PUT /api/kairos/dinh-kem (khoá máy GPU) xoá-rồi-chèn theo (bài, file), chèn lô 500. Đọc: GET …/tra dùng `ilike` chứa trên `reg_norm`/`ten_norm`.
 
