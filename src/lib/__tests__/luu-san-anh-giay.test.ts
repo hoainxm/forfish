@@ -44,13 +44,15 @@ describe("luuSanAnhGiay", () => {
       throw new TypeError("network");
     }));
     await expect(luuSanAnhGiay(["0901/a/1.jpg"])).resolves.toBe(0);
-    const goc = Object.getOwnPropertyDescriptor(navigator, "onLine");
-    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
-    try {
-      expect(await luuSanAnhGiay(["0901/b/2.jpg"])).toBe(0);
-    } finally {
-      if (goc) Object.defineProperty(navigator, "onLine", goc);
-      else delete (navigator as unknown as Record<string, unknown>).onLine;
-    }
+    // stubGlobal, KHÔNG defineProperty trên `navigator` thật: CI chạy Node 20 —
+    // chưa có `navigator` toàn cục (Node 21+ mới có) ⇒ ReferenceError, máy dev
+    // Node 22 thì xanh (đỏ CI 2026-10-26). afterEach unstubAllGlobals trả lại.
+    // fetch CHẠY ĐƯỢC lại — để 0 ở đây là nhờ cổng mất sóng, không phải nhờ
+    // mạng hỏng ở ca trên (trước đó gỡ cổng onLine mà test vẫn xanh).
+    const fetchOk = vi.fn(async () => new Response(new Blob(["anh"]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchOk);
+    vi.stubGlobal("navigator", { onLine: false });
+    expect(await luuSanAnhGiay(["0901/b/2.jpg"])).toBe(0);
+    expect(fetchOk).not.toHaveBeenCalled();
   });
 });
