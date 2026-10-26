@@ -55,6 +55,31 @@ const argv = process.argv.slice(2);
 const dry = argv.includes("--thu") || argv.includes("--dry");
 const chiNguon = (argv.find((a) => a.startsWith("--nguon=")) ?? "").slice(8).split(",").filter(Boolean);
 
+/** Đường lùi curl: vài cổng nhà nước (mae.gov.vn) trả header HTTP sai chuẩn ("Unexpected whitespace after header value")
+ *  ⇒ fetch của Node từ chối, curl chịu được. Không ném; hỏng ⇒ null. Chỉ dùng khi fetch đã hỏng vì lỗi giao thức. */
+function curlChu(url, ms = 20_000) {
+  return new Promise((resolve) => {
+    let out = "";
+    const p = spawn("curl", ["-sL", "--max-time", String(Math.ceil(ms / 1000)), "-A", UA_CURL, "--", url], { stdio: ["ignore", "pipe", "ignore"] });
+    p.stdout.on("data", (d) => { out += d; });
+    p.on("error", () => resolve(null));
+    p.on("close", (code) => resolve(code === 0 && out ? out : null));
+  });
+}
+/** Như curlChu nhưng lấy byte (PDF), trần PDF_TOI_DA. */
+function curlBuf(url, ms = 60_000) {
+  return new Promise((resolve) => {
+    const parts = [];
+    let n = 0;
+    const p = spawn("curl", ["-sL", "--max-time", String(Math.ceil(ms / 1000)), "--max-filesize", String(25 * 1024 * 1024), "-A", UA_CURL, "--", url], { stdio: ["ignore", "pipe", "ignore"] });
+    p.stdout.on("data", (d) => { n += d.length; parts.push(d); });
+    p.on("error", () => resolve(null));
+    p.on("close", (code) => resolve(code === 0 && n ? Buffer.concat(parts) : null));
+  });
+}
+const UA_CURL = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
+const loiGiaoThuc = (e) => /HTTP\/1\.1 protocol|Parse Error|HPE_/i.test(`${e?.message ?? ""} ${e?.cause?.message ?? ""} ${e?.cause?.code ?? ""}`);
+
 async function taiRss(n) {
   try {
     const r = await fetch(n.feedUrl, {
@@ -72,7 +97,14 @@ async function taiRss(n) {
     // Trang lỗi trả 200 kèm HTML (NN&MT làm vậy với đường sai) ⇒ coi như lỗi để tab quản trị thấy
     return items.length ? { items, loi: null } : { items: [], loi: "không có bài (không phải RSS?)" };
   } catch (e) {
-    return { items: [], loi: e?.name === "TimeoutError" ? "hết giờ 15 s" : String(e?.message ?? e).slice(0, 200) };
+    if (n.kieu === "gov" && loiGiaoThuc(e)) {
+      const text = await curlChu(n.feedUrl);
+      if (text) {
+        const items = /<(rss|feed)[\s>]/i.test(text.slice(0, 4000)) ? parseFeed(text) : docDanhMucGov(text, n.feedUrl, { linkRe: n.linkRe });
+        return items.length ? { items, loi: null } : { items: [], loi: "curl: không có link bài" };
+      }
+    }
+    return { items: [], loi: e?.name === "TimeoutError" ? "hết giờ 15 s" : String(e?.message ?? e?.cause?.message ?? e).slice(0, 200) };
   }
 }
 
@@ -96,8 +128,8 @@ async function layChu(url, init = {}, ms = 8_000) {
   try {
     const r = await fetch(url, { ...init, headers: { "user-agent": UA, ...(init.headers ?? {}) }, redirect: "follow", signal: AbortSignal.timeout(ms) });
     return r.ok ? await r.text() : null;
-  } catch {
-    return null;
+  } catch (e) {
+    return loiGiaoThuc(e) ? curlChu(url, ms) : null;
   }
 }
 /** Link Google News ⇒ { url bài gốc, ảnh, mô tả } (thu-core: idTuLinkGN · khoaTrangGN · thanGarturl · docGarturl · docOg). */
@@ -131,9 +163,16 @@ function pdfToText(file, ms = 60_000) {
 async function docDongTuPdf(url) {
   let dir = null;
   try {
-    const r = await fetch(url, { headers: { "user-agent": UA }, redirect: "follow", signal: AbortSignal.timeout(60_000) });
-    if (!r.ok) return { rows: [], loi: `HTTP ${r.status}` };
-    const buf = Buffer.from(await r.arrayBuffer());
+    let buf;
+    try {
+      const r = await fetch(url, { headers: { "user-agent": UA }, redirect: "follow", signal: AbortSignal.timeout(60_000) });
+      if (!r.ok) return { rows: [], loi: `HTTP ${r.status}` };
+      buf = Buffer.from(await r.arrayBuffer());
+    } catch (e) {
+      if (!loiGiaoThuc(e)) throw e;
+      buf = await curlBuf(url); // cổng header sai chuẩn (mae.gov.vn) — xem curlChu
+      if (!buf) return { rows: [], loi: "curl hỏng" };
+    }
     if (buf.length > PDF_TOI_DA) return { rows: [], loi: "quá 25 MB" };
     if (buf.subarray(0, 5).toString() !== "%PDF-") return { rows: [], loi: "không phải PDF" };
     dir = mkdtempSync(path.join(tmpdir(), "kairos-pdf-"));
@@ -246,17 +285,6 @@ async function main() {
       duoc++;
     });
     if (gov.length) log(`[gov] ${duoc}/${gov.length} thông báo đọc được trang chi tiết · ${gov.filter((b) => b.attachments?.length).length} có file đính kèm`);
-    // 2d. Đọc danh sách tàu trong PDF đính kèm (14 §21b) — gửi sau khi bài đã vào kho (bước 5b)
-    for (const b of gov) {
-      for (const a of (b.attachments ?? []).filter((x) => /\.pdf(?:[?#]|$)/i.test(x.url)).slice(0, 3)) {
-        const { rows, loi } = await docDongTuPdf(a.url);
-        if (loi) log(`[dòng] ${a.url}: ${loi}`);
-        else if (rows.length) {
-          log(`[dòng] ${a.title}: ${rows.length} dòng tàu`);
-          dongChoGui.push({ postUrl: b.url, url: a.url, rows });
-        }
-      }
-    }
     // ngày ban hành đọc từ trang chi tiết có thể trước 2026 (danh mục xếp theo ngày đăng web) ⇒ bỏ như quaCu;
     // nguồn docTruoc (tiêu đề chỉ có số hiệu) ⇒ GIỜ mới lọc chuyện bà con trên tiêu đề + mô tả trang chi tiết
     const docTruoc = new Set(nguon.filter((n) => n.docTruoc).map((n) => n.id));
@@ -265,6 +293,22 @@ async function main() {
       const t = laGov(b) && b.publishedAt ? Date.parse(b.publishedAt) : NaN;
       if (Number.isFinite(t) && now - t > chinhSachCuMs(now)) quaCu.push(...chon.splice(i, 1));
       else if (docTruoc.has(b.sourceId) && !laTinChoBaCon(`${b.title}\n${b.description}`)) quaCu.push(...chon.splice(i, 1));
+      else if (docTruoc.has(b.sourceId) && b.description && /^[\d\s/.\-–\p{Lu}Đ]+$/u.test(b.title)) {
+        // tiêu đề chỉ là số hiệu ("57/BCĐ-BNNMT") ⇒ "trích yếu (số hiệu)" — bà con đọc được
+        const trichYeu = [...b.description.split(/(?<=[.!?])\s/)[0]].slice(0, 220).join("").replace(/[.\s]+$/, "");
+        b.title = [...`${trichYeu} (${b.title.trim()})`].slice(0, 300).join("");
+      }
+    }
+    // 2d. Đọc danh sách tàu trong PDF đính kèm (14 §21b) — gửi sau khi bài đã vào kho (bước 5b)
+    for (const b of chon.filter(laGov)) {
+      for (const a of (b.attachments ?? []).filter((x) => /\.pdf(?:[?#]|$)/i.test(x.url)).slice(0, 3)) {
+        const { rows, loi } = await docDongTuPdf(a.url);
+        if (loi) log(`[dòng] ${a.url}: ${loi}`);
+        else if (rows.length) {
+          log(`[dòng] ${a.title}: ${rows.length} dòng tàu`);
+          dongChoGui.push({ postUrl: b.url, url: a.url, rows });
+        }
+      }
     }
   }
 
