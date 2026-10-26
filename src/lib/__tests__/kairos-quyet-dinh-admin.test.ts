@@ -47,6 +47,9 @@ describe("stateFor — một bảng cho agent và người trực", () => {
     const t = "2026-10-23T08:00:00.000Z";
     expect(feedAtOnApprove({ kind: "bao", mod_state: "cho-kiem" }, "dat", t)).toEqual({ feed_at: t });
     expect(feedAtOnApprove({ kind: "bao", mod_state: "nghi" }, "dat", t)).toEqual({ feed_at: t });
+    // thông báo nhà nước: feed_at = ngày ban hành (không quá lúc duyệt) ⇒ tab Chính sách xếp theo ngày văn bản
+    expect(feedAtOnApprove({ kind: "bao", mod_state: "cho-kiem", topic: "chinh-sach", published_at: "2026-09-14T01:00:00.000Z" }, "dat", t)).toEqual({ feed_at: "2026-09-14T01:00:00.000Z" });
+    expect(feedAtOnApprove({ kind: "bao", mod_state: "cho-kiem", topic: "chinh-sach", published_at: "2999-01-01T00:00:00.000Z" }, "dat", t)).toEqual({ feed_at: t });
     expect(feedAtOnApprove({ kind: "bao", mod_state: "dat" }, "dat", t)).toEqual({});
     expect(feedAtOnApprove({ kind: "bao", mod_state: "cho-kiem" }, "nghi", t)).toEqual({});
     expect(feedAtOnApprove({ kind: "ba-con", mod_state: "cho-kiem" }, "dat", t)).toEqual({});

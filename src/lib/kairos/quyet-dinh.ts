@@ -94,9 +94,17 @@ export function stateFor(v: Verdict, by: "agent" | "staff", isPost: boolean, rea
  * Lần đầu sang `dat` ⇒ đặt `feed_at` = lúc duyệt, để bài nằm đầu dòng tin và được đếm trong
  * "Có N bài mới" (lọc `feed_at > since`). Đã `dat` từ trước (người trực xác nhận lại) ⇒ không đổi,
  * khỏi đẩy bài cũ lên lại. Bài bà con/Chính thức hiện ngay lúc đăng ⇒ không đụng.
+ * THÔNG BÁO NHÀ NƯỚC (topic chinh-sach, 14 §21): `feed_at` = NGÀY BAN HÀNH (không quá lúc duyệt) — tab Chính sách xếp văn
+ * bản mới nhất lên đầu, không theo giờ máy thu nạp (anh Long 2026-10-26: quyết định hỗ trợ dầu nằm trang 3 vì nạp trước).
  */
-export function feedAtOnApprove(prev: { kind: string; mod_state: ModState }, v: Verdict, nowIso: string): { feed_at?: string } {
-  return prev.kind === "bao" && v === "dat" && prev.mod_state !== "dat" ? { feed_at: nowIso } : {};
+export function feedAtOnApprove(
+  prev: { kind: string; mod_state: ModState; topic?: string; published_at?: string },
+  v: Verdict,
+  nowIso: string,
+): { feed_at?: string } {
+  if (!(prev.kind === "bao" && v === "dat" && prev.mod_state !== "dat")) return {};
+  const pub = prev.topic === "chinh-sach" && prev.published_at ? Date.parse(prev.published_at) : NaN;
+  return { feed_at: Number.isFinite(pub) && pub < Date.parse(nowIso) ? new Date(pub).toISOString() : nowIso };
 }
 
 /** Agent chỉ được quyết khi người trực CHƯA quyết đích này. */
