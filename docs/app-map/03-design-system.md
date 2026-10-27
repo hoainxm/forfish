@@ -6,6 +6,7 @@
 
 covers: src/app/globals.css
 last_verified: 2026-10-26
+<!-- re-verified: 2026-10-27 — CỔNG cho luật cuộn lớp nổi (§6 mục 9, bản base eabd7197): `popover-cuon.test.ts` — cuộn của chính Popover không kích đo lại; đo lại (đổi cỡ/cuộn trang) giữ nguyên scrollTop dù gỡ maxHeight. Đỏ với popover trước sửa. Vuốt chạm thật 360×740 trên bản base: 0 → cuộn được tới cuối. -->
 <!-- re-verified: 2026-10-27 — luật `--app-vh` / `:root.pwa-frame` (globals.css) chỉ áp cho bản cài **iOS**; bản cài Android không gắn `pwa-frame` ⇒ dock theo `.dock-frame` fixed đáy + `--dock-bottom` như trình duyệt (Chrome Android ghim fixed đúng). Token dock không đổi. -->
 <!-- re-verified: 2026-10-26k — Icon mới `RotateIcon` (mũi tên vòng, nút icon-only "Xoay ảnh" màn căn góc giấy tờ); nhãn mới `NHAN.chupLai` "Chụp lại", `NHAN.dungAnh` "Dùng ảnh" (≤2 chữ). Màn căn góc: chấm kéo 1.25rem trong vùng chạm 2.75rem (cùng thang control §0), chân 2 nút ngang bằng, primary bên phải (§6 mục 3). -->
 <!-- re-verified: 2026-10-26j — `OfflineLine` (ui/offline-line.tsx) nay TỰ chọn câu: `navigator.onLine === false` ⇒ "Mất sóng — …" như cũ; máy VẪN báo có mạng mà màn tới đây (tải lỗi/quá giờ) ⇒ "Mạng yếu — đang xem bản lúc HH:MM dd/MM" / "Mạng yếu — chưa tải được, thử lại sau". Thêm `CauChuaTai` cho chữ màn trống vì tải lỗi. Luật: KHÔNG gọi mạng chậm là mất sóng (anh Long 26/10 gửi ảnh 16:06 có 5G: "lỗi gì vậy? ocr mà còn nhập tay?" → "fix lỗi này triệt để, các màn khác cũng toàn bị ko có sóng ko down đc ko kết nối đc ??? trong khi vẫn online"). -->
