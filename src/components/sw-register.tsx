@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { ensurePersistentStorage } from "@/lib/storage-persist";
 import { refreshDataKeyOnce } from "@/lib/data-key";
+import { batDauNgheCai } from "@/lib/app-install";
 import { TOKEN_STORE_EVENT } from "@/lib/device-token-store";
 import { PUSH_CHIME_MSG, pushChimeUrgent } from "@/lib/push-message";
 import { armWarningSound, playPushChime } from "@/lib/warning-sound";
@@ -28,6 +29,8 @@ let chimeListening = false;
 
 export function SwRegister() {
   useEffect(() => {
+    // hộp cài của Chrome bắn MỘT lần, rất sớm — nghe ngay lúc nạp để thẻ/mục "Cài app" mở sau vẫn bung được
+    batDauNgheCai();
     /*  KHOÁ DỮ LIỆU BẢN ĐỒ (2026-10-02): nền .pmtiles/bờ/đảo cũng là SDF2 — máy
         không có khoá mà ra khơi là trắng bản đồ. Xin ngay khi nạp app, khi vừa
         đăng nhập (TOKEN_STORE_EVENT) và khi có sóng lại; mỗi lần nạp chỉ một
