@@ -18,6 +18,8 @@
 // Đơn vị: km/h.
 
 import { timeoutSignal } from "@/lib/abort";
+import { omUrl } from "@/lib/om-url";
+import { tokenHeader } from "@/lib/device-token-store";
 
 export type DayUncertainty = {
   /** ISO yyyy-mm-dd */
@@ -124,15 +126,17 @@ export async function fetchEnsembleUncertainty(
   days = 15,
 ): Promise<DayUncertainty[] | null> {
   try {
-    const url =
-      `https://ensemble-api.open-meteo.com/v1/ensemble` +
-      `?latitude=${lat}&longitude=${lon}` +
-      `&models=gfs05&hourly=wind_speed_10m` +
-      `&forecast_days=${days}&timezone=Asia%2FHo_Chi_Minh`;
+    // QUA CẦU /api/om (2026-10-27): nhiều ngày = gói, máy chủ gác (chỗ gọi chỉ xin khi đã có gói)
+    const url = omUrl(
+      "ensemble",
+      `latitude=${lat}&longitude=${lon}` +
+        `&models=gfs05&hourly=wind_speed_10m` +
+        `&forecast_days=${days}&timezone=Asia%2FHo_Chi_Minh`,
+    );
 
     const res = await fetch(url, {
-      // Một số nguồn Open-Meteo chặn request không có User-Agent → gửi kèm cho chắc.
-      headers: { "User-Agent": "SDFish/1.0 (+forfish)" },
+      // Một số nguồn Open-Meteo chặn request không có User-Agent → gửi kèm cho chắc (cầu /api/om cũng tự gắn).
+      headers: { "User-Agent": "SDFish/1.0 (+forfish)", ...tokenHeader() },
       signal: timeoutSignal(15000),
     });
     if (!res.ok) return null;

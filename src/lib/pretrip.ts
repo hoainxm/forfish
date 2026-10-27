@@ -57,6 +57,14 @@ import {
   PRICE_NS,
 } from "@/lib/port-price-source";
 import { fetchFuelPrice } from "@/lib/fuel-price";
+import {
+  effectivePremiumMark,
+  FREE_FORECAST_DAYS,
+  readPremiumMark,
+  readTierMarkRaw,
+  readTierUntilRaw,
+  THOI_TIET_XA_CAN_GOI,
+} from "@/lib/tier";
 
 /** Tầng SÂU tải sẵn (tầng mặt đã nằm trong lưới gió/sóng SMOC) */
 export const CUR_DEPTH_PRETRIP_TIERS = [50, 150, 300] as const;
@@ -78,6 +86,21 @@ export const PRETRIP_GRID_DAYS = [3, 7, 16] as const;
  * ra cả 5 lớp (fetchScalarField tự lưu cả 5).
  */
 export const PRETRIP_SCALAR_DAYS = [3, 16] as const;
+
+/**
+ * Máy BIẾT CHẮC là tài khoản thường (dấu hạng "basic", hoặc premium đã quá hạn) ⇒ thời tiết chỉ tải sẵn khung HÔM NAY
+ * (2026-10-27, anh Long: "thường ko có dự báo, chỉ có ngày hôm nay thôi" — máy chủ chặn mọi khung dài). Chưa rõ hạng
+ * thì VẪN thử khung dài (máy chủ tự chặn nếu sai): thà tốn vài lượt còn hơn để người có gói ra khơi chỉ với 1 ngày.
+ */
+function chacLaThuong(): boolean {
+  return (
+    THOI_TIET_XA_CAN_GOI &&
+    effectivePremiumMark(readPremiumMark(readTierMarkRaw()), readTierUntilRaw(), Date.now()) === "basic"
+  );
+}
+const khungLuoi = (): readonly number[] => (chacLaThuong() ? [FREE_FORECAST_DAYS] : PRETRIP_GRID_DAYS);
+const khungDaiMau = (): readonly number[] => (chacLaThuong() ? [FREE_FORECAST_DAYS] : PRETRIP_SCALAR_DAYS);
+const ngayDiem = (): number | undefined => (chacLaThuong() ? FREE_FORECAST_DAYS : undefined);
 
 export interface PretripStep {
   /** câu bà con đọc được, vd "Gió sóng — Cảng nhà" */
@@ -555,7 +578,7 @@ async function runLayerInner(
   switch (id) {
     case "point":
       for (const p of dedupePoints(points))
-        await fetchSeaPoint({ lat: p.lat, lon: p.lon });
+        await fetchSeaPoint({ lat: p.lat, lon: p.lon }, ngayDiem());
       return;
     case "fish": {
       const r = await fetchFishForecast();
@@ -572,10 +595,10 @@ async function runLayerInner(
       return;
     }
     case "grid":
-      for (const d of PRETRIP_GRID_DAYS) await fetchForecastGrid(d);
+      for (const d of khungLuoi()) await fetchForecastGrid(d);
       return;
     case "scalar":
-      for (const d of PRETRIP_SCALAR_DAYS) await fetchScalarField("cloud", d);
+      for (const d of khungDaiMau()) await fetchScalarField("cloud", d);
       return;
     case "salinity":
       await fetchScalarField("salinity");
@@ -661,7 +684,7 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
     steps.push({
       label: `Gió sóng — ${p.name}`,
       run: async () => {
-        await fetchSeaPoint({ lat: p.lat, lon: p.lon });
+        await fetchSeaPoint({ lat: p.lat, lon: p.lon }, ngayDiem());
       },
     });
   }
@@ -700,9 +723,9 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
         throw new Error("bản đồ cá: nguồn đang lỗi, mới có bản cũ trong máy");
     },
   });
-  for (const d of PRETRIP_GRID_DAYS) {
+  for (const d of khungLuoi()) {
     steps.push({
-      label: `Gió sóng cả vùng biển — ${d} ngày`,
+      label: d === 1 ? "Gió sóng cả vùng biển — hôm nay" : `Gió sóng cả vùng biển — ${d} ngày`,
       // có MÃ vì cửa 6 giờ phải phân biệt "khung dài thử-và-hỏng vì mạng" với
       // "khung dài lấy được hết mức có thể" — xem PretripResult.failedSteps
       id: gridStepId(d),
@@ -714,9 +737,9 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
   // LỚP DẢI MÀU (mây/mưa/nhiệt/dông/áp suất) — một request/khung ra cả 5 lớp,
   // tự lưu vào máy (2026-07-29: trước đây KHÔNG tải sẵn → ra khơi mở lớp lần
   // đầu là trống).
-  for (const d of PRETRIP_SCALAR_DAYS) {
+  for (const d of khungDaiMau()) {
     steps.push({
-      label: `Lớp mây mưa nhiệt — ${d} ngày`,
+      label: d === 1 ? "Lớp mây mưa nhiệt — hôm nay" : `Lớp mây mưa nhiệt — ${d} ngày`,
       run: async () => {
         await fetchScalarField("cloud", d);
       },

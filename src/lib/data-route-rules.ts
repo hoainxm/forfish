@@ -7,14 +7,18 @@
 //   · BẢN ĐỒ cần TÀI KHOẢN; GÓI chỉ cho dự báo cá + lớp mà NGUỒN CHO BÁN (anh Long: "lớp dự báo, cá, dữ liệu cc by sẽ
 //     yêu cầu premium còn lại cho free"): độ sâu EMODnet (/api/tiles/chart, CC-BY), độ mặn + dòng chảy tầng sâu
 //     (Copernicus), nước xoáy (NOAA), dẫn đường (routegrid:). MIỄN PHÍ có tài khoản: phao OSM (/api/tiles/seamark),
-//     hải đồ OSM (/api/nautical), AIS, lưới gió/sóng/mưa Open-Meteo (grid:/scalar:) — Open-Meteo free không cho bán,
-//     quá 3 ngày chỉ cần gói khi THOI_TIET_XA_CAN_GOI (tier.ts) bật.
+//     hải đồ OSM (/api/nautical), AIS.
+//   · THỜI TIẾT (đổi lần nữa 2026-10-27, anh Long: "thường ko có dự báo, chỉ có ngày hôm nay thôi" — "nó đc kèm trong
+//     tổng dự báo cá của t cho premium"): khách + tài khoản thường chỉ HÔM NAY (FREE_FORECAST_DAYS = 1); nhiều ngày
+//     cần gói. Áp cho cầu Open-Meteo /api/om (`forecast_days`), lưới `grid:dN`/`scalar:*:dN`, cảng `sea:<cảng>`
+//     (đủ ngày, cần gói) vs `sea:<cảng>:d1` (hôm nay, khách xem được).
 //
 // Gác ở middleware chứ không trong route để route giữ ISR (đọc header trong
 // route là thành dynamic, mỗi request tính lại nguồn ngoài).
 
 import type { RateWindow } from "@/lib/rate-limit";
-import { THOI_TIET_XA_CAN_GOI } from "@/lib/tier";
+import { FREE_FORECAST_DAYS, THOI_TIET_XA_CAN_GOI } from "@/lib/tier";
+import { omDays } from "@/lib/om-url";
 
 export type DataRouteRule = {
   /** Cần tài khoản (401 nếu không). false = khách xem được, đếm theo IP. */
@@ -35,8 +39,11 @@ export const RATES: Record<DataRouteRule["bucket"], RateWindow> = {
   guest: { limit: 3000, windowMs: TEN_MIN },
 };
 
-/** Tầm ngày tối đa của tài khoản thường (lib/tier.ts: >3 ngày là premium) — giữ cho UI cũ; bản đồ nay cả gói là premium. */
-export const FREE_MAX_DAYS = 3;
+/** Tầm ngày thời tiết tối đa không cần gói (= tier.ts FREE_FORECAST_DAYS — từ 2026-10-27 chỉ HÔM NAY). */
+export const FREE_MAX_DAYS = FREE_FORECAST_DAYS;
+
+/** Số ngày này có cần gói không (THOI_TIET_XA_CAN_GOI tắt ⇒ không bao giờ). */
+const canGoiNgay = (d: number | null) => THOI_TIET_XA_CAN_GOI && (d === null || d > FREE_MAX_DAYS);
 
 /**
  * Danh sách matcher cho `middleware.ts` — ĐÍCH DANH, không mẫu bắt-tất-cả
@@ -55,6 +62,7 @@ export const DATA_ROUTE_MATCHER = [
   "/api/fuel-price",
   "/api/tau-ais",
   "/api/tiles/:src/:z/:x/:y",
+  "/api/om/:api",
 ] as const;
 
 /** `grid:d16` / `scalar:cloud:d7` → 16 / 7; không có mốc ngày ⇒ null. */
@@ -75,16 +83,14 @@ const khach = (): DataRouteRule => ({ account: false, premium: false, bucket: "g
 const banDo = (bucket: "data" | "tiles" | "fish", premium: boolean): DataRouteRule => ({ account: true, premium, bucket, rate: RATES[bucket] });
 
 /**
- * `weather-snapshot`: `sea:<cảng>` khách xem được; `grid:`/`scalar:` (Open-Meteo) chỉ cần tài khoản (quá 3 ngày cần
- * gói khi THOI_TIET_XA_CAN_GOI); `curdepth:`/`salinity:`/`seascalar:` (Copernicus/NOAA) và `routegrid:` (dẫn đường)
+ * `weather-snapshot`: `sea:<cảng>:d1` khách xem được, `sea:<cảng>` (đủ ngày) cần gói; `grid:`/`scalar:` (Open-Meteo)
+ * cần tài khoản, quá FREE_MAX_DAYS (1 — hôm nay) cần gói; `curdepth:`/`salinity:`/`seascalar:` (Copernicus/NOAA) và `routegrid:` (dẫn đường)
  * cần gói. Id lạ ⇒ cần gói (an toàn: route tự trả bad_id).
  */
 function snapshotRule(id: string): DataRouteRule {
-  if (id.startsWith("sea:")) return khach();
-  if (id.startsWith("grid:") || id.startsWith("scalar:")) {
-    const d = snapshotDays(id);
-    return banDo("data", THOI_TIET_XA_CAN_GOI && d !== null && d > FREE_MAX_DAYS);
-  }
+  // cảng: `sea:<cảng>:d1` (hôm nay) khách xem được; `sea:<cảng>` (đủ 16 ngày) cần tài khoản + gói
+  if (id.startsWith("sea:")) return canGoiNgay(snapshotDays(id) ?? 16) ? banDo("data", true) : khach();
+  if (id.startsWith("grid:") || id.startsWith("scalar:")) return banDo("data", canGoiNgay(snapshotDays(id)));
   return banDo("data", true);
 }
 
@@ -95,6 +101,8 @@ export function dataRouteRule(pathname: string, search: URLSearchParams): DataRo
   // ô ảnh: `chart` = độ sâu EMODnet (CC-BY, cho bán) cần gói; `seamark` = phao OpenSeaMap (ODbL) chỉ cần tài khoản
   if (p.startsWith("/api/tiles/")) return banDo("tiles", p.split("/")[3] !== "seamark");
   if (p === "/api/weather-snapshot") return snapshotRule(search.get("id") ?? "");
+  // cầu Open-Meteo: hôm nay ai cũng xin được (khách đếm theo IP); nhiều ngày cần gói. Số ngày hỏng ⇒ cần gói.
+  if (p.startsWith("/api/om/")) return canGoiNgay(omDays(search)) ? banDo("data", true) : khach();
   if (KHACH.has(p)) return khach();
   if (CAN_GOI.has(p)) return banDo("data", true);
   if (TAI_KHOAN.has(p)) return banDo("data", false);

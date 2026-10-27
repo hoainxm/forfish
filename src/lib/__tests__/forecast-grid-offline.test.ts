@@ -33,7 +33,7 @@ import { saveForecast } from "../forecast-cache";
 /** Open-Meteo giả: trả đủ giờ cho `hours` mốc, 80 điểm lưới */
 function fakeOk(hours: number) {
   return (url: string) => {
-    const marine = String(url).includes("marine-api");
+    const marine = /marine-api|\/api\/om\/marine/.test(String(url));
     const time = Array.from(
       { length: hours },
       (_, i) => `2026-07-25T${String(i % 24).padStart(2, "0")}:00`,
@@ -208,7 +208,7 @@ describe("ƯU TIÊN SNAPSHOT trước live", () => {
     const g = await fetchForecastGrid(3);
     expect(g.stale).toBeUndefined();
     expect(g.cells).toHaveLength(156);
-    expect(calls.some((u) => u.includes("open-meteo"))).toBe(false);
+    expect(calls.some((u) => /open-meteo|\/api\/om\//.test(u))).toBe(false);
   });
 
   it("snapshot CŨ (quá trần cache) → bỏ qua, đi live như cũ", async () => {

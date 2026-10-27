@@ -24,8 +24,10 @@ import {
   nearestGridCell,
   type ForecastGrid,
 } from "@/lib/forecast-grid";
-import { SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
+import { CLIENT_SNAPSHOT_DAYS } from "@/lib/weather-snapshot-id";
 import { timeoutSignal } from "@/lib/abort";
+import { omUrl } from "@/lib/om-url";
+import { tokenHeader } from "@/lib/device-token-store";
 
 export type SeaPoint = { lat: number; lon: number };
 
@@ -202,8 +204,19 @@ const num = (v: unknown): number | null =>
  * Gió + sóng cho một điểm chạm trên bản đồ. Sóng fail (điểm trên đất liền,
  * mạng chập chờn) không kéo sập cả dự báo — trả null, UI chạy bằng gió.
  */
-export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
-  const id = coordId(p.lat, p.lon);
+export async function fetchSeaPoint(
+  p: SeaPoint,
+  /** 16 = đủ ngày (gói); 1 = HÔM NAY (tài khoản thường — tier.ts soNgayThoiTiet, 2026-10-27: "ko show" ngày sau,
+   *  kể cả bản đủ ngày còn trong máy từ trước) */
+  soNgay: number = FORECAST_MAX_DAYS,
+): Promise<SeaPointConditions> {
+  const c = await fetchSeaPointRaw(p, soNgay);
+  return soNgay === 1 ? { ...c, days: c.days.slice(0, 1) } : c;
+}
+
+async function fetchSeaPointRaw(p: SeaPoint, soNgay: number): Promise<SeaPointConditions> {
+  // bản hôm nay lưu RIÊNG — không đè bản đủ ngày của gói ở cùng chỗ
+  const id = soNgay === 1 ? `${coordId(p.lat, p.lon)}.d1` : coordId(p.lat, p.lon);
   /* MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (K3, 2026-08-02 — cùng khuôn `sea.ts`).
      Ba request Open-Meteo × 15 giây đồng hồ chặn, trong khi bản của ĐÚNG chỗ này
      đã nằm sẵn trong máy từ giây 0. Chỉ đi đường tắt khi máy KHẲNG ĐỊNH mất sóng
@@ -222,7 +235,7 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
     if (saved) return saved;
   }
   try {
-    const cond = await fetchSeaPointLive(p);
+    const cond = await fetchSeaPointLive(p, soNgay);
     // LƯU bản mới nhất để ra biển mất mạng vẫn coi được 16 ngày
     saveForecast(POINT_NS, id, cond);
     return cond;
@@ -238,7 +251,7 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
     // (same-origin, không đụng quota Open-Meteo theo IP). Khung dài nhất
     // trước; khung premium bị route chặn với tài khoản thường → tự rơi về d3.
     // Vẫn là số ĐÚNG Ô phủ chỗ chạm — seaPointFromGrid tự chặn ô xa.
-    for (const d of [...SNAPSHOT_DAY_SET].sort((a, b) => b - a)) {
+    for (const d of [...CLIENT_SNAPSHOT_DAYS].filter((x) => x <= Math.max(1, soNgay)).sort((a, b) => b - a)) {
       const snap = await loadGridSnapshotClient(d);
       const cond = snap ? seaPointFromGrid(snap, p, null) : null;
       if (cond) return cond;
@@ -414,31 +427,38 @@ export function dailyCurrentFromHourly(
 }
 
 /** Gọi Open-Meteo THẬT (không cache) — tách ra để fetchSeaPoint bọc offline. */
-async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
-  const common = `latitude=${p.lat}&longitude=${p.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${FORECAST_MAX_DAYS}`;
-  const windUrl =
-    `https://api.open-meteo.com/v1/forecast?${common}` +
-    `&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m` +
-    `&daily=wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,precipitation_sum,weather_code`;
-  const waveUrl =
-    `https://marine-api.open-meteo.com/v1/marine?${common}` +
-    `&current=wave_height,wave_period&daily=wave_height_max&models=${WAVE_MODEL}`;
+async function fetchSeaPointLive(p: SeaPoint, soNgay: number): Promise<SeaPointConditions> {
+  // QUA CẦU /api/om (2026-10-27): máy chủ gác số ngày — tài khoản thường chỉ xin được 1
+  const common = `latitude=${p.lat}&longitude=${p.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${soNgay}`;
+  const windUrl = omUrl(
+    "forecast",
+    `${common}` +
+      `&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m` +
+      `&daily=wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,precipitation_sum,weather_code`,
+  );
+  const waveUrl = omUrl(
+    "marine",
+    `${common}` + `&current=wave_height,wave_period&daily=wave_height_max&models=${WAVE_MODEL}`,
+  );
   // DÒNG CHẢY = request riêng (SMOC best_match): ghim models sóng thì
   // ocean_current_* trả toàn null (probe 2026-07-29). Hỏng không kéo sập dự báo.
-  const curUrl =
-    `https://marine-api.open-meteo.com/v1/marine?${common}` +
-    `&current=ocean_current_velocity,ocean_current_direction` +
-    `&hourly=ocean_current_velocity,ocean_current_direction`;
+  const curUrl = omUrl(
+    "marine",
+    `${common}` +
+      `&current=ocean_current_velocity,ocean_current_direction` +
+      `&hourly=ocean_current_velocity,ocean_current_direction`,
+  );
+  const init = { headers: tokenHeader() };
 
   const [wind, wave, cur] = await Promise.all([
-    fetch(windUrl, { signal: timeoutSignal(15000) }).then((r) => {
+    fetch(windUrl, { ...init, signal: timeoutSignal(15000) }).then((r) => {
       if (!r.ok) throw new Error(`wind ${r.status}`);
       return r.json();
     }),
-    fetch(waveUrl, { signal: timeoutSignal(15000) })
+    fetch(waveUrl, { ...init, signal: timeoutSignal(15000) })
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),
-    fetch(curUrl, { signal: timeoutSignal(15000) })
+    fetch(curUrl, { ...init, signal: timeoutSignal(15000) })
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),
   ]);

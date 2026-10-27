@@ -4,9 +4,10 @@
 // phân tán theo IP từng máy — tốt cho rate-limit), snapshot server chỉ dùng khi
 // live lỗi. Cron ghi các khoá này; client đọc lại qua /api/weather-snapshot.
 
-/** Dự báo biển theo cảng (10 cảng) — client vốn đã tải đủ 16 ngày nên không lộ thêm */
-export function seaSnapshotId(portId: string): string {
-  return `sea:${portId}`;
+/** Dự báo biển theo cảng (10 cảng). `days` = 1 ⇒ bản HÔM NAY `sea:<cảng>:d1` (khách xem được — 2026-10-27);
+ *  mặc định ⇒ đủ ngày `sea:<cảng>` (cần gói). */
+export function seaSnapshotId(portId: string, days?: number): string {
+  return days === 1 ? `sea:${portId}:d1` : `sea:${portId}`;
 }
 
 /**
@@ -36,13 +37,20 @@ export const SNAPSHOT_DAY_SET: readonly number[] = [
   SNAPSHOT_PREMIUM_GRID_DAYS,
 ];
 
-/** id này có phải hàng PREMIUM không (khung > khung miễn phí) — thuần, test được.
- *  Độ mặn + nước dâng/xoáy LUÔN công khai (số "d4" là frame cố định, KHÔNG phải
- *  tầm dự báo premium) → không bị chặn dù có "d4". */
+/**
+ * Khung client được ĐỌC (2026-10-27): thêm khung HÔM NAY `d1` — route dựng từ `d3` (lib/snapshot-today), cron KHÔNG
+ * tính riêng. Cron vẫn lặp SNAPSHOT_DAY_SET.
+ */
+export const CLIENT_SNAPSHOT_DAYS: readonly number[] = [1, ...SNAPSHOT_DAY_SET];
+
+/** id này có phải hàng PREMIUM không — thuần, test được. Từ 2026-10-27 thời tiết không cần gói CHỈ là hôm nay:
+ *  `sea:<cảng>:d1`, `grid:d1`, `scalar:*:d1`; bản đủ ngày (kể cả `sea:<cảng>`, `grid:d3`) cần gói.
+ *  Độ mặn + nước dâng/xoáy: số "d4" là frame cố định, không phải tầm ngày — lớp đó gác ở middleware (lớp gói). */
 export function snapshotNeedsPremium(id: string): boolean {
   if (id.startsWith("salinity:") || id.startsWith("seascalar:")) return false;
+  if (id.startsWith("sea:")) return !id.endsWith(":d1");
   const d = Number(/:d(\d+)$/.exec(id)?.[1]);
-  return Number.isFinite(d) && d > SNAPSHOT_GRID_DAYS;
+  return Number.isFinite(d) && d > 1;
 }
 
 /**
@@ -93,7 +101,7 @@ export function seaScalarSnapshotId(kind: string): string {
 /** Chặn id lạ trước khi đụng DB / trả về client (whitelist các dạng hợp lệ) */
 export function isValidSnapshotId(id: string): boolean {
   return (
-    /^sea:[a-z0-9_-]+$/.test(id) ||
+    /^sea:[a-z0-9_-]+(:d1)?$/.test(id) ||
     /^grid:d\d+$/.test(id) ||
     /^scalar:(cloud|rain|airtemp|storm|pressure):d\d+$/.test(id) ||
     /^curdepth:t(0|50|150|300):d\d+$/.test(id) ||

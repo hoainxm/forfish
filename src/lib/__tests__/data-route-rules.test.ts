@@ -47,15 +47,27 @@ describe("dataRouteRule", () => {
     for (const p of ["/api/storms", "/api/port-prices", "/api/port-prices/history", "/api/fuel-price"]) {
       expect(dataRouteRule(p, q("days=10")), p).toEqual(KHACH);
     }
-    expect(dataRouteRule("/api/weather-snapshot", q("id=sea:vung-tau"))).toEqual(KHACH);
+    // thời tiết cảng: khách chỉ xem HÔM NAY (2026-10-27) — bản đủ ngày `sea:<cảng>` cần gói
+    expect(dataRouteRule("/api/weather-snapshot", q("id=sea:vung-tau:d1"))).toEqual(KHACH);
+    expect(dataRouteRule("/api/weather-snapshot", q("id=sea:vung-tau"))).toEqual(GOI("data"));
   });
 
-  it("Open-Meteo (grid:/scalar:) chỉ cần tài khoản, CẢ quá 3 ngày (THOI_TIET_XA_CAN_GOI tắt — free không cho bán)", () => {
-    expect(THOI_TIET_XA_CAN_GOI).toBe(false);
+  it("thời tiết: thường chỉ HÔM NAY (anh Long 2026-10-27: 'thường ko có dự báo, chỉ có ngày hôm nay thôi'), nhiều ngày cần gói", () => {
+    expect(THOI_TIET_XA_CAN_GOI).toBe(true);
+    expect(FREE_MAX_DAYS).toBe(1);
+    for (const id of ["grid:d1", "scalar:cloud:d1"]) expect(dataRouteRule("/api/weather-snapshot", q(`id=${id}`)), id).toEqual(TK("data"));
     for (const id of ["grid:d3", "grid:d16", "scalar:cloud:d3", "scalar:cloud:d16"]) {
-      expect(dataRouteRule("/api/weather-snapshot", q(`id=${id}`)), id).toEqual(TK("data"));
+      expect(dataRouteRule("/api/weather-snapshot", q(`id=${id}`)), id).toEqual(GOI("data"));
     }
-    expect(FREE_MAX_DAYS).toBe(3);
+  });
+
+  it("cầu Open-Meteo /api/om: forecast_days=1 khách xin được; quá 1, thiếu, hỏng ⇒ cần gói", () => {
+    for (const api of ["forecast", "marine", "ensemble"]) {
+      expect(dataRouteRule(`/api/om/${api}`, q("latitude=10&longitude=107&forecast_days=1")), api).toEqual(KHACH);
+      expect(dataRouteRule(`/api/om/${api}`, q("latitude=10&longitude=107&forecast_days=2")), api).toEqual(GOI("data"));
+    }
+    expect(dataRouteRule("/api/om/forecast", q("latitude=10&longitude=107"))).toEqual(GOI("data"));
+    expect(dataRouteRule("/api/om/forecast", q("forecast_days=abc"))).toEqual(GOI("data"));
   });
 
   it("lớp nguồn cho bán cần gói: Copernicus (curdepth/salinity), NOAA (seascalar), dẫn đường (routegrid), id lạ", () => {
@@ -98,9 +110,9 @@ describe("matcher middleware.ts ↔ DATA_ROUTE_MATCHER ↔ route thật", () => 
 
   it("mỗi đường trong matcher có file route.ts thật, và luật không null", () => {
     for (const p of DATA_ROUTE_MATCHER) {
-      const dir = p.replace(/^\/api\//, "").replace("/:src/:z/:x/:y", "/[src]/[z]/[x]/[y]");
+      const dir = p.replace(/^\/api\//, "").replace("/:src/:z/:x/:y", "/[src]/[z]/[x]/[y]").replace("/:api", "/[api]");
       expect(() => readFileSync(join(ROOT, "src", "app", "api", dir, "route.ts")), p).not.toThrow();
-      const sample = p.replace("/:src/:z/:x/:y", "/sst/5/25/14");
+      const sample = p.replace("/:src/:z/:x/:y", "/sst/5/25/14").replace("/:api", "/forecast");
       expect(dataRouteRule(sample, q()), p).not.toBeNull();
     }
   });

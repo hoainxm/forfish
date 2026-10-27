@@ -75,7 +75,7 @@ Test: **Vitest** (`npm test`, test tại `src/lib/__tests__/`) — thêm logic m
 
 ## Nguồn dữ liệu — ĐỪNG TỰ GIỚI HẠN (chốt 2026-08-31)
 
-> **Bản đồ MIỄN PHÍ cho tài khoản (khách: bão/giá/thời tiết cảng). Cái bán = DỰ BÁO CÁ + lớp có NGUỒN CHO BÁN** (đổi 2026-10-27, anh Long: *"lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu premium còn lại cho free"* — `data-route-rules.ts`, `tier.ts`). Nền · phao đèn OSM · tên rạn · đẳng sâu · gió/sóng Open-Meteo — cho không.
+> **Bản đồ MIỄN PHÍ cho tài khoản (khách: bão/giá/thời tiết cảng). Cái bán = DỰ BÁO CÁ + lớp có NGUỒN CHO BÁN** (đổi 2026-10-27, anh Long: *"lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu premium còn lại cho free"* — `data-route-rules.ts`, `tier.ts`). Nền · phao đèn OSM · tên rạn · đẳng sâu · thời tiết HÔM NAY — cho không.
 
 Lỗi đã dính nhiều lần: agent đọc "SDFish là sản phẩm thương mại" rồi **loại thẳng** nguồn ghi *non-commercial*, dù nguồn đó chỉ dùng cho **lớp bản đồ miễn phí**. Ràng buộc bị áp sai chỗ, và mất nguồn tốt vì một lý do không tồn tại.
 
@@ -86,7 +86,7 @@ Lỗi đã dính nhiều lần: agent đọc "SDFish là sản phẩm thương m
 | Lớp **bản đồ** (miễn phí) | **KHÔNG chặn.** Không thu tiền ai để xem bản đồ |
 | **Dự báo cá** + lớp gói (bán) | **CÓ chặn.** Đây mới là chỗ đồng tiền đi qua |
 
-Open-Meteo free cấm bán ⇒ thời tiết không vào gói (`THOI_TIET_XA_CAN_GOI`); app thuê bao vẫn có thể bị coi là thương mại — [formaps/01](docs/formaps/01-tai-san-du-lieu.md), hỏi luật sư.
+Thời tiết thường/khách CHỈ HÔM NAY, nhiều ngày kèm gói dự báo cá (`THOI_TIET_XA_CAN_GOI`, `/api/om`). Open-Meteo free: non-commercial — [formaps/01](docs/formaps/01-tai-san-du-lieu.md), hỏi luật sư.
 
 **Vẫn là cổng chặn thật, đừng lẫn với điều trên:**
 - **Copyleft phần mềm** (GPL của bộ ký hiệu OpenCPN, share-alike ODbL của OSM) — đây là ràng buộc lên **mã và cơ sở dữ liệu**, không phải chuyện thu tiền hay không. Vẫn phải tránh.

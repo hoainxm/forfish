@@ -51,7 +51,7 @@ function mockMarineDown() {
     const u = String(url);
     if (u.includes("/api/weather-snapshot"))
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
-    if (u.includes("marine-api")) return Promise.reject(new Error("503"));
+    if (/marine-api|\/api\/om\/marine/.test(u)) return Promise.reject(new Error("503"));
     return Promise.resolve({
       ok: true,
       json: () =>
@@ -177,7 +177,7 @@ describe("fetchSeaForecast — mẻ toàn sóng ước không đè bản có só
         ok: true,
         json: () =>
           Promise.resolve(
-            u.includes("marine-api")
+            /marine-api|\/api\/om\/marine/.test(u)
               ? { daily: { time, wave_height_max: [1.9] } }
               : {
                   daily: {

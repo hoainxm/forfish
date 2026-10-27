@@ -23,7 +23,7 @@ const qua = (r: Response) => r.headers.get("x-middleware-next") === "1";
 
 describe("dataGate — khách chưa đăng nhập", () => {
   it("route khách (bão, giá, giá dầu, thời tiết cảng) cho qua, KHÔNG tra danh tính", async () => {
-    for (const p of ["/api/storms", "/api/port-prices", "/api/port-prices/history", "/api/fuel-price", "/api/weather-snapshot?id=sea:vung-tau"]) {
+    for (const p of ["/api/storms", "/api/port-prices", "/api/port-prices/history", "/api/fuel-price", "/api/weather-snapshot?id=sea:vung-tau:d1", "/api/om/forecast?latitude=10&longitude=107&forecast_days=1"]) {
       const u = new URL(`https://app.test${p}`);
       const r = await dataGate(req(p, "10.0.0.2"), dataRouteRule(u.pathname, u.searchParams)!);
       expect(qua(r), p).toBe(true);
@@ -31,7 +31,7 @@ describe("dataGate — khách chưa đăng nhập", () => {
     expect(tokenIdentity).not.toHaveBeenCalled();
   });
   it("route bản đồ (cần tài khoản — miễn phí lẫn cần gói) ⇒ 401", async () => {
-    for (const p of ["/api/tiles/chart/5/25/14", "/api/tiles/seamark/12/3263/1890", "/api/weather-snapshot?id=grid:d3", "/api/tau-ais", "/api/fish-forecast"]) {
+    for (const p of ["/api/tiles/chart/5/25/14", "/api/tiles/seamark/12/3263/1890", "/api/weather-snapshot?id=grid:d3", "/api/tau-ais", "/api/fish-forecast", "/api/weather-snapshot?id=sea:vung-tau", "/api/om/marine?latitude=10&longitude=107&forecast_days=16"]) {
       const u = new URL(`https://app.test${p}`);
       const r = await dataGate(req(p, "10.0.0.3"), dataRouteRule(u.pathname, u.searchParams)!);
       expect(r.status, p).toBe(401);

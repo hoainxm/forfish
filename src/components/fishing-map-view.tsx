@@ -222,7 +222,7 @@ import {
 } from "@/lib/fish-blend";
 import { fishFailNote, lowQualityNote } from "@/lib/source-registry";
 import { moonPhase } from "@/lib/moon";
-import { FREE_FORECAST_DAYS, THOI_TIET_XA_CAN_GOI } from "@/lib/tier";
+import { FREE_FORECAST_DAYS, soNgayThoiTiet, THOI_TIET_XA_CAN_GOI } from "@/lib/tier";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { PremiumLock } from "@/components/premium-gate";
 import { TileLoadDebug } from "@/components/tile-load-debug";
@@ -928,7 +928,7 @@ export default function FishingMapView() {
     let alive = true;
     Promise.all(
       PORTS.map((p) =>
-        fetchSeaForecast(p)
+        fetchSeaForecast(p, soNgayThoiTiet(premiumAccess))
           .then((days) => ({ lat: p.lat, lon: p.lon, byDate: Object.fromEntries(days.map((x) => [x.date, x.windMaxKmh])) }))
           .catch(() => null),
       ),
@@ -938,7 +938,7 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, [fleetOn, fleetAllowed, fleetWind, fleetRetry]);
+  }, [fleetOn, fleetAllowed, fleetWind, fleetRetry, premiumAccess]);
   useEffect(() => {
     // có sóng lại mà gió còn trống ⇒ bơm fleetRetry để effect gió chạy lại (không tự lặp: chỉ khi sự kiện online)
     if (!fleetOn || !fleetAllowed) return;
@@ -1127,7 +1127,7 @@ export default function FishingMapView() {
   // là đã dùng — tới nhánh lỗi nghĩa là KHÔNG CÒN GÌ, chẳng có gì để mời.
 
   // TẦM NGÀY TỰ ĐẶT THEO HẠNG (bỏ chip chọn khung, user 2026-07-28): premium =
-  // 16 ngày, thường = 3 ngày (FREE_FORECAST_DAYS). Bà con cuộn dải ngày để xem
+  // 16 ngày, thường = HÔM NAY (FREE_FORECAST_DAYS = 1 từ 2026-10-27). Bà con cuộn dải ngày để xem
   // xa/gần.
   //
   // NGOẠI LỆ (2026-08-01, cùng luật "đã tải thì cứ dùng"): hạng tụt/hết hạn mà
@@ -1137,11 +1137,12 @@ export default function FishingMapView() {
   /* KHUNG VỪA TỤT XUỐNG mấy ngày (null = không tụt) — để nói MỘT DÒNG nhỏ thay
      vì đổi màn trong im lặng. Xem chú thích ở effect ngay dưới. */
   const [gridShrunkTo, setGridShrunkTo] = useState<number | null>(null);
+  /*  KHOÁ NGÀY XA (2026-10-27, anh Long: "thường ko có dự báo, chỉ có ngày hôm nay thôi" — "open gì thì cũng ko show"):
+      đã BIẾT là thường/khách (`premiumLocked`) ⇒ chỉ hôm nay, KỂ CẢ khi máy còn lưới dài từ hồi còn gói; còn đang
+      kiểm hạng ("checking" — premium mất sóng chưa đọc được dấu) thì vẫn cho xem lưới dài đã có trong máy. */
+  const khoaNgayXa = THOI_TIET_XA_CAN_GOI && (premiumLocked || (premiumUnsure && !savedLongGrid));
   useEffect(() => {
-    // THOI_TIET_XA_CAN_GOI tắt (2026-10-27): Open-Meteo miễn phí cả 16 ngày — xem "GÓI THEO LỚP"
-    const target = (
-      THOI_TIET_XA_CAN_GOI && premiumUnsure && !savedLongGrid ? FREE_FORECAST_DAYS : 16
-    ) as GridDays;
+    const target = (khoaNgayXa ? FREE_FORECAST_DAYS : 16) as GridDays;
     if (gridDays !== target) {
       /* CHỈ RESET KHI MỞ RỘNG KHUNG (R8, 2026-08-02). Khi khung TỤT (16 → 3, vd
          lưới dài bị dọn mất chỗ) mà cũng `setTimeIdx(0)` thì bà con đang xem gió
@@ -1158,7 +1159,7 @@ export default function FishingMapView() {
       }
       setGridDays(target);
     }
-  }, [premiumUnsure, savedLongGrid, gridDays]);
+  }, [khoaNgayXa, gridDays]);
 
   // Bấm khung ngày (3/5/7/10/16) → khi lưới MỚI về, nhảy thanh giờ tới NGÀY
   // CUỐI của khung (bấm "10 ngày" = xem luôn gió ~ngày 10, kéo lùi để về gần).
@@ -4050,10 +4051,10 @@ export default function FishingMapView() {
   const luc0 = (lop: LopBanDo, luc?: ThoiDiem) => (lop === "ca" && !luc ? "hôm nay" : noiThoiDiem(luc));
   const ngoaiKhung = useCallback(
     (luc?: ThoiDiem) =>
-      luc && THOI_TIET_XA_CAN_GOI && premiumUnsure && !savedLongGrid && luc.ngay >= FREE_FORECAST_DAYS
-        ? `Xem quá ${FREE_FORECAST_DAYS} ngày dành cho tài khoản premium.`
+      luc && khoaNgayXa && luc.ngay >= FREE_FORECAST_DAYS
+        ? "Dự báo các ngày tới đi kèm gói dự báo cá."
         : "Máy chưa có dự báo tới lúc đó.",
-    [premiumUnsure, savedLongGrid],
+    [khoaNgayXa],
   );
   // lưới về ⇒ áp mốc giờ đang chờ + đọc số đang chờ
   useEffect(() => {
@@ -4209,7 +4210,7 @@ export default function FishingMapView() {
           }
           if (!LOP_CO_GIO.includes(lop)) return noi(`Đang xem ${TEN_LOP[lop]}.`);
           const mo = `Đang xem ${TEN_LOP[lop]}${lenh.tang ? ` tầng ${lenh.tang} mét` : ""} ${noiThoiDiem(luc)}. `;
-          if (luc && THOI_TIET_XA_CAN_GOI && luc.ngay >= FREE_FORECAST_DAYS && premiumUnsure && !savedLongGrid) return noi(`${mo}${ngoaiKhung(luc)}`);
+          if (luc && khoaNgayXa && luc.ngay >= FREE_FORECAST_DAYS) return noi(`${mo}${ngoaiKhung(luc)}`);
           if (luc) senMocRef.current = luc;
           // tầng sâu đọc từ lưới tầng riêng — chưa đọc số, chỉ mở
           if (lenh.tang) return noi(mo);
@@ -4229,7 +4230,7 @@ export default function FishingMapView() {
         }
       }
     },
-    [senViTri, forecastKind, overlayField, fishOn, SEN_OVERLAY, senDocSo, ngoaiKhung, navOn, senSay, fGrid, sfGrid, todayIso, senMoLop, premiumAccess, fishCast, premiumUnsure, savedLongGrid],
+    [senViTri, forecastKind, overlayField, fishOn, SEN_OVERLAY, senDocSo, ngoaiKhung, navOn, senSay, fGrid, sfGrid, todayIso, senMoLop, premiumAccess, fishCast, khoaNgayXa],
   );
   const ganNhatTen = (ds: readonly SenDest[], v: { lat: number; lon: number }, n: number) =>
     [...ds].sort((a, b) => haversineKm(v.lat, v.lon, a.lat, a.lon) - haversineKm(v.lat, v.lon, b.lat, b.lon)).slice(0, n);
@@ -4584,13 +4585,14 @@ export default function FishingMapView() {
   const reqKey = `${point.lat},${point.lon}:${retry}`;
   useEffect(() => {
     let alive = true;
-    fetchSeaPoint(point)
+    // tài khoản thường: chỉ HÔM NAY (2026-10-27 — máy chủ gác ngày ở /api/om, tier.ts soNgayThoiTiet)
+    fetchSeaPoint(point, soNgayThoiTiet(premiumAccess))
       .then((c) => alive && setResult({ key: reqKey, cond: c }))
       .catch(() => alive && setResult({ key: reqKey, cond: null }));
     return () => {
       alive = false;
     };
-  }, [point, reqKey]);
+  }, [point, reqKey, premiumAccess]);
 
   const loading = result?.key !== reqKey;
   const cond = loading ? null : (result?.cond ?? null);
@@ -4699,9 +4701,8 @@ export default function FishingMapView() {
   // (2026-08-01) …TRỪ khi lưới dài đã nằm trong máy: đã tải hợp lệ lúc còn hạn
   // thì cứ xem, khoá lại là giấu chính thứ bà con đã tải về.
   const dayChipLocked = (dateIso: string) =>
-    THOI_TIET_XA_CAN_GOI && // tắt từ 2026-10-27 — Open-Meteo free không cho bán (tier.ts)
+    THOI_TIET_XA_CAN_GOI && // 2026-10-27: thường/khách chỉ hôm nay, kể cả khi máy còn lưới dài ("ko show")
     premiumLocked &&
-    !savedLongGrid &&
     daysBetweenISO(todayIso, dateIso) >= FREE_FORECAST_DAYS;
   const rawSelIdx = allPast
     ? -1
@@ -5196,14 +5197,14 @@ export default function FishingMapView() {
       <p className="mt-1 rounded-xl bg-field/80 px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
         {premiumAccess === "login" ? (
           <>
-            Xem quá {FREE_FORECAST_DAYS} ngày cần đăng nhập —{" "}
+            Xem các ngày tới cần đăng nhập —{" "}
             <Link href="/login" className="font-semibold text-trim">
               Đăng nhập →
             </Link>
           </>
         ) : (
           <>
-            {premiumLine(`xem trước quá ${FREE_FORECAST_DAYS} ngày`)}{" "}
+            {premiumLine("dự báo các ngày tới")}{" "}
             <a href={`tel:${SDVICO_HOTLINE}`} className="font-semibold text-trim">
               Gọi →
             </a>

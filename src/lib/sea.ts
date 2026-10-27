@@ -8,6 +8,7 @@ import { PORTS, type FishingPort } from "@/data/ports";
 import { haversineKm, type LatLon } from "@/lib/geo";
 import { apiUrl } from "@/lib/api-base";
 import { seaSnapshotId } from "@/lib/weather-snapshot-id";
+import { omUrl } from "@/lib/om-url";
 import { isCacheCurrent } from "@/lib/source-cadence";
 /* Đồng hồ chặn cho fetch — `AbortSignal.timeout` chưa có trên WebView/Safari
    cũ (máy rẻ của bà con) và gọi thẳng sẽ ném TypeError ĐỒNG BỘ. Ở đây cái ném
@@ -131,8 +132,9 @@ export const LEVEL_LABEL: Record<SeaLevel, string> = {
  * (api/cron/refresh-weather) và client dùng CHUNG đúng một phần tải. Ném lỗi khi
  * nguồn hỏng.
  */
-export async function fetchSeaLive(port: FishingPort): Promise<ScoredSeaDay[]> {
-  const common = `latitude=${port.lat}&longitude=${port.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${FORECAST_DAYS}`;
+export async function fetchSeaLive(port: FishingPort, soNgay: number = FORECAST_DAYS): Promise<ScoredSeaDay[]> {
+  // `soNgay` = 1 ⇒ HÔM NAY (khách + tài khoản thường, 2026-10-27); trên máy đi cầu /api/om (gác ngày ở máy chủ)
+  const common = `latitude=${port.lat}&longitude=${port.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${soNgay}`;
   /* HAI NGUỒN, MỘT TRỤC (D-PH11, soát 2026-08-02): trước đây cả hai nằm trong
      `Promise.all` không có lưới, một nhánh hỏng (429 / hết giờ / nguồn sóng
      bảo trì) là VỨT CẢ MẺ — kể cả phần đã tải xong. Nay:
@@ -140,13 +142,13 @@ export async function fetchSeaLive(port: FishingPort): Promise<ScoredSeaDay[]> {
      · SÓNG là nguồn PHỤ → hỏng thì vẫn dựng được ngày, sóng ước từ gió và gắn
        cờ `waveEstimated` để UI nói thật "ước", KHÔNG để 0 giả thành biển êm. */
   const [marineRes, weatherRes] = await Promise.all([
+    fetch(omUrl("marine", `${common}&daily=wave_height_max&models=${WAVE_MODEL}`), {
+      headers: tokenHeader(),
+      signal: timeoutSignal(15000),
+    }).catch(() => null),
     fetch(
-      `https://marine-api.open-meteo.com/v1/marine?${common}&daily=wave_height_max&models=${WAVE_MODEL}`,
-      { signal: timeoutSignal(15000) },
-    ).catch(() => null),
-    fetch(
-      `https://api.open-meteo.com/v1/forecast?${common}&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code`,
-      { signal: timeoutSignal(15000) },
+      omUrl("forecast", `${common}&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code`),
+      { headers: tokenHeader(), signal: timeoutSignal(15000) },
     ),
   ]);
   if (!weatherRes.ok) {
@@ -247,8 +249,10 @@ export async function fetchSeaBackupLive(port: FishingPort): Promise<ScoredSeaDa
  */
 export async function fetchSeaForecast(
   port: FishingPort,
+  /** 16 = đủ ngày (gói); 1 = HÔM NAY (khách + tài khoản thường — tier.ts soNgayThoiTiet, 2026-10-27) */
+  days: number = FORECAST_DAYS,
 ): Promise<ScoredSeaDay[]> {
-  const cached = readCache(port.id);
+  const cached = readCache(port.id, false, days);
   if (cached) return cached;
   /* MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (K3, soát 2026-08-02).
      Trước đây bản lưu nằm SAU cùng: máy tự biết mình không có mạng mà vẫn vắt
@@ -258,22 +262,22 @@ export async function fetchSeaForecast(
      Chỉ tin `onLine === false` (máy nói CHẮC là không có mạng); ca "sóng sống
      mà chết" onLine vẫn true nên vẫn đi đường thường — không mất bản mới. */
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
-    const offlineStale = readCache(port.id, true);
+    const offlineStale = readCache(port.id, true, days);
     if (offlineStale) return offlineStale;
   }
-  const snap = await loadSeaSnapshotClient(port.id);
+  const snap = await loadSeaSnapshotClient(port.id, days);
   if (snap && isCacheCurrent(snap.savedAt, Date.now())) {
-    writeCacheKeepRealWaves(port.id, snap.days); // giữ bản trong máy cho lúc mất sóng
+    writeCacheKeepRealWaves(port.id, snap.days, days); // giữ bản trong máy cho lúc mất sóng
     return snap.days;
   }
   try {
-    const days = await fetchSeaLive(port);
-    writeCacheKeepRealWaves(port.id, days);
-    return days;
+    const live = await fetchSeaLive(port, days);
+    writeCacheKeepRealWaves(port.id, live, days);
+    return live;
   } catch (err) {
     // snapshot đã hỏi ở trên — cũ vẫn hơn không có (không hỏi lại cho đỡ 1 lượt)
     if (snap) return snap.days;
-    const stale = readCache(port.id, true);
+    const stale = readCache(port.id, true, days);
     if (stale) return stale;
     throw err;
   }
@@ -284,9 +288,10 @@ export async function fetchSeaForecast(
     savedAt để client biết bản còn hiện hành không). */
 async function loadSeaSnapshotClient(
   portId: string,
+  soNgay: number,
 ): Promise<{ days: ScoredSeaDay[]; savedAt: number | null } | null> {
   try {
-    const r = await fetch(apiUrl(`/api/weather-snapshot?id=${seaSnapshotId(portId)}`), {
+    const r = await fetch(apiUrl(`/api/weather-snapshot?id=${seaSnapshotId(portId, soNgay)}`), {
       headers: tokenHeader(),
       signal: timeoutSignal(8000),
     });
@@ -297,8 +302,10 @@ async function loadSeaSnapshotClient(
     const j = (await r.json()) as
       | ScoredSeaDay[]
       | { savedAt?: number; days?: ScoredSeaDay[] };
-    const days = Array.isArray(j) ? j : j?.days;
-    if (!Array.isArray(days) || days.length === 0) return null;
+    const all = Array.isArray(j) ? j : j?.days;
+    if (!Array.isArray(all) || all.length === 0) return null;
+    // khung hôm nay: máy chủ đã cắt; cắt lại ở đây cho chắc (bản đệm CDN/SW đời cũ)
+    const days = soNgay === 1 ? all.slice(0, 1) : all;
     const savedAt = Array.isArray(j) ? null : (j.savedAt ?? null);
     return { days, savedAt: Number.isFinite(savedAt as number) ? (savedAt as number) : null };
   } catch {
@@ -307,18 +314,20 @@ async function loadSeaSnapshotClient(
 }
 
 // ── cache trên máy, đỡ gọi mạng mỗi lần mở app ──────────────────────────
-function cacheKey(portId: string) {
+function cacheKey(portId: string, days: number = FORECAST_DAYS) {
   // v3: horizon 10→16 ngày + waveEstimated + model sóng ncep_gfswave025 —
   // đổi version để bỏ cache 10-ngày cũ (thiếu 5 ngày, shape khác)
-  return `forfish.sea.${portId}.v3`;
+  // .d1.v1 (2026-10-27): bản HÔM NAY của khách/tài khoản thường — kho RIÊNG, không đè bản đủ ngày của gói
+  return days === 1 ? `forfish.sea.${portId}.d1.v1` : `forfish.sea.${portId}.v3`;
 }
 
 function readCache(
   portId: string,
   ignoreTtl = false,
+  soNgay: number = FORECAST_DAYS,
 ): ScoredSeaDay[] | null {
   try {
-    const raw = window.localStorage.getItem(cacheKey(portId));
+    const raw = window.localStorage.getItem(cacheKey(portId, soNgay));
     if (!raw) return null;
     const { ts, days } = JSON.parse(raw) as {
       ts: number;
@@ -326,7 +335,7 @@ function readCache(
     };
     // ignoreTtl = fallback cuối khi live + snapshot đều hỏng (bản cũ còn hơn trống)
     if (!ignoreTtl && Date.now() - ts > CACHE_TTL_MS) return null;
-    return days;
+    return soNgay === 1 ? days.slice(0, 1) : days;
   } catch {
     return null;
   }
@@ -337,11 +346,18 @@ function readCache(
  * không phải tự biết khoá `forfish.sea.<port>.v3`. Bọc `readCache(portId, true)`
  * + mốc lưu; không đổi logic đọc. `null` = chưa từng lưu / hỏng.
  */
-export function readSeaCache(portId: string): { savedAt: number; days: ScoredSeaDay[] } | null {
-  const days = readCache(portId, true);
+export function readSeaCache(
+  portId: string,
+  /** 1 = khách/tài khoản thường: CHỈ hôm nay, kể cả khi máy còn bản đủ ngày từ trước (2026-10-27 — "ko show") */
+  soNgay: number = FORECAST_DAYS,
+): { savedAt: number; days: ScoredSeaDay[] } | null {
+  // thường: bản hôm nay riêng; chưa có thì mượn NGÀY ĐẦU của bản đủ ngày cũ (cùng một con số, không lộ ngày sau)
+  const k = soNgay === 1 && readCache(portId, true, 1) ? 1 : FORECAST_DAYS;
+  const all = readCache(portId, true, k);
+  const days = all && soNgay === 1 ? all.slice(0, 1) : all;
   if (!days || days.length === 0) return null;
   try {
-    const raw = window.localStorage.getItem(cacheKey(portId));
+    const raw = window.localStorage.getItem(cacheKey(portId, k));
     const ts = raw ? (JSON.parse(raw) as { ts?: number }).ts : undefined;
     return { savedAt: typeof ts === "number" ? ts : 0, days };
   } catch {
@@ -349,10 +365,10 @@ export function readSeaCache(portId: string): { savedAt: number; days: ScoredSea
   }
 }
 
-function writeCache(portId: string, days: ScoredSeaDay[]) {
+function writeCache(portId: string, days: ScoredSeaDay[], soNgay: number = FORECAST_DAYS) {
   try {
     window.localStorage.setItem(
-      cacheKey(portId),
+      cacheKey(portId, soNgay),
       JSON.stringify({ ts: Date.now(), days }),
     );
   } catch {
@@ -372,12 +388,12 @@ function writeCache(portId: string, days: ScoredSeaDay[]) {
  *
  * Không có bản cũ, hoặc bản cũ cũng toàn sóng ước → cứ ghi: trống còn tệ hơn.
  */
-function writeCacheKeepRealWaves(portId: string, days: ScoredSeaDay[]) {
+function writeCacheKeepRealWaves(portId: string, days: ScoredSeaDay[], soNgay: number = FORECAST_DAYS) {
   if (!allWavesEstimated(days)) {
-    writeCache(portId, days);
+    writeCache(portId, days, soNgay);
     return;
   }
-  const prev = readCache(portId, true); // kể cả quá hạn — vẫn là sóng đo thật
+  const prev = readCache(portId, true, soNgay); // kể cả quá hạn — vẫn là sóng đo thật
   if (prev && !allWavesEstimated(prev)) return;
-  writeCache(portId, days);
+  writeCache(portId, days, soNgay);
 }

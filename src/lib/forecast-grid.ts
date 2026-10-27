@@ -22,7 +22,8 @@ import {
 } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { apiUrl } from "@/lib/api-base";
-import { gridSnapshotId, SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
+import { gridSnapshotId, CLIENT_SNAPSHOT_DAYS } from "@/lib/weather-snapshot-id";
+import { omUrl } from "@/lib/om-url";
 import { isCacheCurrent } from "@/lib/source-cadence";
 import { taiJsonCoNhip } from "@/lib/tai-co-nhip";
 import { noteResponse, tokenHeader } from "@/lib/device-token-store";
@@ -536,7 +537,7 @@ export async function fetchForecastGrid(
   // đụng hạn ngạch nguồn). Chỉ nhận khi bản snapshot CÒN HIỆN HÀNH theo nhịp
   // phát hành (cron nhét savedAt vào payload); cũ hơn thì mới đi live — không
   // hy sinh độ tươi. KHÔNG gắn stale: đây đúng là bản mới nhất nguồn có.
-  if (SNAPSHOT_DAY_SET.includes(days)) {
+  if (CLIENT_SNAPSHOT_DAYS.includes(days)) {
     const snap = await loadGridSnapshotClient(days);
     if (snap && usable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
       // LƯU vào máy với ĐÚNG TUỔI THẬT của snapshot (không phải Date.now()):
@@ -565,7 +566,7 @@ export async function fetchForecastGrid(
     // Snapshot cron: CẢ khung miễn phí d3 LẪN khung premium d16 (2026-07-29 —
     // premium luôn xin d16 nên trước đây không bao giờ có lưới an toàn). Khung
     // premium bị route chặn thật nếu chưa đủ hạng → trả null, báo lỗi như cũ.
-    if (SNAPSHOT_DAY_SET.includes(days)) {
+    if (CLIENT_SNAPSHOT_DAYS.includes(days)) {
       const snap = await loadGridSnapshotClient(days);
       if (snap && usable(snap)) {
         // LƯU khi live 429 (2026-07-29): trước chỉ trả stale mà không ghi →
@@ -590,7 +591,7 @@ export async function fetchForecastGrid(
     // …và SNAPSHOT SERVER của khung ngắn hơn (user 2026-07-29: "không live được
     // thì lấy snapshot"). Máy chưa từng tải được lần nào (429 ngay từ đầu) thì
     // localStorage trống — server vẫn có bản cron tính sẵn.
-    for (const d of [...SNAPSHOT_DAY_SET].filter((x) => x < days).sort((a, b) => b - a)) {
+    for (const d of [...CLIENT_SNAPSHOT_DAYS].filter((x) => x < days).sort((a, b) => b - a)) {
       const snap = await loadGridSnapshotClient(d);
       if (snap && usable(snap))
         return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
@@ -776,8 +777,9 @@ async function fetchGridCore(
   const pts = gridPoints();
   const lats = pts.map((p) => p.lat).join(",");
   const lons = pts.map((p) => p.lon).join(",");
-  // +1 ngày đệm để mốc cuối đủ giờ; trần nguồn 16 ngày
-  const fd = Math.min(16, Math.max(1, Math.round(days)) + 1);
+  // +1 ngày đệm để mốc cuối đủ giờ; trần nguồn 16 ngày. Khung HÔM NAY (2026-10-27) xin đúng 1 ngày — cầu /api/om
+  // chỉ cho tài khoản thường xin forecast_days=1 (đệm thêm 1 là thành 2 ngày = cần gói).
+  const fd = Math.round(days) <= 1 ? 1 : Math.min(16, Math.round(days) + 1);
   const common = `latitude=${lats}&longitude=${lons}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}`;
 
   // 20 s = trần NGỪNG CHẢY (2026-10-26, lib/tai-co-nhip): payload 16 ngày × 80 điểm lớn — mạng chậm mà đều vẫn tải xong,
@@ -788,25 +790,26 @@ async function fetchGridCore(
   // ~10 ngày — ngày 11–16 null, lớp vẽ tự trống, KHÔNG bịa số.
   const windModelQ = opts.windModel ? `&models=${opts.windModel}` : "";
   const [windRes, waveRes, curRes] = await Promise.all([
+    // QUA CẦU /api/om trên máy bà con (gác số ngày ở máy chủ — lib/om-url); cron gọi thẳng nguồn
     taiJsonCoNhip(
-      `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh${windModelQ}`,
-      {},
+      omUrl("forecast", `${common}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh${windModelQ}`),
+      { headers: tokenHeader() },
       20000,
     ).then(({ res: r, json }) => {
       if (!r.ok || json == null) throw new Error(`wind grid ${r.status}`);
       return json;
     }),
     taiJsonCoNhip(
-      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction&models=${opts.waveModel ?? WAVE_MODEL}`,
-      {},
+      omUrl("marine", `${common}&hourly=wave_height,wave_direction&models=${opts.waveModel ?? WAVE_MODEL}`),
+      { headers: tokenHeader() },
       20000,
     )
       .then(({ res: r, json }) => (r.ok ? json : null))
       .catch(() => null),
     opts.withCurrent
       ? taiJsonCoNhip(
-          `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=ocean_current_velocity,ocean_current_direction`,
-          {},
+          omUrl("marine", `${common}&hourly=ocean_current_velocity,ocean_current_direction`),
+          { headers: tokenHeader() },
           20000,
         )
           .then(({ res: r, json }) => (r.ok ? json : null))

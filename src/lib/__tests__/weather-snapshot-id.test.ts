@@ -67,7 +67,9 @@ describe("weather-snapshot id — khoá + whitelist", () => {
       expect(isValidSnapshotId(curDepthSnapshotId(t, CUR_DEPTH_MAX_DAYS))).toBe(true);
     }
     expect(snapshotNeedsPremium(curDepthSnapshotId(150, CUR_DEPTH_MAX_DAYS))).toBe(true);
-    expect(snapshotNeedsPremium(curDepthSnapshotId(150, 3))).toBe(false);
+    // 2026-10-27: không cần gói chỉ còn khung HÔM NAY (lớp tầng sâu vốn là lớp gói — middleware gác)
+    expect(snapshotNeedsPremium(curDepthSnapshotId(150, 3))).toBe(true);
+    expect(snapshotNeedsPremium(curDepthSnapshotId(150, 1))).toBe(false);
     expect(isValidSnapshotId("curdepth:t100:d10")).toBe(false); // tầng không có
     expect(isValidSnapshotId("curdepth:t50:dx")).toBe(false);
   });
@@ -97,13 +99,18 @@ describe("weather-snapshot id — khoá + whitelist", () => {
       expect([...SNAPSHOT_DAY_SET]).toEqual([3, 16]);
     });
 
-    it("id khung >3 ngày CẦN premium; d3 và cảng thì KHÔNG", () => {
+    it("2026-10-27: chỉ khung HÔM NAY (d1, sea:<cảng>:d1) không cần gói; d3, d16, cảng đủ ngày CẦN gói", () => {
       expect(snapshotNeedsPremium("grid:d16")).toBe(true);
       expect(snapshotNeedsPremium("scalar:cloud:d16")).toBe(true);
-      expect(snapshotNeedsPremium("grid:d3")).toBe(false);
-      expect(snapshotNeedsPremium("scalar:rain:d3")).toBe(false);
-      // dự báo theo cảng không mang khung ngày → public
-      expect(snapshotNeedsPremium("sea:phu-quy")).toBe(false);
+      expect(snapshotNeedsPremium("grid:d3")).toBe(true);
+      expect(snapshotNeedsPremium("scalar:rain:d3")).toBe(true);
+      expect(snapshotNeedsPremium("grid:d1")).toBe(false);
+      expect(snapshotNeedsPremium("scalar:rain:d1")).toBe(false);
+      expect(snapshotNeedsPremium("sea:phu-quy")).toBe(true);
+      expect(snapshotNeedsPremium("sea:phu-quy:d1")).toBe(false);
+      expect(seaSnapshotId("phu-quy", 1)).toBe("sea:phu-quy:d1");
+      expect(isValidSnapshotId("sea:phu-quy:d1")).toBe(true);
+      expect(isValidSnapshotId("sea:phu-quy:d3")).toBe(false);
       // độ mặn/nước dâng LUÔN công khai dù id có "d4" (frame cố định, không phải tầm premium)
       expect(snapshotNeedsPremium("salinity:d4")).toBe(false);
       expect(snapshotNeedsPremium("seascalar:ssha")).toBe(false);
