@@ -46,6 +46,20 @@ export async function GET(req: Request) {
   const macDinh = p.chip === "moi" && !p.ports && !p.authorProfileId && !p.near && !p.topic && !p.theoDoi;
   const tuyChon = docThamSo(sp);
   const boAgent = macDinh && !tuyChon.ai;
+  const firstMoi = !rawCursor && macDinh;
+  // Bài ghim + bài tài trợ không phụ thuộc trang ⇒ khởi chạy NGAY, chồng lên chặng lấy ứng viên (2026-10-27:
+  // máy chủ sdvico ở VN, mỗi lượt Supabase Seoul 0,35–2 s ⇒ bớt được một chặng nối tiếp là bớt một lượt chờ).
+  // `.catch` gắn sẵn chỉ để lỗi không thành "unhandled rejection" (làm sập tiến trình Node) trong lúc chưa
+  // `await`; `await pinnedP` bên dưới vẫn ném như cũ ⇒ vẫn rơi vào kairosErrorResponse.
+  const pinnedP = firstMoi ? store.pinnedPosts(new Date(now).toISOString()) : Promise.resolve([]);
+  pinnedP.catch(() => {});
+  // BÀI TÀI TRỢ (14 §20): chỉ dòng tin chung, chỉ trang đầu — app giữ danh sách cho các trang sau (1 thẻ/20 bài).
+  // KHÔNG nhắm theo người đọc; xoay vòng theo hạt làm mới. Kho hỏng ⇒ không thẻ, dòng tin vẫn trả.
+  const adsP: Promise<TheTaiTro[]> = firstMoi
+    ? docQuangCao()
+        .then((l) => xoayVong(dangChay(l, now), docHat(sp.get("hat"))).map(raApp))
+        .catch(() => [])
+    : Promise.resolve([]);
   try {
     const f = await feedFilterFor(store, p, who.phone, now);
     if (!f.ok) return f.res;
@@ -90,21 +104,13 @@ export async function GET(req: Request) {
       page = boAgent ? trang.filter((r) => !laBaiAgent(r)) : trang;
     }
 
-    const firstMoi = !rawCursor && macDinh;
-    const pinnedRows = firstMoi ? await store.pinnedPosts(new Date(now).toISOString()) : [];
+    const pinnedRows = await pinnedP;
     const pinnedIds = new Set(pinnedRows.map((r) => r.id));
-    const [posts, pinned] = await Promise.all([
+    const [posts, pinned, ads] = await Promise.all([
       hydratePosts(store, page.filter((r) => !pinnedIds.has(r.id)), who.phone, f.blocked),
       hydratePosts(store, pinnedRows, who.phone, f.blocked),
+      adsP,
     ]);
-    // BÀI TÀI TRỢ (14 §20): chỉ dòng tin chung, chỉ trang đầu — app giữ danh sách cho các trang sau (1 thẻ/20 bài).
-    // KHÔNG nhắm theo người đọc; xoay vòng theo hạt làm mới. Kho hỏng ⇒ không thẻ, dòng tin vẫn trả.
-    let ads: TheTaiTro[] = [];
-    if (firstMoi) {
-      ads = await docQuangCao()
-        .then((l) => xoayVong(dangChay(l, now), docHat(sp.get("hat"))).map(raApp))
-        .catch(() => []);
-    }
     return NextResponse.json({ ok: true, posts, pinned, next, at: new Date(now).toISOString(), ...(firstMoi ? { ads } : {}) });
   } catch (e) {
     return kairosErrorResponse(e);
