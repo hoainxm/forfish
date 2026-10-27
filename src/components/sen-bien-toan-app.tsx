@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { SEN_NEP_MS, SenBienNoi, SenBienSheet, boKhoSan, loadBoKho, loadSenBienModel, type SenHeard } from "@/components/sen-bien-sheet";
 import { gomSnapshot, nhoChuongBat } from "@/lib/assistant/device-snapshot";
+import { CHAO_GOC, cauChao } from "@/lib/assistant/chao";
 import type { AssistantAction } from "@/lib/assistant/types";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
 import { updateBoat } from "@/lib/boat-store";
@@ -47,7 +48,6 @@ import { KAIROS_CACHE_KEY, parseCache } from "@/lib/kairos/cache";
 import { hieuTimTinKairos, traLoiTinKairos } from "@/lib/kairos/tim-tin";
 
 const LOAI_CA = Object.keys(SPECIES_META);
-const CHAO = "Sen Biển giúp gì được cho bạn?";
 const NGHE_LAI = "Sen Biển chưa nghe rõ. Bà con nói lại nhé.";
 /** chờ app mở xong mới tải sẵn giọng — như màn bản đồ (fishing-map-view), khỏi chen với lúc dựng trang */
 const TAI_SAN_MS = 8_000;
@@ -58,6 +58,9 @@ const SEN_LENH_MAN = new Set(["tai", "chuong"]);
 
 export function SenBienToanApp() {
   const pathname = usePathname() ?? "/";
+  /*  LỜI CHÀO TÍNH LÚC MỞ (2026-10-27): giấy đã hết hạn / còn ≤5 ngày ⇒ Sen Biển nói trước rồi mới hỏi "giúp gì"
+      (lib/assistant/chao). Đọc tủ giấy trong máy — không request, mất sóng vẫn đúng. */
+  const [chao, setChao] = useState(CHAO_GOC);
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -501,6 +504,7 @@ export function SenBienToanApp() {
             nep={nep}
             onOpen={() => {
               ttsUnlock();
+              setChao(cauChao(gomSnapshot(pathname).docs));
               setTitle("");
               setOpen(true);
             }}
@@ -512,7 +516,7 @@ export function SenBienToanApp() {
           gocApp
           awaitingGo={false}
           title={title}
-          chao={CHAO}
+          chao={chao}
           hoiNgay={hoiNgay}
           listenOnOpen
           autoListen={tuNghe}

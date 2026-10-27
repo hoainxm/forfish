@@ -274,7 +274,8 @@ function HangChuong({ onXong, onAn }: { onXong: () => void; onAn: () => void }) 
     <div className="surface relative flex min-h-(--h-row) items-center gap-3 py-2 pl-4 pr-8">
       <BellIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
       <span className="min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-navy">
-        {daBat ? "Đã bật chuông" : "Bật chuông báo bão"}
+        {/* 2026-10-27: chuông còn nhắc hạn giấy tờ (cron notify-docs) — nói cả hai lý do để bật */}
+        {daBat ? "Đã bật chuông" : "Bật chuông báo bão, nhắc hạn giấy"}
       </span>
       {!daBat && (
         <button type="button" onClick={bat} disabled={busy} className={`${SQ_BTN} bg-navy text-white disabled:opacity-60`}>
