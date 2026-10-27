@@ -212,6 +212,8 @@ export function createKairosFileStore(opts: { dir?: string; now?: () => Date } =
     },
 
     listPosts: (f, limit) => read((s) => s.posts.filter((p) => matchFeed(p, f)).sort(byDesc).slice(0, limit)),
+    // kho file: đủ hàng cũng là PostXep (thừa cột không sao)
+    listPostsXep: (f, limit) => read((s) => s.posts.filter((p) => matchFeed(p, f)).sort(byDesc).slice(0, limit)),
     countPosts: (f, cap) => read((s) => Math.min(s.posts.filter((p) => matchFeed(p, f)).length, cap)),
     pinnedPosts: (n) =>
       read((s) => s.posts.filter((p) => p.kind === "chinh-thuc" && !p.hidden && !!p.pinned_until && p.pinned_until > n).sort(byDesc).slice(0, 5)),

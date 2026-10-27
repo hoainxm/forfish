@@ -32,6 +32,14 @@ export interface ProfileFull extends ProfileRow {
   home_port?: string | null;
 }
 
+/*  Cột đủ để XẾP dòng tin (khớp PPPost của phan-phoi) — không thân bài, tóm tắt, ảnh, đính kèm (2026-10-27).
+    400 ứng viên đủ cột ≈ 497 KB JSON mỗi lần tải dòng tin; máy chủ sdvico ở VN kéo qua đường mất gói tới Supabase
+    Seoul ⇒ chặng nặng nhất của route. Bản xếp ≈ 134 KB; đủ cột chỉ lấy cho ~20 bài của trang (getPosts). */
+export type PostXep = Pick<
+  PostFull,
+  "id" | "kind" | "author_phone" | "source_id" | "outlet" | "topic" | "regions" | "provinces" | "ports" | "hay_count" | "comment_count" | "published_at" | "feed_at"
+>;
+
 export interface PostFull extends PostRow {
   source_id: string | null;
   url_hash: string | null;
@@ -201,6 +209,8 @@ export interface KairosStore {
   // ── Bài ──────────────────────────────────────────────────────────────
   /** theo (feed_at desc, id desc), tối đa `limit` hàng */
   listPosts(f: FeedFilter, limit: number): Promise<PostFull[]>;
+  /** Như listPosts nhưng CHỈ cột xếp hạng (PostXep) — ứng viên dòng tin mặc định (400 bài) để xếp theo người đọc. */
+  listPostsXep(f: FeedFilter, limit: number): Promise<PostXep[]>;
   countPosts(f: FeedFilter, cap: number): Promise<number>;
   /** Chính thức còn ghim (pinned_until > now), không ẩn */
   pinnedPosts(nowIso: string): Promise<PostFull[]>;

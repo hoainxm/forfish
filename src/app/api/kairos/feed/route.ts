@@ -81,14 +81,18 @@ export async function GET(req: Request) {
       };
       // bài lên dòng tin SAU mốc chụp không vào danh sách này (trang sau không lẫn bài mới — "Có N bài mới" lo)
       const [ungVien, reads, follows] = await Promise.all([
-        store.listPosts({ ...f.filter, cursor: { at: new Date(Date.parse(at) + 1).toISOString(), id: "ffffffff-ffff-ffff-ffff-ffffffffffff" } }, UNG_VIEN),
+        // CHỈ cột xếp (PostXep, ~134 KB thay ~497 KB cho 400 bài) — đủ cột chỉ lấy cho bài của trang, ngay dưới
+        store.listPostsXep({ ...f.filter, cursor: { at: new Date(Date.parse(at) + 1).toISOString(), id: "ffffffff-ffff-ffff-ffff-ffffffffffff" } }, UNG_VIEN),
         tinHieuCua(who.phone),
         who.phone ? store.edgesFrom("follow", who.phone) : Promise.resolve([] as string[]),
       ]);
       const conLai = boAgent ? ungVien.filter((r) => !laBaiAgent(r)) : ungVien;
       const thich = tuyChon.thich.size ? tuyChon.thich : undefined;
       const xep = xepDongTin(conLai, { reads, follows: new Set(follows), home, thich, hat }, Date.parse(at), LIMITS.pageSize);
-      page = xep.slice(off, off + LIMITS.pageSize);
+      // đủ cột cho đúng các bài của trang, GIỮ thứ tự đã xếp; bài vừa bị ẩn giữa hai lượt đọc thì bỏ
+      const idTrang = xep.slice(off, off + LIMITS.pageSize).map((r) => r.id);
+      const theoId = new Map((idTrang.length ? await store.getPosts(idTrang) : []).map((r) => [r.id, r]));
+      page = idTrang.map((id) => theoId.get(id)).filter((r): r is NonNullable<typeof r> => !!r && !r.hidden);
       if (off + LIMITS.pageSize < xep.length) next = maHoaPP({ at, off: off + LIMITS.pageSize, hat });
       else {
         // hết danh sách xếp ⇒ tiếp theo giờ từ bài CŨ NHẤT trong ứng viên (danh sách ứng viên theo feed_at desc)

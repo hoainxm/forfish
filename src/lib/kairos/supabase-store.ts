@@ -12,7 +12,7 @@ import { reportNeedsCheck } from "./quyet-dinh";
 import { isUuid } from "./validate";
 import { HO_SO_FIELDS } from "./store";
 import type {
-  AuditRow, CommentFull, DecisionRow, KairosStore, NewDecision, PostFull, ProfileFull, RateTable, ReportRow,
+  AuditRow, CommentFull, DecisionRow, KairosStore, NewDecision, PostFull, PostXep, ProfileFull, RateTable, ReportRow,
   SeenRow, SourceRow, TargetType,
   DinhKemDongRow,
 } from "./store";
@@ -26,6 +26,8 @@ const PROFILE_HO_SO_COLS = HO_SO_FIELDS.join(",");
 const HO_SO_RECHECK_MS = 5 * 60_000;
 const POST_COLS =
   "id,kind,author_phone,source_id,outlet,url,url_hash,title,title_norm,body,summary,summary_by,cover_url,images,topic,regions,provinces,ports,reshare_of,pinned_until,hidden,hidden_reason,mod_state,mod_checked_at,hay_count,comment_count,published_at,feed_at,created_at,edited_at,mentions,attachments";
+/** cột XẾP dòng tin (PostXep) — giữ khớp type PostXep ở store.ts */
+const XEP_COLS = "id,kind,author_phone,source_id,outlet,topic,regions,provinces,ports,hay_count,comment_count,published_at,feed_at";
 const COMMENT_COLS = "id,post_id,parent_id,author_phone,body,hay_count,hidden,mod_state,mod_checked_at,created_at,image_path,link_preview,mentions";
 const IN_MAX = 200;
 /** trần số lượt cảm xúc đọc một lô để đếm theo loại */
@@ -192,6 +194,14 @@ export function createKairosSupabaseStore(): KairosStore | null {
       return many<PostFull>(
         "listPosts",
         posts().select(POST_COLS).eq("hidden", false).or(expr).order("feed_at", { ascending: false }).order("id", { ascending: false }).limit(limit),
+      );
+    },
+    async listPostsXep(f, limit) {
+      const expr = postgrestFeedExpr(f);
+      if (!expr) return [];
+      return many<PostXep>(
+        "listPostsXep",
+        posts().select(XEP_COLS).eq("hidden", false).or(expr).order("feed_at", { ascending: false }).order("id", { ascending: false }).limit(limit),
       );
     },
     async countPosts(f, cap) {
