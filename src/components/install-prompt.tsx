@@ -26,7 +26,8 @@ import { NHAN } from "@/lib/labels";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { isStandalone, isIOS, isAndroid } from "@/lib/storage-persist";
+import { isStandalone, isAndroid } from "@/lib/storage-persist";
+import { batDauNgheCai, bungHopCai, cachCaiHienTai, ngheThayDoiCai, type CachCai } from "@/lib/app-install";
 import { useOnline } from "@/lib/use-online";
 import { useAuthUser } from "@/lib/use-auth";
 import { CHUONG_NUDGE_KEY, chonKhoiTang5, type KhoiTang5 as LoaiKhoi } from "@/lib/tang-5";
@@ -61,11 +62,6 @@ const URGENT_ROWS_HIDE_INSTALL = 3;
     chỉ làm thẻ nhấp nháy đổi hình trước mắt bà con. Sự kiện tới muộn vẫn được
     NHẬN và nâng cấp thẻ lên nút bấm — không mất đường cài tử tế. */
 const BIP_WAIT_MS = 2500;
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
 
 function readNudge(key = INSTALL_NUDGE_KEY): InstallNudgeState {
   try {
@@ -198,7 +194,16 @@ function KhoiTang5() {
       }),
     );
   }, [online, coCangNha, pushState, chuongXong, nhip]);
-  if (khoi === "cang-nha") return <HangCangNha />;
+  /*  Chọn cảng nhà + Cài app hiện SONG SONG (2026-10-27, anh Long: "thẻ cài app hiện song song với thẻ chọn cảng nhà"):
+      người mới chưa khai cảng nhà trước đây không bao giờ thấy lời mời cài — đúng ca bà con quay video hỏi "tải app
+      về máy sao". Thẻ cài tự ẩn khi máy đã cài / đã hết lượt nhắc. */
+  if (khoi === "cang-nha")
+    return (
+      <>
+        <HangCangNha />
+        <InstallBanner />
+      </>
+    );
   if (khoi === "chuong") return <HangChuong onXong={() => setChuongXong(true)} onAn={() => setNhip((n) => n + 1)} />;
   if (khoi === "cai-app") return <InstallBanner />;
   return null;
@@ -298,7 +303,6 @@ export function InstallBanner({
   const [mode, setMode] = useState<"android" | "android-tay" | "ios" | null>(
     null,
   );
-  const deferred = useRef<BeforeInstallPromptEvent | null>(null);
   const online = useOnline();
   /*  MỘT HÀNG, CHẠM MỚI BUNG (chủ dự án chốt 2026-10-19 sau kiểm ảnh 360×740):
       thẻ cũ — tiêu đề + 2 câu + hộp hướng dẫn — chiếm hơn nửa màn ngay dưới tin
@@ -312,34 +316,32 @@ export function InstallBanner({
     if (isStandalone()) return; // đã cài rồi → thôi
     if (!force && !shouldShowInstallNudge(readNudge(), Date.now())) return;
 
-    // iOS Safari: KHÔNG có beforeinstallprompt → hướng dẫn tay
-    if (isIOS()) {
-      setMode("ios");
-      return;
-    }
-
-    // Android/Chrome: chờ trình duyệt cho phép cài; sự kiện tới muộn vẫn nhận
-    const onBIP = (e: Event) => {
-      e.preventDefault(); // giữ sự kiện để tự bung khi bà con bấm
-      deferred.current = e as BeforeInstallPromptEvent;
-      setMode("android"); // nâng cấp cả khi đang ở nhánh hướng dẫn tay
+    /*  NHẬN BIẾT ĐÃ CÀI (2026-10-27, anh Long: "phải check luôn là đã cài hay chưa để ẩn hay hiện thông minh"):
+        lib/app-install gộp standalone · getInstalledRelatedApps (Chrome Android, mở trong tab vẫn biết PWA đã
+        nằm trên màn hình chính) · sổ máy. Đã cài ⇒ thẻ KHÔNG hiện (mục "Cài app" trong menu nói "đã cài").
+        Hộp cài của Chrome nghe ở mức module (SwRegister) — sự kiện tới trước khi thẻ kịp gắn vẫn không mất. */
+    batDauNgheCai();
+    let alive = true;
+    let t: number | null = null;
+    const tinh = async (hetCho: boolean) => {
+      const c = await cachCaiHienTai();
+      if (!alive) return;
+      if (c === "nut") setMode("android"); // nâng cấp cả khi đang ở nhánh hướng dẫn tay
+      else if (c === "tay-ios") setMode("ios");
+      /*  Android chưa có hộp cài: chờ BIP_WAIT_MS rồi mới chỉ đường tay qua menu ⋮ — Chrome bắn hộp gần
+          như tức thì khi máy đủ điều kiện, chờ lâu hơn chỉ làm thẻ nháy đổi hình. */
+      else if (c === "tay-android") {
+        if (hetCho) setMode((m) => m ?? "android-tay");
+      } else setMode(null); // đã cài / máy tính không cài được
     };
-    const onInstalled = () => setMode(null);
-    window.addEventListener("beforeinstallprompt", onBIP);
-    window.addEventListener("appinstalled", onInstalled);
-
-    /*  Hết giờ chờ mà Chrome không hỏi → VẪN mời cài, chỉ đường bằng tay.
-        CHỈ trên Android: desktop không cài được thì mời là mời hão. */
-    const t = isAndroid()
-      ? window.setTimeout(() => {
-          if (!deferred.current) setMode("android-tay");
-        }, BIP_WAIT_MS)
-      : null;
+    void tinh(false);
+    if (isAndroid()) t = window.setTimeout(() => void tinh(true), BIP_WAIT_MS);
+    const huy = ngheThayDoiCai(() => void tinh(true));
 
     return () => {
+      alive = false;
       if (t != null) window.clearTimeout(t);
-      window.removeEventListener("beforeinstallprompt", onBIP);
-      window.removeEventListener("appinstalled", onInstalled);
+      huy();
     };
   }, [force]);
 
@@ -360,16 +362,8 @@ export function InstallBanner({
   };
 
   const install = async () => {
-    const d = deferred.current;
-    if (!d) return;
-    let outcome: "accepted" | "dismissed" = "dismissed";
-    try {
-      await d.prompt();
-      outcome = (await d.userChoice).outcome;
-    } catch {
-      // bà con huỷ / lỗi — không sao
-    }
-    deferred.current = null;
+    const outcome = await bungHopCai();
+    if (outcome === "khong-co") return;
     // bấm Cài rồi HUỶ = đã trả lời rồi, ghi như đã tắt (audit S7)
     if (outcome === "dismissed" && !force) writeNudge(markInstallNudgeDismissed(readNudge()));
     setMode(null);
@@ -377,25 +371,9 @@ export function InstallBanner({
 
   const guide =
     mode === "android-tay" ? (
-      /*  Chrome không hỏi — hầu hết là vì máy đã có bản CH Play, lúc đó
-          Chrome coi origin này "đã cài". Không nói lý do kỹ thuật ra màn
-          hình: bà con chỉ cần biết BẤM VÀO ĐÂU. */
-      <p className="rounded-xl bg-background p-3 text-[1rem] font-semibold leading-snug text-navy">
-        Trên Android: bấm nút <span className="font-semibold">⋮</span> ở góc trên
-        Chrome, rồi chọn{" "}
-        <span className="font-semibold">“Thêm vào Màn hình chính”</span> (có máy
-        ghi <span className="font-semibold">“Cài ứng dụng”</span>).
-      </p>
+      <HuongDanTay ios={false} />
     ) : mode === "ios" ? (
-      <p className="rounded-xl bg-background p-3 text-[1rem] font-semibold leading-snug text-navy">
-        Trên iPhone: bấm nút <span className="font-semibold">Chia sẻ</span> ở thanh
-        dưới trình duyệt, rồi chọn{" "}
-        <span className="font-semibold">“Thêm vào Màn hình chính”</span>.
-        <span className="mt-2 block font-semibold text-danger">
-          Cài xong mở app vừa cài NGAY khi còn sóng: bản cài bắt đầu từ kho
-          trống, phải tải lại dự báo một lần.
-        </span>
-      </p>
+      <HuongDanTay ios />
     ) : (
       <button
         type="button"
@@ -446,6 +424,103 @@ export function InstallBanner({
               : "Cài ra màn hình chính giúp mở app khi không có sóng, và máy sẽ giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."}
           </p>
           {guide}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/*  HƯỚNG DẪN CÀI BẰNG TAY — dùng chung thẻ Trang chủ và mục "Cài app" trong menu tài khoản.
+    Android: Chrome không hỏi — hầu hết vì máy đã có bản CH Play (Chrome coi origin này "đã cài") hoặc chưa đủ
+    điều kiện. Không nói lý do kỹ thuật: bà con chỉ cần biết BẤM VÀO ĐÂU (video hiện trường 2026-10-27: bà con
+    mở hộp CHIA SẺ để tìm, trong khi mục nằm ở menu ⋮). */
+function HuongDanTay({ ios }: { ios: boolean }) {
+  return ios ? (
+    <p className="rounded-xl bg-background p-3 text-[1rem] font-semibold leading-snug text-navy">
+      Trên iPhone: bấm nút <span className="font-semibold">Chia sẻ</span> ở thanh
+      dưới trình duyệt, rồi chọn{" "}
+      <span className="font-semibold">“Thêm vào Màn hình chính”</span>.
+      <span className="mt-2 block font-semibold text-danger">
+        Cài xong mở app vừa cài NGAY khi còn sóng: bản cài bắt đầu từ kho
+        trống, phải tải lại dự báo một lần.
+      </span>
+    </p>
+  ) : (
+    <p className="rounded-xl bg-background p-3 text-[1rem] font-semibold leading-snug text-navy">
+      Trên Android: bấm nút <span className="font-semibold">⋮</span> ở góc trên
+      Chrome (không phải nút Chia sẻ), rồi chọn{" "}
+      <span className="font-semibold">“Thêm vào Màn hình chính”</span> (có máy
+      ghi <span className="font-semibold">“Cài ứng dụng”</span>).
+    </p>
+  );
+}
+
+/**
+ * MỤC "CÀI APP" CỐ ĐỊNH trong menu tài khoản (2026-10-27, anh Long: "thêm mục Cài app cố định trong menu/tài khoản …
+ * check luôn là đã cài hay chưa để ẩn hay hiện thông minh"). KHÔNG theo trần 3 lượt nhắc của thẻ Trang chủ — bà con tự
+ * mở menu là đang muốn cài.
+ *  · đang mở bằng app / máy tính không cài được ⇒ không vẽ gì
+ *  · đã cài (mở trong trình duyệt) ⇒ một dòng chữ "App đã cài trên máy" + chỉ chỗ mở
+ *  · Chrome cho cài ⇒ chạm là bung hộp cài; không thì chạm xoè hướng dẫn tay tại chỗ
+ *  · mất sóng ⇒ ẩn nút cài (cài cần mạng), vẫn giữ dòng "đã cài"
+ */
+export function MucCaiApp() {
+  const online = useOnline();
+  const [cach, setCach] = useState<CachCai | null>(null);
+  const [mo, setMo] = useState(false);
+  useEffect(() => {
+    batDauNgheCai();
+    let alive = true;
+    const tinh = () => void cachCaiHienTai().then((c) => alive && setCach(c));
+    tinh();
+    const huy = ngheThayDoiCai(tinh);
+    return () => {
+      alive = false;
+      huy();
+    };
+  }, []);
+
+  if (!cach || cach === "an") return null;
+  if (cach === "da-cai")
+    return (
+      <div className="mb-4 flex min-h-[3.5rem] items-center gap-3 px-4 surface">
+        <AnchorIcon className="h-5 w-5 shrink-0 text-ok" aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[1rem] font-semibold text-navy">App đã cài trên máy</span>
+          <span className="block text-[0.8125rem] leading-snug text-foreground/70">
+            Mở bằng biểu tượng SDFish ngoài màn hình chính
+          </span>
+        </span>
+      </div>
+    );
+  if (!online) return null;
+  return (
+    <div className="mb-4 surface">
+      <button
+        type="button"
+        aria-expanded={cach === "nut" ? undefined : mo}
+        onClick={() => {
+          if (cach === "nut") void bungHopCai();
+          else setMo((m) => !m);
+        }}
+        className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left"
+      >
+        <AnchorIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[1rem] font-semibold text-navy">{NHAN.caiApp}</span>
+          <span className="block text-[0.8125rem] leading-snug text-foreground/70">Dùng được khi mất sóng</span>
+        </span>
+        {cach === "nut" ? (
+          <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+        ) : (
+          <ChevronDownIcon
+            className={`h-5 w-5 shrink-0 text-foreground/50 transition-transform ${mo ? "rotate-180" : ""}`}
+          />
+        )}
+      </button>
+      {mo && cach !== "nut" && (
+        <div className="px-3 pb-3">
+          <HuongDanTay ios={cach === "tay-ios"} />
         </div>
       )}
     </div>

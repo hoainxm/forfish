@@ -188,6 +188,9 @@ export const NEVER_BACKUP_PREFIXES = [
   /*  · `chuongNudge.` — NHỊP NHẮC "Bật chuông báo bão" trên MÁY NÀY (lib/tang-5,
    *    QĐ D): cùng loại installNudge — máy khác chưa bật mà đã bị tắt lời nhắc. */
   "forfish.chuongNudge.",
+  /*  · `appInstalled.` — MÁY NÀY đã cài app chưa (lib/app-install, 2026-10-27): chép sang máy khác là máy đó tưởng
+   *    đã cài, giấu mất lời mời cài. Tự ghi lại khi mở bằng app / Chrome báo. */
+  "forfish.appInstalled.",
   /*  · `sync.` — SỔ BOOKKEEPING đồng bộ per-máy (lib/user-sync): mỗi kind đã ghi
    *    lúc nào (mốc client) + còn dirty không. Của RIÊNG máy này. Chép sang máy
    *    khác là dán mốc/dirty sai → máy nhận tưởng đã đẩy/đã mới, bỏ qua sổ thật

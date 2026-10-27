@@ -7,6 +7,8 @@
  *   2. Bật chuông báo bão — tầng 1 về nội dung, nhưng chỉ khi máy có push và đang tắt.
  *   3. Cài app — như cũ (iPhone chưa cài PWA thì không có push ⇒ Cài app tự lên thay).
  * Khối trên biến mất (đã làm / không áp dụng / đã Ẩn) thì khối dưới mới hiện.
+ * NGOẠI LỆ (2026-10-27, anh Long: "thẻ cài app hiện song song với thẻ chọn cảng nhà"): khối "cang-nha" vẽ KÈM thẻ Cài app
+ * (install-prompt KhoiTang5) — người mới chưa khai cảng nhà trước đây không bao giờ thấy lời mời cài.
  * Mất sóng ⇒ không khối nào (luật tầng 5 §12: mời vào ngõ cụt là vô ích).
  *
  * Nhắc chuông dùng CÙNG KHUÔN sổ với nhắc cài (`InstallNudgeState`, khoá riêng
