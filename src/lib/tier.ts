@@ -1,5 +1,8 @@
 // Phân hạng tài khoản (logic THUẦN — dùng chung client/middleware/route).
-// 'basic' (mặc định) | 'premium'. Premium mở: dự báo cá + thời tiết quá 3 ngày + DẪN ĐƯỜNG.
+// 'basic' (mặc định) | 'premium'. Premium mở (đổi 2026-10-27, anh Long: "lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu
+// premium còn lại cho free"): DỰ BÁO CÁ + lớp có nguồn cho bán (độ sâu EMODnet, chất đáy/rạn Allen, độ mặn + dòng tầng
+// sâu Copernicus, nước xoáy NOAA, ảnh vệ tinh nhiệt độ/phù du) + DẪN ĐƯỜNG. Bản đồ còn lại miễn phí cho tài khoản; thời
+// tiết Open-Meteo hết khoá ngày (THOI_TIET_XA_CAN_GOI). Luật route: data-route-rules.ts; màn: fishing-map-view "GÓI THEO LỚP".
 // (2026-10-25, rà FB QĐ B) Ô "Đi đâu?" — đi tới điểm / điểm đã lưu / cảng / toạ độ — MIỄN PHÍ cho
 // mọi tài khoản đã đăng nhập (bản đồ là miễn phí, CLAUDE.md); chỉ vẽ lộ trình dẫn đường mới gác hạng.
 // (2026-10-19) "Dự báo cá" bán = lớp BÃI CÁ THEO MÙA (điểm nền từ sản lượng thật, fish-base.ts)
@@ -9,6 +12,14 @@
 // thanh toán.
 
 export type AccountTier = "basic" | "premium";
+
+/**
+ * Thời tiết QUÁ 3 NGÀY (lưới gió/sóng/mưa… của Open-Meteo) có cần gói không. TẮT từ 2026-10-27: điều khoản gói MIỄN PHÍ
+ * của Open-Meteo cấm dùng trong app có thuê bao ("You may only use the free API services for non-commercial purposes"
+ * — docs/formaps/01) ⇒ không được BÁN lớp này. Bật lại (true) CHỈ khi SDVICO đã mua gói Open-Meteo trả phí cho phép.
+ * Đọc chung: màn bản đồ (khoá chip ngày, tầm lưới, câu Sen Biển) + data-route-rules (grid:/scalar: dN>3).
+ */
+export const THOI_TIET_XA_CAN_GOI = false;
 
 /* ── DẤU HẠNG LƯU TRONG MÁY ────────────────────────────────────────────────
    Khoá đặt ở đây (chứ không ở use-tier.ts) để module THUẦN — offline-identity —

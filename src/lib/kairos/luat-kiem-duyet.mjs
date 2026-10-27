@@ -12,6 +12,7 @@
 // Đổi luật ⇒ đổi LUAT_PHIEN_BAN (lưu theo từng quyết định — biết quyết định nào chấm bằng luật nào).
 // .mjs vì Node trần trên máy GPU dùng chung (cùng lý do lien-ket.mjs).
 
+import { cacLink, khopDanhSach, loiLinkNhanh } from "./link-doc.mjs";
 import { chuQuyenFlag, CHU_QUYEN_PROMPT } from "./chu-quyen.mjs";
 import { chongPhaFlag } from "./chong-pha.mjs";
 
@@ -140,15 +141,25 @@ export function mucTuHangCho(raw) {
  * Luật CỨNG chạy trước mô hình (không tốn lượt gọi, không phụ thuộc mô hình): trúng cờ chủ
  * quyền ⇒ chặn ngay, điểm 1; bài/bình luận NGƯỜI DÙNG (không phải bài báo) có khẩu hiệu/kêu gọi
  * chống phá rõ ràng (chong-pha.mjs) ⇒ chặn ngay, điểm 1. Bài báo đưa tin vụ án chống phá là tin
- * thật ⇒ không áp luật cứng chống phá, để mô hình chấm theo nghĩa. Không trúng ⇒ null.
+ * thật ⇒ không áp luật cứng chống phá, để mô hình chấm theo nghĩa. Link độc (link-doc.mjs) ⇒ chặn, điểm 1.
+ * Không trúng ⇒ null.
  * @param {MucKiem} m
+ * @param {{ tenMien?: Set<string>, link?: Set<string> } | null} [ds] danh sách lừa đảo (máy GPU); null = chỉ luật cứng
  * @returns {QuyetDinh | null}
  */
-export function kiemCung(m) {
+export function kiemCung(m, ds = null) {
   const term = chuQuyenFlag(m.chu);
   if (term) return { targetType: m.loai, targetId: m.id, verdict: "chan", reason: `[chu-quyen] Xuyên tạc chủ quyền: "${cut(term, 80)}"`, score: 1 };
   const cp = m.kind === "bao" ? null : chongPhaFlag(m.chu);
   if (cp) return { targetType: m.loai, targetId: m.id, verdict: "chan", reason: `[chong-pha] Nội dung chống phá Nhà nước: "${cut(cp, 80)}"`, score: 1 };
+  // LINK ĐỘC (2026-10-27): luật cứng (IP, file cài, tên miền giả…) + danh sách lừa đảo công khai (`ds`, máy GPU tải mỗi
+  // ngày). Bài báo bỏ qua — link của nó là bài trên tờ báo trong danh sách nguồn đã chọn.
+  if (m.kind !== "bao") {
+    for (const url of cacLink(m.chu)) {
+      const ma = loiLinkNhanh(url) ?? (ds && khopDanhSach(url, ds) ? "danh-sach-lua-dao" : null);
+      if (ma) return { targetType: m.loai, targetId: m.id, verdict: "chan", reason: `[link-doc] ${ma}: ${cut(url, 120)}`, score: 1 };
+    }
+  }
   return null;
 }
 

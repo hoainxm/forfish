@@ -192,6 +192,13 @@ Anh Long: *"bộ kiểm duyệt tin liên quan phản động, chủ quyền, b�
 
 Câu cho bà con: "Có nội dung chống phá Nhà nước, không đăng được." (`CAU_CHONG_PHA`).
 
+## 5c. Dò link độc (2026-10-27)
+
+Anh Long quảng bá: *"ae lên kairos mà đọc tin cho đỡ bị hack tiền nhé, link báo trên kairos đc kiểm duyệt virus, link đểu, spam, hack rồi"* → kiểm hiện trạng thì CHƯA có quét link (chỉ nguồn báo chọn sẵn + AI đọc chữ) → anh chọn **thêm dò link độc thật**. `lib/kairos/link-doc.mjs` (thuần, test `kairos-link-doc.test.ts`):
+- **Lúc đăng** (`validate.contentFlag`, mọi bài / bình luận / giới thiệu hồ sơ): link trỏ thẳng IP · link tải file cài (.apk/.exe/.ipa…) · tên miền chữ giả (punycode `xn--`) · link rút gọn (bit.ly…, giấu đích) · tên miền có "gov"/"dichvucong" mà không phải cổng chính phủ thật (`*.gov`, `*.gov.vn`, `*.gov.<nước>`) · tên miền có tên ngân hàng (Vietcombank, Agribank, BIDV…) mà khác tên miền thật ⇒ **400 `dangerous_link`** + `term` (loại) ⇒ câu theo loại trên nút gửi. Không chặn oan báo, `chinhphu.vn`, cổng nhà nước, ngân hàng thật (có test).
+- **Sau đăng** (agent `kairos-kiem` trên GPU, 5 phút/lượt): `kiemCung(m, ds)` chạy lại luật trên + đối chiếu **danh sách tên miền lừa đảo** Phishing.Database (giấy phép MIT, ~11 MB, tải ≤1 lần/24 giờ, hỏng ⇒ bản cũ ⇒ chỉ luật cứng) ⇒ trúng thì quyết định `chan` lý do `[link-doc] …` (ẩn như mọi quyết định chặn). Bài báo bỏ qua (link là bài trên tờ báo đã chọn). **URLhaus KHÔNG dùng**: đòi khoá + có thể thu phí khi dùng thương mại.
+- Câu quảng bá ĐÚNG với hệ thống: *"link trong bài và bình luận Kairos được đối chiếu danh sách link lừa đảo cập nhật hằng ngày và chặn các kiểu link lừa hay gặp (tải app lạ, giả cơ quan, giả ngân hàng)"*. KHÔNG nói "đã quét virus" — app không tải trang đích về quét. // nợ: chỉ đối chiếu tên miền (chưa danh sách link 66 MB), link độc trên tên miền thật bị chiếm chưa bắt; nâng khi máy GPU dư bộ nhớ.
+
 ## 6. Mô hình dữ liệu — `0065_kairos.sql` (AC20)
 
 Khuôn 0063: mỗi bảng `enable row level security` + `revoke all … from anon, authenticated`, không policy, mọi đọc/ghi qua route service-role. SĐT `text` đã `normalizeVnPhone`, **không ra client**. Không áp remote khi anh Long chưa duyệt.

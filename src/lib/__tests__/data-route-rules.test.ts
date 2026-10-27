@@ -8,9 +8,10 @@ import {
   dataRouteRule,
   snapshotDays,
 } from "@/lib/data-route-rules";
+import { THOI_TIET_XA_CAN_GOI } from "@/lib/tier";
 
-/*  LUẬT GÁC ROUTE DỮ LIỆU (2026-09-16): mọi route server-mình-là-nguồn đều đòi
-    tài khoản + rate limit; dự báo cá và lưới thời tiết >3 ngày đòi premium.
+/*  LUẬT GÁC ROUTE DỮ LIỆU (2026-09-16; đổi 2026-10-27): khách xem được bão/giá/giá dầu/thời tiết cảng (đếm theo IP);
+    MỌI lớp bản đồ + dự báo cá đòi tài khoản + gói.
     Cổng canh: (1) từng route ra đúng luật; (2) đường không phải dữ liệu ⇒ null
     (middleware cho qua, không gác nhầm trang/asset); (3) matcher trong
     middleware.ts khớp DATA_ROUTE_MATCHER; (4) mọi route trong matcher đều có
@@ -32,33 +33,50 @@ describe("snapshotDays", () => {
 });
 
 describe("dataRouteRule", () => {
-  it("dự báo cá: premium + xô fish", () => {
-    expect(dataRouteRule("/api/fish-forecast", q())).toEqual({ premium: true, bucket: "fish", rate: RATES.fish });
+  // ĐỔI 2026-10-27 (anh Long): khách xem miễn phí bão/giá/thời tiết cảng; bản đồ cần tài khoản; GÓI chỉ cho dự báo cá +
+  // lớp nguồn cho bán ("lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu premium còn lại cho free").
+  const KHACH = { account: false, premium: false, bucket: "guest", rate: RATES.guest };
+  const TK = (bucket: "data" | "tiles") => ({ account: true, premium: false, bucket, rate: RATES[bucket] });
+  const GOI = (bucket: "data" | "tiles" | "fish") => ({ account: true, premium: true, bucket, rate: RATES[bucket] });
+
+  it("dự báo cá: tài khoản + gói, xô fish", () => {
+    expect(dataRouteRule("/api/fish-forecast", q())).toEqual(GOI("fish"));
   });
 
-  it("lưới thời tiết: ≤3 ngày miễn phí, >3 ngày premium; id khác miễn phí", () => {
-    expect(dataRouteRule("/api/weather-snapshot", q("id=grid:d3"))!.premium).toBe(false);
-    expect(dataRouteRule("/api/weather-snapshot", q("id=grid:d7"))!.premium).toBe(true);
-    expect(dataRouteRule("/api/weather-snapshot", q("id=grid:d16"))!.premium).toBe(true);
-    expect(dataRouteRule("/api/weather-snapshot", q("id=scalar:cloud:d16"))!.premium).toBe(true);
-    expect(dataRouteRule("/api/weather-snapshot", q("id=scalar:cloud:d3"))!.premium).toBe(false);
-    // curdepth/salinity/sea/seascalar: UI đang cho tài khoản thường thấy — không gác premium
-    expect(dataRouteRule("/api/weather-snapshot", q("id=curdepth:t150:d10"))!.premium).toBe(false);
-    expect(dataRouteRule("/api/weather-snapshot", q("id=salinity:d4"))!.premium).toBe(false);
-    expect(dataRouteRule("/api/weather-snapshot", q("id=sea:vung-tau"))!.premium).toBe(false);
-    expect(dataRouteRule("/api/weather-snapshot", q())!.premium).toBe(false);
+  it("khách xem được (không tài khoản, đếm theo IP): tin bão, giá cá + lịch sử, giá dầu, thời tiết cảng", () => {
+    for (const p of ["/api/storms", "/api/port-prices", "/api/port-prices/history", "/api/fuel-price"]) {
+      expect(dataRouteRule(p, q("days=10")), p).toEqual(KHACH);
+    }
+    expect(dataRouteRule("/api/weather-snapshot", q("id=sea:vung-tau"))).toEqual(KHACH);
+  });
+
+  it("Open-Meteo (grid:/scalar:) chỉ cần tài khoản, CẢ quá 3 ngày (THOI_TIET_XA_CAN_GOI tắt — free không cho bán)", () => {
+    expect(THOI_TIET_XA_CAN_GOI).toBe(false);
+    for (const id of ["grid:d3", "grid:d16", "scalar:cloud:d3", "scalar:cloud:d16"]) {
+      expect(dataRouteRule("/api/weather-snapshot", q(`id=${id}`)), id).toEqual(TK("data"));
+    }
     expect(FREE_MAX_DAYS).toBe(3);
   });
 
-  it("ô ảnh: xô tiles (trần cao), không premium", () => {
-    expect(dataRouteRule("/api/tiles/sst/5/25/14", q())).toEqual({ premium: false, bucket: "tiles", rate: RATES.tiles });
+  it("lớp nguồn cho bán cần gói: Copernicus (curdepth/salinity), NOAA (seascalar), dẫn đường (routegrid), id lạ", () => {
+    for (const id of ["curdepth:t150:d10", "salinity:d4", "seascalar:ssha", "routegrid:3:4", "la:x", ""]) {
+      expect(dataRouteRule("/api/weather-snapshot", q(id ? `id=${id}` : "")), id).toEqual(GOI("data"));
+    }
+    for (const p of ["/api/currents-depth", "/api/sea-scalar", "/api/salinity"]) expect(dataRouteRule(p, q()), p).toEqual(GOI("data"));
+  });
+
+  it("ô ảnh: độ sâu EMODnet (chart, CC-BY) cần gói; phao OpenSeaMap (seamark) chỉ cần tài khoản; xô tiles trần cao", () => {
+    expect(dataRouteRule("/api/tiles/chart/5/25/14", q())).toEqual(GOI("tiles"));
+    expect(dataRouteRule("/api/tiles/seamark/12/3263/1890", q())).toEqual(TK("tiles"));
     expect(RATES.tiles.limit).toBeGreaterThan(RATES.data.limit);
   });
 
-  it("các route dữ liệu còn lại: đòi tài khoản, xô data, không premium", () => {
-    for (const p of ["/api/currents-depth", "/api/sea-scalar", "/api/salinity", "/api/storms", "/api/nautical", "/api/port-prices", "/api/port-prices/history", "/api/fuel-price", "/api/tau-ais"]) {
-      expect(dataRouteRule(p, q("days=10")), p).toEqual({ premium: false, bucket: "data", rate: RATES.data });
-    }
+  it("hải đồ OSM + tàu AIS: chỉ cần tài khoản", () => {
+    for (const p of ["/api/nautical", "/api/tau-ais"]) expect(dataRouteRule(p, q()), p).toEqual(TK("data"));
+  });
+
+  it("xô khách rộng (nhiều máy chung IP nhà mạng)", () => {
+    expect(RATES.guest.limit).toBeGreaterThanOrEqual(RATES.data.limit);
   });
 
   it("KHÔNG gác nhầm: trang, asset, route riêng tư (tự gác trong route)", () => {
@@ -111,3 +129,4 @@ describe("matcher middleware.ts ↔ DATA_ROUTE_MATCHER ↔ route thật", () => 
     expect(thieu, "route dữ liệu chưa vào matcher").toEqual([]);
   });
 });
+

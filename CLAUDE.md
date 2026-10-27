@@ -8,7 +8,7 @@
 
 | Trục | Lời hứa | Ở đâu (route thật) | Trạng thái |
 |---|---|---|---|
-| 1 | Đánh bắt tốt hơn | `/ngu-truong` | **MVP**: điểm đi biển 1–100, dữ liệu thật Open-Meteo (sóng/gió/mưa/dông, 10 cảng) + bản đồ ngư trường vệ tinh (nhiệt độ/phù du/ảnh mây/độ sâu + phao đèn biển, nhãn chủ quyền VN, chạm xem gió sóng) + tin bão Biển Đông (`/api/storms`) + dẫn đường tiết kiệm dầu (tuyến né sóng gió theo giờ, ước tính lít dầu — tham khảo). ⚠️ **PREMIUM (2026-07-26)**: dự báo cá + thời tiết >3 ngày chỉ cho tài khoản premium (`customers.tier`, gán qua webhook SDWork / web quản trị `/quan-tri` — độc lập về giao diện, chung deploy/DB; luật ở `src/lib/tier.ts`, chặn thật ở middleware) |
+| 1 | Đánh bắt tốt hơn | `/ngu-truong` | **MVP**: điểm đi biển 1–100, dữ liệu thật Open-Meteo (sóng/gió/mưa/dông, 10 cảng) + bản đồ ngư trường vệ tinh (nhiệt độ/phù du/ảnh mây/độ sâu + phao đèn biển, nhãn chủ quyền VN, chạm xem gió sóng) + tin bão Biển Đông (`/api/storms`) + dẫn đường tiết kiệm dầu (tuyến né sóng gió theo giờ, ước tính lít dầu — tham khảo). ⚠️ **PREMIUM** (đổi 2026-10-27: dự báo cá + lớp nguồn cho bán + dẫn đường — `tier.ts`) chỉ cho tài khoản premium (`customers.tier`, gán qua webhook SDWork / web quản trị `/quan-tri` — độc lập về giao diện, chung deploy/DB; luật ở `src/lib/tier.ts`, chặn thật ở middleware) |
 | 2 | Bán được đắt hơn | `/tien` (khu Giao dịch, KHÔNG còn tab) | **MVP**: bảng giá tham khảo + chợ tin mua/bán (`market_listings`) + danh bạ chỗ bán. **XÓA HẲN 2026-07-27 (user chốt)**: sổ lãi lỗ, báo cáo năm, tính chuyến, chia tiền, công nợ — /tien gọn về đúng việc mua–bán |
 | 3 | Vận hành rẻ hơn | `/tau` (tab Dịch vụ/Sản phẩm) | **MVP**: nhắc bảo dưỡng (localStorage) + danh mục vật tư tham khảo |
 | 4 | Tuân thủ dễ hơn | `/tau` (tab Giấy tờ) + `/nguoi` | **MVP**: tủ giấy tờ + sổ thuyền viên (định danh CCCD + tra cảnh báo chéo premium — không dính tiền). **Bỏ 2026-07-27 (user không cần)**: tab Mức phạt (NĐ 38/2024) + Checklist xuất bến — file `fines-lookup.tsx`/`departure-checklist.tsx` giữ lại, chỉ gỡ khỏi tab; sổ ứng/chia tiền thuyền viên cũng gỡ hẳn |
@@ -75,7 +75,7 @@ Test: **Vitest** (`npm test`, test tại `src/lib/__tests__/`) — thêm logic m
 
 ## Nguồn dữ liệu — ĐỪNG TỰ GIỚI HẠN (chốt 2026-08-31)
 
-> **Bản đồ là MIỄN PHÍ. Cái bán là DỰ BÁO CÁ.** `src/lib/tier.ts`: *"Premium mở: dự báo cá + thời tiết quá 3 ngày."* Độ sâu · phao đèn · rạn · đẳng sâu · nền bản đồ · thuỷ triều — tất cả cho không, mọi tài khoản.
+> **Bản đồ MIỄN PHÍ cho tài khoản (khách: bão/giá/thời tiết cảng). Cái bán = DỰ BÁO CÁ + lớp có NGUỒN CHO BÁN** (đổi 2026-10-27, anh Long: *"lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu premium còn lại cho free"* — `data-route-rules.ts`, `tier.ts`). Nền · phao đèn OSM · tên rạn · đẳng sâu · gió/sóng Open-Meteo — cho không.
 
 Lỗi đã dính nhiều lần: agent đọc "SDFish là sản phẩm thương mại" rồi **loại thẳng** nguồn ghi *non-commercial*, dù nguồn đó chỉ dùng cho **lớp bản đồ miễn phí**. Ràng buộc bị áp sai chỗ, và mất nguồn tốt vì một lý do không tồn tại.
 
@@ -84,9 +84,9 @@ Lỗi đã dính nhiều lần: agent đọc "SDFish là sản phẩm thương m
 | Nguồn dùng cho | Ràng buộc "phi thương mại" |
 |---|---|
 | Lớp **bản đồ** (miễn phí) | **KHÔNG chặn.** Không thu tiền ai để xem bản đồ |
-| **Dự báo cá**, thời tiết >3 ngày (bán) | **CÓ chặn.** Đây mới là chỗ đồng tiền đi qua |
+| **Dự báo cá** + lớp gói (bán) | **CÓ chặn.** Đây mới là chỗ đồng tiền đi qua |
 
-Nghĩa là ràng buộc cắn đúng chỗ có tiền, không cắn lớp bản đồ. Đừng gộp hai thứ.
+Open-Meteo free cấm bán ⇒ thời tiết không vào gói (`THOI_TIET_XA_CAN_GOI`); app thuê bao vẫn có thể bị coi là thương mại — [formaps/01](docs/formaps/01-tai-san-du-lieu.md), hỏi luật sư.
 
 **Vẫn là cổng chặn thật, đừng lẫn với điều trên:**
 - **Copyleft phần mềm** (GPL của bộ ký hiệu OpenCPN, share-alike ODbL của OSM) — đây là ràng buộc lên **mã và cơ sở dữ liệu**, không phải chuyện thu tiền hay không. Vẫn phải tránh.
@@ -102,7 +102,7 @@ Nghĩa là ràng buộc cắn đúng chỗ có tiền, không cắn lớp bản 
 - **SDF1** (CHỈ `OPEN_SDF1` = tide-stations cho khách): hoán vị byte.
 - **SDF2** (MỌI file khác, kể cả nền — từ 2026-10-02): gzip + AES-256-CTR, khoá ở `app_config.data_key_current` (admin đổi ở `/quan-tri`; **build đầu tự sinh**; env `SDFISH_DATA_KEY` chỉ đè khi build tay). Đổi khoá ⇒ cũ trượt sang `data_key_prev`, route trả cả hai; deploy lại. App cất `forfish.datakey.v1`, xin sớm ở `sw-register` (không khoá + mất sóng = trắng bản đồ). Deploy IIS phải `SDFISH_ENCODE_DATA=1` + `--verify`.
 - Code: `src/lib/data-codec.mjs` · `data-crypt.ts` · `inflate.mjs` (iOS 15) · `data-fetch.ts` (một cửa đọc — **CẤM `fetch("/data/…")` trần**, cổng `data-codec.test.ts`) · `data-protocol.ts` (`sdfdata://`) · `pmtiles-protocol.ts` (`DecodingSource`) · `data-key.ts`/`data-key-server.ts`. Chi tiết: 02 re-verified 2026-09-16/16b.
-- **Gác MỌI route dữ liệu** ("server mình là nguồn thì đều bảo vệ"): `middleware.ts` matcher 11 đường đích danh → `dataGate` (`lib/supabase/middleware.ts`): 401 không chuỗi thiết bị · 403 premium (dự báo cá; `grid:dN`/`scalar:*:dN` N>3) · 429 theo SĐT (fish 60 · data 600 · tiles 3000 / 10 phút); đệm danh tính 10 phút. Luật thuần `lib/data-route-rules.ts`, cổng `data-route-rules.test.ts` đỏ khi thêm route dữ liệu mà quên gác. Client gửi `tokenHeader()`; khách chưa đăng nhập hết tin bão/giá.
+- **Gác MỌI route dữ liệu**: `middleware.ts` matcher → `dataGate` (`lib/supabase/middleware.ts`). Khách (bão, giá, giá dầu, `sea:*`): 429 theo IP. Lớp bản đồ: 401 không chuỗi · 403 lớp gói · 429 theo SĐT. Luật + cổng: `lib/data-route-rules.ts` (test cùng tên).
 - **Tham số mô hình ra khỏi bundle**: `scripts/build-model-params.mjs` gộp `src/data/fish-blend-weights.json` + `forecast-skill.json` → `public/data/model-params.v1.json` (SDF2); app đọc qua `lib/model-params.ts`. **Fit/backtest xong phải chạy lại script** — cổng `model-params.test.ts` bắt lệch.
 - Kèm: LICENSE độc quyền SDVICO (ODbL §4.6 lớp OSM vẫn đưa bản rõ khi có yêu cầu), rate limit `/api/fish-forecast` 60/10 phút (`rate-limit.ts`, per-instance — nợ đã ghi).
 

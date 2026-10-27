@@ -19,6 +19,39 @@
 import { chiaLo, layJson } from "../src/lib/kairos/thu-core.mjs";
 import { docQuyetDinh, goiQuyetDinh, kiemCung, LO_KIEM, LUAT_PHIEN_BAN, mucTuHangCho, promptKiem } from "../src/lib/kairos/luat-kiem-duyet.mjs";
 import { canCauHinh, cauHinh, goiApi, goiClaude, log } from "./kairos-chung.mjs";
+import { docDanhSach } from "../src/lib/kairos/link-doc.mjs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+/*  DANH SÁCH TÊN MIỀN LỪA ĐẢO (2026-10-27 — Phishing.Database, giấy phép MIT; URLhaus KHÔNG dùng vì đòi khoá + có thể thu
+    phí khi dùng thương mại). ~11 MB, tải lại khi bản trong máy cũ hơn 24 giờ; tải hỏng ⇒ dùng bản cũ; chưa từng có ⇒
+    chỉ chạy luật cứng (link-doc.loiLinkNhanh). Danh sách link đầy đủ (~66 MB) chưa dùng.
+    // nợ: chỉ đối chiếu TÊN MIỀN, link độc trên tên miền thật bị chiếm chưa bắt; nâng bằng phishing-links-ACTIVE khi máy GPU dư bộ nhớ. */
+const DS_TEN_MIEN_URL = "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt";
+const DS_TUOI_MS = 24 * 3_600_000;
+
+async function danhSachLuaDao(c) {
+  const file = path.join(c.stateDir, "lua-dao-ten-mien.txt");
+  const coBan = existsSync(file);
+  if (!coBan || Date.now() - statSync(file).mtimeMs > DS_TUOI_MS) {
+    try {
+      const r = await fetch(DS_TEN_MIEN_URL, { signal: AbortSignal.timeout(90_000) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const chu = await r.text();
+      if (chu.length < 1000) throw new Error("danh sách rỗng bất thường");
+      writeFileSync(file, chu);
+      log(`[link độc] tải danh sách mới (${Math.round(chu.length / 1024)} KB)`);
+    } catch (e) {
+      log(`[link độc] tải danh sách hỏng (${e?.message ?? e}) — ${coBan ? "dùng bản cũ" : "chỉ chạy luật cứng"}`);
+      if (!coBan) return null;
+    }
+  }
+  try {
+    return { tenMien: docDanhSach(readFileSync(file, "utf8")) };
+  } catch {
+    return null;
+  }
+}
 
 const CLAUDE_HET_GIO_MS = 120_000;
 const HANG_CHO_TOI_DA = 100;
@@ -77,11 +110,12 @@ async function chamHangCho() {
     return 0;
   }
 
-  // 1. Luật cứng (chủ quyền) — không tốn lượt gọi
+  // 1. Luật cứng (chủ quyền, chống phá, link độc) — không tốn lượt gọi
+  const ds = await danhSachLuaDao(c);
   const cung = [];
   const canChamMay = [];
   for (const m of muc) {
-    const d = kiemCung(m);
+    const d = kiemCung(m, ds);
     if (d) cung.push(d);
     else canChamMay.push(m);
   }

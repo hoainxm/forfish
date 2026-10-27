@@ -1,5 +1,4 @@
 import { CangHeader, PortDirectory } from "@/components/port-directory";
-import { RequireLogin } from "@/components/require-login";
 
 export const metadata = { title: "Danh bạ cảng — SDFish" };
 
@@ -11,9 +10,9 @@ export default function CangPage() {
   return (
     <div>
       <CangHeader />
-      <RequireLogin what="danh bạ cảng cá">
-        <PortDirectory />
-      </RequireLogin>
+      {/* KHÁCH XEM ĐƯỢC (2026-10-27, anh Long: "cho bà con xem các tính năng miễn phí, chỉ có vào bản đồ là bắt
+          đăng nhập mua gói") — danh bạ là dữ liệu tĩnh trong bundle, không gọi mạng. */}
+      <PortDirectory />
     </div>
   );
 }

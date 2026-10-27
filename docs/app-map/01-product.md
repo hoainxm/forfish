@@ -1,5 +1,8 @@
 # 01 — Sản phẩm / Product: bốn lời hứa với bà con
 
+> **QUYỀN XEM ĐỔI 2026-10-27** (anh Long: *"Cho bà con xem các tính năng miễn phí, chỉ có vào bản đồ là bắt đăng nhập"* → *"lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu premium còn lại cho free"*): **KHÁCH (chưa tài khoản)** xem tin bão, giá cá, giá dầu, thời tiết theo cảng, Kairos, Chợ, Vật tư, danh bạ cảng `/cang`, Sen Biển. **Bản đồ `/ngu-truong`** cần đăng nhập; **miễn phí**: nền vector, phao/hải đồ/rạn OSM, tên rạn (TT 33/2024), số đo + đẳng sâu, gió/sóng/mưa/mây/nhiệt Open-Meteo **cả 16 ngày** (Open-Meteo free không cho bán ⇒ bỏ khoá >3 ngày, `THOI_TIET_XA_CAN_GOI=false`), tàu AIS. **GÓI**: dự báo cá; lớp nền ảnh (nhiệt độ nước, vùng nhiều mồi — NASA; độ sâu EMODnet CC-BY); chất đáy + hình rạn chi tiết (Allen Coral Atlas CC-BY); độ mặn + dòng chảy tầng sâu (Copernicus); nước xoáy (NOAA); dẫn đường. Hồ sơ tàu / thuyền viên / đặt hàng / bán hàng vẫn cần tài khoản. ⚠️ Pháp lý: Luật Đo đạc và Bản đồ 2018 khi bán lớp bản đồ (formaps/00 §8) — chờ luật sư.
+
+
 > **Mục đích / Purpose**: Định nghĩa canonical về sản phẩm ForFish — bốn lời hứa, thứ tự build, nguồn dữ liệu và quy tắc adapter, vòng lặp giá trị giữa các trục.
 
 **Load khi / Load when**: cần hiểu scope một trục, quyết định feature thuộc trục nào, đụng tới data vendor (OceanByte, SDWork), hoặc viết copy/positioning.

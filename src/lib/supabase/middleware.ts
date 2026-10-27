@@ -11,8 +11,8 @@ import { supabaseMode } from "@/lib/demo-mode";
 
 /**
  * CỔNG DỮ LIỆU của mọi route trả dữ liệu cho app (2026-09-16 — trước đó chỉ
- * /api/fish-forecast): 401 chưa đăng nhập · 403 chưa premium (dự báo cá, lưới
- * thời tiết >3 ngày) · 429 gọi dồn. Chặn ở MIDDLEWARE thay vì trong route để
+ * /api/fish-forecast): 401 chưa đăng nhập · 403 chưa premium (từ 2026-10-27: MỌI lớp bản đồ + dự báo cá) · 429 gọi
+ * dồn. Route khách xem được (`rule.account=false`: bão, giá, giá dầu, thời tiết cảng) chỉ đếm theo IP. Chặn ở MIDDLEWARE thay vì trong route để
  * route giữ nguyên ISR — đọc danh tính trong route sẽ biến nó thành dynamic,
  * mỗi request tính lại nguồn ngoài 14–30s.
  *
@@ -34,6 +34,10 @@ export async function dataGate(request: NextRequest, rule: DataRouteRule) {
   // KHÔNG lặng lẽ bỏ cổng (lib/demo-mode.ts).
   const mode = supabaseMode();
   if (mode === "demo") return NextResponse.next({ request });
+  // KHÁCH XEM ĐƯỢC (2026-10-27 — tin bão, giá, giá dầu, thời tiết cảng): không tra danh tính, chỉ đếm theo IP.
+  if (!rule.account) {
+    return allowRequest(rateStores[rule.bucket], ipCua(request), Date.now(), rule.rate) ? NextResponse.next({ request }) : deny(429, "rate_limited");
+  }
   if (mode === "misconfigured") return deny(503, "misconfigured");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -126,7 +130,14 @@ const rateStores: Record<DataRouteRule["bucket"], RateStore> = {
   fish: new Map(),
   data: new Map(),
   tiles: new Map(),
+  guest: new Map(),
 };
+
+/** IP người gọi (Vercel: x-forwarded-for phần đầu / x-real-ip) — khoá đếm cho khách; không có ⇒ một xô chung. */
+function ipCua(request: NextRequest): string {
+  const xff = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return `ip:${xff || request.headers.get("x-real-ip")?.trim() || "?"}`;
+}
 
 const inflightIdentity = new Map<string, Promise<Awaited<ReturnType<typeof tokenIdentity>>>>();
 function dedupedIdentity(token: string, request: NextRequest) {
