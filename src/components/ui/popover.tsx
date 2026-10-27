@@ -57,7 +57,10 @@ export function Popover({
     const dockTop = dock ? dock.getBoundingClientRect().top : window.innerHeight;
     const ph = dockTop > 0 ? dockTop : window.innerHeight;
     const r = anchor.getBoundingClientRect();
-    // đo cỡ TỰ NHIÊN (bỏ maxHeight cũ trước khi đo)
+    // đo cỡ TỰ NHIÊN (bỏ maxHeight cũ trước khi đo). GIỮ vị trí cuộn: bỏ maxHeight là khung
+    // nở hết cỡ, trình duyệt kẹp scrollTop về 0 — không trả lại thì mỗi lần đo (cuộn, đổi
+    // cỡ) danh sách nhảy về đầu, bà con "vuốt lên không được" (lỗi chọn loài cá 2026-10-27).
+    const cuonCu = el.scrollTop;
     el.style.maxHeight = "";
     const v = viTriNeoNut({
       nut: { left: r.left - x0, top: r.top, right: r.right - x0, bottom: r.bottom },
@@ -69,6 +72,7 @@ export function Popover({
     el.style.left = `${x0 + v.left}px`;
     el.style.top = `${v.top}px`;
     el.style.maxHeight = `${v.maxH}px`;
+    el.scrollTop = cuonCu;
     setGoc(`${v.tren ? "bottom" : "top"} ${v.canhPhai ? "right" : "left"}`);
   }, [anchor]);
 
@@ -78,12 +82,18 @@ export function Popover({
     const el = ref.current;
     const ro = typeof ResizeObserver !== "undefined" && el ? new ResizeObserver(dat) : null;
     if (ro && el) ro.observe(el);
+    // cuộn TRANG (nút neo trôi đi) mới đo lại; cuộn TRONG lớp nổi thì nút không đổi chỗ,
+    // đo lại chỉ tốn công và từng làm kẹt cuộn (xem `dat`)
+    const cuonTrang = (e: Event) => {
+      if (el && e.target instanceof Node && el.contains(e.target)) return;
+      dat();
+    };
     window.addEventListener("resize", dat);
-    window.addEventListener("scroll", dat, true);
+    window.addEventListener("scroll", cuonTrang, true);
     return () => {
       ro?.disconnect();
       window.removeEventListener("resize", dat);
-      window.removeEventListener("scroll", dat, true);
+      window.removeEventListener("scroll", cuonTrang, true);
     };
   }, [mounted, dat]);
 

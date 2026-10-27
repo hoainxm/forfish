@@ -1218,8 +1218,8 @@ function NguTruongPanel({
             />
           </button>
 
-          {/* Danh sách loài dùng CHUNG thanh cuộn của panel (max-h-[62vh]
-              overflow-y-auto ở div panel) — KHÔNG bọc khung cuộn riêng, tránh
+          {/* Danh sách loài dùng CHUNG thanh cuộn của panel (Popover tự kẹp
+              maxHeight + overflow-y-auto) — KHÔNG bọc khung cuộn riêng, tránh
               2 thanh scroll lồng nhau (user 2026-07-27). */}
           {expanded && (
             <div className="mt-2">
