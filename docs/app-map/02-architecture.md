@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-10-26
+<!-- re-verified: 2026-10-27 — `components/viewport-gap-fix.tsx` (ghim `--app-vh`, gắn `pwa-frame`) CHỈ chạy trên iOS (`isIOS()` của `lib/storage-persist`) — ảnh bản cài Android: dock chỉ lòi ~20px trên thanh ☰ □ ◁. Bug nó né là của WebKit; trên Android trần `screen.height` gồm cả thanh hệ thống nên một lần đo vọt chốt mốc cao hơn vùng nhìn thấy (lòi 40px, tái hiện 360×728/màn 800). Android về `fixed; bottom:0` + `100dvh` mặc định. Test MỚI `viewport-gap-fix.test.ts`. Không route/page/nav mới. -->
 <!-- re-verified: 2026-10-26n — `lib/kairos/anh-thuc-te.mjs` đổi LUẬT CHỮ (ảnh là ảnh của nhân vật AI, chặn SĐT / số tàu / nhận đã dùng SDVICO / chê hàng khác — 16 §4 2f) + `sdvico-goi-y` export `NHAN_DA_DUNG`/`CHE_KHAC`; route `POST /api/kairos/agent` chỉ đổi chú thích, đường đi + hợp đồng việc `bai`/`anh` không đổi; không route/page/nav mới -->
 <!-- re-verified: 2026-10-26j — lib MỚI `lib/kairos/anh-thuc-te.mjs` (ảnh thực tế SDVICO cho agent, 16 §4 2f); route `POST /api/kairos/agent` việc `bai` nhận `anh {data}` (sniffImageMime của market/route-utils, uploadImage kairos-media, trần agent_anh); script GPU scripts/kairos-agent.mjs đọc kho ảnh AI Assistant cùng máy. Không route/page/nav mới. -->
 <!-- re-verified: 2026-10-26m — `lib/voice/tts.ts` nạp plugin text-to-speech ĐỘNG chỉ khi native (gói đụng `window` lúc nạp ⇒ trước đó chết prerender `/cho/gio`, `/tien` qua boat-switcher → hoi-tung-cau); test MỚI `tts-ssr.test.ts` (nạp không window + cổng cấm import tĩnh). Không route/page/nav mới. -->

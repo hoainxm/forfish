@@ -21,9 +21,18 @@
 
   Lưu localStorage theo screen.w×h → mở lại có ngay mốc, khỏi đo lại (đỡ giật).
   KHÔNG đo lúc gõ (bàn phím mở → viewport ngắn hợp lệ). Ngoài standalone: không chạy.
+
+  CHỈ iOS (2026-10-27, ảnh bản cài Android: dock chỉ lòi ~20px trên thanh ☰ □ ◁).
+  Bug trên là của WebKit; Chrome Android ghim `fixed; bottom:0` đúng sẵn. Chạy cả
+  trên Android thì trần `screen.height` VÔ DỤNG — ở Android nó gồm CẢ thanh trạng
+  thái + thanh điều hướng — nên một lần đo vọt (ẩn thanh, chia đôi màn, đổi kiểu
+  điều hướng) chốt mốc cao hơn vùng nhìn thấy đúng một thanh, "chỉ lớn lên" + lưu
+  máy ⇒ dock kẹt sau thanh điều hướng mãi. Mốc `forfish.pwa-frame.*` cũ trên máy
+  Android để nguyên (không còn ai đọc), không xoá khoá của bà con.
 */
 
 import { useEffect } from "react";
+import { isIOS } from "@/lib/storage-persist";
 
 export function ViewportGapFix() {
   useEffect(() => {
@@ -33,6 +42,7 @@ export function ViewportGapFix() {
       window.matchMedia?.("(display-mode: standalone)").matches === true ||
       (navigator as { standalone?: boolean }).standalone === true;
     if (!standalone) return; // ngoài bản cài: không đụng gì
+    if (!isIOS()) return; // bug WebKit — Android/máy khác để CSS mặc định (xem đầu file)
 
     const de = document.documentElement;
     de.classList.add("pwa-frame");
