@@ -264,6 +264,38 @@ export function createKairosSupabaseStore(): KairosStore | null {
       if (excludeAuthors.length) q = q.not("author_phone", "in", `(${excludeAuthors.map(pgQuote).join(",")})`);
       return many<CommentFull>("topComments", q.order("hay_count", { ascending: false }).order("created_at", { ascending: true }).limit(n));
     },
+    async kemTheoBai(postIds, n, excludeAuthors, demDinhKem) {
+      const top = new Map<string, CommentFull[]>();
+      const dinhKem = new Map<string, number>();
+      const ids = [...new Set(postIds)].slice(0, IN_MAX);
+      if (!ids.length) return { top, dinhKem };
+      // nhúng bảng con: `bl.limit` / `bl.order` áp RIÊNG từng bài (PostgREST) ⇒ đúng top-n mỗi bài như topComments
+      const goi = (coDem: boolean) => {
+        let q = posts()
+          .select(`id,bl:kairos_comments(${COMMENT_COLS})${coDem ? ",dk:kairos_dinh_kem_dong(count)" : ""}`)
+          .in("id", ids)
+          .eq("bl.hidden", false)
+          .is("bl.parent_id", null);
+        if (excludeAuthors.length) q = q.not("bl.author_phone", "in", `(${excludeAuthors.map(pgQuote).join(",")})`);
+        return q
+          .order("hay_count", { ascending: false, referencedTable: "bl" })
+          .order("created_at", { ascending: true, referencedTable: "bl" })
+          .limit(n, { referencedTable: "bl" });
+      };
+      type Hang = { id: string; bl: CommentFull[] | null; dk?: { count: number }[] | null };
+      let { data, error } = await goi(demDinhKem);
+      if (error && demDinhKem) {
+        // đếm danh sách hỏng (bảng 0075 chưa có / quan hệ lỗi) ⇒ như demDinhKemDong cũ: coi như không có, bình luận vẫn lấy
+        console.error("[kairos] kemTheoBai: đếm đính kèm hỏng, lấy bình luận không kèm đếm:", error.code, error.message);
+        ({ data, error } = await goi(false));
+      }
+      if (error) fail("kemTheoBai", error);
+      for (const r of (data as Hang[] | null) ?? []) {
+        top.set(r.id, r.bl ?? []);
+        if (r.dk?.length) dinhKem.set(r.id, r.dk[0]?.count ?? 0);
+      }
+      return { top, dinhKem };
+    },
     getComment: (id) => one<CommentFull>("getComment", comments().select(COMMENT_COLS).eq("id", id).maybeSingle()),
     async insertComment(row) {
       const { data, error } = await comments().insert(row).select(COMMENT_COLS).single();

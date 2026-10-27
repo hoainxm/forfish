@@ -217,24 +217,28 @@ export async function hydratePosts(
 ): Promise<KairosPost[]> {
   if (!rows.length) return [];
   const reshareIds = [...new Set(rows.map((r) => r.reshare_of).filter((x): x is string => !!x))];
-  // MỘT chặng cho ba việc độc lập (2026-10-27): máy chủ sdvico ở VN gọi Supabase Seoul mất 0,35–2 s MỖI lượt
-  // (mất gói) ⇒ mỗi chặng `await` nối tiếp là thêm một lượt chờ; trước đây bài gốc → bình luận nổi bật → đếm
-  // đính kèm chạy lần lượt, dòng tin 7–13 s, quá FEED_TIMEOUT_MS 12 s của app ⇒ "không lấy được tin".
-  const [originals, tops, coDs] = await Promise.all([
+  // MỘT chặng, HAI request cho cả trang (2026-10-27): máy chủ sdvico ở VN gọi Supabase Seoul 0,35–2 s+ MỖI request
+  // (mất gói); trước đây bình luận nổi bật + đếm đính kèm là MỘT request MỖI BÀI (dòng tin 21 request, chính sách 12)
+  // ⇒ 10–40 s, quá FEED_TIMEOUT_MS 12 s của app ⇒ "Mạng yếu, chưa tải được". Nay bài gốc ∥ kemTheoBai (top bình luận +
+  // đếm đính kèm mọi bài trong một lượt), kết quả như topComments/demDinhKemDong từng bài.
+  const canBinhLuan = opts.topComments === false ? [] : rows.filter((r) => r.comment_count > 0).map((r) => r.id);
+  // Ô Tra cứu (14 §21b) chỉ cho bài CÓ danh sách tàu/bà con đọc được: đếm dòng 0075 cho bài chinh-sach có đính kèm.
+  // Đếm hỏng ⇒ coi như không có (thẻ không hiện ô tra, dòng tin vẫn trả) — kemTheoBai lo.
+  const canDinhKem = rows
+    .filter((r) => r.topic === "chinh-sach" && Array.isArray((r as { attachments?: unknown }).attachments) && ((r as { attachments?: unknown[] }).attachments?.length ?? 0) > 0)
+    .map((r) => r.id);
+  const [originals, kem] = await Promise.all([
     reshareIds.length ? store.getPosts(reshareIds) : Promise.resolve([] as PostFull[]),
-    opts.topComments === false
-      ? Promise.resolve(rows.map(() => [] as CommentFull[]))
-      : Promise.all(rows.map((r) => (r.comment_count > 0 ? store.topComments(r.id, LIMITS.topComments, blocked) : Promise.resolve([] as CommentFull[])))),
-    // Ô Tra cứu (14 §21b) chỉ cho bài CÓ danh sách tàu/bà con đọc được: đếm dòng 0075 cho bài chinh-sach có đính kèm
-    // (≤ một trang, song song, head-count). Kho hỏng ⇒ coi như không có (thẻ không hiện ô tra, dòng tin vẫn trả).
-    Promise.all(
-      rows.map((r) =>
-        r.topic === "chinh-sach" && Array.isArray((r as { attachments?: unknown }).attachments) && ((r as { attachments?: unknown[] }).attachments?.length ?? 0) > 0
-          ? store.demDinhKemDong(r.id).then((n) => n > 0).catch(() => false)
-          : Promise.resolve(false),
-      ),
-    ),
+    canBinhLuan.length || canDinhKem.length
+      ? store.kemTheoBai([...canBinhLuan, ...canDinhKem], LIMITS.topComments, blocked, canDinhKem.length > 0).catch((e) => {
+          // như cũ: bình luận hỏng ⇒ dòng tin lỗi; CHỈ đếm đính kèm hỏng ⇒ không ô Tra cứu, dòng tin vẫn trả
+          if (canBinhLuan.length) throw e;
+          return { top: new Map<string, CommentFull[]>(), dinhKem: new Map<string, number>() };
+        })
+      : Promise.resolve({ top: new Map<string, CommentFull[]>(), dinhKem: new Map<string, number>() }),
   ]);
+  const tops = rows.map((r) => (canBinhLuan.includes(r.id) ? kem.top.get(r.id) ?? [] : ([] as CommentFull[])));
+  const coDs = rows.map((r) => canDinhKem.includes(r.id) && (kem.dinhKem.get(r.id) ?? 0) > 0);
   const visibleOrig = new Map(
     originals
       .filter((o) => !o.hidden && !(o.kind === "bao" && o.mod_state !== "dat") && !(o.author_phone && blocked.includes(o.author_phone)))

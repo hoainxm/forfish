@@ -231,6 +231,17 @@ export interface KairosStore {
   listComments(postId: string, cursor: Cursor | null, limit: number, excludeAuthors: string[]): Promise<CommentFull[]>;
   /** bình luận GỐC nhiều Hay nhất (hay desc, created asc), không ẩn, bỏ người bị chặn */
   topComments(postId: string, n: number, excludeAuthors: string[]): Promise<CommentFull[]>;
+  /**
+   * MỘT lượt cho cả trang (2026-10-27): top `n` bình luận gốc mỗi bài (như topComments) + số dòng danh sách đính kèm
+   * mỗi bài (như demDinhKemDong, chỉ khi `demDinhKem`). Thay 1 request/bài — máy chủ sdvico ở VN, mỗi request tới
+   * Supabase Seoul 0,35–2 s+ ⇒ dòng tin 21 request ⇒ 10–40 s. Đếm hỏng ⇒ `dinhKem` rỗng (= không có danh sách, như cũ).
+   */
+  kemTheoBai(
+    postIds: string[],
+    n: number,
+    excludeAuthors: string[],
+    demDinhKem: boolean,
+  ): Promise<{ top: Map<string, CommentFull[]>; dinhKem: Map<string, number> }>;
   getComment(id: string): Promise<CommentFull | null>;
   insertComment(row: { post_id: string; parent_id: string | null; author_phone: string; body: string; image_path?: string | null; link_preview?: unknown; mentions?: NhacTen[] }): Promise<CommentFull>;
   /** cascade xoá trả lời con */

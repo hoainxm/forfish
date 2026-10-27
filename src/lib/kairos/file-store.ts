@@ -271,6 +271,16 @@ export function createKairosFileStore(opts: { dir?: string; now?: () => Date } =
           .sort((a, b) => b.hay_count - a.hay_count || byAsc(a, b))
           .slice(0, n),
       ),
+    // kho file: cùng luật topComments + demDinhKemDong, gộp cho đủ giao diện (không có chuyện độ trễ mạng)
+    kemTheoBai: async (postIds, n, ex, demDinhKem) => {
+      const top = new Map<string, CommentFull[]>();
+      const dinhKem = new Map<string, number>();
+      for (const id of new Set(postIds)) {
+        top.set(id, await store.topComments(id, n, ex));
+        if (demDinhKem) dinhKem.set(id, await store.demDinhKemDong(id));
+      }
+      return { top, dinhKem };
+    },
     getComment: (id) => read((s) => getCommentIn(s, id)),
     insertComment: (row) =>
       mutate((s) => {
