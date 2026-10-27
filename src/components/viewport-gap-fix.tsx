@@ -1,7 +1,7 @@
 "use client";
 
 /*
-  DOCK bản cài iOS (standalone) — GHIM CAO ĐÚNG VÙNG NHÌN THẤY.
+  DOCK bản cài iOS (standalone) — GHIM CAO ĐÚNG VÙNG NHÌN THẤY. CHỈ iOS (laIosWebKit — 2026-10-27).
 
   Bug WebKit standalone (số 158055568): iOS báo chiều cao viewport KHÁC nhau giữa
   các tab — tab cuộn được cho viewport ĐẦY, tab tĩnh (map fixed) cho viewport
@@ -25,6 +25,17 @@
 
 import { useEffect } from "react";
 
+/**
+ * CHỈ iOS/iPadOS (sửa 2026-10-27, anh Long chụp Android: "lỗi tràn viền kìa" — dock lọt xuống dưới thanh điều hướng 3
+ * nút). Bug 158055568 là của WebKit; Android không có. Chạy trên PWA Android thì "lấy đáy LỚN NHẤT rồi khoá + lưu máy"
+ * gặp một lần viewport cao vọt (thanh điều hướng tạm ẩn, màn khởi động, đổi kiểu điều hướng) là khoá --app-vh cao hơn
+ * vùng nhìn thấy ĐÚNG một thanh điều hướng — vĩnh viễn. Android dùng khung fixed thường (đã đúng). iPad "desktop" báo
+ * UA Macintosh ⇒ nhận qua điểm chạm.
+ */
+export function laIosWebKit(ua: string, maxTouchPoints: number): boolean {
+  return /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && maxTouchPoints > 1);
+}
+
 export function ViewportGapFix() {
   useEffect(() => {
     const vv = window.visualViewport;
@@ -33,6 +44,7 @@ export function ViewportGapFix() {
       window.matchMedia?.("(display-mode: standalone)").matches === true ||
       (navigator as { standalone?: boolean }).standalone === true;
     if (!standalone) return; // ngoài bản cài: không đụng gì
+    if (!laIosWebKit(navigator.userAgent, navigator.maxTouchPoints ?? 0)) return; // Android/desktop: khung fixed thường
 
     const de = document.documentElement;
     de.classList.add("pwa-frame");
