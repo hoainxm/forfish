@@ -3,5 +3,5 @@
 // cá chưa tải được" (xác minh 2026-07-02: UA mặc định 403, UA định danh 200).
 // Quy ước lịch sự với nguồn miễn phí: nói rõ mình là ai + link liên hệ.
 export const SOURCE_FETCH_HEADERS = {
-  "user-agent": "SDFish/1.0 (app du bao bien cho ngu dan VN; +https://forfish-alpha.vercel.app)",
+  "user-agent": "SDFish/1.0 (app du bao bien cho ngu dan VN; +https://sdfish.sdvico.vn)",
 } as const;

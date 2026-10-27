@@ -71,7 +71,7 @@ Khi **đơn / KH / thiết bị / vật tư** tạo-đổi-xoá ở SDWork → P
 ```jsonc
 { "events": [
   { "entity":"customer","action":"upsert","ref":"<id>",
-    "data":{ "phone":"0901234567","name":"Nguyễn Văn A","password":"matkhau-sale-bao" } },
+    "data":{ "phone":"0901234567","name":"Nguyễn Văn A","password":"<matkhau-sale-bao>" } },
   { "entity":"device","action":"upsert","ref":"<id>",
     "data":{ "customerPhone":"0901234567","name":"Anten SF-50","serial":"SF50-001","warrantyUntil":"2028-06-01","orderCode":"DH-1" } }
 ]}
@@ -141,8 +141,8 @@ Bước 1 → 2 → 3 → 4 (tự test curl, tạo KH+mk) → 5 (đăng nhập).
 ### 7c. Kiểm chứng chạy thật
 
 ```bash
-# chạy tay 1 lần (thay YOUR_SECRET):
-curl -H "Authorization: Bearer YOUR_SECRET" https://forfish-alpha.vercel.app/api/collect/sea-daily
+# chạy tay 1 lần (đặt biến CRON_SECRET trước):
+curl -H "Authorization: Bearer $CRON_SECRET" https://sdfish.sdvico.vn/api/collect/sea-daily
 # kỳ vọng: {"ok":true,...,"parts":{"sea":{"ok":true,"rows":100},...}}  (100 = 10 cảng × 10 ngày)
 ```
 - Không kèm Bearer → phải 401.

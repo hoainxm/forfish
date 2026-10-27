@@ -83,7 +83,7 @@ Chưa set `ADMIN_PHONES` → không ai là admin (trang báo 403).
 
 ## Deploy & phát hành
 
-- Web: push `main` → Vercel tự deploy (`forfish-alpha.vercel.app`; đang chuyển sang `sdfish.sdvico.vn`).
+- Web: push `main` của sdvico/forfish → CI xanh → `deploy.yml` lên `sdfish.sdvico.vn` (web công ty; app Android/iOS cũng tải web này từ 2026-10-27).
 - iOS/Android: Capacitor wrap, `server.url` trỏ deploy sdvico. Runbook đầy đủ: [ops/build-publish-store.md](docs/app-map/ops/build-publish-store.md).
 
 ---

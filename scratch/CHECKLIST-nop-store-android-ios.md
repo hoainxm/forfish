@@ -1,14 +1,14 @@
 # Checklist nộp store — Android (#2) + iOS (#3)
 
-Mọi thứ điền sẵn. App chạy chế độ `server.url` → app native tải web `forfish-alpha.vercel.app` (deploy Vercel mới nhất tự vào app, không cần build lại binary).
+Mọi thứ điền sẵn. App chạy chế độ `server.url` → app native tải web `sdfish.sdvico.vn` (deploy Vercel mới nhất tự vào app, không cần build lại binary).
 
 ---
 
 ## Dùng chung cả 2 store
 
 - **Bundle/appId**: iOS `vn.sdvico.sdfish` · Android package `vn.sdvico.forfish`
-- **Privacy Policy URL**: `https://forfish-alpha.vercel.app/quyen-rieng-tu`
-- **Support URL**: `https://forfish-alpha.vercel.app`
+- **Privacy Policy URL**: `https://sdfish.sdvico.vn/quyen-rieng-tu`
+- **Support URL**: `https://sdfish.sdvico.vn`
 - **Danh mục**: Weather / Tiện ích (ngư dân). Không quảng cáo, không mua trong app.
 
 ### Nhãn quyền riêng tư (Data Safety Play + App Privacy Apple) — khai GIỐNG NHAU
@@ -23,7 +23,7 @@ Mọi thứ điền sẵn. App chạy chế độ `server.url` → app native t�
 → **KHÔNG tracking, KHÔNG SDK quảng cáo/analytics, KHÔNG bán dữ liệu.** Vị trí không lưu, không gắn tài khoản.
 
 ### ⚠️ TÀI KHOẢN DEMO cho reviewer (BẮT BUỘC — làm TRƯỚC)
-1. Vào `https://forfish-alpha.vercel.app/dang-ky` tạo 1 tài khoản: SĐT 10 số hợp lệ, mật khẩu ≥6 ký tự **không dấu cách, không viết hoa**.
+1. Vào `https://sdfish.sdvico.vn/dang-ky` tạo 1 tài khoản: SĐT 10 số hợp lệ, mật khẩu ≥6 ký tự **không dấu cách, không viết hoa**.
 2. Đăng nhập thử ở `/login` → OK (đổi mật khẩu lần đầu nếu bị hỏi, dùng mật khẩu cuối).
 3. Ghi lại **SĐT + mật khẩu** → điền vào form store (Play "App access" / Apple "Sign-In required").
 4. Review Notes (dán): *"Tài khoản demo: SĐT ..., mật khẩu .... Dữ liệu (tàu/giấy tờ) lưu cục bộ theo máy nên lần đầu đăng nhập màn trống — bấm 'Thêm tàu' để tạo dữ liệu mẫu. Màn công khai (Ra khơi/Giao dịch) xem không cần đăng nhập. App KHÔNG tracking, không SDK quảng cáo; vị trí chỉ dùng tại chỗ để canh bản đồ."*
@@ -71,7 +71,7 @@ npm run cap:open:ios     # mở Xcode
 **Trong App Store Connect:**
 1. App SDFish → chọn build vừa upload (chờ ~15–30 phút processing).
 2. **App Privacy** → khai đúng bảng trên, **BỎ HẾT "Used to Track You"** (lần reject 17/07 khai nhầm tracking).
-3. **App Information → Privacy Policy URL** = `forfish-alpha.vercel.app/quyen-rieng-tu`.
+3. **App Information → Privacy Policy URL** = `sdfish.sdvico.vn/quyen-rieng-tu`.
 4. **App Review Information**: tài khoản demo + Notes (trên).
 5. **Add for Review → Submit**.
 

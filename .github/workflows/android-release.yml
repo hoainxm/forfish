@@ -2,7 +2,8 @@
 #
 # KHI NÀO CHẠY: bấm tay (Actions → Run workflow) hoặc push tag vX.Y.Z.
 #   KHÔNG chạy mỗi push — chế độ wrap (a) server.url nghĩa là đa số cập nhật chỉ
-#   cần deploy Vercel, không cần binary mới. Chỉ build khi đổi vỏ native / bump
+#   cần deploy web (server.url = https://sdfish.sdvico.vn từ 2026-10-27), không cần binary mới.
+#   NGOẠI LỆ: đổi chính server.url (capacitor.config.ts) PHẢI phát hành AAB mới — URL nằm trong binary. Chỉ build khi đổi vỏ native / bump
 #   version / đóng rejection. Xem docs/app-map/ops/build-publish-store.md §3b.
 #
 # SECRETS cần set (Settings → Secrets and variables → Actions):
@@ -95,7 +96,7 @@ jobs:
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "versionCode=$APP_VERSION_CODE  versionName=${NAME:-<mặc định build.gradle>}"
 
-      # Chế độ (a) server.url: web load từ Vercel lúc chạy. cap sync vẫn cần webDir
+      # Chế độ (a) server.url: web load từ sdfish.sdvico.vn lúc chạy. cap sync vẫn cần webDir
       # 'out' tồn tại để copy → tạo stub tối thiểu (bị server.url ghi đè runtime).
       - name: Stub web dir cho Capacitor (mode server.url)
         run: |
@@ -104,6 +105,20 @@ jobs:
 
       - name: Đồng bộ web + plugin sang android/
         run: npx cap sync android
+
+      # KHOÁ ĐÍCH (2026-10-27): app từng trỏ một deploy đã bị tạm dừng (forfish-alpha ⇒ 503) mà build vẫn xanh.
+      # Đỏ ngay nếu config sinh ra không trỏ web công ty, hoặc web đó không trả 200 cho trang chủ + /quyen-rieng-tu
+      # (Play bắt buộc trang chính sách) — phát hành binary trỏ vào chỗ chết là bà con mở app ra trang lỗi.
+      - name: Kiểm server.url trỏ web công ty còn sống
+        run: |
+          URL=$(node -e "console.log(require(./android/app/src/main/assets/capacitor.config.json).server.url)")
+          echo "server.url = $URL"
+          [ "$URL" = "https://sdfish.sdvico.vn/" ] || { echo "::error::server.url phải là https://sdfish.sdvico.vn/ (đang: $URL)"; exit 1; }
+          for p in "" quyen-rieng-tu; do
+            c=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "${URL}${p}")
+            echo "${URL}${p} -> $c"
+            [ "$c" = "200" ] || { echo "::error::${URL}${p} trả $c — không phát hành binary trỏ vào web đang hỏng"; exit 1; }
+          done
 
       - name: Sinh lại launcher icon (đè icon mặc định Capacitor)
         run: npm run icons

@@ -14,7 +14,7 @@
 
 Bạn là engineer làm việc trên repo CRM **SDWork** (Supabase project ref `exueouggmbjtjvsvpfya`).
 Đối tác **SDFish** (app khách hàng độc lập, project ref `znzgugvfhgmiszqgjulk`,
-URL prod `https://forfish-alpha.vercel.app`) cần SDWork đẩy event mỗi khi KH/đơn/
+URL prod `https://sdfish.sdvico.vn`) cần SDWork đẩy event mỗi khi KH/đơn/
 thiết bị/vật tư thay đổi, qua webhook đã sẵn sàng phía họ.
 
 Phía SDFish **đã làm xong** (verify end-to-end 2026-06-25):
@@ -32,7 +32,7 @@ Việc của bạn (phía SDWork): **dựng outbox + trigger + worker đẩy eve
 
 | Item | Giá trị |
 |---|---|
-| URL inbound SDFish | `POST https://forfish-alpha.vercel.app/api/sdwork/webhook` |
+| URL inbound SDFish | `POST https://sdfish.sdvico.vn/api/sdwork/webhook` |
 | Header signature | `x-sdwork-signature: <HMAC-SHA256 hex của raw body, key = SHARED_SECRET>` |
 | Content-Type | `application/json` |
 | Method | `POST` |
@@ -217,7 +217,7 @@ ghi outbox. Cách:
 // supabase/functions/sdfish-outbox-worker/index.ts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SDFISH_URL = "https://forfish-alpha.vercel.app/api/sdwork/webhook";
+const SDFISH_URL = "https://sdfish.sdvico.vn/api/sdwork/webhook";
 const SECRET = Deno.env.get("SDWORK_WEBHOOK_SECRET")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -395,7 +395,7 @@ an toàn.
 SECRET='<PASTE_SECRET_HERE>'
 BODY='{"events":[{"entity":"customer","action":"upsert","ref":"test-sdwork-1","data":{"phone":"0903333333","name":"Test SDWork Side","password":"matkhau123"}}]}'
 SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.* //')
-curl -s -X POST 'https://forfish-alpha.vercel.app/api/sdwork/webhook' \
+curl -s -X POST 'https://sdfish.sdvico.vn/api/sdwork/webhook' \
   -H "content-type: application/json" \
   -H "x-sdwork-signature: $SIG" \
   -d "$BODY"

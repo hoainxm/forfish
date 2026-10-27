@@ -29,7 +29,7 @@ chọn keystore → upload Play. **HOẶC** Actions → *Android release* → Ru
 **"build ios" → 🤖 Claude chạy:**
 1–3. như trên. 4. `out/` stub → `npx cap sync ios` → `npm run icons` (sinh AppIcon iOS).
 5. Claude còn tự lo trong `ios/`: thêm `NSLocationWhenInUseUsageDescription` vào Info.plist,
-   đặt **Build** ≥2, kiểm config trỏ `forfish-alpha`. Báo "prep xong" + trạng thái.
+   đặt **Build** ≥2, kiểm config trỏ `sdfish.sdvico.vn`. Báo "prep xong" + trạng thái.
    *(`ios/` đã tồn tại từ lần `cap add ios` đầu — chỉ lần đầu mới cần Xcode + CocoaPods.)*
 
 → 👤 **Bạn làm tiếp** (chỉ còn thao tác GUI): `npm run cap:open:ios` → Xcode: **chọn Team để ký**
@@ -49,8 +49,8 @@ Bên dưới là runbook đầy đủ; các bước 🤖/👤 ở trên tương 
 | Thứ | Giá trị |
 |---|---|
 | Repo (đẩy + chạy Actions) | `github.com/sdvico/forfish` |
-| Web deploy app native tải (chế độ (a)) | **`https://forfish-alpha.vercel.app`** — KHÔNG phải `forfish.vercel.app` |
-| Trang chính sách (bắt buộc cho store) | `https://forfish-alpha.vercel.app/quyen-rieng-tu` |
+| Web deploy app native tải (chế độ (a)) | **`https://sdfish.sdvico.vn`** — KHÔNG phải `forfish.vercel.app` |
+| Trang chính sách (bắt buộc cho store) | `https://sdfish.sdvico.vn/quyen-rieng-tu` |
 | Bundle iOS | `vn.sdvico.sdfish` |
 | Package Android | `vn.sdvico.forfish` |
 | Tên app | SDFish |
@@ -102,7 +102,7 @@ npm run icons                 # BẮT BUỘC sau cap add — sinh AppIcon iOS + 
 
 ### 1e. Backend cron (một lần — để dữ liệu cá/thời tiết/bão tự tươi)
 Ở **`sdvico/forfish` → Settings → Secrets and variables → Actions**:
-- **Variable** `APP_BASE_URL` = `https://forfish-alpha.vercel.app` (tab *Variables*).
+- **Variable** `APP_BASE_URL` = `https://sdfish.sdvico.vn` (tab *Variables*).
 - **Secret** `CRON_SECRET` = *(chuỗi bí mật, TRÙNG env `CRON_SECRET` trên Vercel)* (tab *Secrets*).
 - Trên **Vercel** (Project → Settings → Environment Variables): đặt `CRON_SECRET` cùng giá trị.
 
@@ -128,8 +128,8 @@ npm run lint                  # 0 error (warning không chặn)
 **3) Deploy WEB (đây mới là thứ app native thực sự tải):**
 - Đẩy code lên `sdvico/forfish` → Vercel tự build. Đợi xong, **kiểm**:
 ```bash
-curl -I https://forfish-alpha.vercel.app                       # 200
-curl -s https://forfish-alpha.vercel.app/quyen-rieng-tu | grep "quyền riêng tư"
+curl -I https://sdfish.sdvico.vn                       # 200
+curl -s https://sdfish.sdvico.vn/quyen-rieng-tu | grep "quyền riêng tư"
 ```
 > Nếu chỉ sửa nội dung web (không đổi vỏ native/version): **DỪNG Ở ĐÂY** — app đã cập nhật.
 > Chỉ đi tiếp mục 3/4 khi cần binary mới (đổi icon/plugin, bump version, đóng reject).
@@ -174,7 +174,7 @@ Upload lên [play.google.com/console](https://play.google.com/console) → app S
 
 ### Trên Play Console (không phải code — làm cả 2 cách):
 - **Release notes** (tiếng Việt): tính năng mới + "bổ sung chính sách quyền riêng tư".
-- **App content**: **Privacy policy** = `https://forfish-alpha.vercel.app/quyen-rieng-tu` ·
+- **App content**: **Privacy policy** = `https://sdfish.sdvico.vn/quyen-rieng-tu` ·
   **Data safety** khai theo bảng §5.1 build-publish-store (Location + Phone/Name + App activity, **không** tracking, **không** chia sẻ quảng cáo) · **Ads = Yes** (bài Tài trợ Kairos tự quản, 14 §20, từ 2026-10-24) · **App access** = tài khoản demo (§5 dưới).
 - **Review → Rollout**.
 
@@ -185,7 +185,7 @@ Upload lên [play.google.com/console](https://play.google.com/console) → app S
 > Khi Claude chạy xong "build ios", các thứ sau **đã sẵn trong `ios/`**, khỏi làm lại:
 > Info.plist có `NSLocationWhenInUseUsageDescription` ✅ · **Build = 2, Version = 1.0** ✅ ·
 > **AppIcon = logo SDFish** (`npm run icons` nay sinh cả iOS) ✅ · `capacitor.config.json` trỏ
-> `forfish-alpha.vercel.app` ✅. Nếu cần dựng lại thủ công từ đầu:
+> `sdfish.sdvico.vn` ✅. Nếu cần dựng lại thủ công từ đầu:
 >
 > ```bash
 > mkdir -p out && echo '<!doctype html><title>SDFish</title>Đang tải…' > out/index.html
@@ -218,7 +218,7 @@ Upload lên [play.google.com/console](https://play.google.com/console) → app S
 1. **My Apps → SDFish**. *(Chưa có app: **+** → New App → nền tảng iOS, bundle `vn.sdvico.sdfish`.)*
 2. Vào version **1.0** → mục **Build** → chọn build `2` vừa upload (chờ hết "Processing").
 3. **App Privacy** → khai đúng bảng §5.1 [build-publish-store.md](build-publish-store.md), **BỎ HẾT** "Used to Track You".
-4. **App Information → Privacy Policy URL** = `https://forfish-alpha.vercel.app/quyen-rieng-tu`.
+4. **App Information → Privacy Policy URL** = `https://sdfish.sdvico.vn/quyen-rieng-tu`.
 5. **App Review Information** → tài khoản demo + Notes (§5 dưới).
 6. Điền **Screenshot** (§6), mô tả, phân loại tuổi → **Add for Review → Submit**.
 
@@ -232,14 +232,14 @@ Upload lên [play.google.com/console](https://play.google.com/console) → app S
 
 - Tạo bằng chính `/dang-ky`: SĐT 10 số hợp lệ, **mật khẩu ≥6 ký tự, KHÔNG dấu cách, KHÔNG viết hoa**
   (bàn phím máy reviewer tự viết hoa chữ đầu → sai mật khẩu).
-- **Tự đăng nhập thử ở `https://forfish-alpha.vercel.app/login` TRƯỚC khi nộp.**
+- **Tự đăng nhập thử ở `https://sdfish.sdvico.vn/login` TRƯỚC khi nộp.**
 - Review Notes (dán vào ASC / Play "App access"):
   > Tài khoản demo: SĐT `09xxxxxxxx`, mật khẩu `xxxxxx`.
   > Dữ liệu (tàu, giấy tờ, sổ) lưu cục bộ theo máy nên lần đầu đăng nhập sẽ thấy màn trống —
   > bấm **"Thêm tàu"** ở Trang chủ để tạo dữ liệu mẫu, hoặc xem các màn công khai (Ra khơi,
   > Giá cả, Danh bạ cảng) không cần đăng nhập.
   > App KHÔNG tracking; không có SDK quảng cáo/analytics. Vị trí chỉ dùng tại chỗ để canh bản
-  > đồ, không lưu. Chính sách: https://forfish-alpha.vercel.app/quyen-rieng-tu
+  > đồ, không lưu. Chính sách: https://sdfish.sdvico.vn/quyen-rieng-tu
 
 ---
 
@@ -259,11 +259,11 @@ node scripts/generate-ios-screenshots.mjs  # iPhone 6.5"/6.7" + iPad 12.9"/13"
 
 **Code:**
 - [ ] `npm run build` + `npm test` (Node 24) + `npm run lint` sạch.
-- [ ] Web deploy live: `forfish-alpha.vercel.app` 200 + `/quyen-rieng-tu` mở được.
+- [ ] Web deploy live: `sdfish.sdvico.vn` 200 + `/quyen-rieng-tu` mở được.
 - [ ] Bump version: Android `versionCode` (CI tự / build.gradle tay) · iOS **Build** trong Xcode.
 
 **Hồ sơ store:**
-- [ ] Privacy Policy URL = `https://forfish-alpha.vercel.app/quyen-rieng-tu` (mở được).
+- [ ] Privacy Policy URL = `https://sdfish.sdvico.vn/quyen-rieng-tu` (mở được).
 - [ ] Nhãn App Privacy (Apple) + Data safety (Play) khớp bảng §5.1, **KHÔNG** tracking.
 - [ ] `NSLocationWhenInUseUsageDescription` có trong Info.plist (iOS).
 - [ ] Tài khoản demo tồn tại thật + tự đăng nhập thử được + Review Notes đầy đủ.
