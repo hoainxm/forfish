@@ -2,6 +2,7 @@
 //
 // Anh Long 2026-10-26 (tin Zalo của Quân — "Vss Quân Bình Định"): "Đăng giúp em khuyến mãi sứ định vị giá bán thị trường
 // 500k mua app khuyến mãi 200k, cho tất cả các kh cũ và mới (sứ dùng được cho tất cả các loại máy định vị)". Khách bấm
+// SỬA 2026-10-27 (anh Long: "giảm 200k còn 300k chứ ko phải còn 200k"): giá app = 300.000đ (500k − 200k). Khách bấm
 // Đăng ký ⇒ phiếu `sdvico_khach_hoi` (nguon san-pham, san_pham = `tenPhieu`) ⇒ AI Assistant nhắn Zalo cho Quân xử lý.
 //
 // Vì sao KHÔNG phải món trên Chợ vật tư: chợ là sàn nhiều đại lý, đơn phải có shop + tồn kho + giao hàng; ưu đãi này
@@ -36,12 +37,12 @@ export interface KhuyenMai {
 export const KM_SU_DINH_VI: KhuyenMai = {
   id: "su-dinh-vi-gps",
   ten: "Sứ định vị GPS",
-  tenPhieu: "KM Sứ định vị GPS 200k",
+  tenPhieu: "KM Sứ định vị GPS 300k (giảm 200k)",
   giaThiTruong: 500_000,
-  giaApp: 200_000,
+  giaApp: 300_000,
   moTa: "Sứ (ăng-ten) GPS kèm dây, lắp được cho mọi loại máy định vị.",
   diemHay: [
-    "Giá thị trường 500.000đ — mua qua app chỉ 200.000đ",
+    "Giá thị trường 500.000đ — mua qua app giảm 200.000đ, còn 300.000đ",
     "Dùng được cho tất cả các loại máy định vị",
     "Khách cũ hay khách mới đều được hưởng",
   ],

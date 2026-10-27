@@ -66,7 +66,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 > **Lời hứa ≠ route** (cập nhật 2026-06-15): nav **hướng đối tượng** (dock từ 2026-10-19: Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư — mỗi việc một chỗ; trước: Trang chủ · Ra khơi · Tàu cá · Bạn thuyền · Giao dịch), KHÔNG còn 1 route/trục. Bản đồ lời-hứa → nơi ở thật: **Trục 1** `/ngu-truong` · **Trục 2** `/tien` (tab Giao dịch) · **Trục 3** `/tau` (tab Dịch vụ/Sản phẩm) · **Trục 4** `/tau` (tab Giấy tờ) + `/nguoi` (thuyền viên). Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng về nav: [07-design-spec §4](07-design-spec.md). Lời hứa thì không đổi — đó mới là trục.
 
-> **Khuyến mãi SDVICO bán qua app (2026-10-26)**: danh mục `src/data/khuyen-mai.ts` — hiện là **sứ định vị GPS** (giá thị trường 500.000đ, mua qua app 200.000đ, mọi khách cũ/mới, lắp được mọi máy định vị — tin Zalo của Quân, "Vss Quân Bình Định"). Thẻ ở Trang chủ + Vật tư, bấm Đăng ký ⇒ phiếu `sdvico_khach_hoi` ⇒ AI Assistant nhắn Zalo cho Quân giao. Chi tiết [14 §3.14b](14-ba-spec-kairos.md).
+> **Khuyến mãi SDVICO bán qua app (2026-10-26)**: danh mục `src/data/khuyen-mai.ts` — hiện là **sứ định vị GPS** (giá thị trường 500.000đ, mua qua app **giảm 200.000đ, còn 300.000đ** — sửa 2026-10-27, anh Long: "giảm 200k còn 300k chứ ko phải còn 200k", mọi khách cũ/mới, lắp được mọi máy định vị — tin Zalo của Quân, "Vss Quân Bình Định"). Thẻ ở Trang chủ + Vật tư, bấm Đăng ký ⇒ phiếu `sdvico_khach_hoi` ⇒ AI Assistant nhắn Zalo cho Quân giao. Chi tiết [14 §3.14b](14-ba-spec-kairos.md).
 
 ### Trục 1 — Đánh bắt tốt hơn (`/ngu-truong`)
 - **Hứa gì**: ra khơi trúng hơn, đỡ phí dầu phí công.

@@ -1,7 +1,7 @@
 "use client";
 /*
   THẺ ƯU ĐÃI SDVICO + NGĂN ĐĂNG KÝ MUA (2026-10-26) — anh Long chuyển tin Zalo của Quân ("Vss Quân Bình Định"):
-  sứ định vị giá thị trường 500k, mua qua app 200k, cho mọi khách cũ và mới. Khách bấm Đăng ký ⇒ POST
+  sứ định vị giá thị trường 500k, mua qua app giảm 200k còn 300k (sửa 2026-10-27), cho mọi khách cũ và mới. Khách bấm Đăng ký ⇒ POST
   /api/sdvico/khuyen-mai ⇒ phiếu `sdvico_khach_hoi` ⇒ AI Assistant nhắn Zalo cho Quân xử lý (14 §3.14b).
 
   Chỗ đặt: Trang chủ (dưới việc cần làm, trên Thông báo) + đầu Vật tư. Một thẻ MỘT HÀNG kiểu `.surface` (03 §0):

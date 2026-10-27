@@ -1,4 +1,4 @@
-// POST /api/sdvico/khuyen-mai — bà con ĐĂNG KÝ MUA ưu đãi SDVICO (2026-10-26, tin Zalo của Quân: sứ định vị 500k ⇒ 200k
+// POST /api/sdvico/khuyen-mai — bà con ĐĂNG KÝ MUA ưu đãi SDVICO (2026-10-26, tin Zalo của Quân: sứ định vị 500k giảm 200k ⇒ 300k
 // cho mọi khách). Ghi một phiếu `sdvico_khach_hoi` (0072) với `nguon = san-pham`, `san_pham = KhuyenMai.tenPhieu`,
 // `loi_nhan` = số lượng · nơi nhận · ghi chú — KHÔNG migration mới: bảng + đường AI Assistant lấy phiếu ⇒ Zalo cho Quân
 // (14 §3.14) dùng lại nguyên. `tinNhanKd` nhận ra phiếu KM qua `san_pham` và soạn đầu tin "ĐĂNG KÝ MUA KM".
