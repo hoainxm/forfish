@@ -8,12 +8,18 @@
 //
 // ⚠️ KHÔNG cache ở service worker (không nằm trong API_CACHE_ALLOW) và
 // `Cache-Control: no-store` — khoá là thứ ai cũng đòi được nếu nằm trong kho chung.
+//
+// KHOÁ GÓI (2026-10-27): tài khoản premium (luật chung effectiveTier) nhận thêm khoá gói (`data_key_premium`) — giải file
+// `PREMIUM_SDF2` (rạn/chất đáy Allen, độ sâu rạn, mùa vụ cá). Tra hạng hỏng ⇒ vẫn trả khoá chủ (bản đồ thường không
+// được trắng vì Supabase nghẹt), chỉ thiếu khoá gói; lần xin sau có lại.
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
 import { DATA_KEY_RATE } from "@/lib/data-key-server";
 import { supabaseMode } from "@/lib/demo-mode";
-import { loadDataKeys } from "@/lib/data-key-source";
+import { loadDataKeys, loadPremiumKeys } from "@/lib/data-key-source";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { effectiveTier } from "@/lib/staff-store";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +45,19 @@ export async function GET(req: Request) {
   if (!allowRequest(store, phone, Date.now(), DATA_KEY_RATE)) {
     return NextResponse.json({ ok: false, code: "rate_limited" }, { status: 429 });
   }
+  const goi = demo || (await laPremium(phone)) ? await loadPremiumKeys() : [];
   return NextResponse.json(
-    { ok: true, id: keys[0].id, key: keys[0].hex, keys: keys.map((k) => ({ id: k.id, key: k.hex })) },
+    { ok: true, id: keys[0].id, key: keys[0].hex, keys: [...keys, ...goi].map((k) => ({ id: k.id, key: k.hex })) },
     { headers: { "Cache-Control": "no-store" } },
   );
+}
+
+/** Hạng premium? Hỏng / không tra được ⇒ false (chỉ mất khoá gói lượt này, không chặn khoá chủ). */
+async function laPremium(phone: string): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    return !!admin && (await effectiveTier(admin, phone)) === "premium";
+  } catch {
+    return false;
+  }
 }

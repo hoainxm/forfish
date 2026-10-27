@@ -57,7 +57,10 @@ export async function GET(_req: Request, { params }: Ctx) {
       status: 200,
       headers: {
         "Content-Type": ctype,
-        "Cache-Control": `public, max-age=86400, s-maxage=${TILE_PROXY[src].sMaxAge}, immutable`,
+        // ảnh đổi theo ngày (GIBS `default`) ⇒ máy giữ 1 giờ, không `immutable`; ảnh tĩnh giữ 1 ngày
+        "Cache-Control": TILE_PROXY[src].daily
+          ? `public, max-age=3600, s-maxage=${TILE_PROXY[src].sMaxAge}`
+          : `public, max-age=86400, s-maxage=${TILE_PROXY[src].sMaxAge}, immutable`,
       },
     });
   } catch {

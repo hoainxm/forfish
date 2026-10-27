@@ -228,7 +228,7 @@ describe("scripts/encode-data.mjs — hai nhóm", () => {
       writeFileSync(join(dir, "vn-coast.v1.json"), '{"type":"FeatureCollection"}');
       writeFileSync(join(dir, "tide-stations.v1.json"), '{"v":1}');
       writeFileSync(join(dir, "chat-day.v1.pmtiles"), Buffer.from("PMTiles\x03"));
-      const r = encodeDir(dir, { key: KEY });
+      const r = encodeDir(dir, { key: KEY, premiumKey: KEY });
       expect(r.curated).toEqual(["chat-day.v1.pmtiles", "soundings.v1.json", "vn-coast.v1.json"]);
       expect(r.encoded).toEqual(["tide-stations.v1.json"]);
       expect(hasDataHeader2(new Uint8Array(readFileSync(join(dir, "soundings.v1.json"))))).toBe(true);

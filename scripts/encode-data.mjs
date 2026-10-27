@@ -35,6 +35,7 @@ import {
   buildHeader2,
   bytesOfHex,
 } from "../src/lib/data-codec.mjs";
+import { PREMIUM_SDF2 } from "../src/lib/data-premium-files.mjs";
 
 /** Đuôi file được mã hoá. Thứ khác trong thư mục (README, .tmp) để yên. */
 export const DATA_EXTS = new Set([".json", ".bin", ".pmtiles"]);
@@ -88,12 +89,15 @@ export function encodeCurated(raw, key, opts) {
 /**
  * Mã hoá tại chỗ mọi file dữ liệu trong `dir`.
  * @param {string} dir
- * @param {{ key?: Uint8Array | null, curated?: Set<string> }} [opts] `curated` cho test: chỉ các tên này SDF2 (mặc định: isCurated)
+ * File trong `PREMIUM_SDF2` (lib/data-premium-files.mjs) mã bằng KHOÁ GÓI `premiumKey` — chỉ premium nhận khoá đó.
+ * @param {{ key?: Uint8Array | null, premiumKey?: Uint8Array | null, curated?: Set<string>, premium?: Set<string> }} [opts] `curated`/`premium` cho test (mặc định: isCurated / PREMIUM_SDF2)
  * @returns {{ encoded: string[], curated: string[], skipped: string[] }}
  */
 export function encodeDir(dir, opts = {}) {
   const cur = opts.curated ? (n) => opts.curated.has(n) : isCurated;
   const key = opts.key ?? null;
+  const goi = opts.premium ?? PREMIUM_SDF2;
+  const keyGoi = opts.premiumKey ?? null;
   const encoded = [];
   const curated = [];
   const skipped = [];
@@ -107,6 +111,12 @@ export function encodeDir(dir, opts = {}) {
       continue;
     }
     if (cur(name)) {
+      if (goi.has(name) && !keyGoi) {
+        throw new Error(
+          `[encode-data] ${name} thuộc GÓI nhưng KHÔNG CÓ KHOÁ GÓI: build cần app_config.data_key_premium (tự sinh) ` +
+            `hoặc env SDFISH_DATA_KEY_PREMIUM (hex 64).`,
+        );
+      }
       if (!key) {
         throw new Error(
           `[encode-data] ${name} thuộc nhóm biên tập nhưng KHÔNG CÓ KHOÁ: build cần ` +
@@ -114,7 +124,7 @@ export function encodeDir(dir, opts = {}) {
             `hoặc env SDFISH_DATA_KEY (hex 64) để build tay.`,
         );
       }
-      writeFileSync(p, encodeCurated(raw, key, { gzip: ext !== ".pmtiles" }));
+      writeFileSync(p, encodeCurated(raw, goi.has(name) ? keyGoi : key, { gzip: ext !== ".pmtiles" }));
       curated.push(name);
       continue;
     }
@@ -157,17 +167,20 @@ export function findUnencoded(dir, curatedSet) {
  *      không ai phải làm gì. Hai build chạy đua thì insert thứ hai bị bỏ qua
  *      (ignore-duplicates) và đọc lại khoá của build thứ nhất.
  * Không env, không Supabase ⇒ null (build đỏ có chủ ý ở encodeDir).
- * @param {{ env: Record<string, string | undefined>, fetchImpl?: typeof fetch, log?: (s: string) => void }} o
+ * KHOÁ GÓI (2026-10-27) đi cùng đường: `cfgKey: "data_key_premium"`, `envVar: "SDFISH_DATA_KEY_PREMIUM"`.
+ * @param {{ env: Record<string, string | undefined>, fetchImpl?: typeof fetch, log?: (s: string) => void, cfgKey?: string, envVar?: string }} o
  * @returns {Promise<{ key: Uint8Array, source: "env" | "db" | "bootstrap" } | null>}
  */
 export async function resolveBuildKey(o) {
   const env = o.env;
   const log = o.log ?? (() => {});
   const fetchImpl = o.fetchImpl ?? globalThis.fetch;
-  const envHex = (env.SDFISH_DATA_KEY ?? "").trim();
+  const cfgKey = o.cfgKey ?? "data_key_current";
+  const envVar = o.envVar ?? "SDFISH_DATA_KEY";
+  const envHex = (env[envVar] ?? "").trim();
   if (envHex) {
     const k = bytesOfHex(envHex);
-    if (!k || k.length !== 32) throw new Error("[encode-data] SDFISH_DATA_KEY sai dạng — cần đúng 64 ký tự hex");
+    if (!k || k.length !== 32) throw new Error(`[encode-data] ${envVar} sai dạng — cần đúng 64 ký tự hex`);
     return { key: k, source: "env" };
   }
   const url = (env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
@@ -175,7 +188,7 @@ export async function resolveBuildKey(o) {
   if (!url || !srk || !fetchImpl) return null;
   const headers = { apikey: srk, Authorization: `Bearer ${srk}`, "Content-Type": "application/json" };
   const read = async () => {
-    const r = await fetchImpl(`${url}/rest/v1/app_config?select=key,value&key=eq.data_key_current`, { headers });
+    const r = await fetchImpl(`${url}/rest/v1/app_config?select=key,value&key=eq.${cfgKey}`, { headers });
     if (!r.ok) throw new Error(`[encode-data] đọc app_config hỏng: HTTP ${r.status}`);
     const rows = await r.json();
     const v = Array.isArray(rows) && rows[0] && typeof rows[0].value === "string" ? rows[0].value.trim() : "";
@@ -190,12 +203,12 @@ export async function resolveBuildKey(o) {
   const w = await fetchImpl(`${url}/rest/v1/app_config`, {
     method: "POST",
     headers: { ...headers, Prefer: "resolution=ignore-duplicates,return=minimal" },
-    body: JSON.stringify({ key: "data_key_current", value: hex, updated_by: "build:encode-data", updated_at: new Date().toISOString() }),
+    body: JSON.stringify({ key: cfgKey, value: hex, updated_by: "build:encode-data", updated_at: new Date().toISOString() }),
   });
   if (!w.ok) throw new Error(`[encode-data] ghi khoá mới vào app_config hỏng: HTTP ${w.status}`);
   const after = await read();
   if (!after) throw new Error("[encode-data] ghi xong đọc lại không thấy khoá");
-  log(`[encode-data] app_config chưa có khoá — đã TỰ SINH và ghi (id ${createHash("sha256").update(after).digest("hex").slice(0, 16)})`);
+  log(`[encode-data] app_config chưa có ${cfgKey} — đã TỰ SINH và ghi (id ${createHash("sha256").update(after).digest("hex").slice(0, 16)})`);
   return { key: after, source: "bootstrap" };
 }
 
@@ -230,7 +243,9 @@ if (isMain) {
   try {
     const got = await resolveBuildKey({ env: process.env, log: console.log });
     if (got) console.log(`[encode-data] khoá dữ liệu: nguồn ${got.source}`);
-    const { encoded, curated, skipped } = encodeDir(dir, { key: got?.key ?? null });
+    const goi = await resolveBuildKey({ env: process.env, log: console.log, cfgKey: "data_key_premium", envVar: "SDFISH_DATA_KEY_PREMIUM" });
+    if (goi) console.log(`[encode-data] khoá gói: nguồn ${goi.source}`);
+    const { encoded, curated, skipped } = encodeDir(dir, { key: got?.key ?? null, premiumKey: goi?.key ?? null });
     console.log(
       `[encode-data] ${dir}: SDF1 ${encoded.length} file, SDF2 ${curated.length} file, bỏ qua ${skipped.length} (đã mã) trong ${Date.now() - t0} ms`,
     );

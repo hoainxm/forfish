@@ -19,7 +19,8 @@ import { importAesKey, keyIdOf } from "@/lib/data-crypt";
 /** Quy ước khoá forfish.* (xem docs/app-map/ops/state-registry.md) */
 export const DATA_KEY_STORE = "forfish.datakey.v1";
 export const DATA_KEY_ROUTE = "/api/data-key";
-const KEEP = 3;
+// chủ hiện hành + chủ trước + khoá gói của hai khoá đó (2026-10-27) + một chỗ dư cho khoá cũ hơn
+const KEEP = 5;
 
 type Store = Record<string, string>; // keyId → hex 64
 
@@ -96,15 +97,23 @@ export function fetchDataKey(): Promise<{ id: string; hex: string } | null> {
 }
 
 const mem = new Map<string, Promise<CryptoKey | null>>();
+/*  KHOÁ VỪA HỎI MÀ SERVER KHÔNG TRAO (khoá gói cho tài khoản thường, 2026-10-27): nhớ 10 phút, khỏi mỗi lần đọc file
+    gói lại gọi /api/data-key — trần 30 lượt/ngày, xài hết là máy hết đường xin khoá chủ khi admin đổi khoá. */
+const MISS_MS = 10 * 60 * 1000;
+const missUntil = new Map<string, number>();
 
 /** Khoá cho `keyId`: RAM → kho máy → server. Không có ⇒ null (không ném). */
 export function getDataKey(keyId: string): Promise<CryptoKey | null> {
   let p = mem.get(keyId);
   if (p) return p;
   p = (async () => {
+    // nhường một nhịp: nhánh không gọi mạng chạy ĐỒNG BỘ tới `mem.delete` — trước khi `mem.set` bên dưới kịp chạy,
+    // thì null bị đệm vĩnh viễn (dính 2026-10-27 khi thêm missUntil)
+    await Promise.resolve();
     let hex = readStore()[keyId];
-    if (!hex) {
+    if (!hex && (missUntil.get(keyId) ?? 0) <= Date.now()) {
       const got = await fetchDataKey();
+      if (got && !readStore()[keyId] && got.id !== keyId) missUntil.set(keyId, Date.now() + MISS_MS);
       // Đọc lại kho: server trả [hiện hành, trước đó] — file mã bằng khoá TRƯỚC
       // (máy chưa kịp tải bản mới sau khi admin đổi khoá) cũng phải mở được.
       hex = readStore()[keyId] ?? (got?.id === keyId ? got.hex : undefined);
@@ -153,6 +162,7 @@ export function refreshDataKeyOnce(): void {
 /** Cho test: xoá đệm RAM. */
 export function __resetDataKeyCacheForTest(): void {
   mem.clear();
+  missUntil.clear();
   inflight = null;
   refreshed = false;
 }

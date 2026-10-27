@@ -40,7 +40,6 @@ export type OceanLayerDef = {
   maxNativeZoom: number;
 };
 
-const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best";
 
 /*
   Màu gradient chú giải mô phỏng thang màu của ảnh vệ tinh (nội dung bản đồ,
@@ -70,8 +69,8 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
     // nhận từ khoá thời gian `default` = ảnh mới nhất còn, do CHÍNH nguồn chọn
     // ⇒ hết đoán độ trễ, hết 404 vì ngày chưa có. UI không hiện ngày ảnh nên
     // không mất nhãn nào (xem ra-khoi-controls `cadLine`).
-    tiles: () =>
-      `${GIBS}/GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies/default/default/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
+    // qua cầu /api/tiles/sst (2026-10-27): gói chặn ở middleware + SW giữ ô — URL GIBS ở lib/tile-proxy
+    tiles: () => proxyTileTemplate("sst"),
     maxNativeZoom: 7,
   },
   chlorophyll: {
@@ -88,8 +87,7 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
     // Cùng lý do SST: dùng NGÀY `default` của GIBS thay vì tự trừ ngày. Lớp
     // phù du (VIIRS) hôm nay trễ ít hơn, nhưng độ trễ vẫn đổi theo ngày —
     // `default` để nguồn tự chọn ảnh mới nhất còn, khỏi 404 lúc ngày chưa có.
-    tiles: () =>
-      `${GIBS}/VIIRS_NOAA20_Chlorophyll_a/default/default/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
+    tiles: () => proxyTileTemplate("chlorophyll"),
     maxNativeZoom: 7,
   },
   bathymetry: {

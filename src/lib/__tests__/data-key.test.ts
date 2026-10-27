@@ -15,7 +15,7 @@ import { DEVICE_TOKEN_LEN, DEVICE_TOKEN_PREFIX } from "@/lib/device-token";
 
 /*  KHO KHOÁ PHÍA MÁY (2026-09-16): xin ở /api/data-key, cất `forfish.datakey.v1`,
     RAM → kho → server; mọi lỗi mạng ⇒ null, KHÔNG ném; id server nói phải khớp
-    băm của khoá; kho giữ tối đa 3 khoá; prefetch không tốn lượt khi kho có. */
+    băm của khoá; kho giữ tối đa 5 khoá (2026-10-27: + khoá gói); prefetch không tốn lượt khi kho có. */
 
 const KEY = new Uint8Array(randomBytes(32));
 const ID = keyIdOfSync(KEY);
@@ -104,16 +104,26 @@ describe("getDataKey", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it("kho trống ⇒ xin server; server trả id KHÁC ⇒ null và lần sau thử lại", async () => {
+  it("kho trống ⇒ xin server; server trả id KHÁC ⇒ null, nghỉ 10 phút rồi thử lại (không khoá vĩnh viễn)", async () => {
+    // 2026-10-27: khoá gói là id server KHÔNG trao cho tài khoản thường — hỏi liền tay là đốt trần 30 lượt/ngày
     const other = new Uint8Array(randomBytes(32));
     const spy = vi
       .fn()
       .mockResolvedValueOnce(okResp({ ok: true, id: keyIdOfSync(other), key: hexOf(other) }))
       .mockResolvedValueOnce(okResp({ ok: true, id: ID, key: hexOf(KEY) }));
     vi.stubGlobal("fetch", spy);
-    expect(await getDataKey(ID)).toBeNull();
-    expect(await getDataKey(ID), "lần 2 phải gọi lại — không khoá vĩnh viễn").not.toBeNull();
-    expect(spy).toHaveBeenCalledTimes(2);
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      expect(await getDataKey(ID)).toBeNull();
+      expect(await getDataKey(ID), "trong 10 phút: không gọi lại").toBeNull();
+      expect(spy).toHaveBeenCalledTimes(1);
+      clock.mockReturnValue(now + 10 * 60 * 1000 + 1);
+      expect(await getDataKey(ID), "quá 10 phút phải gọi lại").not.toBeNull();
+      expect(spy).toHaveBeenCalledTimes(2);
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   it("kho hỏng (JSON rác / giá trị lạ) ⇒ coi như trống, không ném", async () => {
@@ -124,17 +134,17 @@ describe("getDataKey", () => {
     expect(await getDataKey(ID)).toBeNull();
   });
 
-  it("kho giữ tối đa 3 khoá, đuổi khoá cũ nhất", async () => {
-    const keys = [0, 1, 2, 3].map(() => new Uint8Array(randomBytes(32)));
+  it("kho giữ tối đa 5 khoá, đuổi khoá cũ nhất", async () => {
+    const keys = [0, 1, 2, 3, 4, 5].map(() => new Uint8Array(randomBytes(32)));
     for (const k of keys) {
       __resetDataKeyCacheForTest();
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResp({ ok: true, id: keyIdOfSync(k), key: hexOf(k) })));
       await fetchDataKey();
     }
     const store = JSON.parse(ls.getItem(DATA_KEY_STORE)!) as Record<string, string>;
-    expect(Object.keys(store)).toHaveLength(3);
+    expect(Object.keys(store)).toHaveLength(5);
     expect(store[keyIdOfSync(keys[0])]).toBeUndefined();
-    expect(store[keyIdOfSync(keys[3])]).toBe(hexOf(keys[3]));
+    expect(store[keyIdOfSync(keys[5])]).toBe(hexOf(keys[5]));
   });
 });
 

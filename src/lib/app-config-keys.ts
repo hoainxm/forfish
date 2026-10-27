@@ -8,6 +8,7 @@ export type ConfigKey =
   | "cron_secret"
   | "data_key_current"
   | "data_key_prev"
+  | "data_key_premium"
   | "kairos_ingest_key"
   | "tau_ais_key"
   | "sdvico_lead_key";
@@ -87,6 +88,18 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     envVar: "SDFISH_DATA_KEY_PREV",
     help: "Tự chuyển từ khoá hiện hành khi đổi khoá — máy đã tải file bằng khoá cũ vẫn đọc được. Xoá bằng cách dán một khoá mới đè lên.",
   },
+  /*  KHOÁ GÓI (2026-10-27, anh Long: "tất cả tải lưu server đi"): mã riêng các file chỉ premium đọc (lib/data-premium-
+      files.mjs — rạn/chất đáy Allen, độ sâu rạn, mùa vụ cá); /api/data-key chỉ trao cho tài khoản premium. Ngẫu nhiên,
+      KHÔNG suy từ khoá chủ (tài khoản thường giữ khoá chủ trong máy). Build đầu tự sinh. */
+  {
+    key: "data_key_premium",
+    label: "Khoá dữ liệu gói (premium)",
+    risk: "Đổi là sau lần deploy kế, máy premium phải có sóng xin lại khoá mới đọc được lớp rạn/chất đáy/mùa vụ cá.",
+    secret: true,
+    envVar: "SDFISH_DATA_KEY_PREMIUM",
+    generate: "hex32",
+    help: "Mã các file chỉ gói đọc (hình rạn + chất đáy Allen, độ sâu rạn xa bờ, mùa vụ cá). Build đầu tự sinh. Chỉ tài khoản premium nhận khoá này.",
+  },
   /*  KHOÁ NHẬP TIN KAIROS (14 §9, AC17/AC21/AC24, 2026-10-23): máy GPU nhà gửi bài báo đã
       tóm tắt lên /api/kairos/nhap và quyết định kiểm duyệt lên /api/kairos/kiem, kèm khoá
       này ở header `x-kairos-key`. Env KAIROS_INGEST_KEY đặt thì ĐÈ ô này (lib/kairos/
@@ -144,6 +157,7 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
   switch (key) {
     case "data_key_current":
     case "data_key_prev":
+    case "data_key_premium":
       return isDataKeyValue(v);
     case "vapid_public_key":
       // P-256 điểm công khai 65 byte → base64url 87 ký tự (web-push sinh ra thế)

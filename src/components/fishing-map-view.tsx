@@ -897,8 +897,9 @@ export default function FishingMapView() {
       hình rạn chi tiết (Allen Coral Atlas CC-BY) · độ mặn + dòng chảy tầng sâu (Copernicus) · nước xoáy (NOAA) ·
       dẫn đường. MIỄN PHÍ (đã đăng nhập) = nền vector, hải đồ/phao/rạn OSM, tên rạn (TT 33/2024), số đo + đẳng sâu,
       gió/sóng/mưa/mây/nhiệt Open-Meteo CẢ 16 NGÀY (giấy phép free của Open-Meteo không cho bán ⇒ không gác), AIS.
-      Lớp đi qua máy chủ chốt thật ở middleware; ảnh NASA (gọi thẳng) + file tĩnh chỉ khoá ở đây —
-      // nợ: lớp nền ảnh NASA + file tĩnh Allen khoá ở giao diện, người rành kỹ thuật vẫn lấy được; nâng khi chuyển ảnh NASA qua /api/tiles và cấp khoá giải mã file tĩnh theo gói. */
+      Chặn THẬT (anh Long: "tất cả tải lưu server đi"): ảnh NASA qua /api/tiles/sst|chlorophyll (middleware 403); file tĩnh
+      gói (rạn/chất đáy Allen, độ sâu rạn, mùa vụ cá) mã bằng KHOÁ GÓI chỉ premium nhận (lib/data-premium-files.mjs).
+      Khoá ở đây là lớp vỏ: không gọi tải thứ chắc chắn bị từ chối. */
   // (premiumAccess / premiumLocked khai báo sớm hơn — trước effect nước xoáy dùng nó)
   useEffect(() => {
     // chỉ tải khi bật + chưa có + không khoá premium; lỗi ⇒ "error", chạm thử lại tăng fleetRetry
