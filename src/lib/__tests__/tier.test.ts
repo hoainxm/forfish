@@ -4,6 +4,7 @@ import {
   featureAccessDecision,
   formatPremiumUntil,
   FREE_FORECAST_DAYS,
+  soNgayThoiTiet,
   clampTermMonths,
   nextPremiumUntil,
   premiumMarkHasExpiry,
@@ -59,8 +60,10 @@ describe("resolveTier", () => {
     expect(resolveTier("premium", "không-phải-ngày", NOW)).toBe("basic");
   });
 
-  it("thời tiết miễn phí đúng 3 ngày", () => {
-    expect(FREE_FORECAST_DAYS).toBe(3);
+  it("thời tiết không cần gói CHỈ hôm nay (anh Long 2026-10-27: thường ko có dự báo, chỉ có ngày hôm nay)", () => {
+    expect(FREE_FORECAST_DAYS).toBe(1);
+    expect(soNgayThoiTiet("open")).toBe(16);
+    for (const a of ["login", "upgrade", "checking"] as const) expect(soNgayThoiTiet(a), a).toBe(1);
   });
 });
 

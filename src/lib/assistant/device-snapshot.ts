@@ -37,7 +37,14 @@ import type { LivePriceResult } from "@/lib/port-price-source";
 import { loadHome } from "@/lib/region";
 import { readSeaCache } from "@/lib/sea";
 import { STORM_ID, STORM_NS, type StormCheck } from "@/lib/storms";
-import { effectivePremiumMark, readPremiumMark, readTierMarkRaw, readTierUntilRaw } from "@/lib/tier";
+import {
+  effectivePremiumMark,
+  FREE_FORECAST_DAYS,
+  readPremiumMark,
+  readTierMarkRaw,
+  readTierUntilRaw,
+  THOI_TIET_XA_CAN_GOI,
+} from "@/lib/tier";
 import { isOffline } from "@/lib/use-online";
 import { readUserList } from "@/lib/user-list-store";
 import type { DeviceSnapshot, DocSummary, MaintenanceSummary, OrderSummary, SeaDaySummary } from "./types";
@@ -71,7 +78,8 @@ function homeOfDevice(): DeviceSnapshot["home"] {
 
 function weatherOf(home: DeviceSnapshot["home"]): DeviceSnapshot["weather"] {
   if (!home) return null;
-  const c = readSeaCache(home.portId);
+  // tài khoản thường: Sen Biển cũng chỉ thấy HÔM NAY (2026-10-27 — nhiều ngày đi kèm gói dự báo cá)
+  const c = readSeaCache(home.portId, THOI_TIET_XA_CAN_GOI && !premiumOf() ? FREE_FORECAST_DAYS : 16);
   if (!c) return null;
   const days: SeaDaySummary[] = c.days.map((d) => ({
     date: d.date,

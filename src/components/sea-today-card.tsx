@@ -16,6 +16,8 @@
 */
 
 import { useEffect, useState } from "react";
+import { useFeatureAccess } from "@/lib/use-tier";
+import { soNgayThoiTiet } from "@/lib/tier";
 import Link from "next/link";
 import { PORTS, type FishingPort } from "@/data/ports";
 import { ChevronRightIcon } from "@/components/icons";
@@ -60,6 +62,8 @@ export function SeaTodayCard() {
   const [days, setDays] = useState<ScoredSeaDay[] | null>(null);
   /** mốc lưu của bản đang hiện khi nó là BẢN LƯU (mạng chưa/không trả) — null = bản mới */
   const [banLuu, setBanLuu] = useState<number | null>(null);
+  // thẻ chỉ hiện HÔM NAY ⇒ khách/thường xin đúng 1 ngày (2026-10-27 — máy chủ gác ngày, tier.ts soNgayThoiTiet)
+  const soNgay = soNgayThoiTiet(useFeatureAccess().access);
 
   // đọc localStorage SAU hydrate — SSR không có cảng nhà
   useEffect(() => {
@@ -69,7 +73,7 @@ export function SeaTodayCard() {
   useEffect(() => {
     if (!port) return;
     let alive = true;
-    const luu = readSeaCache(port.id);
+    const luu = readSeaCache(port.id, soNgay);
     if (luu) setDays(luu.days);
     /*  Mốc lưu THẬT sau khi hỏi xong — `fetchSeaForecast` tự lùi về bản cũ trong máy mà
         KHÔNG ném lỗi, nên không thể suy "mới" từ việc nó trả về. Quá BAN_LUU_SAU_MS ⇒ nói
@@ -78,11 +82,11 @@ export function SeaTodayCard() {
     // "Bản lưu"; nâng khi fetchSeaForecast trả kèm mốc của chính bản nó đưa ra.
     const chotMoc = () => {
       if (!alive) return;
-      const sau = readSeaCache(port.id);
+      const sau = readSeaCache(port.id, soNgay);
       const moc = sau?.savedAt ?? luu?.savedAt ?? 0;
       setBanLuu(moc > 0 && Date.now() - moc > BAN_LUU_SAU_MS ? moc : null);
     };
-    fetchSeaForecast(port)
+    fetchSeaForecast(port, soNgay)
       .then((d) => {
         if (alive && d.length > 0) setDays(d);
         chotMoc();
@@ -91,7 +95,7 @@ export function SeaTodayCard() {
     return () => {
       alive = false;
     };
-  }, [port]);
+  }, [port, soNgay]);
 
   if (!port || !days) return null;
   const today = days.find((d) => d.date === isoDateVN());

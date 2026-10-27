@@ -1,5 +1,9 @@
 // Phân hạng tài khoản (logic THUẦN — dùng chung client/middleware/route).
-// 'basic' (mặc định) | 'premium'. Premium mở: dự báo cá + thời tiết quá 3 ngày + DẪN ĐƯỜNG.
+// 'basic' (mặc định) | 'premium'. Premium mở (đổi 2026-10-27, anh Long: "lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu
+// premium còn lại cho free"): DỰ BÁO CÁ + lớp có nguồn cho bán (độ sâu EMODnet, chất đáy/rạn Allen, độ mặn + dòng tầng
+// sâu Copernicus, nước xoáy NOAA, ảnh vệ tinh nhiệt độ/phù du) + DẪN ĐƯỜNG + THỜI TIẾT NHIỀU NGÀY (thường/khách chỉ hôm
+// nay — THOI_TIET_XA_CAN_GOI, FREE_FORECAST_DAYS). Bản đồ còn lại miễn phí cho tài khoản. Luật route:
+// data-route-rules.ts; màn: fishing-map-view "GÓI THEO LỚP".
 // (2026-10-25, rà FB QĐ B) Ô "Đi đâu?" — đi tới điểm / điểm đã lưu / cảng / toạ độ — MIỄN PHÍ cho
 // mọi tài khoản đã đăng nhập (bản đồ là miễn phí, CLAUDE.md); chỉ vẽ lộ trình dẫn đường mới gác hạng.
 // (2026-10-19) "Dự báo cá" bán = lớp BÃI CÁ THEO MÙA (điểm nền từ sản lượng thật, fish-base.ts)
@@ -9,6 +13,16 @@
 // thanh toán.
 
 export type AccountTier = "basic" | "premium";
+
+/**
+ * Thời tiết QUÁ FREE_FORECAST_DAYS (lưới gió/sóng/mưa…, cảng, điểm chạm — Open-Meteo) có cần gói không.
+ * BẬT lại 2026-10-27 theo chốt của anh Long: *"thường ko có dự báo, chỉ có ngày hôm nay thôi"* — *"t ko bán cái đó,
+ * nó đc kèm trong tổng dự báo cá của t cho premium"*: nhiều ngày thời tiết đi KÈM gói dự báo cá, không bán riêng.
+ * (Bản tắt trước đó cùng ngày dựa trên điều khoản free "non-commercial" của Open-Meteo — docs/formaps/01; việc có cần
+ * gói Open-Meteo trả phí hay không là chuyện pháp lý, chủ dự án quyết.) Đọc chung: màn bản đồ (chip ngày, tầm lưới,
+ * câu Sen Biển), thẻ biển cảng, data-route-rules (cầu /api/om, grid:/scalar:/sea:).
+ */
+export const THOI_TIET_XA_CAN_GOI = true;
 
 /* ── DẤU HẠNG LƯU TRONG MÁY ────────────────────────────────────────────────
    Khoá đặt ở đây (chứ không ở use-tier.ts) để module THUẦN — offline-identity —
@@ -327,8 +341,14 @@ export function shouldRetryTierQuery(a: {
  *    cùng nếp với các gate khác trong app) */
 export type FeatureAccess = "checking" | "login" | "upgrade" | "open";
 
-/** Thời tiết mở miễn phí đúng 3 ngày (hôm nay + 2 ngày kế) — quá 3 ngày là premium. */
-export const FREE_FORECAST_DAYS = 3;
+/** Thời tiết không cần gói: CHỈ HÔM NAY (2026-10-27, anh Long: "thường ko có dự báo, chỉ có ngày hôm nay thôi";
+ *  trước đó 3 ngày). Nhiều ngày = gói (đi kèm dự báo cá). */
+export const FREE_FORECAST_DAYS = 1;
+
+/** Số ngày thời tiết được XIN theo nấc truy cập: gói ⇒ 16; còn lại (khách, thường, đang kiểm) ⇒ hôm nay. */
+export function soNgayThoiTiet(access: FeatureAccess): number {
+  return !THOI_TIET_XA_CAN_GOI || access === "open" ? 16 : FREE_FORECAST_DAYS;
+}
 
 /** SỐ THÁNG mặc định 1 lần kích hoạt/gia hạn premium (gói 500k = 1 năm 6 tháng,
  *  ưu đãi +6 tháng từ 2026-08-04; trước đó 12 tháng). KHÔNG hardcode một mốc cứng

@@ -1,5 +1,8 @@
 # 01 — Sản phẩm / Product: bốn lời hứa với bà con
 
+> **QUYỀN XEM ĐỔI 2026-10-27** (anh Long: *"Cho bà con xem các tính năng miễn phí, chỉ có vào bản đồ là bắt đăng nhập"* → *"lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu premium còn lại cho free"*): **KHÁCH (chưa tài khoản)** xem tin bão, giá cá, giá dầu, thời tiết theo cảng, Kairos, Chợ, Vật tư, danh bạ cảng `/cang`, Sen Biển. **Bản đồ `/ngu-truong`** cần đăng nhập; **miễn phí**: nền vector, phao/hải đồ/rạn OSM, tên rạn (TT 33/2024), số đo + đẳng sâu, gió/sóng/mưa/mây/nhiệt **HÔM NAY**, tàu AIS. **THỜI TIẾT NHIỀU NGÀY** (đổi lần hai cùng ngày, anh Long: *"thường ko có dự báo, chỉ có ngày hôm nay thôi"* — *"t ko bán cái đó, nó đc kèm trong tổng dự báo cá của t cho premium"*): khách + tài khoản thường chỉ HÔM NAY ở mọi chỗ (thẻ biển cảng, Trang chủ, bản đồ, chạm điểm, Sen Biển, tải trước chuyến); 16 ngày đi KÈM gói dự báo cá, không bán riêng (`THOI_TIET_XA_CAN_GOI=true`, `FREE_FORECAST_DAYS=1`). Chặn thật ở máy chủ: máy bà con không gọi thẳng Open-Meteo nữa mà qua cầu `/api/om` (middleware gác `forecast_days`). ⚠️ Điều khoản free của Open-Meteo ghi non-commercial — chủ dự án quyết có mua gói trả phí hay không. **GÓI**: dự báo cá; lớp nền ảnh (nhiệt độ nước, vùng nhiều mồi — NASA; độ sâu EMODnet CC-BY); chất đáy + hình rạn chi tiết (Allen Coral Atlas CC-BY); độ mặn + dòng chảy tầng sâu (Copernicus); nước xoáy (NOAA); dẫn đường. Hồ sơ tàu / thuyền viên / đặt hàng / bán hàng vẫn cần tài khoản. ⚠️ Pháp lý: Luật Đo đạc và Bản đồ 2018 khi bán lớp bản đồ (formaps/00 §8) — chờ luật sư.
+
+
 > **Mục đích / Purpose**: Định nghĩa canonical về sản phẩm ForFish — bốn lời hứa, thứ tự build, nguồn dữ liệu và quy tắc adapter, vòng lặp giá trị giữa các trục.
 
 **Load khi / Load when**: cần hiểu scope một trục, quyết định feature thuộc trục nào, đụng tới data vendor (OceanByte, SDWork), hoặc viết copy/positioning.
@@ -66,7 +69,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 > **Lời hứa ≠ route** (cập nhật 2026-06-15): nav **hướng đối tượng** (dock từ 2026-10-19: Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư — mỗi việc một chỗ; trước: Trang chủ · Ra khơi · Tàu cá · Bạn thuyền · Giao dịch), KHÔNG còn 1 route/trục. Bản đồ lời-hứa → nơi ở thật: **Trục 1** `/ngu-truong` · **Trục 2** `/tien` (tab Giao dịch) · **Trục 3** `/tau` (tab Dịch vụ/Sản phẩm) · **Trục 4** `/tau` (tab Giấy tờ) + `/nguoi` (thuyền viên). Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng về nav: [07-design-spec §4](07-design-spec.md). Lời hứa thì không đổi — đó mới là trục.
 
-> **Khuyến mãi SDVICO bán qua app (2026-10-26)**: danh mục `src/data/khuyen-mai.ts` — hiện là **sứ định vị GPS** (giá thị trường 500.000đ, mua qua app 200.000đ, mọi khách cũ/mới, lắp được mọi máy định vị — tin Zalo của Quân, "Vss Quân Bình Định"). Thẻ ở Trang chủ + Vật tư, bấm Đăng ký ⇒ phiếu `sdvico_khach_hoi` ⇒ AI Assistant nhắn Zalo cho Quân giao. Chi tiết [14 §3.14b](14-ba-spec-kairos.md).
+> **Khuyến mãi SDVICO bán qua app (2026-10-26)**: danh mục `src/data/khuyen-mai.ts` — hiện là **sứ định vị GPS** (giá thị trường 500.000đ, mua qua app **giảm 200.000đ, còn 300.000đ** — sửa 2026-10-27, anh Long: "giảm 200k còn 300k chứ ko phải còn 200k", mọi khách cũ/mới, lắp được mọi máy định vị — tin Zalo của Quân, "Vss Quân Bình Định"). Thẻ ở Trang chủ + Vật tư, bấm Đăng ký ⇒ phiếu `sdvico_khach_hoi` ⇒ AI Assistant nhắn Zalo cho Quân giao. Chi tiết [14 §3.14b](14-ba-spec-kairos.md).
 
 ### Trục 1 — Đánh bắt tốt hơn (`/ngu-truong`)
 - **Hứa gì**: ra khơi trúng hơn, đỡ phí dầu phí công.

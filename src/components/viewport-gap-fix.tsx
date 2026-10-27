@@ -1,7 +1,7 @@
 "use client";
 
 /*
-  DOCK bản cài iOS (standalone) — GHIM CAO ĐÚNG VÙNG NHÌN THẤY.
+  DOCK bản cài iOS (standalone) — GHIM CAO ĐÚNG VÙNG NHÌN THẤY. CHỈ iOS (laIosWebKit — 2026-10-27).
 
   Bug WebKit standalone (số 158055568): iOS báo chiều cao viewport KHÁC nhau giữa
   các tab — tab cuộn được cho viewport ĐẦY, tab tĩnh (map fixed) cho viewport
@@ -21,18 +21,20 @@
 
   Lưu localStorage theo screen.w×h → mở lại có ngay mốc, khỏi đo lại (đỡ giật).
   KHÔNG đo lúc gõ (bàn phím mở → viewport ngắn hợp lệ). Ngoài standalone: không chạy.
-
-  CHỈ iOS (2026-10-27, ảnh bản cài Android: dock chỉ lòi ~20px trên thanh ☰ □ ◁).
-  Bug trên là của WebKit; Chrome Android ghim `fixed; bottom:0` đúng sẵn. Chạy cả
-  trên Android thì trần `screen.height` VÔ DỤNG — ở Android nó gồm CẢ thanh trạng
-  thái + thanh điều hướng — nên một lần đo vọt (ẩn thanh, chia đôi màn, đổi kiểu
-  điều hướng) chốt mốc cao hơn vùng nhìn thấy đúng một thanh, "chỉ lớn lên" + lưu
-  máy ⇒ dock kẹt sau thanh điều hướng mãi. Mốc `forfish.pwa-frame.*` cũ trên máy
-  Android để nguyên (không còn ai đọc), không xoá khoá của bà con.
 */
 
 import { useEffect } from "react";
-import { isIOS } from "@/lib/storage-persist";
+
+/**
+ * CHỈ iOS/iPadOS (sửa 2026-10-27, anh Long chụp Android: "lỗi tràn viền kìa" — dock lọt xuống dưới thanh điều hướng 3
+ * nút). Bug 158055568 là của WebKit; Android không có. Chạy trên PWA Android thì "lấy đáy LỚN NHẤT rồi khoá + lưu máy"
+ * gặp một lần viewport cao vọt (thanh điều hướng tạm ẩn, màn khởi động, đổi kiểu điều hướng) là khoá --app-vh cao hơn
+ * vùng nhìn thấy ĐÚNG một thanh điều hướng — vĩnh viễn. Android dùng khung fixed thường (đã đúng). iPad "desktop" báo
+ * UA Macintosh ⇒ nhận qua điểm chạm.
+ */
+export function laIosWebKit(ua: string, maxTouchPoints: number): boolean {
+  return /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && maxTouchPoints > 1);
+}
 
 export function ViewportGapFix() {
   useEffect(() => {
@@ -42,7 +44,7 @@ export function ViewportGapFix() {
       window.matchMedia?.("(display-mode: standalone)").matches === true ||
       (navigator as { standalone?: boolean }).standalone === true;
     if (!standalone) return; // ngoài bản cài: không đụng gì
-    if (!isIOS()) return; // bug WebKit — Android/máy khác để CSS mặc định (xem đầu file)
+    if (!laIosWebKit(navigator.userAgent, navigator.maxTouchPoints ?? 0)) return; // Android/desktop: khung fixed thường
 
     const de = document.documentElement;
     de.classList.add("pwa-frame");

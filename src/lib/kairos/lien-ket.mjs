@@ -7,8 +7,11 @@
 //
 // Luật trùng: link chuẩn hoá trùng ⇒ bỏ VĨNH VIỄN (url_hash unique); tiêu đề chuẩn hoá
 // trùng trong 7 NGÀY ⇒ bỏ (báo khác đăng lại cùng tin).
-
-import { createHash } from "node:crypto";
+//
+// KHÔNG `import … from "node:crypto"` ở đầu file (2026-10-26): `foldVi` của file này đi vào
+// màn Kairos phía điện thoại (khu-vuc, chu-de, chinh-sach → thu-core…), import tĩnh làm Next
+// nhét nguyên bộ crypto giả lập ~420 KB vào JS MỌI trang. `urlHash` chỉ chạy ở máy chủ/máy thu
+// ⇒ lấy node:crypto lúc gọi (`process.getBuiltinModule`, Node ≥ 20.16). Cổng: kairos-lien-ket-chu-de.test.ts.
 
 /** Tham số theo dõi quảng cáo — bỏ khỏi link trước khi băm. */
 const TRACKING = /^(utm_[a-z_]*|fbclid|gclid|zarsrc|zaloid|_gl|mc_cid|mc_eid)$/i;
@@ -73,7 +76,7 @@ export function normalizeUrl(raw) {
  */
 export function urlHash(raw) {
   const n = normalizeUrl(raw);
-  return n ? createHash("sha256").update(n).digest("hex") : null;
+  return n ? process.getBuiltinModule("node:crypto").createHash("sha256").update(n).digest("hex") : null;
 }
 
 /**

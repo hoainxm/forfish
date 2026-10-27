@@ -59,7 +59,7 @@ export async function PATCH(req: Request) {
   if (!w.ok) return w.res;
   const { store, phone, profile } = w;
   const v = validateMePatch(await jsonBody(req), profile.id, PORT_IDS);
-  if (!v.ok) return kErr(400, v.code);
+  if (!v.ok) return kErr(400, v.code, v.code === "dangerous_link" ? { term: v.term } : undefined); // loại link ⇒ câu báo đúng (2026-10-27)
   const patch: ProfilePatch = {};
   const now = Date.now();
   try {

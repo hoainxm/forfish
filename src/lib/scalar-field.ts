@@ -29,8 +29,9 @@ import { isCacheCurrent, isDailyCacheCurrent } from "@/lib/source-cadence";
 import {
   scalarSnapshotId,
   salinitySnapshotId,
-  SNAPSHOT_DAY_SET,
+  CLIENT_SNAPSHOT_DAYS,
 } from "@/lib/weather-snapshot-id";
+import { omUrl } from "@/lib/om-url";
 import {
   gridPoints,
   stepHourIndices,
@@ -100,15 +101,19 @@ export async function fetchScalarFieldsLive(
   // ECMWF IFS chỉ ~15 ngày → xin 16 là LỖI 400 cả request. Cắt trần để backup
   // vẫn ra 15 ngày; ngày 16 để trống (không available) — user chốt 2026-07-29.
   const cap = opts?.maxForecastDays ?? 16;
-  const fd = Math.min(cap, Math.max(1, Math.round(days)) + 1);
+  // khung HÔM NAY (2026-10-27) xin đúng 1 ngày — cầu /api/om chỉ cho tài khoản thường forecast_days=1
+  const fd = Math.round(days) <= 1 ? 1 : Math.min(cap, Math.round(days) + 1);
   const hourly = Object.values(OM_VAR).join(",");
-  const url =
-    `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}` +
-    `&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}&hourly=${hourly}` +
-    (opts?.model ? `&models=${opts.model}` : "");
+  // QUA CẦU /api/om trên máy bà con (gác số ngày ở máy chủ — lib/om-url); cron gọi thẳng nguồn
+  const url = omUrl(
+    "forecast",
+    `latitude=${lats}&longitude=${lons}` +
+      `&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}&hourly=${hourly}` +
+      (opts?.model ? `&models=${opts.model}` : ""),
+  );
 
   // 20 s = trần NGỪNG CHẢY (lib/tai-co-nhip, 2026-10-26), không phải trần tổng
-  const res = await taiJsonCoNhip(url, {}, 20000).then(({ res: r, json }) => {
+  const res = await taiJsonCoNhip(url, { headers: tokenHeader() }, 20000).then(({ res: r, json }) => {
     if (!r.ok || json == null) throw new Error(`scalar grid ${r.status}`);
     return json as Record<string, unknown> | Record<string, unknown>[];
   });
@@ -177,7 +182,7 @@ const cacheId = (kind: ScalarKind, days: number) => `${kind}.d${Math.round(days)
 
 /** Các khung có thể đã lưu trong máy (pretrip tải 3 + 16) — để mượn khung ngắn
     hơn khi khung đang xin không có (nguồn 429/mất sóng). */
-const SCALAR_FALLBACK_DAYS = [3, 16] as const;
+const SCALAR_FALLBACK_DAYS = [1, 3, 16] as const; // + khung hôm nay (2026-10-27)
 
 /** Các khung ngày lớp dải màu `kind` đang giữ trong máy (thuần đọc — cho
     bảng "trong máy đang có gì" của pretrip-status). */
@@ -416,7 +421,7 @@ export async function fetchScalarField(
   // bản cron tính sẵn (same-origin, CDN + SW cache) TRƯỚC khi gọi Open-Meteo
   // bằng IP máy bà con. Chỉ nhận khi bản còn HIỆN HÀNH theo nhịp phát hành
   // (cron nhét savedAt); cũ hơn thì đi live — không hy sinh độ tươi.
-  if (SNAPSHOT_DAY_SET.includes(days)) {
+  if (CLIENT_SNAPSHOT_DAYS.includes(days)) {
     const snap = await loadScalarSnapshotClient(kind, days);
     if (snap && scalarGridUsable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
       // lưu vào máy với ĐÚNG tuổi thật (pretrip/offline cần bản localStorage;
@@ -444,7 +449,7 @@ export async function fetchScalarField(
     // "Tải lại" trong popup coi như thất bại (savedScalarDays vẫn trống) dù
     // đã lấy được snapshot. Ghi để offline có bản + hàng đổi xanh. isCacheCurrent
     // vẫn thấy cũ nên lần sau có sóng vẫn tải mới.
-    if (SNAPSHOT_DAY_SET.includes(days)) {
+    if (CLIENT_SNAPSHOT_DAYS.includes(days)) {
       const snap = await loadScalarSnapshotClient(kind, days);
       if (snap && scalarGridUsable(snap)) {
         saveScalarChecked(cacheId(kind, days), snap, snap.savedAt ?? undefined);
@@ -458,7 +463,7 @@ export async function fetchScalarField(
       if (alt && scalarGridUsable(alt.data))
         return { ...alt.data, stale: true, savedAt: alt.savedAt };
       // …rồi snapshot server của khung ngắn đó (máy chưa từng tải được lần nào)
-      if (SNAPSHOT_DAY_SET.includes(d)) {
+      if (CLIENT_SNAPSHOT_DAYS.includes(d)) {
         const snap = await loadScalarSnapshotClient(kind, d);
         if (snap && scalarGridUsable(snap))
           return { ...snap, stale: true, savedAt: snap.savedAt ?? null };

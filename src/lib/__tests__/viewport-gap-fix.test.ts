@@ -1,48 +1,52 @@
 // @vitest-environment jsdom
 //
-// Ghim khung --app-vh (ViewportGapFix) CHỈ chạy trên iOS (2026-10-27): chạy trên
-// Android, trần `screen.height` gồm cả thanh điều hướng ⇒ mốc lỡ chốt cao hơn vùng
-// nhìn thấy một thanh ⇒ dock kẹt sau thanh ☰ □ ◁ (ảnh bản cài Android).
-
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// ViewportGapFix CHỈ chạy trên iOS (2026-10-27, anh Long: "lỗi tràn viền kìa" — PWA Android khoá --app-vh cao hơn vùng
+// nhìn thấy đúng một thanh điều hướng ⇒ dock lọt xuống dưới thanh 3 nút). Android standalone: không gắn pwa-frame.
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { cleanup, render } from "@testing-library/react";
 
-import { ViewportGapFix } from "@/components/viewport-gap-fix";
+import { laIosWebKit, ViewportGapFix } from "@/components/viewport-gap-fix";
 
-const ANDROID = "Mozilla/5.0 (Linux; Android 14; CPH2591) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36";
-const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+const UA = {
+  iphone: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+  ipadDesktop: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15",
+  oppo: "Mozilla/5.0 (Linux; Android 15; CPH2591) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36",
+};
 
-function giaBanCai(ua: string, mocLuu: number) {
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  document.documentElement.classList.remove("pwa-frame");
+  document.documentElement.style.removeProperty("--app-vh");
+});
+
+function moStandalone(ua: string, touch: number, vvH = 900) {
   vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ua);
-  vi.stubGlobal("matchMedia", (q: string) => ({ matches: /display-mode:\s*standalone/.test(q), media: q, addEventListener() {}, removeEventListener() {} }));
-  vi.stubGlobal("visualViewport", Object.assign(new EventTarget(), { height: 728, width: 360 }));
-  localStorage.setItem(`forfish.pwa-frame.${screen.width}x${screen.height}`, String(mocLuu));
+  Object.defineProperty(navigator, "maxTouchPoints", { value: touch, configurable: true });
+  window.matchMedia = ((q: string) => ({ matches: q.includes("standalone"), addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+  Object.defineProperty(window, "visualViewport", { value: { height: vvH, addEventListener() {}, removeEventListener() {} }, configurable: true });
 }
 
-describe("ViewportGapFix chỉ ghim khung trên iOS", () => {
-  beforeEach(() => localStorage.clear());
-  afterEach(() => {
-    cleanup();
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    document.documentElement.classList.remove("pwa-frame");
-    document.documentElement.style.removeProperty("--app-vh");
+describe("laIosWebKit", () => {
+  it("iPhone, iPad chế độ desktop (Macintosh + chạm) là iOS; Android và Mac thật thì không", () => {
+    expect(laIosWebKit(UA.iphone, 5)).toBe(true);
+    expect(laIosWebKit(UA.ipadDesktop, 5)).toBe(true);
+    expect(laIosWebKit(UA.ipadDesktop, 0)).toBe(false);
+    expect(laIosWebKit(UA.oppo, 5)).toBe(false);
   });
+});
 
-  it("bản cài Android: KHÔNG gắn pwa-frame, KHÔNG đặt --app-vh dù máy còn mốc cũ", () => {
-    giaBanCai(ANDROID, 1);
+describe("ViewportGapFix", () => {
+  it("PWA Android: KHÔNG gắn pwa-frame, không đặt --app-vh (dock bám đáy vùng nhìn thấy như thường)", () => {
+    moStandalone(UA.oppo, 5);
     render(createElement(ViewportGapFix));
     expect(document.documentElement.classList.contains("pwa-frame")).toBe(false);
     expect(document.documentElement.style.getPropertyValue("--app-vh")).toBe("");
-    // khoá cũ của bà con để nguyên, không xoá
-    expect(localStorage.getItem(`forfish.pwa-frame.${screen.width}x${screen.height}`)).toBe("1");
   });
-
-  it("bản cài iPhone: vẫn gắn pwa-frame + nạp mốc đã lưu như cũ", () => {
-    giaBanCai(IPHONE, 1);
+  it("PWA iPhone: vẫn gắn pwa-frame như cũ", () => {
+    moStandalone(UA.iphone, 5);
     render(createElement(ViewportGapFix));
     expect(document.documentElement.classList.contains("pwa-frame")).toBe(true);
-    expect(document.documentElement.style.getPropertyValue("--app-vh")).toBe("1px");
   });
 });

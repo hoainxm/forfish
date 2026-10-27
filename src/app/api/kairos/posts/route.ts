@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   const body = await jsonBody(req);
   if (!body) return kErr(400, "bad_body");
   const v = validatePost(body, { profileId: profile.id, portIds: PORT_IDS });
-  if (!v.ok) return kErr(400, v.code);
+  if (!v.ok) return kErr(400, v.code, v.code === "dangerous_link" ? { term: v.term } : undefined); // loại link ⇒ câu báo đúng (2026-10-27)
   try {
     const limited = await rateDenied(store, "posts", phone);
     if (limited) return limited;

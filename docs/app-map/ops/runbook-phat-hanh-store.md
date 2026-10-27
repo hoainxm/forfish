@@ -5,7 +5,7 @@
 > hiện trạng + PWA ở [native-deploy.md](native-deploy.md).
 >
 > **Môi trường giả định**: **macOS** + **Android Studio** + **Xcode** (build được CẢ hai nền
-> tảng ngay trên máy). Node **≥ 20** (CI dùng 20; `npm test` chạy tốt cả Node 26 nhờ cờ `--no-experimental-webstorage` trong script test).
+> tảng ngay trên máy). Node **22** (CI + `engines` dùng 22 từ 2026-10-14; `npm test` chạy tốt cả Node 26 nhờ cờ `--no-experimental-webstorage` trong script test).
 
 ---
 
@@ -68,7 +68,7 @@ Làm một lần, sau này bỏ qua mục này.
 
 ### 1a. Công cụ trên máy
 ```bash
-# Node >= 20 (CI dùng 20; test chạy được cả Node 26)
+# Node 24 LTS (CI dùng 24; test chạy được cả Node 26)
 nvm install 20 && nvm use 20
 node -v                       # v20.x
 
@@ -121,7 +121,7 @@ git pull --ff-only            # nếu nhánh sau remote
 # 2) Cài + kiểm code sạch
 npm ci
 npm run build                 # phải exit 0
-npm test                      # xanh trên Node 20 lẫn 26 (script kèm --no-experimental-webstorage)
+npm test                      # xanh trên Node 24 lẫn 26 (script kèm --no-experimental-webstorage)
 npm run lint                  # 0 error (warning không chặn)
 ```
 
@@ -258,7 +258,7 @@ node scripts/generate-ios-screenshots.mjs  # iPhone 6.5"/6.7" + iPad 12.9"/13"
 ## 7. Checklist nộp (tick từng dòng)
 
 **Code:**
-- [ ] `npm run build` + `npm test` (Node 20) + `npm run lint` sạch.
+- [ ] `npm run build` + `npm test` (Node 24) + `npm run lint` sạch.
 - [ ] Web deploy live: `forfish-alpha.vercel.app` 200 + `/quyen-rieng-tu` mở được.
 - [ ] Bump version: Android `versionCode` (CI tự / build.gradle tay) · iOS **Build** trong Xcode.
 

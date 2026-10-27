@@ -60,6 +60,7 @@ export type KairosErrorCode =
   | "bad_words"
   | "sovereignty"
   | "anti_state"
+  | "dangerous_link"
   | "rate_limited"
   | "banned"
   | "rules"

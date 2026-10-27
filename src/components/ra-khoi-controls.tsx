@@ -511,6 +511,7 @@ export function RaKhoiControls({
               />
               {open === "hai-do" && (
                 <HaiDoPanel
+                  goiAccess={fishAccess}
                   layerId={layerId}
                   scalarKind={scalarKind}
                   onLayer={(id) => {
@@ -565,6 +566,7 @@ export function RaKhoiControls({
               )}
               {open === "thoi-tiet" && (
                 <ThoiTietPanel
+                  goiAccess={fishAccess}
                   forecastKind={forecastKind}
                   onForecast={onForecast}
                   overlayField={overlayField}
@@ -911,6 +913,7 @@ function cadLine(id: OceanLayerId): { text: string; dot: string } {
 }
 
 function HaiDoPanel({
+  goiAccess,
   layerId,
   scalarKind,
   onLayer,
@@ -924,6 +927,8 @@ function HaiDoPanel({
   onChartDetail,
   onLegend,
 }: {
+  /** quyền gói — lớp nền ảnh (NASA/EMODnet) + chất đáy, hình rạn chi tiết (Allen) cần gói (2026-10-27) */
+  goiAccess: FeatureAccess;
   layerId: OceanLayerId;
   scalarKind: SeaScalarKind | null;
   onLayer: (id: OceanLayerId) => void;
@@ -989,6 +994,9 @@ function HaiDoPanel({
           );
         })}
       </ul>
+      {/* lớp nền ảnh (nhiệt độ nước, vùng nhiều mồi — NASA; độ sâu EMODnet CC-BY) cần gói — 2026-10-27; chưa gói thì
+          bản đồ chỉ còn nền vector (fishing-map-view buildMapStyle(null)) */}
+      <PremiumLock access={goiAccess} feature="lớp nền ảnh (nhiệt độ nước, vùng nhiều mồi, độ sâu)" compact />
       <p className="mt-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
         Ảnh vệ tinh chụp trước đó, không phải ngay lúc này. Phao báo hiệu chỉ
         hiện khi phóng to gần bờ.
@@ -1024,6 +1032,8 @@ function HaiDoPanel({
             </span>
           }
         />
+        {/* số đo sâu, đẳng sâu, tên rạn vẫn miễn phí; chất đáy + hình rạn chi tiết (Allen Coral Atlas) cần gói */}
+        {groupDepthOn && <PremiumLock access={goiAccess} feature="chất đáy và hình rạn chi tiết" compact />}
         {/*  KHU TRÁNH TRÚ BÃO chuyển từ nhóm "Tên & nơi trú" sang đây
              (reviewer 2026-09-03): nó là NƠI CHẠY TỚI lúc nguy, cùng loại việc
              "đi lại an toàn" với phao/đèn/xác tàu — không phải chuyện tên gọi.
@@ -1405,6 +1415,7 @@ function BaiTauDuBao({
 }
 
 function ThoiTietPanel({
+  goiAccess,
   forecastKind,
   onForecast,
   overlayField,
@@ -1412,6 +1423,8 @@ function ThoiTietPanel({
   scalarKind,
   onScalar,
 }: {
+  /** quyền gói — độ mặn (Copernicus) + nước xoáy (NOAA) cần gói; gió/sóng/mưa Open-Meteo miễn phí (2026-10-27) */
+  goiAccess: FeatureAccess;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
   overlayField: FetchScalarKind | null;
@@ -1470,6 +1483,9 @@ function ThoiTietPanel({
         onToggle={() => onScalar(scalarKind === "ssha" ? null : "ssha")}
         icon={<EddyIcon className="h-5 w-5 text-t4" />}
       />
+      {(overlayField === "salinity" || scalarKind === "ssha") && (
+        <PremiumLock access={goiAccess} feature={overlayField === "salinity" ? "độ mặn" : "nước xoáy"} compact />
+      )}
     </div>
   );
 }

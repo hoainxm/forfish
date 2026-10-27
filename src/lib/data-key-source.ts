@@ -29,3 +29,13 @@ export async function loadDataKeys(): Promise<DataKeyEntry[]> {
   }
   return out;
 }
+
+/**
+ * KHOÁ GÓI (2026-10-27): `data_key_premium` (build đầu tự sinh; env SDFISH_DATA_KEY_PREMIUM đè) — giải file
+ * `PREMIUM_SDF2` (lib/data-premium-files.mjs). /api/data-key chỉ nối thêm khoá này cho tài khoản premium. Rỗng = chưa có.
+ */
+export async function loadPremiumKeys(): Promise<DataKeyEntry[]> {
+  const v = await getConfigValue("data_key_premium");
+  const raw = parseDataKeyHex(v);
+  return raw ? [{ id: keyIdOfSync(raw), hex: v!.trim().toLowerCase() }] : [];
+}

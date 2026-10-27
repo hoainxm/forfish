@@ -14,8 +14,6 @@ last_verified: 2026-10-19
 <!-- re-verified: 2026-10-24 — KAIROS ĐÃ CÀI THẬT trên gpu-desktop: timer kairos-thu 15 phút + kairos-kiem 5 phút (systemd user, linger), chạy bản xuất từ origin/main ở ~/.local/forlife/kairos/app (KHÔNG từ checkout đang có người sửa), KAIROS_API_BASE=https://forfish.vercel.app (production repo Long-Forfun/ForFish — KHÔNG phải sdfish.sdvico.vn); sổ mới gan-day.json chặn tin cùng sự kiện khác báo (cung-su-kien.mjs) -->
 <!-- re-verified: 2026-10-19b — thêm "Bảng môi trường" (rà Codex mục 10: "một bảng môi trường thống nhất: web domain, native origin, API, cron, DB, build ID"); đối chiếu capacitor.config.ts + android/ios capacitor.config.json (server.url), vercel.json crons, .github/workflows/{deploy,cron-prod,deploy.windows-iis,doc-health}.yml, /api/version. doc-health --ci đã chạy thật trên máy: exit 1 vì doc lệch có sẵn (forecast-accuracy 87 ngày…) — nên để workflow RIÊNG, không gộp vào `ci`. -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-24) — code 'scripts/train/run.mjs' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
-<!-- DOC-STATUS: SUSPECT (2026-10-19) — code 'scripts/doc-health-report.sh' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-10-19 - thêm mục "Train dự báo cá" (runner scripts/train/run.mjs, SDFISH_DATA_DIR) -->
 <!-- re-verified: 2026-06-17 - lệnh regenerate asset (icons/depth-grid/isobaths) + deploy/health-check khớp scripts/ hiện tại -->
@@ -56,7 +54,7 @@ gate: warn
 
 Thời gian mở đo trên localhost máy dev KHÔNG có nghĩa (vài chục ms) — số thật phải đo trên điện thoại mục tiêu khi sóng yếu (chưa làm: cần máy thật). Tách file lớn (đợt 3) chủ yếu để SỬA dễ, không giảm JS — trừ quản trị nhờ nạp theo tab.
 
-**Sức khoẻ tài liệu:** workflow `doc-health` (riêng, KHÔNG chặn deploy) chạy mỗi PR + 08:00 thứ Hai. Chạy tay: `sh scripts/doc-health-report.sh --ci`.
+**Sức khoẻ tài liệu:** workflow `doc-health` (riêng, KHÔNG chặn deploy) chạy mỗi PR + 08:00 thứ Hai. Chạy tay: `sh scripts/doc-health-report.sh --ci`. Trạng thái từng doc (VERIFIED/SUSPECT/ORPHANED) chỉ ghi ở `docs/app-map/_generated/doc-status.md` — hook pre-commit sinh lại + stage file này mỗi commit (`--status --fast`), **không** chèn dòng `DOC-STATUS` vào doc nữa (bỏ 2026-10-25).
 
 ---
 
@@ -111,6 +109,8 @@ git push origin main
 
 # PWA/native: xem ops/native-deploy.md (manifest/SW + Capacitor wrap)
 ```
+**Vùng chạy (2026-10-26)**: `vercel.json` ghim `"regions": ["icn1"]` (Seoul) cho cạnh Supabase ap-northeast-2. Kiểm: header `X-Vercel-Id` của một route `/api/*` phải có `::icn1::` (ví dụ `hkg1::icn1::…`); thấy `iad1` là vùng bị đè trong Settings → Functions của project.
+
 **Verify sau deploy**: mở route từng trục (`/ngu-truong` `/gia-ca` `/van-hanh` `/giay-to`), check nguồn ngoài degrade đúng (thẻ "Thử lại", không treo).
 
 **Deploy self-host PM2 — `.github/workflows/deploy.yml` (tối ưu 2026-09-29, trước ~20 phút/lần)**: runner `self-hosted` Windows, workflow `ci` xanh trên `main` → build standalone → PM2 `forfish` ở `C:\sdfish\forfish`.

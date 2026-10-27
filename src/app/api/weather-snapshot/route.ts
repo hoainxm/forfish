@@ -6,14 +6,16 @@ import {
 import { premiumDenied } from "@/lib/api-identity";
 import { parseRouteTileId } from "@/lib/route-grid";
 import { getRouteTile } from "@/lib/route-grid-server";
+import { cat1Ngay, goc1Ngay } from "@/lib/snapshot-today";
 
 /**
  * ĐỌC snapshot thời tiết (LƯỚI AN TOÀN) — client gọi khi live Open-Meteo lỗi.
  *
- * Khung MIỄN PHÍ (d3) + dự báo theo cảng: PUBLIC — dữ liệu thời tiết không cá
- * nhân, client vốn tải được từ live nên không lộ thêm gì.
+ * Từ 2026-10-27 (anh Long: "thường ko có dự báo, chỉ có ngày hôm nay thôi"): KHÔNG CẦN GÓI chỉ còn khung HÔM NAY
+ * — `grid:d1`, `scalar:*:d1`, `sea:<cảng>:d1` (dựng từ bản gốc, lib/snapshot-today). Bản đủ ngày (`grid:d3`, `d16`,
+ * `sea:<cảng>`) cần gói — middleware gác trước (data-route-rules), route gác lại lần nữa dưới đây.
  *
- * Khung PREMIUM (>3 ngày, từ 2026-07-29 cron có snapshot d16): CHẶN THẬT ở đây
+ * Khung PREMIUM (quá hôm nay, từ 2026-07-29 cron có snapshot d16): CHẶN THẬT ở đây
  * — 401 chưa đăng nhập · 403 chưa premium, cùng luật middleware /api/fish-forecast
  * (admin theo ADMIN_PHONES xem như premium). Demo mode (chưa cấu hình Supabase)
  * → MỞ, khớp triết lý app: thiếu env thì chạy được hết bằng dữ liệu công khai.
@@ -46,9 +48,13 @@ export async function GET(req: Request) {
 
   // Ô lưới dẫn đường: server tự lấy + lưu khi cũ (route-grid-server) — máy
   // bà con không còn gọi Open-Meteo trực tiếp (2026-10-16)
-  const { payload, unreachable } = parseRouteTileId(id)
+  // Id HÔM NAY (`…:d1`, 2026-10-27): đọc bản gốc cron đã có rồi cắt — cron không tính thêm (lib/snapshot-today)
+  const goc = goc1Ngay(id);
+  const loaded = parseRouteTileId(id)
     ? await getRouteTile(id)
-    : await loadWeatherSnapshot(id);
+    : await loadWeatherSnapshot(goc ?? id);
+  const { unreachable } = loaded;
+  const payload = goc ? cat1Ngay(id, loaded.payload) : loaded.payload;
   /*  KHÔNG HỎI ĐƯỢC ≠ KHÔNG CÓ (2026-08-02, audit lô B).
       404 cố ý KHÔNG nằm trong `isRescuableStatus` của service worker ("404 →
       nói thật"), nên trả 404 lúc hạ tầng chập chờn là tự tay chặn đường cứu:

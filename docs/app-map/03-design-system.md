@@ -37,7 +37,6 @@ last_verified: 2026-10-26
 <!-- re-verified: 2026-10-19 — `.dock-label` đổi theo nhãn dock mới (Trang chủ · Bản đồ · Tàu tôi · Chợ cá · Vật tư); từ 2026-10-19d là 0.75rem (0.6875rem dưới 345px) theo thang §0. Khuôn MỚI `ManHeader` (components/man-header.tsx): đầu màn nền sáng thay hero gradient ở các màn dock. Danh sách kẻ mảnh (`divide-y divide-line rounded-2xl bg-card`, hàng theo bậc hàng danh sách, chữ theo thang §0, chấm màu thay tag) là khuôn chung của Thông báo + Việc cần làm. HeroAccount có biến thể `light`. -->
 <!-- re-verified: 2026-10-19 11:20 — thêm pattern "chạm/kéo NGANG trên một trục trong sheet cuộn dọc" (`lib/use-pointer-scrub.ts`, touch-action pan-y) + "nút bước giữ-để-chạy" (◀ ▶ màn con nước); đối chiếu `components/ui/bottom-sheet.tsx`: grabber chỉ là hình, CHƯA có vuốt-xuống-đóng (mục 4 §Nút X đóng nói đúng là quy ước, không phải đã làm). -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-25) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-10-05 10:40 — thêm pattern "overlay tự-ẩn phải tính CUỘN là thao tác" (onScrollCapture ở container gốc, không onScroll): đối chiếu `ui/snap-sheet.tsx` (<section onScrollCapture={onInteract}>) + `ra-khoi-controls.tsx` (container gốc onScrollCapture) — khớp sau fix 2026-10-05. Tap-target SnapSheet min-h-[3.5rem] còn đúng. -->
 <!-- re-verify(03): pattern overlay tự-ẩn + cuộn (onScrollCapture) -->

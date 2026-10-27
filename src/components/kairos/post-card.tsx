@@ -34,7 +34,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CommentIcon, DocIcon, ShareIcon } from "@/components/icons";
 import { boCucAnh } from "@/lib/kairos/anh-luoi";
-import { countLabel, portLabel, postTimeLabel } from "@/lib/kairos/feed-client";
+import { countLabel, portLabel, postDateLabel } from "@/lib/kairos/feed-client";
 import type { KairosComment, KairosPost } from "@/lib/kairos/types";
 import { NHAN, NHAN_CHIP_KAIROS } from "@/lib/labels";
 import { isPinned } from "@/lib/kairos/xep-bai";
@@ -187,7 +187,7 @@ function Head({
   benPort?: string;
   onMore?: (anchor: HTMLElement) => void;
 }) {
-  const time = postTimeLabel(post.publishedAt, now);
+  const time = postDateLabel(post, now);
   const topic = topicLabel(post.topic);
   const nut = (
     <>
@@ -201,7 +201,8 @@ function Head({
   // tên theo HỒ SƠ người đăng — bài Chính thức có thể là SDVICO hoặc Sen Biển (2026-10-24: bài Sen Biển từng
   // hiện nhầm "SDVICO" vì tên gắn cứng); thiếu hồ sơ mới lùi về "SDVICO"/"Bà con"
   const name = bao ? post.outlet || "Báo" : a?.handle || (official ? "SDVICO" : "Bà con");
-  const sub = (bao ? [time, topic] : [[a?.subline, a?.boatReg].filter(Boolean).join(" · "), time, post.editedAt ? "đã sửa" : ""])
+  // tin chính sách: nhãn "Nhà nước" cạnh tên đã nói loại tin ⇒ bỏ chữ "Chính sách" để ngày ký ĐỦ NĂM không bị cắt "07/09/2026…"
+  const sub = (bao ? [time, post.topic === "chinh-sach" ? "" : topic] : [[a?.subline, a?.boatReg].filter(Boolean).join(" · "), time, post.editedAt ? "đã sửa" : ""])
     .filter(Boolean)
     .join(" · ");
   const pinned = !bao && isPinned(post, now);
@@ -480,7 +481,7 @@ export function PostCard({
         {post.author?.handle ?? (post.kind === "chinh-thuc" ? "SDVICO" : "")}
         {(post.kind === "chinh-thuc" || post.author?.official) && <span className="ml-1.5 text-[0.8125rem] font-semibold text-white/80">{NHAN.chinhThuc}</span>}
       </p>
-      <p className="px-2 text-[0.8125rem] text-white/70">{postTimeLabel(post.publishedAt, now)}</p>
+      <p className="px-2 text-[0.8125rem] text-white/70">{postDateLabel(post, now)}</p>
       <div className="mt-1 flex items-center gap-1">{hangChan(dongXem)}</div>
     </div>
   );

@@ -17,7 +17,7 @@ import {
 import { loadForecastSkill } from "@/lib/forecast-skill";
 import { isoDateVN } from "@/lib/day-labels";
 import { weatherFromCode } from "@/lib/weather-codes";
-import { FREE_FORECAST_DAYS } from "@/lib/tier";
+import { FREE_FORECAST_DAYS, soNgayThoiTiet } from "@/lib/tier";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { PremiumLock } from "@/components/premium-gate";
 import { AnchorIcon, WavesIcon, WindIcon } from "@/components/icons";
@@ -38,12 +38,12 @@ const levelColor: Record<SeaLevel, { fg: string; bg: string }> = {
   bad: { fg: "var(--danger)", bg: "var(--danger-bg)" },
 };
 
-
 export function SeaForecast() {
-  // Phân hạng (2026-07-26): miễn phí đúng 3 ngày (hôm nay + 2 ngày kế);
-  // ngày 4 trở đi là premium. Đang "checking" thì chỉ hiện phần miễn phí,
-  // KHÔNG hiện thẻ khoá (tránh nháy khoá↔mở).
+  // Phân hạng (đổi 2026-10-27, anh Long: "thường ko có dự báo, chỉ có ngày hôm nay thôi"): khách + tài khoản thường
+  // chỉ HÔM NAY — xin đúng 1 ngày (máy chủ gác ở /api/om + snapshot `sea:<cảng>:d1`); các ngày tới đi kèm gói dự báo cá.
+  // Đang "checking" thì chỉ hiện hôm nay, KHÔNG hiện thẻ khoá (tránh nháy khoá↔mở).
   const { access } = useFeatureAccess();
+  const soNgay = soNgayThoiTiet(access);
   const [port, setPort] = useState<FishingPort | null>(null);
   const [days, setDays] = useState<ScoredSeaDay[] | null>(null);
   const [quality, setQuality] = useState<DayQuality[] | null>(null);
@@ -57,34 +57,40 @@ export function SeaForecast() {
     setPort(found ?? PORTS.find((p) => p.id === "vung-tau") ?? PORTS[0]);
   }, []);
 
-  const load = useCallback((p: FishingPort) => {
-    setLoading(true);
-    setError(false);
-    setQuality(null);
-    // Tầm ngày tính từ HÔM NAY tới ngày dự báo (không theo vị trí mảng) — nếu
-    // sau này dãy ngày đến từ bản lưu trong máy thì độ tin vẫn đúng.
-    const todayIso = isoDateVN();
-    // Bảng skill (model-params, SDF2) nạp cùng lúc — nắn bias + độ tin theo tầm ngày;
-    // chưa nạp được thì null = không hạ độ tin (degrade sẵn có). Không bao giờ reject.
-    Promise.all([fetchSeaForecast(p), loadModelParams()])
-      .then(([raw]) => {
-        const SKILL = loadForecastSkill();
-        // Nắn bias thô theo backtest rồi mới hiển thị điểm số.
-        const corrected = applyBiasCorrection(raw, SKILL, todayIso);
-        setDays(corrected);
-        // Độ tin: ngay lập tức từ horizon+skill; tinh chỉnh khi ensemble về.
-        setQuality(assessForecast(corrected, null, SKILL, todayIso));
-        fetchEnsembleUncertainty(p.lat, p.lon, corrected.length)
-          .then((ens) => {
-            if (ens) setQuality(assessForecast(corrected, ens, SKILL, todayIso));
-          })
-          .catch(() => {
-            /* ensemble lỗi thì giữ độ tin horizon+skill — không sao */
-          });
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, []);
+  const load = useCallback(
+    (p: FishingPort) => {
+      setLoading(true);
+      setError(false);
+      setQuality(null);
+      // Tầm ngày tính từ HÔM NAY tới ngày dự báo (không theo vị trí mảng) — nếu
+      // sau này dãy ngày đến từ bản lưu trong máy thì độ tin vẫn đúng.
+      const todayIso = isoDateVN();
+      // Bảng skill (model-params, SDF2) nạp cùng lúc — nắn bias + độ tin theo tầm ngày;
+      // chưa nạp được thì null = không hạ độ tin (degrade sẵn có). Không bao giờ reject.
+      Promise.all([fetchSeaForecast(p, soNgay), loadModelParams()])
+        .then(([raw]) => {
+          const SKILL = loadForecastSkill();
+          // Nắn bias thô theo backtest rồi mới hiển thị điểm số.
+          const corrected = applyBiasCorrection(raw, SKILL, todayIso);
+          setDays(corrected);
+          // Độ tin: ngay lập tức từ horizon+skill; tinh chỉnh khi ensemble về.
+          setQuality(assessForecast(corrected, null, SKILL, todayIso));
+          // độ bất định nhiều ngày — chỉ có nghĩa (và chỉ xin được) khi có gói
+          if (soNgay <= 1) return;
+          fetchEnsembleUncertainty(p.lat, p.lon, corrected.length)
+            .then((ens) => {
+              if (ens)
+                setQuality(assessForecast(corrected, ens, SKILL, todayIso));
+            })
+            .catch(() => {
+              /* ensemble lỗi thì giữ độ tin horizon+skill — không sao */
+            });
+        })
+        .catch(() => setError(true))
+        .finally(() => setLoading(false));
+    },
+    [soNgay],
+  );
 
   useEffect(() => {
     if (port) load(port);
@@ -192,7 +198,8 @@ export function SeaForecast() {
             <div className="grid grid-cols-2 border-t border-black/5 bg-card">
               <p className="flex min-h-[3.5rem] items-center justify-center gap-2 text-[1rem]">
                 <WavesIcon className="h-5 w-5 text-sea" />
-                Sóng <strong>{today.waveMaxM.toFixed(1).replace(".", ",")} m</strong>
+                Sóng{" "}
+                <strong>{today.waveMaxM.toFixed(1).replace(".", ",")} m</strong>
               </p>
               <p className="flex min-h-[3.5rem] items-center justify-center gap-2 border-l border-line text-[1rem]">
                 <WindIcon className="h-5 w-5 text-sea" />
@@ -206,68 +213,73 @@ export function SeaForecast() {
             <h2 className="display mb-2 px-1 text-[1.125rem] font-semibold text-navy">
               Những ngày tới
             </h2>
-            <ul className="overflow-hidden surface">
-              {(access === "open"
-                ? days.slice(1)
-                : days.slice(1, FREE_FORECAST_DAYS)
-              ).map((d, k) => {
-                const w = weatherFromCode(d.wmoCode);
-                const q = quality?.[k + 1];
-                return (
-                  <li
-                    key={d.date}
-                    className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0"
-                  >
-                    <span
-                      aria-hidden
-                      className="shrink-0 text-[0.75rem] leading-none"
-                      style={{ color: confColor(q) }}
-                      title={q ? confWord(q.confidence) : undefined}
+            {days.length > 1 && (
+              <ul className="overflow-hidden surface">
+                {(access === "open"
+                  ? days.slice(1)
+                  : days.slice(1, FREE_FORECAST_DAYS)
+                ).map((d, k) => {
+                  const w = weatherFromCode(d.wmoCode);
+                  const q = quality?.[k + 1];
+                  return (
+                    <li
+                      key={d.date}
+                      className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0"
                     >
-                      ●
-                    </span>
-                    <span className="w-[5rem] shrink-0 text-[1rem] font-semibold capitalize">
-                      {formatDay(d.date)}
-                    </span>
-                    <span
-                      className="display w-[3.25rem] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-semibold tabular-nums"
-                      style={{
-                        color: levelColor[d.level].fg,
-                        backgroundColor: levelColor[d.level].bg,
-                      }}
-                    >
-                      {d.score}
-                    </span>
-                    <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/70 tabular-nums">
-                      sóng {d.waveMaxM.toFixed(1).replace(".", ",")} m
-                      {d.waveEstimated && (
-                        <span className="text-foreground/45"> (ước tính)</span>
-                      )}{" "}
-                      · gió {Math.round(d.windMaxKmh)} km/h
-                      {w && (
-                        <span
-                          className={
-                            w.danger ? "font-semibold text-danger" : undefined
-                          }
-                        >
-                          {" "}
-                          · {w.label}
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            {/* ngày 4 trở đi là premium — thẻ khoá thay cho danh sách bị cắt */}
+                      <span
+                        aria-hidden
+                        className="shrink-0 text-[0.75rem] leading-none"
+                        style={{ color: confColor(q) }}
+                        title={q ? confWord(q.confidence) : undefined}
+                      >
+                        ●
+                      </span>
+                      <span className="w-[5rem] shrink-0 text-[1rem] font-semibold capitalize">
+                        {formatDay(d.date)}
+                      </span>
+                      <span
+                        className="display w-[3.25rem] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-semibold tabular-nums"
+                        style={{
+                          color: levelColor[d.level].fg,
+                          backgroundColor: levelColor[d.level].bg,
+                        }}
+                      >
+                        {d.score}
+                      </span>
+                      <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/70 tabular-nums">
+                        sóng {d.waveMaxM.toFixed(1).replace(".", ",")} m
+                        {d.waveEstimated && (
+                          <span className="text-foreground/45">
+                            {" "}
+                            (ước tính)
+                          </span>
+                        )}{" "}
+                        · gió {Math.round(d.windMaxKmh)} km/h
+                        {w && (
+                          <span
+                            className={
+                              w.danger ? "font-semibold text-danger" : undefined
+                            }
+                          >
+                            {" "}
+                            · {w.label}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {/* các ngày tới đi kèm gói dự báo cá (2026-10-27) — thẻ khoá thay cho danh sách */}
             <div className="mt-3">
               <PremiumLock
                 access={access}
-                feature={`dự báo ${days.length} ngày`}
+                feature="dự báo các ngày tới"
                 blurb={
                   access === "login"
-                    ? "Bà con đăng nhập bằng tài khoản nâng cao để xem dự báo cho nửa tháng tới — giúp lên kế hoạch chuyến biển dài ngày dễ dàng hơn."
-                    : "Tài khoản hiện tại chưa hỗ trợ tính năng này — bà con liên hệ SDVICO để nâng cấp và xem dự báo cho cả nửa tháng tới nhé."
+                    ? "Đăng nhập tài khoản có gói dự báo cá để xem gió sóng nửa tháng tới — lên kế hoạch chuyến dài dễ hơn."
+                    : "Gió sóng các ngày tới đi kèm gói dự báo cá — bà con gọi SDVICO để mở nhé."
                 }
               />
             </div>
@@ -279,9 +291,9 @@ export function SeaForecast() {
         {/* đừng hứa "16 ngày" với người đang bị khoá còn 3 ngày */}
         {access === "open" ? "Dự báo 16 ngày" : "Dự báo"} từ mô hình thời tiết
         quốc tế, chỉ để tham khảo — chấm màu là độ tin (xanh: khá chắc · cam:
-        vừa · đỏ: kém chắc, xem lại sát ngày). Ngày càng xa càng kém chắc.
-        Trước khi ra khơi, bà con nghe thêm thông báo của đài duyên hải và Bộ
-        đội Biên phòng.
+        vừa · đỏ: kém chắc, xem lại sát ngày). Ngày càng xa càng kém chắc. Trước
+        khi ra khơi, bà con nghe thêm thông báo của đài duyên hải và Bộ đội Biên
+        phòng.
       </p>
     </div>
   );

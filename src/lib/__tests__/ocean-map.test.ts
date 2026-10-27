@@ -53,10 +53,9 @@ describe("OCEAN_LAYERS", () => {
       // Lớp ảnh vệ tinh theo ngày: KHÔNG được nhúng một ngày cụ thể nữa (ngày
       // tự tính từng trả 404 khi nguồn đăng chậm — xem OCEAN_LAYERS). Phải là
       // từ khoá `default` để GIBS tự trả ảnh mới nhất còn.
-      if (def.dated) {
-        expect(url).toContain("/default/default/");
-        expect(url).not.toMatch(/\/\d{4}-\d{2}-\d{2}\//);
-      }
+      // 2026-10-27: mọi lớp đi qua cầu /api/tiles (gói chặn ở middleware) — URL GIBS + ngày `default` kiểm ở
+      // tile-proxy.test (upstream).
+      expect(url).toMatch(/\/api\/tiles\/(sst|chlorophyll|chart)\//);
       expect(url).toContain("{z}");
       expect(url).toContain("{y}");
       expect(url).toContain("{x}");
@@ -177,9 +176,7 @@ describe("buildMapStyle", () => {
     const src = style.sources["ocean-data"] as { tiles: string[] };
     // Nguồn GIBS tự chọn ảnh mới nhất còn qua từ khoá `default` — KHÔNG nhúng
     // một ngày cụ thể (ngày tự tính từng trả 404 khi nguồn đăng chậm).
-    expect(src.tiles[0]).toContain("gibs.earthdata.nasa.gov");
-    expect(src.tiles[0]).toContain("/default/default/");
-    expect(src.tiles[0]).not.toMatch(/\/\d{4}-\d{2}-\d{2}\//);
+    expect(src.tiles[0]).toContain("/api/tiles/sst/");
     // thứ tự: mask < lớp dữ liệu < phao đèn
     const ids = (style.layers as { id: string }[]).map((l) => l.id);
     expect(ids.indexOf("ocean-data")).toBeGreaterThan(ids.indexOf("sea-mask"));

@@ -170,6 +170,19 @@ export function postTimeLabel(iso: string, now: number): string {
   return d.getFullYear() === today.getFullYear() ? dm : `${dm}/${d.getFullYear()}`;
 }
 
+/**
+ * Ngày trên thẻ theo LOẠI bài: tin chính sách (topic `chinh-sach`) mang NGÀY BAN HÀNH văn bản ⇒ luôn đủ ngày/tháng/năm
+ * ("07/09/2026") — "Hôm qua"/"5 giờ" sai nghĩa với ngày ký, thiếu năm thì "đợt 05 năm 2025" trong tiêu đề đọc như ghi
+ * nhầm (anh Long 2026-10-26). Bài khác như `postTimeLabel`.
+ */
+export function postDateLabel(post: { publishedAt: string; topic?: string | null }, now: number): string {
+  if (post.topic !== "chinh-sach") return postTimeLabel(post.publishedAt, now);
+  const t = Date.parse(post.publishedAt);
+  if (!Number.isFinite(t)) return "";
+  const d = new Date(t);
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
 /** Số đếm trên thẻ: trần 99+ (14 §10 cực đoan). */
 export function countLabel(n: number): string {
   return n > 99 ? "99+" : String(Math.max(0, Math.floor(n)));

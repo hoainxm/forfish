@@ -58,7 +58,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (limited) return limited;
     // đăng lại giữ nguyên bài gốc — sửa không đổi được đích đăng lại
     const v = validatePost({ ...(body as Record<string, unknown>), reshareOf: row.reshare_of }, { profileId: profile.id, portIds: PORT_IDS });
-    if (!v.ok) return kErr(400, v.code);
+    if (!v.ok) return kErr(400, v.code, v.code === "dangerous_link" ? { term: v.term } : undefined); // loại link ⇒ câu báo đúng (2026-10-27)
     const nhac = await nhacTenHopLe(store, v.value.mentions, v.value.body, phone, await store.edgesFrom("block", phone));
     const area = tagArea(v.value.body, { ports: FISHING_PORTS, chosenPorts: v.value.ports });
     const updated = await store.updatePost(row.id, {

@@ -9,7 +9,6 @@ last_verified: 2026-10-19
 <!-- re-verified: 2026-10-19b — covers chỉ còn src/lib/assistant/: `src/components/assistant/` và `src/app/api/tro-ly/` KHÔNG còn trong repo (Trợ lý cũ đã gộp vào Sen Biển — sen-bien-toan-app.tsx dùng lib/assistant/answer.ts + device-snapshot.ts, chạy TRONG MÁY, không route /api/tro-ly). Các mục bên dưới nhắc hai đường dẫn đó là LỊCH SỬ thiết kế. -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-10-25) — code 'src/lib/assistant/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện (_generated/phan-bien-tro-ly-2026-09-06 *(chưa có trong repo)*); CHƯA build. **14-kien-truc = nguồn TÊN** (mã `Intent`, type, export, mã lỗi, khoá — bảng mã dùng chung ở 14 §3.0); **13 = nguồn HÀNH VI + câu chữ**; **TROLY-BRIEF §4 = luật cao nhất** (§0 dưới).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — bà con nói câu gì thì app hiểu thành ý định nào, trả lời bằng dữ liệu nào, làm hành động gì, hỏi lại khi nào, và im/nói thật khi thiếu gì. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả prompt/SDK/tool schema (việc của 14-kien-truc + ADR 0009).

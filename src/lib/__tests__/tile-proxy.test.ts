@@ -16,6 +16,18 @@ describe("upstreamTileUrl — danh sách trắng", () => {
     );
   });
 
+  it("ảnh NASA GIBS: ngày `default` (không nhúng ngày), thứ tự WMTS {z}/{y}/{x}, trần z7", () => {
+    for (const src of ["sst", "chlorophyll"] as const) {
+      const u = upstreamTileUrl(src, 6, 51, 28)!;
+      expect(u).toContain("gibs.earthdata.nasa.gov");
+      expect(u).toContain("/default/default/");
+      expect(u).not.toMatch(/\/\d{4}-\d{2}-\d{2}\//);
+      expect(u.endsWith("/6/28/51.png")).toBe(true);
+      expect(upstreamTileUrl(src, 8, 1, 1)).toBeNull();
+      expect(TILE_PROXY[src].daily).toBe(true);
+    }
+  });
+
   it("KHÔNG thành proxy mở: tên nguồn lạ / URL nhét vào đều bị chặn", () => {
     expect(upstreamTileUrl("evil", 6, 1, 1)).toBeNull();
     expect(upstreamTileUrl("https://evil.example/a.png", 6, 1, 1)).toBeNull();

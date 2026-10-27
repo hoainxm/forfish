@@ -56,7 +56,7 @@ describe("fetchSeaForecast — ưu tiên snapshot trước live", () => {
     }) as unknown as typeof fetch;
     const days = await fetchSeaForecast(PORT);
     expect(days).toHaveLength(1);
-    expect(calls.some((u) => u.includes("open-meteo"))).toBe(false);
+    expect(calls.some((u) => /open-meteo|\/api\/om\//.test(u))).toBe(false);
   });
 
   it("snapshot dạng CŨ (mảng trần, không savedAt) → coi như không rõ tuổi: đi live, live hỏng mới dùng nó", async () => {
@@ -76,7 +76,7 @@ describe("fetchSeaForecast — ưu tiên snapshot trước live", () => {
     globalThis.fetch = vi.fn().mockImplementation((url: string) => {
       if (String(url).includes("/api/weather-snapshot"))
         return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
-      const marine = String(url).includes("marine-api");
+      const marine = /marine-api|\/api\/om\/marine/.test(String(url));
       const time = ["2026-07-29"];
       return Promise.resolve({
         ok: true,

@@ -93,9 +93,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          check-latest: true # luôn lấy bản vá bảo mật mới nhất của dòng 24 LTS (runner cache có thể giữ bản cũ)
 
-      # KHÔNG `npm ci`: script chỉ dùng `node:fs`/`fetch` sẵn có của Node 20.
+      # KHÔNG `npm ci`: script chỉ dùng `node:fs`/`fetch` sẵn có của Node 24.
       # Cài 1.000 gói để chạy một file không dependency là phí một phút job.
 
       - name: Đọc bản tin mới từ vmsa.vn (thử lại 3 lượt)

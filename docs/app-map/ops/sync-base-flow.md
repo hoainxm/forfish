@@ -107,8 +107,6 @@ git remote set-url --add --push origin https://github.com/hoainxm/forfish
 
   ⚠️ Phải thêm CẢ dòng sdvico: khi set push URL tường minh ĐẦU TIÊN, fetch-URL thôi làm đích push — thiếu dòng sdvico thì push chỉ ra hoainxm.
 
-**macOS — 2 script vấp shell cổ, ĐỪNG tin kết quả trên máy Mac:**
-- `.githooks/pre-commit --self-test`: macOS bó `bash 3.2` → syntax error ở `case` inline trong `$(while …)`. Chạy bằng `zsh` (hoặc bash≥4 / CI) mới đúng. Hook cũng chỉ chạy khi `git config core.hooksPath .githooks` — clone mặc định KHÔNG bật, nên commit không tự chặn.
-- `scripts/doc-health-report.sh --status`: viết cho GNU sed; BSD sed (macOS) làm **NÁT** bảng `doc-status.md`. ĐỪNG regenerate trên Mac — để CI/Linux làm, hoặc khi merge cứ gỡ tay lấy giá trị base (mạch này đã làm vậy).
+**macOS — (lạc hậu từ 2026-10-25, giữ làm sử):** hai script từng vấp shell cổ (`case` inline trong `$( )` với bash 3.2; `sed -i` GNU-only làm nát `doc-status.md`). Đã sửa (`sedi`, `case` trong hàm — 00d564a8/43e0b869): `sh .githooks/pre-commit --self-test` và `sh scripts/doc-health-report.sh --status` chạy đúng trên Mac. Vẫn còn đúng: hook chỉ chạy khi `git config core.hooksPath .githooks`; `--status` chỉ ghi `_generated/doc-status.md`, không đụng doc nào khác (conflict `doc-status.md` khi merge: cứ lấy một bên rồi commit lại, hook sinh lại).
 
 **Mạch 2026-08-26**: lấy 10 commit "ra khơi" (plotter-readout — ô toạ độ GPS + sheet 2 nấc), 7 conflict (1 source `snap-sheet.tsx` + 6 doc frontmatter), **0 migration**. Verify tsc/test(2179)/build xanh. Merge commit = `dbbd27d`.

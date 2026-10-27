@@ -222,7 +222,7 @@ import {
 } from "@/lib/fish-blend";
 import { fishFailNote, lowQualityNote } from "@/lib/source-registry";
 import { moonPhase } from "@/lib/moon";
-import { FREE_FORECAST_DAYS } from "@/lib/tier";
+import { FREE_FORECAST_DAYS, soNgayThoiTiet, THOI_TIET_XA_CAN_GOI } from "@/lib/tier";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { PremiumLock } from "@/components/premium-gate";
 import { TileLoadDebug } from "@/components/tile-load-debug";
@@ -820,11 +820,14 @@ export default function FishingMapView() {
       nói gì. Bà con bật lớp giữa biển thấy biển trắng trơn, không phân biệt được
       "chưa tải được" với "biển không có xoáy" — mà hai chuyện đó khác hẳn nhau.
       Nay giữ cờ hỏng riêng cho lớp này, dùng lại đúng khuôn `gridFailed`. */
+  const { access: premiumAccess } = useFeatureAccess();
+  const premiumLocked =
+    premiumAccess === "login" || premiumAccess === "upgrade";
   const [seaScalarFailed, setSeaScalarFailed] = useState<SeaScalarKind | null>(
     null,
   );
   useEffect(() => {
-    if (!scalarKind || scalarData[scalarKind]) return;
+    if (!scalarKind || scalarData[scalarKind] || premiumLocked) return; // nước xoáy cần gói (2026-10-27)
     let alive = true;
     fetchSeaScalar(scalarKind)
       .then((r) => {
@@ -838,7 +841,7 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, [scalarKind, scalarData]);
+  }, [scalarKind, scalarData, premiumLocked]);
 
   const activeScalar =
     scalarKind && scalarData[scalarKind]?.ok
@@ -880,7 +883,6 @@ export default function FishingMapView() {
   //   XEM. Có dữ liệu trong máy là hiện, bất kể phiên đăng nhập còn hay không.
   //   Dữ liệu tự già đi và hết giá trị sau ≤16 ngày nên không cần khoá thêm.
   // ⇒ Màn mời đăng nhập/nâng cấp CHỈ hiện khi thật sự KHÔNG CÓ GÌ để xem.
-  const { access: premiumAccess } = useFeatureAccess();
   /*  Ô "Đi đâu?" (BD-02, rà FB 2026-10-25): ô TÌM MIỄN PHÍ cho mọi tài khoản đã đăng
       nhập — cảng · điểm đã lưu · toạ độ (ban-do/tim-diem.tsx; luật lib/ban-do-tim.ts).
       Tier chỉ nói "Premium = dự báo cá + thời tiết >3 ngày"; đi tới một cảng không nằm
@@ -890,8 +892,15 @@ export default function FishingMapView() {
   const [moiTimDiem, setMoiTimDiem] = useState(false);
   /** ô "Đi đâu?" — lời mời neo NGAY DƯỚI nó (Popover, 03 §6 mục 9) */
   const [oTimEl, setOTimEl] = useState<HTMLDivElement | null>(null);
-  const premiumLocked =
-    premiumAccess === "login" || premiumAccess === "upgrade";
+  /*  GÓI THEO LỚP (2026-10-27, anh Long: "lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu premium còn lại cho free"):
+      CẦN GÓI = dự báo cá · lớp nền ảnh (nhiệt độ nước, vùng nhiều mồi — NASA; độ sâu EMODnet CC-BY) · chất đáy +
+      hình rạn chi tiết (Allen Coral Atlas CC-BY) · độ mặn + dòng chảy tầng sâu (Copernicus) · nước xoáy (NOAA) ·
+      dẫn đường. MIỄN PHÍ (đã đăng nhập) = nền vector, hải đồ/phao/rạn OSM, tên rạn (TT 33/2024), số đo + đẳng sâu,
+      gió/sóng/mưa/mây/nhiệt Open-Meteo CẢ 16 NGÀY (giấy phép free của Open-Meteo không cho bán ⇒ không gác), AIS.
+      Chặn THẬT (anh Long: "tất cả tải lưu server đi"): ảnh NASA qua /api/tiles/sst|chlorophyll (middleware 403); file tĩnh
+      gói (rạn/chất đáy Allen, độ sâu rạn, mùa vụ cá) mã bằng KHOÁ GÓI chỉ premium nhận (lib/data-premium-files.mjs).
+      Khoá ở đây là lớp vỏ: không gọi tải thứ chắc chắn bị từ chối. */
+  // (premiumAccess / premiumLocked khai báo sớm hơn — trước effect nước xoáy dùng nó)
   useEffect(() => {
     // chỉ tải khi bật + chưa có + không khoá premium; lỗi ⇒ "error", chạm thử lại tăng fleetRetry
     if (!fleetOn || !fleetAllowed || fleetData || premiumLocked) return;
@@ -919,7 +928,7 @@ export default function FishingMapView() {
     let alive = true;
     Promise.all(
       PORTS.map((p) =>
-        fetchSeaForecast(p)
+        fetchSeaForecast(p, soNgayThoiTiet(premiumAccess))
           .then((days) => ({ lat: p.lat, lon: p.lon, byDate: Object.fromEntries(days.map((x) => [x.date, x.windMaxKmh])) }))
           .catch(() => null),
       ),
@@ -929,7 +938,7 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, [fleetOn, fleetAllowed, fleetWind, fleetRetry]);
+  }, [fleetOn, fleetAllowed, fleetWind, fleetRetry, premiumAccess]);
   useEffect(() => {
     // có sóng lại mà gió còn trống ⇒ bơm fleetRetry để effect gió chạy lại (không tự lặp: chỉ khi sự kiện online)
     if (!fleetOn || !fleetAllowed) return;
@@ -1118,7 +1127,7 @@ export default function FishingMapView() {
   // là đã dùng — tới nhánh lỗi nghĩa là KHÔNG CÒN GÌ, chẳng có gì để mời.
 
   // TẦM NGÀY TỰ ĐẶT THEO HẠNG (bỏ chip chọn khung, user 2026-07-28): premium =
-  // 16 ngày, thường = 3 ngày (FREE_FORECAST_DAYS). Bà con cuộn dải ngày để xem
+  // 16 ngày, thường = HÔM NAY (FREE_FORECAST_DAYS = 1 từ 2026-10-27). Bà con cuộn dải ngày để xem
   // xa/gần.
   //
   // NGOẠI LỆ (2026-08-01, cùng luật "đã tải thì cứ dùng"): hạng tụt/hết hạn mà
@@ -1128,10 +1137,12 @@ export default function FishingMapView() {
   /* KHUNG VỪA TỤT XUỐNG mấy ngày (null = không tụt) — để nói MỘT DÒNG nhỏ thay
      vì đổi màn trong im lặng. Xem chú thích ở effect ngay dưới. */
   const [gridShrunkTo, setGridShrunkTo] = useState<number | null>(null);
+  /*  KHOÁ NGÀY XA (2026-10-27, anh Long: "thường ko có dự báo, chỉ có ngày hôm nay thôi" — "open gì thì cũng ko show"):
+      đã BIẾT là thường/khách (`premiumLocked`) ⇒ chỉ hôm nay, KỂ CẢ khi máy còn lưới dài từ hồi còn gói; còn đang
+      kiểm hạng ("checking" — premium mất sóng chưa đọc được dấu) thì vẫn cho xem lưới dài đã có trong máy. */
+  const khoaNgayXa = THOI_TIET_XA_CAN_GOI && (premiumLocked || (premiumUnsure && !savedLongGrid));
   useEffect(() => {
-    const target = (
-      premiumUnsure && !savedLongGrid ? FREE_FORECAST_DAYS : 16
-    ) as GridDays;
+    const target = (khoaNgayXa ? FREE_FORECAST_DAYS : 16) as GridDays;
     if (gridDays !== target) {
       /* CHỈ RESET KHI MỞ RỘNG KHUNG (R8, 2026-08-02). Khi khung TỤT (16 → 3, vd
          lưới dài bị dọn mất chỗ) mà cũng `setTimeIdx(0)` thì bà con đang xem gió
@@ -1148,7 +1159,7 @@ export default function FishingMapView() {
       }
       setGridDays(target);
     }
-  }, [premiumUnsure, savedLongGrid, gridDays]);
+  }, [khoaNgayXa, gridDays]);
 
   // Bấm khung ngày (3/5/7/10/16) → khi lưới MỚI về, nhảy thanh giờ tới NGÀY
   // CUỐI của khung (bấm "10 ngày" = xem luôn gió ~ngày 10, kéo lùi để về gần).
@@ -1239,7 +1250,7 @@ export default function FishingMapView() {
     if (forecastKind !== "current" && curDepthTier !== 0) setCurDepthTier(0);
   }, [forecastKind, curDepthTier]);
   useEffect(() => {
-    if (forecastKind !== "current" || curDepthTier === 0 || gridFailed) {
+    if (forecastKind !== "current" || curDepthTier === 0 || gridFailed || premiumLocked) {
       setDepthGrid(null);
       return;
     }
@@ -1287,7 +1298,7 @@ export default function FishingMapView() {
         setDangLamMoi((n) => Math.max(0, n - 1));
       }
     };
-  }, [forecastKind, curDepthTier, gridFailed, premiumUnsure, netEpoch]);
+  }, [forecastKind, curDepthTier, gridFailed, premiumUnsure, premiumLocked, netEpoch]);
 
   // Lưới đang cấp số cho LỚP forecastKind: tầng sâu thì thay fGrid bằng lưới
   // ngày của tầng (fGrid vẫn tải để hạt gió nền + tra điểm dùng)
@@ -1299,6 +1310,10 @@ export default function FishingMapView() {
   // gridFailed để thanh giờ báo thật.
   useEffect(() => {
     if (!overlayField || gridFailed) return;
+    if (overlayField === "salinity" && premiumLocked) {
+      setSfGrid(null); // độ mặn (Copernicus) cần gói — 2026-10-27
+      return;
+    }
     let alive = true;
     let banMoiVe = false;
     /*  HIỆN BẢN TRONG MÁY NGAY (2026-08-03) — cùng lý do và cùng khuôn với lưới
@@ -1337,7 +1352,7 @@ export default function FishingMapView() {
         setDangLamMoi((n) => Math.max(0, n - 1));
       }
     };
-  }, [overlayField, gridFailed, gridDays, netEpoch]);
+  }, [overlayField, gridFailed, gridDays, netEpoch, premiumLocked]);
 
   // Lưới đang điều khiển thanh giờ: gió/sóng/dòng chảy (kể cả tầng sâu) HOẶC
   // dải màu (loại trừ nhau)
@@ -4036,10 +4051,10 @@ export default function FishingMapView() {
   const luc0 = (lop: LopBanDo, luc?: ThoiDiem) => (lop === "ca" && !luc ? "hôm nay" : noiThoiDiem(luc));
   const ngoaiKhung = useCallback(
     (luc?: ThoiDiem) =>
-      luc && premiumUnsure && !savedLongGrid && luc.ngay >= FREE_FORECAST_DAYS
-        ? `Xem quá ${FREE_FORECAST_DAYS} ngày dành cho tài khoản premium.`
+      luc && khoaNgayXa && luc.ngay >= FREE_FORECAST_DAYS
+        ? "Dự báo các ngày tới đi kèm gói dự báo cá."
         : "Máy chưa có dự báo tới lúc đó.",
-    [premiumUnsure, savedLongGrid],
+    [khoaNgayXa],
   );
   // lưới về ⇒ áp mốc giờ đang chờ + đọc số đang chờ
   useEffect(() => {
@@ -4195,7 +4210,7 @@ export default function FishingMapView() {
           }
           if (!LOP_CO_GIO.includes(lop)) return noi(`Đang xem ${TEN_LOP[lop]}.`);
           const mo = `Đang xem ${TEN_LOP[lop]}${lenh.tang ? ` tầng ${lenh.tang} mét` : ""} ${noiThoiDiem(luc)}. `;
-          if (luc && luc.ngay >= FREE_FORECAST_DAYS && premiumUnsure && !savedLongGrid) return noi(`${mo}${ngoaiKhung(luc)}`);
+          if (luc && khoaNgayXa && luc.ngay >= FREE_FORECAST_DAYS) return noi(`${mo}${ngoaiKhung(luc)}`);
           if (luc) senMocRef.current = luc;
           // tầng sâu đọc từ lưới tầng riêng — chưa đọc số, chỉ mở
           if (lenh.tang) return noi(mo);
@@ -4215,7 +4230,7 @@ export default function FishingMapView() {
         }
       }
     },
-    [senViTri, forecastKind, overlayField, fishOn, SEN_OVERLAY, senDocSo, ngoaiKhung, navOn, senSay, fGrid, sfGrid, todayIso, senMoLop, premiumAccess, fishCast, premiumUnsure, savedLongGrid],
+    [senViTri, forecastKind, overlayField, fishOn, SEN_OVERLAY, senDocSo, ngoaiKhung, navOn, senSay, fGrid, sfGrid, todayIso, senMoLop, premiumAccess, fishCast, khoaNgayXa],
   );
   const ganNhatTen = (ds: readonly SenDest[], v: { lat: number; lon: number }, n: number) =>
     [...ds].sort((a, b) => haversineKm(v.lat, v.lon, a.lat, a.lon) - haversineKm(v.lat, v.lon, b.lat, b.lon)).slice(0, n);
@@ -4480,7 +4495,7 @@ export default function FishingMapView() {
       // (Nước nóng lạnh / Vùng nhiều mồi) — ảnh đục 0,85 làm chìm phao·luồng·số
       // đo sâu ở dải z9–12. Muốn xem ảnh vệ tinh thì TẮT Hải đồ chi tiết; hai
       // chế độ tách biệt, layerId vẫn được nhớ để hiện lại khi tắt.
-      buildMapStyle(anyExclusiveOverlay || chartDetailOn ? "bathymetry" : layerId, {
+      buildMapStyle(premiumLocked ? null : anyExclusiveOverlay || chartDetailOn ? "bathymetry" : layerId, {
         /*  LỚP ẢNH BÁO HIỆU TẮT HẲN (2026-08-29) — công tắc `seamarksOn` nay
             điều khiển lớp VECTOR trong máy (xem `seamarkGeo` phía dưới).
 
@@ -4493,7 +4508,7 @@ export default function FishingMapView() {
             muốn dựng lớp phụ zoom sâu quanh cảng thì bật lại một cờ là xong. */
         seamarks: false,
       }) as unknown as StyleSpecification,
-    [layerId, anyExclusiveOverlay, chartDetailOn],
+    [layerId, anyExclusiveOverlay, chartDetailOn, premiumLocked],
   );
 
   /*  LỚP BẮT CHẠM — gom một chỗ, và CHỈ khai lớp ĐANG TỒN TẠI trong style:
@@ -4543,11 +4558,11 @@ export default function FishingMapView() {
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn)
       ids.push("sea-lane-gian", "sea-lane-cap-bo", "sea-lane-camneo", "sea-lane-vungcam-fill", "sea-lane-cap", "sea-lane-ong");
     if (!anyExclusiveOverlay && chartDetailOn && groupNameOn) ids.push("dia-danh-ngam-label");
-    if (!anyExclusiveOverlay && chartDetailOn && groupDepthOn) ids.push("chat-day-dot");
+    if (!anyExclusiveOverlay && chartDetailOn && groupDepthOn && !premiumLocked) ids.push("chat-day-dot");
     // chạm MỐC bão (đã qua / dự báo) để bật popup thông tin mốc đó (A)
     if (trackGeo) ids.push("storm-moc-toi", "storm-moc-qua");
     return ids.length ? ids : undefined;
-  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo, prefs.vungQuanLy, vungQuanLyGeo, aisGeo]);
+  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo, prefs.vungQuanLy, vungQuanLyGeo, aisGeo, premiumLocked]);
   /*  LỚP BẮT CHẠM ĐÃ DỰNG THẬT (lỗi bắt khi rà 2026-10-20): `hitLayers` tính từ
       STATE (dữ liệu đã tải, công tắc bật) nhưng lớp chỉ vào style sau một nhịp
       vẽ — nhất là lúc đổi lớp nền (setStyle dựng lại cả style). Chạm đúng khe đó
@@ -4570,13 +4585,14 @@ export default function FishingMapView() {
   const reqKey = `${point.lat},${point.lon}:${retry}`;
   useEffect(() => {
     let alive = true;
-    fetchSeaPoint(point)
+    // tài khoản thường: chỉ HÔM NAY (2026-10-27 — máy chủ gác ngày ở /api/om, tier.ts soNgayThoiTiet)
+    fetchSeaPoint(point, soNgayThoiTiet(premiumAccess))
       .then((c) => alive && setResult({ key: reqKey, cond: c }))
       .catch(() => alive && setResult({ key: reqKey, cond: null }));
     return () => {
       alive = false;
     };
-  }, [point, reqKey]);
+  }, [point, reqKey, premiumAccess]);
 
   const loading = result?.key !== reqKey;
   const cond = loading ? null : (result?.cond ?? null);
@@ -4685,8 +4701,8 @@ export default function FishingMapView() {
   // (2026-08-01) …TRỪ khi lưới dài đã nằm trong máy: đã tải hợp lệ lúc còn hạn
   // thì cứ xem, khoá lại là giấu chính thứ bà con đã tải về.
   const dayChipLocked = (dateIso: string) =>
+    THOI_TIET_XA_CAN_GOI && // 2026-10-27: thường/khách chỉ hôm nay, kể cả khi máy còn lưới dài ("ko show")
     premiumLocked &&
-    !savedLongGrid &&
     daysBetweenISO(todayIso, dateIso) >= FREE_FORECAST_DAYS;
   const rawSelIdx = allPast
     ? -1
@@ -5181,14 +5197,14 @@ export default function FishingMapView() {
       <p className="mt-1 rounded-xl bg-field/80 px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
         {premiumAccess === "login" ? (
           <>
-            Xem quá {FREE_FORECAST_DAYS} ngày cần đăng nhập —{" "}
+            Xem các ngày tới cần đăng nhập —{" "}
             <Link href="/login" className="font-semibold text-trim">
               Đăng nhập →
             </Link>
           </>
         ) : (
           <>
-            {premiumLine(`xem trước quá ${FREE_FORECAST_DAYS} ngày`)}{" "}
+            {premiumLine("dự báo các ngày tới")}{" "}
             <a href={`tel:${SDVICO_HOTLINE}`} className="font-semibold text-trim">
               Gọi →
             </a>
@@ -6870,7 +6886,7 @@ export default function FishingMapView() {
              vì chỉ giải ô đang nhìn.
              Mỗi `<Layer>` BẮT BUỘC có `source-layer="reef"` — thiếu là lớp im
              lặng không vẽ gì, không báo lỗi. */}
-        {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && (
+        {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && !premiumLocked && (
           <Source
             id="reef-shapes"
             type="vector"
@@ -6905,7 +6921,7 @@ export default function FishingMapView() {
              sâu + ký hiệu — chất đáy là nền, vật cản và con số nổi trên. Thêm
              kho mới → nhớ thêm vào mảng pre-warm pmtiles VÀ PMTILES_ARCHIVES
              của sw.js. */}
-        {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && (
+        {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && !premiumLocked && (
           <Source id="chat-day" type="vector" url={CHAT_DAY_PMTILES_URL}>
             <Layer
               id="chat-day-dot"
@@ -7676,7 +7692,7 @@ export default function FishingMapView() {
       {/*  CHÚ GIẢI CHẤT ĐÁY (2026-09-03, chủ dự án hỏi "cái này là cái gì") —
            chỉ hiện khi lớp chất đáy THẬT SỰ vẽ (nhóm Độ sâu & đáy bật + z≥9),
            nếu không thì chấm màu vô nghĩa với bà con. Không chặn chạm. */}
-      {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && mapZoom >= CHAT_DAY_MINZOOM && (
+      {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && !premiumLocked && mapZoom >= CHAT_DAY_MINZOOM && (
         <div className="pointer-events-none absolute bottom-2 left-2 z-20 rounded-xl bg-card/90 px-2.5 py-2 shadow-lg">
           <p className="mb-1 text-[0.75rem] font-semibold text-navy">Chất đáy</p>
           <div className="grid grid-cols-1 gap-y-0.5">
@@ -8495,6 +8511,10 @@ export default function FishingMapView() {
                     </button>
                   ))}
                 </div>
+              )}
+              {/* dòng chảy TẦNG SÂU (Copernicus) cần gói — 2026-10-27; tầng "Mặt" (Open-Meteo) miễn phí */}
+              {forecastKind === "current" && curDepthTier !== 0 && premiumLocked && (
+                <PremiumLock access={premiumAccess} feature="dòng chảy tầng sâu" compact />
               )}
               {/* LUÔN HIỆN khi mở lớp (kiểu Windy) — bỏ thu gọn/auto-hide; strip
                   gọn: 1 dòng tiêu đề + play, rồi dải ngày + thanh dải màu (user

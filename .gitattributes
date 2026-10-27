@@ -2,3 +2,10 @@
 # "#!/bin/sh" hỏng, hook không chạy (ai-simple-product-dev nguyên tắc 08).
 .githooks/** text eol=lf
 *.sh text eol=lf
+
+# Bộ chạy WASM chép nguyên (sherpa-onnx) — test khoá checksum từng byte (nghe-may.test.ts). Không cho git đổi
+# xuống dòng: checkout Windows (core.autocrlf=true) biến LF ⇒ CRLF làm checksum lệch (đỏ 2026-10-26).
+public/sherpa-asr/** -text
+# JS phát thẳng ra điện thoại (sw.js, worker) — test đọc/chạy mã nguồn này (sen-bien-offline.test.ts); giữ LF trên
+# mọi máy để máy dev Windows chạy test giống CI và bản IIS build trên Windows phát đúng byte như Vercel.
+public/*.js text eol=lf

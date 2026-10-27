@@ -30,7 +30,7 @@ import {
 
 /** Trả dữ liệu Open-Meteo tối thiểu để fetchSeaPointLive chạy được */
 function fakeOk(url: string) {
-  const marine = url.includes("marine-api");
+  const marine = /marine-api|\/api\/om\/marine/.test(url);
   const body = marine
     ? {
         current: { wave_height: 1.2, wave_period: 6 },

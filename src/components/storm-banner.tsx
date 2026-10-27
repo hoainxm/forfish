@@ -10,7 +10,7 @@
  *     TUỔI TIN (lib/storms.ts stormNoticeText), tuyệt đối không nói "không có bão"
  *
  * Hai chỗ mount (2026-08-18):
- *   · variant="overlay" — nổi trên bản đồ Ra khơi: chip gọn khi yên, thẻ đầy
+ *   · variant="overlay" — nổi trên bản đồ Ra khơi: chip gọn khi yên (báo 3 s rồi ẩn hẳn — 2026-10-27), thẻ đầy
  *     đủ khi có bão (tự thu sau 5 s, cơn danger 8 s; CHỈ nằm lì khi tàu đang
  *     trong vùng bão — prop myPos), nhánh chưa hỏi
  *     được thu về chip 1 dòng, bung đầy đủ 8s mỗi khi CÂU đổi.
@@ -133,6 +133,18 @@ export function StormBanner({
     return () => clearTimeout(t);
   }, [noticeText, variant]);
 
+  /*  Overlay YÊN ("không có bão"): báo 1 lần rồi ẨN HẲN (anh Long 2026-10-27: "ẩn đi sau khi báo" —
+      pill thường trực che góc bản đồ). Hiện lại chỉ khi VỪA CHUYỂN sang yên (mở bản đồ, hết bão,
+      hỏi được lại sau mất sóng); nhịp hỏi lại 30 phút giữ nguyên trạng thái ⇒ không bật lại. */
+  const yen = variant === "overlay" && status.kind === "khong-co";
+  const [yenHien, setYenHien] = useState(true);
+  useEffect(() => {
+    if (!yen) return;
+    setYenHien(true);
+    const t = setTimeout(() => setYenHien(false), NOTIFY_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [yen]);
+
   if (status.kind === "dang-hoi") {
     // đang hỏi — bản đồ chưa nói gì; màn Sen Biển (always) giữ chỗ để dòng bão không nhảy
     if (variant === "page" && always) {
@@ -200,6 +212,7 @@ export function StormBanner({
         ? clockVN(status.checkedAt).slice(0, 5)
         : clockVN(status.checkedAt);
     if (variant === "overlay") {
+      if (!yenHien) return null;
       return (
         /*  LÚC YÊN trên bản đồ = pill trắng nhỏ, chữ thường (tối ưu bố cục bản đồ
             2026-10-19): pill xanh đặc chữ đậm "Không có tin bão — hỏi lúc 22:38

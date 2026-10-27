@@ -72,3 +72,6 @@ test-reports/
 
 # bộ chấm dẫn đường — kết quả từng lượt, không vào git
 /.dan-duong/
+
+# Cấu hình IDE JetBrains (có cache máy) — không chia sẻ qua git (dọn 2026-10-26)
+.idea/

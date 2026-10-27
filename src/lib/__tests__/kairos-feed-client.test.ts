@@ -12,6 +12,7 @@ import {
   loadFeedCache,
   loadHabit,
   parseFeedPage,
+  postDateLabel,
   postTimeLabel,
   savedAtLabel,
   saveFeedCache,
@@ -139,6 +140,14 @@ describe("chữ giờ + số đếm + ảnh đại diện", () => {
     expect(postTimeLabel(new Date(2026, 9, 2, 8, 0).toISOString(), now)).toBe("02/10");
     expect(postTimeLabel(new Date(2025, 11, 31, 8, 0).toISOString(), now)).toBe("31/12/2025");
     expect(postTimeLabel("hỏng", now)).toBe("");
+  });
+  it("postDateLabel: tin chính sách luôn đủ ngày/tháng/năm (ngày ban hành), bài khác như postTimeLabel", () => {
+    const now = new Date(2026, 9, 26, 10, 0).getTime();
+    expect(postDateLabel({ topic: "chinh-sach", publishedAt: new Date(2026, 8, 7, 8, 0).toISOString() }, now)).toBe("07/09/2026");
+    // vừa ký sáng nay cũng ghi ngày, không ghi "2 giờ"
+    expect(postDateLabel({ topic: "chinh-sach", publishedAt: new Date(2026, 9, 26, 8, 0).toISOString() }, now)).toBe("26/10/2026");
+    expect(postDateLabel({ topic: "nghe-ca", publishedAt: new Date(2026, 8, 7, 8, 0).toISOString() }, now)).toBe("07/09");
+    expect(postDateLabel({ topic: "chinh-sach", publishedAt: "hỏng" }, now)).toBe("");
   });
   it("savedAtLabel HH:mm dd/MM", () => {
     expect(savedAtLabel(new Date(2026, 9, 3, 7, 5).getTime())).toBe("07:05 03/10");

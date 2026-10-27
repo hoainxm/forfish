@@ -6,6 +6,7 @@
 
 import { apiBase } from "@/lib/api-base";
 import { CAU_CHONG_PHA } from "./chong-pha.mjs";
+import { cauLinkNguyHiem } from "./link-doc.mjs";
 import { GIOI_THIEU_MAX } from "./ho-so";
 import { LIMITS, type KairosAbout, type KairosAuthor, type KairosComment, type KairosPost } from "./types";
 
@@ -96,6 +97,8 @@ export function errorText(
       return "Có tên gọi sai về biển đảo. Dùng \"Biển Đông\", \"Hoàng Sa, Trường Sa của Việt Nam\".";
     case "anti_state":
       return CAU_CHONG_PHA;
+    case "dangerous_link":
+      return cauLinkNguyHiem(typeof r.extra?.term === "string" ? r.extra.term : null);
     case "rate_limited":
       return what === "hay" ? "Bấm nhanh quá, đợi chút rồi bấm lại." : "Hôm nay bà con gửi nhiều rồi, mai gửi tiếp nhé.";
     case "banned": {

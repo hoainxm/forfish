@@ -2,7 +2,7 @@
 // tỉnh (gialai.gov.vn — khuôn trang thật 2026-10-26), file đính kèm, prompt tóm tắt, gác .gov.vn ở máy chủ.
 import { describe, expect, it } from "vitest";
 import {
-  DINH_KEM_TOI_DA, docBaiGov, docDanhMucGov, docDinhKem, kiemDinhKem, laHostGov, laTinChoBaCon, ngayVn, promptTomTatChinhSach,
+  DINH_KEM_TOI_DA, docBaiGov, docDanhMucGov, docDinhKem, kiemDinhKem, laHostGov, laPhuLuc, laTinChoBaCon, ngayVn, promptTomTatChinhSach,
   vungDinhKem,
 } from "@/lib/kairos/chinh-sach.mjs";
 import { isTopic, topicFor } from "@/lib/kairos/chu-de.mjs";
@@ -99,9 +99,24 @@ describe("docBaiGov — trang chi tiết văn bản cổng tỉnh", () => {
     expect(d.description).toMatch(/^Số hiệu 1958\/QĐ-UBND\. QĐ phê duyệt danh sách/);
     expect(d.description).not.toMatch(/Bản quyền|Giấy phép/);
   });
-  it("ngày từ article:published_time; ảnh logo không làm ảnh bìa", () => {
-    expect(d.publishedAt).toBe("2025-06-13T07:34:57.000Z");
+  it("ngày = ô NGÀY BAN HÀNH (ngày ký), không phải article:published_time (ngày đăng web); ảnh logo không làm ảnh bìa", () => {
+    expect(d.publishedAt).toBe("2025-06-13T01:00:00.000Z");
     expect(d.coverUrl).toBeNull();
+    // QĐ 3799 Gia Lai: ký 07/09/2026, cổng đăng 14/09 ⇒ phải là 07/09 (anh Long 2026-10-26)
+    const h = `<meta property="article:published_time" content="2026-09-14T10:07:26+0700" /><table><tr><th>Số hiệu</th><td >3799/QĐ-UBND</td></tr><tr><th>Ngày ban hành</th><td >07/09/2026</td></tr></table>`;
+    expect(docBaiGov(h, "https://gialai.gov.vn/a.html").publishedAt).toBe("2026-09-07T01:00:00.000Z");
+    // trang tin không có bảng ⇒ ngày đăng web
+    expect(docBaiGov(`<meta property="article:published_time" content="2026-09-14T10:07:26+0700" />`, "https://gialai.gov.vn/b.html").publishedAt).toBe("2026-09-14T03:07:26.000Z");
+  });
+  it("file 'Tải về' tên tệp PL_… ⇒ 'Phụ lục …'; còn trùng tên thì đánh số tệp", () => {
+    const o = `<table><tr><th>File đính kèm</th><td><a href="/upload/3799_QD_UBND_b4482.pdf">Tải về</a><a href="/upload/PL_3799_a8cfd.pdf">Tải về</a><a href="/upload/x.pdf">Tải về</a></td></tr></table>`;
+    expect(docDinhKem(vungDinhKem(o), "https://gialai.gov.vn/", "Quyết định 3799/QĐ-UBND").map((x) => x.title)).toEqual([
+      "Quyết định 3799/QĐ-UBND (PDF)",
+      "Phụ lục Quyết định 3799/QĐ-UBND (PDF)",
+      "Quyết định 3799/QĐ-UBND – tệp 2 (PDF)",
+    ]);
+    for (const p of ["/u/PL_3799_a8cfd.pdf", "/u/QD3745_PL_dang_ky_dot_05_2026_ba81c.pdf", "/u/phu-luc-ds.pdf", "/u/PhuLuc1.pdf", "/u/Phu%20luc%202.pdf"]) expect(laPhuLuc(p), p).toBe(true);
+    for (const p of ["/u/3799_QD_UBND_b4482.pdf", "/u/CV11554_fbeee.pdf", "/u/plan.pdf", "/u/QCPH03_Gia_Lai.pdf"]) expect(laPhuLuc(p), p).toBe(false);
   });
   it("file đính kèm CHỈ trong ô File đính kèm (không lấy 'Văn bản liên quan'); 'Tải xuống' ⇒ tên theo số hiệu", () => {
     expect(d.attachments).toEqual([
@@ -148,6 +163,11 @@ describe("prompt tóm tắt chính sách", () => {
     expect(p).toMatch(/DỮ LIỆU/);
     expect(p).toContain('"file_dinh_kem":["Danh sách (PDF)"]');
     expect(p).toMatch(/\[\{"i":0,"summary":"\.\.\."\}\]/);
+    // ngày ban hành (giờ VN) đi kèm + luật "đợt … năm X" khác năm ký thì nói rõ
+    const q = promptTomTatChinhSach([{ title: "QĐ V/v phê duyệt đợt 05 năm 2025 …", description: "D", outlet: "UBND", publishedAt: "2026-09-07T01:00:00.000Z" }]);
+    expect(q).toContain('"ngay_ban_hanh":"07/09/2026"');
+    expect(q).toMatch(/KHÁC năm của ngay_ban_hanh/);
+    expect(p).not.toContain("ngay_ban_hanh\":");
   });
 });
 

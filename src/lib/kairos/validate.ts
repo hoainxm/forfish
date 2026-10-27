@@ -6,6 +6,7 @@
 // không phải `.length` UTF-16 (một biểu tượng đếm 2).
 
 import { docIdNhac } from "./nhac-ten";
+import { linkNguyHiem } from "./link-doc.mjs";
 import { badWordHit } from "./loc-chu";
 import { chuQuyenFlag } from "./chu-quyen.mjs";
 import { chongPhaFlag } from "./chong-pha.mjs";
@@ -57,15 +58,17 @@ export function cleanText(s: string): string {
     .trim();
 }
 
-/** Chữ bậy → chủ quyền → chống phá (chong-pha.mjs, 2026-10-26) — mã lỗi đầu tiên trúng. Chạy ở route ghi bài,
- *  bình luận, giới thiệu hồ sơ: chặn NGAY, không chờ agent 5 phút. */
-export function contentFlag(text: string): { code: "bad_words" | "sovereignty" | "anti_state"; term: string } | null {
+/** Chữ bậy → chủ quyền → chống phá (chong-pha.mjs, 2026-10-26) → link nguy hiểm (link-doc.mjs, 2026-10-27) — mã lỗi
+ *  đầu tiên trúng. Chạy ở route ghi bài, bình luận, giới thiệu hồ sơ: chặn NGAY, không chờ agent 5 phút. */
+export function contentFlag(text: string): { code: "bad_words" | "sovereignty" | "anti_state" | "dangerous_link"; term: string } | null {
   const bad = badWordHit(text);
   if (bad) return { code: "bad_words", term: bad };
   const sov = chuQuyenFlag(text);
   if (sov) return { code: "sovereignty", term: sov };
   const cp = chongPhaFlag(text);
   if (cp) return { code: "anti_state", term: cp };
+  const ln = linkNguyHiem(text);
+  if (ln) return { code: "dangerous_link", term: ln.ma };
   return null;
 }
 
