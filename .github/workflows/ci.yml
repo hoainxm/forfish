@@ -62,6 +62,11 @@ jobs:
 
       - name: Lint
         run: npm run lint
+        # ESLint cả repo ~2,6 GB RSS (đo máy dev 2026-10-27). Heap mặc định Node trên runner 7 GB RAM chỉ
+        # ~2 GB ⇒ lên Node 24 (sync base 45a4b30c) là "JavaScript heap out of memory" (exit 134) ngay bước này.
+        # Chỉ áp ở đây; cờ này hợp lệ mọi bản Node (KHÁC --no-experimental-webstorage — xem CLAUDE.md).
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Typecheck
         run: npm run typecheck

@@ -66,6 +66,8 @@ Thời gian mở đo trên localhost máy dev KHÔNG có nghĩa (vài chục ms)
 
 ## Dev / Build / Lint
 
+> **Lint tốn ~2,6 GB RAM** (đo 2026-10-27). CI (`ci.yml`, repo private ⇒ runner ~7 GB) đặt `NODE_OPTIONS=--max-old-space-size=4096` RIÊNG cho bước Lint — thiếu là `JavaScript heap out of memory` (exit 134) từ khi lên Node 24, deploy bị bỏ qua. Máy dev thiếu RAM: chạy `NODE_OPTIONS=--max-old-space-size=4096 npm run lint`.
+
 ```bash
 npm run dev      # http://localhost:3000
 npm run build    # phải pass trước khi deploy
