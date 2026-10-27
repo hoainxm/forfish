@@ -12,6 +12,10 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
+    /*  2026-10-27: trỏ CHÍNH manifest này ⇒ `navigator.getInstalledRelatedApps()` (Chrome Android) biết PWA đã nằm
+        trên màn hình chính khi bà con mở trong tab — thẻ/mục "Cài app" tự ẩn (lib/app-install). Đường dẫn TƯƠNG ĐỐI
+        (giải theo URL manifest) để cả sdfish.sdvico.vn lẫn bản Vercel đều đúng. Không đặt prefer_related_applications. */
+    related_applications: [{ platform: "webapp", url: "/manifest.webmanifest" }],
     orientation: "portrait",
     lang: "vi",
     dir: "ltr",

@@ -57,6 +57,7 @@ import {
   detachPushAccount,
 } from "@/lib/push-client";
 import { Popover } from "@/components/ui/popover";
+import { MucCaiApp } from "@/components/install-prompt";
 
 /*
   Tài khoản trên hero — GỌN (sửa 2026-06-11 theo góp ý "design thô"):
@@ -816,6 +817,10 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
               <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
             </Link>
           )}
+
+          {/*  CÀI APP CỐ ĐỊNH (2026-10-27, anh Long): mọi người — kể cả khách — đều mở được menu này; mục tự ẩn khi
+              đang mở bằng app, tự đổi thành "App đã cài trên máy" khi máy đã cài (install-prompt MucCaiApp). */}
+          <MucCaiApp />
 
           {/*  HÀNG "Cài đặt ›" (TC-07, 2026-10-25): trước là nhóm thu/mở xoè ngay trong Popover —
               708px cuộn trong một lớp nổi lệch phải không có ×, chính `ui/popover.tsx` cấm nội
