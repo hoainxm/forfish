@@ -3,9 +3,10 @@
 > Load khi: triển khai/kiểm tra việc tách vai · loại · hạng tài khoản (2026-10-02), apply migration 0056, xoay khoá sau sự cố lộ, gỡ tài khoản admin dùng chung, thêm/bớt quản trị viên.
 
 covers: supabase/migrations/0056_rbac_staff_accounts.sql, src/lib/staff-store.ts
-last_verified: 2026-10-06
+last_verified: 2026-10-28
 ttl_days: 90
 gate: warn
+<!-- re-verified: 2026-10-28 16:00 — PHÂN QUYỀN NHÂN SỰ LẠI (chủ dự án: quản lý mất nút "Trang quản trị" + không tìm được khách quản lý khác tạo để hỗ trợ): (1) QUẢN LÝ NHIỀU MÁY như admin — `/api/auth/token` cấp `allow_multi` + bỏ thu hồi `new_login` cho mọi nhân sự (prod: quản lý đuôi 001 đăng nhập máy tính là đá chuỗi điện thoại ⇒ app mất nút). (2) BỎ "chỉ khách mình": `managerTargetDenial` chỉ còn self / staff_target / not_real_account; GET /api/admin/accounts cho quản lý = mọi khách thật (ẩn nhân sự + test/demo/reviewer); thao tác theo bảng quyền tab × hành động + cờ `resetPassword`. Tầm `own`/`all_premium` hết tác dụng, ô "Thấy khách nào" gỡ khỏi tab Phân quyền (cột `scope` giữ, không migration). -->
 <!-- re-verified: 2026-10-06 16:00 — bảng quyền đặt lại mật khẩu: cờ riêng `resetPassword` (staff-permissions.ts, normalizePermissions fail-closed), route reset-password dùng requireStaff + canResetPassword + managerTargetCheck, khách về DEFAULT_CUSTOMER_PASSWORD, nhân sự randomTempPassword (ADR 0008). -->
 
 ## Mô hình (một đoạn)
@@ -14,21 +15,22 @@ gate: warn
 |---|---|---|
 | **VAI** — admin tổng · admin · manager · (không) | admin tổng = env `OWNER_LOGIN` (đăng nhập bằng TÊN) · admin/manager = bảng `staff_accounts` (0056) | admin tổng nâng/hạ quản trị viên; quản trị viên quản lý vai Quản lý — tab Phân quyền |
 | **LOẠI** — real · test · demo · reviewer | `customers.account_kind` (0056) | admin, ô "Loại" ở tab Tài khoản · `scripts/test-account.mjs danh-dau` |
-| **HẠNG** — basic · premium | `customers.tier` | webhook SDWork, admin, quản lý (chỉ khách mình) |
+| **HẠNG** — basic · premium | `customers.tier` | webhook SDWork, admin, quản lý (mọi khách thật, theo bảng quyền) |
 
 Một cửa đọc: `src/lib/staff-store.ts` (`loadActor`). Luật thuần + test: `src/lib/admin.ts` (`resolveStaffRole`, `managerTargetDenial`, `tokenTtlMs`) — `src/lib/__tests__/rbac.test.ts`. Chi tiết luật nghiệp vụ: [10-ba-spec R3/R6–R10](../10-ba-spec-quan-tri-van-hanh.md); schema: [04 §0056](../04-data-model.md).
 
-| | Admin tổng | Admin | Quản lý `own` | Quản lý `all_premium` | Khách thật | test / demo / reviewer |
-|---|---|---|---|---|---|---|
-| Nâng/hạ/tạo/xoá quản trị viên | ✓ | – | – | – | – | – |
-| Vào /quan-tri | ✓ | ✓ | theo bảng quyền | theo bảng quyền | – | **không bao giờ** |
-| Cấp/gia hạn premium | ✓ | ✓ | khách mình + khách chưa ai cấp; cấm tự cấp | + mọi khách đang premium | – | – |
-| Xoá · ghi cờ · ghi thu tiền · nhắn riêng | ✓ | ✓ (xoá admin: không) | chỉ khách mình | + khách đang premium | – | – |
-| Gửi thông báo TẤT CẢ | ✓ | ✓ | – | – | – | không nhận |
-| Đặt lại mật khẩu (khách ⇒ `sd123456`, nhân sự ⇒ ngẫu nhiên — ADR 0008) | ✓ | ✓ | chỉ khi admin tick cờ riêng `resetPassword`; chỉ khách mình, cấm nhân sự + chính mình | như cột trái, + khách đang premium | – | – |
-| Hạ hạng · đổi loại · đăng xuất mọi máy | ✓ | ✓ | – | – | – | – |
-| CCCD trong tab Thuyền viên | đủ | đủ | 4 số cuối | 4 số cuối | – | – |
-| Hạn chuỗi đăng nhập | 12 giờ, nhiều máy | 7 ngày, nhiều máy | 7 ngày, 1 máy | 7 ngày, 1 máy | **không hạn** | test 24 giờ · demo 7 ngày |
+| | Admin tổng | Admin | Quản lý | Khách thật | test / demo / reviewer |
+|---|---|---|---|---|---|
+| Nâng/hạ/tạo/xoá quản trị viên | ✓ | – | – | – | – |
+| Vào /quan-tri | ✓ | ✓ | theo bảng quyền | – | **không bao giờ** |
+| Thấy khách nào (tab Tài khoản) | mọi tài khoản | mọi tài khoản | **mọi khách thật** (ẩn nhân sự + test/demo/reviewer) — 2026-10-28 | – | – |
+| Cấp/gia hạn premium | ✓ | ✓ | khi bảng quyền cho Sửa tab Tài khoản; mọi khách thật; cấm tự cấp | – | – |
+| Xoá · ghi cờ · ghi thu tiền · nhắn riêng | ✓ | ✓ (xoá admin: không) | theo bảng quyền; mọi khách thật | – | – |
+| Gửi thông báo TẤT CẢ | ✓ | ✓ | – | – | không nhận |
+| Đặt lại mật khẩu (khách ⇒ `sd123456`, nhân sự ⇒ ngẫu nhiên — ADR 0008) | ✓ | ✓ | chỉ khi admin tick cờ riêng `resetPassword`; mọi khách thật, cấm nhân sự + chính mình + tài khoản thử | – | – |
+| Hạ hạng · đổi loại · đăng xuất mọi máy | ✓ | ✓ | – | – | – |
+| CCCD trong tab Thuyền viên | đủ | đủ | 4 số cuối | – | – |
+| Hạn chuỗi đăng nhập | 12 giờ, nhiều máy | 7 ngày, nhiều máy | 7 ngày, **nhiều máy** (2026-10-28) | **không hạn**, 1 máy | test 24 giờ · demo 7 ngày |
 
 ## Admin tổng (chủ dự án chốt 2026-10-02)
 

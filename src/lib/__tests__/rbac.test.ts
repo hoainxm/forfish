@@ -103,35 +103,25 @@ describe("normalizeAccountKind / normalizeStaffScope — giá trị lạ về m�
   });
 });
 
-describe("managerTargetDenial — quản lý chỉ đụng khách của mình", () => {
+describe("managerTargetDenial — quản lý đụng MỌI khách thật (2026-10-28)", () => {
   const base = {
     actorPhone: "0911111111",
     targetPhone: "0922222222",
     targetIsStaff: false,
-    grantedBy: [] as string[],
-    scope: "own" as const,
-    targetIsPremium: false,
-    allowUnclaimed: false,
+    targetKind: "real" as const,
   };
   it("tự đụng mình → self (kể cả khác định dạng)", () => {
     expect(managerTargetDenial({ ...base, targetPhone: "84911111111" })).toBe("self");
   });
   it("đụng nhân sự → staff_target", () => {
-    expect(managerTargetDenial({ ...base, targetIsStaff: true, grantedBy: ["0911111111"] })).toBe("staff_target");
+    expect(managerTargetDenial({ ...base, targetIsStaff: true })).toBe("staff_target");
   });
-  it("khách mình cấp → được", () => {
-    expect(managerTargetDenial({ ...base, grantedBy: ["0933333333", "0911111111"] })).toBeNull();
+  it("tài khoản test/demo/duyệt app → not_real_account", () => {
+    for (const k of ["test", "demo", "reviewer"] as const)
+      expect(managerTargetDenial({ ...base, targetKind: k })).toBe("not_real_account");
   });
-  it("khách người khác cấp → not_your_customer (kể cả khi cấp premium)", () => {
-    expect(managerTargetDenial({ ...base, grantedBy: ["0933333333"], allowUnclaimed: true })).toBe("not_your_customer");
-  });
-  it("khách chưa ai cấp: CẤP được (nhận khách mới), XOÁ/NHẮN không", () => {
-    expect(managerTargetDenial({ ...base, allowUnclaimed: true })).toBeNull();
-    expect(managerTargetDenial({ ...base, allowUnclaimed: false })).toBe("not_your_customer");
-  });
-  it("đại lý tổng (all_premium) đụng được khách đang premium", () => {
-    expect(managerTargetDenial({ ...base, scope: "all_premium", targetIsPremium: true, grantedBy: ["0933333333"] })).toBeNull();
-    expect(managerTargetDenial({ ...base, scope: "all_premium", targetIsPremium: false, grantedBy: ["0933333333"] })).toBe("not_your_customer");
+  it("khách thật bất kỳ (kể cả do quản lý khác tạo/cấp) → được, bảng quyền quyết tiếp", () => {
+    expect(managerTargetDenial(base)).toBeNull();
   });
 });
 

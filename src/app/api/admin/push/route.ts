@@ -170,7 +170,7 @@ export async function POST(req: Request) {
   // của quản trị), chỉ nhắn riêng khách của mình (RBAC 2026-10-02).
   if (who.role === "manager") {
     if (body?.target !== "phone") return err(403, "broadcast_admin_only");
-    const d = await managerTargetCheck(admin, who, normalizeVnPhone(body.phone!.trim()), false);
+    const d = await managerTargetCheck(admin, who, normalizeVnPhone(body.phone!.trim()));
     if (d) return err(d.status, d.code);
   }
 

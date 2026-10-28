@@ -26,7 +26,6 @@ import {
   roleAfterCreate,
   ACCOUNT_KINDS,
   type AccountKind,
-  type StaffScope,
 } from "@/lib/admin";
 import {
   findOwner,
@@ -115,11 +114,10 @@ async function isOwnerCaller(): Promise<boolean> {
 /** Bọc managerTargetCheck (lib/staff-store) thành Response lỗi của route. */
 async function guardManagerTarget(
   admin: Admin,
-  who: { phone: string; role: "admin" | "manager"; scope: StaffScope },
+  who: { phone: string; role: "admin" | "manager" },
   phone: string,
-  allowUnclaimed: boolean,
 ): Promise<NextResponse | null> {
-  const d = await managerTargetCheck(admin, who, phone, allowUnclaimed);
+  const d = await managerTargetCheck(admin, who, phone);
   return d ? err(d.status, d.code) : null;
 }
 
@@ -324,37 +322,14 @@ export async function GET() {
     devices: devicesByPhone.get(r.phone as string) ?? [],
   }));
 
-  // R3/AC-8 — ĐẠI LÝ (manager) CHỈ thấy khách MÌNH cấp premium (granted_by).
-  // Admin thấy hết. Scope ở SERVER, không chỉ ẩn UI. Bảng log chưa có / đại lý
-  // chưa cấp ai → thấy RỖNG (an toàn, không lộ khách người khác).
-  let visible = accounts;
-  if (who.role === "manager") {
-    if (who.scope === "all_premium") {
-      // ĐẠI LÝ TỔNG (staff_accounts.scope; env MASTER_AGENT_PHONES lùi): thấy MỌI khách CÒN PREMIUM hiệu
-      // lực, ẨN khách thường. Scope ở SERVER như đại lý thường — không chỉ ẩn UI.
-      const now = Date.now();
-      visible = accounts.filter(
-        (a) =>
-          resolveTier(a.tier, a.premiumUntil, now) === "premium" &&
-          !a.isAdmin &&
-          a.role === "customer",
-      );
-    } else {
-      // đại lý thường — CHỈ khách MÌNH cấp premium (granted_by). Bảng log chưa
-      // có / chưa cấp ai → thấy RỖNG (an toàn, không lộ khách người khác).
-      const owned = new Set<string>();
-      try {
-        const { data: g } = await admin
-          .from("premium_grants")
-          .select("customer_phone")
-          .eq("granted_by", who.phone);
-        for (const row of g ?? []) owned.add(row.customer_phone as string);
-      } catch {
-        /* premium_grants chưa có → đại lý thấy rỗng */
-      }
-      visible = accounts.filter((a) => owned.has(a.phone));
-    }
-  }
+  // QUẢN LÝ thấy MỌI KHÁCH THẬT (chủ dự án 2026-10-28 — trước chỉ thấy khách
+  // mình cấp nên không tìm được khách quản lý khác tạo để hỗ trợ). Vẫn ẩn nhân
+  // sự + tài khoản test/demo/duyệt app — đúng cửa managerTargetCheck. Lọc ở
+  // SERVER, không chỉ ẩn UI. Thao tác do bảng quyền tab × hành động quyết.
+  const visible =
+    who.role === "manager"
+      ? accounts.filter((a) => !a.isAdmin && a.role === "customer" && a.kind === "real")
+      : accounts;
 
   // THỐNG KÊ THEO NGƯỜI CẤP: mỗi khách tính theo lần cấp GẦN NHẤT
   // (activate/renew); "đang quản" = khách đó hiện còn premium hiệu lực.
@@ -471,7 +446,7 @@ export async function POST(req: Request) {
   // SĐT đã có: quản lý chỉ được đụng khách của mình (tạo kèm premium trên SĐT
   // đã có = một lần CẤP — cùng luật với PATCH grant).
   if (existed && who.role === "manager") {
-    const denied = await guardManagerTarget(admin, who, phone, true);
+    const denied = await guardManagerTarget(admin, who, phone);
     if (denied) return denied;
   }
   if (role !== "customer" && prev.actor.kind !== "real")
@@ -570,7 +545,7 @@ export async function PATCH(req: Request) {
     const admin = createAdminClient();
     if (!admin) return err(503, "not_configured");
 
-    const denied = await guardManagerTarget(admin, who, phone, false);
+    const denied = await guardManagerTarget(admin, who, phone);
     if (denied) return denied;
 
     const { data, error } = await admin
@@ -613,7 +588,7 @@ export async function PATCH(req: Request) {
     const admin = createAdminClient();
     if (!admin) return err(503, "not_configured");
 
-    const denied = await guardManagerTarget(admin, who, phone, false);
+    const denied = await guardManagerTarget(admin, who, phone);
     if (denied) return denied;
 
     const { error } = await admin.from("payments").insert({
@@ -690,7 +665,7 @@ export async function PATCH(req: Request) {
     if (!admin) return err(503, "not_configured");
     // Quản lý: không tự cấp cho mình, không cấp cho staff, không "cướp" khách
     // người khác đã cấp (khách chưa ai cấp thì được — đó là cách nhận khách mới)
-    const denied = await guardManagerTarget(admin, who, phone, true);
+    const denied = await guardManagerTarget(admin, who, phone);
     if (denied) return denied;
 
     const { data: cur, error: qErr } = await admin
@@ -803,7 +778,7 @@ export async function PATCH(req: Request) {
       return err(403, "no_permission");
     const admin = createAdminClient();
     if (!admin) return err(503, "not_configured");
-    const denied = await guardManagerTarget(admin, who, phone, false);
+    const denied = await guardManagerTarget(admin, who, phone);
     if (denied) return denied;
     // tra vai ĐỐI TƯỢNG hỏng ⇒ coi là nhân sự (ra mật khẩu ngẫu nhiên — hướng an
     // toàn), không đoán là khách rồi đặt mật khẩu ai cũng biết
@@ -860,7 +835,7 @@ export async function PATCH(req: Request) {
     if (!who.ok) return err(who.status, who.code);
     const admin = createAdminClient();
     if (!admin) return err(503, "not_configured");
-    const denied = await guardManagerTarget(admin, who, phone, false);
+    const denied = await guardManagerTarget(admin, who, phone);
     if (denied) return denied;
 
     const patch: Record<string, unknown> = {
@@ -961,7 +936,7 @@ export async function DELETE(req: Request) {
   const phone = normalizeVnPhone(phoneRaw);
 
   // Quản lý: chỉ khách của mình, không bao giờ staff/chính mình.
-  const denied = await guardManagerTarget(admin, who, phone, false);
+  const denied = await guardManagerTarget(admin, who, phone);
   if (denied) return denied;
   // Admin xoá STAFF: cùng 3 chốt như hạ vai (tự xoá mình · admin env · người
   // cuối cùng) — xoá là hạ vai triệt để nhất.

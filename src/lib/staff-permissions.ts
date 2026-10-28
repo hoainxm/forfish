@@ -63,7 +63,7 @@ export type TabPerms = Record<PermAction, boolean>;
  * "phân quyền nút đặt lại mật khẩu cho phép những tài khoản nào có quyền này").
  * Đặt lại mật khẩu không phải Xem/Tạo/Sửa/Xoá của một tab — nó là chìa vào
  * tài khoản khách (mật khẩu về sd123456 ai cũng biết) ⇒ cờ RIÊNG, admin tick
- * từng quản lý, MẶC ĐỊNH TẮT kể cả preset. Có cờ cũng CHỈ trên khách của mình
+ * từng quản lý, MẶC ĐỊNH TẮT kể cả preset. Có cờ thì làm trên MỌI khách thật (bỏ "khách của mình" 2026-10-28)
  * (managerTargetCheck — cấm nhân sự, cấm chính mình). Nằm chung cột jsonb
  * `staff_accounts.permissions` (0056) ⇒ KHÔNG cần migration.
  */
@@ -72,7 +72,7 @@ export type StaffPermissions = Record<ManagerTab, TabPerms> & {
 };
 
 /** Nhãn cờ riêng — hiện ở tab Phân quyền. */
-export const RESET_PASSWORD_LABEL = "Đặt lại mật khẩu khách của mình";
+export const RESET_PASSWORD_LABEL = "Đặt lại mật khẩu khách";
 
 const ALL_FALSE: TabPerms = {
   view: false,
@@ -219,7 +219,7 @@ export function can(
 /**
  * Được bấm "Đặt lại mật khẩu" không. admin → luôn được (không đi qua bảng
  * quyền); quản lý → CHỈ khi admin đã tick cờ riêng. perms null ⇒ false.
- * Đây mới là cửa VAI; cửa ĐỐI TƯỢNG (khách của mình, không phải nhân sự,
+ * Đây mới là cửa VAI; cửa ĐỐI TƯỢNG (khách thật, không phải nhân sự,
  * không phải chính mình) chốt ở route bằng managerTargetCheck.
  */
 export function canResetPassword(
