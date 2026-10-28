@@ -229,7 +229,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 - **F** (R14): ngưỡng lý do 10 ký tự và trần 30 lượt tra/giờ là mặc định an toàn tự chọn — chủ dự án chỉnh được, không đổi luật.
 - **G** (R14): `revoke-sessions` hôm nay CHỈ admin; R14 mở thêm cho nhân sự có cờ, CHỈ trên khách thật.
 - **H** (R13): lưu người tạo cần chỗ chứa mới trên tài khoản khách ⇒ **migration 🔴**, chưa viết, chưa apply; build phải hỏi chủ dự án trước khi apply (CLAUDE.md pre-flight).
-- **I** (R15, 2026-10-28 — tự chọn, chờ chủ dự án xác nhận): tab Báo cáo **admin-only**. Quản lý theo R3 chỉ thấy khách mình, số toàn hệ thống là số kinh doanh. Muốn mở cho quản lý thì phải lọc theo "khách của mình" ở API, không chỉ thêm vào `MANAGER_TABS`.
+- **I** (R15, 2026-10-28 — chủ dự án ĐÃ CHỐT giữ admin-only): tab Báo cáo **admin-only**. Quản lý theo R3 chỉ thấy khách mình, số toàn hệ thống là số kinh doanh. Muốn mở cho quản lý thì phải lọc theo "khách của mình" ở API, không chỉ thêm vào `MANAGER_TABS`.
 - **J** (R15): "đăng ký" = tài khoản đăng nhập được tạo (auth.users) — gồm tự đăng ký, nhân viên tạo, SDWork gửi sang. Bảng `customers` không có cột ngày tạo nên không dùng.
 - **K** (R15): "mở app" là ảnh chụp từ mốc mở gần nhất (DB chỉ giữ mốc mới nhất), không vẽ được chuỗi theo ngày trong quá khứ. Muốn có DAU theo ngày thì cần bảng nhịp mở app (migration 🔴, chưa làm).
 
