@@ -27,6 +27,7 @@ const CODE_TEXT: Record<string, string> = {
   not_found: "Không tìm thấy — có thể vừa bị xoá.",
   bad_transition: "Bước này đã bị người khác làm trước — tải lại để xem trạng thái mới.",
   forbidden: "Không có quyền làm việc này.",
+  no_permission: "Bạn chưa được cấp quyền này ở khu Cửa hàng — nhờ quản trị viên bật ở tab Phân quyền.",
   internal: "Máy chủ đang lỗi — thử lại.",
 };
 

@@ -14,7 +14,7 @@ import { logMarketAdmin, requireMarketAdmin } from "../../_guard";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, { params }: Ctx) {
-  const who = await requireMarketAdmin();
+  const who = await requireMarketAdmin("edit");
   if (!who.ok) return who.res;
   try {
     const { id } = await params;
@@ -34,7 +34,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
     const store = await getMarketStore();
     const product = await store.setProductAdminHidden(id, body.adminHidden, reason ?? null);
-    await logMarketAdmin(who.phone, "market.product-hide", id, {
+    await logMarketAdmin(who, "market.product-hide", id, {
       adminHidden: body.adminHidden,
       shopId: product.shopId,
       ...(reason ? { reason } : {}),

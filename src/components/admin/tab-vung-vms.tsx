@@ -4,6 +4,7 @@
     — tách theo tab, KHÔNG đổi hành vi; trang chính nạp tab khi mở). */
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import type { TabPerms } from "@/lib/staff-permissions";
 import { apiUrl } from "@/lib/api-base";
 import { tokenHeader } from "@/lib/device-token-store";
 import { VMS_ZONE_STYLES, countPoints, parseUploadedGeoJSON, type VmsZoneStyle, validateZoneDraft } from "@/lib/vms-zones";
@@ -46,7 +47,8 @@ export const STYLE_LABEL: Record<VmsZoneStyle, string> = {
   "line-dashed": "Đường viền nét đứt",
 };
 
-export function VmsZonesTab() {
+/** perms = quyền tab `vung-bien` (admin: toàn quyền) — nút ẩn theo cờ, chốt thật ở API. */
+export function VmsZonesTab({ perms }: { perms: TabPerms }) {
   const [zones, setZones] = useState<AdminVmsZone[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -216,6 +218,7 @@ export function VmsZonesTab() {
       </div>
 
       {/* Thêm vùng bằng GeoJSON */}
+      {perms.create && (
       <div className="mt-4 rounded-2xl border border-line bg-field/40 p-4">
         <p className="text-[1rem] font-bold text-navy">Thêm vùng mới (từ tệp GeoJSON)</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -324,6 +327,7 @@ export function VmsZonesTab() {
           {submitting ? "Đang lưu trữ…" : "Thêm vùng"}
         </button>
       </div>
+      )}
 
       {/* Danh sách vùng */}
       <div className="mt-4 space-y-2">
@@ -360,6 +364,7 @@ export function VmsZonesTab() {
               className="mt-2.5 flex flex-wrap gap-2"
               onClick={(e) => e.stopPropagation()}
             >
+              {perms.edit && (
               <button
                 type="button"
                 disabled={busyId === z.id}
@@ -370,6 +375,8 @@ export function VmsZonesTab() {
               >
                 {z.defaultOn ? "✓ Bật mặc định trên ứng dụng" : "Tắt mặc định trên ứng dụng"}
               </button>
+              )}
+              {perms.edit && (
               <button
                 type="button"
                 disabled={busyId === z.id}
@@ -380,6 +387,8 @@ export function VmsZonesTab() {
               >
                 {z.isBorder ? "✓ Đặt làm ranh giới cảnh báo" : "Không sử dụng làm ranh giới"}
               </button>
+              )}
+              {perms.edit && (
               <button
                 type="button"
                 disabled={busyId === z.id}
@@ -390,6 +399,8 @@ export function VmsZonesTab() {
               >
                 {z.visible ? "Đang hiển thị — chọn ẩn đi" : "Đang ẩn — chọn hiện lại"}
               </button>
+              )}
+              {perms.delete && (
               <button
                 type="button"
                 disabled={busyId === z.id}
@@ -398,6 +409,7 @@ export function VmsZonesTab() {
               >
                 Xóa
               </button>
+              )}
             </div>
           </div>
         ))}

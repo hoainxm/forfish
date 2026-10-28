@@ -47,7 +47,7 @@ const optStr = (v: unknown): string | undefined =>
   typeof v === "string" && v.trim() ? v.trim() : undefined;
 
 export async function PATCH(req: Request, { params }: Ctx) {
-  const who = await requireMarketAdmin();
+  const who = await requireMarketAdmin("edit");
   if (!who.ok) return who.res;
   try {
     const { id } = await params;
@@ -156,7 +156,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       );
     }
 
-    await logMarketAdmin(who.phone, "market.order-update", id, {
+    await logMarketAdmin(who, "market.order-update", id, {
       ...logDetail,
       shopId: updated.shopId,
       code: updated.code,

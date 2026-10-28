@@ -19,7 +19,7 @@ const int = (v: unknown): number | undefined =>
 const invalid = (message: string) => NextResponse.json({ ok: false, code: "invalid", message }, { status: 400 });
 
 export async function GET(_req: Request, { params }: Ctx) {
-  const who = await requireMarketAdmin();
+  const who = await requireMarketAdmin("view");
   if (!who.ok) return who.res;
   try {
     const store = await getMarketStore();
@@ -34,7 +34,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 }
 
 export async function PATCH(req: Request, { params }: Ctx) {
-  const who = await requireMarketAdmin();
+  const who = await requireMarketAdmin("edit");
   if (!who.ok) return who.res;
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!b || typeof b !== "object") return NextResponse.json({ ok: false, code: "bad_body" }, { status: 400 });
@@ -60,7 +60,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       if (!patch) return conflict();
       const request = await store.patchRequest(r.id, r.status, patch);
       await notifyMarket(request.buyerPhone, requestNotice("Y1", request));
-      await logMarketAdmin(who.phone, "market.request-quote", request.id, { action: "bao_gia", total: q.goodsVnd! + q.shippingVnd, shopId: shop.id });
+      await logMarketAdmin(who, "market.request-quote", request.id, { action: "bao_gia", total: q.goodsVnd! + q.shippingVnd, shopId: shop.id });
       return NextResponse.json({ ok: true, request });
     }
 
@@ -71,7 +71,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       if (!patch) return conflict();
       const request = await store.patchRequest(r.id, r.status, patch);
       await notifyMarket(request.buyerPhone, requestNotice("Y2", request));
-      await logMarketAdmin(who.phone, "market.request-quote", request.id, { action: "khong_tim_duoc", reason });
+      await logMarketAdmin(who, "market.request-quote", request.id, { action: "khong_tim_duoc", reason });
       return NextResponse.json({ ok: true, request });
     }
     return invalid("Việc này không làm được.");

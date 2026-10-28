@@ -30,7 +30,7 @@ async function notifyShopStatus(shop: Shop, status: ShopStatus) {
 }
 
 export async function GET(_req: Request, { params }: Ctx) {
-  const who = await requireMarketAdmin();
+  const who = await requireMarketAdmin("view");
   if (!who.ok) return who.res;
   try {
     const { id } = await params;
@@ -45,7 +45,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 }
 
 export async function PATCH(req: Request, { params }: Ctx) {
-  const who = await requireMarketAdmin();
+  const who = await requireMarketAdmin("edit");
   if (!who.ok) return who.res;
   try {
     const { id } = await params;
@@ -72,7 +72,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
         throw new MarketError("invalid", "Số điện thoại chưa đúng (10 số, đầu 0).");
       const phone = normalizeVnPhone(wantOwner);
       shop = await store.setShopOwner(id, phone);
-      await logMarketAdmin(who.phone, "market.shop-owner", id, {
+      await logMarketAdmin(who, "market.shop-owner", id, {
         ownerPhone: phone,
         before: before.ownerPhone,
       });
@@ -87,7 +87,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
         if (bad) throw new MarketError("invalid", bad);
       }
       shop = await store.setShopStatus(id, wantStatus, note ?? null);
-      await logMarketAdmin(who.phone, "market.shop-status", id, {
+      await logMarketAdmin(who, "market.shop-status", id, {
         status: wantStatus,
         before: before.status,
         ...(note ? { note } : {}),

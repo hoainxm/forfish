@@ -7,10 +7,10 @@
 // PATCH ?: sửa 1 hàng theo id (toggle visible/default_on/sort, hoặc sửa đủ meta).
 // DELETE ?id=: xóa hẳn.
 // Ghi bằng service-role. ADMIN-ONLY CỨNG (2026-07-30 phân quyền): tab Vùng biển
-// không nằm trong 5 tab cấu hình được cho quản lý → requireAdmin mọi method.
+// trong bảng quyền từ 2026-10-28 (tab `vung-bien`: GET=view · POST=create · PATCH=edit · DELETE=delete).
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import {
   countPoints,
@@ -52,7 +52,7 @@ function readDraft(body: Record<string, unknown>): VmsZoneDraft {
 }
 
 export async function GET() {
-  const who = await requireAdmin();
+  const who = await requirePermission("vung-bien", "view");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -85,7 +85,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const who = await requireAdmin();
+  const who = await requirePermission("vung-bien", "create");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
   if (error) return err(500, "insert_failed");
   await logActivity(admin, {
     actorPhone: who.phone,
-    actorRole: "admin",
+    actorRole: who.role,
     action: "zone.create",
     target: (data?.id as string) ?? null,
     detail: { name: draft.name },
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const who = await requireAdmin();
+  const who = await requirePermission("vung-bien", "edit");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -160,7 +160,7 @@ export async function PATCH(req: Request) {
   if (error) return err(500, "update_failed");
   await logActivity(admin, {
     actorPhone: who.phone,
-    actorRole: "admin",
+    actorRole: who.role,
     action: "zone.update",
     target: id,
   });
@@ -168,7 +168,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const who = await requireAdmin();
+  const who = await requirePermission("vung-bien", "delete");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -185,7 +185,7 @@ export async function DELETE(req: Request) {
   if (!data || data.length === 0) return err(404, "not_found");
   await logActivity(admin, {
     actorPhone: who.phone,
-    actorRole: "admin",
+    actorRole: who.role,
     action: "zone.delete",
     target: id,
   });

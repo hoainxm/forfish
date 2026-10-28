@@ -8,14 +8,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiUrl } from "@/lib/api-base";
 import { tokenHeader } from "@/lib/device-token-store";
 import { isValidVnPhone } from "@/lib/phone";
-import { ACTION_LABEL, MANAGER_TABS, PERM_ACTIONS, RESET_PASSWORD_LABEL, TAB_LABEL, type ManagerTab, type StaffPermissions } from "@/lib/staff-permissions";
+import { ACTION_LABEL, MANAGER_TABS, PERM_ACTIONS, RESET_PASSWORD_LABEL, TAB_ACTIONS, TAB_LABEL, type ManagerTab, type StaffPermissions } from "@/lib/staff-permissions";
 import { DEFAULT_CUSTOMER_PASSWORD } from "@/lib/temp-password";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 /* ── PHÂN QUYỀN (admin-only) ───────────────────────────────────────────────
    Hai khối: (1) QUẢN TRỊ VIÊN toàn quyền — nâng/hạ ngay tại đây (nguồn DB
    role='admin'), riêng người từ env ADMIN_PHONES chỉ xem được vì web không
-   sửa env; (2) bảng quyền từng tài khoản QUẢN LÝ: 5 tab × 4 hành động
+   sửa env; (2) bảng quyền từng tài khoản QUẢN LÝ: 13 khu × 4 hành động (TAB_ACTIONS)
    (Xem/Tạo mới/Sửa/Xóa). Chốt thật ở /api/admin/* (requireAdmin /
    requirePermission); màn này chỉ soạn cấu hình. */
 
@@ -306,10 +306,10 @@ export function PermissionsTab() {
         hai luồng tách hẳn cho khỏi lẫn.
         <br />
         <b className="text-navy">Quản trị viên</b> toàn quyền mọi khu, không cần
-        cấu hình. <b className="text-navy">Quản lý</b> chạy theo bảng quyền: 6
-        khu (Tài khoản · Sản phẩm · Đơn hàng · Thuyền viên · Thông báo · Chỗ bán) × 4 mức{" "}
-        <b>Xem · Tạo mới · Sửa · Xóa</b>; bỏ chọn <b>Xem</b> = ẩn hẳn khu đó. (4 khu
-        Yêu cầu · Vùng biển · Dữ liệu · Hệ thống chỉ dành cho quản trị viên.)
+        cấu hình. <b className="text-navy">Quản lý</b> chạy theo bảng quyền: mọi
+        khu × 4 mức <b>Xem · Tạo mới · Sửa · Xóa</b> (ô “—” = khu đó không có thao tác
+        này); bỏ chọn <b>Xem</b> = ẩn hẳn khu đó. Riêng <b>Phân quyền</b> và{" "}
+        <b>Cấu hình hệ thống</b> luôn chỉ dành cho quản trị viên.
       </p>
 
       <CreateStaffForm onCreated={load} canManageAdmins={canManageAdmins} />
@@ -577,6 +577,13 @@ export function ManagerPermCard({
                   {TAB_LABEL[tab]}
                 </td>
                 {PERM_ACTIONS.map((action) => {
+                  // trang không có hành động này (vd Báo cáo chỉ có Xem) — không bày nút ảo
+                  if (!TAB_ACTIONS[tab].includes(action))
+                    return (
+                      <td key={action} className="py-2 text-center text-foreground/35" aria-label="Không áp dụng">
+                        —
+                      </td>
+                    );
                   const on = draft[tab][action];
                   return (
                     <td key={action} className="py-2 text-center">

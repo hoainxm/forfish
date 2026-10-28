@@ -245,21 +245,21 @@ export default function QuanTriPage() {
       {activeTab === "don-hang" && (
         <OrdersTab perms={permsFor(me, "don-hang")} />
       )}
-      {activeTab === "cho-vat-tu" && isAdmin && <MarketAdminTab me={me} />}
-      {activeTab === "yeu-cau" && isAdmin && <InquiriesTab />}
-      {activeTab === "vung-bien" && isAdmin && <VmsZonesTab />}
+      {activeTab === "cho-vat-tu" && <MarketAdminTab me={me} canEdit={permsFor(me, "cho-vat-tu").edit} />}
+      {activeTab === "yeu-cau" && <InquiriesTab perms={permsFor(me, "yeu-cau")} />}
+      {activeTab === "vung-bien" && <VmsZonesTab perms={permsFor(me, "vung-bien")} />}
       {activeTab === "cho-ban" && (
         <SellContactsTab perms={permsFor(me, "cho-ban")} />
       )}
       {activeTab === "thong-bao" && (
         <PushNotificationsTab perms={permsFor(me, "thong-bao")} />
       )}
-      {activeTab === "du-lieu" && isAdmin && <DataTab />}
+      {activeTab === "du-lieu" && <DataTab />}
       {activeTab === "he-thong" && isAdmin && <SystemTab health={health} />}
       {activeTab === "phan-quyen" && isAdmin && <PermissionsTab />}
-      {activeTab === "nhat-ky" && isAdmin && <ActivityLogTab />}
+      {activeTab === "nhat-ky" && <ActivityLogTab canProbe={isAdmin} />}
       {activeTab === "kairos" && <KairosTab perms={permsFor(me, "kairos")} />}
-      {activeTab === "bao-cao" && isAdmin && <ReportsTab />}
+      {activeTab === "bao-cao" && <ReportsTab />}
         </section>
       </div>
     </div>

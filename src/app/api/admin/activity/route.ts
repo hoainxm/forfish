@@ -3,14 +3,14 @@
 // 300 dòng mới nhất; lọc tuỳ chọn ?actor= (khớp một phần SĐT) & ?action=.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireAdmin, requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
 
 export async function GET(req: Request) {
-  const who = await requireAdmin();
+  const who = await requirePermission("nhat-ky", "view");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");

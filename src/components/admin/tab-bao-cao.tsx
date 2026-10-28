@@ -1,6 +1,6 @@
 "use client";
 
-/* ── BÁO CÁO (admin-only, 2026-10-28) ──────────────────────────────────────
+/* ── BÁO CÁO (admin + quản lý có cờ bao-cao:view, 2026-10-28) ──────────────────────────────────────
    Chủ dự án: "xem được lượng người đăng ký tài khoản trong ngày/tuần/tháng/năm…
    và nhiều báo cáo số liệu khác". Chọn kỳ → mỗi chỉ số một biểu đồ cột (cột cuối
    = kỳ đang chạy) + ba số: kỳ này · kỳ trước · cả khoảng. Chỉ đếm KHÁCH THẬT
@@ -90,8 +90,8 @@ export function ReportsTab() {
         setError(
           e.message === "not_configured"
             ? "Chưa kết nối được cơ sở dữ liệu (Supabase). Báo cáo không chạy ở chế độ dùng thử."
-            : e.message === "admin_only"
-              ? "Báo cáo chỉ dành cho Quản trị viên."
+            : e.message === "no_permission" || e.message === "admin_only"
+              ? "Tài khoản của bạn chưa được cấp quyền xem Báo cáo."
               : "Chưa tải được báo cáo. Kiểm tra mạng rồi thử lại.",
         ),
       );

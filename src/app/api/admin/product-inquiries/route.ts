@@ -2,10 +2,10 @@
 // sản phẩm (2026-07-28, Phase 2). GET danh sách theo status · PATCH đổi
 // trạng thái/ghi chú (ghi handled_by/handled_at) · DELETE xóa hẳn (dọn
 // spam/trùng). ADMIN-ONLY CỨNG (2026-07-30 phân quyền): tab Yêu cầu không nằm
-// trong 5 tab cấu hình được cho quản lý → requireAdmin mọi method.
+// trong bảng quyền từ 2026-10-28 (tab `yeu-cau`: GET=view · PATCH=edit · DELETE=delete).
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 
 const err = (status: number, code: string) =>
@@ -14,7 +14,7 @@ const err = (status: number, code: string) =>
 const STATUSES = ["moi", "da_lien_he", "xong"] as const;
 
 export async function GET(req: Request) {
-  const who = await requireAdmin();
+  const who = await requirePermission("yeu-cau", "view");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const who = await requireAdmin();
+  const who = await requirePermission("yeu-cau", "edit");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -73,7 +73,7 @@ export async function PATCH(req: Request) {
 
   await logActivity(admin, {
     actorPhone: who.phone,
-    actorRole: "admin",
+    actorRole: who.role,
     action: "inquiry.update",
     target: body.id,
     detail: body.status !== undefined ? { status: body.status } : {},
@@ -82,7 +82,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const who = await requireAdmin();
+  const who = await requirePermission("yeu-cau", "delete");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -99,7 +99,7 @@ export async function DELETE(req: Request) {
   if (!data || data.length === 0) return err(404, "not_found");
   await logActivity(admin, {
     actorPhone: who.phone,
-    actorRole: "admin",
+    actorRole: who.role,
     action: "inquiry.delete",
     target: id,
   });

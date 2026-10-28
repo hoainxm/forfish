@@ -4,6 +4,7 @@
 
 covers: supabase/migrations/0056_rbac_staff_accounts.sql, src/lib/staff-store.ts
 last_verified: 2026-10-28
+<!-- re-verified: 2026-10-28 17:00 — PHÂN QUYỀN THÊM 6 TRANG (chủ dự án: "thêm phân quyền các trang khác như Báo cáo… để tôi cấu hình"): `MANAGER_TABS` thêm bao-cao · yeu-cau · cho-vat-tu · vung-bien · nhat-ky · du-lieu (preset TẮT); `TAB_ACTIONS` = hành động có thật mỗi trang (bao-cao/nhat-ky/du-lieu: Xem · yeu-cau: Xem/Sửa/Xoá · cho-vat-tu: Xem/Sửa · vung-bien: đủ 4), `normalizePermissions` tắt cờ ngoài danh sách. CHỈ phan-quyen + he-thong còn admin-only cứng. Bảng dưới thêm dòng "Các trang khác". -->
 ttl_days: 90
 gate: warn
 <!-- re-verified: 2026-10-28 16:00 — PHÂN QUYỀN NHÂN SỰ LẠI (chủ dự án: quản lý mất nút "Trang quản trị" + không tìm được khách quản lý khác tạo để hỗ trợ): (1) QUẢN LÝ NHIỀU MÁY như admin — `/api/auth/token` cấp `allow_multi` + bỏ thu hồi `new_login` cho mọi nhân sự (prod: quản lý đuôi 001 đăng nhập máy tính là đá chuỗi điện thoại ⇒ app mất nút). (2) BỎ "chỉ khách mình": `managerTargetDenial` chỉ còn self / staff_target / not_real_account; GET /api/admin/accounts cho quản lý = mọi khách thật (ẩn nhân sự + test/demo/reviewer); thao tác theo bảng quyền tab × hành động + cờ `resetPassword`. Tầm `own`/`all_premium` hết tác dụng, ô "Thấy khách nào" gỡ khỏi tab Phân quyền (cột `scope` giữ, không migration). -->
@@ -23,6 +24,8 @@ Một cửa đọc: `src/lib/staff-store.ts` (`loadActor`). Luật thuần + tes
 |---|---|---|---|---|---|
 | Nâng/hạ/tạo/xoá quản trị viên | ✓ | – | – | – | – |
 | Vào /quan-tri | ✓ | ✓ | theo bảng quyền | – | **không bao giờ** |
+| Báo cáo · Yêu cầu hỗ trợ · Cửa hàng · Vùng biển · Nhật ký · Dữ liệu hệ thống | ✓ | ✓ | theo bảng quyền (2026-10-28, preset TẮT; hành động có thật theo `TAB_ACTIONS`) | – | – |
+| Phân quyền · Cấu hình hệ thống | ✓ | ✓ | **không bao giờ** (admin-only cứng) | – | – |
 | Thấy khách nào (tab Tài khoản) | mọi tài khoản | mọi tài khoản | **mọi khách thật** (ẩn nhân sự + test/demo/reviewer) — 2026-10-28 | – | – |
 | Cấp/gia hạn premium | ✓ | ✓ | khi bảng quyền cho Sửa tab Tài khoản; mọi khách thật; cấm tự cấp | – | – |
 | Xoá · ghi cờ · ghi thu tiền · nhắn riêng | ✓ | ✓ (xoá admin: không) | theo bảng quyền; mọi khách thật | – | – |

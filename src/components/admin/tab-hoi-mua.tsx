@@ -9,6 +9,7 @@ import { apiUrl } from "@/lib/api-base";
 import { tokenHeader } from "@/lib/device-token-store";
 import { useCallback, useEffect, useState } from "react";
 import { fmtDT } from "@/components/admin/quan-tri-chung";
+import type { TabPerms } from "@/lib/staff-permissions";
 
 /* ── YÊU CẦU (hỏi mua/tư vấn từ danh mục sản phẩm) ────────────────────────
    Chủ yếu từ sản phẩm ĐƠN VỊ NGOÀI SDWork (nút "Để lại yêu cầu" —
@@ -40,7 +41,8 @@ export type InquiryRow = {
 
 export type InquiryStatusFilter = InquiryStatus | "all";
 
-export function InquiriesTab() {
+/** perms = quyền tab `yeu-cau` (admin: toàn quyền) — nút ẩn theo cờ, chốt thật ở API. */
+export function InquiriesTab({ perms }: { perms: TabPerms }) {
   const [status, setStatus] = useState<InquiryStatusFilter>("moi");
   const [rows, setRows] = useState<InquiryRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -184,8 +186,9 @@ export function InquiriesTab() {
                   {row.handledBy &&
                     ` · người xử lý: ${row.handledBy} lúc ${fmtDT(row.handledAt)}`}
                 </p>
+                {(perms.edit || perms.delete) && (
                 <div className="mt-2 flex flex-wrap gap-1.5 border-t border-line px-4 py-2.5">
-                  {row.status !== "da_lien_he" && (
+                  {perms.edit && row.status !== "da_lien_he" && (
                     <button
                       type="button"
                       disabled={busyId === row.id}
@@ -195,7 +198,7 @@ export function InquiriesTab() {
                       Đã liên hệ
                     </button>
                   )}
-                  {row.status !== "xong" && (
+                  {perms.edit && row.status !== "xong" && (
                     <button
                       type="button"
                       disabled={busyId === row.id}
@@ -205,6 +208,7 @@ export function InquiriesTab() {
                       Đánh dấu xong
                     </button>
                   )}
+                  {perms.delete && (
                   <button
                     type="button"
                     disabled={busyId === row.id}
@@ -213,7 +217,9 @@ export function InquiriesTab() {
                   >
                     Xóa
                   </button>
+                  )}
                 </div>
+                )}
               </li>
             );
           })}

@@ -1,5 +1,5 @@
-// /api/admin/reports — BÁO CÁO SỐ LIỆU cho tab "Báo cáo" ở /quan-tri. ADMIN-ONLY:
-// đây là số TOÀN hệ thống, còn quản lý chỉ được thấy khách của mình (R3).
+// /api/admin/reports — BÁO CÁO SỐ LIỆU cho tab "Báo cáo" ở /quan-tri. Admin + quản lý
+// được tick `bao-cao:view` ở tab Phân quyền (2026-10-28; trước đó admin-only).
 // GET ?period=day|week|month|year → chuỗi theo kỳ (đăng ký, premium bán ra,
 // bài + bình luận Kairos của bà con, đơn chợ vật tư) + ảnh chụp hiện tại (mở app,
 // đủ đồ đi biển, máy theo loại) + người cấp premium nhiều nhất.
@@ -7,7 +7,7 @@
 // Nguồn nào đọc hỏng ⇒ chuỗi đó = null + tên nguồn trong `failed`, phần còn lại
 // vẫn trả (một bảng chưa apply migration không làm trắng cả báo cáo).
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/admin-auth";
 import {
   type CustomerRow,
   type DeviceRow,
@@ -73,7 +73,7 @@ async function readSignups(admin: Admin): Promise<Read<{ phone: string; created_
 }
 
 export async function GET(req: Request) {
-  const who = await requireAdmin();
+  const who = await requirePermission("bao-cao", "view");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");

@@ -5,6 +5,7 @@
 covers: src/lib/market, src/app/cho, src/app/ban-hang, src/app/api/cho, src/app/api/ban-hang, src/app/api/admin/cho, src/app/api/dev, src/app/dev, src/components/market, src/components/admin/market-admin-tab.tsx, src/components/admin/market-admin-requests.tsx, supabase/migrations/0060_marketplace.sql, supabase/migrations/0063_market_requests_eta.sql
 gate: warn
 last_verified: 2026-10-26
+<!-- re-verified: 2026-10-28 17:00 — §7.3 /api/admin/cho/* ĐỔI requireAdmin → requirePermission("cho-vat-tu", GET=view · PATCH=edit) qua `requireMarketAdmin(action)`; nhật ký `logMarketAdmin(who,…)` ghi vai thật (admin/manager). Trả nợ manager LEAD §4 #13 phần cổng; ẩn nút con theo quyền còn nợ (market-admin-tab.tsx). -->
 <!-- re-verified: 2026-10-26 20:30 - market-home.tsx chỉ cắm thêm <KhuyenMaiCard> (ưu đãi SDVICO, data/khuyen-mai.ts) sau CartFeedback — không đụng MarketStore/route/đơn; kiến trúc sàn không đổi -->
 <!-- re-verified: 2026-10-25f — RÀ FB lô 2 ([design-review/08](../design-review/08-ra-fb-toan-app.md)): hợp đồng kho thêm lọc `paymentStatus`/`open` trong `OrderListQuery` (file-store + supabase-store cùng luật `choXacNhanTien` ở `lib/market/order-state.ts`), API `/api/ban-hang/don?tt=`; cờ `forfish.mshop.v1` thêm `pending`/`pendingAt` (`seller-flag savePendingFlag`); `lib/market/request-form.ts` (nháp + lỗi theo ô form yêu cầu). Không đổi DB. -->
 <!-- re-verified: 2026-10-25e — RÀ FB TOÀN APP lô 1 (bằng chứng + backlog: [design-review/08-ra-fb-toan-app](../design-review/08-ra-fb-toan-app.md)): hợp đồng kho/API KHÔNG đổi. Chạm presentation: `lib/market/list-state.ts` thêm `ListSnapshot.extra?` + ngăn `cho-home`, `cho-shop:<slug>`, `ban-hang/don`, `ban-hang/san-pham`; `lib/market/pricing.ts` chỉ đổi chữ `DROP_LABEL` (có số ⇒ "Gọi shop", không số ⇒ "Nhờ báo giá"); `seller-net.tsx` `useMarketList(path|null)` + restore/setItems/page, `LoadView` vẽ `NoShop` khi `code === "no_shop"`; `market-header.tsx` export `useLeaveGuard(dirty)`; `shop-settings` gửi PATCH `{paused}` riêng khi gạt công tắc (form Lưu không gửi `paused` nữa); món mới `stock` để trống bắt ghi (validate.ts giữ nguyên). -->
@@ -1577,7 +1578,7 @@ export async function requireShopOwner(req: Request, opts?: { allow?: ShopStatus
 
 Đổi status/paymentStatus ⇒ `notifyMarket` theo bảng §7.4 (buyer push chỉ `dang_giao`/`da_giao`/`da_huy`/P3 — đúng luật 07 §12 + LEAD §4 #4).
 
-### 7.3 Admin — `/api/admin/cho/*` (Admin+Docs agent) — tất cả `requireAdmin()` (LEAD §4 #13, nợ manager)
+### 7.3 Admin — `/api/admin/cho/*` (Admin+Docs agent) — `requirePermission("cho-vat-tu", GET=view · PATCH=edit)` từ 2026-10-28 (trước: `requireAdmin()`, LEAD §4 #13 nợ manager)
 
 Mọi ghi: `logActivity(admin, {action, target, detail})` với **`AdminActionKey` mới theo quy ước `'<khu>.<việc>'`** của `lib/admin-activity.ts` (Admin agent thêm 5 mã + nhãn ở `ACTION_LABEL`, test sẵn có bắt thiếu nhãn): `market.shop-status` · `market.shop-owner` · `market.order-update` · `market.product-hide` · `market.review-hide`. Timeline đơn ghi `by = admin:<sđt>` (`timelineBy("admin", who.phone)`).
 

@@ -9,9 +9,12 @@
 //   apply: customers.role + customers.staff_permissions — 0007/0028): quyền
 //   theo TAB × HÀNH ĐỘNG, admin cấu hình trong /quan-tri.
 //
-// 7 TAB được phép cho quản lý (chốt user 2026-07-30; thêm don-hang 2026-08-11; kairos 2026-10-23).
-// 4 tab còn lại (yeu-cau · vung-bien · du-lieu · he-thong) ADMIN-ONLY CỨNG —
-// không nằm ở đây.
+// 13 TAB cấu hình được cho quản lý (chốt user 2026-07-30; thêm don-hang 2026-08-11;
+// kairos 2026-10-23; 2026-10-28 chủ dự án: "thêm phân quyền các trang khác như Báo
+// cáo… để tôi cấu hình" ⇒ thêm bao-cao · yeu-cau · cho-vat-tu · vung-bien · nhat-ky ·
+// du-lieu, preset TẮT). CHỈ 2 tab còn ADMIN-ONLY CỨNG, không nằm ở đây:
+// phan-quyen (ai cấp được quyền thì tự nâng được mình) · he-thong (khoá VAPID,
+// khoá dữ liệu, cấu hình app).
 
 export type PermAction = "view" | "create" | "edit" | "delete";
 export const PERM_ACTIONS: readonly PermAction[] = [
@@ -28,7 +31,13 @@ export type ManagerTab =
   | "canh-bao"
   | "thong-bao"
   | "cho-ban"
-  | "kairos";
+  | "kairos"
+  | "bao-cao"
+  | "yeu-cau"
+  | "cho-vat-tu"
+  | "vung-bien"
+  | "nhat-ky"
+  | "du-lieu";
 export const MANAGER_TABS: readonly ManagerTab[] = [
   "tai-khoan",
   "san-pham",
@@ -37,6 +46,12 @@ export const MANAGER_TABS: readonly ManagerTab[] = [
   "thong-bao",
   "cho-ban",
   "kairos",
+  "bao-cao",
+  "yeu-cau",
+  "cho-vat-tu",
+  "vung-bien",
+  "nhat-ky",
+  "du-lieu",
 ] as const;
 
 /** Nhãn tab — GIỮ ĐỒNG BỘ với nhãn tab trong /quan-tri (03-design-system). */
@@ -48,6 +63,12 @@ export const TAB_LABEL: Record<ManagerTab, string> = {
   "thong-bao": "Thông báo",
   "cho-ban": "Chỗ bán",
   kairos: "Kairos",
+  "bao-cao": "Báo cáo",
+  "yeu-cau": "Yêu cầu hỗ trợ",
+  "cho-vat-tu": "Cửa hàng",
+  "vung-bien": "Vùng biển",
+  "nhat-ky": "Nhật ký hoạt động",
+  "du-lieu": "Dữ liệu hệ thống",
 };
 
 export const ACTION_LABEL: Record<PermAction, string> = {
@@ -69,6 +90,25 @@ export type TabPerms = Record<PermAction, boolean>;
  */
 export type StaffPermissions = Record<ManagerTab, TabPerms> & {
   resetPassword: boolean;
+};
+
+/** Hành động CÓ THẬT trên từng tab (route nào chốt bằng cờ nào). Ô ngoài danh
+ *  sách hiện "—" ở tab Phân quyền và luôn tắt khi chuẩn hoá — một cờ không có
+ *  route nào đọc thì đừng để admin tưởng nó đang làm gì. */
+export const TAB_ACTIONS: Record<ManagerTab, readonly PermAction[]> = {
+  "tai-khoan": PERM_ACTIONS,
+  "san-pham": PERM_ACTIONS,
+  "don-hang": PERM_ACTIONS,
+  "canh-bao": PERM_ACTIONS,
+  "thong-bao": PERM_ACTIONS,
+  "cho-ban": PERM_ACTIONS,
+  kairos: PERM_ACTIONS,
+  "bao-cao": ["view"], // GET /api/admin/reports
+  "yeu-cau": ["view", "edit", "delete"], // product-inquiries GET/PATCH/DELETE + sdvico-khach-hoi GET
+  "cho-vat-tu": ["view", "edit"], // /api/admin/cho/* GET / PATCH (duyệt shop, ẩn hàng, báo giá, đơn)
+  "vung-bien": PERM_ACTIONS, // vms-zones GET/POST/PATCH/DELETE
+  "nhat-ky": ["view"], // GET /api/admin/activity (ghi thử = admin-only)
+  "du-lieu": ["view"], // chỉ xem tình trạng nguồn (gọi API công khai)
 };
 
 /** Nhãn cờ riêng — hiện ở tab Phân quyền. */
@@ -102,6 +142,14 @@ export const DEFAULT_MANAGER_PERMISSIONS: StaffPermissions = Object.freeze({
       định agent · delete = cấm SĐT · create = đăng bài Chính thức ĐỨNG TÊN SDVICO. Preset
       KHÔNG cấp create: đăng thay SDVICO là nói thay công ty — admin tick riêng từng người. */
   kairos: { view: true, create: false, edit: true, delete: false },
+  /*  6 trang mở cấu hình 2026-10-28 — preset TẮT HẾT: quản lý cũ không tự dưng
+      thấy thêm số liệu toàn hệ thống / nhật ký nhân sự; admin tick từng người. */
+  "bao-cao": { ...ALL_FALSE },
+  "yeu-cau": { ...ALL_FALSE },
+  "cho-vat-tu": { ...ALL_FALSE },
+  "vung-bien": { ...ALL_FALSE },
+  "nhat-ky": { ...ALL_FALSE },
+  "du-lieu": { ...ALL_FALSE },
   resetPassword: false,
 });
 
@@ -109,14 +157,15 @@ export function isManagerTab(tab: string): tab is ManagerTab {
   return (MANAGER_TABS as readonly string[]).includes(tab);
 }
 
-function coerceTab(raw: unknown): TabPerms {
+function coerceTab(tab: ManagerTab, raw: unknown): TabPerms {
   if (!raw || typeof raw !== "object") return { ...ALL_FALSE };
   const r = raw as Record<string, unknown>;
+  const has = (a: PermAction) => r[a] === true && TAB_ACTIONS[tab].includes(a);
   return {
-    view: r.view === true,
-    create: r.create === true,
-    edit: r.edit === true,
-    delete: r.delete === true,
+    view: has("view"),
+    create: has("create"),
+    edit: has("edit"),
+    delete: has("delete"),
   };
 }
 
@@ -169,7 +218,7 @@ export function normalizePermissions(raw: unknown): StaffPermissions {
   const r = obj as Record<string, unknown>;
   // cờ riêng: CHỈ `true` mới là bật — thiếu/rác ⇒ tắt (fail-closed)
   const out = { resetPassword: r.resetPassword === true } as StaffPermissions;
-  for (const tab of MANAGER_TABS) out[tab] = coerceTab(r[tab]);
+  for (const tab of MANAGER_TABS) out[tab] = coerceTab(tab, r[tab]);
   return out;
 }
 
