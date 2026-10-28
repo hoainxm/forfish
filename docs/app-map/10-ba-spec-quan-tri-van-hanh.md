@@ -3,6 +3,7 @@
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/components/admin, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
 last_verified: 2026-10-26
+<!-- re-verified: 2026-10-28 14:30 — BUILD NV11 Báo cáo số liệu (R15, giả định I/J/K): tab "Báo cáo" admin-only, `GET /api/admin/reports` requireAdmin, luật đếm `lib/admin-reports.ts` (có test). Không đổi R3/R12–R14, không đổi MANAGER_TABS. -->
 <!-- re-verified: 2026-10-26 20:30 - tab Yêu cầu hỗ trợ (tab-hoi-mua.tsx) thêm mục chỉ-xem "Khách hỏi / đăng ký khuyến mãi SDVICO" (GET /api/admin/sdvico-khach-hoi, requireAdmin) — phiếu sdvico_khach_hoi moi/da_bao đối chiếu tin Zalo Quân; luật phân quyền/tab không đổi (14 §3.14b) -->
 ttl_days: 90
 <!-- re-verified: 2026-10-26 — SPEC MỚI (CHƯA BUILD, chưa có code): NV9 người tạo thấy khách mình tạo (R13, AC-11..13) + NV10 hỗ trợ kỹ thuật tra đúng SĐT (R14, AC-14..19). Chủ dự án chốt hướng B + C sau phân tích: "khách của mình" trong code hôm nay = `premium_grants.granted_by` (accounts/route.ts GET + `managerTargetDenial`), tạo khách không tick premium ⇒ chính người tạo không thấy; quản lý không cứu được khách người khác/khách không chủ. Mục `last_verified` GIỮ NGUYÊN tới khi code khớp. -->
@@ -98,6 +99,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | NV8 | Đăng nhập quản trị (tách luồng, 1 tài khoản 1 máy) | admin/đại lý | — | — | Should |
 | NV9 | Người tạo khách thấy + chăm được khách mình tạo (kể cả chưa cấp premium) | đại lý | hệ thống (ghi người tạo) | — | Must (2026-10-26, CHƯA BUILD) |
 | NV10 | Hỗ trợ kỹ thuật khách bất kỳ: tra đúng SĐT → đặt lại mật khẩu / đăng xuất mọi máy, bắt ghi lý do | nhân sự hỗ trợ | admin (tick cờ) · ngư dân (báo sự cố) | — | Must (2026-10-26, CHƯA BUILD) |
+| NV11 | Báo cáo số liệu: đăng ký tài khoản theo ngày/tuần/tháng/năm, premium bán ra, dùng app, Kairos, đơn chợ vật tư | admin | — | — | Must (2026-10-28, ĐÃ BUILD) |
 
 ## 4. Cross-user handoff map
 | Chặng | NV | Từ | → Nhận | Điều kiện | Điểm kết nếu treo |
@@ -216,6 +218,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | R12 | **ĐẶT LẠI MẬT KHẨU** (2026-10-06, ADR 0008): admin luôn được; quản lý chỉ khi admin tick **cờ riêng `resetPassword`** (tab Phân quyền, mặc định tắt) và chỉ trên **khách của mình** (cùng cửa R3: cấm nhân sự, cấm chính mình). Khách ⇒ `sd123456` (một nguồn `DEFAULT_CUSTOMER_PASSWORD`, cũng là ô điền sẵn khi tạo khách), nhân sự ⇒ ngẫu nhiên; app nhắc đổi (có "để sau"); thu hồi chuỗi (R9); ghi 2 nhật ký với vai thật người bấm | tra vai đối tượng hỏng ⇒ coi là nhân sự (ra mật khẩu ngẫu nhiên); quản lý không cờ ⇒ 403 `no_permission`; khách người khác ⇒ 403 `not_your_customer` |
 | R13 | **NGƯỜI TẠO = CHỦ CHĂM** (2026-10-26, CHƯA BUILD): tạo tài khoản khách trên SĐT **chưa có tài khoản** ⇒ ghi người tạo (SĐT nhân sự) **một lần, không ghi đè**. "Khách của mình" ở R3/R12 = khách mình **cấp premium** (`premium_grants.granted_by`) HỢP khách mình **tạo**. Áp cả danh sách (GET) lẫn cửa thao tác (`managerTargetCheck`) — một luật, hai nơi dùng chung. Đại lý tổng (`all_premium`) thấy khách đang premium HỢP khách mình tạo | tạo trên SĐT ĐÃ có tài khoản (R3c) ⇒ KHÔNG ghi người tạo (chặn chiêu "tạo lại để nhận khách người khác"); khách từ webhook SDWork / tự đăng ký ⇒ người tạo trống (không chủ); admin tạo ⇒ vẫn ghi (tra được), admin vốn thấy hết; người tạo bị hạ vai/xoá ⇒ dấu người tạo giữ nguyên, không ai thừa hưởng tự động; ghi người tạo lỗi ⇒ huỷ cả lần tạo (500), không để khách mồ côi im lặng |
 | R14 | **HỖ TRỢ KỸ THUẬT** (2026-10-26, CHƯA BUILD): **cờ riêng** trong jsonb `permissions` (cạnh `resetPassword`), admin tick từng quản lý, **mặc định TẮT**, đọc hỏng ⇒ tắt; admin/admin tổng ngầm có. Có cờ được: (a) **tra đúng SĐT** — khớp nguyên số sau chuẩn hoá, trả ≤1 tài khoản, chỉ SĐT · tên · có đăng nhập được · số máy đang đăng nhập (KHÔNG hạng, hạn, tiền, cờ chăm, người chăm, ghi chú); (b) **đặt lại mật khẩu** (luật mật khẩu R12) và (c) **đăng xuất mọi máy** (R9) cho khách tra được. **Bắt buộc lý do** 10–500 ký tự sau khi bỏ khoảng trắng, ghi vào CẢ hai nhật ký. Mỗi lượt tra cũng ghi nhật ký (ai tra số nào, lúc nào). Trần **30 lượt tra / giờ / nhân sự** ⇒ quá trần `429`. KHÔNG mở thêm gì khác: cấp premium, xoá, nhắn, ghi tiền, cờ chăm vẫn theo R3 | đối tượng là nhân sự ⇒ `403 staff_target`; chính mình ⇒ `403 self`; tài khoản loại test/demo/reviewer ⇒ `403 not_real_account` (đặt lại phá tài khoản duyệt App Store); thiếu/ngắn lý do ⇒ `400 reason_required`, không đổi gì; SĐT không có tài khoản ⇒ `404 not_found` (vẫn ghi lượt tra); tra một phần số ⇒ 0 kết quả; không có cờ ⇒ `403 no_permission`; tra vai đối tượng hỏng ⇒ coi là nhân sự (chặn) |
+| R15 | **BÁO CÁO CHỈ ĐẾM KHÁCH THẬT, CHỈ ADMIN XEM** (2026-10-28): loại `account_kind` ≠ real và nhân sự (customers.role ≠ customer, `staff_accounts`); tài khoản tự đăng ký chưa có hàng customers vẫn tính; chia kỳ theo giờ VN (tuần bắt đầu thứ Hai); KHÔNG số tiền (OUT §7 — SDWork) | đọc danh sách loại trừ hỏng ⇒ không trả số nào (500), vì số lẫn tài khoản thử trông như đúng; một nguồn khác hỏng ⇒ chỉ thẻ đó trống + băng cảnh báo; quản lý gọi API ⇒ 403 `admin_only` |
 
 ## 10. Assumptions & Open decisions (elicitation)
 **Giả định an toàn đã chọn (fail-closed):**
@@ -226,6 +229,9 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 - **F** (R14): ngưỡng lý do 10 ký tự và trần 30 lượt tra/giờ là mặc định an toàn tự chọn — chủ dự án chỉnh được, không đổi luật.
 - **G** (R14): `revoke-sessions` hôm nay CHỈ admin; R14 mở thêm cho nhân sự có cờ, CHỈ trên khách thật.
 - **H** (R13): lưu người tạo cần chỗ chứa mới trên tài khoản khách ⇒ **migration 🔴**, chưa viết, chưa apply; build phải hỏi chủ dự án trước khi apply (CLAUDE.md pre-flight).
+- **I** (R15, 2026-10-28 — tự chọn, chờ chủ dự án xác nhận): tab Báo cáo **admin-only**. Quản lý theo R3 chỉ thấy khách mình, số toàn hệ thống là số kinh doanh. Muốn mở cho quản lý thì phải lọc theo "khách của mình" ở API, không chỉ thêm vào `MANAGER_TABS`.
+- **J** (R15): "đăng ký" = tài khoản đăng nhập được tạo (auth.users) — gồm tự đăng ký, nhân viên tạo, SDWork gửi sang. Bảng `customers` không có cột ngày tạo nên không dùng.
+- **K** (R15): "mở app" là ảnh chụp từ mốc mở gần nhất (DB chỉ giữ mốc mới nhất), không vẽ được chuỗi theo ngày trong quá khứ. Muốn có DAU theo ngày thì cần bảng nhịp mở app (migration 🔴, chưa làm).
 
 **Đã chốt (2026-07-30):**
 - **D1 → 1 khu "Khách của tôi"**: đại lý chỉ thấy DANH SÁCH KHÁCH của mình (scoped, chặn ở API — R3) gồm: kích/gia hạn premium + 2 cờ (đã dùng / đã liên hệ) + nhập mã CK + cờ đã thu. KHÔNG có Thuyền viên/Sản phẩm/Thông báo/Dữ liệu/Hệ thống. Chừa khu thứ 2 cho sau (bảng doanh thu — nhưng số liệu đó ở SDWork). Lý do: toàn bộ việc đại lý xoay quanh khách của họ; các khu kia là việc admin.
@@ -358,6 +364,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 ---
 
 ## History
+- 2026-10-28 — **BUILD NV11 Báo cáo** (R15, giả định I/J/K): tab "Báo cáo" (nhóm Tổng quan, admin-only) — đăng ký/premium bán ra/Kairos/đơn chợ theo Ngày·Tuần·Tháng·Năm + ảnh chụp dùng app + top người cấp; chỉ khách thật; không migration.
 - 2026-10-26 — **SPEC NV9 + NV10 (CHƯA BUILD)**: phân tích BA cho thấy "khách của mình" chỉ tính người CẤP premium ⇒ tạo khách không kèm premium thì người tạo mất dấu; quản lý không hỗ trợ được khách người khác. Chủ dự án chốt **B + C** (D4): R13 người tạo = chủ chăm (ghi một lần, không ghi đè trên SĐT đã có) + R14 cờ "hỗ trợ kỹ thuật" (tra đúng SĐT, chỉ đặt lại mật khẩu + đăng xuất mọi máy, bắt lý do, trần 30 lượt tra/giờ). +AC-11..19. R13 cần migration 🔴 (chưa viết/apply).
 - 2026-10-06 — **R12 đặt lại mật khẩu** (ADR 0008): quyền tick riêng từng quản lý (chỉ khách mình), khách về `sd123456`, nhân sự ngẫu nhiên; ô mật khẩu khi tạo khách điền sẵn `sd123456`. Không migration (cờ trong jsonb 0056).
 - 2026-10-07 — Gửi thông báo báo lỗi theo mã (403 = khoá VAPID lệch, không xoá đăng ký); Cấu hình ứng dụng chặn lưu cặp VAPID lệch (409), đổi cặp phải dán cả hai ô.

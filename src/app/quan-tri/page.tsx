@@ -51,6 +51,7 @@ const AccountsTab = dynamic(() => import("@/components/admin/tab-tai-khoan").the
 const PushNotificationsTab = dynamic(() => import("@/components/admin/tab-thong-bao").then((m) => m.PushNotificationsTab), { loading: () => <AdminSkeleton label="Đang mở mục…" /> });
 const CrewReportsTab = dynamic(() => import("@/components/admin/tab-thuyen-vien").then((m) => m.CrewReportsTab), { loading: () => <AdminSkeleton label="Đang mở mục…" /> });
 const KairosTab = dynamic(() => import("@/components/admin/tab-kairos").then((m) => m.KairosTab), { loading: () => <AdminSkeleton label="Đang mở mục…" /> });
+const ReportsTab = dynamic(() => import("@/components/admin/tab-bao-cao").then((m) => m.ReportsTab), { loading: () => <AdminSkeleton label="Đang mở mục…" /> });
 const VmsZonesTab = dynamic(() => import("@/components/admin/tab-vung-vms").then((m) => m.VmsZonesTab), { loading: () => <AdminSkeleton label="Đang mở mục…" /> });
 
 type Tab = AdminTab;
@@ -258,6 +259,7 @@ export default function QuanTriPage() {
       {activeTab === "phan-quyen" && isAdmin && <PermissionsTab />}
       {activeTab === "nhat-ky" && isAdmin && <ActivityLogTab />}
       {activeTab === "kairos" && <KairosTab perms={permsFor(me, "kairos")} />}
+      {activeTab === "bao-cao" && isAdmin && <ReportsTab />}
         </section>
       </div>
     </div>

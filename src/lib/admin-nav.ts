@@ -18,7 +18,8 @@ export type AdminTab =
   | "he-thong"
   | "phan-quyen"
   | "nhat-ky"
-  | "kairos";
+  | "kairos"
+  | "bao-cao";
 
 /** Nhãn MỘT nguồn cho cả admin lẫn quản lý (trước lệch: "Chỗ bán" vs "Điểm thu mua"). */
 export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
@@ -38,17 +39,21 @@ export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
   "he-thong": "Cấu hình hệ thống",
   // Kairos — đọc báo + mạng xã hội của bà con (14 §3.11): báo xấu, hàng chờ agent, Chính thức
   kairos: "Kairos",
+  // Báo cáo số liệu (2026-10-28) — admin-only: số TOÀN hệ thống, quản lý chỉ thấy khách mình (R3)
+  "bao-cao": "Báo cáo",
 };
 
-export type AdminNavGroupId = "khach" | "cho" | "noi-dung" | "nhan-su" | "he-thong";
+export type AdminNavGroupId = "tong-quan" | "khach" | "cho" | "noi-dung" | "nhan-su" | "he-thong";
 export type AdminNavGroup = {
   id: AdminNavGroupId;
   label: string;
   tabs: AdminTab[];
 };
 
-/** Thứ tự nhóm = tần suất dùng: chăm khách hằng ngày → nội dung → nhân sự → hệ thống. */
+/** Thứ tự nhóm = tần suất dùng: chăm khách hằng ngày → nội dung → nhân sự → hệ thống.
+ *  "Tổng quan" đứng ĐẦU (2026-10-28): báo cáo là chỗ nhìn chung trước khi đi vào việc. */
 export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
+  { id: "tong-quan", label: "Tổng quan", tabs: ["bao-cao"] },
   {
     id: "khach",
     label: "Khách hàng",

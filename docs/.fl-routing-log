@@ -28,3 +28,4 @@
 2026-10-27 | design+architecture+ops/native (mobile overflow/dock safe-area) | CLAUDE.md, docs/app-map/03-design-system.md, docs/app-map/07-design-spec.md, docs/app-map/02-architecture.md, docs/app-map/ops/native-deploy.md
 2026-10-27 | architecture+data+ops/deploy (bản tin không lấy được ở prod sdvico vs base) | CLAUDE.md, docs/app-map/ops/self-host-vps.md, docs/app-map/ops/deploy-windows-iis.md, docs/app-map/ops/runbook.md, docs/app-map/ops/external-services.md, docs/app-map/14-ba-spec-kairos.md, docs/app-map/02-architecture.md, docs/app-map/04-data-model.md
 2026-10-27 | design+architecture (cuộn panel/popover/sheet nổi trên bản đồ) | CLAUDE.md, docs/app-map/03-design-system.md, docs/app-map/07-design-spec.md, docs/app-map/02-architecture.md
+2026-10-28 | architecture,data,admin | docs/app-map/10-ba-spec-quan-tri-van-hanh.md,docs/app-map/ops/rbac-runbook.md,docs/app-map/04-data-model.md,docs/app-map/02-architecture.md,docs/app-map/07-design-spec.md
