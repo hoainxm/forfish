@@ -31,3 +31,4 @@
 2026-10-28 | architecture,data,admin | docs/app-map/10-ba-spec-quan-tri-van-hanh.md,docs/app-map/ops/rbac-runbook.md,docs/app-map/04-data-model.md,docs/app-map/02-architecture.md,docs/app-map/07-design-spec.md
 2026-10-28 | auth,architecture,ops (phân quyền nhân sự quản trị) | docs/app-map/ops/rbac-runbook.md,docs/app-map/10-ba-spec-quan-tri-van-hanh.md,docs/adr/0008-dat-lai-mat-khau-khach-ve-sd123456.md,docs/app-map/04-data-model.md,docs/app-map/02-architecture.md,docs/app-map/07-design-spec.md
 2026-10-28 | architecture,data (bản đồ: chạm điểm báo đất liền) | docs/app-map/02-architecture.md,docs/app-map/04-data-model.md,docs/app-map/07-design-spec.md,docs/app-map/ops/external-services.md,docs/app-map/ops/qa-offline-acceptance.md
+2026-10-28 | ui,data (bản đồ: xoá điểm ghim + gõ toạ độ) | docs/app-map/02-architecture.md,docs/app-map/07-design-spec.md,docs/app-map/ops/state-registry.md

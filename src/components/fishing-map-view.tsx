@@ -159,12 +159,14 @@ import {
   offlineBasemapNote,
   shouldUseOfflineBasemap,
 } from "@/lib/offline-basemap";
+import { NHAN } from "@/lib/labels";
 import { SEA_STATE, type SeaLevel } from "@/lib/sea";
 import {
   loadPlaces,
   persistPlaces,
   homeOf,
   placeAt,
+  removePlace,
   upsertPlace,
   type SavedPlace,
 } from "@/lib/places";
@@ -481,6 +483,7 @@ import {
   PlayIcon,
   RouteIcon,
   StarIcon,
+  TrashIcon,
 } from "@/components/icons";
 import { Popover } from "@/components/ui/popover";
 
@@ -3127,6 +3130,8 @@ export default function FishingMapView() {
   /** Ghim chỗ đang xem thành điểm của tôi (đặt tên) */
   const [pinName, setPinName] = useState("");
   const [pinning, setPinning] = useState(false);
+  /** đang hỏi lại "Xoá chỗ ghim này?" (id chỗ đang hỏi — đổi chỗ xem thì tự hết hỏi) */
+  const [xoaGhimId, setXoaGhimId] = useState<string | null>(null);
   const savePin = () => {
     setPlaces(
       upsertPlace(places, {
@@ -9078,7 +9083,33 @@ export default function FishingMapView() {
 
 
               {/* ghim chỗ này thành "Điểm của tôi" */}
-              {currentPlace ? (
+              {currentPlace && xoaGhimId === currentPlace.id ? (
+                /*  XOÁ CHỖ GHIM NGAY TẠI ĐÂY (chủ dự án 2026-10-28: "chỗ điểm lưu nhấn vào
+                    thêm tính năng xoá điểm") — cùng khuôn hỏi lại của màn "Điểm đã lưu":
+                    tên KHÔNG cắt cụt (đây là đường lùi của hành động phá huỷ). */
+                <div className="flex items-center gap-2 surface p-3.5">
+                  <p className="min-w-0 flex-1 text-[0.9375rem] font-semibold leading-snug text-navy">
+                    Xoá “{currentPlace.name}”?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlaces(removePlace(places, currentPlace.id));
+                      setXoaGhimId(null);
+                    }}
+                    className="min-h-[2.75rem] shrink-0 rounded-xl bg-danger px-4 text-[0.9375rem] font-semibold text-white"
+                  >
+                    Xoá hẳn
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setXoaGhimId(null)}
+                    className="min-h-[2.75rem] shrink-0 rounded-xl bg-field px-4 text-[0.9375rem] font-semibold text-navy"
+                  >
+                    {NHAN.huy}
+                  </button>
+                </div>
+              ) : currentPlace ? (
                 <div className="flex items-center gap-2.5 surface p-3.5">
                   <span
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white ${
@@ -9094,9 +9125,15 @@ export default function FishingMapView() {
                   <span className="flex-1 text-[0.9375rem] font-semibold text-navy">
                     Đã ghim: {currentPlace.name}
                   </span>
-                  <span className="text-[0.8125rem] font-semibold text-foreground/60">
-                    Sửa ở “Điểm đã lưu”
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setXoaGhimId(currentPlace.id)}
+                    aria-label={`Xoá chỗ ghim ${currentPlace.name}`}
+                    className="flex min-h-[2.75rem] shrink-0 items-center gap-1.5 rounded-xl bg-danger-bg px-3 text-[0.875rem] font-semibold text-danger"
+                  >
+                    <TrashIcon className="h-4.5 w-4.5" aria-hidden />
+                    {NHAN.xoa}
+                  </button>
                 </div>
               ) : pinning ? (
                 <div className="surface p-3.5">

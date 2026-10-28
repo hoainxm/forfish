@@ -82,4 +82,26 @@ describe("ban-do-tim — ô Đi đâu? (BD-02)", () => {
     expect(docToaDoNhanh("10")).toBeNull();
     expect(nhanToaDo(10.52, 108.21)).toBe("Đến 10,52 · 108,21");
   });
+
+  /* LỖI đã sửa 2026-10-28: regex riêng không hiểu độ-phút-giây (đúng kiểu app đang
+     hiện) và đọc NHẦM "12 26 13 109 32 02" thành 12°N 26°E. */
+  it("độ-phút-giây kiểu thẻ toạ độ / máy định vị ⇒ đúng chỗ", () => {
+    const g = (s: string) => {
+      const r = docToaDoNhanh(s);
+      return r && { lat: +r.lat.toFixed(4), lon: +r.lon.toFixed(4) };
+    };
+    expect(g(`12°26'13"N 109°32'02"E`)).toEqual({ lat: 12.4369, lon: 109.5339 });
+    expect(g(`10°48'04"N 106°39'17"E`)).toEqual({ lat: 10.8011, lon: 106.6547 });
+    expect(g("12°26.2'N 109°32.0'E")).toEqual({ lat: 12.4367, lon: 109.5333 });
+    expect(g("N12 26 E109 32")).toEqual({ lat: 12.4333, lon: 109.5333 });
+  });
+  it("độ-phút-giây gõ bằng số trần KHÔNG bị đọc thành hai số đầu", () => {
+    const r = docToaDoNhanh("12 26 13 109 32 02")!;
+    expect(r.lat).toBeCloseTo(12.437, 3);
+    expect(r.lon).toBeCloseTo(109.5339, 3);
+  });
+  it("vẫn nhận hai số nguyên độ (luật cũ) và không đoán chuỗi lạ", () => {
+    expect(docToaDoNhanh("10, 108")).toEqual({ lat: 10, lon: 108 });
+    expect(docToaDoNhanh("12 26 13 abc")).toBeNull();
+  });
 });

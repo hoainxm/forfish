@@ -9,6 +9,7 @@ import { FISHING_PORTS, PORT_COORD_SAI } from "@/data/fishing-ports";
 import { boDau } from "@/lib/cho-ca";
 import type { SavedPlace } from "@/lib/places";
 import { relevanceRank } from "@/lib/region";
+import { parseSpokenCoordPair } from "@/lib/parse-coord";
 
 export type KetQuaTim = {
   loai: "diem" | "cang";
@@ -93,12 +94,23 @@ export function timDiemLuu(q: string, places: SavedPlace[]): KetQuaTim[] {
     }));
 }
 
-/** chuỗi gõ trông như toạ độ "10.52, 108.21" / "10,52 108,21" (phẩy hay chấm đều được) */
-const MAU_TOA_DO = /^\s*(-?\d+(?:[.,]\d+)?)\s*[, ]\s*(-?\d+(?:[.,]\d+)?)/;
+/*  GÕ TOẠ ĐỘ TRONG Ô TÌM (sửa 2026-10-28, chủ dự án: "kiểm tra fix luôn chức năng gõ
+    toạ độ"). Bản cũ là một regex riêng chỉ hiểu "10.52, 108.21":
+     · gõ đúng kiểu app đang HIỆN (12°26'13"N 109°32'02"E — thẻ toạ độ, máy định vị)
+       ⇒ không nhận, báo "Không thấy";
+     · gõ độ-phút-giây bằng số trần "12 26 13 109 32 02" ⇒ đọc NHẦM thành 12°N 26°E
+       (lấy hai số đầu), bay tới chỗ cách hàng nghìn km.
+    Nay dùng CHUNG bộ đọc của Sen Biển (`parseSpokenCoordPair` — độ thập phân, độ-phút,
+    độ-phút-giây, °/'/", N/S/E/W, Bắc/Nam/Đông/Tây, khung biển VN). Chỉ lùi về luật cũ
+    khi chuỗi là ĐÚNG HAI số (vd "10, 108") — có số thứ ba trở đi mà bộ chung không hiểu
+    thì thà báo "Không thấy" còn hơn đoán. */
+const HAI_SO = /^\s*(-?\d+(?:[.,]\d+)?)\s*[, ]\s*(-?\d+(?:[.,]\d+)?)\s*$/;
 
 /** toạ độ gõ nhanh trong ô tìm; ngoài phạm vi lat ±90 / lon ±180 ⇒ null */
 export function docToaDoNhanh(q: string): { lat: number; lon: number } | null {
-  const m = MAU_TOA_DO.exec(q);
+  const chung = parseSpokenCoordPair(q);
+  if (chung) return chung;
+  const m = HAI_SO.exec(q);
   if (!m) return null;
   const lat = Number(m[1].replace(",", "."));
   const lon = Number(m[2].replace(",", "."));
