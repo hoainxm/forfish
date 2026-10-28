@@ -331,3 +331,58 @@ describe("fetchSeaPoint — nấc cuối lùi về SNAPSHOT server", () => {
     await expect(fetchSeaPoint(CON_DAO)).rejects.toThrow();
   });
 });
+
+/* LỖI đã sửa 2026-10-28 (ảnh chủ dự án): chạm 12°26'N 109°32'E ngoài khơi Khánh
+   Hoà ra "Chỗ này trên đất liền", chạm lại 1 phút sau thì ra số. Request sóng hỏng
+   (cầu /api/om 503 khi Open-Meteo 429) bị hiểu thành "không có số sóng = đất liền". */
+describe("fetchSeaPoint — sóng hỏng KHÔNG phải đất liền", () => {
+  const KHANH_HOA = { lat: 12.4369, lon: 109.5339 };
+  const waveDown = (status: number) =>
+    vi.fn().mockImplementation((url: string) =>
+      /\/api\/om\/marine|marine-api/.test(url)
+        ? Promise.resolve({ ok: false, status, json: () => Promise.resolve({ ok: false }) })
+        : fakeOk(url),
+    ) as unknown as typeof fetch;
+
+  it("nguồn sóng 503 (Open-Meteo 429 qua cầu) → vẫn là biển, sóng ước tính từ gió", async () => {
+    globalThis.fetch = waveDown(503);
+    const c = await fetchSeaPoint(KHANH_HOA);
+    expect(c.onSea).toBe(true);
+    expect(c.days[0].waveEstimated).toBe(true);
+    expect(c.days[0].waveMaxM).toBeGreaterThan(0);
+  });
+
+  it("request sóng ném lỗi mạng → vẫn là biển", async () => {
+    globalThis.fetch = vi.fn().mockImplementation((url: string) =>
+      /\/api\/om\/marine|marine-api/.test(url) ? Promise.reject(new Error("timeout")) : fakeOk(url),
+    ) as unknown as typeof fetch;
+    const c = await fetchSeaPoint(KHANH_HOA);
+    expect(c.onSea).toBe(true);
+  });
+
+  it("nguồn sóng TRẢ LỜI mà toàn null (ô lưới trên đất) → đất liền như cũ", async () => {
+    globalThis.fetch = vi.fn().mockImplementation((url: string) =>
+      /\/api\/om\/marine|marine-api/.test(url)
+        ? Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                current: { wave_height: null },
+                daily: { time: ["2026-07-25"], wave_height_max: [null] },
+              }),
+          })
+        : fakeOk(url),
+    ) as unknown as typeof fetch;
+    const c = await fetchSeaPoint({ lat: 12.25, lon: 109.0 });
+    expect(c.onSea).toBe(false);
+  });
+
+  it("sóng hỏng rồi mất sóng: bản lưu trong máy KHÔNG mang nhãn đất liền", async () => {
+    globalThis.fetch = waveDown(503);
+    await fetchSeaPoint(KHANH_HOA);
+    globalThis.fetch = offline();
+    const c = await fetchSeaPoint(KHANH_HOA);
+    expect(c.stale).toBe(true);
+    expect(c.onSea).toBe(true);
+  });
+});

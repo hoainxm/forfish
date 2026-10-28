@@ -62,7 +62,8 @@ export type SeaPointDay = Omit<SeaDay, "precipMm"> & {
 
 export type SeaPointConditions = {
   point: SeaPoint;
-  /** false = nguồn sóng không có số nào cho điểm này → gần như chắc là đất liền */
+  /** false = nguồn sóng TRẢ LỜI mà không có số nào cho điểm này → gần như chắc là đất liền.
+   *  Nguồn sóng hỏng (không hỏi được) KHÔNG tính là đất liền (2026-10-28). */
   onSea: boolean;
   /** Lúc này tại điểm đó — null khi bản dựng từ lưới (lưới chỉ có số theo giờ dự báo) */
   windKmh: number | null;
@@ -499,8 +500,16 @@ async function fetchSeaPointLive(p: SeaPoint, soNgay: number): Promise<SeaPointC
   );
   if (days.length === 0) throw new Error("Dự báo trống");
 
+  /*  ĐẤT LIỀN CHỈ KHI NGUỒN SÓNG TRẢ LỜI MÀ KHÔNG CÓ SỐ (sửa 2026-10-28, ảnh chủ dự
+      án: chạm 12°26'N 109°32'E ngoài khơi Khánh Hoà ra "Chỗ này trên đất liền", chạm
+      lại 1 phút sau thì ra số). Request sóng HỎNG (cầu /api/om 503 khi Open-Meteo 429
+      / hết giờ, mạng chập chờn) làm `wave` = null — bản cũ đếm đó là "không có số
+      sóng" ⇒ onSea=false ⇒ báo đất liền giữa biển, và còn LƯU bản sai đó vào máy.
+      "Không hỏi được" ≠ "đất liền": hỏng thì coi là biển, sóng đã ước tính từ gió ở
+      trên (waveEstimated — UI gắn dấu ước tính). */
   const waveDaily: unknown[] = wave?.daily?.wave_height_max ?? [];
   const onSea =
+    wave == null ||
     num(wave?.current?.wave_height) != null ||
     waveDaily.some((v) => num(v) != null);
 
