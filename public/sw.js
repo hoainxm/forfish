@@ -418,6 +418,10 @@ const SHELL = [
       "vỏ đủ" vẫn xanh. "Đã thích" + giỏ đọc từ máy (`forfish.mfav.v1`, `forfish.mcart.v1`).
       CHỈ THÊM URL ⇒ KHÔNG bump SDFISH_CACHE_V (cùng luật như /kairos ở trên). */
   "/cho",
+  /*  CHUYẾN BIỂN — đề xuất lộ trình nhiều ngày (09-ba-spec §5c, 2026-10-29). Lộ trình đã lưu
+      (`forfish.routes.v1`) + so vị trí bằng GPS là việc LÀM NGOÀI KHƠI ⇒ vỏ màn phải nằm sẵn.
+      CHỈ THÊM URL ⇒ KHÔNG bump SDFISH_CACHE_V (cùng luật như /kairos, /cho). */
+  "/lo-trinh",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",

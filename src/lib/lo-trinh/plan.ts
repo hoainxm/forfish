@@ -1,0 +1,691 @@
+// ĐỀ XUẤT LỘ TRÌNH CHUYẾN BIỂN — thuật toán Phase 1 (docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md
+// §3 B0–B3 + B5, §4 mẫu chuyến theo nghề, §5 ràng buộc trung thực). CHƯA có GRASP (B4), chưa
+// re-plan giữa chuyến, chưa mask giờ theo nghề/con trăng — đó là Phase 2.
+//
+// THUẦN: không React, không fetch, không localStorage — màn hình đưa dữ liệu vào qua `LoTrinhInput`.
+// Tất định: cùng input ⇒ cùng output (không ngẫu nhiên; mọi chỗ hoà điểm đều phá bằng chỉ số).
+//
+// Mô hình thời gian: giờ t tính từ lúc xuất bến (t = 0). Ngày thứ d (0 = ngày xuất bến) chứa
+// giờ [24d, 24d+24). Đánh cá tính theo KHỐI 24 giờ; khối bắt đầu ở giờ t được xếp vào ngày
+// floor((t+12)/24) — ngày chứa điểm giữa khối — để "chạy tới giờ 36" thành "đánh từ ngày 3".
+// Giờ chạy = hải lý / tốc độ, đường thẳng (chưa né sóng gió — đó là việc của planRoute từng chặng).
+
+import { haversineKm, type LatLon } from "@/lib/geo";
+import { distToSegmentKm, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
+import { trongVungNhanh } from "@/lib/lo-trinh/vung-nhanh";
+import type {
+  BaoRutGon,
+  DongLich,
+  LoTrinhInput,
+  LoTrinhKetQua,
+  Nghe,
+  OCa,
+  VungDanh,
+} from "@/lib/lo-trinh/types";
+
+/* ───────────────────────── Tham số mặc định (ghi lại ở 09 §3 "Phase 1 ĐÃ LÀM") ─────────── */
+
+/** Trần dữ liệu: lưới cá/thời tiết premium tới 16 ngày (§0 chốt #1). */
+export const TRAN_SO_NGAY = 16;
+/** Hồ sơ tàu thiếu số thì tạm dùng — cùng số mặc định của dẫn đường (§2 "mặc định 7kn/20L·h"). */
+export const TOC_DO_MAC_DINH_KN = 7;
+export const DAU_GIO_MAC_DINH_L = 20;
+/**
+ * Lấy mẫu đoạn thẳng giữa hai mốc mỗi 2 km để kiểm có ra ngoài vùng biển VN không. Đề bài ban đầu
+ * 10 km, nhưng đo với mùa vụ tháng 4 thì đoạn từ Quy Nhơn đi lên lọt qua mũi đất 13,90°B giữa hai
+ * mẫu 10 km ⇒ hạ xuống 2 km, khớp mẫu độ sâu ≤2 km của planRoute (09 "Bất biến an toàn" #3).
+ */
+export const BUOC_MAU_KM = 2;
+/** Mẫu trong bán kính này quanh HAI ĐẦU đoạn (cảng, điểm) được miễn kiểm — cảng nằm sát bờ. */
+export const SAT_DAU_KM = 15;
+/** Ô cá vào cụm khi điểm (trung bình các ngày chuyến) ≥ phân vị 80. */
+export const PHAN_VI_CUM = 0.8;
+/**
+ * Bán kính một vùng đánh quanh đỉnh của nó. Loang không giới hạn thì cả dải ven bờ dính thành MỘT
+ * vùng dài nghìn km, tâm rơi tận đâu (đo với mùa vụ tháng 4: cảng Cát Bà trắng tay).
+ * nợ: 55 km ≈ 30 hải lý ≈ quãng một ngày thả trôi — số ước, chưa đo với nhật ký chuyến thật.
+ */
+export const BAN_KINH_VUNG_KM = 55;
+/** Số vùng ứng viên tối đa giữ lại sau gom cụm (§1 "~15–25 vùng đánh"). */
+export const TOI_DA_VUNG_UNG_VIEN = 25;
+/** Tuyến ghé 1–4 vùng (§1); bà con nhập nhiều điểm quen hơn thì giữ đủ điểm quen, không thêm vùng. */
+export const TOI_DA_CHO_GHE = 4;
+export const TOI_DA_DIEM_QUEN = 5;
+/** Ở lại một chỗ, mỗi ngày thêm giá trị ×0,9 — ép cân nhắc 2–3 vùng thay vì cắm một chỗ (§1). */
+export const GIAM_THEO_NGAY = 0.9;
+/** Dự phòng dầu: tổng lít × 1,3 vượt két ⇒ thiếu dầu (§3 B5). */
+export const DU_PHONG_DAU = 1.3;
+/** Cổng bão: chỉ xét bão trong 5 ngày đầu chuyến (§6 Phase 1 "storm gate cửa sổ 0–5 ngày"). */
+export const CUA_SO_BAO_NGAY = 5;
+
+/**
+ * "Ngày nên quay về" theo nghề (§4). Câu cá ngừ: về ≤7 ngày sau NGÀY ĐÁNH ĐẦU TIÊN (chuẩn
+ * sashimi). Nghề khác: chuyến dài tối đa N ngày kể từ ngày xuất bến.
+ * nợ: lưới vây/lưới rê/chụp mực là MẪU TẠM lấy từ bảng §4 (lưới vây 5–7, lưới rê 10–20, chụp mực
+ * 5–10) — chưa tune với chủ tàu thật; nâng cấp khi có số liệu chuyến thật của từng nghề (Phase 3).
+ */
+export const NGAY_NEN_VE: Record<Nghe, { tinhTu: "ngay-danh-dau" | "ngay-di"; soNgay: number }> = {
+  "cau-ngu": { tinhTu: "ngay-danh-dau", soNgay: 7 },
+  "luoi-vay": { tinhTu: "ngay-di", soNgay: 7 },
+  "luoi-re": { tinhTu: "ngay-di", soNgay: 15 },
+  "chup-muc": { tinhTu: "ngay-di", soNgay: 10 },
+};
+
+const TEN_NGHE: Record<Nghe, string> = {
+  "cau-ngu": "câu cá ngừ",
+  "luoi-vay": "lưới vây",
+  "luoi-re": "lưới rê",
+  "chup-muc": "chụp mực",
+};
+
+const KM_MOI_HAI_LY = 1.852;
+const NGAY_MS = 86_400_000;
+/** Giờ Việt Nam = UTC+7, không đổi giờ mùa hè. */
+const LECH_VN_MS = 7 * 3_600_000;
+const EPS = 1e-9;
+
+export const CAU_CHAN_BAO = "Có bão gần tuyến — chưa nên đi";
+export const CAU_CHUA_KIEM_BAO = "Chưa kiểm được tin bão — nghe đài duyên hải trước khi đi";
+
+/* ───────────────────────── Ngày tháng (YYYY-MM-DD, giờ VN) ─────────────────────────── */
+
+function chuanNgay(s: unknown): string | null {
+  if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  const t = Date.UTC(y, m - 1, d);
+  return new Date(t).toISOString().slice(0, 10) === s ? s : null;
+}
+
+function congNgay(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d) + n * NGAY_MS).toISOString().slice(0, 10);
+}
+
+/** Mốc 00:00 giờ VN của ngày `iso`, epoch ms. */
+function dauNgayVN(iso: string): number {
+  const [y, m, d] = iso.split("-").map(Number);
+  return Date.UTC(y, m - 1, d) - LECH_VN_MS;
+}
+
+function homNayVN(now: Date): string {
+  const t = now.getTime();
+  return new Date((Number.isFinite(t) ? t : 0) + LECH_VN_MS).toISOString().slice(0, 10);
+}
+
+/* ───────────────────────── Hình học ─────────────────────────────────────────────── */
+
+const soThat = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
+const toaDoHopLe = (p: { lat: unknown; lon: unknown } | null | undefined): boolean =>
+  !!p && soThat(p.lat) && soThat(p.lon) && Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180;
+
+/**
+ * Đoạn thẳng a→b có nằm trong vùng biển VN được phép không: lấy mẫu mỗi 2 km; mẫu nào cách cả hai
+ * đầu > 15 km mà ngoài vùng (đất liền, đảo, vùng cần chú ý quanh Hoàng Sa, biển nước ngoài) ⇒
+ * đoạn không hợp lệ. Miễn hai đầu vì cảng nằm trên bờ, không bao giờ "trong vùng biển".
+ * nợ: đoạn có thể lọt một mỏm đất/ranh hẹp hơn 2 km giữa hai mẫu — trần chấp nhận ở Phase 1
+ * vì mỗi chặng còn qua planRoute (kiểm nghiêm 2 km) khi dẫn đường thật; nâng cấp nếu bà con gặp
+ * tuyến đề xuất cắt qua đảo nhỏ.
+ */
+export function doanTrongVung(a: LatLon, b: LatLon): boolean {
+  const km = haversineKm(a, b);
+  const n = Math.max(1, Math.ceil(km / BUOC_MAU_KM));
+  for (let k = 0; k <= n; k++) {
+    const t = k / n;
+    const p = { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t };
+    if (haversineKm(p, a) <= SAT_DAU_KM || haversineKm(p, b) <= SAT_DAU_KM) continue;
+    if (!trongVungNhanh(p.lat, p.lon)) return false;
+  }
+  return true;
+}
+
+/**
+ * Bão gần tuyến trong cửa sổ 5 ngày đầu: điểm bão (bỏ điểm có `at` từ cuối ngày thứ 5 trở đi)
+ * cách MỘT đoạn tuyến dưới 200 km. Trả bão gần nhất hoặc null.
+ */
+export function baoGanTuyen(
+  bao: readonly BaoRutGon[],
+  tuyen: readonly LatLon[],
+  batDauMs: number,
+): { ten: string; km: number } | null {
+  if (tuyen.length === 0) return null;
+  const het = batDauMs + CUA_SO_BAO_NGAY * NGAY_MS;
+  let tot: { ten: string; km: number } | null = null;
+  for (const b of bao) {
+    for (const p of b?.diem ?? []) {
+      if (!toaDoHopLe(p)) continue;
+      if (soThat(p.at) && p.at >= het) continue;
+      let km = tuyen.length === 1 ? haversineKm(p, tuyen[0]) : Infinity;
+      for (let i = 0; i + 1 < tuyen.length; i++) km = Math.min(km, distToSegmentKm(p, tuyen[i], tuyen[i + 1]));
+      if (km < STORM_SAFE_RADIUS_KM && (!tot || km < tot.km)) tot = { ten: b.ten, km };
+    }
+  }
+  return tot;
+}
+
+/* ───────────────────────── B0 + B1: đọc lớp cá, gom cụm ─────────────────────────────── */
+
+interface O {
+  lat: number;
+  lon: number;
+  i: number;
+  j: number;
+  trong: boolean;
+}
+
+interface DuLieuCa {
+  buoc: number;
+  o: Map<number, O>;
+  /** theo ngày: khoá ô → điểm (chỉ ô trong vùng) */
+  ngay: Map<number, number>[];
+  /** khoá ô trong vùng có ít nhất một ngày có điểm → điểm trung bình các ngày có mặt */
+  tb: Map<number, number>;
+  /** ngưỡng phân vị 80 của `tb` */
+  nguong: number;
+}
+
+const khoaO = (i: number, j: number) => (i + 5000) * 20000 + (j + 10000);
+
+/** Bước lưới suy từ dữ liệu: hiệu vĩ độ (rồi kinh độ) liền kề hay gặp nhất; không suy được ⇒ 0,25°. */
+function suyBuoc(cells: readonly OCa[]): number {
+  for (const truc of ["lat", "lon"] as const) {
+    const vals = new Set<number>();
+    for (let k = 0; k < cells.length && k < 5000; k++) {
+      const v = cells[k]?.[truc];
+      if (soThat(v)) vals.add(Math.round(v * 1e4));
+    }
+    const s = [...vals].sort((x, y) => x - y);
+    const dem = new Map<number, number>();
+    for (let k = 1; k < s.length; k++) dem.set(s[k] - s[k - 1], (dem.get(s[k] - s[k - 1]) ?? 0) + 1);
+    let tot = 0, soLan = 0;
+    for (const [h, c] of [...dem].sort((x, y) => x[0] - y[0])) if (c > soLan) { tot = h; soLan = c; }
+    const buoc = tot / 1e4;
+    if (buoc >= 0.05 && buoc <= 2) return buoc;
+  }
+  return 0.25;
+}
+
+function docLopCa(caTheoNgay: LoTrinhInput["caTheoNgay"], D: number): DuLieuCa | null {
+  const raw: (readonly OCa[])[] = [];
+  for (let d = 0; d < D; d++) {
+    let r: readonly OCa[] = [];
+    try {
+      const x = typeof caTheoNgay === "function" ? caTheoNgay(d) : [];
+      if (Array.isArray(x)) r = x;
+    } catch {
+      r = []; // một ngày hỏng thì coi như ngày đó không có ô — không làm hỏng cả chuyến
+    }
+    raw.push(r);
+  }
+  const mau = raw.find((r) => r.length > 0);
+  if (!mau) return null;
+  const buoc = suyBuoc(mau);
+  const o = new Map<number, O>();
+  const ngay: Map<number, number>[] = [];
+  for (let d = 0; d < D; d++) {
+    const m = new Map<number, number>();
+    for (const c of raw[d]) {
+      if (!c || !toaDoHopLe(c) || !soThat(c.s)) continue;
+      const i = Math.round(c.lat / buoc), j = Math.round(c.lon / buoc);
+      const k = khoaO(i, j);
+      let x = o.get(k);
+      if (!x) {
+        x = { lat: c.lat, lon: c.lon, i, j, trong: trongVungNhanh(c.lat, c.lon) };
+        o.set(k, x);
+      }
+      if (!x.trong) continue;
+      const s = Math.max(0, Math.min(100, c.s));
+      if (s > (m.get(k) ?? -1)) m.set(k, s);
+    }
+    ngay.push(m);
+  }
+  const tong = new Map<number, [number, number]>();
+  for (const m of ngay)
+    for (const [k, s] of m) {
+      const t = tong.get(k);
+      if (t) { t[0] += s; t[1]++; } else tong.set(k, [s, 1]);
+    }
+  if (tong.size === 0) return null;
+  const tb = new Map<number, number>();
+  for (const k of [...tong.keys()].sort((x, y) => x - y)) {
+    const [s, n] = tong.get(k)!;
+    tb.set(k, s / n);
+  }
+  const vals = [...tb.values()].sort((x, y) => x - y);
+  const nguong = vals[Math.floor(PHAN_VI_CUM * (vals.length - 1))];
+  return { buoc, o, ngay, tb, nguong };
+}
+
+interface Cum {
+  lat: number;
+  lon: number;
+  prize: number;
+  keys: number[];
+}
+
+/** B1: ô ≥ phân vị 80, loang 8 hướng theo bước lưới (trong bán kính quanh đỉnh) ⇒ vùng; prize = Σ điểm, tâm = trọng tâm có trọng số.
+ *  Trả MỌI vùng, tốt trước — chỗ gọi tự lọc vùng đi được rồi mới cắt còn 25. */
+function gomCum(du: DuLieuCa): Cum[] {
+  const chon = new Set<number>();
+  for (const [k, s] of du.tb) if (s >= du.nguong) chon.add(k);
+  const daXet = new Set<number>();
+  const cum: Cum[] = [];
+  // hạt giống = ô điểm cao trước (hoà thì khoá nhỏ trước) — mỗi vùng mọc quanh một đỉnh
+  const hat = [...chon].sort((x, y) => du.tb.get(y)! - du.tb.get(x)! || x - y);
+  for (const k0 of hat) {
+    if (daXet.has(k0)) continue;
+    daXet.add(k0);
+    const goc = du.o.get(k0)!;
+    const hang = [k0];
+    const keys: number[] = [];
+    while (hang.length) {
+      const k = hang.pop()!;
+      keys.push(k);
+      const { i, j } = du.o.get(k)!;
+      for (let di = -1; di <= 1; di++)
+        for (let dj = -1; dj <= 1; dj++) {
+          const kk = khoaO(i + di, j + dj);
+          if (!chon.has(kk) || daXet.has(kk)) continue;
+          if (haversineKm(goc, du.o.get(kk)!) > BAN_KINH_VUNG_KM) continue;
+          daXet.add(kk);
+          hang.push(kk);
+        }
+    }
+    keys.sort((x, y) => x - y);
+    let prize = 0, sw = 0, la = 0, lo = 0, dinhK = keys[0], dinhS = -1;
+    for (const k of keys) {
+      const s = du.tb.get(k)!;
+      const c = du.o.get(k)!;
+      prize += s;
+      const w = Math.max(s, EPS);
+      sw += w; la += c.lat * w; lo += c.lon * w;
+      if (s > dinhS) { dinhS = s; dinhK = k; }
+    }
+    let lat = la / sw, lon = lo / sw;
+    // trọng tâm của vùng hình lưỡi liềm có thể rơi vào đảo / ra ngoài vùng ⇒ lấy ô cao điểm nhất
+    if (!trongVungNhanh(lat, lon)) ({ lat, lon } = du.o.get(dinhK)!);
+    cum.push({ lat, lon, prize, keys });
+  }
+  cum.sort((a, b) => b.prize - a.prize || a.keys[0] - b.keys[0]);
+  return cum;
+}
+
+/* ───────────────────────── B2 + B3: khung tuyến, lịch theo ngày ─────────────────────── */
+
+interface Nut {
+  lat: number;
+  lon: number;
+  ten: string;
+  quen: boolean;
+  /** điểm theo ngày d (0..D-1) */
+  diem: number[];
+  prize: number;
+}
+
+interface KeHoach {
+  thuTu: number[];
+  /** giờ chạy từng chặng: h[0] cảng→chỗ 1 … h[k] chỗ cuối→cảng */
+  h: number[];
+  /** số ngày đánh ở từng chỗ */
+  n: number[];
+  giaTri: number;
+  tongChay: number;
+}
+
+const ngayCuaKhoi = (t: number) => Math.floor((t + 12) / 24);
+
+export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTrinhKetQua {
+  const ghiChu: string[] = [];
+  let ngayDi = chuanNgay(input?.ngayDi);
+  if (!ngayDi) {
+    ngayDi = homNayVN(now);
+    ghiChu.push("Ngày xuất bến chưa đúng — tạm tính từ hôm nay.");
+  }
+  const nghe: Nghe = input && input.nghe in NGAY_NEN_VE ? input.nghe : "cau-ngu";
+  const mau = NGAY_NEN_VE[nghe];
+
+  const rong = (soNgayTinh: number, ngayNenVe: string = ngayDi!): LoTrinhKetQua => ({
+    vung: [],
+    lich: [],
+    moc: [],
+    haiLy: 0,
+    litDau: 0,
+    thieuDau: false,
+    ngayNenVe,
+    soNgayTinh,
+    chanBao: null,
+    ghiChu,
+  });
+
+  if (!soThat(input?.soNgay) || input.soNgay < 1) {
+    ghiChu.push("Số ngày đi phải từ 1 ngày trở lên.");
+    return rong(0);
+  }
+  let D = Math.floor(input.soNgay);
+  if (D > TRAN_SO_NGAY) {
+    ghiChu.push(`Chuyến khai ${D} ngày — app chỉ tính ${TRAN_SO_NGAY} ngày đầu (dữ liệu tới ${TRAN_SO_NGAY} ngày).`);
+    D = TRAN_SO_NGAY;
+  }
+  // hạn về mặc định khi chưa có tuyến: câu ngừ coi như đánh từ ngày đầu
+  const hanMacDinh = congNgay(ngayDi, Math.min(D, mau.tinhTu === "ngay-di" ? mau.soNgay : mau.soNgay + 1) - 1);
+
+  const cang = input.cang;
+  if (!toaDoHopLe(cang)) {
+    ghiChu.push("Chưa có toạ độ cảng xuất bến.");
+    return rong(D, hanMacDinh);
+  }
+
+  const tau = input.tau ?? ({} as LoTrinhInput["tau"]);
+  let tocDo = tau.speedKn;
+  if (!soThat(tocDo) || tocDo <= 0) {
+    tocDo = TOC_DO_MAC_DINH_KN;
+    ghiChu.push(`Chưa có tốc độ tàu — tạm tính ${TOC_DO_MAC_DINH_KN} hải lý/giờ.`);
+  }
+  let dauGio = tau.litersPerHour;
+  if (!soThat(dauGio) || dauGio <= 0) {
+    dauGio = DAU_GIO_MAC_DINH_L;
+    ghiChu.push(`Chưa có số lít dầu mỗi giờ — tạm tính ${DAU_GIO_MAC_DINH_L} lít/giờ.`);
+  }
+  const ket = soThat(tau.fuelTankL) && tau.fuelTankL > 0 ? tau.fuelTankL : null;
+
+  if (input.bao === null || !Array.isArray(input.bao)) ghiChu.push(CAU_CHUA_KIEM_BAO);
+
+  /* B0 + B1 */
+  const du = docLopCa(input.caTheoNgay, D);
+  if (!du) {
+    ghiChu.push("Chưa có bản đồ cá trong vùng biển Việt Nam cho những ngày này — chưa đề xuất được lộ trình.");
+    return rong(D, hanMacDinh);
+  }
+
+  const nut: Nut[] = [{ lat: cang.lat, lon: cang.lon, ten: cang.ten, quen: false, diem: [], prize: 0 }];
+
+  // điểm quen: chỉ nhận điểm trong vùng biển VN được phép (§5 #3 "hiển thị, không đề xuất")
+  const quenVao = Array.isArray(input.diemQuen) ? input.diemQuen : [];
+  if (quenVao.length > TOI_DA_DIEM_QUEN)
+    ghiChu.push(`Chỉ tính ${TOI_DA_DIEM_QUEN} điểm quen đầu tiên.`);
+  const idxQuen: number[] = [];
+  for (const q of quenVao.slice(0, TOI_DA_DIEM_QUEN)) {
+    const ten = typeof q?.ten === "string" && q.ten.trim() ? q.ten.trim() : "Điểm quen";
+    if (!toaDoHopLe(q)) {
+      ghiChu.push(`Điểm quen “${ten}” sai toạ độ — bỏ qua.`);
+      continue;
+    }
+    if (!trongVungNhanh(q.lat, q.lon)) {
+      ghiChu.push(`Điểm quen “${ten}” nằm ngoài vùng biển Việt Nam được phép đánh bắt — không đưa vào tuyến.`);
+      continue;
+    }
+    const i = Math.round(q.lat / du.buoc), j = Math.round(q.lon / du.buoc);
+    const diem: number[] = [];
+    let coO = false;
+    for (let d = 0; d < D; d++) {
+      let s = 0;
+      for (let di = -1; di <= 1; di++)
+        for (let dj = -1; dj <= 1; dj++) {
+          const v = du.ngay[d].get(khoaO(i + di, j + dj));
+          if (v !== undefined) { coO = true; if (v > s) s = v; }
+        }
+      diem.push(s);
+    }
+    // chỗ bản đồ cá không phủ: tin kinh nghiệm thuyền trưởng — tính ngang ngưỡng "vùng tốt"
+    if (!coO) diem.fill(du.nguong);
+    idxQuen.push(nut.length);
+    nut.push({ lat: q.lat, lon: q.lon, ten, quen: true, diem, prize: diem.reduce((a, b) => a + b, 0) });
+  }
+
+  // Giữ 25 vùng tốt nhất TRONG SỐ vùng đi thẳng từ cảng được (kịp đi-đánh 1 ngày-về, đoạn thẳng
+  // trong vùng biển). Cắt 25 trước khi lọc thì cảng phía Bắc trắng tay: 25 vùng to nhất nằm phía
+  // Nam, mà đường thẳng từ vịnh Bắc Bộ xuống đó cắt qua đất liền miền Trung (đo với mùa vụ tháng 4).
+  // nợ: vùng chỉ tới được QUA vùng khác (không thẳng từ cảng) bị bỏ, nâng cấp khi chặng nối bằng planRoute (đi vòng bờ).
+  const gioToiDa = (mau.tinhTu === "ngay-di" ? Math.min(D, mau.soNgay) : D) * 24;
+  const idxVung: number[] = [];
+  for (const c of gomCum(du)) {
+    if (idxVung.length >= TOI_DA_VUNG_UNG_VIEN) break;
+    if ((2 * haversineKm(cang, c)) / KM_MOI_HAI_LY / tocDo + 24 > gioToiDa + EPS) continue;
+    if (!doanTrongVung(cang, c)) continue;
+    const diem: number[] = [];
+    for (let d = 0; d < D; d++) {
+      let s = 0;
+      for (const k of c.keys) { const v = du.ngay[d].get(k); if (v !== undefined && v > s) s = v; }
+      diem.push(s);
+    }
+    idxVung.push(nut.length);
+    nut.push({ lat: c.lat, lon: c.lon, ten: "", quen: false, diem, prize: c.prize });
+  }
+
+  const N = nut.length;
+  const gio: number[][] = nut.map((a) => nut.map((b) => haversineKm(a, b) / KM_MOI_HAI_LY / tocDo!));
+  const hopLeNho = new Map<number, boolean>();
+  const hopLe = (a: number, b: number): boolean => {
+    const k = Math.min(a, b) * N + Math.max(a, b);
+    let v = hopLeNho.get(k);
+    if (v === undefined) { v = doanTrongVung(nut[a], nut[b]); hopLeNho.set(k, v); }
+    return v;
+  };
+  const tuyenHopLe = (thuTu: number[]): boolean => {
+    let prev = 0;
+    for (const x of [...thuTu, 0]) { if (!hopLe(prev, x)) return false; prev = x; }
+    return true;
+  };
+
+  const danhGia = (thuTu: number[], h: number[], n: number[]): number => {
+    let t = 0, v = 0;
+    for (let i = 0; i < thuTu.length; i++) {
+      t += h[i];
+      const diem = nut[thuTu[i]].diem;
+      for (let j = 0; j < n[i]; j++) v += diem[Math.min(D - 1, ngayCuaKhoi(t + 24 * j))] * GIAM_THEO_NGAY ** j;
+      t += 24 * n[i];
+    }
+    return v;
+  };
+
+  /** B3: thứ tự cố định ⇒ chia ngày đánh (mỗi chỗ ≥1 ngày, ngày dư cho chỗ lời nhất). null = không kịp. */
+  const lap = (thuTu: number[]): KeHoach | null => {
+    const h: number[] = [];
+    let prev = 0;
+    for (const x of thuTu) { h.push(gio[prev][x]); prev = x; }
+    h.push(gio[prev][0]);
+    const tongChay = h.reduce((a, b) => a + b, 0);
+    let hetGio = D * 24;
+    if (thuTu.length > 0) {
+      if (mau.tinhTu === "ngay-danh-dau") hetGio = Math.min(hetGio, (ngayCuaKhoi(h[0]) + mau.soNgay + 1) * 24);
+      else hetGio = Math.min(hetGio, mau.soNgay * 24);
+    }
+    if (tongChay > hetGio + EPS) return null;
+    const k = thuTu.length;
+    const soNgayDanh = Math.floor((hetGio - tongChay) / 24 + EPS);
+    if (soNgayDanh < k) return null;
+    const n = new Array<number>(k).fill(1);
+    let giaTri = danhGia(thuTu, h, n);
+    for (let r = k; r < soNgayDanh; r++) {
+      let tot = -1, loi = EPS;
+      for (let i = 0; i < k; i++) {
+        n[i]++;
+        const v = danhGia(thuTu, h, n) - giaTri;
+        n[i]--;
+        if (v > loi) { loi = v; tot = i; }
+      }
+      if (tot < 0) break; // ở thêm không được gì (ô điểm 0) ⇒ về sớm, không nằm không giữa biển
+      n[tot]++;
+      giaTri += loi;
+    }
+    return { thuTu, h, n, giaTri, tongChay };
+  };
+
+  /* B2a: khung = điểm quen theo nearest-neighbor, chèn vào chỗ rẻ nhất còn hợp lệ */
+  let thuTu: number[] = [];
+  {
+    const con = [...idxQuen];
+    let cur = 0;
+    const thuTuQuen: number[] = [];
+    while (con.length) {
+      let bi = 0;
+      for (let i = 1; i < con.length; i++) if (gio[cur][con[i]] < gio[cur][con[bi]] - EPS) bi = i;
+      cur = con[bi];
+      thuTuQuen.push(cur);
+      con.splice(bi, 1);
+    }
+    for (const q of thuTuQuen) {
+      let tot: number[] | null = null, totThem = Infinity, kipGio = false;
+      for (let p = 0; p <= thuTu.length; p++) {
+        const moi = [...thuTu.slice(0, p), q, ...thuTu.slice(p)];
+        if (!lap(moi)) continue;
+        kipGio = true;
+        if (!tuyenHopLe(moi)) continue;
+        const a = p === 0 ? 0 : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
+        const them = gio[a][q] + gio[q][b] - gio[a][b];
+        if (them < totThem - EPS) { totThem = them; tot = moi; }
+      }
+      if (tot) thuTu = tot;
+      else
+        ghiChu.push(
+          kipGio
+            ? `Điểm quen “${nut[q].ten}”: đường thẳng tới đó vướng đất hoặc ra ngoài vùng biển — chưa đưa vào tuyến.`
+            : `Điểm quen “${nut[q].ten}” xa quá, không kịp đi về trong số ngày này — chưa đưa vào tuyến.`,
+        );
+    }
+  }
+
+  /* B2b: chèn vùng tham lam theo prize / giờ chạy thêm; nhận khi lịch B3 có lời hơn và đoạn mới hợp lệ */
+  let ke = lap(thuTu)!;
+  const toiDaCho = Math.max(TOI_DA_CHO_GHE, thuTu.length);
+  while (thuTu.length < toiDaCho) {
+    const ung: { z: number; p: number; r: number }[] = [];
+    for (const z of idxVung) {
+      if (thuTu.includes(z)) continue;
+      for (let p = 0; p <= thuTu.length; p++) {
+        const a = p === 0 ? 0 : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
+        const them = gio[a][z] + gio[z][b] - gio[a][b];
+        ung.push({ z, p, r: nut[z].prize / Math.max(them, 0.5) });
+      }
+    }
+    ung.sort((x, y) => y.r - x.r || x.z - y.z || x.p - y.p);
+    let nhan = false;
+    for (const { z, p } of ung) {
+      const moi = [...thuTu.slice(0, p), z, ...thuTu.slice(p)];
+      const kh = lap(moi);
+      if (!kh || kh.giaTri <= ke.giaTri + EPS) continue;
+      const a = p === 0 ? 0 : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
+      if (!hopLe(a, z) || !hopLe(z, b)) continue;
+      thuTu = moi;
+      ke = kh;
+      nhan = true;
+      break;
+    }
+    if (!nhan) break;
+  }
+
+  /* B2c: 2-opt trên các chỗ ghé (cảng giữ hai đầu) */
+  for (let caiThien = true; caiThien && thuTu.length >= 2; ) {
+    caiThien = false;
+    for (let i = 0; i < thuTu.length - 1 && !caiThien; i++)
+      for (let j = i + 1; j < thuTu.length && !caiThien; j++) {
+        const moi = [...thuTu.slice(0, i), ...thuTu.slice(i, j + 1).reverse(), ...thuTu.slice(j + 1)];
+        const kh = lap(moi);
+        if (!kh) continue;
+        const hon =
+          kh.giaTri > ke.giaTri + 1e-6 ||
+          (Math.abs(kh.giaTri - ke.giaTri) <= 1e-6 && kh.tongChay < ke.tongChay - 1e-6);
+        if (hon && tuyenHopLe(moi)) { thuTu = moi; ke = kh; caiThien = true; }
+      }
+  }
+
+  if (thuTu.length === 0) {
+    ghiChu.push("Không có vùng cá nào trong vùng biển Việt Nam kịp đi về trong số ngày này.");
+    return rong(D, hanMacDinh);
+  }
+
+  /* B5a: cổng bão — trước khi dựng lịch; có bão gần tuyến thì KHÔNG đưa lộ trình (§4) */
+  const duong: LatLon[] = [nut[0], ...thuTu.map((x) => nut[x]), nut[0]];
+  const tReturn = ke.tongChay + 24 * ke.n.reduce((a, b) => a + b, 0);
+  const ngayVe = congNgay(ngayDi, Math.floor((tReturn - 1e-6) / 24));
+  if (Array.isArray(input.bao) && input.bao.length > 0) {
+    const gan = baoGanTuyen(input.bao, duong, dauNgayVN(ngayDi));
+    if (gan) {
+      ghiChu.push(`Bão ${gan.ten} cách tuyến khoảng ${Math.round(gan.km / 10) * 10} km trong ${CUA_SO_BAO_NGAY} ngày tới.`);
+      return { ...rong(D, ngayVe), chanBao: CAU_CHAN_BAO };
+    }
+  }
+
+  /* Dựng kết quả */
+  let soVung = 0;
+  const tenCho = new Map<number, { ten: string; trongCau: string; id: string }>();
+  for (const x of thuTu) {
+    if (nut[x].quen) tenCho.set(x, { ten: nut[x].ten, trongCau: nut[x].ten, id: `quen-${idxQuen.indexOf(x) + 1}` });
+    else {
+      soVung++;
+      tenCho.set(x, { ten: `Vùng ${soVung}`, trongCau: `vùng ${soVung}`, id: `vung-${soVung}` });
+    }
+  }
+  const nhanNgay = (a: number, b: number) => (a === b ? `Ngày ${a}` : `Ngày ${a}–${b}`);
+  const nhanGio = (h: number) => (h < 1 ? "chưa tới 1 giờ" : `khoảng ${Math.round(h)} giờ`);
+  const lich: DongLich[] = [];
+  const vung: VungDanh[] = [];
+  let t = 0;
+  for (let i = 0; i < thuTu.length; i++) {
+    const x = thuTu[i];
+    const ten = tenCho.get(x)!;
+    const t1 = t + ke.h[i];
+    const tu = Math.floor(t / 24) + 1;
+    const den = Math.max(tu, Math.floor((t1 - 1e-6) / 24) + 1);
+    lich.push({
+      tuNgay: tu,
+      denNgay: den,
+      loai: "chay",
+      vungId: ten.id,
+      cau: `${nhanNgay(tu, den)}: ${i === 0 ? "chạy ra" : "sang"} ${ten.trongCau}, ${nhanGio(ke.h[i])}`,
+    });
+    const tuDanh = ngayCuaKhoi(t1) + 1;
+    const denDanh = tuDanh + ke.n[i] - 1;
+    lich.push({ tuNgay: tuDanh, denNgay: denDanh, loai: "danh", vungId: ten.id, cau: `${nhanNgay(tuDanh, denDanh)}: đánh ở ${ten.trongCau}` });
+    let dinh = 0;
+    for (let j = 0; j < ke.n[i]; j++) dinh = Math.max(dinh, nut[x].diem[Math.min(D - 1, ngayCuaKhoi(t1 + 24 * j))]);
+    vung.push({
+      id: ten.id,
+      ten: ten.ten,
+      lat: nut[x].lat,
+      lon: nut[x].lon,
+      dinh: Math.round(dinh),
+      soNgayDanh: ke.n[i],
+      ...(nut[x].quen ? { laDiemQuen: true } : {}),
+    });
+    t = t1 + 24 * ke.n[i];
+  }
+  {
+    const hVe = ke.h[thuTu.length];
+    const tu = Math.floor(t / 24) + 1;
+    const den = Math.max(tu, Math.floor((t + hVe - 1e-6) / 24) + 1);
+    lich.push({ tuNgay: tu, denNgay: den, loai: "ve", cau: `${nhanNgay(tu, den)}: về ${cang.ten}, ${nhanGio(hVe)}` });
+  }
+
+  const moc: LoTrinhKetQua["moc"] = [
+    { lat: cang.lat, lon: cang.lon, ten: cang.ten, loai: "cang" },
+    ...thuTu.map((x) => ({
+      lat: nut[x].lat,
+      lon: nut[x].lon,
+      ten: tenCho.get(x)!.ten,
+      loai: (nut[x].quen ? "diem-quen" : "vung") as "diem-quen" | "vung",
+    })),
+    { lat: cang.lat, lon: cang.lon, ten: cang.ten, loai: "cang" },
+  ];
+
+  const haiLyRaw = ke.tongChay * tocDo;
+  const litRaw = ke.tongChay * dauGio;
+  ghiChu.push("Lít dầu chỉ tính giờ chạy máy — chưa tính dầu neo, chong đèn.");
+  if (mau.tinhTu === "ngay-danh-dau")
+    ghiChu.push(`Câu cá ngừ: nên về cảng trong ${mau.soNgay} ngày kể từ ngày đánh đầu để cá còn tươi.`);
+  else if (mau.soNgay < D)
+    ghiChu.push(`Theo mẫu chuyến ${TEN_NGHE[nghe]}: nên về trong ${mau.soNgay} ngày — thuyền trưởng quyết.`);
+
+  return {
+    vung,
+    lich,
+    moc,
+    haiLy: Math.round(haiLyRaw),
+    litDau: litRaw < 10 ? Math.round(litRaw) : Math.round(litRaw / 10) * 10,
+    thieuDau: ket !== null && litRaw * DU_PHONG_DAU > ket,
+    ngayNenVe: ngayVe,
+    soNgayTinh: D,
+    chanBao: null,
+    ghiChu,
+  };
+}
+

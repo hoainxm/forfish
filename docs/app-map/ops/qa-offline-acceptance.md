@@ -4,6 +4,7 @@
 
 covers: public/sw.js
 last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29u — sw.js: SHELL thêm `/lo-trinh` (Chuyến biển — lộ trình đã lưu + so vị trí là việc ngoài khơi). CHỈ thêm URL, không bump SDFISH_CACHE_V. Thêm TC-18. Bộ bắt buộc CHƯA chạy lại trên máy thật. -->
 <!-- re-verified: 2026-10-29t — `sw-register.tsx` đổi THỜI ĐIỂM đăng ký SW (sau `load` + lúc rảnh, trần 20 s — `lib/khi-ranh.ts`); `public/sw.js`/SHELL/tên kho KHÔNG đổi, khoá forfish.* không đổi; xin khoá dữ liệu vẫn ngay lúc nạp. Danh mục mảnh giọng Sen Biển thành chunk lười (SW đi theo khi dựng vỏ). THÊM mục 16–18 cuối file. Bộ bắt buộc CHƯA chạy lại trên máy thật cho đổi này. -->
 <!-- re-verified: 2026-10-29 — sw.js: SHELL thêm `/cho` (Vật tư, ô dock thứ 6) — CHỈ thêm URL, không bump SDFISH_CACHE_V. Bộ bắt buộc cần chạy lại trên máy thật trước phát hành; ca bổ sung: máy chưa từng mở Vật tư, có sóng mở app một lần, tắt mạng, chạm ô Vật tư ⇒ ra màn (khối Đã thích + giỏ đọc từ máy). -->
 <!-- re-verified: 2026-10-29 — đối chiếu `public/sw.js` hiện tại (đổi sau 2026-10-16: gộp nhánh 914d185/cbdc6e4 + chuông push 1709dc1). Tên kho đúng như code: `sdfish-v6` (vỏ) · `sdfish-static-v1` · `sdfish-rsc-v1` · `sdfish-api-v2` · `sdfish-tiles-v1` · `sdfish-basemap-v2` · `sdfish-stage-v1` · `sdfish-tro-ly-v1` + `kairos-luu-anh-v1` (client quản, activate giữ); allowlist `/api/*` vẫn 9 route (`API_CACHE_ALLOW`, khớp `sw-cache-policy.ts`); đồng hồ NAV 2500/8000, RSC 3500, asset 20000, API stale 10000 ms. SỬA TC nền vector: kho `sdfish-basemap-v1` → `v2`. Chuông push (1709dc1, `askPageChime` + `forfish:push-chime`, chờ trang 600 ms rồi giữ tiếng mặc định) chỉ ở nhánh `push` — không đụng kho/SHELL/nhánh fetch, không có ca offline mới. Bộ bắt buộc KHÔNG chạy lại trong lượt kiểm doc này. -->
@@ -333,6 +334,15 @@ Máy đăng nhập, xoá sạch (§0), có sóng tốt. **Chỉ mở Trang chủ
 3. Bật chế độ máy bay, đóng app, mở lại vào **Bản đồ**: có nền (bờ, đảo, đẳng sâu), có lưới gió sóng 16 ngày (gói) — dù trước đó chưa từng mở Bản đồ.
 4. **Hotspot không internet** (§0), đã từng chạm Côn Đảo lúc có sóng: chạm lại Côn Đảo ⇒ trong ~2 giây ra số kèm "Bản lưu HH:MM dd/MM"; bật lại internet ⇒ trong 5 phút (hoặc quay lại app) số mới thay, nhãn biến mất. Chạm chỗ CHƯA từng xem ⇒ vẫn chờ mạng rồi nói "chưa có số" — không bịa số.
 5. Trang chủ, bản lưu "Biển hôm nay" cũ hơn 1 giờ + hotspot không internet ⇒ dòng "Bản lưu HH:MM dd/MM" hiện NGAY, không đợi 15–45 giây.
+
+### TC-18 — Chuyến biển `/lo-trinh` khi mất sóng (2026-10-29, 09 §5c) 🔴
+
+Máy đăng nhập có gói, có sóng: mở Bản đồ một lần (để có bản đồ cá), rồi khay ⋯ › **Chuyến biển** ⇒ bấm **Tính** ⇒ **Lưu**.
+1. Bật chế độ máy bay, đóng app, mở lại thẳng `/lo-trinh` (hoặc Bản đồ › ⋯ › Chuyến biển): màn hiện (không trắng, không màn lỗi), danh sách "Đã lưu" có lộ trình vừa lưu.
+2. Chạm lộ trình đã lưu ⇒ hiện đủ ba số, lịch, vùng + dòng "Tính lúc HH:MM dd/MM · bản đồ cá lúc HH:MM dd/MM" (đúng giờ lúc tính, không phải giờ hiện tại).
+3. Bấm **Vị trí** (cho phép định vị) ⇒ hai dòng "Cách tuyến N hải lý." + "Theo kế hoạch: …" trong ~12 giây, không cần mạng. Từ chối quyền ⇒ dòng vàng "Máy chưa cho dùng định vị…", không treo.
+4. Bấm **Tính** lần nữa khi mất sóng ⇒ vẫn ra kết quả từ bản đồ cá đã lưu; dòng dưới nút là vàng "Mất sóng — bản đồ cá lúc …"; tin bão quá cũ ⇒ "Chưa kiểm được tin bão…" + ghi chú trong kết quả (KHÔNG im như trời quang).
+5. Máy mới cài, chưa từng tải bản đồ cá, mất sóng ⇒ dòng vàng "Mất sóng — máy chưa có bản đồ cá…"; nút Tính mờ cho tới khi chọn một Điểm quen.
 
 ## 2. Tiêu chí phát hành
 

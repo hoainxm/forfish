@@ -10,6 +10,7 @@
 */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   OCEAN_LAYERS,
   OCEAN_LAYER_ORDER,
@@ -44,6 +45,7 @@ import { MyPlacesContent } from "@/components/my-places-sheet";
 import {
   AlertIcon,
   AnchorIcon,
+  CalendarIcon,
   ChevronLeftIcon,
   CheckIcon,
   ChevronRightIcon,
@@ -475,6 +477,7 @@ export function RaKhoiControls({
   // khoản đã đăng nhập; khách chưa đăng nhập ("login") vẫn chưa thấy khay (ô "Đi đâu?"
   // mời đăng nhập). "checking" ẩn — thà hiện chậm một nhịp còn hơn nháy rồi rút.
   const premiumTools = fishAccess === "open";
+  const router = useRouter();
   const daDangNhap = fishAccess === "open" || fishAccess === "upgrade";
 
   return (
@@ -748,6 +751,19 @@ export function RaKhoiControls({
                 aria-label="Lộ trình — mở bảng tính lộ trình"
                 icon={RouteIcon}
                 label="Lộ trình"
+              />
+            )}
+            {/*  ĐỀ XUẤT LỘ TRÌNH CHUYẾN BIỂN nhiều ngày (09-ba-spec, 2026-10-29) — màn riêng `/lo-trinh`,
+                 thuộc gói như Dẫn đường nên cùng cổng `premiumTools`. */}
+            {premiumTools && (
+              <RailBtn
+                onClick={() => {
+                  setMore(false);
+                  router.push("/lo-trinh");
+                }}
+                aria-label="Chuyến biển — đề xuất lộ trình nhiều ngày"
+                icon={CalendarIcon}
+                label={NHAN.chuyenBien}
               />
             )}
             <RailBtn
