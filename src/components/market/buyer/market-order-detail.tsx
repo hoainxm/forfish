@@ -275,7 +275,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
       {/* ── Mã đơn ─────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[1rem] text-foreground/65">Mã đơn</p>
+          <p className="text-[1rem] text-muted">Mã đơn</p>
           <p className="display select-all text-[1.5rem] font-semibold text-navy">{order.code}</p>
         </div>
         <button
@@ -357,7 +357,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
                       {l.title}
                       {l.variantLabel ? ` · ${l.variantLabel}` : ""}
                     </span>
-                    <span className="block text-[1rem] text-foreground/65">
+                    <span className="block text-[1rem] text-muted">
                       {formatVnd(l.priceVnd)} × {l.qty} {l.unit}
                     </span>
                   </span>
@@ -439,7 +439,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
             </Link>
           )}
         </div>
-        {order.shopPhone && <CallButton phone={order.shopPhone} label="Gọi shop" />}
+        {order.shopPhone && <CallButton phone={order.shopPhone} label={NHAN.goiShop} />}
       </section>
 
       {/* ── Mua lại (đơn đã kết thúc) ──────────────────────────────────── */}

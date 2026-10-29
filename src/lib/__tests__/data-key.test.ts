@@ -10,6 +10,7 @@ import {
   noDataKeyHit,
   prefetchDataKey,
   subscribeNoDataKey,
+  subscribeDataKeyAdded,
   refreshDataKeyOnce,
   __resetDataKeyCacheForTest,
 } from "@/lib/data-key";
@@ -253,5 +254,51 @@ describe("hasDataKey + cờ thiếu khoá — bản đồ trắng phải có l�
     expect(noDataKeyHit()).toBe(false);
     expect(f).toHaveBeenCalledTimes(1);
     huy();
+  });
+});
+
+describe("subscribeDataKeyAdded — khoá về SAU khi lớp đã giải hỏng (nợ 07 §10.3 C)", () => {
+  it("lượt ghi có khoá MỚI ⇒ báo đúng một lần (kể cả server trả hai khoá cùng lúc)", async () => {
+    const prev = new Uint8Array(randomBytes(32));
+    const f = vi.fn();
+    subscribeDataKeyAdded(f);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        okResp({
+          ok: true,
+          keys: [
+            { id: ID, key: hexOf(KEY) },
+            { id: keyIdOfSync(prev), key: hexOf(prev) },
+          ],
+        }),
+      ),
+    );
+    await fetchDataKey();
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("xin lại mà server trả đúng khoá đã có ⇒ im (không làm bản đồ nạp lại vô cớ)", async () => {
+    ls.setItem(DATA_KEY_STORE, JSON.stringify({ [ID]: hexOf(KEY) }));
+    const f = vi.fn();
+    subscribeDataKeyAdded(f);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResp({ ok: true, id: ID, key: hexOf(KEY) })));
+    await fetchDataKey();
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it("thiếu khoá ⇒ lớp hỏng; khoá về ⇒ báo một lần; huỷ nghe thì thôi báo", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    expect(await getDataKey(ID)).toBeNull();
+    const f = vi.fn();
+    const huy = subscribeDataKeyAdded(f);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResp({ ok: true, id: ID, key: hexOf(KEY) })));
+    expect(await getDataKey(ID)).not.toBeNull();
+    expect(f).toHaveBeenCalledTimes(1);
+    huy();
+    const k2 = new Uint8Array(randomBytes(32));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResp({ ok: true, id: keyIdOfSync(k2), key: hexOf(k2) })));
+    await fetchDataKey();
+    expect(f).toHaveBeenCalledTimes(1);
   });
 });

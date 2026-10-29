@@ -78,7 +78,7 @@ export function CronRow({
       />
       <div className="min-w-0 flex-1">
         <p className="text-[0.9375rem] font-bold text-navy">{label}</p>
-        <p className="text-[0.8125rem] leading-snug text-foreground/65">
+        <p className="text-[0.8125rem] leading-snug text-muted">
           {note}
         </p>
       </div>
@@ -310,7 +310,7 @@ export function DataTab() {
             />
             <div className="min-w-0 flex-1">
               <p className="text-[0.9375rem] font-bold text-navy">{label}</p>
-              <p className="text-[0.8125rem] text-foreground/65">
+              <p className="text-[0.8125rem] text-muted">
                 {s.state === "loading" ? "đang rà soát trạng thái…" : s.note}
                 <span className="text-muted"> · {path}</span>
               </p>
@@ -333,8 +333,8 @@ export function DataTab() {
                 <span className="w-[4.5rem] font-bold uppercase text-foreground/70">
                   {s.key}
                 </span>
-                <span className="text-foreground/65">{s.id}</span>
-                <span className="tabular-nums text-foreground/65">
+                <span className="text-muted">{s.id}</span>
+                <span className="tabular-nums text-muted">
                   ảnh {fmtD(s.date)}
                 </span>
                 {s.stale && (
@@ -378,7 +378,7 @@ export function Row({
       />
       <div>
         <p className="text-[0.9375rem] font-bold text-navy">{label}</p>
-        {note && <p className="text-[0.8125rem] text-foreground/65">{note}</p>}
+        {note && <p className="text-[0.8125rem] text-muted">{note}</p>}
       </div>
     </li>
   );
@@ -693,7 +693,7 @@ export function SystemTab({ health }: { health: Health }) {
               <p className="display text-[1.75rem] font-bold tabular-nums text-navy">
                 {v ?? "—"}
               </p>
-              <p className="text-[0.8125rem] font-semibold text-foreground/65">
+              <p className="text-[0.8125rem] font-semibold text-muted">
                 {label}
               </p>
             </div>

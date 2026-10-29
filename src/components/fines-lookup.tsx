@@ -154,7 +154,7 @@ export function FinesLookup() {
                 <p className={`mt-1.5 text-[1.125rem] font-semibold ${style.amount}`}>
                   {fine.rangeVnd}
                 </p>
-                <p className="mt-0.5 text-[0.875rem] text-foreground/65">
+                <p className="mt-0.5 text-[0.875rem] text-muted">
                   {fine.article ? `${fine.article} — ` : ""}
                   {FINES_SOURCE}
                 </p>

@@ -170,7 +170,7 @@ export function PushNotificationsTab({ perms }: { perms: TabPerms }) {
               <p className="display text-[1.5rem] font-bold tabular-nums text-navy">
                 {v}
               </p>
-              <p className="text-[0.8125rem] font-semibold text-foreground/65">
+              <p className="text-[0.8125rem] font-semibold text-muted">
                 {label}
               </p>
             </div>
@@ -288,7 +288,7 @@ export function PushNotificationsTab({ perms }: { perms: TabPerms }) {
         )}
       </div>
       ) : (
-        <p className="surface px-4 py-6 text-center text-[0.9375rem] text-foreground/65">
+        <p className="surface px-4 py-6 text-center text-[0.9375rem] text-muted">
           Bạn chỉ có quyền xem thống kê thông báo. Cần quyền gửi thì báo quản trị
           viên bật thêm.
         </p>

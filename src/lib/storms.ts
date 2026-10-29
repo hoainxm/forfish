@@ -196,6 +196,17 @@ export function stormNoticeShort(status: StormStatus, now: number): string | nul
 }
 
 /**
+ * Dòng PHỤ dưới `stormNoticeShort` trên Trang chủ (2026-10-29, CLS): băng vàng câu đủ
+ * (`stormNoticeText`) rớt BA dòng ở máy 360px, nở quá khung giữ chỗ 4rem. Tách hai dòng ngắn — dòng
+ * đầu TUỔI tin (stormNoticeShort), dòng này VÌ SAO + việc phải làm — đủ ý của câu đủ (luật S11: lỗi
+ * nguồn khác mất sóng; luôn nhắc nghe đài). Null khi không ở nhánh "chưa hỏi được".
+ */
+export function stormNoticeSub(status: StormStatus, online: boolean): string | null {
+  if (status.kind !== "khong-hoi-duoc") return null;
+  return `${online ? "Nguồn lỗi" : "Mất sóng"} · nghe đài duyên hải / Icom`;
+}
+
+/**
  * Trang chủ có nên hiện banner bão không (2026-08-18, audit S10). Trang chủ là
  * màn yên: chỉ nói khi CÓ BÃO, hoặc khi tin bão trong máy đã QUÁ CŨ (>24h) /
  * chưa từng có tin nào — lúc đó "không biết" là chuyện đáng nói. "Không có bão"

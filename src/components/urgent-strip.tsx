@@ -144,7 +144,7 @@ export function UrgentStrip() {
       {/* không px-1 — thẳng mép với tiêu đề "Thông báo" ngay dưới (TC-17) */}
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="display text-[1rem] font-semibold text-navy">Việc cần làm</h2>
-        <span className="text-[0.8125rem] font-medium text-foreground/65">{all.length} việc</span>
+        <span className="text-[0.8125rem] font-medium text-muted">{all.length} việc</span>
       </div>
       <ul className="divide-y divide-line overflow-hidden surface overflow-hidden">
         {shown.map((item) => {
@@ -167,7 +167,7 @@ export function UrgentStrip() {
                     <Icon className="h-5 w-5 shrink-0" />
                     {item.status}
                   </span>
-                  {phu && <span className="mt-0.5 block text-[0.8125rem] leading-snug text-foreground/65">{phu}</span>}
+                  {phu && <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted">{phu}</span>}
                 </span>
                 <ChevronRightIcon className="mt-0.5 h-5 w-5 shrink-0 text-foreground/50" />
               </Link>

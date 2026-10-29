@@ -23,7 +23,7 @@ export function SeaDenseGrid({ cells }: { cells: readonly SeaCell[] }) {
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 pt-1 @min-[17rem]:grid-cols-3">
         {cells.map((c, i) => (
           <div key={i} className={`min-w-0 ${c.full ? "col-span-full" : c.span2 ? "col-span-2" : ""}`}>
-            <dt className="break-words text-[0.75rem] leading-tight text-foreground/65">{c.k}</dt>
+            <dt className="break-words text-[0.75rem] leading-tight text-muted">{c.k}</dt>
             <dd
               className={`mt-0.5 break-words text-[0.9375rem] font-semibold leading-tight tabular-nums ${c.tone ?? "text-navy"}`}
             >

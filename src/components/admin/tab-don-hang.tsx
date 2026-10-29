@@ -167,7 +167,7 @@ export function OrdersTab({ perms }: { perms: TabPerms }) {
         <AdminSkeleton label="Đang tải đơn hàng…" />
       )}
       {orders && orders.length === 0 && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+        <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
           Không có đơn nào ở mục này.
         </p>
       )}

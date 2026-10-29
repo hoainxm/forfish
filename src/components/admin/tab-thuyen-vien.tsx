@@ -38,8 +38,8 @@ export type ReportStatusFilter = "pending" | "approved" | "rejected" | "all";
 export const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   pending: { label: "Chờ duyệt", cls: "bg-warn-bg text-warn" },
   approved: { label: "Đã duyệt", cls: "bg-danger-bg text-danger" },
-  rejected: { label: "Từ chối", cls: "bg-field text-foreground/65" },
-  withdrawn: { label: "Đã rút xuống", cls: "bg-field text-foreground/65" },
+  rejected: { label: "Từ chối", cls: "bg-field text-muted" },
+  withdrawn: { label: "Đã rút xuống", cls: "bg-field text-muted" },
 };
 
 export function CrewReportsTab({ perms }: { perms: TabPerms }) {
@@ -160,7 +160,7 @@ export function CrewReportsTab({ perms }: { perms: TabPerms }) {
         <AdminSkeleton label="Đang tải…" />
       )}
       {rows && rows.length === 0 && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+        <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
           Không có báo cáo nào ở mục này.
         </p>
       )}

@@ -26,6 +26,7 @@ import {
   hasDataKey,
   readyGap,
   readyGapText,
+  loiVeMay,
   readyToSail,
 } from "../pretrip-ready";
 import { DATA_KEY_STORE } from "../data-key";
@@ -136,5 +137,33 @@ describe("appPretripPoints — chỗ tải sẵn khi không ở màn Bản đồ
       { id: "b", name: "Sa Huỳnh", lat: 14.6, lon: 109, kind: "home" },
     ]);
     expect(pts.map((p) => p.name)).toEqual(["Cảng nhà — Sa Huỳnh", "Rạn Đá"]);
+  });
+});
+
+describe("loiVeMay — thứ tự lời về máy trong viên trạng thái bản đồ (lô 2, 2026-10-29)", () => {
+  const matSong = "Mất sóng — đang dùng bản đồ lưu trong máy.";
+  const duBao = "Chưa tải được dự báo — chưa có sóng.";
+
+  it("không có gì ⇒ rỗng (viên không mọc ra)", () => {
+    expect(loiVeMay({ thieuKhoa: false, coTaiKhoan: true, matSong: null, duBao: null })).toEqual([]);
+  });
+
+  it("đủ cả ba ⇒ thiếu khoá > mất sóng > dự báo; dòng gọn là vế trước dấu gạch", () => {
+    const r = loiVeMay({ thieuKhoa: true, coTaiKhoan: true, matSong, duBao });
+    expect(r.map((g) => g.ngan)).toEqual(["Chưa tải được khoá bản đồ", "Mất sóng", "Chưa tải được dự báo"]);
+    expect(r[2].day).toBe(duBao);
+    expect(r[0].ben).toBe(true);
+    expect(r[1].ben).toBeUndefined();
+    expect(r[2].ben).toBeUndefined();
+  });
+
+  it("chỉ dự báo hỏng ⇒ một lời, không nằm lì (viên nói 8 s rồi thu)", () => {
+    const r = loiVeMay({ thieuKhoa: false, coTaiKhoan: true, matSong: null, duBao });
+    expect(r).toEqual([{ ngan: "Chưa tải được dự báo", day: duBao }]);
+  });
+
+  it("khách (không tài khoản) thiếu khoá ⇒ câu đăng nhập", () => {
+    const r = loiVeMay({ thieuKhoa: true, coTaiKhoan: false, matSong: null, duBao: null });
+    expect(r[0].day).toMatch(/đăng nhập/);
   });
 });

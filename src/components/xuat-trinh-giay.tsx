@@ -58,7 +58,7 @@ function AnhGiay({ path, onPhong }: { path: string; onPhong: (to: boolean) => vo
 
   if (!a || !a.url) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-2xl border border-dashed border-line px-6 text-center text-[0.875rem] text-foreground/65">
+      <div className="flex h-48 items-center justify-center rounded-2xl border border-dashed border-line px-6 text-center text-[0.875rem] text-muted">
         {!a ? "Đang mở ảnh…" : "Ảnh chưa lưu trong máy — cần sóng một lần."}
       </div>
     );
@@ -154,7 +154,7 @@ export function XuatTrinhGiay({
     >
       <div className="flex items-center gap-2 border-b border-line px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="min-w-0 flex-1">
-          <p className="break-words text-[0.8125rem] text-foreground/65">{tau}</p>
+          <p className="break-words text-[0.8125rem] text-muted">{tau}</p>
           <p className="text-[1rem] font-semibold text-navy">
             Giấy {i + 1}/{ds.length}
           </p>
@@ -163,7 +163,7 @@ export function XuatTrinhGiay({
       </div>
 
       <div ref={hopRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-3">
-        {doc.label !== kindLabel(doc.kind) && <p className="text-[0.875rem] text-foreground/65">{kindLabel(doc.kind)}</p>}
+        {doc.label !== kindLabel(doc.kind) && <p className="text-[0.875rem] text-muted">{kindLabel(doc.kind)}</p>}
         <h2 ref={tieuDeRef} tabIndex={-1} className="rounded-md text-[1.5rem] font-semibold leading-tight text-navy outline-none focus-visible:ring-2 focus-visible:ring-sea/40">
           {doc.label}
         </h2>
@@ -183,7 +183,7 @@ export function XuatTrinhGiay({
           {doc.photos?.length ? (
             doc.photos.map((p) => <AnhGiay key={`${doc.id}:${p}`} path={p} onPhong={setPhong} />)
           ) : (
-            <div className="flex h-32 items-center justify-center rounded-2xl border border-dashed border-line px-6 text-center text-[0.875rem] text-foreground/65">
+            <div className="flex h-32 items-center justify-center rounded-2xl border border-dashed border-line px-6 text-center text-[0.875rem] text-muted">
               Chưa có ảnh giấy này.
             </div>
           )}

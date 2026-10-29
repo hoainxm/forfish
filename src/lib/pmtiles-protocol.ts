@@ -27,6 +27,7 @@ import {
 } from "@/lib/data-codec.mjs";
 import { aesCtrDecryptAt, type KeyLookup } from "@/lib/data-crypt";
 import { getDataKey } from "@/lib/data-key";
+import { DATA_PROTOCOL } from "@/lib/data-fetch";
 
 type Mode =
   | { kind: "unknown" }
@@ -123,23 +124,66 @@ export function archiveKey(url: string): string | null {
 }
 
 let registered = false;
+let protocol: Protocol | null = null;
+
+const kho = (key: string) => new PMTiles(new DecodingSource(new FetchSource(key)));
 
 /** Đăng ký một lần. Gọi lại nhiều lần vô hại. */
 export function registerPmtilesProtocol(): void {
   if (registered || typeof window === "undefined") return;
   try {
-    const protocol = new Protocol();
+    const p = new Protocol();
+    protocol = p;
     // Kho nào chưa có thì tạo với nguồn giải mã TRƯỚC khi thư viện tự tạo
     // `new PMTiles(url)` (FetchSource trần — đọc bản mã ra rác).
     maplibregl.addProtocol("pmtiles", (params, abortController) => {
       const key = archiveKey(params.url);
-      if (key && !protocol.get(key)) {
-        protocol.add(new PMTiles(new DecodingSource(new FetchSource(key))));
-      }
-      return protocol.tile(params, abortController);
+      if (key && !p.get(key)) p.add(kho(key));
+      return p.tile(params, abortController);
     });
     registered = true;
   } catch {
     /* trùng đăng ký / môi trường thiếu — bỏ qua, nền rơi về fallback vn-coast */
   }
+}
+
+/*  NẠP LẠI LỚP SAU KHI KHOÁ VỀ (nợ 07 §10.3 C, trả 2026-10-29).
+    Lớp SDF2 giải hỏng vì máy chưa có khoá thì hỏng LUÔN tới hết phiên: pmtiles cache LỜI HỨA header đã bị từ chối
+    (SharedPromiseCache không xoá lời hứa hỏng), MapLibre giữ lát `errored`, nguồn GeoJSON giữ lần nạp lỗi. Khoá về
+    (`subscribeDataKeyAdded`) thì vỏ bản đồ: (1) thay kho pmtiles bằng bản MỚI (`lamMoiKhoPmtiles`), (2) gọi lại
+    `setUrl`/`setData` cùng đường dẫn cho đúng những nguồn đã báo lỗi — API công khai của MapLibre, `setUrl` nạp lại
+    mọi lát kể cả lát lỗi. Không thêm request nào ngoài việc xin lại đúng thứ đã hỏng (SW trả từ kho nếu đã có). */
+
+/** Một nguồn MapLibre cần nạp lại: vector `pmtiles://` (kèm khoá kho) hoặc GeoJSON `sdfdata://`. */
+export type NguonNapLai =
+  | { id: string; kind: "vector"; url: string; archive: string }
+  | { id: string; kind: "geojson"; url: string };
+
+/** Mô tả nguồn đủ để quyết định (lấy từ `map.getSource(id)?.serialize()`). */
+type MoTaNguon = { type?: string; url?: unknown; data?: unknown } | undefined;
+
+/**
+ * Những nguồn ĐÃ BÁO LỖI mà đọc qua bộ giải mã (pmtiles:// · sdfdata://) — chỉ chúng mới hỏng vì thiếu khoá. Nguồn lỗi
+ * khác (ô ảnh vệ tinh, GeoJSON dựng trong máy) bỏ qua: nạp lại chúng không chữa được gì. Thuần, không đụng map.
+ */
+export function nguonCanNapLai(hong: Iterable<string>, moTa: (id: string) => MoTaNguon): NguonNapLai[] {
+  const out: NguonNapLai[] = [];
+  const sdf = `${DATA_PROTOCOL}://`;
+  for (const id of new Set(hong)) {
+    const m = moTa(id);
+    if (!m) continue;
+    if (m.type === "vector" && typeof m.url === "string") {
+      const archive = archiveKey(m.url);
+      if (archive) out.push({ id, kind: "vector", url: m.url, archive });
+    } else if (m.type === "geojson" && typeof m.data === "string" && m.data.startsWith(sdf)) {
+      out.push({ id, kind: "geojson", url: m.data });
+    }
+  }
+  return out;
+}
+
+/** Bỏ kho pmtiles cũ (header/thư mục hỏng đang nằm trong cache) — lần xin sau dựng kho mới với bộ giải mã. */
+export function lamMoiKhoPmtiles(archives: Iterable<string>): void {
+  if (!protocol) return;
+  for (const a of new Set(archives)) protocol.add(kho(a));
 }

@@ -1,12 +1,13 @@
 /*
   CỔNG CHỮ PHỤ (anh Long 2026-10-29: "chữ cho nhỏ đẹp chứ không phải cứ phóng to lên
-  thô kệch") — chữ nhỏ gọn, tương phản sửa bằng MÀU. Mực `text-foreground/40…/60` chỉ
-  đạt 2,3–3,9:1 (dưới AA 4,5:1) ⇒ chữ phải dùng token `text-muted` (globals.css
-  `--muted`, mực 72%, ≥4,95:1 trên mọi nền sáng của app — 03 §0).
+  thô kệch") — chữ nhỏ gọn, tương phản sửa bằng MÀU. Mực `text-foreground/40…/65` chỉ
+  đạt 2,3–4,47:1 (dưới AA 4,5:1; /65 = 4,35–4,47:1 trên card/field/nền) ⇒ chữ phải dùng
+  token `text-muted` (globals.css `--muted`, mực 72%, ≥4,95:1 trên mọi nền sáng — 03 §0).
 
-  Cổng quét src/ (.ts/.tsx): mọi `text-foreground/(40|45|50|55|60)` KHÔNG có tiền tố
+  Cổng quét src/ (.ts/.tsx): mọi `text-foreground/(40|45|50|55|60|65)` KHÔNG có tiền tố
   (placeholder:/hover:… là chuyện khác) phải nằm trên ICON — phần tử `<…Icon>`/`<svg>`,
-  hoặc khung chỉ bọc đúng một icon. Còn lại là chữ ⇒ đỏ.
+  hoặc khung chỉ bọc icon (một/hai icon theo điều kiện, hay prop `{icon}`). Còn lại là
+  chữ ⇒ đỏ.
 */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -14,13 +15,20 @@ import { describe, expect, it } from "vitest";
 
 const SRC = join(process.cwd(), "src");
 // không dùng lookbehind (safari-cu.test.ts) — nhóm 1 là ký tự đứng trước
-const MO = /(^|[^\w:/-])text-foreground\/(40|45|50|55|60)(?![\w/])/g;
+const MO = /(^|[^\w:/-])text-foreground\/(40|45|50|55|60|65)(?![\w/])/g;
 
 /** Ngoại lệ CÓ LÝ DO — đường dẫn tương đối từ src/. */
 const NGOAI_LE: Record<string, string> = {
-  // Nhóm F (đợt sửa 2026-10-29) đang sửa file này song song; chữ mờ trong đó do nhóm F đổi.
-  // nợ: còn 9 chỗ chữ /50–/60, gỡ dòng này khi nhóm F gộp.
 };
+
+/** Ruột khung chỉ có icon: `<XIcon …/>`, `{icon}`, `{dk ? (<AIcon/>) : (<BIcon/>)}`. */
+function chiIcon(ruot: string): boolean {
+  const con = ruot
+    .replace(/<[A-Z][A-Za-z0-9]*Icon\b[^>]*\/>/g, "")
+    .replace(/\{\s*\w*[iI]con\s*\}/g, "")
+    .replace(/\{\s*[\w.!]+\s*\?/g, "");
+  return /^[\s(){}:]*$/.test(con);
+}
 
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
@@ -56,25 +64,29 @@ function choChuMo(s: string): number[] {
     if (/Icon$|^svg$|^path$/.test(the)) continue;
     const het = cuoiTheMo(s, lt);
     if (het > i && s[het - 1] !== "/") {
-      const bocIcon = new RegExp(`^\\s*<[A-Z][A-Za-z0-9]*Icon\\b[^>]*/>\\s*</${the}>`);
-      if (bocIcon.test(s.slice(het + 1, het + 400))) continue;
+      const dong = s.indexOf(`</${the}>`, het);
+      if (dong > het && dong - het < 600 && chiIcon(s.slice(het + 1, dong))) continue;
     }
     dong.push(s.slice(0, i).split("\n").length);
   }
   return dong;
 }
 
-describe("chữ phụ dùng token text-muted, không mực mờ /40–/60", () => {
+describe("chữ phụ dùng token text-muted, không mực mờ /40–/65", () => {
   it("bộ nhận diện: chữ đỏ, icon và khung bọc icon qua", () => {
     expect(choChuMo(`<p className="text-foreground/55">Giờ</p>`)).toEqual([1]);
     expect(choChuMo(`<span className={\`a \${x ? "b" : "c"} text-foreground/60\`}>{t}</span>`)).toEqual([1]);
     expect(choChuMo(`<ChevronRightIcon className="h-4 w-4 text-foreground/50" />`)).toEqual([]);
     expect(choChuMo(`<span className="text-foreground/50" aria-hidden>\n  <ClockIcon className="h-4 w-4" />\n</span>`)).toEqual([]);
     expect(choChuMo(`<input className="placeholder:text-foreground/50" />`)).toEqual([]);
-    expect(choChuMo(`<p className="text-foreground/65">ok</p>`)).toEqual([]);
+    expect(choChuMo(`<p className="text-foreground/65">ok</p>`)).toEqual([1]);
+    expect(choChuMo(`<p className="text-muted">ok</p>`)).toEqual([]);
+    expect(choChuMo(`<div className="w-fit text-foreground/65">{icon}</div>`)).toEqual([]);
+    expect(choChuMo(`<button className="text-foreground/65">\n  {dang ? (\n    <AIcon className="h-5" />\n  ) : (\n    <BIcon />\n  )}\n</button>`)).toEqual([]);
+    expect(choChuMo(`<button className="text-foreground/65">\n  <AIcon />\n  {nhan}\n</button>`)).toEqual([1]);
   });
 
-  it("không còn chữ /40–/60 trong src/ (ngoài danh sách ngoại lệ)", () => {
+  it("không còn chữ /40–/65 trong src/ (ngoài danh sách ngoại lệ)", () => {
     const loi: string[] = [];
     for (const f of walk(SRC)) {
       if (!/\.tsx?$/.test(f) || f.includes("__tests__")) continue;

@@ -2102,7 +2102,7 @@ export function RouteMode({
               )}
 
               {savedRoutes.length === 0 ? (
-                <p className="px-1 text-[0.9375rem] font-semibold text-foreground/65">
+                <p className="px-1 text-[0.9375rem] font-semibold text-muted">
                   Chưa lưu đường nào.
                 </p>
               ) : (
@@ -2486,7 +2486,7 @@ export function RouteMode({
                 <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">
                   Các điểm trên tuyến
                 </span>
-                <span className="shrink-0 text-[0.875rem] font-semibold text-foreground/65">
+                <span className="shrink-0 text-[0.875rem] font-semibold text-muted">
                   {pointRows.length} điểm
                 </span>
                 {showPoints ? (
@@ -2570,7 +2570,7 @@ export function RouteMode({
                             </span>
                           )}
                           <span className="min-w-0 flex-1">
-                            <span className="block text-[0.8125rem] font-semibold leading-tight text-foreground/65">
+                            <span className="block text-[0.8125rem] font-semibold leading-tight text-muted">
                               {r.kind === "turn" ? `Điểm ${r.turnNo} · ${role}` : role}
                               {sub ? ` · ${sub}` : ""}
                             </span>
@@ -2584,7 +2584,7 @@ export function RouteMode({
                             </span>
                           </span>
                           {r.idx > 0 && (
-                            <span className="shrink-0 text-right text-[0.8125rem] font-semibold leading-tight text-foreground/65">
+                            <span className="shrink-0 text-right text-[0.8125rem] font-semibold leading-tight text-muted">
                               <span className="block">
                                 {fmtDist(r.km, prefs.distUnit, r.km < 10 ? 1 : 0)}
                               </span>
@@ -2696,7 +2696,7 @@ export function RouteMode({
                  Đang SỬA danh sách thì dải ghim đáy đã là "Tính lại" rồi, hai nút
                  cùng việc là rối — hàng vẫn CHỪA Ô để mép phải thẳng một khuôn. */}
             <div className="flex items-center gap-2">
-              <p className="min-w-0 flex-1 text-[0.875rem] leading-snug text-foreground/65">
+              <p className="min-w-0 flex-1 text-[0.875rem] leading-snug text-muted">
                 {caTuyenMu ? (
                   "Chưa có số sóng gió cho tuyến này."
                 ) : (

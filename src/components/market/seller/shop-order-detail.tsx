@@ -109,7 +109,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
             <OrderStatusChip status={order.status} />
             <PaymentStatusChip status={order.paymentStatus} />
           </div>
-          <p className="mt-1 text-[0.875rem] text-foreground/65">
+          <p className="mt-1 text-[0.875rem] text-muted">
             Đặt {agoLabel(order.createdAt)} · {soMon} món · {PAYMENT_METHOD_LABEL[order.paymentMethod]}
             {order.requestId ? " · đặt theo yêu cầu" : ""}
           </p>
@@ -135,7 +135,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
           )}
           <div className="mt-3">
             {/* tel: KHÔNG ẩn khi mất sóng — mất data vẫn còn sóng thoại (LEAD §4 #10) */}
-            <CallButton phone={order.address.phone} label="Gọi người mua" />
+            <CallButton phone={order.address.phone} label={NHAN.goi} />
           </div>
         </div>
 
@@ -149,7 +149,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
                 <LineThumb image={l.image} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[1rem] font-semibold text-navy">{l.title}</span>
-                  <span className="block text-[0.875rem] text-foreground/65">
+                  <span className="block text-[0.875rem] text-muted">
                     {l.variantLabel ? `${l.variantLabel} · ` : ""}{l.qty} {l.unit} × {formatVnd(l.priceVnd)}
                   </span>
                 </span>

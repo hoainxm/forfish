@@ -97,7 +97,7 @@ export function KeoLamMoiChi({ keo, rem, trangThai }: { keo: number; rem: number
   return (
     <div
       aria-live="polite"
-      className="flex items-end justify-center overflow-hidden text-[0.875rem] font-semibold text-foreground/65"
+      className="flex items-end justify-center overflow-hidden text-[0.875rem] font-semibold text-muted"
       style={{ height: lamMoi ? "2.5rem" : `${keo / rem}rem` }}
     >
       <span className="flex items-center gap-2 pb-2">

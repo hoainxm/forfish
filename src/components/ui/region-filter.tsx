@@ -128,7 +128,7 @@ export function HomeBar({
       <>
         {/* một hàng mảnh (BD-05) thay thẻ nhắc 3 dòng; "Chọn" mở danh sách ngay tại chỗ */}
         <div className="mb-3 flex min-h-(--h-row) items-center gap-2 border-b border-line">
-          <p className="min-w-0 flex-1 text-[0.875rem] text-foreground/65">Chưa có tỉnh cảng nhà</p>
+          <p className="min-w-0 flex-1 text-[0.875rem] text-muted">Chưa có tỉnh cảng nhà</p>
           <button
             ref={setNutEl}
             type="button"
@@ -254,7 +254,7 @@ export function ChonTinhPopover({
           );
         })}
         {ds.length === 0 && (
-          <li className="px-3 py-3 text-[0.875rem] text-foreground/65">Không có tỉnh ven biển tên này.</li>
+          <li className="px-3 py-3 text-[0.875rem] text-muted">Không có tỉnh ven biển tên này.</li>
         )}
       </ul>
     </Popover>

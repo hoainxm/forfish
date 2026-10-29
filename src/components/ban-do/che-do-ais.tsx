@@ -409,7 +409,7 @@ export function AisBanKinh({
                     type="button"
                     aria-pressed={loc === id}
                     onClick={() => setLoc(id)}
-                    className={`h-8 flex-1 rounded-full px-2 text-[0.8125rem] font-semibold transition-colors ${loc === id ? "bg-card text-navy shadow-sm" : "text-foreground/65"}`}
+                    className={`h-8 flex-1 rounded-full px-2 text-[0.8125rem] font-semibold transition-colors ${loc === id ? "bg-card text-navy shadow-sm" : "text-muted"}`}
                   >
                     {nhan}
                   </button>

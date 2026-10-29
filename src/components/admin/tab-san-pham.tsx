@@ -149,7 +149,7 @@ export function ProductsTab({ perms }: { perms: TabPerms }) {
         <AdminSkeleton label="Đang tải danh mục…" />
       )}
       {rows && rows.length === 0 && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+        <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
           Chưa có sản phẩm nào — bấm nút trên để thêm.
         </p>
       )}
@@ -185,7 +185,7 @@ export function ProductsTab({ perms }: { perms: TabPerms }) {
                 className={`shrink-0 rounded-full px-3 py-1 text-[0.8125rem] font-bold ${
                   row.visible
                     ? "bg-ok-bg text-ok"
-                    : "bg-field text-foreground/65"
+                    : "bg-field text-muted"
                 }`}
               >
                 {row.visible ? "Hiển thị" : "Ẩn"}

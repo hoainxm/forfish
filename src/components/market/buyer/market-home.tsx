@@ -193,7 +193,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
           <Link href={`/cho/don/${coming.id}`} className="surface mb-4 flex items-center gap-3 px-4 py-3">
             <div className="min-w-0 flex-1">
               <p className="text-[1rem] font-semibold text-navy">Đơn đang tới · {coming.code}</p>
-              <p className="mt-0.5 truncate text-[0.875rem] text-foreground/65">
+              <p className="mt-0.5 truncate text-[0.875rem] text-muted">
                 {coming.shopName ?? "Shop"} ·{" "}
                 {coming.status === "da_giao" ? "Đã giao — bấm Đã nhận hàng" : "Shop đang giao"}
               </p>
@@ -282,7 +282,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
             <Link href="/cho/yeu-cau/moi" className="surface mb-5 flex min-h-(--h-row) items-center gap-3 px-4 py-3">
               <span className="min-w-0 flex-1">
                 <span className="block text-[1rem] font-semibold text-navy">Cần món chợ chưa có?</span>
-                <span className="block text-[0.8125rem] text-foreground/65">Chủ sàn tìm hàng, báo giá, hẹn ngày giao</span>
+                <span className="block text-[0.8125rem] text-muted">Chủ sàn tìm hàng, báo giá, hẹn ngày giao</span>
               </span>
               <span className="shrink-0 text-[0.9375rem] font-semibold text-sea">Nhờ tìm</span>
               <ChevronRightIcon className="h-4 w-4 shrink-0 text-foreground/40" />
@@ -307,7 +307,7 @@ export function MarketHome({ embedded = false }: { embedded?: boolean }) {
                   <Link href={`/cho/sp/${f.productId}`} className="surface flex items-center gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 text-[1rem] font-semibold leading-snug text-navy">{f.snapshot.title}</p>
-                      <p className="mt-0.5 text-[0.875rem] text-foreground/65">{f.snapshot.shopName}</p>
+                      <p className="mt-0.5 text-[0.875rem] text-muted">{f.snapshot.shopName}</p>
                     </div>
                     <PriceText priceVnd={f.snapshot.priceVnd} />
                     <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />

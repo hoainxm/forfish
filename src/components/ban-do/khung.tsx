@@ -25,7 +25,7 @@ export function OTimDiem({ onOpen }: { onOpen: () => void }) {
       className="pointer-events-auto flex h-(--h-ctl) w-full min-w-0 items-center gap-2 glass rounded-full px-3.5 text-left transition active:scale-[0.98]"
     >
       <SearchIcon className="h-5 w-5 shrink-0 text-sea" aria-hidden />
-      <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-foreground/65">Đi đâu?</span>
+      <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-muted">Đi đâu?</span>
     </button>
   );
 }

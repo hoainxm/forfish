@@ -937,6 +937,13 @@ textarea,
 .sq-btn:active {
   transform: scale(0.97);
 }
+/*  BIẾN THỂ CAO BẰNG NÚT CHÍNH — `.sq-btn.sq-cta` (SQ_BTN_CTA, 2026-10-29): nút phụ đứng
+    CẠNH nút chính `--h-cta` trong cùng hàng (thanh mua dính "Xem shop" + "Báo giá"). `.sq-btn`
+    nằm ngoài layer nên thắng utility `h-(--h-cta)` ⇒ đổi cao phải qua biến thể ở đây, không
+    hack từng chỗ. Chỉ đổi CAO — cỡ chữ giữ 0.875rem (luật cỡ chữ 2026-10-29). */
+.sq-btn.sq-cta {
+  height: var(--h-cta);
+}
 /*  Ô VUÔNG BẢN ĐỒ — rail + thẻ nổi trên bản đồ (route-planner, điểm đã lưu):
     icon trên, nhãn dưới, cùng khuôn ô rail để mép phải thẳng một cột. */
 .sq-btn.sq-tile {

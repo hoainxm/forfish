@@ -147,7 +147,7 @@ export function InquiriesTab() {
         <AdminSkeleton label="Đang tải…" />
       )}
       {rows && rows.length === 0 && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+        <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
           Không có yêu cầu nào ở mục này.
         </p>
       )}

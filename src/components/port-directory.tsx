@@ -113,7 +113,7 @@ export function PortDirectory() {
                 <span className="min-w-0 flex-1">
                   <span className="block text-[1rem] font-semibold leading-snug text-navy">{p.name}</span>
                   {(p.province || laNha) && (
-                    <span className="block text-[0.8125rem] leading-snug text-foreground/65">
+                    <span className="block text-[0.8125rem] leading-snug text-muted">
                       {p.province}
                       {laNha && <span className="font-semibold text-sea">{p.province ? " · " : ""}{NHAN.cangNha}</span>}
                     </span>
@@ -124,7 +124,7 @@ export function PortDirectory() {
               {mo && (
                 <div className="bg-background/60 px-4 pb-3 pt-1">
                   {p.address && (
-                    <p className="flex gap-1.5 py-1 text-[0.8125rem] leading-snug text-foreground/65">
+                    <p className="flex gap-1.5 py-1 text-[0.8125rem] leading-snug text-muted">
                       <PinIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                       <span>{p.address}</span>
                     </p>
@@ -152,7 +152,7 @@ export function PortDirectory() {
                     </div>
                   ) : (
                     // cảng chưa có toạ độ đúng trong danh mục ⇒ không hứa bản đồ, không đặt được cảng nhà
-                    <p className="py-1 text-[0.8125rem] text-foreground/65">Chưa có toạ độ cảng này trong danh mục.</p>
+                    <p className="py-1 text-[0.8125rem] text-muted">Chưa có toạ độ cảng này trong danh mục.</p>
                   )}
                 </div>
               )}

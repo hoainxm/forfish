@@ -66,10 +66,10 @@ function docKho(): Kho {
 const MAU: Record<MucHan, string> = {
   het: "text-danger",
   sap: "text-warn",
-  con: "text-foreground/65",
-  "khong-han": "text-foreground/65",
-  "chua-han": "text-foreground/65",
-  "chua-co": "text-foreground/65",
+  con: "text-muted",
+  "khong-han": "text-muted",
+  "chua-han": "text-muted",
+  "chua-co": "text-muted",
 };
 
 function cauGiay(h: HanGiay): string {

@@ -55,7 +55,7 @@ export function SavedPosts({
   const posts = view ? view(list.map((e) => e.post)) : list.map((e) => e.post);
   return (
     <div className="space-y-3 px-4">
-      <p className="text-[0.875rem] text-foreground/65">
+      <p className="text-[0.875rem] text-muted">
         {list.length}/{LUU_MAX_POSTS} bài · ảnh {mb(anh)}/{mb(LUU_MAX_ANH_BYTES)} MB — mất sóng vẫn đọc được
       </p>
       {posts.map((p) => (

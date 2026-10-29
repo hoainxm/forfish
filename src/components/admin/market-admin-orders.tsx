@@ -351,7 +351,7 @@ function OrderRow({
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <PaymentStatusChip status={order.paymentStatus} />
             {order.bankSnapshot && (
-              <span className="text-[0.8125rem] tabular-nums text-foreground/65">
+              <span className="text-[0.8125rem] tabular-nums text-muted">
                 {order.bankSnapshot.bankName} · {order.bankSnapshot.bankAccount} ·{" "}
                 {order.bankSnapshot.bankHolder}
               </span>

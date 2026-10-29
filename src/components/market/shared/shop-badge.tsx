@@ -15,13 +15,13 @@ export function ShopBadge({
   className?: string;
 }) {
   return (
-    <span className={`inline-flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[0.875rem] text-foreground/65 ${className}`}>
+    <span className={`inline-flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[0.875rem] text-muted ${className}`}>
       <span className="truncate font-semibold text-navy/80">{name}</span>
       {province && <span>· {province}</span>}
       {ratingAvg != null && ratingAvg > 0 && (
         <span className="inline-flex items-center gap-0.5" style={{ color: "var(--sun)" }}>
           <StarIcon className="h-3.5 w-3.5 fill-current" />
-          <span className="text-foreground/65">{ratingAvg.toFixed(1)}</span>
+          <span className="text-muted">{ratingAvg.toFixed(1)}</span>
         </span>
       )}
       {paused && (

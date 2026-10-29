@@ -120,7 +120,7 @@ export function PremiumLock({
         <LockIcon className="h-7 w-7" />
       </span>
       <p className="display mt-3 text-[1.25rem] font-semibold text-navy">{title}</p>
-      <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-foreground/65">
+      <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-muted">
         {sub}
       </p>
       {cta}

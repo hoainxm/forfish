@@ -767,7 +767,7 @@ export function RaKhoiControls({
                 }}
                 aria-label="Điểm đã lưu"
                 icon={StarIcon}
-                label="Điểm lưu"
+                label={NHAN.diemLuu}
               />
           </Popover>
         )}

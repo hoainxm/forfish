@@ -188,7 +188,7 @@ export function SellGuide() {
       </div>
 
       {geo && staticFallback && (
-        <p className="mb-2 px-1 text-[0.875rem] font-semibold text-foreground/65">
+        <p className="mb-2 px-1 text-[0.875rem] font-semibold text-muted">
           Danh bạ tham khảo lưu sẵn — chưa hỏi được bản mới.
         </p>
       )}
@@ -200,7 +200,7 @@ export function SellGuide() {
       {/*  MỘT dòng chữ phụ thay 3 RefNote nền vàng (CC-08, 03 §0b: nền warn chỉ khi có
           việc cần biết; chữ giải thích ở trạng thái yên là chữ thường). */}
       {geo && (
-        <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-foreground/65">
+        <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-muted">
           Danh bạ công khai, tham khảo · gọi hỏi trước khi chở hàng.
         </p>
       )}
@@ -279,7 +279,7 @@ function HangDauMoi({ c, phu, them }: { c: SellContact; phu: string; them: React
         >
           <span className="min-w-0 flex-1">
             <span className="block text-[1rem] font-semibold leading-snug text-navy">{c.name}</span>
-            {phu && <span className="mt-0.5 block text-[0.8125rem] leading-snug text-foreground/65">{phu}</span>}
+            {phu && <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted">{phu}</span>}
           </span>
           <ChevronDownIcon className={`h-4 w-4 shrink-0 text-foreground/40 transition ${mo ? "rotate-180" : ""}`} />
         </button>
@@ -312,7 +312,7 @@ function HangDauMoi({ c, phu, them }: { c: SellContact; phu: string; them: React
                 href={c.website.startsWith("http") ? c.website : `https://${c.website}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex min-h-(--h-ctl) items-center text-[0.8125rem] font-semibold text-foreground/65 underline"
+                className="flex min-h-(--h-ctl) items-center text-[0.8125rem] font-semibold text-muted underline"
               >
                 Nguồn
               </a>
@@ -638,7 +638,7 @@ function MyBuyers({ q }: { q: string }) {
         </button>
       </div>
       {/* một dòng chữ phụ thay RefNote nền xanh (CC-08) */}
-      <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-foreground/65">
+      <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-muted">
         Sổ riêng của bà con — chỉ máy này thấy.
       </p>
 
@@ -663,7 +663,7 @@ function MyBuyers({ q }: { q: string }) {
                   lại là hành động phá huỷ (xoá số thương lái bà con gõ tay). */}
               <div className="flex items-stretch gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.75rem] font-semibold text-foreground/65">
+                  <p className="text-[0.75rem] font-semibold text-muted">
                     {typeLabel(b.type)}
                   </p>
                   <p className="display break-words text-[1rem] font-semibold leading-snug text-navy">

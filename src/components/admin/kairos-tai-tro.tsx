@@ -58,7 +58,7 @@ function Dong({ q, sua, onDoi, onXoa }: { q: QuangCao; sua: boolean; onDoi: (q: 
   return (
     <div className="surface space-y-3 px-4 py-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[0.8125rem] font-bold text-foreground/65">Tài trợ · {q.nhaTaiTro || "…"}</span>
+        <span className="text-[0.8125rem] font-bold text-muted">Tài trợ · {q.nhaTaiTro || "…"}</span>
         <label className="flex items-center gap-2 text-[0.875rem] font-semibold">
           <input type="checkbox" checked={q.bat} disabled={!sua} onChange={(e) => onDoi({ ...q, bat: e.target.checked })} />
           Đang chạy

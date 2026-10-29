@@ -296,7 +296,7 @@ export function MarketCart() {
         )}
 
         {status === "loading" && (
-          <p role="status" className="py-8 text-center text-[1rem] text-foreground/65">Đang tra giá…</p>
+          <p role="status" className="py-8 text-center text-[1rem] text-muted">Đang tra giá…</p>
         )}
         {/* một khuôn mất sóng / lỗi cho cả khu (VT-17) */}
         {status === "offline" && (
@@ -320,7 +320,7 @@ export function MarketCart() {
               onChange={(v) => cart.select(buyableKeys, v)}
             />
             <span className="text-[1rem] font-semibold text-navy">
-              Chọn tất cả <span className="font-semibold text-foreground/65">({pickedCount}/{buyableKeys.length})</span>
+              Chọn tất cả <span className="font-semibold text-muted">({pickedCount}/{buyableKeys.length})</span>
             </span>
             <button
               type="button"
@@ -373,7 +373,7 @@ export function MarketCart() {
                           <LineThumb image={l.image} size={4.5} className="mt-0.5" />
                           <span className="min-w-0 flex-1">
                             <span className="line-clamp-2 text-[1rem] font-semibold leading-snug text-navy">{l.title}</span>
-                            {l.variantLabel && <span className="block text-[0.875rem] text-foreground/65">Loại: {l.variantLabel}</span>}
+                            {l.variantLabel && <span className="block text-[0.875rem] text-muted">Loại: {l.variantLabel}</span>}
                             <PriceText priceVnd={l.priceVnd} className="mt-0.5" />
                           </span>
                         </Link>
@@ -473,7 +473,7 @@ export function MarketCart() {
         }}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[0.875rem] text-foreground/65">Tổng tạm ({pickedCount} món)</p>
+          <p className="text-[0.875rem] text-muted">Tổng tạm ({pickedCount} món)</p>
           <p className="display text-[1rem] font-semibold text-navy">{formatVnd(summary.totalVnd)}</p>
           {blocked && <p className="text-[0.875rem] font-semibold leading-snug text-danger">{blocked}</p>}
         </div>

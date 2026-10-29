@@ -116,7 +116,7 @@ export function TraCuuDanhSach({ post, notify }: { post: KairosPost; notify?: (t
           {dang ? "Đang tra…" : NHAN.traCuu}
         </button>
       </form>
-      {!online && <p className="mt-1.5 text-[0.875rem] text-foreground/65">Cần sóng để tra.</p>}
+      {!online && <p className="mt-1.5 text-[0.875rem] text-muted">Cần sóng để tra.</p>}
       {kq && (
         <div className="mt-2">
           {kq.rows.length > 0 ? (
@@ -126,7 +126,7 @@ export function TraCuuDanhSach({ post, notify }: { post: KairosPost; notify?: (t
               ))}
             </ul>
           ) : (
-            <p className="text-[0.875rem] text-foreground/65">
+            <p className="text-[0.875rem] text-muted">
               {kq.co ? `Không thấy "${kq.q}" trong danh sách này.` : "Chưa đọc được danh sách, bà con mở file bên trên xem."}
             </p>
           )}

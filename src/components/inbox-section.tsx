@@ -342,7 +342,7 @@ export function InboxSection() {
               {m.body !== m.title && (
                 <span className="mt-1 block text-[1rem] leading-snug text-foreground/85">{m.body}</span>
               )}
-              <span className="mt-1 block text-[0.8125rem] leading-snug text-foreground/65">
+              <span className="mt-1 block text-[0.8125rem] leading-snug text-muted">
                 {canhBao || !mocCu ? gio : mocCu}
                 {ngay && ` · ${ngay}`}
                 {canhBao && <span className="font-semibold text-warn"> · {stale}</span>}
@@ -367,7 +367,7 @@ export function InboxSection() {
                 aria-label="Thêm"
                 aria-haspopup="menu"
                 onClick={(e) => setMenu({ anchor: e.currentTarget, ids })}
-                className="mr-1 mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-foreground/65 transition active:scale-[0.95]"
+                className="mr-1 mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-muted transition active:scale-[0.95]"
               >
                 ⋯
               </button>

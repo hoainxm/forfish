@@ -42,7 +42,7 @@ export function ManHeader({
         </h1>
         {right && <div className="flex min-h-(--h-ctl) shrink-0 items-center gap-2">{right}</div>}
       </div>
-      {sub && <p className="text-[0.875rem] leading-snug text-foreground/65">{sub}</p>}
+      {sub && <p className="text-[0.875rem] leading-snug text-muted">{sub}</p>}
     </header>
   );
 }

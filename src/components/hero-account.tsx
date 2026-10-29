@@ -216,7 +216,7 @@ export function KickedNotice() {
           </Link>
         </div>
       ) : (
-        <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/65">
+        <p className="mt-1 text-[0.8125rem] leading-snug text-muted">
           Có mạng để đăng nhập lại.
         </p>
       )}
@@ -811,7 +811,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             <Link
               href="/ban-hang/dang-ky"
               onClick={() => setOpen(false)}
-              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 text-left text-[1rem] text-foreground/65"
+              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 text-left text-[1rem] text-muted"
             >
               <span className="min-w-0 flex-1">Bà con có bán vật tư? Đăng ký shop</span>
               <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />

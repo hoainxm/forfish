@@ -13,6 +13,7 @@ import {
 } from "@/lib/owned-assets";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 import { useTodayVN } from "@/lib/use-today";
+import { NHAN } from "@/lib/labels";
 
 /*
   Tab DỊCH VỤ (thay tab Bảo dưỡng cũ) — ForFish là kênh CSKH của SDVICO:
@@ -112,7 +113,7 @@ export function BoatServices() {
                       )}
                       {st.label}
                       {r.sentAt && (
-                        <span className="font-semibold text-foreground/65">
+                        <span className="font-semibold text-muted">
                           · gửi {formatVnDate(r.sentAt.slice(0, 10))}
                         </span>
                       )}
@@ -160,7 +161,7 @@ export function BoatServices() {
                     <SdvicoRequestButton
                       topic="cuoc"
                       productName={`Đơn ${p.orderCode}`}
-                      label="Hỏi về khoản này"
+                      label={NHAN.lienHe}
                     />
                   </div>
                 </div>
@@ -192,7 +193,7 @@ export function BoatServices() {
                   {due.label}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="text-[0.8125rem] font-semibold text-foreground/65">
+                  <p className="text-[0.8125rem] font-semibold text-muted">
                     {serviceKindLabel(s.kind)}
                   </p>
                   <p className="display text-[1rem] font-semibold leading-snug text-navy">
@@ -213,7 +214,7 @@ export function BoatServices() {
                       <SdvicoRequestButton
                         topic={s.kind === "subscription" ? "cuoc" : "bao-duong"}
                         productName={s.name}
-                        label="Đặt lịch / hỏi về kỳ này"
+                        label={NHAN.datLich}
                       />
                     </div>
                   )}

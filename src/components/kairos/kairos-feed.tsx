@@ -657,7 +657,7 @@ export function KairosFeed({
             <div className="p-4">
               <h2 className="display text-[1.25rem] font-bold leading-snug text-navy">Bến {ben.name}</h2>
               {(ben.province || soBaiBen > 0) && (
-                <p className="mt-0.5 text-[0.875rem] text-foreground/65">
+                <p className="mt-0.5 text-[0.875rem] text-muted">
                   {[ben.province || null, soBaiBen > 0 ? `${soBaiBen} bài gần đây` : null]
                     .filter(Boolean)
                     .join(" · ")}
@@ -685,7 +685,7 @@ export function KairosFeed({
           <button
             type="button"
             onClick={onCompose}
-            className="surface flex h-14 w-full items-center px-4 text-left text-[1rem] text-foreground/65 transition active:scale-[0.99]"
+            className="surface flex h-14 w-full items-center px-4 text-left text-[1rem] text-muted transition active:scale-[0.99]"
           >
             {ben ? `Đăng vào Bến ${ben.name}…` : "Bà con muốn chia sẻ gì?"}
           </button>
@@ -797,14 +797,14 @@ export function KairosFeed({
         {more === "loading" && <PostSkeleton count={1} />}
         {more === "error" && (
           <div className="flex items-center justify-center gap-3 py-2">
-            <span className="text-[0.875rem] text-foreground/65">Chưa tải thêm được.</span>
+            <span className="text-[0.875rem] text-muted">Chưa tải thêm được.</span>
             <button type="button" onClick={() => void loadMore()} className="h-10 rounded-xl border border-line px-3 font-semibold text-sea">
               {NHAN.thuLai}
             </button>
           </div>
         )}
         {!empty && load === "ready" && !next && more === "idle" && (
-          <p className="py-3 text-center text-[0.875rem] text-foreground/65">Hết bài</p>
+          <p className="py-3 text-center text-[0.875rem] text-muted">Hết bài</p>
         )}
         <div ref={sentinel} aria-hidden className="h-[0.0625rem]" />
       </div>

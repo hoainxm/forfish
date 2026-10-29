@@ -107,7 +107,7 @@ export function ImagePicker({
     <div className={chiAnh ? (coAnh ? "mb-2" : "") : "mb-3.5"}>
       {!chiAnh && (
         <p className="mb-1.5 text-[1rem] font-semibold text-navy">
-          {label} <span className="font-normal text-foreground/65">({value.length}/{max})</span>
+          {label} <span className="font-normal text-muted">({value.length}/{max})</span>
         </p>
       )}
       <div className={`-mx-4 flex gap-2 overflow-x-auto cuon-an px-4 ${coAnh || !chiAnh ? "pb-1" : "hidden"}`}>

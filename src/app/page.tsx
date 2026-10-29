@@ -1,7 +1,7 @@
 import { ManHeader } from "@/components/man-header";
 import { UrgentStrip } from "@/components/urgent-strip";
 import { HeroAccount, KickedNotice } from "@/components/hero-account";
-import { UrgentWithInstall } from "@/components/install-prompt";
+import { ChuongCuoiTrang, UrgentWithInstall } from "@/components/install-prompt";
 import { InboxSection } from "@/components/inbox-section";
 import { StormBanner } from "@/components/storm-banner";
 import { TideHomeCard } from "@/components/tide-home-card";
@@ -39,8 +39,8 @@ export default function Home() {
         <div className="space-y-3">
           {/* GIỮ CHỖ tin bão (review B-P2-1): "Đang hỏi tin bão…" cao 1 hàng, rồi nở thành hàng "Không có
               tin bão · Hỏi lúc" 2 dòng ⇒ đẩy cả màn. Khung lưới cao bằng trạng thái yên (4rem), con kéo giãn
-              lấp đủ. nợ: băng vàng "không hỏi được" 3 dòng ở 360px vẫn nở thêm ≈1.4rem; nâng khi
-              storm-banner có câu ngắn 2 dòng cho Trang chủ. */}
+              lấp đủ. Băng vàng "không hỏi được" cũng đúng HAI dòng một hàng mỗi dòng (2026-10-29, storm-banner)
+              ⇒ lọt khung, hết nở 1,4rem. Chỉ thẻ CÓ BÃO được nở — tin tính mạng, không giữ chỗ nổi. */}
           <div className="grid min-h-[4rem]">
             <StormBanner variant="page" always />
           </div>
@@ -61,6 +61,9 @@ export default function Home() {
         <KhuyenMaiCard />
         <InboxSection />
         <TideHomeCard />
+        {/* Hàng "Bật chuông" ở CUỐI (2026-10-29): chỉ biết sau khi tra đăng ký push nên hiện muộn —
+            ở cuối thì không đẩy gì (CLS). install-prompt KhoiTang5 `cho="cuoi"`. */}
+        <ChuongCuoiTrang />
       </div>
     </div>
   );

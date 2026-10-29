@@ -504,7 +504,7 @@ export function AccountsTab({ me }: { me: Me }) {
               <p className="display text-[1.75rem] font-bold tabular-nums text-navy">
                 {v}
               </p>
-              <p className="text-[0.8125rem] font-semibold text-foreground/65">
+              <p className="text-[0.8125rem] font-semibold text-muted">
                 {label}
               </p>
             </div>
@@ -638,7 +638,7 @@ export function AccountsTab({ me }: { me: Me }) {
         <AdminSkeleton label="Đang tải danh sách tài khoản…" />
       )}
       {accounts && accounts.length === 0 && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+        <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
           Chưa có tài khoản nào — webhook SDWork chưa đẩy khách sang, hoặc tạo
           tay bằng form trên.
         </p>
@@ -659,7 +659,7 @@ export function AccountsTab({ me }: { me: Me }) {
               })`}
           </p>
           {visible.length === 0 ? (
-            <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+            <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
               Không tài khoản nào khớp tìm kiếm/bộ lọc.
             </p>
           ) : (
@@ -766,7 +766,7 @@ export function AccountsTab({ me }: { me: Me }) {
                         ? "bg-ok-bg text-ok"
                         : a.tier === "premium"
                           ? "bg-warn-bg text-warn"
-                          : "bg-field text-foreground/65"
+                          : "bg-field text-muted"
                     }`}
                   >
                     {effTier(a) === "premium"

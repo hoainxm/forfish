@@ -281,7 +281,7 @@ export function BoatProducts() {
                   {status.label}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="text-[0.8125rem] font-semibold text-foreground/65">
+                  <p className="text-[0.8125rem] font-semibold text-muted">
                     Mua của SDVICO{p.orderCode ? ` · đơn ${p.orderCode}` : ""}
                   </p>
                   <p className="display text-[1rem] font-semibold leading-snug text-navy">
@@ -310,7 +310,7 @@ export function BoatProducts() {
                       <SdvicoRequestButton
                           topic="sua-chua"
                         productName={`${p.name}${p.serial ? ` (serial ${p.serial})` : ""}`}
-                        label="Gọi bảo hành sản phẩm này"
+                        label={NHAN.baoHanh}
                       />
                     </div>
                   )}
@@ -389,7 +389,7 @@ export function BoatProducts() {
                   ? "text-warn"
                   : status.level === "ok"
                     ? "text-ok"
-                    : "text-foreground/65";
+                    : "text-muted";
             const open = openId === product.id;
             return (
               <li key={product.id}>

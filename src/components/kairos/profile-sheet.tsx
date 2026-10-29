@@ -160,7 +160,7 @@ export function ProfileSheet({ me, onClose, onSaved }: { me: KairosMe; onClose: 
         aria-describedby="kairos-ten-goi-y"
         className={inputClass}
       />
-      <p id="kairos-ten-goi-y" className={`mt-1 mb-3 text-[0.8125rem] ${localErr || handleErr ? "font-semibold text-danger" : "text-foreground/65"}`}>
+      <p id="kairos-ten-goi-y" className={`mt-1 mb-3 text-[0.8125rem] ${localErr || handleErr ? "font-semibold text-danger" : "text-muted"}`}>
         {me.official
           ? "Tên SDVICO cố định."
           : localErr || handleErr || (locked ? `Đổi lại được từ ${day(me.handleNextChangeAt!)}.` : `${LIMITS.handleMin}–${LIMITS.handleMax} ký tự. 30 ngày đổi 1 lần.`)}
@@ -170,7 +170,7 @@ export function ProfileSheet({ me, onClose, onSaved }: { me: KairosMe; onClose: 
         <input type="checkbox" checked={showBoat} onChange={(e) => setShowBoat(e.target.checked)} className="h-5 w-5 accent-sea" />
         <span className="flex-1">
           <span className="block font-semibold text-navy">Hiện số hiệu tàu</span>
-          <span className="block text-[0.8125rem] text-foreground/65">Lấy từ sổ tàu của bạn, hiện cạnh tên.</span>
+          <span className="block text-[0.8125rem] text-muted">Lấy từ sổ tàu của bạn, hiện cạnh tên.</span>
         </span>
       </label>
 
@@ -192,7 +192,7 @@ export function ProfileSheet({ me, onClose, onSaved }: { me: KairosMe; onClose: 
         <button
           type="button"
           onClick={() => setPickPort(true)}
-          className={`${inputClass} flex-1 text-left ${homePort ? "text-navy" : "text-foreground/65"}`}
+          className={`${inputClass} flex-1 text-left ${homePort ? "text-navy" : "text-muted"}`}
         >
           {homePort ? `Cảng ${PORT_NAME.get(homePort) ?? homePort}` : "Chưa chọn"}
         </button>
@@ -229,7 +229,7 @@ export function ProfileSheet({ me, onClose, onSaved }: { me: KairosMe; onClose: 
         aria-invalid={bioLeft < 0}
         className={`${inputClass.replace("h-(--h-ctl)", "min-h-(--h-ctl)")} py-2`}
       />
-      <p id="kairos-gioi-thieu-dem" className={`mt-1 mb-4 text-right text-[0.8125rem] ${bioLeft < 0 ? "font-semibold text-danger" : "text-foreground/65"}`}>
+      <p id="kairos-gioi-thieu-dem" className={`mt-1 mb-4 text-right text-[0.8125rem] ${bioLeft < 0 ? "font-semibold text-danger" : "text-muted"}`}>
         {bioLeft < 0 ? `Dài quá ${-bioLeft} ký tự` : `Còn ${bioLeft} ký tự`}
       </p>
 

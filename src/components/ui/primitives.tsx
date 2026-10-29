@@ -209,7 +209,7 @@ export function EmptyState({
   return (
     <div className="rounded-2xl border border-dashed border-line px-4 py-8 text-center">
       {icon && <div className="mx-auto mb-3 w-fit text-foreground/65">{icon}</div>}
-      <p className="text-[1rem] text-foreground/65">{children}</p>
+      <p className="text-[1rem] text-muted">{children}</p>
     </div>
   );
 }

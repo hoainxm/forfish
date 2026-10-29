@@ -58,7 +58,7 @@ export function LoginGate({
       <p className="display mt-3 text-[1.25rem] font-semibold text-navy">
         Đăng nhập để {[verb, feature].filter(Boolean).join(" ")}
       </p>
-      <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-foreground/65">
+      <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-muted">
         {blurb ??
           /*  MỜI TẠO TÀI KHOẢN lại (2026-09-23): người ngoài tự đăng ký được
               bằng SĐT — chỉ đúng bước kế là Đăng ký, hoặc Đăng nhập nếu đã có. */

@@ -325,7 +325,7 @@ export function Checkout() {
 
   // ── ma trận trước khi đặt ──────────────────────────────────────────────
   if (status === "loading") {
-    return <p role="status" className="px-4 py-10 pb-[7rem] text-center text-[1rem] text-foreground/65">Đang tra lại giỏ…</p>;
+    return <p role="status" className="px-4 py-10 pb-[7rem] text-center text-[1rem] text-muted">Đang tra lại giỏ…</p>;
   }
   // một khuôn mất sóng / lỗi cho cả khu (VT-17)
   if (status === "offline" || !online) {
@@ -416,7 +416,7 @@ export function Checkout() {
                   <LineThumb image={l.image} size={3} />
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-2 leading-snug">{l.title}</span>
-                    {l.variantLabel && <span className="block text-[0.875rem] text-foreground/65">Loại: {l.variantLabel}</span>}
+                    {l.variantLabel && <span className="block text-[0.875rem] text-muted">Loại: {l.variantLabel}</span>}
                   </span>
                   <span className="shrink-0 whitespace-nowrap font-semibold text-navy">× {l.qty}</span>
                   <MoneyText vnd={l.lineTotalVnd} bold={false} className="shrink-0 whitespace-nowrap" />
@@ -479,7 +479,7 @@ export function Checkout() {
       >
         {sending ? "Đang gửi…" : "Đặt hàng"}
       </PrimaryButton>
-      <p className="mt-2 text-center text-[1rem] text-foreground/65">
+      <p className="mt-2 text-center text-[1rem] text-muted">
         Không trả tiền trong app. Trả khi nhận hoặc chuyển khoản thẳng cho shop.
       </p>
 

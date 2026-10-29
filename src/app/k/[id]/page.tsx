@@ -84,7 +84,7 @@ export default async function PublicPostPage({ params }: Props) {
             {who(post)}
             {(post.kind === "chinh-thuc" || post.author?.official) && <span className="ml-2 text-[0.75rem] text-sea">{NHAN.chinhThuc}</span>}
           </p>
-          <p className="text-[0.8125rem] text-foreground/65">{[post.author?.subline, when(post.publishedAt)].filter(Boolean).join(" · ")}</p>
+          <p className="text-[0.8125rem] text-muted">{[post.author?.subline, when(post.publishedAt)].filter(Boolean).join(" · ")}</p>
         </div>
         {post.title && post.kind !== "bao" && <h1 className="px-4 pb-1 text-[1.25rem] font-bold leading-snug text-navy">{post.title}</h1>}
         {text && <p className="whitespace-pre-line break-words px-4 pb-3 text-[1rem] leading-relaxed">{text}</p>}
@@ -111,11 +111,11 @@ export default async function PublicPostPage({ params }: Props) {
         )}
         {post.reshareOf && (
           <div className="mx-4 my-2 rounded-2xl border border-line px-3 py-2">
-            <p className="text-[0.8125rem] font-semibold text-foreground/65">{who(post.reshareOf)}</p>
+            <p className="text-[0.8125rem] font-semibold text-muted">{who(post.reshareOf)}</p>
             <p className="line-clamp-3">{post.reshareOf.title || post.reshareOf.summary || post.reshareOf.body}</p>
           </div>
         )}
-        <p className="border-t border-line px-4 py-2 text-[0.875rem] text-foreground/65">
+        <p className="border-t border-line px-4 py-2 text-[0.875rem] text-muted">
           {countLabel(post.hayCount)} {NHAN.hay} · {countLabel(post.commentCount)} {NHAN.binhLuan.toLowerCase()}
         </p>
         {post.topComments.length > 0 && (

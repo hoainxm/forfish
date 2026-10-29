@@ -219,13 +219,13 @@ function KpiStrip({
             className="surface min-h-[3.5rem] px-3 py-3 text-center transition hover:ring-2 hover:ring-sea focus:outline-none focus:ring-2 focus:ring-sea"
           >
             <p className="display text-[1.125rem] font-bold tabular-nums text-navy">{v}</p>
-            <p className="text-[0.8125rem] font-semibold text-foreground/65">{label}</p>
+            <p className="text-[0.8125rem] font-semibold text-muted">{label}</p>
             <p className="mt-0.5 text-[0.75rem] font-semibold text-sea">Xem danh sách →</p>
           </button>
         ) : (
           <div key={label} className="surface px-3 py-3 text-center">
             <p className="display text-[1.125rem] font-bold tabular-nums text-navy">{v}</p>
-            <p className="text-[0.8125rem] font-semibold text-foreground/65">{label}</p>
+            <p className="text-[0.8125rem] font-semibold text-muted">{label}</p>
           </div>
         ),
       )}
@@ -299,7 +299,7 @@ function OverviewDetail({ overview }: { overview: AdminOverview }) {
         ).map(([label, v]) => (
           <div key={label} className="surface px-3 py-3 text-center">
             <p className="display text-[1.125rem] font-bold tabular-nums text-navy">{v}</p>
-            <p className="text-[0.8125rem] font-semibold text-foreground/65">{label}</p>
+            <p className="text-[0.8125rem] font-semibold text-muted">{label}</p>
           </div>
         ))}
       </div>
