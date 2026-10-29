@@ -82,3 +82,16 @@ describe("khớp đường ranh bà con thấy", () => {
     expect(VN_SEA_POLYS).toEqual(VN_ALLOWED_POLYS);
   });
 });
+
+describe("mô hình cá phủ KÍN vùng trong ranh (ảnh anh Long 2026-10-29: góc đông bắc trống)", () => {
+  it("điểm trong ranh nhưng xa mọi vùng ngư trường > 2° vẫn được gán vùng khi bỏ giới hạn tầm", async () => {
+    const { nearestRegionWithin } = await import("@/data/fish-seasons");
+    const { REGION_REACH_DEG } = await import("@/lib/fish-predict");
+    const [la, lo] = [16.5, 116];
+    expect(trongVungBienVN(la, lo)).toBe(true);
+    // luật cũ bỏ ô này ⇒ góc đông bắc trống
+    expect(nearestRegionWithin(la, lo, REGION_REACH_DEG)).toBeNull();
+    // luật mới (fish-predict: trong ranh ⇒ Infinity) gán được vùng
+    expect(nearestRegionWithin(la, lo, Infinity)).not.toBeNull();
+  });
+});

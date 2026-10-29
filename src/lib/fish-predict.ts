@@ -12,7 +12,7 @@
 // TRUNG THỰC: đây là vùng CÓ KHẢ NĂNG, tính từ ảnh trễ ~2 ngày, độ phân giải
 // ~25 km — không phải lời hứa "có cá", UI phải luôn ghi rõ.
 
-import { locBanDoCaTrongVung } from "@/lib/vung-bien-vn";
+import { locBanDoCaTrongVung, trongVungBienVN } from "@/lib/vung-bien-vn";
 import {
   type FishRegionId,
   FISH_SEASONS,
@@ -1472,7 +1472,10 @@ export function buildCellFeatures(
       const lon = sst.lons[j];
       // gán vùng GẦN NHẤT (phủ kín toàn vùng biển VN, không còn lỗ hổng giữa
       // các đa giác thô); null = xa hẳn mọi vùng → ngoài vùng biển VN
-      const region = nearestRegionWithin(lat, lon, REGION_REACH_DEG);
+      // TRONG ĐƯỜNG RANH thì LUÔN gán vùng gần nhất, không giới hạn tầm (anh Long 2026-10-29: ảnh góc
+      // đông bắc 14–18,7°B / 115,3–116,5°Đ trống dù nằm trong ranh đỏ — xa mọi đa giác vùng hơn 2° nên
+      // trước đây bị bỏ). Ngoài ranh giữ tầm cũ; ô ngoài ranh vốn bị lọc khi phát (lib/vung-bien-vn).
+      const region = nearestRegionWithin(lat, lon, trongVungBienVN(lat, lon) ? Infinity : REGION_REACH_DEG);
       if (!region) continue;
       if (seasonWeights(region.id, month).size === 0) continue; // không loài nào trong vụ
 
@@ -2123,6 +2126,9 @@ export function fishModelSignature(): string {
     seasonPad: [SEASON_FULL_PAD_MONTHS, SEASON_TAPER_MONTHS, SEASON_OFF_FLOOR],
     k: {
       REGION_REACH_DEG,
+      // 2026-10-29: trong đường ranh thì gán vùng không giới hạn tầm — đổi miền tính ⇒ đổi chữ ký để
+      // máy chủ tính bản mới thay vì phát snapshot cũ (thiếu góc đông bắc 115,3–116,5°Đ)
+      REGION_REACH_TRONG_RANH: "khong-gioi-han",
       SURFACE_CONF,
       SOFTOR_SCALE,
       PELAGIC_LARGE_SOFTOR_SCALE,
