@@ -8,6 +8,7 @@
  * lâu. Đây là THAM KHẢO từ bản cập nhật chậm — không thay canh chừng bằng mắt và radar trên tàu.
  */
 import type { LatLon } from "@/lib/geo";
+import { windDirectionVN } from "@/lib/marine-weather";
 import { nhomTau, type TauAis, type TauAisBan } from "@/lib/tau-ais";
 
 export const KM_PER_NM = 1.852;
@@ -155,12 +156,47 @@ export function demMuc(ds: MucTieu[]): Record<MucAis, number> {
   return d;
 }
 
-export type LocAis = "tat" | "nguy" | "canh" | "ca";
+/** Chip lọc danh sách: tất cả · đang tới gần (nguy + cảnh báo) · tàu cá. */
+export type LocAis = "tat" | "gan" | "ca";
 export function locMucTieu(ds: MucTieu[], loc: LocAis): MucTieu[] {
   if (loc === "tat") return ds;
-  if (loc === "nguy") return ds.filter((m) => m.muc === "nguy");
-  if (loc === "canh") return ds.filter((m) => m.muc === "nguy" || m.muc === "canh");
+  if (loc === "gan") return ds.filter((m) => m.muc === "nguy" || m.muc === "canh");
   return ds.filter((m) => nhomTau(m.tau.loai) === "ca");
+}
+
+/** Một câu nói ngay điều bà con cần nhất: có tàu nào sắp đi sát mình không. */
+export interface TomTatNguyCo {
+  muc: "nguy" | "canh" | "an" | "chua-gps";
+  cau: string;
+}
+export function tomTatNguyCo(ds: MucTieu[], coGps: boolean, tamNm: number): TomTatNguyCo {
+  if (!coGps) return { muc: "chua-gps", cau: "Bật định vị để biết tàu nào đang tới gần mình" };
+  const d = demMuc(ds);
+  if (d.nguy > 0) return { muc: "nguy", cau: `${d.nguy} tàu có thể đi sát dưới nửa hải lý (${quangNgan(NGUONG.nguy.cpaNm)}) trong ${NGUONG.nguy.tcpaPhut} phút tới` };
+  if (d.canh > 0) return { muc: "canh", cau: `${d.canh} tàu đang tới gần trong ${NGUONG.canh.tcpaPhut} phút tới — để ý` };
+  const quanh = ds.length === 0 ? `không thấy tàu nào trong ${tamNm} hải lý` : `${ds.length} tàu quanh mình trong ${tamNm} hải lý`;
+  return { muc: "an", cau: `Không có tàu nào đang tới gần · ${quanh}` };
+}
+
+/** Hướng chữ 8 hướng ("Đông Bắc") — bà con quen nói thế hơn là độ. */
+export const huongChu = (deg: number): string => windDirectionVN(deg);
+
+/** Quãng ngắn đọc cho dễ: dưới 1 km nói mét (làm tròn 10 m), còn lại km một số lẻ. */
+export function quangNgan(nm: number): string {
+  const km = nm * KM_PER_NM;
+  if (km < 1) return `${Math.max(10, Math.round((km * 1000) / 10) * 10)} m`;
+  return `${km.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} km`;
+}
+
+/** Dòng phụ của một tàu trong danh sách — câu đời thường, tàu tới gần nói chuyện tới gần trước. */
+export function dongPhuTau(m: MucTieu, coGps: boolean): string {
+  if (coGps && !m.tinCu && (m.muc === "nguy" || m.muc === "canh") && m.cpaNm != null && m.tcpaPhut != null) {
+    return `Đi sát ${quangNgan(m.cpaNm)} sau ${tcpaLabel(m.tcpaPhut)}`;
+  }
+  const p = [`Cách ${hlLabel(m.cachNm)} · phía ${huongChu(m.phuongVi)}`];
+  if (m.muc === "dung") p.push("đang đứng");
+  if (m.tinCu) p.push("tin cũ");
+  return p.join(" · ");
 }
 
 /** Màu theo mức — nguy đỏ, canh vàng cam; an/dung theo loại tàu (MAU_TAU) ở nơi vẽ. */

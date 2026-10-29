@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chuanHoaHang, danhSachO, gopTau, kiemGoi, oTile, rutId, VUNG_BIEN_VN } from "@/lib/tau-ais/chuan-hoa.mjs";
-import { demTheoNhom, moTaTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
+import { chuanTen, demTheoNhom, moTaTau, timTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
 
 const HANG = {
   LAT: "15.836166", LON: "109.15148", SPEED: "41", COURSE: "111", HEADING: "111", ELAPSED: "14",
@@ -76,7 +76,7 @@ describe("tàu AIS — phía máy ngư dân", () => {
     expect(tuoiTinLabel(150)).toBe("3 giờ trước");
   });
   it("mô tả tàu", () => {
-    expect(moTaTau(t)).toBe("Tàu cá · VN · 4,1 hải lý/h hướng 120° · 17 m");
+    expect(moTaTau(t)).toBe("Tàu cá · VN · 4,1 hải lý/h về hướng Đông Nam · 17 m");
     expect(moTaTau({ ...t, kn: 0, co: null, dai: null })).toBe("Tàu cá · đang đứng");
   });
 });
@@ -85,5 +85,21 @@ describe("tàu AIS — chế độ Toàn biển", () => {
   it("đếm theo nhóm màu: cá 2, hàng 7, dầu 8, khách 6/4, còn lại khác", () => {
     expect(demTheoNhom([2, 2, 7, 8, 6, 4, 0, 3].map((loai) => ({ loai })))).toEqual({ ca: 2, hang: 1, dau: 1, khach: 2, khac: 2 });
     expect(demTheoNhom([])).toEqual({ ca: 0, hang: 0, dau: 0, khach: 0, khac: 0 });
+  });
+});
+
+describe("tàu AIS — tìm theo tên/số hiệu", () => {
+  const t = (id: string, ten: string | null) => ({ id, ten, loai: 2, co: "VN", lat: 10, lon: 107, kn: null, huong: null, mui: null, phut: 0, dai: null, dich: null }) as TauAis;
+  const ds = [t("1", "BV 92468 TS"), t("2", "KG-92468-TS"), t("3", "ĐỨC LONG 01"), t("4", null), t("5", "TG 90111 TS")];
+  it("bỏ dấu, bỏ khoảng trắng/gạch", () => {
+    expect(chuanTen("Bv-92468 ts")).toBe("BV92468TS");
+    expect(chuanTen("Đức Long")).toBe("DUCLONG");
+  });
+  it("bắt đầu bằng chuỗi tìm xếp trước, chứa chuỗi tìm sau; dưới 2 ký tự không tìm", () => {
+    expect(timTau(ds, "bv92468").map((x) => x.id)).toEqual(["1"]);
+    expect(timTau(ds, "92468").map((x) => x.id)).toEqual(["1", "2"]);
+    expect(timTau(ds, "duc long").map((x) => x.id)).toEqual(["3"]);
+    expect(timTau(ds, "9")).toEqual([]);
+    expect(timTau(ds, "TS", 2)).toHaveLength(2);
   });
 });

@@ -384,15 +384,15 @@ export function TheTauAis({ info, onClose, prefs, now }: { info: TauAisInfo; onC
       className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100%-1rem)] rounded-2xl bg-card/97 p-3 shadow-xl"
     >
       <div className="flex max-h-[50dvh] items-start gap-2 overflow-y-auto">
-        <span className="mt-1.5 inline-block h-3.5 w-3.5 flex-none rounded-full" style={{ backgroundColor: MAU_TAU[nhomTau(t.loai)] }} />
+        <span className="mt-1 inline-block h-3 w-3 flex-none rounded-full" style={{ backgroundColor: MAU_TAU[nhomTau(t.loai)] }} />
         <div className="min-w-0 flex-1">
-          <p className="text-[1.125rem] font-semibold leading-tight text-navy">{t.ten ?? "Tàu chưa rõ tên"}</p>
-          <p className="mt-0.5 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
+          <p className="text-[1rem] font-semibold leading-tight text-navy">{t.ten ?? "Tàu chưa rõ tên"}</p>
+          <p className="mt-0.5 text-[0.875rem] leading-snug text-foreground/75">
             {moTaTau(t)}
             {t.dich ? ` · đến ${t.dich}` : ""}
           </p>
-          <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">{fmtCoordPair(t.lat, t.lon, prefs.coordFormat)}</p>
-          <p className="mt-0.5 text-[0.8125rem] font-semibold text-foreground/45">
+          <p className="mt-1 text-[0.8125rem] text-foreground/55">{fmtCoordPair(t.lat, t.lon, prefs.coordFormat)}</p>
+          <p className="mt-0.5 text-[0.75rem] text-foreground/55">
             Tin {tuoiTinLabel(tuoiTinPhut(t, { luc: info.luc }, now))}
             {info.tuKho ? " · bản lưu trong máy" : ""}
           </p>

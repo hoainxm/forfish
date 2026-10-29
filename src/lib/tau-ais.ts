@@ -9,6 +9,7 @@ import { timeoutSignal } from "@/lib/abort";
 import { apiUrl } from "@/lib/api-base";
 import { tokenHeader } from "@/lib/device-token-store";
 import { haversineKm } from "@/lib/geo";
+import { windDirectionVN } from "@/lib/marine-weather";
 import { LOAI_TAU } from "@/lib/tau-ais/chuan-hoa.mjs";
 
 export const TAU_AIS_SNAPSHOT_ID = "tau-ais:latest";
@@ -133,6 +134,35 @@ export function nhomTau(loai: number): keyof typeof MAU_TAU {
   return "khac";
 }
 
+/** Chuẩn hoá để so tên/số hiệu: bỏ dấu, bỏ khoảng trắng/gạch — "BV-92468 TS" khớp "bv92468". */
+export function chuanTen(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+/**
+ * Tìm tàu theo tên/số hiệu (chế độ AIS · Toàn biển). Bắt đầu bằng chuỗi tìm xếp trước, rồi chứa chuỗi tìm;
+ * dưới 2 ký tự không tìm (7 000 tàu, gõ một chữ ra cả nghìn dòng vô ích).
+ */
+export function timTau(tau: TauAis[], q: string, toiDa = 6): TauAis[] {
+  const k = chuanTen(q);
+  if (k.length < 2) return [];
+  const dau: TauAis[] = [];
+  const giua: TauAis[] = [];
+  for (const t of tau) {
+    if (!t.ten) continue;
+    const n = chuanTen(t.ten);
+    if (n.startsWith(k)) dau.push(t);
+    else if (n.includes(k)) giua.push(t);
+    if (dau.length >= toiDa) break;
+  }
+  return [...dau, ...giua].slice(0, toiDa);
+}
+
 /** Đếm tàu theo nhóm màu — thẻ "Toàn biển" của chế độ AIS (2026-10-29). */
 export function demTheoNhom(tau: Pick<TauAis, "loai">[]): Record<keyof typeof MAU_TAU, number> {
   const d: Record<keyof typeof MAU_TAU, number> = { ca: 0, hang: 0, dau: 0, khach: 0, khac: 0 };
@@ -151,11 +181,11 @@ export function tauGeoJson(ban: TauAisBan): GeoJSON.FeatureCollection<GeoJSON.Po
   };
 }
 
-/** Dòng tóm tắt một tàu cho thẻ chạm: "Tàu cá · VN · 4,1 hải lý/h hướng 120° · 17 m". */
+/** Dòng tóm tắt một tàu cho thẻ chạm: "Tàu cá · VN · 4,1 hải lý/h về hướng Đông Nam · 17 m" (hướng chữ, rà design AIS 29/10). */
 export function moTaTau(t: TauAis): string {
   const p: string[] = [loaiTauLabel(t.loai)];
   if (t.co) p.push(t.co);
-  if (t.kn != null) p.push(t.kn < 0.5 ? "đang đứng" : `${t.kn.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} hải lý/h${t.huong != null ? ` hướng ${t.huong}°` : ""}`);
+  if (t.kn != null) p.push(t.kn < 0.5 ? "đang đứng" : `${t.kn.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} hải lý/h${t.huong != null ? ` về hướng ${windDirectionVN(t.huong)}` : ""}`);
   if (t.dai) p.push(`${t.dai} m`);
   return p.join(" · ");
 }

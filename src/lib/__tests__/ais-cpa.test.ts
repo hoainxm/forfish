@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { congNm, cpaTcpa, demMuc, lechNm, locMucTieu, quetQuanh, tcpaLabel, vanToc, xepMuc } from "@/lib/ais-cpa";
+import { congNm, cpaTcpa, demMuc, dongPhuTau, huongChu, lechNm, locMucTieu, quangNgan, quetQuanh, tcpaLabel, tomTatNguyCo, vanToc, xepMuc } from "@/lib/ais-cpa";
 import type { TauAis, TauAisBan } from "@/lib/tau-ais";
 
 const GOC = { lat: 10.3, lon: 107.1 };
@@ -98,7 +98,7 @@ describe("ais-cpa — quét quanh tàu mình", () => {
       6,
       NOW,
     );
-    expect(locMucTieu(ds, "nguy").map((m) => m.tau.id)).toEqual(["lao"]);
+    expect(locMucTieu(ds, "gan").map((m) => m.tau.id)).toEqual(["lao"]);
     expect(locMucTieu(ds, "ca").map((m) => m.tau.id)).toEqual(["lao"]);
     expect(locMucTieu(ds, "tat")).toHaveLength(2);
   });
@@ -107,5 +107,32 @@ describe("ais-cpa — quét quanh tàu mình", () => {
     expect(tcpaLabel(-3)).toBe("đã qua");
     expect(tcpaLabel(12.4)).toBe("12 phút");
     expect(tcpaLabel(65)).toBe("1 giờ 05");
+  });
+});
+
+describe("ais-cpa — câu cho bà con", () => {
+  const minh = { pos: GOC, speedKmh: 0, headingDeg: null };
+  it("tóm tắt nguy cơ: nguy / cảnh / an / chưa GPS", () => {
+    const nguy = quetQuanh(ban([tau({ id: "a", x: 0, y: 1, kn: 12, huong: 180 })]), minh, 6, NOW);
+    expect(tomTatNguyCo(nguy, true, 6)).toEqual({ muc: "nguy", cau: "1 tàu có thể đi sát dưới nửa hải lý (930 m) trong 20 phút tới" });
+    const canh = quetQuanh(ban([tau({ id: "b", x: 1, y: 4, kn: 10, huong: 180 })]), minh, 6, NOW);
+    expect(tomTatNguyCo(canh, true, 6).muc).toBe("canh");
+    expect(tomTatNguyCo([], true, 6)).toEqual({ muc: "an", cau: "Không có tàu nào đang tới gần · không thấy tàu nào trong 6 hải lý" });
+    expect(tomTatNguyCo(nguy, false, 6).muc).toBe("chua-gps");
+  });
+  it("hướng chữ + quãng ngắn", () => {
+    expect(huongChu(0)).toBe("Bắc");
+    expect(huongChu(44)).toBe("Đông Bắc");
+    expect(huongChu(359)).toBe("Bắc");
+    expect(quangNgan(0.14)).toBe("260 m");
+    expect(quangNgan(0.001)).toBe("10 m");
+    expect(quangNgan(2)).toBe("3,7 km");
+  });
+  it("dòng phụ: tàu tới gần nói đi sát bao nhiêu sau bao lâu, còn lại nói cách bao xa phía nào", () => {
+    const [lao] = quetQuanh(ban([tau({ id: "a", x: 0, y: 1, kn: 12, huong: 180 })]), minh, 6, NOW);
+    expect(dongPhuTau(lao, true)).toBe("Đi sát 10 m sau 5 phút");
+    expect(dongPhuTau(lao, false)).toBe("Cách 1,0 hải lý · phía Bắc");
+    const [dung] = quetQuanh(ban([tau({ id: "d", x: 2, y: 0 })]), minh, 6, NOW);
+    expect(dongPhuTau(dung, true)).toBe("Cách 2,0 hải lý · phía Đông · đang đứng");
   });
 });
