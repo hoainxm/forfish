@@ -257,6 +257,8 @@ import {
   type ChatDayInfo, type LegInfo, type DenInfo, type DepthInfo, type DiaDanhInfo, type KhuTruBaoInfo, type LaneInfo, type MarkInfo,
   type ReefInfo, type StormPtInfo, type VungInfo, type XacTauInfo, type TauAisInfo, TheTauAis,
 } from "@/components/ban-do/the-thong-tin";
+import { CheDoAis } from "@/components/ban-do/che-do-ais";
+import type { TauMinh } from "@/lib/ais-cpa";
 import { kepTheTrongKhung } from "@/components/ban-do/kep-the";
 import { BangChuGiai, SEAMARK_HIT_LAYERS, CLUSTER_HIT_LAYERS, SEAMARK_FAR, SEAMARK_MID, SEAMARK_AN, SEAMARK_ICON_LAYOUT, KHONG_PHAI_CUM, cumLayers, type LegendRow } from "@/components/ban-do/hai-do";
 import {
@@ -770,6 +772,9 @@ export default function FishingMapView() {
   const [aisTuKho, setAisTuKho] = useState(false);
   const [aisState, setAisState] = useState<"idle" | "loading" | "error" | "ok">("idle");
   const [aisRetry, setAisRetry] = useState(0);
+  /*  CHẾ ĐỘ AIS (radar + CPA/TCPA, 2026-10-29) — màn phủ, cùng cổng xem trước với lớp; mở là bật luôn lớp
+      để dùng chung một vòng tải bản (không tải thêm request nào). */
+  const [aisRadar, setAisRadar] = useState(false);
   const aisGeo = useMemo(() => (aisOn && aisBan ? tauGeoJson(aisBan) : null), [aisOn, aisBan]);
   // xem trước nội bộ: chỉ tài khoản trong danh sách mới thấy nút + được tải lưới
   const { phone: authPhone } = useAuthUser();
@@ -3181,6 +3186,11 @@ export default function FishingMapView() {
   const tracking = useNavTracking(navMode != null || cruise || gpsOn, {
     keepAwake: navMode != null || cruise,
   });
+  /** tàu mình cho radar AIS — null khi chưa có fix (radar lấy điểm đang xem làm tâm và nói rõ) */
+  const aisGps = useMemo<TauMinh | null>(
+    () => (tracking.pos && tracking.status !== "denied" ? { pos: tracking.pos, speedKmh: tracking.speedKmh, headingDeg: tracking.headingDeg } : null),
+    [tracking.pos, tracking.status, tracking.speedKmh, tracking.headingDeg],
+  );
   /*  Vị trí mới nhất giữ trong ref: `goToMyBoat` cần đọc nó mà KHÔNG được nhận
       `tracking.pos` làm dep — fix về mỗi 1–2 giây, dựng lại callback từng nhịp
       thì rail nút + ô toạ độ re-render theo nhịp GPS cho không việc gì. */
@@ -7667,6 +7677,24 @@ export default function FishingMapView() {
            thông báo để tra ngược. KHÔNG tự tắt. */}
       {xacTauInfo && <TheXacTau info={xacTauInfo} onClose={() => setXacTauInfo(null)} prefs={prefs} />}
       {tauAisInfo && <TheTauAis info={tauAisInfo} onClose={() => setTauAisInfo(null)} prefs={prefs} now={nowMs} />}
+      {aisRadar && fleetAllowed && (
+        <CheDoAis
+          ban={aisBan}
+          state={aisState}
+          tuKho={aisTuKho}
+          gps={aisGps}
+          diemXem={point}
+          prefs={prefs}
+          onRetry={() => setAisRetry((n) => n + 1)}
+          onDinhVi={goToMyBoat}
+          onHaiDo={(m) => {
+            setAisRadar(false);
+            setSize("peek");
+            flyToPoint(m.pos.lon, m.pos.lat, 11);
+          }}
+          onClose={() => setAisRadar(false)}
+        />
+      )}
 
       {/*  ĐÈN NÀO ĐÂY (2026-09-02).
 
@@ -8199,6 +8227,10 @@ export default function FishingMapView() {
             aisLuc={aisBan?.luc ?? null}
             aisTuKho={aisTuKho}
             onAisRetry={() => setAisRetry((n) => n + 1)}
+            onAisRadar={() => {
+              setAisOn(true);
+              setAisRadar(true);
+            }}
             stormInfo={stormInfo}
             showPlaces={showPlaces}
             onShowPlaces={setShowPlaces}

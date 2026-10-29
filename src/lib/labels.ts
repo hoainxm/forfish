@@ -137,6 +137,15 @@ export const NHAN = {
   // rà FB lô 2 (2026-10-25) — nhãn các khu xin thêm
   cang: "Cảng",
   toaDo: "Toạ độ",
+  // Radar AIS (2026-10-29) — chế độ AIS: radar + CPA/TCPA, chip lọc, nút về hải đồ
+  radarAis: "Radar AIS",
+  haiDo: "Hải đồ",
+  boChon: "Bỏ chọn",
+  dinhVi: "Định vị",
+  tatCa: "Tất cả",
+  nguyHiem: "Nguy hiểm",
+  canhBao: "Cảnh báo",
+  tauCa: "Tàu cá",
   datMon: "Đặt món",
   khongXoa: "Không xoá",
   khac: "Khác",
