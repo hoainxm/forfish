@@ -483,6 +483,7 @@ import {
   StarIcon,
 } from "@/components/icons";
 import { Popover } from "@/components/ui/popover";
+import { khungOTrongVung, locOTrongVung } from "@/lib/vung-bien-vn";
 import { registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
 import { registerDataProtocol } from "@/lib/data-protocol";
 
@@ -4804,7 +4805,8 @@ export default function FishingMapView() {
     // v2: quy điểm mùa vụ về ĐÚNG thang bản đồ ngày (phân vị) rồi pha trên HỢP
     // hai tập ô — bản v1 chỉ chạy trên danh sách ô của ảnh nên mùa vụ chỉ biết
     // kéo xuống, KHÔNG bao giờ đẻ được vị trí mới (đo: 0 ô mới ở mọi tầm).
-    const cells = blendFishCells(fishCast.cells, clim, month, fishLead);
+    // pha mùa vụ ĐẺ được ô mới (bản đồ mùa phủ cả Biển Đông) ⇒ lọc lại theo vùng biển VN
+    const cells = locOTrongVung(blendFishCells(fishCast.cells, clim, month, fishLead));
     return { ...fishCast, cells };
   }, [fishCast, clim, fishLead, sel?.date, todayIso]);
 
@@ -4822,26 +4824,28 @@ export default function FishingMapView() {
       const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
       if (v < lo) continue;
       const r = Math.round(v);
-      const x0 = c.lon - h;
-      const x1 = c.lon + h;
-      const y0 = c.lat - h;
-      const y1 = c.lat + h;
-      features.push({
-        type: "Feature",
-        properties: { s: r },
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [x0, y0],
-              [x1, y0],
-              [x1, y1],
-              [x0, y1],
-              [x0, y0],
+      // cắt theo vùng biển VN: ô vắt qua biên chỉ tô phần bên trong (lib/vung-bien-vn, 2026-10-29)
+      const khung = khungOTrongVung(c.lat, c.lon, h);
+      // ô bị cắt thành mảnh ⇒ đánh dấu `m` để lớp viền bỏ qua (không thì viền trắng thành lưới mịn)
+      const cat = khung.length !== 1 || khung[0][2] - khung[0][0] < 2 * h - 1e-9;
+      for (const [x0, y0, x1, y1] of khung) {
+        features.push({
+          type: "Feature",
+          properties: cat ? { s: r, m: 1 } : { s: r },
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [x0, y0],
+                [x1, y0],
+                [x1, y1],
+                [x0, y1],
+                [x0, y0],
+              ],
             ],
-          ],
-        },
-      });
+          },
+        });
+      }
     }
     return { type: "FeatureCollection", features };
   }, [fishOn, fishView, fishSpecies, fishGridStep, anyExclusiveOverlay]);
@@ -6246,6 +6250,7 @@ export default function FishingMapView() {
             <Layer
               id="fish-grid-line"
               type="line"
+              filter={["!", ["has", "m"]]}
               paint={{
                 // viền ô trắng mảnh — tách ô rõ như lưới bản tin ngư trường
                 "line-color": "#ffffff",
