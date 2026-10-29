@@ -5,6 +5,7 @@
 covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs, scripts/dl-collect.mjs, scripts/dl-build-labels.mjs, scripts/dl-eval.mjs, scripts/dl-fit-profiles.mjs, scripts/build-fleet-effort-grid.mjs, scripts/build-species-catch-grid.mjs, scripts/dl-eval-fleet.mjs, scripts/dl-adapt-local.mjs, scripts/train/run.mjs, scripts/lib/data-dir.mjs
 last_verified: 2026-10-29
 <!-- re-verified: 2026-10-29 — đọc lại `scripts/lib/data-dir.mjs` (hai hàm `dataDir`/`datalakeRoot`) + chỗ gọi ở `train/run.mjs`, `dl-adapt-local.mjs`, `scripts/dong-dan/*`: khớp §9.z; bổ sung — runner tự lấy mặc định `~/forlife/sdvico-data/data-local/datalake-iuu` khi thiếu `--src`/env (dl-adapt-local chạy lẻ thì vẫn bắt buộc), `~` đầu chuỗi trong env được nở thành thư mục nhà, và chuỗi `scripts/dong-dan/*` cũng dùng chung biến này. -->
+<!-- re-verified: 2026-10-29 — các script trong covers còn đủ cờ doc nhắc (`--gear-map`, `--threshold`, `--perm`, `--radius`, `--min-hours`, `--seed`, `--selftest`, `--trust`, `--species`, `--payloads`); `scripts/lib/data-dir.mjs` vẫn đọc `SDFISH_DATA_DIR` (mặc định ~/sdfish-data) + `SDVICO_DATALAKE_ROOT`, khớp doc. -->
 ttl_days: 180
 gate: warn
 

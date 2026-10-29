@@ -5,6 +5,7 @@
 covers: scripts/forecast-backtest.mjs, src/data/forecast-skill.json, src/lib/forecast-skill.ts, src/lib/sea-actual.ts
 last_verified: 2026-10-29
 <!-- re-verified: 2026-10-29 — đọc `lib/sea-actual.ts` + phần `actual` của `/api/collect/archive`: khớp §8 (đường dẫn kho, 4 trường, ngày GMT); bổ sung cửa sổ [hôm nay−9, hôm nay−5], 15 s/request, cảng hỏng ⇒ null, ngày rỗng không ghi. Sửa §2: ERA5 archive trễ ~5 ngày, không phải "tới ~hôm nay". Đọc `lib/forecast-skill.ts` (đổi 2026-09-16): bảng không còn nhúng vào bundle mà qua `model-params.v1.json` ⇒ §6 thêm bước chạy `build-model-params.mjs` sau khi đo lại. Không chạy lại backtest. -->
+<!-- re-verified: 2026-10-29 — đối chiếu `forecast-skill.json` (sampleSize 2394; lead 1 gió MAE 3,04, conf 0,747; lead 15 MAE 8,05, conf 0,329; sóng null từ lead 7), `forecast-backtest.mjs` (cửa sổ −51…−18 bước 3, timeout 20 s, Single Runs + gwam, MAE_REF_WIND 12) và `sea-actual.ts` (ERA5 trễ 5 ngày, cửa sổ 5 ngày, timeout 15 s, 4 trường `PortActual`) — khớp §2–§8. Ghi thêm: app đọc bảng qua `lib/model-params` (file SDF2 `/data/model-params.v1.json`), không nhúng bundle từ 2026-09-16 ⇒ chạy lại backtest thì phải chạy `scripts/build-model-params.mjs`. -->
 ttl_days: 90
 gate: warn
 
@@ -61,6 +62,7 @@ confidence[L] = clamp( 1 − windMae[L] / MAE_REF_WIND , 0, 1 )      MAE_REF_WIN
 
 ## 5. Cách agent chính tích hợp
 
+- **Đường nạp bảng** (từ 2026-09-16): app KHÔNG import `forecast-skill.json` nữa — `scripts/build-model-params.mjs` gộp vào `public/data/model-params.v1.json` (SDF2), `lib/forecast-skill.ts loadForecastSkill()` đọc qua `lib/model-params`; chưa nạp ⇒ `null` ⇒ không hạ độ tin thêm. Chạy lại backtest xong PHẢI chạy lại script đó (cổng `model-params.test.ts`).
 - **Hiệu chỉnh bias**: điều chỉnh `windMax` (và `waveMax` cho lead ≤6) trước khi chấm điểm, ví dụ `windCorrected = windForecast − windBias[L]` (bù xu hướng thổi to/nhỏ). Chỉ áp khi `n` đủ lớn.
 - **Nhãn độ tin**: map `confidence[L]` → chip TRUNG THỰC ("tin cao / vừa / tham khảo"). KHÔNG che đi độ bất định — con số thấp ở lead xa là thông điệp, không phải lỗi.
 - Với sóng lead ≥7 (`waveMae = null`): dựa vào `confidence` (nền gió) và ghi rõ "sóng xa ngày không đo được độ chính xác".

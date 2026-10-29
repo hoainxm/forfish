@@ -25,6 +25,7 @@ import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
 import { DENSITY_GEARS, FLEET_FORECAST_DAYS, addDaysIso, type DensityGear } from "@/lib/fleet-density";
 import { MAU_TAU } from "@/lib/tau-ais";
+import { NHAN } from "@/lib/labels";
 import type { FeatureAccess } from "@/lib/tier";
 import { PremiumLock } from "@/components/premium-gate";
 import { type StormStatus } from "@/lib/storms";
@@ -145,6 +146,8 @@ export function RaKhoiControls({
   aisLuc,
   aisTuKho,
   onAisRetry,
+  aisMode,
+  onAisMode,
   stormInfo,
   showPlaces,
   onShowPlaces,
@@ -278,6 +281,10 @@ export function RaKhoiControls({
   aisLuc: string | null;
   aisTuKho: boolean;
   onAisRetry: () => void;
+  /** CHẾ ĐỘ AIS (2026-10-29) đang bật — nút AIS trên rail sáng */
+  aisMode: boolean;
+  /** vào/thoát chế độ AIS — nút rail chỉ hiện với acc xem trước (`fleetAllowed`) */
+  onAisMode: () => void;
   /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
       rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
   stormInfo: StormStatus;
@@ -671,6 +678,26 @@ export function RaKhoiControls({
           variant="fab"
         />
         </div>
+        {/*  CHẾ ĐỘ AIS (anh Long 29/10: "tách ais/radar 1 chế độ riêng") — ô thứ ba CHỈ cho acc xem trước
+             (`fleetAllowed`), người khác rail vẫn hai ô như luật 2026-10-19. Ẩn khi đang dẫn đường. */}
+        {fleetAllowed && !routeOn && (
+          <RailBtn
+            active={aisMode}
+            aria-pressed={aisMode}
+            aria-label={aisMode ? "Thoát chế độ AIS" : "Chế độ AIS — tàu quanh mình hoặc toàn biển"}
+            onClick={() => {
+              setMore(false);
+              setCoordOpen(false);
+              setPlacesOpen(false);
+              setOpen(null);
+              setCollapsed(true);
+              onAisMode();
+            }}
+            icon={RadarIcon}
+            label={NHAN.ais}
+            variant="fab"
+          />
+        )}
         {/*  ĐANG CHẠY (không tuyến): KHÔNG còn ô "Đang chạy" trên rail — HUD trên
              cùng đã có tiêu đề "Đang chạy" + nút Dừng (tối ưu bố cục bản đồ,
              anh Long 2026-10-19: một việc một chỗ, bớt icon che bản đồ). Rail
