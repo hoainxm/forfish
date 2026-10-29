@@ -5,7 +5,8 @@
 // GET /api/tau-ais. Gói: { luc: iso, tau: [{ id, ten, loai, co, lat, lon, kn, huong, mui, phut, dai, dich }] }.
 // THÂN NÉN (2026-10-29, vùng quét cả Biển Đông ~25–30 nghìn tàu): Vercel chặn thân request > 4,5 MB ⇒ máy thu gửi
 // `content-encoding: gzip`; ở đây tự giải (vẫn nhận thân thường cho máy thu đời cũ). Trần sau giải nén 40 MB.
-import { kiemGoi } from "@/lib/tau-ais/chuan-hoa.mjs";
+import { kiemGoi, thamSoVet } from "@/lib/tau-ais/chuan-hoa.mjs";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { tauAisKeyDenied } from "@/lib/tau-ais/khoa";
 import { TAU_AIS_SNAPSHOT_ID } from "@/lib/tau-ais";
 import { saveWeatherSnapshot } from "@/lib/weather-snapshot";
@@ -26,7 +27,7 @@ async function docThan(req: Request): Promise<unknown> {
 }
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 15;
+export const maxDuration = 30;
 
 export async function POST(req: Request) {
   const denied = await tauAisKeyDenied(req);
@@ -36,5 +37,15 @@ export async function POST(req: Request) {
   if (!r.ok || !r.ban) return Response.json({ ok: false, code: r.code ?? "bad_body" }, { status: 400 });
   const saved = await saveWeatherSnapshot(TAU_AIS_SNAPSHOT_ID, r.ban);
   if (!saved) return Response.json({ ok: false, code: "store_down" }, { status: 503 });
-  return Response.json({ ok: true, soTau: r.ban.soTau, luc: r.ban.luc });
+  /*  LỘ TRÌNH 7 NGÀY (2026-10-29, bảng tau_ais_vet): ghi một điểm/tàu/giờ — hàm SQL tự bỏ qua khi giờ này đã ghi
+      (máy thu gửi ~10 phút/lần), tự xoá ngày cũ hơn 7 ngày. Hỏng thì chỉ log: bản vị trí hiện tại đã lưu ở trên. */
+  const tsv = thamSoVet(r.ban);
+  const admin = tsv ? createAdminClient() : null;
+  let vet: number | null = null;
+  if (admin && tsv) {
+    const { data, error } = await admin.rpc("ghi_vet_ais", tsv);
+    if (error) console.error("[tàu AIS] ghi lộ trình hỏng:", error.message);
+    else vet = typeof data === "number" ? data : null;
+  }
+  return Response.json({ ok: true, soTau: r.ban.soTau, luc: r.ban.luc, vet });
 }

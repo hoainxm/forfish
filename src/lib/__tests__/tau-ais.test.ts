@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chuanHoaHang, danhSachO, gopTau, khoaGioLuu, kiemGoi, oTile, rutId, VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
+import { chuanHoaHang, danhSachO, gopTau, khoaGioLuu, kiemGoi, thamSoVet, oTile, rutId, VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { danhSachSdtHopLe, docDanhSachSdt, duocXemAis } from "@/lib/tau-ais/quyen";
 import { validateConfigValue } from "@/lib/app-config-keys";
 import { chuanTen, demTheoNhom, moTaTau, timTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
@@ -136,5 +136,15 @@ describe("tàu AIS — kho vĩnh viễn ở máy thu", () => {
     // 17:05 UTC = 00:05 hôm sau giờ VN ⇒ tệp ngày mới
     expect(khoaGioLuu("2026-10-29T17:05:00.000Z")).toEqual({ gio: "2026-10-30T00", tep: "2026-10/2026-10-30.ndjson.gz" });
     expect(khoaGioLuu("hỏng")).toBeNull();
+  });
+});
+
+describe("tàu AIS — lộ trình 7 ngày ở máy chủ", () => {
+  it("mốc giờ làm tròn xuống đầu giờ; mỗi tàu [id, lat, lon, kn, hướng mũi trước]", () => {
+    const t = chuanHoaHang(HANG)!;
+    const r = thamSoVet({ luc: "2026-10-29T10:47:12.000Z", tau: [t, { ...t, id: "b", mui: null, huong: 200, kn: null }] });
+    expect(r?.p_gio).toBe(Date.parse("2026-10-29T10:00:00.000Z") / 1000);
+    expect(r?.p_ds).toEqual([[t.id, t.lat, t.lon, t.kn, 111], ["b", t.lat, t.lon, null, 200]]);
+    expect(thamSoVet({ luc: "x", tau: [] })).toBeNull();
   });
 });

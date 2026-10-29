@@ -149,3 +149,15 @@ export function khoaGioLuu(luc) {
   const ngay = vn.slice(0, 10);
   return { gio: vn.slice(0, 13), tep: `${ngay.slice(0, 7)}/${ngay}.ndjson.gz` };
 }
+
+/**
+ * LỘ TRÌNH 7 NGÀY Ở MÁY CHỦ (bảng tau_ais_vet, migration 0076): một bản ⇒ tham số hàm `ghi_vet_ais` — mốc GIỜ (epoch
+ * giây làm tròn xuống đầu giờ) + [[id, lat, lon, kn, hướng]]. Hướng lấy mũi trước, hướng đi sau (như icon). Thuần.
+ */
+export function thamSoVet(ban) {
+  const t = Date.parse(ban?.luc);
+  if (!Number.isFinite(t) || !Array.isArray(ban?.tau)) return null;
+  const p_gio = Math.floor(t / 3600_000) * 3600;
+  const p_ds = ban.tau.map((x) => [x.id, x.lat, x.lon, x.kn ?? null, x.mui ?? x.huong ?? null]);
+  return { p_gio, p_ds };
+}
