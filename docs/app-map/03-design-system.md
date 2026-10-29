@@ -6,6 +6,7 @@
 
 covers: src/app/globals.css
 last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29 — FONT: Archivo bỏ độ đậm 800 (không chỗ nào dùng; 600/700 giữ), Jakarta giữ 400/500/600/700 (đều có dùng). Không đổi cỡ chữ, không đổi độ đậm hiển thị. Ghi luật "độ đậm nạp = độ đậm dùng" ở §3. -->
 <!-- re-verified: 2026-10-29 — doc-health báo symbol chết: ghi chú 2026-08-29 nhắc hàm cổng phiên bản iOS đã gỡ (e3682838) ⇒ viết lại thành chữ thường, không còn dạng gọi hàm. Đối chiếu `viewport-gap-fix.tsx` hiện tại: vẫn đúng luật "chỉ cho lớn lên rồi khoá" (`measured <= stableBottom → return`, trần `screen.height`, lưu `forfish.pwa-frame.<rộng>x<cao>`). `globals.css` không có commit nào từ 26/10 ⇒ token/§0 giữ nguyên. -->
 <!-- re-verified: 2026-10-29 — `globals.css` không đổi sau 2026-10-26. Sửa chỗ nhắc hàm cổng phiên bản iOS cũ (đã xoá khỏi code) ở ghi chú 2026-08-29 thành lời thường để khỏi bị đọc là symbol sống; `viewport-gap-fix` hiện chỉ chạy trên iOS (8641b52), đúng như ghi chú dock 07 2026-10-27. -->
 <!-- re-verified: 2026-10-27 — CỔNG cho luật cuộn lớp nổi (§6 mục 9, bản base eabd7197): `popover-cuon.test.ts` — cuộn của chính Popover không kích đo lại; đo lại (đổi cỡ/cuộn trang) giữ nguyên scrollTop dù gỡ maxHeight. Đỏ với popover trước sửa. Vuốt chạm thật 360×740 trên bản base: 0 → cuộn được tới cuối. -->
@@ -280,6 +281,7 @@ Chip món của admin dùng lại đúng ba cặp trên: "Đã gỡ" = danger, "
 - **Archivo** — display/heading: đậm chắc, đáng tin, kiểu "thiết bị hàng hải" (đã thay Baloo 2 ngày 2026-06-10 — feedback: tròn trịa quá thành trẻ con)
 - **Plus Jakarta Sans** — body (thay Be Vietnam Pro 2026-06-11, user: "dùng loại international hơn"): geometric-humanist kiểu app toàn cầu, subset `vietnamese` đầy đủ dấu. Ngoại lệ FONT hợp lệ theo ui-design-logic vì user chỉ đích danh 2026-06-11.
 - Cỡ theo §0; không dùng font-weight mảnh (light/thin); **ít chữ đậm** — đậm chỉ cho tiêu đề, tên đối tượng và con số quan trọng; nhãn nút 600, meta 500 thường.
+- **Độ đậm nạp = độ đậm code dùng** (soát 2026-10-29, `app/layout.tsx`): Archivo **600 · 700**, Plus Jakarta Sans **400 · 500 · 600 · 700** (font-normal 11 chỗ, font-medium 15, font-semibold ~1 170, font-bold ~245; **800 không chỗ nào dùng ⇒ bỏ**). Cả hai là font biến thiên — mọi độ đậm trỏ CÙNG một file woff2 mỗi bộ chữ, nên bớt độ đậm KHÔNG bớt byte tải (chỉ bớt `@font-face` thừa); muốn bớt byte phải bớt họ chữ hoặc bộ chữ. Dùng độ đậm mới (vd `font-extrabold`) thì THÊM vào `weight` của họ đó cùng commit, không thì trình duyệt lấy độ đậm gần nhất và chữ hiển thị khác ý.
 
 ### Type ramp — nguồn duy nhất của cỡ chữ arbitrary (chốt 2026-08-13; cập nhật theo thang Codex 2026-10-19)
 

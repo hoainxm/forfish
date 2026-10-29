@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+/** nạp tts + danh mục mảnh (nạp động từ 2026-10-29) — như lúc app đã nạp xong */
+async function napTts() {
+  const t = await import("@/lib/voice/tts");
+  await t.napManhGiong();
+  return t;
+}
+
 /*
   Lớp giọng đọc (lib/voice/tts.ts) — nhánh TRÌNH DUYỆT (jsdom = không phải
   native). Luật sống còn: máy KHÔNG có giọng Việt thì IM, tuyệt đối không đọc
@@ -54,7 +61,7 @@ describe("tts — nhánh trình duyệt", () => {
 
   it("không có giọng Việt: KHÔNG đọc giọng máy (kể cả có giọng Anh), onEnd gọi đúng 1 lần", async () => {
     const { spoken } = installSynth([{ lang: "en-US", localService: true, name: "Samantha" }]);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const check = tts.ttsCheck();
     await vi.advanceTimersByTimeAsync(2000);
     // từ 2026-10-18 `ok` tính cả mp3 Mỹ Duyên — ở đây chỉ khẳng định KHÔNG có giọng máy
@@ -72,7 +79,7 @@ describe("tts — nhánh trình duyệt", () => {
       { lang: "vi-VN", localService: false, name: "Google tiếng Việt" },
       { lang: "vi_VN", localService: true, name: "Linh" },
     ]);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     expect((await tts.ttsCheck()).ok).toBe(true);
     const onEnd = vi.fn();
     tts.ttsSpeak("Phía trước có xác tàu.", { onEnd });
@@ -88,7 +95,7 @@ describe("tts — nhánh trình duyệt", () => {
   it("engine im (không onstart; chỉ một giọng thì chờ 4 s): bỏ câu, onEnd vẫn gọi — hàng đợi không kẹt", async () => {
     const { synth } = installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
     synth.speak = () => {}; // không bao giờ phát
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const onEnd = vi.fn();
     tts.ttsSpeak("Còn chừng 6 hải lý tới ranh giới.", { onEnd });
     await vi.advanceTimersByTimeAsync(1600);
@@ -99,7 +106,7 @@ describe("tts — nhánh trình duyệt", () => {
 
   it("huỷ giữa chừng: onEnd đúng 1 lần dù engine còn bắn onend sau", async () => {
     installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const onEnd = vi.fn();
     const cancel = tts.ttsSpeak("Mất định vị. Máy đang tìm lại.", { onEnd });
     await vi.advanceTimersByTimeAsync(20);
@@ -111,7 +118,7 @@ describe("tts — nhánh trình duyệt", () => {
   it("không có Web Speech (Android WebView): không có giọng máy, vẫn đọc được bằng mp3; không ném", async () => {
     Object.defineProperty(window, "speechSynthesis", { value: undefined, configurable: true });
     delete (window as unknown as Record<string, unknown>).speechSynthesis;
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const a = await tts.ttsCheck();
     expect(a).toMatchObject({ giongMay: false, native: false, canInstall: false });
     expect(a.ok).toBe(typeof Audio !== "undefined");

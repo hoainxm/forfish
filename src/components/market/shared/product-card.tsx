@@ -7,6 +7,7 @@ import {
 } from "@/components/icons";
 import { CATEGORY_ICON } from "@/lib/market/categories";
 import { discountPercent } from "@/lib/market/pricing";
+import { anhNho, luiAnhGoc } from "@/lib/anh-nho";
 import { tenTinhGon } from "@/lib/region";
 import type { ProductCard, ProductCategory } from "@/lib/market/types";
 import { PriceText } from "./price-text";
@@ -66,11 +67,12 @@ export function MarketProductCard({
           {image && !imgBroken ? (
             // eslint-disable-next-line @next/next/no-img-element -- ảnh sàn: bucket public Supabase / data-URI seed, không qua optimizer (băng thông có đo đếm)
             <img
-              src={image}
+              src={anhNho(image)}
               alt={product.title}
               loading="lazy"
+              decoding="async"
               className="absolute inset-0 h-full w-full object-contain p-3"
-              onError={() => setImgBroken(true)}
+              onError={(e) => luiAnhGoc(e.currentTarget, image) || setImgBroken(true)}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-foreground/40">
