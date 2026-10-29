@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { EMPTY_NUDGE } from "@/lib/install-nudge";
-import { CHUONG_NUDGE_GAP_MS, chonKhoiTang5, nenNhacChuong, type TrangThaiTang5 } from "@/lib/tang-5";
+import { CHUONG_NUDGE_GAP_MS, chonKhoiTang5, nenNhacChuong, pushTatSom, type TrangThaiTang5 } from "@/lib/tang-5";
 
 const NOW = 1_800_000_000_000;
 const NGAY = 24 * 3600000;
@@ -34,8 +34,12 @@ describe("chonKhoiTang5 — một khối, ưu tiên cố định", () => {
   it("máy không hỗ trợ push (iPhone chưa cài PWA) ⇒ Cài app tự lên thay", () => {
     expect(chonKhoiTang5(tt({ pushHoTro: false }))).toBe("cai-app");
   });
-  it("chưa tra xong push (unknown) ⇒ không nhắc chuông vội", () => {
-    expect(chonKhoiTang5(tt({ pushState: "unknown" }))).toBe("cai-app");
+  it("chưa tra xong push (unknown) ⇒ không nhắc chuông vội, cũng không vẽ Cài app tạm rồi đổi (CLS)", () => {
+    expect(chonKhoiTang5(tt({ pushState: "unknown" }))).toBeNull();
+    // chuông đã hoãn ⇒ không còn gì để chờ, Cài app lên ngay
+    const hoan = { ...EMPTY_NUDGE, count: 1, lastAt: NOW - 10 * NGAY, snoozeUntil: NOW + NGAY };
+    expect(chonKhoiTang5(tt({ pushState: "unknown", chuongNudge: hoan }))).toBe("cai-app");
+    expect(chonKhoiTang5(tt({ pushState: "unknown", pushHoTro: false }))).toBe("cai-app");
   });
   it("chuông đã Ẩn (hoãn) ⇒ cài app; hết hạn hoãn ⇒ chuông lại", () => {
     const hoan = { ...EMPTY_NUDGE, count: 1, lastAt: NOW - 10 * NGAY, snoozeUntil: NOW + NGAY };
@@ -59,5 +63,14 @@ describe("nenNhacChuong — ≤3 lần, cách ≥7 ngày", () => {
   it("đủ 3 lần ⇒ im hẳn; dismissed ⇒ im hẳn", () => {
     expect(nenNhacChuong({ ...EMPTY_NUDGE, count: 3, lastAt: NOW - 30 * NGAY }, NOW)).toBe(false);
     expect(nenNhacChuong({ ...EMPTY_NUDGE, dismissed: true }, NOW)).toBe(false);
+  });
+});
+
+describe("pushTatSom — biết sớm push tắt, khỏi chờ service worker", () => {
+  it("quyền chưa cấp / bị chặn / không có Notification ⇒ off; đã cấp ⇒ phải tra thật", () => {
+    expect(pushTatSom("default")).toBe("off");
+    expect(pushTatSom("denied")).toBe("off");
+    expect(pushTatSom(undefined)).toBe("off");
+    expect(pushTatSom("granted")).toBeNull();
   });
 });

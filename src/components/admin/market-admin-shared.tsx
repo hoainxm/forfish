@@ -117,14 +117,14 @@ export function FilterChip({
 
 export function LoadingBox({ what }: { what: string }) {
   return (
-    <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+    <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
       Đang tải {what}…
     </p>
   );
 }
 
 export function EmptyBox({ text }: { text: string }) {
-  return <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">{text}</p>;
+  return <p className="surface px-4 py-8 text-center text-[1rem] text-muted">{text}</p>;
 }
 
 export function ErrorBox({ text, onRetry }: { text: string; onRetry: () => void }) {

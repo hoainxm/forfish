@@ -207,7 +207,7 @@ export default function QuanTriPage() {
             <h1 className="display text-[1.5rem] font-bold leading-tight text-navy md:text-[1.75rem]">
               SDFish Quản trị
             </h1>
-            <p className="mt-0.5 truncate text-[0.9375rem] text-foreground/65">
+            <p className="mt-0.5 truncate text-[0.9375rem] text-muted">
               {isAdmin
                 ? "Quản trị viên · toàn quyền"
                 : `Quản lý · ${me.phone}`}
@@ -390,7 +390,7 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
           <h1 className="display text-[1.5rem] font-bold leading-tight text-navy">
             SDFish Quản trị
           </h1>
-          <p className="mt-0.5 text-[0.9375rem] text-foreground/65">
+          <p className="mt-0.5 text-[0.9375rem] text-muted">
             Dành cho nhân viên SDVICO
           </p>
         </div>

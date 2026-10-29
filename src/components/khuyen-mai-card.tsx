@@ -92,7 +92,7 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
                   <span className="text-muted line-through">{tienVn(k.giaThiTruong)}</span>{" "}
                   <span className="font-semibold text-t3">{tienVn(k.giaApp)}</span>
                 </p>
-                <p className="mt-0.5 truncate text-[0.875rem] text-foreground/65">
+                <p className="mt-0.5 truncate text-[0.875rem] text-muted">
                   {xong ? "Đã đăng ký · SDVICO sẽ gọi lại" : k.moTa}
                 </p>
               </div>

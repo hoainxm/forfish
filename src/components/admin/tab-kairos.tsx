@@ -281,7 +281,7 @@ function ReportsSection({ perms }: { perms: TabPerms }) {
           <FilterChip key={v} label={l} active={status === v} onClick={() => setStatus(v)} />
         ))}
       </div>
-      <p className="text-[0.8125rem] leading-snug text-foreground/65">
+      <p className="text-[0.8125rem] leading-snug text-muted">
         Gỡ trong 48 giờ kể từ khi bị báo (NĐ 147/2024). Từ 5 người báo trở lên, bài tự ẩn chờ người trực.
       </p>
       {actErr && <p className="text-[0.875rem] font-semibold text-danger">{actErr}</p>}
@@ -392,7 +392,7 @@ function QueueSection({ perms }: { perms: TabPerms }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-[0.8125rem] leading-snug text-foreground/65">
+      <p className="text-[0.8125rem] leading-snug text-muted">
         Những gì agent kiểm duyệt chặn hoặc còn nghi. Bài báo bị nghi chưa lên dòng tin; bài bà con bị chặn đã tự ẩn và người đăng đã được báo lý do. Người quyết thì agent không đè lại.
       </p>
       {actErr && <p className="text-[0.875rem] font-semibold text-danger">{actErr}</p>}
@@ -714,7 +714,7 @@ function FlagsSection({ flags, sources, lastBaoAt }: { flags: Flag[]; sources: S
           </p>
         ))}
       </div>
-      <p className="text-[0.8125rem] leading-snug text-foreground/65">
+      <p className="text-[0.8125rem] leading-snug text-muted">
         Bài báo bị loại vì gọi sai tên Biển Đông hoặc quần đảo Hoàng Sa, Trường Sa (cột “Cụm trúng” ghi cách gọi sai). Không lên dòng tin — chỉ để xem.
       </p>
       {flags.length === 0 ? (

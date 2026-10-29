@@ -196,7 +196,7 @@ export function ActivityLogTab() {
         <AdminSkeleton label="Đang tải nhật ký…" />
       )}
       {events && events.length === 0 && !error && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+        <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
           Chưa có hoạt động nào được ghi.
         </p>
       )}
@@ -209,7 +209,7 @@ export function ActivityLogTab() {
               : `Hiển thị ${visible.length}/${events.length} hoạt động phù hợp`}
           </p>
           {visible.length === 0 ? (
-            <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+            <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
               Không hoạt động nào khớp bộ lọc.
             </p>
           ) : (

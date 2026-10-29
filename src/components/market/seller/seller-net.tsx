@@ -290,7 +290,7 @@ export function agoLabel(iso: string, now: number = Date.now()): string {
 /** Dòng "đang tải" — KHÔNG bao giờ vẽ null (án lệ màn trắng câm, 11 §5). */
 export function Loading({ what }: { what: string }) {
   return (
-    <p role="status" className="px-4 py-8 text-center text-[1rem] font-semibold text-foreground/65">
+    <p role="status" className="px-4 py-8 text-center text-[1rem] font-semibold text-muted">
       Đang tải {what}…
     </p>
   );

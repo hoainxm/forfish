@@ -130,7 +130,7 @@ export function KhungAnh({
     <button
       type="button"
       onClick={onXem}
-      className={`flex w-full items-center justify-center bg-field text-[0.875rem] font-semibold text-foreground/65 ${className}`}
+      className={`flex w-full items-center justify-center bg-field text-[0.875rem] font-semibold text-muted ${className}`}
     >
       {soAnh > 1
         ? `Mạng yếu — chạm xem ${soAnh} ảnh`

@@ -418,8 +418,17 @@ function vungCam(kho: KhoBanDo, v: ViTri, nowMs: number, unit: SpeechUnit): TraL
   return { say: `${hoaDau(tu(v))} không nằm trong khu bảo tồn hay vùng cấm nào máy có.${them}` };
 }
 
+/**
+ * Câu Sen Biển khi tài khoản chưa mở gói dự báo mà hỏi cá (doc 15 §21, 2026-10-29). Bỏ chữ
+ * "premium" (tên gói hiển thị là TEN_GOI) mà KHÔNG mất giọng Mỹ Duyên: danh mục mảnh không có
+ * âm "gói" / "dự" đứng riêng nên câu "… gói dự báo" sẽ rơi về giọng máy (luật một câu một
+ * giọng) ⇒ ghép từ HAI mảnh khung sẵn có, đều thu nguyên câu. Chỗ khác nói câu này dùng hằng
+ * này, đừng gõ lại. Thu mảnh "gói dự báo" rồi thì mới đổi sang câu có tên gói.
+ */
+export const CAU_CA_CHUA_MO = "Máy chưa có bản đồ cá. Bà con liên hệ SDVICO để mở.";
+
 function ca(q: CauHoi, kho: KhoBanDo, v: ViTri, unit: SpeechUnit): TraLoi {
-  if (kho.ca === "premium") return { say: "Dự báo cá dành cho tài khoản premium. Bà con liên hệ SDVICO để mở." };
+  if (kho.ca === "premium") return { say: CAU_CA_CHUA_MO };
   if (kho.ca === "dang-nhap") return { say: "Bà con đăng nhập để xem dự báo cá." };
   if (!kho.ca?.cells.length) return { say: "Máy chưa có bản đồ cá. Bà con bật lớp cá lúc còn sóng để máy tải về." };
   const sp = q.loaiCa;

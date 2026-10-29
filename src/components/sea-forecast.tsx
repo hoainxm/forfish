@@ -128,7 +128,7 @@ export function SeaForecast() {
       </label>
 
       {loading && (
-        <div className="surface px-4 py-12 text-center text-[1.125rem] text-foreground/65">
+        <div className="surface px-4 py-12 text-center text-[1.125rem] text-muted">
           Đang lấy dự báo sóng gió…
         </div>
       )}
@@ -156,7 +156,7 @@ export function SeaForecast() {
             style={{ backgroundColor: levelColor[today.level].bg }}
           >
             <div className="px-5 pb-4 pt-4 text-center">
-              <p className="text-[0.9375rem] font-semibold text-foreground/65">
+              <p className="text-[0.9375rem] font-semibold text-muted">
                 Điểm đi biển hôm nay
               </p>
               <p

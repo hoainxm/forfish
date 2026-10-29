@@ -38,7 +38,7 @@ export function HomePortSheet({
   }, [q]);
   return (
     <BottomSheet title={title} onClose={onClose}>
-      <p className="mb-3 text-[0.875rem] text-foreground/65">{note}</p>
+      <p className="mb-3 text-[0.875rem] text-muted">{note}</p>
       <input
         type="search"
         value={q}
@@ -57,14 +57,14 @@ export function HomePortSheet({
         </button>
       )}
       {list.length === 0 ? (
-        <p className="py-6 text-center text-foreground/65">Không thấy cảng nào</p>
+        <p className="py-6 text-center text-muted">Không thấy cảng nào</p>
       ) : (
         <ul className="divide-y divide-line">
           {list.map((p) => (
             <li key={p.id}>
               <button type="button" onClick={() => pick.onPick(p.id)} className="flex min-h-12 w-full flex-col items-start justify-center py-2 text-left">
                 <span className="font-semibold text-navy">Cảng {p.name}</span>
-                {p.province && <span className="text-[0.8125rem] text-foreground/65">{p.province}</span>}
+                {p.province && <span className="text-[0.8125rem] text-muted">{p.province}</span>}
               </button>
             </li>
           ))}

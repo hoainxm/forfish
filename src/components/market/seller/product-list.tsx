@@ -337,7 +337,7 @@ function Rows({
                 <span className="mt-0.5 block whitespace-nowrap">
                   <PriceText priceVnd={p.priceVnd} compareAtVnd={p.compareAtVnd} />
                 </span>
-                <span className="mt-0.5 block text-[0.875rem] text-foreground/65">
+                <span className="mt-0.5 block text-[0.875rem] text-muted">
                   Tồn {p.stock} {p.unit} · Đã bán {p.soldCount}
                   {p.status === "an" && " · Đang ẩn"}
                   {p.status === "het_hang" && " · Hết hàng"}

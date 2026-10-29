@@ -19,6 +19,7 @@ import { ShopBadge } from "@/components/market/shared/shop-badge";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ChipRow } from "@/components/ui/chip-row";
 import { CallButton, PrimaryButton } from "@/components/ui/primitives";
+import { SQ_BTN_CTA } from "@/components/ui/sq-btn";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { clockVN } from "@/lib/day-labels";
 import { NHAN } from "@/lib/labels";
@@ -115,7 +116,7 @@ export function ProductDetail({ id }: { id: string }) {
         <div className="aspect-[4/3] w-full animate-pulse rounded-2xl bg-field" />
         <div className="mt-4 h-6 w-3/4 animate-pulse rounded bg-field" />
         <div className="mt-2 h-6 w-1/3 animate-pulse rounded bg-field" />
-        <p className="mt-4 text-[1rem] text-foreground/65">Đang tải món…</p>
+        <p className="mt-4 text-[1rem] text-muted">Đang tải món…</p>
       </div>
     );
   }
@@ -268,7 +269,7 @@ export function ProductDetail({ id }: { id: string }) {
       <div className="px-4 pt-4">
         {/*  Mốc là lúc THẺ được ghi ở danh sách, không phải giờ mở màn. */}
         {stale && peek && (
-          <p className="mb-3 text-[1rem] font-semibold text-foreground/65">
+          <p className="mb-3 text-[1rem] font-semibold text-muted">
             Giá lúc {clockVN(peek.at)} — có sóng sẽ tra lại.
           </p>
         )}
@@ -310,7 +311,7 @@ export function ProductDetail({ id }: { id: string }) {
             </span>
           )}
           {/* "Liên hệ báo giá / bộ" đọc không ra câu — đơn vị chỉ có nghĩa khi có giá. */}
-          {!quoteOnly && <span className="text-[1rem] text-foreground/65">/ {product.unit}</span>}
+          {!quoteOnly && <span className="text-[1rem] text-muted">/ {product.unit}</span>}
         </div>
 
         {/*  F-14: một dòng như Shopee "★ 4.5 (2) · Đã bán 11 · Còn 5". VT-23: ẩn "Đã bán 0"
@@ -332,7 +333,7 @@ export function ProductDetail({ id }: { id: string }) {
           if (!quoteOnly) parts.push(<span key="k">{outOfStock ? "Hết hàng" : product.stock <= 20 ? `Còn ${product.stock} ${product.unit}` : "Còn hàng"}</span>);
           if (parts.length === 0) return null;
           return (
-            <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[1rem] text-foreground/65">
+            <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[1rem] text-muted">
               {parts.map((p, i) => (
                 <span key={i} className="inline-flex items-center gap-x-1.5">
                   {i > 0 && <span aria-hidden>·</span>}
@@ -466,7 +467,7 @@ export function ProductDetail({ id }: { id: string }) {
               )}
             </>
           ) : (
-            <p className="mt-1 text-[1rem] text-foreground/65">Món này chưa có đánh giá nào.</p>
+            <p className="mt-1 text-[1rem] text-muted">Món này chưa có đánh giá nào.</p>
           )}
         </section>
       </div>
@@ -493,10 +494,10 @@ export function ProductDetail({ id }: { id: string }) {
         <CartFeedback note={note} count={cart.count} className="basis-full" />
         {quoteOnly ? (
           shop?.phone ? (
-            <CallButton phone={shop.phone} label="Gọi hỏi giá" className="flex-1" cao="cta" />
+            <CallButton phone={shop.phone} label={NHAN.hoiGia} className="flex-1" cao="cta" />
           ) : (
             <>
-              <Link href={`/cho/shop/${product.shopSlug}`} className="sq-btn bg-field text-navy">
+              <Link href={`/cho/shop/${product.shopSlug}`} className={`${SQ_BTN_CTA} bg-field text-navy`}>
                 {NHAN.xemShop}
               </Link>
               <Link
@@ -510,9 +511,9 @@ export function ProductDetail({ id }: { id: string }) {
         ) : (
           <>
             {shop?.phone ? (
-              <CallButton phone={shop.phone} label="Gọi shop" cao="cta" />
+              <CallButton phone={shop.phone} label={NHAN.goiShop} cao="cta" />
             ) : (
-              <Link href={`/cho/shop/${product.shopSlug}`} className="sq-btn bg-field text-navy">
+              <Link href={`/cho/shop/${product.shopSlug}`} className={`${SQ_BTN_CTA} bg-field text-navy`}>
                 {NHAN.xemShop}
               </Link>
             )}
@@ -527,9 +528,9 @@ export function ProductDetail({ id }: { id: string }) {
       {reviewsOpen && (
         <BottomSheet title="Tất cả đánh giá" onClose={() => setReviewsOpen(false)}>
           {allReviews === null ? (
-            <p role="status" className="py-6 text-center text-[1rem] text-foreground/65">Đang tải…</p>
+            <p role="status" className="py-6 text-center text-[1rem] text-muted">Đang tải…</p>
           ) : allReviews.length === 0 ? (
-            <p className="py-6 text-center text-[1rem] text-foreground/65">
+            <p className="py-6 text-center text-[1rem] text-muted">
               Chưa tải được đánh giá — thử lại khi có sóng.
             </p>
           ) : (

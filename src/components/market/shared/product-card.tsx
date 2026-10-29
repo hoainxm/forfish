@@ -122,7 +122,7 @@ export function MarketProductCard({
               cùng đậm làm thẻ đặc chữ). Vẫn tách dòng khi dài, không cắt.
               Tỉnh viết GỌN (anh Long 2026-10-23: "Thành phố Hồ Chí Minh" → "TP.HCM") — chỉ
               hiển thị; dữ liệu và bộ lọc vẫn tên chuẩn. */}
-          <p className="mt-auto pt-2 text-[0.8125rem] leading-snug text-foreground/65">
+          <p className="mt-auto pt-2 text-[0.8125rem] leading-snug text-muted">
             {product.shopName}
             {product.shopProvince && <> · {tenTinhGon(product.shopProvince)}</>}
           </p>

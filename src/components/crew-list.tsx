@@ -344,7 +344,7 @@ export function CrewList() {
                   ? "text-warn"
                   : issue.level === "ok"
                     ? "text-ok"
-                    : "text-foreground/65";
+                    : "text-muted";
             return (
               <li key={m.id}>
                 <div className="flex min-h-(--h-row) items-center gap-2 px-4 py-2.5">

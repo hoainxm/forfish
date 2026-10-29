@@ -90,7 +90,7 @@ function ItemRow({ item }: { item: CheckItem }) {
         <span className="block text-[1.125rem] font-semibold leading-snug text-navy">
           {item.label}
         </span>
-        <span className="block text-[0.875rem] leading-snug text-foreground/65">
+        <span className="block text-[0.875rem] leading-snug text-muted">
           {item.detail}
         </span>
       </span>
@@ -193,7 +193,7 @@ export function DepartureChecklist() {
       <Card className="overflow-hidden p-0">
         {/* Đèn lớn */}
         <div className="px-4 py-3.5" style={{ backgroundColor: r.bg }}>
-          <p className="text-[0.8125rem] font-semibold text-foreground/65">
+          <p className="text-[0.8125rem] font-semibold text-muted">
             {check.groupLabel}
           </p>
           <p
@@ -217,7 +217,7 @@ export function DepartureChecklist() {
 
         {manualItems.length > 0 && (
           <div className="border-t-4 border-background">
-            <p className="px-4 pb-1 pt-3 text-[0.8125rem] font-semibold text-foreground/65">
+            <p className="px-4 pb-1 pt-3 text-[0.8125rem] font-semibold text-muted">
               Tự kiểm thêm (app không thấy được)
             </p>
             <ul>
@@ -257,7 +257,7 @@ export function DepartureChecklist() {
                       : `Còn ${m.daysUntil} ngày`}
                   </span>
                 </div>
-                <p className="text-[0.875rem] leading-snug text-foreground/65">
+                <p className="text-[0.875rem] leading-snug text-muted">
                   Từ {formatVnDate(m.effectiveDate)} · {m.note}
                 </p>
               </li>

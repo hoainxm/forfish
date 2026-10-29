@@ -277,7 +277,7 @@ function Rows({
                 <span className="mt-0.5 line-clamp-2 block text-[1rem] font-semibold leading-snug text-navy">
                   {linesSummary(o.items)}
                 </span>
-                <span className="mt-0.5 block truncate text-[0.875rem] text-foreground/65">
+                <span className="mt-0.5 block truncate text-[0.875rem] text-muted">
                   {soMon} món · {PAYMENT_METHOD_LABEL[o.paymentMethod]} · {agoLabel(o.createdAt)}
                 </span>
                 <b className="mt-0.5 block text-[1rem] text-navy">{formatVnd(o.totalVnd)}</b>

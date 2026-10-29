@@ -30,6 +30,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   shouldShowStormOnHome,
   stormNoticeShort,
+  stormNoticeSub,
   stormNoticeText,
   stormStatus,
 } from "@/lib/storms";
@@ -239,13 +240,17 @@ export function StormBanner({
         </VienBung>
       );
     }
+    /*  HAI DÒNG NGẮN, cùng khuôn hàng yên "Không có tin bão · Hỏi lúc" (2026-10-29, CLS Trang chủ): câu đủ
+        rớt BA dòng ở 360px, nở quá khung giữ chỗ 4rem ≈1,4rem. Dòng đầu = tuổi tin, dòng sau = vì sao +
+        nghe đài — đủ ý câu đủ, không phải chạm mới thấy. Câu đủ vẫn đọc cho trình đọc màn (sr-only). */
     return (
-      <p
-        role="status"
-        className="flex items-start gap-2 rounded-2xl bg-warn-bg px-3 py-2.5 text-[1rem] font-semibold leading-snug text-warn"
-      >
-        <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-        <span>{noticeText}</span>
+      <p role="status" className="flex items-center gap-3 rounded-2xl bg-warn-bg px-3 py-2.5 text-warn">
+        <AlertIcon className="h-5 w-5 shrink-0" />
+        <span className="min-w-0 leading-snug" aria-hidden>
+          <span className="block truncate text-[1rem] font-semibold">{stormNoticeShort(status, nowMs)}</span>
+          <span className="block truncate text-[0.8125rem] font-medium">{stormNoticeSub(status, online)}</span>
+        </span>
+        <span className="sr-only">{noticeText}</span>
       </p>
     );
   }
@@ -285,7 +290,7 @@ export function StormBanner({
         <CheckIcon className="h-5 w-5 shrink-0 text-ok" />
         <span className="min-w-0 leading-snug">
           <span className="block text-[1rem] text-navy">Không có tin bão trên Biển Đông</span>
-          <span className="block text-[0.8125rem] text-foreground/65">Hỏi lúc {at}</span>
+          <span className="block text-[0.8125rem] text-muted">Hỏi lúc {at}</span>
         </span>
       </p>
     );
@@ -384,7 +389,7 @@ export function StormBanner({
                   lùi về `checkedAt`. */}
               <p
                 className={`${variant === "overlay" ? "mt-0.5" : "mt-1"} font-semibold leading-snug ${variant === "page" ? "text-[1rem]" : "text-[0.875rem]"} ${
-                  status.cu ? "text-warn" : "text-foreground/65"
+                  status.cu ? "text-warn" : "text-muted"
                 }`}
               >
                 {(() => {

@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import { SPECIES_META } from "@/lib/fish-predict";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
-import { hoiGi, traLoi, type KhoBanDo, type ViTri } from "@/lib/sen-bien/hoi-ban-do";
+import { CAU_CA_CHUA_MO, hoiGi, traLoi, type KhoBanDo, type ViTri } from "@/lib/sen-bien/hoi-ban-do";
 import { loadNgram } from "@/lib/sen-bien/ngram";
+import { _doManh, speechParts } from "@/lib/voice/tts";
+import manhCatalog from "@/data/giong-sen-bien-manh.json";
 
 const LOAI = Object.keys(SPECIES_META);
 
@@ -97,8 +99,14 @@ describe("traLoi — đọc từ kho lớp đã có trong máy", () => {
     expect(r.di).toMatchObject({ lat: 15.2, lon: 108.8 });
   });
   it("cảng gần nhất", () => expect(tl("cảng nào gần nhất").say).toMatch(/^Cảng gần nhất là Sa Kỳ/));
-  it("cá: chưa premium ⇒ nói rõ, không lộ dữ liệu", () => {
-    expect(tl("chỗ nào nhiều cá ngừ vằn", { ca: "premium" }).say).toMatch(/premium/);
+  it("cá: chưa mở gói ⇒ nói rõ, không lộ dữ liệu, không chữ 'premium', vẫn giọng Mỹ Duyên", () => {
+    const say = tl("chỗ nào nhiều cá ngừ vằn", { ca: "premium" }).say;
+    expect(say).toBe(CAU_CA_CHUA_MO);
+    expect(say).toMatch(/liên hệ SDVICO để mở/);
+    expect(say).not.toMatch(/premium/i);
+    // mọi đoạn phủ đủ mảnh mp3 — không rơi về giọng máy (doc 15 §21)
+    _doManh(manhCatalog as { dir: string; nhom: Record<string, string[][]> });
+    expect(speechParts(say).every((p) => p.clips)).toBe(true);
     expect(tl("chỗ nào nhiều cá ngừ vằn", { ca: "dang-nhap" }).say).toMatch(/đăng nhập/);
   });
   it("cá: chọn ô điểm cao gần tàu, nói 'dự báo, không chắc chắn'", () => {

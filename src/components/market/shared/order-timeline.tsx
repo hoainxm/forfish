@@ -31,7 +31,7 @@ export function OrderTimeline({
   className?: string;
 }) {
   if (timeline.length === 0) {
-    return <p className={`text-[1rem] text-foreground/65 ${className}`}>Chưa có bước nào.</p>;
+    return <p className={`text-[1rem] text-muted ${className}`}>Chưa có bước nào.</p>;
   }
   return (
     <ol className={`flex flex-col gap-0 ${className}`}>
@@ -54,9 +54,9 @@ export function OrderTimeline({
             <div className="pb-3">
               <p className={`text-[1rem] ${last ? "font-semibold text-navy" : "text-foreground/80"}`}>
                 {label}
-                {extra && <span className="text-foreground/65"> ({extra})</span>}
+                {extra && <span className="text-muted"> ({extra})</span>}
               </p>
-              <p className="text-[0.875rem] text-foreground/65">
+              <p className="text-[0.875rem] text-muted">
                 {when(t.at)} · {byLabel(t.by)}
               </p>
               {t.note && <p className="mt-0.5 text-[0.875rem] text-foreground/80">{t.note}</p>}

@@ -21,6 +21,10 @@ import { CHIPS } from "@/lib/kairos/thoi-quen";
        biệt hoa thường, bỏ số/dấu) — một chính tả, một tên: "Xóa"/"Hủy" lệch NHAN là đỏ.
   Bỏ qua liên kết NẰM GIỮA CÂU (cha có chữ trần khác) — đó là chữ đọc, không phải nhãn nút.
   Chữ đặt qua biểu thức ({NHAN.x}, {cond ? … : …}) không quét ở đây — dùng NHAN là đúng luật.
+  Thêm (2026-10-29 đợt nốt nợ): NHÃN TRUYỀN QUA PROP của nút dùng chung (PROP_NHAN — prop
+  hiện thành chữ trên nút, KHÔNG phải aria-label như CloseButton/IconNut): mọi chuỗi trần
+  trong giá trị prop (kể cả hai nhánh `a ? "x" : "y"`) và giá trị MẶC ĐỊNH của prop ở chỗ
+  khai component đều qua đúng hai luật trên.
 */
 const SRC = join(process.cwd(), "src");
 const THE_NUT = new Set(["button", "Link", "a", "PrimaryButton"]);
@@ -45,8 +49,16 @@ const NGOAI_LE: [string, string, string][] = [
   ["components/kairos/post-card.tsx", "Bến", "tên nơi chốn \"Bến X\" (tên riêng cảng)"],
 ];
 
+/** Nút dùng chung: tên component → các prop hiện thành CHỮ trên nút. */
+const PROP_NHAN: Record<string, string[]> = {
+  CallButton: ["label"],
+  SdvicoRequestButton: ["label"],
+  RailBtn: ["label"],
+  SheetActions: ["okLabel"],
+};
+
 const chuan = (s: string) =>
-  s.replace(/[0-9.,:;!?/()·—–+\-“”"]+/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  s.replace(/[0-9.,:;!?/()·—–+\-“”"…]+/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
 const HOP_LE = new Set(
   [...Object.values(NHAN), ...Object.values(NHAN_CHIP_KAIROS), ...Object.values(NHAN_LOAI_TIN)].map(chuan),
 );
@@ -69,6 +81,48 @@ function chuTranTrongNut(ten: string, src: string): [number, string][] {
       const giuaCau = ts.isJsxElement(cha) && cha.children.some((c) => c !== n && coChu(c));
       if (chu && /\p{L}/u.test(chu) && !giuaCau) {
         ra.push([sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1, chu]);
+      }
+    }
+    ts.forEachChild(n, tham);
+  };
+  tham(sf);
+  return ra;
+}
+
+/** Chuỗi trần trong một biểu thức (nhánh không phải chuỗi bỏ qua — {NHAN.x} là đúng luật). */
+function chuoiTran(n: ts.Node): string[] {
+  if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) return [n.text];
+  if (ts.isJsxExpression(n) || ts.isParenthesizedExpression(n)) return n.expression ? chuoiTran(n.expression) : [];
+  if (ts.isConditionalExpression(n)) return [...chuoiTran(n.whenTrue), ...chuoiTran(n.whenFalse)];
+  if (
+    ts.isBinaryExpression(n) &&
+    (n.operatorToken.kind === ts.SyntaxKind.BarBarToken || n.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)
+  )
+    return [...chuoiTran(n.left), ...chuoiTran(n.right)];
+  return [];
+}
+
+/** Nhãn qua prop của nút dùng chung + mặc định của prop ở chỗ khai: [dòng, chữ]. */
+function nhanQuaProp(ten: string, src: string): [number, string][] {
+  const sf = ts.createSourceFile(ten, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const ra: [number, string][] = [];
+  const dong = (n: ts.Node) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+  const tham = (n: ts.Node) => {
+    if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
+      const props = PROP_NHAN[n.tagName.getText(sf)];
+      for (const a of props ? n.attributes.properties : []) {
+        if (ts.isJsxAttribute(a) && a.initializer && props.includes(a.name.getText(sf))) {
+          for (const c of chuoiTran(a.initializer)) ra.push([dong(a), c]);
+        }
+      }
+    }
+    if (ts.isFunctionDeclaration(n) && n.name && PROP_NHAN[n.name.text]) {
+      const props = PROP_NHAN[n.name.text];
+      const p0 = n.parameters[0];
+      for (const e of p0 && ts.isObjectBindingPattern(p0.name) ? p0.name.elements : []) {
+        if (e.initializer && props.includes((e.propertyName ?? e.name).getText(sf))) {
+          for (const c of chuoiTran(e.initializer)) ra.push([dong(e), c]);
+        }
       }
     }
     ts.forEachChild(n, tham);
@@ -125,6 +179,28 @@ describe("labels — bảng nhãn chuẩn ≤2 chữ (anh Long 2026-10-19)", () 
     // ngoại lệ hết dùng thì gỡ — danh sách chỉ được co lại
     const thua = NGOAI_LE.filter((_, i) => !daDung.has(i)).map(([t, d]) => `${t} "${d}"`);
     expect(thua, "ngoại lệ không còn khớp chỗ nào — gỡ khỏi NGOAI_LE").toEqual([]);
+  });
+
+  it("cổng: nhãn truyền qua prop của nút dùng chung (CallButton label=…) ≤2 chữ và có trong NHAN", () => {
+    const loi: string[] = [];
+    for (const f of walk(SRC)) {
+      if (!f.endsWith(".tsx") || f.includes("__tests__")) continue;
+      const rel = f.slice(SRC.length + 1).replace(/\\/g, "/");
+      if (MIEN_KHU.some(([re]) => re.test(rel))) continue;
+      for (const [dong, chu] of nhanQuaProp(rel, readFileSync(f, "utf8"))) {
+        if (!nhanHopLe(chu)) loi.push(`${rel}:${dong} "${chu}" quá ${NHAN_TOI_DA_CHU} chữ`);
+        else if (!HOP_LE.has(chuan(chu))) loi.push(`${rel}:${dong} "${chu}" chưa có trong NHAN (labels.ts)`);
+      }
+    }
+    expect(loi, "đổi sang label={NHAN.x} — 03 §Nhãn").toEqual([]);
+  });
+
+  it("bộ quét prop: chuỗi trần, hai nhánh điều kiện và mặc định bị bắt; {NHAN.x} và aria-label qua", () => {
+    expect(nhanQuaProp("a.tsx", `const A = () => <CallButton phone="1" label="Gọi hỏi giá" />;`)).toEqual([[1, "Gọi hỏi giá"]]);
+    expect(nhanQuaProp("a.tsx", `const A = () => <SheetActions okLabel={busy ? "Đang gửi…" : NHAN.gui} />;`)).toEqual([[1, "Đang gửi…"]]);
+    expect(nhanQuaProp("a.tsx", `const A = () => <CallButton phone="1" label={NHAN.goi} />;`)).toEqual([]);
+    expect(nhanQuaProp("a.tsx", `const A = () => <CloseButton label="Đóng chú giải dài" />;`)).toEqual([]);
+    expect(nhanQuaProp("a.tsx", `export function CallButton({ label = "Gọi tổng đài" }) { return null; }`)).toEqual([[1, "Gọi tổng đài"]]);
   });
 
   it("bộ quét: nút có chữ trần bị bắt, liên kết giữa câu và {NHAN.x} thì qua", () => {

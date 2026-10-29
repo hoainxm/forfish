@@ -229,6 +229,15 @@ export const NHAN = {
   gan: "Gần",
   caNuoc: "Cả nước",
   xemDu: "Xem đủ",
+  // Cổng nhãn qua prop (2026-10-29 đợt nốt nợ — labels.test.ts PROP_NHAN): nhãn CallButton /
+  // SdvicoRequestButton / RailBtn trước đặt tại chỗ ("Gọi hỏi giá", "Đặt lịch / hỏi về kỳ này"…)
+  goiShop: "Gọi shop",
+  hoiGia: "Hỏi giá",
+  hoiMua: "Hỏi mua",
+  muaThem: "Mua thêm",
+  baoHanh: "Bảo hành",
+  datLich: "Đặt lịch",
+  diemLuu: "Điểm lưu",
 } as const;
 
 /**

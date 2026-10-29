@@ -99,7 +99,7 @@ export function ReportSheet({
             onChange={(e) => setNote(e.target.value)}
             className={`${inputClass} mb-1 h-auto py-2`}
           />
-          <p className={`mb-2 text-right text-[0.8125rem] tabular-nums ${tooLong ? "font-semibold text-danger" : "text-foreground/65"}`}>
+          <p className={`mb-2 text-right text-[0.8125rem] tabular-nums ${tooLong ? "font-semibold text-danger" : "text-muted"}`}>
             {LIMITS.reportNote - charLen(note.trim())}
           </p>
         </>

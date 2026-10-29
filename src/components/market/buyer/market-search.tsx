@@ -287,7 +287,7 @@ export function MarketSearch() {
            x=437 — ngoài màn 390px, phải cuộn ngang mới thấy. Số món tìm được là
            thứ bà con đọc đầu tiên, không được nằm chỗ phải đi tìm. */}
       {status === "ok" && (
-        <p className="mb-3 px-4 text-[1rem] font-semibold text-foreground/65" aria-live="polite">
+        <p className="mb-3 px-4 text-[1rem] font-semibold text-muted" aria-live="polite">
           {total} món
         </p>
       )}
@@ -321,7 +321,7 @@ export function MarketSearch() {
         {status === "ok" && items.length > 0 && (
           <>
             <ProductGrid items={items} isFav={fav.has} onFav={onFav} />
-            {seen && <p className="mt-3 text-center text-[1rem] text-foreground/65">{seen}</p>}
+            {seen && <p className="mt-3 text-center text-[1rem] text-muted">{seen}</p>}
             {moreError === "error" && (
               <p role="alert" className="mt-2 text-center text-[1rem] font-semibold text-danger">
                 Chưa tải thêm được — thử lại giúp.

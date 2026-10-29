@@ -395,7 +395,7 @@ function RenewalWizard({
             Nhân viên SDVICO gọi lại xác nhận.
           </p>
         </div>
-        <CallButton phone={SDVICO_HOTLINE} label="Gọi tổng đài" />
+        <CallButton phone={SDVICO_HOTLINE} label={NHAN.goiSdvico} />
         <button
           type="button"
           onClick={submit}
@@ -464,13 +464,13 @@ function RenewalStatusSheet({
   return (
     <BottomSheet title="Yêu cầu gia hạn của tôi" onClose={onClose}>
       {state === "loading" && (
-        <p className="px-1 py-8 text-center text-[1rem] text-foreground/65">
+        <p className="px-1 py-8 text-center text-[1rem] text-muted">
           Đang tải…
         </p>
       )}
 
       {state === "empty" && (
-        <p className="px-1 py-8 text-center text-[1rem] text-foreground/65">
+        <p className="px-1 py-8 text-center text-[1rem] text-muted">
           Chưa có yêu cầu gia hạn nào.
         </p>
       )}
