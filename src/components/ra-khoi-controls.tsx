@@ -146,7 +146,8 @@ export function RaKhoiControls({
   aisLuc,
   aisTuKho,
   onAisRetry,
-  onAisRadar,
+  aisMode,
+  onAisMode,
   stormInfo,
   showPlaces,
   onShowPlaces,
@@ -280,8 +281,10 @@ export function RaKhoiControls({
   aisLuc: string | null;
   aisTuKho: boolean;
   onAisRetry: () => void;
-  /** mở CHẾ ĐỘ AIS (radar + CPA/TCPA, 2026-10-29) — cùng cổng xem trước */
-  onAisRadar: () => void;
+  /** CHẾ ĐỘ AIS (2026-10-29) đang bật — nút AIS trên rail sáng */
+  aisMode: boolean;
+  /** vào/thoát chế độ AIS — nút rail chỉ hiện với acc xem trước (`fleetAllowed`) */
+  onAisMode: () => void;
   /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
       rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
   stormInfo: StormStatus;
@@ -566,7 +569,6 @@ export function RaKhoiControls({
                   aisLuc={aisLuc}
                   aisTuKho={aisTuKho}
                   onAisRetry={onAisRetry}
-                  onAisRadar={onAisRadar}
                 />
               )}
               {open === "thoi-tiet" && (
@@ -676,6 +678,26 @@ export function RaKhoiControls({
           variant="fab"
         />
         </div>
+        {/*  CHẾ ĐỘ AIS (anh Long 29/10: "tách ais/radar 1 chế độ riêng") — ô thứ ba CHỈ cho acc xem trước
+             (`fleetAllowed`), người khác rail vẫn hai ô như luật 2026-10-19. Ẩn khi đang dẫn đường. */}
+        {fleetAllowed && !routeOn && (
+          <RailBtn
+            active={aisMode}
+            aria-pressed={aisMode}
+            aria-label={aisMode ? "Thoát chế độ AIS" : "Chế độ AIS — tàu quanh mình hoặc toàn biển"}
+            onClick={() => {
+              setMore(false);
+              setCoordOpen(false);
+              setPlacesOpen(false);
+              setOpen(null);
+              setCollapsed(true);
+              onAisMode();
+            }}
+            icon={RadarIcon}
+            label={NHAN.ais}
+            variant="fab"
+          />
+        )}
         {/*  ĐANG CHẠY (không tuyến): KHÔNG còn ô "Đang chạy" trên rail — HUD trên
              cùng đã có tiêu đề "Đang chạy" + nút Dừng (tối ưu bố cục bản đồ,
              anh Long 2026-10-19: một việc một chỗ, bớt icon che bản đồ). Rail
@@ -1125,7 +1147,6 @@ function NguTruongPanel({
   aisLuc,
   aisTuKho,
   onAisRetry,
-  onAisRadar,
 }: {
   fishOn: boolean;
   onFish: (on: boolean) => void;
@@ -1160,8 +1181,6 @@ function NguTruongPanel({
   aisLuc: string | null;
   aisTuKho: boolean;
   onAisRetry: () => void;
-  /** mở CHẾ ĐỘ AIS (radar + CPA/TCPA, 2026-10-29) — cùng cổng xem trước */
-  onAisRadar: () => void;
 }) {
   const fishLocked = fishAccess === "login" || fishAccess === "upgrade";
   // Chọn loài XỔ RA ngay trong panel (dropdown), KHÔNG swap view/đổi bề rộng
@@ -1276,14 +1295,6 @@ function NguTruongPanel({
             {aisTuKho ? " · chưa tải được bản mới, dùng bản lưu trong máy" : ""}
           </p>
         )}
-        {/* CHẾ ĐỘ AIS (2026-10-29): radar quanh tàu mình + CPA/TCPA — mở được cả khi lớp đang tắt (mở là bật) */}
-        <button
-          type="button"
-          onClick={onAisRadar}
-          className="mt-2 h-(--h-chip) min-w-[5.5rem] rounded-full bg-navy px-3 text-[0.875rem] font-semibold text-white active:scale-[0.98]"
-        >
-          {NHAN.radarAis}
-        </button>
       </div>
       )}
 

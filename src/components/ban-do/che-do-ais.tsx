@@ -6,6 +6,10 @@
   đếm theo mức (nguy hiểm/cảnh báo/an toàn/đang đứng), chip lọc, danh sách xếp nguy trước, chạm tàu ⇒ thẻ
   CPA/TCPA, nút Hải đồ về bản đồ bay tới tàu đó. Logic thuần ở lib/ais-cpa (có test).
 
+  TÁCH THÀNH CHẾ ĐỘ RIÊNG (anh Long 29/10: "tách ais/radar 1 chế độ riêng đi, cho xem theo bán kính hoặc xem
+  toàn bộ biển"): vào từ nút AIS trên rail bản đồ; hai cách xem chọn bằng `CheDoTabs` — "Bán kính" = màn này,
+  "Toàn biển" = bản đồ lớn bay về cả vùng biển VN + thẻ `AisToanBien` (đếm theo loại, chạm chấm xem tàu).
+
   Tầm radar: vòng NGOÀI = tầm đang chọn, ba vòng chia đều; nhãn vòng ghi cả hải lý lẫn km (anh Long 29/10:
   "vòng radar bao nhiêu km? cần xác định"). Mặc định 6 hải lý = 11,1 km.
 
@@ -34,7 +38,95 @@ import {
 import type { LatLon } from "@/lib/geo";
 import { NHAN } from "@/lib/labels";
 import { fmtCoordPair, type MapPrefs } from "@/lib/map-prefs";
-import { MAU_TAU, loaiTauLabel, nhomTau, tuoiTinLabel, type TauAisBan } from "@/lib/tau-ais";
+import { MAU_TAU, demTheoNhom, loaiTauLabel, nhomTau, tuoiTinLabel, type TauAisBan } from "@/lib/tau-ais";
+
+export type CheDoAisXem = "ban-kinh" | "toan-bien";
+
+/** Hai cách xem của chế độ AIS — segmented, nhãn ≤2 chữ (labels.ts). */
+export function CheDoTabs({ value, onChange }: { value: CheDoAisXem; onChange: (v: CheDoAisXem) => void }) {
+  const ds: { id: CheDoAisXem; label: string }[] = [
+    { id: "ban-kinh", label: NHAN.banKinh },
+    { id: "toan-bien", label: NHAN.toanBien },
+  ];
+  return (
+    <div role="tablist" aria-label="Cách xem AIS" className="flex gap-1 rounded-full bg-field p-1">
+      {ds.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="tab"
+          aria-selected={o.id === value}
+          onClick={() => onChange(o.id)}
+          className={`h-(--h-chip) flex-1 rounded-full px-3 text-[0.875rem] font-semibold transition-colors ${o.id === value ? "bg-navy text-white" : "text-foreground/70"}`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const banLucLabel = (ban: TauAisBan) => new Date(ban.luc).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+const NHOM_LABEL: Record<keyof typeof MAU_TAU, string> = { ca: "Tàu cá", hang: "Tàu hàng", dau: "Tàu dầu", khach: "Tàu khách", khac: "Khác" };
+
+/**
+ * Thẻ nổi của cách xem "Toàn biển" — đặt trong cụm trên của bản đồ (như NavHud). Bản đồ đã bay về cả vùng
+ * biển, lớp chấm tàu bật; thẻ nói tổng số tàu, giờ bản, đếm theo loại, và các trạng thái tải/lỗi.
+ */
+export function AisToanBien({
+  ban,
+  state,
+  tuKho,
+  onRetry,
+  onBanKinh,
+  onClose,
+}: {
+  ban: TauAisBan | null;
+  state: "idle" | "loading" | "error" | "ok";
+  tuKho: boolean;
+  onRetry: () => void;
+  onBanKinh: () => void;
+  onClose: () => void;
+}) {
+  const dem = useMemo(() => (ban ? demTheoNhom(ban.tau) : null), [ban]);
+  return (
+    <div className="pointer-events-auto rounded-2xl bg-card/97 p-3 shadow-xl">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[1.125rem] font-semibold leading-tight text-navy">Chế độ AIS</h2>
+          <p className="text-[0.8125rem] text-foreground/60">
+            {ban ? `${ban.soTau.toLocaleString("vi-VN")} tàu toàn biển · bản lúc ${banLucLabel(ban)}` : "Toàn biển"}
+            {tuKho ? " · bản lưu trong máy" : ""}
+          </p>
+        </div>
+        <CloseButton onClose={onClose} label="Thoát chế độ AIS" />
+      </div>
+      <div className="mt-2">
+        <CheDoTabs value="toan-bien" onChange={(v) => v === "ban-kinh" && onBanKinh()} />
+      </div>
+      {state === "loading" && !ban && <p className="mt-2 text-[0.8125rem] text-foreground/60">Đang tải vị trí tàu…</p>}
+      {state === "error" && !ban && (
+        <button type="button" onClick={onRetry} className="mt-2 w-full rounded-xl bg-field px-3 py-2 text-left text-[0.8125rem] text-foreground/75 active:scale-[0.99]">
+          Chưa tải được vị trí tàu — cần có sóng lần đầu. Chạm để thử lại.
+        </button>
+      )}
+      {dem && (
+        <>
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+            {(Object.keys(NHOM_LABEL) as (keyof typeof MAU_TAU)[]).map((k) => (
+              <span key={k} className="inline-flex items-center gap-1.5 text-[0.8125rem] text-foreground/75">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: MAU_TAU[k] }} />
+                {NHOM_LABEL[k]} {dem[k].toLocaleString("vi-VN")}
+              </span>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[0.75rem] text-foreground/55">Chạm chấm tàu để xem tên, tốc độ. Phóng to để thấy rõ từng tàu.</p>
+        </>
+      )}
+    </div>
+  );
+}
 
 type TamNm = (typeof TAM_RADAR_NM)[number];
 /** số dòng danh sách vẽ một lần — vùng cảng đông có thể vài trăm tàu trong 12 hải lý */
@@ -61,6 +153,7 @@ export function CheDoAis({
   onRetry,
   onDinhVi,
   onHaiDo,
+  onToanBien,
   onClose,
 }: {
   ban: TauAisBan | null;
@@ -74,6 +167,8 @@ export function CheDoAis({
   onRetry: () => void;
   onDinhVi: () => void;
   onHaiDo: (m: MucTieu) => void;
+  /** đổi sang cách xem Toàn biển */
+  onToanBien: () => void;
   onClose: () => void;
 }) {
   const [tam, setTam] = useState<TamNm>(6);
@@ -97,17 +192,20 @@ export function CheDoAis({
   /*  Cổng ra <body> (như can-giay-sheet): khung bản đồ tạo ngữ cảnh xếp lớp riêng ⇒ ở trong đó dock và
       popover Lớp đè lên màn phủ dù z cao. */
   return createPortal(
-    <div className="fixed inset-0 z-[90] mx-auto flex max-w-(--w-app) flex-col bg-background" role="dialog" aria-modal="true" aria-label={NHAN.radarAis}>
+    <div className="fixed inset-0 z-[90] mx-auto flex max-w-(--w-app) flex-col bg-background" role="dialog" aria-modal="true" aria-label="Chế độ AIS — bán kính">
       <div className="flex items-center gap-2 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="min-w-0 flex-1">
-          <h2 className="text-[1.25rem] font-semibold leading-tight text-navy">{NHAN.radarAis}</h2>
+          <h2 className="text-[1.25rem] font-semibold leading-tight text-navy">Chế độ AIS</h2>
           <p className="text-[0.8125rem] text-foreground/60">
             Tàu quanh mình
-            {ban ? ` · bản lúc ${new Date(ban.luc).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}` : ""}
+            {ban ? ` · bản lúc ${banLucLabel(ban)}` : ""}
             {tuKho ? " · bản lưu trong máy" : ""}
           </p>
         </div>
-        <CloseButton onClose={onClose} label="Đóng radar AIS" />
+        <CloseButton onClose={onClose} label="Thoát chế độ AIS" />
+      </div>
+      <div className="px-4 pb-3">
+        <CheDoTabs value="ban-kinh" onChange={(v) => v === "toan-bien" && onToanBien()} />
       </div>
 
       <div className="flex-1 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">

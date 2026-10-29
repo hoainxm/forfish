@@ -257,7 +257,8 @@ import {
   type ChatDayInfo, type LegInfo, type DenInfo, type DepthInfo, type DiaDanhInfo, type KhuTruBaoInfo, type LaneInfo, type MarkInfo,
   type ReefInfo, type StormPtInfo, type VungInfo, type XacTauInfo, type TauAisInfo, TheTauAis,
 } from "@/components/ban-do/the-thong-tin";
-import { CheDoAis } from "@/components/ban-do/che-do-ais";
+import { AisToanBien, CheDoAis, type CheDoAisXem } from "@/components/ban-do/che-do-ais";
+import { VUNG_BIEN_VN } from "@/lib/tau-ais/chuan-hoa.mjs";
 import type { TauMinh } from "@/lib/ais-cpa";
 import { kepTheTrongKhung } from "@/components/ban-do/kep-the";
 import { BangChuGiai, SEAMARK_HIT_LAYERS, CLUSTER_HIT_LAYERS, SEAMARK_FAR, SEAMARK_MID, SEAMARK_AN, SEAMARK_ICON_LAYOUT, KHONG_PHAI_CUM, cumLayers, type LegendRow } from "@/components/ban-do/hai-do";
@@ -772,9 +773,12 @@ export default function FishingMapView() {
   const [aisTuKho, setAisTuKho] = useState(false);
   const [aisState, setAisState] = useState<"idle" | "loading" | "error" | "ok">("idle");
   const [aisRetry, setAisRetry] = useState(0);
-  /*  CHẾ ĐỘ AIS (radar + CPA/TCPA, 2026-10-29) — màn phủ, cùng cổng xem trước với lớp; mở là bật luôn lớp
-      để dùng chung một vòng tải bản (không tải thêm request nào). */
-  const [aisRadar, setAisRadar] = useState(false);
+  /*  CHẾ ĐỘ AIS (2026-10-29) — chế độ riêng, vào từ nút AIS trên rail (cùng cổng xem trước với lớp). Hai cách
+      xem: "ban-kinh" = màn radar + CPA/TCPA quanh tàu mình; "toan-bien" = bản đồ bay về cả vùng biển VN, lớp chấm
+      tàu bật, thẻ AisToanBien trên cùng. Vào là bật lớp (dùng chung một vòng tải bản, không request mới); thoát thì
+      trả lớp về như trước khi vào. */
+  const [aisMode, setAisMode] = useState<CheDoAisXem | null>(null);
+  const [aisTruocMode, setAisTruocMode] = useState(false);
   const aisGeo = useMemo(() => (aisOn && aisBan ? tauGeoJson(aisBan) : null), [aisOn, aisBan]);
   // xem trước nội bộ: chỉ tài khoản trong danh sách mới thấy nút + được tải lưới
   const { phone: authPhone } = useAuthUser();
@@ -2995,6 +2999,27 @@ export default function FishingMapView() {
       duration: 650,
     });
   }, []);
+  /*  CHẾ ĐỘ AIS — vào/thoát/đổi cách xem. Toàn biển: khung cả hộp biển VN quét được (VUNG_BIEN_VN). */
+  const vaoAis = useCallback(() => {
+    setAisTruocMode(aisOn);
+    setAisOn(true);
+    setAisMode("ban-kinh");
+  }, [aisOn]);
+  const thoatAis = useCallback(() => {
+    setAisMode(null);
+    if (!aisTruocMode) setAisOn(false);
+  }, [aisTruocMode]);
+  const moAisToanBien = useCallback(() => {
+    setAisMode("toan-bien");
+    setSize("peek");
+    mapRef.current?.fitBounds(
+      [
+        [VUNG_BIEN_VN.lonMin, VUNG_BIEN_VN.latMin],
+        [VUNG_BIEN_VN.lonMax, VUNG_BIEN_VN.latMax],
+      ],
+      { padding: 24, duration: 650 },
+    );
+  }, [setSize]);
 
   /** Mở một điểm đã lưu / GPS / cảng tìm được — bay tới + xem dự báo.
       Tuyến đang vẽ giữ nguyên (như chạm bản đồ) — RoutePlanner tự nhắc. */
@@ -7677,7 +7702,7 @@ export default function FishingMapView() {
            thông báo để tra ngược. KHÔNG tự tắt. */}
       {xacTauInfo && <TheXacTau info={xacTauInfo} onClose={() => setXacTauInfo(null)} prefs={prefs} />}
       {tauAisInfo && <TheTauAis info={tauAisInfo} onClose={() => setTauAisInfo(null)} prefs={prefs} now={nowMs} />}
-      {aisRadar && fleetAllowed && (
+      {aisMode === "ban-kinh" && fleetAllowed && (
         <CheDoAis
           ban={aisBan}
           state={aisState}
@@ -7688,11 +7713,13 @@ export default function FishingMapView() {
           onRetry={() => setAisRetry((n) => n + 1)}
           onDinhVi={goToMyBoat}
           onHaiDo={(m) => {
-            setAisRadar(false);
+            // về bản đồ trong chế độ AIS (Toàn biển) nhưng bay sát tàu đó
+            setAisMode("toan-bien");
             setSize("peek");
             flyToPoint(m.pos.lon, m.pos.lat, 11);
           }}
-          onClose={() => setAisRadar(false)}
+          onToanBien={moAisToanBien}
+          onClose={thoatAis}
         />
       )}
 
@@ -8052,7 +8079,17 @@ export default function FishingMapView() {
              hiện (cảnh báo an toàn không ai được che). */}
         <div className="flex items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            {navMode == null && (
+            {aisMode === "toan-bien" && fleetAllowed && (
+              <AisToanBien
+                ban={aisBan}
+                state={aisState}
+                tuKho={aisTuKho}
+                onRetry={() => setAisRetry((n) => n + 1)}
+                onBanKinh={() => setAisMode("ban-kinh")}
+                onClose={thoatAis}
+              />
+            )}
+            {navMode == null && aisMode !== "toan-bien" && (
               <div ref={setOTimEl}>
               <OTimDiem
                 onOpen={() => (premiumAccess === "login" ? setMoiTimDiem(true) : setTimMo(true))}
@@ -8227,10 +8264,8 @@ export default function FishingMapView() {
             aisLuc={aisBan?.luc ?? null}
             aisTuKho={aisTuKho}
             onAisRetry={() => setAisRetry((n) => n + 1)}
-            onAisRadar={() => {
-              setAisOn(true);
-              setAisRadar(true);
-            }}
+            aisMode={aisMode != null}
+            onAisMode={() => (aisMode != null ? thoatAis() : vaoAis())}
             stormInfo={stormInfo}
             showPlaces={showPlaces}
             onShowPlaces={setShowPlaces}

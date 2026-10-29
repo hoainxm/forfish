@@ -23,7 +23,7 @@ export const NGUONG = {
   canh: { cpaNm: 1.5, tcpaPhut: 30 },
 } as const;
 /** các tầm radar chọn được (hải lý) */
-export const TAM_RADAR_NM = [2, 4, 6, 12] as const;
+export const TAM_RADAR_NM = [2, 4, 6, 12, 24] as const;
 
 export type MucAis = "nguy" | "canh" | "an" | "dung";
 

@@ -133,6 +133,13 @@ export function nhomTau(loai: number): keyof typeof MAU_TAU {
   return "khac";
 }
 
+/** Đếm tàu theo nhóm màu — thẻ "Toàn biển" của chế độ AIS (2026-10-29). */
+export function demTheoNhom(tau: Pick<TauAis, "loai">[]): Record<keyof typeof MAU_TAU, number> {
+  const d: Record<keyof typeof MAU_TAU, number> = { ca: 0, hang: 0, dau: 0, khach: 0, khac: 0 };
+  for (const t of tau) d[nhomTau(t.loai)]++;
+  return d;
+}
+
 export function tauGeoJson(ban: TauAisBan): GeoJSON.FeatureCollection<GeoJSON.Point, { id: string; nhom: string; huong: number }> {
   return {
     type: "FeatureCollection",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chuanHoaHang, danhSachO, gopTau, kiemGoi, oTile, rutId, VUNG_BIEN_VN } from "@/lib/tau-ais/chuan-hoa.mjs";
-import { moTaTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
+import { demTheoNhom, moTaTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
 
 const HANG = {
   LAT: "15.836166", LON: "109.15148", SPEED: "41", COURSE: "111", HEADING: "111", ELAPSED: "14",
@@ -78,5 +78,12 @@ describe("tàu AIS — phía máy ngư dân", () => {
   it("mô tả tàu", () => {
     expect(moTaTau(t)).toBe("Tàu cá · VN · 4,1 hải lý/h hướng 120° · 17 m");
     expect(moTaTau({ ...t, kn: 0, co: null, dai: null })).toBe("Tàu cá · đang đứng");
+  });
+});
+
+describe("tàu AIS — chế độ Toàn biển", () => {
+  it("đếm theo nhóm màu: cá 2, hàng 7, dầu 8, khách 6/4, còn lại khác", () => {
+    expect(demTheoNhom([2, 2, 7, 8, 6, 4, 0, 3].map((loai) => ({ loai })))).toEqual({ ca: 2, hang: 1, dau: 1, khach: 2, khac: 2 });
+    expect(demTheoNhom([])).toEqual({ ca: 0, hang: 0, dau: 0, khach: 0, khac: 0 });
   });
 });
