@@ -3,7 +3,8 @@
 > Load khi: cần deploy / build lỗi / regenerate asset tĩnh (icon, lưới độ sâu, isobath) / kiểm tra sức khỏe app trước khi push.
 
 covers: scripts/train/run.mjs, scripts/kairos-luat.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
-last_verified: 2026-10-19
+last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29 — đọc `scripts/e2e-video-export.mjs` + `package.json` (e2e:export) + `playwright.config.ts` (outputDir, viewport 402×874, cổng 3100/3101) + `tests/e2e/{demo,auth}`: lệnh và bảng video khớp; bổ sung mục Video — xuất riêng một video bằng `npm run e2e:export -- 06`, tên file .mp4 theo số (`1-thoi-tiet-bien.mp4`…), thông số ffmpeg (3× lanczos = 1206×2622, 30 khung/giây, CRF 20, faststart, bỏ tiếng), vì sao không quay thẳng ở 3×, và hai lỗi dừng sớm (chưa quay / thiếu ffmpeg). -->
 <!-- re-verified: 2026-10-26e — thêm timer kairos-luat (2 bài/ngày, scripts/kairos-luat.mjs — Sen Biển tuyên truyền luật NĐ 246/2026, 14 §21e); lam-moi.sh glob scripts/kairos-* + src/lib/kairos nên tự có file mới. -->
 <!-- re-verified: 2026-10-26c — kairos-thu: bước 2d đọc PDF đính kèm bằng `pdftotext` (poppler-utils, đã có /usr/bin/pdftotext trên gpu-desktop) ⇒ log "[dòng] <tên file>: N dòng tàu"; bước 5b `[dòng] gửi N dòng ⇒ nhận N` / "chưa gửi được … để lượt sau" (hàng đợi ~/.local/forlife/kairos/cho-gui-dong.json). Thiếu pdftotext ⇒ "[dòng] … pdftotext hỏng/thiếu" — `sudo apt install poppler-utils`. -->
 <!-- re-verified: 2026-10-26b — kairos-thu: nguồn kieu=gov (14 §21) — log "[nguồn] gov-…: N bài, M mới (gov: K cho bà con)" + "[gov] a/b thông báo đọc được trang chi tiết · c có file đính kèm"; thử: `node scripts/kairos-thu.mjs --thu --goc --nguon=gov-gialai-van-ban,gov-gialai-snnmt-thong-bao,gov-gialai-snnmt-bien-dao`. lam-moi.sh xuất `src/lib/kairos` nên tự có chinh-sach.mjs; migration 0074 đã áp 2026-10-26. -->
@@ -144,6 +145,7 @@ node scripts/e2e-build.mjs all     # demo → .next-e2e (cổng 3100) · auth �
 npm run e2e:videos                 # quay tất cả → test-reports/triage/e2e-output/**/video.webm
 npx playwright test tests/e2e/demo/06-cai-ve-may-android.spec.ts --project=demo   # quay riêng 1 video
 npm run e2e:export                 # .webm → .mp4 (phóng 3×, H.264) → test-reports/videos/
+npm run e2e:export -- 06           # chỉ xuất video có số 06
 ```
 
 | Video | Nội dung |
@@ -157,6 +159,7 @@ npm run e2e:export                 # .webm → .mp4 (phóng 3×, H.264) → test
 - 06/07 vẽ lại **vỏ máy** (thanh Chrome, hộp thoại "Cài đặt", khay Chia sẻ iOS, màn hình chính) vì đó là giao diện hệ điều hành — Playwright không quay được. App + đoạn mất sóng (`context.setOffline(true)`) là **thật**.
 - **Sau khi build e2e, `tsconfig.json` bị Next chèn thêm `include` `.next-e2e/*` + format lại** → `git checkout -- tsconfig.json` trước khi commit.
 - Cần `ffmpeg` trong PATH cho bước export (`winget install Gyan.FFmpeg`).
+- Bước export: Playwright chỉ ghi WebM đúng cỡ viewport 402×874 — Zalo/Facebook/nhiều iPhone không mở được WebM. Script phóng **3×** (lanczos ⇒ 1206×2622, làm tròn số chẵn), H.264 `high`, 30 khung/giây, CRF 20, `+faststart` (mở là chạy), **bỏ tiếng**. Tên ra theo số video (`1-thoi-tiet-bien.mp4` … `7-them-vao-man-hinh-iphone.mp4`), không theo tên thư mục dài của Playwright. ĐỪNG quay thẳng ở 3× — canvas WebGL bản đồ nặng quá, treo (đã dính). Chưa có `test-reports/triage/e2e-output` hoặc thiếu ffmpeg ⇒ script báo rồi thoát mã 1; một video ffmpeg lỗi ⇒ in `✗` và mã thoát 1, các video khác vẫn xuất.
 
 ## Health check doc (nguyên tắc 12)
 

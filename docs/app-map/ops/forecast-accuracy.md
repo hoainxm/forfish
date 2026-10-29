@@ -3,7 +3,8 @@
 > Load khi: hiệu chỉnh điểm đi biển theo tầm ngày, gán nhãn độ tin dự báo, chạy lại bộ đo skill, hoặc nghi bảng `forecast-skill.json` đã cũ.
 
 covers: scripts/forecast-backtest.mjs, src/data/forecast-skill.json, src/lib/forecast-skill.ts, src/lib/sea-actual.ts
-last_verified: 2026-07-25
+last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29 — đọc `lib/sea-actual.ts` + phần `actual` của `/api/collect/archive`: khớp §8 (đường dẫn kho, 4 trường, ngày GMT); bổ sung cửa sổ [hôm nay−9, hôm nay−5], 15 s/request, cảng hỏng ⇒ null, ngày rỗng không ghi. Sửa §2: ERA5 archive trễ ~5 ngày, không phải "tới ~hôm nay". Đọc `lib/forecast-skill.ts` (đổi 2026-09-16): bảng không còn nhúng vào bundle mà qua `model-params.v1.json` ⇒ §6 thêm bước chạy `build-model-params.mjs` sau khi đo lại. Không chạy lại backtest. -->
 ttl_days: 90
 gate: warn
 
@@ -25,7 +26,7 @@ gate: warn
 |---|---|---|---|
 | **Dự-báo-cũ (gió)** | `single-runs-api.open-meteo.com/v1/forecast` | `daily=wind_speed_10m_max` | Chọn đúng lần khởi tạo bằng `&run=<init>T00:00` (00:00 theo `timezone`). Model mặc định GFS → tầm **16 ngày** → lead 1..15. |
 | **Dự-báo-cũ (sóng)** | `single-runs-api.open-meteo.com/v1/forecast` | `hourly=wave_height&models=gwam` | Model sóng gwam tầm **~7 ngày** → tự gom daily-max → lead **1..~6**. |
-| **Thực tế (gió)** | `archive-api.open-meteo.com/v1/archive` | `daily=wind_speed_10m_max` | Tái phân tích ERA5, gần realtime (có dữ liệu tới ~hôm nay). |
+| **Thực tế (gió)** | `archive-api.open-meteo.com/v1/archive` | `daily=wind_speed_10m_max` | Tái phân tích ERA5 — trễ khoảng **5 ngày** (vì thế `lib/sea-actual.ts` chỉ lấy tới hôm nay−5). |
 | **Thực tế (sóng)** | `marine-api.open-meteo.com/v1/marine` | `daily=wave_height_max` | Marine archive ERA5-Ocean. |
 
 Tất cả gọi với `timezone=GMT` để căn ngày khớp giữa dự báo và thực tế.
@@ -70,7 +71,7 @@ confidence[L] = clamp( 1 − windMae[L] / MAE_REF_WIND , 0, 1 )      MAE_REF_WIN
 node scripts/forecast-backtest.mjs      # ~1–2 phút, cần mạng, không cần key
 ```
 
-Ghi đè `src/data/forecast-skill.json`. Script: timeout 20 s/fetch, retry nhẹ, in tiến độ, **ghi tạm sau mỗi cảng** (mạng rớt vẫn giữ phần đã thu). Cảng/ngày lỗi → bỏ qua cặp đó, giảm `n`, không làm hỏng cả bảng. Cửa sổ init tự tính theo ngày hiện tại nên chạy lúc nào cũng lấy 45–50 ngày gần nhất.
+Ghi đè `src/data/forecast-skill.json`. **Từ 2026-09-16 app không đọc thẳng file này** — `lib/forecast-skill.ts` lấy bảng từ `/data/model-params.v1.json` (SDF2, qua `lib/model-params`; chưa nạp ⇒ `null`, nhãn độ tin lùi về mặc định). Nên đo xong PHẢI chạy thêm `node scripts/build-model-params.mjs` rồi commit cả hai file — cổng `model-params.test.ts` bắt lệch. Script: timeout 20 s/fetch, retry nhẹ, in tiến độ, **ghi tạm sau mỗi cảng** (mạng rớt vẫn giữ phần đã thu). Cảng/ngày lỗi → bỏ qua cặp đó, giảm `n`, không làm hỏng cả bảng. Cửa sổ init tự tính theo ngày hiện tại nên chạy lúc nào cũng lấy 45–50 ngày gần nhất.
 
 Nên chạy lại mỗi mùa (`ttl_days: 90`) vì skill model đổi theo mùa gió. Kết quả tham chiếu (2026-07-25, sampleSize 2394): gió MAE ~3.0 km/h ở lead 1 → ~8.0 ở lead 15; confidence 0.75 → 0.33; sóng MAE ~0.17 m (lead 1) → ~0.27 m (lead 6).
 
@@ -86,4 +87,4 @@ Nên chạy lại mỗi mùa (`ttl_days: 90`) vì skill model đổi theo mùa g
 
 ## 8. Đo skill LIÊN TỤC từ kho (2026-10-19) — thay cho backtest tay mỗi quý
 
-Từ 2026-10-19, `/api/collect/archive` ghi mỗi ngày THỰC TẾ ERA5 của 10 cảng (`actual/<năm>/<ngày>/era5-ports.json.gz`, `lib/sea-actual.ts`): `windMaxKmh`, `gustMaxKmh`, `rainMm`, `waveMaxM` theo ngày GMT. `sea_daily` (0005) đã giữ DỰ BÁO 10 ngày/cảng liên tục từ 2026-07-07 (`collected_on`, `date`, `lead_days`). Ghép hai thứ theo (`port_id`, `date`) là có cặp dự báo–thực tế cho mọi tầm 0..9 ngày, mỗi ngày thêm 10 cảng × 10 tầm — không cần Single Runs API, không cần chạy `forecast-backtest.mjs` tay. Việc mở: script offline đọc kho + `sea_daily` → sinh `forecast-skill.json` (cùng công thức §4), chạy mỗi tháng; tới lúc đó bảng §6 (2026-07-25) vẫn là bản đang dùng. Giới hạn: `sea_daily` chỉ 10 tầm (0..9), còn bảng hiện có 15; ERA5 vẫn là tái phân tích, không phải phao.
+Từ 2026-10-19, `/api/collect/archive` ghi mỗi ngày THỰC TẾ ERA5 của 10 cảng (`actual/<năm>/<ngày>/era5-ports.json.gz`, `lib/sea-actual.ts`): `windMaxKmh`, `gustMaxKmh`, `rainMm`, `waveMaxM` theo ngày GMT. Mỗi lượt lấy cửa sổ 5 ngày [hôm nay−9, hôm nay−5] (ERA5 trễ ~5 ngày, lượt sau tự lấp ngày lỡ hỏng), 10 cảng × 2 request, mỗi request trần 15 s, 6 cảng cùng lúc; cảng hỏng ⇒ `null` trong file, ngày chưa có số nào ⇒ không ghi file — không bịa. `sea_daily` (0005) đã giữ DỰ BÁO 10 ngày/cảng liên tục từ 2026-07-07 (`collected_on`, `date`, `lead_days`). Ghép hai thứ theo (`port_id`, `date`) là có cặp dự báo–thực tế cho mọi tầm 0..9 ngày, mỗi ngày thêm 10 cảng × 10 tầm — không cần Single Runs API, không cần chạy `forecast-backtest.mjs` tay. Việc mở: script offline đọc kho + `sea_daily` → sinh `forecast-skill.json` (cùng công thức §4), chạy mỗi tháng; tới lúc đó bảng §6 (2026-07-25) vẫn là bản đang dùng. Giới hạn: `sea_daily` chỉ 10 tầm (0..9), còn bảng hiện có 15; ERA5 vẫn là tái phân tích, không phải phao.
