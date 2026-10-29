@@ -12,6 +12,7 @@
 // TRUNG THỰC: đây là vùng CÓ KHẢ NĂNG, tính từ ảnh trễ ~2 ngày, độ phân giải
 // ~25 km — không phải lời hứa "có cá", UI phải luôn ghi rõ.
 
+import { locBanDoCaTrongVung } from "@/lib/vung-bien-vn";
 import {
   type FishRegionId,
   FISH_SEASONS,
@@ -2297,7 +2298,9 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
       const luu = banDoCaDaLuu();
       return luu ? { ...luu, tuKhoOffline: true as const } : { ok: false };
     }
-    const data = (await r.json()) as FishForecastResult;
+    const tho = (await r.json()) as FishForecastResult;
+    // chỉ giữ ô trong vùng biển VN (lib/vung-bien-vn) — máy chủ đã lọc, lọc lại để bản cũ trong kho SW cũng sạch
+    const data = (tho && (tho as FishForecast).ok === true ? locBanDoCaTrongVung(tho as FishForecast) : tho) as FishForecastResult;
     // DẤU "bản đồ cá đã có offline" — payload thật do Service Worker cache
     // (/api/fish-forecast, same-origin), nhưng JS không đọc được kho SW đồng bộ.
     // Ghi 1 dấu localStorage khi nhận 200 để bảng "trong máy có gì" báo được lớp
@@ -2353,8 +2356,9 @@ export async function fishForecastTuKhoSW(): Promise<FishForecast | null> {
     if (!hit) return null;
     const d = (await hit.json()) as FishForecastResult;
     if (!d || d.ok !== true) return null;
-    luuBanDoCa(d);
-    return d;
+    const sach = locBanDoCaTrongVung(d);
+    luuBanDoCa(sach);
+    return sach;
   } catch {
     return null;
   }
@@ -2376,7 +2380,8 @@ export const FISH_ID = "latest";
 export function banDoCaDaLuu(): FishForecast | null {
   const c = loadForecast<FishForecast>(FISH_NS, FISH_ID);
   const d = c?.data;
-  return d && (d as FishForecast).ok === true ? d : null;
+  // bản lưu từ trước 2026-10-29 có thể còn ô ngoài vùng biển VN — lọc lúc đọc, không cần tải lại
+  return d && (d as FishForecast).ok === true ? locBanDoCaTrongVung(d) : null;
 }
 
 /** Dấu "bản đồ cá đã tải offline" (từ lần fetchFishForecast gần nhất nhận 200).

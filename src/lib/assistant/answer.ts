@@ -12,6 +12,7 @@ import { foldVn } from "@/lib/market/text";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { STORM_MAX_AGE_MS } from "@/lib/storms";
 import { weatherFromCode } from "@/lib/weather-codes";
+import { FREE_FORECAST_DAYS, THOI_TIET_XA_CAN_GOI } from "@/lib/tier";
 import { SCREEN_LABEL } from "./intents";
 import { blockReasonOf } from "./parse";
 import { ALL_PORT_NAMES, matchPortKeys, nearPortKeys, portByKey } from "./ports";
@@ -192,8 +193,11 @@ function answerWeather(p: ParsedIntent, s: DeviceSnapshot, now: number): Assista
       : `${storm}Máy chưa có dự báo cảng ${portName}. Có sóng thì mở Bản đồ để tải.${storm ? "" : ` ${NGHE_DAI}`}`, nav(SCREEN_HREF.ra_khoi));
   }
   const today = todayIsoVN(now);
-  const premiumNote = day > 2 && !s.premium;
-  const askDay = premiumNote ? 2 : day;
+  /*  Số ngày không cần gói đọc từ `tier.ts` (rà 2026-10-29): bản cũ gõ cứng "3 ngày" nên sau khi anh Long
+      chốt 27/10 "thường chỉ có hôm nay" Sen Biển vẫn đọc ba ngày và mời "quá 3 ngày là Premium". */
+  const ngayMienPhi = THOI_TIET_XA_CAN_GOI ? FREE_FORECAST_DAYS : 3;
+  const premiumNote = day >= ngayMienPhi && !s.premium;
+  const askDay = premiumNote ? ngayMienPhi - 1 : day;
   const target = addDaysIso(today, askDay);
   const d = w.days.find((x) => x.date === target);
   const luu = luuLabel(w.savedAt, now);
@@ -208,13 +212,14 @@ function answerWeather(p: ParsedIntent, s: DeviceSnapshot, now: number): Assista
   const spokenStorm = storm ? `${storm.trim().replace(/\.$/, "")}, bác nghe thêm đài duyên hải. ` : "";
   const spokenTail = storm ? `số ${luu}.` : `số ${luu}, bác nghe thêm đài duyên hải.`;
   if (premiumNote) {
-    const lines = [0, 1, 2].map((i) => {
+    const lines = Array.from({ length: ngayMienPhi }, (_, i) => {
       const dd = w.days.find((x) => x.date === addDaysIso(today, i));
       return dd ? `${DAY_NAME[i]} ${dd.score}/100, sóng ${fmtM(dd.waveMaxM)} m` : `${DAY_NAME[i]} chưa có số`;
     });
-    const moi = s.online ? " Dự báo quá 3 ngày là phần Premium — gọi SDVICO để mở." : "";
-    const text = `${storm}Ba ngày tới ở ${portName}: ${lines.join("; ")}. Số ${luu}.${moi} ${NGHE_DAI}`;
-    const speak = `${spokenStorm}Ba ngày tới ở ${portName} ${lines.join(", ")}, ${spokenTail}`;
+    const moi = s.online ? " Dự báo các ngày tới đi kèm gói dự báo cá — gọi SDVICO để mở." : "";
+    const dau = ngayMienPhi === 1 ? "Máy chỉ có số hôm nay" : `${ngayMienPhi} ngày tới`;
+    const text = `${storm}${dau} ở ${portName}: ${lines.join("; ")}. Số ${luu}.${moi} ${NGHE_DAI}`;
+    const speak = `${spokenStorm}${dau} ở ${portName}, ${lines.join(", ")}, ${spokenTail}`;
     return reply("thoi_tiet", text, { ...nav(SCREEN_HREF.ra_khoi), savedAt: w.savedAt, speak });
   }
   if (diDuoc) {

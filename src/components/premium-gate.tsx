@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { withNext } from "@/lib/auth-next";
 import { LockIcon, PhoneIcon } from "@/components/icons";
 import {
   SDVICO_HOTLINE,
@@ -50,6 +52,8 @@ export function PremiumLock({
   compact?: boolean;
 }) {
   const online = useOnline();
+  // đăng nhập xong quay về đúng màn này (lib/auth-next)
+  const pathname = usePathname() ?? "/";
   if (access !== "login" && access !== "upgrade") return null;
   if (!online) return null; // mất sóng: không mời việc không làm được
 
@@ -65,7 +69,7 @@ export function PremiumLock({
   const cta =
     access === "login" ? (
       <Link
-        href="/login"
+        href={withNext("/login", pathname)}
         className="display mx-auto mt-3 flex min-h-[3.25rem] w-full max-w-[18.75rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
       >
         Đăng nhập

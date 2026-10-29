@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { withNext } from "@/lib/auth-next";
 import { LockIcon } from "@/components/icons";
 import { useAuthUser } from "@/lib/use-auth";
 
@@ -34,6 +36,8 @@ export function LoginGate({
   /*  `signedIn` — xem chú thích ở `use-auth.ts`. Component này hiện chưa route
       nào dùng, nhưng để nguyên `user` là để sẵn một khẩu súng đã lên đạn. */
   const { signedIn, ready } = useAuthUser();
+  // đăng nhập xong quay về đúng màn này (lib/auth-next) — gọi trước mọi return sớm (luật hook)
+  const pathname = usePathname() ?? "/";
 
   if (!ready) return null; // đang kiểm tra — đừng nhá khóa rồi mở
   if (signedIn) return <>{children}</>;
@@ -60,13 +64,13 @@ export function LoginGate({
           "Tạo nhanh bằng số điện thoại, hoặc đăng nhập nếu đã có."}
       </p>
       <Link
-        href="/dang-ky"
+        href={withNext("/dang-ky", pathname)}
         className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white shadow-trim-cta transition active:scale-[0.98]"
       >
         Đăng ký
       </Link>
       <Link
-        href="/login"
+        href={withNext("/login", pathname)}
         className="mx-auto mt-2 inline-flex min-h-[3.5rem] items-center px-2 text-[1rem] font-semibold text-sea"
       >
         Đã có tài khoản — Đăng nhập

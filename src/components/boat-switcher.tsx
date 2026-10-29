@@ -93,10 +93,19 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
             isNew
             onCancel={() => setForm(null)}
             onSave={(b) => {
-              addBoat(b);
+              // tàu ĐẦU TIÊN cũng phải nói thật khi máy hết chỗ (rà 2026-10-29: nhánh này bỏ kết quả)
+              setSaveFailed(!addBoat(b));
               setForm(null);
             }}
           />
+        )}
+        {saveFailed && (
+          <div
+            role="alert"
+            className="absolute inset-x-4 top-full mt-2 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-semibold leading-snug text-danger"
+          >
+            {storageFullCopy("hồ sơ tàu")} Tàu chưa được lưu.
+          </div>
         )}
       </div>
     );

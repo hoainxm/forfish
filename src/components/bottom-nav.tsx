@@ -109,11 +109,17 @@ export function BottomNav() {
                     qua aria-label/title (trình đọc màn hình, nhấn giữ). */}
                 <Link
                   href={href}
+                  // Bản đồ là route nặng nhất (dữ liệu + bộ nghe Sen Biển) — không tải trước từ dock,
+                  // kẻo trên 3G nó giành mạng với chính màn đang mở (rà tốc độ 2026-10-29: chạm dock im 4,8 s)
+                  prefetch={id === "ban-do" ? false : undefined}
                   aria-current={active ? "page" : undefined}
                   aria-label={`${label}${nhanBadgeDock(id, nguon)}`}
                   title={label}
                   onClick={(e) => {
-                    if (!active) return;
+                    // Đang ở ĐÚNG trang gốc của mục ⇒ cuộn lên đầu. Đang ở trang con (/cho/don/x,
+                    // /ban-hang…) ⇒ để Link đưa về trang gốc — trước đây chỉ cuộn, bấm không đi đâu
+                    // (rà hành trình 2026-10-29).
+                    if (!active || pathname !== href) return;
                     e.preventDefault();
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}

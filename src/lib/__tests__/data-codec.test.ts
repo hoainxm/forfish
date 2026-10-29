@@ -248,10 +248,16 @@ describe("DÂY NỐI — cổng chữ (kiểu lỗi: file có, hàm có, mà kh�
     expect(strip(read("src/lib/ocean-map.ts"))).toContain('dataSourceUrl("/data/isobaths.v1.json")');
   });
 
-  it("vỏ fishing-map đăng ký cả hai protocol trước khi map dựng", () => {
+  it("fishing-map-view (nạp động) đăng ký cả hai protocol lúc module nạp, trước khi map dựng", () => {
+    const v = strip(read("src/components/fishing-map-view.tsx"));
+    expect(v).toContain("registerPmtilesProtocol();");
+    expect(v).toContain("registerDataProtocol();");
+  });
+
+  it("vỏ fishing-map KHÔNG kéo thư viện bản đồ vào lần tải đầu (rà tốc độ 2026-10-29: 266 KB gzip ở mọi màn)", () => {
     const v = strip(read("src/components/fishing-map.tsx"));
-    expect(v).toContain("registerPmtilesProtocol()");
-    expect(v).toContain("registerDataProtocol()");
+    expect(v).not.toMatch(/from "@\/lib\/(pmtiles-protocol|data-protocol)"/);
+    expect(v).not.toMatch(/from "maplibre-gl"/);
   });
 
   it("KHÔNG file .ts/.tsx nào (kể cả test) `import` JSON từ public/data — TS của next build sẽ parse bản ĐÃ MÃ (build Vercel c3cc67a đỏ)", () => {

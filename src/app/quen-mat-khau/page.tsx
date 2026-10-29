@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { timeoutSignal } from "@/lib/abort";
+
 import Link from "next/link";
 import {
   CallButton,
@@ -23,6 +25,9 @@ import {
   resetRequestMessage,
   validateResetInput,
 } from "@/lib/password-reset";
+
+/** Trần chờ gửi yêu cầu cấp lại mật khẩu — đủ cho sóng 3G ở cảng, không để nút treo vô hạn */
+const RESET_TIMEOUT_MS = 20_000;
 
 /*
   Quên mật khẩu — KH nhập SĐT + họ tên, yêu cầu chuyển sang SDVICO (CRM), nhân
@@ -81,6 +86,8 @@ export default function QuenMatKhauPage() {
         method: "POST",
         headers: resetHeaders(endpoint.anonKey),
         body: JSON.stringify(buildResetRequest(phone, fullName)),
+        // sóng yếu treo request thì nút kẹt "Đang gửi…" mãi (rà 2026-10-29) — hết giờ rơi về nhánh mất mạng
+        signal: timeoutSignal(RESET_TIMEOUT_MS),
       });
       status = res.status;
       body = await res.json().catch(() => null);

@@ -29,9 +29,69 @@ export interface UVField {
 /** Sóng: m → "km/h tượng trưng" cho tốc độ hạt (2 m ≈ gió 24 km/h nhìn vừa mắt) */
 const WAVE_M_TO_KMH = 12;
 
-/** Dòng chảy: nhân cho hạt nhìn thấy được (2 km/h thật ≈ gió 16 km/h trên màn) —
-    chỉ áp vào TỐC ĐỘ HẠT, số km/h hiển thị nơi khác vẫn là số thật */
-const CURRENT_SPEED_BOOST = 8;
+/** Dòng chảy: tốc độ hạt = K·√(km/h thật). 2 km/h vẫn ra 16 như bản nhân
+    thẳng ×8 cũ; dòng yếu được nâng lên cho thấy trôi.
+    Vì sao dùng căn (2026-10-29, tester gửi video: "miền Trung chảy, miền Nam
+    không chảy"): nhân thẳng thì ven bờ Nam Bộ 0,5–0,6 km/h chạy chậm hơn miền
+    Trung mùa gió bấc (2–3 km/h) tới 4–5 lần, dưới 1 px mỗi khung hình nên nhìn
+    như đứng yên. Dùng căn thì chênh còn khoảng 2 lần: chỗ mạnh vẫn chạy nhanh
+    hơn, chỗ yếu vẫn thấy nước đang trôi. Chỉ áp vào TỐC ĐỘ HẠT; số km/h hiện ra
+    nơi khác vẫn là số thật. */
+const CURRENT_SPEED_K = 8 * Math.SQRT2;
+
+/**
+ * Lấp ô THIẾU SỐ của trường u/v bằng trung bình các ô kề có số, lặp `passes`
+ * lượt. Chỉ lấp ô mà `canFill` cho phép (chỗ gọi truyền "nằm trong vùng có mặt
+ * nạ đất liền"), nên hạt bay lên đất đã có mặt nạ chặn ở `wind-particles`.
+ *
+ * Vì sao (2026-10-29): lưới chung thưa khoảng 2°, ven bờ nhiều điểm lưới rơi lên
+ * đất (Bình Dương, Ninh Thuận, Quảng Nam…), mà marine API trả null trên đất.
+ * `sampleUV` giết hạt khi quá 3/4 trọng số rơi vào góc thiếu, nên cả dải ven bờ
+ * rộng hàng chục km, đúng chỗ bà con đánh bắt, không có hạt. Lấp ô đất bằng
+ * số của ô biển kề rồi để mặt nạ đất chặn hạt thì nước chảy được tới sát bờ.
+ * Chỉ dùng cho HẠT; màu và mũi tên vẫn vẽ theo từng ô thật. THUẦN, có test.
+ */
+export function fillMissingUV(
+  f: UVField,
+  canFill: (lat: number, lon: number) => boolean,
+  passes = 2,
+): UVField {
+  const u = Float32Array.from(f.u);
+  const v = Float32Array.from(f.v);
+  for (let p = 0; p < passes; p++) {
+    const pu = Float32Array.from(u);
+    const pv = Float32Array.from(v);
+    let changed = false;
+    for (let i = 0; i < f.nLat; i++) {
+      for (let j = 0; j < f.nLon; j++) {
+        const k = i * f.nLon + j;
+        if (Number.isFinite(pu[k])) continue;
+        if (!canFill(f.lat0 + i * f.dLat, f.lon0 + j * f.dLon)) continue;
+        let n = 0;
+        let su = 0;
+        let sv = 0;
+        for (let di = -1; di <= 1; di++) {
+          for (let dj = -1; dj <= 1; dj++) {
+            const ii = i + di;
+            const jj = j + dj;
+            if ((di === 0 && dj === 0) || ii < 0 || jj < 0 || ii >= f.nLat || jj >= f.nLon) continue;
+            const kk = ii * f.nLon + jj;
+            if (!Number.isFinite(pu[kk])) continue;
+            n++;
+            su += pu[kk];
+            sv += pv[kk];
+          }
+        }
+        if (n === 0) continue;
+        u[k] = su / n;
+        v[k] = sv / n;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return { ...f, u, v };
+}
 
 /**
  * Dựng trường u/v từ lưới dự báo tại một mốc giờ. Kích thước lưới TỰ SUY từ
@@ -62,7 +122,7 @@ export function buildUVField(
             ? h.waveM * WAVE_M_TO_KMH
             : null
           : h.curKmh != null
-            ? h.curKmh * CURRENT_SPEED_BOOST
+            ? CURRENT_SPEED_K * Math.sqrt(Math.max(0, h.curKmh))
             : null;
     const dir =
       kind === "wind"
