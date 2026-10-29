@@ -76,8 +76,10 @@ export const KHONG_PHAI_CUM = ["!", ["has", "point_count"]] as unknown as Filter
 export const LA_CUM = ["has", "point_count"] as unknown as FilterSpecification;
 /*  Hai lớp vòng "+N" cho một nguồn có cluster. Trả MẢNG (không Fragment):
     <Source> của react-map-gl chỉ gắn `source` cho con TRỰC TIẾP — bọc Fragment
-    là hai lớp mất nguồn, im lặng không vẽ. */
-export function cumLayers(id: string, minzoom: number) {
+    là hai lớp mất nguồn, im lặng không vẽ.
+    `an` (2026-10-29): chế độ AIS giấu vòng "+N" cho bản đồ đỡ rối — vòng tàu radar là thứ chính lúc đó. */
+export function cumLayers(id: string, minzoom: number, an = false) {
+  const vis = an ? "none" : "visible";
   return [
     <Layer
       key={`${id}-cum`}
@@ -85,6 +87,7 @@ export function cumLayers(id: string, minzoom: number) {
       type="circle"
       minzoom={minzoom}
       filter={LA_CUM}
+      layout={{ visibility: vis }}
       paint={{
         "circle-radius": CLUSTER_BADGE.radius,
         "circle-color": CLUSTER_BADGE.fill,
@@ -104,6 +107,7 @@ export function cumLayers(id: string, minzoom: number) {
         "text-size": 13,
         "text-allow-overlap": true,
         "text-ignore-placement": true,
+        visibility: vis,
       }}
       paint={{ "text-color": CLUSTER_BADGE.text }}
     />,

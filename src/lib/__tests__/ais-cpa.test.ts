@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { congNm, cpaTcpa, demMuc, dongPhuTau, huongChu, lechNm, locMucTieu, quangNgan, quetQuanh, tcpaLabel, tomTatNguyCo, vanToc, xepMuc } from "@/lib/ais-cpa";
+import { congNm, cpaTcpa, khungRadar, mucTieuGeoJson, radarGeoJson, demMuc, dongPhuTau, huongChu, lechNm, locMucTieu, quangNgan, quetQuanh, tcpaLabel, tomTatNguyCo, vanToc, xepMuc } from "@/lib/ais-cpa";
 import type { TauAis, TauAisBan } from "@/lib/tau-ais";
 
 const GOC = { lat: 10.3, lon: 107.1 };
@@ -114,10 +114,10 @@ describe("ais-cpa — câu cho bà con", () => {
   const minh = { pos: GOC, speedKmh: 0, headingDeg: null };
   it("tóm tắt nguy cơ: nguy / cảnh / an / chưa GPS", () => {
     const nguy = quetQuanh(ban([tau({ id: "a", x: 0, y: 1, kn: 12, huong: 180 })]), minh, 6, NOW);
-    expect(tomTatNguyCo(nguy, true, 6)).toEqual({ muc: "nguy", cau: "1 tàu có thể đi sát dưới nửa hải lý (930 m) trong 20 phút tới" });
+    expect(tomTatNguyCo(nguy, true, 6)).toEqual({ muc: "nguy", cau: "1 tàu sắp đi sát dưới 930 m · trong 20 phút" });
     const canh = quetQuanh(ban([tau({ id: "b", x: 1, y: 4, kn: 10, huong: 180 })]), minh, 6, NOW);
     expect(tomTatNguyCo(canh, true, 6).muc).toBe("canh");
-    expect(tomTatNguyCo([], true, 6)).toEqual({ muc: "an", cau: "Không có tàu nào đang tới gần · không thấy tàu nào trong 6 hải lý" });
+    expect(tomTatNguyCo([], true, 6)).toEqual({ muc: "an", cau: "Không có tàu nào trong 6 hải lý" });
     expect(tomTatNguyCo(nguy, false, 6).muc).toBe("chua-gps");
   });
   it("hướng chữ + quãng ngắn", () => {
@@ -134,5 +134,34 @@ describe("ais-cpa — câu cho bà con", () => {
     expect(dongPhuTau(lao, false)).toBe("Cách 1,0 hải lý · phía Bắc");
     const [dung] = quetQuanh(ban([tau({ id: "d", x: 2, y: 0 })]), minh, 6, NOW);
     expect(dongPhuTau(dung, true)).toBe("Cách 2,0 hải lý · phía Đông · đang đứng");
+  });
+});
+
+describe("ais-cpa — radar trên nền bản đồ", () => {
+  it("ba vòng tầm đúng bán kính, nhãn hải lý + km, vạch mũi khi biết hướng", () => {
+    const fc = radarGeoJson(GOC, 6, 90);
+    const vong = fc.features.filter((f) => f.properties.kind === "vong");
+    expect(vong).toHaveLength(3);
+    const ngoai = vong[2].geometry as GeoJSON.LineString;
+    for (const [lon, lat] of ngoai.coordinates) expect(Math.hypot(lechNm(GOC, { lat, lon }).x, lechNm(GOC, { lat, lon }).y)).toBeCloseTo(6, 1);
+    expect(fc.features.filter((f) => f.properties.kind === "nhan").map((f) => f.properties.nhan)).toEqual(["2 hl · 3,7 km", "4 hl · 7,4 km", "6 hl · 11,1 km"]);
+    expect(fc.features.some((f) => f.properties.kind === "mui")).toBe(true);
+    expect(radarGeoJson(GOC, 6, null).features.some((f) => f.properties.kind === "mui")).toBe(false);
+  });
+  it("mục tiêu: chấm + vạch 12 phút cho tàu chạy, đứng yên chỉ có chấm; đánh dấu tàu chọn", () => {
+    const ds = quetQuanh(ban([tau({ id: "a", x: 0, y: 1, kn: 10, huong: 180 }), tau({ id: "b", x: 2, y: 0 })]), { pos: GOC, speedKmh: 0, headingDeg: null }, 6, NOW);
+    const fc = mucTieuGeoJson(ds, "b");
+    expect(fc.features.filter((f) => f.properties.kind === "tau")).toHaveLength(2);
+    const vec = fc.features.filter((f) => f.properties.kind === "vec");
+    expect(vec).toHaveLength(1);
+    const [[lon0, lat0], [lon1, lat1]] = (vec[0].geometry as GeoJSON.LineString).coordinates;
+    const d = lechNm({ lat: lat0, lon: lon0 }, { lat: lat1, lon: lon1 });
+    expect(d.y).toBeCloseTo(-2, 2); // 10 hải lý/h × 12 phút về Nam
+    expect(fc.features.find((f) => f.properties.id === "b" && f.properties.kind === "tau")?.properties.chon).toBe(1);
+  });
+  it("khung bao ôm đúng vòng ngoài", () => {
+    const [[w, s], [e, n]] = khungRadar(GOC, 6);
+    expect(lechNm(GOC, { lat: n, lon: e }).y).toBeCloseTo(6, 3);
+    expect(lechNm(GOC, { lat: s, lon: w }).x).toBeCloseTo(-6, 2);
   });
 });

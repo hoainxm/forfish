@@ -257,9 +257,9 @@ import {
   type ChatDayInfo, type LegInfo, type DenInfo, type DepthInfo, type DiaDanhInfo, type KhuTruBaoInfo, type LaneInfo, type MarkInfo,
   type ReefInfo, type StormPtInfo, type VungInfo, type XacTauInfo, type TauAisInfo, TheTauAis,
 } from "@/components/ban-do/the-thong-tin";
-import { AisToanBien, CheDoAis, type CheDoAisXem } from "@/components/ban-do/che-do-ais";
+import { AisBanKinh, AisToanBien, type CheDoAisXem } from "@/components/ban-do/che-do-ais";
 import { VUNG_BIEN_VN } from "@/lib/tau-ais/chuan-hoa.mjs";
-import type { TauMinh } from "@/lib/ais-cpa";
+import { TAM_RADAR_NM, khungRadar, mucTieuGeoJson, quetQuanh, radarGeoJson, type MucTieu, type TauMinh } from "@/lib/ais-cpa";
 import { kepTheTrongKhung } from "@/components/ban-do/kep-the";
 import { BangChuGiai, SEAMARK_HIT_LAYERS, CLUSTER_HIT_LAYERS, SEAMARK_FAR, SEAMARK_MID, SEAMARK_AN, SEAMARK_ICON_LAYOUT, KHONG_PHAI_CUM, cumLayers, type LegendRow } from "@/components/ban-do/hai-do";
 import {
@@ -773,15 +773,28 @@ export default function FishingMapView() {
   const [aisTuKho, setAisTuKho] = useState(false);
   const [aisState, setAisState] = useState<"idle" | "loading" | "error" | "ok">("idle");
   const [aisRetry, setAisRetry] = useState(0);
-  /*  CHẾ ĐỘ AIS (2026-10-29) — chế độ riêng, vào từ nút AIS trên rail (cùng cổng xem trước với lớp). Hai cách
-      xem: "ban-kinh" = màn radar + CPA/TCPA quanh tàu mình; "toan-bien" = bản đồ bay về cả vùng biển VN, lớp chấm
-      tàu bật, thẻ AisToanBien trên cùng. Vào là bật lớp (dùng chung một vòng tải bản, không request mới); thoát thì
+  /*  CHẾ ĐỘ AIS (2026-10-29) — chế độ riêng, vào từ nút AIS trên rail (quyền `aisAllowed`). Hai cách xem, CẢ HAI
+      TRÊN NỀN BẢN ĐỒ (anh Long: "radar nó show trên nền bản đồ chứ đừng có làm đen thui"): "ban-kinh" = vòng radar
+      + mục tiêu (vị trí đã ước) vẽ lên bản đồ quanh tàu mình, thẻ AisBanKinh trên cùng; "toan-bien" = bản đồ bay về
+      cả vùng biển VN, lớp chấm tàu bật, thẻ AisToanBien trên cùng. Vào là bật lớp (dùng chung một vòng tải bản, không request mới); thoát thì
       trả lớp về như trước khi vào. */
   const [aisMode, setAisMode] = useState<CheDoAisXem | null>(null);
   const [aisTruocMode, setAisTruocMode] = useState(false);
   /** Toàn biển: chỉ hiện chấm tàu cá (lọc ngay trên lớp MapLibre, không dựng lại GeoJSON) */
   const [aisChiCa, setAisChiCa] = useState(false);
-  const aisGeo = useMemo(() => (aisOn && aisBan ? tauGeoJson(aisBan) : null), [aisOn, aisBan]);
+  /** Bán kính: chỉ số tầm trong TAM_RADAR_NM (mặc định 6 hải lý) + tàu đang chọn (chạm chấm/dòng) */
+  const [aisTamI, setAisTamI] = useState(2);
+  const [aisChon, setAisChon] = useState<string | null>(null);
+  /*  Đồng hồ 30 s khi đang ở Bán kính: vị trí ước trôi theo tuổi tin — đồng hồ 5 phút của bản đồ quá thưa. */
+  const [aisNow, setAisNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (aisMode !== "ban-kinh") return;
+    setAisNow(Date.now());
+    const id = window.setInterval(() => setAisNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, [aisMode]);
+  // Bán kính vẽ mục tiêu ở vị trí ĐÃ ƯỚC (lớp ais-radar-tau) ⇒ giấu lớp chấm thô để không thấy hai chấm một tàu
+  const aisGeo = useMemo(() => (aisOn && aisBan && aisMode !== "ban-kinh" ? tauGeoJson(aisBan) : null), [aisOn, aisBan, aisMode]);
   // xem trước nội bộ: chỉ tài khoản trong danh sách mới thấy nút + được tải lưới
   const { phone: authPhone } = useAuthUser();
   // không có phiên Supabase (chuỗi thiết bị) thì lùi về SĐT chủ sổ server đã xác nhận khi đồng bộ
@@ -3028,6 +3041,7 @@ export default function FishingMapView() {
   }, [aisOn]);
   const thoatAis = useCallback(() => {
     setAisMode(null);
+    setAisChon(null);
     if (!aisTruocMode) setAisOn(false);
   }, [aisTruocMode]);
   /** Bay tới một tàu (zoom 11) rồi mở thẻ tàu ngay chỗ chấm — từ ô tìm Toàn biển hoặc nút Hải đồ của radar. */
@@ -3254,6 +3268,46 @@ export default function FishingMapView() {
     () => (tracking.pos && tracking.status !== "denied" ? { pos: tracking.pos, speedKmh: tracking.speedKmh, headingDeg: tracking.headingDeg } : null),
     [tracking.pos, tracking.status, tracking.speedKmh, tracking.headingDeg],
   );
+  /*  BÁN KÍNH — tâm = tàu mình (GPS) hoặc điểm đang xem; mục tiêu trong tầm + hình học vẽ lên bản đồ. */
+  const aisTamNm = TAM_RADAR_NM[aisTamI];
+  const aisTam = aisGps?.pos ?? point;
+  const aisDs = useMemo<MucTieu[]>(
+    () => (aisMode === "ban-kinh" && aisBan ? quetQuanh(aisBan, aisGps ?? { pos: point, speedKmh: null, headingDeg: null }, aisTamNm, aisNow) : []),
+    [aisMode, aisBan, aisGps, point, aisTamNm, aisNow],
+  );
+  const aisRadarGeo = useMemo(
+    () => (aisMode === "ban-kinh" ? radarGeoJson(aisTam, aisTamNm, aisGps?.headingDeg ?? null) : null),
+    [aisMode, aisTam, aisTamNm, aisGps?.headingDeg],
+  );
+  const aisMucTieuGeo = useMemo(() => (aisMode === "ban-kinh" ? mucTieuGeoJson(aisDs, aisChon) : null), [aisMode, aisDs, aisChon]);
+  /*  Bản đồ ÔM VỪA RADAR khi vào Bán kính / đổi tầm — KHÔNG theo từng nhịp GPS (tâm đọc qua ref), để bà con tự
+      kéo xem quanh được. Đệm trên = đáy cột nổi trên cùng (thẻ AIS + tin bão, đo thật), đệm dưới chừa ngăn gió
+      sóng + dock. */
+  const aisHudRef = useRef<HTMLDivElement | null>(null);
+  const aisTamRef = useRef(aisTam);
+  useEffect(() => {
+    aisTamRef.current = aisTam;
+  }, [aisTam]);
+  useEffect(() => {
+    if (aisMode !== "ban-kinh") return;
+    const id = window.requestAnimationFrame(() => {
+      const map = mapRef.current;
+      if (!map) return;
+      const khung = map.getContainer().getBoundingClientRect();
+      const hud = aisHudRef.current?.getBoundingClientRect();
+      const tren = hud ? Math.max(80, Math.round(hud.bottom - khung.top + 12)) : 280;
+      const duoi = 150;
+      // khung quá thấp (máy ngang, chữ to) thì bớt đệm để vòng vẫn có chỗ
+      const du = khung.height - tren - duoi > 160;
+      map.fitBounds(khungRadar(aisTamRef.current, aisTamNm), {
+        padding: du ? { top: tren, bottom: duoi, left: 16, right: 16 } : 16,
+        duration: 650,
+        maxZoom: 14,
+      });
+    });
+    return () => window.cancelAnimationFrame(id);
+    // `!!aisBan`: thẻ cao thêm khi bản tải xong (câu nguy cơ, tầm) ⇒ ôm lại một lần theo đáy mới
+  }, [aisMode, aisTamNm, !!aisBan]); // eslint-disable-line react-hooks/exhaustive-deps
   /*  Vị trí mới nhất giữ trong ref: `goToMyBoat` cần đọc nó mà KHÔNG được nhận
       `tracking.pos` làm dep — fix về mỗi 1–2 giây, dựng lại callback từng nhịp
       thì rail nút + ô toạ độ re-render theo nhịp GPS cho không việc gì. */
@@ -4618,6 +4672,7 @@ export default function FishingMapView() {
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && xacTauGeo) ids.push("xac-tau");
     /*  Chấm TÀU XUNG QUANH (AIS) chạm được — tên, loại, tốc độ, tin cũ bao lâu. Không theo công tắc hải đồ. */
     if (aisGeo) ids.push("tau-ais-dot");
+    if (aisMucTieuGeo) ids.push("ais-radar-dot");
     /*  Báo hiệu chính thức chạm được — nó mang số hiệu + câu tác dụng của
         nhà nước, thứ lớp OSM không có. */
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && vnAidGeo) ids.push("vn-aid", "vn-aid-cum");
@@ -4635,7 +4690,7 @@ export default function FishingMapView() {
     // chạm MỐC bão (đã qua / dự báo) để bật popup thông tin mốc đó (A)
     if (trackGeo) ids.push("storm-moc-toi", "storm-moc-qua");
     return ids.length ? ids : undefined;
-  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo, prefs.vungQuanLy, vungQuanLyGeo, aisGeo, premiumLocked]);
+  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo, prefs.vungQuanLy, vungQuanLyGeo, aisGeo, aisMucTieuGeo, premiumLocked]);
   /*  LỚP BẮT CHẠM ĐÃ DỰNG THẬT (lỗi bắt khi rà 2026-10-20): `hitLayers` tính từ
       STATE (dữ liệu đã tải, công tắc bật) nhưng lớp chỉ vào style sau một nhịp
       vẽ — nhất là lúc đổi lớp nền (setStyle dựng lại cả style). Chạm đúng khe đó
@@ -5660,6 +5715,12 @@ export default function FishingMapView() {
               return;
             }
           }
+          /*  BÁN KÍNH: chạm chấm mục tiêu trên radar ⇒ chọn tàu đó trong thẻ AisBanKinh (mở chi tiết dưới dòng) — DỪNG. */
+          const hitRadar = measureMode ? undefined : nearFeats.find((f) => f.layer?.id === "ais-radar-dot");
+          if (hitRadar) {
+            setAisChon(String(hitRadar.properties?.id ?? "") || null);
+            return;
+          }
           /*  CHẠM CHẤM TÀU AIS ⇒ thẻ tên/loại/tốc độ/tin cũ bao lâu — DỪNG (anh Long 26/10: "sao không click vô 1 tàu được"). */
           const hitTauAis = measureMode ? undefined : nearFeats.find((f) => f.layer?.id === "tau-ais-dot");
           if (hitTauAis && aisBan) {
@@ -6339,6 +6400,80 @@ export default function FishingMapView() {
                 "circle-stroke-width": 0.8,
                 "circle-opacity": 0.9,
               }}
+            />
+          </Source>
+        )}
+
+        {/* RADAR AIS TRÊN NỀN BẢN ĐỒ (Bán kính) — ba vòng tầm quanh tàu mình (vòng ngoài liền, trong đứt), nhãn hải lý +
+            km ở đỉnh Bắc mỗi vòng, vạch mũi tàu đứt; giống lớp radar trên máy định vị/MarineTraffic — nét mảnh, không che hải đồ */}
+        {aisRadarGeo && (
+          <Source id="ais-radar" type="geojson" data={aisRadarGeo}>
+            <Layer
+              id="ais-radar-vong"
+              type="line"
+              filter={["==", ["get", "kind"], "vong"] as unknown as boolean}
+              paint={{
+                "line-color": "#0e7490",
+                "line-width": ["case", ["get", "ngoai"], 1.8, 1.1] as unknown as number,
+                "line-opacity": ["case", ["get", "ngoai"], 0.85, 0.6] as unknown as number,
+                "line-dasharray": [3, 2],
+              }}
+            />
+            <Layer
+              id="ais-radar-mui"
+              type="line"
+              filter={["==", ["get", "kind"], "mui"] as unknown as boolean}
+              paint={{ "line-color": "#0b2f44", "line-width": 1.4, "line-opacity": 0.6, "line-dasharray": [1.5, 1.5] }}
+            />
+            <Layer
+              id="ais-radar-nhan"
+              type="symbol"
+              filter={["==", ["get", "kind"], "nhan"] as unknown as boolean}
+              layout={{
+                "text-field": ["get", "nhan"] as unknown as string,
+                "text-font": ["Noto Sans Bold"],
+                "text-size": 11,
+                "text-anchor": "bottom",
+                "text-offset": [0, -0.2],
+                "text-allow-overlap": true,
+              }}
+              paint={{ "text-color": "#0b4f63", "text-halo-color": "#ffffff", "text-halo-width": 1.6 }}
+            />
+          </Source>
+        )}
+        {aisMucTieuGeo && (
+          <Source id="ais-radar-tau" type="geojson" data={aisMucTieuGeo}>
+            <Layer
+              id="ais-radar-vec"
+              type="line"
+              filter={["==", ["get", "kind"], "vec"] as unknown as boolean}
+              paint={{ "line-color": ["get", "mau"] as unknown as string, "line-width": 1.6, "line-opacity": ["case", ["==", ["get", "cu"], 1], 0.35, 0.85] as unknown as number }}
+            />
+            {/* quầng cho tàu tới gần — đỏ/vàng, mắt bắt ngay */}
+            <Layer
+              id="ais-radar-quang"
+              type="circle"
+              filter={["all", ["==", ["get", "kind"], "tau"], ["in", ["get", "muc"], ["literal", ["nguy", "canh"]]]] as unknown as boolean}
+              paint={{ "circle-radius": 13, "circle-color": ["get", "mau"] as unknown as string, "circle-opacity": 0.18, "circle-stroke-color": ["get", "mau"] as unknown as string, "circle-stroke-width": 1.2, "circle-stroke-opacity": 0.7 }}
+            />
+            <Layer
+              id="ais-radar-dot"
+              type="circle"
+              filter={["==", ["get", "kind"], "tau"] as unknown as boolean}
+              paint={{
+                "circle-radius": ["case", ["==", ["get", "chon"], 1], 7, 5.5] as unknown as number,
+                "circle-color": ["get", "mau"] as unknown as string,
+                "circle-opacity": ["case", ["==", ["get", "cu"], 1], 0.45, 1] as unknown as number,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": ["case", ["==", ["get", "chon"], 1], 2.5, 1.4] as unknown as number,
+              }}
+            />
+            {/* tàu đang chọn: vòng navy ngoài để biết chấm nào là dòng đang mở */}
+            <Layer
+              id="ais-radar-chon"
+              type="circle"
+              filter={["all", ["==", ["get", "kind"], "tau"], ["==", ["get", "chon"], 1]] as unknown as boolean}
+              paint={{ "circle-radius": 11, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": "#0b2f44", "circle-stroke-width": 2 }}
             />
           </Source>
         )}
@@ -7095,7 +7230,7 @@ export default function FishingMapView() {
             clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.mid}
           >
             <Layer id="seamark-mid" type="symbol" minzoom={SEAMARK_TIER_MINZOOM.mid} filter={KHONG_PHAI_CUM} layout={SEAMARK_ICON_LAYOUT} />
-            {cumLayers("seamark-mid", SEAMARK_TIER_MINZOOM.mid)}
+            {cumLayers("seamark-mid", SEAMARK_TIER_MINZOOM.mid, aisMode != null)}
           </Source>
         )}
         {!anyExclusiveOverlay && chartDetailOn && groupNavOn && seamarkTiers && (
@@ -7108,7 +7243,7 @@ export default function FishingMapView() {
             clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.near}
           >
             <Layer id="seamark-near" type="symbol" minzoom={SEAMARK_TIER_MINZOOM.near} filter={KHONG_PHAI_CUM} layout={SEAMARK_ICON_LAYOUT} />
-            {cumLayers("seamark-near", SEAMARK_TIER_MINZOOM.near)}
+            {cumLayers("seamark-near", SEAMARK_TIER_MINZOOM.near, aisMode != null)}
           </Source>
         )}
 
@@ -7239,7 +7374,7 @@ export default function FishingMapView() {
             clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.mid}
           >
             <Layer id="vn-aid" type="symbol" minzoom={VN_AID_MINZOOM} filter={KHONG_PHAI_CUM} layout={SEAMARK_ICON_LAYOUT} />
-            {cumLayers("vn-aid", VN_AID_MINZOOM)}
+            {cumLayers("vn-aid", VN_AID_MINZOOM, aisMode != null)}
           </Source>
         )}
 
@@ -7741,25 +7876,6 @@ export default function FishingMapView() {
            thông báo để tra ngược. KHÔNG tự tắt. */}
       {xacTauInfo && <TheXacTau info={xacTauInfo} onClose={() => setXacTauInfo(null)} prefs={prefs} />}
       {tauAisInfo && <TheTauAis info={tauAisInfo} onClose={() => setTauAisInfo(null)} prefs={prefs} now={nowMs} />}
-      {aisMode === "ban-kinh" && aisAllowed && (
-        <CheDoAis
-          ban={aisBan}
-          state={aisState}
-          tuKho={aisTuKho}
-          gps={aisGps}
-          diemXem={point}
-          prefs={prefs}
-          onRetry={() => setAisRetry((n) => n + 1)}
-          onDinhVi={goToMyBoat}
-          onHaiDo={(m) => {
-            // về bản đồ trong chế độ AIS (Toàn biển), bay sát tàu đó + mở thẻ tàu
-            setAisMode("toan-bien");
-            xemTauAis(m.tau); // chấm trên bản đồ nằm ở vị trí trong tin, không phải vị trí đã ước
-          }}
-          onToanBien={moAisToanBien}
-          onClose={thoatAis}
-        />
-      )}
 
       {/*  ĐÈN NÀO ĐÂY (2026-09-02).
 
@@ -8116,7 +8232,8 @@ export default function FishingMapView() {
              thì khối to ra chỉ đẩy khối dưới xuống, không đè. Tin bão vẫn LUÔN
              hiện (cảnh báo an toàn không ai được che). */}
         <div className="flex items-start gap-2">
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {/* ref: chế độ AIS đo ĐÁY cột này để bản đồ ôm vòng radar dưới mọi thứ đang nổi (thẻ AIS + tin bão) */}
+          <div ref={aisHudRef} className="flex min-w-0 flex-1 flex-col gap-2">
             {aisMode === "toan-bien" && aisAllowed && (
               <AisToanBien
                 ban={aisBan}
@@ -8131,7 +8248,28 @@ export default function FishingMapView() {
                 onClose={thoatAis}
               />
             )}
-            {navMode == null && aisMode !== "toan-bien" && (
+            {aisMode === "ban-kinh" && aisAllowed && (
+              <AisBanKinh
+                ban={aisBan}
+                state={aisState}
+                tuKho={aisTuKho}
+                ds={aisDs}
+                coGps={!!aisGps}
+                tam={aisTamNm}
+                coTheThu={aisTamI > 0}
+                coTheMo={aisTamI < TAM_RADAR_NM.length - 1}
+                onTam={(b) => setAisTamI((i) => Math.min(TAM_RADAR_NM.length - 1, Math.max(0, i + b)))}
+                chonId={aisChon}
+                onChon={setAisChon}
+                onXemTau={(m) => flyToPoint(m.pos.lon, m.pos.lat, 12, 0)}
+                prefs={prefs}
+                onDinhVi={goToMyBoat}
+                onRetry={() => setAisRetry((n) => n + 1)}
+                onToanBien={moAisToanBien}
+                onClose={thoatAis}
+              />
+            )}
+            {navMode == null && aisMode == null && (
               <div ref={setOTimEl}>
               <OTimDiem
                 onOpen={() => (premiumAccess === "login" ? setMoiTimDiem(true) : setTimMo(true))}
@@ -8145,7 +8283,8 @@ export default function FishingMapView() {
             {/* Ô TOẠ ĐỘ — hai số bà con quen đọc trên máy định vị: chỗ TÀU đang
                 đứng + chỗ CON TRỎ đang trỏ tới (kèm cách tàu bao xa, hướng nào).
                 Góp ý VSS Quân Bình Định 2026-08-25. */}
-            <div className="@max-[15rem]/map:hidden">
+            {/* chế độ AIS: ô toạ độ nhường chỗ cho vòng radar (toạ độ tàu vẫn có trong chi tiết từng tàu + nút Vị trí) */}
+            <div className={`@max-[15rem]/map:hidden ${aisMode != null ? "hidden" : ""}`}>
             <PlotterReadout
               myPos={tracking.pos}
               status={tracking.status}

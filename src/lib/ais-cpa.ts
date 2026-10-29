@@ -9,7 +9,8 @@
  */
 import type { LatLon } from "@/lib/geo";
 import { windDirectionVN } from "@/lib/marine-weather";
-import { nhomTau, type TauAis, type TauAisBan } from "@/lib/tau-ais";
+import { vongTron } from "@/lib/storm-track";
+import { MAU_TAU, nhomTau, type TauAis, type TauAisBan } from "@/lib/tau-ais";
 
 export const KM_PER_NM = 1.852;
 /** ước vị trí theo tin tối đa bao lâu — quá thì không đoán tiếp (tàu có thể đã đổi hướng) */
@@ -170,12 +171,12 @@ export interface TomTatNguyCo {
   cau: string;
 }
 export function tomTatNguyCo(ds: MucTieu[], coGps: boolean, tamNm: number): TomTatNguyCo {
-  if (!coGps) return { muc: "chua-gps", cau: "Bật định vị để biết tàu nào đang tới gần mình" };
+  // câu NGẮN (thẻ nổi trên bản đồ, anh Long: "gọn vào") — số liệu chi tiết nằm trong từng tàu
+  if (!coGps) return { muc: "chua-gps", cau: "Bật định vị để biết tàu nào tới gần" };
   const d = demMuc(ds);
-  if (d.nguy > 0) return { muc: "nguy", cau: `${d.nguy} tàu có thể đi sát dưới nửa hải lý (${quangNgan(NGUONG.nguy.cpaNm)}) trong ${NGUONG.nguy.tcpaPhut} phút tới` };
-  if (d.canh > 0) return { muc: "canh", cau: `${d.canh} tàu đang tới gần trong ${NGUONG.canh.tcpaPhut} phút tới — để ý` };
-  const quanh = ds.length === 0 ? `không thấy tàu nào trong ${tamNm} hải lý` : `${ds.length} tàu quanh mình trong ${tamNm} hải lý`;
-  return { muc: "an", cau: `Không có tàu nào đang tới gần · ${quanh}` };
+  if (d.nguy > 0) return { muc: "nguy", cau: `${d.nguy} tàu sắp đi sát dưới ${quangNgan(NGUONG.nguy.cpaNm)} · trong ${NGUONG.nguy.tcpaPhut} phút` };
+  if (d.canh > 0) return { muc: "canh", cau: `${d.canh} tàu đang tới gần · trong ${NGUONG.canh.tcpaPhut} phút` };
+  return { muc: "an", cau: ds.length === 0 ? `Không có tàu nào trong ${tamNm} hải lý` : `Không tàu nào tới gần · ${ds.length} tàu trong tầm` };
 }
 
 /** Hướng chữ 8 hướng ("Đông Bắc") — bà con quen nói thế hơn là độ. */
@@ -224,4 +225,73 @@ export function tcpaLabel(phut: number | null): string {
   const p = Math.round(phut);
   if (p < 60) return `${p} phút`;
   return `${Math.floor(p / 60)} giờ ${String(p % 60).padStart(2, "0")}`;
+}
+
+/* ─── RADAR TRÊN NỀN BẢN ĐỒ (2026-10-29, anh Long: "radar nó show trên nền bản đồ chứ đừng có làm đen thui thế,
+   tham khảo các bên khác") — như MarineTraffic/Navionics/máy định vị có lớp radar: vòng tầm vẽ thẳng lên hải đồ
+   quanh tàu mình, mục tiêu ở vị trí ĐÃ ƯỚC, vạch quãng đi phía trước. GeoJSON thuần, MapLibre vẽ. */
+
+/** vạch vận tốc = quãng đi trong chừng này phút */
+export const VECTOR_PHUT = 12;
+
+/** Màu một mục tiêu: nguy đỏ, cảnh báo vàng, còn lại theo loại tàu. */
+export function mauMucTieu(m: Pick<MucTieu, "muc" | "tau">): string {
+  if (m.muc === "nguy" || m.muc === "canh") return MAU_MUC[m.muc];
+  return MAU_TAU[nhomTau(m.tau.loai)];
+}
+
+const so1vn = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 1 });
+
+/** Ba vòng tầm chia đều + nhãn "2 hl · 3,7 km" ở đỉnh Bắc mỗi vòng + vạch mũi tàu (khi biết hướng). */
+export function radarGeoJson(
+  tam: LatLon,
+  tamNm: number,
+  huong: number | null,
+): GeoJSON.FeatureCollection<GeoJSON.LineString | GeoJSON.Point, { kind: "vong" | "nhan" | "mui"; ngoai?: boolean; nhan?: string }> {
+  const features: GeoJSON.Feature<GeoJSON.LineString | GeoJSON.Point, { kind: "vong" | "nhan" | "mui"; ngoai?: boolean; nhan?: string }>[] = [];
+  for (let i = 1; i <= 3; i++) {
+    const nm = (tamNm * i) / 3;
+    const ring = vongTron(tam.lat, tam.lon, nm * KM_PER_NM);
+    features.push({ type: "Feature", geometry: { type: "LineString", coordinates: [...ring, ring[0]] }, properties: { kind: "vong", ngoai: i === 3 } });
+    const dinh = congNm(tam, 0, nm);
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [dinh.lon, dinh.lat] },
+      properties: { kind: "nhan", nhan: `${so1vn(nm)} hl · ${so1vn(nm * KM_PER_NM)} km` },
+    });
+  }
+  if (huong != null && Number.isFinite(huong)) {
+    const r = (huong * Math.PI) / 180;
+    const mui = congNm(tam, tamNm * Math.sin(r), tamNm * Math.cos(r));
+    features.push({ type: "Feature", geometry: { type: "LineString", coordinates: [[tam.lon, tam.lat], [mui.lon, mui.lat]] }, properties: { kind: "mui" } });
+  }
+  return { type: "FeatureCollection", features };
+}
+
+/** Mục tiêu trên bản đồ: chấm ở vị trí đã ước (màu theo mức/loại) + vạch quãng đi VECTOR_PHUT phút. */
+export function mucTieuGeoJson(
+  ds: MucTieu[],
+  chonId: string | null,
+): GeoJSON.FeatureCollection<GeoJSON.LineString | GeoJSON.Point, { kind: "tau" | "vec"; id: string; mau: string; muc: MucAis; chon: number; cu: number }> {
+  const features: GeoJSON.Feature<GeoJSON.LineString | GeoJSON.Point, { kind: "tau" | "vec"; id: string; mau: string; muc: MucAis; chon: number; cu: number }>[] = [];
+  for (const m of ds) {
+    const p = { id: m.tau.id, mau: mauMucTieu(m), muc: m.muc, chon: m.tau.id === chonId ? 1 : 0, cu: m.tinCu ? 1 : 0 };
+    const v = vanToc(m.tau.kn, m.tau.huong);
+    if (v.vx !== 0 || v.vy !== 0) {
+      const den = congNm(m.pos, (v.vx * VECTOR_PHUT) / 60, (v.vy * VECTOR_PHUT) / 60);
+      features.push({ type: "Feature", geometry: { type: "LineString", coordinates: [[m.pos.lon, m.pos.lat], [den.lon, den.lat]] }, properties: { kind: "vec", ...p } });
+    }
+    features.push({ type: "Feature", geometry: { type: "Point", coordinates: [m.pos.lon, m.pos.lat] }, properties: { kind: "tau", ...p } });
+  }
+  return { type: "FeatureCollection", features };
+}
+
+/** Khung bao vòng ngoài [[tây, nam], [đông, bắc]] — để bản đồ ôm vừa radar. */
+export function khungRadar(tam: LatLon, tamNm: number): [[number, number], [number, number]] {
+  const tn = congNm(tam, -tamNm, -tamNm);
+  const db = congNm(tam, tamNm, tamNm);
+  return [
+    [tn.lon, tn.lat],
+    [db.lon, db.lat],
+  ];
 }
