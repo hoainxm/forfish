@@ -506,7 +506,7 @@ export function PretripSavedStatus({
 const LAYER_HELP: Record<SavedLayerId, string> = {
   grid: "Gió & sóng CẢ Biển Đông — xem ở BẤT KỲ đâu (kể cả tầng mặt)",
   point: "Ghim điểm nào là có dự báo chi tiết 16 ngày điểm đó",
-  fish: "Bản đồ điểm cá (dự báo ngắn ngày, cần tài khoản Premium)",
+  fish: "Bản đồ điểm cá (dự báo ngắn ngày, cần gói dự báo)",
   scalar: "Mây, mưa, nhiệt không khí, nguy cơ dông, áp suất",
   salinity: "Độ mặn nước biển",
   seascalar: "Nước dâng / xoáy nước (gom mồi)",
@@ -778,11 +778,11 @@ function PretripSavedSheet({
                 )}
               </span>
               {!l.retriable ? (
-                <span className="shrink-0 text-[0.75rem] font-semibold text-foreground/55">
+                <span className="shrink-0 text-[0.75rem] font-semibold text-muted">
                   khoá
                 </span>
               ) : rowBusy ? (
-                <span className="shrink-0 text-[0.8125rem] font-semibold text-foreground/55">
+                <span className="shrink-0 text-[0.8125rem] font-semibold text-muted">
                   Đang tải…
                 </span>
               ) : l.saved && l.fresh ? (

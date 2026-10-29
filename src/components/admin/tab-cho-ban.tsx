@@ -12,7 +12,7 @@ import { type TabPerms } from "@/lib/staff-permissions";
 import { useCallback, useEffect, useState } from "react";
 import { useEscape } from "@/lib/use-escape";
 
-// ── Tab CHỖ BÁN — danh bạ "Bán ở đâu" (nậu vựa/chợ/nhà máy): sửa/ẩn/hiện/xóa/thêm ──
+// ── Tab CHỖ BÁN — danh bạ "Bán ở đâu" (nậu vựa/chợ/nhà máy): sửa/ẩn/hiện/xoá/thêm ──
 
 export type AdminSellContact = {
   id: string;
@@ -94,7 +94,7 @@ export function SellContactsTab({ perms }: { perms: TabPerms }) {
         if (!((await r.json()) as { ok: boolean }).ok) throw new Error();
         load();
       } catch {
-        setError("Xóa không thành công. Vui lòng thử lại.");
+        setError("Xoá không thành công. Vui lòng thử lại.");
       } finally {
         setBusyId(null);
       }
@@ -135,7 +135,7 @@ export function SellContactsTab({ perms }: { perms: TabPerms }) {
       </h2>
       <p className="mt-1 text-[0.9375rem] text-foreground/70">
         Nậu vựa · Chợ đầu mối · Nhà máy hiện trong app ngư dân (mục Chợ cá →
-        Bán ở đâu). Sửa / ẩn / hiện / xóa / thêm — áp dụng ngay. (“Mối quen” là
+        Bán ở đâu). Sửa / ẩn / hiện / xoá / thêm — áp dụng ngay. (“Mối quen” là
         sổ riêng của bà con, không quản lý ở đây.)
       </p>
 
@@ -187,7 +187,7 @@ export function SellContactsTab({ perms }: { perms: TabPerms }) {
         </div>
       )}
       {contacts?.length === 0 && (
-        <p className="mt-4 rounded-xl bg-field px-3 py-3 text-[0.9375rem] text-foreground/60">
+        <p className="mt-4 rounded-xl bg-field px-3 py-3 text-[0.9375rem] text-muted">
           Danh bạ trống. Bấm “Nạp danh bạ mặc định” để đưa ~143 đầu mối có sẵn
           vào quản lý, hoặc tự thêm.
         </p>
@@ -207,12 +207,12 @@ export function SellContactsTab({ perms }: { perms: TabPerms }) {
               </span>
               <span className="text-[1rem] font-bold text-navy">{c.name}</span>
               {c.province && (
-                <span className="text-[0.8125rem] text-foreground/60">
+                <span className="text-[0.8125rem] text-muted">
                   {c.province}
                 </span>
               )}
               {c.phone && (
-                <span className="text-[0.8125rem] tabular-nums text-foreground/60">
+                <span className="text-[0.8125rem] tabular-nums text-muted">
                   {c.phone}
                 </span>
               )}
@@ -246,7 +246,7 @@ export function SellContactsTab({ perms }: { perms: TabPerms }) {
                   onClick={() => setToDelete(c)}
                   className="rounded-lg bg-danger-bg px-3 py-1.5 text-[0.8125rem] font-semibold text-danger"
                 >
-                  Xóa
+                  Xoá
                 </button>
               )}
             </div>
@@ -267,9 +267,9 @@ export function SellContactsTab({ perms }: { perms: TabPerms }) {
       )}
       {toDelete && (
         <ConfirmDialog
-          title="Xóa đầu mối này khỏi danh bạ?"
-          message={`Đối tác "${toDelete.name}" sẽ bị xóa khỏi danh bạ trên ứng dụng của ngư dân.`}
-          confirmLabel="Xác nhận xóa"
+          title="Xoá đầu mối này khỏi danh bạ?"
+          message={`Đối tác "${toDelete.name}" sẽ bị xoá khỏi danh bạ trên ứng dụng của ngư dân.`}
+          confirmLabel="Xác nhận xoá"
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
             remove(toDelete.id);
@@ -409,7 +409,7 @@ export function SellContactForm({
             onClick={onClose}
             className="min-h-[3rem] rounded-full bg-field text-[1rem] font-bold text-foreground/70"
           >
-            Hủy
+            Huỷ
           </button>
           <button
             type="button"

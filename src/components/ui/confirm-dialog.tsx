@@ -7,7 +7,7 @@ import { tapFeedback } from "@/lib/haptics";
 import { focusablesIn, khoaVuotNen, lockBodyScroll, unlockBodyScroll, useLichSuDong, vongFocus } from "@/lib/dialog-focus";
 
 /*
-  ConfirmDialog dùng chung — thay 4 bản copy-paste (xác nhận xóa…), kèm a11y:
+  ConfirmDialog dùng chung — thay 4 bản copy-paste (xác nhận xoá…), kèm a11y:
   role=alertdialog, Escape/scrim đóng, trả focus, focus nút an toàn trước.
   Đóng có animation (scrim mờ + card pop); confirm rung nhẹ (haptics).
 */
@@ -17,7 +17,7 @@ export function ConfirmDialog({
   message,
   children,
   cancelLabel = "Không",
-  confirmLabel = "Xác nhận xóa",
+  confirmLabel = "Xác nhận xoá",
   danger = true,
   onCancel,
   onConfirm,
@@ -84,7 +84,7 @@ export function ConfirmDialog({
 
   if (!mounted) return null;
 
-  // PORTAL ra body — thoát stacking context của tổ tiên (vd nút Xóa nằm trong
+  // PORTAL ra body — thoát stacking context của tổ tiên (vd nút Xoá nằm trong
   // card `relative z-10`) để dialog z-40 luôn nổi trên bottom-nav/sheet.
   return createPortal(
     <div

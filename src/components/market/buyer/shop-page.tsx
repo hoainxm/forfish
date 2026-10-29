@@ -199,7 +199,7 @@ export function ShopPage({ slug }: { slug: string }) {
         </p>
         {/*  F-09: màn cụt phải có đường ra — trước đây chỉ có câu, không nút. */}
         <Link href="/cho" className={`${primaryLinkClass} mx-auto mt-4 max-w-[15rem]`}>
-          Về cửa hàng
+          {NHAN.vatTu}
         </Link>
       </div>
     );

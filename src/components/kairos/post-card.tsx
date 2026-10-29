@@ -156,7 +156,7 @@ function NhanBen({ post, benPort }: { post: KairosPost; benPort?: string }) {
   return (
     // MỘT khối không gãy: "▸ Bến X" không bị tách khi dòng 2 xuống hàng
     <span className="inline-flex shrink-0 items-center gap-1">
-      <span aria-hidden className="text-foreground/50">
+      <span aria-hidden className="text-muted">
         ▸
       </span>
       <Link
@@ -303,7 +303,7 @@ function TheBao({ post, onRead, notify }: { post: KairosPost; onRead?: (p: Kairo
   );
   const dai = (
     <span className="flex flex-col gap-0.5 bg-field px-4 py-2 text-left">
-      {mien && <span className="truncate text-[0.75rem] uppercase tracking-wide text-foreground/55">{mien}</span>}
+      {mien && <span className="truncate text-[0.75rem] uppercase tracking-wide text-muted">{mien}</span>}
       {post.title && <span className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{post.title}</span>}
     </span>
   );
@@ -545,12 +545,12 @@ export function PostCard({
           {/* còn bình luận ngoài 2 bình luận nổi ⇒ lối mở ĐỌC (không bật bàn phím — A98) */}
           {post.commentCount > post.topComments.length &&
             (inline ? (
-              <button type="button" onClick={() => moBinhLuan(false)} className="flex h-9 items-center text-[0.875rem] font-semibold text-foreground/65">
-                Xem thêm bình luận
+              <button type="button" onClick={() => moBinhLuan(false)} className="-my-1 flex min-h-11 items-center text-[0.875rem] font-semibold text-foreground/65">
+                {NHAN.xemThem}
               </button>
             ) : (
-              <Link href={detail} onClick={() => onRead?.(post)} className="flex h-9 items-center text-[0.875rem] font-semibold text-foreground/65">
-                Xem thêm bình luận
+              <Link href={detail} onClick={() => onRead?.(post)} className="-my-1 flex min-h-11 items-center text-[0.875rem] font-semibold text-foreground/65">
+                {NHAN.xemThem}
               </Link>
             ))}
         </div>

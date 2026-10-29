@@ -64,10 +64,11 @@ describe("resetRequestMessage", () => {
     expect(r.message).toMatch(/SDVICO/);
   });
 
-  it("thiếu trường (400) → dùng câu CRM trả về", () => {
-    const r = resetRequestMessage(400, { error: "Vui lòng điền đầy đủ..." });
+  it("thiếu trường (400) → câu Việt cố định, KHÔNG in câu thô của CRM", () => {
+    const r = resetRequestMessage(400, { error: "Missing required field: name" });
     expect(r.ok).toBe(false);
-    expect(r.message).toMatch(/Vui lòng điền đầy đủ/);
+    expect(r.message).not.toMatch(/Missing/);
+    expect(r.message).toMatch(/Còn thiếu thông tin/);
   });
 
   it("401/403 = lỗi cấu hình phía ta → đẩy thẳng sang hotline, không bảo thử lại", () => {

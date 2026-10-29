@@ -163,7 +163,7 @@ function ShopCard({
             {sentinelOwner ? "chưa gán chủ" : `chủ ${shop.ownerPhone}`}
             {shop.province ? ` · ${shop.province}` : ""} · {shop.productCount} món
           </p>
-          <p className="text-[0.8125rem] text-foreground/55">
+          <p className="text-[0.8125rem] text-muted">
             đăng ký {dayOf(shop.createdAt)}
             {shop.paused ? " · đang tạm nghỉ bán" : ""}
           </p>
@@ -173,7 +173,7 @@ function ShopCard({
 
       {shop.statusNote && (
         <p className="mt-2 border-t border-line px-4 py-2 text-[0.875rem] leading-snug text-foreground/80">
-          <span className="font-semibold text-foreground/60">Ghi chú trạng thái: </span>
+          <span className="font-semibold text-muted">Ghi chú trạng thái: </span>
           {shop.statusNote}
         </p>
       )}
@@ -230,39 +230,39 @@ function ShopCard({
       {open && (
         <div className="border-t border-line px-4 py-3 text-[0.875rem] leading-relaxed text-foreground/80">
           <p>
-            <span className="font-semibold text-foreground/60">Slug: </span>
+            <span className="font-semibold text-muted">Slug: </span>
             {shop.slug}
           </p>
           {shop.description && <p className="mt-1">{shop.description}</p>}
           <p className="mt-1">
-            <span className="font-semibold text-foreground/60">SĐT shop: </span>
+            <span className="font-semibold text-muted">SĐT shop: </span>
             <span className="tabular-nums">{shop.phone || "—"}</span>
           </p>
           <p className="mt-1">
-            <span className="font-semibold text-foreground/60">Địa chỉ: </span>
+            <span className="font-semibold text-muted">Địa chỉ: </span>
             {shop.address || "—"}
           </p>
           <p className="mt-1">
-            <span className="font-semibold text-foreground/60">Tài khoản nhận tiền: </span>
+            <span className="font-semibold text-muted">Tài khoản nhận tiền: </span>
             {shop.bankAccount
               ? `${shop.bankName ?? ""} · ${shop.bankAccount} · ${shop.bankHolder ?? ""}`
               : "chưa có (shop chỉ nhận tiền mặt)"}
           </p>
           <p className="mt-1">
-            <span className="font-semibold text-foreground/60">Phí giao: </span>
+            <span className="font-semibold text-muted">Phí giao: </span>
             {shop.shippingFlatVnd.toLocaleString("vi-VN")} đ
             {shop.freeShipFromVnd
               ? ` · miễn phí từ ${shop.freeShipFromVnd.toLocaleString("vi-VN")} đ`
               : ""}
           </p>
           <p className="mt-1">
-            <span className="font-semibold text-foreground/60">Điểm: </span>
+            <span className="font-semibold text-muted">Điểm: </span>
             {shop.ratingCount > 0 ? `${shop.ratingAvg}/5 · ${shop.ratingCount} lượt` : "chưa có"}
           </p>
 
           {/* Gán chủ shop — cho gian hàng SDVICO seed chưa có chủ (LEAD §5 A2) */}
           <div className="mt-3 border-t border-line pt-3">
-            <label className="block text-[0.875rem] font-semibold text-foreground/60" htmlFor={`owner-${shop.id}`}>
+            <label className="block text-[0.875rem] font-semibold text-muted" htmlFor={`owner-${shop.id}`}>
               Chủ gian hàng {sentinelOwner ? "(chưa gán)" : ""}
             </label>
             <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -283,7 +283,7 @@ function ShopCard({
                 Gán chủ shop
               </button>
             </div>
-            <p className="mt-1 text-[0.8125rem] text-foreground/55">
+            <p className="mt-1 text-[0.8125rem] text-muted">
               Số này sẽ vào được Kênh người bán của gian hàng. Một số điện thoại chỉ làm chủ một
               gian hàng.
             </p>

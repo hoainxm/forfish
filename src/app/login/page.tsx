@@ -14,6 +14,7 @@ import { isValidTokenShape } from "@/lib/device-token";
 import { saveToken } from "@/lib/device-token-store";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
+import { NHAN } from "@/lib/labels";
 import {
   AuthCard,
   AuthError,
@@ -310,13 +311,18 @@ export default function LoginPage() {
             3.75rem/rounded-full ngoài thang 03 §0 trông như nút phụ thứ hai. Lý do
             lịch sử đưa nó lên sát nút (2026-08-29: dock che ở 375×812) vẫn giữ
             vị trí này — không dựa vào việc dock có bị gỡ khỏi màn auth hay không. */}
-        <Link
-          href="/quen-mat-khau"
-          className="mt-2 flex min-h-(--h-ctl) w-full items-center justify-center text-[0.9375rem] font-semibold text-sea"
-        >
+        {/*  2026-10-29 (cổng nhãn ≤2 chữ, 03 §Nhãn "Quên mật khẩu → Cấp lại"): câu hỏi là chữ
+             thường, chỉ "Cấp lại" là liên kết — vùng chạm vẫn `--h-ctl`. */}
+        <p className="mt-2 flex min-h-(--h-ctl) w-full items-center justify-center text-[0.9375rem] text-muted">
           Quên mật khẩu?
-        </Link>
-        <p className="mt-1 text-center text-[0.875rem] leading-snug text-foreground/60">
+          <Link
+            href="/quen-mat-khau"
+            className="inline-flex min-h-(--h-ctl) items-center px-2 font-semibold text-sea"
+          >
+            {NHAN.capLai}
+          </Link>
+        </p>
+        <p className="mt-1 text-center text-[0.875rem] leading-snug text-muted">
           Đăng nhập tức là bà con đồng ý với{" "}
           {/* py-3 trên phần tử INLINE: nới vùng chạm lên ~44px mà không xô dòng chữ (rà bố cục
               2026-10-22 — trước cao 19px, tay ướt bấm trượt) */}
@@ -334,7 +340,7 @@ export default function LoginPage() {
           href={withNext("/dang-ky", next)}
           className="display mt-4 flex h-(--h-cta) w-full items-center justify-center rounded-(--r-ctl) border border-line text-[1rem] font-semibold text-navy transition active:scale-[0.98]"
         >
-          Tạo tài khoản mới
+          {NHAN.dangKy}
         </Link>
       </AuthCard>
     </div>

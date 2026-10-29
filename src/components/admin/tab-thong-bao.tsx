@@ -310,12 +310,12 @@ export function PushNotificationsTab({ perms }: { perms: TabPerms }) {
                 className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-line pb-2 text-[0.875rem] last:border-b-0 last:pb-0"
               >
                 <span className="font-bold text-navy">{m.title}</span>
-                <span className="text-foreground/55">
+                <span className="text-muted">
                   {m.target === "account"
                     ? `→ ${m.targetPhone ?? "?"}`
                     : "→ toàn bộ danh sách"}
                 </span>
-                <span className="text-foreground/45">{fmtDT(m.createdAt)}</span>
+                <span className="text-muted">{fmtDT(m.createdAt)}</span>
                 <span className="ml-auto tabular-nums">
                   <b className="text-navy">{m.devices}</b> máy · đẩy{" "}
                   <b className={m.sent > 0 ? "text-ok" : "text-danger"}>
@@ -327,14 +327,14 @@ export function PushNotificationsTab({ perms }: { perms: TabPerms }) {
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/55">
+          <p className="mt-2 text-[0.8125rem] leading-snug text-muted">
             <b>Đã gửi đi</b> = máy chủ đã chuyển tới Apple/Google. <b>Thiết bị nhận</b> = máy bà
             con báo về đã nhận thật (đếm theo <b>máy</b>). <b>Đã đọc</b> = đếm theo{" "}
             <b>người dùng</b>: bấm vào thông báo, hoặc mở app xem tin ở mục Thông báo
             trang chủ — một người hai máy vẫn tính một. Tin luôn nằm trong mục
             Thông báo ở trang chủ, nên đẩy hụt thì mở app vẫn đọc được.
           </p>
-          <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/45">
+          <p className="mt-1 text-[0.8125rem] leading-snug text-muted">
             Đọc thấp hơn Nhận là <b>trạng thái bình thường</b>: bà con hay liếc thông báo
             trên màn khoá rồi vuốt tắt — đường đó không máy nào đo được.
           </p>
@@ -350,7 +350,7 @@ export function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           }
           message={`"${title.trim()}" — ${body.trim()}`}
           confirmLabel="Gửi ngay"
-          cancelLabel="Hủy thao tác"
+          cancelLabel="Huỷ thao tác"
           danger={target === "all"}
           onCancel={() => setConfirmSend(false)}
           onConfirm={() => {

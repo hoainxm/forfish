@@ -138,7 +138,7 @@ export function BoatProducts() {
     ten: (p) => p.name,
   });
 
-  // Xóa tàu → hàng gán tàu đó đã được nhả về "của chung" (ba-spec 08 R3);
+  // Xoá tàu → hàng gán tàu đó đã được nhả về "của chung" (ba-spec 08 R3);
   // đọc lại để boatId trong state khớp máy, không tự ghi đè bản cũ.
   useEffect(() => {
     if (!ready) return;
@@ -377,7 +377,7 @@ export function BoatProducts() {
         )}
 
       {/*  MỖI MÓN MỘT HÀNG (TAU-05, 2026-10-25) — cùng khuôn Tủ giấy tờ; trước là thẻ băng màu
-          đặc + hộp nền + Sửa/Xóa bày thường trực. Màu tình trạng luôn kèm chữ. */}
+          đặc + hộp nền + Sửa/Xoá bày thường trực. Màu tình trạng luôn kèm chữ. */}
       {sorted.length > 0 && (
         <ul className="surface divide-y divide-line overflow-hidden">
           {sorted.map((product) => {
@@ -584,7 +584,7 @@ function ProductForm({
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
               className={inputClass}
-              placeholder="VD: Máy tời thủy lực"
+              placeholder="VD: Máy tời thuỷ lực"
             />
           </Field>
         )}

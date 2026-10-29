@@ -182,7 +182,7 @@ export function CronsPanel() {
                       w.fresh ? " — dữ liệu được cập nhật mới" : " — QUÁ 30 GIỜ: Trình tự động (cron) đang bị treo."
                     }${
                       w.staleKeys && w.staleKeys.length > 0 && w.fresh
-                        ? ` · Có ${w.staleKeys.length} khóa xác thực cũ chưa được xóa: ${w.staleKeys.join(", ")}`
+                        ? ` · Có ${w.staleKeys.length} khóa xác thực cũ chưa được xoá: ${w.staleKeys.join(", ")}`
                         : ""
                     }`
           }
@@ -203,7 +203,7 @@ export function CronsPanel() {
           note={stR.note}
         />
       </ul>
-      <p className="border-t border-line px-4 py-2.5 text-[0.75rem] leading-snug text-foreground/55">
+      <p className="border-t border-line px-4 py-2.5 text-[0.75rem] leading-snug text-muted">
         Trạng thái đo bằng TUỔI bản ghi trong DB so với nhịp kỳ vọng — cron chết
         thì tuổi phình, không cần tra log Vercel/GitHub. Snapshot cá quá 30 giờ
         thì app tự tính live nên bà con không mất dự báo, chỉ chậm hơn.
@@ -283,7 +283,7 @@ export function DataTab() {
     ["Dữ liệu dự báo cá (từ vệ tinh NOAA/Copernicus/HYCOM)", "/api/fish-forecast", fish],
     ["Thông tin cảnh báo bão khu vực Biển Đông", "/api/storms", storms],
     ["Bảng giá dầu DO", "/api/fuel-price", fuel],
-    ["Bảng giá thủy sản (theo VASEP)", "/api/port-prices", prices],
+    ["Bảng giá thuỷ sản (theo VASEP)", "/api/port-prices", prices],
   ];
 
   return (
@@ -312,7 +312,7 @@ export function DataTab() {
               <p className="text-[0.9375rem] font-bold text-navy">{label}</p>
               <p className="text-[0.8125rem] text-foreground/65">
                 {s.state === "loading" ? "đang rà soát trạng thái…" : s.note}
-                <span className="text-foreground/40"> · {path}</span>
+                <span className="text-muted"> · {path}</span>
               </p>
             </div>
           </li>
@@ -345,7 +345,7 @@ export function DataTab() {
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-[0.75rem] leading-snug text-foreground/55">
+          <p className="mt-2 text-[0.75rem] leading-snug text-muted">
             Trường vắng mặt = mọi nguồn của trường đó đang hỏng (dự báo vẫn chạy
             nếu SST + phù du còn; chi tiết luật ở lib/source-registry.ts).
           </p>
@@ -522,11 +522,11 @@ export function AppConfigCard() {
                 </span>
               </div>
               {row.help && (
-                <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
+                <p className="mt-0.5 text-[0.8125rem] text-muted">
                   {row.help}
                 </p>
               )}
-              <p className="mt-0.5 text-[0.8125rem] text-foreground/60">{prec.order}</p>
+              <p className="mt-0.5 text-[0.8125rem] text-muted">{prec.order}</p>
               {prec.warn && (
                 <p role={row.envFirst ? "alert" : undefined} className={`mt-1 text-[0.8125rem] font-semibold ${row.envFirst ? "text-danger" : "text-foreground/70"}`}>
                   {prec.warn}
@@ -538,7 +538,7 @@ export function AppConfigCard() {
                 </p>
               )}
               {row.secret && row.set && (
-                <p className="mt-1 text-[0.8125rem] text-foreground/60">
+                <p className="mt-1 text-[0.8125rem] text-muted">
                   Đã đặt (ẩn) — nhập mới để thay.
                 </p>
               )}

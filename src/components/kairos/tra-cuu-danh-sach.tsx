@@ -44,7 +44,7 @@ function HangDong({ d, dam }: { d: Dong; dam?: boolean }) {
       </p>
       <p className="break-words text-[0.875rem] text-foreground/80">
         {d.noiDung}
-        <span className="text-foreground/55"> · trang {d.page}</span>
+        <span className="text-muted"> · trang {d.page}</span>
       </p>
     </li>
   );

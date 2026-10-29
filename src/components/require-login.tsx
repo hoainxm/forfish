@@ -6,6 +6,7 @@ import { withNext } from "@/lib/auth-next";
 
 import { LockIcon } from "@/components/icons";
 import { useAuthUser } from "@/lib/use-auth";
+import { NHAN } from "@/lib/labels";
 
 /*
   CỔNG ĐĂNG NHẬP CẤP MÀN — chủ dự án chốt 2026-09-01: *"user yêu cầu phải đăng
@@ -63,7 +64,7 @@ export function RequireLogin({
     return (
       <p
         role="status"
-        className="mt-10 text-center text-[1.125rem] font-semibold text-foreground/60"
+        className="mt-10 text-center text-[1.125rem] font-semibold text-muted"
       >
         Đang mở…
       </p>
@@ -100,13 +101,13 @@ export function RequireLogin({
             href={withNext("/dang-ky", pathname)}
             className="display flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white shadow-trim-cta transition active:scale-[0.98]"
           >
-            Đăng ký
+            {NHAN.dangKy}
           </Link>
           <Link
             href={withNext("/login", pathname)}
             className="inline-flex min-h-[3.5rem] items-center px-2 text-[1rem] font-semibold text-sea"
           >
-            Đã có tài khoản — Đăng nhập
+            {NHAN.dangNhap}
           </Link>
         </div>
       </div>

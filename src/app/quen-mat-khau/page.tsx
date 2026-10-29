@@ -25,6 +25,7 @@ import {
   resetRequestMessage,
   validateResetInput,
 } from "@/lib/password-reset";
+import { NHAN } from "@/lib/labels";
 
 /** Trần chờ gửi yêu cầu cấp lại mật khẩu — đủ cho sóng 3G ở cảng, không để nút treo vô hạn */
 const RESET_TIMEOUT_MS = 20_000;
@@ -116,7 +117,7 @@ export default function QuenMatKhauPage() {
             href="/login"
             className="display flex min-h-[3.75rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white shadow-trim-cta transition active:scale-[0.98]"
           >
-            Về trang đăng nhập
+            {NHAN.dangNhap}
           </Link>
         </AuthCard>
       </div>
@@ -181,7 +182,7 @@ export default function QuenMatKhauPage() {
                 />
               </Field>
               <PrimaryButton type="submit" disabled={loading}>
-                {loading ? "Đang gửi…" : "Gửi yêu cầu"}
+                {loading ? "Đang gửi…" : NHAN.capLai}
               </PrimaryButton>
             </form>
           </>
@@ -194,7 +195,7 @@ export default function QuenMatKhauPage() {
           href="/login"
           className="mt-3 inline-flex min-h-[3.5rem] items-center px-4 text-[1rem] font-semibold text-sea transition active:scale-[0.98]"
         >
-          Quay lại đăng nhập
+          {NHAN.quayLai}
         </Link>
       </AuthCard>
     </div>

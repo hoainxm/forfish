@@ -6,6 +6,7 @@ import { CloseButton } from "@/components/ui/close-button";
 import { NHAN } from "@/lib/labels";
 import { resizeForMarket } from "@/lib/market/image-resize";
 import { PRODUCT_IMAGE_MAX } from "@/lib/market/validate";
+import { cauLoiHienThi } from "@/lib/send-error";
 
 type Pending = { key: string; file: File; state: "dang_nen" | "dang_tai" | "loi"; error?: string; preview: string };
 
@@ -61,7 +62,7 @@ export function ImagePicker({
     try {
       blob = await resizeForMarket(item.file);
     } catch (e) {
-      patch(item.key, { state: "loi", error: (e as Error)?.message || "Không nén được ảnh" });
+      patch(item.key, { state: "loi", error: cauLoiHienThi(e, "Không nén được ảnh") });
       return;
     }
     patch(item.key, { state: "dang_tai" });
@@ -72,7 +73,7 @@ export function ImagePicker({
       setPending((cur) => cur.filter((x) => x.key !== item.key));
       URL.revokeObjectURL(item.preview);
     } catch (e) {
-      patch(item.key, { state: "loi", error: (e as Error)?.message || "Chưa tải được — cần sóng" });
+      patch(item.key, { state: "loi", error: cauLoiHienThi(e, "Chưa tải được — cần sóng") });
     }
   }
 

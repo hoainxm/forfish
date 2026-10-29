@@ -16,8 +16,8 @@ describe("loginErrorMessage — tách lỗi đăng nhập (2026-07-21)", () => {
   it("SĐT chưa có tài khoản → chỉ đường TỰ ĐĂNG KÝ (mở lại 2026-09-23)", () => {
     const msg = loginErrorMessage(invalidCreds, false);
     expect(msg).toContain("chưa có tài khoản");
-    // Người ngoài tự đăng ký lại được → chỉ sang Tạo tài khoản mới (nút Đăng ký ở /login, VO-APP-05), KHÔNG bắt gọi SDVICO.
-    expect(msg).toContain("Tạo tài khoản mới");
+    // Người ngoài tự đăng ký lại được → chỉ sang nút Đăng ký (nút Đăng ký ở /login, VO-APP-05), KHÔNG bắt gọi SDVICO.
+    expect(msg).toContain("Đăng ký");
     expect(msg).not.toContain("0939 243 222");
     // KHÔNG gợi ý mật khẩu cho số chưa đăng ký.
     expect(msg).not.toContain("sd123456");
@@ -27,7 +27,7 @@ describe("loginErrorMessage — tách lỗi đăng nhập (2026-07-21)", () => {
     const msg = loginErrorMessage(invalidCreds, true);
     expect(msg).toContain("mật khẩu chưa đúng");
     expect(msg).toContain("sd123456");
-    expect(msg).toContain("Quên mật khẩu");
+    expect(msg).toContain("Cấp lại");
   });
 
   it("không kiểm được tài khoản (null) → quay về câu gộp cũ", () => {

@@ -191,7 +191,7 @@ export function PlotterReadout({
           0.375rem) — nối đuôi hàng Trỏ làm thẻ lệch một bên, máy hẹp thì rớt dòng lung tung
           (anh Long 2026-10-22: "bố cục cho cân đối… bố cục của thẻ toạ độ ấy"). */}
       {rng && (
-        <p className="-mt-0.5 pb-0.5 pl-[1.375rem] text-[0.6875rem] font-medium leading-tight text-foreground/60">
+        <p className="-mt-0.5 pb-0.5 pl-[1.375rem] text-[0.6875rem] font-medium leading-tight text-muted">
           {rng}
         </p>
       )}
@@ -210,7 +210,7 @@ function ToaDo({ lat, lon, fmt, mo = false }: { lat: number; lon: number; fmt: C
   // MỘT dòng nhưng bỏ chữ "Tàu"/"Trỏ" nên thẻ vẫn hẹp; quãng–hướng tự xuống dòng (flex-wrap) khi máy hẹp,
   // không bao giờ bị cắt như bản 2026-10-22 trước.
   return (
-    <span className={`flex gap-x-2 whitespace-nowrap text-[0.8125rem] font-semibold tabular-nums leading-tight ${mo ? "text-foreground/55" : "text-navy"}`}>
+    <span className={`flex gap-x-2 whitespace-nowrap text-[0.8125rem] font-semibold tabular-nums leading-tight ${mo ? "text-muted" : "text-navy"}`}>
       {/* vĩ độ có bề rộng tối thiểu ⇒ kinh độ hai hàng đứng thẳng một cột, kể cả khi
           một bên là 9° một bên là 10° */}
       <span className="min-w-[5.25rem]">{fmtLat(lat, fmt)}</span>

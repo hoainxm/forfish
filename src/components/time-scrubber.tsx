@@ -160,7 +160,7 @@ export function TimeScrubber({
 
       {/* THANH DẢI MÀU cường độ (luôn hiện) — sát ray, không chừa hàng trống */}
       <div className="mt-1 flex items-center gap-2">
-        <span className="shrink-0 text-[0.75rem] font-semibold text-foreground/60">
+        <span className="shrink-0 text-[0.75rem] font-semibold text-muted">
           {legend.title} ({legend.unit})
         </span>
         <div className="min-w-0 flex-1">
@@ -183,7 +183,7 @@ export function TimeScrubber({
               return (
                 <span
                   key={value}
-                  className={`absolute text-[0.625rem] font-semibold tabular-nums text-foreground/55 ${edge}`}
+                  className={`absolute text-[0.625rem] font-semibold tabular-nums text-muted ${edge}`}
                   style={
                     i === 0 || i === legend.ticks.length - 1
                       ? undefined

@@ -31,7 +31,7 @@ export function PriceText({
     <span className={`inline-flex flex-wrap items-baseline gap-x-2 ${className}`}>
       <span className={`${main} font-semibold text-navy`}>{formatVnd(priceVnd)}</span>
       {compareAtVnd != null && compareAtVnd > priceVnd && (
-        <span className="text-[0.875rem] text-foreground/50 line-through">{formatVnd(compareAtVnd)}</span>
+        <span className="text-[0.875rem] text-muted line-through">{formatVnd(compareAtVnd)}</span>
       )}
     </span>
   );

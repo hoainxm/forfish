@@ -15,6 +15,7 @@ import { sanitizePhoneInput } from "@/lib/phone";
 import { COASTAL_PROVINCES } from "@/lib/region";
 import type { Shop, ShopDraft } from "@/lib/market/types";
 import { invalidProps, SELLER_BTN } from "./ui";
+import { NHAN } from "@/lib/labels";
 
 export interface ShopFormValue {
   name: string;
@@ -199,7 +200,7 @@ export function ShopForm({
           className="mb-4 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-semibold text-navy"
         >
           <PlusIcon className="h-5 w-5 shrink-0" />
-          Thêm giới thiệu · miễn phí giao
+          {NHAN.xemThem}
         </button>
       ) : (
         <>
@@ -236,7 +237,7 @@ export function ShopForm({
             className="mb-1.5 flex min-h-(--row-h) w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-semibold text-navy"
           >
             <PlusIcon className="h-5 w-5 shrink-0" />
-            Thêm số tài khoản ngân hàng
+            {NHAN.nganHang}
           </button>
           <p className="mb-4 text-[0.875rem] leading-snug text-foreground/70">
             Không có số tài khoản thì bà con chỉ trả được tiền mặt khi nhận hàng.
@@ -278,7 +279,7 @@ export function ShopForm({
             className={`${SELLER_BTN} mb-4 bg-field text-navy`}
           >
             <TrashIcon className="h-6 w-6" />
-            Bỏ STK
+            {NHAN.bo}
           </button>
         </div>
       )}

@@ -68,7 +68,7 @@ export function AdminNav({
         <div role="tablist" aria-orientation="vertical" className="space-y-5">
           {groups.map((g) => (
             <div key={g.id}>
-              <p className="px-4 pb-1.5 text-[0.8125rem] font-bold text-foreground/50">
+              <p className="px-4 pb-1.5 text-[0.8125rem] font-bold text-muted">
                 {g.label}
               </p>
               <div className="space-y-1">
@@ -97,7 +97,7 @@ export function AdminNav({
                   className={`min-h-[2.75rem] whitespace-nowrap rounded-xl px-1 text-[0.8125rem] font-bold transition-colors duration-200 ${
                     on
                       ? "bg-navy/10 text-navy ring-2 ring-navy/30"
-                      : "text-foreground/60"
+                      : "text-muted"
                   }`}
                 >
                   {g.label}
@@ -135,7 +135,7 @@ export function AdminSkeleton({
 }) {
   return (
     <div role="status" aria-live="polite" className="anim-fade-in space-y-3">
-      <p className="text-[0.9375rem] font-semibold text-foreground/60">{label}</p>
+      <p className="text-[0.9375rem] font-semibold text-muted">{label}</p>
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="surface space-y-2.5 px-4 py-4" aria-hidden>
           <div className="h-4 w-2/5 animate-pulse rounded-md bg-field" />

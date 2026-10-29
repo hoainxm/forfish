@@ -53,6 +53,7 @@ import {
   SDVICO_SHOWCASE,
 } from "@/data/sdvico-showcase";
 import { timeoutSignal } from "@/lib/abort";
+import { NHAN } from "@/lib/labels";
 
 /*
   CỬA HÀNG (2026-08-11) — nâng cấp thành CHỢ ĐẶT HÀNG. Hai khu tách bạch:
@@ -64,7 +65,7 @@ import { timeoutSignal } from "@/lib/abort";
     SdvicoRequestButton (hộp tư vấn CRM), đơn vị NGOÀI → gọi + ProductInquiry.
 
   DANH MỤC ADMIN QUẢN LÝ: đọc từ Supabase `product_listings` (admin ẩn/hiện/
-  xóa/thêm trong /quan-tri, áp dụng NGAY). Chưa cấu hình / lỗi mạng → rơi về
+  xoá/thêm trong /quan-tri, áp dụng NGAY). Chưa cấu hình / lỗi mạng → rơi về
   SDVICO_SHOWCASE tĩnh (demo mode, tất cả đều KHÔNG orderable).
 */
 
@@ -437,7 +438,7 @@ function OrderableCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[0.75rem] font-semibold text-foreground/40">
+            <div className="flex h-full w-full items-center justify-center text-[0.75rem] font-semibold text-muted">
               {p.category || "Hàng hóa"}
             </div>
           )}
@@ -454,7 +455,7 @@ function OrderableCard({
           )}
           <p className="mt-1 text-[1.125rem] font-semibold text-t3">
             {formatVnd(p.priceVnd ?? 0)}
-            <span className="text-[0.875rem] font-semibold text-foreground/60">
+            <span className="text-[0.875rem] font-semibold text-muted">
               {" "}
               / {p.unit}
             </span>
@@ -507,7 +508,7 @@ function InquiryCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[0.75rem] font-semibold text-foreground/40">
+            <div className="flex h-full w-full items-center justify-center text-[0.75rem] font-semibold text-muted">
               {p.category || "Hàng hóa"}
             </div>
           )}
@@ -534,7 +535,7 @@ function InquiryCard({
               {p.description}
             </p>
           )}
-          <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/60">
+          <p className="mt-1 text-[0.8125rem] font-semibold text-muted">
             {p.priceText
               ? `Giá tham khảo: ${p.priceText}`
               : external
@@ -589,7 +590,7 @@ function DetailLink({ onDetail }: { onDetail: () => void }) {
       onClick={onDetail}
       className="mt-1.5 inline-flex min-h-[2.75rem] items-center gap-0.5 text-[0.9375rem] font-semibold text-sea"
     >
-      Xem chi tiết
+      {NHAN.chiTiet}
       <ChevronRightIcon className="h-4 w-4" />
     </button>
   );
@@ -676,7 +677,7 @@ function ProductDetailSheet({
                   key={i}
                   className={`flex gap-3 px-3.5 py-2.5 ${i % 2 === 1 ? "bg-field/60" : ""}`}
                 >
-                  <dt className="w-2/5 shrink-0 text-[0.9375rem] font-semibold text-foreground/60">
+                  <dt className="w-2/5 shrink-0 text-[0.9375rem] font-semibold text-muted">
                     {s.label}
                   </dt>
                   <dd className="flex-1 text-[0.9375rem] font-medium text-navy">

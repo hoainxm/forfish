@@ -10,6 +10,7 @@ import {
 } from "@/data/sdvico-showcase";
 import type { FeatureAccess } from "@/lib/tier";
 import { useOnline } from "@/lib/use-online";
+import { TEN_GOI } from "@/lib/labels";
 
 /*
   PremiumLock — thẻ khoá tính năng PREMIUM (dự báo cá, thời tiết quá 3 ngày),
@@ -21,9 +22,10 @@ import { useOnline } from "@/lib/use-online";
   nội dung, không cần if bên ngoài.
   Khoá UI chỉ là lớp vỏ — /api/fish-forecast bị chặn thật ở middleware.
 
-  2026-08-18 (audit G7/M8, chính sách thông báo tầng 5): MỘT tên "Premium"
-  (bỏ "tài khoản nâng cao"), câu chuẩn "… là phần Premium — gọi SDVICO để
-  mở" (đổi "tính năng"→"phần" 2026-09-24, giọng bà con); ẨN HOÀN TOÀN khi máy
+  2026-08-18 (audit G7/M8, chính sách thông báo tầng 5): MỘT tên cho gói
+  (bỏ "tài khoản nâng cao"); 2026-10-29 tên đó là `TEN_GOI` "gói dự báo"
+  (labels.ts — bỏ chữ "Premium" tiếng Anh), câu chuẩn "… nằm trong gói dự báo —
+  gọi SDVICO để mở"; ẨN HOÀN TOÀN khi máy
   báo mất sóng — `tel:` / `/login` giữa biển là ngõ
   cụt, mời chỉ thêm bực.
 */
@@ -31,7 +33,7 @@ import { useOnline } from "@/lib/use-online";
 /** Câu chuẩn cho mọi lời mời Premium — dùng cả ngoài PremiumLock (chip ngày,
     peek) để cả app chỉ có một cách gọi tên. */
 export function premiumLine(feature: string): string {
-  return `${cap(feature)} là tính năng Premium — bà con gọi SDVICO để mở nhé.`;
+  return `${cap(feature)} nằm trong ${TEN_GOI} — bà con gọi SDVICO để mở nhé.`;
 }
 
 export function PremiumLock({
@@ -60,7 +62,7 @@ export function PremiumLock({
   const title =
     access === "login"
       ? `Đăng nhập để xem ${feature}`
-      : `${cap(feature)} là tính năng Premium`;
+      : `${cap(feature)} nằm trong ${TEN_GOI}`;
   const sub =
     access === "login"
       ? (blurb ??

@@ -37,6 +37,7 @@ import {
   TrashIcon,
 } from "@/components/icons";
 import { SQ_TILE } from "@/components/ui/sq-btn";
+import { NHAN } from "@/lib/labels";
 
 export function MyPlacesContent({
   places,
@@ -73,7 +74,7 @@ export function MyPlacesContent({
 }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  // xác nhận xóa NGAY TRONG HÀNG (hội đồng UX 2026-06-11) — không xóa 1 chạm
+  // xác nhận xoá NGAY TRONG HÀNG (hội đồng UX 2026-06-11) — không xoá 1 chạm
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [portQuery, setPortQuery] = useState("");
   const [portOpen, setPortOpen] = useState(false);
@@ -191,7 +192,7 @@ export function MyPlacesContent({
       dòng `// nợ:` cũ ("nâng được khi hàng điểm được dựng lại cho tên nằm
       riêng một dòng").
       Trước: ba ô chạm bề ngang 44px xếp liền nhau, dưới sàn 56px và lệch khuôn
-      SQ_TILE 64px của cả app; "Đổi tên" đứng SÁT "Xóa" ở bề ngang 44px — tay
+      SQ_TILE 64px của cả app; "Đổi tên" đứng SÁT "Xoá" ở bề ngang 44px — tay
       ướt, tàu lắc, bấm nhầm sang một hành động PHÁ HUỶ.
       Nay hàng chỉ còn [thân hàng = ĐI TỚI, flex-1] + [một ô SQ_TILE mở tầng
       dưới]. Ba việc phụ nằm trong tầng đó, cũng đúng khuôn SQ_TILE. Số cỡ nút
@@ -231,7 +232,7 @@ export function MyPlacesContent({
              việc cốt lõi của app — và cũng đúng là chỗ lối tắt chạm-giữ trên bản
              đồ đổ vào (`prefillTick`). Chỗ tốt nhất của app đang dẫn thẳng vào
              sáu ô nhỏ nhất của app, tay ướt, tàu lắc, sáu ô liền nhau.
-             "Hủy"/"Lưu điểm" đứng riêng một hàng `grid-cols-2` nên cho hẳn
+             "Huỷ"/"Lưu điểm" đứng riêng một hàng `grid-cols-2` nên cho hẳn
              3.5rem; bốn ô còn lại 3.25rem cho khỏi đội chiều cao panel rail.
              Chỉ đổi token chiều cao, KHÔNG đụng bố cục ⇒ không có rủi ro tràn. */
         /*  FORM CHỈ BÀY CÁI KEY, PHẦN CÒN LẠI THU LẠI (chủ dự án 2026-08-29:
@@ -243,7 +244,7 @@ export function MyPlacesContent({
              menu chạm-giữ, tức bà con VỪA chỉ đúng chỗ bằng ngón tay.
 
              Bản trước bày cùng lúc: ô tên · nút "Lấy chỗ đang trỏ" · hai ô vĩ
-             độ/kinh độ · hai nút Hủy/Lưu = 6 ô, cao gần hết panel. Trong đó nút
+             độ/kinh độ · hai nút Huỷ/Lưu = 6 ô, cao gần hết panel. Trong đó nút
              "Lấy chỗ đang trỏ" và hai ô toạ độ là HAI ĐƯỜNG cho cùng một việc,
              mà toạ độ thì đã điền sẵn — bày ra chỉ để nhìn. Placeholder cũng bị
              cắt cụt ("Vĩ độ (vd 8 3") vì ô hẹp mà chữ dài.
@@ -283,7 +284,7 @@ export function MyPlacesContent({
                   className={`${SQ_TILE} bg-card text-t1`}
                 >
                   <PinIcon className="h-6 w-6" />
-                  Lấy chỗ đang xem
+                  {NHAN.choXem}
                 </button>
               )}
               <button
@@ -333,7 +334,7 @@ export function MyPlacesContent({
                 className={`text-[0.8125rem] font-semibold leading-snug ${
                   !addValid && (addLat || addLon)
                     ? "text-danger"
-                    : "text-foreground/60"
+                    : "text-muted"
                 }`}
               >
                 {!addValid && (addLat || addLon)
@@ -412,7 +413,7 @@ export function MyPlacesContent({
                          ghi đè, mà hàng này trước đây chỉ có "Lưu" — lỡ gõ vào
                          ô chữ là không có cách nào thoát mà không ghi đè: hoặc
                          bấm Lưu (ghi cái vừa lỡ gõ), hoặc đóng cả panel. Hàng
-                         "Xóa" kề bên đã có đủ "Xóa hẳn" + "Thôi" — hai hàng
+                         "Xoá" kề bên đã có đủ "Xoá hẳn" + "Thôi" — hai hàng
                          cùng loại phải cùng một luật. */}
                     <button
                       type="button"
@@ -429,7 +430,7 @@ export function MyPlacesContent({
                          một hành động phá huỷ — cắt cụt tên là bà con xác nhận
                          xoá một cái tên mình không đọc hết. Thà xuống dòng. */}
                     <p className="min-w-0 flex-1 text-[0.9375rem] font-semibold leading-snug text-navy">
-                      Xóa “{p.name}”?
+                      Xoá “{p.name}”?
                     </p>
                     <button
                       type="button"
@@ -440,7 +441,7 @@ export function MyPlacesContent({
                       className={`${SQ_TILE} bg-danger text-white`}
                     >
                       <TrashIcon className="h-6 w-6" />
-                      Xóa hẳn
+                      Xoá hẳn
                     </button>
                     <button
                       type="button"
@@ -551,7 +552,7 @@ export function MyPlacesContent({
                       className={`${SQ_TILE} bg-field text-danger`}
                     >
                       <TrashIcon className="h-6 w-6" />
-                      Xóa
+                      Xoá
                     </button>
                   </div>
                 )}

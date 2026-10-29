@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { withNext } from "@/lib/auth-next";
 import { LockIcon } from "@/components/icons";
 import { useAuthUser } from "@/lib/use-auth";
+import { NHAN } from "@/lib/labels";
 
 /*
   LoginGate — phân loại tính năng (user chốt 2026-06-10): app yêu cầu đăng
@@ -67,13 +68,13 @@ export function LoginGate({
         href={withNext("/dang-ky", pathname)}
         className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white shadow-trim-cta transition active:scale-[0.98]"
       >
-        Đăng ký
+        {NHAN.dangKy}
       </Link>
       <Link
         href={withNext("/login", pathname)}
         className="mx-auto mt-2 inline-flex min-h-[3.5rem] items-center px-2 text-[1rem] font-semibold text-sea"
       >
-        Đã có tài khoản — Đăng nhập
+        {NHAN.dangNhap}
       </Link>
     </div>
   );

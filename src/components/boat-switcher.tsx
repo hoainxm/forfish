@@ -221,7 +221,7 @@ export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
         <BoatForm
           initial={form}
           isNew={!boats.some((b) => b.id === form.id)}
-          // Chỉ cho xóa tàu đã lưu và khi còn >1 tàu (R7: luôn ≥1 tàu).
+          // Chỉ cho xoá tàu đã lưu và khi còn >1 tàu (R7: luôn ≥1 tàu).
           onDelete={
             boats.some((b) => b.id === form.id) && boats.length > 1
               ? () => {
@@ -323,7 +323,7 @@ export function BoatForm({
   isNew: boolean;
   onCancel: () => void;
   onSave: (b: Boat) => void;
-  /** Có giá trị → hiện nút xóa tàu (chỉ khi tàu đã lưu + còn >1 tàu). */
+  /** Có giá trị → hiện nút xoá tàu (chỉ khi tàu đã lưu + còn >1 tàu). */
   onDelete?: () => void;
   /** Mở form VÌ thiếu mã tàu (gia hạn VMS — TAU-16): con trỏ vào ô Mã tàu + một dòng lý do. */
   canMaTau?: string;

@@ -60,7 +60,7 @@ export default function GlobalError({
           >
             Tải lại
           </button>
-          <p className="mt-6 text-[1rem] leading-relaxed text-foreground/60">
+          <p className="mt-6 text-[1rem] leading-relaxed text-muted">
             Nếu mở lại mà màn hình vẫn trắng, mời bà con cập nhật iOS (hoặc trình
             duyệt) lên bản mới nhất rồi mở lại app.
           </p>

@@ -113,7 +113,7 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
         {shop.paused && shop.status === "hoat_dong" && (
           <button type="button" onClick={() => void resume()} disabled={busy} className={`${SELLER_BTN} bg-field text-navy`}>
             <CartIcon className="h-6 w-6" />
-            Mở bán lại
+            {NHAN.moLai}
           </button>
         )}
         {shop.status !== "tam_khoa" && (
@@ -125,7 +125,7 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
         {(shop.status === "cho_duyet" || shop.status === "tu_choi") && (
           <Link href="/ban-hang/dang-ky" className={`${SELLER_BTN} bg-field text-navy`}>
             <SettingsIcon className="h-6 w-6" />
-            Sửa đăng ký
+            {NHAN.sua}
           </Link>
         )}
         {(shop.status === "tam_khoa" || shop.status === "tu_choi" || shop.status === "cho_duyet") && (

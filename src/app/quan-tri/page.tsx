@@ -449,7 +449,7 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
         </button>
       </form>
 
-      <p className="mt-3 px-1 text-[0.875rem] leading-snug text-foreground/60">
+      <p className="mt-3 px-1 text-[0.875rem] leading-snug text-muted">
         Chỉ tài khoản quản trị viên hoặc quản lý được vào đây. Quên mật khẩu thì
         báo quản trị viên đặt lại giúp.
       </p>

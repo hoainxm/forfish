@@ -212,7 +212,7 @@ function ProductRow({
             {/* null = liên hệ báo giá — `formatVnd(null)` sẽ ra "0 đ", nói sai với staff */}
             {product.priceVnd == null ? "Liên hệ báo giá" : `${formatVnd(product.priceVnd)}/${product.unit}`}
           </p>
-          <p className="text-[0.8125rem] tabular-nums text-foreground/55">
+          <p className="text-[0.8125rem] tabular-nums text-muted">
             tồn {product.stock} · đã bán {product.soldCount}
             {product.ratingCount > 0 ? ` · ${product.ratingAvg}/5 (${product.ratingCount})` : ""}
           </p>
@@ -341,7 +341,7 @@ function ProductReviews({ productId, onError }: { productId: string; onError: (m
 
   return (
     <div className="mt-3 border-t border-line pt-3">
-      <p className="text-[0.875rem] font-semibold text-foreground/60">Đánh giá của bà con</p>
+      <p className="text-[0.875rem] font-semibold text-muted">Đánh giá của bà con</p>
       {error && <InlineError text={error} onRetry={load} />}
       {!rows && !error && (
         <p className="py-2 text-[0.875rem] text-foreground/65">Đang tải đánh giá…</p>
@@ -356,7 +356,7 @@ function ProductReviews({ productId, onError }: { productId: string; onError: (m
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <RatingStars value={r.rating} />
-                  <span className="text-[0.8125rem] tabular-nums text-foreground/55">
+                  <span className="text-[0.8125rem] tabular-nums text-muted">
                     {r.buyerPhoneMasked} · {clockVN(Date.parse(r.createdAt))}
                   </span>
                   {r.hidden && (
@@ -381,7 +381,7 @@ function ProductReviews({ productId, onError }: { productId: string; onError: (m
           ))}
         </ul>
       )}
-      <p className="mt-1 text-[0.8125rem] text-foreground/55">
+      <p className="mt-1 text-[0.8125rem] text-muted">
         Ẩn một đánh giá thì điểm của món và của gian hàng tự tính lại ngay. Bà con chỉ đánh giá
         được sau khi đơn đã hoàn thành.
       </p>

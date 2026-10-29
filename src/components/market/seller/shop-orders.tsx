@@ -32,6 +32,7 @@ import {
   LoadView, agoLabel, scrollBackTo, useMarketData, useMarketList, useSaveOnLeave, useScrollMemory, writeUrlParams,
 } from "./seller-net";
 import { MoreButton, SELLER_BTN, linesSummary } from "./ui";
+import { NHAN } from "@/lib/labels";
 
 /** ngăn sessionStorage của màn này (khoá chung `forfish.mlist.v1`, lib/market/list-state) */
 const LIST_ID = "ban-hang/don";
@@ -172,7 +173,7 @@ export function ShopOrders() {
                 }}
                 className={`${SELLER_BTN} bg-field px-4 text-navy`}
               >
-                Xoá tra, về danh sách
+                {NHAN.xoaTim}
               </button>
             </div>
           ) : tt ? (
@@ -184,7 +185,7 @@ export function ShopOrders() {
                 Báo đã CK
               </span>
               <button type="button" onClick={() => setTt(null)} className={`${SELLER_BTN} bg-field px-4 text-navy`}>
-                Xoá tra, về danh sách
+                {NHAN.xoaTim}
               </button>
             </div>
           ) : (

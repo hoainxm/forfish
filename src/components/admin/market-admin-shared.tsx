@@ -219,7 +219,7 @@ export function ReasonDialog({
         />
         <p
           className={`mt-1 text-[0.8125rem] ${
-            tooShort && (attempt > 0 || trimmed.length > 0) ? "text-danger" : "text-foreground/55"
+            tooShort && (attempt > 0 || trimmed.length > 0) ? "text-danger" : "text-muted"
           }`}
         >
           {tooShort

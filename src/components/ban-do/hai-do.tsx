@@ -10,6 +10,7 @@ import { ghiChuChatDayTrong } from "@/lib/chat-day";
 import { CHART_TIER, CHAT_DAY_COLORS, CLUSTER_BADGE, DEPTH_BANDS, DEPTH_DANGER_COLOR, DEPTH_SAFE_COLOR, DEPTH_SHALLOW_COLOR, ISLAND_DOT_COLOR, SAFETY_CONTOUR_STYLE, SEA_CABLE_COLOR, SEA_LANE_COLOR, SEA_RESTRICTED_COLOR } from "@/lib/ocean-map";
 import { type FilterSpecification } from "maplibre-gl";
 import { useEscape } from "@/lib/use-escape";
+import { useLichSuDong } from "@/lib/dialog-focus";
 
 /*  BÁO HIỆU HÀNG HẢI — id lớp bắt chạm, và NẤC ZOOM cho từng loại.
 
@@ -205,8 +206,11 @@ export function BangChuGiai({
   kyHieu: (d: LegendRow) => React.ReactNode;
   onClose: () => void;
 }) {
+  /*  Back của máy đóng bảng trước (03 §6 mục 10 — rà C §6, 2026-10-29: trước Back Android thoát
+      cả bản đồ). Mọi đường đóng tay (×, Escape) đi qua `dongTay` để lùi đúng mục lịch sử. */
+  const { dongTay } = useLichSuDong(onClose);
   // Escape đóng như mọi hộp (rà bố cục 2026-10-22 — bảng có role=dialog mà phím không đóng được)
-  useEscape(true, onClose);
+  useEscape(true, dongTay);
   return (
     <div
       className="pointer-events-auto absolute inset-x-2 bottom-2 top-16 z-50 flex flex-col overflow-hidden rounded-2xl bg-card/98 shadow-2xl"
@@ -215,7 +219,7 @@ export function BangChuGiai({
     >
       <div className="flex items-center justify-between border-b border-foreground/10 px-4 py-3">
         <p className="text-[1.125rem] font-semibold text-navy">Ký hiệu trên hải đồ</p>
-        <CloseButton onClose={onClose} label="Đóng chú giải" />
+        <CloseButton onClose={dongTay} label="Đóng chú giải" />
       </div>
       <p className="border-b border-foreground/10 bg-field/60 px-4 py-2 text-[0.875rem] font-semibold leading-snug text-foreground/75">
         Hải đồ hiện dần theo <b>ba mức phóng to</b> (như máy hải đồ thương mại): phóng XA thấy
@@ -225,7 +229,7 @@ export function BangChuGiai({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[0.9375rem] font-semibold text-foreground/85">
         {LEGEND_TIERS.map((tang) => (
           <div key={tang.tieuDe} className="mb-4">
-            <p className="mb-1 text-[0.875rem] font-semibold text-foreground/60">
+            <p className="mb-1 text-[0.875rem] font-semibold text-muted">
               {tang.tieuDe}
               <span className="normal-case tracking-normal text-danger/80">{mapZoom < tang.zoom ? " — phóng to thêm mới thấy" : ""}</span>
             </p>

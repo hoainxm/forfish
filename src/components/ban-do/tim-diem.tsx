@@ -95,7 +95,7 @@ export function TimDiemPopover({
             </>
           )}
           {trong && (
-            <li className="px-3 py-2 text-[0.875rem] text-foreground/55" role="status">
+            <li className="px-3 py-2 text-[0.875rem] text-muted" role="status">
               {cauKhongThay(q)}
             </li>
           )}
@@ -107,7 +107,7 @@ export function TimDiemPopover({
 }
 
 function Nhom({ children }: { children: ReactNode }) {
-  return <li className="px-3 pb-0.5 pt-2 text-[0.75rem] font-semibold text-foreground/55">{children}</li>;
+  return <li className="px-3 pb-0.5 pt-2 text-[0.75rem] font-semibold text-muted">{children}</li>;
 }
 
 function HangKetQua({ r, onChon }: { r: KetQuaTim; onChon: (lat: number, lon: number) => void }) {
@@ -133,7 +133,7 @@ function Hang({ icon, ten, phu, onClick }: { icon: ReactNode; ten: string; phu?:
       >
         <span className="shrink-0 text-sea">{icon}</span>
         <span className="min-w-0 flex-1 truncate text-[1rem] font-semibold">{ten}</span>
-        {phu && <span className="shrink-0 text-[0.8125rem] text-foreground/55">{phu}</span>}
+        {phu && <span className="shrink-0 text-[0.8125rem] text-muted">{phu}</span>}
       </button>
     </li>
   );

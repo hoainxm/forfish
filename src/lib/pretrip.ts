@@ -412,7 +412,7 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
           quyết có nhổ neo được không. */
       bytesUnder(`${FISH_NS}.`),
       opts.fishLocked
-        ? "cần premium — có gói sẽ tự tải"
+        ? "cần gói dự báo — có gói sẽ tự tải"
         : fish
           ? "bản đồ mới nhất · vài ngày tới"
           : "chưa lưu",

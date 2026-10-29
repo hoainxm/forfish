@@ -21,6 +21,7 @@ import {
   PASSWORD_MIN_LENGTH,
   passwordProblem,
 } from "@/lib/password";
+import { NHAN } from "@/lib/labels";
 
 /*
   Đổi mật khẩu — HAI ngả vào (2026-07-29):
@@ -269,7 +270,7 @@ export default function DoiMatKhauPage() {
             error={pwErr ?? undefined}
           />
           <PrimaryButton type="submit" disabled={loading || done}>
-            {loading ? "Đang lưu…" : done ? "Đã đổi" : "Lưu mật khẩu mới"}
+            {loading ? "Đang lưu…" : done ? "Đã đổi" : NHAN.luu}
           </PrimaryButton>
         </form>
 
