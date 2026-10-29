@@ -1,8 +1,9 @@
 # 09 — ba-spec: Lộ trình chuyến biển nhiều ngày (route suggest)
 
 > Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
-covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
+covers: src/lib/fish-blend.ts, src/lib/lo-trinh, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
 last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29L — THUẬT TOÁN PHASE 1 ĐÃ LÀM: `src/lib/lo-trinh/plan.ts` `deXuatLoTrinh(input, now?)` (B0–B3 + B5, chưa GRASP) + `lo-trinh/vung-nhanh.ts` `trongVungNhanh` (cùng kết quả `trongVungBienVN`, chia cạnh theo dải vĩ độ). Tham số + luật ở §3 "Phase 1 ĐÃ LÀM". `types.ts` thêm MỘT trường tuỳ chọn: `BaoRutGon.diem[].at?` (epoch ms). Test `lo-trinh-plan.test.ts` (32 ca). -->
 <!-- re-verified: 2026-10-29 — BẮT ĐẦU BUILD PHASE 1 (§6, anh Long "làm đi"): kiểu dữ liệu chung `src/lib/lo-trinh/types.ts` (LoTrinhInput · LoTrinhKetQua · DongLich · VungDanh · LoTrinhDaLuu cho khoá `forfish.routes.v1` §5c). Thuật toán `lo-trinh/plan.ts` và màn `/lo-trinh` đi trong các commit kế. -->
 <!-- re-verified: 2026-10-29 — rà doc-health: `scripts/fit-fish-blend-weights.mjs` KHÔNG đổi từ 2026-07-28 (5481d7cc; báo SUSPECT là do clone nông thấy cả file như mới thêm); `fish-blend.ts` chỉ đổi ở fb5d065b 2026-10-19 (chú thích `baseMode`, đã ghi ở mục 2026-10-19 dưới) — đối chiếu lại export `blendFishCells`/`fishLeadDays`/`climScoreAt`/`decodeClimatology`/`fetchClimatology` còn đủ. Sửa §5d: w(d) không đọc thẳng `fish-blend-weights.json` nữa mà qua `model-params.v1.json` (`lib/model-params`, từ 2026-09-16) ⇒ fit xong phải chạy `scripts/build-model-params.mjs`. -->
 <!-- re-verified: 2026-10-29 — đối chiếu `fish-blend.ts` + `fish-blend-weights.json` thật: bảng w ở §5d là số lần fit đầu, KHÔNG khớp file đang ship (w 0,935→0,795, spread 0,14) ⇒ thêm đính chính ngay dưới bảng. `PRODUCT_SHARE_FIRST/LAST` = 0,06/0,25, `GAMMA` 2,5 khớp §5f. `fit-fish-blend-weights.mjs` + `collect-fish-climatology.mjs` vẫn đúng tên/đầu ra. -->
@@ -21,7 +22,7 @@ ttl_days: 90
 <!-- re-verified: 2026-07-31 — fish-blend.ts THÊM `fishLeadDays(imageDateIso, viewDateIso, viewLead)` (thuần, có test): tầm ngày của lớp cá phải đếm từ NGÀY ẢNH, không phải từ hôm nay — mất sóng thì service worker trả lại bản đồ cá tải mấy ngày trước mà chip vẫn đứng "Hôm nay", tính theo hôm nay ra w=1 = tin trọn tấm ảnh cũ. Khớp định nghĩa của chính bộ số: scripts/fit-fish-blend-weights.mjs đo `target = addDays(T, d)` với T = ngày ẢNH. Tỷ lệ w(d), thang phân vị, blendFishCells KHÔNG đổi — §5d/§5e/§5f còn đúng nguyên. Chủ dự án 2026-07-31 chốt KHÔNG trừ độ trễ vệ tinh khỏi fishLead (giữ hành vi ngày thường). -->
 > **Mục đích**: oracle HÀNH VI cho tính năng đề xuất lộ trình — bài toán là gì, nguồn dữ liệu phải đạt gì, pha trộn lớp cá theo tỷ lệ nào (số ĐO ĐƯỢC), lưu/đối chiếu tuyến ra sao. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
 
-> **Trạng thái: phần TÍNH NĂNG còn là ĐỀ XUẤT (chưa build); phần NỀN DỮ LIỆU lớp cá 16 ngày ĐÃ LÀM XONG — xem §5d.** Kết quả
+> **Trạng thái: THUẬT TOÁN Phase 1 ĐÃ LÀM (2026-10-29, §3 "Phase 1 ĐÃ LÀM"); màn hình `/lo-trinh` đang làm; phần NỀN DỮ LIỆU lớp cá 16 ngày ĐÃ LÀM XONG — xem §5d.** Kết quả
 > nghiên cứu team-agent 2026-07-28 (3 hướng: kiểm kê repo · thuật toán · nghiệp vụ chuyến biển).
 >
 > **CHỦ DỰ ÁN CHỐT (2026-07-28):**
@@ -127,6 +128,27 @@ B4  GRASP vòng ngoài: 10–30 restart greedy-ngẫu-nhiên-top-3, giữ plan p
 B5  Hậu kiểm: routeStormConflict trên waypoints nối + kiểm két dầu (Σ lít × hệ số dự phòng
     1,3 ≤ két) + gắn nhãn tin cậy theo ngày (forecast-quality)
 ```
+
+### §3 Phase 1 — ĐÃ LÀM (2026-10-29, `src/lib/lo-trinh/plan.ts`)
+
+`deXuatLoTrinh(input: LoTrinhInput, now?: Date): LoTrinhKetQua` — THUẦN (không fetch/React/
+localStorage), TẤT ĐỊNH, không ném (đầu vào hỏng ⇒ kết quả rỗng + `ghiChu`). Đo: ~2.400 ô × 16 ngày
+chạy ~60 ms lần đầu trên Node (cổng test < 300 ms). Giờ chạy = hải lý ÷ tốc độ trên ĐOẠN THẲNG giữa
+các mốc (chưa né sóng gió — mỗi chặng còn đi qua `planRoute` khi bà con bấm dẫn đường).
+
+| Bước | Đã làm | Tham số mặc định (hằng export trong plan.ts) |
+|---|---|---|
+| B0 | Ô/vùng/điểm quen ngoài vùng biển VN được phép (`trongVungBienVN` — đã loại vùng cần chú ý quanh Hoàng Sa, §5 #3) bị bỏ; điểm quen ngoài vùng ⇒ `ghiChu` nêu tên. Đoạn giữa hai mốc lấy mẫu, mẫu nào ngoài vùng mà cách cả hai đầu > 15 km ⇒ đoạn không hợp lệ ⇒ không chọn vùng gây ra đoạn đó | `BUOC_MAU_KM` **2** (đề bài 10 km; đo mùa vụ tháng 4 thấy đoạn Quy Nhơn đi lên lọt mũi đất 13,90°B giữa hai mẫu 10 km) · `SAT_DAU_KM` 15 |
+| B1 | Điểm ô = trung bình các ngày chuyến (`caTheoNgay(d)`), lấy ô ≥ phân vị 80, loang 8 hướng theo bước lưới suy từ dữ liệu (thường 0,25°) **trong bán kính quanh đỉnh** (không giới hạn thì cả dải ven bờ dính thành một vùng nghìn km — cảng Cát Bà trắng tay). Giữ 25 vùng tốt nhất TRONG SỐ vùng đi thẳng từ cảng được | `PHAN_VI_CUM` 0,8 · `BAN_KINH_VUNG_KM` 55 (nợ: số ước) · `TOI_DA_VUNG_UNG_VIEN` 25 |
+| B2 | Khung = [cảng, điểm quen theo nearest-neighbor, cảng] (điểm quen không kịp/vướng đất ⇒ bỏ + `ghiChu`); chèn vùng tham lam theo prize ÷ giờ chạy thêm, NHẬN khi lịch B3 có lời hơn và đoạn mới hợp lệ; rồi 2-opt | ghé 1–`TOI_DA_CHO_GHE` **4** chỗ (bà con nhập 5 điểm quen thì giữ đủ 5, không thêm vùng) · `TOI_DA_DIEM_QUEN` 5 |
+| B3 | Đánh theo khối 24 giờ, mỗi chỗ ≥1 ngày, ngày dư cho chỗ lời nhất; giá trị ngày = điểm cao nhất của vùng ngày đó × 0,9^ngày-đã-ở. Điểm quen bản đồ cá không phủ ⇒ tính ngang ngưỡng p80 (tin kinh nghiệm thuyền trưởng). Ở thêm không được gì ⇒ về sớm | `GIAM_THEO_NGAY` 0,9 · ngày nên về `NGAY_NEN_VE`: câu ngừ ≤ ngày đánh đầu + 7 · lưới vây 7 · lưới rê 15 · chụp mực 10 ngày từ ngày đi (nợ: mẫu tạm) |
+| B5 | Dầu = giờ CHẠY × lít/giờ (ghi chú "chưa tính dầu neo, chong đèn"); `thieuDau` khi × 1,3 > két. Bão: `bao === null` ⇒ vẫn tính + "Chưa kiểm được tin bão — nghe đài duyên hải trước khi đi"; điểm bão cách đoạn tuyến < 200 km (`STORM_SAFE_RADIUS_KM`, `distToSegmentKm`) ⇒ `chanBao` "Có bão gần tuyến — chưa nên đi", `vung`/`lich`/`moc` rỗng | `DU_PHONG_DAU` 1,3 · `CUA_SO_BAO_NGAY` 5: điểm bão có `at` (tuỳ chọn) từ hết ngày thứ 5 trở đi KHÔNG chặn; không `at` (GDACS) ⇒ coi như có mặt suốt cửa sổ |
+
+Khác: `soNgay` > 16 ⇒ tính 16 + ghi chú; < 1 ⇒ rỗng + ghi chú. Tốc độ/lít-giờ hỏng ⇒ 7 kn / 20 L·h + ghi chú.
+Câu lịch dạng "Ngày 1–2: chạy ra vùng 1, khoảng 36 giờ" · "Ngày 3–7: đánh ở vùng 1" · "Ngày 8: về
+Cảng Quy Nhơn, khoảng 30 giờ" — không số điểm, không phần trăm, không "có cá".
+**Trần đã biết (nợ trong code)**: vùng chỉ tới được QUA vùng khác (không thẳng từ cảng) bị bỏ — hết
+khi chặng nối bằng `planRoute` đi vòng bờ; mỏm đất hẹp hơn 2 km giữa hai mẫu có thể lọt.
 
 - **Thời tiết 2 tầng** (chuẩn voyage-optimization): per-leg time-dependent làm mặc định
   (bảng tra cụm↔cụm × mốc 3h, precompute ~100ms); chặng nào penalty sóng vượt ngưỡng mới chạy

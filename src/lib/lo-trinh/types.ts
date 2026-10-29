@@ -31,7 +31,12 @@ export interface OCa {
 /** Tin bão rút gọn cho cổng bão 0–5 ngày (§5b): tâm + bán kính ảnh hưởng (km) + các điểm dự báo. */
 export interface BaoRutGon {
   ten: string;
-  diem: { lat: number; lon: number }[];
+  /**
+   * `at` (tuỳ chọn, epoch ms — như `TrackPoint.at` của bản tin NCHMF): mốc giờ bão ở điểm đó.
+   * Có `at` và rơi SAU 5 ngày đầu chuyến ⇒ không chặn (cửa sổ 0–5 ngày, §5b). Không có `at`
+   * (GDACS không cho mốc giờ) ⇒ coi như bão có mặt suốt cửa sổ — thà báo thừa.
+   */
+  diem: { lat: number; lon: number; at?: number }[];
 }
 
 export interface LoTrinhInput {
