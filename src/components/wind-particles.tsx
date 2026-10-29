@@ -27,9 +27,14 @@ export function WindParticles({
   mapRef,
   field,
   variant = "wind",
+  isWater,
 }: {
   mapRef: React.RefObject<MapRef | null>;
   field: UVField | null;
+  /** Mặt nạ đất liền cho lớp NƯỚC (sóng/dòng chảy): false = trên bờ ⇒ hạt chết,
+      gieo lại. Không truyền thì hạt chỉ chết theo ô thiếu số như trước. Bắt
+      buộc đi cùng trường đã lấp ô đất (`fillMissingUV`), kẻo hạt bay trên bờ. */
+  isWater?: (lat: number, lon: number) => boolean;
   /** wind = trắng mảnh trên lớp màu · wave = trắng dày (hướng SÓNG) ·
       ambient = sẫm mảnh cho nền hải đồ/ngư trường SÁNG (chạy mặc định) */
   variant?: "wind" | "wave" | "ambient";
@@ -81,7 +86,8 @@ export function WindParticles({
         const pt = map.project([p.lon, p.lat]);
         p.px = pt.x * dpr;
         p.py = pt.y * dpr;
-        if (!sampleUV(f, p.lat, p.lon)) p.age = 0; // ô thiếu → respawn frame sau
+        if (!sampleUV(f, p.lat, p.lon) || (isWater && !isWater(p.lat, p.lon)))
+          p.age = 0; // ô thiếu / trên bờ → respawn frame sau
         return p;
       };
 
@@ -118,7 +124,7 @@ export function WindParticles({
         for (const p of ps) {
           p.age -= 1;
           const next = p.age > 0 ? stepParticle(f, p.lat, p.lon, 1 / 60) : null;
-          if (!next) {
+          if (!next || (isWater && !isWater(next[0], next[1]))) {
             spawn(p);
             continue;
           }
@@ -186,7 +192,7 @@ export function WindParticles({
       cancelAnimationFrame(raf);
       teardown?.();
     };
-  }, [mapRef, field, variant]);
+  }, [mapRef, field, variant, isWater]);
 
   if (!field) return null;
   return (

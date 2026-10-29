@@ -301,7 +301,7 @@ import {
   type ScalarFieldLayer,
 } from "@/components/scalar-gl-field";
 import { forecastStoreReady } from "@/lib/forecast-store";
-import { buildUVField } from "@/lib/particle-field";
+import { buildUVField, fillMissingUV } from "@/lib/particle-field";
 import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { FishHotspotMarker, SavedPlaceMarker, type FishHotspot } from "@/components/ban-do/diem-ghim";
@@ -1405,9 +1405,46 @@ export default function FishingMapView() {
   // 2026-07-29, bỏ cổng reduced-motion): gió/lớp màu theo giờ bay theo HƯỚNG
   // GIÓ, lớp SÓNG bay theo HƯỚNG SÓNG (hạt khác nhau); độ mặn (theo ngày) lấy
   // gió hiện tại (mốc 0). Trường u/v bilinear từ cùng lưới fGrid.
+  /*  MẶT NẠ ĐẤT LIỀN cho hạt của lớp NƯỚC (sóng/dòng chảy) — 2026-10-29, tester
+      báo "dòng chảy chỉ chảy ở miền Trung, miền Nam không chảy". Lưới thưa ~2°
+      nên nhiều điểm lưới ven bờ nằm trên đất, marine API trả null, hạt chết cả
+      dải ven bờ. Có mặt nạ thì lấp ô đất bằng số của ô biển kề (`fillMissingUV`)
+      và chặn hạt trên bờ, nên nước chảy được tới sát bờ.
+      Dùng lại lưới độ sâu của dẫn đường (cùng file, service worker đã ghim
+      trong vỏ sống-còn, `fetchDepthGrid` có trần chờ và cache cả phiên). Chỉ xin
+      khi bật lớp sóng/dòng chảy. Tải hụt hay mất sóng thì hạt chạy như cũ,
+      không lấp, không chặn. */
+  const [matNaDat, setMatNaDat] = useState<DepthGrid | null>(null);
+  const lopNuoc = forecastKind === "current" || forecastKind === "wave";
+  useEffect(() => {
+    if (!lopNuoc || matNaDat) return;
+    let alive = true;
+    fetchDepthGrid()
+      .then((g) => {
+        if (alive) setMatNaDat(g);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [lopNuoc, matNaDat]);
+  const laNuoc = useMemo(
+    () =>
+      matNaDat
+        ? (la: number, lo: number) => depthClassAt(matNaDat, la, lo) !== 0
+        : undefined,
+    [matNaDat],
+  );
+
   const particleField = useMemo(() => {
-    if (forecastKind)
-      return kindGrid ? buildUVField(kindGrid, timeIdx, forecastKind) : null;
+    if (forecastKind) {
+      const f = kindGrid ? buildUVField(kindGrid, timeIdx, forecastKind) : null;
+      // chỉ lấp ô nằm trong vùng mặt nạ phủ (102–118°Đ, 5–23,5°B): ngoài đó
+      // không biết đất hay biển ⇒ giữ ô thiếu, hạt chết như cũ
+      return f && matNaDat && forecastKind !== "wind"
+        ? fillMissingUV(f, (la, lo) => depthClassAt(matNaDat, la, lo) != null)
+        : f;
+    }
     if (!fGrid) return null;
     if (overlayField && overlayField !== "salinity")
       return buildUVField(fGrid, timeIdx, "wind");
@@ -1417,7 +1454,7 @@ export default function FishingMapView() {
     // WebView Android máy yếu. Nay hạt CHỈ hiện khi CHỌN lớp gió/sóng/dòng
     // (forecastKind) hoặc lớp màu cần vệt → tắt được bằng cách bỏ chọn lớp.
     return null;
-  }, [forecastKind, overlayField, fGrid, kindGrid, timeIdx]);
+  }, [forecastKind, overlayField, fGrid, kindGrid, timeIdx, matNaDat]);
 
   // Mũi tên TĨNH: lớp GIÓ/SÓNG luôn hiện mũi tên MÀU kèm hạt (user 2026-07-29:
   // kéo trục ngày nhìn mũi tên là thấy đổi hướng ngay — hạt đổi chậm hơn).
@@ -7955,6 +7992,7 @@ export default function FishingMapView() {
       <WindParticles
         mapRef={mapRef}
         field={particleField}
+        isWater={lopNuoc ? laNuoc : undefined}
         variant={
           // dòng chảy dùng vệt dày kiểu sóng — đọc là "nước đang trôi"
           forecastKind === "wave" || forecastKind === "current"
