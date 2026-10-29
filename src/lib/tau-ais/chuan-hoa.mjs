@@ -135,3 +135,17 @@ export function kiemGoi(body, now = Date.now()) {
   if (!tau.length) return { ok: false, code: "trong" };
   return { ok: true, ban: { v: 1, luc, soTau: tau.length, tau } };
 }
+
+/**
+ * KHO VĨNH VIỄN Ở MÁY THU NHÀ (2026-10-29, anh Long: "phần còn lại đưa xuống local … lưu vĩnh viễn dùng để học cái
+ * pattern"; "phục vụ cho các thuật toán dự báo cá, tối ưu đường đi, các route hay đi, tàu dầu, tàu tải"). Mỗi GIỜ (giờ VN)
+ * ghi MỘT bản đầy đủ vào tệp theo ngày `YYYY-MM/YYYY-MM-DD.ndjson.gz` — mỗi bản là một khối gzip nối đuôi (zcat đọc liền
+ * cả tệp), mỗi khối một dòng JSON { luc, soTau, tau[] }. Hàm thuần: mốc giờ + đường tệp cho một thời điểm.
+ */
+export function khoaGioLuu(luc) {
+  const t = Date.parse(luc);
+  if (!Number.isFinite(t)) return null;
+  const vn = new Date(t + 7 * 3600_000).toISOString(); // giờ VN = UTC+7, không đổi giờ mùa hè
+  const ngay = vn.slice(0, 10);
+  return { gio: vn.slice(0, 13), tep: `${ngay.slice(0, 7)}/${ngay}.ndjson.gz` };
+}

@@ -12,15 +12,16 @@
 //
 // Env (~/.config/forlife/tau-ais.env, hoặc env process): TAU_AIS_KEY · TAU_AIS_API_BASE (https) ·
 // TAU_AIS_PROFILE (mặc định ~/.local/forlife/tau-ais/profile) · MT_EMAIL + MT_PASSWORD (TUỲ CHỌN:
-// có thì đăng nhập một lần, thiếu thì đi khách — khách vẫn thấy đủ tàu ở z:8) · TAU_AIS_STATE_DIR.
+// có thì đăng nhập một lần, thiếu thì đi khách — khách vẫn thấy đủ tàu ở z:8) · TAU_AIS_STATE_DIR ·
+// TAU_AIS_LUU_DIR (kho vĩnh viễn, mặc định <state>/luu: mỗi giờ VN một bản, tệp ngày YYYY-MM/YYYY-MM-DD.ndjson.gz).
 // Cờ: --thu (không gửi, in số tàu) · --anh (chụp màn hình vào state dir để soi khi hỏng).
 
 import path from "node:path";
 import { homedir } from "node:os";
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { chromium } from "playwright";
-import { chuanHoaHang, danhSachO, gopTau, kiemGoi } from "../src/lib/tau-ais/chuan-hoa.mjs";
+import { chuanHoaHang, danhSachO, gopTau, khoaGioLuu, kiemGoi } from "../src/lib/tau-ais/chuan-hoa.mjs";
 
 // Tiện ích nhỏ chép từ kairos-chung.mjs (không import để bản chạy chỉ cần 2 tệp — lam-moi.sh).
 const log = (...a) => console.log(new Date().toISOString(), ...a);
@@ -72,6 +73,8 @@ function cauHinh(env = process.env) {
     base: get("TAU_AIS_API_BASE").replace(/\/+$/, ""),
     profile: get("TAU_AIS_PROFILE") || path.join(stateDir, "profile"),
     stateDir,
+    // kho vĩnh viễn mỗi giờ một bản (khoaGioLuu) — đặt TAU_AIS_LUU_DIR nếu muốn để ổ khác
+    luuDir: get("TAU_AIS_LUU_DIR") || path.join(stateDir, "luu"),
     email: get("MT_EMAIL"),
     password: get("MT_PASSWORD"),
   };
@@ -170,6 +173,20 @@ try {
   log(`[tàu AIS] ${o.length} ô (${hong} hỏng) · ${tho.length} hàng ⇒ ${tau.length} tàu (cá ${soCa}) · ${Math.round((Date.now() - t0) / 1000)} s`);
   if (!tau.length) throw new Error("không có tàu nào — nguồn đổi định dạng?");
   const goi = { luc: new Date().toISOString(), tau };
+  /*  KHO VĨNH VIỄN (2026-10-29): bản đầu tiên của mỗi giờ VN ⇒ nối một khối gzip vào tệp ngày. Ghi TRƯỚC khi gửi —
+      máy chủ hỏng vẫn có dữ liệu học. Lỗi ghi đĩa chỉ log, không làm hỏng lượt gửi. */
+  const kg = khoaGioLuu(goi.luc);
+  if (!thu && kg && so.gioLuu !== kg.gio) {
+    try {
+      const tep = path.join(c.luuDir, kg.tep);
+      mkdirSync(path.dirname(tep), { recursive: true });
+      appendFileSync(tep, gzipSync(`${JSON.stringify({ luc: goi.luc, soTau: tau.length, tau })}\n`));
+      so.gioLuu = kg.gio;
+      log(`[tàu AIS] đã lưu kho ${kg.tep} (giờ ${kg.gio})`);
+    } catch (e) {
+      log("[tàu AIS] lưu kho hỏng:", String(e?.message ?? e).slice(0, 200));
+    }
+  }
   if (thu) {
     const chuoi = JSON.stringify(goi);
     log(`[tàu AIS] --thu: không gửi. Bản ${Math.round(chuoi.length / 1024)} KB (gzip ${Math.round(gzipSync(chuoi).length / 1024)} KB). 3 tàu đầu:`, JSON.stringify(tau.slice(0, 3)));

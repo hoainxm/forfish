@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chuanHoaHang, danhSachO, gopTau, kiemGoi, oTile, rutId, VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
+import { chuanHoaHang, danhSachO, gopTau, khoaGioLuu, kiemGoi, oTile, rutId, VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { danhSachSdtHopLe, docDanhSachSdt, duocXemAis } from "@/lib/tau-ais/quyen";
 import { validateConfigValue } from "@/lib/app-config-keys";
 import { chuanTen, demTheoNhom, moTaTau, timTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
@@ -127,5 +127,14 @@ describe("tàu AIS — quyền xem theo tài khoản", () => {
     expect(danhSachSdtHopLe("  ")).toBe(false);
     expect(validateConfigValue("tau_ais_xem", "0938635689")).toBe(true);
     expect(validateConfigValue("tau_ais_xem", "abc")).toBe(false);
+  });
+});
+
+describe("tàu AIS — kho vĩnh viễn ở máy thu", () => {
+  it("mốc giờ + tệp theo NGÀY GIỜ VN (UTC+7)", () => {
+    expect(khoaGioLuu("2026-10-29T16:59:00.000Z")).toEqual({ gio: "2026-10-29T23", tep: "2026-10/2026-10-29.ndjson.gz" });
+    // 17:05 UTC = 00:05 hôm sau giờ VN ⇒ tệp ngày mới
+    expect(khoaGioLuu("2026-10-29T17:05:00.000Z")).toEqual({ gio: "2026-10-30T00", tep: "2026-10/2026-10-30.ndjson.gz" });
+    expect(khoaGioLuu("hỏng")).toBeNull();
   });
 });
