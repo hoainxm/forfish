@@ -436,7 +436,7 @@ export function AccountsTab({ me }: { me: Me }) {
     setBusyPhone(null);
     if (!r?.ok) {
       const j = (await r?.json().catch(() => null)) as { code?: string } | null;
-      setError(staffDenialMessage(j?.code) ?? "Xóa không thành công. Vui lòng thử lại.");
+      setError(staffDenialMessage(j?.code) ?? "Xoá không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -552,7 +552,7 @@ export function AccountsTab({ me }: { me: Me }) {
             {label}
           </button>
         ))}
-        <span className="text-[0.8125rem] text-foreground/55">
+        <span className="text-[0.8125rem] text-muted">
           {roleFilter === "khach"
             ? "Để tạo hoặc phân quyền nhân sự, hãy dùng tab Phân quyền"
             : "Chỉ dùng để cấp Premium / đặt lại mật khẩu cho nhân sự"}
@@ -593,7 +593,7 @@ export function AccountsTab({ me }: { me: Me }) {
                       {g.by === me.phone && " (bạn)"}
                     </span>
                     {acc?.name && (
-                      <span className="text-foreground/60">{acc.name}</span>
+                      <span className="text-muted">{acc.name}</span>
                     )}
                     {/* VAI của người cấp — hỏi nhiều nhất ở chỗ này: thấy SĐT
                         lạ cấp premium mà không biết admin hay quản lý */}
@@ -645,7 +645,7 @@ export function AccountsTab({ me }: { me: Me }) {
       )}
       {visible && accounts && accounts.length > 0 && (
         <>
-          <p className="px-1 text-[0.8125rem] font-semibold text-foreground/55">
+          <p className="px-1 text-[0.8125rem] font-semibold text-muted">
             {/* đếm theo ĐÚNG nhóm đang xem — trước so với tổng cả bảng nên
                 lúc nào cũng ra "x/y khớp" dù không lọc gì */}
             {`${visible.length} ${roleFilter === "khach" ? "khách" : "nhân sự"}`}
@@ -682,7 +682,7 @@ export function AccountsTab({ me }: { me: Me }) {
                       <RoleBadge account={a} />
                       <KindBadge account={a} />
                     </p>
-                    <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
+                    <p className="mt-0.5 text-[0.8125rem] text-muted">
                       {a.fromSdwork ? "Nguồn từ SDWork" : "Tạo thủ công"} ·{" "}
                       {a.canLogin ? "Đã đăng nhập" : "Chưa tạo tài khoản"} ·
                       cập nhật {fmtDT(a.updatedAt)}
@@ -698,7 +698,7 @@ export function AccountsTab({ me }: { me: Me }) {
                         className={`min-h-[2rem] rounded-full px-2.5 text-[0.75rem] font-bold transition ${
                           a.premiumUsed
                             ? "bg-ok-bg text-ok"
-                            : "bg-field text-foreground/55"
+                            : "bg-field text-muted"
                         }`}
                       >
                         {a.premiumUsed ? "✓ Đã sử dụng" : "Chưa sử dụng"}
@@ -710,7 +710,7 @@ export function AccountsTab({ me }: { me: Me }) {
                         className={`min-h-[2rem] rounded-full px-2.5 text-[0.75rem] font-bold transition ${
                           a.contacted
                             ? "bg-t1-bg text-t1"
-                            : "bg-field text-foreground/55"
+                            : "bg-field text-muted"
                         }`}
                       >
                         {a.contacted ? "✓ Đã liên hệ" : "Chưa liên hệ"}
@@ -730,7 +730,7 @@ export function AccountsTab({ me }: { me: Me }) {
                             : "Đã thu · chờ đối chiếu"}
                         </span>
                       ) : (
-                        <span className="inline-flex min-h-[2rem] items-center rounded-full bg-field px-2.5 text-[0.75rem] font-bold text-foreground/55">
+                        <span className="inline-flex min-h-[2rem] items-center rounded-full bg-field px-2.5 text-[0.75rem] font-bold text-muted">
                           Chưa thu
                         </span>
                       )}
@@ -868,7 +868,7 @@ export function AccountsTab({ me }: { me: Me }) {
                       hướng dẫn trực tiếp. Sửa được khi có cờ edit; không thì
                       hiện trạng thái để xem. */}
                   <div className="mt-1 flex basis-full flex-wrap items-center gap-1.5">
-                    <span className="text-[0.75rem] font-semibold text-foreground/50">
+                    <span className="text-[0.75rem] font-semibold text-muted">
                       Hướng dẫn:
                     </span>
                     {/* BỎ chip "Đã/Chưa sử dụng" (2026-08-01, chủ dự án):
@@ -891,7 +891,7 @@ export function AccountsTab({ me }: { me: Me }) {
                         13:20" ngay sát chip trạng thái máy khách ⇒ đọc dính
                         thành một cụm, tưởng khách có hai số điện thoại. */}
                     {a.noteBy && (
-                      <span className="text-[0.75rem] text-foreground/45">
+                      <span className="text-[0.75rem] text-muted">
                         (nhân viên {a.noteBy} · {fmtDT(a.noteAt)})
                       </span>
                     )}
@@ -900,7 +900,7 @@ export function AccountsTab({ me }: { me: Me }) {
                   {/* MÁY KHÁCH — hàng RIÊNG, có nhãn: đây là thứ MÁY TỰ BÁO,
                       khác hẳn hàng "Hướng dẫn" bên trên (nhân viên tự tick). */}
                   <div className="mt-1 flex basis-full flex-wrap items-center gap-1.5">
-                    <span className="text-[0.75rem] font-semibold text-foreground/50">
+                    <span className="text-[0.75rem] font-semibold text-muted">
                       Máy khách:
                     </span>
                     <AppUsage a={a} />
@@ -931,7 +931,7 @@ export function AccountsTab({ me }: { me: Me }) {
               }
               message={`${toGrant.a.name ?? "Khách hàng"} sẽ được cấp gói Premium ${term}, sử dụng đến ngày ${fmtD(until)}. Lịch sử cấp quyền này sẽ ghi nhận dưới tên bạn.`}
               confirmLabel={toGrant.active ? "Xác nhận gia hạn" : "Xác nhận kích hoạt"}
-              cancelLabel="Hủy thao tác"
+              cancelLabel="Huỷ thao tác"
               danger={false}
               onCancel={() => setToGrant(null)}
               onConfirm={() => {
@@ -953,7 +953,7 @@ export function AccountsTab({ me }: { me: Me }) {
           title={`Hạ cấp ${toDowngrade.phone} về tài khoản thường?`}
           message="Khách hàng sẽ không thể xem bản đồ dự báo cá và dự báo thời tiết 16 ngày."
           confirmLabel="Xác nhận hạ cấp"
-          cancelLabel="Hủy thao tác"
+          cancelLabel="Huỷ thao tác"
           danger
           onCancel={() => setToDowngrade(null)}
           onConfirm={() => {
@@ -968,7 +968,7 @@ export function AccountsTab({ me }: { me: Me }) {
           title={`Đăng xuất mọi máy của ${toRevoke.phone}?`}
           message={`${toRevoke.name ? `${toRevoke.name} — ` : ""}mọi điện thoại/máy tính đang đăng nhập số này sẽ bị đăng xuất ở lần dùng mạng kế tiếp. Dữ liệu đã tải trong máy giữ nguyên; người dùng đăng nhập lại bằng mật khẩu hiện tại.`}
           confirmLabel="Đăng xuất mọi máy"
-          cancelLabel="Hủy thao tác"
+          cancelLabel="Huỷ thao tác"
           danger={false}
           onCancel={() => setToRevoke(null)}
           onConfirm={() => {
@@ -981,9 +981,9 @@ export function AccountsTab({ me }: { me: Me }) {
       {toReset && (
         <ConfirmDialog
           title={`Xác nhận đặt lại mật khẩu cho ${toReset.phone}?`}
-          message={`${toReset.name ? `${toReset.name} — ` : ""}${isStaff(toReset) ? "đây là tài khoản NHÂN SỰ: hệ thống tạo mật khẩu tạm ngẫu nhiên (hiện một lần sau khi bấm)" : `mật khẩu sẽ về mặc định ${DEFAULT_CUSTOMER_PASSWORD}`}, mật khẩu cũ bị hủy và mọi máy đang đăng nhập bị đăng xuất. Đăng nhập lại app sẽ nhắc đổi mật khẩu.`}
+          message={`${toReset.name ? `${toReset.name} — ` : ""}${isStaff(toReset) ? "đây là tài khoản NHÂN SỰ: hệ thống tạo mật khẩu tạm ngẫu nhiên (hiện một lần sau khi bấm)" : `mật khẩu sẽ về mặc định ${DEFAULT_CUSTOMER_PASSWORD}`}, mật khẩu cũ bị huỷ và mọi máy đang đăng nhập bị đăng xuất. Đăng nhập lại app sẽ nhắc đổi mật khẩu.`}
           confirmLabel="Xác nhận đặt lại"
-          cancelLabel="Hủy thao tác"
+          cancelLabel="Huỷ thao tác"
           danger={false}
           onCancel={() => setToReset(null)}
           onConfirm={() => {
@@ -995,10 +995,10 @@ export function AccountsTab({ me }: { me: Me }) {
       )}
       {toDelete && (
         <ConfirmDialog
-          title={`Xác nhận xóa tài khoản ${toDelete.phone}?`}
-          message={`${toDelete.name ? `${toDelete.name} — ` : ""}khách sẽ không thể đăng nhập được nữa. Không thể khôi phục lại tài khoản đã xóa.`}
-          confirmLabel="Xác nhận xóa"
-          cancelLabel="Hủy thao tác"
+          title={`Xác nhận xoá tài khoản ${toDelete.phone}?`}
+          message={`${toDelete.name ? `${toDelete.name} — ` : ""}khách sẽ không thể đăng nhập được nữa. Không thể khôi phục lại tài khoản đã xoá.`}
+          confirmLabel="Xác nhận xoá"
+          cancelLabel="Huỷ thao tác"
           danger
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
@@ -1137,7 +1137,7 @@ export function RoleBadge({ account }: { account: Account }) {
 export function AppUsage({ a }: { a: Account }) {
   const stage = usageStage({ ...a, dataUntil: a.dataUntil ?? null });
   const skin: Record<UsageStage, string> = {
-    "chua-ghi-nhan": "bg-field text-foreground/50",
+    "chua-ghi-nhan": "bg-field text-muted",
     "moi-vo-web": "bg-warn-bg text-warn",
     "da-mo-ban-cai": "bg-warn-bg text-warn",
     "da-tai-mot-phan": "bg-t1-bg text-t1",
@@ -1181,7 +1181,7 @@ export function AppUsage({ a }: { a: Account }) {
     ok: "bg-ok-bg text-ok",
     warn: "bg-warn-bg text-warn",
     risk: "bg-danger-bg text-danger",
-    unknown: "bg-field text-foreground/50",
+    unknown: "bg-field text-muted",
   };
   const rdLabel: Record<ReadinessReason, string> = {
     "chua-ghi-nhan": "Chưa ghi nhận hoạt động",
@@ -1355,7 +1355,7 @@ export function AppUsage({ a }: { a: Account }) {
       </span>
       </div>
       {mocs.length > 0 && (
-        <span className="text-[0.75rem] text-foreground/40">
+        <span className="text-[0.75rem] text-muted">
           {mocs.join(" · ")}
         </span>
       )}
@@ -1378,7 +1378,7 @@ export function FlagToggle({
   editable: boolean;
   onToggle: () => void;
 }) {
-  const cls = value ? "bg-ok-bg text-ok" : "bg-field text-foreground/55";
+  const cls = value ? "bg-ok-bg text-ok" : "bg-field text-muted";
   const label = value ? onLabel : offLabel;
   if (!editable) {
     return (

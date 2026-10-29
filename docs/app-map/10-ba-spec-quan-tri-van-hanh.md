@@ -3,6 +3,7 @@
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/components/admin, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
 last_verified: 2026-10-26
+<!-- re-verified: 2026-10-29 21:00 - nhóm B chữ/a11y: src/components/admin chỉ đổi MÀU chữ phụ (text-muted thay foreground/40..60) + chính tả Xoá/Huỷ; khu quản trị GIỮ chữ "Premium" cho nhân viên; không đổi quyền/luồng NV9–NV10 (vẫn chưa build). last_verified giữ nguyên theo ghi chú 2026-10-26. -->
 <!-- re-verified: 2026-10-26 20:30 - tab Yêu cầu hỗ trợ (tab-hoi-mua.tsx) thêm mục chỉ-xem "Khách hỏi / đăng ký khuyến mãi SDVICO" (GET /api/admin/sdvico-khach-hoi, requireAdmin) — phiếu sdvico_khach_hoi moi/da_bao đối chiếu tin Zalo Quân; luật phân quyền/tab không đổi (14 §3.14b) -->
 ttl_days: 90
 <!-- re-verified: 2026-10-26 — SPEC MỚI (CHƯA BUILD, chưa có code): NV9 người tạo thấy khách mình tạo (R13, AC-11..13) + NV10 hỗ trợ kỹ thuật tra đúng SĐT (R14, AC-14..19). Chủ dự án chốt hướng B + C sau phân tích: "khách của mình" trong code hôm nay = `premium_grants.granted_by` (accounts/route.ts GET + `managerTargetDenial`), tạo khách không tick premium ⇒ chính người tạo không thấy; quản lý không cứu được khách người khác/khách không chủ. Mục `last_verified` GIỮ NGUYÊN tới khi code khớp. -->

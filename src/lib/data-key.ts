@@ -45,9 +45,45 @@ function writeStore(s: Store): void {
     const trimmed: Store = {};
     for (const id of ids) trimmed[id] = s[id];
     window.localStorage.setItem(DATA_KEY_STORE, JSON.stringify(trimmed));
+    if (ids.length > 0) setNoKeyHit(false);
   } catch {
     /* kho đầy / chặn — khoá vẫn còn trong RAM phiên này */
   }
+}
+
+/**
+ * Máy có ít nhất một khoá giải file SDF2 hợp lệ không. Chỉ đọc kho máy (cùng luật kiểm với readStore: id 16 hex · khoá
+ * 64 hex), không request. Kho hỏng/chặn ⇒ false — nói "chưa có khoá" an toàn hơn khoe xanh. Dùng cho chip "sẵn sàng
+ * ra khơi" (pretrip-ready) và viên trạng thái bản đồ.
+ */
+export function hasDataKey(): boolean {
+  return Object.keys(readStore()).length > 0;
+}
+
+/*  "ĐÃ ĐỤNG CẢNH THIẾU KHOÁ" (rà offline F2, 2026-10-29): getDataKey trả null trong khi kho TRỐNG HẲN ⇒ mọi lớp SDF2
+    (nền pmtiles, bờ, đảo, độ sâu) đang trắng mà màn không nói gì. Cờ này dựng ở ĐÚNG gốc (getDataKey — mọi đường giải
+    đều qua đây: pmtiles-protocol, data-fetch/sdfdata://), bật MỘT lần, báo người nghe một lần; khoá vào kho thì tắt.
+    Thiếu riêng khoá gói (kho có khoá chủ) KHÔNG bật — đó là lớp gói bị khoá, không phải bản đồ trắng. */
+let noKeyHit = false;
+const noKeyListeners = new Set<() => void>();
+
+function setNoKeyHit(v: boolean): void {
+  if (noKeyHit === v) return;
+  noKeyHit = v;
+  for (const f of noKeyListeners) f();
+}
+
+/** Đã có lần giải file SDF2 thất bại vì máy CHƯA CÓ KHOÁ NÀO (phiên này, tới khi khoá vào kho). */
+export function noDataKeyHit(): boolean {
+  return noKeyHit;
+}
+
+/** Nghe cờ thiếu khoá đổi (khuôn useSyncExternalStore). Trả hàm huỷ. */
+export function subscribeNoDataKey(f: () => void): () => void {
+  noKeyListeners.add(f);
+  return () => {
+    noKeyListeners.delete(f);
+  };
 }
 
 let inflight: Promise<{ id: string; hex: string } | null> | null = null;
@@ -121,6 +157,7 @@ export function getDataKey(keyId: string): Promise<CryptoKey | null> {
     const raw = hex ? bytesOfHex(hex) : null;
     if (!raw) {
       mem.delete(keyId); // lần sau thử lại — mất sóng không khoá vĩnh viễn
+      if (!hasDataKey()) setNoKeyHit(true);
       return null;
     }
     try {
@@ -165,4 +202,6 @@ export function __resetDataKeyCacheForTest(): void {
   missUntil.clear();
   inflight = null;
   refreshed = false;
+  noKeyHit = false;
+  noKeyListeners.clear();
 }

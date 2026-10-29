@@ -13,6 +13,7 @@ import {
   type SendFailure,
 } from "@/lib/send-error";
 import { SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
+import { NHAN } from "@/lib/labels";
 
 /*
   "Để lại yêu cầu" — hỏi mua/tư vấn cho sản phẩm của ĐƠN VỊ NGOÀI SDWork
@@ -43,7 +44,7 @@ export function ProductInquiryButton({
         className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-navy px-4 text-[0.9375rem] font-semibold text-white transition active:scale-[0.97]"
       >
         <PhoneIcon className="h-4 w-4" />
-        Để lại yêu cầu
+        {NHAN.lienHe}
       </button>
       {open && (
         <InquiryForm
@@ -206,7 +207,7 @@ function InquiryForm({
             onClick={onClose}
             className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-semibold text-foreground/70"
           >
-            Hủy
+            Huỷ
           </button>
           <PrimaryButton type="submit" disabled={state === "sending"}>
             {state === "sending" ? "Đang gửi…" : "Gửi yêu cầu"}

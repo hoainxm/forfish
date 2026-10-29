@@ -127,7 +127,7 @@ export function ProductDetail({ id }: { id: string }) {
         </div>
         <p className="text-[1rem] font-semibold text-navy">Món này không còn trên chợ.</p>
         <Link href="/cho" className={`${primaryLinkClass} mx-auto mt-4 max-w-[15rem]`}>
-          Về cửa hàng
+          {NHAN.vatTu}
         </Link>
       </div>
     );
@@ -226,7 +226,7 @@ export function ProductDetail({ id }: { id: string }) {
             {product.images.map((src, i) => (
               <li key={`${src}-${i}`} className="w-full shrink-0 snap-center">
                 {imgBroken[i] ? (
-                  <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 bg-field text-foreground/40">
+                  <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 bg-field text-muted">
                     <CategoryIcon category={product.category} className="h-16 w-16" />
                     <span className="text-[0.875rem] font-semibold">Chưa tải được ảnh</span>
                   </div>
@@ -451,7 +451,7 @@ export function ProductDetail({ id }: { id: string }) {
                   <li key={r.id} className="surface px-4 py-3">
                     <RatingStars value={r.rating} />
                     <p className="mt-1 text-[1rem] leading-snug">{r.comment || "Không ghi nhận xét."}</p>
-                    <p className="mt-0.5 text-[0.875rem] text-foreground/60">{r.buyerPhoneMasked}</p>
+                    <p className="mt-0.5 text-[0.875rem] text-muted">{r.buyerPhoneMasked}</p>
                   </li>
                 ))}
               </ul>
@@ -461,7 +461,7 @@ export function ProductDetail({ id }: { id: string }) {
                   onClick={() => void openAllReviews()}
                   className="mt-2 min-h-(--row-h) text-[1rem] font-semibold text-t3"
                 >
-                  Xem tất cả đánh giá
+                  {NHAN.xemThem}
                 </button>
               )}
             </>
@@ -493,7 +493,7 @@ export function ProductDetail({ id }: { id: string }) {
         <CartFeedback note={note} count={cart.count} className="basis-full" />
         {quoteOnly ? (
           shop?.phone ? (
-            <CallButton phone={shop.phone} label="Gọi hỏi giá" className="flex-1" />
+            <CallButton phone={shop.phone} label="Gọi hỏi giá" className="flex-1" cao="cta" />
           ) : (
             <>
               <Link href={`/cho/shop/${product.shopSlug}`} className="sq-btn bg-field text-navy">
@@ -503,14 +503,14 @@ export function ProductDetail({ id }: { id: string }) {
                 href={`/cho/yeu-cau/moi?ten=${encodeURIComponent(product.title)}&dv=${encodeURIComponent(product.unit)}`}
                 className={`${primaryLinkClass} flex-1`}
               >
-                Nhờ báo giá
+                {NHAN.baoGia}
               </Link>
             </>
           )
         ) : (
           <>
             {shop?.phone ? (
-              <CallButton phone={shop.phone} label="Gọi shop" />
+              <CallButton phone={shop.phone} label="Gọi shop" cao="cta" />
             ) : (
               <Link href={`/cho/shop/${product.shopSlug}`} className="sq-btn bg-field text-navy">
                 {NHAN.xemShop}
@@ -538,7 +538,7 @@ export function ProductDetail({ id }: { id: string }) {
                 <li key={r.id} className="rounded-2xl bg-field px-4 py-3">
                   <RatingStars value={r.rating} />
                   <p className="mt-1 text-[1rem] leading-snug">{r.comment || "Không ghi nhận xét."}</p>
-                  <p className="mt-0.5 text-[0.875rem] text-foreground/60">{r.buyerPhoneMasked}</p>
+                  <p className="mt-0.5 text-[0.875rem] text-muted">{r.buyerPhoneMasked}</p>
                 </li>
               ))}
             </ul>

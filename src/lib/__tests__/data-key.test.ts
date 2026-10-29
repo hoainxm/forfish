@@ -6,7 +6,10 @@ import {
   DATA_KEY_STORE,
   fetchDataKey,
   getDataKey,
+  hasDataKey,
+  noDataKeyHit,
   prefetchDataKey,
+  subscribeNoDataKey,
   refreshDataKeyOnce,
   __resetDataKeyCacheForTest,
 } from "@/lib/data-key";
@@ -207,5 +210,48 @@ describe("prefetchDataKey", () => {
     __resetDataKeyCacheForTest();
     prefetchDataKey();
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("hasDataKey + cờ thiếu khoá — bản đồ trắng phải có lời (rà offline F2, 2026-10-29)", () => {
+  it("hasDataKey chỉ đọc kho máy: trống → false, khoá hợp lệ → true, khoá hỏng / JSON hỏng → false", () => {
+    expect(hasDataKey()).toBe(false);
+    ls.setItem(DATA_KEY_STORE, JSON.stringify({ [ID]: hexOf(KEY) }));
+    expect(hasDataKey()).toBe(true);
+    ls.setItem(DATA_KEY_STORE, JSON.stringify({ [ID]: "abc" }));
+    expect(hasDataKey()).toBe(false);
+    ls.setItem(DATA_KEY_STORE, "{hỏng");
+    expect(hasDataKey()).toBe(false);
+  });
+
+  it("kho trống + mất sóng ⇒ getDataKey null VÀ bật cờ, báo người nghe ĐÚNG MỘT lần dù nhiều lát hỏng", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const f = vi.fn();
+    subscribeNoDataKey(f);
+    expect(noDataKeyHit()).toBe(false);
+    expect(await getDataKey(ID)).toBeNull();
+    expect(await getDataKey(ID)).toBeNull();
+    expect(noDataKeyHit()).toBe(true);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it("kho CÓ khoá chủ, thiếu riêng khoá gói ⇒ KHÔNG bật cờ (lớp gói bị khoá, bản đồ không trắng)", async () => {
+    ls.setItem(DATA_KEY_STORE, JSON.stringify({ [ID]: hexOf(KEY) }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }));
+    expect(await getDataKey("fedcba9876543210")).toBeNull();
+    expect(noDataKeyHit()).toBe(false);
+  });
+
+  it("khoá vào kho sau đó ⇒ cờ tắt, người nghe được báo", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    await getDataKey(ID);
+    expect(noDataKeyHit()).toBe(true);
+    const f = vi.fn();
+    const huy = subscribeNoDataKey(f);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResp({ ok: true, id: ID, key: hexOf(KEY) })));
+    await fetchDataKey();
+    expect(noDataKeyHit()).toBe(false);
+    expect(f).toHaveBeenCalledTimes(1);
+    huy();
   });
 });

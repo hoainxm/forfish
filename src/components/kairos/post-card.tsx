@@ -147,31 +147,33 @@ function NutThem({ onMore }: { onMore: (anchor: HTMLElement) => void }) {
 
 /**
  * "▸ Bến X" kiểu tên nhóm FB: chỉ khi bài gắn CẢNG trong danh mục và không phải đang đứng ở chính Bến đó. Liên
- * kết RIÊNG (không lồng trong liên kết trang cá nhân). Vùng chạm 2,75rem nhờ đệm dọc + lề âm — dòng tên không cao lên.
+ * kết RIÊNG (không lồng trong liên kết trang cá nhân). Vùng chạm 2,75rem nhờ đệm dọc + lề âm — dòng 2 (giờ · nhãn) không cao lên.
  */
 function NhanBen({ post, benPort }: { post: KairosPost; benPort?: string }) {
   const id = post.ports?.[0];
   const ten = id && id !== benPort ? portLabel(id) : null;
   if (!ten) return null;
   return (
-    <>
-      <span aria-hidden className="shrink-0 text-[0.75rem] text-foreground/50">
+    // MỘT khối không gãy: "▸ Bến X" không bị tách khi dòng 2 xuống hàng
+    <span className="inline-flex shrink-0 items-center gap-1">
+      <span aria-hidden className="text-muted">
         ▸
       </span>
       <Link
         href={`/kairos/ben/${id}`}
-        className="-mx-1 -my-3 shrink-0 rounded-lg px-1 py-3 font-semibold text-sea focus-visible:ring-2 focus-visible:ring-sea"
+        className="-mx-1 -my-3 rounded-lg px-1 py-3 font-semibold text-sea focus-visible:ring-2 focus-visible:ring-sea"
       >
         Bến {ten}
       </Link>
-    </>
+    </span>
   );
 }
 
+
 /**
  * `nghe=false` trong thẻ bài gốc đăng lại (Reshare cũng dùng Head) — một thẻ một nút Nghe, và không có ⋯.
- * `onMore` có ⇒ nút ⋯ sát phải. MỘT khuôn cho cả ba loại (K3-02): ảnh tròn · tên đậm nguyên dòng (co trước
- * nhãn Bến/Chính thức) · dòng 2 mờ. Báo: chữ cái tên báo (bỏ "Báo " để không báo nào cũng "B"), màu băm theo
+ * `onMore` có ⇒ nút ⋯ sát phải. MỘT khuôn cho cả ba loại (K3-02): ảnh tròn · tên đậm nguyên dòng (nhãn
+ * Chính thức/Ghim/Bến ở dòng 2, 2026-10-29) · dòng 2 mờ. Báo: chữ cái tên báo (bỏ "Báo " để không báo nào cũng "B"), màu băm theo
  * tên ⇒ cùng báo cùng màu; dòng 2 "3 giờ · Thời sự" + chip Đang nóng nhỏ (hết chữ "Báo …" bị cắt).
  */
 function Head({
@@ -221,6 +223,8 @@ function Head({
         avatar
       )}
       <div className="min-w-0 flex-1">
+        {/* dòng 1 CHỈ tên (+ chấm AI) — nhãn Chính thức/Ghim/Bến dời xuống dòng 2 cùng giờ (review B-P1-1, 2026-10-29:
+            ở 360px ba nhãn shrink-0 nuốt tên còn "S"/"B…"; nguồn tin là thứ quyết định có tin bài hay không) */}
         <div className="flex items-center gap-1.5">
           {hoSo ? (
             <Link href={hoSo} className="min-w-0 truncate rounded font-bold text-navy">
@@ -229,18 +233,16 @@ function Head({
           ) : (
             <span className="min-w-0 truncate font-bold text-navy">{name}</span>
           )}
-          {official && (
-            <span className="shrink-0 rounded-full bg-sea/12 px-2 py-0.5 text-[0.75rem] font-bold text-sea">{NHAN.chinhThuc}</span>
-          )}
           {/* agent tri thức (16-ba-spec-agent-kairos) — chấm AI nhỏ như dấu tích, không làm tên khó đọc */}
           {a?.isAgent && <span title="Trợ lý AI" className="shrink-0 rounded-full bg-navy/10 px-1.5 text-[0.6875rem] font-bold text-navy">AI</span>}
-          <NhanBen post={post} benPort={benPort} />
-          {pinned && (
-            <span className="shrink-0 rounded-full bg-sun/20 px-2 py-0.5 text-[0.75rem] font-bold text-navy">{NHAN.ghim}</span>
-          )}
         </div>
-        <p className="flex items-center gap-1.5 text-[0.8125rem] text-foreground/65">
-          <span className="truncate">{sub}</span>
+        {/* dòng 2: "1 giờ · Chính thức · Ghim · ▸ Bến X" — nhãn là chữ màu (không viên nền), dòng được XUỐNG HÀNG khi hẹp
+            thay vì cắt giờ */}
+        <p className="flex flex-wrap items-center gap-x-1 text-[0.8125rem] text-foreground/65">
+          {sub && <span className="min-w-0 truncate">{sub}</span>}
+          {official && <span className="shrink-0 font-semibold text-sea">{sub ? "· " : ""}{NHAN.chinhThuc}</span>}
+          {pinned && <span className="shrink-0 font-semibold text-navy">· {NHAN.ghim}</span>}
+          <NhanBen post={post} benPort={benPort} />
           {bao && post.nong && <span className="shrink-0 rounded-full bg-danger-bg px-1.5 text-[0.6875rem] font-bold leading-4 text-danger">{NHAN.dangNong}</span>}
           {/* thông báo nhà nước (topic chinh-sach, 14 §21) — nhãn nhỏ cùng khuôn "Đang nóng", màu sea cho khác tin nóng */}
           {bao && post.topic === "chinh-sach" && <span className="shrink-0 rounded-full bg-sea/12 px-1.5 text-[0.6875rem] font-bold leading-4 text-sea">{NHAN.nhaNuoc}</span>}
@@ -301,7 +303,7 @@ function TheBao({ post, onRead, notify }: { post: KairosPost; onRead?: (p: Kairo
   );
   const dai = (
     <span className="flex flex-col gap-0.5 bg-field px-4 py-2 text-left">
-      {mien && <span className="truncate text-[0.75rem] uppercase tracking-wide text-foreground/55">{mien}</span>}
+      {mien && <span className="truncate text-[0.75rem] uppercase tracking-wide text-muted">{mien}</span>}
       {post.title && <span className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{post.title}</span>}
     </span>
   );
@@ -543,12 +545,12 @@ export function PostCard({
           {/* còn bình luận ngoài 2 bình luận nổi ⇒ lối mở ĐỌC (không bật bàn phím — A98) */}
           {post.commentCount > post.topComments.length &&
             (inline ? (
-              <button type="button" onClick={() => moBinhLuan(false)} className="flex h-9 items-center text-[0.875rem] font-semibold text-foreground/65">
-                Xem thêm bình luận
+              <button type="button" onClick={() => moBinhLuan(false)} className="-my-1 flex min-h-11 items-center text-[0.875rem] font-semibold text-foreground/65">
+                {NHAN.xemThem}
               </button>
             ) : (
-              <Link href={detail} onClick={() => onRead?.(post)} className="flex h-9 items-center text-[0.875rem] font-semibold text-foreground/65">
-                Xem thêm bình luận
+              <Link href={detail} onClick={() => onRead?.(post)} className="-my-1 flex min-h-11 items-center text-[0.875rem] font-semibold text-foreground/65">
+                {NHAN.xemThem}
               </Link>
             ))}
         </div>

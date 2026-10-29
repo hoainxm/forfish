@@ -38,3 +38,17 @@ export function sendFailureText(kind: SendFailure, unit: string): string {
       return `Chưa gửi được lúc này — bên nhận đang trục trặc. Bà con thử lại sau ít phút, hoặc gọi thẳng ${unit}.`;
   }
 }
+
+/** Có dấu tiếng Việt không — câu đã viết cho bà con thì luôn có dấu. */
+const CO_DAU_VIET = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i;
+
+/**
+ * Câu lỗi đưa ra MÀN từ một lỗi bắt được (2026-10-29, rà C §10). Chỉ cho qua câu đã là
+ * tiếng Việt (lớp dưới cố ý viết cho bà con, vd "Ảnh quá lớn…"); `TypeError` của fetch
+ * ("Failed to fetch", "Load failed") và mọi câu tiếng Anh/kỹ thuật ⇒ `macDinh`.
+ */
+export function cauLoiHienThi(e: unknown, macDinh: string): string {
+  if (e instanceof TypeError) return macDinh;
+  const m = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+  return m && CO_DAU_VIET.test(m) ? m : macDinh;
+}

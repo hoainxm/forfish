@@ -193,7 +193,7 @@ export function OrdersTab({ perms }: { perms: TabPerms }) {
           title={`Xác nhận huỷ đơn hàng ${shortCode(toCancel.id)}?`}
           message={`Đơn hàng sẽ chuyển sang trạng thái "Đã huỷ" và ứng dụng sẽ thông báo cho chủ tàu. Thao tác này không thể đảo ngược.`}
           confirmLabel="Xác nhận huỷ đơn"
-          cancelLabel="Hủy thao tác"
+          cancelLabel="Huỷ thao tác"
           danger
           onCancel={() => setToCancel(null)}
           onConfirm={() => {
@@ -251,7 +251,7 @@ export function OrderCard({
         </span>
       </div>
 
-      <p className="px-4 pt-1 text-[0.8125rem] text-foreground/55">
+      <p className="px-4 pt-1 text-[0.8125rem] text-muted">
         đặt {formatVnDate(order.createdAt.slice(0, 10))}
         {order.deliveryLocation ? ` · giao hàng tại ${order.deliveryLocation}` : ""}
       </p>
@@ -264,7 +264,7 @@ export function OrderCard({
           >
             <span className="min-w-0 text-foreground/85">
               {line.title}{" "}
-              <span className="text-foreground/55">
+              <span className="text-muted">
                 ×{line.qty} {line.unit} @ {formatVnd(line.priceVnd)}
               </span>
             </span>
@@ -283,13 +283,13 @@ export function OrderCard({
 
       {order.note && (
         <p className="border-t border-line px-4 py-2 text-[0.875rem] leading-snug text-foreground/80">
-          <span className="font-semibold text-foreground/60">Ghi chú từ chủ tàu: </span>
+          <span className="font-semibold text-muted">Ghi chú từ chủ tàu: </span>
           {order.note}
         </p>
       )}
 
       {order.handledBy && (
-        <p className="px-4 pt-2 text-[0.8125rem] text-foreground/55">
+        <p className="px-4 pt-2 text-[0.8125rem] text-muted">
           xử lý bởi {order.handledBy}
           {order.handledAt ? ` · ${fmtDT(order.handledAt)}` : ""}
         </p>
@@ -341,7 +341,7 @@ export function OrderCard({
       ) : (
         order.dealerNote && (
           <p className="border-t border-line px-4 py-2 text-[0.875rem] leading-snug text-foreground/80">
-            <span className="font-semibold text-foreground/60">Ghi chú của Nhà cung cấp: </span>
+            <span className="font-semibold text-muted">Ghi chú của Nhà cung cấp: </span>
             {order.dealerNote}
           </p>
         )

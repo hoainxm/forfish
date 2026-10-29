@@ -310,7 +310,7 @@ export function Checkout() {
           ))}
         </ul>
         <Link href="/cho/don" className={`${primaryLinkClass} mt-5`}>
-          Xem đơn hàng
+          {NHAN.donHang}
         </Link>
         {/*  F-09: màn kết quả là màn cụt — thêm đường quay lại chợ. */}
         <Link
@@ -522,7 +522,7 @@ export function Checkout() {
             onClick={openNewAddress}
             className="mb-2 flex min-h-(--row-h) w-full items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
           >
-            + Thêm địa chỉ mới
+            + {NHAN.them}
           </button>
         </Popover>
       )}

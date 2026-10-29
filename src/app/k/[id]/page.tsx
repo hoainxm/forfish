@@ -96,7 +96,7 @@ export default async function PublicPostPage({ params }: Props) {
               <img src={post.coverUrl} alt="" referrerPolicy="no-referrer" className="aspect-[16/9] w-full bg-field object-cover" />
             )}
             <span className="flex flex-col gap-0.5 bg-field px-4 py-2">
-              {tenMien(post.url) && <span className="truncate text-[0.75rem] uppercase tracking-wide text-foreground/55">{tenMien(post.url)}</span>}
+              {tenMien(post.url) && <span className="truncate text-[0.75rem] uppercase tracking-wide text-muted">{tenMien(post.url)}</span>}
               {post.title && <h1 className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{post.title}</h1>}
             </span>
           </a>

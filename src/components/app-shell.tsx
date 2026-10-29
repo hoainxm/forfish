@@ -9,6 +9,15 @@ import { ToastHost } from "@/components/ui/toast";
 import { UserSyncInit } from "@/components/user-sync-init";
 
 // CHỈ dựng ở máy: tts.ts (plugin TTS Capacitor) đụng `window` lúc nạp module ⇒ dựng trên máy chủ là 500 mọi trang
+/*  CỬA TẢI SẴN (rà offline F3 2026-10-29) — tách chunk: kéo theo cả bộ tải dự báo, không được nằm trong bundle chung
+    của mọi màn. Chunk lỗi (mất sóng, chưa có trong kho) ⇒ không vẽ gì, KHÔNG làm sập khung app. */
+const PretripAutoRun = dynamic(
+  () =>
+    import("@/components/pretrip-auto-notify")
+      .then((m) => m.PretripAutoRun)
+      .catch(() => () => null),
+  { ssr: false },
+);
 const SenBienToanApp = dynamic(() => import("@/components/sen-bien-toan-app").then((m) => m.SenBienToanApp), { ssr: false });
 
 /*
@@ -45,6 +54,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* toast dùng chung (dung-chung 2026-10-25): một host cho cả app; host dự phòng ở use-post-actions tự im */}
       <ToastHost />
       <UserSyncInit />
+      {/* CỬA TẢI SẴN đi biển ở tầng app (rà offline F3 2026-10-29): Trang chủ cũng tải sẵn, không chờ mở Bản đồ */}
+      <PretripAutoRun />
     </div>
   );
 }

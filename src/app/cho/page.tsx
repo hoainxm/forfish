@@ -1,5 +1,6 @@
 import { MarketHome } from "@/components/market/buyer/market-home";
 import { ManHeader } from "@/components/man-header";
+import { GianHangCuaToi } from "@/components/market/buyer/gian-hang-cua-toi";
 
 export const metadata = { title: "Vật tư — SDFish" };
 
@@ -13,6 +14,8 @@ export default function ChoPage() {
   return (
     <div>
       <ManHeader title="Vật tư" />
+      {/* người bán: một hàng gọn sang /ban-hang + số đơn chờ (cùng cờ với badge dock, không request) */}
+      <GianHangCuaToi />
       <MarketHome />
     </div>
   );

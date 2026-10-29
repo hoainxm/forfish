@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type SavedBuyer } from "@/data/market-channels";
-import { banDoHref, boDau, datThamSo, docThamSo, tachSdt, telHref } from "@/lib/cho-ca";
+import { banDoHref, boDau, datThamSo, docThamSo, tachSdt, telHref, zaloHref } from "@/lib/cho-ca";
+import { baoToast } from "@/lib/toast";
+import { useOnline } from "@/lib/use-online";
 import { NHAN } from "@/lib/labels";
 import { SearchField } from "@/components/ui/search-field";
 import {
@@ -28,9 +30,12 @@ import {
 } from "@/components/ui/primitives";
 import {
   CheckIcon,
+  ChevronDownIcon,
   CloseIcon,
+  CommentIcon,
   EditIcon,
   PinIcon,
+  PhoneIcon,
   PlusIcon,
   SearchIcon,
   TrashIcon,
@@ -95,14 +100,14 @@ function DiaChi({ diaChi, tinh }: { diaChi: string; tinh?: string }) {
       <span>{diaChi}</span>
     </>
   );
-  if (!href) return <p className="mt-1 flex gap-1.5 text-[0.875rem] text-foreground/70">{than}</p>;
+  if (!href) return <p className="flex gap-1.5 py-1 text-[0.875rem] text-foreground/70">{than}</p>;
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener"
       aria-label={`Mở bản đồ: ${diaChi}`}
-      className="mt-1 flex gap-1.5 text-[0.875rem] text-sea underline-offset-2 active:underline"
+      className="flex min-h-(--h-ctl) gap-1.5 py-2.5 text-[0.875rem] text-sea underline-offset-2 active:underline"
     >
       {than}
     </a>
@@ -229,6 +234,129 @@ export function SellGuide() {
   );
 }
 
+/** Mỗi lượt "Xem thêm" thêm bấy nhiêu hàng (review B-P1-3: 93 vựa nối nhau = trang 20 928px) */
+const TRANG_DAU_MOI = 20;
+
+/** Nút "Nhắn" Zalo trong ngăn bung — cùng luật LienHe (chỉ số di động; mất sóng mờ + toast). */
+function NutNhanZalo({ phone }: { phone: string }) {
+  const online = useOnline();
+  const zalo = zaloHref(phone);
+  if (!zalo) return null;
+  return (
+    <a
+      href={zalo}
+      target="_blank"
+      rel="noopener"
+      aria-disabled={!online || undefined}
+      onClick={(e) => {
+        if (online) return;
+        e.preventDefault();
+        baoToast(`${NHAN.canSong} để nhắn Zalo`, { loai: "xau", ms: 3000 });
+      }}
+      className={`flex min-h-(--h-ctl) items-center gap-2 text-[0.875rem] font-semibold text-sea ${online ? "" : "opacity-50"}`}
+    >
+      <CommentIcon className="h-4 w-4 shrink-0" />
+      {NHAN.nhan} Zalo
+    </a>
+  );
+}
+
+/*  HÀNG ĐẦU MỐI (review B-P1-3, 2026-10-29) — khuôn "bản ghi có thao tác" của 03 §0b, thay thẻ
+    Card to: dòng tên (chữ hàng thường) + "loại · tỉnh" mờ, bên phải MỘT nút Gọi cao --h-ctl (số đầu).
+    Chạm hàng ⇒ bung TẠI CHỖ: từng số một hàng ≥2.75rem (hết link SĐT 18px dễ chạm nhầm), địa chỉ
+    (mở bản đồ), thông tin thêm, Nguồn, Nhắn Zalo. */
+function HangDauMoi({ c, phu, them }: { c: SellContact; phu: string; them: React.ReactNode }) {
+  const [mo, setMo] = useState(false);
+  const soDau = c.phone ? tachSdt(c.phone)[0] : undefined;
+  return (
+    <li>
+      <div className="flex items-center">
+        <button
+          type="button"
+          aria-expanded={mo}
+          onClick={() => setMo((v) => !v)}
+          className="flex min-h-(--h-row) min-w-0 flex-1 items-center gap-2 py-2.5 pl-4 pr-2 text-left transition active:bg-field"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-[1rem] font-semibold leading-snug text-navy">{c.name}</span>
+            {phu && <span className="mt-0.5 block text-[0.8125rem] leading-snug text-foreground/65">{phu}</span>}
+          </span>
+          <ChevronDownIcon className={`h-4 w-4 shrink-0 text-foreground/40 transition ${mo ? "rotate-180" : ""}`} />
+        </button>
+        {soDau && (
+          <a
+            href={telHref(soDau)}
+            aria-label={`${NHAN.goi} ${c.name}`}
+            className="mr-3 flex h-(--h-ctl) shrink-0 items-center gap-1.5 rounded-xl bg-field px-3 text-[0.875rem] font-semibold text-sea transition active:bg-line"
+          >
+            <PhoneIcon className="h-4 w-4" />
+            {NHAN.goi}
+          </a>
+        )}
+      </div>
+      {mo && (
+        <div className="bg-background/60 px-4 pb-2.5 pt-1 text-[0.875rem] text-foreground/70">
+          {c.phone &&
+            tachSdt(c.phone).map((so) => (
+              <a key={so} href={telHref(so)} className="flex min-h-(--h-ctl) items-center gap-2 font-semibold tabular-nums text-sea">
+                <PhoneIcon className="h-4 w-4 shrink-0" />
+                {so}
+              </a>
+            ))}
+          {c.address && <DiaChi diaChi={c.address} tinh={c.province} />}
+          {them}
+          <div className="flex flex-wrap items-center gap-x-5">
+            {c.phone && <NutNhanZalo phone={c.phone} />}
+            {c.website && (
+              <a
+                href={c.website.startsWith("http") ? c.website : `https://${c.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-(--h-ctl) items-center text-[0.8125rem] font-semibold text-foreground/65 underline"
+              >
+                Nguồn
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** Danh sách kẻ mảnh (một `.surface` + `divide-y`, như Giá cá) + "Xem thêm" 20 hàng/lượt.
+ *  Đổi bộ lọc ⇒ cha đổi `key` ⇒ số hàng về 20. */
+function DanhSachDauMoi({
+  list,
+  hang,
+  rong,
+}: {
+  list: SellContact[];
+  hang: (c: SellContact) => React.ReactNode;
+  rong: React.ReactNode;
+}) {
+  const [n, setN] = useState(TRANG_DAU_MOI);
+  if (list.length === 0) return <>{rong}</>;
+  const con = list.length - n;
+  return (
+    <ul className="surface divide-y divide-line overflow-hidden">
+      {list.slice(0, n).map(hang)}
+      {con > 0 && (
+        <li>
+          <button
+            type="button"
+            onClick={() => setN((v) => v + TRANG_DAU_MOI)}
+            className="flex min-h-(--h-ctl) w-full items-center justify-center gap-1.5 px-4 text-[0.875rem] font-semibold text-sea transition active:bg-field"
+          >
+            {NHAN.xemThem} {Math.min(con, TRANG_DAU_MOI)}
+            <ChevronDownIcon className="h-4 w-4" />
+          </button>
+        </li>
+      )}
+    </ul>
+  );
+}
+
 function Wholesalers({
   list: all,
   home,
@@ -258,51 +386,25 @@ function Wholesalers({
         {list.length} vựa
         {home.province && near ? ` gần ${home.province}` : ""}
       </p>
-
-      <ul className="space-y-2.5">
-        {list.map((w) => (
-          <li key={w.id}>
-            <Card className="p-3.5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[0.75rem] font-semibold text-foreground/65">
-                    {w.subLabel ?? "Vựa"}
-                  </p>
-                  <p className="display text-[1rem] font-semibold leading-snug text-navy">
-                    {w.name}
-                  </p>
-                </div>
-              </div>
-              {w.address && <DiaChi diaChi={w.address} tinh={w.province} />}
-              {w.phone && <SdtLinks phone={w.phone} />}
-              {w.species.length > 0 && (
-                <p className="text-[0.875rem] text-foreground/70">
-                  Thu mua: {w.species.join(", ")}
-                </p>
-              )}
-              {w.website && (
-                <a
-                  href={w.website.startsWith("http") ? w.website : `https://${w.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-block text-[0.8125rem] font-semibold text-foreground/65 underline"
-                >
-                  Nguồn
-                </a>
-              )}
-              {/* Gọi · Nhắn Zalo chia hai cột (CC-18) */}
-              {w.phone && <LienHe phone={w.phone} className="mt-2" />}
-            </Card>
-          </li>
-        ))}
-        {list.length === 0 && (
+      <DanhSachDauMoi
+        key={`${q}|${home.province}|${near}`}
+        list={list}
+        hang={(w) => (
+          <HangDauMoi
+            key={w.id}
+            c={w}
+            phu={[w.subLabel ?? "Vựa", w.province].filter(Boolean).join(" · ")}
+            them={w.species.length > 0 && <p className="py-1">Thu mua: {w.species.join(", ")}</p>}
+          />
+        )}
+        rong={
           <EmptyState icon={<UsersIcon className="h-9 w-9" />}>
             {q
               ? "Không thấy vựa nào khớp. Bà con thử từ ngắn hơn."
               : "Chưa có vựa công khai ở tỉnh này. Bà con thêm mối quen ở mục “Mối quen”."}
           </EmptyState>
-        )}
-      </ul>
+        }
+      />
     </div>
   );
 }
@@ -325,44 +427,34 @@ function Markets({
     near,
   );
   return (
-    <div className="space-y-3">
-      <p className="px-1 text-[0.875rem] font-semibold text-foreground/70">
+    <div>
+      <p className="mb-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
         {list.length} chợ
         {home.province && near ? ` gần ${home.province}` : ""}
       </p>
-      {list.map((m) => (
-        <Card key={m.id} className="p-4">
-          {/* Gọi cùng vị trí thẻ vựa — chợ có số BQL thì gọi hỏi giờ họp được (CC-11) */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              {m.province && (
-                <p className="text-[0.75rem] font-semibold text-foreground/65">
-                  {m.province}
-                </p>
-              )}
-              <p className="display text-[1rem] font-semibold leading-snug text-navy">
-                {m.name}
-              </p>
-            </div>
-          </div>
-          {m.address && <DiaChi diaChi={m.address} tinh={m.province} />}
-          {m.phone && <SdtLinks phone={m.phone} />}
-          {m.hours && (
-            <p className="text-[0.875rem] text-foreground/70">Giờ họp: {m.hours}</p>
-          )}
-          {m.species.length > 0 && (
-            <p className="mt-1 text-[0.875rem] text-foreground/70">
-              Loài chính: {m.species.join(", ")}
-            </p>
-          )}
-          {m.phone && <LienHe phone={m.phone} className="mt-2" />}
-        </Card>
-      ))}
-      {list.length === 0 && (
-        <EmptyState icon={<SearchIcon className="h-9 w-9" />}>
-          {q ? "Không thấy chợ nào khớp." : "Chưa có chợ đầu mối ở vùng này."}
-        </EmptyState>
-      )}
+      {/* chợ có số BQL thì gọi hỏi giờ họp được (CC-11) — cùng khuôn hàng vựa */}
+      <DanhSachDauMoi
+        key={`${q}|${home.province}|${near}`}
+        list={list}
+        hang={(m) => (
+          <HangDauMoi
+            key={m.id}
+            c={m}
+            phu={m.province ?? ""}
+            them={
+              <>
+                {m.hours && <p className="py-1">Giờ họp: {m.hours}</p>}
+                {m.species.length > 0 && <p className="py-1">Loài chính: {m.species.join(", ")}</p>}
+              </>
+            }
+          />
+        )}
+        rong={
+          <EmptyState icon={<SearchIcon className="h-9 w-9" />}>
+            {q ? "Không thấy chợ nào khớp." : "Chưa có chợ đầu mối ở vùng này."}
+          </EmptyState>
+        }
+      />
     </div>
   );
 }
@@ -429,7 +521,7 @@ function Factories({
                   rel="noopener noreferrer"
                   className="mt-1 inline-block text-[0.875rem] font-semibold text-sea"
                 >
-                  Xem trang web
+                  {NHAN.trangWeb}
                 </a>
               )}
             </Card>
@@ -565,9 +657,9 @@ function MyBuyers({ q }: { q: string }) {
         {shown.map((b) => (
           <li key={b.id}>
             <Card className="p-3.5">
-              {/*  "Sửa"/"Xóa" về INLINE cuối hàng tên mối quen (luật A3/A5):
+              {/*  "Sửa"/"Xoá" về INLINE cuối hàng tên mối quen (luật A3/A5):
                   trước là hàng footer border-t riêng, hai nút KHÔNG khai min-h
-                  nào (đo thật 50×24px — chưa bằng một nửa sàn 52px), mà "Xóa"
+                  nào (đo thật 50×24px — chưa bằng một nửa sàn 52px), mà "Xoá"
                   lại là hành động phá huỷ (xoá số thương lái bà con gõ tay). */}
               <div className="flex items-stretch gap-2">
                 <div className="min-w-0 flex-1">
@@ -593,7 +685,7 @@ function MyBuyers({ q }: { q: string }) {
                   className={`${SQ_BTN} bg-background text-danger`}
                 >
                   <TrashIcon className="h-6 w-6" />
-                  Xóa
+                  Xoá
                 </button>
               </div>
               {/* SĐT là DỮ LIỆU (đọc/chép được); nút GỌI inline cuối chính
@@ -635,8 +727,8 @@ function MyBuyers({ q }: { q: string }) {
       {confirmDel && (
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
-          title="Xóa mối quen này?"
-          message={`“${confirmDel.name}” sẽ bị xóa khỏi danh bạ.`}
+          title="Xoá mối quen này?"
+          message={`“${confirmDel.name}” sẽ bị xoá khỏi danh bạ.`}
           onCancel={() => setConfirmDel(null)}
           onConfirm={() => {
             setBuyers((prev) => prev.filter((x) => x.id !== confirmDel.id));
@@ -703,8 +795,8 @@ function BuyerForm({
       onClose={onCancel}
     >
       <form onSubmit={submit}>
-        {/* Hàng KEY 1: tên. Nút Lưu về hàng đáy cùng Hủy — một khuôn với form Đăng tin
-            (CC-13); trước Lưu nằm cạnh ô Tên ở đầu, Hủy lẻ loi dưới. */}
+        {/* Hàng KEY 1: tên. Nút Lưu về hàng đáy cùng Huỷ — một khuôn với form Đăng tin
+            (CC-13); trước Lưu nằm cạnh ô Tên ở đầu, Huỷ lẻ loi dưới. */}
         <Field label="Tên (bắt buộc)" error={loiTen ?? undefined}>
           <input
             ref={oTen}
@@ -812,7 +904,7 @@ function BuyerForm({
           </>
         )}
 
-        {/* Hàng cuối theo khuôn B1 (như ListingForm): dòng trạng thái · Hủy · Lưu */}
+        {/* Hàng cuối theo khuôn B1 (như ListingForm): dòng trạng thái · Huỷ · Lưu */}
         <div className="mt-2 flex items-stretch gap-2">
           <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[0.875rem] text-foreground/70">Chỉ lưu trong máy này.</p>

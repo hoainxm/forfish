@@ -11,7 +11,7 @@
  * UI cho người 40–60 tuổi: nút to, chữ to, từ đời thường, không gesture khó.
  * Bất biến: nhãn chủ quyền + ranh giới biển VN + tin bão LUÔN hiện.
  */
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
 import MapGL, {
   AttributionControl,
@@ -326,6 +326,8 @@ import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { readToken } from "@/lib/device-token-store";
+import { noDataKeyHit, subscribeNoDataKey } from "@/lib/data-key";
+import { readyGapText } from "@/lib/pretrip-ready";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
@@ -461,7 +463,7 @@ import { savedAgoLabel } from "@/lib/forecast-cache";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
-import { StormBanner } from "@/components/storm-banner";
+import { StormBanner, type GhiChuMay } from "@/components/storm-banner";
 import { StormEarlyBanner } from "@/components/storm-early-banner";
 import {
   PretripAutoNotify,
@@ -487,6 +489,7 @@ import {
   StarIcon,
 } from "@/components/icons";
 import { Popover } from "@/components/ui/popover";
+import { NHAN } from "@/lib/labels";
 import { khungOTrongVung, locOTrongVung } from "@/lib/vung-bien-vn";
 import { registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
 import { registerDataProtocol } from "@/lib/data-protocol";
@@ -3003,20 +3006,21 @@ export default function FishingMapView() {
     };
   }, [tideStations, nowMs]);
   const offlineNote = offlineBasemapNote(basemapHealth, coastData != null);
-  /* Nhắc "mất sóng" HIỆN RỒI TỰ TẮT như dòng "Đã lưu dự báo tới ngày…" — thẻ
-     vàng 2 dòng nằm lì trước đây làm rối bản đồ. Effect chỉ chạy lại khi CÂU
-     ĐỔI, nên vẫn đang mất sóng thì không báo đi báo lại; có sóng lại rồi mất
-     tiếp thì câu quay về từ null → báo một lần nữa (câu 2 dòng → 8s). */
-  const [offlineNoteOn, setOfflineNoteOn] = useState(false);
-  useEffect(() => {
-    if (!offlineNote) {
-      setOfflineNoteOn(false);
-      return;
+  /*  MẤT SÓNG + CHƯA CÓ KHOÁ BẢN ĐỒ → GỘP VÀO VIÊN TIN BÃO (rà UI B-P1-2 + offline F2, 2026-10-29).
+      Trước: băng "Mất sóng" là khối riêng giữa màn, đè lên bảng toạ độ; thiếu khoá SDF2 thì bờ/đảo/độ sâu trắng
+      mà không một lời. Nay cả hai là `ghiChu` của StormBanner overlay: một dòng chung với tin bão, chạm bung câu
+      đủ. Nhịp "nói một lần rồi thu" (8 s) do viên lo; lời thiếu khoá nằm lì (`ben`) vì bà con phải làm gì đó.
+      Cờ thiếu khoá dựng ở gốc (`getDataKey` trả null khi kho trống — data-key.ts), báo đúng một lần. */
+  const thieuKhoa = useSyncExternalStore(subscribeNoDataKey, noDataKeyHit, () => false);
+  const ghiChuMay = useMemo<GhiChuMay[]>(() => {
+    const out: GhiChuMay[] = [];
+    if (offlineNote) out.push({ ngan: offlineNote.split(" — ")[0], day: offlineNote });
+    if (thieuKhoa) {
+      const cau = readyGapText("key", readToken() != null);
+      out.push({ ngan: cau.split(" — ")[0], day: `${cau}.`, ben: true });
     }
-    setOfflineNoteOn(true);
-    const t = setTimeout(() => setOfflineNoteOn(false), NOTIFY_HIDE_LONG_MS);
-    return () => clearTimeout(t);
-  }, [offlineNote]);
+    return out;
+  }, [offlineNote, thieuKhoa]);
   /* Hình bờ + đảo — NẠP NGAY KHI MỞ MÀN, KHÔNG chờ tới lúc mất sóng.
      LỖI ĐÃ SỬA (D-PH8, soát 2026-08-02): trước đây cổng `if (!offlineBase ||
      coastData) return` chỉ mở khi ĐÃ mất sóng — đúng lúc không tải nổi nữa; và
@@ -4768,7 +4772,10 @@ export default function FishingMapView() {
   useEffect(() => {
     let alive = true;
     // tài khoản thường: chỉ HÔM NAY (2026-10-27 — máy chủ gác ngày ở /api/om, tier.ts soNgayThoiTiet)
-    fetchSeaPoint(point, soNgayThoiTiet(premiumAccess))
+    // sóng chập chờn: bản lưu hiện sau ~1,5 s, số mới về thì thay (F4 2026-10-29, marine-weather SAVED_FIRST_GRACE_MS)
+    fetchSeaPoint(point, soNgayThoiTiet(premiumAccess), {
+      onFresh: (c) => alive && setResult({ key: reqKey, cond: c }),
+    })
       .then((c) => alive && setResult({ key: reqKey, cond: c }))
       .catch(() => alive && setResult({ key: reqKey, cond: null }));
     return () => {
@@ -5384,14 +5391,14 @@ export default function FishingMapView() {
           <>
             Xem các ngày tới cần đăng nhập —{" "}
             <Link href="/login" className="font-semibold text-trim">
-              Đăng nhập →
+              {NHAN.dangNhap}
             </Link>
           </>
         ) : (
           <>
             {premiumLine("dự báo các ngày tới")}{" "}
             <a href={`tel:${SDVICO_HOTLINE}`} className="font-semibold text-trim">
-              Gọi →
+              {NHAN.goi}
             </a>
           </>
         )}
@@ -5517,7 +5524,9 @@ export default function FishingMapView() {
         ẩn ô toạ độ + chú giải cá, rail chỉ còn icon, tin bão yên một dòng — giữ
         ô tìm, tin bão, thẻ trạng thái, nút về tàu. Đo 320×700 @32px trước đó:
         các khối nổi chồng lên nhau và đè thẻ đáy (rà Codex lần 11). */
-    <div className="ban-do-khung @container/map relative h-full w-full bg-t1-bg">
+    /*  Nút ⓘ nguồn bản đồ vẽ 1.375rem (globals.css) — vùng chạm nở ra bậc control §0 (2.75rem) bằng ::after
+        trong suốt quanh nút, không đổi hình (rà UI B: đo 24×24). */
+    <div className="ban-do-khung @container/map relative h-full w-full bg-t1-bg [&_.maplibregl-ctrl-attrib-button]:after:absolute [&_.maplibregl-ctrl-attrib-button]:after:-inset-[0.6875rem] [&_.maplibregl-ctrl-attrib-button]:after:content-['']">
       {/* ── BẢN ĐỒ — cả màn hình ─────────────────────────────────────────── */}
       {/*  Lớp bản đồ chạy XUỐNG SAU dock nổi (`ban-do-duoi-dock`, globals.css) — dock là viên nổi bo tròn,
           khung chừa cả chiều cao dock thì đáy lộ dải nền trống (chủ dự án chụp màn 2026-10-22). Các thẻ nổi
@@ -8077,7 +8086,7 @@ export default function FishingMapView() {
           ref={(el) => kepTheTrongKhung(el, pressMenu.x, pressMenu.y)}
           className="pointer-events-auto absolute z-40 w-56 max-w-[calc(100%-1rem)] overflow-hidden rounded-2xl bg-card/97 shadow-xl"
         >
-          <p className="truncate px-3 pt-2.5 text-[0.8125rem] font-semibold text-foreground/60">
+          <p className="truncate px-3 pt-2.5 text-[0.8125rem] font-semibold text-foreground/70">
             {fmtCoordPair(pressMenu.lat, pressMenu.lon, prefs.coordFormat)}
           </p>
           <button
@@ -8118,7 +8127,7 @@ export default function FishingMapView() {
             className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-semibold text-navy transition active:bg-field"
           >
             <StarIcon className="h-6 w-6 shrink-0 text-sun" />
-            Lưu thành điểm
+            {NHAN.luuDiem}
           </button>
         </div>
       )}
@@ -8230,14 +8239,14 @@ export default function FishingMapView() {
                     onClick={() => veDuongToiKhu(k)}
                     className="mt-2 min-h-[3.5rem] w-full rounded-2xl bg-t1 px-4 text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
                   >
-                    Vẽ đường tới đây
+                    {NHAN.dauDuong}
                   </button>
                 </li>
               ))}
             </ul>
             </>
           )}
-          <p className="mt-4 text-[0.875rem] font-semibold leading-snug text-foreground/60">
+          <p className="mt-4 text-[0.875rem] font-semibold leading-snug text-foreground/70">
             Danh mục khu neo đậu tránh trú bão theo quy hoạch nhà nước (tham
             khảo). Trước khi vào, nghe hướng dẫn của địa phương và Thông báo
             hàng hải.
@@ -8364,7 +8373,7 @@ export default function FishingMapView() {
               />
               </div>
             )}
-            <StormBanner variant="overlay" myPos={tracking.pos ?? null} moTheoKhoa={stormMoKhoa} />
+            <StormBanner variant="overlay" myPos={tracking.pos ?? null} moTheoKhoa={stormMoKhoa} ghiChu={ghiChuMay} />
             {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
                 không có bão thật); component tự bung 1 lần rồi thu về chip. */}
             {earlyWarning && <StormEarlyBanner ew={earlyWarning} />}
@@ -8624,18 +8633,7 @@ export default function FishingMapView() {
           </p>
         )}
 
-        {/* MẤT SÓNG → nói MỘT DÒNG rồi tự tắt (cùng kiểu chip với dòng "Đã lưu
-            dự báo…" và banner bão): đủ để bà con biết nền là hình lưu trong
-            máy, không phải app hỏng — rồi trả lại bản đồ, không nằm lì. */}
-        {offlineNote && offlineNoteOn && (
-          <p
-            role="status"
-            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-semibold leading-snug text-warn shadow-md"
-          >
-            <AlertIcon className="h-4 w-4 shrink-0" />
-            {offlineNote}
-          </p>
-        )}
+        {/* MẤT SÓNG: không còn băng riêng ở đây — nói trong viên tin bão (`ghiChuMay`), xem chỗ khai báo. */}
         {/* LOA bị chặn định vị (BD-11): chạm loa ⇒ một dòng nói lý do rồi tự tắt, cùng khuôn chip */}
         {loaNote && (
           <p
@@ -8871,7 +8869,7 @@ export default function FishingMapView() {
                           Không có dòng này thì màn hình đổi số trong im lặng —
                           bà con vừa nhìn xong lại thấy khác, không ai giải thích. */}
                       {stripGrid.stale && dangLamMoi > 0 && (
-                        <span className="font-semibold text-foreground/60">
+                        <span className="font-semibold text-foreground/70">
                           {" "}
                           · số cũ, đang tải bản mới…
                         </span>
@@ -9349,7 +9347,7 @@ export default function FishingMapView() {
                       {moTaTau(aisAtPoint.tau)}
                       {aisAtPoint.tau.dich ? ` · đến ${aisAtPoint.tau.dich}` : ""}
                     </p>
-                    <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/60">
+                    <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/70">
                       Tin {tuoiTinLabel(tuoiTinPhut(aisAtPoint.tau, aisBan, nowMs))}
                       {aisTuKho ? " · bản lưu trong máy" : ""}
                     </p>
@@ -9376,10 +9374,10 @@ export default function FishingMapView() {
                             không phải lượng cá tuyệt đối (rà Codex 26/10) */}
                         Loài thường gặp quanh đây:{" "}
                         <b>{fleetAtPoint.species.map(([sp]) => SPECIES_META[sp]?.full ?? sp).join(", ")}</b>{" "}
-                        <span className="text-foreground/60">(tham khảo)</span>
+                        <span className="text-foreground/70">(tham khảo)</span>
                       </p>
                     ) : (
-                      <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/60">Chưa rõ vùng này hay có cá gì.</p>
+                      <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/70">Chưa rõ vùng này hay có cá gì.</p>
                     )}
                   </div>
                 </div>
@@ -9431,7 +9429,7 @@ export default function FishingMapView() {
                   <span className="flex-1 text-[0.9375rem] font-semibold text-navy">
                     Đã ghim: {currentPlace.name}
                   </span>
-                  <span className="text-[0.8125rem] font-semibold text-foreground/60">
+                  <span className="text-[0.8125rem] font-semibold text-foreground/70">
                     Sửa ở “Điểm đã lưu”
                   </span>
                 </div>
@@ -9463,7 +9461,7 @@ export default function FishingMapView() {
                       onClick={savePin}
                       className="min-h-[3.25rem] flex-1 rounded-xl bg-t1 text-[1rem] font-semibold text-white"
                     >
-                      Lưu chỗ này
+                      {NHAN.luuDiem}
                     </button>
                   </div>
                 </div>
@@ -9477,7 +9475,7 @@ export default function FishingMapView() {
                   className="flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-xl bg-field text-[1rem] font-semibold text-navy transition active:scale-[0.99]"
                 >
                   <StarIcon className="h-5 w-5" />
-                  Ghim chỗ này để mở nhanh lần sau
+                  {NHAN.ghim}
                 </button>
               )}
               {/* toạ độ đã chuyển lên peek (luôn thấy) — bỏ bản trùng ở đây */}

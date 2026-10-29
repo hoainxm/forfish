@@ -8,6 +8,13 @@ import { chartLine, DEPTH_HERE_SHORT } from "@/lib/nav-voice/opening";
 import { DEPTH_ZONE_SPEECH } from "@/lib/nav-voice/events";
 import { VOICE_TEST_TEXT } from "@/lib/nav-voice/use-nav-voice";
 
+/** nạp tts + danh mục mảnh (nạp động từ 2026-10-29) — như lúc app đã nạp xong */
+async function napTts() {
+  const t = await import("@/lib/voice/tts");
+  await t.napManhGiong();
+  return t;
+}
+
 /*
   GIỌNG NỮ SEN BIỂN (2026-10-16) — lib/voice/tts.ts vẫn là MỘT CỬA đọc.
   · câu cố định → mp3 sinh sẵn (VieNeu, danh mục src/data/giong-sen-bien.json)
@@ -19,7 +26,7 @@ const CLIP_DIR = join(process.cwd(), "public", catalog.dir.replace(/^\//, ""));
 
 describe("danh mục giọng Sen Biển ↔ file mp3", () => {
   it("mỗi câu có đúng một mp3, không file mồ côi, không trùng khoá", async () => {
-    const { clipKey } = await import("@/lib/voice/tts");
+    const { clipKey } = await napTts();
     const ids = catalog.items.map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
     const keys = catalog.items.map((i) => clipKey(i.text));
@@ -30,14 +37,14 @@ describe("danh mục giọng Sen Biển ↔ file mp3", () => {
   });
 
   it("mỗi mục là MỘT câu (khoá tra theo câu, nhiều câu thì không bao giờ khớp)", async () => {
-    const { splitSentences } = await import("@/lib/voice/tts");
+    const { splitSentences } = await napTts();
     for (const it of catalog.items) expect(splitSentences(it.text), it.id).toHaveLength(1);
   });
 });
 
 describe("câu cố định trong code đều có giọng Sen Biển", () => {
   async function expectAllClipped(text: string) {
-    const { speechParts } = await import("@/lib/voice/tts");
+    const { speechParts } = await napTts();
     // câu cố định = MỘT mp3 nguyên câu (không phải ghép mảnh /m/)
     const miss = speechParts(text).filter((p) => p.clips?.length !== 1 || p.clips[0].includes("/m/"));
     expect(miss.map((p) => p.text), text).toEqual([]);
@@ -77,7 +84,7 @@ describe("câu cố định trong code đều có giọng Sen Biển", () => {
 
 describe("NHỊP theo loại câu (lượt nói nhanh hơn 2026-10-16) — hằng số khoá", () => {
   it("nghỉ dấu phẩy 120 ms, giữa câu 180 ms; đáp ngắn 1,12, cảnh báo 1,0", async () => {
-    const t = await import("@/lib/voice/tts");
+    const t = await napTts();
     expect(t.PAUSE_COMMA_MS).toBe(120);
     expect(t.PAUSE_SENTENCE_MS).toBe(180);
     expect(t.TTS_RATE).toBe(1);
@@ -85,7 +92,7 @@ describe("NHỊP theo loại câu (lượt nói nhanh hơn 2026-10-16) — hằn
   });
 
   it("speechRate: câu ĐÁP ngắn nhanh; cảnh báo và câu đáp dài (kèm cảnh báo) giữ nhịp thường", async () => {
-    const { speechRate, TTS_RATE, TTS_RATE_SHORT } = await import("@/lib/voice/tts");
+    const { speechRate, TTS_RATE, TTS_RATE_SHORT } = await napTts();
     for (const t of ["Dạ, chưa chạy. Đường vẫn để trên bản đồ.", "Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo.", "Còn 12 hải lý, chừng 1 giờ 30 phút."])
       expect(speechRate({ reply: true }, t), t).toBe(TTS_RATE_SHORT);
     // tóm tắt đường có kèm cảnh báo thiếu dự báo — dài, phải rõ
@@ -109,7 +116,7 @@ describe("NHỊP theo loại câu (lượt nói nhanh hơn 2026-10-16) — hằn
 
 describe("speechParts — câu nói → đoạn đọc có nghỉ", () => {
   it("câu động tách ở dấu phẩy / hai chấm, KHÔNG tách số thập phân 2,5", async () => {
-    const { speechParts, PAUSE_COMMA_MS, PAUSE_SENTENCE_MS } = await import("@/lib/voice/tts");
+    const { speechParts, PAUSE_COMMA_MS, PAUSE_SENTENCE_MS } = await napTts();
     // câu động: số đọc bằng chữ, mỗi đoạn ghép bằng mảnh mp3 (doc 15 §21)
     const p = speechParts("Tới Sa Huỳnh: 2,5 hải lý, chừng 1 giờ. Nói đi để bắt đầu.");
     expect(p.map((x) => x.text)).toEqual(["Tới Sa Huỳnh", "hai phẩy năm hải lý", "chừng một giờ", "Nói đi để bắt đầu."]);
@@ -123,7 +130,7 @@ describe("speechParts — câu nói → đoạn đọc có nghỉ", () => {
   });
 
   it("gạch ngang có khoảng trắng là chỗ ngắt; câu rỗng ra rỗng", async () => {
-    const { speechParts } = await import("@/lib/voice/tts");
+    const { speechParts } = await napTts();
     expect(speechParts("Đảo Lý Sơn – phía trước chừng 2 hải lý.").map((x) => x.text)).toEqual([
       "Đảo Lý Sơn",
       "phía trước chừng hai hải lý",
@@ -135,7 +142,7 @@ describe("speechParts — câu nói → đoạn đọc có nghỉ", () => {
       trước đây khúc tên ngoài danh mục đọc giọng máy XEN GIỮA mảnh mp3 Mỹ Duyên ⇒
       nữ–nam–nữ trong một câu. Nay câu thiếu dù một mảnh ⇒ CẢ CÂU giọng máy. */
   it("tên ngoài danh mục: câu thiếu một mảnh ⇒ CẢ CÂU giọng máy, không nửa mp3 nửa máy", async () => {
-    const { speechParts } = await import("@/lib/voice/tts");
+    const { speechParts } = await napTts();
     const p = speechParts("Rạn có tên gần nhất là Xyz Qwe, 3 hải lý.");
     expect(p.map((x) => [x.text, x.clips ? "mp3" : "máy", x.pauseMs])).toEqual([
       ["Rạn có tên gần nhất là Xyz Qwe, 3 hải lý.", "máy", 0],
@@ -147,7 +154,7 @@ describe("speechParts — câu nói → đoạn đọc có nghỉ", () => {
   });
 
   it("khoá tra không phân biệt hoa thường, khoảng trắng, dấu chấm cuối", async () => {
-    const { clipFor } = await import("@/lib/voice/tts");
+    const { clipFor } = await napTts();
     expect(clipFor("bật tiếng lại")).toBe(`${catalog.dir}/bat_tieng.mp3`);
     expect(clipFor("  Bật  tiếng lại !")).toBe(`${catalog.dir}/bat_tieng.mp3`);
     expect(clipFor("Bật tiếng lại đi.")).toBeNull();
@@ -156,7 +163,7 @@ describe("speechParts — câu nói → đoạn đọc có nghỉ", () => {
 
 describe("voiceRank — giọng nữ trước, mất sóng thì giọng trong máy", () => {
   it("HoaiMy/Linh/Google trên NamMinh/An; mất sóng giọng mạng xuống đáy", async () => {
-    const { voiceRank } = await import("@/lib/voice/tts");
+    const { voiceRank } = await napTts();
     const hoaiMy = { name: "Microsoft HoaiMy Online (Natural) - Vietnamese", localService: false };
     const namMinh = { name: "Microsoft NamMinh Online (Natural) - Vietnamese", localService: false };
     const an = { name: "Microsoft An - Vietnamese (Vietnam)", localService: true };
@@ -249,7 +256,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
   it("câu có số + tên trong danh mục: TRỌN giọng Sen Biển (mảnh ghép), không câu nào giọng máy", async () => {
     const log = installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const onEnd = vi.fn();
     tts.ttsSpeak("Tới Sa Huỳnh: 8 hải lý, chừng 1 giờ. Nói đi để bắt đầu.", { onEnd });
     await vi.advanceTimersByTimeAsync(5000);
@@ -259,13 +266,42 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
+  it("câu ĐẦU TIÊN của phiên, danh mục mảnh CHƯA nạp: chờ nạp rồi vẫn TRỌN giọng Sen Biển", async () => {
+    const log = installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
+    installAudio(log);
+    const tts = await import("@/lib/voice/tts"); // KHÔNG napTts — đúng lúc app vừa mở
+    expect(tts.manhDaNap()).toBe(false);
+    const onEnd = vi.fn();
+    tts.ttsSpeak("Tới Sa Huỳnh: 8 hải lý, chừng 1 giờ. Nói đi để bắt đầu.", { onEnd });
+    expect(log).toEqual([]); // chưa cắt câu, đang chờ danh mục — không đọc vội bằng giọng máy
+    // chung một lượt nạp với ttsSpeak; chờ thật (I/O) trước khi tua giờ giả, kẻo trần MANH_CHO_MS hết trước
+    expect(await tts.napManhGiong()).toBe(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(log.length).toBeGreaterThanOrEqual(5);
+    expect(log.every((l) => l.startsWith("clip@"))).toBe(true);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("huỷ TRONG LÚC chờ danh mục mảnh: không đọc gì, onEnd(false) đúng 1 lần", async () => {
+    const log = installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
+    installAudio(log);
+    const tts = await import("@/lib/voice/tts");
+    const onEnd = vi.fn();
+    const huy = tts.ttsSpeak("Còn 3 hải lý.", { onEnd });
+    huy();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(log).toEqual([]);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(onEnd).toHaveBeenCalledWith(false);
+  });
+
   it("câu không có mảnh đọc MỘT lượt giọng máy (nữ), câu cố định phát mp3, có nghỉ giữa câu; onEnd đúng 1 lần", async () => {
     const log = installSynth([
       { lang: "vi-VN", localService: true, name: "Microsoft An - Vietnamese" },
       { lang: "vi-VN", localService: true, name: "Linh" },
     ]);
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const onEnd = vi.fn();
     tts.ttsSpeak("Qwe Xyz: Asd Zxc, Rty Uio. Nói đi để bắt đầu.", { onEnd });
     await vi.advanceTimersByTimeAsync(3000);
@@ -279,7 +315,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
   it("không tải được mp3 (máy chưa có trong kho, mất sóng): đọc câu đó bằng giọng máy", async () => {
     const log = installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
     installAudio(log, { failFetch: true });
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const onEnd = vi.fn();
     tts.ttsSpeak("Bật tiếng lại.", { onEnd });
     await vi.advanceTimersByTimeAsync(1000);
@@ -290,7 +326,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
   it("máy KHÔNG có giọng Việt: câu cố định vẫn đọc bằng mp3, câu động im (không giọng lạ)", async () => {
     const log = installSynth([{ lang: "en-US", localService: true, name: "Samantha" }]);
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const onEnd = vi.fn();
     tts.ttsSpeak("Qwe Xyz. Mất định vị.", { onEnd });
     await vi.advanceTimersByTimeAsync(3000);
@@ -307,7 +343,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
       ["Google tiếng Việt"],
     );
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const onEnd = vi.fn();
     tts.ttsSpeak("Qwe Xyz, Asd Zxc.", { onEnd });
     await vi.advanceTimersByTimeAsync(5000);
@@ -320,7 +356,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
   it("chỉ MỘT giọng Việt khởi động chậm 2 s: vẫn đọc, KHÔNG bị loại, ttsCheck vẫn có giọng máy", async () => {
     const log = installSynth([{ lang: "vi-VN", localService: false, name: "Google tiếng Việt" }], [], 2000);
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     tts.ttsSpeak("Qwe Xyz.");
     await vi.advanceTimersByTimeAsync(5000);
     tts.ttsSpeak("Asd Zxc.");
@@ -335,7 +371,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     const dead = ["Google tiếng Việt"];
     const log = installSynth([{ lang: "vi-VN", localService: false, name: "Google tiếng Việt" }], dead);
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     tts.ttsSpeak("Qwe Xyz.");
     await vi.advanceTimersByTimeAsync(6000);
     expect(log).toHaveLength(0);
@@ -358,7 +394,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
       dead,
     );
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     tts.ttsSpeak("Qwe Xyz.");
     await vi.advanceTimersByTimeAsync(5000);
     dead.length = 0;
@@ -377,13 +413,13 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
   it("ttsCheck: không giọng máy nhưng phát được mp3 ⇒ đọc được (ok), giongMay false; không cả hai ⇒ không", async () => {
     installSynth([{ lang: "en-US", localService: true, name: "Samantha" }]);
     installAudio([]);
-    let tts = await import("@/lib/voice/tts");
+    let tts = await napTts();
     let p = tts.ttsCheck();
     await vi.advanceTimersByTimeAsync(2000);
     expect(await p).toMatchObject({ ok: true, giongMay: false });
     vi.resetModules();
     vi.stubGlobal("Audio", undefined);
-    tts = await import("@/lib/voice/tts");
+    tts = await napTts();
     p = tts.ttsCheck();
     await vi.advanceTimersByTimeAsync(2000);
     expect(await p).toMatchObject({ ok: false, giongMay: false });
@@ -392,7 +428,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
   it("huỷ giữa chừng: không đọc đoạn sau, onEnd đúng 1 lần", async () => {
     const log = installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const onEnd = vi.fn();
     const cancel = tts.ttsSpeak("Qwe Xyz, Asd Zxc, Rty Uio.", { onEnd });
     await vi.advanceTimersByTimeAsync(50);
@@ -405,7 +441,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
   it("onEnd báo completed: đọc hết ⇒ true, bị huỷ / câu mới thay ⇒ false", async () => {
     installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
     installAudio([]);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const a = vi.fn();
     tts.ttsSpeak("Còn 3 hải lý, chừng 20 phút.", { onEnd: a });
     await vi.advanceTimersByTimeAsync(2000);
@@ -428,7 +464,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
   it("rate truyền xuống giọng máy (câu không mảnh = một lượt đọc)", async () => {
     installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
     installAudio([]);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     // câu KHÔNG có mảnh mp3 (câu có mảnh đi trọn mp3 Mỹ Duyên — không qua giọng máy)
     tts.ttsSpeak("Qwe Xyz, Asd Zxc.", { rate: tts.TTS_RATE_SHORT });
     await vi.advanceTimersByTimeAsync(2000);
@@ -438,7 +474,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
   it("ttsCancel giữa câu nhiều đoạn: dừng HẲN, không đọc tiếp đoạn sau", async () => {
     const log = installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const onEnd = vi.fn();
     tts.ttsSpeak("Qwe Xyz: Asd Zxc, Rty Uio. Máy chưa có hải đồ để canh.", { onEnd });
     await vi.advanceTimersByTimeAsync(50);
@@ -451,7 +487,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
   it("câu mới THAY câu cũ — không bao giờ hai câu chồng nhau", async () => {
     const log = installSynth([{ lang: "vi-VN", localService: true, name: "Linh" }]);
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const end1 = vi.fn();
     const end2 = vi.fn();
     tts.ttsSpeak("Qwe Xyz, Asd Zxc, Rty Uio.", { onEnd: end1 });
@@ -467,7 +503,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     installSynth([]);
     const log: string[] = [];
     installAudio(log);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     await tts.warmVoiceClips();
     // câu nguyên trước, rồi mọi mảnh ghép
     const urls = tts.allClipUrls();
@@ -491,7 +527,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     const log: string[] = [];
     installAudio(log);
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 504 })));
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     await tts.warmVoiceClips();
     const goi = () => (fetch as unknown as { mock: { calls: [string][] } }).mock.calls.map((c) => c[0]);
     // lỗi đầu ⇒ dừng (mỗi luồng song song dừng sau lượt đang bay)
@@ -529,7 +565,7 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
       };
     }
     vi.stubGlobal("AudioContext", FakeCtx);
-    const tts = await import("@/lib/voice/tts");
+    const tts = await napTts();
     const onEnd = vi.fn();
     tts.ttsSpeak("Còn chừng 3 hải lý tới ranh giới.", { onEnd });
     await vi.advanceTimersByTimeAsync(5000);

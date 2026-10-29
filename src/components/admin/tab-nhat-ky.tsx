@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fmtDT, fold } from "@/components/admin/quan-tri-chung";
 
 /* ── NHẬT KÝ HOẠT ĐỘNG (admin-only) ────────────────────────────────────────
-   Log append-only mọi thao tác ghi/xóa của staff (admin_activity_log, 0019) →
+   Log append-only mọi thao tác ghi/xoá của staff (admin_activity_log, 0019) →
    soát được ai làm gì, lúc nào; nhất là XÓA/RESET/ĐỔI QUYỀN (tô đỏ). */
 
 export type ActivityEvent = {
@@ -83,10 +83,10 @@ export function ActivityLogTab() {
   return (
     <div className="mt-4 space-y-4">
       <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
-        Ghi lại mọi thao tác <b>dữ liệu thêm/xóa</b> của quản trị viên & quản lý (tạo/xóa
+        Ghi lại mọi thao tác <b>dữ liệu thêm/xoá</b> của quản trị viên & quản lý (tạo/xoá
         tài khoản, cấp premium, đổi ghi chú, gửi thông báo, đổi phân quyền…) —
-        soát được <b>ghi nhận thao tác của ai, vào thời gian nào</b>. Thao tác xóa/nhạy cảm tô{" "}
-        <span className="font-bold text-danger">quan trọng</span>. Không sửa/xóa được
+        soát được <b>ghi nhận thao tác của ai, vào thời gian nào</b>. Thao tác xoá/nhạy cảm tô{" "}
+        <span className="font-bold text-danger">quan trọng</span>. Không sửa/xoá được
         nhật ký.
       </p>
 
@@ -176,7 +176,7 @@ export function ActivityLogTab() {
             dangerOnly ? "bg-danger text-white" : "bg-field text-foreground/70"
           }`}
         >
-          Chỉ xóa/nhạy cảm
+          Chỉ xoá/nhạy cảm
         </button>
       </div>
 
@@ -203,7 +203,7 @@ export function ActivityLogTab() {
 
       {visible && events && events.length > 0 && (
         <>
-          <p className="px-1 text-[0.8125rem] font-semibold text-foreground/55">
+          <p className="px-1 text-[0.8125rem] font-semibold text-muted">
             {visible.length === events.length
               ? `${events.length} hoạt động gần nhất`
               : `Hiển thị ${visible.length}/${events.length} hoạt động phù hợp`}
@@ -239,16 +239,16 @@ export function ActivityLogTab() {
                       {e.actorRole === "admin" ? "admin" : "nhân sự quản lý"}
                     </span>
                     {e.target && (
-                      <span className="text-[0.8125rem] tabular-nums text-foreground/60">
+                      <span className="text-[0.8125rem] tabular-nums text-muted">
                         → {e.target}
                       </span>
                     )}
                     {e.detail && Object.keys(e.detail).length > 0 && (
-                      <span className="text-[0.75rem] text-foreground/45">
+                      <span className="text-[0.75rem] text-muted">
                         {summarizeDetail(e.detail)}
                       </span>
                     )}
-                    <span className="ml-auto shrink-0 text-[0.75rem] tabular-nums text-foreground/50">
+                    <span className="ml-auto shrink-0 text-[0.75rem] tabular-nums text-muted">
                       {fmtDT(e.createdAt)}
                     </span>
                   </li>

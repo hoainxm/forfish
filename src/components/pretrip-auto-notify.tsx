@@ -14,7 +14,7 @@
  * đã chạy rồi) nằm ở lib/pretrip-auto.ts — xem lý do ở đó.
  */
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
   runLayer,
   runPretrip,
@@ -48,6 +48,20 @@ import {
   isStandalone,
 } from "@/lib/storage-persist";
 import { isShellReady } from "@/lib/shell-ready";
+import { loadPlaces } from "@/lib/places";
+import { readToken } from "@/lib/device-token-store";
+import { savedFishMark } from "@/lib/fish-predict";
+import { useFeatureAccess } from "@/lib/use-tier";
+import { NHAN } from "@/lib/labels";
+import {
+  appPretripPoints,
+  hasBasemap,
+  hasDataKey,
+  readyGap,
+  readyGapText,
+  readyToSail,
+  warmBasemap,
+} from "@/lib/pretrip-ready";
 import { isOffline, subscribeOnline } from "@/lib/use-online";
 import { NOTIFY_HIDE_LONG_MS, NOTIFY_HIDE_MS } from "@/lib/notify";
 import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DownloadIcon } from "@/components/icons";
@@ -111,78 +125,95 @@ let running = false;
 
 type Note = { text: string; kind: "busy" | "ok" | "warn" };
 
-export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
-  const [note, setNote] = useState<Note | null>(null);
-  // chỗ tải sẵn có thể đổi khi bà con ghim thêm điểm — lấy bản mới nhất lúc
-  // chạy, nhưng KHÔNG để nó kích hoạt chạy lại
-  const pointsRef = useRef(points);
+/* DÒNG BÁO dùng chung: mẻ có thể do tầng app (Trang chủ) khởi, còn dòng nổi chỉ vẽ trên bản đồ ⇒ giữ ở mức module. */
+let sharedNote: Note | null = null;
+const noteSubs = new Set<() => void>();
+function setSharedNote(n: Note) {
+  sharedNote = n;
+  noteSubs.forEach((f) => f());
+}
+
+/* CHỖ TẢI SẴN: màn Bản đồ đăng ký danh sách của nó (chỗ đang xem + điểm ghim); không ở bản đồ thì đọc sổ điểm ghim
+   (appPretripPoints). Lấy bản mới nhất LÚC CHẠY, không để nó kích chạy lại. */
+let mapPoints: PretripPoint[] | null = null;
+function currentPoints(): PretripPoint[] {
+  return mapPoints ?? appPretripPoints(loadPlaces());
+}
+
+/**
+ * CỬA TẢI SẴN — MỘT CHỖ cho cả app (rà offline F3, 2026-10-29). Trước chỉ chạy khi mở màn Bản đồ; bà con chỉ liếc
+ * Trang chủ rồi ra khơi là không có lưới 16 ngày, không nền bản đồ. Nay `PretripAutoRun` (app-shell) gọi lúc mở app /
+ * có sóng lại / quay lại app; bản đồ gọi thêm lúc vào màn. Cửa chặn y cũ (shouldAttemptAutoPretrip: 6 giờ, mất sóng,
+ * vừa thử) — dời CHỖ GỌI, không thêm lượt mạng. Nền bản đồ (warmBasemap) đi CÙNG cửa này.
+ */
+function runAutoPretrip(force = false) {
+  if (running) return;
+  const online = !isOffline();
+  // Bản còn mới / mất sóng / vừa thử xong → IM LẶNG hoàn toàn, không báo gì.
+  // `force` = bà con CHẠM nhãn xin tải → bỏ cửa chặn, chạy luôn (mất sóng
+  // thì runPretrip fail và báo thật "chưa có sóng" — vẫn là trả lời).
+  if (
+    !force &&
+    !shouldAttemptAutoPretrip({
+      lastRunAt: lastAutoPretripAt(),
+      lastAttemptAt,
+      lastAttemptPartial,
+      nowMs: Date.now(),
+      online,
+    })
+  ) {
+    return;
+  }
+
+  running = true;
+  lastAttemptAt = Date.now();
+  setSharedNote({ text: "Đang tải dự báo…", kind: "busy" });
+  setSharedPhase("loading");
+  // nền bản đồ ~14 MB: SW tự kéo một lần rồi giữ; đã có / mất sóng / chưa tài khoản thì không làm gì. Không chờ, không ném.
+  void warmBasemap();
+  runPretrip(currentPoints())
+    .then((r) => {
+      // CHỈ ghi mốc khi mẻ này thật sự giữ được gì (hoặc máy hết chỗ — thử
+      // lại cũng vô ích). Ghi vô điều kiện là khoá 6 giờ ngay cả khi hỏng
+      // sạch — xem shouldMarkPretripRun.
+      if (shouldMarkPretripRun(r)) markAutoPretripRun();
+      /*  XIN BỘ NHỚ BỀN NGAY SAU KHI GHI ĐƯỢC (2026-08-03) — chỗ đáng giá
+          nhất mà trước đây bỏ trống. Cả Safari lẫn Chromium tự gật/tự từ chối
+          theo LỊCH SỬ TƯƠNG TÁC với trang, nên thời điểm bà con vừa để app
+          tải trọn gói đi biển (~3 MB) là lúc dễ được gật nhất — hơn hẳn lần
+          hỏi lúc app vừa cài xong, còn trắng trơn.
+          Đặt ở nhánh `then` (mẻ chạy xong) chứ không phải `finally`: mẻ ném
+          sạch nghĩa là chẳng ghi được gì, xin lúc đó chỉ tốn một cửa/ngày.
+          KHÔNG phải request mạng, không ai chờ nó — xem lib/storage-persist. */
+      void ensurePersistentStorage();
+      // Mẻ bị cắt giữa chừng → giãn cửa THỬ LẠI ra 30 phút (không ghi mốc 6
+      // giờ nhưng cũng không được bắn lại sau 2 phút).
+      lastAttemptPartial = r.timedOut;
+      // MÀU khớp CHỮ, dựng cùng một chỗ (autoPretripTone) để không bao giờ
+      // lệch: xanh mà chữ nói "còn thiếu vài lớp" là nói dối bằng màu.
+      setSharedNote({ text: autoPretripLine(r), kind: autoPretripTone(r) });
+    })
+    .catch(() => {
+      lastAttemptPartial = false;
+      setSharedNote({ text: "Chưa tải được dự báo — máy đang không có mạng.", kind: "warn" });
+    })
+    .finally(() => {
+      running = false;
+      setSharedPhase("idle");
+    });
+}
+
+/**
+ * Mount MỘT LẦN ở app-shell: chạy cửa tải sẵn lúc mở app + TỰ CHẠY LẠI khi máy CÓ SÓNG LẠI hoặc bà con quay lại app
+ * (user 2026-07-29: "khi máy online thì tự kéo các nguồn để làm mới"). Điện thoại hay ngủ tab nên nghe cả
+ * `visibilitychange`, không chỉ `online`. Không vẽ gì.
+ */
+export function PretripAutoRun() {
   useEffect(() => {
-    pointsRef.current = points;
-  }, [points]);
-
-  const tryRun = useCallback((force = false) => {
-    if (running) return;
-    const online = !isOffline();
-    // Bản còn mới / mất sóng / vừa thử xong → IM LẶNG hoàn toàn, không báo gì.
-    // `force` = bà con CHẠM nhãn xin tải → bỏ cửa chặn, chạy luôn (mất sóng
-    // thì runPretrip fail và báo thật "chưa có sóng" — vẫn là trả lời).
-    if (
-      !force &&
-      !shouldAttemptAutoPretrip({
-        lastRunAt: lastAutoPretripAt(),
-        lastAttemptAt,
-        lastAttemptPartial,
-        nowMs: Date.now(),
-        online,
-      })
-    ) {
-      return;
-    }
-
-    running = true;
-    lastAttemptAt = Date.now();
-    setNote({ text: "Đang tải dự báo…", kind: "busy" });
-    setSharedPhase("loading");
-    runPretrip(pointsRef.current)
-      .then((r) => {
-        // CHỈ ghi mốc khi mẻ này thật sự giữ được gì (hoặc máy hết chỗ — thử
-        // lại cũng vô ích). Ghi vô điều kiện là khoá 6 giờ ngay cả khi hỏng
-        // sạch — xem shouldMarkPretripRun.
-        if (shouldMarkPretripRun(r)) markAutoPretripRun();
-        /*  XIN BỘ NHỚ BỀN NGAY SAU KHI GHI ĐƯỢC (2026-08-03) — chỗ đáng giá
-            nhất mà trước đây bỏ trống. Cả Safari lẫn Chromium tự gật/tự từ chối
-            theo LỊCH SỬ TƯƠNG TÁC với trang, nên thời điểm bà con vừa để app
-            tải trọn gói đi biển (~3 MB) là lúc dễ được gật nhất — hơn hẳn lần
-            hỏi lúc app vừa cài xong, còn trắng trơn.
-            Đặt ở nhánh `then` (mẻ chạy xong) chứ không phải `finally`: mẻ ném
-            sạch nghĩa là chẳng ghi được gì, xin lúc đó chỉ tốn một cửa/ngày.
-            KHÔNG phải request mạng, không ai chờ nó — xem lib/storage-persist. */
-        void ensurePersistentStorage();
-        // Mẻ bị cắt giữa chừng → giãn cửa THỬ LẠI ra 30 phút (không ghi mốc 6
-        // giờ nhưng cũng không được bắn lại sau 2 phút).
-        lastAttemptPartial = r.timedOut;
-        // MÀU khớp CHỮ, dựng cùng một chỗ (autoPretripTone) để không bao giờ
-        // lệch: xanh mà chữ nói "còn thiếu vài lớp" là nói dối bằng màu.
-        setNote({ text: autoPretripLine(r), kind: autoPretripTone(r) });
-      })
-      .catch(() => {
-        lastAttemptPartial = false;
-        setNote({ text: "Chưa tải được dự báo — máy đang không có mạng.", kind: "warn" });
-      })
-      .finally(() => {
-        running = false;
-        setSharedPhase("idle");
-      });
-  }, []);
-
-  // Chạy lúc mở màn + TỰ CHẠY LẠI khi máy CÓ SÓNG LẠI hoặc bà con quay lại app
-  // (user 2026-07-29: "khi máy online thì tự kéo các nguồn để làm mới"). Điện
-  // thoại hay ngủ tab nên nghe cả `visibilitychange`, không chỉ `online`.
-  useEffect(() => {
-    tryRun();
-    const onOnline = () => tryRun();
+    runAutoPretrip();
+    const onOnline = () => runAutoPretrip();
     const onVisible = () => {
-      if (document.visibilityState === "visible") tryRun();
+      if (document.visibilityState === "visible") runAutoPretrip();
     };
     window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVisible);
@@ -190,7 +221,27 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [tryRun]);
+  }, []);
+  return null;
+}
+
+/** Dòng nổi tự tắt TRÊN BẢN ĐỒ — đăng ký chỗ tải sẵn của bản đồ + nói kết quả mẻ (mẻ nào khởi ở đâu cũng vậy). */
+export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
+  // vào màn giữa lúc đang tải thì nói ngay "Đang tải…"; kết quả CŨ (mẻ xong lúc ở màn khác) thì thôi
+  const [note, setNote] = useState<Note | null>(() => (sharedNote?.kind === "busy" ? sharedNote : null));
+  useEffect(() => {
+    mapPoints = points;
+  }, [points]);
+  useEffect(() => {
+    const f = () => setNote(sharedNote);
+    noteSubs.add(f);
+    // vào màn = một lần gọi cửa (bản đồ có chỗ đang xem mà sổ điểm ghim không có); cửa 6 giờ lo phần không dội data
+    runAutoPretrip();
+    return () => {
+      noteSubs.delete(f);
+      mapPoints = null;
+    };
+  }, []);
 
   // tự tắt sau khi đã nói xong (lúc đang tải thì cứ để đó)
   useEffect(() => {
@@ -233,6 +284,7 @@ export function PretripSavedStatus({
   fishLocked,
   iconOnly = false,
   hideWhenOk = false,
+  line = false,
 }: {
   points: PretripPoint[];
   /** bản đồ cá đang khoá (chưa đăng nhập / chưa premium) → không tính là thiếu */
@@ -241,6 +293,8 @@ export function PretripSavedStatus({
   iconOnly?: boolean;
   /** đủ dữ liệu thì KHÔNG vẽ nút (bản đồ chỉ nổi chip khi có việc cần biết) */
   hideWhenOk?: boolean;
+  /** MỘT DÒNG CHỮ NHỎ đủ câu (Trang chủ) — không hộp, không chữ to (luật anh Long 2026-10-29: nhỏ gọn) */
+  line?: boolean;
 }) {
   const phase = useSyncExternalStore(
     subscribePhase,
@@ -254,11 +308,30 @@ export function PretripSavedStatus({
      không ai đọc ⇒ chip báo xanh trên vỏ rỗng. Dữ liệu đủ mà vỏ thiếu vẫn là
      không mở được app giữa biển. null = chưa đọc xong. */
   const [shellOk, setShellOk] = useState<boolean | null>(null);
+  /* KHOÁ DỮ LIỆU + NỀN BẢN ĐỒ (rà offline F2, 2026-10-29): thiếu khoá SDF2 thì bản đồ trắng, thiếu nền thì chỉ còn
+     nước — "đủ dự báo" mà không xem được bản đồ không phải sẵn sàng. Đều đọc trong máy (pretrip-ready.ts). */
+  const [keyOk, setKeyOk] = useState(false);
+  const [coTaiKhoan, setCoTaiKhoan] = useState(true);
+  const [basemapOk, setBasemapOk] = useState<boolean | null>(null);
 
+  // phần RẺ (một ô localStorage + vài lượt Cache Storage) — đọc lại cả khi quay lại app: khoá về ngầm lúc mở app
+  const rereadDevice = useCallback(() => {
+    setKeyOk(hasDataKey());
+    setCoTaiKhoan(!!readToken());
+    void isShellReady().then(setShellOk);
+    void hasBasemap().then(setBasemapOk);
+  }, []);
   const reread = useCallback(() => {
     setCov(savedCoverage({ fishLocked }));
-    void isShellReady().then(setShellOk);
-  }, [fishLocked]);
+    rereadDevice();
+  }, [fishLocked, rereadDevice]);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") rereadDevice();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [rereadDevice]);
   // đọc lại khi vào màn + mỗi lần phase đổi (tự tải xong → cập nhật)
   useEffect(() => {
     reread();
@@ -294,17 +367,28 @@ export function PretripSavedStatus({
     () => true,
   );
 
-  // Vỏ chưa đủ thì KHÔNG được nói "đã lưu đủ" dù dữ liệu đầy.
-  const shellMissing = shellOk === false;
-  const text = shellMissing
-    ? "App cần mạng để tải nốt dữ liệu. Bà con mở lại khi có sóng nhé."
-    : coverageChipText(phase, cov, undefined, online, forecastStoreState());
+  // Vỏ / khoá / nền chưa đủ thì KHÔNG được nói "đã lưu đủ" dù dữ liệu đầy.
   // MÀU phải khớp CHỮ: đủ lớp + còn hạn + chưa quá chu kỳ (coverageChipOk),
   // chứ không chỉ "có bản trong máy" — chip xanh trên bản 10 ngày tuổi là lời
   // hứa dối ở đúng chỗ bà con liếc trước khi nhổ neo.
-  const allSaved = coverageChipOk(cov, undefined, online) && shellOk === true;
+  const parts = { dataOk: coverageChipOk(cov, undefined, online), shellOk, keyOk, basemapOk };
+  const gap = readyGap(parts);
+  const deviceGap = gap === "shell" || gap === "key" || gap === "basemap" ? gap : null;
+  const text = deviceGap
+    ? readyGapText(deviceGap, coTaiKhoan)
+    : coverageChipText(phase, cov, undefined, online, forecastStoreState());
+  const allSaved = readyToSail(parts);
   const tone =
     phase === "loading" ? "text-navy" : allSaved ? "text-ok" : "text-warn";
+  const sheet = open && (
+    <PretripSavedSheet
+      points={points}
+      fishLocked={fishLocked}
+      deviceNote={deviceGap ? readyGapText(deviceGap, coTaiKhoan) : null}
+      onChanged={reread}
+      onClose={() => setOpen(false)}
+    />
+  );
 
   /* THẺ NHẮC TO khi BẢN ĐÃ CÀI mà trong máy chưa có gì (2026-08-01).
      Ca thật hay gặp nhất trên iPhone: bà con tải đủ dữ liệu trong Safari rồi
@@ -316,6 +400,7 @@ export function PretripSavedStatus({
       trần chờ / hỏng). Hai trạng thái đó KHÔNG phải "trống": bung thẻ nhắc TO
       giữa biển trong khi máy đang giữ đủ 16 ngày thì bà con quay tàu về bờ. */
   const emptyOnInstalled =
+    !line &&
     isStandalone() &&
     phase !== "loading" &&
     forecastStoreState() === "san-sang" &&
@@ -337,14 +422,7 @@ export function PretripSavedStatus({
             khơi mất sóng là không tải được nữa.
           </p>
         </button>
-        {open && (
-          <PretripSavedSheet
-            points={points}
-            fishLocked={fishLocked}
-            onChanged={reread}
-            onClose={() => setOpen(false)}
-          />
-        )}
+        {sheet}
       </>
     );
   }
@@ -357,12 +435,38 @@ export function PretripSavedStatus({
       aria-label/title và trong sheet khi chạm. */
   const short =
     phase === "loading"
-      ? "Đang tải"
-      : shellMissing
-        ? "Cần sóng"
-        : allSaved
-          ? "Đã lưu"
-          : "Chưa đủ";
+      ? NHAN.dangTai
+      : gap === "key" && !coTaiKhoan
+        ? NHAN.dangNhap
+        : deviceGap
+          ? NHAN.canSong
+          : allSaved
+            ? NHAN.daLuu
+            : "Chưa đủ";
+  /*  TRANG CHỦ — MỘT DÒNG NHỎ dưới thẻ Biển hôm nay (rà offline F3, 2026-10-29): bà con liếc Trang chủ là biết máy đã
+      sẵn sàng ra khơi chưa, khỏi phải mở Bản đồ. Câu đủ ý, cỡ chữ phụ, không hộp; chạm mở bảng "đã lưu những gì". */
+  if (line) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={`Đi biển: ${text.replace(/[.\s]+$/, "")}. Chạm để xem.`}
+          className={`flex min-h-(--h-ctl) w-full items-center gap-1.5 px-1 text-left text-[0.8125rem] leading-snug ${tone}`}
+        >
+          {phase === "loading" ? (
+            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-navy" aria-hidden />
+          ) : allSaved ? (
+            <CheckIcon className="h-4 w-4 shrink-0" aria-hidden />
+          ) : (
+            <DownloadIcon className="h-4 w-4 shrink-0" aria-hidden />
+          )}
+          <span className="min-w-0 flex-1 truncate">{text}</span>
+        </button>
+        {sheet}
+      </>
+    );
+  }
   /*  Bản đồ chỉ nổi chip khi CÓ VIỆC cần biết (2026-10-20, "thông tin trùng lặp,
       thiết kế vẫn to"): đủ dữ liệu ⇒ không vẽ gì trên bản đồ — chip đủ chữ nằm
       trong đầu ngăn gió sóng. */
@@ -394,14 +498,7 @@ export function PretripSavedStatus({
             chữ đầy đủ vẫn ở aria-label/title, chạm mở sheet */}
         <span className={iconOnly ? "sr-only" : "max-[379px]:sr-only"}>{short}</span>
       </button>
-      {open && (
-        <PretripSavedSheet
-          points={points}
-          fishLocked={fishLocked}
-          onChanged={reread}
-          onClose={() => setOpen(false)}
-        />
-      )}
+      {sheet}
     </>
   );
 }
@@ -409,7 +506,7 @@ export function PretripSavedStatus({
 const LAYER_HELP: Record<SavedLayerId, string> = {
   grid: "Gió & sóng CẢ Biển Đông — xem ở BẤT KỲ đâu (kể cả tầng mặt)",
   point: "Ghim điểm nào là có dự báo chi tiết 16 ngày điểm đó",
-  fish: "Bản đồ điểm cá (dự báo ngắn ngày, cần tài khoản Premium)",
+  fish: "Bản đồ điểm cá (dự báo ngắn ngày, cần gói dự báo)",
   scalar: "Mây, mưa, nhiệt không khí, nguy cơ dông, áp suất",
   salinity: "Độ mặn nước biển",
   seascalar: "Nước dâng / xoáy nước (gom mồi)",
@@ -426,11 +523,14 @@ const LAYER_HELP: Record<SavedLayerId, string> = {
 function PretripSavedSheet({
   points,
   fishLocked,
+  deviceNote,
   onChanged,
   onClose,
 }: {
   points: PretripPoint[];
   fishLocked: boolean;
+  /** vỏ / khoá bản đồ / nền bản đồ còn thiếu — câu đời thường (pretrip-ready readyGapText), null = đủ */
+  deviceNote: string | null;
   onChanged: () => void;
   onClose: () => void;
 }) {
@@ -625,6 +725,13 @@ function PretripSavedSheet({
            Danh sách bên dưới đọc kho ĐỒNG BỘ; kho nạp chưa xong thì mọi dòng ra
            "chưa lưu" — 12 dòng đỏ trên một máy đang giữ đủ 16 ngày. Giữa biển đó
            là lý do bà con quay tàu về bờ. */}
+      {/* thiếu khoá / nền / vỏ: danh sách dưới chỉ là DỰ BÁO — đủ hết mà thiếu cái này thì bản đồ vẫn trắng (F2) */}
+      {deviceNote && (
+        <p className="mb-3 flex items-center gap-1.5 text-[0.8125rem] leading-snug text-warn">
+          <AlertIcon className="h-4 w-4 shrink-0" aria-hidden />
+          <span>{deviceNote}</span>
+        </p>
+      )}
       {khoState !== "san-sang" && (
         <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.9375rem] font-semibold leading-snug text-warn">
           {khoState === "dang-mo"
@@ -671,11 +778,11 @@ function PretripSavedSheet({
                 )}
               </span>
               {!l.retriable ? (
-                <span className="shrink-0 text-[0.75rem] font-semibold text-foreground/55">
+                <span className="shrink-0 text-[0.75rem] font-semibold text-muted">
                   khoá
                 </span>
               ) : rowBusy ? (
-                <span className="shrink-0 text-[0.8125rem] font-semibold text-foreground/55">
+                <span className="shrink-0 text-[0.8125rem] font-semibold text-muted">
                   Đang tải…
                 </span>
               ) : l.saved && l.fresh ? (
@@ -788,4 +895,21 @@ function PretripSavedSheet({
           trên-phải — 03 §Nút X mục 2: không để cả × lẫn nút đóng. */}
     </BottomSheet>
   );
+}
+
+/**
+ * Dòng "sẵn sàng ra khơi" cho Trang chủ — tự lấy chỗ tải sẵn (sổ điểm ghim) và hạng (lớp cá khoá thì không tính thiếu,
+ * cùng luật bản đồ: khoá ⇔ chưa có quyền VÀ trong máy không có bản cá nào).
+ */
+export function ReadyToSailLine() {
+  const { access } = useFeatureAccess();
+  const [points, setPoints] = useState<PretripPoint[]>([]);
+  const [coCa, setCoCa] = useState(false);
+  // đọc kho máy SAU hydrate (SSR không có localStorage)
+  useEffect(() => {
+    setPoints(appPretripPoints(loadPlaces()));
+    setCoCa(!!savedFishMark());
+  }, []);
+  const fishLocked = (access === "login" || access === "upgrade") && !coCa;
+  return <PretripSavedStatus points={points} fishLocked={fishLocked} line />;
 }

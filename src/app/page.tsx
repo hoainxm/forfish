@@ -5,7 +5,7 @@ import { UrgentWithInstall } from "@/components/install-prompt";
 import { InboxSection } from "@/components/inbox-section";
 import { StormBanner } from "@/components/storm-banner";
 import { TideHomeCard } from "@/components/tide-home-card";
-import { SeaTodayCard } from "@/components/sea-today-card";
+import { HomeDauTrang } from "@/components/home-giu-cho";
 import { DocRemindOnOpen } from "@/components/doc-remind-on-open";
 import { KhuyenMaiCard } from "@/components/khuyen-mai-card";
 
@@ -37,13 +37,21 @@ export default function Home() {
       <ManHeader title="Chào bà con" right={<HeroAccount light />} />
       <div className="space-y-5 px-4 pt-1">
         <div className="space-y-3">
-          <StormBanner variant="page" always />
-          <SeaTodayCard />
+          {/* GIỮ CHỖ tin bão (review B-P2-1): "Đang hỏi tin bão…" cao 1 hàng, rồi nở thành hàng "Không có
+              tin bão · Hỏi lúc" 2 dòng ⇒ đẩy cả màn. Khung lưới cao bằng trạng thái yên (4rem), con kéo giãn
+              lấp đủ. nợ: băng vàng "không hỏi được" 3 dòng ở 360px vẫn nở thêm ≈1.4rem; nâng khi
+              storm-banner có câu ngắn 2 dòng cho Trang chủ. */}
+          <div className="grid min-h-[4rem]">
+            <StormBanner variant="page" always />
+          </div>
           <KickedNotice />
+          {/* Biển hôm nay + việc cần làm/tầng 5 dùng chung MỘT ô giữ chỗ (khung chờ 1 hàng, lỗi ⇒ câu + Thử lại) */}
+          <HomeDauTrang>
+            <UrgentWithInstall>
+              <UrgentStrip />
+            </UrgentWithInstall>
+          </HomeDauTrang>
         </div>
-        <UrgentWithInstall>
-          <UrgentStrip />
-        </UrgentWithInstall>
         {/* Nhắc hạn giấy tờ KHI MỞ APP (2026-10-20, đồng bộ từ sdvico 2026-10-27) —
             sheet theo lịch mốc 30·25·20·15·10 rồi hằng ngày 5→0, mỗi mốc 1 lần,
             đọc kho máy; nhường tin bão. Xem lib/doc-reminder-local + 07 §12. */}

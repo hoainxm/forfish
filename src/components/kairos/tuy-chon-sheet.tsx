@@ -48,13 +48,13 @@ export function TuyChonSheet({ value, onClose }: { value: TuyChon; onClose: (t: 
   return (
     <BottomSheet title="Tuỳ chọn dòng tin" onClose={() => onClose(moiNhat.current)}>
       <p className="mb-3 text-[0.9375rem] text-foreground/75">Chủ đề thích sẽ lên trước, tin biển vẫn nhiều nhất.</p>
-      <p className="mb-2 text-[0.75rem] font-semibold text-foreground/55">Thích đọc</p>
+      <p className="mb-2 text-[0.75rem] font-semibold text-muted">Thích đọc</p>
       <div className="space-y-2">
         {TOPICS.map((topic) => (
           <CongTac key={topic} label={NHAN_CHIP_KAIROS[topic]} on={t.thich.includes(topic)} onToggle={() => doi(doiThich(t, topic))} />
         ))}
       </div>
-      <p className="mb-2 mt-4 text-[0.75rem] font-semibold text-foreground/55">Trợ lý AI</p>
+      <p className="mb-2 mt-4 text-[0.75rem] font-semibold text-muted">Trợ lý AI</p>
       <CongTac label="Hiện bài trợ lý AI" on={t.ai} onToggle={() => doi({ ...t, ai: !t.ai })} />
       {ghiHong && (
         <p role="status" className="mt-3 text-[0.875rem] text-danger">

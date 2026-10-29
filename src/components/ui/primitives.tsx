@@ -174,10 +174,13 @@ export function CallButton({
   phone,
   label = "Gọi",
   className = "",
+  cao = "ctl",
 }: {
   phone: string;
   label?: string;
   className?: string;
+  /** "cta" khi đứng CẠNH nút chính (thanh mua dính) — cùng cao `--h-cta`, không thấp hơn nút bên cạnh (rà C §7) */
+  cao?: "ctl" | "cta";
 }) {
   const first = phone.split(/[/,;]| - | hoặc /i)[0] ?? phone;
   return (
@@ -187,7 +190,7 @@ export function CallButton({
           /tien mục "Bán ở đâu" — dưới sàn. Gọi thương lái là việc chạm-nhiều
           trên bến, tay ướt. Bề ngang px-4 GIỮ NGUYÊN: nhãn "Gọi hỏi mua" /
           "Gọi chào bán" cần chỗ, bóp về w-16 sẽ cắt chữ. */
-      className={`inline-flex h-(--h-ctl) min-w-[5.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full bg-sea px-3 text-[0.875rem] font-semibold text-white transition active:scale-[0.97] ${className}`}
+      className={`inline-flex ${cao === "cta" ? "h-(--h-cta)" : "h-(--h-ctl)"} min-w-[5.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full bg-sea px-3 text-[0.875rem] font-semibold text-white transition active:scale-[0.97] ${className}`}
     >
       <PhoneIcon className="h-4 w-4" />
       {label}

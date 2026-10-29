@@ -106,6 +106,7 @@ import {
 } from "@/components/icons";
 import { SQ_TILE } from "@/components/ui/sq-btn";
 import { isOffline } from "@/lib/use-online";
+import { NHAN } from "@/lib/labels";
 
 export type PlannedRoute = {
   plan: RoutePlan;
@@ -953,7 +954,7 @@ export function RouteMode({
         return;
       }
       // Lùi về lưới đã lưu (offline) → nhớ mốc lưu để banner nói thật; dự báo
-      // mới (online) → xóa cờ. source undefined = 'live'.
+      // mới (online) → xoá cờ. source undefined = 'live'.
       setOfflineSavedAt(
         chosenField?.source === "grid" ? chosenField.savedAt ?? null : undefined,
       );
@@ -1644,7 +1645,7 @@ export function RouteMode({
                    Nhơn, Vũng Tàu) nằm ô hạng 0 của lưới mà vẫn tính được đường
                    nhờ luật sát cảng — cảnh báo sẽ kêu ở gần như mọi cảng. */}
               {effectiveStartId !== "cursor" && effectiveStartId !== "fixed" && (
-                <span className="block truncate text-[0.8125rem] font-semibold text-foreground/60">
+                <span className="block truncate text-[0.8125rem] font-semibold text-muted">
                   {startCoord
                     ? fmtCoordPair(startCoord.lat, startCoord.lon, prefs.coordFormat)
                     : "Cập nhật vị trí tàu lúc bấm Tính lộ trình"}
@@ -1735,7 +1736,7 @@ export function RouteMode({
             stops.map((s, i) => (
             <div key={s.id}>
             {legKm(i) != null && (
-              <p className="flex items-center gap-1.5 px-3 py-0.5 text-[0.8125rem] font-semibold text-foreground/60">
+              <p className="flex items-center gap-1.5 px-3 py-0.5 text-[0.8125rem] font-semibold text-muted">
                 <span aria-hidden>↓</span>
                 {fmtDist(legKm(i)!, prefs.distUnit)} thẳng
               </p>
@@ -1753,7 +1754,7 @@ export function RouteMode({
                 {/*  NÓI RÕ VAI: chỗ CUỐI là ĐIỂM ĐẾN, các chỗ trước là điểm
                      dừng dọc đường. Chỉ đánh số 1-2-3 thì bà con không biết
                      đâu là nơi mình định tới. */}
-                <span className="block text-[0.8125rem] font-semibold text-foreground/60">
+                <span className="block text-[0.8125rem] font-semibold text-muted">
                   {i === stops.length - 1 ? "Điểm đến" : `Điểm dừng ${i + 1}`}
                 </span>
                 {/*  CÓ TÊN THÌ ĐỌC TÊN: bà con đặt tên "Rạn ông Tư" chính là
@@ -1769,7 +1770,7 @@ export function RouteMode({
                      không ai đọc được điểm đó NẰM ĐÂU (con trỏ và điểm đến là hai
                      chỗ khác nhau). Soát được đầu vào quan trọng hơn hàng đều. */}
                 {s.name && (
-                  <span className="block text-[0.8125rem] font-semibold leading-tight text-foreground/60">
+                  <span className="block text-[0.8125rem] font-semibold leading-tight text-muted">
                     {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
                   </span>
                 )}
@@ -1797,7 +1798,7 @@ export function RouteMode({
                     ý, và băng cảnh báo đủ nói. */
                 if (con.length === 0) clearRoute();
               }}
-              aria-label={"Xóa điểm này " + (i + 1)}
+              aria-label={"Xoá điểm này " + (i + 1)}
               className={`${SQ_TILE} bg-background text-danger`}
             >
               <CloseIcon className="h-6 w-6" />
@@ -1910,7 +1911,7 @@ export function RouteMode({
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[0.8125rem] font-semibold text-foreground/60">
+                  <span className="block text-[0.8125rem] font-semibold text-muted">
                     Chỗ đang xem trên bản đồ
                   </span>
                   <span className="block leading-snug text-[1rem] font-semibold text-navy">
@@ -1924,7 +1925,7 @@ export function RouteMode({
                   )}
                 </span>
                 {currentStop && (
-                  <span className="shrink-0 text-[0.8125rem] font-semibold text-foreground/60">
+                  <span className="shrink-0 text-[0.8125rem] font-semibold text-muted">
                     đã có
                   </span>
                 )}
@@ -1957,7 +1958,7 @@ export function RouteMode({
                       {pl.name}
                     </span>
                     {da && (
-                      <span className="shrink-0 text-[0.8125rem] font-semibold text-foreground/60">
+                      <span className="shrink-0 text-[0.8125rem] font-semibold text-muted">
                         đã có
                       </span>
                     )}
@@ -2011,7 +2012,7 @@ export function RouteMode({
                   disabled={!coordLat && !coordLon}
                   className="mt-2 min-h-[3.25rem] w-full rounded-xl bg-background text-[1rem] font-semibold text-t1 transition active:scale-[0.99] disabled:opacity-50"
                 >
-                  Thêm điểm này
+                  {NHAN.themDiem}
                 </button>
               </div>
 
@@ -2130,7 +2131,7 @@ export function RouteMode({
                         <span className="block truncate text-[1rem] font-semibold text-navy">
                           {r.name}
                         </span>
-                        <span className="block truncate text-[0.8125rem] font-semibold text-foreground/60">
+                        <span className="block truncate text-[0.8125rem] font-semibold text-muted">
                           {r.stops.length} chỗ
                           {r.start?.label ? ` · khởi hành từ ${r.start.label}` : ""}
                         </span>
@@ -2141,7 +2142,7 @@ export function RouteMode({
                       onClick={() =>
                         onSavedRoutes?.(removeSavedRoute(savedRoutes, r.id))
                       }
-                      aria-label={`Xóa lộ trình đã lưu ${r.name}`}
+                      aria-label={`Xoá lộ trình đã lưu ${r.name}`}
                       className={`${SQ_TILE} bg-background text-danger`}
                     >
                       <CloseIcon className="h-6 w-6" />

@@ -242,7 +242,7 @@ function OrderRow({
           <p className="mt-0.5 text-[0.8125rem] tabular-nums text-foreground/70">
             {order.address.name} · {order.address.phone} · {order.address.province}
           </p>
-          <p className="text-[0.8125rem] text-foreground/55">
+          <p className="text-[0.8125rem] text-muted">
             {clockVN(Date.parse(order.createdAt))} · {order.items.length} món ·{" "}
             {PAYMENT_METHOD_LABEL[order.paymentMethod]}
             {order.requestId ? " · từ yêu cầu đặt" : ""}
@@ -320,7 +320,7 @@ function OrderRow({
                 <span className="min-w-0 text-foreground/85">
                   {l.title}
                   {l.variantLabel ? ` (${l.variantLabel})` : ""}{" "}
-                  <span className="text-foreground/55">
+                  <span className="text-muted">
                     ×{l.qty} {l.unit} @ {formatVnd(l.priceVnd)}
                   </span>
                 </span>
@@ -377,7 +377,7 @@ function OrderRow({
             </div>
           )}
 
-          <p className="mt-3 text-[0.875rem] font-semibold text-foreground/60">Diễn biến đơn</p>
+          <p className="mt-3 text-[0.875rem] font-semibold text-muted">Diễn biến đơn</p>
           <OrderTimeline
             timeline={order.timeline}
             carrier={order.carrier}

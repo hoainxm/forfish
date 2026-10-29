@@ -4,8 +4,8 @@
   THẺ CON NƯỚC CẢNG NHÀ — Trang chủ (2026-09-04, chủ dự án chốt: "thẻ cảng nhà
   click có thể xem các ngày khác nhau").
 
-  Cảng nhà lấy theo thứ tự: điểm ghim "cảng nhà" (lib/places) → cảng hay cập
-  trong hồ sơ tàu (`homePortId` → danh mục cảng) → KHÔNG có thì thẻ ẨN HẲN
+  Cảng nhà lấy qua MỘT cửa `docCangNha` (lib/cang-nha — ghim "cảng nhà" → cảng
+  Sen Biển đã đặt → hồ sơ tàu → Kairos) → KHÔNG có thì thẻ ẨN HẲN
   (màn hình chính không có khối trống, cùng luật với InboxSection). Không lấy
   GPS ở đây: trang chủ mở trong bờ, xin định vị chỉ để hiện con nước là phiền.
 
@@ -15,27 +15,8 @@
 
 import { useEffect, useState } from "react";
 import { TideCard, TideStationSheet } from "@/components/tide-card";
-import { FISHING_PORTS } from "@/data/fishing-ports";
-import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
-import { homeOf, loadPlaces } from "@/lib/places";
+import { docCangNha, type CangNha } from "@/lib/cang-nha";
 import { fetchTideStations, type TideStation } from "@/lib/tides";
-
-type CangNha = { name: string; lat: number; lon: number };
-
-/** Cảng nhà theo thứ tự ưu tiên ở đầu file; null = chưa khai gì. */
-export function cangNhaCuaToi(): CangNha | null {
-  const home = homeOf(loadPlaces());
-  if (home) return { name: home.name, lat: home.lat, lon: home.lon };
-  // tàu đang chọn (đa tàu) → cảng hay cập trong hồ sơ tàu
-  const boats = loadBoats();
-  const cur = loadCurrentBoatId();
-  const boat = boats.find((b) => b.id === cur) ?? boats[0];
-  const id = boat?.homePortId;
-  if (!id) return null;
-  const p = FISHING_PORTS.find((x) => x.id === id);
-  if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return null;
-  return { name: p.name, lat: p.lat as number, lon: p.lng as number };
-}
 
 export function TideHomeCard() {
   const [cang, setCang] = useState<CangNha | null>(null);
@@ -45,7 +26,7 @@ export function TideHomeCard() {
 
   // đọc localStorage SAU hydrate — SSR không có cảng nhà, tránh lệch markup
   useEffect(() => {
-    setCang(cangNhaCuaToi());
+    setCang(docCangNha());
   }, []);
 
   useEffect(() => {

@@ -32,7 +32,8 @@ import { coHoanTacDangHien } from "@/lib/toast";
 import { loadMarketCart } from "@/lib/market/cart";
 import { loadCachedMarketOrders } from "@/lib/market/orders-cache";
 import { offlineIdentityPhone } from "@/lib/offline-identity";
-import { homeOf, loadPlaces } from "@/lib/places";
+import { docCangNha } from "@/lib/cang-nha";
+import { loadPlaces } from "@/lib/places";
 import type { LivePriceResult } from "@/lib/port-price-source";
 import { loadHome } from "@/lib/region";
 import { readSeaCache } from "@/lib/sea";
@@ -62,16 +63,14 @@ function safe<T>(fn: () => T, fallback: T): T {
 
 const cut = (s: string, n = NAME_MAX) => (s.length > n ? s.slice(0, n) : s);
 
+/** Cảng nhà qua MỘT cửa đọc (lib/cang-nha) — cùng nguồn với thẻ Biển hôm nay/Con nước. */
 function homeOfDevice(): DeviceSnapshot["home"] {
-  const h = loadHome();
-  if (h.portId) {
-    const p = PORTS.find((x) => x.id === h.portId) ?? FISHING_PORTS.find((x) => x.id === h.portId);
-    if (p) return { portId: p.id, portName: p.name, province: p.province ?? h.province ?? "" };
-  }
-  const place = homeOf(loadPlaces());
-  if (place) {
-    const p = PORTS.find((x) => x.name === place.name) ?? FISHING_PORTS.find((x) => x.name === place.name);
-    if (p) return { portId: p.id, portName: p.name, province: p.province ?? h.province ?? "" };
+  const c = docCangNha();
+  if (c?.portId) return { portId: c.portId, portName: c.name, province: c.province ?? loadHome().province ?? "" };
+  if (c) {
+    // ghim tay không trùng toạ độ danh mục ⇒ thử khớp theo tên như trước
+    const p = PORTS.find((x) => x.name === c.name) ?? FISHING_PORTS.find((x) => x.name === c.name);
+    if (p) return { portId: p.id, portName: p.name, province: p.province ?? loadHome().province ?? "" };
   }
   return null;
 }

@@ -185,7 +185,7 @@ export function BottomSheet({
 
   // PORTAL ra document.body — thoát MỌI stacking/containing-block của tổ tiên
   // (vd wrapper `relative z-10` của BoatSwitcher tạo stacking context, nhốt
-  // sheet z-30 xuống lớp z-10 → bottom-nav z-20 đè lên che nút Lưu/Hủy). Portal
+  // sheet z-30 xuống lớp z-10 → bottom-nav z-20 đè lên che nút Lưu/Huỷ). Portal
   // làm sheet luôn là overlay toàn màn ở gốc body, trên mọi thứ.
   return createPortal(
     <>

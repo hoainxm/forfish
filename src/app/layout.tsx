@@ -7,10 +7,15 @@ import { UpdateNotice } from "@/components/update-notice";
 import { UsageHeartbeat } from "@/components/usage-heartbeat";
 import { ViewportGapFix } from "@/components/viewport-gap-fix";
 
+/*  ĐỘ ĐẬM = ĐÚNG CÁI CODE DÙNG (soát 2026-10-29): font-normal/medium/semibold/bold
+    (400/500/600/700) có dùng ⇒ giữ; KHÔNG chỗ nào dùng 800 (font-extrabold, 800)
+    ⇒ bỏ khỏi Archivo. Cả hai họ là font BIẾN THIÊN: mọi độ đậm trỏ CÙNG một file
+    mỗi bộ chữ ⇒ bớt độ đậm không bớt byte tải, chỉ bớt @font-face thừa. Thêm lại
+    một độ đậm khi code thật sự dùng nó (03-design-system §Font). */
 const display = Archivo({
   variable: "--font-display",
   subsets: ["latin", "vietnamese"],
-  weight: ["600", "700", "800"],
+  weight: ["600", "700"],
 });
 
 const body = Plus_Jakarta_Sans({

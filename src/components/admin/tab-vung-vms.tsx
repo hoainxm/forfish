@@ -10,7 +10,7 @@ import { VMS_ZONE_STYLES, countPoints, parseUploadedGeoJSON, type VmsZoneStyle, 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 
-// ── Tab VÙNG BIỂN (VMS) — bản đồ + tải GeoJSON + ẩn/hiện + mặc định-app + xóa ──
+// ── Tab VÙNG BIỂN (VMS) — bản đồ + tải GeoJSON + ẩn/hiện + mặc định-app + xoá ──
 
 export type AdminVmsZone = {
   id: string;
@@ -121,7 +121,7 @@ export function VmsZonesTab() {
         if (!j.ok) throw new Error();
         load();
       } catch {
-        setError("Xóa không thành công. Vui lòng thử lại.");
+        setError("Xoá không thành công. Vui lòng thử lại.");
       } finally {
         setBusyId(null);
       }
@@ -188,7 +188,7 @@ export function VmsZonesTab() {
         Vùng biển trên bản đồ Ra khơi
       </h2>
       <p className="mt-1 text-[0.9375rem] text-foreground/70">
-        Thêm / ẩn / xóa vùng và chọn vùng có bật sẵn trên app ngư dân hay không.
+        Thêm / ẩn / xoá vùng và chọn vùng có bật sẵn trên app ngư dân hay không.
         Áp dụng ngay, không cần build lại app.
       </p>
 
@@ -259,7 +259,7 @@ export function VmsZonesTab() {
               onChange={(e) => setColor(e.target.value)}
               className="h-10 w-16 rounded-lg border border-line"
             />
-            <span className="text-[0.8125rem] tabular-nums text-foreground/60">
+            <span className="text-[0.8125rem] tabular-nums text-muted">
               {color}
             </span>
           </label>
@@ -304,7 +304,7 @@ export function VmsZonesTab() {
           />
           <span>
             Vùng này là <b>đường ranh giới</b> dùng để cảnh báo
-            <span className="mt-0.5 block text-[0.8125rem] leading-snug text-foreground/60">
+            <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted">
               App sẽ đo &quot;cách ranh giới bao xa&quot; theo hình này. Nên nạp
               dạng <b>khu vực đóng</b> — chỉ là đường thì app đo được khoảng cách
               nhưng không biết trong hay ngoài, sẽ không báo &quot;đã ra
@@ -328,10 +328,10 @@ export function VmsZonesTab() {
       {/* Danh sách vùng */}
       <div className="mt-4 space-y-2">
         {zones === null && !error && (
-          <p className="text-[0.9375rem] text-foreground/60">Đang xử lý tải lên…</p>
+          <p className="text-[0.9375rem] text-muted">Đang xử lý tải lên…</p>
         )}
         {zones?.length === 0 && (
-          <p className="rounded-xl bg-field px-3 py-3 text-[0.9375rem] text-foreground/60">
+          <p className="rounded-xl bg-field px-3 py-3 text-[0.9375rem] text-muted">
             Chưa có vùng nào. Tải GeoJSON ở trên để thêm.
           </p>
         )}
@@ -349,10 +349,10 @@ export function VmsZonesTab() {
                 style={{ backgroundColor: z.color }}
               />
               <span className="text-[1rem] font-bold text-navy">{z.name}</span>
-              <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] text-foreground/60">
+              <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] text-muted">
                 {STYLE_LABEL[z.style as VmsZoneStyle] ?? z.style}
               </span>
-              <span className="text-[0.75rem] tabular-nums text-foreground/50">
+              <span className="text-[0.75rem] tabular-nums text-muted">
                 {countPoints(z.geojson).toLocaleString("vi-VN")} điểm
               </span>
             </div>
@@ -365,7 +365,7 @@ export function VmsZonesTab() {
                 disabled={busyId === z.id}
                 onClick={() => patch(z.id, { defaultOn: !z.defaultOn })}
                 className={`rounded-lg px-3 py-1.5 text-[0.8125rem] font-semibold ${
-                  z.defaultOn ? "bg-ok-bg text-ok" : "bg-field text-foreground/60"
+                  z.defaultOn ? "bg-ok-bg text-ok" : "bg-field text-muted"
                 }`}
               >
                 {z.defaultOn ? "✓ Bật mặc định trên ứng dụng" : "Tắt mặc định trên ứng dụng"}
@@ -375,7 +375,7 @@ export function VmsZonesTab() {
                 disabled={busyId === z.id}
                 onClick={() => patch(z.id, { isBorder: !z.isBorder })}
                 className={`rounded-lg px-3 py-1.5 text-[0.8125rem] font-semibold ${
-                  z.isBorder ? "bg-danger-bg text-danger" : "bg-field text-foreground/60"
+                  z.isBorder ? "bg-danger-bg text-danger" : "bg-field text-muted"
                 }`}
               >
                 {z.isBorder ? "✓ Đặt làm ranh giới cảnh báo" : "Không sử dụng làm ranh giới"}
@@ -396,7 +396,7 @@ export function VmsZonesTab() {
                 onClick={() => setToDelete(z)}
                 className="rounded-lg bg-danger-bg px-3 py-1.5 text-[0.8125rem] font-semibold text-danger"
               >
-                Xóa
+                Xoá
               </button>
             </div>
           </div>
@@ -405,9 +405,9 @@ export function VmsZonesTab() {
 
       {toDelete && (
         <ConfirmDialog
-          title="Xác nhận xóa vùng biển này?"
-          message={`Vùng "${toDelete.name}" sẽ bị xóa khỏi bản đồ ứng dụng của ngư dân.`}
-          confirmLabel="Xác nhận xóa"
+          title="Xác nhận xoá vùng biển này?"
+          message={`Vùng "${toDelete.name}" sẽ bị xoá khỏi bản đồ ứng dụng của ngư dân.`}
+          confirmLabel="Xác nhận xoá"
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
             remove(toDelete.id);

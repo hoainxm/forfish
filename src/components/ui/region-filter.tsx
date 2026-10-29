@@ -22,7 +22,7 @@ import {
 
   NGUỒN SỰ THẬT = `current boat.homeProvince` (khai báo ở BoatSwitcher). Trước đây có 1 nguồn
   localStorage riêng (`forfish.home.v1`) trùng với khai báo trong tàu → 3 chỗ hỏi cùng câu,
-  không sync. Đã xóa, KHÔNG tạo lại.
+  không sync. Đã xoá, KHÔNG tạo lại.
 
   CHỌN TẠI CHỖ (CC-09 + BD-05, 2026-10-25, như chip địa điểm của FB Marketplace): nút "Chọn"
   mở Popover danh sách tỉnh ven biển ngay trên màn — bà con không phải rời Chợ cá sang Tàu tôi

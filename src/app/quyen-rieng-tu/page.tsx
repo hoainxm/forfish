@@ -202,7 +202,7 @@ export default function QuyenRiengTuPage() {
                  công ty vẫn giữ thì phải cho họ biết, và cho đường xoá hẳn.
                  Nói bằng lời thường, không dùng chữ "tombstone"/"soft delete". */}
             <li>
-              <b>Đối với các dữ liệu bà con đã xóa trên máy, hệ thống máy chủ sẽ vẫn lưu một bản sao lưu.</b> Khi bà con
+              <b>Đối với các dữ liệu bà con đã xoá trên máy, hệ thống máy chủ sẽ vẫn lưu một bản sao lưu.</b> Khi bà con
               xoá một việc bảo dưỡng, một tờ giấy, hay một người trong sổ thuyền
               viên, máy chủ giữ lại bản trước đó để SDVICO xem cách bà con dùng
               app mà cải thiện. Bản này <b>ngừng hiển thị</b> trên máy bà con, và{" "}
@@ -285,7 +285,7 @@ export default function QuyenRiengTuPage() {
           </p>
         </Section>
 
-        <p className="pb-4 text-[0.9375rem] text-foreground/55">
+        <p className="pb-4 text-[0.9375rem] text-muted">
           SDFish do SDVICO phát hành. Mọi số liệu giá cả, dự báo biển, mức phạt
           trong app đều là tham khảo. Bản quyền © 2026 Công ty SDVICO — phần
           mềm, giao diện và bộ dữ liệu bản đồ đã biên tập là tài sản độc quyền,

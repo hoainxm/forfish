@@ -21,6 +21,7 @@ import { ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/market/order-sta
 import type { Order, OrderStatus } from "@/lib/market/types";
 import { agoLabel, LoadView, marketErrorText, useInlineNote, useMarketData } from "./seller-net";
 import { SELLER_BTN } from "./ui";
+import { NHAN } from "@/lib/labels";
 
 const CANCEL_CHIPS: readonly ChipOption<string>[] = [
   { id: "Hết hàng", label: "Hết hàng" },
@@ -227,7 +228,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
               </PrimaryButton>
               <div className="mt-3 flex flex-wrap justify-center gap-2">
                 <button type="button" disabled={busy} onClick={() => setEtaSheet("move")} className={`${SELLER_BTN} bg-field text-navy`}>
-                  Dời hẹn giao
+                  {NHAN.doiHen}
                 </button>
                 <button type="button" disabled={busy} onClick={() => setCancelSheet(true)} className={`${SELLER_BTN} bg-field`} style={{ color: "var(--danger)" }}>
                   <CloseIcon className="h-6 w-6" />
@@ -241,7 +242,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
             <>
             <div className="mb-3 flex justify-center">
               <button type="button" disabled={busy} onClick={() => setEtaSheet("move")} className={`${SELLER_BTN} bg-field text-navy`}>
-                Dời hẹn giao
+                {NHAN.doiHen}
               </button>
             </div>
             <PrimaryButton
@@ -293,7 +294,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
               className={`${SELLER_BTN} w-full bg-field text-navy`}
             >
               <CheckIcon className="h-6 w-6" />
-              Lưu ghi chú
+              {NHAN.luu}
             </button>
           )}
         </div>

@@ -40,6 +40,7 @@
   "Cảng nhà" chỉ ghi THÓI QUEN TRONG MÁY (setHome — như hộp chọn cảng), không gửi đi, không đếm thành viên.
 */
 
+import { datCangNha as ghiCangNha } from "@/lib/cang-nha";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon } from "@/components/icons";
@@ -586,6 +587,8 @@ export function KairosFeed({
   const datCangNha = () => {
     if (!port || laCangNha) return;
     updateHabit(setHome(habit, homeFromPort(port)));
+    // ghi luôn cửa chung (lib/cang-nha) — không thì Trang chủ / Sen Biển vẫn đọc cảng cũ trong ghim
+    ghiCangNha(port);
   };
 
   /** Bấm Tải: ≤5 trang dòng tin chung gộp vào bản lưu. KHÔNG đổi bài đang hiện. */
@@ -698,7 +701,7 @@ export function KairosFeed({
             </p>
             {pill.dangTai && <span aria-hidden className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-sea" />}
             {pill.nut && (
-              <button type="button" onClick={() => void taiMangDi()} className="h-9 shrink-0 rounded-full px-3 text-[0.875rem] font-semibold text-navy active:bg-sea/15">
+              <button type="button" onClick={() => void taiMangDi()} className="h-(--h-chip) shrink-0 rounded-full px-3 text-[0.875rem] font-semibold text-navy active:bg-sea/15">
                 {pill.nut}
               </button>
             )}
@@ -714,7 +717,7 @@ export function KairosFeed({
       {newCount > 0 && (
         <div className="sticky top-2 z-10 flex justify-center px-4 pb-2">
           <button type="button" onClick={showNew} className="h-10 rounded-full bg-sea px-4 text-[0.875rem] font-semibold text-white shadow-md">
-            Có {newCount >= 99 ? "99+" : newCount} bài mới
+            {NHAN.baiMoi} · {newCount >= 99 ? "99+" : newCount}
           </button>
         </div>
       )}

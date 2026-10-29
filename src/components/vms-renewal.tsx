@@ -35,7 +35,7 @@ import type { Boat } from "@/lib/boats";
 
 /*
   Gia hạn thiết bị GIÁM SÁT HÀNH TRÌNH (S-Tracking/VMS) — trục 4 (Tuân thủ):
-  VMS bắt buộc theo luật thủy sản, hết hạn là không được ra khơi / bị phạt.
+  VMS bắt buộc theo luật thuỷ sản, hết hạn là không được ra khơi / bị phạt.
 
   Ngư dân chọn tàu (từ tàu TỰ THÊM trong SDFish) + số tháng (chỉ 3/6/12) → tạo
   yêu cầu + QR VietQR → chuyển khoản → theo dõi trạng thái. Yêu cầu chảy vào
@@ -319,7 +319,7 @@ function RenewalWizard({
           >
             Đóng
           </button>
-          <PrimaryButton onClick={onDone}>Xem trạng thái xử lý</PrimaryButton>
+          <PrimaryButton onClick={onDone}>{NHAN.yeuCau}</PrimaryButton>
         </div>
       </BottomSheet>
     );
@@ -413,7 +413,7 @@ function RenewalWizard({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="shrink-0 text-foreground/60">{label}</dt>
+      <dt className="shrink-0 text-muted">{label}</dt>
       <dd className="min-w-0 break-all text-right text-navy">{children}</dd>
     </div>
   );
@@ -511,7 +511,7 @@ function RenewalStatusSheet({
                       {r.vesselCode ?? "Tàu"}
                       {r.monthsCount ? ` · ${renewalMonthsLabel(r.monthsCount)}` : ""}
                     </p>
-                    <p className="text-[0.875rem] text-foreground/60">
+                    <p className="text-[0.875rem] text-muted">
                       Mã {r.requestCode}
                       {created ? ` · ${created}` : ""}
                     </p>
@@ -553,7 +553,7 @@ function RenewalStatusSheet({
                         <strong className="text-navy">{r.transferNote}</strong>
                       </p>
                     )}
-                    <p className="mt-1 text-[0.875rem] text-foreground/60">
+                    <p className="mt-1 text-[0.875rem] text-muted">
                       Quét mã QR bằng app ngân hàng để chuyển đúng số tiền và nội dung.
                     </p>
                   </div>

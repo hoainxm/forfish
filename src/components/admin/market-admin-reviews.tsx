@@ -131,11 +131,11 @@ export function MarketAdminReviews({ onChanged }: { onChanged: () => void }) {
                   {r.comment ? (
                     <p className="mt-1 whitespace-pre-wrap text-[0.9375rem] leading-snug text-navy">{r.comment}</p>
                   ) : (
-                    <p className="mt-1 text-[0.9375rem] text-foreground/55">(chỉ chấm sao, không viết gì)</p>
+                    <p className="mt-1 text-[0.9375rem] text-muted">(chỉ chấm sao, không viết gì)</p>
                   )}
                   {/*  Đường sang chính món bị đánh giá — soát xong thường phải coi
                        luôn món đó bán gì, và có khi phải gỡ cả món. */}
-                  <p className="mt-1 text-[0.8125rem] text-foreground/55">
+                  <p className="mt-1 text-[0.8125rem] text-muted">
                     Món <code className="tabular-nums">{r.productId.slice(0, 8)}</code> · đơn{" "}
                     <code className="tabular-nums">{r.orderId.slice(0, 8)}</code>
                   </p>

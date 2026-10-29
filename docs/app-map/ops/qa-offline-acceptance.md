@@ -4,6 +4,7 @@
 
 covers: public/sw.js
 last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29t — `sw-register.tsx` đổi THỜI ĐIỂM đăng ký SW (sau `load` + lúc rảnh, trần 20 s — `lib/khi-ranh.ts`); `public/sw.js`/SHELL/tên kho KHÔNG đổi, khoá forfish.* không đổi; xin khoá dữ liệu vẫn ngay lúc nạp. Danh mục mảnh giọng Sen Biển thành chunk lười (SW đi theo khi dựng vỏ). THÊM mục 16–18 cuối file. Bộ bắt buộc CHƯA chạy lại trên máy thật cho đổi này. -->
 <!-- re-verified: 2026-10-29 — sw.js: SHELL thêm `/cho` (Vật tư, ô dock thứ 6) — CHỈ thêm URL, không bump SDFISH_CACHE_V. Bộ bắt buộc cần chạy lại trên máy thật trước phát hành; ca bổ sung: máy chưa từng mở Vật tư, có sóng mở app một lần, tắt mạng, chạm ô Vật tư ⇒ ra màn (khối Đã thích + giỏ đọc từ máy). -->
 <!-- re-verified: 2026-10-29 — đối chiếu `public/sw.js` hiện tại (đổi sau 2026-10-16: gộp nhánh 914d185/cbdc6e4 + chuông push 1709dc1). Tên kho đúng như code: `sdfish-v6` (vỏ) · `sdfish-static-v1` · `sdfish-rsc-v1` · `sdfish-api-v2` · `sdfish-tiles-v1` · `sdfish-basemap-v2` · `sdfish-stage-v1` · `sdfish-tro-ly-v1` + `kairos-luu-anh-v1` (client quản, activate giữ); allowlist `/api/*` vẫn 9 route (`API_CACHE_ALLOW`, khớp `sw-cache-policy.ts`); đồng hồ NAV 2500/8000, RSC 3500, asset 20000, API stale 10000 ms. SỬA TC nền vector: kho `sdfish-basemap-v1` → `v2`. Chuông push (1709dc1, `askPageChime` + `forfish:push-chime`, chờ trang 600 ms rồi giữ tiếng mặc định) chỉ ở nhánh `push` — không đụng kho/SHELL/nhánh fetch, không có ca offline mới. Bộ bắt buộc KHÔNG chạy lại trong lượt kiểm doc này. -->
 <!-- re-verified: 2026-10-25d — sw.js SHELL thêm MỘT entry `/icons/kairos-fish.png` (14 KB, ô Kairos trên dock là ảnh này). Thêm URL không bump kho; bộ bắt buộc CHƯA chạy lại cho thay đổi này — chỉ kiểm có sóng ở 375 px. Khi chạy bộ bắt buộc lần tới: mất sóng mở app, dock phải thấy cá Kairos (không ô trống). -->
@@ -324,6 +325,15 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 ---
 
+### TC-17 — Chỉ xem Trang chủ rồi ra khơi (2026-10-29, rà offline F2/F3/F4) 🔴
+
+Máy đăng nhập, xoá sạch (§0), có sóng tốt. **Chỉ mở Trang chủ, KHÔNG mở Bản đồ**, đợi ~3 phút.
+1. Dưới thẻ "Biển hôm nay" có một dòng nhỏ: lúc đầu "Đang tải dữ liệu dự báo", xong thì ✓ xanh "Đã lưu đủ dự báo — tới ngày D/M" — chỉ xanh khi máy có khoá bản đồ + nền bản đồ (DevTools › Application › Cache Storage › `sdfish-basemap-v2` có `/data/vn-basemap.pmtiles`).
+2. Xoá riêng khoá `forfish.datakey.v1` (Local Storage), quay lại app ⇒ dòng đổi vàng "Chưa tải được khoá bản đồ — mở app lúc có sóng"; chạm ⇒ popup có câu đó ở đầu. Đăng xuất ⇒ "Bản đồ ngoài khơi cần đăng nhập — đăng nhập lúc có sóng".
+3. Bật chế độ máy bay, đóng app, mở lại vào **Bản đồ**: có nền (bờ, đảo, đẳng sâu), có lưới gió sóng 16 ngày (gói) — dù trước đó chưa từng mở Bản đồ.
+4. **Hotspot không internet** (§0), đã từng chạm Côn Đảo lúc có sóng: chạm lại Côn Đảo ⇒ trong ~2 giây ra số kèm "Bản lưu HH:MM dd/MM"; bật lại internet ⇒ trong 5 phút (hoặc quay lại app) số mới thay, nhãn biến mất. Chạm chỗ CHƯA từng xem ⇒ vẫn chờ mạng rồi nói "chưa có số" — không bịa số.
+5. Trang chủ, bản lưu "Biển hôm nay" cũ hơn 1 giờ + hotspot không internet ⇒ dòng "Bản lưu HH:MM dd/MM" hiện NGAY, không đợi 15–45 giây.
+
 ## 2. Tiêu chí phát hành
 
 | Mức | Nghĩa | Xử lý |
@@ -338,7 +348,7 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 ## 3. Đã biết, đang xếp hàng sửa — đừng báo trùng
 
-1. Chạm điểm trên bản đồ khi sóng yếu có thể chờ 15–45 giây mới ra số, dù số đó đã có trong máy (luật "mạng trước, máy sau" ở tầng dữ liệu — đang xếp hàng đảo lại). **Đã đảo cho dự báo theo CẢNG (2026-08-02); 5 lớp còn lại vẫn vậy.**
+1. Chạm điểm trên bản đồ khi sóng yếu có thể chờ 15–45 giây mới ra số, dù số đó đã có trong máy (luật "mạng trước, máy sau" ở tầng dữ liệu — đang xếp hàng đảo lại). **Đã đảo cho dự báo theo CẢNG (2026-08-02) và CHẠM ĐIỂM (2026-10-29: bản lưu ra sau ~1,5 giây kèm "Bản lưu HH:MM dd/MM", số mới về thì thay); 4 lớp còn lại (lưới, dải màu, độ mặn, dòng chảy tầng) vẫn vậy.**
 2. Sau 12 giờ ngoài biển, các lớp dữ liệu không dùng đường tắt trong máy nữa, mỗi lần bật lớp là một lần chờ mạng.
 3. ~~Khi nguồn tin bão hỏng, nhịp hỏi lại của app giãn từ 60 giây thành 30 phút.~~ **ĐÃ SỬA 2026-08-02**: thang lùi 1 phút → 3 → 10 → 30, có TRẦN đúng bằng nhịp lúc khoẻ, và hết hỏng là về nấc đầu ngay.
 4. Màn **dẫn đường** chưa nói "chưa kiểm được tin bão" — nếu không hỏi được, nó vẽ tuyến như trời quang.
@@ -540,3 +550,11 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 13. **curl `/data/vn-basemap.pmtiles`** (và `vn-coast`, `reef-shapes-aca`) trên production (Vercel VÀ IIS): 4 byte đầu `SDF2`; chỉ `tide-stations.v1.json` còn `SDF1`. Thay cho mục 3.
 14. **Máy mới, đăng nhập có sóng nhưng KHÔNG mở Ra khơi, rồi mất sóng mới mở** (thay mục 6) → Network lúc nạp app / ngay sau đăng nhập đã có `GET /api/data-key` 200 (`refreshDataKeyOnce` ở sw-register) ⇒ mất sóng mở Ra khơi vẫn vẽ ĐỦ nền + lớp. Ca xấu nhất (khoá chưa từng vào máy): bản đồ trống lớp nhưng KHÔNG treo, không màn trắng toàn app; sóng về là tự vẽ.
 15. **Đổi khoá ở /quan-tri + deploy, máy đã cài mở app có sóng nhưng KHÔNG mở bản đồ rồi ra khơi** → nền vẫn vẽ: lượt `/api/data-key` lúc nạp app đã lấy khoá mới (xin cả khi kho đã có khoá, một lần mỗi lần nạp).
+
+### Bổ sung 2026-10-29 — SW đăng ký SAU khi trang tải xong (rà soát tốc độ)
+
+`sw-register.tsx` không còn đăng ký SW ngay sau hydrate: chờ `load` rồi lúc máy rảnh (trần 20 s). `sw.js`, SHELL, tên kho, khoá `forfish.*` KHÔNG đổi.
+
+16. **Máy mới, sóng tốt, mở Trang chủ** → DevTools ▸ Application ▸ Service Workers: SW xuất hiện **sau** khi trang tải xong (vài giây), không phải ngay lúc chữ hiện; Network: lượt precache vỏ bắt đầu SAU các request của màn (tin bão, giá). `GET /api/data-key` (đã đăng nhập) vẫn chạy NGAY lúc nạp như cũ. Rồi chạy lại **TC-01** và **TC-03**: phải ĐẠT như trước.
+17. **Máy mới, mở app rồi tắt mạng sau ~5 giây** (trước khi SW kịp cài) → giống TC-02: lần đầu được phép thiếu; bật lại mạng, mở lại, đợi 1 phút, tắt mạng → mở được offline. HỎNG nếu sau đó vẫn trắng màn.
+18. **Giọng Sen Biển mất sóng, máy đã cài từ trước** (bổ sung N-14) → bật máy bay, mở app, cho đọc một câu có số ("Còn 3 hải lý") ngay lần đầu của phiên: đọc bằng **giọng Sen Biển** (mảnh ghép), không rơi về giọng máy. Danh mục mảnh nay là chunk riêng, SW đã cất cùng vỏ.

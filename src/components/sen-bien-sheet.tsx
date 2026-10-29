@@ -770,7 +770,7 @@ export function SenBienSheet({
               className="flex min-h-[3.5rem] w-full items-center rounded-xl bg-navy/10 px-3 text-left text-[1rem] font-semibold text-navy transition active:scale-[0.98]"
             >
               {d.name}
-              <span className="ml-2 text-[0.875rem] font-semibold text-foreground/60">
+              <span className="ml-2 text-[0.875rem] font-semibold text-muted">
                 {d.kind === "cang" ? "cảng cá" : d.kind === "nha" ? "cảng nhà" : "điểm đã ghim"}
               </span>
             </button>

@@ -261,7 +261,7 @@ function OverviewDetail({ overview }: { overview: AdminOverview }) {
       <div className="surface overflow-x-auto">
         <table className="w-full min-w-[36rem] text-left text-[0.875rem]">
           <thead>
-            <tr className="border-b border-line text-foreground/60">
+            <tr className="border-b border-line text-muted">
               <th className="px-4 py-2 font-semibold">Kỳ</th>
               {ORDER_STATUSES.map((s) => (
                 <th key={s} className="px-2 py-2 font-semibold">

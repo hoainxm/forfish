@@ -29,6 +29,7 @@ import { devicePlatform } from "@/lib/storage-persist";
 import { isValidTokenShape } from "@/lib/device-token";
 import { saveToken } from "@/lib/device-token-store";
 import { tokenIssueErrorMessage } from "@/lib/login-error";
+import { NHAN } from "@/lib/labels";
 
 /*
   MÀN TỰ ĐĂNG KÝ MỞ LẠI (chủ dự án 2026-09-23: mở public self-signup cho người
@@ -235,10 +236,10 @@ export default function DangKyPage() {
             error={pwErr ?? undefined}
           />
           <PrimaryButton type="submit" disabled={loading}>
-            {loading ? "Đang tạo…" : "Tạo tài khoản"}
+            {loading ? "Đang tạo…" : NHAN.dangKy}
           </PrimaryButton>
         </form>
-        <p className="mt-3 text-center text-[0.9375rem] leading-snug text-foreground/60">
+        <p className="mt-3 text-center text-[0.9375rem] leading-snug text-muted">
           Tạo tài khoản tức là bà con đồng ý với{" "}
           {/* py-3 trên phần tử INLINE: nới vùng chạm lên ~44px mà không xô dòng chữ (rà bố cục
               2026-10-22 — trước cao 19px, tay ướt bấm trượt) */}

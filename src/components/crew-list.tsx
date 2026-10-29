@@ -48,7 +48,7 @@ import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
 import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import { useTodayVN } from "@/lib/use-today";
-import { NHAN } from "@/lib/labels";
+import { NHAN, TEN_GOI } from "@/lib/labels";
 import { useXoaCho } from "@/lib/xoa-cho";
 import { markSeenFromUrl } from "@/lib/doc-reminder-local";
 import { todayIsoVN } from "@/lib/days";
@@ -75,7 +75,7 @@ function identityQuery(id: Identity): string {
 }
 
 // Thuyền viên là hồ sơ ĐỘNG theo CHỦ TÀU (ba-spec 08 R2): dùng chung cho mọi
-// tàu của chủ, KHÔNG gắn boatId, KHÔNG mất khi xóa 1 tàu. (boatId cũ giữ trong
+// tàu của chủ, KHÔNG gắn boatId, KHÔNG mất khi xoá 1 tàu. (boatId cũ giữ trong
 // type cho back-compat dữ liệu cũ nhưng không còn đọc/ghi.)
 type StoredCrew = CrewMember & { boatId?: string };
 
@@ -177,7 +177,7 @@ export function CrewList() {
   const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<StoredCrew | null>(null);
-  /** hàng đang bung chi tiết (CCCD, chứng chỉ, Sửa/Xóa/Cảnh báo) — một hàng một lúc */
+  /** hàng đang bung chi tiết (CCCD, chứng chỉ, Sửa/Xoá/Cảnh báo) — một hàng một lúc */
   const [openId, setOpenId] = useState<string | null>(null);
   // sheet BÁO CÁO một người (mở từ nút Cảnh báo của thẻ) — kèm định danh (CCCD
   // và/hoặc SĐT) + tên
@@ -325,10 +325,10 @@ export function CrewList() {
 
       {/*  MỖI NGƯỜI MỘT HÀNG (rà design Codex lần 2, 2026-10-19): trước mỗi người
           là một thẻ nhiều tầng — băng trạng thái đặc → hộp nền tên → hộp nền
-          CCCD → hộp nền SĐT + 4 ô nút (Sửa/Xóa/Cảnh báo/Gọi) + ô đệm trống.
+          CCCD → hộp nền SĐT + 4 ô nút (Sửa/Xoá/Cảnh báo/Gọi) + ô đệm trống.
           Nay: MỘT .surface kẻ mảnh; hàng = tên + vai · tình trạng giấy tờ (chữ
           nhỏ có màu, không băng) · nút Gọi. Chạm tên ⇒ bung chi tiết ngay dưới
-          hàng: CCCD/SĐT, chứng chỉ, Sửa · Xóa · Cảnh báo. Không bỏ chức năng nào;
+          hàng: CCCD/SĐT, chứng chỉ, Sửa · Xoá · Cảnh báo. Không bỏ chức năng nào;
           luật "Cảnh báo vô hiệu khi thiếu định danh, lý do nằm sẵn trong chữ" giữ. */}
       {sortedCrew.length > 0 && (
         <ul className="surface divide-y divide-line overflow-hidden">
@@ -359,7 +359,7 @@ export function CrewList() {
                         {m.name}
                         {/* vai mặc định "Bạn thuyền" KHÔNG in (TAU-20): đầu màn + tab đã nói chữ đó rồi */}
                         {m.role !== "thuyen_vien" && (
-                          <span className="font-normal text-foreground/60">
+                          <span className="font-normal text-muted">
                             {" "}· {ROLE_LABELS[m.role]}
                           </span>
                         )}
@@ -642,8 +642,8 @@ function CrewForm({
               hiện cảnh báo nếu có. CHƯA Premium / chưa đăng nhập: KHÔNG chèn khối bán hàng
               (PremiumLock) giữa form — một dòng xám là đủ (TAU-08, 2026-10-25). */}
           {access === "login" || access === "upgrade" ? (
-            <span className="mt-1.5 block text-[0.875rem] text-foreground/60">
-              Tra cảnh báo: {access === "login" ? "cần đăng nhập" : "gói Premium"}
+            <span className="mt-1.5 block text-[0.875rem] text-muted">
+              Tra cảnh báo: {access === "login" ? "cần đăng nhập" : TEN_GOI}
             </span>
           ) : (
             <IdentityCheck
@@ -804,7 +804,7 @@ const NOT_CONNECTED_COPY =
   "Ứng dụng trên máy này chưa liên kết với tài khoản SDVICO nên chưa tra cứu được cảnh báo.";
 
 // Copy đời thường (T10, 2026-08-18): không "máy chủ / cấu hình / khoá bảo mật /
-// định danh / kiểm duyệt"; một tên duy nhất "Premium".
+// định danh / kiểm duyệt"; một tên duy nhất `TEN_GOI` ("gói dự báo", 2026-10-29).
 function codeMessage(code: string | undefined): string {
   switch (code) {
     case "not_configured":
@@ -812,7 +812,7 @@ function codeMessage(code: string | undefined): string {
     case "cccd_pepper_missing":
       return "Tài khoản chưa được kích hoạt tính năng tra cứu cảnh báo — bà con liên hệ SDVICO để được hỗ trợ nhé.";
     case "premium_required":
-      return "Tính năng cảnh báo thuyền viên nằm trong gói Premium — bà con gọi SDVICO để kích hoạt nhé.";
+      return `Tính năng cảnh báo thuyền viên nằm trong ${TEN_GOI} — bà con gọi SDVICO để kích hoạt nhé.`;
     case "login_required":
       return "Bà con đăng nhập để xem thông tin cảnh báo thuyền viên nhé.";
     case "bad_cccd":
@@ -882,7 +882,7 @@ function WarningsList({ result }: { result: CrewLookupResult }) {
                 {rp.detail}
               </p>
             )}
-            <p className="mt-1 text-[0.8125rem] text-foreground/55">
+            <p className="mt-1 text-[0.8125rem] text-muted">
               {rp.reporterBoat ? `${rp.reporterBoat} · ` : ""}
               {formatVnDate(rp.createdAt.slice(0, 10))}
             </p>
@@ -956,7 +956,7 @@ function IdentityCheck({
         blurb={
           access === "login"
             ? "Đăng nhập để ứng dụng tự động kiểm tra cảnh báo ngay khi bà con nhập xong CCCD/SĐT."
-            : "Kích hoạt gói Premium để ứng dụng tự động kiểm tra thông tin cảnh báo khi thêm người mới."
+            : `Kích hoạt ${TEN_GOI} để ứng dụng tự động kiểm tra thông tin cảnh báo khi thêm người mới.`
         }
         accent="t4"
       />
@@ -965,14 +965,14 @@ function IdentityCheck({
   // Bản trên máy chưa nối SDVICO — nói ra thay vì im (T9)
   if (!configured)
     return (
-      <p className="mt-1.5 text-[0.875rem] text-foreground/60">
+      <p className="mt-1.5 text-[0.875rem] text-muted">
         {NOT_CONNECTED_COPY}
       </p>
     );
 
   if (state.kind === "loading")
     return (
-      <p className="mt-1.5 text-[0.875rem] text-foreground/60">
+      <p className="mt-1.5 text-[0.875rem] text-muted">
         Đang tra cảnh báo…
       </p>
     );
@@ -1055,7 +1055,7 @@ function ReportSheet({
         <PremiumLock
           access={access}
           feature="cảnh báo thuyền viên"
-          blurb="Tính năng báo cáo & tra cứu cảnh báo bạn thuyền dành riêng cho gói Premium."
+          blurb={`Tính năng báo cáo & tra cứu cảnh báo bạn thuyền dành riêng cho ${TEN_GOI}.`}
           accent="t4"
         />
       ) : !configured ? (

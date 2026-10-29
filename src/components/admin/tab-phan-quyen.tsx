@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
    Hai khối: (1) QUẢN TRỊ VIÊN toàn quyền — nâng/hạ ngay tại đây (nguồn DB
    role='admin'), riêng người từ env ADMIN_PHONES chỉ xem được vì web không
    sửa env; (2) bảng quyền từng tài khoản QUẢN LÝ: 5 tab × 4 hành động
-   (Xem/Tạo mới/Sửa/Xóa). Chốt thật ở /api/admin/* (requireAdmin /
+   (Xem/Tạo mới/Sửa/Xoá). Chốt thật ở /api/admin/* (requireAdmin /
    requirePermission); màn này chỉ soạn cấu hình. */
 
 export type ManagerPerm = {
@@ -196,9 +196,9 @@ export function CreateStaffForm({
       {confirmAdmin && (
         <ConfirmDialog
           title={`Xác nhận cấp quyền Quản trị viên cho số ${phone}?`}
-          message="Quản trị viên sẽ có toàn quyền trên hệ thống (xóa tài khoản, cấp mật khẩu, đổi phân quyền, gửi thông báo, v.v.). Nếu nhân sự chỉ phụ trách khách hàng theo khu vực, vui lòng chọn cấp độ Quản lý."
+          message="Quản trị viên sẽ có toàn quyền trên hệ thống (xoá tài khoản, cấp mật khẩu, đổi phân quyền, gửi thông báo, v.v.). Nếu nhân sự chỉ phụ trách khách hàng theo khu vực, vui lòng chọn cấp độ Quản lý."
           confirmLabel="Xác nhận tạo Quản trị viên"
-          cancelLabel="Hủy thao tác"
+          cancelLabel="Huỷ thao tác"
           danger
           onCancel={() => setConfirmAdmin(false)}
           onConfirm={() => {
@@ -274,7 +274,7 @@ export function PermissionsTab() {
       const why: Record<string, string> = {
         self: "Bạn không thể tự hạ cấp tài khoản của chính mình — vui lòng nhờ một Quản trị viên khác thao tác.",
         env_admin:
-          "Tài khoản này được cấp quyền trực tiếp từ biến môi trường ADMIN_PHONES — để hủy quyền, bạn cần cập nhật cấu hình trên máy chủ Vercel, không thể hủy trực tiếp trên giao diện web.",
+          "Tài khoản này được cấp quyền trực tiếp từ biến môi trường ADMIN_PHONES — để huỷ quyền, bạn cần cập nhật cấu hình trên máy chủ Vercel, không thể huỷ trực tiếp trên giao diện web.",
         last_admin:
           "Đây là Quản trị viên DUY NHẤT còn lại — nếu bạn hạ cấp, sẽ không còn ai có quyền quản trị hệ thống. Vui lòng phân quyền cho một người khác trước.",
         not_found:
@@ -308,7 +308,7 @@ export function PermissionsTab() {
         <b className="text-navy">Quản trị viên</b> toàn quyền mọi khu, không cần
         cấu hình. <b className="text-navy">Quản lý</b> chạy theo bảng quyền: 6
         khu (Tài khoản · Sản phẩm · Đơn hàng · Thuyền viên · Thông báo · Chỗ bán) × 4 mức{" "}
-        <b>Xem · Tạo mới · Sửa · Xóa</b>; bỏ chọn <b>Xem</b> = ẩn hẳn khu đó. (4 khu
+        <b>Xem · Tạo mới · Sửa · Xoá</b>; bỏ chọn <b>Xem</b> = ẩn hẳn khu đó. (4 khu
         Yêu cầu · Vùng biển · Dữ liệu · Hệ thống chỉ dành cho quản trị viên.)
       </p>
 
@@ -333,7 +333,7 @@ export function PermissionsTab() {
                 <span className="font-bold tabular-nums text-navy">
                   {a.phone}
                 </span>
-                {a.name && <span className="text-foreground/60">{a.name}</span>}
+                {a.name && <span className="text-muted">{a.name}</span>}
                 {a.source === "owner" ? (
                   <span
                     className="rounded-full bg-trim px-2 py-0.5 text-[0.75rem] font-bold text-white"
@@ -397,7 +397,7 @@ export function PermissionsTab() {
             {roleMsg}
           </p>
         )}
-        <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/60">
+        <p className="mt-2 text-[0.8125rem] leading-snug text-muted">
           Quản trị viên toàn quyền mọi khu, không cần bảng quyền. Chỉ{" "}
           <b>admin tổng</b> nâng/hạ được quản trị viên; quản trị viên quản lý
           nhân sự cấp Quản lý. Nâng/hạ ăn ngay, không cần deploy. Không thể tự
@@ -414,9 +414,9 @@ export function PermissionsTab() {
       {toPromote && (
         <ConfirmDialog
           title={`Xác nhận cấp quyền Quản trị viên cho số ${toPromote}?`}
-          message="Quản trị viên sẽ có toàn quyền trên hệ thống (bao gồm xóa tài khoản, cấp lại mật khẩu, và có thể cấp quyền Admin cho người khác). Hãy đảm bảo bạn cấp quyền đúng người."
+          message="Quản trị viên sẽ có toàn quyền trên hệ thống (bao gồm xoá tài khoản, cấp lại mật khẩu, và có thể cấp quyền Admin cho người khác). Hãy đảm bảo bạn cấp quyền đúng người."
           confirmLabel="Cấp quyền Quản trị viên"
-          cancelLabel="Hủy thao tác"
+          cancelLabel="Huỷ thao tác"
           danger
           onCancel={() => setToPromote(null)}
           onConfirm={() => {
@@ -431,7 +431,7 @@ export function PermissionsTab() {
           title={`Chuyển tài khoản ${toDemote.phone} xuống cấp Quản lý?`}
           message={`${toDemote.name ? `${toDemote.name} — ` : ""}sẽ mất quyền quản trị viên, chỉ còn các quyền thao tác trong phạm vi quản lý được phân công.`}
           confirmLabel="Chuyển xuống cấp Quản lý"
-          cancelLabel="Hủy thao tác"
+          cancelLabel="Huỷ thao tác"
           danger
           onCancel={() => setToDemote(null)}
           onConfirm={() => {
@@ -565,7 +565,7 @@ export function ManagerPermCard({
           </span>
         )}
         {!manager.configured && (
-          <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-bold text-foreground/60">
+          <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-bold text-muted">
             đang dùng quyền mặc định
           </span>
         )}
@@ -588,13 +588,13 @@ export function ManagerPermCard({
         <table className="w-full border-collapse text-left">
           <thead>
             <tr>
-              <th className="pb-2 pr-3 text-[0.8125rem] font-bold text-foreground/60">
+              <th className="pb-2 pr-3 text-[0.8125rem] font-bold text-muted">
                 Khu
               </th>
               {PERM_ACTIONS.map((a) => (
                 <th
                   key={a}
-                  className="pb-2 text-center text-[0.8125rem] font-bold text-foreground/60"
+                  className="pb-2 text-center text-[0.8125rem] font-bold text-muted"
                 >
                   {ACTION_LABEL[a]}
                 </th>
@@ -620,7 +620,7 @@ export function ManagerPermCard({
                         className={`inline-flex h-9 min-w-[2.75rem] items-center justify-center rounded-lg px-2 text-[0.8125rem] font-bold transition ${
                           on
                             ? "bg-ok-bg text-ok"
-                            : "bg-field text-foreground/45"
+                            : "bg-field text-muted"
                         }`}
                       >
                         {on ? "Kích hoạt" : "Vô hiệu hoá"}
@@ -653,7 +653,7 @@ export function ManagerPermCard({
             setDraft((d) => ({ ...d, resetPassword: !d.resetPassword }));
           }}
           className={`inline-flex h-9 min-w-[2.75rem] items-center justify-center rounded-lg px-2 text-[0.8125rem] font-bold transition ${
-            draft.resetPassword ? "bg-ok-bg text-ok" : "bg-field text-foreground/45"
+            draft.resetPassword ? "bg-ok-bg text-ok" : "bg-field text-muted"
           }`}
         >
           {draft.resetPassword ? "Kích hoạt" : "Vô hiệu hoá"}

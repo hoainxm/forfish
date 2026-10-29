@@ -12,7 +12,13 @@
 :root {
   /* water & ink */
   --background: #f6f8f7; /* trắng lạnh ngả xanh rêu — tone mẫu Codex (2026-10-19) */
-  --foreground: #15333e; /* mực slate-teal — --p-ink của bộ design Sen Biển (handoff 2026-10-19) */
+  --foreground-rgb: 21 51 62; /* #15333e — kênh của --foreground, dựng --muted */
+  --foreground: rgb(var(--foreground-rgb)); /* #15333e mực slate-teal — --p-ink của bộ design Sen Biển (handoff 2026-10-19) */
+  /*  CHỮ PHỤ (anh Long 2026-10-29: "chữ cho nhỏ đẹp chứ không phải cứ phóng to lên thô kệch")
+      — chữ nhỏ gọn, TƯƠNG PHẢN BẰNG MÀU. Mực 72%: 5,5:1 trên trắng/.surface, 5,3:1 trên
+      --background, ≥4,95:1 trên mọi nền tint (field/ok/warn/danger/t1–t4-bg). Thay MỌI
+      `text-foreground/50…/60` cho chữ (chỉ 3,0–3,9:1). Cổng: muted-text.test.ts. */
+  --muted: rgb(var(--foreground-rgb) / 0.72);
   --card: #ffffff;
   --line: #dce5e4; /* viền thẻ + kẻ mảnh — --p-line */
   --field: #edf1f0; /* nền ô nhập / nút phụ trung tính */
@@ -149,6 +155,7 @@
   --default-transition-timing-function: var(--ease-out);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
   --color-card: var(--card);
   --color-line: var(--line);
   --color-field: var(--field);

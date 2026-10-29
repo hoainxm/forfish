@@ -273,7 +273,7 @@ export function MarketBoard() {
       {confirmDel && (
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
-          title="Xóa tin này?"
+          title="Xoá tin này?"
           message={`Tin rao “${confirmDel.species}” sẽ bị gỡ khỏi chợ giao dịch.`}
           onCancel={() => setConfirmDel(null)}
           onConfirm={async () => {
@@ -334,8 +334,8 @@ function ListingCard({
   return (
     <Card className="p-4">
       {/*  Thao tác của tin MÌNH nằm sau ⋯ góc trên-phải (CC-03/CC-15, 2026-10-25, như FB):
-          trước là hai nút "Đã xong" / "Xác nhận xóa" chen cùng hàng pill ⇒ pill vỡ hai
-          dòng, và nhãn "Xác nhận xóa" trên thẻ trùng nút đỏ trong hộp — bà con tưởng
+          trước là hai nút "Đã xong" / "Xác nhận xoá" chen cùng hàng pill ⇒ pill vỡ hai
+          dòng, và nhãn "Xác nhận xoá" trên thẻ trùng nút đỏ trong hộp — bà con tưởng
           bấm là xoá thẳng. Thân thẻ nay giống hệt thẻ người khác. */}
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
@@ -741,7 +741,7 @@ function ListingForm({
             className={`${SQ_BTN} bg-background text-foreground/70`}
           >
             <CloseIcon className="h-6 w-6" />
-            Hủy
+            Huỷ
           </button>
           <button
             type="submit"

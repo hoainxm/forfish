@@ -36,6 +36,7 @@ import { useMarketCart, useOnlineState } from "./hooks";
 import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 type QuoteRes = { quote: CartQuote; titles: Record<string, string> };
+import { NHAN } from "@/lib/labels";
 
 const keyOf = marketLineKey;
 
@@ -228,7 +229,7 @@ export function MarketCart() {
         }}
         className="min-h-(--row-h) shrink-0 px-2 text-[1rem] font-semibold text-t3"
       >
-        Hoàn lại
+        {NHAN.hoanTac}
       </button>
     </div>
   );
@@ -443,7 +444,7 @@ export function MarketCart() {
                       href={`/cho/yeu-cau/moi?ten=${encodeURIComponent(titles[d.productId] ?? "")}`}
                       className="sq-btn bg-trim text-white"
                     >
-                      Nhờ báo giá
+                      {NHAN.baoGia}
                     </Link>
                   )}
                   <RemoveButton
@@ -486,7 +487,7 @@ export function MarketCart() {
             }
             router.push("/cho/thanh-toan");
           }}
-          className="display flex min-h-(--row-h) shrink-0 items-center justify-center rounded-full bg-trim px-6 text-[1rem] font-semibold text-white  transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+          className="display flex min-h-(--h-cta) shrink-0 items-center justify-center rounded-full bg-trim px-6 text-[1rem] font-semibold text-white transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
         >
           Đặt hàng{pickedCount > 0 ? ` (${pickedCount})` : ""}
         </button>

@@ -115,14 +115,14 @@ function StateChip({ hidden, modState }: { hidden: boolean; modState: string }) 
 }
 
 function TargetView({ t, kind }: { t: Target | null; kind: "post" | "comment" }) {
-  if (!t) return <p className="text-[0.875rem] text-foreground/60">Nội dung không còn (đã bị xoá).</p>;
+  if (!t) return <p className="text-[0.875rem] text-muted">Nội dung không còn (đã bị xoá).</p>;
   const who = isPost(t) ? (t.kind === "bao" ? t.outlet ?? "Báo" : t.author?.handle ?? "—") : t.author.handle;
   const text = isPost(t) ? [t.title, t.summary, t.body].filter(Boolean).join(" — ") : t.body;
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[0.875rem] font-bold text-navy">{who}</span>
-        <span className="text-[0.75rem] text-foreground/60">
+        <span className="text-[0.75rem] text-muted">
           {kind === "post" ? (isPost(t) && t.kind === "bao" ? "Bài báo" : isPost(t) && t.kind === "chinh-thuc" ? "Chính thức" : "Bài") : "Bình luận"}
           {" · "}
           {fmtDT(isPost(t) ? t.publishedAt : t.createdAt)}
@@ -130,7 +130,7 @@ function TargetView({ t, kind }: { t: Target | null; kind: "post" | "comment" })
         <StateChip hidden={t.hidden} modState={t.modState} />
       </div>
       <p className="mt-1 line-clamp-4 whitespace-pre-line break-words text-[0.9375rem] leading-snug text-foreground/85">{text || "(không có chữ)"}</p>
-      {isPost(t) && t.images.length > 0 && <p className="mt-1 text-[0.8125rem] text-foreground/60">Có {t.images.length} ảnh</p>}
+      {isPost(t) && t.images.length > 0 && <p className="mt-1 text-[0.8125rem] text-muted">Có {t.images.length} ảnh</p>}
       {isPost(t) && t.url && (
         <a href={t.url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[0.8125rem] font-semibold text-sea underline">
           Mở bài gốc
@@ -302,7 +302,7 @@ function ReportsSection({ perms }: { perms: TabPerms }) {
                 {Object.entries(g.reasons)
                   .map(([r, n]) => `${REPORT_REASON_TEXT[r as ReportReason] ?? r} ${n}`)
                   .join(" · ")}
-                <span className="font-normal text-foreground/60"> · gần nhất {fmtDT(g.latestAt)}</span>
+                <span className="font-normal text-muted"> · gần nhất {fmtDT(g.latestAt)}</span>
               </p>
               {g.notes.length > 0 && <p className="text-[0.8125rem] italic text-foreground/70">“{g.notes.join("” · “")}”</p>}
               <TargetView t={g.target} kind={g.targetType} />
@@ -408,7 +408,7 @@ function QueueSection({ perms }: { perms: TabPerms }) {
             <p className="text-[0.875rem] font-bold">
               <span className={q.verdict === "chan" ? "text-danger" : "text-warn"}>{q.verdict === "chan" ? "Agent đã chặn" : "Agent nghi"}</span>
               {q.score != null && <span className="text-foreground/70"> · điểm {Math.round(q.score * 100)}/100</span>}
-              <span className="font-normal text-foreground/60">
+              <span className="font-normal text-muted">
                 {" "}
                 · {fmtDT(q.at)} · luật {q.rulesVersion ?? "—"} · {q.model ?? "—"}
               </span>
@@ -557,9 +557,9 @@ function PostsSection({ perms }: { perms: TabPerms }) {
                 {open.err ? (
                   <ErrorBox text={open.err} onRetry={() => loadComments(p)} />
                 ) : !open.comments ? (
-                  <p className="text-[0.875rem] text-foreground/60">Đang tải bình luận…</p>
+                  <p className="text-[0.875rem] text-muted">Đang tải bình luận…</p>
                 ) : open.comments.length === 0 ? (
-                  <p className="text-[0.875rem] text-foreground/60">Chưa có bình luận.</p>
+                  <p className="text-[0.875rem] text-muted">Chưa có bình luận.</p>
                 ) : (
                   open.comments.map((c) => (
                     <div key={c.id} className={`flex items-start justify-between gap-3 ${c.parentId ? "pl-6" : ""}`}>
@@ -675,7 +675,7 @@ function OfficialSection() {
         placeholder="Nội dung thông báo cho bà con"
         aria-label="Nội dung bài Chính thức"
       />
-      {len > LIMITS.postBody - 200 && <p className="text-[0.8125rem] text-foreground/60">Còn {LIMITS.postBody - len} ký tự</p>}
+      {len > LIMITS.postBody - 200 && <p className="text-[0.8125rem] text-muted">Còn {LIMITS.postBody - len} ký tự</p>}
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Chủ đề">
         {TOPICS.map((t) => (
           <FilterChip key={t} label={NHAN_CHIP_KAIROS[t]} active={topic === t} onClick={() => setTopic(t)} />
@@ -723,7 +723,7 @@ function FlagsSection({ flags, sources, lastBaoAt }: { flags: Flag[]; sources: S
         <div className="surface overflow-x-auto">
           <table className="w-full min-w-[36rem] text-left text-[0.875rem]">
             <thead>
-              <tr className="border-b border-line text-foreground/60">
+              <tr className="border-b border-line text-muted">
                 <th className="px-4 py-2 font-semibold">Lúc</th>
                 <th className="px-2 py-2 font-semibold">Nguồn</th>
                 <th className="px-2 py-2 font-semibold">Cụm trúng</th>

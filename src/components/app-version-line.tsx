@@ -47,19 +47,19 @@ export function AppVersionLine() {
 
   return (
     <div>
-      <p className="mb-2 mt-3 text-[0.75rem] font-semibold text-foreground/55">
+      <p className="mb-2 mt-3 text-[0.75rem] font-semibold text-muted">
         Phiên bản
       </p>
       <p className="text-[0.9375rem] font-semibold text-foreground/80">
         {buildLabel(LOCAL_BUILD_ID, LOCAL_BUILD_DATE)}
       </p>
       {match === "latest" && (
-        <p className="mt-0.5 text-[0.8125rem] text-foreground/55">
+        <p className="mt-0.5 text-[0.8125rem] text-muted">
           Đã là bản mới nhất.
         </p>
       )}
       {match === "new" && (
-        <p className="mt-0.5 text-[0.8125rem] text-foreground/55">
+        <p className="mt-0.5 text-[0.8125rem] text-muted">
           Có bản mới — bấm “Cập nhật” ở thẻ đầu màn hình.
         </p>
       )}

@@ -125,7 +125,7 @@ export function SeaTab({
           <>
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: state.color }} aria-hidden />
             <span style={{ color: state.color }}>{state.label}</span>
-            <span className="text-foreground/40" aria-hidden>
+            <span className="text-muted" aria-hidden>
               ·
             </span>
           </>

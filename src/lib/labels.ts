@@ -185,6 +185,50 @@ export const NHAN = {
   veGio: "Về giỏ",
   tienMat: "Tiền mặt",
   chuyenKhoan: "Chuyển khoản",
+  // Cổng nhãn (2026-10-29, labels.test.ts quét chữ trần trong <button>/<Link>): tên cho các
+  // nút trước đặt tại chỗ hoặc dài >2 chữ ("Dời hẹn giao" → Đổi hẹn, "Lấy chỗ đang xem" → Chỗ xem…)
+  taiLai: "Tải lại",
+  themTau: "Thêm tàu",
+  coRoi: "Có rồi",
+  chuaCo: "Chưa có",
+  giayMoi: "Giấy mới",
+  xemGiay: "Xem giấy",
+  baiMoi: "Bài mới",
+  xemDon: "Xem đơn",
+  suaGio: "Sửa giỏ",
+  muaTiep: "Mua tiếp",
+  xemGio: "Xem giỏ",
+  boHet: "Bỏ hết",
+  danhGia: "Đánh giá",
+  guiLai: "Gửi lại",
+  themMon: "Thêm món",
+  themLoai: "Thêm loại",
+  xoaMon: "Xoá món",
+  xoaTim: "Xoá tìm",
+  hetHang: "Hết hàng",
+  doiHen: "Đổi hẹn",
+  nganHang: "Ngân hàng",
+  chonNgay: "Chọn ngày",
+  themAnh: "Thêm ảnh",
+  trangWeb: "Trang web",
+  nguon: "Nguồn",
+  zalo: "Zalo",
+  goiSdvico: "Gọi SDVICO",
+  luuDiem: "Lưu điểm",
+  choXem: "Chỗ xem",
+  thoi: "Thôi",
+  xoaHan: "Xoá hẳn",
+  themDiem: "Thêm điểm",
+  denDiem: "Đến điểm",
+  luuDuong: "Lưu đường",
+  doLai: "Đo lại",
+  daNghe: "Đã nghe",
+  taiGiong: "Tải giọng",
+  ngheThu: "Nghe thử",
+  di: "Đi",
+  gan: "Gần",
+  caNuoc: "Cả nước",
+  xemDu: "Xem đủ",
 } as const;
 
 /**
@@ -215,6 +259,14 @@ export const NHAN_LOAI_TIN = {
   iuu: "IUU",
   "danh-sach": "Danh sách",
 } as const;
+
+/**
+ * TÊN GÓI TRẢ PHÍ hiển thị cho bà con (chốt 2026-10-29, thay chữ "Premium"/"premium" tiếng Anh).
+ * Gói = dự báo cá + lớp nguồn cho bán + dẫn đường + tra cảnh báo chéo (tier.ts). 07/01 vốn gọi
+ * "gói dự báo cá" ⇒ rút gọn "gói dự báo". CHỈ chữ hiển thị — mã/khoá/route vẫn `premium`.
+ */
+export const TEN_GOI = "gói dự báo";
+export const TEN_GOI_HOA = "Gói dự báo";
 
 export type NhanId = keyof typeof NHAN;
 
