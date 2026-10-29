@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { readNextParam, withNext } from "@/lib/auth-next";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiUrl } from "@/lib/api-base";
@@ -44,6 +45,12 @@ export default function DangKyPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  /** Vào xong quay về đâu (`?next=` từ cổng mời — lib/auth-next). Đọc trong effect như /login,
+      khỏi `useSearchParams` (Next đòi Suspense bọc trang). */
+  const [next, setNext] = useState("/");
+  useEffect(() => {
+    setNext(readNextParam(window.location.search));
+  }, []);
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   /** lỗi HỆ THỐNG (mạng, máy chủ, cấp chuỗi hỏng) — băng trên form */
@@ -123,7 +130,7 @@ export default function DangKyPage() {
       25000,
     );
     if (!signIn || signIn.error) {
-      router.replace("/login?tao=xong");
+      router.replace(`${withNext("/login", next)}${next === "/" ? "?" : "&"}tao=xong`);
       return;
     }
 
@@ -156,7 +163,7 @@ export default function DangKyPage() {
     /*  issued === null ⇒ THẬT SỰ chưa với tới máy chủ. Việc đã xong (tài khoản
         đã tạo), chỉ thiếu bước vào — đẩy sang /login, đừng chặn bằng hộp lỗi. */
     if (!issued) {
-      router.replace("/login?tao=xong");
+      router.replace(`${withNext("/login", next)}${next === "/" ? "?" : "&"}tao=xong`);
       return;
     }
     const body = issued.body;
@@ -186,7 +193,7 @@ export default function DangKyPage() {
     /*  BỎ PHIÊN SUPABASE — chuỗi cứng đã nằm trong máy, phiên bỏ lại chỉ tự chết
         chứ không mở được cửa nào. */
     await withDeadline(supabase!.auth.signOut(), 8000);
-    router.replace("/");
+    router.replace(next);
   }
 
   return (
@@ -246,7 +253,7 @@ export default function DangKyPage() {
         <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/70">
           Đã có tài khoản?{" "}
           <Link
-            href="/login"
+            href={withNext("/login", next)}
             className="inline-flex min-h-[3.5rem] items-center px-2 font-semibold text-sea"
           >
             Đăng nhập

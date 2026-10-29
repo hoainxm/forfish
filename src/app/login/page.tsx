@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { readNextParam, withNext } from "@/lib/auth-next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -70,10 +71,13 @@ export default function LoginPage() {
    *  `window.location.search` trong effect thay vì `useSearchParams` (Next đòi
    *  Suspense bọc trang) — rẻ, không treo. */
   const [createdNote, setCreatedNote] = useState(false);
+  /** Vào xong quay về đâu (`?next=` từ cổng mời — lib/auth-next). Mặc định Trang chủ. */
+  const [next, setNext] = useState("/");
   useEffect(() => {
     try {
       const q = new URLSearchParams(window.location.search);
       if (q.get("tao") === "xong") setCreatedNote(true);
+      setNext(readNextParam(window.location.search));
     } catch {
       /* bỏ qua */
     }
@@ -247,10 +251,10 @@ export default function LoginPage() {
     if (body.kicked === true) {
       setKickedNote(true);
       setLoading(false);
-      window.setTimeout(() => router.replace("/"), 1500);
+      window.setTimeout(() => router.replace(next), 1500);
       return;
     }
-    router.replace("/");
+    router.replace(next);
   }
 
   return (
@@ -327,7 +331,7 @@ export default function LoginPage() {
              cao `--h-cta` cuối thẻ (khuôn FB "Tạo tài khoản mới"); cam vẫn chỉ MỘT
              nút Đăng nhập. */}
         <Link
-          href="/dang-ky"
+          href={withNext("/dang-ky", next)}
           className="display mt-4 flex h-(--h-cta) w-full items-center justify-center rounded-(--r-ctl) border border-line text-[1rem] font-semibold text-navy transition active:scale-[0.98]"
         >
           Tạo tài khoản mới

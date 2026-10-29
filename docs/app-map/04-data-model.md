@@ -6,6 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29 — doc-health báo symbol chết: §3d còn ghi hàm chặn riêng tư cũ của `sw.js` ⇒ sửa theo hiện trạng (allowlist `API_CACHE_ALLOW` + `isCacheableApiPath`; `purgeApiCache` ↔ message `forfish:purge-api-cache` vẫn còn). Rà commit covers từ 19/10: migration 0065–0075 đều đã có mục + ghi chú apply; `documents.ts` chỉ thêm `giayTuUrl` (c3e12c60) ⇒ thêm 1 dòng §3; `DOCUMENT_KINDS` 7 loại, `getExpiryStatus` (`days===0` → expired) khớp bảng; owned-assets/sdwork-*/phone không đổi. -->
 <!-- re-verified: 2026-10-29 — `documents.ts` thêm `giayTuUrl` (c3e12c6) ⇒ ghi vào §3; `DocumentKind` 7 loại, `getExpiryStatus`/`byUrgency` khớp bảng §3. Migration tới 0075 đều có mục. Mục 3d (audit 2026-07-29) sửa: hàm chặn /api riêng tư cũ không còn, sw.js nay dùng allowlist `API_CACHE_ALLOW` + `isCacheableApiPath()` (khớp `sw-cache-policy.ts`); `purgeApiCache` + `SDFISH_API_V` sdfish-api-v2 vẫn đúng. -->
 <!-- re-verified: 2026-10-26c — thêm migration 0075_kairos_dinh_kem_dong (bảng dòng tàu trong PDF đính kèm thông báo gov, RLS + revoke) — 14 §21b. ĐÃ APPLY 2026-10-26. -->
 <!-- re-verified: 2026-10-26b — thêm migration 0074_kairos_chinh_sach (check topic + `chinh-sach` ở kairos_sources/kairos_posts; cột `kairos_posts.attachments jsonb` ≤10) — 14 §21. ✅ ĐÃ APPLY 2026-10-26 qua connector Supabase (trước khi deploy — `supabase-store` POST_COLS chọn cột này). -->
@@ -513,6 +514,7 @@ Nguồn + thiết kế đầy đủ: [docs/specs/dong-bo-so-per-may.md](../specs
 | mẫu (demo/sổ mẫu) | không sinh cảnh báo, không đếm badge | tủ/sổ/lịch mẫu | 07 §8 + §12 |
 
 - `byUrgency(today)` — sort gấp nhất lên đầu (expired trước, rồi gần hạn nhất; không hạn xuống cuối)
+- `giayTuUrl(search)` (2026-10-26) — đọc `?giay=<loại>` trên URL, trả `DocumentKind` hợp lệ hoặc `null`; tủ giấy tờ dùng để mở sẵn form đúng loại khi bấm từ khối hạn giấy dưới bài luật Sen Biển (14 §21f). Không đụng DB.
 - Seed mẫu tủ giấy tờ **đã gỡ HẲN** (2026-07-29): `loadDocs()` trả rỗng khi chưa có data thật → màn "chưa có, bấm thêm". Hàm `demoDocuments` (từng seed rồi thành dead code) nay xoá khỏi `documents.ts`. Xem 02 §4.
 
 ### Camel ↔ snake mapping (khi nối Supabase)

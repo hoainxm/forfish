@@ -7,13 +7,12 @@
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { prefetchDataKey } from "@/lib/data-key";
-import { registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
-import { registerDataProtocol } from "@/lib/data-protocol";
 
-// Đăng ký protocol pmtiles:// và sdfdata:// (GeoJSON tĩnh qua bộ giải mã file
-// dữ liệu) NGAY khi vỏ client này nạp — trước khi map dựng.
-registerPmtilesProtocol();
-registerDataProtocol();
+/*  Đăng ký protocol pmtiles:// và sdfdata:// đã DỜI vào fishing-map-view.tsx (rà tốc độ
+    2026-10-29). Hai file đăng ký import `maplibre-gl`, nên gọi chúng ở vỏ này là kéo
+    266 KB gzip của thư viện bản đồ vào lần tải đầu của route — và dock tải trước route
+    này ở MỌI màn, kể cả khách chỉ thấy cổng đăng nhập. Ở fishing-map-view (nạp động)
+    thì chúng chạy lúc module nạp, vẫn TRƯỚC khi map dựng. ĐỪNG import lại ở đây. */
 
 const FishingMapView = dynamic(() => import("@/components/fishing-map-view"), {
   ssr: false,

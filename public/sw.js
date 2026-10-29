@@ -413,6 +413,11 @@ const SHELL = [
       duyệt cài lại, `c.add` nhét entry mới vào kho đang dùng; bump là xoá vỏ đang chạy được).
       /api/kairos/* KHÔNG vào API_CACHE_ALLOW — gắn danh tính (hayByMe, mine, chặn). */
   "/kairos",
+  /*  VẬT TƯ (rà toàn app 2026-10-29) — ô thứ sáu của dock (`dock-nav.ts`) mà bị sót: máy chưa
+      từng mở Vật tư lúc có sóng thì ra khơi bấm vào là chờ rồi rơi về Trang chủ, trong khi chip
+      "vỏ đủ" vẫn xanh. "Đã thích" + giỏ đọc từ máy (`forfish.mfav.v1`, `forfish.mcart.v1`).
+      CHỈ THÊM URL ⇒ KHÔNG bump SDFISH_CACHE_V (cùng luật như /kairos ở trên). */
+  "/cho",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",

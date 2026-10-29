@@ -305,7 +305,7 @@ import {
   type ScalarFieldLayer,
 } from "@/components/scalar-gl-field";
 import { forecastStoreReady } from "@/lib/forecast-store";
-import { buildUVField } from "@/lib/particle-field";
+import { buildUVField, fillMissingUV } from "@/lib/particle-field";
 import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { FishHotspotMarker, SavedPlaceMarker, type FishHotspot } from "@/components/ban-do/diem-ghim";
@@ -487,6 +487,15 @@ import {
   StarIcon,
 } from "@/components/icons";
 import { Popover } from "@/components/ui/popover";
+import { khungOTrongVung, locOTrongVung } from "@/lib/vung-bien-vn";
+import { registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
+import { registerDataProtocol } from "@/lib/data-protocol";
+
+// Đăng ký protocol pmtiles:// và sdfdata:// (GeoJSON tĩnh qua bộ giải mã file dữ liệu) lúc module
+// này nạp — trước khi map dựng. Đặt ở đây (nạp động) chứ không ở vỏ fishing-map.tsx, để thư viện
+// bản đồ không nằm trong lần tải đầu của route (rà tốc độ 2026-10-29).
+registerPmtilesProtocol();
+registerDataProtocol();
 
 /* Nhãn ngày ("Hôm nay" / "Ngày mai" / ngày thật) nằm ở lib/day-labels.ts —
    so NGÀY THẬT chứ không so vị trí mảng, để bản lưu trong máy không nói dối. */
@@ -1456,9 +1465,46 @@ export default function FishingMapView() {
   // 2026-07-29, bỏ cổng reduced-motion): gió/lớp màu theo giờ bay theo HƯỚNG
   // GIÓ, lớp SÓNG bay theo HƯỚNG SÓNG (hạt khác nhau); độ mặn (theo ngày) lấy
   // gió hiện tại (mốc 0). Trường u/v bilinear từ cùng lưới fGrid.
+  /*  MẶT NẠ ĐẤT LIỀN cho hạt của lớp NƯỚC (sóng/dòng chảy) — 2026-10-29, tester
+      báo "dòng chảy chỉ chảy ở miền Trung, miền Nam không chảy". Lưới thưa ~2°
+      nên nhiều điểm lưới ven bờ nằm trên đất, marine API trả null, hạt chết cả
+      dải ven bờ. Có mặt nạ thì lấp ô đất bằng số của ô biển kề (`fillMissingUV`)
+      và chặn hạt trên bờ, nên nước chảy được tới sát bờ.
+      Dùng lại lưới độ sâu của dẫn đường (cùng file, service worker đã ghim
+      trong vỏ sống-còn, `fetchDepthGrid` có trần chờ và cache cả phiên). Chỉ xin
+      khi bật lớp sóng/dòng chảy. Tải hụt hay mất sóng thì hạt chạy như cũ,
+      không lấp, không chặn. */
+  const [matNaDat, setMatNaDat] = useState<DepthGrid | null>(null);
+  const lopNuoc = forecastKind === "current" || forecastKind === "wave";
+  useEffect(() => {
+    if (!lopNuoc || matNaDat) return;
+    let alive = true;
+    fetchDepthGrid()
+      .then((g) => {
+        if (alive) setMatNaDat(g);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [lopNuoc, matNaDat]);
+  const laNuoc = useMemo(
+    () =>
+      matNaDat
+        ? (la: number, lo: number) => depthClassAt(matNaDat, la, lo) !== 0
+        : undefined,
+    [matNaDat],
+  );
+
   const particleField = useMemo(() => {
-    if (forecastKind)
-      return kindGrid ? buildUVField(kindGrid, timeIdx, forecastKind) : null;
+    if (forecastKind) {
+      const f = kindGrid ? buildUVField(kindGrid, timeIdx, forecastKind) : null;
+      // chỉ lấp ô nằm trong vùng mặt nạ phủ (102–118°Đ, 5–23,5°B): ngoài đó
+      // không biết đất hay biển ⇒ giữ ô thiếu, hạt chết như cũ
+      return f && matNaDat && forecastKind !== "wind"
+        ? fillMissingUV(f, (la, lo) => depthClassAt(matNaDat, la, lo) != null)
+        : f;
+    }
     if (!fGrid) return null;
     if (overlayField && overlayField !== "salinity")
       return buildUVField(fGrid, timeIdx, "wind");
@@ -1468,7 +1514,7 @@ export default function FishingMapView() {
     // WebView Android máy yếu. Nay hạt CHỈ hiện khi CHỌN lớp gió/sóng/dòng
     // (forecastKind) hoặc lớp màu cần vệt → tắt được bằng cách bỏ chọn lớp.
     return null;
-  }, [forecastKind, overlayField, fGrid, kindGrid, timeIdx]);
+  }, [forecastKind, overlayField, fGrid, kindGrid, timeIdx, matNaDat]);
 
   // Mũi tên TĨNH: lớp GIÓ/SÓNG luôn hiện mũi tên MÀU kèm hạt (user 2026-07-29:
   // kéo trục ngày nhìn mũi tên là thấy đổi hướng ngay — hạt đổi chậm hơn).
@@ -3185,7 +3231,7 @@ export default function FishingMapView() {
     [places],
   );
   // tải sẵn bộ hiểu ý (2,4 MB) + giọng nữ Sen Biển (~1,1 MB mp3) + bộ NGHE trong
-  // máy (34 MB, nghe-may.ts) khi còn ở bờ — SW giữ lại (cache-first), ra khơi mất
+  // máy (79 MB, nghe-may.ts — tự tải ở mọi mạng trừ "tiết kiệm dữ liệu", anh Long chốt giữ 2026-10-29) khi còn ở bờ — SW giữ lại (cache-first), ra khơi mất
   // sóng vẫn nghe/hiểu/đọc được. Lần mở sau là đọc từ kho. Tuần tự, sau 8 s.
   const senTen = useMemo(() => senDests.map((d) => d.name), [senDests]);
   const senTenRef = useRef(senTen);
@@ -4895,7 +4941,8 @@ export default function FishingMapView() {
     // v2: quy điểm mùa vụ về ĐÚNG thang bản đồ ngày (phân vị) rồi pha trên HỢP
     // hai tập ô — bản v1 chỉ chạy trên danh sách ô của ảnh nên mùa vụ chỉ biết
     // kéo xuống, KHÔNG bao giờ đẻ được vị trí mới (đo: 0 ô mới ở mọi tầm).
-    const cells = blendFishCells(fishCast.cells, clim, month, fishLead);
+    // pha mùa vụ ĐẺ được ô mới (bản đồ mùa phủ cả Biển Đông) ⇒ lọc lại theo vùng biển VN
+    const cells = locOTrongVung(blendFishCells(fishCast.cells, clim, month, fishLead));
     return { ...fishCast, cells };
   }, [fishCast, clim, fishLead, sel?.date, todayIso]);
 
@@ -4913,26 +4960,28 @@ export default function FishingMapView() {
       const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
       if (v < lo) continue;
       const r = Math.round(v);
-      const x0 = c.lon - h;
-      const x1 = c.lon + h;
-      const y0 = c.lat - h;
-      const y1 = c.lat + h;
-      features.push({
-        type: "Feature",
-        properties: { s: r },
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [x0, y0],
-              [x1, y0],
-              [x1, y1],
-              [x0, y1],
-              [x0, y0],
+      // cắt theo vùng biển VN: ô vắt qua biên chỉ tô phần bên trong (lib/vung-bien-vn, 2026-10-29)
+      const khung = khungOTrongVung(c.lat, c.lon, h);
+      // ô bị cắt thành mảnh ⇒ đánh dấu `m` để lớp viền bỏ qua (không thì viền trắng thành lưới mịn)
+      const cat = khung.length !== 1 || khung[0][2] - khung[0][0] < 2 * h - 1e-9;
+      for (const [x0, y0, x1, y1] of khung) {
+        features.push({
+          type: "Feature",
+          properties: cat ? { s: r, m: 1 } : { s: r },
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [x0, y0],
+                [x1, y0],
+                [x1, y1],
+                [x0, y1],
+                [x0, y0],
+              ],
             ],
-          ],
-        },
-      });
+          },
+        });
+      }
     }
     return { type: "FeatureCollection", features };
   }, [fishOn, fishView, fishSpecies, fishGridStep, anyExclusiveOverlay]);
@@ -6348,6 +6397,7 @@ export default function FishingMapView() {
             <Layer
               id="fish-grid-line"
               type="line"
+              filter={["!", ["has", "m"]]}
               paint={{
                 // viền ô trắng mảnh — tách ô rõ như lưới bản tin ngư trường
                 "line-color": "#ffffff",
@@ -8201,6 +8251,7 @@ export default function FishingMapView() {
       <WindParticles
         mapRef={mapRef}
         field={particleField}
+        isWater={lopNuoc ? laNuoc : undefined}
         variant={
           // dòng chảy dùng vệt dày kiểu sóng — đọc là "nước đang trôi"
           forecastKind === "wave" || forecastKind === "current"

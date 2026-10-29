@@ -80,6 +80,19 @@ describe("lưu / đọc ngăn SĐT", () => {
     expect(loadMarketCart(null)).toEqual([]);
     expect(JSON.parse(w.store.get(MARKET_CART_KEY)!).phone).toBe("0901000001");
   });
+  it("GIỎ KHÁCH đi theo khi đăng nhập ở MỌI chỗ đọc; giỏ người đã đăng nhập KHÔNG lộ sang khách (2026-10-29)", () => {
+    const w = fakeWindow();
+    saveMarketCart(null, [{ productId: "p1", qty: 2 }]);
+    // vừa đăng nhập: dock / Sen Biển đọc thẳng theo SĐT vẫn thấy giỏ
+    expect(loadMarketCart("0901000001")).toEqual([{ productId: "p1", qty: 2 }]);
+    // Sen Biển thêm món: cộng vào giỏ đã nhận, không ghi đè mất giỏ khách
+    saveMarketCart("0901000001", [...loadMarketCart("0901000001"), { productId: "p2", qty: 1 }]);
+    expect(loadMarketCart("0901000001")).toHaveLength(2);
+    expect(JSON.parse(w.store.get(MARKET_CART_KEY)!).phone).toBe("0901000001");
+    // chiều ngược: giỏ của SĐT không hiện cho khách lạ, cũng không cho SĐT khác
+    expect(loadMarketCart(null)).toEqual([]);
+    expect(loadMarketCart("0909999999")).toEqual([]);
+  });
   it("máy hết chỗ (setItem ném) ⇒ false, KHÔNG bắn EVENT; Safari im lặng ⇒ false", () => {
     const w1 = fakeWindow({ throwOnSet: true });
     expect(saveMarketCart("0901000001", [{ productId: "p1", qty: 1 }])).toBe(false);
