@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { withNext } from "@/lib/auth-next";
 
 import { LockIcon } from "@/components/icons";
 import { useAuthUser } from "@/lib/use-auth";
@@ -45,6 +47,8 @@ export function RequireLogin({
   laTieuDeChinh?: boolean;
 }) {
   const { signedIn, ready } = useAuthUser();
+  // đăng nhập xong quay về đúng màn này (lib/auth-next) — gọi trước mọi return sớm (luật hook)
+  const pathname = usePathname() ?? "/";
 
   /*  ĐANG KIỂM THÌ CHƯA NÓI GÌ VỀ QUYỀN — nháy thẻ khoá rồi mở ra là nói với
       người đã có tài khoản rằng họ chưa có.
@@ -93,13 +97,13 @@ export function RequireLogin({
           {/*  NÚT CHÍNH DUY NHẤT CỦA MÀN ⇒ được phép full-width (ngoại lệ đã
                chốt ở 03-design-system §Nút hành động mục 0). */}
           <Link
-            href="/dang-ky"
+            href={withNext("/dang-ky", pathname)}
             className="display flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-semibold text-white shadow-trim-cta transition active:scale-[0.98]"
           >
             Đăng ký
           </Link>
           <Link
-            href="/login"
+            href={withNext("/login", pathname)}
             className="inline-flex min-h-[3.5rem] items-center px-2 text-[1rem] font-semibold text-sea"
           >
             Đã có tài khoản — Đăng nhập

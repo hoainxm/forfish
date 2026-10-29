@@ -22,7 +22,8 @@ import Link from "next/link";
 import { PORTS, type FishingPort } from "@/data/ports";
 import { ChevronRightIcon } from "@/components/icons";
 import { cangNhaCuaToi } from "@/components/tide-home-card";
-import { clockVN, isoDateVN } from "@/lib/day-labels";
+import { isoDateVN } from "@/lib/day-labels";
+import { gioLuu } from "@/lib/offline-line";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import {
   SEA_STATE,
@@ -124,7 +125,8 @@ export function SeaTodayCard() {
           </span>
           {banLuu != null && (
             <span className="mt-0.5 block text-[0.8125rem] font-semibold leading-snug text-warn">
-              Bản lưu {clockVN(banLuu)}
+              {/* kèm NGÀY (07 §10.1C, rà offline 2026-10-29): ngày thứ ba ngoài khơi không được đọc như số chiều nay */}
+              Bản lưu {gioLuu(banLuu)}
             </span>
           )}
         </span>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { API_CACHE_ALLOW, isCacheableApiPath } from "@/lib/sw-cache-policy";
+import { DOCK } from "@/lib/dock-nav";
 
 describe("isCacheableApiPath — chỉ cache thứ không gắn danh tính", () => {
   it("dữ liệu công khai/dùng chung → cache", () => {
@@ -60,5 +61,18 @@ describe("Kairos (14-ba-spec-kairos AC19)", () => {
     expect(isCacheableApiPath("/api/kairos/feed")).toBe(false);
     expect(isCacheableApiPath("/api/kairos/new-count")).toBe(false);
     expect(isCacheableApiPath("/api/kairos/posts/x")).toBe(false);
+  });
+});
+
+describe("vỏ offline phủ ĐỦ dock (rà toàn app 2026-10-29: /cho bị sót)", () => {
+  it("mọi ô dock nằm trong CRITICAL_SHELL hoặc SHELL — mất sóng bấm ô nào cũng ra màn", () => {
+    const sw = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");
+    const urls = (name: string) => {
+      const block = sw.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\n\\];`));
+      expect(block, `sw.js phải có const ${name} = [...]`).toBeTruthy();
+      return [...block![1].matchAll(/^\s*"([^"]+)",/gm)].map((m) => m[1]);
+    };
+    const shell = new Set([...urls("CRITICAL_SHELL"), ...urls("SHELL")]);
+    for (const d of DOCK) expect(shell, `ô dock ${d.id} (${d.href})`).toContain(d.href);
   });
 });

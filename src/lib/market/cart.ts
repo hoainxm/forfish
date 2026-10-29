@@ -107,7 +107,15 @@ function readStored(phone: string | null | undefined): Stored | null {
     if (!raw) return null;
     const s = JSON.parse(raw) as Stored;
     if (!s || typeof s.phone !== "string" || !Array.isArray(s.items)) return null;
-    if (s.phone !== cartBucket(phone)) return null;
+    const ngan = cartBucket(phone);
+    /*  GIỎ KHÁCH LẠ ĐI THEO KHI ĐĂNG NHẬP — đặt ở hàm đọc dùng chung (rà hành trình 2026-10-29).
+        Luồng đã chốt (11 §5.5): xem chợ không cần tài khoản → chọn món → bấm Đặt hàng mới mời
+        đăng nhập. Trước đây việc dời giỏ chỉ chạy trong hook của màn chợ, nên vừa đăng nhập xong
+        ô dock báo giỏ trống, và Sen Biển thêm món là GHI ĐÈ mất giỏ khách (cả hai đọc thẳng ngăn
+        theo SĐT). Khoá chỉ chứa MỘT ngăn, nên ngăn khách đang nằm đó nghĩa là ngăn của số này
+        trống — nhận luôn, lần lưu kế ghi dưới SĐT. Chiều ngược KHÔNG có: đăng xuất xoá cả khoá
+        (`clearMarketCart`), giỏ của người đã đăng nhập không bao giờ lộ sang khách. */
+    if (s.phone !== ngan && s.phone !== cartBucket(null)) return null;
     return s;
   } catch {
     return null;

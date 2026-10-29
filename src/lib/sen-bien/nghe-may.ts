@@ -26,7 +26,8 @@ import type { ListenErrorCode, ListenHandle } from "./nghe";
 export const SHERPA_BAN = "1.13.8";
 export const NGHE_PATH = "/data/sen-bien-nghe.v2.bin";
 const WORKER_URL = "/sen-bien-nghe.worker.js";
-/** 34 MB qua sóng bờ: cho dư; quá giờ thì SW vẫn tải tiếp và cất cho lần sau. */
+/** Gói 79 MB (bản v2): 3 phút chỉ đủ khi sóng bờ từ khoảng 450 KB/s trở lên. Quá giờ thì SW vẫn tải
+    tiếp và cất cho lần sau, nên trần này chỉ quyết lần nạp NÀY có kịp dùng không. */
 const NAP_MS = 180_000;
 
 /* ── VAD: biết lúc bà con nói xong — THUẦN, có test ─────────────────────── */
@@ -139,7 +140,7 @@ export function boNgheSan(): boolean {
 
 /**
  * Tải + nạp bộ nghe (một lần / phiên; hỏng ⇒ false, lần sau thử lại). Không ném.
- * Máy bật "tiết kiệm dữ liệu" ⇒ không tự tải (34 MB) — vẫn nghe bằng mạng như cũ.
+ * Máy bật "tiết kiệm dữ liệu" ⇒ không tự tải (79 MB) — vẫn nghe bằng mạng như cũ.
  */
 export function napBoNghe(tenUuTien: readonly string[] = []): Promise<boolean> {
   if (san) return Promise.resolve(true);

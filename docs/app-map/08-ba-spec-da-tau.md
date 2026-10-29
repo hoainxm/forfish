@@ -2,7 +2,8 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
-last_verified: 2026-10-26
+last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29 — boat-switcher: thêm tàu ĐẦU TIÊN nay xét kết quả `addBoat()` như nhánh sửa tàu; máy hết chỗ ⇒ băng đỏ storageFullCopy("hồ sơ tàu") "Tàu chưa được lưu" (trước im lặng). Vòng đời thêm/xoá/đổi tàu (NV1–NV3, R7) không đổi. -->
 <!-- re-verified: 2026-10-26l — document-vault + boat-switcher: thêm nhập bằng giọng (Sen Biển hỏi từng câu, 15 §30) — chỉ ĐIỀN ô của form đang mở, lưu đi qua đúng nút Lưu của form ⇒ luật đa tàu (boatId theo tàu đang chọn, hỏi trùng loại) KHÔNG đổi. -->
 <!-- re-verified: 2026-10-26h — document-vault.tsx: nút Xuất trình dời xuống dưới danh sách giấy (đầu nhóm chỉ còn Thêm). Luật đa tàu không đổi. -->
 <!-- re-verified: 2026-10-26g — document-vault.tsx rà UI giấy tờ mới (chi tiết 07 re-verified 2026-10-26g): Chụp giấy thành nút phụ, đánh dấu ô app điền, Lưu khoá khi đang đọc, dải ảnh dưới kết quả, Xuất trình nhận `maTau` của tàu đang chọn, tủ cất sẵn ảnh vào kho khi có sóng (`luuSanAnhGiay` theo `boatDocs` của tàu đang xem). Luật đa tàu KHÔNG đổi — đối chiếu code. -->

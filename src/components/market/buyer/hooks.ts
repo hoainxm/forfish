@@ -67,22 +67,7 @@ export function useMarketCart(): MarketCartState {
   const [unselected, setUnselected] = useState<string[]>([]);
   const [saveFailed, setSaveFailed] = useState(false);
 
-  /*  KHÁCH LẠ ĐĂNG NHẬP THÌ GIỎ ĐI THEO.
-      Giỏ ngăn theo SĐT (R15, cách ly máy dùng chung) và khách lạ nằm ngăn
-      "__khach__". Nhưng luồng đã chốt là: xem chợ không cần tài khoản → chọn
-      món → bấm Đặt hàng mới hiện LoginGate (11 §5.5). Không dời giỏ thì bà con
-      đăng nhập xong quay lại thấy GIỎ TRỐNG — mất công chọn lại, đúng lúc
-      chuẩn bị trả tiền. Nên: vừa có SĐT mà ngăn của số đó đang trống thì dời
-      giỏ khách lạ sang. Ngăn của người khác KHÔNG bị đụng (chỉ dời khi trống).
-      Spec 11/12 chưa nói ca này — ghi ở đây và trong báo cáo. */
-  const prevPhone = useRef<string | null>(null);
-  useEffect(() => {
-    if (phone && prevPhone.current === null) {
-      const guest = loadMarketCart(null);
-      if (guest.length > 0 && loadMarketCart(phone).length === 0) saveMarketCart(phone, guest);
-    }
-    prevPhone.current = phone ?? null;
-  }, [phone]);
+  // Giỏ khách lạ đi theo khi đăng nhập: nay lo ở `readStored` (lib/market/cart.ts) cho MỌI chỗ đọc.
 
   useEffect(() => {
     const sync = () => {

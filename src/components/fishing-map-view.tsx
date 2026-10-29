@@ -483,6 +483,14 @@ import {
   StarIcon,
 } from "@/components/icons";
 import { Popover } from "@/components/ui/popover";
+import { registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
+import { registerDataProtocol } from "@/lib/data-protocol";
+
+// Đăng ký protocol pmtiles:// và sdfdata:// (GeoJSON tĩnh qua bộ giải mã file dữ liệu) lúc module
+// này nạp — trước khi map dựng. Đặt ở đây (nạp động) chứ không ở vỏ fishing-map.tsx, để thư viện
+// bản đồ không nằm trong lần tải đầu của route (rà tốc độ 2026-10-29).
+registerPmtilesProtocol();
+registerDataProtocol();
 
 /* Nhãn ngày ("Hôm nay" / "Ngày mai" / ngày thật) nằm ở lib/day-labels.ts —
    so NGÀY THẬT chứ không so vị trí mảng, để bản lưu trong máy không nói dối. */
@@ -3132,7 +3140,7 @@ export default function FishingMapView() {
     [places],
   );
   // tải sẵn bộ hiểu ý (2,4 MB) + giọng nữ Sen Biển (~1,1 MB mp3) + bộ NGHE trong
-  // máy (34 MB, nghe-may.ts) khi còn ở bờ — SW giữ lại (cache-first), ra khơi mất
+  // máy (79 MB, nghe-may.ts — tự tải ở mọi mạng trừ "tiết kiệm dữ liệu", anh Long chốt giữ 2026-10-29) khi còn ở bờ — SW giữ lại (cache-first), ra khơi mất
   // sóng vẫn nghe/hiểu/đọc được. Lần mở sau là đọc từ kho. Tuần tự, sau 8 s.
   const senTen = useMemo(() => senDests.map((d) => d.name), [senDests]);
   const senTenRef = useRef(senTen);
