@@ -113,15 +113,16 @@ export function PlotterReadout({
         })()
       : null;
 
-  // Đuôi câu của dòng TÀU TÔI — ghép vào CÙNG DÒNG để không đẻ thêm hàng.
+  /*  Đuôi của dòng TÀU TÔI — DÒNG PHỤ ngay dưới toạ độ, BÊN TRONG nút (rà UI B-P1-2, 2026-10-29): nối đuôi cùng
+      dòng thì "· toạ độ lúc…" bị cắt ngoài khung ở máy 360 px; nút cao bậc control nên dòng phụ không tốn thêm chỗ. */
   const myTail = stale
-    ? `· toạ độ lúc ${lastFixAt != null ? clockVN(lastFixAt) : "trước"}`
+    ? `toạ độ lúc ${lastFixAt != null ? clockVN(lastFixAt) : "trước"}`
     : myPos != null && accuracyM != null && accuracyM > ACCURACY_WARN_M
-      ? `· ±${Math.round(accuracyM)} m`
+      ? `sai số ±${Math.round(accuracyM)} m`
       : null;
 
   return (
-    <div className="glass pointer-events-auto w-fit max-w-[calc(100vw-5.5rem)] overflow-hidden px-3 py-1">
+    <div className="glass pointer-events-auto w-fit max-w-[calc(100vw-5.5rem)] overflow-hidden px-3 pb-1">
       {/* ── TÀU TÔI ───────────────────────────────────────────────────────
           Có toạ độ = DÒNG CHỮ (đọc, không bấm — như mọi app bản đồ).
           Chưa có = NÚT THẬT cao 2.75rem: chạm là xin quyền định vị. */}
@@ -132,16 +133,19 @@ export function PlotterReadout({
           type="button"
           onClick={onGoMyPos}
           aria-label="Về vị trí tàu"
-          className="flex min-h-[1.75rem] w-full items-center gap-1.5 text-left transition active:opacity-70"
+          /* vùng chạm bậc control §0 (2.75rem) — trước 1.75rem (28 px, rà UI B); chữ giữ cỡ cũ */
+          className="flex min-h-(--h-ctl) w-full items-center gap-1.5 text-left transition active:opacity-70"
         >
           <span className="flex w-4 shrink-0 justify-center"><BoatMark stale={stale} /></span>
           <RowLabel text="Tàu" />
-          <ToaDo lat={myPos.lat} lon={myPos.lon} fmt={prefs.coordFormat} mo={stale} />
-          {myTail && (
-            <span className="shrink-0 whitespace-nowrap text-[0.75rem] font-medium leading-snug text-warn">
-              {myTail}
-            </span>
-          )}
+          <span className="min-w-0">
+            <ToaDo lat={myPos.lat} lon={myPos.lon} fmt={prefs.coordFormat} mo={stale} />
+            {myTail && (
+              <span className="block whitespace-nowrap text-[0.6875rem] font-medium leading-tight text-warn">
+                {myTail}
+              </span>
+            )}
+          </span>
         </button>
       ) : (
         <button
@@ -169,7 +173,7 @@ export function PlotterReadout({
             {/* CHỈ trạng thái bị chặn mới được thêm dòng thứ hai — bà con phải
                 biết đi đâu mà bật. Các trạng thái khác giữ đúng một dòng. */}
             {denied && (
-              <span className="block text-[0.625rem] font-semibold leading-tight text-warn">
+              <span className="block text-[0.6875rem] font-semibold leading-tight text-warn">
                 Cài đặt › Vị trí
               </span>
             )}
@@ -182,7 +186,7 @@ export function PlotterReadout({
           toạ độ trỏ (tránh "cứ chạm là tính vị trí nhìn rối" — user 2026-08-29). */}
       {cursor != null && (
       <>
-      <p className="flex min-h-[1.75rem] items-center gap-1.5">
+      <p className="flex min-h-[1.5rem] items-center gap-1.5">
         <PinIcon className="h-4 w-4 shrink-0 text-trim" />
         <RowLabel text="Trỏ" />
         <ToaDo lat={cursor.lat} lon={cursor.lon} fmt={prefs.coordFormat} />
@@ -191,7 +195,7 @@ export function PlotterReadout({
           0.375rem) — nối đuôi hàng Trỏ làm thẻ lệch một bên, máy hẹp thì rớt dòng lung tung
           (anh Long 2026-10-22: "bố cục cho cân đối… bố cục của thẻ toạ độ ấy"). */}
       {rng && (
-        <p className="-mt-0.5 pb-0.5 pl-[1.375rem] text-[0.6875rem] font-medium leading-tight text-foreground/60">
+        <p className="-mt-0.5 pb-0.5 pl-[1.375rem] text-[0.6875rem] font-medium leading-tight text-foreground/70">
           {rng}
         </p>
       )}
@@ -210,7 +214,7 @@ function ToaDo({ lat, lon, fmt, mo = false }: { lat: number; lon: number; fmt: C
   // MỘT dòng nhưng bỏ chữ "Tàu"/"Trỏ" nên thẻ vẫn hẹp; quãng–hướng tự xuống dòng (flex-wrap) khi máy hẹp,
   // không bao giờ bị cắt như bản 2026-10-22 trước.
   return (
-    <span className={`flex gap-x-2 whitespace-nowrap text-[0.8125rem] font-semibold tabular-nums leading-tight ${mo ? "text-foreground/55" : "text-navy"}`}>
+    <span className={`flex gap-x-2 whitespace-nowrap text-[0.8125rem] font-semibold tabular-nums leading-tight ${mo ? "text-foreground/70" : "text-navy"}`}>
       {/* vĩ độ có bề rộng tối thiểu ⇒ kinh độ hai hàng đứng thẳng một cột, kể cả khi
           một bên là 9° một bên là 10° */}
       <span className="min-w-[5.25rem]">{fmtLat(lat, fmt)}</span>

@@ -6,7 +6,6 @@
 // không có nền. Nay "sẵn sàng" = đủ BỐN thứ, đều đọc TRONG MÁY, không request:
 //   1. dữ liệu đủ (coverageChipOk) · 2. vỏ đủ (isShellReady) · 3. có khoá dữ liệu · 4. có nền bản đồ trong kho SW.
 
-import { DATA_KEY_STORE } from "@/lib/data-key";
 import { readToken, tokenHeader } from "@/lib/device-token-store";
 import { timeoutSignal } from "@/lib/abort";
 import { DEFAULT_POINT } from "@/lib/ocean-map";
@@ -17,23 +16,8 @@ import type { PretripPoint } from "@/lib/pretrip";
 export const BASEMAP_CACHE = "sdfish-basemap-v2";
 export const BASEMAP_PATH = "/data/vn-basemap.pmtiles";
 
-/**
- * Máy có ít nhất một khoá giải file SDF2 hợp lệ không. Chỉ đọc localStorage, cùng luật kiểm với `data-key.ts readStore`
- * (id 16 hex · khoá 64 hex). Hỏng/chặn kho ⇒ false (nói "chưa có khoá" an toàn hơn khoe xanh).
- */
-// nợ: trùng luật đọc với readStore (data-key.ts, ngoài nhóm file đợt này); nâng khi data-key export hasDataKey().
-export function hasDataKey(): boolean {
-  try {
-    const raw = window.localStorage.getItem(DATA_KEY_STORE);
-    const j = raw ? (JSON.parse(raw) as unknown) : null;
-    if (!j || typeof j !== "object") return false;
-    return Object.entries(j as Record<string, unknown>).some(
-      ([id, hex]) => /^[0-9a-f]{16}$/.test(id) && typeof hex === "string" && /^[0-9a-f]{64}$/.test(hex),
-    );
-  } catch {
-    return false;
-  }
-}
+/** Đọc khoá trong máy — MỘT luật ở data-key.ts (trước đây chép lại ở đây; gộp 2026-10-29). Re-export cho chỗ gọi cũ. */
+export { hasDataKey } from "@/lib/data-key";
 
 /** Nền bản đồ đã nằm trong kho SW chưa. `caches.has` trước để KHÔNG tạo kho rỗng khi chỉ đọc. Không ném. */
 export async function hasBasemap(): Promise<boolean> {

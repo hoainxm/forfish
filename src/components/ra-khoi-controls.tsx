@@ -979,7 +979,7 @@ function HaiDoPanel({
 }) {
   return (
     <div>
-      <p className="mb-2 text-[0.75rem] font-semibold text-foreground/55">
+      <p className="mb-2 text-[0.75rem] font-semibold text-foreground/70">
         Lớp nền bản đồ · Chọn 1
       </p>
       <ul className="space-y-1.5" role="radiogroup" aria-label="Lớp nền bản đồ">
@@ -1291,14 +1291,14 @@ function NguTruongPanel({
             </span>
           }
         />
-        {aisOn && aisState === "loading" && <p className="mt-1.5 px-1 text-[0.75rem] text-foreground/60">Đang tải vị trí tàu…</p>}
+        {aisOn && aisState === "loading" && <p className="mt-1.5 px-1 text-[0.75rem] text-foreground/70">Đang tải vị trí tàu…</p>}
         {aisOn && aisState === "error" && (
           <button type="button" onClick={onAisRetry} className="mt-1.5 w-full rounded-xl bg-field px-3 py-2 text-left text-[0.8125rem] text-foreground/75 active:scale-[0.99]">
             Chưa tải được vị trí tàu — cần có sóng lần đầu. Chạm để thử lại.
           </button>
         )}
         {aisOn && aisState === "ok" && aisLuc && (
-          <p className="mt-1.5 px-1 text-[0.75rem] text-foreground/60">
+          <p className="mt-1.5 px-1 text-[0.75rem] text-foreground/70">
             {aisSoTau.toLocaleString("vi-VN")} tàu · bản lúc {new Date(aisLuc).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
             {aisTuKho ? " · chưa tải được bản mới, dùng bản lưu trong máy" : ""}
           </p>
@@ -1734,7 +1734,7 @@ function SettingsPanel({ vmsZones, tideCount }: { vmsZones: VmsZone[]; tideCount
   const prefs = useMapPrefs();
   return (
     <div>
-      <p className="mb-2 text-[0.75rem] font-semibold text-foreground/55">
+      <p className="mb-2 text-[0.75rem] font-semibold text-foreground/70">
         Đơn vị khoảng cách
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -1752,7 +1752,7 @@ function SettingsPanel({ vmsZones, tideCount }: { vmsZones: VmsZone[]; tideCount
         />
       </div>
 
-      <p className="mb-2 mt-3 text-[0.75rem] font-semibold text-foreground/55">
+      <p className="mb-2 mt-3 text-[0.75rem] font-semibold text-foreground/70">
         Hệ toạ độ
       </p>
       <div className="space-y-2">
@@ -1777,7 +1777,7 @@ function SettingsPanel({ vmsZones, tideCount }: { vmsZones: VmsZone[]; tideCount
         Đổi ở đây thì toạ độ, khoảng cách, dẫn đường và công cụ đo đều đổi theo.
       </p>
 
-      <p className="mb-1 mt-4 text-[0.75rem] font-semibold text-foreground/55">
+      <p className="mb-1 mt-4 text-[0.75rem] font-semibold text-foreground/70">
         Lớp bản đồ
       </p>
       <Toggle
@@ -1820,7 +1820,7 @@ function SettingsPanel({ vmsZones, tideCount }: { vmsZones: VmsZone[]; tideCount
 
       {vmsZones.length > 0 && (
         <>
-          <p className="mb-1 mt-4 text-[0.75rem] font-semibold text-foreground/55">
+          <p className="mb-1 mt-4 text-[0.75rem] font-semibold text-foreground/70">
             Vùng biển (dữ liệu VMS)
           </p>
           {vmsZones.map((zone, i) => (
@@ -1889,7 +1889,7 @@ function ToolsPanel({
         <>
           {measureResult ? (
             <div className="mt-2 rounded-xl bg-field px-3 py-2.5">
-              <p className="text-[0.75rem] font-semibold text-foreground/55">
+              <p className="text-[0.75rem] font-semibold text-foreground/70">
                 Khoảng cách 2 điểm
               </p>
               <p className="display mt-0.5 text-[1.25rem] font-semibold leading-none text-navy">

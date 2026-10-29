@@ -99,7 +99,7 @@ const THU_TU_NHOM: NhomTau[] = ["ca", "hang", "dau", "khach", "khac"];
 
 function TaiLoi({ state, ban, onRetry }: { state: TaiState; ban: TauAisBan | null; onRetry: () => void }) {
   if (ban) return null;
-  if (state === "loading") return <p className="mt-1.5 px-1 text-[0.8125rem] text-foreground/60">Đang tải vị trí tàu…</p>;
+  if (state === "loading") return <p className="mt-1.5 px-1 text-[0.8125rem] text-foreground/70">Đang tải vị trí tàu…</p>;
   if (state === "error")
     return (
       <button type="button" onClick={onRetry} className="mt-1.5 w-full rounded-xl bg-field px-3 py-2 text-left text-[0.8125rem] text-foreground/75 active:scale-[0.99]">
@@ -187,7 +187,7 @@ export function AisToanBien({
 
       {ban && dem && tim && dangTim && (
         kq.length === 0 ? (
-          <p className="mt-1.5 px-2 text-[0.8125rem] text-foreground/60">Không thấy tàu nào tên &ldquo;{q.trim()}&rdquo; đang phát AIS.</p>
+          <p className="mt-1.5 px-2 text-[0.8125rem] text-foreground/70">Không thấy tàu nào tên &ldquo;{q.trim()}&rdquo; đang phát AIS.</p>
         ) : (
           <ul className="mt-1 max-h-[36dvh] overflow-y-auto overscroll-contain">
             {kq.map((t) => (
@@ -203,7 +203,7 @@ export function AisToanBien({
                   <span className="inline-block h-2.5 w-2.5 flex-none rounded-full" style={{ backgroundColor: MAU_TAU[nhomTau(t.loai)] }} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[0.875rem] font-semibold text-navy">{tenTau(t)}</span>
-                    <span className="block truncate text-[0.75rem] text-foreground/60">
+                    <span className="block truncate text-[0.75rem] text-foreground/70">
                       {loaiTauLabel(t.loai)}
                       {viTriMinh ? ` · cách mình ${so1(haversineKm(viTriMinh, { lat: t.lat, lon: t.lon }) / KM_PER_NM)} hải lý` : ""}
                     </span>
@@ -214,11 +214,11 @@ export function AisToanBien({
           </ul>
         )
       )}
-      {ban && dem && tim && !dangTim && <p className="mt-1.5 px-2 text-[0.75rem] text-foreground/55">Gõ ít nhất 2 ký tự, vd &ldquo;92468&rdquo;.</p>}
+      {ban && dem && tim && !dangTim && <p className="mt-1.5 px-2 text-[0.75rem] text-foreground/70">Gõ ít nhất 2 ký tự, vd &ldquo;92468&rdquo;.</p>}
 
       {ban && dem && !tim && (
         <div className="mt-1 flex items-center gap-1 pl-1">
-          <p className="min-w-0 flex-1 truncate text-[0.75rem] text-foreground/60" aria-live="polite">
+          <p className="min-w-0 flex-1 truncate text-[0.75rem] text-foreground/70" aria-live="polite">
             {nhom ? (
               <>
                 <b className="font-semibold text-navy">{dem[nhom].toLocaleString("vi-VN")} {NHOM_LABEL[nhom].toLowerCase()}</b> · bản {banLucLabel(ban)}
@@ -378,7 +378,7 @@ export function AisBanKinh({
             </button>
             <p className="min-w-0 px-1 text-center leading-tight" aria-live="polite">
               <span className="block text-[0.8125rem] font-semibold text-navy">{tam} hải lý</span>
-              <span className="block text-[0.6875rem] text-foreground/60">{kmLabel(tam)}</span>
+              <span className="block text-[0.6875rem] text-foreground/70">{kmLabel(tam)}</span>
             </p>
             <button type="button" onClick={() => onTam(1)} disabled={!coTheMo} aria-label="Mở rộng tầm radar" className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-field text-navy transition active:scale-95 disabled:opacity-35">
               <PlusIcon className="h-4 w-4" />
@@ -416,7 +416,7 @@ export function AisBanKinh({
                 ))}
               </div>
               {hien.length === 0 ? (
-                <p className="mt-1.5 px-1 text-[0.8125rem] text-foreground/60">
+                <p className="mt-1.5 px-1 text-[0.8125rem] text-foreground/70">
                   {ds.length === 0
                     ? `Không có tàu phát AIS trong ${tam} hải lý. Bấm + để xem xa hơn.`
                     : loc === "gan"
@@ -438,22 +438,22 @@ export function AisBanKinh({
                           <span className="inline-block h-2.5 w-2.5 flex-none rounded-full" style={{ backgroundColor: mauMucTieu(m) }} />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[0.875rem] font-semibold text-navy">{tenTau(m.tau)}</span>
-                            <span className={`block truncate text-[0.75rem] ${m.muc === "nguy" ? "font-medium text-danger" : m.muc === "canh" ? "font-medium text-warn" : "text-foreground/60"}`}>
+                            <span className={`block truncate text-[0.75rem] ${m.muc === "nguy" ? "font-medium text-danger" : m.muc === "canh" ? "font-medium text-warn" : "text-foreground/70"}`}>
                               {dongPhuTau(m, coGps)}
                             </span>
                           </span>
-                          <span className="flex-none text-[0.6875rem] text-foreground/50">{loaiTauLabel(m.tau.loai)}</span>
+                          <span className="flex-none text-[0.6875rem] text-foreground/70">{loaiTauLabel(m.tau.loai)}</span>
                         </button>
                         {mo && <ChiTietTau m={m} prefs={prefs} coGps={coGps} onXemTau={() => onXemTau(m)} />}
                       </li>
                     );
                   })}
                   {hien.length > DS_TOI_DA && (
-                    <li className="px-3 py-2 text-[0.75rem] text-foreground/55">Còn {(hien.length - DS_TOI_DA).toLocaleString("vi-VN")} tàu xa hơn — bấm − để thu tầm.</li>
+                    <li className="px-3 py-2 text-[0.75rem] text-foreground/70">Còn {(hien.length - DS_TOI_DA).toLocaleString("vi-VN")} tàu xa hơn — bấm − để thu tầm.</li>
                   )}
                 </ul>
               )}
-              <p className="mt-1.5 px-1 text-[0.6875rem] leading-snug text-foreground/55">
+              <p className="mt-1.5 px-1 text-[0.6875rem] leading-snug text-foreground/70">
                 Bản lúc {banLucLabel(ban)}
                 {tuKho ? " (lưu trong máy)" : ""}, khoảng 10 phút một bản, vị trí đã ước. Tàu không bật AIS sẽ không hiện — luôn canh chừng bằng mắt.
               </p>
@@ -472,7 +472,7 @@ function ChiTietTau({ m, prefs, coGps, onXemTau }: { m: MucTieu; prefs: MapPrefs
   const tinhDuoc = coGps && !m.tinCu && m.cpaNm != null && m.tcpaPhut != null;
   return (
     <div className="bg-field px-3 pb-2.5 pt-0.5 text-[0.8125rem] leading-snug text-foreground/80">
-      <p className="text-[0.8125rem] text-foreground/60">
+      <p className="text-[0.8125rem] text-foreground/70">
         {loaiTauLabel(t.loai)}
         {t.co ? ` · cờ ${t.co}` : ""}
         {t.dai ? ` · dài ${t.dai} m` : ""}
@@ -499,7 +499,7 @@ function ChiTietTau({ m, prefs, coGps, onXemTau }: { m: MucTieu; prefs: MapPrefs
         )}
         {tinhDuoc && (m.tcpaPhut as number) < 0 && <li>Hai tàu đang ra xa nhau</li>}
       </ul>
-      <p className="mt-1.5 text-[0.75rem] text-foreground/55">
+      <p className="mt-1.5 text-[0.75rem] text-foreground/70">
         {tinhDuoc ? `CPA ${hlLabel(m.cpaNm as number)} · TCPA ${tcpaLabel(m.tcpaPhut)} · ` : ""}
         phương vị {Math.round(m.phuongVi)}° · {fmtCoordPair(m.pos.lat, m.pos.lon, prefs.coordFormat)} (đã ước) · tin {tuoiTinLabel(m.tuoiPhut)}
         {m.tinCu ? " — tin cũ, không dùng để tránh va" : ""}

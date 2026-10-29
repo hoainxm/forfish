@@ -41,7 +41,7 @@ function DongToaDo({
 }) {
   if (lat == null || lon == null) return null;
   return (
-    <p className="mt-1 text-[0.875rem] font-semibold leading-snug text-foreground/55">
+    <p className="mt-1 text-[0.875rem] font-semibold leading-snug text-foreground/70">
       {fmtLat(lat, fmt)}
       <br />
       {fmtLon(lon, fmt)}
@@ -189,7 +189,7 @@ export function TheBaoHieu({ info, onClose, prefs }: { info: MarkInfo; onClose: 
               </p>
             ) : null;
           })()}
-          <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
+          <p className="mt-1 text-[0.875rem] font-semibold text-foreground/70">
             {fmtCoordPair(
               info.mark.lat,
               info.mark.lon,
@@ -240,7 +240,7 @@ export function TheDoSau({ info, onClose, prefs, tideStations, todayIso }: { inf
                      phải nói ra. Câu tuổi phía trên đã tự làm thô (chỉ nói
                      số năm); dòng này giải thích vì sao. */}
                 {uoc && (
-                  <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-foreground/55">
+                  <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-foreground/70">
                     {ESTIMATED_DATE_NOTE}
                   </p>
                 )}
@@ -255,7 +255,7 @@ export function TheDoSau({ info, onClose, prefs, tideStations, todayIso }: { inf
               </>
             );
           })()}
-          <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
+          <p className="mt-1 text-[0.875rem] font-semibold text-foreground/70">
             {fmtCoordPair(
               info.s.lat,
               info.s.lon,
@@ -293,7 +293,7 @@ export function TheDoSau({ info, onClose, prefs, tideStations, todayIso }: { inf
                   </p>
                 )}
                 {canhBao && tinCay && (
-                  <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-foreground/55">
+                  <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-foreground/70">
                     {tinCay} (trạm {gan.station.name})
                   </p>
                 )}
@@ -302,7 +302,7 @@ export function TheDoSau({ info, onClose, prefs, tideStations, todayIso }: { inf
           })()}
           {/*  Số hiệu thông báo để bà con (hoặc cán bộ cảng vụ) tra lại tận
                gốc — ta không phải nguồn cuối cùng, và không giả vờ là. */}
-          <p className="mt-0.5 text-[0.8125rem] font-semibold text-foreground/45">
+          <p className="mt-0.5 text-[0.8125rem] font-semibold text-foreground/70">
             Thông báo hàng hải {info.s.notice.so}
           </p>
         </div>
@@ -332,11 +332,11 @@ export function TheDen({ info, onClose, prefs }: { info: DenInfo; onClose: () =>
             </p>
           )}
           {info.d.noi && (
-            <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
+            <p className="mt-1 text-[0.875rem] font-semibold text-foreground/70">
               {info.d.noi}
             </p>
           )}
-          <p className="mt-0.5 text-[0.875rem] font-semibold text-foreground/55">
+          <p className="mt-0.5 text-[0.875rem] font-semibold text-foreground/70">
             {fmtCoordPair(info.d.lat, info.d.lon, prefs.coordFormat)}
           </p>
         </div>
@@ -361,11 +361,11 @@ export function TheXacTau({ info, onClose, prefs }: { info: XacTauInfo; onClose:
           <p className="mt-0.5 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
             {moTaXacTau(info.x)}
           </p>
-          <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
+          <p className="mt-1 text-[0.875rem] font-semibold text-foreground/70">
             {fmtCoordPair(info.x.lat, info.x.lon, prefs.coordFormat)}
           </p>
           {info.x.soThongBao && (
-            <p className="mt-0.5 text-[0.8125rem] font-semibold text-foreground/45">
+            <p className="mt-0.5 text-[0.8125rem] font-semibold text-foreground/70">
               Thông báo hàng hải {info.x.soThongBao}
             </p>
           )}
@@ -391,8 +391,8 @@ export function TheTauAis({ info, onClose, prefs, now }: { info: TauAisInfo; onC
             {moTaTau(t)}
             {t.dich ? ` · đến ${t.dich}` : ""}
           </p>
-          <p className="mt-1 text-[0.8125rem] text-foreground/55">{fmtCoordPair(t.lat, t.lon, prefs.coordFormat)}</p>
-          <p className="mt-0.5 text-[0.75rem] text-foreground/55">
+          <p className="mt-1 text-[0.8125rem] text-foreground/70">{fmtCoordPair(t.lat, t.lon, prefs.coordFormat)}</p>
+          <p className="mt-0.5 text-[0.75rem] text-foreground/70">
             Tin {tuoiTinLabel(tuoiTinPhut(t, { luc: info.luc }, now))}
             {info.tuKho ? " · bản lưu trong máy" : ""}
           </p>
@@ -443,7 +443,7 @@ export function TheChatDay({ info, onClose }: { info: ChatDayInfo; onClose: () =
                 : "Lẫn nhiều loại đáy"}
             </p>
           )}
-          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/70">
             Theo ảnh vệ tinh — tham khảo
           </p>
         </div>
@@ -473,7 +473,7 @@ export function TheKhuTruBao({ info, onClose }: { info: KhuTruBaoInfo; onClose: 
             {info.k.tinh ? ` · ${tenTinhDep(info.k.tinh)}` : ""}
           </p>
           {(info.k.sucChua || info.k.coTauM) && (
-            <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-foreground/60">
+            <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-foreground/70">
               {[
                 info.k.sucChua
                   ? `sức chứa ~${info.k.sucChua.toLocaleString("vi-VN")} tàu`
@@ -491,7 +491,7 @@ export function TheKhuTruBao({ info, onClose }: { info: KhuTruBaoInfo; onClose: 
               Vị trí gần đúng — chấm chỉ đánh dấu cửa/cảng, không phải ranh vùng neo.
             </p>
           )}
-          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/70">
             Vị trí theo {info.k.nguonToaDo} · theo quy hoạch nhà nước (tham khảo)
           </p>
         </div>
@@ -550,7 +550,7 @@ export function TheVung({ info, onClose }: { info: VungInfo; onClose: () => void
                trôi khỏi màn (thẻ neo theo điểm chạm, không cuộn). */}
           {info.v.doiTuong && (
             <p
-              className="mt-0.5 line-clamp-3 text-[0.8125rem] font-semibold leading-snug text-foreground/60"
+              className="mt-0.5 line-clamp-3 text-[0.8125rem] font-semibold leading-snug text-foreground/70"
               title={info.v.doiTuong}
             >
               Bảo vệ: {info.v.doiTuong}
@@ -561,7 +561,7 @@ export function TheVung({ info, onClose }: { info: VungInfo; onClose: () => void
               Hai bảng nhà nước ghi mùa cấm khác nhau ({info.v.thoiGian} · {info.v.thoiGianKhac}) — app lấy cả hai, cần hỏi lại chi cục thủy sản.
             </p>
           )}
-          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/70">
             Theo quy hoạch, thông tư nhà nước (tham khảo)
             {info.v.tinCay === "vi_tri" || info.v.loai === "bao-ve-nguon-loi"
               ? " · tên ghép theo vị trí, có thể lệch"
@@ -604,11 +604,11 @@ export function TheRan({ info, onClose, bieuTuong, prefs }: { info: ReefInfo; on
               Chỗ nông nhất {info.doSau.nongNhatM.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} m
               {info.doSau.trungViM != null &&
                 ` · phần lớn rạn khoảng ${info.doSau.trungViM.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} m`}
-              <span className="block text-[0.8125rem] text-foreground/60">Số đo từ vệ tinh, sai số khoảng 1 m — máy đã chừa khi vẽ đường</span>
+              <span className="block text-[0.8125rem] text-foreground/70">Số đo từ vệ tinh, sai số khoảng 1 m — máy đã chừa khi vẽ đường</span>
             </p>
           )}
           <DongToaDo lat={info.lat} lon={info.lon} fmt={prefs.coordFormat} />
-          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/70">
             Tên theo danh mục địa danh nhà nước (tham khảo)
           </p>
         </div>
@@ -664,7 +664,7 @@ export function TheLuong({ info, onClose, bieuTuong, prefs }: { info: LaneInfo; 
                           : "Khu hạn chế — xem kỹ quy định trước khi vào"}
           </p>
           <DongToaDo lat={info.lat} lon={info.lon} fmt={prefs.coordFormat} />
-          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/70">
             Tham khảo — không thay hải đồ chính thức
           </p>
         </div>
@@ -705,7 +705,7 @@ export function TheDiaDanh({ info, onClose, bieuTuong, prefs }: { info: DiaDanhI
             lon={info.lon}
             fmt={prefs.coordFormat}
           />
-          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/70">
             Tên theo danh mục địa danh nhà nước (tham khảo)
           </p>
         </div>
@@ -736,7 +736,7 @@ export function TheMocBao({ info, onClose, prefs }: { info: StormPtInfo; onClose
           )}
           {Number.isFinite(info.lat) &&
             Number.isFinite(info.lon) && (
-              <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
+              <p className="mt-1 text-[0.875rem] font-semibold text-foreground/70">
                 {fmtCoordPair(
                   info.lat,
                   info.lon,
@@ -753,7 +753,7 @@ export function TheMocBao({ info, onClose, prefs }: { info: StormPtInfo; onClose
             </p>
           )}
           {info.tuongLai && info.dangerKm != null && (
-            <p className="mt-1 text-[0.875rem] font-semibold text-foreground/60">
+            <p className="mt-1 text-[0.875rem] font-semibold text-foreground/70">
               Vùng nguy hiểm ~{info.dangerKm} km quanh tâm
             </p>
           )}
