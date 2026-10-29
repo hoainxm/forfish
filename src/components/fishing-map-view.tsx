@@ -28,7 +28,7 @@ function transformTileRequest(url: string): { url: string; headers?: Record<stri
   if (url.includes("/api/tiles/")) return { url, headers: tokenHeader() };
   return { url };
 }
-import type { StyleSpecification, FilterSpecification } from "maplibre-gl";
+import type { StyleSpecification, FilterSpecification, GeoJSONSource, VectorTileSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
@@ -326,8 +326,8 @@ import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { readToken } from "@/lib/device-token-store";
-import { noDataKeyHit, subscribeNoDataKey } from "@/lib/data-key";
-import { readyGapText } from "@/lib/pretrip-ready";
+import { noDataKeyHit, subscribeDataKeyAdded, subscribeNoDataKey } from "@/lib/data-key";
+import { loiVeMay } from "@/lib/pretrip-ready";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
@@ -463,11 +463,13 @@ import { savedAgoLabel } from "@/lib/forecast-cache";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
-import { StormBanner, type GhiChuMay } from "@/components/storm-banner";
+import { StormBanner } from "@/components/storm-banner";
 import { StormEarlyBanner } from "@/components/storm-early-banner";
 import {
   PretripAutoNotify,
   PretripSavedStatus,
+  pretripMapWarn,
+  subscribePretripNote,
 } from "@/components/pretrip-auto-notify";
 import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify";
 import { premiumLine } from "@/components/premium-gate";
@@ -491,7 +493,7 @@ import {
 import { Popover } from "@/components/ui/popover";
 import { NHAN } from "@/lib/labels";
 import { khungOTrongVung, locOTrongVung } from "@/lib/vung-bien-vn";
-import { registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
+import { lamMoiKhoPmtiles, nguonCanNapLai, registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
 import { registerDataProtocol } from "@/lib/data-protocol";
 
 // Đăng ký protocol pmtiles:// và sdfdata:// (GeoJSON tĩnh qua bộ giải mã file dữ liệu) lúc module
@@ -2449,6 +2451,33 @@ export default function FishingMapView() {
       window.removeEventListener("offline", sync);
     };
   }, []);
+  /*  KHOÁ VỀ SAU KHI LỚP ĐÃ HỎNG (nợ 07 §10.3 C, trả 2026-10-29). Trước: mở bản đồ lúc máy chưa có khoá ⇒ nền/rạn/
+      đảo/tuyến (SDF2) giải hỏng; khoá về sau đó (đăng nhập, có sóng lại) mà bản đồ vẫn trắng — phải kéo bản đồ hoặc
+      mở lại màn. Nay: nhớ id nguồn đã báo lỗi (`onError`), có khoá MỚI (`subscribeDataKeyAdded`, báo một lần mỗi lượt
+      ghi) thì nạp lại đúng những nguồn `pmtiles://`/`sdfdata://` trong số đó (`nguonCanNapLai`, thay kho pmtiles có
+      header hỏng) + tăng `netEpoch` để các file dữ liệu đọc bằng JS (bờ, phao đèn…) cũng thử lại. Không request
+      thêm nào ngoài xin lại thứ đã hỏng; mất sóng thì SW trả từ kho máy. */
+  const nguonHongRef = useRef(new Set<string>());
+  useEffect(
+    () =>
+      subscribeDataKeyAdded(() => {
+        const map = mapRef.current?.getMap();
+        if (map) {
+          const ds = nguonCanNapLai(nguonHongRef.current, (id) => map.getSource(id)?.serialize());
+          nguonHongRef.current.clear();
+          lamMoiKhoPmtiles(ds.flatMap((n) => (n.kind === "vector" ? [n.archive] : [])));
+          for (const n of ds) {
+            const src = map.getSource(n.id);
+            if (!src) continue;
+            if (n.kind === "vector") (src as VectorTileSource).setUrl(n.url);
+            else (src as GeoJSONSource).setData(n.url);
+          }
+        }
+        setBasemapFails(0);
+        setNetEpoch((n) => n + 1);
+      }),
+    [],
+  );
   const basemapHealth = {
     online: netOnline,
     fails: basemapFails,
@@ -3010,17 +3039,15 @@ export default function FishingMapView() {
       Trước: băng "Mất sóng" là khối riêng giữa màn, đè lên bảng toạ độ; thiếu khoá SDF2 thì bờ/đảo/độ sâu trắng
       mà không một lời. Nay cả hai là `ghiChu` của StormBanner overlay: một dòng chung với tin bão, chạm bung câu
       đủ. Nhịp "nói một lần rồi thu" (8 s) do viên lo; lời thiếu khoá nằm lì (`ben`) vì bà con phải làm gì đó.
-      Cờ thiếu khoá dựng ở gốc (`getDataKey` trả null khi kho trống — data-key.ts), báo đúng một lần. */
+      Cờ thiếu khoá dựng ở gốc (`getDataKey` trả null khi kho trống — data-key.ts), báo đúng một lần.
+      LÔ 2 (2026-10-29): câu "Chưa tải được dự báo — chưa có sóng" của mẻ tải sẵn (trước là chip riêng dưới bảng toạ
+      độ) cũng vào viên này. Thứ tự: bão > thiếu khoá > mất sóng > dự báo — luật ở `loiVeMay` (pretrip-ready, có test). */
   const thieuKhoa = useSyncExternalStore(subscribeNoDataKey, noDataKeyHit, () => false);
-  const ghiChuMay = useMemo<GhiChuMay[]>(() => {
-    const out: GhiChuMay[] = [];
-    if (offlineNote) out.push({ ngan: offlineNote.split(" — ")[0], day: offlineNote });
-    if (thieuKhoa) {
-      const cau = readyGapText("key", readToken() != null);
-      out.push({ ngan: cau.split(" — ")[0], day: `${cau}.`, ben: true });
-    }
-    return out;
-  }, [offlineNote, thieuKhoa]);
+  const duBaoLoi = useSyncExternalStore(subscribePretripNote, pretripMapWarn, () => null);
+  const ghiChuMay = useMemo(
+    () => loiVeMay({ thieuKhoa, coTaiKhoan: readToken() != null, matSong: offlineNote, duBao: duBaoLoi }),
+    [offlineNote, thieuKhoa, duBaoLoi],
+  );
   /* Hình bờ + đảo — NẠP NGAY KHI MỞ MÀN, KHÔNG chờ tới lúc mất sóng.
      LỖI ĐÃ SỬA (D-PH8, soát 2026-08-02): trước đây cổng `if (!offlineBase ||
      coastData) return` chỉ mở khi ĐÃ mất sóng — đúng lúc không tải nổi nữa; và
@@ -5658,6 +5685,7 @@ export default function FishingMapView() {
         // ảnh vệ tinh (ảnh thiếu ô là chuyện thường, mây che cũng trống).
         onError={(e) => {
           const src = (e as unknown as { sourceId?: string }).sourceId;
+          if (src) nguonHongRef.current.add(src); // khoá về sau thì nạp lại (xem `subscribeDataKeyAdded` ở trên)
           if (src === "basemap") {
             setBasemapFails((n) => nextFailCount(n, false));
             return;

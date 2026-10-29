@@ -63,7 +63,7 @@ import {
   warmBasemap,
 } from "@/lib/pretrip-ready";
 import { isOffline, subscribeOnline } from "@/lib/use-online";
-import { NOTIFY_HIDE_LONG_MS, NOTIFY_HIDE_MS } from "@/lib/notify";
+import { NOTIFY_HIDE_MS } from "@/lib/notify";
 import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, DownloadIcon } from "@/components/icons";
 import { SQ_BTN } from "@/components/ui/sq-btn";
 
@@ -131,6 +131,20 @@ const noteSubs = new Set<() => void>();
 function setSharedNote(n: Note) {
   sharedNote = n;
   noteSubs.forEach((f) => f());
+}
+
+/*  CÂU CẢNH BÁO CỦA MẺ GẦN NHẤT ("Chưa tải được dự báo — chưa có sóng." · hết chỗ · tải được một phần) — trên bản đồ
+    nó KHÔNG còn là chip riêng dưới bảng toạ độ mà đi vào VIÊN TRẠNG THÁI chung với tin bão / thiếu khoá / mất sóng
+    (đứng cuối — `loiVeMay`, lib/pretrip-ready.ts). Còn đúng tới khi mẻ sau bắt đầu (câu "Đang tải…" thay chỗ). Nhịp
+    "nói 8 s rồi thu" do viên lo. Khuôn useSyncExternalStore. */
+export function pretripMapWarn(): string | null {
+  return sharedNote?.kind === "warn" ? sharedNote.text : null;
+}
+export function subscribePretripNote(f: () => void): () => void {
+  noteSubs.add(f);
+  return () => {
+    noteSubs.delete(f);
+  };
 }
 
 /* CHỖ TẢI SẴN: màn Bản đồ đăng ký danh sách của nó (chỗ đang xem + điểm ghim); không ở bản đồ thì đọc sổ điểm ghim
@@ -246,20 +260,14 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
   // tự tắt sau khi đã nói xong (lúc đang tải thì cứ để đó)
   useEffect(() => {
     if (!note || note.kind === "busy") return;
-    // cảnh báo (vàng) = luật 8 giây của lib/notify (rà bố cục 2026-10-22 — trước 3 giây
-    // cho cả câu cảnh báo hai dòng, chưa đọc xong đã tắt)
-    const t = setTimeout(() => setNote(null), note.kind === "warn" ? NOTIFY_HIDE_LONG_MS : NOTIFY_HIDE_MS);
+    const t = setTimeout(() => setNote(null), NOTIFY_HIDE_MS);
     return () => clearTimeout(t);
   }, [note]);
 
-  if (!note) return null;
+  // Cảnh báo (vàng) KHÔNG vẽ ở đây nữa — viên trạng thái bản đồ nói nó (`pretripMapWarn`, xem trên).
+  if (!note || note.kind === "warn") return null;
 
-  const skin =
-    note.kind === "ok"
-      ? "bg-ok-bg text-ok"
-      : note.kind === "warn"
-        ? "bg-warn-bg text-warn"
-        : "bg-card/95 text-navy";
+  const skin = note.kind === "ok" ? "bg-ok-bg text-ok" : "bg-card/95 text-navy";
 
   return (
     <p
@@ -267,7 +275,6 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
       className={`pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.875rem] font-semibold leading-snug shadow-md ${skin}`}
     >
       {note.kind === "ok" && <CheckIcon className="h-4 w-4 shrink-0" />}
-      {note.kind === "warn" && <AlertIcon className="h-4 w-4 shrink-0" />}
       {note.text}
     </p>
   );

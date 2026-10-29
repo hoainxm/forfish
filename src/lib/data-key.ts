@@ -41,14 +41,29 @@ function readStore(): Store {
 
 function writeStore(s: Store): void {
   try {
+    const truoc = readStore();
     const ids = Object.keys(s).slice(-KEEP);
     const trimmed: Store = {};
     for (const id of ids) trimmed[id] = s[id];
     window.localStorage.setItem(DATA_KEY_STORE, JSON.stringify(trimmed));
     if (ids.length > 0) setNoKeyHit(false);
+    if (ids.some((id) => !(id in truoc))) for (const f of keyAddedListeners) f();
   } catch {
     /* kho đầy / chặn — khoá vẫn còn trong RAM phiên này */
   }
+}
+
+/*  "CÓ KHOÁ MỚI" (nợ 07 §10.3 C, trả 2026-10-29): lớp bản đồ đã giải hỏng vì thiếu khoá thì MapLibre/pmtiles giữ lỗi
+    đó (lát `errored`, header kho cache lời hứa đã hỏng) — khoá về sau cũng không tự xin lại. Ai cần làm lại thì nghe
+    ở đây: báo ĐÚNG MỘT LẦN mỗi lượt ghi có thêm ít nhất một id khoá CHƯA từng nằm trong kho (ghi lại khoá cũ = im). */
+const keyAddedListeners = new Set<() => void>();
+
+/** Nghe "kho vừa có thêm khoá mới". Trả hàm huỷ. */
+export function subscribeDataKeyAdded(f: () => void): () => void {
+  keyAddedListeners.add(f);
+  return () => {
+    keyAddedListeners.delete(f);
+  };
 }
 
 /**
@@ -204,4 +219,5 @@ export function __resetDataKeyCacheForTest(): void {
   refreshed = false;
   noKeyHit = false;
   noKeyListeners.clear();
+  keyAddedListeners.clear();
 }

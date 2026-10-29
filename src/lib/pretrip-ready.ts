@@ -70,6 +70,33 @@ export function readyGapText(g: Exclude<ReadyGap, "data">, coTaiKhoan = true): s
   return "Chưa lưu nền bản đồ — mở app lúc có sóng";
 }
 
+/** Một lời về máy cho viên trạng thái bản đồ (cùng hình `GhiChuMay` của storm-banner): `ngan` vào dòng gọn, `day` khi bung. */
+export type LoiVeMay = { ngan: string; day: string; ben?: boolean };
+
+/**
+ * VIÊN TRẠNG THÁI BẢN ĐỒ — THỨ TỰ LỜI VỀ MÁY (rà UI B-P1-2 lô 2, 2026-10-29). Tin bão luôn đứng đầu viên (storm-banner
+ * tự đặt); sau đó: thiếu khoá (bản đồ trắng, nằm lì) > mất sóng / mạng yếu > chưa tải được dự báo. Viên một dòng cắt
+ * đuôi bằng "…" nên thứ quan trọng hơn phải đứng trước. `ngan` = vế trước " — " của câu đủ.
+ */
+export function loiVeMay(p: {
+  thieuKhoa: boolean;
+  coTaiKhoan: boolean;
+  /** offlineBasemapNote(...) — null khi có sóng */
+  matSong: string | null;
+  /** câu mẻ tải sẵn hỏng (pretripMapWarn) — null khi không có */
+  duBao: string | null;
+}): LoiVeMay[] {
+  const ngan = (cau: string) => cau.split(" — ")[0].replace(/\.$/, "");
+  const out: LoiVeMay[] = [];
+  if (p.thieuKhoa) {
+    const cau = readyGapText("key", p.coTaiKhoan);
+    out.push({ ngan: ngan(cau), day: `${cau}.`, ben: true });
+  }
+  if (p.matSong) out.push({ ngan: ngan(p.matSong), day: p.matSong });
+  if (p.duBao) out.push({ ngan: ngan(p.duBao), day: p.duBao });
+  return out;
+}
+
 /**
  * KÉO NỀN BẢN ĐỒ VÀO KHO khi chưa có — chỉ gọi BÊN TRONG cửa tải sẵn (6 giờ + có sóng), nên không thêm lượt mạng lúc
  * mở app. Cách: xin 1 byte (Range) — nhánh `basemapFirst` của sw.js thấy kho trống thì tự kéo trọn file
