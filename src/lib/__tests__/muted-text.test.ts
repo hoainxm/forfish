@@ -19,10 +19,6 @@ const MO = /(^|[^\w:/-])text-foreground\/(40|45|50|55|60|65)(?![\w/])/g;
 
 /** Ngoại lệ CÓ LÝ DO — đường dẫn tương đối từ src/. */
 const NGOAI_LE: Record<string, string> = {
-  // nhóm G đợt nốt nợ (2026-10-29) giữ hai file này; chữ /65 trong đó do nhóm G đổi.
-  // nợ: còn chữ /65 trong hai file, gỡ hai dòng khi gộp nhóm G.
-  "components/fishing-map-view.tsx": "nhóm G đợt nốt nợ",
-  "components/pretrip-auto-notify.tsx": "nhóm G đợt nốt nợ",
 };
 
 /** Ruột khung chỉ có icon: `<XIcon …/>`, `{icon}`, `{dk ? (<AIcon/>) : (<BIcon/>)}`. */

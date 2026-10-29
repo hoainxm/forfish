@@ -777,7 +777,7 @@ function PretripSavedSheet({
                       : "Chưa tải được — kiểm tra mạng rồi thử lại."}
                   </span>
                 ) : (
-                  <span className="block text-[0.8125rem] leading-snug text-foreground/65">
+                  <span className="block text-[0.8125rem] leading-snug text-muted">
                     {l.saved ? l.detail : LAYER_HELP[l.id]}
                     {l.saved && l.savedAt != null && ` · ${savedAgoLabel(l.savedAt)}`}
                     {l.saved && l.sizeBytes > 0 && ` · ${fmtBytes(l.sizeBytes)}`}
@@ -838,7 +838,7 @@ function PretripSavedSheet({
         </button>
       ) : null}
       {total > 0 && (
-        <p className="mt-2 px-1 text-[0.8125rem] text-foreground/65">
+        <p className="mt-2 px-1 text-[0.8125rem] text-muted">
           Tổng trong máy: ~{fmtBytes(total)} · cần sóng để tải; mất sóng chỉ
           xem được thứ đã tải.
         </p>
@@ -883,7 +883,7 @@ function PretripSavedSheet({
         <div className="mt-5 flex items-center gap-2">
           <span className="min-w-0 flex-1">
             <span className="block text-[1rem] font-semibold text-navy">Tệp dự báo</span>
-            <span className="block text-[0.8125rem] leading-snug text-foreground/65">
+            <span className="block text-[0.8125rem] leading-snug text-muted">
               Chỉ gồm dự báo đã tải — gửi ai cũng được.
             </span>
           </span>

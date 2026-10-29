@@ -492,6 +492,7 @@ import {
 } from "@/components/icons";
 import { Popover } from "@/components/ui/popover";
 import { NHAN } from "@/lib/labels";
+import { CAU_CA_CHUA_MO } from "@/lib/sen-bien/hoi-ban-do";
 import { khungOTrongVung, locOTrongVung } from "@/lib/vung-bien-vn";
 import { lamMoiKhoPmtiles, nguonCanNapLai, registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
 import { registerDataProtocol } from "@/lib/data-protocol";
@@ -4410,7 +4411,7 @@ export default function FishingMapView() {
           senMoLop(lop, lenh.tang);
           if (lop === "ca") {
             if (premiumAccess === "login") return noi("Đã mở bản đồ cá. Bà con đăng nhập để xem dự báo cá.");
-            if (premiumAccess === "upgrade") return noi("Dự báo cá dành cho tài khoản premium. Bà con liên hệ SDVICO để mở.");
+            if (premiumAccess === "upgrade") return noi(CAU_CA_CHUA_MO);
             if (ds?.length) {
               const co = ds.find((k) => fishCast?.species.includes(k));
               if (co) setFishSpecies(co);
@@ -8050,7 +8051,7 @@ export default function FishingMapView() {
             ))}
           </div>
           {/*  Chỗ trống ≠ đáy sạch (reviewer B.6) — nói ra ngay dưới chú giải. */}
-          <p className="mt-1.5 max-w-[11rem] text-[0.75rem] font-semibold leading-snug text-foreground/65">
+          <p className="mt-1.5 max-w-[11rem] text-[0.75rem] font-semibold leading-snug text-muted">
             {ghiChuChatDayTrong()}
           </p>
         </div>
@@ -8952,7 +8953,7 @@ export default function FishingMapView() {
                       </span>
                       <span className="mt-0.5 block text-[1rem] font-semibold leading-snug text-foreground/75">
                         {netOnline
-                          ? "Chưa xác nhận được gói Premium, và máy cũng không còn bản lưu dài ngày. Chạm để tắt thông báo này."
+                          ? "Chưa xác nhận được gói dự báo, và máy cũng không còn bản lưu dài ngày. Chạm để tắt thông báo này."
                           : "Trong máy không còn bản lưu dài ngày. Chạm để tắt thông báo này."}
                       </span>
                     </button>
@@ -9205,7 +9206,7 @@ export default function FishingMapView() {
               {/* độ tin dự báo — chỉ ở "Xem đủ" (câu dặn, không phải số) */}
               <p
                 className={`px-1 text-[0.8125rem] leading-snug ${
-                  confidence.tone === "ok" ? "text-foreground/65" : "font-semibold text-warn"
+                  confidence.tone === "ok" ? "text-muted" : "font-semibold text-warn"
                 }`}
               >
                 {confidence.label} · tham khảo, nghe thêm đài duyên hải.
@@ -9221,8 +9222,8 @@ export default function FishingMapView() {
                   feature="dự báo cá"
                   blurb={
                     premiumAccess === "login"
-                      ? "Tính năng bản đồ dự báo luồng cá (loài cá, mật độ, hướng di chuyển) dành riêng cho tài khoản Premium. Bà con đăng nhập để xem nhé."
-                      : "Tính năng bản đồ dự báo luồng cá (loài cá, mật độ, hướng di chuyển) dành riêng cho gói Premium. Bà con gọi SDVICO để mở nhé."
+                      ? "Tính năng bản đồ dự báo luồng cá (loài cá, mật độ, hướng di chuyển) dành riêng cho gói dự báo. Bà con đăng nhập để xem nhé."
+                      : "Tính năng bản đồ dự báo luồng cá (loài cá, mật độ, hướng di chuyển) dành riêng cho gói dự báo. Bà con gọi SDVICO để mở nhé."
                   }
                 />
               ) : fishCast && fishAtPoint ? (
@@ -9279,7 +9280,7 @@ export default function FishingMapView() {
                         </p>
                         {/* CHỈ số môi trường tại ô — bỏ phần ngày ảnh/lấy về
                             (quyết định sản phẩm 2026-07-25: gọn màn hình) */}
-                        <p className="mt-1 text-[0.875rem] font-semibold leading-snug text-foreground/65">
+                        <p className="mt-1 text-[0.875rem] font-semibold leading-snug text-muted">
                           Nước {formatNumberVN(fishAtPoint.t)}°C
                           {bait ? ` · ${bait}` : ""}
                         </p>
