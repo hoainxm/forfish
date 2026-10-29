@@ -11,7 +11,6 @@ const TRONG: [string, number, number][] = [
   ["Vũng Tàu ngoài cảng", 10.35, 107.07],
   ["Bạch Long Vĩ", 20.13, 107.72],
   ["Trường Sa", 8.64, 111.92],
-  ["Hoàng Sa (vùng cần chú ý — vẫn là biển Việt Nam)", 16.5, 111.6],
   ["giữa Biển Đông 14°B 114°Đ", 14, 114],
   ["vịnh Thái Lan phía Việt Nam", 9, 103],
   ["sát bờ Phan Thiết", 10.9, 108.15],
@@ -22,9 +21,12 @@ const NGOAI: [string, number, number][] = [
   ["Hải Nam (Trung Quốc)", 19, 110.5],
   ["Malaysia — Natuna", 3, 107],
   ["quá đường ranh ngoài khơi phía Đông", 10, 117.5],
+  // vùng "cần chú ý" quanh Hoàng Sa nằm NGOÀI đường ranh đỏ — không mời tàu tới (ảnh anh Long 2026-10-29)
+  ["vùng cần chú ý quanh Hoàng Sa", 16.5, 111.6],
+  ["vùng cần chú ý 17°B 112,5°Đ", 17, 112.5],
 ];
 
-describe("trongVungBienVN — hợp ba vùng VMS", () => {
+describe("trongVungBienVN — vùng được phép (trong đường ranh đỏ)", () => {
   it.each(TRONG)("%s ⇒ trong", (_, la, lo) => expect(trongVungBienVN(la, lo)).toBe(true));
   it.each(NGOAI)("%s ⇒ ngoài", (_, la, lo) => expect(trongVungBienVN(la, lo)).toBe(false));
   it("toạ độ hỏng ⇒ ngoài (không bịa là trong)", () => {
@@ -70,5 +72,13 @@ describe("khungOTrongVung — vẽ ô cắt theo biên", () => {
   });
   it("ô ngoài hẳn ⇒ không vẽ gì", () => {
     expect(khungOTrongVung(12, 121, 0.125)).toEqual([]);
+  });
+});
+
+describe("khớp đường ranh bà con thấy", () => {
+  it("cùng hình với cảnh báo ranh giới của geofence (VN_ALLOWED_POLYS)", async () => {
+    const { VN_ALLOWED_POLYS } = await import("@/lib/geofence");
+    const { VN_SEA_POLYS } = await import("@/lib/vung-bien-vn");
+    expect(VN_SEA_POLYS).toEqual(VN_ALLOWED_POLYS);
   });
 });

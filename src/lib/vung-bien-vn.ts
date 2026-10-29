@@ -3,42 +3,24 @@
 // lại chạy ra đó là vi phạm"). Lớp cá là lời mời "ra chỗ này có cá" — vẽ ô cá bên kia ranh giới
 // là chỉ đường cho tàu vượt biên, đúng lỗi IUU nặng nhất mà geofence.ts đang canh.
 //
-// VÙNG = HỢP BA VÙNG VMS SDVico gửi (data/vms-zones.json, "biên mới" chốt 2026-07-28):
-// "được phép đánh bắt" + "cần chú ý" (gồm Hoàng Sa — vẫn là biển Việt Nam, chỉ cần chú ý) +
-// "chỉ đánh cá đáy" (thềm giáp Indonesia). Đo 2026-10-29 với lưới độ sâu: 392/530 điểm biển ven
-// bờ đất liền nằm trong hợp; phần còn lại là biển Campuchia quanh 10,3–10,6°B 103°Đ và lạch sông.
+// VÙNG = "KHU VỰC ĐƯỢC PHÉP ĐÁNH BẮT" (vùng VMS `allowed`, data/vms-zones.json, "biên mới" chốt
+// 2026-07-28) — tức BÊN TRONG đường ranh đỏ nét đứt bà con thấy trên bản đồ, và là đúng hình mà
+// cảnh báo "x hải lý tới ranh giới" của geofence.ts đang đo. KHÔNG gộp vùng "cần chú ý" (quanh
+// Hoàng Sa) và "chỉ đánh cá đáy" (giáp Indonesia): hai vùng đó nằm NGOÀI đường đỏ — bản đầu gộp
+// cả ba, anh Long gửi ảnh 2026-10-29 "vẫn hiện ngoài ranh vn à". Không gộp chúng không phải nói
+// Hoàng Sa không phải của Việt Nam: nhãn chủ quyền vẫn vẽ như cũ, chỉ là không MỜI tàu tới đánh cá.
+// Đo 2026-10-29 với lưới độ sâu: ven bờ đất liền 392/530 điểm biển nằm trong vùng; phần còn lại là
+// biển Campuchia quanh 10,3–10,6°B 103°Đ và lạch sông.
 // nợ: dùng hình TĨNH trong app, chưa theo vùng admin sửa ở /quan-tri (bảng vms_zones) — nâng cấp
-// khi admin bắt đầu sửa hình ba vùng này (lúc đó máy chủ đọc bảng, máy bà con đọc cùng nguồn).
+// khi admin bắt đầu sửa hình vùng này (lúc đó máy chủ đọc bảng, máy bà con đọc cùng nguồn).
 //
 // THUẦN, chạy được cả máy chủ (route /api/fish-forecast) lẫn máy bà con. Test: vung-bien-vn.test.ts.
 
-import vmsZonesJson from "@/data/vms-zones.json";
-import { insideAllowed } from "@/lib/geofence";
+import { insideAllowed, VN_ALLOWED_POLYS } from "@/lib/geofence";
 import type { LngLat } from "@/data/vn-maritime-border";
 
-type Fc = { features: { geometry: { type: string; coordinates: unknown } }[] };
-
-function polysOf(fc: Fc): LngLat[][][] {
-  const out: LngLat[][][] = [];
-  for (const f of fc.features) {
-    const g = f.geometry;
-    const list =
-      g.type === "MultiPolygon"
-        ? (g.coordinates as number[][][][])
-        : g.type === "Polygon"
-          ? [g.coordinates as number[][][]]
-          : [];
-    for (const poly of list) out.push(poly.map((ring) => ring.map((c) => [c[0], c[1]] as LngLat)));
-  }
-  return out;
-}
-
-/** Mọi polygon của ba vùng — HOẶC giữa các polygon, chẵn-lẻ trong từng polygon (luật của geofence). */
-export const VN_SEA_POLYS: LngLat[][][] = [
-  ...polysOf(vmsZonesJson.allowed as Fc),
-  ...polysOf(vmsZonesJson.caution as Fc),
-  ...polysOf(vmsZonesJson.bottomOnly as Fc),
-];
+/** Vùng được phép — DÙNG LẠI đúng hình của geofence (cảnh báo ranh giới), không dựng bản thứ hai. */
+export const VN_SEA_POLYS: LngLat[][][] = VN_ALLOWED_POLYS;
 
 /** Khung bao — loại nhanh điểm xa trước khi chạy chẵn-lẻ trên hàng nghìn đỉnh. */
 const BBOX = (() => {
