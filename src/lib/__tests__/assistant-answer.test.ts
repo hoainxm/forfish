@@ -60,12 +60,15 @@ describe("assistant-answer — thời tiết / bão", () => {
     expect(b.action).toEqual({ type: "navigate", href: "/ngu-truong" });
   });
 
-  it("AC-T11: day=5 hạng thường → 3 ngày + mời Premium khi online, ẩn khi offline; premium → đọc ngày 5", () => {
+  it("AC-T11 (luật 2026-10-27): hạng thường hỏi ngày xa → chỉ đọc HÔM NAY + mời gói khi online, ẩn khi offline; premium → đọc ngày 5", () => {
     const on = A("5 ngày tới sóng gió sao", snap({ weather: WEATHER }));
-    expect(on.text).toMatch(/Ba ngày tới/);
-    expect(on.text).toContain("Premium");
+    expect(on.text).toMatch(/Máy chỉ có số hôm nay/);
+    expect(on.text).toContain("gói dự báo cá");
+    expect(on.text).not.toMatch(/Ngày mai/);
+    // hỏi "ngày mai" cũng đã là phần của gói
+    expect(A("ngày mai sóng gió sao", snap({ weather: WEATHER })).text).toContain("gói dự báo cá");
     const off = A("5 ngày tới sóng gió sao", snap({ weather: WEATHER, online: false }));
-    expect(off.text).not.toContain("Premium");
+    expect(off.text).not.toContain("gói dự báo cá");
     const prem = A("5 ngày tới sóng gió sao", snap({ weather: WEATHER, premium: true }));
     expect(prem.text).toMatch(/5 ngày tới/i);
     expect(prem.text).toContain("Không nên ra khơi");
@@ -84,7 +87,8 @@ describe("assistant-answer — thời tiết / bão", () => {
       const r = A("hôm nay đi được không", s);
       expect(`${r.text} ${r.speak}`, r.text).toMatch(/đài duyên hải/i);
     }
-    const good = A("mai đi được không", snap({ weather: WEATHER, storm: { savedAt: NOW - H, storms: [] } }));
+    // ngày mai là phần của gói (luật 2026-10-27) ⇒ ca "đi được" chạy với tài khoản có gói
+    const good = A("mai đi được không", snap({ weather: WEATHER, premium: true, storm: { savedAt: NOW - H, storms: [] } }));
     expect(good.speak).toMatch(/đài duyên hải/);
     expect((good.speak.match(/[.!?…]+/g) ?? []).length).toBeLessThanOrEqual(2);
     expect(good.text).toContain("đi được");
