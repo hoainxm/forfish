@@ -47,9 +47,11 @@ function nativeTts(): Promise<TtsPlugin> {
   });
   return ttsPluginP;
 }
+/*  Danh mục câu nguyên (7 KB, gzip 2 KB) import tĩnh — `clipFor` đồng bộ.
+    Danh mục MẢNH (113 KB, gzip ~30 KB) NẠP ĐỘNG (2026-10-29, rà soát tốc độ D):
+    trước nó nằm trong first-load của 5 màn (/, /tau, /nguoi, /tien, /cho) dù
+    chưa ai nghe Sen Biển. Xem `napManhGiong`. */
 import clipCatalog from "@/data/giong-sen-bien.json";
-// nợ: danh mục mảnh (~90 KB, gzip ~30 KB) nằm trong bundle màn bản đồ vì speechParts đồng bộ; nâng thành tải lười khi danh mục quá ~300 KB
-import manhCatalog from "@/data/giong-sen-bien-manh.json";
 import { ghepManh, khoaManh } from "@/lib/voice/ghep.mjs";
 import { timeoutSignal } from "@/lib/abort";
 
@@ -244,22 +246,61 @@ const CLIPS = new Map<string, string>(
   clipCatalog.items.map((it) => [clipKey(it.text), `${clipCatalog.dir}/${it.id}.mp3`]),
 );
 
-/** Mảnh ghép: khoá (chữ nói, thường) → mp3. `MANH_DAI` = số âm tiết mảnh dài nhất. */
+/** Mảnh ghép: khoá (chữ nói, thường) → mp3. `MANH_DAI` = số âm tiết mảnh dài nhất.
+    RỖNG cho tới khi `napManhGiong` xong — trong lúc đó câu nào cần ghép mảnh đọc
+    giọng máy (đúng luật "một câu một giọng" khi thiếu mảnh), câu nguyên vẫn mp3. */
 const MANH = new Map<string, string>();
 /** mảnh nhóm `ran` (1 500 tên rạn) — tải trước SAU cùng, không chặn bộ nghe */
 const MANH_SAU = new Set<string>();
 let MANH_DAI = 1;
-for (const [nhom, ds] of Object.entries(manhCatalog.nhom as Record<string, string[][]>)) {
-  for (const [id, text] of ds) {
-    const k = khoaManh(text);
-    if (!k || MANH.has(k)) continue;
-    const url = `${manhCatalog.dir}/${id}.mp3`;
-    MANH.set(k, url);
-    if (nhom === "ran") MANH_SAU.add(url);
-    MANH_DAI = Math.max(MANH_DAI, k.split(" ").length);
-  }
-}
+let manhXong = false;
+let manhP: Promise<boolean> | null = null;
 const traManh = (k: string) => MANH.get(k);
+
+/** Đổ danh mục mảnh vào bảng tra. Tách riêng để test đổ dữ liệu giả. */
+export function _doManh(cat: { dir: string; nhom: Record<string, string[][]> }): void {
+  for (const [nhom, ds] of Object.entries(cat.nhom)) {
+    for (const [id, text] of ds) {
+      const k = khoaManh(text);
+      if (!k || MANH.has(k)) continue;
+      const url = `${cat.dir}/${id}.mp3`;
+      MANH.set(k, url);
+      if (nhom === "ran") MANH_SAU.add(url);
+      MANH_DAI = Math.max(MANH_DAI, k.split(" ").length);
+    }
+  }
+  manhXong = true;
+}
+
+/** danh mục mảnh đã nạp chưa (đọc đồng bộ — `ttsSpeak` chỉ chờ khi chưa) */
+export function manhDaNap(): boolean {
+  return manhXong;
+}
+
+/**
+ * Nạp danh mục mảnh MỘT LẦN (chunk JS riêng — SW đi theo chunk lười khi dựng
+ * vỏ nên có sẵn trong kho, mất sóng vẫn nạp được). true = đã có. Không ném:
+ * nạp hỏng (mất chunk, mất sóng lần đầu) ⇒ false và lần gọi sau thử lại.
+ * `nap` chỉ để test thay nguồn.
+ */
+export function napManhGiong(
+  nap: () => Promise<{ default: unknown }> = () => import("@/data/giong-sen-bien-manh.json"),
+): Promise<boolean> {
+  if (manhXong) return Promise.resolve(true);
+  manhP ??= nap().then(
+    (m) => {
+      _doManh(m.default as { dir: string; nhom: Record<string, string[][]> });
+      return true;
+    },
+    () => {
+      manhP = null; // lần sau thử lại, không kẹt lỗi mãi
+      return false;
+    },
+  );
+  return manhP;
+}
+/** câu đầu tiên chờ danh mục mảnh tối đa chừng này (từ kho SW là mili giây) rồi đọc luôn */
+const MANH_CHO_MS = 1500;
 
 /** Đường dẫn mp3 giọng Sen Biển cho đúng câu này, hoặc null. */
 export function clipFor(sentence: string): string | null {
@@ -587,6 +628,7 @@ export async function warmVoiceClips(): Promise<void> {
       (doc 15 §21) ⇒ chỉ đưa vào kho SW (taiTruoc), KHÔNG giữ blob của cả bộ trong
       RAM như khi còn 63 clip; clip đang phát vẫn dùng chung qua clipSrc. */
   if (warmedAll || typeof fetch === "undefined" || !isOnline()) return;
+  if (!(await napManhGiong())) return;
   const all = allClipUrls();
   const ok = await taiTruoc(all.filter((u) => !MANH_SAU.has(u)), 4);
   if (!ok) return;
@@ -623,6 +665,7 @@ function waitVoices(ms: number): Promise<void> {
 
 /** Máy này đọc được tiếng Việt không. Không ném; tối đa ~1,5 s. */
 export async function ttsCheck(): Promise<TtsAvail> {
+  void napManhGiong(); // sắp đọc ⇒ nạp sẵn danh mục mảnh, câu đầu khỏi chờ
   if (isNative()) {
     try {
       const r = await Promise.race([
@@ -651,6 +694,7 @@ const SILENT_WAV =
 
 /** Mở khoá loa (iOS Safari web) — PHẢI gọi trong handler chạm. Native không cần. */
 export function ttsUnlock(): void {
+  void napManhGiong();
   const ctx = audioCtx();
   if (ctx && ctx.state !== "running") ctx.resume().catch(() => {});
   const el = clipAudio();
@@ -817,52 +861,66 @@ export function ttsSpeak(
   };
   activeCancel = cancel;
   ghiCauNoi(text);
-  const parts = speechParts(text);
-  if (parts.length === 0) {
-    end(true);
-    return () => {};
-  }
-  const rate = opts.rate ?? TTS_RATE;
-  timers.push(setTimeout(cancel, MAX_UTTER_MS));
-  if (!isNative() && webSupported()) {
-    try {
-      window.speechSynthesis.cancel();
-    } catch {
-      /* không có gì để huỷ */
-    }
-  }
+  if (!manhXong && text.trim()) {
+    /*  Danh mục mảnh chưa nạp (câu đầu tiên của phiên): chờ nó — tối đa
+        MANH_CHO_MS — rồi mới cắt câu, để câu có số/tên vẫn đọc giọng Sen Biển
+        như trước khi tách chunk. Hỏng / quá giờ ⇒ đọc với cái đang có. */
+    let cho: ReturnType<typeof setTimeout> | undefined;
+    const quaGio = new Promise<void>((r) => (cho = setTimeout(r, MANH_CHO_MS)));
+    void Promise.race([napManhGiong(), quaGio]).then(() => {
+      clearTimeout(cho);
+      if (!ended) batDau();
+    });
+  } else batDau();
+  return cancel;
 
-  let i = 0;
-  const next = () => {
-    if (ended) return;
-    if (i >= parts.length) {
-      stopCur = null;
+  function batDau() {
+    const parts = speechParts(text);
+    if (parts.length === 0) {
       end(true);
       return;
     }
-    const p = parts[i++];
-    const after = () => {
-      if (ended) return;
-      if (p.pauseMs > 0) timers.push(setTimeout(next, p.pauseMs));
-      else next();
-    };
-    const synth = (retry: boolean) => {
-      const dung = isNative() ? null : vietnameseVoice();
-      stopCur = synthPart(p.text, rate, (ok) => {
-        // thử lại CHỈ khi có giọng KHÁC (giọng mạng bị gác → giọng trong máy); cùng giọng thì phí thêm một lần chờ
-        const ke = !ok && retry && !isNative() ? vietnameseVoice() : null;
-        if (ke && ke !== dung) synth(false);
-        else after();
-      });
-    };
-    if (p.clips) {
-      stopCur = playClips(p.clips, (ok) => (ok ? after() : synth(true)));
-    } else {
-      synth(true);
+    const rate = opts.rate ?? TTS_RATE;
+    timers.push(setTimeout(cancel, MAX_UTTER_MS));
+    if (!isNative() && webSupported()) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        /* không có gì để huỷ */
+      }
     }
-  };
-  next();
-  return cancel;
+
+    let i = 0;
+    const next = () => {
+      if (ended) return;
+      if (i >= parts.length) {
+        stopCur = null;
+        end(true);
+        return;
+      }
+      const p = parts[i++];
+      const after = () => {
+        if (ended) return;
+        if (p.pauseMs > 0) timers.push(setTimeout(next, p.pauseMs));
+        else next();
+      };
+      const synth = (retry: boolean) => {
+        const dung = isNative() ? null : vietnameseVoice();
+        stopCur = synthPart(p.text, rate, (ok) => {
+          // thử lại CHỈ khi có giọng KHÁC (giọng mạng bị gác → giọng trong máy); cùng giọng thì phí thêm một lần chờ
+          const ke = !ok && retry && !isNative() ? vietnameseVoice() : null;
+          if (ke && ke !== dung) synth(false);
+          else after();
+        });
+      };
+      if (p.clips) {
+        stopCur = playClips(p.clips, (ok) => (ok ? after() : synth(true)));
+      } else {
+        synth(true);
+      }
+    };
+    next();
+  }
 }
 
 /**

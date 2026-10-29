@@ -1,13 +1,16 @@
 // @vitest-environment jsdom
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import manh from "@/data/giong-sen-bien-manh.json";
 import { docSo, ghepManh, khoaManh, vietThanhNoi } from "@/lib/voice/ghep.mjs";
 import { ageSpeech, clockSpeech, dirSpeech, distSpeech, speedSpeech, waveSpeech } from "@/lib/nav-voice/phrases";
 import { cauDocSo, noiThoiDiem, type LopBanDo } from "@/lib/sen-bien/lenh-ban-do";
 import { hoiGi, traLoi, type KhoBanDo, type ViTri } from "@/lib/sen-bien/hoi-ban-do";
-import { speechParts } from "@/lib/voice/tts";
+import { napManhGiong, speechParts } from "@/lib/voice/tts";
+
+// danh mục mảnh nạp động (tts.ts) — nạp trước như lúc app đã sẵn
+beforeAll(() => napManhGiong());
 
 /*
   GHÉP GIỌNG SEN BIỂN (doc 15 §21) — câu có số/tên đọc bằng MẢNH mp3 Mỹ Duyên

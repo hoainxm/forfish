@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 /*
   KỊCH BẢN TOÀN BỘ — mọi câu Sen Biển / chế độ Đang chạy có thể đọc (doc 15 §21e).
@@ -46,9 +46,12 @@ import { hoiGi, traLoi, type ChoTen, type KhoBanDo } from "@/lib/sen-bien/hoi-ba
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
 import { SPECIES_META } from "@/lib/fish-predict";
 import { FISHING_PORTS } from "@/data/fishing-ports";
-import { speechParts } from "@/lib/voice/tts";
+import { napManhGiong, speechParts } from "@/lib/voice/tts";
 import manhCatalog from "@/data/giong-sen-bien-manh.json";
 import { khoaManh } from "@/lib/voice/ghep.mjs";
+
+// danh mục mảnh nạp động (tts.ts) — nạp trước như lúc app đã sẵn
+beforeAll(() => napManhGiong());
 
 const DATA = join(process.cwd(), "public", "data");
 const readJson = (f: string) => JSON.parse(readFileSync(join(DATA, f), "utf8"));

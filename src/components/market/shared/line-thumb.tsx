@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CartIcon } from "@/components/icons";
+import { anhNho, luiAnhGoc } from "@/lib/anh-nho";
 
 /**
  * Ảnh nhỏ của MỘT dòng hàng (đơn, tóm tắt đặt hàng, thẻ đơn — F-06). Không ảnh
@@ -13,7 +14,7 @@ export function LineThumb({ image, size = 3, className = "" }: { image?: string;
   if (image && !broken) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- ảnh sàn: bucket public / data-URI seed, không qua optimizer
-      <img src={image} alt="" loading="lazy" style={box} className={`shrink-0 rounded-xl object-cover ${className}`} onError={() => setBroken(true)} />
+      <img src={anhNho(image)} alt="" loading="lazy" decoding="async" style={box} className={`shrink-0 rounded-xl object-cover ${className}`} onError={(e) => luiAnhGoc(e.currentTarget, image) || setBroken(true)} />
     );
   }
   return (
