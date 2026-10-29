@@ -47,11 +47,25 @@ export function nenNhacChuong(s: InstallNudgeState, now: number): boolean {
   return true;
 }
 
+/**
+ * Biết NGAY (không chờ service worker ≤3 s) máy chưa đăng ký push: đăng ký chỉ có được khi quyền
+ * thông báo là "granted" — quyền "default"/"denied" (hay không có Notification) ⇒ chắc chắn "off".
+ * "granted" ⇒ null: phải tra đăng ký thật. Rút cửa sổ "unknown" để hàng chuông không hiện muộn.
+ */
+export function pushTatSom(quyen: string | undefined): "off" | null {
+  return quyen === "granted" ? null : "off";
+}
+
 /** Khối tầng 5 nào hiện — THUẦN. */
 export function chonKhoiTang5(t: TrangThaiTang5): KhoiTang5 {
   if (!t.online) return null;
   if (!t.coCangNha) return "cang-nha";
-  if (t.pushHoTro && t.pushState === "off" && nenNhacChuong(t.chuongNudge, t.now)) return "chuong";
+  if (t.pushHoTro && nenNhacChuong(t.chuongNudge, t.now)) {
+    if (t.pushState === "off") return "chuong";
+    /*  CHƯA TRA XONG mà chuông còn có thể lên ⇒ CHỜ, không vẽ Cài app tạm (2026-10-29, CLS Trang chủ):
+        trước đây vẽ Cài app rồi ≤3 s sau đổi sang chuông — thẻ cài biến mất, màn giật. */
+    if (t.pushState === "unknown") return null;
+  }
   if (t.caiAppHienDuoc) return "cai-app";
   return null;
 }

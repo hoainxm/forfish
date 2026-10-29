@@ -217,7 +217,7 @@ export function CanGiaySheet({
             Ảnh này không mở được — bà con chụp lại giúp.
           </div>
         ) : !anh || !url || !goc ? (
-          <div className="flex h-full items-center justify-center text-[0.875rem] text-foreground/65">Đang mở ảnh…</div>
+          <div className="flex h-full items-center justify-center text-[0.875rem] text-muted">Đang mở ảnh…</div>
         ) : (
           <div ref={khungRef} className="relative h-full w-full touch-none select-none">
             {/* ảnh + lớp chấm cùng một hộp đúng tỉ lệ ảnh, canh giữa khung */}

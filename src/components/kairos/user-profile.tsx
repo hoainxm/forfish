@@ -386,7 +386,7 @@ export function UserProfile({ id }: { id: string }) {
                 {user.official && <span className="shrink-0 rounded-full bg-sea/12 px-2 py-0.5 text-[0.75rem] font-bold text-sea">{NHAN.chinhThuc}</span>}
               </h2>
               {(user.subline || user.boatReg || user.samePort) && (
-                <p className="flex min-w-0 items-center gap-1.5 text-[0.875rem] text-foreground/65">
+                <p className="flex min-w-0 items-center gap-1.5 text-[0.875rem] text-muted">
                   {portLabel(user.about.homePort) ? (
                     <span className="flex min-w-0 items-center gap-1.5">
                       <Link href={`/kairos/ben/${user.about.homePort}`} className={`${LINK_BEN} min-w-0 truncate`}>
@@ -400,7 +400,7 @@ export function UserProfile({ id }: { id: string }) {
                   {user.samePort && <span className="shrink-0 rounded-full bg-ok-bg px-2 py-0.5 text-[0.75rem] font-semibold text-ok">{NHAN.cungCang}</span>}
                 </p>
               )}
-              <p className="mt-1 flex flex-wrap items-center gap-x-3 text-[0.875rem] text-foreground/65">
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 text-[0.875rem] text-muted">
                 <span>
                   <b className="text-navy">{user.postCount}</b> bài
                 </span>
@@ -452,7 +452,7 @@ export function UserProfile({ id }: { id: string }) {
                   </>
                 )}
               </div>
-              {user.blockedByMe && <p className="mt-2 text-[0.875rem] text-foreground/65">Bạn đã chặn người này. Bài và bình luận của họ không hiện với bạn.</p>}
+              {user.blockedByMe && <p className="mt-2 text-[0.875rem] text-muted">Bạn đã chặn người này. Bài và bình luận của họ không hiện với bạn.</p>}
             </div>
           </section>
 
@@ -489,7 +489,7 @@ export function UserProfile({ id }: { id: string }) {
                         <button
                           type="button"
                           onClick={() => a.compose({ kind: "new" })}
-                          className="surface flex h-14 w-full items-center gap-3 px-4 text-left text-[1rem] text-foreground/65 transition active:scale-[0.99]"
+                          className="surface flex h-14 w-full items-center gap-3 px-4 text-left text-[1rem] text-muted transition active:scale-[0.99]"
                         >
                           <KairosAvatar id={user.profileId} name={user.handle} url={user.avatarUrl} small />
                           Bà con muốn chia sẻ gì?
@@ -701,7 +701,7 @@ function About({ user, cached, onEdit, canEdit }: { user: KairosUser; cached: bo
           <dl className="divide-y divide-line">
             {rows.map((r) => (
               <div key={r.k} className="flex min-h-11 items-center gap-3 py-2">
-                <dt className="w-20 shrink-0 text-[0.875rem] text-foreground/65">{r.k}</dt>
+                <dt className="w-20 shrink-0 text-[0.875rem] text-muted">{r.k}</dt>
                 <dd className="min-w-0 flex-1 font-semibold text-navy">{r.v}</dd>
               </div>
             ))}
@@ -744,7 +744,7 @@ function NameInvite({ online, onSaved, onLater }: { online: boolean; onSaved: (m
       <label htmlFor="kairos-moi-ten" className="mb-1 block font-bold text-navy">
         Bà con muốn được gọi là gì?
       </label>
-      <p className="mb-2 text-[0.875rem] text-foreground/65">Tên hiện trên bài và bình luận, thay cho tên máy đặt.</p>
+      <p className="mb-2 text-[0.875rem] text-muted">Tên hiện trên bài và bình luận, thay cho tên máy đặt.</p>
       <input
         id="kairos-moi-ten"
         value={name}

@@ -289,7 +289,7 @@ export function MyMarketOrders() {
                     {/*  Mã đơn KHÔNG cắt (bà con đọc mã cho shop) — chật thì tổng tự
                          xuống dòng, canh phải. */}
                     <p className="mt-0.5 flex flex-wrap items-center justify-between gap-x-2 text-[1rem]">
-                      <span className="whitespace-nowrap text-foreground/65">{o.code}</span>
+                      <span className="whitespace-nowrap text-muted">{o.code}</span>
                       <span className="ml-auto whitespace-nowrap text-[1rem] font-semibold text-navy">{formatVnd(o.totalVnd)}</span>
                     </p>
                   </div>
@@ -300,7 +300,7 @@ export function MyMarketOrders() {
                 {(canCancel || canReceive || canPay) && (
                   <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
                     {!online && (
-                      <span className="mr-auto text-[0.875rem] text-foreground/65">Việc này cần có sóng.</span>
+                      <span className="mr-auto text-[0.875rem] text-muted">Việc này cần có sóng.</span>
                     )}
                     {canCancel && (
                       <ActionButton tone="danger" disabled={!online || !!busy} onClick={() => setPending({ order: o, kind: "huy" })}>

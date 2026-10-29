@@ -247,7 +247,7 @@ function StatsBody({
           Đơn: <b className="text-navy">{stats.orders}</b> · Hoàn thành: <b className="text-navy">{stats.completed}</b>
         </p>
         <p className="mt-1 text-[1rem] font-semibold text-navy">Doanh thu {formatVnd(stats.revenueVnd)}</p>
-        <p className="mt-0.5 text-[0.875rem] text-foreground/65">Tính theo đơn đã hoàn thành (tiền hàng + phí giao).</p>
+        <p className="mt-0.5 text-[0.875rem] text-muted">Tính theo đơn đã hoàn thành (tiền hàng + phí giao).</p>
       </div>
 
       {/* "N thứ cần làm" phải chạm đi thẳng tới chỗ làm (BH-09): cả băng là Link mở chip Hết hàng */}

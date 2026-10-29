@@ -343,7 +343,7 @@ export function PermissionsTab() {
                   </span>
                 ) : a.source === "env" ? (
                   <span
-                    className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-bold text-foreground/65"
+                    className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-bold text-muted"
                     title="Nhận quyền trực tiếp từ biến môi trường ADMIN_PHONES — không thể thay đổi trên web, cần cập nhật trên máy chủ Vercel"
                   >
                     từ env · cửa cứu hộ
@@ -467,7 +467,7 @@ export function PermissionsTab() {
         <AdminSkeleton label="Đang tải danh sách quản lý…" />
       )}
       {managers && managers.length === 0 && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+        <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
           Chưa có tài khoản quản lý nào. Tạo bằng mục{" "}
           <b>Tạo tài khoản nhân sự</b> ở trên (chọn &ldquo;Quản lý&rdquo;), rồi
           phân quyền ngay tại đây.
@@ -639,7 +639,7 @@ export function ManagerPermCard({
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
         <span className="text-[0.9375rem] font-semibold text-navy">
           {RESET_PASSWORD_LABEL}
-          <span className="block text-[0.8125rem] font-normal text-foreground/65">
+          <span className="block text-[0.8125rem] font-normal text-muted">
             Mật khẩu khách về {DEFAULT_CUSTOMER_PASSWORD}. Không áp cho tài khoản nhân sự.
           </span>
         </span>

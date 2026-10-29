@@ -225,7 +225,7 @@ export function ShopPage({ slug }: { slug: string }) {
             )}
             <div className="min-w-0 flex-1">
               <h2 className="display text-[1rem] font-semibold leading-snug text-navy">{shop.name}</h2>
-              <p className="mt-0.5 text-[1rem] text-foreground/65">
+              <p className="mt-0.5 text-[1rem] text-muted">
                 {[shop.province, shop.address].filter(Boolean).join(" · ")}
               </p>
               {shop.ratingCount > 0 && (
@@ -265,7 +265,7 @@ export function ShopPage({ slug }: { slug: string }) {
       {/* "N món" DÒNG RIÊNG dưới dải chip (VT-09, như R-02 ở /cho/tim) — trong dải cuộn ngang
           nó nằm ở x=435, ngoài màn 390px */}
       {data && status === "ok" && (
-        <p className="mb-3 px-4 text-[1rem] font-semibold text-foreground/65" aria-live="polite">
+        <p className="mb-3 px-4 text-[1rem] font-semibold text-muted" aria-live="polite">
           {data.products.total} món
         </p>
       )}

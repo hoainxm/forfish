@@ -51,7 +51,7 @@ export function RatingStars({
         );
       })}
       {!interactive && count != null && (
-        <span className="ml-1 text-[0.875rem] text-foreground/65">({count})</span>
+        <span className="ml-1 text-[0.875rem] text-muted">({count})</span>
       )}
     </span>
   );

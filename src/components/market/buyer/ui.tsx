@@ -295,7 +295,7 @@ export function LoginInvite({
       <button
         type="button"
         onClick={onClose}
-        className="mx-auto mt-2 flex min-h-(--row-h) items-center justify-center px-4 text-[1rem] font-semibold text-foreground/65"
+        className="mx-auto mt-2 flex min-h-(--row-h) items-center justify-center px-4 text-[1rem] font-semibold text-muted"
       >
         Để sau
       </button>

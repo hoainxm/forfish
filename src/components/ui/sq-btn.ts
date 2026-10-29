@@ -10,6 +10,10 @@
     panel điểm đã lưu): ở đó các nút đứng thành một cột cạnh rail, cùng khuôn ô
     rail để mép phải thẳng.
 
-    Hình khối khai ở globals.css (`.sq-btn`, `.sq-btn.sq-tile`). Luật: 03 §0b. */
+    `SQ_BTN_CTA` — `SQ_BTN` cao bằng nút chính `--h-cta`, cho nút phụ đứng CẠNH nút chính
+    trong cùng hàng (thanh mua dính). Không đặt `h-(--h-cta)` lên `SQ_BTN` — `.sq-btn` thắng.
+
+    Hình khối khai ở globals.css (`.sq-btn`, `.sq-btn.sq-tile`, `.sq-btn.sq-cta`). Luật: 03 §0b. */
 export const SQ_BTN = "sq-btn";
 export const SQ_TILE = "sq-btn sq-tile";
+export const SQ_BTN_CTA = "sq-btn sq-cta";

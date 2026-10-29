@@ -212,7 +212,7 @@ export function MyOrders() {
       )}
 
       {load.kind === "loading" && (
-        <p className="surface px-4 py-8 text-center text-[1.125rem] text-foreground/65">
+        <p className="surface px-4 py-8 text-center text-[1.125rem] text-muted">
           Đang tải đơn của bà con…
         </p>
       )}

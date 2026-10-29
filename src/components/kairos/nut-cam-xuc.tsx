@@ -162,7 +162,7 @@ export function DongCamXuc({ camXuc, tong, nho = false, chiBieuTuong = false }: 
           </span>
         ))}
       </span>
-      {!chiBieuTuong && <span className={`tabular-nums text-foreground/65 ${nho ? "text-[0.8125rem]" : "text-[0.875rem]"}`}>{tong}</span>}
+      {!chiBieuTuong && <span className={`tabular-nums text-muted ${nho ? "text-[0.8125rem]" : "text-[0.875rem]"}`}>{tong}</span>}
     </span>
   );
 }

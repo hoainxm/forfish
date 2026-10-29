@@ -92,7 +92,7 @@ export function SupplyCatalog() {
         ))}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
+      <p className="py-4 text-center text-[0.875rem] text-muted">
         Giá thật có thể chênh theo vùng — bà con hỏi lại đại lý gần cảng.
       </p>
     </div>

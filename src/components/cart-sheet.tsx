@@ -352,7 +352,7 @@ export function CartSheet({
           {formatVnd(total)}
         </span>
       </div>
-      <p className="mt-1.5 px-1 text-[0.8125rem] text-foreground/65">
+      <p className="mt-1.5 px-1 text-[0.8125rem] text-muted">
         Không trả tiền trong app — bên bán giao hàng, nhận tiền tận nơi.
       </p>
 

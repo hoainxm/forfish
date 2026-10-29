@@ -239,10 +239,10 @@ export function BangChuGiai({
                 <span>{d.chu}</span>
               </div>
             ))}
-            {tang.ghiChu && <p className="mt-1 text-[0.875rem] text-foreground/65">{tang.ghiChu}</p>}
+            {tang.ghiChu && <p className="mt-1 text-[0.875rem] text-muted">{tang.ghiChu}</p>}
           </div>
         ))}
-        <p className="mb-2 text-[0.875rem] text-foreground/65">
+        <p className="mb-2 text-[0.875rem] text-muted">
           Chạm bất kỳ vật nào trên bản đồ để xem tên và chi tiết.
         </p>
       </div>

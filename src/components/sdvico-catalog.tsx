@@ -315,7 +315,7 @@ export function SdvicoCatalog({
       )}
 
       {showcase.length === 0 && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+        <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
           Chưa có hàng nào — gọi số bên dưới, có người tư vấn cho bà con.
         </p>
       )}
@@ -357,7 +357,7 @@ export function SdvicoCatalog({
         <PhoneIcon className="h-5 w-5" />
         Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}
       </a>
-      <p className="py-3 text-center text-[0.875rem] text-foreground/65">
+      <p className="py-3 text-center text-[0.875rem] text-muted">
         Giá và model hợp tàu — nhân viên tư vấn trực tiếp.
       </p>
 
@@ -565,7 +565,7 @@ function InquiryCard({
               vendorName={p.vendorName}
             />
             {p.contactNote && (
-              <p className="w-full text-[0.8125rem] text-foreground/65">
+              <p className="w-full text-[0.8125rem] text-muted">
                 {p.contactNote}
               </p>
             )}
@@ -574,7 +574,7 @@ function InquiryCard({
           <SdvicoRequestButton
             topic="mua"
             productName={p.title}
-            label={owned ? "Mua thêm / vật tư thay thế" : "Hỏi mua / tư vấn chi tiết"}
+            label={owned ? NHAN.muaThem : NHAN.hoiMua}
           />
         )}
       </div>
@@ -726,7 +726,7 @@ function ProductDetailSheet({
               <SdvicoRequestButton
                 topic="mua"
                 productName={p.title}
-                label="Gửi yêu cầu mua hàng"
+                label={NHAN.hoiMua}
               />
               <a
                 href={`tel:${SDVICO_HOTLINE}`}

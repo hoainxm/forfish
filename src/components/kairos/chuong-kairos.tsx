@@ -120,7 +120,7 @@ export function ChuongKairos() {
                     <KairosAvatar id={t.nguoi || t.id} name={t.nguoi || "Kairos"} url={null} />
                     <span className="min-w-0 flex-1">
                       <span className={`block text-[1rem] leading-snug ${t.chuaDoc ? "font-semibold text-navy" : "text-foreground/85"}`}>{t.body}</span>
-                      <span className={`mt-0.5 block text-[0.8125rem] ${t.chuaDoc ? "font-semibold text-sea" : "text-foreground/65"}`}>{now ? postTimeLabel(t.sentAt, now) : ""}</span>
+                      <span className={`mt-0.5 block text-[0.8125rem] ${t.chuaDoc ? "font-semibold text-sea" : "text-muted"}`}>{now ? postTimeLabel(t.sentAt, now) : ""}</span>
                     </span>
                   </Link>
                 </li>

@@ -425,13 +425,13 @@ export function ComposerSheet({
         />
         {nt.danhSach && <div className="mt-2">{nt.danhSach}</div>}
         <div id="kairos-soan-dem" className="mb-2 mt-1 flex min-h-5 justify-between gap-2 text-[0.8125rem]">
-          <span className="text-foreground/65">{draftFail ? "Máy đầy — nháp chưa lưu được" : !online && text.trim() ? "Đã giữ nháp trong máy" : ""}</span>
-          {left <= 200 && <span className={`font-semibold tabular-nums ${tooLong ? "text-danger" : "text-foreground/65"}`}>{left}</span>}
+          <span className="text-muted">{draftFail ? "Máy đầy — nháp chưa lưu được" : !online && text.trim() ? "Đã giữ nháp trong máy" : ""}</span>
+          {left <= 200 && <span className={`font-semibold tabular-nums ${tooLong ? "text-danger" : "text-muted"}`}>{left}</span>}
         </div>
 
         {mode.kind === "reshare" ? (
           <div className="mb-3 rounded-2xl border border-line px-3 py-2">
-            <p className="truncate text-[0.8125rem] font-semibold text-foreground/65">
+            <p className="truncate text-[0.8125rem] font-semibold text-muted">
               {mode.post.kind === "bao" ? mode.post.outlet : mode.post.author?.handle || (mode.post.kind === "chinh-thuc" ? "SDVICO" : "")}
             </p>
             <p className="line-clamp-2 text-[1rem]">{mode.post.title || mode.post.summary || mode.post.body}</p>
@@ -449,7 +449,7 @@ export function ComposerSheet({
 
       {/* THANH CÔNG CỤ — dính trên bàn phím: Ảnh · Nói · Cảng · Chủ đề */}
       <div className="flex shrink-0 items-center gap-1 border-t border-line bg-card px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
-        <span className="px-2 text-[0.875rem] text-foreground/65">Thêm vào bài</span>
+        <span className="px-2 text-[0.875rem] text-muted">Thêm vào bài</span>
         <span className="flex-1" />
         {mode.kind !== "reshare" && (
           <button type="button" onClick={() => anhMo.current?.()} disabled={images.length >= LIMITS.images} aria-label={NHAN.anh} className={nutCong}>
@@ -469,7 +469,7 @@ export function ComposerSheet({
 
       {pickTopic && (
         <BottomSheet title="Chủ đề bài" onClose={() => setPickTopic(false)}>
-          <p className="mb-2 text-[0.875rem] text-foreground/65">Không chọn thì máy tự đoán theo chữ bà con viết.</p>
+          <p className="mb-2 text-[0.875rem] text-muted">Không chọn thì máy tự đoán theo chữ bà con viết.</p>
           <div className="grid gap-1">
             {TOPIC_OPTIONS.map((o) => (
               <button

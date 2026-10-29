@@ -76,7 +76,7 @@ function TheLink({ l }: { l: LinkPreview }) {
         <img src={l.image} alt="" loading="lazy" onError={() => setHong(true)} className="h-20 w-20 shrink-0 object-cover" />
       )}
       <span className="flex min-w-0 flex-col justify-center gap-0.5 px-3 py-2">
-        <span className="truncate text-[0.75rem] text-foreground/65">{l.site}</span>
+        <span className="truncate text-[0.75rem] text-muted">{l.site}</span>
         <span className="line-clamp-2 text-[0.875rem] font-semibold leading-snug text-navy">{l.title}</span>
       </span>
     </a>
@@ -175,7 +175,7 @@ function CommentRow({
           {c.body ? (
             <ChuXemThem text={c.body} dong={8} nen="field" nhac={c.mentions} className="text-[1rem]" />
           ) : (
-            !c.image && <p className="text-[1rem] text-foreground/65">Đã gửi một ảnh</p>
+            !c.image && <p className="text-[1rem] text-muted">Đã gửi một ảnh</p>
           )}
         </div>
         {menu && (
@@ -226,7 +226,7 @@ function CommentRow({
         {c.image && (
           <button type="button" onClick={() => setXem(true)} aria-label="Xem ảnh bình luận" className="mt-1 block overflow-hidden rounded-2xl">
             {anhHong ? (
-              <span className="flex h-24 w-40 items-center justify-center bg-field text-[0.8125rem] text-foreground/65">Cần sóng để xem ảnh</span>
+              <span className="flex h-24 w-40 items-center justify-center bg-field text-[0.8125rem] text-muted">Cần sóng để xem ảnh</span>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element -- ảnh kho kairos-media, cùng cách thẻ bài
               <img src={c.image} alt="" loading="lazy" onError={() => setAnhHong(true)} className="max-h-60 max-w-[15rem] object-cover" />
@@ -256,7 +256,7 @@ function CommentRow({
             </button>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center gap-1 text-foreground/65">
+          <div className="flex flex-wrap items-center gap-1 text-muted">
             <span className="px-2 text-[0.8125rem]">{postTimeLabel(c.createdAt, now)}</span>
             <NutCamXuc nho my={c.myCamXuc ?? (c.hayByMe ? "hay" : null)} onChon={(k) => onHay(c, k)} className={`${small} flex items-center gap-1`} />
             {c.hayCount > 0 && <DongCamXuc nho camXuc={c.camXuc} tong={c.hayCount} />}
@@ -531,14 +531,14 @@ export function CommentThread({
 
   return (
     <div className="space-y-3">
-      {first === "loading" && comments.length === 0 && <p className="text-[0.875rem] text-foreground/65">{NHAN.dangTai}</p>}
+      {first === "loading" && comments.length === 0 && <p className="text-[0.875rem] text-muted">{NHAN.dangTai}</p>}
       {first === "error" && (
         <button type="button" onClick={() => void loadFirst()} className="h-10 rounded-xl border border-line px-3 text-[0.875rem] font-semibold text-sea">
           Chưa tải được bình luận — {NHAN.thuLai}
         </button>
       )}
       {threads.length === 0 && first === "idle" && (
-        <p className="text-[0.875rem] text-foreground/65">{canWrite ? "Chưa có bình luận. Bà con nói trước nhé." : "Bình luận chưa lưu trong máy."}</p>
+        <p className="text-[0.875rem] text-muted">{canWrite ? "Chưa có bình luận. Bà con nói trước nhé." : "Bình luận chưa lưu trong máy."}</p>
       )}
       {threads.length > 0 && (
         <ul className="space-y-3">
@@ -576,7 +576,7 @@ export function CommentThread({
           type="button"
           onClick={() => void loadMore()}
           disabled={more === "loading"}
-          className="text-[0.875rem] font-semibold text-foreground/65 disabled:opacity-40"
+          className="text-[0.875rem] font-semibold text-muted disabled:opacity-40"
         >
           {more === "loading" ? NHAN.dangTai : more === "error" ? `Chưa tải được — ${NHAN.thuLai}` : "Xem thêm bình luận"}
         </button>
@@ -607,7 +607,7 @@ export function CommentThread({
           >
             {replyTo && (
               <div className="mb-1 flex items-center gap-1 pl-10 text-[0.8125rem]">
-                <span className="min-w-0 truncate text-foreground/65">
+                <span className="min-w-0 truncate text-muted">
                   Trả lời <span className="font-semibold text-navy">{replyTo.handle}</span>
                 </span>
                 <button
@@ -729,7 +729,7 @@ export function CommentThread({
               )}
             </div>
             <div className="mt-1 flex min-h-5 items-center justify-between gap-2 px-2 text-[0.8125rem]">
-              <span className="text-foreground/65">
+              <span className="text-muted">
                 {draftFail
                   ? "Máy đầy — nháp chưa lưu được"
                   : !online || !canWrite
@@ -738,7 +738,7 @@ export function CommentThread({
                       : "Mất sóng — có sóng mới gửi được"
                     : ""}
               </span>
-              {left <= 100 && <span className={`font-semibold tabular-nums ${left < 0 ? "text-danger" : "text-foreground/65"}`}>{left}</span>}
+              {left <= 100 && <span className={`font-semibold tabular-nums ${left < 0 ? "text-danger" : "text-muted"}`}>{left}</span>}
             </div>
             {sendErr && (
               <p role="alert" className="mt-1 px-2 text-[0.875rem] font-semibold text-danger">

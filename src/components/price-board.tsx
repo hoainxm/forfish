@@ -155,9 +155,9 @@ export function PriceBoard() {
           thẳng là chưa tải được, đừng để bảng tĩnh đội lốt giá tuần (audit G3).
           Lúc bình thường là MỘT dòng chữ phụ, không hộp; cảnh báo mới có nền vàng. */}
       {dangTaiLanDau ? (
-        <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-foreground/65">Đang tải giá tuần…</p>
+        <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-muted">Đang tải giá tuần…</p>
       ) : isLive ? (
-        <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-foreground/65">
+        <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-muted">
           Giá tại bến {result.province}, tuần {result.week} · VASEP
           {result.savedAt != null
             ? ` · bản lưu (${savedAgoLabel(result.savedAt)})`
@@ -247,7 +247,7 @@ export function PriceBoard() {
                       {formatRange(p)}
                     </span>
                     {(p.region || p.note || tham) && (
-                      <span className="mt-0.5 block text-[0.8125rem] leading-snug text-foreground/65">
+                      <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted">
                         {[tham ? "tham khảo" : null, p.region, p.note]
                           .filter(Boolean)
                           .join(" · ")}
@@ -265,12 +265,12 @@ export function PriceBoard() {
       {/* giá dầu DO hôm nay — HÀNG PHỤ cuối bảng (Codex: không chiếm thẻ đầu
           màn). Không lấy được thì NÓI một dòng chứ không biến mất im (G3). */}
       {fuel === null && (
-        <p className="mt-3 px-1 text-[0.8125rem] text-foreground/65">
+        <p className="mt-3 px-1 text-[0.8125rem] text-muted">
           Chưa lấy được giá dầu hôm nay.
         </p>
       )}
       {fuel && (
-        <p className="mt-3 px-1 text-[0.8125rem] leading-snug text-foreground/65">
+        <p className="mt-3 px-1 text-[0.8125rem] leading-snug text-muted">
           {/* bỏ jargon "vùng 1/vùng 2" của Petrolimex — nói tiếng người */}
           Dầu DO hôm nay
           {fuel.date ? ` (${formatVnDate(fuel.date)})` : ""}:{" "}

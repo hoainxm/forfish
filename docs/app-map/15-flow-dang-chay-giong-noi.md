@@ -1,5 +1,6 @@
 # 15 — Chế độ "ĐANG CHẠY": đọc & cảnh báo bằng giọng nói kiểu VietMap
 
+<!-- re-verified: 2026-10-29h — CÂU "HỎI CÁ, CHƯA MỞ GÓI" bỏ chữ "premium" mà GIỮ giọng Mỹ Duyên: câu cũ "Dự báo cá dành cho tài khoản premium. Bà con liên hệ SDVICO để mở." khớp mảnh khung thu nguyên câu `du_bao_ca_danh_cho_tai_khoan_premium`. Câu theo tên gói hiển thị (`TEN_GOI` "gói dự báo") KHÔNG ghép được: danh mục mảnh (`src/data/giong-sen-bien-manh.json`) không có âm "gói" hay "dự" đứng riêng — "Dự báo cá nằm trong gói dự báo" thiếu 3 khúc ⇒ luật một câu một giọng (§21) đẩy CẢ CÂU sang giọng máy. Nay ghép từ HAI mảnh khung sẵn có cùng nghĩa: **"Máy chưa có bản đồ cá. Bà con liên hệ SDVICO để mở."** (`hoi-ban-do.ts` hằng `CAU_CA_CHUA_MO`; test `hoi-ban-do.test.ts` khoá: không chữ premium + `speechParts` phủ đủ mảnh). Khác câu "chưa tải" ở vế sau ("bật lớp cá lúc còn sóng" vs "liên hệ SDVICO để mở"). Muốn nói tên gói ⇒ thu mảnh "gói dự báo" (nhóm `them`, §21l) rồi mới đổi câu. Còn HAI chỗ nói câu cũ trong `fishing-map-view.tsx` (≈dòng 4205, 4386 — nhóm G giữ tệp): đổi sang `CAU_CA_CHUA_MO` khi gộp. -->
 <!-- re-verified: 2026-10-26l — §30 mới: Sen Biển hỏi từng câu để nhập giấy tờ + tàu (`components/hoi-tung-cau.tsx`, `lib/sen-bien/nhap-giong.ts`) — anh Long 26/10: "cho bà con nhập bằng giọng nói cũng được, ví dụ trao đổi Sen Biển để thiết lập, Sen Biển hỏi từng câu rồi lưu lại, tàu, giấy tờ, chứng nhận". -->
 <!-- re-verified: 2026-10-27 — ĐỒNG BỘ sdvico/forfish `main` (562d36e8, 9 commit Nam/Hùng 19–21/10) vào main Forfun (anh Long 26/10: "lên hết cả Sen Biển lẫn Kairos sang SD"). NHẬN: thuỷ triều 21 trạm ngoài cửa biển + xem con nước theo giờ (`tide-card`, `lib/tides`, `use-pointer-scrub`), nhắc hạn giấy tờ 30·25·20·15·10 rồi 5→0 + `DocRemindOnOpen` ở trang chủ (`lib/doc-reminder-local`), chuông SDFish khi push tới lúc app mở (`sw.js`, `warning-sound`, `sw-register`), push thuyền viên mở /nguoi, `windows-paths.test`. GỠ: cờ demo `NEXT_PUBLIC_SEN_BIEN`/`lib/sen-bien/bat-tat.ts` (Sen Biển + Kairos phát hành ở SD; ops/sync-base-flow §0b đóng án lệ). KHÔNG LẤY: rail "Chức năng" của sdvico 21/10 (`ra-khoi-rail-menu.test` xoá) — main đã đi tiếp sang rail Lớp-popover + khay ⋯ (22/10, BD-12 25/10). Mảnh giọng "còn" giữ `con_m.mp3` (sdvico đặt `con_`). -->
 **Load khi / Load when**: sửa chế độ Đang chạy, giọng đọc cảnh báo, `src/lib/nav-voice/*`, `src/lib/voice/tts.ts`, HUD dẫn đường (nút Giọng), Sen Biển rảnh tay / giọng nữ (§17); cần bảng tiêu chí nghiệm thu VM-xx.
@@ -513,7 +514,7 @@ Sau câu đáp có chỗ, bản đồ bay tới đó; bà con nói **"dẫn tớ
 | Không cho mic | `not-allowed` → ô gõ |
 | Không nói gì 6 s | "chưa nghe rõ" như §17 |
 | Lớp chưa tải (mất sóng lần đầu) | "Máy chưa có lớp …. Bà con mở bản đồ lúc còn sóng để máy tải về." — **không bao giờ** nói "không có gì" khi kho thiếu |
-| Hỏi cá, chưa premium / chưa đăng nhập | nói rõ, không lộ điểm |
+| Hỏi cá, chưa premium / chưa đăng nhập | nói rõ, không lộ điểm — chưa mở gói: "Máy chưa có bản đồ cá. Bà con liên hệ SDVICO để mở." (`CAU_CA_CHUA_MO`, đủ mảnh giọng, 2026-10-29h) |
 | Hỏi "phía trước" khi tàu đứng yên | hỏi lại hướng, không đoán |
 
 ### 18d. Offline — 4 câu (CLAUDE.md)

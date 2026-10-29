@@ -344,10 +344,10 @@ function ProductReviews({ productId, onError }: { productId: string; onError: (m
       <p className="text-[0.875rem] font-semibold text-muted">Đánh giá của bà con</p>
       {error && <InlineError text={error} onRetry={load} />}
       {!rows && !error && (
-        <p className="py-2 text-[0.875rem] text-foreground/65">Đang tải đánh giá…</p>
+        <p className="py-2 text-[0.875rem] text-muted">Đang tải đánh giá…</p>
       )}
       {rows && rows.length === 0 && (
-        <p className="py-2 text-[0.875rem] text-foreground/65">Món này chưa có đánh giá nào.</p>
+        <p className="py-2 text-[0.875rem] text-muted">Món này chưa có đánh giá nào.</p>
       )}
       {rows && rows.length > 0 && (
         <ul className="mt-1 space-y-2">

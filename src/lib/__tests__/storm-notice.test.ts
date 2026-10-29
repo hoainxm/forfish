@@ -6,6 +6,7 @@ import {
   shouldShowStormOnHome,
   stormAgeLabel,
   stormNoticeShort,
+  stormNoticeSub,
   stormNoticeText,
   type StormStatus,
 } from "../storms";
@@ -80,6 +81,20 @@ describe("stormNoticeText — chỉ nói cho nhánh khong-hoi-duoc, bằng TUỔ
       "Chưa hỏi được tin bão",
     );
     expect(stormNoticeShort({ kind: "dang-hoi" }, NOW)).toBeNull();
+  });
+});
+
+describe("stormNoticeSub — dòng phụ Trang chủ: vì sao + nghe đài, ngắn một hàng 360px", () => {
+  const loi: StormStatus = { kind: "khong-hoi-duoc", checkedAt: NOW - 30 * H };
+  it("lỗi nguồn khác mất sóng (S11), luôn nhắc nghe đài", () => {
+    expect(stormNoticeSub(loi, true)).toBe("Nguồn lỗi · nghe đài duyên hải / Icom");
+    expect(stormNoticeSub(loi, false)).toBe("Mất sóng · nghe đài duyên hải / Icom");
+  });
+  it("chỉ nhánh chưa hỏi được; ≤40 ký tự để không rớt dòng (khung 4rem)", () => {
+    expect(stormNoticeSub({ kind: "dang-hoi" }, true)).toBeNull();
+    expect(stormNoticeSub({ kind: "khong-co", checkedAt: NOW }, true)).toBeNull();
+    for (const o of [true, false]) expect(stormNoticeSub(loi, o)!.length).toBeLessThanOrEqual(40);
+    expect(stormNoticeShort(loi, NOW)!.length).toBeLessThanOrEqual(24);
   });
 });
 

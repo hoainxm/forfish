@@ -88,11 +88,11 @@ export function ShareSheet({
       <div className="divide-y divide-line">
         <button type="button" className={row} onClick={() => onReshare(post)}>
           {NHAN.dangLai}
-          <span className="ml-auto text-[0.875rem] font-normal text-foreground/65">lên Kairos kèm lời bạn</span>
+          <span className="ml-auto text-[0.875rem] font-normal text-muted">lên Kairos kèm lời bạn</span>
         </button>
         <button type="button" className={row} onClick={() => void doSend()}>
           {NHAN.guiDi}
-          <span className="ml-auto text-[0.875rem] font-normal text-foreground/65">Zalo, tin nhắn…</span>
+          <span className="ml-auto text-[0.875rem] font-normal text-muted">Zalo, tin nhắn…</span>
         </button>
         <button type="button" className={row} onClick={() => void doCopy()}>
           {NHAN.chepLink}
@@ -100,7 +100,7 @@ export function ShareSheet({
         {post.images.length > 0 && (
           <button type="button" className={row} disabled={busy || !online} onClick={() => void doDownload()}>
             {NHAN.taiAnh}
-            <span className="ml-auto text-[0.875rem] font-normal text-foreground/65">
+            <span className="ml-auto text-[0.875rem] font-normal text-muted">
               {!online ? NHAN.canSong : busy ? NHAN.dangTai : `${NHAN.anh} ${post.images.length}`}
             </span>
           </button>
@@ -109,7 +109,7 @@ export function ShareSheet({
       {showLink && (
         <>
           <input readOnly value={link} aria-label="Link bài" className={`${inputClass} mt-3`} onFocus={(e) => e.currentTarget.select()} />
-          <p role="status" className="mt-2 text-[0.875rem] text-foreground/65">
+          <p role="status" className="mt-2 text-[0.875rem] text-muted">
             Máy không cho chép tự động — giữ ngón lên link để chép.
           </p>
         </>

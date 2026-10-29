@@ -30,7 +30,7 @@ import { isStandalone, isAndroid } from "@/lib/storage-persist";
 import { batDauNgheCai, bungHopCai, cachCaiHienTai, ngheThayDoiCai, type CachCai } from "@/lib/app-install";
 import { useOnline } from "@/lib/use-online";
 import { useAuthUser } from "@/lib/use-auth";
-import { CHUONG_NUDGE_KEY, chonKhoiTang5, type KhoiTang5 as LoaiKhoi } from "@/lib/tang-5";
+import { CHUONG_NUDGE_KEY, chonKhoiTang5, pushTatSom, type KhoiTang5 as LoaiKhoi } from "@/lib/tang-5";
 import {
   fetchVapidPublicKey,
   getExistingPushSubscription,
@@ -105,10 +105,15 @@ export function UrgentWithInstall({ children }: { children: ReactNode }) {
     // khoảng trống trong space-y của trang
     <div ref={ref} className="space-y-4 empty:hidden">
       {children}
-      {rows < URGENT_ROWS_HIDE_INSTALL && <KhoiTang5 />}
+      {rows < URGENT_ROWS_HIDE_INSTALL && <KhoiTang5 cho="dau" />}
       <SenChuong />
     </div>
   );
+}
+
+/** Hàng "Bật chuông" ở CUỐI Trang chủ (page.tsx, sau Con nước) — xem KhoiTang5 `cho="cuoi"`. */
+export function ChuongCuoiTrang() {
+  return <KhoiTang5 cho="cuoi" />;
 }
 
 /*  SEN BIỂN "bật chuông báo bão" (cơ cấu mới 2026-10-25): Sen Biển mở `/?sen=chuong` ⇒ Trang chủ chạy ĐÚNG luồng của
@@ -161,8 +166,12 @@ function SenChuong() {
 /*  KHỐI TẦNG 5 — MỘT khối, ưu tiên cố định (quyết định D, 2026-10-25): Chọn cảng nhà ›
     Bật chuông báo bão › Cài app. Luật thuần ở `lib/tang-5.ts`; ở đây chỉ đọc trạng thái
     máy (không mạng lúc mở màn: cảng nhà từ kho, đăng ký push từ service worker, sổ nhắc
-    chuông từ localStorage) rồi vẽ đúng một hàng. Mất sóng ⇒ null. */
-function KhoiTang5() {
+    chuông từ localStorage) rồi vẽ đúng một hàng. Mất sóng ⇒ null.
+    HAI CHỖ GẮN (2026-10-29, CLS Trang chủ): hàng chuông chỉ biết được SAU khi tra đăng ký push (tới 3 s
+    chờ service worker) nên hiện muộn và đẩy cả màn ≈74px (đo CLS 0,029). Nay `cho="dau"` (dưới việc cần
+    làm) vẽ Chọn cảng nhà / Cài app như cũ; `cho="cuoi"` (cuối trang) vẽ RIÊNG hàng chuông — hiện muộn ở
+    cuối thì không đẩy gì. Quyền thông báo chưa cấp ⇒ biết ngay "off" (`pushTatSom`), khỏi chờ. */
+function KhoiTang5({ cho }: { cho: "dau" | "cuoi" }) {
   const online = useOnline();
   const [coCangNha, setCoCangNha] = useState<boolean | null>(null);
   const [pushState, setPushState] = useState<"off" | "on" | "unknown">("unknown");
@@ -172,6 +181,11 @@ function KhoiTang5() {
   useEffect(() => {
     setCoCangNha(cangBienHomNay() !== null);
     if (!isPushSupported()) return;
+    const som = pushTatSom(typeof Notification === "undefined" ? undefined : Notification.permission);
+    if (som) {
+      setPushState(som);
+      return;
+    }
     let alive = true;
     // đọc máy, không tốn sóng; không có SW (dev) ⇒ 3 s rồi coi là "off"
     getExistingPushSubscription().then((sub) => alive && setPushState(sub ? "on" : "off"));
@@ -197,6 +211,8 @@ function KhoiTang5() {
   /*  Chọn cảng nhà + Cài app hiện SONG SONG (2026-10-27, anh Long: "thẻ cài app hiện song song với thẻ chọn cảng nhà"):
       người mới chưa khai cảng nhà trước đây không bao giờ thấy lời mời cài — đúng ca bà con quay video hỏi "tải app
       về máy sao". Thẻ cài tự ẩn khi máy đã cài / đã hết lượt nhắc. */
+  if (cho === "cuoi")
+    return khoi === "chuong" ? <HangChuong onXong={() => setChuongXong(true)} onAn={() => setNhip((n) => n + 1)} /> : null;
   if (khoi === "cang-nha")
     return (
       <>
@@ -204,7 +220,6 @@ function KhoiTang5() {
         <InstallBanner />
       </>
     );
-  if (khoi === "chuong") return <HangChuong onXong={() => setChuongXong(true)} onAn={() => setNhip((n) => n + 1)} />;
   if (khoi === "cai-app") return <InstallBanner />;
   return null;
 }
@@ -237,10 +252,28 @@ function HangChuong({ onXong, onAn }: { onXong: () => void; onAn: () => void }) 
   const [busy, setBusy] = useState(false);
   const [daBat, setDaBat] = useState(false);
   const marked = useRef(false);
+  const hangRef = useRef<HTMLDivElement | null>(null);
+  /*  Tính lượt khi hàng THẬT SỰ lọt vào màn (hàng nằm cuối Trang chủ — gắn mà bà con không cuộn tới thì
+      không mất lượt nào trong 3 lượt nhắc). Không có IntersectionObserver ⇒ tính ngay như cũ. */
   useEffect(() => {
-    if (marked.current) return;
-    marked.current = true;
-    writeNudge(markInstallNudgeShown(readNudge(CHUONG_NUDGE_KEY), Date.now()), CHUONG_NUDGE_KEY);
+    const el = hangRef.current;
+    const danh = () => {
+      if (marked.current) return;
+      marked.current = true;
+      writeNudge(markInstallNudgeShown(readNudge(CHUONG_NUDGE_KEY), Date.now()), CHUONG_NUDGE_KEY);
+    };
+    if (!el || typeof IntersectionObserver === "undefined") {
+      danh();
+      return;
+    }
+    const io = new IntersectionObserver((ds) => {
+      if (ds.some((d) => d.isIntersecting)) {
+        danh();
+        io.disconnect();
+      }
+    });
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
   useEffect(() => {
     if (!daBat) return;
@@ -273,7 +306,7 @@ function HangChuong({ onXong, onAn }: { onXong: () => void; onAn: () => void }) 
 
   return (
     // pr-8: chừa chỗ cho chấm × đè góc, không đè lên nút Bật
-    <div className="surface relative flex min-h-(--h-row) items-center gap-3 py-2 pl-4 pr-8">
+    <div ref={hangRef} className="surface relative flex min-h-(--h-row) items-center gap-3 py-2 pl-4 pr-8">
       <BellIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
       <span className="min-w-0 flex-1 text-[1rem] font-semibold leading-snug text-navy">
         {/* 2026-10-27: chuông còn nhắc hạn giấy tờ (cron notify-docs) — nói cả hai lý do để bật */}
@@ -402,7 +435,7 @@ export function InstallBanner({
           <AnchorIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="display block text-[1rem] font-semibold leading-tight text-navy">Cài app</span>
-            <span className="block text-[0.8125rem] leading-snug text-foreground/65">Dùng được khi mất sóng</span>
+            <span className="block text-[0.8125rem] leading-snug text-muted">Dùng được khi mất sóng</span>
           </span>
           {/* TC-14: xoè TẠI CHỖ ⇒ mũi tên xuống + xoay 180 khi mở, cùng khuôn "Xem thêm" của Thông báo
               (› ngụ ý sang trang) */}

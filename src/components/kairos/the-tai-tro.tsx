@@ -19,7 +19,7 @@ export function TheTaiTroCard({ ad }: { ad: TheTaiTro }) {
   const [xem, setXem] = useState(false);
   return (
     <article className="surface overflow-hidden" aria-label={`${NHAN.taiTro}: ${ad.tieuDe}`}>
-      <p className="truncate px-4 pt-3 pb-1 text-[0.8125rem] text-foreground/65">
+      <p className="truncate px-4 pt-3 pb-1 text-[0.8125rem] text-muted">
         <span className="font-bold text-foreground/75">{NHAN.taiTro}</span> · {ad.nhaTaiTro}
       </p>
       <h2 className="px-4 pb-1 text-[1.0625rem] font-bold leading-snug text-navy">{ad.tieuDe}</h2>

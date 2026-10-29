@@ -130,7 +130,7 @@ export function SeaTodayCard() {
         className="surface flex min-h-(--h-row) items-center gap-3 px-4 py-3 transition active:bg-field"
       >
         <span className="min-w-0 flex-1">
-          <span className="block text-[0.8125rem] leading-snug text-foreground/65">
+          <span className="block text-[0.8125rem] leading-snug text-muted">
             Biển hôm nay · {port.name}
           </span>
           <span className={`display block text-[1.5rem] font-semibold leading-tight ${LEVEL_TEXT[today.level]}`}>

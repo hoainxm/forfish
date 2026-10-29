@@ -82,7 +82,7 @@ function Images({ urls, count, chan }: { urls: string[]; count: number; chan?: (
   const [mo, setMo] = useState<number | null>(null);
   const [tiLe, setTiLe] = useState<{ w: number; h: number } | null>(null);
   if (!urls.length) {
-    return count > 0 ? <p className="px-4 pb-2 text-[0.875rem] text-foreground/65">Có {count} ảnh — cần sóng để xem</p> : null;
+    return count > 0 ? <p className="px-4 pb-2 text-[0.875rem] text-muted">Có {count} ảnh — cần sóng để xem</p> : null;
   }
   if (hoan && !xem) return <KhungAnh soAnh={urls.length} onXem={() => setXem(true)} className="mb-2 h-24" />;
   const tong = Math.max(count, urls.length);
@@ -138,7 +138,7 @@ function NutThem({ onMore }: { onMore: (anchor: HTMLElement) => void }) {
       aria-label="Thêm"
       aria-haspopup="menu"
       onClick={(e) => onMore(e.currentTarget)}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-foreground/65 transition active:scale-[0.95]"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-muted transition active:scale-[0.95]"
     >
       ⋯
     </button>
@@ -238,7 +238,7 @@ function Head({
         </div>
         {/* dòng 2: "1 giờ · Chính thức · Ghim · ▸ Bến X" — nhãn là chữ màu (không viên nền), dòng được XUỐNG HÀNG khi hẹp
             thay vì cắt giờ */}
-        <p className="flex flex-wrap items-center gap-x-1 text-[0.8125rem] text-foreground/65">
+        <p className="flex flex-wrap items-center gap-x-1 text-[0.8125rem] text-muted">
           {sub && <span className="min-w-0 truncate">{sub}</span>}
           {official && <span className="shrink-0 font-semibold text-sea">{sub ? "· " : ""}{NHAN.chinhThuc}</span>}
           {pinned && <span className="shrink-0 font-semibold text-navy">· {NHAN.ghim}</span>}
@@ -338,7 +338,7 @@ function TheBao({ post, onRead, notify }: { post: KairosPost; onRead?: (p: Kairo
  */
 function Reshare({ post, now, benPort }: { post: KairosPost; now: number; benPort?: string }) {
   if (post.reshareGone) {
-    return <p className="mx-4 mb-2 rounded-2xl border border-line px-3 py-3 text-[0.875rem] text-foreground/65">Bài gốc không còn</p>;
+    return <p className="mx-4 mb-2 rounded-2xl border border-line px-3 py-3 text-[0.875rem] text-muted">Bài gốc không còn</p>;
   }
   const r = post.reshareOf;
   if (!r) return null;
@@ -371,7 +371,7 @@ function TopComment({ c }: { c: KairosComment }) {
         {c.body ? (
           <ChuXemThem text={c.body} dong={3} nen="field" nhac={c.mentions} className="text-[1rem]" />
         ) : (
-          !c.image && <p className="text-[1rem] text-foreground/65">Đã gửi một ảnh</p>
+          !c.image && <p className="text-[1rem] text-muted">Đã gửi một ảnh</p>
         )}
         {c.image && (
           // eslint-disable-next-line @next/next/no-img-element -- ảnh kho kairos-media; bản lưu offline đã bỏ ảnh
@@ -545,11 +545,11 @@ export function PostCard({
           {/* còn bình luận ngoài 2 bình luận nổi ⇒ lối mở ĐỌC (không bật bàn phím — A98) */}
           {post.commentCount > post.topComments.length &&
             (inline ? (
-              <button type="button" onClick={() => moBinhLuan(false)} className="-my-1 flex min-h-11 items-center text-[0.875rem] font-semibold text-foreground/65">
+              <button type="button" onClick={() => moBinhLuan(false)} className="-my-1 flex min-h-11 items-center text-[0.875rem] font-semibold text-muted">
                 {NHAN.xemThem}
               </button>
             ) : (
-              <Link href={detail} onClick={() => onRead?.(post)} className="-my-1 flex min-h-11 items-center text-[0.875rem] font-semibold text-foreground/65">
+              <Link href={detail} onClick={() => onRead?.(post)} className="-my-1 flex min-h-11 items-center text-[0.875rem] font-semibold text-muted">
                 {NHAN.xemThem}
               </Link>
             ))}

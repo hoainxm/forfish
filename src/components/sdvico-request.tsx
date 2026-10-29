@@ -36,7 +36,7 @@ import { NHAN } from "@/lib/labels";
 export function SdvicoRequestButton({
   topic = "khac",
   productName,
-  label = "Gọi tổng đài SDVICO",
+  label = NHAN.goiSdvico,
   phu = false,
 }: {
   topic?: RequestTopicId;

@@ -55,7 +55,7 @@ export function FollowListSheet({
           ))}
         </ul>
       )}
-      {st.s === "offline" && <p className="py-6 text-center text-foreground/65"><CauChuaTai matSong="Mất sóng. Có sóng sẽ xem được danh sách." /></p>}
+      {st.s === "offline" && <p className="py-6 text-center text-muted"><CauChuaTai matSong="Mất sóng. Có sóng sẽ xem được danh sách." /></p>}
       {st.s === "error" && (
         <div className="py-6 text-center">
           <p className="mb-3">Chưa tải được danh sách.</p>
@@ -66,7 +66,7 @@ export function FollowListSheet({
       )}
       {st.s === "ok" &&
         (st.people.length === 0 ? (
-          <p className="py-6 text-center text-foreground/65">{dir === "followers" ? "Chưa có ai theo dõi." : "Chưa theo dõi ai."}</p>
+          <p className="py-6 text-center text-muted">{dir === "followers" ? "Chưa có ai theo dõi." : "Chưa theo dõi ai."}</p>
         ) : (
           <>
             <ul className="divide-y divide-line">
@@ -76,14 +76,14 @@ export function FollowListSheet({
                     <KairosAvatar id={p.profileId} name={p.handle} url={p.avatarUrl} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold text-navy">{p.handle}</span>
-                      {p.subline && <span className="block truncate text-[0.8125rem] text-foreground/65">{p.subline}</span>}
+                      {p.subline && <span className="block truncate text-[0.8125rem] text-muted">{p.subline}</span>}
                     </span>
                     {p.official && <span className="shrink-0 rounded-full bg-sea/12 px-2 py-0.5 text-[0.75rem] font-bold text-sea">{NHAN.chinhThuc}</span>}
                   </Link>
                 </li>
               ))}
             </ul>
-            {st.more && <p className="pt-3 text-center text-[0.8125rem] text-foreground/65">Hiện 100 người mới nhất.</p>}
+            {st.more && <p className="pt-3 text-center text-[0.8125rem] text-muted">Hiện 100 người mới nhất.</p>}
           </>
         ))}
     </BottomSheet>

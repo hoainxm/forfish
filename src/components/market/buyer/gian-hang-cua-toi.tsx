@@ -53,7 +53,7 @@ export function GianHangCuaToi() {
     >
       <span className="min-w-0 flex-1 truncate">
         Gian hàng của tôi
-        {co.status === "cho_duyet" && <span className="text-foreground/65"> · đang chờ duyệt</span>}
+        {co.status === "cho_duyet" && <span className="text-muted"> · đang chờ duyệt</span>}
         {don > 0 && <span className="font-semibold text-danger"> · {don} đơn chờ</span>}
       </span>
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-foreground/50" aria-hidden />

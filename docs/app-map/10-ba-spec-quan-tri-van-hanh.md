@@ -2,7 +2,8 @@
 
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/components/admin, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
-last_verified: 2026-10-26
+last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29 23:00 - nhóm H: src/components/admin + app/quan-tri chỉ đổi MÀU chữ phụ /65 ⇒ text-muted; không đổi quyền/luồng/tab. -->
 <!-- re-verified: 2026-10-29 21:00 - nhóm B chữ/a11y: src/components/admin chỉ đổi MÀU chữ phụ (text-muted thay foreground/40..60) + chính tả Xoá/Huỷ; khu quản trị GIỮ chữ "Premium" cho nhân viên; không đổi quyền/luồng NV9–NV10 (vẫn chưa build). last_verified giữ nguyên theo ghi chú 2026-10-26. -->
 <!-- re-verified: 2026-10-26 20:30 - tab Yêu cầu hỗ trợ (tab-hoi-mua.tsx) thêm mục chỉ-xem "Khách hỏi / đăng ký khuyến mãi SDVICO" (GET /api/admin/sdvico-khach-hoi, requireAdmin) — phiếu sdvico_khach_hoi moi/da_bao đối chiếu tin Zalo Quân; luật phân quyền/tab không đổi (14 §3.14b) -->
 ttl_days: 90

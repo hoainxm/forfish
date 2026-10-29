@@ -113,7 +113,7 @@ export function PostDetail({ id }: { id: string }) {
 
           <section aria-label={NHAN.binhLuan} className="surface p-4">
             <h2 className="mb-3 font-bold text-navy">
-              {NHAN.binhLuan} {view.commentCount > 0 && <span className="tabular-nums text-foreground/65">{countLabel(view.commentCount)}</span>}
+              {NHAN.binhLuan} {view.commentCount > 0 && <span className="tabular-nums text-muted">{countLabel(view.commentCount)}</span>}
             </h2>
 
             <CommentThread

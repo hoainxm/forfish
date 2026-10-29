@@ -348,13 +348,13 @@ function ListingCard({
             </p>
             <p
               className={`shrink-0 text-right text-[1.125rem] font-semibold leading-snug tabular-nums ${
-                l.priceText ? "text-navy" : "text-foreground/65"
+                l.priceText ? "text-navy" : "text-muted"
               }`}
             >
               {l.priceText || "Thoả thuận"}
             </p>
           </div>
-          <p className="mt-0.5 truncate text-[0.75rem] font-semibold text-foreground/65">
+          <p className="mt-0.5 truncate text-[0.75rem] font-semibold text-muted">
             <span style={sell ? { color: "var(--ok)" } : { color: "var(--t2)" }}>
               {SIDE_LABEL[l.side]}
               {l.status === "closed" ? " · đã đóng" : ""}
@@ -373,7 +373,7 @@ function ListingCard({
             aria-expanded={menuMo}
             disabled={busy}
             onClick={() => setMenuMo((v) => !v)}
-            className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-foreground/65 transition active:scale-[0.95] disabled:opacity-50"
+            className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-muted transition active:scale-[0.95] disabled:opacity-50"
           >
             ⋯
           </button>
@@ -395,7 +395,7 @@ function ListingCard({
         </div>
       )}
 
-      <p className="mt-2 truncate text-[0.8125rem] text-foreground/65">
+      <p className="mt-2 truncate text-[0.8125rem] text-muted">
         {l.posterName}
         {busy ? ` · ${pending ? NHAN.dangGui : NHAN.dangXoa}…` : ""}
       </p>

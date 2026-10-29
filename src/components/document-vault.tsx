@@ -357,7 +357,7 @@ export function DocumentVault() {
                   ? "text-warn"
                   : status.level === "ok"
                     ? "text-ok"
-                    : "text-foreground/65";
+                    : "text-muted";
             const open = openId === doc.id;
             return (
               <li key={doc.id}>
