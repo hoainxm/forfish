@@ -7,8 +7,8 @@
 // Chạy headless hay hồ sơ "dính" lượt headless ⇒ Cloudflare 403 "Attention Required" (đo 2026-10-26);
 // gặp 403 thì dừng lượt, lượt sau tự xoá hồ sơ làm lại (HO_SO_HONG).
 //
-// Đầu ra: POST ${TAU_AIS_API_BASE}/api/tau-ais/nhap, header x-tau-ais-key. Gói { luc, tau[] } đã
-// chuẩn hoá bằng lib/tau-ais/chuan-hoa.mjs (máy chủ kiểm lại cùng hàm).
+// Đầu ra: POST ${TAU_AIS_API_BASE}/api/tau-ais/nhap, header x-tau-ais-key, thân NÉN gzip. Gói { luc, tau[] } đã
+// chuẩn hoá bằng lib/tau-ais/chuan-hoa.mjs (máy chủ kiểm lại cùng hàm). Vùng quét: VUNG_QUET (cả Biển Đông, ~99 ô).
 //
 // Env (~/.config/forlife/tau-ais.env, hoặc env process): TAU_AIS_KEY · TAU_AIS_API_BASE (https) ·
 // TAU_AIS_PROFILE (mặc định ~/.local/forlife/tau-ais/profile) · MT_EMAIL + MT_PASSWORD (TUỲ CHỌN:
@@ -175,10 +175,11 @@ try {
     log(`[tàu AIS] --thu: không gửi. Bản ${Math.round(chuoi.length / 1024)} KB (gzip ${Math.round(gzipSync(chuoi).length / 1024)} KB). 3 tàu đầu:`, JSON.stringify(tau.slice(0, 3)));
     ketQua = { ok: true, soTau: tau.length, loi: null, hoSoHong: false };
   } else {
+    // NÉN gzip (2026-10-29): vùng quét cả Biển Đông ~25–30 nghìn tàu ⇒ bản thô vượt trần 4,5 MB thân request của Vercel
     const res = await fetch(`${c.base}/api/tau-ais/nhap`, {
       method: "POST",
-      headers: { "x-tau-ais-key": c.key, "content-type": "application/json" },
-      body: JSON.stringify(goi),
+      headers: { "x-tau-ais-key": c.key, "content-type": "application/json", "content-encoding": "gzip" },
+      body: gzipSync(JSON.stringify(goi)),
       signal: AbortSignal.timeout(HET_GIO_GUI_MS),
     });
     const j = await res.json().catch(() => null);

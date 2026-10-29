@@ -6,7 +6,7 @@
 | docs/app-map/01-product.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/02-architecture.md | SUSPECT | code 'src/app' doi sau last_verified |
 | docs/app-map/03-design-system.md | VERIFIED | ok |
-| docs/app-map/04-data-model.md | VERIFIED | ok |
+| docs/app-map/04-data-model.md | SUSPECT | code 'supabase/migrations' doi sau last_verified |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/07-design-spec.md | VERIFIED | ok |
@@ -50,6 +50,6 @@
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/runbook.md | VERIFIED | ok |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/user-sync.ts' doi sau last_verified |
+| docs/app-map/ops/state-registry.md | VERIFIED | ok |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/test-tai-khoan.md | VERIFIED | ok |

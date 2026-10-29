@@ -280,6 +280,8 @@ systemctl --user disable --now kairos-thu.timer kairos-kiem.timer   # tạm dừ
 
 ## Tàu xung quanh — máy thu AIS trên gpu-desktop (2026-10-26)
 
+> **2026-10-29 — QUÉT CẢ BIỂN ĐÔNG + GỬI NÉN**: `chuan-hoa.mjs` đổi hộp sang `VUNG_QUET` (0–25N, 99–122E, ~99 ô ⇒ một lượt lâu hơn, ~45–60 s) và `tau-ais-thu.mjs` gửi thân gzip. `lam-moi.sh` tự lấy hai tệp này từ origin/main; máy chủ phải lên TRƯỚC hoặc CÙNG lúc (route nhap đã nhận cả thân nén lẫn thường) — vài lượt hỏng trong lúc Vercel đang deploy là bình thường, lượt sau gửi lại. Kiểm: `journalctl --user -u tau-ais-thu -n 30` thấy "~99 ô … ⇒ N tàu".
+
 > **ĐÃ CÀI 2026-10-26** (bản tay `app-dev`, timer chưa bật tới khi nhánh lên main + khoá đặt). Máy thu mở web nguồn bằng Chromium thật có màn hình ảo, đọc ô dữ liệu, đẩy lên `POST /api/tau-ais/nhap`. Nguồn + đồng hồ: [external-services.md › Tàu xung quanh](external-services.md).
 
 1. **Khoá**: /quan-tri › Hệ thống › **Khoá máy thu tàu AIS** › Tạo ngẫu nhiên › Lưu — hoặc env `TAU_AIS_KEY` ở Vercel (ĐÈ ô DB). Dán CÙNG giá trị vào `~/.config/forlife/tau-ais.env`:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chuanHoaHang, danhSachO, gopTau, kiemGoi, oTile, rutId, VUNG_BIEN_VN } from "@/lib/tau-ais/chuan-hoa.mjs";
+import { chuanHoaHang, danhSachO, gopTau, kiemGoi, oTile, rutId, VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { danhSachSdtHopLe, docDanhSachSdt, duocXemAis } from "@/lib/tau-ais/quyen";
 import { validateConfigValue } from "@/lib/app-config-keys";
 import { chuanTen, demTheoNhom, moTaTau, timTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
@@ -42,18 +42,19 @@ describe("tàu AIS — ô quét", () => {
     expect(oTile(14, 112)).toEqual({ x: 103, y: 58 });
     expect(oTile(14, 112, 7)).toEqual({ x: 51, y: 29 });
   });
-  it("hộp biển VN phủ bằng ~48 ô z:8, mỗi ô một lần", () => {
-    const o = danhSachO(VUNG_BIEN_VN);
-    expect(o.length).toBeGreaterThan(30);
-    expect(o.length).toBeLessThan(60);
+  it("hộp cả Biển Đông (0–25N, 99–122E) phủ bằng ~90 ô z:8, mỗi ô một lần", () => {
+    const o = danhSachO(VUNG_QUET);
+    expect(o.length).toBeGreaterThan(70);
+    expect(o.length).toBeLessThan(120);
     expect(new Set(o.map((t) => `${t.x}/${t.y}`)).size).toBe(o.length);
   });
 });
 
 describe("tàu AIS — máy chủ kiểm gói", () => {
   it("gói gọn hợp lệ ⇒ bản v1; hàng ngoài vùng / tin quá 4 giờ bị bỏ; gói rỗng/sai ⇒ mã lỗi", () => {
-    const r = kiemGoi({ luc: "2026-10-26T02:00:00.000Z", tau: [chuanHoaHang(HANG), { ...chuanHoaHang(HANG)!, id: "xa", lat: 40 }, { ...chuanHoaHang(HANG)!, id: "cu", phut: 600 }, null] });
-    expect(r.ok && r.ban?.soTau).toBe(1);
+    const r = kiemGoi({ luc: "2026-10-26T02:00:00.000Z", tau: [chuanHoaHang(HANG), { ...chuanHoaHang(HANG)!, id: "xa", lat: 40 }, { ...chuanHoaHang(HANG)!, id: "manila", lat: 14.5, lon: 120.9 }, { ...chuanHoaHang(HANG)!, id: "cu", phut: 600 }, null] });
+    // vùng quét cả Biển Đông (29/10): tàu ngoài khơi Manila nay được giữ, lat 40 vẫn bỏ
+    expect(r.ok && r.ban?.soTau).toBe(2);
     expect(r.ok && r.ban?.luc).toBe("2026-10-26T02:00:00.000Z");
     expect(kiemGoi({ tau: [] })).toEqual({ ok: false, code: "trong" });
     expect(kiemGoi({ tau: "x" })).toEqual({ ok: false, code: "bad_body" });

@@ -2,13 +2,15 @@
 // + máy chủ (route /api/tau-ais/nhap kiểm lại gói, không tin máy thu). ESM .mjs để script
 // Node import thẳng, không qua bundler (cùng cách lib/kairos/*.mjs).
 //
-// Vùng quét: biển Việt Nam (gồm Hoàng Sa, Trường Sa) chia ô theo lưới Web Mercator CỦA NGUỒN: ô 512 px,
+// Vùng quét: CẢ BIỂN ĐÔNG (mở rộng 2026-10-29, anh Long: "lấy rộng ra … chứ ko cần chỉ lấy trong biển Việt Nam") chia ô theo lưới Web Mercator CỦA NGUỒN: ô 512 px,
 // tức `z` của nguồn = z chuẩn + 1 (n = 2^(z−1) ô mỗi chiều). Ở z:7 nguồn CẮT BỚT tàu (đo 2026-10-26:
 // một ô z:7 610 tàu, 4 ô z:8 con 1 022, 16 ô z:9 1 023 ⇒ z:8 đủ, ~48 ô cho cả hộp).
 
-/** Hộp biển quét: lat 5–21,6 · lon 102–117,5 — vịnh Bắc Bộ, Hoàng Sa, Trường Sa, vịnh Thái Lan; KHÔNG ôm bờ Quảng Đông
- *  (đo 2026-10-26: hộp tới 23,5N/118E ra 19 800 tàu ≈ 2,5 MB, quá nặng cho máy bà con). */
-export const VUNG_BIEN_VN = { latMin: 5, latMax: 21.6, lonMin: 102, lonMax: 117.5 };
+/** Hộp quét: lat 0–25 · lon 99–122 — cả Biển Đông, vịnh Thái Lan, vịnh Bắc Bộ, quanh Hải Nam, eo Đài Loan phía nam, bờ tây
+ *  Philippines, bắc Malaysia/Indonesia (~90 ô z:8). Bản trước (26/10) chỉ 5–21,6N/102–117,5E (~8 300 tàu, 1,4 MB) vì lo nặng
+ *  máy bà con; AIS nay chỉ cho tài khoản được bật và dùng khi có mạng (anh Long: "ko cần offline") ⇒ ước 25–30 nghìn tàu,
+ *  máy thu gửi lên NÉN gzip (Vercel chặn thân request > 4,5 MB), máy chủ trả về cũng nén (CDN Vercel). */
+export const VUNG_QUET = { latMin: 0, latMax: 25, lonMin: 99, lonMax: 122 };
 export const ZOOM_O = 8;
 
 /** Toạ độ ⇒ ô (x, y) ở zoom z CỦA NGUỒN (ô 512 px ⇒ n = 2^(z−1)). */
@@ -21,7 +23,7 @@ export function oTile(lat, lon, z = ZOOM_O) {
 }
 
 /** Danh sách ô phủ kín hộp — quét theo hàng, ngoài biển trước (đông → tây) để tin tàu khơi mới nhất. */
-export function danhSachO(box = VUNG_BIEN_VN, z = ZOOM_O) {
+export function danhSachO(box = VUNG_QUET, z = ZOOM_O) {
   const a = oTile(box.latMax, box.lonMin, z);
   const b = oTile(box.latMin, box.lonMax, z);
   const out = [];
@@ -99,8 +101,8 @@ export function gopTau(items) {
   return [...m.values()];
 }
 
-/** Trần gói một lượt gửi — vùng quét ~10–17 nghìn tàu (đo 2026-10-26); hơn là có gì sai. */
-export const TAU_TOI_DA = 25000;
+/** Trần gói một lượt gửi — vùng quét cả Biển Đông ước 25–30 nghìn tàu (2026-10-29); hơn nhiều là có gì sai. */
+export const TAU_TOI_DA = 60000;
 /** Tin cũ hơn 4 giờ bỏ: tàu đã đi chỗ khác, giữ chỉ làm bản nặng và chấm sai chỗ. */
 export const TUOI_TOI_DA_PHUT = 240;
 
@@ -129,7 +131,7 @@ export function kiemGoi(body, now = Date.now()) {
           })
         : chuanHoaHang(t),
     ),
-  ).filter((t) => t.phut <= TUOI_TOI_DA_PHUT && t.lat >= VUNG_BIEN_VN.latMin - 1 && t.lat <= VUNG_BIEN_VN.latMax + 1 && t.lon >= VUNG_BIEN_VN.lonMin - 1 && t.lon <= VUNG_BIEN_VN.lonMax + 1);
+  ).filter((t) => t.phut <= TUOI_TOI_DA_PHUT && t.lat >= VUNG_QUET.latMin - 1 && t.lat <= VUNG_QUET.latMax + 1 && t.lon >= VUNG_QUET.lonMin - 1 && t.lon <= VUNG_QUET.lonMax + 1);
   if (!tau.length) return { ok: false, code: "trong" };
   return { ok: true, ban: { v: 1, luc, soTau: tau.length, tau } };
 }

@@ -259,7 +259,7 @@ import {
 } from "@/components/ban-do/the-thong-tin";
 import { AisBanKinh, AisToanBien, type CheDoAisXem } from "@/components/ban-do/che-do-ais";
 import { CO_ICON_TAU, dangKyIconTau } from "@/components/ban-do/icon-tau";
-import { VUNG_BIEN_VN } from "@/lib/tau-ais/chuan-hoa.mjs";
+import { VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { TAM_RADAR_NM, khungRadar, mucTieuGeoJson, quetQuanh, radarGeoJson, type MucTieu, type TauMinh } from "@/lib/ais-cpa";
 import { kepTheTrongKhung } from "@/components/ban-do/kep-the";
 import { BangChuGiai, SEAMARK_HIT_LAYERS, CLUSTER_HIT_LAYERS, SEAMARK_FAR, SEAMARK_MID, SEAMARK_AN, SEAMARK_ICON_LAYOUT, KHONG_PHAI_CUM, cumLayers, type LegendRow } from "@/components/ban-do/hai-do";
@@ -3087,7 +3087,7 @@ export default function FishingMapView() {
       duration: 650,
     });
   }, []);
-  /*  CHẾ ĐỘ AIS — vào/thoát/đổi cách xem. Toàn biển: khung cả hộp biển VN quét được (VUNG_BIEN_VN). */
+  /*  CHẾ ĐỘ AIS — vào/thoát/đổi cách xem. Toàn biển: khung cả hộp quét Biển Đông (VUNG_QUET). */
   const vaoAis = useCallback(() => {
     setAisTruocMode(aisOn);
     setAisOn(true);
@@ -3120,8 +3120,8 @@ export default function FishingMapView() {
     setSize("peek");
     mapRef.current?.fitBounds(
       [
-        [VUNG_BIEN_VN.lonMin, VUNG_BIEN_VN.latMin],
-        [VUNG_BIEN_VN.lonMax, VUNG_BIEN_VN.latMax],
+        [VUNG_QUET.lonMin, VUNG_QUET.latMin],
+        [VUNG_QUET.lonMax, VUNG_QUET.latMax],
       ],
       { padding: 24, duration: 650 },
     );
