@@ -3,7 +3,8 @@
 > Load khi: cần deploy / build lỗi / regenerate asset tĩnh (icon, lưới độ sâu, isobath) / kiểm tra sức khỏe app trước khi push.
 
 covers: scripts/train/run.mjs, scripts/kairos-luat.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
-last_verified: 2026-10-19
+last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29 — kairos-thu sau 2026-10-19: nguồn `kieu=gov` (Bộ NN&MT + 15 tỉnh/thành, cờ `docTruoc` đọc trang chi tiết trước khi lọc), bỏ văn bản trước mốc `CHINH_SACH_TU_ISO` 01/01/2026, luôn gửi `attachments` (sửa 503); kairos-kiem thêm đối chiếu danh sách tên miền lừa đảo (ghi vào bảng timer). Lệnh `--thu` ở mục 2 vẫn đúng. -->
 <!-- re-verified: 2026-10-26e — thêm timer kairos-luat (2 bài/ngày, scripts/kairos-luat.mjs — Sen Biển tuyên truyền luật NĐ 246/2026, 14 §21e); lam-moi.sh glob scripts/kairos-* + src/lib/kairos nên tự có file mới. -->
 <!-- re-verified: 2026-10-26c — kairos-thu: bước 2d đọc PDF đính kèm bằng `pdftotext` (poppler-utils, đã có /usr/bin/pdftotext trên gpu-desktop) ⇒ log "[dòng] <tên file>: N dòng tàu"; bước 5b `[dòng] gửi N dòng ⇒ nhận N` / "chưa gửi được … để lượt sau" (hàng đợi ~/.local/forlife/kairos/cho-gui-dong.json). Thiếu pdftotext ⇒ "[dòng] … pdftotext hỏng/thiếu" — `sudo apt install poppler-utils`. -->
 <!-- re-verified: 2026-10-26b — kairos-thu: nguồn kieu=gov (14 §21) — log "[nguồn] gov-…: N bài, M mới (gov: K cho bà con)" + "[gov] a/b thông báo đọc được trang chi tiết · c có file đính kèm"; thử: `node scripts/kairos-thu.mjs --thu --goc --nguon=gov-gialai-van-ban,gov-gialai-snnmt-thong-bao,gov-gialai-snnmt-bien-dao`. lam-moi.sh xuất `src/lib/kairos` nên tự có chinh-sach.mjs; migration 0074 đã áp 2026-10-26. -->
@@ -182,7 +183,7 @@ Hai việc, cùng khuôn gọi `claude -p` bằng **gói Claude của anh Long**
 | Việc | Script | Nhịp | Làm gì |
 |---|---|---|---|
 | Thu tin | `scripts/kairos-thu.mjs` | 15 phút | RSS 27 nguồn ⇒ chặn trùng ⇒ tóm tắt lô 20 ⇒ `POST /api/kairos/nhap` |
-| Kiểm duyệt | `scripts/kairos-kiem.mjs` | 5 phút | hàng chờ ⇒ luật cứng chủ quyền + mô hình chấm ⇒ `POST /api/kairos/kiem`; cuối lượt `DELETE /api/kairos/kiem?scope=media` dọn ảnh mồ côi >24 giờ (không cần Claude — log `[ảnh]`) |
+| Kiểm duyệt | `scripts/kairos-kiem.mjs` | 5 phút | hàng chờ ⇒ luật cứng chủ quyền + mô hình chấm ⇒ `POST /api/kairos/kiem`; cuối lượt `DELETE /api/kairos/kiem?scope=media` dọn ảnh mồ côi >24 giờ (không cần Claude — log `[ảnh]`); từ 2026-10-27 đối chiếu link trong bài với danh sách tên miền lừa đảo Phishing.Database (MIT) — file `lua-dao-ten-mien.txt` trong thư mục trạng thái, tải lại khi cũ hơn 24 giờ (đồng hồ 90 s), tải hỏng ⇒ dùng bản cũ, chưa từng có ⇒ chỉ luật cứng `link-doc.mjs` (log `[link độc]`) |
 
 Hai script chỉ dùng thư viện có sẵn của Node (≥20) + file `.mjs` trong repo — **không cần `node_modules`** (bản trong `C:\Code\ForFish` là bản Windows, không chạy được trong WSL — không sao). Chạy thẳng từ `~/ForFish` (symlink tới checkout Windows — đừng clone thêm).
 

@@ -3,7 +3,8 @@
 > **Load khi**: muốn biết dự báo cá có **đúng chỗ tàu thật đi đánh** không (không chỉ "phân biệt được" nội bộ), khi chốt B1/B2 (AMM vs soft-OR vs weighted-sum) bằng số, khi cần dữ liệu vị trí tàu để đo, hoặc khi ai hỏi "giấy phép GFW có cản gì không".
 
 covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs, scripts/dl-collect.mjs, scripts/dl-build-labels.mjs, scripts/dl-eval.mjs, scripts/dl-fit-profiles.mjs, scripts/build-fleet-effort-grid.mjs, scripts/build-species-catch-grid.mjs, scripts/dl-eval-fleet.mjs, scripts/dl-adapt-local.mjs, scripts/train/run.mjs, scripts/lib/data-dir.mjs
-last_verified: 2026-10-14
+last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29 — các script trong covers còn đủ cờ doc nhắc (`--gear-map`, `--threshold`, `--perm`, `--radius`, `--min-hours`, `--seed`, `--selftest`, `--trust`, `--species`, `--payloads`); `scripts/lib/data-dir.mjs` vẫn đọc `SDFISH_DATA_DIR` (mặc định ~/sdfish-data) + `SDVICO_DATALAKE_ROOT`, khớp doc. -->
 ttl_days: 180
 gate: warn
 

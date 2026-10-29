@@ -2,7 +2,8 @@
 
 > Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
 covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
-last_verified: 2026-10-19
+last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29 — đối chiếu `fish-blend.ts` + `fish-blend-weights.json` thật: bảng w ở §5d là số lần fit đầu, KHÔNG khớp file đang ship (w 0,935→0,795, spread 0,14) ⇒ thêm đính chính ngay dưới bảng. `PRODUCT_SHARE_FIRST/LAST` = 0,06/0,25, `GAMMA` 2,5 khớp §5f. `fit-fish-blend-weights.mjs` + `collect-fish-climatology.mjs` vẫn đúng tên/đầu ra. -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 ttl_days: 90
 
@@ -235,6 +236,8 @@ nhóm **theo mốc gốc** (không trộn mẫu trong cùng một mốc — nế
 | **w (tin ảnh vệ tinh)** | 0,823 | 0,767 | 0,722 | 0,672 | 0,635 | 0,605 | 0,547 |
 | lợi RMSE vs persistence (CV) | +4,4 % | +6,2 % | +6,9 % | +9,0 % | +8,7 % | +8,5 % | +7,5 % |
 | lợi RMSE vs mùa vụ thuần (CV) | +43,0 % | +34,5 % | +28,7 % | +24,9 % | +18,9 % | +15,7 % | +8,9 % |
+
+> ⚠️ **ĐÍNH CHÍNH 2026-10-29 (đối chiếu file thật)**: bảng trên là số của LẦN FIT ĐẦU, KHÔNG còn khớp `src/data/fish-blend-weights.json` đang ship (cùng `generatedAt` 2026-07-28, 16 mốc gốc, ~34 nghìn ô/tầm, kiểm chéo 4 nhóm theo mốc gốc). File hiện tại: w = **0,935 · 0,907 · 0,885 · 0,848 · 0,837 · 0,822 · 0,795** (tầm 1·2·3·5·8·11·16); lợi RMSE vs persistence (CV) +1,55 · +2,1 · +2,21 · +4,12 · +3,6 · +3,67 · +2,6 %; vs mùa vụ thuần +65,5 → +31,8 %; guard `spread` **0,14** (`degenerate: false`). Cách fit nay ép w đơn điệu không tăng (`method` trong file). Kết luận định tính GIỮ NGUYÊN (w giảm theo tầm, pha trộn thắng persistence ở mọi tầm) nhưng biên độ hẹp hơn nhiều. App KHÔNG dùng w thô: `blendWeight = 1 − climShare` với mốc chủ dự án chọn 6 % → **25 %** (`PRODUCT_SHARE_LAST`, §5f; cột `productShare` 0,06 → 0,56 trong file là mốc cũ trước 2026-10-10). Số ở các gạch dưới (0,276; 0,793→0,493) là của lần fit đầu.
 
 - w **tự nhiên đơn điệu giảm** (không phải do ép) — đúng trực giác: ảnh cũ càng đi xa càng ít giá trị.
 - **Pha trộn THẮNG persistence ở MỌI tầm** khi kiểm chéo, kể cả ngày 1. Đây là kết quả DƯƠNG, khác
