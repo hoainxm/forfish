@@ -88,6 +88,44 @@ export async function fetchTauAis(): Promise<{ ban: TauAisBan; tuKho: boolean }>
   throw new Error("chua_co_ban_tau");
 }
 
+/*  QUYỀN XEM AIS (2026-10-29) — máy hỏi /api/tau-ais/quyen, nhớ theo SĐT ở `forfish.tau-ais.quyen.v1` để mất sóng
+    vẫn hiện đúng nút AIS. Luật ở lib/tau-ais/quyen (ô app_config.tau_ais_xem). */
+export const TAU_AIS_QUYEN_KEY = "forfish.tau-ais.quyen.v1";
+const QUYEN_HET_GIO_MS = 8_000;
+
+/** Kết quả đã nhớ cho đúng SĐT này — null khi chưa từng hỏi được (hoặc máy nhớ của tài khoản khác). */
+export function peekQuyenAis(phone: string): boolean | null {
+  try {
+    const raw = localStorage.getItem(TAU_AIS_QUYEN_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { phone?: unknown; ais?: unknown };
+    return v.phone === phone && typeof v.ais === "boolean" ? v.ais : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Hỏi máy chủ. Trả true/false khi máy chủ TRẢ LỜI ĐƯỢC (và nhớ lại); null khi mất sóng / lỗi hạ tầng / chưa
+ * đăng nhập — bên gọi giữ kết quả đã nhớ, không tự tắt nút giữa biển.
+ */
+export async function fetchQuyenAis(phone: string): Promise<boolean | null> {
+  try {
+    const r = await fetch(apiUrl("/api/tau-ais/quyen"), { headers: tokenHeader(), signal: timeoutSignal(QUYEN_HET_GIO_MS) });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { ok?: unknown; ais?: unknown };
+    if (j.ok !== true || typeof j.ais !== "boolean") return null;
+    try {
+      localStorage.setItem(TAU_AIS_QUYEN_KEY, JSON.stringify({ phone, ais: j.ais }));
+    } catch {
+      /* kho đầy/riêng tư — lần này vẫn đúng, chỉ không nhớ qua lần mở sau */
+    }
+    return j.ais;
+  } catch {
+    return null;
+  }
+}
+
 export function loaiTauLabel(loai: number): string {
   return (LOAI_TAU as Record<number, string>)[loai] ?? LOAI_TAU[0];
 }

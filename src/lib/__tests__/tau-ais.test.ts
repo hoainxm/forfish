@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { chuanHoaHang, danhSachO, gopTau, kiemGoi, oTile, rutId, VUNG_BIEN_VN } from "@/lib/tau-ais/chuan-hoa.mjs";
+import { danhSachSdtHopLe, docDanhSachSdt, duocXemAis } from "@/lib/tau-ais/quyen";
+import { validateConfigValue } from "@/lib/app-config-keys";
 import { chuanTen, demTheoNhom, moTaTau, timTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
 
 const HANG = {
@@ -101,5 +103,28 @@ describe("tàu AIS — tìm theo tên/số hiệu", () => {
     expect(timTau(ds, "duc long").map((x) => x.id)).toEqual(["3"]);
     expect(timTau(ds, "9")).toEqual([]);
     expect(timTau(ds, "TS", 2)).toHaveLength(2);
+  });
+});
+
+describe("tàu AIS — quyền xem theo tài khoản", () => {
+  it("chưa đặt ô ⇒ chỉ chủ dự án", () => {
+    expect(duocXemAis("0938635689", null)).toBe(true);
+    expect(duocXemAis("+84 938 635 689", "")).toBe(true);
+    expect(duocXemAis("0901234567", null)).toBe(false);
+    expect(duocXemAis(null, "0901234567")).toBe(false);
+  });
+  it("đặt danh sách ⇒ đúng những số trong danh sách (kể cả gỡ chủ dự án nếu không ghi)", () => {
+    const o = "0938635689, 0901 234 567;84912345678";
+    expect(docDanhSachSdt(o)).toEqual(["0938635689", "0901234567", "0912345678"]);
+    expect(duocXemAis("0912345678", o)).toBe(true);
+    expect(duocXemAis("0909999999", o)).toBe(false);
+    expect(duocXemAis("0938635689", "0901234567")).toBe(false);
+  });
+  it("ô quản trị: mọi mẩu phải là SĐT — gõ sai một số thì chặn", () => {
+    expect(danhSachSdtHopLe("0938635689, 0901234567")).toBe(true);
+    expect(danhSachSdtHopLe("0938635689, 09012")).toBe(false);
+    expect(danhSachSdtHopLe("  ")).toBe(false);
+    expect(validateConfigValue("tau_ais_xem", "0938635689")).toBe(true);
+    expect(validateConfigValue("tau_ais_xem", "abc")).toBe(false);
   });
 });

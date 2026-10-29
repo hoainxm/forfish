@@ -1,5 +1,6 @@
 // Khoá cấu hình + helper THUẦN (không "server-only" nên test được) — tách khỏi
 // lib/app-config.ts (phần đọc/ghi DB service-role). Xem app-config.ts.
+import { danhSachSdtHopLe } from "@/lib/tau-ais/quyen";
 
 export type ConfigKey =
   | "vapid_public_key"
@@ -11,6 +12,7 @@ export type ConfigKey =
   | "data_key_premium"
   | "kairos_ingest_key"
   | "tau_ais_key"
+  | "tau_ais_xem"
   | "sdvico_lead_key";
 
 export interface ConfigKeyMeta {
@@ -127,6 +129,17 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     generate: "hex32",
     help: "Máy thu AIS trên máy GPU gửi kèm khoá này. Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào ~/.config/forlife/tau-ais.env (TAU_AIS_KEY).",
   },
+  /*  AI ĐƯỢC XEM AIS (2026-10-29, anh Long: "AIS là chỉ cho Long view thôi nhé, cũng 1 dạng option bật cho ai
+      người đó view đc") — danh sách SĐT; chưa đặt ⇒ chỉ chủ dự án (lib/tau-ais/quyen.ts). Middleware chặn
+      /api/tau-ais theo ô này, /api/tau-ais/quyen cho máy biết để hiện nút AIS. */
+  {
+    key: "tau_ais_xem",
+    label: "Tài khoản xem AIS",
+    risk: "Bỏ số nào ra là tài khoản đó mất chế độ AIS (nút AIS + lớp Tàu xung quanh) sau ít phút; gõ sai số là người đó không xem được.",
+    secret: false,
+    envVar: "TAU_AIS_XEM",
+    help: "SĐT được xem chế độ AIS, cách nhau dấu phẩy (vd 0938635689, 0901234567). Chưa đặt = chỉ 0938635689.",
+  },
   /*  KHOÁ LẤY PHIẾU KHÁCH SDVICO (14 §3.14, 0072, 2026-10-25): AI Assistant (máy nhà) lấy phiếu khách hỏi sản phẩm qua
       GET /api/sdvico/khach-hoi và báo đã nhắn nhóm Zalo KD qua POST …/da-bao, kèm khoá ở header `x-sdvico-key`. Thiếu
       khoá ⇒ hai route 503 (phiếu vẫn nhận, nằm chờ). */
@@ -169,6 +182,8 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
       return /^(mailto:[^\s@]+@[^\s@]+|https:\/\/\S+)$/.test(v);
     case "cron_secret":
       return v.length >= 16 && !/\s/.test(v);
+    case "tau_ais_xem":
+      return danhSachSdtHopLe(v);
     case "kairos_ingest_key":
     case "tau_ais_key":
     case "sdvico_lead_key":

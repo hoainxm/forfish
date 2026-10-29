@@ -8,6 +8,8 @@ import { readTokenHeader } from "@/lib/device-token";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
 import { dataRouteRule, type DataRouteRule } from "@/lib/data-route-rules";
 import { supabaseMode } from "@/lib/demo-mode";
+import { getConfigValue } from "@/lib/app-config";
+import { duocXemAis } from "@/lib/tau-ais/quyen";
 
 /**
  * CỔNG DỮ LIỆU của mọi route trả dữ liệu cho app (2026-09-16 — trước đó chỉ
@@ -109,6 +111,10 @@ async function gateByPhone(
     const tier = await cachedTier(phone);
     if (tier === "unavailable") return deny(503, "unavailable");
     if (tier !== "premium") return deny(403, "premium_required");
+  }
+  // QUYỀN BẬT THEO TÀI KHOẢN (AIS, 2026-10-29). getConfigValue có đệm; DB nghẹt ⇒ ô rỗng ⇒ mặc định chủ dự án.
+  if (rule.feature === "ais" && !duocXemAis(phone, await getConfigValue("tau_ais_xem"))) {
+    return deny(403, "ais_off");
   }
   // Gọi dồn dập (cào để phát lại) → 429. Máy bà con gọi vài lượt mỗi lần mở
   // bản đồ, ô ảnh vài trăm — cách trần rất xa. 429 nằm trong `isRescuableStatus`

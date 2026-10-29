@@ -28,6 +28,8 @@ export type DataRouteRule = {
   /** Xô đếm rate limit (mỗi xô một kho riêng). */
   bucket: "fish" | "data" | "tiles" | "guest";
   rate: RateWindow;
+  /** Quyền bật theo tài khoản (403 `ais_off` nếu không có) — AIS: `app_config.tau_ais_xem`, lib/tau-ais/quyen. */
+  feature?: "ais";
 };
 
 const TEN_MIN = 10 * 60 * 1000;
@@ -77,7 +79,7 @@ const KHACH = new Set(["/api/storms", "/api/port-prices", "/api/port-prices/hist
 /** Lớp bản đồ NGUỒN CHO BÁN — cần tài khoản + gói. */
 const CAN_GOI = new Set(["/api/currents-depth", "/api/sea-scalar", "/api/salinity"]);
 /** Lớp bản đồ miễn phí — chỉ cần tài khoản. */
-const TAI_KHOAN = new Set(["/api/nautical", "/api/tau-ais"]);
+const TAI_KHOAN = new Set(["/api/nautical"]);
 
 const khach = (): DataRouteRule => ({ account: false, premium: false, bucket: "guest", rate: RATES.guest });
 const banDo = (bucket: "data" | "tiles" | "fish", premium: boolean): DataRouteRule => ({ account: true, premium, bucket, rate: RATES[bucket] });
@@ -106,5 +108,7 @@ export function dataRouteRule(pathname: string, search: URLSearchParams): DataRo
   if (KHACH.has(p)) return khach();
   if (CAN_GOI.has(p)) return banDo("data", true);
   if (TAI_KHOAN.has(p)) return banDo("data", false);
+  // AIS: miễn phí nhưng CHỈ tài khoản được bật (2026-10-29) — chặn ở đây vì CDN giữ bản 2 phút, cổng trong route bị cache vượt
+  if (p === "/api/tau-ais") return { ...banDo("data", false), feature: "ais" };
   return null;
 }

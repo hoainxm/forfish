@@ -208,7 +208,7 @@ import {
   type StormZone,
 } from "@/lib/fleet-density";
 import { subscribeOnline } from "@/lib/use-online";
-import { fetchTauAis, MAU_TAU, type TauAis, moTaTau, TAU_AIS_LAM_MOI_MS, tauGanDiem, tauGeoJson, tuoiTinLabel, tuoiTinPhut, type TauAisBan } from "@/lib/tau-ais";
+import { fetchQuyenAis, fetchTauAis, MAU_TAU, peekQuyenAis, type TauAis, moTaTau, TAU_AIS_LAM_MOI_MS, tauGanDiem, tauGeoJson, tuoiTinLabel, tuoiTinPhut, type TauAisBan } from "@/lib/tau-ais";
 import { fetchSeaForecast } from "@/lib/sea";
 import { PORTS } from "@/data/ports";
 import {
@@ -786,6 +786,25 @@ export default function FishingMapView() {
   const { phone: authPhone } = useAuthUser();
   // không có phiên Supabase (chuỗi thiết bị) thì lùi về SĐT chủ sổ server đã xác nhận khi đồng bộ
   const fleetAllowed = canSeeDensity(authPhone ?? syncOwnerPhone());
+  /*  QUYỀN XEM AIS THEO TÀI KHOẢN (2026-10-29, anh Long: "AIS là chỉ cho Long view thôi, cũng 1 dạng option bật
+      cho ai người đó view đc") — ô `tau_ais_xem` ở trang quản trị; máy nhớ kết quả cho lúc mất sóng. Tách khỏi
+      `fleetAllowed` (Mật độ tàu vẫn là danh sách xem trước trong code). */
+  const aisPhone = authPhone ?? syncOwnerPhone();
+  const [aisAllowed, setAisAllowed] = useState(false);
+  useEffect(() => {
+    if (!aisPhone) {
+      setAisAllowed(false);
+      return;
+    }
+    setAisAllowed(peekQuyenAis(aisPhone) ?? false);
+    let alive = true;
+    void fetchQuyenAis(aisPhone).then((v) => {
+      if (alive && v != null) setAisAllowed(v);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [aisPhone]);
   /*  SỐ ĐO SÂU CHÍNH THỨC — mặc định BẬT. Đây là dữ liệu khảo sát của cơ quan
       nhà nước, thứ mà máy hải đồ trên tàu lớn có mà app điện thoại thường
       không; giấu sau một công tắc tắt sẵn thì coi như không có. Chỉ hiện từ
@@ -7722,7 +7741,7 @@ export default function FishingMapView() {
            thông báo để tra ngược. KHÔNG tự tắt. */}
       {xacTauInfo && <TheXacTau info={xacTauInfo} onClose={() => setXacTauInfo(null)} prefs={prefs} />}
       {tauAisInfo && <TheTauAis info={tauAisInfo} onClose={() => setTauAisInfo(null)} prefs={prefs} now={nowMs} />}
-      {aisMode === "ban-kinh" && fleetAllowed && (
+      {aisMode === "ban-kinh" && aisAllowed && (
         <CheDoAis
           ban={aisBan}
           state={aisState}
@@ -8098,7 +8117,7 @@ export default function FishingMapView() {
              hiện (cảnh báo an toàn không ai được che). */}
         <div className="flex items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            {aisMode === "toan-bien" && fleetAllowed && (
+            {aisMode === "toan-bien" && aisAllowed && (
               <AisToanBien
                 ban={aisBan}
                 state={aisState}
@@ -8255,6 +8274,7 @@ export default function FishingMapView() {
             regionShorts={regionShorts}
             onPickSpecies={setFishSpecies}
             fleetAllowed={fleetAllowed}
+            aisAllowed={aisAllowed}
             fleetOn={fleetOn}
             onFleet={(on) => {
               if (on) {

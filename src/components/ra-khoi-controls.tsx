@@ -123,6 +123,7 @@ export function RaKhoiControls({
   regionShorts,
   onPickSpecies,
   fleetAllowed,
+  aisAllowed,
   fleetOn,
   onFleet,
   fleetDay,
@@ -252,6 +253,8 @@ export function RaKhoiControls({
       (fishAccess); loại trừ với lớp cá vì hai lớp cùng tô ô 0,25° */
   /** xem trước nội bộ — false thì panel KHÔNG hiện mục mật độ tàu (lib/fleet-density canSeeDensity) */
   fleetAllowed: boolean;
+  /** QUYỀN XEM AIS theo tài khoản (ô quản trị `tau_ais_xem`, 2026-10-29) — nút AIS trên rail + toggle Tàu xung quanh */
+  aisAllowed: boolean;
   fleetOn: boolean;
   onFleet: (on: boolean) => void;
   /** dự báo 16 ngày: ngày tới (0 = hôm nay) + lọc theo nghề ("tat" = mọi nghề) */
@@ -283,7 +286,7 @@ export function RaKhoiControls({
   onAisRetry: () => void;
   /** CHẾ ĐỘ AIS (2026-10-29) đang bật — nút AIS trên rail sáng */
   aisMode: boolean;
-  /** vào/thoát chế độ AIS — nút rail chỉ hiện với acc xem trước (`fleetAllowed`) */
+  /** vào/thoát chế độ AIS — nút rail chỉ hiện với tài khoản được bật (`aisAllowed`) */
   onAisMode: () => void;
   /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
       rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
@@ -546,6 +549,7 @@ export function RaKhoiControls({
                   regionShorts={regionShorts}
                   onPickSpecies={onPickSpecies}
                   fleetAllowed={fleetAllowed}
+                  aisAllowed={aisAllowed}
                   fleetOn={fleetOn}
                   onFleet={onFleet}
                   fleetDay={fleetDay}
@@ -679,8 +683,8 @@ export function RaKhoiControls({
         />
         </div>
         {/*  CHẾ ĐỘ AIS (anh Long 29/10: "tách ais/radar 1 chế độ riêng") — ô thứ ba CHỈ cho acc xem trước
-             (`fleetAllowed`), người khác rail vẫn hai ô như luật 2026-10-19. Ẩn khi đang dẫn đường. */}
-        {fleetAllowed && !routeOn && (
+             được bật (`aisAllowed`, ô quản trị tau_ais_xem), người khác rail vẫn hai ô như luật 2026-10-19. Ẩn khi đang dẫn đường. */}
+        {aisAllowed && !routeOn && (
           <RailBtn
             active={aisMode}
             aria-pressed={aisMode}
@@ -1124,6 +1128,7 @@ function NguTruongPanel({
   regionShorts,
   onPickSpecies,
   fleetAllowed,
+  aisAllowed,
   fleetOn,
   onFleet,
   fleetDay,
@@ -1157,6 +1162,8 @@ function NguTruongPanel({
   regionShorts: Set<string>;
   onPickSpecies: (sp: string | null) => void;
   fleetAllowed: boolean;
+  /** QUYỀN XEM AIS theo tài khoản (ô quản trị `tau_ais_xem`, 2026-10-29) — nút AIS trên rail + toggle Tàu xung quanh */
+  aisAllowed: boolean;
   fleetOn: boolean;
   onFleet: (on: boolean) => void;
   fleetDay: number;
@@ -1269,8 +1276,9 @@ function NguTruongPanel({
           ~10 phút một bản — miễn phí, không loại trừ lớp nào. Dòng trạng thái nói thật: số tàu + giờ bản,
           bản lưu trong máy khi mất sóng, chạm thử lại khi chưa có bản nào.
           XEM TRƯỚC NỘI BỘ (anh Long 26/10: "cái lớp AIS này cũng chỉ acc 0938635689"): cùng cổng
-          `fleetAllowed` (canSeeDensity) với Mật độ tàu — người khác không thấy mục này. */}
-      {fleetAllowed && (
+          `fleetAllowed` (canSeeDensity) với Mật độ tàu — người khác không thấy mục này.
+          Từ 2026-10-29 theo QUYỀN AIS riêng (`aisAllowed`, ô quản trị tau_ais_xem). */}
+      {aisAllowed && (
       <div className="mt-2">
         <Toggle
           label="Tàu xung quanh"
