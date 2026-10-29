@@ -121,12 +121,12 @@ export function KetQuaLoTrinh({
       {/* BA CON SỐ — gọn một hàng, cùng cỡ chữ nội dung (không số to) */}
       <dl className="surface mt-3 grid grid-cols-3 divide-x divide-line">
         <div className="px-3 py-2.5">
-          <dt className="text-[0.8125rem] text-muted">Dầu</dt>
-          <dd className="text-[1rem] font-semibold text-navy">~{formatDigits(String(Math.round(kq.litDau)))} lít</dd>
+          <dt className="text-[0.8125rem] text-muted">Dầu, khoảng</dt>
+          <dd className="text-[1rem] font-semibold text-navy">{formatDigits(String(Math.round(kq.litDau)))} lít</dd>
         </div>
         <div className="px-3 py-2.5">
-          <dt className="text-[0.8125rem] text-muted">Quãng</dt>
-          <dd className="text-[1rem] font-semibold text-navy">~{formatDigits(String(Math.round(kq.haiLy)))} hải lý</dd>
+          <dt className="text-[0.8125rem] text-muted">Quãng, khoảng</dt>
+          <dd className="text-[1rem] font-semibold text-navy">{formatDigits(String(Math.round(kq.haiLy)))} hải lý</dd>
         </div>
         <div className="px-3 py-2.5">
           <dt className="text-[0.8125rem] text-muted">Nên về</dt>
