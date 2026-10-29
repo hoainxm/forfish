@@ -486,7 +486,7 @@ export function MarketCart() {
             }
             router.push("/cho/thanh-toan");
           }}
-          className="display flex min-h-(--row-h) shrink-0 items-center justify-center rounded-full bg-trim px-6 text-[1rem] font-semibold text-white  transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+          className="display flex min-h-(--h-cta) shrink-0 items-center justify-center rounded-full bg-trim px-6 text-[1rem] font-semibold text-white transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
         >
           Đặt hàng{pickedCount > 0 ? ` (${pickedCount})` : ""}
         </button>
