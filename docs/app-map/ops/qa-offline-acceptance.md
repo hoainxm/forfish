@@ -325,6 +325,15 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 ---
 
+### TC-17 — Chỉ xem Trang chủ rồi ra khơi (2026-10-29, rà offline F2/F3/F4) 🔴
+
+Máy đăng nhập, xoá sạch (§0), có sóng tốt. **Chỉ mở Trang chủ, KHÔNG mở Bản đồ**, đợi ~3 phút.
+1. Dưới thẻ "Biển hôm nay" có một dòng nhỏ: lúc đầu "Đang tải dữ liệu dự báo", xong thì ✓ xanh "Đã lưu đủ dự báo — tới ngày D/M" — chỉ xanh khi máy có khoá bản đồ + nền bản đồ (DevTools › Application › Cache Storage › `sdfish-basemap-v2` có `/data/vn-basemap.pmtiles`).
+2. Xoá riêng khoá `forfish.datakey.v1` (Local Storage), quay lại app ⇒ dòng đổi vàng "Chưa tải được khoá bản đồ — mở app lúc có sóng"; chạm ⇒ popup có câu đó ở đầu. Đăng xuất ⇒ "Bản đồ ngoài khơi cần đăng nhập — đăng nhập lúc có sóng".
+3. Bật chế độ máy bay, đóng app, mở lại vào **Bản đồ**: có nền (bờ, đảo, đẳng sâu), có lưới gió sóng 16 ngày (gói) — dù trước đó chưa từng mở Bản đồ.
+4. **Hotspot không internet** (§0), đã từng chạm Côn Đảo lúc có sóng: chạm lại Côn Đảo ⇒ trong ~2 giây ra số kèm "Bản lưu HH:MM dd/MM"; bật lại internet ⇒ trong 5 phút (hoặc quay lại app) số mới thay, nhãn biến mất. Chạm chỗ CHƯA từng xem ⇒ vẫn chờ mạng rồi nói "chưa có số" — không bịa số.
+5. Trang chủ, bản lưu "Biển hôm nay" cũ hơn 1 giờ + hotspot không internet ⇒ dòng "Bản lưu HH:MM dd/MM" hiện NGAY, không đợi 15–45 giây.
+
 ## 2. Tiêu chí phát hành
 
 | Mức | Nghĩa | Xử lý |
@@ -339,7 +348,7 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 ## 3. Đã biết, đang xếp hàng sửa — đừng báo trùng
 
-1. Chạm điểm trên bản đồ khi sóng yếu có thể chờ 15–45 giây mới ra số, dù số đó đã có trong máy (luật "mạng trước, máy sau" ở tầng dữ liệu — đang xếp hàng đảo lại). **Đã đảo cho dự báo theo CẢNG (2026-08-02); 5 lớp còn lại vẫn vậy.**
+1. Chạm điểm trên bản đồ khi sóng yếu có thể chờ 15–45 giây mới ra số, dù số đó đã có trong máy (luật "mạng trước, máy sau" ở tầng dữ liệu — đang xếp hàng đảo lại). **Đã đảo cho dự báo theo CẢNG (2026-08-02) và CHẠM ĐIỂM (2026-10-29: bản lưu ra sau ~1,5 giây kèm "Bản lưu HH:MM dd/MM", số mới về thì thay); 4 lớp còn lại (lưới, dải màu, độ mặn, dòng chảy tầng) vẫn vậy.**
 2. Sau 12 giờ ngoài biển, các lớp dữ liệu không dùng đường tắt trong máy nữa, mỗi lần bật lớp là một lần chờ mạng.
 3. ~~Khi nguồn tin bão hỏng, nhịp hỏi lại của app giãn từ 60 giây thành 30 phút.~~ **ĐÃ SỬA 2026-08-02**: thang lùi 1 phút → 3 → 10 → 30, có TRẦN đúng bằng nhịp lúc khoẻ, và hết hỏng là về nấc đầu ngay.
 4. Màn **dẫn đường** chưa nói "chưa kiểm được tin bão" — nếu không hỏi được, nó vẽ tuyến như trời quang.

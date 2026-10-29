@@ -4768,7 +4768,10 @@ export default function FishingMapView() {
   useEffect(() => {
     let alive = true;
     // tài khoản thường: chỉ HÔM NAY (2026-10-27 — máy chủ gác ngày ở /api/om, tier.ts soNgayThoiTiet)
-    fetchSeaPoint(point, soNgayThoiTiet(premiumAccess))
+    // sóng chập chờn: bản lưu hiện sau ~1,5 s, số mới về thì thay (F4 2026-10-29, marine-weather SAVED_FIRST_GRACE_MS)
+    fetchSeaPoint(point, soNgayThoiTiet(premiumAccess), {
+      onFresh: (c) => alive && setResult({ key: reqKey, cond: c }),
+    })
       .then((c) => alive && setResult({ key: reqKey, cond: c }))
       .catch(() => alive && setResult({ key: reqKey, cond: null }));
     return () => {

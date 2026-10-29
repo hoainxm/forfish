@@ -16,6 +16,7 @@
 */
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { soNgayThoiTiet } from "@/lib/tier";
 import Link from "next/link";
@@ -33,6 +34,15 @@ import {
   type ScoredSeaDay,
   type SeaLevel,
 } from "@/lib/sea";
+
+/*  Tách chunk (kéo theo bộ tải dự báo); chunk lỗi lúc mất sóng ⇒ không vẽ dòng, KHÔNG làm sập Trang chủ. */
+const ReadyToSailLine = dynamic(
+  () =>
+    import("@/components/pretrip-auto-notify")
+      .then((m) => m.ReadyToSailLine)
+      .catch(() => () => null),
+  { ssr: false },
+);
 
 /** Bản dự báo cũ hơn mốc này thì ghi rõ "Bản lưu" — trùng TTL bản trong máy (sea.ts, 1 giờ). */
 const BAN_LUU_SAU_MS = 60 * 60 * 1000;
@@ -76,6 +86,10 @@ export function SeaTodayCard() {
     let alive = true;
     const luu = readSeaCache(port.id, soNgay);
     if (luu) setDays(luu.days);
+    /*  BẢN LƯU ĐÃ CŨ ⇒ NÓI NGAY, không đợi mạng (rà offline 2026-10-29, 07 §10.1): sóng chập chờn thì hỏi mạng mất
+        15–45 giây, suốt lúc đó số của hôm kia đứng trên Trang chủ như số mới. Bản lưu còn trong 1 giờ thì im như cũ
+        (không nháy dòng vàng lúc mạng tốt); số mới về thì `chotMoc` gỡ nhãn. */
+    setBanLuu(luu && luu.savedAt > 0 && Date.now() - luu.savedAt > BAN_LUU_SAU_MS ? luu.savedAt : null);
     /*  Mốc lưu THẬT sau khi hỏi xong — `fetchSeaForecast` tự lùi về bản cũ trong máy mà
         KHÔNG ném lỗi, nên không thể suy "mới" từ việc nó trả về. Quá BAN_LUU_SAU_MS ⇒ nói
         ra "Bản lưu HH:MM". Chỉ ghi SAU khi hỏi xong — không nháy dòng vàng lúc mạng đang trả. */
@@ -98,9 +112,12 @@ export function SeaTodayCard() {
     };
   }, [port, soNgay]);
 
-  if (!port || !days) return null;
+  /* DÒNG "SẴN SÀNG RA KHƠI" ngay dưới thẻ (rà offline F3, 2026-10-29) — hiện cả khi thẻ ẩn (chưa khai cảng): máy đủ
+     dự báo + vỏ + khoá + nền bản đồ chưa là câu hỏi của MỌI người sắp ra khơi, không riêng người đã khai cảng. */
+  const ready = <ReadyToSailLine />;
+  if (!port || !days) return ready;
   const today = days.find((d) => d.date === isoDateVN());
-  if (!today) return null;
+  if (!today) return ready;
 
   const song = `Sóng tới ${formatNumberVN(today.waveMaxM)} m${today.waveEstimated ? " (ước)" : ""}`;
   const gio = `gió cấp ${beaufort(today.windMaxKmh)}`;
@@ -132,6 +149,7 @@ export function SeaTodayCard() {
         </span>
         <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/50" />
       </Link>
+      {ready}
     </section>
   );
 }

@@ -209,12 +209,41 @@ export async function fetchSeaPoint(
   /** 16 = đủ ngày (gói); 1 = HÔM NAY (tài khoản thường — tier.ts soNgayThoiTiet, 2026-10-27: "ko show" ngày sau,
    *  kể cả bản đủ ngày còn trong máy từ trước) */
   soNgay: number = FORECAST_MAX_DAYS,
+  opts: SeaPointFetchOpts = {},
 ): Promise<SeaPointConditions> {
-  const c = await fetchSeaPointRaw(p, soNgay);
-  return soNgay === 1 ? { ...c, days: c.days.slice(0, 1) } : c;
+  const cat = (c: SeaPointConditions) => (soNgay === 1 ? { ...c, days: c.days.slice(0, 1) } : c);
+  const onFresh = opts.onFresh;
+  const c = await fetchSeaPointRaw(p, soNgay, {
+    ...opts,
+    onFresh: onFresh ? (x) => onFresh(cat(x)) : undefined,
+  });
+  return cat(c);
 }
 
-async function fetchSeaPointRaw(p: SeaPoint, soNgay: number): Promise<SeaPointConditions> {
+/**
+ * BẢN LƯU TRƯỚC, MẠNG SAU (rà offline F4, 2026-10-29).
+ *
+ * Ca "sóng sống mà chết" (máy báo có mạng — hotspot không internet, một vạch sóng) là ca THƯỜNG ngoài khơi. Trước đây
+ * chạm điểm phải chờ 3 request × 15 giây rồi mới lùi về bản lưu, trong khi số của ĐÚNG chỗ đó nằm trong máy từ giây 0.
+ * Nay chỗ gọi nào đưa `onFresh` (màn bản đồ) thì: mạng trả trong `graceMs` ⇒ dùng số mới như cũ (mạng tốt không nháy
+ * nhãn vàng); quá `graceMs` mà máy có bản lưu ⇒ trả NGAY bản lưu (`stale: true` + `savedAt` để UI ghi "Bản lưu HH:MM
+ * dd/MM"), mạng chạy tiếp ở nền, về thì `onFresh(số mới)` để màn thay. Không có bản lưu ⇒ chờ mạng như cũ.
+ * Không đưa `onFresh` (tải sẵn — cần chính lượt mạng để ghi kho) ⇒ hành vi cũ nguyên vẹn.
+ */
+export type SeaPointFetchOpts = {
+  onFresh?: (c: SeaPointConditions) => void;
+  /** chờ mạng bao lâu trước khi đưa bản lưu ra (mặc định SAVED_FIRST_GRACE_MS) */
+  graceMs?: number;
+};
+
+/** 1,5 giây: mạng tốt trả kịp (không nháy nhãn "Bản lưu"), mạng chết thì bà con chỉ chờ chừng này thay vì 15–45 giây. */
+export const SAVED_FIRST_GRACE_MS = 1500;
+
+async function fetchSeaPointRaw(
+  p: SeaPoint,
+  soNgay: number,
+  opts: SeaPointFetchOpts = {},
+): Promise<SeaPointConditions> {
   // bản hôm nay lưu RIÊNG — không đè bản đủ ngày của gói ở cùng chỗ
   const id = soNgay === 1 ? `${coordId(p.lat, p.lon)}.d1` : coordId(p.lat, p.lon);
   /* MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (K3, 2026-08-02 — cùng khuôn `sea.ts`).
@@ -234,11 +263,37 @@ async function fetchSeaPointRaw(p: SeaPoint, soNgay: number): Promise<SeaPointCo
     const saved = savedSeaPoint(p, id);
     if (saved) return saved;
   }
-  try {
-    const cond = await fetchSeaPointLive(p, soNgay);
+  const live = fetchSeaPointLive(p, soNgay).then((cond) => {
     // LƯU bản mới nhất để ra biển mất mạng vẫn coi được 16 ngày
     saveForecast(POINT_NS, id, cond);
     return cond;
+  });
+  if (opts.onFresh) {
+    const saved = savedSeaPoint(p, id);
+    if (saved) {
+      const onFresh = opts.onFresh;
+      let hen: ReturnType<typeof setTimeout> | undefined;
+      const won = await Promise.race([
+        live.then(
+          (c) => c,
+          () => null, // mạng hỏng nhanh ⇒ bản lưu (như đường lùi cũ)
+        ),
+        new Promise<undefined>((r) => {
+          hen = setTimeout(() => r(undefined), opts.graceMs ?? SAVED_FIRST_GRACE_MS);
+        }),
+      ]);
+      clearTimeout(hen);
+      if (won) return won;
+      if (won === undefined) {
+        // mạng chậm: đưa bản lưu ra ngay, số mới về sau thì thay; hỏng thì thôi (bản lưu đang hiện, nhãn đã nói)
+        // setTimeout: số mới về sát mốc vẫn phải tới SAU bản lưu, kẻo bản lưu đè ngược số mới ở chỗ gọi
+        live.then((c) => void setTimeout(() => onFresh(c), 0), () => undefined);
+      }
+      return saved;
+    }
+  }
+  try {
+    return await live;
   } catch (err) {
     // Mất mạng / nguồn treo → lùi về bản đã lưu ĐÚNG CHỖ NÀY (cùng ô lưới
     // ~0,25°). TUYỆT ĐỐI không mượn bản của chỗ khác: dán số của chỗ cách hàng

@@ -331,3 +331,96 @@ describe("fetchSeaPoint — nấc cuối lùi về SNAPSHOT server", () => {
     await expect(fetchSeaPoint(CON_DAO)).rejects.toThrow();
   });
 });
+
+/* F4 (rà offline 2026-10-29): máy báo có mạng mà mạng chết ⇒ chạm điểm chờ 15–45 giây dù bản lưu nằm sẵn trong máy.
+   Có `onFresh` + có bản lưu ⇒ bản lưu ra sau `graceMs`, số mới về ở nền thì thay. */
+describe("fetchSeaPoint — bản lưu trước, mạng sau (onFresh)", () => {
+  /** fetch treo tới khi gọi `tha()` — giả "sóng sống mà chết" */
+  function treo() {
+    const cho: Array<() => void> = [];
+    const f = vi.fn().mockImplementation(
+      (url: string) => new Promise((res) => cho.push(() => res(fakeOk(url)))),
+    ) as unknown as typeof fetch;
+    return { f, tha: () => cho.splice(0).forEach((g) => g()) };
+  }
+  const nghi = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it("mạng chậm + có bản lưu ⇒ trả bản lưu NGAY (có giờ lưu), số mới về thì gọi onFresh", async () => {
+    globalThis.fetch = online();
+    await fetchSeaPoint(CON_DAO);
+    const { f, tha } = treo();
+    globalThis.fetch = f;
+    const moi: Array<{ stale: boolean }> = [];
+    const t0 = Date.now();
+    const c = await fetchSeaPoint(CON_DAO, 16, { onFresh: (x) => moi.push(x), graceMs: 20 });
+    expect(Date.now() - t0).toBeLessThan(1000);
+    expect(c.stale).toBe(true);
+    expect(c.savedAt).toBeTypeOf("number");
+    expect(c.source).toBe("saved-point");
+    expect(moi).toHaveLength(0);
+    tha();
+    await nghi(10);
+    expect(moi).toHaveLength(1);
+    expect(moi[0].stale).toBe(false);
+  });
+
+  it("mạng nhanh (trả trong graceMs) ⇒ dùng số mới luôn, không nháy bản lưu, không gọi onFresh", async () => {
+    globalThis.fetch = online();
+    await fetchSeaPoint(CON_DAO);
+    const moi: unknown[] = [];
+    const c = await fetchSeaPoint(CON_DAO, 16, { onFresh: (x) => moi.push(x), graceMs: 2000 });
+    expect(c.stale).toBe(false);
+    await nghi(10);
+    expect(moi).toHaveLength(0);
+  });
+
+  it("KHÔNG có bản lưu ⇒ chờ mạng như cũ (không bịa số)", async () => {
+    const { f, tha } = treo();
+    globalThis.fetch = f;
+    const p = fetchSeaPoint(HOANG_SA, 16, { onFresh: () => undefined, graceMs: 5 });
+    await nghi(30);
+    tha();
+    const c = await p;
+    expect(c.stale).toBe(false);
+  });
+
+  it("mạng hỏng nhanh ⇒ bản lưu, onFresh không bao giờ gọi", async () => {
+    globalThis.fetch = online();
+    await fetchSeaPoint(CON_DAO);
+    globalThis.fetch = offline();
+    const moi: unknown[] = [];
+    const c = await fetchSeaPoint(CON_DAO, 16, { onFresh: (x) => moi.push(x), graceMs: 500 });
+    expect(c.stale).toBe(true);
+    await nghi(10);
+    expect(moi).toHaveLength(0);
+  });
+
+  it("không đưa onFresh (tải sẵn) ⇒ vẫn chờ mạng để ghi kho, không trả bản lưu sớm", async () => {
+    globalThis.fetch = online();
+    await fetchSeaPoint(CON_DAO);
+    const { f, tha } = treo();
+    globalThis.fetch = f;
+    let xong = false;
+    const p = fetchSeaPoint(CON_DAO).then((c) => {
+      xong = true;
+      return c;
+    });
+    await nghi(30);
+    expect(xong).toBe(false);
+    tha();
+    expect((await p).stale).toBe(false);
+  });
+
+  it("tài khoản thường (soNgay 1) ⇒ số mới qua onFresh cũng chỉ còn HÔM NAY", async () => {
+    globalThis.fetch = online();
+    await fetchSeaPoint(CON_DAO, 1);
+    const { f, tha } = treo();
+    globalThis.fetch = f;
+    const moi: Array<{ days: unknown[] }> = [];
+    await fetchSeaPoint(CON_DAO, 1, { onFresh: (x) => moi.push(x), graceMs: 5 });
+    tha();
+    await nghi(10);
+    expect(moi).toHaveLength(1);
+    expect(moi[0].days).toHaveLength(1);
+  });
+});

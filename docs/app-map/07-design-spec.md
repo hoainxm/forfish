@@ -773,6 +773,12 @@ Vì sao có ngưỡng 12 h: Service Worker cache `/api/*` network-first → mấ
 
 Bỏ fallback "bản lưu mới nhất của bất kỳ toạ độ nào". Chỉ dùng bản lưu **đúng ô lưới ~0,25°** của chỗ vừa chạm. Không có → **thử tiếp LƯỚI đã lưu** (§10.4) → **NẤC CUỐI (2026-07-29): lưới SNAPSHOT server** `/api/weather-snapshot` (same-origin, cron tính sẵn — cứu bản web Safari mở lần đầu có kho localStorage TÁCH RIÊNG với PWA, trống trơn, đúng lúc Open-Meteo 429 theo IP; khung dài nhất trước, khung premium route tự chặn với tài khoản thường → rơi về d3; vẫn chỉ lấy số đúng ô phủ chỗ chạm). Tất cả trượt → peek: "Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại."; mở sheet có thêm "Lúc mất sóng, máy chỉ có số ở những chỗ bà con đã mở xem lúc còn sóng. Chạm lại đúng chỗ đó để coi." + nút Thử lại.
 
+**D2. Sóng chập chờn — BẢN LƯU TRƯỚC, MẠNG SAU (rà offline F4, 2026-10-29)** (`fetchSeaPoint(p, soNgay, { onFresh })`, `lib/marine-weather.ts`)
+
+Máy báo có mạng mà mạng chết (hotspot không internet, một vạch sóng) là ca THƯỜNG ngoài khơi: trước đây chạm điểm chờ 3 request × 15 s rồi mới lùi về bản lưu. Nay màn bản đồ đưa `onFresh`: mạng trả trong **1,5 s** (`SAVED_FIRST_GRACE_MS`) ⇒ dùng số mới như cũ (mạng tốt không nháy nhãn); quá 1,5 s mà máy có bản của ĐÚNG ô đó (hoặc lưới đã lưu phủ chỗ đó) ⇒ hiện NGAY bản lưu với nhãn bản lưu có NGÀY (§C), mạng chạy tiếp ở nền, về thì thay số + gỡ nhãn; hỏng thì giữ bản lưu. Không có bản lưu ⇒ chờ mạng như cũ. Tải sẵn (không đưa `onFresh`) giữ nguyên đường cũ vì cần chính lượt mạng để ghi kho. Test `marine-weather-offline.test.ts`.
+
+**D3. Thẻ "Biển hôm nay" (Trang chủ)** — bản lưu trong máy cũ hơn 1 giờ ⇒ ghi **"Bản lưu HH:MM dd/MM"** (`gioLuu`) NGAY khi hiện, không đợi mạng trả (sóng chập chờn có thể 15–45 s — suốt lúc đó số hôm kia không được đứng như số mới); số mới về thì gỡ nhãn. Bản lưu trong 1 giờ thì im như cũ.
+
 **E. Độ tin theo tầm ngày THẬT** — `assessForecast` / `applyBiasCorrection` / `forecastConfidence` nhận `todayIso`; lead = số ngày từ hôm nay tới ngày dự báo (`leadOf`), không phải chỉ số mảng. Bản lưu cũ vì thế bị hạ độ tin đúng mức thay vì được nắn bias theo hàng lead 1 (sai theo hướng lạc quan).
 
 **F. Đồng hồ màn hình** — `fishing-map-view` + `storm-banner` giữ `nowMs` nhích 5 phút/lần: app mở suốt chuyến thì "Hôm nay" và tuổi tin bão vẫn tự trôi.
@@ -818,6 +824,14 @@ Bỏ cả ba thứ cũ: nút "Chuẩn bị đi biển", thẻ xanh "Xong. Máy g
 | Còn thiếu lớp | **"Còn thiếu N lớp — chạm xem"** | chữ `text-warn` |
 | Chưa có gì | **"Chưa tải dữ liệu dự báo"** | chữ `text-warn` |
 | Vỏ app chưa đủ | **"Vỏ app chưa tải đủ — mở lại lúc có sóng"** | chữ `text-warn` |
+| **Chưa có khoá bản đồ** (2026-10-29, F2) | **"Chưa tải được khoá bản đồ — mở app lúc có sóng"** · khách (không chuỗi thiết bị): **"Bản đồ ngoài khơi cần đăng nhập — đăng nhập lúc có sóng"** · chip 2 chữ: "Cần sóng" / "Đăng nhập" | chữ `text-warn` |
+| **Chưa có nền bản đồ trong kho** (2026-10-29, F3) | **"Chưa lưu nền bản đồ — mở app lúc có sóng"** · chip "Cần sóng" | chữ `text-warn` |
+
+> **"SẴN SÀNG RA KHƠI" = ĐỦ BỐN THỨ (rà offline F2/F3, 2026-10-29).** Xanh CHỈ khi: dữ liệu đủ (`coverageChipOk`) ∧ vỏ đủ (`isShellReady`) ∧ **có khoá SDF2** (`forfish.datakey.v1`, `hasDataKey`) ∧ **có nền `vn-basemap.pmtiles` trong kho `sdfish-basemap-v2`** (`hasBasemap`) — luật ở `lib/pretrip-ready.ts` (`readyGap`/`readyToSail`, test `pretrip-ready.test.ts`). Cả bốn đều đọc TRONG MÁY, không request. Thứ tự nói: vỏ → khoá → nền → dữ liệu (cái làm app/bản đồ chết trước nói trước). Lý do: từ 2026-10-02 nền/bờ/đảo/độ sâu đều là bản mã — đủ 16 ngày dự báo mà thiếu khoá thì ngoài khơi mở bản đồ trắng trơn, chip cũ vẫn xanh. Popup "đã lưu những gì" thêm một dòng nhỏ màu cảnh báo ở đầu nói đúng thứ thiếu. Khoá/nền/vỏ đọc lại mỗi lần quay lại app (rẻ); độ phủ dự báo vẫn chỉ đọc lại theo mẻ tải / kho mở xong.
+>
+> **CỬA TẢI SẴN Ở TẦNG APP (F3, 2026-10-29).** `PretripAutoRun` mount ở `app-shell` (tách chunk, chunk lỗi thì im — không sập khung) ⇒ mở app ở BẤT KỲ màn nào (Trang chủ là chính) cũng chạy cửa `shouldAttemptAutoPretrip` (6 giờ, mất sóng thì thôi, vừa thử thì thôi) — dời chỗ gọi, KHÔNG thêm lượt mạng. Không ở bản đồ thì chỗ tải sẵn = cảng nhà + điểm ghim (`appPretripPoints`; chưa ghim ⇒ điểm mặc định bản đồ mở ra). Nền bản đồ đi CÙNG cửa: `warmBasemap` xin 1 byte của pmtiles để `sw.js basemapFirst` tự kéo trọn file vào kho (chỉ khi có SW điều khiển + có tài khoản + kho chưa có; trần 15 s). Dòng nổi tự tắt vẫn chỉ vẽ trên bản đồ (mẻ khởi ở Trang chủ thì bản đồ chỉ nói nếu vào đúng lúc đang tải).
+>
+> **TRANG CHỦ — MỘT DÒNG NHỎ dưới thẻ Biển hôm nay** (`ReadyToSailLine`, hiện cả khi thẻ ẩn vì chưa khai cảng): icon 16px + câu đầy đủ của chip, chữ 0.8125rem thường (không đậm, không hộp, một dòng cắt `…`), màu theo luật trên; chạm mở popup. Không dùng thẻ nhắc TO "Máy chưa có dữ liệu đi biển" ở Trang chủ (luật anh Long 2026-10-29: chữ nhỏ gọn).
 
 > **HAI TRẠNG THÁI GIỮA LÀ MỚI (2026-08-02, soát offline MECE).** Trước đây `allSaved` chỉ đếm `l.saved`, **không** đếm `l.fresh`, và `untilIso` in ra bất kể tuổi ⇒ máy có đủ 9 lớp từ 10 ngày trước vẫn hiện chip **xanh** "Đã lưu đủ dự báo — tới ngày &lt;ngày đã qua&gt;". Đúng khuôn "khoe xanh trên nền đã hỏng", mà lại ở chính cái chip bà con liếc trước khi nhổ neo. Kèm theo: thêm `coverageChipOk()` để **MÀU khớp với CHỮ** — component trước đây tô xanh chỉ dựa `cov.allSaved` nên có lúc chữ nói thiếu mà màu vẫn xanh.
 >
