@@ -93,7 +93,9 @@ function DauThe({ xem, onDoi, onClose, children }: { xem: CheDoAisXem; onDoi: ()
   );
 }
 
-const NHOM_LABEL: Record<keyof typeof MAU_TAU, string> = { ca: "Cá", hang: "Hàng", dau: "Dầu", khach: "Khách", khac: "Khác" };
+export type NhomTau = keyof typeof MAU_TAU;
+const NHOM_LABEL: Record<NhomTau, string> = { ca: "Tàu cá", hang: "Tàu hàng", dau: "Tàu dầu", khach: "Tàu khách", khac: "Tàu khác" };
+const THU_TU_NHOM: NhomTau[] = ["ca", "hang", "dau", "khach", "khac"];
 
 function TaiLoi({ state, ban, onRetry }: { state: TaiState; ban: TauAisBan | null; onRetry: () => void }) {
   if (ban) return null;
@@ -108,15 +110,17 @@ function TaiLoi({ state, ban, onRetry }: { state: TaiState; ban: TauAisBan | nul
 }
 
 /**
- * Thẻ nổi "Toàn biển" — đầu cột trái cụm trên bản đồ. Mặc định HAI dòng: [cách xem · 🔍 · ✕] và [Tàu cá · số tàu ·
- * chú giải màu]. Tìm tàu chỉ là nút kính lúp; chạm mới mở ô gõ (thay hàng đầu), xong/← là thu về.
+ * Thẻ nổi "Toàn biển" — đầu cột trái cụm trên bản đồ. Mặc định HAI dòng: [cách xem · 🔍 · ✕] và [số tàu · 5 chấm màu].
+ * Tìm tàu chỉ là nút kính lúp; chạm mới mở ô gõ (thay hàng đầu), xong/← là thu về.
+ * CHẤM MÀU = NÚT LỌC (anh Long 29/10: "click vào màu thì biết màu đó là gì và lọc theo, kiểu hiện text pop up"): chạm
+ * ⇒ bóng chữ nổi "Tàu dầu · 312" trên chấm ~2 giây + bản đồ chỉ còn loại đó; chạm lại chấm đang chọn ⇒ bỏ lọc.
  */
 export function AisToanBien({
   ban,
   state,
   tuKho,
-  chiTauCa,
-  onChiTauCa,
+  nhom,
+  onNhom,
   viTriMinh,
   onChonTau,
   onRetry,
@@ -126,8 +130,9 @@ export function AisToanBien({
   ban: TauAisBan | null;
   state: TaiState;
   tuKho: boolean;
-  chiTauCa: boolean;
-  onChiTauCa: (v: boolean) => void;
+  /** loại tàu đang lọc trên bản đồ — null = tất cả */
+  nhom: NhomTau | null;
+  onNhom: (v: NhomTau | null) => void;
   /** để nói tàu tìm được cách mình bao xa — null khi chưa có GPS */
   viTriMinh: LatLon | null;
   onChonTau: (t: TauAis) => void;
@@ -147,6 +152,17 @@ export function AisToanBien({
   const dongTim = () => {
     setTim(false);
     setQ("");
+  };
+  /*  Bóng chữ của chấm vừa chạm — tự tắt sau 2 s (một hẹn giờ, chạm chấm khác thì đặt lại). */
+  const [bong, setBong] = useState<NhomTau | null>(null);
+  useEffect(() => {
+    if (!bong) return;
+    const id = window.setTimeout(() => setBong(null), 2000);
+    return () => window.clearTimeout(id);
+  }, [bong]);
+  const chamCham = (k: NhomTau) => {
+    setBong(k);
+    onNhom(nhom === k ? null : k);
   };
   return (
     <div className="pointer-events-auto rounded-2xl bg-card/97 p-2 shadow-xl">
@@ -201,26 +217,48 @@ export function AisToanBien({
       {ban && dem && tim && !dangTim && <p className="mt-1.5 px-2 text-[0.75rem] text-foreground/55">Gõ ít nhất 2 ký tự, vd &ldquo;92468&rdquo;.</p>}
 
       {ban && dem && !tim && (
-        <div className="mt-1.5 flex items-center gap-2 px-0.5">
-          <button
-            type="button"
-            aria-pressed={chiTauCa}
-            onClick={() => onChiTauCa(!chiTauCa)}
-            className={`h-8 flex-none rounded-full border px-3 text-[0.8125rem] font-semibold transition-colors ${chiTauCa ? "border-navy bg-navy text-white" : "border-line text-foreground/75"}`}
-          >
-            {NHAN.tauCa}
-          </button>
-          <p className="min-w-0 flex-1 truncate text-[0.75rem] text-foreground/60">
-            {(chiTauCa ? dem.ca : ban.soTau).toLocaleString("vi-VN")} tàu · bản {banLucLabel(ban)}
+        <div className="mt-1 flex items-center gap-1 pl-1">
+          <p className="min-w-0 flex-1 truncate text-[0.75rem] text-foreground/60" aria-live="polite">
+            {nhom ? (
+              <>
+                <b className="font-semibold text-navy">{dem[nhom].toLocaleString("vi-VN")} {NHOM_LABEL[nhom].toLowerCase()}</b> · bản {banLucLabel(ban)}
+              </>
+            ) : (
+              <>
+                {ban.soTau.toLocaleString("vi-VN")} tàu · bản {banLucLabel(ban)}
+              </>
+            )}
             {tuKho ? " · lưu trong máy" : ""}
           </p>
-          {!chiTauCa && (
-            <span className="flex flex-none items-center gap-1" aria-label="Màu: cam tàu cá, xám tàu hàng, đỏ tàu dầu, xanh tàu khách">
-              {(Object.keys(NHOM_LABEL) as (keyof typeof MAU_TAU)[]).map((k) => (
-                <span key={k} title={NHOM_LABEL[k]} className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: MAU_TAU[k] }} />
-              ))}
-            </span>
-          )}
+          <div className="flex flex-none items-center" role="group" aria-label="Lọc theo loại tàu">
+            {THU_TU_NHOM.map((k) => {
+              const chon = nhom === k;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => chamCham(k)}
+                  aria-pressed={chon}
+                  aria-label={`${NHOM_LABEL[k]}: ${dem[k].toLocaleString("vi-VN")} tàu — ${chon ? "bỏ lọc" : "chỉ hiện loại này"}`}
+                  className="relative flex h-9 w-8 items-center justify-center rounded-full active:bg-field"
+                >
+                  <span
+                    className={`inline-block rounded-full transition-all ${chon ? "h-3.5 w-3.5 ring-2 ring-navy ring-offset-2 ring-offset-card" : "h-3 w-3"} ${nhom && !chon ? "opacity-35" : ""}`}
+                    style={{ backgroundColor: MAU_TAU[k] }}
+                  />
+                  {bong === k && (
+                    <span
+                      role="status"
+                      className="pointer-events-none absolute bottom-full right-0 z-10 mb-1 whitespace-nowrap rounded-lg bg-navy px-2.5 py-1.5 text-[0.75rem] font-semibold text-white shadow-lg"
+                    >
+                      {NHOM_LABEL[k]} · {dem[k].toLocaleString("vi-VN")}
+                      {chon ? "" : " — đã bỏ lọc"}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

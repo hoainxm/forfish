@@ -257,7 +257,7 @@ import {
   type ChatDayInfo, type LegInfo, type DenInfo, type DepthInfo, type DiaDanhInfo, type KhuTruBaoInfo, type LaneInfo, type MarkInfo,
   type ReefInfo, type StormPtInfo, type VungInfo, type XacTauInfo, type TauAisInfo, TheTauAis,
 } from "@/components/ban-do/the-thong-tin";
-import { AisBanKinh, AisToanBien, type CheDoAisXem } from "@/components/ban-do/che-do-ais";
+import { AisBanKinh, AisToanBien, type CheDoAisXem, type NhomTau } from "@/components/ban-do/che-do-ais";
 import { CO_ICON_TAU, dangKyIconTau } from "@/components/ban-do/icon-tau";
 import { VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { TAM_RADAR_NM, khungRadar, mucTieuGeoJson, quetQuanh, radarGeoJson, type MucTieu, type TauMinh } from "@/lib/ais-cpa";
@@ -797,8 +797,8 @@ export default function FishingMapView() {
       trả lớp về như trước khi vào. */
   const [aisMode, setAisMode] = useState<CheDoAisXem | null>(null);
   const [aisTruocMode, setAisTruocMode] = useState(false);
-  /** Toàn biển: chỉ hiện chấm tàu cá (lọc ngay trên lớp MapLibre, không dựng lại GeoJSON) */
-  const [aisChiCa, setAisChiCa] = useState(false);
+  /** Toàn biển: lọc theo một loại tàu (chạm chấm màu ở thẻ; lọc ngay trên lớp MapLibre, không dựng lại GeoJSON) */
+  const [aisNhom, setAisNhom] = useState<NhomTau | null>(null);
   /** Bán kính: chỉ số tầm trong TAM_RADAR_NM (mặc định 6 hải lý) + tàu đang chọn (chạm chấm/dòng) */
   const [aisTamI, setAisTamI] = useState(2);
   const [aisChon, setAisChon] = useState<string | null>(null);
@@ -7822,7 +7822,7 @@ export default function FishingMapView() {
             <Layer
               id="tau-ais-dot"
               type="symbol"
-              {...(aisMode === "toan-bien" && aisChiCa ? { filter: ["==", ["get", "nhom"], "ca"] as unknown as boolean } : {})}
+              {...(aisMode === "toan-bien" && aisNhom ? { filter: ["==", ["get", "nhom"], aisNhom] as unknown as boolean } : {})}
               layout={{
                 "icon-image": ["concat", "ais-", ["get", "mk"], "-", ["case", ["==", ["get", "chay"], 1], "chay", "dung"]] as unknown as string,
                 "icon-size": CO_ICON_TAU as unknown as number,
@@ -8327,8 +8327,8 @@ export default function FishingMapView() {
                 ban={aisBan}
                 state={aisState}
                 tuKho={aisTuKho}
-                chiTauCa={aisChiCa}
-                onChiTauCa={setAisChiCa}
+                nhom={aisNhom}
+                onNhom={setAisNhom}
                 viTriMinh={aisGps?.pos ?? null}
                 onChonTau={xemTauAis}
                 onRetry={() => setAisRetry((n) => n + 1)}
