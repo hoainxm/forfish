@@ -26,7 +26,7 @@ import { createPortal } from "react-dom";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ImagePicker } from "@/components/market/shared/image-picker";
 import { ChevronDownIcon, CloseIcon, ImageIcon, NewsIcon, PinIcon } from "@/components/icons";
-import { lockBodyScroll, unlockBodyScroll } from "@/lib/dialog-focus";
+import { lockBodyScroll, unlockBodyScroll, useLichSuDong } from "@/lib/dialog-focus";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import { laChuyenBien, TOPICS, type Topic } from "@/lib/kairos/chu-de.mjs";
@@ -225,12 +225,20 @@ export function ComposerSheet({
 
   // Khung toàn màn: khoá cuộn trang dưới, đặt con trỏ vào ô chữ (bàn phím bật như FB), Escape đóng. Chạy MỘT LẦN.
   const cancelRef = useRef<() => void>(() => {});
+  /*  BACK CỦA MÁY (03 §6 mục 10 — cổng dialog-back.test, 2026-10-29): khung soạn chiếm một mục lịch sử; back ⇒
+      `dong` (có chữ/ảnh thì hỏi Lưu nháp · Bỏ bài · Viết tiếp — "Viết tiếp" `giuLai` đẩy mục lại). ×/Escape đi
+      qua `dongTay` để back sau không phải bấm hai lần. Trước: back rời Kairos giữa lúc đang viết. */
+  const { dongTay, giuLai } = useLichSuDong(() => cancelRef.current());
+  const dongTayRef = useRef(dongTay);
+  useEffect(() => {
+    dongTayRef.current = dongTay;
+  });
   useEffect(() => {
     lockBodyScroll();
     oChu.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       // Escape đang dành cho ngăn con (chọn chủ đề / cảng) thì để ngăn đó đóng, không đóng cả khung soạn.
-      if (e.key === "Escape" && document.querySelectorAll('[role="dialog"]').length <= 1) cancelRef.current();
+      if (e.key === "Escape" && document.querySelectorAll('[role="dialog"]').length <= 1) dongTayRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => {
@@ -261,6 +269,11 @@ export function ComposerSheet({
     // nợ: ảnh nháp quá 24 giờ có thể bị agent dọn ảnh mồ côi xoá; nâng cấp khi kho biết ảnh thuộc nháp.
     paths.current.clear();
     onClose();
+  };
+  /** Viết tiếp: back (nếu có) đã ăn mục của khung ⇒ đẩy lại, lần back sau vẫn hỏi (khuôn BottomSheet "Ghi tiếp"). */
+  const vietTiep = () => {
+    setHoiDong(false);
+    giuLai();
   };
   const boBai = () => {
     saveDraft(phone, dKey, "", Date.now(), []);
@@ -308,7 +321,7 @@ export function ComposerSheet({
     >
       {/* THANH TRÊN — ✕ · tên khung · Đăng (luôn thấy, kể cả khi bàn phím mở) */}
       <header className="flex h-14 shrink-0 items-center gap-1 border-b border-line px-2 pt-[env(safe-area-inset-top)]">
-        <button type="button" onClick={dong} aria-label={NHAN.dong} className={nutCong}>
+        <button type="button" onClick={dongTay} aria-label={NHAN.dong} className={nutCong}>
           <CloseIcon className="h-6 w-6" />
         </button>
         <h2 id={tieuDeId} className="min-w-0 flex-1 truncate text-center text-[1.0625rem] font-semibold text-navy">
@@ -489,7 +502,7 @@ export function ComposerSheet({
       )}
       {hoiDong && (
         // kieu="form": KHÔNG × góc (03 §6 mục 2 — một lối huỷ là "Viết tiếp"); vuốt/chạm nền = Viết tiếp (K3-13)
-        <BottomSheet title={editing ? "Bỏ phần đã sửa?" : "Bỏ bài đang viết?"} kieu="form" onClose={() => setHoiDong(false)}>
+        <BottomSheet title={editing ? "Bỏ phần đã sửa?" : "Bỏ bài đang viết?"} kieu="form" onClose={vietTiep}>
           <div className="grid gap-2">
             <button type="button" onClick={luuNhap} className="h-(--h-cta) rounded-xl bg-sea font-semibold text-white">
               {NHAN.luuNhap}
@@ -497,7 +510,7 @@ export function ComposerSheet({
             <button type="button" onClick={boBai} className="h-(--h-cta) rounded-xl border border-line font-semibold text-danger">
               {NHAN.boBai}
             </button>
-            <button type="button" onClick={() => setHoiDong(false)} className="h-(--h-cta) rounded-xl font-semibold text-navy">
+            <button type="button" onClick={vietTiep} className="h-(--h-cta) rounded-xl font-semibold text-navy">
               {NHAN.vietTiep}
             </button>
           </div>

@@ -356,7 +356,7 @@ function RequestForm({
           className="mt-3 flex min-h-[3.25rem] items-center justify-center gap-2 rounded-full text-[1.125rem] font-semibold text-sea"
         >
           <PhoneIcon className="h-5 w-5" />
-          Gấp? Gọi ngay {SDVICO_HOTLINE_DISPLAY}
+          {NHAN.goi} {SDVICO_HOTLINE_DISPLAY}
         </a>
       </form>
     </BottomSheet>

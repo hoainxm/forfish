@@ -86,10 +86,10 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
                 className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-xl object-cover"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-foreground/55">Ưu đãi SDVICO</p>
+                <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-muted">Ưu đãi SDVICO</p>
                 <p className="display line-clamp-2 text-[1.125rem] font-semibold leading-snug text-navy">{k.ten}</p>
                 <p className="mt-0.5 text-[1rem] leading-snug">
-                  <span className="text-foreground/50 line-through">{tienVn(k.giaThiTruong)}</span>{" "}
+                  <span className="text-muted line-through">{tienVn(k.giaThiTruong)}</span>{" "}
                   <span className="font-semibold text-t3">{tienVn(k.giaApp)}</span>
                 </p>
                 <p className="mt-0.5 truncate text-[0.875rem] text-foreground/65">
@@ -245,7 +245,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
           <Image src={km.image} alt="" width={km.imgW} height={km.imgH} sizes="3.5rem" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
           <div className="min-w-0">
             <p className="text-[1rem] font-semibold text-navy">
-              <span className="text-foreground/50 line-through">{tienVn(km.giaThiTruong)}</span> {tienVn(km.giaApp)}/cái
+              <span className="text-muted line-through">{tienVn(km.giaThiTruong)}</span> {tienVn(km.giaApp)}/cái
             </p>
             <ul className="mt-0.5 text-[0.875rem] leading-snug text-foreground/70">
               {km.diemHay.slice(1).map((d) => (

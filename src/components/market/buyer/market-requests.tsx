@@ -448,7 +448,7 @@ export function RequestDetail({ id }: { id: string }) {
       )}
       {r.status === "da_dat" && (r.orderId || order) && (
         <Link href={`/cho/don/${r.orderId ?? order?.id}`} className={`${primaryLinkClass} mt-3`}>
-          Xem đơn hàng {order?.code ?? ""}
+          {NHAN.donHang} {order?.code ?? ""}
         </Link>
       )}
 
@@ -463,7 +463,7 @@ export function RequestDetail({ id }: { id: string }) {
         <div className="mt-3 flex justify-center">
           <button type="button" disabled={busy || !online} onClick={() => setAsk("huy")}
             className="min-h-(--row-h) rounded-full bg-field px-5 text-[1rem] font-semibold disabled:opacity-40" style={{ color: "var(--danger)" }}>
-            Huỷ yêu cầu
+            {NHAN.huy}
           </button>
         </div>
       )}

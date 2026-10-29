@@ -95,7 +95,7 @@ export function InquiriesTab() {
     ).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
-      setError("Xóa không thành công. Vui lòng thử lại.");
+      setError("Xoá không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -179,7 +179,7 @@ export function InquiriesTab() {
                     {row.message}
                   </p>
                 )}
-                <p className="px-4 pt-2 text-[0.8125rem] text-foreground/55">
+                <p className="px-4 pt-2 text-[0.8125rem] text-muted">
                   gửi {fmtDT(row.createdAt)}
                   {row.handledBy &&
                     ` · người xử lý: ${row.handledBy} lúc ${fmtDT(row.handledAt)}`}
@@ -211,7 +211,7 @@ export function InquiriesTab() {
                     onClick={() => setToDelete(row)}
                     className="min-h-[2.5rem] shrink-0 rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
                   >
-                    Xóa
+                    Xoá
                   </button>
                 </div>
               </li>
@@ -222,10 +222,10 @@ export function InquiriesTab() {
 
       {toDelete && (
         <ConfirmDialog
-          title="Xác nhận xóa yêu cầu này?"
-          message="Yêu cầu sẽ bị xóa vĩnh viễn khỏi danh sách. Thao tác này không thể khôi phục."
-          confirmLabel="Xác nhận xóa"
-          cancelLabel="Hủy thao tác"
+          title="Xác nhận xoá yêu cầu này?"
+          message="Yêu cầu sẽ bị xoá vĩnh viễn khỏi danh sách. Thao tác này không thể khôi phục."
+          confirmLabel="Xác nhận xoá"
+          cancelLabel="Huỷ thao tác"
           danger
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
@@ -281,7 +281,7 @@ function PhieuSdvicoSection() {
     <section className="surface px-4 py-3">
       <button type="button" onClick={() => setMo((v) => !v)} className="flex w-full items-center justify-between text-left" aria-expanded={mo}>
         <span className="text-[1rem] font-semibold text-navy">Khách hỏi / đăng ký khuyến mãi SDVICO</span>
-        <span className="text-[0.875rem] text-foreground/60">
+        <span className="text-[0.875rem] text-muted">
           {rows ? `${rows.length} phiếu · ${choNhan} chưa nhắn Zalo` : loi ?? "Đang tải…"}
         </span>
       </button>
@@ -299,14 +299,14 @@ function PhieuSdvicoSection() {
                 {r.ten} · {r.phone} · tàu {r.so_tau} · {r.cang}
                 {r.loi_nhan ? ` · ${r.loi_nhan}` : ""}
               </p>
-              <p className="text-[0.75rem] text-foreground/50">
+              <p className="text-[0.75rem] text-muted">
                 {fmtDT(r.created_at)} · nguồn {r.nguon}
               </p>
             </li>
           ))}
         </ul>
       )}
-      {mo && rows && rows.length === 0 && <p className="mt-2 text-[0.875rem] text-foreground/60">Chưa có phiếu nào.</p>}
+      {mo && rows && rows.length === 0 && <p className="mt-2 text-[0.875rem] text-muted">Chưa có phiếu nào.</p>}
     </section>
   );
 }

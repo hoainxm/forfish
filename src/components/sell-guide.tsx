@@ -521,7 +521,7 @@ function Factories({
                   rel="noopener noreferrer"
                   className="mt-1 inline-block text-[0.875rem] font-semibold text-sea"
                 >
-                  Xem trang web
+                  {NHAN.trangWeb}
                 </a>
               )}
             </Card>
@@ -657,9 +657,9 @@ function MyBuyers({ q }: { q: string }) {
         {shown.map((b) => (
           <li key={b.id}>
             <Card className="p-3.5">
-              {/*  "Sửa"/"Xóa" về INLINE cuối hàng tên mối quen (luật A3/A5):
+              {/*  "Sửa"/"Xoá" về INLINE cuối hàng tên mối quen (luật A3/A5):
                   trước là hàng footer border-t riêng, hai nút KHÔNG khai min-h
-                  nào (đo thật 50×24px — chưa bằng một nửa sàn 52px), mà "Xóa"
+                  nào (đo thật 50×24px — chưa bằng một nửa sàn 52px), mà "Xoá"
                   lại là hành động phá huỷ (xoá số thương lái bà con gõ tay). */}
               <div className="flex items-stretch gap-2">
                 <div className="min-w-0 flex-1">
@@ -685,7 +685,7 @@ function MyBuyers({ q }: { q: string }) {
                   className={`${SQ_BTN} bg-background text-danger`}
                 >
                   <TrashIcon className="h-6 w-6" />
-                  Xóa
+                  Xoá
                 </button>
               </div>
               {/* SĐT là DỮ LIỆU (đọc/chép được); nút GỌI inline cuối chính
@@ -727,8 +727,8 @@ function MyBuyers({ q }: { q: string }) {
       {confirmDel && (
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
-          title="Xóa mối quen này?"
-          message={`“${confirmDel.name}” sẽ bị xóa khỏi danh bạ.`}
+          title="Xoá mối quen này?"
+          message={`“${confirmDel.name}” sẽ bị xoá khỏi danh bạ.`}
           onCancel={() => setConfirmDel(null)}
           onConfirm={() => {
             setBuyers((prev) => prev.filter((x) => x.id !== confirmDel.id));
@@ -795,8 +795,8 @@ function BuyerForm({
       onClose={onCancel}
     >
       <form onSubmit={submit}>
-        {/* Hàng KEY 1: tên. Nút Lưu về hàng đáy cùng Hủy — một khuôn với form Đăng tin
-            (CC-13); trước Lưu nằm cạnh ô Tên ở đầu, Hủy lẻ loi dưới. */}
+        {/* Hàng KEY 1: tên. Nút Lưu về hàng đáy cùng Huỷ — một khuôn với form Đăng tin
+            (CC-13); trước Lưu nằm cạnh ô Tên ở đầu, Huỷ lẻ loi dưới. */}
         <Field label="Tên (bắt buộc)" error={loiTen ?? undefined}>
           <input
             ref={oTen}
@@ -904,7 +904,7 @@ function BuyerForm({
           </>
         )}
 
-        {/* Hàng cuối theo khuôn B1 (như ListingForm): dòng trạng thái · Hủy · Lưu */}
+        {/* Hàng cuối theo khuôn B1 (như ListingForm): dòng trạng thái · Huỷ · Lưu */}
         <div className="mt-2 flex items-stretch gap-2">
           <div className="o-chu flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[0.875rem] text-foreground/70">Chỉ lưu trong máy này.</p>

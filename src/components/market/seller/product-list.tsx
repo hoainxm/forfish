@@ -30,6 +30,7 @@ import { MoreButton, NoShop, SELLER_BTN, SELLER_BTN_WIDE } from "./ui";
 import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
 type Filter = "all" | "dang_ban" | "an" | "het_hang" | "bi_go";
+import { NHAN } from "@/lib/labels";
 const FILTERS: readonly ChipOption<Filter>[] = [
   { id: "all", label: "Tất cả" },
   { id: "dang_ban", label: "Đang bán" },
@@ -288,7 +289,7 @@ function Rows({
         </EmptyState>
         {canEdit && (
           <Link href="/ban-hang/san-pham/moi" onClick={onOpen} className="mt-4 flex min-h-(--row-h) items-center justify-center gap-2 rounded-full bg-trim text-[1rem] font-semibold text-white">
-            <PlusIcon className="h-6 w-6" /> Thêm sản phẩm
+            <PlusIcon className="h-6 w-6" /> {NHAN.themMon}
           </Link>
         )}
       </div>
@@ -309,7 +310,7 @@ function Rows({
             }}
             className="min-h-(--row-h) rounded-full bg-field px-4 text-[1rem] font-semibold text-navy"
           >
-            Hoàn lại tồn {undo.stock}
+            {NHAN.hoanTac}
           </button>
         </div>
       )}

@@ -234,7 +234,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
           href="/cho/don"
           className="display mx-auto mt-4 flex min-h-(--row-h) w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1rem] font-semibold text-navy"
         >
-          Về đơn của tôi
+          {NHAN.donHang}
         </Link>
       </div>
     );
@@ -324,9 +324,12 @@ export function MarketOrderDetail({ id }: { id: string }) {
         {isPendingTooLong(order, nowIso) || order.status === "cho_xac_nhan" ? <AutoCancelNote order={order} who="buyer" /> : null}
         <EtaLine order={order} />
         {order.requestId && (
-          <Link href={`/cho/yeu-cau/${order.requestId}`} className="block text-[1rem] font-semibold text-sea underline">
-            Đơn đặt theo yêu cầu — xem yêu cầu
-          </Link>
+          <p className="text-[1rem] text-muted">
+            Đơn đặt theo yêu cầu —{" "}
+            <Link href={`/cho/yeu-cau/${order.requestId}`} className="py-3 font-semibold text-sea underline">
+              {NHAN.yeuCau}
+            </Link>
+          </p>
         )}
       </section>
 

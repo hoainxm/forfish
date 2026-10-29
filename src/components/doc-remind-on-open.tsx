@@ -14,6 +14,7 @@ import {
   type DueReminder,
 } from "@/lib/doc-reminders";
 import { localDueReminders, markSeenKeys } from "@/lib/doc-reminder-local";
+import { NHAN } from "@/lib/labels";
 
 /*
   NHẮC HẠN GIẤY TỜ KHI MỞ APP (2026-10-20, user: "làm cả thông báo khi mở app
@@ -102,7 +103,7 @@ export function DocRemindOnOpen() {
           onClick={close}
           className="display flex min-h-[3.75rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
         >
-          Xem giấy tờ
+          {NHAN.xemGiay}
         </Link>
         <button
           type="button"

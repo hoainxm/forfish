@@ -53,7 +53,9 @@ function ToastView({ t }: { t: Toast }) {
           <button
             type="button"
             onClick={() => bamHanhDong(t)}
-            className="h-9 shrink-0 rounded-lg bg-white/15 px-3 text-[0.875rem] font-semibold"
+            /*  Vùng chạm đủ `--h-ctl` (2.75rem) — Hoàn tác là đường cứu dữ liệu duy nhất, chỉ sống
+                5 s (rà C §7, 2026-10-29). `-my-1.5` để thanh báo KHÔNG cao thêm; chữ giữ 0.875rem. */
+            className="-my-1.5 h-(--h-ctl) shrink-0 rounded-lg bg-white/15 px-3 text-[0.875rem] font-semibold"
           >
             {t.hanhDong.nhan}
           </button>

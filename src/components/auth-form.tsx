@@ -94,7 +94,7 @@ export function PasswordField({
           aria-pressed={shown}
           aria-label={shown ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
           title={shown ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-          className="absolute right-1 top-1/2 grid h-(--h-ctl) w-(--h-ctl) -translate-y-1/2 place-items-center rounded-full text-foreground/60 active:bg-field"
+          className="absolute right-1 top-1/2 grid h-(--h-ctl) w-(--h-ctl) -translate-y-1/2 place-items-center rounded-full text-muted active:bg-field"
         >
           {shown ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
         </button>

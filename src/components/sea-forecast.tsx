@@ -249,7 +249,7 @@ export function SeaForecast() {
                       <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/70 tabular-nums">
                         sóng {d.waveMaxM.toFixed(1).replace(".", ",")} m
                         {d.waveEstimated && (
-                          <span className="text-foreground/45">
+                          <span className="text-muted">
                             {" "}
                             (ước tính)
                           </span>

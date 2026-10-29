@@ -13,6 +13,7 @@ import type { VoiceMode } from "@/lib/nav-voice/announcer";
 import { readVoicePrefs, writeVoicePrefs, NAV_VOICE_EVENT } from "@/lib/nav-voice/prefs";
 import { VOICE_TEST_TEXT } from "@/lib/nav-voice/use-nav-voice";
 import { ttsCheck, ttsOpenInstall, ttsSpeak, ttsUnlock, type TtsAvail } from "@/lib/voice/tts";
+import { NHAN } from "@/lib/labels";
 
 function useTtsAvail(): [TtsAvail | null, () => void] {
   const [avail, setAvail] = useState<TtsAvail | null>(null);
@@ -42,7 +43,7 @@ function NoVoiceNote({ avail }: { avail: TtsAvail | null }) {
           onClick={() => void ttsOpenInstall()}
           className="mt-2 flex min-h-[3.5rem] w-full items-center justify-center rounded-xl bg-navy px-4 text-[1rem] font-semibold text-white transition active:scale-[0.98]"
         >
-          Tải giọng tiếng Việt
+          {NHAN.taiGiong}
         </button>
       ) : (
         <span className="mt-1 block text-[0.9375rem] font-normal">
@@ -83,7 +84,7 @@ export function CruiseIntroSheet({
           className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-xl bg-navy/10 px-4 text-[1rem] font-semibold text-navy transition active:scale-[0.98]"
         >
           <SpeakerIcon className="h-6 w-6" />
-          Nghe thử giọng đọc
+          {NHAN.ngheThu}
         </button>
         <button
           type="button"
@@ -93,7 +94,7 @@ export function CruiseIntroSheet({
           }}
           className="flex min-h-[3.5rem] w-full items-center justify-center rounded-xl bg-t1 px-4 text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
         >
-          Bắt đầu chạy
+          {NHAN.batDau}
         </button>
       </div>
     </BottomSheet>
@@ -122,7 +123,7 @@ export function VoiceSettingsSection() {
   }, []);
   return (
     <div>
-      <p className="mb-2 mt-3 text-[0.75rem] font-semibold text-foreground/55">
+      <p className="mb-2 mt-3 text-[0.75rem] font-semibold text-muted">
         Giọng đọc khi chạy
       </p>
       <button

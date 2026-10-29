@@ -423,8 +423,8 @@ export function InstallBanner({
               "cài xong là ra khơi mở được" cho iPhone là hứa hão. */}
           <p className="text-[1rem] leading-snug text-foreground/75">
             {mode === "ios"
-              ? "Cài ra màn hình chính giúp máy giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."
-              : "Cài ra màn hình chính giúp mở app khi không có sóng, và máy sẽ giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."}
+              ? "Cài ra màn hình chính giúp máy giữ dự báo lâu hơn (không bị tự xoá sau vài ngày)."
+              : "Cài ra màn hình chính giúp mở app khi không có sóng, và máy sẽ giữ dự báo lâu hơn (không bị tự xoá sau vài ngày)."}
           </p>
           {guide}
         </div>

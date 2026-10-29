@@ -638,15 +638,19 @@ export function CommentThread({
             )}
             {nt.danhSach}
             {!text.trim() && !anh && canQuick && (
-              <div className="mb-2 flex gap-2 overflow-x-auto" role="group" aria-label="Bình luận nhanh">
+              /*  Vùng chạm 2.75rem, viên chip vẫn 2.25rem (rà C §7, 2026-10-29): nút cao `--h-chip`,
+                  viên vẽ ở span trong; hàng `-mt-1 mb-1` để cụm không cao thêm. */
+              <div className="-mt-1 mb-1 flex gap-2 overflow-x-auto" role="group" aria-label="Bình luận nhanh">
                 {BL_NHANH.map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => void send(c)}
-                    className="h-9 shrink-0 rounded-full border border-line px-3 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
+                    className="flex h-(--h-chip) shrink-0 items-center transition active:scale-[0.97]"
                   >
-                    {c}
+                    <span className="flex h-9 items-center rounded-full border border-line px-3 text-[0.875rem] font-semibold text-navy">
+                      {c}
+                    </span>
                   </button>
                 ))}
               </div>

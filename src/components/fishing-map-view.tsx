@@ -489,6 +489,7 @@ import {
   StarIcon,
 } from "@/components/icons";
 import { Popover } from "@/components/ui/popover";
+import { NHAN } from "@/lib/labels";
 import { khungOTrongVung, locOTrongVung } from "@/lib/vung-bien-vn";
 import { registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
 import { registerDataProtocol } from "@/lib/data-protocol";
@@ -5390,14 +5391,14 @@ export default function FishingMapView() {
           <>
             Xem các ngày tới cần đăng nhập —{" "}
             <Link href="/login" className="font-semibold text-trim">
-              Đăng nhập →
+              {NHAN.dangNhap}
             </Link>
           </>
         ) : (
           <>
             {premiumLine("dự báo các ngày tới")}{" "}
             <a href={`tel:${SDVICO_HOTLINE}`} className="font-semibold text-trim">
-              Gọi →
+              {NHAN.goi}
             </a>
           </>
         )}
@@ -8126,7 +8127,7 @@ export default function FishingMapView() {
             className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-semibold text-navy transition active:bg-field"
           >
             <StarIcon className="h-6 w-6 shrink-0 text-sun" />
-            Lưu thành điểm
+            {NHAN.luuDiem}
           </button>
         </div>
       )}
@@ -8238,7 +8239,7 @@ export default function FishingMapView() {
                     onClick={() => veDuongToiKhu(k)}
                     className="mt-2 min-h-[3.5rem] w-full rounded-2xl bg-t1 px-4 text-[1.125rem] font-semibold text-white transition active:scale-[0.98]"
                   >
-                    Vẽ đường tới đây
+                    {NHAN.dauDuong}
                   </button>
                 </li>
               ))}
@@ -9460,7 +9461,7 @@ export default function FishingMapView() {
                       onClick={savePin}
                       className="min-h-[3.25rem] flex-1 rounded-xl bg-t1 text-[1rem] font-semibold text-white"
                     >
-                      Lưu chỗ này
+                      {NHAN.luuDiem}
                     </button>
                   </div>
                 </div>
@@ -9474,7 +9475,7 @@ export default function FishingMapView() {
                   className="flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-xl bg-field text-[1rem] font-semibold text-navy transition active:scale-[0.99]"
                 >
                   <StarIcon className="h-5 w-5" />
-                  Ghim chỗ này để mở nhanh lần sau
+                  {NHAN.ghim}
                 </button>
               )}
               {/* toạ độ đã chuyển lên peek (luôn thấy) — bỏ bản trùng ở đây */}

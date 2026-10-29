@@ -114,7 +114,7 @@ function RequestRow({ r, shops, onDone }: { r: MarketRequest; shops: ShopLite[];
           <p className="mt-0.5 text-[0.8125rem] tabular-nums text-foreground/70">
             {r.code} · {r.address.name} · {r.address.phone} · {r.address.province}
           </p>
-          <p className="text-[0.8125rem] text-foreground/55">
+          <p className="text-[0.8125rem] text-muted">
             Gửi {clockVN(Date.parse(r.createdAt))} · {PAYMENT_METHOD_LABEL[r.paymentMethod]}
             {r.needBy ? ` · cần trước ${etaLabel(r.needBy, r.needBy, today)}` : ""}
           </p>

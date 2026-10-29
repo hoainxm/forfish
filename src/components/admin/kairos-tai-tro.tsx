@@ -76,7 +76,7 @@ function Dong({ q, sua, onDoi, onXoa }: { q: QuangCao; sua: boolean; onDoi: (q: 
       {sua ? (
         <ImagePicker value={q.anh ? [q.anh] : []} onChange={(v) => onDoi({ ...q, anh: v[0] ?? null })} max={1} upload={upload} label="Ảnh (tuỳ chọn)" />
       ) : (
-        q.anh && <p className="truncate text-[0.8125rem] text-foreground/60">Ảnh: {q.anh}</p>
+        q.anh && <p className="truncate text-[0.8125rem] text-muted">Ảnh: {q.anh}</p>
       )}
       {sua && (
         <button type="button" className={`${btn} border border-line text-danger`} onClick={onXoa}>

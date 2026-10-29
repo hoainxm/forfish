@@ -51,6 +51,7 @@ import { PostSkeleton } from "./post-skeleton";
 import { ProfileSheet } from "./profile-sheet";
 import { SavedPosts } from "./saved-posts";
 import { usePostActions } from "./use-post-actions";
+import { cauLoiHienThi } from "@/lib/send-error";
 
 type Load = "loading" | "ready" | "missing" | "error" | "offline" | "login";
 type Page = { user: KairosUser; posts: KairosPost[]; next: string | null };
@@ -267,7 +268,7 @@ export function UserProfile({ id }: { id: string }) {
       // lưu hồ sơ hỏng ⇒ xoá ảnh vừa tải (không để mồ côi); hỏng tiếp thì agent dọn sau 24 giờ
       else if (!(await savePhoto(kind, up.data.path))) void discardUploads([up.data.path]);
     } catch (e) {
-      a.notify((e as Error)?.message || "Không nén được ảnh", true);
+      a.notify(cauLoiHienThi(e, "Không nén được ảnh"), true);
     }
     setPhotoBusy(null);
   };

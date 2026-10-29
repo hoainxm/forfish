@@ -106,7 +106,7 @@ export function CrewReportsTab({ perms }: { perms: TabPerms }) {
     ).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
-      setError("Xóa không thành công. Vui lòng thử lại.");
+      setError("Xoá không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -204,7 +204,7 @@ export function CrewReportsTab({ perms }: { perms: TabPerms }) {
                 ? "Từ chối báo cáo"
                 : "Rút báo cáo"
           }
-          cancelLabel="Hủy thao tác"
+          cancelLabel="Huỷ thao tác"
           danger={confirm.action !== "approve"}
           onCancel={() => setConfirm(null)}
           onConfirm={() => {
@@ -217,10 +217,10 @@ export function CrewReportsTab({ perms }: { perms: TabPerms }) {
 
       {toDelete && (
         <ConfirmDialog
-          title="Xóa cảnh báo khỏi danh sách?"
-          message="Xóa vĩnh viễn báo cáo này (sẽ không thể khôi phục). Chỉ dùng thao tác này khi báo cáo bị sai hoặc trùng lặp."
-          confirmLabel="Xác nhận xóa"
-          cancelLabel="Hủy thao tác"
+          title="Xoá cảnh báo khỏi danh sách?"
+          message="Xoá vĩnh viễn báo cáo này (sẽ không thể khôi phục). Chỉ dùng thao tác này khi báo cáo bị sai hoặc trùng lặp."
+          confirmLabel="Xác nhận xoá"
+          cancelLabel="Huỷ thao tác"
           danger
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
@@ -279,7 +279,7 @@ export function ReportCard({
         </p>
       )}
 
-      <p className="px-4 pt-2 text-[0.8125rem] text-foreground/55">
+      <p className="px-4 pt-2 text-[0.8125rem] text-muted">
         Người báo: <span className="tabular-nums">{row.reporterPhone}</span>
         {row.reporterBoat ? ` (${row.reporterBoat})` : ""} · gửi{" "}
         {fmtDT(row.createdAt)}
@@ -359,10 +359,10 @@ export function ReportCard({
             type="button"
             disabled={busy}
             onClick={onDelete}
-            title="Xóa vĩnh viễn khỏi danh sách"
+            title="Xoá vĩnh viễn khỏi danh sách"
             className="min-h-[2.5rem] shrink-0 rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
           >
-            Xóa
+            Xoá
           </button>
         )}
       </div>

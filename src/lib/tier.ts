@@ -12,6 +12,8 @@
 // gán: webhook SDWork hoặc web quản trị /quan-tri. App KHÔNG có luồng
 // thanh toán.
 
+import { TEN_GOI_HOA } from "./labels";
+
 export type AccountTier = "basic" | "premium";
 
 /**
@@ -502,7 +504,7 @@ export function tierBadge(a: {
   const until = formatPremiumUntil(a.premiumUntil);
   return {
     tone: "premium",
-    label: "Premium",
+    label: TEN_GOI_HOA,
     detail: until
       ? `Đang mở dự báo cá và thời tiết dài ngày, dùng tới ${until}.`
       : "Đang mở dự báo cá và thời tiết dài ngày.",

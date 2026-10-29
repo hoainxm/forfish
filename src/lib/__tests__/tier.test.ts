@@ -286,7 +286,7 @@ describe("tierBadge — dòng 'hạng của tôi' trong sheet Tài khoản", () 
   it("premium có hạn → chip Premium + nói rõ dùng tới ngày nào", () => {
     const b = tierBadge({ access: "open", premiumUntil: "2027-07-31T17:48:00Z" });
     expect(b?.tone).toBe("premium");
-    expect(b?.label).toBe("Premium");
+    expect(b?.label).toBe("Gói dự báo");
     expect(b?.detail).toContain("01/08/2027");
   });
 

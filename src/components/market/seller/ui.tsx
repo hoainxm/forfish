@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { BasketIcon } from "@/components/icons";
 import type { OrderLine } from "@/lib/market/types";
+import { NHAN } from "@/lib/labels";
 
 /*  NÚT CHỮ CỦA MÀN CHỢ (fix UX 2026-09-06, lead §6 F-07).
     `.sq-btn` ở chế độ mặc định "gọn" co còn 37px cao / chữ 11px — được cho
@@ -143,7 +144,7 @@ export function NoShop() {
           href="/ban-hang/dang-ky"
           className="display mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1rem] font-semibold text-white transition active:scale-[0.98]"
         >
-          Đăng ký gian hàng
+          {NHAN.dangKy}
         </Link>
       </div>
     </div>

@@ -14,7 +14,7 @@ import { type TabPerms } from "@/lib/staff-permissions";
 import { useCallback, useEffect, useState } from "react";
 
 /* ── SẢN PHẨM (danh mục tab Sản phẩm /tau) ────────────────────────────────
-   Admin ẩn/hiện/xóa/thêm sản phẩm — kể cả đơn vị NGOÀI SDWork (vendor_name +
+   Admin ẩn/hiện/xoá/thêm sản phẩm — kể cả đơn vị NGOÀI SDWork (vendor_name +
    liên hệ riêng). Áp dụng NGAY cho app (client đọc thẳng bảng), không cần
    build lại app. */
 
@@ -97,7 +97,7 @@ export function ProductsTab({ perms }: { perms: TabPerms }) {
     ).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
-      setError("Xóa không thành công. Vui lòng thử lại.");
+      setError("Xoá không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -170,7 +170,7 @@ export function ProductsTab({ perms }: { perms: TabPerms }) {
                     </span>
                   )}
                 </p>
-                <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
+                <p className="mt-0.5 text-[0.8125rem] text-muted">
                   {row.category ?? "Chưa phân loại"} ·{" "}
                   {row.visible ? "đang hiển thị" : "ĐANG ẨN"}
                   {row.orderable &&
@@ -218,7 +218,7 @@ export function ProductsTab({ perms }: { perms: TabPerms }) {
                     onClick={() => setToDelete(row)}
                     className="min-h-[2.5rem] rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
                   >
-                    Xóa
+                    Xoá
                   </button>
                 )}
               </div>
@@ -240,10 +240,10 @@ export function ProductsTab({ perms }: { perms: TabPerms }) {
 
       {toDelete && (
         <ConfirmDialog
-          title={`Xác nhận xóa sản phẩm "${toDelete.title}" khỏi danh mục?`}
+          title={`Xác nhận xoá sản phẩm "${toDelete.title}" khỏi danh mục?`}
           message="Sản phẩm sẽ biến mất khỏi tab Sản phẩm của khách hàng ngay lập tức. Thao tác này không thể khôi phục."
-          confirmLabel="Xác nhận xóa"
-          cancelLabel="Hủy thao tác"
+          confirmLabel="Xác nhận xoá"
+          cancelLabel="Huỷ thao tác"
           danger
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
@@ -494,7 +494,7 @@ export function ProductForm({
               <span className="block text-[0.9375rem] font-bold text-navy">
                 Cho đặt hàng
               </span>
-              <span className="block text-[0.8125rem] leading-snug text-foreground/60">
+              <span className="block text-[0.8125rem] leading-snug text-muted">
                 Hiện nút &ldquo;Thêm vào giỏ&rdquo; cho bà con — cần nhóm, giá số và đơn vị.
               </span>
             </span>
@@ -567,7 +567,7 @@ export function ProductForm({
               <span className="block text-[0.9375rem] font-bold text-navy">
                 Chi tiết sản phẩm
               </span>
-              <span className="block text-[0.8125rem] leading-snug text-foreground/60">
+              <span className="block text-[0.8125rem] leading-snug text-muted">
                 Thông số, đối tượng, biến thể — hiện khi bà con bấm &ldquo;Xem chi tiết&rdquo;.
               </span>
             </span>
@@ -612,7 +612,7 @@ export function ProductForm({
                   rows={4}
                   className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
                 />
-                <p className="mt-1 text-[0.75rem] leading-snug text-foreground/55">
+                <p className="mt-1 text-[0.75rem] leading-snug text-muted">
                   Mỗi dòng một thông số, ngăn nhãn và giá trị bằng dấu &ldquo;|&rdquo;.
                 </p>
               </div>
@@ -633,7 +633,7 @@ export function ProductForm({
             onClick={onCancel}
             className="min-h-[2.75rem] rounded-xl bg-field text-[0.9375rem] font-bold text-foreground/70"
           >
-            Hủy
+            Huỷ
           </button>
           <button
             type="submit"

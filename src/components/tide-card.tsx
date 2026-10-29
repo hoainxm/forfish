@@ -188,7 +188,7 @@ export function TideCard({
       )}
 
       {card.trust && (
-        <p className="mt-2 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+        <p className="mt-2 text-[0.8125rem] font-semibold leading-snug text-muted">
           {card.trust}
         </p>
       )}
@@ -425,7 +425,7 @@ function TideMonthStrip({
           );
         })}
       </svg>
-      <p className="mt-1 flex flex-wrap items-center gap-x-3 text-[0.8125rem] font-semibold text-foreground/60">
+      <p className="mt-1 flex flex-wrap items-center gap-x-3 text-[0.8125rem] font-semibold text-muted">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded-sm bg-navy" aria-hidden /> nước rong
         </span>
@@ -657,7 +657,7 @@ export function TideDaysView({
             cursorMin={cursor.minute}
           />
         </div>
-        <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+        <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-muted">
           Bấm −1 giờ / +1 giờ (giữ nút để chạy nhanh), hoặc chạm, kéo trên đồ thị.
         </p>
       </div>
@@ -668,7 +668,7 @@ export function TideDaysView({
            riêng lẻ chỉ 11 px, không đủ chạm); chip ở trên tự cuộn tới ngày đó. */}
       <div className="surface mt-3 p-3">
         <p className="text-[0.9375rem] font-semibold leading-snug text-navy">Cả chu kỳ · 30 ngày tới</p>
-        <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+        <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-muted">
           Cột cao là nước rong (lên xuống mạnh), cột thấp là nước kém. Chạm hoặc kéo trên dải để xem ngày đó.
         </p>
         <TideMonthStrip thang={thang} days={days} sel={sel} onSel={setSel} />
@@ -696,7 +696,7 @@ export function TideDaysView({
         </li>
       </ul>
 
-      <p className="mt-3 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+      <p className="mt-3 text-[0.8125rem] font-semibold leading-snug text-muted">
         {trust ? `${trust} ` : ""}
         Số 0 hải đồ tại trạm {station.name}. Tham khảo — không thay bảng thuỷ
         triều chính thức.

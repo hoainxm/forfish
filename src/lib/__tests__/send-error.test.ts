@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifySendFailure, sendFailureText } from "@/lib/send-error";
+import { cauLoiHienThi, classifySendFailure, sendFailureText } from "@/lib/send-error";
 
 /*  Audit thông báo 2026-08-18 G2: SĐT sai / mất sóng / máy chủ lỗi trước đây
     chung một câu "Nhập đúng số điện thoại rồi thử lại" — đổ tội sai cho người
@@ -53,5 +53,18 @@ describe("sendFailureText — câu nói đúng tên đơn vị", () => {
   });
   it("SĐT sai mới nói về số điện thoại", () => {
     expect(sendFailureText("sdt", "X")).toContain("số điện thoại");
+  });
+});
+
+describe("cauLoiHienThi — chỉ câu Việt ra màn (rà C §10, 2026-10-29)", () => {
+  it("câu lớp dưới viết sẵn bằng tiếng Việt thì giữ", () => {
+    expect(cauLoiHienThi(new Error("Ảnh quá lớn, chụp lại gần hơn"), "X")).toBe("Ảnh quá lớn, chụp lại gần hơn");
+  });
+  it("lỗi mạng trần của trình duyệt / câu tiếng Anh ⇒ câu mặc định", () => {
+    expect(cauLoiHienThi(new TypeError("Failed to fetch"), "Chưa tải được — cần sóng")).toBe("Chưa tải được — cần sóng");
+    expect(cauLoiHienThi(new TypeError("Load failed"), "M")).toBe("M");
+    expect(cauLoiHienThi(new Error("Internal Server Error"), "M")).toBe("M");
+    expect(cauLoiHienThi(undefined, "M")).toBe("M");
+    expect(cauLoiHienThi(new Error(""), "M")).toBe("M");
   });
 });

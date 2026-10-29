@@ -28,6 +28,7 @@ import { NHAN } from "@/lib/labels";
 import { useOnline } from "@/lib/use-online";
 import { HomePortSheet } from "./home-port-sheet";
 import { KairosAvatar } from "./kairos-avatar";
+import { cauLoiHienThi } from "@/lib/send-error";
 
 const PORT_NAME = new Map(FISHING_PORTS.map((p) => [p.id, p.name]));
 
@@ -79,7 +80,7 @@ export function ProfileSheet({ me, onClose, onSaved }: { me: KairosMe; onClose: 
         setAvatarUrl(r.data.url);
       }
     } catch (e) {
-      setPhotoErr((e as Error)?.message || "Không nén được ảnh");
+      setPhotoErr(cauLoiHienThi(e, "Không nén được ảnh"));
     }
     setPhoto("idle");
     if (file.current) file.current.value = "";

@@ -81,7 +81,9 @@ export function resetRequestMessage(
   if (status === 400) {
     return {
       ok: false,
-      message: body?.error || "Còn thiếu thông tin. Bà con điền đủ số điện thoại và họ tên giúp nhé.",
+      // KHÔNG đưa `body.error` của CRM ra màn (2026-10-29, rà C §10): câu máy chủ có thể là
+      // tiếng Anh/kỹ thuật — 400 luôn là thiếu/sai trường nên một câu Việt cố định là đủ.
+      message: "Còn thiếu thông tin. Bà con điền đủ số điện thoại và họ tên giúp nhé.",
     };
   }
   // 401/403 = LỖI CẤU HÌNH phía ta (khoá sai project), KH không tự sửa được →

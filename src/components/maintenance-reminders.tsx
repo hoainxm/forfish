@@ -176,7 +176,7 @@ export function MaintenanceReminders() {
     ten: (e) => e.item,
   });
 
-  // Xóa tàu → lịch bảo dưỡng tàu đó đã bị purge (ba-spec 08 R3); đọc lại.
+  // Xoá tàu → lịch bảo dưỡng tàu đó đã bị purge (ba-spec 08 R3); đọc lại.
   // Đọc lại không được → GIỮ NGUYÊN thứ đang hiện, khoá cửa ghi.
   useEffect(() => {
     if (!ready) return;
@@ -291,7 +291,7 @@ export function MaintenanceReminders() {
       )}
 
       {/*  MỖI VIỆC MỘT HÀNG (TAU-05, 2026-10-25) — cùng khuôn Tủ giấy tờ: trước mỗi việc là một
-          thẻ băng màu đặc + 3 hộp nền + Sửa/Xóa/Xong bày thường trực (230px cho một việc). Nay
+          thẻ băng màu đặc + 3 hộp nền + Sửa/Xoá/Xong bày thường trực (230px cho một việc). Nay
           hàng = tên + tình trạng chữ màu (màu luôn kèm chữ) + ▾; "Xong" ngoài hàng; bung ⇒ chu
           kỳ, ghi chú, Sửa · Xoá. Không đổi shape localStorage. */}
       {sorted.length > 0 && (

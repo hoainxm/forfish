@@ -115,7 +115,7 @@ export function DocumentVault() {
   const [readFailed, setReadFailed] = useState(false);
   const [editing, setEditing] = useState<StoredDocument | null>(null);
   const [showForm, setShowForm] = useState(false);
-  /** giấy đang bung chi tiết (số, ngày, ghi chú, ảnh, Sửa/Xóa) — một hàng một lúc */
+  /** giấy đang bung chi tiết (số, ngày, ghi chú, ảnh, Sửa/Xoá) — một hàng một lúc */
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StoredDocument | null>(
     null,
@@ -185,7 +185,7 @@ export function DocumentVault() {
     khiChot: (d) => d.photos?.forEach((ph) => void deleteDocPhoto(ph)),
   });
 
-  // Xóa tàu → giấy tờ tàu đó đã bị purge khỏi máy (ba-spec 08 R3); đọc lại để
+  // Xoá tàu → giấy tờ tàu đó đã bị purge khỏi máy (ba-spec 08 R3); đọc lại để
   // list đang mở bỏ theo, không tự ghi lại bản cũ.
   useEffect(() => {
     if (!ready) return;
@@ -340,11 +340,11 @@ export function DocumentVault() {
       )}
 
       {/*  MỖI GIẤY MỘT HÀNG (rà design Codex lần 2, 2026-10-19): trước mỗi giấy
-          là một hộp — băng trạng thái đặc trên đầu, rồi hộp nền tên + Sửa/Xóa,
+          là một hộp — băng trạng thái đặc trên đầu, rồi hộp nền tên + Sửa/Xoá,
           hộp số giấy, hộp ngày, hộp ghi chú (mỗi hộp chừa ô đệm w-16) ⇒ một biểu
           mẫu nhỏ rất cao chỉ để đọc vài dữ kiện. Nay: MỘT .surface kẻ mảnh; hàng =
           tên (+ loại khi khác tên) · tình trạng hạn chữ nhỏ có màu bên phải. Chạm
-          ⇒ bung chi tiết ngay dưới: số, ngày cấp/hết hạn, ghi chú, ảnh, Sửa · Xóa.
+          ⇒ bung chi tiết ngay dưới: số, ngày cấp/hết hạn, ghi chú, ảnh, Sửa · Xoá.
           Màu tình trạng vẫn kèm CHỮ (không màu đứng một mình). */}
       {sorted.length > 0 && (
         <ul className="surface divide-y divide-line overflow-hidden">
@@ -371,7 +371,7 @@ export function DocumentVault() {
                     {/*  Loại giấy chỉ in khi KHÁC tên gọi (D1): DocumentForm khởi
                         tạo label = kindLabel(kind) ⇒ mặc định trùng, in hai lần. */}
                     {doc.label !== kindLabel(doc.kind) && (
-                      <span className="block text-[0.8125rem] text-foreground/60">
+                      <span className="block text-[0.8125rem] text-muted">
                         {kindLabel(doc.kind)}
                       </span>
                     )}
@@ -977,7 +977,7 @@ function DocumentForm({
             onClick={() => onSave(hoiTrung)}
             className="mt-3 min-h-[3.5rem] w-full rounded-2xl bg-field text-[1.125rem] font-semibold text-navy"
           >
-            {NHAN.them} mới
+            {NHAN.giayMoi}
           </button>
         </ConfirmDialog>
       )}

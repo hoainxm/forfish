@@ -174,7 +174,7 @@ export function PortDirectory() {
       )}
 
       {/* nguồn: một dòng mờ cuối danh sách (BD-05) — không phải băng vàng đầu màn */}
-      <p className="mt-3 px-1 text-[0.8125rem] text-foreground/55">
+      <p className="mt-3 px-1 text-[0.8125rem] text-muted">
         Nguồn chính thức, cập nhật theo công bố của tỉnh.
       </p>
     </div>
