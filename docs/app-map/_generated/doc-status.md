@@ -4,7 +4,7 @@
 | Doc | Trang thai | Ly do |
 |---|---|---|
 | docs/app-map/01-product.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/02-architecture.md | SUSPECT | code 'src/app' doi sau last_verified |
+| docs/app-map/02-architecture.md | VERIFIED | ok |
 | docs/app-map/03-design-system.md | VERIFIED | ok |
 | docs/app-map/04-data-model.md | SUSPECT | code 'supabase/migrations' doi sau last_verified |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
@@ -45,11 +45,11 @@
 | docs/app-map/ops/fish-validate-positions.md | VERIFIED | ok |
 | docs/app-map/ops/forecast-accuracy.md | VERIFIED | ok |
 | docs/app-map/ops/native-deploy.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/qa-offline-acceptance.md | SUSPECT | code 'public/sw.js' doi sau last_verified |
+| docs/app-map/ops/qa-offline-acceptance.md | VERIFIED | ok |
 | docs/app-map/ops/rbac-runbook.md | VERIFIED | ok |
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/runbook.md | VERIFIED | ok |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/region.ts' doi sau last_verified |
+| docs/app-map/ops/state-registry.md | VERIFIED | ok |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/test-tai-khoan.md | VERIFIED | ok |

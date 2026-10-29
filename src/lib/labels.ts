@@ -238,6 +238,15 @@ export const NHAN = {
   baoHanh: "Bảo hành",
   datLich: "Đặt lịch",
   diemLuu: "Điểm lưu",
+  // Đề xuất lộ trình chuyến biển `/lo-trinh` (09-ba-spec §4, 2026-10-29): lối vào ở khay ⋯ bản đồ,
+  // nút tính, bốn nghề. "Tôi ở đâu" (3 chữ) dùng NHAN.viTri; "Xem bản đồ" dùng NHAN.banDo.
+  chuyenBien: "Chuyến biển",
+  tinh: "Tính",
+  dangTinh: "Đang tính",
+  cauNgu: "Câu ngừ",
+  luoiVay: "Lưới vây",
+  luoiRe: "Lưới rê",
+  chupMuc: "Chụp mực",
 } as const;
 
 /**

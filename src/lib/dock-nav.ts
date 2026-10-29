@@ -33,7 +33,7 @@ export const DOCK: readonly { id: DockId; href: string; label: string }[] = [
 
 const KHU: readonly [DockId, readonly string[]][] = [
   ["kairos", ["/kairos", "/k"]],
-  ["ban-do", ["/ngu-truong", "/cang"]],
+  ["ban-do", ["/ngu-truong", "/cang", "/lo-trinh"]],
   ["tau-toi", ["/tau", "/nguoi", "/giay-to", "/van-hanh", "/thuyen-vien"]],
   ["cho-ca", ["/tien", "/gia-ca"]],
   ["vat-tu", ["/cho", "/ban-hang"]],
