@@ -4,7 +4,7 @@
   CHẾ ĐỘ AIS (2026-10-29; ai thấy: quyền `aisAllowed`, ô quản trị tau_ais_xem — mặc định chỉ 0938635689). Vào từ ô
   AIS trên rail bản đồ; hai cách xem chọn bằng `CheDoTabs`, CẢ HAI ĐỀU TRÊN NỀN BẢN ĐỒ, dock vẫn giữ:
    · BÁN KÍNH (`AisBanKinh`) — vòng radar vẽ THẲNG LÊN BẢN ĐỒ quanh tàu mình (lib/ais-cpa radarGeoJson, Source
-     `ais-radar` ở fishing-map-view), mục tiêu ở vị trí đã ước + vạch 12 phút; thẻ nổi trên: câu nguy cơ, tầm − / +,
+     `ais-radar` ở fishing-map-view), mục tiêu (icon tàu như máy AIS) ở vị trí đã ước + vạch 6 phút; thẻ nổi trên: câu nguy cơ, tầm − / +,
      danh sách gập được.
    · TOÀN BIỂN (`AisToanBien`) — bản đồ cả vùng biển: tìm tàu theo tên/số hiệu, lọc tàu cá, chú giải màu.
 

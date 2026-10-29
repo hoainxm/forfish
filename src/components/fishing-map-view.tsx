@@ -258,6 +258,7 @@ import {
   type ReefInfo, type StormPtInfo, type VungInfo, type XacTauInfo, type TauAisInfo, TheTauAis,
 } from "@/components/ban-do/the-thong-tin";
 import { AisBanKinh, AisToanBien, type CheDoAisXem } from "@/components/ban-do/che-do-ais";
+import { CO_ICON_TAU, dangKyIconTau } from "@/components/ban-do/icon-tau";
 import { VUNG_BIEN_VN } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { TAM_RADAR_NM, khungRadar, mucTieuGeoJson, quetQuanh, radarGeoJson, type MucTieu, type TauMinh } from "@/lib/ais-cpa";
 import { kepTheTrongKhung } from "@/components/ban-do/kep-the";
@@ -715,6 +716,13 @@ function KhungTruBao({
     </Popover>
   );
 }
+
+/** Màn trắng mờ phủ cả thế giới — chế độ AIS (lớp `ais-man`). */
+const AIS_MAN_GEO: GeoJSON.Feature<GeoJSON.Polygon> = {
+  type: "Feature",
+  properties: {},
+  geometry: { type: "Polygon", coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]] },
+};
 
 export default function FishingMapView() {
   const mapRef = useRef<MapRef>(null);
@@ -5572,12 +5580,17 @@ export default function FishingMapView() {
         // style đã dựng, KHÔNG nói bản đồ đã xin ô nền — arm ở đây là dương
         // tính giả, xem ghi chú trong effect `sourcedataloading` bên trên.
         onLoad={() => {
+          const m = mapRef.current?.getMap();
+          if (m) dangKyIconTau(m);
           syncLiveHit();
           syncBaseTopReady();
           thuONguon();
         }}
         // đổi lớp bản đồ = setStyle = dựng lại style ⇒ mốc chèn có/mất theo
         onStyleData={() => {
+          // setStyle xoá ảnh tự thêm ⇒ nạp lại icon tàu AIS (đã có thì bỏ qua)
+          const m = mapRef.current?.getMap();
+          if (m) dangKyIconTau(m);
           syncLiveHit();
           syncBaseTopReady();
           thuONguon(); // style mới = dòng nguồn mới, MapLibre bung lại
@@ -6375,108 +6388,6 @@ export default function FishingMapView() {
         )}
 
         {/* TÀU XUNG QUANH (AIS) — chấm theo loại, tàu cá cam nổi bật, tàu lớn xám; viền trắng để nổi trên mọi nền */}
-        {aisGeo && (
-          <Source id="tau-ais" type="geojson" data={aisGeo}>
-            <Layer
-              id="tau-ais-dot"
-              type="circle"
-              {...(aisMode === "toan-bien" && aisChiCa ? { filter: ["==", ["get", "nhom"], "ca"] as unknown as boolean } : {})}
-              paint={{
-                "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2.2, 9, 4.5, 12, 7] as unknown as number,
-                "circle-color": [
-                  "match",
-                  ["get", "nhom"],
-                  "ca",
-                  MAU_TAU.ca,
-                  "hang",
-                  MAU_TAU.hang,
-                  "dau",
-                  MAU_TAU.dau,
-                  "khach",
-                  MAU_TAU.khach,
-                  MAU_TAU.khac,
-                ] as unknown as string,
-                "circle-stroke-color": "#ffffff",
-                "circle-stroke-width": 0.8,
-                "circle-opacity": 0.9,
-              }}
-            />
-          </Source>
-        )}
-
-        {/* RADAR AIS TRÊN NỀN BẢN ĐỒ (Bán kính) — ba vòng tầm quanh tàu mình (vòng ngoài liền, trong đứt), nhãn hải lý +
-            km ở đỉnh Bắc mỗi vòng, vạch mũi tàu đứt; giống lớp radar trên máy định vị/MarineTraffic — nét mảnh, không che hải đồ */}
-        {aisRadarGeo && (
-          <Source id="ais-radar" type="geojson" data={aisRadarGeo}>
-            <Layer
-              id="ais-radar-vong"
-              type="line"
-              filter={["==", ["get", "kind"], "vong"] as unknown as boolean}
-              paint={{
-                "line-color": "#0e7490",
-                "line-width": ["case", ["get", "ngoai"], 1.8, 1.1] as unknown as number,
-                "line-opacity": ["case", ["get", "ngoai"], 0.85, 0.6] as unknown as number,
-                "line-dasharray": [3, 2],
-              }}
-            />
-            <Layer
-              id="ais-radar-mui"
-              type="line"
-              filter={["==", ["get", "kind"], "mui"] as unknown as boolean}
-              paint={{ "line-color": "#0b2f44", "line-width": 1.4, "line-opacity": 0.6, "line-dasharray": [1.5, 1.5] }}
-            />
-            <Layer
-              id="ais-radar-nhan"
-              type="symbol"
-              filter={["==", ["get", "kind"], "nhan"] as unknown as boolean}
-              layout={{
-                "text-field": ["get", "nhan"] as unknown as string,
-                "text-font": ["Noto Sans Bold"],
-                "text-size": 11,
-                "text-anchor": "bottom",
-                "text-offset": [0, -0.2],
-                "text-allow-overlap": true,
-              }}
-              paint={{ "text-color": "#0b4f63", "text-halo-color": "#ffffff", "text-halo-width": 1.6 }}
-            />
-          </Source>
-        )}
-        {aisMucTieuGeo && (
-          <Source id="ais-radar-tau" type="geojson" data={aisMucTieuGeo}>
-            <Layer
-              id="ais-radar-vec"
-              type="line"
-              filter={["==", ["get", "kind"], "vec"] as unknown as boolean}
-              paint={{ "line-color": ["get", "mau"] as unknown as string, "line-width": 1.6, "line-opacity": ["case", ["==", ["get", "cu"], 1], 0.35, 0.85] as unknown as number }}
-            />
-            {/* quầng cho tàu tới gần — đỏ/vàng, mắt bắt ngay */}
-            <Layer
-              id="ais-radar-quang"
-              type="circle"
-              filter={["all", ["==", ["get", "kind"], "tau"], ["in", ["get", "muc"], ["literal", ["nguy", "canh"]]]] as unknown as boolean}
-              paint={{ "circle-radius": 13, "circle-color": ["get", "mau"] as unknown as string, "circle-opacity": 0.18, "circle-stroke-color": ["get", "mau"] as unknown as string, "circle-stroke-width": 1.2, "circle-stroke-opacity": 0.7 }}
-            />
-            <Layer
-              id="ais-radar-dot"
-              type="circle"
-              filter={["==", ["get", "kind"], "tau"] as unknown as boolean}
-              paint={{
-                "circle-radius": ["case", ["==", ["get", "chon"], 1], 7, 5.5] as unknown as number,
-                "circle-color": ["get", "mau"] as unknown as string,
-                "circle-opacity": ["case", ["==", ["get", "cu"], 1], 0.45, 1] as unknown as number,
-                "circle-stroke-color": "#ffffff",
-                "circle-stroke-width": ["case", ["==", ["get", "chon"], 1], 2.5, 1.4] as unknown as number,
-              }}
-            />
-            {/* tàu đang chọn: vòng navy ngoài để biết chấm nào là dòng đang mở */}
-            <Layer
-              id="ais-radar-chon"
-              type="circle"
-              filter={["all", ["==", ["get", "kind"], "tau"], ["==", ["get", "chon"], 1]] as unknown as boolean}
-              paint={{ "circle-radius": 11, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": "#0b2f44", "circle-stroke-width": 2 }}
-            />
-          </Source>
-        )}
 
         {scalarFC && (
           <Source id="scalar-field" type="geojson" data={scalarFC}>
@@ -7825,7 +7736,7 @@ export default function FishingMapView() {
              mới là chỗ trỏ tới — đổi anchor cùng lúc đổi hình, không thì con trỏ
              lệch xuống nửa thân cá (ngoài khơi là lệch mấy hải lý).
              Ẩn nếu trùng một điểm đã ghim — chỗ đó đã có sao vàng. */}
-        {!currentPlace && pick !== "cleared" && (
+        {!currentPlace && pick !== "cleared" && aisMode == null && (
           <Marker longitude={point.lon} latitude={point.lat} anchor="bottom">
             {/*  CÁI GHIM — biểu tượng ai cũng quen trên app bản đồ (user
                  2026-08-25i: *"cho về biểu tượng thường dùng đi, thay cho con
@@ -7844,6 +7755,132 @@ export default function FishingMapView() {
               <PinIcon className="relative h-[3.25rem] w-[3.25rem] text-trim drop-shadow-pin" />
             </span>
           </Marker>
+        )}
+        {/*  CHẾ ĐỘ AIS — TÀU NỔI LÊN TRÊN HẢI ĐỒ (anh Long 29/10: "làm hiệu ứng sao cho cái tàu nó nổi lên chứ ko nó bị
+             hải đồ lẫn hết"): (1) lớp màn trắng mờ phủ mọi thứ bên dưới — hải đồ vẫn đọc được nhưng lùi ra sau, như
+             chế độ làm mờ hải đồ của máy định vị; (2) các lớp tàu AIS vẽ SAU CÙNG (cuối danh sách lớp) để không
+             phao/đèn/luồng nào đè lên tàu. Marker HTML (tàu mình, ghim) vẫn nằm trên canvas như cũ. */}
+        {aisMode != null && (
+          <Source id="ais-man" type="geojson" data={AIS_MAN_GEO}>
+            <Layer id="ais-man" type="fill" paint={{ "fill-color": "#ffffff", "fill-opacity": 0.5 }} />
+          </Source>
+        )}
+        {aisGeo && (
+          <Source id="tau-ais" type="geojson" data={aisGeo}>
+            {/* ICON TÀU như máy AIS (anh Long 29/10): tam giác xoay theo mũi tàu khi đang chạy, chấm tròn khi đứng —
+                màu theo loại (cá cam nổi nhất). Ảnh vẽ canvas lúc chạy: components/ban-do/icon-tau. */}
+            <Layer
+              id="tau-ais-dot"
+              type="symbol"
+              {...(aisMode === "toan-bien" && aisChiCa ? { filter: ["==", ["get", "nhom"], "ca"] as unknown as boolean } : {})}
+              layout={{
+                "icon-image": ["concat", "ais-", ["get", "mk"], "-", ["case", ["==", ["get", "chay"], 1], "chay", "dung"]] as unknown as string,
+                "icon-size": CO_ICON_TAU as unknown as number,
+                "icon-rotate": ["case", ["==", ["get", "chay"], 1], ["get", "huong"], 0] as unknown as number,
+                "icon-rotation-alignment": "map",
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* RADAR AIS TRÊN NỀN BẢN ĐỒ (Bán kính) — ba vòng tầm quanh tàu mình (vòng ngoài liền, trong đứt), nhãn hải lý +
+            km ở đỉnh Bắc mỗi vòng, vạch mũi tàu đứt; giống lớp radar trên máy định vị/MarineTraffic — nét mảnh, không che hải đồ */}
+        {aisRadarGeo && (
+          <Source id="ais-radar" type="geojson" data={aisRadarGeo}>
+            <Layer
+              id="ais-radar-vong"
+              type="line"
+              filter={["==", ["get", "kind"], "vong"] as unknown as boolean}
+              paint={{
+                "line-color": "#0e7490",
+                "line-width": ["case", ["get", "ngoai"], 1.8, 1.1] as unknown as number,
+                "line-opacity": ["case", ["get", "ngoai"], 0.85, 0.6] as unknown as number,
+                "line-dasharray": [3, 2],
+              }}
+            />
+            <Layer
+              id="ais-radar-mui"
+              type="line"
+              filter={["==", ["get", "kind"], "mui"] as unknown as boolean}
+              paint={{ "line-color": "#0b2f44", "line-width": 1.4, "line-opacity": 0.6, "line-dasharray": [1.5, 1.5] }}
+            />
+            <Layer
+              id="ais-radar-nhan"
+              type="symbol"
+              filter={["==", ["get", "kind"], "nhan"] as unknown as boolean}
+              layout={{
+                "text-field": ["get", "nhan"] as unknown as string,
+                "text-font": ["Noto Sans Bold"],
+                "text-size": 11,
+                "text-anchor": "bottom",
+                "text-offset": [0, -0.2],
+                "text-allow-overlap": true,
+              }}
+              paint={{ "text-color": "#0b4f63", "text-halo-color": "#ffffff", "text-halo-width": 1.6 }}
+            />
+          </Source>
+        )}
+        {aisMucTieuGeo && (
+          <Source id="ais-radar-tau" type="geojson" data={aisMucTieuGeo}>
+            <Layer
+              id="ais-radar-vec"
+              type="line"
+              filter={["==", ["get", "kind"], "vec"] as unknown as boolean}
+              // vector COG/SOG nét đứt ngắn như máy AIS, dài = quãng đi VECTOR_PHUT phút
+              paint={{ "line-color": ["get", "mau"] as unknown as string, "line-width": 1.8, "line-dasharray": [2, 1.5], "line-opacity": ["case", ["==", ["get", "cu"], 1], 0.35, 0.9] as unknown as number }}
+            />
+            {/* đường nối CPA (tàu tới gần / đang chọn): chỗ mình ↔ chỗ tàu kia lúc gần nhau nhất + số phút */}
+            <Layer
+              id="ais-radar-cpa"
+              type="line"
+              filter={["==", ["get", "kind"], "cpa"] as unknown as boolean}
+              paint={{ "line-color": ["get", "mau"] as unknown as string, "line-width": 1.4, "line-dasharray": [1, 1.2], "line-opacity": 0.9 }}
+            />
+            <Layer
+              id="ais-radar-cpa-nhan"
+              type="symbol"
+              filter={["==", ["get", "kind"], "cpa-nhan"] as unknown as boolean}
+              layout={{
+                "text-field": ["get", "nhan"] as unknown as string,
+                "text-font": ["Noto Sans Bold"],
+                "text-size": 11,
+                "text-offset": [0, -0.9],
+                "text-allow-overlap": true,
+              }}
+              paint={{ "text-color": ["get", "mau"] as unknown as string, "text-halo-color": "#ffffff", "text-halo-width": 1.8 }}
+            />
+            {/* quầng cho tàu tới gần — đỏ/vàng, mắt bắt ngay */}
+            <Layer
+              id="ais-radar-quang"
+              type="circle"
+              filter={["all", ["==", ["get", "kind"], "tau"], ["in", ["get", "muc"], ["literal", ["nguy", "canh"]]]] as unknown as boolean}
+              paint={{ "circle-radius": 13, "circle-color": ["get", "mau"] as unknown as string, "circle-opacity": 0.18, "circle-stroke-color": ["get", "mau"] as unknown as string, "circle-stroke-width": 1.2, "circle-stroke-opacity": 0.7 }}
+            />
+            <Layer
+              id="ais-radar-dot"
+              type="symbol"
+              filter={["==", ["get", "kind"], "tau"] as unknown as boolean}
+              layout={{
+                "icon-image": ["concat", "ais-", ["get", "mk"], "-", ["case", ["==", ["get", "chay"], 1], "chay", "dung"]] as unknown as string,
+                // Bán kính là tầm gần ⇒ icon to hơn Toàn biển một nấc; tàu đang chọn to thêm
+                "icon-size": ["case", ["==", ["get", "chon"], 1], 1.15, 0.9] as unknown as number,
+                "icon-rotate": ["case", ["==", ["get", "chay"], 1], ["get", "huong"], 0] as unknown as number,
+                "icon-rotation-alignment": "map",
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+              }}
+              paint={{ "icon-opacity": ["case", ["==", ["get", "cu"], 1], 0.45, 1] as unknown as number }}
+            />
+            {/* tàu đang chọn: khung 4 góc vuông như máy AIS (ảnh `ais-chon`, components/ban-do/icon-tau) */}
+            <Layer
+              id="ais-radar-chon"
+              type="symbol"
+              filter={["all", ["==", ["get", "kind"], "tau"], ["==", ["get", "chon"], 1]] as unknown as boolean}
+              layout={{ "icon-image": "ais-chon", "icon-allow-overlap": true, "icon-ignore-placement": true }}
+            />
+          </Source>
         )}
       </MapGL>
       </div>

@@ -10,7 +10,7 @@
 import type { LatLon } from "@/lib/geo";
 import { windDirectionVN } from "@/lib/marine-weather";
 import { vongTron } from "@/lib/storm-track";
-import { MAU_TAU, nhomTau, type TauAis, type TauAisBan } from "@/lib/tau-ais";
+import { MAU_TAU, nhomTau, tauDangChay, type TauAis, type TauAisBan } from "@/lib/tau-ais";
 
 export const KM_PER_NM = 1.852;
 /** ước vị trí theo tin tối đa bao lâu — quá thì không đoán tiếp (tàu có thể đã đổi hướng) */
@@ -53,6 +53,9 @@ export interface MucTieu {
   /** tuổi tin hiện tại, phút */
   tuoiPhut: number;
   tinCu: boolean;
+  /** vị trí tàu mình + tàu kia LÚC GẦN NHAU NHẤT (chỉ khi TCPA ≥ 0) — vẽ đường nối CPA như máy AIS */
+  cpaMinh: LatLon | null;
+  cpaTau: LatLon | null;
 }
 
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -135,6 +138,7 @@ export function quetQuanh(ban: TauAisBan, minh: TauMinh, banKinhNm: number, now 
     const cachNm = Math.hypot(r.x, r.y);
     if (cachNm > banKinhNm) continue;
     const { cpaNm, tcpaPhut } = cpaTcpa(r, { vx: vt.vx - vm.vx, vy: vt.vy - vm.vy });
+    const tG = tcpaPhut != null && tcpaPhut >= 0 ? tcpaPhut / 60 : null;
     out.push({
       tau: t,
       pos: congNm(minh.pos, r.x, r.y),
@@ -145,6 +149,8 @@ export function quetQuanh(ban: TauAisBan, minh: TauMinh, banKinhNm: number, now 
       muc: xepMuc(cpaNm, tcpaPhut, t.kn, tinCu),
       tuoiPhut: Math.round(tuoiPhut),
       tinCu,
+      cpaMinh: tG != null ? congNm(minh.pos, vm.vx * tG, vm.vy * tG) : null,
+      cpaTau: tG != null ? congNm(minh.pos, r.x + vt.vx * tG, r.y + vt.vy * tG) : null,
     });
   }
   out.sort((a, b) => THU_TU[a.muc] - THU_TU[b.muc] || a.cachNm - b.cachNm);
@@ -231,8 +237,8 @@ export function tcpaLabel(phut: number | null): string {
    tham khảo các bên khác") — như MarineTraffic/Navionics/máy định vị có lớp radar: vòng tầm vẽ thẳng lên hải đồ
    quanh tàu mình, mục tiêu ở vị trí ĐÃ ƯỚC, vạch quãng đi phía trước. GeoJSON thuần, MapLibre vẽ. */
 
-/** vạch vận tốc = quãng đi trong chừng này phút */
-export const VECTOR_PHUT = 12;
+/** vạch vận tốc = quãng đi trong chừng này phút — 6 phút là mặc định của máy AIS (nghiên cứu IMO/IEC 29/10) */
+export const VECTOR_PHUT = 6;
 
 /** Màu một mục tiêu: nguy đỏ, cảnh báo vàng, còn lại theo loại tàu. */
 export function mauMucTieu(m: Pick<MucTieu, "muc" | "tau">): string {
@@ -268,20 +274,42 @@ export function radarGeoJson(
   return { type: "FeatureCollection", features };
 }
 
+type MucTieuProps = { kind: "tau" | "vec" | "cpa" | "cpa-nhan"; nhan?: string; id: string; mau: string; mk: string; huong: number; chay: number; muc: MucAis; chon: number; cu: number };
+
 /** Mục tiêu trên bản đồ: chấm ở vị trí đã ước (màu theo mức/loại) + vạch quãng đi VECTOR_PHUT phút. */
 export function mucTieuGeoJson(
   ds: MucTieu[],
   chonId: string | null,
-): GeoJSON.FeatureCollection<GeoJSON.LineString | GeoJSON.Point, { kind: "tau" | "vec"; id: string; mau: string; muc: MucAis; chon: number; cu: number }> {
-  const features: GeoJSON.Feature<GeoJSON.LineString | GeoJSON.Point, { kind: "tau" | "vec"; id: string; mau: string; muc: MucAis; chon: number; cu: number }>[] = [];
+): GeoJSON.FeatureCollection<GeoJSON.LineString | GeoJSON.Point, MucTieuProps> {
+  const features: GeoJSON.Feature<GeoJSON.LineString | GeoJSON.Point, MucTieuProps>[] = [];
   for (const m of ds) {
-    const p = { id: m.tau.id, mau: mauMucTieu(m), muc: m.muc, chon: m.tau.id === chonId ? 1 : 0, cu: m.tinCu ? 1 : 0 };
+    const p = {
+      id: m.tau.id,
+      mau: mauMucTieu(m),
+      // khoá ảnh icon (components/ban-do/icon-tau): tàu tới gần theo MỨC, còn lại theo nhóm tàu
+      mk: m.muc === "nguy" || m.muc === "canh" ? m.muc : nhomTau(m.tau.loai),
+      huong: m.tau.mui ?? m.tau.huong ?? 0,
+      chay: tauDangChay(m.tau) ? 1 : 0,
+      muc: m.muc,
+      chon: m.tau.id === chonId ? 1 : 0,
+      cu: m.tinCu ? 1 : 0,
+    };
     const v = vanToc(m.tau.kn, m.tau.huong);
     if (v.vx !== 0 || v.vy !== 0) {
       const den = congNm(m.pos, (v.vx * VECTOR_PHUT) / 60, (v.vy * VECTOR_PHUT) / 60);
       features.push({ type: "Feature", geometry: { type: "LineString", coordinates: [[m.pos.lon, m.pos.lat], [den.lon, den.lat]] }, properties: { kind: "vec", ...p } });
     }
     features.push({ type: "Feature", geometry: { type: "Point", coordinates: [m.pos.lon, m.pos.lat] }, properties: { kind: "tau", ...p } });
+    // ĐƯỜNG NỐI CPA (như Garmin/Orca): tàu tới gần hoặc đang chọn ⇒ nối chỗ mình và chỗ tàu kia lúc gần nhau nhất + số phút
+    const veCpa = !m.tinCu && m.cpaMinh && m.cpaTau && m.tcpaPhut != null && (m.muc === "nguy" || m.muc === "canh" || p.chon === 1);
+    if (veCpa && m.cpaMinh && m.cpaTau) {
+      features.push({ type: "Feature", geometry: { type: "LineString", coordinates: [[m.cpaMinh.lon, m.cpaMinh.lat], [m.cpaTau.lon, m.cpaTau.lat]] }, properties: { kind: "cpa", ...p } });
+      features.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [(m.cpaMinh.lon + m.cpaTau.lon) / 2, (m.cpaMinh.lat + m.cpaTau.lat) / 2] },
+        properties: { kind: "cpa-nhan", nhan: `${Math.round(m.tcpaPhut as number)} phút`, ...p },
+      });
+    }
   }
   return { type: "FeatureCollection", features };
 }

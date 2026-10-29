@@ -156,12 +156,30 @@ describe("ais-cpa — radar trên nền bản đồ", () => {
     expect(vec).toHaveLength(1);
     const [[lon0, lat0], [lon1, lat1]] = (vec[0].geometry as GeoJSON.LineString).coordinates;
     const d = lechNm({ lat: lat0, lon: lon0 }, { lat: lat1, lon: lon1 });
-    expect(d.y).toBeCloseTo(-2, 2); // 10 hải lý/h × 12 phút về Nam
+    expect(d.y).toBeCloseTo(-1, 2); // 10 hải lý/h × 6 phút về Nam
     expect(fc.features.find((f) => f.properties.id === "b" && f.properties.kind === "tau")?.properties.chon).toBe(1);
   });
   it("khung bao ôm đúng vòng ngoài", () => {
     const [[w, s], [e, n]] = khungRadar(GOC, 6);
     expect(lechNm(GOC, { lat: n, lon: e }).y).toBeCloseTo(6, 3);
     expect(lechNm(GOC, { lat: s, lon: w }).x).toBeCloseTo(-6, 2);
+  });
+});
+
+describe("ais-cpa — điểm gần nhau nhất (CPA) trên bản đồ", () => {
+  it("tàu lao vào: điểm CPA của hai tàu trùng chỗ mình; có đường nối + nhãn phút", () => {
+    const ds = quetQuanh(ban([tau({ id: "a", x: 0, y: 2, kn: 12, huong: 180 })]), { pos: GOC, speedKmh: 0, headingDeg: null }, 6, NOW);
+    const m = ds[0];
+    expect(m.cpaMinh).not.toBeNull();
+    const d = lechNm(m.cpaMinh!, m.cpaTau!);
+    expect(Math.hypot(d.x, d.y)).toBeCloseTo(0, 3);
+    const fc = mucTieuGeoJson(ds, null);
+    expect(fc.features.some((f) => f.properties.kind === "cpa")).toBe(true);
+    expect(fc.features.find((f) => f.properties.kind === "cpa-nhan")?.properties.nhan).toBe("10 phút");
+  });
+  it("tàu an toàn, không chọn ⇒ không vẽ đường CPA; tàu đã qua ⇒ không có điểm CPA", () => {
+    const ds = quetQuanh(ban([tau({ id: "b", x: 3, y: 0, kn: 10, huong: 90 })]), { pos: GOC, speedKmh: 0, headingDeg: null }, 6, NOW);
+    expect(ds[0].cpaMinh).toBeNull();
+    expect(mucTieuGeoJson(ds, null).features.some((f) => f.properties.kind === "cpa")).toBe(false);
   });
 });

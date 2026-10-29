@@ -208,14 +208,21 @@ export function demTheoNhom(tau: Pick<TauAis, "loai">[]): Record<keyof typeof MA
   return d;
 }
 
-export function tauGeoJson(ban: TauAisBan): GeoJSON.FeatureCollection<GeoJSON.Point, { id: string; nhom: string; huong: number }> {
+/** Tàu đang chạy (có hướng để chỉ) ⇒ icon tam giác; còn lại hình thoi (components/ban-do/icon-tau). */
+export const tauDangChay = (t: Pick<TauAis, "kn" | "huong" | "mui">): boolean => t.kn != null && t.kn >= 0.5 && (t.mui ?? t.huong) != null;
+
+export function tauGeoJson(ban: TauAisBan): GeoJSON.FeatureCollection<GeoJSON.Point, { id: string; nhom: string; mk: string; huong: number; chay: number }> {
   return {
     type: "FeatureCollection",
-    features: ban.tau.map((t) => ({
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [t.lon, t.lat] },
-      properties: { id: t.id, nhom: nhomTau(t.loai), huong: t.mui ?? t.huong ?? 0 },
-    })),
+    features: ban.tau.map((t) => {
+      const nhom = nhomTau(t.loai);
+      return {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [t.lon, t.lat] },
+        // mũi tàu (heading) trước, hướng đi (COG) sau — như máy AIS xoay ký hiệu theo mũi
+        properties: { id: t.id, nhom, mk: nhom, huong: t.mui ?? t.huong ?? 0, chay: tauDangChay(t) ? 1 : 0 },
+      };
+    }),
   };
 }
 
