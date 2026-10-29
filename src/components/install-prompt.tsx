@@ -209,11 +209,13 @@ function KhoiTang5() {
   return null;
 }
 
-/** Hàng nhẹ "Chọn cảng nhà để xem biển hôm nay ›" → /tau (TC-11); đã khai thì không bao giờ hiện lại. */
+/** Hàng nhẹ "Chọn cảng nhà để xem biển hôm nay ›" → /cang (TC-11); đã khai thì không bao giờ hiện lại.
+ *  Đích là /cang (2026-10-29, rà hành trình A-02): /tau KHÔNG có ô chọn cảng và khoá với khách;
+ *  /cang khách xem được, dữ liệu trong bundle, có nút "Đặt cảng nhà" ghi đúng kho `docCangNha` đọc. */
 function HangCangNha() {
   return (
     <Link
-      href="/tau"
+      href="/cang"
       className="surface flex min-h-(--h-row) items-center gap-3 px-4 py-3 transition active:bg-field"
     >
       <AnchorIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />

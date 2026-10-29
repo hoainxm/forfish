@@ -5,7 +5,7 @@
   của nó bằng khối to nhất; câu của bà con mỗi sáng là "biển hôm nay thế nào").
 
   MÔ TẢ, KHÔNG PHÁN đi/không đi — cùng chữ với Bản đồ (`SEA_STATE`, lib/sea.ts).
-  Cảng: cảng nhà (cangNhaCuaToi — ghim/hồ sơ tàu) → cảng có dự báo gần nhất ≤150 km;
+  Cảng: cảng nhà (docCangNha — MỘT cửa đọc, lib/cang-nha) → cảng có dự báo gần nhất ≤150 km;
   chưa khai cảng nhà thì lấy cảng dự báo đã chọn trước (`forfish.port.v1`); không có
   gì ⇒ thẻ ẨN (màn chính không có khối trống).
 
@@ -21,7 +21,7 @@ import { soNgayThoiTiet } from "@/lib/tier";
 import Link from "next/link";
 import { PORTS, type FishingPort } from "@/data/ports";
 import { ChevronRightIcon } from "@/components/icons";
-import { cangNhaCuaToi } from "@/components/tide-home-card";
+import { docCangNha } from "@/lib/cang-nha";
 import { isoDateVN } from "@/lib/day-labels";
 import { gioLuu } from "@/lib/offline-line";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
@@ -48,7 +48,7 @@ const LEVEL_TEXT: Record<SeaLevel, string> = {
 
 /** Cảng để vẽ Biển hôm nay; null = chưa khai gì ⇒ tầng 5 mời "Chọn cảng nhà" (lib/tang-5, TC-11). */
 export function cangBienHomNay(): FishingPort | null {
-  const nha = cangNhaCuaToi();
+  const nha = docCangNha();
   if (nha) return cangDuBaoGanNhat({ lat: nha.lat, lon: nha.lon });
   try {
     const saved = window.localStorage.getItem(PORT_KEY);

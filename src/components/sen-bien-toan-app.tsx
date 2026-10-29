@@ -26,7 +26,8 @@ import { updateBoat } from "@/lib/boat-store";
 import { loadBoats, loadCurrentBoatId, saveCurrentBoatId } from "@/lib/boats";
 import { SPECIES_META } from "@/lib/fish-predict";
 import { loadPlaces } from "@/lib/places";
-import { ghiHomePhien, loadHome, saveHome } from "@/lib/region";
+import { ghiHomePhien, loadHome } from "@/lib/region";
+import { datCangNha } from "@/lib/cang-nha";
 import { readToken } from "@/lib/device-token-store";
 import { getExistingPushSubscription, isPushSupported } from "@/lib/push-client";
 import { hoanTacDangHien } from "@/lib/toast";
@@ -260,8 +261,8 @@ export function SenBienToanApp() {
             saveCurrentBoatId(a.boatId);
             return "";
           case "setHomePort":
-            saveHome({ portId: a.portId, ...(a.province ? { province: a.province } : {}) });
-            return "";
+            // một cửa ghi (lib/cang-nha): ghim "home" + forfish.home.v1 ⇒ thẻ Biển hôm nay/Con nước thấy ngay
+            return datCangNha(a.portId) ? "" : " Máy chưa lưu được cảng nhà — bà con chọn ở Danh bạ cảng.";
           case "call":
             return ` Số ${a.label}: ${a.tel}.`;
           case "search":

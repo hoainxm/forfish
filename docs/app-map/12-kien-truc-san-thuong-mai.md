@@ -5,6 +5,7 @@
 covers: src/lib/market, src/app/cho, src/app/ban-hang, src/app/api/cho, src/app/api/ban-hang, src/app/api/admin/cho, src/app/api/dev, src/app/dev, src/components/market, src/components/admin/market-admin-tab.tsx, src/components/admin/market-admin-requests.tsx, supabase/migrations/0060_marketplace.sql, supabase/migrations/0063_market_requests_eta.sql
 gate: warn
 last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29f — `/cho` (app/cho/page.tsx) thêm `components/market/buyer/gian-hang-cua-toi.tsx`: hàng gọn "Gian hàng của tôi · N đơn chờ ›" → /ban-hang, chỉ khi cờ `forfish.mshop.v1` của đúng SĐT có `hasShop` (đọc `loadShopFlag`, nghe `forfish-dock-badge`), N = `pending` cùng nguồn badge ô Vật tư. Không request, không đổi cờ/single-writer (seller-flag vẫn là module ghi duy nhất). -->
 <!-- re-verified: 2026-10-29 — §4.8 giỏ: dời giỏ khách lạ sang SĐT vừa đăng nhập chuyển từ hook `useMarketCart` xuống `readStored` (lib/market/cart.ts) nên badge dock + Sen Biển cũng thấy; shape `forfish.mcart.v1` không đổi. -->
 <!-- re-verified: 2026-10-29 — code sàn chỉ đổi ở 3fd94c0 (market-home cắm thẻ ưu đãi, đã ghi trong commit đó); kiến trúc, route `/api/cho` `/api/ban-hang` `/api/admin/cho`, migration 0060/0063 không đổi. -->
 <!-- re-verified: 2026-10-26 20:30 - market-home.tsx chỉ cắm thêm <KhuyenMaiCard> (ưu đãi SDVICO, data/khuyen-mai.ts) sau CartFeedback — không đụng MarketStore/route/đơn; kiến trúc sàn không đổi -->

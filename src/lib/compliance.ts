@@ -4,6 +4,7 @@
 // quyết định phạm vi 2026-06-10). Mốc lấy từ TT 81/2025 (06-jtbd §4).
 
 import { daysUntil } from "@/lib/days";
+import { formatVnDate } from "@/lib/format";
 
 export interface ComplianceMilestone {
   id: string;
@@ -57,4 +58,37 @@ export function complianceMilestones(
   }
 
   return out;
+}
+
+/** Nhóm cỡ tàu theo đúng ngưỡng của `nkktDate` — chữ đời thường cho dòng nhắc. */
+function nhomCo(lengthM: number): string {
+  if (lengthM >= 24) return "Tàu từ 24 m";
+  if (lengthM >= 15) return "Tàu 15–24 m";
+  if (lengthM >= 12) return "Tàu 12–15 m";
+  return "Tàu dưới 12 m";
+}
+
+/**
+ * MỘT DÒNG MỐC NGHĨA VỤ cho Tủ giấy tờ (2026-10-29, F-brd P1-2: checklist xuất bến đã gỡ nên
+ * mốc NKKT/eCDT không còn hiện ở đâu). Lấy mốc GẦN NHẤT theo cỡ tàu đang chọn:
+ *  · còn mốc sắp tới ⇒ mốc đó + số ngày còn lại;
+ *  · không còn ⇒ mốc nặng nhất đã hiệu lực (NKKT nếu cỡ tàu phải ghi, không thì eCDT).
+ * Chưa biết chiều dài (thiếu/0/lạ) ⇒ null — không đoán cỡ tàu, không nói sai mốc.
+ * App CHỈ NHẮC — khai trên hệ thống nhà nước (01 §7).
+ */
+export function dongMocNghiaVu(lengthM: number | null | undefined, today: Date): string | null {
+  if (typeof lengthM !== "number" || !Number.isFinite(lengthM) || lengthM <= 0) return null;
+  const ms = complianceMilestones(lengthM, today);
+  const co = nhomCo(lengthM);
+  const sapToi = ms.filter((m) => m.status === "upcoming").sort((a, b) => a.daysUntil - b.daysUntil)[0];
+  if (sapToi) {
+    const viec = sapToi.id === "nkkt" ? "phải ghi nhật ký khai thác điện tử" : "phải khai ra/vào cảng điện tử (eCDT)";
+    return `${co}: từ ${formatVnDate(sapToi.effectiveDate)} ${viec} — còn ${sapToi.daysUntil} ngày.`;
+  }
+  const nkkt = ms.find((m) => m.id === "nkkt");
+  if (nkkt) return `${co}: đã phải ghi nhật ký khai thác điện tử từ ${formatVnDate(nkkt.effectiveDate)}.`;
+  const ecdt = ms.find((m) => m.id === "ecdt");
+  return ecdt
+    ? `${co}: phải khai ra/vào cảng điện tử (eCDT) từ ${formatVnDate(ecdt.effectiveDate)}; chưa bắt buộc nhật ký điện tử.`
+    : null;
 }

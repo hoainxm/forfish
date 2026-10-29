@@ -205,6 +205,8 @@ Trục 2 tăng thu nhập → mua nhiều hơn từ Trục 3
 Định vị mở rộng (2026-06): bốn lời hứa vẫn là **ngôn ngữ giá trị**, nhưng object model của app chuyển sang **CON TÀU** (tàu → chuyến biển → thuyền viên → tiền → giấy tờ). Căn cứ JTBD + chân dung người dùng + mốc pháp lý: xem [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md).
 
 > **Quyết định phạm vi (2026-06-10, từ user)**: khai báo **eCDT / nhật ký khai thác điện tử (NKKT)** là nghiệp vụ với hệ thống NHÀ NƯỚC — **ngoài phạm vi ForFish** (hệ sinh thái đã có sản phẩm NKKT riêng phụ trách mảng này). ForFish chỉ dừng ở: NHẮC mốc nghĩa vụ, checklist trước chuyến, giải thích quy định bằng lời thường. KHÔNG xây wizard khai hộ, KHÔNG tích hợp/đồng bộ hệ thống khai báo nhà nước.
+>
+> **Chỗ nhắc mốc (2026-10-29)**: checklist xuất bến đã gỡ (2026-07-27) nên mốc NKKT/eCDT từng không hiện ở đâu. Nay là MỘT dòng chữ phụ trong **Tủ giấy tờ** của tàu đang chọn (`lib/compliance.ts dongMocNghiaVu`): mốc gần nhất theo Lmax (12–15 m: 01/01/2027; 15–24 m: 01/09/2026; ≥24 m: 01/07/2026; mọi tàu eCDT 01/03/2026). Chưa khai chiều dài ⇒ không nhắc (không đoán cỡ tàu).
 
 1. **Đợt 1 — Thuyền viên (wedge)** *(đang xây)*: crew module `/nguoi` (hồ sơ + **định danh CCCD** + chứng chỉ/bảo hiểm + **cảnh báo chéo premium**). *(Toàn bộ nhóm "sổ tiền tự ghi" — sổ lãi/lỗ trên nền trip-log, sổ ứng, máy chia tiền, công nợ — đã XÓA HẲN 2026-07-27 theo user: /tien gọn về đúng việc mua–bán, không ôm kế toán chuyến.)*
 2. **Đợt 2 — Checklist xuất bến + nhắc tuân thủ**: checklist xuất bến tự sinh theo Lmax (đèn xanh-đỏ "đủ điều kiện xuất bến": giấy tàu, chứng chỉ, bảo hiểm thuyền viên, sổ danh bạ) + cảnh báo hạn giấy tờ cho cả người nhà trên bờ + NHẮC mốc nghĩa vụ khai báo (không khai hộ — xem quyết định phạm vi ở trên).

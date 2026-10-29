@@ -144,17 +144,21 @@ export function loadHome(): HomePref {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(HOME_KEY);
-    if (raw) return JSON.parse(raw) as HomePref;
+    const v: unknown = raw ? JSON.parse(raw) : null;
+    // bản hỏng kiểu `null`/số/mảng ⇒ coi như chưa có (trước đây trả thẳng ⇒ `.province` nổ ở chỗ gọi)
+    if (v && typeof v === "object" && !Array.isArray(v)) return v as HomePref;
   } catch {
     /* ignore */
   }
   return {};
 }
 
-export function saveHome(h: HomePref) {
+/** `false` = máy không ghi được (hết chỗ / bị chặn) — chỗ gọi đặt cảng nhà phải nói ra (lib/cang-nha). */
+export function saveHome(h: HomePref): boolean {
   try {
     window.localStorage.setItem(HOME_KEY, JSON.stringify(h));
+    return true;
   } catch {
-    /* ignore */
+    return false;
   }
 }

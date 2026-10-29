@@ -47,6 +47,7 @@ import { NHAN } from "@/lib/labels";
 import { useXoaCho } from "@/lib/xoa-cho";
 import { markSeenFromUrl } from "@/lib/doc-reminder-local";
 import { todayIsoVN } from "@/lib/days";
+import { dongMocNghiaVu } from "@/lib/compliance";
 
 // BoatDocument lives in @/lib/documents (shared, not edited). We attach a boat
 // dimension here without touching that file: the localStorage shape is freeform
@@ -239,6 +240,7 @@ export function DocumentVault() {
     () => [...boatDocs].sort(byUrgency(today)),
     [boatDocs, today],
   );
+  const mocNghiaVu = useMemo(() => dongMocNghiaVu(current?.lengthM, today), [current?.lengthM, today]);
 
   function upsert(doc: StoredDocument) {
     const withBoat: StoredDocument = { ...doc, boatId: current?.id };
@@ -281,6 +283,13 @@ export function DocumentVault() {
           </button>
         )}
       </div>
+
+      {/*  MỐC NGHĨA VỤ THEO CỠ TÀU (2026-10-29, F-brd P1-2): checklist xuất bến đã gỡ ⇒ mốc nhật ký khai
+          thác điện tử / eCDT không còn hiện ở đâu. MỘT dòng chữ phụ, không hộp (anh Long: "chữ cho nhỏ
+          đẹp"); chưa khai chiều dài tàu ⇒ không vẽ (không đoán cỡ). App chỉ nhắc, không khai hộ. */}
+      {mocNghiaVu && (
+        <p className="mb-3 px-1 text-[0.8125rem] leading-snug text-foreground/70">{mocNghiaVu}</p>
+      )}
 
       {/* Mời bật chuông nhắc hạn — chỉ khi có giấy có hạn, chưa bật, có sóng */}
       {!readFailed && (
