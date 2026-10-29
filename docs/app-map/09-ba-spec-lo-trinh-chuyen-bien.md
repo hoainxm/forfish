@@ -2,7 +2,8 @@
 
 > Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
 covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
-last_verified: 2026-10-19
+last_verified: 2026-10-29
+<!-- re-verified: 2026-10-29 — rà doc-health: `scripts/fit-fish-blend-weights.mjs` KHÔNG đổi từ 2026-07-28 (5481d7cc; báo SUSPECT là do clone nông thấy cả file như mới thêm); `fish-blend.ts` chỉ đổi ở fb5d065b 2026-10-19 (chú thích `baseMode`, đã ghi ở mục 2026-10-19 dưới) — đối chiếu lại export `blendFishCells`/`fishLeadDays`/`climScoreAt`/`decodeClimatology`/`fetchClimatology` còn đủ. Sửa §5d: w(d) không đọc thẳng `fish-blend-weights.json` nữa mà qua `model-params.v1.json` (`lib/model-params`, từ 2026-09-16) ⇒ fit xong phải chạy `scripts/build-model-params.mjs`. -->
 <!-- re-verified: 2026-10-19 — gỡ luật cỡ theo đối tượng (quyết định anh Long 2026-10-19, xem 07/03); cỡ theo thang 03 §0. -->
 ttl_days: 90
 
@@ -225,6 +226,8 @@ Nền dữ liệu của lộ trình 16 ngày đã dựng xong và **đo được
   / thềm Đông Nam** (9–10°N, 106–107°E); tháng 12 lên **cửa vịnh Bắc Bộ** (17,8–18,3°N). Mô hình
   KHÔNG được "dạy" các vùng này — nó tự ra từ nhiệt + phù du nhiều năm.
 - Script: `scripts/collect-fish-climatology.mjs` (chạy lại ~1 lần/năm là đủ).
+
+> Bảng w(d) tới app qua đường khác: `scripts/build-model-params.mjs` gộp `fish-blend-weights.json` vào `public/data/model-params.v1.json` (SDF2), `fish-blend.ts` nạp qua `lib/model-params` — app không đọc thẳng file json. Fit lại xong phải chạy cả script đó, cổng `model-params.test.ts` bắt lệch.
 
 **Tỷ lệ pha trộn w(d)** (`src/data/fish-blend-weights.json` ← `scripts/fit-fish-blend-weights.mjs`):
 backtest **16 mốc gốc** (2022–2025 × 4 mùa) × 7 tầm ngày, **30–33 nghìn ô mỗi tầm**, kiểm chéo 4
