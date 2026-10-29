@@ -1,5 +1,6 @@
 "use client";
 
+import { datCangNha as ghiCangNha } from "@/lib/cang-nha";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { ACTIVE_PORTS, PORT_COORD_SAI, type FishingPortDir } from "@/data/fishing-ports";
@@ -7,7 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { SearchField } from "@/components/ui/search-field";
 import { SQ_BTN } from "@/components/ui/sq-btn";
 import { useHome, HomeBar, applyHome } from "@/components/ui/region-filter";
-import { homeOf, loadPlaces, persistPlaces, placeId, upsertPlace } from "@/lib/places";
+import { homeOf, loadPlaces, placeId } from "@/lib/places";
 import { duongDanBanDoToi } from "@/lib/ban-do-link";
 import { NHAN } from "@/lib/labels";
 import { AnchorIcon, ChevronDownIcon, PinIcon } from "@/components/icons";
@@ -48,8 +49,8 @@ export function PortDirectory() {
 
   const datCangNha = useCallback((p: FishingPortDir) => {
     if (p.lat == null || p.lng == null) return;
-    const next = upsertPlace(loadPlaces(), { name: p.name, lat: p.lat, lon: p.lng, asHome: true });
-    const ok = persistPlaces(next);
+    // ghi qua cửa chung lib/cang-nha (ghim + forfish.home.v1) — Trang chủ, Sen Biển, Kairos cùng thấy
+    const ok = ghiCangNha(p.id);
     setLuuHong(!ok);
     if (ok) setCangNhaId(placeId(p.lat, p.lng));
   }, []);

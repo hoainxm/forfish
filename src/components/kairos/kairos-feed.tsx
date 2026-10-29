@@ -40,6 +40,7 @@
   "Cảng nhà" chỉ ghi THÓI QUEN TRONG MÁY (setHome — như hộp chọn cảng), không gửi đi, không đếm thành viên.
 */
 
+import { datCangNha as ghiCangNha } from "@/lib/cang-nha";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon } from "@/components/icons";
@@ -586,6 +587,8 @@ export function KairosFeed({
   const datCangNha = () => {
     if (!port || laCangNha) return;
     updateHabit(setHome(habit, homeFromPort(port)));
+    // ghi luôn cửa chung (lib/cang-nha) — không thì Trang chủ / Sen Biển vẫn đọc cảng cũ trong ghim
+    ghiCangNha(port);
   };
 
   /** Bấm Tải: ≤5 trang dòng tin chung gộp vào bản lưu. KHÔNG đổi bài đang hiện. */
