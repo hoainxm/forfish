@@ -852,3 +852,18 @@ describe("Ba Kiềm (F3115): đặc tính điền từ đúng dòng sổ AtoN 20
     expect(cau).not.toMatch(/undefined|NaN|\bFl\b/);
   });
 });
+
+describe("đèn OSM trùng đèn biển (rà hải đồ A.11.1-2)", () => {
+  it("đèn OSM trong 300 m một ngọn đèn biển bị bỏ; phao có đèn và đèn xa giữ", async () => {
+    const { denOsmTrungDenBien } = await import("@/lib/den-bien");
+    const den = [{ lat: 10.5, lon: 107.9, type: "light_major", ten: "Kê Gà" }] as never;
+    const sm = [
+      { lat: 10.5009, lon: 107.9, type: "light_major" }, // ~100 m ⇒ trùng
+      { lat: 10.52, lon: 107.9, type: "light_major" }, // ~2,2 km ⇒ giữ
+      { lat: 10.5001, lon: 107.9, type: "buoy_lateral" }, // phao ⇒ giữ
+      { lat: 10.5002, lon: 107.9001, type: "light_minor" }, // trùng
+    ];
+    expect([...denOsmTrungDenBien(sm, den)]).toEqual([0, 3]);
+    expect(denOsmTrungDenBien(sm, null).size).toBe(0);
+  });
+});

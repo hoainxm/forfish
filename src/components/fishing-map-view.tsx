@@ -69,6 +69,8 @@ import {
   VN_AID_MINZOOM,
   DIA_DANH_NGAM_MINZOOM,
   CHAT_DAY_MINZOOM,
+  CHAT_DAY_TEXT_COLOR,
+  CHAT_DAY_TEXT_MINZOOM,
   SEAMARK_TIER_MINZOOM,
   SEAMARK_CLUSTER_RADIUS,
   SEAMARK_CLUSTER_MAXZOOM,
@@ -111,10 +113,10 @@ import {
   CHART_FEATURE_ICON,
   tideSymbolId,
 } from "@/lib/chart-symbols";
-import { fetchDenBien, type DenBien } from "@/lib/den-bien";
+import { denOsmTrungDenBien, fetchDenBien, type DenBien } from "@/lib/den-bien";
 import { fetchVnAids, type VnAid } from "@/lib/vn-aids";
 import { fetchXacTau, type XacTau } from "@/lib/xac-tau";
-import { ghiChuChatDayTrong,} from "@/lib/chat-day";
+import { CHAT_DAY_LABEL, ghiChuChatDayTrong } from "@/lib/chat-day";
 import { fetchDiaDanhNgam, type DiaDanhNgam } from "@/lib/dia-danh-ngam";
 import { fetchKhuTruBao, type KhuTruBao } from "@/lib/khu-tru-bao";
 import {
@@ -250,6 +252,7 @@ import { legProgressAt } from "@/lib/route-legs";
 import { NOTIFY_HIDE_MS } from "@/lib/notify";
 import {
   fetchSeamarks,
+  lightAbbrev,
   type Seamark,
 } from "@/lib/seamarks";
 
@@ -2597,23 +2600,27 @@ export default function FishingMapView() {
       })),
     };
   }, [seamarkList]);
+  /*  ĐÈN BIỂN — khai ở đây (nạp ở khối effect phía dưới) vì tầng báo hiệu cần nó để bỏ đèn OSM trùng. */
+  const [denBien, setDenBien] = useState<DenBien[] | null>(null);
   /*  TÁCH BA NGUỒN theo tầng (2026-09-03c) — gom "+N" là thuộc tính của NGUỒN
       (MapLibre cluster), mà cụm chỉ được gồm những vật ĐÃ tới nấc hiện: một
       nguồn chung sẽ ra "+412" ở z7 gồm toàn phao z11 chưa hiện. Tầng xa không
       gom (đèn lớn thưa; một ngọn đèn bị nuốt vào cụm là mất mốc). */
   const seamarkTiers = useMemo(() => {
-    if (!seamarkGeo) return null;
+    if (!seamarkGeo || !seamarkList) return null;
     const far: GeoJSON.Feature[] = [];
     const mid: GeoJSON.Feature[] = [];
     const near: GeoJSON.Feature[] = [];
+    // Đèn OSM nằm trong 300 m một ngọn đèn biển nhà nước ⇒ bỏ, khỏi vẽ một đèn hai ký hiệu (rà A.11.1-2)
+    const trung = denOsmTrungDenBien(seamarkList, denBien);
     for (const f of seamarkGeo.features) {
       const t = String(f.properties?.t ?? "");
-      if (SEAMARK_AN.includes(t)) continue;
+      if (SEAMARK_AN.includes(t) || trung.has(Number(f.properties?.i))) continue;
       (SEAMARK_FAR.includes(t) ? far : SEAMARK_MID.includes(t) ? mid : near).push(f);
     }
     const fc = (features: GeoJSON.Feature[]): GeoJSON.FeatureCollection => ({ type: "FeatureCollection", features });
     return { far: fc(far), mid: fc(mid), near: fc(near) };
-  }, [seamarkGeo]);
+  }, [seamarkGeo, seamarkList, denBien]);
 
   /*  ─── SỐ ĐO SÂU CHÍNH THỨC (2026-08-31) ───────────────────────────────────
 
@@ -2673,8 +2680,6 @@ export default function FishingMapView() {
 
   /*  ĐÈN BIỂN — 90 ngọn. Nạp KHÔNG phụ thuộc công tắc nào: đây là lớp bà con
       cần đúng lúc mất sóng, và 5 KB qua sóng thì không có gì để cân nhắc. */
-  const [denBien, setDenBien] = useState<DenBien[] | null>(null);
-
   useEffect(() => {
     if (denBien) return;
     let alive = true;
@@ -2904,7 +2909,7 @@ export default function FishingMapView() {
       features: denBien.map((d, i) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [d.lon, d.lat] },
-        properties: { i, ic: lighthouseSymbolId(d), ten: d.ten },
+        properties: { i, ic: lighthouseSymbolId(d), ten: d.ten, dt: lightAbbrev(d.light) },
       })),
     };
   }, [denBien]);
@@ -4816,6 +4821,8 @@ export default function FishingMapView() {
         trước đây KHÔNG chạm được — bà con thấy mà không hỏi được "cái này là
         gì". Nay chạm được hết, mỗi loại một thẻ ngắn. */
     if (!anyExclusiveOverlay && chartDetailOn && groupDepthOn) ids.push("reef-dot", "reef-dot-venbo");
+    // Đá ngầm OSM (không tên) chạm ra thẻ đá ngầm — trước đây vẽ mà câm (rà A.11.4-4)
+    if (!anyExclusiveOverlay && chartDetailOn && groupNavOn) ids.push("reef-hazard");
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn)
       ids.push("sea-lane-gian", "sea-lane-cap-bo", "sea-lane-camneo", "sea-lane-vungcam-fill", "sea-lane-cap", "sea-lane-ong");
     if (!anyExclusiveOverlay && chartDetailOn && groupNameOn) ids.push("dia-danh-ngam-label");
@@ -5945,6 +5952,14 @@ export default function FishingMapView() {
           /*  CHẠM TÊN RẠN/BÃI/ĐÁ hoặc HẠ TẦNG (cáp/ống/giàn/vùng cấm/cập bờ) —
               reviewer B.5: các lớp này trước đây câm, bà con thấy mà không hỏi
               được "cái này là gì". Đọc thuộc tính thẳng từ feature. */
+          const hitDaOsm = measureMode
+            ? undefined
+            : nearFeats.find((f) => f.layer?.id === "reef-hazard" && f.properties?.kind === "rock");
+          if (hitDaOsm) {
+            const c = toaDoDiem(hitDaOsm);
+            setReefInfo({ ten: "Đá ngầm", type: "da", group: "ven-bo", lat: c?.lat ?? null, lon: c?.lon ?? null, x: e.point.x, y: e.point.y });
+            return;
+          }
           const hitReef = measureMode
             ? undefined
             : nearFeats.find((f) => f.layer?.id === "reef-dot" || f.layer?.id === "reef-dot-venbo");
@@ -7200,6 +7215,35 @@ export default function FishingMapView() {
                 "circle-opacity": CHAT_DAY_OPACITY,
               }}
             />
+            {/*  CHẤT ĐÁY BẰNG CHỮ khi phóng thật sát (rà A.11.6 — C-MAP ghi chữ ở cửa lạch): chấm màu
+                 phải tra chú giải, chữ "Cát"/"Đá" đọc thẳng. Né va chạm ⇒ chỉ vài chữ một màn. */}
+            <Layer
+              id="chat-day-chu"
+              type="symbol"
+              source-layer="chat-day"
+              minzoom={CHAT_DAY_TEXT_MINZOOM}
+              filter={["!=", ["get", "ma"], "khac"] as unknown as FilterSpecification}
+              layout={{
+                "text-field": [
+                  "match",
+                  ["get", "ma"],
+                  "S", CHAT_DAY_LABEL.S,
+                  "R", CHAT_DAY_LABEL.R,
+                  "Co", CHAT_DAY_LABEL.Co,
+                  "G", "Đá vụn",
+                  "Sg", CHAT_DAY_LABEL.Sg,
+                  "Ma", "Rong tảo",
+                  "",
+                ] as unknown as string,
+                "text-font": ["Noto Sans Regular"],
+                "text-size": 11,
+                "text-offset": [0, 0.9],
+                "text-padding": 48,
+                "text-allow-overlap": false,
+                "text-optional": true,
+              }}
+              paint={{ "text-color": CHAT_DAY_TEXT_COLOR, "text-halo-color": "#ffffff", "text-halo-width": 1.2 }}
+            />
           </Source>
         )}
 
@@ -7252,7 +7296,9 @@ export default function FishingMapView() {
               minzoom={REEF_HAZARD_MINZOOM}
               filter={["match", ["get", "kind"], ["rock", "wreck"], true, false] as unknown as FilterSpecification}
               layout={{
-                "icon-image": ["match", ["get", "kind"], "wreck", "wreck", "obstruction"] as unknown as string,
+                /*  Đá OSM dùng CÙNG ký hiệu đá ngầm với danh mục nhà nước (rà A.11.4-2): trên biển là một
+                    hòn đá, không phải hai khái niệm "đá" và "chướng ngại". */
+                "icon-image": ["match", ["get", "kind"], "wreck", "wreck", CHART_FEATURE_ICON.rockAwash] as unknown as string,
                 "icon-size": CHART_ICON_SIZE as unknown as number,
                 "icon-allow-overlap": true,
                 "icon-ignore-placement": true,

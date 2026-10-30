@@ -318,6 +318,28 @@ export function describeLight(light?: LightInfo | string | null): string {
 }
 
 /**
+ * Đặc tính đèn VIẾT TẮT kiểu hải đồ giấy (INT1): "Fl(2)W 10s 20M". In ở dòng hai nhãn đèn
+ * biển khi phóng sát (C-MAP cũng vậy) — người quen hải đồ giấy đọc một lượt là đối chiếu
+ * được với ánh chớp thấy ngoài biển. Câu tiếng Việt đầy đủ vẫn nằm ở thẻ chạm (`describeLight`).
+ * Thiếu `character` (nguồn không công bố) ⇒ "" — không đoán.
+ */
+export function lightAbbrev(light?: LightInfo | null): string {
+  if (!light?.character) return "";
+  const g = light.group?.trim();
+  const ma = Object.fromEntries(Object.entries(COLOUR_ABBR).map(([k, v]) => [v, k]));
+  const mau = (light.colour ?? "")
+    .split(";")
+    .map((c) => ma[c.trim().toLowerCase()] ?? "")
+    .join("");
+  const dau = `${light.character}${g ? `(${g})` : ""}${mau}`;
+  const bits = [dau];
+  if (Number.isFinite(light.period) && (light.period ?? 0) > 0) bits.push(`${light.period}s`);
+  // tầm hiệu lực làm tròn hải lý như hải đồ giấy ("21M", không "20.7M")
+  if (Number.isFinite(light.range) && (light.range ?? 0) > 0) bits.push(`${Math.round(light.range ?? 0)}M`);
+  return bits.join(" ");
+}
+
+/**
  * Một dòng mô tả đầy đủ cho ô "chạm xem": loại + màu thân + đặc tính đèn.
  * Ví dụ: "Phao luồng · thân đỏ · Chớp 2 nhịp, ánh đỏ, 6 giây một vòng".
  */

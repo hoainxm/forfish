@@ -384,3 +384,15 @@ describe("decodeSeamarks — hàng hỏng không được làm mất cả lớp"
     expect(decodeSeamarks({ marks: "nope" })).toEqual([]);
   });
 });
+
+describe("đặc tính đèn viết tắt kiểu hải đồ giấy", () => {
+  it("ghép ký hiệu, nhóm, màu, chu kỳ, tầm", async () => {
+    const { lightAbbrev } = await import("@/lib/seamarks");
+    expect(lightAbbrev({ character: "Fl", group: "2", colour: "white", period: 10, range: 20 })).toBe("Fl(2)W 10s 20M");
+    expect(lightAbbrev({ character: "Al.Fl", colour: "white;red", period: 6 })).toBe("Al.FlWR 6s");
+    expect(lightAbbrev({ character: "Q", colour: "green" })).toBe("QG");
+    expect(lightAbbrev({ character: "Fl", colour: "white", period: 2.5, range: 20.7 })).toBe("FlW 2.5s 21M");
+    expect(lightAbbrev({ colour: "white", period: 5 })).toBe(""); // không biết kiểu chớp ⇒ không đoán
+    expect(lightAbbrev(undefined)).toBe("");
+  });
+});

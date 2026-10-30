@@ -325,6 +325,8 @@ export const REEF_HAZARD_COLOR = "#b45309";
     lùi lại phía sau. Nội dung bản đồ, không phải token UI. */
 export const SEAMARK_LIT_COLOR = "#b4267a";
 export const SEAMARK_UNLIT_COLOR = "#3f6b85";
+/** Chữ chất đáy — cùng màu báo hiệu không đèn (5,6:1 trên dải sáng nhất), không thêm màu mới. */
+export const CHAT_DAY_TEXT_COLOR = SEAMARK_UNLIT_COLOR;
 export const SEA_LANE_COLOR = "#4a5a70"; // tuyến/luồng/phân luồng — xám-lam
 
 /*  CÁP QUANG · ỐNG DẪN · VÙNG CẤM — ba thứ NGUY KHÁC NHAU, phải KHÁC NHAU cả
@@ -424,6 +426,8 @@ export const VN_AID_MINZOOM = CHART_TIER.VUA;
 export const DIA_DANH_NGAM_MINZOOM = CHART_TIER.LUON;
 /** Chất đáy: tầng SÁT — Navionics cũng chỉ ghi chất đáy ở zoom cửa lạch; z9–10 là "chấm gì thế". */
 export const CHAT_DAY_MINZOOM = CHART_TIER.SAT;
+/** Chất đáy bằng CHỮ ("Cát", "Đá") — cùng tầng SÁT với chấm; độ dày do `text-padding` lớn quyết, không do zoom. */
+export const CHAT_DAY_TEXT_MINZOOM = CHART_TIER.SAT;
 /** Ba tầng của lớp báo hiệu OSM (seamark-far/mid/near) — chia theo loại vật, xem SEAMARK_FAR/MID ở map-view. */
 export const SEAMARK_TIER_MINZOOM = { far: CHART_TIER.XA, mid: CHART_TIER.VUA, near: CHART_TIER.SAT } as const;
 /*  GOM "+N" (MapLibre cluster) — bán kính 26 px: hai icon 17 px chạm mép nhau
@@ -805,7 +809,15 @@ export const LIGHTHOUSE_LABEL_LAYER = {
   type: "symbol",
   minzoom: LIGHTHOUSE_LABEL_MINZOOM,
   layout: {
-    "text-field": ["get", "ten"],
+    /*  Phóng SÁT (z≥11): dòng hai là đặc tính đèn viết tắt kiểu hải đồ giấy ("Fl(2)W 10s 20M",
+        `lightAbbrev`) — đối chiếu được ánh chớp thấy ban đêm mà không phải chạm (rà A.11.6). */
+    "text-field": [
+      "step",
+      ["zoom"],
+      ["get", "ten"],
+      CHART_TIER.SAT,
+      ["format", ["get", "ten"], {}, "\n", {}, ["get", "dt"], { "font-scale": 0.8, "text-font": ["literal", ["Noto Sans Regular"]] }],
+    ],
     "text-font": ["Noto Sans Bold"],
     "text-size": ["interpolate", ["linear"], ["zoom"], 9, 11, 14, 15],
     "text-offset": [0, 0.7],

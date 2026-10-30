@@ -178,6 +178,7 @@ export const LEGEND_TIERS: LegendTier[] = [
     tieuDe: "Phóng SÁT — cửa lạch, luồng hẹp",
     zoom: CHART_TIER.SAT,
     dong: [
+      { icon: "lighthouse", chu: "Dưới tên đèn biển có nhịp chớp như hải đồ giấy: Fl(2)W 10s 21M = chớp 2 lần, ánh trắng (R đỏ, G xanh), 10 giây lặp lại, thấy xa 21 hải lý" },
       { icon: "special", chu: "Phao chuyên dùng (khu nuôi, cáp, đo đạc…)" },
       { icon: "marine-farm", chu: "Lồng bè nuôi" },
       { icon: "mooring", chu: "Phao neo / cọc neo" },
@@ -188,7 +189,7 @@ export const LEGEND_TIERS: LegendTier[] = [
       { mau: CHAT_DAY_COLORS.R, dang: "cham", chu: "Chất đáy: đá" },
       { mau: CHAT_DAY_COLORS.S, dang: "cham", chu: "Chất đáy: cát — neo bám tốt" },
       { mau: CHAT_DAY_COLORS.G, dang: "cham", chu: "Chất đáy: vụn san hô" },
-      { mau: CHAT_DAY_COLORS.Sg, dang: "cham", chu: "Chất đáy: cỏ biển" },
+      { mau: CHAT_DAY_COLORS.Sg, dang: "cham", chu: "Chất đáy: cỏ biển — phóng sát có chữ Cát, Đá… ghi ngay trên đáy" },
     ],
     ghiChu: "Chấm đo sâu rỗng ruột = số đo cũ trên một năm, cửa lạch có thể đã bồi. " + ghiChuChatDayTrong(),
   },

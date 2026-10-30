@@ -37,6 +37,7 @@
  */
 
 import { fetchDataJson } from "@/lib/data-fetch";
+import { haversineKm } from "@/lib/geo";
 import type { Provenance } from "@/lib/provenance";
 import {
   colourLabel,
@@ -316,4 +317,32 @@ export async function fetchDenBien(): Promise<DenBien[]> {
       });
   }
   return cached;
+}
+
+/**
+ * Chỉ số các ĐÈN OSM trùng một ngọn đèn biển trong `banKinhM` (rà hải đồ A.11.1-2: 9/105 ngọn
+ * vẽ hai lần — ký hiệu đèn biển + ký hiệu đèn OSM lệch nhau vài mét). Đèn biển là nguồn nhà
+ * nước, thắng; bản OSM bị bỏ khỏi lớp vẽ. Chỉ xét `light_major`/`light_minor` — phao có đèn
+ * cạnh đèn biển là vật khác, giữ.
+ */
+export function denOsmTrungDenBien(
+  seamarks: readonly Seamark[],
+  denBien: readonly DenBien[] | null | undefined,
+  banKinhM = 300,
+): Set<number> {
+  const bo = new Set<number>();
+  if (!denBien?.length) return bo;
+  const km = banKinhM / 1000;
+  const pad = km / 100; // hộp thô theo độ trước khi tính vòng lớn
+  seamarks.forEach((m, i) => {
+    if (m.type !== "light_major" && m.type !== "light_minor") return;
+    for (const d of denBien) {
+      if (Math.abs(d.lat - m.lat) > pad || Math.abs(d.lon - m.lon) > pad * 2) continue;
+      if (haversineKm(d, m) <= km) {
+        bo.add(i);
+        return;
+      }
+    }
+  });
+  return bo;
 }
