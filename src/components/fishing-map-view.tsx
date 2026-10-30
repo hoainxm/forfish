@@ -99,6 +99,7 @@ import {
   LIGHTHOUSE_LABEL_LAYER,
   WRECK_LAYER,
   type OceanLayerId,
+  ROUTE_CASING_COLOR,
 } from "@/lib/ocean-map";
 import {
   chartSymbolId,
@@ -208,7 +209,7 @@ import {
   type StormZone,
 } from "@/lib/fleet-density";
 import { subscribeOnline } from "@/lib/use-online";
-import { fetchQuyenAis, fetchTauAis, MAU_TAU, peekQuyenAis, type TauAis, moTaTau, TAU_AIS_LAM_MOI_MS, tauGanDiem, tauGeoJson, tuoiTinLabel, tuoiTinPhut, type TauAisBan } from "@/lib/tau-ais";
+import { cauVet, fetchQuyenAis, fetchTauAis, fetchVetTau, type KetQuaVet, MAU_TAU, nhomTau, vetGeoJson, peekQuyenAis, type TauAis, moTaTau, TAU_AIS_LAM_MOI_MS, tauGanDiem, tauGeoJson, tuoiTinLabel, tuoiTinPhut, type TauAisBan } from "@/lib/tau-ais";
 import { fetchSeaForecast } from "@/lib/sea";
 import { PORTS } from "@/data/ports";
 import {
@@ -1760,6 +1761,10 @@ export default function FishingMapView() {
   const [denInfo, setDenInfo] = useState<DenInfo | null>(null);
   const [xacTauInfo, setXacTauInfo] = useState<XacTauInfo | null>(null);
   const [tauAisInfo, setTauAisInfo] = useState<TauAisInfo | null>(null);
+  /*  ĐƯỜNG ĐI 7 NGÀY của một tàu AIS (2026-10-30, anh Long: "làm sao để xem lại lịch sử với hành trình"). Mở từ nút
+      trong thẻ tàu; KHÔNG gắn với thẻ (kéo bản đồ là thẻ đóng) — đường ở lại tới khi bấm Ẩn trên viên phía trên.
+      `kq` null = đang tải. */
+  const [vetTau, setVetTau] = useState<{ t: TauAis; kq: KetQuaVet | null } | null>(null);
   /*  Sheet con nước của MỘT trạm — mở khi chạm chấm trạm trên bản đồ hoặc bấm
       "Cả tháng" trong thẻ con nước của sheet điểm. `km` = trạm cách
       chỗ đang hỏi (0 khi chạm thẳng vào trạm) — để câu độ-tin nói đúng. */
@@ -3128,6 +3133,7 @@ export default function FishingMapView() {
   const thoatAis = useCallback(() => {
     setAisMode(null);
     setAisChon(null);
+    setVetTau(null);
     if (!aisTruocMode) setAisOn(false);
   }, [aisTruocMode]);
   /** Bay tới một tàu (zoom 11) rồi mở thẻ tàu ngay chỗ chấm — từ ô tìm Toàn biển hoặc nút Hải đồ của radar. */
@@ -3158,6 +3164,21 @@ export default function FishingMapView() {
       { padding: 24, duration: 650 },
     );
   }, [setSize]);
+
+  const xemVetTau = useCallback((t: TauAis) => {
+    setVetTau({ t, kq: null });
+    void fetchVetTau(t.id).then((kq) => {
+      setVetTau((v) => (v?.t.id === t.id ? { t, kq } : v));
+      if (kq.ok && kq.diem.length >= 2) {
+        let w = 180, e = -180, so = 90, n = -90;
+        for (const p of kq.diem) {
+          w = Math.min(w, p.lon); e = Math.max(e, p.lon); so = Math.min(so, p.lat); n = Math.max(n, p.lat);
+        }
+        mapRef.current?.fitBounds([[w, so], [e, n]], { padding: 64, maxZoom: 11, duration: 650 });
+      }
+    });
+  }, []);
+  const vetGeo = useMemo(() => (vetTau?.kq?.ok ? vetGeoJson(vetTau.kq.diem) : null), [vetTau]);
 
   /** Mở một điểm đã lưu / GPS / cảng tìm được — bay tới + xem dự báo.
       Tuyến đang vẽ giữ nguyên (như chạm bản đồ) — RoutePlanner tự nhắc. */
@@ -7853,6 +7874,23 @@ export default function FishingMapView() {
             <Layer id="ais-man" type="fill" paint={{ "fill-color": "#ffffff", "fill-opacity": 0.5 }} />
           </Source>
         )}
+        {vetGeo && vetTau && (
+          <Source id="ais-vet" type="geojson" data={vetGeo}>
+            <Layer id="ais-vet-vien" type="line" filter={["==", ["get", "k"], "duong"] as unknown as boolean} layout={{ "line-join": "round", "line-cap": "round" }} paint={{ "line-color": ROUTE_CASING_COLOR, "line-width": 5 }} />
+            <Layer id="ais-vet-duong" type="line" filter={["==", ["get", "k"], "duong"] as unknown as boolean} layout={{ "line-join": "round", "line-cap": "round" }} paint={{ "line-color": MAU_TAU[nhomTau(vetTau.t.loai)], "line-width": 2.5 }} />
+            <Layer
+              id="ais-vet-moc"
+              type="circle"
+              filter={["==", ["get", "k"], "moc"] as unknown as boolean}
+              paint={{
+                "circle-radius": ["case", ["==", ["get", "cuoi"], 1], 5, 2.5] as unknown as number,
+                "circle-color": MAU_TAU[nhomTau(vetTau.t.loai)],
+                "circle-stroke-color": ROUTE_CASING_COLOR,
+                "circle-stroke-width": 1,
+              }}
+            />
+          </Source>
+        )}
         {aisGeo && (
           <Source id="tau-ais" type="geojson" data={aisGeo}>
             {/* ICON TÀU như máy AIS (anh Long 29/10): tam giác xoay theo mũi tàu khi đang chạy, chấm tròn khi đứng —
@@ -8000,7 +8038,26 @@ export default function FishingMapView() {
            nhà nước ghi (1/38 tin có — TBHH VN hiếm khi in con số này) + số
            thông báo để tra ngược. KHÔNG tự tắt. */}
       {xacTauInfo && <TheXacTau info={xacTauInfo} onClose={() => setXacTauInfo(null)} prefs={prefs} />}
-      {tauAisInfo && <TheTauAis info={tauAisInfo} onClose={() => setTauAisInfo(null)} prefs={prefs} now={nowMs} />}
+      {tauAisInfo && (
+        <TheTauAis
+          info={tauAisInfo}
+          onClose={() => setTauAisInfo(null)}
+          prefs={prefs}
+          now={nowMs}
+          vet={vetTau?.t.id === tauAisInfo.t.id ? vetTau.kq ?? "dang" : null}
+          onXemVet={() => xemVetTau(tauAisInfo.t)}
+        />
+      )}
+      {vetTau && (
+        <div className="pointer-events-auto absolute left-1/2 top-[4.5rem] z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-card/97 py-1 pl-3 pr-1 shadow-lg">
+          <span className="truncate text-[0.8125rem] text-foreground/75">
+            {vetTau.t.ten ?? "Tàu chưa rõ tên"} · {vetTau.kq == null ? "đang tải đường đi…" : vetTau.kq.ok ? cauVet(vetTau.kq.diem, nowMs) : vetTau.kq.ly === "mat_song" ? "cần sóng để xem đường đi" : "tàu này không theo được đường đi"}
+          </span>
+          <button type="button" onClick={() => setVetTau(null)} className="flex h-(--h-chip) flex-none items-center rounded-full bg-foreground/5 px-3 text-[0.8125rem] font-semibold text-navy active:scale-[0.97]">
+            {NHAN.an}
+          </button>
+        </div>
+      )}
 
       {/*  ĐÈN NÀO ĐÂY (2026-09-02).
 

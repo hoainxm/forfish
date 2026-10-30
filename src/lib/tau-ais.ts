@@ -10,7 +10,7 @@ import { apiUrl } from "@/lib/api-base";
 import { tokenHeader } from "@/lib/device-token-store";
 import { haversineKm } from "@/lib/geo";
 import { windDirectionVN } from "@/lib/marine-weather";
-import { LOAI_TAU } from "@/lib/tau-ais/chuan-hoa.mjs";
+import { idCoDinh, LOAI_TAU } from "@/lib/tau-ais/chuan-hoa.mjs";
 
 export const TAU_AIS_SNAPSHOT_ID = "tau-ais:latest";
 export const TAU_AIS_STORE_KEY = "forfish.tau-ais.v1";
@@ -124,6 +124,66 @@ export async function fetchQuyenAis(phone: string): Promise<boolean | null> {
   } catch {
     return null;
   }
+}
+
+/*  ĐƯỜNG ĐI 7 NGÀY CỦA MỘT TÀU (2026-10-30, anh Long: "làm sao để xem lại lịch sử với hành trình") — GET /api/tau-ais/vet,
+    máy chủ giữ một điểm/tàu/giờ trong 7 ngày. Chỉ giữ trong bộ nhớ phiên (không localStorage: mỗi tàu một gói,
+    xem lướt nhiều tàu là đầy kho) ⇒ mất sóng thì nói thẳng là cần sóng, không đoán đường. */
+export interface DiemVet {
+  /** epoch giây */
+  t: number;
+  lat: number;
+  lon: number;
+  kn: number | null;
+}
+export type KetQuaVet = { ok: true; diem: DiemVet[] } | { ok: false; ly: "khong_theo_duoc" | "mat_song" };
+const VET_HET_GIO_MS = 12_000;
+const VET_NHO = new Map<string, { luc: number; diem: DiemVet[] }>();
+const VET_NHO_MS = 10 * 60_000;
+
+/** Tàu này có theo được đường đi không (mã nguồn giữ cố định). */
+export const coTheXemVet = (t: Pick<TauAis, "id">): boolean => idCoDinh(t.id);
+
+export async function fetchVetTau(id: string, now = Date.now()): Promise<KetQuaVet> {
+  if (!idCoDinh(id)) return { ok: false, ly: "khong_theo_duoc" };
+  const nho = VET_NHO.get(id);
+  if (nho && now - nho.luc < VET_NHO_MS) return { ok: true, diem: nho.diem };
+  try {
+    const r = await fetch(apiUrl(`/api/tau-ais/vet?id=${encodeURIComponent(id)}`), { headers: tokenHeader(), signal: timeoutSignal(VET_HET_GIO_MS) });
+    const j = (await r.json().catch(() => null)) as { ok?: unknown; diem?: unknown } | null;
+    if (r.ok && j?.ok === true && Array.isArray(j.diem)) {
+      const diem = j.diem as DiemVet[];
+      if (VET_NHO.size > 50) VET_NHO.clear();
+      VET_NHO.set(id, { luc: now, diem });
+      return { ok: true, diem };
+    }
+  } catch {
+    /* mất sóng / hết giờ */
+  }
+  return nho ? { ok: true, diem: nho.diem } : { ok: false, ly: "mat_song" };
+}
+
+/** Câu tóm tắt dưới thẻ tàu: "Đường đi 2 ngày qua · 31 mốc · từ 08:00 29/10". Thuần. */
+export function cauVet(diem: readonly DiemVet[], now = Date.now()): string {
+  if (diem.length < 2) return "Chưa đủ mốc để vẽ đường đi — tàu mới vào vùng hoặc ít khi bật AIS.";
+  const dau = diem[0].t * 1000;
+  const ngay = Math.max(1, Math.ceil((now - dau) / 86_400_000));
+  const vn = new Date(dau + 7 * 3_600_000);
+  const hh = String(vn.getUTCHours()).padStart(2, "0");
+  const ddmm = `${vn.getUTCDate()}/${vn.getUTCMonth() + 1}`;
+  return `Đường đi ${ngay} ngày qua · ${diem.length} mốc · từ ${hh}:00 ${ddmm}`;
+}
+
+/** Đường + chấm mốc (mốc cuối có `cuoi`) cho lớp MapLibre. Thuần. */
+export function vetGeoJson(diem: readonly DiemVet[]): GeoJSON.FeatureCollection {
+  const toaDo = diem.map((p) => [p.lon, p.lat]);
+  return {
+    type: "FeatureCollection",
+    features: [
+      ...(toaDo.length >= 2 ? [{ type: "Feature" as const, properties: { k: "duong" }, geometry: { type: "LineString" as const, coordinates: toaDo } }] : []),
+      ...diem.map((p, i) => ({ type: "Feature" as const, properties: { k: "moc", cuoi: i === diem.length - 1 ? 1 : 0 }, geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] } })),
+    ],
+  };
 }
 
 export function loaiTauLabel(loai: number): string {
