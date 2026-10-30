@@ -104,6 +104,9 @@ Nhãn App Privacy trong App Store Connect đang khai 5 loại dữ liệu **"Use
 | User ID | uid Supabase Auth | App Functionality | Yes | **No** |
 | Other User Content | sổ chuyến/giấy tờ/thuyền viên — phần lớn nằm localStorage **trên máy** | App Functionality | Yes | **No** |
 | Precise Location | `getCurrentPosition` ở `route-planner.tsx` + `fishing-map-view.tsx` — chỉ để canh bản đồ và hỏi gió sóng theo toạ độ | App Functionality | **Not Linked** (không lưu DB, không gắn tài khoản) | **No** |
+| Product Interaction (Usage Data) | **2026-10-30, 14 §22**: tín hiệu đọc Kairos (`kairos_reads` — xem/mở/thời gian đọc) + lượt xem/bấm thẻ Tài trợ (`kairos_tai_tro_dem`, 0077) theo SĐT; SDVICO dùng NỘI BỘ (xếp dòng tin + Đo/nhóm khách gọi bán ở /quan-tri) | App Functionality · **Analytics** · **Product Personalization** · **Developer's Advertising or Marketing** (SDVICO tự gọi tư vấn/bán) | Yes | **No** (bên thứ nhất, không nối dữ liệu bên thứ ba, không gửi nhà tài trợ) |
+
+> ⚠️ **Dòng Product Interaction là VIỆC STORE CHƯA LÀM** (2026-10-30): khi 0077 lên prod, người có vai Account Holder/Admin phải thêm dòng này vào App Privacy (App Store Connect) và mục Data safety (Play Console: "App activity › App interactions", mục đích Analytics + Personalization + Developer communications, không chia sẻ). Nhãn cũ thiếu dòng này = khai sai, rủi ro reject 5.1.2.
 
 Cần vai **Account Holder / Admin** mới sửa được nhãn. Sửa xong trả lời App Review nói rõ: app không tracking trên mọi nền tảng, nhãn đã cập nhật.
 

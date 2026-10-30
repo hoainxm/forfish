@@ -4,7 +4,8 @@
   THẺ TÀI TRỢ trong dòng tin Kairos (14 §20, lib/kairos/quang-cao.ts). Cùng khung `.surface` với thẻ bài để không
   lạc giọng, nhưng ĐẦU THẺ luôn ghi "Tài trợ · <nhà tài trợ>" (Luật Quảng cáo 75/2025: phải nhận biết được là quảng
   cáo) — không có Hay/Bình luận/Chia sẻ (không phải bài của bà con). Nút mở trang đích ở thẻ mới, `rel="sponsored"`.
-  Không đếm lượt xem/bấm, không gửi gì về máy chủ (không theo dõi). Mạng yếu ⇒ ảnh hoãn như thẻ bài (KhungAnh).
+  Đếm lượt XEM (bộ quan sát của dòng tin, khung `data-kairos-tt`) và lượt BẤM nút (`onBam`) — gộp theo ngày × SĐT,
+  chỉ SDVICO xem ở /quan-tri › Kairos › Đo (14 §22, A107; thay A99). Mạng yếu ⇒ ảnh hoãn như thẻ bài (KhungAnh).
   Mất sóng: màn không vẽ thẻ (bản lưu không giữ quảng cáo — trang đích cũng cần sóng).
 */
 
@@ -14,7 +15,7 @@ import type { TheTaiTro } from "@/lib/kairos/quang-cao";
 import { NHAN } from "@/lib/labels";
 import { KhungAnh, useHoanAnh } from "./de-dung";
 
-export function TheTaiTroCard({ ad }: { ad: TheTaiTro }) {
+export function TheTaiTroCard({ ad, onBam }: { ad: TheTaiTro; onBam?: (adId: string) => void }) {
   const hoan = useHoanAnh();
   const [xem, setXem] = useState(false);
   return (
@@ -35,6 +36,7 @@ export function TheTaiTroCard({ ad }: { ad: TheTaiTro }) {
         href={ad.link}
         target="_blank"
         rel="sponsored noopener noreferrer"
+        onClick={() => onBam?.(ad.id)}
         className="mx-4 my-3 flex h-11 items-center justify-center gap-2 rounded-xl bg-sea text-[1rem] font-semibold text-white transition active:scale-[0.98]"
       >
         {ad.nut}

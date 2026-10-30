@@ -16,6 +16,10 @@ export const metadata = {
 
   Nội dung PHẢI khớp thực tế (đối chiếu ops/native-deploy.md §5a + code):
    · Bài Tài trợ Kairos (2026-10-24, 14 §20) là nội dung SDVICO tự đăng — KHÔNG phải SDK/mạng quảng cáo.
+   · Đo Kairos (2026-10-30, 14 §22, anh Long: "tương tự CDP, phục vụ nội bộ, không lộ lọt dữ liệu KH"): SDVICO đếm
+     lượt xem/bấm thẻ Tài trợ + dùng tín hiệu đọc để thống kê và chia nhóm khách GỌI BÁN — dữ liệu bên thứ nhất,
+     không rời SDVICO, không gửi bên thứ ba ⇒ vẫn không phải "tracking" theo định nghĩa Apple, nhưng App Store
+     Connect phải khai thêm "Usage Data › Product Interaction" (Analytics + Product Personalization, Linked to You).
    · Không SDK quảng cáo/analytics/attribution (AdMob/Firebase/FB/AppsFlyer/
      Adjust/Sentry/GA đều KHÔNG có) → không tracking theo định nghĩa Apple.
    · Sổ (hồ sơ tàu/giấy tờ/thuyền viên gồm CCCD/bảo dưỡng/vật tư) nằm localStorage
@@ -33,7 +37,7 @@ export const metadata = {
   Cập nhật nội dung ở ĐÂY thì đổi luôn "Cập nhật lần cuối" bên dưới.
 */
 
-const UPDATED = "24/10/2026";
+const UPDATED = "30/10/2026";
 
 function Section({
   id,
@@ -90,9 +94,10 @@ export default function QuyenRiengTuPage() {
             </li>
             <li>
               Kairos có <b>bài Tài trợ</b> do SDVICO tự đăng (luôn ghi chữ <b>Tài trợ</b> và tên nhà tài trợ; có
-              thể là đường dẫn tiếp thị liên kết, ví dụ Shopee). Bài Tài trợ <b>không nhắm theo người đọc</b>, không
-              đếm lượt xem hay lượt bấm — ai cũng thấy như nhau. App <b>không theo dõi người dùng</b> bà con, không
-              bán dữ liệu cho ai. Bấm vào bài Tài trợ thì trang đích (của nhà tài trợ) áp dụng chính sách của họ.
+              thể là đường dẫn tiếp thị liên kết, ví dụ Shopee). SDVICO <b>đếm lượt xem và lượt bấm</b> bài Tài trợ
+              theo tài khoản để biết bài nào có ích cho bà con. Số liệu này <b>chỉ SDVICO dùng nội bộ</b>, không
+              gửi cho nhà tài trợ hay bất kỳ ai, không bán dữ liệu. App không theo dõi bà con trên app hay website
+              khác. Bấm vào bài Tài trợ thì trang đích (của nhà tài trợ) áp dụng chính sách của họ.
             </li>
             <li>
               Vị trí GPS chỉ dùng để <b>tự động căn chỉnh bản đồ và cung cấp thông tin gió sóng đúng khu vực</b> —
@@ -134,8 +139,10 @@ export default function QuyenRiengTuPage() {
             </li>
             <li>
               <b>Bài đã xem trên Kairos</b> — khi bà con đã đăng nhập: bài nào hiện trên màn, bài nào bà con
-              mở đọc và đọc bao lâu. Chỉ dùng để <b>xếp dòng tin Kairos cho chính bà con</b> (đưa tin hợp với
-              mình lên trước), giữ <b>90 ngày</b> rồi tự xoá, không chia cho ai khác. Khách chưa đăng nhập: không lưu.
+              mở đọc và đọc bao lâu, có bấm bài Tài trợ không. Dùng để <b>xếp dòng tin Kairos cho chính bà con</b>
+              (đưa tin hợp với mình lên trước), và để <b>SDVICO thống kê nội bộ</b> — bà con quan tâm chủ đề gì,
+              để giới thiệu đúng sản phẩm, dịch vụ khi tư vấn. Bài đã xem giữ <b>90 ngày</b>, lượt bấm Tài trợ giữ
+              <b> 1 năm</b>, rồi tự xoá; không chia cho ai ngoài SDVICO. Khách chưa đăng nhập: không lưu.
             </li>
           </ul>
           <p>
@@ -153,10 +160,14 @@ export default function QuyenRiengTuPage() {
             <li>Tính năng nhắc nhở khi đến hạn giấy tờ, bảo hiểm, bảo dưỡng định kỳ.</li>
             <li>Hỗ trợ kết nối bà con với đội ngũ chăm sóc khách hàng của SDVICO khi có yêu cầu.</li>
             <li>Xếp dòng tin Kairos theo bài bà con hay đọc và theo cảng nhà.</li>
+            <li>
+              Thống kê nội bộ của SDVICO: bà con hay đọc tin gì, có bấm bài Tài trợ không, để tư vấn và giới thiệu
+              sản phẩm, dịch vụ phù hợp (SDVICO có thể gọi điện tư vấn — bà con báo không muốn thì SDVICO ngừng).
+            </li>
           </ul>
           <p>
-            <b>Không sử dụng</b> dùng dữ liệu cho quảng cáo, không xây hồ sơ theo dõi hành
-            vi, không dùng cho mục đích ngoài những điều nêu trên.
+            <b>Không</b> bán hay chia dữ liệu cho bên quảng cáo, không dùng mạng quảng cáo bên ngoài, không theo
+            dõi bà con trên app hay website khác, không dùng cho mục đích ngoài những điều nêu trên.
           </p>
         </Section>
 
@@ -277,7 +288,9 @@ export default function QuyenRiengTuPage() {
             permission, to center the map and fetch marine weather for that spot —
             it is <b>not stored and not linked to your account</b>. We do{" "}
             <b>not</b> track you or sell data. Kairos shows clearly labelled <b>Sponsored</b> posts placed by SDVICO
-            itself (may include affiliate links, e.g. Shopee) — not targeted, no view or click counting. No
+            itself (may include affiliate links, e.g. Shopee). SDVICO counts, per account, which Kairos posts you
+            view or open and which Sponsored posts you tap — used only by SDVICO internally to rank your feed and to
+            recommend relevant products when advising you; never shared with sponsors or third parties. No
             advertising or analytics SDKs are present. Data is shared only with Supabase (auth
             &amp; hosting), SDVICO&apos;s internal CRM, and public weather/marine
             APIs which receive <b>coordinates only</b>. To delete your account,

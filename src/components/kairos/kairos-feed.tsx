@@ -74,7 +74,7 @@ import { emptyHabit, recordRead, setHome, type ChipId, type Habit } from "@/lib/
 import { giongNhau, themThamSo, tuyChonMacDinh, type TuyChon } from "@/lib/kairos/tuy-chon";
 import type { KairosPost } from "@/lib/kairos/types";
 import { rankPage } from "@/lib/kairos/xep-bai";
-import { ghiNhan, guiTinHieu } from "@/lib/kairos/gui-tin-hieu";
+import { ghiNhan, ghiNhanTaiTro, guiTinHieu } from "@/lib/kairos/gui-tin-hieu";
 import { DUNG_TOI_DA_MS, XEM_TOI_THIEU_MS } from "@/lib/kairos/tin-hieu-doc";
 import { NHAN } from "@/lib/labels";
 import { useAuthUser } from "@/lib/use-auth";
@@ -105,6 +105,8 @@ type AnhChup = {
   scrollY: number;
   at: number;
 };
+/** Tiền tố mã thẻ Tài trợ trong bộ quan sát (mã bài là uuid — không trùng). */
+const TT = "tt:";
 const khoaCho = (port: string | undefined, chip: ChipId = "moi", tinh: string | null = null) => `feed:${port ?? ""}:${chip}:${tinh ?? ""}`;
 
 /** Cảng nhà từ sổ tàu (tàu đang chọn, không thì tàu đầu) — KHÔNG từ vị trí máy. */
@@ -466,6 +468,18 @@ export function KairosFeed({
     return () => io.disconnect();
   }, [loadMore, next]);
 
+  /** Một lần dừng trên thẻ (bài hoặc Tài trợ — mã có tiền tố TT) đủ lâu ⇒ một lượt xem. */
+  const ghiXem = useCallback((id: string, ms: number) => {
+    if (ms < XEM_TOI_THIEU_MS) return;
+    if (id.startsWith(TT)) ghiNhanTaiTro(st.current.phone, [{ id: id.slice(TT.length), xem: 1, bam: 0 }]);
+    else ghiNhan(st.current.phone, [{ post_id: id, views: 1, opened: false, dwell_ms: ms }]);
+  }, []);
+  /** Bấm nút thẻ Tài trợ: ghi rồi gửi ngay (bà con sang trang nhà tài trợ, app có thể bị đóng). */
+  const onBamTaiTro = useCallback((adId: string) => {
+    ghiNhanTaiTro(st.current.phone, [{ id: adId, xem: 0, bam: 1 }]);
+    void guiTinHieu(st.current.phone);
+  }, []);
+
   const onRead = useCallback(
     (p: KairosPost) => {
       updateHabit(recordRead(st.current.habit, p.topic));
@@ -476,7 +490,8 @@ export function KairosFeed({
 
   /*  TÍN HIỆU ĐỌC cho cỗ máy phân phối (gui-tin-hieu.ts): thẻ nằm ≥ 50 % trên màn ≥ 1 s = một lần XEM, cộng thời
       gian dừng (trần 2 phút/lần). Gửi lô mỗi 20 s và khi app vào nền; mất sóng thì hàng đợi trong máy giữ lại.
-      Khách chưa đăng nhập: không ghi gì. Không đổi gì trên màn. */
+      Khách chưa đăng nhập: không ghi gì. Không đổi gì trên màn.
+      Thẻ Tài trợ (`data-kairos-tt`) đi cùng bộ quan sát: ≥ 50 % trên màn ≥ 1 s = một lượt XEM (14 §22, đo nội bộ). */
   const khungRef = useRef<HTMLDivElement>(null);
   const dangThay = useRef(new Map<string, number>());
   const ioRef = useRef<IntersectionObserver | null>(null);
@@ -488,14 +503,14 @@ export function KairosFeed({
       const t0 = thay.get(id);
       thay.delete(id);
       if (t0 == null) return;
-      const ms = Math.min(t - t0, DUNG_TOI_DA_MS);
-      if (ms >= XEM_TOI_THIEU_MS) ghiNhan(st.current.phone, [{ post_id: id, views: 1, opened: false, dwell_ms: ms }]);
+      ghiXem(id, Math.min(t - t0, DUNG_TOI_DA_MS));
     };
     const io = new IntersectionObserver(
       (es) => {
         const t = Date.now();
         for (const e of es) {
-          const id = (e.target as HTMLElement).dataset.kairosId;
+          const ds = (e.target as HTMLElement).dataset;
+          const id = ds.kairosId ?? (ds.kairosTt ? TT + ds.kairosTt : undefined);
           if (!id) continue;
           if (e.isIntersecting) {
             if (!thay.has(id)) thay.set(id, t);
@@ -511,7 +526,7 @@ export function KairosFeed({
       const t = Date.now();
       for (const id of [...thay.keys()]) ket(id, t);
     };
-  }, []);
+  }, [ghiXem]);
   useEffect(() => {
     const gui = () => void guiTinHieu(st.current.phone);
     const nen = () => {
@@ -519,8 +534,7 @@ export function KairosFeed({
       const t = Date.now();
       for (const [id, t0] of [...dangThay.current]) {
         dangThay.current.set(id, t);
-        const ms = Math.min(t - t0, DUNG_TOI_DA_MS);
-        if (ms >= XEM_TOI_THIEU_MS) ghiNhan(st.current.phone, [{ post_id: id, views: 1, opened: false, dwell_ms: ms }]);
+        ghiXem(id, Math.min(t - t0, DUNG_TOI_DA_MS));
       }
       gui();
     };
@@ -531,7 +545,7 @@ export function KairosFeed({
       document.removeEventListener("visibilitychange", nen);
       gui();
     };
-  }, []);
+  }, [ghiXem]);
 
   const showNew = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -576,8 +590,8 @@ export function KairosFeed({
   useEffect(() => {
     const io = ioRef.current;
     if (!io) return;
-    khungRef.current?.querySelectorAll<HTMLElement>("[data-kairos-id]").forEach((el) => io.observe(el));
-  }, [shownPosts, shownPinned]);
+    khungRef.current?.querySelectorAll<HTMLElement>("[data-kairos-id],[data-kairos-tt]").forEach((el) => io.observe(el));
+  }, [shownPosts, shownPinned, ads]);
   const retry = () => void loadFirst(chip, habit, true);
 
   // Thẻ đầu Bến: số bài đếm từ bài ĐÃ TẢI/bản lưu đang hiện — không gọi thêm API
@@ -789,7 +803,11 @@ export function KairosFeed({
               <div data-kairos-id={p.id}>
                 <PostCard post={p} now={now} actions={actions} onRead={onRead} benPort={port} />
               </div>
-              {qc != null && <TheTaiTroCard ad={ads[qc]} />}
+              {qc != null && (
+                <div data-kairos-tt={ads[qc].id}>
+                  <TheTaiTroCard ad={ads[qc]} onBam={onBamTaiTro} />
+                </div>
+              )}
             </Fragment>
           );
         })}

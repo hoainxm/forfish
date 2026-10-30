@@ -1,12 +1,13 @@
 // KAIROS — BÀI TÀI TRỢ (quảng cáo tự quản), 14 §20. THUẦN, có test (kairos-quang-cao.test.ts).
 //
 // Anh Long 2026-10-24: "t muốn kairos có ads". Chọn QUẢNG CÁO TỰ QUẢN, không mạng quảng cáo (AdMob/FB Audience):
-//   · không SDK, không mã quảng cáo (IDFA/AAID), không theo dõi — /quyen-rieng-tu + khai báo kho vẫn đúng phần "không
-//     tracking"; chỉ đổi câu "không chứa quảng cáo" ⇒ "có bài Tài trợ gắn nhãn";
+//   · không SDK, không mã quảng cáo (IDFA/AAID), không theo dõi trên app/web khác;
 //   · SDVICO tự soạn ở /quan-tri › Kairos › Tài trợ (đại lý vật tư, link Shopee tiếp thị liên kết…), lưu một ô JSON
 //     `app_config.kairos_ads` — KHÔNG cần migration;
 //   · KHÔNG nhắm theo người đọc (không dùng tỉnh/cảng/thói quen) — mọi người thấy cùng danh sách, xoay vòng theo hạt
 //     xáo của lượt làm mới;
+//   · 2026-10-30 (14 §22, A107 thay A99): CÓ đếm lượt xem/bấm theo SĐT cho đo nội bộ SDVICO (do-khach.ts, 0077) —
+//     vẫn không nhắm, không gửi ai ngoài SDVICO;
 //   · Luật Quảng cáo 75/2025/QH15 (hiệu lực 01/01/2026): quảng cáo phải có dấu hiệu nhận biết ⇒ nhãn "Tài trợ" + tên
 //     nhà tài trợ trên MỌI thẻ, không tắt được.
 // Nhịp: 1 thẻ / 20 bài (sau bài thứ 5 của mỗi khối 20) — tính RIÊNG, không ăn vào 85 % tin biển (phan-phoi).

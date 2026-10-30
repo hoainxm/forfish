@@ -5,6 +5,7 @@ import "server-only";
 // Bảng chưa có (0066 chưa áp) ⇒ đọc trả rỗng + log, ghi báo `unavailable` — dòng tin KHÔNG chết vì phần này.
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { DemTaiTro } from "./do-khach";
 import { tacGiaCua, type ReadSignal } from "./phan-phoi";
 import type { TinHieu } from "./tin-hieu-doc";
 
@@ -60,4 +61,29 @@ export async function ghiTinHieu(phone: string, items: readonly TinHieu[]): Prom
     throw new Error("unavailable");
   }
   return typeof data === "number" ? data : 0;
+}
+
+/**
+ * Ghi gộp lượt xem/bấm thẻ Tài trợ (0077, 14 §22). KHÔNG ném: false ⇒ route trả `tt:false`, app giữ phần đếm gửi
+ * lần sau — tín hiệu đọc đã ghi thì không bị gửi lại (không đếm đôi), và 0077 chưa áp cũng không chặn dòng tin.
+ */
+export async function ghiDemTaiTro(phone: string, items: readonly DemTaiTro[]): Promise<boolean> {
+  if (!items.length) return true;
+  const db = createAdminClient();
+  if (!db) return true;
+  const { error } = await db.rpc("kairos_record_tai_tro", { p_phone: phone, p_items: items });
+  if (error) console.error("[kairos] ghi đếm tài trợ hỏng:", error.code, error.message);
+  return !error;
+}
+
+/** Số liệu Đo (`kairos_do`, 0077) cho /quan-tri. Ném "unavailable" khi DB hỏng / 0077 chưa áp — route trả 503. */
+export async function docDo(days: number): Promise<unknown> {
+  const db = createAdminClient();
+  if (!db) return {};
+  const { data, error } = await db.rpc("kairos_do", { p_days: days });
+  if (error) {
+    console.error("[kairos] đọc số liệu Đo hỏng:", error.code, error.message);
+    throw new Error("unavailable");
+  }
+  return data;
 }
