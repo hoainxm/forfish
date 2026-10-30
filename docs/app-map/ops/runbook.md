@@ -313,7 +313,7 @@ systemctl --user disable --now kairos-thu.timer kairos-kiem.timer   # tạm dừ
 
 ## Thời tiết từ máy nhà — gpu-desktop tải nguồn Open-Meteo (2026-10-30)
 
-> Vì sao: cron `/api/cron/refresh-weather` trên Vercel bắn song song các lưới lớn ⇒ Open-Meteo trả 429 `Minutely API request limit exceeded` ⇒ khung 16 ngày (lưới gió sóng + lớp màu) không ghi được, DB đứng ở bản cũ. Hàm Vercel sống 60 s nên không chờ qua phút được. Máy nhà thì chờ được: `scripts/thoi-tiet-thu.mjs` hỏi `GET /api/thoi-tiet/nhap` danh sách URL (~56), tải LẦN LƯỢT (429 ⇒ chờ 65 s, thử lại tối đa 4 lần), gửi gói nén gzip (~0,6 MB, thô ~9 MB) lên `POST /api/thoi-tiet/nhap`; máy chủ ghép bằng đúng logic cron (`lib/thoi-tiet-lam-moi`, URL không có trong gói ⇒ máy chủ tự gọi mạng, đếm `truot`). Cron Vercel + GitHub Action vẫn chạy song song — hai đường cùng ghi một bảng, bản nào mới hơn thắng theo luật ghép sẵn có.
+> Vì sao: cron `/api/cron/refresh-weather` trên Vercel bắn song song các lưới lớn ⇒ Open-Meteo trả 429 `Minutely API request limit exceeded` ⇒ khung 16 ngày (lưới gió sóng + lớp màu) không ghi được, DB đứng ở bản cũ. Hàm Vercel sống 60 s nên không chờ qua phút được. Máy nhà thì chờ được: `scripts/thoi-tiet-thu.mjs` hỏi `GET /api/thoi-tiet/nhap` danh sách URL (~56), tải LẦN LƯỢT (429 ⇒ chờ 65 s, thử lại tối đa 4 lần), gửi gói nén gzip (đo lượt thật 30/10: thô 22,8 MB ⇒ nén 1,9 MB, dưới trần thân 4,5 MB của Vercel) lên `POST /api/thoi-tiet/nhap`; máy chủ ghép bằng đúng logic cron (`lib/thoi-tiet-lam-moi`, URL không có trong gói ⇒ máy chủ tự gọi mạng, đếm `truot`). Cron Vercel + GitHub Action vẫn chạy song song — hai đường cùng ghi một bảng, bản nào mới hơn thắng theo luật ghép sẵn có.
 
 1. **Khoá**: dùng CHUNG bí mật cron (`app_config.cron_secret`). `~/.config/forlife/thoi-tiet.env` (chmod 600):
    ```
@@ -322,7 +322,7 @@ systemctl --user disable --now kairos-thu.timer kairos-kiem.timer   # tạm dừ
    ```
 2. **Thư mục** `~/.local/forlife/thoi-tiet/`: `lam-moi.sh` (khuôn tau-ais) xuất `scripts/thoi-tiet-thu.mjs` từ origin/main của `C:\Code\ForFish` vào `app-<ref>`, `app` → symlink. Script không import gì ngoài Node.
 3. **Unit** `~/.config/systemd/user/thoi-tiet-thu.{service,timer}`: `OnCalendar=*-*-* 05,11,17,23:50:00` (giờ VN = 22:50/04:50/10:50/16:50 UTC, ngay sau mốc ra bản 04/10/16/22 UTC), `Persistent=true`, `TimeoutStartSec=25min`. Xem: `journalctl --user -u thoi-tiet-thu -n 20`.
-4. **Chạy thử không gửi**: `node ~/.local/forlife/thoi-tiet/app/scripts/thoi-tiet-thu.mjs --thu` ⇒ `[tải] 56/56 URL · 8.7 MB ⇒ nén 0.59 MB`.
+4. **Chạy thử không gửi**: `node ~/.local/forlife/thoi-tiet/app/scripts/thoi-tiet-thu.mjs --thu` ⇒ `[tải] 56/56 URL · 22.8 MB ⇒ nén 1.91 MB`; lượt thật 30/10 17:26 VN: `"grid":{"3":true,"16":true}` · `"mayNha":{"nhan":56,"trung":36,"truot":0}` (20 URL dự phòng cảng không cần dùng).
 
 | Triệu chứng (journal) | Nguyên nhân | Làm gì |
 |---|---|---|
