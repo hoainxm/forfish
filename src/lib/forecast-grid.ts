@@ -495,6 +495,15 @@ function saveGridChecked(
     GIỮ — nó chỉ thêm đường cứu, không xoá gì. */
 
 
+/** Lớp Dòng chảy: nguồn không trả số dòng chảy VÀ máy/snapshot cũng không có bản nào có — khác "không tải được gì".
+    Chỗ vẽ xét `name` để nói đúng nguyên nhân (gió vẫn có, chỉ dòng chảy thiếu). */
+export class GridNoCurrentError extends Error {
+  constructor() {
+    super("chua co so dong chay");
+    this.name = "GridNoCurrentError";
+  }
+}
+
 export async function fetchForecastGrid(
   days = 3,
   opts?: { needCurrent?: boolean },
@@ -552,6 +561,14 @@ export async function fetchForecastGrid(
     // QUA CỬA: nguồn sóng/dòng chảy hỏng thì `g` thiếu hẳn một lớp — không được
     // đè lên bản đầy đủ đã tải ở bờ (xem shouldOverwriteGrid).
     saveGridChecked(id, g);
+    /*  LỚP DÒNG CHẢY MÀ BẢN LIVE KHÔNG CÓ SỐ DÒNG CHẢY = CHƯA XONG (2026-10-30, lỗi thật trên production).
+        Request dòng chảy là request RIÊNG kết bằng `.catch(() => null)` ⇒ nó hỏng mà gió vẫn về thì `g` vẫn
+        "hợp lệ" (đủ ô, đủ times) với `curKmh` toàn null. Trước đây trả `g` luôn ⇒ thanh giờ hiện "Dòng chảy ·
+        Hôm nay", không màu không hạt không một dòng lỗi (chủ dự án chụp 30/10, tài khoản thường). Nay coi như
+        live HỎNG cho lớp này: đi đúng chuỗi lưới an toàn bên dưới (bản trong máy — `saveGridChecked` vừa ghép
+        dòng chảy cũ vào nếu trục giờ trùng —, snapshot, khung dài/ngắn hơn); hết đường thì ném
+        `GridNoCurrentError` để màn hình NÓI là chưa có số dòng chảy, không trắng câm. Lớp gió/sóng không đổi gì. */
+    if (needCur && !gridHasCurrent(g)) throw new GridNoCurrentError();
     return g;
   } catch (err) {
     // LƯỚI AN TOÀN khi live lỗi: bản trong máy trước; nếu chưa có mà là khung
