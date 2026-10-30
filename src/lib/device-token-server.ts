@@ -103,8 +103,9 @@ export function touchToken(tokenHash: string): void {
 }
 
 /**
- * THU HỒI MỌI CHUỖI CŨ của một SĐT — gọi ở ĐÚNG MỘT CHỖ: lượt đăng nhập thành
- * công của máy mới. Đây là toàn bộ luật "1 tài khoản 1 máy".
+ * THU HỒI MỌI CHUỖI CŨ của một SĐT — lượt đăng nhập thành công của máy mới (luật
+ * "1 tài khoản 1 máy") và nút thu hồi của quản trị. KHÔNG dùng cho nút Đăng xuất
+ * của bà con: đó là `revokeTokenHash` (rà 28/10 A4 — nhân sự nhiều máy).
  *
  * Trả số hàng vừa thu hồi (0 = máy đầu tiên của tài khoản này).
  *
@@ -129,5 +130,30 @@ export async function revokeTokensOfPhone(
     return { ok: false, revoked: 0 };
   }
   for (const r of data ?? []) lastTouch.delete((r as { token_hash: string }).token_hash);
+  return { ok: true, revoked: data?.length ?? 0 };
+}
+
+/**
+ * THU HỒI ĐÚNG MỘT CHUỖI — nút Đăng xuất trên máy đang cầm nó (rà 28/10 A4). Trước đây
+ * Đăng xuất gọi `revokeTokensOfPhone` ⇒ quản trị đăng xuất web là điện thoại cũng văng.
+ * Khách chỉ có một chuỗi sống (0028) nên với khách hai cách cho cùng kết quả.
+ */
+export async function revokeTokenHash(
+  tokenHash: string,
+  reason: "user_signout",
+): Promise<{ ok: boolean; revoked: number }> {
+  const admin = createAdminClient();
+  if (!admin) return { ok: false, revoked: 0 };
+  const { data, error } = await admin
+    .from("device_tokens")
+    .update({ revoked_at: new Date().toISOString(), revoked_reason: reason })
+    .eq("token_hash", tokenHash)
+    .is("revoked_at", null)
+    .select("token_hash");
+  if (error) {
+    console.error("[device-token] thu hồi HỎNG:", error.code, error.message);
+    return { ok: false, revoked: 0 };
+  }
+  lastTouch.delete(tokenHash);
   return { ok: true, revoked: data?.length ?? 0 };
 }

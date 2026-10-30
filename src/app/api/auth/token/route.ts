@@ -12,7 +12,7 @@
 //   3. signOut()                   → BỎ HẲN phiên Supabase
 // Từ bước 3 trở đi máy không còn cookie, không còn JWT, không còn gì tự hết hạn.
 //
-// DELETE = bà con tự bấm Đăng xuất → thu hồi chuỗi của chính mình.
+// DELETE = bà con tự bấm Đăng xuất → thu hồi ĐÚNG chuỗi của máy đang bấm (máy khác của nhân sự vẫn sống).
 //
 // ⚠️ OFFLINE: cả hai đường đều CHỈ chạy lúc bà con chủ động đăng nhập/đăng xuất
 // ở nơi có sóng. Không có nhịp nền nào gọi vào đây, không có gì chạy giữa biển.
@@ -23,7 +23,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePlatform } from "@/lib/app-usage";
 import { isValidDeviceId } from "@/lib/device-id";
 import { newDeviceToken, hashDeviceToken } from "@/lib/device-token";
-import { revokeTokensOfPhone, tokenIdentity } from "@/lib/device-token-server";
+import { revokeTokenHash, revokeTokensOfPhone, tokenIdentity } from "@/lib/device-token-server";
 import {
   authIdentity,
   isPhoneIdentity,
@@ -32,7 +32,6 @@ import {
   tokenTtlMs,
 } from "@/lib/admin";
 import { loadActor } from "@/lib/staff-store";
-import { isMissingColumnError } from "@/lib/staff-permissions";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -137,13 +136,12 @@ export async function POST(req: Request) {
       ...(deviceId ? { device_id: deviceId } : {}),
       ...(platform ? { platform } : {}),
     };
-    let res = await admin
+    /*  KHÔNG còn nhánh lùi "thiếu cột expires_at ⇒ cấp chuỗi không hạn" (rà 28/10 A6): prod đã có cột
+        (kiểm schema 30/10). Thiếu cột ⇒ insert lỗi ⇒ 503 issue_failed — thà không cấp còn hơn cấp chuỗi
+        nhân sự/test sống mãi. */
+    const res = await admin
       .from("device_tokens")
       .insert(expiresAt ? { ...row, expires_at: expiresAt } : row);
-    // 0056 chưa apply (cột expires_at chưa có) → cấp như cũ, không chặn đăng nhập
-    if (expiresAt && isMissingColumnError(res.error)) {
-      res = await admin.from("device_tokens").insert(row);
-    }
     error = res.error;
     if (!error || error.code !== "23505") break;
   }
@@ -194,6 +192,9 @@ export async function DELETE(req: Request) {
     }
     return NextResponse.json({ ok: true, revoked: 0 });
   }
-  const r = await revokeTokensOfPhone(who.phone, "user_signout");
-  return NextResponse.json({ ok: r.ok, revoked: r.revoked });
+  /*  Chỉ chuỗi đang cầm (rà 28/10 A4): nhân sự nhiều máy (allow_multi) đăng xuất web không làm văng điện
+      thoại. Thu hồi mọi máy là nút riêng ở /quan-tri (admin/accounts, reason "admin"). */
+  const r = await revokeTokenHash(who.tokenHash, "user_signout");
+  if (!r.ok) return NextResponse.json({ ok: false, code: "unavailable" }, { status: 503 });
+  return NextResponse.json({ ok: true, revoked: r.revoked });
 }

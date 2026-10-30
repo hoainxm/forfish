@@ -54,7 +54,7 @@ Một tài khoản đăng nhập `/quan-tri` bằng **tên** (vd `admin`), khôn
 
 ## Thứ tự triển khai — ĐỪNG đảo
 
-1. **Deploy code trước.** Code chạy được khi 0056 CHƯA apply (vai đọc từ `customers.role`, mọi người `real`, chuỗi không hạn) — không ai mất quyền.
+1. **Deploy code trước.** Code chạy được khi 0056 CHƯA apply (vai đọc từ `customers.role`, mọi người `real`) — không ai mất quyền. ⚠️ Từ 2026-10-30 (rà 28/10 A6) KHÔNG còn nhánh cấp chuỗi không hạn khi thiếu cột `device_tokens.expires_at`: nhân sự/test/demo đăng nhập sẽ 503 tới khi apply. Prod đã có cột (kiểm 30/10); chỉ áp cho môi trường mới.
 2. **Apply `0056_rbac_staff_accounts.sql`** lên `znzgugvfhgmiszqgjulk` (🔴 chủ dự án tự apply). Kiểm sau apply:
    - `staff_accounts` có đủ số hàng = số `customers.role in ('admin','manager')`; RLS bật, 0 policy, anon/authenticated không có quyền bảng.
    - `customers.account_kind` mọi hàng = `real`; `device_tokens.expires_at` mọi hàng NULL (chuỗi đang sống không bị ảnh hưởng).

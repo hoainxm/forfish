@@ -2,7 +2,7 @@
 
 Đánh giá kiến trúc, dữ liệu/offline, bảo mật, thuật toán và trải nghiệm. Đây là báo cáo đề xuất, chưa triển khai sửa app.
 
-> **Trạng thái 30/10/2026** (đối chiếu main `df371968`): **ĐÃ SỬA** A1 · A9 · A10 (02-architecture re-verified 2026-10-30n). **A6 không xảy ra ở production**: `device_tokens.expires_at` đã có (kiểm schema chỉ đọc 30/10) — nhánh lùi cấp token không hạn chỉ còn là code chết, gỡ cần chủ dự án duyệt (Auth 🔴). **CHỜ CHỦ DỰ ÁN CHỐT**: A4 · A5 · A6-gỡ nhánh (Auth 🔴) · A2 · A11 (đổi kết quả dẫn đường) · A3 (nghiệp vụ nền tháng) · A7 · A8 (hạ tầng/quản trị).
+> **Trạng thái 30/10/2026**: **ĐÃ SỬA** A1 · A9 · A10 (02-architecture re-verified 2026-10-30n) · A4 · A5 · A6 (chủ dự án duyệt, 02 re-verified 2026-10-30o). A4: Đăng xuất chỉ thu hồi chuỗi đang cầm. A5: SLA thu hồi ở cổng dữ liệu = 60 giây (đệm danh tính per-instance; hạng vẫn đệm 5 phút). A6: prod đã có `expires_at`; nhánh lùi không hạn đã gỡ. **CHỜ CHỦ DỰ ÁN CHỐT**: A2 · A11 (đổi kết quả dẫn đường) · A3 (nghiệp vụ nền tháng) · A7 · A8 (hạ tầng/quản trị).
 
 ## Phạm vi và bằng chứng
 

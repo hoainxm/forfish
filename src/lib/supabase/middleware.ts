@@ -19,9 +19,12 @@ import { duocXemAis } from "@/lib/tau-ais/quyen";
  * mỗi request tính lại nguồn ngoài 14–30s.
  *
  * Nhận diện theo THỨ TỰ:
- *   1. chuỗi cứng trong header (đường chính từ 2026-08-02) — CÓ ĐỆM 10 phút
+ *   1. chuỗi cứng trong header (đường chính từ 2026-08-02) — CÓ ĐỆM 60 giây
  *      theo chuỗi, vì ô ảnh bản đồ gọi hàng trăm lượt một phiên; không đệm là
- *      mỗi ô một lượt tra DB (đúng điều matcher cũ cố tránh).
+ *      mỗi ô một lượt tra DB (đúng điều matcher cũ cố tránh). 60 giây = HẠN THU
+ *      HỒI (rà 28/10 A5): chuỗi bị thu hồi/hết hạn còn qua cổng dữ liệu tối đa
+ *      1 phút trên instance đã đệm (trước là 10 phút). Đệm theo instance nên
+ *      không xoá chéo được — trần ngắn là cách duy nhất không thêm lượt tra DB.
  *   2. phiên Supabase cũ (đường lùi một nhịp phát hành — xem lib/api-identity.ts)
  *
  * ⚠️ KHÔNG BAO GIỜ trả 401 vì hạ tầng. Không tra được hạng → 503. Trả 401 lúc
@@ -127,7 +130,8 @@ async function gateByPhone(
 }
 
 // ── ĐỆM trong bộ nhớ instance (Vercel nhiều instance, mỗi cái đệm riêng) ──
-const IDENTITY_TTL = 10 * 60 * 1000;
+// Hạn thu hồi chuỗi ở cổng dữ liệu (rà 28/10 A5). Một máy đang lướt bản đồ ⇒ ~1 lượt tra/phút/instance.
+export const IDENTITY_TTL = 60 * 1000;
 const TIER_TTL = 5 * 60 * 1000;
 const CACHE_MAX = 5000;
 const identityCache = new Map<string, { phone: string; exp: number }>();
