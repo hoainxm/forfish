@@ -228,3 +228,25 @@ describe("thu-core — gói gửi + hàng đợi", () => {
     expect(gopHangDoi("rác", [])).toEqual([]);
   });
 });
+
+describe("Gemma qua Ollama (đổi 2026-10-30)", async () => {
+  const { bodyOllama, docKetQuaOllama, GEMMA_LUI, GEMMA_MAC_DINH } = await import("@/lib/kairos/thu-core.mjs");
+  it("thân gọi: không stream, nhiệt thấp, giữ nóng giữa các lượt", () => {
+    const b = bodyOllama(GEMMA_MAC_DINH, "xin chào");
+    expect(b).toMatchObject({ model: "gemma4:e4b", prompt: "xin chào", stream: false, keep_alive: "30m" });
+    expect(b.options.temperature).toBeLessThanOrEqual(0.3);
+    expect(GEMMA_LUI).toBe("gemma4:e2b");
+  });
+  it("trả lời thường ⇒ chữ", () => {
+    expect(docKetQuaOllama(200, { response: '[{"i":0}]', done: true })).toEqual({ ok: true, text: '[{"i":0}]' });
+  });
+  it("thiếu mô hình ⇒ model_khong_ho_tro (để lùi e2b)", () => {
+    expect(docKetQuaOllama(404, { error: "model 'gemma4:e4b' not found, try pulling it first" }).ok).toBe(false);
+    expect(docKetQuaOllama(404, { error: "model 'gemma4:e4b' not found" })).toMatchObject({ dung: "model_khong_ho_tro" });
+  });
+  it("lỗi máy / thân rỗng / JSON hỏng ⇒ lỗi, không bịa chữ", () => {
+    expect(docKetQuaOllama(500, { error: "CUDA out of memory" })).toMatchObject({ ok: false, dung: "loi" });
+    expect(docKetQuaOllama(200, { response: "   " })).toMatchObject({ ok: false, chiTiet: "rong" });
+    expect(docKetQuaOllama(502, null)).toMatchObject({ ok: false, chiTiet: "HTTP 502" });
+  });
+});

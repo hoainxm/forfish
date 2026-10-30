@@ -42,7 +42,7 @@ import { tmpdir } from "node:os";
 import { tagArea } from "../src/lib/kairos/khu-vuc.mjs";
 import { topicFor } from "../src/lib/kairos/chu-de.mjs";
 import { ghiGanDay, locCungSuKien } from "../src/lib/kairos/cung-su-kien.mjs";
-import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiClaude, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiAI, log } from "./kairos-chung.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RSS_HET_GIO_MS = 15_000;
@@ -321,9 +321,9 @@ async function main() {
   const cacLo = [...chiaLo(canTomTat.filter((b) => !laGov(b))).map((lo) => ({ lo, prompt: promptTomTat(lo) })), ...chiaLo(canTomTat.filter(laGov)).map((lo) => ({ lo, prompt: promptTomTatChinhSach(lo) }))];
   for (const { lo, prompt } of cacLo) {
     if (dry || dung) break;
-    const r = await goiClaude(c, { prompt, timeoutMs: CLAUDE_HET_GIO_MS, ten: "thu" });
+    const r = await goiAI(c, { prompt, timeoutMs: CLAUDE_HET_GIO_MS, ten: "thu" });
     if (!r.ok) {
-      log(`[claude] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — lô này dùng mô tả RSS`);
+      log(`[AI] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — lô này dùng mô tả RSS`);
       if (DUNG_CA_LUOT.has(r.dung)) dung = r.dung;
       continue;
     }
@@ -335,7 +335,7 @@ async function main() {
       ai++;
     }
   }
-  if (dung) log(`[claude] dừng gọi cả lượt: ${dung}`);
+  if (dung) log(`[AI] dừng gọi cả lượt: ${dung}`);
   log(`[tóm tắt] AI ${ai} · mô tả RSS ${chon.length - ai}`);
 
   if (dry) {

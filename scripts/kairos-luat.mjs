@@ -16,7 +16,7 @@
 import path from "node:path";
 import { layJson } from "../src/lib/kairos/thu-core.mjs";
 import { MUC, chonMuc, ghepBai, loiBaiLuat, loiGiaiThich, promptLuat, tenMuc } from "../src/lib/kairos/tuyen-truyen-luat.mjs";
-import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiClaude, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiAI, log } from "./kairos-chung.mjs";
 
 const args = process.argv.slice(2);
 const dry = args.some((a) => a === "--thu" || a === "--dry");
@@ -44,15 +44,15 @@ async function main() {
 
   let giaiThich = muc.mau;
   let nguon = "mau";
-  const r = await goiClaude(c, { prompt: promptLuat(muc), timeoutMs: 90_000, ten: "luat" });
+  const r = await goiAI(c, { prompt: promptLuat(muc), timeoutMs: 90_000, ten: "luat" });
   if (r.ok) {
     const viet = layJson(r.text)?.giaiThich;
     const loi = loiGiaiThich(viet, muc);
     if (!loi) {
       giaiThich = String(viet).trim();
       nguon = "claude";
-    } else log(`[claude] giải thích không qua kiểm (${loi}) — dùng bản mẫu`);
-  } else log(`[claude] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — dùng bản mẫu`);
+    } else log(`[AI] giải thích không qua kiểm (${loi}) — dùng bản mẫu`);
+  } else log(`[AI] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — dùng bản mẫu`);
 
   const bai = ghepBai(giaiThich, muc);
   const loiCa = loiBaiLuat(bai, muc);

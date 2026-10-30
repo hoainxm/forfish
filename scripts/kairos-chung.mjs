@@ -1,7 +1,8 @@
 // KAIROS — PHẦN CHUNG CÓ TÁC DỤNG PHỤ của hai việc chạy trên gpu-desktop:
 //   scripts/kairos-thu.mjs  (thu tin báo, 15 phút/lần)  ·  scripts/kairos-kiem.mjs (kiểm duyệt, 5 phút/lần)
-// Đọc env NGOÀI repo, gọi `claude -p` (gói Claude của anh Long, KHÔNG API key), gọi API có đồng
-// hồ, ghi file trạng thái nguyên tử. Phần thuần nằm ở src/lib/kairos/thu-core.mjs (có test).
+// Đọc env NGOÀI repo, gọi mô hình (MẶC ĐỊNH Gemma qua Ollama trong máy — đổi 2026-10-30 sau khi
+// `claude -p` hết hạn mức làm cả dòng tin đứng 10 giờ; `KAIROS_LLM=claude` để quay lại gói Claude),
+// gọi API có đồng hồ, ghi file trạng thái nguyên tử. Phần thuần nằm ở src/lib/kairos/thu-core.mjs (có test).
 //
 // Khuôn gọi CLI chép tối thiểu từ AI-Assistant/train/thay/opus.mjs (goiCli): cấm mọi công cụ,
 // thư mục làm việc RỖNG 0700, prompt qua stdin, --max-turns 1, đồng hồ SIGTERM ⇒ SIGKILL.
@@ -10,7 +11,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { cliArgs, docKetQuaCli } from "../src/lib/kairos/thu-core.mjs";
+import { bodyOllama, cliArgs, docKetQuaCli, docKetQuaOllama, GEMMA_LUI, GEMMA_MAC_DINH } from "../src/lib/kairos/thu-core.mjs";
 
 export const MODEL_MAC_DINH = "claude-haiku-5-5";
 /** CLI cũ không nhận id đầy đủ ⇒ lùi về bí danh. */
@@ -44,6 +45,10 @@ export function cauHinh(env = process.env) {
     stateDir: get("KAIROS_STATE_DIR") || path.join(homedir(), ".local", "forlife", "kairos"),
     model: get("KAIROS_MODEL") || MODEL_MAC_DINH,
     claudeBin: get("CLAUDE_BIN"),
+    /** "gemma" (mặc định) | "claude" */
+    llm: get("KAIROS_LLM") === "claude" ? "claude" : "gemma",
+    gemmaModel: get("KAIROS_GEMMA_MODEL") || GEMMA_MAC_DINH,
+    ollamaUrl: (get("OLLAMA_URL") || "http://127.0.0.1:11434").replace(/\/+$/, ""),
   };
 }
 
@@ -97,11 +102,8 @@ function goiCliMotLan({ bin, prompt, model, timeoutMs, cwd }) {
   });
 }
 
-/**
- * Gọi `claude -p` một lần; CLI báo model lạ ⇒ thử lại MỘT lần bằng bí danh `haiku`.
- * @returns {Promise<{ok: true, text: string, model: string} | {ok: false, dung: string, chiTiet?: string}>}
- */
-export async function goiClaude(c, { prompt, timeoutMs = 120_000, ten = "goi" }) {
+/** Gọi `claude -p` một lần; CLI báo model lạ ⇒ thử lại MỘT lần bằng bí danh `haiku`. */
+async function goiClaude(c, { prompt, timeoutMs, ten }) {
   const bin = timClaude(c);
   if (!bin) return { ok: false, dung: "loi", chiTiet: "khong_co_cli" };
   const cwd = thuMucRong(c.stateDir, ten);
@@ -111,6 +113,44 @@ export async function goiClaude(c, { prompt, timeoutMs = 120_000, ten = "goi" })
     return r.ok ? { ...r, model: MODEL_LUI } : r;
   }
   return r.ok ? { ...r, model: c.model } : r;
+}
+
+async function goiOllamaMotLan(c, model, prompt, timeoutMs) {
+  try {
+    const r = await fetch(`${c.ollamaUrl}/api/generate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(bodyOllama(model, prompt)),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return docKetQuaOllama(r.status, await r.json().catch(() => null));
+  } catch (e) {
+    if (e?.name === "TimeoutError") return { ok: false, dung: "loi", chiTiet: "het_gio" };
+    return { ok: false, dung: "ollama_khong_chay", chiTiet: String(e?.cause?.code ?? e?.message ?? e).slice(0, 200) };
+  }
+}
+
+/** Gemma qua Ollama; không có mô hình đã chọn ⇒ lùi MỘT lần về GEMMA_LUI. */
+async function goiGemma(c, { prompt, timeoutMs }) {
+  let r = await goiOllamaMotLan(c, c.gemmaModel, prompt, timeoutMs);
+  if (!r.ok && r.dung === "model_khong_ho_tro" && c.gemmaModel !== GEMMA_LUI) {
+    r = await goiOllamaMotLan(c, GEMMA_LUI, prompt, timeoutMs);
+    return r.ok ? { ...r, model: GEMMA_LUI } : r;
+  }
+  return r.ok ? { ...r, model: c.gemmaModel } : r;
+}
+
+/**
+ * Gọi mô hình một lần — Gemma (mặc định) hoặc Claude (`KAIROS_LLM=claude`). Ollama không chạy
+ * ⇒ thử gói Claude một lần thay vì đứng cả lượt.
+ * @returns {Promise<{ok: true, text: string, model: string} | {ok: false, dung: string, chiTiet?: string}>}
+ */
+export async function goiAI(c, { prompt, timeoutMs = 120_000, ten = "goi" }) {
+  if (c.llm === "claude") return goiClaude(c, { prompt, timeoutMs, ten });
+  const r = await goiGemma(c, { prompt, timeoutMs });
+  if (r.ok || r.dung !== "ollama_khong_chay") return r;
+  log(`[gemma] Ollama không trả lời ở ${c.ollamaUrl} (${r.chiTiet}) — thử Claude`);
+  return goiClaude(c, { prompt, timeoutMs, ten });
 }
 
 /** Gọi API Kairos có khoá + đồng hồ. Không ném: trả { ok, status, json } hoặc { ok:false, status:0, error }. */

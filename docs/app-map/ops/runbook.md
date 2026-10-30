@@ -3,7 +3,8 @@
 > Load khi: cần deploy / build lỗi / regenerate asset tĩnh (icon, lưới độ sâu, isobath) / kiểm tra sức khỏe app trước khi push.
 
 covers: scripts/train/run.mjs, scripts/kairos-luat.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
-last_verified: 2026-10-29
+last_verified: 2026-10-30
+<!-- re-verified: 2026-10-30 — Kairos đổi sang Gemma qua Ollama (mục env + bước kiểm tay); log `[AI]` thay `[claude]`, thêm `[gemma] Ollama không trả lời … — thử Claude`. -->
 <!-- re-verified: 2026-10-29 — đọc `scripts/e2e-video-export.mjs` + `package.json` (e2e:export) + `playwright.config.ts` (outputDir, viewport 402×874, cổng 3100/3101) + `tests/e2e/{demo,auth}`: lệnh và bảng video khớp; bổ sung mục Video — xuất riêng một video bằng `npm run e2e:export -- 06`, tên file .mp4 theo số (`1-thoi-tiet-bien.mp4`…), thông số ffmpeg (3× lanczos = 1206×2622, 30 khung/giây, CRF 20, faststart, bỏ tiếng), vì sao không quay thẳng ở 3×, và hai lỗi dừng sớm (chưa quay / thiếu ffmpeg). -->
 <!-- re-verified: 2026-10-29 — kairos-thu sau 2026-10-19: nguồn `kieu=gov` (Bộ NN&MT + 15 tỉnh/thành, cờ `docTruoc` đọc trang chi tiết trước khi lọc), bỏ văn bản trước mốc `CHINH_SACH_TU_ISO` 01/01/2026, luôn gửi `attachments` (sửa 503); kairos-kiem thêm đối chiếu danh sách tên miền lừa đảo (ghi vào bảng timer). Lệnh `--thu` ở mục 2 vẫn đúng. -->
 <!-- re-verified: 2026-10-26e — thêm timer kairos-luat (2 bài/ngày, scripts/kairos-luat.mjs — Sen Biển tuyên truyền luật NĐ 246/2026, 14 §21e); lam-moi.sh glob scripts/kairos-* + src/lib/kairos nên tự có file mới. -->
@@ -197,7 +198,10 @@ KAIROS_INGEST_KEY=<cùng giá trị ô "Khoá nhập tin Kairos" ở /quan-tri �
 KAIROS_API_BASE=https://<miền app, không có / cuối>
 # tuỳ chọn:
 # KAIROS_STATE_DIR=/home/long/.local/forlife/kairos   # sổ chặn trùng + hàng đợi gửi lại + thư mục rỗng cho claude
-# KAIROS_MODEL=claude-haiku-5-5                       # CLI không nhận ⇒ tự lùi "haiku"
+# KAIROS_LLM=gemma                                     # mặc định (2026-10-30); "claude" = quay lại claude -p
+# KAIROS_GEMMA_MODEL=gemma4:e4b                         # không có trong Ollama ⇒ tự lùi gemma4:e2b
+# OLLAMA_URL=http://127.0.0.1:11434                     # Ollama của AI Assistant; không trả lời ⇒ thử claude -p
+# KAIROS_MODEL=claude-haiku-5-5                       # chỉ dùng khi đi đường Claude; CLI không nhận ⇒ tự lùi "haiku"
 # CLAUDE_BIN=/home/long/.local/bin/claude
 ```
 
@@ -207,7 +211,8 @@ Khoá: /quan-tri › Hệ thống › **Khoá nhập tin Kairos** › Tạo ng�
 
 ```bash
 node ~/ForFish/scripts/kairos-thu.mjs --thu              # đọc RSS thật, in 15 bài đầu; KHÔNG gọi claude, KHÔNG gửi, KHÔNG ghi sổ
-echo 'Trả lời đúng một chữ: ok' | claude -p --model claude-haiku-5-5 --output-format json --max-turns 1   # gói Claude còn đăng nhập?
+curl -s http://127.0.0.1:11434/api/generate -d '{"model":"gemma4:e4b","prompt":"Trả lời đúng một chữ: ok","stream":false}'   # Gemma (mặc định từ 2026-10-30) trả lời được không?
+echo 'Trả lời đúng một chữ: ok' | claude -p --model claude-haiku-5-5 --output-format json --max-turns 1   # chỉ khi KAIROS_LLM=claude
 node ~/ForFish/scripts/kairos-kiem.mjs --thu             # cần khoá: đọc hàng chờ, in prompt lô đầu, KHÔNG gửi
 ```
 

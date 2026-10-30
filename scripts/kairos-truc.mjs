@@ -10,7 +10,7 @@
 
 import { layJson } from "../src/lib/kairos/thu-core.mjs";
 import { docKetQuaTuVan, promptTuVan } from "../src/lib/sdvico/tu-van.mjs";
-import { canCauHinh, cauHinh, goiApi, goiClaude, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, goiApi, goiAI, log } from "./kairos-chung.mjs";
 
 const dry = process.argv.slice(2).some((a) => a === "--thu" || a === "--dry");
 
@@ -29,7 +29,7 @@ async function main() {
   }
   const viec = g.json.viec ?? [];
   if (!viec.length) return 0;
-  const r = await goiClaude(c, { prompt: promptTuVan(viec, g.json.hotline ?? "0939 243 222"), timeoutMs: 120_000, ten: "truc" });
+  const r = await goiAI(c, { prompt: promptTuVan(viec, g.json.hotline ?? "0939 243 222"), timeoutMs: 120_000, ten: "truc" });
   if (!r.ok) {
     log(`[trực] claude hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — hội thoại nằm chờ lượt sau`);
     return 1;

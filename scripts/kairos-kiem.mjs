@@ -18,7 +18,7 @@
 
 import { chiaLo, layJson } from "../src/lib/kairos/thu-core.mjs";
 import { docQuyetDinh, goiQuyetDinh, kiemCung, LO_KIEM, LUAT_PHIEN_BAN, mucTuHangCho, promptKiem } from "../src/lib/kairos/luat-kiem-duyet.mjs";
-import { canCauHinh, cauHinh, goiApi, goiClaude, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, goiApi, goiAI, log } from "./kairos-chung.mjs";
 import { docDanhSach } from "../src/lib/kairos/link-doc.mjs";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -138,19 +138,19 @@ async function chamHangCho() {
   let dung = null;
   for (const lo of chiaLo(canChamMay, LO_KIEM)) {
     if (dung) break;
-    const r = await goiClaude(c, { prompt: promptKiem(lo), timeoutMs: CLAUDE_HET_GIO_MS, ten: "kiem" });
+    const r = await goiAI(c, { prompt: promptKiem(lo), timeoutMs: CLAUDE_HET_GIO_MS, ten: "kiem" });
     if (!r.ok) {
-      log(`[claude] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — ${lo.length} mục nằm lại hàng chờ`);
+      log(`[AI] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — ${lo.length} mục nằm lại hàng chờ`);
       if (DUNG_CA_LUOT.has(r.dung)) dung = r.dung;
       ok = false;
       continue;
     }
     model = r.model;
     const ds = docQuyetDinh(layJson(r.text), lo);
-    if (ds.length < lo.length) log(`[claude] ${lo.length - ds.length} mục không có kết luận hợp lệ — lượt sau chấm lại`);
+    if (ds.length < lo.length) log(`[AI] ${lo.length - ds.length} mục không có kết luận hợp lệ — lượt sau chấm lại`);
     ai.push(...ds);
   }
-  if (dung) log(`[claude] dừng gọi cả lượt: ${dung}`);
+  if (dung) log(`[AI] dừng gọi cả lượt: ${dung}`);
   const dem = { dat: 0, nghi: 0, chan: 0 };
   for (const d of ai) dem[d.verdict]++;
   log(`[kết luận] đạt ${dem.dat} · nghi ${dem.nghi} · chặn ${dem.chan}`);
