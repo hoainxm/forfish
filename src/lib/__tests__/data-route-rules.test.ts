@@ -133,6 +133,7 @@ describe("matcher middleware.ts ↔ DATA_ROUTE_MATCHER ↔ route thật", () => 
       "dev", // kho file máy dev (isDevFileMode: MARKET_STORE=file, không Vercel, không production) — prod không vào
       "sen-bien", // máy GỬI mẫu câu nói lên (POST), không trả dữ liệu — identityFromRequest + rate limit trong route
       "kairos", // tin + mạng xã hội: KHÁCH ĐỌC ĐƯỢC (14 §2) nên không qua dataGate 401; đọc qua readerOf (trần 600/10 phút theo SĐT, khách theo IP); ghi tự gác identityFromRequest + trần theo SĐT; /nhap + /kiem gác khoá máy GPU
+      "thoi-tiet", // /nhap: máy GPU gửi gói nguồn Open-Meteo — gác bí mật cron trong route, không trả dữ liệu cho app
     ]);
     const top = readdirSync(join(ROOT, "src", "app", "api"), { withFileTypes: true })
       .filter((d) => d.isDirectory())

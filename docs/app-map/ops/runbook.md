@@ -2,7 +2,7 @@
 
 > Load khi: cần deploy / build lỗi / regenerate asset tĩnh (icon, lưới độ sâu, isobath) / kiểm tra sức khỏe app trước khi push.
 
-covers: scripts/train/run.mjs, scripts/kairos-luat.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
+covers: scripts/train/run.mjs, scripts/kairos-luat.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs, scripts/thoi-tiet-thu.mjs
 last_verified: 2026-10-30
 <!-- re-verified: 2026-10-30 — Kairos đổi sang Gemma qua Ollama (mục env + bước kiểm tay); log `[AI]` thay `[claude]`, thêm `[gemma] Ollama không trả lời … — thử Claude`. -->
 <!-- re-verified: 2026-10-29 — đọc `scripts/e2e-video-export.mjs` + `package.json` (e2e:export) + `playwright.config.ts` (outputDir, viewport 402×874, cổng 3100/3101) + `tests/e2e/{demo,auth}`: lệnh và bảng video khớp; bổ sung mục Video — xuất riêng một video bằng `npm run e2e:export -- 06`, tên file .mp4 theo số (`1-thoi-tiet-bien.mp4`…), thông số ffmpeg (3× lanczos = 1206×2622, 30 khung/giây, CRF 20, faststart, bỏ tiếng), vì sao không quay thẳng ở 3×, và hai lỗi dừng sớm (chưa quay / thiếu ffmpeg). -->
@@ -310,6 +310,26 @@ systemctl --user disable --now kairos-thu.timer kairos-kiem.timer   # tạm dừ
 | `gửi hỏng: HTTP 503 not_configured` | app chưa có khoá (DB lẫn env) | đặt khoá ở /quan-tri hoặc env Vercel |
 | `không có tàu nào — nguồn đổi định dạng?` | trang nguồn đổi URL/định dạng ô | chạy `--thu --anh`, soi `man-hinh.png`, sửa `TRANG_MO`/URL ô trong script |
 | Lớp trong app nói "bản lúc" cũ nhiều giờ | timer chết / lượt nào cũng hỏng | `systemctl --user status tau-ais-thu.timer`, journal |
+
+## Thời tiết từ máy nhà — gpu-desktop tải nguồn Open-Meteo (2026-10-30)
+
+> Vì sao: cron `/api/cron/refresh-weather` trên Vercel bắn song song các lưới lớn ⇒ Open-Meteo trả 429 `Minutely API request limit exceeded` ⇒ khung 16 ngày (lưới gió sóng + lớp màu) không ghi được, DB đứng ở bản cũ. Hàm Vercel sống 60 s nên không chờ qua phút được. Máy nhà thì chờ được: `scripts/thoi-tiet-thu.mjs` hỏi `GET /api/thoi-tiet/nhap` danh sách URL (~56), tải LẦN LƯỢT (429 ⇒ chờ 65 s, thử lại tối đa 4 lần), gửi gói nén gzip (~0,6 MB, thô ~9 MB) lên `POST /api/thoi-tiet/nhap`; máy chủ ghép bằng đúng logic cron (`lib/thoi-tiet-lam-moi`, URL không có trong gói ⇒ máy chủ tự gọi mạng, đếm `truot`). Cron Vercel + GitHub Action vẫn chạy song song — hai đường cùng ghi một bảng, bản nào mới hơn thắng theo luật ghép sẵn có.
+
+1. **Khoá**: dùng CHUNG bí mật cron (`app_config.cron_secret`). `~/.config/forlife/thoi-tiet.env` (chmod 600):
+   ```
+   THOI_TIET_API_BASE=https://forfish.vercel.app
+   CRON_SECRET=<app_config.cron_secret>
+   ```
+2. **Thư mục** `~/.local/forlife/thoi-tiet/`: `lam-moi.sh` (khuôn tau-ais) xuất `scripts/thoi-tiet-thu.mjs` từ origin/main của `C:\Code\ForFish` vào `app-<ref>`, `app` → symlink. Script không import gì ngoài Node.
+3. **Unit** `~/.config/systemd/user/thoi-tiet-thu.{service,timer}`: `OnCalendar=*-*-* 05,11,17,23:50:00` (giờ VN = 22:50/04:50/10:50/16:50 UTC, ngay sau mốc ra bản 04/10/16/22 UTC), `Persistent=true`, `TimeoutStartSec=25min`. Xem: `journalctl --user -u thoi-tiet-thu -n 20`.
+4. **Chạy thử không gửi**: `node ~/.local/forlife/thoi-tiet/app/scripts/thoi-tiet-thu.mjs --thu` ⇒ `[tải] 56/56 URL · 8.7 MB ⇒ nén 0.59 MB`.
+
+| Triệu chứng (journal) | Nguyên nhân | Làm gì |
+|---|---|---|
+| `không lấy được danh sách URL: 401` | CRON_SECRET lệch | dán lại từ app_config |
+| `[tải] 429 …` lặp nhiều lần | trần phút/ngày Open-Meteo (dùng chung IP nhà) | tự chờ; cả lượt hỏng thì lượt sau |
+| `[gửi] 200 … "truot":N` với N lớn | máy chủ đổi URL sau khi máy nhà lấy danh sách (deploy giữa lượt) | lượt sau tự khớp |
+| `[gửi] 200 … "grid":{"16":false}` | Open-Meteo không trả khung 16 ngày cả ở máy nhà | xem `[tải]` trong cùng lượt |
 
 ## Escalation — KHÔNG được tự làm
 
