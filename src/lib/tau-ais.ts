@@ -34,6 +34,12 @@ export interface TauAis {
   phut: number;
   dai: number | null;
   dich: string | null;
+  /** 9 số — máy thu ghép từ kho chi tiết (2026-10-30); bản cũ / chưa tra được ⇒ thiếu hoặc null */
+  mmsi?: number | null;
+  /** 7 số — chỉ tàu lớn có, tàu cá VN gần như không */
+  imo?: number | null;
+  /** hô hiệu */
+  hh?: string | null;
 }
 export interface TauAisBan {
   v: 1;
@@ -45,6 +51,15 @@ export interface TauAisBan {
 function hopLe(b: unknown): b is TauAisBan {
   const x = b as TauAisBan | null;
   return !!x && x.v === 1 && typeof x.luc === "string" && Array.isArray(x.tau);
+}
+
+/** "MMSI 574090158 · IMO 9829643 · Hô hiệu HZAH" — chỉ phần có; không có gì ⇒ "". Thuần. */
+export function dinhDanhTau(t: Pick<TauAis, "mmsi" | "imo" | "hh">): string {
+  const p: string[] = [];
+  if (t.mmsi) p.push(`MMSI ${t.mmsi}`);
+  if (t.imo) p.push(`IMO ${t.imo}`);
+  if (t.hh) p.push(`Hô hiệu ${t.hh}`);
+  return p.join(" · ");
 }
 
 /** Bản máy đã lưu (đồng bộ) — null khi chưa có/hỏng. */
@@ -266,6 +281,12 @@ export function chuanTen(s: string): string {
 export function timTau(tau: TauAis[], q: string, toiDa = 6): TauAis[] {
   const k = chuanTen(q);
   if (k.length < 2) return [];
+  // gõ toàn số từ 5 chữ trở lên ⇒ tìm theo đầu MMSI/IMO (2026-10-30)
+  const so = q.replace(/\s+/g, "");
+  if (/^\d{5,9}$/.test(so)) {
+    const theoSo = tau.filter((t) => String(t.mmsi ?? "").startsWith(so) || String(t.imo ?? "").startsWith(so)).slice(0, toiDa);
+    if (theoSo.length) return theoSo;
+  }
   const dau: TauAis[] = [];
   const giua: TauAis[] = [];
   for (const t of tau) {

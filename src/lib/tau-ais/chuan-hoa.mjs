@@ -59,7 +59,9 @@ export const LOAI_TAU = {
  * Một hàng thô của nguồn ⇒ bản ghi gọn, hoặc null nếu thiếu toạ độ/mã.
  *   { id, ten, loai, co, lat, lon, kn, huong, mui, phut, dai, dich }
  * kn = hải lý/giờ (nguồn ×10) · huong = hướng đi · mui = hướng mũi (511 = không có) ·
- * phut = tin cách đây bao nhiêu phút · dai = m · dich = cảng đến (bỏ "CLASS B" — đó là loại máy, không phải cảng).
+ * phut = tin cách đây bao nhiêu phút · dai = m · dich = cảng đến (bỏ "CLASS B" — đó là loại máy, không phải cảng) ·
+ * mmsi / imo / hh (hô hiệu) — ô bản đồ của nguồn KHÔNG có, máy thu ghép từ kho chi tiết (`chiTietTuDoc`) qua khoá
+ * MMSI/IMO/CALLSIGN; chưa tra được ⇒ null.
  */
 export function chuanHoaHang(r) {
   if (!r || typeof r !== "object") return null;
@@ -87,7 +89,74 @@ export function chuanHoaHang(r) {
     phut: soNguyen(r.ELAPSED, 0, 100000) ?? 0,
     dai: soNguyen(r.LENGTH, 1, 500),
     dich: dich && !/^class [ab]$/i.test(dich) ? dich : null,
+    mmsi: mmsiHopLe(r.MMSI),
+    imo: imoHopLe(r.IMO),
+    hh: hoHieuHopLe(r.CALLSIGN),
   };
+}
+
+/** MMSI = đúng 9 chữ số (3 số đầu là mã nước: 574 = Việt Nam). Sai ⇒ null. */
+export function mmsiHopLe(v) {
+  const s = v == null ? "" : String(v).trim();
+  return /^[1-9]\d{8}$/.test(s) ? Number(s) : null;
+}
+
+/** IMO = 7 chữ số, số cuối là chữ số kiểm tra (tổng 6 số đầu nhân 7…2, lấy hàng đơn vị). Sai ⇒ null. */
+export function imoHopLe(v) {
+  const s = v == null ? "" : String(v).trim().replace(/^IMO\s*/i, "");
+  if (!/^[1-9]\d{6}$/.test(s)) return null;
+  let tong = 0;
+  for (let i = 0; i < 6; i++) tong += Number(s[i]) * (7 - i);
+  return tong % 10 === Number(s[6]) ? Number(s) : null;
+}
+
+/** Hô hiệu: chữ/số in hoa, 2–10 ký tự. */
+export function hoHieuHopLe(v) {
+  const s = typeof v === "string" ? v.replace(/\s+/g, "").toUpperCase() : "";
+  return /^[A-Z0-9]{2,10}$/.test(s) ? s : null;
+}
+
+/*  KHO CHI TIẾT TÀU Ở MÁY THU (2026-10-30, anh Long: "lưu đủ đi, t còn dùng để đóng gói bán dữ liệu lại"). Ô bản đồ không
+    có MMSI/IMO; trang chi tiết của nguồn có, tra theo SHIP_ID (đo 30/10, khách không đăng nhập): `/en/vessels/{id}/general`
+    + `/vesselDetails/vesselInfo/shipid:{id}`. MMSI/IMO không đổi ⇒ tra MỘT lần mỗi tàu, lưu NGUYÊN hai JSON, sau
+    `CHI_TIET_TRA_LAI_NGAY` mới tra lại (tên/cờ/chủ có đổi). Chỉ tàu mã cố định (`idCoDinh`) — mã vệ tinh rút không tra được. */
+export const CHI_TIET_TRA_LAI_NGAY = 30;
+/** Tra hỏng (404/không phải JSON) thì nghỉ chừng này ngày rồi thử lại, không hỏi lại mỗi lượt. */
+export const CHI_TIET_LOI_THU_LAI_NGAY = 7;
+
+/** Hai JSON chi tiết ⇒ { mmsi, imo, hh } đã kiểm. vesselInfo trước (đủ hơn), general sau. Thuần. */
+export function chiTietTuDoc(general, info) {
+  const g = general && typeof general === "object" ? general : {};
+  const v = info && typeof info === "object" ? info : {};
+  return {
+    mmsi: mmsiHopLe(v.mmsi) ?? mmsiHopLe(g.mmsi),
+    imo: imoHopLe(v.imo) ?? imoHopLe(g.imo),
+    hh: hoHieuHopLe(v.callsign) ?? hoHieuHopLe(g.callsign),
+  };
+}
+
+/**
+ * Chọn tàu cần tra chi tiết lượt này: tàu mã cố định CHƯA có trong kho trước (tàu cá lên đầu — thứ app cần nhất), rồi
+ * bản cũ quá hạn (cũ nhất trước). `kho`: Map id ⇒ { luc, loi? }. Trả mảng id, tối đa `toiDa`. Thuần.
+ */
+export function chonTauCanTra(tau, kho, now = Date.now(), toiDa = 250) {
+  const moi = [];
+  const cu = [];
+  const ngay = 86_400_000;
+  for (const t of tau) {
+    if (!t || !idCoDinh(t.id)) continue;
+    const k = kho.get(t.id);
+    if (!k) {
+      moi.push(t);
+      continue;
+    }
+    const tuoi = now - Date.parse(k.luc);
+    const han = (k.loi ? CHI_TIET_LOI_THU_LAI_NGAY : CHI_TIET_TRA_LAI_NGAY) * ngay;
+    if (!Number.isFinite(tuoi) || tuoi > han) cu.push({ id: t.id, tuoi: Number.isFinite(tuoi) ? tuoi : Infinity });
+  }
+  moi.sort((a, b) => (b.loai === 2) - (a.loai === 2));
+  cu.sort((a, b) => b.tuoi - a.tuoi);
+  return [...moi.map((t) => t.id), ...cu.map((t) => t.id)].slice(0, toiDa);
 }
 
 /** Gộp các ô: cùng id giữ bản tin mới nhất (phút nhỏ nhất). */
@@ -99,6 +168,27 @@ export function gopTau(items) {
     if (!cu || t.phut < cu.phut) m.set(t.id, t);
   }
   return [...m.values()];
+}
+
+/**
+ * KHO GIỜ BẢN 2 (2026-10-30, "lưu đủ"): giữ NGUYÊN mọi trường của hàng nguồn (WIDTH, DWT, ROT, L_FORE, W_LEFT,
+ * GT_SHIPTYPE, STATUS_NAME… — bản gọn bỏ mất), gộp theo SHIP_ID giữ tin mới nhất, ghép MMSI/IMO/CALLSIGN từ kho chi
+ * tiết. `chiTiet`: Map SHIP_ID ⇒ { mmsi, imo, hh }. Hàng không có SHIP_ID bỏ. Thuần.
+ */
+export function gopHangTho(rows, chiTiet = new Map()) {
+  const m = new Map();
+  for (const r of rows) {
+    if (!r || typeof r !== "object") continue;
+    const id = r.SHIP_ID == null ? "" : String(r.SHIP_ID);
+    if (!id) continue;
+    const cu = m.get(id);
+    if (cu && Number(cu.ELAPSED ?? Infinity) <= Number(r.ELAPSED ?? Infinity)) continue;
+    m.set(id, r);
+  }
+  return [...m.values()].map((r) => {
+    const k = chiTiet.get(String(r.SHIP_ID));
+    return k ? { ...r, MMSI: k.mmsi, IMO: k.imo, CALLSIGN: k.hh } : r;
+  });
 }
 
 /** Trần gói một lượt gửi — vùng quét cả Biển Đông ước 25–30 nghìn tàu (2026-10-29); hơn nhiều là có gì sai. */
@@ -160,6 +250,7 @@ export function kiemGoi(body, now = Date.now()) {
         ? chuanHoaHang({
             SHIP_ID: t.id, SHIPNAME: t.ten, SHIPTYPE: t.loai, FLAG: t.co, LAT: t.lat, LON: t.lon,
             SPEED: t.kn == null ? null : Math.round(t.kn * 10), COURSE: t.huong, HEADING: t.mui, ELAPSED: t.phut, LENGTH: t.dai, DESTINATION: t.dich,
+            MMSI: t.mmsi, IMO: t.imo, CALLSIGN: t.hh,
           })
         : chuanHoaHang(t),
     ),

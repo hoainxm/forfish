@@ -16,7 +16,7 @@ import { fmtCoordPair, fmtDepthM, fmtDist, fmtLat, fmtLon, type CoordFormat } fr
 import { CHAT_DAY_COLORS, KHU_TRU_BAO_COLOR, RESTRICTED_FILL_COLOR, SEA_RESTRICTED_COLOR } from "@/lib/ocean-map";
 import { formatHoursVN, type BoatProfile } from "@/lib/route-plan";
 import { describeSeamark, huongDiQuaPhao, seamarkLabel, type Seamark } from "@/lib/seamarks";
-import { cauVet, coTheXemVet, type KetQuaVet, MAU_TAU, moTaTau, nhomTau, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
+import { cauVet, coTheXemVet, dinhDanhTau, type KetQuaVet, MAU_TAU, moTaTau, nhomTau, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
 import { NHAN } from "@/lib/labels";
 import { soundingAgeDays, type Sounding } from "@/lib/soundings";
 import { ESTIMATED_DATE_NOTE, ageLine, isStale } from "@/lib/soundings-verified";
@@ -402,6 +402,7 @@ export function TheTauAis({
             {moTaTau(t)}
             {t.dich ? ` · đến ${t.dich}` : ""}
           </p>
+          {dinhDanhTau(t) && <p className="mt-0.5 text-[0.75rem] text-muted">{dinhDanhTau(t)}</p>}
           <p className="mt-1 text-[0.8125rem] text-muted">{fmtCoordPair(t.lat, t.lon, prefs.coordFormat)}</p>
           <p className="mt-0.5 text-[0.75rem] text-muted">
             Tin {tuoiTinLabel(tuoiTinPhut(t, { luc: info.luc }, now))}

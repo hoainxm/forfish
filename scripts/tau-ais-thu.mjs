@@ -13,15 +13,16 @@
 // Env (~/.config/forlife/tau-ais.env, hoặc env process): TAU_AIS_KEY · TAU_AIS_API_BASE (https) ·
 // TAU_AIS_PROFILE (mặc định ~/.local/forlife/tau-ais/profile) · MT_EMAIL + MT_PASSWORD (TUỲ CHỌN:
 // có thì đăng nhập một lần, thiếu thì đi khách — khách vẫn thấy đủ tàu ở z:8) · TAU_AIS_STATE_DIR ·
-// TAU_AIS_LUU_DIR (kho vĩnh viễn, mặc định <state>/luu: mỗi giờ VN một bản, tệp ngày YYYY-MM/YYYY-MM-DD.ndjson.gz).
-// Cờ: --thu (không gửi, in số tàu) · --anh (chụp màn hình vào state dir để soi khi hỏng).
+// TAU_AIS_LUU_DIR (kho vĩnh viễn, mặc định <state>/luu: mỗi giờ VN một bản, tệp ngày YYYY-MM/YYYY-MM-DD.ndjson.gz;
+// kho chi tiết tàu MMSI/IMO… ở <luu>/chi-tiet/tau.ndjson — xem phần "CHI TIẾT TÀU" dưới).
+// Cờ: --thu (không gửi, in số tàu, tra chi tiết 5 tàu) · --anh (chụp màn hình vào state dir để soi khi hỏng).
 
 import path from "node:path";
 import { homedir } from "node:os";
-import { appendFileSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { chromium } from "playwright";
-import { chuanHoaHang, danhSachO, gopTau, khoaGioLuu, kiemGoi } from "../src/lib/tau-ais/chuan-hoa.mjs";
+import { chiTietTuDoc, chonTauCanTra, chuanHoaHang, danhSachO, gopHangTho, gopTau, khoaGioLuu, kiemGoi } from "../src/lib/tau-ais/chuan-hoa.mjs";
 
 // Tiện ích nhỏ chép từ kairos-chung.mjs (không import để bản chạy chỉ cần 2 tệp — lam-moi.sh).
 const log = (...a) => console.log(new Date().toISOString(), ...a);
@@ -57,6 +58,13 @@ const CHO_TRANG_MS = 9_000;
 const NGHI_GIUA_O_MS = 350;
 const HET_GIO_O_MS = 20_000;
 const HET_GIO_GUI_MS = 60_000;
+/* CHI TIẾT TÀU (2026-10-30): mỗi lượt tra thêm tối đa CHI_TIET_MOI_LUOT tàu (2 lời gọi/tàu, nghỉ giữa lời gọi), dừng sớm khi
+   hết CHI_TIET_TOI_DA_MS để lượt 10 phút không chồng lượt sau. ~30 nghìn tàu ⇒ lần đầu ~1 ngày, sau chỉ tàu mới. Bị
+   403/429 ⇒ nghỉ tra CHI_TIET_NGHI_MS (không xoá hồ sơ — quét ô vẫn chạy). */
+const CHI_TIET_MOI_LUOT = 250;
+const CHI_TIET_TOI_DA_MS = 5 * 60_000;
+const NGHI_GIUA_TRA_MS = 450;
+const CHI_TIET_NGHI_MS = 60 * 60_000;
 
 const argv = process.argv.slice(2);
 const thu = argv.includes("--thu") || argv.includes("--dry");
@@ -166,21 +174,95 @@ try {
     }
     await page.waitForTimeout(NGHI_GIUA_O_MS);
   }
+  /*  CHI TIẾT TÀU — kho NỐI ĐUÔI `chi-tiet/tau.ndjson`, mỗi dòng { id, luc, general, info } (NGUYÊN JSON của nguồn) hoặc
+      { id, luc, loi }. Dòng sau đè dòng trước cùng id. Lỗi đọc/ghi kho chỉ log — không làm hỏng lượt quét/gửi. */
+  const tepChiTiet = path.join(c.luuDir, "chi-tiet", "tau.ndjson");
+  const kho = new Map(); // id ⇒ { luc, loi?, mmsi, imo, hh }
+  try {
+    if (existsSync(tepChiTiet)) {
+      for (const dong of readFileSync(tepChiTiet, "utf8").split("\n")) {
+        if (!dong) continue;
+        try {
+          const d = JSON.parse(dong);
+          if (d?.id) kho.set(String(d.id), { luc: d.luc, loi: d.loi ?? null, ...chiTietTuDoc(d.general, d.info) });
+        } catch {
+          /* dòng hỏng (mất điện giữa lúc ghi) — bỏ, tàu đó sẽ được tra lại */
+        }
+      }
+    }
+  } catch (e) {
+    log("[tàu AIS] đọc kho chi tiết hỏng:", String(e?.message ?? e).slice(0, 200));
+  }
+  const nghiDen = Date.parse(so.chiTietNghiDen ?? "");
+  if (!(nghiDen > Date.now())) {
+    // --thu chỉ tra 5 tàu để soi đường tra (vẫn ghi kho — dữ liệu thật)
+    const canTra = chonTauCanTra(gopTau(tho.map(chuanHoaHang)), kho, Date.now(), thu ? 5 : CHI_TIET_MOI_LUOT);
+    const t1 = Date.now();
+    let duoc = 0;
+    let loi = 0;
+    try {
+      mkdirSync(path.dirname(tepChiTiet), { recursive: true });
+      for (const id of canTra) {
+        if (Date.now() - t1 > CHI_TIET_TOI_DA_MS) break;
+        const r = await page.evaluate(
+          async ({ id, ms }) => {
+            const lay = async (u) => {
+              try {
+                const res = await fetch(u, { headers: { "x-requested-with": "XMLHttpRequest", accept: "application/json" }, signal: AbortSignal.timeout(ms) });
+                if (!res.ok) return { s: res.status, j: null };
+                return { s: 200, j: await res.json().catch(() => null) };
+              } catch {
+                return { s: 0, j: null };
+              }
+            };
+            const g = await lay(`/en/vessels/${id}/general`);
+            if (g.s === 403 || g.s === 429) return { s: g.s };
+            await new Promise((ok) => setTimeout(ok, 250));
+            const v = await lay(`/vesselDetails/vesselInfo/shipid:${id}`);
+            return { s: g.s === 200 || v.s === 200 ? 200 : v.s || g.s, general: g.j, info: v.j, chan: v.s === 403 || v.s === 429 };
+          },
+          { id, ms: HET_GIO_O_MS },
+        );
+        if (r.s === 403 || r.s === 429 || r.chan) {
+          so.chiTietNghiDen = new Date(Date.now() + CHI_TIET_NGHI_MS).toISOString();
+          log(`[tàu AIS] tra chi tiết bị chặn (${r.s}) — nghỉ tới ${so.chiTietNghiDen}`);
+          break;
+        }
+        const luc = new Date().toISOString();
+        const ban = r.s === 200 && (r.general || r.info) ? { id, luc, general: r.general, info: r.info } : { id, luc, loi: r.s || "khong_tra_duoc" };
+        appendFileSync(tepChiTiet, `${JSON.stringify(ban)}\n`);
+        kho.set(id, { luc, loi: ban.loi ?? null, ...chiTietTuDoc(ban.general, ban.info) });
+        if (ban.loi) loi++;
+        else duoc++;
+        await page.waitForTimeout(NGHI_GIUA_TRA_MS);
+      }
+    } catch (e) {
+      log("[tàu AIS] tra chi tiết hỏng (bỏ qua):", String(e?.message ?? e).slice(0, 200));
+    }
+    const coMmsi = [...kho.values()].filter((k) => k.mmsi).length;
+    log(`[tàu AIS] chi tiết: tra ${duoc} được, ${loi} hỏng · ${Math.round((Date.now() - t1) / 1000)} s · kho ${kho.size} tàu (${coMmsi} có MMSI) · còn ${Math.max(0, canTra.length - duoc - loi)}+ chờ`);
+  }
+  // ghép MMSI/IMO/hô hiệu vào hàng thô ⇒ cả bản gửi lẫn kho giờ đều mang
+  const thoDu = gopHangTho(tho, kho);
+
   // kiemGoi = đúng bộ lọc máy chủ (tin ≤4 giờ, trong vùng) — lọc ở đây để không gửi thừa
-  const kiem = kiemGoi({ luc: new Date().toISOString(), tau: gopTau(tho.map(chuanHoaHang)) });
+  const kiem = kiemGoi({ luc: new Date().toISOString(), tau: gopTau(thoDu.map(chuanHoaHang)) });
   const tau = kiem.ok ? kiem.ban.tau : [];
   const soCa = tau.filter((t) => t.loai === 2).length;
   log(`[tàu AIS] ${o.length} ô (${hong} hỏng) · ${tho.length} hàng ⇒ ${tau.length} tàu (cá ${soCa}) · ${Math.round((Date.now() - t0) / 1000)} s`);
   if (!tau.length) throw new Error("không có tàu nào — nguồn đổi định dạng?");
   const goi = { luc: new Date().toISOString(), tau };
   /*  KHO VĨNH VIỄN (2026-10-29): bản đầu tiên của mỗi giờ VN ⇒ nối một khối gzip vào tệp ngày. Ghi TRƯỚC khi gửi —
-      máy chủ hỏng vẫn có dữ liệu học. Lỗi ghi đĩa chỉ log, không làm hỏng lượt gửi. */
+      máy chủ hỏng vẫn có dữ liệu học. Lỗi ghi đĩa chỉ log, không làm hỏng lượt gửi.
+      BẢN 2 (2026-10-30, "lưu đủ"): dòng { v: 2, luc, soTau, tho[] } — `tho` = hàng NGUYÊN của nguồn (mọi trường, kể cả
+      tàu vệ tinh và tin cũ hơn 4 giờ) + MMSI/IMO/CALLSIGN đã ghép; bản gọn suy lại được bằng chuanHoaHang. Dòng không có
+      `v` là bản 1 (29–30/10): { luc, soTau, tau[] } đã gọn. */
   const kg = khoaGioLuu(goi.luc);
   if (!thu && kg && so.gioLuu !== kg.gio) {
     try {
       const tep = path.join(c.luuDir, kg.tep);
       mkdirSync(path.dirname(tep), { recursive: true });
-      appendFileSync(tep, gzipSync(`${JSON.stringify({ luc: goi.luc, soTau: tau.length, tau })}\n`));
+      appendFileSync(tep, gzipSync(`${JSON.stringify({ v: 2, luc: goi.luc, soTau: thoDu.length, tho: thoDu })}\n`));
       so.gioLuu = kg.gio;
       log(`[tàu AIS] đã lưu kho ${kg.tep} (giờ ${kg.gio})`);
     } catch (e) {

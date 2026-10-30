@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { chuanHoaHang, danhSachO, gopTau, gopVet, idCoDinh, khoaGioLuu, kiemGoi, thamSoVet, oTile, rutId, VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
+import { chiTietTuDoc, chonTauCanTra, chuanHoaHang, danhSachO, gopHangTho, gopTau, hoHieuHopLe, imoHopLe, mmsiHopLe, gopVet, idCoDinh, khoaGioLuu, kiemGoi, thamSoVet, oTile, rutId, VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { danhSachSdtHopLe, docDanhSachSdt, duocXemAis } from "@/lib/tau-ais/quyen";
 import { validateConfigValue } from "@/lib/app-config-keys";
-import { cauVet, chuanTen, coTheXemVet, demTheoNhom, fetchVetTau, moTaTau, vetGeoJson, timTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
+import { cauVet, chuanTen, coTheXemVet, demTheoNhom, dinhDanhTau, fetchVetTau, moTaTau, vetGeoJson, timTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
 
 const HANG = {
   LAT: "15.836166", LON: "109.15148", SPEED: "41", COURSE: "111", HEADING: "111", ELAPSED: "14",
@@ -13,7 +13,7 @@ describe("tàu AIS — chuẩn hoá hàng nguồn", () => {
   it("hàng tàu cá VN ⇒ bản ghi gọn, tốc độ ÷10, bỏ 'CLASS B'", () => {
     expect(chuanHoaHang(HANG)).toEqual({
       id: "9057335", ten: "GIANG LQ 15 C31", loai: 2, co: "VN", lat: 15.83617, lon: 109.15148,
-      kn: 4.1, huong: 111, mui: 111, phut: 14, dai: 17, dich: null,
+      kn: 4.1, huong: 111, mui: 111, phut: 14, dai: 17, dich: null, mmsi: null, imo: null, hh: null,
     });
   });
   it("tàu vệ tinh không tên ⇒ ten null, id base64 giữ nguyên; thiếu toạ độ ⇒ null", () => {
@@ -200,5 +200,67 @@ describe("tàu AIS — đường đi phía máy bà con", () => {
     } finally {
       globalThis.fetch = g;
     }
+  });
+});
+
+describe("tàu AIS — MMSI / IMO / hô hiệu (2026-10-30)", () => {
+  it("kiểm số: MMSI 9 số, IMO đúng chữ số kiểm tra, hô hiệu chữ/số", () => {
+    expect(mmsiHopLe("574090158")).toBe(574090158);
+    expect(mmsiHopLe(403017000)).toBe(403017000);
+    expect(mmsiHopLe("57409015")).toBeNull();
+    expect(mmsiHopLe("057409015")).toBeNull();
+    expect(mmsiHopLe(null)).toBeNull();
+    // số thật đo 30/10: BAYRAQ 9829643, CMA CGM VENDOME 9987213, Kiểm ngư 290 9658513
+    expect(imoHopLe(9829643)).toBe(9829643);
+    expect(imoHopLe("IMO 9987213")).toBe(9987213);
+    expect(imoHopLe(9658513)).toBe(9658513);
+    expect(imoHopLe(9829644)).toBeNull();
+    expect(imoHopLe(null)).toBeNull();
+    expect(hoHieuHopLe(" 9v6479 ")).toBe("9V6479");
+    expect(hoHieuHopLe("X")).toBeNull();
+    expect(hoHieuHopLe(null)).toBeNull();
+  });
+  it("hai JSON chi tiết ⇒ định danh đã kiểm; vesselInfo trước, general sau; tàu cá không IMO", () => {
+    expect(chiTietTuDoc({ mmsi: 403017000, imo: 9829643, callsign: "HZAH" }, { mmsi: 403017000, imo: 9829643, callsign: "HZAH" })).toEqual({ mmsi: 403017000, imo: 9829643, hh: "HZAH" });
+    expect(chiTietTuDoc({ mmsi: 574090158, imo: null, callsign: null }, null)).toEqual({ mmsi: 574090158, imo: null, hh: null });
+    expect(chiTietTuDoc(null, null)).toEqual({ mmsi: null, imo: null, hh: null });
+  });
+  it("hàng có MMSI/IMO/CALLSIGN ⇒ bản gọn mang theo; máy chủ kiemGoi giữ lại", () => {
+    const t = chuanHoaHang({ ...HANG, MMSI: "574090158", IMO: null, CALLSIGN: "xv1234" });
+    expect(t).toMatchObject({ mmsi: 574090158, imo: null, hh: "XV1234" });
+    const r = kiemGoi({ luc: "2026-10-30T02:00:00.000Z", tau: [t] });
+    expect(r.ok && r.ban?.tau[0]).toMatchObject({ mmsi: 574090158, hh: "XV1234" });
+  });
+  it("chọn tàu cần tra: chưa có trước (tàu cá lên đầu), rồi bản quá hạn; bỏ mã rút; có trần", () => {
+    const now = Date.parse("2026-10-30T00:00:00Z");
+    const tau = [
+      { id: "1", loai: 7 }, { id: "2", loai: 2 }, { id: "3", loai: 2 }, { id: "4", loai: 8 }, { id: "5", loai: 2 }, { id: "vabcdef12", loai: 2 },
+    ];
+    const kho = new Map([
+      ["3", { luc: "2026-10-29T00:00:00Z" }], // mới tra ⇒ bỏ
+      ["4", { luc: "2026-09-01T00:00:00Z" }], // quá 30 ngày ⇒ tra lại
+      ["5", { luc: "2026-10-20T00:00:00Z", loi: 404 }], // hỏng quá 7 ngày ⇒ thử lại
+    ]);
+    expect(chonTauCanTra(tau, kho, now)).toEqual(["2", "1", "4", "5"]);
+    expect(chonTauCanTra(tau, kho, now, 2)).toEqual(["2", "1"]);
+  });
+  it("kho giờ bản 2: giữ nguyên mọi trường nguồn, gộp theo SHIP_ID giữ tin mới, ghép định danh", () => {
+    const cu = { ...HANG, ELAPSED: "30", WIDTH: "6", DWT: "0" };
+    const moi = { ...HANG, ELAPSED: "2", WIDTH: "6", DWT: "0", ROT: "0" };
+    const khac = { ...HANG, SHIP_ID: "TWpNd0==", ELAPSED: "5" };
+    const out = gopHangTho([cu, moi, khac, { LAT: 1 }, null], new Map([["9057335", { mmsi: 574090158, imo: null, hh: null }]]));
+    expect(out).toHaveLength(2);
+    expect(out[0]).toEqual({ ...moi, MMSI: 574090158, IMO: null, CALLSIGN: null });
+    expect(out[1]).toEqual(khac);
+  });
+  it("thẻ tàu + tìm theo số", () => {
+    expect(dinhDanhTau({ mmsi: 403017000, imo: 9829643, hh: "HZAH" })).toBe("MMSI 403017000 · IMO 9829643 · Hô hiệu HZAH");
+    expect(dinhDanhTau({ mmsi: 574090158 })).toBe("MMSI 574090158");
+    expect(dinhDanhTau({})).toBe("");
+    const a = { ...chuanHoaHang(HANG)!, mmsi: 574090158 } as TauAis;
+    const b = { ...chuanHoaHang(HANG)!, id: "b", ten: "BAYRAQ", mmsi: 403017000, imo: 9829643 } as TauAis;
+    expect(timTau([a, b], "57409").map((t) => t.id)).toEqual(["9057335"]);
+    expect(timTau([a, b], "98296").map((t) => t.id)).toEqual(["b"]);
+    expect(timTau([a, b], "giang").map((t) => t.id)).toEqual(["9057335"]);
   });
 });
