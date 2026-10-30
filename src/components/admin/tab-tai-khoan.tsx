@@ -88,8 +88,8 @@ export function AccountsTab({ me }: { me: Me }) {
   const isAdmin = me.role === "admin";
   // Quyền trên tab Tài khoản: create=tạo khách · edit=cấp/gia hạn premium ·
   // delete=xoá tài khoản. Hạ hạng vẫn ADMIN-ONLY cứng. Đặt lại mật khẩu: admin,
-  // hoặc quản lý được tick cờ riêng (2026-10-06) — server chốt thêm "chỉ khách
-  // của mình, không phải nhân sự".
+  // hoặc quản lý được tick cờ riêng (2026-10-06) — server chốt thêm "khách thật,
+  // không phải nhân sự" (bỏ "chỉ khách của mình" 2026-10-28).
   const perms = permsFor(me, "tai-khoan");
   const canReset = canResetPassword(me.role, me.permissions);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
@@ -305,8 +305,8 @@ export function AccountsTab({ me }: { me: Me }) {
       setError(
         j?.code === "bad_code"
           ? "Nhập mã giao dịch chuyển khoản."
-          : j?.code === "not_your_customer"
-            ? "Bạn chỉ được ghi nhận thu tiền cho khách hàng do mình quản lý."
+          : j?.code === "not_real_account"
+            ? "Tài khoản thử (test/demo/duyệt app) — chỉ quản trị viên thao tác được."
             : "Lỗi ghi nhận thông tin thu tiền. Vui lòng thử lại.",
       );
       return;
@@ -366,8 +366,8 @@ export function AccountsTab({ me }: { me: Me }) {
       setError(
         j?.code === "not_provisioned"
           ? "Tài khoản này chưa được khởi tạo hoàn toàn trên hệ thống nên chưa thể đặt lại mật khẩu."
-          : j?.code === "not_your_customer"
-            ? "Khách này không do bạn cấp/chăm nên bạn không đặt lại mật khẩu được. Nhờ quản trị viên."
+          : j?.code === "not_real_account"
+            ? "Tài khoản thử (test/demo/duyệt app) — nhờ quản trị viên đặt lại."
             : j?.code === "staff_target" || j?.code === "self"
               ? "Không đặt lại được mật khẩu tài khoản nhân sự ở đây. Nhờ quản trị viên."
               : j?.code === "no_permission"
@@ -1076,8 +1076,8 @@ export function staffDenialMessage(code: string | undefined): string | null {
       return "Không thể thao tác trên chính tài khoản của bạn.";
     case "staff_target":
       return "Tài khoản này là nhân sự quản trị — chỉ quản trị viên mới thao tác được.";
-    case "not_your_customer":
-      return "Khách này do người khác quản lý — bạn chỉ thao tác được với khách do mình cấp Premium.";
+    case "not_real_account":
+      return "Tài khoản thử (test/demo/duyệt app) — chỉ quản trị viên thao tác được.";
     case "env_admin":
       return "Quản trị viên cấp từ cấu hình máy chủ — không xoá được trên web.";
     case "last_admin":

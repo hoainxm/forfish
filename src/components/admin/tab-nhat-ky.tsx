@@ -24,7 +24,8 @@ export type ActivityEvent = {
   createdAt: string;
 };
 
-export function ActivityLogTab() {
+/** canProbe = admin (nút "Kiểm tra ghi nhật ký" GHI một dòng — POST vẫn requireAdmin). */
+export function ActivityLogTab({ canProbe }: { canProbe: boolean }) {
   const [events, setEvents] = useState<ActivityEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [migrationNeeded, setMigrationNeeded] = useState(false);
@@ -105,6 +106,7 @@ export function ActivityLogTab() {
       {/* TỰ KIỂM TRA: ghi log là fire-and-forget nên nhật ký câm mà không ai
           biết vì sao (prod 2026-07-31: có thao tác thật mà bảng rỗng). Nút này
           ghi thử một dòng ngay và nói kết quả. */}
+      {canProbe && (
       <div className="surface flex flex-wrap items-center gap-3 px-4 py-3">
         <button
           type="button"
@@ -143,6 +145,7 @@ export function ActivityLogTab() {
           </span>
         )}
       </div>
+      )}
 
       {/* lọc: tìm theo SĐT/tên hành động + chọn loại + chỉ nhạy cảm */}
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">

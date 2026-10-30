@@ -61,9 +61,12 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ ok: false, code: "not_configured" }, { status: 503 });
 
-  /*  ADMIN ĐƯỢC NHIỀU MÁY (chủ dự án 2026-08-31): admin cần app (điện thoại) +
-      web /quan-tri cùng lúc, nên KHÔNG đá phiên cũ khi đăng nhập máy mới. Khách/
-      đại lý giữ "1 tài khoản 1 máy". Admin = loadActor (env cứu hộ HOẶC
+  /*  NHÂN SỰ ĐƯỢC NHIỀU MÁY (admin: chủ dự án 2026-08-31; QUẢN LÝ thêm 2026-10-28):
+      nhân sự cần app (điện thoại) + web /quan-tri cùng lúc, nên KHÔNG đá phiên cũ
+      khi đăng nhập máy mới. Trước 2026-10-28 quản lý còn "1 tài khoản 1 máy" ⇒
+      đăng nhập máy tính là chuỗi trên điện thoại bị thu hồi, app lặng lẽ mất nút
+      "Trang quản trị" (prod: quản lý đuôi 001 đá qua đá lại ios ↔ máy tính).
+      Khách giữ "1 tài khoản 1 máy". Admin = loadActor (env cứu hộ HOẶC
       staff_accounts; đường lùi customers.role). Token admin cấp với allow_multi=true (migration
       0053) → miễn ràng buộc một-chuỗi-sống ở DB, không đụng nhau. */
   /*  ĐỌC HÀNG KHÁCH MỘT LẦN: role (xét admin) + tier/premium_until (HẠNG). Chủ
@@ -86,11 +89,12 @@ export async function POST(req: Request) {
     tier?: string;
     premium_until?: string | null;
   } | null;
-  const isAdmin = ar.actor.role === "admin";
+  // admin hoặc quản lý — loadActor đã loại tài khoản test/demo khỏi vai nhân sự
+  const isStaff = ar.actor.role !== null;
   /*  HẠN CHUỖI: khách thật KHÔNG hạn (0037 — bà con mất sóng nhiều ngày);
       staff 7 ngày, test 24 giờ, demo/reviewer 7 ngày (lib/admin tokenTtlMs). */
   const ttl = tokenTtlMs({
-    isStaff: ar.actor.role !== null,
+    isStaff,
     kind: ar.actor.kind,
     isOwner: ar.actor.owner,
   });
@@ -99,9 +103,9 @@ export async function POST(req: Request) {
   /*  THU HỒI TRƯỚC, CẤP SAU — luật "1 tài khoản 1 máy" cho KHÁCH/ĐẠI LÝ. Đảo
       lại thì có một khoảnh khắc HAI chuỗi cùng hiệu lực; thu hồi hỏng ngay sau
       đó thì máy cũ sống mãi. Thu hồi không xong ⇒ KHÔNG cấp chuỗi, báo thử lại.
-      ADMIN thì BỎ QUA bước này — nhiều máy sống song song là CỐ Ý. */
+      NHÂN SỰ thì BỎ QUA bước này — nhiều máy sống song song là CỐ Ý. */
   let kickedCount = 0;
-  if (!isAdmin) {
+  if (!isStaff) {
     const revoked = await revokeTokensOfPhone(phone, "new_login");
     if (!revoked.ok) {
       return NextResponse.json({ ok: false, code: "revoke_failed" }, { status: 503 });
@@ -119,9 +123,9 @@ export async function POST(req: Request) {
   let token = "";
   let error: { code?: string; message: string } | null = null;
   for (let lan = 0; lan < 2; lan++) {
-    if (lan > 0 && !isAdmin) {
-      // Chỉ khách/đại lý mới đụng ràng buộc một-chuỗi-sống (23505) cần thu hồi
-      // lại. Token admin (allow_multi) không vướng index nên không rơi vào đây.
+    if (lan > 0 && !isStaff) {
+      // Chỉ khách mới đụng ràng buộc một-chuỗi-sống (23505) cần thu hồi
+      // lại. Token nhân sự (allow_multi) không vướng index nên không rơi vào đây.
       const lai = await revokeTokensOfPhone(phone, "new_login");
       if (!lai.ok) break;
     }
@@ -129,7 +133,7 @@ export async function POST(req: Request) {
     const row: Record<string, unknown> = {
       token_hash: await hashDeviceToken(token),
       customer_phone: phone,
-      allow_multi: isAdmin,
+      allow_multi: isStaff,
       ...(deviceId ? { device_id: deviceId } : {}),
       ...(platform ? { platform } : {}),
     };

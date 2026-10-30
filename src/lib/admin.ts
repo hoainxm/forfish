@@ -255,32 +255,27 @@ export function tokenTtlMs(args: {
 }
 
 /**
- * QUẢN LÝ được đụng vào khách này không — luật chung cho cấp premium, xoá,
- * gửi thông báo riêng. Admin không đi qua đây. Trả `null` = được.
- * · self          — tự cấp premium/xoá chính mình
- * · staff_target  — đụng tài khoản quản trị/quản lý khác
- * · not_your_customer — khách đã có người khác cấp (`grantedBy` không có mình)
- * `allowUnclaimed`: khách CHƯA ai cấp lần nào — cho phép với CẤP PREMIUM (đó là
- * cách đại lý nhận khách mới), cấm với XOÁ/NHẮN (chưa phải khách của ai).
- * Tầm `all_premium` được đụng mọi khách đang premium (đúng tầm nó nhìn thấy).
+ * QUẢN LÝ được đụng vào khách này không — luật chung cho mọi thao tác trên một
+ * tài khoản (cấp premium, xoá, ghi cờ, nhắn riêng, đặt lại mật khẩu…). Admin
+ * không đi qua đây. Trả `null` = được; còn lại do BẢNG QUYỀN tab × hành động quyết.
+ * · self             — tự đụng chính mình
+ * · staff_target     — đụng tài khoản quản trị/quản lý khác
+ * · not_real_account — tài khoản test/demo/duyệt app (đặt lại là phá tài khoản duyệt App Store)
+ *
+ * ĐỔI 2026-10-28 (chủ dự án): BỎ luật "chỉ khách mình cấp" (`not_your_customer`).
+ * Quản lý không tìm được khách do quản lý khác tạo để hỗ trợ (vd đặt lại mật
+ * khẩu) ⇒ mọi quản lý thấy + thao tác MỌI khách thật, theo bảng quyền.
  */
 export function managerTargetDenial(args: {
   actorPhone: string;
   targetPhone: string;
   targetIsStaff: boolean;
-  grantedBy: string[];
-  scope: StaffScope;
-  targetIsPremium: boolean;
-  allowUnclaimed: boolean;
-}): "self" | "staff_target" | "not_your_customer" | null {
-  const actor = normalizeVnPhone(args.actorPhone);
-  if (normalizeVnPhone(args.targetPhone) === actor) return "self";
+  targetKind: AccountKind;
+}): "self" | "staff_target" | "not_real_account" | null {
+  if (normalizeVnPhone(args.targetPhone) === normalizeVnPhone(args.actorPhone)) return "self";
   if (args.targetIsStaff) return "staff_target";
-  const by = args.grantedBy.map(normalizeVnPhone);
-  if (by.includes(actor)) return null;
-  if (args.scope === "all_premium" && args.targetIsPremium) return null;
-  if (by.length === 0 && args.allowUnclaimed) return null;
-  return "not_your_customer";
+  if (args.targetKind !== "real") return "not_real_account";
+  return null;
 }
 
 // ── ADMIN TỔNG (owner) — chủ dự án chốt 2026-10-02 ──────────────────────────

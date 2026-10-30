@@ -1,7 +1,7 @@
 // GET /api/admin/sdvico-khach-hoi?status=moi|da_bao|all — ADMIN xem phiếu khách hỏi / đăng ký khuyến mãi SDVICO (0072)
 // để đối chiếu với tin Zalo đã nhắn Quân (2026-10-26). Chỉ đọc; đổi trạng thái là việc của AI Assistant (da-bao).
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/admin-auth";
 import { khuyenMaiCuaPhieu } from "@/data/khuyen-mai";
 import type { PhieuRow } from "@/lib/sdvico/khach-hoi-server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -10,7 +10,7 @@ const err = (status: number, code: string) => NextResponse.json({ ok: false, cod
 const COLS = "id,created_at,nguon,san_pham,ten,phone,so_tau,cang,loi_nhan,kairos_post_id,kairos_comment_id,trang_thai,bao_luc";
 
 export async function GET(req: Request) {
-  const who = await requireAdmin();
+  const who = await requirePermission("yeu-cau", "view");
   if (!who.ok) return err(who.status, who.code);
   const db = createAdminClient();
   if (!db) return err(503, "not_configured");

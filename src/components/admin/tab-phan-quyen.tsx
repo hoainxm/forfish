@@ -8,14 +8,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiUrl } from "@/lib/api-base";
 import { tokenHeader } from "@/lib/device-token-store";
 import { isValidVnPhone } from "@/lib/phone";
-import { ACTION_LABEL, MANAGER_TABS, PERM_ACTIONS, RESET_PASSWORD_LABEL, TAB_LABEL, type ManagerTab, type StaffPermissions } from "@/lib/staff-permissions";
+import { ACTION_LABEL, MANAGER_TABS, PERM_ACTIONS, RESET_PASSWORD_LABEL, TAB_ACTIONS, TAB_LABEL, type ManagerTab, type StaffPermissions } from "@/lib/staff-permissions";
 import { DEFAULT_CUSTOMER_PASSWORD } from "@/lib/temp-password";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 /* ── PHÂN QUYỀN (admin-only) ───────────────────────────────────────────────
    Hai khối: (1) QUẢN TRỊ VIÊN toàn quyền — nâng/hạ ngay tại đây (nguồn DB
    role='admin'), riêng người từ env ADMIN_PHONES chỉ xem được vì web không
-   sửa env; (2) bảng quyền từng tài khoản QUẢN LÝ: 5 tab × 4 hành động
+   sửa env; (2) bảng quyền từng tài khoản QUẢN LÝ: 13 khu × 4 hành động (TAB_ACTIONS)
    (Xem/Tạo mới/Sửa/Xoá). Chốt thật ở /api/admin/* (requireAdmin /
    requirePermission); màn này chỉ soạn cấu hình. */
 
@@ -306,10 +306,10 @@ export function PermissionsTab() {
         hai luồng tách hẳn cho khỏi lẫn.
         <br />
         <b className="text-navy">Quản trị viên</b> toàn quyền mọi khu, không cần
-        cấu hình. <b className="text-navy">Quản lý</b> chạy theo bảng quyền: 6
-        khu (Tài khoản · Sản phẩm · Đơn hàng · Thuyền viên · Thông báo · Chỗ bán) × 4 mức{" "}
-        <b>Xem · Tạo mới · Sửa · Xoá</b>; bỏ chọn <b>Xem</b> = ẩn hẳn khu đó. (4 khu
-        Yêu cầu · Vùng biển · Dữ liệu · Hệ thống chỉ dành cho quản trị viên.)
+        cấu hình. <b className="text-navy">Quản lý</b> chạy theo bảng quyền: mọi
+        khu × 4 mức <b>Xem · Tạo mới · Sửa · Xoá</b> (ô “—” = khu đó không có thao tác
+        này); bỏ chọn <b>Xem</b> = ẩn hẳn khu đó. Riêng <b>Phân quyền</b> và{" "}
+        <b>Cấu hình hệ thống</b> luôn chỉ dành cho quản trị viên.
       </p>
 
       <CreateStaffForm onCreated={load} canManageAdmins={canManageAdmins} />
@@ -446,8 +446,7 @@ export function PermissionsTab() {
         <p className="surface bg-warn-bg px-4 py-3 text-[0.875rem] font-semibold text-warn">
           Bảng nhân sự chưa có trong DB — cần apply migration
           0056_rbac_staff_accounts. Hiện vai và quyền vẫn đọc từ hồ sơ khách
-          (cách cũ, vẫn chạy); riêng tầm nhìn đại lý tổng chưa lưu được cho
-          tới khi apply xong.
+          (cách cũ, vẫn chạy).
         </p>
       )}
 
@@ -491,29 +490,6 @@ export function ManagerPermCard({
   const [draft, setDraft] = useState<StaffPermissions>(manager.permissions);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-
-  /** TẦM NHÌN (thay env MASTER_AGENT_PHONES) — lưu ngay khi chọn. */
-  async function saveScope(scope: "own" | "all_premium") {
-    setBusy(true);
-    setMsg(null);
-    const r = await fetch(apiUrl("/api/admin/staff"), {
-      method: "PATCH",
-      headers: { "content-type": "application/json", ...tokenHeader() },
-      body: JSON.stringify({ phone: manager.phone, action: "set-scope", scope }),
-    }).catch(() => null);
-    setBusy(false);
-    const j = (await r?.json().catch(() => null)) as { ok?: boolean; code?: string } | null;
-    if (!r?.ok || !j?.ok) {
-      setMsg(
-        j?.code === "migration_needed"
-          ? "Chưa lưu được tầm nhìn — cơ sở dữ liệu chưa có bảng nhân sự (migration 0056)."
-          : "Lưu tầm nhìn không thành công. Vui lòng thử lại.",
-      );
-      return;
-    }
-    setMsg("Đã lưu tầm nhìn khách hàng.");
-    onSaved();
-  }
 
   const dirty = useMemo(
     () => JSON.stringify(draft) !== JSON.stringify(manager.permissions),
@@ -571,18 +547,11 @@ export function ManagerPermCard({
         )}
       </div>
 
-      <label className="mt-3 flex flex-wrap items-center gap-2 text-[0.875rem] font-semibold text-foreground/70">
-        Thấy khách nào:
-        <select
-          value={manager.scope ?? "own"}
-          disabled={busy}
-          onChange={(e) => saveScope(e.target.value as "own" | "all_premium")}
-          className="min-h-[2.5rem] rounded-lg bg-field px-2 text-[0.875rem] font-bold text-navy disabled:opacity-50"
-        >
-          <option value="own">Chỉ khách do mình cấp Premium</option>
-          <option value="all_premium">Mọi khách đang Premium (đại lý tổng)</option>
-        </select>
-      </label>
+      {/* "Thấy khách nào" (own / đại lý tổng) BỎ 2026-10-28: mọi quản lý thấy mọi
+          khách thật; quyền thao tác do bảng dưới quyết. */}
+      <p className="mt-2 text-[0.8125rem] text-muted">
+        Thấy mọi khách thật · thao tác theo bảng dưới
+      </p>
 
       <div className="mt-3 overflow-x-auto">
         <table className="w-full border-collapse text-left">
@@ -608,6 +577,13 @@ export function ManagerPermCard({
                   {TAB_LABEL[tab]}
                 </td>
                 {PERM_ACTIONS.map((action) => {
+                  // trang không có hành động này (vd Báo cáo chỉ có Xem) — không bày nút ảo
+                  if (!TAB_ACTIONS[tab].includes(action))
+                    return (
+                      <td key={action} className="py-2 text-center text-foreground/35" aria-label="Không áp dụng">
+                        —
+                      </td>
+                    );
                   const on = draft[tab][action];
                   return (
                     <td key={action} className="py-2 text-center">

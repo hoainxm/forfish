@@ -7,7 +7,7 @@ import { getMarketStore } from "@/lib/market/store";
 import { requireMarketAdmin } from "../_guard";
 
 export async function GET() {
-  const who = await requireMarketAdmin();
+  const who = await requireMarketAdmin("view");
   if (!who.ok) return who.res;
   try {
     const store = await getMarketStore();

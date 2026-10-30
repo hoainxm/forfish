@@ -9,15 +9,23 @@ import {
   MANAGER_TABS,
   normalizePermissions,
   PERM_ACTIONS,
+  TAB_ACTIONS,
   visibleTabs,
   type StaffPermissions,
 } from "@/lib/staff-permissions";
 
+/** 6 trang mở cấu hình 2026-10-28 — preset tắt. */
+const NEW_TABS: string[] = ["bao-cao", "yeu-cau", "cho-vat-tu", "vung-bien", "nhat-ky", "du-lieu"];
+
 describe("normalizePermissions — fail-closed + preset mặc định", () => {
-  it("null/undefined → preset mặc định (xem+tạo+sửa, KHÔNG xóa) cả 5 tab", () => {
+  it("null/undefined → preset mặc định (xem+tạo+sửa, KHÔNG xóa) 7 tab nghiệp vụ; 6 trang mở 2026-10-28 TẮT", () => {
     for (const raw of [null, undefined]) {
       const p = normalizePermissions(raw);
       for (const tab of MANAGER_TABS) {
+        if (NEW_TABS.includes(tab)) {
+          expect(p[tab]).toEqual({ view: false, create: false, edit: false, delete: false });
+          continue;
+        }
         expect(p[tab]).toEqual({
           view: true,
           // kairos: create = đăng bài Chính thức đứng tên SDVICO — preset KHÔNG cấp (2026-10-23)
@@ -138,8 +146,10 @@ describe("visibleTabs — theo cờ view, giữ thứ tự", () => {
     });
     expect(visibleTabs(p)).toEqual(["tai-khoan", "cho-ban"]);
   });
-  it("mặc định → cả 5 tab (đều có view)", () => {
-    expect(visibleTabs(normalizePermissions(null))).toEqual([...MANAGER_TABS]);
+  it("mặc định → 7 tab nghiệp vụ (trang mới phải được admin tick)", () => {
+    expect(visibleTabs(normalizePermissions(null))).toEqual(
+      MANAGER_TABS.filter((t) => !NEW_TABS.includes(t)),
+    );
   });
   it("null → rỗng", () => {
     expect(visibleTabs(null)).toEqual([]);
@@ -151,7 +161,10 @@ describe("helpers", () => {
     expect(isManagerTab("tai-khoan")).toBe(true);
     expect(isManagerTab("cho-ban")).toBe(true);
     expect(isManagerTab("don-hang")).toBe(true); // thêm 2026-08-11
-    expect(isManagerTab("vung-bien")).toBe(false); // admin-only cứng
+    expect(isManagerTab("vung-bien")).toBe(true); // mở cấu hình 2026-10-28
+    expect(isManagerTab("bao-cao")).toBe(true);
+    // CHỈ 2 tab admin-only cứng: tự cấp quyền / khoá bí mật
+    expect(isManagerTab("phan-quyen")).toBe(false);
     expect(isManagerTab("he-thong")).toBe(false);
   });
   it("emptyPermissions(true/false) đủ 5 tab × 4 cờ", () => {
@@ -213,5 +226,22 @@ describe("cờ riêng resetPassword — đặt lại mật khẩu (2026-10-06)",
 
   it("cờ riêng KHÔNG mở thêm tab nào (visibleTabs chỉ theo view)", () => {
     expect(visibleTabs(normalizePermissions({ resetPassword: true }))).toEqual([]);
+  });
+});
+
+describe("TAB_ACTIONS — cờ không có route đọc thì luôn tắt", () => {
+  it("bật create/edit/delete ở Báo cáo, Nhật ký ⇒ chuẩn hoá về chỉ view", () => {
+    const p = normalizePermissions({
+      "bao-cao": { view: true, create: true, edit: true, delete: true },
+      "nhat-ky": { view: true, delete: true },
+      "cho-vat-tu": { view: true, create: true, edit: true, delete: true },
+    });
+    expect(p["bao-cao"]).toEqual({ view: true, create: false, edit: false, delete: false });
+    expect(p["nhat-ky"]).toEqual({ view: true, create: false, edit: false, delete: false });
+    expect(p["cho-vat-tu"]).toEqual({ view: true, create: false, edit: true, delete: false });
+    expect(can(p, "bao-cao", "view")).toBe(true);
+  });
+  it("mọi tab đều có ít nhất cờ view", () => {
+    for (const tab of MANAGER_TABS) expect(TAB_ACTIONS[tab]).toContain("view");
   });
 });

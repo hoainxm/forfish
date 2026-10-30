@@ -297,44 +297,25 @@ export async function isStaffPhone(admin: Admin, phone: string): Promise<boolean
   return r.actor.role !== null;
 }
 
-/** Ai đã từng cấp premium cho khách này (premium_grants.granted_by). */
-export async function grantersOf(admin: Admin, phone: string): Promise<string[] | null> {
-  const { data, error } = await admin
-    .from("premium_grants")
-    .select("granted_by")
-    .eq("customer_phone", phone)
-    .in("action", ["activate", "renew"]);
-  if (error) return isMissingTableError(error) ? [] : null;
-  return [...new Set(((data ?? []) as { granted_by: string }[]).map((r) => r.granted_by))];
-}
-
 /**
- * QUẢN LÝ được đụng vào khách này không — cấp premium, xoá, ghi cờ, nhắn riêng
- * (luật thuần `managerTargetDenial`). Admin luôn được. Trả `null` = cho qua,
- * hoặc {status, code} để route trả lỗi. Tra không được → 503 (không đoán).
+ * QUẢN LÝ được đụng vào tài khoản này không (luật thuần `managerTargetDenial`:
+ * cấm chính mình, nhân sự, tài khoản thử). Admin luôn được. Trả `null` = cho
+ * qua, hoặc {status, code} để route trả lỗi. Tra không được → 503 (không đoán).
+ * Từ 2026-10-28 KHÔNG còn xét "khách mình cấp" — bảng quyền quyết thao tác.
  */
 export async function managerTargetCheck(
   admin: Admin,
-  who: { phone: string; role: "admin" | "manager"; scope: StaffScope },
+  who: { phone: string; role: "admin" | "manager" },
   phone: string,
-  allowUnclaimed: boolean,
 ): Promise<{ status: number; code: string } | null> {
   if (who.role === "admin") return null;
   const target = await loadActor(admin, phone);
   if (!target.ok) return { status: 503, code: "unavailable" };
-  const grantedBy = await grantersOf(admin, phone);
-  if (grantedBy === null) return { status: 503, code: "unavailable" };
-  const c = target.actor.customer;
   const denial = managerTargetDenial({
     actorPhone: who.phone,
     targetPhone: phone,
     targetIsStaff: target.actor.role !== null,
-    grantedBy,
-    scope: who.scope,
-    targetIsPremium:
-      resolveTier(c?.tier as string, c?.premium_until as string | null, Date.now()) ===
-      "premium",
-    allowUnclaimed,
+    targetKind: target.actor.kind,
   });
   return denial ? { status: 403, code: denial } : null;
 }

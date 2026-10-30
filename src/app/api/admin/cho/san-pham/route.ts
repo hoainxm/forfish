@@ -7,7 +7,7 @@ import { getMarketStore } from "@/lib/market/store";
 import { pageParam, requireMarketAdmin } from "../_guard";
 
 export async function GET(req: Request) {
-  const who = await requireMarketAdmin();
+  const who = await requireMarketAdmin("view");
   if (!who.ok) return who.res;
   try {
     const sp = new URL(req.url).searchParams;

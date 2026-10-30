@@ -1,22 +1,24 @@
 import "server-only";
 // CỔNG + NHẬT KÝ dùng chung cho /api/admin/cho/* (Chợ vật tư — 12 §7.3).
-// Mọi route của khu này đi qua requireAdmin() (LEAD §4 #13: quản lý chưa được
-// cấp quyền sàn — nợ manager, xem 12 §12).
+// Mọi route của khu này đi qua requirePermission("cho-vat-tu", …) — admin luôn
+// qua; quản lý theo bảng quyền (2026-10-28 chủ dự án mở cấu hình: GET=view ·
+// PATCH=edit; trước đó admin-only, nợ manager 12 §12).
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AdminActionKey } from "@/lib/admin-activity";
+import type { PermAction } from "@/lib/staff-permissions";
 import type { ShopStatus } from "@/lib/market/types";
 
 export type MarketAdminGate =
-  | { ok: true; phone: string }
+  | { ok: true; phone: string; role: "admin" | "manager" }
   | { ok: false; res: NextResponse };
 
-/** requireAdmin() → phone, hoặc phản hồi lỗi ĐÚNG KHUÔN {ok:false, code} + status. */
-export async function requireMarketAdmin(): Promise<MarketAdminGate> {
-  const who = await requireAdmin();
-  if (who.ok) return { ok: true, phone: who.phone };
+/** requirePermission("cho-vat-tu", action) → phone + vai, hoặc phản hồi lỗi ĐÚNG KHUÔN {ok:false, code} + status. */
+export async function requireMarketAdmin(action: PermAction): Promise<MarketAdminGate> {
+  const who = await requirePermission("cho-vat-tu", action);
+  if (who.ok) return { ok: true, phone: who.phone, role: who.role };
   return {
     ok: false,
     res: NextResponse.json({ ok: false, code: who.code }, { status: who.status }),
@@ -29,7 +31,7 @@ export async function requireMarketAdmin(): Promise<MarketAdminGate> {
  * prod); prod thiếu service-role thì mọi route đã 503 từ trước đó.
  */
 export async function logMarketAdmin(
-  phone: string,
+  who: { phone: string; role: "admin" | "manager" },
   action: AdminActionKey,
   target: string,
   detail: Record<string, unknown>,
@@ -37,8 +39,8 @@ export async function logMarketAdmin(
   const admin = createAdminClient();
   if (!admin) return;
   await logActivity(admin, {
-    actorPhone: phone,
-    actorRole: "admin",
+    actorPhone: who.phone,
+    actorRole: who.role,
     action,
     target,
     detail,

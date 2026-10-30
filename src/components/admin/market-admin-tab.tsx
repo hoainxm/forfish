@@ -45,7 +45,7 @@ const sum = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a +
 
 /** `me` là người đang đăng nhập /quan-tri (page.tsx truyền xuống) — chỉ cần SĐT
  *  để nói rõ ai đang xử lý thay shop. */
-export function MarketAdminTab({ me }: { me: { phone: string } }) {
+export function MarketAdminTab({ me, canEdit }: { me: { phone: string }; canEdit: boolean }) {
   const [section, setSection] = useState<Section>("tong-quan");
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +120,14 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
         Ở đây: duyệt gian hàng mới, gỡ món vi phạm, và <b>xử lý đơn thay shop</b> khi bà con gọi
         tổng đài. Mọi bước đều ghi tên bạn ({me.phone}) vào diễn biến đơn và nhật ký quản trị.
       </p>
+      {/* nợ: chỉ báo "chỉ xem", nút thao tác ở 5 khu con vẫn hiện (bấm ⇒ 403 no_permission,
+          có câu báo); khi có quản lý dùng khu này thường xuyên thì truyền canEdit xuống ẩn nút. */}
+      {!canEdit && (
+        <p className="surface bg-warn-bg px-4 py-3 text-[0.875rem] font-semibold text-warn">
+          Bạn đang ở chế độ chỉ xem — duyệt gian hàng, ẩn món, báo giá, xử lý đơn cần quyền Sửa ở
+          khu Cửa hàng (nhờ quản trị viên bật ở tab Phân quyền).
+        </p>
+      )}
 
       {error && <ErrorBox text={error} onRetry={loadOverview} />}
       {/*  Ô lọc gian hàng hỏng thì nói thẳng — nếu không, hai mục Đơn hàng và
