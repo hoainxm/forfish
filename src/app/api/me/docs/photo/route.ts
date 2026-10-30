@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sniffImageMime } from "@/lib/market/route-utils";
 import { normalizeVnPhone } from "@/lib/phone";
 
 const BUCKET = "user-docs";
@@ -44,8 +45,12 @@ export async function POST(req: Request) {
   if (!docId || !/^[A-Za-z0-9_-]{1,64}$/.test(docId)) return err(400, "bad_doc");
   if (!(file instanceof Blob)) return err(400, "no_file");
   if (file.size === 0 || file.size > MAX_BYTES) return err(400, "bad_size");
-  const ext = EXT[file.type];
-  if (!ext) return err(400, "bad_type");
+  /*  Loại ảnh theo MAGIC BYTES, không theo `file.type` máy khai (rà 28/10 mục A9) — cùng bộ nhận diện của chợ.
+      Lưu với đúng loại đọc ra từ nội dung: máy khai sai / bỏ trống (vài WebView) mà ảnh thật vẫn nhận. */
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const mime = sniffImageMime(bytes);
+  const ext = mime ? EXT[mime] : undefined;
+  if (!mime || !ext) return err(400, "bad_type");
 
   const admin = createAdminClient();
   if (!admin) return err(503, "unavailable");
@@ -53,7 +58,7 @@ export async function POST(req: Request) {
   const path = `${phone}/${docId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await admin.storage
     .from(BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, bytes, { contentType: mime, upsert: false });
   if (error) return err(500, "upload_failed");
 
   return NextResponse.json({ ok: true, path });

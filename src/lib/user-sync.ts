@@ -84,6 +84,7 @@ type MetaMap = Partial<Record<SyncKind, Meta>> & { _owner?: string };
     làm sai mốc trong phiên đang chạy. localStorage thành BẢN LƯU cho lần mở
     sau, không còn là nguồn sự thật.
 
+    (Chiều ngược — ghi SỔ hỏng mà mốc ghi được — đã bịt ở `adoptServer` 2026-10-30.)
     NỢ CÒN LẠI (nói thẳng, đừng để người sau tưởng đã kín): tắt app khi máy đang
     chật VÀ sổ chưa đẩy được lên server thì lần mở sau mốc về 0, server thắng,
     sửa đổi offline đó vẫn mất. Bịt hẳn phải ghi mốc CHUNG một lần với dữ liệu
@@ -158,11 +159,13 @@ function readRaw(kind: SyncKind): string | null {
     return null;
   }
 }
-function writeRaw(kind: SyncKind, json: string): void {
+/** Trả `false` khi KHÔNG ghi được (máy đầy / chặn storage) — bản cũ trong máy giữ nguyên. */
+function writeRaw(kind: SyncKind, json: string): boolean {
   try {
     window.localStorage.setItem(KEY[kind], json);
+    return true;
   } catch {
-    /* hết chỗ → giữ bản cũ, lần sau kéo lại */
+    return false;
   }
 }
 
@@ -188,10 +191,15 @@ function emitSync(kind: SyncKind): void {
   }
 }
 
-function adoptServer(kind: SyncKind, data: unknown, at: number): void {
-  writeRaw(kind, JSON.stringify(data));
+/*  NHẬN BẢN SERVER CHỈ KHI GHI ĐƯỢC XUỐNG MÁY (rà 28/10 mục A1). Trước đây ghi hỏng (máy đầy) vẫn nâng mốc lên
+    mốc server + xoá cờ "chưa đẩy" ⇒ máy giữ sổ CŨ mà tưởng đã đồng bộ, và vì mốc đã ngang server nên KHÔNG BAO
+    GIỜ kéo lại. Nay ghi hỏng thì để nguyên mốc/cờ: syncAll lần sau thấy server vẫn mới hơn ⇒ kéo lại; nhánh
+    pushKind thì cờ "chưa đẩy" còn ⇒ đẩy lại, server gộp rồi trả lại — không mất sửa đổi của máy lẫn của server. */
+function adoptServer(kind: SyncKind, data: unknown, at: number): boolean {
+  if (!writeRaw(kind, JSON.stringify(data))) return false;
   setMeta(kind, { at, dirty: false, ids: liveIds(data) ?? undefined });
   emitSync(kind);
+  return true;
 }
 
 /** SĐT chuẩn hoá, rỗng ⇒ null (so người cho đúng một khuôn với server). */

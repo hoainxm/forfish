@@ -12,7 +12,7 @@
 //
 // SĐT người mua LUÔN từ identityFromRequest — không bao giờ từ body (11 R16).
 // `address.phone` trong body là SĐT NGƯỜI NHẬN (dữ liệu của đơn).
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import { identityFromRequest } from "@/lib/api-identity";
 import { isOrderStatus } from "@/lib/market/order-state";
@@ -145,15 +145,24 @@ export async function POST(req: Request) {
       : [];
     const byShop = new Map(placed.map((r) => [r.shopId, r]));
 
-    // N1 cho chủ shop — best-effort, KHÔNG chặn câu trả lời (đơn đã tạo xong).
-    for (const r of placed) {
-      if (!r.ok || r.duplicate) continue;
-      const shop = shops.get(r.shopId);
-      if (!shop) continue;
-      await notifyMarket(
-        shop.ownerPhone,
-        marketNotice("N1", { order: r.order, shop: { id: shop.id, name: shop.name }, hotline: SDVICO_HOTLINE }),
-      );
+    /*  N1 cho chủ shop — best-effort, KHÔNG chặn câu trả lời (đơn đã tạo xong). Trước đây `await` lần lượt ngay
+        trong request ⇒ bà con chờ cả DB + push mới thấy mã đơn (rà 28/10 mục A10). `after()` chạy SAU khi trả lời
+        và nền tảng giữ hàm sống tới lúc xong (Vercel waitUntil) — không phải `void promise` mù. notifyMarket tự
+        nuốt lỗi; lỗi một shop không chặn shop sau. Đặt lại cùng clientRef ⇒ `duplicate` ⇒ không gửi lại. */
+    const canBao = placed.flatMap((r) => {
+      const shop = r.ok && !r.duplicate ? shops.get(r.shopId) : undefined;
+      return shop ? [{ r, shop }] : [];
+    });
+    if (canBao.length > 0) {
+      after(async () => {
+        for (const { r, shop } of canBao) {
+          if (!r.ok) continue;
+          await notifyMarket(
+            shop.ownerPhone,
+            marketNotice("N1", { order: r.order, shop: { id: shop.id, name: shop.name }, hotline: SDVICO_HOTLINE }),
+          );
+        }
+      });
     }
 
     // Thứ tự kết quả = thứ tự client gửi, để màn Đặt hàng ghép đúng thẻ shop.
