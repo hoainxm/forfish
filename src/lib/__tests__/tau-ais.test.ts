@@ -180,11 +180,13 @@ describe("tàu AIS — đường đi phía máy bà con", () => {
     expect(cauVet(D, (T0 + 30 * 3600) * 1000)).toBe("Đường đi 2 ngày qua · 2 mốc · từ 07:00 29/10");
     expect(cauVet(D.slice(0, 1))).toMatch(/^Chưa đủ mốc/);
   });
-  it("GeoJSON: một đường + chấm mỗi mốc, mốc cuối đánh dấu", () => {
-    const g = vetGeoJson(D);
-    expect(g.features.map((f) => f.geometry.type)).toEqual(["LineString", "Point", "Point"]);
-    expect(g.features[2].properties).toEqual({ k: "moc", cuoi: 1 });
-    expect(vetGeoJson(D.slice(0, 1)).features).toHaveLength(1);
+  it("GeoJSON: đường + mốc giữa + điểm đầu/cuối có nhãn giờ VN", () => {
+    const D3 = [...D, { t: T0 + 7200, lat: 10.2, lon: 108.2, kn: 6 }];
+    const g = vetGeoJson(D3);
+    expect(g.features.map((f) => f.properties?.k)).toEqual(["duong", "moc", "dau", "cuoi"]);
+    expect(g.features[2].properties?.nhan).toBe("Bắt đầu 07:00 29/10");
+    expect(g.features[3].properties?.nhan).toBe("Mới nhất 09:00 29/10");
+    expect(vetGeoJson(D.slice(0, 1)).features.map((f) => f.properties?.k)).toEqual(["cuoi"]);
   });
   it("tàu mã đổi mỗi bản ⇒ nói không theo được, không gọi mạng", async () => {
     expect(coTheXemVet({ id: rutId("Y".repeat(80)) })).toBe(false);
