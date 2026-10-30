@@ -9,9 +9,7 @@ import { SPECIES_PROFILES, scoreCell, seasonWeights } from "../fish-predict";
 describe("scripts/fish-fit-lib.mjs", () => {
   it("selftest: AUC histogram, trong-nghề, nếp đệm, chuỗi tiến, bootstrap khối (kể cả chênh động), Benjamini–Hochberg", async () => {
     await expect(fitLibSelftest()).resolves.toBeUndefined();
-    // bootstrap 400 vòng nặng CPU: riêng ~1,2 s, chạy chung cả bộ (455 tệp song song) có lúc vượt trần 5 s mặc định
-    // ⇒ đỏ chập chờn (30/10). Seed cố định nên không phải lỗi kết quả — chỉ nới trần cho đúng ca này.
-  }, 30_000);
+  });
 });
 
 describe("scripts/fish-metrics-local.mjs", () => {
