@@ -112,4 +112,36 @@ describe("ranh giới client/server", () => {
         viPham.join("\n"),
     ).toEqual([]);
   });
+
+  /*  BẮC CẦU (2026-10-30 — lỗi thật): cổng trên chỉ soi import TRỰC TIẾP của route. Cron refresh-weather import
+      `lib/forecast-grid` (thuần) → `lib/device-token-store` ("use client") → `tokenHeader()` ném ngay trên máy
+      chủ, nuốt trong `catch {}` của cron ⇒ snapshot thời tiết đứng 3 ngày, lớp Dòng chảy của tài khoản thường
+      trắng câm. Một module "use client" ở BẤT KỲ tầng nào dưới route là cùng một quả mìn. */
+  it("KHÔNG route/middleware nào kéo module 'use client' qua lib trung gian", () => {
+    const viPham: string[] = [];
+    for (const entry of entries) {
+      const seen = new Set<string>();
+      const stack: { file: string; via: string }[] = [{ file: entry, via: "" }];
+      while (stack.length) {
+        const { file, via } = stack.pop()!;
+        for (const spec of libImports(file)) {
+          const target = resolveLib(spec);
+          if (!target || seen.has(target)) continue;
+          seen.add(target);
+          const step = `${via}@/lib/${spec}`;
+          if (isClientModule(target)) {
+            viPham.push(`${entry.slice(ROOT.length + 1).replace(/\\/g, "/")} → ${step}`);
+          } else {
+            stack.push({ file: target, via: `${step} → ` });
+          }
+        }
+      }
+    }
+    expect(
+      viPham,
+      `Module "use client" bị kéo vào máy chủ qua lib trung gian — gọi hàm của nó là NÉM NGAY.\n` +
+        `Sửa: bỏ "use client" khỏi module đó (nếu nó không có mã chạy lúc nạp), hoặc tách phần dùng chung ra file thuần.\n` +
+        viPham.join("\n"),
+    ).toEqual([]);
+  });
 });

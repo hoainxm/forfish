@@ -1,6 +1,12 @@
-"use client";
-
 // KHO CHUỖI CỨNG PHÍA MÁY + cách gắn nó vào mọi lượt gọi server.
+//
+// ⚠️ KHÔNG CÓ "use client" (gỡ 2026-10-30 — lỗi thật trên production). Module này bị KÉO VÀO MÁY CHỦ qua các lib
+// dùng chung hai phía (sea / forecast-grid / scalar-field … → `tokenHeader()`), và Next biến mọi export của module
+// "use client" thành hàm NÉM NGAY trên máy chủ. Từ 27/10 (cầu /api/om thêm `headers: tokenHeader()` vào các hàm tải
+// mà cron dùng chung) cron /api/cron/refresh-weather ném ở dòng đầu mỗi lượt Open-Meteo chính ⇒ snapshot lưới gió/
+// sóng/dòng chảy + lớp màu đứng ở 27/10 suốt 3 ngày, build/tsc/lint vẫn xanh. Mọi hàm ở đây đã tự bọc `window`
+// trong try/catch nên chạy trên máy chủ vô hại (`tokenHeader()` ⇒ `{}`); không có mã chạy lúc nạp module.
+// Cổng: `server-client-boundary.test.ts` (nay soi cả import BẮC CẦU).
 //
 // Chuỗi này là thứ DUY NHẤT chứng minh "tôi là ai" sau bản 2026-08-02. Không hạn,
 // không xoay, không gia hạn. Máy giữ nó cho tới khi một trong ba chuyện xảy ra:

@@ -176,6 +176,7 @@ import {
 import {
   arrowFeatures,
   fetchForecastGrid,
+  GridNoCurrentError,
   gridHasCurrent,
   nearestGridCell,
   peekForecastGrid,
@@ -1174,6 +1175,8 @@ export default function FishingMapView() {
   const [forecastKind, setForecastKind] = useState<ForecastKind | null>(null);
   const [fGrid, setFGrid] = useState<ForecastGrid | null>(null);
   const [gridFailed, setGridFailed] = useState(false);
+  // lỗi của lần hỏng gần nhất là "nguồn không có số DÒNG CHẢY" (GridNoCurrentError), không phải mất cả lưới
+  const [gridThieuDongChay, setGridThieuDongChay] = useState(false);
   /*  ĐANG LÀM MỚI NỀN (2026-08-03) — bao nhiêu lượt tải đang chạy trong lúc màn
       hình đã có bản CŨ hiện sẵn. Chỉ để nói một dòng nhỏ trên thanh ngày: bà con
       thấy số cũ mà biết máy đang kéo số mới, khỏi tưởng app đứng hình. Đếm chứ
@@ -1309,9 +1312,12 @@ export default function FishingMapView() {
           setTimeIdx((i) => Math.min(i, Math.max(0, g.times.length - 1)));
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         xongMotLuot();
-        if (alive && forecastKind) setGridFailed(true);
+        if (!alive || !forecastKind) return;
+        // lớp Dòng chảy: gió về mà dòng chảy không có ở đâu cả ⇒ nói ĐÚNG nguyên nhân (2026-10-30)
+        setGridThieuDongChay(err instanceof GridNoCurrentError);
+        setGridFailed(true);
       });
     return () => {
       alive = false;
@@ -9087,8 +9093,9 @@ export default function FishingMapView() {
                    [3 ngày]" cũng BỎ: có bản nào thì code đã tự dùng rồi. */
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[0.9375rem] font-semibold leading-snug text-danger">
-                    Chưa lấy được dự báo cả vùng biển — máy chưa có bản nào và
-                    nguồn đang không cho tải.
+                    {gridThieuDongChay
+                      ? "Nguồn chưa trả số dòng chảy, máy cũng chưa có bản nào lưu. Gió sóng vẫn xem được."
+                      : "Chưa lấy được dự báo cả vùng biển — máy chưa có bản nào và nguồn đang không cho tải."}
                   </p>
                   <button
                     type="button"
