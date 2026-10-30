@@ -44,6 +44,13 @@ const nextConfig: NextConfig = {
     root: process.cwd(),
   },
   ...(e2eDistDir ? { distDir: e2eDistDir } : {}),
+  // BỎ TYPECHECK LÚC BUILD — CHỈ khi deploy.yml đặt cờ (2026-10-26). deploy.yml
+  // chỉ chạy SAU KHI workflow `ci` (có `npm run typecheck`) XANH trên ĐÚNG commit
+  // đó ⇒ kiểm lại lúc build là làm hai lần (~1/3 thời gian build). Vercel, máy
+  // dev, bấm deploy tay (không qua ci) KHÔNG đặt cờ ⇒ vẫn kiểm như cũ.
+  typescript: {
+    ignoreBuildErrors: process.env.SDFISH_SKIP_BUILD_TYPECHECK === "1",
+  },
   // Mã bản cho "Có bản mới — chạm để cập nhật" (lib/app-version.ts). Vercel tự
   // đặt VERCEL_GIT_COMMIT_SHA; bản tự host sdfish.sdvico.vn build trên GitHub
   // Actions (.github/workflows/deploy.yml) nên có GITHUB_SHA — thiếu nhánh này
