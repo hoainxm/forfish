@@ -18,6 +18,7 @@ import {
   isDefinitelyOffline,
 } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
+import { soLuotCham } from "@/lib/source-cadence";
 import {
   loadGridSnapshotClient,
   loadLongestSavedGrid,
@@ -84,6 +85,8 @@ export type SeaPointConditions = {
   savedAt: number | null;
   /** số này ở đâu ra — quyết định UI được nói gì, giấu gì */
   source: SeaPointSource;
+  /** bản lùi chậm mấy LƯỢT CẬP NHẬT của nguồn (4 lượt/ngày, `soLuotCham`) — chỉ có khi stale */
+  luotCham?: number;
 };
 
 /** Namespace localStorage cho dự báo điểm-chạm (offline) */
@@ -299,19 +302,22 @@ async function fetchSeaPointRaw(
     // Mất mạng / nguồn treo → lùi về bản đã lưu ĐÚNG CHỖ NÀY (cùng ô lưới
     // ~0,25°). TUYỆT ĐỐI không mượn bản của chỗ khác: dán số của chỗ cách hàng
     // trăm km vào chỗ bà con vừa chạm còn nguy hiểm hơn là không có số.
-    const saved = savedSeaPoint(p, id);
-    if (saved) return saved;
-    // NẤC CUỐI (2026-07-29, ảnh user bản web iOS "chưa có số nào lưu trong
-    // máy"): máy TRỐNG TRƠN (bản web Safari mở lần đầu — kho localStorage TÁCH
-    // RIÊNG với PWA đã cài) + live lỗi/429 → còn lưới SNAPSHOT server cron
-    // (same-origin, không đụng quota Open-Meteo theo IP). Khung dài nhất
-    // trước; khung premium bị route chặn với tài khoản thường → tự rơi về d3.
-    // Vẫn là số ĐÚNG Ô phủ chỗ chạm — seaPointFromGrid tự chặn ô xa.
+    /*  LIVE HỎNG ⇒ CHỌN BẢN LÙI THEO SỐ LƯỢT CẬP NHẬT (anh Long 2026-10-30: "nếu lấy trực tiếp fail thì lấy từ DB, vì DB
+        có thể cũ hơn, cho con số chênh theo chu kỳ để chọn nguồn cho thông minh"). Trước: bản trong máy LUÔN thắng, kể
+        cả khi nó cũ 4 ngày mà DB vừa có bản sáng nay. Nay gom cả ba (đúng toạ độ · lưới trong máy · lưới DB), chọn bản
+        chậm ít lượt nhất; hoà thì bản đúng toạ độ trước (chi tiết hơn ô lưới). */
+    const db: SeaPointConditions[] = [];
     for (const d of [...CLIENT_SNAPSHOT_DAYS].filter((x) => x <= Math.max(1, soNgay)).sort((a, b) => b - a)) {
       const snap = await loadGridSnapshotClient(d);
-      const cond = snap ? seaPointFromGrid(snap, p, null) : null;
-      if (cond) return cond;
+      const cond = snap ? seaPointFromGrid(snap, p, snap.savedAt ?? null) : null;
+      if (cond) {
+        db.push(cond);
+        break;
+      }
     }
+    const chon = chonBanLui([...banTrongMay(p, id), ...db], Date.now());
+    if (chon) return chon;
+    // NẤC CUỐI (2026-07-29): máy trống trơn (web Safari lần đầu) — đã gom DB ở trên; không còn gì thì nói thật.
     throw err; // ngoài vùng lưới / máy chưa lưu gì → UI nói thật là chưa có số
   }
 }
@@ -325,18 +331,36 @@ async function fetchSeaPointRaw(
  * không phải mượn của toạ độ khác). null = máy chưa có gì để nói.
  */
 function savedSeaPoint(p: SeaPoint, id: string): SeaPointConditions | null {
+  return chonBanLui(banTrongMay(p, id), Date.now());
+}
+
+/** Hai bản trong máy cho chỗ này: bản của CHÍNH toạ độ đó, rồi ô lưới đã lưu PHỦ chỗ chạm (thứ tự = ưu tiên khi hoà). */
+function banTrongMay(p: SeaPoint, id: string): SeaPointConditions[] {
+  const out: SeaPointConditions[] = [];
   const hit = loadForecast<SeaPointConditions>(POINT_NS, id);
-  if (hit)
-    return {
-      ...hit.data,
-      point: p,
-      stale: true,
-      savedAt: hit.savedAt,
-      source: "saved-point",
-    };
+  if (hit) out.push({ ...hit.data, point: p, stale: true, savedAt: hit.savedAt, source: "saved-point" });
   // Chưa từng mở xem chỗ này, NHƯNG lưới gió/sóng đã lưu phủ cả vùng biển và
   // ĐÚNG vị trí đó (mũi tên đang vẽ ngay chỗ bà con vừa chạm).
-  return seaPointFromSavedGrid(p);
+  const g = seaPointFromSavedGrid(p);
+  if (g) out.push(g);
+  return out;
+}
+
+/**
+ * Chọn bản lùi: chậm ÍT LƯỢT CẬP NHẬT nhất (`soLuotCham`); hoà thì giữ thứ tự đưa vào (bản đúng toạ độ trước ô lưới,
+ * lưới trong máy trước lưới DB). Gắn `luotCham` để UI nói "chậm N lượt". Rỗng ⇒ null. Thuần (truyền `nowMs`).
+ */
+export function chonBanLui(ds: readonly SeaPointConditions[], nowMs: number): SeaPointConditions | null {
+  let best: SeaPointConditions | null = null;
+  let bestN = Infinity;
+  for (const c of ds) {
+    const n = soLuotCham(c.savedAt, nowMs);
+    if (best == null || n < bestN) {
+      best = c;
+      bestN = n;
+    }
+  }
+  return best ? { ...best, stale: true, luotCham: Number.isFinite(bestN) ? bestN : undefined } : null;
 }
 
 /* ---------------------------------------------------------------------------

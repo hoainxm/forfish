@@ -5,6 +5,7 @@
   thẳng hàng, không kẻ vạch. `full` chiếm trọn hàng (Cá, Độ sâu, Mùa này),
   `span2` hai cột (Trăng, Trời). `tone` = class màu token (text-warn…).
 */
+import { cauLuotCham } from "@/lib/source-cadence";
 import type { ReactNode } from "react";
 import { AlertIcon } from "@/components/icons";
 import { chipLabel } from "@/lib/day-labels";
@@ -106,6 +107,7 @@ export function SeaTab({
   windMaxKmh,
   stale,
   savedAt,
+  luotCham,
   state,
 }: {
   date: string;
@@ -115,6 +117,8 @@ export function SeaTab({
   windMaxKmh: number;
   stale: boolean;
   savedAt: number | null;
+  /** bản lưu chậm mấy lượt cập nhật của nguồn (marine-weather chonBanLui) */
+  luotCham?: number;
   /** tình trạng biển ngày đang xem (null = chưa chấm được) */
   state: { label: string; color: string } | null;
 }) {
@@ -138,6 +142,7 @@ export function SeaTab({
       {stale && (
         <span className="text-[0.8125rem] font-semibold text-warn">
           Bản lưu{savedAt != null ? ` ${savedStampVN(savedAt, todayIso)}` : ""}
+          {cauLuotCham(luotCham)}
         </span>
       )}
     </span>

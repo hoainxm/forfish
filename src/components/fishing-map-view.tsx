@@ -162,6 +162,7 @@ import {
   offlineBasemapNote,
   shouldUseOfflineBasemap,
 } from "@/lib/offline-basemap";
+import { cauLuotCham } from "@/lib/source-cadence";
 import { NHAN } from "@/lib/labels";
 import { SEA_STATE, type SeaLevel } from "@/lib/sea";
 import {
@@ -5445,6 +5446,7 @@ export default function FishingMapView() {
         windMaxKmh={sel.windMaxKmh}
         stale={cond.stale}
         savedAt={cond.savedAt}
+        luotCham={cond.luotCham}
         state={sel.level != null ? { label: SEA_STATE[sel.level], color: LEVEL_STYLE[sel.level].fg } : null}
       />
     ) : null;
@@ -9152,7 +9154,7 @@ export default function FishingMapView() {
                     <span>
                       Số gió, sóng lấy từ bản đã lưu
                       {cond.savedAt != null &&
-                        ` (bản lưu lúc ${clockVN(cond.savedAt)})`}
+                        ` (bản lưu lúc ${clockVN(cond.savedAt)}${cauLuotCham(cond.luotCham)})`}
                       . Chưa có mưa, dông chỗ này.
                     </span>
                   </p>
@@ -9162,7 +9164,7 @@ export default function FishingMapView() {
                     <span>
                       Số cũ trong máy
                       {cond.savedAt != null &&
-                        ` (${savedAgoLabel(cond.savedAt, nowMs)})`}
+                        ` (${savedAgoLabel(cond.savedAt, nowMs)}${cauLuotCham(cond.luotCham)})`}
                       . Chưa phải số mới.
                     </span>
                   </p>
