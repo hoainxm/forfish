@@ -247,12 +247,24 @@ export function tokenHeader(): Record<string, string> {
  * 5xx, hết giờ, mất sóng — KHÔNG cái nào được coi là bị đá.
  * KHÔNG BAO GIỜ ném, và không đụng gì tới body mà chỗ gọi sắp đọc (dùng `clone`).
  */
-export async function noteResponse(res: Response | null | undefined): Promise<TokenDenial | null> {
+export async function noteResponse(
+  res: Response | null | undefined,
+  /** thân ĐÃ đọc sẵn (vd `taiJsonCoNhip` đọc theo luồng) — khi có thì soi nó, không `clone` */
+  daDoc?: unknown,
+): Promise<TokenDenial | null> {
   if (!res || res.status !== 401) return null;
-  const body = (await res
-    .clone()
-    .json()
-    .catch(() => null)) as { code?: string } | null;
+  /*  `clone()` NÉM ĐỒNG BỘ khi thân đã bị đọc (bắt 30/10: forecast-grid đọc qua taiJsonCoNhip rồi mới
+      gọi ⇒ unhandledRejection, và máy bị đá không được phát hiện ở đường này). Thân đã đọc mà chỗ gọi
+      không đưa ⇒ không biết mã ⇒ coi như KHÔNG bị đá (đúng luật chỉ mã dứt khoát mới tính). */
+  let body: { code?: string } | null = null;
+  if (daDoc !== undefined) body = daDoc as { code?: string } | null;
+  else if (!res.bodyUsed) {
+    try {
+      body = (await res.clone().json()) as { code?: string } | null;
+    } catch {
+      body = null;
+    }
+  }
   const code = body?.code;
   const denial: TokenDenial | null =
     code === "token_revoked" || code === "unknown_token" || code === "no_token"

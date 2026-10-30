@@ -704,7 +704,8 @@ export async function loadGridSnapshotClient(days: number): Promise<ForecastGrid
     }, 10000);
     /* MỘT DÒNG NÀY = chỗ này cũng phát hiện được máy bị đá. Bộ não vẫn
        nằm ở `noteResponse`; ở đây chỉ đưa phản hồi cho nó soi. */
-    void noteResponse(r);
+    // thân đã đọc trong taiJsonCoNhip ⇒ đưa json cho noteResponse soi, không để nó clone thân đã dùng
+    void noteResponse(r, json);
     if (!r.ok) return null;
     const g = json;
     return g && Array.isArray(g.times) && g.times.length > 0 ? g : null;
