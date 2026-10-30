@@ -16,7 +16,7 @@ import path from "node:path";
 import { anhDaDuyet, chonAgentAnh, chonAnh, chuanSoAnh, ghiSoAnh, promptAnh } from "../src/lib/kairos/anh-thuc-te.mjs";
 import { layJson } from "../src/lib/kairos/thu-core.mjs";
 import { chuanSoAgent, ghepViec, ghiSoAgent, keHoach, promptAgent } from "../src/lib/kairos/agent-dieu-phoi.mjs";
-import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiClaude, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiAI, log } from "./kairos-chung.mjs";
 
 const dry = process.argv.slice(2).some((a) => a === "--thu" || a === "--dry");
 
@@ -58,9 +58,9 @@ async function main() {
 
   let viecGui = [...viecHay];
   if (viecChu.length) {
-    const r = await goiClaude(c, { prompt: promptAgent(viecChu, now), timeoutMs: 150_000, ten: "agent" });
+    const r = await goiAI(c, { prompt: promptAgent(viecChu, now), timeoutMs: 150_000, ten: "agent" });
     if (r.ok) viecGui = [...ghepViec(viecChu, layJson(r.text)), ...viecHay];
-    else log(`[claude] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — lượt này chỉ Hay`);
+    else log(`[AI] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — lượt này chỉ Hay`);
   }
   if (dry) {
     for (const v of viecGui) console.log(`\n[${v.loai}] ${v.agentId}${v.postId ? ` → ${v.postId}` : ""}\n  ${v.body ?? ""}`);
@@ -98,7 +98,7 @@ async function dangAnhThucTe(c, now) {
     return;
   }
   const agent = chonAgentAnh(anh);
-  const r = await goiClaude(c, { prompt: promptAnh(agent, anh), timeoutMs: 90_000, ten: "agent-anh" });
+  const r = await goiAI(c, { prompt: promptAnh(agent, anh), timeoutMs: 90_000, ten: "agent-anh" });
   const body = r.ok ? layJson(r.text)?.body : null;
   if (typeof body !== "string" || !body.trim()) {
     log(`[ảnh thực tế] Claude chưa viết được (${r.ok ? "không có body" : r.dung}) — để lượt sau`);

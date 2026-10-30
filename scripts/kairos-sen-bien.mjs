@@ -13,7 +13,7 @@
 import path from "node:path";
 import { layJson } from "../src/lib/kairos/thu-core.mjs";
 import { chonChuDe, loiBai, promptGioiThieu } from "../src/lib/kairos/sen-bien-gioi-thieu.mjs";
-import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiClaude, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiAI, log } from "./kairos-chung.mjs";
 
 const dry = process.argv.slice(2).some((a) => a === "--thu" || a === "--dry");
 
@@ -35,15 +35,15 @@ async function main() {
 
   let bai = chuDe.mau;
   let nguon = "mau";
-  const r = await goiClaude(c, { prompt: promptGioiThieu(chuDe), timeoutMs: 90_000, ten: "sen-bien" });
+  const r = await goiAI(c, { prompt: promptGioiThieu(chuDe), timeoutMs: 90_000, ten: "sen-bien" });
   if (r.ok) {
     const viet = layJson(r.text)?.bai;
     const loi = loiBai(viet);
     if (!loi) {
       bai = String(viet).trim();
       nguon = "claude";
-    } else log(`[claude] bài không qua kiểm (${loi}) — dùng bài mẫu`);
-  } else log(`[claude] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — dùng bài mẫu`);
+    } else log(`[AI] bài không qua kiểm (${loi}) — dùng bài mẫu`);
+  } else log(`[AI] hỏng: ${r.dung}${r.chiTiet ? ` (${r.chiTiet})` : ""} — dùng bài mẫu`);
 
   if (dry) {
     console.log(`\n[${nguon}] ${bai}\n`);

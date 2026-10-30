@@ -601,6 +601,41 @@ export function docKetQuaCli(stdout) {
   return { ok: true, text };
 }
 
+// ───────── Gemma qua Ollama (anh Long 2026-10-30: "đổi qua dùng gemma đi") ─────────
+// Máy thu/kiểm chạy CÙNG máy gpu-desktop với Ollama của AI Assistant (ADR 0016) ⇒ gọi thẳng
+// http://127.0.0.1:11434/api/generate, không qua cổng /gw. Hai hàm dưới thuần (test được).
+
+/** Gemma mặc định cho Kairos — e4b: chấm/tóm tắt tiếng Việt chắc hơn e2b; e2b để dành Sen Biển (< 1 s). */
+export const GEMMA_MAC_DINH = "gemma4:e4b";
+/** Không có e4b trong máy ⇒ lùi về e2b (Sen Biển giữ nóng sẵn). */
+export const GEMMA_LUI = "gemma4:e2b";
+
+/**
+ * Thân POST /api/generate. Nhiệt thấp — việc chấm/tóm tắt cần ổn định, không cần sáng tạo.
+ * `keep_alive` 30 phút: kiểm 5 phút/lần, agent 10 phút/lần ⇒ mô hình nằm nóng giữa các lượt.
+ * @param {string} model
+ * @param {string} prompt
+ */
+export function bodyOllama(model, prompt) {
+  return { model, prompt, stream: false, keep_alive: "30m", options: { temperature: 0.2, num_ctx: 16384 } };
+}
+
+/**
+ * Trả lời của Ollama ⇒ cùng khuôn với docKetQuaCli để script gọi không phải đổi.
+ * 404 / "not found" ⇒ `model_khong_ho_tro` (để lùi mô hình); thân rỗng ⇒ lỗi "rong".
+ * @param {number} status
+ * @param {any} json
+ * @returns {{ ok: true, text: string } | { ok: false, dung: string, chiTiet?: string }}
+ */
+export function docKetQuaOllama(status, json) {
+  const loi = typeof json?.error === "string" ? json.error : "";
+  if (status === 404 || /not found|pull/i.test(loi)) return { ok: false, dung: "model_khong_ho_tro", chiTiet: loi.slice(0, 200) || "404" };
+  if (status < 200 || status >= 300 || loi) return { ok: false, dung: "loi", chiTiet: (loi || `HTTP ${status}`).slice(0, 200) };
+  const text = String(json?.response ?? "");
+  if (!text.trim()) return { ok: false, dung: "loi", chiTiet: "rong" };
+  return { ok: true, text };
+}
+
 /**
  * Lấy giá trị JSON đầu tiên (mảng hoặc đối tượng) trong chữ trả lời — mô hình hay bọc ```json.
  * @param {string} text
