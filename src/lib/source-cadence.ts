@@ -72,6 +72,23 @@ export function isCacheCurrent(
   return nowMs < nextReleaseAfter(savedAt);
 }
 
+/**
+ * Bản lưu lúc `savedAt` CHẬM bao nhiêu LƯỢT CẬP NHẬT của nguồn (mốc OM_RELEASE_HOURS_UTC, 4 lượt/ngày) tính tới `nowMs`.
+ * 0 = vẫn là bản mới nhất nguồn có. Dùng để so hai bản lùi (trong máy vs DB) theo cùng một thước — anh Long 2026-10-30:
+ * "cho con số chênh theo chu kỳ để chọn nguồn cho thông minh". Hỏng / đồng hồ lùi ⇒ Infinity (không bao giờ thắng).
+ */
+export function soLuotCham(savedAt: number | null | undefined, nowMs: number): number {
+  if (savedAt == null || !Number.isFinite(savedAt) || savedAt > nowMs) return Infinity;
+  let n = 0;
+  for (let t = nextReleaseAfter(savedAt); t <= nowMs && n < 400; t = nextReleaseAfter(t)) n++;
+  return n;
+}
+
+/** Đuôi câu "· chậm N lượt cập nhật" cho nhãn bản lưu; 0 / không rõ ⇒ "" (bản lưu vẫn là bản mới nhất nguồn có). */
+export function cauLuotCham(n: number | null | undefined): string {
+  return n != null && Number.isFinite(n) && n >= 1 ? ` · chậm ${n} lượt cập nhật` : "";
+}
+
 /* ══════════════ NGUỒN CHẠY THEO NGÀY (Copernicus) ══════════════
    (2026-08-03, chủ dự án bắt được trên máy thật: "để ở DB đang load cực kỳ chậm")
 
