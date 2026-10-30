@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { chuanHoaHang, danhSachO, gopTau, khoaGioLuu, kiemGoi, thamSoVet, oTile, rutId, VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
+import { chuanHoaHang, danhSachO, gopTau, gopVet, idCoDinh, khoaGioLuu, kiemGoi, thamSoVet, oTile, rutId, VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { danhSachSdtHopLe, docDanhSachSdt, duocXemAis } from "@/lib/tau-ais/quyen";
 import { validateConfigValue } from "@/lib/app-config-keys";
-import { chuanTen, demTheoNhom, moTaTau, timTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
+import { cauVet, chuanTen, coTheXemVet, demTheoNhom, fetchVetTau, moTaTau, vetGeoJson, timTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
 
 const HANG = {
   LAT: "15.836166", LON: "109.15148", SPEED: "41", COURSE: "111", HEADING: "111", ELAPSED: "14",
@@ -146,5 +146,57 @@ describe("tàu AIS — lộ trình 7 ngày ở máy chủ", () => {
     expect(r?.p_gio).toBe(Date.parse("2026-10-29T10:00:00.000Z") / 1000);
     expect(r?.p_ds).toEqual([[t.id, t.lat, t.lon, t.kn, 111], ["b", t.lat, t.lon, null, 200]]);
     expect(thamSoVet({ luc: "x", tau: [] })).toBeNull();
+  });
+});
+
+describe("tàu AIS — xem lại đường đi (2026-10-30)", () => {
+  const dai = "X".repeat(80);
+  it("mã rút từ mã vệ tinh dài ⇒ không cố định; mã gốc ngắn ⇒ cố định", () => {
+    expect(idCoDinh("636012345")).toBe(true);
+    expect(idCoDinh(rutId(dai))).toBe(false);
+    expect(idCoDinh("")).toBe(false);
+    expect(idCoDinh(undefined)).toBe(false);
+  });
+  it("thamSoVet bỏ tàu mã đổi mỗi bản (không nối được đường, làm phình bảng)", () => {
+    const t = chuanHoaHang(HANG)!;
+    const r = thamSoVet({ luc: "2026-10-29T10:47:12.000Z", tau: [t, { ...t, id: rutId(dai) }] });
+    expect(r?.p_ds.map((x: unknown[]) => x[0])).toEqual([t.id]);
+  });
+  it("gộp nhiều ngày theo thời gian, bỏ điểm hỏng/trùng giờ, quãng đứng yên chỉ giữ đầu + cuối", () => {
+    const ds = gopVet([
+      { ngay: "2026-10-30", diem: [[7200, 10, 108, 0, 1], [10800, 10, 108, 0, 1], [14400, 10, 108, 0, 1], [18000, 10.2, 108.1, 6, 1]] },
+      { ngay: "2026-10-29", diem: [[0, 9.8, 107.9, 8, 1], [0, 9.8, 107.9, 8, 1], [3600, "x", 108, 1, 1], [3600, 9.9, 108, null, 1]] },
+    ]);
+    expect(ds.map((p) => p.t)).toEqual([0, 3600, 7200, 14400, 18000]);
+    expect(ds[1].kn).toBeNull();
+    expect(gopVet(null)).toEqual([]);
+  });
+});
+
+describe("tàu AIS — đường đi phía máy bà con", () => {
+  const T0 = Date.parse("2026-10-29T00:00:00Z") / 1000; // = 07:00 29/10 giờ VN
+  const D = [{ t: T0, lat: 10, lon: 108, kn: 5 }, { t: T0 + 3600, lat: 10.1, lon: 108.1, kn: 6 }];
+  it("câu tóm tắt nói số ngày, số mốc, giờ VN bắt đầu", () => {
+    expect(cauVet(D, (T0 + 30 * 3600) * 1000)).toBe("Đường đi 2 ngày qua · 2 mốc · từ 07:00 29/10");
+    expect(cauVet(D.slice(0, 1))).toMatch(/^Chưa đủ mốc/);
+  });
+  it("GeoJSON: một đường + chấm mỗi mốc, mốc cuối đánh dấu", () => {
+    const g = vetGeoJson(D);
+    expect(g.features.map((f) => f.geometry.type)).toEqual(["LineString", "Point", "Point"]);
+    expect(g.features[2].properties).toEqual({ k: "moc", cuoi: 1 });
+    expect(vetGeoJson(D.slice(0, 1)).features).toHaveLength(1);
+  });
+  it("tàu mã đổi mỗi bản ⇒ nói không theo được, không gọi mạng", async () => {
+    expect(coTheXemVet({ id: rutId("Y".repeat(80)) })).toBe(false);
+    expect(await fetchVetTau(rutId("Y".repeat(80)))).toEqual({ ok: false, ly: "khong_theo_duoc" });
+  });
+  it("mất sóng ⇒ mat_song (không bịa đường)", async () => {
+    const g = globalThis.fetch;
+    globalThis.fetch = (() => Promise.reject(new TypeError("offline"))) as typeof fetch;
+    try {
+      expect(await fetchVetTau("999000111")).toEqual({ ok: false, ly: "mat_song" });
+    } finally {
+      globalThis.fetch = g;
+    }
   });
 });

@@ -25,6 +25,7 @@ export const NHAN = {
   gui: "Gửi",
   dong: "Đóng",
   an: "Ẩn",
+  duongDi: "Đường đi",
   thuGon: "Thu gọn",
   xemThem: "Xem thêm",
   xemTruoc: "Xem trước",

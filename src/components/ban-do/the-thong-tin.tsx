@@ -16,7 +16,8 @@ import { fmtCoordPair, fmtDepthM, fmtDist, fmtLat, fmtLon, type CoordFormat } fr
 import { CHAT_DAY_COLORS, KHU_TRU_BAO_COLOR, RESTRICTED_FILL_COLOR, SEA_RESTRICTED_COLOR } from "@/lib/ocean-map";
 import { formatHoursVN, type BoatProfile } from "@/lib/route-plan";
 import { describeSeamark, huongDiQuaPhao, seamarkLabel, type Seamark } from "@/lib/seamarks";
-import { MAU_TAU, moTaTau, nhomTau, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
+import { cauVet, coTheXemVet, type KetQuaVet, MAU_TAU, moTaTau, nhomTau, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
+import { NHAN } from "@/lib/labels";
 import { soundingAgeDays, type Sounding } from "@/lib/soundings";
 import { ESTIMATED_DATE_NOTE, ageLine, isStale } from "@/lib/soundings-verified";
 import { nhanMoc } from "@/lib/storm-track";
@@ -376,7 +377,17 @@ export function TheXacTau({ info, onClose, prefs }: { info: XacTauInfo; onClose:
   );
 }
 
-export function TheTauAis({ info, onClose, prefs, now }: { info: TauAisInfo; onClose: () => void; prefs: MapPrefs; now: number }) {
+export function TheTauAis({
+  info, onClose, prefs, now, vet, onXemVet,
+}: {
+  info: TauAisInfo;
+  onClose: () => void;
+  prefs: MapPrefs;
+  now: number;
+  /** đường đi của CHÍNH tàu này: null = chưa mở, "dang" = đang tải */
+  vet: KetQuaVet | "dang" | null;
+  onXemVet: () => void;
+}) {
   const t = info.t;
   return (
     <div
@@ -396,6 +407,24 @@ export function TheTauAis({ info, onClose, prefs, now }: { info: TauAisInfo; onC
             Tin {tuoiTinLabel(tuoiTinPhut(t, { luc: info.luc }, now))}
             {info.tuKho ? " · bản lưu trong máy" : ""}
           </p>
+          {/* ĐƯỜNG ĐI 7 NGÀY (2026-10-30) — tàu có mã cố định mới theo được; mã đổi mỗi bản thì nói thật */}
+          {coTheXemVet(t) ? (
+            vet == null ? (
+              <button
+                type="button"
+                onClick={onXemVet}
+                className="mt-2 flex h-(--h-chip) items-center rounded-full bg-foreground/5 px-3 text-[0.8125rem] font-semibold text-navy active:scale-[0.97]"
+              >
+                {NHAN.duongDi}
+              </button>
+            ) : (
+              <p className="mt-1.5 text-[0.75rem] text-muted">
+                {vet === "dang" ? "Đang tải đường đi…" : vet.ok ? cauVet(vet.diem, now) : "Cần sóng để xem đường đi."}
+              </p>
+            )
+          ) : (
+            <p className="mt-1.5 text-[0.75rem] text-muted">Tàu này nguồn không giữ mã cố định — chưa xem được đường đi.</p>
+          )}
         </div>
         <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin tàu" />
       </div>

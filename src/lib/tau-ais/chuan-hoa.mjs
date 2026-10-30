@@ -114,6 +114,38 @@ export function rutId(id) {
   return `v${h.toString(36)}${id.length.toString(36)}`;
 }
 
+/** Mã giữ nguyên qua các bản (mã gốc ≤16 ký tự). Mã do `rutId` rút từ mã vệ tinh dài thì nguồn đổi mỗi lần ⇒ không theo được đường đi. */
+export function idCoDinh(id) {
+  return typeof id === "string" && id.length >= 1 && id.length <= 16 && !/^v[0-9a-z]{3,}$/.test(id);
+}
+
+/**
+ * Các dòng `tau_ais_vet` của MỘT tàu (mỗi dòng một ngày) ⇒ điểm theo thời gian tăng dần
+ * [{ t: epoch giây, lat, lon, kn }]. Bỏ điểm hỏng/trùng giờ; điểm đứng yên liền nhau giữ một (tàu neo cả đêm
+ * không vẽ thành chùm chấm). Thuần — route GET /api/tau-ais/vet dùng.
+ */
+export function gopVet(dong) {
+  const ds = [];
+  for (const d of Array.isArray(dong) ? dong : []) for (const p of Array.isArray(d?.diem) ? d.diem : []) {
+    if (!Array.isArray(p)) continue;
+    const [t, lat, lon, kn] = p.map((x) => (x == null ? null : Number(x)));
+    if (!Number.isFinite(t) || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+    ds.push({ t, lat, lon, kn: Number.isFinite(kn) ? kn : null });
+  }
+  ds.sort((a, b) => a.t - b.t);
+  const out = [];
+  for (const p of ds) {
+    const cu = out[out.length - 1];
+    if (cu && cu.t === p.t) continue;
+    if (cu && cu.lat === p.lat && cu.lon === p.lon && out.length >= 2 && out[out.length - 2].lat === p.lat && out[out.length - 2].lon === p.lon) {
+      out[out.length - 1] = p; // giữ điểm đầu + điểm cuối của quãng đứng yên
+      continue;
+    }
+    out.push(p);
+  }
+  return out;
+}
+
 /**
  * Máy chủ KIỂM LẠI gói máy thu gửi: { luc, tau: [...] } ⇒ { ok, ban } | { ok:false, code }.
  * Mỗi hàng đi lại qua chuanHoaHang (chấp nhận cả khoá gọn lẫn khoá thô) — hàng hỏng/tin quá cũ/ngoài vùng bị bỏ, không chặn cả gói.
@@ -158,6 +190,8 @@ export function thamSoVet(ban) {
   const t = Date.parse(ban?.luc);
   if (!Number.isFinite(t) || !Array.isArray(ban?.tau)) return null;
   const p_gio = Math.floor(t / 3600_000) * 3600;
-  const p_ds = ban.tau.map((x) => [x.id, x.lat, x.lon, x.kn ?? null, x.mui ?? x.huong ?? null]);
+  // chỉ tàu có MÃ CỐ ĐỊNH: mã rút (vệt vệ tinh không tên) đổi mỗi bản ⇒ mỗi dòng một điểm, không nối được đường,
+  // lại làm bảng phình (đo 30/10: 167 nghìn dòng/ngày như thế, 1 điểm/dòng)
+  const p_ds = ban.tau.filter((x) => idCoDinh(x.id)).map((x) => [x.id, x.lat, x.lon, x.kn ?? null, x.mui ?? x.huong ?? null]);
   return { p_gio, p_ds };
 }
