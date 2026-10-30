@@ -479,7 +479,9 @@ import { premiumLine } from "@/components/premium-gate";
 import {
   AlertIcon,
   AnchorIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   ClockIcon,
   FishIcon,
   HomeIcon,
@@ -638,6 +640,14 @@ const MAP_GRID_STEP_DEG = 1;
 const LOCKED_BOUNDS: [[number, number], [number, number]] = [
   [97.3, 0.4],
   [123.7, 24.6],
+];
+/*  KHUNG KÉO khi lớp động bật (2026-10-30, anh Long: "chế độ view dòng chảy bị lock và zoom, nên nó ko view hoặc move
+    để xem được cái khúc phía dưới"). maxBounds = đúng mép data thì phần Trường Sa / mũi Cà Mau nằm DƯỚI khối thanh giờ
+    (che ~40 % màn) mà không kéo lên được. Nới mép Nam ~9° (≈ chiều cao khối thanh giờ ở zoom cả vùng) + chút ba mép kia:
+    lộ nền trống chỉ khi cố kéo quá, và phần đó phần lớn nằm sau khối. Khung fitBounds lúc bật vẫn là LOCKED_BOUNDS. */
+const PAN_BOUNDS: [[number, number], [number, number]] = [
+  [93, -9],
+  [128, 28],
 ];
 
 // Lớp mở app: HẢI ĐỒ — chuẩn mọi app hàng hải (Navionics/C-MAP/OpenCPN đều
@@ -1178,6 +1188,9 @@ export default function FishingMapView() {
   const [sfGrid, setSfGrid] = useState<ScalarGrid | null>(null);
   const [timeIdx, setTimeIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
+  /*  THU GỌN khối thanh giờ (2026-10-30, anh Long: "cái khối xem cũng che ko ẩn đi đc"). Đổi quyết định 2026-07-28
+      "luôn hiện, bỏ thu gọn": gọn thì chỉ còn MỘT dòng tiêu đề + nút mở, bản đồ phía dưới lộ ra; lớp vẫn vẽ như cũ. */
+  const [thanhGioGon, setThanhGioGon] = useState(false);
   // khung ngày lớp vẽ động (3/5/7/10/16) — bà con tự chọn tầm xa/gần
   const [gridDays, setGridDays] = useState<GridDays>(3);
   // chạm khung ngày bị khoá (premium) → nói lý do một dòng ngay dưới hàng nút
@@ -1445,7 +1458,7 @@ export default function FishingMapView() {
     if (!map) return;
     const apply = () => {
       if (anyExclusiveOverlay) {
-        map.setMaxBounds(LOCKED_BOUNDS);
+        map.setMaxBounds(PAN_BOUNDS);
         if (!fitOnceRef.current) {
           fitOnceRef.current = true;
           map.fitBounds(LOCKED_BOUNDS, { padding: 0, duration: 350 });
@@ -8937,7 +8950,7 @@ export default function FishingMapView() {
                   theo giờ) · 50/150/300 m (Copernicus theo NGÀY). Nằm NGOÀI
                   nhánh stripGrid để lúc đang tải / lỗi vẫn đổi tầng được. Nhãn
                   cùng khuôn 1 dòng. Vùng nông hơn tầng thì bản đồ trống thật. */}
-              {forecastKind === "current" && (
+              {forecastKind === "current" && !thanhGioGon && (
                 <div
                   className="mb-1 flex items-center gap-1.5"
                   role="group"
@@ -8966,12 +8979,11 @@ export default function FishingMapView() {
                 </div>
               )}
               {/* dòng chảy TẦNG SÂU (Copernicus) cần gói — 2026-10-27; tầng "Mặt" (Open-Meteo) miễn phí */}
-              {forecastKind === "current" && curDepthTier !== 0 && premiumLocked && (
+              {forecastKind === "current" && curDepthTier !== 0 && premiumLocked && !thanhGioGon && (
                 <PremiumLock access={premiumAccess} feature="dòng chảy tầng sâu" compact />
               )}
-              {/* LUÔN HIỆN khi mở lớp (kiểu Windy) — bỏ thu gọn/auto-hide; strip
-                  gọn: 1 dòng tiêu đề + play, rồi dải ngày + thanh dải màu (user
-                  2026-07-28). Thanh dải màu KHÔNG bao giờ ẩn khi lớp đang bật. */}
+              {/* Khi mở lớp: 1 dòng tiêu đề + Thu gọn + play, rồi dải ngày + thanh dải màu (user 2026-07-28). Từ 2026-10-30
+                  bấm Thu gọn thì chỉ còn dòng tiêu đề (anh Long: "khối xem che ko ẩn đi đc") — mặc định vẫn mở đủ. */}
               {stripGrid ? (
                 <>
                   <div className="flex items-center justify-between gap-2">
@@ -8993,6 +9005,18 @@ export default function FishingMapView() {
                         </span>
                       )}
                     </span>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setThanhGioGon((g) => !g)}
+                      aria-expanded={!thanhGioGon}
+                      aria-label={thanhGioGon ? "Mở khối thanh giờ" : "Thu gọn khối thanh giờ"}
+                      className="flex h-(--h-chip) items-center gap-1 rounded-full bg-field px-3 text-[0.8125rem] font-semibold text-navy active:scale-95"
+                    >
+                      {thanhGioGon ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                      {thanhGioGon ? NHAN.mo : NHAN.thuGon}
+                    </button>
+                    {!thanhGioGon && (
                     <button
                       type="button"
                       onClick={() => setPlaying((p) => !p)}
@@ -9005,9 +9029,11 @@ export default function FishingMapView() {
                         <PlayIcon className="h-5 w-5" />
                       )}
                     </button>
+                    )}
+                    </div>
                   </div>
-                  {/* dải ngày + nấc giờ + THANH DẢI MÀU (luôn hiện) */}
-                  {stripLegend && (
+                  {/* dải ngày + nấc giờ + THANH DẢI MÀU (ẩn khi thu gọn — 2026-10-30) */}
+                  {stripLegend && !thanhGioGon && (
                     <TimeScrubber
                       times={stripGrid.times}
                       timeIdx={timeIdx}
