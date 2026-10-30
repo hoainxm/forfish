@@ -171,6 +171,7 @@ export const LEGEND_TIERS: LegendTier[] = [
       { mau: SEA_RESTRICTED_COLOR, dang: "vung", chu: "Vùng cấm / khu hạn chế (viền cam, nền cam nhạt)" },
       { mau: SEA_RESTRICTED_COLOR, dang: "vung", chu: "Khu bảo tồn biển (viền liền) · vùng cấm đánh bắt theo mùa (viền đứt — nền đậm là ĐANG cấm, mờ là ngoài mùa) · khu bảo vệ nguồn lợi (viền chấm) — chạm vào để đọc" },
       { mau: SEA_LANE_COLOR, dang: "duong", chu: "Luồng cảng, phân luồng" },
+      { icon: CHART_FEATURE_ICON.tssArrow, chu: "Mũi tên trong làn phân luồng: tàu phải chạy theo chiều mũi, đừng đi ngược hay thả lưới giữa làn" },
       { icon: CHART_FEATURE_ICON.bank, chu: "Rạn, bãi, đá VEN BỜ (cùng hình như ngoài khơi)" },
     ],
   },

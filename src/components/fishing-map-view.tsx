@@ -6995,6 +6995,24 @@ export default function FishingMapView() {
                 "line-opacity": 0.7,
               }}
             />
+            {/* MŨI TÊN PHÂN LUỒNG (INT1 M10, 2026-10-31) — chỉ làn chạy (`pl: lane`,
+                OSM separation_lane). Chiều way OSM = chiều tàu chạy; icon mũi chỉ
+                sang phải nên `placement: line` tự xoay theo chiều đó; keep-upright
+                tắt để mũi không bị lật ngược khi đường đi sang trái màn hình. */}
+            <Layer
+              id="sea-lane-tss-arrow"
+              type="symbol"
+              minzoom={SEA_FAIRWAY_MINZOOM}
+              filter={["all", ["==", ["get", "kind"], "phanluong"], ["==", ["get", "pl"], "lane"]] as unknown as FilterSpecification}
+              layout={{
+                "symbol-placement": "line",
+                "symbol-spacing": 160,
+                "icon-image": CHART_FEATURE_ICON.tssArrow,
+                "icon-size": CHART_ICON_SIZE as unknown as number,
+                "icon-rotation-alignment": "map",
+                "icon-keep-upright": false,
+              }}
+            />
             {/* tuyến lớn vẽ tay — nét dày hơn, đứt dài */}
             <Layer
               id="sea-lane-tuyen"

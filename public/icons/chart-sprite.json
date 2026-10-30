@@ -706,31 +706,38 @@
   "y": 312,
   "pixelRatio": 1
  },
- "valley": {
+ "tss-arrow": {
   "width": 24,
   "height": 24,
   "x": 130,
   "y": 312,
   "pixelRatio": 1
  },
- "virtual-aton": {
+ "valley": {
   "width": 24,
   "height": 24,
   "x": 156,
   "y": 312,
   "pixelRatio": 1
  },
- "wreck": {
+ "virtual-aton": {
   "width": 24,
   "height": 24,
   "x": 182,
   "y": 312,
   "pixelRatio": 1
  },
- "wreck-depth": {
+ "wreck": {
   "width": 24,
   "height": 24,
   "x": 0,
+  "y": 338,
+  "pixelRatio": 1
+ },
+ "wreck-depth": {
+  "width": 24,
+  "height": 24,
+  "x": 26,
   "y": 338,
   "pixelRatio": 1
  }

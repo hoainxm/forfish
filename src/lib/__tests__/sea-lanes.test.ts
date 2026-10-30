@@ -29,6 +29,7 @@ const data = JSON.parse(rawText) as {
       loai?: string;
       tram?: string;
       hoDang?: boolean;
+      pl?: string;
     };
     geometry: { type: string; coordinates: number[] | number[][] | number[][][] };
   }[];
@@ -146,6 +147,20 @@ describe("vn-sea-lanes.v1.json — hải đồ tuyến/luồng đã Việt hoá"
       (f) => f.properties.kind === "ong" && ["khi", "dau", "nhien-lieu"].includes(f.properties.loai!),
     );
     expect(nguyHiem.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("PHÂN LUỒNG mang `pl` (loại OSM gốc) — làn chạy có đủ để vẽ mũi tên chiều", () => {
+    // 2026-10-31: trước đó mọi separation_* gộp "phanluong", lớp bản đồ không
+    // biết làn nào là làn chạy ⇒ không vẽ được mũi tên chiều (INT1 M10).
+    const PL = new Set(["lane", "zone", "boundary", "line", "track", "navigation", "khac"]);
+    const pl = data.features.filter((f) => f.properties.kind === "phanluong");
+    const bad = pl.filter((f) => !PL.has(f.properties.pl ?? "")).map((f) => f.properties.pl);
+    expect(bad, "phanluong thiếu/lạ `pl`").toEqual([]);
+    const lane = pl.filter((f) => f.properties.pl === "lane");
+    expect(lane.length).toBeGreaterThanOrEqual(18); // OSM đếm 2026-10-31
+    lane.forEach((f) => expect(f.geometry.type).toBe("LineString"));
+    // `pl` chỉ thuộc phanluong — kind khác mang `pl` là script gắn nhầm
+    expect(data.features.filter((f) => f.properties.kind !== "phanluong" && f.properties.pl)).toEqual([]);
   });
 
   it("BỔ SUNG VN: trục luồng Cục Hàng hải lấp chỗ trống fairway", () => {

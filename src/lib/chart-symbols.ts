@@ -449,6 +449,8 @@ export const CHART_FEATURE_ICON = Object.freeze({
   cableLanding: "cable-landing",
   /** Dấu lặp dọc ống dẫn dầu/khí — đoạn ống hai mặt bích. Tách ống khỏi cáp. */
   pipelineMark: "pipeline-mark",
+  /** Mũi tên chiều chạy trong làn phân luồng (INT1 M10) — mũi chỉ theo chiều way. */
+  tssArrow: "tss-arrow",
 
   /* Địa danh ngầm (Thông tư 33/2024) — mặt cắt địa hình, toàn teal/INK. */
   /** Núi ngầm / dãy núi — hai chóp nhọn. */

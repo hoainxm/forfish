@@ -408,7 +408,7 @@ Chưa đạt:
 | 7 | Kiểm mắt R4; nếu rối, `bai`/`con` ven bờ lùi z9 hoặc tắt `icon-allow-overlap` ven bờ | `fishing-map-view.tsx:4735-4752` | Nhỏ |
 | 8 | Đợt 2 C-MAP: mũi tên TSS (`tss-arrow`, `symbol-placement: line` trên `phanluong`) · đặc tính đèn dòng 2 nhãn z≥11 · chất đáy chữ z≥12 | `fishing-map-view.tsx:4392-4404`; `ocean-map.ts:623-641`; sprite +1 | Vừa |
 
-> **Trạng thái 30/10/2026** (đối chiếu code main): mục 1–7 ĐÃ LÀM (vùng cấm Polygon, dải độ sâu `fill-opacity` 0,7 (R2 — đất không còn bị phủ trắng), giàn bỏ khỏi `SEAMARK_FAR`, bãi ngầm DK1 câu riêng, khu trú bão icon `anchorage`). Mục 3 vế đèn trùng + mục 5 vế đá OSM + mục 8 vế đặc tính đèn và chất đáy chữ: làm 30/10 (07-design-spec "ĐỢT 2 THEO A.11.8"). **Còn**: mũi tên TSS (cần sinh lại `vn-sea-lanes` giữ `seamark:type`), và các mục "cần xem bằng mắt" dưới đây.
+> **Trạng thái 30/10/2026** (đối chiếu code main): mục 1–7 ĐÃ LÀM (vùng cấm Polygon, dải độ sâu `fill-opacity` 0,7 (R2 — đất không còn bị phủ trắng), giàn bỏ khỏi `SEAMARK_FAR`, bãi ngầm DK1 câu riêng, khu trú bão icon `anchorage`). Mục 3 vế đèn trùng + mục 5 vế đá OSM + mục 8 vế đặc tính đèn và chất đáy chữ: làm 30/10 (07-design-spec "ĐỢT 2 THEO A.11.8"). **Còn**: các mục "cần xem bằng mắt" dưới đây. Mũi tên TSS: LÀM 31/10 (sinh lại `vn-sea-lanes` giữ `pl`, lớp `sea-lane-tss-arrow`; 18 làn đều ở Hồng Kông — VN chưa có TSS trong OSM).
 
 ### A.11.9 Cần xem bằng mắt mới chốt (đợt 2)
 1. R2 — đảo nhỏ Trường Sa / Cù Lao Chàm dưới dải `#f8fbfc` @1,0; ca offline vịnh Hạ Long.

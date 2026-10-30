@@ -586,6 +586,12 @@ const SYMBOLS = {
   "pipeline-mark":
     el("rect", keyed({ x: 2.6, y: 8.4, width: 18.8, height: 7.2, rx: 3.6, fill: WHITE })) +
     el("path", keyed({ d: "M7.2,6.4 V17.6 M16.8,6.4 V17.6", fill: "none", "stroke-width": K + 1 })),
+  // MŨI TÊN PHÂN LUỒNG (INT1 M10, 2026-10-31) — chiều chạy tàu bắt buộc trong
+  // làn phân luồng. Mũi CHỈ SANG PHẢI: symbol `placement: line` của MapLibre
+  // xoay trục x của icon theo chiều vẽ đường, nên chiều way OSM = chiều mũi.
+  // Ruột SLATE (họ màu với nét luồng), viền INK như cả bộ.
+  "tss-arrow":
+    el("path", keyed({ d: "M2.4,9.4 H13.2 V5 L21.6,12 L13.2,19 V14.6 H2.4 Z", fill: SLATE })),
 
   /* ── ĐỊA DANH NGẦM (Thông tư 33/2024 — 184 tên, lớp dia-danh-ngam) — 2026-09
      Trước đây chỉ có CHỮ: "Đồi ngầm Phong Điền" trôi trên nền, không biết to
@@ -688,7 +694,7 @@ const LIT_CAPABLE = Object.keys(SYMBOLS).filter(
       "lighthouse", "wreck", "wreck-depth", "obstruction",
       // đá/bãi/rạn là ĐỊA HÌNH, cấm neo/cáp/ống là CÔNG TRÌNH — không cái nào
       // "có đèn"; sinh biến thể -lit cho chúng là thêm ô vô nghĩa vào sprite.
-      "rock-awash", "bank", "coral-reef", "no-anchor", "cable-landing", "pipeline-mark",
+      "rock-awash", "bank", "coral-reef", "no-anchor", "cable-landing", "pipeline-mark", "tss-arrow",
       "seamount", "knoll", "ridge", "guyot", "deep", "valley", "escarpment",
     ].includes(id),
 );

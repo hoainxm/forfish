@@ -19,6 +19,10 @@
 //     ong:        "khi" | "dau" | "nhien-lieu" | "nuoc" | "xa-thai" | "chua-ro"
 //     vungcam:    "cam-neo" | "cam-danh-bat" | "cam-vao" | "han-che"
 //   tram (chỉ cap-bo): tên trạm cập bờ ("Vũng Tàu" / "Đà Nẵng" / "Quy Nhơn")
+//   pl (chỉ phanluong, 2026-10-31): loại OSM gốc, bỏ tiền tố —
+//     "lane" (làn chạy — CHIỀU WAY = chiều tàu chạy, quy ước OpenSeaMap) ·
+//     "zone" (dải phân cách) · "boundary" · "line" · "track" (tuyến khuyến nghị)
+//     · "navigation" (đường dẫn hướng). Lớp bản đồ chỉ vẽ mũi tên trên "lane".
 //
 // ── TÁCH ỐNG DẪN KHỎI CÁP (2026-09-03, review A.4 danh-gia-hai-do-2026-09) ──
 // Trước đây `cable_submarine` + `pipeline_submarine` gộp một `kind: "cap"` →
@@ -254,6 +258,15 @@ function tenOsm(seamarkType, lon, lat, loai) {
   }
 }
 
+const PL_LOAI = {
+  separation_lane: "lane",
+  separation_zone: "zone",
+  separation_boundary: "boundary",
+  separation_line: "line",
+  recommended_track: "track",
+  navigation_line: "navigation",
+};
+
 // `loai` theo kind (undefined cho kind không có loại phụ → không ghi property)
 function loaiOsm(kind, tags) {
   if (kind === "cap") return loaiCap(tags);
@@ -291,6 +304,9 @@ function osmProps(kind, st, tags, lon, lat) {
   if (loai) tallyLoai[`${kind}/${loai}`] = (tallyLoai[`${kind}/${loai}`] || 0) + 1;
   const p = { kind, ten: tenOsm(st, lon, lat, loai), src: "osm" };
   if (loai) p.loai = loai;
+  // Mũi tên phân luồng cần biết làn nào là LÀN CHẠY (separation_lane) — trước
+  // 2026-10-31 mọi separation_* gộp chung "phanluong" nên không vẽ được chiều.
+  if (kind === "phanluong") p.pl = PL_LOAI[st] ?? "khac";
   return p;
 }
 if (ovp?.elements) {

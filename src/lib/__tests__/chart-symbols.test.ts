@@ -973,6 +973,8 @@ const LOCKED_CELLS: Record<string, string> = {
   "tide-flat-2-uoc": "d6e55451550d2dd5",
   "tide-flat-3": "446bf70dc8705083",
   "tide-flat-3-uoc": "015bc47b63deadb8",
+  // mũi tên phân luồng (INT1 M10, 2026-10-31) — mũi chỉ sang phải = chiều way
+  "tss-arrow": "22d6d087e8b69815",
 };
 
 describe("mọi ký hiệu đã chốt giữ nguyên từng pixel", () => {
@@ -985,7 +987,7 @@ describe("mọi ký hiệu đã chốt giữ nguyên từng pixel", () => {
 
   it("bảng khoá phủ ĐỦ mọi ô trong sprite — thêm hình mà không khoá là lọt", () => {
     expect(Object.keys(LOCKED_CELLS).sort()).toEqual(Object.keys(SHEET_2X).sort());
-    expect(Object.keys(LOCKED_CELLS)).toHaveLength(105);
+    expect(Object.keys(LOCKED_CELLS)).toHaveLength(106);
   });
 
   it.each(Object.keys(LOCKED_CELLS))("%s: pixel y nguyên so với bản chốt", (id) => {
