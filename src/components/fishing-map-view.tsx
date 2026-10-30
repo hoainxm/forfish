@@ -100,6 +100,8 @@ import {
   WRECK_LAYER,
   type OceanLayerId,
   ROUTE_CASING_COLOR,
+  AIS_VET_COLOR,
+  AIS_VET_DAU_COLOR,
 } from "@/lib/ocean-map";
 import {
   chartSymbolId,
@@ -209,7 +211,7 @@ import {
   type StormZone,
 } from "@/lib/fleet-density";
 import { subscribeOnline } from "@/lib/use-online";
-import { cauVet, fetchQuyenAis, fetchTauAis, fetchVetTau, type KetQuaVet, MAU_TAU, nhomTau, vetGeoJson, peekQuyenAis, type TauAis, moTaTau, TAU_AIS_LAM_MOI_MS, tauGanDiem, tauGeoJson, tuoiTinLabel, tuoiTinPhut, type TauAisBan } from "@/lib/tau-ais";
+import { cauVet, fetchQuyenAis, fetchTauAis, fetchVetTau, type KetQuaVet, MAU_TAU, vetGeoJson, peekQuyenAis, type TauAis, moTaTau, TAU_AIS_LAM_MOI_MS, tauGanDiem, tauGeoJson, tuoiTinLabel, tuoiTinPhut, type TauAisBan } from "@/lib/tau-ais";
 import { fetchSeaForecast } from "@/lib/sea";
 import { PORTS } from "@/data/ports";
 import {
@@ -3174,7 +3176,7 @@ export default function FishingMapView() {
         for (const p of kq.diem) {
           w = Math.min(w, p.lon); e = Math.max(e, p.lon); so = Math.min(so, p.lat); n = Math.max(n, p.lat);
         }
-        mapRef.current?.fitBounds([[w, so], [e, n]], { padding: 64, maxZoom: 11, duration: 650 });
+        mapRef.current?.fitBounds([[w, so], [e, n]], { padding: { top: 140, bottom: 90, left: 90, right: 90 }, maxZoom: 11, duration: 650 });
       }
     });
   }, []);
@@ -7874,23 +7876,6 @@ export default function FishingMapView() {
             <Layer id="ais-man" type="fill" paint={{ "fill-color": "#ffffff", "fill-opacity": 0.5 }} />
           </Source>
         )}
-        {vetGeo && vetTau && (
-          <Source id="ais-vet" type="geojson" data={vetGeo}>
-            <Layer id="ais-vet-vien" type="line" filter={["==", ["get", "k"], "duong"] as unknown as boolean} layout={{ "line-join": "round", "line-cap": "round" }} paint={{ "line-color": ROUTE_CASING_COLOR, "line-width": 5 }} />
-            <Layer id="ais-vet-duong" type="line" filter={["==", ["get", "k"], "duong"] as unknown as boolean} layout={{ "line-join": "round", "line-cap": "round" }} paint={{ "line-color": MAU_TAU[nhomTau(vetTau.t.loai)], "line-width": 2.5 }} />
-            <Layer
-              id="ais-vet-moc"
-              type="circle"
-              filter={["==", ["get", "k"], "moc"] as unknown as boolean}
-              paint={{
-                "circle-radius": ["case", ["==", ["get", "cuoi"], 1], 5, 2.5] as unknown as number,
-                "circle-color": MAU_TAU[nhomTau(vetTau.t.loai)],
-                "circle-stroke-color": ROUTE_CASING_COLOR,
-                "circle-stroke-width": 1,
-              }}
-            />
-          </Source>
-        )}
         {aisGeo && (
           <Source id="tau-ais" type="geojson" data={aisGeo}>
             {/* ICON TÀU như máy AIS (anh Long 29/10): tam giác xoay theo mũi tàu khi đang chạy, chấm tròn khi đứng —
@@ -7906,6 +7891,51 @@ export default function FishingMapView() {
                 "icon-rotation-alignment": "map",
                 "icon-allow-overlap": true,
                 "icon-ignore-placement": true,
+              }}
+              paint={{ "icon-opacity": vetTau ? ["case", ["==", ["get", "id"], vetTau.t.id], 1, 0.3] as unknown as number : 1 }}
+            />
+          </Source>
+        )}
+        {/*  ĐƯỜNG ĐI TÀU ĐANG XEM — vẽ TRÊN icon tàu (anh Long 30/10: "highlight lên", "điểm đầu điểm cuối"): viền trắng
+             rộng + đường hồng dày; tàu khác mờ đi (icon-opacity ở trên). Đầu = chấm xanh lá "Bắt đầu
+             HH:MM", cuối = chấm hồng to "Mới nhất HH:MM". */}
+        {vetGeo && vetTau && (
+          <Source id="ais-vet" type="geojson" data={vetGeo}>
+            <Layer id="ais-vet-vien" type="line" filter={["==", ["get", "k"], "duong"] as unknown as boolean} layout={{ "line-join": "round", "line-cap": "round" }} paint={{ "line-color": ROUTE_CASING_COLOR, "line-width": 9, "line-opacity": 0.9 }} />
+            <Layer id="ais-vet-duong" type="line" filter={["==", ["get", "k"], "duong"] as unknown as boolean} layout={{ "line-join": "round", "line-cap": "round" }} paint={{ "line-color": AIS_VET_COLOR, "line-width": 4.5 }} />
+            <Layer
+              id="ais-vet-moc"
+              type="circle"
+              filter={["==", ["get", "k"], "moc"] as unknown as boolean}
+              paint={{ "circle-radius": 3, "circle-color": ROUTE_CASING_COLOR, "circle-stroke-color": AIS_VET_COLOR, "circle-stroke-width": 1.5 }}
+            />
+            <Layer
+              id="ais-vet-hai-dau"
+              type="circle"
+              filter={["in", ["get", "k"], ["literal", ["dau", "cuoi"]]] as unknown as boolean}
+              paint={{
+                "circle-radius": 8,
+                "circle-color": ["case", ["==", ["get", "k"], "dau"], AIS_VET_DAU_COLOR, AIS_VET_COLOR] as unknown as string,
+                "circle-stroke-color": ROUTE_CASING_COLOR,
+                "circle-stroke-width": 2.5,
+              }}
+            />
+            <Layer
+              id="ais-vet-nhan"
+              type="symbol"
+              filter={["in", ["get", "k"], ["literal", ["dau", "cuoi"]]] as unknown as boolean}
+              layout={{
+                "text-field": ["get", "nhan"] as unknown as string,
+                "text-font": ["Noto Sans Bold"],
+                "text-size": 12,
+                "text-offset": [0, 1.4],
+                "text-anchor": "top",
+                "text-allow-overlap": true,
+              }}
+              paint={{
+                "text-color": ["case", ["==", ["get", "k"], "dau"], AIS_VET_DAU_COLOR, AIS_VET_COLOR] as unknown as string,
+                "text-halo-color": ROUTE_CASING_COLOR,
+                "text-halo-width": 2,
               }}
             />
           </Source>
@@ -8047,16 +8077,6 @@ export default function FishingMapView() {
           vet={vetTau?.t.id === tauAisInfo.t.id ? vetTau.kq ?? "dang" : null}
           onXemVet={() => xemVetTau(tauAisInfo.t)}
         />
-      )}
-      {vetTau && (
-        <div className="pointer-events-auto absolute left-1/2 top-[4.5rem] z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-card/97 py-1 pl-3 pr-1 shadow-lg">
-          <span className="truncate text-[0.8125rem] text-foreground/75">
-            {vetTau.t.ten ?? "Tàu chưa rõ tên"} · {vetTau.kq == null ? "đang tải đường đi…" : vetTau.kq.ok ? cauVet(vetTau.kq.diem, nowMs) : vetTau.kq.ly === "mat_song" ? "cần sóng để xem đường đi" : "tàu này không theo được đường đi"}
-          </span>
-          <button type="button" onClick={() => setVetTau(null)} className="flex h-(--h-chip) flex-none items-center rounded-full bg-foreground/5 px-3 text-[0.8125rem] font-semibold text-navy active:scale-[0.97]">
-            {NHAN.an}
-          </button>
-        </div>
       )}
 
       {/*  ĐÈN NÀO ĐÂY (2026-09-02).
@@ -8451,6 +8471,18 @@ export default function FishingMapView() {
                 onToanBien={moAisToanBien}
                 onClose={thoatAis}
               />
+            )}
+            {/* viên ĐƯỜNG ĐI đang xem — nằm TRONG cột trái ngay dưới thẻ AIS (xếp theo luồng, không đè thẻ) */}
+            {vetTau && (
+              <div className="pointer-events-auto flex max-w-full items-center gap-2 self-start rounded-full bg-card/97 py-1 pl-3 pr-1 shadow-lg">
+                <span className="inline-block h-2.5 w-2.5 flex-none rounded-full" style={{ backgroundColor: AIS_VET_COLOR }} aria-hidden />
+                <span className="truncate text-[0.8125rem] text-foreground/75">
+                  {vetTau.t.ten ?? "Tàu chưa rõ tên"} · {vetTau.kq == null ? "đang tải đường đi…" : vetTau.kq.ok ? cauVet(vetTau.kq.diem, nowMs) : vetTau.kq.ly === "mat_song" ? "cần sóng để xem đường đi" : "tàu này không theo được đường đi"}
+                </span>
+                <button type="button" onClick={() => setVetTau(null)} className="flex h-(--h-chip) flex-none items-center rounded-full bg-foreground/5 px-3 text-[0.8125rem] font-semibold text-navy active:scale-[0.97]">
+                  {NHAN.an}
+                </button>
+              </div>
             )}
             {navMode == null && aisMode == null && (
               <div ref={setOTimEl}>

@@ -150,6 +150,11 @@ export const SEA_MASK_COLOR = "#d5e8eb";
 // chỉ đường quen mắt, cam đỏ độc quyền cho ranh giới.
 export const ROUTE_LINE_COLOR = "#1a73e8";
 export const ROUTE_CASING_COLOR = "#ffffff";
+/** Đường đi tàu AIS đang xem (2026-10-30, "highlight lên"): hồng cánh sen — không trùng màu loại tàu nào
+    (cá cam, hàng xám, dầu đỏ, khách xanh) hay đường dẫn đường (xanh lam), nổi trên nền biển nhạt. */
+export const AIS_VET_COLOR = "#e0007a";
+/** Điểm đầu đường đi: xanh lá đậm — đọc ngay là "từ đây". Điểm cuối dùng AIS_VET_COLOR. */
+export const AIS_VET_DAU_COLOR = "#0a8f3c";
 
 /*  MÀU THEO CHẶNG (2026-08-29g, chủ dự án: *"điểm nào cần lưu ý thì màu đỏ,
     cần chú ý vừa thì màu cam, ko có gì thì màu xanh, lúc bắt đầu đi thì cái

@@ -174,14 +174,31 @@ export function cauVet(diem: readonly DiemVet[], now = Date.now()): string {
   return `Đường đi ${ngay} ngày qua · ${diem.length} mốc · từ ${hh}:00 ${ddmm}`;
 }
 
-/** Đường + chấm mốc (mốc cuối có `cuoi`) cho lớp MapLibre. Thuần. */
+/** "07:00 29/10" giờ VN từ epoch giây. */
+function gioNgayVN(t: number): string {
+  const vn = new Date(t * 1000 + 7 * 3_600_000);
+  return `${String(vn.getUTCHours()).padStart(2, "0")}:${String(vn.getUTCMinutes()).padStart(2, "0")} ${vn.getUTCDate()}/${vn.getUTCMonth() + 1}`;
+}
+
+/**
+ * Lớp MapLibre cho đường đi (anh Long 30/10: "làm rõ cái màu cho highlight lên, rồi thể hiện được điểm đầu điểm cuối"):
+ * `duong` (LineString) · `moc` chấm mỗi giờ ở giữa · `dau` / `cuoi` hai đầu, có nhãn `nhan` "Bắt đầu 07:00 29/10" /
+ * "Mới nhất 10:00 30/10". Một mốc ⇒ chỉ `cuoi`. Thuần.
+ */
 export function vetGeoJson(diem: readonly DiemVet[]): GeoJSON.FeatureCollection {
-  const toaDo = diem.map((p) => [p.lon, p.lat]);
+  const n = diem.length;
+  const diemF = (p: DiemVet, k: "moc" | "dau" | "cuoi", nhan = "") => ({
+    type: "Feature" as const,
+    properties: { k, nhan },
+    geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
+  });
   return {
     type: "FeatureCollection",
     features: [
-      ...(toaDo.length >= 2 ? [{ type: "Feature" as const, properties: { k: "duong" }, geometry: { type: "LineString" as const, coordinates: toaDo } }] : []),
-      ...diem.map((p, i) => ({ type: "Feature" as const, properties: { k: "moc", cuoi: i === diem.length - 1 ? 1 : 0 }, geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] } })),
+      ...(n >= 2 ? [{ type: "Feature" as const, properties: { k: "duong", nhan: "" }, geometry: { type: "LineString" as const, coordinates: diem.map((p) => [p.lon, p.lat]) } }] : []),
+      ...diem.slice(1, -1).map((p) => diemF(p, "moc")),
+      ...(n >= 2 ? [diemF(diem[0], "dau", `Bắt đầu ${gioNgayVN(diem[0].t)}`)] : []),
+      ...(n >= 1 ? [diemF(diem[n - 1], "cuoi", `Mới nhất ${gioNgayVN(diem[n - 1].t)}`)] : []),
     ],
   };
 }
