@@ -87,9 +87,12 @@ export function promptTin(dot, dongTin) {
     "- CHỈ dùng dữ kiện có trong tin nhắn/ảnh. Không bịa số lượng, tên tàu, nơi chốn, sản phẩm nếu không thấy rõ.",
     "- KHÔNG ghi giá, số tiền, SĐT, số đăng ký tàu (kiểu BĐ-90123-TS), tên đầy đủ của khách hay nhân viên.",
     "- Không chê hàng khác, không hứa 'bảo đảm', 'tốt nhất'.",
+    "- Viết ĐẦY ĐỦ, không viết tắt nội bộ: MLN = máy lọc nước biển, MLD = máy lọc dầu, GSHT = thiết bị giám sát hành trình,",
+    "  KD = kinh doanh; '700L/1H' = 700 lít một giờ.",
     "Gắn nhay_cam = true nếu nội dung dính tới: tiền bạc / giá / thanh toán / nợ; chính sách, luật, cơ quan nhà nước, vi phạm, xử phạt;",
     "  tai nạn, sự cố, khiếu nại, tranh chấp; hoặc ảnh/tin không rõ là việc triển khai của SDVICO. Khi đó vẫn viết nháp.",
-    'Chỉ trả JSON: {"nhay_cam": true|false, "ly_do": "...", "bai": "..."}',
+    "Gắn ro = false nếu KHÔNG nói được cụ thể SDVICO đã làm gì (sản phẩm nào / việc gì) — thà bỏ còn hơn đăng bài chung chung.",
+    'Chỉ trả JSON: {"ro": true|false, "nhay_cam": true|false, "ly_do": "...", "bai": "..."}',
   ].join("\n");
 }
 

@@ -4,7 +4,7 @@
 // công ty "SDVICO đã triển khai…"; "tự đăng luôn, liên quan tiền bạc hoặc chính sách hay nhạy cảm thì mới cần duyệt".
 //
 //   node scripts/kairos-trien-khai.mjs          một đợt ảnh cũ nhất chưa xử lý ⇒ Claude viết ⇒ kiểm ⇒ POST /api/kairos/sdvico-tin
-//   node scripts/kairos-trien-khai.mjs --thu    như trên nhưng KHÔNG gửi, KHÔNG ghi sổ — in bài ra
+//   node scripts/kairos-trien-khai.mjs --thu    như trên nhưng KHÔNG gửi, KHÔNG ghi sổ — in bài ra (--moi: đợt mới nhất)
 //
 // Nguồn (cùng máy): kho ảnh AI Assistant `KAIROS_KHO_ANH` (mặc định ~/.local/forlife/kho-anh-thuc-te) + sổ trực Zalo
 // `ZALO_DB` (mặc định ~/.local/forlife/zalo/db.json, chỉ đọc `msgs`). Sổ `trien-khai.json` ở KAIROS_STATE_DIR:
@@ -20,6 +20,7 @@ import { gomDot, loiTin, nguCanh, promptTin } from "../src/lib/kairos/tin-trien-
 import { canCauHinh, cauHinh, docJson, ghiJson, goiAI, goiApi, log } from "./kairos-chung.mjs";
 
 const dry = process.argv.slice(2).some((a) => a === "--thu" || a === "--dry");
+const moiNhat = process.argv.includes("--moi"); // thử với đợt MỚI nhất (mặc định: cũ nhất trước)
 
 async function main() {
   const c = cauHinh();
@@ -46,7 +47,7 @@ async function main() {
     log("[tin] không có đợt ảnh mới");
     return 0;
   }
-  const dot = dots[0];
+  const dot = moiNhat ? dots[dots.length - 1] : dots[0];
   log(`[đợt] ${dot.nhom} · ${dot.nguoi} · ${dot.tatCa.length} ảnh · ${dot.duyet ? "đã duyệt" : "chưa duyệt"}`);
 
   const r = await goiAI(c, { prompt: promptTin(dot, nguCanh(db.msgs, dot)), timeoutMs: 120_000, ten: "trien-khai" });
@@ -64,6 +65,11 @@ async function main() {
     const con = sodot.filter((d) => d.key !== dot.key);
     ghiJson(soFile, { dot: [...con, { key: dot.key, ids: dot.tatCa, kq, ly_do: lyDo, luc: new Date(now).toISOString() }].slice(-300) });
   };
+  if (j.ro === false) {
+    log(`[tin] không rõ SDVICO làm gì — bỏ đợt (${j.ly_do || "mơ hồ"})`);
+    ghi("loi", "mo_ho");
+    return 0;
+  }
   if (nhayCam && !dot.duyet) {
     log(`[tin] NHẠY CẢM — chờ duyệt (${j.ly_do || loi})`);
     ghi("nhay_cam", String(j.ly_do || loi).slice(0, 200));

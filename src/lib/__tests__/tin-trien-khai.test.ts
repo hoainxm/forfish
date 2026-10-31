@@ -59,5 +59,6 @@ describe("loiTin + promptTin", () => {
     expect(p).toContain("KHÔNG mở bằng 'Bà con ơi'");
     expect(p).toContain("KHÔNG ghi giá");
     expect(p).toContain("nhay_cam");
+    expect(p).toContain("ro = false");
   });
 });
