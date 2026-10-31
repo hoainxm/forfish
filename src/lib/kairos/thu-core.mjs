@@ -612,12 +612,35 @@ export const GEMMA_LUI = "gemma4:e2b";
 
 /**
  * Thân POST /api/generate. Nhiệt thấp — việc chấm/tóm tắt cần ổn định, không cần sáng tạo.
- * `keep_alive` 30 phút: kiểm 5 phút/lần, agent 10 phút/lần ⇒ mô hình nằm nóng giữa các lượt.
+ * `keep_alive` 2 phút (= GIU_NONG_KHAC của AI Assistant, ADR 0013 "chỉ e2b Sen Biển thường trực"): đủ giữ nóng giữa
+ * các lô trong MỘT lượt. Trước 31/10 là 30 phút ⇒ e4b 16k nằm lì trên card 12 GB, Ollama đẩy e2b của Sen Biển ra, câu
+ * hỏi máy nhà nạp lạnh 6 s > trần 2 s ⇒ `timeout` (đo 31/10: 3/3 câu qua prod).
  * @param {string} model
  * @param {string} prompt
  */
 export function bodyOllama(model, prompt) {
-  return { model, prompt, stream: false, keep_alive: "30m", options: { temperature: 0.2, num_ctx: 16384 } };
+  return { model, prompt, stream: false, keep_alive: "2m", options: { temperature: 0.2, num_ctx: 16384 } };
+}
+
+/** Thân POST /api/generate nhả NGAY một mô hình khỏi card (không prompt + keep_alive 0 — cách Ollama tài liệu hoá). */
+export function bodyNhaMoHinh(model) {
+  return { model, keep_alive: 0 };
+}
+
+/**
+ * Thân POST /api/chat nạp lại Gemma của Sen Biển sau lượt Kairos. PHẢI trùng từng tham số với lượt hỏi thuê bao
+ * (AI-Assistant `forfish-thue-bao.mjs` TB_GON: numCtx 4096, keepAlive 24h) — khác `num_ctx` là Ollama nạp lại mô hình
+ * (bẫy 23/10). Đổi TB_GON bên đó thì đổi ở đây.
+ */
+export function bodyNongSenBien() {
+  return {
+    model: GEMMA_LUI,
+    messages: [{ role: "user", content: "chào" }],
+    stream: false,
+    think: false,
+    keep_alive: "24h",
+    options: { num_predict: 1, num_ctx: 4096 },
+  };
 }
 
 /**

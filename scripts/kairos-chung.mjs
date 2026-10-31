@@ -11,7 +11,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { bodyOllama, cliArgs, docKetQuaCli, docKetQuaOllama, GEMMA_LUI, GEMMA_MAC_DINH } from "../src/lib/kairos/thu-core.mjs";
+import { bodyNhaMoHinh, bodyNongSenBien, bodyOllama, cliArgs, docKetQuaCli, docKetQuaOllama, GEMMA_LUI, GEMMA_MAC_DINH } from "../src/lib/kairos/thu-core.mjs";
 
 export const MODEL_MAC_DINH = "claude-haiku-5-5";
 /** CLI cũ không nhận id đầy đủ ⇒ lùi về bí danh. */
@@ -115,7 +115,11 @@ async function goiClaude(c, { prompt, timeoutMs, ten }) {
   return r.ok ? { ...r, model: c.model } : r;
 }
 
+/** Mô hình lượt này đã gọi qua Ollama (url ⇒ tên) — để `ketThuc` trả card cho Sen Biển. */
+const daGoiOllama = new Map();
+
 async function goiOllamaMotLan(c, model, prompt, timeoutMs) {
+  daGoiOllama.set(c.ollamaUrl, model);
   try {
     const r = await fetch(`${c.ollamaUrl}/api/generate`, {
       method: "POST",
@@ -151,6 +155,26 @@ export async function goiAI(c, { prompt, timeoutMs = 120_000, ten = "goi" }) {
   if (r.ok || r.dung !== "ollama_khong_chay") return r;
   log(`[gemma] Ollama không trả lời ở ${c.ollamaUrl} (${r.chiTiet}) — thử Claude`);
   return goiClaude(c, { prompt, timeoutMs, ten });
+}
+
+/**
+ * TRẢ CARD CHO SEN BIỂN rồi thoát (31/10): lượt có gọi Ollama ⇒ nhả mô hình Kairos (e4b) ngay rồi nạp lại e2b đúng
+ * cấu hình thuê bao. Không thì e2b bị đẩy ra tới lượt làm nóng 12 giờ sau của AI Assistant, câu hỏi máy nhà của bà
+ * con nạp lạnh 6 s ⇒ `timeout`. Lỗi ở đây chỉ ghi log — không đổi mã thoát của lượt.
+ */
+export async function ketThuc(code) {
+  for (const [url, model] of daGoiOllama) {
+    try {
+      if (model !== GEMMA_LUI) {
+        await fetch(`${url}/api/generate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bodyNhaMoHinh(model)), signal: AbortSignal.timeout(10_000) });
+      }
+      const r = await fetch(`${url}/api/chat`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bodyNongSenBien()), signal: AbortSignal.timeout(60_000) });
+      log(`[gemma] trả card cho Sen Biển (${GEMMA_LUI}): ${r.status}`);
+    } catch (e) {
+      log(`[gemma] chưa trả được card cho Sen Biển: ${String(e?.message ?? e).slice(0, 120)}`);
+    }
+  }
+  process.exit(code);
 }
 
 /** Gọi API Kairos có khoá + đồng hồ. Không ném: trả { ok, status, json } hoặc { ok:false, status:0, error }. */

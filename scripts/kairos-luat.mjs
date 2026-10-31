@@ -16,7 +16,7 @@
 import path from "node:path";
 import { layJson } from "../src/lib/kairos/thu-core.mjs";
 import { MUC, chonMuc, ghepBai, loiBaiLuat, loiGiaiThich, promptLuat, tenMuc } from "../src/lib/kairos/tuyen-truyen-luat.mjs";
-import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiAI, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, docJson, ghiJson, goiAI, goiApi, ketThuc, log } from "./kairos-chung.mjs";
 
 const args = process.argv.slice(2);
 const dry = args.some((a) => a === "--thu" || a === "--dry");
@@ -82,9 +82,9 @@ async function main() {
 }
 
 main().then(
-  (code) => process.exit(code),
+  ketThuc,
   (e) => {
     console.error("[kairos-luat] lỗi:", e?.stack ?? e);
-    process.exit(1);
+    return ketThuc(1);
   },
 );

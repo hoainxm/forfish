@@ -42,7 +42,7 @@ import { tmpdir } from "node:os";
 import { tagArea } from "../src/lib/kairos/khu-vuc.mjs";
 import { topicFor } from "../src/lib/kairos/chu-de.mjs";
 import { ghiGanDay, locCungSuKien } from "../src/lib/kairos/cung-su-kien.mjs";
-import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiAI, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, docJson, ghiJson, goiAI, goiApi, ketThuc, log } from "./kairos-chung.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RSS_HET_GIO_MS = 15_000;
@@ -402,9 +402,9 @@ async function main() {
 }
 
 main().then(
-  (code) => process.exit(code),
+  ketThuc,
   (e) => {
     console.error("[kairos-thu] lỗi:", e?.stack ?? e);
-    process.exit(1);
+    return ketThuc(1);
   },
 );

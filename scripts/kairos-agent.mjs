@@ -16,7 +16,7 @@ import path from "node:path";
 import { anhDaDuyet, chonAgentAnh, chonAnh, chuanSoAnh, ghiSoAnh, promptAnh } from "../src/lib/kairos/anh-thuc-te.mjs";
 import { layJson } from "../src/lib/kairos/thu-core.mjs";
 import { chuanSoAgent, ghepViec, ghiSoAgent, keHoach, promptAgent } from "../src/lib/kairos/agent-dieu-phoi.mjs";
-import { canCauHinh, cauHinh, docJson, ghiJson, goiApi, goiAI, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, docJson, ghiJson, goiAI, goiApi, ketThuc, log } from "./kairos-chung.mjs";
 
 const dry = process.argv.slice(2).some((a) => a === "--thu" || a === "--dry");
 
@@ -116,9 +116,9 @@ async function dangAnhThucTe(c, now) {
 }
 
 main().then(
-  (code) => process.exit(code),
+  ketThuc,
   (e) => {
     console.error("[kairos-agent] lỗi:", e?.stack ?? e);
-    process.exit(1);
+    return ketThuc(1);
   },
 );

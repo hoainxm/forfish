@@ -204,6 +204,7 @@ KAIROS_API_BASE=https://<miền app, không có / cuối>
 # KAIROS_STATE_DIR=/home/long/.local/forlife/kairos   # sổ chặn trùng + hàng đợi gửi lại + thư mục rỗng cho claude
 # KAIROS_LLM=gemma                                     # mặc định (2026-10-30); "claude" = quay lại claude -p
 # KAIROS_GEMMA_MODEL=gemma4:e4b                         # không có trong Ollama ⇒ tự lùi gemma4:e2b
+#   (hết mỗi lượt script tự nhả e4b + nạp lại gemma4:e2b num_ctx 4096 cho Sen Biển — kairos-chung.mjs ketThuc)
 # OLLAMA_URL=http://127.0.0.1:11434                     # Ollama của AI Assistant; không trả lời ⇒ thử claude -p
 # KAIROS_MODEL=claude-haiku-5-5                       # chỉ dùng khi đi đường Claude; CLI không nhận ⇒ tự lùi "haiku"
 # CLAUDE_BIN=/home/long/.local/bin/claude

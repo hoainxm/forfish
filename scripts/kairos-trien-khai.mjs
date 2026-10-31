@@ -17,7 +17,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { layJson } from "../src/lib/kairos/thu-core.mjs";
 import { gomDot, loiTin, nguCanh, promptTin } from "../src/lib/kairos/tin-trien-khai.mjs";
-import { canCauHinh, cauHinh, docJson, ghiJson, goiAI, goiApi, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, docJson, ghiJson, goiAI, goiApi, ketThuc, log } from "./kairos-chung.mjs";
 
 const dry = process.argv.slice(2).some((a) => a === "--thu" || a === "--dry");
 const moiNhat = process.argv.includes("--moi"); // thử với đợt MỚI nhất (mặc định: cũ nhất trước)
@@ -101,9 +101,9 @@ async function main() {
 }
 
 main().then(
-  (code) => process.exit(code),
+  ketThuc,
   (e) => {
     console.error("[kairos-trien-khai] lỗi:", e?.stack ?? e);
-    process.exit(1);
+    return ketThuc(1);
   },
 );

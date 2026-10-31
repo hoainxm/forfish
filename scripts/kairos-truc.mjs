@@ -10,7 +10,7 @@
 
 import { layJson } from "../src/lib/kairos/thu-core.mjs";
 import { docKetQuaTuVan, promptTuVan } from "../src/lib/sdvico/tu-van.mjs";
-import { canCauHinh, cauHinh, goiApi, goiAI, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, goiAI, goiApi, ketThuc, log } from "./kairos-chung.mjs";
 
 const dry = process.argv.slice(2).some((a) => a === "--thu" || a === "--dry");
 
@@ -48,9 +48,9 @@ async function main() {
 }
 
 main().then(
-  (code) => process.exit(code),
+  ketThuc,
   (e) => {
     console.error("[kairos-truc] lỗi:", e?.stack ?? e);
-    process.exit(1);
+    return ketThuc(1);
   },
 );

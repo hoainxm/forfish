@@ -18,7 +18,7 @@
 
 import { chiaLo, layJson } from "../src/lib/kairos/thu-core.mjs";
 import { docQuyetDinh, goiQuyetDinh, kiemCung, LO_KIEM, LUAT_PHIEN_BAN, mucTuHangCho, promptKiem } from "../src/lib/kairos/luat-kiem-duyet.mjs";
-import { canCauHinh, cauHinh, goiApi, goiAI, log } from "./kairos-chung.mjs";
+import { canCauHinh, cauHinh, goiAI, goiApi, ketThuc, log } from "./kairos-chung.mjs";
 import { docDanhSach } from "../src/lib/kairos/link-doc.mjs";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -159,9 +159,9 @@ async function chamHangCho() {
 }
 
 main().then(
-  (code) => process.exit(code),
+  ketThuc,
   (e) => {
     console.error("[kairos-kiem] lỗi:", e?.stack ?? e);
-    process.exit(1);
+    return ketThuc(1);
   },
 );

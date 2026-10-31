@@ -230,12 +230,18 @@ describe("thu-core — gói gửi + hàng đợi", () => {
 });
 
 describe("Gemma qua Ollama (đổi 2026-10-30)", async () => {
-  const { bodyOllama, docKetQuaOllama, GEMMA_LUI, GEMMA_MAC_DINH } = await import("@/lib/kairos/thu-core.mjs");
-  it("thân gọi: không stream, nhiệt thấp, giữ nóng giữa các lượt", () => {
+  const { bodyNhaMoHinh, bodyNongSenBien, bodyOllama, docKetQuaOllama, GEMMA_LUI, GEMMA_MAC_DINH } = await import("@/lib/kairos/thu-core.mjs");
+  it("thân gọi: không stream, nhiệt thấp, giữ nóng ngắn (ADR 0013 — không chiếm card của Sen Biển)", () => {
     const b = bodyOllama(GEMMA_MAC_DINH, "xin chào");
-    expect(b).toMatchObject({ model: "gemma4:e4b", prompt: "xin chào", stream: false, keep_alive: "30m" });
+    expect(b).toMatchObject({ model: "gemma4:e4b", prompt: "xin chào", stream: false, keep_alive: "2m" });
     expect(b.options.temperature).toBeLessThanOrEqual(0.3);
     expect(GEMMA_LUI).toBe("gemma4:e2b");
+  });
+  it("trả card cho Sen Biển: nhả e4b ngay, nạp e2b đúng cấu hình thuê bao (num_ctx 4096, 24h)", () => {
+    expect(bodyNhaMoHinh("gemma4:e4b")).toEqual({ model: "gemma4:e4b", keep_alive: 0 });
+    const n = bodyNongSenBien();
+    expect(n).toMatchObject({ model: "gemma4:e2b", stream: false, think: false, keep_alive: "24h" });
+    expect(n.options).toEqual({ num_predict: 1, num_ctx: 4096 });
   });
   it("trả lời thường ⇒ chữ", () => {
     expect(docKetQuaOllama(200, { response: '[{"i":0}]', done: true })).toEqual({ ok: true, text: '[{"i":0}]' });
