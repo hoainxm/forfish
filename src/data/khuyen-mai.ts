@@ -47,9 +47,13 @@ export interface KhuyenMai {
   /** Clip giới thiệu (tuỳ chọn): bấm ảnh thẻ là mở xem. `poster` hiện khi chưa tải/mất sóng.
    *  `?v=` = 8 ký tự đầu sha1 của file (test khoá): service worker cất asset tĩnh theo URL và trả bản đã cất mãi (cache-first),
    *  nên dựng lại clip mà giữ URL là bà con xem clip CŨ vĩnh viễn (dính 31/10: màn xanh "01/08" vẫn hiện sau khi đã cắt).
-   *  `ngan` = 6 giây đầu (câu mồi), không tiếng, 360×640, ≤400 KB — thẻ Hôm nay tự chạy trên Trang chủ (`nenChayClipNgan`).
-   *  Cắt bằng ffmpeg trên GPU (~/clip-ngan): `-ss 0 -t 6 -an -vf scale=360:640,fps=24 -crf 30 -movflags +faststart`. */
-  video?: { src: string; poster: string; giay: number; ngan?: string };
+   */
+  video?: { src: string; poster: string; giay: number };
+  /** CLIP 6 S CHO THẺ HÔM NAY (dựng lại 2026-11-01 theo rà design-mkt): KHÔNG chữ/logo dính trong hình (chữ là của thẻ),
+   *  khổ 4:5 432×540, không tiếng, ≤400 KB, ba nhịp vấn đề → món hàng → ảnh món hàng. `poster` = khung 4:5 sạch cùng cỡ.
+   *  Tách khỏi `video` vì món không có clip dài (sứ định vị) vẫn có clip ngắn; bấm thẻ vẫn theo `video` (có ⇒ ngăn video).
+   *  Dựng trên GPU (~/clip-ngan/v2/dung_ngan.py). `?v=` = sha1 như `video` (test khoá). */
+  clipNgan?: { src: string; poster: string };
   /** Chat Zalo nhận phiếu (tuỳ chọn) — trống = chat mặc định của AI Assistant (`phieu_khach.gui_toi`, Quân). AI Assistant
    *  CHỈ nghe theo nếu tên nằm trong `phieu_khach.gui_them` của nó (máy chủ SDFish không tự chọn được chat bất kỳ). */
   guiToi?: string;
@@ -79,11 +83,12 @@ export const KM_SU_DINH_VI: KhuyenMai = {
     "Khách cũ hay khách mới đều được hưởng",
   ],
   image: "/sdvico/su-dinh-vi.jpg",
+  clipNgan: { src: "/sdvico/su-dinh-vi-ngan.mp4?v=0d8fbca9", poster: "/sdvico/su-dinh-vi-ngan.jpg?v=4136aac9" },
   imgW: 541,
   imgH: 720,
   doiTuong: "Mọi khách cũ và mới",
   donVi: "cái",
-  nhan: ["Giảm 200.000đ", "Ưu đãi SDVICO", "Hợp mọi máy"],
+  nhan: ["Giảm 200 nghìn", "Hợp mọi máy"],
   qtyMax: 10,
   // Assumption: Quân chưa nêu ngày kết thúc ⇒ chạy tới khi anh Long/Quân bảo gỡ (sửa dòng này).
   hetHan: null,
@@ -117,7 +122,8 @@ export const KM_LOC_DAU: KhuyenMai = {
   ],
   giaTu: true,
   // Clip ~63 s dựng 31/10 trên GPU (~/loc-dau-video/dung.py): cảnh thật từ bản tin SDVICO trong nhóm Zalo + giọng Sen Biển.
-  video: { src: "/sdvico/loc-dau.mp4?v=63f7bb1a", poster: "/sdvico/loc-dau-poster.jpg?v=7126378a", giay: 63, ngan: "/sdvico/loc-dau-ngan.mp4?v=0908da77" },
+  video: { src: "/sdvico/loc-dau.mp4?v=63f7bb1a", poster: "/sdvico/loc-dau-poster.jpg?v=7126378a", giay: 63, },
+  clipNgan: { src: "/sdvico/loc-dau-ngan.mp4?v=0b83d277", poster: "/sdvico/loc-dau-ngan.jpg?v=1f3de935" },
   // Anh Long 31/10: "khách đăng ký tư vấn thì chuyển qua nhóm Zalo Triển khai kinh doanh (trực ở gpu) tương tự của Quân".
   guiToi: "Triển Khai Kinh Doanh",
   // Mục 8 kịch bản tư vấn (docs/specs/kich-ban-tu-van-loc-dau.md, team agent 31/10, đã qua kiểm duyệt nội dung).
@@ -132,7 +138,8 @@ export const KM_LOC_DAU: KhuyenMai = {
     { hoi: "Khói xanh, khói trắng?", dap: "Khói xanh có thể do máy cháy nhớt, bà con cho thợ kiểm xéc măng, turbo. Máy lọc không chữa được bệnh này. Khói trắng mà két nước làm mát cứ hụt thì cũng phải kiểm máy. Khói trắng có mùi dầu sống khi máy đã nóng thì có thể do nước trong dầu, bà con xả đáy két coi có nước không." },
     { hoi: "Máy tắt khi sóng lớn, khó nổ?", dap: "Bà con xả đáy két coi có nước, có cặn không, coi lọc tinh có nghẹt không. Khó nổ, phải xả gió hoài thì tìm chỗ hở ở ống, khớp nối, gioăng cốc lọc trước. Nếu đúng là do nước, cặn trong dầu thì máy lọc giúp được." },
   ],
-  nhan: ["Bảo vệ máy tàu", "200+ bộ đã lắp", "Đỡ tốn sửa máy"],
+  // 2026-11-01 bỏ "Bảo vệ máy tàu"/"Đỡ tốn sửa máy" (hỏi–đáp tự nói "không bảo đảm máy không hư"), "đã lắp" ⇒ "đã bán" đúng nguồn.
+  nhan: ["Tách nước khỏi dầu", "Lắp tận tàu", "Đã bán 200+ bộ"],
   qtyMax: 10,
   hetHan: null,
 };
@@ -162,7 +169,8 @@ export const KM_LOC_NUOC: KhuyenMai = {
   ],
   giaTu: true,
   // Clip 58 s dựng 31/10 trên GPU (~/loc-dau-video/dung_ln.py, giọng giong-ln/): cảnh SEA700B/SEA250 từ bản tin SDVICO.
-  video: { src: "/sdvico/loc-nuoc.mp4?v=3cb3c902", poster: "/sdvico/loc-nuoc-poster.jpg?v=9ad13260", giay: 56, ngan: "/sdvico/loc-nuoc-ngan.mp4?v=40133a0f" },
+  video: { src: "/sdvico/loc-nuoc.mp4?v=3cb3c902", poster: "/sdvico/loc-nuoc-poster.jpg?v=9ad13260", giay: 56, },
+  clipNgan: { src: "/sdvico/loc-nuoc-ngan.mp4?v=01940b40", poster: "/sdvico/loc-nuoc-ngan.jpg?v=fb7083c5" },
   guiToi: "Triển Khai Kinh Doanh",
   hoiDap: [
     { hoi: "Máy lọc nước biển giá bao nhiêu?", dap: "Bản cơ từ 38 triệu, bản điện từ 49 triệu rưỡi, đã gồm VAT. Giá theo cấu hình, nhân viên SDVICO gọi lại báo đúng giá cho tàu mình. Kỹ thuật SDVICO tới tận tàu lắp." },
@@ -172,7 +180,8 @@ export const KM_LOC_NUOC: KhuyenMai = {
     { hoi: "Bảo hành sao?", dap: "Bảo hành 12 tháng, cả màng RO và đầu bơm. Kỹ thuật SDVICO lắp tận tàu và chạy thử." },
     { hoi: "Lõi lọc, màng lọc có phải thay không?", dap: "Lõi lọc thô thay theo độ dơ của nước, màng RO dùng lâu hơn. Lúc lắp, kỹ thuật dặn cụ thể theo tàu. Phụ tùng thay có ở SDVICO." },
   ],
-  nhan: ["Nước ngọt cả chuyến", "Khỏi lo hết nước", "250 lít mỗi giờ"],
+  // 2026-11-01 bỏ "cả chuyến"/"khỏi lo hết nước": nguồn chỉ có công suất, không bảo đảm đủ cả chuyến.
+  nhan: ["250 lít mỗi giờ", "Lọc ra nước ngọt"],
   qtyMax: 3,
   hetHan: null,
 };
@@ -187,7 +196,8 @@ export const KM_AC_QUY: KhuyenMai = {
   giaApp: 4_200_000,
   moTa: "Dành riêng cho tàu, có cọc bình riêng cho thiết bị điện tử.",
   // Clip 48 s dựng 31/10 trên GPU (~/loc-dau-video/dung3.py ac-quy): cảnh thiết bị điện tử trên tàu + máy + ảnh bình.
-  video: { src: "/sdvico/ac-quy.mp4?v=10b4f04f", poster: "/sdvico/ac-quy-poster.jpg?v=c67b17ba", giay: 46, ngan: "/sdvico/ac-quy-ngan.mp4?v=73382e3d" },
+  video: { src: "/sdvico/ac-quy.mp4?v=10b4f04f", poster: "/sdvico/ac-quy-poster.jpg?v=c67b17ba", giay: 46, },
+  clipNgan: { src: "/sdvico/ac-quy-ngan.mp4?v=3242f45b", poster: "/sdvico/ac-quy-ngan.jpg?v=41dcd097" },
   diemHay: [
     "Giá 4.200.000đ một bình, đã gồm VAT — độc quyền SDVICO",
     "Có cọc bình riêng nối thiết bị điện tử: định vị, giám sát hành trình, bộ đàm",
@@ -204,7 +214,8 @@ export const KM_AC_QUY: KhuyenMai = {
     { hoi: "Cọc bình riêng để làm gì?", dap: "Bình có cọc riêng để nối thiết bị điện tử như định vị, giám sát hành trình, bộ đàm, tách khỏi cọc đề máy." },
     { hoi: "Bình mạnh cỡ nào?", dap: "12 vôn 220 Ah, dòng khởi động lạnh 1.150 A, dự trữ 380 phút khi máy phát ngừng sạc, theo nhãn của hãng." },
   ],
-  nhan: ["Độc quyền SDVICO", "Cọc riêng thiết bị", "Chỉ 4,2 triệu"],
+  // 2026-11-01 "Chỉ 4,2 triệu" ⇒ "4,2 triệu gồm VAT": chữ "chỉ" ngầm so giá mà không có giá so sánh.
+  nhan: ["Độc quyền SDVICO", "Dự trữ 380 phút", "4,2 triệu gồm VAT"],
   qtyMax: 10,
   hetHan: null,
 };
@@ -261,6 +272,21 @@ export function vongNhay(viTri: number, n: number): number | null {
   if (viTri <= 0) return n;
   if (viTri >= n + 1) return 1;
   return null;
+}
+
+/** TỰ CHUYỂN TRANG thẻ Hôm nay (anh Long 01/11 "làm hết đi toàn bộ", đề xuất ⑦ rà design-mkt). Băng chỉ tự trượt sang món kế
+ *  khi: có từ 2 món, bà con CHƯA chạm băng lần nào (chạm = muốn tự xem ⇒ thôi hẳn), chưa đi hết một vòng (mỗi món một lần:
+ *  `daDi` < n−1), máy không xin giảm chuyển động, không tin bão mới, và băng đang nằm trong màn hình. */
+export function nenTuChuyen(o: { n: number; daDi: number; daCham: boolean; giamChuyenDong: boolean; coBao: boolean; dangThay: boolean }): boolean {
+  return o.n > 1 && !o.daCham && o.daDi < o.n - 1 && !o.giamChuyenDong && !o.coBao && o.dangThay;
+}
+
+/** Giá kiểu nói trên thẻ Hôm nay: 7900000 ⇒ "7,9 triệu", 38000000 ⇒ "38 triệu", 49500000 ⇒ "49,5 triệu". Dưới 1 triệu giữ
+ *  `tienVn` ("300.000đ") — "0,3 triệu" bà con không nói. Lẻ hơn một số thập phân ⇒ làm tròn xuống một số (giá "từ", không nói quá). */
+export function tienGon(n: number): string {
+  if (n < 1_000_000) return tienVn(n);
+  const t = Math.floor(n / 100_000) / 10;
+  return `${String(t).replace(".", ",")} triệu`;
 }
 
 /** 63 ⇒ "1:03" (độ dài clip trên thẻ). */

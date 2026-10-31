@@ -1,6 +1,6 @@
 // Khuyến mãi SDVICO (2026-10-26, sứ định vị 500k giảm 200k ⇒ 300k — sửa 2026-10-27): danh mục, lời nhắn phiếu, tin Zalo cho Quân.
 import { describe, expect, it } from "vitest";
-import { chonMotKhuyenMai, conHieuLuc, doDaiClip, vongNhay, vongThat, xepLuot, KHUYEN_MAI, nenChayClipNgan, KM_AC_QUY, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
+import { chonMotKhuyenMai, conHieuLuc, doDaiClip, nenTuChuyen, tienGon, vongNhay, vongThat, xepLuot, KHUYEN_MAI, nenChayClipNgan, KM_AC_QUY, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
 import { CHAT_KD, chatCuaPhieu, kiemPhieu, phieuDonCho, tinNhanKd } from "@/lib/sdvico/khach-hoi";
 
 describe("danh mục khuyến mãi", () => {
@@ -121,7 +121,7 @@ describe("máy lọc nước + ắc quy (31/10)", () => {
     const { createHash } = await import("node:crypto");
     const { readFileSync } = await import("node:fs");
     for (const k of KHUYEN_MAI.filter((x) => x.video)) {
-      for (const f of [k.video!.src, k.video!.poster, ...(k.video!.ngan ? [k.video!.ngan] : [])]) {
+      for (const f of [k.video!.src, k.video!.poster]) {
         const [duong, q] = f.split("?v=");
         expect(existsSync(`public${duong}`), f).toBe(true);
         // mã phiên bản PHẢI khớp file: dựng lại clip mà quên đổi ⇒ máy bà con giữ clip cũ trong kho SW mãi
@@ -199,12 +199,47 @@ describe("đơn chợ gian hàng SDVICO ⇒ phiếu ⇒ nhóm Zalo KD (31/10, h�
 });
 
 describe("thẻ Hôm nay (31/10)", () => {
-  it("mọi món có clip đều có clip ngắn ≤400 KB (tự chạy trên Trang chủ, không làm nặng 4G yếu)", async () => {
-    const { statSync } = await import("node:fs");
-    for (const k of KHUYEN_MAI.filter((x) => x.video)) {
-      expect(k.video!.ngan, k.id).toBeTruthy();
-      expect(statSync(`public${k.video!.ngan!.split("?")[0]}`).size, k.id).toBeLessThanOrEqual(400 * 1024);
+  it("MỌI món có clip ngắn ≤400 KB + poster 4:5, mã ?v= khớp file (dựng lại 01/11 — sạch chữ, 432×540)", async () => {
+    const { readFileSync, statSync } = await import("node:fs");
+    const { createHash } = await import("node:crypto");
+    for (const k of KHUYEN_MAI) {
+      expect(k.clipNgan, k.id).toBeTruthy();
+      for (const f of [k.clipNgan!.src, k.clipNgan!.poster]) {
+        const [duong, q] = f.split("?v=");
+        expect(q, f).toBe(createHash("sha1").update(readFileSync(`public${duong}`)).digest("hex").slice(0, 8));
+      }
+      expect(statSync(`public${k.clipNgan!.src.split("?")[0]}`).size, k.id).toBeLessThanOrEqual(400 * 1024);
+      // poster JPEG đúng 432×540: đọc khung SOF0/SOF2 (cao 2 byte, rộng 2 byte)
+      const b = readFileSync(`public${k.clipNgan!.poster.split("?")[0]}`);
+      let o = 2;
+      while (o < b.length && !(b[o] === 0xff && (b[o + 1] === 0xc0 || b[o + 1] === 0xc2))) o += 2 + b.readUInt16BE(o + 2);
+      expect([b.readUInt16BE(o + 7), b.readUInt16BE(o + 5)], k.id).toEqual([432, 540]);
     }
+  });
+  it("tự chuyển trang: chỉ khi chưa chạm, chưa hết một vòng, đang thấy, không bão, không giảm chuyển động", () => {
+    const tot = { n: 4, daDi: 0, daCham: false, giamChuyenDong: false, coBao: false, dangThay: true };
+    expect(nenTuChuyen(tot)).toBe(true);
+    expect(nenTuChuyen({ ...tot, daDi: 2 })).toBe(true);
+    expect(nenTuChuyen({ ...tot, daDi: 3 })).toBe(false); // mỗi món một lần rồi thôi
+    expect(nenTuChuyen({ ...tot, daCham: true })).toBe(false);
+    expect(nenTuChuyen({ ...tot, dangThay: false })).toBe(false);
+    expect(nenTuChuyen({ ...tot, coBao: true })).toBe(false);
+    expect(nenTuChuyen({ ...tot, giamChuyenDong: true })).toBe(false);
+    expect(nenTuChuyen({ ...tot, n: 1 })).toBe(false);
+  });
+  it("giá kiểu nói: triệu có một số lẻ, dưới 1 triệu giữ đồng", () => {
+    expect(tienGon(7_900_000)).toBe("7,9 triệu");
+    expect(tienGon(38_000_000)).toBe("38 triệu");
+    expect(tienGon(49_500_000)).toBe("49,5 triệu");
+    expect(tienGon(4_200_000)).toBe("4,2 triệu");
+    expect(tienGon(1_000_000)).toBe("1 triệu");
+    expect(tienGon(9_990_000)).toBe("9,9 triệu"); // làm tròn xuống, không nói quá giá
+    expect(tienGon(300_000)).toBe("300.000đ");
+  });
+  it("chip chỉ câu có căn cứ — không hứa bảo vệ máy, không 'chỉ', không 'đã lắp'", () => {
+    const tat = KHUYEN_MAI.flatMap((k) => k.nhan ?? []);
+    for (const cam of ["Bảo vệ máy tàu", "Đỡ tốn sửa máy", "Nước ngọt cả chuyến", "Khỏi lo hết nước", "200+ bộ đã lắp"]) expect(tat).not.toContain(cam);
+    for (const n of tat) expect(n.startsWith("Chỉ "), n).toBe(false);
   });
   it("chỉ tự chạy khi sóng tốt, không giảm chuyển động, không tin bão mới", () => {
     expect(nenChayClipNgan({ songTot: true, giamChuyenDong: false, coBao: false })).toBe(true);

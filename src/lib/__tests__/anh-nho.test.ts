@@ -34,7 +34,8 @@ describe("anhNho — ảnh nhỏ cho sản phẩm SDVICO trên chợ", () => {
   });
 
   it("CỔNG: MỌI ảnh gốc public/sdvico có bản nhỏ (thêm ảnh ⇒ chạy scripts/anh-nho-sdvico.mjs)", () => {
-    const goc = readdirSync(join(PUB, "sdvico")).filter((f) => /\.(png|jpe?g)$/i.test(f));
+    // poster clip (`-poster.jpg` ngăn video, `-ngan.jpg` thẻ Hôm nay) không phải ảnh sản phẩm chợ ⇒ ngoài cổng
+    const goc = readdirSync(join(PUB, "sdvico")).filter((f) => /\.(png|jpe?g)$/i.test(f) && !/-(poster|ngan)\.jpe?g$/i.test(f));
     expect(goc.length).toBeGreaterThan(0);
     for (const f of goc) expect(existsSync(join(PUB, anhNho(`/sdvico/${f}`))), f).toBe(true);
   });
