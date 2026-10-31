@@ -3,7 +3,9 @@
 //
 // Phiếu do máy chủ TỰ LẬP khi hội thoại trực đủ số tàu + cảng (/api/kairos/truc, 0073) — SĐT = SĐT tài khoản khách.
 // GET   AI Assistant lấy phiếu `moi` (≤50, cũ trước) kèm `tinNhan` soạn sẵn cho Zalo — header `x-sdvico-key`.
+//       `guiToi` (2026-10-31): chat Zalo riêng theo ưu đãi, AI Assistant chỉ nhận nếu nằm trong `phieu_khach.gui_them` của nó.
 import { NextResponse } from "next/server";
+import { khuyenMaiCuaPhieu } from "@/data/khuyen-mai";
 import { tinNhanKd } from "@/lib/sdvico/khach-hoi";
 import { khoaPhieuSai, type PhieuRow } from "@/lib/sdvico/khach-hoi-server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,6 +25,8 @@ export async function GET(req: Request) {
   const goc = new URL(req.url).origin;
   const phieu = ((data ?? []) as PhieuRow[]).map((r) => ({
     ...r,
+    // chat đích riêng của ưu đãi (lọc dầu ⇒ nhóm "Triển Khai Kinh Doanh"); null ⇒ AI Assistant gửi chat mặc định (Quân)
+    guiToi: khuyenMaiCuaPhieu(r.san_pham)?.guiToi ?? null,
     tinNhan: tinNhanKd(
       {
         nguon: r.nguon, sanPham: r.san_pham, ten: r.ten, phone: r.phone, soTau: r.so_tau, cang: r.cang, loiNhan: r.loi_nhan,

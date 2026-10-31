@@ -42,6 +42,11 @@ export interface KhuyenMai {
   /** Các bản để bà con chọn (giá riêng từng bản). Có ⇒ thẻ ghi "Từ <giá thấp nhất>", ngăn Đăng ký có chip chọn bản,
    *  lời nhắn phiếu ghi bản đã chọn + giá. `giaApp` = giá bản rẻ nhất (khớp chữ "Từ"). */
   bienThe?: BienThe[];
+  /** Clip giới thiệu (tuỳ chọn): bấm ảnh thẻ là mở xem. `poster` hiện khi chưa tải/mất sóng. */
+  video?: { src: string; poster: string; giay: number };
+  /** Chat Zalo nhận phiếu (tuỳ chọn) — trống = chat mặc định của AI Assistant (`phieu_khach.gui_toi`, Quân). AI Assistant
+   *  CHỈ nghe theo nếu tên nằm trong `phieu_khach.gui_them` của nó (máy chủ SDFish không tự chọn được chat bất kỳ). */
+  guiToi?: string;
   /** Số lượng tối đa một lần đăng ký (chống gõ nhầm 200). */
   qtyMax: number;
   /** Hết hạn (ISO ngày, null = chưa định) — card tự ẩn sau ngày này. */
@@ -95,6 +100,10 @@ export const KM_LOC_DAU: KhuyenMai = {
     { id: "co", nhan: "Bản cơ", ten: "bản cơ SF50", gia: 7_900_000 },
     { id: "dien", nhan: "Bản điện", ten: "bản điện SF300B", gia: 9_900_000 },
   ],
+  // Clip 53 s dựng 31/10 trên GPU (~/loc-dau-video/dung.py): cảnh thật từ bản tin SDVICO trong nhóm Zalo + giọng Sen Biển.
+  video: { src: "/sdvico/loc-dau.mp4", poster: "/sdvico/loc-dau-poster.jpg", giay: 53 },
+  // Anh Long 31/10: "khách đăng ký tư vấn thì chuyển qua nhóm Zalo Triển khai kinh doanh (trực ở gpu) tương tự của Quân".
+  guiToi: "Triển Khai Kinh Doanh",
   qtyMax: 5,
   hetHan: null,
 };

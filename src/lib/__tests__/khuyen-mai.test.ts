@@ -45,6 +45,17 @@ describe("máy lọc dầu SF50 / SF300B (2026-10-31, Tiến KD báo: cơ 7,9tr,
     for (const b of KM_LOC_DAU.bienThe!) expect(b.nhan.split(" ").length).toBeLessThanOrEqual(2);
     expect(KHUYEN_MAI.map((k) => k.id)).toEqual(["su-dinh-vi-gps", "loc-dau-sf"]);
   });
+  it("phiếu lọc dầu đi nhóm Zalo 'Triển Khai Kinh Doanh', sứ vẫn về chat mặc định (Quân); clip có file thật", async () => {
+    expect(KM_LOC_DAU.guiToi).toBe("Triển Khai Kinh Doanh");
+    expect(KM_SU_DINH_VI.guiToi).toBeUndefined();
+    expect(khuyenMaiCuaPhieu(KM_LOC_DAU.tenPhieu)?.guiToi).toBe("Triển Khai Kinh Doanh");
+    const { existsSync, statSync } = await import("node:fs");
+    for (const f of [KM_LOC_DAU.video!.src, KM_LOC_DAU.video!.poster]) {
+      expect(existsSync(`public${f}`), f).toBe(true);
+    }
+    // clip không phình repo: dưới 8 MB (git giữ mọi bản vĩnh viễn — CLAUDE.md "chống phình")
+    expect(statSync(`public${KM_LOC_DAU.video!.src}`).size).toBeLessThan(8 * 1024 * 1024);
+  });
   it("timBienThe: có bản ⇒ id đúng mới nhận; ưu đãi không bản ⇒ undefined", () => {
     expect(timBienThe(KM_LOC_DAU, "dien")?.gia).toBe(9_900_000);
     expect(timBienThe(KM_LOC_DAU, "x")).toBeNull();

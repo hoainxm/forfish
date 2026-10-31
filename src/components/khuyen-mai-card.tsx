@@ -20,9 +20,9 @@
   (tàu đang chọn: mã tàu, cảng nhà) — chỉ sửa khi cần.
 */
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { QtyStepper } from "@/components/cart-sheet";
-import { CheckIcon } from "@/components/icons";
+import { CheckIcon, PlayIcon } from "@/components/icons";
 import { sanitizePhoneInput } from "@/components/auth-form";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, inputClass, PrimaryButton, textareaClass } from "@/components/ui/primitives";
@@ -67,6 +67,7 @@ function homNay(): string {
 export function KhuyenMaiCard({ className = "" }: { className?: string }) {
   const [daDK, setDaDK] = useState<DaDangKy>({});
   const [mo, setMo] = useState<KhuyenMai | null>(null);
+  const [xem, setXem] = useState<KhuyenMai | null>(null);
   useEffect(() => setDaDK(docDaDangKy()), []);
   const today = homNay();
   const ds = KHUYEN_MAI.filter((k) => conHieuLuc(k, today));
@@ -78,14 +79,30 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
           const xong = daDK[k.id];
           return (
             <li key={k.id} className="flex items-center gap-3 px-3.5 py-3">
-              <Image
-                src={k.image}
-                alt={k.ten}
-                width={k.imgW}
-                height={k.imgH}
-                sizes="4.5rem"
-                className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-xl object-cover"
-              />
+              {k.video ? (
+                <button
+                  type="button"
+                  onClick={() => setXem(k)}
+                  aria-label={`Xem video ${k.ten}`}
+                  className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-xl transition active:scale-[0.97]"
+                >
+                  <Image src={k.image} alt="" width={k.imgW} height={k.imgH} sizes="4.5rem" className="h-full w-full object-cover" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-navy/35">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-t3">
+                      <PlayIcon className="ml-0.5 h-5 w-5" />
+                    </span>
+                  </span>
+                </button>
+              ) : (
+                <Image
+                  src={k.image}
+                  alt={k.ten}
+                  width={k.imgW}
+                  height={k.imgH}
+                  sizes="4.5rem"
+                  className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-xl object-cover"
+                />
+              )}
               <div className="min-w-0 flex-1">
                 <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-muted">
                   {k.giaThiTruong != null ? "Ưu đãi SDVICO" : "Hàng SDVICO"}
@@ -127,6 +144,18 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
           );
         })}
       </ul>
+      {xem?.video && (
+        <VideoSheet
+          km={xem}
+          onClose={() => setXem(null)}
+          onDangKy={() => {
+            const k = xem;
+            setXem(null);
+            if (!daDK[k.id]) setMo(k);
+          }}
+          daDangKy={!!daDK[xem.id]}
+        />
+      )}
       {mo && (
         <DangKySheet
           km={mo}
@@ -138,6 +167,81 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
         />
       )}
     </section>
+  );
+}
+
+/*  XEM VIDEO (2026-10-31, clip lọc dầu 53 s ~5,8 MB). Tải NGUYÊN file thành blob rồi mới phát — không gắn thẳng `src`:
+    trình phát video xin từng lát `Range`, mà nhánh asset tĩnh của service worker trả nguyên bản 200 từ kho (Cache API bỏ qua
+    Range) ⇒ iOS không phát. Tải trọn một lần thì SW cất bản đủ ⇒ lần sau MẤT SÓNG vẫn xem lại được. Trạng thái: đang tải
+    (poster + chữ) · lỗi/mất sóng (poster + câu, nút Thử lại) · phát (controls, thử tự phát có tiếng; trình duyệt chặn thì bà
+    con bấm ▶). Đóng ngăn ⇒ thu hồi blob. */
+type TrangVideo = "tai" | "loi" | "xem";
+
+function VideoSheet({ km, onClose, onDangKy, daDangKy }: { km: KhuyenMai; onClose: () => void; onDangKy: () => void; daDangKy: boolean }) {
+  const v = km.video!;
+  const online = useOnline();
+  const [url, setUrl] = useState<string | null>(null);
+  const [trang, setTrang] = useState<TrangVideo>("tai");
+  const [lan, setLan] = useState(0);
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    let huy = false;
+    let obj: string | null = null;
+    setTrang("tai");
+    fetch(v.src, { signal: timeoutSignal(90000) })
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+      .then((b) => {
+        if (huy) return;
+        obj = URL.createObjectURL(b);
+        setUrl(obj);
+        setTrang("xem");
+      })
+      .catch(() => {
+        if (!huy) setTrang("loi");
+      });
+    return () => {
+      huy = true;
+      if (obj) URL.revokeObjectURL(obj);
+    };
+  }, [v.src, lan]);
+
+  useEffect(() => {
+    if (trang === "xem") ref.current?.play().catch(() => {});
+  }, [trang]);
+
+  return (
+    <BottomSheet title={km.ten} onClose={onClose}>
+      <div className="relative mx-auto aspect-[9/16] max-h-[65vh] overflow-hidden rounded-2xl bg-navy">
+        {trang === "xem" && url ? (
+          <video ref={ref} src={url} poster={v.poster} controls playsInline className="h-full w-full object-contain" />
+        ) : (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- poster tĩnh nhỏ, không cần tối ưu ảnh */}
+            <img src={v.poster} alt="" className="h-full w-full object-cover opacity-70" />
+            <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-navy/80 px-3.5 py-3 text-center text-[1rem] font-semibold text-white">
+              {trang === "tai" ? (
+                "Đang tải video…"
+              ) : (
+                <>
+                  <p>{online ? "Chưa tải được video." : "Mất sóng — có sóng mới xem được video."}</p>
+                  <button type="button" onClick={() => setLan((n) => n + 1)} className="mt-2 rounded-full bg-white px-4 py-1.5 text-navy">
+                    {NHAN.thuLai}
+                  </button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="mt-4">
+        {daDangKy ? (
+          <p className="text-center text-[1rem] font-semibold text-foreground/70">Bà con đã đăng ký · SDVICO sẽ gọi lại</p>
+        ) : (
+          <PrimaryButton onClick={onDangKy}>{NHAN.dangKy}</PrimaryButton>
+        )}
+      </div>
+    </BottomSheet>
   );
 }
 
