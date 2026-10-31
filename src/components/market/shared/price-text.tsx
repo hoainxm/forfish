@@ -13,11 +13,14 @@ export function PriceText({
   compareAtVnd,
   size = "sm",
   className = "",
+  tu = false,
 }: {
   priceVnd: number | null;
   compareAtVnd?: number;
   size?: "sm" | "lg";
   className?: string;
+  /** Giá "từ" (món SDVICO nhiều bản — bảng giá trong `data/khuyen-mai.ts`) ⇒ "Từ 7.900.000 đ". */
+  tu?: boolean;
 }) {
   const main = size === "lg" ? "text-2xl" : "text-[1rem]";
   if (priceVnd == null) {
@@ -29,7 +32,10 @@ export function PriceText({
   }
   return (
     <span className={`inline-flex flex-wrap items-baseline gap-x-2 ${className}`}>
-      <span className={`${main} font-semibold text-navy`}>{formatVnd(priceVnd)}</span>
+      <span className={`${main} font-semibold text-navy`}>
+        {tu ? "Từ " : ""}
+        {formatVnd(priceVnd)}
+      </span>
       {compareAtVnd != null && compareAtVnd > priceVnd && (
         <span className="text-[0.875rem] text-muted line-through">{formatVnd(compareAtVnd)}</span>
       )}

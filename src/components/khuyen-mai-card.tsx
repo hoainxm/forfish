@@ -29,7 +29,7 @@ import { Field, inputClass, PrimaryButton, textareaClass } from "@/components/ui
 import { baoToast } from "@/components/ui/toast";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
-import { conHieuLuc, KHUYEN_MAI, tienVn, timKhuyenMai, type KhuyenMai } from "@/data/khuyen-mai";
+import { conHieuLuc, KHUYEN_MAI_TRANG_CHU, tienVn, timKhuyenMai, type KhuyenMai } from "@/data/khuyen-mai";
 import { timeoutSignal } from "@/lib/abort";
 import { apiUrl } from "@/lib/api-base";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
@@ -41,7 +41,7 @@ import { useOnline } from "@/lib/use-online";
 /** Kho "đã đăng ký" trong máy — `{ [idKM]: { at, phieu } }`. Ghi hỏng thì thôi (chỉ là dấu, phiếu đã ở máy chủ). */
 const KHO_KEY = "forfish.km.v1";
 type DaDangKy = Record<string, { at: number; phieu: string | null }>;
-function docDaDangKy(): DaDangKy {
+export function docDaDangKy(): DaDangKy {
   try {
     const raw = typeof window !== "undefined" ? window.localStorage.getItem(KHO_KEY) : null;
     const v = raw ? (JSON.parse(raw) as unknown) : null;
@@ -50,7 +50,7 @@ function docDaDangKy(): DaDangKy {
     return {};
   }
 }
-function ghiDaDangKy(id: string, phieu: string | null) {
+export function ghiDaDangKy(id: string, phieu: string | null) {
   try {
     const d = docDaDangKy();
     d[id] = { at: Date.now(), phieu };
@@ -84,7 +84,7 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
     }
   }, []);
   const today = homNay();
-  const ds = KHUYEN_MAI.filter((k) => conHieuLuc(k, today));
+  const ds = KHUYEN_MAI_TRANG_CHU.filter((k) => conHieuLuc(k, today));
   if (!ds.length) return null;
   return (
     <section className={className} aria-label="Ưu đãi SDVICO">
@@ -129,7 +129,7 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
                     </>
                   )}
                   <span className="font-semibold text-t3">
-                    {k.bienThe?.length ? "Từ " : ""}
+                    {k.giaTu ? "Từ " : ""}
                     {tienVn(k.giaApp)}
                   </span>
                 </p>
@@ -181,6 +181,38 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
         />
       )}
     </section>
+  );
+}
+
+/** Nút Đăng ký cho món SDVICO trong Chợ vật tư (thay "Hỏi giá" — anh Long 31/10: bảng giá + phiếu ⇒ nhóm KD). */
+export function DangKyMonCho({ km, className = "" }: { km: KhuyenMai; className?: string }) {
+  const [mo, setMo] = useState(false);
+  const [daDK, setDaDK] = useState<DaDangKy>({});
+  useEffect(() => setDaDK(docDaDangKy()), []);
+  const xong = daDK[km.id];
+  return (
+    <>
+      {xong ? (
+        <span className={`flex h-(--h-cta) items-center justify-center gap-1 rounded-full text-[1rem] font-semibold ${className}`} style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}>
+          <CheckIcon className="h-5 w-5" />
+          Đã đăng ký · SDVICO sẽ gọi
+        </span>
+      ) : (
+        <PrimaryButton onClick={() => setMo(true)} className={className}>
+          {NHAN.dangKy}
+        </PrimaryButton>
+      )}
+      {mo && (
+        <DangKySheet
+          km={km}
+          onClose={() => setMo(false)}
+          onXong={(phieu) => {
+            ghiDaDangKy(km.id, phieu);
+            setDaDK(docDaDangKy());
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -284,7 +316,7 @@ function VideoSheet({ km, onClose, onDangKy, daDangKy }: { km: KhuyenMai; onClos
 
 type Trang = "idle" | "sending" | "done" | "error";
 
-function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => void; onXong: (phieu: string | null) => void }) {
+export function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => void; onXong: (phieu: string | null) => void }) {
   const { phone: sdtTaiKhoan, ready } = useAuthUser();
   const online = useOnline();
   // Điền sẵn từ Tàu tôi (một lần lúc mở ngăn — bà con sửa được).
@@ -304,6 +336,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
   const [banId, setBanId] = useState(km.bienThe?.[0]?.id ?? null);
   const ban = km.bienThe?.find((b) => b.id === banId) ?? null;
   const gia = ban?.gia ?? km.giaApp;
+  const tu = ban?.tu ? "từ " : "";
   const [ghiChu, setGhiChu] = useState("");
   const [trang, setTrang] = useState<Trang>("idle");
   const [loi, setLoi] = useState<string | null>(null);
@@ -372,7 +405,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
           <CheckIcon className="mx-auto h-10 w-10" />
           <p className="mt-3 text-[1.125rem] font-semibold">SDVICO đã nhận đăng ký {km.ten}</p>
           <p className="mt-1 text-[1rem] text-foreground/70">
-             {qty} {km.donVi}{ban ? ` ${ban.ten}` : ""} · {tienVn(gia * qty)} · nhận tại {noiNhan.trim()}. Nhân viên sẽ gọi lại hẹn giao.
+             {qty} {km.donVi}{ban ? ` ${ban.ten}` : ""} · {tu}{tienVn(gia * qty)} · nhận tại {noiNhan.trim()}. Nhân viên sẽ gọi lại hẹn giao.
           </p>
         </div>
         <div className="mt-4">
@@ -403,7 +436,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
           <Image src={km.image} alt="" width={km.imgW} height={km.imgH} sizes="3.5rem" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
           <div className="min-w-0">
             <p className="text-[1rem] font-semibold text-navy">
-              {km.giaThiTruong != null && <span className="text-muted line-through">{tienVn(km.giaThiTruong)}</span>} {tienVn(gia)}/{km.donVi}
+              {km.giaThiTruong != null && <span className="text-muted line-through">{tienVn(km.giaThiTruong)}</span>} {tu}{tienVn(gia)}/{km.donVi}
             </p>
             <ul className="mt-0.5 text-[0.875rem] leading-snug text-foreground/70">
               {km.diemHay.slice(1).map((d) => (
@@ -415,7 +448,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
 
         {km.bienThe?.length ? (
           <Field label="Chọn bản">
-            <div className="flex gap-2" role="radiogroup" aria-label="Chọn bản">
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Chọn bản">
               {km.bienThe.map((b) => (
                 <button
                   key={b.id}
@@ -423,7 +456,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
                   role="radio"
                   aria-checked={b.id === banId}
                   onClick={() => setBanId(b.id)}
-                  className={`flex h-(--h-ctl) flex-1 flex-col items-center justify-center rounded-2xl border px-3 text-[1rem] font-semibold transition ${
+                  className={`flex h-(--h-ctl) min-w-[6.5rem] flex-1 flex-col items-center justify-center rounded-2xl border px-3 text-[1rem] font-semibold transition ${
                     b.id === banId ? "border-t3 bg-t3 text-white" : "border-line bg-field text-navy"
                   }`}
                 >
@@ -431,13 +464,18 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
                 </button>
               ))}
             </div>
+            {/* hai bản khác nhau chỗ nào — một câu theo bản đang chọn (anh Long 31/10) */}
+            {ban?.khac && <p className="mt-2 text-[1rem] leading-snug text-foreground/75">{ban.khac}</p>}
           </Field>
         ) : null}
 
         <Field label="Số lượng">
           <div className="flex items-center justify-between">
             <QtyStepper qty={qty} onChange={(q) => setQty(Math.min(km.qtyMax, Math.max(1, q)))} label="số lượng" />
-            <p className="text-[1rem] font-semibold text-navy">{tienVn(gia * qty)}</p>
+            <p className="text-[1rem] font-semibold text-navy">
+              {tu}
+              {tienVn(gia * qty)}
+            </p>
           </div>
         </Field>
 

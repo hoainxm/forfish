@@ -5,6 +5,7 @@ import type { ComponentType } from "react";
 import {
   BasketIcon, BoxIcon, EngineIcon, FuelIcon, GearIcon, IceIcon, LifebuoyIcon, NetIcon, RadarIcon, StarIcon,
 } from "@/components/icons";
+import { khuyenMaiCuaMonCho } from "@/data/khuyen-mai";
 import { CATEGORY_ICON } from "@/lib/market/categories";
 import { discountPercent } from "@/lib/market/pricing";
 import { anhNho, luiAnhGoc } from "@/lib/anh-nho";
@@ -49,6 +50,8 @@ export function MarketProductCard({
       "Hết hàng" lên nó: hàng vẫn có, chỉ là hỏi giá rồi mới mua. Thẻ đã nói
       "Liên hệ báo giá" ở dòng giá, thế là đủ. */
   const quoteOnly = product.priceVnd == null;
+  // món SDVICO có bảng giá (data/khuyen-mai.ts, 31/10) ⇒ thẻ hiện giá thay "Liên hệ báo giá"
+  const kmSdvico = quoteOnly && product.shopSlug === "sdvico" ? khuyenMaiCuaMonCho(product) : null;
   const out = product.status !== "dang_ban" || (!quoteOnly && product.stock <= 0);
   const image = product.images[0];
 
@@ -102,7 +105,12 @@ export function MarketProductCard({
         {/* Tên/giá trước; shop và tỉnh luôn đọc được, không nhét vào dòng cắt. */}
         <div className="flex flex-1 flex-col p-3">
           <p className="line-clamp-3 text-[1rem] font-medium leading-snug text-navy">{product.title}</p>
-          <PriceText priceVnd={product.priceVnd} compareAtVnd={product.compareAtVnd} className="mt-1" />
+          <PriceText
+            priceVnd={product.priceVnd ?? kmSdvico?.giaApp ?? null}
+            compareAtVnd={product.compareAtVnd}
+            tu={product.priceVnd == null && !!kmSdvico?.giaTu}
+            className="mt-1"
+          />
           {/* "Đã bán 0" không giúp chọn món ⇒ chưa bán, chưa đánh giá thì bỏ cả dòng (rà Codex 2026-10-19). */}
           {(product.soldCount > 0 || product.ratingCount > 0) && (
             <p className="mt-2 text-[0.875rem] leading-relaxed text-foreground/80">

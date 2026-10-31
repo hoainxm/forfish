@@ -16,6 +16,10 @@ export interface BienThe {
   /** Tên đầy đủ ghi vào phiếu cho KD đọc (vd "bản cơ SF50"). */
   ten: string;
   gia: number;
+  /** Giá "từ" (bản có nhiều cấu hình, vd máy lọc nước) — hiện "Từ …". */
+  tu?: boolean;
+  /** Một câu bản này KHÁC bản kia chỗ nào — hiện dưới chip khi đang chọn (anh Long 31/10: "phải phân biệt 2 loại này"). */
+  khac?: string;
 }
 
 export interface KhuyenMai {
@@ -49,6 +53,13 @@ export interface KhuyenMai {
   guiToi?: string;
   /** Hỏi–đáp ngắn hiện dưới video (bà con hỏi TRƯỚC khi đăng ký — anh Long 31/10). Trong bundle ⇒ mất sóng vẫn đọc. */
   hoiDap?: { hoi: string; dap: string }[];
+  /** Dòng giá trên thẻ ghi "Từ …" (nhiều bản / nhiều cấu hình). */
+  giaTu?: boolean;
+  /** Món tương ứng trong Chợ vật tư (gian hàng SDVICO, món "Liên hệ báo giá"): màn món hiện giá này + nút Đăng ký thay
+   *  "Hỏi giá". Khớp theo `id` (prod) HOẶC `ten` (bản demo/dev seed id khác). */
+  cho?: { id: string; ten: string };
+  /** false ⇒ không hiện ở thẻ Trang chủ / đầu Vật tư (chỉ hiện trong Chợ). Mặc định hiện. */
+  trenTrangChu?: boolean;
   /** Số lượng tối đa một lần đăng ký (chống gõ nhầm 200). */
   qtyMax: number;
   /** Hết hạn (ISO ngày, null = chưa định) — card tự ẩn sau ngày này. */
@@ -99,9 +110,12 @@ export const KM_LOC_DAU: KhuyenMai = {
   doiTuong: "Mọi khách cũ và mới",
   donVi: "bộ",
   bienThe: [
-    { id: "co", nhan: "Bản cơ", ten: "bản cơ SF50", gia: 7_900_000 },
-    { id: "dien", nhan: "Bản điện", ten: "bản điện SF300B", gia: 9_900_000 },
+    { id: "co", nhan: "Bản cơ", ten: "bản cơ SF50", gia: 7_900_000, khac: "Không cần điện: dầu tự chảy qua lọc. Hợp tàu có két dầu đặt cao hơn máy." },
+    { id: "dien", nhan: "Bản điện", ten: "bản điện SF300B", gia: 9_900_000, khac: "Có bơm 12V đẩy dầu, lọc nhanh cỡ 300 lít một giờ, đuổi bọt gió. Hợp tàu có két dưới hầm, đường ống dài." },
+    { id: "tui", nhan: "Túi lọc", ten: "túi lọc dầu", gia: 190_000, khac: "Túi lọc thay cho máy đang dùng. Dầu chảy chậm lại là tới lúc thay." },
   ],
+  giaTu: true,
+  cho: { id: "f35dfce6-2341-4517-9afb-760d61baaf24", ten: "Máy lọc dầu diesel SF50 / SF300B" },
   // Clip 65 s dựng 31/10 trên GPU (~/loc-dau-video/dung.py): cảnh thật từ bản tin SDVICO trong nhóm Zalo + giọng Sen Biển.
   video: { src: "/sdvico/loc-dau.mp4", poster: "/sdvico/loc-dau-poster.jpg", giay: 65 },
   // Anh Long 31/10: "khách đăng ký tư vấn thì chuyển qua nhóm Zalo Triển khai kinh doanh (trực ở gpu) tương tự của Quân".
@@ -118,11 +132,120 @@ export const KM_LOC_DAU: KhuyenMai = {
     { hoi: "Khói xanh, khói trắng?", dap: "Khói xanh có thể do máy cháy nhớt, bà con cho thợ kiểm xéc măng, turbo. Máy lọc không chữa được bệnh này. Khói trắng mà két nước làm mát cứ hụt thì cũng phải kiểm máy. Khói trắng có mùi dầu sống khi máy đã nóng thì có thể do nước trong dầu, bà con xả đáy két coi có nước không." },
     { hoi: "Máy tắt khi sóng lớn, khó nổ?", dap: "Bà con xả đáy két coi có nước, có cặn không, coi lọc tinh có nghẹt không. Khó nổ, phải xả gió hoài thì tìm chỗ hở ở ống, khớp nối, gioăng cốc lọc trước. Nếu đúng là do nước, cặn trong dầu thì máy lọc giúp được." },
   ],
+  qtyMax: 10,
+  hetHan: null,
+};
+
+/*  HÀNG SDVICO KHÁC — BẢNG GIÁ BÁN LẺ ĐÃ GỒM VAT (anh Long gửi 31/10/2026, ảnh bảng giá SDVICO): "các sản phẩm khác giá đây,
+    rồi đưa luồng vô chỗ khách đk luôn đưa qua nhóm kd". Hiện ở màn món của Chợ vật tư (gian hàng SDVICO) thay "Liên hệ báo
+    giá": giá + nút Đăng ký ⇒ phiếu ⇒ nhóm Zalo "Triển Khai Kinh Doanh". KHÔNG ghi giá vào `shop_products.price_vnd`: có giá
+    là chợ cho vào giỏ/đơn, mà đơn chợ không qua nhóm KD (anh muốn KD tư vấn rồi chốt). Starlink (V4 15tr, Mini 13tr) bảng ghi
+    "dự kiến" ⇒ chưa đưa lên. */
+const KD = "Triển Khai Kinh Doanh";
+
+export const KM_GSHT_VIETTEL: KhuyenMai = {
+  id: "gsht-s-tracking",
+  ten: "Giám sát hành trình Viettel S-Tracking",
+  tenPhieu: "Giám sát hành trình Viettel S-Tracking 23.601.000đ",
+  giaThiTruong: null,
+  giaApp: 23_601_000,
+  moTa: "Thiết bị giám sát hành trình tàu cá theo quy định để ra khơi hợp lệ.",
+  diemHay: ["Giá 23.601.000đ một bộ, đã gồm VAT", "Định vị GPS, truyền qua di động và vệ tinh Iridium", "SDVICO lắp tận bến, hỗ trợ hồ sơ đăng ký"],
+  image: "/sdvico/s-tracking.jpg",
+  imgW: 760,
+  imgH: 600,
+  doiTuong: "Mọi khách",
+  donVi: "bộ",
+  cho: { id: "411149d5-212f-4d3c-984e-b07dccb5b24f", ten: "Giám sát hành trình Viettel S-Tracking" },
+  trenTrangChu: false,
+  guiToi: KD,
+  qtyMax: 3,
+  hetHan: null,
+};
+
+export const KM_GSHT_VIFISH: KhuyenMai = {
+  id: "gsht-vifish",
+  ten: "Giám sát hành trình Vifish.24",
+  tenPhieu: "Giám sát hành trình Vifish.24 24.000.000đ",
+  giaThiTruong: null,
+  giaApp: 24_000_000,
+  moTa: "Cảnh báo trước khi tới vùng cấm, nút khẩn cấp qua vệ tinh.",
+  diemHay: ["Giá 24.000.000đ một bộ, đã gồm VAT", "Báo trước 1 hải lý khi gần vùng cấm", "Nút khẩn cấp gửi tín hiệu về Đài duyên hải"],
+  image: "/sdvico/vifish.png",
+  imgW: 700,
+  imgH: 466,
+  doiTuong: "Mọi khách",
+  donVi: "bộ",
+  cho: { id: "938c880e-9ec1-438e-881b-6a2cc83b939f", ten: "Giám sát hành trình Vifish.24" },
+  trenTrangChu: false,
+  guiToi: KD,
+  qtyMax: 3,
+  hetHan: null,
+};
+
+export const KM_LOC_NUOC: KhuyenMai = {
+  id: "loc-nuoc-bien-sea",
+  ten: "Máy lọc nước biển SEA-40 / SEA250",
+  tenPhieu: "Máy lọc nước biển SEA (cơ từ 38tr / điện từ 49,5tr)",
+  giaThiTruong: null,
+  giaApp: 38_000_000,
+  moTa: "Lọc nước biển thành nước ngọt ngay trên tàu.",
+  diemHay: ["Bản cơ từ 38.000.000đ · bản điện từ 49.500.000đ, đã gồm VAT", "Lọc nước biển thành nước ngọt bằng màng RO", "SDVICO lắp tận tàu"],
+  image: "/sdvico/sea40.jpg",
+  imgW: 760,
+  imgH: 600,
+  doiTuong: "Mọi khách",
+  donVi: "bộ",
+  bienThe: [
+    { id: "co", nhan: "Bản cơ", ten: "bản cơ", gia: 38_000_000, tu: true, khac: "Không dùng điện. Giá theo cấu hình, kỹ thuật tư vấn đúng tàu." },
+    { id: "dien", nhan: "Bản điện", ten: "bản điện", gia: 49_500_000, tu: true, khac: "Chạy điện (220V, 380V hay biến tần theo điện trên tàu). Giá theo công suất." },
+  ],
+  giaTu: true,
+  cho: { id: "cf708cd8-d7fc-44b8-8bd9-13149a96f2a2", ten: "Máy lọc nước biển SEA-40 / SEA250" },
+  trenTrangChu: false,
+  guiToi: KD,
+  qtyMax: 3,
+  hetHan: null,
+};
+
+export const KM_THURAYA: KhuyenMai = {
+  id: "thuraya-marinestar",
+  ten: "Điện thoại vệ tinh Thuraya MarineStar",
+  tenPhieu: "Điện thoại vệ tinh Thuraya (bộ / phụ kiện)",
+  giaThiTruong: null,
+  giaApp: 37_800_000,
+  moTa: "Gọi điện qua vệ tinh ngay trên biển, có nút SOS riêng.",
+  diemHay: ["Trọn bộ 37.800.000đ, phụ kiện bán lẻ, đã gồm VAT", "Gọi thoại qua vệ tinh Thuraya, có nút SOS", "SDVICO lắp ăng-ten và đi dây"],
+  image: "/sdvico/thuraya.jpg",
+  imgW: 1200,
+  imgH: 800,
+  doiTuong: "Mọi khách",
+  donVi: "bộ",
+  bienThe: [
+    { id: "bo", nhan: "Trọn bộ", ten: "trọn bộ", gia: 37_800_000, khac: "Gồm điện thoại, ăng-ten, dây nguồn, dây tín hiệu, PAT." },
+    { id: "may", nhan: "Điện thoại", ten: "điện thoại", gia: 28_080_000, khac: "Gồm máy, dây nguồn, dây tín hiệu, PAT — chưa có ăng-ten." },
+    { id: "angten", nhan: "Ăng-ten", ten: "ăng-ten Thuraya", gia: 9_900_000, khac: "Ăng-ten thay hoặc lắp thêm." },
+    { id: "day-tin-hieu", nhan: "Bộ dây", ten: "bộ dây tín hiệu", gia: 1_400_000, khac: "Bộ dây tín hiệu nối máy với ăng-ten." },
+    { id: "sim", nhan: "SIM", ten: "SIM VNPT", gia: 500_000, khac: "SIM VNPT cho điện thoại vệ tinh." },
+    { id: "pat", nhan: "PAT", ten: "PAT", gia: 250_000, khac: "PAT bán lẻ (phụ kiện của bộ điện thoại)." },
+    { id: "day-nguon", nhan: "Dây nguồn", ten: "dây nguồn", gia: 200_000, khac: "Dây nguồn cho điện thoại." },
+  ],
+  cho: { id: "e57511a6-9d30-46f8-a7a7-b05ff4724759", ten: "Điện thoại vệ tinh Thuraya MarineStar" },
+  trenTrangChu: false,
+  guiToi: KD,
   qtyMax: 5,
   hetHan: null,
 };
 
-export const KHUYEN_MAI: KhuyenMai[] = [KM_SU_DINH_VI, KM_LOC_DAU];
+export const KHUYEN_MAI: KhuyenMai[] = [KM_SU_DINH_VI, KM_LOC_DAU, KM_GSHT_VIETTEL, KM_GSHT_VIFISH, KM_LOC_NUOC, KM_THURAYA];
+
+/** Thẻ Trang chủ / đầu Vật tư: chỉ món `trenTrangChu !== false`. */
+export const KHUYEN_MAI_TRANG_CHU = KHUYEN_MAI.filter((k) => k.trenTrangChu !== false);
+
+/** Món chợ (gian hàng SDVICO) ⇒ mục giá + Đăng ký; khớp id prod hoặc tên (dev seed). */
+export function khuyenMaiCuaMonCho(p: { id: string; title: string }): KhuyenMai | null {
+  return KHUYEN_MAI.find((k) => k.cho && (k.cho.id === p.id || k.cho.ten === p.title)) ?? null;
+}
 
 export function timKhuyenMai(id: string): KhuyenMai | null {
   return KHUYEN_MAI.find((k) => k.id === id) ?? null;
@@ -153,7 +276,7 @@ export function tienVn(n: number): string {
 /** Lời nhắn ghi vào phiếu (≤500) — Quân đọc là biết số lượng, nơi nhận, ghi chú. */
 export function loiNhanDangKy(o: { qty: number; noiNhan: string; ghiChu?: string | null; bienThe?: BienThe | null }): string {
   const parts = [`Đăng ký mua ${o.qty} cái`];
-  if (o.bienThe) parts.push(`${o.bienThe.ten} ${tienVn(o.bienThe.gia)}`);
+  if (o.bienThe) parts.push(`${o.bienThe.ten} ${o.bienThe.tu ? "từ " : ""}${tienVn(o.bienThe.gia)}`);
   parts.push(`nhận tại ${o.noiNhan.trim()}`);
   const g = (o.ghiChu ?? "").trim();
   if (g) parts.push(`ghi chú: ${g}`);

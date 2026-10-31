@@ -1,6 +1,6 @@
 // Khuyến mãi SDVICO (2026-10-26, sứ định vị 500k giảm 200k ⇒ 300k — sửa 2026-10-27): danh mục, lời nhắn phiếu, tin Zalo cho Quân.
 import { describe, expect, it } from "vitest";
-import { conHieuLuc, KHUYEN_MAI, KM_LOC_DAU, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
+import { conHieuLuc, KHUYEN_MAI, KHUYEN_MAI_TRANG_CHU, KM_GSHT_VIETTEL, KM_GSHT_VIFISH, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, KM_THURAYA, khuyenMaiCuaMonCho, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
 import { kiemPhieu, tinNhanKd } from "@/lib/sdvico/khach-hoi";
 
 describe("danh mục khuyến mãi", () => {
@@ -40,10 +40,12 @@ describe("danh mục khuyến mãi", () => {
 describe("máy lọc dầu SF50 / SF300B (2026-10-31, Tiến KD báo: cơ 7,9tr, điện 9,9tr — không giảm)", () => {
   it("hai bản cơ/điện đúng giá, giaApp = bản rẻ nhất, không giá gạch, nằm ngay sau sứ", () => {
     expect(KM_LOC_DAU.giaThiTruong).toBeNull();
-    expect(KM_LOC_DAU.bienThe?.map((b) => [b.id, b.gia])).toEqual([["co", 7_900_000], ["dien", 9_900_000]]);
-    expect(KM_LOC_DAU.giaApp).toBe(Math.min(...KM_LOC_DAU.bienThe!.map((b) => b.gia)));
+    expect(KM_LOC_DAU.bienThe?.map((b) => [b.id, b.gia])).toEqual([["co", 7_900_000], ["dien", 9_900_000], ["tui", 190_000]]);
+    // thẻ ghi "Từ <giá máy rẻ nhất>" — túi lọc là phụ kiện, không kéo giá thẻ xuống
+    expect(KM_LOC_DAU.giaApp).toBe(KM_LOC_DAU.bienThe![0].gia);
+    expect(KM_LOC_DAU.giaTu).toBe(true);
     for (const b of KM_LOC_DAU.bienThe!) expect(b.nhan.split(" ").length).toBeLessThanOrEqual(2);
-    expect(KHUYEN_MAI.map((k) => k.id)).toEqual(["su-dinh-vi-gps", "loc-dau-sf"]);
+    expect(KHUYEN_MAI_TRANG_CHU.map((k) => k.id)).toEqual(["su-dinh-vi-gps", "loc-dau-sf"]);
   });
   it("phiếu lọc dầu đi nhóm Zalo 'Triển Khai Kinh Doanh', sứ vẫn về chat mặc định (Quân); clip có file thật", async () => {
     expect(KM_LOC_DAU.guiToi).toBe("Triển Khai Kinh Doanh");
@@ -72,6 +74,36 @@ describe("máy lọc dầu SF50 / SF300B (2026-10-31, Tiến KD báo: cơ 7,9tr,
     expect(tin.split("\n")[0]).toBe("[SDFish] ĐĂNG KÝ MUA: Máy lọc dầu SF50 / SF300B");
     expect(tin).toContain("bản điện SF300B 9.900.000đ");
     expect(tin).not.toContain("giá thị trường");
+  });
+});
+
+describe("bảng giá SDVICO 31/10 (ảnh anh Long gửi) — món chợ ⇒ giá + Đăng ký ⇒ nhóm KD", () => {
+  it("giá đúng bảng, đã gồm VAT", () => {
+    expect(KM_GSHT_VIETTEL.giaApp).toBe(23_601_000);
+    expect(KM_GSHT_VIFISH.giaApp).toBe(24_000_000);
+    expect(KM_LOC_NUOC.bienThe?.map((b) => [b.id, b.gia, b.tu])).toEqual([["co", 38_000_000, true], ["dien", 49_500_000, true]]);
+    expect(KM_THURAYA.bienThe?.map((b) => b.gia)).toEqual([37_800_000, 28_080_000, 9_900_000, 1_400_000, 500_000, 250_000, 200_000]);
+    expect(KM_THURAYA.giaApp).toBe(37_800_000);
+  });
+  it("mọi món trừ sứ đi nhóm 'Triển Khai Kinh Doanh'; tên phiếu không trùng; chip ≤2 chữ, mỗi bản có câu khác nhau", () => {
+    for (const k of KHUYEN_MAI) {
+      expect(k.guiToi, k.id).toBe(k.id === "su-dinh-vi-gps" ? undefined : "Triển Khai Kinh Doanh");
+      for (const b of k.bienThe ?? []) {
+        expect(b.nhan.split(" ").length, b.nhan).toBeLessThanOrEqual(2);
+        expect(b.khac, `${k.id}/${b.id}`).toBeTruthy();
+      }
+    }
+    expect(new Set(KHUYEN_MAI.map((k) => k.tenPhieu)).size).toBe(KHUYEN_MAI.length);
+  });
+  it("khớp món chợ theo id prod hoặc theo tên; món khác ⇒ null", () => {
+    expect(khuyenMaiCuaMonCho({ id: "411149d5-212f-4d3c-984e-b07dccb5b24f", title: "x" })?.id).toBe("gsht-s-tracking");
+    expect(khuyenMaiCuaMonCho({ id: "dev-1", title: "Điện thoại vệ tinh Thuraya MarineStar" })?.id).toBe("thuraya-marinestar");
+    expect(khuyenMaiCuaMonCho({ id: "x", title: "Sơn tàu biển PV Paint" })).toBeNull();
+  });
+  it("lời nhắn ghi giá 'từ' cho bản giá theo cấu hình", () => {
+    expect(loiNhanDangKy({ qty: 1, noiNhan: "Phan Thiết", bienThe: timBienThe(KM_LOC_NUOC, "dien") })).toBe(
+      "Đăng ký mua 1 cái · bản điện từ 49.500.000đ · nhận tại Phan Thiết",
+    );
   });
 });
 
