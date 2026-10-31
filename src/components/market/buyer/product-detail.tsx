@@ -13,7 +13,6 @@ import { QtyStepper } from "@/components/cart-sheet";
 import { AlertIcon, CartIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
 import { EmptyNet } from "@/components/market/shared/empty-net";
 import { PriceText } from "@/components/market/shared/price-text";
-import { DangKyMonCho } from "@/components/khuyen-mai-card";
 import { CategoryIcon } from "@/components/market/shared/product-card";
 import { RatingStars } from "@/components/market/shared/rating-stars";
 import { ShopBadge } from "@/components/market/shared/shop-badge";
@@ -22,7 +21,6 @@ import { ChipRow } from "@/components/ui/chip-row";
 import { CallButton, PrimaryButton } from "@/components/ui/primitives";
 import { SQ_BTN_CTA } from "@/components/ui/sq-btn";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { khuyenMaiCuaMonCho } from "@/data/khuyen-mai";
 import { clockVN } from "@/lib/day-labels";
 import { NHAN } from "@/lib/labels";
 import { marketGet } from "@/lib/market/client";
@@ -157,9 +155,6 @@ export function ProductDetail({ id }: { id: string }) {
       được. Không tính tồn kho cho nó (để 0, hàng vẫn có) và KHÔNG nói "Hết
       hàng" — thanh đáy đổi hẳn sang gọi shop. */
   const quoteOnly = product.priceVnd == null;
-  /*  HÀNG SDVICO CÓ BẢNG GIÁ (anh Long 31/10, `data/khuyen-mai.ts`): món "Liên hệ báo giá" của gian hàng SDVICO có trong
-      bảng ⇒ hiện giá + nút Đăng ký (phiếu ⇒ nhóm Zalo KD) thay "Hỏi giá". Giá KHÔNG vào DB nên vẫn không lên giỏ/đơn. */
-  const kmSdvico = quoteOnly && product.shopSlug === "sdvico" ? khuyenMaiCuaMonCho(product) : null;
   const outOfStock = product.status !== "dang_ban" || (!quoteOnly && product.stock <= 0);
   const needVariant = hasVariants && !variant;
   /*  `needVariant` KHÔNG nằm trong `canAdd` nữa (R-03): nút vẫn bấm được, việc
@@ -306,7 +301,7 @@ export function ProductDetail({ id }: { id: string }) {
         </div>
 
         <div className="mt-2 flex flex-wrap items-baseline gap-2">
-          <PriceText priceVnd={unitPrice ?? kmSdvico?.giaApp ?? null} compareAtVnd={product.compareAtVnd} size="lg" tu={!!kmSdvico?.giaTu} />
+          <PriceText priceVnd={unitPrice} compareAtVnd={product.compareAtVnd} size="lg" />
           {pct != null && (
             <span
               className="rounded-full px-2 py-0.5 text-[0.875rem] font-semibold"
@@ -396,12 +391,7 @@ export function ProductDetail({ id }: { id: string }) {
         )}
         {/*  VT-02: có số thì mời gọi; KHÔNG số thì đưa sang Nhờ báo giá (chủ sàn hỏi shop) —
              bản cũ bảo "gọi hỏi giá" trong khi shop không có số nào để gọi. */}
-        {kmSdvico ? (
-          <p className="mt-4 text-[1rem] leading-snug text-foreground/75">
-            Giá bán lẻ đã gồm VAT{kmSdvico.bienThe?.length ? ", có nhiều bản để chọn" : ""}. Bấm Đăng ký, nhân viên SDVICO gọi lại
-            tư vấn đúng tàu mình rồi hẹn lắp.
-          </p>
-        ) : quoteOnly && (
+        {quoteOnly && (
           <p className="mt-4 text-[1rem] leading-snug text-foreground/75">
             Món này shop báo giá theo từng tàu nên chưa để giá sẵn.{" "}
             {shop?.phone
@@ -502,12 +492,7 @@ export function ProductDetail({ id }: { id: string }) {
              `flex-wrap`, `basis-full` cho nó một hàng riêng; trước nó vẽ giữa trang, bà con
              cuộn xuống đọc mô tả rồi bấm thêm là không thấy gì đổi. */}
         <CartFeedback note={note} count={cart.count} className="basis-full" />
-        {kmSdvico ? (
-          <>
-            {shop?.phone && <CallButton phone={shop.phone} label={NHAN.goiShop} cao="cta" />}
-            <DangKyMonCho km={kmSdvico} className="flex-1" />
-          </>
-        ) : quoteOnly ? (
+        {quoteOnly ? (
           shop?.phone ? (
             <CallButton phone={shop.phone} label={NHAN.hoiGia} className="flex-1" cao="cta" />
           ) : (

@@ -1,7 +1,7 @@
 // Khuyến mãi SDVICO (2026-10-26, sứ định vị 500k giảm 200k ⇒ 300k — sửa 2026-10-27): danh mục, lời nhắn phiếu, tin Zalo cho Quân.
 import { describe, expect, it } from "vitest";
-import { conHieuLuc, KHUYEN_MAI, KHUYEN_MAI_TRANG_CHU, KM_GSHT_VIETTEL, KM_GSHT_VIFISH, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, KM_THURAYA, khuyenMaiCuaMonCho, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
-import { kiemPhieu, tinNhanKd } from "@/lib/sdvico/khach-hoi";
+import { conHieuLuc, KHUYEN_MAI, KM_LOC_DAU, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
+import { CHAT_KD, chatCuaPhieu, kiemPhieu, phieuDonCho, tinNhanKd } from "@/lib/sdvico/khach-hoi";
 
 describe("danh mục khuyến mãi", () => {
   it("sứ định vị: 500k giảm 200k ⇒ 300k, tên phiếu ≤120, id không trùng", () => {
@@ -45,7 +45,7 @@ describe("máy lọc dầu SF50 / SF300B (2026-10-31, Tiến KD báo: cơ 7,9tr,
     expect(KM_LOC_DAU.giaApp).toBe(KM_LOC_DAU.bienThe![0].gia);
     expect(KM_LOC_DAU.giaTu).toBe(true);
     for (const b of KM_LOC_DAU.bienThe!) expect(b.nhan.split(" ").length).toBeLessThanOrEqual(2);
-    expect(KHUYEN_MAI_TRANG_CHU.map((k) => k.id)).toEqual(["su-dinh-vi-gps", "loc-dau-sf"]);
+    expect(KHUYEN_MAI.map((k) => k.id)).toEqual(["su-dinh-vi-gps", "loc-dau-sf"]);
   });
   it("phiếu lọc dầu đi nhóm Zalo 'Triển Khai Kinh Doanh', sứ vẫn về chat mặc định (Quân); clip có file thật", async () => {
     expect(KM_LOC_DAU.guiToi).toBe("Triển Khai Kinh Doanh");
@@ -77,36 +77,6 @@ describe("máy lọc dầu SF50 / SF300B (2026-10-31, Tiến KD báo: cơ 7,9tr,
   });
 });
 
-describe("bảng giá SDVICO 31/10 (ảnh anh Long gửi) — món chợ ⇒ giá + Đăng ký ⇒ nhóm KD", () => {
-  it("giá đúng bảng, đã gồm VAT", () => {
-    expect(KM_GSHT_VIETTEL.giaApp).toBe(23_601_000);
-    expect(KM_GSHT_VIFISH.giaApp).toBe(24_000_000);
-    expect(KM_LOC_NUOC.bienThe?.map((b) => [b.id, b.gia, b.tu])).toEqual([["co", 38_000_000, true], ["dien", 49_500_000, true]]);
-    expect(KM_THURAYA.bienThe?.map((b) => b.gia)).toEqual([37_800_000, 28_080_000, 9_900_000, 1_400_000, 500_000, 250_000, 200_000]);
-    expect(KM_THURAYA.giaApp).toBe(37_800_000);
-  });
-  it("mọi món trừ sứ đi nhóm 'Triển Khai Kinh Doanh'; tên phiếu không trùng; chip ≤2 chữ, mỗi bản có câu khác nhau", () => {
-    for (const k of KHUYEN_MAI) {
-      expect(k.guiToi, k.id).toBe(k.id === "su-dinh-vi-gps" ? undefined : "Triển Khai Kinh Doanh");
-      for (const b of k.bienThe ?? []) {
-        expect(b.nhan.split(" ").length, b.nhan).toBeLessThanOrEqual(2);
-        expect(b.khac, `${k.id}/${b.id}`).toBeTruthy();
-      }
-    }
-    expect(new Set(KHUYEN_MAI.map((k) => k.tenPhieu)).size).toBe(KHUYEN_MAI.length);
-  });
-  it("khớp món chợ theo id prod hoặc theo tên; món khác ⇒ null", () => {
-    expect(khuyenMaiCuaMonCho({ id: "411149d5-212f-4d3c-984e-b07dccb5b24f", title: "x" })?.id).toBe("gsht-s-tracking");
-    expect(khuyenMaiCuaMonCho({ id: "dev-1", title: "Điện thoại vệ tinh Thuraya MarineStar" })?.id).toBe("thuraya-marinestar");
-    expect(khuyenMaiCuaMonCho({ id: "x", title: "Sơn tàu biển PV Paint" })).toBeNull();
-  });
-  it("lời nhắn ghi giá 'từ' cho bản giá theo cấu hình", () => {
-    expect(loiNhanDangKy({ qty: 1, noiNhan: "Phan Thiết", bienThe: timBienThe(KM_LOC_NUOC, "dien") })).toBe(
-      "Đăng ký mua 1 cái · bản điện từ 49.500.000đ · nhận tại Phan Thiết",
-    );
-  });
-});
-
 describe("phiếu đăng ký KM đi qua kiemPhieu + tinNhanKd", () => {
   const raw = {
     nguon: "san-pham", sanPham: KM_SU_DINH_VI.tenPhieu, ten: "Anh Tư", phone: "0905123456", soTau: "BĐ-91234-TS", cang: "Quy Nhơn",
@@ -135,5 +105,44 @@ describe("phiếu đăng ký KM đi qua kiemPhieu + tinNhanKd", () => {
     const r = kiemPhieu({ ...raw, sanPham: "gsht-viettel-s-tracking", loiNhan: null });
     if (!r.ok) throw new Error(r.code);
     expect(tinNhanKd({ ...r.value, createdAt: "2026-10-26T03:00:00Z" }, null).split("\n")[0]).toMatch(/^\[SDFish\] Khách hỏi /);
+  });
+});
+
+describe("đơn chợ gian hàng SDVICO ⇒ phiếu ⇒ nhóm Zalo KD (31/10, hàng SDVICO đã có giá trong chợ)", () => {
+  const don = {
+    code: "SD261031ABCD",
+    buyerPhone: "0905123456",
+    items: [
+      { title: "Máy lọc dầu diesel SF50 / SF300B", variantLabel: "Bản điện SF300B (bơm 12V)", qty: 1, lineTotalVnd: 9_900_000 },
+      { title: "Điện thoại vệ tinh Thuraya MarineStar", variantLabel: "SIM VNPT", qty: 2, lineTotalVnd: 1_000_000 },
+    ],
+    totalVnd: 10_900_000,
+    paymentMethod: "cod",
+    address: { name: "Anh Tư", phone: "0905123456", province: "Bình Thuận", detail: "cảng Phan Thiết" },
+    buyerNote: "tàu về thứ 7",
+  };
+  it("dòng phiếu đúng ràng buộc cột 0072 + đi nhóm KD", () => {
+    const r = phieuDonCho(don)!;
+    expect(r.san_pham).toBe("Đơn chợ SDVICO SD261031ABCD");
+    expect(r.so_tau.length).toBeGreaterThanOrEqual(3);
+    expect(r.cang).toBe("cảng Phan Thiết, Bình Thuận");
+    expect(r.loi_nhan).toBe(
+      "1 × Máy lọc dầu diesel SF50 / SF300B (Bản điện SF300B (bơm 12V)) 9.900.000đ; 2 × Điện thoại vệ tinh Thuraya MarineStar (SIM VNPT) 1.000.000đ · Tổng 10.900.000đ · trả khi nhận · khách ghi: tàu về thứ 7",
+    );
+    expect(chatCuaPhieu(r.san_pham)).toBe(CHAT_KD);
+    expect(chatCuaPhieu(KM_LOC_DAU.tenPhieu)).toBe(CHAT_KD);
+    expect(chatCuaPhieu(KM_SU_DINH_VI.tenPhieu)).toBeNull();
+    expect(phieuDonCho({ ...don, buyerPhone: "x", address: { ...don.address, phone: "y" } })).toBeNull();
+  });
+  it("tin Zalo: đầu tin ĐƠN CHỢ SDVICO + mã, giao tới, hàng", () => {
+    const r = phieuDonCho(don)!;
+    const tin = tinNhanKd(
+      { nguon: "san-pham", sanPham: r.san_pham, ten: r.ten, phone: r.phone, soTau: r.so_tau, cang: r.cang, loiNhan: r.loi_nhan, kairosPostId: null, kairosCommentId: null, createdAt: "2026-10-31T03:00:00Z" },
+      null,
+    );
+    expect(tin.split("\n")[0]).toBe("[SDFish] ĐƠN CHỢ SDVICO SD261031ABCD — gọi xác nhận, hẹn lắp");
+    expect(tin).toContain("- Giao tới: cảng Phan Thiết, Bình Thuận");
+    expect(tin).toContain("- Hàng: 1 × Máy lọc dầu");
+    expect(tin).not.toContain("Số tàu");
   });
 });

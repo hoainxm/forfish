@@ -108,6 +108,53 @@ export function kiemPhieu(raw: unknown): { ok: true; value: PhieuKhach } | { ok:
   };
 }
 
+/*  ĐƠN CHỢ CỦA GIAN HÀNG SDVICO ⇒ PHIẾU ⇒ NHÓM ZALO KD (2026-10-31, anh Long: "ghi giá vào đi phải có giá" + "đưa luồng vô
+    chỗ khách đk luôn đưa qua nhóm kd"). Hàng SDVICO nay có giá trong chợ ⇒ bà con đặt qua giỏ; đơn vẫn phải tới KD để gọi
+    xác nhận, hẹn lắp — nên `api/cho/don` lập thêm một phiếu `sdvico_khach_hoi` (san_pham = "Đơn chợ SDVICO <mã>") và
+    AI Assistant chuyển nhóm "Triển Khai Kinh Doanh" như phiếu đăng ký. Đơn chợ không có số tàu ⇒ ghi "chưa ghi" (cột bắt
+    buộc ≥3 chữ), KD hỏi khi gọi. */
+export const DAU_DON_CHO = "Đơn chợ SDVICO ";
+export const CHAT_KD = "Triển Khai Kinh Doanh";
+
+export function laDonCho(sanPham: string | null | undefined): boolean {
+  return !!sanPham && sanPham.startsWith(DAU_DON_CHO);
+}
+
+/** Chat Zalo nhận phiếu: ưu đãi có `guiToi` / đơn chợ ⇒ nhóm KD; còn lại null (AI Assistant gửi chat mặc định). */
+export function chatCuaPhieu(sanPham: string | null | undefined): string | null {
+  return khuyenMaiCuaPhieu(sanPham)?.guiToi ?? (laDonCho(sanPham) ? CHAT_KD : null);
+}
+
+type DonCho = {
+  code: string;
+  buyerPhone: string;
+  items: { title: string; variantLabel?: string; qty: number; lineTotalVnd: number }[];
+  totalVnd: number;
+  paymentMethod: string;
+  address: { name: string; phone: string; province: string; detail: string };
+  buyerNote?: string;
+};
+
+/** Dòng phiếu từ một đơn chợ SDVICO — THUẦN; null khi không lập được (SĐT hỏng). Vừa đúng ràng buộc cột 0072. */
+export function phieuDonCho(o: DonCho): {
+  nguon: "san-pham"; san_pham: string; ten: string; phone: string; so_tau: string; cang: string; loi_nhan: string;
+} | null {
+  const sdt = isValidVnPhone(o.address.phone) ? o.address.phone : o.buyerPhone;
+  if (!isValidVnPhone(sdt)) return null;
+  const hang = o.items.map((i) => `${i.qty} × ${i.title}${i.variantLabel ? ` (${i.variantLabel})` : ""} ${tienVn(i.lineTotalVnd)}`).join("; ");
+  const tra = o.paymentMethod === "chuyen_khoan" ? "chuyển khoản" : "trả khi nhận";
+  const ghi = o.buyerNote?.trim() ? ` · khách ghi: ${o.buyerNote.trim()}` : "";
+  return {
+    nguon: "san-pham",
+    san_pham: `${DAU_DON_CHO}${o.code}`.slice(0, 120),
+    ten: (o.address.name.trim() || "Khách SDFish").slice(0, 80),
+    phone: normalizeVnPhone(sdt),
+    so_tau: "chưa ghi",
+    cang: `${o.address.detail.trim()}, ${o.address.province.trim()}`.slice(0, 80),
+    loi_nhan: `${hang} · Tổng ${tienVn(o.totalVnd)} · ${tra}${ghi}`.slice(0, 500),
+  };
+}
+
 /** Tin nhắn cho nhóm Zalo KD SDVICO (AI Assistant gửi nguyên văn). Chữ thường, không emoji.
  *  Phiếu ĐĂNG KÝ KHUYẾN MÃI (`san_pham` = `KhuyenMai.tenPhieu`, 2026-10-26) ⇒ đầu tin "ĐĂNG KÝ MUA KM" + giá + số lượng,
  *  "Cảng lắp" thành "Nhận tại" — Quân đọc một dòng là biết đơn hàng, không lẫn với khách hỏi thường. */
@@ -115,6 +162,18 @@ export function tinNhanKd(p: PhieuKhach & { createdAt: string }, linkBinhLuan: s
   const gio = new Date(p.createdAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour12: false });
   const km = khuyenMaiCuaPhieu(p.sanPham);
   const nguon = p.nguon === "kairos" ? "Kairos" : p.nguon === "san-pham" ? (km ? "thẻ khuyến mãi trong app" : "trang sản phẩm") : "Sen Biển";
+  if (laDonCho(p.sanPham)) {
+    return [
+      `[SDFish] ĐƠN CHỢ SDVICO ${p.sanPham!.slice(DAU_DON_CHO.length)} — gọi xác nhận, hẹn lắp`,
+      `- Tên: ${p.ten}`,
+      `- SĐT: ${p.phone}`,
+      `- Giao tới: ${p.cang}`,
+      p.loiNhan ? `- Hàng: ${p.loiNhan}` : null,
+      `- Nguồn: Chợ vật tư lúc ${gio}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
   if (km) {
     const sl = soLuongTuLoiNhan(p.loiNhan);
     return [

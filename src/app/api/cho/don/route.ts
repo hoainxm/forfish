@@ -21,8 +21,10 @@ import { buildMarketLines, computeTotals, shopsForcingCod } from "@/lib/market/p
 import { marketErrorResponse, settleOverdueOrders } from "@/lib/market/route-utils";
 import { getMarketStore } from "@/lib/market/store";
 import type { PreparedShopOrder } from "@/lib/market/store";
-import type { CheckoutDraft, PlaceOrderResult, Shop } from "@/lib/market/types";
+import type { CheckoutDraft, Order, PlaceOrderResult, Shop } from "@/lib/market/types";
 import { validateCheckout } from "@/lib/market/validate";
+import { phieuDonCho } from "@/lib/sdvico/khach-hoi";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // ── GET: đơn của tôi ─────────────────────────────────────────────────────
 export async function GET(req: Request) {
@@ -47,6 +49,14 @@ export async function GET(req: Request) {
 }
 
 // ── POST: đặt hàng ───────────────────────────────────────────────────────
+async function baoNhomKd(order: Order) {
+  const row = phieuDonCho(order);
+  const db = createAdminClient();
+  if (!row || !db) return;
+  const { error } = await db.from("sdvico_khach_hoi").insert({ ...row, nguoi_gui: order.buyerPhone });
+  if (error) console.error("[cho] phiếu KD cho đơn SDVICO hỏng:", order.code, error.message);
+}
+
 export async function POST(req: Request) {
   const who = await identityFromRequest(req);
   if (!who.ok) return who.res;
@@ -161,6 +171,8 @@ export async function POST(req: Request) {
             shop.ownerPhone,
             marketNotice("N1", { order: r.order, shop: { id: shop.id, name: shop.name }, hotline: SDVICO_HOTLINE }),
           );
+          // gian hàng SDVICO ⇒ thêm phiếu cho nhóm Zalo KD (lib/sdvico/khach-hoi.phieuDonCho); hỏng thì ghi log, đơn vẫn còn
+          if (shop.slug === "sdvico") await baoNhomKd(r.order);
         }
       });
     }
