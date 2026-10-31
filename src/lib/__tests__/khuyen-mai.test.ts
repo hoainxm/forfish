@@ -1,16 +1,17 @@
 // Khuyến mãi SDVICO (2026-10-26, sứ định vị 500k giảm 200k ⇒ 300k — sửa 2026-10-27): danh mục, lời nhắn phiếu, tin Zalo cho Quân.
 import { describe, expect, it } from "vitest";
-import { conHieuLuc, KHUYEN_MAI, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timKhuyenMai } from "@/data/khuyen-mai";
+import { conHieuLuc, KHUYEN_MAI, KM_LOC_DAU_SF300B, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timKhuyenMai } from "@/data/khuyen-mai";
 import { kiemPhieu, tinNhanKd } from "@/lib/sdvico/khach-hoi";
 
 describe("danh mục khuyến mãi", () => {
   it("sứ định vị: 500k giảm 200k ⇒ 300k, tên phiếu ≤120, id không trùng", () => {
     expect(KM_SU_DINH_VI.giaThiTruong).toBe(500_000);
     expect(KM_SU_DINH_VI.giaApp).toBe(300_000);
-    expect(KM_SU_DINH_VI.giaThiTruong - KM_SU_DINH_VI.giaApp).toBe(200_000);
+    expect((KM_SU_DINH_VI.giaThiTruong ?? 0) - KM_SU_DINH_VI.giaApp).toBe(200_000);
     for (const k of KHUYEN_MAI) {
       expect(k.tenPhieu.length).toBeLessThanOrEqual(120);
-      expect(k.giaApp).toBeLessThan(k.giaThiTruong);
+      if (k.giaThiTruong != null) expect(k.giaApp).toBeLessThan(k.giaThiTruong);
+      expect(k.giaApp).toBeGreaterThan(0);
       expect(k.qtyMax).toBeGreaterThanOrEqual(1);
     }
     expect(new Set(KHUYEN_MAI.map((k) => k.id)).size).toBe(KHUYEN_MAI.length);
@@ -33,6 +34,26 @@ describe("danh mục khuyến mãi", () => {
     expect(soLuongTuLoiNhan(l)).toBe(2);
     expect(soLuongTuLoiNhan("khách hỏi giá")).toBeNull();
     expect(loiNhanDangKy({ qty: 1, noiNhan: "Sa Huỳnh" })).toBe("Đăng ký mua 1 cái · nhận tại Sa Huỳnh");
+  });
+});
+
+describe("máy lọc dầu SF300B (2026-10-31, giá SDWork hay bán 9,9 triệu, không giảm)", () => {
+  it("giá thường 9.900.000đ, không giá gạch, nằm ngay sau sứ", () => {
+    expect(KM_LOC_DAU_SF300B.giaApp).toBe(9_900_000);
+    expect(KM_LOC_DAU_SF300B.giaThiTruong).toBeNull();
+    expect(KM_LOC_DAU_SF300B.donVi).toBe("bộ");
+    expect(KHUYEN_MAI.map((k) => k.id)).toEqual(["su-dinh-vi-gps", "loc-dau-sf300b"]);
+  });
+  it("tin Zalo: 'ĐĂNG KÝ MUA' không chữ KM, không 'giá thị trường'", () => {
+    const r = kiemPhieu({
+      nguon: "san-pham", sanPham: KM_LOC_DAU_SF300B.tenPhieu, ten: "Anh Tư", phone: "0905123456", soTau: "BĐ-91234-TS", cang: "Quy Nhơn",
+      loiNhan: loiNhanDangKy({ qty: 1, noiNhan: "Quy Nhơn" }),
+    });
+    if (!r.ok) throw new Error(r.code);
+    const tin = tinNhanKd({ ...r.value, createdAt: "2026-10-31T03:00:00Z" }, null);
+    expect(tin.split("\n")[0]).toBe("[SDFish] ĐĂNG KÝ MUA: Máy lọc dầu SF300B 9.900.000đ");
+    expect(tin).not.toContain("giá thị trường");
+    expect(tin).toContain("- Số lượng: 1");
   });
 });
 

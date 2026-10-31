@@ -6,7 +6,8 @@
 
   Chỗ đặt: Trang chủ (dưới việc cần làm, trên Thông báo) + đầu Vật tư. Một thẻ MỘT HÀNG kiểu `.surface` (03 §0):
   ảnh thật của Quân chụp · tên · giá gạch → giá app · một câu đời thường · nút "Đăng ký" (NHAN, ≤2 chữ).
-  Không emoji, không băng màu, không đếm ngược (Quân chưa cho hạn).
+  Không emoji, không băng màu, không đếm ngược (Quân chưa cho hạn). 2026-10-31 thêm máy lọc dầu SF300B 9,9 triệu ngay dưới
+  sứ (cùng danh sách) — giá thường, KHÔNG gạch giá (`giaThiTruong` null).
 
   Trạng thái (đủ ma trận trong code, nguyên tắc 4):
    · chưa đăng ký ⇒ nút Đăng ký
@@ -86,10 +87,16 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
                 className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-xl object-cover"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-muted">Ưu đãi SDVICO</p>
+                <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-muted">
+                  {k.giaThiTruong != null ? "Ưu đãi SDVICO" : "Hàng SDVICO"}
+                </p>
                 <p className="display line-clamp-2 text-[1.125rem] font-semibold leading-snug text-navy">{k.ten}</p>
                 <p className="mt-0.5 text-[1rem] leading-snug">
-                  <span className="text-muted line-through">{tienVn(k.giaThiTruong)}</span>{" "}
+                  {k.giaThiTruong != null && (
+                    <>
+                      <span className="text-muted line-through">{tienVn(k.giaThiTruong)}</span>{" "}
+                    </>
+                  )}
                   <span className="font-semibold text-t3">{tienVn(k.giaApp)}</span>
                 </p>
                 <p className="mt-0.5 truncate text-[0.875rem] text-muted">
@@ -214,7 +221,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
           <CheckIcon className="mx-auto h-10 w-10" />
           <p className="mt-3 text-[1.125rem] font-semibold">SDVICO đã nhận đăng ký {km.ten}</p>
           <p className="mt-1 text-[1rem] text-foreground/70">
-            {qty} cái · {tienVn(km.giaApp * qty)} · nhận tại {noiNhan.trim()}. Nhân viên sẽ gọi lại hẹn giao.
+            {qty} {km.donVi} · {tienVn(km.giaApp * qty)} · nhận tại {noiNhan.trim()}. Nhân viên sẽ gọi lại hẹn giao.
           </p>
         </div>
         <div className="mt-4">
@@ -245,7 +252,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
           <Image src={km.image} alt="" width={km.imgW} height={km.imgH} sizes="3.5rem" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
           <div className="min-w-0">
             <p className="text-[1rem] font-semibold text-navy">
-              <span className="text-muted line-through">{tienVn(km.giaThiTruong)}</span> {tienVn(km.giaApp)}/cái
+              {km.giaThiTruong != null && <span className="text-muted line-through">{tienVn(km.giaThiTruong)}</span>} {tienVn(km.giaApp)}/{km.donVi}
             </p>
             <ul className="mt-0.5 text-[0.875rem] leading-snug text-foreground/70">
               {km.diemHay.slice(1).map((d) => (

@@ -118,7 +118,9 @@ export function tinNhanKd(p: PhieuKhach & { createdAt: string }, linkBinhLuan: s
   if (km) {
     const sl = soLuongTuLoiNhan(p.loiNhan);
     return [
-      `[SDFish] ĐĂNG KÝ MUA KM: ${km.ten} ${tienVn(km.giaApp)} (giá thị trường ${tienVn(km.giaThiTruong)})`,
+      km.giaThiTruong != null
+        ? `[SDFish] ĐĂNG KÝ MUA KM: ${km.ten} ${tienVn(km.giaApp)} (giá thị trường ${tienVn(km.giaThiTruong)})`
+        : `[SDFish] ĐĂNG KÝ MUA: ${km.ten} ${tienVn(km.giaApp)}`,
       `- Tên: ${p.ten}`,
       `- SĐT: ${p.phone}`,
       `- Số tàu: ${p.soTau}`,
