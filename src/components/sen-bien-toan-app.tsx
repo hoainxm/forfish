@@ -37,6 +37,7 @@ import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bie
 import { chonKho } from "@/lib/sen-bien/gemma";
 import { senBienReply, senNgramCtx } from "@/lib/sen-bien/hieu-y";
 import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
+import { DUONG_VIDEO_LOC_DAU, traLoiSanPham } from "@/lib/sen-bien/hoi-san-pham";
 import { lamLenhCho, type ChoKetQua } from "@/lib/sen-bien/lam-cho";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
@@ -360,6 +361,19 @@ export function SenBienToanApp() {
         noi(kq.noi);
         if (kq.den !== pathname) router.push(kq.den);
         return { show: kq.noi };
+      }
+      /*  HỎI MÁY LỌC DẦU SDVICO (2026-10-31, lib/sen-bien/hoi-san-pham.ts): câu nhắc "lọc dầu" ⇒ đáp từ hỏi–đáp đã duyệt
+          (trong máy, mất sóng vẫn đáp), đứng TRƯỚC lệnh chợ để "mua máy lọc dầu" không bị đẩy sang sàn. Muốn xem / mua /
+          hỏi chung ⇒ mở thẻ có video ở Trang chủ. */
+      const sp = traLoiSanPham(text);
+      if (sp) {
+        ghiMau(text, { tra: "say", ct: sp.id });
+        noi(sp.say);
+        if (sp.moVideo) {
+          dong();
+          router.push(DUONG_VIDEO_LOC_DAU);
+        }
+        return { show: sp.say };
       }
       const cho = hieuLenhCho(text);
       if (cho) {

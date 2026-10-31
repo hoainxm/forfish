@@ -22,13 +22,14 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { QtyStepper } from "@/components/cart-sheet";
-import { CheckIcon, PlayIcon } from "@/components/icons";
+import { CheckIcon, PhoneIcon, PlayIcon } from "@/components/icons";
 import { sanitizePhoneInput } from "@/components/auth-form";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, inputClass, PrimaryButton, textareaClass } from "@/components/ui/primitives";
 import { baoToast } from "@/components/ui/toast";
 import { FISHING_PORTS } from "@/data/fishing-ports";
-import { conHieuLuc, KHUYEN_MAI, tienVn, type KhuyenMai } from "@/data/khuyen-mai";
+import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
+import { conHieuLuc, KHUYEN_MAI, tienVn, timKhuyenMai, type KhuyenMai } from "@/data/khuyen-mai";
 import { timeoutSignal } from "@/lib/abort";
 import { apiUrl } from "@/lib/api-base";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
@@ -69,6 +70,19 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
   const [mo, setMo] = useState<KhuyenMai | null>(null);
   const [xem, setXem] = useState<KhuyenMai | null>(null);
   useEffect(() => setDaDK(docDaDangKy()), []);
+  // Sen Biển "mở video máy lọc dầu" ⇒ /?km=<id> (hoi-san-pham.DUONG_VIDEO_LOC_DAU): mở thẳng ngăn video rồi gỡ tham số
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      const k = timKhuyenMai(u.searchParams.get("km") ?? "");
+      if (!k?.video) return;
+      setXem(k);
+      u.searchParams.delete("km");
+      window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
+    } catch {
+      /* URL lạ — bỏ qua */
+    }
+  }, []);
   const today = homNay();
   const ds = KHUYEN_MAI.filter((k) => conHieuLuc(k, today));
   if (!ds.length) return null;
@@ -241,6 +255,29 @@ function VideoSheet({ km, onClose, onDangKy, daDangKy }: { km: KhuyenMai; onClos
           <PrimaryButton onClick={onDangKy}>{NHAN.dangKy}</PrimaryButton>
         )}
       </div>
+      {/* bà con hỏi TRƯỚC khi đăng ký (anh Long 31/10) — hỏi–đáp trong bundle, mất sóng vẫn đọc; muốn hỏi người thật ⇒ gọi */}
+      {km.hoiDap?.length ? (
+        <section className="mt-5" aria-label="Bà con hay hỏi">
+          <p className="mb-2 text-[1rem] font-semibold text-navy">Bà con hay hỏi</p>
+          <ul className="surface divide-y divide-line">
+            {km.hoiDap.map((q) => (
+              <li key={q.hoi}>
+                <details className="group px-3.5 py-3">
+                  <summary className="cursor-pointer list-none text-[1rem] font-semibold text-navy marker:hidden">{q.hoi}</summary>
+                  <p className="mt-1.5 text-[1rem] leading-relaxed text-foreground/80">{q.dap}</p>
+                </details>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      <a
+        href={`tel:${SDVICO_HOTLINE}`}
+        className="mt-3 flex min-h-[3.25rem] items-center justify-center gap-2 rounded-full text-[1.125rem] font-semibold text-sea"
+      >
+        <PhoneIcon className="h-5 w-5" />
+        {NHAN.goi} SDVICO {SDVICO_HOTLINE_DISPLAY}
+      </a>
     </BottomSheet>
   );
 }

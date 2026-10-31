@@ -47,6 +47,8 @@ export interface KhuyenMai {
   /** Chat Zalo nhận phiếu (tuỳ chọn) — trống = chat mặc định của AI Assistant (`phieu_khach.gui_toi`, Quân). AI Assistant
    *  CHỈ nghe theo nếu tên nằm trong `phieu_khach.gui_them` của nó (máy chủ SDFish không tự chọn được chat bất kỳ). */
   guiToi?: string;
+  /** Hỏi–đáp ngắn hiện dưới video (bà con hỏi TRƯỚC khi đăng ký — anh Long 31/10). Trong bundle ⇒ mất sóng vẫn đọc. */
+  hoiDap?: { hoi: string; dap: string }[];
   /** Số lượng tối đa một lần đăng ký (chống gõ nhầm 200). */
   qtyMax: number;
   /** Hết hạn (ISO ngày, null = chưa định) — card tự ẩn sau ngày này. */
@@ -104,6 +106,18 @@ export const KM_LOC_DAU: KhuyenMai = {
   video: { src: "/sdvico/loc-dau.mp4", poster: "/sdvico/loc-dau-poster.jpg", giay: 65 },
   // Anh Long 31/10: "khách đăng ký tư vấn thì chuyển qua nhóm Zalo Triển khai kinh doanh (trực ở gpu) tương tự của Quân".
   guiToi: "Triển Khai Kinh Doanh",
+  // Mục 8 kịch bản tư vấn (docs/specs/kich-ban-tu-van-loc-dau.md, team agent 31/10, đã qua kiểm duyệt nội dung).
+  hoiDap: [
+    { hoi: "Máy lọc dầu giá bao nhiêu?", dap: "Có hai bản. Bản không điện 7 triệu 9, dầu tự chảy. Bản có bơm 9 triệu 9, bơm 12V, lọc cỡ 300 lít một tiếng. Kỹ thuật SDVICO tới tận tàu lắp. Bà con bấm Đăng ký để nhân viên SDVICO gọi tư vấn." },
+    { hoi: "Hai bản khác nhau chỗ nào?", dap: "Bản không điện để dầu tự chảy qua lọc, hợp với tàu có két dầu đặt trên cao. Bản có bơm đẩy dầu mạnh và đuổi bọt gió, hợp với tàu có két dưới hầm hoặc cần lọc nhanh. Phần lọc giống nhau: bồn inox, túi lọc thay được, van xả khí, van xả cặn, có tách nước. Kỹ thuật xuống coi tàu rồi mới chốt bản." },
+    { hoi: "Lắp lọc có đỡ tốn dầu không?", dap: "Theo tài liệu sản phẩm, máy có thể giúp giảm hao dầu khoảng 5–10%. Con số này chưa có đơn vị độc lập đo, thực tế tùy máy, tùy tàu. Máy được làm để tách nước và cặn trước khi dầu vào kim phun, bơm cao áp." },
+    { hoi: "Có đáng tiền không?", dap: "Bà con nhẩm lại năm rồi máy làm mất mấy ngày biển, sửa kim, sửa bơm hết bao nhiêu. Máy lọc giúp phòng hư do nước và cặn trong dầu, nhưng không bảo đảm máy không hư. Bấm Đăng ký để nhân viên SDVICO tư vấn đúng tàu mình." },
+    { hoi: "Sửa kim, sửa bơm hết bao nhiêu? Túi lọc bao lâu thay?", dap: "Sửa kim, sửa bơm thường tốn 60 tới 100 triệu một lần, tùy máy. Túi lọc cỡ 190–250 nghìn một túi, dầu chảy chậm lại là tới lúc thay. Lúc lắp, kỹ thuật dặn cụ thể theo tàu." },
+    { hoi: "Ai lắp, bảo hành sao?", dap: "Kỹ thuật SDVICO tới tận tàu lắp và chạy thử. Bảo hành 12 tháng. Máy cỡ 52 x 20 x 50 cm, nặng 15 kg. SDVICO đã bán hơn 200 bộ, đã lắp ở các nơi như Phú Quý, Phan Thiết, La Gi, Quảng Ngãi, Nghệ An. Đội tàu Phú Quý phản hồi lọc dầu tốt (theo bản tin SDVICO)." },
+    { hoi: "Máy khói đen, yếu máy, lắp lọc có hết không?", dap: "Bà con cho thợ coi lọc gió, tải và kim phun trước. Khói đen có thể do chở nặng, lọc gió nghẹt hay kim phun đã mòn, chưa chắc do dầu. Nếu lọc tinh mới thay mà đã nghẹt thì dầu bẩn, lúc đó máy lọc mới giúp được. Máy lọc để phòng, không chữa máy đã hư." },
+    { hoi: "Khói xanh, khói trắng?", dap: "Khói xanh có thể do máy cháy nhớt, bà con cho thợ kiểm xéc măng, turbo. Máy lọc không chữa được bệnh này. Khói trắng mà két nước làm mát cứ hụt thì cũng phải kiểm máy. Khói trắng có mùi dầu sống khi máy đã nóng thì có thể do nước trong dầu, bà con xả đáy két coi có nước không." },
+    { hoi: "Máy tắt khi sóng lớn, khó nổ?", dap: "Bà con xả đáy két coi có nước, có cặn không, coi lọc tinh có nghẹt không. Khó nổ, phải xả gió hoài thì tìm chỗ hở ở ống, khớp nối, gioăng cốc lọc trước. Nếu đúng là do nước, cặn trong dầu thì máy lọc giúp được." },
+  ],
   qtyMax: 5,
   hetHan: null,
 };
