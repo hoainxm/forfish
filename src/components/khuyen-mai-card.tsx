@@ -170,7 +170,7 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
   );
 }
 
-/*  XEM VIDEO (2026-10-31, clip lọc dầu 53 s ~5,8 MB). Tải NGUYÊN file thành blob rồi mới phát — không gắn thẳng `src`:
+/*  XEM VIDEO (2026-10-31, clip lọc dầu 65 s ~7,2 MB). Tải NGUYÊN file thành blob rồi mới phát — không gắn thẳng `src`:
     trình phát video xin từng lát `Range`, mà nhánh asset tĩnh của service worker trả nguyên bản 200 từ kho (Cache API bỏ qua
     Range) ⇒ iOS không phát. Tải trọn một lần thì SW cất bản đủ ⇒ lần sau MẤT SÓNG vẫn xem lại được. Trạng thái: đang tải
     (poster + chữ) · lỗi/mất sóng (poster + câu, nút Thử lại) · phát (controls, thử tự phát có tiếng; trình duyệt chặn thì bà
