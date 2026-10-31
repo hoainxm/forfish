@@ -53,10 +53,10 @@ describe("máy lọc dầu SF50 / SF300B (2026-10-31, Tiến KD báo: cơ 7,9tr,
     expect(khuyenMaiCuaPhieu(KM_LOC_DAU.tenPhieu)?.guiToi).toBe("Triển Khai Kinh Doanh");
     const { existsSync, statSync } = await import("node:fs");
     for (const f of [KM_LOC_DAU.video!.src, KM_LOC_DAU.video!.poster]) {
-      expect(existsSync(`public${f}`), f).toBe(true);
+      expect(existsSync(`public${f.split("?")[0]}`), f).toBe(true);
     }
     // clip không phình repo: dưới 8 MB (git giữ mọi bản vĩnh viễn — CLAUDE.md "chống phình")
-    expect(statSync(`public${KM_LOC_DAU.video!.src}`).size).toBeLessThan(8 * 1024 * 1024);
+    expect(statSync(`public${KM_LOC_DAU.video!.src.split("?")[0]}`).size).toBeLessThan(8 * 1024 * 1024);
   });
   it("timBienThe: có bản ⇒ id đúng mới nhận; ưu đãi không bản ⇒ undefined", () => {
     expect(timBienThe(KM_LOC_DAU, "dien")?.gia).toBe(9_900_000);
@@ -113,14 +113,21 @@ describe("máy lọc nước + ắc quy (31/10)", () => {
     expect(KM_LOC_NUOC.bienThe?.map((b) => b.gia)).toEqual([38_000_000, 49_500_000]);
     expect(KM_LOC_NUOC.giaTu).toBe(true);
     expect(KM_AC_QUY.giaApp).toBe(4_200_000);
-    expect(KM_AC_QUY.video?.src).toBe("/sdvico/ac-quy.mp4"); // anh Long "làm cả video cho accu đi"
+    expect(KM_AC_QUY.video?.src.split("?")[0]).toBe("/sdvico/ac-quy.mp4"); // anh Long "làm cả video cho accu đi"
     for (const k of [KM_LOC_NUOC, KM_AC_QUY]) expect(k.guiToi).toBe("Triển Khai Kinh Doanh");
   });
   it("mọi clip có file thật, dưới 8 MB; tên phiếu không trùng", async () => {
     const { existsSync, statSync } = await import("node:fs");
+    const { createHash } = await import("node:crypto");
+    const { readFileSync } = await import("node:fs");
     for (const k of KHUYEN_MAI.filter((x) => x.video)) {
-      for (const f of [k.video!.src, k.video!.poster]) expect(existsSync(`public${f}`), f).toBe(true);
-      expect(statSync(`public${k.video!.src}`).size, k.id).toBeLessThan(8 * 1024 * 1024);
+      for (const f of [k.video!.src, k.video!.poster]) {
+        const [duong, q] = f.split("?v=");
+        expect(existsSync(`public${duong}`), f).toBe(true);
+        // mã phiên bản PHẢI khớp file: dựng lại clip mà quên đổi ⇒ máy bà con giữ clip cũ trong kho SW mãi
+        expect(q, f).toBe(createHash("sha1").update(readFileSync(`public${duong}`)).digest("hex").slice(0, 8));
+      }
+      expect(statSync(`public${k.video!.src.split("?")[0]}`).size, k.id).toBeLessThan(8 * 1024 * 1024);
     }
     expect(new Set(KHUYEN_MAI.map((k) => k.tenPhieu)).size).toBe(KHUYEN_MAI.length);
   });

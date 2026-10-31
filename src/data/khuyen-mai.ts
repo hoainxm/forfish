@@ -44,7 +44,9 @@ export interface KhuyenMai {
   /** Các bản để bà con chọn (giá riêng từng bản). Có ⇒ thẻ ghi "Từ <giá thấp nhất>", ngăn Đăng ký có chip chọn bản,
    *  lời nhắn phiếu ghi bản đã chọn + giá. `giaApp` = giá bản rẻ nhất (khớp chữ "Từ"). */
   bienThe?: BienThe[];
-  /** Clip giới thiệu (tuỳ chọn): bấm ảnh thẻ là mở xem. `poster` hiện khi chưa tải/mất sóng. */
+  /** Clip giới thiệu (tuỳ chọn): bấm ảnh thẻ là mở xem. `poster` hiện khi chưa tải/mất sóng.
+   *  `?v=` = 8 ký tự đầu sha1 của file (test khoá): service worker cất asset tĩnh theo URL và trả bản đã cất mãi (cache-first),
+   *  nên dựng lại clip mà giữ URL là bà con xem clip CŨ vĩnh viễn (dính 31/10: màn xanh "01/08" vẫn hiện sau khi đã cắt). */
   video?: { src: string; poster: string; giay: number };
   /** Chat Zalo nhận phiếu (tuỳ chọn) — trống = chat mặc định của AI Assistant (`phieu_khach.gui_toi`, Quân). AI Assistant
    *  CHỈ nghe theo nếu tên nằm trong `phieu_khach.gui_them` của nó (máy chủ SDFish không tự chọn được chat bất kỳ). */
@@ -109,7 +111,7 @@ export const KM_LOC_DAU: KhuyenMai = {
   ],
   giaTu: true,
   // Clip 65 s dựng 31/10 trên GPU (~/loc-dau-video/dung.py): cảnh thật từ bản tin SDVICO trong nhóm Zalo + giọng Sen Biển.
-  video: { src: "/sdvico/loc-dau.mp4", poster: "/sdvico/loc-dau-poster.jpg", giay: 65 },
+  video: { src: "/sdvico/loc-dau.mp4?v=24d614a3", poster: "/sdvico/loc-dau-poster.jpg?v=106b29a8", giay: 65 },
   // Anh Long 31/10: "khách đăng ký tư vấn thì chuyển qua nhóm Zalo Triển khai kinh doanh (trực ở gpu) tương tự của Quân".
   guiToi: "Triển Khai Kinh Doanh",
   // Mục 8 kịch bản tư vấn (docs/specs/kich-ban-tu-van-loc-dau.md, team agent 31/10, đã qua kiểm duyệt nội dung).
@@ -153,7 +155,7 @@ export const KM_LOC_NUOC: KhuyenMai = {
   ],
   giaTu: true,
   // Clip 58 s dựng 31/10 trên GPU (~/loc-dau-video/dung_ln.py, giọng giong-ln/): cảnh SEA700B/SEA250 từ bản tin SDVICO.
-  video: { src: "/sdvico/loc-nuoc.mp4", poster: "/sdvico/loc-nuoc-poster.jpg", giay: 58 },
+  video: { src: "/sdvico/loc-nuoc.mp4?v=cf5558d2", poster: "/sdvico/loc-nuoc-poster.jpg?v=5be4bb8f", giay: 58 },
   guiToi: "Triển Khai Kinh Doanh",
   hoiDap: [
     { hoi: "Máy lọc nước biển giá bao nhiêu?", dap: "Bản cơ từ 38 triệu, bản điện từ 49 triệu rưỡi, đã gồm VAT. Giá theo cấu hình, nhân viên SDVICO gọi lại báo đúng giá cho tàu mình. Kỹ thuật SDVICO tới tận tàu lắp." },
@@ -177,7 +179,7 @@ export const KM_AC_QUY: KhuyenMai = {
   giaApp: 4_200_000,
   moTa: "Dành riêng cho tàu, có cọc bình riêng cho thiết bị điện tử.",
   // Clip 48 s dựng 31/10 trên GPU (~/loc-dau-video/dung3.py ac-quy): cảnh thiết bị điện tử trên tàu + máy + ảnh bình.
-  video: { src: "/sdvico/ac-quy.mp4", poster: "/sdvico/ac-quy-poster.jpg", giay: 48 },
+  video: { src: "/sdvico/ac-quy.mp4?v=4eb90892", poster: "/sdvico/ac-quy-poster.jpg?v=cd1aa00f", giay: 48 },
   diemHay: [
     "Giá 4.200.000đ một bình, đã gồm VAT — độc quyền SDVICO",
     "Có cọc bình riêng nối thiết bị điện tử: định vị, giám sát hành trình, bộ đàm",
