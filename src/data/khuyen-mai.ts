@@ -128,7 +128,75 @@ export const KM_LOC_DAU: KhuyenMai = {
   hetHan: null,
 };
 
-export const KHUYEN_MAI: KhuyenMai[] = [KM_SU_DINH_VI, KM_LOC_DAU];
+// MÁY LỌC NƯỚC BIỂN — anh Long 31/10: "tổ chức 1 luồng tương tự cho máy lọc nước". Giá theo bảng giá bán lẻ SDVICO (đã gồm
+// VAT): cơ từ 38tr, điện từ 49,5tr. Thông số theo `sdvico-showcase` (may-loc-nuoc-bien-sea, tài liệu SDVICO 24/9).
+export const KM_LOC_NUOC: KhuyenMai = {
+  id: "loc-nuoc-bien",
+  ten: "Máy lọc nước biển SEA",
+  tenPhieu: "QC Máy lọc nước biển SEA (cơ / điện)",
+  giaThiTruong: null,
+  giaApp: 38_000_000,
+  moTa: "Biến nước biển thành nước ngọt ngay trên tàu.",
+  diemHay: [
+    "Bản cơ từ 38.000.000đ · bản điện từ 49.500.000đ, đã gồm VAT",
+    "Màng RO, cỡ 250 lít một giờ, tách 99,6% muối",
+    "Kỹ thuật SDVICO lắp tận tàu, bảo hành 12 tháng cả màng RO, đầu bơm",
+  ],
+  image: "/sdvico/sea40.jpg",
+  imgW: 760,
+  imgH: 600,
+  doiTuong: "Mọi khách",
+  donVi: "bộ",
+  bienThe: [
+    { id: "co", nhan: "Bản cơ", ten: "bản cơ SD-M250 (giá từ)", gia: 38_000_000, khac: "Không có mô-tơ, không dùng điện. Giá theo cấu hình, nhân viên SDVICO báo đúng giá cho tàu mình." },
+    { id: "dien", nhan: "Bản điện", ten: "bản điện SEA250 / SEA-40 (giá từ)", gia: 49_500_000, khac: "Có cụm mô-tơ 2,2 kW chạy điện tàu (220V hay 380V) kéo bơm cao áp. Giá theo công suất." },
+  ],
+  giaTu: true,
+  // Clip 58 s dựng 31/10 trên GPU (~/loc-dau-video/dung_ln.py, giọng giong-ln/): cảnh SEA700B/SEA250 từ bản tin SDVICO.
+  video: { src: "/sdvico/loc-nuoc.mp4", poster: "/sdvico/loc-nuoc-poster.jpg", giay: 58 },
+  guiToi: "Triển Khai Kinh Doanh",
+  hoiDap: [
+    { hoi: "Máy lọc nước biển giá bao nhiêu?", dap: "Bản cơ từ 38 triệu, bản điện từ 49 triệu rưỡi, đã gồm VAT. Giá theo cấu hình, nhân viên SDVICO gọi lại báo đúng giá cho tàu mình. Kỹ thuật SDVICO tới tận tàu lắp." },
+    { hoi: "Bản cơ với bản điện khác gì?", dap: "Bản cơ (SD-M250) không có mô-tơ, không dùng điện. Bản điện (SEA250, SEA-40) có cụm mô-tơ 2,2 kW chạy điện tàu 220 hay 380 vôn để kéo bơm cao áp. Phần lọc giống nhau: màng RO, lõi lọc thô, bơm cao áp, đồng hồ áp suất." },
+    { hoi: "Lọc được bao nhiêu nước, uống được không?", dap: "Cỡ 250 lít một giờ, màng lọc 4040. Tách 99,6% muối, nước ra dưới 500 ppm, đạt chuẩn nước ăn uống của WHO theo tài liệu sản phẩm." },
+    { hoi: "Lấy nước biển từ đâu, lắp ở đâu?", dap: "Máy lấy nước biển sạch từ bơm làm mát máy tàu. Kỹ thuật SDVICO tới tận tàu lắp và hướng dẫn. Máy cỡ 150 x 50 x 80 cm, nặng khoảng 60 kg." },
+    { hoi: "Bảo hành sao?", dap: "Bảo hành 12 tháng, cả màng RO và đầu bơm. Kỹ thuật SDVICO lắp tận tàu và chạy thử." },
+    { hoi: "Lõi lọc, màng lọc có phải thay không?", dap: "Lõi lọc thô thay theo độ dơ của nước, màng RO dùng lâu hơn. Lúc lắp, kỹ thuật dặn cụ thể theo tàu. Phụ tùng thay có ở SDVICO." },
+  ],
+  qtyMax: 3,
+  hetHan: null,
+};
+
+// ẮC QUY TÀU CÁ — anh Long 31/10: "accu 4 triệu 200, dành riêng cho tàu, độc quyền bởi sdvico, có cọc bình riêng cho thiết
+// bị điện tử". Thông số theo `sdvico-showcase` (ac-quy-globe-wpm-220). Không có clip ⇒ bấm dòng là mở thẳng ngăn Đăng ký.
+export const KM_AC_QUY: KhuyenMai = {
+  id: "ac-quy-tau-ca",
+  ten: "Ắc quy tàu cá Globe WPM-220",
+  tenPhieu: "QC Ắc quy tàu cá Globe WPM-220 4.200.000đ",
+  giaThiTruong: null,
+  giaApp: 4_200_000,
+  moTa: "Dành riêng cho tàu, có cọc bình riêng cho thiết bị điện tử.",
+  diemHay: [
+    "Giá 4.200.000đ một bình, đã gồm VAT — độc quyền SDVICO",
+    "Có cọc bình riêng nối thiết bị điện tử: định vị, giám sát hành trình, bộ đàm",
+    "12V 220Ah, dự trữ 380 phút khi máy phát ngừng sạc",
+  ],
+  image: "/sdvico/ac-quy.png",
+  imgW: 700,
+  imgH: 466,
+  doiTuong: "Mọi khách",
+  donVi: "bình",
+  guiToi: "Triển Khai Kinh Doanh",
+  hoiDap: [
+    { hoi: "Ắc quy giá bao nhiêu?", dap: "4.200.000đ một bình, đã gồm VAT. Ắc quy dành riêng cho tàu, độc quyền SDVICO. Bà con bấm Đăng ký để nhân viên SDVICO gọi lại." },
+    { hoi: "Cọc bình riêng để làm gì?", dap: "Bình có cọc riêng để nối thiết bị điện tử như định vị, giám sát hành trình, bộ đàm, tách khỏi cọc đề máy." },
+    { hoi: "Bình mạnh cỡ nào?", dap: "12 vôn 220 Ah, dòng khởi động lạnh 1.150 A, dự trữ 380 phút khi máy phát ngừng sạc, theo nhãn của hãng." },
+  ],
+  qtyMax: 10,
+  hetHan: null,
+};
+
+export const KHUYEN_MAI: KhuyenMai[] = [KM_SU_DINH_VI, KM_LOC_DAU, KM_LOC_NUOC, KM_AC_QUY];
 
 export function timKhuyenMai(id: string): KhuyenMai | null {
   return KHUYEN_MAI.find((k) => k.id === id) ?? null;

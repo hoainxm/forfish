@@ -44,6 +44,13 @@ const GIA = [
     them_mo_ta: "Giá đã gồm VAT.",
   },
   {
+    id: "047f1b2c-e43f-430e-ac6e-3d1ce2cce297", // Ắc quy tàu cá Globe WPM-220 — anh Long 31/10: 4.200.000đ
+    price_vnd: 4_200_000,
+    variants: [],
+    them_mo_ta:
+      "4.200.000đ một bình. Ắc quy dành riêng cho tàu, độc quyền SDVICO. Có cọc bình riêng để nối thiết bị điện tử (định vị, giám sát hành trình, bộ đàm), tách khỏi cọc đề máy. Giá đã gồm VAT.",
+  },
+  {
     id: "e57511a6-9d30-46f8-a7a7-b05ff4724759", // Điện thoại vệ tinh Thuraya MarineStar
     price_vnd: 37_800_000,
     variants: [

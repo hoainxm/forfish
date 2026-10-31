@@ -332,7 +332,7 @@ import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
 import { setSenSignal } from "@/lib/sen-bien-state";
 import { apDungGemma, canGemma, chonKho, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
-import { DUONG_VIDEO_LOC_DAU, traLoiSanPham } from "@/lib/sen-bien/hoi-san-pham";
+import { traLoiSanPham } from "@/lib/sen-bien/hoi-san-pham";
 import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
@@ -4523,7 +4523,7 @@ export default function FishingMapView() {
       const sp = !senAwait && !navOn ? traLoiSanPham(text) : null;
       if (sp) {
         senSay(sp.say);
-        if (sp.moVideo) router.push(DUONG_VIDEO_LOC_DAU);
+        if (sp.duong) router.push(sp.duong);
         return { show: sp.say };
       }
       // VIỆC CHỢ VẬT TƯ nói ở bản đồ ⇒ sang chợ, Sen Biển ở đó làm tiếp (sen-bien-toan-app đọc ?sen=) — 2026-10-18

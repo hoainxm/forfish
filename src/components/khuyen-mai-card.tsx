@@ -22,7 +22,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { QtyStepper } from "@/components/cart-sheet";
-import { CheckIcon, PhoneIcon, PlayIcon } from "@/components/icons";
+import { CheckIcon, ChevronRightIcon, PhoneIcon, PlayIcon } from "@/components/icons";
 import { sanitizePhoneInput } from "@/components/auth-form";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, inputClass, PrimaryButton, textareaClass } from "@/components/ui/primitives";
@@ -92,68 +92,49 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
         {ds.map((k) => {
           const xong = daDK[k.id];
           return (
-            <li key={k.id} className="flex items-center gap-3 px-3.5 py-3">
-              {k.video ? (
-                <button
-                  type="button"
-                  onClick={() => setXem(k)}
-                  aria-label={`Xem video ${k.ten}`}
-                  className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-xl transition active:scale-[0.97]"
-                >
+            <li key={k.id}>
+              {/*  CẢ DÒNG LÀ MỘT CHỖ BẤM (anh Long 31/10: "đừng làm nút đăng ký kiểu này, click vào có video thì show video,
+                   còn ko là nhảy ra đk luôn"): có clip ⇒ mở ngăn video (Đăng ký nằm dưới clip); không clip ⇒ mở thẳng ngăn
+                   Đăng ký; đã đăng ký mà không clip ⇒ không mở gì, dòng phụ nói đã đăng ký. */}
+              <button
+                type="button"
+                onClick={() => (k.video ? setXem(k) : !xong && setMo(k))}
+                aria-label={k.video ? `Xem video ${k.ten}` : xong ? `${k.ten} — đã đăng ký` : `Đăng ký ${k.ten}`}
+                className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition active:bg-field"
+              >
+                <span className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-xl">
                   <Image src={k.image} alt="" width={k.imgW} height={k.imgH} sizes="4.5rem" className="h-full w-full object-cover" />
-                  <span className="absolute inset-0 flex items-center justify-center bg-navy/35">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-t3">
-                      <PlayIcon className="ml-0.5 h-5 w-5" />
+                  {k.video && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-navy/35">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-t3">
+                        <PlayIcon className="ml-0.5 h-5 w-5" />
+                      </span>
+                    </span>
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[0.75rem] font-semibold uppercase tracking-wide text-muted">
+                    {k.giaThiTruong != null ? "Ưu đãi SDVICO" : "Hàng SDVICO"}
+                  </span>
+                  <span className="display line-clamp-2 text-[1.125rem] font-semibold leading-snug text-navy">{k.ten}</span>
+                  <span className="mt-0.5 block text-[1rem] leading-snug">
+                    {k.giaThiTruong != null && (
+                      <>
+                        <span className="text-muted line-through">{tienVn(k.giaThiTruong)}</span>{" "}
+                      </>
+                    )}
+                    <span className="font-semibold text-t3">
+                      {k.giaTu ? "Từ " : ""}
+                      {tienVn(k.giaApp)}
                     </span>
                   </span>
-                </button>
-              ) : (
-                <Image
-                  src={k.image}
-                  alt={k.ten}
-                  width={k.imgW}
-                  height={k.imgH}
-                  sizes="4.5rem"
-                  className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-xl object-cover"
-                />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-muted">
-                  {k.giaThiTruong != null ? "Ưu đãi SDVICO" : "Hàng SDVICO"}
-                </p>
-                <p className="display line-clamp-2 text-[1.125rem] font-semibold leading-snug text-navy">{k.ten}</p>
-                <p className="mt-0.5 text-[1rem] leading-snug">
-                  {k.giaThiTruong != null && (
-                    <>
-                      <span className="text-muted line-through">{tienVn(k.giaThiTruong)}</span>{" "}
-                    </>
-                  )}
-                  <span className="font-semibold text-t3">
-                    {k.giaTu ? "Từ " : ""}
-                    {tienVn(k.giaApp)}
+                  <span className={`mt-0.5 flex items-center gap-1 truncate text-[0.875rem] ${xong ? "font-semibold" : "text-muted"}`} style={xong ? { color: "var(--ok)" } : undefined}>
+                    {xong && <CheckIcon className="h-4 w-4 shrink-0" />}
+                    <span className="truncate">{xong ? "Đã đăng ký · SDVICO sẽ gọi lại" : k.moTa}</span>
                   </span>
-                </p>
-                <p className="mt-0.5 truncate text-[0.875rem] text-muted">
-                  {xong ? "Đã đăng ký · SDVICO sẽ gọi lại" : k.moTa}
-                </p>
-              </div>
-              {xong ? (
-                <span
-                  className="flex h-(--h-ctl) shrink-0 items-center gap-1 rounded-full px-3 text-[1rem] font-semibold"
-                  style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
-                >
-                  <CheckIcon className="h-4 w-4" />
-                  {NHAN.xong}
                 </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setMo(k)}
-                  className="flex h-(--h-ctl) shrink-0 items-center rounded-full bg-t3 px-4 text-[1rem] font-semibold text-white transition active:scale-[0.97]"
-                >
-                  {NHAN.dangKy}
-                </button>
-              )}
+                {!xong && <ChevronRightIcon className="h-5 w-5 shrink-0 text-muted" />}
+              </button>
             </li>
           );
         })}

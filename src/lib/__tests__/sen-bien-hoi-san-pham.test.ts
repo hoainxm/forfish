@@ -1,13 +1,13 @@
 // Sen Biển hỏi máy lọc dầu (2026-10-31): chỉ bắt câu nhắc sản phẩm, đúng chủ đề, câu chung/muốn xem ⇒ mở video.
 import { describe, expect, it } from "vitest";
-import { KM_LOC_DAU } from "@/data/khuyen-mai";
+import { KM_AC_QUY, KM_LOC_DAU, KM_LOC_NUOC } from "@/data/khuyen-mai";
 import { DUONG_VIDEO_LOC_DAU, traLoiSanPham } from "@/lib/sen-bien/hoi-san-pham";
 
 const dap = (i: number) => KM_LOC_DAU.hoiDap![i].dap;
 
 describe("traLoiSanPham", () => {
   it("không nhắc máy lọc dầu ⇒ null (để kho / máy nhà / lệnh chợ lo)", () => {
-    for (const c of ["máy khói đen quá", "giá cá thu hôm nay", "mua dây câu", "lọc nước biển giá bao nhiêu", ""]) {
+    for (const c of ["máy khói đen quá", "giá cá thu hôm nay", "mua dây câu", "nước ngọt còn không", ""]) {
       expect(traLoiSanPham(c), c).toBeNull();
     }
   });
@@ -39,8 +39,21 @@ describe("traLoiSanPham", () => {
     expect(DUONG_VIDEO_LOC_DAU).toBe("/?km=loc-dau-sf");
   });
 
+  it("máy lọc nước + ắc quy: đúng món, đúng chủ đề; ắc quy không clip ⇒ không mở video", () => {
+    const ln = (i: number) => KM_LOC_NUOC.hoiDap![i].dap;
+    expect(traLoiSanPham("máy lọc nước biển giá bao nhiêu")!.say.startsWith(ln(0))).toBe(true);
+    expect(traLoiSanPham("lọc nước bản cơ khác bản điện chỗ nào")!.say.startsWith(ln(1))).toBe(true);
+    expect(traLoiSanPham("máy lọc nước lọc bao nhiêu lít, uống được không")!.say.startsWith(ln(2))).toBe(true);
+    expect(traLoiSanPham("SEA250 bảo hành sao")!.say.startsWith(ln(4))).toBe(true);
+    expect(traLoiSanPham("cho coi video máy lọc nước")!.duong).toBe("/?km=loc-nuoc-bien");
+    const aq = traLoiSanPham("ắc quy cọc riêng để làm gì")!;
+    expect(aq.say).toBe(KM_AC_QUY.hoiDap![1].dap);
+    expect(traLoiSanPham("mua accu")!.duong).toBeNull();
+    expect(traLoiSanPham("bình ắc quy giá nhiêu")!.say.startsWith(KM_AC_QUY.hoiDap![0].dap)).toBe(true);
+  });
+
   it("câu đáp đi theo luật nói: không chữ hứa, có câu kiểm máy cho triệu chứng", () => {
-    for (const { dap: d } of KM_LOC_DAU.hoiDap!) expect(d).not.toMatch(/(?<!không )(bảo đảm|cam kết|chắc chắn|tốt nhất|duy nhất)/i);
+    for (const { dap: d } of [...KM_LOC_DAU.hoiDap!, ...KM_LOC_NUOC.hoiDap!, ...KM_AC_QUY.hoiDap!]) expect(d).not.toMatch(/(?<!không )(bảo đảm|cam kết|chắc chắn|tốt nhất|duy nhất)/i);
     expect(dap(6)).toMatch(/không chữa máy đã hư/);
   });
 });

@@ -1,6 +1,6 @@
 // Khuyến mãi SDVICO (2026-10-26, sứ định vị 500k giảm 200k ⇒ 300k — sửa 2026-10-27): danh mục, lời nhắn phiếu, tin Zalo cho Quân.
 import { describe, expect, it } from "vitest";
-import { conHieuLuc, KHUYEN_MAI, KM_LOC_DAU, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
+import { conHieuLuc, KHUYEN_MAI, KM_AC_QUY, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
 import { CHAT_KD, chatCuaPhieu, kiemPhieu, phieuDonCho, tinNhanKd } from "@/lib/sdvico/khach-hoi";
 
 describe("danh mục khuyến mãi", () => {
@@ -45,7 +45,7 @@ describe("máy lọc dầu SF50 / SF300B (2026-10-31, Tiến KD báo: cơ 7,9tr,
     expect(KM_LOC_DAU.giaApp).toBe(KM_LOC_DAU.bienThe![0].gia);
     expect(KM_LOC_DAU.giaTu).toBe(true);
     for (const b of KM_LOC_DAU.bienThe!) expect(b.nhan.split(" ").length).toBeLessThanOrEqual(2);
-    expect(KHUYEN_MAI.map((k) => k.id)).toEqual(["su-dinh-vi-gps", "loc-dau-sf"]);
+    expect(KHUYEN_MAI.map((k) => k.id)).toEqual(["su-dinh-vi-gps", "loc-dau-sf", "loc-nuoc-bien", "ac-quy-tau-ca"]);
   });
   it("phiếu lọc dầu đi nhóm Zalo 'Triển Khai Kinh Doanh', sứ vẫn về chat mặc định (Quân); clip có file thật", async () => {
     expect(KM_LOC_DAU.guiToi).toBe("Triển Khai Kinh Doanh");
@@ -105,6 +105,24 @@ describe("phiếu đăng ký KM đi qua kiemPhieu + tinNhanKd", () => {
     const r = kiemPhieu({ ...raw, sanPham: "gsht-viettel-s-tracking", loiNhan: null });
     if (!r.ok) throw new Error(r.code);
     expect(tinNhanKd({ ...r.value, createdAt: "2026-10-26T03:00:00Z" }, null).split("\n")[0]).toMatch(/^\[SDFish\] Khách hỏi /);
+  });
+});
+
+describe("máy lọc nước + ắc quy (31/10)", () => {
+  it("giá theo bảng: lọc nước cơ từ 38tr / điện từ 49,5tr (giá từ); ắc quy 4,2tr; đều đi nhóm KD", () => {
+    expect(KM_LOC_NUOC.bienThe?.map((b) => b.gia)).toEqual([38_000_000, 49_500_000]);
+    expect(KM_LOC_NUOC.giaTu).toBe(true);
+    expect(KM_AC_QUY.giaApp).toBe(4_200_000);
+    expect(KM_AC_QUY.video).toBeUndefined(); // không clip ⇒ thẻ mở thẳng ngăn Đăng ký
+    for (const k of [KM_LOC_NUOC, KM_AC_QUY]) expect(k.guiToi).toBe("Triển Khai Kinh Doanh");
+  });
+  it("mọi clip có file thật, dưới 8 MB; tên phiếu không trùng", async () => {
+    const { existsSync, statSync } = await import("node:fs");
+    for (const k of KHUYEN_MAI.filter((x) => x.video)) {
+      for (const f of [k.video!.src, k.video!.poster]) expect(existsSync(`public${f}`), f).toBe(true);
+      expect(statSync(`public${k.video!.src}`).size, k.id).toBeLessThan(8 * 1024 * 1024);
+    }
+    expect(new Set(KHUYEN_MAI.map((k) => k.tenPhieu)).size).toBe(KHUYEN_MAI.length);
   });
 });
 
