@@ -1,6 +1,6 @@
 // Khuyến mãi SDVICO (2026-10-26, sứ định vị 500k giảm 200k ⇒ 300k — sửa 2026-10-27): danh mục, lời nhắn phiếu, tin Zalo cho Quân.
 import { describe, expect, it } from "vitest";
-import { conHieuLuc, KHUYEN_MAI, KM_LOC_DAU_SF300B, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timKhuyenMai } from "@/data/khuyen-mai";
+import { conHieuLuc, KHUYEN_MAI, KM_LOC_DAU, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
 import { kiemPhieu, tinNhanKd } from "@/lib/sdvico/khach-hoi";
 
 describe("danh mục khuyến mãi", () => {
@@ -37,23 +37,30 @@ describe("danh mục khuyến mãi", () => {
   });
 });
 
-describe("máy lọc dầu SF300B (2026-10-31, giá SDWork hay bán 9,9 triệu, không giảm)", () => {
-  it("giá thường 9.900.000đ, không giá gạch, nằm ngay sau sứ", () => {
-    expect(KM_LOC_DAU_SF300B.giaApp).toBe(9_900_000);
-    expect(KM_LOC_DAU_SF300B.giaThiTruong).toBeNull();
-    expect(KM_LOC_DAU_SF300B.donVi).toBe("bộ");
-    expect(KHUYEN_MAI.map((k) => k.id)).toEqual(["su-dinh-vi-gps", "loc-dau-sf300b"]);
+describe("máy lọc dầu SF50 / SF300B (2026-10-31, Tiến KD báo: cơ 7,9tr, điện 9,9tr — không giảm)", () => {
+  it("hai bản cơ/điện đúng giá, giaApp = bản rẻ nhất, không giá gạch, nằm ngay sau sứ", () => {
+    expect(KM_LOC_DAU.giaThiTruong).toBeNull();
+    expect(KM_LOC_DAU.bienThe?.map((b) => [b.id, b.gia])).toEqual([["co", 7_900_000], ["dien", 9_900_000]]);
+    expect(KM_LOC_DAU.giaApp).toBe(Math.min(...KM_LOC_DAU.bienThe!.map((b) => b.gia)));
+    for (const b of KM_LOC_DAU.bienThe!) expect(b.nhan.split(" ").length).toBeLessThanOrEqual(2);
+    expect(KHUYEN_MAI.map((k) => k.id)).toEqual(["su-dinh-vi-gps", "loc-dau-sf"]);
   });
-  it("tin Zalo: 'ĐĂNG KÝ MUA' không chữ KM, không 'giá thị trường'", () => {
-    const r = kiemPhieu({
-      nguon: "san-pham", sanPham: KM_LOC_DAU_SF300B.tenPhieu, ten: "Anh Tư", phone: "0905123456", soTau: "BĐ-91234-TS", cang: "Quy Nhơn",
-      loiNhan: loiNhanDangKy({ qty: 1, noiNhan: "Quy Nhơn" }),
-    });
+  it("timBienThe: có bản ⇒ id đúng mới nhận; ưu đãi không bản ⇒ undefined", () => {
+    expect(timBienThe(KM_LOC_DAU, "dien")?.gia).toBe(9_900_000);
+    expect(timBienThe(KM_LOC_DAU, "x")).toBeNull();
+    expect(timBienThe(KM_LOC_DAU, undefined)).toBeNull();
+    expect(timBienThe(KM_SU_DINH_VI, "dien")).toBeUndefined();
+  });
+  it("lời nhắn ghi bản + giá, số lượng vẫn đọc ngược được; tin Zalo 'ĐĂNG KÝ MUA' không giá gạch", () => {
+    const l = loiNhanDangKy({ qty: 1, noiNhan: "Quy Nhơn", bienThe: timBienThe(KM_LOC_DAU, "dien") });
+    expect(l).toBe("Đăng ký mua 1 cái · bản điện SF300B 9.900.000đ · nhận tại Quy Nhơn");
+    expect(soLuongTuLoiNhan(l)).toBe(1);
+    const r = kiemPhieu({ nguon: "san-pham", sanPham: KM_LOC_DAU.tenPhieu, ten: "Anh Tư", phone: "0905123456", soTau: "BĐ-91234-TS", cang: "Quy Nhơn", loiNhan: l });
     if (!r.ok) throw new Error(r.code);
     const tin = tinNhanKd({ ...r.value, createdAt: "2026-10-31T03:00:00Z" }, null);
-    expect(tin.split("\n")[0]).toBe("[SDFish] ĐĂNG KÝ MUA: Máy lọc dầu SF300B 9.900.000đ");
+    expect(tin.split("\n")[0]).toBe("[SDFish] ĐĂNG KÝ MUA: Máy lọc dầu SF50 / SF300B");
+    expect(tin).toContain("bản điện SF300B 9.900.000đ");
     expect(tin).not.toContain("giá thị trường");
-    expect(tin).toContain("- Số lượng: 1");
   });
 });
 

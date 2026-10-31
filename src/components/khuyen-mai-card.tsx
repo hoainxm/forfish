@@ -97,7 +97,10 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
                       <span className="text-muted line-through">{tienVn(k.giaThiTruong)}</span>{" "}
                     </>
                   )}
-                  <span className="font-semibold text-t3">{tienVn(k.giaApp)}</span>
+                  <span className="font-semibold text-t3">
+                    {k.bienThe?.length ? "Từ " : ""}
+                    {tienVn(k.giaApp)}
+                  </span>
                 </p>
                 <p className="mt-0.5 truncate text-[0.875rem] text-muted">
                   {xong ? "Đã đăng ký · SDVICO sẽ gọi lại" : k.moTa}
@@ -156,6 +159,10 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
   const [soTau, setSoTau] = useState(tau.maTau);
   const [noiNhan, setNoiNhan] = useState(tau.cang);
   const [qty, setQty] = useState(1);
+  // Ưu đãi nhiều bản (lọc dầu cơ/điện) ⇒ chọn sẵn bản đầu; giá theo bản đang chọn.
+  const [banId, setBanId] = useState(km.bienThe?.[0]?.id ?? null);
+  const ban = km.bienThe?.find((b) => b.id === banId) ?? null;
+  const gia = ban?.gia ?? km.giaApp;
   const [ghiChu, setGhiChu] = useState("");
   const [trang, setTrang] = useState<Trang>("idle");
   const [loi, setLoi] = useState<string | null>(null);
@@ -187,6 +194,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
           soTau: soTau.trim(),
           noiNhan: noiNhan.trim(),
           qty,
+          bienThe: ban?.id,
           ghiChu: ghiChu.trim() || undefined,
         }),
         signal: timeoutSignal(20000),
@@ -203,7 +211,9 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
           ? "Số này đã đăng ký nhiều lần hôm nay. SDVICO sẽ gọi lại, bà con chờ nhé."
           : j?.code === "sai_sdt"
             ? "Số điện thoại chưa đúng, bà con xem lại giúp."
-            : j?.code === "het_han"
+            : j?.code === "sai_ban"
+              ? "Bà con chọn bản máy (cơ hay điện) rồi gửi lại nhé."
+              : j?.code === "het_han"
               ? "Ưu đãi này đã hết. Bà con gọi SDVICO để hỏi đợt mới."
               : "Chưa gửi được. Bà con thử lại, hoặc gọi SDVICO.",
       );
@@ -221,7 +231,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
           <CheckIcon className="mx-auto h-10 w-10" />
           <p className="mt-3 text-[1.125rem] font-semibold">SDVICO đã nhận đăng ký {km.ten}</p>
           <p className="mt-1 text-[1rem] text-foreground/70">
-            {qty} {km.donVi} · {tienVn(km.giaApp * qty)} · nhận tại {noiNhan.trim()}. Nhân viên sẽ gọi lại hẹn giao.
+             {qty} {km.donVi}{ban ? ` ${ban.ten}` : ""} · {tienVn(gia * qty)} · nhận tại {noiNhan.trim()}. Nhân viên sẽ gọi lại hẹn giao.
           </p>
         </div>
         <div className="mt-4">
@@ -252,7 +262,7 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
           <Image src={km.image} alt="" width={km.imgW} height={km.imgH} sizes="3.5rem" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
           <div className="min-w-0">
             <p className="text-[1rem] font-semibold text-navy">
-              {km.giaThiTruong != null && <span className="text-muted line-through">{tienVn(km.giaThiTruong)}</span>} {tienVn(km.giaApp)}/{km.donVi}
+              {km.giaThiTruong != null && <span className="text-muted line-through">{tienVn(km.giaThiTruong)}</span>} {tienVn(gia)}/{km.donVi}
             </p>
             <ul className="mt-0.5 text-[0.875rem] leading-snug text-foreground/70">
               {km.diemHay.slice(1).map((d) => (
@@ -262,10 +272,31 @@ function DangKySheet({ km, onClose, onXong }: { km: KhuyenMai; onClose: () => vo
           </div>
         </div>
 
+        {km.bienThe?.length ? (
+          <Field label="Chọn bản">
+            <div className="flex gap-2" role="radiogroup" aria-label="Chọn bản">
+              {km.bienThe.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={b.id === banId}
+                  onClick={() => setBanId(b.id)}
+                  className={`flex h-(--h-ctl) flex-1 flex-col items-center justify-center rounded-2xl border px-3 text-[1rem] font-semibold transition ${
+                    b.id === banId ? "border-t3 bg-t3 text-white" : "border-line bg-field text-navy"
+                  }`}
+                >
+                  {b.nhan}
+                </button>
+              ))}
+            </div>
+          </Field>
+        ) : null}
+
         <Field label="Số lượng">
           <div className="flex items-center justify-between">
             <QtyStepper qty={qty} onChange={(q) => setQty(Math.min(km.qtyMax, Math.max(1, q)))} label="số lượng" />
-            <p className="text-[1rem] font-semibold text-navy">{tienVn(km.giaApp * qty)}</p>
+            <p className="text-[1rem] font-semibold text-navy">{tienVn(gia * qty)}</p>
           </div>
         </Field>
 

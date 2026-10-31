@@ -8,7 +8,7 @@
 // Trần: ≤3 phiếu KM / SĐT / 24 giờ (đếm theo `phone`); cùng ưu đãi trong 24 giờ ⇒ trả `trung: true`, không ghi thêm
 // (bà con bấm lại vì tưởng chưa ăn — Quân không nhận 2 tin).
 import { NextResponse } from "next/server";
-import { loiNhanDangKy, timKhuyenMai, conHieuLuc } from "@/data/khuyen-mai";
+import { loiNhanDangKy, timBienThe, timKhuyenMai, conHieuLuc } from "@/data/khuyen-mai";
 import { identityFromRequest } from "@/lib/api-identity";
 import { kiemPhieu } from "@/lib/sdvico/khach-hoi";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -17,7 +17,7 @@ const TRAN_NGAY = 3;
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as
-    | { id?: unknown; name?: unknown; phone?: unknown; soTau?: unknown; noiNhan?: unknown; qty?: unknown; ghiChu?: unknown }
+    | { id?: unknown; name?: unknown; phone?: unknown; soTau?: unknown; noiNhan?: unknown; qty?: unknown; ghiChu?: unknown; bienThe?: unknown }
     | null;
   if (!body || typeof body.id !== "string") return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
   const km = timKhuyenMai(body.id);
@@ -28,6 +28,9 @@ export async function POST(req: Request) {
   const qtyRaw = typeof body.qty === "number" ? body.qty : Number(body.qty);
   const qty = Number.isInteger(qtyRaw) && qtyRaw >= 1 && qtyRaw <= km.qtyMax ? qtyRaw : null;
   if (!qty) return NextResponse.json({ ok: false, code: "sai_so_luong" }, { status: 400 });
+  // Ưu đãi có nhiều bản (lọc dầu cơ/điện, 2026-10-31) ⇒ bắt buộc chọn đúng một bản có thật.
+  const bienThe = timBienThe(km, body.bienThe);
+  if (bienThe === null) return NextResponse.json({ ok: false, code: "sai_ban" }, { status: 400 });
   const noiNhan = typeof body.noiNhan === "string" ? body.noiNhan.trim() : "";
   if (noiNhan.length < 2) return NextResponse.json({ ok: false, code: "thieu_cang" }, { status: 400 });
 
@@ -55,7 +58,7 @@ export async function POST(req: Request) {
     phone,
     soTau: body.soTau,
     cang: noiNhan,
-    loiNhan: loiNhanDangKy({ qty, noiNhan, ghiChu: typeof body.ghiChu === "string" ? body.ghiChu : null }),
+    loiNhan: loiNhanDangKy({ qty, noiNhan, ghiChu: typeof body.ghiChu === "string" ? body.ghiChu : null, bienThe }),
   });
   if (!v.ok) return NextResponse.json({ ok: false, code: v.code }, { status: 400 });
   const p = v.value;

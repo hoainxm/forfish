@@ -9,6 +9,15 @@
 // Quân tự giao, không cần giỏ/thanh toán. Vì sao không vào `sdvico-showcase`: showcase cố ý không có giá (tài liệu SDVICO),
 // còn giá chính là điểm nhấn của khuyến mãi. Danh mục nhỏ, nằm trong bundle (không cần mạng để thấy ưu đãi khi mất sóng).
 
+export interface BienThe {
+  id: string;
+  /** Chữ trên chip (≤2 chữ, vd "Bản cơ"). */
+  nhan: string;
+  /** Tên đầy đủ ghi vào phiếu cho KD đọc (vd "bản cơ SF50"). */
+  ten: string;
+  gia: number;
+}
+
 export interface KhuyenMai {
   id: string;
   /** Tên món hiện trên thẻ (ngắn). */
@@ -30,6 +39,9 @@ export interface KhuyenMai {
   doiTuong: string;
   /** Đơn vị hiện trên thẻ/ngăn ("cái", "bộ"). Lời nhắn phiếu vẫn ghi "cái" (soLuongTuLoiNhan đọc theo đó). */
   donVi: string;
+  /** Các bản để bà con chọn (giá riêng từng bản). Có ⇒ thẻ ghi "Từ <giá thấp nhất>", ngăn Đăng ký có chip chọn bản,
+   *  lời nhắn phiếu ghi bản đã chọn + giá. `giaApp` = giá bản rẻ nhất (khớp chữ "Từ"). */
+  bienThe?: BienThe[];
   /** Số lượng tối đa một lần đăng ký (chống gõ nhầm 200). */
   qtyMax: number;
   /** Hết hạn (ISO ngày, null = chưa định) — card tự ẩn sau ngày này. */
@@ -59,18 +71,19 @@ export const KM_SU_DINH_VI: KhuyenMai = {
 };
 
 // Anh Long 2026-10-31: "kiểm tra info giá của lọc dầu trong sdwork rồi cho chạy cái quảng cáo cạnh cái sứ anten". SDWork không có
-// giá niêm yết (bảng products không cột giá); giá bán thật trong đơn hay gặp nhất của SF300B là 9.900.000đ ⇒ anh chốt "9.9 tr",
-// KHÔNG giảm giá ⇒ giaThiTruong null (thẻ không gạch giá). Ảnh + mô tả theo `sdvico-showcase` (may-loc-dau-diesel-sf).
-export const KM_LOC_DAU_SF300B: KhuyenMai = {
-  id: "loc-dau-sf300b",
-  ten: "Máy lọc dầu SF300B",
-  tenPhieu: "QC Máy lọc dầu diesel SF300B 9,9 triệu",
+// giá niêm yết (bảng products không cột giá) ⇒ anh hỏi Tiến KD trên Zalo, Tiến báo "cơ: 7,9tr, điện: 9,9tr" (31/10 08:26).
+// Bản cơ = SF50 (dầu tự chảy), bản điện = SF300B (bơm 12 V). Giá thường, KHÔNG giảm ⇒ giaThiTruong null (thẻ không gạch giá).
+// Ảnh + mô tả theo `sdvico-showcase` (may-loc-dau-diesel-sf).
+export const KM_LOC_DAU: KhuyenMai = {
+  id: "loc-dau-sf",
+  ten: "Máy lọc dầu SF50 / SF300B",
+  tenPhieu: "QC Máy lọc dầu diesel SF50 / SF300B",
   giaThiTruong: null,
-  giaApp: 9_900_000,
+  giaApp: 7_900_000,
   moTa: "Lọc cặn và tách nước khỏi dầu, giữ kim phun luôn sạch.",
   diemHay: [
-    "Giá 9.900.000đ một bộ, kỹ thuật SDVICO lắp tận tàu",
-    "Lọc 1–10 micron, tách nước, có bơm điện 12 V",
+    "Bản cơ SF50 7.900.000đ · bản điện SF300B 9.900.000đ",
+    "Lọc 1–10 micron, tách nước, kỹ thuật SDVICO lắp tận tàu",
     "Vỏ inox 304 chịu muối biển, bảo hành 12 tháng",
   ],
   image: "/sdvico/loc-dau.jpg",
@@ -78,11 +91,15 @@ export const KM_LOC_DAU_SF300B: KhuyenMai = {
   imgH: 600,
   doiTuong: "Mọi khách cũ và mới",
   donVi: "bộ",
+  bienThe: [
+    { id: "co", nhan: "Bản cơ", ten: "bản cơ SF50", gia: 7_900_000 },
+    { id: "dien", nhan: "Bản điện", ten: "bản điện SF300B", gia: 9_900_000 },
+  ],
   qtyMax: 5,
   hetHan: null,
 };
 
-export const KHUYEN_MAI: KhuyenMai[] = [KM_SU_DINH_VI, KM_LOC_DAU_SF300B];
+export const KHUYEN_MAI: KhuyenMai[] = [KM_SU_DINH_VI, KM_LOC_DAU];
 
 export function timKhuyenMai(id: string): KhuyenMai | null {
   return KHUYEN_MAI.find((k) => k.id === id) ?? null;
@@ -92,6 +109,12 @@ export function timKhuyenMai(id: string): KhuyenMai | null {
 export function khuyenMaiCuaPhieu(sanPham: string | null | undefined): KhuyenMai | null {
   if (!sanPham) return null;
   return KHUYEN_MAI.find((k) => k.tenPhieu === sanPham) ?? null;
+}
+
+/** Bản theo id; ưu đãi có bản mà id sai/thiếu ⇒ null (route trả 400). Ưu đãi không có bản ⇒ undefined (bỏ qua). */
+export function timBienThe(k: KhuyenMai, id: unknown): BienThe | null | undefined {
+  if (!k.bienThe?.length) return undefined;
+  return k.bienThe.find((b) => b.id === id) ?? null;
 }
 
 /** Ưu đãi còn hiệu lực hôm nay (hetHan null = còn). `today` = "YYYY-MM-DD". */
@@ -105,8 +128,10 @@ export function tienVn(n: number): string {
 }
 
 /** Lời nhắn ghi vào phiếu (≤500) — Quân đọc là biết số lượng, nơi nhận, ghi chú. */
-export function loiNhanDangKy(o: { qty: number; noiNhan: string; ghiChu?: string | null }): string {
-  const parts = [`Đăng ký mua ${o.qty} cái`, `nhận tại ${o.noiNhan.trim()}`];
+export function loiNhanDangKy(o: { qty: number; noiNhan: string; ghiChu?: string | null; bienThe?: BienThe | null }): string {
+  const parts = [`Đăng ký mua ${o.qty} cái`];
+  if (o.bienThe) parts.push(`${o.bienThe.ten} ${tienVn(o.bienThe.gia)}`);
+  parts.push(`nhận tại ${o.noiNhan.trim()}`);
   const g = (o.ghiChu ?? "").trim();
   if (g) parts.push(`ghi chú: ${g}`);
   return parts.join(" · ").slice(0, 500);
