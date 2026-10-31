@@ -133,6 +133,15 @@ describe("máy lọc nước + ắc quy (31/10)", () => {
   });
 });
 
+describe("nhãn linh hoạt (31/10)", () => {
+  it("mỗi món có 2+ nhãn, mỗi nhãn ≤4 chữ", () => {
+    for (const k of KHUYEN_MAI) {
+      expect(k.nhan?.length ?? 0, k.id).toBeGreaterThanOrEqual(2);
+      for (const n of k.nhan!) expect(n.split(" ").length, n).toBeLessThanOrEqual(4);
+    }
+  });
+});
+
 describe("xoay quảng cáo — một món mỗi lần (31/10)", () => {
   const ids = (k: { id: string } | null) => k?.id ?? null;
   it("bỏ món vừa hiện, ưu tiên món chưa đăng ký, r chia đều", () => {

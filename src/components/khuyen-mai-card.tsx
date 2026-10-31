@@ -101,6 +101,7 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
   const [mo, setMo] = useState<KhuyenMai | null>(null);
   const [xem, setXem] = useState<KhuyenMai | null>(null);
   const [mon, setMon] = useState<KhuyenMai | null>(null);
+  const [nhan, setNhan] = useState<string | null>(null);
   useEffect(() => {
     setDaDK(docDaDangKy());
     let k: KhuyenMai | null = null;
@@ -116,7 +117,9 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
     } catch {
       /* URL lạ — bỏ qua */
     }
-    setMon(k ?? chonQuangCao());
+    const m = k ?? chonQuangCao();
+    setMon(m);
+    if (m?.nhan?.length) setNhan(m.nhan[Math.floor(Math.random() * m.nhan.length)]);
   }, []);
   const ds = mon ? [mon] : [];
   if (!ds.length) return null;
@@ -147,8 +150,12 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[0.75rem] font-semibold uppercase tracking-wide text-muted">
-                    {k.giaThiTruong != null ? "Ưu đãi SDVICO" : "Hàng SDVICO"}
+                  {/* nhãn hút mắt, đổi ngẫu nhiên theo món (anh Long 31/10: "đừng để Hàng SDVICO… cái nhãn cũng cho linh hoạt") */}
+                  <span
+                    className="inline-block rounded-full px-2 py-0.5 text-[0.75rem] font-semibold"
+                    style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
+                  >
+                    {nhan ?? (k.giaThiTruong != null ? "Ưu đãi SDVICO" : "SDVICO")}
                   </span>
                   <span className="display line-clamp-2 text-[1.125rem] font-semibold leading-snug text-navy">{k.ten}</span>
                   <span className="mt-0.5 block text-[1rem] leading-snug">

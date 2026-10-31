@@ -55,6 +55,9 @@ export interface KhuyenMai {
   hoiDap?: { hoi: string; dap: string }[];
   /** Dòng giá trên thẻ ghi "Từ …" (nhiều bản / nhiều cấu hình). */
   giaTu?: boolean;
+  /** Nhãn nhỏ trên thẻ — thẻ chọn NGẪU NHIÊN một cái mỗi lần hiện (anh Long 31/10: "đừng để tin là Hàng SDVICO mà là thông
+   *  tin quan trọng hoặc hấp dẫn…, cái nhãn cũng cho linh hoạt để nó attract"). Chỉ câu có căn cứ, ≤4 chữ. */
+  nhan?: string[];
   /** Số lượng tối đa một lần đăng ký (chống gõ nhầm 200). */
   qtyMax: number;
   /** Hết hạn (ISO ngày, null = chưa định) — card tự ẩn sau ngày này. */
@@ -78,6 +81,7 @@ export const KM_SU_DINH_VI: KhuyenMai = {
   imgH: 720,
   doiTuong: "Mọi khách cũ và mới",
   donVi: "cái",
+  nhan: ["Giảm 200.000đ", "Ưu đãi SDVICO", "Hợp mọi máy"],
   qtyMax: 10,
   // Assumption: Quân chưa nêu ngày kết thúc ⇒ chạy tới khi anh Long/Quân bảo gỡ (sửa dòng này).
   hetHan: null,
@@ -110,8 +114,8 @@ export const KM_LOC_DAU: KhuyenMai = {
     { id: "tui", nhan: "Túi lọc", ten: "túi lọc dầu", gia: 190_000, khac: "Túi lọc thay cho máy đang dùng. Dầu chảy chậm lại là tới lúc thay." },
   ],
   giaTu: true,
-  // Clip 65 s dựng 31/10 trên GPU (~/loc-dau-video/dung.py): cảnh thật từ bản tin SDVICO trong nhóm Zalo + giọng Sen Biển.
-  video: { src: "/sdvico/loc-dau.mp4?v=24d614a3", poster: "/sdvico/loc-dau-poster.jpg?v=106b29a8", giay: 65 },
+  // Clip ~63 s dựng 31/10 trên GPU (~/loc-dau-video/dung.py): cảnh thật từ bản tin SDVICO trong nhóm Zalo + giọng Sen Biển.
+  video: { src: "/sdvico/loc-dau.mp4?v=63f7bb1a", poster: "/sdvico/loc-dau-poster.jpg?v=7126378a", giay: 63 },
   // Anh Long 31/10: "khách đăng ký tư vấn thì chuyển qua nhóm Zalo Triển khai kinh doanh (trực ở gpu) tương tự của Quân".
   guiToi: "Triển Khai Kinh Doanh",
   // Mục 8 kịch bản tư vấn (docs/specs/kich-ban-tu-van-loc-dau.md, team agent 31/10, đã qua kiểm duyệt nội dung).
@@ -126,6 +130,7 @@ export const KM_LOC_DAU: KhuyenMai = {
     { hoi: "Khói xanh, khói trắng?", dap: "Khói xanh có thể do máy cháy nhớt, bà con cho thợ kiểm xéc măng, turbo. Máy lọc không chữa được bệnh này. Khói trắng mà két nước làm mát cứ hụt thì cũng phải kiểm máy. Khói trắng có mùi dầu sống khi máy đã nóng thì có thể do nước trong dầu, bà con xả đáy két coi có nước không." },
     { hoi: "Máy tắt khi sóng lớn, khó nổ?", dap: "Bà con xả đáy két coi có nước, có cặn không, coi lọc tinh có nghẹt không. Khó nổ, phải xả gió hoài thì tìm chỗ hở ở ống, khớp nối, gioăng cốc lọc trước. Nếu đúng là do nước, cặn trong dầu thì máy lọc giúp được." },
   ],
+  nhan: ["Bảo vệ máy tàu", "200+ bộ đã lắp", "Đỡ tốn sửa máy"],
   qtyMax: 10,
   hetHan: null,
 };
@@ -155,7 +160,7 @@ export const KM_LOC_NUOC: KhuyenMai = {
   ],
   giaTu: true,
   // Clip 58 s dựng 31/10 trên GPU (~/loc-dau-video/dung_ln.py, giọng giong-ln/): cảnh SEA700B/SEA250 từ bản tin SDVICO.
-  video: { src: "/sdvico/loc-nuoc.mp4?v=cf5558d2", poster: "/sdvico/loc-nuoc-poster.jpg?v=5be4bb8f", giay: 58 },
+  video: { src: "/sdvico/loc-nuoc.mp4?v=3cb3c902", poster: "/sdvico/loc-nuoc-poster.jpg?v=9ad13260", giay: 56 },
   guiToi: "Triển Khai Kinh Doanh",
   hoiDap: [
     { hoi: "Máy lọc nước biển giá bao nhiêu?", dap: "Bản cơ từ 38 triệu, bản điện từ 49 triệu rưỡi, đã gồm VAT. Giá theo cấu hình, nhân viên SDVICO gọi lại báo đúng giá cho tàu mình. Kỹ thuật SDVICO tới tận tàu lắp." },
@@ -165,6 +170,7 @@ export const KM_LOC_NUOC: KhuyenMai = {
     { hoi: "Bảo hành sao?", dap: "Bảo hành 12 tháng, cả màng RO và đầu bơm. Kỹ thuật SDVICO lắp tận tàu và chạy thử." },
     { hoi: "Lõi lọc, màng lọc có phải thay không?", dap: "Lõi lọc thô thay theo độ dơ của nước, màng RO dùng lâu hơn. Lúc lắp, kỹ thuật dặn cụ thể theo tàu. Phụ tùng thay có ở SDVICO." },
   ],
+  nhan: ["Nước ngọt cả chuyến", "Khỏi lo hết nước", "250 lít mỗi giờ"],
   qtyMax: 3,
   hetHan: null,
 };
@@ -179,7 +185,7 @@ export const KM_AC_QUY: KhuyenMai = {
   giaApp: 4_200_000,
   moTa: "Dành riêng cho tàu, có cọc bình riêng cho thiết bị điện tử.",
   // Clip 48 s dựng 31/10 trên GPU (~/loc-dau-video/dung3.py ac-quy): cảnh thiết bị điện tử trên tàu + máy + ảnh bình.
-  video: { src: "/sdvico/ac-quy.mp4?v=4eb90892", poster: "/sdvico/ac-quy-poster.jpg?v=cd1aa00f", giay: 48 },
+  video: { src: "/sdvico/ac-quy.mp4?v=10b4f04f", poster: "/sdvico/ac-quy-poster.jpg?v=c67b17ba", giay: 46 },
   diemHay: [
     "Giá 4.200.000đ một bình, đã gồm VAT — độc quyền SDVICO",
     "Có cọc bình riêng nối thiết bị điện tử: định vị, giám sát hành trình, bộ đàm",
@@ -196,6 +202,7 @@ export const KM_AC_QUY: KhuyenMai = {
     { hoi: "Cọc bình riêng để làm gì?", dap: "Bình có cọc riêng để nối thiết bị điện tử như định vị, giám sát hành trình, bộ đàm, tách khỏi cọc đề máy." },
     { hoi: "Bình mạnh cỡ nào?", dap: "12 vôn 220 Ah, dòng khởi động lạnh 1.150 A, dự trữ 380 phút khi máy phát ngừng sạc, theo nhãn của hãng." },
   ],
+  nhan: ["Độc quyền SDVICO", "Cọc riêng thiết bị", "Chỉ 4,2 triệu"],
   qtyMax: 10,
   hetHan: null,
 };
