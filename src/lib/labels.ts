@@ -198,6 +198,7 @@ export const NHAN = {
   xemDon: "Xem đơn",
   suaGio: "Sửa giỏ",
   muaTiep: "Mua tiếp",
+  sdvico: "SDVICO",
   xemGio: "Xem giỏ",
   boHet: "Bỏ hết",
   danhGia: "Đánh giá",

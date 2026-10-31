@@ -46,8 +46,10 @@ export interface KhuyenMai {
   bienThe?: BienThe[];
   /** Clip giới thiệu (tuỳ chọn): bấm ảnh thẻ là mở xem. `poster` hiện khi chưa tải/mất sóng.
    *  `?v=` = 8 ký tự đầu sha1 của file (test khoá): service worker cất asset tĩnh theo URL và trả bản đã cất mãi (cache-first),
-   *  nên dựng lại clip mà giữ URL là bà con xem clip CŨ vĩnh viễn (dính 31/10: màn xanh "01/08" vẫn hiện sau khi đã cắt). */
-  video?: { src: string; poster: string; giay: number };
+   *  nên dựng lại clip mà giữ URL là bà con xem clip CŨ vĩnh viễn (dính 31/10: màn xanh "01/08" vẫn hiện sau khi đã cắt).
+   *  `ngan` = 6 giây đầu (câu mồi), không tiếng, 360×640, ≤400 KB — thẻ Hôm nay tự chạy trên Trang chủ (`nenChayClipNgan`).
+   *  Cắt bằng ffmpeg trên GPU (~/clip-ngan): `-ss 0 -t 6 -an -vf scale=360:640,fps=24 -crf 30 -movflags +faststart`. */
+  video?: { src: string; poster: string; giay: number; ngan?: string };
   /** Chat Zalo nhận phiếu (tuỳ chọn) — trống = chat mặc định của AI Assistant (`phieu_khach.gui_toi`, Quân). AI Assistant
    *  CHỈ nghe theo nếu tên nằm trong `phieu_khach.gui_them` của nó (máy chủ SDFish không tự chọn được chat bất kỳ). */
   guiToi?: string;
@@ -115,7 +117,7 @@ export const KM_LOC_DAU: KhuyenMai = {
   ],
   giaTu: true,
   // Clip ~63 s dựng 31/10 trên GPU (~/loc-dau-video/dung.py): cảnh thật từ bản tin SDVICO trong nhóm Zalo + giọng Sen Biển.
-  video: { src: "/sdvico/loc-dau.mp4?v=63f7bb1a", poster: "/sdvico/loc-dau-poster.jpg?v=7126378a", giay: 63 },
+  video: { src: "/sdvico/loc-dau.mp4?v=63f7bb1a", poster: "/sdvico/loc-dau-poster.jpg?v=7126378a", giay: 63, ngan: "/sdvico/loc-dau-ngan.mp4?v=0908da77" },
   // Anh Long 31/10: "khách đăng ký tư vấn thì chuyển qua nhóm Zalo Triển khai kinh doanh (trực ở gpu) tương tự của Quân".
   guiToi: "Triển Khai Kinh Doanh",
   // Mục 8 kịch bản tư vấn (docs/specs/kich-ban-tu-van-loc-dau.md, team agent 31/10, đã qua kiểm duyệt nội dung).
@@ -160,7 +162,7 @@ export const KM_LOC_NUOC: KhuyenMai = {
   ],
   giaTu: true,
   // Clip 58 s dựng 31/10 trên GPU (~/loc-dau-video/dung_ln.py, giọng giong-ln/): cảnh SEA700B/SEA250 từ bản tin SDVICO.
-  video: { src: "/sdvico/loc-nuoc.mp4?v=3cb3c902", poster: "/sdvico/loc-nuoc-poster.jpg?v=9ad13260", giay: 56 },
+  video: { src: "/sdvico/loc-nuoc.mp4?v=3cb3c902", poster: "/sdvico/loc-nuoc-poster.jpg?v=9ad13260", giay: 56, ngan: "/sdvico/loc-nuoc-ngan.mp4?v=40133a0f" },
   guiToi: "Triển Khai Kinh Doanh",
   hoiDap: [
     { hoi: "Máy lọc nước biển giá bao nhiêu?", dap: "Bản cơ từ 38 triệu, bản điện từ 49 triệu rưỡi, đã gồm VAT. Giá theo cấu hình, nhân viên SDVICO gọi lại báo đúng giá cho tàu mình. Kỹ thuật SDVICO tới tận tàu lắp." },
@@ -185,7 +187,7 @@ export const KM_AC_QUY: KhuyenMai = {
   giaApp: 4_200_000,
   moTa: "Dành riêng cho tàu, có cọc bình riêng cho thiết bị điện tử.",
   // Clip 48 s dựng 31/10 trên GPU (~/loc-dau-video/dung3.py ac-quy): cảnh thiết bị điện tử trên tàu + máy + ảnh bình.
-  video: { src: "/sdvico/ac-quy.mp4?v=10b4f04f", poster: "/sdvico/ac-quy-poster.jpg?v=c67b17ba", giay: 46 },
+  video: { src: "/sdvico/ac-quy.mp4?v=10b4f04f", poster: "/sdvico/ac-quy-poster.jpg?v=c67b17ba", giay: 46, ngan: "/sdvico/ac-quy-ngan.mp4?v=73382e3d" },
   diemHay: [
     "Giá 4.200.000đ một bình, đã gồm VAT — độc quyền SDVICO",
     "Có cọc bình riêng nối thiết bị điện tử: định vị, giám sát hành trình, bộ đàm",
@@ -233,6 +235,24 @@ export function chonMotKhuyenMai(ds: KhuyenMai[], truoc: string | null, daDangKy
   const nhom = chua.length ? chua : ds;
   const khac = nhom.length > 1 ? nhom.filter((k) => k.id !== truoc) : nhom;
   return khac[Math.min(khac.length - 1, Math.floor(r * khac.length))];
+}
+
+/** THẺ HÔM NAY có được TỰ CHẠY clip ngắn không (anh Long 31/10 "Làm thẻ Hôm nay" — kiểu tab Today của App Store: video
+ *  nằm trong thẻ, không tiếng, không chặn màn). Chỉ khi sóng tốt (không 2G, không Tiết kiệm dữ liệu), máy không xin giảm
+ *  chuyển động, và KHÔNG có tin bão mới — lúc có bão mắt bà con phải ở thẻ bão. Sai một điều ⇒ chỉ hiện ảnh tĩnh. */
+export function nenChayClipNgan(o: { songTot: boolean; giamChuyenDong: boolean; coBao: boolean }): boolean {
+  return o.songTot && !o.giamChuyenDong && !o.coBao;
+}
+
+/** Thứ tự băng vuốt thẻ Hôm nay: món xoay ngẫu nhiên đứng đầu, rồi các món còn hiệu lực khác theo thứ tự danh mục. */
+export function xepLuot(dau: KhuyenMai, ds: KhuyenMai[]): KhuyenMai[] {
+  return [dau, ...ds.filter((k) => k.id !== dau.id)];
+}
+
+/** 63 ⇒ "1:03" (độ dài clip trên thẻ). */
+export function doDaiClip(giay: number): string {
+  const s = Math.max(0, Math.round(giay));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 /** Ưu đãi còn hiệu lực hôm nay (hetHan null = còn). `today` = "YYYY-MM-DD". */

@@ -29,8 +29,10 @@ import { Field, inputClass, PrimaryButton, textareaClass } from "@/components/ui
 import { baoToast } from "@/components/ui/toast";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
-import { chonMotKhuyenMai, conHieuLuc, KHUYEN_MAI, tienVn, timKhuyenMai, type KhuyenMai } from "@/data/khuyen-mai";
+import { chonMotKhuyenMai, conHieuLuc, doDaiClip, KHUYEN_MAI, nenChayClipNgan, tienVn, timKhuyenMai, xepLuot, type KhuyenMai } from "@/data/khuyen-mai";
 import { timeoutSignal } from "@/lib/abort";
+import { songTot, type NavMang } from "@/lib/kairos/tai-mang-di";
+import { savedStormActive } from "@/lib/storms";
 import { apiUrl } from "@/lib/api-base";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import { tokenHeader } from "@/lib/device-token-store";
@@ -96,7 +98,7 @@ export function chonQuangCao(): KhuyenMai | null {
 /** Thẻ hàng SDVICO — MỘT món ngẫu nhiên mỗi lần mở màn (Trang chủ, đầu Vật tư, giữa dòng Kairos). Chọn sau khi gắn vào
  *  trang (Math.random + kho máy ⇒ không chọn lúc dựng trên máy chủ, tránh lệch hydrate). `?km=<id>` (Sen Biển / thẻ nổi Bản
  *  đồ) ⇒ mở thẳng món đó: có clip ⇒ ngăn video, không ⇒ ngăn Đăng ký. */
-export function KhuyenMaiCard({ className = "" }: { className?: string }) {
+export function KhuyenMaiCard({ className = "", lon = false }: { className?: string; lon?: boolean }) {
   const [daDK, setDaDK] = useState<DaDangKy>({});
   const [mo, setMo] = useState<KhuyenMai | null>(null);
   const [xem, setXem] = useState<KhuyenMai | null>(null);
@@ -125,9 +127,16 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
   if (!ds.length) return null;
   return (
     <section className={className} aria-label="Ưu đãi SDVICO">
-      <ul className="surface divide-y divide-line">
+      <ul className={lon ? "" : "surface divide-y divide-line"}>
         {ds.map((k) => {
           const xong = daDK[k.id];
+          if (lon) {
+            return (
+              <li key={k.id}>
+                <LuotHomNay dau={k} nhan={nhan} daDK={daDK} onBam={(m) => (m.video ? setXem(m) : !daDK[m.id] && setMo(m))} />
+              </li>
+            );
+          }
           return (
             <li key={k.id}>
               {/*  CẢ DÒNG LÀ MỘT CHỖ BẤM (anh Long 31/10: "đừng làm nút đăng ký kiểu này, click vào có video thì show video,
@@ -203,6 +212,185 @@ export function KhuyenMaiCard({ className = "" }: { className?: string }) {
         />
       )}
     </section>
+  );
+}
+
+/*  THẺ HÔM NAY — Trang chủ (2026-10-31, anh Long "Làm thẻ Hôm nay"; mẫu: tab Today của App Store). Cùng MỘT món xoay như
+    thẻ thường, cùng chỗ (dưới tin bão + việc cần làm). Bản 2 cùng ngày (anh Long: "nhiều chữ quá… khung video bé, không
+    full cái card"): video/ảnh PHỦ KÍN thẻ 4:5, chữ chỉ còn nhãn nhỏ góc trên + tên + giá + nút ▶ trên nền tối dưới đáy
+    (che luôn phụ đề có sẵn trong clip; khung lệch lên `center_35%` để giữ câu mồi ở trên). Cả thẻ là một chỗ bấm (có clip
+    ⇒ ngăn video đầy đủ có tiếng; không ⇒ ngăn Đăng ký) — y như thẻ thường.
+    · Món có `video.ngan` (6 s câu mồi, ≤400 KB) ⇒ TỰ CHẠY không tiếng, tối đa CLIP_NGAN_LAN vòng rồi đứng ở ảnh (đỡ pin).
+    · Chỉ tải khi: máy báo có sóng, `nenChayClipNgan` (sóng tốt, không giảm chuyển động, không tin bão mới), và chờ
+      CLIP_NGAN_CHO_MS sau khi mở màn — nhường mạng cho tin bão / thời tiết tải trước.
+    · Tải NGUYÊN file thành blob (cùng lý do ngăn video: SW trả 200 cho yêu cầu Range ⇒ iOS không phát). Đồng hồ 15 s;
+      hỏng / mất sóng giữa chừng ⇒ im lặng đứng ở ảnh (đây là quảng cáo, không đáng một câu lỗi).
+    · Mất sóng ⇒ chỉ ảnh, không request nào. Không ghi khoá `forfish.*` nào mới. */
+export const CLIP_NGAN_LAN = 3;
+export const CLIP_NGAN_CHO_MS = 2_000;
+
+/*  VUỐT TRÁI PHẢI (anh Long 31/10, mẫu băng quảng cáo Shopee: "cái video thì view video còn cái ảnh thì view ảnh, vuốt
+    qua trái phải"). Mọi món còn hiệu lực xếp thành một hàng cuộn ngang `snap` (khuôn ảnh sản phẩm Chợ, `cuon-an`), món
+    xoay ngẫu nhiên (`dau`) đứng đầu. Chấm tròn dưới thẻ. CHỈ món đang nhìn tải + chạy clip ngắn; vuốt đi ⇒ dừng, vuốt
+    lại ⇒ chạy lại từ đầu. KHÔNG tự chuyển món — bà con tự vuốt (đỡ rối mắt, đỡ tải). */
+function LuotHomNay({ dau, nhan, daDK, onBam }: { dau: KhuyenMai; nhan: string | null; daDK: DaDangKy; onBam: (k: KhuyenMai) => void }) {
+  const ds = useMemo(() => xepLuot(dau, KHUYEN_MAI.filter((k) => conHieuLuc(k, homNay()))), [dau]);
+  const [i, setI] = useState(0);
+  return (
+    <div>
+      <ul
+        className="flex snap-x snap-mandatory overflow-x-auto rounded-[1.25rem] cuon-an"
+        aria-roledescription="băng quảng cáo"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          if (el.clientWidth > 0) setI(Math.round(el.scrollLeft / el.clientWidth));
+        }}
+      >
+        {ds.map((k, j) => (
+          <li key={k.id} className="w-full shrink-0 snap-center" aria-label={`${j + 1} / ${ds.length}`}>
+            <TheHomNay k={k} active={j === i} xong={!!daDK[k.id]} nhan={j === 0 ? nhan : (k.nhan?.[0] ?? null)} onBam={() => onBam(k)} />
+          </li>
+        ))}
+      </ul>
+      {ds.length > 1 && (
+        <div className="mt-2 flex justify-center gap-1.5" aria-hidden>
+          {ds.map((k, j) => (
+            <span key={k.id} className={`h-2 rounded-full ${j === i ? "w-5 bg-navy" : "w-2 bg-navy/25"}`} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TheHomNay({ k, active, xong, nhan, onBam }: { k: KhuyenMai; active: boolean; xong: boolean; nhan: string | null; onBam: () => void }) {
+  const online = useOnline();
+  const ngan = k.video?.ngan;
+  const [url, setUrl] = useState<string | null>(null);
+  const [het, setHet] = useState(false);
+  const lan = useRef(0);
+  const ref = useRef<HTMLVideoElement>(null);
+  const obj = useRef<string | null>(null);
+
+  useEffect(() => () => {
+    if (obj.current) URL.revokeObjectURL(obj.current);
+  }, []);
+
+  // Tải MỘT lần, lúc thẻ này lần đầu được nhìn tới (món chưa vuốt tới thì không tốn byte nào).
+  useEffect(() => {
+    if (!ngan || !online || !active || obj.current) return;
+    let huy = false;
+    const t = window.setTimeout(() => {
+      const giam = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      savedStormActive(Date.now())
+        .catch(() => false)
+        .then((coBao) => {
+          if (huy || !nenChayClipNgan({ songTot: songTot(navigator as NavMang), giamChuyenDong: giam, coBao })) return;
+          return fetch(ngan, { signal: timeoutSignal(15_000) })
+            .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+            .then((b) => {
+              if (huy || obj.current) return;
+              obj.current = URL.createObjectURL(b);
+              setUrl(obj.current);
+            });
+        })
+        .catch(() => {
+          /* quảng cáo: hỏng thì đứng ở ảnh */
+        });
+    }, CLIP_NGAN_CHO_MS);
+    return () => {
+      huy = true;
+      window.clearTimeout(t);
+    };
+  }, [ngan, online, active]);
+
+  // Vuốt quay lại món này ⇒ chạy lại đủ vòng.
+  useEffect(() => {
+    if (!active) return;
+    lan.current = 0;
+    setHet(false);
+  }, [active]);
+
+  const chay = !!url && online && active && !het;
+  // React không đặt thuộc tính `muted` lên thẻ ⇒ iOS chặn tự phát; đặt tay rồi mới play.
+  useEffect(() => {
+    const v = ref.current;
+    if (!chay || !v) return;
+    v.muted = true;
+    v.play().catch(() => setHet(true));
+  }, [chay]);
+
+  return (
+    <button
+      type="button"
+      onClick={onBam}
+      aria-label={k.video ? `Xem video ${k.ten}` : xong ? `${k.ten} — đã đăng ký` : `Đăng ký ${k.ten}`}
+      className="relative block aspect-[4/5] max-h-[28rem] w-full overflow-hidden rounded-[1.25rem] bg-navy text-left transition active:opacity-90"
+    >
+      {chay ? (
+        <video
+          ref={ref}
+          src={url!}
+          poster={k.video?.poster}
+          muted
+          playsInline
+          preload="auto"
+          aria-hidden
+          onEnded={() => {
+            lan.current += 1;
+            if (lan.current < CLIP_NGAN_LAN) ref.current?.play().catch(() => setHet(true));
+            else setHet(true);
+          }}
+          className="absolute inset-0 h-full w-full object-cover object-[center_35%]"
+        />
+      ) : k.video ? (
+        // eslint-disable-next-line @next/next/no-img-element -- poster tĩnh nhỏ, không cần tối ưu ảnh
+        <img src={k.video.poster} alt="" className="absolute inset-0 h-full w-full object-cover object-[center_35%]" />
+      ) : (
+        // Không clip ⇒ ẢNH phủ kín thẻ (anh Long 31/10). <img> thường như poster: next/image lười (lazy) trong khung tuyệt
+        // đối không chịu tải ⇒ thẻ trơ nền tối (đã dính khi kiểm). Ảnh SDVICO nhỏ sẵn (~90 KB), không cần tối ưu.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={k.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      )}
+      <span className="absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-navy/70 to-transparent" />
+      {/* công khai là quảng cáo — một chữ nhỏ góc trên, không băng màu */}
+      <span className="absolute left-3 top-3 rounded-full bg-navy/60 px-2 py-0.5 text-[0.75rem] font-semibold text-white">
+        {nhan ?? NHAN.sdvico}
+      </span>
+      <span className="absolute inset-x-0 bottom-0 flex items-end gap-3 bg-gradient-to-t from-navy via-navy/85 to-transparent px-4 pb-4 pt-20">
+        <span className="min-w-0 flex-1 text-white">
+          <span className="display line-clamp-2 text-[1.25rem] font-semibold leading-snug">{k.ten}</span>
+          <span className="block text-[1rem] font-semibold">
+            {xong && !k.video ? (
+              <span className="flex items-center gap-1">
+                <CheckIcon className="h-4 w-4 shrink-0" />
+                Đã đăng ký
+              </span>
+            ) : (
+              <>
+                {k.giaThiTruong != null && <span className="font-normal line-through opacity-70">{tienVn(k.giaThiTruong)} </span>}
+                {k.giaTu ? "Từ " : ""}
+                {tienVn(k.giaApp)}
+              </>
+            )}
+          </span>
+        </span>
+        {k.video ? (
+          <span className="flex shrink-0 flex-col items-center gap-1">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-t3">
+              <PlayIcon className="ml-0.5 h-6 w-6" />
+            </span>
+            <span className="text-[0.75rem] font-semibold text-white">{doDaiClip(k.video.giay)}</span>
+          </span>
+        ) : (
+          !xong && (
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-t3">
+              <ChevronRightIcon className="h-6 w-6" />
+            </span>
+          )
+        )}
+      </span>
+    </button>
   );
 }
 

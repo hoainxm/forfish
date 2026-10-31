@@ -1,6 +1,6 @@
 // Khuyến mãi SDVICO (2026-10-26, sứ định vị 500k giảm 200k ⇒ 300k — sửa 2026-10-27): danh mục, lời nhắn phiếu, tin Zalo cho Quân.
 import { describe, expect, it } from "vitest";
-import { chonMotKhuyenMai, conHieuLuc, KHUYEN_MAI, KM_AC_QUY, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
+import { chonMotKhuyenMai, conHieuLuc, doDaiClip, xepLuot, KHUYEN_MAI, nenChayClipNgan, KM_AC_QUY, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
 import { CHAT_KD, chatCuaPhieu, kiemPhieu, phieuDonCho, tinNhanKd } from "@/lib/sdvico/khach-hoi";
 
 describe("danh mục khuyến mãi", () => {
@@ -121,7 +121,7 @@ describe("máy lọc nước + ắc quy (31/10)", () => {
     const { createHash } = await import("node:crypto");
     const { readFileSync } = await import("node:fs");
     for (const k of KHUYEN_MAI.filter((x) => x.video)) {
-      for (const f of [k.video!.src, k.video!.poster]) {
+      for (const f of [k.video!.src, k.video!.poster, ...(k.video!.ngan ? [k.video!.ngan] : [])]) {
         const [duong, q] = f.split("?v=");
         expect(existsSync(`public${duong}`), f).toBe(true);
         // mã phiên bản PHẢI khớp file: dựng lại clip mà quên đổi ⇒ máy bà con giữ clip cũ trong kho SW mãi
@@ -195,5 +195,33 @@ describe("đơn chợ gian hàng SDVICO ⇒ phiếu ⇒ nhóm Zalo KD (31/10, h�
     expect(tin).toContain("- Giao tới: cảng Phan Thiết, Bình Thuận");
     expect(tin).toContain("- Hàng: 1 × Máy lọc dầu");
     expect(tin).not.toContain("Số tàu");
+  });
+});
+
+describe("thẻ Hôm nay (31/10)", () => {
+  it("mọi món có clip đều có clip ngắn ≤400 KB (tự chạy trên Trang chủ, không làm nặng 4G yếu)", async () => {
+    const { statSync } = await import("node:fs");
+    for (const k of KHUYEN_MAI.filter((x) => x.video)) {
+      expect(k.video!.ngan, k.id).toBeTruthy();
+      expect(statSync(`public${k.video!.ngan!.split("?")[0]}`).size, k.id).toBeLessThanOrEqual(400 * 1024);
+    }
+  });
+  it("chỉ tự chạy khi sóng tốt, không giảm chuyển động, không tin bão mới", () => {
+    expect(nenChayClipNgan({ songTot: true, giamChuyenDong: false, coBao: false })).toBe(true);
+    expect(nenChayClipNgan({ songTot: false, giamChuyenDong: false, coBao: false })).toBe(false);
+    expect(nenChayClipNgan({ songTot: true, giamChuyenDong: true, coBao: false })).toBe(false);
+    expect(nenChayClipNgan({ songTot: true, giamChuyenDong: false, coBao: true })).toBe(false);
+  });
+  it("băng vuốt: món xoay đứng đầu, đủ mọi món, không lặp", () => {
+    const ds = xepLuot(KM_LOC_NUOC, KHUYEN_MAI);
+    expect(ds[0].id).toBe(KM_LOC_NUOC.id);
+    expect(ds.length).toBe(KHUYEN_MAI.length);
+    expect(new Set(ds.map((k) => k.id)).size).toBe(ds.length);
+    expect(xepLuot(KM_SU_DINH_VI, [KM_SU_DINH_VI]).map((k) => k.id)).toEqual([KM_SU_DINH_VI.id]);
+  });
+  it("độ dài clip: 63 ⇒ 1:03, 46 ⇒ 0:46, số lạ không âm", () => {
+    expect(doDaiClip(63)).toBe("1:03");
+    expect(doDaiClip(46)).toBe("0:46");
+    expect(doDaiClip(-5)).toBe("0:00");
   });
 });

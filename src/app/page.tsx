@@ -57,8 +57,9 @@ export default function Home() {
             đọc kho máy; nhường tin bão. Xem lib/doc-reminder-local + 07 §12. */}
         <DocRemindOnOpen />
         {/* Ưu đãi SDVICO (2026-10-26, tin của Quân): một thẻ, dưới việc cần làm, trên Thông
-            báo — không tranh chỗ với tin bão/việc gấp; đã đăng ký thì thẻ đổi trạng thái. */}
-        <KhuyenMaiCard />
+            báo — không tranh chỗ với tin bão/việc gấp; đã đăng ký thì thẻ đổi trạng thái.
+            31/10: bản "Hôm nay" (`lon`) — khung đứng tự chạy clip 6 s không tiếng (khuyen-mai-card TheHomNay). */}
+        <KhuyenMaiCard lon />
         <InboxSection />
         <TideHomeCard />
         {/* Hàng "Bật chuông" ở CUỐI (2026-10-29): chỉ biết sau khi tra đăng ký push nên hiện muộn —
