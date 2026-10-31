@@ -1,6 +1,6 @@
 // Khuyến mãi SDVICO (2026-10-26, sứ định vị 500k giảm 200k ⇒ 300k — sửa 2026-10-27): danh mục, lời nhắn phiếu, tin Zalo cho Quân.
 import { describe, expect, it } from "vitest";
-import { chonMotKhuyenMai, conHieuLuc, doDaiClip, xepLuot, KHUYEN_MAI, nenChayClipNgan, KM_AC_QUY, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
+import { chonMotKhuyenMai, conHieuLuc, doDaiClip, vongNhay, vongThat, xepLuot, KHUYEN_MAI, nenChayClipNgan, KM_AC_QUY, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
 import { CHAT_KD, chatCuaPhieu, kiemPhieu, phieuDonCho, tinNhanKd } from "@/lib/sdvico/khach-hoi";
 
 describe("danh mục khuyến mãi", () => {
@@ -218,6 +218,16 @@ describe("thẻ Hôm nay (31/10)", () => {
     expect(ds.length).toBe(KHUYEN_MAI.length);
     expect(new Set(ds.map((k) => k.id)).size).toBe(ds.length);
     expect(xepLuot(KM_SU_DINH_VI, [KM_SU_DINH_VI]).map((k) => k.id)).toEqual([KM_SU_DINH_VI.id]);
+  });
+  it("vòng tròn: bản sao hai đầu chỉ về đúng món thật, dừng ở bản sao thì nhảy về món thật", () => {
+    // băng 4 món: [sao cuối, 0, 1, 2, 3, sao đầu]
+    expect([0, 1, 2, 3, 4, 5].map((p) => vongThat(p, 4))).toEqual([3, 0, 1, 2, 3, 0]);
+    expect(vongNhay(0, 4)).toBe(4); // vuốt lùi từ món đầu ⇒ món cuối thật
+    expect(vongNhay(5, 4)).toBe(1); // vuốt qua món cuối ⇒ món đầu thật
+    expect([1, 2, 3, 4].map((p) => vongNhay(p, 4))).toEqual([null, null, null, null]);
+    // một món: không có bản sao, không nhảy
+    expect(vongThat(0, 1)).toBe(0);
+    expect(vongNhay(0, 1)).toBeNull();
   });
   it("độ dài clip: 63 ⇒ 1:03, 46 ⇒ 0:46, số lạ không âm", () => {
     expect(doDaiClip(63)).toBe("1:03");

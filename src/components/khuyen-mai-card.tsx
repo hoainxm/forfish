@@ -20,7 +20,7 @@
   (tàu đang chọn: mã tàu, cảng nhà) — chỉ sửa khi cần.
 */
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QtyStepper } from "@/components/cart-sheet";
 import { CheckIcon, ChevronRightIcon, PhoneIcon, PlayIcon } from "@/components/icons";
 import { sanitizePhoneInput } from "@/components/auth-form";
@@ -29,7 +29,7 @@ import { Field, inputClass, PrimaryButton, textareaClass } from "@/components/ui
 import { baoToast } from "@/components/ui/toast";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
-import { chonMotKhuyenMai, conHieuLuc, doDaiClip, KHUYEN_MAI, nenChayClipNgan, tienVn, timKhuyenMai, xepLuot, type KhuyenMai } from "@/data/khuyen-mai";
+import { chonMotKhuyenMai, conHieuLuc, doDaiClip, KHUYEN_MAI, nenChayClipNgan, tienVn, timKhuyenMai, vongNhay, vongThat, xepLuot, type KhuyenMai } from "@/data/khuyen-mai";
 import { timeoutSignal } from "@/lib/abort";
 import { songTot, type NavMang } from "@/lib/kairos/tai-mang-di";
 import { savedStormActive } from "@/lib/storms";
@@ -232,27 +232,79 @@ export const CLIP_NGAN_CHO_MS = 2_000;
 /*  VUỐT TRÁI PHẢI (anh Long 31/10, mẫu băng quảng cáo Shopee: "cái video thì view video còn cái ảnh thì view ảnh, vuốt
     qua trái phải"). Mọi món còn hiệu lực xếp thành một hàng cuộn ngang `snap` (khuôn ảnh sản phẩm Chợ, `cuon-an`), món
     xoay ngẫu nhiên (`dau`) đứng đầu. Chấm tròn dưới thẻ. CHỈ món đang nhìn tải + chạy clip ngắn; vuốt đi ⇒ dừng, vuốt
-    lại ⇒ chạy lại từ đầu. KHÔNG tự chuyển món — bà con tự vuốt (đỡ rối mắt, đỡ tải). */
+    lại ⇒ chạy lại từ đầu. KHÔNG tự chuyển món — bà con tự vuốt (đỡ rối mắt, đỡ tải).
+    VÒNG TRÒN (anh Long cùng ngày: "vuốt ngang phải cho vòng tròn chứ"): hai đầu băng có BẢN SAO (món cuối đứng trước món
+    đầu, món đầu đứng sau món cuối). Cuộn dừng ở bản sao ⇒ nhảy tức thì về món thật cùng hình (`vongNhay`), mắt không thấy.
+    Dừng = sự kiện `scrollend`, máy cũ không có ⇒ hết cuộn 150 ms. Bản sao không bấm/không đọc được (aria-hidden, inert). */
+const LUOT_DUNG_MS = 150;
+
 function LuotHomNay({ dau, nhan, daDK, onBam }: { dau: KhuyenMai; nhan: string | null; daDK: DaDangKy; onBam: (k: KhuyenMai) => void }) {
   const ds = useMemo(() => xepLuot(dau, KHUYEN_MAI.filter((k) => conHieuLuc(k, homNay()))), [dau]);
+  const n = ds.length;
+  const bang = useMemo(() => (n > 1 ? [ds[n - 1], ...ds, ds[0]] : ds), [ds, n]);
   const [i, setI] = useState(0);
+  const ref = useRef<HTMLUListElement>(null);
+
+  // Mở màn: đứng ở món thật đầu tiên (vị trí 1 — sau bản sao món cuối).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && n > 1) el.scrollLeft = el.clientWidth;
+  }, [n]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || n < 2) return;
+    let t: number | undefined;
+    const dung = () => {
+      window.clearTimeout(t);
+      if (el.clientWidth <= 0) return;
+      const toi = vongNhay(Math.round(el.scrollLeft / el.clientWidth), n);
+      if (toi == null) return;
+      el.style.scrollSnapType = "none";
+      el.scrollLeft = toi * el.clientWidth;
+      void el.offsetWidth; // ép trình duyệt vẽ vị trí mới trước khi bật lại snap
+      el.style.scrollSnapType = "";
+    };
+    const cuon = () => {
+      if (el.clientWidth > 0) setI(vongThat(Math.round(el.scrollLeft / el.clientWidth), n));
+      window.clearTimeout(t);
+      t = window.setTimeout(dung, LUOT_DUNG_MS);
+    };
+    el.addEventListener("scroll", cuon, { passive: true });
+    el.addEventListener("scrollend", dung);
+    return () => {
+      window.clearTimeout(t);
+      el.removeEventListener("scroll", cuon);
+      el.removeEventListener("scrollend", dung);
+    };
+  }, [n]);
+
   return (
     <div>
-      <ul
-        className="flex snap-x snap-mandatory overflow-x-auto rounded-[1.25rem] cuon-an"
-        aria-roledescription="băng quảng cáo"
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          if (el.clientWidth > 0) setI(Math.round(el.scrollLeft / el.clientWidth));
-        }}
-      >
-        {ds.map((k, j) => (
-          <li key={k.id} className="w-full shrink-0 snap-center" aria-label={`${j + 1} / ${ds.length}`}>
-            <TheHomNay k={k} active={j === i} xong={!!daDK[k.id]} nhan={j === 0 ? nhan : (k.nhan?.[0] ?? null)} onBam={() => onBam(k)} />
-          </li>
-        ))}
+      <ul ref={ref} className="flex snap-x snap-mandatory overflow-x-auto rounded-[1.25rem] cuon-an" aria-roledescription="băng quảng cáo">
+        {bang.map((k, j) => {
+          const sao = n > 1 && (j === 0 || j === n + 1);
+          const that = vongThat(j, n);
+          return (
+            <li
+              key={sao ? `${k.id}-sao-${j}` : k.id}
+              className="w-full shrink-0 snap-center"
+              aria-hidden={sao || undefined}
+              inert={sao || undefined}
+              aria-label={sao ? undefined : `${that + 1} / ${n}`}
+            >
+              <TheHomNay
+                k={k}
+                active={!sao && that === i}
+                xong={!!daDK[k.id]}
+                nhan={that === 0 ? nhan : (k.nhan?.[0] ?? null)}
+                onBam={() => onBam(k)}
+              />
+            </li>
+          );
+        })}
       </ul>
-      {ds.length > 1 && (
+      {n > 1 && (
         <div className="mt-2 flex justify-center gap-1.5" aria-hidden>
           {ds.map((k, j) => (
             <span key={k.id} className={`h-2 rounded-full ${j === i ? "w-5 bg-navy" : "w-2 bg-navy/25"}`} />

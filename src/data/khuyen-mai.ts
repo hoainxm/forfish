@@ -249,6 +249,20 @@ export function xepLuot(dau: KhuyenMai, ds: KhuyenMai[]): KhuyenMai[] {
   return [dau, ...ds.filter((k) => k.id !== dau.id)];
 }
 
+/** BĂNG VÒNG TRÒN: băng có bản sao hai đầu `[cuối, ...n món, đầu]` khi n ≥ 2. Vị trí trên băng ⇒ món thật (0..n-1). */
+export function vongThat(viTri: number, n: number): number {
+  if (n < 2) return 0;
+  return (((viTri - 1) % n) + n) % n;
+}
+
+/** Cuộn dừng ở bản sao ⇒ vị trí món thật cùng hình để nhảy tức thì; đang ở món thật ⇒ null. */
+export function vongNhay(viTri: number, n: number): number | null {
+  if (n < 2) return null;
+  if (viTri <= 0) return n;
+  if (viTri >= n + 1) return 1;
+  return null;
+}
+
 /** 63 ⇒ "1:03" (độ dài clip trên thẻ). */
 export function doDaiClip(giay: number): string {
   const s = Math.max(0, Math.round(giay));
