@@ -29,7 +29,7 @@ import { Field, inputClass, PrimaryButton, textareaClass } from "@/components/ui
 import { baoToast } from "@/components/ui/toast";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
-import { conHieuLuc, KHUYEN_MAI, tienVn, timKhuyenMai, type KhuyenMai } from "@/data/khuyen-mai";
+import { chonMotKhuyenMai, conHieuLuc, KHUYEN_MAI, tienVn, timKhuyenMai, type KhuyenMai } from "@/data/khuyen-mai";
 import { timeoutSignal } from "@/lib/abort";
 import { apiUrl } from "@/lib/api-base";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
@@ -64,27 +64,61 @@ function homNay(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
 }
 
-/** Thẻ ưu đãi — tự ẩn khi không còn ưu đãi nào hiệu lực. `gon` = bản một dòng (đầu Vật tư). */
+/*  XOAY QUẢNG CÁO (anh Long 31/10: "tổ chức cái quảng cáo random chứ đừng hiện cả, 1 lúc xem 1 cái thôi, cho random ở cả
+    màn chủ và kairos, lâu lâu đẩy ở màn bản đồ kiểu notify"). Kho `forfish.km.xoay.v1` = { truoc: id món vừa hiện, banDo: mốc
+    lần cuối bật thẻ nổi ở Bản đồ } — của MÁY NÀY, mất thì chỉ có thể lặp lại món cũ một lần. */
+const XOAY_KEY = "forfish.km.xoay.v1";
+type Xoay = { truoc?: string; banDo?: number };
+export function docXoay(): Xoay {
+  try {
+    const v = JSON.parse(window.localStorage.getItem(XOAY_KEY) ?? "null") as unknown;
+    return v && typeof v === "object" ? (v as Xoay) : {};
+  } catch {
+    return {};
+  }
+}
+export function ghiXoay(x: Xoay) {
+  try {
+    window.localStorage.setItem(XOAY_KEY, JSON.stringify({ ...docXoay(), ...x }));
+  } catch {
+    /* chế độ riêng tư chặn ghi ⇒ lần sau có thể lặp món */
+  }
+}
+
+/** Chọn một món còn hiệu lực để quảng bá (bỏ món vừa hiện, ưu tiên món chưa đăng ký) và ghi lại là đã hiện. */
+export function chonQuangCao(): KhuyenMai | null {
+  const ds = KHUYEN_MAI.filter((k) => conHieuLuc(k, homNay()));
+  const k = chonMotKhuyenMai(ds, docXoay().truoc ?? null, new Set(Object.keys(docDaDangKy())), Math.random());
+  if (k) ghiXoay({ truoc: k.id });
+  return k;
+}
+
+/** Thẻ hàng SDVICO — MỘT món ngẫu nhiên mỗi lần mở màn (Trang chủ, đầu Vật tư, giữa dòng Kairos). Chọn sau khi gắn vào
+ *  trang (Math.random + kho máy ⇒ không chọn lúc dựng trên máy chủ, tránh lệch hydrate). `?km=<id>` (Sen Biển / thẻ nổi Bản
+ *  đồ) ⇒ mở thẳng món đó: có clip ⇒ ngăn video, không ⇒ ngăn Đăng ký. */
 export function KhuyenMaiCard({ className = "" }: { className?: string }) {
   const [daDK, setDaDK] = useState<DaDangKy>({});
   const [mo, setMo] = useState<KhuyenMai | null>(null);
   const [xem, setXem] = useState<KhuyenMai | null>(null);
-  useEffect(() => setDaDK(docDaDangKy()), []);
-  // Sen Biển "mở video máy lọc dầu" ⇒ /?km=<id> (hoi-san-pham.DUONG_VIDEO_LOC_DAU): mở thẳng ngăn video rồi gỡ tham số
+  const [mon, setMon] = useState<KhuyenMai | null>(null);
   useEffect(() => {
+    setDaDK(docDaDangKy());
+    let k: KhuyenMai | null = null;
     try {
       const u = new URL(window.location.href);
-      const k = timKhuyenMai(u.searchParams.get("km") ?? "");
-      if (!k?.video) return;
-      setXem(k);
-      u.searchParams.delete("km");
-      window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
+      k = timKhuyenMai(u.searchParams.get("km") ?? "");
+      if (k) {
+        if (k.video) setXem(k);
+        else if (!docDaDangKy()[k.id]) setMo(k);
+        u.searchParams.delete("km");
+        window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
+      }
     } catch {
       /* URL lạ — bỏ qua */
     }
+    setMon(k ?? chonQuangCao());
   }, []);
-  const today = homNay();
-  const ds = KHUYEN_MAI.filter((k) => conHieuLuc(k, today));
+  const ds = mon ? [mon] : [];
   if (!ds.length) return null;
   return (
     <section className={className} aria-label="Ưu đãi SDVICO">

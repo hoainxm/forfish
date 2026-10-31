@@ -1,6 +1,6 @@
 // Khuyến mãi SDVICO (2026-10-26, sứ định vị 500k giảm 200k ⇒ 300k — sửa 2026-10-27): danh mục, lời nhắn phiếu, tin Zalo cho Quân.
 import { describe, expect, it } from "vitest";
-import { conHieuLuc, KHUYEN_MAI, KM_AC_QUY, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
+import { chonMotKhuyenMai, conHieuLuc, KHUYEN_MAI, KM_AC_QUY, KM_LOC_DAU, KM_LOC_NUOC, KM_SU_DINH_VI, khuyenMaiCuaPhieu, loiNhanDangKy, soLuongTuLoiNhan, tienVn, timBienThe, timKhuyenMai } from "@/data/khuyen-mai";
 import { CHAT_KD, chatCuaPhieu, kiemPhieu, phieuDonCho, tinNhanKd } from "@/lib/sdvico/khach-hoi";
 
 describe("danh mục khuyến mãi", () => {
@@ -113,7 +113,7 @@ describe("máy lọc nước + ắc quy (31/10)", () => {
     expect(KM_LOC_NUOC.bienThe?.map((b) => b.gia)).toEqual([38_000_000, 49_500_000]);
     expect(KM_LOC_NUOC.giaTu).toBe(true);
     expect(KM_AC_QUY.giaApp).toBe(4_200_000);
-    expect(KM_AC_QUY.video).toBeUndefined(); // không clip ⇒ thẻ mở thẳng ngăn Đăng ký
+    expect(KM_AC_QUY.video?.src).toBe("/sdvico/ac-quy.mp4"); // anh Long "làm cả video cho accu đi"
     for (const k of [KM_LOC_NUOC, KM_AC_QUY]) expect(k.guiToi).toBe("Triển Khai Kinh Doanh");
   });
   it("mọi clip có file thật, dưới 8 MB; tên phiếu không trùng", async () => {
@@ -123,6 +123,23 @@ describe("máy lọc nước + ắc quy (31/10)", () => {
       expect(statSync(`public${k.video!.src}`).size, k.id).toBeLessThan(8 * 1024 * 1024);
     }
     expect(new Set(KHUYEN_MAI.map((k) => k.tenPhieu)).size).toBe(KHUYEN_MAI.length);
+  });
+});
+
+describe("xoay quảng cáo — một món mỗi lần (31/10)", () => {
+  const ids = (k: { id: string } | null) => k?.id ?? null;
+  it("bỏ món vừa hiện, ưu tiên món chưa đăng ký, r chia đều", () => {
+    const ds = KHUYEN_MAI;
+    expect(chonMotKhuyenMai([], null, new Set(), 0.5)).toBeNull();
+    for (let r = 0; r < 1; r += 0.07) expect(ids(chonMotKhuyenMai(ds, "loc-dau-sf", new Set(), r))).not.toBe("loc-dau-sf");
+    const daDK = new Set(["su-dinh-vi-gps", "loc-dau-sf", "loc-nuoc-bien"]);
+    expect(ids(chonMotKhuyenMai(ds, null, daDK, 0.3))).toBe("ac-quy-tau-ca");
+    // đăng ký hết ⇒ vẫn xoay trong cả danh sách
+    expect(chonMotKhuyenMai(ds, null, new Set(ds.map((k) => k.id)), 0.99)).not.toBeNull();
+    // một món duy nhất ⇒ vẫn hiện dù vừa hiện
+    expect(ids(chonMotKhuyenMai([KM_AC_QUY], "ac-quy-tau-ca", new Set(), 0.1))).toBe("ac-quy-tau-ca");
+    const thay = new Set([0, 0.26, 0.51, 0.76].map((r) => ids(chonMotKhuyenMai(ds, null, new Set(), r))));
+    expect(thay.size).toBe(4);
   });
 });
 

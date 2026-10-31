@@ -39,7 +39,7 @@ describe("traLoiSanPham", () => {
     expect(DUONG_VIDEO_LOC_DAU).toBe("/?km=loc-dau-sf");
   });
 
-  it("máy lọc nước + ắc quy: đúng món, đúng chủ đề; ắc quy không clip ⇒ không mở video", () => {
+  it("máy lọc nước + ắc quy: đúng món, đúng chủ đề; muốn mua/xem ⇒ mở clip", () => {
     const ln = (i: number) => KM_LOC_NUOC.hoiDap![i].dap;
     expect(traLoiSanPham("máy lọc nước biển giá bao nhiêu")!.say.startsWith(ln(0))).toBe(true);
     expect(traLoiSanPham("lọc nước bản cơ khác bản điện chỗ nào")!.say.startsWith(ln(1))).toBe(true);
@@ -48,7 +48,8 @@ describe("traLoiSanPham", () => {
     expect(traLoiSanPham("cho coi video máy lọc nước")!.duong).toBe("/?km=loc-nuoc-bien");
     const aq = traLoiSanPham("ắc quy cọc riêng để làm gì")!;
     expect(aq.say).toBe(KM_AC_QUY.hoiDap![1].dap);
-    expect(traLoiSanPham("mua accu")!.duong).toBeNull();
+    expect(traLoiSanPham("mua accu")!.duong).toBe("/?km=ac-quy-tau-ca");
+    expect(traLoiSanPham("ắc quy cọc riêng để làm gì")!.duong).toBeNull();
     expect(traLoiSanPham("bình ắc quy giá nhiêu")!.say.startsWith(KM_AC_QUY.hoiDap![0].dap)).toBe(true);
   });
 

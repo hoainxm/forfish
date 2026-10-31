@@ -41,6 +41,7 @@
 */
 
 import { datCangNha as ghiCangNha } from "@/lib/cang-nha";
+import { KhuyenMaiCard } from "@/components/khuyen-mai-card";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon } from "@/components/icons";
@@ -808,6 +809,8 @@ export function KairosFeed({
                   <TheTaiTroCard ad={ads[qc]} onBam={onBamTaiTro} />
                 </div>
               )}
+              {/* hàng SDVICO — MỘT món ngẫu nhiên sau bài thứ 3 (anh Long 31/10: "random ở cả màn chủ và kairos") */}
+              {i === 2 && !port && !chinhSach && load === "ready" && <KhuyenMaiCard />}
             </Fragment>
           );
         })}

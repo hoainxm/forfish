@@ -333,6 +333,7 @@ import { setSenSignal } from "@/lib/sen-bien-state";
 import { apDungGemma, canGemma, chonKho, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
 import { traLoiSanPham } from "@/lib/sen-bien/hoi-san-pham";
+import { QuangCaoNoi } from "@/components/quang-cao-noi";
 import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
@@ -8360,6 +8361,8 @@ export default function FishingMapView() {
       {!senOpen && !routeMode && size !== "half" && (
         <SenBienNoi onOpen={openSen} />
       )}
+      {/* quảng bá hàng SDVICO kiểu thông báo (2026-10-31): lâu lâu một lần, vài giây, không khi đang dẫn đường / Sen Biển mở */}
+      <QuangCaoNoi an={navOn || senOpen || !!routeMode} />
       {senOpen && (
         <SenBienSheet
           key={senAwait ? "cho-di" : senListen ? "nghe" : "mo"}

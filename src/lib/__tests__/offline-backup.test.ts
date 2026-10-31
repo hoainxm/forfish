@@ -593,6 +593,10 @@ const EXCLUDED: Array<[string, string]> = [
     "dấu 'đã đăng ký khuyến mãi SDVICO' của MÁY NÀY (2026-10-26, 14 §3.14b) — phiếu thật nằm ở máy chủ; máy khác bấm lại thì máy chủ trả `trung`, không thành hai đơn, nên không cần chép; khoá theo SĐT (auth-scope xoá khi đổi tài khoản)",
   ],
   [
+    "forfish.km.xoay.v1",
+    "món quảng bá vừa hiện + mốc lần cuối bật thẻ nổi ở Bản đồ của MÁY NÀY (2026-10-31) — chép sang máy khác chỉ làm máy đó hoãn thẻ nổi 4 giờ / lặp món; không dữ liệu gì của bà con",
+  ],
+  [
     "forfish.senbien.vitri.v1",
     "chỗ bà con kéo icon Sen Biển tới (2026-10-17) — đo theo màn hình MÁY NÀY, chép sang máy khác cỡ màn là lệch/che nút",
   ],

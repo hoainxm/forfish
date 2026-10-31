@@ -168,7 +168,7 @@ export const KM_LOC_NUOC: KhuyenMai = {
 };
 
 // ẮC QUY TÀU CÁ — anh Long 31/10: "accu 4 triệu 200, dành riêng cho tàu, độc quyền bởi sdvico, có cọc bình riêng cho thiết
-// bị điện tử". Thông số theo `sdvico-showcase` (ac-quy-globe-wpm-220). Không có clip ⇒ bấm dòng là mở thẳng ngăn Đăng ký.
+// bị điện tử". Thông số theo `sdvico-showcase` (ac-quy-globe-wpm-220). Anh Long "làm cả video cho accu đi" ⇒ có clip.
 export const KM_AC_QUY: KhuyenMai = {
   id: "ac-quy-tau-ca",
   ten: "Ắc quy tàu cá Globe WPM-220",
@@ -176,6 +176,8 @@ export const KM_AC_QUY: KhuyenMai = {
   giaThiTruong: null,
   giaApp: 4_200_000,
   moTa: "Dành riêng cho tàu, có cọc bình riêng cho thiết bị điện tử.",
+  // Clip 48 s dựng 31/10 trên GPU (~/loc-dau-video/dung3.py ac-quy): cảnh thiết bị điện tử trên tàu + máy + ảnh bình.
+  video: { src: "/sdvico/ac-quy.mp4", poster: "/sdvico/ac-quy-poster.jpg", giay: 48 },
   diemHay: [
     "Giá 4.200.000đ một bình, đã gồm VAT — độc quyền SDVICO",
     "Có cọc bình riêng nối thiết bị điện tử: định vị, giám sát hành trình, bộ đàm",
@@ -212,6 +214,16 @@ export function khuyenMaiCuaPhieu(sanPham: string | null | undefined): KhuyenMai
 export function timBienThe(k: KhuyenMai, id: unknown): BienThe | null | undefined {
   if (!k.bienThe?.length) return undefined;
   return k.bienThe.find((b) => b.id === id) ?? null;
+}
+
+/** CHỌN MỘT MÓN ĐỂ QUẢNG BÁ (anh Long 31/10: "tổ chức cái quảng cáo random chứ đừng hiện cả, 1 lúc xem 1 cái thôi").
+ *  Bỏ món vừa hiện lần trước (`truoc`) và món đã đăng ký nếu còn món khác; `r` ∈ [0,1) (Math.random ở chỗ gọi — hàm thuần). */
+export function chonMotKhuyenMai(ds: KhuyenMai[], truoc: string | null, daDangKy: ReadonlySet<string>, r: number): KhuyenMai | null {
+  if (!ds.length) return null;
+  const chua = ds.filter((k) => !daDangKy.has(k.id));
+  const nhom = chua.length ? chua : ds;
+  const khac = nhom.length > 1 ? nhom.filter((k) => k.id !== truoc) : nhom;
+  return khac[Math.min(khac.length - 1, Math.floor(r * khac.length))];
 }
 
 /** Ưu đãi còn hiệu lực hôm nay (hetHan null = còn). `today` = "YYYY-MM-DD". */
