@@ -1908,9 +1908,38 @@ export default function FishingMapView() {
     ais?: boolean;
   } | null>(null);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pressAisTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressFrom = useRef<{ x: number; y: number } | null>(null);
-  const closePressMenu = useCallback(() => setPressMenu(null), []);
+  /** bỏ đếm 3 giây "Tàu quanh" + gỡ tai nghe nhấc tay */
+  const thoiDemAis = useRef<(() => void) | null>(null);
+  const huyDemAis = useCallback(() => {
+    thoiDemAis.current?.();
+    thoiDemAis.current = null;
+  }, []);
+  const closePressMenu = useCallback(() => {
+    huyDemAis();
+    setPressMenu(null);
+  }, [huyDemAis]);
+  /*  ĐẾM TỚI GIÂY 3 SAU KHI MENU ĐÃ BUNG (sửa 2026-11-01 — anh Long giữ trên iPhone thật mà không ra dòng "Tàu
+      quanh"). Menu 0,6 s hiện NGAY DƯỚI NGÓN: iOS Safari hay bắn `pointercancel`, ngón ướt/tàu lắc xê dịch quá 10px
+      trong 3 giây, MapLibre bắt đầu kéo — cả ba trước đây đều huỷ đếm. Nay từ lúc menu bung CHỈ NHẤC TAY THẬT
+      (`pointerup`/`touchend` ở window) mới huỷ. Lỡ máy nuốt cả touchend thì dòng vẫn hiện — thừa một lựa chọn,
+      không hại gì. */
+  const batDemAis = useCallback(() => {
+    huyDemAis();
+    const t = setTimeout(() => {
+      huyDemAis();
+      setPressMenu((m) => (m ? { ...m, ais: true } : m));
+    }, LONG_PRESS_AIS_MS - LONG_PRESS_MS);
+    const nhac = () => huyDemAis();
+    window.addEventListener("pointerup", nhac);
+    window.addEventListener("touchend", nhac);
+    thoiDemAis.current = () => {
+      clearTimeout(t);
+      window.removeEventListener("pointerup", nhac);
+      window.removeEventListener("touchend", nhac);
+    };
+  }, [huyDemAis]);
+  useEffect(() => huyDemAis, [huyDemAis]);
   /*  MỘT THẺ THÔNG TIN MỘT LÚC (rà bố cục 2026-10-22): trước đây mỗi loại thẻ một state
       riêng, chạm phao rồi chạm điểm đo sâu là HAI thẻ cùng nổi chồng nhau; thẻ còn NẰM MÃI
       khi bà con kéo bản đồ đi chỗ khác (thẻ neo theo điểm chạm trên MÀN, kéo đi là chỉ sai
@@ -1933,9 +1962,7 @@ export default function FishingMapView() {
   }, []);
   const cancelPress = useCallback(() => {
     if (pressTimer.current) clearTimeout(pressTimer.current);
-    if (pressAisTimer.current) clearTimeout(pressAisTimer.current);
     pressTimer.current = null;
-    pressAisTimer.current = null;
     pressFrom.current = null;
   }, []);
   /*  NGÓN TAY CÒN ĐANG ĐÈ THÌ CHƯA BẤM GIỜ (2026-08-29). Menu bung ở giây 0,6
@@ -5685,15 +5712,8 @@ export default function FishingMapView() {
             const rect = m.getContainer().getBoundingClientRect();
             const ll = m.unproject([px - rect.left, py - rect.top]);
             setPressMenu({ lat: ll.lat, lon: ll.lng, x: px, y: py });
+            if (aisAllowed) batDemAis();
           }, LONG_PRESS_MS);
-          if (aisAllowed) {
-            // menu 0,6 s bung ngay dưới ngón — chuột nhả TRÊN menu thì lớp bọc không nghe pointerup ⇒ nghe ở window
-            window.addEventListener("pointerup", cancelPress, { once: true });
-            pressAisTimer.current = setTimeout(() => {
-              pressAisTimer.current = null;
-              setPressMenu((m) => (m ? { ...m, ais: true } : m));
-            }, LONG_PRESS_AIS_MS);
-          }
         }}
         onPointerMove={(e) => {
           const f = pressFrom.current;
