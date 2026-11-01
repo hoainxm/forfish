@@ -623,8 +623,10 @@ const STRIP_AUTO_HIDE_MS = 3000; // 5s → 3s (user 2026-08-24: đỡ rối mắ
 const LONG_PRESS_MS = 600;
 /*  GIỮ TIẾP TỚI 3 GIÂY (2026-10-31, anh Long: "đè 3 s thì cho ra option chọn đi đến điểm này, xem tàu có phát AIS
     trong bán kính 6 hải lý trong 6h, tính năng này chỉ với acc của 0938635689") — chỉ tài khoản được xem AIS
-    (`aisAllowed`): menu 0,6 s vẫn bung như mọi người; ngón còn đè tới giây 3 thì menu thêm dòng "Tàu quanh đây". */
-const LONG_PRESS_AIS_MS = 3000;
+    (`aisAllowed`): menu 0,6 s vẫn bung như mọi người; ngón còn đè thêm thì menu thêm dòng "Tàu quanh".
+    2000 chứ không 3000 (đo iPhone giả lập 2026-11-01): iOS báo chạm trễ ⇒ mốc 3000 trong code thành 4–5 giây
+    theo tay (giữ 3,6 s không ra, 5 s mới ra). 2000 ⇒ tay giữ chừng 3 giây là có. */
+const LONG_PRESS_AIS_MS = 2000;
 
 /**
  * Số ngày mà "chỗ cá ít đổi" là câu ĐÃ ĐO ĐƯỢC, không phải câu nói cho vui.
@@ -862,11 +864,21 @@ export default function FishingMapView() {
     }
     setAisAllowed(peekQuyenAis(aisPhone) ?? false);
     let alive = true;
-    void fetchQuyenAis(aisPhone).then((v) => {
-      if (alive && v != null) setAisAllowed(v);
-    });
+    /*  Hỏi hỏng (vừa đăng nhập xong, mạng chậm) ⇒ hỏi lại thêm hai lần, cách 5 giây. Trước đây hỏng một lần là nút
+        AIS mất tới lần tải trang sau (đo iPhone giả lập 2026-11-01: máy chưa từng nhớ quyền ⇒ không nút). */
+    let lanThu = 0;
+    let hen: ReturnType<typeof setTimeout> | undefined;
+    const hoi = () => {
+      void fetchQuyenAis(aisPhone).then((v) => {
+        if (!alive) return;
+        if (v != null) setAisAllowed(v);
+        else if (++lanThu < 3) hen = setTimeout(hoi, 5000);
+      });
+    };
+    hoi();
     return () => {
       alive = false;
+      clearTimeout(hen);
     };
   }, [aisPhone]);
   /*  SỐ ĐO SÂU CHÍNH THỨC — mặc định BẬT. Đây là dữ liệu khảo sát của cơ quan
