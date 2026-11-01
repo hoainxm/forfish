@@ -64,6 +64,7 @@ export const DATA_ROUTE_MATCHER = [
   "/api/fuel-price",
   "/api/tau-ais",
   "/api/tau-ais/vet",
+  "/api/tau-ais/quanh",
   "/api/tiles/:src/:z/:x/:y",
   "/api/om/:api",
 ] as const;
@@ -110,6 +111,6 @@ export function dataRouteRule(pathname: string, search: URLSearchParams): DataRo
   if (CAN_GOI.has(p)) return banDo("data", true);
   if (TAI_KHOAN.has(p)) return banDo("data", false);
   // AIS: miễn phí nhưng CHỈ tài khoản được bật (2026-10-29) — chặn ở đây vì CDN giữ bản 2 phút, cổng trong route bị cache vượt
-  if (p === "/api/tau-ais" || p === "/api/tau-ais/vet") return { ...banDo("data", false), feature: "ais" };
+  if (p === "/api/tau-ais" || p === "/api/tau-ais/vet" || p === "/api/tau-ais/quanh") return { ...banDo("data", false), feature: "ais" };
   return null;
 }

@@ -26,6 +26,8 @@ export const NHAN = {
   dong: "Đóng",
   an: "Ẩn",
   duongDi: "Đường đi",
+  /** menu chạm giữ 3 giây trên bản đồ — tàu đã phát AIS quanh điểm (tài khoản được xem AIS) */
+  tauQuanh: "Tàu quanh",
   thuGon: "Thu gọn",
   xemThem: "Xem thêm",
   xemTruoc: "Xem trước",

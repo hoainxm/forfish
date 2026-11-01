@@ -268,6 +268,8 @@ import {
   type ReefInfo, type StormPtInfo, type VungInfo, type XacTauInfo, type TauAisInfo, TheTauAis,
 } from "@/components/ban-do/the-thong-tin";
 import { AisBanKinh, AisToanBien, type CheDoAisXem, type NhomTau } from "@/components/ban-do/che-do-ais";
+import { TheTauQuanh } from "@/components/ban-do/tau-quanh";
+import { QUANH_NM, fetchTauQuanh, quanhGeoJson, tauAisTuQuanh, type KetQuaQuanh } from "@/lib/tau-ais-quanh";
 import { CO_ICON_TAU, dangKyIconTau } from "@/components/ban-do/icon-tau";
 import { VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { TAM_RADAR_NM, khungRadar, mucTieuGeoJson, quetQuanh, radarGeoJson, type MucTieu, type TauMinh } from "@/lib/ais-cpa";
@@ -619,6 +621,10 @@ const STRIP_AUTO_HIDE_MS = 3000; // 5s → 3s (user 2026-08-24: đỡ rối mắ
 /*  Ngưỡng CHẠM GIỮ để mở menu ngữ cảnh trên bản đồ. 0,6s — đúng nhịp của
     Google Maps / Zalo / iOS, thứ bà con dùng hằng ngày. Xem 07 §10.7 K. */
 const LONG_PRESS_MS = 600;
+/*  GIỮ TIẾP TỚI 3 GIÂY (2026-10-31, anh Long: "đè 3 s thì cho ra option chọn đi đến điểm này, xem tàu có phát AIS
+    trong bán kính 6 hải lý trong 6h, tính năng này chỉ với acc của 0938635689") — chỉ tài khoản được xem AIS
+    (`aisAllowed`): menu 0,6 s vẫn bung như mọi người; ngón còn đè tới giây 3 thì menu thêm dòng "Tàu quanh đây". */
+const LONG_PRESS_AIS_MS = 3000;
 
 /**
  * Số ngày mà "chỗ cá ít đổi" là câu ĐÃ ĐO ĐƯỢC, không phải câu nói cho vui.
@@ -1898,8 +1904,11 @@ export default function FishingMapView() {
     lon: number;
     x: number;
     y: number;
+    /** đã giữ tới LONG_PRESS_AIS_MS — menu có dòng "Tàu quanh đây" */
+    ais?: boolean;
   } | null>(null);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressAisTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressFrom = useRef<{ x: number; y: number } | null>(null);
   const closePressMenu = useCallback(() => setPressMenu(null), []);
   /*  MỘT THẺ THÔNG TIN MỘT LÚC (rà bố cục 2026-10-22): trước đây mỗi loại thẻ một state
@@ -1924,7 +1933,9 @@ export default function FishingMapView() {
   }, []);
   const cancelPress = useCallback(() => {
     if (pressTimer.current) clearTimeout(pressTimer.current);
+    if (pressAisTimer.current) clearTimeout(pressAisTimer.current);
     pressTimer.current = null;
+    pressAisTimer.current = null;
     pressFrom.current = null;
   }, []);
   /*  NGÓN TAY CÒN ĐANG ĐÈ THÌ CHƯA BẤM GIỜ (2026-08-29). Menu bung ở giây 0,6
@@ -3210,6 +3221,23 @@ export default function FishingMapView() {
     });
   }, []);
   const vetGeo = useMemo(() => (vetTau?.kq?.ok ? vetGeoJson(vetTau.kq.diem) : null), [vetTau]);
+  /*  TÀU QUANH MỘT ĐIỂM (menu giữ 3 giây, lib/tau-ais-quanh) — thẻ TheTauQuanh đầu cột trái + Source `ais-quanh`
+      (vòng 6 hải lý + chấm mỗi tàu ở chỗ gần điểm nhất). Request chỉ chạy khi bà con chọn; mất sóng ⇒ bản trong máy. */
+  const [tauQuanh, setTauQuanh] = useState<{ tam: { lat: number; lon: number }; kq: KetQuaQuanh | null | "loi" } | null>(null);
+  const [tauQuanhChon, setTauQuanhChon] = useState<string | null>(null);
+  const xemTauQuanh = useCallback(
+    (tam: { lat: number; lon: number }) => {
+      setTauQuanh({ tam, kq: null });
+      setTauQuanhChon(null);
+      setSize("peek");
+      void fetchTauQuanh(tam).then((kq) => setTauQuanh((v) => (v?.tam === tam ? { tam, kq: kq ?? "loi" } : v)));
+    },
+    [setSize],
+  );
+  const quanhGeo = useMemo(
+    () => (tauQuanh ? quanhGeoJson(tauQuanh.tam, tauQuanh.kq && tauQuanh.kq !== "loi" ? tauQuanh.kq.tau : [], tauQuanhChon) : null),
+    [tauQuanh, tauQuanhChon],
+  );
 
   /** Mở một điểm đã lưu / GPS / cảng tìm được — bay tới + xem dự báo.
       Tuyến đang vẽ giữ nguyên (như chạm bản đồ) — RoutePlanner tự nhắc. */
@@ -3428,6 +3456,22 @@ export default function FishingMapView() {
   useEffect(() => {
     aisTamRef.current = aisTam;
   }, [aisTam]);
+  /*  TÀU QUANH ĐÂY: ôm vòng 6 hải lý DƯỚI thẻ (đo đáy cột nổi trái sau khi thẻ vẽ) — chạy lại khi kết quả về (thẻ cao
+      lên). Đệm trên kẹp để khung còn ít nhất 8rem cho vòng, MapLibre bỏ qua fitBounds khi đệm vượt khung. */
+  const quanhTam = tauQuanh?.tam ?? null;
+  const quanhCoKq = tauQuanh?.kq != null;
+  useEffect(() => {
+    if (!quanhTam) return;
+    const id = window.setTimeout(() => {
+      const map = mapRef.current;
+      if (!map) return;
+      const khung = map.getContainer().getBoundingClientRect();
+      const day = aisHudRef.current?.getBoundingClientRect().bottom ?? khung.top + 200;
+      const top = Math.min(Math.max(40, day - khung.top + 12), khung.height - 120 - 128);
+      map.fitBounds(khungRadar(quanhTam, QUANH_NM), { padding: { top, bottom: 120, left: 24, right: 64 }, maxZoom: 12, duration: 650 });
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, [quanhTam, quanhCoKq]);
   useEffect(() => {
     if (aisMode !== "ban-kinh") return;
     const id = window.requestAnimationFrame(() => {
@@ -5642,6 +5686,14 @@ export default function FishingMapView() {
             const ll = m.unproject([px - rect.left, py - rect.top]);
             setPressMenu({ lat: ll.lat, lon: ll.lng, x: px, y: py });
           }, LONG_PRESS_MS);
+          if (aisAllowed) {
+            // menu 0,6 s bung ngay dưới ngón — chuột nhả TRÊN menu thì lớp bọc không nghe pointerup ⇒ nghe ở window
+            window.addEventListener("pointerup", cancelPress, { once: true });
+            pressAisTimer.current = setTimeout(() => {
+              pressAisTimer.current = null;
+              setPressMenu((m) => (m ? { ...m, ais: true } : m));
+            }, LONG_PRESS_AIS_MS);
+          }
         }}
         onPointerMove={(e) => {
           const f = pressFrom.current;
@@ -8076,6 +8128,30 @@ export default function FishingMapView() {
             />
           </Source>
         )}
+        {/* TÀU QUANH MỘT ĐIỂM — vòng 6 hải lý liền (khác vòng radar đứt) + chấm màu theo loại tàu, chấm đang chọn to + viền */}
+        {quanhGeo && (
+          <Source id="ais-quanh" type="geojson" data={quanhGeo}>
+            <Layer id="ais-quanh-vong" type="line" filter={["==", ["get", "kind"], "vong"] as unknown as boolean} paint={{ "line-color": "#0e7490", "line-width": 1.8, "line-opacity": 0.85 }} />
+            <Layer
+              id="ais-quanh-nhan"
+              type="symbol"
+              filter={["==", ["get", "kind"], "nhan"] as unknown as boolean}
+              layout={{ "text-field": ["get", "nhan"] as unknown as string, "text-font": ["Noto Sans Bold"], "text-size": 11, "text-anchor": "bottom", "text-offset": [0, -0.2], "text-allow-overlap": true }}
+              paint={{ "text-color": "#0b4f63", "text-halo-color": "#ffffff", "text-halo-width": 1.6 }}
+            />
+            <Layer
+              id="ais-quanh-tau"
+              type="circle"
+              filter={["==", ["get", "kind"], "tau"] as unknown as boolean}
+              paint={{
+                "circle-color": ["get", "mau"] as unknown as string,
+                "circle-radius": ["case", ["==", ["get", "chon"], 1], 8, 5] as unknown as number,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": ["case", ["==", ["get", "chon"], 1], 2.5, 1.2] as unknown as number,
+              }}
+            />
+          </Source>
+        )}
         {aisMucTieuGeo && (
           <Source id="ais-radar-tau" type="geojson" data={aisMucTieuGeo}>
             <Layer
@@ -8333,6 +8409,22 @@ export default function FishingMapView() {
             <StarIcon className="h-6 w-6 shrink-0 text-sun" />
             {NHAN.luuDiem}
           </button>
+          {pressMenu.ais && aisAllowed && (
+            <button
+              type="button"
+              onClick={() => {
+                const { lat, lon } = pressMenu;
+                closePressMenu();
+                xemTauQuanh({ lat, lon });
+              }}
+              className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-semibold text-navy transition active:bg-field"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-navy text-[0.625rem] font-bold text-white" aria-hidden>
+                AIS
+              </span>
+              {NHAN.tauQuanh}
+            </button>
+          )}
         </div>
       )}
 
@@ -8572,6 +8664,22 @@ export default function FishingMapView() {
                 onClose={thoatAis}
               />
             )}
+            {tauQuanh && aisAllowed && (
+              <TheTauQuanh
+                kq={tauQuanh.kq}
+                chonId={tauQuanhChon}
+                // không bay bản đồ: vòng đã ôm sẵn mọi chấm dưới thẻ, bay tới tâm là chấm rơi dưới ô toạ độ
+                onChon={setTauQuanhChon}
+                onDuongDi={(t) => xemVetTau(tauAisTuQuanh(t))}
+                onRetry={() => xemTauQuanh(tauQuanh.tam)}
+                onClose={() => {
+                  setTauQuanh(null);
+                  setTauQuanhChon(null);
+                  setVetTau(null);
+                }}
+                prefs={prefs}
+              />
+            )}
             {/* viên ĐƯỜNG ĐI đang xem — nằm TRONG cột trái ngay dưới thẻ AIS (xếp theo luồng, không đè thẻ) */}
             {vetTau && (
               <div className="pointer-events-auto flex max-w-full items-center gap-2 self-start rounded-full bg-card/97 py-1 pl-3 pr-1 shadow-lg">
@@ -8584,7 +8692,7 @@ export default function FishingMapView() {
                 </button>
               </div>
             )}
-            {navMode == null && aisMode == null && (
+            {navMode == null && aisMode == null && !tauQuanh && (
               <div ref={setOTimEl}>
               <OTimDiem
                 onOpen={() => (premiumAccess === "login" ? setMoiTimDiem(true) : setTimMo(true))}

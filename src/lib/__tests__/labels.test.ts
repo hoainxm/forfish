@@ -38,6 +38,7 @@ const MIEN_KHU: [RegExp, string][] = [
 /** Từng nút ngoại lệ: tệp + đoạn chữ — không phải NHÃN mà là câu/số liệu chạm được. */
 const NGOAI_LE: [string, string, string][] = [
   ["components/ban-do/che-do-ais.tsx", "Chưa tải được vị trí tàu", "băng lỗi chạm-để-thử-lại: chữ là câu báo, không phải nhãn"],
+  ["components/ban-do/tau-quanh.tsx", "Chưa tải được vị trí tàu", "băng lỗi chạm-để-thử-lại (thẻ Tàu quanh đây)"],
   ["components/ra-khoi-controls.tsx", "Chưa tải được vị trí tàu", "băng lỗi chạm-để-thử-lại"],
   ["components/ra-khoi-controls.tsx", "Chưa tải được mật độ tàu", "băng lỗi chạm-để-thử-lại"],
   ["components/kairos/comment-thread.tsx", "Chưa tải được bình luận", "băng lỗi, nhãn hành động là {NHAN.thuLai}"],
