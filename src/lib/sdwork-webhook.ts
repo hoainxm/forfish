@@ -119,6 +119,36 @@ export function passwordSyncIntent(e: WebhookEvent): {
   return { password, reset: e.data.resetPassword === true };
 }
 
+// ── Khách TRÙNG SĐT (2026-10-31) ──
+// `customers` có HAI khoá duy nhất: phone VÀ sdwork_ref. Upsert theo sdwork_ref
+// chỉ thấy hàng cùng mã; khách tạo tay ở /quan-tri (admin/accounts upsert theo
+// phone, KHÔNG có mã) đứng sẵn với cùng SĐT ⇒ upsert thành INSERT ⇒ 23505 trên
+// customers_phone_key ⇒ `upsert_failed` mãi (đo 31/10: 865 event dead + 134/139
+// khách đang chờ — 133 trùng SĐT mã NULL, 1 trùng SĐT mã khác).
+
+/** Lỗi upsert là do SĐT đã thuộc một hàng khác (khoá customers_phone_key)? */
+export function isPhoneTaken(
+  err: { code?: string | null; message?: string | null; details?: string | null } | null,
+): boolean {
+  if (!err || err.code !== "23505") return false;
+  const text = `${err.message ?? ""} ${err.details ?? ""}`;
+  return /customers_phone_key|\(phone\)/.test(text);
+}
+
+/**
+ * Hàng đang giữ SĐT chưa có mã SDWork ⇒ cùng một khách, NHẬN về (gắn mã vào
+ * hàng đó). Đã mang mã KHÁC ⇒ hai khách CRM cùng một SĐT ⇒ KHÔNG ghi đè, báo
+ * `phone_conflict` để người xử lý tay. Không tìm thấy hàng ⇒ cũng conflict
+ * (không đoán).
+ */
+export function planPhoneClaim(
+  holder: { id: string; sdwork_ref: string | null } | null,
+): { kind: "claim"; id: string } | { kind: "conflict" } {
+  return holder && holder.sdwork_ref == null
+    ? { kind: "claim", id: holder.id }
+    : { kind: "conflict" };
+}
+
 export function toSupplyRow(e: WebhookEvent): SupplyRow | null {
   const phone = str(e.data.customerPhone ?? e.data.phone);
   const name = str(e.data.name);

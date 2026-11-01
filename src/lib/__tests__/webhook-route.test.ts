@@ -15,14 +15,45 @@ const h = vi.hoisted(() => {
     createUser: [] as any[],
     updateUserById: [] as { id: string; args: any }[],
     rpc: [] as { fn: string; params: any }[],
+    lookups: [] as { table: string; col: string; val: string }[],
+    updates: [] as { table: string; patch: any; id: string; isNullCol: string }[],
   };
-  const state = { createUserError: null as null | { message: string }, rpcData: "uid-123" as string | null };
+  const state = {
+    createUserError: null as null | { message: string },
+    rpcData: "uid-123" as string | null,
+    upsertError: null as any,
+    /** hàng `customers` đang giữ SĐT (tra khi upsert đụng customers_phone_key) */
+    holder: null as null | { id: string; sdwork_ref: string | null },
+    /** số hàng UPDATE nhận-về khớp (0 = bị event khác nhận mất giữa chừng) */
+    claimRows: 1,
+  };
   const admin = {
     from: (table: string) => ({
       upsert: (row: any, opts: any) => {
         calls.upserts.push({ table, row, opts });
-        return Promise.resolve({ error: null });
+        return Promise.resolve({ error: state.upsertError });
       },
+      select: () => ({
+        eq: (col: string, val: string) => ({
+          maybeSingle: () => {
+            calls.lookups.push({ table, col, val });
+            return Promise.resolve({ data: state.holder, error: null });
+          },
+        }),
+      }),
+      update: (patch: any) => ({
+        eq: (_col: string, id: string) => ({
+          is: (isNullCol: string) => ({
+            select: () => {
+              calls.updates.push({ table, patch, id, isNullCol });
+              return Promise.resolve({
+                data: Array.from({ length: state.claimRows }, () => ({ id })),
+                error: null,
+              });
+            },
+          }),
+        }),
+      }),
       delete: () => ({
         eq: (col: string, val: string) => {
           calls.deletes.push({ table, col, val });
@@ -69,8 +100,13 @@ beforeEach(() => {
   h.calls.createUser.length = 0;
   h.calls.updateUserById.length = 0;
   h.calls.rpc.length = 0;
+  h.calls.lookups.length = 0;
+  h.calls.updates.length = 0;
   h.state.createUserError = null;
   h.state.rpcData = "uid-123";
+  h.state.upsertError = null;
+  h.state.holder = null;
+  h.state.claimRows = 1;
   staff.phones.clear();
   staff.unavailable = false;
 });
@@ -236,5 +272,79 @@ describe("POST /api/sdwork/webhook", () => {
     expect(json.results[0].ok).toBe(true);
     expect(json.results[0].provisioned).toBeUndefined();
     expect(h.calls.createUser).toHaveLength(0);
+  });
+
+  describe("khách TRÙNG SĐT (2026-10-31: 865 event dead upsert_failed)", () => {
+    const PHONE_TAKEN = {
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "customers_phone_key"',
+      details: "Key (phone)=(0901234567) already exists.",
+    };
+
+    it("SĐT đã có hàng CHƯA gắn mã (tạo tay /quan-tri) → nhận về: gắn mã vào hàng đó, vẫn provision", async () => {
+      h.state.upsertError = PHONE_TAKEN;
+      h.state.holder = { id: "row-1", sdwork_ref: null };
+      const res = await post({
+        events: [{ entity: "customer", action: "upsert", ref: "c1", data: { phone: "0901234567", name: "A" } }],
+      });
+      const json = await res.json();
+      expect(json.results[0]).toMatchObject({ ref: "c1", ok: true, provisioned: true });
+      expect(h.calls.lookups).toEqual([{ table: "customers", col: "phone", val: "0901234567" }]);
+      expect(h.calls.updates).toHaveLength(1);
+      expect(h.calls.updates[0]).toMatchObject({ table: "customers", id: "row-1", isNullCol: "sdwork_ref" });
+      expect(h.calls.updates[0].patch).toMatchObject({ sdwork_ref: "c1", phone: "0901234567", name: "A" });
+      expect(json.applied).toBe(1);
+    });
+
+    it("CRM gửi tên rỗng → KHÔNG xoá tên đã nhập tay khi nhận về", async () => {
+      h.state.upsertError = PHONE_TAKEN;
+      h.state.holder = { id: "row-1", sdwork_ref: null };
+      await post({ events: [{ entity: "customer", action: "upsert", ref: "c1", data: { phone: "0901234567" } }] });
+      expect(h.calls.updates[0].patch).not.toHaveProperty("name");
+    });
+
+    it("SĐT thuộc khách SDWork KHÁC → phone_conflict, KHÔNG ghi đè, không provision", async () => {
+      h.state.upsertError = PHONE_TAKEN;
+      h.state.holder = { id: "row-1", sdwork_ref: "c-khac" };
+      const res = await post({
+        events: [{ entity: "customer", action: "upsert", ref: "c1", data: { phone: "0901234567", name: "A" } }],
+      });
+      const json = await res.json();
+      expect(json.results[0]).toMatchObject({ ref: "c1", ok: false, code: "phone_conflict" });
+      expect(h.calls.updates).toHaveLength(0);
+      expect(h.calls.createUser).toHaveLength(0);
+    });
+
+    it("hàng vừa bị event khác nhận mất giữa chừng (UPDATE khớp 0 hàng) → phone_conflict", async () => {
+      h.state.upsertError = PHONE_TAKEN;
+      h.state.holder = { id: "row-1", sdwork_ref: null };
+      h.state.claimRows = 0;
+      const res = await post({
+        events: [{ entity: "customer", action: "upsert", ref: "c1", data: { phone: "0901234567", name: "A" } }],
+      });
+      const json = await res.json();
+      expect(json.results[0]).toMatchObject({ ok: false, code: "phone_conflict" });
+      expect(h.calls.createUser).toHaveLength(0);
+    });
+
+    it("lỗi upsert KHÁC (không phải trùng SĐT) → vẫn upsert_failed như cũ, không tra SĐT", async () => {
+      h.state.upsertError = { code: "42703", message: 'column "x" does not exist' };
+      const res = await post({
+        events: [{ entity: "customer", action: "upsert", ref: "c1", data: { phone: "0901234567", name: "A" } }],
+      });
+      const json = await res.json();
+      expect(json.results[0]).toMatchObject({ ok: false, code: "upsert_failed" });
+      expect(h.calls.lookups).toHaveLength(0);
+    });
+
+    it("device KHÔNG đi nhánh nhận về (chỉ customer có khoá SĐT)", async () => {
+      h.state.upsertError = PHONE_TAKEN;
+      const res = await post({
+        events: [{ entity: "device", action: "upsert", ref: "d1", data: { customerPhone: "0901234567", name: "Anten" } }],
+      });
+      const json = await res.json();
+      expect(json.results[0]).toMatchObject({ ok: false, code: "upsert_failed" });
+      expect(h.calls.lookups).toHaveLength(0);
+    });
   });
 });
