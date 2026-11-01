@@ -1,7 +1,5 @@
 #!/bin/sh
-# sedi <file> <sed-args...>: thay `sed -i` (GNU: -i, BSD/macOS: -i '' — không portable): ghi file tạm rồi mv.
-sedi() { _f=$1; shift; sed "$@" "$_f" > "$_f.tmp.$$" && mv "$_f.tmp.$$" "$_f"; }
-# ai-simple-version: 1.18.0
+# ai-simple-version: 1.23.0
 # doc-health-report — đo lường nguyên tắc 12 v2 (event-first). 3 chế độ:
 #   sh doc-health-report.sh              -> report đầy đủ ra stdout (exit 0 kể cả khi có vấn đề)
 #   sh doc-health-report.sh --ci         -> exit 1 khi: doc-lag quá ngưỡng / _generated stale /
@@ -13,8 +11,9 @@ sedi() { _f=$1; shift; sed "$@" "$_f" > "$_f.tmp.$$" && mv "$_f.tmp.$$" "$_f"; }
 #   Windows (scheduled task khởi động ở System32 -> PHẢI cd vào repo trước):
 #     schtasks /create /tn "doc-health" /sc weekly /d MON /st 08:00 ^
 #       /tr "\"C:\Program Files\Git\bin\sh.exe\" -c \"cd /c/path/repo && sh scripts/doc-health-report.sh\""
-# Yêu cầu: git >= 1.9 (pathspec ':(exclude)'), GNU date (macOS: brew install coreutils).
-# Chủ sở hữu tín hiệu dead-symbol: --ci (fail PR) + full --status hằng tuần (ghi doc-status.md);
+# Yêu cầu: git >= 1.9 (pathspec ':(exclude)'). Chạy được cả GNU (Linux/Git Bash) lẫn BSD (macOS):
+# date -d → fallback date -j -f (ép 00:00 như GNU); sed -i → sedi(); sed '/x/a' → awk.
+# Chủ sở hữu tín hiệu dead-symbol: --ci (fail PR) + full --status hằng tuần (đặt marker);
 # hook per-commit dùng --fast nên KHÔNG bắt dead-symbol — by design, xem nguyên tắc 12.
 #   GitHub Actions (.github/workflows/doc-health.yml — fetch-depth: 0 bắt buộc cho timestamp):
 #     on: { schedule: [ { cron: "0 1 * * 1" } ], pull_request: {} }
@@ -29,17 +28,6 @@ CLAUDE_MD_CHAR_BUDGET=${CLAUDE_MD_CHAR_BUDGET:-24000}
 
 NOW=$(date +%s)
 
-# ── MATCHER HỢP ĐỒNG (nguyên tắc 10) — CÙNG luật với .githooks/pre-commit `covers_hit`.
-# path $1 nằm trong vùng covers $2? in "1" nếu khớp (trùng file HOẶC con của thư mục).
-# ⚠️ `case` PHẢI ở trong hàm, ĐỪNG nhét thẳng vào `$( … )`: bash 3.2 (/bin/sh macOS)
-# lẫn `)` của case-pattern với `)` đóng command-substitution → syntax error, cả script
-# không parse (dò 2026-09-15; Linux/bash5/dash parse được nên CI xanh mà máy Mac chết).
-covers_hit() {
-  case "$1" in
-    "$2" | "$2"/*) echo 1 ;;
-  esac
-}
-
 # Đọc frontmatter 1 doc -> in 1 DÒNG "paths_phẩy_ngăn|last_verified_epoch|ttl"
 # (paths giữ dạng phẩy-ngăn trên 1 dòng — KHÔNG newline, vì cut xử lý theo dòng;
 #  bug đa-covers vòng review 8 sinh ra từ đúng chỗ này)
@@ -48,11 +36,10 @@ read_meta() {
   [ -n "$CLINE" ] || { echo ""; return; }
   LV=$(head -10 "$1" | grep -i '^last_verified:' | head -1 | sed 's/^[^:]*:[[:space:]]*//')
   TTL=$(head -10 "$1" | grep -i '^ttl_days:' | head -1 | sed 's/^[^:]*:[[:space:]]*//')
-  LV_TS=$(date -d "$LV" +%s 2>/dev/null)                                            # GNU date (Linux, Git Bash)
-  [ -n "$LV_TS" ] || LV_TS=$(date -j -f '%Y-%m-%d %H:%M:%S' "$LV 00:00:00" +%s 2>/dev/null)  # BSD date (macOS) — không có -d; cùng mốc đầu ngày như GNU
+  LV_TS=$(date -d "$LV" +%s 2>/dev/null || date -j -f "%Y-%m-%d %H:%M:%S" "$LV 00:00:00" +%s 2>/dev/null)
   if [ -z "$LV_TS" ]; then
     LV_TS=0
-    echo "WARN: khong parse duoc last_verified '$LV' trong $1 (can dang YYYY-MM-DD). Doc se bi coi la SUSPECT." >&2
+    echo "WARN: khong parse duoc last_verified '$LV' trong $1 (dinh dang YYYY-MM-DD). Doc se bi coi la SUSPECT." >&2
   fi
   PATHS=$(echo "$CLINE" | sed 's/^[Cc]overs:[[:space:]]*//; s/[[:space:]]*,[[:space:]]*/,/g; s/^[[:space:]]*//; s/[[:space:]]*$//')
   echo "$PATHS|$LV_TS|${TTL:-365}"
@@ -82,7 +69,7 @@ doc_state() {
         CFILES=$(git show --name-only --format= "$DOC_COMMIT" 2>/dev/null)
         for p in $PATHS; do
           [ -n "$p" ] || continue
-          H=$(echo "$CFILES" | while read -r c; do if [ -n "$(covers_hit "$c" "$p")" ]; then echo 1; break; fi; done)
+          H=$(echo "$CFILES" | while read -r c; do case "$c" in ("$p"|"$p"/*) echo 1; break;; esac; done)
           [ -n "$H" ] && { ATTEST=1; break; }
         done
       fi
@@ -119,10 +106,15 @@ doc_state() {
   echo "$STATE|$REASON|$LAG"
 }
 
-# Trạng thái doc CHỈ nằm ở docs/app-map/_generated/doc-status.md (một file máy sinh).
+# sed -i khác cú pháp GNU vs BSD (macOS) → ghi qua file tạm, chạy được cả hai.
+sedi() { _f=$1; shift; sed "$@" "$_f" > "$_f.tmp.$$" && mv "$_f.tmp.$$" "$_f"; }
+# Chèn 1 dòng SAU mỗi dòng khớp regex (thay `sed '/re/a text'` chỉ GNU hiểu).
+append_after() { awk -v re="$2" -v line="$3" '{print} $0 ~ re {print line}' "$1" > "$1.tmp.$$" && mv "$1.tmp.$$" "$1"; }
+# ForFish: trạng thái doc CHỈ nằm ở docs/app-map/_generated/doc-status.md (một file máy sinh).
 # Trước 2026-10-25 script còn chèn dòng `<!-- DOC-STATUS: … -->` vào từng doc; hậu quả là
 # mỗi lần commit, hàng chục doc bị máy sửa dở trong working tree, sửa thật của người lẫn
-# vào đó và bị bỏ quên (popover.tsx 2026-10-23 → 25). Bỏ hẳn: KHÔNG ghi gì vào doc nữa.
+# vào đó và bị bỏ quên (popover.tsx 2026-10-23 → 25). Bỏ hẳn: KHÔNG ghi gì vào doc nữa
+# (bỏ update_marker của bản gốc — `ai-simple update` sẽ đưa lại, phải gỡ lại).
 
 # ── chế độ --self-test: fixture tổng hợp trong temp repo, bắt regression lớp Bug A/B ──
 if [ "$1" = "--self-test" ]; then
@@ -147,8 +139,7 @@ if [ "$1" = "--self-test" ]; then
   # re-verify commit message hop le (kem dong re-verified comment — flow chuan, vi bump
   # date cung ngay la no-op khong co gi de stage) -> VERIFIED
   sleep 1
-  sedi docs/app-map/01-t.md "/^ttl_days:/a\\
-<!-- re-verified: $(date '+%Y-%m-%d %H:%M') - calcX van khop -->"
+  append_after docs/app-map/01-t.md '^ttl_days:' "<!-- re-verified: $(date '+%Y-%m-%d %H:%M') - calcX van khop -->"
   git add docs/app-map/01-t.md; git commit -qm "re-verify(01-t): calcX van khop"
   ST=$(doc_state docs/app-map/01-t.md 2>/dev/null | cut -d'|' -f1)
   [ "$ST" = "VERIFIED" ] && echo "PASS: re-verify(...) commit -> VERIFIED" || { echo "FAIL: re-verify khong duoc cong nhan ('$ST')"; RC=1; }
@@ -168,9 +159,9 @@ if [ "$1" = "--self-test" ]; then
   FAST=1; STF=$(doc_state docs/app-map/01-t.md 2>/dev/null | cut -d'|' -f1); FAST=0
   [ "$STF" = "VERIFIED" ] && echo "PASS: --fast skip symbol scan" || { echo "FAIL: --fast van scan symbol ('$STF')"; RC=1; }
   # Contract test matcher (CÙNG bảng với hook --self-test — hợp đồng chung của matcher 2 nơi)
-  M=$(covers_hit "src/lib-utils/a.ts" "src/lib")
+  M=$(echo "src/lib-utils/a.ts" | while read -r c; do case "$c" in ("src/lib"|"src/lib"/*) echo 1;; esac; done)
   [ -z "$M" ] && echo "PASS: matcher contract — sibling KHONG khop" || { echo "FAIL: matcher overmatch sibling"; RC=1; }
-  M=$(covers_hit "src/lib/x.ts" "src/lib")
+  M=$(echo "src/lib/x.ts" | while read -r c; do case "$c" in ("src/lib"|"src/lib"/*) echo 1;; esac; done)
   [ -n "$M" ] && echo "PASS: matcher contract — child khop" || { echo "FAIL: matcher miss child"; RC=1; }
   git rm -rq src/a && git commit -qm c4
   ST=$(doc_state docs/app-map/01-t.md 2>/dev/null | cut -d'|' -f1)
@@ -190,7 +181,11 @@ if [ "$1" = "--self-test" ]; then
   exit $RC
 fi
 
-DOCS=$(git ls-files 'docs/app-map/*.md' 'docs/app-map/**/*.md' 2>/dev/null | grep -v '_generated/' | sort -u)
+# v1.20.0 (audit doc lap 2026-08-17, F1 BLOCKER): quotepath=false + while-read. Truoc day `for doc in
+# $DOCS` word-split VA git escape ten co dau ⇒ doc tieng Viet ('docs/app-map/01-don-hang.md') BIEN MAT
+# khoi moi tinh toan: khong marker, --ci XANH, report khang dinh "moi doc VERIFIED" — fail-open + noi doi
+# tren chinh project tieu thu (repo tieng Viet). security-verify da va lop nay o Wave 2a, doc-health thi chua.
+DOCS=$(git -c core.quotepath=false ls-files 'docs/app-map/*.md' 'docs/app-map/**/*.md' 2>/dev/null | grep -v '_generated/' | sort -u)
 
 # ── chế độ --status: regenerate doc-status.md ──────────────────────────
 # --status --fast: skip symbol-scan (hook per-commit dùng — giữ commit nhanh);
@@ -199,17 +194,26 @@ if [ "$1" = "--status" ]; then
   [ "$2" = "--fast" ] && FAST=1
   mkdir -p docs/app-map/_generated
   OUT=docs/app-map/_generated/doc-status.md
+  STATE_CACHE=$(mktemp) || exit 1
   {
     echo "<!-- AUTO-GENERATED by doc-health-report --status — DO NOT EDIT. Regenerate: sh scripts/doc-health-report.sh --status -->"
     echo "# Doc status — $(date +%Y-%m-%d)"
     echo ""
     echo "| Doc | Trang thai | Ly do |"
     echo "|---|---|---|"
-    for doc in $DOCS; do
+    while IFS= read -r doc; do
+      [ -n "$doc" ] || continue
       DS=$(doc_state "$doc")
+      # v1.19.0 (audit ForFish 2026-08-16, MAJOR-1): CACHE kết quả — trước đây doc_state chạy LẠI
+      # nguyên vòng cho từng doc ở khối marker bên dưới ⇒ ~200 lần spawn `git log -1` trên 19 doc,
+      # hook mất 1m37s/commit (97% ở đây) → user bị đẩy sang --no-verify. Tính 1 lần, dùng 2 nơi.
+      printf '%s\t%s\n' "$doc" "$DS" >> "$STATE_CACHE"
       echo "| $doc | $(echo "$DS" | cut -d'|' -f1) | $(echo "$DS" | cut -d'|' -f2) |"
-    done
+    done <<EOF_DOCS1
+$DOCS
+EOF_DOCS1
   } > "$OUT"
+  rm -f "$STATE_CACHE"
   echo "regenerated: $OUT"
   exit 0
 fi
@@ -223,7 +227,8 @@ echo "=== Doc health report — $(date +%Y-%m-%d) ==="
 # ── 1. Doc-lag (nguyên tắc 12 v2 — thay drift%): doc SUSPECT/ORPHANED ──
 echo "--- Doc-lag: SUSPECT / ORPHANED ---"
 SUSPECTS=""
-for doc in $DOCS; do
+while IFS= read -r doc; do
+  [ -n "$doc" ] || continue
   DS=$(doc_state "$doc")
   ST=$(echo "$DS" | cut -d'|' -f1)
   case "$ST" in
@@ -238,7 +243,9 @@ for doc in $DOCS; do
       echo "$DS" | grep -q "symbol '" && CI_FAIL=1
       ;;
   esac
-done
+done <<EOF_DOCS2
+$DOCS
+EOF_DOCS2
 if [ -n "$SUSPECTS" ]; then printf '%s' "$SUSPECTS"; else echo "  (khong co — moi doc VERIFIED)"; fi
 
 # ── 2. _generated/ cũ hơn source of truth (nguyên tắc 09) ──────────────
@@ -266,12 +273,10 @@ done
 # ── 5. Broken cross-ref ─────────────────────────────────────────────────
 # Gom output ra biến vì while-trong-pipe là subshell — set CI_FAIL ở đó sẽ mất.
 echo "--- Broken cross-ref ---"
-BROKEN=$(git ls-files 'docs/app-map/*.md' 'docs/app-map/**/*.md' 2>/dev/null | sort -u | while read -r f; do
+BROKEN=$(git -c core.quotepath=false ls-files 'docs/app-map/*.md' 'docs/app-map/**/*.md' 2>/dev/null | sort -u | while read -r f; do
   DIR=$(dirname "$f")
   grep -oE '\]\(([^)#]+\.md)' "$f" | sed 's/](//' | while read -r link; do
-    # bỏ link ngoài (http…) / tuyệt đối (/…). Dùng ${var#prefix} thay `case` vì
-    # `case` trong `$( )` làm /bin/sh macOS (bash 3.2) không parse — xem covers_hit.
-    if [ "${link#http}" != "$link" ] || [ "${link#/}" != "$link" ]; then continue; fi
+    case "$link" in (http*|/*) continue ;; esac
     [ -f "$DIR/$link" ] || echo "  $f -> $link (khong ton tai)"
   done
 done)
