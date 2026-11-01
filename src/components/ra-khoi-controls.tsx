@@ -333,18 +333,10 @@ export function RaKhoiControls({
       loại việc với "Vị trí"/"Đến điểm" (đi tới một toạ độ), không phải
       loại việc "bật/tắt lớp bản đồ" như 5 panel còn lại. */
   const [placesOpen, setPlacesOpen] = useState(false);
-  /** khay "Thêm" (⋯) đang bung — chạm ngoài rail là thu (mục 8, 2026-10-19) */
+  /** khay "Thêm" (⋯) đang bung — chạm ngoài là thu (mục 8, 2026-10-19). Việc "chạm ngoài"
+   *  do Popover lo: khay nằm trong portal ở body, bộ nghe riêng theo rail từng coi cú chạm
+   *  vào mục khay là "ngoài" ⇒ đóng khay trước khi click tới, bốn mục không chạy (2026-11-01). */
   const [more, setMore] = useState(false);
-  const railRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!more) return;
-    const ngoai = (e: PointerEvent) => {
-      if (railRef.current && e.target instanceof Node && railRef.current.contains(e.target)) return;
-      setMore(false);
-    };
-    document.addEventListener("pointerdown", ngoai, true);
-    return () => document.removeEventListener("pointerdown", ngoai, true);
-  }, [more]);
   const [addPlaceOpen, setAddPlaceOpen] = useState(false);
   /*  ĐIỀN SẴN TOẠ ĐỘ CON TRỎ — CHỈ khi form mở do menu chạm-giữ (07 §10.7 K).
       Mở panel bằng nút rail thì KHÔNG điền: app không được tự khai một toạ độ
@@ -664,7 +656,7 @@ export function RaKhoiControls({
            cục 2026-10-22): bung trong luồng làm cột nút rộng ra 11rem ⇒ cột trái (tin bão,
            ô tìm, thẻ Tàu/Trỏ) bị ép còn ~140px, thẻ bão một chữ một dòng. Cột nút giữ
            đúng bề ngang một nút. */}
-      <div ref={railRef} className="pointer-events-auto relative flex flex-col items-end gap-1.5">
+      <div className="pointer-events-auto relative flex flex-col items-end gap-1.5">
         <div ref={setNutLop}>
         <RailBtn
           active={!collapsed}
