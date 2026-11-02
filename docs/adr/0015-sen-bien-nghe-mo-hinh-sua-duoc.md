@@ -103,3 +103,20 @@ Tốc độ (Node + WASM sherpa-onnx, Mac, một luồng, 30 câu máy tàu 5 dB
 - `public/data` 104,8 → ~148 MB (trần 120) — `data-budget:` trong commit. Tải thêm cho bà con: 79 MB một lần (gzip ~60 MB) thay 34 MB.
 - Việc kèm còn mở: `hieu-y.ts` coi "hông" = "không" (bộ mới hay kéo về tiếng miền); chưng cất về cỡ 30M (đường a) để trả lại dung lượng.
 
+
+## Vòng 3 (2026-11-02) — câu gọi "Sen Biển ơi" + lệnh lúc chạy — CHƯA THAY
+
+Lý do: Rảnh tay (15 §34) cần bắt câu gọi; thử thật bộ nghe nghe "còn bao xa" thành "còn bao sa". Dữ liệu thêm `tr3`: 331 câu (gọi + lệnh lúc chạy, kêu cứu, câu nối, dẫn về 172 cảng, câu cabin có chữ "biển") × 3 giọng TRAIN_V, sạch + ồn máy tàu, nhân 2 lần; cộng tr + tr2 + FLEURS như vòng 2 (24.451 mẫu, 21,2 giờ). Mở từ cùng checkpoint gốc, 3 lượt (`ft3.py`, `vong3.sh` trên gpu-desktop). Bộ đo mới `goi-test.json`: 41 câu KHÁC câu train (30 câu gọi, 10 câu cabin, 1 kêu cứu không gọi tên) × 5 giọng đo × sạch / máy 10 / 5 dB = 615 câu; chấm bằng `tachCauGoi` + `senBienReply` hiện tại (đúng việc).
+
+| Bộ đo | ft2-e3 (đang dùng) | ft2 + tên ưu tiên "SEN BIỂN" | ft3-e3 |
+|---|---|---|---|
+| "Linh" cũ, đúng việc /280 (hieu-y + n-gram v7 hiện tại) | **271** | — | 267 |
+| Ba miền, đúng việc /1050 · sai chữ | 992 · 2,7 % | — | **1002 · 2,0 %** (Trung nam 183 → 196) |
+| FLEURS sai chữ | **12,6 %** | — | 12,8 % |
+| Câu gọi: bắt được /435 | 428 | 432 | **435** |
+| Câu gọi: đúng việc /435 | 409 (94,0 %) | 413 (94,9 %) | **435 (100 %)** |
+| Câu cabin bị bắt nhầm /165 | **0** | **0** | 2 ("gió biển mạnh quá" ⇒ "sen biển mạnh quá", máy 10/5 dB) |
+
+Lỗi chính của ft2 ở câu gọi: "alo sen biển tốc độ bao nhiêu" ⇒ mất "tốc độ" (cả 7/15 lần), "sen biển ơi tắt tiếng" ⇒ "sen biển ướt", "té xuống nước" ⇒ "té xuống được".
+
+**Quyết định: KHÔNG thay `sen-bien-nghe.v2.bin`** — luật đặt trước khi đo: ft3 không được tụt ở bộ nào. ft3 tụt ở "Linh" (−4), FLEURS (+0,2 điểm) và sinh bắt nhầm câu gọi (2/165) — đổi 79 MB lịch sử git lấy một mô hình nghiêng về "sen biển" là không đáng. Hướng vòng sau: thêm câu cabin có "biển" (gió biển, ra biển…) nhiều hơn để cân lại, giữ "Linh"/FLEURS; cân nhắc thêm "SEN BIỂN" vào tên ưu tiên của app (ft2 + tên ưu tiên: đúng việc câu gọi +0,9 điểm, không thêm bắt nhầm — chưa đo bộ "Linh" với tên ưu tiên mới nên CHƯA đổi). Mô hình ft3 giữ ở gpu-desktop `models/ft-ft3-e3`.

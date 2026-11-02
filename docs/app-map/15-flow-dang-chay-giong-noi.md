@@ -1180,6 +1180,8 @@ Anh Long: *"con sen biển đã thông minh con mimi của vietmap chưa"* → *
 
 **Giọng (sinh 2026-11-02, gpu-desktop `~/sen-bien-manh/moi.sh`):** câu đọc mới gom vào `lenh-chay.ts` (`cauConLai`, `cauTocDo`, `cauHuong`, `cauCuuNan`, `CAU_*`), file vào NGUON `lap_manh.mjs` ⇒ 53 mảnh mới (gồm hai câu nợ cũ "Tắt màn hình là máy ngừng đọc." + "Tàu đã về lại đường đã vẽ." và 13 tên cửa/cảng), VieNeu 3 bản/mảnh, chọn theo UTMOS + nhận giọng (sai chữ TB 6,4 %; "Lạch Huyện (Hải Phòng)" chấm 25 % — cần nghe lại bằng tai). Cổng `ghep-giong.test.ts`: mọi câu Sen Biển vượt Mimi phủ 100 % mảnh. Mảnh cũ "dự báo cá dành cho tài khoản premium" giữ bằng nhóm `them` (câu ở `fishing-map-view` ngoài NGUON).
 
+**Bộ nghe vòng 3 (2026-11-02, [ADR 0015](../adr/0015-sen-bien-nghe-mo-hinh-sua-duoc.md) mục Vòng 3):** train thêm 331 câu gọi + lệnh lúc chạy ⇒ câu gọi đúng việc 94 → 100 %, ba miền 992 → 1002/1050, NHƯNG "Linh" 271 → 267, FLEURS 12,6 → 12,8 % và 2/165 câu cabin bị bắt nhầm ⇒ CHƯA THAY, app giữ bản v2.
+
 **Offline (4 câu CLAUDE.md):** (a) không request mới — nghe, hiểu, trả lời đều trong máy; bộ nghe tải sẵn lúc có sóng như trước; (b) không đụng `sw.js`/`SHELL`; khoá MỚI `forfish.nav.ranhtay.v1` (máy này, EXCLUDED sao lưu — `offline-backup.test.ts`); (c) không xoá/đè dữ liệu; (d) mất sóng là nhánh chính — đây là chỗ hơn Mimi rõ nhất.
 
 **Assumptions:** (1) Từ gọi chỉ nhận ở ĐẦU câu; (2) nhớ câu trước 5 phút; (3) thu thẻ sau 4 s; (4) kêu cứu bắt rộng (bắt thừa chỉ tốn một câu đọc toạ độ), loại câu hỏi xác tàu / luật / hỗ trợ; (5) 112 = số tìm kiếm cứu nạn quốc gia, VHF 16 = kênh cấp cứu quốc tế — hai số cố định, không lấy từ nguồn ngoài. Đổi ở hằng trong file.
