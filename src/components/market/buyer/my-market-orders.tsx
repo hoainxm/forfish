@@ -27,8 +27,11 @@ import { loadCachedMarketOrders, saveCachedMarketOrders } from "@/lib/market/ord
 import type { Order } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import { useAuthUser } from "@/lib/use-auth";
+import { sdvicoTab } from "@/lib/sdvico-orders/status";
 import { ErrorBlock, primaryLinkClass } from "./ui";
 import { useOnlineState } from "./hooks";
+import { SdvicoOrderCard } from "./sdvico-order-card";
+import { useSdvicoOrders } from "./use-sdvico-orders";
 
 type Tab = "dang_xu_ly" | "cho_nhan" | "xong" | "huy";
 
@@ -94,6 +97,9 @@ type Pending = { order: Order; kind: "huy" | "da-nhan" | "bao-chuyen" };
 export function MyMarketOrders() {
   const online = useOnlineState();
   const { phone } = useAuthUser();
+  /*  ĐƠN SDVICO (mua qua CRM, ADR 0018) — chỉ xem, tải riêng (không phân trang) rồi
+      xếp vào CÙNG 4 tab theo sdvicoTab(); hỏng thì rỗng, không chặn đơn chợ. */
+  const sdvico = useSdvicoOrders();
 
   /*  TAB NẰM TRONG URL `?tab=` (VT-14): sang "Yêu cầu đặt hàng" rồi ‹ về vẫn đúng tab (trước
       `useState` ⇒ về "Đang xử lý"). Đọc lúc mount, ghi bằng replaceState — không thêm mục lịch sử. */
@@ -164,7 +170,7 @@ export function MyMarketOrders() {
     void load(1, true);
   }, [first, load]);
   useOnlineRefetch(() => void load(1, true));
-  const lamMoi = useKeoLamMoi(() => load(1, true, true), { disabled: status === "loading" || !!pending });
+  const lamMoi = useKeoLamMoi(async () => { await Promise.all([load(1, true, true), sdvico.reload()]); }, { disabled: status === "loading" || !!pending });
 
   /*  VT-05: hộp xác nhận ĐÓNG NGAY khi bấm (ở `onConfirm`), nút nguồn đổi "Đang gửi…"
       + khoá; `busy` chặn bấm đúp — mạng bến 10–20 s là bà con bấm lại, lần hai trả
@@ -197,7 +203,9 @@ export function MyMarketOrders() {
 
   const nowIso = new Date().toISOString();
   const shown = orders.filter((o) => inTab(o, tab));
-  const count = (t: Tab) => orders.filter((o) => inTab(o, t)).length;
+  const shownSdvico = sdvico.orders.filter((o) => sdvicoTab(o.status) === tab);
+  const count = (t: Tab) =>
+    orders.filter((o) => inTab(o, t)).length + sdvico.orders.filter((o) => sdvicoTab(o.status) === t).length;
   /*  Số đếm trên tab chỉ in khi ĐÃ CÓ ĐỦ đơn (VT-14): route trả `items` theo trang 20 + `total`,
       không có `counts` theo nhóm — quá 20 đơn hay đang xem bản lưu thì số đếm từ trang đã tải
       là số sai, thà không in. */
@@ -256,12 +264,18 @@ export function MyMarketOrders() {
         {status === "error" && <ErrorBlock what="đơn hàng" onRetry={() => void load(1, true)} />}
         {status === "offline" && <EmptyNet what="đơn hàng" onRetry={() => void load(1, true)} />}
 
-        {status === "ok" && shown.length === 0 && (
+        {status !== "loading" && shownSdvico.length > 0 && (
+          <ul className="mb-3 flex flex-col gap-3" aria-label="Đơn SDVICO">
+            {shownSdvico.map((o) => <SdvicoOrderCard key={o.id} order={o} />)}
+          </ul>
+        )}
+
+        {status === "ok" && shown.length === 0 && shownSdvico.length === 0 && (
           <>
             <EmptyState icon={<DocIcon className="h-8 w-8" />}>
-              {orders.length === 0 ? "Chưa có đơn nào." : "Không có đơn nào ở mục này."}
+              {orders.length === 0 && sdvico.orders.length === 0 ? "Chưa có đơn nào." : "Không có đơn nào ở mục này."}
             </EmptyState>
-            {orders.length === 0 && (
+            {orders.length === 0 && sdvico.orders.length === 0 && (
               <Link href="/cho" className={`${primaryLinkClass} mx-auto mt-4 max-w-[15rem]`}>
                 Mua đồ
               </Link>

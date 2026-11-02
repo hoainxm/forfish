@@ -348,3 +348,122 @@ describe("POST /api/sdwork/webhook", () => {
     });
   });
 });
+
+// ── ĐƠN SDVICO (entity "order", 2026-11-02, ADR 0018) ─────────────────────
+describe("POST /api/sdwork/webhook — entity order", () => {
+  const order = (over: Record<string, unknown> = {}) => ({
+    entity: "order",
+    action: "upsert",
+    ref: "o1",
+    data: {
+      customerPhone: "0901234567",
+      customerName: "Khách A",
+      code: "DH75768",
+      status: "dang_chuan_bi",
+      orderedAt: "2026-11-02T01:00:00Z",
+      snapshotAt: "2026-11-02T01:00:05Z",
+      items: [{ name: "Máy S-Tracking", qty: 1, unit: "cái", unitPrice: 5500000, lineTotal: 5500000 }],
+      total: 5500000,
+      ...over,
+    },
+  });
+
+  it("upsert → gọi RPC crm_order_upsert đúng hàng đã map, KHÔNG đụng TABLE map", async () => {
+    const res = await post({ events: [order()] });
+    const json = await res.json();
+    expect(json.results[0]).toMatchObject({ ref: "o1", entity: "order", ok: true });
+    expect(json.results[0].code).toBeUndefined();
+    const call = h.calls.rpc.find((c) => c.fn === "crm_order_upsert");
+    expect(call?.params.p).toMatchObject({
+      sdwork_ref: "o1",
+      code: "DH75768",
+      customer_phone: "0901234567",
+      status: "dang_chuan_bi",
+      total_vnd: 5500000,
+      snapshot_at: "2026-11-02T01:00:05Z",
+    });
+    expect(call?.params.p.items[0]).toEqual({
+      name: "Máy S-Tracking", qty: 1, unit: "cái", unitPriceVnd: 5500000, lineTotalVnd: 5500000,
+    });
+    expect(h.calls.upserts).toHaveLength(0);
+    expect(h.calls.createUser).toHaveLength(0); // order KHÔNG tự tạo tài khoản (việc của event customer)
+  });
+
+  it("bản cũ hơn (RPC trả stale) → vẫn ok + code stale_snapshot (CRM không retry)", async () => {
+    h.state.rpcData = "stale";
+    const json = await (await post({ events: [order()] })).json();
+    expect(json.results[0]).toMatchObject({ ok: true, code: "stale_snapshot" });
+  });
+
+  it("trạng thái ngoài 4 mã → bad_status, không gọi RPC", async () => {
+    const json = await (await post({ events: [order({ status: "completed" })] })).json();
+    expect(json.results[0]).toMatchObject({ ok: false, code: "bad_status" });
+    expect(h.calls.rpc).toHaveLength(0);
+  });
+
+  it("SĐT sai / thiếu mã / thiếu snapshotAt → missing_required", async () => {
+    const json = await (
+      await post({
+        events: [
+          order({ customerPhone: "02436000000" }),
+          { ...order({ code: "" }), ref: "o2" },
+          { ...order({ snapshotAt: undefined }), ref: "o3" },
+        ],
+      })
+    ).json();
+    expect(json.results.map((r: { code: string }) => r.code)).toEqual([
+      "missing_required", "missing_required", "missing_required",
+    ]);
+    expect(h.calls.rpc).toHaveLength(0);
+  });
+
+  it("delete → RPC crm_order_delete (bia mộ) kèm snapshotAt, không xoá thẳng bảng", async () => {
+    h.state.rpcData = "applied";
+    const json = await (
+      await post({ events: [{ entity: "order", action: "delete", ref: "o1", data: { snapshotAt: "2026-11-02T02:00:00Z" } }] })
+    ).json();
+    expect(json.results[0]).toMatchObject({ ok: true });
+    expect(json.results[0].code).toBeUndefined();
+    expect(h.calls.rpc).toContainEqual({
+      fn: "crm_order_delete",
+      params: { p_ref: "o1", p_snapshot_at: "2026-11-02T02:00:00Z" },
+    });
+    expect(h.calls.deletes).toHaveLength(0);
+  });
+
+  it("delete thiếu snapshotAt → p_snapshot_at null (RPC dùng now()); hàng mới hơn còn đó → stale_snapshot", async () => {
+    h.state.rpcData = "stale";
+    const json = await (await post({ events: [{ entity: "order", action: "delete", ref: "o1", data: {} }] })).json();
+    expect(json.results[0]).toMatchObject({ ok: true, code: "stale_snapshot" });
+    expect(h.calls.rpc[0].params.p_snapshot_at).toBeNull();
+  });
+
+  it("batch customer + order (lần đầu sang): tạo TK mặc định cho SĐT mới, rồi ghi đơn", async () => {
+    const json = await (
+      await post({
+        events: [
+          { entity: "customer", action: "upsert", ref: "acc1", data: { phone: "0901234567", name: "Khách A" } },
+          order(),
+        ],
+      })
+    ).json();
+    expect(json.results.map((r: { ok: boolean }) => r.ok)).toEqual([true, true]);
+    expect(h.calls.createUser).toHaveLength(1);
+    expect(h.calls.createUser[0].password).toBe("sd123456");
+    expect(h.calls.updateUserById).toHaveLength(0);
+  });
+
+  it("SĐT đã có tài khoản → giữ nguyên, KHÔNG đổi mật khẩu", async () => {
+    h.state.createUserError = { message: "User already registered" };
+    const json = await (
+      await post({
+        events: [
+          { entity: "customer", action: "upsert", ref: "acc1", data: { phone: "0901234567", name: "Khách A" } },
+          order(),
+        ],
+      })
+    ).json();
+    expect(json.results[0]).toMatchObject({ ok: true, provisioned: true });
+    expect(h.calls.updateUserById).toHaveLength(0);
+  });
+});

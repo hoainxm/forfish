@@ -12,6 +12,8 @@ import {
   isPhoneTaken,
   passwordSyncIntent,
   planPhoneClaim,
+  crmDeleteSnapshotAt,
+  toCrmOrderRow,
   toCustomerRow,
   toDeviceRow,
   toSupplyRow,
@@ -174,6 +176,47 @@ export async function POST(req: Request) {
           : !data || data.length === 0
             ? "code_not_found"
             : undefined,
+        detail: error ? dbErrorDetail(error) : undefined,
+      });
+      continue;
+    }
+
+    // ĐƠN SDVICO (2026-11-02, ADR 0018) — snapshot đơn khách lẻ → crm_orders.
+    // Upsert qua RPC có điều kiện: bản snapshotAt cũ hơn bản đang có thì bỏ
+    // (event cũ retry tới sau) nhưng vẫn ok — CRM không retry vô ích.
+    if (e.entity === "order") {
+      if (!e.ref) {
+        results.push({ ...base, ok: false, code: "bad_event" });
+        continue;
+      }
+      if (e.action === "delete") {
+        // Gỡ có "bia mộ" (0078 crm_order_delete): upsert cũ hơn tới sau không làm đơn sống lại.
+        const { data, error } = await admin.rpc("crm_order_delete", {
+          p_ref: e.ref,
+          p_snapshot_at: crmDeleteSnapshotAt(e),
+        });
+        results.push({
+          ...base,
+          ok: !error,
+          code: error ? "delete_failed" : data === "stale" ? "stale_snapshot" : undefined,
+          detail: error ? dbErrorDetail(error) : undefined,
+        });
+        continue;
+      }
+      if (e.action !== "upsert") {
+        results.push({ ...base, ok: false, code: "bad_event" });
+        continue;
+      }
+      const mapped = toCrmOrderRow(e);
+      if (!mapped.ok) {
+        results.push({ ...base, ok: false, code: mapped.code });
+        continue;
+      }
+      const { data, error } = await admin.rpc("crm_order_upsert", { p: mapped.row });
+      results.push({
+        ...base,
+        ok: !error,
+        code: error ? "upsert_failed" : data === "stale" ? "stale_snapshot" : undefined,
         detail: error ? dbErrorDetail(error) : undefined,
       });
       continue;

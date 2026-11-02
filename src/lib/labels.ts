@@ -251,6 +251,11 @@ export const NHAN = {
   luoiVay: "Lưới vây",
   luoiRe: "Lưới rê",
   chupMuc: "Chụp mực",
+  // Chip trạng thái ĐƠN SDVICO (CRM → /cho/don, ADR 0018, 2026-11-02) — 4 mã CRM đã chuẩn hoá.
+  chuanBi: "Chuẩn bị",
+  dangGiao: "Đang giao",
+  daGiao: "Đã giao",
+  daHuy: "Đã huỷ",
 } as const;
 
 /**
