@@ -81,6 +81,18 @@ export function chuThuong(text: string): string {
   return text.normalize("NFC").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+/**
+ * TÊN GỌI luôn nằm đầu danh sách ưu tiên (Rảnh tay "Sen Biển ơi", 15 §34). Đo 2026-11-02 (ADR 0015 vòng 3):
+ * câu gọi đúng việc 409 → 413/435, không thêm bắt nhầm câu cabin (0/165), bộ "Linh" (271/280) và ba miền
+ * (992/1050) giữ nguyên.
+ */
+export const TEN_GOI_UU_TIEN = ["Sen Biển", "Sen Biển ơi"] as const;
+
+/** Tên gọi + danh sách tên ưu tiên (cảng, điểm ghim) — cái đưa cho bộ giải mã */
+export function tenUuTienCoGoi(tenUuTien: readonly string[]): string[] {
+  return [...TEN_GOI_UU_TIEN, ...tenUuTien];
+}
+
 /** Danh sách tên ưu tiên → nội dung file hotwords (mỗi dòng một cụm, chữ hoa như mô hình). */
 export function hotwordsText(names: readonly string[]): string {
   const seen = new Set<string>();
@@ -149,7 +161,7 @@ export function napBoNghe(tenUuTien: readonly string[] = []): Promise<boolean> {
     return Promise.resolve(false);
   const conn = (navigator as unknown as { connection?: { saveData?: boolean } }).connection;
   if (conn?.saveData) return Promise.resolve(false);
-  hotDangDung = hotwordsText(tenUuTien);
+  hotDangDung = hotwordsText(tenUuTienCoGoi(tenUuTien));
   napP = fetchDataBytes(NGHE_PATH, NAP_MS, "sen-bien nghe")
     .then((goi) => guiCho({ t: "nap", ban: SHERPA_BAN, goi, hot: hotDangDung }, [goi]))
     .then((r) => {
@@ -171,7 +183,7 @@ export function napBoNghe(tenUuTien: readonly string[] = []): Promise<boolean> {
 
 /** Danh sách điểm ghim đổi ⇒ dựng lại bộ giải mã với tên mới (~0,7 s, chạy nền). */
 export function datTenUuTien(tenUuTien: readonly string[]): void {
-  const hot = hotwordsText(tenUuTien);
+  const hot = hotwordsText(tenUuTienCoGoi(tenUuTien));
   if (!san || hot === hotDangDung) return;
   hotDangDung = hot;
   void guiCho({ t: "hot", hot });

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { chuThuong, hotwordsText, SHERPA_BAN, vadBuoc, vadMoi, VAD_CHO_MS, VAD_IM_MS, VAD_TRAN_MS } from "@/lib/sen-bien/nghe-may";
+import { chuThuong, hotwordsText, SHERPA_BAN, tenUuTienCoGoi, vadBuoc, vadMoi, VAD_CHO_MS, VAD_IM_MS, VAD_TRAN_MS } from "@/lib/sen-bien/nghe-may";
 
 /** chạy VAD qua dãy (rms, ms) — khung 85 ms */
 function chay(rmsAt: (t: number) => number, toiDa = 12000) {
@@ -49,6 +49,10 @@ describe("chữ của bộ nghe", () => {
       "SA HUỲNH\nBÌNH CHÂU\nCTY TNHH THÀNH VUI\n",
     ));
   it("không tên ⇒ rỗng", () => expect(hotwordsText([])).toBe(""));
+  it("tên gọi Sen Biển luôn đứng đầu danh sách ưu tiên (Rảnh tay)", () => {
+    expect(hotwordsText(tenUuTienCoGoi(["Sa Huỳnh"]))).toBe("SEN BIỂN\nSEN BIỂN ƠI\nSA HUỲNH\n");
+    expect(hotwordsText(tenUuTienCoGoi([]))).toBe("SEN BIỂN\nSEN BIỂN ƠI\n");
+  });
 });
 
 describe("gói bộ nghe + bộ chạy WASM có đủ trong repo", () => {

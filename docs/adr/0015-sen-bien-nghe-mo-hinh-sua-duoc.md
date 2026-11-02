@@ -110,13 +110,15 @@ Lý do: Rảnh tay (15 §34) cần bắt câu gọi; thử thật bộ nghe nghe
 
 | Bộ đo | ft2-e3 (đang dùng) | ft2 + tên ưu tiên "SEN BIỂN" | ft3-e3 |
 |---|---|---|---|
-| "Linh" cũ, đúng việc /280 (hieu-y + n-gram v7 hiện tại) | **271** | — | 267 |
-| Ba miền, đúng việc /1050 · sai chữ | 992 · 2,7 % | — | **1002 · 2,0 %** (Trung nam 183 → 196) |
-| FLEURS sai chữ | **12,6 %** | — | 12,8 % |
+| "Linh" cũ, đúng việc /280 (hieu-y + n-gram v7 hiện tại) | **271** | **271** | 267 |
+| Ba miền, đúng việc /1050 · sai chữ | 992 · 2,7 % | 992 · 2,7 % | **1002 · 2,0 %** (Trung nam 183 → 196) |
+| FLEURS sai chữ (không dùng tên ưu tiên) | **12,6 %** | **12,6 %** | 12,8 % |
 | Câu gọi: bắt được /435 | 428 | 432 | **435** |
 | Câu gọi: đúng việc /435 | 409 (94,0 %) | 413 (94,9 %) | **435 (100 %)** |
 | Câu cabin bị bắt nhầm /165 | **0** | **0** | 2 ("gió biển mạnh quá" ⇒ "sen biển mạnh quá", máy 10/5 dB) |
 
 Lỗi chính của ft2 ở câu gọi: "alo sen biển tốc độ bao nhiêu" ⇒ mất "tốc độ" (cả 7/15 lần), "sen biển ơi tắt tiếng" ⇒ "sen biển ướt", "té xuống nước" ⇒ "té xuống được".
 
-**Quyết định: KHÔNG thay `sen-bien-nghe.v2.bin`** — luật đặt trước khi đo: ft3 không được tụt ở bộ nào. ft3 tụt ở "Linh" (−4), FLEURS (+0,2 điểm) và sinh bắt nhầm câu gọi (2/165) — đổi 79 MB lịch sử git lấy một mô hình nghiêng về "sen biển" là không đáng. Hướng vòng sau: thêm câu cabin có "biển" (gió biển, ra biển…) nhiều hơn để cân lại, giữ "Linh"/FLEURS; cân nhắc thêm "SEN BIỂN" vào tên ưu tiên của app (ft2 + tên ưu tiên: đúng việc câu gọi +0,9 điểm, không thêm bắt nhầm — chưa đo bộ "Linh" với tên ưu tiên mới nên CHƯA đổi). Mô hình ft3 giữ ở gpu-desktop `models/ft-ft3-e3`.
+**Quyết định: KHÔNG thay `sen-bien-nghe.v2.bin`** — luật đặt trước khi đo: ft3 không được tụt ở bộ nào. ft3 tụt ở "Linh" (−4), FLEURS (+0,2 điểm) và sinh bắt nhầm câu gọi (2/165) — đổi 79 MB lịch sử git lấy một mô hình nghiêng về "sen biển" là không đáng. Hướng vòng sau: thêm câu cabin có "biển" (gió biển, ra biển…) nhiều hơn để cân lại, giữ "Linh"/FLEURS; Mô hình ft3 giữ ở gpu-desktop `models/ft-ft3-e3`.
+
+**ĐÃ CHỌN (anh Long "bản tốt nhất là đc", 2026-11-02): cột giữa — ft2 (v2, giữ nguyên file) + tên ưu tiên "SEN BIỂN", "SEN BIỂN ƠI".** Không tụt ở bộ nào ("Linh" 271, ba miền 992, FLEURS không đổi vì không dùng tên ưu tiên), câu gọi đúng việc 409 → 413/435, bắt nhầm câu cabin vẫn 0/165. Code: `nghe-may.TEN_GOI_UU_TIEN` + `tenUuTienCoGoi` (napBoNghe / datTenUuTien luôn ghép tên gọi đứng đầu), test `nghe-may.test.ts`. Không thêm byte nào vào `public/data`.
