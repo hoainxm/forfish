@@ -11,6 +11,11 @@
 //     không dẫn đường, và bộ lọc câu hỏi (hoi-kho.goLenhNgan) KHÔNG được gỡ nó.
 // Câu đọc lấy số từ màn bản đồ — file này chỉ chọn việc + dựng câu.
 
+import { windDirectionVN } from "@/lib/marine-weather";
+import type { NavProgress } from "@/lib/nav-progress";
+import { clockSpeech, distSpeech, type SpeechUnit } from "@/lib/nav-voice/phrases";
+import { formatHoursVN } from "@/lib/route-plan";
+
 import { foldVn } from "./ngram";
 
 export type LenhChay = "huong" | "toc_do" | "ve_lai" | "cuu_nan";
@@ -82,4 +87,46 @@ export function cauCuuNan(viTri: { lat: number; lon: number } | null, cuMs: numb
   if (!viTri) return `Máy chưa có định vị của tàu. ${goi}`;
   const cu = cuMs != null && cuMs > 5 * 60_000 ? ` Định vị này cũ ${Math.round(cuMs / 60_000)} phút.` : "";
   return `Toạ độ tàu: ${toaDoDoc(viTri.lat, "lat")}, ${toaDoDoc(viTri.lon, "lon")}.${cu} ${goi}`;
+}
+
+/* ── câu đọc (gom ở đây để bộ lập mảnh Mỹ Duyên quét được — scripts/sen-bien-giong/lap_manh.mjs NGUON) ── */
+
+export const CAU_CHUA_DAN = "Chưa dẫn đường tới đâu. Nói tên chỗ muốn tới để Sen Biển vẽ đường.";
+export const CAU_CHAY_KHONG_DICH = "Đang chạy không có đích. Nói tên chỗ muốn tới để Sen Biển vẽ đường.";
+export const CAU_TINH_LAI = "Đang tính lại đường từ chỗ tàu.";
+export const CAU_CHUA_TOC_DO = "Máy chưa đo được tốc độ. Cần định vị đang chạy.";
+export const CAU_CHUA_BO_NGHE = "Máy chưa có bộ nghe trong máy. Có sóng thì mở lại để tải, rồi bật Rảnh tay.";
+export const CAU_MICRO_CHAN = "Máy chưa cho dùng micro. Bật quyền micro cho app rồi bật lại Rảnh tay.";
+
+/** "Còn 76 hải lý, chừng 9 giờ 50 phút, tới lúc 3 giờ 25 sáng." — giờ tới nơi theo đồng hồ (Mimi: "mấy giờ đến nơi") */
+export function cauConLai(
+  p: Pick<NavProgress, "remainingKm" | "etaHours"> | null,
+  dangChay: boolean,
+  unit: SpeechUnit,
+  now: number,
+): string {
+  if (!p) return dangChay ? CAU_CHAY_KHONG_DICH : "Chưa dẫn đường tới đâu.";
+  const gio = p.etaHours != null ? `, chừng ${formatHoursVN(p.etaHours)}, tới lúc ${clockSpeech(now + p.etaHours * 3_600_000)}` : "";
+  return `Còn ${distSpeech(p.remainingKm, unit)}${gio}.`;
+}
+
+/** Tốc độ tàu theo GPS (km/giờ vào) — đọc theo đơn vị bà con chọn */
+export function cauTocDo(kmh: number | null, unit: SpeechUnit): string {
+  if (kmh == null) return CAU_CHUA_TOC_DO;
+  if (unit === "km") return `Tàu đang chạy ${Math.round(kmh)} cây số một giờ.`;
+  return `Tàu đang chạy ${(kmh / 1.852).toFixed(1).replace(".", ",").replace(/,0$/, "")} hải lý một giờ.`;
+}
+
+/** "đi hướng nào": lệch đường ⇒ vạch bên nào + hướng về; trên đường ⇒ chếch bao nhiêu độ hoặc đúng hướng */
+export function cauHuong(
+  p: Pick<NavProgress, "offRoute" | "offRouteKm" | "vachBen" | "huongVeVachDeg" | "steer" | "dirVN">,
+  unit: SpeechUnit,
+): string {
+  if (p.offRoute && p.vachBen) {
+    const ve = p.huongVeVachDeg != null ? ` Đi về phía ${windDirectionVN(p.huongVeVachDeg)} để về lại.` : "";
+    return `Tàu lệch đường ${distSpeech(p.offRouteKm, unit)}, vạch ở bên ${p.vachBen} tàu.${ve}`;
+  }
+  const s = p.steer;
+  if (s && s.side !== "straight") return `Chếch ${s.side === "left" ? "trái" : "phải"} ${Math.round(Math.abs(s.turnDeg))} độ, về phía ${p.dirVN}.`;
+  return `Đúng hướng. Giữ hướng ${p.dirVN}.`;
 }

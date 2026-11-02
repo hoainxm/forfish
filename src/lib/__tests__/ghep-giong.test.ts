@@ -13,6 +13,10 @@ import { cauVung } from "@/lib/nav-vung";
 import { tenNoi, type VungQuanLy } from "@/lib/vung-quan-ly";
 import { CAU_DU_HAI_DO, CAU_TAT_MAN, CAU_TU_DUNG, cauBatDau } from "@/lib/nav-voice/cau-dan-duong";
 import { collectVoiceEvents, initVoiceMemory, type VoiceSources } from "@/lib/nav-voice/events";
+import {
+  CAU_CHAY_KHONG_DICH, CAU_CHUA_BO_NGHE, CAU_CHUA_DAN, CAU_CHUA_TOC_DO, CAU_MICRO_CHAN, CAU_TINH_LAI,
+  cauConLai, cauCuuNan, cauHuong, cauTocDo,
+} from "@/lib/sen-bien/lenh-chay";
 
 const NGUON_RONG: VoiceSources = {
   nowMs: 0, unit: "nm", alerts: [], border: null, offRoute: null, gps: "tracking", info: null, storm: null, sea: null,
@@ -187,12 +191,26 @@ describe("câu có số của app phủ đủ mảnh", () => {
     for (const ten of dsKhu) cau.push(`Khu tránh trú bão gần nhất là ${ten}, còn chừng ${distSpeech(37, "nm")}.`);
     phuHet(cau);
   });
-  it("nợ mảnh giọng: hai câu dẫn đường chưa có mảnh — đọc giọng máy cả câu", () => {
-    /*  nợ: "Tắt màn hình là máy ngừng đọc." và "Tàu đã về lại đường đã vẽ." chưa có mảnh
-        Mỹ Duyên (máy GPU sinh qua lap_manh.mjs → gen_clips.py --manh — file đã nằm trong
-        NGUON). Có mảnh rồi thì test này ĐỎ ⇒ gộp hai câu vào phuHet ở test trên. */
-    expect(thieu(CAU_TAT_MAN).length).toBeGreaterThan(0);
-    expect(thieu("Tàu đã về lại đường đã vẽ.").length).toBeGreaterThan(0);
+  it("hai câu dẫn đường từng nợ mảnh (sinh 2026-11-02): tắt màn, về lại đường", () => {
+    phuHet([CAU_TAT_MAN, "Tàu đã về lại đường đã vẽ."]);
+  });
+  it("câu Sen Biển vượt Mimi (15 §34): còn bao xa + giờ tới, tốc độ, hướng lái, kêu cứu, rảnh tay", () => {
+    const cau: string[] = [CAU_CHUA_DAN, CAU_CHAY_KHONG_DICH, CAU_TINH_LAI, CAU_CHUA_TOC_DO, CAU_CHUA_BO_NGHE, CAU_MICRO_CHAN];
+    const now = Date.UTC(2026, 10, 2, 1, 0);
+    for (let km = 3; km < 300; km *= 2.1) for (const h of [0.4, 2.5, 9.8]) cau.push(cauConLai({ remainingKm: km, etaHours: h }, true, "nm", now + km * 7e5));
+    for (const v of [0, 7.3, 14.4, 22, 31]) cau.push(cauTocDo(v, "nm"), cauTocDo(v, "km"));
+    const dirs = ["Bắc", "Đông Bắc", "Đông", "Đông Nam", "Nam", "Tây Nam", "Tây", "Tây Bắc"];
+    for (const dirVN of dirs) {
+      cau.push(cauHuong({ offRoute: false, offRouteKm: 0, vachBen: null, huongVeVachDeg: null, steer: null, dirVN }, "nm"));
+      for (const g of [-70, -25, 15, 45])
+        cau.push(cauHuong({ offRoute: false, offRouteKm: 0, vachBen: null, huongVeVachDeg: null, steer: { side: g < 0 ? "left" : "right", label: "", turnDeg: g }, dirVN }, "nm"));
+    }
+    for (const ben of ["trái", "phải"] as const) for (const h of [10, 135, 270])
+      cau.push(cauHuong({ offRoute: true, offRouteKm: 4.2, vachBen: ben, huongVeVachDeg: h, steer: null, dirVN: "Nam" }, "nm"));
+    for (const [la, lo] of [[14.5754, 109.1], [8.62, 106.61], [20.95, 107.72], [10.3, 104.0]])
+      cau.push(cauCuuNan({ lat: la, lon: lo }, 30_000), cauCuuNan({ lat: la, lon: lo }, 12 * 60_000));
+    cau.push(cauCuuNan(null, null));
+    phuHet(cau);
   });
   it("vào / ra vùng quản lý thật (khu bảo tồn, vùng cấm theo mùa)", () => {
     /*  nợ: 8 địa danh trong tên vùng chưa có mảnh giọng (máy GPU sinh mp3 qua

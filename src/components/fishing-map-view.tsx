@@ -335,7 +335,7 @@ import { cauVuaNoi, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe, ngheRanhTay } from "@/lib/sen-bien/nghe-may";
 import { laTiengVong, NGHE_SAU_DOC_MS } from "@/lib/sen-bien/nghe";
 import { tachCauGoi } from "@/lib/sen-bien/goi-ranh-tay";
-import { cauCuuNan } from "@/lib/sen-bien/lenh-chay";
+import { CAU_CHUA_BO_NGHE, CAU_CHUA_DAN, CAU_MICRO_CHAN, CAU_TINH_LAI, cauConLai, cauCuuNan, cauHuong, cauTocDo } from "@/lib/sen-bien/lenh-chay";
 import type { NhoTruoc } from "@/lib/sen-bien/noi-tiep";
 import { getSenState, setSenSignal } from "@/lib/sen-bien-state";
 import { apDungGemma, canGemma, chonKho, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
@@ -437,7 +437,7 @@ import { lechCamera } from "@/lib/nav-camera";
 import type { ChoVuong } from "@/lib/duong-thang";
 import type { LatLon } from "@/lib/geo";
 import { gioPhut, luuPhien, napPhien, taoPhien, xoaPhien, type NavPhien } from "@/lib/nav-phien";
-import { clockSpeech, distSpeech } from "@/lib/nav-voice/phrases";
+import { distSpeech } from "@/lib/nav-voice/phrases";
 import { CAU_DU_HAI_DO, CAU_TAT_MAN, CAU_TU_DUNG, cauBatDau } from "@/lib/nav-voice/cau-dan-duong";
 import { fetchReefDepth, timRanChoThe } from "@/lib/reef-depth";
 import { requiredDepthM } from "@/lib/hazards";
@@ -5162,17 +5162,7 @@ export default function FishingMapView() {
           return { show: t.say };
         }
         case "howfar": {
-          const unit = prefs.distUnit === "km" ? "km" : "nm";
-          // giờ tới nơi theo đồng hồ (Mimi: "mấy giờ đến nơi") — chỉ khi đang chạy đủ nhanh để có ETA
-          const t = navProgress
-            ? `Còn ${distSpeech(navProgress.remainingKm, unit)}${
-                navProgress.etaHours != null
-                  ? `, chừng ${formatHoursVN(navProgress.etaHours)}, tới lúc ${clockSpeech(Date.now() + navProgress.etaHours * 3_600_000)}`
-                  : ""
-              }.`
-            : navOn
-              ? "Đang chạy không có đích. Nói tên chỗ muốn tới để Sen Biển vẽ đường."
-              : "Chưa dẫn đường tới đâu.";
+          const t = cauConLai(navProgress, navOn, prefs.distUnit === "km" ? "km" : "nm", Date.now());
           senSay(t);
           return { show: t };
         }
@@ -5185,33 +5175,17 @@ export default function FishingMapView() {
             t = cauCuuNan(p ? { lat: p.lat, lon: p.lon } : null, tracking.lastFixAt != null ? Date.now() - tracking.lastFixAt : null);
             if (p) goToCoord(p.lat, p.lon);
           } else if (r.viec === "toc_do") {
-            const v = tracking.speedKmh;
-            t =
-              v == null
-                ? "Máy chưa đo được tốc độ. Cần định vị đang chạy."
-                : unit === "km"
-                  ? `Tàu đang chạy ${Math.round(v)} cây số một giờ.`
-                  : `Tàu đang chạy ${(v / 1.852).toFixed(1).replace(".", ",").replace(/,0$/, "")} hải lý một giờ.`;
+            t = cauTocDo(tracking.speedKmh, unit);
           } else if (!navProgress) {
-            t = "Chưa dẫn đường tới đâu. Nói tên chỗ muốn tới để Sen Biển vẽ đường.";
+            t = CAU_CHUA_DAN;
           } else if (r.viec === "ve_lai") {
             /*  Như "dẫn về X" bằng giọng: tính xong đọc tóm tắt rồi CHỜ "đi" (senPendingRef) — không bắt chạm
                 Bắt đầu (thử Rảnh tay 2026-11-02: tính lại xong treo ở bảng Lộ trình, micro rảnh tay nghỉ). */
             const ten = stopsRef.current[stopsRef.current.length - 1]?.name ?? "điểm đến";
             veLaiTuTau();
             senPendingRef.current = { name: ten };
-            t = "Đang tính lại đường từ chỗ tàu.";
-          } else if (navProgress.offRoute && navProgress.vachBen) {
-            t = `Tàu lệch đường ${distSpeech(navProgress.offRouteKm, unit)}, vạch ở bên ${navProgress.vachBen} tàu.${
-              navProgress.huongVeVachDeg != null ? ` Đi về phía ${windDirectionVN(navProgress.huongVeVachDeg)} để về lại.` : ""
-            }`;
-          } else {
-            const s = navProgress.steer;
-            t =
-              s && s.side !== "straight"
-                ? `Chếch ${s.side === "left" ? "trái" : "phải"} ${Math.round(Math.abs(s.turnDeg))} độ, về phía ${navProgress.dirVN}.`
-                : `Đúng hướng. Giữ hướng ${navProgress.dirVN}.`;
-          }
+            t = CAU_TINH_LAI;
+          } else t = cauHuong(navProgress, unit);
           senSay(t);
           return { show: t };
         }
@@ -5368,7 +5342,7 @@ export default function FishingMapView() {
       if (!ok) {
         // bộ nghe 79 MB chưa về (lần đầu, mất sóng) ⇒ nói thật, tắt nút; KHÔNG dùng nghe qua mạng cho việc nghe liên tục
         setRanhTay(false);
-        senSay("Máy chưa có bộ nghe trong máy. Có sóng thì mở lại để tải, rồi bật Rảnh tay.");
+        senSay(CAU_CHUA_BO_NGHE);
         return;
       }
       dung = ngheRanhTay({
@@ -5389,7 +5363,7 @@ export default function FishingMapView() {
         onError: (code) => {
           if (code !== "not-allowed") return;
           setRanhTay(false);
-          senSay("Máy chưa cho dùng micro. Bật quyền micro cho app rồi bật lại Rảnh tay.");
+          senSay(CAU_MICRO_CHAN);
         },
       }).stop;
     });

@@ -1,5 +1,6 @@
 # 15 — Chế độ "ĐANG CHẠY": đọc & cảnh báo bằng giọng nói kiểu VietMap
 
+<!-- re-verified: 2026-11-02z2 — §34 Giọng: 53 mảnh Mỹ Duyên mới (câu lệnh lúc chạy/kêu cứu/rảnh tay + 2 câu nợ dẫn đường), cổng ghep-giong phủ đủ; câu đọc gom `lenh-chay.ts`. -->
 <!-- re-verified: 2026-11-02z — §34 mới: Sen Biển vượt Mimi — gọi rảnh tay "Sen Biển ơi" bằng bộ nghe trong máy (`lib/sen-bien/goi-ranh-tay`, `nghe-may.ngheRanhTay`, nút Rảnh tay trên HUD, khoá `forfish.nav.ranhtay.v1`), lệnh lúc chạy + kêu cứu (`lib/sen-bien/lenh-chay`), câu nối nhiều lượt (`lib/sen-bien/noi-tiep`), "mấy giờ tới" đọc giờ tới nơi. -->
 <!-- re-verified: 2026-11-02w — §33 mới: vá 4 lỗ giọng (đỏ tính mạng nhắc lại, bão gần kèm khu trú gần nhất, báo trước tới đích, định vị yếu) — `events.ts`, `nav-storm.ts`, `use-nav-voice.ts`. -->
 <!-- re-verified: 2026-11-02v — §32 mới: câu dẫn đường lượt 2 (`lib/nav-voice/cau-dan-duong.ts`): bắt đầu (quãng · giờ · hướng đầu · tắt màn), lệch tuyến kèm "Đi về phía H, bên trái/phải tàu", "Tàu đã về lại đường đã vẽ.", "đã tới" đọc một lần/lần tới, tự thôi dẫn khi tới + đứng yên 5 phút, nạp lại kho hải đồ. -->
@@ -1177,7 +1178,7 @@ Anh Long: *"con sen biển đã thông minh con mimi của vietmap chưa"* → *
 
 **Thử thật (2026-11-02):** bộ nghe trong máy thật (sherpa zipformer v2) + câu đọc giọng Linh (macOS) bơm vào micro trình duyệt: "sen biển ơi còn bao **sa**" (lẫn s/x ⇒ thêm "bao sa" vào luật còn bao xa) → "Còn 76 hải lý, chừng 9 giờ 50 phút, tới lúc 3 giờ 25 sáng."; "tốc độ bao nhiêu" → "Tàu đang chạy 7,8 hải lý một giờ."; "hôm nay biển êm quá" → im; "cứu với tàu bị chìm" → toạ độ + 112 + VHF 16; "tìm đường khác" → tóm tắt → "đi" → dẫn đường lại, không chạm. Bắt được + sửa 3 lỗi: thẻ nằm lì chặn micro; tìm đường khác treo ở nút Bắt đầu; thẻ chờ "Đi/Thôi" hết lượt tự nghe là rảnh tay nghỉ luôn. iOS Simulator không thu được micro máy Mac ⇒ **chưa thử micro thật trên iPhone**.
 
-**Giọng:** câu mới (toạ độ cứu nạn, tốc độ, chếch/đúng hướng, "tới lúc") CHƯA có mảnh Mỹ Duyên ⇒ đọc cả câu giọng máy (luật một câu một giọng §21) — nợ: thêm `lib/sen-bien/lenh-chay.ts` vào NGUON `lap_manh.mjs` rồi sinh mảnh ở gpu-desktop.
+**Giọng (sinh 2026-11-02, gpu-desktop `~/sen-bien-manh/moi.sh`):** câu đọc mới gom vào `lenh-chay.ts` (`cauConLai`, `cauTocDo`, `cauHuong`, `cauCuuNan`, `CAU_*`), file vào NGUON `lap_manh.mjs` ⇒ 53 mảnh mới (gồm hai câu nợ cũ "Tắt màn hình là máy ngừng đọc." + "Tàu đã về lại đường đã vẽ." và 13 tên cửa/cảng), VieNeu 3 bản/mảnh, chọn theo UTMOS + nhận giọng (sai chữ TB 6,4 %; "Lạch Huyện (Hải Phòng)" chấm 25 % — cần nghe lại bằng tai). Cổng `ghep-giong.test.ts`: mọi câu Sen Biển vượt Mimi phủ 100 % mảnh. Mảnh cũ "dự báo cá dành cho tài khoản premium" giữ bằng nhóm `them` (câu ở `fishing-map-view` ngoài NGUON).
 
 **Offline (4 câu CLAUDE.md):** (a) không request mới — nghe, hiểu, trả lời đều trong máy; bộ nghe tải sẵn lúc có sóng như trước; (b) không đụng `sw.js`/`SHELL`; khoá MỚI `forfish.nav.ranhtay.v1` (máy này, EXCLUDED sao lưu — `offline-backup.test.ts`); (c) không xoá/đè dữ liệu; (d) mất sóng là nhánh chính — đây là chỗ hơn Mimi rõ nhất.
 

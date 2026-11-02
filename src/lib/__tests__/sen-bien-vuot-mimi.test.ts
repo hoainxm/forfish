@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { tachCauGoi } from "@/lib/sen-bien/goi-ranh-tay";
 import { senBienReply } from "@/lib/sen-bien/hieu-y";
-import { cauCuuNan, lenhChay, toaDoDoc } from "@/lib/sen-bien/lenh-chay";
+import { cauConLai, cauCuuNan, cauHuong, cauTocDo, lenhChay, toaDoDoc } from "@/lib/sen-bien/lenh-chay";
 import { catDoan } from "@/lib/sen-bien/nghe-may";
 import { hieuCauNoi, NOI_TIEP_MS, type NhoTruoc } from "@/lib/sen-bien/noi-tiep";
 
@@ -130,5 +130,27 @@ describe("catDoan — lấy thêm 350 ms trước lúc có tiếng (chữ 'Sen' 
   it("tính chỉ số mẫu, không âm", () => {
     expect(catDoan(1000, 16000)).toBe(Math.floor(0.65 * 16000));
     expect(catDoan(100, 16000)).toBe(0);
+  });
+});
+
+describe("câu đọc lệnh lúc chạy", () => {
+  it("còn bao xa có giờ tới nơi; không đích nói thật", () => {
+    const now = Date.UTC(2026, 10, 2, 10, 0); // 17:00 giờ VN
+    expect(cauConLai({ remainingKm: 18.52, etaHours: 2 }, true, "nm", now)).toBe("Còn 10 hải lý, chừng 2 giờ, tới lúc 7 giờ tối.");
+    expect(cauConLai({ remainingKm: 18.52, etaHours: null }, true, "nm", now)).toBe("Còn 10 hải lý.");
+    expect(cauConLai(null, true, "nm", now)).toContain("không có đích");
+  });
+  it("tốc độ theo đơn vị", () => {
+    expect(cauTocDo(14.4, "nm")).toBe("Tàu đang chạy 7,8 hải lý một giờ.");
+    expect(cauTocDo(18.52, "nm")).toBe("Tàu đang chạy 10 hải lý một giờ.");
+    expect(cauTocDo(14.4, "km")).toBe("Tàu đang chạy 14 cây số một giờ.");
+    expect(cauTocDo(null, "nm")).toContain("chưa đo được");
+  });
+  it("hướng: lệch đường / chếch / đúng hướng", () => {
+    const base = { offRoute: false, offRouteKm: 0, vachBen: null, huongVeVachDeg: null, dirVN: "Nam" } as const;
+    expect(cauHuong({ ...base, steer: { side: "left", label: "", turnDeg: -50 } }, "nm")).toBe("Chếch trái 50 độ, về phía Nam.");
+    expect(cauHuong({ ...base, steer: { side: "straight", label: "", turnDeg: 2 } }, "nm")).toBe("Đúng hướng. Giữ hướng Nam.");
+    const lech = cauHuong({ ...base, offRoute: true, offRouteKm: 3.704, vachBen: "phải", huongVeVachDeg: 90, steer: null }, "nm");
+    expect(lech.startsWith("Tàu lệch đường 2 hải lý, vạch ở bên phải tàu.")).toBe(true);
   });
 });
