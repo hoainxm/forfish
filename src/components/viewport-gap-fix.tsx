@@ -36,7 +36,42 @@ export function laIosWebKit(ua: string, maxTouchPoints: number): boolean {
   return /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && maxTouchPoints > 1);
 }
 
+/**
+ * KHUNG NHÌN KẸT SAU KHI ĐÓNG BÀN PHÍM (2026-11-02, anh Long chụp Kairos: "lỗi cái bar dính ngang màn hình" — dock nổi giữa
+ * màn). WebKit iOS (Safari, bản cài, vỏ app) có lúc đóng bàn phím mà vùng nhìn vẫn LỆCH xuống (`offsetTop` > 0) dù đã
+ * cao lại bằng cửa sổ ⇒ mọi thứ `position: fixed` (dock, nút Sen Biển) vẽ theo chỗ cũ, đứng giữa màn tới khi bà con
+ * cuộn. Thuần: bàn phím đã đóng (vùng nhìn gần bằng cửa sổ) mà còn lệch ⇒ cần kéo về.
+ */
+export function vungNhinKet(vv: { height: number; offsetTop: number }, innerHeight: number): boolean {
+  return vv.offsetTop > 1 && vv.height >= innerHeight - 2;
+}
+
 export function ViewportGapFix() {
+  /*  Kéo vùng nhìn về sau khi bàn phím đóng — MỌI chế độ iOS (không chỉ bản cài). `scrollTo` đúng chỗ đang đứng là đủ
+      để WebKit đặt lại vùng nhìn; không đổi vị trí cuộn bà con đang đọc. Đang gõ thì không đụng. */
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv || !laIosWebKit(navigator.userAgent, navigator.maxTouchPoints ?? 0)) return;
+    let hen = 0;
+    const dangGo = () => {
+      const el = document.activeElement as HTMLElement | null;
+      return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable === true);
+    };
+    const keoVe = () => {
+      window.clearTimeout(hen);
+      hen = window.setTimeout(() => {
+        if (!dangGo() && vungNhinKet(vv, window.innerHeight)) window.scrollTo(window.scrollX, window.scrollY);
+      }, 250);
+    };
+    vv.addEventListener("resize", keoVe);
+    window.addEventListener("focusout", keoVe);
+    return () => {
+      window.clearTimeout(hen);
+      vv.removeEventListener("resize", keoVe);
+      window.removeEventListener("focusout", keoVe);
+    };
+  }, []);
+
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;

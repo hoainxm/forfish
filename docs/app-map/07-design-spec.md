@@ -4,8 +4,9 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-10-30
+last_verified: 2026-11-02
 ttl_days: 90
+<!-- re-verified: 2026-11-02 — DOCK NỔI GIỮA MÀN sau khi đóng bàn phím (anh Long chụp Kairos: "lỗi cái bar dính ngang màn hình"): WebKit iOS có lúc để vùng nhìn lệch (`visualViewport.offsetTop` > 0) dù bàn phím đã đóng ⇒ dock/nút nổi `fixed` vẽ theo chỗ cũ. `viewport-gap-fix.tsx` thêm `vungNhinKet` + hiệu ứng cho MỌI chế độ iOS: 250 ms sau `focusout`/`resize`, không đang gõ mà còn kẹt ⇒ `scrollTo` đúng chỗ đang đứng để WebKit đặt lại vùng nhìn (không đổi vị trí đọc). Chưa tái hiện được trên máy thật — cần kiểm lại trên iPhone. -->
 <!-- re-verified: 2026-10-30n — Không đổi màn hình: đặt hàng trả mã đơn sớm hơn (thông báo chủ shop chạy sau), tải ảnh giấy tờ sai định dạng vẫn báo câu lỗi cũ (`bad_type`). -->
 <!-- re-verified: 2026-10-30e — Nhãn bản lưu ở thẻ gió sóng điểm (SeaTab "Bản lưu HH:MM", chip "Số cũ trong máy (…)", chip "Số gió, sóng lấy từ bản đã lưu (bản lưu lúc …)") thêm đuôi "· chậm N lượt cập nhật" khi bản lùi đã qua ≥1 mốc ra bản của nguồn (`cauLuotCham`); 0 lượt thì không thêm gì. -->
 <!-- re-verified: 2026-10-30d — LỚP DÒNG CHẢY: hết trạng thái "trắng câm" (thanh giờ "Dòng chảy · Hôm nay" mà không màu/hạt/lỗi). Nguồn không trả số dòng chảy ⇒ dùng bản đã lưu/snapshot có dòng chảy (cờ số cũ như mọi lớp); không còn gì ⇒ dòng lỗi của thanh giờ nói đúng nguyên nhân: "Nguồn chưa trả số dòng chảy, máy cũng chưa có bản nào lưu. Gió sóng vẫn xem được." + nút Thử lại (khác câu chung "Chưa lấy được dự báo cả vùng biển…"). -->
