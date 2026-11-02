@@ -175,6 +175,16 @@ describe("câu có số của app phủ đủ mảnh", () => {
           );
     for (let km = 3; km < 400; km *= 2.3)
       cau.push(cauBatDau(km, km / 13, km * 40, "nm").replace(` ${CAU_TAT_MAN}`, ""));
+    // 4 lỗ giọng (15 §33): báo trước tới đích, định vị yếu, khu trú bão khi bão gần
+    for (let km = 1; km < 30; km *= 1.7) {
+      const r = collectVoiceEvents(initVoiceMemory(), { ...NGUON_RONG, conLaiKm: km, tocDoKmh: 200 }).events;
+      cau.push(...r.map((e) => e.text));
+    }
+    for (const m of [160, 230, 480]) cau.push(...collectVoiceEvents(initVoiceMemory(), { ...NGUON_RONG, saiSoM: m }).events.map((e) => e.text));
+    const vungKhu = JSON.parse(readFileSync(join(process.cwd(), "public/data/khu-tru-bao.v1.json"), "utf8")) as { khu?: { ten: string }[] } | { ten: string }[];
+    const dsKhu = (Array.isArray(vungKhu) ? vungKhu : (vungKhu.khu ?? [])).map((k) => k.ten);
+    expect(dsKhu.length).toBeGreaterThan(20);
+    for (const ten of dsKhu) cau.push(`Khu tránh trú bão gần nhất là ${ten}, còn chừng ${distSpeech(37, "nm")}.`);
     phuHet(cau);
   });
   it("nợ mảnh giọng: hai câu dẫn đường chưa có mảnh — đọc giọng máy cả câu", () => {

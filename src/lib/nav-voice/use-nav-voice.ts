@@ -99,6 +99,13 @@ export type NavVoiceInput = {
   offRoute: { step: number; km: number; ben?: "trái" | "phải" | null; huongVeDeg?: number | null } | null;
   /** đang dẫn theo tuyến (câu "đã về lại đường" chỉ khi còn tuyến) */
   coTuyen?: boolean;
+  /** quãng còn lại tới đích + tốc độ (km, km/h) — câu báo trước tới đích */
+  conLaiKm?: number | null;
+  tocDoKmh?: number | null;
+  /** sai số định vị (m) — câu "định vị yếu" */
+  saiSoM?: number | null;
+  /** khu trú bão gần tàu nhất lúc này (câu bão gần đọc kèm) — hàm để tính theo vị trí mới nhất */
+  khuTruGan?: () => { ten: string; km: number } | null;
   info: { id: string; cau: string } | null;
   storm: StormStatus;
   depthHere: number | null;
@@ -415,7 +422,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
   // BÃO theo GPS — tính lại khi tin bão đổi hoặc mỗi phút (bão đi chậm)
   useEffect(() => {
     if (!inp.on) return;
-    setStormObs(stormObservation(inp.storm, posRef.current, Date.now(), inp.unit));
+    setStormObs(stormObservation(inp.storm, posRef.current, Date.now(), inp.unit, inp.khuTruGan?.() ?? null));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- vị trí đọc qua ref
   }, [inp.on, inp.storm, inp.unit, tick, inp.pos == null]);
 
@@ -574,6 +581,9 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
       legsPassed: inp.legsPassed,
       legsTotal: inp.legsTotal,
       arrived: inp.arrived,
+      conLaiKm: inp.conLaiKm,
+      tocDoKmh: inp.tocDoKmh,
+      saiSoM: inp.saiSoM,
       vung: inp.vung,
       khucRe: inp.khucRe,
       extra,
@@ -605,6 +615,9 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     inp.legsPassed,
     inp.legsTotal,
     inp.arrived,
+    inp.conLaiKm,
+    inp.tocDoKmh,
+    inp.saiSoM,
     inp.vung,
     inp.khucRe,
     tick,

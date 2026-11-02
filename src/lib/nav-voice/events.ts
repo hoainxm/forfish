@@ -17,7 +17,16 @@ import type { StormObservation } from "@/lib/nav-voice/nav-storm";
 import type { SeaObservation } from "@/lib/nav-voice/sea-now";
 import { dirSpeech, distSpeech, numVN, toSpeechVN, type SpeechUnit } from "@/lib/nav-voice/phrases";
 import { cauVung, type VungSuKien } from "@/lib/nav-vung";
-import type { KhucReBao } from "@/lib/nav-khuc-re";
+import { nguongKm, type KhucReBao } from "@/lib/nav-khuc-re";
+
+/** sai số định vị (m) trên mức này ⇒ đọc "định vị yếu" — cùng mốc hạ đỏ xuống vàng của nav-hazards */
+export const GPS_YEU_M = 150;
+/** về dưới mức này mới hết đợt định vị yếu */
+export const GPS_TOT_M = 100;
+/** báo trước tới đích khi còn chừng ngần này phút chạy… */
+export const SAP_TOI_PHUT = 10;
+/** …nhưng không gần hơn ngần này km (tàu chậm / chưa biết tốc độ) */
+export const SAP_TOI_SAN_KM = 1;
 
 /* ── VÙNG NƯỚC DƯỚI TÀU (đọc hải đồ như VietMap đọc biển tốc độ) ─────────── */
 
@@ -57,6 +66,11 @@ export type VoiceMemory = {
   legsSaid: number;
   /** đã đọc "đã tới gần điểm đến" cho lần tới này */
   arriveSaid: boolean;
+  /** đã báo trước "còn chừng X tới điểm đến" cho lần tới gần này */
+  sapToiSaid: boolean;
+  /** đang trong đợt "định vị yếu" (đã đọc) + số đợt để key không trùng */
+  gpsYeu: boolean;
+  gpsYeuEp: number;
   zone: { cand: number | null; n: number; sinceMs: number; said: number | null; saidMs: number; seq: number };
 };
 
@@ -73,6 +87,9 @@ export function initVoiceMemory(): VoiceMemory {
     prevGps: "idle",
     legsSaid: 0,
     arriveSaid: false,
+    sapToiSaid: false,
+    gpsYeu: false,
+    gpsYeuEp: 0,
     zone: { cand: null, n: 0, sinceMs: 0, said: null, saidMs: -Infinity, seq: 0 },
   };
 }
@@ -99,6 +116,12 @@ export type VoiceSources = {
   legsPassed: number;
   legsTotal: number;
   arrived: boolean;
+  /** quãng còn lại tới điểm đến (km) khi dẫn theo tuyến — null khi không có tuyến */
+  conLaiKm?: number | null;
+  /** tốc độ GPS (km/h) — mốc báo trước tới đích tính theo nó */
+  tocDoKmh?: number | null;
+  /** sai số định vị (m) của fix gần nhất */
+  saiSoM?: number | null;
   /** vào/ra vùng vừa xác nhận (`nav-vung`) — câu "Đang trong…" / "Tàu đã ở ngoài…" */
   vung?: readonly VungSuKien[];
   /** khúc rẽ trên tuyến vừa vượt mốc (`nav-khuc-re`) — báo trước rồi báo tới */
@@ -114,6 +137,10 @@ export function alertToEvent(a: NavAlert): VoiceEvent {
     tier: a.muc,
     text: toSpeechVN(a.cau),
     chart: true,
+    /*  ĐỎ TÍNH MẠNG (rạn, cạn, xác tàu, bờ… ở mốc đỏ) CŨNG ĐƯỢC NHẮC LẠI như ranh giới
+        ≤6 hl (rà giọng 2026-11-02): máy tàu nổ to, lỡ nghe một lần là hết. Nhắc sau
+        30 giây, tối đa 2 lần, thôi khi bấm "Đã nghe" (announcer luật 6). */
+    persist: a.muc === "do" && a.bac === 1,
     rank: a.bac,
   };
 }
@@ -256,12 +283,42 @@ export function collectVoiceEvents(
     out.push({ key: `gps:back:${mem.gpsEpisode}`, group: "gps", tier: "tin", rank: 5, text: "Đã có định vị lại." });
   }
   mem.prevGps = src.gps;
+  /*  ĐỊNH VỊ YẾU (rà giọng 2026-11-02): trước chỉ câu đỏ hiểm hoạ được thêm đuôi "định vị
+      lệch ±N m" — các câu khác (ranh giới, lệch tuyến, còn bao xa) im lặng dùng số sai.
+      Vượt GPS_YEU_M ⇒ một câu; về dưới GPS_TOT_M mới hết đợt (đệm, khỏi đọc lặp). */
+  const ss = src.saiSoM;
+  if (src.gps === "tracking" && ss != null && Number.isFinite(ss)) {
+    if (!mem.gpsYeu && ss > GPS_YEU_M) {
+      mem.gpsYeu = true;
+      mem.gpsYeuEp += 1;
+      out.push({ key: `gps:yeu:${mem.gpsYeuEp}`, group: "gps", tier: "vang", rank: 5, text: toSpeechVN(`Định vị lệch ±${Math.round(ss / 10) * 10} m. Chỉ tham khảo.`) });
+    } else if (mem.gpsYeu && ss < GPS_TOT_M) mem.gpsYeu = false;
+  }
 
   // 8. CHỖ GHÉ / ĐÍCH
   if (src.legsTotal >= 2 && src.legsPassed > mem.legsSaid && src.legsPassed < src.legsTotal) {
     mem.legsSaid = src.legsPassed;
     out.push({ key: `stop:${src.legsPassed}`, group: "stop", tier: "vang", rank: 8, text: `Đã tới chỗ ghé số ${src.legsPassed}.` });
   }
+  /*  BÁO TRƯỚC KHI TỚI (rà giọng 2026-11-02, Vietmap báo trước đích): còn chừng
+      SAP_TOI_PHUT phút (sàn SAP_TOI_SAN_KM) ⇒ một câu tin. Lùi xa hơn gấp đôi mốc mới
+      tính là lần tới gần mới (neo trôi quanh mốc không đọc lặp). */
+  const conLai = src.conLaiKm;
+  if (conLai == null || !Number.isFinite(conLai)) mem.sapToiSaid = false;
+  else {
+    const moc = nguongKm(SAP_TOI_PHUT, SAP_TOI_SAN_KM, src.tocDoKmh ?? null);
+    if (!src.arrived && !mem.sapToiSaid && conLai <= moc) {
+      mem.sapToiSaid = true;
+      out.push({
+        key: `saptoi:${Math.round(moc * 10)}:${src.legsTotal}`,
+        group: "stop",
+        tier: "tin",
+        rank: 8,
+        text: `Còn chừng ${distSpeech(conLai, src.unit)} tới điểm đến.`,
+      });
+    } else if (conLai > moc * 2) mem.sapToiSaid = false;
+  }
+
   /*  ĐỌC MỘT LẦN mỗi lần tới (rà 2026-11-02): key cố định mà bộ đọc quên key sau
       30 phút ⇒ neo cả đêm là cứ nửa giờ đọc lại. Nhớ ở đây, rời vùng tới mới đặt lại. */
   if (src.arrived && !mem.arriveSaid) {

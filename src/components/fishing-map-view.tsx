@@ -576,6 +576,9 @@ const BORDER_LEVEL_STYLE: Record<BorderLevel, { bg: string; fg: string }> = {
     cho biết, không doạ). Ngoài lưới (null) thì im. */
 /** Giữ dòng cảnh báo hải đồ trên HUD ngần này sau khi nói (xem effect mỗi fix). */
 const NAV_ALERT_HOLD_MS = 30_000;
+/*  Dòng ĐỎ giữ lâu hơn: giọng chỉ nhắc lại câu đỏ khi câu đó CÒN trong nguồn (announcer
+    luật 6: 30 giây/lần, tối đa 2 lần) ⇒ giữ đủ 2 lượt nhắc + đệm. "Đã nghe" vẫn tắt nhắc. */
+const NAV_ALERT_HOLD_DO_MS = 75_000;
 
 /** Nước dưới tàu, gọn cho dòng thân HUD "Đang chạy" (lớp 0 = đất/nhiễu GPS: im). */
 /** nhãn nút giọng đọc trên HUD — ≤2 chữ (03 §Nhãn) */
@@ -3975,6 +3978,7 @@ export default function FishingMapView() {
   const [navVungSu, setNavVungSu] = useState<VungSuKien[]>([]);
   /** lần cuối có câu cảnh báo mới — giữ dòng trên HUD NAV_ALERT_HOLD_MS */
   const navAlertsAtRef = useRef(-Infinity);
+  const navAlertsDoRef = useRef(false);
   const [navInfo, setNavInfo] = useState<NavInfoLine | null>(null);
   /** câu đèn biển gần nhất — làm mới 30 giây/lần, dùng khi không có phao nào */
   const navDenRef = useRef<NavInfoLine | null>(null);
@@ -4255,9 +4259,12 @@ export default function FishingMapView() {
         tàu phía trước" chỉ nháy ~2 giây rồi mất. Giờ có giọng đọc, nhưng người
         nghe kém / máy tàu ồn vẫn phải ĐỌC lại được: giữ câu vừa nói tới khi có
         câu mới hoặc quá 30 giây. Chỉ là lớp hiển thị — mốc/đếm lần vẫn ở lib. */
-    if (alerts.length > 0) navAlertsAtRef.current = now;
-    const giu =
-      alerts.length === 0 && navStatus === "tracking" && now - navAlertsAtRef.current < NAV_ALERT_HOLD_MS;
+    if (alerts.length > 0) {
+      navAlertsAtRef.current = now;
+      navAlertsDoRef.current = alerts.some((a) => a.muc === "do");
+    }
+    const tranGiu = navAlertsDoRef.current ? NAV_ALERT_HOLD_DO_MS : NAV_ALERT_HOLD_MS;
+    const giu = alerts.length === 0 && navStatus === "tracking" && now - navAlertsAtRef.current < tranGiu;
     if (!giu) setNavAlerts((cu) => (sameAlerts(cu, alerts) ? cu : alerts));
 
     /*  Chuông + rung: `nav-hazards` đã đếm giãn cách (≤1 chuông/20 s, ≤1
@@ -4417,7 +4424,15 @@ export default function FishingMapView() {
     setPhienCho(null);
   }, []);
 
+  // khu trú gần nhất cho câu bão gần — tính lúc đọc, theo vị trí mới nhất (không mỗi fix)
+  const khuTruGan = useCallback(() => {
+    const p = trackingPosRef.current;
+    if (!p) return null;
+    const k = khuTruBaoGan(navCtxRef.current, p, null, navFmtDist, 1)[0];
+    return k ? { ten: k.ten, km: k.km } : null;
+  }, [navFmtDist]);
   const navVoice = useNavVoice({
+    khuTruGan,
     on: navOn,
     unit: prefs.distUnit === "km" ? "km" : "nm",
     pos: tracking.pos,
@@ -4435,6 +4450,11 @@ export default function FishingMapView() {
     legsPassed: navLegs.passed,
     legsTotal: navLegs.total,
     arrived: navProgress?.arrived ?? false,
+    // làm tròn 0,1 km: báo trước tới đích không cần nhịp mỗi fix
+    conLaiKm: navMode && navProgress ? Math.round(navProgress.remainingKm * 10) / 10 : null,
+    tocDoKmh: tracking.speedKmh,
+    // làm tròn 10 m — chỉ cần biết vượt/không vượt mốc 150/100 m
+    saiSoM: tracking.accuracyM != null ? Math.round(tracking.accuracyM / 10) * 10 : null,
     chart: navChart,
     lengthM: navLengthM,
     vung: navVungSu,

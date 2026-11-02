@@ -56,6 +56,10 @@ export function stormObservation(
   pos: LatLon | null,
   nowMs: number,
   unit: SpeechUnit,
+  /*  KHU TRÚ BÃO GẦN NHẤT (rà giọng 2026-11-02 — thứ tương đương "trạm dừng nghỉ" của
+      Vietmap): bão vào 200 km thì đọc thêm tên + còn bao xa. KHÔNG phán kịp/không kịp,
+      không hứa còn chỗ — vào hay không là quyết định của thuyền trưởng. */
+  khu: { ten: string; km: number } | null = null,
 ): StormObservation | null {
   if (status.kind !== "co-bao" || !pos || status.storms.length === 0) return null;
   let best: { s: StormAlert; path: number; center: number } | null = null;
@@ -76,6 +80,7 @@ export function stormObservation(
     }.`,
   ];
   if (near && best.center - best.path > 30) parts.push("Đường đi dự báo qua gần tàu.");
+  if (near && khu) parts.push(`Khu tránh trú bão gần nhất là ${khu.ten}, còn chừng ${distSpeech(khu.km, unit)}.`);
   parts.push(`${cap(ageSpeech(status.checkedAt, nowMs))}.`);
   parts.push("Nghe đài duyên hải.");
   return {

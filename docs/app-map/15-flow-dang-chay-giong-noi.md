@@ -1,5 +1,6 @@
 # 15 — Chế độ "ĐANG CHẠY": đọc & cảnh báo bằng giọng nói kiểu VietMap
 
+<!-- re-verified: 2026-11-02w — §33 mới: vá 4 lỗ giọng (đỏ tính mạng nhắc lại, bão gần kèm khu trú gần nhất, báo trước tới đích, định vị yếu) — `events.ts`, `nav-storm.ts`, `use-nav-voice.ts`. -->
 <!-- re-verified: 2026-11-02v — §32 mới: câu dẫn đường lượt 2 (`lib/nav-voice/cau-dan-duong.ts`): bắt đầu (quãng · giờ · hướng đầu · tắt màn), lệch tuyến kèm "Đi về phía H, bên trái/phải tàu", "Tàu đã về lại đường đã vẽ.", "đã tới" đọc một lần/lần tới, tự thôi dẫn khi tới + đứng yên 5 phút, nạp lại kho hải đồ. -->
 <!-- re-verified: 2026-11-02 — §31 mới: học từ VietMap Live dịch ngược (khúc rẽ hai nhịp `lib/nav-khuc-re`, đang trong vùng `lib/nav-vung`, tiếp tục chuyến `lib/nav-phien`); `collectVoiceEvents` nhận thêm `vung` + `khucRe`. -->
 <!-- re-verified: 2026-10-31b — lớp hỏi sản phẩm mở rộng: bảng MON gồm máy lọc dầu, máy lọc nước biển (lọc nước/SEA40/SEA250/SD-M250), ắc quy (ắc quy/accu/bình điện); món không clip (ắc quy) không mở video. -->
@@ -1137,4 +1138,21 @@ Team 4 agent rà lại (07 §10.7 V); phần giọng:
 **Offline (4 câu CLAUDE.md):** (a) không request mới — lượt nạp lại kho dùng đúng các `fetchX` sẵn có (đọc từ kho SW, có trần riêng), tối đa 1 lượt/phút; (b) không đụng `sw.js`/`SHELL`; khoá `forfish.nav.phien.v1` hạn 12 giờ → 7 ngày và vào danh sách xoá khi đổi số điện thoại (`auth-scope`); (c) không xoá dữ liệu bà con; (d) mọi câu chạy trên dữ liệu đã nạp.
 
 **Assumptions:** 5 phút đứng yên = neo xong; 74 km/h là trần tàu cá (cùng `JITTER_MAX_KMH` sẵn có); chưa thử ngoài biển — đổi ở hằng trong file.
+
+## 33. VÁ 4 LỖ GIỌNG ĐỌC — RÀ KỊCH BẢN ĐỐI CHIẾU VIETMAP (2026-11-02)
+
+Agent rà kịch bản giọng: chọn câu/đúng lúc/chống đọc dồn đã HƠN Vietmap; còn 4 lỗ (anh Long "vá hết đi"). Lỗ lớn nhất — tắt màn là câm — cần chạy nền native, CHƯA làm.
+
+| Lỗ | Trước | Nay | Ở đâu |
+|---|---|---|---|
+| Đỏ tính mạng chỉ đọc một lần | Rạn/cạn/xác tàu mốc đỏ đọc 1 lần, máy nổ to là lỡ | `persist` cho đỏ bậc 1 ⇒ nhắc sau 30 s, tối đa 2 lần, thôi khi "Đã nghe" (cùng luật ranh giới ≤6 hl). Dòng đỏ giữ trong nguồn 75 s (`NAV_ALERT_HOLD_DO_MS`) để đủ 2 lượt nhắc | `alertToEvent`, `fishing-map-view` |
+| Bão gần không nói chỗ trú | Câu bão chỉ tên · cách bao xa · hướng · tuổi tin | Bão ≤200 km thêm "Khu tránh trú bão gần nhất là X, còn chừng Y." (khu gần nhất từ `khuTruBaoGan`, tính lúc đọc). Không phán kịp/không kịp | `stormObservation(…, khu)` |
+| Không báo trước tới đích | Chỉ "Đã tới gần điểm đến" ở 0,4 km | Còn chừng 10 phút chạy (sàn 1 km): "Còn chừng X tới điểm đến." (tin) — một lần, lùi xa gấp đôi mốc mới tính lần mới | `events.ts` mục 8, `SAP_TOI_PHUT/SAN_KM` |
+| GPS yếu không có câu riêng | Chỉ câu đỏ hiểm hoạ có đuôi "định vị lệch" | Sai số >150 m: "Định vị lệch ±N m. Chỉ tham khảo." (vàng) — một lần mỗi đợt, về dưới 100 m mới hết đợt | `events.ts` mục 7, `GPS_YEU_M/GPS_TOT_M` |
+
+**Giọng:** cả bốn câu phủ 100 % mảnh Mỹ Duyên đã có (cổng `ghep-giong.test.ts`, gồm mọi tên trong `khu-tru-bao.v1`). Test hành vi: `nav-voice-lo-hong.test.ts`.
+
+**Offline:** không request mới; khu trú đọc từ kho đã nạp lúc bật dẫn đường; không đụng `sw.js`, không khoá `forfish.*` mới.
+
+**Assumptions:** 10 phút / 1 km / 150–100 m / 75 s là mặc định tự đặt, chưa chạy thử ngoài biển — đổi ở hằng trong file.
 
