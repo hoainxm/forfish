@@ -6,6 +6,7 @@
 covers: src/app, src/components
 last_verified: 2026-11-02
 ttl_days: 90
+<!-- re-verified: 2026-11-02za — §10.7 Y: chế độ bản đồ kiểu Vietmap (lib/ban-do-lop), khung dẫn đường lệnh lái hàng đầu + thanh đáy NavThanhDay, nút Dẫn đường trong thẻ nổi, Lộ trình gọn, số đo trước/sau. -->
 <!-- re-verified: 2026-11-02z — §10.7 X: Rảnh tay "Sen Biển ơi" — nút thứ ba trong hàng kênh cảnh báo HUD, chấm đỏ đang nghe, thẻ tự thu sau câu đáp, trạng thái chưa có bộ nghe / micro bị chặn. -->
 <!-- re-verified: 2026-11-02y — §10.7 W 7–9: bảng Lộ trình tự tính + một nút Bắt đầu, câu lỗi đầu bảng, ô tìm 5 dòng, lượt thử iOS Simulator + 4 sửa (dồn số ô toạ độ, nhận điểm GPS chờ 8 s, bỏ hỏi tiếp tục ở đích, câu đọc cuối HUD). -->
 <!-- re-verified: 2026-11-02x — §10.7 W: mốc giữa chặng dài (gonMoc), toạ độ dính liền DDMM.m, Dẫn đường từ dòng toạ độ + ô Toạ độ, báo ngoài vùng VN_SEA, ô gõ toạ độ tự nhảy độ→phút→giây (ui/o-toa-do), mở bảng Lộ trình có điểm ⇒ tự tính. -->
@@ -1622,6 +1623,12 @@ Mức của một hàng do DỮ LIỆU quyết (luồng thiếu nước là vàn
   4. *Gọi tên trơn:* như chạm icon Sen Biển (chào rồi nghe).
   5. *Trạng thái:* chưa có bộ nghe trong máy (lần đầu, mất sóng) ⇒ câu "Máy chưa có bộ nghe trong máy…" + nút tự tắt; micro bị từ chối ⇒ câu "Máy chưa cho dùng micro…" + nút tự tắt; loa đang đọc ⇒ micro tắt hẳn, im xong mở lại (không có trạng thái "nghe chồng").
   6. *Lệnh nói mới ở mọi lúc dẫn đường:* tốc độ · hướng lái · tìm đường khác (tính lại + chờ "đi") · kêu cứu (toạ độ tàu + 112 + VHF 16, bản đồ về tàu) · "mấy giờ tới" · câu nối "còn ngày mai thì sao".
+- **Y. CHẾ ĐỘ BẢN ĐỒ KIỂU VIETMAP — bớt nút, bớt che (anh Long 2026-11-02: "của họ thấy nút ít, có che màn hình tùm lum như cái của mình đâu"):**
+  1. *Một trạng thái cho cả màn* (`lib/ban-do-lop`): rảnh · tìm · bảng (Lớp/⋯/menu chạm giữ/khu trú bão/thẻ Sen Biển) · tuyến · dẫn. Bảng `LOP_THEO_CHE_DO` định lớp nổi nào hiện: tìm = chỉ ô tìm (bản đồ mờ `bg-navy/30`, chạm mờ = đóng); bảng = ô tìm + rail + dock; tuyến = rail + về tàu; dẫn = Sen Biển + về tàu. Dock ẩn theo chế độ (`:root.an-dock`), khung bản đồ chiếm luôn chỗ dock, lớp nổi đáy chừa safe-area. Cảnh báo an toàn (tin bão, ranh giới, dòng đỏ) không qua bảng; ngăn gió sóng bị ẩn thì câu ranh giới lên cột trên.
+  2. *Dẫn đường:* hàng đầu khung = lệnh lái chữ to (mũi tên xoay + "Chếch trái 20°", thay chữ "Đang dẫn đường"); câu loa đang đọc KHÔNG in thành dòng — loa hàng đầu nhấp nháy; chỉ câu ĐỎ còn dòng + "Đã nghe". **Thanh đáy** `NavThanhDay`: "còn X · giờ chạy" / "tới lúc HH:MM · tốc độ · hướng" + nút Dừng (Dừng rời hàng đầu). Về tàu đứng trên thanh đáy.
+  3. *Thẻ nổi thông tin* (địa danh ngầm, rạn/bãi, hạ tầng điểm, khu trú bão): nút tròn icon **Dẫn đường** góc phải dưới (03 §6 mục 8 — icon không chữ); bấm ⇒ đóng thẻ, mở bảng Lộ trình tự tính. Chỉ khi có toạ độ điểm + đi được (`coDanDuong`).
+  4. *Lộ trình:* "Tính lại" + "Lưu đường" thành nút icon tròn; khối "Trên tuyến có chỗ nguy hiểm" hiện dòng NẶNG NHẤT + "+N" (không giấu hẳn — cảnh báo an toàn).
+  5. *Đo lại (iPhone 375×812, cùng cách đo — dò từng ô 5 px):* tìm 50 %/20 nút → 9 nút (bản đồ mờ); lộ trình 42 %/18 nút → 31 %/9 nút; dẫn đường 40 %/10 nút/278 chữ → 26 %/5 nút/106 chữ; bảng Lớp 44 %/22 nút → 36 %/14 nút; rảnh giữ 24 %/14 nút.
 ## Assumptions (§10.7 P/Q/R)
 - Mốc 25 hải lý của đèn là trần KHOẢNG CÁCH, không phải trần tầm đèn — hiểu ngược lại thì mấy ngọn lớn nhất bờ biển (tầm 26–27 hl, đúng thứ nhìn thấy đầu tiên lúc vào bờ) bị loại sạch.
 - Câu đèn in khoảng cách tới đèn, KHÔNG in tầm hiệu lực: hai số cùng đơn vị cho hai nghĩa khác nhau là bẫy đọc.

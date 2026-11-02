@@ -321,7 +321,7 @@ import {
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { buildUVField, fillMissingUV } from "@/lib/particle-field";
 import { WindParticles } from "@/components/wind-particles";
-import { BienVung, NavHud, NavBoatMarker } from "@/components/nav-mode";
+import { BienVung, NavBoatMarker, NavHud, NavThanhDay } from "@/components/nav-mode";
 import { FishHotspotMarker, SavedPlaceMarker, type FishHotspot } from "@/components/ban-do/diem-ghim";
 import { DongHoTocDo, NutLoa, NutViTri, OTimDiem } from "@/components/ban-do/khung";
 import { TimDiemPopover } from "@/components/ban-do/tim-diem";
@@ -335,6 +335,7 @@ import { cauVuaNoi, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe, ngheRanhTay } from "@/lib/sen-bien/nghe-may";
 import { laTiengVong, NGHE_SAU_DOC_MS } from "@/lib/sen-bien/nghe";
 import { tachCauGoi } from "@/lib/sen-bien/goi-ranh-tay";
+import { cheDoBanDo, lopHien, type LopNoi } from "@/lib/ban-do-lop";
 import { CAU_CHUA_BO_NGHE, CAU_CHUA_DAN, CAU_MICRO_CHAN, CAU_TINH_LAI, cauConLai, cauCuuNan, cauHuong, cauTocDo } from "@/lib/sen-bien/lenh-chay";
 import type { NhoTruoc } from "@/lib/sen-bien/noi-tiep";
 import { getSenState, setSenSignal } from "@/lib/sen-bien-state";
@@ -3935,14 +3936,6 @@ export default function FishingMapView() {
     const t = setTimeout(() => setChayTiep(null), CHAY_TIEP_MS);
     return () => clearTimeout(t);
   }, [chayTiep]);
-  // ẩn dock khi đang dẫn (globals.css `:root.dan-duong`) — gỡ khi Dừng hoặc rời màn
-  const dangDan = navMode != null;
-  useEffect(() => {
-    if (!dangDan) return;
-    const de = document.documentElement;
-    de.classList.add("dan-duong");
-    return () => de.classList.remove("dan-duong");
-  }, [dangDan]);
   const startCruise = useCallback(() => {
     ttsUnlock();
     setCruiseIntro(false);
@@ -4018,6 +4011,31 @@ export default function FishingMapView() {
       an toàn (tin bão, ranh giới trên bản đồ, HUD dẫn đường) không thuộc lớp phụ. */
   const panelMo =
     railLayerOpen || timMo || (routeMode && navMode == null) || pressMenu != null || shelterOpen || senOpen;
+  /*  CHẾ ĐỘ BẢN ĐỒ (lib/ban-do-lop, 07 §10.7 Y — anh Long 2026-11-02 "so với Vietmap… che màn hình tùm lum"):
+      MỘT trạng thái cho cả màn, mỗi lớp nổi hỏi `hl(lop)` thay vì tự xét. Cảnh báo an toàn không qua bảng này. */
+  const cheDo = cheDoBanDo({
+    dan: navMode != null,
+    tuyen: routeMode && navMode == null,
+    tim: timMo,
+    bang: railLayerOpen || pressMenu != null || shelterOpen || senOpen,
+  });
+  const hl = (l: LopNoi) => lopHien(cheDo, l);
+  /** nút Dẫn đường trong thẻ nổi — chỉ khi có toạ độ ĐIỂM và đi được (cùng cổng với ô tìm / Điểm lưu) */
+  const nutDiTheNoi = (lat: number | null, lon: number | null, ten: string | undefined, dong: () => void) =>
+    coDanDuong && lat != null && lon != null
+      ? () => {
+          dong();
+          moDanDuong(lat, lon, ten);
+        }
+      : undefined;
+  // dock theo chế độ (globals.css `:root.an-dock`) — gỡ khi đổi chế độ hoặc rời màn
+  const anDock = !hl("dock");
+  useEffect(() => {
+    if (!anDock) return;
+    const de = document.documentElement;
+    de.classList.add("an-dock");
+    return () => de.classList.remove("an-dock");
+  }, [anDock]);
   /*  Mớn nước ĐỌC MỘT LẦN lúc bật dẫn đường, từ ĐÚNG nguồn mà thẻ tuyến đọc
       (`forfish.boat.v1` → `draftM`, kẹp 0–10 m như route-planner:134). Hai chỗ
       đọc hai kiểu là hai câu khác nhau về cùng một con tàu. */
@@ -8994,15 +9012,45 @@ export default function FishingMapView() {
       )}
       {/*  THẺ ĐỊA DANH NGẦM — loại địa hình + ý nghĩa cho bà con (núi ngầm là
            chỗ cá đáy hay tụ; vách/dốc là độ sâu đổi nhanh). Nguồn TT 33/2024. */}
-      {diaDanhInfo && <TheDiaDanh info={diaDanhInfo} onClose={() => setDiaDanhInfo(null)} bieuTuong={bieuTuong} prefs={prefs} />}
+      {diaDanhInfo && (
+        <TheDiaDanh
+          info={diaDanhInfo}
+          onClose={() => setDiaDanhInfo(null)}
+          bieuTuong={bieuTuong}
+          prefs={prefs}
+          onDanDuong={nutDiTheNoi(diaDanhInfo.lat, diaDanhInfo.lon, diaDanhInfo.ten, () => setDiaDanhInfo(null))}
+        />
+      )}
       {/*  THẺ TÊN RẠN/BÃI/ĐÁ — tên + loại + đúng icon đang vẽ, câu đời thường
            (đá ngầm nói thẳng nguy hiểm; bãi nói "nhìn con nước"). */}
-      {reefInfo && <TheRan info={reefInfo} onClose={() => setReefInfo(null)} bieuTuong={bieuTuong} prefs={prefs} />}
+      {reefInfo && (
+        <TheRan
+          info={reefInfo}
+          onClose={() => setReefInfo(null)}
+          bieuTuong={bieuTuong}
+          prefs={prefs}
+          onDanDuong={nutDiTheNoi(reefInfo.lat, reefInfo.lon, reefInfo.ten, () => setReefInfo(null))}
+        />
+      )}
       {/*  THẺ HẠ TẦNG — cáp/ống/giàn/vùng cấm/điểm cập bờ: nói rõ nên làm gì
            (đừng thả neo / cấm neo 500 m / cấm vào). */}
-      {laneInfo && <TheLuong info={laneInfo} onClose={() => setLaneInfo(null)} bieuTuong={bieuTuong} prefs={prefs} />}
+      {laneInfo && (
+        <TheLuong
+          info={laneInfo}
+          onClose={() => setLaneInfo(null)}
+          bieuTuong={bieuTuong}
+          prefs={prefs}
+          onDanDuong={nutDiTheNoi(laneInfo.lat, laneInfo.lon, laneInfo.ten || undefined, () => setLaneInfo(null))}
+        />
+      )}
       {chatDayInfo && <TheChatDay info={chatDayInfo} onClose={() => setChatDayInfo(null)} />}
-      {khuTruBaoInfo && <TheKhuTruBao info={khuTruBaoInfo} onClose={() => setKhuTruBaoInfo(null)} />}
+      {khuTruBaoInfo && (
+        <TheKhuTruBao
+          info={khuTruBaoInfo}
+          onClose={() => setKhuTruBaoInfo(null)}
+          onDanDuong={nutDiTheNoi(khuTruBaoInfo.k.lat, khuTruBaoInfo.k.lon, khuTruBaoInfo.k.ten, () => setKhuTruBaoInfo(null))}
+        />
+      )}
       {vungInfo && <TheVung info={vungInfo} onClose={() => setVungInfo(null)} />}
       {depthInfo && <TheDoSau info={depthInfo} onClose={() => setDepthInfo(null)} prefs={prefs} tideStations={tideStations} todayIso={todayIso} />}
 
@@ -9010,6 +9058,9 @@ export default function FishingMapView() {
           nổi ngay TRÊN tâm (lật xuống dưới khi tâm sát mép trên). Tự ẩn 3s. */}
       {stormPtInfo && <TheMocBao info={stormPtInfo} onClose={() => setStormPtInfo(null)} prefs={prefs} />}
 
+      {/*  ĐANG TÌM: bản đồ mờ phía sau, mọi nút nổi ẩn (lib/ban-do-lop "tim") — Vietmap: màn tìm che kín.
+           Chạm chỗ mờ = đóng tìm. Dưới cụm trên (z-20) để ô tìm vẫn nổi. */}
+      {timMo && <button type="button" tabIndex={-1} aria-label="Đóng tìm" onClick={() => setTimMo(false)} className="absolute inset-0 z-[19] bg-navy/30" />}
       {timMo && (
         <TimDiemPopover
           anchor={oTimEl}
@@ -9131,11 +9182,11 @@ export default function FishingMapView() {
       {/* thẻ mở thì SenBienSheet tự vẽ icon ĐÚNG chỗ này (icon cố định là nút gọi, bong bóng trên đầu) */}
       {/* cả lúc Đang chạy cũng nổi (chủ dự án 2026-10-17: "bỏ con cá trên HUD"); sheet đáy mở nửa màn thì ẩn —
           cá nằm đè lên chữ của sheet (rà soát prod 2026-10-16) */}
-      {!senOpen && !routeMode && size !== "half" && (
+      {!senOpen && !routeMode && size !== "half" && hl("senBien") && (
         <SenBienNoi onOpen={openSen} />
       )}
       {/* quảng bá hàng SDVICO kiểu thông báo (2026-10-31): lâu lâu một lần, vài giây, không khi đang dẫn đường / Sen Biển mở */}
-      <QuangCaoNoi an={navOn || panelMo} />
+      <QuangCaoNoi an={navOn || panelMo || !hl("phu")} />
       {senOpen && (
         <SenBienSheet
           key={senAwait ? "cho-di" : senListen ? "nghe" : "mo"}
@@ -9254,11 +9305,17 @@ export default function FishingMapView() {
            2026-11-02: lối về duy nhất trước đây là chạm dòng "Tàu" trong ô toạ độ, nút
            Về tàu nằm trong ngăn gió sóng mà ngăn này không dựng lúc dẫn. Góc phải đáy:
            dock đã ẩn khi dẫn (`:root.dan-duong`) nên chỗ này trống, ngay dưới ngón cái. */}
-      {navMode != null && !bamTau && tracking.pos && (
+      {/*  THANH ĐÁY DẪN ĐƯỜNG (07 §10.7 Y): còn · giờ · tới lúc · tốc độ + Dừng — chỗ dock trống khi dẫn */}
+      {navMode != null && navProgress && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <NavThanhDay progress={navProgress} speedKmh={tracking.speedKmh} nowMs={nowMs} onStop={stopNav} />
+        </div>
+      )}
+      {navMode != null && !bamTau && tracking.pos && hl("nutViTri") && (
         <button
           type="button"
           onClick={goToMyBoat}
-          className="pointer-events-auto glass absolute bottom-3 right-3 z-30 flex h-(--h-ctl) items-center gap-2 rounded-full px-4 text-[0.875rem] font-semibold text-navy shadow-md transition active:scale-95"
+          className="pointer-events-auto glass absolute bottom-[calc(var(--h-ctl)+2.75rem)] right-3 z-30 flex h-(--h-ctl) items-center gap-2 rounded-full px-4 text-[0.875rem] font-semibold text-navy shadow-md transition active:scale-95"
         >
           <CrosshairIcon className="h-5 w-5 text-t1" aria-hidden />
           {NHAN.veTau}
@@ -9333,7 +9390,7 @@ export default function FishingMapView() {
         )}
         {/*  TIẾP TỤC CHUYẾN DỞ (lib/nav-phien): app bị tắt giữa lúc dẫn đường ⇒
              mở lại hỏi một câu. Bấm Tiếp là cử chỉ chạm thật — mở khoá loa luôn. */}
-        {phienCho && navMode == null && !panelMo && (
+        {phienCho && navMode == null && !panelMo && hl("phu") && (
           <div className="pointer-events-auto glass mx-2 max-w-[28rem] space-y-2 p-3" role="group" aria-label="Tiếp tục dẫn đường">
             <p className="text-[0.875rem] font-semibold leading-snug text-navy">
               Dẫn đường tiếp tới {phienCho.tenDich ?? "chỗ đã chọn"}?
@@ -9465,7 +9522,7 @@ export default function FishingMapView() {
                 </button>
               </div>
             )}
-            {navMode == null && aisMode == null && !tauQuanh && (
+            {navMode == null && aisMode == null && !tauQuanh && hl("oTim") && (
               <div ref={setOTimEl}>
               <OTimDiem
                 onOpen={() => (premiumAccess === "login" ? setMoiTimDiem(true) : setTimMo(true))}
@@ -9480,7 +9537,7 @@ export default function FishingMapView() {
                  gần / ngoài ranh giới mà một bảng việc (Điểm lưu, Lớp, ô tìm…) ép
                  thu ngăn gió sóng ⇒ câu cảnh báo chuẩn của ngăn lên đây, một dòng
                  đỏ — vẫn không ai che, mà bản đồ không bị hai bảng đè nhau. */}
-            {borderLocked && sheetHiddenByOverlay && !troAn && (
+            {borderLocked && (sheetHiddenByOverlay || !hl("ngan")) && !troAn && (
               <p
                 role="alert"
                 className="pointer-events-auto flex items-center gap-2 self-start rounded-xl bg-danger-bg px-3 py-2 text-[0.875rem] font-semibold leading-snug text-danger shadow-md"
@@ -9493,7 +9550,7 @@ export default function FishingMapView() {
                 đứng + chỗ CON TRỎ đang trỏ tới (kèm cách tàu bao xa, hướng nào).
                 Góp ý VSS Quân Bình Định 2026-08-25. */}
             {/* chế độ AIS: ô toạ độ nhường chỗ cho vòng radar (toạ độ tàu vẫn có trong chi tiết từng tàu + nút Vị trí) */}
-            <div className={`@max-[15rem]/map:hidden ${aisMode != null || panelMo ? "hidden" : ""}`}>
+            <div className={`@max-[15rem]/map:hidden ${aisMode != null || panelMo || !hl("toaDo") ? "hidden" : ""}`}>
             <PlotterReadout
               myPos={tracking.pos}
               status={tracking.status}
@@ -9506,7 +9563,7 @@ export default function FishingMapView() {
             </div>
             {/* CHÚ GIẢI MÀU LỚP CÁ — theo luồng dưới ô toạ độ (trước đặt tuyệt đối
                 `top-[11rem]`, phóng chữ to là đè lên ô toạ độ). */}
-            {fishGridGeo && !panelMo && (
+            {fishGridGeo && !panelMo && hl("phu") && (
               <div className="glass pointer-events-none flex items-center gap-2 self-start px-2.5 py-1 @max-[15rem]/map:hidden text-[0.75rem] font-medium text-navy shadow-sm">
                 <span className="font-semibold">Dự báo cá</span>
                 {FISH_LEVEL_BANDS.map((b) => (
@@ -9518,7 +9575,7 @@ export default function FishingMapView() {
               </div>
             )}
             {/* CHÚ GIẢI MẬT ĐỘ TÀU — cùng chỗ, cùng cỡ với chú giải cá (hai lớp loại trừ nhau nên không chồng) */}
-            {fleetGridGeo && !panelMo && (
+            {fleetGridGeo && !panelMo && hl("phu") && (
               <div className="glass pointer-events-none flex items-center gap-2 self-start px-2.5 py-1 @max-[15rem]/map:hidden text-[0.75rem] font-medium text-navy shadow-sm">
                 <span className="font-semibold">Mật độ tàu</span>
                 {DENSITY_LEVELS.map((b) => (
@@ -9530,6 +9587,8 @@ export default function FishingMapView() {
               </div>
             )}
           </div>
+          {/* ẩn bằng CSS, không gỡ: cột giữ trạng thái bảng + tín hiệu mở ô toạ độ (openCoordSignal) */}
+          <div className={hl("rail") ? "contents" : "hidden"}>
           <RaKhoiControls
             openCoordSignal={openCoordSignal}
             nutTimDiem={oTimEl}
@@ -9680,6 +9739,7 @@ export default function FishingMapView() {
             measureResult={measureResult}
             onClearMeasure={() => setMeasurePts([])}
           />
+          </div>
         </div>
         {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
             dòng nhỏ rồi tự tắt — xem components/pretrip-auto-notify.tsx. ĐẶT CUỐI cụm
@@ -9789,7 +9849,7 @@ export default function FishingMapView() {
               thêm thanh kéo sheet 3.5rem bên dưới ⇒ khung nổi lửng giữa màn,
               che bản đồ mà khoảng trống bên dưới không dùng vào việc gì.
               Nay dán sát mép dưới vùng bản đồ; safe-area đã nằm trong dock. */
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end px-2 pb-1"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
         >
           <RouteMode
             dest={point}
@@ -9830,6 +9890,8 @@ export default function FishingMapView() {
            dẫn đường (anh Long 2026-10-20) ⇒ thẻ gió sóng VẪN hiện; chỉ dẫn đường
            theo tuyến (`navMode`) mới nhường chỗ cho khung dẫn đường. */}
       {!routeMode && navMode == null && (
+      /* ẩn bằng CSS khi đang tìm / mở bảng (lib/ban-do-lop "ngan") — không gỡ để giữ nấc ngăn */
+      <div className={hl("ngan") ? "contents" : "hidden"}>
       <SnapSheet
         size={size}
         onSizeChange={setSize}
@@ -9871,7 +9933,7 @@ export default function FishingMapView() {
           <div className="flex flex-col gap-1.5">
             <div className="flex items-end justify-between gap-2">
               {/* CHỈ HIỆN khi có GPS VÀ tính được tốc độ (anh Long: "chưa gps thì ẩn") */}
-              {tracking.pos && tracking.speedKmh != null ? (
+              {tracking.pos && tracking.speedKmh != null && hl("tocDo") ? (
                 <DongHoTocDo kmh={tracking.speedKmh} unit={prefs.distUnit} stale={tracking.status !== "tracking"} />
               ) : (
                 <span />
@@ -9881,7 +9943,7 @@ export default function FishingMapView() {
                   sàng ra khơi chưa. Có ở nấc peek VÀ hidden (`sheetThu`), chỉ ẩn
                   khi kéo sheet lên đọc chi tiết cho khỏi rối; căn phải, nằm ngay
                   trên mép sheet. Dòng lỗi dự báo cá (nếu có) xếp NGAY TRÊN nhãn. */}
-                {sheetThu && !sheetHiddenByOverlay && (
+                {sheetThu && !sheetHiddenByOverlay && hl("phu") && (
                   <>
                   {!overlayOn && fishOn && !fishCast && fishFailMsg && (
                     <button
@@ -9911,7 +9973,7 @@ export default function FishingMapView() {
                 )}
                 {/* LOA — luôn đọc cảnh báo (chế độ Chạy tàu); ẩn khi đang dẫn đường theo
                     tuyến: khung dẫn đường đã có điều khiển giọng riêng */}
-                {!navMode && (
+                {hl("nutLoa") && (
                   <NutLoa
                     on={cruise}
                     onClick={
@@ -9926,7 +9988,7 @@ export default function FishingMapView() {
                   />
                 )}
                 {/* luôn hiện: chưa có vị trí thì bấm là XIN QUYỀN + lấy vị trí lần đầu */}
-                <NutViTri onClick={goToMyBoat} disabled={locating} dangBam={navOn && bamTau} />
+                {hl("nutViTri") && <NutViTri onClick={goToMyBoat} disabled={locating} dangBam={navOn && bamTau} />}
               </div>
             </div>
               {/* thanh giờ gió/sóng/mây/mưa/nhiệt XUỐNG ĐÁY kiểu Windy — tay với
@@ -10647,6 +10709,7 @@ export default function FishingMapView() {
           )}
         </div>
       </SnapSheet>
+      </div>
       )}
 
       {/* Chọn loài + Điểm đã lưu nay là PANEL RAIL (RaKhoiControls), không còn

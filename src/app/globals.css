@@ -248,8 +248,9 @@ html {
 }
 /*  ĐANG DẪN ĐƯỜNG THÌ ẨN DOCK (rà Vietmap 2026-11-02): dock nằm ngay dưới ngón cái — chạm nhầm
     "Trang chủ" là rời màn bản đồ, dẫn đường + giọng cảnh báo tắt không hỏi. Vietmap cũng ẩn thanh đáy
-    lúc dẫn. Lớp `dan-duong` do fishing-map-view gắn lên <html> khi `navMode` bật, gỡ khi Dừng/rời màn. */
-:root.dan-duong .dock-frame {
+    lúc dẫn. Lớp `an-dock` do fishing-map-view gắn lên <html> theo CHẾ ĐỘ bản đồ (lib/ban-do-lop: dẫn
+    đường, xem tuyến, đang tìm), gỡ khi đổi chế độ / rời màn. */
+:root.an-dock .dock-frame {
   display: none;
 }
 /* bản đồ full-bleed: đáy chừa dock (bản cài iOS: cao đúng vùng nhìn thấy) */
@@ -271,6 +272,22 @@ html {
 .ban-do-duoi-dock .maplibregl-ctrl-bottom-left,
 .ban-do-duoi-dock .maplibregl-ctrl-bottom-right {
   bottom: var(--dock-total);
+}
+/*  DOCK ẨN THEO CHẾ ĐỘ (lib/ban-do-lop: dẫn đường, xem tuyến, đang tìm) ⇒ khung bản đồ chiếm luôn chỗ dock —
+    trước đây thanh dẫn đường / bảng Lộ trình nổi lửng trên một dải trống cao bằng dock. Lớp nổi đáy tự chừa
+    vùng an toàn (safe-area) vì không còn dock gánh phần đó. */
+:root.an-dock .full-map {
+  bottom: 0;
+}
+:root.an-dock .ban-do-khung {
+  clip-path: none;
+}
+:root.an-dock .ban-do-duoi-dock {
+  bottom: 0;
+}
+:root.an-dock .ban-do-duoi-dock .maplibregl-ctrl-bottom-left,
+:root.an-dock .ban-do-duoi-dock .maplibregl-ctrl-bottom-right {
+  bottom: 0;
 }
 
 /*

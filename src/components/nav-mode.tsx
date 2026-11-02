@@ -299,7 +299,9 @@ export function NavHud({
   /*  TRẦN 2 DÒNG CẢNH BÁO (lib/hud-tran, rà Vietmap 2026-11-02): dòng đỏ luôn hiện,
       còn lại lấp cho đủ 2, thừa gộp "+N" chạm mở. Thứ tự đưa vào = thứ tự vẽ. */
   const [moRong, setMoRong] = useState(false);
-  const speakingRow = !!voice?.speaking && !speakingIsShown;
+  /*  CÂU ĐANG ĐỌC KHÔNG IN THÀNH DÒNG NỮA (so Vietmap 2026-11-02: khung dẫn 278 chữ, 6 dòng — Vietmap ~40
+      chữ): giọng là kênh nghe; chữ chỉ cho câu ĐỎ (mang nút "Đã nghe"). Câu thường ⇒ loa ở hàng đầu nhấp nháy. */
+  const speakingRow = !!voice?.speaking?.red && !speakingIsShown;
   const dongHud: DongHud[] = [
     ...(borderShow && borderLine ? [{ id: "border", red: borderLocked }] : []),
     ...lines.map((l) => ({ id: `hz:${l.id}`, red: l.khoa })),
@@ -415,8 +417,31 @@ export function NavHud({
           className="flex min-h-[2.75rem] min-w-0 flex-1 cursor-grab items-center gap-2 active:cursor-grabbing"
           aria-label="Giữ và kéo để dời bảng dẫn đường"
         >
-          <RouteIcon className="h-5 w-5 shrink-0 text-t1" />
-          <h3 className="truncate whitespace-nowrap text-[0.875rem] font-semibold text-navy">{title}</h3>
+          {/*  HÀNG ĐẦU = LỆNH LÁI (kiểu băng lệnh rẽ Vietmap): mũi tên xoay theo góc + "Chếch trái 20°" chữ
+               to nhất khung. Chưa có tiến trình (chạy không tuyến, đang tìm vị trí) thì là tiêu đề như cũ. */}
+          {progress && !denied ? (
+            <>
+              {progress.steer && !progress.arrived ? (
+                <span className="flex shrink-0" style={{ transform: `rotate(${progress.steer.turnDeg}deg)` }} aria-hidden>
+                  <NavArrowIcon className="h-7 w-7 text-t1" />
+                </span>
+              ) : (
+                <RouteIcon className="h-6 w-6 shrink-0 text-t1" />
+              )}
+              <h3 className={`display min-w-0 truncate text-[1.25rem] font-semibold leading-tight text-navy ${lost ? "opacity-50" : ""}`}>
+                {progress.arrived
+                  ? "Đã tới gần điểm đến"
+                  : progress.steer
+                    ? progress.steer.label
+                    : "Đang xác định hướng…"}
+              </h3>
+            </>
+          ) : (
+            <>
+              <RouteIcon className="h-5 w-5 shrink-0 text-t1" />
+              <h3 className="truncate whitespace-nowrap text-[0.875rem] font-semibold text-navy">{title}</h3>
+            </>
+          )}
           <span
             className="ml-1 h-1 w-8 rounded-full bg-navy/20"
             aria-hidden
@@ -443,7 +468,7 @@ export function NavHud({
             {voice && !voice.on ? (
               <SpeakerOffIcon className="h-5 w-5" />
             ) : (
-              <SpeakerIcon className="h-5 w-5" />
+              <SpeakerIcon className={`h-5 w-5 ${voice?.speaking ? "animate-pulse text-t1" : ""}`} />
             )}
           </button>
         )}
@@ -454,13 +479,16 @@ export function NavHud({
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-danger" />
           </span>
         )}
-        <button
-          type="button"
-          onClick={onStop}
-          className="h-(--h-ctl) shrink-0 rounded-full bg-navy/10 px-4 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
-        >
-          Dừng
-        </button>
+        {/* có tiến trình ⇒ nút Dừng nằm ở thanh đáy (NavThanhDay), như nút thoát của Vietmap */}
+        {!progress && (
+          <button
+            type="button"
+            onClick={onStop}
+            className="h-(--h-ctl) shrink-0 rounded-full bg-navy/10 px-4 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
+          >
+            Dừng
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setHidden(true)}
@@ -638,40 +666,11 @@ export function NavHud({
 
           {progress ? (
             <div className={lost ? "opacity-50" : ""}>
-              {/* gợi ý lái + hướng đi */}
-              <div className="flex items-center gap-2">
-                {progress.steer && (
-                  <span
-                    className="flex shrink-0"
-                    style={{ transform: `rotate(${progress.steer.turnDeg}deg)` }}
-                  >
-                    <NavArrowIcon className="h-6 w-6 text-t1" />
-                  </span>
-                )}
-                <p className="display min-w-0 text-[1.125rem] font-semibold leading-tight text-navy">
-                  {progress.arrived
-                    ? "Đã tới gần điểm đến"
-                    : progress.steer
-                      ? progress.steer.label
-                      : "Đang xác định hướng di chuyển…"}
-                </p>
-              </div>
-              {/* một dòng: hướng · quãng còn lại · giờ chạy (thay 2 ô to cũ) */}
-              <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.875rem] font-semibold text-foreground/75">
-                {progress.dirVN}
-                <span aria-hidden>·</span>
-                còn {kc(progress.remainingKm, prefs.distUnit)}
-                <span aria-hidden>·</span>
-                <ClockIcon className="h-4 w-4 shrink-0" aria-hidden />
-                {progress.etaHours != null
-                  ? formatHoursVN(progress.etaHours)
-                  : "tàu chưa chạy"}
-              </p>
-
+              {/*  Lệnh lái đã lên HÀNG ĐẦU; quãng còn · giờ chạy · tới lúc xuống THANH ĐÁY (NavThanhDay). */}
               {/*  KHÚC RẼ KẾ TIẾP (học VietMap: biết trước chỗ đổi hướng) — mũi tên
                    xoay theo góc đổi hướng, chữ nói hướng đi tiếp. Không ra lệnh. */}
               {khucRe && !progress.arrived && (
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.875rem] font-semibold text-navy">
+                <p className="flex flex-wrap items-center gap-x-1.5 text-[0.875rem] font-semibold text-navy">
                   <span className="flex shrink-0" style={{ transform: `rotate(${khucRe.gocDeg}deg)` }} aria-hidden>
                     <NavArrowIcon className="h-4 w-4 text-t1" />
                   </span>
@@ -788,6 +787,64 @@ export function NavHud({
         </div>
       )}
 
+    </div>
+  );
+}
+
+/** "19:30" giờ Việt Nam — giờ tới nơi trên thanh đáy */
+function gioToi(nowMs: number, hours: number): string {
+  return new Date(nowMs + hours * 3_600_000).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+}
+
+/**
+ * THANH ĐÁY DẪN ĐƯỜNG (so Vietmap 2026-11-02, 07 §10.7 Y): quãng còn · giờ chạy · tới lúc · tốc độ + nút
+ * Dừng — đúng chỗ thanh chuyến đi của Vietmap. Dock đã ẩn khi dẫn nên chỗ này trống, dưới ngón cái.
+ * Khung trên chỉ còn lệnh lái + cảnh báo. Thu khung trên (nút −) thì thanh này vẫn còn.
+ */
+export function NavThanhDay({
+  progress,
+  speedKmh,
+  nowMs,
+  onStop,
+}: {
+  progress: NavProgress;
+  speedKmh: number | null;
+  /** đồng hồ của cha (nhịp phút) — không gọi Date.now() lúc vẽ */
+  nowMs: number;
+  onStop: () => void;
+}) {
+  const prefs = useMapPrefs();
+  const nm = prefs.distUnit !== "km";
+  const tocDo =
+    speedKmh == null ? null : nm ? `${(speedKmh / 1.852).toFixed(1).replace(".", ",").replace(/,0$/, "")} hải lý/giờ` : `${Math.round(speedKmh)} km/giờ`;
+  return (
+    <div className="pointer-events-auto glass flex items-center gap-3 px-3 py-2" role="group" aria-label="Chuyến đang dẫn">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[1rem] font-semibold leading-tight text-navy">
+          {progress.arrived ? "Đã tới nơi" : `còn ${kc(progress.remainingKm, prefs.distUnit)}`}
+          {!progress.arrived && progress.etaHours != null && ` · ${formatHoursVN(progress.etaHours)}`}
+        </p>
+        <p className="truncate text-[0.8125rem] font-semibold text-foreground/70">
+          {[
+            !progress.arrived && progress.etaHours != null ? `tới lúc ${gioToi(nowMs, progress.etaHours)}` : !progress.arrived ? "tàu chưa chạy" : null,
+            tocDo,
+            progress.dirVN ? `hướng ${progress.dirVN}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onStop}
+        className="h-(--h-ctl) shrink-0 rounded-full bg-navy/10 px-4 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
+      >
+        Dừng
+      </button>
     </div>
   );
 }

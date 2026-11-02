@@ -431,6 +431,8 @@ export function RouteMode({
       được, mà nút lại nằm sát nút X trong đúng vùng ngón cái — một cú trượt
       tay ướt trên tàu lắc là bay công dựng tuyến giữa biển. */
   const [confirmClear, setConfirmClear] = useState(false);
+  /** khối "Trên tuyến có chỗ nguy hiểm" đang mở hết (mặc định chỉ dòng nặng nhất) */
+  const [moNguyHiem, setMoNguyHiem] = useState(false);
   /** tên đang gõ cho đường sắp lưu — điền sẵn theo điểm đến, xem `suggestName` */
   const [saveName, setSaveName] = useState("");
 
@@ -2375,14 +2377,16 @@ export function RouteMode({
                  ba con số này (tính lại chúng / cất chúng lại). Đặt đúng chỗ
                  quan trọng hơn giữ mỗi hàng một ô: luật cột nút là để mắt tìm
                  nút cho nhanh, không phải để đẩy nút xuống chỗ không ai thấy. */}
+            {/*  GỌN KIỂU VIETMAP (07 §10.7 Y, 2026-11-02): hai ô vuông có chữ thành hai nút icon tròn —
+                 tuyến đã tự tính, "Tính lại" là việc phụ; bảng Lộ trình từ 7 nút chữ còn 5. */}
             <button
               type="button"
               onClick={() => void compute()}
               disabled={busy}
-              className={`${SQ_TILE} bg-background text-navy disabled:opacity-60`}
+              aria-label={busy ? "Đang tính lộ trình" : "Tính lại lộ trình"}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-background text-navy transition active:scale-95 disabled:opacity-60"
             >
-              <RouteIcon className="h-6 w-6" />
-              {busy ? "Đang tính toán" : "Tính lại"}
+              <RouteIcon className={`h-5 w-5 ${busy ? "animate-pulse" : ""}`} />
             </button>
             <button
               type="button"
@@ -2390,10 +2394,10 @@ export function RouteMode({
                 setSaveName("");
                 setPanel("saved");
               }}
-              className={`${SQ_TILE} bg-background text-t1`}
+              aria-label="Lưu đường này"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-background text-t1 transition active:scale-95"
             >
-              <StarIcon className="h-6 w-6" />
-              Lưu đường
+              <StarIcon className="h-5 w-5" />
             </button>
           </div>
 
@@ -2449,11 +2453,24 @@ export function RouteMode({
                 <AlertIcon className="h-5 w-5 shrink-0" />
                 Trên tuyến có chỗ nguy hiểm
               </p>
+              {/*  CHỈ DÒNG NẶNG NHẤT, còn lại "+N" (so Vietmap 2026-11-02): khối này từng chiếm nửa bảng.
+                   KHÔNG giấu hẳn — cảnh báo an toàn (CLAUDE.md); dòng đầu là dòng nặng nhất (dangerItems đã xếp). */}
               <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[0.9375rem] font-semibold leading-snug">
-                {dangerItems.map((i) => (
+                {(moNguyHiem ? dangerItems : dangerItems.slice(0, 1)).map((i) => (
                   <li key={i.key}>{i.text}</li>
                 ))}
               </ul>
+              {dangerItems.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setMoNguyHiem((v) => !v)}
+                  aria-expanded={moNguyHiem}
+                  aria-label={moNguyHiem ? "Thu bớt cảnh báo" : `Xem thêm ${dangerItems.length - 1} cảnh báo`}
+                  className="mt-1.5 flex h-9 items-center rounded-full bg-white/60 px-3 text-[0.875rem] font-semibold"
+                >
+                  {moNguyHiem ? "Thu bớt" : `+${dangerItems.length - 1}`}
+                </button>
+              )}
             </div>
           )}
 

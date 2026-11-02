@@ -6,6 +6,7 @@
 */
 import { type PlannedRoute } from "@/components/route-planner";
 import { CloseButton } from "@/components/ui/close-button";
+import { RouteIcon } from "@/components/icons";
 import { kepTheTrongKhung } from "@/components/ban-do/kep-the";
 import { CHART_FEATURE_ICON, diaDanhNgamSymbolId, reefSymbolId } from "@/lib/chart-symbols";
 import { chatDayLabel, laDayCung, type ChatDayMa } from "@/lib/chat-day";
@@ -47,6 +48,25 @@ function DongToaDo({
       <br />
       {fmtLon(lon, fmt)}
     </p>
+  );
+}
+
+/*  NÚT DẪN ĐƯỜNG TRONG THẺ NỔI (so Vietmap 2026-11-02, 07 §10.7 Y): thẻ chi tiết điểm của Vietmap luôn có
+    "Xem lộ trình · Bắt đầu"; thẻ của mình chỉ có chữ — muốn tới phải nhớ chạm giữ bản đồ. Theo luật thẻ nổi
+    (03 §6 mục 8: icon không chữ) ⇒ một nút tròn icon đường đi, góc phải dưới. Cha chỉ truyền khi đi được
+    (có toạ độ điểm, đủ quyền, không đang dẫn). */
+function NutDanDuongThe({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="mt-2 flex justify-end">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Dẫn đường tới đây"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-t1 text-white shadow-md transition active:scale-95"
+      >
+        <RouteIcon className="h-5 w-5" aria-hidden />
+      </button>
+    </div>
   );
 }
 
@@ -483,7 +503,7 @@ export function TheChatDay({ info, onClose }: { info: ChatDayInfo; onClose: () =
   );
 }
 
-export function TheKhuTruBao({ info, onClose }: { info: KhuTruBaoInfo; onClose: () => void }) {
+export function TheKhuTruBao({ info, onClose, onDanDuong }: { info: KhuTruBaoInfo; onClose: () => void; onDanDuong?: () => void }) {
   return (
     <div
       ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
@@ -524,6 +544,7 @@ export function TheKhuTruBao({ info, onClose }: { info: KhuTruBaoInfo; onClose: 
           <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-muted">
             Vị trí theo {info.k.nguonToaDo} · theo quy hoạch nhà nước (tham khảo)
           </p>
+          {onDanDuong && <NutDanDuongThe onClick={onDanDuong} />}
         </div>
         <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin khu trú bão" />
       </div>
@@ -604,7 +625,7 @@ export function TheVung({ info, onClose }: { info: VungInfo; onClose: () => void
   );
 }
 
-export function TheRan({ info, onClose, bieuTuong, prefs }: { info: ReefInfo; onClose: () => void; bieuTuong: (id: string) => React.ReactNode; prefs: MapPrefs }) {
+export function TheRan({ info, onClose, bieuTuong, prefs, onDanDuong }: { info: ReefInfo; onClose: () => void; bieuTuong: (id: string) => React.ReactNode; prefs: MapPrefs; onDanDuong?: () => void }) {
   return (
     <div
       ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
@@ -641,6 +662,7 @@ export function TheRan({ info, onClose, bieuTuong, prefs }: { info: ReefInfo; on
           <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-muted">
             Tên theo danh mục địa danh nhà nước (tham khảo)
           </p>
+          {onDanDuong && <NutDanDuongThe onClick={onDanDuong} />}
         </div>
         <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin rạn" />
       </div>
@@ -648,7 +670,7 @@ export function TheRan({ info, onClose, bieuTuong, prefs }: { info: ReefInfo; on
   );
 }
 
-export function TheLuong({ info, onClose, bieuTuong, prefs }: { info: LaneInfo; onClose: () => void; bieuTuong: (id: string) => React.ReactNode; prefs: MapPrefs }) {
+export function TheLuong({ info, onClose, bieuTuong, prefs, onDanDuong }: { info: LaneInfo; onClose: () => void; bieuTuong: (id: string) => React.ReactNode; prefs: MapPrefs; onDanDuong?: () => void }) {
   return (
     <div
       ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
@@ -697,6 +719,7 @@ export function TheLuong({ info, onClose, bieuTuong, prefs }: { info: LaneInfo; 
           <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-muted">
             Tham khảo — không thay hải đồ chính thức
           </p>
+          {onDanDuong && <NutDanDuongThe onClick={onDanDuong} />}
         </div>
         <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin hạ tầng" />
       </div>
@@ -704,7 +727,7 @@ export function TheLuong({ info, onClose, bieuTuong, prefs }: { info: LaneInfo; 
   );
 }
 
-export function TheDiaDanh({ info, onClose, bieuTuong, prefs }: { info: DiaDanhInfo; onClose: () => void; bieuTuong: (id: string) => React.ReactNode; prefs: MapPrefs }) {
+export function TheDiaDanh({ info, onClose, bieuTuong, prefs, onDanDuong }: { info: DiaDanhInfo; onClose: () => void; bieuTuong: (id: string) => React.ReactNode; prefs: MapPrefs; onDanDuong?: () => void }) {
   return (
     <div
       ref={(el) => kepTheTrongKhung(el, info.x, info.y)}
@@ -738,6 +761,7 @@ export function TheDiaDanh({ info, onClose, bieuTuong, prefs }: { info: DiaDanhI
           <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-muted">
             Tên theo danh mục địa danh nhà nước (tham khảo)
           </p>
+          {onDanDuong && <NutDanDuongThe onClick={onDanDuong} />}
         </div>
         <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin địa danh" />
       </div>
