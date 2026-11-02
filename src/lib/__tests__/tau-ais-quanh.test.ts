@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { KM_PER_NM } from "@/lib/ais-cpa";
 import { TAU_AIS_STORE_KEY, type TauAis, type TauAisBan } from "@/lib/tau-ais";
-import { QUANH_GIO, fetchTauQuanh, gopTauQuanh, quanhGeoJson, tamHopLe, thamSoQuanh, tomTatQuanh, trangThaiQuanh, type TauQuanh } from "@/lib/tau-ais-quanh";
+import { LOC_TRONG, QUANH_GIO, demLocQuanh, fetchTauQuanh, gopTauQuanh, locTauQuanh, quanhGeoJson, tamHopLe, thamSoQuanh, trangThaiQuanh, type TauQuanh } from "@/lib/tau-ais-quanh";
 
 const TAM = { lat: 10.3, lon: 107.1 };
 const NOW = Date.parse("2026-10-31T08:00:00Z");
@@ -99,19 +99,6 @@ describe("tàu quanh một điểm — đang ở / đã qua (anh Long 02/11)", (
     expect(qua.cau).toBe("Tàu hàng · chạy qua 5 giờ trước, gần nhất 1,2 hải lý");
   });
 
-  it("tóm tắt: bây giờ ai ở đây + đã qua nhóm theo loại, nhóm mới qua trước", () => {
-    const ds: TauQuanh[] = [
-      { ...base, id: "1", loai: 7, oDay: true },
-      { ...base, id: "2", loai: 2, cuoi: nowS - 3 * 3600 },
-      { ...base, id: "3", loai: 2, cuoi: nowS - 4 * 3600 },
-      { ...base, id: "4", loai: 7, cuoi: nowS - 5 * 3600 },
-    ];
-    expect(tomTatQuanh(ds, nowS)).toEqual({ bayGio: "Bây giờ: 1 tàu hàng", daQua: "Đã qua: 2 tàu cá (gần nhất 3 giờ trước), 1 tàu hàng (5 giờ trước)" });
-    expect(tomTatQuanh(ds.slice(1), nowS).bayGio).toBe("Bây giờ: không có tàu nào phát AIS ở đây");
-    // loại 0 = đã rời bản, lộ trình không giữ loại ⇒ nói thật
-    expect(trangThaiQuanh({ ...base, loai: 0, cuoi: nowS - 3600 }, nowS).cau).toMatch(/^Tàu chưa rõ loại · chạy qua/);
-    expect(quanhGeoJson(TAM, [{ ...base, loai: 0, cuoi: nowS - 3600 }], null, 6, nowS).features[2].properties.nhan).toBe("Chưa rõ · 1 giờ");
-  });
 });
 
 describe("tàu quanh một điểm — máy", () => {
@@ -134,5 +121,24 @@ describe("tàu quanh một điểm — máy", () => {
     const kq = await fetchTauQuanh(TAM, NOW);
     expect(kq).toMatchObject({ chiBan: false, tuMay: false, luc: "x" });
     expect(kq!.tau).toHaveLength(1);
+  });
+});
+
+describe("tàu quanh một điểm — lọc bằng icon (anh Long 02/11)", () => {
+  const t = (id: string, loai: number, oDay: boolean): TauQuanh => ({ id, ten: null, loai, co: null, mmsi: null, gan: { t: 0, lat: 0, lon: 0, nm: 1 }, cuoi: 0, conPhat: oDay, oDay });
+  const ds = [t("a", 2, true), t("b", 2, false), t("c", 7, true), t("d", 0, false), t("e", 9, false), t("f", 2, false)];
+
+  it("lọc nhóm × trạng thái; loại 0 chung nhóm 'khác' với icon xám", () => {
+    expect(locTauQuanh(ds, LOC_TRONG)).toHaveLength(6);
+    expect(locTauQuanh(ds, { nhom: "ca", o: null }).map((x) => x.id)).toEqual(["a", "b", "f"]);
+    expect(locTauQuanh(ds, { nhom: "ca", o: false }).map((x) => x.id)).toEqual(["b", "f"]);
+    expect(locTauQuanh(ds, { nhom: "khac", o: null }).map((x) => x.id)).toEqual(["d", "e"]);
+  });
+
+  it("số trên icon: trạng thái đếm trong nhóm đang chọn, nhóm đếm trong trạng thái đang chọn; nhóm chọn 0 tàu vẫn giữ", () => {
+    expect(demLocQuanh(ds, LOC_TRONG)).toEqual({ o: 2, qua: 4, nhom: [{ nhom: "ca", n: 3 }, { nhom: "khac", n: 2 }, { nhom: "hang", n: 1 }] });
+    expect(demLocQuanh(ds, { nhom: "ca", o: null })).toMatchObject({ o: 1, qua: 2 });
+    expect(demLocQuanh(ds, { nhom: null, o: true }).nhom).toEqual([{ nhom: "ca", n: 1 }, { nhom: "hang", n: 1 }]);
+    expect(demLocQuanh(ds, { nhom: "khac", o: true }).nhom).toEqual([{ nhom: "ca", n: 1 }, { nhom: "hang", n: 1 }, { nhom: "khac", n: 0 }]);
   });
 });

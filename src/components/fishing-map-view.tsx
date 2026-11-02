@@ -271,7 +271,7 @@ import {
 } from "@/components/ban-do/the-thong-tin";
 import { AisBanKinh, AisToanBien, type CheDoAisXem, type NhomTau } from "@/components/ban-do/che-do-ais";
 import { TheTauQuanh } from "@/components/ban-do/tau-quanh";
-import { QUANH_NM, fetchTauQuanh, quanhGeoJson, tauAisTuQuanh, type KetQuaQuanh } from "@/lib/tau-ais-quanh";
+import { LOC_TRONG, QUANH_NM, fetchTauQuanh, hopLoc, locTauQuanh, quanhGeoJson, tauAisTuQuanh, type KetQuaQuanh, type LocQuanh } from "@/lib/tau-ais-quanh";
 import { CO_ICON_TAU, dangKyIconTau } from "@/components/ban-do/icon-tau";
 import { VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { TAM_RADAR_NM, khungRadar, mucTieuGeoJson, quetQuanh, radarGeoJson, type MucTieu, type TauMinh } from "@/lib/ais-cpa";
@@ -3313,18 +3313,21 @@ export default function FishingMapView() {
       (vòng 6 hải lý + chấm mỗi tàu ở chỗ gần điểm nhất). Request chỉ chạy khi bà con chọn; mất sóng ⇒ bản trong máy. */
   const [tauQuanh, setTauQuanh] = useState<{ tam: { lat: number; lon: number }; kq: KetQuaQuanh | null | "loi" } | null>(null);
   const [tauQuanhChon, setTauQuanhChon] = useState<string | null>(null);
+  // lọc bằng icon trên thẻ — bản đồ lọc theo cùng (anh Long 02/11: "lọc thông minh theo click icon")
+  const [tauQuanhLoc, setTauQuanhLoc] = useState<LocQuanh>(LOC_TRONG);
   const xemTauQuanh = useCallback(
     (tam: { lat: number; lon: number }) => {
       setTauQuanh({ tam, kq: null });
       setTauQuanhChon(null);
+      setTauQuanhLoc(LOC_TRONG);
       setSize("peek");
       void fetchTauQuanh(tam).then((kq) => setTauQuanh((v) => (v?.tam === tam ? { tam, kq: kq ?? "loi" } : v)));
     },
     [setSize],
   );
   const quanhGeo = useMemo(
-    () => (tauQuanh ? quanhGeoJson(tauQuanh.tam, tauQuanh.kq && tauQuanh.kq !== "loi" ? tauQuanh.kq.tau : [], tauQuanhChon) : null),
-    [tauQuanh, tauQuanhChon],
+    () => (tauQuanh ? quanhGeoJson(tauQuanh.tam, tauQuanh.kq && tauQuanh.kq !== "loi" ? locTauQuanh(tauQuanh.kq.tau, tauQuanhLoc) : [], tauQuanhChon) : null),
+    [tauQuanh, tauQuanhChon, tauQuanhLoc],
   );
 
   /** Mở một điểm đã lưu / GPS / cảng tìm được — bay tới + xem dự báo.
@@ -9288,6 +9291,14 @@ export default function FishingMapView() {
                   setVetTau(null);
                 }}
                 prefs={prefs}
+                loc={tauQuanhLoc}
+                onLoc={(loc) => {
+                  setTauQuanhLoc(loc);
+                  // tàu đang mở không còn khớp lọc ⇒ đóng (khỏi treo khung chọn trên icon đã ẩn)
+                  const kq = tauQuanh.kq;
+                  const t = tauQuanhChon && kq && kq !== "loi" ? kq.tau.find((x) => x.id === tauQuanhChon) : undefined;
+                  if (t && !hopLoc(t, loc)) setTauQuanhChon(null);
+                }}
               />
             )}
             {/* viên ĐƯỜNG ĐI đang xem — nằm TRONG cột trái ngay dưới thẻ AIS (xếp theo luồng, không đè thẻ) */}

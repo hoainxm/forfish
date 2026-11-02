@@ -159,31 +159,42 @@ export function trangThaiQuanh(t: TauQuanh, nowGiay: number): { oDay: boolean; c
 
 const soNm = (nm: number) => nm.toLocaleString("vi-VN", { maximumFractionDigits: 1, minimumFractionDigits: nm < 10 ? 1 : 0 });
 
-const demNhom = (ds: readonly TauQuanh[]) => {
-  const m = new Map<string, number>();
-  for (const t of ds) m.set(nhomTen(t.loai), (m.get(nhomTen(t.loai)) ?? 0) + 1);
-  return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([ten, n]) => `${n} ${ten}`).join(", ");
-};
+/**
+ * LỌC BẰNG ICON (2026-11-02, anh Long: "gọn lại… lọc được luôn, lọc thông minh theo click icon thôi"). Hai chiều:
+ * nhóm tàu (cùng nhóm màu/icon với bản đồ — loại 0 "chưa rõ" chung icon xám với "khác") × trạng thái (đang ở / đã qua).
+ * null = không lọc chiều đó. Thuần.
+ */
+export type NhomQuanh = ReturnType<typeof nhomTau>;
+export interface LocQuanh {
+  nhom: NhomQuanh | null;
+  o: boolean | null;
+}
+export const LOC_TRONG: LocQuanh = { nhom: null, o: null };
+
+export const hopLoc = (t: TauQuanh, loc: LocQuanh): boolean =>
+  (loc.nhom == null || nhomTau(t.loai) === loc.nhom) && (loc.o == null || !!t.oDay === loc.o);
+
+export const locTauQuanh = (ds: readonly TauQuanh[], loc: LocQuanh): TauQuanh[] => ds.filter((t) => hopLoc(t, loc));
 
 /**
- * Hai câu tóm tắt đầu thẻ: bây giờ ai ở đây + 6 giờ qua ai đã qua (nhóm theo loại, mốc gần nhất mỗi nhóm).
- * Ví dụ: ["Bây giờ: 1 tàu hàng", "Đã qua: 3 tàu cá (gần nhất 3 giờ trước), 1 tàu hàng (5 giờ trước)"]. Thuần.
+ * Số trên từng icon lọc — "thông minh": số trạng thái tính trong nhóm đang chọn, số nhóm tính trong trạng thái đang
+ * chọn (chạm icon nào cũng thấy ngay còn bao nhiêu). Nhóm 0 tàu ẩn, trừ nhóm đang chọn. Nhóm đông trước.
  */
-export function tomTatQuanh(ds: readonly TauQuanh[], nowGiay: number): { bayGio: string; daQua: string | null } {
-  const o = ds.filter((t) => t.oDay);
-  const qua = ds.filter((t) => !t.oDay);
-  const bayGio = o.length ? `Bây giờ: ${demNhom(o)}` : "Bây giờ: không có tàu nào phát AIS ở đây";
-  if (!qua.length) return { bayGio, daQua: null };
-  const nhom = new Map<string, { n: number; moi: number }>();
-  for (const t of qua) {
-    const k = nhomTen(t.loai);
-    const v = nhom.get(k);
-    nhom.set(k, { n: (v?.n ?? 0) + 1, moi: Math.max(v?.moi ?? 0, t.cuoi) });
+export function demLocQuanh(ds: readonly TauQuanh[], loc: LocQuanh): { o: number; qua: number; nhom: { nhom: NhomQuanh; n: number }[] } {
+  let o = 0;
+  let qua = 0;
+  const m = new Map<NhomQuanh, number>();
+  for (const t of ds) {
+    const nh = nhomTau(t.loai);
+    if (loc.nhom == null || nh === loc.nhom) {
+      if (t.oDay) o++;
+      else qua++;
+    }
+    if (loc.o == null || !!t.oDay === loc.o) m.set(nh, (m.get(nh) ?? 0) + 1);
   }
-  const phan = [...nhom.entries()]
-    .sort((a, b) => b[1].moi - a[1].moi)
-    .map(([ten, v], i) => `${v.n} ${ten} (${i === 0 ? "gần nhất " : ""}${cachDay(v.moi, nowGiay)})`);
-  return { bayGio, daQua: `Đã qua: ${phan.join(", ")}` };
+  if (loc.nhom && !m.has(loc.nhom)) m.set(loc.nhom, 0);
+  const nhom = [...m.entries()].map(([nhom, n]) => ({ nhom, n })).sort((a, b) => b.n - a.n);
+  return { o, qua, nhom };
 }
 
 /** TauAis tối thiểu để mở đường đi (xemVetTau chỉ cần id + tên) cho tàu đã rời bản. */
