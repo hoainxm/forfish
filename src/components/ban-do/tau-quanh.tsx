@@ -23,6 +23,14 @@ import { QUANH_GIO, QUANH_NM, tomTatQuanh, trangThaiQuanh, type KetQuaQuanh, typ
 /** số dòng vẽ một lần — cửa cảng đông có thể vài trăm tàu trong 6 hải lý */
 const DS_TOI_DA = 60;
 
+/** "trong vòng từ 07:00 1/11 tới nay" · "trong vòng lúc 05:00 2/11" (một mốc) */
+function khungTrongVong(t: TauQuanh, oDay: boolean): string {
+  const dau = gioNgayVN(t.dau ?? t.gan.t);
+  if (oDay) return `trong vòng từ ${dau} tới nay`;
+  const cuoi = gioNgayVN(t.cuoi);
+  return cuoi === dau ? `trong vòng lúc ${dau}` : `trong vòng từ ${dau} tới ${cuoi}`;
+}
+
 export function TheTauQuanh({
   kq,
   chonId,
@@ -113,7 +121,7 @@ export function TheTauQuanh({
                     {mo && (
                       <div className="bg-field px-3 pb-2.5 pt-0.5 text-[0.75rem] leading-snug text-muted">
                         <p>
-                          {loaiTauLabel(t.loai)} · trong vòng từ {gioNgayVN(t.dau ?? t.gan.t)} tới {tt.oDay ? "nay" : gioNgayVN(t.cuoi)}
+                          {t.loai === 0 ? "Chưa rõ loại" : loaiTauLabel(t.loai)} · {khungTrongVong(t, tt.oDay)}
                         </p>
                         <p>
                           {t.co ? `Cờ ${t.co} · ` : ""}
