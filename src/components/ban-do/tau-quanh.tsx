@@ -45,6 +45,10 @@ export function TheTauQuanh({
   // mốc "bây giờ" chốt lúc thẻ mở (thẻ dựng lại theo điểm — key ở fishing-map-view)
   const [nowGiay] = useState(() => Math.floor(Date.now() / 1000));
   const tom = ds.length ? tomTatQuanh(ds, nowGiay) : null;
+  // chạm chấm của tàu nằm ngoài DS_TOI_DA dòng đầu ⇒ vẫn thêm dòng đó vào cuối để mở + cuộn tới được
+  const dau = ds.slice(0, DS_TOI_DA);
+  const chonNgoai = chonId && !dau.some((t) => t.id === chonId) ? ds.find((t) => t.id === chonId) : undefined;
+  const hienThi = chonNgoai ? [...dau, chonNgoai] : dau;
   // chạm chấm trên bản đồ ⇒ dòng đó cuộn vào khung
   const dsRef = useRef<HTMLUListElement | null>(null);
   useEffect(() => {
@@ -82,7 +86,7 @@ export function TheTauQuanh({
               </div>
             )}
             <ul ref={dsRef} className="mt-1.5 max-h-[28dvh] overflow-y-auto overscroll-contain rounded-xl border border-line">
-              {ds.slice(0, DS_TOI_DA).map((t) => {
+              {hienThi.map((t) => {
                 const mo = chonId === t.id;
                 const tt = trangThaiQuanh(t, nowGiay);
                 const mau = MAU_TAU[nhomTau(t.loai)];
@@ -126,8 +130,8 @@ export function TheTauQuanh({
                   </li>
                 );
               })}
-              {ds.length > DS_TOI_DA && (
-                <li className="px-3 py-2 text-[0.75rem] text-muted">Còn {(ds.length - DS_TOI_DA).toLocaleString("vi-VN")} tàu xa hơn.</li>
+              {ds.length > hienThi.length && (
+                <li className="px-3 py-2 text-[0.75rem] text-muted">Còn {(ds.length - hienThi.length).toLocaleString("vi-VN")} tàu qua lâu hơn — chạm chấm trên bản đồ để xem.</li>
               )}
             </ul>
             </>
