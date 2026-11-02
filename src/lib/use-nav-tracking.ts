@@ -120,6 +120,16 @@ export function locFix(prev: LocState | null, fix: LocIn): LocState & { speedKmh
 export const SAI_SO_BO_M = 1000;
 const NHAY_MIN_M = 500;
 export const BO_LIEN_MAX = 3;
+/*  ĐIỂM BỊ BỎ MÀ KHÔNG AI CÃI LẠI (thử iOS Simulator 2026-11-02): máy chỉ gửi fix khi vị
+    trí ĐỔI — tàu neo yên thì sau một điểm "nhảy" (thật ra điểm TRƯỚC mới sai) không còn fix
+    nào nữa ⇒ bỏ liền không bao giờ đủ BO_LIEN_MAX, app kẹt "Mất định vị" ở chỗ cũ. Giữ điểm
+    bị bỏ gần nhất; quá NHAY_CHO_MS không có fix nào khác thì NHẬN nó. */
+export const NHAY_CHO_MS = 8_000;
+
+/** Điểm bị bỏ đang chờ có nên nhận không (không fix nào tới sau nó đủ lâu). Thuần, có test. */
+export function nenNhanDiemCho(choAt: number | null, now: number): boolean {
+  return choAt != null && now - choAt >= NHAY_CHO_MS;
+}
 
 /** Nhận fix này không. `boLien` = số fix đã bỏ liền trước đó. Thuần, có test. */
 export function nhanFix(
@@ -182,13 +192,22 @@ export function useNavTracking(
 
     let stopped = false;
 
-    const onFix = (p: GeolocationPosition) => {
+    /** điểm bị bỏ gần nhất + lúc nhận được nó (đồng hồ máy) — xem NHAY_CHO_MS */
+    let cho: { p: GeolocationPosition; at: number } | null = null;
+    const onFix = (p: GeolocationPosition, epNhan = false) => {
       if (stopped) return;
       const now = p.timestamp || Date.now();
       const pos: LatLon = { lat: p.coords.latitude, lon: p.coords.longitude };
-      const k = nhanFix(prevFix.current, { pos, t: now, accuracyM: p.coords.accuracy }, boLienRef.current);
-      boLienRef.current = k.boLien;
-      if (!k.nhan) return; // điểm nhảy — giữ vị trí cũ, đồng hồ "mất định vị" vẫn chạy
+      if (!epNhan) {
+        const k = nhanFix(prevFix.current, { pos, t: now, accuracyM: p.coords.accuracy }, boLienRef.current);
+        boLienRef.current = k.boLien;
+        if (!k.nhan) {
+          cho = { p, at: Date.now() }; // điểm nhảy — giữ vị trí cũ, chờ xem có fix nào cãi lại không
+          return;
+        }
+      }
+      cho = null;
+      boLienRef.current = 0;
       const r = locFix(prevFix.current, {
         pos,
         t: now,
@@ -275,6 +294,7 @@ export function useNavTracking(
 
     // đồng hồ nhắc "mất định vị" khi fix quá cũ (không đóng băng số ngầm)
     const staleTimer = window.setInterval(() => {
+      if (cho && nenNhanDiemCho(cho.at, Date.now())) onFix(cho.p, true);
       setState((s) => {
         if (s.status !== "tracking" || s.lastFixAt == null) return s;
         return fixQuaCu(s.lastFixAt, s.speedKmh, Date.now()) ? { ...s, status: "lost" } : s;

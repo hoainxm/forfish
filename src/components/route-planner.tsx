@@ -170,6 +170,8 @@ function clampNum(raw: string, min: number, max: number, fallback: number) {
 }
 
 // giới hạn vùng tính toán quanh biển VN (khớp khung bản đồ + lưới độ sâu)
+/** xuất phát theo GPS: tàu rời nơi tính tuyến quá mức này (km) mới báo "vạch từ nơi xuất phát cũ" */
+const GPS_LECH_KM = 2;
 const VN_SEA: BBox = { latMin: 4, latMax: 24.5, lonMin: 99, lonMax: 119 };
 
 function clampBBox(b: BBox): BBox {
@@ -383,6 +385,7 @@ export function RouteMode({
   });
   const [lph, setLph] = useState(() => String(readBoat().litersPerHour));
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PlannedRoute | null>(null);
   // Mất sóng: tuyến tính từ lưới Windy ĐÃ LƯU (thô hơn, không dòng chảy) — giữ
@@ -586,9 +589,32 @@ export function RouteMode({
       còn hơn im, đây là cảnh báo an toàn. */
   const chainStale =
     activeRoute != null && !routeMatchesStops(activeRoute.stops, stops, dest);
+  /*  XUẤT PHÁT = VỊ TRÍ TÀU thì tàu chạy là vị trí đổi ⇒ trước đây băng "từ nơi xuất phát
+      cũ" bật ngay khi tàu vừa nhích (thử iOS Simulator 2026-11-02, sau "Vẽ lại"). Với GPS
+      chỉ coi là cũ khi tàu đã đi xa nơi tính hơn GPS_LECH_KM. */
   const startStale =
-    activeRoute != null && !routeStartMatches(activeRoute.start, startCoord);
+    activeRoute != null &&
+    (effectiveStartId === "gps" && startCoord
+      ? haversineKm(activeRoute.start, startCoord) > GPS_LECH_KM
+      : !routeStartMatches(activeRoute.start, startCoord));
   const staleRoute = chainStale || startStale ? activeRoute : null;
+  /*  TỰ TÍNH NHƯ VIETMAP (anh Long 2026-11-02: "cái nút tính đường? dẫn đường? sao ko làm
+      giống vietmap"): chọn / đổi điểm đến, đổi nơi xuất phát ⇒ tuyến tự ra, không còn nút
+      "Tính đường". Chỉ một nút ở đầu bảng: "Bắt đầu" (đang tính thì mờ + "Đang tính"; tính
+      hỏng thì "Thử lại"). Chờ 0,6 s sau lần đổi cuối (chấm liền mấy điểm chỉ tính một lần);
+      mỗi bộ (chuỗi điểm + nơi xuất phát) tự tính MỘT lần — hỏng thì không tự thử lại vòng vòng. */
+  const autoKey = `${chainSig}@${effectiveStartId}`;
+  const autoDaTinh = useRef<string | null>(null);
+  const canTinh = !busy && (result == null || chainStale || startStale);
+  useEffect(() => {
+    if (!canTinh || autoDaTinh.current === autoKey) return;
+    const t = setTimeout(() => {
+      autoDaTinh.current = autoKey;
+      void compute();
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- theo bộ điểm, không theo từng render
+  }, [autoKey, canTinh]);
   /*  Điểm CUỐI có đổi không — CHỈ dùng để CHỌN CÂU cho băng cảnh báo, KHÔNG
       dùng để quyết định có cảnh báo hay không (đó là việc của staleRoute). */
   const staleDestMoved =
@@ -631,7 +657,9 @@ export function RouteMode({
   async function compute(
     opts: { startId?: string; gpsFallback?: boolean } = {},
   ) {
-    if (busy) return;
+    // ref chứ không state: hai lối tự tính (Sen Biển / đổi điểm) có thể bắn cùng một nhịp vẽ
+    if (busy || busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     onDuongThang?.(null);
@@ -729,10 +757,10 @@ export function RouteMode({
               : "Điểm đến";
         const p = legPts[ngoai];
         onDuongThang?.({ a: legPts[Math.max(0, ngoai - 1)], b: ngoai === 0 ? legPts[1] : p, cho: null });
+        // NGẮN (anh Long "hiện vừa thôi"): toạ độ đã ở hàng điểm ngay dưới, khỏi nhắc lại
         setError(
-          `${ten} (${fmtCoordPair(p.lat, p.lon, prefs.coordFormat)}) nằm ngoài vùng biển máy tính đường được ` +
-            `(vĩ độ ${VN_SEA.latMin}–${String(VN_SEA.latMax).replace(".", ",")}° Bắc, kinh độ ${VN_SEA.lonMin}–${VN_SEA.lonMax}° Đông). ` +
-            "Máy vẽ đường thẳng nét đứt để bà con biết hướng — không phải đường an toàn; dò hải đồ và nghe đài.",
+          `${ten} nằm ngoài vùng máy tính đường được (vĩ ${VN_SEA.latMin}–${String(VN_SEA.latMax).replace(".", ",")}° B, ` +
+            `kinh ${VN_SEA.lonMin}–${VN_SEA.lonMax}° Đ). Nét đứt chỉ để biết hướng, không phải đường an toàn.`,
         );
         return;
       }
@@ -1106,6 +1134,7 @@ export function RouteMode({
               "Bà con mở màn hình Ra khơi lúc có sóng để máy tự tải sẵn thông tin gió sóng, rồi thử lại nhé.",
       );
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -1522,15 +1551,17 @@ export function RouteMode({
               {NHAN.batDau}
             </button>
           ) : (
+            /*  MỘT NÚT (kiểu Vietmap): tuyến tự tính ⇒ chờ thì "Đang tính" mờ, hỏng thì
+                "Thử lại" (câu lỗi ngay dưới đầu bảng nói vì sao). */
             <button
               type="button"
               onClick={() => void compute()}
-              disabled={busy}
-              aria-label={busy ? "Đang tính lộ trình" : plan ? "Tính lại lộ trình" : "Tính lộ trình"}
+              disabled={busy || !error}
+              aria-label={busy ? "Đang tính lộ trình" : error ? "Tính lại lộ trình" : "Bắt đầu"}
               className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[0.9375rem] font-bold transition active:scale-[0.97] bg-t1 text-white disabled:opacity-60"
             >
-              <RouteIcon className="h-5 w-5" />
-              {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
+              {busy ? <RouteIcon className="h-5 w-5 animate-pulse" /> : error ? <RouteIcon className="h-5 w-5" /> : <PlayIcon className="h-5 w-5" />}
+              {busy ? "Đang tính" : error ? NHAN.thuLai : NHAN.batDau}
             </button>
           )}
           </div>
@@ -1621,6 +1652,15 @@ export function RouteMode({
            LUẬT: không được có nút bấm-không-ra-gì. Cổng nay là `panel !==
            "idle"` — thêm panel mới sau này tự chạy, không phải nhớ vá chỗ
            thứ hai. Các hàng danh sách vẫn tự ẩn nhờ `compactRows`. */}
+      {/*  CÂU LỖI NGAY DƯỚI ĐẦU BẢNG (thử iOS Simulator 2026-11-02): trước nằm DƯỚI danh sách
+           điểm — bảng cao ~1/3 màn nên tự tính xong báo "ngoài vùng / chưa tìm được đường" mà
+           bà con phải cuộn mới thấy, chỉ thấy nút "Tính đường" đứng im. */}
+      {error && (
+        <p role="alert" className="text-[0.9375rem] font-semibold leading-snug text-danger">
+          {error}
+        </p>
+      )}
+
       {(!plan || editing || panel !== "idle") && (
         <>
           {/*  DANH SÁCH ĐIỂM KIỂU GOOGLE MAPS (user 2026-08-28g, kèm ảnh mẫu):
@@ -2255,12 +2295,6 @@ export function RouteMode({
           )}
 
         </>
-      )}
-
-      {error && (
-        <p className="text-[0.9375rem] font-semibold leading-snug text-danger">
-          {error}
-        </p>
       )}
 
       {plan && result && panel === "idle" && (

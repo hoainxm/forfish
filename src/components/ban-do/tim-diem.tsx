@@ -21,6 +21,7 @@ import { SearchField } from "@/components/ui/search-field";
 import {
   cauKhongThay,
   docToaDoNhanh,
+  TOI_DA_DONG,
   nhanToaDo,
   timCang,
   timDiemLuu,
@@ -57,7 +58,11 @@ export function TimDiemPopover({
   const { home } = useHome();
   const tinhNha = home.province;
   const daLuu = useMemo(() => timDiemLuu(q, places), [q, places]);
-  const cang = useMemo(() => timCang(q, tinhNha, undefined, viTriTau), [q, tinhNha, viTriTau]);
+  // trần chung TOI_DA_DONG dòng: điểm lưu trước, cảng lấp phần còn lại (ít nhất 2 cảng)
+  const cang = useMemo(
+    () => timCang(q, tinhNha, undefined, viTriTau).slice(0, Math.max(2, TOI_DA_DONG - daLuu.length)),
+    [q, tinhNha, viTriTau, daLuu.length],
+  );
   const toaDo = useMemo(() => docToaDoNhanh(q), [q]);
   const trong = q.trim() !== "" && daLuu.length === 0 && cang.length === 0 && !toaDo;
 

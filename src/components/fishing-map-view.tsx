@@ -374,6 +374,7 @@ import { syncOwnerPhone } from "@/lib/user-sync";
 import type { NavInfoLine } from "@/lib/nav-context";
 import {
   computeNavProgress,
+  ARRIVE_KM,
   tocDoMuot,
   type TocDoMuot,
   etaHours,
@@ -4426,6 +4427,15 @@ export default function FishingMapView() {
     xoaPhien();
     setPhienCho(null);
   }, []);
+  /*  ĐÃ Ở ĐÍCH THÌ KHỎI HỎI (thử iOS Simulator 2026-11-02: "cách chỗ đến ~0 hải lý" mà vẫn
+      mời "Dẫn đường tiếp") — tàu trong bán kính tới nơi ⇒ coi như chuyến xong, xoá phiên. */
+  const phienDich = phienCho?.route.dest ?? null;
+  const viTriTauLat = tracking.pos?.lat;
+  const viTriTauLon = tracking.pos?.lon;
+  useEffect(() => {
+    if (!phienDich || viTriTauLat == null || viTriTauLon == null) return;
+    if (haversineKm(viTriTauLat, viTriTauLon, phienDich.lat, phienDich.lon) <= ARRIVE_KM) boPhien();
+  }, [phienDich, viTriTauLat, viTriTauLon, boPhien]);
 
   // khu trú gần nhất cho câu bão gần — tính lúc đọc, theo vị trí mới nhất (không mỗi fix)
   const khuTruGan = useCallback(() => {
@@ -4482,8 +4492,22 @@ export default function FishingMapView() {
     if (navDaDocRef.current === navMode) return;
     navDaDocRef.current = navMode;
     const wp = navMode.plan.waypoints;
-    const huong = wp.length >= 2 ? bearingDeg(wp[0].lat, wp[0].lon, wp[1].lat, wp[1].lon) : null;
-    navSayRef.current(cauBatDau(navMode.plan.distKm, navMode.plan.hours, huong, navSpeechUnit));
+    /*  QUÃNG CÒN LẠI THẬT, không tổng tuyến (thử iOS Simulator 2026-11-02: vào lại chuyến ở
+        sát đích mà đọc "còn chừng 20 hải lý, 2 giờ 40") — có vị trí tàu thì chiếu lên tuyến;
+        giờ chia theo tỉ lệ quãng; hướng là hướng tới điểm kế tiếp từ CHỖ TÀU. */
+    const p = trackingPosRef.current;
+    const tien = p
+      ? computeNavProgress({ pos: p, headingDeg: null, speedKmh: null, waypoints: wp })
+      : null;
+    const conKm = tien ? tien.remainingKm : navMode.plan.distKm;
+    const conGio = navMode.plan.distKm > 0 ? (navMode.plan.hours * conKm) / navMode.plan.distKm : navMode.plan.hours;
+    const huong = tien
+      ? tien.bearingToNextDeg
+      : wp.length >= 2
+        ? bearingDeg(wp[0].lat, wp[0].lon, wp[1].lat, wp[1].lon)
+        : null;
+    if (tien?.arrived) return; // vào lại chuyến ngay ở đích — câu "đã tới" lo
+    navSayRef.current(cauBatDau(conKm, conGio, huong, navSpeechUnit));
   }, [navMode, navSpeechUnit]);
   const toiDungYen = navMode != null && (navProgress?.arrived ?? false) && !navMoving;
   useEffect(() => {
@@ -4643,19 +4667,6 @@ export default function FishingMapView() {
     },
     [goToCoord, stops.length, senSay, navMode, routeMode, setStops],
   );
-  /*  MỞ BẢNG LỘ TRÌNH BẰNG NÚT RAIL mà đã có điểm đến, chưa có tuyến ⇒ TỰ TÍNH (anh Long
-      2026-11-02: "sao vẫn còn cái nút tính đường thế?"). Trước chỉ các lối "Dẫn đường"
-      bắn tín hiệu tự tính; mở lại bảng với chuỗi điểm cũ thì vẫn bắt bấm "Tính đường".
-      Lối khác đã xin tự tính (bộ đếm >0 lúc mở) thì thôi, khỏi tính hai lần. Nút "Tính
-      đường" giữ cho lúc sửa chuỗi điểm rồi muốn tính lại. */
-  const routeModeTruoc = useRef(false);
-  useEffect(() => {
-    const vuaMo = routeMode && !routeModeTruoc.current;
-    routeModeTruoc.current = routeMode;
-    if (!vuaMo || navMode != null || route != null || stops.length === 0 || senAutoCompute > 0) return;
-    setSenAutoCompute((n) => n + 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo lúc bảng vừa mở
-  }, [routeMode]);
   // bà con đóng khung giữa chừng ⇒ bỏ lượt chờ, đừng để lần mở sau tự tính
   useEffect(() => {
     if (routeMode) return;

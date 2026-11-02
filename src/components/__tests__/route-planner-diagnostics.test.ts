@@ -35,8 +35,10 @@ function mount() {
     stormInfo: { kind: "khong-co", checkedAt: Date.now() }, onRoute: vi.fn(), onClose: vi.fn(),
   }));
 }
+/*  2026-11-02 (kiểu Vietmap): bảng TỰ TÍNH sau 0,6 s khi có chuỗi điểm — không còn nút
+    "Tính đường". Giữ tên hàm để các ca dưới đọc như cũ; chỉ còn việc chờ lượt tự tính. */
 function clickCompute() {
-  fireEvent.click(screen.getByRole("button", { name: "Tính lộ trình" }));
+  /* tự tính — waitFor ở từng ca chờ đủ 0,6 s */
 }
 
 beforeEach(() => {
@@ -83,7 +85,7 @@ describe("Tính đường — chờ dữ liệu và giải thích đúng điểm
     })));
     expect(document.body.textContent).not.toContain("Tuyến này chưa có dự báo");
     await waitFor(() => expect(
-      (screen.getByRole("button", { name: "Tính lộ trình" }) as HTMLButtonElement).disabled,
+      (screen.getByRole("button", { name: /Tính lại lộ trình|Bắt đầu/ }) as HTMLButtonElement).disabled,
     ).toBe(false));
   });
 

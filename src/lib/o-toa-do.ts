@@ -44,6 +44,24 @@ export function laDauNgan(ch: string): boolean {
   return /^[\s.,°'′″"\-/:;dDmM]$/.test(ch);
 }
 
+const KE: Record<OSo, OSo | null> = { d: "m", m: "s", s: null };
+
+/**
+ * Gõ vào ô `o`: SỐ TRÀN DỒN SANG Ô KẾ (thử iOS Simulator 2026-11-02: gõ nhanh "150712" ra
+ * 50° 7′ 12″ — chữ số tới ô độ trước khi con trỏ kịp nhảy). Trả ba ô mới + ô nên đặt con
+ * trỏ (null = ở yên). Không phụ thuộc tốc độ gõ hay lúc con trỏ chuyển ô.
+ */
+export function nhapO(p: PhanToaDo, o: OSo, raw: string, axis: CoordAxis): { p: PhanToaDo; focus: OSo | null } {
+  const v = locSo(raw, o);
+  const ke = KE[o];
+  const tran = DAI_O[axis][o];
+  if (ke && v.length > tran) {
+    const r = nhapO({ ...p, [o]: v.slice(0, tran) }, ke, v.slice(tran), axis);
+    return { p: r.p, focus: r.focus ?? ke };
+  }
+  return { p: { ...p, [o]: v }, focus: ke && nenNhay(v, o, axis) ? ke : null };
+}
+
 /** Ghép ba ô + hướng thành chuỗi cho `parseOneCoord`; "" khi chưa gõ gì. */
 export function ghepToaDo(p: PhanToaDo, axis: CoordAxis): string {
   if (!p.d && !p.m && !p.s) return "";

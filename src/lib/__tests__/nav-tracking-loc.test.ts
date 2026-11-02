@@ -62,3 +62,12 @@ describe("nhanFix — bỏ điểm nhảy ở chỗ nhận vị trí", async () 
     expect(nhanFix(prev, { pos: { lat: 15, lon: 109 }, t: 1000, accuracyM: 10 }, BO_LIEN_MAX)).toEqual({ nhan: true, boLien: 0 });
   });
 });
+
+describe("nenNhanDiemCho — điểm bị bỏ mà không fix nào cãi lại (tàu neo yên)", async () => {
+  const { nenNhanDiemCho, NHAY_CHO_MS } = await import("@/lib/use-nav-tracking");
+  it(`chờ đủ ${NHAY_CHO_MS} ms thì nhận; chưa đủ / không có điểm chờ thì không`, () => {
+    expect(nenNhanDiemCho(1000, 1000 + NHAY_CHO_MS)).toBe(true);
+    expect(nenNhanDiemCho(1000, 1000 + NHAY_CHO_MS - 1)).toBe(false);
+    expect(nenNhanDiemCho(null, 99_999)).toBe(false);
+  });
+});

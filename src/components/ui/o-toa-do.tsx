@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMapPrefs } from "@/lib/map-prefs";
 import type { CoordAxis } from "@/lib/parse-coord";
-import { DAI_O, ghepToaDo, laDauNgan, locSo, nenNhay, tachToaDo, type OSo, type PhanToaDo } from "@/lib/o-toa-do";
+import { ghepToaDo, laDauNgan, nhapO, tachToaDo, type OSo, type PhanToaDo } from "@/lib/o-toa-do";
 
 const O: OSo[] = ["d", "m", "s"];
 const DAU: Record<OSo, string> = { d: "°", m: "′", s: "″" };
@@ -86,10 +86,19 @@ export function OToaDo({
               refs.current[o] = el;
             }}
             type="text"
+            data-o-toa-do
             inputMode={o === "s" ? "decimal" : "numeric"}
             value={phan[o]}
-            maxLength={o === "s" ? 5 : DAI_O[axis][o]}
+            // không maxLength ở ô độ/phút: chữ số tràn phải TỚI được onChange để dồn sang ô kế
+            maxLength={o === "s" ? 5 : undefined}
             aria-label={`${label} — ${TEN_O[o]}`}
+            /*  CHẠM Ô ĐÃ CÓ SỐ ⇒ BÔI ĐEN (thử iOS Simulator 2026-11-02: sửa "15" bằng xoá + gõ ra
+                31° 50′ vì con trỏ đứng giữa số). Gõ là thay cả ô — đúng kiểu ô OTP. iOS cần một
+                nhịp sau focus mới chọn được. */
+            onFocus={(e) => {
+              const el = e.currentTarget;
+              requestAnimationFrame(() => el.select());
+            }}
             onPaste={(e) => {
               // dán cả chuỗi "15°07'12"N" vào ô nào cũng chia đủ ba ô
               const t = tachToaDo(e.clipboardData.getData("text"), axis);
@@ -117,9 +126,15 @@ export function OToaDo({
               const raw = e.target.value;
               // gõ dấu ngăn trên bàn phím ảo (không bắn keydown đúng phím) ⇒ cũng sang ô kế
               const ngan = o !== "s" && /[\s.,°'′\-]$/.test(raw);
-              const v = locSo(raw, o);
-              day({ ...phan, [o]: v });
-              if (ngan || nenNhay(v, o, axis)) sang(o);
+              const r = nhapO(phan, o, raw, axis);
+              day(r.p);
+              if (r.focus) refs.current[r.focus]?.focus();
+              else if (ngan) sang(o);
+              // GIÂY ĐỦ 2 SỐ ⇒ sang ô ĐỘ của trục kế (vĩ → kinh) — gõ một mạch cả cặp toạ độ
+              else if (o === "s" && /^\d{2}$/.test(r.p.s)) {
+                const tat = Array.from(document.querySelectorAll<HTMLInputElement>("input[data-o-toa-do]"));
+                tat[tat.indexOf(e.currentTarget) + 1]?.focus();
+              }
             }}
             className={oCls}
           />

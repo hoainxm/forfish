@@ -27,9 +27,14 @@ export type KetQuaTim = {
 };
 
 /** tối đa kết quả mỗi nhóm — đủ chọn, không thành danh bạ */
-export const TOI_DA_CANG = 8;
-export const TOI_DA_CANG_GOI_Y = 6;
-export const TOI_DA_DIEM = 5;
+/*  GỌN (anh Long 2026-11-02, ảnh 6 cảng + "Gõ toạ độ": "hiện vừa thôi, đừng show cả dài ra
+    chiếm màn hình"): chưa gõ 3 cảng gần nhất, đang gõ 4 cảng + 3 điểm lưu; ô tìm còn gộp
+    trần chung 5 dòng (`TOI_DA_DONG` ở tim-diem). Gõ thêm chữ là thu hẹp, không cần cuộn. */
+export const TOI_DA_CANG = 4;
+export const TOI_DA_CANG_GOI_Y = 3;
+export const TOI_DA_DIEM = 3;
+/** trần chung số dòng kết quả (điểm lưu + cảng) trong ô tìm */
+export const TOI_DA_DONG = 5;
 
 /** cảng có toạ độ tin được (bỏ cảng thiếu toạ độ / toạ độ sai đã ghi sổ) */
 export const CANG_TIM_DUOC: KetQuaTim[] = FISHING_PORTS.filter(

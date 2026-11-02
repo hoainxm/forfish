@@ -570,30 +570,6 @@ export function NavHud({
         </button>
       )}
 
-      {/*  CÂU ĐANG ĐỌC — in ra đúng câu loa đang nói (người nghe kém một bên,
-           máy rè, tiếng máy tàu át). Câu ĐỎ có nút "Đã nghe" để thôi nhắc lại. */}
-      {voice?.speaking && speakingRow && hien.has("speaking") && (
-        <div
-          role="status"
-          className={`flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.875rem] font-semibold leading-snug ${
-            voice.speaking.red ? "bg-danger-bg text-danger" : "bg-white/45 text-navy"
-          }`}
-        >
-          <SpeakerIcon className="h-5 w-5 shrink-0" />
-          {/*  Bản tin mở đầu dài 5 câu: in nguyên khối là chiếm nửa HUD trong lúc đọc
-               (rà UI 2026-11-02) ⇒ câu thường gói 3 dòng; câu đỏ luôn in đủ. */}
-          <span className={`min-w-0 flex-1 ${voice.speaking.red ? "" : "line-clamp-3"}`}>{voice.speaking.text}</span>
-          {voice.speaking.red && (
-            <button
-              type="button"
-              onClick={voice.onAck}
-              className="min-h-[2.75rem] shrink-0 rounded-xl bg-danger px-3 text-[0.875rem] font-semibold text-white transition active:scale-95"
-            >
-              Đã nghe
-            </button>
-          )}
-        </div>
-      )}
       {voice?.noVoice && hien.has("novoice") && (
         <div className="flex items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-semibold leading-snug text-warn">
           <span className="min-w-0 flex-1">
@@ -760,6 +736,33 @@ export function NavHud({
             )
           )}
         </>
+      )}
+
+      {/*  CÂU ĐANG ĐỌC — ĐẶT CUỐI KHUNG (thử iOS Simulator 2026-11-02): ở giữa thì mỗi lần câu
+           hiện/tắt là dòng lái + nút "Xong" nhảy lên xuống dưới ngón tay, bấm trượt. Ở cuối thì
+           chỉ đáy khung co giãn. — in ra đúng câu loa đang nói (người nghe kém một bên,
+           máy rè, tiếng máy tàu át). Câu ĐỎ có nút "Đã nghe" để thôi nhắc lại. */}
+      {voice?.speaking && speakingRow && hien.has("speaking") && (
+        <div
+          role="status"
+          className={`flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.875rem] font-semibold leading-snug ${
+            voice.speaking.red ? "bg-danger-bg text-danger" : "bg-white/45 text-navy"
+          }`}
+        >
+          <SpeakerIcon className="h-5 w-5 shrink-0" />
+          {/*  Bản tin mở đầu dài 5 câu: in nguyên khối là chiếm nửa HUD trong lúc đọc
+               (rà UI 2026-11-02) ⇒ câu thường gói 3 dòng; câu đỏ luôn in đủ. */}
+          <span className={`min-w-0 flex-1 ${voice.speaking.red ? "" : "line-clamp-3"}`}>{voice.speaking.text}</span>
+          {voice.speaking.red && (
+            <button
+              type="button"
+              onClick={voice.onAck}
+              className="min-h-[2.75rem] shrink-0 rounded-xl bg-danger px-3 text-[0.875rem] font-semibold text-white transition active:scale-95"
+            >
+              Đã nghe
+            </button>
+          )}
+        </div>
       )}
 
     </div>

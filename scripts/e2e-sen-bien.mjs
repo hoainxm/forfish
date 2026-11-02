@@ -577,15 +577,8 @@ async function manualRoute(page, { check, r, tag }) {
   }
   await open.click();
   await sleep(1500);
-  const calc = page.getByRole("button", { name: /^(Tính lộ trình|Tính lại)$/ }).first();
-  await calc.scrollIntoViewIfNeeded().catch(() => {});
-  const hasCalc = await calc.isVisible().catch(() => false);
-  check("có nút 'Tính lộ trình'", hasCalc);
-  if (!hasCalc) {
-    r.shots.push(await shot(page, `${tag}-khong-co-tinh`));
-    return { ok: false, msg: "không thấy nút Tính lộ trình" };
-  }
-  await calc.click();
+  // 2026-11-02 (kiểu Vietmap): bảng TỰ TÍNH khi mở có điểm đến — không còn nút "Tính lộ trình"
+  check("bảng tự tính (không cần bấm)", true);
   const t0 = Date.now();
   let body = "";
   while (Date.now() - t0 < 120_000) {

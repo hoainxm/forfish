@@ -49,3 +49,22 @@ describe("ghep ⇄ tach — khớp luật đọc chung parseOneCoord", () => {
     expect(tachToaDo("abc", "lat")).toBeNull();
   });
 });
+
+describe("nhapO — số tràn dồn sang ô kế (gõ nhanh không lạc ô)", async () => {
+  const { nhapO } = await import("@/lib/o-toa-do");
+  const rong = { d: "", m: "", s: "", am: false };
+  it("gõ cả '150712' vào ô độ ⇒ 15 · 07 · 12, con trỏ ở ô giây", () => {
+    expect(nhapO(rong, "d", "150712", "lat")).toEqual({ p: { d: "15", m: "07", s: "12", am: false }, focus: "s" });
+  });
+  it("kinh độ 3 chữ số: '1085700' ⇒ 108 · 57 · 00", () => {
+    expect(nhapO(rong, "d", "1085700", "lon").p).toEqual({ d: "108", m: "57", s: "00", am: false });
+  });
+  it("ô độ đang '15' nhận thêm '0' (gõ nhanh hơn con trỏ) ⇒ '0' sang ô phút", () => {
+    expect(nhapO({ ...rong, d: "15" }, "d", "150", "lat")).toEqual({ p: { ...rong, d: "15", m: "0" }, focus: "m" });
+  });
+  it("gõ thường từng số vẫn nhảy đúng", () => {
+    expect(nhapO(rong, "d", "1", "lat").focus).toBeNull();
+    expect(nhapO(rong, "d", "15", "lat").focus).toBe("m");
+    expect(nhapO(rong, "m", "7", "lat").focus).toBe("s");
+  });
+});
