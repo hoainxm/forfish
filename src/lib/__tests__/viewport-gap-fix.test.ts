@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { cleanup, render } from "@testing-library/react";
 
-import { laIosWebKit, ViewportGapFix } from "@/components/viewport-gap-fix";
+import { laIosWebKit, ViewportGapFix, vungNhinKet } from "@/components/viewport-gap-fix";
 
 const UA = {
   iphone: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
@@ -27,6 +27,12 @@ function moStandalone(ua: string, touch: number, vvH = 900) {
   window.matchMedia = ((q: string) => ({ matches: q.includes("standalone"), addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
   Object.defineProperty(window, "visualViewport", { value: { height: vvH, addEventListener() {}, removeEventListener() {} }, configurable: true });
 }
+
+describe("vungNhinKet — vùng nhìn kẹt sau khi đóng bàn phím", () => {
+  it("bàn phím đã đóng mà còn lệch ⇒ cần kéo về", () => expect(vungNhinKet({ height: 844, offsetTop: 310 }, 844)).toBe(true));
+  it("bàn phím còn mở (vùng nhìn ngắn) ⇒ không đụng", () => expect(vungNhinKet({ height: 500, offsetTop: 310 }, 844)).toBe(false));
+  it("không lệch ⇒ không đụng", () => expect(vungNhinKet({ height: 844, offsetTop: 0 }, 844)).toBe(false));
+});
 
 describe("laIosWebKit", () => {
   it("iPhone, iPad chế độ desktop (Macintosh + chạm) là iOS; Android và Mac thật thì không", () => {
