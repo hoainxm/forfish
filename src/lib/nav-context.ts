@@ -591,6 +591,9 @@ export type HudLine = {
  *  · `borderRed` = ranh giới ≤6 hải lý đang kêu (dòng đó do HUD vẽ riêng, KHÔNG
  *    đi qua đây): lúc ấy bỏ dòng tin — đang sát ranh giới mà HUD kể chuyện phao
  *    là làm loãng đúng cái cần đọc.
+ *  · Đang có dòng ĐỎ thì cũng bỏ dòng tin (rà UI trên iPhone 2026-11-02: câu đỏ
+ *    2 dòng + "Đèn biển … cách chừng 7 hải lý" 2 dòng ⇒ HUD cao 1/3 màn, che bản
+ *    đồ đúng lúc cần nhìn phía trước). Dòng tin quay lại khi hết đỏ.
  */
 export function pickHudLines(
   alerts: readonly NavAlert[] | null | undefined,
@@ -602,7 +605,7 @@ export function pickHudLines(
     if (out.length >= 2) break;
     out.push({ id: a.id, cau: a.cau, muc: a.muc, khoa: a.muc === "do" });
   }
-  if (out.length < 2 && info && !borderRed) {
+  if (out.length < 2 && info && !borderRed && !out.some((l) => l.khoa)) {
     out.push({ id: "tin:live", cau: info, muc: "tin", khoa: false });
   }
   return out;

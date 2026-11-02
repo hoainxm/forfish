@@ -152,6 +152,10 @@ function sameSentence(a: string, b: string): boolean {
   return n(a) === n(b);
 }
 
+/*  Khoảng cách trên HUD: dưới 10 thì một số lẻ (rà trên iPhone 2026-11-02 — còn 0,3 hải
+    lý tới đích mà làm tròn thành "còn 0 hải lý · 0 phút", bà con tưởng đã tới). */
+const kc = (km: number, unit: Parameters<typeof fmtDist>[1]) => fmtDist(km, unit, km < 10 * 1.852 ? 1 : 0);
+
 /** Nền + chữ cho từng mức cảnh báo — token màu, không hex (design-system §màu). */
 const MUC_TONE: Record<HudLine["muc"], string> = {
   do: "bg-danger-bg text-danger",
@@ -323,7 +327,7 @@ export function NavHud({
         >
           <RouteIcon className="h-5 w-5 text-t1" />
           {progress
-            ? `Còn ${fmtDist(progress.remainingKm, prefs.distUnit)}`
+            ? `Còn ${kc(progress.remainingKm, prefs.distUnit)}`
             : title}
         </button>
         {/* rất gần ranh giới thì HUD ẩn vẫn phải nói — không thu được */}
@@ -619,7 +623,7 @@ export function NavHud({
               <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.875rem] font-semibold text-foreground/75">
                 {progress.dirVN}
                 <span aria-hidden>·</span>
-                còn {fmtDist(progress.remainingKm, prefs.distUnit)}
+                còn {kc(progress.remainingKm, prefs.distUnit)}
                 <span aria-hidden>·</span>
                 <ClockIcon className="h-4 w-4 shrink-0" aria-hidden />
                 {progress.etaHours != null
@@ -634,7 +638,7 @@ export function NavHud({
                   <span className="flex shrink-0" style={{ transform: `rotate(${khucRe.gocDeg}deg)` }} aria-hidden>
                     <NavArrowIcon className="h-4 w-4 text-t1" />
                   </span>
-                  Còn {fmtDist(khucRe.km, prefs.distUnit)} tới khúc rẽ
+                  Còn {kc(khucRe.km, prefs.distUnit)} tới khúc rẽ
                   <span aria-hidden>·</span>
                   rồi đi {khucRe.huongVN}
                 </p>
@@ -650,7 +654,7 @@ export function NavHud({
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.875rem] font-semibold text-t1">
                   Tới chỗ {nextStop.so}
                   <span aria-hidden>·</span>
-                  {fmtDist(nextStop.km, prefs.distUnit)}
+                  {kc(nextStop.km, prefs.distUnit)}
                   {nextStop.hours != null && (
                     <>
                       <span aria-hidden>·</span>
@@ -673,7 +677,7 @@ export function NavHud({
                 >
                   <span className="min-w-0 flex-1">
                     Đang đi khác đường đã vẽ ~
-                    {fmtDist(offRoute.km, prefs.distUnit)} — lái về vạch xanh
+                    {kc(offRoute.km, prefs.distUnit)} — lái về vạch xanh
                     nếu muốn.
                   </span>
                   <MinusIcon className="h-4 w-4 shrink-0" />

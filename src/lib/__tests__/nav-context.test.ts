@@ -373,6 +373,11 @@ describe("pickHudLines", () => {
     expect(pickHudLines([al("a", "do")], true, "tin")).toHaveLength(1);
   });
 
+  it("đang có dòng đỏ thì bỏ dòng tin — HUD gọn đúng lúc cần nhìn phía trước; vàng thì vẫn kèm tin", () => {
+    expect(pickHudLines([al("a", "do")], false, "Đèn biển cách 7 hải lý.").map((l) => l.id)).toEqual(["a"]);
+    expect(pickHudLines([al("a", "vang", 3)], false, "tin").map((l) => l.id)).toEqual(["a", "tin:live"]);
+  });
+
   it("không có gì thì trả mảng rỗng, nhận cả null/undefined", () => {
     expect(pickHudLines(null, false, null)).toEqual([]);
     expect(pickHudLines(undefined, false, null)).toEqual([]);
