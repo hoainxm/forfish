@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { createHmac } from "node:crypto";
 import {
   verifyWebhookSignature,
+  isPhoneTaken,
   passwordSyncIntent,
+  planPhoneClaim,
   toCustomerRow,
   toDeviceRow,
   toSupplyRow,
@@ -181,5 +183,44 @@ describe("passwordSyncIntent (đồng bộ mật khẩu 2 app)", () => {
       data: { password: "x", resetPassword: true },
     };
     expect(passwordSyncIntent(e)).toEqual({ password: null, reset: false });
+  });
+});
+
+describe("isPhoneTaken — upsert đụng khoá SĐT customers", () => {
+  it("23505 trên customers_phone_key → true", () => {
+    expect(
+      isPhoneTaken({
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "customers_phone_key"',
+      }),
+    ).toBe(true);
+  });
+  it("23505 chỉ có details Key (phone)=… → true", () => {
+    expect(isPhoneTaken({ code: "23505", message: "dup", details: "Key (phone)=(0901234567) already exists." })).toBe(true);
+  });
+  it("23505 trên khoá sdwork_ref → false (không phải trùng SĐT)", () => {
+    expect(
+      isPhoneTaken({
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "customers_sdwork_ref_key"',
+        details: "Key (sdwork_ref)=(c1) already exists.",
+      }),
+    ).toBe(false);
+  });
+  it("mã lỗi khác / null → false", () => {
+    expect(isPhoneTaken({ code: "42703", message: "customers_phone_key" })).toBe(false);
+    expect(isPhoneTaken(null)).toBe(false);
+  });
+});
+
+describe("planPhoneClaim — hàng đang giữ SĐT", () => {
+  it("chưa gắn mã SDWork → nhận về hàng đó", () => {
+    expect(planPhoneClaim({ id: "row-1", sdwork_ref: null })).toEqual({ kind: "claim", id: "row-1" });
+  });
+  it("đã gắn mã KHÁC → conflict (không ghi đè)", () => {
+    expect(planPhoneClaim({ id: "row-1", sdwork_ref: "c-khac" })).toEqual({ kind: "conflict" });
+  });
+  it("không tìm thấy hàng → conflict (không đoán)", () => {
+    expect(planPhoneClaim(null)).toEqual({ kind: "conflict" });
   });
 });

@@ -9,11 +9,16 @@ import { DEFAULT_CUSTOMER_PASSWORD } from "@/lib/temp-password";
 import { dbErrorDetail } from "@/lib/db-error";
 import { isValidVnPhone, phoneToEmail } from "@/lib/phone";
 import {
+  isPhoneTaken,
   passwordSyncIntent,
+  planPhoneClaim,
+  crmDeleteSnapshotAt,
+  toCrmOrderRow,
   toCustomerRow,
   toDeviceRow,
   toSupplyRow,
   verifyWebhookSignature,
+  type CustomerRow,
   type WebhookEvent,
 } from "@/lib/sdwork-webhook";
 
@@ -68,6 +73,38 @@ async function syncAuthPassword(
     user_metadata: { must_change_password: false },
   });
   if (updErr) throw updErr;
+}
+
+// Nhận hàng `customers` đang giữ SĐT về cho mã SDWork của event (2026-10-31).
+// Điều kiện `.is("sdwork_ref", null)` trong chính câu UPDATE: hàng vừa bị event
+// khác nhận giữa chừng thì 0 hàng khớp ⇒ phone_conflict, không ghi đè mã người
+// khác. Tên rỗng từ CRM KHÔNG xoá tên đã nhập tay.
+async function claimByPhone(
+  admin: Admin,
+  row: CustomerRow,
+): Promise<{ ok: true } | { ok: false; code: string; detail?: string }> {
+  const { data: holder, error: lookErr } = await admin
+    .from("customers")
+    .select("id, sdwork_ref")
+    .eq("phone", row.phone)
+    .maybeSingle();
+  if (lookErr) return { ok: false, code: "upsert_failed", detail: dbErrorDetail(lookErr) };
+  const plan = planPhoneClaim(holder as { id: string; sdwork_ref: string | null } | null);
+  if (plan.kind === "conflict") {
+    return { ok: false, code: "phone_conflict", detail: "SĐT đã thuộc khách SDWork khác" };
+  }
+  const { name, ...rest } = row;
+  const { data, error } = await admin
+    .from("customers")
+    .update({ ...rest, ...(name ? { name } : {}), updated_at: new Date().toISOString() })
+    .eq("id", plan.id)
+    .is("sdwork_ref", null)
+    .select("id");
+  if (error) return { ok: false, code: "upsert_failed", detail: dbErrorDetail(error) };
+  if (!data || data.length === 0) {
+    return { ok: false, code: "phone_conflict", detail: "hàng cùng SĐT vừa được gắn mã khác" };
+  }
+  return { ok: true };
 }
 
 const TABLE: Partial<Record<WebhookEvent["entity"], string>> = {
@@ -144,6 +181,47 @@ export async function POST(req: Request) {
       continue;
     }
 
+    // ĐƠN SDVICO (2026-11-02, ADR 0018) — snapshot đơn khách lẻ → crm_orders.
+    // Upsert qua RPC có điều kiện: bản snapshotAt cũ hơn bản đang có thì bỏ
+    // (event cũ retry tới sau) nhưng vẫn ok — CRM không retry vô ích.
+    if (e.entity === "order") {
+      if (!e.ref) {
+        results.push({ ...base, ok: false, code: "bad_event" });
+        continue;
+      }
+      if (e.action === "delete") {
+        // Gỡ có "bia mộ" (0078 crm_order_delete): upsert cũ hơn tới sau không làm đơn sống lại.
+        const { data, error } = await admin.rpc("crm_order_delete", {
+          p_ref: e.ref,
+          p_snapshot_at: crmDeleteSnapshotAt(e),
+        });
+        results.push({
+          ...base,
+          ok: !error,
+          code: error ? "delete_failed" : data === "stale" ? "stale_snapshot" : undefined,
+          detail: error ? dbErrorDetail(error) : undefined,
+        });
+        continue;
+      }
+      if (e.action !== "upsert") {
+        results.push({ ...base, ok: false, code: "bad_event" });
+        continue;
+      }
+      const mapped = toCrmOrderRow(e);
+      if (!mapped.ok) {
+        results.push({ ...base, ok: false, code: mapped.code });
+        continue;
+      }
+      const { data, error } = await admin.rpc("crm_order_upsert", { p: mapped.row });
+      results.push({
+        ...base,
+        ok: !error,
+        code: error ? "upsert_failed" : data === "stale" ? "stale_snapshot" : undefined,
+        detail: error ? dbErrorDetail(error) : undefined,
+      });
+      continue;
+    }
+
     const table = TABLE[e.entity];
     if (!table || !e.ref) {
       results.push({ ...base, ok: false, code: "bad_event" });
@@ -173,7 +251,15 @@ export async function POST(req: Request) {
     const { error } = await admin
       .from(table)
       .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "sdwork_ref" });
-    if (error) {
+    if (error && e.entity === "customer" && isPhoneTaken(error)) {
+      // SĐT đã có hàng khác (thường là tài khoản tạo tay ở /quan-tri, chưa có
+      // mã SDWork) — xem planPhoneClaim. Chỉ tốn thêm truy vấn ở nhánh lỗi.
+      const claim = await claimByPhone(admin, row as CustomerRow);
+      if (!claim.ok) {
+        results.push({ ...base, ok: false, code: claim.code, detail: claim.detail });
+        continue;
+      }
+    } else if (error) {
       results.push({
         ...base,
         ok: false,
