@@ -102,6 +102,8 @@ import {
   WRECK_LAYER,
   type OceanLayerId,
   ROUTE_CASING_COLOR,
+  ROUTE_LINE_COLOR,
+  ROUTE_LEG_RED,
   AIS_VET_COLOR,
   AIS_VET_DAU_COLOR,
 } from "@/lib/ocean-map";
@@ -424,8 +426,12 @@ import {
 import { fetchCoralReefs, fetchIslands, fetchSeaLanes, tenChoPhiaTruoc } from "@/lib/sea-lanes";
 import { initVungTheoDoi, theoDoiVung, vungDangTrong, type VungSuKien, type VungTrong } from "@/lib/nav-vung";
 import { baoKhucRe, khucReKeTiep, type KhucRe, type KhucReBao, type KhucReNho } from "@/lib/nav-khuc-re";
+import { lechCamera } from "@/lib/nav-camera";
+import type { ChoVuong } from "@/lib/duong-thang";
+import type { LatLon } from "@/lib/geo";
 import { gioPhut, luuPhien, napPhien, taoPhien, xoaPhien, type NavPhien } from "@/lib/nav-phien";
 import { distSpeech } from "@/lib/nav-voice/phrases";
+import { CAU_DU_HAI_DO, CAU_TAT_MAN, CAU_TU_DUNG, cauBatDau } from "@/lib/nav-voice/cau-dan-duong";
 import { fetchReefDepth, timRanChoThe } from "@/lib/reef-depth";
 import { requiredDepthM } from "@/lib/hazards";
 import {
@@ -497,6 +503,7 @@ import {
   ChevronRightIcon,
   ChevronUpIcon,
   ClockIcon,
+  CrosshairIcon,
   FishIcon,
   HomeIcon,
   LockIcon,
@@ -592,8 +599,12 @@ const DEPTH_NOTE: Record<DepthClass, { text: string; tone: "danger" | "warn" | "
 };
 
 const MAP_LAYER_KEY = "forfish.maplayer.v1";
-/** Đang chạy: tàu ở ~72% chiều cao bản đồ — dưới HUD + ô toạ độ, trên dock */
-const NAV_FOLLOW_OFFSET = 0.22;
+/** thẻ "Chạy tiếp" sau khi Dừng giữa chuyến sống bấy nhiêu ms */
+const CHAY_TIEP_MS = 10_000;
+/** đang lệch tuyến thì phải về dưới mức này (km) mới tính "đã về" — đệm dưới mốc lệch đầu 2 km */
+const OFF_ROUTE_VE_KM = 1.5;
+/** tới nơi + đứng yên bấy nhiêu ms ⇒ tự thôi dẫn (thôi giữ sáng màn, thôi GPS chính xác cao) */
+const TOI_DUNG_YEN_MS = 5 * 60_000;
 /** Đang chạy: zoom tối thiểu ở fix đầu (≈ 55 km bề ngang màn điện thoại) */
 const NAV_FOLLOW_ZOOM = 10;
 
@@ -2078,6 +2089,23 @@ export default function FishingMapView() {
   }, [timMo, hideSheetForOverlay]);
 
   const [routeMode, setRouteMode] = useState(false);
+  /*  ĐƯỜNG THẲNG THAM KHẢO khi bảng Lộ trình không tìm được đường (lib/duong-thang) —
+      sống cùng bảng: đóng bảng / tính lại / đổi đích là bỏ. */
+  const [duongThang, setDuongThang] = useState<{ a: LatLon; b: LatLon; cho: ChoVuong | null } | null>(null);
+  useEffect(() => {
+    if (!routeMode) setDuongThang(null);
+  }, [routeMode]);
+  /*  BẢNG LỘ TRÌNH VÀO LUẬT "MỘT BẢNG VIỆC MỘT LÚC" (07 §10.7 U, rà 2026-11-02): trước
+      đây chỉ chiều Lộ trình mở ⇒ rail đóng; bấm Lớp hay ô tìm khi bảng đang mở là hai
+      bảng chồng nhau (Lớp 421px + bảng 31dvh ⇒ bản đồ còn ~20 %). Nay hai chiều: bảng
+      khác mở ⇒ Lộ trình thu (chuỗi điểm + tuyến vẫn giữ, mở lại là thấy); Lộ trình mở
+      ⇒ ô tìm đóng. Ngoại lệ: thẻ Sen Biển đi kèm bảng trong luồng rảnh tay (hỏi "đi?"). */
+  useEffect(() => {
+    if (railLayerOpen || timMo) setRouteMode(false);
+  }, [railLayerOpen, timMo]);
+  useEffect(() => {
+    if (routeMode) setTimMo(false);
+  }, [routeMode]);
   const openRoutePanel = useCallback(() => {
     // CÔNG TẮC: nút rail vừa mở vừa đóng — bật rồi bấm lại là thoát, khỏi phải
     // đi tìm nút X. Nút tự đổi hình + nhấp nháy khi đang bật (ra-khoi-controls).
@@ -3213,12 +3241,13 @@ export default function FishingMapView() {
 
   /** Bay tới điểm, dồn tâm lên nửa trên màn hình để sheet không che.
       `offsetFrac` = dời tâm theo chiều cao bản đồ (âm = lên trên). */
-  const flyToPoint = useCallback((lon: number, lat: number, zoom?: number, offsetFrac = -0.18) => {
+  /** `offsetFrac` = phần chiều cao (dời dọc) hoặc offset [x, y] px đã tính sẵn (`lechCamera`) */
+  const flyToPoint = useCallback((lon: number, lat: number, zoom?: number, offsetFrac: number | [number, number] = -0.18) => {
     const h = mapRef.current?.getContainer().clientHeight ?? 600;
     mapRef.current?.flyTo({
       center: [lon, lat],
       ...(zoom != null ? { zoom } : {}),
-      offset: [0, Math.round(h * offsetFrac)],
+      offset: typeof offsetFrac === "number" ? [0, Math.round(h * offsetFrac)] : offsetFrac,
       duration: 650,
     });
   }, []);
@@ -3552,9 +3581,11 @@ export default function FishingMapView() {
       `tracking.pos` làm dep — fix về mỗi 1–2 giây, dựng lại callback từng nhịp
       thì rail nút + ô toạ độ re-render theo nhịp GPS cho không việc gì. */
   const trackingPosRef = useRef<SeaPoint | null>(null);
+  const trackingHeadingRef = useRef<number | null>(null);
   useEffect(() => {
     trackingPosRef.current = tracking.pos;
-  }, [tracking.pos]);
+    trackingHeadingRef.current = tracking.headingDeg;
+  }, [tracking.pos, tracking.headingDeg]);
   /** tốc độ GPS mới nhất — câu tóm tắt Sen Biển đọc qua ref, cùng nguồn với giờ tới của HUD */
   const trackingSpeedRef = useRef<number | null>(null);
   useEffect(() => {
@@ -3573,7 +3604,7 @@ export default function FishingMapView() {
     const t = tracking.lastFixAt ?? Date.now();
     setNavEtaSpeed((prev) => tocDoMuot(prev, tracking.speedKmh, t));
   }, [navMode, tracking.pos, tracking.speedKmh, tracking.lastFixAt]);
-  const navProgress = useMemo(() => {
+  const navProgressTho = useMemo(() => {
     if (!navMode || !tracking.pos) return null;
     return computeNavProgress({
       pos: tracking.pos,
@@ -3583,6 +3614,21 @@ export default function FishingMapView() {
       segHint: navSeg,
     });
   }, [navMode, tracking.pos, tracking.headingDeg, navEtaSpeed, navSeg]);
+  /*  ĐÃ TỚI THÌ GIỮ "ĐÃ TỚI" (rà 2026-11-02): trước đây chỉ so bán kính 400 m mỗi nhịp —
+      neo trôi qua lại mốc là khung nhảy giữa "đã tới" và mũi tên lái, giọng đọc lại.
+      Chốt theo CHÍNH tuyến đang dẫn (đổi tuyến/Dừng là hết chốt). */
+  const [daToiCho, setDaToiCho] = useState<PlannedRoute | null>(null);
+  const toiTho = navProgressTho?.arrived ?? false;
+  useEffect(() => {
+    if (navMode && toiTho) setDaToiCho(navMode);
+  }, [navMode, toiTho]);
+  const navProgress = useMemo(
+    () =>
+      navProgressTho && navMode != null && daToiCho === navMode && !navProgressTho.arrived
+        ? { ...navProgressTho, arrived: true }
+        : navProgressTho,
+    [navProgressTho, navMode, daToiCho],
+  );
   const navProgressSeg = navProgress?.segIdx;
   useEffect(() => {
     if (navProgressSeg != null) setNavSeg(navProgressSeg);
@@ -3633,16 +3679,36 @@ export default function FishingMapView() {
       setPick("picked");
       if (routeMode) setStops(addStop(stops, lat, lon, ten));
       else {
+        /*  Đang dẫn theo tuyến cũ mà chọn chỗ mới: bảng Lộ trình chỉ dựng khi KHÔNG
+            dẫn ⇒ hạ về Đang chạy (vòng canh không dừng), như Sen Biển `senGo`.
+            Trước đây chỗ mới thành chỗ ghé NGẦM của bảng đang ẩn (rà 2026-11-02). */
+        if (navMode) {
+          setNavMode(null);
+          setCruise(true);
+        }
         setRouteMode(true);
         hideSheetForOverlay();
         setStops(addStop(clearStops(), lat, lon, ten));
-        /*  DỌN LUÔN VẠCH CŨ (2026-08-29): dựng lại chuỗi điểm mà để vạch tuyến
-            TRƯỚC trên bản đồ là lệch danh sách. GUARD `!navMode`: đang dẫn đường
-            thật thì vạch dưới chân chuyến đang chạy không được xoá. */
-        if (!navMode) setRoute(null);
+        // DỌN LUÔN VẠCH CŨ (2026-08-29): dựng lại chuỗi điểm mà để vạch cũ là lệch danh sách
+        setRoute(null);
+        /*  TỰ TÍNH NGAY (rà Vietmap 2026-11-02): bà con đã nói muốn tới đâu thì
+            bảng không bắt bấm thêm "Tính đường" — dùng chung tín hiệu tự tính của
+            Sen Biển (khác ở chỗ không có `senPendingRef` nên không đọc tóm tắt). */
+        setSenAutoCompute((n) => n + 1);
       }
     },
     [routeMode, stops, setStops, hideSheetForOverlay, navMode],
+  );
+  /*  MỘT LỐI "DẪN ĐƯỜNG TỚI" cho mọi cửa có nút (ô tìm · dòng Điểm lưu · thẻ điểm
+      đang xem): premium, không đang dẫn — cùng cổng nút ô tìm vẫn dùng. */
+  const coDanDuong = premiumAccess === "open" && navMode == null;
+  const moDanDuong = useCallback(
+    (lat: number, lon: number, ten?: string) => {
+      setPinning(false);
+      goToCoord(lat, lon, 10);
+      danDuongToi(lat, lon, ten);
+    },
+    [goToCoord, danDuongToi],
   );
   const navPos = tracking.pos;
   // memo theo fix GPS — effect dưới lệ thuộc reference này, không được đổi
@@ -3717,13 +3783,22 @@ export default function FishingMapView() {
     step: number;
     km: number;
     dismissed: boolean;
+    /** vạch tuyến ở bên nào của tàu + hướng la bàn về vạch */
+    ben?: "trái" | "phải" | null;
+    huongVeDeg?: number | null;
   } | null>(null);
+  const offRouteBen = navProgress?.vachBen ?? null;
+  const offRouteHuong = navProgress?.huongVeVachDeg ?? null;
   useEffect(() => {
     if (!navOn || offRouteKm == null) {
       offRouteStepRef.current = null;
       setNavOffRoute(null);
       return;
     }
+    /*  VÙNG ĐỆM KHI VỀ (rà giọng 2026-11-02): tàu trôi quanh mốc 2 km lúc thả lưới là
+        "lệch → đã về → lệch" liên tục, mỗi lần một chuông + một câu. Đang lệch thì phải
+        về dưới OFF_ROUTE_VE_KM mới tính là đã về; giữa hai mốc giữ nguyên. */
+    if (offRouteStepRef.current != null && offRouteKm >= OFF_ROUTE_VE_KM && offRouteStepFor(offRouteKm) == null) return;
     const crossed = offRouteStepCrossed(offRouteKm, offRouteStepRef.current);
     const step = offRouteStepFor(offRouteKm);
     offRouteStepRef.current = step;
@@ -3733,13 +3808,15 @@ export default function FishingMapView() {
     }
     if (crossed != null) {
       playOffRouteChime();
-      setNavOffRoute({ step: crossed, km: offRouteKm, dismissed: false });
+      setNavOffRoute({ step: crossed, km: offRouteKm, dismissed: false, ben: offRouteBen, huongVeDeg: offRouteHuong });
     } else {
       setNavOffRoute((o) =>
-        o ? { ...o, step, km: offRouteKm } : { step, km: offRouteKm, dismissed: false },
+        o
+          ? { ...o, step, km: offRouteKm, ben: offRouteBen, huongVeDeg: offRouteHuong }
+          : { step, km: offRouteKm, dismissed: false, ben: offRouteBen, huongVeDeg: offRouteHuong },
       );
     }
-  }, [navOn, offRouteKm]);
+  }, [navOn, offRouteKm, offRouteBen, offRouteHuong]);
   const dismissNavOffRoute = useCallback(
     () => setNavOffRoute((o) => (o ? { ...o, dismissed: true } : o)),
     [],
@@ -3754,7 +3831,7 @@ export default function FishingMapView() {
   // camera bám vị trí tàu mỗi khi có fix mới (chỉ khi định vị còn tốt — mất
   // định vị thì GIỮ NGUYÊN khung, không giật camera theo vị trí cũ)
   /*  ĐANG CHẠY: HUD nằm TRÊN (tới ~½ màn khi có thẻ bản tin), sheet đáy ẩn ⇒
-      dồn tàu XUỐNG dưới HUD (+NAV_FOLLOW_OFFSET), không lên trên như lúc xem
+      dồn tàu XUỐNG dưới HUD (lib/nav-camera, ngược hướng chạy), không lên trên như lúc xem
       điểm. Fix đầu tiên của một lượt chạy mà bản đồ còn ở tầm cả nước (mở bản
       đồ là tự Đang chạy, zoom ~4,6) thì phóng tới NAV_FOLLOW_ZOOM — tầm nón
       cảnh báo 2–4 km; sau đó giữ zoom bà con tự chỉnh. Bắt được ở rà soát prod
@@ -3774,9 +3851,12 @@ export default function FishingMapView() {
       const chuaToi = z < NAV_FOLLOW_ZOOM - 0.5;
       const zoom = !navFollowZoomed.current && chuaToi ? NAV_FOLLOW_ZOOM : undefined;
       if (!chuaToi) navFollowZoomed.current = true;
-      flyToPoint(tracking.pos.lon, tracking.pos.lat, zoom, NAV_FOLLOW_OFFSET);
+      // tàu đặt NGƯỢC hướng chạy (lib/nav-camera) — chạy về Nam vẫn thấy rộng phía trước
+      const el = mapRef.current?.getContainer();
+      const lech = lechCamera(tracking.headingDeg, el?.clientWidth ?? 400, el?.clientHeight ?? 600);
+      flyToPoint(tracking.pos.lon, tracking.pos.lat, zoom, lech);
     }
-  }, [navOn, bamTau, tracking.pos, tracking.status, flyToPoint]);
+  }, [navOn, bamTau, tracking.pos, tracking.headingDeg, tracking.status, flyToPoint]);
 
   /*  PHIÊN DẪN ĐƯỜNG (lib/nav-phien, học VietMap "Tiếp tục dẫn đường tới…?"):
       bấm Bắt đầu là cất tuyến vào máy; Dừng / tới nơi thì xoá. App bị tắt giữa
@@ -3804,6 +3884,10 @@ export default function FishingMapView() {
       setBamTau((b) => bamSau(b, "bat-dan-duong", true));
       setNavMode(r);
       setRoute(r); // đảm bảo tuyến đang vẽ đúng tuyến đang dẫn
+      /*  ĐÓNG HẲN BẢNG LỘ TRÌNH (rà 2026-11-02): để `routeMode` bật suốt chuyến là
+          icon Sen Biển ẩn đúng lúc đang lái, nút rail "Dẫn đường" bấm không đổi gì,
+          chạm giữ "Ghé thêm" thêm chỗ ghé NGẦM. Tuyến vẫn vẽ theo `navMode`. */
+      setRouteMode(false);
       setSize("peek"); // để bản đồ + HUD lộ tối đa
     },
     [setSize],
@@ -3813,6 +3897,9 @@ export default function FishingMapView() {
       chuyến đã xong nằm lại trên bản đồ (rà UI 2026-11-02). Dừng GIỮA chừng thì GIỮ
       (còn chạy tiếp được). Ref vì `navProgress` khai báo sau. */
   const toiNoiRef = useRef(false);
+  /*  LỠ TAY DỪNG (rà 2026-11-02): nút Dừng sát nút loa, tay ướt chạm nhầm là mất
+      chuyến. Dừng khi CHƯA tới ⇒ hiện "Chạy tiếp" CHAY_TIEP_MS rồi tự tắt. */
+  const [chayTiep, setChayTiep] = useState<PlannedRoute | null>(null);
   const stopNav = useCallback(() => {
     xoaPhien(); // bà con tự dừng ⇒ chuyến xong, lần mở sau không hỏi
     if (toiNoiRef.current) {
@@ -3820,11 +3907,24 @@ export default function FishingMapView() {
       setRoute(null);
       setStops(clearStops());
       setRouteMode(false);
-    }
+    } else if (navMode) setChayTiep(navMode);
     setNavMode(null);
     setCruise(false);
     setBamTau((b) => bamSau(b, "dung", false));
-  }, [setStops]);
+  }, [setStops, navMode]);
+  useEffect(() => {
+    if (!chayTiep) return;
+    const t = setTimeout(() => setChayTiep(null), CHAY_TIEP_MS);
+    return () => clearTimeout(t);
+  }, [chayTiep]);
+  // ẩn dock khi đang dẫn (globals.css `:root.dan-duong`) — gỡ khi Dừng hoặc rời màn
+  const dangDan = navMode != null;
+  useEffect(() => {
+    if (!dangDan) return;
+    const de = document.documentElement;
+    de.classList.add("dan-duong");
+    return () => de.classList.remove("dan-duong");
+  }, [dangDan]);
   const startCruise = useCallback(() => {
     ttsUnlock();
     setCruiseIntro(false);
@@ -3933,7 +4033,37 @@ export default function FishingMapView() {
     [prefs.distUnit],
   );
 
-  // DỰNG KHO một lần khi navMode null → khác null; dọn sạch khi dừng dẫn đường
+  /*  THỬ NẠP LẠI KHO khi lần đầu thiếu (rà 2026-11-02): trước đây chỉ dựng một lần lúc
+      bật — lỗi/chậm là cả chuyến "chỉ canh được một phần", có sóng lại cũng không thử.
+      Thiếu thì thử lại khi có mạng / mở lại màn / 5 phút một lần (≥1 phút giữa hai lượt). */
+  const [khoLuot, setKhoLuot] = useState(0);
+  /** `navVoice.say` qua ref — dùng được ở các effect khai trước `useNavVoice` (gán ở effect sau nó) */
+  const navSayRef = useRef<(text: string) => void>(() => {});
+  const navChartRef = useRef<ChartReadiness | null>(null);
+  useEffect(() => {
+    navChartRef.current = navChart;
+    if (!navOn || navChart == null || navChart === "du") return;
+    let last = Date.now();
+    const thu = () => {
+      const now = Date.now();
+      if (now - last < 60_000) return;
+      last = now;
+      setKhoLuot((n) => n + 1);
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") thu();
+    };
+    window.addEventListener("online", thu);
+    document.addEventListener("visibilitychange", onVis);
+    const iv = setInterval(thu, 5 * 60_000);
+    return () => {
+      window.removeEventListener("online", thu);
+      document.removeEventListener("visibilitychange", onVis);
+      clearInterval(iv);
+    };
+  }, [navOn, navChart]);
+
+  // DỰNG KHO một lần khi navMode null → khác null (thử lại khi thiếu — `khoLuot`); dọn sạch khi dừng dẫn đường
   useEffect(() => {
     if (!navOn) {
       navCtxRef.current = null;
@@ -4008,9 +4138,13 @@ export default function FishingMapView() {
           kho chướng ngại thì "chỉ canh được một phần", không hứa đủ. */
       const coDoSau = navDepthRef.current != null;
       const coVat = ctx.counts.hazards > 0;
-      setNavChart(
-        !coDoSau && !coVat ? "chua-co" : coDoSau && ctx.missing.length === 0 ? "du" : "thieu",
-      );
+      const sanSang: ChartReadiness =
+        !coDoSau && !coVat ? "chua-co" : coDoSau && ctx.missing.length === 0 ? "du" : "thieu";
+      // lần đầu thiếu, lượt thử lại nạp ĐỦ ⇒ nói một câu (bản tin mở đầu đã nói "chưa đủ")
+      if (sanSang === "du" && navChartRef.current != null && navChartRef.current !== "du") {
+        navSayRef.current(CAU_DU_HAI_DO);
+      }
+      setNavChart(sanSang);
       if (process.env.NODE_ENV !== "production") {
         console.debug("nav-context", ctx.counts, `${ctx.buildMs} ms`, ctx.missing);
       }
@@ -4018,7 +4152,7 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, [navOn]);
+  }, [navOn, khoLuot]);
 
   /*  MỖI FIX GPS: tiết chế rồi gọi bộ não đúng MỘT lần.
       Tiết chế = ≥2 giây HOẶC dời ≥30 m HOẶC đổi hướng ≥15° (de-xuat-B §3).
@@ -4221,7 +4355,10 @@ export default function FishingMapView() {
     [navBorder],
   );
   const voiceOffRoute = useMemo(
-    () => (navOffRoute ? { step: navOffRoute.step, km: navOffRoute.km } : null),
+    () =>
+      navOffRoute
+        ? { step: navOffRoute.step, km: navOffRoute.km, ben: navOffRoute.ben, huongVeDeg: navOffRoute.huongVeDeg }
+        : null,
     [navOffRoute],
   );
   /*  KHÚC RẼ HAI NHỊP (lib/nav-khuc-re, học VietMap "còn 300 m" rồi "rẽ ngay"):
@@ -4249,7 +4386,7 @@ export default function FishingMapView() {
     if (!navMode) setNavKhucReBao(null);
   }, [navMode]);
 
-  /*  PHIÊN: làm mới mốc 5 phút/lần khi đang dẫn (hạn 12 giờ tính từ lần ghi cuối);
+  /*  PHIÊN: làm mới mốc 5 phút/lần khi đang dẫn (hạn 7 ngày tính từ lần ghi cuối);
       tới nơi thì xoá — mở lại app không hỏi tiếp tục chuyến đã xong. */
   const navArrived = navProgress?.arrived ?? false;
   useEffect(() => {
@@ -4291,6 +4428,7 @@ export default function FishingMapView() {
     alerts: navAlerts,
     border: voiceBorder,
     offRoute: voiceOffRoute,
+    coTuyen: navMode != null,
     info: navInfo,
     storm: stormInfo,
     depthHere: navDepthHere,
@@ -4302,6 +4440,57 @@ export default function FishingMapView() {
     vung: navVungSu,
     khucRe: navKhucReBao,
   });
+  /*  TỚI NƠI + ĐỨNG YÊN ⇒ TỰ THÔI DẪN (rà 2026-11-02): quên bấm Dừng là máy giữ sáng
+      màn + GPS chính xác cao suốt đêm. Đứng yên trong vùng tới TOI_DUNG_YEN_MS thì
+      dọn chuyến như bấm "Xong", rồi đọc một câu (sau khi giọng đã chuyển nấc tắt). */
+  useEffect(() => {
+    navSayRef.current = navVoice.say;
+  }, [navVoice.say]);
+  /*  BẮT ĐẦU DẪN ĐƯỜNG ĐỌC MỘT CÂU (rà 2026-11-02): quãng, giờ, hướng đầu + lời dặn tắt
+      màn. Bản tin mở đầu chỉ đọc lúc giọng BẬT (mở bản đồ là tự bật) nên tới lúc bấm
+      Bắt đầu thì không còn câu nào nói về chuyến; còn lời dặn "tắt màn là ngừng đọc"
+      trước đây chỉ nằm trong tấm Bắt đầu chạy — tấm có thể không bao giờ hiện. */
+  const navDaDocRef = useRef<PlannedRoute | null>(null);
+  useEffect(() => {
+    if (!navMode) {
+      navDaDocRef.current = null;
+      return;
+    }
+    if (navDaDocRef.current === navMode) return;
+    navDaDocRef.current = navMode;
+    const wp = navMode.plan.waypoints;
+    const huong = wp.length >= 2 ? bearingDeg(wp[0].lat, wp[0].lon, wp[1].lat, wp[1].lon) : null;
+    navSayRef.current(cauBatDau(navMode.plan.distKm, navMode.plan.hours, huong, navSpeechUnit));
+  }, [navMode, navSpeechUnit]);
+  const toiDungYen = navMode != null && (navProgress?.arrived ?? false) && !navMoving;
+  useEffect(() => {
+    if (!toiDungYen) return;
+    const t = setTimeout(() => {
+      stopNav();
+      setTimeout(() => navSayRef.current(CAU_TU_DUNG), 300);
+    }, TOI_DUNG_YEN_MS);
+    return () => clearTimeout(t);
+  }, [toiDungYen, stopNav]);
+  /*  VẼ LẠI TỪ CHỖ TÀU (rà Vietmap 2026-11-02): lệch xa mà HUD chỉ biết "lái về vạch
+      xanh" — kéo tàu về đường cũ chứ không tới đích. KHÔNG tự tính lại (thuyền trưởng
+      hay đi lệch có chủ ý: thả lưới, né tàu — doc 15); chỉ hiện nút, bấm mới tính.
+      Chỗ ghé CHƯA qua giữ nguyên tên; bảng mở và tính ngay từ vị trí tàu. */
+  const veLaiTuTau = useCallback(() => {
+    const r = navMode;
+    if (!r) return;
+    const conLai = r.stops.slice(Math.min(navLegs.passed, r.stops.length - 1));
+    let ds = clearStops();
+    for (const p of conLai) {
+      const ten = stopsRef.current.find((x) => Math.abs(x.lat - p.lat) < 1e-6 && Math.abs(x.lon - p.lon) < 1e-6)?.name;
+      ds = addStop(ds, p.lat, p.lon, ten);
+    }
+    setNavMode(null);
+    setCruise(true); // vòng canh không dừng trong lúc tính
+    setRouteMode(true);
+    setStops(ds);
+    setRoute(null);
+    setSenAutoCompute((n) => n + 1);
+  }, [navMode, navLegs.passed, setStops]);
   const voiceHud = useMemo(
     () => ({
       label:
@@ -4372,7 +4561,12 @@ export default function FishingMapView() {
     autoReadDone.current = true;
     if (!navOn) {
       setCruise(true);
-      if (!navVoice.prefs.daXem) navVoice.markIntroSeen();
+      /*  Tự bật thì tấm dặn không hiện ⇒ lời dặn quan trọng nhất của tấm nói bằng giọng,
+          MỘT lần trong đời máy (cờ daXem) — trước đây đánh dấu "đã xem" mà không dặn gì. */
+      if (!navVoice.prefs.daXem) {
+        navVoice.markIntroSeen();
+        navVoice.say(CAU_TAT_MAN);
+      }
     }
   }, [navVoice.prefs.tuDoc, navVoice.prefs.daXem, navOn, navVoice, tracking.status]);
   useEffect(() => {
@@ -4400,7 +4594,11 @@ export default function FishingMapView() {
       /*  Khung đang giữ DANH SÁCH ĐIỂM GHÉ bà con tự chấm: khung sẽ tính theo
           danh sách đó chứ không theo chỗ vừa nói ⇒ tự tính là đọc sai đích.
           Không tự xoá công dựng tuyến của bà con — nói rõ để bà con quyết. */
-      if (stops.length > 0) {
+      /*  Bảng ĐANG ĐÓNG mà máy còn giữ chuỗi của chuyến dừng giữa chừng ⇒ bà con
+          không thấy chuỗi đó, nói chỗ mới là muốn đi chỗ mới: bỏ chuỗi cũ như ô
+          tìm vẫn làm (rà 2026-11-02 — trước đây Sen Biển từ chối dẫn đường). */
+      if (stops.length > 0 && !routeMode) setStops(clearStops());
+      else if (stops.length > 0) {
         senPendingRef.current = null;
         const t = "Khung dẫn đường đang có danh sách điểm ghé. Bà con xoá danh sách, hoặc chạm Tính lộ trình.";
         setSenTitle(t);
@@ -4420,7 +4618,7 @@ export default function FishingMapView() {
       setRoute(null); // đường cũ không được đọc nhầm thành đường mới
       setSenAutoCompute((n) => n + 1);
     },
-    [goToCoord, stops.length, senSay, navMode],
+    [goToCoord, stops.length, senSay, navMode, routeMode, setStops],
   );
   // bà con đóng khung giữa chừng ⇒ bỏ lượt chờ, đừng để lần mở sau tự tính
   useEffect(() => {
@@ -5191,7 +5389,10 @@ export default function FishingMapView() {
       setSize("peek"); // để chấm tàu không bị sheet che
       // đang chạy ⇒ BÁM LẠI (kiểu Google Maps), giữ tầm zoom bà con đang dùng, dồn tàu xuống dưới HUD như lúc bám
       setBamTau((b) => bamSau(b, "ve-tau", navOn));
-      if (navOn) flyToPoint(live.lon, live.lat, undefined, NAV_FOLLOW_OFFSET);
+      if (navOn) {
+        const el = mapRef.current?.getContainer();
+        flyToPoint(live.lon, live.lat, undefined, lechCamera(trackingHeadingRef.current, el?.clientWidth ?? 400, el?.clientHeight ?? 600));
+      }
       else flyToPoint(live.lon, live.lat, 7);
       return;
     }
@@ -5829,6 +6030,20 @@ export default function FishingMapView() {
       ? `Cảng nhà — ${currentPlace.name}`
       : `Chỗ ghim — ${currentPlace.name}`
     : null;
+  /*  ĐI TỚI CHỖ ĐANG XEM (rà Vietmap 2026-11-02): trước đây chạm một chỗ rồi muốn đi phải
+      vòng khay ⋯ → Lộ trình → Tính đường. Nút icon (không chữ) nằm cạnh viên tóm tắt gió
+      sóng VÀ ở đầu ngăn — hai chỗ mắt nhìn ngay sau cú chạm; bấm là mở bảng và tính luôn. */
+  const nutDiToi =
+    coDanDuong && pick === "picked" && cond?.onSea !== false ? (
+      <button
+        type="button"
+        onClick={() => moDanDuong(point.lat, point.lon, currentPlace?.name)}
+        aria-label="Dẫn đường tới đây"
+        className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full bg-t1 text-white shadow-float transition active:scale-95"
+      >
+        <RouteIcon className="h-5 w-5" aria-hidden />
+      </button>
+    ) : null;
 
   // TẢI SẴN TRƯỚC KHI RỜI BỜ: các chỗ tải sẵn = chỗ đang xem + mọi điểm đã ghim
   // (cảng nhà nằm trong đó). Không tự bịa thêm chỗ — chỉ nơi bà con đã đánh dấu.
@@ -7955,6 +8170,56 @@ export default function FishingMapView() {
              đường LIVE thì vạch dưới chân chuyến đang chạy phải hiện dù thẻ đã
              đóng — cùng luật với `if (!navMode) setRoute(null)` ở menu
              chạm-giữ. */}
+        {duongThang && routeMode && navMode == null && (
+          <Source
+            id="duong-thang"
+            type="geojson"
+            data={{
+              type: "FeatureCollection",
+              features: [
+                {
+                  type: "Feature",
+                  properties: {},
+                  geometry: {
+                    type: "LineString",
+                    coordinates: [
+                      [duongThang.a.lon, duongThang.a.lat],
+                      [duongThang.b.lon, duongThang.b.lat],
+                    ],
+                  },
+                },
+                ...(duongThang.cho
+                  ? [
+                      {
+                        type: "Feature" as const,
+                        properties: { cho: 1 },
+                        geometry: { type: "Point" as const, coordinates: [duongThang.cho.lon, duongThang.cho.lat] },
+                      },
+                    ]
+                  : []),
+              ],
+            }}
+          >
+            {/* nét đứt mảnh: tham khảo hướng, KHÔNG trông như tuyến an toàn (tuyến thật là nét liền viền trắng) */}
+            <Layer
+              id="duong-thang-line"
+              type="line"
+              filter={["==", ["geometry-type"], "LineString"]}
+              paint={{ "line-color": ROUTE_LINE_COLOR, "line-width": 2.5, "line-dasharray": [2, 2], "line-opacity": 0.8 }}
+            />
+            <Layer
+              id="duong-thang-cho"
+              type="circle"
+              filter={["==", ["geometry-type"], "Point"]}
+              paint={{
+                "circle-radius": 8,
+                "circle-color": ROUTE_LEG_RED,
+                "circle-stroke-color": ROUTE_CASING_COLOR,
+                "circle-stroke-width": 2.5,
+              }}
+            />
+          </Source>
+        )}
         <RouteMapLayers
           /*  `navMode`, KHÔNG `navOn` (rà UI 2026-11-02): `navOn` tính cả LOA đọc cảnh
               báo (chạy tàu không tuyến, tự bật khi mở bản đồ) ⇒ chuyến đã xong mà loa
@@ -8567,12 +8832,10 @@ export default function FishingMapView() {
               trạng thái thành "mất" mà tàu vẫn ở đó (thấy trên iOS Simulator 2026-11-02) */
           viTriTau={tracking.status !== "denied" ? tracking.pos : null}
           onDanDuong={
-            premiumAccess === "open" && navMode == null
+            coDanDuong
               ? (lat, lon, ten) => {
                   setTimMo(false);
-                  setPinning(false);
-                  goToCoord(lat, lon, 10);
-                  danDuongToi(lat, lon, ten);
+                  moDanDuong(lat, lon, ten);
                 }
               : undefined
           }
@@ -8626,7 +8889,8 @@ export default function FishingMapView() {
             className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-semibold text-t1 transition active:bg-field"
           >
             <RouteIcon className="h-6 w-6 shrink-0" />
-            {routeMode ? "Thêm vào lộ trình" : "Dẫn đường tới đây"}
+            {/* nhãn ≤2 chữ (CLAUDE.md luật 8); toạ độ ngay trên đã nói "tới đây" */}
+            {routeMode ? NHAN.gheThem : NHAN.dauDuong}
           </button>
           <button
             type="button"
@@ -8800,6 +9064,38 @@ export default function FishingMapView() {
         }
       />
 
+      {/*  VỀ TÀU khi đang dẫn mà bản đồ đã thôi bám (bà con kéo đi xem chỗ khác) — rà
+           2026-11-02: lối về duy nhất trước đây là chạm dòng "Tàu" trong ô toạ độ, nút
+           Về tàu nằm trong ngăn gió sóng mà ngăn này không dựng lúc dẫn. Góc phải đáy:
+           dock đã ẩn khi dẫn (`:root.dan-duong`) nên chỗ này trống, ngay dưới ngón cái. */}
+      {navMode != null && !bamTau && tracking.pos && (
+        <button
+          type="button"
+          onClick={goToMyBoat}
+          className="pointer-events-auto glass absolute bottom-3 right-3 z-30 flex h-(--h-ctl) items-center gap-2 rounded-full px-4 text-[0.875rem] font-semibold text-navy shadow-md transition active:scale-95"
+        >
+          <CrosshairIcon className="h-5 w-5 text-t1" aria-hidden />
+          {NHAN.veTau}
+        </button>
+      )}
+
+      {/*  CHẠY TIẾP sau khi Dừng giữa chuyến — 10 giây rồi tự tắt (CHAY_TIEP_MS). Đứng TRÊN
+           viên tóm tắt gió sóng (dock + viên hiện lại khi thôi dẫn), không đè lên nó. */}
+      {chayTiep && navMode == null && (
+        <button
+          type="button"
+          onClick={() => {
+            const r = chayTiep;
+            setChayTiep(null);
+            startNav(r);
+          }}
+          className="pointer-events-auto absolute bottom-[calc(var(--h-row)+2rem)] left-1/2 z-30 flex h-(--h-ctl) -translate-x-1/2 items-center gap-2 rounded-full bg-t1 px-5 text-[1rem] font-semibold text-white shadow-lg transition active:scale-95"
+        >
+          <RouteIcon className="h-5 w-5" aria-hidden />
+          {NHAN.chayTiep}
+        </button>
+      )}
+
       {/* ── VÙNG NỔI TRÊN CÙNG: tin bão (không gì che) + badge + FAB ──────── */}
       {/* LUÔN HIỆN (rà Codex lần 3, 2026-10-20 — ưu tiên 1): luật cũ "kéo sheet
           lên thì TỰ ẨN tin bão + rail" (2026-06-23) sinh ra cho sheet ĐÁY cao 55%
@@ -8827,6 +9123,7 @@ export default function FishingMapView() {
             border={navBorder}
             onDismissBorder={dismissNavBorder}
             offRoute={navOffRoute}
+            onVeLai={veLaiTuTau}
             onDismissOffRoute={dismissNavOffRoute}
             nextStop={nextStop}
             hazardLines={navHazardLines}
@@ -9175,6 +9472,7 @@ export default function FishingMapView() {
               setSize("peek");
               goToCoord(lat, lon);
             }}
+            onDanDuongPlace={coDanDuong ? moDanDuong : undefined}
             onGoCoord={(lat, lon) => {
               // gõ tay toạ độ → bay tới, đặt điểm đang xem (như chọn điểm đã lưu)
               setPinning(false);
@@ -9319,6 +9617,7 @@ export default function FishingMapView() {
             onPickPoint={pickRoutePoint}
             autoCompute={senAutoCompute}
             onAutoFail={senAutoFail}
+            onDuongThang={setDuongThang}
             boatPos={tracking.pos}
             boatFixAt={tracking.lastFixAt}
           />
@@ -9357,8 +9656,12 @@ export default function FishingMapView() {
         sideDense={sideDense}
         sideTitle={sideTitle}
         sideHeader={
-          <PretripSavedStatus points={pretripPoints} fishLocked={fishLocked} iconOnly />
+          <>
+            <PretripSavedStatus points={pretripPoints} fishLocked={fishLocked} iconOnly />
+            {nutDiToi}
+          </>
         }
+        sideTabAction={nutDiToi}
         above={
           /*  CÒN Ở NẤC `hidden` NỮA (user 2026-08-24: "cái chip tải cái gì đủ
               hay chưa đâu rồi?"): chip độ phủ `PretripSavedStatus` là nhãn

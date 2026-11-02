@@ -41,3 +41,24 @@ describe("locFix — lọc nhiễu tốc độ/hướng GPS", () => {
     expect(locFix(dau(), fix({ pos: A, t: 1000, speedMps: 5, headingDeg: -90 })).headingDeg).toBe(270);
   });
 });
+
+describe("nhanFix — bỏ điểm nhảy ở chỗ nhận vị trí", async () => {
+  const { nhanFix, BO_LIEN_MAX } = await import("@/lib/use-nav-tracking");
+  const prev = { pos: { lat: 14, lon: 109 }, t: 0 };
+  it("fix đầu tiên luôn nhận", () => {
+    expect(nhanFix(null, { pos: { lat: 0, lon: 0 }, t: 0, accuracyM: 5000 }, 0)).toEqual({ nhan: true, boLien: 0 });
+  });
+  it("sai số > 1 km (định vị theo trạm) ⇒ bỏ", () => {
+    expect(nhanFix(prev, { pos: prev.pos, t: 1000, accuracyM: 1500 }, 0)).toEqual({ nhan: false, boLien: 1 });
+  });
+  it("vọt 5 km trong 2 giây ⇒ bỏ; đi 10 m ⇒ nhận", () => {
+    expect(nhanFix(prev, { pos: { lat: 14.045, lon: 109 }, t: 2000, accuracyM: 10 }, 0).nhan).toBe(false);
+    expect(nhanFix(prev, { pos: { lat: 14.0001, lon: 109 }, t: 2000, accuracyM: 10 }, 0).nhan).toBe(true);
+  });
+  it("mất GPS 1 giờ rồi có lại cách 20 km ⇒ nhận (tốc độ hợp lý)", () => {
+    expect(nhanFix(prev, { pos: { lat: 14.18, lon: 109 }, t: 3_600_000, accuracyM: 10 }, 0).nhan).toBe(true);
+  });
+  it(`bỏ liền ${BO_LIEN_MAX} lần ⇒ lần sau nhận, không kẹt mãi`, () => {
+    expect(nhanFix(prev, { pos: { lat: 15, lon: 109 }, t: 1000, accuracyM: 10 }, BO_LIEN_MAX)).toEqual({ nhan: true, boLien: 0 });
+  });
+});

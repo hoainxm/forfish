@@ -40,6 +40,7 @@ export function SnapSheet({
   side = false,
   sideTab,
   sideTabLabel,
+  sideTabAction,
   sideHeader,
   sideDense,
   sideTitle,
@@ -79,6 +80,8 @@ export function SnapSheet({
   /** Bản CHỮ của viên cho trình đọc màn hình (ngày · số · bản lưu) — `aria-label`
    *  đè nội dung nút nên phải nói lại đủ, không chỉ "Mở bảng…". */
   sideTabLabel?: string;
+  /** Nút việc nằm CẠNH viên tóm tắt (vd Dẫn đường tới chỗ đang xem) — nút riêng, không lồng nút trong nút. */
+  sideTabAction?: ReactNode;
   /** Thêm vào đầu ngăn, cạnh "Thu" (vd chip dữ liệu) — chỉ khi `side`. */
   sideHeader?: ReactNode;
   /** Nội dung DÀY SỐ cho ngăn thấp 1/3 màn (mặc định khi mở). "Xem đủ" mở thêm
@@ -203,6 +206,7 @@ export function SnapSheet({
           /*  px-3 = đúng lề 0.75rem của dock ⇒ mép thẻ thẳng mép dock (2026-10-22: "sao nó ko sát"). */
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 px-3 pb-2">
             {above && <div className="w-full">{above}</div>}
+            <div className="flex w-full items-center gap-2">
             <button
               ref={tabRef}
               type="button"
@@ -228,6 +232,8 @@ export function SnapSheet({
               </span>
               <ChevronLeftIcon className="h-5 w-5 shrink-0 text-navy/55" aria-hidden />
             </button>
+            {sideTabAction && <div className="pointer-events-auto shrink-0">{sideTabAction}</div>}
+            </div>
           </div>
         )}
         {open && (

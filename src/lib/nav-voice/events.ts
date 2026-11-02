@@ -15,7 +15,7 @@ import type { NavStatus } from "@/lib/use-nav-tracking";
 import type { VoiceEvent } from "@/lib/nav-voice/announcer";
 import type { StormObservation } from "@/lib/nav-voice/nav-storm";
 import type { SeaObservation } from "@/lib/nav-voice/sea-now";
-import { distSpeech, numVN, toSpeechVN, type SpeechUnit } from "@/lib/nav-voice/phrases";
+import { dirSpeech, distSpeech, numVN, toSpeechVN, type SpeechUnit } from "@/lib/nav-voice/phrases";
 import { cauVung, type VungSuKien } from "@/lib/nav-vung";
 import type { KhucReBao } from "@/lib/nav-khuc-re";
 
@@ -55,6 +55,8 @@ export type VoiceMemory = {
   gpsEpisode: number;
   prevGps: NavStatus;
   legsSaid: number;
+  /** đã đọc "đã tới gần điểm đến" cho lần tới này */
+  arriveSaid: boolean;
   zone: { cand: number | null; n: number; sinceMs: number; said: number | null; saidMs: number; seq: number };
 };
 
@@ -70,6 +72,7 @@ export function initVoiceMemory(): VoiceMemory {
     gpsEpisode: 0,
     prevGps: "idle",
     legsSaid: 0,
+    arriveSaid: false,
     zone: { cand: null, n: 0, sinceMs: 0, said: null, saidMs: -Infinity, seq: 0 },
   };
 }
@@ -80,8 +83,10 @@ export type VoiceSources = {
   /** kết quả `evaluateNavHazards` lần gần nhất */
   alerts: readonly NavAlert[];
   border: { step: number; distanceNm: number; level: "ok" | "near" | "very_near" } | null;
-  /** lệch tuyến hiện tại (chỉ khi có tuyến) */
-  offRoute: { step: number; km: number } | null;
+  /** lệch tuyến hiện tại (chỉ khi có tuyến); `ben` = vạch ở bên nào của tàu */
+  offRoute: { step: number; km: number; ben?: "trái" | "phải" | null; huongVeDeg?: number | null } | null;
+  /** đang dẫn THEO TUYẾN — để câu "đã về lại đường" không bật khi hạ về Đang chạy */
+  coTuyen?: boolean;
   gps: NavStatus;
   /** dòng tin phao/đèn */
   info: { id: string; cau: string } | null;
@@ -216,6 +221,12 @@ export function collectVoiceEvents(
 
   // 6. LỆCH TUYẾN — chỉ khi lệch XA hơn
   if (!src.offRoute) {
+    /*  VỀ LẠI ĐƯỜNG (rà Vietmap 2026-11-02): lái về rồi trước đây im, bà con không
+        biết đã về chưa. Chỉ khi còn dẫn theo tuyến và GPS tốt — hạ về Đang chạy
+        hay mất định vị thì `offRoute` cũng null mà tàu chưa hề về. */
+    if (mem.offMax != null && src.coTuyen && src.gps === "tracking") {
+      out.push({ key: `off:ve:${mem.offEp}`, group: "off", tier: "tin", rank: 7, text: "Tàu đã về lại đường đã vẽ." });
+    }
     if (mem.offMax != null) mem.offEp += 1;
     mem.offMax = null;
   } else {
@@ -225,7 +236,13 @@ export function collectVoiceEvents(
       group: "off",
       tier: "vang",
       rank: 7,
-      text: `Đang đi khác đường đã vẽ chừng ${distSpeech(src.offRoute.km, src.unit)}.`,
+      /*  + HƯỚNG VỀ VẠCH (rà 2026-11-02): cùng khuôn câu khúc rẽ "Đi về phía H, bên trái tàu"
+          — mảnh giọng đã có, và không ra lệnh bẻ lái, chỉ nói vạch ở đâu. */
+      text: `Đang đi khác đường đã vẽ chừng ${distSpeech(src.offRoute.km, src.unit)}.${
+        src.offRoute.ben && src.offRoute.huongVeDeg != null
+          ? ` Đi về phía ${dirSpeech(src.offRoute.huongVeDeg)}, bên ${src.offRoute.ben} tàu.`
+          : ""
+      }`,
     });
   }
 
@@ -245,9 +262,12 @@ export function collectVoiceEvents(
     mem.legsSaid = src.legsPassed;
     out.push({ key: `stop:${src.legsPassed}`, group: "stop", tier: "vang", rank: 8, text: `Đã tới chỗ ghé số ${src.legsPassed}.` });
   }
-  if (src.arrived) {
+  /*  ĐỌC MỘT LẦN mỗi lần tới (rà 2026-11-02): key cố định mà bộ đọc quên key sau
+      30 phút ⇒ neo cả đêm là cứ nửa giờ đọc lại. Nhớ ở đây, rời vùng tới mới đặt lại. */
+  if (src.arrived && !mem.arriveSaid) {
+    mem.arriveSaid = true;
     out.push({ key: "arrive", group: "stop", tier: "vang", rank: 8, text: "Đã tới gần điểm đến." });
-  }
+  } else if (!src.arrived) mem.arriveSaid = false;
 
   // 8b. VÀO / RA VÙNG — biển "đang trong" trên HUD có câu đi kèm (học VietMap: cặp vào/ra)
   for (const e of src.vung ?? []) {

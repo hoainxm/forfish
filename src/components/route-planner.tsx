@@ -83,7 +83,8 @@ import { readUserRecord } from "@/lib/user-list-store";
 import { saveUserJson } from "@/lib/user-store";
 import { routeStormConflict, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
 import { stormGateForRoute, type StormAlert, type StormStatus } from "@/lib/storms";
-import { fetchDepthGrid, type DepthClass } from "@/lib/depth-grid";
+import { depthClassAt, fetchDepthGrid, type DepthClass } from "@/lib/depth-grid";
+import { choVuongDuongThang, nhanChoVuong, type ChoVuong } from "@/lib/duong-thang";
 import { fetchReefDepth, reefDepthInBBox } from "@/lib/reef-depth";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
@@ -263,6 +264,7 @@ export function RouteMode({
   onPickPoint,
   autoCompute = 0,
   onAutoFail,
+  onDuongThang,
   boatPos = null,
   boatFixAt = null,
 }: {
@@ -271,6 +273,9 @@ export function RouteMode({
   autoCompute?: number;
   /** lượt tự tính hỏng — câu lỗi đúng như thẻ hiện, để Sen Biển đọc */
   onAutoFail?: (msg: string) => void;
+  /*  KHÔNG TÌM ĐƯỢC ĐƯỜNG ⇒ cha vẽ đường thẳng nét đứt a→b + chỗ vướng đầu tiên
+      (lib/duong-thang, rà 2026-11-02). null = bỏ vẽ (tính lại / xoá / đổi đích). */
+  onDuongThang?: (d: { a: LatLon; b: LatLon; cho: ChoVuong | null } | null) => void;
   /*  Vị trí tàu màn bản đồ ĐANG theo dõi (chế độ Đang chạy) — lượt tự tính
       dùng luôn, khỏi hỏi GPS lần nữa: đang có `watchPosition` thì
       `getCurrentPosition` dễ chờ đủ 12 s rồi hết giờ (đo 2026-10-16), mà bà
@@ -442,6 +447,7 @@ export function RouteMode({
     giữ nguyên; tuyến cũ vẫn vẽ trên bản đồ cho tới khi bà con tự quyết.
   */
   useEffect(() => {
+    onDuongThang?.(null);
     setResult(null);
     setError(null);
     setOfflineSavedAt(undefined);
@@ -451,7 +457,7 @@ export function RouteMode({
     setAudit(null);
     // danh sách đổi ⇒ ý định "xoá sạch" của nhịp trước không còn đáng tin
     setConfirmClear(false);
-  }, [chainSig]);
+  }, [chainSig, onDuongThang]);
 
   /*  ─── BA CÚ CUỘN, GẮN VỚI BA CHUYỂN TRẠNG THÁI (không cuộn mỗi render) ───
       Tất cả `behavior: "auto"` (TỨC THỜI) chứ không "smooth": tàu lắc, tay
@@ -627,6 +633,7 @@ export function RouteMode({
     if (busy) return;
     setBusy(true);
     setError(null);
+    onDuongThang?.(null);
     // hậu kiểm cũ thuộc về tuyến cũ — bỏ NGAY, đừng để nó sống qua lượt tính mới
     setAudit(null);
     try {
@@ -928,7 +935,15 @@ export function RouteMode({
               ? " ở chặng từ nơi xuất phát tới điểm ghé 1"
               : ` ở chặng từ điểm ghé ${leg - 1} tới ${leg < stops.length ? `chỗ ghé ${leg}` : "điểm đến"}`
             : "";
-        const kiemLai = `Bà con kiểm tra lại nơi xuất phát (${fromName} · ${fmt(fromPt)}) và ${toName} (${fmt(toPt)}) trên hải đồ.`;
+        /*  ĐƯỜNG THẲNG THAM KHẢO + CHỖ VƯỚNG (lib/duong-thang): vẫn cho bà con một hướng,
+            nói rõ đây KHÔNG phải tuyến an toàn. Lưới độ sâu đã tải cho lượt tính này. */
+        const dg = await depthPromise;
+        const cho = choVuongDuongThang(fromPt, toPt, dg ? (la, lo) => depthClassAt(dg, la, lo) : null);
+        onDuongThang?.({ a: fromPt, b: toPt, cho });
+        const thang = cho
+          ? ` Máy vẽ đường thẳng nét đứt để bà con biết hướng — chỗ chấm đỏ là chỗ ${nhanChoVuong(cho)}.`
+          : " Máy vẽ đường thẳng nét đứt để bà con biết hướng — không phải đường an toàn.";
+        const kiemLai = `Bà con kiểm tra lại nơi xuất phát (${fromName} · ${fmt(fromPt)}) và ${toName} (${fmt(toPt)}) trên hải đồ.${thang}`;
         setError(
           failure === "weather-coverage" && biTuChoi
             ? `Chưa tìm được đường${where}. ${QUA_TAI_MSG} Bản dự báo lưu sẵn trong máy không đủ chi tiết cho vùng này. ${biTuChoiNgay ? THU_LAI_NGAY_MSG : THU_LAI_MSG}`
@@ -1072,6 +1087,7 @@ export function RouteMode({
   }
 
   function clearRoute() {
+    onDuongThang?.(null);
     setResult(null);
     setError(null);
     setOfflineSavedAt(undefined);
@@ -1478,7 +1494,8 @@ export function RouteMode({
               className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-[0.9375rem] font-bold transition active:scale-[0.97] bg-t1 text-white"
             >
               <PlayIcon className="h-5 w-5" />
-              Dẫn đường
+              {/* "Bắt đầu", không "Dẫn đường": nút rail cùng chữ "Dẫn đường" mà làm việc khác (rà 2026-11-02) */}
+              {NHAN.batDau}
             </button>
           ) : (
             <button
@@ -2445,7 +2462,7 @@ export function RouteMode({
               >
                 <p className="flex items-center gap-2 text-[1rem] font-semibold leading-snug">
                   <AlertIcon className="h-5 w-5 shrink-0" />
-                  Tuyến này chưa đối chiếu đủ
+                  Máy chưa soát hết đường này
                 </p>
                 <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[0.9375rem] font-semibold leading-snug">
                   {items.map((t) => (
@@ -2663,7 +2680,7 @@ export function RouteMode({
           <div className="space-y-1">
             {plan.cappedToDirect ? (
               <p className="text-[0.9375rem] font-semibold leading-snug text-warn">
-                Không có đường vòng nào đáng tiền — tuyến vẽ là đường THẲNG, có
+                Đi vòng không lợi hơn — tuyến vẽ là đường THẲNG, có
                 đoạn sóng tới {formatNumberVN(plan.maxWaveM)} m.
               </p>
             ) : plan.direct === null ? (
@@ -2713,7 +2730,7 @@ export function RouteMode({
                     cấp {beaufort(plan.maxWindKmh)}.
                   </>
                 )}{" "}
-                Lưới độ sâu ô ~450 m — dò hải đồ, nghe đài duyên hải trước khi
+                Độ sâu máy chỉ tính sơ — dò hải đồ, nghe đài duyên hải trước khi
                 chạy.
               </p>
               {/*  KHÔNG còn nút ở hàng này (2026-08-29h). Đo thật 375×812:

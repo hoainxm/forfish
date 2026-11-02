@@ -94,13 +94,11 @@ describe("steerCue", () => {
     expect(steerCue(90, 90)?.side).toBe("straight");
     expect(steerCue(90, 100)?.label).toBe("Đi thẳng");
   });
-  it("lệch 13–45° → Chếch, đúng bên", () => {
-    expect(steerCue(90, 120)).toMatchObject({ side: "right", label: "Chếch phải" });
-    expect(steerCue(90, 60)).toMatchObject({ side: "left", label: "Chếch trái" });
-  });
-  it("lệch >45° → Rẽ, đúng bên (kể cả vòng qua 360)", () => {
-    expect(steerCue(90, 200)).toMatchObject({ side: "right", label: "Rẽ phải" });
-    expect(steerCue(90, 350)).toMatchObject({ side: "left", label: "Rẽ trái" });
+  it("lệch → Chếch + góc làm tròn 5°, đúng bên, không bao giờ 'Rẽ'", () => {
+    expect(steerCue(90, 120)).toMatchObject({ side: "right", label: "Chếch phải 30°" });
+    expect(steerCue(90, 60)).toMatchObject({ side: "left", label: "Chếch trái 30°" });
+    expect(steerCue(90, 200)).toMatchObject({ side: "right", label: "Chếch phải 110°" });
+    expect(steerCue(90, 350)).toMatchObject({ side: "left", label: "Chếch trái 100°" });
   });
 });
 

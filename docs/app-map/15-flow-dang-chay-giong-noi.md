@@ -1,5 +1,6 @@
 # 15 — Chế độ "ĐANG CHẠY": đọc & cảnh báo bằng giọng nói kiểu VietMap
 
+<!-- re-verified: 2026-11-02v — §32 mới: câu dẫn đường lượt 2 (`lib/nav-voice/cau-dan-duong.ts`): bắt đầu (quãng · giờ · hướng đầu · tắt màn), lệch tuyến kèm "Đi về phía H, bên trái/phải tàu", "Tàu đã về lại đường đã vẽ.", "đã tới" đọc một lần/lần tới, tự thôi dẫn khi tới + đứng yên 5 phút, nạp lại kho hải đồ. -->
 <!-- re-verified: 2026-11-02 — §31 mới: học từ VietMap Live dịch ngược (khúc rẽ hai nhịp `lib/nav-khuc-re`, đang trong vùng `lib/nav-vung`, tiếp tục chuyến `lib/nav-phien`); `collectVoiceEvents` nhận thêm `vung` + `khucRe`. -->
 <!-- re-verified: 2026-10-31b — lớp hỏi sản phẩm mở rộng: bảng MON gồm máy lọc dầu, máy lọc nước biển (lọc nước/SEA40/SEA250/SD-M250), ắc quy (ắc quy/accu/bình điện); món không clip (ắc quy) không mở video. -->
 <!-- re-verified: 2026-10-31 — LỚP HỎI SẢN PHẨM (máy lọc dầu SDVICO): `lib/sen-bien/hoi-san-pham.ts` `traLoiSanPham` chạy TRONG MÁY trước lệnh chợ/n-gram/kho ở cả màn toàn app và bản đồ; chỉ bắt câu nhắc "lọc dầu"/SF50/SF300; đáp từ `KM_LOC_DAU.hoiDap` (câu đã qua kiểm duyệt); hỏi chung/muốn xem/mua ⇒ mở `/?km=loc-dau-sf` (thẻ + video). Câu đáp không có trong danh mục mảnh ⇒ đọc giọng máy (luật một câu một giọng §21). nợ: lớp luật thay cho kho n-gram, trần = chỉ 9 câu + từ khoá cứng; vòng train Sen Biển sau học các câu này (anh duyệt) rồi gỡ lớp luật. -->
@@ -1114,4 +1115,26 @@ Nguồn: dịch ngược VIETMAP LIVE 3.4.4 (XAPK APKPure, JADX + chuỗi Dart/R
 **Offline (4 câu CLAUDE.md):** (a) không request mới — cả ba chạy trên dữ liệu đã nạp lúc bật dẫn đường; (b) không đụng `sw.js`/`SHELL`; khoá MỚI `forfish.nav.phien.v1` (EXCLUDED sao lưu); (c) không xoá/đè dữ liệu bà con — phiên chỉ là bản chép tuyến đang chạy, hết chỗ thì không ghi; (d) mất sóng là nhánh chính.
 
 **Assumptions:** (1) Ngưỡng 30° / 5 phút / 1 phút / 2 lần đo / hạn 12 giờ là mặc định an toàn tự đặt, chưa chạy thử ngoài biển — anh Long đổi được ở hằng trong file lib. (2) Tiếp tục = bám lại ĐÚNG tuyến cũ (không tính lại); tuyến tính bằng dự báo cũ nên thẻ nói giờ bắt đầu chuyến. (3) Không thêm "độ nhạy lệch tuyến 3 nấc" và "đề nghị tính lại tuyến" (mục D báo cáo) — đổi chốt "không tự tính lại", chờ anh quyết.
+
+## 32. CÂU DẪN ĐƯỜNG LƯỢT 2 — RÀ ĐỐI CHIẾU VIETMAP (2026-11-02)
+
+Team 4 agent rà lại (07 §10.7 V); phần giọng:
+
+| Tình huống | Trước | Nay | Ở đâu |
+|---|---|---|---|
+| Bấm Bắt đầu | Không câu nào về chuyến (bản tin mở đầu đã đọc lúc giọng tự bật) | "Bắt đầu dẫn đường. Còn chừng X, chừng Y. Đi về phía H. Tắt màn hình là máy ngừng đọc." | `cauBatDau`, effect theo `navMode` |
+| Lệch tuyến | "Đang đi khác đường đã vẽ chừng X." | + " Đi về phía H, bên trái/phải tàu." (H = hướng la bàn về điểm gần nhất trên vạch, `NavProgress.huongVeVachDeg`/`vachBen`) | `events.ts` mục 6 |
+| Lái về lại vạch | Im | "Tàu đã về lại đường đã vẽ." (tin; chỉ khi còn dẫn theo tuyến `coTuyen` và GPS tốt) | `events.ts` mục 6 |
+| Tới nơi | Đọc lại mỗi ~30 phút (key cố định, bộ đọc quên sau 30 phút) | MỘT lần mỗi lần tới (`mem.arriveSaid`); "đã tới" chốt theo tuyến đang dẫn | `events.ts` mục 8, `fishing-map-view` |
+| Tới + đứng yên 5 phút | Máy giữ sáng màn + GPS suốt đêm | Tự thôi dẫn rồi đọc "Đã tới gần điểm đến. Đã dừng dẫn đường." | `CAU_TU_DUNG` |
+| Kho hải đồ thiếu lúc bật | Cả chuyến "chỉ canh được một phần" | Thử nạp lại khi có mạng / mở lại màn / 5 phút; đủ thì đọc "Máy đang canh độ sâu, rạn và chướng ngại phía trước." | `CAU_DU_HAI_DO` |
+| Tự bật đọc theo vị trí (lần đầu đời máy) | Đánh dấu "đã xem" tấm dặn mà không dặn gì | Đọc "Tắt màn hình là máy ngừng đọc." một lần | `CAU_TAT_MAN` |
+
+**Giọng:** câu chọn theo mảnh Mỹ Duyên đã có (cổng `ghep-giong.test.ts` "câu dẫn đường mới"). Nợ: "Tắt màn hình là máy ngừng đọc." và "Tàu đã về lại đường đã vẽ." chưa có mảnh — đọc giọng máy cả câu; `cau-dan-duong.ts` đã vào NGUON của `lap_manh.mjs`, có mảnh rồi thì test nợ đỏ để gộp.
+
+**GPS:** điểm nhảy bị bỏ ngay ở chỗ nhận vị trí (`nhanFix`: sai số >1 km hoặc vọt >74 km/h trên quãng >500 m; bỏ liền quá 3 lần thì nhận). Mở khoá máy / có mạng lại ⇒ KHỞI ĐỘNG LẠI watch (máy có thể giết GPS lúc khoá màn mà `watchId` còn).
+
+**Offline (4 câu CLAUDE.md):** (a) không request mới — lượt nạp lại kho dùng đúng các `fetchX` sẵn có (đọc từ kho SW, có trần riêng), tối đa 1 lượt/phút; (b) không đụng `sw.js`/`SHELL`; khoá `forfish.nav.phien.v1` hạn 12 giờ → 7 ngày và vào danh sách xoá khi đổi số điện thoại (`auth-scope`); (c) không xoá dữ liệu bà con; (d) mọi câu chạy trên dữ liệu đã nạp.
+
+**Assumptions:** 5 phút đứng yên = neo xong; 74 km/h là trần tàu cá (cùng `JITTER_MAX_KMH` sẵn có); chưa thử ngoài biển — đổi ở hằng trong file.
 

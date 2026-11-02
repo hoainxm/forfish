@@ -32,6 +32,7 @@ import {
   HomeIcon,
   PinIcon,
   PlusIcon,
+  RouteIcon,
   SearchIcon,
   StarIcon,
   TrashIcon,
@@ -49,11 +50,16 @@ export function MyPlacesContent({
   onAddOpenChange,
   hideAddButton,
   onClose,
+  onDanDuong,
 }: {
   places: SavedPlace[];
   onPlaces: (next: SavedPlace[]) => void;
   /** mở một điểm đã lưu (bay tới + xem dự báo) */
   onGo: (lat: number, lon: number) => void;
+  /*  Có (premium, không đang dẫn) ⇒ mỗi dòng có nút Dẫn đường: mở bảng Lộ trình
+      tới đúng điểm đó và tính luôn (rà Vietmap 2026-11-02 — trước đây "Điểm lưu"
+      chỉ bay tới, muốn đi phải vòng qua khay ⋯ → Lộ trình). */
+  onDanDuong?: (lat: number, lon: number, ten: string) => void;
   /*  Chỗ đang trỏ trên bản đồ. Có nó thì form lưu điểm mới có đường
       "lấy chỗ đang trỏ" — không có thì bà con phải tự đọc toạ độ ở ô trên
       màn rồi gõ lại vào đây, chép tay một dãy số 15 ký tự trên tàu lắc. */
@@ -488,6 +494,19 @@ export function MyPlacesContent({
                         </span>
                       </span>
                     </button>
+                    {onDanDuong && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDanDuong(p.lat, p.lon, p.name);
+                          onClose();
+                        }}
+                        aria-label={`Dẫn đường tới ${p.name}`}
+                        className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full text-t1 transition active:bg-field"
+                      >
+                        <RouteIcon className="h-6 w-6" aria-hidden />
+                      </button>
+                    )}
                     {/*  MỘT Ô NÚT DUY NHẤT trên hàng — xổ tầng dưới của CHÍNH
                          hàng đó. Tầng chỉ tồn tại ở hàng đang mở nên danh sách
                          không phình; mở hàng khác là hàng cũ tự đóng. */}

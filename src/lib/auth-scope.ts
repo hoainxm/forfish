@@ -33,6 +33,9 @@ const USER_SCOPED_KEYS = [
   // Mẫu câu nói Sen Biển chưa gửi (lib/sen-bien/mau-hoc.ts) — không để câu của A
   // gửi lên dưới tài khoản B (dấu người nói sai). Mất vài câu chưa gửi là chấp nhận được.
   "forfish.senbien.mau.v1",
+  // Chuyến đang dẫn dở (lib/nav-phien.ts) — đổi số điện thoại trên cùng máy mà còn
+  // giữ là người sau thấy "Dẫn đường tiếp tới …" của người trước: lộ chỗ đánh cá.
+  "forfish.nav.phien.v1",
 ] as const;
 
 /**

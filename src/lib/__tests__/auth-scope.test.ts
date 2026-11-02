@@ -172,3 +172,9 @@ describe("clearUserScopedData", () => {
     expect(store.getItem("forfish.boats.v1")).toBe(null);
   });
 });
+
+describe("chuyến dẫn dở không lộ sang tài khoản khác (rà 2026-11-02)", () => {
+  it("forfish.nav.phien.v1 nằm trong danh sách xoá khi đổi SĐT", () => {
+    expect(__USER_SCOPED_KEYS_FOR_TEST).toContain("forfish.nav.phien.v1");
+  });
+});

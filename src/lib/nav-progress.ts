@@ -64,9 +64,8 @@ export function offRouteStepCrossed(
   return null;
 }
 
-/** Góc lệch ≤ ngưỡng này = "đi thẳng"; ≤ ngưỡng sau = "chếch"; hơn = "rẽ" */
+/** Góc lệch ≤ ngưỡng này = "đi thẳng"; hơn = "Chếch <bên> N°" */
 const STRAIGHT_DEG = 12;
-const SLIGHT_DEG = 45;
 
 export type SteerSide = "straight" | "left" | "right";
 
@@ -97,6 +96,12 @@ export interface NavProgress {
   offRoute: boolean;
   /** đã tới gần đích (≤ ARRIVE_KM) */
   arrived: boolean;
+  /*  VẠCH TUYẾN NẰM BÊN NÀO CỦA TÀU (nhìn theo hướng đi của đoạn) — để câu lệch tuyến
+      nói "vạch ở bên trái tàu" thay vì chỉ "đang đi khác đường" (rà 2026-11-02).
+      Tàu bên phải vạch ⇒ vạch bên trái tàu. null khi đang trên vạch. */
+  vachBen: "trái" | "phải" | null;
+  /** hướng LA BÀN từ tàu tới điểm gần nhất trên vạch — câu "Đi về phía H, bên trái tàu" */
+  huongVeVachDeg: number | null;
   /*  Quãng ĐÃ CHẠY dọc tuyến (km), đo từ đầu tuyến tới điểm chiếu. Thêm
       2026-08-29g để bản đồ biết chặng nào đã ở sau lưng mà tô xám, và để thẻ
       nói được "còn bao xa tới chỗ ghé kế". `projectOntoRoute` vốn đã tính sẵn
@@ -251,8 +256,11 @@ export function steerCue(
   if (mag <= STRAIGHT_DEG) return { side: "straight", label: "Đi thẳng", turnDeg: d };
   const side: SteerSide = d > 0 ? "right" : "left";
   const dir = d > 0 ? "phải" : "trái";
-  const verb = mag <= SLIGHT_DEG ? "Chếch" : "Rẽ";
-  return { side, label: `${verb} ${dir}`, turnDeg: d };
+  /*  NÓI GÓC, KHÔNG RA LỆNH (rà Vietmap 2026-11-02, doc 15 "không ra lệnh bẻ lái"):
+      trước đây >45° in "Rẽ phải" ngay trên dòng "…tới khúc rẽ" — hai chữ "rẽ" hai
+      nghĩa. Nay luôn "Chếch <bên> N°", N làm tròn 5° (đủ cho mắt liếc, không giả chính xác). */
+  const goc = Math.max(5, Math.round(mag / 5) * 5);
+  return { side, label: `Chếch ${dir} ${goc}°`, turnDeg: d };
 }
 
 /** Giờ tới ước tính — null nếu tàu chưa chạy (tốc độ dưới ngưỡng) */
@@ -323,6 +331,8 @@ export function computeNavProgress(input: NavInput): NavProgress {
       offRouteKm: 0,
       offRoute: false,
       arrived: remainingKm <= ARRIVE_KM,
+      vachBen: null,
+      huongVeVachDeg: null,
       alongKm: 0,
       segIdx: 0,
     };
@@ -367,6 +377,8 @@ export function computeNavProgress(input: NavInput): NavProgress {
     offRouteKm: proj.offRouteKm,
     offRoute: proj.offRouteKm > OFF_ROUTE_WARN_KM,
     arrived: remainingKm <= ARRIVE_KM,
+    vachBen: proj.side === "right" ? "trái" : proj.side === "left" ? "phải" : null,
+    huongVeVachDeg: proj.side === "on" ? null : bearingDeg(pos, proj.snapped),
     alongKm: proj.alongKm,
     segIdx: proj.segIdx,
   };

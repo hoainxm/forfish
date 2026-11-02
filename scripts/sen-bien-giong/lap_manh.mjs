@@ -39,6 +39,7 @@ const NGUON = [
   "src/lib/nav-context.ts",
   "src/lib/nav-vung.ts",
   "src/lib/nav-khuc-re.ts",
+  "src/lib/nav-voice/cau-dan-duong.ts",
   "src/lib/seamarks.ts",
   "src/lib/xac-tau.ts",
   "src/lib/vung-quan-ly.ts",

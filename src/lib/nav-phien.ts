@@ -19,8 +19,11 @@ import { saveUserJson } from "@/lib/user-store";
 import { readUserRecord } from "@/lib/user-list-store";
 
 export const NAV_PHIEN_KEY = "forfish.nav.phien.v1";
-/** Quá ngần này kể từ lần ghi cuối thì coi như chuyến đã xong — không hỏi nữa */
-export const NAV_PHIEN_HAN_MS = 12 * 60 * 60 * 1000;
+/*  Quá ngần này kể từ lần ghi cuối thì coi như chuyến đã xong — không hỏi nữa.
+    12 giờ → 7 ngày (rà 2026-11-02): chuyến biển kéo dài nhiều ngày; máy hết pin
+    qua đêm, sạc lại sau hơn 12 giờ là mất tuyến. Chuyến xong thật thì Dừng / tới
+    nơi đã xoá phiên — hạn chỉ là lưới an toàn cho phiên bị bỏ quên. */
+export const NAV_PHIEN_HAN_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Hình dạng tối thiểu của tuyến đang dẫn — đúng phần `PlannedRoute` mà dẫn đường đọc. */
 export type TuyenLuu = {

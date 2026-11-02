@@ -11,6 +11,13 @@ import { napManhGiong, speechParts } from "@/lib/voice/tts";
 import { baoKhucRe, type KhucRe } from "@/lib/nav-khuc-re";
 import { cauVung } from "@/lib/nav-vung";
 import { tenNoi, type VungQuanLy } from "@/lib/vung-quan-ly";
+import { CAU_DU_HAI_DO, CAU_TAT_MAN, CAU_TU_DUNG, cauBatDau } from "@/lib/nav-voice/cau-dan-duong";
+import { collectVoiceEvents, initVoiceMemory, type VoiceSources } from "@/lib/nav-voice/events";
+
+const NGUON_RONG: VoiceSources = {
+  nowMs: 0, unit: "nm", alerts: [], border: null, offRoute: null, gps: "tracking", info: null, storm: null, sea: null,
+  depthHere: null, moving: true, legsPassed: 0, legsTotal: 0, arrived: false,
+};
 
 // danh mục mảnh nạp động (tts.ts) — nạp trước như lúc app đã sẵn
 beforeAll(() => napManhGiong());
@@ -157,6 +164,25 @@ describe("câu có số của app phủ đủ mảnh", () => {
           for (let km = 0.3; km < 30; km *= 1.3) cau.push(baoKhucRe(null, { ...kr, km }, km * 14, fmt).bao!.text);
         }
     phuHet(cau);
+  });
+  it("câu dẫn đường mới (rà Vietmap 2026-11-02): lệch tuyến kèm hướng về vạch, bắt đầu, tự dừng", () => {
+    const cau: string[] = [CAU_TU_DUNG, CAU_DU_HAI_DO];
+    for (const ben of ["trái", "phải"] as const)
+      for (let km = 2; km < 40; km *= 1.6)
+        for (const h of [0, 90, 200, 300])
+          cau.push(
+            collectVoiceEvents(initVoiceMemory(), { ...NGUON_RONG, offRoute: { step: 2, km, ben, huongVeDeg: h } }).events[0].text,
+          );
+    for (let km = 3; km < 400; km *= 2.3)
+      cau.push(cauBatDau(km, km / 13, km * 40, "nm").replace(` ${CAU_TAT_MAN}`, ""));
+    phuHet(cau);
+  });
+  it("nợ mảnh giọng: hai câu dẫn đường chưa có mảnh — đọc giọng máy cả câu", () => {
+    /*  nợ: "Tắt màn hình là máy ngừng đọc." và "Tàu đã về lại đường đã vẽ." chưa có mảnh
+        Mỹ Duyên (máy GPU sinh qua lap_manh.mjs → gen_clips.py --manh — file đã nằm trong
+        NGUON). Có mảnh rồi thì test này ĐỎ ⇒ gộp hai câu vào phuHet ở test trên. */
+    expect(thieu(CAU_TAT_MAN).length).toBeGreaterThan(0);
+    expect(thieu("Tàu đã về lại đường đã vẽ.").length).toBeGreaterThan(0);
   });
   it("vào / ra vùng quản lý thật (khu bảo tồn, vùng cấm theo mùa)", () => {
     /*  nợ: 8 địa danh trong tên vùng chưa có mảnh giọng (máy GPU sinh mp3 qua

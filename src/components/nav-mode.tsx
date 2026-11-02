@@ -10,6 +10,7 @@
  */
 
 import { useRef, useState } from "react";
+import { HUD_TRAN, xepDongHud, type DongHud } from "@/lib/hud-tran";
 import { Marker } from "react-map-gl/maplibre";
 
 import type { LatLon } from "@/lib/route-plan";
@@ -21,9 +22,11 @@ import type { HudLine } from "@/lib/nav-context";
 import type { VungTrong } from "@/lib/nav-vung";
 import type { KhucRe } from "@/lib/nav-khuc-re";
 import { useMapPrefs, fmtDist } from "@/lib/map-prefs";
+import { NHAN } from "@/lib/labels";
 import {
   AlertIcon,
   AnchorIcon,
+  CheckIcon,
   ChevronRightIcon,
   ClockIcon,
   MinusIcon,
@@ -121,7 +124,12 @@ export type NavOffRouteNotice = {
   km: number;
   /** bà con đã chạm thu dòng này */
   dismissed: boolean;
+  /** vạch tuyến ở bên nào của tàu (null = không rõ) */
+  ben?: "trái" | "phải" | null;
 };
+
+/** lệch từ mức này (km) mới hiện nút "Vẽ lại" — dưới đó lái về vạch là xong */
+export const VE_LAI_TU_KM = 5;
 
 /**
  * GIỌNG ĐỌC (chế độ Đang chạy, doc 15 §9) — cha giữ toàn bộ trạng thái ở
@@ -200,6 +208,7 @@ export function NavHud({
   onDismissBorder,
   offRoute,
   onDismissOffRoute,
+  onVeLai,
   nextStop = null,
   hazardLines = EMPTY_LINES,
   rungOn = true,
@@ -228,6 +237,8 @@ export function NavHud({
   onDismissBorder?: () => void;
   offRoute?: NavOffRouteNotice | null;
   onDismissOffRoute?: () => void;
+  /** lệch xa ⇒ nút "Vẽ lại": cha mở bảng Lộ trình và tính từ chỗ tàu */
+  onVeLai?: () => void;
   /*  CẢNH BÁO HIỂM HOẠ khi đang chạy (Đợt 3) — cha tính ở `lib/nav-hazards`
       rồi chọn dòng ở `lib/pickHudLines`; HUD chỉ VẼ, không xếp lại thứ tự,
       không tự viết câu. Tối đa 2 dòng: dòng `khoa` (đỏ) không thu được và
@@ -281,6 +292,21 @@ export function NavHud({
   const borderTone = borderLocked
     ? "bg-danger-bg text-danger"
     : "bg-warn-bg text-warn";
+
+  /*  TRẦN 2 DÒNG CẢNH BÁO (lib/hud-tran, rà Vietmap 2026-11-02): dòng đỏ luôn hiện,
+      còn lại lấp cho đủ 2, thừa gộp "+N" chạm mở. Thứ tự đưa vào = thứ tự vẽ. */
+  const [moRong, setMoRong] = useState(false);
+  const speakingRow = !!voice?.speaking && !speakingIsShown;
+  const dongHud: DongHud[] = [
+    ...(borderShow && borderLine ? [{ id: "border", red: borderLocked }] : []),
+    ...lines.map((l) => ({ id: `hz:${l.id}`, red: l.khoa })),
+    ...vung.map((v) => ({ id: `vung:${v.id}`, red: v.muc === "do" })),
+    ...(onShelter ? [{ id: "shelter", red: true }] : []),
+    ...(speakingRow ? [{ id: "speaking", red: !!voice?.speaking?.red }] : []),
+    ...(voice?.noVoice ? [{ id: "novoice", red: false }] : []),
+  ];
+  const { hien, an: dongAn } = xepDongHud(dongHud, moRong);
+  const coDo = dongHud.some((d) => d.red);
 
   const [hidden, setHidden] = useState(false);
   /** hàng Giọng/Rung mở khi bấm nút loa ở hàng đầu — mặc định thu */
@@ -470,7 +496,7 @@ export function NavHud({
 
       {/* RANH GIỚI theo GPS — trên mọi thứ khác trong HUD; chạm để thu khi còn
           >6 hải lý, nói lại khi vượt mốc mới (cha lo), ≤6 hải lý nằm đó. */}
-      {borderShow && borderLine && (
+      {borderShow && borderLine && hien.has("border") && (
         <button
           type="button"
           role="alert"
@@ -491,7 +517,7 @@ export function NavHud({
            Thứ tự do `lib/nav-hazards` quyết (nặng nhất trước), HUD KHÔNG xếp
            lại. Đỏ: không thu được. Vàng/tin: chạm để thu, thu theo id nên vật
            khác tới vẫn nói. */}
-      {lines.map((l) =>
+      {lines.filter((l) => hien.has(`hz:${l.id}`)).map((l) =>
         l.khoa ? (
           <p
             key={l.id}
@@ -527,12 +553,12 @@ export function NavHud({
       )}
 
       {/*  ĐANG TRONG VÙNG — dưới cảnh báo "sắp tới", không thu được */}
-      <BienVung vung={vung} />
+      <BienVung vung={vung.filter((v) => hien.has(`vung:${v.id}`))} />
 
       {/*  KHU TRÚ BÃO GẦN — CHỈ hiện khi đang có bão. App không phán "chạy vào
            đi": chỉ mở danh sách khu, còn bao xa, chừng bao lâu; vào hay không
            là quyết định của thuyền trưởng. */}
-      {onShelter && (
+      {onShelter && hien.has("shelter") && (
         <button
           type="button"
           onClick={(e) => onShelter(e.currentTarget)}
@@ -546,7 +572,7 @@ export function NavHud({
 
       {/*  CÂU ĐANG ĐỌC — in ra đúng câu loa đang nói (người nghe kém một bên,
            máy rè, tiếng máy tàu át). Câu ĐỎ có nút "Đã nghe" để thôi nhắc lại. */}
-      {voice?.speaking && !speakingIsShown && (
+      {voice?.speaking && speakingRow && hien.has("speaking") && (
         <div
           role="status"
           className={`flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.875rem] font-semibold leading-snug ${
@@ -568,7 +594,7 @@ export function NavHud({
           )}
         </div>
       )}
-      {voice?.noVoice && (
+      {voice?.noVoice && hien.has("novoice") && (
         <div className="flex items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-semibold leading-snug text-warn">
           <span className="min-w-0 flex-1">
             Máy chưa có giọng tiếng Việt — chỉ báo bằng chuông và chữ.
@@ -583,6 +609,18 @@ export function NavHud({
             </button>
           )}
         </div>
+      )}
+
+      {(dongAn > 0 || moRong) && dongHud.length > HUD_TRAN && (
+        <button
+          type="button"
+          onClick={() => setMoRong((v) => !v)}
+          aria-expanded={moRong}
+          aria-label={moRong ? "Thu bớt dòng cảnh báo" : `Xem thêm ${dongAn} dòng cảnh báo`}
+          className="flex h-(--h-ctl) items-center gap-1 self-start rounded-full bg-navy/10 px-3 text-[0.875rem] font-semibold text-navy transition active:scale-95"
+        >
+          {moRong ? <MinusIcon className="h-4 w-4" /> : `+${dongAn}`}
+        </button>
       )}
 
       {denied ? (
@@ -650,7 +688,8 @@ export function NavHud({
                    tới chỗ thả lưới đầu tiên.
                    Chỉ hiện khi đường đi nhiều chỗ VÀ chưa qua hết (`nextStop`
                    null ở hai ca đó) — không đẻ dòng thừa cho chuyến một chỗ. */}
-              {nextStop && !progress.arrived && (
+              {/* có dòng đỏ ⇒ bớt dòng phụ này (giọng vẫn báo chỗ ghé) — giữ khung thấp */}
+              {nextStop && !progress.arrived && !coDo && (
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.875rem] font-semibold text-t1">
                   Tới chỗ {nextStop.so}
                   <span aria-hidden>·</span>
@@ -669,24 +708,42 @@ export function NavHud({
                   được, giọng trung tính. Trước đây dòng này in lại MỖI NHỊP GPS
                   suốt thời gian còn lệch và không thu được. */}
               {offRoute && !offRoute.dismissed && !progress.arrived && (
+                <div className="mt-1.5 flex items-stretch gap-1.5">
+                  <button
+                    type="button"
+                    onClick={onDismissOffRoute}
+                    aria-label="Thu gọn nhắc nhở lệch tuyến"
+                    className="flex min-h-[2.75rem] min-w-0 flex-1 items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-left text-[0.875rem] font-semibold leading-snug text-warn"
+                  >
+                    <span className="min-w-0 flex-1">
+                      Lệch đường đã vẽ ~{kc(offRoute.km, prefs.distUnit)}
+                      {offRoute.ben ? ` — vạch ở bên ${offRoute.ben} tàu` : ""}.
+                    </span>
+                    <MinusIcon className="h-4 w-4 shrink-0" />
+                  </button>
+                  {/*  lệch xa: lối tính lại từ chỗ tàu — bấm mới tính, không tự đổi tuyến */}
+                  {onVeLai && offRoute.km >= VE_LAI_TU_KM && (
+                    <button
+                      type="button"
+                      onClick={onVeLai}
+                      className="shrink-0 rounded-xl bg-t1 px-3 text-[0.875rem] font-semibold text-white transition active:scale-95"
+                    >
+                      {NHAN.veLai}
+                    </button>
+                  )}
+                </div>
+              )}
+              {/*  TỚI NƠI: một câu (dòng to bên trên) + nút "Xong" dọn chuyến (học Vietmap
+                   "Bạn đã hoàn thành lộ trình"). Trước đây câu in hai lần và chỉ có "bấm Dừng". */}
+              {progress.arrived && (
                 <button
                   type="button"
-                  onClick={onDismissOffRoute}
-                  aria-label="Thu gọn nhắc nhở lệch tuyến"
-                  className="mt-1.5 flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl bg-[var(--warn-bg)] px-2.5 py-2 text-left text-[0.875rem] font-semibold leading-snug text-[var(--warn)]"
+                  onClick={onStop}
+                  className="mt-1.5 flex h-(--h-ctl) w-full items-center justify-center gap-2 rounded-xl bg-ok text-[1rem] font-semibold text-white transition active:scale-[0.98]"
                 >
-                  <span className="min-w-0 flex-1">
-                    Đang đi khác đường đã vẽ ~
-                    {kc(offRoute.km, prefs.distUnit)} — lái về vạch xanh
-                    nếu muốn.
-                  </span>
-                  <MinusIcon className="h-4 w-4 shrink-0" />
+                  <CheckIcon className="h-5 w-5" aria-hidden />
+                  {NHAN.xong}
                 </button>
-              )}
-              {progress.arrived && (
-                <p className="mt-1.5 rounded-xl bg-[var(--ok-bg)] p-2 text-[0.875rem] font-semibold leading-snug text-[var(--ok)]">
-                  Đã tới gần điểm đến — bấm Dừng khi neo xong.
-                </p>
               )}
             </div>
           ) : cruiseLine ? (

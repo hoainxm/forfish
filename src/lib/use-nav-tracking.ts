@@ -111,6 +111,31 @@ export function locFix(prev: LocState | null, fix: LocIn): LocState & { speedKmh
   return { pos: fix.pos, t: fix.t, smoothKmh: smooth, headingDeg, speedKmh };
 }
 
+/*  LỌC ĐIỂM NHẢY Ở CHỖ NHẬN VỊ TRÍ (rà 2026-11-02). Trước đây chỉ bỏ MẪU TỐC ĐỘ khi
+    nhảy, còn vị trí thì nhận nguyên ⇒ một điểm nhảy là đủ kêu chuông lệch tuyến /
+    ranh giới, hay "tới nơi" giả làm xoá chuyến dở. Bỏ fix khi: sai số > SAI_SO_BO_M
+    (định vị theo trạm, không phải GPS) hoặc vọt từ fix trước nhanh hơn JITTER_MAX_KMH
+    trên quãng > NHAY_MIN_M. Bỏ liền quá BO_LIEN_MAX lần thì NHẬN (fix trước mới là
+    cái sai — tàu đã đi thật, hoặc điểm đầu tiên là điểm nhảy), không kẹt mãi. */
+export const SAI_SO_BO_M = 1000;
+const NHAY_MIN_M = 500;
+export const BO_LIEN_MAX = 3;
+
+/** Nhận fix này không. `boLien` = số fix đã bỏ liền trước đó. Thuần, có test. */
+export function nhanFix(
+  prev: Pick<LocState, "pos" | "t"> | null,
+  fix: Pick<LocIn, "pos" | "t" | "accuracyM">,
+  boLien: number,
+): { nhan: boolean; boLien: number } {
+  if (!prev || boLien >= BO_LIEN_MAX) return { nhan: true, boLien: 0 };
+  const acc = fix.accuracyM;
+  if (acc != null && Number.isFinite(acc) && acc > SAI_SO_BO_M) return { nhan: false, boLien: boLien + 1 };
+  const dtS = (fix.t - prev.t) / 1000;
+  const m = haversineKm(prev.pos, fix.pos) * 1000;
+  if (m > NHAY_MIN_M && (dtS <= 0 || (m / dtS) * 3.6 > JITTER_MAX_KMH)) return { nhan: false, boLien: boLien + 1 };
+  return { nhan: true, boLien: 0 };
+}
+
 interface WakeLockSentinelLike {
   release: () => Promise<void>;
   released: boolean;
@@ -141,6 +166,7 @@ export function useNavTracking(
 
   // giá trị bền giữa các fix (không gây re-render)
   const prevFix = useRef<LocState | null>(null);
+  const boLienRef = useRef(0);
   const watchId = useRef<number | null>(null);
   const wakeRef = useRef<WakeLockSentinelLike | null>(null);
 
@@ -160,6 +186,9 @@ export function useNavTracking(
       if (stopped) return;
       const now = p.timestamp || Date.now();
       const pos: LatLon = { lat: p.coords.latitude, lon: p.coords.longitude };
+      const k = nhanFix(prevFix.current, { pos, t: now, accuracyM: p.coords.accuracy }, boLienRef.current);
+      boLienRef.current = k.boLien;
+      if (!k.nhan) return; // điểm nhảy — giữ vị trí cũ, đồng hồ "mất định vị" vẫn chạy
       const r = locFix(prevFix.current, {
         pos,
         t: now,
@@ -224,13 +253,20 @@ export function useNavTracking(
 
     // Tab hiện lại (mở khoá máy) → wake lock tự nhả, watch có thể ngủ: bật lại
     // + thử lại định vị. online trở lại cũng thử lại. (mẫu use-storm-check)
+    /*  KHỞI ĐỘNG LẠI watch, không chỉ "bật nếu chưa có" (rà 2026-11-02): máy có thể
+        giết GPS lúc khoá màn mà `watchId` vẫn còn ⇒ `startWatch` thoát ngay, kẹt ở
+        "Mất định vị". Dọn rồi bật lại là đủ rẻ — một lượt mỗi lần mở khoá / có mạng. */
+    const restartWatch = () => {
+      stopWatch();
+      startWatch();
+    };
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        startWatch();
+        restartWatch();
         void requestWake();
       }
     };
-    const onOnline = () => startWatch();
+    const onOnline = () => restartWatch();
 
     startWatch();
     void requestWake();
@@ -253,6 +289,7 @@ export function useNavTracking(
       window.removeEventListener("online", onOnline);
       window.clearInterval(staleTimer);
       prevFix.current = null;
+      boLienRef.current = 0;
     };
   }, [active, keepAwake]);
 

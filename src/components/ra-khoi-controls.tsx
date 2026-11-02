@@ -157,6 +157,7 @@ export function RaKhoiControls({
   places,
   onPlaces,
   onGoPlace,
+  onDanDuongPlace,
   measureMode,
   onMeasureMode,
   measureCount,
@@ -299,6 +300,8 @@ export function RaKhoiControls({
   places: SavedPlace[];
   onPlaces: (next: SavedPlace[]) => void;
   onGoPlace: (lat: number, lon: number) => void;
+  /** có (premium, không đang dẫn) ⇒ mỗi dòng điểm lưu có nút Dẫn đường */
+  onDanDuongPlace?: (lat: number, lon: number, ten: string) => void;
   /** công cụ đo khoảng cách 2 điểm trên bản đồ */
   measureMode: boolean;
   onMeasureMode: (on: boolean) => void;
@@ -588,6 +591,7 @@ export function RaKhoiControls({
                   places={places}
                   onPlaces={onPlaces}
                   onGoPlace={onGoPlace}
+                  onDanDuong={onDanDuongPlace}
                   onClose={() => setOpen(null)}
                 />
               )}
@@ -624,6 +628,7 @@ export function RaKhoiControls({
             places={places}
             onPlaces={onPlaces}
             onGoPlace={onGoPlace}
+            onDanDuong={onDanDuongPlace}
             onClose={() => setPlacesOpen(false)}
           />
         </Popover>
@@ -1543,6 +1548,7 @@ function DiemPanel({
   places,
   onPlaces,
   onGoPlace,
+  onDanDuong,
   onClose,
 }: {
   cursor?: { lat: number; lon: number } | null;
@@ -1555,6 +1561,7 @@ function DiemPanel({
   places: SavedPlace[];
   onPlaces: (next: SavedPlace[]) => void;
   onGoPlace: (lat: number, lon: number) => void;
+  onDanDuong?: (lat: number, lon: number, ten: string) => void;
   onClose: () => void;
 }) {
   const [addOpenLocal, setAddOpenLocal] = useState(false);
@@ -1610,6 +1617,7 @@ function DiemPanel({
           places={places}
           onPlaces={onPlaces}
           onGo={onGoPlace}
+          onDanDuong={onDanDuong}
           onClose={onClose}
         />
       </div>

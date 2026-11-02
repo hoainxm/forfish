@@ -96,7 +96,9 @@ export type NavVoiceInput = {
   gps: NavStatus;
   alerts: readonly NavAlert[];
   border: { step: number; distanceNm: number; level: "ok" | "near" | "very_near" } | null;
-  offRoute: { step: number; km: number } | null;
+  offRoute: { step: number; km: number; ben?: "trái" | "phải" | null; huongVeDeg?: number | null } | null;
+  /** đang dẫn theo tuyến (câu "đã về lại đường" chỉ khi còn tuyến) */
+  coTuyen?: boolean;
   info: { id: string; cau: string } | null;
   storm: StormStatus;
   depthHere: number | null;
@@ -562,6 +564,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
       alerts: inp.alerts,
       border: inp.border,
       offRoute: inp.offRoute,
+      coTuyen: inp.coTuyen,
       gps: inp.gps,
       info: inp.info,
       storm: stormObs,
@@ -592,6 +595,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     inp.alerts,
     inp.border,
     inp.offRoute,
+    inp.coTuyen,
     inp.gps,
     inp.info,
     stormObs,
