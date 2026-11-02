@@ -10,6 +10,7 @@ import { boDau } from "@/lib/cho-ca";
 import type { SavedPlace } from "@/lib/places";
 import { relevanceRank } from "@/lib/region";
 import { parseSpokenCoordPair } from "@/lib/parse-coord";
+import { haversineKm, type LatLon } from "@/lib/geo";
 
 export type KetQuaTim = {
   loai: "diem" | "cang";
@@ -21,6 +22,8 @@ export type KetQuaTim = {
   khoa?: string;
   lat: number;
   lon: number;
+  /** cách tàu bao xa (km) — chỉ có khi biết vị trí tàu; UI in theo đơn vị bà con chọn */
+  km?: number;
 };
 
 /** tối đa kết quả mỗi nhóm — đủ chọn, không thành danh bạ */
@@ -58,9 +61,28 @@ function batDau(q: string, ten: string): 0 | 1 {
 /**
  * Cảng theo chữ gõ. Chưa gõ ⇒ ≤6 cảng tỉnh nhà (chưa có tỉnh ⇒ 6 cảng loại I).
  * Gõ ⇒ lọc bỏ dấu theo tên + tỉnh + huyện/địa chỉ; tỉnh nhà lên trước, rồi cùng miền; ≤8.
+ *
+ * BIẾT VỊ TRÍ TÀU (`gan`, rà UI 2026-11-02 — học Vietmap "quanh đây"): chưa gõ ⇒ ≤6
+ * cảng GẦN TÀU NHẤT (ngoài biển, cảng gần là cảng chạy vào được, không phải cảng
+ * cùng tỉnh xếp theo vần); gõ ⇒ cùng mức khớp thì gần trước. Mỗi kết quả mang `km`.
  */
-export function timCang(q: string, tinhNha?: string, cangs: KetQuaTim[] = CANG_TIM_DUOC): KetQuaTim[] {
+export function timCang(
+  q: string,
+  tinhNha?: string,
+  cangs: KetQuaTim[] = CANG_TIM_DUOC,
+  gan?: LatLon | null,
+): KetQuaTim[] {
   const chu = q.trim();
+  const coKm = gan && Number.isFinite(gan.lat) && Number.isFinite(gan.lon)
+    ? cangs.map((c) => ({ ...c, km: haversineKm(gan, c) }))
+    : null;
+  if (coKm) {
+    if (!chu) return [...coKm].sort((a, b) => a.km - b.km).slice(0, TOI_DA_CANG_GOI_Y);
+    return coKm
+      .filter((c) => khop(chu, c.ten, c.phu, c.khoa))
+      .sort((a, b) => batDau(chu, a.ten) - batDau(chu, b.ten) || a.km - b.km)
+      .slice(0, TOI_DA_CANG);
+  }
   if (!chu) {
     const goiY = tinhNha
       ? cangs.filter((c) => relevanceRank(c.phu, tinhNha) === 0)

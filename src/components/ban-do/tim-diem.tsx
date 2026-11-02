@@ -12,7 +12,9 @@
   Back/Esc/chạm ngoài: Popover tự lo.
 */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AnchorIcon, CrosshairIcon, PinIcon, StarIcon } from "@/components/icons";
+import { AnchorIcon, CrosshairIcon, PinIcon, RouteIcon, StarIcon } from "@/components/icons";
+import { fmtDist, useMapPrefs } from "@/lib/map-prefs";
+import type { LatLon } from "@/lib/geo";
 import { Popover } from "@/components/ui/popover";
 import { useHome } from "@/components/ui/region-filter";
 import { SearchField } from "@/components/ui/search-field";
@@ -36,9 +38,15 @@ export function TimDiemPopover({
   onChon,
   onToaDo,
   onClose,
+  viTriTau = null,
+  onDanDuong,
 }: {
   anchor: HTMLElement | null;
   places: SavedPlace[];
+  /** vị trí tàu (GPS) — có thì cảng gần tàu lên trước, mỗi dòng ghi cách bao xa */
+  viTriTau?: LatLon | null;
+  /** có (premium, không đang dẫn đường) ⇒ mỗi dòng có nút Dẫn đường: mở bảng Lộ trình với chỗ đến đã điền */
+  onDanDuong?: (lat: number, lon: number, ten: string) => void;
   /** chọn một chỗ ⇒ cha bay tới + ghim + mở ngăn gió sóng */
   onChon: (lat: number, lon: number) => void;
   /** mở ô gõ toạ độ có sẵn (neo cùng ô) */
@@ -49,7 +57,7 @@ export function TimDiemPopover({
   const { home } = useHome();
   const tinhNha = home.province;
   const daLuu = useMemo(() => timDiemLuu(q, places), [q, places]);
-  const cang = useMemo(() => timCang(q, tinhNha), [q, tinhNha]);
+  const cang = useMemo(() => timCang(q, tinhNha, undefined, viTriTau), [q, tinhNha, viTriTau]);
   const toaDo = useMemo(() => docToaDoNhanh(q), [q]);
   const trong = q.trim() !== "" && daLuu.length === 0 && cang.length === 0 && !toaDo;
 
@@ -82,7 +90,7 @@ export function TimDiemPopover({
             <>
               <Nhom>{NHAN.daLuu}</Nhom>
               {daLuu.map((r) => (
-                <HangKetQua key={r.id} r={r} onChon={onChon} />
+                <HangKetQua key={r.id} r={r} onChon={onChon} onDanDuong={onDanDuong} />
               ))}
             </>
           )}
@@ -90,7 +98,7 @@ export function TimDiemPopover({
             <>
               <Nhom>{NHAN_CANG}</Nhom>
               {cang.map((r) => (
-                <HangKetQua key={r.id} r={r} onChon={onChon} />
+                <HangKetQua key={r.id} r={r} onChon={onChon} onDanDuong={onDanDuong} />
               ))}
             </>
           )}
@@ -110,7 +118,16 @@ function Nhom({ children }: { children: ReactNode }) {
   return <li className="px-3 pb-0.5 pt-2 text-[0.75rem] font-semibold text-muted">{children}</li>;
 }
 
-function HangKetQua({ r, onChon }: { r: KetQuaTim; onChon: (lat: number, lon: number) => void }) {
+function HangKetQua({
+  r,
+  onChon,
+  onDanDuong,
+}: {
+  r: KetQuaTim;
+  onChon: (lat: number, lon: number) => void;
+  onDanDuong?: (lat: number, lon: number, ten: string) => void;
+}) {
+  const prefs = useMapPrefs();
   const icon =
     r.loai === "cang" ? (
       <AnchorIcon className="h-5 w-5" aria-hidden />
@@ -119,22 +136,56 @@ function HangKetQua({ r, onChon }: { r: KetQuaTim; onChon: (lat: number, lon: nu
     ) : (
       <PinIcon className="h-5 w-5" aria-hidden />
     );
-  return <Hang icon={icon} ten={r.ten} phu={r.phu} onClick={() => onChon(r.lat, r.lon)} />;
+  const phu = r.km != null ? fmtDist(r.km, prefs.distUnit, r.km < 10 ? 1 : 0) : r.phu;
+  return (
+    <Hang
+      icon={icon}
+      ten={r.ten}
+      phu={phu}
+      onClick={() => onChon(r.lat, r.lon)}
+      phai={
+        onDanDuong && (
+          <button
+            type="button"
+            onClick={() => onDanDuong(r.lat, r.lon, r.ten)}
+            aria-label={`Dẫn đường tới ${r.ten}`}
+            className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full text-t1 transition active:bg-field"
+          >
+            <RouteIcon className="h-5 w-5" aria-hidden />
+          </button>
+        )
+      }
+    />
+  );
 }
 
 /** một hàng kết quả: icon 1.25rem · tên 1rem · tỉnh 0.8125rem mờ · cao --h-row */
-function Hang({ icon, ten, phu, onClick }: { icon: ReactNode; ten: string; phu?: string; onClick: () => void }) {
+function Hang({
+  icon,
+  ten,
+  phu,
+  onClick,
+  phai,
+}: {
+  icon: ReactNode;
+  ten: string;
+  phu?: string;
+  onClick: () => void;
+  /** nút phụ cuối dòng (Dẫn đường) — nằm NGOÀI nút chính, không lồng nút trong nút */
+  phai?: ReactNode;
+}) {
   return (
-    <li>
+    <li className="flex items-center">
       <button
         type="button"
         onClick={onClick}
-        className="flex min-h-(--h-row) w-full items-center gap-3 rounded-xl px-3 text-left text-navy transition active:bg-field"
+        className="flex min-h-(--h-row) min-w-0 flex-1 items-center gap-3 rounded-xl px-3 text-left text-navy transition active:bg-field"
       >
         <span className="shrink-0 text-sea">{icon}</span>
         <span className="min-w-0 flex-1 truncate text-[1rem] font-semibold">{ten}</span>
         {phu && <span className="shrink-0 text-[0.8125rem] text-muted">{phu}</span>}
       </button>
+      {phai}
     </li>
   );
 }

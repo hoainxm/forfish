@@ -538,7 +538,8 @@ export function RouteMode({
       label: p.kind === "home" ? `Cảng nhà — ${p.name}` : `Điểm đã ghim — ${p.name}`,
       coord: { lat: p.lat, lon: p.lon },
     })),
-    { id: "gps", label: "Vị trí tàu hiện tại (theo định vị)", coord: null },
+    // biết tàu ở đâu thì cho toạ độ — bản đồ vẽ được đoạn đầu + thẻ nói được "~X hải lý"
+    { id: "gps", label: "Vị trí tàu hiện tại (theo định vị)", coord: boatPos ?? null },
     {
       id: `port:${nearestPort.id}`,
       label: `Cảng ${nearestPort.name} — gần điểm đến nhất`,
@@ -546,10 +547,16 @@ export function RouteMode({
       coord: { lat: nearestPort.lat, lon: nearestPort.lon },
     },
   ];
+  /*  ĐÃ BIẾT TÀU Ở ĐÂU ⇒ ĐI TỪ CHỖ TÀU (rà UI 2026-11-02, học Vietmap: điểm đi mặc
+      định là vị trí hiện tại). Trước đây luôn lấy cảng nhà / cảng gần điểm đến ⇒ tàu
+      đang cách Cồn Cỏ 8 hải lý mà bảng tính "~82 hải lý" từ cảng nhà ở Đà Nẵng.
+      Chưa có định vị thì vẫn như cũ. Bà con đổi tay được ở bộ chọn nơi xuất phát. */
   const defaultStartId =
-    myPlaces.find((p) => p.kind === "home") != null
-      ? `place:${myPlaces.find((p) => p.kind === "home")!.id}`
-      : `port:${nearestPort.id}`;
+    boatPos != null
+      ? "gps"
+      : myPlaces.find((p) => p.kind === "home") != null
+        ? `place:${myPlaces.find((p) => p.kind === "home")!.id}`
+        : `port:${nearestPort.id}`;
   const effectiveStartId = startId || defaultStartId;
   const startChon = startOptions.find((o) => o.id === effectiveStartId);
   /** toạ độ nơi xuất phát ĐANG CHỌN — null với lựa chọn "định vị" (chưa biết) */
@@ -631,7 +638,8 @@ export function RouteMode({
       // fix gần nhất chưa quá 10 phút (tàu 8 hải lý/giờ đi chưa tới 1,5 hải lý)
       const boatFresh =
         boatPos != null && boatFixAt != null && Date.now() - boatFixAt < 10 * 60_000;
-      if (sid === "gps" && opts.gpsFallback && boatFresh && boatPos) {
+      // có fix còn tươi thì dùng luôn — khỏi hỏi GPS lại (ngoài biển mỗi lần hỏi là chờ)
+      if (sid === "gps" && boatFresh && boatPos) {
         start = { lat: boatPos.lat, lon: boatPos.lon };
         startLabel = "Vị trí tàu hiện tại";
       } else if (sid === "gps") {
@@ -1553,7 +1561,7 @@ export function RouteMode({
                 ? stops.length > 0
                   ? `Xoá toàn bộ ${stops.length} điểm và lộ trình này?`
                   : "Xoá lộ trình này?"
-                : "Xác nhận xoá"}
+                : NHAN.xoa /* nghỉ = "Xoá"; chữ "Xác nhận…" cũ bị ô vuông cắt thành "ác nhận xo" (rà UI 2026-11-02) — lần bấm thứ hai mới là xác nhận */}
             </button>
           </div>
         )}

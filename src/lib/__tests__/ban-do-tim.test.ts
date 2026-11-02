@@ -105,3 +105,30 @@ describe("ban-do-tim — ô Đi đâu? (BD-02)", () => {
     expect(docToaDoNhanh("12 26 13 abc")).toBeNull();
   });
 });
+
+describe("biết vị trí tàu — cảng gần tàu lên trước (rà UI 2026-11-02)", () => {
+  // ngoài khơi Cửa Việt / Cồn Cỏ (Quảng Trị)
+  const tau = { lat: 17.05, lon: 107.25 };
+  it("chưa gõ ⇒ ≤6 cảng gần nhất, xếp theo khoảng cách, mỗi cảng có km", () => {
+    const r = timCang("", "Khánh Hòa", undefined, tau);
+    expect(r).toHaveLength(TOI_DA_CANG_GOI_Y);
+    expect(r.every((c) => typeof c.km === "number")).toBe(true);
+    for (let i = 1; i < r.length; i++) expect(r[i].km!).toBeGreaterThanOrEqual(r[i - 1].km!);
+    expect(r[0].km!).toBeLessThan(30); // tỉnh nhà Khánh Hòa không kéo cảng xa lên đầu
+  });
+  it("gõ ⇒ vẫn lọc theo chữ, cùng mức khớp thì gần trước", () => {
+    const r = timCang("cửa", undefined, undefined, tau);
+    expect(r.length).toBeGreaterThan(0);
+    expect(r.every((c) => c.ten.toLowerCase().includes("cửa") || (c.khoa ?? "").toLowerCase().includes("cửa"))).toBe(true);
+    expect(r[0].km!).toBeLessThan(r[r.length - 1].km!);
+  });
+  it("không có vị trí ⇒ y như cũ (không km)", () => {
+    expect(timCang("", undefined)[0].km).toBeUndefined();
+  });
+  it("cảng Cồn Cỏ nằm trên ĐẢO Cồn Cỏ, không phải Cửa Việt trên đất liền", () => {
+    const c = CANG_TIM_DUOC.find((x) => x.id === "con-co")!;
+    // đảo Cồn Cỏ trong vn-islands.v1: 17.1591, 107.339
+    expect(Math.abs(c.lat - 17.1591)).toBeLessThan(0.03);
+    expect(Math.abs(c.lon - 107.339)).toBeLessThan(0.03);
+  });
+});

@@ -1934,6 +1934,7 @@ export default function FishingMapView() {
     huyDemAis();
     setPressMenu(null);
   }, [huyDemAis]);
+
   /*  ĐẾM TỚI GIÂY 3 SAU KHI MENU ĐÃ BUNG (sửa 2026-11-01 — anh Long giữ trên iPhone thật mà không ra dòng "Tàu
       quanh"). Menu 0,6 s hiện NGAY DƯỚI NGÓN: iOS Safari hay bắn `pointercancel`, ngón ướt/tàu lắc xê dịch quá 10px
       trong 3 giây, MapLibre bắt đầu kéo — cả ba trước đây đều huỷ đếm. Nay từ lúc menu bung CHỈ NHẤC TAY THẬT
@@ -3599,10 +3600,37 @@ export default function FishingMapView() {
      không thu được (NavHud). Đi ra xa thì mốc lùi trong im lặng để lần quay
      lại gần vẫn được nhắc. */
   const navOn = navMode != null || cruise;
-  /*  CON TRỎ ẨN khi bà con xoá chọn HOẶC đang dẫn đường theo tuyến (rà UI 2026-11-02:
+  /*  CON TRỎ ẨN khi bà con xoá chọn, đang dẫn đường theo tuyến, hoặc chưa có điểm thật (rà UI 2026-11-02:
       lúc dẫn đường, ghim "điểm đang xem" cũ + đường đo "310 hải lý" + dòng toạ độ con
       trỏ chỉ làm rối — Vietmap lúc dẫn đường chỉ còn tuyến và xe). Bấm Dừng là hiện lại. */
-  const troAn = pick === "cleared" || navMode != null;
+  const troAn =
+    pick === "cleared" ||
+    navMode != null ||
+    /*  CHƯA CÓ ĐIỂM THẬT (rà UI 2026-11-02): chưa định vị, chưa ghim cảng nhà, bà con
+        chưa chạm đâu ⇒ `point` là toạ độ MẶC ĐỊNH giữa biển (13°N 110°30'E). Vẽ ghim
+        nhấp nháy + "159 hải lý tới ranh giới" ở đó là dễ tưởng chỗ tàu mình. */
+    (pick === "idle" && point === DEFAULT_SEA_POINT);
+
+  /*  DẪN ĐƯỜNG TỚI MỘT CHỖ — một cửa cho menu chạm giữ và nút Dẫn đường trong ô tìm
+      (rà UI 2026-11-02, học Vietmap: chọn chỗ xong là có nút Dẫn đường ngay). Đang mở
+      bảng Lộ trình ⇒ THÊM chỗ vào chuỗi; chưa mở ⇒ mở bảng với đúng một chỗ đến. */
+  const danDuongToi = useCallback(
+    (lat: number, lon: number, ten?: string) => {
+      setPoint({ lat, lon });
+      setPick("picked");
+      if (routeMode) setStops(addStop(stops, lat, lon, ten));
+      else {
+        setRouteMode(true);
+        hideSheetForOverlay();
+        setStops(addStop(clearStops(), lat, lon, ten));
+        /*  DỌN LUÔN VẠCH CŨ (2026-08-29): dựng lại chuỗi điểm mà để vạch tuyến
+            TRƯỚC trên bản đồ là lệch danh sách. GUARD `!navMode`: đang dẫn đường
+            thật thì vạch dưới chân chuyến đang chạy không được xoá. */
+        if (!navMode) setRoute(null);
+      }
+    },
+    [routeMode, stops, setStops, hideSheetForOverlay, navMode],
+  );
   const navPos = tracking.pos;
   // memo theo fix GPS — effect dưới lệ thuộc reference này, không được đổi
   // mỗi lần vẽ lại (sẽ set state vòng lặp)
@@ -8470,6 +8498,17 @@ export default function FishingMapView() {
         <TimDiemPopover
           anchor={oTimEl}
           places={places}
+          viTriTau={tracking.status === "tracking" ? tracking.pos : null}
+          onDanDuong={
+            premiumAccess === "open" && navMode == null
+              ? (lat, lon, ten) => {
+                  setTimMo(false);
+                  setPinning(false);
+                  goToCoord(lat, lon, 10);
+                  danDuongToi(lat, lon, ten);
+                }
+              : undefined
+          }
           onClose={() => setTimMo(false)}
           onToaDo={() => {
             setTimMo(false);
@@ -8514,24 +8553,8 @@ export default function FishingMapView() {
             type="button"
             onClick={() => {
               const { lat, lon } = pressMenu;
-              setPoint({ lat, lon });
               closePressMenu();
-              if (routeMode) setStops(addStop(stops, lat, lon));
-              else {
-                setRouteMode(true);
-                hideSheetForOverlay();
-                setStops(addStop(clearStops(), lat, lon));
-                /*  DỌN LUÔN VẠCH CŨ (2026-08-29). Nhánh này DỌN SẠCH chuỗi
-                    điểm (`clearStops`) nhưng trước đây không đụng `route` ⇒
-                    bản đồ còn vẽ vạch xanh của tuyến TRƯỚC, lệch hẳn danh
-                    sách vừa dựng lại. Thẻ Dẫn đường thấy lệch thì bật băng
-                    cảnh báo, và băng đó đẩy biểu mẫu ra khỏi cửa đọc — bà con
-                    hết đường đổi xuất phát / bỏ điểm. App KHÔNG được bắt người
-                    dùng dọn hậu quả do chính app tạo ra (nguyên tắc 3).
-                    GUARD `!navMode` là bắt buộc: đang dẫn đường thật thì vạch
-                    dưới chân chuyến đang chạy TUYỆT ĐỐI không được xoá. */
-                if (!navMode) setRoute(null);
-              }
+              danDuongToi(lat, lon);
             }}
             className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-semibold text-t1 transition active:bg-field"
           >
