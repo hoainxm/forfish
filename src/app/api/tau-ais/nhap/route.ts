@@ -10,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { tauAisKeyDenied } from "@/lib/tau-ais/khoa";
 import { TAU_AIS_SNAPSHOT_ID } from "@/lib/tau-ais";
 import { saveWeatherSnapshot } from "@/lib/weather-snapshot";
+import { banGoiCanGhi, banGoiId, GOI_DOI_TAC } from "@/lib/doi-tac";
 import { gunzipSync } from "node:zlib";
 
 const TRAN_GIAI_NEN = 40 * 1024 * 1024;
@@ -47,5 +48,24 @@ export async function POST(req: Request) {
     if (error) console.error("[tàu AIS] ghi lộ trình hỏng:", error.message);
     else vet = typeof data === "number" ? data : null;
   }
-  return Response.json({ ok: true, soTau: r.ban.soTau, luc: r.ban.luc, vet });
+  /*  BẢN THEO GÓI API ĐỐI TÁC (2026-11-02, báo giá BG-AIS-2026-01: gói 60 / 30 phút): chép bản này sang `tau-ais:goi-N` khi
+      bản gói đã cũ hơn chu kỳ − 5 phút (lib/doi-tac banGoiCanGhi). Chỉ hỏi cột updated_at (không kéo vài MB payload).
+      Hỏng thì chỉ log — bản cho app đã lưu ở trên, đối tác đọc bản gói cũ thêm một nhịp. */
+  const goiGhi: number[] = [];
+  const adminGoi = admin ?? createAdminClient();
+  if (adminGoi) {
+    const { data: moc, error } = await adminGoi
+      .from("weather_snapshot")
+      .select("id, updated_at")
+      .in("id", GOI_DOI_TAC.map(banGoiId));
+    if (error) console.error("[tàu AIS] đọc mốc bản gói hỏng:", error.message);
+    else {
+      const now = Date.now();
+      for (const goi of GOI_DOI_TAC) {
+        const dong = (moc as { id: string; updated_at: string }[]).find((d) => d.id === banGoiId(goi));
+        if (banGoiCanGhi(dong?.updated_at, now, goi) && (await saveWeatherSnapshot(banGoiId(goi), r.ban))) goiGhi.push(goi);
+      }
+    }
+  }
+  return Response.json({ ok: true, soTau: r.ban.soTau, luc: r.ban.luc, vet, goiGhi });
 }

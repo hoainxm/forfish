@@ -13,7 +13,8 @@ export type ConfigKey =
   | "kairos_ingest_key"
   | "tau_ais_key"
   | "tau_ais_xem"
-  | "sdvico_lead_key";
+  | "sdvico_lead_key"
+  | "doi_tac_ais";
 
 export interface ConfigKeyMeta {
   key: ConfigKey;
@@ -152,6 +153,17 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     generate: "hex32",
     help: "AI Assistant gửi kèm khoá này (header x-sdvico-key) khi lấy phiếu khách để nhắn nhóm Zalo KD. Bấm Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào cấu hình AI Assistant.",
   },
+  /*  KHOÁ ĐỐI TÁC TÍCH HỢP AIS (2026-11-02): đơn vị tích hợp gọi /api/doi-tac/v1/* kèm `Authorization: Bearer <token>`.
+      Ô chỉ giữ BĂM "ten:sha256hex:khu:goi,…" (lib/doi-tac) — token rõ in một lần lúc cấp bằng scripts/doi-tac-khoa.mjs.
+      Thiếu ⇒ API đối tác 503, không bao giờ mở. */
+  {
+    key: "doi_tac_ais",
+    label: "Khoá đơn vị tích hợp AIS",
+    risk: "Xoá một mục là đơn vị đó mất quyền lấy dữ liệu tàu sau tối đa 30 giây; dán sai khuôn là mọi đơn vị tích hợp bị chặn.",
+    secret: true,
+    envVar: "DOI_TAC_AIS",
+    help: "Dạng ten:sha256hex:khu:goi (vd …:135:60 = khu 1,3,5 gói 60 phút), cách nhau dấu phẩy. Đừng gõ tay — cấp/thu bằng: node scripts/doi-tac-khoa.mjs cap <ten> --khu 135 --goi 60 | thu <ten> | ds.",
+  },
 ];
 
 /** Khoá dữ liệu phải đúng 64 ký tự hex (32 byte). */
@@ -184,6 +196,8 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
       return v.length >= 16 && !/\s/.test(v);
     case "tau_ais_xem":
       return danhSachSdtHopLe(v);
+    case "doi_tac_ais":
+      return v.split(",").map((s) => s.trim()).filter(Boolean).every((s) => /^[a-z0-9][a-z0-9-]{1,39}:[0-9a-f]{64}:[1-5]{1,5}:(30|60)$/.test(s)); // = MUC_KHOA_DOI_TAC (lib/doi-tac)
     case "kairos_ingest_key":
     case "tau_ais_key":
     case "sdvico_lead_key":
