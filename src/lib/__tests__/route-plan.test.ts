@@ -11,6 +11,8 @@ import {
   formatHoursVN,
   haversineKm,
   kmToNm,
+  MOC_KM,
+  gonMoc,
   planRoute,
   sampleField,
   speedFactor,
@@ -887,13 +889,43 @@ describe("bboxOfPoints — khung bao trọn chuỗi điểm (đường đi nhi�
 });
 
 describe("waypoint sạch (E1)", () => {
-  it("biển êm đường thẳng: không còn điểm giữa có góc rẽ < 3°", () => {
+  it("biển êm đường thẳng: điểm giữa <3° CHỈ là mốc chia đều (mỗi khúc ≤ MOC_KM, không thừa mốc)", () => {
     const p = plan(makeField(BB, 7, calm));
     expect(p).not.toBeNull();
     const w = p!.waypoints;
     for (let i = 1; i < w.length - 1; i++) {
-      expect(Math.abs(angleDiffDeg(bearingDeg(w[i - 1], w[i]), bearingDeg(w[i], w[i + 1])))).toBeGreaterThanOrEqual(3);
+      const thang = Math.abs(angleDiffDeg(bearingDeg(w[i - 1], w[i]), bearingDeg(w[i], w[i + 1]))) < 3;
+      // mốc thẳng hàng chỉ có khi hai khúc kề cộng lại dài hơn MOC_KM (không thì đã bị gộp)
+      if (thang) expect(haversineKm(w[i - 1], w[i]) + haversineKm(w[i], w[i + 1])).toBeGreaterThan(MOC_KM);
     }
+    for (let i = 1; i < w.length; i++) expect(haversineKm(w[i - 1], w[i])).toBeLessThanOrEqual(MOC_KM + 1e-6);
     expect(p!.hoursAt.length).toBe(w.length);
+    expect(p!.segRisks.length).toBe(w.length - 1);
+  });
+});
+
+describe("gonMoc — gộp điểm thẳng hàng, chia mốc chặng dài (rà 2026-11-02)", () => {
+  const A = { lat: 10, lon: 107 };
+  const B = { lat: 10, lon: 109 }; // ~219 km
+  it("đường thẳng chia theo bước lưới (nhiều điểm 0°) ⇒ gộp rồi chia đều mỗi ≤ MOC_KM", () => {
+    const pts = Array.from({ length: 41 }, (_, k) => ({ lat: 10, lon: 107 + (2 * k) / 40 }));
+    const r = gonMoc({
+      waypoints: pts,
+      hoursAt: pts.map((_, k) => k * 0.25),
+      segRisks: pts.slice(1).map((_, k) => (k === 20 ? "red" : "blue")),
+    });
+    expect(r.waypoints.length).toBe(Math.ceil(haversineKm(A, B) / MOC_KM) + 1);
+    expect(r.hoursAt[r.hoursAt.length - 1]).toBeCloseTo(10, 6);
+    expect(r.segRisks).toContain("red"); // gộp giữ mức nặng
+    expect(r.segRisks.length).toBe(r.waypoints.length - 1);
+  });
+  it("khúc ngắn hơn MOC_KM và chỗ rẽ thật giữ nguyên", () => {
+    const w = [A, { lat: 10.1, lon: 107.1 }, { lat: 10, lon: 107.2 }];
+    const r = gonMoc({ waypoints: w, hoursAt: [0, 1, 2], segRisks: ["blue", "amber"] });
+    expect(r.waypoints).toEqual(w);
+  });
+  it("mảng lệch độ dài ⇒ trả nguyên (không đoán)", () => {
+    const p = { waypoints: [A, B], hoursAt: [0], segRisks: ["blue" as const] };
+    expect(gonMoc(p)).toBe(p);
   });
 });

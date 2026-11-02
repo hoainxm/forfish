@@ -1709,7 +1709,7 @@ function planAttempt(
     directWalk.landKm <= chosen.landKm + 0.05 &&
     chosen.distSum > directDist * MAX_DETOUR_RATIO
   ) {
-    return {
+    return gonMoc({
       waypoints: directPts,
       distKm: directWalk.distSum,
       hours: directWalk.hoursSum,
@@ -1744,10 +1744,10 @@ function planAttempt(
       noWeatherKm: directWalk.noWeatherKm,
       weatherSeen: directWalk.weatherSeen,
       forecast,
-    };
+    });
   }
 
-  return {
+  return gonMoc({
     waypoints,
     distKm: chosen.distSum,
     hours: chosen.hoursSum,
@@ -1777,7 +1777,50 @@ function planAttempt(
     noWeatherKm: chosen.noWeatherKm,
     weatherSeen: chosen.weatherSeen,
     forecast,
-  };
+  });
+}
+
+/*  MỐC GIỮA TRÊN CHẶNG THẲNG DÀI (rà 2026-11-02, "chia mốc như Vietmap"). Thuyền trưởng
+    gõ điểm sang máy định vị / đối chiếu hải đồ quen có mốc chừng 20–30 hải lý một lần;
+    trước đây chặng thẳng 100 km chỉ có hai đầu. Còn ngược lại: nhánh trần-đường-vòng
+    trả đường thẳng CHIA THEO BƯỚC LƯỚI (4–8 km) ⇒ hàng chục "chỗ đổi hướng" 0°.
+    Hậu xử lý MỘT chỗ cho mọi tuyến trả về: (1) bỏ điểm giữa thẳng hàng (<3°, nằm trên
+    cạnh nối ≤50 m) — gộp mức rủi ro hai khúc về mức nặng hơn; (2) chia khúc dài hơn
+    MOC_KM thành các khúc bằng nhau. Hình học không đổi (điểm chèn nằm trên đoạn nối
+    `lerp` — đúng đoạn `legCost` đã kiểm), `hoursAt` nội suy, `segRisks` lặp lại. */
+export const MOC_KM = 25 * KMH_PER_KNOT;
+const RISK_RANK: Record<LegRisk, number> = { blue: 0, amber: 1, red: 2 };
+
+export function gonMoc<T extends Pick<RoutePlan, "waypoints" | "hoursAt" | "segRisks">>(p: T, mocKm = MOC_KM): T {
+  const n = p.waypoints.length;
+  if (n < 2 || p.hoursAt.length !== n || p.segRisks.length !== n - 1) return p;
+  // (1) bỏ điểm thẳng hàng
+  const w = [...p.waypoints];
+  const h = [...p.hoursAt];
+  const r = [...p.segRisks];
+  for (let k = 1; k < w.length - 1; ) {
+    const turn = Math.abs(angleDiffDeg(bearingDeg(w[k - 1], w[k]), bearingDeg(w[k], w[k + 1])));
+    const lech = haversineKm(w[k - 1], w[k]) + haversineKm(w[k], w[k + 1]) - haversineKm(w[k - 1], w[k + 1]);
+    if (turn < MIN_TURN_DEG && lech <= 0.05) {
+      r.splice(k - 1, 2, RISK_RANK[r[k - 1]] >= RISK_RANK[r[k]] ? r[k - 1] : r[k]);
+      w.splice(k, 1);
+      h.splice(k, 1);
+    } else k++;
+  }
+  // (2) chia khúc dài
+  const W: LatLon[] = [w[0]];
+  const H: number[] = [h[0]];
+  const R: LegRisk[] = [];
+  for (let k = 0; k < w.length - 1; k++) {
+    const parts = Math.max(1, Math.ceil(haversineKm(w[k], w[k + 1]) / mocKm));
+    for (let j = 1; j <= parts; j++) {
+      const t = j / parts;
+      W.push(j === parts ? w[k + 1] : lerp(w[k], w[k + 1], t));
+      H.push(h[k] + (h[k + 1] - h[k]) * t);
+      R.push(r[k]);
+    }
+  }
+  return { ...p, waypoints: W, hoursAt: H, segRisks: R };
 }
 
 // ── helpers hiển thị / thời gian ─────────────────────────────────────────

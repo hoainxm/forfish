@@ -89,6 +89,7 @@ import { fetchReefDepth, reefDepthInBBox } from "@/lib/reef-depth";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
 import { parseCoordPair } from "@/lib/parse-coord";
+import { OToaDo } from "@/components/ui/o-toa-do";
 import {
   AlertIcon,
   AnchorIcon,
@@ -711,6 +712,29 @@ export function RouteMode({
           );
           return;
         }
+      }
+      /*  NGOÀI VÙNG MÁY TÍNH ĐƯỢC (rà 2026-11-02): khung tính đường kẹp trong VN_SEA ⇒ điểm
+          ngoài khung (Malaysia, Philippines…) trước đây cho tuyến kết thúc lơ lửng ở biên hoặc
+          câu "chưa tìm được đường" chung chung. Nay nói THẲNG điểm nào, khung là gì, và vẫn vẽ
+          đường thẳng tham khảo hướng (không phải đường an toàn). */
+      const ngoai = legPts.findIndex(
+        (p) => p.lat < VN_SEA.latMin || p.lat > VN_SEA.latMax || p.lon < VN_SEA.lonMin || p.lon > VN_SEA.lonMax,
+      );
+      if (ngoai >= 0) {
+        const ten =
+          ngoai === 0
+            ? "Nơi xuất phát"
+            : ngoai < legPts.length - 1
+              ? `Điểm ghé ${ngoai}`
+              : "Điểm đến";
+        const p = legPts[ngoai];
+        onDuongThang?.({ a: legPts[Math.max(0, ngoai - 1)], b: ngoai === 0 ? legPts[1] : p, cho: null });
+        setError(
+          `${ten} (${fmtCoordPair(p.lat, p.lon, prefs.coordFormat)}) nằm ngoài vùng biển máy tính đường được ` +
+            `(vĩ độ ${VN_SEA.latMin}–${String(VN_SEA.latMax).replace(".", ",")}° Bắc, kinh độ ${VN_SEA.lonMin}–${VN_SEA.lonMax}° Đông). ` +
+            "Máy vẽ đường thẳng nét đứt để bà con biết hướng — không phải đường an toàn; dò hải đồ và nghe đài.",
+        );
+        return;
       }
 
       const boat: BoatProfile = {
@@ -1993,26 +2017,28 @@ export function RouteMode({
 
               {/* GÕ TOẠ ĐỘ — nguồn thứ ba, cùng luật đọc với ô "Đến điểm" */}
               <div className="rounded-xl bg-card p-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <input
+                <div className="space-y-2">
+                  <OToaDo
+                    axis="lat"
                     value={coordLat}
-                    onChange={(e) => {
-                      setCoordLat(e.target.value);
+                    onChange={(v) => {
+                      setCoordLat(v);
                       setCoordErr(false);
                     }}
+                    label="Vĩ độ của điểm muốn thêm"
                     placeholder={`Vĩ độ (vd: ${egCoord.lat})`}
-                    aria-label="Vĩ độ của điểm muốn thêm"
-                    className="min-h-[3.25rem] w-full rounded-xl bg-background px-3 text-[1rem] font-semibold text-navy"
+                    nen="bg-background"
                   />
-                  <input
+                  <OToaDo
+                    axis="lon"
                     value={coordLon}
-                    onChange={(e) => {
-                      setCoordLon(e.target.value);
+                    onChange={(v) => {
+                      setCoordLon(v);
                       setCoordErr(false);
                     }}
+                    label="Kinh độ của điểm muốn thêm"
                     placeholder={`Kinh độ (vd: ${egCoord.lon})`}
-                    aria-label="Kinh độ của điểm muốn thêm"
-                    className="min-h-[3.25rem] w-full rounded-xl bg-background px-3 text-[1rem] font-semibold text-navy"
+                    nen="bg-background"
                   />
                 </div>
                 {coordErr && (
@@ -2546,7 +2572,9 @@ export function RouteMode({
                           ? "Điểm đến"
                           : r.kind === "stop"
                             ? `Điểm dừng ${r.stopNo}`
-                            : "Đổi hướng";
+                            : r.thang
+                              ? "Mốc giữa"
+                              : "Đổi hướng";
                     const sub =
                       r.kind === "start" ? result?.startLabel || undefined : name;
                     return (

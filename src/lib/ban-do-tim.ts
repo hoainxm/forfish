@@ -9,7 +9,7 @@ import { FISHING_PORTS, PORT_COORD_SAI } from "@/data/fishing-ports";
 import { boDau } from "@/lib/cho-ca";
 import type { SavedPlace } from "@/lib/places";
 import { relevanceRank } from "@/lib/region";
-import { parseSpokenCoordPair } from "@/lib/parse-coord";
+import { parseOneCoord, parseSpokenCoordPair } from "@/lib/parse-coord";
 import { haversineKm, type LatLon } from "@/lib/geo";
 
 export type KetQuaTim = {
@@ -129,11 +129,22 @@ export function timDiemLuu(q: string, places: SavedPlace[]): KetQuaTim[] {
 const HAI_SO = /^\s*(-?\d+(?:[.,]\d+)?)\s*[, ]\s*(-?\d+(?:[.,]\d+)?)\s*$/;
 
 /** toạ độ gõ nhanh trong ô tìm; ngoài phạm vi lat ±90 / lon ±180 ⇒ null */
+/*  "1507.2N 10857.0E" — kiểu dính liền độ-phút (máy GPS / VMS): hai cụm số, mỗi cụm có thể
+    kèm chữ hướng, đọc từng trục bằng `parseOneCoord` (một luật cho cả ô tìm lẫn ô gõ). */
+const HAI_CUM = /^\s*([NSBnsb]?\s*[\d.,]+\s*[NSBnsb]?)[\s,;]+([EWĐDTewđdt]?\s*[\d.,]+\s*[EWĐDTewđdt]?)\s*$/;
+function dinhLien(q: string): { lat: number; lon: number } | null {
+  const m = HAI_CUM.exec(q);
+  if (!m) return null;
+  const lat = parseOneCoord(m[1], "lat");
+  const lon = parseOneCoord(m[2], "lon");
+  return lat != null && lon != null ? { lat, lon } : null;
+}
+
 export function docToaDoNhanh(q: string): { lat: number; lon: number } | null {
   const chung = parseSpokenCoordPair(q);
   if (chung) return chung;
   const m = HAI_SO.exec(q);
-  if (!m) return null;
+  if (!m) return dinhLien(q);
   const lat = Number(m[1].replace(",", "."));
   const lon = Number(m[2].replace(",", "."));
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;

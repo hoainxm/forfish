@@ -67,6 +67,7 @@ import {
   WindIcon,
 } from "@/components/icons";
 import { parseCoordPair } from "@/lib/parse-coord";
+import { OToaDo } from "@/components/ui/o-toa-do";
 import { CloseButton } from "@/components/ui/close-button";
 import { AppVersionLine } from "@/components/app-version-line";
 import { VoiceSettingsSection } from "@/components/nav-voice-ui";
@@ -644,6 +645,7 @@ export function RaKhoiControls({
         >
           <GoToPointPopup
             onGoCoord={onGoCoord}
+            onDanDuong={onDanDuongPlace ? (lat, lon) => onDanDuongPlace(lat, lon, "") : undefined}
             onClose={() => setCoordOpen(false)}
           />
         </Popover>
@@ -1630,9 +1632,12 @@ function DiemPanel({
 // mạng — thuần đọc chuỗi rồi bay tới điểm.
 function GoToPointPopup({
   onGoCoord,
+  onDanDuong,
   onClose,
 }: {
   onGoCoord: (lat: number, lon: number) => void;
+  /** có (premium, không đang dẫn) ⇒ nút "Dẫn đường" cạnh "Đến điểm": đi thẳng tới toạ độ vừa gõ */
+  onDanDuong?: (lat: number, lon: number) => void;
   onClose: () => void;
 }) {
   const prefs = useMapPrefs();
@@ -1645,63 +1650,71 @@ function GoToPointPopup({
       ? { lat: "8 30", lon: "109 18" }
       : { lat: "8,5", lon: "109,3" };
 
-  const submit = () => {
+  const submit = (diLuon = false) => {
     const pair = parseCoordPair(latText, lonText);
     if (!pair) {
       setErr("Định dạng toạ độ chưa đúng. Bà con xem lại ví dụ bên dưới nhé.");
       return;
     }
-    onGoCoord(pair.lat, pair.lon);
+    if (diLuon && onDanDuong) onDanDuong(pair.lat, pair.lon);
+    else onGoCoord(pair.lat, pair.lon);
     onClose();
   };
 
   return (
     <div>
       <PanelHeader title="Đến điểm — nhập toạ độ" onClose={onClose} />
-      <label className="mb-2 block">
-        <input
-          type="text"
-          inputMode="text"
+      {/*  Ô GÕ TỰ NHẢY (ui/o-toa-do): độ → phút → giây sang ô kế khi gõ đủ; hệ độ thập phân một ô */}
+      <div className="mb-2 space-y-2">
+        <OToaDo
+          axis="lat"
           value={latText}
-          onChange={(e) => {
-            setLatText(e.target.value);
+          onChange={(v) => {
+            setLatText(v);
             setErr(null);
           }}
-          placeholder={`vd ${eg.lat}`}
-          aria-label="Vĩ độ"
-          className="min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] font-semibold tabular-nums text-navy outline-none focus:ring-2 focus:ring-t1"
+          label="Vĩ độ"
+          placeholder={`Vĩ độ, vd ${eg.lat}`}
         />
-      </label>
-      <label className="mb-2 block">
-        <input
-          type="text"
-          inputMode="text"
+        <OToaDo
+          axis="lon"
           value={lonText}
-          onChange={(e) => {
-            setLonText(e.target.value);
+          onChange={(v) => {
+            setLonText(v);
             setErr(null);
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-          }}
-          placeholder={`vd ${eg.lon}`}
-          aria-label="Kinh độ"
-          className="min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] font-semibold tabular-nums text-navy outline-none focus:ring-2 focus:ring-t1"
+          onEnter={() => submit()}
+          label="Kinh độ"
+          placeholder={`Kinh độ, vd ${eg.lon}`}
         />
-      </label>
+      </div>
       {err && (
         <p className="mb-2 flex items-start gap-1.5 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.8125rem] font-semibold leading-snug text-warn">
           <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{err}</span>
         </p>
       )}
-      <button
-        type="button"
-        onClick={submit}
-        className="min-h-[3.25rem] w-full rounded-xl bg-navy text-[1rem] font-semibold text-white transition active:scale-[0.99]"
-      >
-        Đến điểm
-      </button>
+      {/*  HAI VIỆC MỘT HÀNG (rà 2026-11-02): "Đến điểm" = bay tới xem gió sóng · "Dẫn đường" =
+           mở bảng Lộ trình tới đúng toạ độ đó và tính luôn (trước phải bay tới rồi bấm thêm). */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => submit()}
+          className="min-h-[3.25rem] flex-1 rounded-xl bg-navy text-[1rem] font-semibold text-white transition active:scale-[0.99]"
+        >
+          Đến điểm
+        </button>
+        {onDanDuong && (
+          <button
+            type="button"
+            onClick={() => submit(true)}
+            className="flex min-h-[3.25rem] flex-1 items-center justify-center gap-1.5 rounded-xl bg-t1 text-[1rem] font-semibold text-white transition active:scale-[0.99]"
+          >
+            <RouteIcon className="h-5 w-5" aria-hidden />
+            {NHAN.dauDuong}
+          </button>
+        )}
+      </div>
       {/*  ĐÃ BỎ đoạn "Gõ độ-phút (vd 8 30) hoặc độ thập phân… thêm chữ S/W
            hoặc dấu trừ" (2026-08-29). Ví dụ gõ đã nằm ngay trong placeholder
            của chính ô, theo đúng hệ đang cài — nhắc lại ở dưới là dạy lại thứ

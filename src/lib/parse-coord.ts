@@ -70,6 +70,21 @@ export function parseOneCoord(raw: string, axis: CoordAxis): number | null {
   if (nums.length === 0 || nums.length > 3) return null;
   if (nums.some((n) => !Number.isFinite(n))) return null;
 
+  /*  KIỂU DÍNH LIỀN ĐỘ-PHÚT "1507.2" / "10857.0" (máy GPS, máy VMS, bản in — kiểu NMEA
+      DDMM.m / DDDMM.m; rà 2026-11-02). Chỉ khi MỘT số, vượt khung độ thập phân (>90 vĩ /
+      >180 kinh) và phần nguyên đúng 4 (vĩ) hoặc 4–5 (kinh) chữ số: hai chữ số cuối phần
+      nguyên là phút. Phút ≥60 thì không đoán. */
+  if (nums.length === 1 && nums[0] > MAX_ABS[axis]) {
+    const nguyen = String(Math.trunc(nums[0]));
+    const ok = axis === "lat" ? nguyen.length === 4 : nguyen.length === 4 || nguyen.length === 5;
+    if (!ok) return null;
+    const deg = Math.trunc(nums[0] / 100);
+    const min = nums[0] - deg * 100;
+    if (min >= 60) return null;
+    const v = sign * (deg + min / 60);
+    return Math.abs(v) > MAX_ABS[axis] ? null : v;
+  }
+
   const [deg, min = 0, sec = 0] = nums;
   // phút/giây phải < 60 (trừ khi chỉ có 1 số = độ thập phân thuần)
   if (nums.length >= 2 && (min >= 60 || sec >= 60)) return null;

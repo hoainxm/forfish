@@ -75,3 +75,22 @@ describe("parseCoordPair", () => {
     expect(parseCoordPair("95", "109")).toBeNull();
   });
 });
+
+describe("kiểu dính liền độ-phút DDMM.m (máy GPS / VMS, rà 2026-11-02)", () => {
+  it("vĩ 4 chữ số, kinh 4–5 chữ số", () => {
+    expect(parseOneCoord("1507.2", "lat")).toBeCloseTo(15.12, 6);
+    expect(parseOneCoord("1507.2N", "lat")).toBeCloseTo(15.12, 6);
+    expect(parseOneCoord("10857.0", "lon")).toBeCloseTo(108.95, 6);
+    expect(parseOneCoord("9930.5E", "lon")).toBeCloseTo(99.508333, 5);
+    expect(parseOneCoord("0830.0S", "lat")).toBeNull(); // "0830" → 830 (3 chữ số) — không đoán
+  });
+  it("phút ≥60 hoặc số dài lạ ⇒ không đoán", () => {
+    expect(parseOneCoord("1575.0", "lat")).toBeNull();
+    expect(parseOneCoord("123456", "lat")).toBeNull();
+    expect(parseOneCoord("95", "lat")).toBeNull();
+  });
+  it("độ thập phân thường không bị đọc nhầm thành dính liền", () => {
+    expect(parseOneCoord("15.12", "lat")).toBe(15.12);
+    expect(parseOneCoord("108.95", "lon")).toBe(108.95);
+  });
+});

@@ -132,3 +132,16 @@ describe("biết vị trí tàu — cảng gần tàu lên trước (rà UI 2026
     expect(Math.abs(c.lon - 107.339)).toBeLessThan(0.03);
   });
 });
+
+describe("docToaDoNhanh — kiểu dính liền máy GPS", async () => {
+  const { docToaDoNhanh } = await import("@/lib/ban-do-tim");
+  it("1507.2N 10857.0E", () => {
+    const r = docToaDoNhanh("1507.2N 10857.0E");
+    expect(r?.lat).toBeCloseTo(15.12, 6);
+    expect(r?.lon).toBeCloseTo(108.95, 6);
+    expect(docToaDoNhanh("1507.2 10857.0")?.lon).toBeCloseTo(108.95, 6);
+  });
+  it("chữ không phải toạ độ ⇒ null", () => {
+    expect(docToaDoNhanh("Lý Sơn")).toBeNull();
+  });
+});

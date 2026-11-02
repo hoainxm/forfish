@@ -4,7 +4,7 @@
 // con không đọc được toạ độ chỗ bẻ lái để gõ sang máy định vị của tàu.
 // THUẦN LOGIC (không React, không MapLibre) để test được.
 
-import type { LatLon } from "@/lib/route-plan";
+import { angleDiffDeg, bearingDeg, type LatLon } from "@/lib/route-plan";
 import { cumulativeKmAt } from "@/lib/route-legs";
 
 /** start = nơi xuất phát · turn = chỗ đổi hướng · stop = chỗ ghé giữa đường · dest = điểm cuối */
@@ -23,6 +23,8 @@ export interface RoutePointRow {
    *  `idx` nên chỗ ghé chiếm số: "Điểm 4 → Điểm dừng 1 → Điểm dừng 2 → Điểm 7",
    *  bà con tưởng mất Điểm 5, 6. */
   turnNo?: number;
+  /** `turn` mà tàu đi THẲNG qua (<3°) — mốc chia chặng dài (`gonMoc`), danh sách ghi "Mốc giữa" */
+  thang?: boolean;
   /** km dọc tuyến tính từ nơi xuất phát */
   km: number;
   /** giờ chạy máy cộng dồn tới điểm này — null khi tuyến không mang `hoursAt` khớp độ dài */
@@ -66,7 +68,11 @@ export function routePointRows(
     };
     if (kind === "dest") row.stopNo = stopWpIdx.length || 1;
     else if (kind === "stop") row.stopNo = stopNoAt.get(i);
-    else if (kind === "turn") row.turnNo = ++turns;
+    else if (kind === "turn") {
+      row.turnNo = ++turns;
+      const goc = Math.abs(angleDiffDeg(bearingDeg(waypoints[i - 1], p), bearingDeg(p, waypoints[i + 1])));
+      if (goc < 3) row.thang = true;
+    }
     return row;
   });
 }

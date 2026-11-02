@@ -3712,7 +3712,7 @@ export default function FishingMapView() {
     (lat: number, lon: number, ten?: string) => {
       setPinning(false);
       goToCoord(lat, lon, 10);
-      danDuongToi(lat, lon, ten);
+      danDuongToi(lat, lon, ten || undefined); // toạ độ gõ tay không có tên ⇒ hàng hiện toạ độ
     },
     [goToCoord, danDuongToi],
   );
@@ -4643,6 +4643,19 @@ export default function FishingMapView() {
     },
     [goToCoord, stops.length, senSay, navMode, routeMode, setStops],
   );
+  /*  MỞ BẢNG LỘ TRÌNH BẰNG NÚT RAIL mà đã có điểm đến, chưa có tuyến ⇒ TỰ TÍNH (anh Long
+      2026-11-02: "sao vẫn còn cái nút tính đường thế?"). Trước chỉ các lối "Dẫn đường"
+      bắn tín hiệu tự tính; mở lại bảng với chuỗi điểm cũ thì vẫn bắt bấm "Tính đường".
+      Lối khác đã xin tự tính (bộ đếm >0 lúc mở) thì thôi, khỏi tính hai lần. Nút "Tính
+      đường" giữ cho lúc sửa chuỗi điểm rồi muốn tính lại. */
+  const routeModeTruoc = useRef(false);
+  useEffect(() => {
+    const vuaMo = routeMode && !routeModeTruoc.current;
+    routeModeTruoc.current = routeMode;
+    if (!vuaMo || navMode != null || route != null || stops.length === 0 || senAutoCompute > 0) return;
+    setSenAutoCompute((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo lúc bảng vừa mở
+  }, [routeMode]);
   // bà con đóng khung giữa chừng ⇒ bỏ lượt chờ, đừng để lần mở sau tự tính
   useEffect(() => {
     if (routeMode) return;

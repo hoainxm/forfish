@@ -63,3 +63,13 @@ describe("routePointRows", () => {
     expect(rows[1]).toMatchObject({ lat: 10.123456, lon: 107.654321 });
   });
 });
+
+describe("mốc giữa chặng thẳng (rà 2026-11-02)", () => {
+  it("điểm thẳng hàng ⇒ thang = true; chỗ rẽ thật ⇒ không", () => {
+    const w = [{ lat: 10, lon: 107 }, { lat: 10, lon: 107.5 }, { lat: 10, lon: 108 }, { lat: 10.5, lon: 108.2 }];
+    const rows = routePointRows(w, [3]);
+    expect(rows[1].thang).toBe(true);
+    expect(rows[2].thang).toBeUndefined();
+    expect(rows.map((r) => r.turnNo)).toEqual([undefined, 1, 2, undefined]);
+  });
+});

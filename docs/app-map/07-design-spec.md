@@ -6,6 +6,7 @@
 covers: src/app, src/components
 last_verified: 2026-11-02
 ttl_days: 90
+<!-- re-verified: 2026-11-02x — §10.7 W: mốc giữa chặng dài (gonMoc), toạ độ dính liền DDMM.m, Dẫn đường từ dòng toạ độ + ô Toạ độ, báo ngoài vùng VN_SEA, ô gõ toạ độ tự nhảy độ→phút→giây (ui/o-toa-do), mở bảng Lộ trình có điểm ⇒ tự tính. -->
 <!-- re-verified: 2026-11-02v — §10.7 V: rà lại dẫn đường đối chiếu Vietmap lượt 2 (tự tính khi chọn đích, nút dẫn đường ở Điểm lưu + thẻ điểm, dock ẩn khi dẫn, HUD trần 2 dòng, camera ngược hướng chạy, Về tàu, Xong/tự dừng, Chạy tiếp, Vẽ lại, đường thẳng dự phòng, một bảng một lúc cho Lộ trình). -->
 <!-- re-verified: 2026-11-02 — DOCK NỔI GIỮA MÀN sau khi đóng bàn phím (anh Long chụp Kairos: "lỗi cái bar dính ngang màn hình"): WebKit iOS có lúc để vùng nhìn lệch (`visualViewport.offsetTop` > 0) dù bàn phím đã đóng ⇒ dock/nút nổi `fixed` vẽ theo chỗ cũ. `viewport-gap-fix.tsx` thêm `vungNhinKet` + hiệu ứng cho MỌI chế độ iOS: 250 ms sau `focusout`/`resize`, không đang gõ mà còn kẹt ⇒ `scrollTo` đúng chỗ đang đứng để WebKit đặt lại vùng nhìn (không đổi vị trí đọc). Chưa tái hiện được trên máy thật — cần kiểm lại trên iPhone. -->
 <!-- re-verified: 2026-10-30n — Không đổi màn hình: đặt hàng trả mã đơn sớm hơn (thông báo chủ shop chạy sau), tải ảnh giấy tờ sai định dạng vẫn báo câu lỗi cũ (`bad_type`). -->
@@ -1602,6 +1603,14 @@ Mức của một hàng do DỮ LIỆU quyết (luồng thiếu nước là vàn
   10. *Một bảng một lúc cho bảng Lộ trình:* rail (Lớp/⋯/Toạ độ/Điểm lưu) hoặc ô tìm mở ⇒ bảng Lộ trình thu (chuỗi điểm + tuyến giữ); bảng mở ⇒ ô tìm đóng. Ngoại lệ có chủ ý: thẻ Sen Biển đi cùng bảng trong luồng rảnh tay (đang hỏi "đi?").
   11. *Chữ bảng Lộ trình:* "Máy chưa soát hết đường này" (thay "chưa đối chiếu đủ"), "Đi vòng không lợi hơn" (thay "đáng tiền"), "Độ sâu máy chỉ tính sơ" (thay "Lưới độ sâu ô ~450 m").
   Chưa làm: chạy nền khi tắt màn (cần plugin native + bản build cửa hàng); nhắc pin trên iPhone (Safari không có `getBattery`). Ngưỡng 5 phút đứng yên / 10 giây chạy tiếp / 5 km vẽ lại / trần 2 dòng là mặc định tự đặt — chưa chạy thử ngoài biển.
+- **W. ĐIỂM RẼ · MỐC · TOẠ ĐỘ (anh Long "Sửa cả 4" + "gõ thông minh", 2026-11-02):**
+  1. *Mốc giữa chặng thẳng dài* (`route-plan gonMoc`, hậu xử lý mọi tuyến trả về): gộp điểm thẳng hàng (<3°, nằm trên cạnh nối ≤50 m — hết hàng chục "chỗ đổi hướng" 0° của nhánh đường thẳng chia theo bước lưới) rồi chia khúc dài hơn 25 hải lý (`MOC_KM`) thành các khúc bằng nhau. Danh sách "Các điểm trên tuyến" ghi **"Mốc giữa"** cho điểm đi thẳng qua (`RoutePointRow.thang`), số đánh liền với chỗ đổi hướng (gõ sang máy định vị theo thứ tự). Giọng khúc rẽ không đổi (chỉ ≥30°).
+  2. *Toạ độ dính liền máy GPS/VMS* `1507.2N 10857.0E` (DDMM.m) đọc được ở mọi chỗ nhập (`parseOneCoord`), ô tìm "Đi đâu?" cũng nhận.
+  3. *Đi thẳng tới toạ độ:* dòng "Đến 15,12 · 108,95" trong ô tìm có nút tuyến cuối dòng; ô Toạ độ trên rail có hai nút **"Đến điểm" | "Dẫn đường"** (cùng cổng premium + không đang dẫn).
+  4. *Ngoài vùng tính được* (vĩ 4–24,5° B, kinh 99–119° Đ — `VN_SEA`): nói thẳng điểm nào, toạ độ, khung là gì + vẽ đường thẳng nét đứt tham khảo hướng; không còn tuyến lơ lửng ở biên.
+  5. *Ô gõ toạ độ tự nhảy* (`ui/o-toa-do.tsx`, luật `lib/o-toa-do.ts`) ở ô Toạ độ rail, thêm điểm trong bảng Lộ trình, thêm Điểm lưu: hệ độ-phút-giây (mặc định) = ba ô [độ°][phút′][giây″] + chip hướng chữ đầy đủ (Bắc/Nam, Đông/Tây — không để "N" mập mờ). Gõ đủ số (vĩ 2 · kinh 3 · phút/giây 2, hoặc chữ số đầu đã chắc vượt trần: phút "7" ⇒ sang luôn) là con trỏ sang ô kế; gõ dấu ngăn (cách, chấm, phẩy, °, ', -) cũng sang; xoá ở ô trống lùi ô trước; dán cả chuỗi vào ô nào cũng chia đủ ba ô; bàn phím số. Hệ độ thập phân giữ MỘT ô. Ra ngoài vẫn là một chuỗi cho `parseOneCoord`.
+  6. *Mở bảng Lộ trình bằng nút rail* mà đã có điểm đến, chưa có tuyến ⇒ tự tính (anh Long: "sao vẫn còn cái nút tính đường"). Nút "Tính đường" còn lại chỉ cho lúc sửa chuỗi điểm rồi tính lại.
+  Chưa thử trên simulator: ô gõ tự nhảy (simulator tắt giữa lượt thử) — có unit test luật nhảy/ghép/tách.
 ## Assumptions (§10.7 P/Q/R)
 - Mốc 25 hải lý của đèn là trần KHOẢNG CÁCH, không phải trần tầm đèn — hiểu ngược lại thì mấy ngọn lớn nhất bờ biển (tầm 26–27 hl, đúng thứ nhìn thấy đầu tiên lúc vào bờ) bị loại sạch.
 - Câu đèn in khoảng cách tới đèn, KHÔNG in tầm hiệu lực: hai số cùng đơn vị cho hai nghĩa khác nhau là bẫy đọc.

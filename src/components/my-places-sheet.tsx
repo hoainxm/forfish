@@ -21,6 +21,7 @@ import {
 } from "@/lib/places";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { parseCoordPair } from "@/lib/parse-coord";
+import { OToaDo } from "@/components/ui/o-toa-do";
 import { useMapPrefs, fmtLat, fmtLon, fmtCoordPair } from "@/lib/map-prefs";
 import {
   AnchorIcon,
@@ -304,24 +305,9 @@ export function MyPlacesContent({
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  value={addLat}
-                  onChange={(e) => setAddLat(e.target.value)}
-                  inputMode="text"
-                  aria-label="Vĩ độ"
-                  placeholder={`Vĩ độ ${eg.lat}`}
-                  className="min-h-[3.25rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
-                />
-                <input
-                  value={addLon}
-                  onChange={(e) => setAddLon(e.target.value)}
-                  inputMode="text"
-                  aria-label="Kinh độ"
-                  placeholder={`Kinh độ ${eg.lon}`}
-                  className="min-h-[3.25rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
-                />
-              </div>
+              {/* ô gõ tự nhảy độ → phút → giây (ui/o-toa-do) — "lấy chỗ đang trỏ" vẫn điền sẵn đủ ba ô */}
+              <OToaDo axis="lat" value={addLat} onChange={setAddLat} label="Vĩ độ" placeholder={`Vĩ độ ${eg.lat}`} />
+              <OToaDo axis="lon" value={addLon} onChange={setAddLon} label="Kinh độ" placeholder={`Kinh độ ${eg.lon}`} />
               {/*  BỎ HẲN NÚT "XONG" (chủ dự án 2026-08-29h: *"nút Xong và lưu
                    điểm? nếu thao tác liên tiếp nhau thì gộp vào chứ làm nút
                    Xong vào làm gì"*).

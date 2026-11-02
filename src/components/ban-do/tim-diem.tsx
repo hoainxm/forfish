@@ -74,6 +74,18 @@ export function TimDiemPopover({
       icon={<CrosshairIcon className="h-5 w-5" aria-hidden />}
       ten={toaDo ? nhanToaDo(toaDo.lat, toaDo.lon) : `Gõ ${NHAN_TOA_DO.toLowerCase()}…`}
       onClick={() => (toaDo ? onChon(toaDo.lat, toaDo.lon) : onToaDo())}
+      phai={
+        toaDo && onDanDuong ? (
+          <button
+            type="button"
+            onClick={() => onDanDuong(toaDo.lat, toaDo.lon, "")}
+            aria-label="Dẫn đường tới toạ độ này"
+            className="flex h-(--h-ctl) w-(--h-ctl) shrink-0 items-center justify-center rounded-full text-t1 transition active:bg-field"
+          >
+            <RouteIcon className="h-5 w-5" aria-hidden />
+          </button>
+        ) : undefined
+      }
     />
   );
 
