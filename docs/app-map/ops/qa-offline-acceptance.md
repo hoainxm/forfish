@@ -541,6 +541,18 @@ Máy đăng nhập có gói, có sóng: mở Bản đồ một lần (để có 
 4. **429 dự báo cá**: tài khoản premium gọi >60 lượt/10 phút → 429 `rate_limited`; SW coi 429 là "cứu được" ⇒ lớp cá vẫn hiện bản cũ, không trắng.
 
 
+### N-15 · Khúc rẽ hai nhịp · Đang trong vùng · Tiếp tục chuyến, không sóng (mới 2026-11-02, 07 §10.7 T)
+
+> **Vì sao có ca này**: thêm khoá `forfish.nav.phien.v1` (bộ bắt buộc khi đụng khoá `forfish.*`). Ba thứ chạy trên dữ liệu đã nạp lúc bật dẫn đường, không request mới.
+
+| Bước | Làm gì | ĐẠT khi |
+|---|---|---|
+| 1 | Có mạng: vẽ tuyến có khúc rẽ ≥30°, bấm Bắt đầu dẫn đường, rồi **tắt mạng** | HUD hiện dòng "Còn … tới khúc rẽ · rồi đi …" |
+| 2 | GPS giả chạy tới khúc rẽ | Đọc "Còn chừng …, rồi đi về phía …" rồi "Bây giờ đi về phía …", mỗi câu một lần |
+| 3 | GPS giả chạy vào một khu bảo tồn rồi ra | Biển "Đang trong …" nằm lì; ra thì đọc "Tàu đã ở ngoài …" và gỡ biển |
+| 4 | Đóng hẳn tab/app khi đang dẫn, mở lại (vẫn tắt mạng) | Thẻ "Dẫn đường tiếp tới …?"; bấm Tiếp ⇒ HUD dẫn đường trở lại đúng tuyến cũ |
+| 5 | Bấm Dừng, mở lại | Không còn thẻ hỏi |
+
 ### Bổ sung 2026-09-16b — nhóm SDF2 (khoá theo tài khoản)
 
 5. **Máy mới, đăng nhập có sóng, mở Ra khơi** → Network có `GET /api/data-key` 200 một lần; localStorage có `forfish.datakey.v1`; lớp độ sâu/báo hiệu/luồng vẽ. Mở lại mất sóng: vẫn vẽ (khoá trong máy, file trong kho SW).

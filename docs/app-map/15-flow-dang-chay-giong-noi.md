@@ -1,5 +1,6 @@
 # 15 — Chế độ "ĐANG CHẠY": đọc & cảnh báo bằng giọng nói kiểu VietMap
 
+<!-- re-verified: 2026-11-02 — §31 mới: học từ VietMap Live dịch ngược (khúc rẽ hai nhịp `lib/nav-khuc-re`, đang trong vùng `lib/nav-vung`, tiếp tục chuyến `lib/nav-phien`); `collectVoiceEvents` nhận thêm `vung` + `khucRe`. -->
 <!-- re-verified: 2026-10-31b — lớp hỏi sản phẩm mở rộng: bảng MON gồm máy lọc dầu, máy lọc nước biển (lọc nước/SEA40/SEA250/SD-M250), ắc quy (ắc quy/accu/bình điện); món không clip (ắc quy) không mở video. -->
 <!-- re-verified: 2026-10-31 — LỚP HỎI SẢN PHẨM (máy lọc dầu SDVICO): `lib/sen-bien/hoi-san-pham.ts` `traLoiSanPham` chạy TRONG MÁY trước lệnh chợ/n-gram/kho ở cả màn toàn app và bản đồ; chỉ bắt câu nhắc "lọc dầu"/SF50/SF300; đáp từ `KM_LOC_DAU.hoiDap` (câu đã qua kiểm duyệt); hỏi chung/muốn xem/mua ⇒ mở `/?km=loc-dau-sf` (thẻ + video). Câu đáp không có trong danh mục mảnh ⇒ đọc giọng máy (luật một câu một giọng §21). nợ: lớp luật thay cho kho n-gram, trần = chỉ 9 câu + từ khoá cứng; vòng train Sen Biển sau học các câu này (anh duyệt) rồi gỡ lớp luật. -->
 <!-- re-verified: 2026-10-29h — CÂU "HỎI CÁ, CHƯA MỞ GÓI" bỏ chữ "premium" mà GIỮ giọng Mỹ Duyên: câu cũ "Dự báo cá dành cho tài khoản premium. Bà con liên hệ SDVICO để mở." khớp mảnh khung thu nguyên câu `du_bao_ca_danh_cho_tai_khoan_premium`. Câu theo tên gói hiển thị (`TEN_GOI` "gói dự báo") KHÔNG ghép được: danh mục mảnh (`src/data/giong-sen-bien-manh.json`) không có âm "gói" hay "dự" đứng riêng — "Dự báo cá nằm trong gói dự báo" thiếu 3 khúc ⇒ luật một câu một giọng (§21) đẩy CẢ CÂU sang giọng máy. Nay ghép từ HAI mảnh khung sẵn có cùng nghĩa: **"Máy chưa có bản đồ cá. Bà con liên hệ SDVICO để mở."** (`hoi-ban-do.ts` hằng `CAU_CA_CHUA_MO`; test `hoi-ban-do.test.ts` khoá: không chữ premium + `speechParts` phủ đủ mảnh). Khác câu "chưa tải" ở vế sau ("bật lớp cá lúc còn sóng" vs "liên hệ SDVICO để mở"). Muốn nói tên gói ⇒ thu mảnh "gói dự báo" (nhóm `them`, §21l) rồi mới đổi câu. Còn HAI chỗ nói câu cũ trong `fishing-map-view.tsx` (≈dòng 4205, 4386 — nhóm G giữ tệp): đổi sang `CAU_CA_CHUA_MO` khi gộp. -->
@@ -1095,3 +1096,22 @@ anh Long 26/10: "cho bà con nhập bằng giọng nói cũng được, ví dụ
 **Offline**: không request mới — nghe/hiểu/điền chạy trong máy (bộ nghe trong máy) hoặc Web Speech (cần sóng như Sen Biển hiện nay); lưu vẫn là lưu trong máy + đồng bộ như cũ.
 
 **Assumptions** (anh Long bác thì sửa spec trước): (1) KHÔNG có bảng mã tỉnh ⇒ mã tàu nhận đánh vần / dạng gõ; chữ viết hoa hết ("QNG" thay "QNg") — sau gộp tỉnh 2025 mã đổi, không bịa bảng. (2) Lưu vẫn phải qua câu "Lưu nhé?" — Sen Biển không tự lưu im lặng. (3) Chưa nối vào Sen Biển toàn app ("thêm giấy tờ" nói với icon nổi) — chỉ từ form; nợ: thêm ý định "nhập giấy/tàu" vào n-gram rồi mở form + tự bắt đầu hỏi. (4) Thuyền viên (sổ bạn thuyền, CCCD) chưa có kịch bản — CCCD là dữ liệu nhạy cảm, cần chốt riêng.
+
+## 31. HỌC TỪ VIETMAP LIVE DỊCH NGƯỢC — KHÚC RẼ HAI NHỊP · ĐANG TRONG VÙNG · TIẾP TỤC CHUYẾN (2026-11-02)
+
+Nguồn: dịch ngược VIETMAP LIVE 3.4.4 (XAPK APKPure, JADX + chuỗi Dart/Rust) — báo cáo artifact "Mổ xẻ Vietmap Live" (claude.ai/artifact/DLRZeCoaga7mAJVwo7XJhs). Anh Long chọn làm A·B·C.
+
+| Việc | VietMap làm | ForFish làm | Ở đâu |
+|---|---|---|---|
+| A. Báo khúc rẽ hai nhịp | 77 câu thu sẵn mỗi giọng; mỗi lệnh rẽ 2 bản `300_turn_x` (còn xa) + `turn_x` (tại chỗ) | Khúc đổi hướng ≥30° trên tuyến; báo trước 5 phút (sàn 1 km, tin), báo tới 1 phút (sàn 200 m, vàng); ≤2 lần/khúc; câu ghép 100 % từ mảnh Mỹ Duyên đã có | `lib/nav-khuc-re.ts`, §5 nguồn mới `khucRe` |
+| B. Đang trong vùng | Biển "đang hiệu lực" có cặp vào/ra (`residentialAreaGoingIn/Out`, `noPassingGoingIn/Out`), nằm lì tới khi ra | Vùng cấm vào / bảo tồn / cấm theo mùa (đang mùa) / cấm neo: biển nằm lì trên HUD; vào/ra giữ 2 lần đo; câu "Đang trong …" / "Tàu đã ở ngoài …" | `lib/nav-vung.ts`, `BienVung`, §5 nguồn mới `vung` |
+| C. Tiếp tục chuyến | Mở lại app: "Bạn có muốn tiếp tục dẫn đường tới …" | Phiên `forfish.nav.phien.v1` (hạn 12 giờ); thẻ "Dẫn đường tiếp tới …?" Tiếp / Thôi | `lib/nav-phien.ts`, `fishing-map-view` |
+
+**Giọng (A):** Mọi câu mới chỉ dùng cụm đã có mảnh (*còn chừng · rồi đi về phía · bên phải/trái tàu · bây giờ · đang trong · tàu đã ở ngoài*) — máy GPU (sinh mp3) không vào được lúc làm, nên không đặt câu cần mảnh mới. Cổng `ghep-giong.test.ts`: câu khúc rẽ phủ đủ mảnh mọi hướng × hai bên × mọi khoảng cách; câu vào/ra vùng quản lý thật phủ đủ TRỪ 11 khúc địa danh đã ghi nợ (Ghềnh Ráng, Nhơn Lý, Nhơn Hải, Hòn Dài, Bắc Hải Vân, "gò", "đồi ngầm Quảng Bình", "vùng biển", "Cao Mũi Còng Cọc", "Bờ Đập Mũi Yến", "Hòn Sâu Hòn Nhàn Hòn Đất") — các câu đó đọc cả câu giọng máy (luật một câu một giọng §21) tới khi sinh mảnh: `lap_manh.mjs` (đã thêm `nav-vung.ts`, `nav-khuc-re.ts` vào NGUON) → `gen_clips.py --manh` ở gpu-desktop.
+
+**Mức đọc:** khúc rẽ báo trước = tin (chế độ "ít nói" bỏ), báo tới = vàng (chuông êm). Vào vùng vàng = vàng, ra vùng = tin. Vào vùng cấm vào: KHÔNG thêm câu — `nav-hazards` đã đọc "Đang trong …" kèm chuông đỏ lúc chạm mép.
+
+**Offline (4 câu CLAUDE.md):** (a) không request mới — cả ba chạy trên dữ liệu đã nạp lúc bật dẫn đường; (b) không đụng `sw.js`/`SHELL`; khoá MỚI `forfish.nav.phien.v1` (EXCLUDED sao lưu); (c) không xoá/đè dữ liệu bà con — phiên chỉ là bản chép tuyến đang chạy, hết chỗ thì không ghi; (d) mất sóng là nhánh chính.
+
+**Assumptions:** (1) Ngưỡng 30° / 5 phút / 1 phút / 2 lần đo / hạn 12 giờ là mặc định an toàn tự đặt, chưa chạy thử ngoài biển — anh Long đổi được ở hằng trong file lib. (2) Tiếp tục = bám lại ĐÚNG tuyến cũ (không tính lại); tuyến tính bằng dự báo cũ nên thẻ nói giờ bắt đầu chuyến. (3) Không thêm "độ nhạy lệch tuyến 3 nấc" và "đề nghị tính lại tuyến" (mục D báo cáo) — đổi chốt "không tự tính lại", chờ anh quyết.
+

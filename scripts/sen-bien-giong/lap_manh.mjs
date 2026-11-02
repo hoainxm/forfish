@@ -37,6 +37,8 @@ const NGUON = [
   "src/lib/sen-bien/lenh-ban-do.ts",
   "src/lib/nav-hazards.ts",
   "src/lib/nav-context.ts",
+  "src/lib/nav-vung.ts",
+  "src/lib/nav-khuc-re.ts",
   "src/lib/seamarks.ts",
   "src/lib/xac-tau.ts",
   "src/lib/vung-quan-ly.ts",

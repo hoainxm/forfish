@@ -589,6 +589,10 @@ describe("phần bản đồ cá trong tệp", () => {
 /** Khoá `forfish.*` CỐ Ý không vào tệp, kèm lý do (đọc được ở đây, không phải đoán) */
 const EXCLUDED: Array<[string, string]> = [
   [
+    "forfish.nav.phien.v1",
+    "tuyến ĐANG dẫn đường của MÁY NÀY để hỏi 'tiếp tục' khi app bị tắt giữa chuyến (2026-11-02, lib/nav-phien) — hạn 12 giờ; chép sang máy khác là máy đó hỏi tiếp tục một chuyến nó không chạy",
+  ],
+  [
     "forfish.km.v1",
     "dấu 'đã đăng ký khuyến mãi SDVICO' của MÁY NÀY (2026-10-26, 14 §3.14b) — phiếu thật nằm ở máy chủ; máy khác bấm lại thì máy chủ trả `trung`, không thành hai đơn, nên không cần chép; khoá theo SĐT (auth-scope xoá khi đổi tài khoản)",
   ],

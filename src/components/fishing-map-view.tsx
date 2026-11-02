@@ -319,7 +319,7 @@ import {
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { buildUVField, fillMissingUV } from "@/lib/particle-field";
 import { WindParticles } from "@/components/wind-particles";
-import { NavHud, NavBoatMarker } from "@/components/nav-mode";
+import { BienVung, NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { FishHotspotMarker, SavedPlaceMarker, type FishHotspot } from "@/components/ban-do/diem-ghim";
 import { DongHoTocDo, NutLoa, NutViTri, OTimDiem } from "@/components/ban-do/khung";
 import { TimDiemPopover } from "@/components/ban-do/tim-diem";
@@ -365,7 +365,6 @@ import {
   type ThoiDiem,
 } from "@/lib/sen-bien/lenh-ban-do";
 import { napKhoBanDo } from "@/lib/sen-bien/kho-ban-do";
-import { distSpeech } from "@/lib/nav-voice/phrases";
 import { ACTIVE_PORTS, PORT_COORD_SAI } from "@/data/fishing-ports";
 import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
 import { useAuthUser } from "@/lib/use-auth";
@@ -423,6 +422,10 @@ import {
   type NavContext,
 } from "@/lib/nav-context";
 import { fetchCoralReefs, fetchIslands, fetchSeaLanes, tenChoPhiaTruoc } from "@/lib/sea-lanes";
+import { initVungTheoDoi, theoDoiVung, vungDangTrong, type VungSuKien, type VungTrong } from "@/lib/nav-vung";
+import { baoKhucRe, khucReKeTiep, type KhucRe, type KhucReBao, type KhucReNho } from "@/lib/nav-khuc-re";
+import { gioPhut, luuPhien, napPhien, taoPhien, xoaPhien, type NavPhien } from "@/lib/nav-phien";
+import { distSpeech } from "@/lib/nav-voice/phrases";
 import { fetchReefDepth, timRanChoThe } from "@/lib/reef-depth";
 import { requiredDepthM } from "@/lib/hazards";
 import {
@@ -3725,9 +3728,28 @@ export default function FishingMapView() {
     }
   }, [navOn, bamTau, tracking.pos, tracking.status, flyToPoint]);
 
+  /*  PHIÊN DẪN ĐƯỜNG (lib/nav-phien, học VietMap "Tiếp tục dẫn đường tới…?"):
+      bấm Bắt đầu là cất tuyến vào máy; Dừng / tới nơi thì xoá. App bị tắt giữa
+      chuyến ⇒ mở lại hỏi tiếp tục. `navSeqRef` đổi mỗi lần bắt đầu để key giọng
+      đọc khúc rẽ của tuyến mới không trùng tuyến cũ. */
+  const navSeqRef = useRef(0);
+  const stopsRef = useRef(stops);
+  useEffect(() => {
+    stopsRef.current = stops;
+  }, [stops]);
+  const [phienCho, setPhienCho] = useState<NavPhien<PlannedRoute> | null>(null);
   const startNav = useCallback(
     (r: PlannedRoute) => {
       ttsUnlock(); // trong cử chỉ chạm — mở khoá loa iOS cho giọng đọc
+      navSeqRef.current += 1;
+      setPhienCho(null);
+      const cuoi = stopsRef.current[stopsRef.current.length - 1];
+      const dich = r.stops[r.stops.length - 1];
+      const tenDich =
+        cuoi?.name && dich && Math.abs(cuoi.lat - dich.lat) < 1e-6 && Math.abs(cuoi.lon - dich.lon) < 1e-6
+          ? cuoi.name
+          : null;
+      luuPhien(taoPhien(r, tenDich, Date.now())); // hết chỗ thì thôi: dẫn đường vẫn chạy, chỉ mất lối tiếp tục
       setCruise(false); // đang chạy không tuyến → nâng lên có tuyến, vòng canh KHÔNG dừng
       setBamTau((b) => bamSau(b, "bat-dan-duong", true));
       setNavMode(r);
@@ -3737,6 +3759,7 @@ export default function FishingMapView() {
     [setSize],
   );
   const stopNav = useCallback(() => {
+    xoaPhien(); // bà con tự dừng ⇒ chuyến xong, lần mở sau không hỏi
     setNavMode(null);
     setCruise(false);
     setBamTau((b) => bamSau(b, "dung", false));
@@ -3783,6 +3806,12 @@ export default function FishingMapView() {
     denMs: number;
   }>({ ms: 0, lat: NaN, lon: NaN, hdg: null, phaoMs: 0, denMs: 0 });
   const [navAlerts, setNavAlerts] = useState<NavAlert[]>([]);
+  /*  ĐANG TRONG VÙNG (lib/nav-vung): danh sách đã khử nhiễu cho HUD vẽ biển nằm
+      lì + sự kiện vào/ra cho giọng đọc (giữ tham chiếu tới khi có sự kiện mới —
+      bộ phát ngôn đọc một lần theo key). */
+  const vungRef = useRef(initVungTheoDoi());
+  const [navVung, setNavVung] = useState<VungTrong[]>([]);
+  const [navVungSu, setNavVungSu] = useState<VungSuKien[]>([]);
   /** lần cuối có câu cảnh báo mới — giữ dòng trên HUD NAV_ALERT_HOLD_MS */
   const navAlertsAtRef = useRef(-Infinity);
   const [navInfo, setNavInfo] = useState<NavInfoLine | null>(null);
@@ -3850,6 +3879,9 @@ export default function FishingMapView() {
         denMs: 0,
       };
       setNavAlerts([]);
+      vungRef.current = initVungTheoDoi();
+      setNavVung([]);
+      setNavVungSu([]);
       setNavInfo(null);
       setNavDepthHere(null);
       setNavChart(null);
@@ -3977,6 +4009,17 @@ export default function FishingMapView() {
     });
     navStateRef.current = state;
 
+    /*  VÀO / RA VÙNG — chỉ khi định vị còn tốt: mất GPS thì giữ danh sách cũ,
+        không tự "ra khỏi" theo số cũ (lib/nav-vung). */
+    if (navStatus === "tracking") {
+      const v = theoDoiVung(vungRef.current, vungDangTrong(ctx, navPos, now));
+      if (v.st !== vungRef.current) {
+        vungRef.current = v.st;
+        setNavVung(v.st.trong);
+      }
+      if (v.su.length) setNavVungSu(v.su);
+    }
+
     /*  DÒNG TIN (bậc 4): phao kế tiếp ≤2 km nhắc lại tối đa 10 giây một lần,
         đèn biển 30 giây. Nhịp riêng vì hai thứ này đổi chậm hơn hiểm hoạ, mà
         dựng câu cho chúng là hai lượt tra chỉ mục nữa. */
@@ -4069,6 +4112,7 @@ export default function FishingMapView() {
   const veDuongToiKhu = useCallback(
     (k: KhuGan) => {
       setShelterOpen(false);
+      xoaPhien(); // bỏ tuyến đang chạy để vẽ đường tới khu trú — không hỏi tiếp tục tuyến cũ nữa
       setNavMode(null);
       setPoint({ lat: k.lat, lon: k.lon });
       flyToPoint(k.lon, k.lat);
@@ -4112,6 +4156,59 @@ export default function FishingMapView() {
     () => (navOffRoute ? { step: navOffRoute.step, km: navOffRoute.km } : null),
     [navOffRoute],
   );
+  /*  KHÚC RẼ HAI NHỊP (lib/nav-khuc-re, học VietMap "còn 300 m" rồi "rẽ ngay"):
+      khúc đổi hướng ≥30° phía trước trên tuyến; báo trước 5 phút (sàn 1 km), báo
+      tới 1 phút (sàn 200 m). Im khi lệch tuyến xa (đang không theo tuyến), mất
+      định vị, hoặc đã tới nơi. Khúc ở chỗ ghé bỏ qua — chỗ ghé có câu riêng. */
+  const navStopWp = useMemo(() => new Set(navMode?.stopWpIdx ?? []), [navMode]);
+  const khucReNhoRef = useRef<KhucReNho>(null);
+  const [navKhucRe, setNavKhucRe] = useState<KhucRe | null>(null);
+  const [navKhucReBao, setNavKhucReBao] = useState<KhucReBao | null>(null);
+  const navSpeechUnit = prefs.distUnit === "km" ? "km" : "nm";
+  useEffect(() => {
+    if (!navMode || !navProgress || navProgress.arrived || navProgress.offRoute || tracking.status !== "tracking") {
+      khucReNhoRef.current = null;
+      setNavKhucRe(null);
+      return;
+    }
+    const kr = khucReKeTiep(navMode.plan.waypoints, navProgress.alongKm, navStopWp);
+    setNavKhucRe(kr);
+    const r = baoKhucRe(khucReNhoRef.current, kr, tracking.speedKmh, (km) => distSpeech(km, navSpeechUnit));
+    khucReNhoRef.current = r.nho;
+    if (r.bao) setNavKhucReBao({ ...r.bao, key: `re:${navSeqRef.current}:${r.bao.idx}:${r.bao.step}` });
+  }, [navMode, navProgress, navStopWp, tracking.status, tracking.speedKmh, navSpeechUnit]);
+  useEffect(() => {
+    if (!navMode) setNavKhucReBao(null);
+  }, [navMode]);
+
+  /*  PHIÊN: làm mới mốc 5 phút/lần khi đang dẫn (hạn 12 giờ tính từ lần ghi cuối);
+      tới nơi thì xoá — mở lại app không hỏi tiếp tục chuyến đã xong. */
+  const navArrived = navProgress?.arrived ?? false;
+  useEffect(() => {
+    if (!navMode) return;
+    if (navArrived) {
+      xoaPhien();
+      return;
+    }
+    const lam = () => {
+      const p = napPhien<PlannedRoute>();
+      if (p) luuPhien({ ...p, capNhat: Date.now() });
+    };
+    const id = setInterval(lam, 5 * 60_000);
+    return () => clearInterval(id);
+  }, [navMode, navArrived]);
+  // MỞ MÀN: còn chuyến dở trong hạn ⇒ thẻ hỏi tiếp tục (một lần mỗi lần mở)
+  useEffect(() => {
+    setPhienCho(napPhien<PlannedRoute>());
+  }, []);
+  const tiepTucPhien = useCallback(() => {
+    if (phienCho) startNav(phienCho.route);
+  }, [phienCho, startNav]);
+  const boPhien = useCallback(() => {
+    xoaPhien();
+    setPhienCho(null);
+  }, []);
+
   const navVoice = useNavVoice({
     on: navOn,
     unit: prefs.distUnit === "km" ? "km" : "nm",
@@ -4131,6 +4228,8 @@ export default function FishingMapView() {
     arrived: navProgress?.arrived ?? false,
     chart: navChart,
     lengthM: navLengthM,
+    vung: navVungSu,
+    khucRe: navKhucReBao,
   });
   const voiceHud = useMemo(
     () => ({
@@ -8637,7 +8736,56 @@ export default function FishingMapView() {
                 kho khu trú đã nạp: nút mở ra danh sách rỗng còn tệ hơn không
                 có nút. */
             onShelter={stormOn && navKhuReady ? openShelter : undefined}
+            vung={navVung}
+            khucRe={navKhucRe}
           />
+        )}
+        {/*  ĐANG CHẠY KHÔNG TUYẾN (loa bật, không khung dẫn đường): biển "đang
+             trong vùng" vẫn phải thấy — đặt thẳng đầu cột trên. */}
+        {navMode == null && cruise && navVung.length > 0 && (
+          <div className="mx-2 max-w-[28rem]">
+            <BienVung vung={navVung} gon />
+          </div>
+        )}
+        {/*  TIẾP TỤC CHUYẾN DỞ (lib/nav-phien): app bị tắt giữa lúc dẫn đường ⇒
+             mở lại hỏi một câu. Bấm Tiếp là cử chỉ chạm thật — mở khoá loa luôn. */}
+        {phienCho && navMode == null && (
+          <div className="pointer-events-auto glass mx-2 max-w-[28rem] space-y-2 p-3" role="group" aria-label="Tiếp tục dẫn đường">
+            <p className="text-[0.875rem] font-semibold leading-snug text-navy">
+              Dẫn đường tiếp tới {phienCho.tenDich ?? "chỗ đã chọn"}?
+            </p>
+            <p className="text-[0.75rem] leading-snug text-navy/75">
+              Chuyến bắt đầu lúc {gioPhut(phienCho.batDau)} bị tắt giữa chừng
+              {tracking.pos
+                ? ` · cách chỗ đến ~${fmtDist(
+                    haversineKm(
+                      tracking.pos.lat,
+                      tracking.pos.lon,
+                      phienCho.route.dest.lat,
+                      phienCho.route.dest.lon,
+                    ),
+                    prefs.distUnit,
+                  )}`
+                : ""}
+              .
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={tiepTucPhien}
+                className="h-(--h-ctl) flex-1 rounded-full bg-navy px-4 text-[0.875rem] font-semibold text-white transition active:scale-[0.97]"
+              >
+                {NHAN.tiep}
+              </button>
+              <button
+                type="button"
+                onClick={boPhien}
+                className="h-(--h-ctl) flex-1 rounded-full bg-navy/10 px-4 text-[0.875rem] font-semibold text-navy transition active:scale-[0.97]"
+              >
+                {NHAN.thoi}
+              </button>
+            </div>
+          </div>
         )}
         {/*  GHIM CHƯA LƯU ĐƯỢC — nói thẳng, đừng để ghim hiện trên bản đồ như đã
              lưu rồi đóng app là mất. Chỗ đánh cá là thứ bà con đo bằng cả chuyến

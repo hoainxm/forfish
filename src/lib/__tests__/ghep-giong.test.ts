@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import manh from "@/data/giong-sen-bien-manh.json";
@@ -8,6 +8,9 @@ import { ageSpeech, clockSpeech, dirSpeech, distSpeech, speedSpeech, waveSpeech 
 import { cauDocSo, noiThoiDiem, type LopBanDo } from "@/lib/sen-bien/lenh-ban-do";
 import { hoiGi, traLoi, type KhoBanDo, type ViTri } from "@/lib/sen-bien/hoi-ban-do";
 import { napManhGiong, speechParts } from "@/lib/voice/tts";
+import { baoKhucRe, type KhucRe } from "@/lib/nav-khuc-re";
+import { cauVung } from "@/lib/nav-vung";
+import { tenNoi, type VungQuanLy } from "@/lib/vung-quan-ly";
 
 // danh mục mảnh nạp động (tts.ts) — nạp trước như lúc app đã sẵn
 beforeAll(() => napManhGiong());
@@ -141,6 +144,51 @@ describe("câu có số của app phủ đủ mảnh", () => {
         if (s) cau.push(`Chỗ đang xem: ${s}.`);
       }
     phuHet(cau);
+  });
+  it("khúc rẽ hai nhịp (VietMap 300_turn / turn): mọi hướng, hai bên, mọi khoảng cách", () => {
+    const cau: string[] = [];
+    for (const huongVN of ["Bắc", "Đông Bắc", "Đông", "Đông Nam", "Nam", "Tây Nam", "Tây", "Tây Bắc"])
+      for (const gocDeg of [-90, 90])
+        for (const unit of ["nm", "km"] as const) {
+          const fmt = (k: number) => distSpeech(k, unit);
+          const kr: KhucRe = { idx: 1, km: 0.1, huongSau: 0, huongVN, gocDeg };
+          cau.push(baoKhucRe(null, kr, null, fmt).bao!.text); // nhịp "bây giờ"
+          // nhịp báo trước: tốc độ đủ để km nằm trong mốc 5 phút
+          for (let km = 0.3; km < 30; km *= 1.3) cau.push(baoKhucRe(null, { ...kr, km }, km * 14, fmt).bao!.text);
+        }
+    phuHet(cau);
+  });
+  it("vào / ra vùng quản lý thật (khu bảo tồn, vùng cấm theo mùa)", () => {
+    /*  nợ: 8 địa danh trong tên vùng chưa có mảnh giọng (máy GPU sinh mp3 qua
+        lap_manh.mjs → gen_clips.py --manh); trong lúc chờ, cả câu đọc giọng máy
+        theo luật "một câu một giọng". Gỡ khỏi danh sách khi đã sinh. Tên MỚI thiếu
+        mảnh vẫn đỏ. */
+    const NO_THIEU = new Set([
+      "gò", "đồi ngầm Quảng Bình", "Bắc Hải Vân", "vùng biển", "Hòn Dài", "Cao Mũi Còng Cọc",
+      "Nhơn Lý", "Bờ Đập Mũi Yến", "Nhơn Hải", "Ghềnh Ráng", "Hòn Sâu Hòn Nhàn Hòn Đất",
+    ]);
+    const cau: string[] = [];
+    // đọc bản RÕ trong git bằng fs — cấm import JSON từ public/data (cổng data-codec.test.ts)
+    const vungData = JSON.parse(readFileSync(join(process.cwd(), "public/data/vung-quan-ly.v1.json"), "utf8")) as {
+      vung: Pick<VungQuanLy, "loai" | "ten">[];
+    };
+    for (const v of vungData.vung) {
+      if (v.loai !== "bao-ton" && v.loai !== "cam-thoi-han") continue;
+      const ten = tenNoi(v);
+      for (const loai of ["vao", "ra"] as const) {
+        const c = cauVung({ loai, id: "x", ten, muc: "vang", lan: 1 });
+        if (c) cau.push(c);
+      }
+    }
+    expect(cau.length).toBeGreaterThan(10);
+    const khoa = new Set(Object.values(manh.nhom as Record<string, string[][]>).flat().map(([, t]) => khoaManh(t)));
+    const dai = Math.max(...[...khoa].map((k) => k.split(" ").length));
+    const moi = new Set<string>();
+    for (const c of cau)
+      for (const doan of c.replace(/[.()]/g, "").split(/(?:[,;:]\s+|\s+[—–·-]\s+)/))
+        for (const g of ghepManh(doan.trim(), (k) => (khoa.has(k) ? k : undefined), dai))
+          if (!g.ids && !NO_THIEU.has(g.text)) moi.add(g.text);
+    expect([...moi]).toEqual([]);
   });
   it("hỏi đáp bản đồ với tên trong danh mục", () => {
     const v: ViTri = { lat: 15.3, lon: 108.9, nguon: "tau", huongChay: 90 };

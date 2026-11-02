@@ -36,6 +36,8 @@ import {
   type VoiceMode,
 } from "@/lib/nav-voice/announcer";
 import { collectVoiceEvents, initVoiceMemory, type VoiceMemory } from "@/lib/nav-voice/events";
+import type { VungSuKien } from "@/lib/nav-vung";
+import type { KhucReBao } from "@/lib/nav-khuc-re";
 import { stormBulletin, stormObservation, type StormObservation } from "@/lib/nav-voice/nav-storm";
 import { seaObservation, type SeaObservation } from "@/lib/nav-voice/sea-now";
 import {
@@ -101,6 +103,10 @@ export type NavVoiceInput = {
   legsPassed: number;
   legsTotal: number;
   arrived: boolean;
+  /** vào/ra vùng vừa xác nhận — giữ nguyên tham chiếu tới khi có sự kiện mới */
+  vung?: readonly VungSuKien[];
+  /** khúc rẽ vừa vượt mốc — giữ tới khi có câu mới */
+  khucRe?: KhucReBao | null;
   /** null = kho hải đồ đang dựng */
   chart: ChartReadiness | null;
   /** chiều dài tàu (m) — ngưỡng sóng gió; null = coi như tàu nhỏ */
@@ -565,6 +571,8 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
       legsPassed: inp.legsPassed,
       legsTotal: inp.legsTotal,
       arrived: inp.arrived,
+      vung: inp.vung,
+      khucRe: inp.khucRe,
       extra,
     });
     memRef.current = mem;
@@ -593,6 +601,8 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     inp.legsPassed,
     inp.legsTotal,
     inp.arrived,
+    inp.vung,
+    inp.khucRe,
     tick,
     push,
   ]);

@@ -18,6 +18,8 @@ import type { NavProgress } from "@/lib/nav-progress";
 import type { NavStatus } from "@/lib/use-nav-tracking";
 import type { BorderLevel } from "@/lib/geofence";
 import type { HudLine } from "@/lib/nav-context";
+import type { VungTrong } from "@/lib/nav-vung";
+import type { KhucRe } from "@/lib/nav-khuc-re";
 import { useMapPrefs, fmtDist } from "@/lib/map-prefs";
 import {
   AlertIcon,
@@ -142,6 +144,7 @@ export type NavHudVoice = {
 /*  Mảng rỗng DÙNG CHUNG làm mặc định: `hazardLines = []` viết thẳng trong
     tham số sẽ tạo mảng MỚI mỗi lần vẽ — mà HUD vẽ lại theo nhịp GPS. */
 const EMPTY_LINES: HudLine[] = [];
+const EMPTY_VUNG: VungTrong[] = [];
 
 /** Hai câu như nhau khi bỏ khoảng trắng thừa + dấu câu cuối */
 function sameSentence(a: string, b: string): boolean {
@@ -156,6 +159,34 @@ const MUC_TONE: Record<HudLine["muc"], string> = {
   // dòng TIN (phao, đèn) không phải cảnh báo: nền kính nhạt như ô "đang tìm vị trí"
   tin: "bg-white/45 text-navy",
 };
+
+/**
+ * BIỂN "ĐANG TRONG VÙNG" (học VietMap: biển đang hiệu lực nằm lì trên màn tới
+ * khi ra khỏi). Cha giữ danh sách đã khử nhiễu ở `lib/nav-vung`; đây chỉ vẽ.
+ * Không thu được: tàu còn trong vùng cấm thì chữ còn đó. Tối đa 2 dòng, dư thì
+ * "+N vùng nữa" — nhiều hơn là che bản đồ.
+ */
+export function BienVung({ vung, gon = false }: { vung: readonly VungTrong[]; gon?: boolean }) {
+  if (vung.length === 0) return null;
+  const hien = vung.slice(0, 2);
+  const du = vung.length - hien.length;
+  return (
+    <div className="space-y-1.5" role="status" aria-live="polite">
+      {hien.map((v) => (
+        <p
+          key={v.id}
+          className={`pointer-events-auto flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.875rem] font-semibold leading-snug ${
+            v.muc === "do" ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn"
+          } ${gon ? "shadow-md" : ""}`}
+        >
+          <AlertIcon className="h-5 w-5 shrink-0" />
+          <span className="min-w-0 flex-1">Đang trong {v.ten.replace(/^(khu|vùng)/i, (m) => m.toLowerCase())}</span>
+        </p>
+      ))}
+      {du > 0 && <p className="px-2.5 text-[0.75rem] font-semibold text-navy/70">+{du} vùng nữa</p>}
+    </div>
+  );
+}
 
 export function NavHud({
   progress,
@@ -173,7 +204,13 @@ export function NavHud({
   title = "Đang dẫn đường",
   cruiseLine = null,
   voice = null,
+  vung = EMPTY_VUNG,
+  khucRe = null,
 }: {
+  /** vùng tàu ĐANG ở trong (đã khử nhiễu, `lib/nav-vung`) — biển nằm lì */
+  vung?: readonly VungTrong[];
+  /** khúc rẽ kế tiếp trên tuyến (`lib/nav-khuc-re`) — dòng "còn X tới khúc rẽ" */
+  khucRe?: KhucRe | null;
   /*  "Đang dẫn đường" (có tuyến) / "Đang chạy" (chỉ GPS, không tuyến — doc 15 §3B) */
   title?: string;
   /*  CHẾ ĐỘ ĐANG CHẠY không tuyến: dòng "hướng · tốc độ · nước dưới tàu" thay cho
@@ -309,6 +346,8 @@ export function NavHud({
             {l.cau}
           </p>
         ))}
+        {/*  VÙNG CẤM VÀO cũng không được biến mất khi thu HUD — chỉ dòng đỏ */}
+        <BienVung vung={vung.filter((v) => v.muc === "do")} gon />
         {/*  Câu ĐỎ đang đọc (ranh giới, bão gần) cũng phải "Đã nghe" được khi HUD thu */}
         {voice?.speaking?.red && (
           <button
@@ -471,6 +510,9 @@ export function NavHud({
         ),
       )}
 
+      {/*  ĐANG TRONG VÙNG — dưới cảnh báo "sắp tới", không thu được */}
+      <BienVung vung={vung} />
+
       {/*  KHU TRÚ BÃO GẦN — CHỈ hiện khi đang có bão. App không phán "chạy vào
            đi": chỉ mở danh sách khu, còn bao xa, chừng bao lâu; vào hay không
            là quyết định của thuyền trưởng. */}
@@ -570,6 +612,19 @@ export function NavHud({
                   ? formatHoursVN(progress.etaHours)
                   : "tàu chưa chạy"}
               </p>
+
+              {/*  KHÚC RẼ KẾ TIẾP (học VietMap: biết trước chỗ đổi hướng) — mũi tên
+                   xoay theo góc đổi hướng, chữ nói hướng đi tiếp. Không ra lệnh. */}
+              {khucRe && !progress.arrived && (
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.875rem] font-semibold text-navy">
+                  <span className="flex shrink-0" style={{ transform: `rotate(${khucRe.gocDeg}deg)` }} aria-hidden>
+                    <NavArrowIcon className="h-4 w-4 text-t1" />
+                  </span>
+                  Còn {fmtDist(khucRe.km, prefs.distUnit)} tới khúc rẽ
+                  <span aria-hidden>·</span>
+                  rồi đi {khucRe.huongVN}
+                </p>
+              )}
 
               {/*  CHỖ GHÉ KẾ TIẾP — dòng riêng, ĐẶT TRÊN dòng tổng vì đó mới là
                    thứ đang phải lái tới. Dòng trên nói tới ĐÍCH CUỐI: đi 3 chỗ

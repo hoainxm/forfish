@@ -16,6 +16,8 @@ import type { VoiceEvent } from "@/lib/nav-voice/announcer";
 import type { StormObservation } from "@/lib/nav-voice/nav-storm";
 import type { SeaObservation } from "@/lib/nav-voice/sea-now";
 import { distSpeech, numVN, toSpeechVN, type SpeechUnit } from "@/lib/nav-voice/phrases";
+import { cauVung, type VungSuKien } from "@/lib/nav-vung";
+import type { KhucReBao } from "@/lib/nav-khuc-re";
 
 /* ── VÙNG NƯỚC DƯỚI TÀU (đọc hải đồ như VietMap đọc biển tốc độ) ─────────── */
 
@@ -92,6 +94,10 @@ export type VoiceSources = {
   legsPassed: number;
   legsTotal: number;
   arrived: boolean;
+  /** vào/ra vùng vừa xác nhận (`nav-vung`) — câu "Đang trong…" / "Tàu đã ở ngoài…" */
+  vung?: readonly VungSuKien[];
+  /** khúc rẽ trên tuyến vừa vượt mốc (`nav-khuc-re`) — báo trước rồi báo tới */
+  khucRe?: KhucReBao | null;
   /** bản tin, điểm tin, pin, nhắc lại sau khi mở màn… */
   extra?: readonly VoiceEvent[];
 };
@@ -241,6 +247,31 @@ export function collectVoiceEvents(
   }
   if (src.arrived) {
     out.push({ key: "arrive", group: "stop", tier: "vang", rank: 8, text: "Đã tới gần điểm đến." });
+  }
+
+  // 8b. VÀO / RA VÙNG — biển "đang trong" trên HUD có câu đi kèm (học VietMap: cặp vào/ra)
+  for (const e of src.vung ?? []) {
+    const text = cauVung(e);
+    if (!text) continue;
+    out.push({
+      key: `vung:${e.loai}:${e.id}:${e.lan}`,
+      group: `vung:${e.id}`,
+      tier: e.loai === "vao" ? "vang" : "tin",
+      chart: true,
+      rank: 6,
+      text,
+    });
+  }
+
+  // 8c. KHÚC RẼ TRÊN TUYẾN — hai nhịp: còn xa (tin) rồi tới nơi (vàng, có chuông êm)
+  if (src.khucRe) {
+    out.push({
+      key: src.khucRe.key,
+      group: "re",
+      tier: src.khucRe.step === 2 ? "vang" : "tin",
+      rank: 7,
+      text: src.khucRe.text,
+    });
   }
 
   // 9. TIN hải đồ: phao kế tiếp / đèn biển
