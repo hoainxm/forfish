@@ -254,10 +254,13 @@ export function NavHud({
       (rà soát prod 2026-10-16: "Phía trước chừng 1,9 hải lý là đảo Lý Sơn." nằm
       hai thẻ liền nhau, HUD cao thêm một nấc che bản đồ). Câu ĐỎ vẫn in — nó
       mang nút "Đã nghe". */
-  const speakingIsShown =
-    !!voice?.speaking &&
-    !voice.speaking.red &&
-    lines.some((l) => sameSentence(l.cau, voice.speaking!.text));
+  const dongTrung = voice?.speaking ? lines.find((l) => sameSentence(l.cau, voice.speaking!.text)) : undefined;
+  // câu đỏ chỉ "đã hiện" khi trùng dòng ĐỎ (dòng đó mang nút Đã nghe); dòng vàng/tin không có nút
+  const speakingIsShown = !!dongTrung && (!voice?.speaking?.red || dongTrung.khoa);
+  /*  Câu ĐỎ đang đọc trùng một dòng cảnh báo ⇒ nút "Đã nghe" GẮN VÀO chính dòng đó
+      (rà UI 2026-11-02: trước đây cùng một câu đỏ hiện HAI hộp đỏ liền nhau —
+      dòng cảnh báo + hộp "câu đang đọc" — HUD cao thêm một nấc che bản đồ). */
+  const ackId = voice?.speaking?.red && speakingIsShown ? (dongTrung?.id ?? null) : null;
   const lost = status === "lost";
   const denied = status === "denied";
   /* RANH GIỚI (2026-08-18, audit M3): dòng warn/danger theo GPS; ≤6 hải lý
@@ -380,7 +383,7 @@ export function NavHud({
           aria-label="Giữ và kéo để dời bảng dẫn đường"
         >
           <RouteIcon className="h-5 w-5 shrink-0 text-t1" />
-          <h3 className="text-[0.875rem] font-semibold text-navy">{title}</h3>
+          <h3 className="truncate whitespace-nowrap text-[0.875rem] font-semibold text-navy">{title}</h3>
           <span
             className="ml-1 h-1 w-8 rounded-full bg-navy/20"
             aria-hidden
@@ -493,6 +496,15 @@ export function NavHud({
           >
             <AlertIcon className="h-5 w-5 shrink-0" />
             <span className="min-w-0 flex-1">{l.cau}</span>
+            {l.id === ackId && voice && (
+              <button
+                type="button"
+                onClick={voice.onAck}
+                className="min-h-[2.75rem] shrink-0 rounded-xl bg-danger px-3 text-[0.875rem] font-semibold text-white transition active:scale-95"
+              >
+                Đã nghe
+              </button>
+            )}
           </p>
         ) : (
           <button
@@ -538,7 +550,9 @@ export function NavHud({
           }`}
         >
           <SpeakerIcon className="h-5 w-5 shrink-0" />
-          <span className="min-w-0 flex-1">{voice.speaking.text}</span>
+          {/*  Bản tin mở đầu dài 5 câu: in nguyên khối là chiếm nửa HUD trong lúc đọc
+               (rà UI 2026-11-02) ⇒ câu thường gói 3 dòng; câu đỏ luôn in đủ. */}
+          <span className={`min-w-0 flex-1 ${voice.speaking.red ? "" : "line-clamp-3"}`}>{voice.speaking.text}</span>
           {voice.speaking.red && (
             <button
               type="button"

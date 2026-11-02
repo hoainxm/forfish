@@ -3599,6 +3599,10 @@ export default function FishingMapView() {
      không thu được (NavHud). Đi ra xa thì mốc lùi trong im lặng để lần quay
      lại gần vẫn được nhắc. */
   const navOn = navMode != null || cruise;
+  /*  CON TRỎ ẨN khi bà con xoá chọn HOẶC đang dẫn đường theo tuyến (rà UI 2026-11-02:
+      lúc dẫn đường, ghim "điểm đang xem" cũ + đường đo "310 hải lý" + dòng toạ độ con
+      trỏ chỉ làm rối — Vietmap lúc dẫn đường chỉ còn tuyến và xe). Bấm Dừng là hiện lại. */
+  const troAn = pick === "cleared" || navMode != null;
   const navPos = tracking.pos;
   // memo theo fix GPS — effect dưới lệ thuộc reference này, không được đổi
   // mỗi lần vẽ lại (sẽ set state vòng lặp)
@@ -3722,8 +3726,13 @@ export default function FishingMapView() {
     }
     if (tracking.pos && nenBayTheoFix(navOn, bamTau, tracking.status, true)) {
       const z = mapRef.current?.getZoom() ?? NAV_FOLLOW_ZOOM;
-      const zoom = !navFollowZoomed.current && z < NAV_FOLLOW_ZOOM ? NAV_FOLLOW_ZOOM : undefined;
-      navFollowZoomed.current = true;
+      /*  Fix tới dồn (watchPosition hay trả 2 fix sát nhau lúc mới bật) ⇒ lần bay
+          sau CẮT lần bay trước, mức phóng của lần đầu mất ⇒ dẫn đường mà bản đồ kẹt
+          ở tầm cả vịnh (rà UI 2026-11-02). Chưa tới gần mức phóng thì lần bay nào
+          cũng mang mức phóng; tới rồi mới thôi — sau đó tôn trọng tay bà con. */
+      const chuaToi = z < NAV_FOLLOW_ZOOM - 0.5;
+      const zoom = !navFollowZoomed.current && chuaToi ? NAV_FOLLOW_ZOOM : undefined;
+      if (!chuaToi) navFollowZoomed.current = true;
       flyToPoint(tracking.pos.lon, tracking.pos.lat, zoom, NAV_FOLLOW_OFFSET);
     }
   }, [navOn, bamTau, tracking.pos, tracking.status, flyToPoint]);
@@ -7976,7 +7985,7 @@ export default function FishingMapView() {
              Màu cam-đỏ `#b42318` CÙNG HỌ với đường ranh giới (03 §6: cam-đỏ là
              màu độc quyền của ranh giới) nhưng MẢNH HƠN + nét đứt khác để không
              ai nhầm nó LÀ đường ranh giới. */}
-        {prox.applies && pick !== "cleared" && (
+        {prox.applies && !troAn && (
           <Source
             id="border-line"
           type="geojson"
@@ -8005,7 +8014,7 @@ export default function FishingMapView() {
           </Source>
         )}
         {/* nhãn số hải lý NGAY GIỮA đường đo — đọc được mà không phải mở sheet */}
-        {prox.applies && pick !== "cleared" && (
+        {prox.applies && !troAn && (
         <Marker
           longitude={(point.lon + prox.nearest[0]) / 2}
           latitude={(point.lat + prox.nearest[1]) / 2}
@@ -8049,7 +8058,7 @@ export default function FishingMapView() {
              · Nét ĐỨT MẢNH màu t1: KHÔNG được xanh `ROUTE_LINE_COLOR` (dễ tưởng
                là tuyến dẫn đường đã tính) và KHÔNG được cam/đỏ (màu độc quyền
                của ranh giới biển — 03 §6). */}
-        {tracking.pos && pick !== "cleared" && (
+        {tracking.pos && !troAn && (
           <Source
             id="cursor-line"
             type="geojson"
@@ -8084,6 +8093,7 @@ export default function FishingMapView() {
              hiểu nhầm thành đường kia. Nay cả hai đều tự xưng tên.
              Ẩn khi con trỏ gần như trùng tàu — nhãn sẽ chồng lên dấu tàu. */}
         {tracking.pos &&
+          !troAn &&
           haversineKm(
             tracking.pos.lat,
             tracking.pos.lon,
@@ -8128,7 +8138,7 @@ export default function FishingMapView() {
              mới là chỗ trỏ tới — đổi anchor cùng lúc đổi hình, không thì con trỏ
              lệch xuống nửa thân cá (ngoài khơi là lệch mấy hải lý).
              Ẩn nếu trùng một điểm đã ghim — chỗ đó đã có sao vàng. */}
-        {!currentPlace && pick !== "cleared" && aisMode == null && (
+        {!currentPlace && !troAn && aisMode == null && (
           <Marker longitude={point.lon} latitude={point.lat} anchor="bottom">
             {/*  CÁI GHIM — biểu tượng ai cũng quen trên app bản đồ (user
                  2026-08-25i: *"cho về biểu tượng thường dùng đi, thay cho con
@@ -8894,7 +8904,7 @@ export default function FishingMapView() {
               blocked={geoError}
               lastFixAt={tracking.lastFixAt}
               accuracyM={tracking.accuracyM}
-              cursor={pick === "cleared" ? null : point}
+              cursor={troAn ? null : point}
               onGoMyPos={goToMyBoat}
             />
             </div>

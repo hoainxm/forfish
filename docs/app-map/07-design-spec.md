@@ -1566,6 +1566,12 @@ Mức của một hàng do DỮ LIỆU quyết (luồng thiếu nước là vàn
 - **Tiếp tục chuyến** (`lib/nav-phien.ts`, khoá `forfish.nav.phien.v1`): bấm Bắt đầu dẫn đường là cất tuyến; Dừng / tới nơi / vẽ đường tới khu trú bão thì xoá; làm mới mốc 5 phút/lần; hạn 12 giờ từ lần ghi cuối. Mở bản đồ còn phiên ⇒ thẻ kính đầu cột trên: *"Dẫn đường tiếp tới {tên chỗ đến | chỗ đã chọn}?"* + dòng phụ *"Chuyến bắt đầu lúc 7:05 bị tắt giữa chừng · cách chỗ đến ~12 hải lý."* + nút **Tiếp** / **Thôi**. Tiếp = cử chỉ chạm thật (mở khoá loa iOS), bám lại tuyến cũ — tiến trình tự chiếu theo vị trí, chặng đã qua tự tô xám. Hết chỗ lưu ⇒ dẫn đường vẫn chạy, chỉ mất lối tiếp tục.
 - Ma trận trạng thái: không vùng ⇒ không biển · GPS mất ⇒ giữ biển cũ · nhiều vùng ⇒ đỏ trước, 2 dòng · không khúc rẽ ⇒ không dòng · phiên hỏng/quá hạn/đồng hồ máy nhảy ⇒ không thẻ · offline ⇒ cả ba chạy trên máy, không request.
 
+**U. RÀ UI DẪN ĐƯỜNG "THOÁNG HƠN VIETMAP, ĐỪNG CHIẾM HẾT BẢN ĐỒ" (2026-11-02, anh Long)** — đo bằng lấy mẫu lưới điểm ở khung 375×812: màn nghỉ bản đồ thấy 75 %; đang dẫn đường 64 % (HUD trên ~24 %, ô toạ độ tàu ~6 %).
+- **Camera dẫn đường kẹt tầm xa (lỗi):** fix GPS tới dồn lúc mới bật ⇒ `flyTo` sau cắt `flyTo` trước, mức phóng 10 bị mất, dẫn đường mà bản đồ ở tầm cả vịnh. Nay: chưa tới gần mức phóng (z < 9,5) thì lần bay nào cũng mang mức phóng; tới rồi mới thôi (tay bà con vẫn thắng — kéo/phóng tay là thôi bám như cũ).
+- **Con trỏ ẩn khi dẫn đường** (`troAn`): ghim "điểm đang xem", đường đo tàu → điểm ("310 hải lý · 142°"), đường đo điểm → ranh giới và dòng toạ độ con trỏ đều ẩn lúc `navMode`; ô toạ độ chỉ còn dòng toạ độ TÀU (để báo vị trí qua đài). Bấm Dừng là hiện lại.
+- **HUD:** tiêu đề một dòng (cắt "…" chứ không xuống hai dòng); câu ĐỎ đang đọc trùng dòng cảnh báo đỏ ⇒ nút "Đã nghe" gắn vào chính dòng đó, không còn hai hộp đỏ cùng câu; câu thường đang đọc (bản tin mở đầu 5 câu) gói 3 dòng, câu đỏ luôn in đủ.
+- Còn để anh quyết (không tự đổi): ghim mặc định giữa biển khi chưa có định vị; ô tìm chưa xếp theo gần tàu / chưa đưa điểm-đường đã lưu lên đầu; chọn điểm xong chưa có nút Dẫn đường ngay trên thẻ; toạ độ cảng Cồn Cỏ trỏ Cửa Việt (16,896 / 107,185, lệch ~33 km so với đảo).
+
 ## Assumptions (§10.7 P/Q/R)
 - Mốc 25 hải lý của đèn là trần KHOẢNG CÁCH, không phải trần tầm đèn — hiểu ngược lại thì mấy ngọn lớn nhất bờ biển (tầm 26–27 hl, đúng thứ nhìn thấy đầu tiên lúc vào bờ) bị loại sạch.
 - Câu đèn in khoảng cách tới đèn, KHÔNG in tầm hiệu lực: hai số cùng đơn vị cho hai nghĩa khác nhau là bẫy đọc.
