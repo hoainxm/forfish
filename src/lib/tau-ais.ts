@@ -190,7 +190,7 @@ export function cauVet(diem: readonly DiemVet[], now = Date.now()): string {
 }
 
 /** "07:00 29/10" giờ VN từ epoch giây. */
-function gioNgayVN(t: number): string {
+export function gioNgayVN(t: number): string {
   const vn = new Date(t * 1000 + 7 * 3_600_000);
   return `${String(vn.getUTCHours()).padStart(2, "0")}:${String(vn.getUTCMinutes()).padStart(2, "0")} ${vn.getUTCDate()}/${vn.getUTCMonth() + 1}`;
 }

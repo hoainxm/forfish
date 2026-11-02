@@ -5039,6 +5039,7 @@ export default function FishingMapView() {
     /*  Chấm TÀU XUNG QUANH (AIS) chạm được — tên, loại, tốc độ, tin cũ bao lâu. Không theo công tắc hải đồ. */
     if (aisGeo) ids.push("tau-ais-dot");
     if (aisMucTieuGeo) ids.push("ais-radar-dot");
+    if (quanhGeo) ids.push("ais-quanh-tau");
     /*  Báo hiệu chính thức chạm được — nó mang số hiệu + câu tác dụng của
         nhà nước, thứ lớp OSM không có. */
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && vnAidGeo) ids.push("vn-aid", "vn-aid-cum");
@@ -5058,7 +5059,7 @@ export default function FishingMapView() {
     // chạm MỐC bão (đã qua / dự báo) để bật popup thông tin mốc đó (A)
     if (trackGeo) ids.push("storm-moc-toi", "storm-moc-qua");
     return ids.length ? ids : undefined;
-  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo, prefs.vungQuanLy, vungQuanLyGeo, aisGeo, aisMucTieuGeo, premiumLocked]);
+  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo, prefs.vungQuanLy, vungQuanLyGeo, aisGeo, aisMucTieuGeo, quanhGeo, premiumLocked]);
   /*  LỚP BẮT CHẠM ĐÃ DỰNG THẬT (lỗi bắt khi rà 2026-10-20): `hitLayers` tính từ
       STATE (dữ liệu đã tải, công tắc bật) nhưng lớp chỉ vào style sau một nhịp
       vẽ — nhất là lúc đổi lớp nền (setStyle dựng lại cả style). Chạm đúng khe đó
@@ -6103,6 +6104,12 @@ export default function FishingMapView() {
           const hitRadar = measureMode ? undefined : nearFeats.find((f) => f.layer?.id === "ais-radar-dot");
           if (hitRadar) {
             setAisChon(String(hitRadar.properties?.id ?? "") || null);
+            return;
+          }
+          /*  TÀU QUANH ĐÂY: chạm chấm ⇒ mở dòng tàu đó trong thẻ (cuộn tới) — DỪNG. */
+          const hitQuanh = measureMode ? undefined : nearFeats.find((f) => f.layer?.id === "ais-quanh-tau");
+          if (hitQuanh) {
+            setTauQuanhChon(String(hitQuanh.properties?.id ?? "") || null);
             return;
           }
           /*  CHẠM CHẤM TÀU AIS ⇒ thẻ tên/loại/tốc độ/tin cũ bao lâu — DỪNG (anh Long 26/10: "sao không click vô 1 tàu được"). */
@@ -8308,16 +8315,32 @@ export default function FishingMapView() {
               layout={{ "text-field": ["get", "nhan"] as unknown as string, "text-font": ["Noto Sans Bold"], "text-size": 11, "text-anchor": "bottom", "text-offset": [0, -0.2], "text-allow-overlap": true }}
               paint={{ "text-color": "#0b4f63", "text-halo-color": "#ffffff", "text-halo-width": 1.6 }}
             />
+            {/* chấm ĐẶC = đang ở đây (vị trí mới nhất), chấm RỖNG viền màu loại = đã qua (chỗ đi gần điểm nhất) */}
             <Layer
               id="ais-quanh-tau"
               type="circle"
               filter={["==", ["get", "kind"], "tau"] as unknown as boolean}
               paint={{
-                "circle-color": ["get", "mau"] as unknown as string,
-                "circle-radius": ["case", ["==", ["get", "chon"], 1], 8, 5] as unknown as number,
-                "circle-stroke-color": "#ffffff",
-                "circle-stroke-width": ["case", ["==", ["get", "chon"], 1], 2.5, 1.2] as unknown as number,
+                "circle-color": ["case", ["==", ["get", "o"], 1], ["get", "mau"], "#ffffff"] as unknown as string,
+                "circle-radius": ["case", ["==", ["get", "chon"], 1], 9, ["==", ["get", "o"], 1], 6.5, 5] as unknown as number,
+                "circle-stroke-color": ["case", ["==", ["get", "o"], 1], "#ffffff", ["get", "mau"]] as unknown as string,
+                "circle-stroke-width": ["case", ["==", ["get", "chon"], 1], 3, 2] as unknown as number,
               }}
+            />
+            {/* nhãn ngắn cạnh chấm "Cá · đang ở" / "Hàng · 5 giờ" — chồng nhau thì MapLibre tự ẩn bớt, chấm chọn luôn hiện */}
+            <Layer
+              id="ais-quanh-tau-nhan"
+              type="symbol"
+              filter={["==", ["get", "kind"], "tau"] as unknown as boolean}
+              layout={{
+                "text-field": ["get", "nhan"] as unknown as string,
+                "text-font": ["Noto Sans Bold"],
+                "text-size": 10,
+                "text-anchor": "left",
+                "text-offset": [0.8, 0],
+                "symbol-sort-key": ["case", ["==", ["get", "chon"], 1], 0, ["==", ["get", "o"], 1], 1, 2] as unknown as number,
+              }}
+              paint={{ "text-color": "#0b4f63", "text-halo-color": "#ffffff", "text-halo-width": 1.6 }}
             />
           </Source>
         )}
@@ -8879,6 +8902,7 @@ export default function FishingMapView() {
             )}
             {tauQuanh && aisAllowed && (
               <TheTauQuanh
+                key={`${tauQuanh.tam.lat},${tauQuanh.tam.lon}`}
                 kq={tauQuanh.kq}
                 chonId={tauQuanhChon}
                 // không bay bản đồ: vòng đã ôm sẵn mọi chấm dưới thẻ, bay tới tâm là chấm rơi dưới ô toạ độ

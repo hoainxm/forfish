@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { KM_PER_NM } from "@/lib/ais-cpa";
 import { TAU_AIS_STORE_KEY, type TauAis, type TauAisBan } from "@/lib/tau-ais";
-import { QUANH_GIO, dongPhuQuanh, fetchTauQuanh, gopTauQuanh, quanhGeoJson, tamHopLe, thamSoQuanh, type TauQuanh } from "@/lib/tau-ais-quanh";
+import { QUANH_GIO, fetchTauQuanh, gopTauQuanh, quanhGeoJson, tamHopLe, thamSoQuanh, tomTatQuanh, trangThaiQuanh, type TauQuanh } from "@/lib/tau-ais-quanh";
 
 const TAM = { lat: 10.3, lon: 107.1 };
 const NOW = Date.parse("2026-10-31T08:00:00Z");
@@ -57,12 +57,50 @@ describe("tàu quanh một điểm — gộp lộ trình + bản", () => {
     expect(tamHopLe(NaN, 107)).toBe(false);
   });
 
-  it("câu phụ giờ VN + lớp bản đồ có vòng, nhãn, chấm chọn", () => {
-    const t: TauQuanh = { id: "1", ten: null, loai: 2, co: null, mmsi: null, gan: { t: Date.parse("2026-10-31T07:00:00Z") / 1000, lat: TAM.lat, lon: TAM.lon, nm: 1.24 }, cuoi: 0, conPhat: false };
-    expect(dongPhuQuanh(t)).toBe("Gần nhất 1,2 hải lý lúc 14:00 · đã tắt hoặc đi xa");
-    const g = quanhGeoJson(TAM, [t], "1");
-    expect(g.features.map((f) => f.properties.kind)).toEqual(["vong", "nhan", "tau"]);
-    expect(g.features[2].properties.chon).toBe(1);
+  it("lớp bản đồ có vòng, nhãn, chấm chọn; chấm đang ở nằm ở vị trí mới nhất, có nhãn loại + trạng thái", () => {
+    const t: TauQuanh = { id: "1", ten: null, loai: 2, co: null, mmsi: null, gan: { t: TU + 3600, lat: TAM.lat, lon: TAM.lon, nm: 0 }, cuoi: TU + 3600, conPhat: false };
+    const o: TauQuanh = { ...t, id: "2", loai: 7, oDay: true, hienTai: { lat: bac(2), lon: TAM.lon, nm: 2 } };
+    const g = quanhGeoJson(TAM, [t, o], "1", 6, NOW / 1000);
+    expect(g.features.map((f) => f.properties.kind)).toEqual(["vong", "nhan", "tau", "tau"]);
+    expect(g.features[2].properties).toMatchObject({ chon: 1, o: 0, nhan: "Cá · 5 giờ" });
+    expect(g.features[3].properties).toMatchObject({ o: 1, nhan: "Hàng · đang ở" });
+    expect((g.features[3].geometry as GeoJSON.Point).coordinates[1]).toBeCloseTo(bac(2), 5);
+  });
+});
+
+describe("tàu quanh một điểm — đang ở / đã qua (anh Long 02/11)", () => {
+  const nowS = NOW / 1000;
+  const base: TauQuanh = { id: "x", ten: null, loai: 2, co: null, mmsi: null, gan: { t: 0, lat: TAM.lat, lon: TAM.lon, nm: 1.24 }, cuoi: 0, conPhat: false };
+
+  it("gộp: tàu trong bản mới nhất còn trong vòng ⇒ đang ở, lên đầu; dau = mốc đầu trong vòng", () => {
+    const vet = [{ tau_id: "c", diem: [[TU + 600, bac(1), TAM.lon], [TU + 4200, bac(2), TAM.lon], [TU + 7800, bac(3), TAM.lon]] }];
+    const b = ban([tau({ id: "h", loai: 7, lat: bac(4) }), tau({ id: "c", lat: bac(20) })]);
+    const ds = gopTauQuanh({ vet, ban: b, tam: TAM, tuGiay: TU });
+    expect(ds.map((t) => [t.id, !!t.oDay])).toEqual([["h", true], ["c", false]]);
+    expect(ds[1]).toMatchObject({ dau: TU + 600, cuoi: TU + 7800, loai: 2 });
+    expect(ds[0].hienTai!.nm).toBeCloseTo(4, 1);
+  });
+
+  it("câu trạng thái: đang ở · ở quanh ~N giờ · chạy qua", () => {
+    expect(trangThaiQuanh({ ...base, loai: 7, oDay: true, hienTai: { lat: 0, lon: 0, nm: 2 } }, nowS)).toEqual({ oDay: true, chip: "Đang ở", cau: "Tàu hàng · đang ở đây, cách 2,0 hải lý" });
+    const o3 = trangThaiQuanh({ ...base, dau: nowS - 6 * 3600, cuoi: nowS - 3 * 3600 }, nowS);
+    expect(o3).toEqual({ oDay: false, chip: "3 giờ", cau: "Tàu cá · ở quanh đây ~3 giờ, rời 3 giờ trước" });
+    const qua = trangThaiQuanh({ ...base, loai: 7, dau: nowS - 5 * 3600, cuoi: nowS - 5 * 3600 }, nowS);
+    expect(qua.cau).toBe("Tàu hàng · chạy qua 5 giờ trước, gần nhất 1,2 hải lý");
+  });
+
+  it("tóm tắt: bây giờ ai ở đây + đã qua nhóm theo loại, nhóm mới qua trước", () => {
+    const ds: TauQuanh[] = [
+      { ...base, id: "1", loai: 7, oDay: true },
+      { ...base, id: "2", loai: 2, cuoi: nowS - 3 * 3600 },
+      { ...base, id: "3", loai: 2, cuoi: nowS - 4 * 3600 },
+      { ...base, id: "4", loai: 7, cuoi: nowS - 5 * 3600 },
+    ];
+    expect(tomTatQuanh(ds, nowS)).toEqual({ bayGio: "Bây giờ: 1 tàu hàng", daQua: "Đã qua: 2 tàu cá (gần nhất 3 giờ trước), 1 tàu hàng (5 giờ trước)" });
+    expect(tomTatQuanh(ds.slice(1), nowS).bayGio).toBe("Bây giờ: không có tàu nào phát AIS ở đây");
+    // loại 0 = đã rời bản, lộ trình không giữ loại ⇒ nói thật
+    expect(trangThaiQuanh({ ...base, loai: 0, cuoi: nowS - 3600 }, nowS).cau).toMatch(/^Tàu chưa rõ loại · chạy qua/);
+    expect(quanhGeoJson(TAM, [{ ...base, loai: 0, cuoi: nowS - 3600 }], null, 6, nowS).features[2].properties.nhan).toBe("Chưa rõ · 1 giờ");
   });
 });
 
