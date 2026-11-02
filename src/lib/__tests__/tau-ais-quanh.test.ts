@@ -81,6 +81,16 @@ describe("tàu quanh một điểm — đang ở / đã qua (anh Long 02/11)", (
     expect(ds[0].hienTai!.nm).toBeCloseTo(4, 1);
   });
 
+  it("icon cùng bộ lớp AIS: chạy ⇒ tam giác xoay theo mũi, đứng ⇒ thoi; đã qua lấy hướng ở mốc gần nhất", () => {
+    const vet = [{ tau_id: "c", diem: [[TU + 600, bac(1), TAM.lon, 8, 200], [TU + 4200, bac(5), TAM.lon, 0.2, 40]] }];
+    const b = ban([tau({ id: "h", loai: 7, lat: bac(2), kn: 9, mui: 135 }), tau({ id: "d", loai: 8, lat: bac(3), kn: 0 })]);
+    const geo = quanhGeoJson(TAM, gopTauQuanh({ vet, ban: b, tam: TAM, tuGiay: TU }), null, 6, NOW / 1000);
+    const p = Object.fromEntries(geo.features.filter((f) => f.properties.kind === "tau").map((f) => [f.properties.id, f.properties]));
+    expect(p.h).toMatchObject({ mk: "hang", chay: 1, huong: 135, o: 1 });
+    expect(p.d).toMatchObject({ mk: "dau", chay: 0, o: 1 });
+    expect(p.c).toMatchObject({ mk: "khac", chay: 1, huong: 200, o: 0 }); // đã rời bản ⇒ chưa rõ loại ⇒ icon xám
+  });
+
   it("câu trạng thái: đang ở · ở quanh ~N giờ · chạy qua", () => {
     expect(trangThaiQuanh({ ...base, loai: 7, oDay: true, hienTai: { lat: 0, lon: 0, nm: 2 } }, nowS)).toEqual({ oDay: true, chip: "Đang ở", cau: "Tàu hàng · đang ở đây, cách 2,0 hải lý" });
     const o3 = trangThaiQuanh({ ...base, dau: nowS - 6 * 3600, cuoi: nowS - 3 * 3600 }, nowS);

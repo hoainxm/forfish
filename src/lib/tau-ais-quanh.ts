@@ -14,7 +14,7 @@ import { apiUrl } from "@/lib/api-base";
 import { tokenHeader } from "@/lib/device-token-store";
 import { haversineKm, type LatLon } from "@/lib/geo";
 import { vongTron } from "@/lib/storm-track";
-import { MAU_TAU, nhomTau, peekTauAis, type TauAis, type TauAisBan } from "@/lib/tau-ais";
+import { MAU_TAU, nhomTau, peekTauAis, tauDangChay, type TauAis, type TauAisBan } from "@/lib/tau-ais";
 
 export const QUANH_NM = 6;
 export const QUANH_GIO = 6;
@@ -27,8 +27,9 @@ export interface TauQuanh {
   loai: number;
   co: string | null;
   mmsi: number | null;
-  /** mốc GẦN điểm nhất trong khung giờ — t epoch giây */
-  gan: { t: number; lat: number; lon: number; nm: number };
+  /** mốc GẦN điểm nhất trong khung giờ — t epoch giây. `huong` = độ mũi/hướng đi lúc đó khi tàu đang chạy (≥ 0,5 hl/h),
+   *  null khi đứng/không rõ — để bản đồ vẽ CÙNG icon tam giác/thoi với lớp AIS toàn biển */
+  gan: { t: number; lat: number; lon: number; nm: number; huong?: number | null };
   /** mốc cuối cùng còn trong vòng (epoch giây) */
   cuoi: number;
   /** mốc ĐẦU TIÊN trong vòng (epoch giây) — cuoi − dau = ở quanh điểm bao lâu. Bản máy chủ cũ thiếu ⇒ không nói "ở quanh ~N giờ" */
@@ -37,7 +38,7 @@ export interface TauQuanh {
   conPhat: boolean;
   /** vị trí MỚI NHẤT (bản ~10 phút) còn trong vòng ⇒ tàu ĐANG ở đây; `hienTai` là chỗ đó */
   oDay?: boolean;
-  hienTai?: { lat: number; lon: number; nm: number };
+  hienTai?: { lat: number; lon: number; nm: number; huong?: number | null };
 }
 
 export interface KetQuaQuanh {
@@ -76,7 +77,7 @@ export function gopTauQuanh(opts: { vet: readonly DongVetQuanh[]; ban: TauAisBan
   const nm = opts.nm ?? QUANH_NM;
   const out = new Map<string, TauQuanh>();
   const tenTheoId = new Map<string, TauAis>((ban?.tau ?? []).map((t) => [t.id, t]));
-  const ghi = (id: string, t: number, lat: number, lon: number, moiNhat = false) => {
+  const ghi = (id: string, t: number, lat: number, lon: number, huong: number | null, moiNhat = false) => {
     if (!(t >= tuGiay)) return;
     const d = haversineKm(tam, { lat, lon }) / KM_PER_NM;
     if (!(d <= nm)) return;
@@ -89,33 +90,33 @@ export function gopTauQuanh(opts: { vet: readonly DongVetQuanh[]; ban: TauAisBan
         loai: meta?.loai ?? 0,
         co: meta?.co ?? null,
         mmsi: meta?.mmsi ?? null,
-        gan: { t, lat, lon, nm: d },
+        gan: { t, lat, lon, nm: d, huong },
         cuoi: t,
         dau: t,
         conPhat: !!meta,
         oDay: moiNhat,
-        ...(moiNhat ? { hienTai: { lat, lon, nm: d } } : {}),
+        ...(moiNhat ? { hienTai: { lat, lon, nm: d, huong } } : {}),
       });
       return;
     }
-    if (d < cu.gan.nm) cu.gan = { t, lat, lon, nm: d };
+    if (d < cu.gan.nm) cu.gan = { t, lat, lon, nm: d, huong };
     if (t > cu.cuoi) cu.cuoi = t;
     if (t < (cu.dau ?? t)) cu.dau = t;
     if (moiNhat) {
       cu.oDay = true;
-      cu.hienTai = { lat, lon, nm: d };
+      cu.hienTai = { lat, lon, nm: d, huong };
     }
   };
   for (const r of vet) {
     if (typeof r?.tau_id !== "string" || !r.tau_id || !Array.isArray(r.diem)) continue;
     for (const p of r.diem) {
       if (!Array.isArray(p)) continue;
-      const [t, lat, lon] = p.map((x) => (x == null ? NaN : Number(x)));
-      if (Number.isFinite(t) && Number.isFinite(lat) && Number.isFinite(lon)) ghi(r.tau_id, t, lat, lon);
+      const [t, lat, lon, kn, h] = p.map((x) => (x == null ? NaN : Number(x)));
+      if (Number.isFinite(t) && Number.isFinite(lat) && Number.isFinite(lon)) ghi(r.tau_id, t, lat, lon, kn >= 0.5 && Number.isFinite(h) ? h : null);
     }
   }
   const banGiay = ban ? Date.parse(ban.luc) / 1000 : NaN;
-  if (ban && Number.isFinite(banGiay)) for (const t of ban.tau) ghi(t.id, Math.round(banGiay - t.phut * 60), t.lat, t.lon, true);
+  if (ban && Number.isFinite(banGiay)) for (const t of ban.tau) ghi(t.id, Math.round(banGiay - t.phut * 60), t.lat, t.lon, tauDangChay(t) ? (t.mui ?? t.huong) : null, true);
   // ĐANG ở đây lên đầu (gần trước), rồi tàu đã qua — mới qua trước
   return [...out.values()].sort((a, b) => Number(!!b.oDay) - Number(!!a.oDay) || (a.oDay ? a.gan.nm - b.gan.nm : b.cuoi - a.cuoi || a.gan.nm - b.gan.nm));
 }
@@ -197,7 +198,10 @@ export function quanhGeoJson(
   chonId: string | null,
   nm = QUANH_NM,
   nowGiay = Math.floor(Date.now() / 1000),
-): GeoJSON.FeatureCollection<GeoJSON.LineString | GeoJSON.Point, { kind: "vong" | "nhan" | "tau"; nhan?: string; id?: string; mau?: string; chon?: number; o?: number }> {
+): GeoJSON.FeatureCollection<
+  GeoJSON.LineString | GeoJSON.Point,
+  { kind: "vong" | "nhan" | "tau"; nhan?: string; id?: string; mau?: string; mk?: string; huong?: number; chay?: number; chon?: number; o?: number }
+> {
   const ring = vongTron(tam.lat, tam.lon, nm * KM_PER_NM);
   const dinh = congNm(tam, 0, nm);
   return {
@@ -205,7 +209,8 @@ export function quanhGeoJson(
     features: [
       { type: "Feature", geometry: { type: "LineString", coordinates: [...ring, ring[0]] }, properties: { kind: "vong" } },
       { type: "Feature", geometry: { type: "Point", coordinates: [dinh.lon, dinh.lat] }, properties: { kind: "nhan", nhan: `${nm} hl · ${QUANH_GIO} giờ qua` } },
-      // ĐANG ở ⇒ chấm ở vị trí mới nhất; đã qua ⇒ ở chỗ đi gần điểm nhất. Nhãn ngắn "Cá · đang ở" / "Hàng · 5 giờ"
+      // ĐANG ở ⇒ icon ở vị trí mới nhất; đã qua ⇒ ở chỗ đi gần điểm nhất (mờ). Icon CÙNG bộ với lớp AIS toàn biển
+      // (`ais-<mk>-chay|dung`: tam giác xoay theo mũi khi chạy, thoi khi đứng). Nhãn ngắn "Cá · đang ở" / "Hàng · 5 giờ"
       ...ds.map((t) => {
         const p = t.oDay && t.hienTai ? t.hienTai : t.gan;
         const tt = trangThaiQuanh(t, nowGiay);
@@ -216,6 +221,9 @@ export function quanhGeoJson(
             kind: "tau" as const,
             id: t.id,
             mau: MAU_TAU[nhomTau(t.loai)],
+            mk: nhomTau(t.loai),
+            huong: p.huong ?? 0,
+            chay: p.huong != null ? 1 : 0,
             chon: t.id === chonId ? 1 : 0,
             o: tt.oDay ? 1 : 0,
             nhan: `${hoaDau(nhomTen(t.loai).replace("tàu ", "").replace(" loại", ""))} · ${tt.oDay ? "đang ở" : tt.chip}`,

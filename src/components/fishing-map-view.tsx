@@ -8631,7 +8631,7 @@ export default function FishingMapView() {
             />
           </Source>
         )}
-        {/* TÀU QUANH MỘT ĐIỂM — vòng 6 hải lý liền (khác vòng radar đứt) + chấm màu theo loại tàu, chấm đang chọn to + viền */}
+        {/* TÀU QUANH MỘT ĐIỂM — vòng 6 hải lý liền (khác vòng radar đứt) + icon tàu như lớp AIS, tàu đang chọn có khung */}
         {quanhGeo && (
           <Source id="ais-quanh" type="geojson" data={quanhGeo}>
             <Layer id="ais-quanh-vong" type="line" filter={["==", ["get", "kind"], "vong"] as unknown as boolean} paint={{ "line-color": "#0e7490", "line-width": 1.8, "line-opacity": 0.85 }} />
@@ -8642,17 +8642,29 @@ export default function FishingMapView() {
               layout={{ "text-field": ["get", "nhan"] as unknown as string, "text-font": ["Noto Sans Bold"], "text-size": 11, "text-anchor": "bottom", "text-offset": [0, -0.2], "text-allow-overlap": true }}
               paint={{ "text-color": "#0b4f63", "text-halo-color": "#ffffff", "text-halo-width": 1.6 }}
             />
-            {/* chấm ĐẶC = đang ở đây (vị trí mới nhất), chấm RỖNG viền màu loại = đã qua (chỗ đi gần điểm nhất) */}
+            {/* CÙNG icon với lớp AIS toàn biển (anh Long 02/11: "icon tàu ko dùng đồng bộ à"): tam giác xoay theo mũi khi
+                chạy, thoi khi đứng, màu theo loại. ĐANG ở = đậm ở vị trí mới nhất; đã qua = mờ ở chỗ đi gần điểm nhất. */}
             <Layer
               id="ais-quanh-tau"
-              type="circle"
+              type="symbol"
               filter={["==", ["get", "kind"], "tau"] as unknown as boolean}
-              paint={{
-                "circle-color": ["case", ["==", ["get", "o"], 1], ["get", "mau"], "#ffffff"] as unknown as string,
-                "circle-radius": ["case", ["==", ["get", "chon"], 1], 9, ["==", ["get", "o"], 1], 6.5, 5] as unknown as number,
-                "circle-stroke-color": ["case", ["==", ["get", "o"], 1], "#ffffff", ["get", "mau"]] as unknown as string,
-                "circle-stroke-width": ["case", ["==", ["get", "chon"], 1], 3, 2] as unknown as number,
+              layout={{
+                "icon-image": ["concat", "ais-", ["get", "mk"], "-", ["case", ["==", ["get", "chay"], 1], "chay", "dung"]] as unknown as string,
+                "icon-size": ["case", ["==", ["get", "chon"], 1], 1.15, 0.9] as unknown as number,
+                "icon-rotate": ["case", ["==", ["get", "chay"], 1], ["get", "huong"], 0] as unknown as number,
+                "icon-rotation-alignment": "map",
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+                "symbol-sort-key": ["case", ["==", ["get", "chon"], 1], 2, ["==", ["get", "o"], 1], 1, 0] as unknown as number,
               }}
+              paint={{ "icon-opacity": ["case", ["any", ["==", ["get", "o"], 1], ["==", ["get", "chon"], 1]], 1, 0.45] as unknown as number }}
+            />
+            {/* tàu đang chọn: khung 4 góc như lớp AIS (ảnh `ais-chon`) */}
+            <Layer
+              id="ais-quanh-chon"
+              type="symbol"
+              filter={["all", ["==", ["get", "kind"], "tau"], ["==", ["get", "chon"], 1]] as unknown as boolean}
+              layout={{ "icon-image": "ais-chon", "icon-allow-overlap": true, "icon-ignore-placement": true }}
             />
             {/* nhãn ngắn cạnh chấm "Cá · đang ở" / "Hàng · 5 giờ" — chồng nhau thì MapLibre tự ẩn bớt, chấm chọn luôn hiện */}
             <Layer
