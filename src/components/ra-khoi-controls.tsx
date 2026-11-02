@@ -1594,7 +1594,8 @@ function DiemPanel({
             className={`${SQ_TILE} bg-t1 text-white`}
           >
             <PlusIcon className="h-6 w-6" />
-            Thêm điểm
+            {/* "Thêm điểm" tràn ô vuông 4rem (thấy trên iPhone 2026-11-02); bảng đã là "Điểm lưu" ⇒ "Thêm" đủ nghĩa */}
+            {NHAN.them}
           </button>
         ) : null}
       </div>

@@ -76,8 +76,9 @@ export function useSheetAutoHide(size: string, setSize: SetSize, hideMs = SHEET_
 
   /** Lớp nổi khác xin ép ẩn ngăn. Trả `true` nếu đã ẩn — sát ranh giới thì TỪ
    *  CHỐI (giấu cảnh báo an toàn là cấm); "Giữ mở" KHÔNG chặn (không chồng bảng). */
-  const forceHide = useCallback((): boolean => {
-    if (!canForceHide({ border: borderRef.current, held: false })) return false;
+  /** `nhanTrenBanDo`: cảnh báo ranh giới đang hiện trên bản đồ (xem `canForceHide`) */
+  const forceHide = useCallback((nhanTrenBanDo = false): boolean => {
+    if (!canForceHide({ border: borderRef.current, held: false }, nhanTrenBanDo)) return false;
     setSize("hidden");
     return true;
   }, [setSize]);

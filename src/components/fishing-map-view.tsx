@@ -2029,10 +2029,13 @@ export default function FishingMapView() {
       đã dựng ở nhánh chạm bản đồ. Đọc qua ref chứ không đọc `borderLocked`
       thẳng: state đó khai mãi phía dưới thân hàm, đọc lên đây là TDZ (02 §14);
       effect đồng hồ tự-ẩn nạp ref này mỗi lượt render nên hai bên luôn khớp. */
+  /** cảnh báo ranh giới đang hiện NGAY TRÊN BẢN ĐỒ (nhãn tại điểm) — nạp ở effect sau `prox` */
+  const nhanRanhRef = useRef(false);
   const hideSheetForOverlay = useCallback(() => {
     // CHỈ ranh giới chặn ép ẩn; "Giữ mở" của người dùng thì không — để hai bảng
     // không chồng nhau (lib/sheet-hold.ts). Ép ẩn = bỏ ghim (xem heldAfterSize).
-    if (!forceHideSheet()) return;
+    // Ranh giới đã có nhãn trên bản đồ ⇒ ép ẩn được (luật lớp nổi 2026-11-02).
+    if (!forceHideSheet(nhanRanhRef.current)) return;
     setSheetHiddenByOverlay(true);
   }, [forceHideSheet]);
   /*  Sheet đang ở nấc `hidden` VÌ BỊ LỚP KHÁC ÉP, chứ không phải vì đồng hồ
@@ -2061,8 +2064,18 @@ export default function FishingMapView() {
   useEffect(() => {
     const was = railLayerWasOpen.current;
     railLayerWasOpen.current = railLayerOpen;
-    if (railLayerOpen && !was) hideSheetForOverlay();
+    if (railLayerOpen && !was) {
+      hideSheetForOverlay();
+      setTimMo(false); // MỘT bảng việc một lúc: rail mở ⇒ ô tìm đóng
+    }
   }, [railLayerOpen, hideSheetForOverlay]);
+  /*  Ô TÌM MỞ ⇒ đóng popover rail (Lớp / ⋯ / Toạ độ / Điểm lưu) + ngăn gió sóng nhường
+      chỗ — luật lớp nổi "một bảng việc một lúc" (07 §10.7 U, 2026-11-02). */
+  useEffect(() => {
+    if (!timMo) return;
+    setCloseRailSignal((n) => n + 1);
+    hideSheetForOverlay();
+  }, [timMo, hideSheetForOverlay]);
 
   const [routeMode, setRouteMode] = useState(false);
   const openRoutePanel = useCallback(() => {
@@ -3795,12 +3808,23 @@ export default function FishingMapView() {
     },
     [setSize],
   );
+  /*  TỚI NƠI RỒI BẤM DỪNG ⇒ DỌN CHUYẾN (học Vietmap "Bạn đã hoàn thành lộ trình"):
+      bỏ vạch, chuỗi chỗ ghé, đóng bảng Lộ trình — không để số 1-2-3 + nét đứt của
+      chuyến đã xong nằm lại trên bản đồ (rà UI 2026-11-02). Dừng GIỮA chừng thì GIỮ
+      (còn chạy tiếp được). Ref vì `navProgress` khai báo sau. */
+  const toiNoiRef = useRef(false);
   const stopNav = useCallback(() => {
     xoaPhien(); // bà con tự dừng ⇒ chuyến xong, lần mở sau không hỏi
+    if (toiNoiRef.current) {
+      toiNoiRef.current = false;
+      setRoute(null);
+      setStops(clearStops());
+      setRouteMode(false);
+    }
     setNavMode(null);
     setCruise(false);
     setBamTau((b) => bamSau(b, "dung", false));
-  }, []);
+  }, [setStops]);
   const startCruise = useCallback(() => {
     ttsUnlock();
     setCruiseIntro(false);
@@ -3868,6 +3892,13 @@ export default function FishingMapView() {
       không bao giờ hiện. */
   const [navKhuReady, setNavKhuReady] = useState(false);
   const [shelterOpen, setShelterOpen] = useState(false);
+  /*  LUẬT LỚP NỔI (07 §10.7 U, anh Long 2026-11-02: "nếu hiện card này thì ẩn card kia…
+      giữ tỷ lệ nhìn thấy map"). ĐANG MỞ MỘT BẢNG VIỆC (rail: Lớp/⋯/Toạ độ/Điểm lưu · ô
+      tìm · bảng Lộ trình khi chưa dẫn đường · menu chạm giữ · khu trú bão · Sen Biển)
+      ⇒ lớp PHỤ (ô toạ độ, chú giải, thẻ tiếp tục, quảng cáo nổi) nhường chỗ. Cảnh báo
+      an toàn (tin bão, ranh giới trên bản đồ, HUD dẫn đường) không thuộc lớp phụ. */
+  const panelMo =
+    railLayerOpen || timMo || (routeMode && navMode == null) || pressMenu != null || shelterOpen || senOpen;
   /*  Mớn nước ĐỌC MỘT LẦN lúc bật dẫn đường, từ ĐÚNG nguồn mà thẻ tuyến đọc
       (`forfish.boat.v1` → `draftM`, kẹp 0–10 m như route-planner:134). Hai chỗ
       đọc hai kiểu là hai câu khác nhau về cùng một con tàu. */
@@ -4221,6 +4252,9 @@ export default function FishingMapView() {
   /*  PHIÊN: làm mới mốc 5 phút/lần khi đang dẫn (hạn 12 giờ tính từ lần ghi cuối);
       tới nơi thì xoá — mở lại app không hỏi tiếp tục chuyến đã xong. */
   const navArrived = navProgress?.arrived ?? false;
+  useEffect(() => {
+    toiNoiRef.current = navMode != null && navArrived;
+  }, [navMode, navArrived]);
   useEffect(() => {
     if (!navMode) return;
     if (navArrived) {
@@ -5479,6 +5513,10 @@ export default function FishingMapView() {
   /** Số đo "lúc này" trong bản lưu là số ĐÔNG CỨNG lúc lưu — chỉ nói thật giờ đo */
   const isToday = sel?.date === todayIso;
   const prox = borderProximity(point.lat, point.lon, borderSrc);
+  // nhãn ranh giới đang vẽ trên bản đồ? (cùng điều kiện với Marker nhãn ranh giới)
+  useEffect(() => {
+    nhanRanhRef.current = prox.applies && !troAn;
+  });
   /*  ĐẾM 3 GIÂY RỒI TRƯỢT SHEET SÁT ĐÁY (SHEET_AUTO_HIDE_MS, lib/use-sheet-auto-hide) — MỌI NẤC.
       Chạy lại khi ĐỔI ĐIỂM ĐANG XEM nữa, không chỉ khi đổi nấc: chạm điểm mới
       lúc sheet ĐANG ở `peek` thì `size` không đổi ⇒ chỉ nghe `size` là đồng hồ
@@ -7918,12 +7956,16 @@ export default function FishingMapView() {
              đóng — cùng luật với `if (!navMode) setRoute(null)` ở menu
              chạm-giữ. */}
         <RouteMapLayers
-          route={routeMode || navOn ? route : null}
+          /*  `navMode`, KHÔNG `navOn` (rà UI 2026-11-02): `navOn` tính cả LOA đọc cảnh
+              báo (chạy tàu không tuyến, tự bật khi mở bản đồ) ⇒ chuyến đã xong mà loa
+              bật là vạch cũ + số chỗ ghé cũ hiện lại. Chỉ bảng Lộ trình hoặc dẫn đường
+              THEO TUYẾN mới vẽ tuyến. */
+          route={routeMode || navMode != null ? route : null}
           alongKm={navProgress?.alongKm ?? null}
           /*  Vòng khoanh chỉ thuộc lúc ĐỌC danh sách điểm. Đang dẫn đường
               (navOn) thì `routeMode` vẫn bật mà bảng đã thu — vòng cũ còn
               nằm trên bản đồ, bà con tưởng đó là chỗ phải tới. */
-          pickedIdx={routeMode && !navOn ? pickedPointIdx : null}
+          pickedIdx={routeMode && navMode == null ? pickedPointIdx : null}
         />
         {/* Chỗ ghé đã chấm nhưng CHƯA tính tuyến — nét đứt + số, để bà con
             thấy ngay mình đang chấm cái gì.
@@ -7938,7 +7980,7 @@ export default function FishingMapView() {
           /*  Cùng luật với vạch đã tính ở trên: thoát dẫn đường ⇒ cất luôn
                đường nháp + ghim số, bật lại là còn nguyên. */
           hidden={
-            !(routeMode || navOn) ||
+            !(routeMode || navMode != null) ||
             (route != null && routeMatchesStops(route.stops, stops, point))
           }
           /*  `from` = NƠI XUẤT PHÁT ĐANG CHỌN trong thẻ (cảng nhà / chỗ ghim /
@@ -8521,7 +8563,9 @@ export default function FishingMapView() {
         <TimDiemPopover
           anchor={oTimEl}
           places={places}
-          viTriTau={tracking.status === "tracking" ? tracking.pos : null}
+          /*  vị trí gần nhất là đủ để xếp cảng gần — tàu neo yên thì GPS ngừng gửi fix,
+              trạng thái thành "mất" mà tàu vẫn ở đó (thấy trên iOS Simulator 2026-11-02) */
+          viTriTau={tracking.status !== "denied" ? tracking.pos : null}
           onDanDuong={
             premiumAccess === "open" && navMode == null
               ? (lat, lon, ten) => {
@@ -8641,7 +8685,7 @@ export default function FishingMapView() {
         <SenBienNoi onOpen={openSen} />
       )}
       {/* quảng bá hàng SDVICO kiểu thông báo (2026-10-31): lâu lâu một lần, vài giây, không khi đang dẫn đường / Sen Biển mở */}
-      <QuangCaoNoi an={navOn || senOpen || !!routeMode} />
+      <QuangCaoNoi an={navOn || panelMo} />
       {senOpen && (
         <SenBienSheet
           key={senAwait ? "cho-di" : senListen ? "nghe" : "mo"}
@@ -8805,7 +8849,7 @@ export default function FishingMapView() {
         )}
         {/*  TIẾP TỤC CHUYẾN DỞ (lib/nav-phien): app bị tắt giữa lúc dẫn đường ⇒
              mở lại hỏi một câu. Bấm Tiếp là cử chỉ chạm thật — mở khoá loa luôn. */}
-        {phienCho && navMode == null && (
+        {phienCho && navMode == null && !panelMo && (
           <div className="pointer-events-auto glass mx-2 max-w-[28rem] space-y-2 p-3" role="group" aria-label="Tiếp tục dẫn đường">
             <p className="text-[0.875rem] font-semibold leading-snug text-navy">
               Dẫn đường tiếp tới {phienCho.tenDich ?? "chỗ đã chọn"}?
@@ -8940,11 +8984,24 @@ export default function FishingMapView() {
             {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
                 không có bão thật); component tự bung 1 lần rồi thu về chip. */}
             {earlyWarning && <StormEarlyBanner ew={earlyWarning} />}
+            {/*  RANH GIỚI THU VỀ MỘT DÒNG (luật lớp nổi 2026-11-02): điểm đang xem rất
+                 gần / ngoài ranh giới mà một bảng việc (Điểm lưu, Lớp, ô tìm…) ép
+                 thu ngăn gió sóng ⇒ câu cảnh báo chuẩn của ngăn lên đây, một dòng
+                 đỏ — vẫn không ai che, mà bản đồ không bị hai bảng đè nhau. */}
+            {borderLocked && sheetHiddenByOverlay && !troAn && (
+              <p
+                role="alert"
+                className="pointer-events-auto flex items-center gap-2 self-start rounded-xl bg-danger-bg px-3 py-2 text-[0.875rem] font-semibold leading-snug text-danger shadow-md"
+              >
+                <AlertIcon className="h-5 w-5 shrink-0" aria-hidden />
+                {prox.label}
+              </p>
+            )}
             {/* Ô TOẠ ĐỘ — hai số bà con quen đọc trên máy định vị: chỗ TÀU đang
                 đứng + chỗ CON TRỎ đang trỏ tới (kèm cách tàu bao xa, hướng nào).
                 Góp ý VSS Quân Bình Định 2026-08-25. */}
             {/* chế độ AIS: ô toạ độ nhường chỗ cho vòng radar (toạ độ tàu vẫn có trong chi tiết từng tàu + nút Vị trí) */}
-            <div className={`@max-[15rem]/map:hidden ${aisMode != null ? "hidden" : ""}`}>
+            <div className={`@max-[15rem]/map:hidden ${aisMode != null || panelMo ? "hidden" : ""}`}>
             <PlotterReadout
               myPos={tracking.pos}
               status={tracking.status}
@@ -8957,7 +9014,7 @@ export default function FishingMapView() {
             </div>
             {/* CHÚ GIẢI MÀU LỚP CÁ — theo luồng dưới ô toạ độ (trước đặt tuyệt đối
                 `top-[11rem]`, phóng chữ to là đè lên ô toạ độ). */}
-            {fishGridGeo && (
+            {fishGridGeo && !panelMo && (
               <div className="glass pointer-events-none flex items-center gap-2 self-start px-2.5 py-1 @max-[15rem]/map:hidden text-[0.75rem] font-medium text-navy shadow-sm">
                 <span className="font-semibold">Dự báo cá</span>
                 {FISH_LEVEL_BANDS.map((b) => (
@@ -8969,7 +9026,7 @@ export default function FishingMapView() {
               </div>
             )}
             {/* CHÚ GIẢI MẬT ĐỘ TÀU — cùng chỗ, cùng cỡ với chú giải cá (hai lớp loại trừ nhau nên không chồng) */}
-            {fleetGridGeo && (
+            {fleetGridGeo && !panelMo && (
               <div className="glass pointer-events-none flex items-center gap-2 self-start px-2.5 py-1 @max-[15rem]/map:hidden text-[0.75rem] font-medium text-navy shadow-sm">
                 <span className="font-semibold">Mật độ tàu</span>
                 {DENSITY_LEVELS.map((b) => (

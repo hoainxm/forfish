@@ -6,7 +6,7 @@
 import { AnchorIcon, PinIcon } from "@/components/icons";
 import { fmtDist, type DistUnit } from "@/lib/map-prefs";
 import { ROUTE_CASING_COLOR, ROUTE_LEG_AMBER, ROUTE_LEG_PASSED, ROUTE_LEG_RED, ROUTE_LINE_COLOR } from "@/lib/ocean-map";
-import { cumulativeKmAt } from "@/lib/route-legs";
+import { catTuyenTu, cumulativeKmAt } from "@/lib/route-legs";
 import { haversineKm, type LatLon } from "@/lib/route-plan";
 import { routePointRows } from "@/lib/route-points";
 import { type RouteStop } from "@/lib/route-stops";
@@ -39,6 +39,11 @@ export function RouteMapLayers({
       Cắt theo `stopWpIdx` rồi tô riêng thì cảnh báo trỏ đúng khúc.
       Tuyến MỘT chặng vẫn chạy đúng nhánh này (một feature) — không có nhánh
       thứ hai để lệch nhau. */
+  /** chỗ cắt tuyến khi đang dẫn đường — null khi chưa chạy (vẽ nguyên tuyến) */
+  const cut = useMemo(
+    () => (route && alongKm != null ? catTuyenTu(route.plan.waypoints, alongKm) : null),
+    [route, alongKm],
+  );
   const line = useMemo(() => {
     if (!route) return null;
     const wps = route.plan.waypoints;
@@ -68,7 +73,7 @@ export function RouteMapLayers({
         if (next !== stateAt(k)) {
           feats.push({
             type: "Feature" as const,
-            properties: { state: stateAt(k), legIdx: runStart },
+            properties: { state: stateAt(k), legIdx: runStart, a: runStart, b: k + 1 },
             geometry: {
               type: "LineString" as const,
               coordinates: wps.slice(runStart, k + 2).map((w) => [w.lon, w.lat]),
@@ -77,7 +82,7 @@ export function RouteMapLayers({
           runStart = k + 1;
         }
       }
-      return { type: "FeatureCollection" as const, features: feats };
+      return { type: "FeatureCollection" as const, features: catSauLung(feats) };
     }
 
     /*  LÙI VỀ TÔ THEO CHẶNG (tuyến cũ/thiếu segRisks). Chưa tính được chặng ⇒
@@ -99,6 +104,8 @@ export function RouteMapLayers({
         properties: {
           state: passed ? "passed" : (legs[i]?.risk ?? "blue"),
           legIdx: i,
+          a: from,
+          b: to,
         },
         geometry: {
           type: "LineString" as const,
@@ -107,8 +114,32 @@ export function RouteMapLayers({
       });
       from = to;
     }
-    return { type: "FeatureCollection" as const, features: feats };
-  }, [route, alongKm]);
+    return { type: "FeatureCollection" as const, features: catSauLung(feats) };
+
+    /*  ĐANG DẪN ĐƯỜNG ⇒ CẮT PHẦN SAU LƯNG (rà UI 2026-11-02, anh Long: "đã qua rồi còn
+        show lại… xem cách Vietmap làm"). Trước đây chặng đã qua chỉ tô xám mỏng mà vẫn
+        nằm trên bản đồ, cộng số chỗ ghé + chấm khúc rẽ cũ ⇒ rối, che chỗ tàu đứng.
+        Nay vạch bắt đầu từ ĐÚNG điểm chiếu của tàu; khúc nào đã qua trọn thì bỏ hẳn. */
+    function catSauLung<F extends { properties: { a: number; b: number }; geometry: { coordinates: number[][] } }>(
+      fs: F[],
+    ): F[] {
+      if (!cut) return fs;
+      const c = cut;
+      return fs.flatMap((f) => {
+        if (f.properties.b < c.idx) return [];
+        if (f.properties.a >= c.idx) return [f];
+        return [
+          {
+            ...f,
+            geometry: {
+              ...f.geometry,
+              coordinates: [[c.diem.lon, c.diem.lat], ...wps.slice(c.idx, f.properties.b + 1).map((w) => [w.lon, w.lat])],
+            },
+          },
+        ];
+      });
+    }
+  }, [route, alongKm, cut]);
   /*  CHỖ ĐỔI HƯỚNG (waypoint giữa, không phải chỗ ghé) — chấm tròn + số khớp
       danh sách "Các điểm trên tuyến". Chỗ ghé/điểm cuối đã có ghim riêng bên
       dưới, không chấm chồng. */
@@ -117,14 +148,15 @@ export function RouteMapLayers({
   const turnPts = useMemo(() => {
     if (!route) return null;
     const features = routePointRows(route.plan.waypoints, route.stopWpIdx)
-      .filter((r) => r.kind === "turn")
+      // đang dẫn đường: chấm khúc rẽ đã ở sau lưng thì bỏ (Vietmap không giữ mũi tên đã qua)
+      .filter((r) => r.kind === "turn" && (!cut || r.idx >= cut.idx))
       .map((r) => ({
         type: "Feature" as const,
         properties: { n: String(r.turnNo) },
         geometry: { type: "Point" as const, coordinates: [r.lon, r.lat] },
       }));
     return { type: "FeatureCollection" as const, features };
-  }, [route]);
+  }, [route, cut]);
   if (!route || !line) return null;
   const picked =
     pickedIdx != null ? (route.plan.waypoints[pickedIdx] ?? null) : null;
@@ -237,15 +269,14 @@ export function RouteMapLayers({
           />
         </Marker>
       )}
-      <Marker
-        longitude={route.start.lon}
-        latitude={route.start.lat}
-        anchor="center"
-      >
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-navy shadow-md ring-2 ring-navy">
-          <AnchorIcon className="h-5 w-5" />
-        </span>
-      </Marker>
+      {/* neo xuất phát: đang dẫn đường thì nó đã ở sau lưng — bỏ */}
+      {!cut && (
+        <Marker longitude={route.start.lon} latitude={route.start.lat} anchor="center">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-navy shadow-md ring-2 ring-navy">
+            <AnchorIcon className="h-5 w-5" />
+          </span>
+        </Marker>
+      )}
       {/*  ĐIỂM CUỐI LUÔN CÓ GHIM, VÀ GHIM KHÁC HẲN CHỖ GHÉ GIỮA ĐƯỜNG
           (chủ dự án 2026-08-29h: *"ko thấy điểm cuối"*).
 
@@ -261,6 +292,8 @@ export function RouteMapLayers({
           phải đếm số rồi so với danh sách trong thẻ. */}
       {route.stops.map((s, i) => {
         const cuoi = i === route.stops.length - 1;
+        // chỗ ghé GIỮA đường đã đi qua ⇒ bỏ số (điểm cuối giữ tới lúc tới nơi)
+        if (!cuoi && cut && route.stopWpIdx[i] != null && route.stopWpIdx[i] < cut.idx) return null;
         return (
           <Marker
             key={`${s.lat},${s.lon}`}

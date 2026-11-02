@@ -14,6 +14,10 @@ describe("luật thu ngăn gió sóng", () => {
     expect(canAutoHide({ border: true, held: false })).toBe(false);
     expect(canForceHide({ border: true, held: false })).toBe(false);
   });
+  it("ranh giới đã hiện NGAY TRÊN BẢN ĐỒ ⇒ lớp nổi được ép ẩn (không giấu cảnh báo), đồng hồ vẫn không", () => {
+    expect(canForceHide({ border: true, held: false }, true)).toBe(true);
+    expect(canAutoHide({ border: true, held: false })).toBe(false);
+  });
   it("thu ngăn bằng bất cứ đường nào là bỏ ghim", () => {
     expect(heldAfterSize(true, "half")).toBe(true);
     expect(heldAfterSize(true, "hidden")).toBe(false);

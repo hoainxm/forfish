@@ -199,3 +199,32 @@ describe("legProgressAt — tàu đang ở chặng nào", () => {
     expect(legProgressAt([50], 49.999, 10).toNextKm).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("catTuyenTu — cắt phần tuyến sau lưng khi đang dẫn đường (học Vietmap)", async () => {
+  const { catTuyenTu } = await import("@/lib/route-legs");
+  const wps = [
+    { lat: 10, lon: 107 },
+    { lat: 10, lon: 107.1 },
+    { lat: 10.1, lon: 107.1 },
+  ];
+  it("chưa chạy ⇒ giữ nguyên từ điểm đầu", () => {
+    expect(catTuyenTu(wps, 0)).toEqual({ idx: 1, diem: wps[0] });
+  });
+  it("giữa đoạn đầu ⇒ điểm cắt nội suy, waypoint kế là 1", () => {
+    const c = catTuyenTu(wps, 5)!;
+    expect(c.idx).toBe(1);
+    expect(c.diem.lat).toBeCloseTo(10, 6);
+    expect(c.diem.lon).toBeGreaterThan(107.04);
+    expect(c.diem.lon).toBeLessThan(107.06);
+  });
+  it("qua khúc rẽ ⇒ waypoint kế là 2", () => {
+    expect(catTuyenTu(wps, 12)!.idx).toBe(2);
+  });
+  it("qua hết ⇒ idx = số waypoint", () => {
+    expect(catTuyenTu(wps, 999)!.idx).toBe(3);
+  });
+  it("số hỏng / tuyến ngắn ⇒ null", () => {
+    expect(catTuyenTu(wps, Number.NaN)).toBeNull();
+    expect(catTuyenTu(wps.slice(0, 1), 1)).toBeNull();
+  });
+});

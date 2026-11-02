@@ -99,6 +99,34 @@ export function cumulativeKmAt(waypoints: LatLon[], idxs: number[]): number[] {
   return idxs.map((i) => cum[Math.min(Math.max(i, 0), cum.length - 1)]);
 }
 
+/**
+ * CHỖ CẮT TUYẾN khi đang dẫn đường (rà UI 2026-11-02, học Vietmap: đi tới đâu, phần
+ * tuyến sau lưng biến mất tới đó). Trả `idx` = waypoint ĐẦU TIÊN còn ở phía trước
+ * (quãng dọc tuyến > `alongKm`) và `diem` = điểm trên tuyến ứng với `alongKm` (nội suy
+ * trên đoạn `idx-1 → idx`). Phần còn lại để vẽ = `[diem, ...waypoints.slice(idx)]`.
+ * Qua hết ⇒ `idx = waypoints.length` (không còn gì phía trước). Số hỏng / tuyến <2
+ * điểm ⇒ null (nơi gọi vẽ nguyên tuyến).
+ */
+export function catTuyenTu(
+  waypoints: readonly LatLon[],
+  alongKm: number,
+): { idx: number; diem: LatLon } | null {
+  if (waypoints.length < 2 || !Number.isFinite(alongKm)) return null;
+  if (alongKm <= 0) return { idx: 1, diem: waypoints[0] };
+  let cum = 0;
+  for (let i = 1; i < waypoints.length; i++) {
+    const d = haversineKm(waypoints[i - 1], waypoints[i]);
+    if (cum + d > alongKm) {
+      const t = d > 0 ? (alongKm - cum) / d : 0;
+      const a = waypoints[i - 1];
+      const b = waypoints[i];
+      return { idx: i, diem: { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t } };
+    }
+    cum += d;
+  }
+  return { idx: waypoints.length, diem: waypoints[waypoints.length - 1] };
+}
+
 export interface LegProgress {
   /** chặng đang chạy (0-based); = số chặng khi đã qua hết */
   currentLeg: number;

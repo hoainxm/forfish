@@ -16,9 +16,16 @@ export function canAutoHide(l: SheetLocks): boolean {
   return !l.border && !l.held;
 }
 
-/** Lớp nổi khác được phép ép ẩn ngăn? (ghim của người dùng KHÔNG chặn) */
-export function canForceHide(l: SheetLocks): boolean {
-  return !l.border;
+/**
+ * Lớp nổi khác được phép ép ẩn ngăn? (ghim của người dùng KHÔNG chặn)
+ *
+ * `nhanTrenBanDo` (luật lớp nổi 2026-11-02, 07 §10.7 U): cảnh báo ranh giới ĐANG HIỆN
+ * ngay trên bản đồ (nhãn "ngoài ranh giới" / "X hải lý tới ranh giới" tại điểm, đỏ
+ * khi rất gần) ⇒ thu ngăn KHÔNG giấu cảnh báo, cho ép ẩn. Trước đây ngăn bị khoá mở
+ * ⇒ bà con mở "Điểm lưu" ở chỗ ngoài ranh thì hai bảng đè nhau che gần hết bản đồ.
+ */
+export function canForceHide(l: SheetLocks, nhanTrenBanDo = false): boolean {
+  return !l.border || nhanTrenBanDo;
 }
 
 /** Ghim chỉ sống khi ngăn đang mở — mọi đường thu (chạm bản đồ, ép ẩn, "Thu",
