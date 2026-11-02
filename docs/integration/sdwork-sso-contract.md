@@ -57,6 +57,28 @@ POST /api/sdwork/webhook
 - Map → hàng bảng: `toCustomerRow` / `toDeviceRow` / `toSupplyRow` (`src/lib/sdwork-webhook.ts`, có test). Thiếu field bắt buộc (phone/name) → bỏ qua hàng đó.
 - **`customer.tier` (2026-07-26, additive — không breaking)**: `"basic"` | `"premium"` mở dự báo cá + thời tiết >3 ngày bên SDFish. **VẮNG field / giá trị lạ → upsert KHÔNG đụng hạng hiện có** (admin SDFish gán tay ở `/quan-tri` không bị webhook ghi đè ngoài ý muốn; muốn hạ hạng phải gửi `"tier": "basic"` tường minh). `premiumUntil` chỉ có nghĩa khi đi kèm `tier: "premium"`; hết hạn SDFish tự coi là basic (không cần event hạ hạng đúng ngày).
 
+### Event `order` — đơn SDVICO cho khách lẻ (2026-11-02, additive — KHÔNG breaking, ADR 0018)
+
+```jsonc
+{ "entity": "order", "action": "upsert", "ref": "<orders.id CRM>",
+  "data": { "customerPhone": "0901234567", "customerName": "Nguyễn Văn A",
+            "code": "DH75768", "orderedAt": "2026-10-31T10:12:00+07:00",
+            "status": "dang_chuan_bi",            // dang_chuan_bi | dang_giao | da_giao | da_huy
+            "snapshotAt": "2026-11-02T08:00:01+07:00",
+            "items":    [{ "name": "…", "qty": 1, "unit": "cái", "unitPrice": 5500000, "lineTotal": 5500000 }],
+            "services": [{ "name": "Lắp đặt", "qty": 1, "unitPrice": 300000, "lineTotal": 300000 }],
+            "subtotal": 5500000, "discount": 0, "vat": 440000, "serviceTotal": 300000, "total": 6240000,
+            "carrierName": "Viettel Post", "trackingNumber": "VTP123",
+            "externalRef": "sdfish_order:SDF-001234" } }
+{ "entity": "order", "action": "delete", "ref": "<orders.id CRM>",
+  "data": { "snapshotAt": "2026-11-02T09:00:00+07:00" } }   // KH đơn không còn là khách lẻ / đơn bị xoá cứng — SDFish giữ bia mộ (crm_order_tombstones)
+```
+
+- Bắt buộc: `customerPhone` (di động VN hợp lệ), `code`, `snapshotAt`, `status` ∈ 4 mã. Thiếu ⇒ `missing_required`; status lạ ⇒ `bad_status`.
+- Bản `snapshotAt` cũ hơn bản đang có ⇒ bỏ, trả `ok:true` + `code:"stale_snapshot"` (CRM không retry).
+- Event `order` KHÔNG tạo tài khoản — CRM bắn kèm `customer` (`{phone, name}`) lần đầu đơn sang; worker xếp `customer` lên trước.
+- Bản đối xứng phía CRM: `crm-sdvico-40/docs/contracts/crm-sdfish-order-sync.contract.md` (sửa thì sửa cả hai).
+
 ### Response (đối soát outbox)
 
 ```jsonc
@@ -70,7 +92,7 @@ POST /api/sdwork/webhook
 ```
 
 - `results[]` 1 phần tử / event (cùng thứ tự gửi). SDWork **đánh dấu outbox theo `results[].ok`** — KHÔNG dựa `applied` count (event lỗi không câm).
-- `code`: `bad_event` | `missing_required` | `upsert_failed` | `delete_failed` | `phone_conflict` (**thêm 2026-10-31, KHÔNG breaking** — SĐT đã thuộc khách SDWork KHÁC; hàng cùng SĐT CHƯA có mã thì SDFish tự nhận về, trả `ok:true`). `ok:false` → SDWork retry event đó.
+- `code`: `bad_event` | `missing_required` | `upsert_failed` | `delete_failed` | `bad_status` (event `order`, 2026-11-02) | `stale_snapshot` (event `order`, đi kèm `ok:true` — không retry) | `phone_conflict` (**thêm 2026-10-31, KHÔNG breaking** — SĐT đã thuộc khách SDWork KHÁC; hàng cùng SĐT CHƯA có mã thì SDFish tự nhận về, trả `ok:true`). `ok:false` → SDWork retry event đó.
 - `detail` (**thêm 2026-07-21, optional — KHÔNG breaking**, worker cũ bỏ qua field lạ): lỗi DB rút gọn ≤200 ký tự (`code` Postgres + nghĩa nghiệp vụ + message), chỉ có khi `ok:false`. Trước đây route nuốt lỗi thật → worker log hàng loạt `upsert_failed` mà không ai biết vì sao (sự cố 21/07: mở phạm vi sang `sub` làm 2 account CRM dùng chung SĐT đụng ràng buộc `customers.phone` UNIQUE). Rút gọn thuần `src/lib/db-error.ts` (có test). **KHÔNG bao giờ kèm `password`** — chỉ lấy message/code của DB.
 - `provisioned` (chỉ customer có `password`): `true` tạo được tài khoản; `false` = upsert dữ liệu OK nhưng **tạo auth user lỗi → KH chưa đăng nhập được**, cần alert.
 - Lỗi toàn cục (không per-event): `401 bad_signature` · `503 not_configured` · `400 bad_json`.
