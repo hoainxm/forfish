@@ -331,9 +331,13 @@ import { useNavTracking } from "@/lib/use-nav-tracking";
 import { useNavVoice } from "@/lib/nav-voice/use-nav-voice";
 import type { ChartReadiness } from "@/lib/nav-voice/opening";
 import type { VoiceMode } from "@/lib/nav-voice/announcer";
-import { ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
-import { datTenUuTien, napBoNghe } from "@/lib/sen-bien/nghe-may";
-import { setSenSignal } from "@/lib/sen-bien-state";
+import { cauVuaNoi, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
+import { datTenUuTien, napBoNghe, ngheRanhTay } from "@/lib/sen-bien/nghe-may";
+import { laTiengVong, NGHE_SAU_DOC_MS } from "@/lib/sen-bien/nghe";
+import { tachCauGoi } from "@/lib/sen-bien/goi-ranh-tay";
+import { cauCuuNan } from "@/lib/sen-bien/lenh-chay";
+import type { NhoTruoc } from "@/lib/sen-bien/noi-tiep";
+import { getSenState, setSenSignal } from "@/lib/sen-bien-state";
 import { apDungGemma, canGemma, chonKho, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
 import { traLoiSanPham } from "@/lib/sen-bien/hoi-san-pham";
@@ -415,11 +419,13 @@ import {
   cableKmAt,
   denBienTin,
   khuTruBaoGan,
+  navRanhTayOn,
   navRungOn,
   phaoKeTiep,
   pickHudLines,
   restrictedAt,
   sameAlerts,
+  setNavRanhTayOn,
   setNavRungOn,
   type KhuGan,
   type NavContext,
@@ -431,7 +437,7 @@ import { lechCamera } from "@/lib/nav-camera";
 import type { ChoVuong } from "@/lib/duong-thang";
 import type { LatLon } from "@/lib/geo";
 import { gioPhut, luuPhien, napPhien, taoPhien, xoaPhien, type NavPhien } from "@/lib/nav-phien";
-import { distSpeech } from "@/lib/nav-voice/phrases";
+import { clockSpeech, distSpeech } from "@/lib/nav-voice/phrases";
 import { CAU_DU_HAI_DO, CAU_TAT_MAN, CAU_TU_DUNG, cauBatDau } from "@/lib/nav-voice/cau-dan-duong";
 import { fetchReefDepth, timRanChoThe } from "@/lib/reef-depth";
 import { requiredDepthM } from "@/lib/hazards";
@@ -3411,6 +3417,11 @@ export default function FishingMapView() {
   const [senAutoListen, setSenAutoListen] = useState(0);
   /** đường Sen Biển vừa vẽ, đang chờ "đi" */
   const [senAwait, setSenAwait] = useState<PlannedRoute | null>(null);
+  /** bản ref của senAwait — hẹn giờ thu thẻ rảnh tay đọc được giá trị mới nhất */
+  const senAwaitRef = useRef<PlannedRoute | null>(null);
+  useEffect(() => {
+    senAwaitRef.current = senAwait;
+  }, [senAwait]);
   const [senTitle, setSenTitle] = useState("");
   /** Sen Biển đã chọn chỗ, đang chờ khung dẫn đường tính xong */
   const senPendingRef = useRef<{ name: string } | null>(null);
@@ -4018,6 +4029,19 @@ export default function FishingMapView() {
     const on = navRungOn();
     navRungRef.current = on;
     setNavRung(on);
+  }, []);
+  /*  RẢNH TAY (2026-11-02, "vượt qua Mimi"): đang dẫn đường mà bật thì micro nghe liên tục bằng bộ nghe
+      trong máy, câu mở đầu "Sen Biển ơi" là gọi (lib/sen-bien/goi-ranh-tay). Mặc định tắt. */
+  const [ranhTay, setRanhTay] = useState(false);
+  useEffect(() => {
+    setRanhTay(navRanhTayOn());
+  }, []);
+  const toggleRanhTay = useCallback(() => {
+    setRanhTay((on) => {
+      const next = !on;
+      setNavRanhTayOn(next);
+      return next;
+    });
   }, []);
   const toggleNavRung = useCallback(() => {
     setNavRung((on) => {
@@ -5001,6 +5025,8 @@ export default function FishingMapView() {
     [...ds].sort((a, b) => haversineKm(v.lat, v.lon, a.lat, a.lon) - haversineKm(v.lat, v.lon, b.lat, b.lon)).slice(0, n);
   /** số lượt nghe — câu máy nhà về muộn của lượt cũ không được đọc chèn câu mới (luong-tra-loi.luotMoi) */
   const senLuotRef = useRef(0);
+  /** việc bản đồ / câu hỏi vừa làm — câu nối "còn ngày mai thì sao" (noi-tiep.ts) */
+  const senTruocRef = useRef<NhoTruoc | null>(null);
   /** lượt đang chờ máy nhà — lượt mới / đóng thẻ thì ngắt */
   const senHuyRef = useRef<AbortController | null>(null);
   const senHeard = useCallback(
@@ -5039,6 +5065,7 @@ export default function FishingMapView() {
         running: navOn,
         choVuaNoi: senChoRef.current,
         loaiCa: SEN_LOAI_CA,
+        truoc: senTruocRef.current,
       });
       // Android có Gemma: hỏi thêm để lấy THAM SỐ (cùng việc mới nhận), trần 2,5 s; web/lỗi ⇒ giữ câu của luật
       const g = canGemma(r0)
@@ -5075,6 +5102,7 @@ export default function FishingMapView() {
       void guiMauSen();
       switch (r.kind) {
         case "map":
+          senTruocRef.current = { kind: "map", lenh: r.lenh, luc: Date.now() };
           return senLenh(r.lenh);
         case "go":
           senSay(`${r.say} Đang vẽ đường.`);
@@ -5109,6 +5137,7 @@ export default function FishingMapView() {
           navVoice.repeatLast();
           return { show: "Đọc lại câu vừa rồi." };
         case "hoi": {
+          senTruocRef.current = { kind: "hoi", q: r.q, luc: Date.now() };
           // vị trí: GPS tàu còn mới (≤10 phút) thì "từ tàu", không thì giữa bản đồ "chỗ đang xem"
           const tauMoi = tracking.pos && tracking.lastFixAt != null && Date.now() - tracking.lastFixAt < 10 * 60_000;
           const c = mapRef.current?.getCenter();
@@ -5134,13 +5163,55 @@ export default function FishingMapView() {
         }
         case "howfar": {
           const unit = prefs.distUnit === "km" ? "km" : "nm";
+          // giờ tới nơi theo đồng hồ (Mimi: "mấy giờ đến nơi") — chỉ khi đang chạy đủ nhanh để có ETA
           const t = navProgress
             ? `Còn ${distSpeech(navProgress.remainingKm, unit)}${
-                navProgress.etaHours != null ? `, chừng ${formatHoursVN(navProgress.etaHours)}` : ""
+                navProgress.etaHours != null
+                  ? `, chừng ${formatHoursVN(navProgress.etaHours)}, tới lúc ${clockSpeech(Date.now() + navProgress.etaHours * 3_600_000)}`
+                  : ""
               }.`
             : navOn
               ? "Đang chạy không có đích. Nói tên chỗ muốn tới để Sen Biển vẽ đường."
               : "Chưa dẫn đường tới đâu.";
+          senSay(t);
+          return { show: t };
+        }
+        case "chay": {
+          const unit = prefs.distUnit === "km" ? "km" : "nm";
+          let t: string;
+          if (r.viec === "cuu_nan") {
+            // toạ độ tàu (GPS mới nhất) đọc trước — người nghe chép lên bộ đàm; chưa có định vị thì nói thật
+            const p = tracking.pos;
+            t = cauCuuNan(p ? { lat: p.lat, lon: p.lon } : null, tracking.lastFixAt != null ? Date.now() - tracking.lastFixAt : null);
+            if (p) goToCoord(p.lat, p.lon);
+          } else if (r.viec === "toc_do") {
+            const v = tracking.speedKmh;
+            t =
+              v == null
+                ? "Máy chưa đo được tốc độ. Cần định vị đang chạy."
+                : unit === "km"
+                  ? `Tàu đang chạy ${Math.round(v)} cây số một giờ.`
+                  : `Tàu đang chạy ${(v / 1.852).toFixed(1).replace(".", ",").replace(/,0$/, "")} hải lý một giờ.`;
+          } else if (!navProgress) {
+            t = "Chưa dẫn đường tới đâu. Nói tên chỗ muốn tới để Sen Biển vẽ đường.";
+          } else if (r.viec === "ve_lai") {
+            /*  Như "dẫn về X" bằng giọng: tính xong đọc tóm tắt rồi CHỜ "đi" (senPendingRef) — không bắt chạm
+                Bắt đầu (thử Rảnh tay 2026-11-02: tính lại xong treo ở bảng Lộ trình, micro rảnh tay nghỉ). */
+            const ten = stopsRef.current[stopsRef.current.length - 1]?.name ?? "điểm đến";
+            veLaiTuTau();
+            senPendingRef.current = { name: ten };
+            t = "Đang tính lại đường từ chỗ tàu.";
+          } else if (navProgress.offRoute && navProgress.vachBen) {
+            t = `Tàu lệch đường ${distSpeech(navProgress.offRouteKm, unit)}, vạch ở bên ${navProgress.vachBen} tàu.${
+              navProgress.huongVeVachDeg != null ? ` Đi về phía ${windDirectionVN(navProgress.huongVeVachDeg)} để về lại.` : ""
+            }`;
+          } else {
+            const s = navProgress.steer;
+            t =
+              s && s.side !== "straight"
+                ? `Chếch ${s.side === "left" ? "trái" : "phải"} ${Math.round(Math.abs(s.turnDeg))} độ, về phía ${navProgress.dirVN}.`
+                : `Đúng hướng. Giữ hướng ${navProgress.dirVN}.`;
+          }
           senSay(t);
           return { show: t };
         }
@@ -5203,7 +5274,7 @@ export default function FishingMapView() {
         }
       }
     },
-    [senDests, senAwait, navOn, senSay, senAsk, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit, tracking.pos, tracking.lastFixAt, tracking.headingDeg, point, goToCoord, senLenh, senViTri, places, router],
+    [senDests, senAwait, navOn, senSay, senAsk, senGo, senStart, senCancel, stopNav, navVoice, navProgress, prefs.distUnit, tracking.pos, tracking.lastFixAt, tracking.headingDeg, tracking.speedKmh, point, goToCoord, senLenh, senViTri, places, router, veLaiTuTau],
   );
   /*  CÂU CHÀO khi GỌI Sen Biển — chủ dự án 2026-10-17: "click vào thì hỏi sen biển giúp gì được cho bạn"
       (thay câu hướng dẫn dài). Ngắn ⇒ nghe sớm. */
@@ -5245,6 +5316,88 @@ export default function FishingMapView() {
     setSenListen(true);
     setSenOpen(true);
   }, []);
+
+  /*  RẢNH TAY — vòng nghe chỉ chạy khi: đang dẫn đường + bà con bật + thẻ Sen Biển đang đóng (thẻ mở thì thẻ
+      tự nghe, hai bộ nghe giành một micro). Câu "Sen Biển ơi" trơn ⇒ mở thẻ như chạm icon (chào rồi nghe);
+      "Sen Biển ơi còn bao xa" ⇒ làm luôn việc, thẻ hiện câu đáp. */
+  /** đọc xong câu đáp rảnh tay bao lâu thì thu thẻ — đủ liếc chữ, không chắn micro lâu */
+  const THU_THE_RANH_TAY_MS = 4000;
+  const goiRanhTay = useCallback(
+    (lenh: string) => {
+      if (!lenh) return openSen();
+      senPhienRef.current = phienMoi();
+      setSenTitle(`“${lenh.slice(0, 80)}”`);
+      setSenListen(false);
+      setSenOpen(true);
+      void Promise.resolve(senHeard(lenh.slice(0, 200))).then((kq) => {
+        if (kq?.show) setSenTitle(kq.show);
+        // THU THẺ khi đọc xong (thử Rảnh tay 2026-11-02: thẻ nằm lì ⇒ micro rảnh tay nghỉ luôn, phải chạm tay đóng).
+        // Còn danh sách chờ chạm chọn thì để thẻ. Bà con hỏi tiếp bằng thẻ (lượt mới) thì thôi không thu.
+        if (kq?.options?.length) return;
+        const luot = senLuotRef.current;
+        const batDau = Date.now();
+        const t = setInterval(() => {
+          const c = cauVuaNoi();
+          const docXong = !c || (c.xong > 0 && Date.now() - c.xong > THU_THE_RANH_TAY_MS);
+          // đang tính đường / đang chờ "đi" (tìm đường khác, dẫn về X) ⇒ thẻ đó là chỗ trả lời, không thu
+          const choDi = senPendingRef.current != null || senAwaitRef.current != null;
+          if (senLuotRef.current !== luot || choDi || Date.now() - batDau > 60_000) clearInterval(t);
+          else if (docXong) {
+            clearInterval(t);
+            setSenOpen(false);
+          }
+        }, 500);
+      });
+    },
+    [openSen, senHeard],
+  );
+  const goiRanhTayRef = useRef(goiRanhTay);
+  useEffect(() => {
+    goiRanhTayRef.current = goiRanhTay;
+  }, [goiRanhTay]);
+  /*  Chạy khi đang dẫn, hoặc đang tính lại / chờ "đi" giữa chuyến (tìm đường khác, dẫn về chỗ khác — lúc đó
+      navMode tạm null). Thẻ Sen Biển MỞ vẫn chạy (thử 2026-11-02: thẻ chờ "Đi/Thôi" hết lượt tự nghe là nằm lì,
+      rảnh tay nghỉ theo) — chỉ nhường micro lúc thẻ ĐANG nghe/nghĩ/nói (imLang). */
+  const ranhTayChay = ranhTay && (navMode != null || (cruise && routeMode) || senAwait != null);
+  useEffect(() => {
+    if (!ranhTayChay) return;
+    let huy = false;
+    let dung: (() => void) | null = null;
+    void napBoNghe(senTenRef.current).then((ok) => {
+      if (huy) return;
+      if (!ok) {
+        // bộ nghe 79 MB chưa về (lần đầu, mất sóng) ⇒ nói thật, tắt nút; KHÔNG dùng nghe qua mạng cho việc nghe liên tục
+        setRanhTay(false);
+        senSay("Máy chưa có bộ nghe trong máy. Có sóng thì mở lại để tải, rồi bật Rảnh tay.");
+        return;
+      }
+      dung = ngheRanhTay({
+        imLang: () => {
+          const m = getSenState().mode;
+          if (m === "nghe" || m === "nghi" || m === "noi") return true; // thẻ Sen Biển đang dùng micro / loa
+          const c = cauVuaNoi();
+          return !!c && (c.xong === 0 || Date.now() - c.xong < NGHE_SAU_DOC_MS);
+        },
+        onCau: (text) => {
+          const c = cauVuaNoi();
+          if (laTiengVong(text, c?.text, c ? (c.xong ? Date.now() - c.xong : null) : null)) return;
+          const lenh = tachCauGoi(text);
+          if (lenh != null) goiRanhTayRef.current(lenh);
+          // thẻ đang chờ "Đi/Thôi": câu NGẮN không cần gọi tên ("đi", "thôi") — chỉ lúc này, chuyện cabin khác vẫn bỏ
+          else if (senAwaitRef.current && text.trim().split(/\s+/).length <= 3) goiRanhTayRef.current(text);
+        },
+        onError: (code) => {
+          if (code !== "not-allowed") return;
+          setRanhTay(false);
+          senSay("Máy chưa cho dùng micro. Bật quyền micro cho app rồi bật lại Rảnh tay.");
+        },
+      }).stop;
+    });
+    return () => {
+      huy = true;
+      dung?.();
+    };
+  }, [ranhTayChay, senSay]);
 
   // độ sâu tại điểm đang xem — lưới tĩnh, đọc cục bộ
   useEffect(() => {
@@ -9188,6 +9341,7 @@ export default function FishingMapView() {
             hazardLines={navHazardLines}
             rungOn={navRung}
             onToggleRung={toggleNavRung}
+            ranhTay={{ on: ranhTay, onToggle: toggleRanhTay }}
             /*  Nút trú bão CHỈ khi đang có bão thật (`stormInfo` = co-bao) VÀ
                 kho khu trú đã nạp: nút mở ra danh sách rỗng còn tệ hơn không
                 có nút. */

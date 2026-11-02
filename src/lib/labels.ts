@@ -89,6 +89,7 @@ export const NHAN = {
   gheThem: "Ghé thêm", // chạm giữ bản đồ khi bảng Lộ trình đang mở
   veLai: "Vẽ lại", // lệch xa tuyến đang dẫn ⇒ tính lại từ chỗ tàu
   chayTiep: "Chạy tiếp", // lỡ tay bấm Dừng giữa chuyến
+  ranhTay: "Rảnh tay", // gọi "Sen Biển ơi" không chạm khi đang dẫn đường
   veTau: "Về tàu",
   noi: "Nói",
   nghe: "Nghe",

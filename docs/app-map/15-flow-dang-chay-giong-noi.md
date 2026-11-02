@@ -1,5 +1,6 @@
 # 15 — Chế độ "ĐANG CHẠY": đọc & cảnh báo bằng giọng nói kiểu VietMap
 
+<!-- re-verified: 2026-11-02z — §34 mới: Sen Biển vượt Mimi — gọi rảnh tay "Sen Biển ơi" bằng bộ nghe trong máy (`lib/sen-bien/goi-ranh-tay`, `nghe-may.ngheRanhTay`, nút Rảnh tay trên HUD, khoá `forfish.nav.ranhtay.v1`), lệnh lúc chạy + kêu cứu (`lib/sen-bien/lenh-chay`), câu nối nhiều lượt (`lib/sen-bien/noi-tiep`), "mấy giờ tới" đọc giờ tới nơi. -->
 <!-- re-verified: 2026-11-02w — §33 mới: vá 4 lỗ giọng (đỏ tính mạng nhắc lại, bão gần kèm khu trú gần nhất, báo trước tới đích, định vị yếu) — `events.ts`, `nav-storm.ts`, `use-nav-voice.ts`. -->
 <!-- re-verified: 2026-11-02v — §32 mới: câu dẫn đường lượt 2 (`lib/nav-voice/cau-dan-duong.ts`): bắt đầu (quãng · giờ · hướng đầu · tắt màn), lệch tuyến kèm "Đi về phía H, bên trái/phải tàu", "Tàu đã về lại đường đã vẽ.", "đã tới" đọc một lần/lần tới, tự thôi dẫn khi tới + đứng yên 5 phút, nạp lại kho hải đồ. -->
 <!-- re-verified: 2026-11-02 — §31 mới: học từ VietMap Live dịch ngược (khúc rẽ hai nhịp `lib/nav-khuc-re`, đang trong vùng `lib/nav-vung`, tiếp tục chuyến `lib/nav-phien`); `collectVoiceEvents` nhận thêm `vung` + `khucRe`. -->
@@ -1156,3 +1157,28 @@ Agent rà kịch bản giọng: chọn câu/đúng lúc/chống đọc dồn đ�
 
 **Assumptions:** 10 phút / 1 km / 150–100 m / 75 s là mặc định tự đặt, chưa chạy thử ngoài biển — đổi ở hằng trong file.
 
+## 34. SEN BIỂN VƯỢT MIMI — GỌI RẢNH TAY · LỆNH LÚC CHẠY · KÊU CỨU · CÂU NỐI (2026-11-02)
+
+Anh Long: *"con sen biển đã thông minh con mimi của vietmap chưa"* → *"fix toàn bộ để vượt qua mimi đi"* → *"đọc ngược cái mimi đi"*. Đối chiếu VIETMAP LIVE 3.4.4 (cùng bản dịch ngược ở §31, chỉ đọc tĩnh) + mô tả công khai (trang Vietmap Live, bài hướng dẫn "hơn 50 lệnh, 7 nhóm").
+
+**Mimi làm thế nào (đọc từ gói):** nghe + hiểu + đọc đều ở MÁY CHỦ (`/v7/mimi/Analyze`, `/v6/mimi/StartConversation`, `/v6/mimi/TTS`, `mqtt-mimi-gw.vietmap.vn`); trong máy chỉ có bộ dò tiếng (`mimi_vad`, gói `onion` ~2,3 MB) + 106 câu mp3 thu sẵn. Mất mạng ⇒ câu thu sẵn "Vui lòng kết nối internet và thử lại." (`offline_instruction/speech_internet_error.json`). Có hạn mức lượt (`MimiFailure.outOfToken/nearOutOfToken`). Gọi: nút mic, nút nổi, nút vô lăng qua app phụ **Mimi Connect** (`ai.vietmap.mimi.connect`, chỉ gửi `ai.vietmap.mimi.LaunchMimi`) — bản 3.4.4 KHÔNG có bộ bắt câu gọi trong máy. Lệnh máy chủ trả (directive): đọc câu, nhạc/âm lượng, đổi cài đặt, huỷ dẫn đường, dẫn không toạ độ, khẩn cấp (`device_emergency`), mở app/đường link.
+
+| Nhóm Mimi | Sen Biển trước | Nay | Ở đâu |
+|---|---|---|---|
+| Gọi không chạm ("Hey Mimi" / nút vô lăng) | Chỉ chạm icon | **Rảnh tay**: đang dẫn đường, bật nút "Rảnh tay" (HUD → nút loa) ⇒ micro nghe liên tục bằng bộ nghe TRONG MÁY; câu mở đầu "Sen Biển (ơi)" (nhận cả "Xen Biển", "Sen Biểng") là gọi, phần sau là việc; gọi tên trơn ⇒ mở thẻ như chạm icon. Thẻ chờ "Đi/Thôi" thì "đi"/"thôi" không cần gọi tên | `lib/sen-bien/goi-ranh-tay.ts`, `nghe-may.ngheRanhTay`, `fishing-map-view` (`goiRanhTay`), `nav-mode` (`ranhTay`) |
+| Thông tin chuyến ("tốc độ bao nhiêu", "còn bao xa", "mấy giờ đến") | Còn bao xa (quãng + giờ chạy) | + tốc độ tàu theo GPS; câu còn bao xa thêm **"tới lúc X giờ"**; "mấy giờ tới/đến/về" = còn bao xa; "đi hướng nào / có đúng đường không" ⇒ chếch bao nhiêu độ hoặc lệch đường + vạch bên nào | `lib/sen-bien/lenh-chay.ts` (`huong`, `toc_do`), `hieu-y` (`HOWFAR*`), `fishing-map-view` case `chay` |
+| Tìm đường khác | Nút Vẽ lại (chạm) | "tìm đường khác / tính lại đường" ⇒ tính lại từ chỗ tàu, đọc tóm tắt, CHỜ "đi" như "dẫn về X" bằng giọng | `lenh-chay` (`ve_lai`), `senPendingRef` |
+| Khẩn cấp | Không có | "cứu với", "tàu chìm/mắc cạn/cháy", "người rơi xuống biển"… (mọi lúc, kể cả không dẫn đường; bộ lọc câu hỏi không được gỡ) ⇒ đọc **toạ độ tàu** (độ + phút một số lẻ, nói rõ nếu định vị cũ >5 phút) + gọi 112 + VHF kênh 16; bản đồ về chỗ tàu | `lenh-chay` (`cuu_nan`, `cauCuuNan`), `hoi-kho.goLenhNgan` |
+| (không có) | Mỗi câu một việc | **Câu nối**: "xem sóng chiều nay" → "còn ngày mai thì sao" / "gió thì sao"; "chỗ nào nhiều cá ngừ" → "còn cá thu?"; "phía Đông có gì" → "còn phía Bắc?". Nhớ 5 phút | `lib/sen-bien/noi-tiep.ts`, `SenCtx.truoc` |
+| Nhạc, âm lượng, gọi danh bạ | — | KHÔNG làm (ngoài biển không cần; web không chỉnh được âm lượng máy) | — |
+| Đổi cài đặt bằng giọng (`mimi_apply`) | Tắt/bật tiếng, lớp bản đồ | Chưa làm đổi đơn vị / rung / mức đọc bằng giọng — **nợ**, chờ anh quyết | — |
+
+**Rảnh tay — luật micro:** (1) loa Sen Biển đang đọc (+500 ms) hoặc thẻ Sen Biển đang nghe/nghĩ/nói ⇒ TẮT HẲN micro (iOS mở micro là hạ/chuyển loa — câu cảnh báo phải rõ hơn chuyện nghe gọi), loa im mới mở lại; (2) câu trùng câu vừa đọc ⇒ tiếng vọng, bỏ (`laTiengVong`); (3) đọc xong câu đáp 4 s ⇒ thẻ tự thu (trừ khi đang chờ chọn / chờ "đi"); (4) chỉ chạy bằng bộ nghe trong máy — chưa tải (79 MB) thì nói thật rồi tắt nút, KHÔNG dùng Web Speech (sẽ gửi cả chuyện trong cabin lên máy chủ Google/Apple); (5) chấm đỏ nhấp nháy cạnh nút loa khi đang nghe. Mặc định TẮT.
+
+**Thử thật (2026-11-02):** bộ nghe trong máy thật (sherpa zipformer v2) + câu đọc giọng Linh (macOS) bơm vào micro trình duyệt: "sen biển ơi còn bao **sa**" (lẫn s/x ⇒ thêm "bao sa" vào luật còn bao xa) → "Còn 76 hải lý, chừng 9 giờ 50 phút, tới lúc 3 giờ 25 sáng."; "tốc độ bao nhiêu" → "Tàu đang chạy 7,8 hải lý một giờ."; "hôm nay biển êm quá" → im; "cứu với tàu bị chìm" → toạ độ + 112 + VHF 16; "tìm đường khác" → tóm tắt → "đi" → dẫn đường lại, không chạm. Bắt được + sửa 3 lỗi: thẻ nằm lì chặn micro; tìm đường khác treo ở nút Bắt đầu; thẻ chờ "Đi/Thôi" hết lượt tự nghe là rảnh tay nghỉ luôn. iOS Simulator không thu được micro máy Mac ⇒ **chưa thử micro thật trên iPhone**.
+
+**Giọng:** câu mới (toạ độ cứu nạn, tốc độ, chếch/đúng hướng, "tới lúc") CHƯA có mảnh Mỹ Duyên ⇒ đọc cả câu giọng máy (luật một câu một giọng §21) — nợ: thêm `lib/sen-bien/lenh-chay.ts` vào NGUON `lap_manh.mjs` rồi sinh mảnh ở gpu-desktop.
+
+**Offline (4 câu CLAUDE.md):** (a) không request mới — nghe, hiểu, trả lời đều trong máy; bộ nghe tải sẵn lúc có sóng như trước; (b) không đụng `sw.js`/`SHELL`; khoá MỚI `forfish.nav.ranhtay.v1` (máy này, EXCLUDED sao lưu — `offline-backup.test.ts`); (c) không xoá/đè dữ liệu; (d) mất sóng là nhánh chính — đây là chỗ hơn Mimi rõ nhất.
+
+**Assumptions:** (1) Từ gọi chỉ nhận ở ĐẦU câu; (2) nhớ câu trước 5 phút; (3) thu thẻ sau 4 s; (4) kêu cứu bắt rộng (bắt thừa chỉ tốn một câu đọc toạ độ), loại câu hỏi xác tàu / luật / hỗ trợ; (5) 112 = số tìm kiếm cứu nạn quốc gia, VHF 16 = kênh cấp cứu quốc tế — hai số cố định, không lấy từ nguồn ngoài. Đổi ở hằng trong file.

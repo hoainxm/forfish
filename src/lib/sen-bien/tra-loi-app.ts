@@ -27,6 +27,7 @@ export function veBanDo(r: SenReply): boolean {
     case "hoi":
     case "map":
     case "howfar":
+    case "chay":
     case "start":
     case "stop":
     case "cancel":

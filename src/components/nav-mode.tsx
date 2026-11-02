@@ -213,6 +213,7 @@ export function NavHud({
   hazardLines = EMPTY_LINES,
   rungOn = true,
   onToggleRung,
+  ranhTay,
   onShelter,
   title = "Đang dẫn đường",
   cruiseLine = null,
@@ -247,6 +248,8 @@ export function NavHud({
   /** cờ rung của bà con (`forfish.nav.rung.v1`) — cha giữ, HUD chỉ bật/tắt */
   rungOn?: boolean;
   onToggleRung?: () => void;
+  /** gọi "Sen Biển ơi" không chạm (micro nghe liên tục bằng bộ nghe trong máy) — cha giữ cờ `forfish.nav.ranhtay.v1` */
+  ranhTay?: { on: boolean; onToggle: () => void };
   /*  CHỖ TRÚ BÃO — cha chỉ truyền hàm này khi ĐANG CÓ BÃO (`stormInfo.kind ===
       "co-bao"`) và kho khu trú đã nạp. Không có bão thì không có nút: nút trú
       bão nằm sẵn quanh năm là dạy mắt bỏ qua nó đúng hôm cần. */
@@ -444,6 +447,13 @@ export function NavHud({
             )}
           </button>
         )}
+        {/*  RẢNH TAY đang bật ⇒ chấm đỏ nhỏ cạnh nút loa: micro đang mở là chuyện bà con phải luôn thấy */}
+        {ranhTay?.on && (
+          <span className="relative -ml-1.5 flex h-2.5 w-2.5 shrink-0" role="img" aria-label="Rảnh tay đang nghe">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger/60" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-danger" />
+          </span>
+        )}
         <button
           type="button"
           onClick={onStop}
@@ -464,7 +474,7 @@ export function NavHud({
       {/*  HÀNG NÚT KÊNH CẢNH BÁO — Giọng + Rung cạnh nhau, chữ chứ không chỉ
            hình (bà con không đoán được biểu tượng). Chỉ hiện khi bấm nút loa. */}
       {showKenh && (voice || onToggleRung) && (
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className={`grid gap-1.5 ${ranhTay ? "grid-cols-3" : "grid-cols-2"}`}>
           {voice && (
             <button
               type="button"
@@ -489,6 +499,19 @@ export function NavHud({
               }`}
             >
               {rungOn ? "Rung bật" : "Rung tắt"}
+            </button>
+          )}
+          {ranhTay && (
+            <button
+              type="button"
+              onClick={ranhTay.onToggle}
+              aria-pressed={ranhTay.on}
+              aria-label={ranhTay.on ? "Tắt Rảnh tay — thôi nghe câu gọi Sen Biển" : "Bật Rảnh tay — gọi Sen Biển ơi không cần chạm"}
+              className={`min-h-[2.75rem] rounded-xl px-2 text-[0.875rem] font-semibold transition active:scale-95 ${
+                ranhTay.on ? "bg-t1/15 text-t1" : "bg-navy/10 text-navy/60"
+              }`}
+            >
+              {NHAN.ranhTay}
             </button>
           )}
         </div>

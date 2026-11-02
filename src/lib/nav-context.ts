@@ -653,3 +653,30 @@ export function setNavRungOn(on: boolean): void {
     /* ghi không được thì thôi — lựa chọn chỉ mất khi đóng app, không phá gì */
   }
 }
+
+/* ── CỜ RẢNH TAY (localStorage) ──────────────────────────────────────────── */
+
+/**
+ * Gọi "Sen Biển ơi" không chạm màn hình khi đang dẫn đường (2026-11-02, "vượt qua Mimi") —
+ * micro mở liên tục, nghe bằng bộ nghe TRONG MÁY. MẶC ĐỊNH TẮT: micro mở suốt tốn pin và là
+ * chuyện riêng tư, bà con phải tự bật. Khoá riêng của MÁY NÀY như cờ rung.
+ */
+export const NAV_RANH_TAY_KEY = "forfish.nav.ranhtay.v1";
+
+export function navRanhTayOn(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(NAV_RANH_TAY_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setNavRanhTayOn(on: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(NAV_RANH_TAY_KEY, on ? "1" : "0");
+  } catch {
+    /* ghi không được thì thôi — chỉ mất lựa chọn khi đóng app */
+  }
+}

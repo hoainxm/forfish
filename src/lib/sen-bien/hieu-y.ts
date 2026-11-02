@@ -11,6 +11,8 @@ import { parseSpokenCoordPair } from "@/lib/parse-coord";
 
 import { cauHoiTuY, hoiGi, tachThamSo, timLoaiCa, type CauHoi } from "./hoi-ban-do";
 import { lenhLuat, lenhTuY, type LenhBanDo } from "./lenh-ban-do";
+import { lenhChay, type LenhChay } from "./lenh-chay";
+import { hieuCauNoi, type NhoTruoc } from "./noi-tiep";
 import { doTin, foldVn, guessIntent, lyDoChan, type NgramModel, type SenIntent } from "./ngram";
 
 export type SenDest = {
@@ -37,6 +39,8 @@ export type SenReply =
   | { kind: "repeat" }
   /** còn bao xa — chỗ gọi có số */
   | { kind: "howfar" }
+  /** lệnh lúc chạy + kêu cứu (lenh-chay.ts): hướng lái, tốc độ, tìm đường khác, cứu nạn — chỗ gọi có số */
+  | { kind: "chay"; viec: LenhChay }
   /** câu hỏi bản đồ (gần đảo nào, rạn, độ sâu, phía trước, cá…) — chỗ gọi tra kho lớp (hoi-ban-do.ts) */
   | { kind: "hoi"; q: CauHoi }
   /** thao tác màn bản đồ (mở/tắt lớp, đổi giờ, đọc số, phóng/thu, về tàu) — chỗ gọi bấm nút hộ (lenh-ban-do.ts) */
@@ -56,6 +60,10 @@ export type SenCtx = {
   choVuaNoi?: SenDest | null;
   /** tên ngắn các loài cá app biết — để nhận "chỗ nào nhiều cá ngừ vằn" */
   loaiCa?: readonly string[];
+  /** việc bản đồ / câu hỏi vừa làm — câu nối "còn ngày mai thì sao" dùng lại (noi-tiep.ts) */
+  truoc?: NhoTruoc | null;
+  /** giờ hiện tại (ms) — test truyền vào; mặc định Date.now() */
+  now?: number;
 };
 
 /** Bỏ chữ "cảng"/"cảng cá" đầu tên để "về Sa Huỳnh" cũng khớp "Cảng Sa Huỳnh". */
@@ -196,23 +204,24 @@ const REPEAT = /(^| )(noi lai|nhac lai|doc lai|lap lai)( |$)|^(noi gi|gi vay|ha)
 const MUTE_D = /^(im|im đi|im lặng|tắt tiếng|tắt loa|nhỏ tiếng)( (đi|nha|nhé|giùm|dùm|coi|lại|chút))*$/;
 const UNMUTE_D = /^(bật tiếng|bật loa|mở loa|đọc tiếp|nói tiếp)( (đi|nha|nhé|lại|lên|coi))*$/;
 const REPEAT_D = /(^| )(nói lại|nhắc lại|đọc lại|lặp lại)( |$)|^(nói gì|gì vậy|hả)( |$)/;
-const HOWFAR_D = /(^| )(bao xa|bao lâu|bao giờ tới|bao giờ đến|tới chưa|đến chưa|còn mấy|còn bao nhiêu)( |$)/;
+// "bao sa": bộ nghe trong máy hay lẫn s/x (thử Rảnh tay 2026-11-02: "còn bao xa" ra "còn bao sa")
+const HOWFAR_D = /(^| )(bao xa|bao sa|bao lâu|bao giờ tới|bao giờ đến|mấy giờ tới|mấy giờ đến|mấy giờ về|lúc nào tới|lúc nào đến|tới chưa|đến chưa|còn mấy|còn bao nhiêu)( |$)/;
 /** câu hỏi bão / thời tiết — không bao giờ là "còn bao xa" */
 const KHONG_HOWFAR_D = /(^| )(bão|áp thấp|gió|sóng|mưa)( |$)/;
 const LENH_NGAN_TOI_DA = 5;
 /** HOWFAR_GOI bản có dấu: "tới"≠"tôi", và KHÔNG có "chưa" trần ("tôi chưa ăn cơm" từng thành "còn bao xa") */
-const HOWFAR_GOI_D = /(^| )(xa|hải lý|km|cây số|tới|đến|về|nữa|bao lâu|bao giờ|tiếng|phút)( |$)/;
+const HOWFAR_GOI_D = /(^| )(xa|sa|hải lý|km|cây số|tới|đến|về|nữa|bao lâu|bao giờ|tiếng|phút)( |$)/;
 /** chữ thường, giữ dấu (NFC), dấu câu ⇒ khoảng trắng */
 const giuDau = (s: string) => s.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 /** câu có dấu tiếng Việt không */
 const coDau = (s: string) => /[\u0300-\u036f]/.test(s.normalize("NFD")) || /đ/i.test(s);
 const TOI_DO = /^(dan|di|chay|toi|ra|ve|dua)( toi| ra| ve| vo)? (do|cho do|cho nay|cho kia|ben do|dao do|ran do)( di| nha| luon)?$/;
-const HOWFAR = /(^| )(bao xa|bao lau|bao gio toi|toi chua|con may|con bao nhieu)( |$)/;
+const HOWFAR = /(^| )(bao xa|bao sa|bao lau|bao gio toi|may gio (toi|den|ve)|luc nao (toi|den)|toi chua|con may|con bao nhieu)( |$)/;
 /*  CÓ CHỮ CHỈ QUÃNG ĐƯỜNG / THỜI GIAN — mô hình đoán "còn bao xa" thì câu PHẢI có một chữ này mới chạy lệnh,
     dù mô hình chắc tới đâu (2026-10-22, anh Long: "hỏi con gà có mấy chân mà ko chạy được"). Bỏ dấu thì
     "con gà mấy chân" = "con ga may chan" ⇒ v4 đọc "con … mấy" thành "còn mấy" (0,67 — chắc mà sai); không
     chặn thì app đo khoảng cách thay vì trả lời. "tới cảng chưa" qua nhờ "toi", "còn mấy tiếng nữa" nhờ "tieng". */
-const HOWFAR_GOI = /(^| )(xa|hai ly|km|cay so|toi|den|ve|chua|nua|bao lau|bao gio|gio|tieng|phut)( |$)/;
+const HOWFAR_GOI = /(^| )(xa|sa|hai ly|km|cay so|toi|den|ve|chua|nua|bao lau|bao gio|gio|tieng|phut)( |$)/;
 
 /** 14,5754 → "14 độ 34 phút" — đọc lại toạ độ để bà con nghe máy hiểu đúng chưa. */
 export function coordSpeech(v: number, axis: "lat" | "lon"): string {
@@ -242,6 +251,9 @@ export function senBienReply(
     if (NEG.test(f)) return { kind: "cancel", say: "Dạ, chưa chạy. Đường vẫn để trên bản đồ." };
     if (CONFIRM.test(f)) return { kind: "start", say: "Bắt đầu dẫn đường. Sen Biển canh và đọc cảnh báo." };
   }
+  // (1b) kêu cứu (mọi lúc) + lệnh lúc chạy: hướng lái, tốc độ, tìm đường khác
+  const lc = lenhChay(text, ctx.running);
+  if (lc) return { kind: "chay", viec: lc };
   // (2) lệnh khi đang chạy
   if (ctx.running && STOP.test(f)) return { kind: "stop", say: "Đã dừng dẫn đường." };
   const d = coDau(text) ? giuDau(text) : null;
@@ -250,6 +262,10 @@ export function senBienReply(
   if (ngan && (d ? UNMUTE_D.test(d) : UNMUTE.test(f))) return { kind: "unmute", say: "Bật tiếng lại." };
   if (ngan && (d ? REPEAT_D.test(d) : REPEAT.test(f))) return { kind: "repeat" };
   if (d ? HOWFAR_D.test(d) && !KHONG_HOWFAR_D.test(d) && HOWFAR_GOI_D.test(d) : HOWFAR.test(f) && !/(^| )bao bao( |$)/.test(f)) return { kind: "howfar" };
+
+  // (2a) câu nối — "còn ngày mai thì sao", "cá thu?" — lấy việc vừa làm, thay tham số mới
+  const nt = hieuCauNoi(text, ctx.truoc, ctx.now ?? Date.now(), ctx.loaiCa ?? []);
+  if (nt) return nt.kind === "map" ? { kind: "map", lenh: nt.lenh } : { kind: "hoi", q: nt.q };
 
   // (2b) "dẫn tới đó" — chỗ vừa trả lời
   if (ctx.choVuaNoi && TOI_DO.test(f)) return { kind: "go", dest: ctx.choVuaNoi, say: `Đi ${ctx.choVuaNoi.name}.` };

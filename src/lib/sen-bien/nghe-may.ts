@@ -296,3 +296,146 @@ export function ngheMay(opts: {
     },
   };
 }
+
+/* ── nghe RẢNH TAY: micro mở liên tục, cắt từng câu, giải mã trong máy ───────
+   Anh Long 2026-11-02 ("vượt qua Mimi"): gọi "Sen Biển ơi" không chạm màn hình. CHỈ chạy bằng
+   bộ nghe trong máy — Web Speech gửi tiếng lên máy chủ, mở liên tục là gửi cả chuyện trong cabin.
+   Lúc loa Sen Biển đang đọc (+ NGHE_SAU_DOC_MS) thì TẮT HẲN micro, không chỉ bỏ khung: iOS khi
+   micro mở hạ tiếng loa / chuyển loa — câu cảnh báo phải rõ hơn chuyện nghe gọi. */
+
+/** Lấy thêm ngần này trước lúc VAD thấy tiếng (chữ đầu "Sen" hay bị cắt) */
+export const RANH_TAY_TRUOC_MS = 350;
+/** Hỏi trạng thái loa mỗi ngần này lúc micro đang tắt chờ */
+const RANH_TAY_HOI_MS = 300;
+
+/** Chỉ số mẫu bắt đầu đoạn cần giải mã (từ lúc có tiếng trừ phần lấy trước). THUẦN — có test. */
+export function catDoan(batDauMs: number, rate: number, truocMs = RANH_TAY_TRUOC_MS): number {
+  return Math.max(0, Math.floor(((batDauMs - truocMs) / 1000) * rate));
+}
+
+export function ngheRanhTay(opts: {
+  /** một câu nghe được (đã chữ thường) */
+  onCau(text: string): void;
+  onError(code: ListenErrorCode): void;
+  /** loa đang đọc / vừa đọc xong ⇒ micro phải tắt */
+  imLang(): boolean;
+  onLevel?(v: number): void;
+}): { stop(): void } {
+  let tat = false;
+  let stream: MediaStream | null = null;
+  let ctx: AudioContext | null = null;
+  let hen: ReturnType<typeof setTimeout> | null = null;
+  // nền ồn giữ qua các lượt mở micro — khỏi đo lại mỗi lần
+  let nen: { nen: number; khungNen: number } | null = null;
+
+  const dongMic = () => {
+    stream?.getTracks().forEach((t) => t.stop());
+    void ctx?.close().catch(() => {});
+    stream = null;
+    ctx = null;
+  };
+  const choLoa = () => {
+    if (tat) return;
+    hen = setTimeout(() => {
+      hen = null;
+      if (tat) return;
+      if (opts.imLang()) choLoa();
+      else void moMic();
+    }, RANH_TAY_HOI_MS);
+  };
+  const giaiMa = (mau: Float32Array, rate: number) => {
+    const id = ++seq;
+    cho.set(id, (r) => {
+      if (tat) return;
+      const text = r.text ? chuThuong(r.text) : "";
+      if (text) opts.onCau(text);
+    });
+    layWorker().postMessage({ t: "nghe", id, rate, mau }, [mau.buffer]);
+  };
+
+  const moMic = async () => {
+    if (tat || stream) return;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+      });
+    } catch (e) {
+      const name = (e as { name?: string })?.name;
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        tat = true;
+        opts.onError("not-allowed");
+        return;
+      }
+      // micro bận (vừa nhả sau lượt nghe khác / loa) ⇒ thử lại sau
+      choLoa();
+      return;
+    }
+    if (tat) return dongMic();
+    try {
+      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      ctx = new AC();
+      // mở lại micro sau câu loa là lúc KHÔNG có cú chạm ⇒ bộ âm thanh có thể khởi động ở trạng thái treo
+      void ctx.resume?.().catch(() => {});
+      const src = ctx.createMediaStreamSource(stream);
+      const proc = ctx.createScriptProcessor(4096, 1, 1);
+      const rate = ctx.sampleRate;
+      let khuc: Float32Array[] = [];
+      let tong = 0;
+      let vad: VadState = nen ? { ...vadMoi(), ...nen } : vadMoi();
+      const lamMoi = () => {
+        nen = { nen: vad.nen, khungNen: vad.khungNen };
+        vad = { ...vadMoi(), ...nen };
+        khuc = [];
+        tong = 0;
+      };
+      proc.onaudioprocess = (ev) => {
+        if (tat || !ctx) return;
+        // loa sắp đọc ⇒ tắt hẳn micro, chờ loa im rồi mở lại
+        if (opts.imLang()) {
+          proc.onaudioprocess = null;
+          lamMoi();
+          dongMic();
+          choLoa();
+          return;
+        }
+        const x = new Float32Array(ev.inputBuffer.getChannelData(0));
+        khuc.push(x);
+        tong += x.length;
+        let e2 = 0;
+        for (let i = 0; i < x.length; i++) e2 += x[i] * x[i];
+        const rms = Math.sqrt(e2 / x.length);
+        opts.onLevel?.(Math.min(1, rms * 8));
+        const r = vadBuoc(vad, rms, (tong / rate) * 1000);
+        vad = r.s;
+        if (r.xong === "noi-xong" || r.xong === "tran") {
+          const tu = catDoan(vad.batDau ?? 0, rate);
+          const mau = new Float32Array(tong - tu);
+          let o = -tu;
+          for (const k of khuc) {
+            const a = Math.max(0, -o);
+            if (a < k.length) mau.set(k.subarray(a), o + a);
+            o += k.length;
+          }
+          lamMoi();
+          giaiMa(mau, rate);
+        } else if (r.xong === "khong-noi") lamMoi(); // im lâu ⇒ bỏ khúc cũ, nghe tiếp
+      };
+      src.connect(proc);
+      proc.connect(ctx.destination);
+    } catch {
+      dongMic();
+      tat = true;
+      opts.onError("audio-capture");
+    }
+  };
+
+  if (opts.imLang()) choLoa();
+  else void moMic();
+  return {
+    stop() {
+      tat = true;
+      if (hen) clearTimeout(hen);
+      dongMic();
+    },
+  };
+}

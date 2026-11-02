@@ -6,6 +6,7 @@
 covers: src/app, src/components
 last_verified: 2026-11-02
 ttl_days: 90
+<!-- re-verified: 2026-11-02z — §10.7 X: Rảnh tay "Sen Biển ơi" — nút thứ ba trong hàng kênh cảnh báo HUD, chấm đỏ đang nghe, thẻ tự thu sau câu đáp, trạng thái chưa có bộ nghe / micro bị chặn. -->
 <!-- re-verified: 2026-11-02y — §10.7 W 7–9: bảng Lộ trình tự tính + một nút Bắt đầu, câu lỗi đầu bảng, ô tìm 5 dòng, lượt thử iOS Simulator + 4 sửa (dồn số ô toạ độ, nhận điểm GPS chờ 8 s, bỏ hỏi tiếp tục ở đích, câu đọc cuối HUD). -->
 <!-- re-verified: 2026-11-02x — §10.7 W: mốc giữa chặng dài (gonMoc), toạ độ dính liền DDMM.m, Dẫn đường từ dòng toạ độ + ô Toạ độ, báo ngoài vùng VN_SEA, ô gõ toạ độ tự nhảy độ→phút→giây (ui/o-toa-do), mở bảng Lộ trình có điểm ⇒ tự tính. -->
 <!-- re-verified: 2026-11-02v — §10.7 V: rà lại dẫn đường đối chiếu Vietmap lượt 2 (tự tính khi chọn đích, nút dẫn đường ở Điểm lưu + thẻ điểm, dock ẩn khi dẫn, HUD trần 2 dòng, camera ngược hướng chạy, Về tàu, Xong/tự dừng, Chạy tiếp, Vẽ lại, đường thẳng dự phòng, một bảng một lúc cho Lộ trình). -->
@@ -1614,6 +1615,13 @@ Mức của một hàng do DỮ LIỆU quyết (luồng thiếu nước là vàn
   7. *Một nút như Vietmap* (anh Long "nút tính đường? dẫn đường? sao ko làm giống vietmap"): bảng Lộ trình TỰ TÍNH khi chuỗi điểm hoặc nơi xuất phát đổi (chờ 0,6 s, mỗi bộ một lần — hỏng không tự thử vòng vòng). Đầu bảng chỉ MỘT nút: "Đang tính" (mờ) → "Bắt đầu"; tính hỏng → "Thử lại". Hết nút "Tính đường". Câu lỗi nằm NGAY DƯỚI đầu bảng (trước nằm dưới danh sách điểm, phải cuộn mới thấy). Xuất phát theo GPS: tàu nhích chưa quá 2 km không bật băng "vạch từ nơi xuất phát cũ".
   8. *Ô tìm gọn* (anh Long "hiện vừa thôi"): chưa gõ 3 cảng gần nhất; trần chung 5 dòng (điểm lưu trước, cảng lấp phần còn lại).
   9. *Thử lại trên iOS Simulator (iPhone 17) 2026-11-02 — đạt:* toạ độ dính liền `1500.0N 10920.0E` ở ô tìm → dòng "Đến 15,00 · 109,33" + nút tuyến → bảng tự tính 23 hải lý → Bắt đầu (dock ẩn, câu "Bắt đầu dẫn đường. Còn chừng…") → GPS giả lệch 6,5 hải lý: "Lệch đường đã vẽ ~6,5 hải lý — vạch ở bên phải tàu" + Vẽ lại → tính lại từ chỗ tàu → tới đích: "Đã tới gần điểm đến" + Xong → dọn sạch; ô Toạ độ gõ một mạch `1500001092000` ra 15°00′00″ B · 109°20′00″ Đ; toạ độ ngoài khung → câu báo + nét đứt; tuyến 341 hải lý có chấm mốc giữa. Sửa thêm từ lượt thử: (a) gõ nhanh lạc ô ⇒ số tràn dồn sang ô kế (`nhapO`), giây đủ 2 số nhảy sang ô độ trục kế, chạm ô có số thì bôi đen; (b) điểm GPS bị bỏ mà không fix nào cãi lại (tàu neo yên) ⇒ nhận sau 8 s (`NHAY_CHO_MS`) — trước kẹt "Mất định vị"; (c) mở lại app ở ngay đích không hỏi "Dẫn đường tiếp"; câu bắt đầu nói quãng CÒN LẠI thật; (d) dòng "câu đang đọc" chuyển xuống cuối khung dẫn đường — hết nút Xong nhảy dưới ngón tay.
+- **X. RẢNH TAY "SEN BIỂN ƠI" (anh Long "vượt qua Mimi", 2026-11-02 — luật + thử thật ở [15 §34](15-flow-dang-chay-giong-noi.md)):**
+  1. *Nút:* HUD dẫn đường → nút loa → hàng ba nút **Đọc đủ · Rung bật · Rảnh tay** (chữ, `NHAN.ranhTay`); nền teal nhạt khi bật, xám khi tắt. Mặc định TẮT, nhớ theo máy (`forfish.nav.ranhtay.v1`).
+  2. *Đang nghe:* chấm đỏ nhấp nháy nhỏ cạnh nút loa (`aria-label` "Rảnh tay đang nghe") — micro mở phải luôn thấy được, cả khi hàng nút đã thu.
+  3. *Gọi kèm việc* ("Sen Biển ơi, còn bao xa"): thẻ Sen Biển hiện câu nghe được rồi câu đáp; đọc xong 4 s thẻ TỰ THU (không cần chạm). Có danh sách chọn / chờ "Đi·Thôi" thì thẻ ở lại; lúc chờ, nói "đi"/"thôi" không cần gọi tên.
+  4. *Gọi tên trơn:* như chạm icon Sen Biển (chào rồi nghe).
+  5. *Trạng thái:* chưa có bộ nghe trong máy (lần đầu, mất sóng) ⇒ câu "Máy chưa có bộ nghe trong máy…" + nút tự tắt; micro bị từ chối ⇒ câu "Máy chưa cho dùng micro…" + nút tự tắt; loa đang đọc ⇒ micro tắt hẳn, im xong mở lại (không có trạng thái "nghe chồng").
+  6. *Lệnh nói mới ở mọi lúc dẫn đường:* tốc độ · hướng lái · tìm đường khác (tính lại + chờ "đi") · kêu cứu (toạ độ tàu + 112 + VHF 16, bản đồ về tàu) · "mấy giờ tới" · câu nối "còn ngày mai thì sao".
 ## Assumptions (§10.7 P/Q/R)
 - Mốc 25 hải lý của đèn là trần KHOẢNG CÁCH, không phải trần tầm đèn — hiểu ngược lại thì mấy ngọn lớn nhất bờ biển (tầm 26–27 hl, đúng thứ nhìn thấy đầu tiên lúc vào bờ) bị loại sạch.
 - Câu đèn in khoảng cách tới đèn, KHÔNG in tầm hiệu lực: hai số cùng đơn vị cho hai nghĩa khác nhau là bẫy đọc.

@@ -54,7 +54,8 @@ export function vaoKho(text: string, r: SenReply, loc: BoLoc | null, ctx: NgramC
  * `senBienReply` (và Gemma tham số), trước khi chỗ gọi rẽ theo `kind`.
  */
 export function goLenhNgan(text: string, r: SenReply, loc: BoLoc | null, ctx: NgramCtx): SenReply {
-  if (r.kind !== "repeat" && r.kind !== "howfar") return r;
+  // kêu cứu KHÔNG BAO GIỜ bị gỡ — bỏ sót còn tệ hơn đọc thừa toạ độ
+  if (r.kind !== "repeat" && r.kind !== "howfar" && !(r.kind === "chay" && r.viec !== "cuu_nan")) return r;
   if (!loc || moDauDiLai(text) || pHoi(loc, text, ctx) < LOC_NGUONG) return r;
   return { kind: "say", say: CAU_CHUA_CHAC, y: "hoi_mo" };
 }
