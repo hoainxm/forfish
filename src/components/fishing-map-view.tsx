@@ -3462,7 +3462,7 @@ export default function FishingMapView() {
         .then(() => loadBoKho())
         .then(() => warmVoiceClips())
         .then(() => napBoNghe(senTenRef.current))
-        // Android: Gemma tách tham số (gói Play on-demand 62 MB, ADR 0012) — có thì nạp, chưa có thì xin Play tải
+        // App native: Gemma tách tham số (ADR 0012) — có thì nạp; Android chưa có thì xin Play tải gói on-demand 62 MB, iOS mô hình theo bản cài (§25)
         .then(() =>
           chuanBiGemma(!!(navigator as unknown as { connection?: { saveData?: boolean } }).connection?.saveData),
         );
@@ -5093,7 +5093,7 @@ export default function FishingMapView() {
         loaiCa: SEN_LOAI_CA,
         truoc: senTruocRef.current,
       });
-      // Android có Gemma: hỏi thêm để lấy THAM SỐ (cùng việc mới nhận), trần 2,5 s; web/lỗi ⇒ giữ câu của luật
+      // App có Gemma (Android/iOS): hỏi thêm để lấy THAM SỐ (cùng việc mới nhận), trần 2,5 s; web/lỗi ⇒ giữ câu của luật
       const g = canGemma(r0)
         ? await hoiGemma(text, {
               xn: senAwait != null,

@@ -16,6 +16,9 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		5E0B1E0A2F60000100A1B002 /* SenBienGemmaPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0B1E0A2F60000100A1B001 /* SenBienGemmaPlugin.swift */; };
+		5E0B1E0A2F60000100A1B004 /* SDFishViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E0B1E0A2F60000100A1B003 /* SDFishViewController.swift */; };
+		5E0B1E0A2F60000100A1B007 /* LiteRTLM in Frameworks */ = {isa = PBXBuildFile; productRef = 5E0B1E0A2F60000100A1B006 /* LiteRTLM */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +33,8 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		5E0B1E0A2F60000100A1B001 /* SenBienGemmaPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SenBienGemmaPlugin.swift; sourceTree = "<group>"; };
+		5E0B1E0A2F60000100A1B003 /* SDFishViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDFishViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -38,6 +43,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+				5E0B1E0A2F60000100A1B007 /* LiteRTLM in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +71,8 @@
 			isa = PBXGroup;
 			children = (
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
+				5E0B1E0A2F60000100A1B003 /* SDFishViewController.swift */,
+				5E0B1E0A2F60000100A1B001 /* SenBienGemmaPlugin.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -87,6 +95,7 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				5E0B1E0A2F60000100A1B008 /* Sen Biển Gemma */,
 			);
 			buildRules = (
 			);
@@ -95,6 +104,7 @@
 			name = App;
 			packageProductDependencies = (
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
+				5E0B1E0A2F60000100A1B006 /* LiteRTLM */,
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
@@ -127,6 +137,7 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
+				5E0B1E0A2F60000100A1B005 /* XCLocalSwiftPackageReference "LiteRTLM-SPM" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -153,6 +164,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		5E0B1E0A2F60000100A1B008 /* Sen Biển Gemma */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Sen Biển Gemma";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Sen Biển Gemma (doc 15 §25): chép mô hình vào gói app NẾU máy build có file.\n# Nguồn: release sen-bien-gemma-v2 (gemma.litertlm 62 MB) — CÙNG file Android, kiểm CÙNG SHA-256.\nSRC=\"${SRCROOT}/sen-bien-gemma/gemma.litertlm\"\nDST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/sen-bien\"\nif [ -f \"$SRC\" ]; then\n  want=$(cut -d\" \" -f1 \"${SRCROOT}/../../android/sen-bien-gemma/gemma.sha256\")\n  got=$(shasum -a 256 \"$SRC\" | cut -d\" \" -f1)\n  if [ \"$want\" != \"$got\" ]; then echo \"error: ios/App/sen-bien-gemma/gemma.litertlm sai SHA-256 (cần $want)\"; exit 1; fi\n  mkdir -p \"$DST\" && cp -f \"$SRC\" \"$DST/gemma.litertlm\"\n  # NOTICE Gemma Terms §3.1 (ADR 0012) — dùng chung bản của gói Android\n  cp -f \"${SRCROOT}/../../android/sen-bien-gemma/src/main/assets/sen-bien/NOTICE.txt\" \"$DST/NOTICE.txt\"\nelse\n  rm -f \"$DST/gemma.litertlm\" \"$DST/NOTICE.txt\"\n  echo \"warning: Không có ios/App/sen-bien-gemma/gemma.litertlm — bản này Sen Biển chạy n-gram + luật (không Gemma)\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -160,6 +193,8 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
+				5E0B1E0A2F60000100A1B004 /* SDFishViewController.swift in Sources */,
+				5E0B1E0A2F60000100A1B002 /* SenBienGemmaPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -366,6 +401,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "CapApp-SPM";
 		};
+		5E0B1E0A2F60000100A1B005 /* XCLocalSwiftPackageReference "LiteRTLM-SPM" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "LiteRTLM-SPM";
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -373,6 +412,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
+		};
+		5E0B1E0A2F60000100A1B006 /* LiteRTLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E0B1E0A2F60000100A1B005 /* XCLocalSwiftPackageReference "LiteRTLM-SPM" */;
+			productName = LiteRTLM;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

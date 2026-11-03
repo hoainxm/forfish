@@ -64,6 +64,21 @@ Chủ dự án chốt qua Zalo: *"cài app tự động bật GPS luôn"* (làm 
 - **Build tay**: chép file vào `android/sen-bien-gemma/src/main/assets/sen-bien/gemma.litertlm`, `./gradlew bundleDebug`. Thử gói on-demand không cần Play: `bundletool build-apks --local-testing` + `install-apks` (đã chạy trên emulator gpu-desktop 2026-10-17: tải gói, nạp 0,33 s, 0,43–0,6 s/câu).
 - **Không cần `npx cap sync`** cho plugin cục bộ (không phải gói npm). `cap sync` đòi Node ≥ 22.
 
+## 3d. Sen Biển Gemma — iOS: plugin Swift cục bộ, mô hình trong bản cài (2026-11-03, ADR 0012, doc 15 §36)
+
+- **Plugin** `ios/App/App/SenBienGemmaPlugin.swift` (`CAPBridgedPlugin`, jsName `SenBienGemma`, CÙNG giao diện bản Kotlin §3c; `taiVe` chỉ báo trạng thái). Đăng ký ở `ios/App/App/SDFishViewController.swift` (`capacitorDidLoad` → `registerPluginInstance`); `SceneDelegate` + `Main.storyboard` dùng lớp này.
+- **Dep**: gói SPM cục bộ `ios/App/LiteRTLM-SPM` = LiteRT-LM **v0.18.0** (chép `swift/*.swift` bỏ test/`apple_fm` + `CLiteRTLM.xcframework` theo URL + checksum). **Không** sửa `CapApp-SPM/Package.swift` (Capacitor CLI quản). Nâng bản: chép lại Swift + url/checksum của tag mới, CÙNG bản `litertlm-android`.
+- **Mô hình**: Run Script "Sen Biển Gemma" chép `ios/App/sen-bien-gemma/gemma.litertlm` (**gitignore**) + `NOTICE.txt` của gói Android vào `App.app/sen-bien/`, kiểm SHA-256 với `android/sen-bien-gemma/gemma.sha256`. Sai hash ⇒ build đỏ; thiếu file ⇒ cảnh báo, app không Gemma.
+- **Build tay (Mac)**: lấy file release `sen-bien-gemma-v2` (hoặc chép từ gpu-desktop `~/.local/forlife/train/tro-ly/litert/g270v5r-k512-qb32e32kd-dynamic_wi4b32_afp32.litertlm`, cùng hash) vào `ios/App/sen-bien-gemma/`, tạo `out/index.html` stub, `npx cap sync ios`, rồi Xcode / `xcodebuild -project ios/App/App.xcodeproj -scheme App`. Chưa có CI iOS.
+- **Kiểm plugin không cần web mới**: tạm bỏ `server` trong `ios/App/App/capacitor.config.json` (file sinh) và đặt trang thử gọi `Capacitor.Plugins.SenBienGemma` vào `out/index.html`; xong chạy lại `npx cap sync ios`. Đã làm 2026-11-03 (doc 15 §36): nạp 0,32 s, 0,14–0,26 s/câu trên simulator.
+
+## 3e. Build Android ở gpu-desktop (2026-11-03 — Mac không có Android SDK)
+
+- Bộ công cụ ở `~/android-tools` (JDK 21, SDK 36, emulator AVD `senbien` Android 15 Play x86_64, `bundletool.jar`); cài lại bằng `cai.sh`.
+- `~/android-tools/build-forfish.sh`: `git pull --ff-only` ở `~/ForFish` → `npm ci` → stub `out/` → `cap sync android` → `npm run icons` → chép Gemma v2 + kiểm SHA-256 → `./gradlew bundleDebug assembleDebug`. Ra `app-debug.aab` (~80 MB, có gói `senbiengemma`) + `app-debug.apk` (~55 MB, KHÔNG có Gemma — APK không chứa gói on-demand).
+- `~/android-tools/emu.sh`: bật emulator, `bundletool build-apks --local-testing` + `install-apks` (giả lập Play tải gói), mở app, forward CDP 9222; thử plugin bằng `cdp.py` + `hoi.js`.
+- Bản **release đã ký** lên Play vẫn đi `android-release.yml` (keystore chỉ nằm trong secrets GitHub, không có ở máy GPU).
+
 ## 4. Còn thiếu (cần user / môi trường)
 
 - **Mac + Xcode** (build iOS) · **Android Studio/SDK** (build Android).

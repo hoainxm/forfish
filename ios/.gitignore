@@ -11,3 +11,6 @@ capacitor-cordova-ios-plugins
 # Generated Config files
 App/App/capacitor.config.json
 App/App/config.xml
+
+# Sen Biển Gemma — mô hình 62 MB lấy từ release sen-bien-gemma-v2, KHÔNG vào git (doc 15 §25)
+App/sen-bien-gemma/gemma.litertlm
