@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { vongFocus, vuotDeDong } from "@/lib/dialog-focus";
+import { coDauLop, diTrang, mucLop, vongFocus, vuotDeDong } from "@/lib/dialog-focus";
 
 describe("vongFocus — Tab không chạy ra khỏi hộp thoại", () => {
   const a = { n: "a" }, b = { n: "b" }, c = { n: "c" };
@@ -33,5 +34,29 @@ describe("vuotDeDong — vuốt xuống đóng ngăn đáy", () => {
   it("kéo lên hoặc không nhúc nhích → không đóng", () => {
     expect(vuotDeDong(-120, 100)).toBe(false);
     expect(vuotDeDong(0, 0)).toBe(false);
+  });
+});
+
+describe("diTrang — rời trang từ trong lớp nổi không bị kéo về (khay ⋯ → Chuyến biển, 2026-11-03)", () => {
+  const goi = () => {
+    const ghi: string[] = [];
+    return { ghi, router: { push: (h: string) => ghi.push(`push ${h}`), replace: (h: string) => ghi.push(`replace ${h}`) } };
+  };
+  it("coDauLop: chỉ nhận state có dấu lớp", () => {
+    expect(coDauLop(mucLop({ __NA: true }, ":r1:"))).toBe(true);
+    expect(coDauLop({ __NA: true })).toBe(false);
+    expect(coDauLop(null)).toBe(false);
+  });
+  it("đang đứng mục của lớp ⇒ THAY mục (replace), Back về đúng trang cũ", () => {
+    window.history.replaceState(mucLop(window.history.state, ":r1:"), "");
+    const { ghi, router } = goi();
+    diTrang(router, "/lo-trinh");
+    expect(ghi).toEqual(["replace /lo-trinh"]);
+  });
+  it("ngoài lớp ⇒ push như thường", () => {
+    window.history.replaceState({}, "");
+    const { ghi, router } = goi();
+    diTrang(router, "/lo-trinh");
+    expect(ghi).toEqual(["push /lo-trinh"]);
   });
 });

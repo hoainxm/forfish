@@ -139,6 +139,28 @@ export function popLaDong(state: unknown, id: string): boolean {
 /** Popstate không về (webview lạ) thì sau ngần này vẫn đóng — không để kẹt hộp. */
 export const CHO_POPSTATE_MS = 400;
 
+/*  RỜI TRANG TỪ TRONG MỘT LỚP NỔI (2026-11-03 — khay ⋯ bản đồ bấm "Chuyến biển" không đi đâu).
+    `router.push` của Next 16 KHÔNG ghi lịch sử ngay: nó tải trang mới xong mới pushState (có khi vài giây
+    lúc mạng chậm). Bên gọi đóng lớp rồi push ⇒ lớp gỡ ⇒ cleanup thấy mục còn là của mình ⇒ history.back()
+    ⇒ Next nhận popstate, kéo bà con VỀ trang cũ đè lên lượt đi. Nên: đang đứng trên mục của một lớp thì
+    THAY mục đó (replace — lịch sử gọn [trang cũ, trang mới], Back về đúng trang cũ), và báo cleanup đừng lùi. */
+let roiTrangLuc = 0;
+/** Cleanup chạy ngay sau cú bấm; quá ngần này mà còn đứng mục của lớp thì coi như lượt đi đã thôi. */
+export const CHO_ROI_TRANG_MS = 1500;
+
+/** THUẦN: mục lịch sử có dấu của BẤT KỲ lớp nào không. */
+export function coDauLop(state: unknown): boolean {
+  return !!state && typeof state === "object" && DAU_LOP in (state as Record<string, unknown>);
+}
+
+/** Đi sang trang khác từ trong lớp nổi (đóng lớp trước hay sau đều được). Ngoài lớp thì như router.push. */
+export function diTrang(router: { push: (href: string) => void; replace: (href: string) => void }, href: string): void {
+  if (typeof window !== "undefined" && coDauLop(window.history.state)) {
+    roiTrangLuc = Date.now();
+    router.replace(href);
+  } else router.push(href);
+}
+
 /**
  * Lớp nổi đang mở chiếm một mục lịch sử (xem khối chú thích trên).
  * `dong` = việc đóng khi back (sheet form: `dongNhe` để còn hỏi "Bỏ phần đang ghi?"); đọc bản mới nhất qua ref.
@@ -189,9 +211,11 @@ export function useLichSuDong(dong: () => void, bat = true): { dongTay: () => vo
       }
       /*  Bị gỡ thẳng mà mục còn là của mình ⇒ lùi cho sạch (không thì lần back sau "chết" một nhịp).
           Hoãn một nhịp và KIỂM LẠI lúc chạy: StrictMode gắn lại thì thôi; bên gọi vừa router.push thì mục
-          đã là của Next ⇒ không lùi (lùi là kéo bà con về trang cũ). */
+          đã là của Next ⇒ không lùi (lùi là kéo bà con về trang cũ). Next 16 push CHẬM (xem `diTrang`) ⇒
+          bên gọi rời trang phải qua `diTrang`, nó đánh dấu để ở đây khỏi lùi. */
       donMuc.current = setTimeout(() => {
         donMuc.current = null;
+        if (Date.now() - roiTrangLuc < CHO_ROI_TRANG_MS) return;
         if (laMucCuaLop(window.history.state, id)) window.history.back();
       }, 0);
     };

@@ -353,6 +353,7 @@ import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { traLoiApp } from "@/lib/sen-bien/tra-loi-app";
 import { hieuLenhCho, hoiLaiCho } from "@/lib/sen-bien/lenh-cho";
 import { useRouter } from "next/navigation";
+import { diTrang } from "@/lib/dialog-focus";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
 import { Capacitor } from "@capacitor/core";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
@@ -5238,7 +5239,7 @@ export default function FishingMapView() {
           if (buoc.buoc === "app" && a) {
             if (a.action?.type === "navigate" && a.action.href !== "/ngu-truong") {
               setSenOpen(false);
-              router.push(a.action.href);
+              diTrang(router, a.action.href); // đóng ngăn Sen Biển rồi push trần ⇒ bị kéo về bản đồ (dialog-focus `diTrang`)
             } else if (a.action?.type === "mute") {
               if (a.action.on) navVoice.mute();
               else navVoice.unmuteVoice();

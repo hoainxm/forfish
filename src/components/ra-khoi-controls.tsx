@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { diTrang } from "@/lib/dialog-focus";
 import {
   OCEAN_LAYERS,
   OCEAN_LAYER_ORDER,
@@ -717,7 +718,7 @@ export function RaKhoiControls({
           <RailBtn
             active={more}
             aria-expanded={more}
-            aria-label={more ? "Đóng khay thêm" : "Thêm việc: vị trí, chạy tàu, lộ trình, toạ độ, điểm lưu"}
+            aria-label={more ? "Đóng khay thêm" : "Thêm việc: dẫn đường, chuyến biển, toạ độ, điểm lưu"}
             onClick={() => {
               setOpen(null);
               setCollapsed(true);
@@ -747,9 +748,11 @@ export function RaKhoiControls({
                   setMore(false);
                   onRoutePanel();
                 }}
-                aria-label="Lộ trình — mở bảng tính lộ trình"
+                /*  "Dẫn đường" chứ không "Lộ trình" (anh Long 2026-11-03): cạnh "Chuyến biển" (màn `/lo-trinh`)
+                    hai chữ lẫn nhau; nút rail khi bảng mở + nút trong ô Toạ độ cũng đã gọi "Dẫn đường". */
+                aria-label="Dẫn đường — mở bảng tính đường tới điểm"
                 icon={RouteIcon}
-                label="Lộ trình"
+                label={NHAN.dauDuong}
               />
             )}
             {/*  ĐỀ XUẤT LỘ TRÌNH CHUYẾN BIỂN nhiều ngày (09-ba-spec, 2026-10-29) — màn riêng `/lo-trinh`,
@@ -758,7 +761,7 @@ export function RaKhoiControls({
               <RailBtn
                 onClick={() => {
                   setMore(false);
-                  router.push("/lo-trinh");
+                  diTrang(router, "/lo-trinh"); // push trần bị cleanup của khay kéo về bản đồ (dialog-focus `diTrang`)
                 }}
                 aria-label="Chuyến biển — đề xuất lộ trình nhiều ngày"
                 icon={CalendarIcon}
