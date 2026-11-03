@@ -6,7 +6,7 @@
 covers: src/lib/vai.ts, src/lib/vai-store.ts, src/lib/dock-nav.ts, src/lib/viec.ts, src/lib/vua-profile.ts, src/app/chon-vai, src/app/viec, src/app/api/viec, src/app/api/me/vai
 last_verified: 2026-11-03
 ttl_days: 90
-<!-- re-verified: 2026-11-03 — BẢN NHÁP chờ anh Long duyệt. Chốt của anh 03/11: (1) MỖI SĐT MỘT VAI, (2) vai tự chọn, chỉ gác ở chỗ quan trọng, (3) việc làm HAI CHIỀU, liên hệ thẳng (Gọi/Zalo, không nhắn trong app), (4) spec + mockup trước, duyệt rồi mới build. ĐÃ BUILD 03/11 (anh Long: "Theo đề xuất, build" — 7 câu mở lấy đúng đề xuất), migration 0079 CHƯA APPLY. Bổ sung cùng ngày: §11 ô dock × vai × hạng, §12 bảng đủ màn từng vai (16 màn mới, 15 màn sửa). Chốt thêm: chủ tàu giữ nguyên; đi bạn/thu mua/đại lý chỉ premium mới có ô Bản đồ (§4.1, §11, §11.1); KHÔNG làm màn bão riêng — đi bạn/thu mua/đại lý free bấm tin bão về băng bão chữ ở trang chủ; chủ tàu KHÔNG phải khai tàu, tạm chấp nhận kẽ hở đổi vai (§11.2). -->
+<!-- re-verified: 2026-11-03 — BẢN NHÁP chờ anh Long duyệt. Chốt của anh 03/11: (1) MỖI SĐT MỘT VAI, (2) vai tự chọn, chỉ gác ở chỗ quan trọng, (3) việc làm HAI CHIỀU, liên hệ thẳng (Gọi/Zalo, không nhắn trong app), (4) spec + mockup trước, duyệt rồi mới build. ĐÃ BUILD 03/11 (anh Long: "Theo đề xuất, build" — 7 câu mở lấy đúng đề xuất), migration 0079 ĐÃ APPLY prod 2026-11-03 (510 tài khoản suy ra Chủ tàu, 470 chưa chọn). Bổ sung cùng ngày: §11 ô dock × vai × hạng, §12 bảng đủ màn từng vai (16 màn mới, 15 màn sửa). Chốt thêm: chủ tàu giữ nguyên; đi bạn/thu mua/đại lý chỉ premium mới có ô Bản đồ (§4.1, §11, §11.1); KHÔNG làm màn bão riêng — đi bạn/thu mua/đại lý free bấm tin bão về băng bão chữ ở trang chủ; chủ tàu KHÔNG phải khai tàu, tạm chấp nhận kẽ hở đổi vai (§11.2). -->
 
 Yêu cầu gốc (anh Long, 03/11): *"tổ chức hệ thống account đi, rồi xây UI/UX cho từng loại account, user ko có tàu (ngư dân) vô kiếm việc, tham khảo các thông tin, tham gia sen biển, user đại lý thiết bị, bán thiết bị, user thu mua cá, user chủ tàu, xem luôn cách phân nhóm user như thế nào tổ chức sao"*.
 
@@ -211,7 +211,7 @@ Hồ sơ không bật lại trong **30 ngày** thì tự tắt, có thông báo 
 | Tin hết hạn | ẩn khỏi danh sách; chủ tàu thấy trong "Tin của tôi" với nhãn "Hết hạn · Gia hạn" |
 | Bị cấm đăng | 403 dùng chung luật `banned_until` Kairos |
 
-## 7. Dữ liệu (dự kiến — migration `0079_vai_viec_lam.sql`, CHƯA viết)
+## 7. Dữ liệu — migration `0079_vai_viec_lam.sql` (đã apply prod 2026-11-03)
 
 - `customers.vai text null check (vai in ('ngu-dan','chu-tau','thu-mua','dai-ly'))` · `vai_doi_luc timestamptz` · `vai_xac_minh_at timestamptz`
 - `job_posts` (id, owner_phone, nghe, port_id, vi_tri text[], so_nguoi, ngay_di, so_ngay, cong, giay text[], ghi_chu, boat_reg, show_boat, status `mo`/`du`/`an`, expires_at, created_at, updated_at)
@@ -219,7 +219,7 @@ Hồ sơ không bật lại trong **30 ngày** thì tự tắt, có thông báo 
 - RLS bật, **client không chạm bảng**: mọi đọc/ghi qua route service-role (khuôn Kairos 0065). SĐT không bao giờ trả trong danh sách, chỉ trả qua `GET /api/viec/tin/[id]/lien-he` theo luật §5.
 - Vai đi kèm phản hồi đăng nhập và nhịp `/api/me/heartbeat` (giống hạng — `tier.ts` `writePremiumMark`), lưu ở `forfish.vai.v1`. Lỗi mạng ⇒ giữ bản lưu, **không** xoá vai.
 
-⚠️ Migration là cờ đỏ (CLAUDE.md): viết xong chờ anh Long duyệt, không tự apply lên `znzgugvfhgmiszqgjulk`.
+Migration là cờ đỏ (CLAUDE.md): anh Long duyệt "Chạy migration" 03/11, đã apply lên `znzgugvfhgmiszqgjulk` (chi tiết 04-data-model § 0079).
 
 ## 8. Quản trị (`/quan-tri`)
 
