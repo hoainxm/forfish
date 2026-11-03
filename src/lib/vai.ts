@@ -1,7 +1,7 @@
 // VAI TÀI KHOẢN (2026-11-03, spec docs/app-map/17-ba-spec-vai-tai-khoan.md) — logic THUẦN, dùng chung client/route/middleware.
 //
 // Trục thứ 5 cạnh account_kind (thật/thử) · role (quản trị) · tier (gói): "làm nghề gì trong chuỗi". MỘT SĐT MỘT VAI,
-// người dùng tự chọn (anh Long chốt 03/11). Vai chỉ đổi GIAO DIỆN (dock, trang chủ) — không khoá dữ liệu — trừ đúng một
+// người dùng tự chọn MỘT LẦN (anh Long chốt 03/11). Vai chỉ đổi GIAO DIỆN (dock, trang chủ) — không khoá dữ liệu — trừ đúng một
 // chỗ: ô Bản đồ của đi bạn / thu mua / đại lý chỉ mở khi có gói (§11, anh Long: *"chủ tàu thì giữ nguyên như hiện tại,
 // còn ngư dân, thu mua, đại lý mới chia premium và free"*). Chủ tàu + chưa chọn vai: bản đồ y như hôm nay.
 
@@ -32,6 +32,25 @@ export function coBanDo(vai: Vai | null, premium: boolean): boolean {
   if (vai === null || !CAN_GOI_BAN_DO.has(vai)) return true;
   return premium;
 }
+
+/*
+  KHOÁ VAI (anh Long 03/11: *"tính năng đổi vai là ko cho đổi sau khi đã đk tránh dữ liệu bị rối, ngư dân + tàu = chủ
+  tàu, cửa hàng và thu mua độc lập, ko đổi vai đc"*). Vai chọn MỘT LẦN; sau đó chỉ một đường đi tiếp: Đi bạn có tàu
+  trong sổ ⇒ Chủ tàu (tự lên, không hỏi). Đại lý và Thu mua đứng riêng, không đổi sang vai nào. Sửa vai chọn nhầm là
+  việc của nhân viên (/quan-tri), không phải của app.
+*/
+export type LyDoKhoaVai = "da_co_vai" | "chua_co_tau";
+
+/** Đổi từ `hienTai` sang `moi` có được không. null = được; còn lại là lý do từ chối (route trả 409 kèm mã này). */
+export function lyDoKhongDoiVai(hienTai: Vai | null, moi: Vai, coTau: boolean): LyDoKhoaVai | null {
+  if (hienTai === null || hienTai === moi) return null;
+  if (hienTai === "ngu-dan" && moi === "chu-tau") return coTau ? null : "chua_co_tau";
+  return "da_co_vai";
+}
+
+/** Có tàu trong sổ mà đang là Đi bạn (hoặc chưa chọn vai) ⇒ lên Chủ tàu — "ngư dân + tàu = chủ tàu". Đại lý, Thu mua
+ *  có tàu cũng KHÔNG đổi (độc lập). */
+export const nenLenChuTau = (vai: Vai | null, soTau: number): boolean => (vai === "ngu-dan" || vai === null) && soTau > 0;
 
 /** Cùng luật cho máy chủ (dataGate): lớp bản đồ free có bị chặn vì vai không. */
 export function chanBanDoFree(vai: unknown, premium: boolean): boolean {

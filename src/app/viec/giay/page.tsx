@@ -1,4 +1,4 @@
-import { ManHeader } from "@/components/man-header";
+import { MarketHeader } from "@/components/market/shared/market-header";
 import { DocumentVault } from "@/components/document-vault";
 import { RequireLogin } from "@/components/require-login";
 import { ToastHost } from "@/components/ui/toast";
@@ -15,7 +15,8 @@ export const metadata = { title: "Giấy tờ của tôi — SDFish" };
 export default function GiayCuaToiPage() {
   return (
     <div className="tau-workspace market-ui">
-      <ManHeader title={NHAN.giayTo} />
+      {/* màn con của Việc làm ⇒ đầu màn có "‹" như các màn /viec/* khác (về /viec khi không có lịch sử) */}
+      <MarketHeader title={NHAN.giayTo} fallback="/viec" />
       <RequireLogin what="giấy tờ của tôi">
         <section aria-label="Giấy tờ của tôi" className="pt-2">
           <DocumentVault rieng />

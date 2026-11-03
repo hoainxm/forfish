@@ -55,7 +55,7 @@ Luật:
 
 `null` = chưa chọn. Khách chưa đăng nhập không có vai.
 
-**Một SĐT một vai** (anh Long chốt 03/11). Người kiêm hai nghề (chủ tàu kiêm vựa) chọn vai chính, rồi **đổi vai** ở sheet Tài khoản khi cần (§3.3). Đổi vai không mất dữ liệu: sổ tàu, gian hàng, tin đăng vẫn nằm nguyên, chỉ đổi dock và trang chủ.
+**Một SĐT một vai, chọn MỘT LẦN, không đổi** (anh Long 03/11: *"ko cho đổi sau khi đã đk tránh dữ liệu bị rối, ngư dân + tàu = chủ tàu, cửa hàng và thu mua độc lập, ko đổi vai đc"*). Đường đi tiếp duy nhất: **Đi bạn có tàu trong sổ ⇒ tự thành Chủ tàu**. Đại lý và Thu mua đứng riêng, không đổi sang vai nào (kể cả khi có tàu). Chọn nhầm ⇒ nhân viên sửa ở `/quan-tri`, app không có nút đổi. Luật: `lib/vai.ts lyDoKhongDoiVai`, `nenLenChuTau`.
 
 ### 2.2 Nhóm khách cho SDVICO (phân nhóm, không lưu cứng)
 
@@ -88,11 +88,16 @@ Chạy một lần ở máy chủ khi migration vào, và mỗi lần đọc `va
 3. `kairos_profiles.nghe = 'thu-mua'` ⇒ `thu-mua`
 4. còn lại ⇒ `null` (hỏi)
 
-Vai suy ra **chỉ là gợi ý**: lần đầu mở app, sheet Tài khoản hiện "Bà con là **Chủ tàu** — Đổi". Không hiện màn hỏi to.
+Vai suy ra là vai THẬT (đã khoá như vai tự chọn). Sheet Tài khoản hiện "Vai: Chủ tàu" (chỉ xem). Tài khoản chưa suy ra được (null) thấy hàng mời "Bà con làm nghề gì?" ở Trang chủ và Tài khoản, chọn một lần.
 
-### 3.3 Đổi vai
+### 3.3 Khoá vai (thay "Đổi vai", anh Long 03/11)
 
-Sheet Tài khoản có thêm hàng **Vai: Chủ tàu · Đổi**, chạm vào mở lại 4 thẻ như §3.1. Không giới hạn số lần đổi. Đổi xong dock đổi ngay, kèm toast "Đã đổi sang Thu mua".
+- Sheet Tài khoản: vai là chip (chỉ xem), không nút Đổi. **Nhân viên** sửa vai ở `/quan-tri` › Tài khoản (ô chọn vai trên dòng khách + Lưu vai, `PATCH /api/admin/accounts/vai`, quyền tai-khoan edit, nhật ký `account.doi-vai`); máy bà con hỏi lại vai tối đa 12 giờ/lần khi mở app có sóng (`vai-store HOI_LAI_MS`) nên vai sửa sẽ về máy. Chưa có vai ⇒ hàng "Bà con làm nghề gì? · Chọn" sang `/chon-vai`. `/chon-vai` khi đã có vai ⇒ tự về chỗ cũ.
+- Máy chủ (`PUT /api/me/vai`): chưa có vai ⇒ ghi (có điều kiện `vai is null`, hai máy cùng chọn thì máy sau 409); có rồi ⇒ 409 `da_co_vai`; Đi bạn ⇒ Chủ tàu chỉ khi sổ tàu ĐÃ ĐỒNG BỘ có ≥1 tàu chưa xoá, chưa có ⇒ 409 `chua_co_tau`.
+- App: sổ tàu trong máy có ≥1 tàu mà vai là Đi bạn hoặc chưa chọn ⇒ tự lên Chủ tàu (ghi máy ngay, gửi lên; `chua_co_tau` ⇒ giữ cờ chờ, lần mở sau gửi lại). 409 `da_co_vai` ⇒ app nhận vai của máy chủ.
+- Màn đăng tin tuyển với vai khác Chủ tàu: Đi bạn ⇒ câu + nút Thêm (sang `/tau`); Thu mua / Đại lý ⇒ chỉ câu báo.
+- **Gian hàng là tài khoản Đại lý riêng**: `POST /api/ban-hang/shop` (mở mới) chỉ cho vai `dai-ly` hoặc chưa có vai — chưa có vai mở xong thành Đại lý; vai khác ⇒ 403 `vai`. Màn `/ban-hang/dang-ky` báo ngay cho vai khác (dùng SĐT khác); menu Tài khoản chỉ mời "Đăng ký shop" cho Đại lý / chưa có vai.
+- **Vai hiển thị** = chip (icon vai + tên) ngay dưới số điện thoại trong menu Tài khoản — khuôn trang "Tôi" của Imou/TPLink-Installer.
 
 ## 4. Giao diện theo vai
 
@@ -110,8 +115,10 @@ Giữ tối đa 6 ô. Tên ô lấy từ `labels.ts`, mỗi tên ≤2 chữ. Sen
 | `null` (chưa chọn vai) | Trang chủ · Kairos · Bản đồ · Tàu tôi · Chợ cá · Vật tư | như free |
 | `chu-tau` | Trang chủ · Kairos · Bản đồ · Tàu tôi · Chợ cá · Vật tư | như free (= hôm nay) |
 | `ngu-dan` | Trang chủ · Kairos · **Việc làm** · Chợ cá · Vật tư | + Bản đồ sau Kairos |
-| `thu-mua` | Trang chủ · Kairos · **Chợ cá** · Vật tư | + Bản đồ cuối |
-| `dai-ly` | Trang chủ · Kairos · **Bán hàng** · Vật tư | + Bản đồ cuối |
+| `thu-mua` | Trang chủ · Kairos · **Chợ cá** · Vật tư | + Bản đồ ở ô 3 |
+| `dai-ly` | Trang chủ · Kairos · **Bán hàng** · Vật tư | + Bản đồ ở ô 3 |
+
+**Bản đồ luôn là ô thứ 3** khi có, ở mọi vai (khuôn tab bar cố định của Imou/TPLink — lên Chủ tàu hay mua gói không phải học lại chỗ ô; đồng bộ design 03/11).
 
 Hạng để quyết định dock lấy từ **dấu hạng trong máy** (`effectivePremiumMark`, có 7 ngày ân hạn — `tier.ts`), không chờ mạng. Lúc dấu hạng còn đang tra ("checking"), dock giữ đúng bản lần trước, không nhấp nháy thêm/bớt ô. Gói hết hạn giữa biển vẫn còn 7 ngày ân hạn như luật hiện có.
 
@@ -123,10 +130,10 @@ Tin bão luôn đứng đầu ở **mọi vai** (tin tính mạng, giữ luật 
 
 | Vai | Thứ tự khối dưới tin bão |
 |---|---|
-| `chu-tau` | như hôm nay: Biển hôm nay · Việc cần làm (giấy tờ, bảo dưỡng) · Ưu đãi · Thông báo · Con nước. **Thêm**: nếu có tin tuyển đang mở ⇒ một hàng "Tin tuyển · còn N ngày · Xem" |
-| `ngu-dan` | Biển hôm nay · **Việc hợp với bà con** (≤3 tin mới nhất khớp nghề + cảng, Xem hết) · Hồ sơ tìm tàu (đang bật/tắt, một hàng) · Giá cá hôm nay ở cảng nhà · Thông báo · Con nước |
-| `thu-mua` | **Cá đang bán gần cảng** (tin `side=ban` mới nhất theo cảng nhà, ≤5) · **Giá tham khảo** các cảng quanh mình · Tin mua của tôi (đang mở N · Đăng tin) · Thông báo |
-| `dai-ly` | **Đơn chờ xác nhận** (N đơn, chạm sang `/ban-hang/don`) · **Khách cần món chợ chưa có** (yêu cầu đặt mở — cơ hội báo giá, 0063) · Trạng thái gian hàng nếu chưa `hoat_dong` (chờ duyệt / tạm khoá + lý do) · Hàng sắp hết (tồn ≤ 3) · Thông báo |
+| `chu-tau` | **giữ nguyên như cũ** (anh Long 03/11): Biển hôm nay · Việc cần làm (giấy tờ, bảo dưỡng) · Ưu đãi · Thông báo · Con nước. **Thêm**: nếu có tin tuyển đang mở ⇒ một hàng "Tin tuyển · còn N ngày · Xem" |
+| `ngu-dan` | *"Hôm nay có tàu nào cần người như mình không?"* — Biển hôm nay + Việc cần làm (giấy tờ của tôi sắp hết hạn) · **Tàu cần người hợp với bà con**: ≤3 tin xếp theo khớp hồ sơ tìm tàu (nghề 3 · vị trí 2 · cảng muốn đi 2 — `home-vai.viecHop`), nhãn "Hợp nghề"; tìm ở tỉnh cảng đầu tiên của hồ sơ, chưa có thì tỉnh cảng nhà · chưa có hồ sơ ⇒ một hàng "Lập hồ sơ tìm tàu"; hồ sơ đang tắt ⇒ "Hồ sơ tìm tàu đang tắt" · Xem hết tin tuyển · Thông báo · Con nước |
+| `thu-mua` | *"Hôm nay ai bán đúng loài mình mua, giá ra sao?"* — chưa có hồ sơ vựa ⇒ "Lập hồ sơ vựa" (ghi loài mua); hồ sơ chờ duyệt / bị từ chối / khoá ⇒ một hàng trạng thái · **Đang bán đúng loài bà con mua**: ≤5 tin bán, loài khớp hồ sơ vựa lên trước (so không dấu — `khopLoai`), rồi cùng tỉnh, rồi mới; nhãn "Đúng loài" · **Giá tuần này** (VASEP): ≤4 loài, loài mình mua trước, khoảng giá + mũi tên lên/xuống · Tin mua của tôi · Thông báo |
+| `dai-ly` | *"Có việc gì phải xử lý ngay?"* — chưa có gian hàng ⇒ "Mở gian hàng"; chưa hoạt động ⇒ một hàng trạng thái · **Việc cần làm**: CHỈ việc có số (`viecDaiLy`): N đơn chờ xác nhận · N khách báo đã chuyển khoản · N khách cần món chợ chưa có · N món sắp hết; không có ⇒ "Không có việc cần làm" · 7 ngày qua: số đơn + tiền đã giao xong (`/api/ban-hang/thong-ke`) · Thông báo |
 
 Thẻ Biển hôm nay và Con nước bỏ ở vai thu mua và đại lý (người trên bờ). Tin bão vẫn giữ, vì bão quyết định tàu có về và có hàng bán hay không.
 
@@ -145,7 +152,7 @@ Sen Biển nổi ở mọi vai. Vai được gửi kèm ngữ cảnh để gợi
 |---|---|---|
 | Đăng bán vật tư | gian hàng `hoat_dong` (đã có, 0060) | giữ nguyên |
 | Dấu "Đã xác minh" bên cạnh tin mua của vựa | `customers.vai_xac_minh_at` not null, chỉ nhân viên gán ở `/quan-tri` | bà con biết vựa thật |
-| Đăng tin tuyển | `vai = 'chu-tau'` | tin tuyển phải của người có tàu; sai vai ⇒ 403 `vai`, app mời "Đổi sang Chủ tàu?" |
+| Đăng tin tuyển | `vai = 'chu-tau'` | tin tuyển phải của người có tàu; sai vai ⇒ 403 `vai`; Đi bạn được mời thêm tàu (tự lên Chủ tàu), vai khác chỉ thấy câu báo |
 | Xem SĐT trong hồ sơ tìm tàu | đã đăng nhập **và** `vai = 'chu-tau'` | SĐT ngư dân không hiện cho người lạ (chống quấy, chống lừa môi giới) |
 | Xem SĐT trong tin tuyển | đã đăng nhập (mọi vai) | tin tuyển là tin công khai của chủ tàu |
 | Đăng hồ sơ tìm tàu | đã đăng nhập (mọi vai, thường là `ngu-dan`) | một SĐT một hồ sơ |
@@ -245,7 +252,7 @@ Luật (§2): offline chỉ bắt buộc với chủ tàu. (a) Request mới lú
 - Then vai là `dai-ly`, dock có ô Bán hàng nhận số đơn chờ
 - Assert: `suyVai({coShop:true,…}) == "dai-ly"`; `dockBadge("ban-hang", {donChoBan:3}) == 3`
 
-### AC-03 · Đổi vai lúc mất sóng · Test: unit
+### AC-03 · Vai chọn lúc mất sóng không bị máy chủ đè · Test: unit
 - Given vai đã đổi ở máy khi mất sóng (bản lưu có cờ chờ gửi)
 - When máy chủ trả về vai cũ
 - Then bản trong máy không bị đè; có sóng lại thì gửi lên
@@ -296,7 +303,7 @@ Luật (§2): offline chỉ bắt buộc với chủ tàu. (a) Request mới lú
 ### AC-11 · Dock theo vai và gói · Test: unit
 - Given vai `thu-mua` không có gói
 - When dựng dock bằng `dockTheoVai`
-- Then dock có 4 ô, không có Bản đồ; có gói thì thêm Bản đồ ở cuối
+- Then dock có 4 ô, không có Bản đồ; có gói thì Bản đồ chen vào ô thứ 3
 - Assert: số ô == 4 khi không gói; == 5 khi có gói
 
 ### AC-12 · Chủ tàu giữ bản đồ như cũ · Test: unit
@@ -304,6 +311,18 @@ Luật (§2): offline chỉ bắt buộc với chủ tàu. (a) Request mới lú
 - When kiểm cổng lớp bản đồ free
 - Then không bị chặn
 - Assert: `chanBanDoFree("chu-tau", false) == false`; `coBanDo(null, false) == true`
+
+### AC-14 · Vai đã khoá · Test: unit
+- Given tài khoản đã có vai `thu-mua`
+- When xin đổi sang `dai-ly` hoặc `chu-tau`
+- Then bị từ chối; Đi bạn sang Chủ tàu chỉ được khi có tàu trong sổ
+- Assert: `lyDoKhongDoiVai("thu-mua","dai-ly",false) == "da_co_vai"`; `lyDoKhongDoiVai("ngu-dan","chu-tau",false) == "chua_co_tau"`; `lyDoKhongDoiVai("ngu-dan","chu-tau",true) == null`
+
+### AC-15 · Mọi màn của ô dock đều có dock · Test: unit
+- Given dock theo vai có ô Việc làm / Bán hàng mà dock mặc định không có
+- When mở `/viec`, `/viec/giay`, `/ban-hang/yeu-cau`
+- Then thanh dock hiện (có đường về); màn đăng nhập / chọn vai vẫn không dock
+- Assert: `dockActive("/viec", MOI_O_DOCK) != null`; `dockActive("/chon-vai", MOI_O_DOCK) == null`
 
 ### AC-13 · Ba vai cần gói bị chặn lớp bản đồ free · Test: unit
 - Given vai `ngu-dan`, `thu-mua` hoặc `dai-ly`, không có gói
@@ -349,13 +368,9 @@ Máy chủ: `data-route-rules` thêm một điều kiện cho các lớp bản �
 
 ⚠️ **Sửa một quyết định đã ghi**: CLAUDE.md và [01-product](01-product.md) đang ghi *"Bản đồ MIỄN PHÍ cho tài khoản"* (chốt 2026-10-27). Nay thành *"miễn phí cho chủ tàu; đi bạn/thu mua/đại lý cần gói"*. Commit build phải sửa cả hai chỗ cùng lúc. Bản đồ đã tải về máy của người đổi sang vai cần gói chỉ bị ẩn, **không xoá**.
 
-### 11.2 Kẽ hở đổi vai — TẠM CHẤP NHẬN (chốt 03/11)
+### 11.2 Kẽ hở đổi vai — ĐÃ ĐÓNG nhờ khoá vai (03/11)
 
-Vai tự chọn (§3) nên người đi bạn free đổi sang "Chủ tàu" là có bản đồ free. Anh Long chốt **tạm thời không bịt**: *"các chủ tàu thì cho phép họ ko cần khai, tạm thế để ko đụng cái cũ, khách mua sdwork đều có tàu"*.
-
-- Chủ tàu và người chưa chọn vai: bản đồ **y như hôm nay**, không đòi khai tàu, không thêm cột, không thêm màn chặn.
-- Khách SDWork (có `devices`) đều có tàu ⇒ suy vai `chu-tau` (§3.2 bước 2), không hỏi.
-- `// nợ: kẽ hở đổi vai lấy bản đồ free; nâng cấp khi đếm ở /quan-tri thấy đáng kể tài khoản vai chu-tau không có tàu trong sổ VÀ không có devices` — khi đó dùng phương án để dành: cột `customers.co_tau_luc` do route đồng bộ sổ ghi (≥1 tàu chưa xoá), `dataGate` trả 403 `can_tau`, màn "Thêm tàu vào sổ để dùng bản đồ"; tính có tàu = sổ **hoặc** `devices`.
+Trước: vai tự đổi được ⇒ Đi bạn free đổi sang "Chủ tàu" là có bản đồ free (tạm chấp nhận). Nay vai KHOÁ (§3.3): Đi bạn chỉ lên Chủ tàu khi có tàu trong sổ — đúng là chủ tàu thật — nên kẽ hở không còn. Chủ tàu + chưa chọn vai vẫn không phải khai tàu để dùng bản đồ (giữ nguyên như cũ, khách SDWork đều có tàu ⇒ suy ra Chủ tàu).
 
 ## 12. Đủ màn cho từng vai (kiểm 03/11)
 
@@ -367,7 +382,7 @@ Có sẵn = route/màn đang chạy · **Sửa** = màn có, phải đổi theo 
 |---|---|---|
 | Đăng ký / đăng nhập / quên mật khẩu | `/dang-ky` `/login` `/quen-mat-khau` | có sẵn |
 | **Chọn vai** (4 thẻ, Để sau) | `/chon-vai` (sau đăng ký, `?next=`) | **MỚI** |
-| Sheet Tài khoản: hàng **Vai · Đổi** | `hero-account` | **Sửa** |
+| Sheet Tài khoản: hàng **Vai: …** chỉ xem (chưa có ⇒ Chọn) | `hero-account` | **Sửa** |
 | Trang chủ khi chưa chọn vai | `/` + thẻ "Bà con làm nghề gì?" | **Sửa** |
 | Kairos (dòng tin, bài, trang người, Bến) | `/kairos/**` | có sẵn |
 | Sen Biển (icon nổi) | toàn app | **Sửa**: câu gợi ý đầu theo vai (§4.3) |
@@ -455,7 +470,7 @@ Thứ tự build đề nghị: (1) cột vai + chọn vai + dock/trang chủ the
 7. Đại lý tự báo giá yêu cầu đặt (§12.5): mở cho mọi gian hàng đã duyệt, hay vẫn chỉ SDVICO báo giá?
 8. Hồ sơ vựa có cần nhân viên duyệt trước khi lên Đầu mối (spec: có) không?
 9. ~~Màn bão miễn phí~~ Chốt 03/11: không làm; tin bão của đi bạn/thu mua/đại lý free mở băng bão chữ ở trang chủ (§11.1).
-10. ~~Kẽ hở đổi vai~~ Chốt 03/11: tạm chấp nhận, chủ tàu không phải khai tàu; khách SDWork đều có tàu (§11.2).
+10. ~~Kẽ hở đổi vai~~ Đã đóng nhờ khoá vai (§3.3, §11.2).
 
 ## 14. Đã build (2026-11-03) — chỗ lệch spec + nợ
 
@@ -469,3 +484,5 @@ Thứ tự build đề nghị: (1) cột vai + chọn vai + dock/trang chủ the
 - Trang chủ chủ tàu: hàng "Tin tuyển đang mở" đọc bản lưu máy, không gọi mạng ⇒ chỉ hiện sau khi đã mở /viec hoặc trang chủ Đi bạn một lần.
 - **Offline theo vai** (anh Long 03/11, §2): gỡ `/viec`, `/viec/giay`, `/ban-hang` khỏi `SHELL` (sw.js về nguyên), gỡ SĐT khỏi bản lưu Việc làm, gỡ bản lưu "Cá đang bán" của trang chủ Thu mua.
 - Cổng bản đồ: tệp `public/data/**` vẫn giải được bằng khoá dữ liệu của mọi tài khoản. `// nợ: vai cần gói vẫn rút được lớp tĩnh qua khoá dữ liệu, nâng khi tách khoá theo hạng/vai ở /api/data-key`.
+- **Khoá vai** (anh Long 03/11, §3.3): bỏ nút Đổi vai ở Tài khoản + nút "Đổi sang Chủ tàu" ở màn đăng tin; Đi bạn / chưa chọn có tàu tự lên Chủ tàu.
+- **Đường về** (anh Long 03/11 "làm sao quay về?"): app-shell chỉ vẽ dock cho route của dock MẶC ĐỊNH ⇒ `/viec/**` không có dock lẫn nút "‹". Nay app-shell xét `MOI_O_DOCK` (mọi ô của mọi vai); `/viec` có "‹" cho vai không có ô Việc làm; `/viec/giay` đổi sang `MarketHeader` (có "‹"). Rà cả app: 6 màn không dock (đăng nhập, đăng ký, quên/đổi mật khẩu, quyền riêng tư, chọn vai) đều có lối thoát.

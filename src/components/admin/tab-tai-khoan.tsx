@@ -6,6 +6,7 @@
 import { tenVai, VAI, type Vai } from "@/lib/vai";
 import { AdminSkeleton } from "@/components/admin/admin-nav";
 import { XacMinhThuMua } from "@/components/admin/xac-minh-thu-mua";
+import { SuaVai } from "@/components/admin/sua-vai";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiUrl } from "@/lib/api-base";
 import { PLATFORM_LABEL, USAGE_STAGE_LABEL, persistNote, readinessChip, type DevicePlatform, type ReadinessReason, type ReadinessTone, type UsageStage, usageStage } from "@/lib/app-usage";
@@ -943,6 +944,8 @@ export function AccountsTab({ me }: { me: Me }) {
                   {/* XÁC MINH THU MUA (spec 17 §5) — tự chứa, tự tải, nhật ký ghi ở máy chủ */}
                   <div className="mt-1 flex basis-full flex-wrap items-center gap-1.5">
                     <XacMinhThuMua phone={a.phone} editable={perms.edit} />
+                    {/* SỬA VAI (17 §3.3) — vai khoá trong app, chọn nhầm thì nhân viên sửa ở đây */}
+                    <SuaVai key={`${a.phone}:${a.vai ?? ""}`} phone={a.phone} vai={a.vai ?? null} editable={perms.edit} onDone={load} />
                   </div>
                 </li>
               ))}

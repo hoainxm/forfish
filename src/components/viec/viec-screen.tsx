@@ -15,7 +15,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BriefcaseIcon, PlusIcon, UsersIcon } from "@/components/icons";
+import { BriefcaseIcon, ChevronLeftIcon, PlusIcon, UsersIcon } from "@/components/icons";
 import { ManHeader } from "@/components/man-header";
 import { OfflineLine } from "@/components/ui/offline-line";
 import { inputClass } from "@/components/ui/primitives";
@@ -72,7 +72,22 @@ export function ViecScreen() {
 
   return (
     <div className="pb-24">
-      <ManHeader title={NHAN.viecLam} sub="Tìm tàu đi biển, tìm bạn thuyền — gọi thẳng, không qua môi giới." />
+      <ManHeader
+        title={NHAN.viecLam}
+        sub="Tìm tàu đi biển, tìm bạn thuyền — gọi thẳng, không qua môi giới."
+        right={
+          // chỉ Đi bạn có ô Việc làm trên dock; vai khác (chủ tàu vào từ Bạn thuyền › Tuyển người) cần lối về
+          vai !== "ngu-dan" ? (
+            <Link
+              href={vai === "chu-tau" ? "/nguoi" : "/"}
+              aria-label={vai === "chu-tau" ? "Về Bạn thuyền" : "Về Trang chủ"}
+              className="flex h-(--h-ctl) w-(--h-ctl) items-center justify-center rounded-full text-navy active:bg-field"
+            >
+              <ChevronLeftIcon className="h-6 w-6" />
+            </Link>
+          ) : undefined
+        }
+      />
       <div className="px-4">
         <div className="mb-3 flex flex-wrap gap-2">
           {chuTau && (

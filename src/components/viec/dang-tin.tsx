@@ -2,13 +2,15 @@
 
 /*
   /viec/dang — ĐĂNG / SỬA TIN TUYỂN (spec 17 §6.1, §12.3). `?id=<tin>` = sửa tin của mình.
-  · Chỉ vai chu-tau đăng được (route 403 `vai`, AC4) ⇒ vai khác thấy câu hỏi "Đổi sang Chủ tàu?" + nút Đổi.
+  · Chỉ vai chu-tau đăng được (route 403 `vai`, AC4). Vai KHÔNG đổi được (anh Long 03/11) ⇒ Đi bạn thấy lối "Thêm tàu"
+    (có tàu trong sổ là tự lên Chủ tàu — use-vai); Thu mua / Đại lý chỉ thấy câu báo, không có nút.
   · Tin mới điền sẵn: cảng nhà (lib/cang-nha) · số hiệu + nghề theo tàu đang chọn (sổ tàu máy) nếu có.
   · NHÁP (§6.4): mỗi lần gõ ghi `forfish.viec.nhap.v1`; mất sóng bấm Đăng ⇒ báo cần sóng, nháp còn nguyên, mở lại màn
     là thấy lại. Đăng xong mới xoá nháp.
   · Kiểm ở máy bằng CÙNG validateTin của route (cấm thu phí AC6, chữ Kairos) ⇒ báo lỗi ngay dưới ô, không chờ mạng.
 */
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { OfflineLine } from "@/components/ui/offline-line";
@@ -25,7 +27,6 @@ import { useOnline } from "@/lib/use-online";
 import { useVai } from "@/lib/use-vai";
 import { GIAY, TIN_LIMITS, VI_TRI, cauLoi, validateTin, type ViecTin } from "@/lib/viec";
 import { docNhap, ghiNhap, goiViec, guiJson, xoaNhap } from "@/lib/viec-client";
-import { chonVai } from "@/lib/vai-store";
 import { CangOptions, ChonNhieu, LoiThuLai, PORT_IDS_CLIENT, ViecSkeleton } from "./viec-chung";
 
 type Form = {
@@ -115,7 +116,7 @@ const O_LOI: Record<string, keyof Form> = {
 export function DangTin() {
   const router = useRouter();
   const online = useOnline();
-  const { vai, phone, biet } = useVai();
+  const { vai, biet } = useVai();
   const [id, setId] = useState<string | null | undefined>(undefined);
   const [tai, setTai] = useState<{ kind: "dang" } | { kind: "loi"; cau: string } | { kind: "xong" }>({ kind: "dang" });
   const [f, setF] = useState<Form>(TRONG);
@@ -211,21 +212,16 @@ export function DangTin() {
       {khongPhaiChuTau && (
         <div className="mb-3">
           <StatusBanner level="warn">
-            Chỉ tài khoản Chủ tàu mới đăng được tin tuyển. Đổi sang Chủ tàu?
-            <button
-              type="button"
-              disabled={!phone}
-              onClick={async () => {
-                if (!phone) return;
-                await chonVai(phone, "chu-tau");
-                setCanDoiVai(false);
-                setLoi(null);
-                baoToast("Đã đổi sang Chủ tàu.", { loai: "tot" });
-              }}
-              className={`${SQ_BTN} mt-2 bg-field text-sea`}
-            >
-              {NHAN.doi}
-            </button>
+            {vai === "ngu-dan" || vai === null ? (
+              <>
+                Chỉ chủ tàu mới đăng được tin tuyển. Thêm tàu vào sổ là tài khoản tự thành Chủ tàu.
+                <Link href="/tau" className={`${SQ_BTN} mt-2 bg-field text-sea`}>
+                  {NHAN.them}
+                </Link>
+              </>
+            ) : (
+              "Chỉ tài khoản Chủ tàu mới đăng được tin tuyển."
+            )}
           </StatusBanner>
         </div>
       )}

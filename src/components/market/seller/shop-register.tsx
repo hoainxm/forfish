@@ -12,6 +12,9 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import { marketPost } from "@/lib/market/client";
 import { saveShopFlag } from "@/lib/market/seller-flag";
+import { chonVai, docVaiMay } from "@/lib/vai-store";
+import { useVai } from "@/lib/use-vai";
+import { tenVai } from "@/lib/vai";
 import type { Shop } from "@/lib/market/types";
 import { validateShopDraft } from "@/lib/market/validate";
 import { useAuthUser } from "@/lib/use-auth";
@@ -25,6 +28,18 @@ import {
 
 export function ShopRegister() {
   const { state, reload } = useMyShop();
+  const { vai } = useVai();
+  // gian hàng là tài khoản Đại lý riêng (17 §3.3) — vai khác thấy câu báo ngay, khỏi gõ 8 ô rồi mới bị 403 `vai`
+  if (vai && vai !== "dai-ly") {
+    return (
+      <div className="px-4 pt-3">
+        <StatusBanner level="warn">
+          Tài khoản {tenVai(vai)} không mở gian hàng được. Gian hàng là tài khoản Đại lý riêng — bà con đăng ký bằng số
+          điện thoại khác.
+        </StatusBanner>
+      </div>
+    );
+  }
   return (
     <LoadView state={state} what="đăng ký gian hàng" onRetry={reload}>
       {(d) => <RegisterInner shop={d.shop} />}
@@ -82,6 +97,8 @@ function RegisterInner({ shop }: { shop: Shop | null }) {
     setSending(false);
     if (res.ok) {
       saveShopFlag(phone, { hasShop: true, status: res.data.shop.status, at: Date.now() });
+      // mở gian hàng ⇒ tài khoản là Đại lý (máy chủ đã ghi nếu chưa có vai; máy cập nhật bản lưu cho dock đổi ngay)
+      if (phone && !docVaiMay(phone)?.vai) void chonVai(phone, "dai-ly");
       setDirty(false);
       /*  BIÊN NHẬN: trước đây nhảy thẳng về Tổng quan, không một lời. Bà con
           vừa gõ 8 ô cho việc một-lần-trong-đời mà màn đổi trang câm là tưởng

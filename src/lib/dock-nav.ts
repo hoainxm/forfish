@@ -36,6 +36,9 @@ const MUC: Record<DockId, DockMuc> = {
   "ban-hang": { id: "ban-hang", href: "/ban-hang", label: NHAN.banHang },
 };
 
+/** MỌI ô có thể có trên dock của bất kỳ vai nào — app-shell dùng để biết màn nào "thuộc dock" (vẽ dock, chừa đáy). */
+export const MOI_O_DOCK: readonly DockMuc[] = Object.values(MUC);
+
 /** Dock mặc định (khách, chủ tàu, chưa chọn vai) — y như trước khi có vai. */
 export const DOCK: readonly DockMuc[] = ["trang-chu", "kairos", "ban-do", "tau-toi", "cho-ca", "vat-tu"].map(
   (id) => MUC[id as DockId],
@@ -45,8 +48,9 @@ export const DOCK: readonly DockMuc[] = ["trang-chu", "kairos", "ban-do", "tau-t
   DOCK THEO VAI (spec 17 §4.1, 2026-11-03). Vai quyết định có những ô nào; ô Bản đồ của đi bạn / thu mua / đại lý chỉ có
   khi có gói (`banDo` = lib/vai coBanDo). Chủ tàu + chưa chọn vai + khách: DOCK mặc định, không đổi.
     · Đi bạn  : Trang chủ · Kairos · [Bản đồ] · Việc làm · Chợ cá · Vật tư
-    · Thu mua : Trang chủ · Kairos · Chợ cá · Vật tư · [Bản đồ]
-    · Đại lý  : Trang chủ · Kairos · Bán hàng · Vật tư · [Bản đồ]
+    · Thu mua : Trang chủ · Kairos · [Bản đồ] · Chợ cá · Vật tư
+    · Đại lý  : Trang chủ · Kairos · [Bản đồ] · Bán hàng · Vật tư
+  Bản đồ LUÔN ô thứ 3 khi có (khuôn tab bar cố định của Imou/TPLink — đổi vai/gói không phải học lại chỗ ô).
   Ô bị bỏ khỏi dock vẫn mở được bằng route.
 */
 export function dockTheoVai(vai: Vai | null, banDo: boolean): readonly DockMuc[] {
@@ -54,9 +58,9 @@ export function dockTheoVai(vai: Vai | null, banDo: boolean): readonly DockMuc[]
     vai === "ngu-dan"
       ? ["trang-chu", "kairos", "ban-do", "viec-lam", "cho-ca", "vat-tu"]
       : vai === "thu-mua"
-        ? ["trang-chu", "kairos", "cho-ca", "vat-tu", "ban-do"]
+        ? ["trang-chu", "kairos", "ban-do", "cho-ca", "vat-tu"]
         : vai === "dai-ly"
-          ? ["trang-chu", "kairos", "ban-hang", "vat-tu", "ban-do"]
+          ? ["trang-chu", "kairos", "ban-do", "ban-hang", "vat-tu"]
           : ["trang-chu", "kairos", "ban-do", "tau-toi", "cho-ca", "vat-tu"];
   return ids
     .filter((id) => id !== "ban-do" || banDo)

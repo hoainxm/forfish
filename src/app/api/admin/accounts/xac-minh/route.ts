@@ -3,7 +3,7 @@
 // GET: SĐT các khách đang có customers.vai_xac_minh_at — tab Tài khoản tải MỘT lần cho cả danh sách (khỏi hỏi từng hàng).
 // PATCH { phone, on: boolean }: bật (ghi giờ hiện tại) / tắt (null). Ghi nhật ký `account.xac-minh-thu-mua`.
 // Quyền: tab "tai-khoan" — GET=view · PATCH=edit. Tách route riêng khỏi /api/admin/accounts cho gọn chỗ sửa.
-// Dấu KHÔNG đòi vai = thu-mua: vai do người dùng tự đổi, dấu là việc nhân viên đã kiểm người thật (§2 luật 3).
+// Dấu KHÔNG đòi vai = thu-mua: dấu là việc nhân viên đã kiểm người thật (§2 luật 3); vai sửa riêng ở /api/admin/accounts/vai.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";

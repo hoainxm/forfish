@@ -11,9 +11,26 @@ import { getMarketStore } from "@/lib/market/store";
 import { toSlug } from "@/lib/market/text";
 import type { Shop, ShopDraft, ShopPatch } from "@/lib/market/types";
 import { validateShopDraft } from "@/lib/market/validate";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isVai, tenVai, type Vai } from "@/lib/vai";
 import { invalid, num, readJsonBody, str } from "../_helpers";
 
 const DA_CO_SHOP = "Số này đã có shop rồi. Vào Kênh người bán để xem.";
+
+/*  CỬA HÀNG LÀ TÀI KHOẢN RIÊNG (anh Long 03/11: "cửa hàng và thu mua độc lập, ko đổi vai đc" — spec 17 §3.3). Mở gian
+    hàng mới chỉ cho vai Đại lý hoặc tài khoản CHƯA có vai (mở xong ⇒ thành Đại lý). Vai khác ⇒ 403 `vai`.
+    Tra hỏng / chưa nối Supabase (file store lúc dev) ⇒ coi như chưa có vai — không chặn nhầm vì DB nghẹt. */
+async function vaiCua(phone: string): Promise<Vai | null> {
+  try {
+    const admin = createAdminClient();
+    if (!admin) return null;
+    const { data } = await admin.from("customers").select("vai").eq("phone", phone).maybeSingle();
+    return isVai(data?.vai) ? data.vai : null;
+  } catch (e) {
+    console.error("[ban-hang/shop] tra vai hỏng — cho qua:", (e as Error)?.message);
+    return null;
+  }
+}
 
 function draftFromBody(b: Record<string, unknown>): ShopDraft {
   return {
@@ -98,7 +115,22 @@ export async function POST(req: Request) {
       const shop = await store.setShopStatus(mine.id, "cho_duyet", null);
       return NextResponse.json({ ok: true, shop }, { status: 201 });
     }
+    const vai = await vaiCua(who.phone);
+    if (vai && vai !== "dai-ly") {
+      return NextResponse.json(
+        { ok: false, code: "vai", message: `Tài khoản ${tenVai(vai)} không mở gian hàng được — gian hàng là tài khoản Đại lý riêng.` },
+        { status: 403 },
+      );
+    }
     const shop = await store.createShop(who.phone, draft, slug);
+    if (!vai) {
+      // chưa có vai ⇒ thành Đại lý (ghi có điều kiện: chỉ khi vẫn null). Hỏng thì thôi — app gửi lại qua /api/me/vai.
+      try {
+        await createAdminClient()?.from("customers").update({ vai: "dai-ly", vai_doi_luc: new Date().toISOString() }).eq("phone", who.phone).is("vai", null);
+      } catch (e) {
+        console.error("[ban-hang/shop] ghi vai dai-ly hỏng (app gửi lại qua /api/me/vai):", (e as Error)?.message);
+      }
+    }
     return NextResponse.json({ ok: true, shop }, { status: 201 });
   } catch (e) {
     return marketErrorResponse(e);

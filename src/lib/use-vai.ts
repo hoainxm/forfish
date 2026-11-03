@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useAuthUser } from "@/lib/use-auth";
 import { effectivePremiumMark, readPremiumMark, readTierMarkRaw, readTierUntilRaw } from "@/lib/tier";
 import { useFeatureAccess } from "@/lib/use-tier";
-import { coBanDo, VAI_EVENT, type Vai, type VaiMay } from "@/lib/vai";
-import { docVaiMay, dongBoVai } from "@/lib/vai-store";
+import { loadBoats } from "@/lib/boats";
+import { coBanDo, nenLenChuTau, VAI_EVENT, type Vai, type VaiMay } from "@/lib/vai";
+import { chonVai, docVaiMay, dongBoVai } from "@/lib/vai-store";
 
 /**
  * Vai của tài khoản đang đăng nhập (spec 17). `vai` null = chưa chọn hoặc chưa đăng nhập; `biet` = máy đã có bản vai
@@ -30,6 +31,9 @@ export function useVai(): { phone: string | null; vai: Vai | null; biet: boolean
     const coSong = () => void dongBoVai(phone);
     window.addEventListener("online", coSong);
     void dongBoVai(phone);
+    // ĐI BẠN CÓ TÀU ⇒ CHỦ TÀU (anh Long 03/11: "ngư dân + tàu = chủ tàu"): sổ tàu trong máy có ≥1 tàu thì tự lên,
+    // không hỏi. Máy chủ chỉ nhận khi sổ đã đồng bộ (409 `chua_co_tau` ⇒ giữ cờ chờ, lần mở sau gửi lại).
+    if (nenLenChuTau(docVaiMay(phone)?.vai ?? null, loadBoats().length)) void chonVai(phone, "chu-tau");
     return () => {
       window.removeEventListener(VAI_EVENT, doc);
       window.removeEventListener("storage", doc);

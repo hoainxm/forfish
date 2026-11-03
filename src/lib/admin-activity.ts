@@ -18,6 +18,7 @@ export const ADMIN_ACTIONS = [
   "account.revoke-sessions",
   "account.test-token",
   "account.xac-minh-thu-mua",
+  "account.doi-vai",
   // Sản phẩm
   "product.create",
   "product.update",
@@ -75,6 +76,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "account.revoke-sessions": "Đăng xuất mọi máy",
   "account.test-token": "Cấp chuỗi thử (script test)",
   "account.xac-minh-thu-mua": "Bật/tắt xác minh thu mua",
+  "account.doi-vai": "Sửa vai tài khoản (đi bạn/chủ tàu/thu mua/đại lý)",
   "product.create": "Thêm sản phẩm",
   "product.update": "Sửa sản phẩm",
   "product.delete": "Xóa sản phẩm",

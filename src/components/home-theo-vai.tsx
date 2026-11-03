@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { ChevronRightIcon } from "@/components/icons";
+import { ChevronRightIcon, TrendDownIcon, TrendUpIcon } from "@/components/icons";
 import { InboxSection } from "@/components/inbox-section";
 import { ChuongCuoiTrang, UrgentWithInstall } from "@/components/install-prompt";
 import { TideHomeCard } from "@/components/tide-home-card";
@@ -10,17 +10,19 @@ import { HomeDauTrang } from "@/components/home-giu-cho";
 import { DocRemindOnOpen } from "@/components/doc-remind-on-open";
 import { KhuyenMaiCard } from "@/components/khuyen-mai-card";
 import { UrgentStrip } from "@/components/urgent-strip";
-import { OfflineLine } from "@/components/ui/offline-line";
 import { SectionHeader } from "@/components/ui/primitives";
 import { cangTheoId, docCangNha } from "@/lib/cang-nha";
 import { ngheName } from "@/lib/kairos/ho-so";
-import { tenViTri, type ViecTin } from "@/lib/viec";
-import { docCache, ghiCache, goiViec } from "@/lib/viec-client";
-import { caDangBan } from "@/lib/home-vai";
+import { tenViTri, type ViecHoSo, type ViecTin } from "@/lib/viec";
+import { docCache, goiViec } from "@/lib/viec-client";
+import { caDangBan, giaQuanTam, viecDaiLy, viecHop, type ViecDaiLy } from "@/lib/home-vai";
+import { authedFetch } from "@/lib/device-token-store";
+import { fetchLivePrices, type LivePortPrice } from "@/lib/port-price-source";
+import { fetchMyVua } from "@/lib/vua-store";
+import type { ShopStats } from "@/lib/market/types";
 import { NHAN } from "@/lib/labels";
 import { loadShopFlag, type ShopFlag } from "@/lib/market/seller-flag";
 import { fetchListings } from "@/lib/market-listings";
-import type { MarketListing } from "@/lib/market-listings-core";
 import { useVai } from "@/lib/use-vai";
 
 /*
@@ -111,108 +113,44 @@ function TinTuyenCuaToi() {
   );
 }
 
+/* ═══ BA VAI TRÊN BỜ — trang chủ trả lời ĐÚNG câu họ mở app để hỏi (anh Long 03/11: "chủ tàu như cũ, các loại user
+   khác làm thông minh hơn, dựa trên cái họ mong muốn và expect"). Có sóng là chuẩn (17 §2): mỗi khối tải khi mở trang
+   (có trần thời gian), lỗi ⇒ câu + Thử lại, không bản lưu riêng. ═══ */
+
+/** Khung chờ một hàng / câu + Thử lại / câu trống — dùng chung ba vai. */
+function KhungCho() {
+  return <div className="h-(--h-row) animate-pulse rounded-2xl bg-field" aria-label="Đang tải" />;
+}
+function LoiThuLai({ cau, onThu }: { cau: string; onThu: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-field px-4 py-3">
+      <p className="text-[0.9375rem] text-foreground/75">{cau}</p>
+      <button type="button" onClick={onThu} className="shrink-0 text-[0.9375rem] font-semibold text-sea">
+        {NHAN.thuLai}
+      </button>
+    </div>
+  );
+}
+function CauTrong({ cau }: { cau: string }) {
+  return <p className="rounded-2xl bg-field px-4 py-3 text-[0.9375rem] text-foreground/75">{cau}</p>;
+}
+/** Nhãn nhỏ trên dòng (khuôn nhãn trạng thái 03 — "Hợp nghề", "Đúng loài"). */
+function NhanNho({ children }: { children: ReactNode }) {
+  return (
+    <span className="ml-1.5 inline-block rounded-full bg-sea/12 px-1.5 align-middle text-[0.6875rem] font-bold leading-4 text-sea">
+      {children}
+    </span>
+  );
+}
+
+/* ── ĐI BẠN: "Hôm nay có tàu nào cần người như mình không?" ───────────────── */
+
+type HoSoTrangChu = { hoSo: ViecHoSo | null; dangHien: boolean };
+
 function HomeDiBan({ dau }: { dau: ReactNode }) {
-  return (
-    <>
-      <div className="space-y-3">
-        {dau}
-        <HomeDauTrang>
-          <UrgentWithInstall>
-            <UrgentStrip />
-          </UrgentWithInstall>
-        </HomeDauTrang>
-      </div>
-      <DocRemindOnOpen />
-      <section className="space-y-2" aria-label={NHAN.viecLam}>
-        <SectionHeader>{NHAN.viecLam}</SectionHeader>
-        <ViecHopVoiBaCon />
-        <Hang href="/viec/ho-so" ten="Hồ sơ tìm tàu của tôi" phu="Chủ tàu thấy hồ sơ và gọi cho bà con" />
-        <Hang href="/viec/giay" ten="Giấy tờ của tôi" phu="Chứng chỉ, sổ thuyền viên, căn cước — nhắc trước hạn" />
-      </section>
-      <Hang href="/tien" ten="Giá cá hôm nay" phu="Giá tham khảo các cảng" />
-      <InboxSection />
-      <TideHomeCard />
-      <ChuongCuoiTrang />
-    </>
-  );
-}
-
-/** Số tin tuyển mới nhất hiện ở trang chủ Đi bạn (17 §4.2 "≤3 tin mới nhất"). */
-const VIEC_TRANG_CHU = 3;
-
-/*
-  "VIỆC HỢP VỚI BÀ CON" (17 §4.2): ≤3 tin tuyển mới nhất ở tỉnh cảng nhà (chưa khai cảng ⇒ cả nước). Bản lưu
-  `forfish.viec.v1` (chung với màn /viec) vẽ trước ⇒ mất sóng vẫn có; có sóng thì tải lại một lượt (goiViec có trần).
-*/
-function ViecHopVoiBaCon() {
-  const [tin, setTin] = useState<ViecTin[] | null>(null);
-  const [luuLuc, setLuuLuc] = useState<number | null>(null);
-  const [loi, setLoi] = useState(false);
-  useEffect(() => {
-    let huy = false;
-    const cu = docCache();
-    if (cu) {
-      setTin(cu.tin);
-      setLuuLuc(cu.luc);
-    }
-    const tinh = docCangNha()?.province;
-    void goiViec<{ items: ViecTin[]; luc: number }>(`/api/viec${tinh ? `?tinh=${encodeURIComponent(tinh)}` : ""}`).then((r) => {
-      if (huy) return;
-      if (!r.ok) {
-        setLoi(true);
-        if (!cu) setTin([]);
-        return;
-      }
-      setTin(r.data.items);
-      setLuuLuc(null);
-      ghiCache(r.data.items, r.data.luc);
-    });
-    return () => {
-      huy = true;
-    };
-  }, []);
-
-  const ds = (tin ?? []).filter((t) => t.status === "mo" && !t.cuaToi).slice(0, VIEC_TRANG_CHU);
-  return (
-    <>
-      {loi && luuLuc != null && <OfflineLine savedAt={luuLuc} />}
-      {tin === null ? (
-        <div className="h-(--h-row) animate-pulse rounded-2xl bg-field" aria-label="Đang tải" />
-      ) : ds.length > 0 ? (
-        <ul className="divide-y divide-line overflow-hidden surface">
-          {ds.map((t) => (
-            <li key={t.id}>
-              <Link href={`/viec/tin/${t.id}`} className="flex min-h-[3.5rem] items-center gap-3 px-4 py-2">
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[1rem] font-semibold text-navy">
-                    {[ngheName(t.nghe), t.viTri.map(tenViTri).filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
-                  </span>
-                  <span className="block truncate text-[0.8125rem] text-foreground/70">
-                    {[`${t.soNguoi} người`, cangTheoId(t.portId)?.name, t.ngayDi ? `đi ${t.ngayDi.slice(8, 10)}/${t.ngayDi.slice(5, 7)}` : null]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </span>
-                </span>
-                <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <Hang
-        href="/viec"
-        ten={ds.length > 0 ? "Xem hết tin tuyển" : loi && !luuLuc ? "Chưa tải được tin tuyển" : "Chưa có tàu tuyển gần cảng nhà"}
-        phu="Lọc theo cảng, nghề, vị trí"
-      />
-    </>
-  );
-}
-
-/* ── THU MUA ─────────────────────────────────────────────────────────────── */
-
-function HomeThuMua({ dau }: { dau: ReactNode }) {
-  // vai Thu mua ở trên bờ, có sóng (anh Long 03/11) ⇒ không bản lưu; tải mỗi lần mở, lỗi ⇒ câu + Thử lại
-  const [ds, setDs] = useState<MarketListing[] | null>(null);
+  const [hs, setHs] = useState<HoSoTrangChu | null>(null);
+  // đã xếp hạng theo hồ sơ (tính trong effect — Date.now() không được gọi lúc render)
+  const [ds, setDs] = useState<ReturnType<typeof viecHop> | null>(null);
   const [loi, setLoi] = useState(false);
   const [lan, setLan] = useState(0);
 
@@ -220,15 +158,22 @@ function HomeThuMua({ dau }: { dau: ReactNode }) {
     let huy = false;
     setLoi(false);
     setDs(null);
-    void fetchListings().then((r) => {
+    void (async () => {
+      // hồ sơ trước: cảng muốn đi của hồ sơ là chỗ tìm tàu đúng nhất; chưa có thì cảng nhà
+      const h = await goiViec<{ hoSo: ViecHoSo | null; dangHien: boolean }>("/api/viec/ho-so");
+      if (huy) return;
+      const hoSo = h.ok ? h.data.hoSo : null;
+      setHs({ hoSo, dangHien: h.ok ? h.data.dangHien : false });
+      const tinh = (hoSo?.ports[0] ? cangTheoId(hoSo.ports[0])?.province : undefined) ?? docCangNha()?.province;
+      const r = await goiViec<{ items: ViecTin[] }>(`/api/viec${tinh ? `?tinh=${encodeURIComponent(tinh)}` : ""}`);
       if (huy) return;
       if (!r.ok) {
         setLoi(true);
         setDs([]);
         return;
       }
-      setDs(caDangBan(r.listings, docCangNha()?.province));
-    });
+      setDs(viecHop(r.data.items, hoSo, Date.now()));
+    })();
     return () => {
       huy = true;
     };
@@ -236,22 +181,111 @@ function HomeThuMua({ dau }: { dau: ReactNode }) {
 
   return (
     <>
-      <div className="space-y-3">{dau}</div>
-      <section className="space-y-2" aria-label="Cá đang bán gần cảng">
-        <SectionHeader>Cá đang bán gần cảng</SectionHeader>
+      <div className="space-y-3">
+        {dau}
+        {/* Biển hôm nay + giấy tờ của tôi sắp hết hạn (dải việc cần làm) — đi bạn vẫn ra khơi */}
+        <HomeDauTrang>
+          <UrgentWithInstall>
+            <UrgentStrip />
+          </UrgentWithInstall>
+        </HomeDauTrang>
+      </div>
+      <DocRemindOnOpen />
+      <section className="space-y-2" aria-label="Tàu cần người">
+        <SectionHeader>{hs?.hoSo ? "Tàu cần người hợp với bà con" : "Tàu đang tuyển người"}</SectionHeader>
+        {/* chưa có hồ sơ / hồ sơ đang tắt ⇒ MỘT dòng nhắc — chủ tàu chỉ tìm thấy người có hồ sơ đang hiện */}
+        {hs && !hs.hoSo && <Hang href="/viec/ho-so" ten="Lập hồ sơ tìm tàu" phu="Chủ tàu tìm thấy và gọi cho bà con" />}
+        {hs?.hoSo && !hs.dangHien && <Hang href="/viec/ho-so" ten="Hồ sơ tìm tàu đang tắt" phu="Mở lại để chủ tàu thấy bà con" />}
         {ds === null ? (
-          <div className="h-(--h-row) animate-pulse rounded-2xl bg-field" aria-label="Đang tải" />
+          <KhungCho />
+        ) : loi ? (
+          <LoiThuLai cau="Chưa tải được tin tuyển." onThu={() => setLan((n) => n + 1)} />
         ) : ds.length === 0 ? (
-          loi ? (
-            <div className="flex items-center justify-between gap-3 rounded-2xl bg-field px-4 py-3">
-              <p className="text-[0.9375rem] text-foreground/75">Chưa tải được tin bán.</p>
-              <button type="button" onClick={() => setLan((n) => n + 1)} className="shrink-0 text-[0.9375rem] font-semibold text-sea">
-                {NHAN.thuLai}
-              </button>
-            </div>
-          ) : (
-            <p className="rounded-2xl bg-field px-4 py-3 text-[0.9375rem] text-foreground/75">Chưa có tin bán cá mới.</p>
-          )
+          <CauTrong cau="Chưa có tàu tuyển quanh đây." />
+        ) : (
+          <ul className="divide-y divide-line overflow-hidden surface">
+            {ds.map((t) => (
+              <li key={t.id}>
+                <Link href={`/viec/tin/${t.id}`} className="flex min-h-[3.5rem] items-center gap-3 px-4 py-2">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[1rem] font-semibold text-navy">
+                      {[ngheName(t.nghe), t.viTri.map(tenViTri).filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
+                      {t.hopNghe && <NhanNho>Hợp nghề</NhanNho>}
+                    </span>
+                    <span className="block truncate text-[0.8125rem] text-foreground/70">
+                      {[`${t.soNguoi} người`, cangTheoId(t.portId)?.name, t.ngayDi ? `đi ${t.ngayDi.slice(8, 10)}/${t.ngayDi.slice(5, 7)}` : null]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </span>
+                  <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        {ds && !loi && <Hang href="/viec" ten="Xem hết tin tuyển" />}
+      </section>
+      <InboxSection />
+      <TideHomeCard />
+      <ChuongCuoiTrang />
+    </>
+  );
+}
+
+/* ── THU MUA: "Hôm nay ai bán đúng loài mình mua, ở đâu, giá ra sao?" ─────── */
+
+const CAU_HO_SO_VUA: Record<string, { ten: string; phu: string }> = {
+  cho_duyet: { ten: "Hồ sơ vựa đang chờ duyệt", phu: "Duyệt xong bà con mới thấy vựa ở Đầu mối" },
+  tu_choi: { ten: "Hồ sơ vựa chưa được duyệt", phu: "Xem lý do và gửi lại" },
+  tam_khoa: { ten: "Hồ sơ vựa đang tạm khoá", phu: "Xem lý do" },
+};
+
+function HomeThuMua({ dau }: { dau: ReactNode }) {
+  // hồ sơ vựa: loài đang mua (để xếp tin + giá) và trạng thái duyệt
+  const [vua, setVua] = useState<{ loai: string[]; status: string | null; coHoSo: boolean } | null>(null);
+  const [ds, setDs] = useState<ReturnType<typeof caDangBan> | null>(null);
+  const [gia, setGia] = useState<{ rows: LivePortPrice[]; tuan?: string } | null>(null);
+  const [loi, setLoi] = useState(false);
+  const [lan, setLan] = useState(0);
+
+  useEffect(() => {
+    let huy = false;
+    setLoi(false);
+    setDs(null);
+    setGia(null);
+    void (async () => {
+      const v = await fetchMyVua();
+      if (huy) return;
+      const loai = v.ok ? (v.profile?.species ?? []) : [];
+      setVua({ loai, status: v.ok ? (v.profile?.status ?? null) : null, coHoSo: v.ok && !!v.profile });
+      const [r, g] = await Promise.all([fetchListings(), fetchLivePrices().catch(() => null)]);
+      if (huy) return;
+      if (!r.ok) {
+        setLoi(true);
+        setDs([]);
+      } else setDs(caDangBan(r.listings, docCangNha()?.province, undefined, loai));
+      setGia(g ? { rows: giaQuanTam(g.prices, loai), tuan: g.week } : { rows: [] });
+    })();
+    return () => {
+      huy = true;
+    };
+  }, [lan]);
+
+  const trangThai = vua?.status ? CAU_HO_SO_VUA[vua.status] : undefined;
+  return (
+    <>
+      <div className="space-y-3">{dau}</div>
+      {vua && !vua.coHoSo && <Hang href="/tien/vua" ten="Lập hồ sơ vựa" phu="Ghi loài bà con mua — app đưa đúng tin bán lên trước" />}
+      {trangThai && <Hang href="/tien/vua" ten={trangThai.ten} phu={trangThai.phu} />}
+      <section className="space-y-2" aria-label="Cá đang bán">
+        <SectionHeader>{vua?.loai.length ? "Đang bán đúng loài bà con mua" : "Cá đang bán gần cảng"}</SectionHeader>
+        {ds === null ? (
+          <KhungCho />
+        ) : loi ? (
+          <LoiThuLai cau="Chưa tải được tin bán." onThu={() => setLan((n) => n + 1)} />
+        ) : ds.length === 0 ? (
+          <CauTrong cau="Chưa có tin bán cá mới." />
         ) : (
           <ul className="divide-y divide-line overflow-hidden surface">
             {ds.map((l) => (
@@ -261,6 +295,7 @@ function HomeThuMua({ dau }: { dau: ReactNode }) {
                     <span className="block truncate text-[1rem] font-semibold text-navy">
                       {l.species}
                       {l.quantity ? ` · ${l.quantity}` : ""}
+                      {l.dungLoai && <NhanNho>Đúng loài</NhanNho>}
                     </span>
                     <span className="block truncate text-[0.8125rem] text-foreground/70">
                       {[l.posterName, l.province, l.priceText].filter(Boolean).join(" · ")}
@@ -273,7 +308,33 @@ function HomeThuMua({ dau }: { dau: ReactNode }) {
           </ul>
         )}
       </section>
-      <Hang href="/tien" ten="Giá tham khảo" phu="Giá cá các cảng hôm nay" />
+      {/* GIÁ TUẦN của loài mình mua (VASEP) — để mặc cả có số; không khai loài ⇒ vài loài đầu bảng */}
+      <section className="space-y-2" aria-label="Giá tuần này">
+        <SectionHeader>Giá tuần này{gia?.tuan ? ` · ${gia.tuan}` : ""}</SectionHeader>
+        {gia === null ? (
+          <KhungCho />
+        ) : gia.rows.length === 0 ? (
+          <Hang href="/tien" ten="Xem bảng giá" />
+        ) : (
+          <ul className="divide-y divide-line overflow-hidden surface">
+            {gia.rows.map((g) => (
+              <li key={g.id}>
+                <Link href="/tien" className="flex min-h-(--h-row) items-center gap-3 px-4 py-2">
+                  <span className="min-w-0 flex-1 truncate text-[1rem] font-semibold text-navy">{g.species}</span>
+                  <span className="shrink-0 text-[0.9375rem] tabular-nums text-foreground/80">
+                    {formatVndRange(g.minVnd, g.maxVnd)}
+                  </span>
+                  {g.trend === "up" ? (
+                    <TrendUpIcon className="h-4 w-4 shrink-0 text-ok" />
+                  ) : g.trend === "down" ? (
+                    <TrendDownIcon className="h-4 w-4 shrink-0 text-danger" />
+                  ) : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       <Hang href="/tien?muc=tin" ten="Tin mua của tôi" phu="Đăng giá thu mua, đóng tin khi đủ hàng" />
       <InboxSection />
       <ChuongCuoiTrang />
@@ -281,7 +342,13 @@ function HomeThuMua({ dau }: { dau: ReactNode }) {
   );
 }
 
-/* ── ĐẠI LÝ ──────────────────────────────────────────────────────────────── */
+/** "45–52 nghìn/kg" — số gọn cho hàng giá. */
+function formatVndRange(min: number, max: number): string {
+  const k = (v: number) => Math.round(v / 1000).toLocaleString("vi-VN");
+  return min === max ? `${k(min)} nghìn/kg` : `${k(min)}–${k(max)} nghìn/kg`;
+}
+
+/* ── ĐẠI LÝ: "Có việc gì phải xử lý ngay?" ─────────────────────────────────── */
 
 const CAU_GIAN_HANG: Record<string, string> = {
   cho_duyet: "Gian hàng đang chờ SDVICO duyệt",
@@ -289,26 +356,81 @@ const CAU_GIAN_HANG: Record<string, string> = {
   tam_khoa: "Gian hàng đang tạm khoá — xem lý do",
 };
 
+type SoDaiLy = { viec: ViecDaiLy[]; tuan: { don: number; doanhThu: number } };
+
 function HomeDaiLy({ dau, phone }: { dau: ReactNode; phone: string | null }) {
-  // cờ gian hàng ở máy (khu bán hàng ghi) — không request
+  // cờ gian hàng ở máy (khu bán hàng ghi) — biết ngay có shop chưa, trạng thái gì
   const [co, setCo] = useState<ShopFlag | null>(null);
+  const [so, setSo] = useState<SoDaiLy | null>(null);
+  const [loi, setLoi] = useState(false);
+  const [lan, setLan] = useState(0);
   useEffect(() => {
     setCo(loadShopFlag(phone));
   }, [phone]);
+  const hoatDong = co?.hasShop && co.status === "hoat_dong";
+
+  useEffect(() => {
+    if (!hoatDong) return;
+    let huy = false;
+    setLoi(false);
+    setSo(null);
+    void (async () => {
+      // hai câu hỏi một lượt: số liệu gian hàng (đơn chờ, báo chuyển khoản, sắp hết, tuần này) + yêu cầu báo giá mới
+      const [tk, yc] = await Promise.all([
+        authedFetch("/api/ban-hang/thong-ke?range=7d", {}, 12000),
+        authedFetch("/api/ban-hang/yeu-cau", {}, 12000),
+      ]);
+      if (huy) return;
+      const s = tk.res?.ok ? ((await tk.res.json().catch(() => null)) as { stats?: ShopStats } | null)?.stats : null;
+      if (!s) {
+        setLoi(true);
+        return;
+      }
+      const y = yc.res?.ok ? ((await yc.res.json().catch(() => null)) as { total?: number; block?: unknown } | null) : null;
+      setSo({
+        viec: viecDaiLy({
+          donCho: s.pendingOrders,
+          baoChuyen: s.awaitingPaymentConfirm,
+          yeuCauMoi: y && !y.block ? (y.total ?? 0) : 0,
+          sapHet: s.lowStock.length,
+        }),
+        tuan: { don: s.orders, doanhThu: s.revenueVnd },
+      });
+    })();
+    return () => {
+      huy = true;
+    };
+  }, [hoatDong, lan]);
+
   const cau = co?.status ? CAU_GIAN_HANG[co.status] : undefined;
   return (
     <>
       <div className="space-y-3">{dau}</div>
       {co && !co.hasShop ? (
         <Hang href="/ban-hang/dang-ky" ten="Mở gian hàng" phu="Đăng thiết bị, vật tư cho bà con đặt" />
-      ) : (
-        <>
-          {cau && <Hang href="/ban-hang" ten={cau} />}
-          <Hang href="/ban-hang/don" ten="Đơn chờ xác nhận" phu="Xác nhận và hẹn ngày giao" so={co?.pending ?? 0} />
-          <Hang href="/ban-hang/yeu-cau" ten="Khách cần món chợ chưa có" phu="Báo giá cho khách" />
-          <Hang href="/ban-hang/san-pham?loc=sap-het" ten="Hàng sắp hết" phu="Món còn 3 trở xuống" />
-        </>
-      )}
+      ) : cau ? (
+        <Hang href="/ban-hang" ten={cau} />
+      ) : hoatDong ? (
+        <section className="space-y-2" aria-label="Việc cần làm">
+          <SectionHeader>Việc cần làm</SectionHeader>
+          {so === null && !loi ? (
+            <KhungCho />
+          ) : loi || !so ? (
+            <LoiThuLai cau="Chưa tải được số liệu gian hàng." onThu={() => setLan((n) => n + 1)} />
+          ) : so.viec.length === 0 ? (
+            <CauTrong cau="Không có việc cần làm." />
+          ) : (
+            so.viec.map((v) => <Hang key={v.key} href={v.href} ten={v.ten} so={v.so} />)
+          )}
+          {so && (
+            <Hang
+              href="/ban-hang"
+              ten="7 ngày qua"
+              phu={`${so.tuan.don} đơn · ${so.tuan.doanhThu.toLocaleString("vi-VN")}đ đã giao xong`}
+            />
+          )}
+        </section>
+      ) : null}
       <InboxSection />
       <ChuongCuoiTrang />
     </>

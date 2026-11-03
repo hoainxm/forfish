@@ -460,6 +460,10 @@ Quy ước: cần đăng nhập (`RequireLogin what="kênh người bán"`) → 
 
 ---
 
+### 6.6b Ai mở được gian hàng (2026-11-03, [17 §3.3](17-ba-spec-vai-tai-khoan.md))
+
+Gian hàng là tài khoản Đại lý riêng: mở MỚI chỉ cho vai `dai-ly` hoặc chưa có vai (mở xong thành Đại lý); vai khác ⇒ 403 `vai`, màn đăng ký báo ngay. Gửi lại hồ sơ bị từ chối không xét vai.
+
 ### 6.7 `/ban-hang/yeu-cau` — Đại lý tự báo giá (2026-11-03, [17 §12.5](17-ba-spec-vai-tai-khoan.md))
 
 - **Ai**: gian hàng `hoat_dong`. Tạm nghỉ (`paused`) vẫn thấy danh sách nhưng không báo được (409 `shop_paused`); chưa duyệt / bị khoá ⇒ băng nói lý do, không nút Báo giá. Yêu cầu do chính SĐT chủ shop gửi không hiện.

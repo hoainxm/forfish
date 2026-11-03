@@ -32,11 +32,8 @@ import {
 import { useAuthUser } from "@/lib/use-auth";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { useVai } from "@/lib/use-vai";
-import { tenVai, type Vai } from "@/lib/vai";
-import { chonVai } from "@/lib/vai-store";
-import { ChonVaiThe } from "@/components/chon-vai";
-import { baoToast } from "@/lib/toast";
-import { diTrang } from "@/lib/dialog-focus";
+import { tenVai } from "@/lib/vai";
+import { ICON_VAI } from "@/components/chon-vai";
 import { tierBadge } from "@/lib/tier";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import { NHAN } from "@/lib/labels";
@@ -246,10 +243,8 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
   const { user, phone, ready, signedIn } = useAuthUser();
   /* Ngăn đáy "Cài đặt" (TC-07): mở từ hàng "Cài đặt ›" trong menu, menu đóng trước */
   const [caiDat, setCaiDat] = useState(false);
-  /* Ngăn đáy "Đổi vai" (spec 17 §3.3) */
-  const [doiVai, setDoiVai] = useState(false);
-  const [dangGhiVai, setDangGhiVai] = useState<Vai | null>(null);
   const { vai } = useVai();
+  const VaiIcon = vai ? ICON_VAI[vai] : null;
   // HẠNG CỦA TÔI (2026-08-01): premium gán ngoài đời ở /quan-tri, trong app
   // trước nay không có chỗ nào xác nhận ⇒ khách trả tiền phải vào Ra khơi thử
   // bật lớp Cá mới biết. `null` = chưa chắc, không bày gì (luật ở lib/tier.ts).
@@ -687,6 +682,14 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
               <p className="text-[1rem] font-semibold text-foreground/70">
                 {prettyPhone(phone)}
               </p>
+              {/* VAI = CHIP ngay dưới danh tính (khuôn trang "Tôi" Imou/TPLink: avatar · tên · chip vai · hạng — 17 §3.3).
+                  Chỉ xem: vai khoá sau lần chọn đầu. */}
+              {VaiIcon && vai && (
+                <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-sea/12 px-3 py-1 text-[0.875rem] font-semibold text-sea">
+                  <VaiIcon className="h-4 w-4" />
+                  {tenVai(vai)}
+                </span>
+              )}
               {/* HẠNG — chỉ hiện khi đã CHẮC (tierBadge trả null lúc đang tra),
                   khỏi nháy "thường" rồi mới đổi thành "Premium" */}
               {badge && (
@@ -785,22 +788,17 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             </>
           )}
 
-          {/*  VAI (spec 17 §3.3) — một hàng "Vai · Chủ tàu" + Đổi, mở ngăn đáy 4 thẻ. Đổi bao nhiêu lần cũng được, không
-               mất dữ liệu; chỉ dock + trang chủ đổi theo. Chưa chọn ⇒ hàng mời "Chọn vai". */}
-          {signedIn && (
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                setDoiVai(true);
-              }}
+          {/*  VAI (spec 17 §3.3) — CHỈ XEM: vai chọn một lần, không đổi (anh Long 03/11 "ko cho đổi sau khi đã đk tránh
+               dữ liệu bị rối"). Có vai ⇒ chip dưới danh tính (ở trên). Chưa chọn ⇒ hàng mời sang /chon-vai. */}
+          {signedIn && !vai && (
+            <Link
+              href="/chon-vai"
+              onClick={() => setOpen(false)}
               className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
             >
-              <span className="min-w-0 flex-1">
-                <span className="block text-[1rem] font-semibold text-navy">{vai ? `Vai: ${tenVai(vai)}` : "Bà con làm nghề gì?"}</span>
-              </span>
-              <span className="shrink-0 text-[0.9375rem] font-semibold text-sea">{vai ? NHAN.doi : NHAN.chon}</span>
-            </button>
+              <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">Bà con làm nghề gì?</span>
+              <span className="shrink-0 text-[0.9375rem] font-semibold text-sea">{NHAN.chon}</span>
+            </Link>
           )}
 
           {/*  LỐI VÀO KÊNH NGƯỜI BÁN (12 §9) — hai dạng dòng:
@@ -835,7 +833,8 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
               <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
             </Link>
           )}
-          {signedIn && shopFlag && !shopFlag.hasShop && (
+          {/* lời mời mở shop CHỈ cho Đại lý / chưa có vai — gian hàng là tài khoản riêng (17 §3.3) */}
+          {signedIn && shopFlag && !shopFlag.hasShop && (vai === "dai-ly" || vai === null) && (
             <Link
               href="/ban-hang/dang-ky"
               onClick={() => setOpen(false)}
@@ -890,30 +889,6 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
             </p>
           )}
         </Popover>
-      )}
-
-      {doiVai && (
-        /*  NGĂN ĐỔI VAI (spec 17 §3.3) — 4 thẻ như màn /chon-vai; đổi xong toast + đóng. */
-        <BottomSheet title="Bà con làm nghề gì?" kieu="xem" onClose={() => setDoiVai(false)}>
-          <ChonVaiThe
-            hienTai={vai}
-            dangGhi={dangGhiVai}
-            onChon={(v) => {
-              if (!phone || v === vai) {
-                setDoiVai(false);
-                return;
-              }
-              setDangGhiVai(v);
-              void chonVai(phone, v).finally(() => {
-                setDangGhiVai(null);
-                setDoiVai(false);
-                baoToast(`Đã đổi sang ${tenVai(v)}`);
-                // rời trang từ trong ngăn đáy phải qua diTrang — router.push sẽ bị cleanup lịch sử của ngăn kéo lùi
-                if (v === "dai-ly" && !shopFlag?.hasShop) diTrang(router, "/ban-hang/dang-ky");
-              });
-            }}
-          />
-        </BottomSheet>
       )}
 
       {caiDat && (

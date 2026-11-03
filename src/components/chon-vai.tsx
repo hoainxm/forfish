@@ -4,10 +4,10 @@ import { AnchorIcon, BriefcaseIcon, FishIcon, StoreIcon } from "@/components/ico
 import { VAI, type Vai } from "@/lib/vai";
 
 /*
-  BỐN THẺ CHỌN VAI (spec 17 §3.1) — dùng chung cho màn /chon-vai (sau đăng ký) và sheet "Đổi vai" ở Tài khoản.
-  Chạm một thẻ là xong, không có nút Tiếp. Thẻ đang là vai hiện tại có viền + chữ "Đang dùng".
+  BỐN THẺ CHỌN VAI (spec 17 §3.1) — chỉ ở màn /chon-vai (sau đăng ký / tài khoản chưa có vai). Vai chọn MỘT LẦN rồi
+  khoá (§3.3) ⇒ không có ngăn "Đổi vai". Chạm một thẻ là xong, không có nút Tiếp. `ICON_VAI` dùng chung cho chip vai.
 */
-const ICON: Record<Vai, typeof AnchorIcon> = {
+export const ICON_VAI: Record<Vai, typeof AnchorIcon> = {
   "ngu-dan": BriefcaseIcon,
   "chu-tau": AnchorIcon,
   "thu-mua": FishIcon,
@@ -27,7 +27,7 @@ export function ChonVaiThe({
   return (
     <ul className="space-y-2" aria-label="Bà con làm nghề gì">
       {VAI.map(({ id, ten, phu }) => {
-        const Icon = ICON[id];
+        const Icon = ICON_VAI[id];
         const dang = hienTai === id;
         return (
           <li key={id}>

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/bottom-nav";
-import { dockActive } from "@/lib/dock-nav";
+import { dockActive, MOI_O_DOCK } from "@/lib/dock-nav";
 import { NativeGpsPrime } from "@/components/native-gps-prime";
 import { ToastHost } from "@/components/ui/toast";
 import { UserSyncInit } from "@/components/user-sync-init";
@@ -43,7 +43,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   /*  MÀN KHÔNG THUỘC MỤC DOCK NÀO (đăng nhập · đăng ký · quên/đổi mật khẩu · quyền riêng tư — `dockActive` null,
       07 §5 hàng 8–9 "không dock"): luồng tập trung kiểu FB, thoát bằng "‹"; không vẽ dock, không chừa đáy
       (rà FB 2026-10-25, VO-APP-06). Sen Biển đã tự ẩn ở các màn này. */
-  const coDock = dockActive(pathname) !== null;
+  // MỌI ô có thể có (kể cả Việc làm, Bán hàng của dock theo vai — spec 17 §4.1), không chỉ dock mặc định:
+  // trước đây /viec bị coi là màn "không dock" ⇒ không có đường về (anh Long 03/11 "làm sao quay về?")
+  const coDock = dockActive(pathname, MOI_O_DOCK) !== null;
   return (
     <div className="app-shell mx-auto flex min-h-dvh max-w-(--w-app) flex-col bg-background shadow-sm">
       <main className={coDock ? "app-content flex-1" : "flex-1"}>{children}</main>

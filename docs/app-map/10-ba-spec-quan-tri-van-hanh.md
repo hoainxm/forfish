@@ -1,6 +1,7 @@
 # 10 — ba-spec: Web quản trị vận hành SDFish + ranh giới SDWork
 
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
+<!-- re-verified: 2026-11-03b — SỬA VAI: dòng khách tab Tài khoản có ô chọn vai + "Lưu vai" (`PATCH /api/admin/accounts/vai`, quyền tai-khoan edit, nhật ký `account.doi-vai` ghi vai cũ → mới) — đường DUY NHẤT đổi vai sau khi app khoá (17 §3.3). -->
 <!-- re-verified: 2026-11-03 — VAI TÀI KHOẢN (17 §8, §12.6): tab Tài khoản thêm chip lọc Vai (đếm khách real) + nhãn vai + công tắc "Xác minh thu mua" (`/api/admin/accounts/xac-minh`, quyền tai-khoan, log `account.xac-minh-thu-mua`); tab Chợ cá bán thêm hàng duyệt hồ sơ vựa (`/api/admin/vua-profiles`, quyền cho-ban, log `sell.vua-status`); tab MỚI "Việc làm" nhóm Khách hàng (chỉ admin, `/api/admin/viec`); "Yêu cầu đặt" ghi shop đã báo + "đại lý tự báo / SDVICO báo thay". -->
 covers: src/app/quan-tri, src/components/admin, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
 last_verified: 2026-11-03
