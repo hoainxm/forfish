@@ -107,6 +107,11 @@ const HOME_RE = / (cang nha|ve nha) | ve ben $/;
 // câu bắt đầu bằng động từ đi lại mà không thấy tên ⇒ bà con muốn tới một chỗ máy chưa biết
 // KHÔNG có "toi" trần: bỏ dấu thì "tôi" và "tới" là một ("tôi đau bụng…" từng thành "chưa thấy chỗ")
 const MOVE = /^(di|ve|ra|vao|vo|toi cang|chay|dan|chi duong)( |$)/;
+/** Chữ thời tiết rõ — so CÓ DẤU khi câu có dấu (bỏ dấu thì "gió" = "giờ", "sóng" = "song"). */
+const THOI_TIET_D = /(^| )(tiết|thời tiết|dự báo|sóng|gió|mưa|biển động)( |$)/;
+const THOI_TIET_F = /(^| )(tiet|thoi tiet|du bao)( |$)/;
+/** Ý HỎI — câu nhắc tên cảng/điểm mà mô hình chắc là ý này thì KHÔNG dẫn đi (xem `hoiChoKhongDi`). */
+const HOI_KHONG_DI = new Set<SenIntent>(["thoi_tiet", "bao", "con_nuoc", "gia_ca", "gia_dau", "giay_to", "hoi_mo", "tin_mua_ban", "goi_shop"]);
 /** Câu mở bằng động từ đi lại — muốn đi đâu đó (dùng chung với kho hỏi–đáp: câu này KHÔNG đọc kho). */
 export const moDauDiLai = (text: string): boolean => MOVE.test(foldVn(text));
 /** Ngữ cảnh n-gram chuẩn cho câu nói (tên chỗ đã fold, đang chờ "đi") — cùng cái `senBienReply` đưa v4. */
@@ -312,7 +317,14 @@ export function senBienReply(
   // (4) chọn chỗ theo tên
   const home = dests.find((d) => d.kind === "nha");
   // mô hình chưa tải được (lần đầu mất sóng) ⇒ vẫn dẫn được khi câu có tên chỗ
-  const y: SenIntent = yM ?? (hits.length || MOVE.test(f) ? "dan_duong" : "khong_hieu");
+  // câu nói thời tiết rõ ("tiết Vũng Tàu" — máy nghe mất chữ "thời", câu thật 2026-10-28), không mở bằng động từ đi ⇒ ý
+  // thời tiết, không phải "có tên cảng nên là dẫn đường"
+  // Đè cả khi mô hình đoán dẫn đường / tàu của tôi: v8 thấy tên cảng trong ngữ cảnh điểm ⇒ "tiết Vũng Tàu" dan_duong 0,61.
+  const thoiTietRo =
+    (yM == null || yM === "dan_duong" || yM === "dat_cang_nha" || yM === "tau_cua_toi") &&
+    !MOVE.test(f) &&
+    (d ? THOI_TIET_D.test(d) : THOI_TIET_F.test(f));
+  const y: SenIntent = thoiTietRo ? "thoi_tiet" : (yM ?? (hits.length || MOVE.test(f) ? "dan_duong" : "khong_hieu"));
   // khớp gần chỉ khi câu RÕ là muốn đi — đừng để "sóng gió chỗ này" hoá tên cảng
   // Có mô hình thì chỉ khớp gần khi nó đoán DẪN ĐƯỜNG: nới sang "không hiểu"/"có động
   // từ đi" thì khớp nhầm tăng từ 1 lên 33 trên 1.421 câu thử ("về trang chủ" → Trân Châu).
@@ -320,8 +332,12 @@ export function senBienReply(
   if (!hits.length && muonDi)
     hits = findDestsGan(text, dests);
 
+  /*  CÂU HỎI CÓ TÊN CHỖ KHÔNG PHẢI LỆNH ĐI (2026-11-03, câu thật "Dự báo thời tiết Lý Sơn hôm nay" ⇒ bay tới cảng Lý Sơn):
+      mô hình CHẮC là câu hỏi (thời tiết, bão, giá…) mà câu không mở bằng động từ đi ⇒ để bước sau trả lời câu hỏi
+      (traLoiApp đọc dự báo cảng đó), không dẫn đi chỉ vì câu nhắc tên cảng. */
+  const hoiChoKhongDi = !MOVE.test(f) && HOI_KHONG_DI.has(y);
   const wantsGo =
-    y === "dan_duong" || y === "dat_cang_nha" || (hits.length > 0 && y !== "ngoai_pham_vi");
+    y === "dan_duong" || y === "dat_cang_nha" || (hits.length > 0 && y !== "ngoai_pham_vi" && !hoiChoKhongDi);
   if (wantsGo) {
     /*  Cảng biết là sai toạ độ: dẫn tới đó là đưa tàu đi chỗ khác hàng trăm hải
         lý. Có chỗ trùng tên đúng toạ độ thì bỏ chỗ sai; chỉ còn chỗ sai thì nói
@@ -353,6 +369,9 @@ export function senBienReply(
     return { kind: "say", say: "Việc này Sen Biển không trả lời được.", y, daTraLoi: true };
   }
   if (y === "chao_hoi") return { kind: "say", say: "Chào bà con. Muốn đi đâu, cứ nói tên cảng, điểm đã ghim hoặc toạ độ.", y };
+  /*  CÂU NỐI mà không có câu trước để nối ("Vùng nào zậy" mở đầu cuộc nói — câu thật 2026-11-02; câu có lượt trước đã đi
+      nhánh (2a) hieuCauNoi): hỏi lại ngay trong máy, không đẩy lên máy nhà chờ 4–10 s rồi nói câu lảng. */
+  if (y === "hoi_tiep") return { kind: "say", say: "Bác hỏi tiếp chuyện gì ạ? Nói rõ giùm Sen Biển nghen.", y, ask: true };
   /*  "đi Vũng Tàu" / "vào Rạch Giá" — tên không có trong danh sách, mô hình đoán
       lạc sang việc khác ("tàu" ⇒ tàu của tôi) ⇒ từng đáp "chỉ giúp trên bản
       đồ", sai hẳn ý. Câu mở bằng động từ đi lại thì nói thật là chưa thấy chỗ.

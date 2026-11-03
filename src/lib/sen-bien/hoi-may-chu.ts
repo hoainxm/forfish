@@ -44,6 +44,25 @@ function tinHieu(huy?: AbortSignal): AbortSignal | undefined {
   return c.signal;
 }
 
+/*  HÂM NÓNG ĐƯỜNG MÁY NHÀ (2026-11-03, đo thật: máy nhà làm 1–2 s mà cả lượt 4–5 s — ~3 s là hàm Vercel khởi động + kiểm danh
+    tính + bắt tay TLS mới tới Funnel 0,6–1 s). Micro vừa mở thì gửi một lượt "ấm" (không câu hỏi): route kiểm danh tính rồi mở
+    sẵn kết nối tới cổng nhà ⇒ trong 2–4 s bà con đang nói, các khoản đó trả xong; câu hỏi thật đi trên kết nối đã mở.
+    Một lượt / HAM_CACH_MS, chỉ khi có sóng + đăng nhập; lỗi gì cũng bỏ qua (không đổi gì nếu hâm hỏng). */
+export const HAM_CACH_MS = 45_000;
+let hamLuc = 0;
+export function hamNongMayNha(now = Date.now()): boolean {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
+  if (!readToken() || now - hamLuc < HAM_CACH_MS) return false;
+  hamLuc = now;
+  void fetch(apiUrl("/api/sen-bien/hoi"), {
+    method: "POST",
+    headers: { "content-type": "application/json", ...tokenHeader() },
+    body: JSON.stringify({ am: 1 }),
+    signal: timeoutSignal(6_000),
+  }).catch(() => undefined);
+  return true;
+}
+
 /** `huy` = chỗ gọi bỏ lượt này (bà con hỏi câu mới / đóng thẻ) ⇒ ngắt yêu cầu, trả `{ loi: "het_gio" }` (chỗ gọi đã bỏ
  *  lượt, không đọc). */
 export async function hoiMayChu(text: string, man: string | null, cang: string | null, huy?: AbortSignal): Promise<KqMayNha> {

@@ -19,7 +19,17 @@ export const NGRAM_CHAC = 0.5;
 
 export type LyDoTruot = "mat_song" | "chua_dang_nhap" | "het_gio" | "may_nha";
 
-export type BuocCuoi = { buoc: "app" } | { buoc: "may-nha" } | { buoc: "noi"; say: string };
+/** `hoi`: câu nói xong thì mở micro nghe tiếp (tiếng gọi "ơi" ⇒ "Dạ, bác cần gì?" rồi nghe). */
+export type BuocCuoi = { buoc: "app" } | { buoc: "may-nha" } | { buoc: "noi"; say: string; hoi?: true };
+
+/*  TIẾNG GỌI TRƠN (2026-11-03, câu thật: "ơi", "bác ơi", "ê hông", "Sen Biển ơi" lúc không bật rảnh tay): trước đây coi là
+    "không hiểu" rồi đẩy lên máy nhà (chờ 4–10 s mới nghe câu lảng). Gọi là để được thưa ⇒ đáp ngay trong máy, nghe tiếp. */
+const GOI = /^((sen bien|xen bien|sen|bac|em|con|anh|chi|co|chu|ban|may) )?(oi|ơi|e|ei|alo|a lo|hey|ne|nay)( (oi|hong|khong|ha|nha|nghe|coi))*$/;
+export const DAP_GOI = "Dạ, bác cần gì ạ?";
+export function laTiengGoi(text: string): boolean {
+  const f = foldVn(text);
+  return !!f && GOI.test(f);
+}
 
 /** Câu nói khi không có câu trả lời — nói ĐÚNG lý do, không đọc câu đoán của n-gram; câu lảng có duyên xoay vòng
  *  trong kho `cau-vui.CAU_LANG` (không lặp liền). */
@@ -47,6 +57,7 @@ export function chonBuoc(o: {
   coChuoi: boolean;
   text: string;
 }): BuocCuoi {
+  if (laTiengGoi(o.text)) return { buoc: "noi", say: DAP_GOI, hoi: true };
   const chac = o.conf != null && o.conf >= NGRAM_CHAC;
   if (o.coApp && chac) return { buoc: "app" };
   if (daCoLoiDap(o.r, chac)) return { buoc: "noi", say: o.r.kind === "say" ? o.r.say : "" };

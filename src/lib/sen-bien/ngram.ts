@@ -1,12 +1,15 @@
 // SEN BIỂN — bộ HIỂU Ý siêu nhỏ chạy trong máy (không mạng).
 //
 // Hồi quy logistic đa lớp trên n-gram ký tự + từ, băm 2^16 chiều, trọng số
-// int8 (5,2 MB, `public/data/sen-bien-ngram.v7.bin`). Train ở repo AI Assistant
+// int8 (5,3 MB, `public/data/sen-bien-ngram.v8.bin`). Train ở repo AI Assistant
 // `train/tro-ly/ngram.mjs` + `chay-bd.sh` (bản v4, 2026-10-18): 65 ý định = 31 ý
 // cũ + 13 ý HỎI BẢN ĐỒ (hoi_*, con_bao_xa) + 8 ý THAO TÁC bản đồ (lenh-ban-do.ts)
 // + 13 ý CHỢ VẬT TƯ (lenh-cho.ts Y_CHO — lưới khi luật hụt). Số đo ở train/reports/troly-*.md.
 // Bản v7 (2026-10-25, cơ cấu app mới sau hai lô rà FB): 65 ý cũ GIỮ NGUYÊN THỨ TỰ + 9 ý mới ở CUỐI
 // (chọn tỉnh · nhắn Zalo · tải bài · bật chuông · đăng xuất · chưa đọc · hoàn tác · shop tạm nghỉ / mở bán).
+// Bản v8 (2026-11-03, rà 129 câu thật "chậm và không hiểu khách" — doc 15 §35): 74 ý v7 GIỮ THỨ TỰ + 2 ý cuối
+// (chinh_sach · hoi_tiep); dữ liệu soạn bằng Haiku (câu train) + Sonnet (bộ kín, nhiễu ngược, nhãn câu thật) — AI Assistant
+// `train/tro-ly/soan-v8.mjs`, `v8/chay.sh`, vòng 5 hạt 7 QUA CỔNG: câu thật 69,4 → 84,7 %, bộ kín v8 43,2 → 80,7 %.
 // File này là bản CHÉP Y HỆT phần đoán — đổi cách băm/đặc trưng ở đó thì phải
 // đổi ở đây, và ngược lại; test `sen-bien.test.ts` khoá vài câu với đúng file trọng số.
 //
@@ -16,7 +19,7 @@
 // thì máy cũ mới lấy file mới; file sai cỡ ⇒ loadNgram trả null ⇒ chạy bằng luật.
 // Mỗi lúc chỉ MỘT bản trong repo (CLAUDE.md "một lớp = một file"): lên bản mới là git mv, không để song song.
 
-export const NGRAM_PATH = "/data/sen-bien-ngram.v7.bin";
+export const NGRAM_PATH = "/data/sen-bien-ngram.v8.bin";
 
 export const INTENTS = [
   "thoi_tiet", "bao", "con_nuoc", "dan_duong", "dat_cang_nha",
@@ -35,6 +38,8 @@ export const INTENTS = [
   "shop_xac_nhan", "shop_giao", "shop_da_giao", "shop_doi_hen", "shop_nhan_tien", "san_yc_moi", "san_bao_gia",
   // v7 — cơ cấu app mới 2026-10-25 (hợp đồng SEN-BIEN-CO-CAU-MOI §B; thứ tự KHOÁ, test sen-bien-co-cau-moi)
   "chon_tinh", "nhan_zalo", "tai_bai", "bat_chuong", "dang_xuat", "chua_doc", "hoan_tac", "shop_tam_nghi", "shop_mo_ban",
+  // v8 — rà câu thật 2026-11-03 (doc 15 §35): hỏi chính sách hỗ trợ nhà nước · câu nối hỏi tiếp câu trước
+  "chinh_sach", "hoi_tiep",
 ] as const;
 export type SenIntent = (typeof INTENTS)[number];
 const REASONS = ["y_te", "phap_ly", "tien", "tra_nguoi", "khac"] as const;
@@ -42,8 +47,8 @@ const REASONS = ["y_te", "phap_ly", "tien", "tra_nguoi", "khac"] as const;
 const DIM = 1 << 16;
 const NY = INTENTS.length;
 const NLOP = NY + REASONS.length;
-/** thang int8 → số thực, ghi lúc train (meta.json của bản v7 (vòng 5 "cơ cấu app mới", gpu-desktop 2026-10-26, hạt 7)) */
-const THANG = 0.22774250300850454;
+/** thang int8 → số thực, ghi lúc train (meta.json của bản v8 (vòng 5 "câu thật", gpu-desktop 2026-11-03, hạt 7)) */
+const THANG = 0.2269801192396269;
 export const NGRAM_BYTES = DIM * NLOP;
 
 /** Bỏ dấu + chữ thường + chỉ giữ a-z0-9 — giống `foldVn` bên train. */

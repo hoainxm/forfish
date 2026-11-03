@@ -10,7 +10,7 @@ import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
 
 const NOW = Date.UTC(2026, 9, 18, 3);
 // bin v7 (cơ cấu mới 2026-10-25) giao sau — chưa có thì skip có lý do, không giả xanh
-const BIN = "public/data/sen-bien-ngram.v7.bin";
+const BIN = "public/data/sen-bien-ngram.v8.bin";
 const coBin = existsSync(BIN);
 const buf = coBin ? readFileSync(BIN) : Buffer.alloc(0);
 const model = coBin ? loadNgram(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer)! : null;

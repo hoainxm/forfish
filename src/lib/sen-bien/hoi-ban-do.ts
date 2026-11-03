@@ -129,6 +129,8 @@ export function hoiGi(text: string, loaiCa: readonly string[] = []): CauHoi | nu
 
   const sp = t.loaiCa;
   if (!cho && sp && / (o dau|cho nao|nhieu|vung nao|huong nao|ben nao|danh|bat|cau|kiem|co khong) /.test(f)) return q("ca", { loaiCa: sp });
+  // TÊN LOÀI NÓI TRƠN ("Cá ngừ", "mực ống" — câu thật 2026-11-02, 1–3 chữ, không chữ khác): ở màn bản đồ là hỏi chỗ có loài đó
+  if (!cho && sp && f.trim().split(" ").length <= 3 && / (ca|muc|tom|ruoc|ghe|cua) /.test(` ${f.trim().split(" ")[0]} `)) return q("ca", { loaiCa: sp });
   if (!cho && / (cho nao|o dau|vung nao|huong nao) (nhieu|co) ca | (nhieu|co) ca (khong|o dau|cho nao) | du bao ca | ca (o dau|cho nao|nhieu) /.test(f))
     return q("ca", sp ? { loaiCa: sp } : {});
   if (/ (tru bao|tranh bao|nup bao|tranh tru) /.test(f)) return q("tru_bao");

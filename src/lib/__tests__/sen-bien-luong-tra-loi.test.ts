@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { SenReply } from "@/lib/sen-bien/hieu-y";
 import { CAU_LANG } from "@/lib/sen-bien/cau-vui";
-import { cauTruot, chonBuoc, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
+import { cauTruot, chonBuoc, DAP_GOI, laTiengGoi, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 
 const say = (y: string, extra: Partial<Extract<SenReply, { kind: "say" }>> = {}): SenReply =>
   ({ kind: "say", say: "câu của máy", y, ...extra }) as SenReply;
@@ -35,6 +35,10 @@ describe("chonBuoc — bảng quyết định", () => {
   });
   it("câu một chữ ('hả') ⇒ không hỏi máy nhà", () =>
     expect(chonBuoc({ ...goc, r: say("khong_hieu"), text: "hả" })).toEqual({ buoc: "noi", say: "câu của máy" }));
+  it.each(["ơi", "bác ơi", "ê hông", "Sen Biển ơi", "alo", "ê"])("tiếng gọi trơn '%s' ⇒ thưa ngay trong máy rồi nghe tiếp, không hỏi máy nhà", (text) =>
+    expect(chonBuoc({ ...goc, r: say("khong_hieu"), text })).toEqual({ buoc: "noi", say: DAP_GOI, hoi: true }));
+  it.each(["bác ơi bão ở đâu", "ơi dẫn tui về cảng", "ê sau này bán sd hả"])("câu có việc sau tiếng gọi '%s' ⇒ không phải tiếng gọi", (text) =>
+    expect(laTiengGoi(text)).toBe(false));
   it("chưa có mô hình (conf null) ⇒ không coi là chắc", () =>
     expect(chonBuoc({ ...goc, r: say("giay_to"), conf: null, coApp: true })).toEqual({ buoc: "may-nha" }));
 });

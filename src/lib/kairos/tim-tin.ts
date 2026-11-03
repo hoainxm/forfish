@@ -14,7 +14,7 @@
 // "câu". Câu gõ không dấu mới so kiểu bỏ dấu.
 
 import { TOPICS, type Topic } from "./chu-de.mjs";
-import { provinceIdOf } from "./khu-vuc.mjs";
+import { PROVINCES, provinceIdOf, tagArea } from "./khu-vuc.mjs";
 import { foldVi } from "./lien-ket.mjs";
 import type { KairosPost } from "./types";
 import { NHAN_CHIP_KAIROS } from "@/lib/labels";
@@ -61,6 +61,22 @@ export interface YTimTin {
   bao: boolean;
 }
 
+/*  HỎI CHÍNH SÁCH / HỖ TRỢ NHÀ NƯỚC (2026-11-03, câu thật: "tỉnh Gia Lai khi nào hỗ trợ tiền dầu", "lấy chính sách hỗ trợ dầu 48
+    gần nhất của tỉnh Gia Lai", "tìm dầu hỗ trợ bốn tám…") — trước đây không nhận ⇒ "không hiểu" rồi chờ máy nhà. Tin Chính sách
+    (chủ đề chinh-sach, 14 §21) đã nằm trong bản lưu Kairos ⇒ đọc ngay trong máy, lọc theo tỉnh nói trong câu (bài toàn quốc
+    luôn kèm). Không cần chữ "Kairos": hỏi chính sách là việc của tab này. "Giá dầu" KHÔNG vào đây (không có "hỗ trợ"). */
+//  Câu CÓ DẤU so chữ có dấu: bỏ dấu thì "hỗ trợ đâu rồi" (gọi tổng đài) = "ho tro dau" = "hỗ trợ dầu".
+const CHINH_SACH_F = /(^| )(chinh sach|nghi dinh 48|nd 48)( |$)/;
+const HO_TRO_F = /(^| )ho tro( |$)/;
+const VE_GI_F = /(^| )(dau|nhien lieu|bao hiem|dong tau|dong moi|vay von|tien|48|bon tam|748)( |$)/;
+const VE_GI_D = /(^| )(dầu|nhiên liệu|bảo hiểm|đóng tàu|đóng mới|vay vốn|tiền|48|bốn tám|748)( |$)/;
+export function laHoiChinhSach(text: string): boolean {
+  const s = thuongCoDau(text);
+  const f = foldVi(s);
+  if (CHINH_SACH_F.test(f)) return true;
+  return HO_TRO_F.test(f) && (coDau(s) ? VE_GI_D.test(s) : VE_GI_F.test(f));
+}
+
 /**
  * Câu nói ⇒ ý "tìm tin Kairos", hoặc null (không phải — để luồng Sen Biển cũ xử lý).
  */
@@ -69,6 +85,7 @@ export function hieuTimTinKairos(text: string): YTimTin | null {
   if (!s) return null;
   const f = foldVi(s);
   const daDau = coDau(s);
+  if (laHoiChinhSach(s)) return { cum: "", coDau: daDau, chuDe: "chinh-sach", tinh: tagArea(text).provinces[0] ?? null, bao: false };
   const manh = KAIROS_CO_DAU.test(s) || KAIROS_KHONG_DAU.test(f) || BAO_CHI.test(s) || (daDau ? BAI.test(s) : /(^| )bai (ve|bao|tren|moi|nao|gi|noi|viet|dang)( |$)/.test(f));
   const yeu = daDau ? TIN_YEU.test(s) : /(^| )(tin tuc|ban tin|tin moi|tin ve|doc tin|tin tren)( |$)/.test(f);
   if (!manh && !yeu) return null;
@@ -101,7 +118,8 @@ export function timTinKairos(posts: readonly KairosPost[], y: YTimTin): KairosPo
   const fcum = foldVi(y.cum);
   const out = posts.filter((p) => {
     if (y.chuDe && p.topic !== y.chuDe) return false;
-    if (!cum) return true;
+    // chủ đề + tỉnh, không cụm từ (hỏi chính sách của một tỉnh): bài của tỉnh đó + bài toàn quốc (không gắn tỉnh)
+    if (!cum) return !y.tinh || !p.provinces.length || p.provinces.includes(y.tinh);
     if (y.tinh && p.provinces.includes(y.tinh)) return true;
     const goc = p.reshareOf ? `${hayCuaBai(p)} ${hayCuaBai(p.reshareOf)}` : hayCuaBai(p);
     const hay = y.coDau ? thuongCoDau(goc) : foldVi(goc);
@@ -145,12 +163,13 @@ export function traLoiTinKairos(
 ): TraLoiTinKairos {
   const nhacBao = y.bao ? " Tin bão chính thức bà con nghe đài duyên hải." : "";
   if (!cache || cache.posts.length === 0) {
-    return { noi: `Máy chưa lưu tin Kairos nào. Có sóng thì mở Kairos để tải.${nhacBao}`, den: "/kairos" };
+    return { noi: `Máy chưa lưu tin Kairos nào. Có sóng thì mở Kairos để tải.${nhacBao}`, den: y.chuDe === "chinh-sach" ? "/kairos?tab=chinh-sach" : "/kairos" };
   }
-  const gi = y.chuDe ? `mục ${NHAN_CHIP_KAIROS[y.chuDe]}` : y.cum;
+  const tenTinh = y.tinh ? PROVINCES.find((p) => p.id === y.tinh)?.name : undefined;
+  const gi = y.chuDe ? `mục ${NHAN_CHIP_KAIROS[y.chuDe]}${tenTinh ? ` ${tenTinh}` : ""}` : y.cum;
   const kq = timTinKairos(cache.posts, y);
   if (!kq.length) {
-    return { noi: `Bản lưu Kairos chưa có bài về ${gi}. Có sóng thì mở Kairos xem thêm.${nhacBao}`, den: "/kairos" };
+    return { noi: `Bản lưu Kairos chưa có bài về ${gi}. Có sóng thì mở Kairos xem thêm.${nhacBao}`, den: y.chuDe === "chinh-sach" ? "/kairos?tab=chinh-sach" : "/kairos" };
   }
   const dau = gi ? `Có ${kq.length} bài về ${gi}.` : "Tin Kairos mới nhất.";
   const dong = kq.slice(0, toiDa).map((p, i) => `${kq.length > 1 ? `Bài ${i + 1}: ` : ""}${dongDoc(p)}.`);

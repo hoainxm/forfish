@@ -27,17 +27,18 @@ const A = (intent: Intent, s: DeviceSnapshot, slots: Record<string, unknown> = {
 const MOI = ["chon_tinh", "nhan_zalo", "tai_bai", "bat_chuong", "dang_xuat", "chua_doc", "hoan_tac", "shop_tam_nghi", "shop_mo_ban"] as const;
 
 describe("bảng ý v7 — 65 ý cũ giữ nguyên thứ tự + 9 ý mới ở cuối", () => {
-  it("đường file v7, cỡ bin theo 74 ý + 5 lý do", () => {
-    expect(NGRAM_PATH).toBe("/data/sen-bien-ngram.v7.bin");
-    expect(INTENTS).toHaveLength(74);
-    expect(NGRAM_BYTES).toBe(65536 * 79);
+  it("đường file v8, cỡ bin theo 76 ý (74 ý v7 + chinh_sach · hoi_tiep, doc 15 §35) + 5 lý do", () => {
+    expect(NGRAM_PATH).toBe("/data/sen-bien-ngram.v8.bin");
+    expect(INTENTS).toHaveLength(76);
+    expect(NGRAM_BYTES).toBe(65536 * 81);
   });
   it("65 ý đầu đúng bản v6 (khoá vài mốc), 9 ý mới đúng thứ tự hợp đồng §B", () => {
     expect(INTENTS[0]).toBe("thoi_tiet");
     expect(INTENTS[30]).toBe("khong_hieu");
     expect(INTENTS[31]).toBe("hoi_dao_gan");
     expect(INTENTS[64]).toBe("san_bao_gia");
-    expect(INTENTS.slice(65)).toEqual([...MOI]);
+    expect(INTENTS.slice(65, 74)).toEqual([...MOI]);
+    expect(INTENTS.slice(74)).toEqual(["chinh_sach", "hoi_tiep"]);
   });
   it("bảng Intent của trợ lý app có đủ 9 ý mới; mọi ý sàn (kể cả tạm nghỉ / mở bán) có trong bộ n-gram", () => {
     for (const y of MOI) expect(APP_INTENTS).toContain(y);

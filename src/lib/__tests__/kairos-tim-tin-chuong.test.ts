@@ -186,3 +186,33 @@ describe("demChuaDoc — một công thức cho chuông + badge dock (QĐ A)", (
     expect(demChuaDoc([], new Set())).toBe(0);
   });
 });
+
+describe("hỏi chính sách / hỗ trợ nhà nước ⇒ tab Chính sách, lọc theo tỉnh (câu thật 2026-10-26/27)", () => {
+  const CS = [
+    post({ id: "cs-gl", kind: "chinh-thuc", topic: "chinh-sach", title: "Gia Lai chi hỗ trợ dầu theo Nghị định 48 đợt 2", body: "", provinces: ["gia-lai"], publishedAt: "2026-10-22T01:00:00Z" }),
+    post({ id: "cs-qn", kind: "chinh-thuc", topic: "chinh-sach", title: "Quảng Ngãi duyệt danh sách hỗ trợ bảo hiểm", body: "", provinces: ["quang-ngai"], publishedAt: "2026-10-23T01:00:00Z" }),
+    post({ id: "cs-tq", kind: "chinh-thuc", topic: "chinh-sach", title: "Bộ hướng dẫn hồ sơ hỗ trợ nhiên liệu", body: "", provinces: [], publishedAt: "2026-10-21T01:00:00Z" }),
+  ];
+  it.each([
+    "tỉnh Gia Lai Khi nào hỗ trợ tiền dầu",
+    "lấy Chính sách hỗ trợ dầu 48 gần nhất của tỉnh Gia Lai",
+    "Xem Chính sách hỗ trợ được 748 của tỉnh Gia Lai",
+    "tìm dầu hỗ trợ bốn tám của tỉnh gia lai",
+  ])("%s ⇒ chủ đề chinh-sach, tỉnh gia-lai", (cau) => {
+    const y = hieuTimTinKairos(cau);
+    expect(y?.chuDe).toBe("chinh-sach");
+    expect(y?.tinh).toBe("gia-lai");
+  });
+  it("lọc: bài tỉnh đó + bài toàn quốc, không lấy tỉnh khác", () => {
+    const y = hieuTimTinKairos("chính sách hỗ trợ dầu của Gia Lai")!;
+    expect(timTinKairos([...POSTS, ...CS], y).map((p) => p.id)).toEqual(["cs-gl", "cs-tq"]);
+    const kq = traLoiTinKairos(y, { savedAt: NOW, posts: CS }, NOW);
+    expect(kq.noi).toContain("Gia Lai chi hỗ trợ dầu");
+    expect(kq.den).toBe("/kairos/p/cs-gl");
+  });
+  it("chưa có bản lưu ⇒ mở thẳng tab Chính sách", () => {
+    expect(traLoiTinKairos(hieuTimTinKairos("có chính sách gì mới không")!, null, NOW).den).toBe("/kairos?tab=chinh-sach");
+  });
+  it.each(["giá dầu hôm nay bao nhiêu", "Sen Biển hỗ trợ được gì", "hỗ trợ tui dẫn đường về cảng", "alo tổng đài hỗ trợ đâu rồi"])("%s ⇒ không phải hỏi chính sách", (cau) =>
+    expect(hieuTimTinKairos(cau)?.chuDe ?? null).not.toBe("chinh-sach"));
+});

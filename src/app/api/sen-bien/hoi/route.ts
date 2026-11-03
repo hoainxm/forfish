@@ -29,6 +29,9 @@ const err = (status: number, code: string) => {
 // nợ: đếm trong bộ nhớ một instance (như rate-limit.ts); cổng nhà có trần riêng 10/phút + 200/ngày mỗi thuê bao
 const DEM: RateStore = new Map();
 const TRAN = { limit: 30, windowMs: 10 * 60_000 };
+// lượt ấm: máy gửi tối đa 1 / 45 s ⇒ 20 / 10 phút là dư; quá thì bỏ êm (204), không chạm cổng nhà
+const DEM_AM: RateStore = new Map();
+const TRAN_AM = { limit: 20, windowMs: 10 * 60_000 };
 
 export async function POST(req: Request) {
   const who = await identityFromRequest(req);
@@ -36,9 +39,18 @@ export async function POST(req: Request) {
     console.warn(`[sen-bien/hoi] ${who.res.status} danh_tinh`);
     return who.res;
   }
+  const b = await req.json().catch(() => null);
+  /*  LƯỢT ẤM (hoi-may-chu.hamNongMayNha): micro vừa mở ⇒ hàm này đã khởi động + kiểm danh tính xong; mở sẵn kết nối TLS tới
+      cổng nhà (HEAD không ký ⇒ cổng trả 401 ngay, không chạm mô hình) để câu hỏi thật đi trên kết nối đã mở. Nhịp riêng, không ăn vào nhịp câu hỏi. */
+  if (b && typeof b === "object" && (b as { am?: unknown }).am === 1) {
+    if (!allowRequest(DEM_AM, who.phone, Date.now(), TRAN_AM)) return new NextResponse(null, { status: 204 });
+    const g = (process.env.FORLIFE_GW_URL || GW_URL_MAC_DINH).replace(/\/+$/, "");
+    await fetch(g + DUONG_HOI, { method: "HEAD", signal: timeoutSignal(4_000), cache: "no-store" }).catch(() => undefined);
+    return new NextResponse(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+  }
   if (!allowRequest(DEM, who.phone, Date.now(), TRAN)) return err(429, "rate_limited");
 
-  const cau = kiemCauHoi(await req.json().catch(() => null));
+  const cau = kiemCauHoi(b);
   if (!cau) return err(400, "bad_body");
 
   const ky = cachKy(process.env, req.headers.get("x-vercel-oidc-token"));

@@ -236,7 +236,9 @@ export function parseSpokenCoordPair(text: string): { lat: number; lon: number }
   let s = ` ${foldSpoken(soBangChu(text))} `
     // "14 phẩy 58" / "14 chấm 58" → 14.58 ; "14,58" → 14.58
     .replace(/(\d+)\s*(?:phay|cham)\s*(\d+)/g, "$1.$2")
-    .replace(/(\d+),(\d+)/g, "$1.$2");
+    .replace(/(\d+),(\d+)/g, "$1.$2")
+    // kiểu máy định vị "17.27.140" = 17 độ 27,140 phút (câu thật 2026-10-28) ⇒ "17 27.140"
+    .replace(/\b(\d{1,3})\.(\d{1,2})\.(\d{1,4})\b/g, "$1 $2.$3");
   // nhãn trục: tách theo "kinh do" nếu có
   s = s.replace(/\b(toa do|vi do|vi tuyen)\b/g, " ");
   let latPart: string;

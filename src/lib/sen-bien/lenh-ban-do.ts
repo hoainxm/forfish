@@ -217,6 +217,10 @@ export function lenhLuat(text: string, timLoai: (t: string) => LoaiCaHoi | undef
   if (/ (thu nho|zoom ra|xem rong ra) /.test(f)) return { viec: "thu_nho" };
   if (/ (ve cho tau|ve tau|ban do ve tau) /.test(f) && !/ (dan|chay|cang) /.test(f)) return { viec: "ve_tau" };
   if (/ (tat|an|bo) (het )?(lop|ban do (song|gio|ca|dong chay|may|mua)|song|gio|dong chay) /.test(f)) return { viec: "tat_lop" };
+  // HỎI DÒNG CHẢY TẠI CHỖ ("Dòng chảy ở vị trí hiện tại", "chỗ này nước chảy mấy hải lý" — câu thật 2026-11-01): đọc giá trị
+  // lớp dòng chảy ngay chỗ tàu / chỗ đang chỉ, không phải mở lớp
+  if (/ (dong chay|hai luu|nuoc chay) /.test(f) && / (vi tri hien tai|cho nay|o day|tai tau|cho tau|bao nhieu|may hai (ly|li)|manh khong|huong nao) /.test(f))
+    return lenhTuY("doc_gia_tri", text, timLoai) ?? { viec: "doc_gia_tri", lop: "dong_chay" };
   if (/^ (xem|mo|bat|coi|hien|chuyen qua|qua|cho xem) /.test(f)) {
     const lop = tachLop(text, !!timLoai(text));
     if (lop && lop !== "do_sau") return lenhTuY("mo_lop", text, timLoai);

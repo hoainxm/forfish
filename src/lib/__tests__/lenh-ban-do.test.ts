@@ -92,7 +92,7 @@ describe("ca từng sai trên bộ kín (17/10)", () => {
 });
 
 // bin v7 (cơ cấu mới 2026-10-25) giao sau — chưa có thì khối cần trọng số skip có lý do
-const BIN = "public/data/sen-bien-ngram.v7.bin";
+const BIN = "public/data/sen-bien-ngram.v8.bin";
 const coBin = existsSync(BIN);
 describe.skipIf(!coBin)("senBienReply với n-gram v3 ⇒ lệnh bản đồ", () => {
   // thân describe vẫn được gom khi skip ⇒ không đọc file lúc chưa có

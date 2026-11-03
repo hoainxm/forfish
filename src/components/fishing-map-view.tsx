@@ -341,6 +341,7 @@ import type { NhoTruoc } from "@/lib/sen-bien/noi-tiep";
 import { getSenState, setSenSignal } from "@/lib/sen-bien-state";
 import { apDungGemma, canGemma, chonKho, chuanBiGemma, dongGemma, hoiGemma } from "@/lib/sen-bien/gemma";
 import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
+import { laHoiChinhSach } from "@/lib/kairos/tim-tin";
 import { traLoiSanPham } from "@/lib/sen-bien/hoi-san-pham";
 import { QuangCaoNoi } from "@/components/quang-cao-noi";
 import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
@@ -5070,6 +5071,12 @@ export default function FishingMapView() {
         if (sp.duong) router.push(sp.duong);
         return { show: sp.say };
       }
+      // HỎI CHÍNH SÁCH / HỖ TRỢ NHÀ NƯỚC nói ở bản đồ ⇒ sang tab Chính sách, Sen Biển toàn app đọc tin trong bản lưu
+      // (kairos/tim-tin.laHoiChinhSach, câu thật 2026-10-26: trước đây màn này đáp "chỉ giúp trên bản đồ")
+      if (!senAwait && !navOn && laHoiChinhSach(text)) {
+        router.push(`/kairos?tab=chinh-sach&sen=${encodeURIComponent(text)}`);
+        return { show: "Mở tin Chính sách…" };
+      }
       // VIỆC CHỢ VẬT TƯ nói ở bản đồ ⇒ sang chợ, Sen Biển ở đó làm tiếp (sen-bien-toan-app đọc ?sen=) — 2026-10-18
       // Luật hụt mà n-gram v4 chắc là việc sàn cũng sang chợ — ở đó Sen Biển hỏi lại kèm câu mẫu (lenh-cho.hoiLaiCho)
       const senModel = await loadSenBienModel();
@@ -5261,7 +5268,7 @@ export default function FishingMapView() {
             return { show: say };
           }
           const say = buoc.buoc === "noi" ? buoc.say : r.say;
-          if (r.ask) senAsk(say);
+          if (r.ask || (buoc.buoc === "noi" && buoc.hoi)) senAsk(say);
           else senSay(say);
           return { show: say };
         }

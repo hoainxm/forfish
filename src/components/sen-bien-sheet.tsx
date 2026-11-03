@@ -29,6 +29,7 @@ import {
   sttSupported,
   type ListenHandle,
 } from "@/lib/sen-bien/nghe";
+import { hamNongMayNha } from "@/lib/sen-bien/hoi-may-chu";
 import { boNgheSan } from "@/lib/sen-bien/nghe-may";
 import { DAU_KHO_PATH, loadDauKho } from "@/lib/sen-bien/dau-kho";
 import { docKho, HOI_DAP_PATH } from "@/lib/sen-bien/hoi-dap";
@@ -358,6 +359,8 @@ export function SenBienSheet({
       if (imRef.current) clearTimeout(imRef.current);
       imRef.current = null;
     };
+    // micro mở ⇒ hâm nóng đường máy nhà trong lúc bà con nói (hoi-may-chu.hamNongMayNha — tự bỏ khi mất sóng / chưa đăng nhập)
+    hamNongMayNha();
     live.current = listenOnce({
       silenceMs: SEN_IM_MS,
       onLevel: daMuc,

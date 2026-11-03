@@ -134,7 +134,7 @@ describe("tên loài giữ dấu", () => {
 });
 
 // bin v7 (cơ cấu mới 2026-10-25) giao sau — chưa có thì khối cần trọng số skip có lý do
-const BIN = "public/data/sen-bien-ngram.v7.bin";
+const BIN = "public/data/sen-bien-ngram.v8.bin";
 const coBin = existsSync(BIN);
 describe.skipIf(!coBin)("n-gram v2 chọn loại câu hỏi, luật làm lưới (2026-10-16)", () => {
   // thân describe vẫn được gom khi skip ⇒ không đọc file lúc chưa có
