@@ -54,7 +54,7 @@ describe("traLoiSanPham", () => {
   });
 
   it("câu đáp đi theo luật nói: không chữ hứa, có câu kiểm máy cho triệu chứng", () => {
-    for (const { dap: d } of [...KM_LOC_DAU.hoiDap!, ...KM_LOC_NUOC.hoiDap!, ...KM_AC_QUY.hoiDap!]) expect(d).not.toMatch(/(?<!không )(bảo đảm|cam kết|chắc chắn|tốt nhất|duy nhất)/i);
+    for (const { dap: d } of [...KM_LOC_DAU.hoiDap!, ...KM_LOC_NUOC.hoiDap!, ...KM_AC_QUY.hoiDap!]) expect(d.replace(/không (bảo đảm|cam kết|chắc chắn|tốt nhất|duy nhất)/gi, "")).not.toMatch(/bảo đảm|cam kết|chắc chắn|tốt nhất|duy nhất/i);
     expect(dap(6)).toMatch(/không chữa máy đã hư/);
   });
 });
