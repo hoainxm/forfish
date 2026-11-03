@@ -5,7 +5,8 @@
 **Load khi / Load when**: đụng DB/migration/RLS, sửa `src/lib/documents.ts`, nối vault với Supabase, hoặc thêm bảng mới.
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
-last_verified: 2026-10-29
+last_verified: 2026-11-03
+<!-- re-verified: 2026-11-03 — MIGRATION 0079 `vai_viec_lam` (spec 17, anh Long: "tổ chức hệ thống account … ngư dân vô kiếm việc … đại lý … thu mua … chủ tàu"): `customers.vai` (ngu-dan|chu-tau|thu-mua|dai-ly|null, check) + `vai_doi_luc` + `vai_xac_minh_at` + index; suy vai cho hàng null theo §3.2 (shops ⇒ dai-ly · devices/user_docs boats ⇒ chu-tau · kairos nghe thu-mua ⇒ thu-mua); bảng `job_posts` · `job_seekers` · `job_reports` · `vua_profiles` (RLS bật, 0 policy, revoke anon/authenticated — khuôn 0065). ⛔ CHƯA APPLY — chờ anh Long duyệt. Code chịu được cột chưa có: /api/me/vai trả 503, cổng bản đồ theo vai bỏ qua (fail-open). -->
 <!-- re-verified: 2026-11-02 — API ĐƠN VỊ TÍCH HỢP AIS: KHÔNG migration. `app_config` thêm khoá `doi_tac_ais` (secret, env DOI_TAC_AIS) = danh sách `ten:sha256(token):khu(1–5 viết liền):goi(60|30)` — chỉ lưu băm, token rõ in một lần ở scripts/doi-tac-khoa.mjs. `weather_snapshot` thêm 2 khoá `tau-ais:goi-60`, `tau-ais:goi-30` (bản AIS chép theo nhịp gói license, ghi ở POST /api/tau-ais/nhap; không nằm trong whitelist /api/weather-snapshot). -->
 <!-- re-verified: 2026-10-31 — MIGRATION 0078 `tau_ais_quanh` (anh Long: "xem tàu có phát AIS trong bán kính 6 hải lý trong 6h"): KHÔNG thêm bảng/cột — hàm `tau_ais_quanh(p_lat, p_lon, p_km, p_tu bigint)` stable security definer đọc `tau_ais_vet` (0076): dòng có `ngay` ≥ ngày VN của `p_tu` và `cap_nhat` ≥ `p_tu`, bung `diem`, giữ mốc giờ ≥ `p_tu` lọt hộp độ quanh tâm (km ≤100, cos vĩ độ ≥0,2), trả (tau_id, diem các mốc lọt) mỗi tàu một dòng, tối đa 2000; vòng tròn thật lọc lại ở route (`lib/tau-ais-quanh gopTauQuanh`). Revoke public/anon/authenticated — chỉ service role. **ĐÃ APPLY prod 2026-11-01** (qua SUPABASE_DB_URL; thử quanh Vũng Tàu 6 giờ ra 123 tàu). Hàm hỏng ⇒ route `chiBan:true`, chỉ tàu trong bản mới nhất. -->
 <!-- re-verified: 2026-10-29 — doc-health báo symbol chết: §3d còn ghi hàm chặn riêng tư cũ của `sw.js` ⇒ sửa theo hiện trạng (allowlist `API_CACHE_ALLOW` + `isCacheableApiPath`; `purgeApiCache` ↔ message `forfish:purge-api-cache` vẫn còn). Rà commit covers từ 19/10: migration 0065–0075 đều đã có mục + ghi chú apply; `documents.ts` chỉ thêm `giayTuUrl` (c3e12c60) ⇒ thêm 1 dòng §3; `DOCUMENT_KINDS` 7 loại, `getExpiryStatus` (`days===0` → expired) khớp bảng; owned-assets/sdwork-*/phone không đổi. -->
@@ -41,6 +42,26 @@ ttl_days: 180
 <!-- re-verified: 2026-08-19 — GỘP BASE (sync base): migration base 0032/0033/0034/0036/0037 đánh lại số thành 0045/0046/0047/0048/0049 cho khỏi đụng số sdvico; base 0035_market_listings_owner_phone BỎ vì trùng logic 0043 của sdvico. Mọi mục dưới đây dùng SỐ MỚI và trạng thái apply tính theo prod SDVICO (⚠️ CHƯA APPLY), KHÔNG phải prod base. -->
 
 ---
+
+### 0079 — VAI TÀI KHOẢN · VIỆC LÀM · HỒ SƠ VỰA — migration [`0079_vai_viec_lam.sql`](../../supabase/migrations/0079_vai_viec_lam.sql) (2026-11-03) — ⛔ **CHƯA APPLY** (chờ anh Long duyệt)
+
+Spec: [17-ba-spec-vai-tai-khoan.md](17-ba-spec-vai-tai-khoan.md).
+
+| Đối tượng | Cột chính | Ghi / đọc |
+|---|---|---|
+| `customers.vai` | `ngu-dan` · `chu-tau` · `thu-mua` · `dai-ly` · null (check) | người dùng tự chọn — `PUT /api/me/vai` (SĐT từ chuỗi cứng); máy giữ chính ở `forfish.vai.v1` (`lib/vai-store.ts`); middleware `dataGate` đọc (đệm 5 phút) để chặn lớp bản đồ free của 3 vai cần gói (403 `goi`) |
+| `customers.vai_doi_luc` | timestamptz | route ghi mỗi lần đổi |
+| `customers.vai_xac_minh_at` | timestamptz | chỉ nhân viên — dấu "Xác minh" của thu mua |
+| `job_posts` | owner_phone, nghe, port_id, vi_tri[], so_nguoi, ngay_di, so_ngay, cong (chữ ≤80), giay[], ghi_chu ≤300, boat_reg/show_boat, status mo/du/an, expires_at (+14 ngày) | tin tuyển của chủ tàu — route `/api/viec/**` |
+| `job_seekers` | phone PK, nghe[], so_nam, vi_tri[], ports[1–3], giay[], san_sang, ghi_chu ≤150, dang_tim, bat_luc | hồ sơ tìm tàu, 1/SĐT; SĐT chỉ trả cho vai chu-tau |
+| `job_reports` | reporter_phone, target_kind post/seeker, target_id, status | báo xấu — unique theo (người báo, đối tượng) |
+| `vua_profiles` | phone PK, name, kind vua/nau/nha-may/cho, province, address, species[], hours, contact, status cho_duyet/hoat_dong/tu_choi/tam_khoa, status_note | hồ sơ vựa tự khai; `hoat_dong` mới lên Chợ cá › Đầu mối |
+
+Suy vai lúc migrate (chỉ hàng `vai is null`, §3.2): có `shops` hoat_dong/cho_duyet ⇒ `dai-ly`; có `devices` hoặc `user_docs` kind `boats` mảng không rỗng ⇒ `chu-tau`; `kairos_profiles.nghe = 'thu-mua'` ⇒ `thu-mua`. RLS bật cả 4 bảng, KHÔNG policy, revoke anon/authenticated — mọi truy cập qua route service-role lọc theo SĐT (khuôn Kairos 0065). Trigger `updated_at` dùng `market_set_updated_at()` (0062).
+
+**Việc làm — luật đã build** (`lib/viec.ts`, `lib/viec-server.ts`): id công khai của hồ sơ tìm tàu = `kairos_profiles.id` (không băm SĐT — SĐT 10 số băm ra là dò ngược được trong vài giây), tên = `kairos_profiles.handle`. Gia hạn = now + 14 ngày, mở lại tin `du`. Tự ẩn tin khi 5 người khác nhau báo xấu. Hồ sơ quá 30 ngày từ `bat_luc` coi như tắt lúc đọc. Kho máy: `forfish.viec.v1` (≤100 tin, ≤200 KB, KHÔNG SĐT — chỉ để vẽ ngay lúc mở màn; vai trên bờ có sóng, 17 §2), `forfish.viec.luu.v1` (≤50 tin đã lưu), `forfish.viec.nhap.v1` (một nháp). **Giấy tờ của tôi**: KHÔNG bảng mới — giấy riêng nằm trong `forfish.documents.v1` / `user_docs` kind documents với `boatId = "ca-nhan"`; loại mới `cccd` · `so_thuyen_vien` · `chung_chi_thuyen_vien` (chỉ tủ riêng); khoá nhắc hạn `doc-cn:<id>.<hạn>.<mốc>` mở `/viec/giay`; không bump, không chuyển giấy cũ.
+
+**`vua_profiles` — luật trạng thái khi chủ lưu** (`lib/vua-profile.ts`, route `/api/me/vua`): chưa có ⇒ `cho_duyet` · `cho_duyet` giữ · `tu_choi` ⇒ `cho_duyet` (xoá lý do cũ) · `hoat_dong` đổi tên/loại/tỉnh/địa chỉ/SĐT liên hệ ⇒ `cho_duyet`, chỉ đổi loài/giờ ⇒ giữ · `tam_khoa` ⇒ 403 `locked`. Nhân viên (`/api/admin/vua-profiles`, quyền cho-ban): duyệt (mở khoá, ghi `approved_at`) · từ chối (lý do 3–300) · khoá; chỉ ghi khi trạng thái chưa đổi từ lúc tải (409 `changed`); log `sell.vua-status`. Loài: ≤40 ký tự mỗi mục (chỉ app kiểm). `customers.vai_xac_minh_at` chỉ ghi qua `/api/admin/accounts/xac-minh` (quyền tai-khoan, log `account.xac-minh-thu-mua`).
 
 <!-- 0052 (đổi số từ 0038 base khi sync — 0038 đã là data_until_web ở sdvico) — `vms_zones.is_border` -->
 ### 0059 — MẪU CÂU NÓI SEN BIỂN (học thêm) — migration [`0059_sen_bien_mau.sql`](../../supabase/migrations/0059_sen_bien_mau.sql) (2026-10-18) — ✅ **ĐÃ APPLY prod 2026-10-18** (chủ dự án duyệt; qua Management API, `schema_migrations` 20261018070727. Soi sau apply: RLS bật, 0 policy, advisor chỉ `rls_enabled_no_policy` INFO — đúng thiết kế; thử thật: khách ghi 401 / đọc rỗng, service-role ghi 201, câu > 200 ký tự 400; hàng thử đã xoá)

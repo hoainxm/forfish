@@ -108,6 +108,20 @@ export const NHAN = {
   tauToi: "Tàu tôi",
   choCa: "Chợ cá",
   vatTu: "Vật tư",
+  // dock theo vai (17-ba-spec-vai-tai-khoan §4.1): ô Việc làm (đi bạn) · ô Bán hàng (đại lý)
+  viecLam: "Việc làm",
+  banHang: "Bán hàng",
+  // Việc làm (17 §6) — hai tab, nút tin tuyển / hồ sơ
+  timTau: "Tìm tàu",
+  timNguoi: "Tìm người",
+  hoSo: "Hồ sơ",
+  tuyenNguoi: "Tuyển người",
+  duNguoi: "Đủ người",
+  giayTo: "Giấy tờ",
+  // hồ sơ vựa (17 §12.4) · đại lý (17 §12.5)
+  xacMinh: "Xác minh",
+  sapHet: "Sắp hết",
+  khongCo: "Không có",
   // Kairos (14-ba-spec-kairos) — chân thẻ bài
   hay: "Hay",
   binhLuan: "Bình luận",

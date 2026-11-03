@@ -9,6 +9,10 @@ export type DocumentKind =
   | "an_toan_thuc_pham"
   | "bao_hiem"
   | "chung_chi_thuyen_truong"
+  // Giấy RIÊNG của người (chỉ ở "Giấy tờ của tôi" — 17 §12.2, 2026-11-03)
+  | "cccd"
+  | "so_thuyen_vien"
+  | "chung_chi_thuyen_vien"
   | "khac";
 
 export interface BoatDocument {
@@ -39,8 +43,36 @@ export const DOCUMENT_KINDS: { value: DocumentKind; label: string }[] = [
   { value: "khac", label: "Giấy tờ khác" },
 ];
 
+/*  GIẤY TỜ CỦA TÔI (17 §12.2 `/viec/giay`, 2026-11-03): người đi bạn không có tàu vẫn có giấy riêng sắp hết hạn.
+    Nằm CHUNG kho `forfish.documents.v1` (cùng đồng bộ `user_docs` kind documents, cùng ảnh, cùng nhắc hạn) — chỉ
+    khác `boatId` = mốc `PERSONAL_OWNER_ID`. KHÔNG bump phiên bản kho, KHÔNG chuyển giấy cũ: giấy cũ không mang mốc
+    này nên vẫn y nguyên dưới tàu. Mọi chỗ lọc theo tàu đi qua `showsUnderBoat` (lib/boats) — hàm đó loại mốc này,
+    nên tủ giấy tàu / bộ chọn tàu không bao giờ thấy "tàu ma". */
+export const PERSONAL_OWNER_ID = "ca-nhan";
+/** Tên gọi chỗ giấy riêng trong lời nhắc (thay cho tên tàu). */
+export const PERSONAL_DOCS_LABEL = "Giấy tờ của tôi";
+/** Màn giấy riêng — lời nhắc mở thẳng vào đây. */
+export const PERSONAL_DOCS_HREF = "/viec/giay";
+
+export function isPersonalDoc(d: { boatId?: string | null }): boolean {
+  return d.boatId === PERSONAL_OWNER_ID;
+}
+
+/** Loại giấy cho "Giấy tờ của tôi" — chỉ hiện ở tủ của người, tủ tàu giữ nguyên `DOCUMENT_KINDS`. */
+export const PERSONAL_DOC_KINDS: { value: DocumentKind; label: string }[] = [
+  { value: "cccd", label: "Căn cước công dân (CCCD)" },
+  { value: "chung_chi_thuyen_vien", label: "Chứng chỉ thuyền viên" },
+  { value: "chung_chi_thuyen_truong", label: "Chứng chỉ thuyền trưởng/máy trưởng" },
+  { value: "so_thuyen_vien", label: "Sổ thuyền viên" },
+  { value: "khac", label: "Giấy tờ khác" },
+];
+
 export function kindLabel(kind: DocumentKind): string {
-  return DOCUMENT_KINDS.find((k) => k.value === kind)?.label ?? "Giấy tờ";
+  return (
+    DOCUMENT_KINDS.find((k) => k.value === kind)?.label ??
+    PERSONAL_DOC_KINDS.find((k) => k.value === kind)?.label ??
+    "Giấy tờ"
+  );
 }
 
 /** Loại giấy THƯỜNG KHÔNG THỜI HẠN (giấy đăng ký tàu cá in "Không thời hạn")
@@ -95,7 +127,10 @@ export function byUrgency(today: Date) {
  * `?giay=<loại>` trong URL ⇒ loại giấy hợp lệ, không thì null. Tủ giấy tờ đọc lúc mở để bật form đúng giấy — link từ
  * khối hạn giấy dưới bài luật Sen Biển (kairos/han-giay.linkGiay, 14 §21f).
  */
-export function giayTuUrl(search: string): DocumentKind | null {
+export function giayTuUrl(
+  search: string,
+  kinds: readonly { value: DocumentKind }[] = DOCUMENT_KINDS,
+): DocumentKind | null {
   const v = new URLSearchParams(search).get("giay");
-  return v && DOCUMENT_KINDS.some((k) => k.value === v) ? (v as DocumentKind) : null;
+  return v && kinds.some((k) => k.value === v) ? (v as DocumentKind) : null;
 }

@@ -47,6 +47,8 @@ export interface SellContact {
   visible: boolean;
   sortOrder: number;
   createdAt?: string;
+  /** chỉ hàng đến từ hồ sơ vựa (vua_profiles, spec 17 §12.4): chủ đã được SDVICO xác minh */
+  xacMinh?: boolean;
 }
 
 export interface SellContactDraft {

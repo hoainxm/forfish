@@ -51,10 +51,27 @@ export async function GET(req: Request) {
     .order("created_at", { ascending: false })
     .limit(MAX_LISTINGS);
   if (error) return err(500, "query_failed");
+  const rows = data as Row[];
+
+  // DẤU "XÁC MINH" cạnh tin MUA (spec 17 §5): chủ tin có customers.vai_xac_minh_at. Chỉ trả cờ — không SĐT chủ tin.
+  // Tra hỏng / cột chưa có (0079 chưa áp) ⇒ không dấu, chợ vẫn hiện (thiếu dấu an toàn hơn dấu sai).
+  const chuTinMua = [...new Set(rows.filter((r) => r.side === "mua" && r.owner_phone).map((r) => r.owner_phone as string))];
+  const daXacMinh = new Set<string>();
+  if (chuTinMua.length > 0) {
+    const { data: cs, error: cErr } = await admin
+      .from("customers")
+      .select("phone")
+      .in("phone", chuTinMua)
+      .not("vai_xac_minh_at", "is", null);
+    if (!cErr) for (const c of cs ?? []) daXacMinh.add((c as { phone: string }).phone);
+  }
 
   return NextResponse.json({
     ok: true,
-    listings: (data as Row[]).map((r) => rowToListing(r, myPhone)),
+    listings: rows.map((r) => {
+      const l = rowToListing(r, myPhone);
+      return l.side === "mua" && r.owner_phone && daXacMinh.has(r.owner_phone) ? { ...l, xacMinh: true } : l;
+    }),
   });
 }
 

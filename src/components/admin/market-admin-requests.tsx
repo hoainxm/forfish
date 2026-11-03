@@ -24,6 +24,12 @@ import {
 type ShopLite = { id: string; name: string; status?: string };
 type Filter = RequestStatus | "all";
 
+/** Báo giá đang hiệu lực do ĐẠI LÝ tự gửi (`by: "seller"`) hay chủ sàn (`admin:<sđt>`). */
+function quotedBySeller(r: MarketRequest): boolean {
+  const last = [...r.timeline].reverse().find((t) => t.status === "da_bao_gia");
+  return last?.by === "seller";
+}
+
 function Chip({ status }: { status: RequestStatus }) {
   const c = REQUEST_STATUS_CHIP[status];
   return (
@@ -122,7 +128,9 @@ function RequestRow({ r, shops, onDone }: { r: MarketRequest; shops: ShopLite[];
           {r.quote && (
             <p className="mt-1 text-[0.875rem] text-navy">
               Đã báo <b>{formatVnd(quoteTotal(r.quote))}</b> · giao {etaLabel(r.quote.etaFrom, r.quote.etaTo, today)}
-              {r.quoteShopName ? ` · ${r.quoteShopName}` : ""}
+              {r.quoteShopName ? <> · <b>{r.quoteShopName}</b></> : ""}
+              {/* đại lý tự báo (17 §12.5) hay SDVICO báo thay — đọc mốc da_bao_gia mới nhất của timeline */}
+              {" · "}{quotedBySeller(r) ? "đại lý tự báo" : "SDVICO báo thay"}
             </p>
           )}
           {r.rejectReason && <p className="mt-1 text-[0.875rem] text-danger">Không tìm được: {r.rejectReason}</p>}

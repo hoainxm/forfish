@@ -4,6 +4,7 @@
 
 import { readUserList } from "@/lib/user-list-store";
 import { saveUserJson } from "@/lib/user-store";
+import { PERSONAL_OWNER_ID } from "@/lib/documents";
 
 export interface Boat {
   id: string;
@@ -214,6 +215,8 @@ export function showsUnderBoat(
   knownBoatIds: ReadonlySet<string> | null,
 ): boolean {
   if (itemBoatId == null || itemBoatId === "") return true;
+  // Giấy tờ của tôi (mốc PERSONAL_OWNER_ID) KHÔNG thuộc tàu nào — không coi là "mồ côi" để rơi vào tàu đang xem.
+  if (itemBoatId === PERSONAL_OWNER_ID) return currentId === PERSONAL_OWNER_ID;
   if (itemBoatId === currentId) return true;
   return knownBoatIds !== null && !knownBoatIds.has(itemBoatId);
 }

@@ -2,7 +2,8 @@
 
 > Load khi: task chạm `/cho/**`, `/ban-hang/**`, tab "Chợ vật tư" ở `/quan-tri`, `src/lib/market/**`, `/api/cho|ban-hang|admin/cho/**`, migration `0060_marketplace.sql`, hoặc bất kỳ câu hỏi "người mua/người bán/admin sàn được làm gì, khi nào, thấy gì".
 covers: src/lib/market/, src/app/cho/, src/app/ban-hang/, src/components/market/, src/components/admin/market-admin-tab.tsx, src/components/admin/market-admin-requests.tsx, src/components/admin/market-admin-orders.tsx, src/app/api/cho/, src/app/api/ban-hang/, src/app/api/admin/cho/
-last_verified: 2026-10-29
+last_verified: 2026-11-03
+<!-- re-verified: 2026-11-03 — ĐẠI LÝ TỰ BÁO GIÁ (17 §12.5, anh Long duyệt đề xuất): §6.7 MỚI `/ban-hang/yeu-cau`; §7b nay có hai đường báo giá (SDVICO thay shop · đại lý tự báo); §8 Y1 gửi cả khi đại lý báo; §6.4 chip "Sắp hết" (`?loc=sap-het`, tồn ≤ 3, bỏ món giá liên hệ). Không migration. -->
 <!-- re-verified: 2026-10-31 — GIAN HÀNG SDVICO CÓ GIÁ (anh Long: "ghi giá vào đi phải có giá", bảng giá bán lẻ đã gồm VAT): `scripts/sdvico-gia-cho.mjs --ghi` đặt price_vnd + loại cho 5 món (lọc dầu cơ 7,9tr/điện 9,9tr/túi lọc 190k · lọc nước cơ từ 38tr/điện từ 49,5tr · S-Tracking 23,601tr · Vifish 24tr · Thuraya 7 loại 37,8tr…200k), tồn 99. Ắc quy Globe WPM-220 4.200.000đ (31/10b, dành riêng cho tàu, độc quyền SDVICO, cọc bình riêng cho thiết bị điện tử). Starlink (anh Long "đưa luôn đi"): món MỚI "Internet vệ tinh Starlink (Mini / V4)" (dien-tu-hang-hai) Mini 13tr / V4 15tr, mô tả ghi HÀNG DỰ KIẾN — đặt trước, KD báo ngày có hàng; chưa có ảnh (thẻ hiện biểu tượng nhóm). Đơn của gian hàng sdvico ⇒ thêm phiếu `sdvico_khach_hoi` ⇒ AI Assistant ⇒ nhóm Zalo "Triển Khai Kinh Doanh" (KD gọi xác nhận, hẹn lắp), song song N1 cho chủ shop. -->
 <!-- re-verified: 2026-10-29 23:00 - nhóm H: market/** đổi MÀU chữ phụ /65 ⇒ text-muted; nhãn nút gọi qua NHAN (thanh mua món: Hỏi giá / Gọi shop; đơn khách: Gọi shop; đơn người bán: Gọi); "Xem shop" cạnh nút chính cao --h-cta (SQ_BTN_CTA). Không đổi trạng thái đơn/yêu cầu/AC. -->
 <!-- re-verified: 2026-10-29 21:00 - nhóm B chữ/a11y: market/** đổi MÀU chữ phụ (text-muted), nhãn ≤2 chữ từ NHAN (Đổi hẹn · Xoá tìm · Hoàn tác · Báo giá · Đơn hàng · Vật tư · Ngân hàng · Liên hệ · Thêm món · Bỏ), ảnh lỗi qua send-error.cauLoiHienThi, nút Gọi thanh mua cao --h-cta. Không đổi trạng thái đơn/yêu cầu/AC. -->
@@ -458,6 +459,33 @@ Quy ước: cần đăng nhập (`RequireLogin what="kênh người bán"`) → 
 - Form = 6.1 điền sẵn + công tắc **"Tạm nghỉ bán"** (`paused` — LEAD §4 #8, chốt: món vẫn hiện, không đặt được, trang shop nói rõ; khác `tam_khoa` của admin). Đổi tên shop sau duyệt: cho phép, slug mới phải chưa ai dùng. Lưu → "Đã lưu" 5s. Xoá STK → dòng "Shop sẽ chỉ nhận tiền mặt" (đơn CK đang treo vẫn giữ `bankSnapshot`). Không có nút xoá shop (gọi SDVICO).
 
 ---
+
+### 6.7 `/ban-hang/yeu-cau` — Đại lý tự báo giá (2026-11-03, [17 §12.5](17-ba-spec-vai-tai-khoan.md))
+
+- **Ai**: gian hàng `hoat_dong`. Tạm nghỉ (`paused`) vẫn thấy danh sách nhưng không báo được (409 `shop_paused`); chưa duyệt / bị khoá ⇒ băng nói lý do, không nút Báo giá. Yêu cầu do chính SĐT chủ shop gửi không hiện.
+- **Thấy gì**: yêu cầu `moi`, chưa có shop, dưới 7 ngày, mới trước, 20/trang — món · số lượng · đơn vị · cần trước · TỈNH · cách trả · mô tả · ảnh. **Không** SĐT / tên / địa chỉ chi tiết người mua trước khi có đơn. Mục "Shop đã báo giá" (`?loai=da-bao`) gồm cả báo thay của SDVICO.
+- **Báo giá**: ngăn tiền hàng · phí giao · lời dặn ⇒ `EtaSheet` ⇒ gửi. Cùng thân + luật với admin (`readQuoteBody`). **Báo hợp lệ đầu tiên thắng**: ghi có điều kiện (`market_patch_request` mong `moi`); người sau nhận 409 `da_co_bao_gia`, yêu cầu rời danh sách kèm câu. Gửi hỏng ⇒ ngăn mở lại giữ số. Đại lý không sửa/rút báo giá; SDVICO vẫn sửa/đè ở `/quan-tri`.
+#### Nghiệm thu đại lý tự báo giá
+
+### AC-DL-01 · Báo hợp lệ đầu tiên thắng · Test: unit
+- Given yêu cầu `moi` chưa có shop, hai gian hàng `hoat_dong` cùng gửi báo giá
+- When lượt thứ hai tới sau lượt đầu đã ghi
+- Then lượt thứ hai bị từ chối, yêu cầu giữ báo giá của shop đầu
+- Assert: status lượt hai == 409, code == "da_co_bao_gia"
+
+### AC-DL-02 · Không lộ người mua trước khi có đơn · Test: unit
+- Given một yêu cầu đang mở có địa chỉ nhận đầy đủ
+- When dựng bản cho đại lý bằng `toSellerRequestView`
+- Then chỉ còn tỉnh, không SĐT, tên hay địa chỉ chi tiết
+- Assert: bản cho đại lý không chứa SĐT người mua; trường tỉnh == tỉnh trong địa chỉ
+
+### AC-DL-03 · Gian hàng chưa duyệt không báo được · Test: unit
+- Given gian hàng `cho_duyet`
+- When gửi báo giá
+- Then bị từ chối kèm lý do
+- Assert: status == 403, code == "shop_not_active"
+
+- **Chưa có**: lọc theo tỉnh của shop (spec 17 nói "trong tỉnh mình") — hiện mọi tỉnh. `// nợ: chưa lọc theo tỉnh shop, nâng khi số yêu cầu/ngày đủ nhiều để danh sách cả nước thành nhiễu`.
 
 ## 7. Flow admin (`/quan-tri` tab "Chợ vật tư", `requireAdmin` — LEAD §4 #13, nợ manager)
 

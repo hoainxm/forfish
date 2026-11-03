@@ -15,6 +15,7 @@ import { assertDevFileMode } from "./dev-mode";
 import { MarketError } from "./errors";
 import { makeOrderCode, makeRequestCode } from "./order-code";
 import { choXacNhanTien, isEnded } from "./order-state";
+import { isLowStock } from "./pricing";
 import { patchRequest as applyRequestPatch } from "./request-state";
 import { recountRating } from "./rating";
 import type { MarketStore, OrderListQuery, PreparedShopOrder } from "./store";
@@ -217,6 +218,7 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
       if (q.category && p.category !== q.category) return false;
       if (prov && foldVn(shop.province ?? "") !== prov) return false;
       if (needle && !p.searchText.includes(needle)) return false;
+      if (q.lowStock && !isLowStock(p)) return false;
       return true;
     });
     switch (q.sort) {
@@ -226,7 +228,9 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
          `null - 5` ra -5, món chưa có giá thành món rẻ nhất. */
       case "gia_tang": list = list.sort((a, b) => cmpPrice(a.priceVnd, b.priceVnd, true) || byCreatedDesc(a, b)); break;
       case "gia_giam": list = list.sort((a, b) => cmpPrice(a.priceVnd, b.priceVnd, false) || byCreatedDesc(a, b)); break;
-      default: list = list.sort(byCreatedDesc);
+      default: list = q.lowStock
+        ? list.sort((a, b) => a.stock - b.stock || byCreatedDesc(a, b)) // sắp hết: tồn ít lên đầu (cùng supabase-store)
+        : list.sort(byCreatedDesc);
     }
     return list;
   }
@@ -524,7 +528,11 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
     },
     async listAllRequests(q) {
       const s = await load();
-      const list = (s.requests ?? []).filter((r) => !q?.status || r.status === q.status).sort(byCreatedDesc);
+      const list = (s.requests ?? []).filter((r) =>
+        (!q?.status || r.status === q.status) &&
+        (!q?.quoteShopId || r.quoteShopId === q.quoteShopId) &&
+        (!q?.createdAfter || r.createdAt > q.createdAfter) &&
+        (!q?.notBuyerPhone || r.buyerPhone !== q.notBuyerPhone)).sort(byCreatedDesc);
       const page = paginate(list, q);
       return { ...page, items: page.items.map((r) => toRequest(s, r)) };
     },
@@ -639,7 +647,7 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
         awaitingPaymentConfirm: mine.filter(choXacNhanTien).length, // cùng luật với lọc ?tt=bao_da_chuyen (BH-08)
         topProducts: [...qtyBy.entries()].map(([productId, v]) => ({ productId, ...v })).sort((a, b) => b.qty - a.qty).slice(0, 5),
         lowStock: s.products
-          .filter((p) => p.shopId === shopId && !p.deletedAt && p.stock <= 3)
+          .filter((p) => p.shopId === shopId && isLowStock(p))
           .sort((a, b) => a.stock - b.stock)
           .slice(0, 10)
           .map((p) => ({ productId: p.id, title: p.title, stock: p.stock })),

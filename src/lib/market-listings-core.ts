@@ -41,6 +41,8 @@ export interface MarketListing {
   postedOn: string;
   /** true = tin của chính user đang đăng nhập (cho sửa/đóng/xóa) */
   mine?: boolean;
+  /** true = tin MUA của người thu mua SDVICO đã xác minh (customers.vai_xac_minh_at, spec 17 §5) — route tính, chỉ cờ, không SĐT */
+  xacMinh?: boolean;
 }
 
 /** Phần chủ tàu nhập khi đăng tin. */

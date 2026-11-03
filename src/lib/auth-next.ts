@@ -5,7 +5,7 @@
 // THUẦN, có test (auth-next.test.ts).
 
 /** Trang tài khoản — quay về đây là vòng lặp, coi như không có `next`. */
-const KHONG_QUAY_VE = ["/login", "/dang-ky", "/quen-mat-khau", "/doi-mat-khau"];
+const KHONG_QUAY_VE = ["/login", "/dang-ky", "/quen-mat-khau", "/doi-mat-khau", "/chon-vai"];
 
 /**
  * `next` an toàn: CHỈ đường dẫn trong app (bắt đầu bằng một dấu `/`). Chặn `//host`, `/\host`,
@@ -21,8 +21,8 @@ export function safeNext(raw: string | null | undefined): string {
   return raw;
 }
 
-/** `/login` hoặc `/dang-ky` kèm `?next=` (bỏ khi next là Trang chủ — link gọn như cũ). */
-export function withNext(base: "/login" | "/dang-ky", next: string | null | undefined): string {
+/** `/login`, `/dang-ky` hoặc `/chon-vai` (sau đăng ký — spec 17 §3.1) kèm `?next=` (bỏ khi next là Trang chủ — link gọn như cũ). */
+export function withNext(base: "/login" | "/dang-ky" | "/chon-vai", next: string | null | undefined): string {
   const n = safeNext(next);
   return n === "/" ? base : `${base}?next=${encodeURIComponent(n)}`;
 }

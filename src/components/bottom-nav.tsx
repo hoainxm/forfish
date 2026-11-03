@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AnchorIcon, CartIcon, FishIcon, HomeIcon, PinIcon } from "@/components/icons";
+import { AnchorIcon, BriefcaseIcon, CartIcon, FishIcon, HomeIcon, PinIcon, StoreIcon } from "@/components/icons";
 import { KairosFishIcon } from "@/components/kairos/kairos-fish-icon";
 import { cartBucket } from "@/lib/cart";
-import { DOCK, DOCK_BADGE_EVENT, dockActive, dockBadge, donChoTuCo, nhanBadgeDock, type DockId, type NguonBadge } from "@/lib/dock-nav";
+import { DOCK_BADGE_EVENT, dockActive, dockBadge, dockTheoVai, donChoTuCo, nhanBadgeDock, type DockId, type NguonBadge } from "@/lib/dock-nav";
 import { loadInbox, unreportedIds } from "@/lib/inbox";
 import { nhanDem, tinChuongKairos } from "@/lib/kairos/chuong";
 import { loadMarketCart, MARKET_CART_EVENT } from "@/lib/market/cart";
 import { MARKET_SHOP_FLAG_KEY } from "@/lib/market/seller-flag";
 import { useAuthUser } from "@/lib/use-auth";
+import { useVai } from "@/lib/use-vai";
 
 /*
   Dock điều hướng (spec user 2026-07-29; KIỂU FACEBOOK 2026-10-19): DockFrame
@@ -38,9 +39,14 @@ const ICON: Record<Exclude<DockId, "kairos">, typeof HomeIcon> = {
   "trang-chu": HomeIcon,
   "ban-do": PinIcon,
   "tau-toi": AnchorIcon,
+  "viec-lam": BriefcaseIcon,
   "cho-ca": FishIcon,
   "vat-tu": CartIcon,
+  "ban-hang": StoreIcon,
 };
+
+/* Số cột theo số ô (dock theo vai có 4–6 ô — spec 17 §4.1). Chuỗi lớp viết sẵn để Tailwind thấy. */
+const COT: Record<number, string> = { 4: "grid-cols-4", 5: "grid-cols-5", 6: "grid-cols-6" };
 
 const KHONG: NguonBadge = { kairosChuaDoc: 0, donChoBan: 0, gioDong: 0 };
 
@@ -92,16 +98,25 @@ function useNguonBadge(phone: string | null, pathname: string): NguonBadge {
 export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const { phone } = useAuthUser();
-  const on = dockActive(pathname);
-  const nguon = useNguonBadge(phone, pathname);
+  /*  DOCK THEO VAI (spec 17 §4.1): vai + gói quyết định có những ô nào. Vai đọc từ kho máy (useVai) — mất sóng
+      vẫn đúng; khách / chủ tàu / chưa chọn vai = dock 6 ô như trước. */
+  const { vai, banDo } = useVai();
+  const dock = dockTheoVai(vai, banDo);
+  const on = dockActive(pathname, dock);
+  const goc = useNguonBadge(phone, pathname);
+  // có ô Bán hàng thì đơn chờ đếm ở đó — Vật tư chỉ còn đếm giỏ, không đếm hai lần
+  const coBanHang = dock.some((m) => m.id === "ban-hang");
+  const nguon = coBanHang ? { ...goc, donChoBan: 0 } : goc;
+  const nguonBanHang = goc;
   return (
     <div className="dock-frame">
       <nav aria-label="Điều hướng chính" className="bottom-dock">
-        <ul className="grid h-full grid-cols-6 items-stretch">
-          {DOCK.map(({ id, href, label }) => {
+        <ul className={`grid h-full ${COT[dock.length] ?? "grid-cols-6"} items-stretch`}>
+          {dock.map(({ id, href, label }) => {
             const active = on === id;
             const Icon = id === "kairos" ? null : ICON[id];
-            const so = dockBadge(id, nguon);
+            const nguonO = id === "ban-hang" ? nguonBanHang : nguon;
+            const so = dockBadge(id, nguonO);
             return (
               <li key={id}>
                 {/*  KIỂU FACEBOOK (anh Long 2026-10-19): chỉ icon, mục đang chọn
@@ -113,7 +128,7 @@ export function BottomNav() {
                   // kẻo trên 3G nó giành mạng với chính màn đang mở (rà tốc độ 2026-10-29: chạm dock im 4,8 s)
                   prefetch={id === "ban-do" ? false : undefined}
                   aria-current={active ? "page" : undefined}
-                  aria-label={`${label}${nhanBadgeDock(id, nguon)}`}
+                  aria-label={`${label}${nhanBadgeDock(id, nguonO)}`}
                   title={label}
                   onClick={(e) => {
                     // Đang ở ĐÚNG trang gốc của mục ⇒ cuộn lên đầu. Đang ở trang con (/cho/don/x,

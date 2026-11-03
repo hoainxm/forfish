@@ -83,12 +83,15 @@ export function XuatTrinhGiay({
   docs,
   tenTau,
   maTau,
+  dongDau,
   today,
   onClose,
 }: {
   docs: BoatDocument[];
   tenTau?: string;
   maTau?: string;
+  /** dòng nhận diện thay cho "Tàu <tên> · <mã>" — giấy tờ của tôi (17 §12.2) không thuộc tàu nào */
+  dongDau?: string;
   today: Date;
   onClose: () => void;
 }) {
@@ -132,7 +135,7 @@ export function XuatTrinhGiay({
   const doc = ds[i];
   if (!doc || typeof document === "undefined") return null;
   const han = chuHanXuatTrinh(doc, today);
-  const tau = dongTauXuatTrinh(tenTau, maTau);
+  const tau = dongDau ?? dongTauXuatTrinh(tenTau, maTau);
 
   return createPortal(
     <div

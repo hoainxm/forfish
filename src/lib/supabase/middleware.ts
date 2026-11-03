@@ -10,6 +10,7 @@ import { dataRouteRule, type DataRouteRule } from "@/lib/data-route-rules";
 import { supabaseMode } from "@/lib/demo-mode";
 import { getConfigValue } from "@/lib/app-config";
 import { duocXemAis } from "@/lib/tau-ais/quyen";
+import { chanBanDoFree } from "@/lib/vai";
 
 /**
  * CỔNG DỮ LIỆU của mọi route trả dữ liệu cho app (2026-09-16 — trước đó chỉ
@@ -114,6 +115,14 @@ async function gateByPhone(
     const tier = await cachedTier(phone);
     if (tier === "unavailable") return deny(503, "unavailable");
     if (tier !== "premium") return deny(403, "premium_required");
+  } else if (rule.account) {
+    /*  LỚP BẢN ĐỒ FREE theo VAI (spec 17 §11, anh Long 03/11: "chủ tàu thì giữ nguyên như hiện tại, còn ngư dân, thu
+        mua, đại lý mới chia premium và free"). Mọi luật `account && !premium` đều là lớp bản đồ (data-route-rules).
+        Đi bạn / thu mua / đại lý không gói ⇒ 403 `goi`. Chủ tàu, chưa chọn vai, cột chưa có (0079 chưa áp) ⇒ như cũ.
+        Tra vai hỏng ⇒ CHO QUA (fail-open có chủ ý: đây là lớp miễn phí hôm qua còn mở cho mọi tài khoản — chặn nhầm
+        chủ tàu giữa biển tệ hơn để lọt một lượt). */
+    const vai = await cachedVai(phone);
+    if (chanBanDoFree(vai, false) && (await cachedTier(phone)) !== "premium") return deny(403, "goi");
   }
   // QUYỀN BẬT THEO TÀI KHOẢN (AIS, 2026-10-29). getConfigValue có đệm; DB nghẹt ⇒ ô rỗng ⇒ mặc định chủ dự án.
   if (rule.feature === "ais" && !duocXemAis(phone, await getConfigValue("tau_ais_xem"))) {
@@ -166,6 +175,29 @@ function cacheTokenPhone(token: string, phone: string): void {
     if (oldest !== undefined) identityCache.delete(oldest);
   }
   identityCache.set(token, { phone, exp: Date.now() + IDENTITY_TTL });
+}
+
+/** Vai theo SĐT, đệm 5 phút như hạng (đổi vai ⇒ cổng bản đồ theo kịp chậm tối đa 5 phút — chấp nhận). null = chưa có / không tra được. */
+const vaiCache = new Map<string, { vai: string | null; exp: number }>();
+async function cachedVai(phone: string): Promise<string | null> {
+  const hit = vaiCache.get(phone);
+  if (hit && hit.exp > Date.now()) return hit.vai;
+  let vai: string | null;
+  try {
+    const admin = createAdminClient();
+    if (!admin) return null;
+    const { data, error } = await admin.from("customers").select("vai").eq("phone", phone).maybeSingle();
+    if (error) return null; // cột chưa có / DB nghẹt — không đệm, lần sau tra lại
+    vai = typeof data?.vai === "string" ? data.vai : null;
+  } catch {
+    return null; // ném ⇒ cho qua như chưa có vai: lớp free không được thành 500 giữa biển
+  }
+  if (vaiCache.size >= CACHE_MAX) {
+    const oldest = vaiCache.keys().next().value;
+    if (oldest !== undefined) vaiCache.delete(oldest);
+  }
+  vaiCache.set(phone, { vai, exp: Date.now() + TIER_TTL });
+  return vai;
 }
 
 async function cachedTier(phone: string): Promise<string> {

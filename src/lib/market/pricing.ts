@@ -89,6 +89,16 @@ export function buildMarketLines(
   return { lines, dropped };
 }
 
+/** Ngưỡng "Sắp hết" của kênh người bán (17 §12.5, `/ban-hang/san-pham?loc=sap-het`): tồn ≤ 3, kể cả 0. */
+export const LOW_STOCK_MAX = 3;
+
+/** Món SẮP HẾT — một luật cho bộ lọc `?loc=sap-het` và băng "sắp hết hàng" ở Tổng quan. Món LIÊN HỆ
+ *  BÁO GIÁ (priceVnd null) không tính: bán qua tư vấn, tồn kho không phải con số shop phải lo. Món đã
+ *  xoá không tính. */
+export function isLowStock(p: Pick<Product, "stock" | "priceVnd" | "deletedAt">): boolean {
+  return p.priceVnd != null && !p.deletedAt && Number.isFinite(p.stock) && p.stock <= LOW_STOCK_MAX;
+}
+
 /** "Mua được" cho UI (11 §3.2) = shop hoat_dong ∧ !paused ∧ status=dang_ban ∧ !adminHidden ∧ !deletedAt ∧ stock ≥ 1
  *  ∧ CÓ GIÁ (món liên hệ báo giá không tự đặt được — gọi shop, xem `Product.priceVnd`). */
 export function isPurchasable(

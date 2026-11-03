@@ -1,5 +1,6 @@
 // /api/ban-hang/san-pham — danh sách + thêm món của CHÍNH shop đang đăng nhập (12 §7.2).
 //  GET  ?status=dang_ban|an|het_hang|bi_go &q &page — includeHidden (thấy cả món bị SDVICO gỡ), KHÔNG có món đã xoá
+//       ?loc=sap-het — món sắp hết (isLowStock: tồn ≤ 3, bỏ món liên hệ báo giá), tồn ít lên đầu (17 §12.5)
 //  POST ProductDraftM — shop `cho_duyet` vẫn soạn món trước (11 §6.2); `tam_khoa`/`tu_choi` ⇒ 403
 import { NextResponse } from "next/server";
 import { marketErrorResponse } from "@/lib/market/route-utils";
@@ -23,6 +24,8 @@ export async function GET(req: Request) {
     const rawStatus = url.searchParams.get("status");
     const status = FILTERS.find((f) => f === rawStatus);
     if (rawStatus && !status) return invalid("Lọc trạng thái không đúng.");
+    const loc = url.searchParams.get("loc");
+    if (loc && loc !== "sap-het") return invalid("Lọc món không đúng.");
     const q = url.searchParams.get("q")?.trim() || undefined;
     const page = pageOf(url);
 
@@ -30,6 +33,7 @@ export async function GET(req: Request) {
     const res = await store.listShopProducts(gate.shop.id, {
       ...(q ? { q } : {}),
       ...(status ? { status } : {}),
+      ...(loc ? { lowStock: true } : {}),
       page,
       pageSize: PAGE_SIZE,
       includeHidden: true,

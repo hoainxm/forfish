@@ -4,6 +4,7 @@
     — tách theo tab, KHÔNG đổi hành vi; trang chính nạp tab khi mở). */
 
 import { AdminSkeleton } from "@/components/admin/admin-nav";
+import { VuaQueue } from "@/components/admin/vua-queue";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiUrl } from "@/lib/api-base";
 import { tokenHeader } from "@/lib/device-token-store";
@@ -138,6 +139,9 @@ export function SellContactsTab({ perms }: { perms: TabPerms }) {
         Bán ở đâu). Sửa / ẩn / hiện / xoá / thêm — áp dụng ngay. (“Mối quen” là
         sổ riêng của bà con, không quản lý ở đây.)
       </p>
+
+      {/* hồ sơ vựa tự khai chờ duyệt (spec 17 §12.4) — hiện ở Đầu mối cạnh danh bạ dưới đây */}
+      <VuaQueue perms={perms} />
 
       {error && (
         <p className="mt-3 rounded-xl bg-danger-bg px-3 py-2 text-[0.9375rem] font-semibold text-danger">

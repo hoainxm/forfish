@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Popover } from "@/components/ui/popover";
 import { OfflineLine } from "@/components/ui/offline-line";
 import { LienHe } from "@/components/ui/lien-he";
+import { XacMinhBadge } from "@/components/ui/xac-minh-badge";
 import { applyHome, HomeBar, useHome } from "@/components/ui/region-filter";
 import {
   Card,
@@ -395,10 +396,14 @@ function ListingCard({
         </div>
       )}
 
-      <p className="mt-2 truncate text-[0.8125rem] text-muted">
-        {l.posterName}
-        {busy ? ` · ${pending ? NHAN.dangGui : NHAN.dangXoa}…` : ""}
-      </p>
+      {/* dấu Xác minh cạnh tên người đăng — chỉ tin MUA, máy chủ tính cờ (spec 17 §5) */}
+      <div className="mt-2 flex min-w-0 items-center gap-1.5 text-[0.8125rem] text-muted">
+        <span className="min-w-0 truncate">
+          {l.posterName}
+          {busy ? ` · ${pending ? NHAN.dangGui : NHAN.dangXoa}…` : ""}
+        </span>
+        {l.side === "mua" && l.xacMinh && <XacMinhBadge />}
+      </div>
       {/* Gọi · Nhắn (Zalo) chia hai cột — như FB/Zalo (CC-18); pill đã nói ngữ cảnh ⇒ nhãn ≤2 chữ */}
       {l.phone ? <LienHe phone={l.phone} className="mt-2" /> : null}
 

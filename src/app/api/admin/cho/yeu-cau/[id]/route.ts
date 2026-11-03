@@ -4,18 +4,16 @@
 //          {action:"khong_tim_duoc", reason}
 // Luật chuyển ở request-state.ts; báo chủ tàu Y1/Y2 best-effort; nhật ký admin.
 import { NextResponse } from "next/server";
-import { readEta, vnToday } from "@/lib/market/eta";
+import { vnToday } from "@/lib/market/eta";
 import { notifyMarket } from "@/lib/market/notify";
 import { requestNotice } from "@/lib/market/notice";
 import { applyQuote, applyReject } from "@/lib/market/request-state";
 import { marketErrorResponse, settleRequests } from "@/lib/market/route-utils";
 import { getMarketStore } from "@/lib/market/store";
-import { NOTE_MAX, validateQuote } from "@/lib/market/validate";
+import { NOTE_MAX, readQuoteBody } from "@/lib/market/validate";
 import { logMarketAdmin, requireMarketAdmin } from "../../_guard";
 
 type Ctx = { params: Promise<{ id: string }> };
-const int = (v: unknown): number | undefined =>
-  typeof v === "number" && Number.isFinite(v) ? Math.trunc(v) : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : undefined;
 const invalid = (message: string) => NextResponse.json({ ok: false, code: "invalid", message }, { status: 400 });
 
 export async function GET(_req: Request, { params }: Ctx) {
@@ -47,20 +45,16 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const conflict = () => NextResponse.json({ ok: false, code: "bad_transition", message: "Yêu cầu đã đổi trạng thái — mở lại xem." }, { status: 409 });
 
     if (b.action === "bao_gia") {
-      const today = vnToday();
-      const eta = readEta(b, today);
-      if (typeof eta === "string") return invalid(eta);
-      const note = typeof b.note === "string" ? b.note.trim() : undefined;
-      const q = { shopId: b.shopId, goodsVnd: int(b.goodsVnd), shippingVnd: int(b.shippingVnd) ?? 0, etaFrom: eta.etaFrom, etaTo: eta.etaTo, note };
-      const bad = validateQuote(q, today);
-      if (bad) return invalid(bad);
-      const shop = await store.getShop(q.shopId as string);
+      // đọc + kiểm báo giá: MỘT hàm với đại lý tự báo (/api/ban-hang/yeu-cau/[id]/bao-gia)
+      const read = readQuoteBody(b, b.shopId, vnToday());
+      if (!read.ok) return invalid(read.message);
+      const shop = await store.getShop(b.shopId as string);
       if (!shop || shop.status !== "hoat_dong") return invalid("Shop này chưa hoạt động — chọn shop khác.");
-      const patch = applyQuote(r, { goodsVnd: q.goodsVnd!, shippingVnd: q.shippingVnd, etaFrom: eta.etaFrom, etaTo: eta.etaTo, ...(note ? { note } : {}) }, shop.id, nowIso, who.phone);
+      const patch = applyQuote(r, read.quote, shop.id, nowIso, who.phone);
       if (!patch) return conflict();
       const request = await store.patchRequest(r.id, r.status, patch);
       await notifyMarket(request.buyerPhone, requestNotice("Y1", request));
-      await logMarketAdmin(who, "market.request-quote", request.id, { action: "bao_gia", total: q.goodsVnd! + q.shippingVnd, shopId: shop.id });
+      await logMarketAdmin(who, "market.request-quote", request.id, { action: "bao_gia", total: read.quote.goodsVnd + read.quote.shippingVnd, shopId: shop.id });
       return NextResponse.json({ ok: true, request });
     }
 

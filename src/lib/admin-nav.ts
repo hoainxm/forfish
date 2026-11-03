@@ -19,6 +19,7 @@ export type AdminTab =
   | "phan-quyen"
   | "nhat-ky"
   | "kairos"
+  | "viec-lam"
   | "bao-cao";
 
 /** Nhãn MỘT nguồn cho cả admin lẫn quản lý (trước lệch: "Chỗ bán" vs "Điểm thu mua"). */
@@ -39,6 +40,8 @@ export const ADMIN_TAB_LABEL: Record<AdminTab, string> = {
   "he-thong": "Cấu hình hệ thống",
   // Kairos — đọc báo + mạng xã hội của bà con (14 §3.11): báo xấu, hàng chờ agent, Chính thức
   kairos: "Kairos",
+  // Việc làm (spec 17 §8) — admin-only: tin tuyển / hồ sơ tìm tàu bị báo xấu, ẩn/hiện, cấm đăng (luật Kairos)
+  "viec-lam": "Việc làm",
   // Báo cáo số liệu (2026-10-28) — admin-only: số TOÀN hệ thống, quản lý chỉ thấy khách mình (R3)
   "bao-cao": "Báo cáo",
 };
@@ -57,7 +60,7 @@ export const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
   {
     id: "khach",
     label: "Khách hàng",
-    tabs: ["tai-khoan", "yeu-cau", "thong-bao"],
+    tabs: ["tai-khoan", "yeu-cau", "thong-bao", "viec-lam"],
   },
   /*  CHỢ VẬT TƯ (gộp feat/san-thuong-mai 2026-10-18): tab "Cửa hàng" là sàn thật;
       "Sản phẩm" + "Đơn hàng" là danh mục/đơn CŨ đã nghỉ từ 07/09 (ADR 0014) — để

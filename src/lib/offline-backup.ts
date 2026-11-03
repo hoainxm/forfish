@@ -158,6 +158,13 @@ export const TRANSFER_KEYS = [
  *                    `offline-backup.test.ts` — khoá này ra đời sau bản vá.
  */
 export const NEVER_BACKUP_PREFIXES = [
+  /*  · `vai.` — VAI của tài khoản trên máy này (lib/vai-store, spec 17, 2026-11-03): keyed theo SĐT, máy chủ giữ bản
+   *    sao (customers.vai) nên máy mới đăng nhập là lấy lại. Chép sang máy khác của người khác là đổi dock của họ. */
+  "forfish.vai.",
+  /*  · `viec.` — VIỆC LÀM (spec 17 §6.4, 2026-11-03): bản lưu tin tuyển (`viec.v1`, chỉ để vẽ ngay lúc mở màn — không
+   *    SĐT), tin đã lưu (`viec.luu.v1` — có sóng mở lại được) và nháp tin đang đăng
+   *    (`viec.nhap.v1`, của riêng máy này). Có sóng là tải lại, không mất gì. */
+  "forfish.viec.",
   "forfish.inbox.",
   "forfish.crew.",
   "forfish.identity.",

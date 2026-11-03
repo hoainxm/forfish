@@ -40,6 +40,7 @@ import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { normalizePassword, PASSWORD_MIN_LENGTH } from "@/lib/password";
 import { resetPasswordFor } from "@/lib/temp-password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
+import { isVai, type Vai } from "@/lib/vai";
 import { normalizePlatform } from "@/lib/app-usage";
 import { canResetPassword, isMissingColumnError } from "@/lib/staff-permissions";
 
@@ -239,6 +240,13 @@ export async function GET() {
       for (const x of (k.data ?? []) as { phone: string; account_kind: unknown }[])
         kindOf.set(x.phone, normalizeAccountKind(x.account_kind));
   }
+  // VAI (0079, spec 17 §8) — đọc riêng như account_kind: cột chưa có (migration chưa áp) ⇒ mọi người "chưa chọn"
+  const vaiOf = new Map<string, Vai>();
+  {
+    const v = await admin.from("customers").select("phone, vai");
+    if (!v.error)
+      for (const x of (v.data ?? []) as { phone: string; vai: unknown }[]) if (isVai(x.vai)) vaiOf.set(x.phone, x.vai);
+  }
 
   /*  LỊCH SỬ MÁY (customer_devices, 0033) — MỘT câu cho cả danh sách rồi gom
       trong JS, KHÔNG hỏi từng khách (716 khách = 716 câu). Bảng nhỏ (mỗi khách
@@ -284,6 +292,8 @@ export async function GET() {
       staffRole.get(r.phone as string) === "admin",
     /** real | test | demo | reviewer (0056) */
     kind: kindOf.get(r.phone as string) ?? "real",
+    /** ngu-dan | chu-tau | thu-mua | dai-ly | null (0079) */
+    vai: vaiOf.get(r.phone as string) ?? null,
     fromSdwork: Boolean(r.sdwork_ref),
     updatedAt: (r.updated_at as string) ?? null,
     canLogin: provisioned.has(r.phone as string),

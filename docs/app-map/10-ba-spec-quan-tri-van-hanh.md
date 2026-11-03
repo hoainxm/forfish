@@ -1,8 +1,9 @@
 # 10 — ba-spec: Web quản trị vận hành SDFish + ranh giới SDWork
 
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
+<!-- re-verified: 2026-11-03 — VAI TÀI KHOẢN (17 §8, §12.6): tab Tài khoản thêm chip lọc Vai (đếm khách real) + nhãn vai + công tắc "Xác minh thu mua" (`/api/admin/accounts/xac-minh`, quyền tai-khoan, log `account.xac-minh-thu-mua`); tab Chợ cá bán thêm hàng duyệt hồ sơ vựa (`/api/admin/vua-profiles`, quyền cho-ban, log `sell.vua-status`); tab MỚI "Việc làm" nhóm Khách hàng (chỉ admin, `/api/admin/viec`); "Yêu cầu đặt" ghi shop đã báo + "đại lý tự báo / SDVICO báo thay". -->
 covers: src/app/quan-tri, src/components/admin, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
-last_verified: 2026-10-30
+last_verified: 2026-11-03
 <!-- re-verified: 2026-10-30 17:00 - tab Kairos thêm mục "Đo" (components/admin/kairos-do.tsx, GET /api/admin/kairos/do, 14 §22 — CDP nội bộ: tỷ lệ đọc/mở, chủ đề, bài tài trợ, đọc→đơn, 6 nhóm khách gọi bán, Tải CSV). Quyền kairos:view (preset quản lý có); SĐT + tên khách CHỈ admin, quản lý thấy số che 0912•••678, không CSV (A109). Không ghi gì nên không nhật ký. Các mục khác của tab + quyền KHÔNG đổi. -->
 <!-- re-verified: 2026-10-29 23:00 - nhóm H: src/components/admin + app/quan-tri chỉ đổi MÀU chữ phụ /65 ⇒ text-muted; không đổi quyền/luồng/tab. -->
 <!-- re-verified: 2026-10-29 21:00 - nhóm B chữ/a11y: src/components/admin chỉ đổi MÀU chữ phụ (text-muted thay foreground/40..60) + chính tả Xoá/Huỷ; khu quản trị GIỮ chữ "Premium" cho nhân viên; không đổi quyền/luồng NV9–NV10 (vẫn chưa build). last_verified giữ nguyên theo ghi chú 2026-10-26. -->

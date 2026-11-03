@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { datThamSo, docThamSo } from "@/lib/cho-ca";
 import { PriceBoard } from "@/components/price-board";
 import { SellGuide } from "@/components/sell-guide";
@@ -8,6 +9,9 @@ import { MarketBoard } from "@/components/market-board";
 import { RequireLogin } from "@/components/require-login";
 import { ChipRow } from "@/components/ui/chip-row";
 import { ToastHost } from "@/components/ui/toast";
+import { ChevronRightIcon, StoreIcon } from "@/components/icons";
+import { NHAN } from "@/lib/labels";
+import { useVai } from "@/lib/use-vai";
 
 /*
   Khu CHỢ CÁ (dock "Chợ cá" từ 2026-10-19; trước là "Giao dịch", user chốt 2026-07-27
@@ -31,6 +35,7 @@ const SECTIONS: { id: Section; label: string }[] = [
 
 export function TradeHub() {
   const [section, setSection] = useState<Section>("gia");
+  const { vai } = useVai();
   // đọc `?muc=` sau khi gắn (trang vẽ sẵn từ máy chủ không biết URL) — một lần
   useEffect(() => {
     setSection(docThamSo(window.location.search, "muc", SECTION_IDS, "gia"));
@@ -82,6 +87,23 @@ export function TradeHub() {
       )}
       {section === "dau-moi" && (
         <RequireLogin what="danh bạ chỗ bán">
+          {/*  Lối vào HỒ SƠ VỰA (spec 17 §12.4) — chỉ vai Thu mua: vựa tự đưa mình lên danh bạ này. Vai khác vẫn mở
+              được /tien/vua bằng link (vai chỉ đổi thứ nằm ngay tay, §2). */}
+          {vai === "thu-mua" && (
+            <div className="px-4 pb-2">
+              <Link
+                href="/tien/vua"
+                className="surface flex min-h-(--h-row) items-center gap-3 px-4 py-2.5 transition active:bg-field"
+              >
+                <StoreIcon className="h-5 w-5 shrink-0 text-t2" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[1rem] font-semibold leading-snug text-navy">{NHAN.hoSo}</span>
+                  <span className="block text-[0.8125rem] leading-snug text-muted">Đưa vựa của bà con lên danh bạ</span>
+                </span>
+                <ChevronRightIcon className="h-4 w-4 shrink-0 text-foreground/40" />
+              </Link>
+            </div>
+          )}
           <SellGuide />
         </RequireLogin>
       )}

@@ -284,6 +284,9 @@ export interface ProductQuery {
    *  dang_ban|an|het_hang = đúng status VÀ không bị gỡ · bi_go = bị admin gỡ (mọi status)
    *  · all / bỏ trống = không lọc. Khớp bảng lọc route 12 §7.2. */
   status?: ProductStatusFilter;
+  /** CHỈ `listShopProducts` (seller): món sắp hết — `isLowStock` (pricing.ts, tồn ≤ 3, bỏ món liên hệ
+   *  báo giá), xếp tồn ít lên đầu. Đi cùng `status`/`q` được. */
+  lowStock?: boolean;
 }
 
 export interface Page<T> {

@@ -18,34 +18,74 @@
 */
 
 import { NHAN } from "./labels";
+import type { Vai } from "./vai";
 
-export type DockId = "trang-chu" | "kairos" | "ban-do" | "tau-toi" | "cho-ca" | "vat-tu";
+export type DockId = "trang-chu" | "kairos" | "ban-do" | "tau-toi" | "viec-lam" | "cho-ca" | "vat-tu" | "ban-hang";
 
-/** Tên mục (aria-label) lấy từ bảng nhãn chuẩn — labels.test gác ≤2 chữ. */
-export const DOCK: readonly { id: DockId; href: string; label: string }[] = [
-  { id: "trang-chu", href: "/", label: NHAN.trangChu },
-  { id: "kairos", href: "/kairos", label: NHAN.kairos },
-  { id: "ban-do", href: "/ngu-truong", label: NHAN.banDo },
-  { id: "tau-toi", href: "/tau", label: NHAN.tauToi },
-  { id: "cho-ca", href: "/tien", label: NHAN.choCa },
-  { id: "vat-tu", href: "/cho", label: NHAN.vatTu },
-];
+export type DockMuc = { id: DockId; href: string; label: string };
 
+/** Mọi ô có thể có. Tên mục (aria-label) lấy từ bảng nhãn chuẩn — labels.test gác ≤2 chữ. */
+const MUC: Record<DockId, DockMuc> = {
+  "trang-chu": { id: "trang-chu", href: "/", label: NHAN.trangChu },
+  kairos: { id: "kairos", href: "/kairos", label: NHAN.kairos },
+  "ban-do": { id: "ban-do", href: "/ngu-truong", label: NHAN.banDo },
+  "tau-toi": { id: "tau-toi", href: "/tau", label: NHAN.tauToi },
+  "viec-lam": { id: "viec-lam", href: "/viec", label: NHAN.viecLam },
+  "cho-ca": { id: "cho-ca", href: "/tien", label: NHAN.choCa },
+  "vat-tu": { id: "vat-tu", href: "/cho", label: NHAN.vatTu },
+  "ban-hang": { id: "ban-hang", href: "/ban-hang", label: NHAN.banHang },
+};
+
+/** Dock mặc định (khách, chủ tàu, chưa chọn vai) — y như trước khi có vai. */
+export const DOCK: readonly DockMuc[] = ["trang-chu", "kairos", "ban-do", "tau-toi", "cho-ca", "vat-tu"].map(
+  (id) => MUC[id as DockId],
+);
+
+/*
+  DOCK THEO VAI (spec 17 §4.1, 2026-11-03). Vai quyết định có những ô nào; ô Bản đồ của đi bạn / thu mua / đại lý chỉ có
+  khi có gói (`banDo` = lib/vai coBanDo). Chủ tàu + chưa chọn vai + khách: DOCK mặc định, không đổi.
+    · Đi bạn  : Trang chủ · Kairos · [Bản đồ] · Việc làm · Chợ cá · Vật tư
+    · Thu mua : Trang chủ · Kairos · Chợ cá · Vật tư · [Bản đồ]
+    · Đại lý  : Trang chủ · Kairos · Bán hàng · Vật tư · [Bản đồ]
+  Ô bị bỏ khỏi dock vẫn mở được bằng route.
+*/
+export function dockTheoVai(vai: Vai | null, banDo: boolean): readonly DockMuc[] {
+  const ids: DockId[] =
+    vai === "ngu-dan"
+      ? ["trang-chu", "kairos", "ban-do", "viec-lam", "cho-ca", "vat-tu"]
+      : vai === "thu-mua"
+        ? ["trang-chu", "kairos", "cho-ca", "vat-tu", "ban-do"]
+        : vai === "dai-ly"
+          ? ["trang-chu", "kairos", "ban-hang", "vat-tu", "ban-do"]
+          : ["trang-chu", "kairos", "ban-do", "tau-toi", "cho-ca", "vat-tu"];
+  return ids
+    .filter((id) => id !== "ban-do" || banDo)
+    // thu mua: Chợ cá mở thẳng mục Mua bán (tin bán của bà con) thay vì bảng giá — spec 17 §12.4
+    .map((id) => (vai === "thu-mua" && id === "cho-ca" ? { ...MUC[id], href: "/tien?muc=tin" } : MUC[id]));
+}
+
+/* Khu route của từng ô. Thứ tự quan trọng: `/ban-hang` thuộc ô Bán hàng nếu dock có ô đó, không thì về Vật tư. */
 const KHU: readonly [DockId, readonly string[]][] = [
   ["kairos", ["/kairos", "/k"]],
   ["ban-do", ["/ngu-truong", "/cang", "/lo-trinh"]],
   ["tau-toi", ["/tau", "/nguoi", "/giay-to", "/van-hanh", "/thuyen-vien"]],
+  ["viec-lam", ["/viec"]],
   ["cho-ca", ["/tien", "/gia-ca"]],
+  ["ban-hang", ["/ban-hang"]],
   ["vat-tu", ["/cho", "/ban-hang"]],
 ];
 
 const trong = (p: string, goc: string) => p === goc || p.startsWith(`${goc}/`);
 
-/** Mục dock đang sáng ở `pathname`; null = màn không thuộc mục nào (đăng nhập, pháp lý…). */
-export function dockActive(pathname: string): DockId | null {
+/**
+ * Mục dock đang sáng ở `pathname`, trong số ô `co` đang có trên dock (mặc định: DOCK). null = màn không thuộc ô nào
+ * đang hiện (đăng nhập, pháp lý, hay route của ô vai này không có — vd chủ tàu mở /viec).
+ */
+export function dockActive(pathname: string, co: readonly DockMuc[] = DOCK): DockId | null {
   const p = pathname || "/";
   if (p === "/") return "trang-chu";
-  for (const [id, goc] of KHU) if (goc.some((g) => trong(p, g))) return id;
+  const coId = new Set(co.map((m) => m.id));
+  for (const [id, goc] of KHU) if (coId.has(id) && goc.some((g) => trong(p, g))) return id;
   return null;
 }
 
@@ -67,7 +107,17 @@ export type NguonBadge = {
 
 /** Số trên badge của một ô dock; 0 = không vẽ. */
 export function dockBadge(id: DockId, s: NguonBadge): number {
-  const n = id === "kairos" ? s.kairosChuaDoc : id === "vat-tu" ? (s.donChoBan > 0 ? s.donChoBan : s.gioDong) : 0;
+  // ô Bán hàng (đại lý — spec 17 §4.1) nhận số đơn chờ; khi dock có ô đó thì Vật tư vẫn đếm như cũ (giỏ khi không có đơn)
+  const n =
+    id === "kairos"
+      ? s.kairosChuaDoc
+      : id === "ban-hang"
+        ? s.donChoBan
+        : id === "vat-tu"
+          ? s.donChoBan > 0
+            ? s.donChoBan
+            : s.gioDong
+          : 0;
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
 
@@ -76,6 +126,7 @@ export function nhanBadgeDock(id: DockId, s: NguonBadge): string {
   const n = dockBadge(id, s);
   if (!n) return "";
   if (id === "kairos") return `, ${n} chưa đọc`;
+  if (id === "ban-hang") return `, ${n} đơn chờ`;
   return s.donChoBan > 0 ? `, ${n} đơn chờ` : `, ${n} món trong giỏ`;
 }
 

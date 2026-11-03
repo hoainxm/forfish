@@ -46,9 +46,11 @@ export interface RequestPatch {
   timelineAppend?: RequestTimelineEntry;
 }
 
-/** Ai được đi từ đâu tới đâu. Admin báo giá lại được khi đang có báo giá (sửa giá). */
+/** Ai được đi từ đâu tới đâu. Admin báo giá lại được khi đang có báo giá (sửa giá).
+ *  Đại lý (`seller`, 17 §12.5 — anh Long duyệt 03/11) CHỈ báo giá yêu cầu còn `moi`: báo
+ *  giá hợp lệ đầu tiên thắng, không sửa giá, không báo "không tìm được" thay chủ sàn. */
 const TRANSITIONS: Record<RequestStatus, Partial<Record<Actor, RequestStatus[]>>> = {
-  moi: { admin: ["da_bao_gia", "khong_tim_duoc"], buyer: ["da_huy"], system: ["het_han"] },
+  moi: { admin: ["da_bao_gia", "khong_tim_duoc"], seller: ["da_bao_gia"], buyer: ["da_huy"], system: ["het_han"] },
   da_bao_gia: { admin: ["da_bao_gia", "khong_tim_duoc"], buyer: ["da_dat", "da_huy"], system: ["het_han"] },
   da_dat: {},
   khong_tim_duoc: {},
@@ -64,21 +66,25 @@ const entry = (status: RequestStatus, nowIso: string, actor: Actor, actorPhone?:
   return { status, at: nowIso, by: timelineBy(actor, actorPhone), ...(n ? { note: n } : {}) };
 };
 
-/** Chủ sàn báo giá. Quote đã validate ở route (validateQuote). */
+/** Chủ sàn (mặc định) hoặc đại lý (`actor = "seller"`) báo giá. Quote đã validate ở route
+ *  (readQuoteBody). Đại lý: chỉ khi yêu cầu còn `moi` VÀ chưa gắn shop nào — route ghi có
+ *  điều kiện `expectStatus = "moi"` nên hai đại lý bấm sát nhau thì người sau trượt. */
 export function applyQuote(
   r: MarketRequest,
   q: Omit<RequestQuote, "quotedAt" | "expiresAt">,
   shopId: string,
   nowIso: string,
   actorPhone?: string,
+  actor: "admin" | "seller" = "admin",
 ): RequestPatch | null {
-  if (!canRequestTransition(r.status, "da_bao_gia", "admin")) return null;
+  if (!canRequestTransition(r.status, "da_bao_gia", actor)) return null;
+  if (actor === "seller" && r.quoteShopId) return null;
   const expiresAt = new Date(Date.parse(nowIso) + QUOTE_VALID_MS).toISOString();
   return {
     status: "da_bao_gia",
     quote: { ...q, quotedAt: nowIso, expiresAt },
     quoteShopId: shopId,
-    timelineAppend: entry("da_bao_gia", nowIso, "admin", actorPhone, q.note),
+    timelineAppend: entry("da_bao_gia", nowIso, actor, actorPhone, q.note),
   };
 }
 

@@ -3,7 +3,9 @@
 /*  Tách nguyên văn khỏi src/app/quan-tri/page.tsx (2026-10-19, rà Codex đợt 3: trang quản trị 6.718 dòng
     — tách theo tab, KHÔNG đổi hành vi; trang chính nạp tab khi mở). */
 
+import { tenVai, VAI, type Vai } from "@/lib/vai";
 import { AdminSkeleton } from "@/components/admin/admin-nav";
+import { XacMinhThuMua } from "@/components/admin/xac-minh-thu-mua";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiUrl } from "@/lib/api-base";
 import { PLATFORM_LABEL, USAGE_STAGE_LABEL, persistNote, readinessChip, type DevicePlatform, type ReadinessReason, type ReadinessTone, type UsageStage, usageStage } from "@/lib/app-usage";
@@ -28,6 +30,8 @@ export type Account = {
   /** real | test | demo | reviewer (0056) — khác real: không làm staff,
    *  chuỗi có hạn, không nhận tin gửi tất cả */
   kind?: "real" | "test" | "demo" | "reviewer";
+  /** vai nghề (0079, spec 17) — null = chưa chọn / cột chưa có */
+  vai?: Vai | null;
   fromSdwork: boolean;
   updatedAt: string | null;
   canLogin: boolean;
@@ -99,6 +103,8 @@ export function AccountsTab({ me }: { me: Me }) {
   // tìm kiếm + lọc hạng (client-side — vài trăm hàng, không cần server)
   const [query, setQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<TierFilter>("all");
+  // lọc theo VAI (spec 17 §8): "all" | 4 vai | "chua" (chưa chọn)
+  const [vaiFilter, setVaiFilter] = useState<Vai | "all" | "chua">("all");
   // Tab này là của NGƯỜI DÙNG APP (user 2026-07-31) → mặc định chỉ hiện khách;
   // nhân sự (quản lý/quản trị viên) vẫn xem được bằng chip, vì đôi khi cần đặt
   // lại mật khẩu hoặc cấp premium cho chính họ.
@@ -169,13 +175,14 @@ export function AccountsTab({ me }: { me: Me }) {
     const qDigits = query.replace(/\D/g, "");
     return accounts.filter((a) => {
       if (tierFilter !== "all" && effTier(a) !== tierFilter) return false;
+      if (vaiFilter === "chua" ? !!a.vai : vaiFilter !== "all" && a.vai !== vaiFilter) return false;
       if (!q && !qDigits) return true;
       // SĐT khớp theo chuỗi số; tên khớp không dấu
       if (qDigits && a.phone.includes(qDigits)) return true;
       if (q && a.name && fold(a.name).includes(q)) return true;
       return false;
     });
-  }, [accounts, query, tierFilter, effTier]);
+  }, [accounts, query, tierFilter, vaiFilter, effTier]);
 
   const visible = useMemo(
     () =>
@@ -559,6 +566,31 @@ export function AccountsTab({ me }: { me: Me }) {
         </span>
       </div>
 
+      {/* VAI NGHỀ (spec 17 §8) — đếm trên khách THẬT (account_kind real, AC10), theo ô tìm + hạng đang chọn */}
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Lọc theo vai">
+        {(
+          [["all", "Mọi vai"], ...VAI.map((v) => [v.id, v.ten]), ["chua", "Chưa chọn"]] as [Vai | "all" | "chua", string][]
+        ).map(([id, label]) => {
+          const n =
+            accounts?.filter(
+              (a) => (a.kind ?? "real") === "real" && !isStaff(a) && (id === "all" ? true : id === "chua" ? !a.vai : a.vai === id),
+            ).length ?? 0;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setVaiFilter(id)}
+              aria-pressed={vaiFilter === id}
+              className={`min-h-[2.5rem] shrink-0 rounded-full px-4 text-[0.875rem] font-bold transition ${
+                vaiFilter === id ? "bg-navy text-white" : "bg-field text-foreground/70"
+              }`}
+            >
+              {label} <span className="tabular-nums">{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {hiddenStaff > 0 && (
         <p className="surface px-4 py-2.5 text-[0.875rem] text-foreground/70">
           Có <b>{hiddenStaff}</b> tài khoản <b>nhân sự</b> cũng khớp tìm kiếm —
@@ -681,6 +713,9 @@ export function AccountsTab({ me }: { me: Me }) {
                           để khỏi lẫn — xem RoleBadge. */}
                       <RoleBadge account={a} />
                       <KindBadge account={a} />
+                      {a.vai && (
+                        <span className="ml-2 rounded-full bg-sea/12 px-2 py-0.5 text-[0.75rem] font-bold text-sea">{tenVai(a.vai)}</span>
+                      )}
                     </p>
                     <p className="mt-0.5 text-[0.8125rem] text-muted">
                       {a.fromSdwork ? "Nguồn từ SDWork" : "Tạo thủ công"} ·{" "}
@@ -904,6 +939,10 @@ export function AccountsTab({ me }: { me: Me }) {
                       Máy khách:
                     </span>
                     <AppUsage a={a} />
+                  </div>
+                  {/* XÁC MINH THU MUA (spec 17 §5) — tự chứa, tự tải, nhật ký ghi ở máy chủ */}
+                  <div className="mt-1 flex basis-full flex-wrap items-center gap-1.5">
+                    <XacMinhThuMua phone={a.phone} editable={perms.edit} />
                   </div>
                 </li>
               ))}

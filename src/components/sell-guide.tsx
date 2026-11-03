@@ -42,6 +42,9 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { SQ_BTN } from "@/components/ui/sq-btn";
+import { XacMinhBadge } from "@/components/ui/xac-minh-badge";
+import { vuaThanhDauMoi } from "@/lib/vua-profile";
+import { fetchPublicVua } from "@/lib/vua-store";
 
 /*
   "Bán ở đâu / bán cho ai" (trục GIAO DỊCH) — giúp bà con không bị ép giá.
@@ -143,6 +146,24 @@ export function SellGuide() {
    *  dòng nhỏ, không đội lốt bản mới (audit 2026-08-18 G10). Chỉ tính khi máy
    *  chủ CÓ cấu hình; demo mode thì bản tĩnh là bản chính, khỏi nói. */
   const [staticFallback, setStaticFallback] = useState(false);
+  /*  HỒ SƠ VỰA đã duyệt (vua_profiles, spec 17 §12.4) — gộp LÊN ĐẦU từng mục, mang dấu Xác minh khi chủ đã được
+      SDVICO xác minh. Tải hỏng / mất sóng ⇒ giữ lượt trước (hoặc rỗng): danh bạ admin/tĩnh vẫn đủ như cũ. */
+  const [vuaHoSo, setVuaHoSo] = useState<SellContact[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const tai = () =>
+      fetchPublicVua().then((v) => {
+        if (alive && v) setVuaHoSo(v.map(vuaThanhDauMoi));
+      });
+    void tai();
+    const onOnline = () => void tai();
+    window.addEventListener("online", onOnline);
+    return () => {
+      alive = false;
+      window.removeEventListener("online", onOnline);
+    };
+  }, []);
+  const tatCa = useMemo(() => [...vuaHoSo, ...contacts], [vuaHoSo, contacts]);
   useEffect(() => {
     let alive = true;
     const configured = createClient() !== null;
@@ -207,7 +228,7 @@ export function SellGuide() {
 
       {section === "vua" && (
         <Wholesalers
-          list={contacts.filter((c) => c.kind === "vua")}
+          list={tatCa.filter((c) => c.kind === "vua")}
           home={home}
           near={near}
           q={qf}
@@ -215,7 +236,7 @@ export function SellGuide() {
       )}
       {section === "cho" && (
         <Markets
-          list={contacts.filter((c) => c.kind === "cho")}
+          list={tatCa.filter((c) => c.kind === "cho")}
           home={home}
           near={near}
           q={qf}
@@ -223,7 +244,7 @@ export function SellGuide() {
       )}
       {section === "nhamay" && (
         <Factories
-          list={contacts.filter((c) => c.kind === "nhamay")}
+          list={tatCa.filter((c) => c.kind === "nhamay")}
           home={home}
           near={near}
           q={qf}
@@ -278,7 +299,10 @@ function HangDauMoi({ c, phu, them }: { c: SellContact; phu: string; them: React
           className="flex min-h-(--h-row) min-w-0 flex-1 items-center gap-2 py-2.5 pl-4 pr-2 text-left transition active:bg-field"
         >
           <span className="min-w-0 flex-1">
-            <span className="block text-[1rem] font-semibold leading-snug text-navy">{c.name}</span>
+            <span className="block text-[1rem] font-semibold leading-snug text-navy">
+              {c.name}
+              {c.xacMinh && <XacMinhBadge className="ml-1.5" />}
+            </span>
             {phu && <span className="mt-0.5 block text-[0.8125rem] leading-snug text-muted">{phu}</span>}
           </span>
           <ChevronDownIcon className={`h-4 w-4 shrink-0 text-foreground/40 transition ${mo ? "rotate-180" : ""}`} />
@@ -494,6 +518,7 @@ function Factories({
               <div className="flex items-start justify-between gap-2">
                 <p className="display text-[1rem] font-semibold leading-snug text-navy">
                   {b.name}
+                  {b.xacMinh && <XacMinhBadge className="ml-1.5" />}
                 </p>
                 {b.direct && (
                   <span className="shrink-0 rounded-full bg-ok-bg px-2 py-0.5 text-[0.75rem] font-semibold text-ok">

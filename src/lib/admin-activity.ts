@@ -17,6 +17,7 @@ export const ADMIN_ACTIONS = [
   "account.set-kind",
   "account.revoke-sessions",
   "account.test-token",
+  "account.xac-minh-thu-mua",
   // Sản phẩm
   "product.create",
   "product.update",
@@ -29,6 +30,7 @@ export const ADMIN_ACTIONS = [
   "sell.create",
   "sell.update",
   "sell.delete",
+  "sell.vua-status",
   // Thông báo
   "push.send",
   // Yêu cầu
@@ -72,6 +74,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "account.set-kind": "Đổi loại tài khoản (thật/test/demo)",
   "account.revoke-sessions": "Đăng xuất mọi máy",
   "account.test-token": "Cấp chuỗi thử (script test)",
+  "account.xac-minh-thu-mua": "Bật/tắt xác minh thu mua",
   "product.create": "Thêm sản phẩm",
   "product.update": "Sửa sản phẩm",
   "product.delete": "Xóa sản phẩm",
@@ -81,6 +84,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "sell.create": "Thêm đầu mối chỗ bán",
   "sell.update": "Sửa đầu mối chỗ bán",
   "sell.delete": "Xóa đầu mối chỗ bán",
+  "sell.vua-status": "Duyệt/từ chối/khoá hồ sơ vựa",
   "push.send": "Gửi thông báo",
   "inquiry.update": "Đổi trạng thái yêu cầu",
   "inquiry.delete": "Xóa yêu cầu",

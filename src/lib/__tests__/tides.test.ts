@@ -752,7 +752,8 @@ describe("thuỷ triều + làm mớn phải được NỐI, không chỉ nằm 
   it("thẻ con nước có ở sheet điểm, trang chủ; sheet điểm không treo vào công tắc lớp", () => {
     const v = doc("src/components/fishing-map-view.tsx");
     expect(v).toContain("<TideCard");
-    const home = doc("src/app/page.tsx");
+    // trang chủ theo vai (spec 17 §4.2): thẻ con nước nằm ở components/home-theo-vai.tsx (chủ tàu + đi bạn)
+    const home = doc("src/components/home-theo-vai.tsx");
     expect(home).toContain("<TideHomeCard");
     const card = doc("src/components/tide-card.tsx");
     // câu chữ lấy từ lib — component không tự dựng giờ nước

@@ -5,7 +5,7 @@
 // (`lib/nav-voice/opening.ts`). Hai bản chép là hai câu khác nhau về cùng một
 // tờ giấy. Thuần trừ `loadStored` (đọc localStorage, hỏng = rỗng, không ném).
 
-import { BoatDocument, getExpiryStatus } from "@/lib/documents";
+import { BoatDocument, PERSONAL_DOCS_HREF, getExpiryStatus, isPersonalDoc } from "@/lib/documents";
 import { CrewMember, crewIssue } from "@/lib/crew";
 import { getServiceDueStatus, type OwnedAssets } from "@/lib/owned-assets";
 import { getWarrantyStatus } from "@/lib/products";
@@ -77,6 +77,9 @@ export interface BoatCtx {
   /** id-món SDVICO → boatId đã gán */
   assign: Record<string, string>;
 }
+
+/** Nhãn phụ dải "Việc cần làm" cho giấy tờ của tôi: "Giấy tờ · Của tôi" (chỗ tên tàu). */
+export const PERSONAL_URGENT_TAG = "Của tôi";
 
 // deep-link ?tab= — nhắc việc rơi ĐÚNG tab, không rớt vào tab đầu (roadmap
 // hội đồng UX 2026-06-11; Tabs đọc param trong ui/tabs.tsx)
@@ -165,15 +168,17 @@ export function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
   for (const doc of docs) {
     const s = getExpiryStatus(doc, today);
     if (s.level === "expired" || s.level === "soon") {
+      // Giấy tờ của tôi (17 §12.2): mở /viec/giay, nhãn "Của tôi" thay tên tàu — luôn gắn, kể cả 1 tàu/không tàu
+      const rieng = isPersonalDoc(doc);
       items.push({
         id: `doc-${doc.id}`,
         label: doc.label,
         status: s.label,
         tone: s.level === "expired" ? "danger" : "warn",
         pillar: "giay_to",
-        href: hrefFor(PILLAR_TAG.giay_to.href, doc.boatId),
+        href: rieng ? PERSONAL_DOCS_HREF : hrefFor(PILLAR_TAG.giay_to.href, doc.boatId),
         days: s.days ?? 0,
-        boatLabel: boatLabelOf(doc.boatId),
+        boatLabel: rieng ? PERSONAL_URGENT_TAG : boatLabelOf(doc.boatId),
       });
     }
   }

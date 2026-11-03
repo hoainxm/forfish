@@ -194,7 +194,8 @@ export default function DangKyPage() {
     /*  BỎ PHIÊN SUPABASE — chuỗi cứng đã nằm trong máy, phiên bỏ lại chỉ tự chết
         chứ không mở được cửa nào. */
     await withDeadline(supabase!.auth.signOut(), 8000);
-    router.replace(next);
+    // tài khoản mới ⇒ hỏi "Bà con làm nghề gì?" trước khi về chỗ cũ (spec 17 §3.1)
+    router.replace(withNext("/chon-vai", next));
   }
 
   return (

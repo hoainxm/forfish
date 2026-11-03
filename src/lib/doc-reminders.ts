@@ -30,7 +30,13 @@
 
 import { daysUntil } from "@/lib/days";
 import { formatVnDate } from "@/lib/format";
-import { kindLabel, type DocumentKind } from "@/lib/documents";
+import {
+  PERSONAL_DOCS_HREF,
+  PERSONAL_DOCS_LABEL,
+  PERSONAL_OWNER_ID,
+  kindLabel,
+  type DocumentKind,
+} from "@/lib/documents";
 import { isDeleted } from "@/lib/sync-tombstone";
 import { withBoatParam } from "@/lib/boats";
 
@@ -49,7 +55,7 @@ const MAX_LINES = 3;
 
 /** Một thứ có hạn của chủ tàu — rút từ giấy tờ tàu hoặc sổ thuyền viên. */
 export interface ExpiringItem {
-  /** khoá ổn định: `doc:<id>` · `crew-bh:<id>` · `crew-cc:<id>` */
+  /** khoá ổn định: `doc:<id>` · `doc-cn:<id>` (giấy tờ của tôi) · `crew-bh:<id>` · `crew-cc:<id>` */
   ref: string;
   /** câu gọi tên cho bà con đọc, đã kèm tên tàu/người nếu cần */
   label: string;
@@ -78,6 +84,9 @@ function urlSafe(k: string): string {
   return k.replace(/[^A-Za-z0-9._:-]/g, "_");
 }
 
+/** Tiền tố khoá của giấy tờ của tôi — khác `doc:` để lời nhắc mở đúng màn, không gắn `&tau=`. */
+const PERSONAL_REF = "doc-cn:";
+
 /**
  * Đường mở khi chạm lời nhắc (thông báo + sheet khi mở app). Toàn giấy THUYỀN
  * VIÊN (`crew-*`) ⇒ `/nguoi` (bảo hiểm/chứng chỉ nằm ở sổ thuyền viên — audit
@@ -85,6 +94,11 @@ function urlSafe(k: string): string {
  * /tau đổi sang đúng tàu (O2).
  */
 export function docRemindHref(keys: string[], boatId?: string): string {
+  /*  Giấy tờ của tôi (`doc-cn:` — 17 §12.2): không có giấy TÀU nào trong lượt ⇒ mở `/viec/giay`
+      (người đi bạn không có tàu, /tau là tủ trống). Có giấy tàu ⇒ vẫn tab Giấy tờ như cũ. */
+  const coGiayTau = keys.some((k) => k.startsWith("doc:"));
+  const coGiayRieng = keys.some((k) => k.startsWith(PERSONAL_REF));
+  if (!coGiayTau && coGiayRieng) return PERSONAL_DOCS_HREF;
   const onlyCrew = keys.length > 0 && keys.every((k) => k.startsWith("crew-"));
   return onlyCrew ? "/nguoi" : withBoatParam("/tau?tab=giay-to", boatId);
 }
@@ -214,6 +228,10 @@ export function expiringItemsOf(input: {
     const kind = (str(d.kind) ?? "khac") as DocumentKind;
     const name = str(d.label) ?? kindLabel(kind);
     const bid = str(d.boatId);
+    if (bid === PERSONAL_OWNER_ID) {
+      items.push({ ref: `${PERSONAL_REF}${id}`, label: `${PERSONAL_DOCS_LABEL}: ${name}`, expiresOn: exp });
+      continue;
+    }
     const known = many && bid && boatName.has(bid) ? bid : undefined;
     const prefix = known ? `${boatName.get(known)}: ` : "";
     items.push({

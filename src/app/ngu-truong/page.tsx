@@ -1,5 +1,6 @@
 import { FishingMap } from "@/components/fishing-map";
 import { RequireLogin } from "@/components/require-login";
+import { BanDoTheoVai } from "@/components/ban-do-theo-vai";
 
 export const metadata = { title: "Đánh bắt — SDFish" };
 
@@ -25,7 +26,10 @@ export default function NguTruongPage() {
           hình, không lấy chỗ của bản đồ. */}
       <RequireLogin what="bản đồ ngư trường" laTieuDeChinh>
         <h1 className="sr-only">Bản đồ ngư trường</h1>
-        <FishingMap />
+        {/* đi bạn / thu mua / đại lý chưa có gói ⇒ thẻ giới thiệu gói (spec 17 §11.1); chủ tàu như cũ */}
+        <BanDoTheoVai>
+          <FishingMap />
+        </BanDoTheoVai>
       </RequireLogin>
     </div>
   );

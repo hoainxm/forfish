@@ -10,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isProductCategory } from "./categories";
 import { MarketError } from "./errors";
 import { makeOrderCode, makeRequestCode } from "./order-code";
+import { LOW_STOCK_MAX } from "./pricing";
 import { choXacNhanTien, ENDED_STATUSES, isOrderStatus, isPaymentMethod, isPaymentStatus } from "./order-state";
 import { isRequestStatus, type RequestPatch } from "./request-state";
 import type { MarketStore, OrderListQuery, OrderPatch, PreparedShopOrder, RequestListQuery } from "./store";
@@ -233,6 +234,8 @@ export function createSupabaseStore(): MarketStore {
   /** Builder lọc đơn — kiểu nới lỏng (supabase-js generic quá sâu cho tsc). */
   type OrderQb = {
     eq: (col: string, val: string) => OrderQb;
+    neq: (col: string, val: string) => OrderQb;
+    gt: (col: string, val: string) => OrderQb;
     /** PostgREST `not(col, "in", "(a,b)")` — loại đơn đã kết thúc */
     not: (col: string, op: string, val: string) => OrderQb;
     order: (col: string, o: { ascending: boolean }) => OrderQb;
@@ -257,6 +260,9 @@ export function createSupabaseStore(): MarketStore {
     const { page, pageSize, from, to } = clampPage(q);
     let qb = build(client().from("market_requests").select(`*, ${REQUEST_JOIN}`, { count: "exact" }) as unknown as OrderQb);
     if (q?.status) qb = qb.eq("status", q.status);
+    if (q?.quoteShopId) qb = qb.eq("quote_shop_id", q.quoteShopId);
+    if (q?.createdAfter) qb = qb.gt("created_at", q.createdAfter);
+    if (q?.notBuyerPhone) qb = qb.neq("buyer_phone", q.notBuyerPhone);
     const { data, error, count } = await withSig(qb.order("created_at", { ascending: false }).range(from, to));
     if (error) fail("market_requests đọc", error);
     return { items: (data ?? []).map((r: unknown) => rowToRequest(r as Row)), total: count ?? 0, page, pageSize };
@@ -371,7 +377,10 @@ export function createSupabaseStore(): MarketStore {
       }
       if (q.category) qb = qb.eq("category", q.category);
       if (q.q?.trim()) qb = qb.ilike("search_text", `%${foldVn(q.q).replace(/[%_]/g, " ")}%`);
-      const { data, error, count } = await withSig(qb.order("created_at", { ascending: false }).range(from, to));
+      // cùng luật isLowStock (pricing.ts): tồn ≤ LOW_STOCK_MAX, bỏ món liên hệ báo giá; tồn ít lên đầu
+      if (q.lowStock) qb = qb.lte("stock", LOW_STOCK_MAX).not("price_vnd", "is", null);
+      const sorted = q.lowStock ? qb.order("stock", { ascending: true }) : qb;
+      const { data, error, count } = await withSig(sorted.order("created_at", { ascending: false }).range(from, to));
       if (error) fail("shop_products đọc", error);
       return { items: (data ?? []).map((r) => rowToProduct(r as Row)), total: count ?? 0, page, pageSize };
     },
@@ -592,7 +601,7 @@ export function createSupabaseStore(): MarketStore {
         qtyBy.set(l.productId, cur);
       }
       const { data: low, error: e2 } = await withSig(
-        client().from("shop_products").select("id,title,stock").eq("shop_id", shopId).is("deleted_at", null).lte("stock", 3).order("stock", { ascending: true }).limit(10),
+        client().from("shop_products").select("id,title,stock").eq("shop_id", shopId).is("deleted_at", null).lte("stock", LOW_STOCK_MAX).not("price_vnd", "is", null).order("stock", { ascending: true }).limit(10),
       );
       if (e2) fail("shop_products kho thấp", e2);
       return {

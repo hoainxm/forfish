@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ManHeader } from "@/components/man-header";
 import { RequireLogin } from "@/components/require-login";
+import { BanDoTheoVai } from "@/components/ban-do-theo-vai";
 import { LoTrinhView } from "@/components/lo-trinh/lo-trinh-view";
 import { ChevronLeftIcon } from "@/components/icons";
 
@@ -27,7 +28,10 @@ export default function LoTrinhPage() {
         }
       />
       <RequireLogin what="đề xuất lộ trình">
-        <LoTrinhView />
+        {/* chuyến biển là phần của bản đồ — cùng cổng theo vai (spec 17 §11.1) */}
+        <BanDoTheoVai>
+          <LoTrinhView />
+        </BanDoTheoVai>
       </RequireLogin>
     </div>
   );

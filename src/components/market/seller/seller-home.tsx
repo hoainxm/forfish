@@ -138,6 +138,8 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
       <nav aria-label="Quản lý gian hàng" className="mt-3 space-y-3 px-4">
         <HomeLink href="/ban-hang/san-pham" icon={<BoxIcon className="h-6 w-6" />} label="Sản phẩm" sub="Thêm, sửa giá, sửa tồn kho" />
         <HomeLink href="/ban-hang/don" icon={<CartIcon className="h-6 w-6" />} label="Đơn hàng" sub="Xác nhận, giao hàng, xem tiền" />
+        {/* đại lý tự báo giá món chợ chưa có (17 §12.5) — shop chưa duyệt vẫn vào được để đọc vì sao chưa báo */}
+        <HomeLink href="/ban-hang/yeu-cau" icon={<BoxIcon className="h-6 w-6" />} label="Yêu cầu đặt" sub="Bà con cần món chợ chưa có — báo giá" />
         <HomeLink href="/ban-hang/cai-dat" icon={<SettingsIcon className="h-6 w-6" />} label="Cài đặt shop" sub="Hồ sơ, số tài khoản, tạm nghỉ bán" />
         {/* "Xem shop trên cửa hàng" nay là hàng đầu trang (ShopRow) — không lặp (BH-15) */}
       </nav>
@@ -250,10 +252,11 @@ function StatsBody({
         <p className="mt-0.5 text-[0.875rem] text-muted">Tính theo đơn đã hoàn thành (tiền hàng + phí giao).</p>
       </div>
 
-      {/* "N thứ cần làm" phải chạm đi thẳng tới chỗ làm (BH-09): cả băng là Link mở chip Hết hàng */}
+      {/* "N thứ cần làm" phải chạm đi thẳng tới chỗ làm (BH-09): cả băng là Link mở chip Sắp hết —
+           cùng luật isLowStock với danh sách (17 §12.5), trước đây mở chip Hết hàng nên món còn 1–3 không hiện */}
       {stats.lowStock.length > 0 && (
         <Link
-          href="/ban-hang/san-pham?tt=het_hang"
+          href="/ban-hang/san-pham?loc=sap-het"
           className="mt-3 flex min-h-(--row-h) items-center gap-3 rounded-2xl px-4 py-2.5"
           style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
         >

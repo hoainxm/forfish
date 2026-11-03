@@ -75,7 +75,7 @@ Test: **Vitest** (`npm test`, test tại `src/lib/__tests__/`) — thêm logic m
 
 ## Nguồn dữ liệu — ĐỪNG TỰ GIỚI HẠN (chốt 2026-08-31)
 
-> **Bản đồ MIỄN PHÍ cho tài khoản (khách: bão/giá/thời tiết cảng). Cái bán = DỰ BÁO CÁ + lớp có NGUỒN CHO BÁN** (đổi 2026-10-27, anh Long: *"lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu premium còn lại cho free"* — `data-route-rules.ts`, `tier.ts`). Nền · phao đèn OSM · tên rạn · đẳng sâu · thời tiết HÔM NAY — cho không.
+> **Bản đồ MIỄN PHÍ cho chủ tàu (khách: bão/giá/thời tiết cảng; vai khác: gói). Cái bán = DỰ BÁO CÁ + lớp có NGUỒN CHO BÁN** (đổi 2026-10-27, anh Long: *"lớp dự báo, cá, dữ liệu cc by sẽ yêu cầu premium còn lại cho free"* — `data-route-rules.ts`, `tier.ts`). Nền · phao đèn OSM · tên rạn · đẳng sâu · thời tiết HÔM NAY — cho không.
 
 Lỗi đã dính nhiều lần: agent đọc "SDFish là sản phẩm thương mại" rồi **loại thẳng** nguồn ghi *non-commercial*, dù nguồn đó chỉ dùng cho **lớp bản đồ miễn phí**. Ràng buộc bị áp sai chỗ, và mất nguồn tốt vì một lý do không tồn tại.
 
@@ -111,7 +111,7 @@ Thời tiết thường/khách CHỈ HÔM NAY, nhiều ngày kèm gói dự báo
 - 🔴 **DB/migration**: đụng `supabase/migrations/`, RLS, schema (project ref `znzgugvfhgmiszqgjulk`) — KHÔNG tự apply lên remote
 - 🔴 **Auth**: thêm/bỏ check quyền, bypass RLS
 - 🟡 **Cross-trục**: thay đổi ảnh hưởng >1 trục (vd: bottom-nav, layout, design tokens)
-- 🟡 **ẢNH HƯỞNG OFFLINE — HỎI MỌI THAY ĐỔI** (chủ dự án chốt 2026-08-01): trước khi commit BẤT KỲ thay đổi nào, tự trả lời *"cái này có làm hỏng việc dùng app ngoài biển không?"* và ghi câu trả lời vào commit message. Bốn câu hỏi soi: (a) có thêm **request mạng** nào chạy lúc mở app / chuyển màn không — có timeout chưa, mất sóng có treo không, có `.catch` chưa? (b) có đụng `public/sw.js`, `SHELL`, danh sách cache, hay khoá `forfish.*` không (đụng = chạy `docs/app-map/ops/qa-offline-acceptance.md` bộ bắt buộc)? (c) có làm **mất/đè** dữ liệu bà con đã tải (route trả 200-kèm-lỗi, xoá cache, bump phiên bản kho) không? (d) màn mới có **nhánh đọc bản đã lưu** khi mất sóng chưa, hay chỉ có nhánh mạng? Ngư dân mất sóng nhiều ngày — offline không phải tính năng phụ, hỏng nó là hỏng chuyện an toàn.
+- 🟡 **ẢNH HƯỞNG OFFLINE — HỎI MỌI THAY ĐỔI** (2026-08-01; 03/11: chỉ chủ tàu): trước khi commit BẤT KỲ thay đổi nào, tự trả lời *"cái này có làm hỏng việc dùng app ngoài biển không?"* và ghi câu trả lời vào commit message. Bốn câu hỏi soi: (a) có thêm **request mạng** nào chạy lúc mở app / chuyển màn không — có timeout chưa, mất sóng có treo không, có `.catch` chưa? (b) có đụng `public/sw.js`, `SHELL`, danh sách cache, hay khoá `forfish.*` không (đụng = chạy `docs/app-map/ops/qa-offline-acceptance.md` bộ bắt buộc)? (c) có làm **mất/đè** dữ liệu bà con đã tải (route trả 200-kèm-lỗi, xoá cache, bump phiên bản kho) không? (d) màn mới có **nhánh đọc bản đã lưu** khi mất sóng chưa, hay chỉ có nhánh mạng? Ngư dân mất sóng nhiều ngày — offline không phải tính năng phụ, hỏng nó là hỏng chuyện an toàn.
 - 🟡 **Data vendor**: code dính OceanByte/SDWork phải đi qua adapter — KHÔNG hardcode vendor vào core (xem [01-product.md](docs/app-map/01-product.md))
 
 ## LOGIC vs REQUEST

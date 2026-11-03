@@ -522,6 +522,29 @@ export function CartIcon(p: IconProps) {
   );
 }
 
+/** Cặp việc — ô dock Việc làm của vai Đi bạn (17 §4.1). */
+export function BriefcaseIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" />
+      <path d="M3 12.5h18" />
+    </svg>
+  );
+}
+
+/** Mái hiên cửa hàng — ô dock Bán hàng của vai Đại lý (17 §4.1). */
+export function StoreIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 9.5 5.5 4h13L20 9.5" />
+      <path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0" />
+      <path d="M5.5 12v8h13v-8" />
+      <path d="M10 20v-4.5h4V20" />
+    </svg>
+  );
+}
+
 /** Loa — giọng đọc cảnh báo (chế độ Đang chạy). */
 export function SpeakerIcon(p: IconProps) {
   return (

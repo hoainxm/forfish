@@ -5,6 +5,10 @@ import {
   BoatDocument,
   DOCUMENT_KINDS,
   DocumentKind,
+  PERSONAL_DOCS_LABEL,
+  PERSONAL_DOC_KINDS,
+  PERSONAL_OWNER_ID,
+  isPersonalDoc,
   byUrgency,
   giayTuUrl,
   getExpiryStatus,
@@ -104,9 +108,18 @@ function saveDocs(docs: StoredDocument[]): boolean {
   return ok;
 }
 
-export function DocumentVault() {
+/**
+ * `rieng` = GIẤY TỜ CỦA TÔI (17 §12.2, `/viec/giay`): cùng tủ, cùng kho `forfish.documents.v1`, chỉ khác chủ —
+ * giấy gắn `boatId = PERSONAL_OWNER_ID` thay vì tàu đang chọn, loại giấy là `PERSONAL_DOC_KINDS`. Không cần tàu.
+ */
+export function DocumentVault({ rieng = false }: { rieng?: boolean } = {}) {
   const { today } = useTodayVN();
-  const { current, boats, ready: boatReady } = useBoats();
+  const { current, boats, ready: tauReady } = useBoats();
+  /** người không có tàu vẫn dùng được tủ của mình — không chờ danh sách tàu */
+  const boatReady = rieng || tauReady;
+  const kinds = rieng ? PERSONAL_DOC_KINDS : DOCUMENT_KINDS;
+  /** chủ của giấy mới: người (mốc) hay tàu đang chọn */
+  const ownerId = rieng ? PERSONAL_OWNER_ID : current?.id;
   const [docs, setDocs] = useState<StoredDocument[]>([]);
   const [ready, setReady] = useState(false);
   /** máy không giữ được giấy vừa nhập → phải nói ra, không im */
@@ -198,9 +211,10 @@ export function DocumentVault() {
   // Only this boat's documents. Legacy items with no boatId — và mục trỏ vào
   // tàu không còn trong danh sách (showsUnderBoat) — thuộc tàu đang xem.
   const boatDocs = useMemo(() => {
-    const known = boatReady ? new Set(boats.map((b) => b.id)) : null;
+    if (rieng) return docs.filter(isPersonalDoc);
+    const known = tauReady ? new Set(boats.map((b) => b.id)) : null;
     return docs.filter((d) => showsUnderBoat(d.boatId, current?.id, known));
-  }, [docs, current, boats, boatReady]);
+  }, [docs, current, boats, tauReady, rieng]);
 
   /*  MỞ ĐÚNG GIẤY TỪ LINK `?giay=<loại>` (14 §21f — khối hạn giấy dưới bài luật Sen Biển: "Nhập"/"Sửa"): đã có giấy loại
       đó trên tàu đang xem ⇒ mở form SỬA giấy còn hạn xa nhất; chưa có ⇒ form THÊM với loại chọn sẵn. Chạy MỘT lần khi
@@ -211,7 +225,7 @@ export function DocumentVault() {
   useEffect(() => {
     if (!ready || !boatReady || daMoGiay.current) return;
     daMoGiay.current = true;
-    const kind = giayTuUrl(window.location.search);
+    const kind = giayTuUrl(window.location.search, kinds);
     if (!kind) return;
     const u = new URL(window.location.href);
     u.searchParams.delete("giay");
@@ -222,7 +236,7 @@ export function DocumentVault() {
     setEditing(coNgay[coNgay.length - 1] ?? cung[0] ?? null);
     setKindMoi(kind);
     setShowForm(true);
-  }, [ready, boatReady, readFailed, boatDocs, today]);
+  }, [ready, boatReady, readFailed, boatDocs, today, kinds]);
 
   /*  CẤT SẴN ẢNH CHO XUẤT TRÌNH (rà UI 2026-10-26): mở tủ lúc CÓ SÓNG ⇒ ảnh giấy nào chưa nằm trong kho máy thì tải
       về cất (lần lượt, dừng khi mất sóng/rời màn) — ra biển mở Xuất trình là có ảnh, kể cả giấy chụp từ máy khác hay
@@ -240,10 +254,13 @@ export function DocumentVault() {
     () => [...boatDocs].sort(byUrgency(today)),
     [boatDocs, today],
   );
-  const mocNghiaVu = useMemo(() => dongMocNghiaVu(current?.lengthM, today), [current?.lengthM, today]);
+  const mocNghiaVu = useMemo(
+    () => (rieng ? null : dongMocNghiaVu(current?.lengthM, today)),
+    [rieng, current?.lengthM, today],
+  );
 
   function upsert(doc: StoredDocument) {
-    const withBoat: StoredDocument = { ...doc, boatId: current?.id };
+    const withBoat: StoredDocument = { ...doc, boatId: ownerId };
     const idx = docs.findIndex((d) => d.id === withBoat.id);
     const next = [...docs];
     if (idx === -1) next.push(withBoat);
@@ -265,7 +282,7 @@ export function DocumentVault() {
       <div className="tau-section-heading">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
           <p className="text-[1rem] font-semibold text-navy">
-            Tủ giấy tờ · {sorted.length} giấy
+            {rieng ? PERSONAL_DOCS_LABEL : "Tủ giấy tờ"} · {sorted.length} giấy
           </p>
         </div>
         {readFailed ? (
@@ -464,6 +481,8 @@ export function DocumentVault() {
         <DocumentForm
           initial={editing}
           kindMoi={kindMoi}
+          kinds={kinds}
+          rieng={rieng}
           daCo={boatDocs.filter((d) => d.id !== editing?.id)}
           online={online}
           onCancel={() => {
@@ -478,8 +497,9 @@ export function DocumentVault() {
       {xuatTrinh && (
         <XuatTrinhGiay
           docs={sorted}
-          tenTau={current?.name}
-          maTau={current?.maTau}
+          tenTau={rieng ? undefined : current?.name}
+          maTau={rieng ? undefined : current?.maTau}
+          dongDau={rieng ? PERSONAL_DOCS_LABEL : undefined}
           today={today}
           onClose={() => setXuatTrinh(false)}
         />
@@ -506,6 +526,8 @@ export function DocumentVault() {
 function DocumentForm({
   initial,
   kindMoi,
+  kinds,
+  rieng,
   daCo,
   online,
   onCancel,
@@ -514,6 +536,10 @@ function DocumentForm({
   initial: StoredDocument | null;
   /** giấy MỚI mở từ link `?giay=` ⇒ chọn sẵn loại này (14 §21f); null ⇒ mặc định đăng kiểm như cũ */
   kindMoi?: DocumentKind | null;
+  /** loại giấy được chọn (tủ tàu: DOCUMENT_KINDS · giấy tờ của tôi: PERSONAL_DOC_KINDS) */
+  kinds: { value: DocumentKind; label: string }[];
+  /** tủ giấy tờ của tôi — câu chữ nói về "bạn", không nói "tàu này" */
+  rieng: boolean;
   /** giấy ĐÃ CÓ trong tủ của tàu này (trừ chính giấy đang sửa) — chặn hàng rỗng + hỏi khi trùng loại (TAU-11) */
   daCo: StoredDocument[];
   /** có sóng — chụp giấy (tải ảnh + máy nhà đọc) cần mạng */
@@ -546,8 +572,9 @@ function DocumentForm({
   const [loiAnh, setLoiAnh] = useState(false);
   /** ảnh LƯU (1600px) đang tải lên Storage — Lưu khoá tới khi xong để giấy không mất đường dẫn ảnh */
   const [dangTaiAnh, setDangTaiAnh] = useState(false);
-  const [kind, setKind] = useState<DocumentKind>(initial?.kind ?? kindMoi ?? "dang_kiem");
-  const [label, setLabel] = useState(initial?.label ?? kindLabel(kindMoi ?? "dang_kiem"));
+  const kindDau: DocumentKind = kindMoi ?? (rieng ? "cccd" : "dang_kiem");
+  const [kind, setKind] = useState<DocumentKind>(initial?.kind ?? kindDau);
+  const [label, setLabel] = useState(initial?.label ?? kindLabel(kindDau));
   const [labelTouched, setLabelTouched] = useState(Boolean(initial));
   const [number, setNumber] = useState(initial?.number ?? "");
   const [issuedOn, setIssuedOn] = useState(initial?.issuedOn ?? "");
@@ -570,7 +597,11 @@ function DocumentForm({
   const coThongTin = Boolean(expiresOn || number.trim() || photos.length);
   const luuDuoc = Boolean(initial) || coThongTin || !giayTrungLoai;
 
+  /** loại có trong danh sách của tủ này không — ảnh/giọng có thể đoán loại của tủ kia (vd "bao_hiem" ở giấy riêng) */
+  const kindHopLe = (k: DocumentKind) => kinds.some((x) => x.value === k);
+
   function handleKind(next: DocumentKind) {
+    if (!kindHopLe(next)) return; // giữ loại đang chọn, không để ô chọn trỏ vào loại không có trong danh sách
     setKind(next);
     // Keep the label in sync with the kind until the user edits it by hand.
     if (!labelTouched) setLabel(kindLabel(next));
@@ -625,6 +656,12 @@ function DocumentForm({
       return;
     }
     const ap = apDungKqDocGiay({ kind, number, issuedOn, expiresOn }, kq.giay);
+    // loại máy đọc ra không thuộc tủ này ⇒ bỏ, không báo "đã điền loại" (ô loại không đổi)
+    if (!kindHopLe(ap.form.kind)) {
+      ap.form.kind = kind;
+      ap.daDien = ap.daDien.filter((o) => o !== "kind");
+      ap.daDoi = ap.daDoi.filter((o) => o !== "kind");
+    }
     if (ap.form.kind !== kind) handleKind(ap.form.kind);
     setNumber(ap.form.number);
     setIssuedOn(ap.form.issuedOn);
@@ -831,7 +868,7 @@ function DocumentForm({
             }}
             className={lopO("kind")}
           >
-            {DOCUMENT_KINDS.map((k) => (
+            {kinds.map((k) => (
               <option key={k.value} value={k.value}>
                 {k.label}
               </option>
@@ -870,7 +907,7 @@ function DocumentForm({
                 setLabelTouched(true);
               }}
               className={inputClass}
-              placeholder="VD: Đăng kiểm tàu cá"
+              placeholder={rieng ? "VD: Chứng chỉ thuyền viên" : "VD: Đăng kiểm tàu cá"}
             />
           </Field>
         )}
@@ -919,7 +956,7 @@ function DocumentForm({
                   boDau("number");
                 }}
                 className={lopO("number")}
-                placeholder="VD: 1769/2025/GL-GPKTTS"
+                placeholder={rieng ? "Ghi đúng số in trên giấy" : "VD: 1769/2025/GL-GPKTTS"}
               />
             </Field>
 
@@ -950,7 +987,7 @@ function DocumentForm({
         {/* câu nhắc đứng riêng, KHÔNG chen vào hàng nút (TAU-10) — Huỷ|Lưu là chân ngăn */}
         <p className="mt-3 text-[0.875rem] leading-snug text-foreground/70">
           {!luuDuoc
-            ? `Tàu này đã có “${kindLabel(kind)}” — ghi hạn hoặc số giấy để thêm giấy mới.`
+            ? `${rieng ? "Đã có" : "Tàu này đã có"} “${kindLabel(kind)}” — ghi hạn hoặc số giấy để thêm giấy mới.`
             : expiresOn
               ? "Thông tin đã đủ để app nhắc hạn."
               : kindUsuallyNoExpiry(kind)
@@ -964,7 +1001,7 @@ function DocumentForm({
       {hoiTrung && giayTrungLoai && (
         <ConfirmDialog
           icon={<DocIcon className="h-9 w-9 text-navy" />}
-          title={`Tàu này đã có “${kindLabel(kind)}”`}
+          title={`${rieng ? "Đã có" : "Tàu này đã có"} “${kindLabel(kind)}”`}
           message="Cập nhật giấy cũ hay thêm giấy mới?"
           cancelLabel={NHAN.quayLai}
           confirmLabel={NHAN.capNhat}

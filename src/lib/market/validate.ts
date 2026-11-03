@@ -4,7 +4,7 @@
 import { isValidVnPhone } from "@/lib/phone";
 import { COASTAL_PROVINCES, provinceKey } from "@/lib/region";
 import { isProductCategory } from "./categories";
-import { validateEta } from "./eta";
+import { readEta, validateEta } from "./eta";
 import { isPaymentMethod } from "./order-state";
 import { isValidMarketQty } from "./pricing";
 import { foldVn } from "./text";
@@ -241,4 +241,34 @@ export function validateQuote(
   if (!isInt(q.shippingVnd) || q.shippingVnd < 0 || q.shippingVnd > SHIPPING_MAX) return "Phí giao từ 0 đến 5 triệu.";
   if (q.note != null && (typeof q.note !== "string" || q.note.trim().length > NOTE_MAX)) return "Ghi chú tối đa 300 chữ.";
   return validateEta(q.etaFrom, q.etaTo, today);
+}
+
+/** Báo giá đã đọc + kiểm — hình dạng ghi vào `market_requests.quote` (chưa có quotedAt/expiresAt). */
+export interface QuoteInput { goodsVnd: number; shippingVnd: number; etaFrom: string; etaTo: string; note?: string }
+
+const intOf = (v: unknown): number | undefined =>
+  typeof v === "number" && Number.isFinite(v) ? Math.trunc(v)
+    : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : undefined;
+
+/**
+ * Đọc body BÁO GIÁ một yêu cầu đặt hàng — MỘT nguồn cho chủ sàn (`/api/admin/cho/yeu-cau/[id]`,
+ * shopId từ body) và đại lý tự báo (`/api/ban-hang/yeu-cau/[id]/bao-gia`, shopId = shop đang đăng
+ * nhập — không bao giờ lấy từ body). Hẹn giao: {etaPreset} HOẶC {etaFrom, etaTo} (readEta).
+ * Phí giao bỏ trống = 0. Trả câu lỗi đời thường khi sai.
+ */
+export function readQuoteBody(
+  b: Record<string, unknown>,
+  shopId: unknown,
+  today: string,
+): { ok: true; quote: QuoteInput } | { ok: false; message: string } {
+  const eta = readEta(b, today);
+  if (typeof eta === "string") return { ok: false, message: eta };
+  const note = typeof b.note === "string" ? b.note.trim() : undefined;
+  const q = { shopId, goodsVnd: intOf(b.goodsVnd), shippingVnd: intOf(b.shippingVnd) ?? 0, etaFrom: eta.etaFrom, etaTo: eta.etaTo, note };
+  const bad = validateQuote(q, today);
+  if (bad) return { ok: false, message: bad };
+  return {
+    ok: true,
+    quote: { goodsVnd: q.goodsVnd!, shippingVnd: q.shippingVnd, etaFrom: eta.etaFrom, etaTo: eta.etaTo, ...(note ? { note } : {}) },
+  };
 }

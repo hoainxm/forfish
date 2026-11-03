@@ -523,6 +523,41 @@ describe("thống kê + ảnh + dev", () => {
   });
 });
 
+describe("đại lý tự báo giá + Sắp hết — kho file (17 §12.5)", () => {
+  it("listAllRequests lọc quoteShopId · createdAfter · notBuyerPhone", async () => {
+    const { applyQuote } = await import("@/lib/market/request-state");
+    const a = await store.createRequest("0901000007", { title: "Dây neo 20 ly", qty: 1, unit: "cuộn", address: addr, paymentMethod: "cod" });
+    const b = await store.createRequest(haidang.ownerPhone, { title: "Phao tròn", qty: 4, unit: "cái", address: addr, paymentMethod: "cod" });
+    const open = await store.listAllRequests({ status: "moi", notBuyerPhone: haidang.ownerPhone, pageSize: 50 });
+    expect(open.items.map((x) => x.id)).toContain(a.id);
+    expect(open.items.map((x) => x.id)).not.toContain(b.id);
+    expect((await store.listAllRequests({ createdAfter: NOW.toISOString(), pageSize: 50 })).items).toEqual([]);
+    await store.patchRequest(a.id, "moi", applyQuote(a, { goodsVnd: 400_000, shippingVnd: 0, etaFrom: "2026-09-07", etaTo: "2026-09-07" }, phuongnam.id, NOW.toISOString(), phuongnam.ownerPhone, "seller")!);
+    const mine = await store.listAllRequests({ quoteShopId: phuongnam.id, pageSize: 50 });
+    expect(mine.items.map((x) => x.id)).toContain(a.id);
+    expect(mine.items.every((x) => x.quoteShopId === phuongnam.id)).toBe(true);
+    // người sau trượt: ghi có điều kiện expectStatus = moi
+    await expectCode(store.patchRequest(a.id, "moi", applyQuote(a, { goodsVnd: 300_000, shippingVnd: 0, etaFrom: "2026-09-07", etaTo: "2026-09-07" }, haidang.id, NOW.toISOString(), undefined, "seller")!), "bad_transition");
+  });
+  it("listShopProducts lowStock: tồn ≤ 3, bỏ món liên hệ báo giá, tồn ít lên đầu", async () => {
+    const all = (await store.listShopProducts(haidang.id, { includeHidden: true, pageSize: 50 })).items;
+    expect(all.length).toBeGreaterThanOrEqual(3);
+    const [p1, p2, p3] = all;
+    await store.updateProduct(haidang.id, p1.id, { stock: 2, priceVnd: 100_000 });
+    await store.updateProduct(haidang.id, p2.id, { stock: 0, priceVnd: 100_000 });
+    await store.updateProduct(haidang.id, p3.id, { stock: 1, priceVnd: null });
+    const low = (await store.listShopProducts(haidang.id, { includeHidden: true, lowStock: true, pageSize: 50 })).items;
+    const ids = low.map((x) => x.id);
+    expect(ids).toContain(p1.id);
+    expect(ids).toContain(p2.id);
+    expect(ids).not.toContain(p3.id);
+    expect(low.every((x) => x.stock <= 3 && x.priceVnd != null)).toBe(true);
+    expect(low.map((x) => x.stock)).toEqual([...low.map((x) => x.stock)].sort((m, n) => m - n));
+    const stats = await store.stats(haidang.id, "7d");
+    expect(stats.lowStock.map((x) => x.productId)).not.toContain(p3.id);
+  });
+});
+
 describe("yêu cầu đặt hàng — kho file (2026-10-18)", () => {
   it("gửi → báo giá → đồng ý ⇒ đơn đã xác nhận ở shop chủ sàn chọn, kho món không đổi", async () => {
     const { applyAccept, applyQuote, requestToOrder } = await import("@/lib/market/request-state");

@@ -1,8 +1,10 @@
 # 08 — ba-spec: Đa tàu — hồ sơ cố-định-theo-tàu vs động-theo-chủ
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
+<!-- re-verified: 2026-11-03 — GIẤY TỜ CỦA TÔI (17 §12.2): `document-vault` thêm prop `rieng` (tủ giấy riêng của người, `boatId="ca-nhan"` = `PERSONAL_OWNER_ID`); `boats.showsUnderBoat` loại mốc này ⇒ tủ giấy tàu + bộ chọn tàu không thấy "tàu ma"; `urgent.ts` giấy riêng mở `/viec/giay`, nhãn "Giấy tờ · Của tôi". Luật đa tàu của file này không đổi. -->
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
-last_verified: 2026-10-29
+last_verified: 2026-11-03
+ttl_days: 90
 <!-- re-verified: 2026-10-29 23:00 - nhóm H chữ/nhãn: boat-switcher/document-vault/crew-list/boat-products/urgent-strip chỉ đổi MÀU chữ phụ /65 ⇒ text-muted; boat-products nút yêu cầu SDVICO nhãn "Bảo hành" (NHAN.baoHanh). Không đổi luồng đa tàu, hồ sơ cố định/động, AC — spec vẫn đúng. -->
 <!-- re-verified: 2026-10-29 21:00 - nhóm B chữ/a11y: boat-switcher/document-vault/maintenance-reminders/crew-list/boat-products/urgent-strip chỉ đổi MÀU chữ phụ (text-muted), chính tả Xoá/Huỷ, nhãn từ NHAN (Thêm tàu, Giấy mới), chữ "gói Premium" ⇒ TEN_GOI "gói dự báo" ở sổ thuyền viên. Không đổi luồng đa tàu, hồ sơ cố định/động, AC — spec vẫn đúng. -->
 <!-- re-verified: 2026-10-29f — `document-vault.tsx`: thêm MỘT dòng mốc nghĩa vụ (NKKT/eCDT) theo `lengthM` của TÀU ĐANG CHỌN (`lib/compliance.ts dongMocNghiaVu`) — là hồ sơ CỐ ĐỊNH theo tàu (R1), đổi tàu là đổi dòng; tàu chưa khai chiều dài ⇒ không có dòng. CẢNG NHÀ: `homePortId` của tàu đang chọn nay là kho thứ 3 của `lib/cang-nha.ts docCangNha` (sau ghim home và `forfish.home.v1`), không còn là nguồn duy nhất cho thẻ Con nước. Không đổi shape `Boat`, không đổi AC đa tàu. -->
@@ -230,7 +232,7 @@ ttl_days: 90
 - **Then** mỗi việc nêu rõ thuộc tàu nào; việc của T2 nhắc kèm nhãn T2; món chưa-gán không nhãn tàu
 - **Assert**: mỗi urgent item có `boatLabel == boat(record)`; item SDVICO `boatId==T2` → nhãn T2; `shownCount == tổng việc của mọi tàu`
 
-### AC-9 — Đăng nhập máy khác thấy đủ hồ sơ · Maps to: NV1/NV3 · Test: unit (2026-10-06)
+### AC-9 — Đăng nhập máy khác thấy đủ hồ sơ · Maps to: NV1, NV3 · Test: unit (2026-10-06)
 - **Given** tài khoản có tàu T1 + giấy tờ của T1 đã lên server từ máy A; máy B trống
 - **When** đăng nhập máy B (có sóng)
 - **Then** B có T1 và giấy tờ của T1; máy A thêm tàu T2 trong khi B thêm giấy cho T1 ⇒ cả hai thay đổi đều còn sau khi hai máy đồng bộ
@@ -254,7 +256,7 @@ ttl_days: 90
 - **Then** hiện sheet nhắc (gấp nhất trước); đã hiện (bấm "Để sau"/"Xem giấy tờ" hay vuốt thoát app) ⇒ cùng ngày mở lại KHÔNG hiện; bản tin bão trong máy có cơn nhưng đã quá 12 giờ ⇒ VẪN hiện (`stormYieldsToReminder`, `storms.test.ts`); hôm sau (mốc 2) hiện lại; đã chạm thông báo điện thoại của mốc đó (`?nhac=`) ⇒ không hiện lại chuyện đó
 - **Assert**: `doc-reminder-local.test.ts` (`localDueReminders` + `markSeenKeys` + `markSeenFromUrl`)
 
-### AC-12 — Bấm lời nhắc mở đúng tàu của việc đó · Maps to: NV3/NV5 · Test: unit + trình duyệt (2026-10-21)
+### AC-12 — Bấm lời nhắc mở đúng tàu của việc đó · Maps to: NV3, NV5 · Test: unit + trình duyệt (2026-10-21)
 - **Given** chủ có ≥2 tàu, đang chọn T1; giấy của T2 tới mốc nhắc (hoặc bảo dưỡng của T2 sắp hạn)
 - **When** bấm dòng đó ở dải khẩn, nút "Xem giấy tờ" của sheet nhắc, hoặc chạm thông báo điện thoại
 - **Then** /tau mở đúng tab VÀ tàu đang chọn ĐỔI LUÔN sang T2 (lưu như tự bấm chọn tàu — chủ dự án chốt 2026-10-21); tham số `tau` bị gỡ khỏi đường dẫn; tàu đã xoá / chỉ 1 tàu / giấy chưa gắn tàu ⇒ giữ tàu đang chọn; tin gộp nhiều tàu ⇒ tàu của giấy TÀU gấp nhất

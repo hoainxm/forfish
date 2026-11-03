@@ -36,6 +36,9 @@ export function marketErrorText(r: Extract<MarketResult<unknown>, { ok: false }>
     case "forbidden": return "Việc này không thuộc quyền của shop.";
     case "not_found": return "Không tìm thấy — có thể đã bị xoá.";
     case "bad_transition": return "Đơn đã sang bước khác rồi — tải lại giúp.";
+    // đại lý tự báo giá (17 §12.5) — route gửi kèm câu, đây là câu dự phòng
+    case "da_co_bao_gia": return r.message ?? "Đã có nơi báo giá trước — yêu cầu này không còn nhận giá.";
+    case "shop_paused": return "Shop đang tạm nghỉ bán — mở bán lại rồi làm tiếp.";
     case "slug_taken": return "Tên shop này đã có người dùng — chọn tên khác.";
     case "bad_size": return "Ảnh quá lớn, chụp lại gần hơn.";
     case "bad_type": return "Ảnh phải là JPG, PNG hoặc WebP.";

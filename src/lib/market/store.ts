@@ -68,6 +68,12 @@ export interface OrderListQuery {
 
 export interface RequestListQuery {
   status?: RequestStatus;
+  /** báo giá đang gắn shop này (màn đại lý "Đã báo", 17 §12.5) */
+  quoteShopId?: string;
+  /** chỉ yêu cầu gửi SAU mốc này (ISO) — bỏ yêu cầu `moi` đã quá 7 ngày trước khi phân trang */
+  createdAfter?: string;
+  /** bỏ yêu cầu của SĐT này (chủ shop không tự báo giá cho chính mình) */
+  notBuyerPhone?: string;
   page?: number;
   pageSize?: number;
 }

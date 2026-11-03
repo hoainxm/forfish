@@ -29,7 +29,7 @@ import {
 import { MoreButton, NoShop, SELLER_BTN, SELLER_BTN_WIDE } from "./ui";
 import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify"; // một luật giờ tự tắt (rà bố cục 2026-10-22)
 
-type Filter = "all" | "dang_ban" | "an" | "het_hang" | "bi_go";
+type Filter = "all" | "dang_ban" | "an" | "het_hang" | "bi_go" | "sap_het";
 import { NHAN } from "@/lib/labels";
 const FILTERS: readonly ChipOption<Filter>[] = [
   { id: "all", label: "Tất cả" },
@@ -37,6 +37,8 @@ const FILTERS: readonly ChipOption<Filter>[] = [
   { id: "an", label: "Đã ẩn" },
   { id: "het_hang", label: "Hết hàng" },
   { id: "bi_go", label: "Bị gỡ" },
+  // tồn ≤ 3, bỏ món liên hệ báo giá (isLowStock, 17 §12.5) — lên URL là `?loc=sap-het`, không phải `?tt=`
+  { id: "sap_het", label: NHAN.sapHet },
 ];
 const FILTER_MAC_DINH: Filter = "dang_ban";
 const filterOf = (v: string | null): Filter | null => FILTERS.find((f) => f.id === v)?.id ?? null;
@@ -73,7 +75,7 @@ function Inner({ shop }: { shop: Shop }) {
   const path = useCallback(
     (page: number) =>
       `/api/ban-hang/san-pham?page=${page}` +
-      (filter === "all" ? "" : `&status=${filter}`) +
+      (filter === "all" ? "" : filter === "sap_het" ? "&loc=sap-het" : `&status=${filter}`) +
       (q ? `&q=${encodeURIComponent(q)}` : ""),
     [filter, q],
   );
@@ -85,7 +87,8 @@ function Inner({ shop }: { shop: Shop }) {
     const luu = sp.get("luu");
     const xoa = sp.get("xoa");
     const tt = sp.get("tt");
-    let filter0 = filterOf(tt) ?? FILTER_MAC_DINH; // `?tt=het_hang` từ băng Sắp hết hàng ở Tổng quan (BH-09)
+    // `?loc=sap-het` từ băng sắp hết hàng ở Tổng quan (BH-09, 17 §12.5) · `?tt=` chip trạng thái
+    let filter0: Filter = sp.get("loc") === "sap-het" ? "sap_het" : filterOf(tt) ?? FILTER_MAC_DINH;
     const q0 = sp.get("q") ?? "";
     if (luu) {
       /*  Vừa lưu một món thì PHẢI THẤY nó (BH-06): chip mặc định "Đang bán" sẽ
@@ -112,7 +115,11 @@ function Inner({ shop }: { shop: Shop }) {
 
   useEffect(() => {
     if (!ready) return;
-    writeUrlParams({ tt: filter === FILTER_MAC_DINH ? null : filter, q: q || null });
+    writeUrlParams({
+      tt: filter === FILTER_MAC_DINH || filter === "sap_het" ? null : filter,
+      loc: filter === "sap_het" ? "sap-het" : null,
+      q: q || null,
+    });
   }, [ready, filter, q]);
 
   const ghi = useCallback(
@@ -283,6 +290,8 @@ function Rows({
             ? `Không có món nào tên giống "${q}"${filter === "all" ? "" : " trong mục này — thử chip Tất cả"}.`
             : filter === "bi_go"
               ? "Không có món nào bị SDVICO gỡ."
+              : filter === "sap_het"
+                ? "Không có món nào sắp hết — món có giá đều còn trên 3."
               : filter === "all"
                 ? "Shop chưa có món nào."
                 : "Chưa có món nào ở mục này."}
