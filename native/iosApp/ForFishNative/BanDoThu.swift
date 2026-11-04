@@ -10,12 +10,7 @@ struct BanDoThu: View {
     var body: some View {
         BanDoMapLibre(kieu: kieu).task {
             let nen = Bundle.main.path(forResource: "vn-basemap", ofType: "pmtiles", inDirectory: "du-lieu")
-            var geo: String?
-            if let url = URL(string: tt.ung.mayChuGoc() + DuLieuTramTrieu.shared.DUONG_DAN),
-               let (data, _) = try? await URLSession.shared.data(from: url) {
-                geo = (try? CauNoiIos.shared.tramTrieu(data: data))?.geoJson
-            }
-            let json = CauNoiIos.shared.kieuBanDo(nenPmtiles: nen.map { "pmtiles://file://\($0)" } ?? "", geoJson: geo)
+            let json = CauNoiIos.shared.kieuBanDo(webGoc: tt.ung.mayChuGoc(), tep: KieuBanDo.Tep(nen: nen, dao: nil, doSau: nil, duongDoSau: nil, denBien: nil, xacTau: nil))
             let f = FileManager.default.temporaryDirectory.appendingPathComponent("kieu-ban-do.json")
             try? json.write(to: f, atomically: true, encoding: .utf8)
             kieu = f

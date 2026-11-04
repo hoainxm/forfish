@@ -8,7 +8,6 @@ import platform.Foundation.NSData
 import platform.posix.memcpy
 import vn.sdvico.forfish.shared.bando.DuLieuTramTrieu
 import vn.sdvico.forfish.shared.bando.KieuBanDo
-import kotlinx.serialization.json.Json
 
 /** Cầu nối cho Swift (iosApp): nhận NSData, trả kiểu Swift đọc thẳng được — tránh chép KotlinByteArray từng byte. */
 object CauNoiIos {
@@ -28,6 +27,5 @@ object CauNoiIos {
         return KetQuaTram(tram.size, DuLieuTramTrieu.geoJson(tram).toString())
     }
 
-    fun kieuBanDo(nenPmtiles: String, geoJson: String?): String =
-        KieuBanDo.nen(nenPmtiles, geoJson?.let { Json.parseToJsonElement(it) })
+    fun kieuBanDo(webGoc: String, tep: KieuBanDo.Tep): String = KieuBanDo.dung(webGoc, tep)
 }

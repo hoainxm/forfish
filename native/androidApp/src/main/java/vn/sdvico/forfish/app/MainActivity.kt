@@ -351,12 +351,9 @@ class MainActivity : ComponentActivity() {
     private fun BanDoThu() {
         LaunchedEffect(Unit) {
             val nen = chepTuAssets("vn-basemap.pmtiles")
-            val geo = runCatching {
-                DuLieuTramTrieu.geoJson(DuLieuTramTrieu.doc(withContext(Dispatchers.IO) { tai(ung.mayChuGoc() + DuLieuTramTrieu.DUONG_DAN) }))
-            }.getOrNull()
             mapView.getMapAsync { map ->
                 map.cameraPosition = CameraPosition.Builder().target(LatLng(KieuBanDo.TAM_LAT, KieuBanDo.TAM_LON)).zoom(KieuBanDo.ZOOM_MO).build()
-                map.setStyle(Style.Builder().fromJson(KieuBanDo.nen(nen?.let { "pmtiles://file://${it.absolutePath}" } ?: "", geo)))
+                map.setStyle(Style.Builder().fromJson(KieuBanDo.dung(ung.mayChuGoc(), KieuBanDo.Tep(nen = nen?.absolutePath))))
             }
         }
         AndroidView(factory = { (mapView.parent as? android.view.ViewGroup)?.removeView(mapView); mapView }, modifier = Modifier.fillMaxSize())

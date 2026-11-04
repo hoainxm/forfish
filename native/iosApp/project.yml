@@ -20,6 +20,8 @@ targets:
       path: ForFishNative/Info.plist
       properties:
         UILaunchScreen: {}
+        # = câu của bản Capacitor (ios/App/App/Info.plist)
+        NSLocationWhenInUseUsageDescription: "SDFish dùng vị trí để canh bản đồ và xem gió sóng đúng chỗ bạn đang ở. Vị trí không được lưu lại hay gắn với tài khoản."
         CFBundleDisplayName: "ForFish (native thử)"
         # font của web (layout.tsx): Archivo tiêu đề + Plus Jakarta Sans chữ — OFL
         UIAppFonts: [archivo_600.ttf, archivo_700.ttf, jakarta_400.ttf, jakarta_500.ttf, jakarta_600.ttf, jakarta_700.ttf]

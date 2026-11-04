@@ -136,6 +136,13 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - 2e dự báo cá + mật độ tàu + AIS.
 - 2f dẫn đường + Đang chạy giọng nói.
 
+### 3e. Bàn giao sang máy GPU (2026-11-04, anh Long: "chuyển qua pc desktop chạy tiếp đi")
+
+Từ đây phiên Claude trên `gpu-desktop` (WSL, `~/ForFish`, nhánh `feat/app-native-kmp`) làm tiếp tuần tự, không hỏi lại (quyền đã giao — `~/.claude/CLAUDE.md` mục "Máy GPU + quyền làm việc").
+- **Trạng thái lúc giao**: đợt 2a đang dở. Đã có `KieuBanDo.dung(webGoc, Tep)` (nền sinh từ `buildMapStyle` + chèn lớp sau `base-top` + nhãn chủ quyền; test thứ tự lớp), `BanDoSinh.kt` (`sinh-ban-do.mjs`), `TaiDuLieu` (tải + giải + cất file), quyền vị trí đã khai (manifest + `project.yml`). Ô Bản đồ hai app mới vẽ nền (chưa nối lớp).
+- **Việc kế tiếp 2a**: (1) port bộ giải `decodeSoundings`/`decodeSoundingRoutes`/verdicts/`fmtDepthM`/`isStale`, `decodeFairwayDepths`, `decodeDenBien` + `lighthouseSymbolId` + `lightAbbrev`, `decodeXacTau` + `wreckSymbolId` sang `shared/bando/HaiDo.kt`, dựng GeoJSON y `soundingGeo/depthLineGeo/denBienGeo/xacTauGeo` (V:2970–3130). `native/scripts/sinh-hai-do.mjs` + `shared/src/jvmTest/resources/hai-do/*.json` đã sinh sẵn GeoJSON mẫu từ code web (chạy lại script để chắc) — viết test jvmTest đọc `public/data/*` so với mẫu; (2) lớp điều phối tải các file (`vn-basemap.pmtiles`, `vn-islands.v1.json`, bốn file trên) qua `TaiDuLieu`, đổi GeoJSON, cất `.geojson`, trả `KieuBanDo.Tep` — có hàm đọc bản đã cất cho lúc mất sóng; (3) Android: nối vào ô Bản đồ + GPS (`locationComponent` của MapLibre, xin quyền lúc vào bản đồ, nút về tàu); (4) iOS: viết cùng phần đó trong Swift (`showsUserLocation`) — KHÔNG build được trên GPU, để Mac build khi anh mở phiên Mac.
+- **Sau 2a**: 2b → 2f theo §3d, rồi đợt 3–7. Mỗi bước xanh: `./gradlew :shared:jvmTest` + `~/android-tools/build-native.sh` (emulator) + ảnh chụp đối chiếu web, commit + push `feat/app-native-kmp`, cập nhật doc này cùng commit.
+
 ## 4. Trong lúc chuyển
 
 - Bản Capacitor vẫn là bản phát hành; sửa lỗi của nó vẫn làm (vd thẻ "Cài app" hiện trong app native — ẩn bằng `Capacitor.isNativePlatform()`).

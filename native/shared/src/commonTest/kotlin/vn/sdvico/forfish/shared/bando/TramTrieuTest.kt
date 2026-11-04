@@ -24,9 +24,22 @@ class TramTrieuTest {
         assertEquals("106.8167", toaDo[0].toString())
     }
 
-    @Test fun kieuBanDoLaJsonHopLe() {
-        val s = Json.parseToJsonElement(KieuBanDo.nen("pmtiles://file:///x.pmtiles", DuLieuTramTrieu.geoJson(emptyList()))).jsonObject
-        assertEquals(4, s["layers"]!!.jsonArray.size)
-        assertTrue(s["sources"]!!.jsonObject.containsKey("diem"))
+    @Test fun kieuBanDoThieuNenVanCoNuocVaChuQuyen() {
+        val s = Json.parseToJsonElement(KieuBanDo.dung("https://web", KieuBanDo.Tep())).jsonObject
+        val ids = s["layers"]!!.jsonArray.map { it.jsonObject["id"].toString().trim('"') }
+        assertEquals("sea-bg", ids.first())
+        assertEquals("chu-quyen", ids.last())
+        assertTrue("basemap" !in s["sources"]!!.jsonObject)
+        assertTrue(s["glyphs"].toString().contains("https://web/fonts/"))
+    }
+
+    @Test fun kieuBanDoChenLopSauMocDungThuTu() {
+        val t = KieuBanDo.Tep(nen = "/f/n.pmtiles", dao = "/f/d.json", doSau = "/f/s.json", duongDoSau = "/f/l.json", denBien = "/f/b.json", xacTau = "/f/x.json")
+        val s = Json.parseToJsonElement(KieuBanDo.dung("https://web", t)).jsonObject
+        val ids = s["layers"]!!.jsonArray.map { it.jsonObject["id"].toString().trim('"') }
+        val sau = ids.subList(ids.indexOf("base-top") + 1, ids.size)
+        assertEquals(listOf("island-dot", "island-label", "depth-line", "sounding-dot", "sounding-label", "xac-tau", "den-bien", "den-bien-ten", "chu-quyen"), sau)
+        assertEquals("pmtiles://file:///f/n.pmtiles", s["sources"]!!.jsonObject["basemap"]!!.jsonObject["url"].toString().trim('"'))
+        assertEquals("file:///f/s.json", s["sources"]!!.jsonObject["do-sau"]!!.jsonObject["data"].toString().trim('"'))
     }
 }

@@ -20,6 +20,8 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SDFish dùng vị trí để canh bản đồ và xem gió sóng đúng chỗ bạn đang ở. Vị trí không được lưu lại hay gắn với tài khoản.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>archivo_600.ttf</string>
