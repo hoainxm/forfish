@@ -400,8 +400,10 @@ export function hangMucChuan() {
   ).length;
   const khuOSM = kt.khu.filter((k) => /OSM/i.test(k.nguonToaDo ?? "")).length;
   const khuTinh = new Set(kt.khu.map((k) => k.tinh)).size;
-  const denDoTram = ts.stations.filter((tr) => tr.nguon !== "model").length;
-  const moHinhTram = ts.stations.length - denDoTram;
+  const denDoTram = ts.stations.filter((tr) => tr.nguon !== "model" && tr.nguon !== "bang").length;
+  // trạm bảng triều (đảo xa bờ, 2026-11-04) — không phải trạm đo, cũng không phải EOT20
+  const bangTram = ts.stations.filter((tr) => tr.nguon === "bang").length;
+  const moHinhTram = ts.stations.length - denDoTram - bangTram;
 
   const hang = [
     {
@@ -553,7 +555,7 @@ export function hangMucChuan() {
     {
       id: 14,
       ten: "Thuỷ triều",
-      taCo: `${ts.stations.length} trạm — ${denDoTram} trạm ĐO thật (gauge, UHSLC/JASL) + ${moHinhTram} trạm MÔ HÌNH (EOT20, CC BY 4.0; trong đó ${ts.stations.filter((s) => s.hang === "cang").length} trạm tại cảng cá, 2026-09-04)`,
+      taCo: `${ts.stations.length} trạm — ${denDoTram} trạm ĐO thật (gauge, UHSLC/JASL) + ${moHinhTram} trạm MÔ HÌNH (EOT20, CC BY 4.0; trong đó ${ts.stations.filter((s) => s.hang === "cang").length} trạm tại cảng cá, 2026-09-04)${bangTram ? ` + ${bangTram} trạm BẢNG TRIỀU đảo xa bờ (Hoàng Sa, Song Tử Tây; Transas, 2026-11-04)` : ""}`,
       // 2026-09-03 (chiều): thêm 7 trạm EOT20 (mô hình thuỷ triều toàn cầu,
       // KHÔNG phải trạm đo thật — gắn cờ `nguon: "model"` trong chính file,
       // đếm riêng denDoTram/moHinhTram để KHÔNG lẫn mô hình vào trạm đo). Giá
