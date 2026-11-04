@@ -14,7 +14,8 @@ export type ConfigKey =
   | "tau_ais_key"
   | "tau_ais_xem"
   | "sdvico_lead_key"
-  | "doi_tac_ais";
+  | "doi_tac_ais"
+  | "kho_o_tran_mb";
 
 export interface ConfigKeyMeta {
   key: ConfigKey;
@@ -164,6 +165,15 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     envVar: "DOI_TAC_AIS",
     help: "Dạng ten:sha256hex:khu:goi (vd …:135:60 = khu 1,3,5 gói 60 phút), cách nhau dấu phẩy. Đừng gõ tay — cấp/thu bằng: node scripts/doi-tac-khoa.mjs cap <ten> --khu 135 --goi 60 | thu <ten> | ds.",
   },
+  /*  TRẦN KHO Ô BẢN ĐỒ (2026-11-04, lib/kho-o-ban-do): ngăn máy chủ tự tải vượt trần thì xoá ô cũ nhất. Chưa đặt = 2048 MB. */
+  {
+    key: "kho_o_tran_mb",
+    label: "Trần kho ô bản đồ (MB)",
+    risk: "Đặt quá nhỏ là máy chủ xoá ô liên tục và gọi nguồn ngoài nhiều hơn; quá lớn là đầy đĩa máy chủ.",
+    secret: false,
+    envVar: "SDFISH_KHO_O_MB",
+    help: "Dung lượng tối đa cho ô bản đồ máy chủ tự tải (số MB, 100–100000). Chưa đặt = 2048. Xem số ô đang có ở thẻ Kho ô bản đồ.",
+  },
 ];
 
 /** Khoá dữ liệu phải đúng 64 ký tự hex (32 byte). */
@@ -196,6 +206,8 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
       return v.length >= 16 && !/\s/.test(v);
     case "tau_ais_xem":
       return danhSachSdtHopLe(v);
+    case "kho_o_tran_mb":
+      return /^\d+$/.test(v) && Number(v) >= 100 && Number(v) <= 100_000;
     case "doi_tac_ais":
       return v.split(",").map((s) => s.trim()).filter(Boolean).every((s) => /^[a-z0-9][a-z0-9-]{1,39}:[0-9a-f]{64}:[1-5]{1,5}:(30|60)$/.test(s)); // = MUC_KHOA_DOI_TAC (lib/doi-tac)
     case "kairos_ingest_key":

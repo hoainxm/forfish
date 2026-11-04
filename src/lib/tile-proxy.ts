@@ -17,6 +17,7 @@
 // ai cũng mượn được server của app để tải hộ thứ khác.
 
 import { apiUrl } from "@/lib/api-base";
+import { URL_NGUON } from "@/lib/o-ban-do-nguon.mjs";
 
 /** Tên nguồn hợp lệ trên đường /api/tiles/{src}/{z}/{x}/{y} */
 export type TileProxySource = "chart" | "seamark" | "sst" | "chlorophyll";
@@ -33,25 +34,33 @@ export type TileProxyDef = {
   daily?: boolean;
   /** Ảnh theo ngày: thử những ngày nào, theo thứ tự (xem `upstreamTileUrls`). */
   dates?: { useDefault: boolean; backDays: number };
+  /** KHO MÁY CHỦ (lib/kho-o-ban-do): ô máy chủ tự tải còn "tươi" trong bấy nhiêu ms — quá hạn thì hỏi lại nguồn. */
+  khoMs: number;
+  /** Ô máy nhà (gpu-desktop) đẩy lên còn tươi trong bấy nhiêu ms. 0 = nguồn này máy nhà không đẩy. */
+  mayNhaMs: number;
 };
 
-const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best";
+const NGAY = 86_400_000;
 
 export const TILE_PROXY: Record<TileProxySource, TileProxyDef> = {
   chart: {
-    upstream: (z, x, y) =>
-      `https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/${z}/${x}/${y}.png`,
+    upstream: URL_NGUON.chart,
     minzoom: 0,
     maxzoom: 12,
     // độ sâu đáy biển gần như không đổi → giữ 30 ngày
     sMaxAge: 2592000,
+    khoMs: 30 * NGAY,
+    // máy nhà đẩy lại mỗi tuần ⇒ 45 ngày vẫn coi là tươi (lỡ vài lượt không sao)
+    mayNhaMs: 45 * NGAY,
   },
   seamark: {
-    upstream: (z, x, y) => `https://tiles.openseamap.org/seamark/${z}/${x}/${y}.png`,
+    upstream: URL_NGUON.seamark,
     minzoom: 8,
     maxzoom: 18,
     // phao đèn do người đóng góp sửa dần → giữ 7 ngày
     sMaxAge: 604800,
+    khoMs: 7 * NGAY,
+    mayNhaMs: 0,
   },
   /*  NGÀY `default` của GIBS = ảnh mới nhất nguồn còn (độ trễ đổi theo tuần — ĐỪNG tự trừ ngày, xem ocean-map).
       GIBS dùng thứ tự {z}/{y}/{x} (WMTS TileRow/TileCol), khác XYZ thường. Ảnh đổi mỗi ngày ⇒ CDN giữ 6 giờ. */
@@ -61,22 +70,26 @@ export const TILE_PROXY: Record<TileProxySource, TileProxyDef> = {
           từng ô 404 cách quãng (vệt quét vệ tinh + mây) ⇒ lùi từng ngày tới khi ô có ảnh.
         · Nước nóng lạnh MUR: `default` đúng ảnh mới nhất, nhưng có lúc 500 ⇒ ô trống. Lùi ngày làm dự phòng.  */
   sst: {
-    upstream: (z, x, y, date = "default") =>
-      `${GIBS}/GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies/default/${date}/GoogleMapsCompatible_Level7/${z}/${y}/${x}.png`,
+    upstream: URL_NGUON.sst,
     minzoom: 0,
     maxzoom: 7,
     sMaxAge: 21600,
     daily: true,
     dates: { useDefault: true, backDays: 10 },
+    khoMs: 6 * 3_600_000,
+    // máy nhà chạy 2 lượt/ngày ⇒ 30 giờ đủ chừa một lượt hỏng
+    mayNhaMs: 30 * 3_600_000,
   },
   chlorophyll: {
-    upstream: (z, x, y, date = "default") =>
-      `${GIBS}/VIIRS_NOAA20_Chlorophyll_a/default/${date}/GoogleMapsCompatible_Level7/${z}/${y}/${x}.png`,
+    upstream: URL_NGUON.chlorophyll,
     minzoom: 0,
     maxzoom: 7,
     sMaxAge: 21600,
     daily: true,
     dates: { useDefault: false, backDays: 7 },
+    khoMs: 6 * 3_600_000,
+    // ô máy nhà = ảnh GỐC ngày mới nhất có ảnh (KHÔNG ghép nhiều ngày) — xem scripts/o-ban-do-thu.mjs
+    mayNhaMs: 30 * 3_600_000,
   },
 };
 

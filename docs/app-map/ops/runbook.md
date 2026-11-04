@@ -2,7 +2,7 @@
 
 > Load khi: cần deploy / build lỗi / regenerate asset tĩnh (icon, lưới độ sâu, isobath) / kiểm tra sức khỏe app trước khi push.
 
-covers: scripts/train/run.mjs, scripts/kairos-luat.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs, scripts/thoi-tiet-thu.mjs
+covers: scripts/train/run.mjs, scripts/kairos-luat.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs, scripts/thoi-tiet-thu.mjs, scripts/o-ban-do-thu.mjs
 last_verified: 2026-10-30
 <!-- re-verified: 2026-10-30 — Kairos đổi sang Gemma qua Ollama (mục env + bước kiểm tay); log `[AI]` thay `[claude]`, thêm `[gemma] Ollama không trả lời … — thử Claude`. -->
 <!-- re-verified: 2026-10-29 — đọc `scripts/e2e-video-export.mjs` + `package.json` (e2e:export) + `playwright.config.ts` (outputDir, viewport 402×874, cổng 3100/3101) + `tests/e2e/{demo,auth}`: lệnh và bảng video khớp; bổ sung mục Video — xuất riêng một video bằng `npm run e2e:export -- 06`, tên file .mp4 theo số (`1-thoi-tiet-bien.mp4`…), thông số ffmpeg (3× lanczos = 1206×2622, 30 khung/giây, CRF 20, faststart, bỏ tiếng), vì sao không quay thẳng ở 3×, và hai lỗi dừng sớm (chưa quay / thiếu ffmpeg). -->
@@ -339,6 +339,27 @@ systemctl --user disable --now kairos-thu.timer kairos-kiem.timer   # tạm dừ
 | `[tải] 429 …` lặp nhiều lần | trần phút/ngày Open-Meteo (dùng chung IP nhà) | tự chờ; cả lượt hỏng thì lượt sau |
 | `[gửi] 200 … "truot":N` với N lớn | máy chủ đổi URL sau khi máy nhà lấy danh sách (deploy giữa lượt) | lượt sau tự khớp |
 | `[gửi] 200 … "grid":{"16":false}` | Open-Meteo không trả khung 16 ngày cả ở máy nhà | xem `[tải]` trong cùng lượt |
+
+## Ô bản đồ từ máy nhà — gpu-desktop tải trước vùng biển VN (2026-11-04)
+
+> Vì sao: kho ô máy chủ (`lib/kho-o-ban-do`, ops/external-services › "Kho ô bản đồ phía máy chủ") chỉ đầy dần theo lượt bà con kéo. Máy nhà tải TRƯỚC vùng biển VN và đẩy vào ngăn `may-nha` ⇒ EMODnet/NASA sập vẫn còn ô. Mỗi ô là ảnh GỐC của nguồn (ngày mới nhất có ảnh), KHÔNG ghép nhiều ngày.
+
+1. **Khoá**: dùng CHUNG bí mật cron. `~/.config/forlife/o-ban-do.env` (chmod 600):
+   ```
+   O_BAN_DO_API_BASE=https://sdfish.sdvico.vn
+   CRON_SECRET=<app_config.cron_secret>
+   ```
+   Trỏ vào máy chủ CÓ ĐĨA BỀN (IIS). Phía máy chủ KHÔNG cần cài gì: kho tự nằm ở `C:\SDViCo Soft\FORFISH\shared\kho-o` (cạnh `current`, deploy không xoá); xem/xoá + đổi trần ở /quan-tri › Hệ thống.
+2. **Thư mục** `~/.local/forlife/o-ban-do/`: `lam-moi.sh` (khuôn thời tiết) xuất `scripts/o-ban-do-thu.mjs` + `src/lib/o-ban-do-nguon.mjs` từ origin/main của `C:\Code\ForFish` vào `app-<ref>`; chưa có trên main ⇒ giữ `app` → `app-dev` (cài tay 04/11 từ nhánh `feat/kho-o-ban-do`). Bản sao ô ở `kho/<src>/<z>/<x>/<y>.png`, mốc đẩy hải đồ ở `kho/chart.gui-luc`.
+3. **Unit** `~/.config/systemd/user/o-ban-do-thu.{service,timer}`: `OnCalendar=*-*-* 07,19:40:00` (giờ VN), `Persistent=true`, `TimeoutStartSec=40min`. Xem: `journalctl --user -u o-ban-do-thu -n 20`.
+4. **Chạy thử không gửi**: `node ~/.local/forlife/o-ban-do/app/scripts/o-ban-do-thu.mjs --thu --lop=sst,chlorophyll` ⇒ lượt 04/11: `[sst] 90/90 ô` · `[phù du] N/90 ô · theo ngày {…}`. Ép đẩy hải đồ: `--hai-do`.
+
+| Triệu chứng (journal) | Nguyên nhân | Làm gì |
+|---|---|---|
+| `[gửi] 404` | máy chủ chưa deploy bản có `/api/o-ban-do/nhap` | deploy IIS (chạy tay) rồi lượt sau tự gửi |
+| `[gửi] 401` | CRON_SECRET lệch | dán lại từ app_config |
+| `[gửi] 500 … "code":"disk"` | đĩa máy chủ đầy / thư mục kho không ghi được | /quan-tri › Hệ thống › thẻ Kho ô bản đồ (báo "không ghi được" + thư mục) ⇒ kiểm quyền tài khoản service `forfish` trên thư mục đó |
+| `[phù du] … theo ngày` dồn về ngày cũ | GIBS chưa ra ảnh mấy ngày gần | tự lành; ảnh cũ vẫn trong kho máy chủ |
 
 ## Nguồn ngày từ máy GPU — phù du nhiều nguồn + sao kho dự phòng (2026-11-04)
 

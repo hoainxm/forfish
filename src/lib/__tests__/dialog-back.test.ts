@@ -20,6 +20,7 @@ const NGOAI_LE: Record<string, string> = {
   "admin/tab-cho-ban.tsx": "quản trị desktop, hộp tự chế (rà C §17)",
   // khối xác nhận NẰM TRONG trang (không phủ màn) — Back không có lớp nào để đóng
   "admin/tab-he-thong.tsx": "alertdialog nội tuyến, không phải lớp nổi",
+  "admin/kho-o-ban-do-card.tsx": "alertdialog nội tuyến (xác nhận xoá ngăn kho), không phải lớp nổi",
 };
 
 function walk(dir: string): string[] {

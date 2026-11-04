@@ -9,8 +9,15 @@ import {
   isPlaceholderTile,
   isTileProxySource,
   upstreamTileUrls,
+  type TileProxySource,
 } from "@/lib/tile-proxy";
 import { timeoutSignal } from "@/lib/abort";
+import { chonTuKho, docKhoO, ghiKhoO, type OKho } from "@/lib/kho-o-ban-do";
+
+/*  KHO MÁY CHỦ (2026-11-04, lib/kho-o-ban-do): ô còn tươi trong kho ⇒ phát luôn, KHÔNG gọi nguồn ngoài.
+    Trượt ⇒ hỏi nguồn như cũ, được ảnh thì cất ngăn `song`. Nguồn hỏng ⇒ phát ô kho cũ (ngăn `may-nha` do
+    gpu-desktop đẩy, hoặc ô `song` quá hạn) thay vì 503. Header `X-Kho-O` cho biết ô từ đâu (kiểm khi nghi). */
+export const runtime = "nodejs";
 
 type Ctx = {
   params: Promise<{ src: string; z: string; x: string; y: string }>;
@@ -35,17 +42,49 @@ const TOTAL_MS = 12_000;
 /** Trần MỖI lượt hỏi nguồn — đủ chỗ cho 2–3 ngày dự phòng khi nguồn chậm. */
 const ATTEMPT_MS = 6_000;
 
+function anh(src: TileProxySource, buf: Uint8Array | ArrayBuffer, ctype: string, tu: string, cu = false) {
+  return new Response(buf as BodyInit, {
+    status: 200,
+    headers: {
+      "Content-Type": ctype,
+      "X-Kho-O": tu,
+      // ô cũ phát thay lúc nguồn hỏng ⇒ máy giữ 5 phút rồi xin lại; ảnh đổi theo ngày (GIBS) ⇒ máy giữ 1 giờ,
+      // không `immutable`; ảnh tĩnh giữ 1 ngày
+      "Cache-Control": cu
+        ? "public, max-age=300"
+        : TILE_PROXY[src].daily
+          ? `public, max-age=3600, s-maxage=${TILE_PROXY[src].sMaxAge}`
+          : `public, max-age=86400, s-maxage=${TILE_PROXY[src].sMaxAge}, immutable`,
+    },
+  });
+}
+
 export async function GET(_req: Request, { params }: Ctx) {
   const { src, z: zs, x: xs, y: ys } = await params;
   if (!isTileProxySource(src)) return new Response("Bản đồ không xác định", { status: 404 });
-  const urls = upstreamTileUrls(
-    src,
-    Number.parseInt(zs, 10),
-    Number.parseInt(xs, 10),
-    Number.parseInt(ys, 10),
-  );
+  const [z, x, y] = [zs, xs, ys].map((v) => Number.parseInt(v, 10));
+  const urls = upstreamTileUrls(src, z, x, y);
   // đúng nguồn nhưng ngoài dải zoom / ô vô lý → ô trống, không phải lỗi
   if (!urls) return empty();
+
+  const { tuoi, duPhong } = chonTuKho(src, await docKhoO(src, z, x, y), Date.now());
+  if (tuoi) return anh(src, tuoi.buf, tuoi.ctype, `kho-${tuoi.ngan}`);
+
+  const kq = await taiTuNguon(urls);
+  if (kq.ok) {
+    await ghiKhoO("song", src, z, x, y, kq.buf, kq.ctype);
+    return anh(src, kq.buf, kq.ctype, "nguon");
+  }
+  /*  Nguồn hỏng HOẶC ô không có ảnh ở mọi ngày ⇒ còn ô cũ trong kho thì phát (bản đồ có ảnh hôm trước tốt hơn ô
+      trống). Không còn gì ⇒ giữ luật cũ: hỏng = 503 (SW lấy ô đã cất, MapLibre xin lại), không có ảnh = 204. */
+  const cu: OKho | undefined = duPhong[0];
+  if (cu) return anh(src, cu.buf, cu.ctype, `kho-${cu.ngan}-cu`, true);
+  return kq.failed ? upstreamDown() : empty();
+}
+
+type KetQuaNguon = { ok: true; buf: Uint8Array; ctype: string } | { ok: false; failed: boolean };
+
+async function taiTuNguon(urls: string[]): Promise<KetQuaNguon> {
   const deadline = Date.now() + TOTAL_MS;
   /*  `failed` = có lượt nguồn KHÔNG trả lời (5xx, hết giờ, ô giả, trang HTML). Hết danh sách mà mọi lượt
       đều 404 thì ô đó thật sự không có ảnh (mây che cả tuần, biển sâu ngoài vùng phủ) ⇒ 204. Có lượt hỏng
@@ -80,21 +119,11 @@ export async function GET(_req: Request, { params }: Ctx) {
         failed = true;
         continue;
       }
-      const buf = await res.arrayBuffer();
-      return new Response(buf, {
-        status: 200,
-        headers: {
-          "Content-Type": ctype,
-          // ảnh đổi theo ngày (GIBS) ⇒ máy giữ 1 giờ, không `immutable`; ảnh tĩnh giữ 1 ngày
-          "Cache-Control": TILE_PROXY[src].daily
-            ? `public, max-age=3600, s-maxage=${TILE_PROXY[src].sMaxAge}`
-            : `public, max-age=86400, s-maxage=${TILE_PROXY[src].sMaxAge}, immutable`,
-        },
-      });
+      return { ok: true, buf: new Uint8Array(await res.arrayBuffer()), ctype };
     } catch {
       // hết giờ / DNS chết / nguồn treo — cũng là "không hỏi được"
       failed = true;
     }
   }
-  return failed ? upstreamDown() : empty();
+  return { ok: false, failed };
 }

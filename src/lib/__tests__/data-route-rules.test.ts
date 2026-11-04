@@ -135,6 +135,7 @@ describe("matcher middleware.ts ↔ DATA_ROUTE_MATCHER ↔ route thật", () => 
       "sen-bien", // máy GỬI mẫu câu nói lên (POST), không trả dữ liệu — identityFromRequest + rate limit trong route
       "kairos", // tin + mạng xã hội: KHÁCH ĐỌC ĐƯỢC (14 §2) nên không qua dataGate 401; đọc qua readerOf (trần 600/10 phút theo SĐT, khách theo IP); ghi tự gác identityFromRequest + trần theo SĐT; /nhap + /kiem gác khoá máy GPU
       "thoi-tiet", // /nhap: máy GPU gửi gói nguồn Open-Meteo — gác bí mật cron trong route, không trả dữ liệu cho app
+      "o-ban-do", // /nhap: máy GPU đẩy ô bản đồ vào kho máy chủ — gác bí mật cron trong route, không trả dữ liệu cho app
       "vua", // hồ sơ vựa đã duyệt cho Đầu mối (spec 17 §12.4): identityFromRequest trong route, không phải lớp dữ liệu bán
       "viec", // việc làm (spec 17 §6): KHÁCH ĐỌC ĐƯỢC danh sách tin tuyển nên không qua dataGate 401; đọc qua readerOf (trần Kairos); SĐT chỉ ở /lien-he gác identityFromRequest + vai trong route
       "doi-tac", // API đơn vị tích hợp AIS: Bearer theo license (khu + gói) + trần lượt trong route (lib/doi-tac-cua), không phải tài khoản app

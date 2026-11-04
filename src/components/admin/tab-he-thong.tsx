@@ -10,6 +10,7 @@ import { type ConfigKey, configPrecedenceText, validateConfigValue } from "@/lib
 import { tokenHeader } from "@/lib/device-token-store";
 import { useCallback, useEffect, useState } from "react";
 import { type Health, fmtD, fmtDT } from "@/components/admin/quan-tri-chung";
+import { KhoOBanDoCard } from "@/components/admin/kho-o-ban-do-card";
 
 /** Một nguồn dữ liệu app đang sống nhờ — check bằng chính API của app */
 export type SourceState =
@@ -637,6 +638,7 @@ export function SystemTab({ health }: { health: Health }) {
   return (
     <div className="mt-4 space-y-4">
       <AppConfigCard />
+      <KhoOBanDoCard />
       <ul className="surface overflow-hidden">
         <Row
           ok={env?.supabase ?? false}
