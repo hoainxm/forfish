@@ -332,6 +332,20 @@ class KhoDanDuong(private val nap: vn.sdvico.forfish.shared.bando.NapBanDo) {
     /** Tải sẵn hai file nhị phân khi mở bản đồ có gói (thay cho CRITICAL_SHELL/best-effort của service worker web). */
     suspend fun taiSan() { napDoSau(); napRan() }
 
+    /** Lưới độ sâu đã nạp (lớp tại chỗ cho "vùng nước dưới tàu" lúc chạy) — null = chưa có. */
+    fun lopDoSau(): ((Double, Double) -> Int?)? = doSau?.let { g -> { lat: Double, lon: Double -> g.lop(lat, lon) } }
+
+    /** Ngữ cảnh canh đường lúc chạy (= khối nạp kho của fishing-map-view khi bật dẫn) — đọc file đã tải, không mạng. */
+    fun nguCanh(draftM: Double?): vn.sdvico.forfish.shared.dangchay.NguCanhChay {
+        val N = vn.sdvico.forfish.shared.bando.NapBanDo
+        return vn.sdvico.forfish.shared.dangchay.NapNguCanh.dung(
+            vn.sdvico.forfish.shared.dangchay.KhoNguCanh(
+                json(N.XAC), json(N.LUONG_BIEN), json(N.BAO_HIEU), json(N.BAO_HIEU_VN), json(N.DEN), json(N.KHU_TRU_BAO), json(N.VUNG_QUAN_LY),
+            ),
+            draftM, java.time.LocalDate.now().year,
+        )
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun dauVao(start: Diem, stops: List<Diem>, boat: TauMinh, now: Long, bao: vn.sdvico.forfish.shared.danduong.TrangThaiBao): vn.sdvico.forfish.shared.danduong.DauVaoDanDuong {
         kotlinx.coroutines.coroutineScope {

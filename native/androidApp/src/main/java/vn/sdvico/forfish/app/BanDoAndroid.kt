@@ -161,6 +161,10 @@ class BanDoAndroid(
     /** Dẫn đường (đợt 2f): kho hải đồ giải một lần + thời tiết tuyến (lưới đã lưu dài nhất khi mất sóng) */
     private val khoDuong = KhoDanDuong(nap)
     private val napTTDuong = NapThoiTietDuong(ung.mayChu, { System.currentTimeMillis() }) { napGio.luoiDaiNhat() }
+    /** Chuyến đang dẫn (Đang chạy) — fix GPS đổ thẳng vào bộ máy */
+    private var chuyen: ChuyenChay? = null
+    /** bấm Xong/Dừng làm HUD biến mất giữa cú chạm ⇒ nhả tay rơi xuống bản đồ: bỏ chạm bản đồ tới mốc này */
+    private var boChamDen = 0L
     /** GeoJSON tuyến đang vẽ (lớp fuel-route) */
     private var duongGeo: String? = null
     /** GeoJSON mật độ tàu đang vẽ */
@@ -451,6 +455,68 @@ class BanDoAndroid(
             }
         }
         LaunchedEffect(goi) { if (goi) withContext(Dispatchers.IO) { khoDuong.taiSan() } }
+        // ── ĐANG CHẠY (đợt 2f): bộ máy BoChay mỗi giây, HUD + thanh đáy, giọng, camera bám tàu, giữ sáng màn ──
+        val giong = remember { GiongAndroid(ctx) }
+        val phat = remember { PhatNgonAndroid(giong) }
+        DisposableEffect(Unit) { onDispose { phat.dung(); giong.dong() } }
+        var dangChay by remember { mutableStateOf<ChuyenChay?>(null) }
+        var nhipChay by remember { mutableStateOf<vn.sdvico.forfish.shared.dangchay.NhipChay?>(null) }
+        val gocView = androidx.compose.ui.platform.LocalView.current
+        fun dungChay() {
+            chuyen = null; dangChay = null; nhipChay = null
+            boChamDen = System.currentTimeMillis() + 600
+            phat.dung(); gocView.keepScreenOn = false
+            xoaDuong(); diemChon = null; map?.style?.let { veDiemChon(it) }
+            map?.let { m -> m.moveCamera(CameraUpdateFactory.newCameraPosition(org.maplibre.android.camera.CameraPosition.Builder(m.cameraPosition).padding(0.0, 0.0, 0.0, 0.0).build())) }
+        }
+        val batDauChay: () -> Unit = batDau@{
+            val k = duongKq as? KetQuaDanDuong.CoTuyen ?: return@batDau
+            val plan = k.tuyen.plan
+            val c = ChuyenChay(
+                vn.sdvico.forfish.shared.dangchay.BoChay(
+                    plan.waypoints.map { vn.sdvico.forfish.shared.dangchay.ViTri(it.lat, it.lon) }, plan.distKm, plan.hours,
+                    khoDuong.nguCanh(tauMinh.draftM), khoDuong.lopDoSau(), tauMinh.draftM, tuyChon.distUnit,
+                ),
+                duongToi?.ten ?: "",
+            )
+            // fix cuối đã có ⇒ đổ ngay cho bộ máy (không chờ nhịp GPS kế)
+            viTri?.let { l ->
+                c.bo.fix(vn.sdvico.forfish.shared.dangchay.LocIn(vn.sdvico.forfish.shared.dangchay.ViTri(l.latitude, l.longitude), l.time,
+                    if (l.hasSpeed()) l.speed.toDouble() else null, if (l.hasBearing()) l.bearing.toDouble() else null, if (l.hasAccuracy()) l.accuracy.toDouble() else null))
+            }
+            ghi("Bắt đầu dẫn: ${plan.waypoints.size} điểm " + plan.waypoints.joinToString(";") { "%.4f,%.4f".format(it.lat, it.lon) })
+            chuyen = c; dangChay = c; duongMo = false; lop = null
+            gocView.keepScreenOn = true // = wake lock màn của web khi dẫn
+        }
+        LaunchedEffect(dangChay) {
+            val c = dangChay ?: return@LaunchedEffect
+            var batDauBam = true // lần bám đầu: về zoom dẫn đường (NAV_FOLLOW_ZOOM); sau đó giữ zoom bà con chỉnh
+            while (true) {
+                val now = System.currentTimeMillis()
+                val n = c.bo.nhip(now)
+                nhipChay = n
+                phatNhip(n, phat, giong)
+                if (n.tuDung) { dungChay(); kotlinx.coroutines.delay(300); phat.day(listOf(cauTuDung())); break }
+                // camera bám tàu khi định vị còn tốt (mất định vị: GIỮ khung) — tàu dồn ngược hướng chạy (lechCamera)
+                val p = n.pos
+                val m = map
+                if (p != null && m != null && n.gps == vn.sdvico.forfish.shared.dangchay.TrangThaiGps.TRACKING) {
+                    val (dx, dy) = vn.sdvico.forfish.shared.dangchay.DinhVi.lechCamera(n.headingDeg, mapView.width.toDouble(), mapView.height.toDouble())
+                    val sp = m.projection.toScreenLocation(LatLng(p.lat, p.lon))
+                    val tam = m.projection.fromScreenLocation(android.graphics.PointF(sp.x + mapView.width / 2f - (mapView.width / 2f + dx), sp.y - dy.toFloat()))
+                    // đệm 0: lần ôm tuyến (newLatLngBounds) để lại padding trong camera ⇒ không xoá là tàu lệch lên dưới HUD
+                    m.animateCamera(
+                        CameraUpdateFactory.newCameraPosition(
+                            org.maplibre.android.camera.CameraPosition.Builder().target(LatLng(tam.latitude, tam.longitude)).padding(0.0, 0.0, 0.0, 0.0)
+                                .apply { if (batDauBam) zoom(vn.sdvico.forfish.shared.dangchay.DinhVi.NAV_FOLLOW_ZOOM) }.build(),
+                        ),
+                        800,
+                    )
+                    batDauBam = false
+                }
+                kotlinx.coroutines.delay(1000)
+            }
+        }
         val moDuongToi: (Diem, String) -> Unit = { p, ten ->
             duongToi = DiemDuong(p, ten)
             // nơi xuất phát mặc định: GPS còn tươi, không thì cảng gần ĐIỂM ĐẾN nhất (= defaultStartId)
@@ -574,7 +640,7 @@ class BanDoAndroid(
                     } else CameraPosition.Builder().target(LatLng(KieuBanDo.TAM_LAT, KieuBanDo.TAM_LON)).zoom(KieuBanDo.ZOOM_MO).build()
                 }
                 m.uiSettings.isRotateGesturesEnabled = false // web khoá xoay: bắc luôn lên trên
-                m.addOnMapClickListener { ll -> khiCham?.invoke(ll); true }
+                m.addOnMapClickListener { ll -> if (System.currentTimeMillis() >= boChamDen) khiCham?.invoke(ll); true }
                 m.uiSettings.isCompassEnabled = false
                 // web: chỉ nút ⓘ ghi nguồn (attribution compact), không logo; đặt trên dock nổi
                 m.uiSettings.isLogoEnabled = false
@@ -593,6 +659,13 @@ class BanDoAndroid(
             val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
             val nghe = LocationListener { l ->
                 viTri = l
+                chuyen?.bo?.fix(
+                    vn.sdvico.forfish.shared.dangchay.LocIn(
+                        vn.sdvico.forfish.shared.dangchay.ViTri(l.latitude, l.longitude), l.time,
+                        if (l.hasSpeed()) l.speed.toDouble() else null, if (l.hasBearing()) l.bearing.toDouble() else null,
+                        if (l.hasAccuracy()) l.accuracy.toDouble() else null,
+                    ),
+                )
                 cu = false
                 map?.style?.let { capNhatTau(it, false) }
             }
@@ -756,15 +829,26 @@ class BanDoAndroid(
                         duongToi, listOfNotNull(duongToi) + cangGan(tuoi?.diem ?: duongTu?.diem), { duongToi = it; lanDuong++ },
                         tauMinh, { t -> tauMinh = t; if (!soTau.ghi(t)) ghi("Tàu mình: kho từ chối ghi") },
                         duongTinh, { lanDuong++ }, duongKq, duongLoi, tuyChon.distUnit, tuyChon.coordFormat,
-                        batDau = null,
-                        dong = { duongMo = false; xoaDuong(); diemChon = null; map?.style?.let { veDiemChon(it) } },
+                        batDau = batDauChay,
+                        dong = {
+                            duongMo = false; xoaDuong(); diemChon = null; map?.style?.let { veDiemChon(it) }
+                            map?.let { m -> m.moveCamera(CameraUpdateFactory.newCameraPosition(org.maplibre.android.camera.CameraPosition.Builder(m.cameraPosition).padding(0.0, 0.0, 0.0, 0.0).build())) }
+                        },
                     )
                 }
             }
-            Box(
+            if (dangChay != null) {
+                HudChay(nhipChay, tuyChon.distUnit, { dangChay?.bo?.boQuaLech() }, { dungChay() }, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp, end = 64.dp))
+                ThanhDayChay(
+                    nhipChay, tuyChon.distUnit, System.currentTimeMillis(), { dungChay() },
+                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = (CoSinh.DockRow + CoSinh.DockGap + 8).dp),
+                )
+            }
+            // bảng Lộ trình che đáy màn (cao tới CAO_BANG_DUONG) ⇒ nút về tàu đè chữ cuối bảng: ẩn khi bảng mở
+            if (!(duongMo && cham == null)) Box(
                 Modifier.align(Alignment.BottomEnd).navigationBarsPadding()
                     // thanh giờ đang mở ⇒ nút về tàu lên trên khối thanh giờ (~220 dp) cho khỏi bị che
-                    .padding(end = 12.dp, bottom = (CoSinh.DockRow + CoSinh.DockGap + 12 + (if (dong != null) 220 else 0) + (if (cham != null || tauChon != null) caoThe + 8 else 0)).dp),
+                    .padding(end = 12.dp, bottom = (CoSinh.DockRow + CoSinh.DockGap + 12 + (if (dong != null) 220 else 0) + (if (cham != null || tauChon != null) caoThe + 8 else 0) + (if (dangChay != null) 76 else 0)).dp),
             ) {
                 NutTron("Crosshair", "Về chỗ tàu đang đứng") {
                     if (!coQuyen) {
