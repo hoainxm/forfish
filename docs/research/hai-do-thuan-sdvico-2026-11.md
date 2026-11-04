@@ -238,3 +238,20 @@ Anh Long: *"kiểm tra và so với từng màn của 2 app kia, đảm bảo h�
 | 2 | ✅ 2026-11-04 | 1 (mũi Bắc), 2, 3 (Bắc/Hướng đi), 7, 12, 13, 14, 15 + cột nút thông minh (3 nút lúc yên, khay ⋯) |
 | 3 | ✅ 2026-11-04 | 4 (tự đổi màu), 5, 6 (tô nông theo đường an toàn), 11 (AIS + CPA; chưa có danh sách tàu riêng), 16 (lớp trạm), 17 (gió sóng tại điểm chạm — chưa có lớp gió sóng toàn vùng/tua giờ), 21 |
 | 4 | ⏳ chuyển sang máy GPU 2026-11-04 | 8, 9, 10, 18 (tuyến, giám sát, vết, điểm, GPX) |
+
+### 8.4 Bàn giao đợt 4 (chuyển sang máy GPU, 2026-11-04)
+
+Nhánh `feat/hai-do-thuan` (origin) — đợt 1–3 đã có, test xanh (`npm test`), chưa vào `main`.
+Bắt đầu: `git fetch origin && git checkout feat/hai-do-thuan`. Đọc trước: mục 2–3 + 8 của file này, `docs/app-map/07-design-spec.md` §13, `src/components/hai-do/hai-do-view.tsx`, `src/lib/hai-do/*`.
+
+**Việc đợt 4** (bảng §8 hàng 8, 9, 10, 18):
+1. **Tuyến** (⋯ → Tuyến; `mucKhay` đã có cờ `tuyen`): chạm hải đồ đặt điểm, kéo sửa, danh sách điểm (hướng · cự ly · tốc độ chặng · giờ đến), đảo tuyến, lưu nhiều tuyến (dùng lại `lib/saved-routes.ts` + `lib/route-stops.ts` nếu hợp, không thì kho `forfish.haiDoTuyen.v1` + xếp loại trong `offline-backup`).
+2. **Kiểm tuyến**: danh sách "Nguy hiểm trên tuyến" theo chặng — dùng lại bộ soi đã có (`lib/route-hazards.ts`, `lib/nav-hazards.ts`, `lib/reef-depth.ts`, lưới độ sâu, khu cấm) — KHÔNG viết bộ soi mới.
+3. **Giám sát tuyến**: khi chạy theo tuyến, dải số mở thêm điểm kế · PV (BTW) · cự ly (DTW) · giờ đến (TTG/ETA) · lệch tuyến (XTD) — dùng `lib/nav-progress.ts`; báo `lechTuyen` / `hetTuyen` vào `dsBaoDong` (trường đã chờ sẵn); bật nấc **Tuyến lên** (`huongKeTiep(h, coTuyen=true)`, `gocCamera(…, pvChang, …)`).
+4. **Vết tàu** (⋯ → Vết): ghi vết theo chuyến vào IndexedDB (lọc ≥ 20 m hoặc ≥ 30 s, bỏ fix sai số lớn), xem lại, xoá, "tạo tuyến từ vết". PWA ghi khi màn mở; bản native ghi nền.
+5. **Điểm người dùng**: giữ chạm ⇒ thêm điểm (kho `places` sẵn có) + loại (cá, rạn, xác tàu, neo…) + ghi chú.
+6. **GPX**: `lib/hai-do/gpx.ts` thuần (đọc/ghi tuyến, vết, điểm) + test; xuất qua chia sẻ của máy, nhập qua chọn tệp.
+
+**Luật giữ nguyên**: cột nút thông minh (`lib/hai-do/cot-nut.ts` — mục mới vào khay ⋯, chỉ nổi ra cột khi đang dùng); nhãn ≤ 2 chữ thêm vào `src/lib/labels.ts`; màu qua token / `doiMau` theo bảng màu; mỗi đợt: test `src/lib/__tests__/`, doc 07 §13.x + 02 + state-registry cùng commit, câu hỏi offline (a–d) trong commit message; kiểm trình duyệt 375 px bằng tài khoản test (`node scripts/test-account.mjs cap 0900000777`, xong `thu`).
+
+**Còn mở sau đợt 4**: đợt 5 NMEA/thiết bị (cần bản native + thiết bị thật); danh sách tàu AIS riêng (hàng 11); lớp gió sóng toàn vùng + tua giờ (hàng 17); kiểm AIS/CPA trên trình duyệt bằng tài khoản CÓ quyền AIS; anh Long test một lần toàn bộ rồi mới merge `main`.
