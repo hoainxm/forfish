@@ -17,8 +17,9 @@
 */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { diTrang } from "@/lib/dialog-focus";
+import { diTrang, useLichSuDong } from "@/lib/dialog-focus";
 import MapGL, {
   AttributionControl,
   Layer,
@@ -86,7 +87,8 @@ import { cauLech, diemTrung, docGpx, gioDen, gioTaiDiem, viTriChen, giamSat, nha
 import { dsVet, luuVet, setChay, setTuyen, setVetGhi, useChay, useTuyen, useVetGhi, xoaVet } from "@/lib/hai-do/kho-tuyen";
 import { auditRoute, type RouteHit } from "@/lib/route-hazards";
 import { buildHazardList, requiredDepthM } from "@/lib/hazards";
-import { GHI_CHU_TOI_DA, LOAI_DIEM, loadPlaces, persistPlaces, removePlace, upsertPlace, type LoaiDiem, type SavedPlace } from "@/lib/places";
+import { ANH_DIEM_TOI_DA, GHI_CHU_TOI_DA, LOAI_DIEM, loadPlaces, persistPlaces, placeId, removePlace, upsertPlace, type LoaiDiem, type SavedPlace } from "@/lib/places";
+import { dayAnhCho, laAnhCho, luuAnhDiem, urlAnhDiem, xoaAnhDiem } from "@/lib/hai-do/anh-diem";
 import { DEFAULT_BOAT } from "@/lib/route-plan";
 import { DongY } from "@/components/hai-do/dong-y";
 import { SHEET_AUTO_HIDE_MS } from "@/lib/use-sheet-auto-hide";
@@ -99,6 +101,7 @@ import { depthClassAt, fetchDepthGrid, type DepthGrid } from "@/lib/depth-grid";
 import {
   fetchTideStations,
   nearestTideStation,
+  tideHeightAt,
   tideTrendAt,
   tideTrendText,
   tideUpcoming,
@@ -621,12 +624,55 @@ export default function HaiDoView() {
   const [tenDiem, setTenDiem] = useState("");
   const [loaiDiem, setLoaiDiem] = useState<LoaiDiem>("ca");
   const [ghiChuDiem, setGhiChuDiem] = useState("");
+  /* ĐẨY ẢNH CHỜ khi có sóng (mở màn / sóng về / sổ điểm đổi) — một lượt một lúc (không đẩy trùng một ảnh hai lần). */
+  const dangDay = useRef(false);
+  useEffect(() => {
+    if (!online || dangDay.current || !places.some((p) => p.anh?.some(laAnhCho))) return;
+    dangDay.current = true;
+    void dayAnhCho(places)
+      .then((moi) => {
+        if (moi && persistPlaces(moi)) setPlaces(moi);
+      })
+      .finally(() => {
+        dangDay.current = false;
+      });
+  }, [online, places]);
   const dongDiemMoi = () => {
     setDiemMoi(null);
     setLoaiDiem("ca");
     setGhiChuDiem("");
   };
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
+  // ── ẢNH CHO ĐIỂM (lib/hai-do/anh-diem): chụp ở thẻ lưu điểm, xem ở tấm chạm; mất sóng thì chờ, có sóng tự đẩy ──
+  const [anhMoi, setAnhMoi] = useState<File | null>(null);
+  const [anhMoiUrl, setAnhMoiUrl] = useState<string | null>(null);
+  const [dangLuuDiem, setDangLuuDiem] = useState(false);
+  const anhRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!anhMoi) return setAnhMoiUrl(null);
+    const u = URL.createObjectURL(anhMoi);
+    setAnhMoiUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [anhMoi]);
+  const [xemAnh, setXemAnh] = useState<{ keys: string[]; i: number } | null>(null);
+  const [xemUrl, setXemUrl] = useState<string | null | "loi">(null);
+  // Back của máy đóng màn xem ảnh trước (03 §6 mục 10 — cổng dialog-back.test)
+  const { dongTay: dongXemAnh } = useLichSuDong(() => setXemAnh(null), xemAnh != null);
+  useEffect(() => {
+    if (!xemAnh) return;
+    let alive = true;
+    let tao: string | null = null;
+    setXemUrl(null);
+    void urlAnhDiem(xemAnh.keys[xemAnh.i]).then((u) => {
+      if (!alive) return u?.startsWith("blob:") && URL.revokeObjectURL(u);
+      if (u?.startsWith("blob:")) tao = u;
+      setXemUrl(u ?? "loi");
+    });
+    return () => {
+      alive = false;
+      if (tao) URL.revokeObjectURL(tao);
+    };
+  }, [xemAnh]);
   const fileRef = useRef<HTMLInputElement>(null);
   const taiVet = () =>
     dsVet()
@@ -869,11 +915,23 @@ export default function HaiDoView() {
                 nhan: NHAN.xoa,
                 lam: () => {
                   const moi = removePlace(places, pl.id);
-                  if (persistPlaces(moi)) setPlaces(moi);
+                  if (persistPlaces(moi)) {
+                    setPlaces(moi);
+                    for (const k of pl.anh ?? []) void xoaAnhDiem(k); // ảnh theo điểm — điểm đi thì ảnh đi
+                  }
                   setCham(null);
                 },
               },
             });
+          if (pl?.anh?.length) {
+            const choGui = pl.anh.filter(laAnhCho).length;
+            const ds = pl.anh;
+            dong.push({
+              tieu: `${ds.length} ảnh`,
+              phu: choGui ? `${choGui} ảnh chờ gửi khi có sóng` : undefined,
+              viec: { nhan: NHAN.anh, lam: () => setXemAnh({ keys: ds, i: 0 }) },
+            });
+          }
           continue;
         }
         if (["hd-gian", "hd-cap", "hd-ong", "hd-cap-bo", "hd-vung-cam-fill"].includes(v.lop) && seaLanes?.[v.i]) {
@@ -906,8 +964,11 @@ export default function HaiDoView() {
       const { lat, lng } = e.lngLat;
       const cls = grid ? depthClassAt(grid, lat, lng) : null;
       if (cls != null && cls !== 0) {
-        // nước dưới đáy tàu = đáy dải − mớn (cận dưới, chưa cộng con nước — lib/hai-do/may nuocDuoiDay)
-        const uk = nuocDuoiDay(cls, draftM);
+        /* nước dưới đáy tàu = đáy dải + (con nước lúc này − mực trung bình) − mớn (cận dưới — lib/hai-do/may
+           nuocDuoiDay). Lưới độ sâu lấy mốc mực TRUNG BÌNH, con nước lấy mốc số 0 hải đồ ⇒ trừ z0 của trạm. */
+        const g0 = tram?.length ? nearestTideStation(tram, lat, lng) : null;
+        const trTram = g0 && g0.distanceKm <= 120 ? g0.station : null;
+        const uk = nuocDuoiDay(cls, draftM, trTram ? tideHeightAt(trTram, nowMs) - trTram.z0 : 0);
         const so = (m: number) => String(m).replace(".", ",");
         dong.push({
           tieu: `Độ sâu: ${DO_SAU_NGAN[cls]}`,
@@ -916,7 +977,9 @@ export default function HaiDoView() {
               ? "theo lưới độ sâu — tham khảo"
               : uk < 0
                 ? `Mớn ${so(draftM ?? 0)} m — có thể chạm đáy · tham khảo`
-                : `Dưới đáy tàu ≥ ${so(uk)} m (chưa cộng con nước) · tham khảo`,
+                : trTram
+                  ? `Dưới đáy tàu ≥ ${so(uk)} m lúc này (đã tính con nước trạm ${trTram.name}) · tham khảo`
+                  : `Dưới đáy tàu ≥ ${so(uk)} m (không có trạm con nước gần) · tham khảo`,
           canh: cls <= 3 || (uk != null && uk < 1),
         });
       }
@@ -1773,6 +1836,35 @@ export default function HaiDoView() {
       )}
 
       {/* THÊM ĐIỂM — giữ ngón trên hải đồ */}
+      {/* màn xem ảnh gắn thẳng vào <body> (portal): nằm trong khung hải đồ thì dock (z-20, ngữ cảnh xếp lớp ngoài) đè lên */}
+      {xemAnh &&
+        createPortal(
+        <div role="dialog" aria-modal="true" aria-label="Ảnh của điểm" className="pointer-events-auto fixed inset-0 z-50 flex flex-col bg-navy">
+          <div className="flex items-center justify-between px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-card">
+            <span className="text-[0.875rem] font-semibold tabular-nums">{`Ảnh ${xemAnh.i + 1}/${xemAnh.keys.length}`}</span>
+            <button type="button" className="sq-btn bg-card/20 text-card" onClick={dongXemAnh}>
+              {NHAN.dong}
+            </button>
+          </div>
+          <button
+            type="button"
+            aria-label={xemAnh.keys.length > 1 ? "Ảnh kế tiếp" : "Ảnh của điểm"}
+            onClick={() => xemAnh.keys.length > 1 && setXemAnh({ ...xemAnh, i: (xemAnh.i + 1) % xemAnh.keys.length })}
+            className="flex min-h-0 flex-1 items-center justify-center p-3"
+          >
+            {xemUrl === null ? (
+              <span className="text-[0.875rem] text-card">Đang mở ảnh…</span>
+            ) : xemUrl === "loi" ? (
+              <span className="text-[0.875rem] text-card">Chưa xem được ảnh — cần sóng để tải lần đầu</span>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- ảnh riêng (blob:/signed URL ngắn hạn), next/image không dùng được
+              <img src={xemUrl} alt="Ảnh của điểm" className="max-h-full max-w-full object-contain" />
+            )}
+          </button>
+        </div>,
+          document.body,
+        )}
+
       {chonNeo && (
         <div className="pointer-events-auto absolute inset-x-2 bottom-3 z-30 rounded-2xl border border-line bg-card p-3 shadow-float">
           <p className="text-[0.875rem] font-semibold text-navy">Chọn chỗ thả neo</p>
@@ -1830,20 +1922,67 @@ export default function HaiDoView() {
             maxLength={GHI_CHU_TOI_DA}
             className="mt-2 h-(--h-ctl) w-full rounded-xl border border-line bg-field px-3 text-[0.9375rem] text-foreground"
           />
+          {/* ẢNH (iSailor AddInfoEditor) — chụp bằng máy ảnh, có sóng đẩy máy chủ ngay, mất sóng chờ trong máy */}
+          <div className="mt-2 flex items-center gap-2">
+            {anhMoiUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- ảnh blob: trong máy, next/image không dùng được
+              <img src={anhMoiUrl} alt="Ảnh vừa chụp" className="h-12 w-12 rounded-lg object-cover" />
+            )}
+            <button type="button" className="sq-btn bg-field text-foreground" onClick={() => anhRef.current?.click()}>
+              {anhMoi ? NHAN.chupLai : NHAN.anh}
+            </button>
+            <input
+              ref={anhRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              aria-hidden
+              tabIndex={-1}
+              onChange={(e) => {
+                setAnhMoi(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
+            />
+          </div>
           <div className="mt-2 flex gap-2">
             <button
               type="button"
-              className="sq-btn bg-sea text-card"
-              onClick={() => {
-                const moi = upsertPlace(places, { name: tenDiem, lat: diemMoi.lat, lon: diemMoi.lon, loai: loaiDiem, ghiChu: ghiChuDiem });
+              className="sq-btn bg-sea text-card disabled:opacity-50"
+              disabled={dangLuuDiem}
+              onClick={async () => {
+                setDangLuuDiem(true);
+                const id = placeId(diemMoi.lat, diemMoi.lon);
+                const cu = places.find((p) => p.id === id)?.anh ?? [];
+                let anh: string[] | undefined;
+                if (anhMoi) {
+                  if (cu.length >= ANH_DIEM_TOI_DA) setBaoLoi(`Điểm này đã đủ ${ANH_DIEM_TOI_DA} ảnh — ảnh mới không lưu`);
+                  else {
+                    const k = await luuAnhDiem(id, anhMoi);
+                    if (k) {
+                      anh = [...cu, k];
+                      if (laAnhCho(k)) setBaoLoi("Ảnh đã lưu trong máy — có sóng sẽ tự gửi lên");
+                    } else setBaoLoi("Chưa giữ được ảnh — điểm vẫn được lưu");
+                  }
+                }
+                const moi = upsertPlace(places, { name: tenDiem, lat: diemMoi.lat, lon: diemMoi.lon, loai: loaiDiem, ghiChu: ghiChuDiem, ...(anh ? { anh } : {}) });
                 if (persistPlaces(moi)) setPlaces(moi);
                 else setBaoLoi("Không lưu được điểm vào máy");
+                setDangLuuDiem(false);
+                setAnhMoi(null);
                 dongDiemMoi();
               }}
             >
-              {NHAN.luu}
+              {dangLuuDiem ? NHAN.dangGui : NHAN.luu}
             </button>
-            <button type="button" className="sq-btn bg-field text-foreground" onClick={dongDiemMoi}>
+            <button
+              type="button"
+              className="sq-btn bg-field text-foreground"
+              onClick={() => {
+                setAnhMoi(null);
+                dongDiemMoi();
+              }}
+            >
               {NHAN.huy}
             </button>
           </div>

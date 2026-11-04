@@ -8,6 +8,9 @@
 // GET    ?path=  → { url } signed URL ngắn hạn (60s) để <img> hiển thị.
 // DELETE ?path=  → xoá 1 ảnh.
 //
+// DÙNG CHUNG cho ẢNH ĐIỂM của chế độ Hải đồ (2026-11-04, lib/hai-do/anh-diem): docId `diem_<id điểm>` ⇒ path
+// `<sđt>/diem_…/<uuid>.jpg`, cùng bucket riêng tư, cùng luật chủ sở hữu theo tiền tố SĐT — không route/bảng mới.
+//
 // ⚠️ KHÔNG cache ở service worker (riêng tư, ngoài API_CACHE_ALLOW).
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
