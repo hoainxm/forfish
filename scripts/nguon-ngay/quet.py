@@ -7,11 +7,11 @@ trống, bản dự phòng đã dừng ⇒ kho lưu trùng một ảnh nhiều n
 `src/lib/nguon-ngay.ts` (định dạng gói, danh sách nguồn) và `docs/app-map/ops/runbook.md` › "Nguồn ngày từ máy GPU".
 
 Mỗi lượt:
-  1. SAO KHO: liệt kê `forecast-archive` trên máy chủ (`GET /api/collect/kho`), tải file mới/đổi cỡ về KHO_SAO.
-  2. Hỏi máy chủ ngày nào đã có (`GET /api/collect/nguon-ngay`) trong cửa sổ CUA_SO ngày.
-  3. Mỗi chuỗi: đọc trục thời gian của nguồn, tải NGÀY CÒN THIẾU, đưa về lưới chung 0,05° biển VN.
-  4. Bản ghép phù du `chl-ghep` cho ngày nào vừa có thêm thành phần.
-  5. Gửi gói (gzip) lên `POST /api/collect/nguon-ngay`, đồng thời ghi bản y hệt vào KHO_SAO.
+  1. Hỏi máy chủ ngày nào đã có (`GET /api/collect/nguon-ngay`) trong cửa sổ CUA_SO ngày.
+  2. Mỗi chuỗi: đọc trục thời gian của nguồn, tải NGÀY CÒN THIẾU, đưa về lưới chung 0,05° biển VN.
+  3. Bản ghép phù du `chl-ghep` cho ngày nào vừa có thêm thành phần.
+  4. Gửi gói (gzip) lên `POST /api/collect/nguon-ngay`, đồng thời ghi bản y hệt vào KHO_SAO.
+  5. SAO KHO: liệt kê `forecast-archive` trên máy chủ (`GET /api/collect/kho`), tải file mới/đổi cỡ về KHO_SAO (8 luồng).
 Nguồn nào hỏng thì bỏ nguồn đó, lượt mai tự lấp — không hỏng cả lượt. Không bịa số.
 
 Env (~/.config/forlife/nguon-ngay.env): API_BASE (https, không / cuối) · CRON_SECRET (= app_config.cron_secret).
@@ -273,9 +273,25 @@ def ghep(ngay: str, moi: dict[tuple[str, str], np.ndarray]) -> tuple[np.ndarray,
 
 # ---------------------------------------------------------------------------- chạy
 def sao_kho(mc: MayChu) -> None:
+    """Tải file mới/đổi cỡ của kho máy chủ về KHO_SAO. 8 luồng: tuần tự đo 2026-11-04 mất ~3 s/file (xin URL ký qua
+    IIS + tải) ⇒ lượt đầu ~2 100 file gần 2 giờ, vượt trần service."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def mot(m: dict) -> bool:
+        p = KHO_SAO / m["path"]
+        try:
+            b = tai(mc.get("/api/collect/kho", file=m["path"])["url"])
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.with_suffix(".tmp").write_bytes(b)
+            p.with_suffix(".tmp").replace(p)
+            return True
+        except Exception as e:
+            log(f"[sao kho] {m['path']}: {e}")
+            return False
+
     tu = date(2026, 10, 10)
     den = datetime.now(timezone.utc).date()
-    moi = loi = 0
+    can: list[dict] = []
     while tu <= den:
         cuoi = min(tu + timedelta(days=30), den)
         try:
@@ -283,22 +299,11 @@ def sao_kho(mc: MayChu) -> None:
         except Exception as e:
             log(f"[sao kho] liệt kê {tu}…{cuoi} hỏng: {e} — để lượt sau")
             return
-        for m in muc:
-            p = KHO_SAO / m["path"]
-            if p.exists() and p.stat().st_size == m["bytes"]:
-                continue
-            try:
-                url = mc.get("/api/collect/kho", file=m["path"])["url"]
-                b = tai(url)
-                p.parent.mkdir(parents=True, exist_ok=True)
-                p.with_suffix(".tmp").write_bytes(b)
-                p.with_suffix(".tmp").replace(p)
-                moi += 1
-            except Exception as e:
-                loi += 1
-                log(f"[sao kho] {m['path']}: {e}")
+        can += [m for m in muc if not ((KHO_SAO / m["path"]).exists() and (KHO_SAO / m["path"]).stat().st_size == m["bytes"])]
         tu = cuoi + timedelta(days=1)
-    log(f"[sao kho] tải mới {moi} file, hỏng {loi}")
+    with ThreadPoolExecutor(8) as ex:
+        kq = list(ex.map(mot, can))
+    log(f"[sao kho] cần tải {len(can)}, tải được {sum(kq)}, hỏng {len(kq) - sum(kq)}")
 
 
 def main() -> int:
@@ -310,8 +315,6 @@ def main() -> int:
         log("[nguồn ngày] thiếu API_BASE (https) hoặc CRON_SECRET — dừng")
         return 1
     mc = MayChu(base, secret)
-    if not thu and "--khong-sao" not in sys.argv:
-        sao_kho(mc)
 
     hom_nay = datetime.now(timezone.utc).date()
     tu = (hom_nay - timedelta(days=cua_so)).isoformat()
@@ -387,6 +390,9 @@ def main() -> int:
             if (g["ngay"], g["nguon"]) not in hong:
                 ghi_sao(g)
     log(f"[nguồn ngày] máy chủ lưu {luu}/{len(goi)}")
+    # SAO KHO ĐỨNG SAU (2026-11-04): lượt đầu sao ~2 100 file — để trước thì dữ liệu mới chờ hàng giờ mới được gửi
+    if "--khong-sao" not in sys.argv:
+        sao_kho(mc)
     return 0 if luu == len(goi) else 2
 
 
