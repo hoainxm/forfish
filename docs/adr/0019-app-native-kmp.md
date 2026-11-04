@@ -43,7 +43,7 @@ Viết **hai app native** trong repo ForFish: **logic dùng chung bằng Kotlin 
 - **Tích cực**: app chạy độc lập với web lúc mở (vỏ không còn tải trang), offline là dữ liệu native (SQLite) không bị trình duyệt dọn, Gemma/bản đồ/GPS nhanh hơn, hết lỗi PWA-trong-app.
 - **Đánh đổi**:
   - **Khối lượng**: viết lại toàn bộ UI hai lần + logic một lần — tính bằng tháng; Capacitor vẫn là bản phát hành tới khi native ĐỦ (không phát hành nửa vời, chủ dự án chọn "đủ như web").
-  - **Hai bản logic (TS ↔ Kotlin)**: mỗi `lib/` được port phải có test vector dùng chung (`shared/testdata/*.json` sinh từ test Vitest) — sửa logic một bên mà không sửa bên kia thì cổng đỏ. Thêm hàng vào bảng Doc + Test sync của CLAUDE.md.
+  - **Hai bản logic (TS ↔ Kotlin)**: mỗi `lib/` được port phải có test vector dùng chung (`shared/testdata/*.json` sinh từ test Vitest) — sửa logic một bên mà không sửa bên kia thì cổng đỏ. Luật đồng bộ ghi ở app-map 18 §5 (CLAUDE.md đã chạm trần 20.000 ký tự của hook nên không thêm hàng).
   - **Luật doc**: mọi màn native ghi vào 07-design-spec (cột Android/iOS), 02 thêm cây `shared/ androidApp/ iosApp/`.
   - **Chuyển dữ liệu**: bản native cập nhật ĐÈ bản Capacitor (cùng package `vn.sdvico.forfish` / bundle `vn.sdvico.sdfish`) ⇒ lần mở đầu phải chuyển dữ liệu bà con từ localStorage của WebView cũ (origin sdfish.sdvico.vn) sang kho native — mất sổ là mất an toàn ngoài biển (CLAUDE.md nguyên tắc 4).
 - **Trung tính**: backend, Supabase, RLS, route `/api/*`, cổng dữ liệu `dataGate`, mã hoá SDF1/SDF2 giữ nguyên — native là một máy khách nữa.

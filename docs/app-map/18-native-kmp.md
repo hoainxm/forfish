@@ -82,6 +82,7 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 ## 5. Cổng khớp logic TS ↔ Kotlin
 
 - Mỗi file `src/lib/` được port có một script ở `native/scripts/` CHẠY CHÍNH CODE WEB sinh vector vào/ra thành file Kotlin trong `commonTest` (vd `sinh-testdata.mjs` → `GoldenDataCodec.kt`). Đổi code web ⇒ chạy lại script ⇒ test Kotlin đỏ nếu bản Kotlin chưa theo.
+- **Luật đồng bộ (thay hàng trong bảng Doc + Test sync của CLAUDE.md — file đó đã chạm trần hook)**: đổi `native/**` ⇒ cập nhật doc này cùng commit; đổi một file `src/lib/` đã có bản Kotlin ⇒ chạy lại `native/scripts/sinh-*.mjs` và sửa bản Kotlin cùng commit.
 - Áp đầu tiên cho: `sen-bien/ngram`, `hieu-y`, `data-codec`, `fish-predict`, điểm đi biển, dẫn đường.
 
 ## 6. Assumptions
