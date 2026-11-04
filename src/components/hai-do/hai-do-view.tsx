@@ -123,6 +123,7 @@ import {
   dsBaoDong,
   fmtPv,
   gocCamera,
+  demNhinTruoc,
   huongKeTiep,
   lamMuotHuong,
   NHAN_HUONG,
@@ -307,6 +308,7 @@ export default function HaiDoView() {
   const [goc, setGoc] = useState(0); // bearing camera hiện tại
   const [bam, setBam] = useState(true); // bản đồ đang bám theo tàu
   const daBay = useRef(false);
+  const daToiZoom = useRef(false);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -315,11 +317,18 @@ export default function HaiDoView() {
       if (Math.abs(bearing - map.getBearing()) > 0.5) map.rotateTo(bearing, { duration: 300 });
       return;
     }
+    // nhìn trước: xoay theo hướng đi/tuyến + đang chạy ⇒ tàu xuống ~2/3 màn (lib/hai-do/may demNhinTruoc)
+    const huongThat = prefs.huong === "tuyen" && !coGs ? "bac" : prefs.huong;
+    const padding = { top: demNhinTruoc(huongThat, tau.speedKmh, map.getContainer().clientHeight), bottom: 0, left: 0, right: 0 };
     if (!daBay.current) {
       daBay.current = true;
-      map.flyTo({ center: [tau.pos.lon, tau.pos.lat], zoom: Math.max(map.getZoom(), 11), bearing, duration: 800 });
+      map.flyTo({ center: [tau.pos.lon, tau.pos.lat], zoom: Math.max(map.getZoom(), 11), bearing, padding, duration: 800 });
     } else {
-      map.easeTo({ center: [tau.pos.lon, tau.pos.lat], bearing, duration: 400 });
+      /* Cú bay đầu (zoom ≥ 11) hay bị easeTo của fix kế tiếp / hướng đang làm mượt CẮT NGANG — mở thẳng ở
+         "Hướng đi lên" thì kẹt zoom toàn vùng (đo 2026-11-04: 4,6). Chưa từng tới zoom 11 ⇒ easeTo mang luôn zoom;
+         tới rồi thì thôi, không giành zoom với ngón tay bà con. */
+      if (map.getZoom() >= 10.9) daToiZoom.current = true;
+      map.easeTo({ center: [tau.pos.lon, tau.pos.lat], bearing, padding, duration: 400, ...(daToiZoom.current ? {} : { zoom: 11 }) });
     }
   }, [tau.pos, tau.speedKmh, bam, prefs.huong, huongMuot, pvChang, coGs]);
 

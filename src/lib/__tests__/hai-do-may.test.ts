@@ -228,3 +228,17 @@ describe("chamTuAn — tấm chạm tự ẩn như sheet bản đồ thường",
     expect(chamTuAn([])).toBe(false);
   });
 });
+
+import { demNhinTruoc } from "../hai-do/may";
+describe("nhìn trước (look-ahead)", () => {
+  it("xoay theo hướng đi / tuyến + đang chạy ⇒ đệm trên ~1/3 màn (tàu xuống ~2/3)", () => {
+    expect(demNhinTruoc("huong-di", 13, 700)).toBe(238);
+    expect(demNhinTruoc("tuyen", 13, 700)).toBe(238);
+  });
+  it("Bắc lên, tàu đứng / chưa rõ tốc độ, màn chưa đo ⇒ 0 (tàu giữa màn)", () => {
+    expect(demNhinTruoc("bac", 13, 700)).toBe(0);
+    expect(demNhinTruoc("huong-di", 1, 700)).toBe(0);
+    expect(demNhinTruoc("huong-di", null, 700)).toBe(0);
+    expect(demNhinTruoc("huong-di", 13, 0)).toBe(0);
+  });
+});

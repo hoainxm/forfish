@@ -48,6 +48,19 @@ export function gocCamera(
   return huongTau ?? gocCu;
 }
 
+/**
+ * NHÌN TRƯỚC (look-ahead, 2026-11-04 — rà soát so iSailor/OpenCPN): khi hải đồ xoay theo hướng đi /
+ * tuyến và tàu đang chạy, dời tàu xuống ~2/3 màn để thấy xa phía trước gấp đôi phía sau — hai app kia
+ * đều làm vậy ("look-ahead mode"). Trả về khoảng đệm TRÊN (px) cho camera MapLibre: tâm vùng còn lại
+ * rơi xuống, tàu theo xuống. Bắc lên / tàu đứng ⇒ 0 (tàu giữa màn như cũ — đứng yên thì không có "phía trước").
+ */
+export const NHIN_TRUOC_PHAN = 0.34;
+export const NHIN_TRUOC_KN = 1;
+export function demNhinTruoc(h: HuongBanDo, tocDoKmh: number | null, caoPx: number): number {
+  if (h === "bac" || tocDoKmh == null || tocDoKmh < NHIN_TRUOC_KN * 1.852 || !(caoPx > 0)) return 0;
+  return Math.round(caoPx * NHIN_TRUOC_PHAN);
+}
+
 /* ── ĐỘ SÂU THEO LƯỚI ─────────────────────────────────────────────────────── */
 
 /** Chữ ngắn cho dải số (lưới chỉ có dải, không có số mét đo). */
