@@ -150,7 +150,7 @@ describe("tuỳ chọn chế độ hải đồ", () => {
     expect(docHaiDoPrefs(JSON.stringify({ bang: "tim", anToanM: 7, vecPhut: 99, moHaiDo: "co", huong: "xeo", vong: 1 }))).toEqual(HAI_DO_MAC_DINH);
   });
   it("giữ giá trị hợp lệ", () => {
-    expect(docHaiDoPrefs(JSON.stringify({ bang: "dem", anToanM: 20, vecPhut: 12, moHaiDo: true, huong: "huong-di", vong: true, nutZoom: true }))).toEqual({
+    expect(docHaiDoPrefs(JSON.stringify({ bang: "dem", anToanM: 20, vecPhut: 12, moHaiDo: true, huong: "huong-di", vong: true, nutZoom: true, hienThi: "du", toNong: false, lopTrieu: false, lopAis: true, tuDongMau: true, daDongY: true }))).toEqual({
       bang: "dem",
       anToanM: 20,
       vecPhut: 12,
@@ -158,6 +158,12 @@ describe("tuỳ chọn chế độ hải đồ", () => {
       huong: "huong-di",
       vong: true,
       nutZoom: true,
+      hienThi: "du",
+      toNong: false,
+      lopTrieu: false,
+      lopAis: true,
+      tuDongMau: true,
+      daDongY: true,
     });
   });
   it("nút Màu xoay vòng Ngày → Chiều → Đêm → Ngày", () => {
@@ -166,3 +172,17 @@ describe("tuỳ chọn chế độ hải đồ", () => {
     expect(bangKeTiep("dem")).toBe("ngay");
   });
 });
+
+describe("style: tô nông (đợt 3)", () => {
+  it("bật tô nông: nền nước + dải nông hơn đường an toàn đổi sắc, dải sâu đặc", () => {
+    const s = buildHaiDoStyle({ bang: "ngay", anToanM: 20, matSong: false, toNong: true });
+    const L = s.layers as Array<{ id: string; paint?: Record<string, unknown> }>;
+    const p = (id: string) => L.find((l) => l.id === id)?.paint ?? {};
+    expect(p("sea-bg")["background-color"]).toBe("#c4dceb");
+    expect(p("water")["fill-color"]).toBe("#c4dceb");
+    expect(p("isobath-du-nuoc")["fill-color"]).toBe("#c4dceb");
+    expect(p("isobath-dai-2")["fill-opacity"]).toBe(1);
+    expect(p("isobath-dai-2")["fill-color"]).not.toBe("#c4dceb");
+  });
+});
+

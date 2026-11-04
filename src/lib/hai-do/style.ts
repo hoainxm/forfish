@@ -19,6 +19,7 @@ import { COAST_DATA_URL, OFFLINE_COAST_COLOR, OFFLINE_LAND_COLOR } from "@/lib/o
 import { dataSourceUrl } from "@/lib/data-fetch";
 import { apBangMauStyle, type BangMau } from "@/lib/hai-do/bang-mau";
 import type { MucAnToan } from "@/lib/hai-do/an-toan";
+import { mauDaiToNong } from "@/lib/hai-do/lop";
 
 export const SAFETY_LAYER_ID = "isobath-safety";
 /** Có sóng: hình bờ trong máy chỉ vẽ dưới nấc này (từ đây nền Protomaps đủ chi tiết). */
@@ -31,19 +32,30 @@ export interface HaiDoStyleOpts {
   anToanM: MucAnToan;
   /** true = đang mất sóng ⇒ vẽ hình bờ lưu trong máy */
   matSong: boolean;
+  /** đợt 3: tô nước NÔNG hơn đường an toàn bằng một sắc lam riêng (hai sắc kiểu OpenCPN) */
+  toNong?: boolean;
 }
 
-export function buildHaiDoStyle({ bang, anToanM, matSong }: HaiDoStyleOpts) {
+export function buildHaiDoStyle({ bang, anToanM, matSong, toNong = false }: HaiDoStyleOpts) {
   const base = buildMapStyle("bathymetry", { seamarks: false }) as unknown as {
     sources: Record<string, unknown>;
     layers: Layer[];
   } & Record<string, unknown>;
 
-  const layers: Layer[] = base.layers.filter((l) => l.id !== "ocean-data").map((l) =>
-    l.id === SAFETY_LAYER_ID
-      ? { ...l, filter: ["all", ["==", ["get", "k"], "duong"], ["==", ["get", "d"], anToanM]] }
-      : l,
-  );
+  // TÔ NÔNG: nền nước (sea-bg + water của nền + mask) = dải 0–10; các dải ≥10 tô ĐẶC (opacity 1)
+  // để sắc nông không ngấm qua dải sâu.
+  const toMau = toNong ? mauDaiToNong(anToanM) : null;
+  const layers: Layer[] = base.layers
+    .filter((l) => l.id !== "ocean-data")
+    .map((l) => {
+      if (l.id === SAFETY_LAYER_ID)
+        return { ...l, filter: ["all", ["==", ["get", "k"], "duong"], ["==", ["get", "d"], anToanM]] };
+      if (!toMau) return l;
+      if (l.id === "sea-bg") return { ...l, paint: { ...l.paint, "background-color": toMau["sea-bg"] } };
+      if (l.id === "water" || l.id === "sea-mask") return { ...l, paint: { ...l.paint, "fill-color": toMau["sea-bg"] } };
+      if (l.id in toMau) return { ...l, paint: { ...l.paint, "fill-color": toMau[l.id], "fill-opacity": 1 } };
+      return l;
+    });
 
   const { ["ocean-data"]: _anh, ...nguon } = base.sources;
   void _anh;

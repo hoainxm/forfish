@@ -12,11 +12,15 @@
     huong     — hướng bản đồ: Bắc lên / Hướng đi lên / Tuyến lên (đợt 2)
     vong      — vòng cự ly 1-2-5 hải lý quanh tàu (đợt 2)
     nutZoom   — hiện nút phóng to/thu nhỏ trên cột (mặc định ẩn — véo hai ngón; iSailor "Zoom Buttons")
+    (đợt 3) hienThi Cơ bản/Chuẩn/Đủ · toNong (tô nước nông, mặc định BẬT) · lopTrieu (trạm con nước, BẬT)
+            · lopAis (tàu AIS, TẮT — chỉ tài khoản được xem) · tuDongMau (đổi màu theo mặt trời, TẮT)
+            · daDongY (đã đồng ý câu "tham khảo" lần đầu)
 */
 import { useSyncExternalStore } from "react";
 import type { BangMau } from "@/lib/hai-do/bang-mau";
 import { MUC_AN_TOAN_M, VEC_PHUT, type MucAnToan, type VecPhut } from "@/lib/hai-do/an-toan";
 import { HUONG_BAN_DO, type HuongBanDo } from "@/lib/hai-do/may";
+import { MUC_HIEN_THI, type MucHienThi } from "@/lib/hai-do/lop";
 
 export const HAI_DO_KEY = "forfish.haiDo.v1";
 
@@ -28,6 +32,12 @@ export interface HaiDoPrefs {
   huong: HuongBanDo;
   vong: boolean;
   nutZoom: boolean;
+  hienThi: MucHienThi;
+  toNong: boolean;
+  lopTrieu: boolean;
+  lopAis: boolean;
+  tuDongMau: boolean;
+  daDongY: boolean;
 }
 
 export const HAI_DO_MAC_DINH: HaiDoPrefs = {
@@ -38,6 +48,12 @@ export const HAI_DO_MAC_DINH: HaiDoPrefs = {
   huong: "bac",
   vong: false,
   nutZoom: false,
+  hienThi: "chuan",
+  toNong: true,
+  lopTrieu: true,
+  lopAis: false,
+  tuDongMau: false,
+  daDongY: false,
 };
 
 /** Đọc bản lưu — mọi trường lạ/hỏng về mặc định (thuần, có test). */
@@ -53,6 +69,12 @@ export function docHaiDoPrefs(raw: string | null): HaiDoPrefs {
       huong: (HUONG_BAN_DO as readonly unknown[]).includes(p.huong) ? (p.huong as HuongBanDo) : "bac",
       vong: p.vong === true,
       nutZoom: p.nutZoom === true,
+      hienThi: (MUC_HIEN_THI as readonly unknown[]).includes(p.hienThi) ? (p.hienThi as MucHienThi) : "chuan",
+      toNong: p.toNong !== false,
+      lopTrieu: p.lopTrieu !== false,
+      lopAis: p.lopAis === true,
+      tuDongMau: p.tuDongMau === true,
+      daDongY: p.daDongY === true,
     };
   } catch {
     return HAI_DO_MAC_DINH;

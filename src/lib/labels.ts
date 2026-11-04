@@ -121,6 +121,10 @@ export const NHAN = {
   neoTau: "Neo",
   tuyenDi: "Tuyến",
   vetTau: "Vết",
+  /** khay Lớp chế độ hải đồ (đợt 3) */
+  toNong: "Tô nông",
+  conNuoc: "Con nước",
+  tuDong: "Tự động",
   tauToi: "Tàu tôi",
   choCa: "Chợ cá",
   vatTu: "Vật tư",

@@ -43,7 +43,31 @@ import {
   SOVEREIGNTY_LABELS,
   VN_AID_MINZOOM,
   WRECK_LAYER,
+  SEA_LANES_DATA_URL,
+  SEA_LANE_COLOR,
+  SEA_CABLE_COLOR,
+  SEA_CABLE_DASH,
+  PIPELINE_COLOR,
+  PIPELINE_DASH,
+  SEA_RESTRICTED_COLOR,
+  RESTRICTED_FILL_COLOR,
+  RESTRICTED_FILL_OPACITY,
+  TIDE_STATION_LAYER,
+  TIDE_STATION_LABEL_LAYER,
+  TIDE_FILTER_VUNG,
+  TIDE_FILTER_CANG,
+  TIDE_STATION_CANG_MINZOOM,
 } from "@/lib/ocean-map";
+import { dataSourceUrl } from "@/lib/data-fetch";
+import { fetchQuyenAis, fetchTauAis, moTaTau, peekQuyenAis, TAU_AIS_LAM_MOI_MS, tauGeoJson, type TauAisBan } from "@/lib/tau-ais";
+import { quetQuanh } from "@/lib/ais-cpa";
+import { CO_ICON_TAU, dangKyIconTau } from "@/components/ban-do/icon-tau";
+import { useAuthUser } from "@/lib/use-auth";
+import { syncOwnerPhone } from "@/lib/user-sync";
+import { beaufort, fetchSeaPoint, formatNumberVN, windDirectionVN } from "@/lib/marine-weather";
+import { bangTheoTroi, cauCpa, doCaoMatTroi, nhomTheoMuc } from "@/lib/hai-do/lop";
+import { KhayLop } from "@/components/hai-do/khay-lop";
+import { DongY } from "@/components/hai-do/dong-y";
 import { KHONG_PHAI_CUM, LA_CUM, SEAMARK_ICON_LAYOUT } from "@/components/ban-do/hai-do";
 import { describeSeamark, fetchSeamarks, huongDiQuaPhao, type Seamark } from "@/lib/seamarks";
 import { fetchDenBien, type DenBien } from "@/lib/den-bien";
@@ -90,7 +114,7 @@ import {
 } from "@/lib/hai-do/may";
 import { setMob, setNeo, useMob, useNeo } from "@/lib/hai-do/tam";
 import { mucKhay, nutNoi, type MucKhay } from "@/lib/hai-do/cot-nut";
-import { baoHieuTheoTang, denBienGeo, vnAidGeo, xacTauGeo } from "@/components/hai-do/lop-du-lieu";
+import { baoHieuTheoTang, denBienGeo, tramTrieuGeo, vnAidGeo, xacTauGeo } from "@/components/hai-do/lop-du-lieu";
 import { Chip, NutCot } from "@/components/hai-do/ui";
 import { Chuong } from "@/components/hai-do/chuong";
 import { TamCham, type DongCham } from "@/components/hai-do/tam-cham";
@@ -134,7 +158,7 @@ const MOB_COLOR = "#a82218";
 const NHAN_BANG = { ngay: "Ngày", chieu: "Chiều", dem: "Đêm" } as const;
 const KM_HL = 1.852;
 /** Lớp chạm được — tên lớp khớp `HANG_CHAM` (lib/hai-do/may). */
-const LOP_CHAM = ["hd-xac-tau", "hd-vn-aid", "hd-seamark-near", "hd-seamark-mid", "hd-seamark-far", "hd-den-bien", "hd-island-dot", "hd-island-label"];
+const LOP_CHAM = ["hd-ais", "hd-trieu", "hd-trieu-cang", "hd-xac-tau", "hd-vn-aid", "hd-seamark-near", "hd-seamark-mid", "hd-seamark-far", "hd-den-bien", "hd-island-dot", "hd-island-label"];
 const RONG = { type: "FeatureCollection", features: [] } as GeoJSON.FeatureCollection;
 /** Ô trong khay ⋯ — nhãn từ labels.ts (≤ 2 chữ), tên đầy đủ ở aria-label. */
 const KHAY: Record<MucKhay, { nhan: string; aria: string; icon: (p: { className?: string }) => React.ReactNode }> = {
@@ -187,17 +211,6 @@ export default function HaiDoView() {
     return typeof b?.draftM === "number" && b.draftM > 0 && b.draftM <= 10 ? b.draftM : null;
   });
   const anToanM = duongAnToanM(draftM, prefs.anToanM);
-  const bang = prefs.bang;
-  /*  Bảng màu phủ CẢ TRANG khi đang ở màn này (dock + lớp nổi portal ra <body> nằm ngoài
-      `.hai-do`): dock sáng trắng giữa đêm là đúng thứ làm loá mắt. Rời màn thì gỡ. */
-  useEffect(() => {
-    if (bang === "ngay") return;
-    const lop = `hai-do-${bang}`;
-    document.documentElement.classList.add(lop);
-    return () => document.documentElement.classList.remove(lop);
-  }, [bang]);
-
-  const mapStyle = useMemo(() => buildHaiDoStyle({ bang, anToanM, matSong: !online }), [bang, anToanM, online]);
 
   // ── neo / MOB (sống qua tắt-mở app) ───────────────────────────────────────
   const neo = useNeo();
@@ -208,6 +221,30 @@ export default function HaiDoView() {
   const tau = useNavTracking(true, { keepAwake: neo != null || mob != null });
   const coGps = tau.pos != null && tau.status !== "denied";
 
+  // đồng hồ màn (phút MOB, GPS cũ, mặt trời, con nước) — không gọi Date.now() lúc vẽ
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 5000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  /*  BẢNG MÀU: chọn tay, hoặc TỰ ĐỘNG theo độ cao mặt trời tại chỗ tàu (chưa GPS ⇒ tâm bản đồ mặc định). */
+  const viTriTroi = tau.pos ?? { lat: DEFAULT_VIEW.latitude, lon: DEFAULT_VIEW.longitude };
+  const bang = prefs.tuDongMau ? bangTheoTroi(doCaoMatTroi(viTriTroi.lat, viTriTroi.lon, nowMs)) : prefs.bang;
+  /*  Bảng màu phủ CẢ TRANG khi đang ở màn này (dock + lớp nổi portal ra <body> nằm ngoài
+      `.hai-do`): dock sáng trắng giữa đêm là đúng thứ làm loá mắt. Rời màn thì gỡ. */
+  useEffect(() => {
+    if (bang === "ngay") return;
+    const lop = `hai-do-${bang}`;
+    document.documentElement.classList.add(lop);
+    return () => document.documentElement.classList.remove(lop);
+  }, [bang]);
+  const mapStyle = useMemo(
+    () => buildHaiDoStyle({ bang, anToanM, matSong: !online, toNong: prefs.toNong }),
+    [bang, anToanM, online, prefs.toNong],
+  );
+  const nhom = nhomTheoMuc(prefs.hienThi);
+
   // ── hướng bản đồ ──────────────────────────────────────────────────────────
   const [huongMuot, setHuongMuot] = useState<number | null>(null);
   useEffect(() => {
@@ -215,12 +252,6 @@ export default function HaiDoView() {
     const h = tau.headingDeg;
     setHuongMuot((cu) => lamMuotHuong(cu, h));
   }, [tau.headingDeg, tau.speedKmh, tau.lastFixAt]);
-  // đồng hồ màn (phút MOB, GPS cũ) — không gọi Date.now() lúc vẽ
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNowMs(Date.now()), 5000);
-    return () => window.clearInterval(id);
-  }, []);
   const [goc, setGoc] = useState(0); // bearing camera hiện tại
   const [bam, setBam] = useState(true); // bản đồ đang bám theo tàu
   const daBay = useRef(false);
@@ -285,6 +316,51 @@ export default function HaiDoView() {
     return best ? `${best.ten} cách ${fmtDist(best.km, unit)}` : null;
   }, [tau.pos, storm.check, unit]);
 
+  // ── AIS (đợt 3) — chỉ tài khoản được xem (ô `tau_ais_xem` quản trị, như màn cũ) ──
+  const { phone: authPhone } = useAuthUser();
+  const aisPhone = authPhone ?? syncOwnerPhone();
+  const [coAis, setCoAis] = useState(false);
+  useEffect(() => {
+    if (!aisPhone) return;
+    setCoAis(peekQuyenAis(aisPhone) ?? false);
+    let alive = true;
+    void fetchQuyenAis(aisPhone).then((v) => alive && v != null && setCoAis(v));
+    return () => {
+      alive = false;
+    };
+  }, [aisPhone]);
+  const [aisBan, setAisBan] = useState<TauAisBan | null>(null);
+  const aisBat = coAis && prefs.lopAis;
+  useEffect(() => {
+    if (!aisBat) return;
+    let alive = true;
+    const tai = () =>
+      fetchTauAis()
+        .then((r) => alive && setAisBan(r.ban))
+        .catch(() => {
+          /* không tải được (mất sóng) — giữ bản cũ đang vẽ; fetchTauAis tự lùi về bản lưu */
+        });
+    tai();
+    const id = window.setInterval(tai, TAU_AIS_LAM_MOI_MS);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [aisBat, online]);
+  const aisGeo = useMemo(() => (aisBat && aisBan ? tauGeoJson(aisBan) : null), [aisBat, aisBan]);
+  const cpa = useMemo(() => {
+    if (!aisBat || !aisBan || !tau.pos) return null;
+    const ds = quetQuanh(aisBan, { pos: tau.pos, speedKmh: tau.speedKmh, headingDeg: tau.headingDeg }, 6, nowMs);
+    return cauCpa(ds, (nm) => fmtDist(nm * KM_HL, unit, nm < 1 ? 2 : 1));
+  }, [aisBat, aisBan, tau.pos, tau.speedKmh, tau.headingDeg, nowMs, unit]);
+
+  // ── con nước trên hải đồ (đợt 3) ──────────────────────────────────────────
+  const nowPhut = Math.floor(nowMs / 300000); // vẽ lại ký hiệu triều mỗi 5 phút
+  const trieuGeo = useMemo(
+    () => (prefs.lopTrieu && tram ? tramTrieuGeo(tram, nowPhut * 300000) : null),
+    [prefs.lopTrieu, tram, nowPhut],
+  );
+
   // ── báo động chung ────────────────────────────────────────────────────────
   const gpsMat = tau.status === "lost" || fixQuaCu(tau.lastFixAt, tau.speedKmh, nowMs);
   const baoDong = dsBaoDong({
@@ -295,7 +371,7 @@ export default function HaiDoView() {
     doSau: doSauTau,
     anToanM,
     gpsMat: tau.lastFixAt != null && gpsMat,
-    cpa: null,
+    cpa,
     lechTuyen: null,
     hetTuyen: false,
   });
@@ -365,6 +441,7 @@ export default function HaiDoView() {
 
   // ── tấm chạm ──────────────────────────────────────────────────────────────
   const [cham, setCham] = useState<DongCham[] | null>(null);
+  const chamKhoa = useRef<string | null>(null);
   const onCham = (e: MapLayerMouseEvent) => {
       if (doMo) return;
       const map = mapRef.current?.getMap();
@@ -382,7 +459,15 @@ export default function HaiDoView() {
       const dong: DongCham[] = [];
       const islands = fs.filter((f) => f.layer.id.startsWith("hd-island"));
       for (const v of xepCham(vat)) {
-        if (v.lop === "hd-xac-tau" && xac?.[v.i]) dong.push({ tieu: moTaXacTau(xac[v.i]), canh: true });
+        if (v.lop === "hd-ais") {
+          const id = fs.find((f) => f.layer.id === "hd-ais")?.properties?.id;
+          const t = aisBan?.tau.find((x) => x.id === id);
+          if (t) dong.push({ tieu: t.ten ?? "Tàu AIS", phu: moTaTau(t) });
+        } else if ((v.lop === "hd-trieu" || v.lop === "hd-trieu-cang") && tram?.[v.i]) {
+          const st = tram[v.i];
+          const tiep = tideUpcoming(st, nowMs, 2);
+          dong.push({ tieu: `Trạm ${st.name} — ${tideTrendText(tideTrendAt(st, nowMs))}`, phu: tiep.map(tideUpcomingText).join(" · ") || undefined });
+        } else if (v.lop === "hd-xac-tau" && xac?.[v.i]) dong.push({ tieu: moTaXacTau(xac[v.i]), canh: true });
         else if (v.lop.startsWith("hd-seamark") && seamarks?.[v.i]) {
           const m = seamarks[v.i];
           dong.push({ tieu: describeSeamark(m), phu: huongDiQuaPhao(m) ?? undefined });
@@ -402,10 +487,9 @@ export default function HaiDoView() {
       if (tram?.length) {
         const g = nearestTideStation(tram, lat, lng);
         if (g && g.distanceKm <= 120) {
-          const now = Date.now();
-          const tiep = tideUpcoming(g.station, now, 1)[0];
+          const tiep = tideUpcoming(g.station, nowMs, 1)[0];
           dong.push({
-            tieu: `${tideTrendText(tideTrendAt(g.station, now))} — trạm ${g.station.name}`,
+            tieu: `${tideTrendText(tideTrendAt(g.station, nowMs))} — trạm ${g.station.name}`,
             phu: tiep ? tideUpcomingText(tiep) : undefined,
           });
         }
@@ -416,6 +500,22 @@ export default function HaiDoView() {
         phu: tuTau ? `Từ tàu: ${fmtPv(tuTau.pvDeg)} · ${fmtDist(tuTau.cuLyKm, unit, tuTau.cuLyKm < 10 ? 1 : 0)}` : undefined,
       });
       setCham(dong);
+      /*  GIÓ SÓNG HÔM NAY tại điểm (đợt 3) — `fetchSeaPoint` có bản lưu trước/mạng sau + trần; chỉ HÔM NAY như
+          tài khoản thường (tier). Trên bờ / hỏng ⇒ không thêm dòng. Chạm điểm khác trước khi về ⇒ bỏ. */
+      const khoa = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+      chamKhoa.current = khoa;
+      fetchSeaPoint({ lat, lon: lng }, 1)
+        .then((c) => {
+          if (chamKhoa.current !== khoa || !c.onSea) return;
+          const bits: string[] = [];
+          if (c.windKmh != null) bits.push(`Gió cấp ${beaufort(c.windKmh)}${c.windDirDeg != null ? ` ${windDirectionVN(c.windDirDeg)}` : ""}`);
+          if (c.waveM != null) bits.push(`sóng ${formatNumberVN(c.waveM)} m`);
+          if (!bits.length) return;
+          setCham((cu) => (cu ? [...cu, { tieu: bits.join(" · "), phu: c.stale ? "bản lưu trong máy" : "hôm nay" }] : cu));
+        })
+        .catch(() => {
+          /* mất sóng không bản lưu — tấm chạm vẫn đủ phần trong máy */
+        });
   };
 
   const [caiDatMo, setCaiDatMo] = useState(false);
@@ -428,7 +528,8 @@ export default function HaiDoView() {
   const [nutThem, setNutThem] = useState<HTMLButtonElement | null>(null);
   const tinhCot = { coBaoDong: baoDong.length > 0, dangNeo: neo != null, dangDo: doMo, nutZoom: prefs.nutZoom };
   const cotNut = nutNoi(tinhCot);
-  const khay = mucKhay(tinhCot, { lop: false, tuyen: false, vet: false });
+  const khay = mucKhay(tinhCot, { lop: true, tuyen: false, vet: false });
+  const [lopMo, setLopMo] = useState(false);
   const chonKhay = (m: MucKhay) => {
     if (m === "mau") {
       setHaiDoPrefs({ bang: bangKeTiep(bang) });
@@ -441,6 +542,7 @@ export default function HaiDoView() {
       setCham(null);
     } else if (m === "neo") setNeoMo(true);
     else if (m === "caiDat") setCaiDatMo(true);
+    else if (m === "lop") setLopMo(true);
     else if (m === "banDo") {
       setHaiDoPrefs({ moHaiDo: false });
       router.push("/ngu-truong");
@@ -472,11 +574,15 @@ export default function HaiDoView() {
         // ô nguồn bản đồ: MapLibre bung sẵn che đáy màn — thu về nút ⓘ (cùng cách màn bản đồ cũ `thuONguon`)
         onLoad={(e) => {
           thuONguon();
+          dangKyIconTau(e.target);
           e.target.touchZoomRotate.disableRotation();
           const c = e.target.getCenter();
           setTam({ lat: c.lat, lon: c.lng });
         }}
-        onStyleData={thuONguon}
+        onStyleData={(e) => {
+          thuONguon();
+          dangKyIconTau(e.target); // đổi style (bảng màu) xoá ảnh tự thêm ⇒ nạp lại icon tàu AIS
+        }}
         onResize={thuONguon}
         style={{ width: "100%", height: "100%" }}
       >
@@ -488,12 +594,12 @@ export default function HaiDoView() {
             <Layer {...L({ ...WRECK_LAYER, id: "hd-xac-tau" })} />
           </Source>
         )}
-        {tang && (
+        {nhom.baoHieu && tang && (
           <Source id="hd-seamarks-far" type="geojson" data={tang.far}>
             <Layer {...iconLop("hd-seamark-far", SEAMARK_TIER_MINZOOM.far)} />
           </Source>
         )}
-        {tang && (
+        {nhom.baoHieu && tang && (
           <Source id="hd-seamarks-mid" type="geojson" data={tang.mid} cluster clusterRadius={SEAMARK_CLUSTER_RADIUS} clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.mid}>
             <Layer {...iconLop("hd-seamark-mid", SEAMARK_TIER_MINZOOM.mid, true)} />
             {cumLop("hd-seamark-mid", SEAMARK_TIER_MINZOOM.mid).map((s) => (
@@ -501,7 +607,7 @@ export default function HaiDoView() {
             ))}
           </Source>
         )}
-        {tang && (
+        {nhom.baoHieu && tang && (
           <Source id="hd-seamarks-near" type="geojson" data={tang.near} cluster clusterRadius={SEAMARK_CLUSTER_RADIUS} clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.near}>
             <Layer {...iconLop("hd-seamark-near", SEAMARK_TIER_MINZOOM.near, true)} />
             {cumLop("hd-seamark-near", SEAMARK_TIER_MINZOOM.near).map((s) => (
@@ -509,7 +615,7 @@ export default function HaiDoView() {
             ))}
           </Source>
         )}
-        {aidGeo && (
+        {nhom.baoHieu && aidGeo && (
           <Source id="hd-vn-aids" type="geojson" data={aidGeo} cluster clusterRadius={SEAMARK_CLUSTER_RADIUS} clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.mid}>
             <Layer {...iconLop("hd-vn-aid", VN_AID_MINZOOM, true)} />
             {cumLop("hd-vn-aid", VN_AID_MINZOOM).map((s) => (
@@ -521,6 +627,102 @@ export default function HaiDoView() {
           <Source id="hd-den-bien" type="geojson" data={denGeo}>
             <Layer {...L({ ...LIGHTHOUSE_LAYER, id: "hd-den-bien" })} />
             <Layer {...L({ ...LIGHTHOUSE_LABEL_LAYER, id: "hd-den-bien-ten" })} />
+          </Source>
+        )}
+
+        {/* LUỒNG · CÁP · ỐNG · GIÀN · VÙNG CẤM — mức "Đủ" (sea-lanes, file trong SHELL) */}
+        {(nhom.luong || nhom.camCap) && (
+          <Source id="hd-sea-lanes" type="geojson" data={dataSourceUrl(SEA_LANES_DATA_URL)}>
+            {nhom.camCap && (
+              <Layer
+                {...L({
+                  id: "hd-vung-cam-fill",
+                  type: "fill",
+                  filter: ["all", ["==", ["get", "kind"], "vungcam"], ["==", ["geometry-type"], "Polygon"]],
+                  paint: { "fill-color": RESTRICTED_FILL_COLOR, "fill-opacity": RESTRICTED_FILL_OPACITY },
+                })}
+              />
+            )}
+            {nhom.camCap && (
+              <Layer
+                {...L({
+                  id: "hd-vung-cam-line",
+                  type: "line",
+                  filter: ["==", ["get", "kind"], "vungcam"],
+                  paint: { "line-color": SEA_RESTRICTED_COLOR, "line-width": 1.4, "line-dasharray": [2, 2] },
+                })}
+              />
+            )}
+            {nhom.camCap && (
+              <Layer
+                {...L({
+                  id: "hd-cap",
+                  type: "line",
+                  filter: ["==", ["get", "kind"], "cap"],
+                  paint: { "line-color": SEA_CABLE_COLOR, "line-width": 1.2, "line-dasharray": [...SEA_CABLE_DASH] },
+                })}
+              />
+            )}
+            {nhom.camCap && (
+              <Layer
+                {...L({
+                  id: "hd-ong",
+                  type: "line",
+                  filter: ["==", ["get", "kind"], "ong"],
+                  paint: { "line-color": PIPELINE_COLOR, "line-width": 1.4, "line-dasharray": [...PIPELINE_DASH] },
+                })}
+              />
+            )}
+            {nhom.camCap && (
+              <Layer
+                {...L({
+                  id: "hd-gian",
+                  type: "symbol",
+                  minzoom: 7,
+                  filter: ["==", ["get", "kind"], "giankhoan"],
+                  layout: { "icon-image": "platform", "icon-size": 0.9, "icon-allow-overlap": true },
+                })}
+              />
+            )}
+            {nhom.luong && (
+              <Layer
+                {...L({
+                  id: "hd-luong",
+                  type: "line",
+                  filter: ["match", ["get", "kind"], ["luong", "phanluong", "tuyen"], true, false],
+                  paint: { "line-color": SEA_LANE_COLOR, "line-width": 1.4, "line-dasharray": [3, 2], "line-opacity": 0.8 },
+                })}
+              />
+            )}
+          </Source>
+        )}
+
+        {/* TRẠM CON NƯỚC — vùng từ nấc xa, tại cảng từ nấc vừa (như màn cũ) */}
+        {trieuGeo && (
+          <Source id="hd-trieu-src" type="geojson" data={trieuGeo}>
+            <Layer {...L({ ...TIDE_STATION_LAYER, id: "hd-trieu", filter: TIDE_FILTER_VUNG })} />
+            <Layer {...L({ ...TIDE_STATION_LAYER, id: "hd-trieu-cang", filter: TIDE_FILTER_CANG, minzoom: TIDE_STATION_CANG_MINZOOM })} />
+            <Layer {...L({ ...TIDE_STATION_LABEL_LAYER, id: "hd-trieu-ten", filter: TIDE_FILTER_VUNG })} />
+          </Source>
+        )}
+
+        {/* TÀU AIS — icon như màn cũ (components/ban-do/icon-tau) */}
+        {aisGeo && (
+          <Source id="hd-ais-src" type="geojson" data={aisGeo}>
+            <Layer
+              {...L({
+                id: "hd-ais",
+                type: "symbol",
+                layout: {
+                  "icon-image": ["concat", "ais-", ["get", "mk"], "-", ["case", ["==", ["get", "chay"], 1], "chay", "dung"]],
+                  "icon-size": CO_ICON_TAU,
+                  "icon-rotate": ["case", ["==", ["get", "chay"], 1], ["get", "huong"], 0],
+                  "icon-rotation-alignment": "map",
+                  "icon-allow-overlap": true,
+                  "icon-ignore-placement": true,
+                },
+              })}
+            />
           </Source>
         )}
 
@@ -799,6 +1001,14 @@ export default function HaiDoView() {
           />
         </Popover>
       )}
+
+      {lopMo && (
+        <Popover anchor={nutThem} label="Lớp hải đồ" onClose={() => setLopMo(false)} className="w-[17rem] p-3">
+          <KhayLop prefs={prefs} coAis={coAis} />
+        </Popover>
+      )}
+
+      {!prefs.daDongY && <DongY />}
 
       {caiDatMo && (
         <Popover anchor={nutThem} label="Cài đặt hải đồ" onClose={() => setCaiDatMo(false)} className="w-[17rem] p-3">

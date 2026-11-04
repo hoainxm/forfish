@@ -2120,6 +2120,16 @@ Anh Long: *"chế độ hải đồ thuần này là 1 lớp mới, ko dính t�
 | Đang đo | chữ thập + thẻ PV/cự ly, chạm hải đồ KHÔNG mở tấm chạm |
 | Máy chặn phát âm | chuông đỏ + rung vẫn còn |
 
+### 13.3 Đợt 3 (2026-11-04) — khay Lớp · tô nông · AIS + CPA · con nước · gió sóng tại điểm · tự đổi màu · câu đồng ý
+
+- **Khay Lớp** (⋯ → Lớp; `components/hai-do/khay-lop.tsx`): Mức hiển thị **Cơ bản** (bờ, đảo, độ sâu, đèn biển, xác tàu) · **Chuẩn** (mặc định, + phao/tiêu/báo hiệu Cục Hàng hải) · **Đủ** (+ luồng, phân luồng, tuyến, cáp, ống, giàn khoan, vùng cấm — `vn-sea-lanes`); công tắc Tô nông (mặc định BẬT) · Con nước (BẬT) · AIS (chỉ tài khoản được xem, TẮT) · Tự động đổi màu (TẮT). Xác tàu, đèn biển, đường an toàn không tắt được.
+- **Tô nông** (hai sắc kiểu OpenCPN, `lib/hai-do/lop mauDaiToNong`): nước nông hơn đường an toàn tô lam `#c4dceb`, dải sâu hơn tô đặc màu gốc — nét đẳng sâu vẫn ≥ 3:1 (test).
+- **AIS + báo va chạm**: icon tàu như màn cũ; quét 6 hải lý (`quetQuanh`), báo khi gần nhất < 0,5 hải lý trong ≤ 12 phút tới (`cauCpa`) ⇒ chuông đỏ "Tàu X sẽ cách … sau N phút"; chạm tàu ⇒ tấm chạm `moTaTau`. Làm mới 5 phút khi có sóng; mất sóng giữ bản cũ.
+- **Con nước**: ký hiệu trạm + nhãn "đang lên/xuống" (vùng từ nấc xa, tại cảng từ nấc vừa); chạm trạm ⇒ 2 con nước kế.
+- **Gió sóng tại điểm chạm**: `fetchSeaPoint(…, 1)` — chỉ HÔM NAY (như tài khoản thường), bản lưu trước/mạng sau; thêm dòng "Gió cấp N hướng X · sóng Y m" + "hôm nay"/"bản lưu trong máy". Trên bờ / hỏng ⇒ không thêm dòng.
+- **Tự đổi màu**: độ cao mặt trời tại tàu (`doCaoMatTroi`, NOAA rút gọn): > 6° Ngày · −6…6° Chiều · < −6° Đêm.
+- **Lần đầu mở**: tấm "Hải đồ để tham khảo … không thay hải đồ chính thức và Thông báo hàng hải" + Đồng ý (`daDongY`).
+
 ## Assumptions (§13)
 - Nhãn "Kiểu máy" (không "Hải đồ") vì "Hải đồ" đã là tên nhóm trong khay Lớp màn cũ — anh muốn tên khác thì đổi một dòng `NHAN.kieuMay`.
 - Dự báo cá / mật độ tàu / AIS chưa có trên màn này ở đợt 1 (thuần hải đồ); thêm ở đợt sau dưới dạng lớp TẮT mặc định.

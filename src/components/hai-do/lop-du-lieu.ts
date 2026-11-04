@@ -7,7 +7,8 @@
   // nợ: trùng logic với 4 useMemo trong fishing-map-view.tsx (anh Long chốt màn cũ không đụng ở đợt 1); gộp màn cũ sang gọi file này khi có đợt sửa màn cũ.
 */
 
-import { chartSymbolId, lighthouseSymbolId, wreckSymbolId } from "@/lib/chart-symbols";
+import { chartSymbolId, lighthouseSymbolId, tideSymbolId, wreckSymbolId } from "@/lib/chart-symbols";
+import { isModelStation, tideDaySeries, tideHeightAt, tideTrendAt, vnIsoDate, type TideStation } from "@/lib/tides";
 import { denOsmTrungDenBien, type DenBien } from "@/lib/den-bien";
 import { fmtDepthM } from "@/lib/map-prefs";
 import { lightAbbrev, type Seamark } from "@/lib/seamarks";
@@ -54,5 +55,30 @@ export function xacTauGeo(list: readonly XacTau[]): FC {
         nhan: typeof x.doSauVuotQua === "number" && x.doSauVuotQua > 0 ? fmtDepthM(x.doSauVuotQua) : "",
       }),
     ),
+  );
+}
+
+/* ── TRẠM CON NƯỚC (đợt 3) — cùng ký hiệu + nhãn với màn cũ (tideSymbolId) ── */
+
+export function tramTrieuGeo(list: readonly TideStation[], nowMs: number): FC {
+  const chu = (t: ReturnType<typeof tideTrendAt>) => (t === "len" ? "đang lên" : t === "xuong" ? "đang xuống" : "nước đứng");
+  const ngay = vnIsoDate(nowMs);
+  return fc(
+    list.map((s, i) => {
+      const trend = tideTrendAt(s, nowMs);
+      const ser = tideDaySeries(s, ngay, 60);
+      const lo = Math.min(...ser);
+      const hi = Math.max(...ser);
+      const frac = hi > lo ? (tideHeightAt(s, nowMs) - lo) / (hi - lo) : NaN;
+      const model = isModelStation(s);
+      return diem(s.lon, s.lat, {
+        i,
+        ten: s.name,
+        model: model ? 1 : 0,
+        hang: s.hang ?? "vung",
+        ic: tideSymbolId(trend, frac, model),
+        nhan9: `${s.name} · ${chu(trend)}`,
+      });
+    }),
   );
 }

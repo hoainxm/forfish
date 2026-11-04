@@ -236,4 +236,5 @@ Anh Long: *"kiểm tra và so với từng màn của 2 app kia, đảm bảo h�
 |---|---|---|
 | 1 | ✅ 2026-11-04 | 1, 4 (một phần), 6 (một phần) |
 | 2 | ✅ 2026-11-04 | 1 (mũi Bắc), 2, 3 (Bắc/Hướng đi), 7, 12, 13, 14, 15 + cột nút thông minh (3 nút lúc yên, khay ⋯) |
-
+| 3 | ✅ 2026-11-04 | 4 (tự đổi màu), 5, 6 (tô nông theo đường an toàn), 11 (AIS + CPA; chưa có danh sách tàu riêng), 16 (lớp trạm), 17 (gió sóng tại điểm chạm — chưa có lớp gió sóng toàn vùng/tua giờ), 21 |
+| 4 | ⏳ chuyển sang máy GPU 2026-11-04 | 8, 9, 10, 18 (tuyến, giám sát, vết, điểm, GPX) |
