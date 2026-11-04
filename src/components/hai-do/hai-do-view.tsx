@@ -17,6 +17,7 @@
 */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { diTrang, useLichSuDong } from "@/lib/dialog-focus";
 import MapGL, {
@@ -1835,7 +1836,9 @@ export default function HaiDoView() {
       )}
 
       {/* THÊM ĐIỂM — giữ ngón trên hải đồ */}
-      {xemAnh && (
+      {/* màn xem ảnh gắn thẳng vào <body> (portal): nằm trong khung hải đồ thì dock (z-20, ngữ cảnh xếp lớp ngoài) đè lên */}
+      {xemAnh &&
+        createPortal(
         <div role="dialog" aria-modal="true" aria-label="Ảnh của điểm" className="pointer-events-auto fixed inset-0 z-50 flex flex-col bg-navy">
           <div className="flex items-center justify-between px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-card">
             <span className="text-[0.875rem] font-semibold tabular-nums">{`Ảnh ${xemAnh.i + 1}/${xemAnh.keys.length}`}</span>
@@ -1858,8 +1861,9 @@ export default function HaiDoView() {
               <img src={xemUrl} alt="Ảnh của điểm" className="max-h-full max-w-full object-contain" />
             )}
           </button>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
 
       {chonNeo && (
         <div className="pointer-events-auto absolute inset-x-2 bottom-3 z-30 rounded-2xl border border-line bg-card p-3 shadow-float">
