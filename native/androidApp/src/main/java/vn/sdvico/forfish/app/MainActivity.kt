@@ -3,40 +3,22 @@ package vn.sdvico.forfish.app
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.clickable
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.ThumbUp
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,9 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.lifecycleScope
@@ -63,11 +43,28 @@ import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import vn.sdvico.forfish.app.giaodien.BieuTuong
+import vn.sdvico.forfish.app.giaodien.Chu
+import vn.sdvico.forfish.app.giaodien.ChuDeForFish
+import vn.sdvico.forfish.app.giaodien.DockNoi
+import vn.sdvico.forfish.app.giaodien.Hang
+import vn.sdvico.forfish.app.giaodien.HangYen
+import vn.sdvico.forfish.app.giaodien.ManHeader
+import vn.sdvico.forfish.app.giaodien.Mau
+import vn.sdvico.forfish.app.giaodien.NhanO
+import vn.sdvico.forfish.app.giaodien.NutChinh
+import vn.sdvico.forfish.app.giaodien.NutPhu
+import vn.sdvico.forfish.app.giaodien.ODock
+import vn.sdvico.forfish.app.giaodien.ONhap
+import vn.sdvico.forfish.app.giaodien.The
+import vn.sdvico.forfish.app.giaodien.TheTrangThai
 import vn.sdvico.forfish.shared.CauHinh
 import vn.sdvico.forfish.shared.UngDung
 import vn.sdvico.forfish.shared.bando.DuLieuTramTrieu
 import vn.sdvico.forfish.shared.bando.KieuBanDo
+import vn.sdvico.forfish.shared.giaodien.CoSinh
 import vn.sdvico.forfish.shared.kho.ChuyenKhoCu
+import vn.sdvico.forfish.shared.kho.KhoaMay
 import vn.sdvico.forfish.shared.sinh.NhanSinh
 import vn.sdvico.forfish.shared.taikhoan.KetQuaDangNhap
 import vn.sdvico.forfish.shared.trangchu.BanTinBao
@@ -80,7 +77,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /*
-  APP NATIVE ANDROID — ĐỢT 1 (app-map 18 §3): vỏ + tài khoản + vai + dock + Trang chủ.
+  APP NATIVE ANDROID (app-map 18 §3): đợt 1 (tài khoản, vai, dock, Trang chủ) + hệ giao diện của web (giaodien/).
   Khách dùng được ngay (như web: đăng nhập là tuỳ chọn); dock theo vai (spec 17); ô chưa làm native ghi rõ đợt nào.
   Mọi sự kiện chính ghi Logcat tag "ForFishNative" để kiểm bằng adb.
 */
@@ -91,6 +88,8 @@ class MainActivity : ComponentActivity() {
     private fun ghi(s: String) = Log.i("ForFishNative", s)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // nền sáng tràn viền như PWA: chữ thanh trạng thái tối trên nền --background
+        enableEdgeToEdge(SystemBarStyle.light(Mau.nen.toArgb(), Mau.nen.toArgb()), SystemBarStyle.light(Mau.nen.toArgb(), Mau.nen.toArgb()))
         super.onCreate(savedInstanceState)
         // debug: `--es webGoc https://127.0.0.1:9` giả mất sóng
         val goc = if (BuildConfig.DEBUG) intent.getStringExtra("webGoc") ?: CauHinh.WEB_GOC else CauHinh.WEB_GOC
@@ -108,9 +107,9 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            MaterialTheme {
+            ChuDeForFish {
                 val ve by lanVe
-                UngDungMan(ve) { lanVe.intValue++ }
+                Box(Modifier.fillMaxSize().background(Mau.nen)) { UngDungMan(ve) { lanVe.intValue++ } }
             }
         }
     }
@@ -128,7 +127,7 @@ class MainActivity : ComponentActivity() {
         if (!BuildConfig.DEBUG) return
         intent.getStringExtra("gieoKhoCu")?.let {
             KhoCuWebView.gieoThu(this, Json.parseToJsonElement(it).jsonObject)
-            ung.kho.xoa(vn.sdvico.forfish.shared.kho.KhoaMay.DA_CHUYEN_KHO_CU)
+            ung.kho.xoa(KhoaMay.DA_CHUYEN_KHO_CU)
             ghi("Debug: đã gieo kho cũ")
         }
         val chuoi = intent.getStringExtra("chuoi")
@@ -140,7 +139,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun UngDungMan(ve: Int, veLai: () -> Unit) {
-        var man by remember { mutableStateOf("chinh") }
+        var man by remember { mutableStateOf(if (BuildConfig.DEBUG) intent.getStringExtra("man") ?: "chinh" else "chinh") }
         var phienTam by remember { mutableStateOf<String?>(null) }
         BackHandler(enabled = man != "chinh") { man = "chinh" }
         when (man) {
@@ -163,38 +162,26 @@ class MainActivity : ComponentActivity() {
         val dock = remember(ve) { ung.dock() }
         var dang by remember { mutableStateOf("trang-chu") }
         if (dock.none { it.id == dang }) dang = "trang-chu"
-        Scaffold(
-            bottomBar = {
-                NavigationBar {
-                    for (o in dock) {
-                        NavigationBarItem(
-                            selected = o.id == dang,
-                            onClick = { dang = o.id },
-                            icon = { Icon(bieuTuong(o.id), contentDescription = o.nhan) },
-                            label = { Text(o.nhan) },
-                        )
-                    }
-                }
-            },
-        ) { pad ->
-            Box(Modifier.padding(pad).fillMaxSize()) {
-                when (dang) {
-                    "trang-chu" -> TrangChu(ve, veLai, moDangNhap, moChonVai)
-                    "ban-do" -> BanDoThu()
-                    else -> ChuaLam(dock.first { it.id == dang }.nhan, DOT_CUA_O[dang] ?: 7)
-                }
+        Box(Modifier.fillMaxSize()) {
+            when (dang) {
+                "trang-chu" -> TrangChu(ve, veLai, moDangNhap, moChonVai)
+                "ban-do" -> BanDoThu()
+                else -> ChuaLam(dock.first { it.id == dang }.nhan, DOT_CUA_O[dang] ?: 7)
+            }
+            Box(Modifier.align(Alignment.BottomCenter)) {
+                DockNoi(dock.map { ODock(it.id, it.nhan) }, dang) { dang = it }
             }
         }
     }
 
-    private fun bieuTuong(id: String): ImageVector = when (id) {
-        "trang-chu" -> Icons.Filled.Home
-        "kairos" -> Icons.Filled.ThumbUp
-        "ban-do" -> Icons.Filled.Place
-        "tau-toi" -> Icons.Filled.Build
-        "viec-lam" -> Icons.Filled.AccountCircle
-        "cho-ca" -> Icons.Filled.Star
-        else -> Icons.Filled.ShoppingCart
+    /** Thân màn cuộn: lề 1rem, nhóm cách 1.25rem, chừa đáy cho dock nổi (.app-content). */
+    @Composable
+    private fun ThanMan(noiDung: @Composable () -> Unit) {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 4.dp)
+                .navigationBarsPadding().padding(bottom = (CoSinh.DockRow + CoSinh.DockGap + 16).dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) { noiDung() }
     }
 
     @Composable
@@ -212,64 +199,49 @@ class MainActivity : ComponentActivity() {
         val sdt = remember(ve) { ung.phien.sdt() }
         val vai = remember(ve) { ung.vaiHienTai() }
         val biDa = remember(ve) { ung.phien.biDaLuc() }
-        Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Chào bà con", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                if (daDangNhap) {
-                    TextButton(onClick = {
-                        scope.launch { loiDangXuat = ung.dangNhap.dangXuat(); veLai() }
-                    }) { Text(NhanSinh.NHAN["dangXuat"] ?: "Đăng xuất") }
-                } else {
-                    Button(onClick = moDangNhap) { Text(NhanSinh.NHAN["dangNhap"] ?: "Đăng nhập") }
-                }
+        Column(Modifier.fillMaxSize()) {
+            ManHeader("Chào bà con") {
+                if (daDangNhap) NutPhu(NhanSinh.nhan("dangXuat"), { scope.launch { loiDangXuat = ung.dangNhap.dangXuat(); veLai() } })
+                else NutPhu(NhanSinh.nhan("dangNhap"), moDangNhap, nen = Mau.navy, mauChu = Mau.the)
             }
-            if (daDangNhap && sdt != null) Text("Tài khoản $sdt · ${NhanSinh.VAI.firstOrNull { it.id == vai }?.ten ?: "chưa chọn vai"}", style = MaterialTheme.typography.bodyMedium)
-            loiDangXuat?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            TheTinBao(tinBao, dangHoiBao)
-            if (biDa != null) {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                    Text("Tài khoản vừa đăng nhập ở máy khác nên máy này đã thoát. Dữ liệu đã tải vẫn còn. Bà con đăng nhập lại nếu cần.", Modifier.padding(16.dp))
-                }
-            }
-            if (daDangNhap && vai == null) {
-                Card(Modifier.fillMaxWidth().clickable(onClick = moChonVai)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Bà con làm nghề gì?", style = MaterialTheme.typography.titleMedium)
-                        Text("Chọn để app xếp màn hình theo việc của mình", style = MaterialTheme.typography.bodySmall)
+            ThanMan {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TheTinBao(tinBao, dangHoiBao)
+                    if (biDa != null) {
+                        TheTrangThai(
+                            "Tài khoản vừa đăng nhập ở máy khác", "Máy này đã thoát. Dữ liệu đã tải vẫn còn.",
+                            "Alert", Mau.nguy, Mau.nguyNen,
+                        )
                     }
                 }
+                if (daDangNhap && sdt != null) {
+                    Text("Tài khoản $sdt · ${NhanSinh.VAI.firstOrNull { it.id == vai }?.ten ?: "chưa chọn vai"}", style = Chu.phu)
+                }
+                loiDangXuat?.let { TheTrangThai(it, null, "Alert", Mau.warn, Mau.warnNen) }
+                if (daDangNhap && vai == null) Hang("Bà con làm nghề gì?", "Chọn để app xếp màn hình theo việc của mình", moChonVai)
+                Text(
+                    "Phần còn lại của Trang chủ (biển hôm nay, việc cần làm, thông báo, con nước, tin tuyển, cá đang bán…) chuyển sang bản native theo từng đợt.",
+                    style = Chu.phu,
+                )
             }
-            Text(
-                "Phần còn lại của Trang chủ (biển hôm nay, việc cần làm, thông báo, con nước, tin tuyển, cá đang bán…) chuyển sang bản native theo từng đợt.",
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
     }
 
+    /** = StormBanner variant "page": yên = hàng viền mảnh; không hỏi được = nền warn; có bão = nền danger. */
     @Composable
     private fun TheTinBao(t: TinBao?, dangHoi: Boolean) {
-        val gio = { iso: String? -> iso?.let { runCatching { DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(Instant.parse(it)) }.getOrNull() } }
-        val (dong1, dong2, nguy) = when {
-            t is TinBao.Moi && t.ban.bao.isNotEmpty() -> Triple(
-                t.ban.bao.joinToString(" · ") { "${it.kindLabel} ${it.name}" },
-                "Hỏi lúc ${gio(t.ban.hoiLuc) ?: "—"}", true,
+        val gio = { iso: String? -> iso?.let { runCatching { DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(Instant.parse(it)) }.getOrNull() } ?: "—" }
+        when {
+            t is TinBao.Moi && t.ban.bao.isNotEmpty() -> TheTrangThai(
+                t.ban.bao.joinToString(" · ") { "${it.kindLabel} ${it.name}" }, "Hỏi lúc ${gio(t.ban.hoiLuc)}", "Alert", Mau.nguy, Mau.nguyNen,
             )
-            t is TinBao.Moi -> Triple("Không có tin bão trên Biển Đông", "Hỏi lúc ${gio(t.ban.hoiLuc) ?: "—"}", false)
-            t is TinBao.KhongHoiDuoc -> Triple(
+            t is TinBao.Moi -> HangYen("Không có tin bão trên Biển Đông", "Hỏi lúc ${gio(t.ban.hoiLuc)}", "Check", Mau.ok)
+            t is TinBao.KhongHoiDuoc -> TheTrangThai(
                 "Chưa hỏi được tin bão",
-                t.cu?.let { "Lần cuối hỏi lúc ${gio(it.hoiLuc) ?: "—"}: ${moTa(it)}" } ?: "Chưa có lần nào hỏi được. Có sóng sẽ hỏi lại.", false,
+                t.cu?.let { "Lần cuối hỏi lúc ${gio(it.hoiLuc)}: ${moTa(it)}" } ?: "Chưa có lần nào hỏi được. Có sóng sẽ hỏi lại.",
+                "Alert", Mau.warn, Mau.warnNen,
             )
-            dangHoi -> Triple("Đang hỏi tin bão…", "", false)
-            else -> Triple("Chưa hỏi được tin bão", "", false)
-        }
-        Card(
-            Modifier.fillMaxWidth(),
-            colors = if (nguy) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer) else CardDefaults.cardColors(),
-        ) {
-            Column(Modifier.padding(16.dp)) {
-                Text(dong1, style = MaterialTheme.typography.titleMedium)
-                if (dong2.isNotEmpty()) Text(dong2, style = MaterialTheme.typography.bodySmall)
-            }
+            else -> HangYen(if (dangHoi) "Đang hỏi tin bão…" else "Chưa hỏi được tin bão", null, "Clock", Mau.mo)
         }
     }
 
@@ -283,32 +255,39 @@ class MainActivity : ComponentActivity() {
         var loi by remember { mutableStateOf<String?>(null) }
         var dang by remember { mutableStateOf(false) }
         var ghiChu by remember { mutableStateOf<String?>(null) }
-        Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(NhanSinh.NHAN["dangNhap"] ?: "Đăng nhập", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = onBo) { Text(NhanSinh.NHAN["huy"] ?: "Huỷ") }
-            }
-            OutlinedTextField(sdt, { sdt = it.filter(Char::isDigit).take(11) }, label = { Text("Số điện thoại") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(mk, { mk = it }, label = { Text("Mật khẩu") }, visualTransformation = PasswordVisualTransformation(),
-                singleLine = true, modifier = Modifier.fillMaxWidth())
-            loi?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            ghiChu?.let { Text(it) }
-            Button(enabled = !dang, modifier = Modifier.fillMaxWidth(), onClick = {
-                dang = true
-                loi = null
-                scope.launch {
-                    when (val kq = ung.dangNhap.dangNhap(sdt, mk)) {
-                        is KetQuaDangNhap.Loi -> { loi = kq.cau; dang = false; ghi("Đăng nhập lỗi: ${kq.cau}") }
-                        is KetQuaDangNhap.Xong -> {
-                            ghi("Đăng nhập xong: bị đá máy khác=${kq.biDaMayKhac}")
-                            ung.khiMoApp()
-                            if (kq.biDaMayKhac) { ghiChu = "Máy đăng nhập trước đó đã được đăng xuất."; kotlinx.coroutines.delay(1500) }
-                            onXong(kq)
+        Column(Modifier.fillMaxSize()) {
+            ManHeader(NhanSinh.nhan("dangNhap")) { NutPhu(NhanSinh.nhan("huy"), onBo) }
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                The {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            NhanO("Số điện thoại")
+                            ONhap(sdt, { sdt = it.filter(Char::isDigit).take(11) }, "Ví dụ: 0901234567", soDienThoai = true)
                         }
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            NhanO("Mật khẩu")
+                            ONhap(mk, { mk = it }, "Mật khẩu", matKhau = true)
+                        }
+                        loi?.let { TheTrangThai(it, null, "Alert", Mau.nguy, Mau.nguyNen) }
+                        ghiChu?.let { TheTrangThai(it, null, "Check", Mau.ok, Mau.okNen) }
+                        NutChinh(if (dang) "Đang vào…" else NhanSinh.nhan("dangNhap"), bat = !dang, onClick = {
+                            dang = true
+                            loi = null
+                            scope.launch {
+                                when (val kq = ung.dangNhap.dangNhap(sdt, mk)) {
+                                    is KetQuaDangNhap.Loi -> { loi = kq.cau; dang = false; ghi("Đăng nhập lỗi: ${kq.cau}") }
+                                    is KetQuaDangNhap.Xong -> {
+                                        ghi("Đăng nhập xong: bị đá máy khác=${kq.biDaMayKhac}")
+                                        ung.khiMoApp()
+                                        if (kq.biDaMayKhac) { ghiChu = "Máy đăng nhập trước đó đã được đăng xuất."; kotlinx.coroutines.delay(1500) }
+                                        onXong(kq)
+                                    }
+                                }
+                            }
+                        })
                     }
                 }
-            }) { Text(if (dang) "Đang vào…" else (NhanSinh.NHAN["dangNhap"] ?: "Đăng nhập")) }
+            }
         }
     }
 
@@ -317,18 +296,19 @@ class MainActivity : ComponentActivity() {
         val scope = rememberCoroutineScope()
         var mk by remember { mutableStateOf("") }
         var loi by remember { mutableStateOf<String?>(null) }
-        Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Đặt mật khẩu mới", style = MaterialTheme.typography.headlineMedium)
-            Text("Lần đầu đăng nhập, bà con đặt mật khẩu riêng (ít nhất 6 ký tự).")
-            OutlinedTextField(mk, { mk = it }, label = { Text("Mật khẩu mới") }, visualTransformation = PasswordVisualTransformation(),
-                singleLine = true, modifier = Modifier.fillMaxWidth())
-            loi?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            Button(modifier = Modifier.fillMaxWidth(), onClick = {
-                scope.launch {
-                    loi = if (phienTam == null) "Phiên đã hết. Bà con đăng nhập lại nhé." else ung.dangNhap.doiMatKhau(phienTam, mk)
-                    if (loi == null) onXong()
-                }
-            }) { Text(NhanSinh.NHAN["luu"] ?: "Lưu") }
+        Column(Modifier.fillMaxSize()) {
+            ManHeader("Đặt mật khẩu mới")
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Lần đầu đăng nhập, bà con đặt mật khẩu riêng (ít nhất 6 ký tự).", style = Chu.noiDung)
+                ONhap(mk, { mk = it }, "Mật khẩu mới", matKhau = true)
+                loi?.let { TheTrangThai(it, null, "Alert", Mau.nguy, Mau.nguyNen) }
+                NutChinh(NhanSinh.nhan("luu"), onClick = {
+                    scope.launch {
+                        loi = if (phienTam == null) "Phiên đã hết. Bà con đăng nhập lại nhé." else ung.dangNhap.doiMatKhau(phienTam, mk)
+                        if (loi == null) onXong()
+                    }
+                })
+            }
         }
     }
 
@@ -336,41 +316,37 @@ class MainActivity : ComponentActivity() {
     private fun ManChonVai(onXong: () -> Unit, onBo: () -> Unit) {
         val scope = rememberCoroutineScope()
         var loi by remember { mutableStateOf<String?>(null) }
-        Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Bà con làm nghề gì?", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = onBo) { Text("Để sau") }
-            }
-            Text("Chọn một lần — app xếp màn hình theo việc của mình.", style = MaterialTheme.typography.bodySmall)
-            for (v in NhanSinh.VAI) {
-                Card(Modifier.fillMaxWidth().clickable {
-                    scope.launch {
-                        val sdt = ung.phien.sdt() ?: return@launch
-                        val ma = ung.vai.chon(sdt, v.id)
-                        ghi("Chọn vai ${v.id}: ${ma ?: "xong"}")
-                        if (ma == null) onXong() else loi = "Tài khoản đã có vai, không đổi được. Cần sửa thì gọi SDVICO."
-                    }
-                }) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(v.ten, style = MaterialTheme.typography.titleMedium)
-                        Text(v.phu, style = MaterialTheme.typography.bodySmall)
+        Column(Modifier.fillMaxSize()) {
+            ManHeader("Bà con làm nghề gì?") { NutPhu("Để sau", onBo) }
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Chọn một lần — app xếp màn hình theo việc của mình.", style = Chu.phu)
+                Spacer(Modifier.height(4.dp))
+                for (v in NhanSinh.VAI) {
+                    Hang(v.ten, v.phu) {
+                        scope.launch {
+                            val sdt = ung.phien.sdt() ?: return@launch
+                            val ma = ung.vai.chon(sdt, v.id)
+                            ghi("Chọn vai ${v.id}: ${ma ?: "xong"}")
+                            if (ma == null) onXong() else loi = "Tài khoản đã có vai, không đổi được. Cần sửa thì gọi SDVICO."
+                        }
                     }
                 }
+                loi?.let { TheTrangThai(it, null, "Alert", Mau.nguy, Mau.nguyNen) }
             }
-            loi?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }
 
     @Composable
     private fun ChuaLam(nhan: String, dot: Int) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(nhan, style = MaterialTheme.typography.headlineMedium)
-            Text("Mục này đang chuyển sang bản native (đợt $dot).")
-            Spacer(Modifier.padding(4.dp))
+        Column(Modifier.fillMaxSize()) {
+            ManHeader(nhan)
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                HangYen("Mục này đang chuyển sang bản native", "Đợt $dot trong lộ trình", "Clock", Mau.mo)
+            }
         }
     }
 
-    /** Ô Bản đồ: vẫn là màn thử đợt 0 (nền pmtiles + trạm con nước) tới đợt 2. */
+    /** Ô Bản đồ: vẫn là màn thử đợt 0 (nền pmtiles + trạm con nước) tới đợt 2. Tràn viền dưới dock nổi như web. */
     @Composable
     private fun BanDoThu() {
         LaunchedEffect(Unit) {
