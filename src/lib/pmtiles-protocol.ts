@@ -17,7 +17,15 @@
 // không thêm request dò nào.
 
 import maplibregl from "maplibre-gl";
-import { FetchSource, PMTiles, Protocol, type Source, type RangeResponse } from "pmtiles";
+import {
+  FetchSource,
+  PMTiles,
+  Protocol,
+  SharedPromiseCache,
+  type Header,
+  type Source,
+  type RangeResponse,
+} from "pmtiles";
 import {
   DATA_HEADER_LEN,
   DATA_HEADER2_LEN,
@@ -126,7 +134,41 @@ export function archiveKey(url: string): string | null {
 let registered = false;
 let protocol: Protocol | null = null;
 
-const kho = (key: string) => new PMTiles(new DecodingSource(new FetchSource(key)));
+/*  KHO TỰ LÀNH (2026-11-04, bà con báo bản đồ "vuông loang lổ chỗ có chỗ không").
+    `SharedPromiseCache` của pmtiles cất LỜI HỨA của header + thư mục con và KHÔNG xoá lời hứa bị từ chối. Một lần
+    tải hỏng (sóng chập chờn, SW trả 504 sau 12 s) là: header hỏng ⇒ cả lớp chết; thư mục con hỏng ⇒ MỌI lát trong
+    vùng thư mục đó chết — đúng hình "ô vuông trống" — tới khi mở lại app. MapLibre có xin lại lát lỗi khi kéo bản
+    đồ, nhưng lần xin lại đụng đúng lời hứa hỏng trong kho nên hỏng tiếp. Kho này xoá mục hỏng ngay khi nó hỏng ⇒
+    lần xin sau đi mạng thật. Khoá mục giống hệt cách thư viện đặt (getKey | etag | offset | length). */
+export class KhoTuLanh extends SharedPromiseCache {
+  async getHeader(source: Source): Promise<Header> {
+    try {
+      return await super.getHeader(source);
+    } catch (e) {
+      this.cache.delete(source.getKey());
+      throw e;
+    }
+  }
+
+  async getDirectory(
+    source: Source,
+    offset: number,
+    length: number,
+    header: Header,
+    signal?: AbortSignal,
+  ) {
+    try {
+      return await super.getDirectory(source, offset, length, header, signal);
+    } catch (e) {
+      const k = `${source.getKey()}|${header.etag || ""}|${offset}|${length}`;
+      this.cache.delete(k);
+      this.pendingFetches.delete(k);
+      throw e;
+    }
+  }
+}
+
+const kho = (key: string) => new PMTiles(new DecodingSource(new FetchSource(key)), new KhoTuLanh());
 
 /** Đăng ký một lần. Gọi lại nhiều lần vô hại. */
 export function registerPmtilesProtocol(): void {

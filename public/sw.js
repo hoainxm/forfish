@@ -1472,24 +1472,30 @@ function basemapFirst(event, path) {
     trong máy vẫn không được vẽ, bản đồ đứng im không báo gì. */
 const TILE_NETWORK_MS = 8000;
 
-/** Ô bản đồ: có mạng lấy mới + cất vào kho có trần; mất mạng lấy ô đã cất. */
+/** Ô bản đồ: có mạng lấy mới + cất vào kho có trần; mất mạng lấy ô đã cất.
+ *
+ *  KHÔNG CÓ Ô ĐÃ CẤT THÌ TRẢ LỖI, KHÔNG TRẢ 204 (2026-11-04 — bà con báo bản đồ "vuông loang lổ chỗ có
+ *  chỗ không"). Bản trước trả 204 "ô trống" cho cả ca mạng chậm quá 8 s lẫn ca nguồn hỏng. MapLibre coi
+ *  204 là ô ĐÃ TẢI XONG, giữ luôn trong kho ô của nó và KHÔNG BAO GIỜ xin lại: một lần chậm là một lỗ vuông
+ *  ở lì tới khi đổi mức phóng. Ô LỖI thì MapLibre bỏ khi ra khỏi màn và xin lại khi kéo về — tự lành.
+ *  204 chỉ còn đi qua khi chính máy chủ nói "ô này thật sự không có ảnh" (res.ok, đi thẳng). */
 function tileFirst(event) {
   const req = event.request;
-  const cached = () =>
+  // ô đã cất, không có thì `orElse()` — lỗi kho cũng rơi về `orElse`
+  const cachedOr = (orElse) =>
     caches
       .open(SDFISH_TILE_V)
       .then((c) => c.match(req))
-      // không có ô đã cất → 204 để bản đồ coi là ô trống, không báo lỗi đỏ
-      .then((hit) => hit || new Response(null, { status: 204 }))
-      .catch(() => new Response(null, { status: 204 }));
+      .then((hit) => hit || orElse())
+      .catch(() => orElse());
+  const down = () => new Response(null, { status: 503 });
   const net = fetch(req)
     .then((res) => {
       /*  NGUỒN NÓI "KHÔNG HỎI ĐƯỢC" (503 từ /api/tiles, 5xx/429 khác) → lấy ô
           đã cất, ĐỪNG trả ô hỏng ra bản đồ (2026-08-02, đi kèm B2). Không có ô
-          cất thì `cached()` tự trả 204 — bản đồ coi là ô trống như trước, không
-          hiện lỗi đỏ giữa biển. 204 "trống thật" (ngoài dải zoom) vẫn `res.ok`
+          cất thì trả nguyên mã lỗi (xem đầu hàm). 204 "trống thật" vẫn `res.ok`
           nên đi thẳng, không rơi vào đây. */
-      if (!res.ok) return cached();
+      if (!res.ok) return cachedOr(() => res);
       {
         const copy = res.clone();
         // GHI VÀO KHO PHẢI NẰM TRONG waitUntil (2026-08-02): trình duyệt được
@@ -1506,10 +1512,11 @@ function tileFirst(event) {
       }
       return res;
     })
-    .catch(() => cached());
+    .catch(() => cachedOr(down));
   keepAliveLate(event, net, TILE_NETWORK_MS);
-  // Hết giờ thì lấy ô trong máy; `net` vẫn chạy nền và vẫn cất cho lần sau.
-  return raceTimeout(net, TILE_NETWORK_MS).then((winner) => winner || cached());
+  /*  Hết giờ: có ô trong máy thì vẽ ngay; KHÔNG có thì CHỜ TIẾP mạng (máy chủ tự cắt ở 12 s nên không
+      treo vô hạn) — trả 204 lúc này là tự đục lỗ vuông vĩnh viễn. `net` vẫn cất cho lần sau. */
+  return raceTimeout(net, TILE_NETWORK_MS).then((winner) => winner || cachedOr(() => net));
 }
 
 /**

@@ -4,6 +4,8 @@ import {
   proxyTileTemplate,
   TILE_PROXY,
   upstreamTileUrl,
+  upstreamTileUrls,
+  isPlaceholderTile,
 } from "../tile-proxy";
 
 describe("upstreamTileUrl — danh sách trắng", () => {
@@ -64,5 +66,57 @@ describe("TILE_PROXY", () => {
       expect(def.sMaxAge).toBeGreaterThan(0);
     }
     expect(isTileProxySource("basemap")).toBe(false);
+  });
+});
+
+describe("upstreamTileUrls — ngày dự phòng cho ảnh NASA (2026-11-04, bản đồ vuông loang lổ)", () => {
+  const now = new Date("2026-11-04T13:00:00Z");
+
+  it("nguồn tĩnh: đúng một URL, không đụng ngày", () => {
+    expect(upstreamTileUrls("chart", 6, 51, 28, now)).toEqual([upstreamTileUrl("chart", 6, 51, 28)]);
+    expect(upstreamTileUrls("seamark", 9, 411, 229, now)).toHaveLength(1);
+  });
+
+  it("phù du: BỎ `default` (= hôm nay chưa xử lý ⇒ ô giả xám), lùi từ hôm qua theo ngày UTC", () => {
+    const u = upstreamTileUrls("chlorophyll", 5, 25, 14, now)!;
+    expect(u.some((x) => x.includes("/default/default/"))).toBe(false);
+    expect(u[0]).toContain("/default/2026-11-03/GoogleMapsCompatible_Level7/5/14/25.png");
+    expect(u.at(-1)).toContain("/2026-10-28/");
+    expect(u).toHaveLength(TILE_PROXY.chlorophyll.dates!.backDays);
+  });
+
+  it("nước nóng lạnh: `default` trước, rồi lùi ngày làm dự phòng", () => {
+    const u = upstreamTileUrls("sst", 5, 25, 14, now)!;
+    expect(u[0]).toContain("/default/default/");
+    expect(u[1]).toContain("/default/2026-11-03/");
+  });
+
+  it("ngày lấy theo UTC, không theo giờ máy (01:00 giờ VN vẫn là ngày UTC hôm trước)", () => {
+    const u = upstreamTileUrls("chlorophyll", 5, 25, 14, new Date("2026-11-04T18:30:00Z"))!;
+    expect(u[0]).toContain("/2026-11-03/");
+  });
+
+  it("ô vô lý / nguồn lạ → null như upstreamTileUrl", () => {
+    expect(upstreamTileUrls("chlorophyll", 8, 1, 1, now)).toBeNull();
+    expect(upstreamTileUrls("evil", 5, 1, 1, now)).toBeNull();
+  });
+
+  it("nhận ra ô giả GIBS qua etag (cả dạng có ngoặc kép / W/)", () => {
+    expect(isPlaceholderTile("1000000000000")).toBe(true);
+    expect(isPlaceholderTile('"1000000000000"')).toBe(true);
+    expect(isPlaceholderTile('W/"1000000000000"')).toBe(true);
+    expect(isPlaceholderTile("k0h51krhsb020")).toBe(false);
+    expect(isPlaceholderTile(null)).toBe(false);
+  });
+});
+
+describe("SW tileFirst — không tự đục lỗ vuông", () => {
+  it("không trả 204 khi chậm/lỗi mà máy chưa có ô (MapLibre giữ 204 như ô đã tải, không xin lại)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const sw = readFileSync("public/sw.js", "utf8");
+    const body = sw.slice(sw.indexOf("function tileFirst("), sw.indexOf("ĐIỀU HƯỚNG: đua MẠNG"));
+    expect(body.length).toBeGreaterThan(100);
+    expect(body).not.toMatch(/status:\s*204/);
+    expect(body).toMatch(/cachedOr\(\(\) => net\)/);
   });
 });

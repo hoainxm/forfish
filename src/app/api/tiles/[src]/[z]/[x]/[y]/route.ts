@@ -6,8 +6,9 @@
 
 import {
   TILE_PROXY,
+  isPlaceholderTile,
   isTileProxySource,
-  upstreamTileUrl,
+  upstreamTileUrls,
 } from "@/lib/tile-proxy";
 import { timeoutSignal } from "@/lib/abort";
 
@@ -29,42 +30,71 @@ const empty = () => new Response(null, { status: 204 });
     bằng ô đã có trong kho. */
 const upstreamDown = () => new Response(null, { status: 503 });
 
+/** Trần TỔNG cho một ô (mọi ngày dự phòng cộng lại) — SW phía máy chờ cỡ đó trước khi lấy ô đã cất. */
+const TOTAL_MS = 12_000;
+/** Trần MỖI lượt hỏi nguồn — đủ chỗ cho 2–3 ngày dự phòng khi nguồn chậm. */
+const ATTEMPT_MS = 6_000;
+
 export async function GET(_req: Request, { params }: Ctx) {
   const { src, z: zs, x: xs, y: ys } = await params;
   if (!isTileProxySource(src)) return new Response("Bản đồ không xác định", { status: 404 });
-  const url = upstreamTileUrl(
+  const urls = upstreamTileUrls(
     src,
     Number.parseInt(zs, 10),
     Number.parseInt(xs, 10),
     Number.parseInt(ys, 10),
   );
   // đúng nguồn nhưng ngoài dải zoom / ô vô lý → ô trống, không phải lỗi
-  if (!url) return empty();
-  try {
-    const res = await fetch(url, { signal: timeoutSignal(12_000) });
-    // 404 của nguồn = ô đó thật sự không có (biển sâu ngoài vùng phủ) → ô trống.
-    // Mọi mã còn lại (429 quá tải, 5xx, bảo trì) = KHÔNG HỎI ĐƯỢC → nói thật.
-    if (res.status === 404) return empty();
-    if (!res.ok) return upstreamDown();
-    /*  CHỈ NHẬN ẢNH (2026-08-02b). Nguồn miễn phí lúc quá tải hay trả TRANG HTML
-        lỗi kèm status 200 — service worker chỉ nhìn `res.ok` nên sẽ cất nguyên
-        trang đó vào kho ô bản đồ, và ra khơi vùng biển ấy trống vĩnh viễn mà
-        không ai biết vì sao. Cùng khuôn K2 với chuyện 200-kèm-lỗi. */
-    const ctype = res.headers.get("Content-Type") ?? "";
-    if (!ctype.startsWith("image/")) return upstreamDown();
-    const buf = await res.arrayBuffer();
-    return new Response(buf, {
-      status: 200,
-      headers: {
-        "Content-Type": ctype,
-        // ảnh đổi theo ngày (GIBS `default`) ⇒ máy giữ 1 giờ, không `immutable`; ảnh tĩnh giữ 1 ngày
-        "Cache-Control": TILE_PROXY[src].daily
-          ? `public, max-age=3600, s-maxage=${TILE_PROXY[src].sMaxAge}`
-          : `public, max-age=86400, s-maxage=${TILE_PROXY[src].sMaxAge}, immutable`,
-      },
-    });
-  } catch {
-    // hết giờ 12 s / DNS chết / nguồn treo — cũng là "không hỏi được"
-    return upstreamDown();
+  if (!urls) return empty();
+  const deadline = Date.now() + TOTAL_MS;
+  /*  `failed` = có lượt nguồn KHÔNG trả lời (5xx, hết giờ, ô giả, trang HTML). Hết danh sách mà mọi lượt
+      đều 404 thì ô đó thật sự không có ảnh (mây che cả tuần, biển sâu ngoài vùng phủ) ⇒ 204. Có lượt hỏng
+      ⇒ 503, để SW lấy ô đã cất và MapLibre còn xin lại sau — 204 thì MapLibre giữ ô trống MÃI. */
+  let failed = false;
+  for (const url of urls) {
+    const left = deadline - Date.now();
+    if (left <= 300) {
+      failed = true;
+      break;
+    }
+    try {
+      const res = await fetch(url, { signal: timeoutSignal(Math.min(ATTEMPT_MS, left)) });
+      // 404 của nguồn = ô/ngày đó không có ảnh → thử ngày trước (nguồn tĩnh: hết danh sách → ô trống)
+      if (res.status === 404) continue;
+      // quá tải: dừng luôn, đừng dồn thêm lượt hỏi lên nguồn đang chặn mình
+      if (res.status === 429) {
+        failed = true;
+        break;
+      }
+      if (!res.ok) {
+        failed = true;
+        continue;
+      }
+      /*  CHỈ NHẬN ẢNH (2026-08-02b). Nguồn miễn phí lúc quá tải hay trả TRANG HTML
+          lỗi kèm status 200 — service worker chỉ nhìn `res.ok` nên sẽ cất nguyên
+          trang đó vào kho ô bản đồ, và ra khơi vùng biển ấy trống vĩnh viễn mà
+          không ai biết vì sao. Cùng khuôn K2 với chuyện 200-kèm-lỗi.
+          Ô GIẢ GIBS (2026-11-04): ảnh thật, 200, nhưng là ô xám lốm đốm của ngày chưa xử lý — cùng loại. */
+      const ctype = res.headers.get("Content-Type") ?? "";
+      if (!ctype.startsWith("image/") || isPlaceholderTile(res.headers.get("ETag"))) {
+        failed = true;
+        continue;
+      }
+      const buf = await res.arrayBuffer();
+      return new Response(buf, {
+        status: 200,
+        headers: {
+          "Content-Type": ctype,
+          // ảnh đổi theo ngày (GIBS) ⇒ máy giữ 1 giờ, không `immutable`; ảnh tĩnh giữ 1 ngày
+          "Cache-Control": TILE_PROXY[src].daily
+            ? `public, max-age=3600, s-maxage=${TILE_PROXY[src].sMaxAge}`
+            : `public, max-age=86400, s-maxage=${TILE_PROXY[src].sMaxAge}, immutable`,
+        },
+      });
+    } catch {
+      // hết giờ / DNS chết / nguồn treo — cũng là "không hỏi được"
+      failed = true;
+    }
   }
+  return failed ? upstreamDown() : empty();
 }

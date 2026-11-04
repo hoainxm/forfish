@@ -5,7 +5,7 @@
 |---|---|---|
 | docs/app-map/01-product.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/02-architecture.md | VERIFIED | ok |
-| docs/app-map/03-design-system.md | SUSPECT | code 'src/app/globals.css' doi sau last_verified |
+| docs/app-map/03-design-system.md | VERIFIED | ok |
 | docs/app-map/04-data-model.md | SUSPECT | code 'src/lib/documents.ts' doi sau last_verified |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
@@ -19,7 +19,7 @@
 | docs/app-map/14-ba-spec-kairos.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/15-flow-dang-chay-giong-noi.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/16-ba-spec-agent-kairos.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/17-ba-spec-vai-tai-khoan.md | SUSPECT | code 'src/app/api/me/vai' doi sau last_verified |
+| docs/app-map/17-ba-spec-vai-tai-khoan.md | VERIFIED | ok |
 | docs/app-map/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-notify-2026-08-18.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-notify-2026-10-20.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
