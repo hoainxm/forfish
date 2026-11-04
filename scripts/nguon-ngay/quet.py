@@ -233,8 +233,11 @@ def cmems() -> "object":
 
 
 def cmems_ngay(tu: str) -> list[str]:
-    t = cmems().time.values
-    return [str(x)[:10] for x in t if str(x)[:10] >= tu]
+    """Ngày có trong kho NRT. Ngày trước `validStartDate` của trục thời gian thì Copernicus đã dời sang kho khác ⇒ 403
+    (đo 2026-11-04: mọi ngày trước 20/10) — bỏ, đừng báo lỗi mỗi lượt."""
+    t = cmems().time
+    tu = max(tu, str(t.attrs.get("validStartDate", ""))[:10])
+    return [str(x)[:10] for x in t.values if str(x)[:10] >= tu]
 
 
 def cmems_luoi(ngay: str) -> np.ndarray:
