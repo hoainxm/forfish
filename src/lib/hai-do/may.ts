@@ -220,6 +220,7 @@ export function donXacNhan(ds: readonly BaoDong[], daXacNhan: ReadonlySet<MaBaoD
    an toàn (xác tàu, đá) → báo hiệu → đèn → đảo. Cùng hạng thì GẦN NHẤT thắng
    (sửa lỗi "vật xa giành chạm" đã ghi ở rà hải đồ 09/2026). */
 export const HANG_CHAM: Record<string, number> = {
+  "hd-diem": 1,
   "hd-ais": 0,
   "hd-gian": 0,
   "hd-cap": 0,

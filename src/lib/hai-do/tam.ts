@@ -41,7 +41,8 @@ export function docMob(raw: string | null): Mob | null {
   }
 }
 
-function taoKho<T>(key: string, doc: (raw: string | null) => T | null) {
+/** Kho một khoá localStorage + useSyncExternalStore (đọc hỏng ⇒ null). Dùng chung cho các kho chế độ Hải đồ. */
+export function taoKho<T>(key: string, doc: (raw: string | null) => T | null) {
   let v: T | null = null;
   let loaded = false;
   const ls = new Set<() => void>();

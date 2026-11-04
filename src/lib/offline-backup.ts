@@ -136,6 +136,7 @@ export const TRANSFER_KEYS = [
   "forfish.routestops.v1",
   "forfish.savedroutes.v1",
   "forfish.routes.v1",
+  "forfish.haiDoTuyen.v1",
   "forfish.maintenance.v1",
   "forfish.products.v1",
   "forfish.buyers.v1",
@@ -164,6 +165,9 @@ export const NEVER_BACKUP_PREFIXES = [
    *    của MỘT máy. Chép sang máy khác là máy đó kêu neo trôi / hiện người rơi không có thật. */
   "forfish.haiDoNeo.",
   "forfish.haiDoMob.",
+  /*  · `haiDoChay.` / `haiDoVetGhi.` — tuyến ĐANG chạy + vết ĐANG ghi: trạng thái một lúc của một máy. */
+  "forfish.haiDoChay.",
+  "forfish.haiDoVetGhi.",
   /*  · `vai.` — VAI của tài khoản trên máy này (lib/vai-store, spec 17, 2026-11-03): keyed theo SĐT, máy chủ giữ bản
    *    sao (customers.vai) nên máy mới đăng nhập là lấy lại. Chép sang máy khác của người khác là đổi dock của họ. */
   "forfish.vai.",
@@ -479,6 +483,13 @@ const PERSONAL_SPECS: Record<string, BackupGroupSpec> = {
     id: "routes",
     name: "lộ trình chuyến biển",
     unit: "lộ trình",
+    kind: "personal",
+  },
+  /*  Tuyến bà con tự vẽ ở chế độ Hải đồ (lib/hai-do/kho-tuyen, 2026-11-04) — tự gõ, mất là vẽ lại ⇒ transfer. */
+  "forfish.haiDoTuyen.v1": {
+    id: "haiDoTuyen",
+    name: "tuyến hải đồ",
+    unit: "tuyến",
     kind: "personal",
   },
   "forfish.maintenance.v1": {

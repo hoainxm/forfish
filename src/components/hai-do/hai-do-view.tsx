@@ -73,6 +73,13 @@ import { syncOwnerPhone } from "@/lib/user-sync";
 import { beaufort, fetchSeaPoint, formatNumberVN, windDirectionVN } from "@/lib/marine-weather";
 import { bangTheoTroi, canDanCongTrinh, canhBaoCongTrinh, cauCpa, doCaoMatTroi, loaiCongTrinh, nhomTheoMuc, TEN_CONG_TRINH, VONG_GIAN_M } from "@/lib/hai-do/lop";
 import { KhayLop } from "@/components/hai-do/khay-lop";
+import { BangTuyen, BangVet } from "@/components/hai-do/bang-tuyen";
+import { cauLech, docGpx, gioTaiDiem, giamSat, nhanDiemVet, tenMacDinh, tuyenTuVet, vietGpx, daoTuyen, type Tuyen, type Vet } from "@/lib/hai-do/tuyen";
+import { dsVet, luuVet, setChay, setTuyen, setVetGhi, useChay, useTuyen, useVetGhi, xoaVet } from "@/lib/hai-do/kho-tuyen";
+import { auditRoute, type RouteHit } from "@/lib/route-hazards";
+import { buildHazardList, requiredDepthM } from "@/lib/hazards";
+import { loadPlaces, persistPlaces, removePlace, upsertPlace, type SavedPlace } from "@/lib/places";
+import { DEFAULT_BOAT } from "@/lib/route-plan";
 import { DongY } from "@/components/hai-do/dong-y";
 import { KHONG_PHAI_CUM, LA_CUM, SEAMARK_ICON_LAYOUT } from "@/components/ban-do/hai-do";
 import { describeSeamark, fetchSeamarks, huongDiQuaPhao, type Seamark } from "@/lib/seamarks";
@@ -162,6 +169,10 @@ const DO_COLOR = "#c8461f";
 const NEO_COLOR = "#086e73";
 const MOB_COLOR = "#a82218";
 const NHAN_BANG = { ngay: "Ngày", chieu: "Chiều", dem: "Đêm" } as const;
+/** Tuyến (xanh dương — cùng màu tuyến dẫn đường của app), vết đã ghi (tím than), điểm người dùng (vàng đất). */
+const TUYEN_COLOR = "#1a73e8";
+const VET_COLOR = "#4338ca";
+const DIEM_COLOR = "#a16207";
 /** Cáp điện (đỏ sen) tách khỏi cáp quang (tím, SEA_CABLE_COLOR) — không trùng cam vùng cấm / xanh tuyến. */
 const CAP_DIEN_COLOR = "#be185d";
 const CAP_KHAC_COLOR = "#7c5a9c";
@@ -171,7 +182,7 @@ const ONG_XA_COLOR = "#6b7280";
 const CAP_ONG_MINZOOM = CHART_TIER.XA;
 const KM_HL = 1.852;
 /** Lớp chạm được — tên lớp khớp `HANG_CHAM` (lib/hai-do/may). */
-const LOP_CHAM = ["hd-gian", "hd-cap", "hd-ong", "hd-cap-bo", "hd-vung-cam-fill", "hd-ais", "hd-trieu", "hd-trieu-cang", "hd-xac-tau", "hd-vn-aid", "hd-seamark-near", "hd-seamark-mid", "hd-seamark-far", "hd-den-bien", "hd-island-dot", "hd-island-label"];
+const LOP_CHAM = ["hd-diem", "hd-gian", "hd-cap", "hd-ong", "hd-cap-bo", "hd-vung-cam-fill", "hd-ais", "hd-trieu", "hd-trieu-cang", "hd-xac-tau", "hd-vn-aid", "hd-seamark-near", "hd-seamark-mid", "hd-seamark-far", "hd-den-bien", "hd-island-dot", "hd-island-label"];
 const RONG = { type: "FeatureCollection", features: [] } as GeoJSON.FeatureCollection;
 /** Ô trong khay ⋯ — nhãn từ labels.ts (≤ 2 chữ), tên đầy đủ ở aria-label. */
 const KHAY: Record<MucKhay, { nhan: string; aria: string; icon: (p: { className?: string }) => React.ReactNode }> = {
@@ -224,14 +235,25 @@ export default function HaiDoView() {
     return typeof b?.draftM === "number" && b.draftM > 0 && b.draftM <= 10 ? b.draftM : null;
   });
   const anToanM = duongAnToanM(draftM, prefs.anToanM);
+  // tốc độ chạy thường của tàu (hồ sơ tàu) — ước giờ trên tuyến; chưa khai ⇒ mặc định app
+  const [tocDoKn] = useState<number>(() => {
+    const b = readUserRecord<Partial<BoatProfile>>("forfish.boat.v1").value;
+    return typeof b?.speedKn === "number" && b.speedKn > 0 && b.speedKn < 40 ? b.speedKn : DEFAULT_BOAT.speedKn;
+  });
 
   // ── neo / MOB (sống qua tắt-mở app) ───────────────────────────────────────
   const neo = useNeo();
   const mob = useMob();
   const [banKinhNeo, setBanKinhNeo] = useState(neo?.banKinhM ?? BAN_KINH_NEO_MAC_DINH);
 
-  // GPS — giữ sáng màn CHỈ khi đang canh neo / có người rơi (cần nghe chuông)
-  const tau = useNavTracking(true, { keepAwake: neo != null || mob != null });
+  // ── tuyến / vết (đợt 4) ───────────────────────────────────────────────────
+  const dsTuyen = useTuyen();
+  const chay = useChay();
+  const vetGhiId = useVetGhi();
+  const tuyenChay = chay ? dsTuyen.find((t) => t.id === chay.id) ?? null : null;
+
+  // GPS — giữ sáng màn khi canh neo / có người rơi (cần nghe chuông) / đang chạy tuyến / đang ghi vết
+  const tau = useNavTracking(true, { keepAwake: neo != null || mob != null || tuyenChay != null || vetGhiId != null });
   const coGps = tau.pos != null && tau.status !== "denied";
 
   // đồng hồ màn (phút MOB, GPS cũ, mặt trời, con nước) — không gọi Date.now() lúc vẽ
@@ -265,13 +287,20 @@ export default function HaiDoView() {
     const h = tau.headingDeg;
     setHuongMuot((cu) => lamMuotHuong(cu, h));
   }, [tau.headingDeg, tau.speedKmh, tau.lastFixAt]);
+  // GIÁM SÁT TUYẾN — điểm kế, PV, cự ly, giờ, lệch; tới điểm tự chuyển (lib/hai-do/tuyen)
+  const gs = tuyenChay && chay ? giamSat(tuyenChay.diem, chay.toi, tau.pos, tau.speedKmh) : null;
+  useEffect(() => {
+    if (chay && gs && gs.toi !== chay.toi) setChay({ id: chay.id, toi: gs.toi });
+  }, [chay, gs]);
+  const pvChang = gs?.pvChang ?? null;
+  const coGs = gs != null;
   const [goc, setGoc] = useState(0); // bearing camera hiện tại
   const [bam, setBam] = useState(true); // bản đồ đang bám theo tàu
   const daBay = useRef(false);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const bearing = gocCamera(prefs.huong, tau.speedKmh != null ? huongMuot : null, null, map.getBearing());
+    const bearing = gocCamera(prefs.huong === "tuyen" && !coGs ? "bac" : prefs.huong, tau.speedKmh != null ? huongMuot : null, pvChang, map.getBearing());
     if (!tau.pos || !bam) {
       if (Math.abs(bearing - map.getBearing()) > 0.5) map.rotateTo(bearing, { duration: 300 });
       return;
@@ -282,7 +311,7 @@ export default function HaiDoView() {
     } else {
       map.easeTo({ center: [tau.pos.lon, tau.pos.lat], bearing, duration: 400 });
     }
-  }, [tau.pos, tau.speedKmh, bam, prefs.huong, huongMuot]);
+  }, [tau.pos, tau.speedKmh, bam, prefs.huong, huongMuot, pvChang, coGs]);
 
   // ── neo: xét mỗi fix ─────────────────────────────────────────────────────
   const demNeo = useRef(0);
@@ -420,8 +449,8 @@ export default function HaiDoView() {
     gpsMat: tau.lastFixAt != null && gpsMat,
     cpa,
     congTrinh,
-    lechTuyen: null,
-    hetTuyen: false,
+    lechTuyen: gs ? cauLech(gs, (km) => fmtDist(km, unit, km < 10 ? 1 : 0)) : null,
+    hetTuyen: gs?.het ?? false,
   });
 
   // ── tâm màn (cho Đo) ──────────────────────────────────────────────────────
@@ -488,10 +517,162 @@ export default function HaiDoView() {
   ];
 
   // ── tấm chạm ──────────────────────────────────────────────────────────────
+  // ── BẢNG TUYẾN / VẾT · ĐIỂM NGƯỜI DÙNG · GPX (đợt 4) ─────────────────────────
+  const [bang_, setBang] = useState<"tuyen" | "vet" | null>(null);
+  const [soan, setSoan] = useState<{ id: string | null; ten: string; diem: LatLon[] } | null>(null);
+  const [kiem, setKiem] = useState<{ hits: RouteHit[]; missing: string[] } | null>(null);
+  const [places, setPlaces] = useState<SavedPlace[]>(() => loadPlaces());
+  const [vets, setVets] = useState<Vet[]>([]);
+  const [vetXemId, setVetXemId] = useState<string | null>(null);
+  const [diemMoi, setDiemMoi] = useState<LatLon | null>(null);
+  const [tenDiem, setTenDiem] = useState("");
+  const [baoLoi, setBaoLoi] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const taiVet = () =>
+    dsVet()
+      .then(setVets)
+      .catch(() => setBaoLoi("Máy không cho lưu vết (bộ nhớ trình duyệt bị chặn)"));
+
+  // GHI VẾT: mỗi fix mới qua bộ lọc (≥ 20 m hoặc 30 s, bỏ fix kém) ⇒ thêm điểm + ghi IndexedDB ngay
+  // (tắt app giữa chừng không mất vết đã ghi). Ghi hỏng ⇒ nói thật, không im.
+  const vetDangGhi = useRef<Vet | null>(null);
+  useEffect(() => {
+    if (!vetGhiId || !tau.pos || tau.lastFixAt == null) return;
+    const v = vetDangGhi.current;
+    if (!v || v.id !== vetGhiId) return;
+    const cuoi = v.diem.length ? v.diem[v.diem.length - 1] : null;
+    if (!nhanDiemVet(cuoi, tau.pos.lat, tau.pos.lon, tau.lastFixAt, tau.accuracyM)) return;
+    v.diem.push([tau.pos.lat, tau.pos.lon, tau.lastFixAt]);
+    luuVet(v)
+      .then(() => setVets((ds) => [v, ...ds.filter((x) => x.id !== v.id)]))
+      .catch(() => setBaoLoi("Không ghi được vết vào máy"));
+  }, [vetGhiId, tau.pos, tau.lastFixAt, tau.accuracyM]);
+  // mở lại app giữa lúc đang ghi ⇒ nạp lại vết đang dở rồi ghi tiếp
+  useEffect(() => {
+    if (!vetGhiId || vetDangGhi.current?.id === vetGhiId) return;
+    dsVet()
+      .then((ds) => {
+        setVets(ds);
+        vetDangGhi.current = ds.find((v) => v.id === vetGhiId) ?? { id: vetGhiId, batDau: Date.now(), diem: [] };
+      })
+      .catch(() => setBaoLoi("Không đọc được vết đang ghi"));
+  }, [vetGhiId]);
+
+  const kiemTuyen = (diem: LatLon[]) => {
+    try {
+      const need = requiredDepthM(draftM, null, tocDoKn);
+      const kho = buildHazardList({ xacTau: xac ?? null, laneFeatures: seaLanes ?? null, seamarks: seamarks ?? null } as never, need);
+      setKiem(
+        auditRoute({
+          waypoints: diem,
+          hoursAt: gioTaiDiem(diem, tocDoKn),
+          departMs: nowMs,
+          draftM,
+          stores: {
+            hazards: kho.hazards,
+            passable: kho.passable,
+            lanes: seaLanes ?? undefined,
+            seamarks: seamarks ?? undefined,
+            vnAids: aids ?? undefined,
+            tides: tram ?? undefined,
+            border: true,
+          },
+        }),
+      );
+    } catch {
+      setKiem({ hits: [], missing: ["bộ soi gặp lỗi"] });
+    }
+  };
+
+  /** Xuất GPX: chia sẻ tệp (máy có) — không thì tải xuống. */
+  const xuatGpx = async (xml: string, ten: string) => {
+    const file = new File([xml], `${ten.replace(/[^\p{L}\p{N}\- ]+/gu, "").trim() || "sdfish"}.gpx`, { type: "application/gpx+xml" });
+    try {
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: ten });
+        return;
+      }
+    } catch {
+      /* bà con huỷ chia sẻ — thôi, không tải thay */
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+  const nhapGpx = async (f: File) => {
+    try {
+      const r = docGpx(await f.text(), Date.now());
+      if (r.tuyen.length) setTuyen([...r.tuyen, ...dsTuyen]);
+      for (const v of r.vet) await luuVet(v);
+      if (r.vet.length) void taiVet();
+      if (r.diem.length) {
+        const moi = r.diem.reduce((ds, d) => upsertPlace(ds, { name: d.ten, lat: d.lat, lon: d.lon }), places);
+        if (persistPlaces(moi)) setPlaces(moi);
+      }
+      setBaoLoi(
+        r.tuyen.length + r.vet.length + r.diem.length
+          ? `Đã nhập ${r.tuyen.length} tuyến · ${r.vet.length} vết · ${r.diem.length} điểm`
+          : "Tệp không có tuyến, vết hay điểm nào đọc được",
+      );
+    } catch {
+      setBaoLoi("Không đọc được tệp GPX");
+    }
+  };
+
+  // ĐIỂM NGƯỜI DÙNG: giữ ngón ~0,6 s trên hải đồ (chuột phải trên máy tính) ⇒ thêm điểm
+  const giu = useRef<{ t: number; x: number; y: number; ll: LatLon } | null>(null);
+  const batDauGiu = (x: number, y: number, ll: LatLon) => {
+    giu.current = { t: Date.now(), x, y, ll };
+  };
+  const ketThucGiu = (x: number, y: number) => {
+    const g = giu.current;
+    giu.current = null;
+    if (!g || soan || doMo) return;
+    if (Date.now() - g.t >= 600 && Math.hypot(x - g.x, y - g.y) < 10) {
+      setDiemMoi(g.ll);
+      setTenDiem(`Điểm ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`);
+    }
+  };
+
+  // hình vẽ: tuyến đang soạn / đang chạy / vết / điểm
+  const soanGeo = useMemo(() => {
+    if (!soan) return RONG;
+    const f: GeoJSON.Feature[] = soan.diem.map((p, k) => ({ type: "Feature", properties: { so: String(k + 1) }, geometry: { type: "Point", coordinates: [p.lon, p.lat] } }));
+    if (soan.diem.length >= 2) f.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: soan.diem.map((p) => [p.lon, p.lat]) } });
+    return fc(f);
+  }, [soan]);
+  const chayGeo = useMemo(() => {
+    if (!tuyenChay) return RONG;
+    const f: GeoJSON.Feature[] = tuyenChay.diem.map((p, k) => ({
+      type: "Feature",
+      properties: { so: String(k + 1), qua: chay && k < chay.toi ? 1 : 0 },
+      geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+    }));
+    f.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: tuyenChay.diem.map((p) => [p.lon, p.lat]) } });
+    return fc(f);
+  }, [tuyenChay, chay]);
+  const vetGeo = useMemo(() => {
+    const ds = vets.filter((v) => v.id === vetXemId || v.id === vetGhiId).filter((v) => v.diem.length >= 2);
+    return fc(ds.map((v) => ({ type: "Feature", properties: { ghi: v.id === vetGhiId ? 1 : 0 }, geometry: { type: "LineString", coordinates: v.diem.map(([la, lo]) => [lo, la]) } })));
+  }, [vets, vetXemId, vetGhiId]);
+  const diemGeo = useMemo(
+    () => fc(places.map((p) => ({ type: "Feature", properties: { id: p.id, ten: p.name }, geometry: { type: "Point", coordinates: [p.lon, p.lat] } }))),
+    [places],
+  );
+
   const [cham, setCham] = useState<DongCham[] | null>(null);
   const chamKhoa = useRef<string | null>(null);
   const onCham = (e: MapLayerMouseEvent) => {
       if (doMo) return;
+      if (soan) {
+        setSoan({ ...soan, diem: [...soan.diem, { lat: e.lngLat.lat, lon: e.lngLat.lng }] });
+        setKiem(null);
+        return;
+      }
       const map = mapRef.current?.getMap();
       if (!map) return;
       const { x, y } = e.point;
@@ -514,6 +695,24 @@ export default function HaiDoView() {
       const dong: DongCham[] = [];
       const islands = fs.filter((f) => f.layer.id.startsWith("hd-island"));
       for (const v of xepCham(vat)) {
+        if (v.lop === "hd-diem") {
+          const id = fs.find((f) => f.layer.id === "hd-diem")?.properties?.id as string | undefined;
+          const pl = places.find((q) => q.id === id);
+          if (pl)
+            dong.push({
+              tieu: pl.name,
+              phu: "Điểm đã lưu",
+              viec: {
+                nhan: NHAN.xoa,
+                lam: () => {
+                  const moi = removePlace(places, pl.id);
+                  if (persistPlaces(moi)) setPlaces(moi);
+                  setCham(null);
+                },
+              },
+            });
+          continue;
+        }
         if (["hd-gian", "hd-cap", "hd-ong", "hd-cap-bo", "hd-vung-cam-fill"].includes(v.lop) && seaLanes?.[v.i]) {
           const pr = seaLanes[v.i].properties ?? {};
           const lct = loaiCongTrinh(String(pr.kind ?? ""), pr.loai as string | undefined);
@@ -588,7 +787,7 @@ export default function HaiDoView() {
   const [nutThem, setNutThem] = useState<HTMLButtonElement | null>(null);
   const tinhCot = { coBaoDong: baoDong.length > 0, dangNeo: neo != null, dangDo: doMo, nutZoom: prefs.nutZoom };
   const cotNut = nutNoi(tinhCot);
-  const khay = mucKhay(tinhCot, { lop: true, tuyen: false, vet: false });
+  const khay = mucKhay(tinhCot, { lop: true, tuyen: true, vet: true });
   const [lopMo, setLopMo] = useState(false);
   const chonKhay = (m: MucKhay) => {
     if (m === "mau") {
@@ -603,6 +802,11 @@ export default function HaiDoView() {
     } else if (m === "neo") setNeoMo(true);
     else if (m === "caiDat") setCaiDatMo(true);
     else if (m === "lop") setLopMo(true);
+    else if (m === "tuyen") setBang("tuyen");
+    else if (m === "vet") {
+      setBang("vet");
+      void taiVet();
+    }
     else if (m === "banDo") {
       setHaiDoPrefs({ moHaiDo: false });
       router.push("/ngu-truong");
@@ -631,6 +835,20 @@ export default function HaiDoView() {
           setGoc(e.viewState.bearing);
         }}
         onClick={onCham}
+        onContextMenu={(e) => {
+          if (soan || doMo) return;
+          setDiemMoi({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+          setTenDiem(`Điểm ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`);
+        }}
+        onTouchStart={(e) => {
+          if (e.points.length === 1) batDauGiu(e.point.x, e.point.y, { lat: e.lngLat.lat, lon: e.lngLat.lng });
+          else giu.current = null;
+        }}
+        onTouchMove={(e) => {
+          const g = giu.current;
+          if (g && Math.hypot(e.point.x - g.x, e.point.y - g.y) > 10) giu.current = null;
+        }}
+        onTouchEnd={(e) => ketThucGiu(e.point.x, e.point.y)}
         // ô nguồn bản đồ: MapLibre bung sẵn che đáy màn — thu về nút ⓘ (cùng cách màn bản đồ cũ `thuONguon`)
         onLoad={(e) => {
           thuONguon();
@@ -864,6 +1082,79 @@ export default function HaiDoView() {
           </Source>
         )}
 
+        {/* ĐIỂM NGƯỜI DÙNG (kho places — dùng chung màn bản đồ cũ) */}
+        <Source id="hd-diem-src" type="geojson" data={diemGeo}>
+          <Layer
+            {...L({
+              id: "hd-diem",
+              type: "circle",
+              paint: { "circle-radius": 6, "circle-color": DIEM_COLOR, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
+            })}
+          />
+          <Layer
+            {...L({
+              id: "hd-diem-ten",
+              type: "symbol",
+              minzoom: 9,
+              layout: { "text-field": ["get", "ten"], "text-font": ["Noto Sans Bold"], "text-size": 12, "text-offset": [0, 1], "text-anchor": "top", "text-optional": true },
+              paint: { "text-color": DIEM_COLOR, "text-halo-color": "#ffffff", "text-halo-width": 1.4 },
+            })}
+          />
+        </Source>
+        {/* VẾT TÀU — đang ghi (đỏ) / đang xem (tím than) */}
+        <Source id="hd-vet-src" type="geojson" data={vetGeo}>
+          <Layer
+            {...L({
+              id: "hd-vet",
+              type: "line",
+              layout: { "line-cap": "round", "line-join": "round" },
+              paint: { "line-color": ["case", ["==", ["get", "ghi"], 1], MOB_COLOR, VET_COLOR], "line-width": 2.5, "line-opacity": 0.85 },
+            })}
+          />
+        </Source>
+        {/* TUYẾN ĐANG CHẠY — điểm đã qua mờ đi */}
+        <Source id="hd-chay-src" type="geojson" data={chayGeo}>
+          <Layer {...L({ id: "hd-chay-line", type: "line", filter: ["==", ["geometry-type"], "LineString"], paint: { "line-color": TUYEN_COLOR, "line-width": 3 } })} />
+          <Layer
+            {...L({
+              id: "hd-chay-diem",
+              type: "circle",
+              filter: ["==", ["geometry-type"], "Point"],
+              paint: { "circle-radius": 7, "circle-color": TUYEN_COLOR, "circle-opacity": ["case", ["==", ["get", "qua"], 1], 0.35, 1], "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
+            })}
+          />
+          <Layer
+            {...L({
+              id: "hd-chay-so",
+              type: "symbol",
+              filter: ["==", ["geometry-type"], "Point"],
+              layout: { "text-field": ["get", "so"], "text-font": ["Noto Sans Bold"], "text-size": 10, "text-allow-overlap": true },
+              paint: { "text-color": "#ffffff" },
+            })}
+          />
+        </Source>
+        {/* TUYẾN ĐANG SOẠN */}
+        <Source id="hd-soan-src" type="geojson" data={soanGeo}>
+          <Layer {...L({ id: "hd-soan-line", type: "line", filter: ["==", ["geometry-type"], "LineString"], paint: { "line-color": DO_COLOR, "line-width": 3, "line-dasharray": [2, 1] } })} />
+          <Layer
+            {...L({
+              id: "hd-soan-diem",
+              type: "circle",
+              filter: ["==", ["geometry-type"], "Point"],
+              paint: { "circle-radius": 8, "circle-color": DO_COLOR, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
+            })}
+          />
+          <Layer
+            {...L({
+              id: "hd-soan-so",
+              type: "symbol",
+              filter: ["==", ["geometry-type"], "Point"],
+              layout: { "text-field": ["get", "so"], "text-font": ["Noto Sans Bold"], "text-size": 10, "text-allow-overlap": true },
+              paint: { "text-color": "#ffffff" },
+            })}
+          />
+        </Source>
+
         {/* VÒNG CỰ LY 1-2-5 hải lý quanh tàu */}
         <Source id="hd-vong" type="geojson" data={vongGeo}>
           <Layer id="hd-vong-line" type="line" paint={{ "line-color": doiMau(VEC_COLOR, bang), "line-width": 1, "line-opacity": 0.55, "line-dasharray": [4, 3] }} />
@@ -991,8 +1282,27 @@ export default function HaiDoView() {
             )}
           </button>
         )}
+        {tuyenChay && gs && (
+          <div role="status" className="glass pointer-events-auto flex flex-wrap items-baseline gap-x-3 gap-y-0.5 rounded-[1.25rem] px-4 py-2 text-navy tabular-nums">
+            {gs.het ? (
+              <span className="text-[0.9375rem] font-semibold">{`${tuyenChay.ten}: đã tới điểm cuối`}</span>
+            ) : (
+              <>
+                <span className="text-[0.75rem] font-semibold text-muted">{`Tới điểm ${gs.toi + 1}/${tuyenChay.diem.length}`}</span>
+                <span className="text-[1.125rem] font-semibold">{fmtPv(gs.btwDeg)}</span>
+                <span className="text-[1.125rem] font-semibold">{gs.dtwKm != null ? fmtDist(gs.dtwKm, unit, gs.dtwKm < 10 ? 1 : 0) : "—"}</span>
+                <span className="text-[0.8125rem] font-semibold">{gs.ttgPhut != null ? `${Math.round(gs.ttgPhut)} phút` : "—"}</span>
+                <span className={`text-[0.8125rem] font-semibold ${gs.xtdKm != null && gs.xtdKm > 0.926 ? "text-warn" : ""}`}>
+                  {gs.xtdKm != null ? `lệch ${fmtDist(gs.xtdKm, unit, 2)}` : ""}
+                </span>
+                {gs.denCuoiPhut != null && <span className="text-[0.75rem] text-muted">{`hết tuyến ~${Math.round(gs.denCuoiPhut)} phút`}</span>}
+              </>
+            )}
+          </div>
+        )}
         <p className="pl-4 text-[0.75rem] font-semibold text-muted [text-shadow:0_0_3px_var(--card)]">
           {`An toàn ${anToanM} m · ${NHAN_HUONG[prefs.huong]}`}
+          {vetGhiId ? " · Đang ghi vết" : ""}
           {neo && !moRong ? ` · Neo ${neoCachM != null ? Math.round(neoCachM) : "—"}/${neo.banKinhM} m` : ""}
           {!online ? " · Mất sóng — dữ liệu trong máy" : ""}
         </p>
@@ -1033,7 +1343,7 @@ export default function HaiDoView() {
                 key={n}
                 label={`Hướng bản đồ: ${NHAN_HUONG[prefs.huong]} — chạm để đổi`}
                 active={prefs.huong !== "bac"}
-                onClick={() => setHaiDoPrefs({ huong: huongKeTiep(prefs.huong, false) })}
+                onClick={() => setHaiDoPrefs({ huong: huongKeTiep(prefs.huong, tuyenChay != null) })}
               >
                 {/* mũi chỉ BẮC thật — xoay ngược theo góc bản đồ */}
                 <span className="block" style={{ transform: `rotate(${-goc}deg)` }}>
@@ -1114,7 +1424,144 @@ export default function HaiDoView() {
         </div>
       )}
 
-      {cham && !doMo && <TamCham dong={cham} onDong={() => setCham(null)} />}
+      {cham && !doMo && !bang_ && <TamCham dong={cham} onDong={() => setCham(null)} />}
+
+      {bang_ === "tuyen" && (
+        <BangTuyen
+          ds={dsTuyen}
+          soan={soan}
+          tocDoKn={tocDoKn}
+          unit={unit}
+          kiem={kiem}
+          dangChayId={chay?.id ?? null}
+          onThem={() => {
+            setSoan({ id: null, ten: tenMacDinh(nowMs), diem: [] });
+            setKiem(null);
+            setCham(null);
+          }}
+          onSua={(t) => {
+            setSoan({ id: t.id, ten: t.ten, diem: [...t.diem] });
+            setKiem(null);
+          }}
+          onXoa={(t) => {
+            setTuyen(dsTuyen.filter((x) => x.id !== t.id));
+            if (chay?.id === t.id) setChay(null);
+          }}
+          onChay={(t) => {
+            setChay({ id: t.id, toi: 1 });
+            setBang(null);
+            setBam(true);
+          }}
+          onDung={() => setChay(null)}
+          onBoDiem={() => soan && setSoan({ ...soan, diem: soan.diem.slice(0, -1) })}
+          onDao={() => soan && setSoan({ ...soan, diem: daoTuyen(soan.diem) })}
+          onKiem={() => soan && kiemTuyen(soan.diem)}
+          onLuu={() => {
+            if (!soan || soan.diem.length < 2) return;
+            const t: Tuyen = { id: soan.id ?? `t${nowMs}`, ten: soan.ten, diem: soan.diem, luc: Date.now() };
+            setTuyen([t, ...dsTuyen.filter((x) => x.id !== t.id)]);
+            setSoan(null);
+            setKiem(null);
+          }}
+          onHuy={() => {
+            setSoan(null);
+            setKiem(null);
+          }}
+          onNhap={() => fileRef.current?.click()}
+          onXuat={() => void xuatGpx(vietGpx({ tuyen: dsTuyen, diem: places.map((p) => ({ ten: p.name, lat: p.lat, lon: p.lon })) }), "Tuyến SDFish")}
+          onDong={() => setBang(null)}
+        />
+      )}
+      {bang_ === "vet" && (
+        <BangVet
+          ds={vets}
+          dangGhiId={vetGhiId}
+          dangXemId={vetXemId}
+          unit={unit}
+          onGhi={() => {
+            const v: Vet = { id: `v${Date.now()}`, batDau: Date.now(), diem: [] };
+            vetDangGhi.current = v;
+            setVetGhi(v.id);
+            luuVet(v)
+              .then(() => setVets((ds) => [v, ...ds]))
+              .catch(() => setBaoLoi("Không ghi được vết vào máy"));
+          }}
+          onDungGhi={() => {
+            vetDangGhi.current = null;
+            setVetGhi(null);
+          }}
+          onXem={(v) => setVetXemId((cu) => (cu === v.id ? null : v.id))}
+          onTaoTuyen={(v) => {
+            setSoan({ id: null, ten: tenMacDinh(v.batDau).replace("Tuyến", "Tuyến từ vết"), diem: tuyenTuVet(v) });
+            setKiem(null);
+            setBang("tuyen");
+          }}
+          onXuat={(v) => void xuatGpx(vietGpx({ vet: [v] }), `Vết ${new Date(v.batDau).toISOString().slice(0, 10)}`)}
+          onXoa={(v) => {
+            xoaVet(v.id)
+              .then(() => setVets((ds) => ds.filter((x) => x.id !== v.id)))
+              .catch(() => setBaoLoi("Không xoá được vết"));
+            if (vetXemId === v.id) setVetXemId(null);
+          }}
+          onDong={() => setBang(null)}
+        />
+      )}
+
+      {/* THÊM ĐIỂM — giữ ngón trên hải đồ */}
+      {diemMoi && (
+        <div className="pointer-events-auto absolute inset-x-2 bottom-3 z-30 rounded-2xl border border-line bg-card p-3 shadow-float">
+          <label htmlFor="hd-ten-diem" className="text-[0.875rem] font-semibold text-navy">
+            Lưu điểm này
+          </label>
+          <p className="text-[0.75rem] text-muted tabular-nums">{fmtCoordPair(diemMoi.lat, diemMoi.lon, mapPrefs.coordFormat)}</p>
+          <input
+            id="hd-ten-diem"
+            value={tenDiem}
+            onChange={(e) => setTenDiem(e.target.value)}
+            maxLength={60}
+            className="mt-2 h-(--h-ctl) w-full rounded-xl border border-line bg-field px-3 text-[1rem] text-foreground"
+          />
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              className="sq-btn bg-sea text-card"
+              onClick={() => {
+                const moi = upsertPlace(places, { name: tenDiem, lat: diemMoi.lat, lon: diemMoi.lon });
+                if (persistPlaces(moi)) setPlaces(moi);
+                else setBaoLoi("Không lưu được điểm vào máy");
+                setDiemMoi(null);
+              }}
+            >
+              {NHAN.luu}
+            </button>
+            <button type="button" className="sq-btn bg-field text-foreground" onClick={() => setDiemMoi(null)}>
+              {NHAN.huy}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".gpx,application/gpx+xml,application/xml,text/xml"
+        className="hidden"
+        aria-hidden
+        tabIndex={-1}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void nhapGpx(f);
+          e.target.value = "";
+        }}
+      />
+      {baoLoi && (
+        <div role="status" className="pointer-events-auto absolute inset-x-2 top-[45%] z-40 flex items-center gap-2 rounded-xl bg-navy px-3 py-2 text-[0.875rem] text-card">
+          <span className="flex-1">{baoLoi}</span>
+          <button type="button" className="sq-btn bg-card/20 text-card" onClick={() => setBaoLoi(null)}>
+            {NHAN.dong}
+          </button>
+        </div>
+      )}
 
       {neoMo && (
         <Popover anchor={neo ? nutNeo : nutThem} label="Canh neo" onClose={() => setNeoMo(false)} className="w-[17rem] p-3">

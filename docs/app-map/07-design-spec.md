@@ -2138,6 +2138,15 @@ Anh Long: *"chế độ hải đồ thuần này là 1 lớp mới, ko dính t�
 - **Báo động** (`lop.canhBaoCongTrinh` → chuông, đỏ): đang neo mà neo cách cáp/ống < 500 m ⇒ "Neo cách cáp quang ngầm 139 m — dễ móc"; tàu trong vòng 500 m quanh giàn ⇒ "Đang trong vòng 500 m quanh giàn khoan".
 - **Giới hạn dữ liệu** (nói thật): 41 giàn trong `vn-sea-lanes` đều ở vịnh Bắc Bộ / quanh Hải Nam (nguồn OSM) — CHƯA có giàn các mỏ phía Nam (Bạch Hổ, Rồng, Sư Tử…); 12 cáp + 12 ống chưa rõ loại.
 
+### 13.5 Đợt 4 (2026-11-04) — tuyến · kiểm tuyến · giám sát · vết · điểm người dùng · GPX
+
+- **Tuyến** (⋯ → Tuyến; ngăn đáy `components/hai-do/bang-tuyen.tsx`): danh sách (tên · số điểm · cự ly — Bắt đầu/Dừng · Sửa · Xoá; Thêm · Nhập GPX · Xuất GPX). Soạn: chạm hải đồ đặt điểm (đánh số), bảng chặng "1→2: 090° · 5,1 hải lý · 44 phút" theo tốc độ hồ sơ tàu (mặc định 7 hải lý/giờ), Bỏ điểm · Đảo tuyến · **Kiểm tuyến** · Lưu · Huỷ. Kho `forfish.haiDoTuyen.v1` (sao lưu nhóm bà con tự gõ).
+- **Kiểm tuyến** = `auditRoute` + `buildHazardList` SẴN CÓ (route-hazards/hazards) — xác tàu, đá/rạn, cạn theo mớn, cáp/ống, vùng cấm, ranh giới, báo hiệu, con nước; danh sách "Cách đầu tuyến X: câu" màu theo mức; dòng "Chưa soi được: …" khi thiếu kho.
+- **Giám sát tuyến** (Bắt đầu): dải thứ hai dưới dải số — "Tới điểm k/n · PV 3 số · cự ly · phút · lệch … · hết tuyến ~phút"; tới gần điểm ≤ 0,1 hải lý hoặc đi lố (chỉ khi đang trong hành lang ≤ 1 hải lý) ⇒ tự chuyển điểm; lệch > 0,5 hải lý ⇒ chuông vàng "Lệch tuyến …"; tới cuối ⇒ vàng "Đã tới điểm cuối tuyến". Nút hướng có thêm nấc **Tuyến lên** khi đang chạy tuyến. Giữ sáng màn khi đang chạy tuyến. Kho `forfish.haiDoChay.v1`.
+- **Vết tàu** (⋯ → Vết): Ghi vết / Dừng ghi (đỏ, "Đang ghi — giữ màn mở"); lọc ≥ 20 m hoặc 30 s, bỏ fix sai số > 50 m; ghi IndexedDB `forfish-hai-do/vet` NGAY mỗi điểm (tắt app không mất), mở lại app thì ghi tiếp; danh sách ngày · cự ly · thời gian · số điểm — Bản đồ (vẽ) · Tạo tuyến (giản lược Douglas–Peucker ≤ 30 điểm) · Xuất GPX · Xoá. Giữ sáng màn khi đang ghi.
+- **Điểm người dùng**: giữ ngón ~0,6 s trên hải đồ (chuột phải trên máy tính) ⇒ thẻ "Lưu điểm này" + toạ độ + ô tên; lưu vào kho `places` dùng chung màn cũ; chấm vàng đất + tên từ z9; chạm ⇒ tấm chạm có nút Xoá.
+- **GPX 1.1** (`lib/hai-do/tuyen` vietGpx/docGpx, không cần DOMParser): xuất tuyến + điểm / một vết qua chia sẻ của máy (không có thì tải xuống); nhập tuyến (rte), vết (trk), điểm (wpt) — điểm hỏng bị bỏ, báo "Đã nhập N tuyến · N vết · N điểm".
+
 ## Assumptions (§13)
 - Nhãn "Kiểu máy" (không "Hải đồ") vì "Hải đồ" đã là tên nhóm trong khay Lớp màn cũ — anh muốn tên khác thì đổi một dòng `NHAN.kieuMay`.
 - Dự báo cá / mật độ tàu / AIS chưa có trên màn này ở đợt 1 (thuần hải đồ); thêm ở đợt sau dưới dạng lớp TẮT mặc định.

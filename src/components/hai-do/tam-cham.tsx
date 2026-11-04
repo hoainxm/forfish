@@ -16,6 +16,8 @@ export interface DongCham {
   phu?: string;
   /** tô cảnh báo (xác tàu, đá, nông) */
   canh?: boolean;
+  /** một nút việc (vd Xoá điểm đã lưu) — nhãn từ labels.ts */
+  viec?: { nhan: string; lam: () => void };
 }
 
 export function TamCham({ dong, onDong }: { dong: DongCham[]; onDong: () => void }) {
@@ -29,6 +31,11 @@ export function TamCham({ dong, onDong }: { dong: DongCham[]; onDong: () => void
           <li key={k}>
             <p className={`text-[0.9375rem] font-semibold ${d.canh ? "text-danger" : "text-navy"}`}>{d.tieu}</p>
             {d.phu && <p className="text-[0.8125rem] text-muted">{d.phu}</p>}
+            {d.viec && (
+              <button type="button" onClick={d.viec.lam} className="sq-btn mt-1.5 bg-field text-foreground">
+                {d.viec.nhan}
+              </button>
+            )}
           </li>
         ))}
       </ul>
