@@ -20,6 +20,7 @@
 
 import { apiUrl } from "@/lib/api-base";
 import { xoaHetAnhGiay } from "@/lib/giay-anh-kho";
+import { xoaHetAnhCho } from "@/lib/hai-do/anh-cho-kho";
 import { DEVICE_TOKEN_HEADER, isValidTokenShape, shouldDropAccount, type TokenDenial } from "@/lib/device-token";
 import { applyIdentityAction } from "@/lib/offline-identity";
 import { TIER_CACHE_KEY, TIER_EVENT, TIER_UNTIL_KEY } from "@/lib/tier";
@@ -198,6 +199,7 @@ export function signOutLocal(reason: "user" | "kicked"): void {
   announceToken();
   // ảnh giấy tờ cất trong máy để xuất trình offline (lib/giay-anh-kho) là dữ liệu riêng — không để lại cho người sau
   void xoaHetAnhGiay();
+  void xoaHetAnhCho(); // ảnh điểm chờ gửi (chế độ Hải đồ) — cùng loại dữ liệu riêng; sổ điểm cũng bị xoá lúc này
   /*  QUA CỔNG `applyIdentityAction`, KHÔNG gọi thẳng `forgetIdentity` — luật K7:
       sổ danh tính chỉ có MỘT người ghi. Cổng `identity-gate.test.ts` bắt được
       đúng chỗ này lúc tôi viết tắt, và nó bắt đúng: mỗi đường ghi thứ hai là một

@@ -263,6 +263,11 @@ describe("nước dưới đáy tàu (cận dưới)", () => {
     expect(nuocDuoiDay(0, 2)).toBeNull();
     expect(nuocDuoiDay(1, 2)).toBeNull();
   });
+  it("cộng con nước so với mực trung bình: nước lớn thêm, nước ròng bớt; số hỏng ⇒ coi như 0", () => {
+    expect(nuocDuoiDay(5, 1.8, 0.9)).toBe(11.1);
+    expect(nuocDuoiDay(4, 2, -1.3)).toBe(0.7);
+    expect(nuocDuoiDay(5, 1.8, Number.NaN)).toBe(10.2);
+  });
 });
 describe("ẩn dock trên Hải đồ", () => {
   it("chạy tuyến / neo / MOB ⇒ ẩn; chỉ xem ⇒ hiện", () => {

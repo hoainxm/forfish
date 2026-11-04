@@ -71,14 +71,18 @@ export const quaChiTiet = (zoom: number): boolean => Number.isFinite(zoom) && zo
 
 /**
  * NƯỚC DƯỚI ĐÁY TÀU (UKC — iSailor TidesPage "UKC = độ sâu hải đồ + triều − mớn", rà soát 2026-11-04).
- * Lưới chỉ có DẢI, không số mét ⇒ chỉ nói được CẬN DƯỚI: đáy dải − mớn. Không cộng con nước (số 0 hải đồ
- * VN là mực nước thấp nhất ⇒ triều chỉ làm nước sâu THÊM) — số này luôn về phía an toàn.
+ * Lưới độ sâu (ETOPO/GEBCO) lấy mốc MỰC NƯỚC TRUNG BÌNH và chỉ có DẢI ⇒ chỉ nói được CẬN DƯỚI:
+ *   đáy dải + `lechTB` − mớn
+ * `lechTB` = mực nước lúc này SO VỚI MỰC TRUNG BÌNH (m) = `tideHeightAt(trạm) − trạm.z0` (con nước tính trên số 0
+ * hải đồ, z0 là mực trung bình trên số 0) — nước ròng thì âm, số tự giảm, vẫn về phía an toàn. Không có trạm gần ⇒
+ * bỏ trống (0): số chỉ còn "đáy dải − mớn", đúng như lúc chưa cộng con nước.
  * null: chưa khai mớn / trên bờ / rạn (không có đáy dải).
  */
-export function nuocDuoiDay(cls: DepthClass, mon: number | null): number | null {
+export function nuocDuoiDay(cls: DepthClass, mon: number | null, lechTB = 0): number | null {
   const day = DEPTH_CLASS_MIN_M[cls];
   if (day == null || mon == null || !(mon > 0)) return null;
-  return Math.round((day - mon) * 10) / 10;
+  const lech = Number.isFinite(lechTB) ? lechTB : 0;
+  return Math.round((day + lech - mon) * 10) / 10;
 }
 
 /* ── ĐỘ SÂU THEO LƯỚI ─────────────────────────────────────────────────────── */

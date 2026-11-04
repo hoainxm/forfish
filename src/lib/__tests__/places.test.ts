@@ -112,3 +112,15 @@ describe("loại + ghi chú điểm (chế độ Hải đồ, 2026-11-04)", () =
     expect("ghiChu" in c[0]).toBe(false);
   });
 });
+
+import { ANH_DIEM_TOI_DA } from "../places";
+describe("ảnh điểm (path máy chủ / khoá kho chờ)", () => {
+  it("lưu tối đa ANH_DIEM_TOI_DA, bỏ mục hỏng; ghim lại không truyền ảnh ⇒ giữ ảnh cũ", () => {
+    const a = up2([], { name: "Rạn", lat: 10, lon: 109, anh: ["0900/diem_x/1.jpg", "", 5 as never, "cho:a", "cho:b", "cho:c"] });
+    expect(a[0].anh).toEqual(["0900/diem_x/1.jpg", "cho:a", "cho:b"].slice(0, ANH_DIEM_TOI_DA));
+    const b = up2(a, { name: "Rạn 2", lat: 10, lon: 109 });
+    expect(b[0].anh).toEqual(a[0].anh);
+    const c = up2(a, { name: "Rạn 3", lat: 10, lon: 109, anh: [] });
+    expect("anh" in c[0]).toBe(false);
+  });
+});
