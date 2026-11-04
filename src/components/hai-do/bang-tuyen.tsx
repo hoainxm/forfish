@@ -15,7 +15,7 @@ import { CloseButton } from "@/components/ui/close-button";
 import { NHAN } from "@/lib/labels";
 import { fmtDist, type DistUnit } from "@/lib/map-prefs";
 import { fmtPv } from "@/lib/hai-do/may";
-import { cacChang, thongKeVet, tongKm, type Tuyen, type Vet } from "@/lib/hai-do/tuyen";
+import { cacChang, gioDen, thongKeVet, tongKm, type Tuyen, type Vet } from "@/lib/hai-do/tuyen";
 import type { LatLon } from "@/lib/route-plan";
 import type { RouteHit } from "@/lib/route-hazards";
 
@@ -43,6 +43,7 @@ export function BangTuyen({
   ds,
   soan,
   tocDoKn,
+  nowMs,
   unit,
   kiem,
   dangChayId,
@@ -63,6 +64,8 @@ export function BangTuyen({
   ds: Tuyen[];
   soan: { ten: string; diem: LatLon[] } | null;
   tocDoKn: number;
+  /** mốc "đi bây giờ" cho giờ đến từng điểm */
+  nowMs: number;
   unit: DistUnit;
   kiem: { hits: RouteHit[]; missing: string[] } | null;
   dangChayId: string | null;
@@ -93,10 +96,10 @@ export function BangTuyen({
             </p>
             <ol className="mt-1 flex flex-col gap-0.5 text-[0.8125rem] tabular-nums text-foreground">
               {chang.map((c, k) => (
-                <li key={k}>{`${k + 1}→${k + 2}: ${fmtPv(c.pvDeg)} · ${fmtDist(c.km, unit, 1)} · ${gio(c.phut)}`}</li>
+                <li key={k}>{`${k + 1}→${k + 2}: ${fmtPv(c.pvDeg)} · ${fmtDist(c.km, unit, 1)} · ${gio(c.phut)} · đến ${gioDen(nowMs, c.phutDon)}`}</li>
               ))}
             </ol>
-            <p className="mt-1 text-[0.75rem] text-muted">Chạm lên chặng để chèn điểm · giữ và kéo một điểm để dời</p>
+            <p className="mt-1 text-[0.75rem] text-muted">Giờ đến tính nếu đi bây giờ · chạm lên chặng để chèn điểm · giữ và kéo một điểm để dời</p>
           </>
         )}
         {kiem && (

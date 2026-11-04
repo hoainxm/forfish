@@ -240,6 +240,10 @@ Anh Long: *"kiểm tra và so với từng màn của 2 app kia, đảm bảo h�
 | 4 | ✅ 2026-11-04 (làm ở Mac — `claude` máy GPU hết phiên đăng nhập) | 3 (Tuyến lên), 8 (tuyến + kiểm tuyến bằng auditRoute), 9 (giám sát + báo lệch/hết tuyến), 10 (vết + tạo tuyến từ vết), 18 (điểm người dùng + GPX) |
 | Sau 4 | ✅ 2026-11-04 (máy GPU) | 11 (danh sách tàu AIS: lọc · Sắp gặp/Gần nhất · tầm 6/12/24 · chạm bay tới), 17 (lớp gió/sóng toàn vùng + dải tua giờ, theo luật gói), 19 một phần (bộ đọc NMEA/AIS thuần — chưa plugin native, chưa thiết bị thật). Kiểm trình duyệt 375 px: Xuất GPX ra tệp `.gpx` 1.1 (đường tải xuống; chia sẻ của điện thoại chưa thử), vòng 500 m quanh giàn hiện đúng, danh sách AIS bằng bản AIS giả (tài khoản test không có quyền AIS — không sửa cấu hình thật) |
 
+### 8.3b Rà soát lại so bản rà này (2026-11-04, máy GPU)
+
+Đối chiếu `/hai-do` với §2–§4 + đi màn trên trình duyệt 375 px (tài khoản test, GPS giả). Đã sửa và lên main: "Về bản đồ thường" một chạm (f2b39aa4) · nhìn trước khi Hướng đi lên + bỏ Sen Biển nổi trên hải đồ + kẹt zoom 4,6 (15e0f51a) · sửa tuyến bằng ngón chèn/kéo, ô Màu, AIS xếp theo tên, "Kiểu máy" lên đầu khay (e3490df0) · giờ đến theo đồng hồ + báo phóng quá chi tiết (đợt 3). Còn lệch so §2–§4, CẦN CHỐT trước khi làm: ẩn dock khi Chạy/Neo (§4.2 — đụng layout chung), loại + ghi chú + ảnh cho điểm người dùng (hàng 18 — đổi kho `places` dùng chung với bản đồ thường), UKC ở thẻ chạm (hàng 16 — lưới độ sâu chỉ có dải), thả neo tại con trỏ (hàng 13), Head Up (điện thoại không có la bàn tàu đáng tin), NMEA native (hàng 19). Giới hạn: bản rà đọc chuỗi/tên lớp từ gói cài, không có ảnh màn — so "cùng chức năng, cùng chỗ đặt, cùng số chạm", không so điểm ảnh.
+
 ### 8.4 Bàn giao đợt 4 (chuyển sang máy GPU, 2026-11-04)
 
 Nhánh `feat/hai-do-thuan` (origin) — đợt 1–3 đã có, test xanh (`npm test`), chưa vào `main`.

@@ -169,3 +169,16 @@ describe("sửa tuyến bằng ngón — chèn giữa, trúng điểm", () => {
     expect(diemTrung(px, { x: 50, y: 50 })).toBeNull();
   });
 });
+
+import { gioDen } from "../hai-do/tuyen";
+describe("giờ đến theo đồng hồ (ETA)", () => {
+  const T = Date.parse("2026-11-04T13:00:00Z"); // 20:00 giờ VN
+  it("cộng phút ⇒ giờ VN", () => {
+    expect(gioDen(T, 0)).toBe("20:00");
+    expect(gioDen(T, 100)).toBe("21:40");
+  });
+  it("qua nửa đêm ⇒ 'mai'; xa hơn ⇒ '+N ngày'", () => {
+    expect(gioDen(T, 6 * 60 + 10)).toBe("02:10 mai");
+    expect(gioDen(T, 50 * 60)).toBe("22:00 +2 ngày");
+  });
+});

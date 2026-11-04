@@ -82,7 +82,7 @@ import { arrowFeatures, fetchForecastGrid, WAVE_COLOR_EXPR, WIND_COLOR_EXPR, typ
 import { isoDateVN } from "@/lib/day-labels";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { soNgayThoiTiet } from "@/lib/tier";
-import { cauLech, diemTrung, docGpx, gioTaiDiem, viTriChen, giamSat, nhanDiemVet, tenMacDinh, tuyenTuVet, vietGpx, daoTuyen, type Tuyen, type Vet } from "@/lib/hai-do/tuyen";
+import { cauLech, diemTrung, docGpx, gioDen, gioTaiDiem, viTriChen, giamSat, nhanDiemVet, tenMacDinh, tuyenTuVet, vietGpx, daoTuyen, type Tuyen, type Vet } from "@/lib/hai-do/tuyen";
 import { dsVet, luuVet, setChay, setTuyen, setVetGhi, useChay, useTuyen, useVetGhi, xoaVet } from "@/lib/hai-do/kho-tuyen";
 import { auditRoute, type RouteHit } from "@/lib/route-hazards";
 import { buildHazardList, requiredDepthM } from "@/lib/hazards";
@@ -124,6 +124,7 @@ import {
   dsBaoDong,
   fmtPv,
   gocCamera,
+  quaChiTiet,
   demNhinTruoc,
   huongKeTiep,
   lamMuotHuong,
@@ -307,6 +308,7 @@ export default function HaiDoView() {
   const pvChang = gs?.pvChang ?? null;
   const coGs = gs != null;
   const [goc, setGoc] = useState(0); // bearing camera hiện tại
+  const [phongQua, setPhongQua] = useState(false); // phóng quá chi tiết hải đồ (may.quaChiTiet)
   const [bam, setBam] = useState(true); // bản đồ đang bám theo tàu
   const daBay = useRef(false);
   const daToiZoom = useRef(false);
@@ -979,6 +981,7 @@ export default function HaiDoView() {
         onMove={(e) => {
           setTam({ lat: e.viewState.latitude, lon: e.viewState.longitude });
           setGoc(e.viewState.bearing);
+          setPhongQua(quaChiTiet(e.viewState.zoom));
         }}
         onClick={onCham}
         onContextMenu={(e) => {
@@ -1455,17 +1458,18 @@ export default function HaiDoView() {
                 <span className="text-[0.75rem] font-semibold text-muted">{`Tới điểm ${gs.toi + 1}/${tuyenChay.diem.length}`}</span>
                 <span className="text-[1.125rem] font-semibold">{fmtPv(gs.btwDeg)}</span>
                 <span className="text-[1.125rem] font-semibold">{gs.dtwKm != null ? fmtDist(gs.dtwKm, unit, gs.dtwKm < 10 ? 1 : 0) : "—"}</span>
-                <span className="text-[0.8125rem] font-semibold">{gs.ttgPhut != null ? `${Math.round(gs.ttgPhut)} phút` : "—"}</span>
+                <span className="text-[0.8125rem] font-semibold">{gs.ttgPhut != null ? `${Math.round(gs.ttgPhut)} phút · đến ${gioDen(nowMs, gs.ttgPhut)}` : "—"}</span>
                 <span className={`text-[0.8125rem] font-semibold ${gs.xtdKm != null && gs.xtdKm > 0.926 ? "text-warn" : ""}`}>
                   {gs.xtdKm != null ? `lệch ${fmtDist(gs.xtdKm, unit, 2)}` : ""}
                 </span>
-                {gs.denCuoiPhut != null && <span className="text-[0.75rem] text-muted">{`hết tuyến ~${Math.round(gs.denCuoiPhut)} phút`}</span>}
+                {gs.denCuoiPhut != null && <span className="text-[0.75rem] text-muted">{`hết tuyến ~${gioDen(nowMs, gs.denCuoiPhut)}`}</span>}
               </>
             )}
           </div>
         )}
         <p className="pl-4 text-[0.75rem] font-semibold text-muted [text-shadow:0_0_3px_var(--card)]">
           {`An toàn ${anToanM} m · ${NHAN_HUONG[prefs.huong]}`}
+          {phongQua && <span className="text-warn">{" · Phóng quá chi tiết hải đồ"}</span>}
           {vetGhiId ? " · Đang ghi vết" : ""}
           {neo && !moRong ? ` · Neo ${neoCachM != null ? Math.round(neoCachM) : "—"}/${neo.banKinhM} m` : ""}
           {!online ? " · Mất sóng — dữ liệu trong máy" : ""}
@@ -1640,6 +1644,7 @@ export default function HaiDoView() {
           ds={dsTuyen}
           soan={soan}
           tocDoKn={tocDoKn}
+          nowMs={nowMs}
           unit={unit}
           kiem={kiem}
           dangChayId={chay?.id ?? null}

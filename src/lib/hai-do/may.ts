@@ -61,6 +61,14 @@ export function demNhinTruoc(h: HuongBanDo, tocDoKmh: number | null, caoPx: numb
   return Math.round(caoPx * NHIN_TRUOC_PHAN);
 }
 
+/**
+ * PHÓNG QUÁ CHI TIẾT (overzoom — rà soát 2026-11-04, bản rà §3 "thước tỉ lệ + báo phóng quá cỡ"): đẳng sâu,
+ * lưới độ sâu, bờ ở màn này dựng từ dữ liệu ô cỡ trăm mét; quá mức phóng này hình chỉ là PHÓNG TO, không
+ * thêm chi tiết — iSailor/OpenCPN đều báo "overzoom" để người lái không tin nét vẽ như hải đồ cảng.
+ */
+export const CHI_TIET_TOI_DA_ZOOM = 14;
+export const quaChiTiet = (zoom: number): boolean => Number.isFinite(zoom) && zoom > CHI_TIET_TOI_DA_ZOOM;
+
 /* ── ĐỘ SÂU THEO LƯỚI ─────────────────────────────────────────────────────── */
 
 /** Chữ ngắn cho dải số (lưới chỉ có dải, không có số mét đo). */

@@ -106,6 +106,20 @@ export function viTriChen(px: readonly { x: number; y: number }[], p: { x: numbe
   return best;
 }
 
+/**
+ * GIỜ ĐẾN theo đồng hồ (ETA — iSailor RouteEditPage / RouteMonitoringPanel, rà soát 2026-11-04): mốc `tuMs`
+ * cộng `phut` ⇒ "21:40" giờ Việt Nam (tàu ngoài khơi vẫn sống theo giờ VN, không theo múi máy). Qua ngày ⇒
+ * thêm "mai" / "+N ngày" để không đọc nhầm 02:10 sáng mai thành 02:10 hôm nay. Thuần, có test.
+ */
+export function gioDen(tuMs: number, phut: number): string {
+  const VN = 7 * 3_600_000;
+  const den = tuMs + phut * 60_000;
+  const d = new Date(den + VN);
+  const hhmm = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  const ngay = Math.floor((den + VN) / 86_400_000) - Math.floor((tuMs + VN) / 86_400_000);
+  return ngay <= 0 ? hhmm : ngay === 1 ? `${hhmm} mai` : `${hhmm} +${ngay} ngày`;
+}
+
 export function tenMacDinh(ms: number): string {
   const d = new Date(ms + 7 * 3600_000);
   const p = (n: number) => String(n).padStart(2, "0");

@@ -242,3 +242,13 @@ describe("nhìn trước (look-ahead)", () => {
     expect(demNhinTruoc("huong-di", 13, 0)).toBe(0);
   });
 });
+
+import { CHI_TIET_TOI_DA_ZOOM, quaChiTiet } from "../hai-do/may";
+describe("phóng quá chi tiết hải đồ", () => {
+  it("quá mức chi tiết ⇒ báo; bằng / dưới ⇒ im; số hỏng ⇒ im", () => {
+    expect(quaChiTiet(CHI_TIET_TOI_DA_ZOOM + 0.5)).toBe(true);
+    expect(quaChiTiet(CHI_TIET_TOI_DA_ZOOM)).toBe(false);
+    expect(quaChiTiet(9)).toBe(false);
+    expect(quaChiTiet(Number.NaN)).toBe(false);
+  });
+});
