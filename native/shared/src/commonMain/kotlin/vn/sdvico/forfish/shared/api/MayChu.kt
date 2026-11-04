@@ -43,9 +43,13 @@ class MayChu(
         thanJson: String? = null,
         themHeader: Map<String, String> = emptyMap(),
         guiChuoi: Boolean = true,
+        /** trần NGỪNG CHẢY (= taiJsonCoNhip của web): im lặng quá ngần này thì cắt; chậm mà đều thì tải tới xong
+         *  (tổng giờ nới 10 phút). null = trần mặc định của HttpClient. */
+        hanMs: Long? = null,
     ): PhanHoi = try {
         val r = http.request(goc + duong) {
             method = phuongThuc
+            if (hanMs != null) timeout { requestTimeoutMillis = 600_000; socketTimeoutMillis = hanMs }
             if (guiChuoi) phien.token()?.let { header(HEADER_CHUOI, it) }
             themHeader.forEach { (k, v) -> header(k, v) }
             if (thanJson != null) {

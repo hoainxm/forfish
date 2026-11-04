@@ -215,6 +215,16 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 **Cho Mac (iOS 2c)**: style lấy bằng `KieuBanDo.dung(goc, tep, bat)` với `bat.goi = ung.phien.premium()`. Đổi `bat.nenChon` thì dựng lại style. Ô `/api/tiles/` cần header `x-sdfish-token` = `ung.phien.token()`: MapLibre iOS gắn qua `MLNNetworkConfiguration` (`sessionConfiguration.httpAdditionalHeaders`), hoặc delegate theo URL — chỉ cho máy chủ mình. Danh sách lớp nền: `BanDoSinh.LOP_NEN`. Thẻ khoá: `BanDoSinh.TEN_GOI/HOTLINE/HOTLINE_HIEN`. **Chưa build iOS.**
 
+### 3i. Đợt 2d — thời tiết động: phần chung `shared/thoitiet` (2026-11-04)
+
+**Đã làm (shared, chưa có màn)**: `LuoiDuBao.kt` (forecast-grid + om-url: lưới 12×13, bước giờ, giải 3 nguồn Open-Meteo, mũi tên, thang màu, nhãn giờ/ngày, cổng ghi kho) · `NhipNguon.kt` (source-cadence) · `NapDuBao.kt` (= fetchForecastGrid: lưu còn hạn → mất sóng → chụp sẵn → live 3 request → lùi lưu/chụp/khung dài-ngắn; kho file `forfish.fc.grid.d{N}`) · `TruongMau.kt` (scalar-field + scalar-gl; `anhTruong` = fragment shader của `scalar-gl-field` ra ảnh ARGB cho ImageSource) · `HatGio.kt` (particle-field) · `TheDiem.kt` (marine-weather + sea-cells + âm lịch/trăng/con nước chữ) · `LopDong.kt` (lưới gió ⇒ trường màu/hạt = windScalarGrid; `NapTruong` cho 5 lớp màu, kho `forfish.fc.scalar.{kind}.{id}`). `MayChu.goi(hanMs)` thêm trần NGỪNG CHẢY (= taiJsonCoNhip).
+
+**Cổng khớp**: `sinh-du-bao.mjs` (81 KB) + `sinh-thoi-tiet.mjs` (116 KB) chạy chính code web; ảnh trường so với bản tham chiếu theo đặc tả GL (GPU không chạy trong node): kích thước/góc tuyệt đối, lệch điểm ảnh ≤1/255. jvmTest 130/130.
+
+**Khác web có chủ ý**: gió 200 mà không có trục giờ ⇒ coi là hỏng, lùi bản lưu (web ghi đè lưới rỗng); thân không phải JSON ⇒ hỏng; kho file thay IndexedDB (dò khung [1,3,5,7,10,16]); bản chụp sẵn của lớp màu dùng luôn không xét hạn (web xét). Chưa port: độ mặn, nước xoáy (ssha), dòng chảy tầng sâu, `seaPointFromGrid`/`chonBanLui` của thẻ chạm.
+
+**Kế tiếp 2d**: Android — trường màu (ImageSource), mũi tên, hạt gió (Canvas), thanh giờ, panel Thời tiết, luật một lớp động + khoá khung; rồi thẻ chạm điểm. **Cho Mac**: chờ phần màn Android xong sẽ ghi API dùng.
+
 ## 4. Trong lúc chuyển
 
 - Bản Capacitor vẫn là bản phát hành; sửa lỗi của nó vẫn làm (vd thẻ "Cài app" hiện trong app native — ẩn bằng `Capacitor.isNativePlatform()`).
@@ -232,4 +242,4 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - Đăng nhập, RLS, quyền giữ nguyên phía máy chủ; native không có quyền nào web không có.
 - Offline (CLAUDE.md, chỉ vai chủ tàu): bản native phải qua đủ bộ `ops/qa-offline-acceptance.md` trước khi phát hành.
 
-**Last updated**: 2026-11-04 — đợt 2c Android xong (§3h). Trước đó: đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
+**Last updated**: 2026-11-04 — đợt 2d phần chung (§3i). Trước đó: đợt 2c Android xong (§3h). Trước đó: đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
