@@ -78,6 +78,9 @@ class NapDuBao(
     /** = savedCurrentGridDays (tăng dần, chỉ bản khớp lưới hiện tại). */
     fun khungDaLuu(): List<Int> = KHUNG_BIET.filter { LuoiDuBao.gridIsCurrent(doc(it)?.data) }
 
+    /** Lưới đã lưu DÀI NGÀY NHẤT + mốc lưu — nhánh "lưới đã lưu" của thời tiết dẫn đường khi mất sóng. Chỉ đọc máy. */
+    fun luoiDaiNhat(): Pair<ForecastGrid, Long>? = khungDaLuu().lastOrNull()?.let { doc(it) }?.let { it.data to it.savedAt }
+
     private fun layKhungDaiHon(days: Int, ok: (ForecastGrid?) -> Boolean): ForecastGrid? {
         for (d in khungDaLuu().filter { it > days }) {
             val alt = doc(d) ?: continue

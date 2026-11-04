@@ -38,7 +38,7 @@ import vn.sdvico.forfish.shared.thoitiet.TheDiem
   THẺ CHẠM ĐIỂM (đợt 2d) = ngăn gió sóng của web khi chạm biển (fishing-map-view ~6170 + SeaDensePanel): tình trạng
   biển ở ĐẦU NGĂN (SEA_STATE + chấm màu mức), hàng chip ngày (tài khoản thường chỉ hôm nay), lưới số 3 cột
   (TheDiem.buildSeaCells — thứ tự + chữ y sea-cells.ts), dòng "Bản lưu HH:MM" khi số là bản lưu.
-  Chưa có ở native: ô con nước của điểm (tideCardAt), ô cá / mùa / độ sâu, nút dẫn đường tới đây (2f).
+  Chưa có ở native: ô con nước của điểm (tideCardAt), ô cá / mùa / độ sâu.
 */
 
 private fun mauMuc(m: MucBien?) = when (m) {
@@ -55,6 +55,8 @@ fun TheDiemBien(
     loi: Boolean,
     ngay: Int,
     chonNgay: (Int) -> Unit,
+    /** = nút "Dẫn đường" của thẻ điểm web (coDanDuong: chỉ gói, không đang dẫn); null = ẩn */
+    danDuong: (() -> Unit)? = null,
     dong: () -> Unit,
 ) {
     val homNay = homNayVN()
@@ -71,6 +73,15 @@ fun TheDiemBien(
                     Box(Modifier.size(10.dp).clip(CircleShape).background(mauMuc(muc)))
                     Text(TheDiem.SEA_STATE.getValue(muc), style = Chu.nutPhu.copy(fontSize = 15.sp, color = mauMuc(muc)), modifier = Modifier.padding(start = 6.dp))
                 } else Text("Gió sóng", style = Chu.nutPhu.copy(fontSize = 15.sp, color = Mau.navy))
+            }
+            danDuong?.let { f ->
+                Row(
+                    Modifier.padding(end = 6.dp).clip(CircleShape).background(Mau.navy).clickable(onClick = f).heightIn(min = 36.dp).padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BieuTuong("Route", Color.White, 16.dp)
+                    Text(vn.sdvico.forfish.shared.sinh.NhanSinh.nhan("dauDuong"), style = Chu.nutPhu.copy(fontSize = 13.sp, color = Color.White), modifier = Modifier.padding(start = 4.dp))
+                }
             }
             Box(
                 Modifier.size(CoSinh.HCtl.dp).clip(CircleShape).clickable(onClick = dong).semantics { contentDescription = "Đóng" },

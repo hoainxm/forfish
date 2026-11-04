@@ -69,6 +69,14 @@ import vn.sdvico.forfish.shared.ca.DuBaoCa
 import vn.sdvico.forfish.shared.ca.KetQuaCa
 import vn.sdvico.forfish.shared.ca.LoaiDanh
 import vn.sdvico.forfish.shared.ca.NapCa
+import vn.sdvico.forfish.shared.danduong.DanDuong
+import vn.sdvico.forfish.shared.danduong.Diem
+import vn.sdvico.forfish.shared.danduong.KetQuaDanDuong
+import vn.sdvico.forfish.shared.danduong.NapThoiTietDuong
+import vn.sdvico.forfish.shared.danduong.SoTauMinh
+import vn.sdvico.forfish.shared.trangchu.TinBao
+import vn.sdvico.forfish.shared.trangchu.trangThaiBaoTuyen
+import kotlinx.coroutines.withTimeoutOrNull
 import vn.sdvico.forfish.shared.ca.MatDoTau
 import vn.sdvico.forfish.shared.ca.TrangThaiMatDo
 import vn.sdvico.forfish.shared.ca.DuBaoTau
@@ -150,6 +158,11 @@ class BanDoAndroid(
     private val napAis = NapAis(ung.mayChu, KhoTepFile(File(filesDir, "ais")), ung.kho, { System.currentTimeMillis() })
     /** GeoJSON tàu AIS đang vẽ (đổ vào nguồn `tau-ais` có sẵn trong style khi Bat.ais) */
     private var aisGeo: String? = null
+    /** Dẫn đường (đợt 2f): kho hải đồ giải một lần + thời tiết tuyến (lưới đã lưu dài nhất khi mất sóng) */
+    private val khoDuong = KhoDanDuong(nap)
+    private val napTTDuong = NapThoiTietDuong(ung.mayChu, { System.currentTimeMillis() }) { napGio.luoiDaiNhat() }
+    /** GeoJSON tuyến đang vẽ (lớp fuel-route) */
+    private var duongGeo: String? = null
     /** GeoJSON mật độ tàu đang vẽ */
     private var matGeo: String? = null
     private var anhDong: AnhTruong? = null
@@ -160,6 +173,7 @@ class BanDoAndroid(
         VeThoiTiet.muiTen(st, muiDong?.first, muiDong?.second)
         VeCa.luoi(st, caGeo)
         VeMatDo.luoi(st, matGeo)
+        VeDuong.ve(st, duongGeo)
         VeAis.dangKyIcon(st)
         aisGeo?.let { st.getSourceAs<GeoJsonSource>("tau-ais")?.setGeoJson(it) }
         veDiemChon(st)
@@ -375,6 +389,74 @@ class BanDoAndroid(
             duBaoMat = if (!matBat || !goi || m == null) null else withContext(Dispatchers.Default) { m.duBao(homNayVN(), matNgay, matNghe) }
             matGeo = if (dong != null) null else duBaoMat?.let { MatDoTau.fleetGridGeo(it.cells, m!!.axis.step) }
             map?.style?.let { VeMatDo.luoi(it, matGeo) }
+        }
+
+        // ── DẪN ĐƯỜNG (đợt 2f): CHỈ gói (web coDanDuong = premiumAccess open). Mở từ thẻ chạm ⇒ tự tính ngay ──
+        var duongMo by remember { mutableStateOf(false) }
+        var duongTu by remember { mutableStateOf<DiemDuong?>(null) }
+        var duongToi by remember { mutableStateOf<DiemDuong?>(null) }
+        val soTau = remember { SoTauMinh(ung.kho) }
+        var tauMinh by remember { mutableStateOf(soTau.doc()) }
+        var duongKq by remember { mutableStateOf<KetQuaDanDuong?>(null) }
+        var duongLoi by remember { mutableStateOf<String?>(null) }
+        var duongTinh by remember { mutableStateOf(false) }
+        var lanDuong by remember { mutableIntStateOf(0) }
+        /** fix GPS còn tươi (< 10 phút, = boatFresh) */
+        fun tauTuoi(): DiemDuong? = viTri?.takeIf { System.currentTimeMillis() - it.time < 10 * 60_000 }
+            ?.let { DiemDuong(Diem(it.latitude, it.longitude), "Vị trí tàu hiện tại") }
+        fun xoaDuong() {
+            duongKq = null; duongLoi = null; duongGeo = null
+            map?.style?.let { VeDuong.ve(it, null) }
+        }
+        LaunchedEffect(lanDuong) {
+            if (lanDuong == 0) return@LaunchedEffect
+            val tu = duongTu ?: return@LaunchedEffect
+            val toi = duongToi ?: return@LaunchedEffect
+            xoaDuong()
+            duongTinh = true
+            val now = System.currentTimeMillis()
+            val kq = try {
+                withContext(Dispatchers.IO) {
+                    // tin bão: hỏi lại (trần 5 s) — mất sóng thì bản cất; luật tuổi 12 giờ nằm trong trangThaiBaoTuyen
+                    val tin = withTimeoutOrNull(5000) { ung.tinBao.hoi() } ?: TinBao.KhongHoiDuoc(ung.tinBao.banLuu())
+                    val dv = khoDuong.dauVao(tu.diem, listOf(toi.diem), tauMinh, now, trangThaiBaoTuyen(tin, now))
+                    DanDuong.tinhDuong(dv, { napTTDuong.layHoacRong(it) })
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ghi("Dẫn đường hỏng: $e"); null
+            }
+            duongTinh = false
+            if (kq == null) {
+                duongLoi = "Tuyến này chưa có dự báo và máy cũng chưa lưu dữ liệu. Bà con mở màn hình Ra khơi lúc có sóng để máy tự tải sẵn thông tin gió sóng, rồi thử lại nhé."
+                return@LaunchedEffect
+            }
+            duongKq = kq
+            duongLoi = cauLoiDuong(kq, tu, toi, tuyChon.coordFormat)
+            // vòng chọn ở ĐÍCH (web: ghim điểm đến) — thẻ chạm đã đóng nên vòng không còn tự vẽ
+            diemChon = LatLng(toi.diem.lat, toi.diem.lon)
+            map?.style?.let { veDiemChon(it) }
+            if (kq is KetQuaDanDuong.CoTuyen) {
+                val wp = kq.tuyen.plan.waypoints
+                duongGeo = VeDuong.geo(wp, kq.tuyen.plan.segRisks)
+                map?.style?.let { VeDuong.ve(it, duongGeo) }
+                val b = org.maplibre.android.geometry.LatLngBounds.Builder()
+                wp.forEach { b.include(LatLng(it.lat, it.lon)) }
+                val d = mapView.resources.displayMetrics.density
+                // bảng cao tối đa CAO_BANG_DUONG + dock ⇒ tuyến nằm gọn phần bản đồ còn thấy
+                val day = ((CAO_BANG_DUONG + CoSinh.DockRow + CoSinh.DockGap + 24) * d).toInt()
+                runCatching { map?.animateCamera(CameraUpdateFactory.newLatLngBounds(b.build(), (48 * d).toInt(), (80 * d).toInt(), (48 * d).toInt(), day), 650) }
+                    .onFailure { ghi("Khung tuyến: $it") }
+            }
+        }
+        LaunchedEffect(goi) { if (goi) withContext(Dispatchers.IO) { khoDuong.taiSan() } }
+        val moDuongToi: (Diem, String) -> Unit = { p, ten ->
+            duongToi = DiemDuong(p, ten)
+            // nơi xuất phát mặc định: GPS còn tươi, không thì cảng gần ĐIỂM ĐẾN nhất (= defaultStartId)
+            duongTu = tauTuoi() ?: cangGan(p, 1).first()
+            duongMo = true; lop = null
+            lanDuong++
         }
 
         // ── THẺ CHẠM ĐIỂM (đợt 2d): chạm biển ⇒ gió sóng chỗ đó (bản lưu trước nếu mạng chậm) ──
@@ -659,7 +741,24 @@ class BanDoAndroid(
                     Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = (CoSinh.DockRow + CoSinh.DockGap + 8).dp)
                         .onSizeChanged { caoThe = with(mat) { it.height.toDp().value.toInt() } },
                 ) {
-                    TheDiemBien(diem, dangTaiDiem, loiDiem, ngayDiem, { ngayDiem = it }) { cham = null }
+                    val c = cham
+                    TheDiemBien(
+                        diem, dangTaiDiem, loiDiem, ngayDiem, { ngayDiem = it },
+                        danDuong = if (goi && c != null && !duongMo) ({ moDuongToi(Diem(c.latitude, c.longitude), "Điểm đang xem"); cham = null }) else null,
+                    ) { cham = null }
+                }
+            }
+            if (duongMo && cham == null) {
+                Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = (CoSinh.DockRow + CoSinh.DockGap + 8).dp)) {
+                    val tuoi = tauTuoi()
+                    BangDanDuong(
+                        duongTu, listOfNotNull(tuoi) + cangGan(duongToi?.diem), { duongTu = it; lanDuong++ },
+                        duongToi, listOfNotNull(duongToi) + cangGan(tuoi?.diem ?: duongTu?.diem), { duongToi = it; lanDuong++ },
+                        tauMinh, { t -> tauMinh = t; if (!soTau.ghi(t)) ghi("Tàu mình: kho từ chối ghi") },
+                        duongTinh, { lanDuong++ }, duongKq, duongLoi, tuyChon.distUnit, tuyChon.coordFormat,
+                        batDau = null,
+                        dong = { duongMo = false; xoaDuong(); diemChon = null; map?.style?.let { veDiemChon(it) } },
+                    )
                 }
             }
             Box(
@@ -707,5 +806,7 @@ class BanDoAndroid(
         /** = flyToPoint(lon, lat, 7) + offset −0.18 × chiều cao của goToMyBoat */
         private const val ZOOM_VE_TAU = 7.0
         private const val LECH_VE_TAU = 0.18
+        /** trần chiều cao bảng Dẫn đường (dp) — phần còn lại của màn để thấy tuyến */
+        const val CAO_BANG_DUONG = 400
     }
 }

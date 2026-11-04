@@ -71,6 +71,7 @@ object VungDiaDanh {
 
     internal class Vung(
         val loai: String,
+        val ma: String = "",
         val ten: String,
         val trangThai: String?,
         val lon: Double,
@@ -206,6 +207,7 @@ object VungDiaDanh {
             val thoiGianKhac = str(o["thoiGianKhac"])
             ra += Vung(
                 loai = loai,
+                ma = ma,
                 ten = str(o["ten"]) ?: tenThay(loai, doiTuong, ma),
                 trangThai = Js.chuoi(o["trangThai"])?.takeIf { it in TRANG_THAI },
                 lon = lon!!,

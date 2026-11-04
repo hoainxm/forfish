@@ -156,7 +156,7 @@ object HaiDo {
     }
 
     /* ── đèn biển ── */
-    internal data class Den(val lon: Double, val lat: Double, val loai: String, val ten: String, val dt: String)
+    internal data class Den(val lon: Double, val lat: Double, val loai: String, val ten: String, val dt: String, val tamNm: Double? = null)
 
     private fun traBang(bang: JsonArray?, i: JsonElement?): String? {
         if (bang == null) return null
@@ -262,7 +262,7 @@ object HaiDo {
                 soDuong(h[6]),
                 soDuong(h[7]),
             )
-            ra += Den(lon!!, lat!!, loai, ten ?: "", dt)
+            ra += Den(lon!!, lat!!, loai, ten ?: "", dt, soDuong(h[7]))
         }
         return ra
     }

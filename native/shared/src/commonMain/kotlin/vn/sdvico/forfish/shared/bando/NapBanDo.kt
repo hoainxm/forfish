@@ -90,6 +90,15 @@ class NapBanDo(
         else -> null
     }
 
+    /** = layTho cho file nhị phân (depth-grid / reef-depth của dẫn đường — chỉ tải khi bà con bấm Tính đường). */
+    suspend fun layByte(ten: String, hanMs: Long? = null): ByteArray? = when (tai.lay(ten, hanMs = hanMs)) {
+        is KetQuaTai.Co -> tep.doc(ten)
+        else -> null
+    }
+
+    /** Bản ĐÃ CẤT của một file trong NGUON (không gọi mạng) — null = chưa tải lần nào. */
+    fun docTep(ten: String): ByteArray? = tep.doc(ten)
+
     /** Số trạm con nước đã nạp (= tideCount web, dòng phụ công tắc "Trạm con nước"); chưa nạp ⇒ null. */
     fun soTramConNuoc(): Int? = soTram
 
