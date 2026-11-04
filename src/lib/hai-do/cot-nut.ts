@@ -34,6 +34,15 @@ export function nutNoi(t: TinhHinhCot): NutNoi[] {
   return ds;
 }
 
+/**
+ * ẨN DOCK khi đang CHẠY tuyến / canh NEO / có người rơi (MOB) — bản rà §4.2 "Chạy: dock ẩn". Dock nằm dưới ngón
+ * cái: chạm nhầm "Trang chủ" là rời hải đồ giữa lúc canh neo / chạy tuyến. Cùng cơ chế màn bản đồ cũ khi dẫn
+ * đường (globals.css `:root.an-dock`). Rảnh (chỉ xem) thì dock vẫn có để đi màn khác.
+ */
+export function anDockHaiDo(t: { chayTuyen: boolean; dangNeo: boolean; coMob: boolean }): boolean {
+  return t.chayTuyen || t.dangNeo || t.coMob;
+}
+
 export type MucKhay = "mau" | "do" | "neo" | "lop" | "tau" | "tuyen" | "vet" | "caiDat" | "banDo";
 
 /** Mục trong khay ⋯ — mục đã nổi ngoài cột thì không lặp trong khay (trừ khi khay là chỗ duy nhất). */

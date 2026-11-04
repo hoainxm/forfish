@@ -86,7 +86,7 @@ import { cauLech, diemTrung, docGpx, gioDen, gioTaiDiem, viTriChen, giamSat, nha
 import { dsVet, luuVet, setChay, setTuyen, setVetGhi, useChay, useTuyen, useVetGhi, xoaVet } from "@/lib/hai-do/kho-tuyen";
 import { auditRoute, type RouteHit } from "@/lib/route-hazards";
 import { buildHazardList, requiredDepthM } from "@/lib/hazards";
-import { loadPlaces, persistPlaces, removePlace, upsertPlace, type SavedPlace } from "@/lib/places";
+import { GHI_CHU_TOI_DA, LOAI_DIEM, loadPlaces, persistPlaces, removePlace, upsertPlace, type LoaiDiem, type SavedPlace } from "@/lib/places";
 import { DEFAULT_BOAT } from "@/lib/route-plan";
 import { DongY } from "@/components/hai-do/dong-y";
 import { SHEET_AUTO_HIDE_MS } from "@/lib/use-sheet-auto-hide";
@@ -124,6 +124,7 @@ import {
   dsBaoDong,
   fmtPv,
   gocCamera,
+  nuocDuoiDay,
   quaChiTiet,
   demNhinTruoc,
   huongKeTiep,
@@ -137,7 +138,7 @@ import {
   type VatCham,
 } from "@/lib/hai-do/may";
 import { setMob, setNeo, useMob, useNeo } from "@/lib/hai-do/tam";
-import { mucKhay, nutNoi, type MucKhay, chamTuAn } from "@/lib/hai-do/cot-nut";
+import { anDockHaiDo, mucKhay, nutNoi, type MucKhay, chamTuAn } from "@/lib/hai-do/cot-nut";
 import { baoHieuTheoTang, denBienGeo, tramTrieuGeo, vnAidGeo, xacTauGeo } from "@/components/hai-do/lop-du-lieu";
 import { Chip, NutCot } from "@/components/hai-do/ui";
 import { Chuong } from "@/components/hai-do/chuong";
@@ -181,6 +182,8 @@ const DO_COLOR = "#c8461f";
 const NEO_COLOR = "#086e73";
 const MOB_COLOR = "#a82218";
 const NHAN_BANG = { ngay: "Ngày", chieu: "Chiều", dem: "Đêm" } as const;
+/** nhãn loại điểm người dùng (labels.ts, ≤ 2 chữ) */
+const TEN_LOAI: Record<LoaiDiem, string> = { ca: NHAN.diemCa, ran: NHAN.diemRan, xac: NHAN.diemXac, neo: NHAN.diemNeo, khac: NHAN.khac };
 /** Tuyến (xanh dương — cùng màu tuyến dẫn đường của app), vết đã ghi (tím than), điểm người dùng (vàng đất). */
 const TUYEN_COLOR = "#1a73e8";
 const VET_COLOR = "#4338ca";
@@ -268,6 +271,33 @@ export default function HaiDoView() {
   // GPS — giữ sáng màn khi canh neo / có người rơi (cần nghe chuông) / đang chạy tuyến / đang ghi vết
   const tau = useNavTracking(true, { keepAwake: neo != null || mob != null || tuyenChay != null || vetGhiId != null });
   const coGps = tau.pos != null && tau.status !== "denied";
+
+  /*  ẨN DOCK khi đang chạy tuyến / canh neo / có người rơi (bản rà §4.2; lib/hai-do/cot-nut anDockHaiDo) — cùng
+      lớp `:root.an-dock` màn bản đồ cũ dùng khi dẫn đường; gỡ khi hết việc hoặc rời màn. */
+  const anDock = anDockHaiDo({ chayTuyen: tuyenChay != null, dangNeo: neo != null, coMob: mob != null });
+  useEffect(() => {
+    if (!anDock) return;
+    const de = document.documentElement;
+    // nhịp vẽ lại dự phòng cạnh ResizeObserver ở dưới (máy tạm dừng RO khi trang ở nền) — rẻ, chỉ 2 lần mỗi lần đổi
+    const veLai = () => window.setTimeout(() => mapRef.current?.resize(), 80);
+    de.classList.add("an-dock");
+    veLai();
+    return () => {
+      de.classList.remove("an-dock");
+      veLai();
+    };
+  }, [anDock]);
+  /*  Khung đổi cao (chừa dock ⇄ tràn đáy) mà cửa sổ KHÔNG đổi ⇒ MapLibre không tự biết, canvas giữ cỡ cũ (đo
+      2026-11-04: khung 748 mà canvas 812 ⇒ tâm lệch 32 px). Theo dõi chính khung, đổi lúc nào vẽ lại lúc đó. */
+  const [khungMap, setKhungMap] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!khungMap || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => mapRef.current?.resize());
+    ro.observe(khungMap);
+    return () => ro.disconnect();
+  }, [khungMap]);
+  /** đang chọn chỗ thả neo bằng dấu + giữa màn (iSailor "By cursor") */
+  const [chonNeo, setChonNeo] = useState(false);
 
   // đồng hồ màn (phút MOB, GPS cũ, mặt trời, con nước) — không gọi Date.now() lúc vẽ
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -589,6 +619,13 @@ export default function HaiDoView() {
   const [vetXemId, setVetXemId] = useState<string | null>(null);
   const [diemMoi, setDiemMoi] = useState<LatLon | null>(null);
   const [tenDiem, setTenDiem] = useState("");
+  const [loaiDiem, setLoaiDiem] = useState<LoaiDiem>("ca");
+  const [ghiChuDiem, setGhiChuDiem] = useState("");
+  const dongDiemMoi = () => {
+    setDiemMoi(null);
+    setLoaiDiem("ca");
+    setGhiChuDiem("");
+  };
   const [baoLoi, setBaoLoi] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const taiVet = () =>
@@ -786,7 +823,7 @@ export default function HaiDoView() {
     return () => clearTimeout(t);
   }, [cham, chamXong]);
   const onCham = (e: MapLayerMouseEvent) => {
-      if (doMo) return;
+      if (doMo || chonNeo) return;
       if (Date.now() - vuaDongRef.current < 500) return;
       if (soan) {
         if (Date.now() - vuaKeoRef.current < 400) return; // vừa kéo điểm xong — cú nhả không phải chạm thêm
@@ -827,7 +864,7 @@ export default function HaiDoView() {
           if (pl)
             dong.push({
               tieu: pl.name,
-              phu: "Điểm đã lưu",
+              phu: `${pl.loai ? TEN_LOAI[pl.loai] : "Điểm đã lưu"}${pl.ghiChu ? ` · ${pl.ghiChu}` : ""}`,
               viec: {
                 nhan: NHAN.xoa,
                 lam: () => {
@@ -868,7 +905,21 @@ export default function HaiDoView() {
       }
       const { lat, lng } = e.lngLat;
       const cls = grid ? depthClassAt(grid, lat, lng) : null;
-      if (cls != null && cls !== 0) dong.push({ tieu: `Độ sâu: ${DO_SAU_NGAN[cls]}`, phu: "theo lưới độ sâu — tham khảo", canh: cls <= 3 });
+      if (cls != null && cls !== 0) {
+        // nước dưới đáy tàu = đáy dải − mớn (cận dưới, chưa cộng con nước — lib/hai-do/may nuocDuoiDay)
+        const uk = nuocDuoiDay(cls, draftM);
+        const so = (m: number) => String(m).replace(".", ",");
+        dong.push({
+          tieu: `Độ sâu: ${DO_SAU_NGAN[cls]}`,
+          phu:
+            uk == null
+              ? "theo lưới độ sâu — tham khảo"
+              : uk < 0
+                ? `Mớn ${so(draftM ?? 0)} m — có thể chạm đáy · tham khảo`
+                : `Dưới đáy tàu ≥ ${so(uk)} m (chưa cộng con nước) · tham khảo`,
+          canh: cls <= 3 || (uk != null && uk < 1),
+        });
+      }
       if (tram?.length) {
         const g = nearestTideStation(tram, lat, lng);
         if (g && g.distanceKm <= 120) {
@@ -968,7 +1019,7 @@ export default function HaiDoView() {
   const gio = tau.lastFixAt ? new Date(tau.lastFixAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : null;
 
   return (
-    <div className="hai-do relative h-full w-full bg-background" data-bang-mau={bang}>
+    <div ref={setKhungMap} className="hai-do relative h-full w-full bg-background" data-bang-mau={bang}>
       <MapGL
         ref={mapRef}
         initialViewState={DEFAULT_VIEW}
@@ -1393,7 +1444,7 @@ export default function HaiDoView() {
       </MapGL>
 
       {/* TÂM ĐO */}
-      {doMo && (
+      {(doMo || chonNeo) && (
         <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 text-trim">
           <CrosshairIcon className="h-9 w-9" />
         </div>
@@ -1722,6 +1773,32 @@ export default function HaiDoView() {
       )}
 
       {/* THÊM ĐIỂM — giữ ngón trên hải đồ */}
+      {chonNeo && (
+        <div className="pointer-events-auto absolute inset-x-2 bottom-3 z-30 rounded-2xl border border-line bg-card p-3 shadow-float">
+          <p className="text-[0.875rem] font-semibold text-navy">Chọn chỗ thả neo</p>
+          <p className="text-[0.75rem] text-muted">
+            {tam ? `Kéo hải đồ cho dấu + vào chỗ neo · ${fmtCoordPair(tam.lat, tam.lon, mapPrefs.coordFormat)}` : "Kéo hải đồ cho dấu + vào chỗ neo"}
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              className="sq-btn bg-sea text-card disabled:opacity-50"
+              disabled={!tam}
+              onClick={() => {
+                if (!tam) return;
+                setNeo({ lat: tam.lat, lon: tam.lon, banKinhM: banKinhNeo, luc: Date.now() });
+                setChonNeo(false);
+              }}
+            >
+              {NHAN.thaNeo}
+            </button>
+            <button type="button" className="sq-btn bg-field text-foreground" onClick={() => setChonNeo(false)}>
+              {NHAN.huy}
+            </button>
+          </div>
+        </div>
+      )}
+
       {diemMoi && (
         <div className="pointer-events-auto absolute inset-x-2 bottom-3 z-30 rounded-2xl border border-line bg-card p-3 shadow-float">
           <label htmlFor="hd-ten-diem" className="text-[0.875rem] font-semibold text-navy">
@@ -1735,20 +1812,38 @@ export default function HaiDoView() {
             maxLength={60}
             className="mt-2 h-(--h-ctl) w-full rounded-xl border border-line bg-field px-3 text-[1rem] text-foreground"
           />
+          {/* LOẠI + GHI CHÚ (iSailor AddInfoEditor, rà soát 2026-11-04) — tuỳ chọn; kho `places` dùng chung bản đồ thường */}
+          <div role="radiogroup" aria-label="Loại điểm" className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
+            {LOAI_DIEM.map((l) => (
+              <span key={l} className="shrink-0">
+                <Chip on={loaiDiem === l} onClick={() => setLoaiDiem(l)}>
+                  {TEN_LOAI[l]}
+                </Chip>
+              </span>
+            ))}
+          </div>
+          <input
+            aria-label="Ghi chú cho điểm (không bắt buộc)"
+            placeholder="Ghi chú (không bắt buộc)"
+            value={ghiChuDiem}
+            onChange={(e) => setGhiChuDiem(e.target.value)}
+            maxLength={GHI_CHU_TOI_DA}
+            className="mt-2 h-(--h-ctl) w-full rounded-xl border border-line bg-field px-3 text-[0.9375rem] text-foreground"
+          />
           <div className="mt-2 flex gap-2">
             <button
               type="button"
               className="sq-btn bg-sea text-card"
               onClick={() => {
-                const moi = upsertPlace(places, { name: tenDiem, lat: diemMoi.lat, lon: diemMoi.lon });
+                const moi = upsertPlace(places, { name: tenDiem, lat: diemMoi.lat, lon: diemMoi.lon, loai: loaiDiem, ghiChu: ghiChuDiem });
                 if (persistPlaces(moi)) setPlaces(moi);
                 else setBaoLoi("Không lưu được điểm vào máy");
-                setDiemMoi(null);
+                dongDiemMoi();
               }}
             >
               {NHAN.luu}
             </button>
-            <button type="button" className="sq-btn bg-field text-foreground" onClick={() => setDiemMoi(null)}>
+            <button type="button" className="sq-btn bg-field text-foreground" onClick={dongDiemMoi}>
               {NHAN.huy}
             </button>
           </div>
@@ -1796,6 +1891,14 @@ export default function HaiDoView() {
             onNho={() => {
               setNeo(null);
               setNeoMo(false);
+            }}
+            onChoXem={() => {
+              setNeoMo(false);
+              setCham(null);
+              // đọc tâm NGAY — `tam` chỉ cập nhật khi kéo bản đồ / lúc nạp; chưa kéo lần nào thì nút Thả neo bị khoá
+              const c = mapRef.current?.getCenter();
+              if (c) setTam({ lat: c.lat, lon: c.lng });
+              setChonNeo(true);
             }}
           />
         </Popover>

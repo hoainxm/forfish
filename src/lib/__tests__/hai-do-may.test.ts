@@ -252,3 +252,23 @@ describe("phóng quá chi tiết hải đồ", () => {
     expect(quaChiTiet(Number.NaN)).toBe(false);
   });
 });
+
+import { nuocDuoiDay } from "../hai-do/may";
+import { anDockHaiDo } from "../hai-do/cot-nut";
+describe("nước dưới đáy tàu (cận dưới)", () => {
+  it("đáy dải − mớn; chưa khai mớn / bờ / rạn ⇒ null", () => {
+    expect(nuocDuoiDay(5, 1.8)).toBe(10.2);
+    expect(nuocDuoiDay(3, 2.5)).toBe(-0.5);
+    expect(nuocDuoiDay(5, null)).toBeNull();
+    expect(nuocDuoiDay(0, 2)).toBeNull();
+    expect(nuocDuoiDay(1, 2)).toBeNull();
+  });
+});
+describe("ẩn dock trên Hải đồ", () => {
+  it("chạy tuyến / neo / MOB ⇒ ẩn; chỉ xem ⇒ hiện", () => {
+    expect(anDockHaiDo({ chayTuyen: false, dangNeo: false, coMob: false })).toBe(false);
+    expect(anDockHaiDo({ chayTuyen: true, dangNeo: false, coMob: false })).toBe(true);
+    expect(anDockHaiDo({ chayTuyen: false, dangNeo: true, coMob: false })).toBe(true);
+    expect(anDockHaiDo({ chayTuyen: false, dangNeo: false, coMob: true })).toBe(true);
+  });
+});

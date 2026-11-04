@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-11-04
+<!-- re-verified: 2026-11-04i — Hải đồ rà soát đợt 4: `cot-nut.anDockHaiDo` (hai-do-view gắn `an-dock` lên <html>), `may.nuocDuoiDay` (UKC cận dưới, dùng `depth-grid.DEPTH_CLASS_MIN_M`), `places` + `LoaiDiem`/`LOAI_DIEM`/`GHI_CHU_TOI_DA` (trường tuỳ chọn `loai`/`ghiChu`), `mob-neo.BangNeo` + `onChoXem`; `labels` + diemCa/diemRan/diemXac/diemNeo. Không request mạng mới. -->
 <!-- re-verified: 2026-11-04h — Hải đồ rà soát đợt 3: `lib/hai-do/tuyen` + `gioDen` (ETA giờ VN), `lib/hai-do/may` + `CHI_TIET_TOI_DA_ZOOM`/`quaChiTiet`; `bang-tuyen` nhận `nowMs`. Không request mạng mới. -->
 <!-- re-verified: 2026-11-04g — Hải đồ rà soát đợt 2: `lib/hai-do/tuyen` + `viTriChen`/`diemTrung` (chèn/kéo điểm tuyến theo px); `hai-do-view` nghe mousedown/touchstart trên lớp `hd-soan-diem` để kéo điểm (feature có `i`); `lop.sapMucTieu` + "ten"; `labels` + theoTen; `ra-khoi-controls` "Kiểu máy" lên đầu khay ⋯. Không request mạng mới. -->
 <!-- re-verified: 2026-11-04f — Hải đồ rà soát đợt 1: `lib/hai-do/may` + `demNhinTruoc` (camera padding top khi xoay theo hướng đi/tuyến), `hai-do-view` truyền padding vào flyTo/easeTo; `sen-bien-toan-app` KHONG_VE thêm `/hai-do` (Sen Biển nổi không vẽ trên Hải đồ). Không request mạng mới. -->

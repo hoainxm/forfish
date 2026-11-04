@@ -139,6 +139,11 @@ export const NHAN = {
   sapGap: "Sắp gặp",
   ganNhat: "Gần nhất",
   theoTen: "Tên",
+  /** loại điểm người dùng trên Hải đồ (rà soát 2026-11-04) */
+  diemCa: "Chỗ cá",
+  diemRan: "Rạn",
+  diemXac: "Xác tàu",
+  diemNeo: "Chỗ neo",
   gio: "Gió",
   song: "Sóng",
   tauToi: "Tàu tôi",

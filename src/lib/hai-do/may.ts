@@ -10,7 +10,7 @@
 
 import { bearingDeg, type LatLon } from "@/lib/route-plan";
 import { haversineKm } from "@/lib/geo";
-import type { DepthClass } from "@/lib/depth-grid";
+import { DEPTH_CLASS_MIN_M, type DepthClass } from "@/lib/depth-grid";
 import { diemTheoPhuongVi } from "@/lib/hai-do/an-toan";
 
 /* ── HƯỚNG BẢN ĐỒ ─────────────────────────────────────────────────────────── */
@@ -68,6 +68,18 @@ export function demNhinTruoc(h: HuongBanDo, tocDoKmh: number | null, caoPx: numb
  */
 export const CHI_TIET_TOI_DA_ZOOM = 14;
 export const quaChiTiet = (zoom: number): boolean => Number.isFinite(zoom) && zoom > CHI_TIET_TOI_DA_ZOOM;
+
+/**
+ * NƯỚC DƯỚI ĐÁY TÀU (UKC — iSailor TidesPage "UKC = độ sâu hải đồ + triều − mớn", rà soát 2026-11-04).
+ * Lưới chỉ có DẢI, không số mét ⇒ chỉ nói được CẬN DƯỚI: đáy dải − mớn. Không cộng con nước (số 0 hải đồ
+ * VN là mực nước thấp nhất ⇒ triều chỉ làm nước sâu THÊM) — số này luôn về phía an toàn.
+ * null: chưa khai mớn / trên bờ / rạn (không có đáy dải).
+ */
+export function nuocDuoiDay(cls: DepthClass, mon: number | null): number | null {
+  const day = DEPTH_CLASS_MIN_M[cls];
+  if (day == null || mon == null || !(mon > 0)) return null;
+  return Math.round((day - mon) * 10) / 10;
+}
 
 /* ── ĐỘ SÂU THEO LƯỚI ─────────────────────────────────────────────────────── */
 

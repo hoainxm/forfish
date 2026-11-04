@@ -83,6 +83,7 @@ export function BangNeo({
   onTha,
   onNho,
   onBanKinh,
+  onChoXem,
 }: {
   dangNeo: boolean;
   banKinhM: number;
@@ -91,6 +92,8 @@ export function BangNeo({
   onTha: () => void;
   onNho: () => void;
   onBanKinh: (m: number) => void;
+  /** thả neo tại CHỖ ĐANG XEM (iSailor "By cursor") — vào chế độ chọn bằng dấu + giữa màn */
+  onChoXem: () => void;
 }) {
   return (
     <div>
@@ -116,9 +119,14 @@ export function BangNeo({
           {NHAN.nhoNeo}
         </button>
       ) : (
-        <button type="button" onClick={onTha} disabled={!coGps} className="sq-btn mt-3 w-full bg-sea text-card disabled:opacity-50">
-          {NHAN.thaNeo}
-        </button>
+        <div className="mt-3 flex gap-2">
+          <button type="button" onClick={onTha} disabled={!coGps} className="sq-btn flex-1 bg-sea text-card disabled:opacity-50">
+            {NHAN.thaNeo}
+          </button>
+          <button type="button" onClick={onChoXem} aria-label="Thả neo tại chỗ đang xem trên hải đồ" className="sq-btn flex-1 bg-field text-foreground">
+            {NHAN.choXem}
+          </button>
+        </div>
       )}
     </div>
   );
