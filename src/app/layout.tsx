@@ -25,10 +25,22 @@ const body = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  // Gốc để Next đổi ảnh OG tương đối thành URL tuyệt đối — bot Messenger/Zalo không đọc được "/icons/..."
+  metadataBase: new URL("https://sdfish.sdvico.vn"),
   title: "SDFish — Bạn đồng hành của ngư dân",
   description:
     "Đánh bắt tốt hơn · Bán được đắt hơn · Vận hành rẻ hơn · Tuân thủ dễ hơn",
   applicationName: "SDFish",
+  // Khung xem trước khi gửi link qua Messenger/Zalo. Không đặt `url` ở đây: trang con kế thừa thì mọi link đều trỏ về trang chủ.
+  // nợ: ảnh vuông 512 (icon) nên Messenger/Zalo hiện thumbnail nhỏ, khi có ảnh bìa 1200×630 thì thay.
+  openGraph: {
+    type: "website",
+    siteName: "SDFish",
+    locale: "vi_VN",
+    title: "SDFish — Bạn đồng hành của ngư dân",
+    description: "Đánh bắt tốt hơn · Bán được đắt hơn · Vận hành rẻ hơn · Tuân thủ dễ hơn",
+    images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "SDFish" }],
+  },
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
