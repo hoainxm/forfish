@@ -74,6 +74,7 @@ import { AppVersionLine } from "@/components/app-version-line";
 import { VoiceSettingsSection } from "@/components/nav-voice-ui";
 import { Popover } from "@/components/ui/popover";
 import { tideToggleSub } from "@/lib/tides";
+import { setHaiDoPrefs } from "@/lib/hai-do/prefs";
 
 const FISH_COLOR = "var(--fish)"; // xanh lá — cá/ngư trường (token globals, Phương án A)
 
@@ -805,6 +806,18 @@ export function RaKhoiControls({
                 aria-label="Điểm đã lưu"
                 icon={StarIcon}
                 label={NHAN.diemLuu}
+              />
+            {/*  CHẾ ĐỘ HẢI ĐỒ (2026-11-04, anh Long: "1 lớp mới, ko dính tới cái cũ, bà con quen nhìn
+                 giao diện này thì đổi qua") — màn riêng `/hai-do`; máy nhớ lựa chọn để lần sau mở thẳng. */}
+            <RailBtn
+                onClick={() => {
+                  setMore(false);
+                  setHaiDoPrefs({ moHaiDo: true });
+                  diTrang(router, "/hai-do");
+                }}
+                aria-label="Kiểu máy hải đồ — chuyển sang màn hải đồ thuần"
+                icon={NavArrowIcon}
+                label={NHAN.kieuMay}
               />
           </Popover>
         )}

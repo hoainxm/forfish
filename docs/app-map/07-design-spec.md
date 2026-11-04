@@ -2076,3 +2076,33 @@ Trạng thái: thiếu file ⇒ không vẽ gì, không thẻ, dẫn đường g
 - Offline: không thêm request, không sửa service worker hoặc kho dữ liệu. CSS được nạp theo layout qua cơ chế build hiện có; kiểm nghiệm offline PWA trên thiết bị thật vẫn cần trước phát hành.
 
 Xác minh redesign 2026-09-08: TypeScript và ESLint các file thay đổi đạt; 40 test assistant-hook/market-cart/market-pricing đạt. Chromium 320/390/480px, hai chế độ Gọn/Nút to: danh sách không tràn ngang, dock chọn đúng Giao dịch. Kiểm tra sản phẩm có dữ liệu ở 320px và thêm món → giỏ có dữ liệu ở 390px thành công. Sen Biển ở 390px giữ dock và hiện ba gợi ý. Chưa nghiệm thu thanh toán có đăng nhập, quản trị, mic iOS hay offline PWA trên máy thật.
+
+## 13. CHẾ ĐỘ HẢI ĐỒ `/hai-do` — đợt 1 (2026-11-04)
+
+Anh Long: *"chế độ hải đồ thuần này là 1 lớp mới, ko dính tới cái cũ, bà con quen nhìn giao diện này thì đổi qua thôi"*; *"đảm bảo hải đồ mình phải dễ dùng và tương đồng … độc lập với bản đồ đang có rồi nên ko bị ràng buộc"*. Màn riêng, không theo khung của `/ngu-truong` (không ô "Đi đâu?", không rail Lớp/⋯, không ngăn gió sóng). Tham khảo iSailor 2.81 + OpenCPN 4.1 — bảng đối chiếu từng màn: `docs/research/hai-do-thuan-sdvico-2026-11.md` §8.
+
+**Bố cục (375 × 812)**: hải đồ trọn màn (chừa dock) · dải số liệu một dòng trên cùng (tốc độ theo đơn vị `mapPrefs` · hướng 3 số `056°` · toạ độ) + dòng nhỏ "An toàn N m" (+ "Mất sóng — dữ liệu trong máy") · cột 6 nút tròn icon bên phải (Phóng to · Thu nhỏ · Màu · Cài đặt · Về tàu · Bản đồ thường) · thước tỉ lệ + ⓘ nguồn góc trái dưới.
+
+**Ma trận trạng thái**
+
+| Trạng thái | Hiển thị |
+|---|---|
+| Chưa có GPS | dải số "—", chữ phải "Đang bắt GPS…" (muted) |
+| Máy chặn GPS | "Máy chưa cho GPS" (warn) |
+| Mất GPS | "Mất GPS — đang tìm" (warn) |
+| Có GPS, đứng yên | tàu = chấm tròn, KHÔNG vạch hướng, hướng "—" |
+| Có GPS, đang chạy | mũi tên xoay theo hướng + vạch đứt N phút |
+| Mất sóng | hình bờ trong máy ở mọi nấc + dòng "Mất sóng — dữ liệu trong máy"; mọi lớp đọc file trong SHELL |
+| Dữ liệu một lớp hỏng | lớp đó vắng, màn vẫn chạy, thử lại khi sóng về |
+| Kéo bản đồ | thôi bám tàu; nút Về tàu hết sáng, chạm là bám lại |
+| Ngày / Chiều / Đêm | xem 03 "Chế độ Hải đồ — bảng màu"; đêm phủ cả dock |
+
+**Đường an toàn**: mặc định `Theo mớn` = mức đẳng sâu đầu tiên ≥ max(10, mớn + 1) trong {10, 20, 50}; chọn tay được. Không có 5 m (dữ liệu dưới 10 m kém tin).
+
+**Lối vào / ra**: khay ⋯ màn bản đồ "Kiểu máy" ⇒ ghi `moHaiDo` ⇒ dock "Bản đồ" mở thẳng `/hai-do`; nút Bản đồ thường ⇒ tắt cờ, về `/ngu-truong`.
+
+## Assumptions (§13)
+- Nhãn "Kiểu máy" (không "Hải đồ") vì "Hải đồ" đã là tên nhóm trong khay Lớp màn cũ — anh muốn tên khác thì đổi một dòng `NHAN.kieuMay`.
+- Dự báo cá / mật độ tàu / AIS chưa có trên màn này ở đợt 1 (thuần hải đồ); thêm ở đợt sau dưới dạng lớp TẮT mặc định.
+- GPS không giữ sáng màn (như bản đồ cũ khi chưa dẫn đường) — chế độ Chạy (đợt 2) mới giữ sáng.
+

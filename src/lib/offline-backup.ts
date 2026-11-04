@@ -120,6 +120,7 @@ export const SETTINGS_KEYS = [
   "forfish.maplayer.v1",
   "forfish.mapPrefs.v1",
   "forfish.fishPicks.v1", // loài bà con đánh (lib/fish-picks, 2026-11-04) — sở thích, chia máy khác vô hại
+  "forfish.haiDo.v1", // chế độ Hải đồ: bảng màu, đường an toàn, vạch hướng, mở thẳng (lib/hai-do/prefs, 2026-11-04)
 ];
 
 /**

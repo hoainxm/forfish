@@ -987,3 +987,38 @@ textarea,
   height: 1.25rem;
   width: 1.25rem;
 }
+
+/*  CHẾ ĐỘ HẢI ĐỒ — VỎ THEO BẢNG MÀU (2026-11-04, đợt 1; spec 07 §10.8). Hải đồ đổi màu
+    bằng `lib/hai-do/bang-mau.ts`; phần NÚT/DẢI SỐ trên màn `/hai-do` đổi theo đây —
+    trong `.hai-do`; dock + lớp nổi (Popover portal ra <body>) nằm ngoài nên màn gắn
+    `.hai-do-chieu` / `.hai-do-dem` lên <html> lúc đang mở và gỡ khi rời màn. Biến tham chiếu biến khác
+    (vd --foreground = rgb(var(--foreground-rgb))) đã tính ở :root nên phải khai lại
+    từng biến dùng tới, không chỉ đổi biến gốc *-rgb.
+    Đêm: nền gần đen, chữ hổ phách trầm — giữ mắt quen tối để còn thấy đèn tàu/phao. */
+.hai-do[data-bang-mau="chieu"],
+.hai-do-chieu {
+  --white-rgb: 200 210 210;
+  --card: #c8d2d2;
+  --field: #b9c4c4;
+  --background: #aeb9b9;
+}
+.hai-do[data-bang-mau="dem"],
+.hai-do-dem {
+  --white-rgb: 16 24 28;
+  --ink-rgb: 0 0 0;
+  --card: #10181c;
+  --field: #1c272c;
+  --line: #2a373d;
+  --background: #0b1114;
+  --foreground: #d6a078;
+  --muted: #a98262;
+  --navy: #d6a078;
+  --sea: #b9773f;
+  --warn: #e0a040;
+}
+/* thước tỉ lệ MapLibre trên màn Hải đồ — theo bảng màu (mặc định nền trắng chói giữa đêm) */
+.hai-do .maplibregl-ctrl-scale {
+  background: rgb(var(--white-rgb) / 0.75);
+  color: var(--foreground);
+  border-color: var(--foreground);
+}

@@ -71,7 +71,7 @@ export function dockTheoVai(vai: Vai | null, banDo: boolean): readonly DockMuc[]
 /* Khu route của từng ô. Thứ tự quan trọng: `/ban-hang` thuộc ô Bán hàng nếu dock có ô đó, không thì về Vật tư. */
 const KHU: readonly [DockId, readonly string[]][] = [
   ["kairos", ["/kairos", "/k"]],
-  ["ban-do", ["/ngu-truong", "/cang", "/lo-trinh"]],
+  ["ban-do", ["/ngu-truong", "/hai-do", "/cang", "/lo-trinh"]], // /hai-do = chế độ Hải đồ (2026-11-04)
   ["tau-toi", ["/tau", "/nguoi", "/giay-to", "/van-hanh", "/thuyen-vien"]],
   ["viec-lam", ["/viec"]],
   ["cho-ca", ["/tien", "/gia-ca"]],

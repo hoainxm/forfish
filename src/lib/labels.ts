@@ -105,6 +105,10 @@ export const NHAN = {
   trangChu: "Trang chủ",
   kairos: "Kairos",
   banDo: "Bản đồ",
+  /** khay ⋯ màn bản đồ → CHẾ ĐỘ HẢI ĐỒ `/hai-do` (kiểu máy hải đồ, 2026-11-04). "Hải đồ" đã là tên nhóm lớp trong khay Lớp — tránh trùng */
+  kieuMay: "Kiểu máy",
+  /** chip đường an toàn = suy từ mớn tàu (chế độ hải đồ) */
+  theoMon: "Theo mớn",
   tauToi: "Tàu tôi",
   choCa: "Chợ cá",
   vatTu: "Vật tư",

@@ -181,3 +181,51 @@ Mỗi đợt: ba-spec ngắn → design-spec 07 → code + test `lib/` → câu 
 | Thứ tự | Đợt 1 (vỏ + màu đêm + véc-tơ + thước + đường an toàn) → Đợt 2 (canh neo, MOB, chuông) → Đợt 4 (hướng đi lên, vết, GPX) | Có vỏ trước mới có chỗ đặt nút neo/MOB |
 
 Còn mở: "thuần hải đồ" ⇒ trên màn mới, dự báo cá / mật độ tàu **tắt mặc định**, bật trong khay Lớp (mặc định an toàn nhất theo §4.1; anh muốn khác thì đổi một dòng).
+
+---
+
+## 8. Đối chiếu TỪNG MÀN — iSailor · OpenCPN · `/hai-do` (rà 2026-11-04 sau đợt 1)
+
+Anh Long: *"kiểm tra và so với từng màn của 2 app kia, đảm bảo hải đồ mình phải dễ dùng và tương đồng, 100%, cái này độc lập với bản đồ đang có rồi nên ko bị ràng buộc"*.
+
+**Cách đối chiếu và giới hạn**: màn của hai app lấy từ gói cài (catalog chữ giao diện iSailor 255 ngữ cảnh, tên lớp `Ui_*`; tên hộp thoại + chuỗi tuỳ chọn OpenCPN). Mac này không có máy ảo Android nên **chưa chạy được hai app để chụp màn so từng điểm ảnh** — "tương đồng" ở đây là cùng chức năng, cùng chỗ đặt, cùng số chạm; không chép hình/màu/chữ (§5). Nếu cần so bằng ảnh, chạy hai APK trên máy GPU (đã có Android tools ở `~/android-tools`) hoặc một máy Android thật rồi chụp.
+
+**Ký hiệu**: ✅ tương đồng · 🟡 có nhưng khác/thiếu một phần · ❌ chưa có.
+
+| # | Màn / khối | iSailor | OpenCPN | `/hai-do` sau đợt 1 | Còn thiếu để tương đồng | Đợt |
+|---|---|---|---|---|---|---|
+| 1 | Mặt hải đồ khi mở | Hải đồ trọn màn + zoom + la bàn trên màn | Hải đồ + thanh công cụ + thanh hải đồ + thanh trạng thái | ✅ trọn màn, cột nút, thước tỉ lệ | La bàn/mũi Bắc nổi (khi bản đồ xoay) | 2 |
+| 2 | Dải số liệu tàu | Position · COG/SOG · ETA/TTG · Depth/Wind (ô xếp ngang) | Dashboard + thanh trạng thái | 🟡 tốc độ · hướng · toạ độ | Chạm dải ⇒ mở 2 dòng: + độ sâu dưới tàu (lưới độ sâu), sai số GPS, giờ; khi có tuyến: điểm kế · cự ly · giờ đến · lệch XTD | 2 |
+| 3 | Hướng bản đồ | North / COG / Head / Route Up | North / Course Up / Look-ahead | ❌ chỉ Bắc lên | Nút hướng 3 nấc: Bắc lên · Hướng đi lên · Tuyến lên (COG lọc trượt) + mũi Bắc | 2 |
+| 4 | Bảng màu | Daylight · Dusk · Night | 5 bảng S-52 | ✅ Ngày · Chiều · Đêm, phủ cả dock | Tự chuyển theo giờ mặt trời (tuỳ chọn) | 3 |
+| 5 | Tuỳ chọn hiển thị | All / Custom / Simplified, ranh hải đồ | Base/Standard/All, Paper/Simplified, 2/4 sắc, bật tắt số sâu/chữ/đèn | ❌ | Khay **Lớp** riêng màn này: mức hiển thị (Cơ bản · Chuẩn · Đủ), số đo sâu, chữ, đèn, cáp, khu cấm, rạn, con nước, AIS, dự báo cá (tắt sẵn) | 3 |
+| 6 | Thông số tàu / an toàn | Safety contour, kích thước, ăng-ten GPS, mớn, UKC | Shallow/Safety/Deep, kích thước, lệch GPS | 🟡 đường an toàn theo mớn / 10 / 20 / 50 | Ba mức Nông · An toàn · Sâu + tô 4 sắc theo đó; mớn sửa ngay trong Cài đặt; UKC ở thẻ chạm | 3 |
+| 7 | Chạm vào hải đồ | Một tấm gom: vị trí · độ sâu · triều · AIS · vật | Thuộc tính đối tượng | ❌ | **Tấm chạm gom** (an toàn → báo hiệu + đặc tính đèn → độ sâu + triều lúc này → tàu AIS → điểm lưu), "gần nhất thắng" | 2 |
+| 8 | Tuyến | Tạo/sửa, giờ đi, tốc độ, đảo tuyến, bán kính quay, **Check route**, GPX/KML | Route Manager | ❌ trên màn này (màn cũ có dẫn đường) | Màn Tuyến: chạm đặt điểm, danh sách điểm (hướng · cự ly · tốc độ chặng · giờ đến), **Nguy hiểm trên tuyến** (dùng lại bộ soi độ sâu/rạn/khu cấm đã có), đảo tuyến, xuất GPX | 4 |
+| 9 | Giám sát tuyến | Next WPT · BTW · DTW · TTG · XTD + báo động | Tương tự | ❌ | Dải số mở rộng khi có tuyến + báo lệch XTD / gần điểm / hết tuyến | 4 |
+| 10 | Vết tàu | Ghi/dừng, danh sách, xem, xuất, ghi nền | Bật vết, tạo tuyến từ vết | ❌ | Ghi vết (IndexedDB, theo chuyến), xem lại, xuất GPX, tạo tuyến từ vết | 4 |
+| 11 | Mục tiêu AIS | Danh sách lọc/sắp, thẻ đầy đủ, véc-tơ phút, tin an toàn | Danh sách + báo CPA + vết | ❌ trên màn này | Lớp AIS (tắt sẵn, theo quyền hiện có) + danh sách sắp theo TCPA/cự ly + thẻ tàu + véc-tơ cùng số phút với tàu mình | 3 |
+| 12 | Đo / ERBL | Vạch phương vị + vòng cự ly kéo bằng ngón | Measure, vòng cự ly | ❌ | Nút Đo: neo tại tàu hoặc điểm chạm, kéo đầu kia, đọc phương vị + cự ly; vòng cự ly 1-2-5 hl | 2 |
+| 13 | Canh neo | Thả neo tại tàu/con trỏ, vòng xoay, bán kính, báo động | Điểm neo + vòng báo | ❌ (anh đã duyệt) | Nút Neo ⇒ vòng + khoảng cách tới neo + chuông/rung/giọng; chống báo nhầm 3 lần liên tiếp | 2 |
+| 14 | Người rơi xuống biển | Activate (xác nhận) ⇒ BRG·RNG·TTG·tuổi | Nút MOB ⇒ điểm + tuyến về | ❌ (anh đã duyệt) | Nút MOB đỏ giữ 1 giây ⇒ điểm + giờ, phương vị/cự ly to, dẫn về, hướng dạt theo dòng | 2 |
+| 15 | Báo động | Trang báo động: loại, tuổi, xác nhận | Hộp CPA, neo | ❌ | Kho báo động chung + chuông nổi: neo, MOB, CPA, lệch tuyến, cắt đường an toàn, mất GPS, bão, ranh giới | 2 |
+| 16 | Thuỷ triều & dòng | Trang triều: đồ thị, bảng HW/LW, UKC | Cửa sổ triều, mũi tên dòng | ❌ trên màn này (app có 106 trạm) | Lớp trạm triều + chạm ⇒ thẻ con nước dùng chung (`tide-card`) + UKC | 3 |
+| 17 | Thời tiết | Gió/sóng/áp/mưa, tải offline, tua giờ | GRIB | ❌ trên màn này (màn cũ có) | Lớp gió sóng (tắt sẵn) + tua giờ dùng lại bộ thời tiết hiện có | 3 |
+| 18 | Vật người dùng | Điểm có loại + độ sâu + ghi chú + ảnh, nhập/xuất GPX/KML | Điểm đánh dấu có icon | ❌ trên màn này | Giữ chạm ⇒ thêm điểm (dùng kho `places` sẵn có) + loại + ghi chú; nhập/xuất GPX | 4 |
+| 19 | Kết nối thiết bị | TCP/UDP/Serial, NMEA, máy dò | NMEA 0183/2000 | ❌ | Bản cài native: GPS/AIS/máy dò qua TCP/UDP | 5 |
+| 20 | Cửa hàng hải đồ | Folio, hạn, khôi phục | Chart Downloader | — | Không cần (gói theo tài khoản); thêm báo sắp hết hạn | — |
+| 21 | Khởi động / EULA | "Chỉ là phương tiện hỗ trợ" bắt đồng ý | — | 🟡 ghi chú nguồn trong ⓘ | Một lần đầu mở: câu "tham khảo, không thay hải đồ chính thức" + Đồng ý | 3 |
+
+### 8.1 "Dễ dùng" — đã đạt ở đợt 1
+
+- Mọi nút ≥ 44 px (`--h-ctl`), một chạm, icon không chữ + tên ở aria-label (đọc màn hình đọc được).
+- Đổi bảng màu = một chạm xoay vòng (iSailor cần mở bảng).
+- Đường an toàn tự suy từ mớn — không cần biết "safety contour" là gì.
+- Mất sóng vẫn đủ hải đồ (bờ, đảo, đẳng sâu, báo hiệu, đèn, xác tàu) — hai app kia đều cần tải hải đồ trước.
+
+### 8.2 Đề xuất xếp lại đợt (để tương đồng nhanh nhất ở MẶT HẢI ĐỒ — chỗ bà con nhìn nhiều nhất)
+
+- **Đợt 2** (an toàn + mặt hải đồ): hướng bản đồ 3 nấc + mũi Bắc · dải số mở rộng · tấm chạm gom · Đo/ERBL · Canh neo · MOB · chuông báo động chung.
+- **Đợt 3** (lớp + biển): khay Lớp riêng (mức hiển thị, bật tắt từng nhóm, 3 mức sâu + 4 sắc) · AIS · triều · gió sóng · tự chuyển màu theo mặt trời · câu "tham khảo" lần đầu.
+- **Đợt 4** (đi biển có kế hoạch): tuyến + kiểm tuyến + giám sát tuyến · vết tàu · điểm người dùng · GPX.
+- **Đợt 5**: thiết bị NMEA (native).
