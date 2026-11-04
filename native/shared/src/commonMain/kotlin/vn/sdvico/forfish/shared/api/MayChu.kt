@@ -5,6 +5,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
@@ -59,6 +60,23 @@ class MayChu(
         kq
     } catch (e: Exception) {
         PhanHoi.MatSong(e.message ?: e::class.simpleName ?: "loi")
+    }
+
+    /** Tải nhị phân (file dữ liệu bản đồ) — kèm chuỗi + If-None-Match. 304 ⇒ than rỗng, giữ bản cũ. */
+    suspend fun taiByte(duong: String, etag: String?): TaiByte = try {
+        val r = http.request(goc + duong) {
+            method = HttpMethod.Get
+            phien.token()?.let { header(HEADER_CHUOI, it) }
+            if (etag != null) header("If-None-Match", etag)
+        }
+        TaiByte.Co(r.status.value, if (r.status.value == 200) r.bodyAsBytes() else ByteArray(0), r.headers["ETag"])
+    } catch (e: Exception) {
+        TaiByte.MatSong(e.message ?: "loi")
+    }
+
+    sealed class TaiByte {
+        class Co(val ma: Int, val than: ByteArray, val etag: String?) : TaiByte()
+        data class MatSong(val loi: String) : TaiByte()
     }
 
     companion object {

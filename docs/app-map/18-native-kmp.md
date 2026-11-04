@@ -116,6 +116,26 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - Mảnh chung cùng tên hai nền (`androidApp/…/giaodien/Manh.kt`, `iosApp/…/GiaoDien.swift`): `ManHeader`, `The` (.surface), `Hang`, `NutChinh` (cam, `--h-cta`), `NutPhu` (.sq-btn), `ONhap`, `NhanO`, `TheTrangThai` (nền ok/warn/danger chỉ khi có việc), `HangYen` (StormBanner yên), `DockNoi` (dock nổi kiểu Facebook, chỉ icon, pill sea/12, ô Kairos = ảnh cá).
 - Đối chiếu web 375px (sdfish.sdvico.vn) với Android emulator + iOS simulator: tiêu đề, hàng tin bão, dock, màn đăng nhập cùng màu / chữ / khối.
 
+### 3d. Đợt 2 — bản đồ: kiểm kê web + chia đợt con (2026-11-04)
+
+**Đã có**: `shared/dulieu/TaiDuLieu.kt` — tải `/data/<tên>` kèm chuỗi ⇒ giải SDF1/SDF2 bằng khoá tài khoản (thiếu khoá ⇒ xin lại một lần, cho ca admin xoay khoá) ⇒ cất BẢN RÕ vào thư mục riêng app (`KhoTepFile` Android, `KhoTepIos` Application Support — ghi nguyên tử). Hỏi lại bằng ETag (luật web "đổi nội dung thì đè cùng đường dẫn"); mất sóng / 401/403 / lỗi giải / ghi hỏng ⇒ dùng bản đã cất, KHÔNG xoá. MapLibre đọc thẳng file (`pmtiles://file://`, GeoJSON) — không cần cầu protocol như web. Test 6 ca (48/48 xanh).
+
+**Kiểm kê web** (`ocean-map.ts` O, `fishing-map-view.tsx` V, `ra-khoi-controls.tsx` R):
+- Nền: `buildMapStyle(layerId, {seamarks:false})` (O:984) — chạy được bằng jiti trong script sinh (đã thử: 17 lớp, `sea-bg` → hình học Protomaps light lọc → `sea-mask` → `base-top`); glyph `/fonts/{fontstack}/{range}.pbf`, sprite `https://…/icons/chart-sprite`. Lớp nền raster `/api/tiles/{chart|sst|chlorophyll}` = premium; `isobaths.v1.json` chỉ khi hải đồ độ sâu.
+- Lớp hải đồ (free, mặc định bật, ba nhóm dưới công tắc "Hải đồ chi tiết"): Độ sâu & đáy (`soundings`, `fairway-depths`, `coral-reefs`; chất đáy + hình rạn pmtiles = premium) · Báo hiệu & nguy hiểm (`vn-sea-lanes`, `reef-shapes`, `seamarks` 3 tầng, `vn-aids`, `xac-tau`, `den-bien`, `khu-tru-bao`) · Tên địa danh ngầm. Luôn bật: nhãn chủ quyền (`SOVEREIGNTY_LABELS`), đảo `vn-islands`, bờ offline. Cài đặt: trạm con nước, vùng lộng, vùng quản lý, lưới toạ độ.
+- Dữ liệu KHÔNG phải GeoJSON: V đổi trong `useMemo` (soundingGeo/depthLineGeo/denBienGeo/xacTauGeo/khuTruBaoGeo/vungQuanLyGeo… V:2970–3130) dùng hàm phụ lib (`fmtDepthM`, `soundingAgeDays`/`isStale`, `lighthouseSymbolId`, `lightAbbrev`, `wreckSymbolId`, `dangVung`, phán điểm nghi lỗi `verdicts`). Hằng lớp xuất sẵn: `SOUNDING_DOT/LABEL_LAYER`, `DEPTH_LINE_LAYER`, `LIGHTHOUSE(_LABEL)_LAYER`, `WRECK_LAYER`, `TIDE_STATION(_LABEL)_LAYER`; lớp còn lại viết thẳng trong JSX.
+- Động (premium/theo ngày): gió/sóng/dòng chảy/mây/mưa… (lớp WebGL `scalar-gl-field`, `WindParticles`), dự báo cá `/api/fish-forecast`, AIS, mật độ tàu, độ mặn, SSHA.
+- Rail `RaKhoiControls` (R:104): Hải đồ · Ngư trường · Thời tiết · Công cụ · Cài đặt; luật loại trừ (một nền raster, một lớp động, cá ↔ mật độ).
+- GPS: `useNavTracking` + `NavBoatMarker` + `NutViTri` + `PlotterReadout`.
+
+**Đợt con** (mỗi đợt build Android ở GPU + iOS ở Mac, đối chiếu web, commit):
+- 2a nền sinh từ `buildMapStyle` + tải nền/lớp qua `TaiDuLieu` + lớp có hằng xuất sẵn (độ sâu, đường độ sâu, đèn biển, xác tàu, trạm con nước) + đảo + nhãn chủ quyền + GPS/vị trí tàu.
+- 2b nhóm Báo hiệu còn lại + rạn + địa danh ngầm + vùng lộng/vùng quản lý + khu trú bão + rail Hải đồ/Cài đặt.
+- 2c lớp nền premium (raster qua header chuỗi) + chất đáy/hình rạn pmtiles + đẳng sâu.
+- 2d thời tiết động (trường GL + mũi tên + hạt gió) + thẻ chạm điểm.
+- 2e dự báo cá + mật độ tàu + AIS.
+- 2f dẫn đường + Đang chạy giọng nói.
+
 ## 4. Trong lúc chuyển
 
 - Bản Capacitor vẫn là bản phát hành; sửa lỗi của nó vẫn làm (vd thẻ "Cài app" hiện trong app native — ẩn bằng `Capacitor.isNativePlatform()`).
