@@ -61,6 +61,10 @@ import vn.sdvico.forfish.shared.thoitiet.LuoiDuBao
 import vn.sdvico.forfish.shared.thoitiet.LuoiTruong
 import vn.sdvico.forfish.shared.thoitiet.NapDuBao
 import vn.sdvico.forfish.shared.thoitiet.NapTruong
+import vn.sdvico.forfish.shared.thoitiet.NapDiem
+import vn.sdvico.forfish.shared.thoitiet.DiemBien
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.layout.onSizeChanged
 import vn.sdvico.forfish.shared.thoitiet.TruongMau
 import androidx.compose.runtime.mutableIntStateOf
 import org.maplibre.android.maps.Style
@@ -114,12 +118,32 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
     @Volatile private var coMangNhanh = true
     private val napGio = NapDuBao(ung.mayChu, tepThoiTiet, { System.currentTimeMillis() }) { !coMangNhanh }
     private val napTruong = NapTruong(ung.mayChu, tepThoiTiet, { System.currentTimeMillis() }) { !coMangNhanh }
+    private val napDiem = NapDiem(ung.mayChu, tepThoiTiet, { System.currentTimeMillis() }) { !coMangNhanh }
+    /** điểm đang chạm (vòng chọn) — dựng lại style thì vẽ lại */
+    private var diemChon: LatLng? = null
+    /** cú chạm bản đồ ⇒ màn Compose (gắn một lần trong getMapAsync) */
+    private var khiCham: ((LatLng) -> Unit)? = null
     private var anhDong: AnhTruong? = null
     private var muiDong: Pair<String, String?>? = null
 
     private fun apDong(st: Style) {
         VeThoiTiet.truong(st, anhDong)
         VeThoiTiet.muiTen(st, muiDong?.first, muiDong?.second)
+        veDiemChon(st)
+    }
+
+    /** Vòng chọn tại chỗ chạm (web: marker điểm xem) — trên lớp động, dưới ghim tàu. */
+    private fun veDiemChon(st: Style) {
+        val p = diemChon
+        val geo = if (p == null) FeatureCollection.fromFeatures(emptyList()) else FeatureCollection.fromFeature(org.maplibre.geojson.Feature.fromGeometry(Point.fromLngLat(p.longitude, p.latitude)))
+        val src = st.getSourceAs<GeoJsonSource>("diem-chon")
+        if (src != null) { src.setGeoJson(geo); return }
+        st.addSource(GeoJsonSource("diem-chon", geo))
+        val lop = CircleLayer("diem-chon", "diem-chon").withProperties(
+            PropertyFactory.circleRadius(9f), PropertyFactory.circleColor("rgba(255,255,255,0.35)"),
+            PropertyFactory.circleStrokeColor(Mau.navy.toArgb()), PropertyFactory.circleStrokeWidth(2.5f),
+        )
+        if (st.getLayer(LOP_QUANG) != null) st.addLayerBelow(lop, LOP_QUANG) else st.addLayer(lop)
     }
     private var viTri: Location? = null
     private var quang: ValueAnimator? = null
@@ -231,6 +255,32 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         val batTong = batPhien.copy(vungLong = tuyChon.vungLong, vungQuanLy = tuyChon.vungQuanLy, tramTrieu = tuyChon.tideStations, luoi = tuyChon.mapGrid, goi = goi, dong = dong != null)
         val soNgay = if (goi) 16 else 1 // = soNgayThoiTiet: gói 16 ngày, thường chỉ hôm nay
 
+        // ── THẺ CHẠM ĐIỂM (đợt 2d): chạm biển ⇒ gió sóng chỗ đó (bản lưu trước nếu mạng chậm) ──
+        var cham by remember { mutableStateOf<LatLng?>(null) }
+        var diem by remember { mutableStateOf<DiemBien?>(null) }
+        var dangTaiDiem by remember { mutableStateOf(false) }
+        var loiDiem by remember { mutableStateOf(false) }
+        var ngayDiem by remember { mutableIntStateOf(0) }
+        var caoThe by remember { mutableIntStateOf(0) } // chiều cao thẻ chạm (dp) — đẩy thanh giờ + nút về tàu lên trên
+        val phamVi = rememberCoroutineScope()
+        khiCham = { ll -> cham = ll; lop = null }
+        LaunchedEffect(cham, soNgay) {
+            diemChon = cham
+            map?.style?.let { veDiemChon(it) }
+            val p = cham ?: return@LaunchedEffect
+            diem = null; loiDiem = false; ngayDiem = 0; dangTaiDiem = true
+            coMangNhanh = coMang(ctx)
+            try {
+                diem = withContext(Dispatchers.IO) { napDiem.lay(p.latitude, p.longitude, soNgay, phamVi) { moi -> if (cham == p) diem = moi } }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ghi("Điểm chạm: ${e.message}"); loiDiem = true
+            } finally {
+                dangTaiDiem = false
+            }
+        }
+
         // tải lớp động: bản trong máy hiện NGAY (peek), rồi mạng; lỗi mà không có bản nào ⇒ báo + nút Thử lại
         LaunchedEffect(dong, lanThu, soNgay) {
             coMangNhanh = coMang(ctx)
@@ -312,6 +362,7 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
                     } else CameraPosition.Builder().target(LatLng(KieuBanDo.TAM_LAT, KieuBanDo.TAM_LON)).zoom(KieuBanDo.ZOOM_MO).build()
                 }
                 m.uiSettings.isRotateGesturesEnabled = false // web khoá xoay: bắc luôn lên trên
+                m.addOnMapClickListener { ll -> khiCham?.invoke(ll); true }
                 m.uiSettings.isCompassEnabled = false
                 // web: chỉ nút ⓘ ghi nguồn (attribution compact), không logo; đặt trên dock nổi
                 m.uiSettings.isLogoEnabled = false
@@ -418,7 +469,7 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
                             ("${st.first().value.toInt()}" to "${st.last().value.toInt()} ${TruongMau.SCALAR_META.getValue(d.kind).unit}")
                     }
                 }
-                Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = (CoSinh.DockRow + CoSinh.DockGap + 8).dp)) {
+                Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = (CoSinh.DockRow + CoSinh.DockGap + 8 + if (cham != null) caoThe + 8 else 0).dp)) {
                     ThanhGio(
                         tieuDe, times, gio, { gio = it }, chay, { chay = it },
                         cu = (if (d is LopDongChon.MauChon) truongMau?.stale else luoiGio?.stale) == true, dangTai = dangTai,
@@ -426,10 +477,19 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
                     )
                 }
             }
+            if (cham != null) {
+                val mat = LocalDensity.current
+                Box(
+                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = (CoSinh.DockRow + CoSinh.DockGap + 8).dp)
+                        .onSizeChanged { caoThe = with(mat) { it.height.toDp().value.toInt() } },
+                ) {
+                    TheDiemBien(diem, dangTaiDiem, loiDiem, ngayDiem, { ngayDiem = it }) { cham = null }
+                }
+            }
             Box(
                 Modifier.align(Alignment.BottomEnd).navigationBarsPadding()
                     // thanh giờ đang mở ⇒ nút về tàu lên trên khối thanh giờ (~220 dp) cho khỏi bị che
-                    .padding(end = 12.dp, bottom = (CoSinh.DockRow + CoSinh.DockGap + 12 + if (dong != null) 220 else 0).dp),
+                    .padding(end = 12.dp, bottom = (CoSinh.DockRow + CoSinh.DockGap + 12 + (if (dong != null) 220 else 0) + (if (cham != null) caoThe + 8 else 0)).dp),
             ) {
                 NutTron("Crosshair", "Về chỗ tàu đang đứng") {
                     if (!coQuyen) {

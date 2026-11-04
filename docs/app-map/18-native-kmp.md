@@ -227,7 +227,9 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 **Kiểm Android** (emulator, acc thường): Gió — trường màu + mũi tên + hạt + bờ nổi + nhãn chủ quyền, khung khoá; Mưa — trường mưa + vệt nền; Mất sóng (`webGoc` chết) — Gió hiện từ bản lưu, Chạy chuyển 0h → 3h; nút về tàu dời lên trên thanh giờ. jvmTest 130/130.
 
-**Chưa làm 2d**: thẻ chạm điểm (dữ liệu `TheDiem` đã có ở shared), lọc hạt theo mặt nước (`fillMissingUV` + lưới độ sâu), độ mặn / nước xoáy / dòng chảy tầng sâu, nhãn ô thời tiết của web (thanh giờ dùng Slider thay TimeScrubber — gần đúng).
+**Thẻ chạm điểm (2026-11-04)**: `shared/thoitiet/NapDiem.kt` = fetchSeaPoint (3 request qua /api/om, 15 s; khoá chỗ = coordId 0,25° — `Js.round` vì Math.round khác round nửa-chẵn của Kotlin; thường lưu `.d1` riêng; mất sóng ⇒ bản lưu; mạng chậm quá 1,5 s mà có bản lưu ⇒ bản lưu trước, số mới về sau qua `onFresh`). Kho `forfish.native.diem.<id>` giữ nguyên 3 thân trả về. Android `TheDiemAndroid.kt`: đầu ngăn SEA_STATE + chấm mức, chip ngày (`chipLabel`), lưới 3 cột `buildSeaCells` (ô full/span2), "Bản lưu HH:MM", đất liền / đang tải / lỗi; vòng chọn tại chỗ chạm; thanh giờ + nút về tàu dời lên theo chiều cao thẻ. Kiểm: chạm biển Vũng Tàu (Gió · Đông Bắc cấp 4, Giật, Sóng 0,8 m, Dòng → Đông Nam, Trời, Âm lịch, Trăng); mất sóng ⇒ "Bản lưu 13:51". jvmTest 136/136. Chưa có ở thẻ: ô con nước (tideCardAt), cá/mùa/độ sâu, lùi về ô lưới đã lưu (`chonBanLui`), nút dẫn đường tới đây (2f).
+
+**Chưa làm 2d**: lọc hạt theo mặt nước (`fillMissingUV` + lưới độ sâu), độ mặn / nước xoáy / dòng chảy tầng sâu, nhãn ô thời tiết của web (thanh giờ dùng Slider thay TimeScrubber — gần đúng).
 
 **Cho Mac (iOS 2d)**: dữ liệu `NapDuBao(ung.mayChu, KhoTep, now, matSong).lay(days, canDongChay)` / `NapTruong.lay(kind, days)` (+ `peek` hiện ngay); vẽ: `LopDong.truongTuLuoi` + `TruongMau.anhTruong(…, 8, moRong = true)` ⇒ `MLNImageSource` 4 góc (bac/tay…), `LuoiDuBao.arrowFeatures` + `*_COLOR_EXPR` ⇒ line layer, hạt `HatGio.buildUVField/stepParticle` vẽ trên `CADisplayLink`; luật lớp: `KieuBanDo.Bat(dong = true)`. **Chưa build iOS.**
 
