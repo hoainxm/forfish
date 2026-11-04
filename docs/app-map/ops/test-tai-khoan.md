@@ -18,6 +18,8 @@ App xác thực bằng **chuỗi thiết bị** (`forfish.token.v1`, lib/device-
 | 0900000777 | basic | ca tài khoản thường; `--premium N` nâng tạm N ngày để thử cửa premium |
 | 0903333333 | basic | ca thường thứ hai — SĐT khác để không dính đệm hạng 5 phút của middleware |
 | 0912345678 | premium | premium có sẵn; thường đang có máy thật ⇒ phải `--multi` |
+| 0900000778 | basic | riêng cho rà/kiểm chế độ Hải đồ (tạo bằng `tao` 2026-11-04) — tránh giành chuỗi với phiên khác đang dùng 0900000777 |
+| 0900000779 | premium | premium sẵn hạn 10 năm (tạo bằng `tao` 2026-11-04) — kiểm phần gói (dự báo cá, gió nhiều ngày, khay ⋯ màn cũ) không cần nâng tạm |
 | 0123456154 | premium | như trên |
 
 ## Lệnh
@@ -26,6 +28,7 @@ Cần `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` trong env hoặc 
 
 ```bash
 node scripts/test-account.mjs ds                          # loại + hạng + hạn + số chuỗi sống từng tài khoản
+node scripts/test-account.mjs tao 0xxxxxxxxx               # TẠO tài khoản test MỚI: thêm số vào test-accounts.json (tên, hạng, mục đích) trước; số đã có trong DB ⇒ từ chối, không đè
 node scripts/test-account.mjs danh-dau 0xxxxxxxxx          # MỘT lần mỗi số: đánh dấu loại "test" (cần 0056)
 node scripts/test-account.mjs cap 0900000777 --premium 1  # cấp chuỗi + nâng premium tạm 1 ngày
 node scripts/test-account.mjs cap 0903333333              # cấp chuỗi cho tài khoản thường

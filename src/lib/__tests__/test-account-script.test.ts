@@ -11,6 +11,8 @@ import {
   cap,
   thu,
   danhDau,
+  hangTaoMoi,
+  tao,
 } from "../../../scripts/test-account.mjs";
 import { isValidTokenShape } from "@/lib/device-token";
 
@@ -146,5 +148,48 @@ describe("cap / thu qua REST giả", () => {
     expect(db.tokens).toHaveLength(2);
     expect(db.tokens[1]).toMatchObject({ allow_multi: true, platform: "test:premium" });
     expect(db.customer.tier).toBe("premium");
+  });
+});
+
+describe("tao — tài khoản test mới (2026-11-04, anh Long: \"tổ chức tài khoản test mới thoải mái\")", () => {
+  const NOW = Date.parse("2026-11-04T00:00:00Z");
+  it("hàng mới: vai customer, loại test ngay từ đầu; premium kèm hạn xa", () => {
+    expect(hangTaoMoi({ phone: "0900000778", tier: "basic", name: "A", purpose: "x" }, NOW)).toEqual({
+      phone: "0900000778", name: "A", role: "customer", account_kind: "test", tier: "basic", updated_at: "2026-11-04T00:00:00.000Z",
+    });
+    const p = hangTaoMoi({ phone: "0900000779", tier: "premium", name: "B", purpose: "x" }, NOW);
+    expect(p).toMatchObject({ tier: "premium", account_kind: "test", premium_activated_at: "2026-11-04T00:00:00.000Z" });
+    expect(Date.parse(p.premium_until as string) - NOW).toBeGreaterThan(9 * 365 * 86400000);
+  });
+
+  function db(customer: Record<string, unknown> | null) {
+    const posts: { path: string; body: Record<string, unknown> }[] = [];
+    const fetchImpl = vi.fn(async (url: string, init: { method?: string; body?: string }) => {
+      const u = new URL(url);
+      const path = u.pathname.replace("/rest/v1/", "") + u.search;
+      const ok = (b: unknown) => ({ ok: true, status: 200, text: async () => JSON.stringify(b) });
+      if (init.method === "GET" && path.startsWith("customers")) return ok(customer ? [customer] : []);
+      if (init.method === "GET") return ok([]);
+      if (init.method === "POST") { posts.push({ path, body: JSON.parse(init.body!) }); return ok([]); }
+      return { ok: false, status: 500, text: async () => "?" };
+    });
+    return { posts, rest: makeRest({ url: "https://x.supabase.co", srk: "srk" }, fetchImpl as unknown as typeof fetch) };
+  }
+  const A = { phone: "0900000778", tier: "basic", name: "Test Hải đồ thường", purpose: "rà soát hải đồ" };
+
+  it("số chưa có ⇒ chèn customers + ghi nhật ký", async () => {
+    const d = db(null);
+    await tao(d.rest, A, () => {});
+    expect(d.posts.map((p) => p.path)).toEqual(["customers", "admin_activity_log"]);
+    expect(d.posts[0].body).toMatchObject({ phone: "0900000778", account_kind: "test", role: "customer" });
+    expect(d.posts[1].body).toMatchObject({ action: "account.create-test", target: "0900000778" });
+  });
+  it("số đã có loại test ⇒ thôi; số thật ⇒ từ chối, không ghi gì", async () => {
+    const t = db({ phone: "0900000778", account_kind: "test" });
+    await tao(t.rest, A, () => {});
+    expect(t.posts).toEqual([]);
+    const r = db({ phone: "0900000778", account_kind: "real" });
+    await expect(tao(r.rest, A, () => {})).rejects.toThrow(/không tạo đè/);
+    expect(r.posts).toEqual([]);
   });
 });
