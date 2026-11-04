@@ -10,7 +10,7 @@ import { getCronSecret } from "@/lib/app-config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PORTS } from "@/data/ports";
 import { scoreDay, levelOf, type SeaDay, type ScoredSeaDay } from "@/lib/sea";
-import { parseStorms } from "@/lib/storms";
+import { GDACS_TC_URL, parseStorms } from "@/lib/storms";
 import { loadFishForecast } from "@/lib/fish-forecast-server";
 import {
   toFishDailyRows,
@@ -22,8 +22,6 @@ import { timeoutSignal } from "@/lib/abort";
 
 export const maxDuration = 300; // NOAA + 10 cảng Open-Meteo — thong thả
 
-const GDACS_TC_URL =
-  "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP?eventtypes=TC";
 
 /** Dự báo 10 ngày một cảng — bản server của lib/sea (không localStorage). */
 async function fetchPortDays(lat: number, lon: number): Promise<ScoredSeaDay[]> {

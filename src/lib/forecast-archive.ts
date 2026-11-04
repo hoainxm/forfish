@@ -11,6 +11,11 @@
 //   drivers/…      (2026-10-23) ĐẦU VÀO + MỨC ĐÃ ÁP của lớp chuỗi thức ăn (lib/fish-chain.ts): trăng, ONI, PDO,
 //                  Kuroshio–Luzon, phù du/nhiệt theo hộp nước trồi, thành phần đang áp/chưa áp, phiên bản thông số —
 //                  chuỗi ngày này là thứ để FIT LẠI thông số (scripts/dong-dan) khi có thêm năm nhãn
+//   storms/…       (2026-11-04) BẢN TIN BÃO đúng như app phát hôm đó (`/api/storms`: NCHMF + GDACS gộp, đường đi,
+//                  cảnh báo sớm, nguồn nào sống). Ngày KHÔNG có bão cũng ghi — "không có bão" cũng là nhãn
+//   nguon-ngay/…   (2026-11-04) đầu vào vệ tinh theo NGÀY CỦA DỮ LIỆU (không phải ngày chạy), đắp bù ngày nguồn ra
+//                  muộn — xem lib/nguon-ngay.ts. `fish-inputs` chỉ là "bản production dùng hôm đó" (có khi trùng
+//                  nhiều ngày vì nguồn trễ), còn đây là chuỗi sạch để fit
 // Đường dẫn: <loại>/<YYYY>/<YYYY-MM-DD>/<tên>.json.gz. Ghi đè trong ngày (upsert) — lượt sau
 // trong cùng ngày thay lượt trước, mỗi ngày đúng một bản.
 //
@@ -22,7 +27,7 @@ import { gzipSync } from "node:zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const ARCHIVE_BUCKET = "forecast-archive";
-export type ArchiveKind = "weather" | "fish" | "fish-inputs" | "actual" | "drivers";
+export type ArchiveKind = "weather" | "fish" | "fish-inputs" | "actual" | "drivers" | "storms" | "nguon-ngay";
 
 /**
  * Đường dẫn file trong kho. `day` phải là YYYY-MM-DD; `name` lấy từ id snapshot (`grid:d16`,

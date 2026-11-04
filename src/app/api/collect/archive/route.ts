@@ -17,6 +17,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { vnToday } from "@/lib/sea-history";
 import { ARCHIVE_CONCURRENCY, archivePath, mapPool, putArchive, summarizePuts } from "@/lib/forecast-archive";
 import { PORTS } from "@/data/ports";
+import { GET as layTinBao } from "@/app/api/storms/route";
 import { timeoutSignal } from "@/lib/abort";
 import {
   ACTUAL_FETCH_TIMEOUT_MS,
@@ -94,6 +95,20 @@ export async function GET(req: Request) {
       ok: s.ok,
       note: s.note ?? (files.length === 0 ? `ERA5 chưa có ngày nào trong ${win.start}…${win.end}` : portsDown.length ? `cảng không lấy được: ${portsDown.join(", ")}` : undefined),
     };
+  }
+
+  // BÃO (2026-11-04) — đúng bản tin app phát lúc này. 503 (cả hai nguồn hỏng) ⇒ KHÔNG ghi: thiếu file nghĩa là
+  // "không hỏi được", khác với file `storms: []` là "hỏi được, không có bão".
+  try {
+    const r = await layTinBao();
+    if (r.ok) {
+      const put = await putArchive(admin, archivePath("storms", day, "storms"), await r.json());
+      parts.storms = summarizePuts([put]);
+    } else {
+      parts.storms = { ok: false, files: 0, bytes: 0, failed: 1, note: `nguồn bão không trả lời (${r.status})` };
+    }
+  } catch (e) {
+    parts.storms = { ok: false, files: 0, bytes: 0, failed: 1, note: e instanceof Error ? e.message : String(e) };
   }
 
   return NextResponse.json({ ok: Object.values(parts).some((p) => p.ok), day, parts });

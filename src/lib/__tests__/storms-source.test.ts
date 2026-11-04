@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /*  CỔNG CHẶN KHUÔN — HỢP ĐỒNG VỚI NGUỒN TIN BÃO (2026-08-18).
@@ -28,9 +28,32 @@ const routeSrc = routeRaw
   .replace(/\/\*[\s\S]*?\*\//g, " ")
   .replace(/(^|[^:])\/\/.*$/gm, "$1");
 
+/*  QUÉT CẢ src (2026-11-04): cron `collect/sea-daily` giữ bản chép `eventtypes=` suốt 3 tháng trong khi cổng
+    chỉ canh `/api/storms` ⇒ `storm_events` trống từ 07/08. Nay URL là MỘT hằng (`lib/storms GDACS_TC_URL`). */
+function tatCaFileMa(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+    const f = join(dir, d.name);
+    if (d.isDirectory()) return d.name === "__tests__" ? [] : tatCaFileMa(f);
+    return /\.(ts|tsx|mjs|js)$/.test(d.name) ? [f] : [];
+  });
+}
+const boChuThich = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+describe("nguồn tin bão — MỘT URL GDACS cho mọi chỗ gọi", () => {
+  it("không file mã nào trong src còn `eventtypes=` (GDACS trả 400)", () => {
+    const sai = tatCaFileMa(join(process.cwd(), "src")).filter((f) => boChuThich(readFileSync(f, "utf8")).includes("eventtypes="));
+    expect(sai).toEqual([]);
+  });
+  it("URL GDACS chỉ khai ở lib/storms.ts", () => {
+    const khai = tatCaFileMa(join(process.cwd(), "src")).filter((f) => boChuThich(readFileSync(f, "utf8")).includes("gdacsapi/api/events/geteventlist"));
+    expect(khai.map((f) => f.slice(f.indexOf("src")))).toEqual(["src/lib/storms.ts"]);
+  });
+});
+
 describe("nguồn tin bão — hợp đồng tham số GDACS", () => {
   it("dùng `eventtype=` (số ít) — `eventtypes=` bị GDACS trả 400", () => {
-    expect(routeSrc).toContain("eventtype=TC");
+    expect(routeSrc).toContain("GDACS_TC_URL");
+    expect(readFileSync(join(process.cwd(), "src", "lib", "storms.ts"), "utf8")).toContain("eventtype=TC");
     expect(routeSrc).not.toContain("eventtypes=");
   });
 

@@ -1,4 +1,4 @@
-import { parseStorms, type StormAlert } from "@/lib/storms";
+import { GDACS_TC_URL, parseStorms, type StormAlert } from "@/lib/storms";
 import {
   NCHMF_INDEX_URL,
   NCHMF_BACKUP_INDEX_URL,
@@ -51,8 +51,6 @@ import {
     này IM LẶNG: app không sập, không báo đỏ, chỉ là **không bao giờ có tin bão
     nào**. Đúng thứ nguy hiểm nhất với trục 1. Nay log rõ mã lỗi để lần sau có
     dấu vết, và có cổng test canh tham số (`storms-source.test.ts`). */
-const GDACS_TC_URL =
-  "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP?eventtype=TC";
 
 /** Trần chờ NCHMF (nguồn CHÍNH VN). Hai lượt tuần tự (index→bản tin) nên tổng
  *  tệ nhất 2×; giữ dưới trần client để mạng yếu vẫn kịp nhận. */

@@ -54,6 +54,11 @@ export type StormCheck =
  * /api/storms cũ để dùng offline → `ok:true` vẫn có thể là tin của mấy hôm
  * trước. Nói "không có bão" dựa trên tin cũ là nói dối chuyện tính mạng.
  */
+/*  MỘT NGUỒN URL GDACS cho MỌI chỗ gọi (2026-11-04). `/api/storms` đã sửa sang `eventtype=` (số ít) từ 18/08,
+    nhưng cron `collect/sea-daily` giữ bản chép riêng `eventtypes=` ⇒ GDACS 400 ⇒ bảng `storm_events` không ghi được
+    cơn nào từ 07/08 tới 04/11. Hằng dùng chung + cổng `storms-source.test.ts` quét cả src. */
+export const GDACS_TC_URL = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP?eventtype=TC";
+
 export const STORM_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 /** Máy chạy lệch giờ chút thì tha; lệch nhiều coi như không tin được */
 const CLOCK_SKEW_MS = 60 * 60 * 1000;
