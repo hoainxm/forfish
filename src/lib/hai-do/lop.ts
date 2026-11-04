@@ -180,8 +180,8 @@ export function canhBaoCongTrinh(ds: readonly Feat[], tau: LatLon | null, neo: L
    Ở đây hai cách bà con cần: "Sắp gặp" (TCPA tăng dần — tàu nào tới sát trước thì
    đứng đầu) và "Gần nhất". Tin cũ / đã qua / không tính được CPA xếp sau, theo cự ly. */
 
-export type SapAis = "tcpa" | "cach";
-export const SAP_AIS: readonly SapAis[] = ["tcpa", "cach"];
+export type SapAis = "tcpa" | "cach" | "ten";
+export const SAP_AIS: readonly SapAis[] = ["tcpa", "cach", "ten"];
 
 /** Còn đang tới gần (TCPA ≥ 0, tin còn mới) — mới đáng xếp theo TCPA. */
 const dangToi = (m: MucTieu) => !m.tinCu && m.tcpaPhut != null && m.tcpaPhut >= 0;
@@ -190,6 +190,14 @@ const dangToi = (m: MucTieu) => !m.tinCu && m.tcpaPhut != null && m.tcpaPhut >= 
 export function sapMucTieu(ds: readonly MucTieu[], theo: SapAis): MucTieu[] {
   const out = [...ds];
   if (theo === "cach") return out.sort((a, b) => a.cachNm - b.cachNm);
+  // theo tên (iSailor AIS list: Name) — tìm tàu bạn theo số hiệu; tàu chưa rõ tên xuống cuối, cùng tên thì gần trước
+  if (theo === "ten")
+    return out.sort((a, b) => {
+      const ta = a.tau.ten?.trim();
+      const tb = b.tau.ten?.trim();
+      if (!ta !== !tb) return ta ? -1 : 1;
+      return (ta && tb ? ta.localeCompare(tb, "vi", { numeric: true }) : 0) || a.cachNm - b.cachNm;
+    });
   return out.sort((a, b) => {
     const ta = dangToi(a);
     const tb = dangToi(b);

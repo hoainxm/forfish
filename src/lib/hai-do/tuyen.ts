@@ -61,6 +61,51 @@ export function daoTuyen<T>(diem: readonly T[]): T[] {
 }
 
 /** Tên mặc định: "Tuyến 04/11 08:25". */
+/* ── SỬA TUYẾN BẰNG NGÓN (rà soát so iSailor RouteEdit / OpenCPN Route Manager, 2026-11-04) ──
+   Hai app kia: kéo điểm để dời, chạm lên chặng để chèn điểm giữa. Ở đây làm trên TOẠ ĐỘ MÀN (px) mà
+   màn đã chiếu sẵn — ngưỡng chạm tính bằng px mới đúng cảm giác ngón tay ở mọi mức phóng. Thuần, có test. */
+
+/** Khoảng cách px từ điểm tới đoạn thẳng ab. */
+function cachDoan(p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const l2 = dx * dx + dy * dy;
+  const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/** Điểm (px) đang bị chạm trúng — gần nhất trong `nguongPx`, không trúng ⇒ null. */
+export function diemTrung(px: readonly { x: number; y: number }[], p: { x: number; y: number }, nguongPx = 22): number | null {
+  let best: number | null = null;
+  let bestD = nguongPx;
+  px.forEach((q, i) => {
+    const d = Math.hypot(q.x - p.x, q.y - p.y);
+    if (d <= bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+/**
+ * Chạm gần một chặng (≤ `nguongPx`) ⇒ vị trí CHÈN (index trong mảng điểm mới), không gần chặng nào ⇒ null
+ * (chỗ gọi thêm vào cuối như cũ). Chạm trúng ngay một điểm cũng ⇒ null (để kéo, không chèn trùng).
+ */
+export function viTriChen(px: readonly { x: number; y: number }[], p: { x: number; y: number }, nguongPx = 18): number | null {
+  if (px.length < 2 || diemTrung(px, p) != null) return null;
+  let best: number | null = null;
+  let bestD = nguongPx;
+  for (let i = 0; i + 1 < px.length; i++) {
+    const d = cachDoan(p, px[i], px[i + 1]);
+    if (d <= bestD) {
+      bestD = d;
+      best = i + 1;
+    }
+  }
+  return best;
+}
+
 export function tenMacDinh(ms: number): string {
   const d = new Date(ms + 7 * 3600_000);
   const p = (n: number) => String(n).padStart(2, "0");

@@ -138,6 +138,7 @@ export const NHAN = {
   cacTau: "Tàu",
   sapGap: "Sắp gặp",
   ganNhat: "Gần nhất",
+  theoTen: "Tên",
   gio: "Gió",
   song: "Sóng",
   tauToi: "Tàu tôi",

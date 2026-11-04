@@ -6,7 +6,7 @@
   Target List. Ngăn đáy như bảng Tuyến/Vết; mở từ khay ⋯ → Tàu (chỉ khi lớp AIS bật).
 
   Trên đầu: câu nguy cơ (`tomTatNguyCo`) — câu đầu tiên bà con cần. Dưới: lọc (Tất cả ·
-  Tới gần · Tàu cá), xếp (Sắp gặp · Gần nhất), tầm (6/12/24 hải lý). Mỗi dòng: tên,
+  Tới gần · Tàu cá), xếp (Sắp gặp · Gần nhất · Tên), tầm (6/12/24 hải lý). Mỗi dòng: tên,
   câu đời thường (`dongPhuTau`), chấm màu theo mức. Chạm dòng ⇒ bay tới tàu + tấm chạm.
   Tin cũ hơn 30 phút mờ và không bao giờ báo nguy (luật `ais-cpa`).
 */
@@ -27,7 +27,7 @@ const LOC: { id: LocAis; nhan: string }[] = [
   { id: "gan", nhan: NHAN.toiGan },
   { id: "ca", nhan: NHAN.tauCa },
 ];
-const NHAN_SAP: Record<SapAis, string> = { tcpa: NHAN.sapGap, cach: NHAN.ganNhat };
+const NHAN_SAP: Record<SapAis, string> = { tcpa: NHAN.sapGap, cach: NHAN.ganNhat, ten: NHAN.theoTen };
 
 export function BangAis({
   ds,

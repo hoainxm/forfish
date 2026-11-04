@@ -138,6 +138,10 @@ describe("danh sách tàu AIS — xếp", () => {
   it("Sắp gặp: tàu đang tới theo TCPA trước, còn lại theo cự ly", () => {
     expect(ten(sapMucTieu(ds, "tcpa"))).toEqual(["xa-toi-som", "vua-toi-muon", "gan-da-qua", "tin-cu", "dung-yen"]);
   });
+  it("Tên: theo vần, số trong tên xếp như số; tàu chưa rõ tên xuống cuối", () => {
+    const d = [mt("BĐ 9", { cachNm: 3 }), mt("x", { cachNm: 1, tau: { ...mt("x", {}).tau, ten: null } }), mt("BĐ 10", { cachNm: 2 }), mt("An Phú", { cachNm: 5 })];
+    expect(ten(sapMucTieu(d, "ten"))).toEqual(["An Phú", "BĐ 9", "BĐ 10", "x"]);
+  });
   it("Gần nhất: chỉ theo cự ly; không đổi mảng gốc", () => {
     expect(ten(sapMucTieu(ds, "cach"))).toEqual(["gan-da-qua", "tin-cu", "dung-yen", "vua-toi-muon", "xa-toi-som"]);
     expect(ds[0].tau.id).toBe("xa-toi-som");

@@ -147,3 +147,25 @@ describe("kho tuyến", () => {
     expect(docChay("x")).toBeNull();
   });
 });
+
+import { diemTrung, viTriChen } from "../hai-do/tuyen";
+describe("sửa tuyến bằng ngón — chèn giữa, trúng điểm", () => {
+  const px = [
+    { x: 0, y: 0 },
+    { x: 100, y: 0 },
+    { x: 100, y: 100 },
+  ];
+  it("chạm sát chặng 1→2 ⇒ chèn vào vị trí 1; chặng 2→3 ⇒ vị trí 2", () => {
+    expect(viTriChen(px, { x: 50, y: 6 })).toBe(1);
+    expect(viTriChen(px, { x: 94, y: 60 })).toBe(2);
+  });
+  it("xa mọi chặng ⇒ null (thêm vào cuối); trúng điểm ⇒ null (để kéo); < 2 điểm ⇒ null", () => {
+    expect(viTriChen(px, { x: 40, y: 60 })).toBeNull();
+    expect(viTriChen(px, { x: 101, y: 2 })).toBeNull();
+    expect(viTriChen([{ x: 0, y: 0 }], { x: 1, y: 1 })).toBeNull();
+  });
+  it("diemTrung: điểm gần nhất trong ngưỡng, ngoài ngưỡng ⇒ null", () => {
+    expect(diemTrung(px, { x: 96, y: 4 })).toBe(1);
+    expect(diemTrung(px, { x: 50, y: 50 })).toBeNull();
+  });
+});

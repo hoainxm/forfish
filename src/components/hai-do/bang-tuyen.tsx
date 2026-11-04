@@ -6,7 +6,7 @@
 
   Tuyến (iSailor RouteEditPage/WaypointEditPage + RouteCheck; OpenCPN Route Manager):
     · danh sách: tên · cự ly · số điểm — Bắt đầu / Sửa / Xoá; Thêm · Nhập GPX · Xuất GPX
-    · soạn: chạm hải đồ để thêm điểm; bảng chặng (hướng · cự ly · phút); Bỏ điểm ·
+    · soạn: chạm hải đồ để thêm điểm, chạm lên chặng để chèn giữa, giữ kéo điểm để dời; bảng chặng (hướng · cự ly · phút); Bỏ điểm ·
       Đảo tuyến · Kiểm tuyến (hậu kiểm `auditRoute` đã có) · Lưu · Huỷ
   Vết (iSailor TracksListPage/TrackViewPage; OpenCPN tracks):
     · Ghi vết / Dừng ghi · danh sách: ngày · cự ly · thời gian — Bản đồ / Tạo tuyến / Xuất GPX / Xoá
@@ -96,6 +96,7 @@ export function BangTuyen({
                 <li key={k}>{`${k + 1}→${k + 2}: ${fmtPv(c.pvDeg)} · ${fmtDist(c.km, unit, 1)} · ${gio(c.phut)}`}</li>
               ))}
             </ol>
+            <p className="mt-1 text-[0.75rem] text-muted">Chạm lên chặng để chèn điểm · giữ và kéo một điểm để dời</p>
           </>
         )}
         {kiem && (

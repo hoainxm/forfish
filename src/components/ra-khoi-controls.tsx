@@ -760,6 +760,19 @@ export function RaKhoiControls({
             onClose={() => setMore(false)}
             className="flex w-[11rem] flex-col gap-0.5 p-1"
           >
+            {/*  CHẾ ĐỘ HẢI ĐỒ (2026-11-04, anh Long: "1 lớp mới, ko dính tới cái cũ, bà con quen nhìn
+                 giao diện này thì đổi qua") — màn riêng `/hai-do`; máy nhớ lựa chọn để lần sau mở thẳng.
+                 ĐẦU KHAY (rà soát 2026-11-04: để cuối khay thì khó tìm — iSailor/OpenCPN mở ra là hải đồ). */}
+            <RailBtn
+                onClick={() => {
+                  setMore(false);
+                  setHaiDoPrefs({ moHaiDo: true });
+                  diTrang(router, "/hai-do");
+                }}
+                aria-label="Kiểu máy hải đồ — chuyển sang màn hải đồ thuần"
+                icon={NavArrowIcon}
+                label={NHAN.kieuMay}
+              />
             {/*  "Vị trí" và "Chạy tàu" (loa) đã ra NGOÀI bản đồ — nút về tàu + nút loa
                  ở cột góc phải dưới (khung 2026-10-20) — không lặp trong khay. */}
             {premiumTools && onRoutePanel && (
@@ -806,18 +819,6 @@ export function RaKhoiControls({
                 aria-label="Điểm đã lưu"
                 icon={StarIcon}
                 label={NHAN.diemLuu}
-              />
-            {/*  CHẾ ĐỘ HẢI ĐỒ (2026-11-04, anh Long: "1 lớp mới, ko dính tới cái cũ, bà con quen nhìn
-                 giao diện này thì đổi qua") — màn riêng `/hai-do`; máy nhớ lựa chọn để lần sau mở thẳng. */}
-            <RailBtn
-                onClick={() => {
-                  setMore(false);
-                  setHaiDoPrefs({ moHaiDo: true });
-                  diTrang(router, "/hai-do");
-                }}
-                aria-label="Kiểu máy hải đồ — chuyển sang màn hải đồ thuần"
-                icon={NavArrowIcon}
-                label={NHAN.kieuMay}
               />
           </Popover>
         )}

@@ -30,6 +30,7 @@ import MapGL, {
   type MapRef,
 } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
+import type { MapLayerMouseEvent as MlLopChuot, MapLayerTouchEvent as MlLopCham, MapMouseEvent as MlChuot, MapTouchEvent as MlCham } from "maplibre-gl";
 
 import { registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
 import { registerDataProtocol } from "@/lib/data-protocol";
@@ -81,7 +82,7 @@ import { arrowFeatures, fetchForecastGrid, WAVE_COLOR_EXPR, WIND_COLOR_EXPR, typ
 import { isoDateVN } from "@/lib/day-labels";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { soNgayThoiTiet } from "@/lib/tier";
-import { cauLech, docGpx, gioTaiDiem, giamSat, nhanDiemVet, tenMacDinh, tuyenTuVet, vietGpx, daoTuyen, type Tuyen, type Vet } from "@/lib/hai-do/tuyen";
+import { cauLech, diemTrung, docGpx, gioTaiDiem, viTriChen, giamSat, nhanDiemVet, tenMacDinh, tuyenTuVet, vietGpx, daoTuyen, type Tuyen, type Vet } from "@/lib/hai-do/tuyen";
 import { dsVet, luuVet, setChay, setTuyen, setVetGhi, useChay, useTuyen, useVetGhi, xoaVet } from "@/lib/hai-do/kho-tuyen";
 import { auditRoute, type RouteHit } from "@/lib/route-hazards";
 import { buildHazardList, requiredDepthM } from "@/lib/hazards";
@@ -701,7 +702,7 @@ export default function HaiDoView() {
   // hình vẽ: tuyến đang soạn / đang chạy / vết / điểm
   const soanGeo = useMemo(() => {
     if (!soan) return RONG;
-    const f: GeoJSON.Feature[] = soan.diem.map((p, k) => ({ type: "Feature", properties: { so: String(k + 1) }, geometry: { type: "Point", coordinates: [p.lon, p.lat] } }));
+    const f: GeoJSON.Feature[] = soan.diem.map((p, k) => ({ type: "Feature", properties: { so: String(k + 1), i: k }, geometry: { type: "Point", coordinates: [p.lon, p.lat] } }));
     if (soan.diem.length >= 2) f.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: soan.diem.map((p) => [p.lon, p.lat]) } });
     return fc(f);
   }, [soan]);
@@ -724,6 +725,53 @@ export default function HaiDoView() {
     [places],
   );
 
+  /*  KÉO ĐIỂM TUYẾN ĐANG SOẠN (rà soát so iSailor RouteEdit, 2026-11-04): ấn lên chấm điểm rồi kéo — chặn kéo
+      bản đồ trong lúc đó; nhả thì ghi mốc để cú click đi kèm không thành "thêm điểm". */
+  const vuaKeoRef = useRef(0);
+  const dangSoan = soan != null;
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map || !dangSoan) return;
+    let keo: number | null = null;
+    const bat = (e: MlLopChuot | MlLopCham) => {
+      const i = Number(e.features?.[0]?.properties?.i);
+      if (!Number.isInteger(i)) return;
+      if ("points" in e && e.points.length > 1) return; // hai ngón = phóng to, không kéo điểm
+      e.preventDefault();
+      keo = i;
+      map.getCanvas().style.cursor = "grabbing";
+    };
+    const di = (e: MlChuot | MlCham) => {
+      if (keo == null) return;
+      const k = keo;
+      const { lat, lng } = e.lngLat;
+      setSoan((s) => (s ? { ...s, diem: s.diem.map((p, j) => (j === k ? { lat, lon: lng } : p)) } : s));
+      setKiem(null);
+    };
+    const tha = () => {
+      if (keo == null) return;
+      keo = null;
+      vuaKeoRef.current = Date.now();
+      map.getCanvas().style.cursor = "";
+    };
+    map.on("mousedown", "hd-soan-diem", bat);
+    map.on("touchstart", "hd-soan-diem", bat);
+    map.on("mousemove", di);
+    map.on("touchmove", di);
+    map.on("mouseup", tha);
+    map.on("touchend", tha);
+    map.on("touchcancel", tha);
+    return () => {
+      map.off("mousedown", "hd-soan-diem", bat);
+      map.off("touchstart", "hd-soan-diem", bat);
+      map.off("mousemove", di);
+      map.off("touchmove", di);
+      map.off("mouseup", tha);
+      map.off("touchend", tha);
+      map.off("touchcancel", tha);
+    };
+  }, [dangSoan]);
+
   const [cham, setCham] = useState<DongCham[] | null>(null);
   const chamKhoa = useRef<string | null>(null);
   /** gió sóng tại điểm đã về / hỏng xong — mốc bắt đầu đếm tự ẩn (như sheet bản đồ thường: đếm từ lúc NGÃ NGŨ) */
@@ -739,7 +787,13 @@ export default function HaiDoView() {
       if (doMo) return;
       if (Date.now() - vuaDongRef.current < 500) return;
       if (soan) {
-        setSoan({ ...soan, diem: [...soan.diem, { lat: e.lngLat.lat, lon: e.lngLat.lng }] });
+        if (Date.now() - vuaKeoRef.current < 400) return; // vừa kéo điểm xong — cú nhả không phải chạm thêm
+        const m = mapRef.current?.getMap();
+        const px = m ? soan.diem.map((p) => m.project([p.lon, p.lat])) : [];
+        if (diemTrung(px, e.point) != null) return; // chạm trúng điểm cũ ⇒ để kéo, không đặt chồng điểm mới
+        const moi = { lat: e.lngLat.lat, lon: e.lngLat.lng };
+        const chen = viTriChen(px, e.point);
+        setSoan({ ...soan, diem: chen == null ? [...soan.diem, moi] : [...soan.diem.slice(0, chen), moi, ...soan.diem.slice(chen)] });
         setKiem(null);
         return;
       }
@@ -1520,7 +1574,10 @@ export default function HaiDoView() {
                   className="flex min-h-(--h-ctl) flex-col items-center justify-center gap-0.5 rounded-xl bg-field px-1 py-1.5 text-[0.75rem] font-semibold text-foreground transition active:scale-95"
                 >
                   <Icon className="h-5 w-5" aria-hidden />
-                  {m === "mau" ? NHAN_BANG[bang] : o.nhan}
+                  {/* ô Màu ghi TÊN VIỆC như mọi ô khác (rà soát 2026-11-04: ghi "Ngày" dễ đọc thành một việc);
+                      bảng đang dùng là dòng nhỏ bên dưới */}
+                  {o.nhan}
+                  {m === "mau" && <span className="text-[0.6875rem] font-normal text-muted">{NHAN_BANG[bang]}</span>}
                 </button>
               );
             })}
