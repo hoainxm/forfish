@@ -18,6 +18,16 @@ export const VAI: readonly { id: Vai; ten: string; phu: string }[] = [
 
 const TEN = new Map<string, string>(VAI.map((v) => [v.id, v.ten]));
 
+/*
+  VAI BÀ CON TỰ CHỌN ĐƯỢC (anh Long 04/11: *"thu mua và đại lý ko cho tự chọn nhé, phải do admin quản trị duyệt, ko cần
+  cho hiện ra lúc chọn ban đầu đâu"*). Màn /chon-vai chỉ hiện hai thẻ này; Thu mua + Đại lý do nhân viên gán ở /quan-tri
+  (Đại lý cũng lên khi nhân viên DUYỆT gian hàng — admin/cho/shops). `PUT /api/me/vai` chặn hai vai kia (409 `can_duyet`).
+*/
+const VAI_TU_CHON = new Set<Vai>(["ngu-dan", "chu-tau"]);
+export const tuChonDuoc = (v: Vai): boolean => VAI_TU_CHON.has(v);
+/** Thẻ của màn chọn vai — đúng thứ tự VAI, chỉ vai tự chọn được. */
+export const VAI_CHON = VAI.filter((v) => VAI_TU_CHON.has(v.id));
+
 export const isVai = (v: unknown): v is Vai => typeof v === "string" && TEN.has(v);
 export const tenVai = (v: Vai | null | undefined): string => (v ? TEN.get(v) ?? "" : "");
 
@@ -39,11 +49,13 @@ export function coBanDo(vai: Vai | null, premium: boolean): boolean {
   trong sổ ⇒ Chủ tàu (tự lên, không hỏi). Đại lý và Thu mua đứng riêng, không đổi sang vai nào. Sửa vai chọn nhầm là
   việc của nhân viên (/quan-tri), không phải của app.
 */
-export type LyDoKhoaVai = "da_co_vai" | "chua_co_tau";
+export type LyDoKhoaVai = "da_co_vai" | "chua_co_tau" | "can_duyet";
 
 /** Đổi từ `hienTai` sang `moi` có được không. null = được; còn lại là lý do từ chối (route trả 409 kèm mã này). */
 export function lyDoKhongDoiVai(hienTai: Vai | null, moi: Vai, coTau: boolean): LyDoKhoaVai | null {
-  if (hienTai === null || hienTai === moi) return null;
+  if (hienTai === moi) return null;
+  if (!tuChonDuoc(moi)) return "can_duyet"; // Thu mua / Đại lý: chỉ nhân viên gán
+  if (hienTai === null) return null;
   if (hienTai === "ngu-dan" && moi === "chu-tau") return coTau ? null : "chua_co_tau";
   return "da_co_vai";
 }

@@ -2,7 +2,8 @@
 //
 // SĐT chỉ lấy từ cổng chuỗi (identityFromRequest) — không nhận từ body. Vai chọn MỘT LẦN (anh Long 03/11 — luật ở
 // lib/vai lyDoKhongDoiVai): chưa có vai ⇒ ghi; đã có ⇒ 409 `da_co_vai`, trừ Đi bạn ⇒ Chủ tàu khi sổ tàu ĐÃ ĐỒNG BỘ có ≥1
-// tàu (chưa có ⇒ 409 `chua_co_tau`, máy giữ cờ chờ và gửi lại sau). Máy chủ là nơi QUYẾT vai; máy chỉ giữ bản sao.
+// tàu (chưa có ⇒ 409 `chua_co_tau`, máy giữ cờ chờ và gửi lại sau). Thu mua / Đại lý KHÔNG tự chọn được ⇒ 409 `can_duyet`
+// (anh Long 04/11 — nhân viên gán ở /quan-tri). Máy chủ là nơi QUYẾT vai; máy chỉ giữ bản sao.
 //
 // MIGRATION 0079 CÓ THỂ CHƯA ÁP: cột `vai` chưa có ⇒ 503 `unavailable` — máy giữ nguyên bản đang có, KHÔNG coi là
 // "chưa chọn vai" (đó là đường ép bà con chọn lại mỗi lần mở app).

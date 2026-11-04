@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { ChonVaiThe } from "@/components/chon-vai";
 import { ManHeader } from "@/components/man-header";
 import { readNextParam } from "@/lib/auth-next";
-import { loadShopFlag } from "@/lib/market/seller-flag";
 import { NHAN } from "@/lib/labels";
 import { useVai } from "@/lib/use-vai";
 import type { Vai } from "@/lib/vai";
@@ -13,8 +12,8 @@ import { chonVai } from "@/lib/vai-store";
 
 /*
   MÀN "BÀ CON LÀM NGHỀ GÌ?" (spec 17 §3.1) — ngay sau đăng ký (dang-ky đẩy sang đây kèm `?next=`).
-  Chạm thẻ ⇒ ghi vai ở máy NGAY (dock đổi tức thì, mất sóng vẫn được) rồi đi tiếp. Đại lý chưa có gian hàng ⇒ sang
-  đăng ký shop. "Để sau" ⇒ giữ dock mặc định; trang chủ còn thẻ mời một hàng tới khi chọn. Đã có vai ⇒ không ở lại màn này.
+  Chạm thẻ ⇒ ghi vai ở máy NGAY (dock đổi tức thì, mất sóng vẫn được) rồi đi tiếp. Chỉ Đi bạn / Chủ tàu — Thu mua, Đại
+  lý do nhân viên duyệt (04/11). "Để sau" ⇒ giữ dock mặc định; trang chủ còn thẻ mời một hàng tới khi chọn. Đã có vai ⇒ không ở lại màn này.
   Chưa đăng nhập ⇒ về /login (màn này chỉ có nghĩa với tài khoản).
 */
 export default function ChonVaiPage() {
@@ -39,8 +38,7 @@ export default function ChonVaiPage() {
     setDangGhi(v);
     // chonVai tự nuốt lỗi mạng: vai đã nằm ở máy, gửi lên sau
     await chonVai(phone, v);
-    const coShop = loadShopFlag(phone)?.hasShop === true;
-    router.replace(v === "dai-ly" && !coShop ? "/ban-hang/dang-ky" : next);
+    router.replace(next);
   }
 
   return (

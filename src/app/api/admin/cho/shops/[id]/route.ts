@@ -9,11 +9,28 @@ import { MarketError } from "@/lib/market/errors";
 import { marketNotice, notifyMarket } from "@/lib/market/notify";
 import { marketErrorResponse } from "@/lib/market/route-utils";
 import { getMarketStore } from "@/lib/market/store";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { validateStatusNote } from "@/lib/market/validate";
 import type { Shop, ShopStatus } from "@/lib/market/types";
 import { isShopStatus, logMarketAdmin, requireMarketAdmin } from "../../_guard";
 
 type Ctx = { params: Promise<{ id: string }> };
+
+/*  DUYỆT GIAN HÀNG = GÁN VAI ĐẠI LÝ (anh Long 04/11: Đại lý "phải do admin quản trị duyệt" — spec 17 §3.3). Chỉ khi chủ shop
+    CHƯA có vai (ghi có điều kiện `vai is null`); vai khác giữ nguyên (khoá vai). Hỏng thì không làm hỏng lượt duyệt —
+    nhân viên vẫn gán tay được ở Tài khoản. */
+async function ganVaiDaiLy(phone: string): Promise<void> {
+  try {
+    const { error } = (await createAdminClient()
+      ?.from("customers")
+      .update({ vai: "dai-ly", vai_doi_luc: new Date().toISOString() })
+      .eq("phone", phone)
+      .is("vai", null)) ?? { error: null };
+    if (error) console.error("[admin/cho/shops] gán vai dai-ly hỏng:", error.message);
+  } catch (e) {
+    console.error("[admin/cho/shops] gán vai dai-ly hỏng:", (e as Error)?.message);
+  }
+}
 
 /** Tin báo cho chủ shop khi admin đổi trạng thái (bảng 11 §8 N10/N11/N12). */
 async function notifyShopStatus(shop: Shop, status: ShopStatus) {
@@ -93,6 +110,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
         ...(note ? { note } : {}),
       });
       if (wantStatus !== before.status) await notifyShopStatus(shop, wantStatus);
+      if (wantStatus === "hoat_dong" && shop.ownerPhone) await ganVaiDaiLy(shop.ownerPhone);
     }
 
     return NextResponse.json({ ok: true, shop });

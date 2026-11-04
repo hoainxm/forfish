@@ -71,12 +71,11 @@ Ví dụ nhóm dùng thật: "chủ tàu Quảng Ngãi chưa premium, mở app 7
 ### 3.1 Lần đầu: màn "Bà con làm nghề gì?"
 
 - **Khi nào hiện**: ngay sau đăng ký xong, hoặc lần đầu mở app sau bản này với tài khoản có `vai = null`, **trừ** khi suy được vai (§3.2).
-- **Bố cục**: tiêu đề một dòng + 4 thẻ dọc, mỗi thẻ gồm icon, tên vai và một dòng phụ ngắn:
+- **Bố cục**: tiêu đề một dòng + **2 thẻ** dọc, mỗi thẻ gồm icon, tên vai và một dòng phụ ngắn:
   - Đi bạn: "Tìm tàu đi, xem giá, tin tức"
   - Chủ tàu: "Giấy tờ, bạn thuyền, chuyến biển"
-  - Thu mua: "Tìm cá bán, đăng giá mua"
-  - Đại lý: "Bán thiết bị, vật tư"
-- Chạm một thẻ là xong, không có nút "Tiếp". Chọn **Đại lý** mà chưa có gian hàng thì sang luôn `/ban-hang/dang-ky`.
+- **Thu mua và Đại lý KHÔNG có thẻ** (anh Long 04/11: *"thu mua và đại lý ko cho tự chọn nhé, phải do admin quản trị duyệt, ko cần cho hiện ra lúc chọn ban đầu đâu"*). Hai vai này chỉ do nhân viên gán: Thu mua ở `/quan-tri` › Tài khoản; Đại lý ở đó hoặc **khi nhân viên duyệt gian hàng** (`PATCH /api/admin/cho/shops/[id]` status `hoat_dong` ⇒ ghi `vai = dai-ly` nếu chủ shop chưa có vai). Đăng ký gian hàng (`/ban-hang/dang-ky`) KHÔNG gán vai. Luật: `lib/vai.ts VAI_CHON`, `tuChonDuoc`.
+- Chạm một thẻ là xong, không có nút "Tiếp".
 - Có lối "Để sau" (chữ nhỏ dưới cùng). Để sau thì giữ **dock hôm nay** (dock chủ tàu), trang chủ có thẻ một hàng "Bà con làm nghề gì?" cho tới khi chọn.
 - Mất sóng: ghi vai vào máy (`forfish.vai.v1`) và đổi giao diện ngay, có sóng thì gửi lên. Không bao giờ chặn người dùng chờ mạng.
 
@@ -94,10 +93,10 @@ Vai suy ra là vai THẬT (đã khoá như vai tự chọn). Sheet Tài khoản 
 ### 3.3 Khoá vai (thay "Đổi vai", anh Long 03/11)
 
 - Sheet Tài khoản: vai là chip (chỉ xem), không nút Đổi. **Nhân viên** sửa vai ở `/quan-tri` › Tài khoản (ô chọn vai trên dòng khách + Lưu vai, `PATCH /api/admin/accounts/vai`, quyền tai-khoan edit, nhật ký `account.doi-vai`); máy bà con hỏi lại vai tối đa 12 giờ/lần khi mở app có sóng (`vai-store HOI_LAI_MS`) nên vai sửa sẽ về máy. Chưa có vai ⇒ hàng "Bà con làm nghề gì? · Chọn" sang `/chon-vai`. `/chon-vai` khi đã có vai ⇒ tự về chỗ cũ.
-- Máy chủ (`PUT /api/me/vai`): chưa có vai ⇒ ghi (có điều kiện `vai is null`, hai máy cùng chọn thì máy sau 409); có rồi ⇒ 409 `da_co_vai`; Đi bạn ⇒ Chủ tàu chỉ khi sổ tàu ĐÃ ĐỒNG BỘ có ≥1 tàu chưa xoá, chưa có ⇒ 409 `chua_co_tau`.
+- Máy chủ (`PUT /api/me/vai`): xin `thu-mua`/`dai-ly` (khác vai đang có) ⇒ 409 `can_duyet`, app nhận lại vai máy chủ; chưa có vai ⇒ ghi (có điều kiện `vai is null`, hai máy cùng chọn thì máy sau 409); có rồi ⇒ 409 `da_co_vai`; Đi bạn ⇒ Chủ tàu chỉ khi sổ tàu ĐÃ ĐỒNG BỘ có ≥1 tàu chưa xoá, chưa có ⇒ 409 `chua_co_tau`.
 - App: sổ tàu trong máy có ≥1 tàu mà vai là Đi bạn hoặc chưa chọn ⇒ tự lên Chủ tàu (ghi máy ngay, gửi lên; `chua_co_tau` ⇒ giữ cờ chờ, lần mở sau gửi lại). 409 `da_co_vai` ⇒ app nhận vai của máy chủ.
 - Màn đăng tin tuyển với vai khác Chủ tàu: Đi bạn ⇒ câu + nút Thêm (sang `/tau`); Thu mua / Đại lý ⇒ chỉ câu báo.
-- **Gian hàng là tài khoản Đại lý riêng**: `POST /api/ban-hang/shop` (mở mới) chỉ cho vai `dai-ly` hoặc chưa có vai — chưa có vai mở xong thành Đại lý; vai khác ⇒ 403 `vai`. Màn `/ban-hang/dang-ky` báo ngay cho vai khác (dùng SĐT khác); menu Tài khoản chỉ mời "Đăng ký shop" cho Đại lý / chưa có vai.
+- **Gian hàng là tài khoản Đại lý riêng**: `POST /api/ban-hang/shop` (mở mới) chỉ cho vai `dai-ly` hoặc chưa có vai — mở xong vẫn **chưa** thành Đại lý, nhân viên duyệt gian hàng mới gán (04/11); vai khác ⇒ 403 `vai`. Màn `/ban-hang/dang-ky` báo ngay cho vai khác (dùng SĐT khác); menu Tài khoản chỉ mời "Đăng ký shop" cho Đại lý / chưa có vai.
 - **Vai hiển thị** = chip (icon vai + tên) ngay dưới số điện thoại trong menu Tài khoản — khuôn trang "Tôi" của Imou/TPLink-Installer.
 
 ## 4. Giao diện theo vai
@@ -317,7 +316,7 @@ Luật (§2): offline chỉ bắt buộc với chủ tàu. (a) Request mới lú
 - Given tài khoản đã có vai `thu-mua`
 - When xin đổi sang `dai-ly` hoặc `chu-tau`
 - Then bị từ chối; Đi bạn sang Chủ tàu chỉ được khi có tàu trong sổ
-- Assert: `lyDoKhongDoiVai("thu-mua","dai-ly",false) == "da_co_vai"`; `lyDoKhongDoiVai("ngu-dan","chu-tau",false) == "chua_co_tau"`; `lyDoKhongDoiVai("ngu-dan","chu-tau",true) == null`
+- Assert: `lyDoKhongDoiVai("thu-mua","chu-tau",true) == "da_co_vai"`; `lyDoKhongDoiVai(null,"dai-ly",false) == "can_duyet"`; `lyDoKhongDoiVai(null,"thu-mua",false) == "can_duyet"`; `lyDoKhongDoiVai("ngu-dan","chu-tau",false) == "chua_co_tau"`; `lyDoKhongDoiVai("ngu-dan","chu-tau",true) == null`
 
 ### AC-15 · Mọi màn của ô dock đều có dock · Test: unit
 - Given dock theo vai có ô Việc làm / Bán hàng mà dock mặc định không có

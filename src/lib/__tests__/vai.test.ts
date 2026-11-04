@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DOCK, dockActive, dockBadge, dockTheoVai, nhanBadgeDock, type NguonBadge } from "@/lib/dock-nav";
 import { nhanHopLe } from "@/lib/labels";
-import { chanBanDoFree, coBanDo, isVai, lyDoKhongDoiVai, nenLenChuTau, nenNhanVaiMayChu, parseVaiMay, suyVai, tenVai, VAI } from "@/lib/vai";
+import { chanBanDoFree, coBanDo, isVai, lyDoKhongDoiVai, nenLenChuTau, nenNhanVaiMayChu, parseVaiMay, suyVai, tenVai, tuChonDuoc, VAI, VAI_CHON } from "@/lib/vai";
 import { MOI_O_DOCK } from "@/lib/dock-nav";
 
 describe("vai — bốn vai, mỗi SĐT một vai (spec 17 §2.1)", () => {
@@ -125,9 +125,25 @@ describe("dock theo vai (spec 17 §4.1)", () => {
   });
 });
 
+describe("Thu mua / Đại lý do nhân viên duyệt, bà con không tự chọn (anh Long 04/11)", () => {
+  it("màn chọn vai chỉ có Đi bạn + Chủ tàu", () => {
+    expect(VAI_CHON.map((v) => v.id)).toEqual(["ngu-dan", "chu-tau"]);
+    expect(tuChonDuoc("thu-mua")).toBe(false);
+    expect(tuChonDuoc("dai-ly")).toBe(false);
+  });
+  it("máy chủ từ chối tự chọn Thu mua / Đại lý — kể cả khi chưa có vai", () => {
+    expect(lyDoKhongDoiVai(null, "thu-mua", false)).toBe("can_duyet");
+    expect(lyDoKhongDoiVai(null, "dai-ly", false)).toBe("can_duyet");
+    expect(lyDoKhongDoiVai("ngu-dan", "dai-ly", true)).toBe("can_duyet");
+  });
+  it("đã được nhân viên gán thì gửi lại đúng vai đó vẫn êm (không 409)", () => {
+    expect(lyDoKhongDoiVai("dai-ly", "dai-ly", false)).toBeNull();
+  });
+});
+
 describe("khoá vai (anh Long 03/11: chọn một lần, ngư dân + tàu = chủ tàu, đại lý/thu mua độc lập)", () => {
   it("chưa có vai ⇒ chọn được bất kỳ; cùng vai ⇒ không đổi gì", () => {
-    for (const v of ["ngu-dan", "chu-tau", "thu-mua", "dai-ly"] as const) expect(lyDoKhongDoiVai(null, v, false)).toBeNull();
+    for (const v of ["ngu-dan", "chu-tau"] as const) expect(lyDoKhongDoiVai(null, v, false)).toBeNull();
     expect(lyDoKhongDoiVai("thu-mua", "thu-mua", false)).toBeNull();
   });
   it("Đi bạn ⇒ Chủ tàu chỉ khi có tàu trong sổ", () => {
@@ -136,8 +152,8 @@ describe("khoá vai (anh Long 03/11: chọn một lần, ngư dân + tàu = ch�
   });
   it("mọi đường khác bị khoá — kể cả Chủ tàu ⇒ Đi bạn, Đại lý ⇔ Thu mua", () => {
     expect(lyDoKhongDoiVai("chu-tau", "ngu-dan", true)).toBe("da_co_vai");
-    expect(lyDoKhongDoiVai("dai-ly", "thu-mua", false)).toBe("da_co_vai");
-    expect(lyDoKhongDoiVai("thu-mua", "dai-ly", false)).toBe("da_co_vai");
+    expect(lyDoKhongDoiVai("dai-ly", "thu-mua", false)).toBe("can_duyet");
+    expect(lyDoKhongDoiVai("thu-mua", "dai-ly", false)).toBe("can_duyet");
     expect(lyDoKhongDoiVai("thu-mua", "chu-tau", true)).toBe("da_co_vai");
     expect(lyDoKhongDoiVai("dai-ly", "chu-tau", true)).toBe("da_co_vai");
   });
