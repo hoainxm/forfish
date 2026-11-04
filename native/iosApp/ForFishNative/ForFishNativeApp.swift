@@ -18,7 +18,14 @@ func ghi(_ s: String) { print("ForFishNative \(s)") }
 
 @MainActor
 final class TrangThaiApp: ObservableObject {
-    let ung = UngDung(kho: KhoIos(), nen: "ios", webGoc: CauHinh.shared.WEB_GOC)
+    let ung: UngDung = {
+        var goc = CauHinh.shared.WEB_GOC
+        #if DEBUG
+        // giả mất sóng trên simulator: SIMCTL_CHILD_webGoc=https://127.0.0.1:9
+        if let g = ProcessInfo.processInfo.environment["webGoc"] { goc = g }
+        #endif
+        return UngDung(kho: KhoIos(), nen: "ios", webGoc: goc)
+    }()
     @Published var lanVe = 0
     @Published var man = "chinh"
     @Published var phienTam: String?
@@ -70,21 +77,33 @@ struct KhungChinh: View {
     @EnvironmentObject var tt: TrangThaiApp
     @State private var dang = "trang-chu"
 
+    // Thanh dock TỰ VẼ: TabView của iOS chỉ hiện 5 ô, ô thứ 6 bị gom vào "More" (chữ tiếng Anh) — dock chủ tàu có 6 ô.
     var body: some View {
-        let dock = tt.ung.dock()
         let _ = tt.lanVe
-        TabView(selection: $dang) {
-            ForEach(dock, id: \.id) { o in
-                Group {
-                    switch o.id {
-                    case "trang-chu": TrangChu()
-                    case "ban-do": BanDoThu()
-                    default: ChuaLam(nhan: o.nhan, dot: DOT_CUA_O[o.id] ?? 7)
-                    }
+        let dock = tt.ung.dock()
+        let hien = dock.contains { $0.id == dang } ? dang : "trang-chu"
+        VStack(spacing: 0) {
+            Group {
+                switch hien {
+                case "trang-chu": TrangChu()
+                case "ban-do": BanDoThu()
+                default: ChuaLam(nhan: dock.first { $0.id == hien }?.nhan ?? "", dot: DOT_CUA_O[hien] ?? 7)
                 }
-                .tabItem { Label(o.nhan, systemImage: bieuTuong(o.id)) }
-                .tag(o.id)
-            }
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            Divider()
+            HStack(spacing: 0) {
+                ForEach(dock, id: \.id) { o in
+                    Button { dang = o.id } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: bieuTuong(o.id)).font(.system(size: 20))
+                            Text(o.nhan).font(.caption2).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .foregroundStyle(o.id == hien ? Color.accentColor : Color.secondary)
+                    }
+                    .accessibilityLabel(o.nhan)
+                }
+            }.padding(.top, 6)
         }
     }
 

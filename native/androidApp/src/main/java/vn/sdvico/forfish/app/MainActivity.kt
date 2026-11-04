@@ -63,6 +63,7 @@ import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import vn.sdvico.forfish.shared.CauHinh
 import vn.sdvico.forfish.shared.UngDung
 import vn.sdvico.forfish.shared.bando.DuLieuTramTrieu
 import vn.sdvico.forfish.shared.bando.KieuBanDo
@@ -91,7 +92,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ung = UngDung(KhoAndroid(applicationContext), "android")
+        // debug: `--es webGoc https://127.0.0.1:9` giả mất sóng
+        val goc = if (BuildConfig.DEBUG) intent.getStringExtra("webGoc") ?: CauHinh.WEB_GOC else CauHinh.WEB_GOC
+        ung = UngDung(KhoAndroid(applicationContext), "android", goc)
         MapLibre.getInstance(this)
         mapView = MapView(this).also { it.onCreate(savedInstanceState) }
         val lanVe = mutableIntStateOf(0) // tăng ⇒ vẽ lại theo kho (sau đăng nhập, chuyển kho, đổi vai)
