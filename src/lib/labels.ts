@@ -134,6 +134,12 @@ export const NHAN = {
   ghiVet: "Ghi vết",
   dungGhi: "Dừng ghi",
   taoTuyen: "Tạo tuyến",
+  /** sau đợt 4 (2026-11-04): khay ⋯ → danh sách tàu AIS; chip xếp; lớp gió/sóng toàn vùng */
+  cacTau: "Tàu",
+  sapGap: "Sắp gặp",
+  ganNhat: "Gần nhất",
+  gio: "Gió",
+  song: "Sóng",
   tauToi: "Tàu tôi",
   choCa: "Chợ cá",
   vatTu: "Vật tư",

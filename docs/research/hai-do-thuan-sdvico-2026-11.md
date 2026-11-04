@@ -238,6 +238,7 @@ Anh Long: *"kiểm tra và so với từng màn của 2 app kia, đảm bảo h�
 | 2 | ✅ 2026-11-04 | 1 (mũi Bắc), 2, 3 (Bắc/Hướng đi), 7, 12, 13, 14, 15 + cột nút thông minh (3 nút lúc yên, khay ⋯) |
 | 3 | ✅ 2026-11-04 | 4 (tự đổi màu), 5, 6 (tô nông theo đường an toàn), 11 (AIS + CPA; chưa có danh sách tàu riêng), 16 (lớp trạm), 17 (gió sóng tại điểm chạm — chưa có lớp gió sóng toàn vùng/tua giờ), 21 |
 | 4 | ✅ 2026-11-04 (làm ở Mac — `claude` máy GPU hết phiên đăng nhập) | 3 (Tuyến lên), 8 (tuyến + kiểm tuyến bằng auditRoute), 9 (giám sát + báo lệch/hết tuyến), 10 (vết + tạo tuyến từ vết), 18 (điểm người dùng + GPX) |
+| Sau 4 | ✅ 2026-11-04 (máy GPU) | 11 (danh sách tàu AIS: lọc · Sắp gặp/Gần nhất · tầm 6/12/24 · chạm bay tới), 17 (lớp gió/sóng toàn vùng + dải tua giờ, theo luật gói), 19 một phần (bộ đọc NMEA/AIS thuần — chưa plugin native, chưa thiết bị thật). Kiểm trình duyệt 375 px: Xuất GPX ra tệp `.gpx` 1.1 (đường tải xuống; chia sẻ của điện thoại chưa thử), vòng 500 m quanh giàn hiện đúng, danh sách AIS bằng bản AIS giả (tài khoản test không có quyền AIS — không sửa cấu hình thật) |
 
 ### 8.4 Bàn giao đợt 4 (chuyển sang máy GPU, 2026-11-04)
 
@@ -254,6 +255,6 @@ Bắt đầu: `git fetch origin && git checkout feat/hai-do-thuan`. Đọc trư�
 
 **Luật giữ nguyên**: cột nút thông minh (`lib/hai-do/cot-nut.ts` — mục mới vào khay ⋯, chỉ nổi ra cột khi đang dùng); nhãn ≤ 2 chữ thêm vào `src/lib/labels.ts`; màu qua token / `doiMau` theo bảng màu; mỗi đợt: test `src/lib/__tests__/`, doc 07 §13.x + 02 + state-registry cùng commit, câu hỏi offline (a–d) trong commit message; kiểm trình duyệt 375 px bằng tài khoản test (`node scripts/test-account.mjs cap 0900000777`, xong `thu`).
 
-**Còn mở sau đợt 4**: đợt 5 NMEA/thiết bị (cần bản native + thiết bị thật); danh sách tàu AIS riêng (hàng 11); lớp gió sóng toàn vùng + tua giờ (hàng 17); kiểm AIS/CPA trên trình duyệt bằng tài khoản CÓ quyền AIS; anh Long test một lần toàn bộ rồi mới merge `main`.
+**Còn mở sau đợt 4** (cập nhật 2026-11-04, máy GPU): ~~danh sách tàu AIS (hàng 11)~~ · ~~lớp gió sóng toàn vùng + tua giờ (hàng 17)~~ — xong (07 §13.6). Còn: hàng 19 phần native (plugin Capacitor TCP/UDP đẩy dòng vào `lib/hai-do/nmea.docCau`, thử với GPS/AIS/máy dò thật); kiểm AIS/CPA với bản AIS thật bằng tài khoản CÓ quyền; chia sẻ GPX + giữ ngón thêm điểm trên điện thoại thật; ký hiệu cập bờ / cấm neo chưa nhìn bằng mắt.
 
 **Bổ sung 2026-11-04 (trước đợt 4)**: cáp · ống · giàn · vùng cấm lên mức Chuẩn, vẽ phân biệt loại, vòng 500 m quanh giàn, chạm ra tên + câu dặn, báo động neo gần cáp/ống và vào vòng giàn (07 §13.4). Dữ liệu giàn thiếu các mỏ phía Nam — cần nguồn khác (Thông báo hàng hải / PVN) nếu muốn đủ.

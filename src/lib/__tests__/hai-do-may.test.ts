@@ -199,6 +199,10 @@ describe("cột nút thông minh", () => {
       "them",
     ]);
   });
+  it("mục Tàu (danh sách AIS) chỉ có khi lớp AIS đang bật, đứng sau Lớp", () => {
+    expect(mucKhay(yen, { lop: true, tau: true, tuyen: true, vet: true }).slice(0, 5)).toEqual(["mau", "do", "neo", "lop", "tau"]);
+    expect(mucKhay(yen, { lop: true, tau: false, tuyen: true, vet: true })).not.toContain("tau");
+  });
   it("khay không lặp nút đang nổi; mục chưa có thì không hiện", () => {
     expect(mucKhay(yen, { lop: false, tuyen: false, vet: false })).toEqual(["mau", "do", "neo", "caiDat", "banDo"]);
     expect(mucKhay({ ...yen, dangNeo: true, dangDo: true }, { lop: true, tuyen: true, vet: true })).toEqual([

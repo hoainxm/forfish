@@ -14,6 +14,7 @@
     nutZoom   — hiện nút phóng to/thu nhỏ trên cột (mặc định ẩn — véo hai ngón; iSailor "Zoom Buttons")
     (đợt 3) hienThi Cơ bản/Chuẩn/Đủ · toNong (tô nước nông, mặc định BẬT) · lopTrieu (trạm con nước, BẬT)
             · lopAis (tàu AIS, TẮT — chỉ tài khoản được xem) · tuDongMau (đổi màu theo mặt trời, TẮT)
+    (sau đợt 4) lopThoiTiet "tat" | "gio" | "song" — lớp gió/sóng toàn vùng + tua giờ, TẮT sẵn
             · daDongY (đã đồng ý câu "tham khảo" lần đầu)
 */
 import { useSyncExternalStore } from "react";
@@ -23,6 +24,9 @@ import { HUONG_BAN_DO, type HuongBanDo } from "@/lib/hai-do/may";
 import { MUC_HIEN_THI, type MucHienThi } from "@/lib/hai-do/lop";
 
 export const HAI_DO_KEY = "forfish.haiDo.v1";
+
+/** Lớp gió/sóng toàn vùng (một lúc một lớp, như màn cũ). */
+export type LopThoiTiet = "tat" | "gio" | "song";
 
 export interface HaiDoPrefs {
   bang: BangMau;
@@ -36,6 +40,7 @@ export interface HaiDoPrefs {
   toNong: boolean;
   lopTrieu: boolean;
   lopAis: boolean;
+  lopThoiTiet: LopThoiTiet;
   tuDongMau: boolean;
   daDongY: boolean;
 }
@@ -52,6 +57,7 @@ export const HAI_DO_MAC_DINH: HaiDoPrefs = {
   toNong: true,
   lopTrieu: true,
   lopAis: false,
+  lopThoiTiet: "tat",
   tuDongMau: false,
   daDongY: false,
 };
@@ -73,6 +79,7 @@ export function docHaiDoPrefs(raw: string | null): HaiDoPrefs {
       toNong: p.toNong !== false,
       lopTrieu: p.lopTrieu !== false,
       lopAis: p.lopAis === true,
+      lopThoiTiet: p.lopThoiTiet === "gio" || p.lopThoiTiet === "song" ? p.lopThoiTiet : "tat",
       tuDongMau: p.tuDongMau === true,
       daDongY: p.daDongY === true,
     };

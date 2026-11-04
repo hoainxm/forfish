@@ -9,7 +9,7 @@
     · Neo    — khi đang canh neo (để thấy ngay vòng/khoảng cách, nhổ neo)
     · Đo     — khi đang đo (để tắt)
     · Phóng to / thu nhỏ — chỉ khi bà con bật trong Cài đặt (iSailor: "Zoom Buttons")
-  Còn lại vào khay ⋯: Màu · Đo · Neo · Lớp · Tuyến · Vết · Cài đặt · Bản đồ thường.
+  Còn lại vào khay ⋯: Màu · Đo · Neo · Lớp · Tàu (danh sách AIS — chỉ khi lớp AIS đang bật) · Tuyến · Vết · Cài đặt · Bản đồ thường.
   MOB KHÔNG thuộc bảng này — nút đỏ riêng góc trái, luôn có khi có GPS.
 */
 
@@ -34,14 +34,15 @@ export function nutNoi(t: TinhHinhCot): NutNoi[] {
   return ds;
 }
 
-export type MucKhay = "mau" | "do" | "neo" | "lop" | "tuyen" | "vet" | "caiDat" | "banDo";
+export type MucKhay = "mau" | "do" | "neo" | "lop" | "tau" | "tuyen" | "vet" | "caiDat" | "banDo";
 
 /** Mục trong khay ⋯ — mục đã nổi ngoài cột thì không lặp trong khay (trừ khi khay là chỗ duy nhất). */
-export function mucKhay(t: TinhHinhCot, co: { lop: boolean; tuyen: boolean; vet: boolean }): MucKhay[] {
+export function mucKhay(t: TinhHinhCot, co: { lop: boolean; tau?: boolean; tuyen: boolean; vet: boolean }): MucKhay[] {
   const ds: MucKhay[] = ["mau"];
   if (!t.dangDo) ds.push("do");
   if (!t.dangNeo) ds.push("neo");
   if (co.lop) ds.push("lop");
+  if (co.tau) ds.push("tau");
   if (co.tuyen) ds.push("tuyen");
   if (co.vet) ds.push("vet");
   ds.push("caiDat", "banDo");

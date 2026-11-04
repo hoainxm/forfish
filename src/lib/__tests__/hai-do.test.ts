@@ -150,7 +150,7 @@ describe("tuỳ chọn chế độ hải đồ", () => {
     expect(docHaiDoPrefs(JSON.stringify({ bang: "tim", anToanM: 7, vecPhut: 99, moHaiDo: "co", huong: "xeo", vong: 1 }))).toEqual(HAI_DO_MAC_DINH);
   });
   it("giữ giá trị hợp lệ", () => {
-    expect(docHaiDoPrefs(JSON.stringify({ bang: "dem", anToanM: 20, vecPhut: 12, moHaiDo: true, huong: "huong-di", vong: true, nutZoom: true, hienThi: "du", toNong: false, lopTrieu: false, lopAis: true, tuDongMau: true, daDongY: true }))).toEqual({
+    expect(docHaiDoPrefs(JSON.stringify({ bang: "dem", anToanM: 20, vecPhut: 12, moHaiDo: true, huong: "huong-di", vong: true, nutZoom: true, hienThi: "du", toNong: false, lopTrieu: false, lopAis: true, lopThoiTiet: "song", tuDongMau: true, daDongY: true }))).toEqual({
       bang: "dem",
       anToanM: 20,
       vecPhut: 12,
@@ -162,6 +162,7 @@ describe("tuỳ chọn chế độ hải đồ", () => {
       toNong: false,
       lopTrieu: false,
       lopAis: true,
+      lopThoiTiet: "song",
       tuDongMau: true,
       daDongY: true,
     });

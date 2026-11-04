@@ -22,7 +22,7 @@ import type { RouteHit } from "@/lib/route-hazards";
 const NUT = "sq-btn bg-field text-foreground disabled:opacity-50";
 const NUT_CHINH = "sq-btn bg-sea text-card disabled:opacity-50";
 
-function Ngan({ tieuDe, onDong, children }: { tieuDe: string; onDong: () => void; children: React.ReactNode }) {
+export function Ngan({ tieuDe, onDong, children }: { tieuDe: string; onDong: () => void; children: React.ReactNode }) {
   return (
     <section
       aria-label={tieuDe}

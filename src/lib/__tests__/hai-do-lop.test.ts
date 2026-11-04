@@ -109,3 +109,61 @@ describe("cáp · ống · giàn", () => {
     expect(canhBaoCongTrinh([gian, cap], tren, tren)).toContain("Neo cách");
   });
 });
+
+import { khungHienTai, luoiDaQua, sapMucTieu } from "../hai-do/lop";
+describe("danh sách tàu AIS — xếp", () => {
+  const mt = (id: string, o: Partial<MucTieu>): MucTieu =>
+    ({
+      tau: { id, ten: id, loai: 2, co: null, lat: 0, lon: 0, kn: 5, huong: 0, mui: null, phut: 0, dai: null, dich: null },
+      pos: { lat: 0, lon: 0 },
+      cachNm: 2,
+      phuongVi: 0,
+      cpaNm: 1,
+      tcpaPhut: 10,
+      muc: "an",
+      tuoiPhut: 1,
+      tinCu: false,
+      cpaMinh: null,
+      cpaTau: null,
+      ...o,
+    }) as MucTieu;
+  const ds = [
+    mt("xa-toi-som", { cachNm: 8, tcpaPhut: 4 }),
+    mt("gan-da-qua", { cachNm: 0.5, tcpaPhut: -3 }),
+    mt("vua-toi-muon", { cachNm: 3, tcpaPhut: 25 }),
+    mt("tin-cu", { cachNm: 1, tcpaPhut: 1, tinCu: true }),
+    mt("dung-yen", { cachNm: 2, tcpaPhut: null, cpaNm: null }),
+  ];
+  const ten = (x: MucTieu[]) => x.map((m) => m.tau.id);
+  it("Sắp gặp: tàu đang tới theo TCPA trước, còn lại theo cự ly", () => {
+    expect(ten(sapMucTieu(ds, "tcpa"))).toEqual(["xa-toi-som", "vua-toi-muon", "gan-da-qua", "tin-cu", "dung-yen"]);
+  });
+  it("Gần nhất: chỉ theo cự ly; không đổi mảng gốc", () => {
+    expect(ten(sapMucTieu(ds, "cach"))).toEqual(["gan-da-qua", "tin-cu", "dung-yen", "vua-toi-muon", "xa-toi-som"]);
+    expect(ds[0].tau.id).toBe("xa-toi-som");
+  });
+});
+
+describe("lớp gió sóng — khung bây giờ", () => {
+  const times = ["2026-11-04T06:00", "2026-11-04T09:00", "2026-11-04T12:00", "2026-11-04T15:00"];
+  it("chọn khung gần giờ VN hiện tại nhất", () => {
+    // 10:20 giờ VN = 03:20Z
+    expect(khungHienTai(times, Date.parse("2026-11-04T03:20:00Z"))).toBe(1);
+    // 11:00 VN ⇒ 12h gần hơn 9h? (1h vs 2h) ⇒ 12h
+    expect(khungHienTai(times, Date.parse("2026-11-04T04:00:00Z"))).toBe(2);
+  });
+  it("ngoài tầm ⇒ mép gần nhất; rỗng ⇒ 0", () => {
+    expect(khungHienTai(times, Date.parse("2026-11-05T00:00:00Z"))).toBe(3);
+    expect(khungHienTai(times, Date.parse("2026-11-03T00:00:00Z"))).toBe(0);
+    expect(khungHienTai([], Date.now())).toBe(0);
+  });
+});
+
+describe("lớp gió sóng — lưới đã qua", () => {
+  const times = ["2026-10-26T00:00", "2026-10-27T00:00"];
+  it("bản lưu tuần trước ⇒ đã qua; lưới hôm nay ⇒ chưa; rỗng ⇒ chưa", () => {
+    expect(luoiDaQua(times, Date.parse("2026-11-04T03:00:00Z"))).toBe(true);
+    expect(luoiDaQua(["2026-11-04T00:00", "2026-11-05T00:00"], Date.parse("2026-11-04T03:00:00Z"))).toBe(false);
+    expect(luoiDaQua([], Date.now())).toBe(false);
+  });
+});

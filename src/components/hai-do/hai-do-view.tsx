@@ -66,14 +66,20 @@ import {
 import { fetchSeaLanes } from "@/lib/sea-lanes";
 import { CHART_FEATURE_ICON, CHART_ICON_SIZE } from "@/lib/chart-symbols";
 import { fetchQuyenAis, fetchTauAis, moTaTau, peekQuyenAis, TAU_AIS_LAM_MOI_MS, tauGeoJson, type TauAisBan } from "@/lib/tau-ais";
-import { quetQuanh } from "@/lib/ais-cpa";
+import { quetQuanh, type LocAis, type MucTieu } from "@/lib/ais-cpa";
 import { CO_ICON_TAU, dangKyIconTau } from "@/components/ban-do/icon-tau";
 import { useAuthUser } from "@/lib/use-auth";
 import { syncOwnerPhone } from "@/lib/user-sync";
 import { beaufort, fetchSeaPoint, formatNumberVN, windDirectionVN } from "@/lib/marine-weather";
-import { bangTheoTroi, canDanCongTrinh, canhBaoCongTrinh, cauCpa, doCaoMatTroi, loaiCongTrinh, nhomTheoMuc, TEN_CONG_TRINH, VONG_GIAN_M } from "@/lib/hai-do/lop";
+import { bangTheoTroi, canDanCongTrinh, canhBaoCongTrinh, cauCpa, doCaoMatTroi, khungHienTai, loaiCongTrinh, nhomTheoMuc, TEN_CONG_TRINH, VONG_GIAN_M, type SapAis } from "@/lib/hai-do/lop";
 import { KhayLop } from "@/components/hai-do/khay-lop";
 import { BangTuyen, BangVet } from "@/components/hai-do/bang-tuyen";
+import { BangAis, type TamDs } from "@/components/hai-do/bang-ais";
+import { ThanhGio, type TrangThaiLuoi } from "@/components/hai-do/thanh-gio";
+import { arrowFeatures, fetchForecastGrid, WAVE_COLOR_EXPR, WIND_COLOR_EXPR, type ForecastGrid } from "@/lib/forecast-grid";
+import { isoDateVN } from "@/lib/day-labels";
+import { useFeatureAccess } from "@/lib/use-tier";
+import { soNgayThoiTiet } from "@/lib/tier";
 import { cauLech, docGpx, gioTaiDiem, giamSat, nhanDiemVet, tenMacDinh, tuyenTuVet, vietGpx, daoTuyen, type Tuyen, type Vet } from "@/lib/hai-do/tuyen";
 import { dsVet, luuVet, setChay, setTuyen, setVetGhi, useChay, useTuyen, useVetGhi, xoaVet } from "@/lib/hai-do/kho-tuyen";
 import { auditRoute, type RouteHit } from "@/lib/route-hazards";
@@ -148,6 +154,7 @@ import {
   RadarIcon,
   RouteIcon,
   RulerIcon,
+  TargetIcon,
 } from "@/components/icons";
 
 /** Vết tàu — đường gấp khúc chấm (chưa có icon riêng trong bộ). */
@@ -190,6 +197,7 @@ const KHAY: Record<MucKhay, { nhan: string; aria: string; icon: (p: { className?
   do: { nhan: NHAN.doDac, aria: "Đo phương vị, cự ly", icon: RulerIcon },
   neo: { nhan: NHAN.neoTau, aria: "Canh neo", icon: AnchorIcon },
   lop: { nhan: NHAN.lop, aria: "Lớp hải đồ", icon: LayersIcon },
+  tau: { nhan: NHAN.cacTau, aria: "Danh sách tàu AIS", icon: TargetIcon },
   tuyen: { nhan: NHAN.tuyenDi, aria: "Tuyến đi", icon: RouteIcon },
   vet: { nhan: NHAN.vetTau, aria: "Vết tàu", icon: TrackIcon },
   caiDat: { nhan: NHAN.caiDat, aria: "Cài đặt hải đồ", icon: GearIcon },
@@ -467,6 +475,47 @@ export default function HaiDoView() {
     [doMo, goDo, tam],
   );
 
+  // ── DANH SÁCH TÀU AIS (bảng §8 hàng 11, sau đợt 4) — tâm = tàu mình; chưa GPS ⇒ tâm màn ──
+  const [tamDs, setTamDs] = useState<TamDs>(12);
+  const [locDs, setLocDs] = useState<LocAis>("tat");
+  const [sapDs, setSapDs] = useState<SapAis>("tcpa");
+  const dsAis = useMemo(() => {
+    const goc = tau.pos ?? tam;
+    if (!aisBat || !aisBan || !goc) return null;
+    return quetQuanh(aisBan, { pos: goc, speedKmh: tau.pos ? tau.speedKmh : null, headingDeg: tau.pos ? tau.headingDeg : null }, tamDs, nowMs);
+  }, [aisBat, aisBan, tau.pos, tam, tau.speedKmh, tau.headingDeg, tamDs, nowMs]);
+  const tuoiBanAis = aisBan ? Math.max(0, (nowMs - Date.parse(aisBan.luc)) / 60_000) : null;
+
+  // ── LỚP GIÓ / SÓNG TOÀN VÙNG + TUA GIỜ (bảng §8 hàng 17) — lưới của màn cũ, cùng bản lưu + luật gói ──
+  const { access } = useFeatureAccess();
+  const soNgay = soNgayThoiTiet(access);
+  const lopTT = prefs.lopThoiTiet;
+  const [luoi, setLuoi] = useState<ForecastGrid | null>(null);
+  const [luoiTT, setLuoiTT] = useState<TrangThaiLuoi>("dang-tai");
+  const [khungIdx, setKhungIdx] = useState(0);
+  useEffect(() => {
+    if (lopTT === "tat") return;
+    let alive = true;
+    setLuoiTT("dang-tai");
+    /* fetchForecastGrid tự lùi về bản lưu (kho dự báo) khi mất sóng + có trần thời gian (tai-co-nhip);
+       hỏng hẳn ⇒ "loi" — dải nói rõ, hải đồ vẫn dùng bình thường. Sóng về (online đổi) ⇒ thử lại. */
+    fetchForecastGrid(soNgay)
+      .then((g) => {
+        if (!alive) return;
+        setLuoi(g);
+        setLuoiTT("ok");
+        setKhungIdx(khungHienTai(g.times, Date.now()));
+      })
+      .catch(() => alive && setLuoiTT("loi"));
+    return () => {
+      alive = false;
+    };
+  }, [lopTT, soNgay, online]);
+  const muiTenGeo = useMemo(
+    () => (lopTT !== "tat" && luoi ? arrowFeatures(luoi, Math.min(khungIdx, luoi.times.length - 1), lopTT === "gio" ? "wind" : "wave") : null),
+    [lopTT, luoi, khungIdx],
+  );
+
   // ── vòng: cự ly quanh tàu + vòng neo + MOB ───────────────────────────────
   const vongGeo = useMemo(
     () => (prefs.vong && tau.pos ? fc(VONG_CU_LY_NM.map((nm) => vongTron(tau.pos!, nm * KM_HL))) : RONG),
@@ -518,7 +567,7 @@ export default function HaiDoView() {
 
   // ── tấm chạm ──────────────────────────────────────────────────────────────
   // ── BẢNG TUYẾN / VẾT · ĐIỂM NGƯỜI DÙNG · GPX (đợt 4) ─────────────────────────
-  const [bang_, setBang] = useState<"tuyen" | "vet" | null>(null);
+  const [bang_, setBang] = useState<"tuyen" | "vet" | "tau" | null>(null);
   const [soan, setSoan] = useState<{ id: string | null; ten: string; diem: LatLon[] } | null>(null);
   const [kiem, setKiem] = useState<{ hits: RouteHit[]; missing: string[] } | null>(null);
   const [places, setPlaces] = useState<SavedPlace[]>(() => loadPlaces());
@@ -787,7 +836,7 @@ export default function HaiDoView() {
   const [nutThem, setNutThem] = useState<HTMLButtonElement | null>(null);
   const tinhCot = { coBaoDong: baoDong.length > 0, dangNeo: neo != null, dangDo: doMo, nutZoom: prefs.nutZoom };
   const cotNut = nutNoi(tinhCot);
-  const khay = mucKhay(tinhCot, { lop: true, tuyen: true, vet: true });
+  const khay = mucKhay(tinhCot, { lop: true, tau: aisBat, tuyen: true, vet: true });
   const [lopMo, setLopMo] = useState(false);
   const chonKhay = (m: MucKhay) => {
     if (m === "mau") {
@@ -802,6 +851,7 @@ export default function HaiDoView() {
     } else if (m === "neo") setNeoMo(true);
     else if (m === "caiDat") setCaiDatMo(true);
     else if (m === "lop") setLopMo(true);
+    else if (m === "tau") setBang("tau");
     else if (m === "tuyen") setBang("tuyen");
     else if (m === "vet") {
       setBang("vet");
@@ -1059,6 +1109,24 @@ export default function HaiDoView() {
             <Layer {...L({ ...TIDE_STATION_LAYER, id: "hd-trieu", filter: TIDE_FILTER_VUNG })} />
             <Layer {...L({ ...TIDE_STATION_LAYER, id: "hd-trieu-cang", filter: TIDE_FILTER_CANG, minzoom: TIDE_STATION_CANG_MINZOOM })} />
             <Layer {...L({ ...TIDE_STATION_LABEL_LAYER, id: "hd-trieu-ten", filter: TIDE_FILTER_VUNG })} />
+          </Source>
+        )}
+
+        {/* GIÓ / SÓNG TOÀN VÙNG — mũi tên của lưới dự báo (màu = thang màn cũ, `forecast-grid`) */}
+        {muiTenGeo && (
+          <Source id="hd-gio-song-src" type="geojson" data={muiTenGeo}>
+            <Layer
+              {...L({
+                id: "hd-gio-song",
+                type: "line",
+                layout: { "line-cap": "round", "line-join": "round" },
+                paint: {
+                  "line-color": (lopTT === "gio" ? WIND_COLOR_EXPR : WAVE_COLOR_EXPR) as unknown as string,
+                  "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.6, 9, 2.6],
+                  "line-opacity": 0.9,
+                },
+              })}
+            />
           </Source>
         )}
 
@@ -1425,6 +1493,40 @@ export default function HaiDoView() {
       )}
 
       {cham && !doMo && !bang_ && <TamCham dong={cham} onDong={() => setCham(null)} />}
+
+      {bang_ === "tau" && (
+        <BangAis
+          ds={dsAis}
+          coGps={coGps}
+          tamNm={tamDs}
+          loc={locDs}
+          sap={sapDs}
+          tuoiBanPhut={tuoiBanAis}
+          onTam={setTamDs}
+          onLoc={setLocDs}
+          onSap={setSapDs}
+          onChon={(m: MucTieu) => {
+            setBang(null);
+            mapRef.current?.getMap().flyTo({ center: [m.pos.lon, m.pos.lat], zoom: Math.max(mapRef.current.getMap().getZoom(), 11), duration: 800 });
+            setCham([{ tieu: m.tau.ten ?? "Tàu AIS", phu: moTaTau(m.tau) }]);
+          }}
+          onDong={() => setBang(null)}
+        />
+      )}
+
+      {lopTT !== "tat" && !bang_ && (
+        <ThanhGio
+          kind={lopTT === "gio" ? "wind" : "wave"}
+          grid={luoi}
+          trangThai={luoiTT}
+          idx={Math.min(khungIdx, Math.max(0, (luoi?.times.length ?? 1) - 1))}
+          todayIso={isoDateVN(nowMs)}
+          nowMs={nowMs}
+          chiHomNay={soNgay < 2}
+          onIdx={setKhungIdx}
+          onTat={() => setHaiDoPrefs({ lopThoiTiet: "tat" })}
+        />
+      )}
 
       {bang_ === "tuyen" && (
         <BangTuyen

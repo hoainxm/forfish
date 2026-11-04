@@ -3,7 +3,7 @@
 /*
   KHAY LỚP của chế độ Hải đồ — đợt 3 (2026-11-04). Đối chiếu OpenCPN "Display
   Category" (Base · Standard · All) + bật/tắt nhóm; iSailor ChartOptions (All ·
-  Custom · Simplified). Ở đây: Mức hiển thị 3 nấc + 4 công tắc. Xác tàu, đèn biển,
+  Custom · Simplified). Ở đây: Mức hiển thị 3 nấc + 4 công tắc + Gió/Sóng toàn vùng (sau đợt 4, một lúc một lớp). Xác tàu, đèn biển,
   đường an toàn KHÔNG có công tắc (an toàn — `nhomTheoMuc`).
 */
 import { NHAN } from "@/lib/labels";
@@ -43,6 +43,16 @@ export function KhayLop({ prefs, coAis }: { prefs: HaiDoPrefs; coAis: boolean })
           </Chip>
         )}
       </div>
+      <h3 className="mt-3 text-[0.875rem] font-semibold text-navy">Gió sóng</h3>
+      <div className="mt-2 flex gap-2">
+        <Chip on={prefs.lopThoiTiet === "gio"} onClick={() => setHaiDoPrefs({ lopThoiTiet: prefs.lopThoiTiet === "gio" ? "tat" : "gio" })}>
+          {NHAN.gio}
+        </Chip>
+        <Chip on={prefs.lopThoiTiet === "song"} onClick={() => setHaiDoPrefs({ lopThoiTiet: prefs.lopThoiTiet === "song" ? "tat" : "song" })}>
+          {NHAN.song}
+        </Chip>
+      </div>
+      <p className="mt-1 text-[0.75rem] text-muted">Mũi tên cả vùng biển, kéo dải giờ ở đáy màn</p>
       <h3 className="mt-3 text-[0.875rem] font-semibold text-navy">Đổi màu</h3>
       <div className="mt-2 flex gap-2">
         <Chip on={prefs.tuDongMau} onClick={() => setHaiDoPrefs({ tuDongMau: !prefs.tuDongMau })}>

@@ -174,3 +174,57 @@ export function canhBaoCongTrinh(ds: readonly Feat[], tau: LatLon | null, neo: L
   if (gian != null) return `Đang trong vòng ${VONG_GIAN_M} m quanh giàn khoan`;
   return null;
 }
+
+/* ── DANH SÁCH TÀU AIS (bảng §8 hàng 11, sau đợt 4) ─────────────────────────
+   iSailor AIS list sắp theo tên/cự ly/TCPA; OpenCPN AIS Target List sắp mọi cột.
+   Ở đây hai cách bà con cần: "Sắp gặp" (TCPA tăng dần — tàu nào tới sát trước thì
+   đứng đầu) và "Gần nhất". Tin cũ / đã qua / không tính được CPA xếp sau, theo cự ly. */
+
+export type SapAis = "tcpa" | "cach";
+export const SAP_AIS: readonly SapAis[] = ["tcpa", "cach"];
+
+/** Còn đang tới gần (TCPA ≥ 0, tin còn mới) — mới đáng xếp theo TCPA. */
+const dangToi = (m: MucTieu) => !m.tinCu && m.tcpaPhut != null && m.tcpaPhut >= 0;
+
+/** Xếp mục tiêu cho danh sách (thuần, không đổi mảng gốc). */
+export function sapMucTieu(ds: readonly MucTieu[], theo: SapAis): MucTieu[] {
+  const out = [...ds];
+  if (theo === "cach") return out.sort((a, b) => a.cachNm - b.cachNm);
+  return out.sort((a, b) => {
+    const ta = dangToi(a);
+    const tb = dangToi(b);
+    if (ta !== tb) return ta ? -1 : 1;
+    if (ta && tb) return a.tcpaPhut! - b.tcpaPhut! || a.cachNm - b.cachNm;
+    return a.cachNm - b.cachNm;
+  });
+}
+
+/* ── LỚP GIÓ / SÓNG TOÀN VÙNG + TUA GIỜ (bảng §8 hàng 17) ───────────────────
+   Dùng lại lưới `lib/forecast-grid` của màn cũ (cùng kho, cùng bản lưu offline,
+   cùng luật gói `soNgayThoiTiet`: thường/khách chỉ hôm nay). */
+
+/** Khung giờ gần "bây giờ" nhất trong `times` (ISO giờ VN). Rỗng ⇒ 0. */
+export function khungHienTai(times: readonly string[], nowMs: number): number {
+  const muon = nowMs + 7 * 3_600_000; // giờ VN đọc như UTC
+  let best = 0;
+  let bestD = Infinity;
+  times.forEach((t, i) => {
+    const ms = Date.parse(`${t.length === 13 ? `${t}:00` : t.slice(0, 16)}Z`);
+    if (!Number.isFinite(ms)) return;
+    const d = Math.abs(ms - muon);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+/** Lưới đã QUA hết (mốc cuối cũ hơn bây giờ quá một bước 3 giờ) — bản lưu từ chuyến trước. Nói thẳng,
+ *  không để bà con tưởng mũi tên là gió hôm nay. */
+export function luoiDaQua(times: readonly string[], nowMs: number): boolean {
+  const cuoi = times[times.length - 1];
+  if (!cuoi) return false;
+  const ms = Date.parse(`${cuoi.slice(0, 16)}Z`) - 7 * 3_600_000;
+  return Number.isFinite(ms) && ms < nowMs - 3 * 3_600_000;
+}
