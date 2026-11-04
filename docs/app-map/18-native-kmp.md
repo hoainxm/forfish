@@ -223,7 +223,13 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 **Khác web có chủ ý**: gió 200 mà không có trục giờ ⇒ coi là hỏng, lùi bản lưu (web ghi đè lưới rỗng); thân không phải JSON ⇒ hỏng; kho file thay IndexedDB (dò khung [1,3,5,7,10,16]); bản chụp sẵn của lớp màu dùng luôn không xét hạn (web xét). Chưa port: độ mặn, nước xoáy (ssha), dòng chảy tầng sâu, `seaPointFromGrid`/`chonBanLui` của thẻ chạm.
 
-**Kế tiếp 2d**: Android — trường màu (ImageSource), mũi tên, hạt gió (Canvas), thanh giờ, panel Thời tiết, luật một lớp động + khoá khung; rồi thẻ chạm điểm. **Cho Mac**: chờ phần màn Android xong sẽ ghi API dùng.
+**Android (2026-11-04)**: `ThoiTietAndroid.kt` — trường màu = `ImageSource` + `RasterLayer` (ảnh `anhTruong(…, 8, moRong = true)`), chèn DƯỚI `overlay-coast-fill`; mũi tên `forecast-arrows-line` (màu `*_COLOR_EXPR`, rộng 2.5); hạt = Canvas Compose (vệt DST_IN α .93, chiếu Mercator tuyến tính 2 mốc/khung, N 600–2000, xoá vệt khi đổi camera; lớp màu ⇒ vệt gió nền "ambient"); thanh giờ (tiêu đề · giờ "Hôm nay/Mai", Chạy/Dừng 800 ms, chú giải dải màu, thanh kéo); panel Thời tiết (Gió · Sóng · Dòng chảy · Mây · Mưa · Nhiệt độ · Dông · Áp suất, bật một tắt lớp kia). `KieuBanDo.Bat.dong` = anyExclusiveOverlay: ẩn hải đồ + đảo + vùng quản lý + trạm, hiện `overlay-coast` (sinh từ JSX ~7287), nền ép "bathymetry" khi có gói; khung kéo PAN_BOUNDS + minZoom 4 + mở khung LOCKED_BOUNDS. Số ngày = 16 có gói / 1 thường (soNgayThoiTiet).
+
+**Kiểm Android** (emulator, acc thường): Gió — trường màu + mũi tên + hạt + bờ nổi + nhãn chủ quyền, khung khoá; Mưa — trường mưa + vệt nền; Mất sóng (`webGoc` chết) — Gió hiện từ bản lưu, Chạy chuyển 0h → 3h; nút về tàu dời lên trên thanh giờ. jvmTest 130/130.
+
+**Chưa làm 2d**: thẻ chạm điểm (dữ liệu `TheDiem` đã có ở shared), lọc hạt theo mặt nước (`fillMissingUV` + lưới độ sâu), độ mặn / nước xoáy / dòng chảy tầng sâu, nhãn ô thời tiết của web (thanh giờ dùng Slider thay TimeScrubber — gần đúng).
+
+**Cho Mac (iOS 2d)**: dữ liệu `NapDuBao(ung.mayChu, KhoTep, now, matSong).lay(days, canDongChay)` / `NapTruong.lay(kind, days)` (+ `peek` hiện ngay); vẽ: `LopDong.truongTuLuoi` + `TruongMau.anhTruong(…, 8, moRong = true)` ⇒ `MLNImageSource` 4 góc (bac/tay…), `LuoiDuBao.arrowFeatures` + `*_COLOR_EXPR` ⇒ line layer, hạt `HatGio.buildUVField/stepParticle` vẽ trên `CADisplayLink`; luật lớp: `KieuBanDo.Bat(dong = true)`. **Chưa build iOS.**
 
 ## 4. Trong lúc chuyển
 
@@ -242,4 +248,4 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - Đăng nhập, RLS, quyền giữ nguyên phía máy chủ; native không có quyền nào web không có.
 - Offline (CLAUDE.md, chỉ vai chủ tàu): bản native phải qua đủ bộ `ops/qa-offline-acceptance.md` trước khi phát hành.
 
-**Last updated**: 2026-11-04 — đợt 2d phần chung (§3i). Trước đó: đợt 2c Android xong (§3h). Trước đó: đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
+**Last updated**: 2026-11-04 — đợt 2d Android: lớp thời tiết động (§3i). Trước đó: đợt 2d phần chung (§3i). Trước đó: đợt 2c Android xong (§3h). Trước đó: đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.

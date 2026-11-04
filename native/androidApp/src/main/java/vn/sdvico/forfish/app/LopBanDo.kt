@@ -76,7 +76,7 @@ private val RAIL = listOf(
 )
 
 /** Đợt native sẽ làm panel chưa có (app-map 18 §3d). */
-private val CHUA_LAM = mapOf("ngu-truong" to "2e", "thoi-tiet" to "2d", "cong-cu" to "2f")
+private val CHUA_LAM = mapOf("ngu-truong" to "2e", "cong-cu" to "2f")
 
 /** Khung nổi như Popover web: thẻ trắng bo --r-card, bóng, rộng 18rem (≤ màn − 1rem). */
 @Composable
@@ -135,6 +135,8 @@ fun PanelLop(
     doiTuyChon: (TuyChonBanDo) -> Unit,
     soTram: Int?,
     coMang: Boolean,
+    lopDong: LopDongChon?,
+    chonLopDong: (LopDongChon?) -> Unit,
     quayLai: () -> Unit,
     dong: () -> Unit,
 ) = KhungNoi {
@@ -149,6 +151,7 @@ fun PanelLop(
     when (id) {
         "hai-do" -> PanelHaiDo(bat, doiBat, coMang)
         "cai-dat" -> PanelCaiDat(tuyChon, doiTuyChon, soTram)
+        "thoi-tiet" -> PanelThoiTiet(lopDong, chonLopDong)
         else -> GhiChu("Phần này chưa có trên bản app — làm ở đợt ${CHUA_LAM[id]}. Tạm xem trên web.")
     }
 }

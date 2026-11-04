@@ -51,6 +51,18 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.module.http.HttpRequestUtil
 import okhttp3.OkHttpClient
 import vn.sdvico.forfish.shared.api.MayChu
+import vn.sdvico.forfish.shared.dulieu.KhoTepFile
+import vn.sdvico.forfish.shared.thoitiet.AnhTruong
+import vn.sdvico.forfish.shared.thoitiet.ForecastGrid
+import vn.sdvico.forfish.shared.thoitiet.ForecastKind
+import vn.sdvico.forfish.shared.thoitiet.HatGio
+import vn.sdvico.forfish.shared.thoitiet.LopDong
+import vn.sdvico.forfish.shared.thoitiet.LuoiDuBao
+import vn.sdvico.forfish.shared.thoitiet.LuoiTruong
+import vn.sdvico.forfish.shared.thoitiet.NapDuBao
+import vn.sdvico.forfish.shared.thoitiet.NapTruong
+import vn.sdvico.forfish.shared.thoitiet.TruongMau
+import androidx.compose.runtime.mutableIntStateOf
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.Property
@@ -67,7 +79,6 @@ import vn.sdvico.forfish.shared.bando.KieuBanDo
 import vn.sdvico.forfish.shared.bando.NapBanDo
 import vn.sdvico.forfish.shared.bando.TuyChonBanDo
 import vn.sdvico.forfish.shared.bando.ViTriTau
-import vn.sdvico.forfish.shared.dulieu.KhoTepFile
 import vn.sdvico.forfish.shared.giaodien.CoSinh
 import java.io.File
 
@@ -98,6 +109,18 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
     private var tepDangVe: KieuBanDo.Tep? = null
     /** công tắc đang áp — style dựng mới đặt visibility theo nó; đổi công tắc thì chỉ đổi visibility (hienLop) */
     private var batHienTai = KieuBanDo.Bat()
+    // ── lớp thời tiết động (đợt 2d): bản vẽ mới nhất — dựng lại style thì vẽ lại từ đây ──
+    private val tepThoiTiet = KhoTepFile(File(filesDir, "thoi-tiet"))
+    @Volatile private var coMangNhanh = true
+    private val napGio = NapDuBao(ung.mayChu, tepThoiTiet, { System.currentTimeMillis() }) { !coMangNhanh }
+    private val napTruong = NapTruong(ung.mayChu, tepThoiTiet, { System.currentTimeMillis() }) { !coMangNhanh }
+    private var anhDong: AnhTruong? = null
+    private var muiDong: Pair<String, String?>? = null
+
+    private fun apDong(st: Style) {
+        VeThoiTiet.truong(st, anhDong)
+        VeThoiTiet.muiTen(st, muiDong?.first, muiDong?.second)
+    }
     private var viTri: Location? = null
     private var quang: ValueAnimator? = null
 
@@ -115,6 +138,7 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         nenDangVe = batHienTai.nenChon
         m.setStyle(Style.Builder().fromJson(KieuBanDo.dung(ung.mayChuGoc(), tep, batHienTai))) { st ->
             themLopTau(st)
+            apDong(st) // lớp động vẽ tay (không nằm trong style JSON)
             xong(st)
         }
     }
@@ -195,7 +219,73 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         val goi = remember { ung.phien.premium() }
         var tuyChon by remember { mutableStateOf(TuyChonBanDo.doc(ung.kho)) }
         var lop by remember { mutableStateOf<String?>(null) } // null đóng · "luoi" lưới ô · id panel
-        val batTong = batPhien.copy(vungLong = tuyChon.vungLong, vungQuanLy = tuyChon.vungQuanLy, tramTrieu = tuyChon.tideStations, luoi = tuyChon.mapGrid, goi = goi)
+        // ── THỜI TIẾT ĐỘNG (đợt 2d) ──
+        var dong by remember { mutableStateOf<LopDongChon?>(null) }
+        var luoiGio by remember { mutableStateOf<ForecastGrid?>(null) }
+        var truongMau by remember { mutableStateOf<LuoiTruong?>(null) }
+        var gio by remember { mutableIntStateOf(0) }
+        var chay by remember { mutableStateOf(false) }
+        var dangTai by remember { mutableStateOf(false) }
+        var loiDong by remember { mutableStateOf<String?>(null) }
+        var lanThu by remember { mutableIntStateOf(0) }
+        val batTong = batPhien.copy(vungLong = tuyChon.vungLong, vungQuanLy = tuyChon.vungQuanLy, tramTrieu = tuyChon.tideStations, luoi = tuyChon.mapGrid, goi = goi, dong = dong != null)
+        val soNgay = if (goi) 16 else 1 // = soNgayThoiTiet: gói 16 ngày, thường chỉ hôm nay
+
+        // tải lớp động: bản trong máy hiện NGAY (peek), rồi mạng; lỗi mà không có bản nào ⇒ báo + nút Thử lại
+        LaunchedEffect(dong, lanThu, soNgay) {
+            coMangNhanh = coMang(ctx)
+            gio = 0; chay = false; loiDong = null; luoiGio = null; truongMau = null
+            val d = dong ?: return@LaunchedEffect
+            dangTai = true
+            val canDong = d is LopDongChon.LuoiChon && d.kind == ForecastKind.CURRENT
+            withContext(Dispatchers.IO) { napGio.peek(soNgay, canDong) }?.let { luoiGio = it }
+            if (d is LopDongChon.MauChon) withContext(Dispatchers.IO) { napTruong.peek(d.kind, soNgay) }?.let { truongMau = it }
+            try {
+                // lớp màu vẫn cần lưới gió cho vệt hạt nền (web: streak trên lớp màu) — hỏng thì bỏ qua, không chặn lớp màu
+                luoiGio = runCatching { withContext(Dispatchers.IO) { napGio.lay(soNgay, canDong) } }
+                    .getOrElse { e -> if (d is LopDongChon.LuoiChon) throw e else luoiGio }
+                if (d is LopDongChon.MauChon) truongMau = withContext(Dispatchers.IO) { napTruong.lay(d.kind, soNgay) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ghi("Thời tiết: ${e.message}")
+                if ((d is LopDongChon.LuoiChon && luoiGio == null) || (d is LopDongChon.MauChon && truongMau == null)) loiDong = "Có sóng thì thử lại."
+            } finally {
+                dangTai = false
+            }
+        }
+        // vẽ: ảnh trường (nặng ⇒ Default) + mũi tên theo mốc giờ
+        LaunchedEffect(dong, luoiGio, truongMau, gio) {
+            val d = dong
+            val g = luoiGio
+            val t = truongMau
+            val ve: Pair<AnhTruong?, Pair<String, String?>?> = withContext(Dispatchers.Default) {
+                when {
+                    d is LopDongChon.LuoiChon && g != null && g.times.isNotEmpty() -> {
+                        val i = gio.coerceIn(0, g.times.size - 1)
+                        LopDong.truongTuLuoi(g, d.kind)?.let { TruongMau.anhTruong(it, i, 8, moRong = true) } to
+                            (LuoiDuBao.arrowFeatures(g, i, d.kind) to VeThoiTiet.mauMuiTen(d.kind))
+                    }
+                    d is LopDongChon.MauChon && t != null && t.times.isNotEmpty() ->
+                        TruongMau.anhTruong(t, gio.coerceIn(0, t.times.size - 1), 8, moRong = true) to null
+                    else -> null to null
+                }
+            }
+            anhDong = ve.first; muiDong = ve.second
+            map?.style?.let { apDong(it) }
+        }
+        // khung kéo khi có lớp động (= setMaxBounds(PAN_BOUNDS) + minZoom 4 + fitBounds(LOCKED_BOUNDS) của web)
+        LaunchedEffect(dong != null) {
+            val m = map ?: return@LaunchedEffect
+            if (dong != null) {
+                m.setLatLngBoundsForCameraTarget(VeThoiTiet.KHUNG_KEO)
+                m.setMinZoomPreference(4.0)
+                m.animateCamera(CameraUpdateFactory.newLatLngBounds(VeThoiTiet.KHUNG_MO, 0), 350)
+            } else {
+                m.setLatLngBoundsForCameraTarget(null)
+                m.setMinZoomPreference(2.0)
+            }
+        }
         LaunchedEffect(batTong) {
             val doiNen = batTong.nenChon != batHienTai.nenChon
             batHienTai = batTong
@@ -274,6 +364,15 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
 
         Box(Modifier.fillMaxSize()) {
             AndroidView(factory = { (mapView.parent as? android.view.ViewGroup)?.removeView(mapView); mapView }, modifier = Modifier.fillMaxSize())
+            // HẠT (WindParticles): lưới gió/sóng/dòng của lớp đang bật; lớp màu ⇒ vệt gió nền (ambient)
+            val m0 = map
+            val g0 = luoiGio
+            val d0 = dong
+            if (m0 != null && g0 != null && d0 != null && g0.times.isNotEmpty()) {
+                val k = if (d0 is LopDongChon.LuoiChon) d0.kind else ForecastKind.WIND
+                val f = remember(g0, gio, k) { HatGio.buildUVField(LopDong.hatTuLuoi(g0), gio.coerceIn(0, g0.times.size - 1), LopDong.loaiHat(k)) }
+                if (f != null) LopHat(m0, f, if (d0 is LopDongChon.LuoiChon) KieuHat.cua(LopDong.loaiHat(k)) else KieuHat.AMBIENT, gio)
+            }
             if (thieuNen) {
                 Column(Modifier.statusBarsPadding().padding(12.dp).fillMaxWidth()) {
                     TheTrangThai("Chưa tải được bản đồ nền", "Có sóng app sẽ tự tải. Đảo, độ sâu, đèn biển đã có thì vẫn hiện.", "Alert", Mau.warn, Mau.warnNen)
@@ -298,13 +397,39 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
                             tuyChon = moi
                             if (!TuyChonBanDo.ghi(ung.kho, moi)) ghi("Tuỳ chọn bản đồ: kho từ chối ghi — dùng trong RAM")
                         },
-                        soTram = nap.soTramConNuoc(), coMang = coMang(ctx), quayLai = { lop = "luoi" }, dong = { lop = null },
+                        soTram = nap.soTramConNuoc(), coMang = coMang(ctx), lopDong = dong, chonLopDong = { dong = it; lop = null }, quayLai = { lop = "luoi" }, dong = { lop = null },
+                    )
+                }
+            }
+            // THANH GIỜ (lớp động bật)
+            d0?.let { d ->
+                val times = (if (d is LopDongChon.MauChon) truongMau?.times else luoiGio?.times) ?: emptyList()
+                val tieuDe = when (d) {
+                    is LopDongChon.LuoiChon -> when (d.kind) { ForecastKind.WIND -> "Sức gió"; ForecastKind.WAVE -> "Độ cao"; ForecastKind.CURRENT -> "Dòng chảy" }
+                    is LopDongChon.MauChon -> TruongMau.SCALAR_META.getValue(d.kind).label
+                }
+                val chuGiai = when (d) {
+                    is LopDongChon.LuoiChon -> LuoiDuBao.legendStops(d.kind).let { st ->
+                        dai(st.map { it.value to android.graphics.Color.parseColor(it.color) }) to
+                            ("${st.first().value.toInt()}" to "${st.last().value.toInt()}+ ${LuoiDuBao.legendUnit(d.kind)}")
+                    }
+                    is LopDongChon.MauChon -> TruongMau.SCALAR_RAMP.getValue(d.kind).let { st ->
+                        dai(st.map { it.value to android.graphics.Color.argb((it.a * 255).toInt().coerceAtLeast(60), it.r, it.g, it.b) }) to
+                            ("${st.first().value.toInt()}" to "${st.last().value.toInt()} ${TruongMau.SCALAR_META.getValue(d.kind).unit}")
+                    }
+                }
+                Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = (CoSinh.DockRow + CoSinh.DockGap + 8).dp)) {
+                    ThanhGio(
+                        tieuDe, times, gio, { gio = it }, chay, { chay = it },
+                        cu = (if (d is LopDongChon.MauChon) truongMau?.stale else luoiGio?.stale) == true, dangTai = dangTai,
+                        chuGiai = chuGiai, loi = loiDong, thuLai = { lanThu++ },
                     )
                 }
             }
             Box(
                 Modifier.align(Alignment.BottomEnd).navigationBarsPadding()
-                    .padding(end = 12.dp, bottom = (CoSinh.DockRow + CoSinh.DockGap + 12).dp),
+                    // thanh giờ đang mở ⇒ nút về tàu lên trên khối thanh giờ (~220 dp) cho khỏi bị che
+                    .padding(end = 12.dp, bottom = (CoSinh.DockRow + CoSinh.DockGap + 12 + if (dong != null) 220 else 0).dp),
             ) {
                 NutTron("Crosshair", "Về chỗ tàu đang đứng") {
                     if (!coQuyen) {

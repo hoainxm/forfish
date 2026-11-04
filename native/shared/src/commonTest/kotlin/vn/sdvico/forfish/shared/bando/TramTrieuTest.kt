@@ -84,7 +84,14 @@ class TramTrieuTest {
         val h = KieuBanDo.hienLop(KieuBanDo.Bat(chiTiet = false))
         assertEquals(false, h["sounding-dot"]); assertEquals(false, h["seamark-mid-cum"]); assertEquals(false, h["dia-danh-ngam-label"])
         assertEquals(true, h["vung-long-line"]); assertEquals(true, h["tram-trieu-dot"])
-        assertTrue("island-dot" !in h) // đảo luôn hiện (chủ quyền)
+        assertEquals(true, h["island-dot"]) // đảo không thuộc công tắc hải đồ
+        // ĐỢT 2d — lớp động bật (= anyExclusiveOverlay): ẩn hải đồ + đảo + vùng quản lý + trạm; vùng lộng/lưới giữ;
+        // bờ nổi hiện; nền ép "bathymetry" khi có gói
+        val d = KieuBanDo.hienLop(KieuBanDo.Bat(dong = true, luoi = true))
+        assertEquals(false, d["island-dot"]); assertEquals(false, d["sounding-dot"]); assertEquals(false, d["vung-quan-ly-fill"]); assertEquals(false, d["tram-trieu-dot"])
+        assertEquals(true, d["vung-long-line"]); assertEquals(true, d["map-grid-line"]); assertEquals(true, d["overlay-coast-fill"])
+        assertEquals(false, h["overlay-coast-fill"])
+        assertEquals("bathymetry", KieuBanDo.Bat(goi = true, chiTiet = false, nenLop = "sst", dong = true).nenChon)
     }
 
     /** Đợt 2c: nền theo gói = buildMapStyle(premiumLocked ? null : chartDetailOn ? "bathymetry" : layerId) của web. */

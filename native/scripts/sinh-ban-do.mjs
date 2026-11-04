@@ -114,6 +114,12 @@ const nhom2b = [
     { id: "map-grid-line", type: "line", paint: { "line-color": "#334155", "line-width": 0.5, "line-opacity": 0.35 } },
     { id: "map-grid-label", type: "symbol", minzoom: om.CHART_TIER.LUON, layout: { "text-field": ["get", "deg"], "text-font": ["Noto Sans Bold"], "text-size": 11, "symbol-placement": "line", "text-allow-overlap": false }, paint: { "text-color": "#334155", "text-halo-color": "#ffffff", "text-halo-width": 1.2, "text-opacity": 0.7 } },
   ] },
+  // ĐỢT 2d — BỜ + ĐẤT nổi TRÊN lớp màu khi bật lớp động (JSX ~7287, `anyExclusiveOverlay`). Lớp màu + mũi tên native
+  // chèn NGAY DƯỚI `overlay-coast-fill` (= beforeId của lớp GL web).
+  { nguon: "overlay-coast", dk: "dong", tep: "bo", lops: [
+    { id: "overlay-coast-fill", type: "fill", paint: { "fill-color": ob.OFFLINE_LAND_COLOR, "fill-opacity": 0.9 } },
+    { id: "overlay-coast-line", type: "line", paint: { "line-color": ob.OFFLINE_COAST_COLOR, "line-width": 1.2 } },
+  ] },
   { nguon: "sea-lanes", dk: "nav", tep: "luongBien", lops: [
     { id: "sea-lane-vungcam-fill", type: "fill", minzoom: om.SEA_RESTRICTED_MINZOOM, filter: ["all", ["==", ["get", "kind"], "vungcam"], ["!=", ["get", "hoDang"], true]], paint: { "fill-color": om.RESTRICTED_FILL_COLOR, "fill-opacity": om.RESTRICTED_FILL_OPACITY } },
     { id: "sea-lane-cap", type: "line", minzoom: om.SEA_CABLE_MINZOOM, filter: ["==", ["get", "kind"], "cap"], layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": om.SEA_CABLE_COLOR, "line-width": 1.4, "line-dasharray": [...om.SEA_CABLE_DASH], "line-opacity": om.SEA_CABLE_OPACITY } },
@@ -137,7 +143,7 @@ const nhom2b = [
       "text-anchor": "top", "text-offset": [0, 0.3], "text-padding": 3, "text-allow-overlap": false, "text-optional": true, "text-max-width": 8 },
       paint: { "text-color": om.REEF_LABEL_COLOR, "text-halo-color": "#ffffff", "text-halo-width": 1.4 } },
   ] },
-  { nguon: "dao", moc: true },
+  { nguon: "dao", moc: true, dk: "dao" }, // đảo ẩn khi bật lớp động (`!anyExclusiveOverlay`)
   // ĐỢT 2c — hình rạn (Allen Coral Atlas) + chất đáy: pmtiles vector, CẦN GÓI (`!premiumLocked`), nhóm Độ sâu.
   { nguon: "reef-shapes", dk: "sauGoi", tep: "ranGoi", vector: true, lops: [
     { id: "reef-fill", type: "fill", "source-layer": "reef", paint: { "fill-color": om.REEF_SHAPE_FILL, "fill-opacity": om.REEF_SHAPE_FILL_OPACITY } },

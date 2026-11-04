@@ -78,6 +78,7 @@ object KieuBanDo {
             "ran" -> ran
             "baoHieuVn" -> baoHieuVn
             "khuTruBao" -> khuTruBao
+            "bo" -> bo
             "ranGoi" -> ranGoi
             "chatDay" -> chatDay
             else -> error("Tep không có khoá $k — BanDoSinh.NHOM_2B đổi mà KieuBanDo chưa theo")
@@ -101,20 +102,24 @@ object KieuBanDo {
         val goi: Boolean = false,
         /** lớp nền ảnh đã chọn (OCEAN_LAYER_ORDER) — web mặc định "bathymetry"; chỉ dùng khi tắt "Hải đồ chi tiết" */
         val nenLop: String = "bathymetry",
+        /** đang bật một lớp thời tiết động (= anyExclusiveOverlay): ẩn hải đồ/đảo/vùng/trạm, bờ nổi lên trên lớp màu */
+        val dong: Boolean = false,
     ) {
-        /** = buildMapStyle(premiumLocked ? null : chartDetailOn ? "bathymetry" : layerId) của web (bỏ vế lớp động — 2d). */
-        val nenChon: String? get() = if (!goi) null else if (chiTiet) "bathymetry" else nenLop
+        /** = buildMapStyle(premiumLocked ? null : anyExclusiveOverlay || chartDetailOn ? "bathymetry" : layerId) của web. */
+        val nenChon: String? get() = if (!goi) null else if (dong || chiTiet) "bathymetry" else nenLop
 
         internal fun dk(k: String?): Boolean = when (k) {
             null -> true
-            "sau" -> chiTiet && sau
-            "nav" -> chiTiet && nav
-            "ten" -> chiTiet && ten
+            "dong" -> dong
+            "dao" -> !dong
+            "sau" -> !dong && chiTiet && sau
+            "nav" -> !dong && chiTiet && nav
+            "ten" -> !dong && chiTiet && ten
             "vungLong" -> vungLong
-            "vungQuanLy" -> vungQuanLy
-            "tramTrieu" -> tramTrieu
+            "vungQuanLy" -> !dong && vungQuanLy
+            "tramTrieu" -> !dong && tramTrieu
             "mapGrid" -> luoi
-            "sauGoi" -> chiTiet && sau && goi
+            "sauGoi" -> !dong && chiTiet && sau && goi
             else -> error("Điều kiện lạ $k trong NHOM_2B")
         }
     }
@@ -152,6 +157,7 @@ object KieuBanDo {
         "xac-tau-src" -> idTrong(BanDoSinh.LOP.getValue("WRECK_LAYER"))
         "den-bien" -> idTrong(BanDoSinh.LOP.getValue("LIGHTHOUSE_LAYER")) + idTrong(BanDoSinh.LOP.getValue("LIGHTHOUSE_LABEL_LAYER"))
         "tram-trieu" -> idTrong(BanDoSinh.LOP_TRAM)
+        "dao" -> idTrong(BanDoSinh.LOP_DAO)
         else -> error("Mốc lạ $nguon trong NHOM_2B")
     }
 
