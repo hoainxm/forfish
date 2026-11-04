@@ -83,6 +83,13 @@ class NapBanDo(
 
     private var soTram: Int? = null
 
+    /** Một file dữ liệu theo tài khoản (TaiDuLieu: ETag, giải SDF, mất sóng ⇒ bản đã cất) — cho lớp CHỈ vài tài khoản dùng
+     *  (mật độ tàu), không nằm trong NGUON để máy người khác không phải tải. null = chưa từng có + lượt này hỏng. */
+    suspend fun layTho(ten: String): String? = when (tai.lay(ten)) {
+        is KetQuaTai.Co -> tep.doc(ten)?.decodeToString()
+        else -> null
+    }
+
     /** Số trạm con nước đã nạp (= tideCount web, dòng phụ công tắc "Trạm con nước"); chưa nạp ⇒ null. */
     fun soTramConNuoc(): Int? = soTram
 

@@ -69,6 +69,9 @@ import vn.sdvico.forfish.shared.ca.DuBaoCa
 import vn.sdvico.forfish.shared.ca.KetQuaCa
 import vn.sdvico.forfish.shared.ca.LoaiDanh
 import vn.sdvico.forfish.shared.ca.NapCa
+import vn.sdvico.forfish.shared.ca.MatDoTau
+import vn.sdvico.forfish.shared.ca.TrangThaiMatDo
+import vn.sdvico.forfish.shared.ca.DuBaoTau
 import vn.sdvico.forfish.shared.ais.AisTau
 import vn.sdvico.forfish.shared.ais.KetQuaBanAis
 import vn.sdvico.forfish.shared.ais.NapAis
@@ -147,6 +150,8 @@ class BanDoAndroid(
     private val napAis = NapAis(ung.mayChu, KhoTepFile(File(filesDir, "ais")), ung.kho, { System.currentTimeMillis() })
     /** GeoJSON tàu AIS đang vẽ (đổ vào nguồn `tau-ais` có sẵn trong style khi Bat.ais) */
     private var aisGeo: String? = null
+    /** GeoJSON mật độ tàu đang vẽ */
+    private var matGeo: String? = null
     private var anhDong: AnhTruong? = null
     private var muiDong: Pair<String, String?>? = null
 
@@ -154,6 +159,7 @@ class BanDoAndroid(
         VeThoiTiet.truong(st, anhDong)
         VeThoiTiet.muiTen(st, muiDong?.first, muiDong?.second)
         VeCa.luoi(st, caGeo)
+        VeMatDo.luoi(st, matGeo)
         VeAis.dangKyIcon(st)
         aisGeo?.let { st.getSourceAs<GeoJsonSource>("tau-ais")?.setGeoJson(it) }
         veDiemChon(st)
@@ -345,6 +351,30 @@ class BanDoAndroid(
                 }
                 delay(AisTau.LAM_MOI_MS)
             }
+        }
+
+        // ── MẬT ĐỘ TÀU (đợt 2e): chỉ tài khoản xem trước (canSeeDensity) + có gói; loại trừ với dự báo cá ──
+        val duocMatDo = aisThu != null || MatDoTau.canSeeDensity(sdt)
+        var matBat by remember { mutableStateOf(false) }
+        var matDo by remember { mutableStateOf<MatDoTau?>(null) }
+        var matTrang by remember { mutableStateOf(TrangThaiMatDo.IDLE) }
+        var matNgay by remember { mutableIntStateOf(0) }
+        var matNghe by remember { mutableStateOf("tat") }
+        var matLan by remember { mutableIntStateOf(0) }
+        var duBaoMat by remember { mutableStateOf<DuBaoTau?>(null) }
+        LaunchedEffect(matBat, goi, matLan) {
+            if (!matBat || !goi || matDo != null) return@LaunchedEffect
+            matTrang = TrangThaiMatDo.LOADING
+            val m = withContext(Dispatchers.IO) { nap.layTho("fleet-density.v1.json")?.let { MatDoTau.giai(it) } }
+            matDo = m
+            matTrang = if (m == null) TrangThaiMatDo.ERROR else TrangThaiMatDo.OK
+        }
+        LaunchedEffect(matBat, goi, matDo, matNgay, matNghe, dong) {
+            val m = matDo
+            // nợ: gió theo cảng (fetchSeaForecast từng cảng) chưa nối ⇒ wind = null ⇒ web cũng nói "Chưa có gió ngày này — ước theo trăng, mùa."; nâng khi port dự báo cảng (đợt 4/6)
+            duBaoMat = if (!matBat || !goi || m == null) null else withContext(Dispatchers.Default) { m.duBao(homNayVN(), matNgay, matNghe) }
+            matGeo = if (dong != null) null else duBaoMat?.let { MatDoTau.fleetGridGeo(it.cells, m!!.axis.step) }
+            map?.style?.let { VeMatDo.luoi(it, matGeo) }
         }
 
         // ── THẺ CHẠM ĐIỂM (đợt 2d): chạm biển ⇒ gió sóng chỗ đó (bản lưu trước nếu mạng chậm) ──
@@ -552,11 +582,20 @@ class BanDoAndroid(
                         nguTruong = {
                             val tam = map?.cameraPosition?.target
                             PanelNguTruong(
-                                caBat, { bat -> caBat = bat; if (bat) dong = null }, if (goi) null else "upgrade", coMang(ctx),
+                                caBat, { bat -> caBat = bat; if (bat) { dong = null; matBat = false } }, if (goi) null else "upgrade", coMang(ctx),
                                 banCa?.species ?: DanhMucCa.LOAI.map { it.short },
                                 if (tam != null) DanhMucCa.dangVu(tam.latitude, tam.longitude, java.time.LocalDate.now().monthValue) else emptySet(),
                                 picks, { moi -> picks = moi; LoaiDanh.ghi(ung.kho, moi) }, loaiRieng, { loaiRieng = it }, loiCa, { lanCa++ },
                             )
+                            if (duocMatDo) {
+                                Spacer(Modifier.height(8.dp))
+                                val d = duBaoMat
+                                PhanMatDo(
+                                    matBat, { b -> matBat = b; if (b) { caBat = false; dong = null } }, goi, coMang(ctx),
+                                    MatDoTau.chuTrangThai(matTrang, d != null && d.cells.isEmpty(), d?.windMissing == true, d?.windPartial == true, d?.storm == true, d?.stormCells ?: 0, d?.thinBase == true, d?.baseDays ?: 0.0),
+                                    matNgay, { matNgay = it }, matNghe, { matNghe = it }, { matLan++ },
+                                )
+                            }
                             if (aisDuoc) {
                                 Spacer(Modifier.height(8.dp))
                                 CongTac("Tàu xung quanh", "Đang phát AIS · ~10 phút một bản", aisBat, "Radar", Mau.t1) { aisBat = !aisBat }
@@ -574,6 +613,9 @@ class BanDoAndroid(
                         quayLai = { lop = "luoi" }, dong = { lop = null },
                     )
                 }
+            }
+            if (matBat && goi && dong == null && lop == null && duBaoMat != null) {
+                ChuGiaiMatDo(Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(start = 12.dp, bottom = (CoSinh.DockRow + CoSinh.DockGap + 48 + if (cham != null) caoThe else 0).dp))
             }
             // CHÚ GIẢI CÁ (web: khi lưới cá đang vẽ và không có panel mở)
             if (caBat && goi && dong == null && lop == null && (picks != null || loaiRieng != null) && banCa != null) {

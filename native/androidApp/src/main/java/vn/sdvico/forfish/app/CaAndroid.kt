@@ -70,6 +70,70 @@ object VeCa {
     }
 }
 
+/** Lớp `fleet-grid` (= fleetGridGeo + fleet-grid-fill/line của web). */
+object VeMatDo {
+    const val NGUON = "fleet-grid"
+    fun luoi(st: Style, geo: String?) {
+        if (geo == null) { st.removeLayer("fleet-grid-line"); st.removeLayer("fleet-grid-fill"); st.removeSource(NGUON); return }
+        val cu = st.getSourceAs<GeoJsonSource>(NGUON)
+        if (cu != null) { cu.setGeoJson(geo); return }
+        st.addSource(GeoJsonSource(NGUON, geo))
+        val fill = FillLayer("fleet-grid-fill", NGUON).withProperties(
+            PropertyFactory.fillColor(Expression.Converter.convert("""["match",["get","lv"],1,"#8b5cf6",2,"#4c1d95","#c4b5fd"]""")),
+            PropertyFactory.fillOpacity(0.55f),
+        )
+        val line = LineLayer("fleet-grid-line", NGUON).withProperties(PropertyFactory.lineColor("#ffffff"), PropertyFactory.lineWidth(0.6f), PropertyFactory.lineOpacity(0.7f))
+        val moc = listOf("overlay-coast-fill", "chu-quyen").firstOrNull { st.getLayer(it) != null }
+        if (moc != null) { st.addLayerBelow(fill, moc); st.addLayerBelow(line, moc) } else { st.addLayer(fill); st.addLayer(line) }
+    }
+}
+
+/** Phần "Mật độ tàu dự kiến" của panel Ngư trường (= BaiTauDuBao + chip ngày + chip nghề). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun PhanMatDo(
+    bat: Boolean, doi: (Boolean) -> Unit, coGoi: Boolean, coMang: Boolean,
+    chu: String, ngay: Int, chonNgay: (Int) -> Unit, nghe: String, chonNghe: (String) -> Unit, thuLai: () -> Unit,
+) {
+    CongTac("Mật độ tàu dự kiến", "16 ngày tới · trăng, gió, bão, mùa", bat, "Users", Mau.t1) { doi(!bat) }
+    if (!coGoi) { KhoaGoiCa(coMang, "Mật độ tàu"); return }
+    if (!bat) return
+    Text(chu, style = Chu.phu.copy(fontSize = 12.sp), modifier = Modifier.padding(top = 6.dp).clickable(onClick = thuLai))
+    val homNay = homNayVN()
+    androidx.compose.foundation.lazy.LazyRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        items(vn.sdvico.forfish.shared.ca.MatDoTau.chipNgay(homNay).size) { k ->
+            val on = k == ngay
+            Text(
+                vn.sdvico.forfish.shared.ca.MatDoTau.chipNgay(homNay)[k].second, style = Chu.nutPhu.copy(fontSize = 13.sp, color = if (on) Color.White else Mau.navy),
+                modifier = Modifier.clip(CircleShape).background(if (on) Mau.navy else Mau.o).clickable { chonNgay(k) }.padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+    }
+    FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        vn.sdvico.forfish.shared.ca.MatDoTau.DENSITY_GEARS.forEach { g ->
+            val on = g.id == nghe
+            Text(
+                g.label, style = Chu.nutPhu.copy(fontSize = 13.sp, color = if (on) Color.White else Mau.navy),
+                modifier = Modifier.clip(CircleShape).background(if (on) Mau.navy else Mau.o).clickable { chonNghe(g.id) }.padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
+/** Chú giải "Mật độ tàu" — ba mức DENSITY_LEVELS. */
+@Composable
+fun ChuGiaiMatDo(modifier: Modifier = Modifier) {
+    Column(modifier.shadow(6.dp, RoundedCornerShape(CoSinh.RCtl.dp)).clip(RoundedCornerShape(CoSinh.RCtl.dp)).background(Mau.the).padding(horizontal = 10.dp, vertical = 8.dp)) {
+        Text("Mật độ tàu", style = Chu.nutPhu.copy(fontSize = 13.sp, color = Mau.navy))
+        vn.sdvico.forfish.shared.ca.MatDoTau.DENSITY_LEVELS.forEach { m ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
+                Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(Color(android.graphics.Color.parseColor(m.color)).copy(alpha = 0.55f)))
+                Text(m.label, style = Chu.phu.copy(fontSize = 12.sp), modifier = Modifier.padding(start = 6.dp))
+            }
+        }
+    }
+}
+
 /** Chú giải "Dự báo cá" (web ~9589): ba mức FISH_LEVEL_BANDS. */
 @Composable
 fun ChuGiaiCa(modifier: Modifier = Modifier) {
@@ -106,7 +170,7 @@ fun PanelNguTruong(
     // bộ chọn MỞ tới khi bấm "Xong" (web: onChange tô ngay, onDone mới đóng); chưa từng chọn ⇒ mở sẵn
     var chonLai by remember { mutableStateOf(picks == null) }
     CongTac("Dự báo cá (vùng có khả năng tập trung)", "Theo ngày · ảnh vệ tinh", caBat, "Fish", Mau.sea) { doiCa(!caBat) }
-    if (khoa != null) { KhoaGoiCa(coMang); return }
+    if (khoa != null) { KhoaGoiCa(coMang, "Dự báo cá"); return }
     if (!caBat) return
     loiCa?.let {
         Text(it, style = Chu.phu.copy(color = Mau.nguy), modifier = Modifier.padding(top = 8.dp).clickable(onClick = thuLaiCa))
@@ -126,7 +190,7 @@ fun PanelNguTruong(
 }
 
 @Composable
-private fun KhoaGoiCa(coMang: Boolean) {
+private fun KhoaGoiCa(coMang: Boolean, tinhNang: String) {
     if (!coMang) return
     val ctx = androidx.compose.ui.platform.LocalContext.current
     Column(
@@ -135,7 +199,7 @@ private fun KhoaGoiCa(coMang: Boolean) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BieuTuong("Lock", Mau.t1, 16.dp)
-            Text("Dự báo cá nằm trong ${vn.sdvico.forfish.shared.bando.BanDoSinh.TEN_GOI}", style = Chu.nutPhu.copy(fontSize = 15.sp, color = Mau.navy), modifier = Modifier.padding(start = 6.dp))
+            Text("$tinhNang nằm trong ${vn.sdvico.forfish.shared.bando.BanDoSinh.TEN_GOI}", style = Chu.nutPhu.copy(fontSize = 15.sp, color = Mau.navy), modifier = Modifier.padding(start = 6.dp))
         }
         Text("Gọi SDVICO để kích hoạt là xem được ngay.", style = Chu.phu.copy(color = Mau.chu.copy(alpha = 0.7f)), modifier = Modifier.padding(top = 4.dp))
         Row(
