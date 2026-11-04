@@ -27,4 +27,14 @@ class TuyChonVangTest {
             assertEquals(mong, kho.doc(TuyChonBanDo.KHOA), "vào: $vao")
         }
     }
+
+    /** fmtCoordPair: vector do CHÍNH map-prefs.ts in ra (gồm ca tròn giây tràn phút, bán cầu âm, −0). */
+    @Test fun toaDoYWeb() {
+        val ca = Json.parseToJsonElement(javaClass.getResource("/tuy-chon/toa-do.json")!!.readText()).jsonArray
+        for (c in ca) {
+            val a = c.jsonArray
+            val d = a[3].let { if (it is JsonNull) 2 else it.jsonPrimitive.content.toInt() }
+            assertEquals(a[4].jsonPrimitive.content, TuyChonBanDo.toaDo(a[0].jsonPrimitive.content.toDouble(), a[1].jsonPrimitive.content.toDouble(), a[2].jsonPrimitive.content, d), "$a")
+        }
+    }
 }

@@ -65,6 +65,24 @@ data class TuyChonBanDo(
 
         fun doc(kho: KhoMay) = giai(kho.doc(KHOA))
 
+        /** = oneCoord (map-prefs.ts): "dms" tròn tới GIÂY rồi mới tách; "dd" `ddDigits` số lẻ (mặc định 2). */
+        private fun motToaDo(v: Double, fmt: String, pos: String, neg: String, ddDigits: Int): String {
+            val hemi = if (v >= 0) pos else neg
+            val a = kotlin.math.abs(v)
+            if (fmt == "dms") {
+                val total = vn.sdvico.forfish.shared.bando.Js.round(a * 3600).toLong()
+                val d = total / 3600
+                val m = (total % 3600) / 60
+                val s = total % 60
+                return "$d°${m.toString().padStart(2, '0')}′${s.toString().padStart(2, '0')}″$hemi"
+            }
+            return "${vn.sdvico.forfish.shared.thoitiet.TheDiem.formatNumberVN(a, ddDigits)}°$hemi"
+        }
+
+        /** = fmtCoordPair: "10°12′00″N · 107°12′00″E" / "10,20°N · 107,20°E" — chữ bán cầu QUỐC TẾ (N/S/E/W). */
+        fun toaDo(lat: Double, lon: Double, fmt: String, ddDigits: Int = 2) =
+            "${motToaDo(lat, fmt, "N", "S", ddDigits)} · ${motToaDo(lon, fmt, "E", "W", ddDigits)}"
+
         /** = setMapPrefs: ghi cả trạng thái. Kho từ chối thì vẫn dùng trong RAM (web: private mode) — trả false để biết. */
         fun ghi(kho: KhoMay, t: TuyChonBanDo): Boolean = kho.ghi(KHOA, t.json())
     }

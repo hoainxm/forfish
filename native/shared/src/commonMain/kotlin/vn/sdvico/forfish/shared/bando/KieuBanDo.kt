@@ -104,6 +104,8 @@ object KieuBanDo {
         val nenLop: String = "bathymetry",
         /** đang bật một lớp thời tiết động (= anyExclusiveOverlay): ẩn hải đồ/đảo/vùng/trạm, bờ nổi lên trên lớp màu */
         val dong: Boolean = false,
+        /** "Tàu xung quanh" (aisOn, chỉ tài khoản được xem AIS) — nguồn `tau-ais` rỗng trong style, nền đổ dữ liệu */
+        val ais: Boolean = false,
     ) {
         /** = buildMapStyle(premiumLocked ? null : anyExclusiveOverlay || chartDetailOn ? "bathymetry" : layerId) của web. */
         val nenChon: String? get() = if (!goi) null else if (dong || chiTiet) "bathymetry" else nenLop
@@ -240,6 +242,14 @@ object KieuBanDo {
             put("data", Json.parseToJsonElement(BanDoSinh.CHU_QUYEN))
         }
         val chuQuyen = lopChuQuyen()
+        // AIS (đợt 2e): JSX web đặt gần cuối style (trên mọi lớp hải đồ/thời tiết, dưới nhãn chủ quyền)
+        if (bat.ais) {
+            nguon["tau-ais"] = buildJsonObject {
+                put("type", "geojson")
+                put("data", Json.parseToJsonElement("{\"type\":\"FeatureCollection\",\"features\":[]}"))
+            }
+            vn.sdvico.forfish.shared.ais.LopAis.lopTauAis(null, null).forEach { l -> them += JsonObject(l.jsonObject + ("source" to JsonPrimitive("tau-ais"))) }
+        }
 
         lops = lops.map(::minzoomTheoBeRong)
         if (tep.nen == null && tep.bo != null) {

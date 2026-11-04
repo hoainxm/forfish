@@ -69,6 +69,13 @@ import vn.sdvico.forfish.shared.ca.DuBaoCa
 import vn.sdvico.forfish.shared.ca.KetQuaCa
 import vn.sdvico.forfish.shared.ca.LoaiDanh
 import vn.sdvico.forfish.shared.ca.NapCa
+import vn.sdvico.forfish.shared.ais.AisTau
+import vn.sdvico.forfish.shared.ais.KetQuaBanAis
+import vn.sdvico.forfish.shared.ais.NapAis
+import vn.sdvico.forfish.shared.ais.TauAisBan
+import vn.sdvico.forfish.app.giaodien.Chu
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Text
 import vn.sdvico.forfish.shared.thoitiet.DiemBien
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.layout.onSizeChanged
@@ -101,7 +108,11 @@ import java.io.File
 */
 /** `cameraDebug` (CHỈ bản debug, `--es camera lat,lon,zoom`): đặt khung như link `/ngu-truong?lat=&lon=` của web
  *  (flyToPoint: điểm nằm trên tâm 18% chiều cao) để chụp đối chiếu cùng chỗ. */
-class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, filesDir: File, private val cameraDebug: String? = null) {
+class BanDoAndroid(
+    private val ung: UngDung, private val mapView: MapView, filesDir: File, private val cameraDebug: String? = null,
+    /** CHỈ debug (`--es aisThu 1`): coi như được xem AIS + mạng hỏng thì dùng bản thử `assets/ais-thu.json` (src/debug) */
+    private val aisThu: String? = null,
+) {
     init {
         // Ô ảnh nền (gói) đi qua /api/tiles của máy chủ — middleware đòi chuỗi + gói. MapLibre tự tải ô nên gắn chuỗi ở
         // tầng HTTP của nó, CHỈ cho đúng máy chủ mình (không lộ chuỗi sang nguồn khác).
@@ -133,6 +144,9 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
     private val napCa = NapCa(ung.mayChu, KhoTepFile(File(filesDir, "ca")), { System.currentTimeMillis() })
     /** GeoJSON lưới cá đang vẽ (null = không vẽ) — dựng lại style thì vẽ lại */
     private var caGeo: String? = null
+    private val napAis = NapAis(ung.mayChu, KhoTepFile(File(filesDir, "ais")), ung.kho, { System.currentTimeMillis() })
+    /** GeoJSON tàu AIS đang vẽ (đổ vào nguồn `tau-ais` có sẵn trong style khi Bat.ais) */
+    private var aisGeo: String? = null
     private var anhDong: AnhTruong? = null
     private var muiDong: Pair<String, String?>? = null
 
@@ -140,6 +154,8 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         VeThoiTiet.truong(st, anhDong)
         VeThoiTiet.muiTen(st, muiDong?.first, muiDong?.second)
         VeCa.luoi(st, caGeo)
+        VeAis.dangKyIcon(st)
+        aisGeo?.let { st.getSourceAs<GeoJsonSource>("tau-ais")?.setGeoJson(it) }
         veDiemChon(st)
     }
 
@@ -166,11 +182,14 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
 
     private var nenDangVe: String? = null
 
+    /** Phần của công tắc làm STYLE khác (không chỉ visibility): nền chọn + có nguồn AIS. */
+    private fun khoaKieu(b: KieuBanDo.Bat) = "${b.nenChon}|${b.ais}"
+
     /** Dựng lại style khi file đổi HOẶC đổi nền (gói / "Hải đồ chi tiết" / lớp nền ảnh) — nền khác là style khác. */
     private fun veKieu(m: MapLibreMap, tep: KieuBanDo.Tep, xong: (Style) -> Unit) {
-        if (tep == tepDangVe && batHienTai.nenChon == nenDangVe && tepDangVe != null) return
+        if (tep == tepDangVe && khoaKieu(batHienTai) == nenDangVe && tepDangVe != null) return
         tepDangVe = tep
-        nenDangVe = batHienTai.nenChon
+        nenDangVe = khoaKieu(batHienTai)
         m.setStyle(Style.Builder().fromJson(KieuBanDo.dung(ung.mayChuGoc(), tep, batHienTai))) { st ->
             themLopTau(st)
             apDong(st) // lớp động vẽ tay (không nằm trong style JSON)
@@ -251,6 +270,7 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         var cu by remember { mutableStateOf(false) }
         // Hải đồ chi tiết + ba nhóm = state phiên (web không lưu); vùng lộng/vùng quản lý/trạm/lưới = MapPrefs (lưu)
         var batPhien by remember { mutableStateOf(KieuBanDo.Bat()) }
+        var aisBatTong by remember { mutableStateOf(false) } // = aisOn && aisDuoc — đổi thì dựng lại style (nguồn tau-ais)
         val goi = remember { ung.phien.premium() }
         var tuyChon by remember { mutableStateOf(TuyChonBanDo.doc(ung.kho)) }
         var lop by remember { mutableStateOf<String?>(null) } // null đóng · "luoi" lưới ô · id panel
@@ -263,7 +283,7 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         var dangTai by remember { mutableStateOf(false) }
         var loiDong by remember { mutableStateOf<String?>(null) }
         var lanThu by remember { mutableIntStateOf(0) }
-        val batTong = batPhien.copy(vungLong = tuyChon.vungLong, vungQuanLy = tuyChon.vungQuanLy, tramTrieu = tuyChon.tideStations, luoi = tuyChon.mapGrid, goi = goi, dong = dong != null)
+        val batTong = batPhien.copy(vungLong = tuyChon.vungLong, vungQuanLy = tuyChon.vungQuanLy, tramTrieu = tuyChon.tideStations, luoi = tuyChon.mapGrid, goi = goi, dong = dong != null, ais = aisBatTong)
         val soNgay = if (goi) 16 else 1 // = soNgayThoiTiet: gói 16 ngày, thường chỉ hôm nay
 
         // ── DỰ BÁO CÁ (đợt 2e): bật ⇒ bản lưu ngay, rồi mạng; cần gói (khoá ở panel); lớp động bật thì ẩn (web) ──
@@ -291,6 +311,42 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
             map?.style?.let { VeCa.luoi(it, caGeo) }
         }
 
+        // ── AIS (đợt 2e): chỉ tài khoản được xem (quyền máy chủ, nhớ trong máy); làm mới 5 phút; bản lưu khi lỗi ──
+        val sdt = ung.phien.sdt()
+        var aisDuoc by remember { mutableStateOf(aisThu != null || (sdt != null && napAis.peekQuyen(sdt) == true)) }
+        var aisBat by remember { mutableStateOf(false) }
+        var banAis by remember { mutableStateOf<TauAisBan?>(null) }
+        var aisTuKho by remember { mutableStateOf(false) }
+        var aisLoi by remember { mutableStateOf(false) }
+        var aisDangTai by remember { mutableStateOf(false) }
+        var tauChon by remember { mutableStateOf<String?>(null) }
+        val nguCanh = LocalContext.current
+        LaunchedEffect(sdt) {
+            if (aisThu == null && sdt != null) withContext(Dispatchers.IO) { napAis.hoiQuyenThuLai(sdt) }?.let { aisDuoc = it }
+        }
+        LaunchedEffect(aisBat, aisDuoc) {
+            aisGeo = null; aisLoi = false
+            if (!aisBat || !aisDuoc) { map?.style?.let { it.getSourceAs<GeoJsonSource>("tau-ais")?.setGeoJson(FeatureCollection.fromFeatures(emptyList())) }; return@LaunchedEffect }
+            withContext(Dispatchers.IO) { napAis.banLuu() }?.let { banAis = it; aisTuKho = true }
+            while (true) {
+                aisDangTai = true
+                when (val r = withContext(Dispatchers.IO) { napAis.layBan() }) {
+                    is KetQuaBanAis.Co -> { banAis = r.ban; aisTuKho = r.tuKho; aisLoi = false }
+                    is KetQuaBanAis.Khong -> {
+                        val thu = if (aisThu != null) runCatching { nguCanh.assets.open("ais-thu.json").readBytes().decodeToString() }.getOrNull() else null
+                        val b = thu?.let { AisTau.giaiBan(kotlinx.serialization.json.Json.parseToJsonElement(it)) }
+                        if (b != null) { banAis = b; aisTuKho = true } else if (banAis == null) aisLoi = true
+                    }
+                }
+                aisDangTai = false
+                banAis?.let { b ->
+                    aisGeo = AisTau.tauGeoJson(b).toString()
+                    map?.style?.getSourceAs<GeoJsonSource>("tau-ais")?.setGeoJson(aisGeo!!)
+                }
+                delay(AisTau.LAM_MOI_MS)
+            }
+        }
+
         // ── THẺ CHẠM ĐIỂM (đợt 2d): chạm biển ⇒ gió sóng chỗ đó (bản lưu trước nếu mạng chậm) ──
         var cham by remember { mutableStateOf<LatLng?>(null) }
         var diem by remember { mutableStateOf<DiemBien?>(null) }
@@ -299,7 +355,15 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         var ngayDiem by remember { mutableIntStateOf(0) }
         var caoThe by remember { mutableIntStateOf(0) } // chiều cao thẻ chạm (dp) — đẩy thanh giờ + nút về tàu lên trên
         val phamVi = rememberCoroutineScope()
-        khiCham = { ll -> cham = ll; lop = null }
+        aisBatTong = aisBat && aisDuoc
+        khiCham = { ll ->
+            // chạm trúng tàu ⇒ thẻ tàu (không mở gió sóng), như lớp bắt chạm `tau-ais-dot` của web
+            val m = map
+            val trung = if (aisBatTong && m != null) m.queryRenderedFeatures(m.projection.toScreenLocation(ll), "tau-ais-dot").firstOrNull() else null
+            val id = trung?.getStringProperty("id")
+            if (id != null) { tauChon = id; cham = null } else { tauChon = null; cham = ll }
+            lop = null
+        }
         LaunchedEffect(cham, soNgay) {
             diemChon = cham
             map?.style?.let { veDiemChon(it) }
@@ -373,7 +437,7 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
             }
         }
         LaunchedEffect(batTong) {
-            val doiNen = batTong.nenChon != batHienTai.nenChon
+            val doiNen = khoaKieu(batTong) != khoaKieu(batHienTai)
             batHienTai = batTong
             val m = map
             if (doiNen && m != null && tepDangVe != null) veKieu(m, tepDangVe!!) {} // nền khác ⇒ style khác
@@ -493,6 +557,19 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
                                 if (tam != null) DanhMucCa.dangVu(tam.latitude, tam.longitude, java.time.LocalDate.now().monthValue) else emptySet(),
                                 picks, { moi -> picks = moi; LoaiDanh.ghi(ung.kho, moi) }, loaiRieng, { loaiRieng = it }, loiCa, { lanCa++ },
                             )
+                            if (aisDuoc) {
+                                Spacer(Modifier.height(8.dp))
+                                CongTac("Tàu xung quanh", "Đang phát AIS · ~10 phút một bản", aisBat, "Radar", Mau.t1) { aisBat = !aisBat }
+                                if (aisBat) Text(
+                                    when {
+                                        banAis == null && aisDangTai -> "Đang tải vị trí tàu…"
+                                        banAis == null && aisLoi -> "Chưa tải được vị trí tàu — cần có sóng lần đầu. Chạm để thử lại."
+                                        banAis != null -> "${banAis!!.soTau.toInt()} tàu · bản lúc ${runCatching { AisTau.gioNgayVN(java.time.Instant.parse(banAis!!.luc).epochSecond.toDouble()).substringBefore(' ') }.getOrDefault("?")}" + if (aisTuKho) " · chưa tải được bản mới, dùng bản lưu trong máy" else ""
+                                        else -> ""
+                                    },
+                                    style = Chu.phu.copy(fontSize = 12.sp), modifier = Modifier.padding(top = 6.dp),
+                                )
+                            }
                         },
                         quayLai = { lop = "luoi" }, dong = { lop = null },
                     )
@@ -527,6 +604,13 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
                     )
                 }
             }
+            val tau = tauChon?.let { id -> banAis?.tau?.firstOrNull { it.id == id } }
+            val mat2 = LocalDensity.current
+            if (tau != null && banAis != null) {
+                Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = (CoSinh.DockRow + CoSinh.DockGap + 8).dp)) {
+                    TheTauAis(tau, banAis!!.luc, aisTuKho, tuyChon.coordFormat, Modifier.onSizeChanged { caoThe = with(mat2) { it.height.toDp().value.toInt() } }) { tauChon = null }
+                }
+            }
             if (cham != null) {
                 val mat = LocalDensity.current
                 Box(
@@ -539,7 +623,7 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
             Box(
                 Modifier.align(Alignment.BottomEnd).navigationBarsPadding()
                     // thanh giờ đang mở ⇒ nút về tàu lên trên khối thanh giờ (~220 dp) cho khỏi bị che
-                    .padding(end = 12.dp, bottom = (CoSinh.DockRow + CoSinh.DockGap + 12 + (if (dong != null) 220 else 0) + (if (cham != null) caoThe + 8 else 0)).dp),
+                    .padding(end = 12.dp, bottom = (CoSinh.DockRow + CoSinh.DockGap + 12 + (if (dong != null) 220 else 0) + (if (cham != null || tauChon != null) caoThe + 8 else 0)).dp),
             ) {
                 NutTron("Crosshair", "Về chỗ tàu đang đứng") {
                     if (!coQuyen) {

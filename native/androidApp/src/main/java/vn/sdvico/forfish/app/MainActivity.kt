@@ -88,7 +88,10 @@ class MainActivity : ComponentActivity() {
         ung = UngDung(KhoAndroid(applicationContext), "android", goc)
         MapLibre.getInstance(this)
         mapView = MapView(this).also { it.onCreate(savedInstanceState) }
-        banDo = BanDoAndroid(ung, mapView, filesDir, if (BuildConfig.DEBUG) intent.getStringExtra("camera") else null)
+        banDo = BanDoAndroid(
+            ung, mapView, filesDir, if (BuildConfig.DEBUG) intent.getStringExtra("camera") else null,
+            aisThu = if (BuildConfig.DEBUG) intent.getStringExtra("aisThu") else null,
+        )
         val lanVe = mutableIntStateOf(0) // tăng ⇒ vẽ lại theo kho (sau đăng nhập, chuyển kho, đổi vai)
 
         lifecycleScope.launch {
