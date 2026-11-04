@@ -4,7 +4,8 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-11-03
+last_verified: 2026-11-04
+<!-- re-verified: 2026-11-04 — NGƯ TRƯỜNG → BỘ CHỌN LOÀI BÀ CON ĐÁNH (anh Long 04/11: "dự báo tất cả các loài đang ko cần thiết… cho chọn 2-3 loài"). Bật Dự báo cá lần đầu (chưa có `forfish.fishPicks.v1`) ⇒ bản đồ CHƯA tô, panel mở bộ chọn "Bà con đánh loài nào?" + "Chọn tới 3 loài, bản đồ chỉ tô chỗ có loài đó." · hàng chip nghề Câu ngừ · Lưới vây · Lưới rê · Chụp mực (một chạm điền sẵn 3 loài của nghề, loài đang vụ ở vùng xem trước) · "Đang vụ quanh đây" ≤6 chip tên ngắn · "Loài khác ›" gập sẵn (đủ loài theo nhóm) · chân "Đã chọn n/3" + nút Xong (tắt khi 0). Đủ 3 ⇒ chip chưa chọn mờ 40%. Bộ chọn mở thì ngăn Lớp KHÔNG tự thu 5 s (thu là mất bộ chọn dở). Đã chọn ⇒ hàng chip 3 loài (chấm màu) + "Đổi"; chạm một chip = chỉ xem loài đó (chip khác nhạt), chạm lại = cả bộ. Ô/hồng tâm/thẻ điểm tính theo ĐIỂM CAO NHẤT trong bộ, thẻ chỉ nêu loài đã chọn. Sen Biển gọi tên loài vẫn thắng bộ. "Mọi loài" bỏ khỏi panel. Kiểm 375×812 acc test premium. -->
 <!-- re-verified: 2026-11-03 — §4 DOCK THEO VAI + màn /chon-vai + trang chủ theo vai + cổng bản đồ theo vai (spec 17 §3, §4, §11). -->
 ttl_days: 90
 <!-- re-verified: 2026-11-02za — §10.7 Y: chế độ bản đồ kiểu Vietmap (lib/ban-do-lop), khung dẫn đường lệnh lái hàng đầu + thanh đáy NavThanhDay, nút Dẫn đường trong thẻ nổi, Lộ trình gọn, số đo trước/sau. -->

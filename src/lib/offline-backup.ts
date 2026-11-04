@@ -119,6 +119,7 @@ export const SETTINGS_KEYS = [
   "forfish.port.v1",
   "forfish.maplayer.v1",
   "forfish.mapPrefs.v1",
+  "forfish.fishPicks.v1", // loài bà con đánh (lib/fish-picks, 2026-11-04) — sở thích, chia máy khác vô hại
 ];
 
 /**
