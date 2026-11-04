@@ -15,6 +15,13 @@ ForFish/
       bando/              #     KieuBanDo (style MapLibre chung), TramTrieu
       senbien/            #     SenBienGemma (SYSTEM, userMsg, docDap) + interface MayGemma (mỗi nền cài bộ chạy)
       ios/                #     CauNoiIos — cầu Swift ↔ Kotlin (NSData)
+      kho/                #     KhoMay (KV: SharedPreferences | UserDefaults) — TÊN KHOÁ + ĐỊNH DẠNG Y WEB; ChuyenKhoCu
+      api/                #     MayChu (Ktor: CIO | Darwin) — một cửa /api/…, gắn x-sdfish-token
+      taikhoan/           #     PhienMay · DangNhap · KhoaDuLieu · SoDienThoai · CauLoi
+      vai/                #     Vai · Dock · VaiMay (đồng bộ /api/me/vai)
+      trangchu/           #     NguonTinBao
+      sinh/NhanSinh.kt    #     SINH từ labels.ts + vai.ts (sinh-vai-dock.mjs) — không gõ lại nhãn
+      UngDung.kt          #     hộp chung mỗi nền tạo một lần; CauHinh sinh lúc build từ .env.local (không vào git)
       commonTest/         #     golden vectors sinh từ code web (§5)
     androidApp/           #   Jetpack Compose + MapLibre Android 13.7.1 + LiteRT-LM Android 0.18.0
     iosApp/               #   SwiftUI + MapLibre iOS 7.0.0 + LiteRT-LM Swift 0.18.0; project sinh từ project.yml (XcodeGen)
@@ -53,7 +60,7 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 | Đợt | Nội dung | Xong khi |
 |---|---|---|
 | **0. Khung** ✅ 2026-11-04 (§3a) | Gradle KMP + `shared/` + `androidApp/` + `iosApp/` (SPM/XCFramework); CI build hai nền; **thử nghiệm rủi ro**: MapLibre Native hiện một lớp SDF2 đã giải mã + LiteRT-LM gọi từ `shared/` | hai app trống mở được, bản đồ nền + một lớp offline hiện trên emulator/simulator |
-| 1. Nền | model + Ktor/Supabase-kt + đăng nhập + vai + dock + Trang chủ; kho SQLDelight; codec SDF1/SDF2 + khoá dữ liệu; cổng golden vectors TS ↔ Kotlin; **chuyển dữ liệu từ WebView Capacitor cũ** | đăng nhập acc test, Trang chủ đúng 3 vai, mất sóng vẫn mở |
+| **1. Nền** ✅ 2026-11-04 (§3b) | model + Ktor/Supabase-kt + đăng nhập + vai + dock + Trang chủ; kho SQLDelight; codec SDF1/SDF2 + khoá dữ liệu; cổng golden vectors TS ↔ Kotlin; **chuyển dữ liệu từ WebView Capacitor cũ** | đăng nhập acc test, Trang chủ đúng 3 vai, mất sóng vẫn mở |
 | 2. Bản đồ | ngư trường + mọi lớp + thời tiết/bão/con nước + điểm đi biển + dẫn đường + Đang chạy giọng nói + AIS + premium | đối chiếu từng lớp với web (QA offline bắt buộc) |
 | 3. Sen Biển | nghe trong máy, n-gram, kho, Gemma, giọng ghép mảnh, TTS, máy nhà | chấm bộ câu thật ≥ bản web |
 | 4. Tàu tôi | giấy tờ (chụp, đọc hạn, Xuất trình offline), thuyền viên, bảo dưỡng, đa tàu, chuyến biển | |
@@ -74,6 +81,32 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - APK debug 190 MB vì mang nền 14 MB + Gemma 62 MB + lõi LiteRT/MapLibre đủ ABI; bản phát hành tách ABI + gói on-demand như §3c ops/native-deploy.
 - Bẫy Mac: IPv6 hỏng ⇒ Gradle không tải được Kotlin/Native — `gradle.properties` ép `-Djava.net.preferIPv4Stack=true`.
 
+### 3b. Kết quả đợt 1 (2026-11-04)
+
+**Đã làm** (cả hai nền, logic chung ở `shared`): khách dùng ngay không cần đăng nhập (như web) · đăng nhập SĐT + mật khẩu · đặt mật khẩu lần đầu · đăng xuất · bị máy khác đá · chọn vai · dock theo vai · Trang chủ: tin bão thường trực + dòng tài khoản + thẻ bị đá + mời chọn vai · xin khoá SDF2 sau đăng nhập · chuyển kho bản Capacitor cũ. Ô dock chưa làm native ghi "đợt N"; ô Bản đồ vẫn là màn thử đợt 0.
+
+**Kiểm** (Android emulator ở gpu-desktop + iOS simulator; acc test 0900000777, chuỗi do `scripts/test-account.mjs` cấp, đã thu hồi):
+
+| Ca | Kết quả (cả hai nền) |
+|---|---|
+| Khách mở app | dock 6 ô, tin bão "Không có tin bão · Hỏi lúc" |
+| Đăng nhập mật khẩu với acc test | Supabase trả `user_banned` (acc test cố ý chặn mật khẩu) ⇒ app nói đúng câu web — đường mật khẩu đi tới máy thật |
+| Có chuỗi | xin được khoá dữ liệu, vai `chu-tau` đồng bộ từ máy chủ, ~5 s từ lúc mở (Android) |
+| Chuyển kho cũ (gieo 3 khoá ở origin cũ) | chép 2, bỏ 1 (chuỗi native đang có KHÔNG bị đè) |
+| Mất sóng (máy chủ trỏ địa chỉ chết) | vẫn đăng nhập, vẫn vai + dock; tin bão "Chưa hỏi được · Lần cuối hỏi lúc 09:22: không có bão" |
+| Bị đá (iOS đăng xuất ⇒ Android gọi tiếp) | 401 `token_revoked` ⇒ gỡ chuỗi, GIỮ danh tính + hạng + khoá dữ liệu, thẻ đỏ "đăng nhập ở máy khác" |
+| Test `shared` | 38/38 xanh JVM + iOS simulator (vector khớp web: dock, vai, SĐT, câu lỗi, codec) |
+
+**Quyết định trong đợt** (mặc định an toàn nhất, không đổi máy chủ):
+- Đăng nhập y luồng web: Supabase password grant từ máy (đếm chống dò theo IP thật) ⇒ `/api/auth/token` với cookie `@supabase/ssr` máy tự dựng ⇒ chuỗi cứng. Nợ đã ghi ở `DangNhap.kt` (bỏ khi route nhận Bearer — đổi máy chủ, phải hỏi).
+- Kho = KV (`KhoMay`), không SQLDelight: tên khoá + định dạng y web ⇒ chuyển kho cũ là chép thẳng. SQLDelight khi một miền cần truy vấn (đợt 4).
+- Ktor engine JVM/Android là CIO: `ktor-client-okhttp` 3.6 kéo OkHttp 5.5 đòi compileSdk 37 (AGP 8.13 trần 36).
+- Dock iOS tự vẽ: `TabView` chỉ hiện 5 ô, ô thứ 6 gom vào "More" (chữ tiếng Anh).
+- Chuyển kho cũ: WebView/WKWebView ẩn nạp trang trống đúng origin `https://sdfish.sdvico.vn/` (chặn mọi request — không cần mạng) rồi đọc `forfish.*`. Chỉ có dữ liệu khi bản native đè bản Capacitor (đợt 7); chép một lần, không đè khoá native, ghi hỏng thì lần sau thử lại.
+- Bản debug có cờ thử: Android `--es chuoi/sdt/gieoKhoCu/webGoc`, iOS `SIMCTL_CHILD_*` cùng tên.
+
+**Chưa làm — đi theo đợt của miền**: các khối còn lại của Trang chủ (biển hôm nay, việc cần làm, con nước → đợt 2; giấy tờ, nhắc hạn → 4; thông báo, khuyến mãi, Kairos → 6; tin tuyển, cá đang bán, giá → 5); màn Đăng ký / Quên mật khẩu (dẫn sang web tới đợt 7); giao diện theo design-spec (07) — đợt 1 dùng mặc định Material / SwiftUI.
+
 ## 4. Trong lúc chuyển
 
 - Bản Capacitor vẫn là bản phát hành; sửa lỗi của nó vẫn làm (vd thẻ "Cài app" hiện trong app native — ẩn bằng `Capacitor.isNativePlatform()`).
@@ -91,4 +124,4 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - Đăng nhập, RLS, quyền giữ nguyên phía máy chủ; native không có quyền nào web không có.
 - Offline (CLAUDE.md, chỉ vai chủ tàu): bản native phải qua đủ bộ `ops/qa-offline-acceptance.md` trước khi phát hành.
 
-**Last updated**: 2026-11-04 — đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
+**Last updated**: 2026-11-04 — đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.

@@ -12,7 +12,11 @@ import vn.sdvico.forfish.shared.kho.KhoaMay
 /*
   PHIÊN TRONG MÁY (= device-token-store + offline-identity của web): chuỗi cứng không hạn, dấu hạng, SĐT.
   Luật giữ nguyên web: HẠNG GHI TRƯỚC, CHUỖI GHI SAU, đọc lại cả hai — thiếu một vế coi như chưa đăng nhập xong.
-  Gỡ tài khoản ≠ xoá dữ liệu: bị đá / tự đăng xuất chỉ bỏ chuỗi + hạng + danh tính, dữ liệu đã tải giữ nguyên.
+  HAI ĐƯỜNG RA, HAI HẬU QUẢ (= signOutLocal của web, chủ dự án chốt 2026-08-02):
+    ① tự bấm Đăng xuất = trao máy cho người khác ⇒ xoá SẠCH chuỗi + danh tính + dấu premium;
+    ② bị máy khác đá (token_revoked) ⇒ CHỈ xoá chuỗi, GIỮ danh tính + dấu premium + mọi thứ đã tải: máy cũ có thể
+       đang ở trên tàu giữa biển — "máy nào tải rồi thì cứ dùng thôi". Máy bị đá không lấy thêm được byte nào từ server.
+  nợ: web còn xoá ảnh giấy tờ cất trong máy ở cả hai đường (giay-anh-kho) — native chưa có kho ảnh, làm ở đợt 4.
 */
 class PhienMay(private val kho: KhoMay, private val dongHo: () -> Long) {
     fun token(): String? = kho.doc(KhoaMay.TOKEN)?.takeIf { coDangChuoi(it) }
@@ -52,19 +56,15 @@ class PhienMay(private val kho: KhoMay, private val dongHo: () -> Long) {
         return true
     }
 
-    /** Máy chủ nói chuỗi đã bị thu hồi (máy khác đăng nhập) — gỡ tài khoản, ghi mốc để Trang chủ nói thật. */
+    /** ② Máy chủ nói chuỗi đã bị thu hồi (máy khác đăng nhập): ghi mốc TRƯỚC rồi bỏ CHUỖI — giữ danh tính + hạng. */
     fun biDa() {
         kho.ghi(KhoaMay.BI_DA, isoBayGio())
-        goTaiKhoan()
+        kho.xoa(KhoaMay.TOKEN)
     }
 
-    /** Bà con tự đăng xuất (sau khi máy chủ đã thu hồi xong). */
+    /** ① Bà con tự đăng xuất (sau khi máy chủ đã thu hồi xong): xoá sạch. */
     fun dangXuat() {
         kho.xoa(KhoaMay.BI_DA)
-        goTaiKhoan()
-    }
-
-    private fun goTaiKhoan() {
         kho.xoa(KhoaMay.TOKEN)
         kho.xoa(KhoaMay.TIER)
         kho.xoa(KhoaMay.TIER_HAN)

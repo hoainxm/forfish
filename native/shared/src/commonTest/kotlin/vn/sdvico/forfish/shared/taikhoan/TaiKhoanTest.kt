@@ -78,10 +78,25 @@ class TaiKhoanTest {
     @Test fun biThuHoiThiGoVaGhiMocBiDa() = runTest {
         val k = KhoTrongRam()
         val (mc, p) = mayChu(k) { _, _ -> 401 to """{"ok":false,"code":"token_revoked"}""" }
-        p.luuDangNhap(CHUOI, "basic", null, "0912345678")
+        p.luuDangNhap(CHUOI, "premium", null, "0912345678")
         mc.goi(HttpMethod.Get, "/api/me/vai")
         assertNull(p.token())
         assertNotNull(p.biDaLuc())
+        // bị đá ≠ trao máy: giữ danh tính + dấu premium (máy trên tàu vẫn dùng thứ đã tải)
+        assertEquals("0912345678", p.sdt())
+        assertTrue(p.premium())
+    }
+
+    @Test fun tuDangXuatThiXoaSach() {
+        val k = KhoTrongRam()
+        val p = PhienMay(k) { bayGio }
+        p.luuDangNhap(CHUOI, "premium", null, "0912345678")
+        p.biDa()
+        p.dangXuat()
+        assertNull(p.token())
+        assertNull(p.sdt())
+        assertFalse(p.premium())
+        assertNull(p.biDaLuc())
     }
 
     @Test fun cookiePhienDungDinhDangSsrVaCatKhuc() {
