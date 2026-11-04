@@ -816,7 +816,7 @@ Quy ước: route slug là tiếng Việt không dấu, khớp ngôn ngữ ngư�
 ```
 src/
   app/
-    layout.tsx          # Root layout (fonts, bottom nav, PWA metadata: manifest/icons/appleWebApp, mount SwRegister)
+    layout.tsx          # Root layout (fonts, bottom nav, PWA metadata: manifest/icons/appleWebApp, mount SwRegister) · **2026-11-04**: `metadataBase` https://sdfish.sdvico.vn + `openGraph` mặc định (og:title/description/image icon-512, locale vi_VN, KHÔNG `url` để trang con không trỏ về trang chủ) cho khung xem trước Messenger/Zalo; trang con có openGraph riêng (vd `/k/[id]`) ghi đè trọn
     manifest.ts         # Web App Manifest (→ /manifest.webmanifest) — cài PWA iOS/Android
     globals.css         # Tailwind v4 @theme tokens — single source màu/typography
     page.tsx            # Trang chủ
