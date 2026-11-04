@@ -54,3 +54,15 @@ describe("lớp nổi role=dialog gọi useLichSuDong (Back đóng lớp trướ
     expect(VAI_HOP.test(`document.querySelector('[role="dialog"]')`)).toBe(false);
   });
 });
+
+/*  RỜI TRANG TỪ TRONG LỚP NỔI PHẢI QUA `diTrang` (anh Long 2026-11-04: "cái đổi bản đồ lúc ăn lúc ko ăn,
+    click 3 lần mới đổi"). Khay ⋯ của chế độ Hải đồ là Popover ⇒ đóng thì lùi mục lịch sử của nó; gọi
+    `router.push` trần ngay sau đó thì cú lùi kéo bà con về lại trang cũ. Cả cây hai-do dựng trên Popover. */
+describe("chế độ Hải đồ rời trang qua diTrang", () => {
+  it("không có router.push trần trong src/components/hai-do", () => {
+    const tran = walk(join(GOC, "hai-do"))
+      .filter((f) => f.endsWith(".tsx"))
+      .filter((f) => /\brouter\.push\(/.test(readFileSync(f, "utf8")));
+    expect(tran).toEqual([]);
+  });
+});

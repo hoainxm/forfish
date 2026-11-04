@@ -18,6 +18,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { diTrang } from "@/lib/dialog-focus";
 import MapGL, {
   AttributionControl,
   Layer,
@@ -889,7 +890,9 @@ export default function HaiDoView() {
     }
     else if (m === "banDo") {
       setHaiDoPrefs({ moHaiDo: false });
-      router.push("/ngu-truong");
+      // diTrang, KHÔNG router.push: khay ⋯ vừa đóng sẽ lùi mục lịch sử của nó — push trần thì cú lùi đó
+      // kéo bà con về lại /hai-do ("click 3 lần mới đổi", anh Long 2026-11-04). Xem lib/dialog-focus.
+      diTrang(router, "/ngu-truong");
     }
   };
 
