@@ -120,6 +120,10 @@ Luật đi kèm:
 
 **Cam = MỘT hành động chính mỗi màn.** Nút "Thêm" ở đầu từng nhóm là nút phụ (nền trung tính), không phải cam — đang dọn theo màn (Tàu tôi, Bạn thuyền, Vật tư) ở các commit sau của đợt này.
 
+## 0c. APP NATIVE dùng chung hệ này (2026-11-04, ADR 0019)
+
+App native Android (Compose) + iOS (SwiftUI) KHÔNG có hệ giao diện riêng: màu `:root`, bậc cỡ §0 và bộ icon `icons.tsx` được SINH sang Kotlin (`native/scripts/sinh-giao-dien.mjs` ⇒ `native/shared/…/giaodien/`), font giống `layout.tsx`, mảnh cùng tên (`ManHeader`, `The`, `Hang`, `NutChinh`, `NutPhu`, `ONhap`, `DockNoi`…). Đổi token/icon ở đây ⇒ chạy lại script để native theo. Chi tiết: [18 §3c](18-native-kmp.md).
+
 ## 1. Người dùng / Audience
 
 Ngư dân, ít rành công nghệ, dùng app ngoài biển và ở bờ. Điều đó quyết định **ngôn ngữ và luồng**, không quyết định cỡ:

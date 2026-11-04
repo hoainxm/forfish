@@ -16,6 +16,13 @@ targets:
     type: application
     platform: iOS
     sources: [ForFishNative]
+    info:
+      path: ForFishNative/Info.plist
+      properties:
+        UILaunchScreen: {}
+        CFBundleDisplayName: "ForFish (native thử)"
+        # font của web (layout.tsx): Archivo tiêu đề + Plus Jakarta Sans chữ — OFL
+        UIAppFonts: [archivo_600.ttf, archivo_700.ttf, jakarta_400.ttf, jakarta_500.ttf, jakarta_600.ttf, jakarta_700.ttf]
     dependencies:
       - package: MapLibre
       - package: LiteRTLM
@@ -23,9 +30,6 @@ targets:
       base:
         # Đợt 0: id RIÊNG, cài cạnh bản Capacitor vn.sdvico.sdfish (đợt 7 đổi về để cập nhật đè)
         PRODUCT_BUNDLE_IDENTIFIER: vn.sdvico.forfish.native
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "ForFish (native thử)"
         MARKETING_VERSION: 0.0.1
         CURRENT_PROJECT_VERSION: 1
         FRAMEWORK_SEARCH_PATHS: "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"

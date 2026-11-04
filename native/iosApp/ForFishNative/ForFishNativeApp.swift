@@ -27,7 +27,12 @@ final class TrangThaiApp: ObservableObject {
         return UngDung(kho: KhoIos(), nen: "ios", webGoc: goc)
     }()
     @Published var lanVe = 0
-    @Published var man = "chinh"
+    @Published var man: String = {
+        #if DEBUG
+        if let m = ProcessInfo.processInfo.environment["man"] { return m }
+        #endif
+        return "chinh"
+    }()
     @Published var phienTam: String?
 
     func veLai() { lanVe += 1 }
@@ -77,47 +82,22 @@ struct KhungChinh: View {
     @EnvironmentObject var tt: TrangThaiApp
     @State private var dang = "trang-chu"
 
-    // Thanh dock TỰ VẼ: TabView của iOS chỉ hiện 5 ô, ô thứ 6 bị gom vào "More" (chữ tiếng Anh) — dock chủ tàu có 6 ô.
+    // Dock nổi tự vẽ như web (.bottom-dock) — TabView của iOS chỉ hiện 5 ô, dock chủ tàu có 6.
     var body: some View {
         let _ = tt.lanVe
         let dock = tt.ung.dock()
         let hien = dock.contains { $0.id == dang } ? dang : "trang-chu"
-        VStack(spacing: 0) {
+        ZStack(alignment: .bottom) {
             Group {
                 switch hien {
                 case "trang-chu": TrangChu()
-                case "ban-do": BanDoThu()
+                case "ban-do": BanDoThu().ignoresSafeArea(edges: .bottom)
                 default: ChuaLam(nhan: dock.first { $0.id == hien }?.nhan ?? "", dot: DOT_CUA_O[hien] ?? 7)
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
-            Divider()
-            HStack(spacing: 0) {
-                ForEach(dock, id: \.id) { o in
-                    Button { dang = o.id } label: {
-                        VStack(spacing: 2) {
-                            Image(systemName: bieuTuong(o.id)).font(.system(size: 20))
-                            Text(o.nhan).font(.caption2).lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .foregroundStyle(o.id == hien ? Color.accentColor : Color.secondary)
-                    }
-                    .accessibilityLabel(o.nhan)
-                }
-            }.padding(.top, 6)
+            DockNoi(o: dock, dang: hien) { dang = $0 }
         }
-    }
-
-    private func bieuTuong(_ id: String) -> String {
-        switch id {
-        case "trang-chu": return "house"
-        case "kairos": return "newspaper"
-        case "ban-do": return "map"
-        case "tau-toi": return "ferry"
-        case "viec-lam": return "person.2"
-        case "cho-ca": return "fish"
-        case "ban-hang": return "storefront"
-        default: return "cart"
-        }
+        .background(Mau.nen.ignoresSafeArea())
     }
 }
 
@@ -125,10 +105,10 @@ struct ChuaLam: View {
     let nhan: String
     let dot: Int
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(nhan).font(.largeTitle.bold())
-            Text("Mục này đang chuyển sang bản native (đợt \(dot)).")
+        VStack(alignment: .leading, spacing: 0) {
+            ManHeader(nhan)
+            HangYen(chu: "Mục này đang chuyển sang bản native", phu: "Đợt \(dot) trong lộ trình", icon: "Clock", mauIcon: Mau.mo).padding(.horizontal, 16)
             Spacer()
-        }.frame(maxWidth: .infinity, alignment: .leading).padding()
+        }.background(Mau.nen.ignoresSafeArea())
     }
 }

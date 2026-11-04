@@ -107,6 +107,15 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 **Chưa làm — đi theo đợt của miền**: các khối còn lại của Trang chủ (biển hôm nay, việc cần làm, con nước → đợt 2; giấy tờ, nhắc hạn → 4; thông báo, khuyến mãi, Kairos → 6; tin tuyển, cá đang bán, giá → 5); màn Đăng ký / Quên mật khẩu (dẫn sang web tới đợt 7); giao diện theo design-spec (07) — đợt 1 dùng mặc định Material / SwiftUI.
 
+### 3c. Hệ giao diện như web (2026-11-04, sau phản hồi "sao giao diện ko giống với web")
+
+Đợt 1 để mặc định Material / SwiftUI ⇒ lệch web. Nay native DÙNG CHUNG nguồn giao diện của web, không gõ lại:
+- `native/scripts/sinh-giao-dien.mjs` đọc `src/app/globals.css` (`:root`) + `src/components/icons.tsx` ⇒ `shared/giaodien/MauSinh.kt` (41 token màu ARGB, bỏ màu nội dung `--sp-*`), `CoSinh.kt` (bậc `--h-cta/ctl/chip/row`, `--r-card/ctl`, dock), `BieuTuongSinh.kt` (78 icon nét, circle/rect/line/polyline đổi sang path). Đổi token/icon ở web ⇒ chạy lại script.
+- `DuongVe.kt` (shared): đọc path SVG ⇒ lệnh vẽ tuyệt đối (cung → Bézier) cho iOS vẽ icon bằng SwiftUI `Path`; Android dùng `PathParser` của Compose.
+- Font = web (`layout.tsx`): Archivo 600/700 (tiêu đề) + Plus Jakarta Sans 400–700 (chữ), TTF Google Fonts (OFL) trong `androidApp/res/font` + `iosApp/ForFishNative/Fonts` (`UIAppFonts`).
+- Mảnh chung cùng tên hai nền (`androidApp/…/giaodien/Manh.kt`, `iosApp/…/GiaoDien.swift`): `ManHeader`, `The` (.surface), `Hang`, `NutChinh` (cam, `--h-cta`), `NutPhu` (.sq-btn), `ONhap`, `NhanO`, `TheTrangThai` (nền ok/warn/danger chỉ khi có việc), `HangYen` (StormBanner yên), `DockNoi` (dock nổi kiểu Facebook, chỉ icon, pill sea/12, ô Kairos = ảnh cá).
+- Đối chiếu web 375px (sdfish.sdvico.vn) với Android emulator + iOS simulator: tiêu đề, hàng tin bão, dock, màn đăng nhập cùng màu / chữ / khối.
+
 ## 4. Trong lúc chuyển
 
 - Bản Capacitor vẫn là bản phát hành; sửa lỗi của nó vẫn làm (vd thẻ "Cài app" hiện trong app native — ẩn bằng `Capacitor.isNativePlatform()`).
