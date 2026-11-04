@@ -62,6 +62,13 @@ import vn.sdvico.forfish.shared.thoitiet.LuoiTruong
 import vn.sdvico.forfish.shared.thoitiet.NapDuBao
 import vn.sdvico.forfish.shared.thoitiet.NapTruong
 import vn.sdvico.forfish.shared.thoitiet.NapDiem
+import vn.sdvico.forfish.shared.ca.BanDoCa
+import vn.sdvico.forfish.shared.ca.BangPha
+import vn.sdvico.forfish.shared.ca.DanhMucCa
+import vn.sdvico.forfish.shared.ca.DuBaoCa
+import vn.sdvico.forfish.shared.ca.KetQuaCa
+import vn.sdvico.forfish.shared.ca.LoaiDanh
+import vn.sdvico.forfish.shared.ca.NapCa
 import vn.sdvico.forfish.shared.thoitiet.DiemBien
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.layout.onSizeChanged
@@ -123,12 +130,16 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
     private var diemChon: LatLng? = null
     /** cú chạm bản đồ ⇒ màn Compose (gắn một lần trong getMapAsync) */
     private var khiCham: ((LatLng) -> Unit)? = null
+    private val napCa = NapCa(ung.mayChu, KhoTepFile(File(filesDir, "ca")), { System.currentTimeMillis() })
+    /** GeoJSON lưới cá đang vẽ (null = không vẽ) — dựng lại style thì vẽ lại */
+    private var caGeo: String? = null
     private var anhDong: AnhTruong? = null
     private var muiDong: Pair<String, String?>? = null
 
     private fun apDong(st: Style) {
         VeThoiTiet.truong(st, anhDong)
         VeThoiTiet.muiTen(st, muiDong?.first, muiDong?.second)
+        VeCa.luoi(st, caGeo)
         veDiemChon(st)
     }
 
@@ -254,6 +265,31 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         var lanThu by remember { mutableIntStateOf(0) }
         val batTong = batPhien.copy(vungLong = tuyChon.vungLong, vungQuanLy = tuyChon.vungQuanLy, tramTrieu = tuyChon.tideStations, luoi = tuyChon.mapGrid, goi = goi, dong = dong != null)
         val soNgay = if (goi) 16 else 1 // = soNgayThoiTiet: gói 16 ngày, thường chỉ hôm nay
+
+        // ── DỰ BÁO CÁ (đợt 2e): bật ⇒ bản lưu ngay, rồi mạng; cần gói (khoá ở panel); lớp động bật thì ẩn (web) ──
+        var caBat by remember { mutableStateOf(false) }
+        var banCa by remember { mutableStateOf<BanDoCa?>(null) }
+        var loiCa by remember { mutableStateOf<String?>(null) }
+        var lanCa by remember { mutableIntStateOf(0) }
+        var picks by remember { mutableStateOf(LoaiDanh.doc(ung.kho)) }
+        var loaiRieng by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(caBat, goi, lanCa) {
+            loiCa = null
+            if (!caBat || !goi) return@LaunchedEffect
+            withContext(Dispatchers.IO) { napCa.banLuu() }?.let { banCa = it.banDo }
+            when (val r = withContext(Dispatchers.IO) { napCa.lay() }) {
+                is KetQuaCa.Co -> banCa = r.banDo
+                is KetQuaCa.Khong -> loiCa = DuBaoCa.fishFailNote(r.code)
+            }
+        }
+        LaunchedEffect(caBat, goi, banCa, picks, loaiRieng, dong) {
+            val b = banCa
+            caGeo = if (!caBat || !goi || dong != null || b == null) null else withContext(Dispatchers.Default) {
+                val bo = loaiRieng?.let { listOf(it) } ?: picks ?: emptyList()
+                DuBaoCa.lopCa(b, bo, homNayVN(), 0, emptyList(), null, BangPha.RONG, chuaChon = loaiRieng == null && picks == null).geo
+            }
+            map?.style?.let { VeCa.luoi(it, caGeo) }
+        }
 
         // ── THẺ CHẠM ĐIỂM (đợt 2d): chạm biển ⇒ gió sóng chỗ đó (bản lưu trước nếu mạng chậm) ──
         var cham by remember { mutableStateOf<LatLng?>(null) }
@@ -448,9 +484,23 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
                             tuyChon = moi
                             if (!TuyChonBanDo.ghi(ung.kho, moi)) ghi("Tuỳ chọn bản đồ: kho từ chối ghi — dùng trong RAM")
                         },
-                        soTram = nap.soTramConNuoc(), coMang = coMang(ctx), lopDong = dong, chonLopDong = { dong = it; lop = null }, quayLai = { lop = "luoi" }, dong = { lop = null },
+                        soTram = nap.soTramConNuoc(), coMang = coMang(ctx), lopDong = dong, chonLopDong = { dong = it; lop = null },
+                        nguTruong = {
+                            val tam = map?.cameraPosition?.target
+                            PanelNguTruong(
+                                caBat, { bat -> caBat = bat; if (bat) dong = null }, if (goi) null else "upgrade", coMang(ctx),
+                                banCa?.species ?: DanhMucCa.LOAI.map { it.short },
+                                if (tam != null) DanhMucCa.dangVu(tam.latitude, tam.longitude, java.time.LocalDate.now().monthValue) else emptySet(),
+                                picks, { moi -> picks = moi; LoaiDanh.ghi(ung.kho, moi) }, loaiRieng, { loaiRieng = it }, loiCa, { lanCa++ },
+                            )
+                        },
+                        quayLai = { lop = "luoi" }, dong = { lop = null },
                     )
                 }
+            }
+            // CHÚ GIẢI CÁ (web: khi lưới cá đang vẽ và không có panel mở)
+            if (caBat && goi && dong == null && lop == null && (picks != null || loaiRieng != null) && banCa != null) {
+                ChuGiaiCa(Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(start = 12.dp, bottom = (CoSinh.DockRow + CoSinh.DockGap + 48 + if (cham != null) caoThe else 0).dp))
             }
             // THANH GIỜ (lớp động bật)
             d0?.let { d ->

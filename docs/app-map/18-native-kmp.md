@@ -241,6 +241,8 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 **Cổng khớp**: `sinh-ca.mjs` (118 KB) + `sinh-ais.mjs` (136 KB) chạy chính code web. jvmTest 165/165. Số qua sin/cos/sqrt so sai số ≤8 ulp / 1e-9 (JVM ≠ V8 bit cuối); chuỗi, mức, thứ tự so tuyệt đối.
 
+**Android — dự báo cá (2026-11-04)**: `CaAndroid.kt` — lớp `fish-grid` (fill step 3 mức + viền trắng, ô cắt ranh không viền), chèn dưới `overlay-coast-fill`/`chu-quyen`; panel Ngư trường: "Dự báo cá (vùng có khả năng tập trung)" · "Theo ngày · ảnh vệ tinh", thẻ khoá gói (thường), bộ chọn loài = FishPicker (Câu ngừ / Lưới vây / Lưới rê / Chụp mực, "Đang vụ quanh đây" theo vùng ở tâm bản đồ, "Loài khác" theo nhóm, "Đã chọn n/3", "Xong" mờ khi chưa chọn, chip mờ khi đủ 3), sau chọn: chip từng loài (chạm = chỉ loài đó) + "Đổi"; chú giải "Dự báo cá". Bật cá ⇒ tắt lớp động (onFish web); lớp động bật ⇒ lưới cá ẩn. Danh mục loài / nghề / vùng mùa vụ sinh bằng `sinh-loai.mjs` (`LoaiCaSinh.kt`, test regionAt + fishInRegion 132 điểm). Kiểm emulator: acc gói 0900000779 (chuỗi đã thu hồi) — Câu ngừ ⇒ 3 loài ngừ, lưới đủ 3 mức + chú giải; acc thường ⇒ thẻ khoá, không lưới. jvmTest 167/167. **Chưa**: hồng tâm (cần điểm đã lưu — đợt 4), pha mùa vụ ngày xa (chưa có chip ngày ở màn), AIS + mật độ tàu (commit sau).
+
 **Khác web có chủ ý**: 200 mà bản lưu có `generatedAt` mới hơn ⇒ KHÔNG đè (web đè); 403 `ais_off` ⇒ vẫn lùi bản lưu nhưng báo `aisOff`; dữ liệu hỏng từng dòng ⇒ bỏ dòng. Chưa port: `fishForecastTuKhoSW` (không có SW), lịch sử mật độ, thẻ tàu / chạm chọn tàu / hẹn giờ làm mới (Android ở commit sau).
 
 ## 4. Trong lúc chuyển
