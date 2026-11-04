@@ -104,7 +104,7 @@ class LuoiDuBaoVangTest {
 
     /* ── giải 3 phản hồi qua NapDuBao.layLive + MockEngine (đúng đường thiết bị gọi) ── */
     private fun layLive(ca: JsonObject): Pair<Result<ForecastGrid>, List<String>> {
-        val goi = mutableListOf<String>()
+        val goi = vn.sdvico.forfish.shared.SoGoi()
         val http = HttpClient(MockEngine { req ->
             val q = req.url.encodedQuery
             val r = (when {

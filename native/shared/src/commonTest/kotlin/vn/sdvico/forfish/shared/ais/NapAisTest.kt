@@ -25,7 +25,7 @@ class NapAisTest {
     private class Moc {
         var song = true
         val tra = mutableMapOf<String, Pair<Int, String>>()
-        val goi = mutableListOf<String>()
+        val goi = vn.sdvico.forfish.shared.SoGoi()
     }
 
     private fun dung(m: Moc, kho: KhoTrongRam = KhoTrongRam(), tep: TaiDuLieuTest.TepRam = TaiDuLieuTest.TepRam(), cho: MutableList<Long> = mutableListOf()): Triple<NapAis, TaiDuLieuTest.TepRam, KhoTrongRam> {

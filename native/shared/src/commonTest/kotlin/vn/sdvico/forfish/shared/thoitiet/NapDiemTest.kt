@@ -21,7 +21,7 @@ class NapDiemTest {
     private val GIO = """{"current":{"wind_speed_10m":18,"wind_gusts_10m":30,"wind_direction_10m":90},"daily":{"time":["2026-11-04","2026-11-05"],"wind_speed_10m_max":[22,40],"wind_gusts_10m_max":[35,60],"wind_direction_10m_dominant":[90,45],"precipitation_sum":[0,12],"weather_code":[1,63]}}"""
     private val SONG = """{"current":{"wave_height":0.6,"wave_period":5},"daily":{"time":["2026-11-04","2026-11-05"],"wave_height_max":[0.8,2.1]}}"""
 
-    private class Moc { var song = true; var gio: Pair<Int, String>? = null; var bienSong: Pair<Int, String>? = null; var cho: CompletableDeferred<Unit>? = null; val goi = mutableListOf<String>() }
+    private class Moc { var song = true; var gio: Pair<Int, String>? = null; var bienSong: Pair<Int, String>? = null; var cho: CompletableDeferred<Unit>? = null; val goi = vn.sdvico.forfish.shared.SoGoi() }
 
     private fun dung(m: Moc, matSong: () -> Boolean = { false }): Pair<NapDiem, TaiDuLieuTest.TepRam> {
         val http = HttpClient(MockEngine { req ->

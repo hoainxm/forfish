@@ -249,6 +249,18 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 **Khác web có chủ ý**: 200 mà bản lưu có `generatedAt` mới hơn ⇒ KHÔNG đè (web đè); 403 `ais_off` ⇒ vẫn lùi bản lưu nhưng báo `aisOff`; dữ liệu hỏng từng dòng ⇒ bỏ dòng. Chưa port: `fishForecastTuKhoSW` (không có SW), lịch sử mật độ, thẻ tàu / chạm chọn tàu / hẹn giờ làm mới (Android ở commit sau).
 
+### 3k. Đợt 2f — dẫn đường + Đang chạy giọng nói: phần chung (2026-11-04)
+
+**Đã làm (shared, chưa có màn)**:
+- `shared/danduong`: `TinhDuong.kt` (= planRouteWithDiagnostics: Dijkstra, ngưỡng sóng/gió, kéo chậm, dòng chảy cộng véc tơ, dầu, thử lại nới bờ), `LuoiThoiTiet.kt` (sampleField + route-grid ô 6×6 + ghép + lưới đã lưu + lưới rỗng), `NapThoiTietDuong.kt` (= fetchWeatherField: ô routegrid 15 s, nhớ 45 phút; lỗi ⇒ lưới gió đã lưu ⇒ không thời tiết; 429), `HiemHoa.kt` + `ChiMuc.kt` + `DoSau.kt` (hazards, depth-grid, reef-depth), `HauKiem.kt` (auditRoute, ranh giới, câu cảnh báo, buildDangerItems/buildWillMeet), `ChangDuong.kt` (chặng, mergeLegPlans, điểm ghé, đường đã lưu, cổng bão), `TauMinh.kt` (`forfish.boat.v1`), `DanDuong.kt` (= compute() của route-planner: lượt bấm "Tính đường"), `CangSinh.kt` + `BienSinh.kt` (sinh: PORTS, biên VMS). Một lượt Vũng Tàu → Côn Đảo ~33–48 ms JVM, chạy `Dispatchers.Default`.
+- `shared/dangchay`: `DinhVi.kt` (locFix, nhanFix, tocDoMuot, lechCamera), `TienDo.kt` (computeNavProgress, steerCue, ETA, lệch đường), `KhucRe.kt`, `VungChay.kt`, `PhienChay.kt` (`forfish.nav.phien.v1`), `HiemHoa.kt` (evaluateNavHazards), `NguCanh.kt` (buildNavContext, phao/đèn/khu trú bão), `CauNoi.kt` (câu đọc), `BaoBien.kt` (bão, biển, bản tin mở đầu, điểm tin), `BoPhatNgon.kt` (announcer + mức đọc `forfish.nav.voice.v1`), `GomSuKien.kt` (collectVoiceEvents), `GhepGiong.kt` + `GiongSinh.kt` (sinh: 64 câu nguyên + 3016 mảnh Mỹ Duyên; `keHoachPhat` = một file / nhiều mảnh / giọng máy / trộn).
+
+**Cổng khớp**: `sinh-duong.mjs` (25 kịch bản lộ trình khớp tuyệt đối: đường đi, cờ, hoursAt, segRisks, chặng, hậu kiểm, thẻ cảnh báo) + `sinh-dang-chay.mjs` (GPS, tiến độ, khúc rẽ, hiểm hoạ, câu đọc, bộ phát ngôn phát lại theo đồng hồ ảo 60 nhịp + bất biến 10 phút, ghép mảnh). jvmTest 181+ xanh.
+
+**Sửa test chập chờn**: test MockEngine ghi danh sách request bằng `mutableListOf` trong khi engine chạy request song song ⇒ mất phần tử / IndexOutOfBounds thỉnh thoảng (NapThoiTietDuongTest, LuoiDuBaoVangTest). Nay `commonTest/SoGoi.kt` (ghi qua Mutex) cho mọi test cùng khuôn; chạy `--rerun` 5 lần liên tiếp xanh.
+
+**Khác web / chưa port**: chỉ mục điểm quét thẳng (cùng tập), sắp tên vùng tiếng Việt tự dựng (không localeCompare), giờ ghim UTC+7, chưa NFC; chưa có `stormStatus` (tin bão native thiếu toạ độ/đường đi bão), chưa phần chạy nền (hẹn giờ, pin, tắt/mở màn). Hình học trùng giữa `danduong` và `dangchay` — gộp khi nối màn.
+
 ## 4. Trong lúc chuyển
 
 - Bản Capacitor vẫn là bản phát hành; sửa lỗi của nó vẫn làm (vd thẻ "Cài app" hiện trong app native — ẩn bằng `Capacitor.isNativePlatform()`).
@@ -266,4 +278,4 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - Đăng nhập, RLS, quyền giữ nguyên phía máy chủ; native không có quyền nào web không có.
 - Offline (CLAUDE.md, chỉ vai chủ tàu): bản native phải qua đủ bộ `ops/qa-offline-acceptance.md` trước khi phát hành.
 
-**Last updated**: 2026-11-04 — đợt 2e phần chung (§3j). Trước đó: đợt 2d Android: lớp thời tiết động (§3i). Trước đó: đợt 2d phần chung (§3i). Trước đó: đợt 2c Android xong (§3h). Trước đó: đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
+**Last updated**: 2026-11-04 — đợt 2f phần chung (§3k). Trước đó: đợt 2e (§3j). Trước đó: đợt 2d Android: lớp thời tiết động (§3i). Trước đó: đợt 2d phần chung (§3i). Trước đó: đợt 2c Android xong (§3h). Trước đó: đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.

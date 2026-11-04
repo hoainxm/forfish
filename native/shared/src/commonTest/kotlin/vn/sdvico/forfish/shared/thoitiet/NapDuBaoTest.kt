@@ -31,7 +31,7 @@ class NapDuBaoTest {
         var songBien: Pair<Int, String>? = null
         var dong: Pair<Int, String>? = null
         var snap: Pair<Int, String>? = null
-        val goi = mutableListOf<String>()
+        val goi = vn.sdvico.forfish.shared.SoGoi()
     }
 
     private fun gioIso(h: Int): String {

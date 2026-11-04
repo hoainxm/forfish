@@ -33,7 +33,7 @@ class LopDongTest {
         }
     }
 
-    private class Moc { var song = true; var live: Pair<Int, String>? = null; var snap: Pair<Int, String>? = null; val goi = mutableListOf<String>() }
+    private class Moc { var song = true; var live: Pair<Int, String>? = null; var snap: Pair<Int, String>? = null; val goi = vn.sdvico.forfish.shared.SoGoi() }
 
     private fun dung(m: Moc, matSong: () -> Boolean = { false }): Pair<NapTruong, TaiDuLieuTest.TepRam> {
         val http = HttpClient(MockEngine { req ->
