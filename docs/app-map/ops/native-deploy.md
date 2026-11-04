@@ -4,6 +4,8 @@
 
 **Load khi**: làm gì liên quan cài đặt app, manifest, service worker, icon, hoặc wrap native.
 
+> **2026-11-04 — ADR 0019**: app native thật (KMP + Compose / SwiftUI) sẽ THAY vỏ Capacitor khi làm đủ như web — lộ trình [18-native-kmp](../18-native-kmp.md). Tới lúc đó các mục Capacitor dưới đây vẫn là đường phát hành.
+
 ---
 
 ## 1. Hiện trạng (đã có trong repo)
