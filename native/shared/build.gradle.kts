@@ -54,7 +54,8 @@ kotlin {
             }
         }
         jvmMain.dependencies {
-            implementation("io.ktor:ktor-client-okhttp:3.6.1")
+            // CIO thay OkHttp: ktor-client-okhttp 3.6 kéo OkHttp 5.5 đòi compileSdk 37 (AGP 8.13 trần 36)
+            implementation("io.ktor:ktor-client-cio:3.6.1")
         }
         iosMain.dependencies {
             implementation("io.ktor:ktor-client-darwin:3.6.1")

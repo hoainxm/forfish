@@ -67,7 +67,7 @@ class MayChu(
     }
 }
 
-/** HttpClient chung: engine theo nền (OkHttp / Darwin), trần 20 s như các lượt gọi tay của web. */
+/** HttpClient chung: engine theo nền (CIO / Darwin), trần 20 s như các lượt gọi tay của web. */
 fun taoHttp(): HttpClient = HttpClient {
     install(HttpTimeout) {
         requestTimeoutMillis = 25_000
