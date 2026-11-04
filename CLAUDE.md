@@ -51,6 +51,7 @@ Mọi thay đổi `src/` phải update doc app-map tương ứng **TRONG CÙNG C
 | Quy trình team-agent | [docs/app-map/05-agents-team.md](docs/app-map/05-agents-team.md) |
 | Shape đồ SDWork (CRM↔ForFish) | [docs/contracts/sdwork-assets.contract.md](docs/contracts/sdwork-assets.contract.md) — bump version nếu breaking |
 | Nguồn dữ liệu ngoài (timeout/fallback) | [docs/app-map/ops/external-services.md](docs/app-map/ops/external-services.md) |
+| `native/**` (app native KMP, ADR 0019) · đổi `src/lib/` đã có bản Kotlin | [docs/app-map/18-native-kmp.md](docs/app-map/18-native-kmp.md) + chạy lại `native/scripts/sinh-*.mjs` |
 
 **Enforcement (nguyên tắc 8/12)**: pre-commit hook ở `.githooks/` (bật bằng `git config core.hooksPath .githooks`) chặn migration↔04 lệch, covers-gate, budget root, contract SDWork, spacing-px, BOM/mojibake. Verify `sh .githooks/pre-commit --self-test`; doc-health `sh scripts/doc-health-report.sh` (trạng thái: `_generated/doc-status.md`); `/audit`.
 

@@ -1,0 +1,50 @@
+# App native iOS ForFish (ADR 0019, app-map 18) — sinh project: `~/.local/xcodegen/xcodegen/bin/xcodegen` trong thư mục này.
+name: ForFishNative
+options:
+  bundleIdPrefix: vn.sdvico
+  deploymentTarget:
+    iOS: "16.0"
+packages:
+  MapLibre:
+    url: https://github.com/maplibre/maplibre-gl-native-distribution
+    exactVersion: 7.0.0
+  LiteRTLM:
+    # gói SPM cục bộ LiteRT-LM 0.18.0 (ADR 0012) — đợt 7 dời vào native/ khi gỡ Capacitor
+    path: ../../ios/App/LiteRTLM-SPM
+targets:
+  ForFishNative:
+    type: application
+    platform: iOS
+    sources: [ForFishNative]
+    dependencies:
+      - package: MapLibre
+      - package: LiteRTLM
+    settings:
+      base:
+        # Đợt 0: id RIÊNG, cài cạnh bản Capacitor vn.sdvico.sdfish (đợt 7 đổi về để cập nhật đè)
+        PRODUCT_BUNDLE_IDENTIFIER: vn.sdvico.forfish.native
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "ForFish (native thử)"
+        MARKETING_VERSION: 0.0.1
+        CURRENT_PROJECT_VERSION: 1
+        FRAMEWORK_SEARCH_PATHS: "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+        OTHER_LDFLAGS: ["$(inherited)", "-framework", "Shared"]
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    preBuildScripts:
+      - name: "Shared (KMP)"
+        basedOnDependencyAnalysis: false
+        script: |
+          # Dựng framework Shared từ native/shared cho đúng kiến trúc Xcode đang build
+          [ -d "$HOME/.local/jdk-21/Contents/Home" ] && export JAVA_HOME="$HOME/.local/jdk-21/Contents/Home"
+          cd "$SRCROOT/.." && ./gradlew :shared:embedAndSignAppleFrameworkForXcode --console=plain
+    postBuildScripts:
+      - name: "Dữ liệu đợt 0"
+        basedOnDependencyAnalysis: false
+        script: |
+          # Nền bản đồ bản RÕ (public/data) + Gemma (ios/App/sen-bien-gemma, gitignore) vào gói app — CHỈ đợt 0
+          D="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/du-lieu"
+          mkdir -p "$D"
+          cp -f "$SRCROOT/../../public/data/vn-basemap.pmtiles" "$D/"
+          G="$SRCROOT/../../ios/App/sen-bien-gemma/gemma.litertlm"
+          if [ -f "$G" ]; then cp -f "$G" "$D/"; else echo "warning: không có Gemma — bản này chạy không Gemma"; fi

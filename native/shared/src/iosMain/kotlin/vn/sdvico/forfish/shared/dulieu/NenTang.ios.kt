@@ -9,6 +9,7 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.sizeOf
+import kotlinx.cinterop.toKString
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import platform.CoreCrypto.CCCryptorCreateWithMode
@@ -75,7 +76,7 @@ actual object NenTang {
                 strm.next_in = inp.addressOf(0).reinterpret()
                 strm.avail_in = data.size.convert()
                 // 16 + 15: cửa sổ 32 KB, đọc header gzip
-                check(inflateInit2_(strm.ptr, 16 + 15, zlibVersion(), sizeOf<z_stream>().convert()) == Z_OK) { "inflateInit2" }
+                check(inflateInit2_(strm.ptr, 16 + 15, zlibVersion()?.toKString(), sizeOf<z_stream>().convert()) == Z_OK) { "inflateInit2" }
                 try {
                     var ret: Int
                     do {

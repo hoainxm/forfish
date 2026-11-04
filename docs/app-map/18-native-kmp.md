@@ -7,20 +7,22 @@
 
 ```
 ForFish/
-  src/                 # web/PWA Next.js + API /api/* (BACKEND CHUNG — giữ nguyên)
-  shared/              # KMP: commonMain + androidMain + iosMain
-    model/             #   kiểu dữ liệu (= types TS), serialization
-    api/               #   Ktor client gọi /api/*, Supabase-kt (auth + bảng RLS)
-    kho/               #   SQLDelight — thay localStorage `forfish.*` + IndexedDB
-    du-lieu/           #   data-codec SDF1/SDF2 (gzip + AES-256-CTR), khoá dữ liệu, tải có nhịp
-    sen-bien/          #   n-gram, luật hiểu ý, kho hỏi–đáp, giao diện Gemma (expect/actual)
-    bien/              #   dự báo cá, dẫn đường, con nước, điểm đi biển, thời tiết…
-    testdata/          #   golden vectors sinh từ Vitest — cổng khớp TS ↔ Kotlin
-  androidApp/          # Jetpack Compose + MapLibre Native Android + LiteRT-LM Kotlin
-  iosApp/              # SwiftUI + MapLibre Native iOS + LiteRT-LM Swift
-  android/ ios/        # vỏ Capacitor — GIỮ phát hành tới khi native đủ (§4), rồi gỡ
+  src/                    # web/PWA Next.js + API /api/* (BACKEND CHUNG — giữ nguyên)
+  native/                 # toàn bộ app native (một Gradle build riêng — gốc repo không thêm file)
+    settings.gradle.kts   #   androidApp chỉ được include khi máy có Android SDK (Mac build iOS không cần SDK)
+    shared/               #   KMP: commonMain · jvmMain (Android dùng biến thể JVM) · iosMain (iosArm64 + iosSimulatorArm64)
+      dulieu/             #     DataCodec (SDF1/SDF2) + NenTang (AES-CTR/gunzip/SHA-256: javax.crypto | CommonCrypto + zlib)
+      bando/              #     KieuBanDo (style MapLibre chung), TramTrieu
+      senbien/            #     SenBienGemma (SYSTEM, userMsg, docDap) + interface MayGemma (mỗi nền cài bộ chạy)
+      ios/                #     CauNoiIos — cầu Swift ↔ Kotlin (NSData)
+      commonTest/         #     golden vectors sinh từ code web (§5)
+    androidApp/           #   Jetpack Compose + MapLibre Android 13.7.1 + LiteRT-LM Android 0.18.0
+    iosApp/               #   SwiftUI + MapLibre iOS 7.0.0 + LiteRT-LM Swift 0.18.0; project sinh từ project.yml (XcodeGen)
+    scripts/sinh-testdata.mjs
+  android/ ios/           # vỏ Capacitor — GIỮ phát hành tới khi native đủ (§4), rồi gỡ
 ```
 
+- Phiên bản ghim theo bản Capacitor đang chạy: Gradle 8.14.3, AGP 8.13.0, Kotlin 2.4.0, JDK 21 (Mac: `~/.local/jdk-21`, GPU: `~/android-tools/jdk`).
 - Máy chủ không đổi: native là một máy khách nữa của `/api/*` (175 route) và Supabase (RLS owner-only).
 - Định danh store giữ nguyên ⇒ bản native **cập nhật đè** bản Capacitor: Android `vn.sdvico.forfish`, iOS `vn.sdvico.sdfish`.
 - Bản đồ: MapLibre Native đọc cùng style + pmtiles; lớp SDF2 giải mã trong `shared/du-lieu` rồi cấp qua nguồn tuỳ biến — **rủi ro kỹ thuật lớn nhất**, làm thử nghiệm ở đợt 0.
@@ -50,7 +52,7 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 | Đợt | Nội dung | Xong khi |
 |---|---|---|
-| **0. Khung** | Gradle KMP + `shared/` + `androidApp/` + `iosApp/` (SPM/XCFramework); CI build hai nền; **thử nghiệm rủi ro**: MapLibre Native hiện một lớp SDF2 đã giải mã + LiteRT-LM gọi từ `shared/` | hai app trống mở được, bản đồ nền + một lớp offline hiện trên emulator/simulator |
+| **0. Khung** ✅ 2026-11-04 (§3a) | Gradle KMP + `shared/` + `androidApp/` + `iosApp/` (SPM/XCFramework); CI build hai nền; **thử nghiệm rủi ro**: MapLibre Native hiện một lớp SDF2 đã giải mã + LiteRT-LM gọi từ `shared/` | hai app trống mở được, bản đồ nền + một lớp offline hiện trên emulator/simulator |
 | 1. Nền | model + Ktor/Supabase-kt + đăng nhập + vai + dock + Trang chủ; kho SQLDelight; codec SDF1/SDF2 + khoá dữ liệu; cổng golden vectors TS ↔ Kotlin; **chuyển dữ liệu từ WebView Capacitor cũ** | đăng nhập acc test, Trang chủ đúng 3 vai, mất sóng vẫn mở |
 | 2. Bản đồ | ngư trường + mọi lớp + thời tiết/bão/con nước + điểm đi biển + dẫn đường + Đang chạy giọng nói + AIS + premium | đối chiếu từng lớp với web (QA offline bắt buộc) |
 | 3. Sen Biển | nghe trong máy, n-gram, kho, Gemma, giọng ghép mảnh, TTS, máy nhà | chấm bộ câu thật ≥ bản web |
@@ -59,6 +61,19 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 | 6. Cộng đồng | Kairos, việc làm, push, khuyến mãi | |
 | 7. Phát hành | đối chiếu đủ bảng §2, store listing, gỡ `android/` `ios/` Capacitor + plugin cục bộ đã chuyển | bản native lên Play + App Store đè bản Capacitor |
 
+### 3a. Kết quả đợt 0 (2026-11-04)
+
+| Kiểm | Android (emulator Android 15 x86_64, gpu-desktop) | iOS (simulator iPhone 18 Pro iOS 27, Mac) |
+|---|---|---|
+| Test `shared` (codec khớp web từng byte, Gemma, trạm triều) | `jvmTest` 18/18 xanh (Mac + GPU) | `iosSimulatorArm64Test` 18/18 xanh (CommonCrypto + zlib khớp web) |
+| Nền `vn-basemap.pmtiles` qua `pmtiles://file://` | vẽ đúng đất/nước | vẽ đúng đất/nước |
+| Trạm con nước SDF1 tải từ sdfish.sdvico.vn, `shared` giải + GeoJSON | 106 trạm, 80.730 B | 106 trạm, 80.730 B |
+| Gemma g270v5r gọi qua `shared` (`MayGemma`) | nạp 2,7 s; 0,58–1,35 s/câu, đúng ý 3/3 | nạp 0,52 s; 0,47–0,95 s/câu, đúng ý 3/3 (qua cầu Swift `MayGemma`) |
+
+- Đợt 0 dùng id RIÊNG `vn.sdvico.forfish.native` (cả hai nền) để cài cạnh bản Capacitor; nền + Gemma chép vào bản build (bản rõ từ `public/data`, gitignore) — đợt 1 thay bằng tải + giải SDF2 theo tài khoản.
+- APK debug 190 MB vì mang nền 14 MB + Gemma 62 MB + lõi LiteRT/MapLibre đủ ABI; bản phát hành tách ABI + gói on-demand như §3c ops/native-deploy.
+- Bẫy Mac: IPv6 hỏng ⇒ Gradle không tải được Kotlin/Native — `gradle.properties` ép `-Djava.net.preferIPv4Stack=true`.
+
 ## 4. Trong lúc chuyển
 
 - Bản Capacitor vẫn là bản phát hành; sửa lỗi của nó vẫn làm (vd thẻ "Cài app" hiện trong app native — ẩn bằng `Capacitor.isNativePlatform()`).
@@ -66,7 +81,7 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 ## 5. Cổng khớp logic TS ↔ Kotlin
 
-- Mỗi file `src/lib/` được port: test Vitest xuất `shared/testdata/<ten>.json` (vào/ra), test Kotlin đọc lại cùng file. Đổi logic một bên ⇒ test bên kia đỏ.
+- Mỗi file `src/lib/` được port có một script ở `native/scripts/` CHẠY CHÍNH CODE WEB sinh vector vào/ra thành file Kotlin trong `commonTest` (vd `sinh-testdata.mjs` → `GoldenDataCodec.kt`). Đổi code web ⇒ chạy lại script ⇒ test Kotlin đỏ nếu bản Kotlin chưa theo.
 - Áp đầu tiên cho: `sen-bien/ngram`, `hieu-y`, `data-codec`, `fish-predict`, điểm đi biển, dẫn đường.
 
 ## 6. Assumptions
@@ -75,4 +90,4 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - Đăng nhập, RLS, quyền giữ nguyên phía máy chủ; native không có quyền nào web không có.
 - Offline (CLAUDE.md, chỉ vai chủ tàu): bản native phải qua đủ bộ `ops/qa-offline-acceptance.md` trước khi phát hành.
 
-**Last updated**: 2026-11-04 — tạo doc theo ADR 0019.
+**Last updated**: 2026-11-04 — đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
