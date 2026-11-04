@@ -2099,7 +2099,7 @@ Anh Long: *"chế độ hải đồ thuần này là 1 lớp mới, ko dính t�
 
 **Đường an toàn**: mặc định `Theo mớn` = mức đẳng sâu đầu tiên ≥ max(10, mớn + 1) trong {10, 20, 50}; chọn tay được. Không có 5 m (dữ liệu dưới 10 m kém tin).
 
-**Lối vào / ra**: khay ⋯ màn bản đồ "Kiểu máy" ⇒ ghi `moHaiDo` ⇒ dock "Bản đồ" mở thẳng `/hai-do`; nút Bản đồ thường ⇒ tắt cờ, về `/ngu-truong`.
+**Lối vào / ra**: khay ⋯ màn bản đồ "Kiểu máy" ⇒ ghi `moHaiDo` ⇒ dock "Bản đồ" mở thẳng `/hai-do`; nút Bản đồ thường ⇒ tắt cờ, về `/ngu-truong`. **Đang ở `/hai-do` bấm ô "Bản đồ" trên dock = về bản đồ thường** (tắt cờ — `boHaiDoKhiBam`, 2026-11-04: trước đó dock đi `/ngu-truong` rồi bị đẩy ngược về `/hai-do`, bà con kẹt). Lần sau dock mở kiểu dùng cuối.
 
 ### 13.2 Đợt 2 (2026-11-04) — hướng · dải số · tấm chạm · đo · neo · MOB · chuông · cột nút thông minh
 
@@ -2161,3 +2161,10 @@ Anh Long: *"chế độ hải đồ thuần này là 1 lớp mới, ko dính t�
 - Hướng dạt của người rơi theo dòng chảy CHƯA làm — cần trường dòng chảy (lớp gói); vùng tìm hiện là điểm rơi.
 - Độ sâu dưới tàu chỉ là DẢI từ lưới (không số mét) — ghi "theo lưới độ sâu — tham khảo" ở tấm chạm.
 
+
+
+### 13.7 Luật hiển thị thông minh dùng chung với bản đồ thường (2026-11-04, anh Long: *"các logic thông minh hiển thị chưa chạy với cái hải đồ à"* + *"t chuyển lại ko được"*)
+- **Một lúc một lớp nổi** (như §10.7 I): bấm ⋯ / nút Neo / mục khay nào thì đóng hết khay, Cài đặt, Lớp, Neo và tấm chạm còn mở (`dongNoi`). Trước đó Cài đặt/Lớp neo vào nút ⋯ nên bấm ⋯ không đóng chúng ⇒ khay đè lên Cài đặt (ảnh anh chụp).
+- **Chạm bản đồ khi đang mở một lớp nổi = chỉ đóng lớp đó**, không bung tấm chạm cùng cú chạm (mốc 500 ms sau khi popover đóng vì chạm ngoài).
+- **Tấm chạm tự ẩn sau 3 s** (`SHEET_AUTO_HIDE_MS`, đếm từ lúc dòng gió sóng NGÃ NGŨ — về, hỏng hay không phải biển — như sheet bản đồ thường). Ngoại lệ an toàn (`chamTuAn`): có dòng cảnh báo (xác tàu, đá, cáp…) hoặc có nút việc ⇒ giữ tới khi bà con ×.
+- **Thoát Hải đồ qua dock**: đang ở `/hai-do` bấm ô "Bản đồ" = về bản đồ thường (`boHaiDoKhiBam`, tắt `moHaiDo`).

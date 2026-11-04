@@ -48,3 +48,11 @@ export function mucKhay(t: TinhHinhCot, co: { lop: boolean; tau?: boolean; tuyen
   ds.push("caiDat", "banDo");
   return ds;
 }
+
+/**
+ * Tấm chạm có TỰ ẨN sau SHEET_AUTO_HIDE_MS không (luật liếc-rồi-trả-bản-đồ của màn bản đồ thường, 07 §13.7).
+ * Không tự ẩn khi có dòng CẢNH BÁO (xác tàu, đá, cáp — giấu là giấu nguy hiểm) hoặc có NÚT việc (bà con đang định bấm).
+ */
+export function chamTuAn(dong: readonly { canh?: boolean; viec?: unknown }[]): boolean {
+  return dong.length > 0 && !dong.some((d) => d.canh || d.viec);
+}

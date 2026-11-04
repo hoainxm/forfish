@@ -182,7 +182,7 @@ describe("lưu neo / MOB", () => {
   });
 });
 
-import { mucKhay, nutNoi } from "../hai-do/cot-nut";
+import { chamTuAn, mucKhay, nutNoi } from "../hai-do/cot-nut";
 describe("cột nút thông minh", () => {
   const yen = { coBaoDong: false, dangNeo: false, dangDo: false, nutZoom: false };
   it("lúc yên chỉ 3 nút: Hướng · Về tàu · Thêm", () => {
@@ -213,5 +213,18 @@ describe("cột nút thông minh", () => {
       "caiDat",
       "banDo",
     ]);
+  });
+});
+
+describe("chamTuAn — tấm chạm tự ẩn như sheet bản đồ thường", () => {
+  it("dòng thường ⇒ tự ẩn", () => {
+    expect(chamTuAn([{}, {}])).toBe(true);
+  });
+  it("có cảnh báo hoặc nút việc ⇒ giữ", () => {
+    expect(chamTuAn([{}, { canh: true }])).toBe(false);
+    expect(chamTuAn([{ viec: {} }])).toBe(false);
+  });
+  it("trống ⇒ không đếm", () => {
+    expect(chamTuAn([])).toBe(false);
   });
 });

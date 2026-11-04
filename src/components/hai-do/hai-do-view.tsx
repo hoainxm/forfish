@@ -87,6 +87,7 @@ import { buildHazardList, requiredDepthM } from "@/lib/hazards";
 import { loadPlaces, persistPlaces, removePlace, upsertPlace, type SavedPlace } from "@/lib/places";
 import { DEFAULT_BOAT } from "@/lib/route-plan";
 import { DongY } from "@/components/hai-do/dong-y";
+import { SHEET_AUTO_HIDE_MS } from "@/lib/use-sheet-auto-hide";
 import { KHONG_PHAI_CUM, LA_CUM, SEAMARK_ICON_LAYOUT } from "@/components/ban-do/hai-do";
 import { describeSeamark, fetchSeamarks, huongDiQuaPhao, type Seamark } from "@/lib/seamarks";
 import { fetchDenBien, type DenBien } from "@/lib/den-bien";
@@ -132,7 +133,7 @@ import {
   type VatCham,
 } from "@/lib/hai-do/may";
 import { setMob, setNeo, useMob, useNeo } from "@/lib/hai-do/tam";
-import { mucKhay, nutNoi, type MucKhay } from "@/lib/hai-do/cot-nut";
+import { mucKhay, nutNoi, type MucKhay, chamTuAn } from "@/lib/hai-do/cot-nut";
 import { baoHieuTheoTang, denBienGeo, tramTrieuGeo, vnAidGeo, xacTauGeo } from "@/components/hai-do/lop-du-lieu";
 import { Chip, NutCot } from "@/components/hai-do/ui";
 import { Chuong } from "@/components/hai-do/chuong";
@@ -715,8 +716,18 @@ export default function HaiDoView() {
 
   const [cham, setCham] = useState<DongCham[] | null>(null);
   const chamKhoa = useRef<string | null>(null);
+  /** gió sóng tại điểm đã về / hỏng xong — mốc bắt đầu đếm tự ẩn (như sheet bản đồ thường: đếm từ lúc NGÃ NGŨ) */
+  const [chamXong, setChamXong] = useState(false);
+  /** lúc một lớp nổi vừa đóng vì chạm ra ngoài — cú chạm đó CHỈ để đóng, không bung tấm chạm */
+  const vuaDongRef = useRef(0);
+  useEffect(() => {
+    if (!cham || !chamXong || !chamTuAn(cham)) return;
+    const t = setTimeout(() => setCham(null), SHEET_AUTO_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [cham, chamXong]);
   const onCham = (e: MapLayerMouseEvent) => {
       if (doMo) return;
+      if (Date.now() - vuaDongRef.current < 500) return;
       if (soan) {
         setSoan({ ...soan, diem: [...soan.diem, { lat: e.lngLat.lat, lon: e.lngLat.lng }] });
         setKiem(null);
@@ -808,13 +819,16 @@ export default function HaiDoView() {
         phu: tuTau ? `Từ tàu: ${fmtPv(tuTau.pvDeg)} · ${fmtDist(tuTau.cuLyKm, unit, tuTau.cuLyKm < 10 ? 1 : 0)}` : undefined,
       });
       setCham(dong);
+      setChamXong(false);
       /*  GIÓ SÓNG HÔM NAY tại điểm (đợt 3) — `fetchSeaPoint` có bản lưu trước/mạng sau + trần; chỉ HÔM NAY như
           tài khoản thường (tier). Trên bờ / hỏng ⇒ không thêm dòng. Chạm điểm khác trước khi về ⇒ bỏ. */
       const khoa = `${lat.toFixed(4)},${lng.toFixed(4)}`;
       chamKhoa.current = khoa;
       fetchSeaPoint({ lat, lon: lng }, 1)
         .then((c) => {
-          if (chamKhoa.current !== khoa || !c.onSea) return;
+          if (chamKhoa.current !== khoa) return;
+          setChamXong(true);
+          if (!c.onSea) return;
           const bits: string[] = [];
           if (c.windKmh != null) bits.push(`Gió cấp ${beaufort(c.windKmh)}${c.windDirDeg != null ? ` ${windDirectionVN(c.windDirDeg)}` : ""}`);
           if (c.waveM != null) bits.push(`sóng ${formatNumberVN(c.waveM)} m`);
@@ -823,6 +837,7 @@ export default function HaiDoView() {
         })
         .catch(() => {
           /* mất sóng không bản lưu — tấm chạm vẫn đủ phần trong máy */
+          if (chamKhoa.current === khoa) setChamXong(true);
         });
   };
 
@@ -838,12 +853,27 @@ export default function HaiDoView() {
   const cotNut = nutNoi(tinhCot);
   const khay = mucKhay(tinhCot, { lop: true, tau: aisBat, tuyen: true, vet: true });
   const [lopMo, setLopMo] = useState(false);
+  /*  MỘT LÚC MỘT LỚP NỔI (như bản đồ thường 07 §10.7 I; anh Long 04/11 chụp khay ⋯ đè lên Cài đặt): mở thứ nào thì
+      đóng hết khay/bảng còn lại + tấm chạm. Popover chỉ tự đóng khi chạm NGOÀI nó và ngoài nút neo — Cài đặt/Lớp neo
+      vào nút ⋯ nên bấm ⋯ không đóng chúng; phải đóng ở đây. */
+  const dongNoi = () => {
+    setKhayMo(false);
+    setCaiDatMo(false);
+    setLopMo(false);
+    setNeoMo(false);
+    setCham(null);
+  };
+  /** popover đóng vì chạm ra ngoài ⇒ ghi mốc để cú chạm bản đồ đó không bung tấm chạm */
+  const dongBoiNgoai = (dong: () => void) => () => {
+    vuaDongRef.current = Date.now();
+    dong();
+  };
   const chonKhay = (m: MucKhay) => {
     if (m === "mau") {
       setHaiDoPrefs({ bang: bangKeTiep(bang) });
       return; // khay mở tiếp — chạm nữa để đổi tiếp
     }
-    setKhayMo(false);
+    dongNoi();
     if (m === "do") {
       setDoMo(true);
       setGocDo(null);
@@ -1422,7 +1452,11 @@ export default function HaiDoView() {
           if (n === "chuong") return <Chuong key={n} ds={baoDong} />;
           if (n === "neo")
             return (
-              <NutCot key={n} label="Canh neo" active canh={neoTroi} onClick={() => setNeoMo((v) => !v)} nutRef={setNutNeo}>
+              <NutCot key={n} label="Canh neo" active canh={neoTroi} onClick={() => {
+                  const mo = !neoMo;
+                  dongNoi();
+                  setNeoMo(mo);
+                }} nutRef={setNutNeo}>
                 <AnchorIcon className="h-5 w-5" aria-hidden />
               </NutCot>
             );
@@ -1447,7 +1481,11 @@ export default function HaiDoView() {
               </NutCot>
             );
           return (
-            <NutCot key={n} label={khayMo ? "Đóng khay" : "Thêm: màu, đo, neo, cài đặt…"} active={khayMo} onClick={() => setKhayMo((v) => !v)} nutRef={setNutThem}>
+            <NutCot key={n} label={khayMo ? "Đóng khay" : "Thêm: màu, đo, neo, cài đặt…"} active={khayMo} onClick={() => {
+                const mo = !khayMo;
+                dongNoi();
+                setKhayMo(mo);
+              }} nutRef={setNutThem}>
               <MenuIcon className="h-5 w-5" aria-hidden />
             </NutCot>
           );
@@ -1455,7 +1493,7 @@ export default function HaiDoView() {
       </div>
 
       {khayMo && (
-        <Popover anchor={nutThem} role="menu" label="Thêm" onClose={() => setKhayMo(false)} className="w-[14.5rem] p-2">
+        <Popover anchor={nutThem} role="menu" label="Thêm" onClose={dongBoiNgoai(() => setKhayMo(false))} className="w-[14.5rem] p-2">
           <div className="grid grid-cols-3 gap-1.5">
             {khay.map((m) => {
               const o = KHAY[m];
@@ -1666,7 +1704,7 @@ export default function HaiDoView() {
       )}
 
       {neoMo && (
-        <Popover anchor={neo ? nutNeo : nutThem} label="Canh neo" onClose={() => setNeoMo(false)} className="w-[17rem] p-3">
+        <Popover anchor={neo ? nutNeo : nutThem} label="Canh neo" onClose={dongBoiNgoai(() => setNeoMo(false))} className="w-[17rem] p-3">
           <BangNeo
             dangNeo={neo != null}
             banKinhM={neo?.banKinhM ?? banKinhNeo}
@@ -1690,7 +1728,7 @@ export default function HaiDoView() {
       )}
 
       {lopMo && (
-        <Popover anchor={nutThem} label="Lớp hải đồ" onClose={() => setLopMo(false)} className="w-[17rem] p-3">
+        <Popover anchor={nutThem} label="Lớp hải đồ" onClose={dongBoiNgoai(() => setLopMo(false))} className="w-[17rem] p-3">
           <KhayLop prefs={prefs} coAis={coAis} />
         </Popover>
       )}
@@ -1698,7 +1736,7 @@ export default function HaiDoView() {
       {!prefs.daDongY && <DongY />}
 
       {caiDatMo && (
-        <Popover anchor={nutThem} label="Cài đặt hải đồ" onClose={() => setCaiDatMo(false)} className="w-[17rem] p-3">
+        <Popover anchor={nutThem} label="Cài đặt hải đồ" onClose={dongBoiNgoai(() => setCaiDatMo(false))} className="w-[17rem] p-3">
           <h3 className="text-[0.875rem] font-semibold text-navy">Đường an toàn</h3>
           <div className="mt-2 flex flex-wrap gap-2">
             <Chip on={prefs.anToanM == null} onClick={() => setHaiDoPrefs({ anToanM: null })}>
