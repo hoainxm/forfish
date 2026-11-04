@@ -229,3 +229,11 @@ Anh Long: *"kiểm tra và so với từng màn của 2 app kia, đảm bảo h�
 - **Đợt 3** (lớp + biển): khay Lớp riêng (mức hiển thị, bật tắt từng nhóm, 3 mức sâu + 4 sắc) · AIS · triều · gió sóng · tự chuyển màu theo mặt trời · câu "tham khảo" lần đầu.
 - **Đợt 4** (đi biển có kế hoạch): tuyến + kiểm tuyến + giám sát tuyến · vết tàu · điểm người dùng · GPX.
 - **Đợt 5**: thiết bị NMEA (native).
+
+### 8.3 Tiến độ
+
+| Đợt | Trạng thái | Hàng đã tương đồng (bảng §8) |
+|---|---|---|
+| 1 | ✅ 2026-11-04 | 1, 4 (một phần), 6 (một phần) |
+| 2 | ✅ 2026-11-04 | 1 (mũi Bắc), 2, 3 (Bắc/Hướng đi), 7, 12, 13, 14, 15 + cột nút thông minh (3 nút lúc yên, khay ⋯) |
+

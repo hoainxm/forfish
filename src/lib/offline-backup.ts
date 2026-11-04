@@ -160,6 +160,10 @@ export const TRANSFER_KEYS = [
  *                    `offline-backup.test.ts` — khoá này ra đời sau bản vá.
  */
 export const NEVER_BACKUP_PREFIXES = [
+  /*  · `haiDoNeo.` / `haiDoMob.` — chế độ Hải đồ (2026-11-04): neo đang canh + điểm người rơi = toạ độ MỘT lúc
+   *    của MỘT máy. Chép sang máy khác là máy đó kêu neo trôi / hiện người rơi không có thật. */
+  "forfish.haiDoNeo.",
+  "forfish.haiDoMob.",
   /*  · `vai.` — VAI của tài khoản trên máy này (lib/vai-store, spec 17, 2026-11-03): keyed theo SĐT, máy chủ giữ bản
    *    sao (customers.vai) nên máy mới đăng nhập là lấy lại. Chép sang máy khác của người khác là đổi dock của họ. */
   "forfish.vai.",

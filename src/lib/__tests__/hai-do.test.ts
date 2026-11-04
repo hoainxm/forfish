@@ -147,14 +147,17 @@ describe("tuỳ chọn chế độ hải đồ", () => {
   it("bản lưu hỏng/lạ ⇒ mặc định", () => {
     expect(docHaiDoPrefs(null)).toEqual(HAI_DO_MAC_DINH);
     expect(docHaiDoPrefs("{")).toEqual(HAI_DO_MAC_DINH);
-    expect(docHaiDoPrefs(JSON.stringify({ bang: "tim", anToanM: 7, vecPhut: 99, moHaiDo: "co" }))).toEqual(HAI_DO_MAC_DINH);
+    expect(docHaiDoPrefs(JSON.stringify({ bang: "tim", anToanM: 7, vecPhut: 99, moHaiDo: "co", huong: "xeo", vong: 1 }))).toEqual(HAI_DO_MAC_DINH);
   });
   it("giữ giá trị hợp lệ", () => {
-    expect(docHaiDoPrefs(JSON.stringify({ bang: "dem", anToanM: 20, vecPhut: 12, moHaiDo: true }))).toEqual({
+    expect(docHaiDoPrefs(JSON.stringify({ bang: "dem", anToanM: 20, vecPhut: 12, moHaiDo: true, huong: "huong-di", vong: true, nutZoom: true }))).toEqual({
       bang: "dem",
       anToanM: 20,
       vecPhut: 12,
       moHaiDo: true,
+      huong: "huong-di",
+      vong: true,
+      nutZoom: true,
     });
   });
   it("nút Màu xoay vòng Ngày → Chiều → Đêm → Ngày", () => {

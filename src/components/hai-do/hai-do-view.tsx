@@ -1,23 +1,33 @@
 "use client";
 
 /*
-  CHẾ ĐỘ HẢI ĐỒ (`/hai-do`) — đợt 1, 2026-11-04. Anh Long chốt: "chế độ hải đồ
-  thuần này là 1 lớp mới, ko dính tới cái cũ, bà con quen nhìn giao diện này thì
-  đổi qua thôi … rồi cho cái mới trên cái đó". Rà + hướng: docs/research/
-  hai-do-thuan-sdvico-2026-11.md · spec màn: 07 §10.8.
+  CHẾ ĐỘ HẢI ĐỒ (`/hai-do`) — 2026-11-04. Anh Long chốt: "chế độ hải đồ thuần này là
+  1 lớp mới, ko dính tới cái cũ … rồi cho cái mới trên cái đó"; "đảm bảo hải đồ mình
+  phải dễ dùng và tương đồng [iSailor, OpenCPN] … độc lập với bản đồ đang có rồi nên
+  ko bị ràng buộc". Rà + bảng đối chiếu từng màn: docs/research/hai-do-thuan-sdvico-
+  2026-11.md §8 · spec màn: 07 §13.
 
-  Một màn RIÊNG, không import fishing-map-view. Dùng lại lib dữ liệu + style.
-  Mặt màn chỉ có: hải đồ · tàu mình + vạch hướng đi · dải số liệu trên cùng ·
-  cột nút phải (phóng to/nhỏ, Màu, Cài đặt, về tàu, về Bản đồ) · thước tỉ lệ.
-  Dự báo cá, mật độ tàu, chợ… KHÔNG ở đây (lớp sẽ thêm ở đợt sau, tắt mặc định).
+  Một màn RIÊNG, không import fishing-map-view; dùng lại lib dữ liệu + style.
+    Đợt 1: hải đồ thuần · bảng màu Ngày/Chiều/Đêm · tàu + vạch hướng · thước · đường an toàn.
+    Đợt 2: hướng bản đồ (Bắc/Hướng đi/Tuyến lên) · dải số mở rộng (độ sâu dưới tàu) ·
+           tấm chạm gom · Đo (ERBL) + vòng cự ly · canh neo · MOB · chuông báo động chung.
 
-  Offline: không gọi mạng nào ngoài các file /data đã nằm trong SHELL (sw.js) —
-  báo hiệu, đèn, xác tàu, đảo, đẳng sâu, hình bờ. GPS chỉ ở trong máy.
+  Offline: chỉ file /data trong SHELL (sw.js) + GPS trong máy; tin bão qua
+  useStormCheck (có trần + bản lưu sẵn có của app).
 */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import MapGL, { AttributionControl, Layer, Marker, ScaleControl, Source, type LayerProps, type MapRef } from "react-map-gl/maplibre";
+import MapGL, {
+  AttributionControl,
+  Layer,
+  Marker,
+  ScaleControl,
+  Source,
+  type LayerProps,
+  type MapLayerMouseEvent,
+  type MapRef,
+} from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
@@ -35,104 +45,131 @@ import {
   WRECK_LAYER,
 } from "@/lib/ocean-map";
 import { KHONG_PHAI_CUM, LA_CUM, SEAMARK_ICON_LAYOUT } from "@/components/ban-do/hai-do";
-import { fetchSeamarks, type Seamark } from "@/lib/seamarks";
+import { describeSeamark, fetchSeamarks, huongDiQuaPhao, type Seamark } from "@/lib/seamarks";
 import { fetchDenBien, type DenBien } from "@/lib/den-bien";
 import { fetchVnAids, type VnAid } from "@/lib/vn-aids";
-import { fetchXacTau, type XacTau } from "@/lib/xac-tau";
-import { useNavTracking } from "@/lib/use-nav-tracking";
+import { fetchXacTau, moTaXacTau, type XacTau } from "@/lib/xac-tau";
+import { depthClassAt, fetchDepthGrid, type DepthGrid } from "@/lib/depth-grid";
+import {
+  fetchTideStations,
+  nearestTideStation,
+  tideTrendAt,
+  tideTrendText,
+  tideUpcoming,
+  tideUpcomingText,
+  type TideStation,
+} from "@/lib/tides";
+import { useNavTracking, fixQuaCu } from "@/lib/use-nav-tracking";
+import { useStormCheck } from "@/lib/use-storm-check";
 import { useOnline } from "@/lib/use-online";
 import { readUserRecord } from "@/lib/user-list-store";
-import type { BoatProfile } from "@/lib/route-plan";
-import { fmtCoordPair, speedReadout, useMapPrefs } from "@/lib/map-prefs";
+import type { BoatProfile, LatLon } from "@/lib/route-plan";
+import { haversineKm } from "@/lib/geo";
+import { fmtCoordPair, fmtDist, speedReadout, useMapPrefs } from "@/lib/map-prefs";
 import { NHAN } from "@/lib/labels";
 import { apBangMauLop, doiMau } from "@/lib/hai-do/bang-mau";
 import { dauVecTo, duongAnToanM, MUC_AN_TOAN_M, VEC_PHUT, vecToGeo } from "@/lib/hai-do/an-toan";
 import { buildHaiDoStyle } from "@/lib/hai-do/style";
 import { bangKeTiep, setHaiDoPrefs, useHaiDoPrefs } from "@/lib/hai-do/prefs";
+import {
+  BAN_KINH_NEO_MAC_DINH,
+  DO_SAU_NGAN,
+  doPvCuLy,
+  dsBaoDong,
+  fmtPv,
+  gocCamera,
+  huongKeTiep,
+  lamMuotHuong,
+  NHAN_HUONG,
+  thongSoMob,
+  VONG_CU_LY_NM,
+  vongTron,
+  xepCham,
+  xetNeo,
+  type VatCham,
+} from "@/lib/hai-do/may";
+import { setMob, setNeo, useMob, useNeo } from "@/lib/hai-do/tam";
+import { mucKhay, nutNoi, type MucKhay } from "@/lib/hai-do/cot-nut";
 import { baoHieuTheoTang, denBienGeo, vnAidGeo, xacTauGeo } from "@/components/hai-do/lop-du-lieu";
+import { Chip, NutCot } from "@/components/hai-do/ui";
+import { Chuong } from "@/components/hai-do/chuong";
+import { TamCham, type DongCham } from "@/components/hai-do/tam-cham";
+import { BangMob, BangNeo, NutMob } from "@/components/hai-do/mob-neo";
 import { Popover } from "@/components/ui/popover";
 import {
+  AnchorIcon,
   CloudSunIcon,
   CrosshairIcon,
   GearIcon,
+  LayersIcon,
+  LifebuoyIcon,
+  MenuIcon,
   MinusIcon,
   MoonIcon,
   NavArrowIcon,
   PlusIcon,
   RadarIcon,
+  RouteIcon,
+  RulerIcon,
 } from "@/components/icons";
+
+/** Vết tàu — đường gấp khúc chấm (chưa có icon riêng trong bộ). */
+function TrackIcon(p: { className?: string }) {
+  return (
+    <svg className={p.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19c3-1 3-6 7-7s5-5 9-7" strokeDasharray="2 3" />
+      <circle cx="20" cy="5" r="1.6" />
+    </svg>
+  );
+}
 
 registerPmtilesProtocol();
 registerDataProtocol();
 
-/** Màu vạch hướng đi (nội dung bản đồ) — mực đậm, đổi theo bảng màu như mọi lớp. */
+/** Màu nội dung bản đồ (đổi theo bảng màu như mọi lớp). */
 const VEC_COLOR = "#15333e";
+const DO_COLOR = "#c8461f";
+const NEO_COLOR = "#086e73";
+const MOB_COLOR = "#a82218";
 const NHAN_BANG = { ngay: "Ngày", chieu: "Chiều", dem: "Đêm" } as const;
+const KM_HL = 1.852;
+/** Lớp chạm được — tên lớp khớp `HANG_CHAM` (lib/hai-do/may). */
+const LOP_CHAM = ["hd-xac-tau", "hd-vn-aid", "hd-seamark-near", "hd-seamark-mid", "hd-seamark-far", "hd-den-bien", "hd-island-dot", "hd-island-label"];
+const RONG = { type: "FeatureCollection", features: [] } as GeoJSON.FeatureCollection;
+/** Ô trong khay ⋯ — nhãn từ labels.ts (≤ 2 chữ), tên đầy đủ ở aria-label. */
+const KHAY: Record<MucKhay, { nhan: string; aria: string; icon: (p: { className?: string }) => React.ReactNode }> = {
+  mau: { nhan: NHAN.mauSac, aria: "Bảng màu", icon: CloudSunIcon },
+  do: { nhan: NHAN.doDac, aria: "Đo phương vị, cự ly", icon: RulerIcon },
+  neo: { nhan: NHAN.neoTau, aria: "Canh neo", icon: AnchorIcon },
+  lop: { nhan: NHAN.lop, aria: "Lớp hải đồ", icon: LayersIcon },
+  tuyen: { nhan: NHAN.tuyenDi, aria: "Tuyến đi", icon: RouteIcon },
+  vet: { nhan: NHAN.vetTau, aria: "Vết tàu", icon: TrackIcon },
+  caiDat: { nhan: NHAN.caiDat, aria: "Cài đặt hải đồ", icon: GearIcon },
+  banDo: { nhan: NHAN.banDo, aria: "Về bản đồ thường", icon: RadarIcon },
+};
+const fc = (f: GeoJSON.Feature[]): GeoJSON.FeatureCollection => ({ type: "FeatureCollection", features: f });
 
-/** Nút tròn trên cột phải — chỉ icon (luật thẻ nổi 03 §6 mục 8), tên ở aria-label. */
-function NutCot({
-  label,
-  onClick,
-  children,
-  active = false,
-  nutRef,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-  active?: boolean;
-  nutRef?: (el: HTMLButtonElement | null) => void;
-}) {
-  return (
-    <button
-      ref={nutRef}
-      type="button"
-      aria-label={label}
-      aria-pressed={active || undefined}
-      onClick={onClick}
-      className={`pointer-events-auto flex h-(--h-ctl) w-(--h-ctl) items-center justify-center rounded-full transition active:scale-95 ${
-        active ? "bg-sea text-card" : "glass text-navy"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={`h-(--h-chip) min-w-[3.5rem] rounded-full px-3 text-[0.875rem] font-semibold tabular-nums transition active:scale-95 ${
-        on ? "bg-sea text-card" : "bg-field text-foreground"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function useDuLieu<T>(fetcher: () => Promise<T[]>, online: boolean): T[] | null {
-  const [v, setV] = useState<T[] | null>(null);
+function useDuLieu<T>(fetcher: () => Promise<T>, online: boolean, ok: (v: T) => boolean = () => true): T | null {
+  const [v, setV] = useState<T | null>(null);
   useEffect(() => {
     if (v) return;
     let alive = true;
     fetcher()
       .then((x) => {
-        if (alive && x.length) setV(x);
+        if (alive && ok(x)) setV(x);
       })
       .catch(() => {
         // im có chủ ý: file nằm trong SHELL; hỏng thì lần sóng về (online đổi) tự thử lại.
-        // Thiếu một lớp báo hiệu thì hải đồ vẫn dùng được — không làm sập cả màn.
+        // Thiếu một lớp thì hải đồ vẫn dùng được — không làm sập cả màn.
       });
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `ok` là hàm lọc thuần
   }, [v, online, fetcher]);
   return v;
 }
+const coMuc = (x: unknown[]) => x.length > 0;
 
 export default function HaiDoView() {
   const router = useRouter();
@@ -140,6 +177,7 @@ export default function HaiDoView() {
   const mapPrefs = useMapPrefs();
   const online = useOnline();
   const mapRef = useRef<MapRef>(null);
+  const unit = mapPrefs.distUnit;
   const thuONguon = () =>
     mapRef.current?.getContainer().querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
 
@@ -159,41 +197,139 @@ export default function HaiDoView() {
     return () => document.documentElement.classList.remove(lop);
   }, [bang]);
 
-  const mapStyle = useMemo(
-    () => buildHaiDoStyle({ bang, anToanM, matSong: !online }),
-    [bang, anToanM, online],
-  );
+  const mapStyle = useMemo(() => buildHaiDoStyle({ bang, anToanM, matSong: !online }), [bang, anToanM, online]);
 
-  // GPS — không giữ sáng màn (bà con khoá máy thì thôi, như màn bản đồ cũ khi chưa dẫn đường)
-  const tau = useNavTracking(true, { keepAwake: false });
+  // ── neo / MOB (sống qua tắt-mở app) ───────────────────────────────────────
+  const neo = useNeo();
+  const mob = useMob();
+  const [banKinhNeo, setBanKinhNeo] = useState(neo?.banKinhM ?? BAN_KINH_NEO_MAC_DINH);
+
+  // GPS — giữ sáng màn CHỈ khi đang canh neo / có người rơi (cần nghe chuông)
+  const tau = useNavTracking(true, { keepAwake: neo != null || mob != null });
+  const coGps = tau.pos != null && tau.status !== "denied";
+
+  // ── hướng bản đồ ──────────────────────────────────────────────────────────
+  const [huongMuot, setHuongMuot] = useState<number | null>(null);
+  useEffect(() => {
+    if (tau.headingDeg == null || tau.speedKmh == null) return;
+    const h = tau.headingDeg;
+    setHuongMuot((cu) => lamMuotHuong(cu, h));
+  }, [tau.headingDeg, tau.speedKmh, tau.lastFixAt]);
+  // đồng hồ màn (phút MOB, GPS cũ) — không gọi Date.now() lúc vẽ
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 5000);
+    return () => window.clearInterval(id);
+  }, []);
+  const [goc, setGoc] = useState(0); // bearing camera hiện tại
   const [bam, setBam] = useState(true); // bản đồ đang bám theo tàu
   const daBay = useRef(false);
   useEffect(() => {
-    if (!tau.pos || !bam) return;
     const map = mapRef.current;
     if (!map) return;
+    const bearing = gocCamera(prefs.huong, tau.speedKmh != null ? huongMuot : null, null, map.getBearing());
+    if (!tau.pos || !bam) {
+      if (Math.abs(bearing - map.getBearing()) > 0.5) map.rotateTo(bearing, { duration: 300 });
+      return;
+    }
     if (!daBay.current) {
       daBay.current = true;
-      map.flyTo({ center: [tau.pos.lon, tau.pos.lat], zoom: Math.max(map.getZoom(), 11), duration: 800 });
+      map.flyTo({ center: [tau.pos.lon, tau.pos.lat], zoom: Math.max(map.getZoom(), 11), bearing, duration: 800 });
     } else {
-      map.easeTo({ center: [tau.pos.lon, tau.pos.lat], duration: 400 });
+      map.easeTo({ center: [tau.pos.lon, tau.pos.lat], bearing, duration: 400 });
     }
-  }, [tau.pos, bam]);
+  }, [tau.pos, tau.speedKmh, bam, prefs.huong, huongMuot]);
+
+  // ── neo: xét mỗi fix ─────────────────────────────────────────────────────
+  const demNeo = useRef(0);
+  const [neoTroi, setNeoTroi] = useState(false);
+  const neoCachM = neo && tau.pos ? haversineKm(neo, tau.pos) * 1000 : null;
+  useEffect(() => {
+    if (!neo || !tau.pos) {
+      demNeo.current = 0;
+      setNeoTroi(false);
+      return;
+    }
+    const r = xetNeo(neo, tau.pos, tau.accuracyM, demNeo.current);
+    demNeo.current = r.dem;
+    setNeoTroi(r.troi);
+  }, [neo, tau.pos, tau.accuracyM, tau.lastFixAt]);
 
   const dau = dauVecTo(tau.pos, tau.headingDeg, tau.speedKmh, prefs.vecPhut);
   const vecGeo = useMemo(() => vecToGeo(tau.pos, dau), [tau.pos, dau]);
 
-  // dữ liệu báo hiệu — toàn file trong máy
-  const seamarks = useDuLieu<Seamark>(fetchSeamarks, online);
-  const den = useDuLieu<DenBien>(fetchDenBien, online);
-  const aids = useDuLieu<VnAid>(fetchVnAids, online);
-  const xac = useDuLieu<XacTau>(fetchXacTau, online);
+  // ── dữ liệu trong máy ─────────────────────────────────────────────────────
+  const seamarks = useDuLieu<Seamark[]>(fetchSeamarks, online, coMuc);
+  const den = useDuLieu<DenBien[]>(fetchDenBien, online, coMuc);
+  const aids = useDuLieu<VnAid[]>(fetchVnAids, online, coMuc);
+  const xac = useDuLieu<XacTau[]>(fetchXacTau, online, coMuc);
+  const grid = useDuLieu<DepthGrid>(fetchDepthGrid, online);
+  const tram = useDuLieu<TideStation[]>(fetchTideStations, online, coMuc);
   const tang = useMemo(() => (seamarks ? baoHieuTheoTang(seamarks, den) : null), [seamarks, den]);
   const denGeo = useMemo(() => (den ? denBienGeo(den) : null), [den]);
   const aidGeo = useMemo(() => (aids ? vnAidGeo(aids) : null), [aids]);
   const xacGeo = useMemo(() => (xac ? xacTauGeo(xac) : null), [xac]);
 
-  // lớp vẽ bằng JSX cũng phải theo bảng màu (style nền đã đổi trong buildHaiDoStyle)
+  const doSauTau = grid && tau.pos ? depthClassAt(grid, tau.pos.lat, tau.pos.lon) : null;
+
+  // ── bão gần (tin bão của app — có bản lưu, có trần) ───────────────────────
+  const storm = useStormCheck();
+  const baoGan = useMemo(() => {
+    if (!tau.pos || !storm.check || !storm.check.ok) return null;
+    let best: { ten: string; km: number } | null = null;
+    for (const s of storm.check.storms) {
+      if (s.alert !== "danger") continue;
+      const km = haversineKm(tau.pos, { lat: s.lat, lon: s.lon });
+      if (km < 600 && (!best || km < best.km)) best = { ten: `${s.kindLabel} ${s.name}`.trim(), km };
+    }
+    return best ? `${best.ten} cách ${fmtDist(best.km, unit)}` : null;
+  }, [tau.pos, storm.check, unit]);
+
+  // ── báo động chung ────────────────────────────────────────────────────────
+  const gpsMat = tau.status === "lost" || fixQuaCu(tau.lastFixAt, tau.speedKmh, nowMs);
+  const baoDong = dsBaoDong({
+    mob,
+    neoTroi,
+    neoCachM,
+    baoGan,
+    doSau: doSauTau,
+    anToanM,
+    gpsMat: tau.lastFixAt != null && gpsMat,
+    cpa: null,
+    lechTuyen: null,
+    hetTuyen: false,
+  });
+
+  // ── tâm màn (cho Đo) ──────────────────────────────────────────────────────
+  const [tam, setTam] = useState<LatLon | null>(null);
+  const [doMo, setDoMo] = useState(false);
+  const [gocDo, setGocDo] = useState<LatLon | null>(null);
+  const goDo = gocDo ?? tau.pos;
+  const ketQuaDo = doMo && goDo && tam ? doPvCuLy(goDo, tam) : null;
+  const doGeo = useMemo(
+    () =>
+      doMo && goDo && tam
+        ? fc([{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[goDo.lon, goDo.lat], [tam.lon, tam.lat]] } }])
+        : RONG,
+    [doMo, goDo, tam],
+  );
+
+  // ── vòng: cự ly quanh tàu + vòng neo + MOB ───────────────────────────────
+  const vongGeo = useMemo(
+    () => (prefs.vong && tau.pos ? fc(VONG_CU_LY_NM.map((nm) => vongTron(tau.pos!, nm * KM_HL))) : RONG),
+    [prefs.vong, tau.pos],
+  );
+  const neoGeo = useMemo(() => (neo ? fc([vongTron(neo, neo.banKinhM / 1000)]) : RONG), [neo]);
+  const mobGeo = useMemo(
+    () =>
+      mob && tau.pos
+        ? fc([{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[tau.pos.lon, tau.pos.lat], [mob.lon, mob.lat]] } }])
+        : RONG,
+    [mob, tau.pos],
+  );
+  const soMob = mob && tau.pos ? thongSoMob(mob, tau.pos, Math.max(nowMs, tau.lastFixAt ?? 0), tau.speedKmh) : null;
+
+  // ── lớp JSX theo bảng màu ─────────────────────────────────────────────────
   type Spec = { id: string; type: string; paint?: Record<string, unknown>; layout?: Record<string, unknown> } & Record<string, unknown>;
   const L = (spec: object): LayerProps => apBangMauLop(spec as Spec, bang) as unknown as LayerProps;
   const iconLop = (id: string, minzoom: number, leCum = false) =>
@@ -227,13 +363,95 @@ export default function HaiDoView() {
     }),
   ];
 
-  const [caiDatMo, setCaiDatMo] = useState(false);
-  const [nutCaiDat, setNutCaiDat] = useState<HTMLButtonElement | null>(null);
+  // ── tấm chạm ──────────────────────────────────────────────────────────────
+  const [cham, setCham] = useState<DongCham[] | null>(null);
+  const onCham = (e: MapLayerMouseEvent) => {
+      if (doMo) return;
+      const map = mapRef.current?.getMap();
+      if (!map) return;
+      const { x, y } = e.point;
+      const R = 16;
+      const coLop = LOP_CHAM.filter((id) => map.getLayer(id));
+      const fs = coLop.length ? map.queryRenderedFeatures([[x - R, y - R], [x + R, y + R]], { layers: coLop }) : [];
+      const vat: VatCham[] = [];
+      for (const f of fs) {
+        if (f.properties?.point_count != null) continue;
+        const p = map.project((f.geometry as GeoJSON.Point).coordinates as [number, number]);
+        vat.push({ lop: f.layer.id, i: Number(f.properties?.i ?? f.properties?.rank ?? 0), px: Math.hypot(p.x - x, p.y - y) });
+      }
+      const dong: DongCham[] = [];
+      const islands = fs.filter((f) => f.layer.id.startsWith("hd-island"));
+      for (const v of xepCham(vat)) {
+        if (v.lop === "hd-xac-tau" && xac?.[v.i]) dong.push({ tieu: moTaXacTau(xac[v.i]), canh: true });
+        else if (v.lop.startsWith("hd-seamark") && seamarks?.[v.i]) {
+          const m = seamarks[v.i];
+          dong.push({ tieu: describeSeamark(m), phu: huongDiQuaPhao(m) ?? undefined });
+        } else if (v.lop === "hd-vn-aid" && aids?.[v.i]) {
+          const a = aids[v.i];
+          dong.push({ tieu: a.ten ? `${a.ten} — ${describeSeamark(a)}` : describeSeamark(a), phu: a.tacDung ?? undefined });
+        } else if (v.lop === "hd-den-bien" && den?.[v.i]) {
+          dong.push({ tieu: `Đèn ${den[v.i].ten}`, phu: describeSeamark(den[v.i]) });
+        } else if (v.lop.startsWith("hd-island")) {
+          const ten = islands.find((f) => f.layer.id === v.lop)?.properties?.name;
+          if (ten) dong.push({ tieu: String(ten) });
+        }
+      }
+      const { lat, lng } = e.lngLat;
+      const cls = grid ? depthClassAt(grid, lat, lng) : null;
+      if (cls != null && cls !== 0) dong.push({ tieu: `Độ sâu: ${DO_SAU_NGAN[cls]}`, phu: "theo lưới độ sâu — tham khảo", canh: cls <= 3 });
+      if (tram?.length) {
+        const g = nearestTideStation(tram, lat, lng);
+        if (g && g.distanceKm <= 120) {
+          const now = Date.now();
+          const tiep = tideUpcoming(g.station, now, 1)[0];
+          dong.push({
+            tieu: `${tideTrendText(tideTrendAt(g.station, now))} — trạm ${g.station.name}`,
+            phu: tiep ? tideUpcomingText(tiep) : undefined,
+          });
+        }
+      }
+      const tuTau = tau.pos ? doPvCuLy(tau.pos, { lat, lon: lng }) : null;
+      dong.push({
+        tieu: fmtCoordPair(lat, lng, mapPrefs.coordFormat),
+        phu: tuTau ? `Từ tàu: ${fmtPv(tuTau.pvDeg)} · ${fmtDist(tuTau.cuLyKm, unit, tuTau.cuLyKm < 10 ? 1 : 0)}` : undefined,
+      });
+      setCham(dong);
+  };
 
-  const toc = speedReadout(tau.speedKmh, mapPrefs.distUnit);
-  const huong = tau.headingDeg != null && tau.speedKmh != null ? `${Math.round(tau.headingDeg).toString().padStart(3, "0")}°` : "—";
+  const [caiDatMo, setCaiDatMo] = useState(false);
+  const [neoMo, setNeoMo] = useState(false);
+  const [nutNeo, setNutNeo] = useState<HTMLButtonElement | null>(null);
+  const [moRong, setMoRong] = useState(false);
+
+  // ── cột nút thông minh + khay ⋯ ────────────────────────────────────────────
+  const [khayMo, setKhayMo] = useState(false);
+  const [nutThem, setNutThem] = useState<HTMLButtonElement | null>(null);
+  const tinhCot = { coBaoDong: baoDong.length > 0, dangNeo: neo != null, dangDo: doMo, nutZoom: prefs.nutZoom };
+  const cotNut = nutNoi(tinhCot);
+  const khay = mucKhay(tinhCot, { lop: false, tuyen: false, vet: false });
+  const chonKhay = (m: MucKhay) => {
+    if (m === "mau") {
+      setHaiDoPrefs({ bang: bangKeTiep(bang) });
+      return; // khay mở tiếp — chạm nữa để đổi tiếp
+    }
+    setKhayMo(false);
+    if (m === "do") {
+      setDoMo(true);
+      setGocDo(null);
+      setCham(null);
+    } else if (m === "neo") setNeoMo(true);
+    else if (m === "caiDat") setCaiDatMo(true);
+    else if (m === "banDo") {
+      setHaiDoPrefs({ moHaiDo: false });
+      router.push("/ngu-truong");
+    }
+  };
+
+  const toc = speedReadout(tau.speedKmh, unit);
+  const huong = tau.headingDeg != null && tau.speedKmh != null ? fmtPv(tau.headingDeg) : "—";
   const gpsChu =
     tau.status === "denied" ? "Máy chưa cho GPS" : tau.status === "lost" ? "Mất GPS — đang tìm" : tau.pos ? null : "Đang bắt GPS…";
+  const gio = tau.lastFixAt ? new Date(tau.lastFixAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : null;
 
   return (
     <div className="hai-do relative h-full w-full bg-background" data-bang-mau={bang}>
@@ -246,17 +464,28 @@ export default function HaiDoView() {
         pitchWithRotate={false}
         touchPitch={false}
         onDragStart={() => setBam(false)}
+        onMove={(e) => {
+          setTam({ lat: e.viewState.latitude, lon: e.viewState.longitude });
+          setGoc(e.viewState.bearing);
+        }}
+        onClick={onCham}
         // ô nguồn bản đồ: MapLibre bung sẵn che đáy màn — thu về nút ⓘ (cùng cách màn bản đồ cũ `thuONguon`)
-        onLoad={thuONguon}
+        onLoad={(e) => {
+          thuONguon();
+          e.target.touchZoomRotate.disableRotation();
+          const c = e.target.getCenter();
+          setTam({ lat: c.lat, lon: c.lng });
+        }}
         onStyleData={thuONguon}
+        onResize={thuONguon}
         style={{ width: "100%", height: "100%" }}
       >
         <AttributionControl compact position="bottom-left" />
-        <ScaleControl position="bottom-left" unit={mapPrefs.distUnit === "km" ? "metric" : "nautical"} maxWidth={96} />
+        <ScaleControl position="bottom-left" unit={unit === "km" ? "metric" : "nautical"} maxWidth={96} />
 
         {xacGeo && (
           <Source id="hd-xac-tau" type="geojson" data={xacGeo}>
-            <Layer {...L(WRECK_LAYER)} />
+            <Layer {...L({ ...WRECK_LAYER, id: "hd-xac-tau" })} />
           </Source>
         )}
         {tang && (
@@ -265,14 +494,7 @@ export default function HaiDoView() {
           </Source>
         )}
         {tang && (
-          <Source
-            id="hd-seamarks-mid"
-            type="geojson"
-            data={tang.mid}
-            cluster
-            clusterRadius={SEAMARK_CLUSTER_RADIUS}
-            clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.mid}
-          >
+          <Source id="hd-seamarks-mid" type="geojson" data={tang.mid} cluster clusterRadius={SEAMARK_CLUSTER_RADIUS} clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.mid}>
             <Layer {...iconLop("hd-seamark-mid", SEAMARK_TIER_MINZOOM.mid, true)} />
             {cumLop("hd-seamark-mid", SEAMARK_TIER_MINZOOM.mid).map((s) => (
               <Layer key={s.id} {...s} />
@@ -280,14 +502,7 @@ export default function HaiDoView() {
           </Source>
         )}
         {tang && (
-          <Source
-            id="hd-seamarks-near"
-            type="geojson"
-            data={tang.near}
-            cluster
-            clusterRadius={SEAMARK_CLUSTER_RADIUS}
-            clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.near}
-          >
+          <Source id="hd-seamarks-near" type="geojson" data={tang.near} cluster clusterRadius={SEAMARK_CLUSTER_RADIUS} clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.near}>
             <Layer {...iconLop("hd-seamark-near", SEAMARK_TIER_MINZOOM.near, true)} />
             {cumLop("hd-seamark-near", SEAMARK_TIER_MINZOOM.near).map((s) => (
               <Layer key={s.id} {...s} />
@@ -295,14 +510,7 @@ export default function HaiDoView() {
           </Source>
         )}
         {aidGeo && (
-          <Source
-            id="hd-vn-aids"
-            type="geojson"
-            data={aidGeo}
-            cluster
-            clusterRadius={SEAMARK_CLUSTER_RADIUS}
-            clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.mid}
-          >
+          <Source id="hd-vn-aids" type="geojson" data={aidGeo} cluster clusterRadius={SEAMARK_CLUSTER_RADIUS} clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.mid}>
             <Layer {...iconLop("hd-vn-aid", VN_AID_MINZOOM, true)} />
             {cumLop("hd-vn-aid", VN_AID_MINZOOM).map((s) => (
               <Layer key={s.id} {...s} />
@@ -316,6 +524,23 @@ export default function HaiDoView() {
           </Source>
         )}
 
+        {/* VÒNG CỰ LY 1-2-5 hải lý quanh tàu */}
+        <Source id="hd-vong" type="geojson" data={vongGeo}>
+          <Layer id="hd-vong-line" type="line" paint={{ "line-color": doiMau(VEC_COLOR, bang), "line-width": 1, "line-opacity": 0.55, "line-dasharray": [4, 3] }} />
+        </Source>
+        {/* VÒNG NEO */}
+        <Source id="hd-neo" type="geojson" data={neoGeo}>
+          <Layer id="hd-neo-fill" type="fill" paint={{ "fill-color": doiMau(neoTroi ? MOB_COLOR : NEO_COLOR, bang), "fill-opacity": 0.12 }} />
+          <Layer id="hd-neo-line" type="line" paint={{ "line-color": doiMau(neoTroi ? MOB_COLOR : NEO_COLOR, bang), "line-width": 2 }} />
+        </Source>
+        {/* ĐƯỜNG VỀ NGƯỜI RƠI */}
+        <Source id="hd-mob" type="geojson" data={mobGeo}>
+          <Layer id="hd-mob-line" type="line" paint={{ "line-color": doiMau(MOB_COLOR, bang), "line-width": 3 }} />
+        </Source>
+        {/* ĐO */}
+        <Source id="hd-do" type="geojson" data={doGeo}>
+          <Layer id="hd-do-line" type="line" paint={{ "line-color": doiMau(DO_COLOR, bang), "line-width": 2.5, "line-dasharray": [3, 2] }} />
+        </Source>
         {/* VẠCH HƯỚNG ĐI — vị trí sau N phút nếu giữ hướng + tốc độ */}
         <Source id="hd-vec" type="geojson" data={vecGeo}>
           <Layer
@@ -328,7 +553,7 @@ export default function HaiDoView() {
 
         {/* nhãn chủ quyền — luôn trên mọi lớp (luật 03 §6) */}
         {SOVEREIGNTY_LABELS.map((s) => (
-          <Marker key={s.name} longitude={s.lng} latitude={s.lat} anchor="center">
+          <Marker key={s.name} longitude={s.lng} latitude={s.lat} anchor="center" rotationAlignment="viewport">
             <div className="pointer-events-none select-none text-center leading-tight text-navy [text-shadow:0_0_3px_var(--card),0_0_6px_var(--card)]">
               <div className={s.kind === "sea" ? "text-[0.875rem] font-semibold tracking-[0.18em]" : "text-[0.8125rem] font-semibold tracking-[0.06em]"}>
                 {s.name}
@@ -338,9 +563,24 @@ export default function HaiDoView() {
           </Marker>
         ))}
 
-        {/* TÀU MÌNH — mũi tên xoay theo hướng đi; đứng yên thì chấm tròn (không bịa hướng) */}
+        {neo && (
+          <Marker longitude={neo.lon} latitude={neo.lat} anchor="center">
+            <span role="img" aria-label="Chỗ thả neo" className="pointer-events-none flex h-7 w-7 items-center justify-center rounded-full bg-sea text-card drop-shadow-pin">
+              <AnchorIcon className="h-4 w-4" aria-hidden />
+            </span>
+          </Marker>
+        )}
+        {mob && (
+          <Marker longitude={mob.lon} latitude={mob.lat} anchor="center">
+            <span role="img" aria-label="Chỗ người rơi" className="pointer-events-none flex h-9 w-9 items-center justify-center rounded-full bg-danger text-card drop-shadow-pin">
+              <LifebuoyIcon className="h-5 w-5" aria-hidden />
+            </span>
+          </Marker>
+        )}
+
+        {/* TÀU MÌNH — mũi tên xoay theo hướng đi (theo bản đồ); đứng yên thì chấm tròn (không bịa hướng) */}
         {tau.pos && (
-          <Marker longitude={tau.pos.lon} latitude={tau.pos.lat} anchor="center">
+          <Marker longitude={tau.pos.lon} latitude={tau.pos.lat} anchor="center" rotationAlignment="map">
             <div role="img" aria-label="Vị trí tàu" className="pointer-events-none">
               {tau.headingDeg != null && tau.speedKmh != null ? (
                 <span className="block" style={{ transform: `rotate(${tau.headingDeg}deg)` }}>
@@ -354,69 +594,214 @@ export default function HaiDoView() {
         )}
       </MapGL>
 
-      {/* DẢI SỐ LIỆU — một dòng trên cùng */}
-      <div className="pointer-events-none absolute inset-x-2 top-[calc(env(safe-area-inset-top)+0.5rem)] z-10">
-        <div role="status" className="glass flex items-center gap-3 rounded-full px-4 py-2 text-navy">
-          <div className="flex items-baseline gap-1">
-            <span className="text-[1.375rem] font-semibold tabular-nums">{toc.value}</span>
-            <span className="text-[0.75rem] font-semibold text-muted">{toc.unit}</span>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-[1.375rem] font-semibold tabular-nums">{huong}</span>
-          </div>
-          <div className="ml-auto min-w-0 truncate text-right text-[0.75rem] font-semibold tabular-nums">
-            {gpsChu ? (
-              <span className={tau.status === "denied" || tau.status === "lost" ? "text-warn" : "text-muted"}>{gpsChu}</span>
-            ) : (
-              tau.pos && fmtCoordPair(tau.pos.lat, tau.pos.lon, mapPrefs.coordFormat)
-            )}
-          </div>
+      {/* TÂM ĐO */}
+      {doMo && (
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 text-trim">
+          <CrosshairIcon className="h-9 w-9" />
         </div>
-        <p className="mt-1 pl-4 text-[0.75rem] font-semibold text-muted [text-shadow:0_0_3px_var(--card)]">
-          An toàn {anToanM} m{!online ? " · Mất sóng — dữ liệu trong máy" : ""}
+      )}
+
+      {/* TRÊN CÙNG: bảng MOB (nếu có) hoặc DẢI SỐ LIỆU */}
+      <div className="pointer-events-none absolute inset-x-2 top-[calc(env(safe-area-inset-top)+0.5rem)] z-10 flex flex-col gap-1.5">
+        {mob ? (
+          <BangMob so={soMob} unit={unit} onDaVot={() => setMob(null)} />
+        ) : (
+          <button
+            type="button"
+            aria-expanded={moRong}
+            aria-label="Số liệu tàu — chạm để mở thêm"
+            onClick={() => setMoRong((v) => !v)}
+            className="glass pointer-events-auto flex flex-col rounded-[1.25rem] px-4 py-2 text-left text-navy"
+          >
+            <span className="flex w-full items-center gap-3">
+              <span className="flex items-baseline gap-1">
+                <span className="text-[1.375rem] font-semibold tabular-nums">{toc.value}</span>
+                <span className="text-[0.75rem] font-semibold text-muted">{toc.unit}</span>
+              </span>
+              <span className="text-[1.375rem] font-semibold tabular-nums">{huong}</span>
+              <span className="ml-auto min-w-0 truncate text-right text-[0.75rem] font-semibold tabular-nums">
+                {gpsChu ? (
+                  <span className={tau.status === "denied" || tau.status === "lost" ? "text-warn" : "text-muted"}>{gpsChu}</span>
+                ) : (
+                  tau.pos && fmtCoordPair(tau.pos.lat, tau.pos.lon, mapPrefs.coordFormat)
+                )}
+              </span>
+            </span>
+            {moRong && (
+              <span className="mt-1 flex w-full flex-wrap gap-x-4 gap-y-0.5 border-t border-line pt-1 text-[0.8125rem] font-semibold tabular-nums">
+                <span>
+                  <span className="text-muted">Độ sâu </span>
+                  {doSauTau != null ? DO_SAU_NGAN[doSauTau] : "—"}
+                </span>
+                <span>
+                  <span className="text-muted">Sai số </span>
+                  {tau.accuracyM != null ? `±${Math.round(tau.accuracyM)} m` : "—"}
+                </span>
+                <span>
+                  <span className="text-muted">Giờ </span>
+                  {gio ?? "—"}
+                </span>
+                {neo && neoCachM != null && (
+                  <span className={neoCachM > neo.banKinhM ? "text-danger" : ""}>
+                    <span className="text-muted">Neo </span>
+                    {`${Math.round(neoCachM)}/${neo.banKinhM} m`}
+                  </span>
+                )}
+              </span>
+            )}
+          </button>
+        )}
+        <p className="pl-4 text-[0.75rem] font-semibold text-muted [text-shadow:0_0_3px_var(--card)]">
+          {`An toàn ${anToanM} m · ${NHAN_HUONG[prefs.huong]}`}
+          {neo && !moRong ? ` · Neo ${neoCachM != null ? Math.round(neoCachM) : "—"}/${neo.banKinhM} m` : ""}
+          {!online ? " · Mất sóng — dữ liệu trong máy" : ""}
         </p>
+        {ketQuaDo && (
+          <div className="glass pointer-events-auto flex items-center gap-3 self-start rounded-full py-1.5 pl-4 pr-1.5 text-navy">
+            <span className="text-[1.125rem] font-semibold tabular-nums">{fmtPv(ketQuaDo.pvDeg)}</span>
+            <span className="text-[1.125rem] font-semibold tabular-nums">
+              {fmtDist(ketQuaDo.cuLyKm, unit, ketQuaDo.cuLyKm < 10 ? 2 : 1)}
+            </span>
+            <button type="button" onClick={() => tam && setGocDo(tam)} className="sq-btn bg-field text-foreground">
+              {NHAN.datGoc}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* CỘT NÚT PHẢI */}
-      <div className="pointer-events-none absolute right-2 top-[calc(env(safe-area-inset-top)+5.5rem)] z-10 flex flex-col gap-2">
-        <NutCot label="Phóng to" onClick={() => mapRef.current?.zoomIn()}>
-          <PlusIcon className="h-5 w-5" aria-hidden />
-        </NutCot>
-        <NutCot label="Thu nhỏ" onClick={() => mapRef.current?.zoomOut()}>
-          <MinusIcon className="h-5 w-5" aria-hidden />
-        </NutCot>
-        <NutCot
-          label={`Bảng màu: ${NHAN_BANG[bang]} — chạm để đổi`}
-          onClick={() => setHaiDoPrefs({ bang: bangKeTiep(bang) })}
-        >
-          {bang === "dem" ? <MoonIcon className="h-5 w-5" aria-hidden /> : <CloudSunIcon className="h-5 w-5" aria-hidden />}
-        </NutCot>
-        <NutCot label="Cài đặt hải đồ" active={caiDatMo} onClick={() => setCaiDatMo((v) => !v)} nutRef={setNutCaiDat}>
-          <GearIcon className="h-5 w-5" aria-hidden />
-        </NutCot>
-        <NutCot
-          label="Về chỗ tàu"
-          active={bam && !!tau.pos}
-          onClick={() => {
-            setBam(true);
-            if (tau.pos) mapRef.current?.flyTo({ center: [tau.pos.lon, tau.pos.lat], zoom: Math.max(mapRef.current.getZoom(), 11) });
-          }}
-        >
-          <CrosshairIcon className="h-5 w-5" aria-hidden />
-        </NutCot>
-        <NutCot
-          label="Về bản đồ thường"
-          onClick={() => {
-            setHaiDoPrefs({ moHaiDo: false });
-            router.push("/ngu-truong");
-          }}
-        >
-          <RadarIcon className="h-5 w-5" aria-hidden />
-        </NutCot>
+      {/* CỘT NÚT PHẢI — "thông minh" (lib/hai-do/cot-nut): lúc yên 3 nút, có việc mới nổi thêm */}
+      <div
+        className={`pointer-events-none absolute right-2 z-10 flex flex-col gap-2 ${
+          mob ? "top-[calc(env(safe-area-inset-top)+10.5rem)]" : "top-[calc(env(safe-area-inset-top)+6rem)]"
+        }`}
+      >
+        {cotNut.map((n) => {
+          if (n === "zoom")
+            return (
+              <div key={n} className="flex flex-col gap-2">
+                <NutCot label="Phóng to" onClick={() => mapRef.current?.zoomIn()}>
+                  <PlusIcon className="h-5 w-5" aria-hidden />
+                </NutCot>
+                <NutCot label="Thu nhỏ" onClick={() => mapRef.current?.zoomOut()}>
+                  <MinusIcon className="h-5 w-5" aria-hidden />
+                </NutCot>
+              </div>
+            );
+          if (n === "huong")
+            return (
+              <NutCot
+                key={n}
+                label={`Hướng bản đồ: ${NHAN_HUONG[prefs.huong]} — chạm để đổi`}
+                active={prefs.huong !== "bac"}
+                onClick={() => setHaiDoPrefs({ huong: huongKeTiep(prefs.huong, false) })}
+              >
+                {/* mũi chỉ BẮC thật — xoay ngược theo góc bản đồ */}
+                <span className="block" style={{ transform: `rotate(${-goc}deg)` }}>
+                  <NavArrowIcon className="h-5 w-5" aria-hidden />
+                </span>
+              </NutCot>
+            );
+          if (n === "chuong") return <Chuong key={n} ds={baoDong} />;
+          if (n === "neo")
+            return (
+              <NutCot key={n} label="Canh neo" active canh={neoTroi} onClick={() => setNeoMo((v) => !v)} nutRef={setNutNeo}>
+                <AnchorIcon className="h-5 w-5" aria-hidden />
+              </NutCot>
+            );
+          if (n === "do")
+            return (
+              <NutCot key={n} label="Tắt đo" active onClick={() => setDoMo(false)}>
+                <RulerIcon className="h-5 w-5" aria-hidden />
+              </NutCot>
+            );
+          if (n === "viTri")
+            return (
+              <NutCot
+                key={n}
+                label="Về chỗ tàu"
+                active={bam && !!tau.pos}
+                onClick={() => {
+                  setBam(true);
+                  if (tau.pos) mapRef.current?.flyTo({ center: [tau.pos.lon, tau.pos.lat], zoom: Math.max(mapRef.current.getZoom(), 11) });
+                }}
+              >
+                <CrosshairIcon className="h-5 w-5" aria-hidden />
+              </NutCot>
+            );
+          return (
+            <NutCot key={n} label={khayMo ? "Đóng khay" : "Thêm: màu, đo, neo, cài đặt…"} active={khayMo} onClick={() => setKhayMo((v) => !v)} nutRef={setNutThem}>
+              <MenuIcon className="h-5 w-5" aria-hidden />
+            </NutCot>
+          );
+        })}
       </div>
+
+      {khayMo && (
+        <Popover anchor={nutThem} role="menu" label="Thêm" onClose={() => setKhayMo(false)} className="w-[14.5rem] p-2">
+          <div className="grid grid-cols-3 gap-1.5">
+            {khay.map((m) => {
+              const o = KHAY[m];
+              const Icon = m === "mau" ? (bang === "dem" ? MoonIcon : CloudSunIcon) : o.icon;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="menuitem"
+                  aria-label={m === "mau" ? `Bảng màu: ${NHAN_BANG[bang]} — chạm để đổi` : o.aria}
+                  onClick={() => chonKhay(m)}
+                  className="flex min-h-(--h-ctl) flex-col items-center justify-center gap-0.5 rounded-xl bg-field px-1 py-1.5 text-[0.75rem] font-semibold text-foreground transition active:scale-95"
+                >
+                  <Icon className="h-5 w-5" aria-hidden />
+                  {m === "mau" ? NHAN_BANG[bang] : o.nhan}
+                </button>
+              );
+            })}
+          </div>
+        </Popover>
+      )}
+
+      {/* MOB — góc trái dưới, trên thước tỉ lệ */}
+      {!mob && (
+        <div className="absolute bottom-[7.5rem] left-2 z-10">
+          <NutMob
+            coGps={coGps}
+            onKich={() => {
+              if (!tau.pos) return;
+              setMob({ lat: tau.pos.lat, lon: tau.pos.lon, luc: Date.now() });
+              setBam(true);
+            }}
+          />
+        </div>
+      )}
+
+      {cham && !doMo && <TamCham dong={cham} onDong={() => setCham(null)} />}
+
+      {neoMo && (
+        <Popover anchor={neo ? nutNeo : nutThem} label="Canh neo" onClose={() => setNeoMo(false)} className="w-[17rem] p-3">
+          <BangNeo
+            dangNeo={neo != null}
+            banKinhM={neo?.banKinhM ?? banKinhNeo}
+            cachM={neoCachM}
+            coGps={coGps}
+            onBanKinh={(m) => {
+              setBanKinhNeo(m);
+              if (neo) setNeo({ ...neo, banKinhM: m });
+            }}
+            onTha={() => {
+              if (!tau.pos) return;
+              setNeo({ lat: tau.pos.lat, lon: tau.pos.lon, banKinhM: banKinhNeo, luc: Date.now() });
+              setNeoMo(false);
+            }}
+            onNho={() => {
+              setNeo(null);
+              setNeoMo(false);
+            }}
+          />
+        </Popover>
+      )}
 
       {caiDatMo && (
-        <Popover anchor={nutCaiDat} label="Cài đặt hải đồ" onClose={() => setCaiDatMo(false)} className="w-[17rem] p-3">
+        <Popover anchor={nutThem} label="Cài đặt hải đồ" onClose={() => setCaiDatMo(false)} className="w-[17rem] p-3">
           <h3 className="text-[0.875rem] font-semibold text-navy">Đường an toàn</h3>
           <div className="mt-2 flex flex-wrap gap-2">
             <Chip on={prefs.anToanM == null} onClick={() => setHaiDoPrefs({ anToanM: null })}>
@@ -438,6 +823,24 @@ export default function HaiDoView() {
                 {`${p} phút`}
               </Chip>
             ))}
+          </div>
+          <h3 className="mt-3 text-[0.875rem] font-semibold text-navy">Vòng cự ly</h3>
+          <div className="mt-2 flex gap-2">
+            <Chip on={!prefs.vong} onClick={() => setHaiDoPrefs({ vong: false })}>
+              {NHAN.an}
+            </Chip>
+            <Chip on={prefs.vong} onClick={() => setHaiDoPrefs({ vong: true })}>
+              {"1-2-5 hl"}
+            </Chip>
+          </div>
+          <h3 className="mt-3 text-[0.875rem] font-semibold text-navy">Nút phóng to</h3>
+          <div className="mt-2 flex gap-2">
+            <Chip on={!prefs.nutZoom} onClick={() => setHaiDoPrefs({ nutZoom: false })}>
+              {NHAN.an}
+            </Chip>
+            <Chip on={prefs.nutZoom} onClick={() => setHaiDoPrefs({ nutZoom: true })}>
+              {"+ / −"}
+            </Chip>
           </div>
         </Popover>
       )}

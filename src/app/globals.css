@@ -1015,6 +1015,9 @@ textarea,
   --navy: #d6a078;
   --sea: #b9773f;
   --warn: #e0a040;
+  --warn-bg: #3a2a10;
+  --danger: #e0645a;
+  --danger-bg: #3a1614;
 }
 /* thước tỉ lệ MapLibre trên màn Hải đồ — theo bảng màu (mặc định nền trắng chói giữa đêm) */
 .hai-do .maplibregl-ctrl-scale {

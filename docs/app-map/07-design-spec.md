@@ -2101,8 +2101,29 @@ Anh Long: *"chế độ hải đồ thuần này là 1 lớp mới, ko dính t�
 
 **Lối vào / ra**: khay ⋯ màn bản đồ "Kiểu máy" ⇒ ghi `moHaiDo` ⇒ dock "Bản đồ" mở thẳng `/hai-do`; nút Bản đồ thường ⇒ tắt cờ, về `/ngu-truong`.
 
+### 13.2 Đợt 2 (2026-11-04) — hướng · dải số · tấm chạm · đo · neo · MOB · chuông · cột nút thông minh
+
+- **Cột nút thông minh** (`lib/hai-do/cot-nut.ts`, anh Long: *"hàng nút hơi nhiều nên làm smart như cái bản đồ ấy"*): lúc yên chỉ **3 nút** — Hướng bản đồ (mũi chỉ Bắc thật, xoay ngược góc bản đồ) · Về tàu · ⋯. Chỉ nổi khi có việc: Chuông (có báo động) · Neo (đang canh) · Đo (đang đo) · +/− (bật trong Cài đặt, mặc định ẩn). Khay ⋯ (lưới 3 cột, ô icon + nhãn ≤ 2 chữ): Màu (chạm đổi ngay, khay mở tiếp) · Đo · Neo · Cài đặt · Bản đồ — mục đang nổi ngoài cột không lặp.
+- **Hướng bản đồ**: Bắc lên → Hướng đi lên (hướng làm mượt vòng tròn, tàu đứng thì giữ góc) → (Tuyến lên khi có tuyến, đợt 4). Xoay chỉ bằng nút — tắt xoay hai ngón (tránh lệch tay khi tàu lắc). Mũi tàu xoay theo bản đồ; nhãn chủ quyền luôn đứng thẳng.
+- **Dải số**: chạm để mở dòng 2 — Độ sâu (DẢI theo lưới: Dưới 2 m · 2–4 m · 4–12 m · Trên 12 m · Rạn, đá ngầm), Sai số ±m, Giờ fix, Neo x/y m.
+- **Tấm chạm gom**: chạm hải đồ (±16 px) ⇒ một thẻ đáy: vật (xác tàu → báo hiệu kèm "đi qua phía nào" → đèn → đảo; gần nhất thắng, bỏ trùng tầng) · độ sâu theo lưới · con nước trạm ≤ 120 km (đang lên/xuống + con nước kế) · toạ độ + "Từ tàu: PV · cự ly". × chấm góc phải.
+- **Đo**: tâm chữ thập giữa màn; gốc = tàu (hoặc "Đặt gốc" = tâm hiện tại); thẻ PV 3 số + cự ly. Vòng cự ly 1-2-5 hải lý bật trong Cài đặt.
+- **Canh neo**: vòng 30/50/100/150 m, thả tại tàu; trôi = vượt vòng 3 fix LIÊN TIẾP (fix sai số > nửa bán kính không tính); vòng đổi đỏ + chuông. Lưu `forfish.haiDoNeo.v1` — tắt/mở app vẫn còn. Giữ sáng màn khi đang neo.
+- **MOB**: nút đỏ góc trái dưới (có GPS mới hiện), **giữ 1 giây** (không hộp hỏi); bảng đỏ thay dải số: Hướng tới (3 số) · Cách · phút trước · tới nơi ~phút; đường đỏ tàu→phao; "Đã vớt" cũng giữ 1 giây. Lưu `forfish.haiDoMob.v1`.
+- **Chuông**: `dsBaoDong` — MOB · neo trôi · bão nguy hiểm ≤ 600 km · rạn · nông hơn đường an toàn (chỉ khi CHẮC) · (CPA đợt 3, lệch/hết tuyến đợt 4) · mất GPS (vàng). Báo đỏ chưa "Đã biết" ⇒ beep WebAudio 3 tiếng + rung mỗi 4 s; báo hết rồi tái phát kêu lại.
+
+| Trạng thái thêm | Hiển thị |
+|---|---|
+| Đang neo, trong vòng | nút Neo nổi (xanh), dòng "Neo x/50 m" |
+| Neo trôi | vòng + nút Neo đỏ, chuông đỏ có số, beep |
+| MOB | bảng đỏ trên cùng, phao đỏ, cột dời xuống |
+| Đang đo | chữ thập + thẻ PV/cự ly, chạm hải đồ KHÔNG mở tấm chạm |
+| Máy chặn phát âm | chuông đỏ + rung vẫn còn |
+
 ## Assumptions (§13)
 - Nhãn "Kiểu máy" (không "Hải đồ") vì "Hải đồ" đã là tên nhóm trong khay Lớp màn cũ — anh muốn tên khác thì đổi một dòng `NHAN.kieuMay`.
 - Dự báo cá / mật độ tàu / AIS chưa có trên màn này ở đợt 1 (thuần hải đồ); thêm ở đợt sau dưới dạng lớp TẮT mặc định.
-- GPS không giữ sáng màn (như bản đồ cũ khi chưa dẫn đường) — chế độ Chạy (đợt 2) mới giữ sáng.
+- GPS không giữ sáng màn (như bản đồ cũ khi chưa dẫn đường), TRỪ khi đang canh neo hoặc có MOB (cần nghe chuông).
+- Hướng dạt của người rơi theo dòng chảy CHƯA làm — cần trường dòng chảy (lớp gói); vùng tìm hiện là điểm rơi.
+- Độ sâu dưới tàu chỉ là DẢI từ lưới (không số mét) — ghi "theo lưới độ sâu — tham khảo" ở tấm chạm.
 

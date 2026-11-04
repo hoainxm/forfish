@@ -109,6 +109,18 @@ export const NHAN = {
   kieuMay: "Kiểu máy",
   /** chip đường an toàn = suy từ mớn tàu (chế độ hải đồ) */
   theoMon: "Theo mớn",
+  /** chế độ hải đồ đợt 2 (2026-11-04): canh neo · MOB · chuông · đo */
+  thaNeo: "Thả neo",
+  nhoNeo: "Nhổ neo",
+  daVot: "Đã vớt",
+  daBiet: "Đã biết",
+  datGoc: "Đặt gốc",
+  /** khay ⋯ chế độ hải đồ (cột nút thông minh, 2026-11-04) */
+  mauSac: "Màu",
+  doDac: "Đo",
+  neoTau: "Neo",
+  tuyenDi: "Tuyến",
+  vetTau: "Vết",
   tauToi: "Tàu tôi",
   choCa: "Chợ cá",
   vatTu: "Vật tư",
