@@ -28,18 +28,29 @@ class TramTrieuTest {
         val s = Json.parseToJsonElement(KieuBanDo.dung("https://web", KieuBanDo.Tep())).jsonObject
         val ids = s["layers"]!!.jsonArray.map { it.jsonObject["id"].toString().trim('"') }
         assertEquals("sea-bg", ids.first())
-        assertEquals("chu-quyen", ids.last())
+        assertEquals(listOf("chu-quyen", "chu-quyen-phu"), ids.takeLast(2))
         assertTrue("basemap" !in s["sources"]!!.jsonObject)
         assertTrue(s["glyphs"].toString().contains("https://web/fonts/"))
     }
 
     @Test fun kieuBanDoChenLopSauMocDungThuTu() {
-        val t = KieuBanDo.Tep(nen = "/f/n.pmtiles", dao = "/f/d.json", doSau = "/f/s.json", duongDoSau = "/f/l.json", denBien = "/f/b.json", xacTau = "/f/x.json")
+        val t = KieuBanDo.Tep(nen = "/f/n.pmtiles", dao = "/f/d.json", doSau = "/f/s.json", duongDoSau = "/f/l.json", denBien = "/f/b.json", xacTau = "/f/x.json", tramTrieu = "/f/t.json")
         val s = Json.parseToJsonElement(KieuBanDo.dung("https://web", t)).jsonObject
         val ids = s["layers"]!!.jsonArray.map { it.jsonObject["id"].toString().trim('"') }
         val sau = ids.subList(ids.indexOf("base-top") + 1, ids.size)
-        assertEquals(listOf("island-dot", "island-label", "depth-line", "sounding-dot", "sounding-label", "xac-tau", "den-bien", "den-bien-ten", "chu-quyen"), sau)
+        assertEquals(listOf("island-dot", "island-label", "depth-line", "sounding-dot", "sounding-label", "xac-tau", "den-bien", "den-bien-ten", "tram-trieu-dot", "tram-trieu-dot-cang", "tram-trieu-ten", "tram-trieu-ten-cang", "chu-quyen", "chu-quyen-phu"), sau)
         assertEquals("pmtiles://file:///f/n.pmtiles", s["sources"]!!.jsonObject["basemap"]!!.jsonObject["url"].toString().trim('"'))
         assertEquals("file:///f/s.json", s["sources"]!!.jsonObject["do-sau"]!!.jsonObject["data"].toString().trim('"'))
+    }
+
+    @Test fun netBeRongKhongThiChuaVeDuoiMocDo() {
+        val t = KieuBanDo.Tep(nen = "/f/n.pmtiles")
+        val lops = Json.parseToJsonElement(KieuBanDo.dung("https://web", t)).jsonObject["layers"]!!.jsonArray.associateBy { it.jsonObject["id"].toString().trim('"') }
+        // roads_major: line-width ["interpolate",…,6,0,12,1.6,…] ⇒ minzoom 6; casing_early: line-width 9 → 0 ⇒ 9 (casing_late có sẵn 12 ⇒ giữ)
+        assertEquals("6.0", lops.getValue("roads_major").jsonObject["minzoom"].toString())
+        assertEquals("9.0", lops.getValue("roads_major_casing_early").jsonObject["minzoom"].toString())
+        // lớp không bắt đầu bằng 0 thì để nguyên; minzoom sẵn lớn hơn thì giữ
+        assertEquals(null, lops.getValue("earth").jsonObject["minzoom"])
+        assertEquals("14", lops.getValue("water_stream").jsonObject["minzoom"].toString())
     }
 }

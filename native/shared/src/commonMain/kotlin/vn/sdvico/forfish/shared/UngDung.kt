@@ -2,6 +2,9 @@ package vn.sdvico.forfish.shared
 
 import vn.sdvico.forfish.shared.api.MayChu
 import vn.sdvico.forfish.shared.api.taoHttp
+import vn.sdvico.forfish.shared.bando.NapBanDo
+import vn.sdvico.forfish.shared.dulieu.KhoTep
+import vn.sdvico.forfish.shared.dulieu.TaiDuLieu
 import vn.sdvico.forfish.shared.kho.KhoMay
 import vn.sdvico.forfish.shared.kho.KhoaMay
 import vn.sdvico.forfish.shared.taikhoan.DangNhap
@@ -31,6 +34,13 @@ class UngDung(val kho: KhoMay, val nen: String, private val webGoc: String = Cau
     val khoaDuLieu = KhoaDuLieu(kho, mayChu)
     val vai = VaiMay(kho, mayChu, dongHo)
     val tinBao = NguonTinBao(kho, mayChu)
+
+    /** Nạp file bản đồ vào thư mục `tep` của nền (Android filesDir/du-lieu, iOS Application Support). */
+    fun napBanDo(tep: KhoTep) = NapBanDo(
+        TaiDuLieu(mayChu, khoaDuLieu, tep, kho), tep, kho,
+        homNay = { Clock.System.now().toString().take(10) }, // ISO UTC — y `new Date().toISOString().slice(0, 10)`
+        bayGio = dongHo,
+    )
 
     /** Vai hiện tại trong máy (null = chưa chọn / chưa biết). */
     fun vaiHienTai(): String? = vai.doc(phien.sdt())?.vai

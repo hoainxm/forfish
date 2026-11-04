@@ -50,10 +50,9 @@ dependencies {
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
 }
 
-// ĐỢT 0: nền bản đồ BẢN RÕ trong git (public/data) chép vào assets lúc build; Gemma chép nếu truyền
-// -Pforfish.gemma=<đường dẫn .litertlm>. Cả hai gitignore. Đợt 1 thay bằng tải + giải SDF2 theo tài khoản.
+// Gemma chép vào assets nếu truyền -Pforfish.gemma=<đường dẫn .litertlm> (gitignore). Nền bản đồ KHÔNG còn chép bản rõ
+// vào APK (đợt 2a): tải + giải SDF2 theo tài khoản qua NapBanDo như web.
 val chepDuLieu = tasks.register<Copy>("chepDuLieuDot0") {
-    from(rootProject.file("../public/data/vn-basemap.pmtiles"))
     providers.gradleProperty("forfish.gemma").orNull?.let { p -> from(p) { rename { "gemma.litertlm" } } }
     into(layout.projectDirectory.dir("src/main/assets/du-lieu"))
 }

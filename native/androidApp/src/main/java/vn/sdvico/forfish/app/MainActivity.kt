@@ -33,16 +33,11 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.maplibre.android.MapLibre
-import org.maplibre.android.camera.CameraPosition
-import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
-import org.maplibre.android.maps.Style
 import vn.sdvico.forfish.app.giaodien.BieuTuong
 import vn.sdvico.forfish.app.giaodien.Chu
 import vn.sdvico.forfish.app.giaodien.ChuDeForFish
@@ -57,11 +52,10 @@ import vn.sdvico.forfish.app.giaodien.NutPhu
 import vn.sdvico.forfish.app.giaodien.ODock
 import vn.sdvico.forfish.app.giaodien.ONhap
 import vn.sdvico.forfish.app.giaodien.The
+import vn.sdvico.forfish.app.giaodien.TheCanDangNhap
 import vn.sdvico.forfish.app.giaodien.TheTrangThai
 import vn.sdvico.forfish.shared.CauHinh
 import vn.sdvico.forfish.shared.UngDung
-import vn.sdvico.forfish.shared.bando.DuLieuTramTrieu
-import vn.sdvico.forfish.shared.bando.KieuBanDo
 import vn.sdvico.forfish.shared.giaodien.CoSinh
 import vn.sdvico.forfish.shared.kho.ChuyenKhoCu
 import vn.sdvico.forfish.shared.kho.KhoaMay
@@ -69,9 +63,6 @@ import vn.sdvico.forfish.shared.sinh.NhanSinh
 import vn.sdvico.forfish.shared.taikhoan.KetQuaDangNhap
 import vn.sdvico.forfish.shared.trangchu.BanTinBao
 import vn.sdvico.forfish.shared.trangchu.TinBao
-import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -84,6 +75,7 @@ import java.time.format.DateTimeFormatter
 class MainActivity : ComponentActivity() {
     private lateinit var ung: UngDung
     private lateinit var mapView: MapView
+    private lateinit var banDo: BanDoAndroid
 
     private fun ghi(s: String) = Log.i("ForFishNative", s)
 
@@ -96,6 +88,7 @@ class MainActivity : ComponentActivity() {
         ung = UngDung(KhoAndroid(applicationContext), "android", goc)
         MapLibre.getInstance(this)
         mapView = MapView(this).also { it.onCreate(savedInstanceState) }
+        banDo = BanDoAndroid(ung, mapView, filesDir, if (BuildConfig.DEBUG) intent.getStringExtra("camera") else null)
         val lanVe = mutableIntStateOf(0) // tăng ⇒ vẽ lại theo kho (sau đăng nhập, chuyển kho, đổi vai)
 
         lifecycleScope.launch {
@@ -160,12 +153,13 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun KhungChinh(ve: Int, veLai: () -> Unit, moDangNhap: () -> Unit, moChonVai: () -> Unit) {
         val dock = remember(ve) { ung.dock() }
-        var dang by remember { mutableStateOf("trang-chu") }
+        // debug: `--es o ban-do` mở thẳng một ô dock
+        var dang by remember { mutableStateOf(if (BuildConfig.DEBUG) intent.getStringExtra("o") ?: "trang-chu" else "trang-chu") }
         if (dock.none { it.id == dang }) dang = "trang-chu"
         Box(Modifier.fillMaxSize()) {
             when (dang) {
                 "trang-chu" -> TrangChu(ve, veLai, moDangNhap, moChonVai)
-                "ban-do" -> BanDoThu()
+                "ban-do" -> ManBanDo(ve, moDangNhap)
                 else -> ChuaLam(dock.first { it.id == dang }.nhan, DOT_CUA_O[dang] ?: 7)
             }
             Box(Modifier.align(Alignment.BottomCenter)) {
@@ -346,40 +340,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Ô Bản đồ: vẫn là màn thử đợt 0 (nền pmtiles + trạm con nước) tới đợt 2. Tràn viền dưới dock nổi như web. */
+    /** Ô Bản đồ (đợt 2a): khách thấy cổng đăng nhập như web (RequireLogin "bản đồ ngư trường"); có chuỗi ⇒ bản đồ.
+     *  Đăng ký còn ở web tới đợt 7 (app-map 18 §3b) ⇒ mở trình duyệt. */
     @Composable
-    private fun BanDoThu() {
-        LaunchedEffect(Unit) {
-            val nen = chepTuAssets("vn-basemap.pmtiles")
-            mapView.getMapAsync { map ->
-                map.cameraPosition = CameraPosition.Builder().target(LatLng(KieuBanDo.TAM_LAT, KieuBanDo.TAM_LON)).zoom(KieuBanDo.ZOOM_MO).build()
-                map.setStyle(Style.Builder().fromJson(KieuBanDo.dung(ung.mayChuGoc(), KieuBanDo.Tep(nen = nen?.absolutePath))))
-            }
+    private fun ManBanDo(ve: Int, moDangNhap: () -> Unit) {
+        val daDangNhap = remember(ve) { ung.phien.daDangNhap() }
+        if (!daDangNhap) {
+            TheCanDangNhap("bản đồ ngư trường", moDangKy = {
+                startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(ung.mayChuGoc() + "/dang-ky?next=%2Fngu-truong")))
+            }, moDangNhap = moDangNhap)
+            return
         }
-        AndroidView(factory = { (mapView.parent as? android.view.ViewGroup)?.removeView(mapView); mapView }, modifier = Modifier.fillMaxSize())
-    }
-
-    private suspend fun chepTuAssets(ten: String): File? = withContext(Dispatchers.IO) {
-        val dich = File(filesDir, ten)
-        if (dich.exists() && dich.length() > 0) return@withContext dich
-        try {
-            assets.open("du-lieu/$ten").use { i -> dich.outputStream().use { o -> i.copyTo(o) } }
-            dich
-        } catch (_: java.io.IOException) {
-            null
-        }
-    }
-
-    private fun tai(url: String): ByteArray {
-        val c = URL(url).openConnection() as HttpURLConnection
-        c.connectTimeout = 15000
-        c.readTimeout = 20000
-        try {
-            if (c.responseCode != 200) error("HTTP ${c.responseCode}")
-            return c.inputStream.use { it.readBytes() }
-        } finally {
-            c.disconnect()
-        }
+        banDo.Man()
     }
 
     override fun onStart() { super.onStart(); mapView.onStart() }

@@ -136,12 +136,34 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - 2e dự báo cá + mật độ tàu + AIS.
 - 2f dẫn đường + Đang chạy giọng nói.
 
-### 3e. Bàn giao sang máy GPU (2026-11-04, anh Long: "chuyển qua pc desktop chạy tiếp đi")
+### 3e. Chia việc hai máy (2026-11-04, anh Long)
 
-Từ đây phiên Claude trên `gpu-desktop` (WSL, `~/ForFish`, nhánh `feat/app-native-kmp`) làm tiếp tuần tự, không hỏi lại (quyền đã giao — `~/.claude/CLAUDE.md` mục "Máy GPU + quyền làm việc").
-- **Trạng thái lúc giao**: đợt 2a đang dở. Đã có `KieuBanDo.dung(webGoc, Tep)` (nền sinh từ `buildMapStyle` + chèn lớp sau `base-top` + nhãn chủ quyền; test thứ tự lớp), `BanDoSinh.kt` (`sinh-ban-do.mjs`), `TaiDuLieu` (tải + giải + cất file), quyền vị trí đã khai (manifest + `project.yml`). Ô Bản đồ hai app mới vẽ nền (chưa nối lớp).
-- **Việc kế tiếp 2a**: (1) port bộ giải `decodeSoundings`/`decodeSoundingRoutes`/verdicts/`fmtDepthM`/`isStale`, `decodeFairwayDepths`, `decodeDenBien` + `lighthouseSymbolId` + `lightAbbrev`, `decodeXacTau` + `wreckSymbolId` sang `shared/bando/HaiDo.kt`, dựng GeoJSON y `soundingGeo/depthLineGeo/denBienGeo/xacTauGeo` (V:2970–3130). `native/scripts/sinh-hai-do.mjs` + `shared/src/jvmTest/resources/hai-do/*.json` đã sinh sẵn GeoJSON mẫu từ code web (chạy lại script để chắc) — viết test jvmTest đọc `public/data/*` so với mẫu; (2) lớp điều phối tải các file (`vn-basemap.pmtiles`, `vn-islands.v1.json`, bốn file trên) qua `TaiDuLieu`, đổi GeoJSON, cất `.geojson`, trả `KieuBanDo.Tep` — có hàm đọc bản đã cất cho lúc mất sóng; (3) Android: nối vào ô Bản đồ + GPS (`locationComponent` của MapLibre, xin quyền lúc vào bản đồ, nút về tàu); (4) iOS: viết cùng phần đó trong Swift (`showsUserLocation`) — KHÔNG build được trên GPU, để Mac build khi anh mở phiên Mac.
-- **Sau 2a**: 2b → 2f theo §3d, rồi đợt 3–7. Mỗi bước xanh: `./gradlew :shared:jvmTest` + `~/android-tools/build-native.sh` (emulator) + ảnh chụp đối chiếu web, commit + push `feat/app-native-kmp`, cập nhật doc này cùng commit.
+- **PC GPU (Windows, `C:\Code\ForFish`) viết `shared` + Android**: `native/shared` (commonMain/commonTest/jvmMain/jvmTest), `native/androidApp`, `native/scripts`, doc. **WSL CHỈ để train** — không code, không build app ở WSL (bản clone `~/ForFish` của WSL không dùng cho native nữa).
+- **Mac viết iOS**: `native/iosApp` (Swift) + build/kiểm `shared/iosMain`. PC chỉ sửa `iosMain` khi bắt buộc (expect/actual) và ghi "chưa build iOS — Mac kiểm".
+- Hai máy cùng push `feat/app-native-kmp` ⇒ luôn `git pull --rebase` trước push. Mỗi đợt con PC ghi mục **"Cho Mac"** dưới đây: API `shared` Swift cần gọi + màn Android tương ứng.
+- Công cụ Windows (ngoài repo, không cần admin): `C:\Users\admin\android-tools` — JDK 21 Temurin, SDK (platform 36, build-tools 36, emulator + AVD `senbien` android-35 x86_64, WHPX), `gemma.litertlm`; `native/local.properties` (gitignore) = `sdk.dir=C:/Users/admin/android-tools/sdk`. Build: Git Bash `JAVA_HOME=/c/Users/admin/android-tools/jdk sh ./gradlew :shared:jvmTest :androidApp:assembleDebug -Pforfish.gemma=…` (gradlew.bat trong Git Bash trả 127 — dùng `sh ./gradlew`).
+
+### 3f. Kết quả đợt 2a — Android (2026-11-04)
+
+**Đã làm** (`shared` + Android): `bando/HaiDo.kt` (port `decodeSoundings`/verdicts/`fmtDepthM`/`isStale`, `decodeFairwayDepths`, `decodeDenBien`+`lighthouseSymbolId`+`lightAbbrev`, `decodeXacTau`+`wreckSymbolId` ⇒ GeoJSON y `soundingGeo/depthLineGeo/denBienGeo/xacTauGeo`), `bando/ConNuoc.kt` (trạm con nước + ký hiệu lên/xuống, tính lại mỗi 5 phút), `bando/ViTriTau.kt` (fix GPS cũ ⇒ mờ ghim), `bando/NapBanDo.kt` (`daCat()` chỉ đọc máy · `capNhat()` hỏi ETag, hỏng file nào giữ bản cũ file đó; glyph + sprite cất trong máy), `UngDung.napBanDo(tep)`. Android `BanDoAndroid.kt`: ô Bản đồ vẽ bản đã cất ngay rồi cập nhật, ghim tàu (ảnh `boat_marker` như web + quầng nhấp nháy), xin quyền vị trí lúc vào bản đồ, nút về tàu; khách thấy thẻ "Cần tài khoản" (`TheCanDangNhap`) như web.
+
+**Kiểm** (emulator Windows, acc test 0900000777):
+
+| Ca | Kết quả |
+|---|---|
+| `:shared:jvmTest` | 71/71 xanh (mẫu hải đồ + con nước + vị trí tàu sinh từ code web: `sinh-hai-do.mjs`, `sinh-con-nuoc.mjs`, `sinh-vi-tri-tau.mjs`) |
+| `:androidApp:assembleDebug` | xanh |
+| Khách mở Bản đồ | thẻ khoá "Cần tài khoản để mở bản đồ ngư trường" + Đăng ký/Đăng nhập |
+| Có chuỗi, toàn cảnh | nền + đảo + nhãn chủ quyền Hoàng Sa/Trường Sa, ghim tàu, nút về tàu |
+| Vũng Tàu z11 so web | đường độ sâu, điểm đo sâu, đèn biển (Aval, Vũng Tàu), xác tàu, trạm "Vũng Tàu · đang xuống" cùng chỗ cùng ký hiệu; phần web có thêm (cụm báo hiệu +N, rạn, địa danh ngầm, vùng ven biển) thuộc 2b |
+| Mất sóng (`--es webGoc https://127.0.0.1:9`) | vẽ đủ từ bản đã cất; tin bão "không hỏi được" giữ bản cũ |
+| Chưa cấp quyền vị trí / từ chối | hỏi quyền, bản đồ vẫn vẽ, không ghim, không sập |
+
+**Sửa trong lúc kiểm**: chưa có GPS mà gán `Geometry` null vào nguồn tàu ⇒ MapLibre SIGABRT qua JNI (`GeoJson.type()` on null) ⇒ nay gán FeatureCollection rỗng.
+
+**Cho Mac (iOS 2a)**: gọi `ung.napBanDo(KhoTepIos(...))` ⇒ `daCat()` vẽ ngay, `capNhat()` (suspend, trả `Pair<Tep, List<String> thiếu>`) rồi vẽ lại; `KieuBanDo.dung(ung.mayChuGoc(), tep)` ra style JSON; con nước: `conNuocLucNay()` mỗi 5 phút đổi nguồn `tram-trieu`; ghim tàu: `ViTriTau.fixQuaCu(lastFixAt, speedKmh, now)` ⇒ mờ 0,45 + tắt quầng; ảnh ghim = `androidApp/src/main/res/drawable-nodpi/boat_marker.png` (@2x, 72×100 pt, neo đáy). `KhoTepIos.ghi` nay tạo thư mục con (glyph `fonts/<fontstack>/…`) — **chưa build iOS, Mac kiểm**.
+
+**Kế tiếp**: 2b → 2f theo §3d, rồi đợt 3–7.
 
 ## 4. Trong lúc chuyển
 
@@ -160,4 +182,4 @@ Từ đây phiên Claude trên `gpu-desktop` (WSL, `~/ForFish`, nhánh `feat/app
 - Đăng nhập, RLS, quyền giữ nguyên phía máy chủ; native không có quyền nào web không có.
 - Offline (CLAUDE.md, chỉ vai chủ tàu): bản native phải qua đủ bộ `ops/qa-offline-acceptance.md` trước khi phát hành.
 
-**Last updated**: 2026-11-04 — đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
+**Last updated**: 2026-11-04 — đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.

@@ -10,6 +10,7 @@ class KhoTepFile(private val goc: File) : KhoTep {
     override fun co(ten: String): Boolean = File(goc, ten).let { it.isFile && it.length() > 0 }
     override fun ghi(ten: String, byte: ByteArray): Boolean = try {
         val tam = File(goc, "$ten.tam")
+        tam.parentFile?.mkdirs() // tên có thư mục con (fonts/<fontstack>/…)
         tam.writeBytes(byte)
         tam.renameTo(File(goc, ten)) || run { File(goc, ten).delete(); tam.renameTo(File(goc, ten)) }
     } catch (_: Exception) {

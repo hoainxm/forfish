@@ -45,9 +45,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import vn.sdvico.forfish.app.R
+import androidx.compose.ui.unit.sp
 import vn.sdvico.forfish.shared.giaodien.CoSinh
+import vn.sdvico.forfish.shared.sinh.NhanSinh
 
 /*
   MẢNH GIAO DIỆN CHUNG = mảnh của web (03 §0b). Tên mảnh web trong ngoặc để đối chiếu.
@@ -185,6 +188,53 @@ fun HangYen(chu: String, phu: String?, icon: String, mauIcon: Color) {
             if (phu != null) Text(phu, style = Chu.phu)
         }
     }
+}
+
+/** Cổng đăng nhập cấp màn (RequireLogin): thẻ giữa màn — ổ khoá trong tròn t1, "Cần tài khoản để mở …",
+ *  nút chính cam (Đăng ký, rộng ≤ 17.5rem, cao 3.5rem, bo tròn) + chữ sea (Đăng nhập). */
+@Composable
+fun TheCanDangNhap(cai: String, moDangKy: () -> Unit, moDangNhap: () -> Unit) {
+    Box(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 24.dp), contentAlignment = Alignment.TopCenter) {
+        Column(
+            Modifier.widthIn(max = 416.dp).fillMaxWidth().clip(R_THE).background(Mau.the).border(1.dp, Mau.vien, R_THE)
+                .padding(horizontal = 20.dp, vertical = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(Modifier.size(56.dp).clip(CircleShape).background(Mau.t1Nen), contentAlignment = Alignment.Center) { BieuTuong("Lock", Mau.t1, 28.dp) }
+            Text(
+                "Cần tài khoản để mở $cai", style = Chu.h2.copy(lineHeight = 24.sp), textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            Text(
+                "Tạo nhanh bằng số điện thoại, hoặc đăng nhập nếu đã có.", style = Chu.noiDung.copy(color = Mau.chu.copy(alpha = 0.7f)),
+                textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp).widthIn(max = 300.dp),
+            )
+            val i = remember { MutableInteractionSource() }
+            Box(
+                Modifier.padding(top = 16.dp).widthIn(max = 280.dp).fillMaxWidth().scale(nhan(i)).height(56.dp).clip(CircleShape)
+                    .background(Mau.trim).clickable(i, null, onClick = moDangKy),
+                contentAlignment = Alignment.Center,
+            ) { Text(NhanSinh.nhan("dangKy"), style = Chu.h2.copy(color = Color.White)) }
+            Box(
+                Modifier.padding(top = 8.dp).height(56.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = moDangNhap).padding(horizontal = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text(NhanSinh.nhan("dangNhap"), style = Chu.ten.copy(color = Mau.sea)) }
+        }
+    }
+}
+
+/** Nút tròn nổi trên bản đồ (NutViTri / NutLoa): vuông --h-ctl, nền kính (máy không blur ⇒ trắng 0.92 như @supports
+ *  của .glass) + bóng nhẹ; `bat` = nền sea đặc, icon trắng. Chỉ icon — tên đọc qua mô tả trợ năng. */
+@Composable
+fun NutTron(icon: String, moTa: String, bat: Boolean = false, onClick: () -> Unit) {
+    val i = remember { MutableInteractionSource() }
+    Box(
+        Modifier.scale(nhan(i)).size(CoSinh.HCtl.dp)
+            .shadow(6.dp, CircleShape, ambientColor = Mau.muc.copy(alpha = 0.22f), spotColor = Mau.muc.copy(alpha = 0.22f))
+            .clip(CircleShape).background(if (bat) Mau.sea else Color.White.copy(alpha = 0.92f))
+            .clickable(i, null, onClick = onClick).semantics { contentDescription = moTa },
+        contentAlignment = Alignment.Center,
+    ) { BieuTuong(icon, if (bat) Color.White else Mau.sea, 18.dp) }
 }
 
 data class ODock(val id: String, val nhan: String)

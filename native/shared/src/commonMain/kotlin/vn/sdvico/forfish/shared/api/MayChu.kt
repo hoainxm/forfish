@@ -2,6 +2,7 @@ package vn.sdvico.forfish.shared.api
 
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
@@ -63,9 +64,10 @@ class MayChu(
     }
 
     /** Tải nhị phân (file dữ liệu bản đồ) — kèm chuỗi + If-None-Match. 304 ⇒ than rỗng, giữ bản cũ. */
-    suspend fun taiByte(duong: String, etag: String?): TaiByte = try {
+    suspend fun taiByte(duong: String, etag: String?, hanMs: Long? = null): TaiByte = try {
         val r = http.request(goc + duong) {
             method = HttpMethod.Get
+            if (hanMs != null) timeout { requestTimeoutMillis = hanMs; socketTimeoutMillis = 60_000 }
             phien.token()?.let { header(HEADER_CHUOI, it) }
             if (etag != null) header("If-None-Match", etag)
         }

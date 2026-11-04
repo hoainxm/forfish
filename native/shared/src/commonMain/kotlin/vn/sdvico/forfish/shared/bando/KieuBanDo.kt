@@ -19,13 +19,15 @@ import vn.sdvico.forfish.shared.giaodien.MauSinh
     1. đổi đường dẫn web sang FILE TRONG MÁY (TaiDuLieu đã tải + giải): `pmtiles:///data/…` ⇒ `pmtiles://file://…`,
        GeoJSON ⇒ `file://…`; glyph/sprite ⇒ địa chỉ tuyệt đối máy chủ (MapLibre giữ trong kho ambient khi mất sóng);
     2. thiếu file nào thì BỎ nguồn + lớp của nó (bản đồ vẫn vẽ nền nước, không trắng câm);
-    3. chèn lớp hải đồ sau mốc `base-top` theo đúng thứ tự JSX của fishing-map-view; nhãn chủ quyền trên cùng.
+    3. chèn lớp hải đồ sau mốc `base-top` theo đúng thứ tự JSX của fishing-map-view; nhãn chủ quyền trên cùng;
+    4. lớp `line` có `line-width` nội suy theo zoom bắt đầu bằng 0 ⇒ minzoom = mốc đó: GL JS không vẽ nét bề rộng 0,
+       MapLibre Native thì VẼ thành nét mảnh (đo trên emulator 2026-11-04: cả lưới đường bộ hiện ở z4.6 mà web không có).
 */
 object KieuBanDo {
-    /** Tâm + mức phóng mở màn: Biển Đông phía Việt Nam. */
-    const val TAM_LAT = 15.5
-    const val TAM_LON = 110.0
-    const val ZOOM_MO = 4.6
+    /** Tâm + mức phóng mở màn = DEFAULT_VIEW của web (sinh). */
+    const val TAM_LAT = BanDoSinh.TAM_LAT
+    const val TAM_LON = BanDoSinh.TAM_LON
+    const val ZOOM_MO = BanDoSinh.ZOOM_MO
 
     /** Đường dẫn tuyệt đối các file trong máy; null = chưa có. GeoJSON đã đổi sẵn (HaiDo / DuLieuTramTrieu). */
     data class Tep(
@@ -35,6 +37,11 @@ object KieuBanDo {
         val duongDoSau: String? = null,
         val denBien: String? = null,
         val xacTau: String? = null,
+        val tramTrieu: String? = null,
+        /** thư mục glyph trong máy (chứa "<fontstack>/<range>.pbf"); null ⇒ glyph từ máy chủ */
+        val kyTu: String? = null,
+        /** đường sprite trong máy không đuôi (…/chart-sprite); null ⇒ sprite từ máy chủ */
+        val sprite: String? = null,
     )
 
     private fun lop(json: String, nguon: String): JsonObject =
@@ -71,6 +78,10 @@ object KieuBanDo {
             them += lop(BanDoSinh.LOP.getValue("LIGHTHOUSE_LAYER"), "den-bien")
             them += lop(BanDoSinh.LOP.getValue("LIGHTHOUSE_LABEL_LAYER"), "den-bien")
         }
+        tep.tramTrieu?.let {
+            nguon["tram-trieu"] = nguonFile(it)
+            Json.parseToJsonElement(BanDoSinh.LOP_TRAM).jsonArray.forEach { l -> them += JsonObject(l.jsonObject + ("source" to JsonPrimitive("tram-trieu"))) }
+        }
         // nhãn chủ quyền — luôn có, luôn trên cùng (web: Marker HTML; native: lớp chữ cùng nội dung + màu)
         nguon["chu-quyen"] = buildJsonObject {
             put("type", "geojson")
@@ -78,14 +89,15 @@ object KieuBanDo {
         }
         val chuQuyen = lopChuQuyen()
 
+        lops = lops.map(::minzoomTheoBeRong)
         val i = lops.indexOfFirst { (it["id"] as? JsonPrimitive)?.content == BanDoSinh.MOC_CHEN }.let { if (it < 0) lops.size else it + 1 }
         val tatCa = lops.subList(0, i) + them + lops.subList(i, lops.size) + chuQuyen
 
         val tuyetDoi = { s: String -> if (s.startsWith("/")) webGoc + s else s }
         return JsonObject(
             goc + mapOf(
-                "glyphs" to JsonPrimitive(tuyetDoi((goc["glyphs"] as JsonPrimitive).content)),
-                "sprite" to JsonPrimitive(tuyetDoi((goc["sprite"] as JsonPrimitive).content)),
+                "glyphs" to JsonPrimitive(tep.kyTu?.let { "file://$it/{fontstack}/{range}.pbf" } ?: tuyetDoi((goc["glyphs"] as JsonPrimitive).content)),
+                "sprite" to JsonPrimitive(tep.sprite?.let { "file://$it" } ?: tuyetDoi((goc["sprite"] as JsonPrimitive).content)),
                 "sources" to JsonObject(nguon),
                 "layers" to JsonArray(tatCa),
             ),
@@ -94,35 +106,43 @@ object KieuBanDo {
 
     private fun mauHex(argb: Long) = "#" + (argb and 0xFFFFFF).toString(16).padStart(6, '0')
 
-    /** = Marker chủ quyền của web: chữ navy 0.875rem/0.8125rem đậm, giãn chữ 0.18em (biển) / 0.06em (quần đảo), dòng phụ
-     *  nghiêng 0.75rem, quầng trắng; không bao giờ bị lớp khác che hay ẩn vì va chạm. */
-    private fun lopChuQuyen(): List<JsonObject> = listOf(
-        buildJsonObject {
-            put("id", "chu-quyen")
+    /** Mốc zoom đầu tiên của `["interpolate", _, ["zoom"], z0, 0, …]` ở line-width ⇒ minzoom (giữ minzoom lớn hơn nếu có). */
+    internal fun minzoomTheoBeRong(l: JsonObject): JsonObject {
+        if ((l["type"] as? JsonPrimitive)?.content != "line") return l
+        val w = (l["paint"] as? JsonObject)?.get("line-width") as? JsonArray ?: return l
+        if ((w.getOrNull(0) as? JsonPrimitive)?.content != "interpolate") return l
+        if ((w.getOrNull(2) as? JsonArray)?.getOrNull(0)?.let { (it as? JsonPrimitive)?.content } != "zoom") return l
+        val z0 = (w.getOrNull(3) as? JsonPrimitive)?.content?.toDoubleOrNull() ?: return l
+        if ((w.getOrNull(4) as? JsonPrimitive)?.content?.toDoubleOrNull() != 0.0) return l
+        val cu = (l["minzoom"] as? JsonPrimitive)?.content?.toDoubleOrNull()
+        if (cu != null && cu >= z0) return l
+        return JsonObject(l + ("minzoom" to JsonPrimitive(z0)))
+    }
+
+    /** = Marker chủ quyền của web: chữ navy đậm — tên 0.875rem giãn 0.18em (biển) / 0.8125rem giãn 0.06em (quần đảo),
+     *  dòng phụ 0.75rem (web nghiêng; máy chủ glyph không có Noto Sans Italic ⇒ đứng) không giãn chữ; khối hai dòng
+     *  leading-tight canh giữa điểm; quầng trắng; không bao giờ bị lớp khác che hay ẩn vì va chạm.
+     *  Hai lớp (tên / dòng phụ) vì `text-letter-spacing` không đặt riêng được cho từng đoạn của `format`. */
+    private fun lopChuQuyen(): List<JsonObject> {
+        fun lop(id: String, layout: String) = buildJsonObject {
+            put("id", id)
             put("type", "symbol")
             put("source", "chu-quyen")
-            putJsonObject("layout") {
-                put(
-                    "text-field",
-                    Json.parseToJsonElement(
-                        """["format",["get","ten"],{"font-scale":1},"\n",{},["get","phu"],{"font-scale":0.86,"text-font":["literal",["Noto Sans Regular"]]}]""",
-                    ),
-                )
-                put("text-font", buildJsonArray { add(JsonPrimitive("Noto Sans Bold")) })
-                put("text-size", Json.parseToJsonElement("""["case",["==",["get","bien"],1],14,13]"""))
-                put("text-letter-spacing", Json.parseToJsonElement("""["case",["==",["get","bien"],1],0.18,0.06]"""))
-                put("text-allow-overlap", true)
-                put("text-ignore-placement", true)
-                put("text-justify", "center")
-            }
+            put("layout", Json.parseToJsonElement(layout))
             putJsonObject("paint") {
                 put("text-color", mauHex(MauSinh.Navy))
                 put("text-halo-color", "#ffffff")
                 put("text-halo-width", 2)
                 put("text-halo-blur", 1)
             }
-        },
-    )
+        }
+        val chung = """"text-font":["Noto Sans Bold"],"text-allow-overlap":true,"text-ignore-placement":true,"text-max-width":100,"text-justify":"center","text-anchor":"center""""
+        return listOf(
+            // có dòng phụ: khối 2 dòng × 1.25 ⇒ tên lên 0.58em, dòng phụ xuống 0.68em (tâm khối đúng điểm)
+            lop("chu-quyen", """{"text-field":["get","ten"],"text-size":["case",["==",["get","bien"],1],14,13],"text-letter-spacing":["case",["==",["get","bien"],1],0.18,0.06],"text-offset":["case",["==",["get","phu"],""],["literal",[0,0]],["literal",[0,-0.58]]],$chung}"""),
+            lop("chu-quyen-phu", """{"text-field":["get","phu"],"text-size":12,"text-offset":[0,0.68],$chung}"""),
+        )
+    }
 
     internal fun phanTu(json: String): JsonElement = Json.parseToJsonElement(json)
 }

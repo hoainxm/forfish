@@ -42,6 +42,21 @@ const lopDao = [
   },
 ];
 
+// LOP_TRAM = bốn <Layer> của Source "tram-trieu" CHÉP Y JSX fishing-map-view.tsx (~8248): trạm vùng từ z5, trạm cảng
+// từ TIDE_STATION_CANG_MINZOOM — cùng TIDE_STATION_LAYER / _LABEL_LAYER của ocean-map.
+const lopTram = [
+  { ...om.TIDE_STATION_LAYER, filter: om.TIDE_FILTER_VUNG },
+  { ...om.TIDE_STATION_LAYER, id: "tram-trieu-dot-cang", minzoom: om.TIDE_STATION_CANG_MINZOOM, filter: om.TIDE_FILTER_CANG },
+  { ...om.TIDE_STATION_LABEL_LAYER, filter: om.TIDE_FILTER_VUNG },
+  { ...om.TIDE_STATION_LABEL_LAYER, id: "tram-trieu-ten-cang", minzoom: om.TIDE_STATION_CANG_MINZOOM, filter: om.TIDE_FILTER_CANG },
+];
+
+// TEP_TINH = glyph + sprite mà service worker web giữ sẵn cho offline (public/sw.js) — native tải về file trong máy
+// (kho ambient của MapLibre không bảo đảm giữ: đo 2026-11-04, không với tới glyph là MẤT MỌI NHÃN, kể cả chủ quyền).
+const sw = (await import("node:fs")).readFileSync(join(repo, "public/sw.js"), "utf8");
+const tepTinh = [...new Set([...sw.matchAll(/"(\/(?:fonts\/[^"]+\.pbf|icons\/chart-sprite[^"]*))"/g)].map((m) => m[1]))];
+if (!tepTinh.some((d) => d.startsWith("/fonts/")) || !tepTinh.some((d) => d.includes("chart-sprite@2x.json"))) throw new Error("sw.js không còn danh sách glyph/sprite — sửa script");
+
 const chuQuyen = {
   type: "FeatureCollection",
   features: om.SOVEREIGNTY_LABELS.map((s) => ({
@@ -60,6 +75,10 @@ package vn.sdvico.forfish.shared.bando
 internal object BanDoSinh {
     const val KIEU_NEN = ${kt(om.buildMapStyle(null, { seamarks: false }))}
     const val KIEU_NEN_HAI_DO = ${kt(om.buildMapStyle("bathymetry", { seamarks: false }))}
+    /** = DEFAULT_VIEW — khung mở màn: trọn bờ biển VN + Hoàng Sa + Trường Sa */
+    const val TAM_LAT = ${om.DEFAULT_VIEW.latitude}
+    const val TAM_LON = ${om.DEFAULT_VIEW.longitude}
+    const val ZOOM_MO = ${om.DEFAULT_VIEW.zoom}
     /** = SEA_MASK_COLOR */
     const val MAU_BIEN = ${kt(om.SEA_MASK_COLOR)}
     /** = OFFLINE_COAST_BEFORE_ID — mốc chèn giữa nhóm nền và nhóm nội dung */
@@ -68,6 +87,9 @@ internal object BanDoSinh {
 ${LOP_XUAT.map((k) => `        ${kt(k)} to ${kt(om[k])},`).join("\n")}
     )
     const val LOP_DAO = ${kt(lopDao)}
+    /** = glyph + sprite trong SHELL của public/sw.js (đường web, đã mã hoá %20) */
+    val TEP_TINH: List<String> = listOf(${tepTinh.map((d) => kt(d)).join(", ")})
+    const val LOP_TRAM = ${kt(lopTram)}
     const val CHU_QUYEN = ${kt(chuQuyen)}
 }
 `);

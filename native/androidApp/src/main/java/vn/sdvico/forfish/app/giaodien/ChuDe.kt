@@ -36,6 +36,8 @@ object Mau {
     val warnNen = Color(MauSinh.WarnBg)
     val nguy = Color(MauSinh.Danger)
     val nguyNen = Color(MauSinh.DangerBg)
+    val t1 = Color(MauSinh.T1)
+    val t1Nen = Color(MauSinh.T1Bg)
     val muc = Color(MauSinh.InkRgb) // kênh bóng đổ (--ink-rgb)
 }
 

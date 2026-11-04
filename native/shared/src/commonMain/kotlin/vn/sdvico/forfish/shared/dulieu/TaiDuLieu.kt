@@ -37,10 +37,11 @@ class TaiDuLieu(
 
     fun daCo(ten: String): String? = if (tep.co(ten)) tep.duong(ten) else null
 
-    /** `ten` = tên file trong /data (vd "vn-basemap.pmtiles"). */
-    suspend fun lay(ten: String): KetQuaTai {
+    /** `ten` = tên file cất trong máy (vd "vn-basemap.pmtiles", "fonts/Noto Sans Bold/0-255.pbf"); `duong` = đường web
+     *  (mặc định /data/<ten>); `hanMs` = trần thời gian riêng cho file lớn (nền 14 MB qua sóng biển yếu). */
+    suspend fun lay(ten: String, duong: String = "/data/$ten", hanMs: Long? = null): KetQuaTai {
         val cu = daCo(ten)
-        val r = mayChu.taiByte("/data/$ten", if (cu != null) kho.doc(khoaEtag(ten)) else null)
+        val r = mayChu.taiByte(duong, if (cu != null) kho.doc(khoaEtag(ten)) else null, hanMs)
         if (r !is MayChu.TaiByte.Co) return cu?.let { KetQuaTai.Co(it, false) } ?: KetQuaTai.Khong("mat_song")
         if (r.ma == 304 && cu != null) return KetQuaTai.Co(cu, false)
         if (r.ma != 200) return cu?.let { KetQuaTai.Co(it, false) } ?: KetQuaTai.Khong("http_${r.ma}")

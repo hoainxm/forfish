@@ -23,6 +23,7 @@ class KhoTepIos : KhoTep {
     override fun duong(ten: String) = "$goc/$ten"
     override fun co(ten: String) = NSFileManager.defaultManager.fileExistsAtPath(duong(ten))
     override fun ghi(ten: String, byte: ByteArray): Boolean {
+        duong(ten).substringBeforeLast('/').let { NSFileManager.defaultManager.createDirectoryAtPath(it, true, null, null) }
         val d = if (byte.isEmpty()) NSData() else byte.usePinned { NSData.create(bytes = it.addressOf(0), length = byte.size.toULong()) }
         return d.writeToFile(duong(ten), atomically = true)
     }
