@@ -41,7 +41,7 @@ import {
   setVmsZoneOn,
 } from "@/lib/map-prefs";
 import { VMS_ZONES_UPDATED, type VmsZone } from "@/lib/vms-zones";
-import { FishSpeciesContent } from "@/components/fish-species-sheet";
+import { FishPicker } from "@/components/fish-species-sheet";
 import { MyPlacesContent } from "@/components/my-places-sheet";
 import {
   AlertIcon,
@@ -74,6 +74,7 @@ import { AppVersionLine } from "@/components/app-version-line";
 import { VoiceSettingsSection } from "@/components/nav-voice-ui";
 import { Popover } from "@/components/ui/popover";
 import { tideToggleSub } from "@/lib/tides";
+import { setHaiDoPrefs } from "@/lib/hai-do/prefs";
 
 const FISH_COLOR = "var(--fish)"; // xanh lá — cá/ngư trường (token globals, Phương án A)
 
@@ -126,6 +127,8 @@ export function RaKhoiControls({
   species,
   regionShorts,
   onPickSpecies,
+  fishPicks,
+  onFishPicks,
   fleetAllowed,
   aisAllowed,
   fleetOn,
@@ -254,6 +257,9 @@ export function RaKhoiControls({
   species: string[];
   regionShorts: Set<string>;
   onPickSpecies: (sp: string | null) => void;
+  /** loài bà con đánh (tối đa 3, lib/fish-picks) — null = chưa chọn lần nào ⇒ mở bộ chọn */
+  fishPicks: string[] | null;
+  onFishPicks: (picks: string[]) => void;
   /** LỚP MẬT ĐỘ TÀU DỰ KIẾN (2026-10-25): theo ngày/tháng/mùa/trăng — cùng khoá premium với lớp cá
       (fishAccess); loại trừ với lớp cá vì hai lớp cùng tô ô 0,25° */
   /** xem trước nội bộ — false thì panel KHÔNG hiện mục mật độ tàu (lib/fleet-density canSeeDensity) */
@@ -415,9 +421,12 @@ export function RaKhoiControls({
   }, [routeOn]);
 
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // đang chọn loài cá (bộ chọn mở) ⇒ KHÔNG tự ẩn: ngẫm loài nào mất hơn 5 s, ẩn là mất bộ đang chọn dở
+  const giuMo = useRef(false);
   const armAutoHide = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => {
+      if (giuMo.current) return;
       setOpen(null);
       setCollapsed(true);
     }, AUTO_HIDE_MS);
@@ -429,6 +438,14 @@ export function RaKhoiControls({
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
   }, [collapsed, open, armAutoHide]);
+  const onGiuMo = useCallback(
+    (v: boolean) => {
+      if (giuMo.current === v) return;
+      giuMo.current = v;
+      if (!v) armAutoHide(); // chọn xong ⇒ đếm lại 5 s như thường
+    },
+    [armAutoHide],
+  );
 
   const RAIL: {
     id: PanelId;
@@ -548,6 +565,9 @@ export function RaKhoiControls({
                   species={species}
                   regionShorts={regionShorts}
                   onPickSpecies={onPickSpecies}
+                  fishPicks={fishPicks}
+                  onFishPicks={onFishPicks}
+                  onGiuMo={onGiuMo}
                   fleetAllowed={fleetAllowed}
                   aisAllowed={aisAllowed}
                   fleetOn={fleetOn}
@@ -740,6 +760,19 @@ export function RaKhoiControls({
             onClose={() => setMore(false)}
             className="flex w-[11rem] flex-col gap-0.5 p-1"
           >
+            {/*  CHẾ ĐỘ HẢI ĐỒ (2026-11-04, anh Long: "1 lớp mới, ko dính tới cái cũ, bà con quen nhìn
+                 giao diện này thì đổi qua") — màn riêng `/hai-do`; máy nhớ lựa chọn để lần sau mở thẳng.
+                 ĐẦU KHAY (rà soát 2026-11-04: để cuối khay thì khó tìm — iSailor/OpenCPN mở ra là hải đồ). */}
+            <RailBtn
+                onClick={() => {
+                  setMore(false);
+                  setHaiDoPrefs({ moHaiDo: true });
+                  diTrang(router, "/hai-do");
+                }}
+                aria-label="Kiểu máy hải đồ — chuyển sang màn hải đồ thuần"
+                icon={NavArrowIcon}
+                label={NHAN.kieuMay}
+              />
             {/*  "Vị trí" và "Chạy tàu" (loa) đã ra NGOÀI bản đồ — nút về tàu + nút loa
                  ở cột góc phải dưới (khung 2026-10-20) — không lặp trong khay. */}
             {premiumTools && onRoutePanel && (
@@ -1145,6 +1178,9 @@ function NguTruongPanel({
   species,
   regionShorts,
   onPickSpecies,
+  fishPicks,
+  onFishPicks,
+  onGiuMo,
   fleetAllowed,
   aisAllowed,
   fleetOn,
@@ -1179,6 +1215,11 @@ function NguTruongPanel({
   species: string[];
   regionShorts: Set<string>;
   onPickSpecies: (sp: string | null) => void;
+  /** loài bà con đánh (tối đa 3, lib/fish-picks) — null = chưa chọn lần nào ⇒ mở bộ chọn */
+  fishPicks: string[] | null;
+  onFishPicks: (picks: string[]) => void;
+  /** bộ chọn loài đang mở ⇒ panel cha thôi tự ẩn */
+  onGiuMo: (v: boolean) => void;
   fleetAllowed: boolean;
   /** QUYỀN XEM AIS theo tài khoản (ô quản trị `tau_ais_xem`, 2026-10-29) — nút AIS trên rail + toggle Tàu xung quanh */
   aisAllowed: boolean;
@@ -1208,12 +1249,16 @@ function NguTruongPanel({
   onAisRetry: () => void;
 }) {
   const fishLocked = fishAccess === "login" || fishAccess === "upgrade";
-  // Chọn loài XỔ RA ngay trong panel (dropdown), KHÔNG swap view/đổi bề rộng
-  // panel nữa (user 2026-07-27: đừng nhảy panel giật ra giật vô).
-  const [expanded, setExpanded] = useState(false);
-  const name = fishSpecies
-    ? SPECIES_META[fishSpecies]?.full ?? fishSpecies
-    : "Mọi loài"; // nhãn nút chọn loài ≤2 chữ (rà Codex lần 8)
+  // BỘ CHỌN LOÀI (2026-11-04): chưa chọn lần nào ⇒ bộ chọn mở sẵn; đã chọn ⇒ hàng chip
+  // loài + "Đổi". Chạm một chip = chỉ xem riêng loài đó (chạm lại = cả bộ).
+  const [editing, setEditing] = useState(false);
+  const [nhap, setNhap] = useState<string[]>([]);
+  const moChon = editing || fishPicks == null;
+  const dangChon = fishOn && !fishLocked && moChon;
+  useEffect(() => {
+    onGiuMo(dangChon);
+    return () => onGiuMo(false);
+  }, [dangChon, onGiuMo]);
   return (
     <div>
       {/* KHÔNG nói tuổi bản đồ cá ở đây nữa (bỏ 2026-07-25 — màn hình rối) */}
@@ -1239,52 +1284,51 @@ function NguTruongPanel({
       )}
       {fishOn && !fishLocked && (
         <>
-          {/* Chú giải Thấp/TB/Cao ĐÃ DỜI ra nổi mép trái bản đồ (user
-              2026-07-27) — không lặp lại trong panel nữa. */}
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            className="mt-2 flex w-full items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-left transition active:scale-[0.99]"
-          >
-            {/* khi MỞ dropdown → nhãn "Chọn loài" (≤2 chữ, rà Codex lần 9) + ẩn chấm, để KHÔNG trùng
-                với item "Mọi loài" trong danh sách (user 2026-07-27) */}
-            {!expanded && (
-              <span
-                className="h-3 w-3 shrink-0 rounded-full"
-                style={{
-                  background: fishSpecies
-                    ? SPECIES_META[fishSpecies]?.color ?? FISH_COLOR
-                    : FISH_COLOR,
-                }}
-                aria-hidden
-              />
-            )}
-            <span className="min-w-0 flex-1 break-words text-[0.9375rem] font-semibold leading-snug text-navy">
-              {expanded ? "Chọn loài" : name}
-            </span>
-            <ChevronRightIcon
-              className={`h-4 w-4 shrink-0 text-navy/55 transition-transform ${
-                expanded ? "rotate-90" : ""
-              }`}
+          {moChon ? (
+            <FishPicker
+              species={species}
+              picks={nhap}
+              regionShorts={regionShorts}
+              onChange={setNhap}
+              onDone={() => {
+                onFishPicks(nhap);
+                onPickSpecies(null);
+                setEditing(false);
+              }}
             />
-          </button>
-
-          {/* Danh sách loài dùng CHUNG thanh cuộn của panel (Popover tự kẹp
-              maxHeight + overflow-y-auto) — KHÔNG bọc khung cuộn riêng, tránh
-              2 thanh scroll lồng nhau (user 2026-07-27). */}
-          {expanded && (
-            <div className="mt-2">
-              <FishSpeciesContent
-                species={species}
-                current={fishSpecies}
-                regionShorts={regionShorts}
-                cols={1}
-                onPick={(sp) => {
-                  onPickSpecies(sp);
-                  setExpanded(false);
+          ) : (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {fishPicks.map((sp) => {
+                const on = fishSpecies === sp;
+                return (
+                  <button
+                    key={sp}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => onPickSpecies(on ? null : sp)}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8125rem] font-semibold transition active:scale-[0.97] ${
+                      on ? "bg-navy text-white" : fishSpecies ? "bg-field text-navy/55" : "bg-field text-navy"
+                    }`}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: SPECIES_META[sp]?.color ?? FISH_COLOR }}
+                      aria-hidden
+                    />
+                    {SPECIES_META[sp]?.full ?? sp}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  setNhap(fishPicks);
+                  setEditing(true);
                 }}
-              />
+                className="rounded-full px-2.5 py-1.5 text-[0.8125rem] font-semibold text-trim underline-offset-2 active:scale-[0.97]"
+              >
+                {NHAN.doi}
+              </button>
             </div>
           )}
         </>

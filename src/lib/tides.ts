@@ -71,9 +71,13 @@ export interface TideStation {
    *  · "gauge" (mặc định) — phân tích từ MÁY ĐO mực nước thật. Chuẩn vàng.
    *  · "model" — quy đổi từ MÔ HÌNH triều EOT20 cho cửa lạch xa mọi trạm đo.
    *    Kém tin hơn; UI phải nói rõ "ước tính từ mô hình" (xem tideModelCaveat).
+   *  · "bang" (2026-11-04) — quy đổi từ BẢNG TRIỀU HÀNG HẢI rút gọn (4 sóng
+   *    M2·S2·K1·O1 + P1/K2 suy ra, xem `consTuBangTrieu`) cho đảo xa bờ chưa có
+   *    trạm đo lẫn mô hình trong file (Hoàng Sa, Song Tử). Chưa kiểm chứng tại
+   *    chỗ ⇒ UI đối xử y như "model": luôn nói "ước tính".
    * Vắng cờ = "gauge" (4 trạm cũ không ghi cờ vẫn là trạm đo).
    */
-  nguon?: "gauge" | "model";
+  nguon?: "gauge" | "model" | "bang";
   /**
    * HẠNG hiển thị trên bản đồ (2026-09-04, "sinh ở các cảng luôn"):
    *  · "vung" (vắng cờ) — trạm VÙNG: 4 trạm đo + 7 trạm mô hình cửa lạch lớn,
@@ -90,9 +94,9 @@ export interface TideStation {
   cons: TideConstituent[];
 }
 
-/** Trạm ước tính từ mô hình (nguon="model"), không phải máy đo thật. */
+/** Trạm ƯỚC TÍNH — mô hình hoặc bảng triều rút gọn ("model"/"bang"), không phải máy đo thật. */
 export function isModelStation(st: TideStation): boolean {
-  return st.nguon === "model";
+  return st.nguon === "model" || st.nguon === "bang";
 }
 
 export interface TideStationsFile {
@@ -633,6 +637,47 @@ export function decodeTideStations(raw: unknown): TideStation[] {
       s.cons.length > 0 &&
       s.cons.every(isCons),
   );
+}
+
+/**
+ * Hằng số RÚT GỌN của bảng triều hàng hải (kiểu "phương pháp điều hoà đơn
+ * giản" của bảng triều Anh — Transas/iSailor dùng đúng kiểu này): 4 sóng, pha
+ * `g` (độ) tính theo GIỜ KHU VỰC của trạm, biên độ `h` (cm).
+ */
+export interface BangTrieuRutGon {
+  /** múi giờ bảng dùng, giờ ĐÔNG (VN +7). Bảng gốc có trạm ghi +8 — giữ đúng số gốc để quy đổi pha, KHÔNG hiện ra màn. */
+  muiGio: number;
+  M2: [g: number, h: number];
+  S2: [g: number, h: number];
+  K1: [g: number, h: number];
+  O1: [g: number, h: number];
+}
+
+/*  Hằng số ±90° của khai triển thế triều mà bảng có mà V(t) ở đây KHÔNG có
+    (xem "QUY ƯỚC PHA" đầu file). Đo thật 2026-11-04 trên 58 cặp trạm trùng
+    nhau giữa bảng Transas và file này: K1 lệch đều −90°, O1 +90°, M2/S2 0°. */
+const HANG_SO_PHA: Record<string, number> = { M2: 0, S2: 0, K2: 0, K1: -90, O1: 90, P1: 90 };
+
+/**
+ * Quy đổi bảng triều rút gọn → sóng theo quy ước file này (giờ UTC).
+ * Thêm P1 = K1/3 cùng pha K1 và K2 = 0,27·S2 cùng pha S2 — đúng luật suy của
+ * phương pháp rút gọn. Không có hai sóng này, vùng nhật triều (vịnh Bắc Bộ)
+ * lệch ~30 cm; có thì ~16 cm (đo Hòn Dấu 1995).
+ */
+export function consTuBangTrieu(b: BangTrieuRutGon): TideConstituent[] {
+  const song: [string, [number, number], number][] = [
+    ["M2", b.M2, 1],
+    ["S2", b.S2, 1],
+    ["K1", b.K1, 1],
+    ["O1", b.O1, 1],
+    ["P1", b.K1, 1 / 3],
+    ["K2", b.S2, 0.27],
+  ];
+  return song.map(([name, [g, h], tiLe]) => ({
+    name,
+    amp: Number(((h / 100) * tiLe).toFixed(4)),
+    phase: Number(norm360(g - tideSpeed(name) * b.muiGio + HANG_SO_PHA[name]).toFixed(2)),
+  }));
 }
 
 const EARTH_KM = 6371;

@@ -413,6 +413,11 @@ const SHELL = [
       duyệt cài lại, `c.add` nhét entry mới vào kho đang dùng; bump là xoá vỏ đang chạy được).
       /api/kairos/* KHÔNG vào API_CACHE_ALLOW — gắn danh tính (hayByMe, mine, chặn). */
   "/kairos",
+  /*  CHẾ ĐỘ HẢI ĐỒ (2026-11-04) — màn riêng kiểu máy hải đồ; bà con chọn nó thì dock "Bản đồ"
+      mở thẳng màn này, nên giữa biển mất sóng cũng phải mở được. Dữ liệu dùng chung với
+      /ngu-truong (cùng file /data đã có ở trên) — không thêm dung lượng. CHỈ THÊM URL ⇒
+      KHÔNG bump SDFISH_CACHE_V (luật đầu file). */
+  "/hai-do",
   /*  VẬT TƯ (rà toàn app 2026-10-29) — ô thứ sáu của dock (`dock-nav.ts`) mà bị sót: máy chưa
       từng mở Vật tư lúc có sóng thì ra khơi bấm vào là chờ rồi rơi về Trang chủ, trong khi chip
       "vỏ đủ" vẫn xanh. "Đã thích" + giỏ đọc từ máy (`forfish.mfav.v1`, `forfish.mcart.v1`).

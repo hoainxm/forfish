@@ -59,6 +59,8 @@ import {
   vnIsoDate,
   TIDE_FAR_KM,
   type TideStation,
+  consTuBangTrieu,
+  type BangTrieuRutGon,
 } from "../tides";
 
 const FILE = join(process.cwd(), "public", "data", "tide-stations.v1.json");
@@ -281,7 +283,7 @@ describe("file public/data/tide-stations.v1.json", () => {
         · tổng số trạm ≥ 4,
         · MỖI trạm — cũ hay mới — có nguồn UHSLC, có RMSE kiểm chứng, đủ sóng. */
   const REQUIRED = ["hon-dau", "quy-nhon", "vung-ang", "vung-tau"];
-  const gauges = stations.filter((s) => s.nguon !== "model");
+  const gauges = stations.filter((s) => s.nguon !== "model" && s.nguon !== "bang");
   const models = stations.filter((s) => s.nguon === "model");
 
   it("giữ đủ 4 trạm ĐO gốc, chỉ được thêm — không được bớt", () => {
@@ -393,10 +395,39 @@ describe("file public/data/tide-stations.v1.json", () => {
 
   it("toạ độ trạm nằm trong vùng biển Việt Nam", () => {
     for (const st of stations) {
+      // trạm bảng triều là đảo xa bờ Hoàng Sa / Trường Sa — khung riêng bên dưới
+      if (st.nguon === "bang") continue;
       expect(st.lat).toBeGreaterThan(8);
       expect(st.lat).toBeLessThan(23);
       expect(st.lon).toBeGreaterThan(102);
       expect(st.lon).toBeLessThan(112);
+    }
+  });
+
+  /*  TRẠM BẢNG TRIỀU (2026-11-04): Hoàng Sa + Song Tử Tây, quy đổi từ bảng triều
+      Transas (gói iSailor Wärtsilä gửi). Bảng gốc ghi hai trạm theo giờ +8 và
+      tên tiếng Anh — cổng này giữ để thứ đó KHÔNG lọt ra màn. */
+  it("trạm bảng triều: đúng 2 đảo xa bờ, tên Việt, gắn cờ ước tính, đủ sóng suy", () => {
+    const bang = stations.filter((s) => s.nguon === "bang");
+    expect(bang.map((s) => s.id).sort()).toEqual(["hoang-sa", "song-tu-tay"]);
+    for (const st of bang) {
+      expect(isModelStation(st)).toBe(true);
+      expect(tideModelCaveat(st)).toMatch(/ƯỚC TÍNH/);
+      expect(st.rmseM).toBeNull();
+      expect(st.source).toMatch(/Transas/);
+      expect(st.source).not.toMatch(/UHSLC|EOT20/);
+      // chủ quyền: không tên nước ngoài, không múi giờ +8 trong chữ hiện ra
+      for (const chu of [st.name, st.note ?? ""]) {
+        expect(chu).not.toMatch(/Paracel|Spratly|Xisha|Nansha|Danger|South China|\+8|UTC/i);
+      }
+      // Hoàng Sa + Trường Sa
+      expect(st.lat).toBeGreaterThan(6);
+      expect(st.lat).toBeLessThan(18);
+      expect(st.lon).toBeGreaterThan(110);
+      expect(st.lon).toBeLessThan(118);
+      for (const s of ["M2", "S2", "K1", "O1", "P1", "K2"]) {
+        expect(st.cons.some((c) => c.name === s)).toBe(true);
+      }
     }
   });
 
@@ -844,5 +875,42 @@ describe("công tắc lớp trạm nói đúng số trạm", () => {
     const rk = readFileSync(join(process.cwd(), "src/components/ra-khoi-controls.tsx"), "utf8");
     expect(rk).toContain("tideToggleSub(tideCount)");
     expect(rk).not.toMatch(/sub="\d+ trạm/);
+  });
+});
+
+/*  QUY ĐỔI BẢNG TRIỀU RÚT GỌN — oracle là SỐ ĐO THẬT (cùng OBSERVED ở trên).
+    Số gốc chép từ bảng Transas cho đúng hai trạm có máy đo; quy đổi sai pha
+    (quên ±90° của K1/O1, quên múi giờ) thì lệch cả mét chứ không phải vài cm. */
+describe("consTuBangTrieu — bảng triều rút gọn → quy ước file này", () => {
+  const BANG: Record<string, BangTrieuRutGon> = {
+    "hon-dau": { muiGio: 7, M2: [47, 5], S2: [106, 4], K1: [91, 73], O1: [29, 74] },
+    "vung-tau": { muiGio: 7, M2: [36, 79], S2: [81, 31], K1: [312, 60], O1: [263, 45] },
+  };
+  for (const grp of OBSERVED) {
+    const b = BANG[grp.id];
+    if (!b) continue;
+    const goc = byId(grp.id);
+    const st: TideStation = { ...goc, cons: consTuBangTrieu(b) };
+    const all = grp.days.flatMap((d) => d.mm.map((mm, h) => mm / 1000 - tideHeightAt(st, vnHourMs(d.date, h))));
+    const offset = all.reduce((a, v) => a + v, 0) / all.length;
+    for (const d of grp.days) {
+      it(`${goc.name} ${d.date}: bảng quy đổi bám số đo trong 20 cm`, () => {
+        let se = 0;
+        for (let h = 0; h < 24; h++) {
+          const e = d.mm[h] / 1000 - offset - tideHeightAt(st, vnHourMs(d.date, h));
+          se += e * e;
+        }
+        expect(Math.sqrt(se / 24)).toBeLessThan(0.2);
+      });
+    }
+  }
+
+  it("thêm P1 (K1/3) và K2 (0,27·S2) — đủ 6 sóng, biên độ đổi cm → m", () => {
+    const c = consTuBangTrieu(BANG["hon-dau"]);
+    expect(c.map((x) => x.name)).toEqual(["M2", "S2", "K1", "O1", "P1", "K2"]);
+    expect(c.find((x) => x.name === "K1")!.amp).toBeCloseTo(0.73, 4);
+    expect(c.find((x) => x.name === "P1")!.amp).toBeCloseTo(0.73 / 3, 4);
+    expect(c.find((x) => x.name === "K2")!.amp).toBeCloseTo(0.04 * 0.27, 4);
+    for (const x of c) expect(x.phase >= 0 && x.phase < 360).toBe(true);
   });
 });

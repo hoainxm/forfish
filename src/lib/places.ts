@@ -10,6 +10,13 @@ import { saveUserJson } from "@/lib/user-store";
 
 export type PlaceKind = "home" | "spot";
 
+/** LOẠI điểm do bà con chọn (chế độ Hải đồ, rà soát so iSailor AddInfoEditor 2026-11-04) — TUỲ CHỌN, điểm cũ
+ *  không có trường này vẫn hợp lệ. Khác `kind` (cảng nhà / điểm thường) — hai trục độc lập. */
+export type LoaiDiem = "ca" | "ran" | "xac" | "neo" | "khac";
+export const LOAI_DIEM: readonly LoaiDiem[] = ["ca", "ran", "xac", "neo", "khac"];
+/** ghi chú tối đa — đủ một hai câu ("đáy cát, cá chỉ vàng tháng 3"), không thành sổ tay */
+export const GHI_CHU_TOI_DA = 200;
+
 export interface SavedPlace {
   /** id suy ra từ toạ độ → cùng một chỗ không ghim trùng 2 lần */
   id: string;
@@ -17,6 +24,10 @@ export interface SavedPlace {
   lat: number;
   lon: number;
   kind: PlaceKind;
+  /** loại điểm (tuỳ chọn — điểm ghim ở bản đồ thường không có) */
+  loai?: LoaiDiem;
+  /** ghi chú (tuỳ chọn, ≤ GHI_CHU_TOI_DA) */
+  ghiChu?: string;
 }
 
 const KEY = "forfish.places.v1";
@@ -97,16 +108,21 @@ export function placeAt(
  */
 export function upsertPlace(
   list: SavedPlace[],
-  input: { name: string; lat: number; lon: number; asHome?: boolean },
+  input: { name: string; lat: number; lon: number; asHome?: boolean; loai?: LoaiDiem; ghiChu?: string },
 ): SavedPlace[] {
   const id = placeId(input.lat, input.lon);
+  /*  GIỮ loại + ghi chú cũ khi chỗ gọi không nói gì (bản đồ thường ghim lại cùng chỗ chỉ có tên) — không để
+      một cú ghim ở màn kia xoá mất ghi chú bà con gõ ở màn Hải đồ. */
+  const cu = list.find((p) => p.id === id);
+  const loai = input.loai && LOAI_DIEM.includes(input.loai) ? input.loai : cu?.loai;
+  const ghi = (input.ghiChu !== undefined ? input.ghiChu : (cu?.ghiChu ?? "")).trim().slice(0, GHI_CHU_TOI_DA);
   const kind: PlaceKind = input.asHome ? "home" : "spot";
   let next = list.filter((p) => p.id !== id);
   if (input.asHome) {
     // chỉ một cảng nhà — hạ cấp cái cũ
     next = next.map((p) => (p.kind === "home" ? { ...p, kind: "spot" } : p));
   }
-  next.push({ id, name: input.name.trim() || "Chỗ chưa đặt tên", lat: input.lat, lon: input.lon, kind });
+  next.push({ id, name: input.name.trim() || "Chỗ chưa đặt tên", lat: input.lat, lon: input.lon, kind, ...(loai ? { loai } : {}), ...(ghi ? { ghiChu: ghi } : {}) });
   return next;
 }
 

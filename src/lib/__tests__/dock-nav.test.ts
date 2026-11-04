@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DOCK, dockActive, dockBadge, donChoTuCo, nhanBadgeDock, type NguonBadge } from "@/lib/dock-nav";
+import { boHaiDoKhiBam, DOCK, dockActive, dockBadge, donChoTuCo, nhanBadgeDock, type NguonBadge } from "@/lib/dock-nav";
 import { nhanDem } from "@/lib/kairos/chuong";
 import { nhanHopLe } from "@/lib/labels";
 
@@ -66,5 +66,18 @@ describe("badge số đỏ trên dock (VO-APP-03 — chỉ Kairos + Vật tư)",
     expect(donChoTuCo("{oops", "0900000777")).toBe(0);
     expect(donChoTuCo(null, "0900000777")).toBe(0);
     expect(donChoTuCo(JSON.stringify({ phone: "0900000777", hasShop: true, at: 1, pending: "7" }), "0900000777")).toBe(0);
+  });
+});
+
+describe("boHaiDoKhiBam — dock Bản đồ thoát chế độ Hải đồ", () => {
+  it("đang ở /hai-do bấm Bản đồ ⇒ tắt cờ", () => {
+    expect(boHaiDoKhiBam("ban-do", "/hai-do")).toBe(true);
+    expect(boHaiDoKhiBam("ban-do", "/hai-do/x")).toBe(true);
+  });
+  it("ở chỗ khác hay ô khác ⇒ giữ nguyên", () => {
+    expect(boHaiDoKhiBam("ban-do", "/ngu-truong")).toBe(false);
+    expect(boHaiDoKhiBam("ban-do", "/")).toBe(false);
+    expect(boHaiDoKhiBam("tau-toi", "/hai-do")).toBe(false);
+    expect(boHaiDoKhiBam("ban-do", "/hai-dox")).toBe(false);
   });
 });

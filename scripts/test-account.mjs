@@ -9,6 +9,7 @@
 //
 //   node scripts/test-account.mjs ds                       # danh sách + hạng + loại + số chuỗi sống
 //   node scripts/test-account.mjs danh-dau 0900000777      # đánh dấu loại "test" (0056) — làm MỘT lần mỗi số
+//   node scripts/test-account.mjs tao 0900000778           # TẠO tài khoản test mới (số phải có trong test-accounts.json; chưa có trong DB)
 //   node scripts/test-account.mjs cap 0900000777           # cấp chuỗi, in header + đoạn dán trình duyệt
 //   node scripts/test-account.mjs cap 0900000777 --premium 1   # kèm nâng premium tạm 1 ngày
 //   node scripts/test-account.mjs cap 0912345678 --multi   # tài khoản đang có máy thật: cấp thêm, không đá
@@ -219,6 +220,36 @@ export async function danhDau(rest, phone, out = console.log) {
   out(`✓ ${phone}: ${st.customer.account_kind} → test`);
 }
 
+/**
+ * Hàng `customers` cho một tài khoản test MỚI (thuần, test được) — cùng cột tối thiểu trang quản trị ghi khi
+ * tạo khách (api/admin/accounts POST: phone, name, role) + `account_kind: "test"` ngay từ đầu. Premium thì
+ * kèm hạn xa (10 năm) — tài khoản test, không phải gói bán. `now` để test cố định.
+ */
+export function hangTaoMoi(a, now = Date.now()) {
+  const iso = new Date(now).toISOString();
+  return {
+    phone: a.phone,
+    name: a.name,
+    role: "customer",
+    account_kind: "test",
+    tier: a.tier,
+    ...(a.tier === "premium" ? { premium_until: new Date(now + 10 * 365 * 86400000).toISOString(), premium_activated_at: iso } : {}),
+    updated_at: iso,
+  };
+}
+
+/** TẠO tài khoản test mới. Số đã có trong DB ⇒ từ chối (không đè tài khoản thật / tài khoản cũ). */
+export async function tao(rest, a, out = console.log) {
+  const st = await status(rest, a.phone);
+  if (st.customer) {
+    if (st.customer.account_kind === "test") return out(`= ${a.phone} đã có, loại test — không tạo lại`);
+    throw new Error(`${a.phone} ĐÃ có trong customers (loại ${st.customer.account_kind ?? "?"}) — không tạo đè`);
+  }
+  await rest.post("customers", hangTaoMoi(a));
+  await logScript(rest, "account.create-test", a.phone, { tier: a.tier, name: a.name });
+  out(`✓ tạo ${a.phone} (${a.name}) — loại test, hạng ${a.tier}`);
+}
+
 export async function ds(rest, accounts, out = console.log) {
   out(`${"SĐT".padEnd(12)}${"loại".padEnd(7)}${"hạng gốc".padEnd(10)}${"hạng DB".padEnd(10)}${"hạn premium".padEnd(22)}${"chuỗi sống".padEnd(12)}tên`);
   for (const a of accounts) {
@@ -244,6 +275,10 @@ if (isMain) {
     else if (cmd === "cap") {
       if (!allowed(arg)) throw new Error(`${arg} KHÔNG nằm trong scripts/test-accounts.json — thêm vào đó trước (khoanh vùng tài khoản test).`);
       await cap(restApi, arg, flags);
+    } else if (cmd === "tao") {
+      const a = accounts.find((x) => x.phone === arg);
+      if (!a) throw new Error(`${arg} KHÔNG nằm trong scripts/test-accounts.json — thêm vào đó trước (kèm tên, hạng, mục đích).`);
+      await tao(restApi, a);
     } else if (cmd === "danh-dau") {
       if (!allowed(arg)) throw new Error(`${arg} KHÔNG nằm trong scripts/test-accounts.json`);
       await danhDau(restApi, arg);
@@ -254,7 +289,7 @@ if (isMain) {
         await thu(restApi, p);
       }
     } else {
-      console.log("Dùng: node scripts/test-account.mjs ds | danh-dau <sđt> | cap <sđt> [--premium N] [--multi] | thu <sđt>|--all");
+      console.log("Dùng: node scripts/test-account.mjs ds | tao <sđt> | danh-dau <sđt> | cap <sđt> [--premium N] [--multi] | thu <sđt>|--all");
       process.exit(2);
     }
   } catch (e) {

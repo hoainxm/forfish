@@ -6,13 +6,14 @@ import { useEffect, useState } from "react";
 import { AnchorIcon, BriefcaseIcon, CartIcon, FishIcon, HomeIcon, PinIcon, StoreIcon } from "@/components/icons";
 import { KairosFishIcon } from "@/components/kairos/kairos-fish-icon";
 import { cartBucket } from "@/lib/cart";
-import { DOCK_BADGE_EVENT, dockActive, dockBadge, dockTheoVai, donChoTuCo, nhanBadgeDock, type DockId, type NguonBadge } from "@/lib/dock-nav";
+import { boHaiDoKhiBam, DOCK_BADGE_EVENT, dockActive, dockBadge, dockTheoVai, donChoTuCo, nhanBadgeDock, type DockId, type NguonBadge } from "@/lib/dock-nav";
 import { loadInbox, unreportedIds } from "@/lib/inbox";
 import { nhanDem, tinChuongKairos } from "@/lib/kairos/chuong";
 import { loadMarketCart, MARKET_CART_EVENT } from "@/lib/market/cart";
 import { MARKET_SHOP_FLAG_KEY } from "@/lib/market/seller-flag";
 import { useAuthUser } from "@/lib/use-auth";
 import { useVai } from "@/lib/use-vai";
+import { setHaiDoPrefs } from "@/lib/hai-do/prefs";
 
 /*
   Dock điều hướng (spec user 2026-07-29; KIỂU FACEBOOK 2026-10-19): DockFrame
@@ -131,6 +132,11 @@ export function BottomNav() {
                   aria-label={`${label}${nhanBadgeDock(id, nguonO)}`}
                   title={label}
                   onClick={(e) => {
+                    // đang ở Hải đồ mà bấm Bản đồ ⇒ về bản đồ thường (tắt cờ trước khi Link chạy)
+                    if (boHaiDoKhiBam(id, pathname)) {
+                      setHaiDoPrefs({ moHaiDo: false });
+                      return;
+                    }
                     // Đang ở ĐÚNG trang gốc của mục ⇒ cuộn lên đầu. Đang ở trang con (/cho/don/x,
                     // /ban-hang…) ⇒ để Link đưa về trang gốc — trước đây chỉ cuộn, bấm không đi đâu
                     // (rà hành trình 2026-10-29).

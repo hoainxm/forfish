@@ -4,7 +4,8 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-11-03
+last_verified: 2026-11-04
+<!-- re-verified: 2026-11-04 — NGƯ TRƯỜNG → BỘ CHỌN LOÀI BÀ CON ĐÁNH (anh Long 04/11: "dự báo tất cả các loài đang ko cần thiết… cho chọn 2-3 loài"). Bật Dự báo cá lần đầu (chưa có `forfish.fishPicks.v1`) ⇒ bản đồ CHƯA tô, panel mở bộ chọn "Bà con đánh loài nào?" + "Chọn tới 3 loài, bản đồ chỉ tô chỗ có loài đó." · hàng chip nghề Câu ngừ · Lưới vây · Lưới rê · Chụp mực (một chạm điền sẵn 3 loài của nghề, loài đang vụ ở vùng xem trước) · "Đang vụ quanh đây" ≤6 chip tên ngắn · "Loài khác ›" gập sẵn (đủ loài theo nhóm) · chân "Đã chọn n/3" + nút Xong (tắt khi 0). Đủ 3 ⇒ chip chưa chọn mờ 40%. Bộ chọn mở thì ngăn Lớp KHÔNG tự thu 5 s (thu là mất bộ chọn dở). Đã chọn ⇒ hàng chip 3 loài (chấm màu) + "Đổi"; chạm một chip = chỉ xem loài đó (chip khác nhạt), chạm lại = cả bộ. Ô/hồng tâm/thẻ điểm tính theo ĐIỂM CAO NHẤT trong bộ, thẻ chỉ nêu loài đã chọn. Sen Biển gọi tên loài vẫn thắng bộ. "Mọi loài" bỏ khỏi panel. Kiểm 375×812 acc test premium. -->
 <!-- re-verified: 2026-11-03 — §4 DOCK THEO VAI + màn /chon-vai + trang chủ theo vai + cổng bản đồ theo vai (spec 17 §3, §4, §11). -->
 ttl_days: 90
 <!-- re-verified: 2026-11-02za — §10.7 Y: chế độ bản đồ kiểu Vietmap (lib/ban-do-lop), khung dẫn đường lệnh lái hàng đầu + thanh đáy NavThanhDay, nút Dẫn đường trong thẻ nổi, Lộ trình gọn, số đo trước/sau. -->
@@ -2075,3 +2076,101 @@ Trạng thái: thiếu file ⇒ không vẽ gì, không thẻ, dẫn đường g
 - Offline: không thêm request, không sửa service worker hoặc kho dữ liệu. CSS được nạp theo layout qua cơ chế build hiện có; kiểm nghiệm offline PWA trên thiết bị thật vẫn cần trước phát hành.
 
 Xác minh redesign 2026-09-08: TypeScript và ESLint các file thay đổi đạt; 40 test assistant-hook/market-cart/market-pricing đạt. Chromium 320/390/480px, hai chế độ Gọn/Nút to: danh sách không tràn ngang, dock chọn đúng Giao dịch. Kiểm tra sản phẩm có dữ liệu ở 320px và thêm món → giỏ có dữ liệu ở 390px thành công. Sen Biển ở 390px giữ dock và hiện ba gợi ý. Chưa nghiệm thu thanh toán có đăng nhập, quản trị, mic iOS hay offline PWA trên máy thật.
+
+## 13. CHẾ ĐỘ HẢI ĐỒ `/hai-do` — đợt 1 (2026-11-04)
+
+Anh Long: *"chế độ hải đồ thuần này là 1 lớp mới, ko dính tới cái cũ, bà con quen nhìn giao diện này thì đổi qua thôi"*; *"đảm bảo hải đồ mình phải dễ dùng và tương đồng … độc lập với bản đồ đang có rồi nên ko bị ràng buộc"*. Màn riêng, không theo khung của `/ngu-truong` (không ô "Đi đâu?", không rail Lớp/⋯, không ngăn gió sóng). Tham khảo iSailor 2.81 + OpenCPN 4.1 — bảng đối chiếu từng màn: `docs/research/hai-do-thuan-sdvico-2026-11.md` §8.
+
+**Bố cục (375 × 812)**: hải đồ trọn màn (chừa dock) · dải số liệu một dòng trên cùng (tốc độ theo đơn vị `mapPrefs` · hướng 3 số `056°` · toạ độ) + dòng nhỏ "An toàn N m" (+ "Mất sóng — dữ liệu trong máy") · cột 6 nút tròn icon bên phải (Phóng to · Thu nhỏ · Màu · Cài đặt · Về tàu · Bản đồ thường) · thước tỉ lệ + ⓘ nguồn góc trái dưới.
+
+**Ma trận trạng thái**
+
+| Trạng thái | Hiển thị |
+|---|---|
+| Chưa có GPS | dải số "—", chữ phải "Đang bắt GPS…" (muted) |
+| Máy chặn GPS | "Máy chưa cho GPS" (warn) |
+| Mất GPS | "Mất GPS — đang tìm" (warn) |
+| Có GPS, đứng yên | tàu = chấm tròn, KHÔNG vạch hướng, hướng "—" |
+| Có GPS, đang chạy | mũi tên xoay theo hướng + vạch đứt N phút |
+| Mất sóng | hình bờ trong máy ở mọi nấc + dòng "Mất sóng — dữ liệu trong máy"; mọi lớp đọc file trong SHELL |
+| Dữ liệu một lớp hỏng | lớp đó vắng, màn vẫn chạy, thử lại khi sóng về |
+| Kéo bản đồ | thôi bám tàu; nút Về tàu hết sáng, chạm là bám lại |
+| Ngày / Chiều / Đêm | xem 03 "Chế độ Hải đồ — bảng màu"; đêm phủ cả dock |
+
+**Đường an toàn**: mặc định `Theo mớn` = mức đẳng sâu đầu tiên ≥ max(10, mớn + 1) trong {10, 20, 50}; chọn tay được. Không có 5 m (dữ liệu dưới 10 m kém tin).
+
+**Lối vào / ra**: khay ⋯ màn bản đồ "Kiểu máy" ⇒ ghi `moHaiDo` ⇒ dock "Bản đồ" mở thẳng `/hai-do`; nút Bản đồ thường ⇒ tắt cờ, về `/ngu-truong`. **Đang ở `/hai-do` bấm ô "Bản đồ" trên dock = về bản đồ thường** (tắt cờ — `boHaiDoKhiBam`, 2026-11-04: trước đó dock đi `/ngu-truong` rồi bị đẩy ngược về `/hai-do`, bà con kẹt). Lần sau dock mở kiểu dùng cuối.
+
+### 13.2 Đợt 2 (2026-11-04) — hướng · dải số · tấm chạm · đo · neo · MOB · chuông · cột nút thông minh
+
+- **Cột nút thông minh** (`lib/hai-do/cot-nut.ts`, anh Long: *"hàng nút hơi nhiều nên làm smart như cái bản đồ ấy"*): lúc yên chỉ **3 nút** — Hướng bản đồ (mũi chỉ Bắc thật, xoay ngược góc bản đồ) · Về tàu · ⋯. Chỉ nổi khi có việc: Chuông (có báo động) · Neo (đang canh) · Đo (đang đo) · +/− (bật trong Cài đặt, mặc định ẩn). Khay ⋯ (lưới 3 cột, ô icon + nhãn ≤ 2 chữ): Màu (chạm đổi ngay, khay mở tiếp) · Đo · Neo · Cài đặt · Bản đồ — mục đang nổi ngoài cột không lặp.
+- **Hướng bản đồ**: Bắc lên → Hướng đi lên (hướng làm mượt vòng tròn, tàu đứng thì giữ góc) → (Tuyến lên khi có tuyến, đợt 4). Xoay chỉ bằng nút — tắt xoay hai ngón (tránh lệch tay khi tàu lắc). Mũi tàu xoay theo bản đồ; nhãn chủ quyền luôn đứng thẳng.
+- **Dải số**: chạm để mở dòng 2 — Độ sâu (DẢI theo lưới: Dưới 2 m · 2–4 m · 4–12 m · Trên 12 m · Rạn, đá ngầm), Sai số ±m, Giờ fix, Neo x/y m.
+- **Tấm chạm gom**: chạm hải đồ (±16 px) ⇒ một thẻ đáy: vật (xác tàu → báo hiệu kèm "đi qua phía nào" → đèn → đảo; gần nhất thắng, bỏ trùng tầng) · độ sâu theo lưới · con nước trạm ≤ 120 km (đang lên/xuống + con nước kế) · toạ độ + "Từ tàu: PV · cự ly". × chấm góc phải.
+- **Đo**: tâm chữ thập giữa màn; gốc = tàu (hoặc "Đặt gốc" = tâm hiện tại); thẻ PV 3 số + cự ly. Vòng cự ly 1-2-5 hải lý bật trong Cài đặt.
+- **Canh neo**: vòng 30/50/100/150 m, thả tại tàu; trôi = vượt vòng 3 fix LIÊN TIẾP (fix sai số > nửa bán kính không tính); vòng đổi đỏ + chuông. Lưu `forfish.haiDoNeo.v1` — tắt/mở app vẫn còn. Giữ sáng màn khi đang neo.
+- **MOB**: nút đỏ góc trái dưới (có GPS mới hiện), **giữ 1 giây** (không hộp hỏi); bảng đỏ thay dải số: Hướng tới (3 số) · Cách · phút trước · tới nơi ~phút; đường đỏ tàu→phao; "Đã vớt" cũng giữ 1 giây. Lưu `forfish.haiDoMob.v1`.
+- **Chuông**: `dsBaoDong` — MOB · neo trôi · bão nguy hiểm ≤ 600 km · rạn · nông hơn đường an toàn (chỉ khi CHẮC) · (CPA đợt 3, lệch/hết tuyến đợt 4) · mất GPS (vàng). Báo đỏ chưa "Đã biết" ⇒ beep WebAudio 3 tiếng + rung mỗi 4 s; báo hết rồi tái phát kêu lại.
+
+| Trạng thái thêm | Hiển thị |
+|---|---|
+| Đang neo, trong vòng | nút Neo nổi (xanh), dòng "Neo x/50 m" |
+| Neo trôi | vòng + nút Neo đỏ, chuông đỏ có số, beep |
+| MOB | bảng đỏ trên cùng, phao đỏ, cột dời xuống |
+| Đang đo | chữ thập + thẻ PV/cự ly, chạm hải đồ KHÔNG mở tấm chạm |
+| Máy chặn phát âm | chuông đỏ + rung vẫn còn |
+
+### 13.3 Đợt 3 (2026-11-04) — khay Lớp · tô nông · AIS + CPA · con nước · gió sóng tại điểm · tự đổi màu · câu đồng ý
+
+- **Khay Lớp** (⋯ → Lớp; `components/hai-do/khay-lop.tsx`): Mức hiển thị **Cơ bản** (bờ, đảo, độ sâu, đèn biển, xác tàu) · **Chuẩn** (mặc định, + phao/tiêu/báo hiệu Cục Hàng hải) · **Đủ** (+ luồng, phân luồng, tuyến, cáp, ống, giàn khoan, vùng cấm — `vn-sea-lanes`); công tắc Tô nông (mặc định BẬT) · Con nước (BẬT) · AIS (chỉ tài khoản được xem, TẮT) · Tự động đổi màu (TẮT). Xác tàu, đèn biển, đường an toàn không tắt được.
+- **Tô nông** (hai sắc kiểu OpenCPN, `lib/hai-do/lop mauDaiToNong`): nước nông hơn đường an toàn tô lam `#c4dceb`, dải sâu hơn tô đặc màu gốc — nét đẳng sâu vẫn ≥ 3:1 (test).
+- **AIS + báo va chạm**: icon tàu như màn cũ; quét 6 hải lý (`quetQuanh`), báo khi gần nhất < 0,5 hải lý trong ≤ 12 phút tới (`cauCpa`) ⇒ chuông đỏ "Tàu X sẽ cách … sau N phút"; chạm tàu ⇒ tấm chạm `moTaTau`. Làm mới 5 phút khi có sóng; mất sóng giữ bản cũ.
+- **Con nước**: ký hiệu trạm + nhãn "đang lên/xuống" (vùng từ nấc xa, tại cảng từ nấc vừa); chạm trạm ⇒ 2 con nước kế.
+- **Gió sóng tại điểm chạm**: `fetchSeaPoint(…, 1)` — chỉ HÔM NAY (như tài khoản thường), bản lưu trước/mạng sau; thêm dòng "Gió cấp N hướng X · sóng Y m" + "hôm nay"/"bản lưu trong máy". Trên bờ / hỏng ⇒ không thêm dòng.
+- **Tự đổi màu**: độ cao mặt trời tại tàu (`doCaoMatTroi`, NOAA rút gọn): > 6° Ngày · −6…6° Chiều · < −6° Đêm.
+- **Lần đầu mở**: tấm "Hải đồ để tham khảo … không thay hải đồ chính thức và Thông báo hàng hải" + Đồng ý (`daDongY`).
+
+### 13.4 Cáp · ống · giàn khoan · vùng cấm (2026-11-04, anh Long: "các lớp tuyến ống dầu khí, dàn khoan, cáp biển sao" → "hoàn thiện đi")
+
+- **Mức hiển thị**: cáp, ống, giàn, vùng cấm thuộc **Chuẩn** (mặc định) — khác S-52 (xếp cáp/ống vào "Other"/All, chuẩn viết cho tàu hàng): tàu cá thả neo + kéo lưới đáy. Đủ chỉ thêm luồng/phân luồng.
+- **Vẽ phân biệt**: cáp quang tím (`SEA_CABLE_COLOR`) · cáp điện đỏ sen · cáp chưa rõ tím nhạt; ống dầu khí/nhiên liệu mực + dấu ống (`pipeline-mark`) dọc tuyến · ống xả/nước xám. Cáp + ống từ nấc **XA (z7)** (sớm hơn màn cũ z9). Điểm cáp cập bờ, ký hiệu cấm neo, tên vùng cấm từ z9. Giàn khoan từ z7 + **vòng cấm 500 m** (tô cam nhạt, viền đứt).
+- **Chạm**: "Cáp quang ngầm / Ống dầu khí ngầm / Giàn khoan…" + tên tuyến + "Không thả neo, không kéo lưới đáy ở đây" (giàn: "Không vào trong 500 m — cấm neo, cấm đánh bắt"), chữ đỏ.
+- **Báo động** (`lop.canhBaoCongTrinh` → chuông, đỏ): đang neo mà neo cách cáp/ống < 500 m ⇒ "Neo cách cáp quang ngầm 139 m — dễ móc"; tàu trong vòng 500 m quanh giàn ⇒ "Đang trong vòng 500 m quanh giàn khoan".
+- **Giới hạn dữ liệu** (nói thật): 41 giàn trong `vn-sea-lanes` đều ở vịnh Bắc Bộ / quanh Hải Nam (nguồn OSM) — CHƯA có giàn các mỏ phía Nam (Bạch Hổ, Rồng, Sư Tử…); 12 cáp + 12 ống chưa rõ loại.
+
+### 13.5 Đợt 4 (2026-11-04) — tuyến · kiểm tuyến · giám sát · vết · điểm người dùng · GPX
+
+- **Tuyến** (⋯ → Tuyến; ngăn đáy `components/hai-do/bang-tuyen.tsx`): danh sách (tên · số điểm · cự ly — Bắt đầu/Dừng · Sửa · Xoá; Thêm · Nhập GPX · Xuất GPX). Soạn: chạm hải đồ đặt điểm (đánh số), bảng chặng "1→2: 090° · 5,1 hải lý · 44 phút" theo tốc độ hồ sơ tàu (mặc định 7 hải lý/giờ), Bỏ điểm · Đảo tuyến · **Kiểm tuyến** · Lưu · Huỷ. Kho `forfish.haiDoTuyen.v1` (sao lưu nhóm bà con tự gõ).
+- **Kiểm tuyến** = `auditRoute` + `buildHazardList` SẴN CÓ (route-hazards/hazards) — xác tàu, đá/rạn, cạn theo mớn, cáp/ống, vùng cấm, ranh giới, báo hiệu, con nước; danh sách "Cách đầu tuyến X: câu" màu theo mức; dòng "Chưa soi được: …" khi thiếu kho.
+- **Giám sát tuyến** (Bắt đầu): dải thứ hai dưới dải số — "Tới điểm k/n · PV 3 số · cự ly · phút · lệch … · hết tuyến ~phút"; tới gần điểm ≤ 0,1 hải lý hoặc đi lố (chỉ khi đang trong hành lang ≤ 1 hải lý) ⇒ tự chuyển điểm; lệch > 0,5 hải lý ⇒ chuông vàng "Lệch tuyến …"; tới cuối ⇒ vàng "Đã tới điểm cuối tuyến". Nút hướng có thêm nấc **Tuyến lên** khi đang chạy tuyến. Giữ sáng màn khi đang chạy tuyến. Kho `forfish.haiDoChay.v1`.
+- **Vết tàu** (⋯ → Vết): Ghi vết / Dừng ghi (đỏ, "Đang ghi — giữ màn mở"); lọc ≥ 20 m hoặc 30 s, bỏ fix sai số > 50 m; ghi IndexedDB `forfish-hai-do/vet` NGAY mỗi điểm (tắt app không mất), mở lại app thì ghi tiếp; danh sách ngày · cự ly · thời gian · số điểm — Bản đồ (vẽ) · Tạo tuyến (giản lược Douglas–Peucker ≤ 30 điểm) · Xuất GPX · Xoá. Giữ sáng màn khi đang ghi.
+- **Điểm người dùng**: giữ ngón ~0,6 s trên hải đồ (chuột phải trên máy tính) ⇒ thẻ "Lưu điểm này" + toạ độ + ô tên; lưu vào kho `places` dùng chung màn cũ; chấm vàng đất + tên từ z9; chạm ⇒ tấm chạm có nút Xoá.
+- **GPX 1.1** (`lib/hai-do/tuyen` vietGpx/docGpx, không cần DOMParser): xuất tuyến + điểm / một vết qua chia sẻ của máy (không có thì tải xuống); nhập tuyến (rte), vết (trk), điểm (wpt) — điểm hỏng bị bỏ, báo "Đã nhập N tuyến · N vết · N điểm".
+
+### 13.6 Sau đợt 4 (2026-11-04, máy GPU) — danh sách tàu AIS · lớp gió sóng toàn vùng + tua giờ · bộ đọc NMEA
+
+- **Danh sách tàu AIS** (bảng §8 hàng 11; ⋯ → **Tàu** — mục chỉ có khi lớp AIS đang bật, tức tài khoản có quyền; ngăn đáy `components/hai-do/bang-ais.tsx`): đầu ngăn là câu nguy cơ `tomTatNguyCo` tô đỏ/vàng/xám (chưa GPS ⇒ "Bật định vị để biết tàu nào tới gần", tâm quét = giữa màn). Chip lọc **Tất cả · Tới gần · Tàu cá**; một hàng cuộn ngang: xếp **Sắp gặp** (TCPA tăng dần; tin cũ / đã qua / không tính được xếp sau theo cự ly — `lop.sapMucTieu`) · **Gần nhất**, tầm **6 · 12 · 24 hl** (mặc định 12). Dòng: chấm màu `mauMucTieu` + tên + câu `dongPhuTau`; tin cũ mờ 60 %. Tối đa 60 dòng + "Hiện 60 / N tàu — thu tầm". Chạm dòng ⇒ đóng ngăn, bay tới vị trí đã ước (z ≥ 11) + tấm chạm "tên / moTaTau". Chân: "Bản AIS cập nhật … — vị trí đã ước … Tham khảo". Trạng thái: chưa có bản ⇒ "Đang tải tàu AIS… mất sóng mà máy chưa lưu bản nào thì chưa có danh sách"; trống ⇒ "Không có tàu nào trong N hải lý" / "Không có tàu nào khớp bộ lọc".
+- **Lớp gió · sóng toàn vùng** (bảng §8 hàng 17; khay Lớp → nhóm "Gió sóng", chip **Gió** / **Sóng**, một lúc một lớp, TẮT sẵn — `prefs.lopThoiTiet`): mũi tên của lưới `lib/forecast-grid` màn cũ (cùng kho, cùng bản lưu offline), màu `WIND_/WAVE_COLOR_EXPR` qua `apBangMauLop` (dịu theo Chiều/Đêm). Số ngày theo `soNgayThoiTiet`: gói 16 ngày, thường/khách **chỉ hôm nay**. **Dải tua giờ** (`components/hai-do/thanh-gio.tsx`) nổi trên thước tỉ lệ khi không mở ngăn nào: dòng 1 tên lớp + mốc đang xem ("Hôm nay · 9h") + × tắt lớp; thanh màu cường độ (đầu–cuối + đơn vị); các ngày cuộn ngang, mỗi nấc giờ một chip (mặc định khung gần giờ hiện tại — `lop.khungHienTai`). Trạng thái: "Đang tải…" · "Chưa tải được — mất sóng, máy chưa lưu bản nào" · "Bản lưu lúc …" · ô vàng "Bản lưu đã qua giờ — đây là gió sóng ngày cũ…" khi mốc cuối đã qua > 3 giờ (`lop.luoiDaQua`) · "Chỉ hôm nay — nhiều ngày đi kèm gói dự báo".
+- **NMEA 0183** (bảng §8 hàng 19 — CHỈ phần thuần `lib/hai-do/nmea.ts`): checksum, GGA · RMC · VTG · HDT · DBT · DPT, AIS VDM/VDO kiểu 1/2/3 · 18 · 5 · 24 (ghép mảnh, hết hạn 10 s). Câu hỏng ⇒ null, không ném. **CHƯA có đường vào** (plugin TCP/UDP bản cài native) và **CHƯA thử với thiết bị thật** — câu mẫu trong test theo chuẩn, không phải từ máy trên tàu.
+- **Sửa 2026-11-04 — "Về bản đồ thường" phải bấm vài lần** (anh Long: "lúc ăn lúc ko ăn, click 3 lần mới đổi"): khay ⋯ là Popover, đóng thì lùi mục lịch sử của nó; mục "Bản đồ" gọi `router.push` trần nên cú lùi kéo về lại `/hai-do` (đo: 3 lần trượt, lần 4 mới sang). Nay qua `diTrang` (lib/dialog-focus) như màn cũ — 4/4 lần một chạm. Cổng: `dialog-back.test.ts` cấm `router.push(` trần trong `components/hai-do`.
+- **Rà soát so iSailor/OpenCPN 2026-11-04 — sửa đợt 1**: (1) **Nhìn trước** — Hướng đi lên / Tuyến lên + tàu chạy ≥ 1 hải lý/giờ ⇒ camera đệm trên ~34 % chiều cao, tàu xuống ~2/3 màn, thấy phía trước gấp đôi phía sau (`may.demNhinTruoc`); Bắc lên hoặc tàu đứng ⇒ tàu giữa màn như cũ. (2) **Sen Biển nổi không vẽ trên `/hai-do`** (`sen-bien-toan-app` KHONG_VE) — che nhãn trạm con nước góc phải dưới; hải đồ thuần chỉ còn nút điều khiển của chính nó (MOB có nút riêng). Đánh đổi: trên màn Hải đồ không gọi Sen Biển bằng giọng — về Bản đồ thường để hỏi.
+- **Rà soát so iSailor/OpenCPN 2026-11-04 — sửa đợt 2**: (1) **Sửa tuyến bằng ngón** — khi soạn: chạm lên một chặng (≤ 18 px) ⇒ CHÈN điểm vào giữa chặng đó; ấn lên chấm điểm rồi kéo ⇒ DỜI điểm (chặn kéo bản đồ trong lúc kéo; hai ngón vẫn là phóng); chạm trúng điểm cũ (≤ 22 px) ⇒ không đặt chồng; chạm chỗ khác ⇒ thêm vào cuối như cũ (`tuyen.viTriChen/diemTrung`). Ngăn soạn có dòng nhắc "Chạm lên chặng để chèn điểm · giữ và kéo một điểm để dời". (2) **Ô Màu trong khay ⋯ ghi "Màu"** như mọi ô (tên việc), bảng đang dùng là dòng nhỏ dưới. (3) **Danh sách tàu AIS thêm xếp "Tên"** (theo vần, số trong tên xếp như số — BĐ 9 trước BĐ 10; chưa rõ tên xuống cuối). (4) **Bản đồ thường: "Kiểu máy" lên ĐẦU khay ⋯** (trước: mục cuối, khó tìm).
+- **Rà soát so bản rà APK (research `hai-do-thuan-sdvico-2026-11` §2–3) — sửa đợt 3**: (1) **Giờ đến theo đồng hồ (ETA)** — dải giám sát tuyến: "… phút · đến 21:40", "hết tuyến ~23:10"; bảng chặng khi soạn: mỗi chặng "· đến hh:mm" tính nếu đi bây giờ; qua ngày ghi "mai" / "+N ngày" (`tuyen.gioDen`, giờ VN). (2) **Phóng quá chi tiết hải đồ** — mức phóng > 14 (`may.CHI_TIET_TOI_DA_ZOOM`) ⇒ dòng trạng thái dưới dải số thêm " · Phóng quá chi tiết hải đồ" màu cảnh báo (đẳng sâu/bờ dựng từ dữ liệu ô cỡ trăm mét — phóng thêm không thêm chi tiết).
+- **Rà soát so bản rà APK — sửa đợt 4** (anh Long chốt "ẩn dock khi chạy, làm hết đi"): (1) **Ẩn dock** khi đang chạy tuyến / canh neo / có MOB (`cot-nut.anDockHaiDo` ⇒ lớp `:root.an-dock` có sẵn) — chỉ xem thì dock còn. Khung đổi cao mà cửa sổ không đổi ⇒ bản đồ được vẽ lại (ResizeObserver trên khung + một nhịp hẹn giờ dự phòng) — đo: canvas 748 ⇄ 812 px theo dock. (2) **Điểm người dùng có LOẠI + GHI CHÚ** — thẻ lưu điểm: chip Chỗ cá · Rạn · Xác tàu · Chỗ neo · Khác (mặc định Chỗ cá) + ô "Ghi chú (không bắt buộc)" ≤ 200 ký tự; tấm chạm điểm: "Rạn · đáy đá". Kho `places` thêm hai trường TUỲ CHỌN (04). Chưa có ảnh chụp (nặng kho máy, cần chốt chỗ lưu). (3) **Nước dưới đáy tàu** ở dòng độ sâu tấm chạm: "Dưới đáy tàu ≥ 10,2 m (chưa cộng con nước)" = đáy dải − mớn (`may.nuocDuoiDay`, cận dưới — luôn về phía an toàn); âm ⇒ "Mớn 2,5 m — có thể chạm đáy" (đỏ); chưa khai mớn ⇒ như cũ. (4) **Thả neo tại chỗ đang xem** — bảng Neo thêm nút "Chỗ xem" ⇒ đóng bảng, hiện dấu + giữa màn + thẻ đáy "Chọn chỗ thả neo · toạ độ dấu +" [Thả neo] [Huỷ]; chạm hải đồ lúc đó không bung tấm chạm.
+
+## Assumptions (§13)
+- Nhãn "Kiểu máy" (không "Hải đồ") vì "Hải đồ" đã là tên nhóm trong khay Lớp màn cũ — anh muốn tên khác thì đổi một dòng `NHAN.kieuMay`.
+- Loại điểm mặc định "Chỗ cá" (việc bà con lưu nhiều nhất). Ẩn dock chỉ khi CÓ việc đang chạy (tuyến/neo/MOB) — ghi vết thôi thì dock còn (ghi vết chạy cả chuyến, ẩn dock cả chuyến là mất đường đi màn khác).
+- Danh sách tàu AIS mặc định tầm 12 hải lý (bằng hai lần ngưỡng quét CPA 6 hải lý của chuông) — đủ thấy tàu sắp tới mà danh sách không quá dài; anh muốn khác thì đổi `useState<TamDs>(12)`.
+- Dự báo cá / mật độ tàu / AIS chưa có trên màn này ở đợt 1 (thuần hải đồ); thêm ở đợt sau dưới dạng lớp TẮT mặc định.
+- GPS không giữ sáng màn (như bản đồ cũ khi chưa dẫn đường), TRỪ khi đang canh neo hoặc có MOB (cần nghe chuông).
+- Hướng dạt của người rơi theo dòng chảy CHƯA làm — cần trường dòng chảy (lớp gói); vùng tìm hiện là điểm rơi.
+- Độ sâu dưới tàu chỉ là DẢI từ lưới (không số mét) — ghi "theo lưới độ sâu — tham khảo" ở tấm chạm.
+
+
+
+### 13.7 Luật hiển thị thông minh dùng chung với bản đồ thường (2026-11-04, anh Long: *"các logic thông minh hiển thị chưa chạy với cái hải đồ à"* + *"t chuyển lại ko được"*)
+- **Một lúc một lớp nổi** (như §10.7 I): bấm ⋯ / nút Neo / mục khay nào thì đóng hết khay, Cài đặt, Lớp, Neo và tấm chạm còn mở (`dongNoi`). Trước đó Cài đặt/Lớp neo vào nút ⋯ nên bấm ⋯ không đóng chúng ⇒ khay đè lên Cài đặt (ảnh anh chụp).
+- **Chạm bản đồ khi đang mở một lớp nổi = chỉ đóng lớp đó**, không bung tấm chạm cùng cú chạm (mốc 500 ms sau khi popover đóng vì chạm ngoài).
+- **Tấm chạm tự ẩn sau 3 s** (`SHEET_AUTO_HIDE_MS`, đếm từ lúc dòng gió sóng NGÃ NGŨ — về, hỏng hay không phải biển — như sheet bản đồ thường). Ngoại lệ an toàn (`chamTuAn`): có dòng cảnh báo (xác tàu, đá, cáp…) hoặc có nút việc ⇒ giữ tới khi bà con ×.
+- **Thoát Hải đồ qua dock**: đang ở `/hai-do` bấm ô "Bản đồ" = về bản đồ thường (`boHaiDoKhiBam`, tắt `moHaiDo`).

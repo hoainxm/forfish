@@ -89,3 +89,26 @@ describe("sortedPlaces", () => {
     expect(s[2].name).toBe("Zebra");
   });
 });
+
+import { GHI_CHU_TOI_DA, upsertPlace as up2 } from "../places";
+describe("loại + ghi chú điểm (chế độ Hải đồ, 2026-11-04)", () => {
+  it("lưu loại + ghi chú; ghi chú cắt trần, bỏ khoảng trắng; loại lạ bị bỏ", () => {
+    const l = up2([], { name: "Rạn quen", lat: 10, lon: 109, loai: "ran", ghiChu: "  đáy đá  " });
+    expect(l[0]).toMatchObject({ loai: "ran", ghiChu: "đáy đá" });
+    const dai = up2([], { name: "A", lat: 1, lon: 1, ghiChu: "x".repeat(500) });
+    expect(dai[0].ghiChu).toHaveLength(GHI_CHU_TOI_DA);
+    const la = up2([], { name: "B", lat: 2, lon: 2, loai: "gi-do" as never });
+    expect(la[0].loai).toBeUndefined();
+  });
+  it("ghim lại cùng chỗ KHÔNG nói loại/ghi chú (bản đồ thường) ⇒ giữ cái cũ", () => {
+    const a = up2([], { name: "Chỗ cá", lat: 10, lon: 109, loai: "ca", ghiChu: "cá thu tháng 3" });
+    const b = up2(a, { name: "Chỗ cá 2", lat: 10, lon: 109 });
+    expect(b).toHaveLength(1);
+    expect(b[0]).toMatchObject({ name: "Chỗ cá 2", loai: "ca", ghiChu: "cá thu tháng 3" });
+  });
+  it("điểm cũ không có hai trường vẫn đọc/ghi như trước (không thêm khoá rỗng)", () => {
+    const c = up2([], { name: "Cũ", lat: 3, lon: 3 });
+    expect("loai" in c[0]).toBe(false);
+    expect("ghiChu" in c[0]).toBe(false);
+  });
+});

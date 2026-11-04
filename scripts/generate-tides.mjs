@@ -59,6 +59,7 @@ import {
   tideArguments,
   tideSpeed,
   tideHeightAt,
+  consTuBangTrieu,
 } from "../src/lib/tides.ts";
 
 const ERDDAP =
@@ -491,7 +492,7 @@ function buildModelStations(gaugeStations, eot) {
 let out = [];
 if (ADD_MODEL_ONLY) {
   const prev = JSON.parse(readFileSync(OUT, "utf8"));
-  out = prev.stations.filter((s) => s.nguon !== "model");
+  out = prev.stations.filter((s) => s.nguon !== "model" && s.nguon !== "bang");
   console.log(
     `--add-model-only: giữ ${out.length} trạm đo thật từ ${OUT}, dựng lại trạm mô hình.`,
   );
@@ -624,6 +625,35 @@ const modelStations = buildModelStations(
 );
 out = [...out, ...modelStations];
 
+/* ── 6c. Trạm BẢNG TRIỀU — đảo xa bờ (2026-11-04) ───────────────────────────
+   Hoàng Sa, Trường Sa: không trạm UHSLC, không có điểm EOT20 trong danh mục.
+   Số gốc = bảng triều Transas HYDRO v1.1 (2003) trong gói iSailor 2.81 mà
+   Wärtsilä gửi SDVICO, chủ dự án trao đổi quyền dùng trực tiếp với họ.
+   Bảng ghi hai trạm này theo giờ +8 — chỉ dùng để QUY ĐỔI pha về UTC, tên và
+   giờ hiện ra màn luôn là tiếng Việt, giờ Việt Nam. Chưa có số đo tại chỗ để
+   kiểm ⇒ rmseM null, nguon "bang" (UI nói "ước tính" như trạm mô hình). */
+const BANG_TRIEU = [
+  { id: "hoang-sa", name: "Đảo Hoàng Sa", lat: 16.55, lon: 111.6167,
+    b: { muiGio: 8, M2: [301, 17], S2: [353, 8], K1: [305, 27], O1: [261, 23] } },
+  { id: "song-tu-tay", name: "Song Tử Tây", lat: 11.45, lon: 114.3167,
+    b: { muiGio: 8, M2: [298, 20], S2: [347, 10], K1: [305, 20], O1: [257, 30] } },
+];
+for (const r of BANG_TRIEU) {
+  const cons = consTuBangTrieu(r.b);
+  const z0 = Number((-lowestAstronomicalTide(cons)).toFixed(3));
+  if (!(z0 > 0.2 && z0 < 3.5)) throw new Error(`CHẶN: ${r.name} z0 = ${z0} m — ngoài khoảng hợp lý.`);
+  out.push({
+    id: r.id, name: r.name, lat: r.lat, lon: r.lon, z0,
+    source: "Bảng triều hàng hải Transas (Wärtsilä), hằng số rút gọn",
+    span: "bảng 2003",
+    rmseM: null,
+    nguon: "bang",
+    note: "Đảo xa bờ, chưa có trạm đo — con nước quy đổi từ bảng triều hàng hải, chỉ để tham khảo.",
+    cons,
+  });
+  console.log(`   ${r.id}: bảng triều · z0 ${z0} m · ${cons.length} sóng`);
+}
+
 /* ── 7. Ghi file + cổng cuối ─────────────────────────────────────────────── */
 
 const file = {
@@ -631,7 +661,7 @@ const file = {
   phaseConvention:
     "Pha trễ so với V(t) định nghĩa trong src/lib/tides.ts (KHÔNG cộng hằng số ±90°/180° của khai triển thế triều). Đừng trộn với hằng số công bố nơi khác.",
   credit:
-    "Trạm đo (nguon=gauge): UHSLC/JASL Research Quality Data Set (University of Hawaii Sea Level Center & NOAA NCEI). Trạm ước tính (nguon=model): mô hình triều EOT20 (Hart-Davis et al. 2021, DGFI-TUM; SEANOE CC-BY 4.0, doi:10.17882/79489). Hằng số điều hoà do SDFish tự phân tích/quy đổi. Chỉ để tham khảo.",
+    "Trạm đo (nguon=gauge): UHSLC/JASL Research Quality Data Set (University of Hawaii Sea Level Center & NOAA NCEI). Trạm ước tính (nguon=model): mô hình triều EOT20 (Hart-Davis et al. 2021, DGFI-TUM; SEANOE CC-BY 4.0, doi:10.17882/79489). Trạm đảo xa bờ (nguon=bang): bảng triều hàng hải Transas (Wärtsilä). Hằng số điều hoà do SDFish tự phân tích/quy đổi. Chỉ để tham khảo.",
   stations: out,
 };
 const json = JSON.stringify(file);

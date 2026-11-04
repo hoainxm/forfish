@@ -196,6 +196,7 @@ import {
 } from "@/lib/forecast-grid";
 import { fishInRegion, regionAt } from "@/data/fish-seasons";
 import { isNewerGeneratedAt, onSwApiFresh } from "@/lib/sw-api-fresh";
+import { diemTheoBo, loadFishPicks, loaiNoiTheoBo, saveFishPicks } from "@/lib/fish-picks";
 import {
   fetchFishForecast,
   banDoCaDaLuu,
@@ -1117,6 +1118,21 @@ export default function FishingMapView() {
   }, [fishCast]);
   // loài đang lọc trên bản đồ (null = loài tốt nhất mỗi ô)
   const [fishSpecies, setFishSpecies] = useState<string | null>(null);
+  // LOÀI BÀ CON ĐÁNH (lib/fish-picks, 2026-11-04): tối đa 3, lưu trong máy. null = chưa
+  // chọn lần nào ⇒ panel mở bộ chọn. Đọc sau khi gắn (localStorage không có lúc SSR).
+  const [fishPicks, setFishPicks] = useState<string[] | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- đọc kho trong máy một lần sau khi gắn
+    setFishPicks(loadFishPicks());
+  }, []);
+  // bộ đang tô: chạm riêng một loài (hoặc Sen Biển gọi tên loài) thắng; không thì cả bộ đã chọn
+  const fishBo = useMemo(
+    () => (fishSpecies ? [fishSpecies] : (fishPicks ?? [])),
+    [fishSpecies, fishPicks],
+  );
+  // chưa chọn loài lần nào ⇒ KHÔNG tô cả biển "mọi loài" (anh Long 2026-11-04: dự báo tất cả loài
+  // không cần) — chờ bà con chọn ở panel. Sen Biển gọi tên loài (fishSpecies) vẫn tô ngay.
+  const fishChuaChon = !fishSpecies && fishPicks == null;
   // lỗi tải dự báo cá phải LÊN TIẾNG — không để nút Cá lặng lẽ biến mất
   // còn người dùng tưởng "hôm nay không có cá"
   /** câu báo lỗi lớp cá — null = không có gì để nói (xem `fishFailNote`) */
@@ -1766,9 +1782,8 @@ export default function FishingMapView() {
   }, [fishCast]);
 
   // màu lớp cá đang xem: theo loài đã chọn, hoặc xanh lá khi "Mọi loài"
-  const activeFishColor = fishSpecies
-    ? (SPECIES_META[fishSpecies]?.color ?? null)
-    : null;
+  const activeFishColor =
+    fishBo.length === 1 ? (SPECIES_META[fishBo[0]]?.color ?? null) : null;
 
   // "Điểm của tôi": ghim đặc thù của chủ tàu + cảng nhà (localStorage).
   // ssr:false nên đọc localStorage trong initializer là an toàn.
@@ -5705,12 +5720,12 @@ export default function FishingMapView() {
   // premium: fishCast = null khi chưa mở khoá. Sàn = ngưỡng mức Thấp.
   const fishGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     // LUẬT: cá KHÔNG hiện cùng lớp động (gió/sóng/mây/…) — chỉ hiện cùng hải đồ
-    if (!fishOn || !fishView || anyExclusiveOverlay) return null;
+    if (!fishOn || !fishView || anyExclusiveOverlay || fishChuaChon) return null;
     const lo = FISH_LEVEL_BANDS[0].min; // sàn = ngưỡng mức Thấp; hiện đủ 3 mức
     const h = fishGridStep / 2;
     const features: GeoJSON.Feature[] = [];
     for (const c of fishView.cells) {
-      const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
+      const v = diemTheoBo(c, fishBo);
       if (v < lo) continue;
       const r = Math.round(v);
       // cắt theo vùng biển VN: ô vắt qua biên chỉ tô phần bên trong (lib/vung-bien-vn, 2026-10-29)
@@ -5737,7 +5752,7 @@ export default function FishingMapView() {
       }
     }
     return { type: "FeatureCollection", features };
-  }, [fishOn, fishView, fishSpecies, fishGridStep, anyExclusiveOverlay]);
+  }, [fishOn, fishView, fishBo, fishChuaChon, fishGridStep, anyExclusiveOverlay]);
 
   // DỰ BÁO MẬT ĐỘ TÀU cho ngày đang chọn — mức Thưa/Vừa/Đông theo phân vị nền×loài (gió/bão kéo rớt mức).
   // Cùng luật với lớp cá: không hiện cùng lớp động, khoá premium thì không vẽ.
@@ -5830,8 +5845,8 @@ export default function FishingMapView() {
     goToCoord(lat, lon);
   };
   const fishHotspots = useMemo<FishHotspot[]>(() => {
-    // ẩn hồng tâm cá khi có lớp động (cùng luật với lưới cá)
-    if (!fishOn || !fishView || anyExclusiveOverlay) return [];
+    // ẩn hồng tâm cá khi có lớp động (cùng luật với lưới cá); chưa chọn loài ⇒ chưa chấm
+    if (!fishOn || !fishView || anyExclusiveOverlay || fishChuaChon) return [];
     // các "mỏ neo gần mình": cảng nhà + điểm ghim (KHÔNG có điểm vừa chạm — xem
     // ghi chú trên). Chưa ghim gì → không có neo, xếp thuần theo điểm cá.
     const anchors: { lat: number; lon: number }[] = places.map((p) => ({
@@ -5844,7 +5859,7 @@ export default function FishingMapView() {
         : Infinity;
     const scored = fishView.cells
       .map((c) => {
-        const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
+        const v = diemTheoBo(c, fishBo);
         const km = nearestKm(c.lat, c.lon);
         // thưởng tối đa +12 điểm cho ô ngay cạnh, mờ dần tới 0 ở ~220 km
         const bonus = Math.max(0, 1 - km / 220) * 12;
@@ -5852,7 +5867,7 @@ export default function FishingMapView() {
           lat: c.lat,
           lon: c.lon,
           v,
-          top: fishSpecies ? [fishSpecies] : c.top,
+          top: loaiNoiTheoBo(c, fishBo),
           near: km <= 74, // ~40 hải lý
           priority: v + bonus,
         };
@@ -5884,7 +5899,7 @@ export default function FishingMapView() {
       top,
       near,
     }));
-  }, [fishOn, fishView, fishSpecies, places, fishLead, anyExclusiveOverlay]);
+  }, [fishOn, fishView, fishBo, fishChuaChon, places, fishLead, anyExclusiveOverlay]);
 
   // điểm cá gần chỗ đang xem nhất — câu gợi ý "đi hướng nào" trong thẻ cá
   const nearestHotspot = useMemo(() => {
@@ -9684,6 +9699,11 @@ export default function FishingMapView() {
               setFishOn(on);
             }}
             fishSpecies={fishSpecies}
+            fishPicks={fishPicks}
+            onFishPicks={(p) => {
+              setFishPicks(p);
+              saveFishPicks(p); // máy không cho ghi ⇒ vẫn dùng được trong phiên này
+            }}
             fishAccess={premiumAccess}
             species={fishCast?.species ?? []}
             regionShorts={regionShorts}
@@ -10402,19 +10422,19 @@ export default function FishingMapView() {
               ) : fishCast && fishAtPoint ? (
                 (() => {
                   // theo loài đã chọn trên bản đồ, hoặc loài tốt nhất tại ô
-                  const v = fishSpecies
-                    ? (fishAtPoint.sp?.[fishSpecies] ?? 0)
-                    : fishAtPoint.s;
-                  const selMeta = fishSpecies
-                    ? SPECIES_META[fishSpecies]
-                    : null;
-                  // tên đầy đủ cho dễ đọc
-                  const names = fishSpecies
-                    ? [selMeta?.full ?? fishSpecies]
-                    : fishAtPoint.top.map((s) => SPECIES_META[s]?.full ?? s);
+                  const v = diemTheoBo(fishAtPoint, fishBo);
+                  const selMeta =
+                    fishBo.length === 1 ? SPECIES_META[fishBo[0]] : null;
+                  // tên đầy đủ cho dễ đọc — chỉ các loài bà con đã chọn
+                  const names = loaiNoiTheoBo(fishAtPoint, fishBo).map(
+                    (s) => SPECIES_META[s]?.full ?? s,
+                  );
+                  const tenBo = fishBo
+                    .map((s) => SPECIES_META[s]?.full ?? s)
+                    .join(", ");
                   // loài đáy/rạn/giáp xác: ảnh vệ tinh ít chính xác → nói thẳng
                   const lowSig = selMeta?.surfaceSignal === "low";
-                  if (v < 25 && fishSpecies)
+                  if (v < 25 && fishBo.length)
                     return (
                       <div className="flex items-start gap-2.5 surface p-3.5">
                         <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
@@ -10424,8 +10444,8 @@ export default function FishingMapView() {
                               mấy ngày tuổi — nói "ảnh mới nhất" là đúng ở cả
                               hai ca, mà vẫn không phải khoe tuổi ảnh ra màn hình. */}
                           Chỗ này <b>không có gì nổi bật</b> trên ảnh mới nhất cho{" "}
-                          <b>{selMeta?.full ?? fishSpecies}</b> — dò vùng tô màu
-                          khi chọn loài này trên bản đồ.
+                          <b>{tenBo}</b> — dò vùng tô màu
+                          trên bản đồ.
                         </p>
                       </div>
                     );

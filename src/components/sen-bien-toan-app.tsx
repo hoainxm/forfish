@@ -53,8 +53,10 @@ const LOAI_CA = Object.keys(SPECIES_META);
 const NGHE_LAI = "Sen Biển chưa nghe rõ. Bà con nói lại nhé.";
 /** chờ app mở xong mới tải sẵn giọng — như màn bản đồ (fishing-map-view), khỏi chen với lúc dựng trang */
 const TAI_SAN_MS = 8_000;
-/** màn KHÔNG vẽ Sen Biển toàn app: bản đồ có bản riêng; đăng nhập/đăng ký/pháp lý không cần */
-const KHONG_VE = /^\/(ngu-truong|login|dang-ky|quen-mat-khau|doi-mat-khau|quyen-rieng-tu)(\/|$)/;
+/** màn KHÔNG vẽ Sen Biển toàn app: bản đồ có bản riêng; đăng nhập/đăng ký/pháp lý không cần;
+ *  `/hai-do` (2026-11-04, rà soát so iSailor/OpenCPN): hải đồ THUẦN — nút nổi che nhãn hải đồ (trạm con nước góc
+ *  phải dưới), hai app tham khảo không có gì nổi trên mặt hải đồ ngoài nút điều khiển của chính nó */
+const KHONG_VE = /^\/(ngu-truong|hai-do|login|dang-ky|quen-mat-khau|doi-mat-khau|quyen-rieng-tu)(\/|$)/;
 /** `?sen=` là LỆNH CHO MÀN, không phải câu hỏi: `/kairos?sen=tai` (feed bấm Tải) · `/?sen=chuong` (Trang chủ bật chuông) — cơ cấu mới 2026-10-25 */
 const SEN_LENH_MAN = new Set(["tai", "chuong"]);
 

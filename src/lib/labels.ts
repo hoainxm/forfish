@@ -105,6 +105,47 @@ export const NHAN = {
   trangChu: "Trang chủ",
   kairos: "Kairos",
   banDo: "Bản đồ",
+  /** khay ⋯ màn bản đồ → CHẾ ĐỘ HẢI ĐỒ `/hai-do` (kiểu máy hải đồ, 2026-11-04). "Hải đồ" đã là tên nhóm lớp trong khay Lớp — tránh trùng */
+  kieuMay: "Kiểu máy",
+  /** chip đường an toàn = suy từ mớn tàu (chế độ hải đồ) */
+  theoMon: "Theo mớn",
+  /** chế độ hải đồ đợt 2 (2026-11-04): canh neo · MOB · chuông · đo */
+  thaNeo: "Thả neo",
+  nhoNeo: "Nhổ neo",
+  daVot: "Đã vớt",
+  daBiet: "Đã biết",
+  datGoc: "Đặt gốc",
+  /** khay ⋯ chế độ hải đồ (cột nút thông minh, 2026-11-04) */
+  mauSac: "Màu",
+  doDac: "Đo",
+  neoTau: "Neo",
+  tuyenDi: "Tuyến",
+  vetTau: "Vết",
+  /** khay Lớp chế độ hải đồ (đợt 3) */
+  toNong: "Tô nông",
+  conNuoc: "Con nước",
+  tuDong: "Tự động",
+  /** bảng Tuyến / Vết chế độ hải đồ (đợt 4) */
+  boDiem: "Bỏ điểm",
+  daoTuyen: "Đảo tuyến",
+  kiemTuyen: "Kiểm tuyến",
+  xuatGpx: "Xuất GPX",
+  nhapGpx: "Nhập GPX",
+  ghiVet: "Ghi vết",
+  dungGhi: "Dừng ghi",
+  taoTuyen: "Tạo tuyến",
+  /** sau đợt 4 (2026-11-04): khay ⋯ → danh sách tàu AIS; chip xếp; lớp gió/sóng toàn vùng */
+  cacTau: "Tàu",
+  sapGap: "Sắp gặp",
+  ganNhat: "Gần nhất",
+  theoTen: "Tên",
+  /** loại điểm người dùng trên Hải đồ (rà soát 2026-11-04) */
+  diemCa: "Chỗ cá",
+  diemRan: "Rạn",
+  diemXac: "Xác tàu",
+  diemNeo: "Chỗ neo",
+  gio: "Gió",
+  song: "Sóng",
   tauToi: "Tàu tôi",
   choCa: "Chợ cá",
   vatTu: "Vật tư",
@@ -270,6 +311,8 @@ export const NHAN = {
   luoiVay: "Lưới vây",
   luoiRe: "Lưới rê",
   chupMuc: "Chụp mực",
+  // Bộ chọn loài lớp Dự báo cá (2026-11-04): mở danh sách đủ loài ngoài gợi ý
+  loaiKhac: "Loài khác",
   // Chip trạng thái ĐƠN SDVICO (CRM → /cho/don, ADR 0018, 2026-11-02) — 4 mã CRM đã chuẩn hoá.
   chuanBi: "Chuẩn bị",
   dangGiao: "Đang giao",

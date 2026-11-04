@@ -1,6 +1,7 @@
 import { FishingMap } from "@/components/fishing-map";
 import { RequireLogin } from "@/components/require-login";
 import { BanDoTheoVai } from "@/components/ban-do-theo-vai";
+import { ChuyenHaiDo } from "@/components/hai-do/chuyen-hai-do";
 
 export const metadata = { title: "Đánh bắt — SDFish" };
 
@@ -28,7 +29,10 @@ export default function NguTruongPage() {
         <h1 className="sr-only">Bản đồ ngư trường</h1>
         {/* đi bạn / thu mua / đại lý chưa có gói ⇒ thẻ giới thiệu gói (spec 17 §11.1); chủ tàu như cũ */}
         <BanDoTheoVai>
-          <FishingMap />
+          {/* đã chọn chế độ Hải đồ (2026-11-04) ⇒ mở thẳng /hai-do */}
+          <ChuyenHaiDo>
+            <FishingMap />
+          </ChuyenHaiDo>
         </BanDoTheoVai>
       </RequireLogin>
     </div>

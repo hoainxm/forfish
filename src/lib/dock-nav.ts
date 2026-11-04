@@ -71,7 +71,7 @@ export function dockTheoVai(vai: Vai | null, banDo: boolean): readonly DockMuc[]
 /* Khu route của từng ô. Thứ tự quan trọng: `/ban-hang` thuộc ô Bán hàng nếu dock có ô đó, không thì về Vật tư. */
 const KHU: readonly [DockId, readonly string[]][] = [
   ["kairos", ["/kairos", "/k"]],
-  ["ban-do", ["/ngu-truong", "/cang", "/lo-trinh"]],
+  ["ban-do", ["/ngu-truong", "/hai-do", "/cang", "/lo-trinh"]], // /hai-do = chế độ Hải đồ (2026-11-04)
   ["tau-toi", ["/tau", "/nguoi", "/giay-to", "/van-hanh", "/thuyen-vien"]],
   ["viec-lam", ["/viec"]],
   ["cho-ca", ["/tien", "/gia-ca"]],
@@ -80,6 +80,15 @@ const KHU: readonly [DockId, readonly string[]][] = [
 ];
 
 const trong = (p: string, goc: string) => p === goc || p.startsWith(`${goc}/`);
+
+/**
+ * Bấm ô "Bản đồ" khi ĐANG ở chế độ Hải đồ ⇒ về bản đồ thường (tắt `moHaiDo`). Không có luật này thì Link
+ * đi `/ngu-truong`, `ChuyenHaiDo` thấy cờ còn bật lại đẩy về `/hai-do` — bấm như không (anh Long 2026-11-04:
+ * "chuyển lại ko được"). Lần sau dock mở kiểu bà con dùng CUỐI CÙNG.
+ */
+export function boHaiDoKhiBam(id: DockId, pathname: string): boolean {
+  return id === "ban-do" && trong(pathname || "/", "/hai-do");
+}
 
 /**
  * Mục dock đang sáng ở `pathname`, trong số ô `co` đang có trên dock (mặc định: DOCK). null = màn không thuộc ô nào
