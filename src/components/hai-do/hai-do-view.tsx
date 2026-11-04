@@ -43,8 +43,13 @@ import {
   SOVEREIGNTY_LABELS,
   VN_AID_MINZOOM,
   WRECK_LAYER,
-  SEA_LANES_DATA_URL,
   SEA_LANE_COLOR,
+  CHART_TIER,
+  RIG_MINZOOM,
+  SEA_PIPELINE_MINZOOM,
+  CABLE_LANDING_MINZOOM,
+  SEA_RESTRICTED_MINZOOM,
+  RESTRICTED_LABEL_COLOR,
   SEA_CABLE_COLOR,
   SEA_CABLE_DASH,
   PIPELINE_COLOR,
@@ -58,14 +63,15 @@ import {
   TIDE_FILTER_CANG,
   TIDE_STATION_CANG_MINZOOM,
 } from "@/lib/ocean-map";
-import { dataSourceUrl } from "@/lib/data-fetch";
+import { fetchSeaLanes } from "@/lib/sea-lanes";
+import { CHART_FEATURE_ICON, CHART_ICON_SIZE } from "@/lib/chart-symbols";
 import { fetchQuyenAis, fetchTauAis, moTaTau, peekQuyenAis, TAU_AIS_LAM_MOI_MS, tauGeoJson, type TauAisBan } from "@/lib/tau-ais";
 import { quetQuanh } from "@/lib/ais-cpa";
 import { CO_ICON_TAU, dangKyIconTau } from "@/components/ban-do/icon-tau";
 import { useAuthUser } from "@/lib/use-auth";
 import { syncOwnerPhone } from "@/lib/user-sync";
 import { beaufort, fetchSeaPoint, formatNumberVN, windDirectionVN } from "@/lib/marine-weather";
-import { bangTheoTroi, cauCpa, doCaoMatTroi, nhomTheoMuc } from "@/lib/hai-do/lop";
+import { bangTheoTroi, canDanCongTrinh, canhBaoCongTrinh, cauCpa, doCaoMatTroi, loaiCongTrinh, nhomTheoMuc, TEN_CONG_TRINH, VONG_GIAN_M } from "@/lib/hai-do/lop";
 import { KhayLop } from "@/components/hai-do/khay-lop";
 import { DongY } from "@/components/hai-do/dong-y";
 import { KHONG_PHAI_CUM, LA_CUM, SEAMARK_ICON_LAYOUT } from "@/components/ban-do/hai-do";
@@ -156,9 +162,16 @@ const DO_COLOR = "#c8461f";
 const NEO_COLOR = "#086e73";
 const MOB_COLOR = "#a82218";
 const NHAN_BANG = { ngay: "Ngày", chieu: "Chiều", dem: "Đêm" } as const;
+/** Cáp điện (đỏ sen) tách khỏi cáp quang (tím, SEA_CABLE_COLOR) — không trùng cam vùng cấm / xanh tuyến. */
+const CAP_DIEN_COLOR = "#be185d";
+const CAP_KHAC_COLOR = "#7c5a9c";
+/** Ống xả / lấy nước — xám, nhẹ hơn ống dầu khí (mực). */
+const ONG_XA_COLOR = "#6b7280";
+/** Cáp + ống hiện từ nấc XA (z7) — sớm hơn màn cũ (z9): bà con cần biết từ xa để tránh thả neo, kéo lưới đáy. */
+const CAP_ONG_MINZOOM = CHART_TIER.XA;
 const KM_HL = 1.852;
 /** Lớp chạm được — tên lớp khớp `HANG_CHAM` (lib/hai-do/may). */
-const LOP_CHAM = ["hd-ais", "hd-trieu", "hd-trieu-cang", "hd-xac-tau", "hd-vn-aid", "hd-seamark-near", "hd-seamark-mid", "hd-seamark-far", "hd-den-bien", "hd-island-dot", "hd-island-label"];
+const LOP_CHAM = ["hd-gian", "hd-cap", "hd-ong", "hd-cap-bo", "hd-vung-cam-fill", "hd-ais", "hd-trieu", "hd-trieu-cang", "hd-xac-tau", "hd-vn-aid", "hd-seamark-near", "hd-seamark-mid", "hd-seamark-far", "hd-den-bien", "hd-island-dot", "hd-island-label"];
 const RONG = { type: "FeatureCollection", features: [] } as GeoJSON.FeatureCollection;
 /** Ô trong khay ⋯ — nhãn từ labels.ts (≤ 2 chữ), tên đầy đủ ở aria-label. */
 const KHAY: Record<MucKhay, { nhan: string; aria: string; icon: (p: { className?: string }) => React.ReactNode }> = {
@@ -300,6 +313,34 @@ export default function HaiDoView() {
   const denGeo = useMemo(() => (den ? denBienGeo(den) : null), [den]);
   const aidGeo = useMemo(() => (aids ? vnAidGeo(aids) : null), [aids]);
   const xacGeo = useMemo(() => (xac ? xacTauGeo(xac) : null), [xac]);
+  // cáp · ống · giàn · vùng cấm · luồng — nạp vào JS (chạm + báo động), gắn `i` + loại
+  const seaLanes = useDuLieu<GeoJSON.Feature[]>(fetchSeaLanes, online, coMuc);
+  const congTrinhGeo = useMemo(
+    () =>
+      seaLanes
+        ? fc(
+            seaLanes.map((f, i) => ({
+              ...f,
+              properties: { ...f.properties, i, lct: loaiCongTrinh(String(f.properties?.kind ?? ""), f.properties?.loai as string | undefined) ?? "" },
+            })),
+          )
+        : null,
+    [seaLanes],
+  );
+  const vongGianGeo = useMemo(
+    () =>
+      seaLanes
+        ? fc(
+            seaLanes
+              .filter((f) => f.properties?.kind === "giankhoan" && f.geometry.type === "Point")
+              .map((f) => {
+                const [lon, lat] = (f.geometry as GeoJSON.Point).coordinates;
+                return vongTron({ lat, lon }, VONG_GIAN_M / 1000, 48);
+              }),
+          )
+        : null,
+    [seaLanes],
+  );
 
   const doSauTau = grid && tau.pos ? depthClassAt(grid, tau.pos.lat, tau.pos.lon) : null;
 
@@ -361,6 +402,12 @@ export default function HaiDoView() {
     [prefs.lopTrieu, tram, nowPhut],
   );
 
+  // ── công trình: neo gần cáp/ống, tàu trong vòng giàn ─────────────────────
+  const congTrinh = useMemo(
+    () => (seaLanes ? canhBaoCongTrinh(seaLanes as never, tau.pos, neo) : null),
+    [seaLanes, tau.pos, neo],
+  );
+
   // ── báo động chung ────────────────────────────────────────────────────────
   const gpsMat = tau.status === "lost" || fixQuaCu(tau.lastFixAt, tau.speedKmh, nowMs);
   const baoDong = dsBaoDong({
@@ -372,6 +419,7 @@ export default function HaiDoView() {
     anToanM,
     gpsMat: tau.lastFixAt != null && gpsMat,
     cpa,
+    congTrinh,
     lechTuyen: null,
     hetTuyen: false,
   });
@@ -453,13 +501,25 @@ export default function HaiDoView() {
       const vat: VatCham[] = [];
       for (const f of fs) {
         if (f.properties?.point_count != null) continue;
-        const p = map.project((f.geometry as GeoJSON.Point).coordinates as [number, number]);
-        vat.push({ lop: f.layer.id, i: Number(f.properties?.i ?? f.properties?.rank ?? 0), px: Math.hypot(p.x - x, p.y - y) });
+        // đường / vùng (cáp, ống, vùng cấm) không có một điểm để đo ⇒ coi như cách đúng bán kính chạm
+        const px =
+          f.geometry.type === "Point"
+            ? (() => {
+                const p = map.project((f.geometry as GeoJSON.Point).coordinates as [number, number]);
+                return Math.hypot(p.x - x, p.y - y);
+              })()
+            : R;
+        vat.push({ lop: f.layer.id, i: Number(f.properties?.i ?? f.properties?.rank ?? 0), px });
       }
       const dong: DongCham[] = [];
       const islands = fs.filter((f) => f.layer.id.startsWith("hd-island"));
       for (const v of xepCham(vat)) {
-        if (v.lop === "hd-ais") {
+        if (["hd-gian", "hd-cap", "hd-ong", "hd-cap-bo", "hd-vung-cam-fill"].includes(v.lop) && seaLanes?.[v.i]) {
+          const pr = seaLanes[v.i].properties ?? {};
+          const lct = loaiCongTrinh(String(pr.kind ?? ""), pr.loai as string | undefined);
+          if (lct) dong.push({ tieu: TEN_CONG_TRINH[lct], phu: `${pr.ten ? `${String(pr.ten)} · ` : ""}${canDanCongTrinh(lct)}`, canh: true });
+          else dong.push({ tieu: String(pr.ten ?? "Vùng cấm"), phu: pr.kind === "cap-bo" ? "Điểm cáp cập bờ — không thả neo gần" : "Vùng cấm — xem tên vùng", canh: true });
+        } else if (v.lop === "hd-ais") {
           const id = fs.find((f) => f.layer.id === "hd-ais")?.properties?.id;
           const t = aisBan?.tau.find((x) => x.id === id);
           if (t) dong.push({ tieu: t.ten ?? "Tàu AIS", phu: moTaTau(t) });
@@ -630,14 +690,16 @@ export default function HaiDoView() {
           </Source>
         )}
 
-        {/* LUỒNG · CÁP · ỐNG · GIÀN · VÙNG CẤM — mức "Đủ" (sea-lanes, file trong SHELL) */}
-        {(nhom.luong || nhom.camCap) && (
-          <Source id="hd-sea-lanes" type="geojson" data={dataSourceUrl(SEA_LANES_DATA_URL)}>
+        {/* CÁP · ỐNG · GIÀN · VÙNG CẤM (mức Chuẩn trở lên — tàu cá thả neo, kéo lưới đáy) + LUỒNG (mức Đủ).
+            Dữ liệu vn-sea-lanes nạp vào JS (`congTrinhGeo`) để chạm ra tên + báo động neo gần cáp / vào vòng giàn. */}
+        {congTrinhGeo && (nhom.luong || nhom.camCap) && (
+          <Source id="hd-sea-lanes" type="geojson" data={congTrinhGeo}>
             {nhom.camCap && (
               <Layer
                 {...L({
                   id: "hd-vung-cam-fill",
                   type: "fill",
+                  minzoom: SEA_RESTRICTED_MINZOOM,
                   filter: ["all", ["==", ["get", "kind"], "vungcam"], ["==", ["geometry-type"], "Polygon"]],
                   paint: { "fill-color": RESTRICTED_FILL_COLOR, "fill-opacity": RESTRICTED_FILL_OPACITY },
                 })}
@@ -648,8 +710,9 @@ export default function HaiDoView() {
                 {...L({
                   id: "hd-vung-cam-line",
                   type: "line",
+                  minzoom: SEA_RESTRICTED_MINZOOM,
                   filter: ["==", ["get", "kind"], "vungcam"],
-                  paint: { "line-color": SEA_RESTRICTED_COLOR, "line-width": 1.4, "line-dasharray": [2, 2] },
+                  paint: { "line-color": SEA_RESTRICTED_COLOR, "line-width": 1.6, "line-dasharray": [2, 2] },
                 })}
               />
             )}
@@ -658,8 +721,13 @@ export default function HaiDoView() {
                 {...L({
                   id: "hd-cap",
                   type: "line",
+                  minzoom: CAP_ONG_MINZOOM,
                   filter: ["==", ["get", "kind"], "cap"],
-                  paint: { "line-color": SEA_CABLE_COLOR, "line-width": 1.2, "line-dasharray": [...SEA_CABLE_DASH] },
+                  paint: {
+                    "line-color": ["match", ["get", "lct"], "cap-quang", SEA_CABLE_COLOR, "cap-dien", CAP_DIEN_COLOR, CAP_KHAC_COLOR],
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 7, 1.2, 12, 2.2],
+                    "line-dasharray": [...SEA_CABLE_DASH],
+                  },
                 })}
               />
             )}
@@ -668,8 +736,64 @@ export default function HaiDoView() {
                 {...L({
                   id: "hd-ong",
                   type: "line",
+                  minzoom: CAP_ONG_MINZOOM,
                   filter: ["==", ["get", "kind"], "ong"],
-                  paint: { "line-color": PIPELINE_COLOR, "line-width": 1.4, "line-dasharray": [...PIPELINE_DASH] },
+                  paint: {
+                    "line-color": ["match", ["get", "lct"], "ong-xa", ONG_XA_COLOR, PIPELINE_COLOR],
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 7, 1.4, 12, 2.6],
+                    "line-dasharray": [...PIPELINE_DASH],
+                  },
+                })}
+              />
+            )}
+            {nhom.camCap && (
+              <Layer
+                {...L({
+                  id: "hd-ong-dau",
+                  type: "symbol",
+                  minzoom: SEA_PIPELINE_MINZOOM,
+                  filter: ["all", ["==", ["get", "kind"], "ong"], ["==", ["get", "lct"], "ong-dau-khi"]],
+                  layout: {
+                    "symbol-placement": "line",
+                    "symbol-spacing": 140,
+                    "icon-image": CHART_FEATURE_ICON.pipelineMark,
+                    "icon-size": CHART_ICON_SIZE,
+                    "icon-allow-overlap": true,
+                  },
+                })}
+              />
+            )}
+            {nhom.camCap && (
+              <Layer
+                {...L({
+                  id: "hd-cap-bo",
+                  type: "symbol",
+                  minzoom: CABLE_LANDING_MINZOOM,
+                  filter: ["==", ["get", "kind"], "cap-bo"],
+                  layout: { "icon-image": CHART_FEATURE_ICON.cableLanding, "icon-size": CHART_ICON_SIZE, "icon-allow-overlap": true },
+                })}
+              />
+            )}
+            {nhom.camCap && (
+              <Layer
+                {...L({
+                  id: "hd-cam-neo",
+                  type: "symbol",
+                  minzoom: SEA_RESTRICTED_MINZOOM,
+                  filter: ["all", ["==", ["get", "loai"], "cam-neo"], ["!=", ["get", "hoDang"], true]],
+                  layout: { "icon-image": CHART_FEATURE_ICON.noAnchor, "icon-size": CHART_ICON_SIZE, "icon-allow-overlap": true },
+                })}
+              />
+            )}
+            {nhom.camCap && (
+              <Layer
+                {...L({
+                  id: "hd-vung-cam-ten",
+                  type: "symbol",
+                  minzoom: SEA_RESTRICTED_MINZOOM,
+                  filter: ["all", ["==", ["get", "kind"], "vungcam"], ["!=", ["get", "hoDang"], true]],
+                  layout: { "text-field": ["get", "ten"], "text-font": ["Noto Sans Bold"], "text-size": 12, "text-max-width": 9, "text-optional": true },
+                  paint: { "text-color": RESTRICTED_LABEL_COLOR, "text-halo-color": "#ffffff", "text-halo-width": 1.4 },
                 })}
               />
             )}
@@ -678,9 +802,9 @@ export default function HaiDoView() {
                 {...L({
                   id: "hd-gian",
                   type: "symbol",
-                  minzoom: 7,
+                  minzoom: RIG_MINZOOM,
                   filter: ["==", ["get", "kind"], "giankhoan"],
-                  layout: { "icon-image": "platform", "icon-size": 0.9, "icon-allow-overlap": true },
+                  layout: { "icon-image": "platform", "icon-size": CHART_ICON_SIZE, "icon-allow-overlap": true, "icon-ignore-placement": true },
                 })}
               />
             )}
@@ -694,6 +818,20 @@ export default function HaiDoView() {
                 })}
               />
             )}
+          </Source>
+        )}
+        {/* VÒNG CẤM 500 m quanh giàn khoan */}
+        {nhom.camCap && vongGianGeo && (
+          <Source id="hd-vong-gian" type="geojson" data={vongGianGeo}>
+            <Layer {...L({ id: "hd-vong-gian-fill", type: "fill", minzoom: SEA_RESTRICTED_MINZOOM, paint: { "fill-color": RESTRICTED_FILL_COLOR, "fill-opacity": 0.12 } })} />
+            <Layer
+              {...L({
+                id: "hd-vong-gian-line",
+                type: "line",
+                minzoom: SEA_RESTRICTED_MINZOOM,
+                paint: { "line-color": SEA_RESTRICTED_COLOR, "line-width": 1.2, "line-dasharray": [1.5, 1.5] },
+              })}
+            />
           </Source>
         )}
 

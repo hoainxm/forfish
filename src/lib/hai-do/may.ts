@@ -161,7 +161,7 @@ export function fmtPv(deg: number | null): string {
 
 /* ── BÁO ĐỘNG CHUNG ───────────────────────────────────────────────────────── */
 
-export type MaBaoDong = "mob" | "neo" | "bao" | "nong" | "ran" | "gps" | "cpa" | "lech" | "het-tuyen";
+export type MaBaoDong = "mob" | "neo" | "bao" | "nong" | "ran" | "cong-trinh" | "gps" | "cpa" | "lech" | "het-tuyen";
 
 export interface BaoDong {
   ma: MaBaoDong;
@@ -180,6 +180,8 @@ export interface TinhHinh {
   gpsMat: boolean;
   /** tàu AIS nguy cơ gần nhất (đợt 3) */
   cpa: string | null;
+  /** neo gần cáp/ống, tàu trong vòng giàn (lop.canhBaoCongTrinh) */
+  congTrinh?: string | null;
   /** lệch tuyến / hết tuyến (đợt 4) */
   lechTuyen: string | null;
   hetTuyen: boolean;
@@ -194,6 +196,7 @@ export function dsBaoDong(t: TinhHinh): BaoDong[] {
   if (t.doSau === 1) ds.push({ ma: "ran", muc: "do", chu: "Đang ở vùng rạn, đá ngầm" });
   else if (nongHonAnToan(t.doSau, t.anToanM) && t.doSau !== 0)
     ds.push({ ma: "nong", muc: "do", chu: `Nước nông hơn đường an toàn ${t.anToanM} m` });
+  if (t.congTrinh) ds.push({ ma: "cong-trinh", muc: "do", chu: t.congTrinh });
   if (t.cpa) ds.push({ ma: "cpa", muc: "do", chu: t.cpa });
   if (t.lechTuyen) ds.push({ ma: "lech", muc: "vang", chu: t.lechTuyen });
   if (t.hetTuyen) ds.push({ ma: "het-tuyen", muc: "vang", chu: "Đã tới điểm cuối tuyến" });
@@ -218,6 +221,11 @@ export function donXacNhan(ds: readonly BaoDong[], daXacNhan: ReadonlySet<MaBaoD
    (sửa lỗi "vật xa giành chạm" đã ghi ở rà hải đồ 09/2026). */
 export const HANG_CHAM: Record<string, number> = {
   "hd-ais": 0,
+  "hd-gian": 0,
+  "hd-cap": 0,
+  "hd-ong": 0,
+  "hd-cap-bo": 1,
+  "hd-vung-cam-fill": 1,
   "hd-xac-tau": 0,
   "hd-vn-aid": 1,
   "hd-seamark-near": 1,

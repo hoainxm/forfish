@@ -255,3 +255,5 @@ Bắt đầu: `git fetch origin && git checkout feat/hai-do-thuan`. Đọc trư�
 **Luật giữ nguyên**: cột nút thông minh (`lib/hai-do/cot-nut.ts` — mục mới vào khay ⋯, chỉ nổi ra cột khi đang dùng); nhãn ≤ 2 chữ thêm vào `src/lib/labels.ts`; màu qua token / `doiMau` theo bảng màu; mỗi đợt: test `src/lib/__tests__/`, doc 07 §13.x + 02 + state-registry cùng commit, câu hỏi offline (a–d) trong commit message; kiểm trình duyệt 375 px bằng tài khoản test (`node scripts/test-account.mjs cap 0900000777`, xong `thu`).
 
 **Còn mở sau đợt 4**: đợt 5 NMEA/thiết bị (cần bản native + thiết bị thật); danh sách tàu AIS riêng (hàng 11); lớp gió sóng toàn vùng + tua giờ (hàng 17); kiểm AIS/CPA trên trình duyệt bằng tài khoản CÓ quyền AIS; anh Long test một lần toàn bộ rồi mới merge `main`.
+
+**Bổ sung 2026-11-04 (trước đợt 4)**: cáp · ống · giàn · vùng cấm lên mức Chuẩn, vẽ phân biệt loại, vòng 500 m quanh giàn, chạm ra tên + câu dặn, báo động neo gần cáp/ống và vào vòng giàn (07 §13.4). Dữ liệu giàn thiếu các mỏ phía Nam — cần nguồn khác (Thông báo hàng hải / PVN) nếu muốn đủ.

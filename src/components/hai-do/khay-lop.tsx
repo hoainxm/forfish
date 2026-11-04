@@ -26,8 +26,8 @@ export function KhayLop({ prefs, coAis }: { prefs: HaiDoPrefs; coAis: boolean })
         {prefs.hienThi === "co-ban"
           ? "Bờ, đảo, độ sâu, đèn biển, xác tàu"
           : prefs.hienThi === "chuan"
-            ? "Thêm phao, tiêu báo hiệu"
-            : "Thêm luồng, cáp, ống, giàn khoan, vùng cấm"}
+            ? "Thêm phao, tiêu, cáp, ống, giàn khoan, vùng cấm"
+            : "Thêm luồng, phân luồng tàu"}
       </p>
       <h3 className="mt-3 text-[0.875rem] font-semibold text-navy">Lớp</h3>
       <div className="mt-2 flex flex-wrap gap-2">

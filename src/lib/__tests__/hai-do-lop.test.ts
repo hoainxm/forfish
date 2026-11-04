@@ -5,9 +5,9 @@ import { DEPTH_BANDS } from "../ocean-map";
 import type { MucTieu } from "../ais-cpa";
 
 describe("mức hiển thị", () => {
-  it("Cơ bản tắt báo hiệu; Chuẩn có báo hiệu; Đủ thêm luồng + cáp/cấm", () => {
+  it("Cơ bản tắt báo hiệu; Chuẩn có báo hiệu + cáp/ống/giàn/cấm (tàu cá); Đủ thêm luồng", () => {
     expect(nhomTheoMuc("co-ban")).toEqual({ baoHieu: false, luong: false, camCap: false });
-    expect(nhomTheoMuc("chuan")).toEqual({ baoHieu: true, luong: false, camCap: false });
+    expect(nhomTheoMuc("chuan")).toEqual({ baoHieu: true, luong: false, camCap: true });
     expect(nhomTheoMuc("du")).toEqual({ baoHieu: true, luong: true, camCap: true });
   });
 });
@@ -74,5 +74,38 @@ describe("báo va chạm AIS", () => {
   it("nhiều tàu: báo tàu sắp gần SỚM nhất", () => {
     const r = cauCpa([mt({ tcpaPhut: 10 }), mt({ tcpaPhut: 3, tau: { ...mt({}).tau, ten: null } })], hl);
     expect(r).toBe("Một tàu sẽ cách 0.2 hl sau 3 phút");
+  });
+});
+
+import { canDanCongTrinh, canhBaoCongTrinh, loaiCongTrinh } from "../hai-do/lop";
+import { diemTheoPhuongVi } from "../hai-do/an-toan";
+
+describe("cáp · ống · giàn", () => {
+  it("xếp loại theo kind + loai", () => {
+    expect(loaiCongTrinh("cap", "quang")).toBe("cap-quang");
+    expect(loaiCongTrinh("cap", "dien")).toBe("cap-dien");
+    expect(loaiCongTrinh("cap", "chua-ro")).toBe("cap");
+    expect(loaiCongTrinh("ong", "khi")).toBe("ong-dau-khi");
+    expect(loaiCongTrinh("ong", "xa-thai")).toBe("ong-xa");
+    expect(loaiCongTrinh("giankhoan")).toBe("gian");
+    expect(loaiCongTrinh("luong")).toBeNull();
+    expect(canDanCongTrinh("cap-quang")).toContain("neo");
+    expect(canDanCongTrinh("gian")).toContain("500 m");
+  });
+  const goc = { lat: 10, lon: 108 };
+  const tren = diemTheoPhuongVi(goc, 0, 0.3); // 300 m về Bắc
+  const cap = { type: "Feature" as const, properties: { kind: "cap", loai: "quang" }, geometry: { type: "LineString" as const, coordinates: [[107.9, 10], [108.1, 10]] } };
+  const gian = { type: "Feature" as const, properties: { kind: "giankhoan" }, geometry: { type: "Point" as const, coordinates: [108, 10] } };
+  it("neo cách cáp 300 m ⇒ báo; neo xa ⇒ im; chưa neo ⇒ im", () => {
+    expect(canhBaoCongTrinh([cap], null, tren)).toBe("Neo cách cáp quang ngầm 300 m — dễ móc");
+    expect(canhBaoCongTrinh([cap], null, diemTheoPhuongVi(goc, 0, 2))).toBeNull();
+    expect(canhBaoCongTrinh([cap], tren, null)).toBeNull();
+  });
+  it("tàu trong vòng 500 m quanh giàn ⇒ báo; ngoài ⇒ im", () => {
+    expect(canhBaoCongTrinh([gian], tren, null)).toBe("Đang trong vòng 500 m quanh giàn khoan");
+    expect(canhBaoCongTrinh([gian], diemTheoPhuongVi(goc, 90, 0.8), null)).toBeNull();
+  });
+  it("neo gần cáp được ưu tiên hơn vòng giàn", () => {
+    expect(canhBaoCongTrinh([gian, cap], tren, tren)).toContain("Neo cách");
   });
 });

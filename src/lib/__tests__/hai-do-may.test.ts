@@ -134,6 +134,10 @@ describe("báo động chung", () => {
     expect(ds.map((b) => b.ma)).toEqual(["mob", "neo", "gps"]);
     expect(ds[1].chu).toContain("72 m");
   });
+  it("công trình (neo gần cáp / vòng giàn) là báo đỏ", () => {
+    const ds = dsBaoDong({ ...goc, congTrinh: "Neo cách cáp quang ngầm 300 m — dễ móc" });
+    expect(ds).toEqual([{ ma: "cong-trinh", muc: "do", chu: "Neo cách cáp quang ngầm 300 m — dễ móc" }]);
+  });
   it("rạn khác nông; trên bờ không báo nông", () => {
     expect(dsBaoDong({ ...goc, doSau: 1 })[0].ma).toBe("ran");
     expect(dsBaoDong({ ...goc, doSau: 2 })[0].ma).toBe("nong");

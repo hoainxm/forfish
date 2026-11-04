@@ -10,6 +10,8 @@
 import { DEPTH_BANDS } from "@/lib/ocean-map";
 import type { BangMau } from "@/lib/hai-do/bang-mau";
 import type { MucTieu } from "@/lib/ais-cpa";
+import { distToSegmentKm } from "@/lib/route-storm";
+import { haversineKm, type LatLon } from "@/lib/geo";
 
 /* ── MỨC HIỂN THỊ ─────────────────────────────────────────────────────────── */
 
@@ -28,11 +30,12 @@ export interface NhomLop {
 
 /**
  * Cơ bản = bờ, đảo, đẳng sâu, đường an toàn, đèn biển, xác tàu (thứ PHẢI thấy để
- * không mắc cạn, đâm vật). Chuẩn = + báo hiệu. Đủ = + luồng, cáp, ống, giàn, vùng cấm.
+ * không mắc cạn, đâm vật). Chuẩn = + báo hiệu + cáp, ống, giàn, vùng cấm (tàu cá thả neo,
+ * kéo lưới đáy — khác S-52 xếp cáp/ống vào "Other"; xem phần CÔNG TRÌNH dưới). Đủ = + luồng.
  * Xác tàu + đèn biển + đường an toàn KHÔNG tắt được ở mức nào (an toàn).
  */
 export function nhomTheoMuc(m: MucHienThi): NhomLop {
-  return { baoHieu: m !== "co-ban", luong: m === "du", camCap: m === "du" };
+  return { baoHieu: m !== "co-ban", luong: m === "du", camCap: m !== "co-ban" };
 }
 
 /* ── TÔ NÔNG THEO ĐƯỜNG AN TOÀN (hai sắc kiểu OpenCPN) ─────────────────────── */
@@ -91,4 +94,83 @@ export function cauCpa(ds: readonly MucTieu[], hl: (nm: number) => string): stri
   if (!nguy) return null;
   const ten = nguy.tau.ten ? `Tàu ${nguy.tau.ten}` : "Một tàu";
   return `${ten} sẽ cách ${hl(nguy.cpaNm!)} sau ${Math.max(1, Math.round(nguy.tcpaPhut!))} phút`;
+}
+
+/* ── CÔNG TRÌNH NGẦM / TRÊN BIỂN — cáp, ống, giàn (2026-11-04, anh Long: "hoàn thiện đi") ─
+   Chuẩn S-52 xếp cáp/ống vào nhóm "Other" (chỉ hiện ở mức All) — chuẩn viết cho TÀU HÀNG.
+   Tàu cá thả neo + kéo lưới đáy: móc cáp là mất lưới, đứt cáp, có khi lật tàu ⇒ ở đây
+   cáp/ống/giàn/vùng cấm thuộc mức CHUẨN (mặc định) và có báo động khi neo gần / vào vòng giàn. */
+
+
+/** Vòng cấm quanh công trình biển (cấm neo, cấm đánh bắt — thông lệ 500 m). */
+export const VONG_GIAN_M = 500;
+/** Neo cách cáp/ống gần hơn mức này ⇒ báo (neo trôi + xích neo quét đáy vài trăm mét). */
+export const NEO_GAN_CAP_M = 500;
+
+export type LoaiCongTrinh = "cap-quang" | "cap-dien" | "cap" | "ong-dau-khi" | "ong-xa" | "ong" | "gian";
+
+/** Xếp loại từ `kind` + `loai` của vn-sea-lanes (thuần). */
+export function loaiCongTrinh(kind: string, loai?: string | null): LoaiCongTrinh | null {
+  if (kind === "giankhoan") return "gian";
+  if (kind === "cap") return loai === "quang" ? "cap-quang" : loai === "dien" ? "cap-dien" : "cap";
+  if (kind === "ong") return loai === "khi" || loai === "dau" || loai === "nhien-lieu" ? "ong-dau-khi" : loai === "xa-thai" || loai === "nuoc" ? "ong-xa" : "ong";
+  return null;
+}
+
+export const TEN_CONG_TRINH: Record<LoaiCongTrinh, string> = {
+  "cap-quang": "Cáp quang ngầm",
+  "cap-dien": "Cáp điện ngầm",
+  cap: "Cáp ngầm",
+  "ong-dau-khi": "Ống dầu khí ngầm",
+  "ong-xa": "Ống xả / lấy nước ngầm",
+  ong: "Ống ngầm",
+  gian: "Giàn khoan / công trình biển",
+};
+
+/** Câu dặn khi chạm — một câu, đời thường. */
+export function canDanCongTrinh(l: LoaiCongTrinh): string {
+  return l === "gian"
+    ? `Không vào trong ${VONG_GIAN_M} m — cấm neo, cấm đánh bắt`
+    : "Không thả neo, không kéo lưới đáy ở đây";
+}
+
+type Feat = { type: "Feature"; properties: Record<string, unknown> | null; geometry: GeoJSON.Geometry };
+
+function khoangCachToiHinhKm(p: LatLon, g: GeoJSON.Geometry): number {
+  const ds = (line: number[][]) => {
+    let m = Infinity;
+    for (let k = 1; k < line.length; k++) {
+      m = Math.min(m, distToSegmentKm(p, { lat: line[k - 1][1], lon: line[k - 1][0] }, { lat: line[k][1], lon: line[k][0] }));
+    }
+    return m;
+  };
+  if (g.type === "Point") return haversineKm(p, { lat: g.coordinates[1], lon: g.coordinates[0] });
+  if (g.type === "LineString") return ds(g.coordinates);
+  if (g.type === "MultiLineString") return Math.min(...g.coordinates.map(ds));
+  return Infinity;
+}
+
+/**
+ * Cảnh báo công trình cho tàu/neo (thuần):
+ *  · tàu trong vòng VONG_GIAN_M của giàn ⇒ "Đang trong vòng 500 m quanh giàn khoan";
+ *  · đang neo và neo cách cáp/ống < NEO_GAN_CAP_M ⇒ "Neo cách cáp quang ngầm 230 m — dễ móc".
+ * Trả câu GẦN/nguy nhất, null nếu yên.
+ */
+export function canhBaoCongTrinh(ds: readonly Feat[], tau: LatLon | null, neo: LatLon | null): string | null {
+  let gian: number | null = null;
+  let cap: { m: number; l: LoaiCongTrinh } | null = null;
+  for (const f of ds) {
+    const l = loaiCongTrinh(String(f.properties?.kind ?? ""), (f.properties?.loai as string | undefined) ?? null);
+    if (!l) continue;
+    if (l === "gian" && tau) {
+      const m = khoangCachToiHinhKm(tau, f.geometry) * 1000;
+      if (m <= VONG_GIAN_M && (gian == null || m < gian)) gian = m;
+    } else if (l !== "gian" && neo) {
+      const m = khoangCachToiHinhKm(neo, f.geometry) * 1000;
+      if (m <= NEO_GAN_CAP_M && (!cap || m < cap.m)) cap = { m, l };
+    }
+  }
+  if (cap) return `Neo cách ${TEN_CONG_TRINH[cap.l].toLowerCase()} ${Math.round(cap.m)} m — dễ móc`;
+  if (gian != null) return `Đang trong vòng ${VONG_GIAN_M} m quanh giàn khoan`;
+  return null;
 }

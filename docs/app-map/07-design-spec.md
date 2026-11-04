@@ -2130,6 +2130,14 @@ Anh Long: *"chế độ hải đồ thuần này là 1 lớp mới, ko dính t�
 - **Tự đổi màu**: độ cao mặt trời tại tàu (`doCaoMatTroi`, NOAA rút gọn): > 6° Ngày · −6…6° Chiều · < −6° Đêm.
 - **Lần đầu mở**: tấm "Hải đồ để tham khảo … không thay hải đồ chính thức và Thông báo hàng hải" + Đồng ý (`daDongY`).
 
+### 13.4 Cáp · ống · giàn khoan · vùng cấm (2026-11-04, anh Long: "các lớp tuyến ống dầu khí, dàn khoan, cáp biển sao" → "hoàn thiện đi")
+
+- **Mức hiển thị**: cáp, ống, giàn, vùng cấm thuộc **Chuẩn** (mặc định) — khác S-52 (xếp cáp/ống vào "Other"/All, chuẩn viết cho tàu hàng): tàu cá thả neo + kéo lưới đáy. Đủ chỉ thêm luồng/phân luồng.
+- **Vẽ phân biệt**: cáp quang tím (`SEA_CABLE_COLOR`) · cáp điện đỏ sen · cáp chưa rõ tím nhạt; ống dầu khí/nhiên liệu mực + dấu ống (`pipeline-mark`) dọc tuyến · ống xả/nước xám. Cáp + ống từ nấc **XA (z7)** (sớm hơn màn cũ z9). Điểm cáp cập bờ, ký hiệu cấm neo, tên vùng cấm từ z9. Giàn khoan từ z7 + **vòng cấm 500 m** (tô cam nhạt, viền đứt).
+- **Chạm**: "Cáp quang ngầm / Ống dầu khí ngầm / Giàn khoan…" + tên tuyến + "Không thả neo, không kéo lưới đáy ở đây" (giàn: "Không vào trong 500 m — cấm neo, cấm đánh bắt"), chữ đỏ.
+- **Báo động** (`lop.canhBaoCongTrinh` → chuông, đỏ): đang neo mà neo cách cáp/ống < 500 m ⇒ "Neo cách cáp quang ngầm 139 m — dễ móc"; tàu trong vòng 500 m quanh giàn ⇒ "Đang trong vòng 500 m quanh giàn khoan".
+- **Giới hạn dữ liệu** (nói thật): 41 giàn trong `vn-sea-lanes` đều ở vịnh Bắc Bộ / quanh Hải Nam (nguồn OSM) — CHƯA có giàn các mỏ phía Nam (Bạch Hổ, Rồng, Sư Tử…); 12 cáp + 12 ống chưa rõ loại.
+
 ## Assumptions (§13)
 - Nhãn "Kiểu máy" (không "Hải đồ") vì "Hải đồ" đã là tên nhóm trong khay Lớp màn cũ — anh muốn tên khác thì đổi một dòng `NHAN.kieuMay`.
 - Dự báo cá / mật độ tàu / AIS chưa có trên màn này ở đợt 1 (thuần hải đồ); thêm ở đợt sau dưới dạng lớp TẮT mặc định.
