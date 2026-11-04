@@ -55,6 +55,15 @@ object KieuBanDo {
         val ran: String? = null,
         val baoHieuVn: String? = null,
         val khuTruBao: String? = null,
+        /* ── đợt 2c ── */
+        /** hình rạn ACA (pmtiles, gói) */
+        val ranGoi: String? = null,
+        /** chất đáy (pmtiles, gói) */
+        val chatDay: String? = null,
+        /** isobaths.v1.json — đẳng sâu của nền "Hải đồ độ sâu" */
+        val dangSau: String? = null,
+        /** vn-coast.v1.json — hình bờ khi nền chưa tải được */
+        val bo: String? = null,
     ) {
         internal fun theoKhoa(k: String): String? = when (k) {
             "vungLong" -> vungLong
@@ -69,6 +78,8 @@ object KieuBanDo {
             "ran" -> ran
             "baoHieuVn" -> baoHieuVn
             "khuTruBao" -> khuTruBao
+            "ranGoi" -> ranGoi
+            "chatDay" -> chatDay
             else -> error("Tep không có khoá $k — BanDoSinh.NHOM_2B đổi mà KieuBanDo chưa theo")
         }
     }
@@ -86,7 +97,14 @@ object KieuBanDo {
         val tramTrieu: Boolean = true,
         /** = MapPrefs.mapGrid — web MẶC ĐỊNH TẮT */
         val luoi: Boolean = false,
+        /** có gói (= !premiumLocked của web): nền ảnh, đẳng sâu, hình rạn ACA, chất đáy */
+        val goi: Boolean = false,
+        /** lớp nền ảnh đã chọn (OCEAN_LAYER_ORDER) — web mặc định "bathymetry"; chỉ dùng khi tắt "Hải đồ chi tiết" */
+        val nenLop: String = "bathymetry",
     ) {
+        /** = buildMapStyle(premiumLocked ? null : chartDetailOn ? "bathymetry" : layerId) của web (bỏ vế lớp động — 2d). */
+        val nenChon: String? get() = if (!goi) null else if (chiTiet) "bathymetry" else nenLop
+
         internal fun dk(k: String?): Boolean = when (k) {
             null -> true
             "sau" -> chiTiet && sau
@@ -96,6 +114,7 @@ object KieuBanDo {
             "vungQuanLy" -> vungQuanLy
             "tramTrieu" -> tramTrieu
             "mapGrid" -> luoi
+            "sauGoi" -> chiTiet && sau && goi
             else -> error("Điều kiện lạ $k trong NHOM_2B")
         }
     }
@@ -139,9 +158,23 @@ object KieuBanDo {
     /** Dựng style ĐỦ mọi lớp có file; ẩn/hiện theo công tắc làm sau bằng `hienLop` (+ `bat` ở đây đặt `visibility`
      *  ban đầu cho khỏi nháy lớp đang tắt lúc mở màn). */
     fun dung(webGoc: String, tep: Tep, bat: Bat = Bat()): String {
-        val goc = Json.parseToJsonElement(BanDoSinh.KIEU_NEN).jsonObject
+        val tuyetDoi = { s: String -> if (s.startsWith("/")) webGoc + s else s }
+        val goc = Json.parseToJsonElement(bat.nenChon?.let { BanDoSinh.KIEU_NEN_LOP[it] } ?: BanDoSinh.KIEU_NEN).jsonObject
         val nguon = goc.getValue("sources").jsonObject.toMutableMap()
         var lops = goc.getValue("layers").jsonArray.map { it.jsonObject }
+
+        // nền ảnh (gói): ô `/api/tiles/…` ⇒ địa chỉ máy chủ (nền gắn chuỗi vào request — middleware chặn gói ở đó)
+        nguon["ocean-data"]?.jsonObject?.let { o ->
+            nguon["ocean-data"] = JsonObject(o + ("tiles" to JsonArray(o.getValue("tiles").jsonArray.map { JsonPrimitive(tuyetDoi((it as JsonPrimitive).content)) })))
+        }
+        // đẳng sâu: file trong máy; chưa có thì bỏ nguồn + lớp (nền ảnh vẫn hiện)
+        if ("isobaths" in nguon) {
+            if (tep.dangSau != null) nguon["isobaths"] = nguonFile(tep.dangSau)
+            else {
+                nguon.remove("isobaths")
+                lops = lops.filter { (it["source"] as? JsonPrimitive)?.content != "isobaths" }
+            }
+        }
 
         if (tep.nen != null) {
             nguon["basemap"] = JsonObject(nguon.getValue("basemap").jsonObject + ("url" to JsonPrimitive("pmtiles://file://${tep.nen}")))
@@ -181,7 +214,10 @@ object KieuBanDo {
             val nhung = o["data"] // dữ liệu tĩnh nhúng trong style (lưới toạ độ)
             val duong = if (nhung != null) null else (tep.theoKhoa((o["tep"] as JsonPrimitive).content) ?: continue)
             val cum = o["cum"] as? JsonObject
-            nguon[id] = buildJsonObject {
+            nguon[id] = if ((o["vector"] as? JsonPrimitive)?.content == "true") buildJsonObject {
+                put("type", "vector")
+                put("url", "pmtiles://file://$duong")
+            } else buildJsonObject {
                 put("type", "geojson")
                 if (nhung != null) put("data", nhung) else put("data", "file://$duong")
                 if (cum != null) {
@@ -200,7 +236,14 @@ object KieuBanDo {
         val chuQuyen = lopChuQuyen()
 
         lops = lops.map(::minzoomTheoBeRong)
-        val i = lops.indexOfFirst { (it["id"] as? JsonPrimitive)?.content == BanDoSinh.MOC_CHEN }.let { if (it < 0) lops.size else it + 1 }
+        if (tep.nen == null && tep.bo != null) {
+            nguon["offline-coast"] = nguonFile(tep.bo)
+            val bo = Json.parseToJsonElement(BanDoSinh.LOP_BO).jsonArray.map { JsonObject(it.jsonObject + ("source" to JsonPrimitive("offline-coast"))) }
+            val m = lops.indexOfFirst { (it["id"] as? JsonPrimitive)?.content == BanDoSinh.MOC_CHEN }.let { if (it < 0) lops.size else it }
+            lops = lops.subList(0, m) + bo + lops.subList(m, lops.size)
+        }
+        // lớp JSX của web không có beforeId ⇒ MapLibre đặt TRÊN mọi lớp của style (kể cả ảnh vệ tinh + đẳng sâu)
+        val i = lops.size
         val an = hienLop(bat).filterValues { !it }.keys
         val themHien = them.map { l ->
             if ((l["id"] as JsonPrimitive).content !in an) l
@@ -208,7 +251,6 @@ object KieuBanDo {
         }
         val tatCa = lops.subList(0, i) + themHien + lops.subList(i, lops.size) + chuQuyen
 
-        val tuyetDoi = { s: String -> if (s.startsWith("/")) webGoc + s else s }
         return JsonObject(
             goc + mapOf(
                 "glyphs" to JsonPrimitive(tep.kyTu?.let { "file://$it/{fontstack}/{range}.pbf" } ?: tuyetDoi((goc["glyphs"] as JsonPrimitive).content)),

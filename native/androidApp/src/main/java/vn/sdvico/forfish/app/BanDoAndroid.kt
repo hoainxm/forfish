@@ -48,6 +48,9 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
+import org.maplibre.android.module.http.HttpRequestUtil
+import okhttp3.OkHttpClient
+import vn.sdvico.forfish.shared.api.MayChu
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.Property
@@ -77,6 +80,19 @@ import java.io.File
 /** `cameraDebug` (CHỈ bản debug, `--es camera lat,lon,zoom`): đặt khung như link `/ngu-truong?lat=&lon=` của web
  *  (flyToPoint: điểm nằm trên tâm 18% chiều cao) để chụp đối chiếu cùng chỗ. */
 class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, filesDir: File, private val cameraDebug: String? = null) {
+    init {
+        // Ô ảnh nền (gói) đi qua /api/tiles của máy chủ — middleware đòi chuỗi + gói. MapLibre tự tải ô nên gắn chuỗi ở
+        // tầng HTTP của nó, CHỈ cho đúng máy chủ mình (không lộ chuỗi sang nguồn khác).
+        val goc = ung.mayChuGoc().trimEnd('/')
+        HttpRequestUtil.setOkHttpClient(
+            OkHttpClient.Builder().addInterceptor { ch ->
+                val r = ch.request()
+                val tok = ung.phien.token()
+                ch.proceed(if (tok != null && r.url.toString().startsWith("$goc/api/tiles/")) r.newBuilder().header(MayChu.HEADER_CHUOI, tok).build() else r)
+            }.build(),
+        )
+    }
+
     private val nap: NapBanDo = ung.napBanDo(KhoTepFile(File(filesDir, "du-lieu")))
     private var map: MapLibreMap? = null
     private var tepDangVe: KieuBanDo.Tep? = null
@@ -90,9 +106,13 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
 
     private fun ghi(s: String) = Log.i("ForFishNative", s)
 
+    private var nenDangVe: String? = null
+
+    /** Dựng lại style khi file đổi HOẶC đổi nền (gói / "Hải đồ chi tiết" / lớp nền ảnh) — nền khác là style khác. */
     private fun veKieu(m: MapLibreMap, tep: KieuBanDo.Tep, xong: (Style) -> Unit) {
-        if (tep == tepDangVe) return
+        if (tep == tepDangVe && batHienTai.nenChon == nenDangVe && tepDangVe != null) return
         tepDangVe = tep
+        nenDangVe = batHienTai.nenChon
         m.setStyle(Style.Builder().fromJson(KieuBanDo.dung(ung.mayChuGoc(), tep, batHienTai))) { st ->
             themLopTau(st)
             xong(st)
@@ -172,12 +192,16 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         var cu by remember { mutableStateOf(false) }
         // Hải đồ chi tiết + ba nhóm = state phiên (web không lưu); vùng lộng/vùng quản lý/trạm/lưới = MapPrefs (lưu)
         var batPhien by remember { mutableStateOf(KieuBanDo.Bat()) }
+        val goi = remember { ung.phien.premium() }
         var tuyChon by remember { mutableStateOf(TuyChonBanDo.doc(ung.kho)) }
         var lop by remember { mutableStateOf<String?>(null) } // null đóng · "luoi" lưới ô · id panel
-        val batTong = batPhien.copy(vungLong = tuyChon.vungLong, vungQuanLy = tuyChon.vungQuanLy, tramTrieu = tuyChon.tideStations, luoi = tuyChon.mapGrid)
+        val batTong = batPhien.copy(vungLong = tuyChon.vungLong, vungQuanLy = tuyChon.vungQuanLy, tramTrieu = tuyChon.tideStations, luoi = tuyChon.mapGrid, goi = goi)
         LaunchedEffect(batTong) {
+            val doiNen = batTong.nenChon != batHienTai.nenChon
             batHienTai = batTong
-            map?.style?.let { apDungHien(it, batTong) }
+            val m = map
+            if (doiNen && m != null && tepDangVe != null) veKieu(m, tepDangVe!!) {} // nền khác ⇒ style khác
+            else m?.style?.let { apDungHien(it, batTong) }
         }
         val xin = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { kq ->
             coQuyen = kq.values.any { it }
@@ -205,7 +229,7 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
                 m.uiSettings.setAttributionMargins((12 * d).toInt(), 0, 0, ((CoSinh.DockRow + CoSinh.DockGap + 16) * d).toInt() + dayHeThong)
                 veKieu(m, daCat) {}
             }
-            val (moi, thieu) = nap.capNhat()
+            val (moi, thieu) = nap.capNhat(goi)
             ghi("Bản đồ: cập nhật $moi · chưa có: $thieu")
             thieuNen = moi.nen == null
             mapView.getMapAsync { m -> veKieu(m, moi) {} }
@@ -268,12 +292,13 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
                     null -> {}
                     "luoi" -> LuoiLop(mo = { lop = it }, dong = { lop = null })
                     else -> PanelLop(
-                        l, batPhien, { batPhien = it }, tuyChon,
+                        // bảng thấy công tắc ĐÃ GỘP (có cờ gói, tuỳ chọn); đổi thì chỉ ghi phần của phiên
+                        l, batTong, { batPhien = batPhien.copy(chiTiet = it.chiTiet, sau = it.sau, nav = it.nav, ten = it.ten, nenLop = it.nenLop) }, tuyChon,
                         { moi ->
                             tuyChon = moi
                             if (!TuyChonBanDo.ghi(ung.kho, moi)) ghi("Tuỳ chọn bản đồ: kho từ chối ghi — dùng trong RAM")
                         },
-                        soTram = nap.soTramConNuoc(), quayLai = { lop = "luoi" }, dong = { lop = null },
+                        soTram = nap.soTramConNuoc(), coMang = coMang(ctx), quayLai = { lop = "luoi" }, dong = { lop = null },
                     )
                 }
             }
@@ -303,6 +328,12 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         val y = (1 - Math.log(Math.tan(Math.PI / 4 + phi / 2)) / Math.PI) / 2 * the + lechDp
         val latMoi = Math.toDegrees(2 * Math.atan(Math.exp(Math.PI * (1 - 2 * y / the))) - Math.PI / 2)
         return LatLng(latMoi, lon)
+    }
+
+    /** = useOnline của web (thẻ khoá gói ẩn khi mất sóng: không mời việc không làm được). */
+    private fun coMang(ctx: Context): Boolean {
+        val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        return cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
     }
 
     private fun coQuyenViTri(ctx: Context) = listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)

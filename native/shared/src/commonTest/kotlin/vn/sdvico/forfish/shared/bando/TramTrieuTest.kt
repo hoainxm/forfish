@@ -86,4 +86,36 @@ class TramTrieuTest {
         assertEquals(true, h["vung-long-line"]); assertEquals(true, h["tram-trieu-dot"])
         assertTrue("island-dot" !in h) // đảo luôn hiện (chủ quyền)
     }
+
+    /** Đợt 2c: nền theo gói = buildMapStyle(premiumLocked ? null : chartDetailOn ? "bathymetry" : layerId) của web. */
+    @Test fun kieuBanDo2cNenGoi() {
+        assertEquals(null, KieuBanDo.Bat(goi = false, nenLop = "sst").nenChon)
+        assertEquals("bathymetry", KieuBanDo.Bat(goi = true, nenLop = "sst").nenChon)
+        assertEquals("sst", KieuBanDo.Bat(goi = true, chiTiet = false, nenLop = "sst").nenChon)
+
+        fun kieu(t: KieuBanDo.Tep, b: KieuBanDo.Bat) = Json.parseToJsonElement(KieuBanDo.dung("https://web", t, b)).jsonObject
+        fun ids(s: kotlinx.serialization.json.JsonObject) = s["layers"]!!.jsonArray.map { it.jsonObject["id"].toString().trim('"') }
+        val t = KieuBanDo.Tep(nen = "/f/n", dangSau = "/f/iso", ranGoi = "/f/r.pmtiles", chatDay = "/f/c.pmtiles", doSau = "/f/s")
+        val s = kieu(t, KieuBanDo.Bat(goi = true))
+        val nguon = s["sources"]!!.jsonObject
+        // ô ảnh đi đúng máy chủ (nền gắn chuỗi theo địa chỉ này); đẳng sâu đọc file trong máy
+        assertEquals("https://web/api/tiles/chart/{z}/{x}/{y}", nguon["ocean-data"]!!.jsonObject["tiles"]!!.jsonArray[0].toString().trim('"'))
+        assertEquals("file:///f/iso", nguon["isobaths"]!!.jsonObject["data"].toString().trim('"'))
+        assertEquals("pmtiles://file:///f/r.pmtiles", nguon["reef-shapes"]!!.jsonObject["url"].toString().trim('"'))
+        // lớp JSX vẽ TRÊN ảnh nền + đẳng sâu (web: <Layer> không beforeId)
+        val i = ids(s)
+        assertTrue(i.indexOf("ocean-data") < i.indexOf("reef-fill") && i.indexOf("isobath-lines") < i.indexOf("chat-day-dot") && i.indexOf("chat-day-dot") < i.indexOf("sounding-dot"))
+        // thiếu file đẳng sâu ⇒ bỏ nguồn + lớp, ảnh nền vẫn còn
+        val s2 = kieu(t.copy(dangSau = null), KieuBanDo.Bat(goi = true))
+        assertTrue("isobaths" !in s2["sources"]!!.jsonObject && ids(s2).none { it.startsWith("isobath") } && "ocean-data" in ids(s2))
+        // hết gói ⇒ nền vector thường, lớp gói ẩn (file đã tải vẫn giữ)
+        val s3 = kieu(t, KieuBanDo.Bat(goi = false))
+        assertTrue("ocean-data" !in ids(s3))
+        assertEquals(false, KieuBanDo.hienLop(KieuBanDo.Bat(goi = false))["chat-day-dot"])
+        assertEquals(true, KieuBanDo.hienLop(KieuBanDo.Bat(goi = true))["reef-fill"])
+        // nền chưa tải được ⇒ bờ offline chèn TRƯỚC base-top (beforeId của web); có nền thì không vẽ
+        val s4 = kieu(KieuBanDo.Tep(bo = "/f/bo"), KieuBanDo.Bat())
+        assertEquals(listOf("offline-coast-fill", "offline-coast-line", "base-top"), ids(s4).let { it.subList(it.indexOf("offline-coast-fill"), it.indexOf("base-top") + 1) })
+        assertTrue("offline-coast-fill" !in ids(kieu(KieuBanDo.Tep(nen = "/f/n", bo = "/f/bo"), KieuBanDo.Bat())))
+    }
 }

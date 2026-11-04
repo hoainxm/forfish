@@ -46,6 +46,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
     implementation("org.maplibre.gl:android-sdk:13.7.1")
+    // = bản OkHttp MapLibre 13.7.1 đã kéo theo (không thêm thư viện) — khai để gắn chuỗi vào ô ảnh /api/tiles (đợt 2c)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // Gemma Sen Biển (ADR 0012) — cùng bản với plugin Capacitor
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
 }

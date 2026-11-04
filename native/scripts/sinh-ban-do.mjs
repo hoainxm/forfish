@@ -21,6 +21,10 @@ const om = await jiti.import(join(repo, "src/lib/ocean-map.ts"));
 const cs = await jiti.import(join(repo, "src/lib/chart-symbols.ts"));
 globalThis.React = (await import("react")).default; // ban-do/hai-do.tsx trả <Layer> — chỉ đọc props
 const hd = await jiti.import(join(repo, "src/components/ban-do/hai-do.tsx"));
+const cd = await jiti.import(join(repo, "src/lib/chat-day.ts"));
+const ob = await jiti.import(join(repo, "src/lib/offline-basemap.ts"));
+const { TEN_GOI } = await jiti.import(join(repo, "src/lib/labels.ts"));
+const { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } = await jiti.import(join(repo, "src/data/sdvico-showcase.ts"));
 
 const kt = (o) => JSON.stringify(typeof o === "string" ? o : JSON.stringify(o)).replace(/\$/g, "\\$");
 const LOP_XUAT = ["SOUNDING_DOT_LAYER", "SOUNDING_LABEL_LAYER", "DEPTH_LINE_LAYER", "LIGHTHOUSE_LAYER", "LIGHTHOUSE_LABEL_LAYER", "WRECK_LAYER", "TIDE_STATION_LAYER", "TIDE_STATION_LABEL_LAYER"];
@@ -134,6 +138,21 @@ const nhom2b = [
       paint: { "text-color": om.REEF_LABEL_COLOR, "text-halo-color": "#ffffff", "text-halo-width": 1.4 } },
   ] },
   { nguon: "dao", moc: true },
+  // ĐỢT 2c — hình rạn (Allen Coral Atlas) + chất đáy: pmtiles vector, CẦN GÓI (`!premiumLocked`), nhóm Độ sâu.
+  { nguon: "reef-shapes", dk: "sauGoi", tep: "ranGoi", vector: true, lops: [
+    { id: "reef-fill", type: "fill", "source-layer": "reef", paint: { "fill-color": om.REEF_SHAPE_FILL, "fill-opacity": om.REEF_SHAPE_FILL_OPACITY } },
+    { id: "reef-outline", type: "line", "source-layer": "reef", paint: { "line-color": om.REEF_SHAPE_LINE, "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.5, 11, 1.4], "line-opacity": om.REEF_SHAPE_LINE_OPACITY } },
+  ] },
+  { nguon: "chat-day", dk: "sauGoi", tep: "chatDay", vector: true, lops: [
+    { id: "chat-day-dot", type: "circle", "source-layer": "chat-day", minzoom: om.CHAT_DAY_MINZOOM, paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 1.1, 12, 3],
+      "circle-color": ["match", ["get", "ma"], "S", om.CHAT_DAY_COLORS.S, "R", om.CHAT_DAY_COLORS.R, "Co", om.CHAT_DAY_COLORS.Co, "G", om.CHAT_DAY_COLORS.G, "Sg", om.CHAT_DAY_COLORS.Sg, "Ma", om.CHAT_DAY_COLORS.Ma, om.CHAT_DAY_COLORS.khac],
+      "circle-opacity": om.CHAT_DAY_OPACITY } },
+    { id: "chat-day-chu", type: "symbol", "source-layer": "chat-day", minzoom: om.CHAT_DAY_TEXT_MINZOOM, filter: ["!=", ["get", "ma"], "khac"], layout: {
+      "text-field": ["match", ["get", "ma"], "S", cd.CHAT_DAY_LABEL.S, "R", cd.CHAT_DAY_LABEL.R, "Co", cd.CHAT_DAY_LABEL.Co, "G", "Đá vụn", "Sg", cd.CHAT_DAY_LABEL.Sg, "Ma", "Rong tảo", ""],
+      "text-font": ["Noto Sans Regular"], "text-size": 11, "text-offset": [0, 0.9], "text-padding": 48, "text-allow-overlap": false, "text-optional": true },
+      paint: { "text-color": om.CHAT_DAY_TEXT_COLOR, "text-halo-color": "#ffffff", "text-halo-width": 1.2 } },
+  ] },
   { nguon: "duong-do-sau", moc: true, dk: "sau" },
   { nguon: "do-sau", moc: true, dk: "sau" },
   { nguon: "reef-hazards", dk: "nav", tep: "hiemHoa", lops: [
@@ -159,15 +178,26 @@ const nhom2b = [
   ] },
   { nguon: "tram-trieu", moc: true, dk: "tramTrieu" },
 ];
-const tenData = (u) => u.replace(/^\/data\//, "");
+const tenData = (u) => u.replace(/^\/data\//, "").replace(/^pmtiles:\/\/\/data\//, "");
+
+/* ── ĐỢT 2c: NỀN THEO LỚP = buildMapStyle(id) của web cho từng lớp nền ảnh (OCEAN_LAYER_ORDER). Đường ô ảnh
+   `/api/tiles/...` (cầu same-origin, gói chặn ở middleware) và `sdfdata:///data/isobaths…` giữ nguyên — KieuBanDo đổi
+   sang địa chỉ máy chủ / file trong máy. ── */
+const nenLop = Object.fromEntries(om.OCEAN_LAYER_ORDER.map((id) => [id, om.buildMapStyle(id, { seamarks: false })]));
+const lopNen = om.OCEAN_LAYER_ORDER.map((id) => ({ id, ten: om.OCEAN_LAYERS[id].label, theoNgay: !!om.OCEAN_LAYERS[id].dated, mau: om.OCEAN_LAYERS[id].legend?.gradient ?? "" }));
+// BỜ OFFLINE (JSX ~6925) — chỉ khi nền không tải được; chèn TRƯỚC base-top như web (beforeId)
+const lopBo = [
+  { id: "offline-coast-fill", type: "fill", paint: { "fill-color": ob.OFFLINE_LAND_COLOR } },
+  { id: "offline-coast-line", type: "line", paint: { "line-color": ob.OFFLINE_COAST_COLOR, "line-width": 1 } },
+];
 
 const ra = join(goc, "../shared/src/commonMain/kotlin/vn/sdvico/forfish/shared/bando/BanDoSinh.kt");
 mkdirSync(dirname(ra), { recursive: true });
 writeFileSync(ra, `// SINH TỰ ĐỘNG bởi native/scripts/sinh-ban-do.mjs từ src/lib/ocean-map.ts — ĐỪNG SỬA TAY.
 package vn.sdvico.forfish.shared.bando
 
-/** Style + lớp bản đồ của web dạng JSON (MapLibre style spec). */
-internal object BanDoSinh {
+/** Style + lớp bản đồ của web dạng JSON (MapLibre style spec). Công khai: nền (Android/iOS) đọc LOP_NEN, TEN_GOI, HOTLINE. */
+object BanDoSinh {
     const val KIEU_NEN = ${kt(om.buildMapStyle(null, { seamarks: false }))}
     const val KIEU_NEN_HAI_DO = ${kt(om.buildMapStyle("bathymetry", { seamarks: false }))}
     /** = DEFAULT_VIEW — khung mở màn: trọn bờ biển VN + Hoàng Sa + Trường Sa */
@@ -192,6 +222,22 @@ ${LOP_XUAT.map((k) => `        ${kt(k)} to ${kt(om[k])},`).join("\n")}
     const val TEP_HIEM_HOA = ${kt(tenData(om.REEF_SHAPES_DATA_URL))}
     const val TEP_RAN = ${kt(tenData(om.REEFS_DATA_URL))}
     const val TEP_LUONG_BIEN = ${kt(tenData(om.SEA_LANES_DATA_URL))}
+    /** Đợt 2c — file gói + đẳng sâu + bờ offline (tên trong /data). */
+    const val TEP_RAN_GOI = ${kt(tenData(om.REEF_SHAPES_PMTILES_URL))}
+    const val TEP_CHAT_DAY = ${kt(tenData(om.CHAT_DAY_PMTILES_URL))}
+    const val TEP_DANG_SAU = "isobaths.v1.json"
+    const val TEP_BO = ${kt(tenData(ob.COAST_DATA_URL))}
+    /** = buildMapStyle(id) theo từng lớp nền ảnh (gói). */
+    val KIEU_NEN_LOP: Map<String, String> = mapOf(
+${Object.entries(nenLop).map(([k, v]) => `        ${kt(k)} to ${kt(v)},`).join("\n")}
+    )
+    /** = OCEAN_LAYER_ORDER + label/dated/legend.gradient — danh sách "Lớp nền bản đồ · Chọn 1". */
+    const val LOP_NEN = ${kt(lopNen)}
+    const val LOP_BO = ${kt(lopBo)}
+    /** = TEN_GOI (labels.ts) + SDVICO_HOTLINE(_DISPLAY) — thẻ khoá gói (PremiumLock). */
+    const val TEN_GOI = ${kt(TEN_GOI)}
+    const val HOTLINE = ${kt(SDVICO_HOTLINE)}
+    const val HOTLINE_HIEN = ${kt(SDVICO_HOTLINE_DISPLAY)}
 }
 `);
 console.log(`[sinh-ban-do] ${ra}`);

@@ -191,6 +191,30 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 **Chưa làm trong 2b, sang đợt sau**: chạm ký hiệu ra thẻ (tên, đặc tính đèn, khu trú bão) cùng sheet "Ký hiệu là gì?" (chú giải) — làm cùng thẻ chạm điểm ở 2d. Vùng VMS (danh sách động từ máy chủ) và mục Giọng đọc của Cài đặt — 2f.
 
+### 3h. Kết quả đợt 2c — Android (2026-11-04)
+
+**Đã làm**:
+- Nền theo gói, y web `buildMapStyle(premiumLocked ? null : chartDetailOn ? "bathymetry" : layerId)` (`KieuBanDo.Bat.nenChon`): `BanDoSinh.KIEU_NEN_LOP` sinh `buildMapStyle(id)` cho đủ ba lớp (Hải đồ độ sâu EMODnet · Nước nóng lạnh · Vùng nhiều mồi). Ô ảnh `/api/tiles/…` đi qua OkHttp của MapLibre (`HttpRequestUtil`), CHỈ gắn `x-sdfish-token` cho `/api/tiles/` của chính máy chủ. Đổi nền thì dựng lại style.
+- Lớp gói (nhóm Độ sâu, `dk:"sauGoi"`): hình rạn ACA + chất đáy (pmtiles vector, `pmtiles://file://`, chữ "San hô/Cát/Đá" theo `CHAT_DAY_LABEL`). Đẳng sâu `isobaths.v1.json` đọc file trong máy; thiếu file thì bỏ lớp, ảnh nền vẫn còn. `NapBanDo.capNhat(goi)` CHỈ tải ba file gói khi có gói (~21 MB, trần 10 phút như nền). File đã tải thì giữ lại khi hết gói, chỉ ẩn.
+- Bờ offline `vn-coast.v1.json`: chỉ vẽ khi nền chưa tải được, chèn trước `base-top` (beforeId web).
+- Sửa thứ tự lớp: lớp JSX của web không có beforeId nên luôn nằm TRÊN mọi lớp của style. Native trước chèn sau `base-top`, dưới ảnh nền + đẳng sâu. Nay chèn ở đỉnh.
+- Panel Hải đồ: danh sách "Lớp nền bản đồ · Chọn 1" (ô màu dải chú giải + dòng nhịp cập nhật `cadLine`), thẻ khoá gói (`PremiumLock` compact: "… nằm trong gói dự báo", nút Gọi SDVICO `tel:`, ẩn khi mất sóng). Chữ, tên gói, số hotline sinh từ web (`BanDoSinh.TEN_GOI/HOTLINE`). `BanDoSinh` nay public để Android/iOS đọc.
+
+**Kiểm** (emulator Windows; acc 0900000779 gói, chuỗi cấp bằng `test-account.mjs` rồi đã thu hồi; acc 0900000777 thường):
+
+| Ca | Kết quả |
+|---|---|
+| `:shared:jvmTest` | 87/87 xanh (thêm test luật chọn nền, ô ảnh đúng máy chủ, thiếu đẳng sâu, pmtiles, bờ offline, thứ tự trên ảnh nền) |
+| Có gói, Vũng Tàu z8 | nền EMODnet có bóng địa hình, đẳng sâu xanh navy; mọi file kể cả pmtiles tải xong |
+| Có gói, Côn Đảo z12.5 | hình rạn, chấm chất đáy + chữ, đẳng sâu "5 m / 20 m", khu bảo tồn |
+| Có gói, tắt "Hải đồ chi tiết" + chọn Nước nóng lạnh | ảnh dị thường nhiệt NASA; hải đồ ẩn, vùng / trạm / lưới còn |
+| Có gói, panel Hải đồ | không có thẻ khoá; ✓ ở lớp đang chọn |
+| Không gói | nền vector thường, thẻ khoá ở lớp nền + dưới "Độ sâu & đáy" |
+
+**Lỗ hổng ghi lại**: hạng gói ở native chỉ cập nhật lúc đăng nhập. Web làm mới bằng heartbeat (`lib/heartbeat.ts` → `writePremiumMark`), native chưa có heartbeat ⇒ admin nâng/hạ gói thì máy native chưa biết tới lần đăng nhập sau. Port heartbeat ở đợt 6 (push/đồng bộ), hoặc sớm hơn nếu phát hành trước đó. Debug: `--es tier premium` khi bơm chuỗi.
+
+**Cho Mac (iOS 2c)**: style lấy bằng `KieuBanDo.dung(goc, tep, bat)` với `bat.goi = ung.phien.premium()`. Đổi `bat.nenChon` thì dựng lại style. Ô `/api/tiles/` cần header `x-sdfish-token` = `ung.phien.token()`: MapLibre iOS gắn qua `MLNNetworkConfiguration` (`sessionConfiguration.httpAdditionalHeaders`), hoặc delegate theo URL — chỉ cho máy chủ mình. Danh sách lớp nền: `BanDoSinh.LOP_NEN`. Thẻ khoá: `BanDoSinh.TEN_GOI/HOTLINE/HOTLINE_HIEN`. **Chưa build iOS.**
+
 ## 4. Trong lúc chuyển
 
 - Bản Capacitor vẫn là bản phát hành; sửa lỗi của nó vẫn làm (vd thẻ "Cài app" hiện trong app native — ẩn bằng `Capacitor.isNativePlatform()`).
@@ -208,4 +232,4 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - Đăng nhập, RLS, quyền giữ nguyên phía máy chủ; native không có quyền nào web không có.
 - Offline (CLAUDE.md, chỉ vai chủ tàu): bản native phải qua đủ bộ `ops/qa-offline-acceptance.md` trước khi phát hành.
 
-**Last updated**: 2026-11-04 — đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
+**Last updated**: 2026-11-04 — đợt 2c Android xong (§3h). Trước đó: đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.

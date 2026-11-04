@@ -44,8 +44,15 @@ class NapBanDo(
         const val DIA_DANH_NGAM = "dia-danh-ngam.v1.json"
         const val KHU_TRU_BAO = "khu-tru-bao.v1.json"
         const val VUNG_QUAN_LY = "vung-quan-ly.v1.json"
+        /** hình bờ — nền tối giản khi `vn-basemap` chưa tải được (miễn phí) */
+        const val BO = BanDoSinh.TEP_BO
         val NGUON = listOf(NEN, DAO, DO_SAU, DOI_CHIEU, LUONG, DEN, XAC, TRAM,
-            HIEM_HOA, RAN, LUONG_BIEN, BAO_HIEU, BAO_HIEU_VN, DIA_DANH_NGAM, KHU_TRU_BAO, VUNG_QUAN_LY)
+            HIEM_HOA, RAN, LUONG_BIEN, BAO_HIEU, BAO_HIEU_VN, DIA_DANH_NGAM, KHU_TRU_BAO, VUNG_QUAN_LY, BO)
+        /* đợt 2c — CHỈ tải khi có gói (web giấu hẳn khi premiumLocked): ~20 MB pmtiles không đổ vào máy người không dùng */
+        const val RAN_GOI = BanDoSinh.TEP_RAN_GOI
+        const val CHAT_DAY = BanDoSinh.TEP_CHAT_DAY
+        const val DANG_SAU = BanDoSinh.TEP_DANG_SAU
+        val NGUON_GOI = listOf(RAN_GOI, CHAT_DAY, DANG_SAU)
         const val GEO_TRAM = "tram-trieu.geojson"
 
         const val GEO_DO_SAU = "do-sau.geojson"
@@ -88,9 +95,11 @@ class NapBanDo(
     }
 
     /** Tải lại mọi nguồn (song song). Trả bản đồ mới + danh sách file chưa từng có và lượt này cũng không tải được. */
-    suspend fun capNhat(): Pair<KieuBanDo.Tep, List<String>> {
+    suspend fun capNhat(goi: Boolean = false): Pair<KieuBanDo.Tep, List<String>> {
         val kq = coroutineScope {
-            NGUON.map { t -> async { t to tai.lay(t, hanMs = if (t == NEN) HAN_NEN_MS else null) } } +
+            (NGUON + if (goi) NGUON_GOI else emptyList()).map { t ->
+                async { t to tai.lay(t, hanMs = if (t == NEN || t in NGUON_GOI) HAN_NEN_MS else null) }
+            } +
                 BanDoSinh.TEP_TINH.map { d -> async { tenTinh(d) to tai.lay(tenTinh(d), d) } }
         }.awaitAll()
         val coMoi = kq.any { (_, r) -> r is KetQuaTai.Co && r.moi }
@@ -131,6 +140,11 @@ class NapBanDo(
         ran = co(RAN),
         baoHieuVn = co(GEO_BAO_HIEU_VN),
         khuTruBao = co(GEO_KHU_TRU_BAO),
+        // file gói đã tải giữ lại kể cả khi hết gói — hiện hay không do KieuBanDo.Bat.goi (web: premiumLocked)
+        ranGoi = co(RAN_GOI),
+        chatDay = co(CHAT_DAY),
+        dangSau = co(DANG_SAU),
+        bo = co(BO),
     )
 
     /** File nguồn → cây JSON; hỏng (cắt ngang, không phải JSON) ⇒ null = coi như không có. */
