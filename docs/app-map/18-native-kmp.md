@@ -163,7 +163,33 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 **Cho Mac (iOS 2a)**: gọi `ung.napBanDo(KhoTepIos(...))` ⇒ `daCat()` vẽ ngay, `capNhat()` (suspend, trả `Pair<Tep, List<String> thiếu>`) rồi vẽ lại; `KieuBanDo.dung(ung.mayChuGoc(), tep)` ra style JSON; con nước: `conNuocLucNay()` mỗi 5 phút đổi nguồn `tram-trieu`; ghim tàu: `ViTriTau.fixQuaCu(lastFixAt, speedKmh, now)` ⇒ mờ 0,45 + tắt quầng; ảnh ghim = `androidApp/src/main/res/drawable-nodpi/boat_marker.png` (@2x, 72×100 pt, neo đáy). `KhoTepIos.ghi` nay tạo thư mục con (glyph `fonts/<fontstack>/…`) — **chưa build iOS, Mac kiểm**.
 
-**Kế tiếp**: 2b → 2f theo §3d, rồi đợt 3–7.
+**Kế tiếp**: 2b (§3g) → 2c–2f theo §3d, rồi đợt 3–7.
+
+### 3g. Kết quả đợt 2b — Android (2026-11-04)
+
+**Đã làm** (`shared` + Android):
+- `bando/BaoHieu.kt`: phao/đèn OSM ba tầng xa/vừa/sát (`decodeSeamarks` + `chartSymbolId` + `denOsmTrungDenBien`, bỏ `SEAMARK_AN`) + báo hiệu Cục Hàng hải (`decodeVnAids`). `bando/VungDiaDanh.kt`: địa danh ngầm, khu trú bão, vùng quản lý (`dangVung` theo NGÀY giờ VN). `VungLongSinh.kt`: vùng lộng là dữ liệu tĩnh của web, được sinh thẳng ra. `bando/TuyChonBanDo.kt` = `map-prefs.ts`: cùng khoá `forfish.mapPrefs.v1`, cùng luật đọc/ghi.
+- `sinh-ban-do.mjs` sinh `BanDoSinh.NHOM_2B`: mọi `<Source>` hải đồ theo THỨ TỰ JSX web (vùng lộng → vùng quản lý → lưới toạ độ → luồng/cáp/vùng cấm → địa danh ngầm → đảo → độ sâu → hiểm hoạ OSM → phao 3 tầng có gom "+N" → rạn → phao Cục HH → xác tàu → đèn biển → khu trú bão → trạm con nước). Lớp, hằng, cụm lấy từ `ocean-map` / `chart-symbols` / `ban-do/hai-do.tsx`. Ba file GeoJSON thẳng (`reef-shapes`, `coral-reefs`, `vn-sea-lanes`) MapLibre đọc nguyên.
+- `KieuBanDo.Bat` = công tắc web: "Hải đồ chi tiết" và ba nhóm Độ sâu / Báo hiệu / Tên (state phiên, mặc định bật, web không lưu); vùng lộng / vùng quản lý / trạm / lưới đọc từ MapPrefs. Công tắc CHỈ đổi `visibility` (`hienLop`), không nạp lại style, không bỏ tải.
+- Android `LopBanDo.kt`: nút "Lớp" ⇒ lưới ô (Hải đồ · Ngư trường · Thời tiết · Công cụ · Cài đặt) ⇒ panel Hải đồ (4 công tắc) và Cài đặt (đơn vị, hệ toạ độ, lưới, vùng lộng, vùng quản lý, trạm con nước). Chữ CHÉP Y web. Ô Ngư trường / Thời tiết / Công cụ ghi đợt sẽ làm (2e / 2d / 2f).
+- Đồng bộ web: trạm con nước `nguon:"bang"` (Hoàng Sa, Song Tử — main 0055e678) là trạm ước tính như `"model"`.
+
+**Kiểm** (emulator Windows, acc test 0900000777):
+
+| Ca | Kết quả |
+|---|---|
+| `:shared:jvmTest` | 86/86 xanh. Mẫu mới: `sinh-bao-hieu.mjs` (OSM xa 193 · vừa 4228 · sát 1372; bỏ 17 đèn OSM trùng; Cục HH 1447), `sinh-vung-dia-danh.mjs` (184 địa danh · 51 khu · 115 vùng ở 10 mốc giờ VN, đủ 4 trạng thái), `sinh-tuy-chon.mjs` (12 ca lưu hỏng/lạ); test thứ tự lớp + cụm + công tắc |
+| `:androidApp:assembleDebug` | xanh |
+| Vũng Tàu z12 | phao luồng hai bên, phao đặc biệt, vùng neo, khu trú bão, tên bãi/rạn, đường luồng, vùng quản lý, trạm con nước — cùng ký hiệu web |
+| Tắt "Báo hiệu & nguy hiểm" | phao, đèn, luồng, khu trú bão ẩn; độ sâu, rạn, vùng, trạm còn — như web |
+| Bật "Lưới toạ độ" rồi mở lại app | lưới 1° + nhãn còn nguyên (đã lưu `forfish.mapPrefs.v1`); nhóm hải đồ trở về bật (state phiên như web) |
+| Toàn vùng z7 | vùng lộng (cam đứt), vùng quản lý có tên, tuyến "Nhánh vào Vũng Tàu", xác tàu, đèn biển |
+
+**Mẫu vàng gọn** (chống phình git): mẫu báo hiệu lưu dạng `[...properties, lon, lat]`; ca thiếu đèn biển chỉ lưu phần thêm (1,9 MB ⇒ 432 KB). Mẫu vùng quản lý giữ hình học ở một mốc ngày.
+
+**Cho Mac (iOS 2b)**: dựng style bằng `KieuBanDo.dung(ung.mayChuGoc(), tep, bat)`. Đổi công tắc thì duyệt `KieuBanDo.hienLop(bat)` (id lớp ⇒ hiện/ẩn) để đặt `visible` từng lớp, không nạp lại style. Tuỳ chọn đọc/ghi bằng `TuyChonBanDo.doc(ung.kho)` / `TuyChonBanDo.ghi(ung.kho, t)`. Gộp công tắc: `bat.copy(vungLong = t.vungLong, vungQuanLy = t.vungQuanLy, tramTrieu = t.tideStations, luoi = t.mapGrid)`. Dòng phụ "Trạm con nước" lấy từ `nap.soTramConNuoc()`. Giao diện chép theo `androidApp/…/LopBanDo.kt` (chữ, thứ tự, ô chưa làm). `Tep` có 12 trường mới (khoá = `tep` của NHOM_2B), NapBanDo tự điền.
+
+**Chưa làm trong 2b, sang đợt sau**: chạm ký hiệu ra thẻ (tên, đặc tính đèn, khu trú bão) cùng sheet "Ký hiệu là gì?" (chú giải) — làm cùng thẻ chạm điểm ở 2d. Vùng VMS (danh sách động từ máy chủ) và mục Giọng đọc của Cài đặt — 2f.
 
 ## 4. Trong lúc chuyển
 
@@ -182,4 +208,4 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - Đăng nhập, RLS, quyền giữ nguyên phía máy chủ; native không có quyền nào web không có.
 - Offline (CLAUDE.md, chỉ vai chủ tàu): bản native phải qua đủ bộ `ops/qa-offline-acceptance.md` trước khi phát hành.
 
-**Last updated**: 2026-11-04 — đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
+**Last updated**: 2026-11-04 — đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.

@@ -24,13 +24,13 @@ data class TramConNuoc(
     val lat: Double,
     val lon: Double,
     val z0: Double,
-    /** "gauge" | "model" | null */
+    /** "gauge" | "model" | "bang" | null — "bang" = bảng triều rút gọn (main 0055e678), ước tính như "model" */
     val nguon: String?,
     /** "vung" | "cang" | null (= vung) */
     val hang: String?,
     val song: List<SongTrieu>,
 ) {
-    val laUocTinh get() = nguon == "model"
+    val laUocTinh get() = nguon == "model" || nguon == "bang" // = isModelStation
 }
 
 data class CucTri(val luc: Long, val caoM: Double, val lon: Boolean)

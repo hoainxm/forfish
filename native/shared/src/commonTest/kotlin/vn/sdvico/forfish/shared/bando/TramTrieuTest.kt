@@ -38,7 +38,8 @@ class TramTrieuTest {
         val s = Json.parseToJsonElement(KieuBanDo.dung("https://web", t)).jsonObject
         val ids = s["layers"]!!.jsonArray.map { it.jsonObject["id"].toString().trim('"') }
         val sau = ids.subList(ids.indexOf("base-top") + 1, ids.size)
-        assertEquals(listOf("island-dot", "island-label", "depth-line", "sounding-dot", "sounding-label", "xac-tau", "den-bien", "den-bien-ten", "tram-trieu-dot", "tram-trieu-dot-cang", "tram-trieu-ten", "tram-trieu-ten-cang", "chu-quyen", "chu-quyen-phu"), sau)
+        // lưới toạ độ = dữ liệu nhúng, luôn có trong style (ẩn mặc định — web mapGrid tắt)
+        assertEquals(listOf("map-grid-line", "map-grid-label", "island-dot", "island-label", "depth-line", "sounding-dot", "sounding-label", "xac-tau", "den-bien", "den-bien-ten", "tram-trieu-dot", "tram-trieu-dot-cang", "tram-trieu-ten", "tram-trieu-ten-cang", "chu-quyen", "chu-quyen-phu"), sau)
         assertEquals("pmtiles://file:///f/n.pmtiles", s["sources"]!!.jsonObject["basemap"]!!.jsonObject["url"].toString().trim('"'))
         assertEquals("file:///f/s.json", s["sources"]!!.jsonObject["do-sau"]!!.jsonObject["data"].toString().trim('"'))
     }
@@ -52,5 +53,37 @@ class TramTrieuTest {
         // lớp không bắt đầu bằng 0 thì để nguyên; minzoom sẵn lớn hơn thì giữ
         assertEquals(null, lops.getValue("earth").jsonObject["minzoom"])
         assertEquals("14", lops.getValue("water_stream").jsonObject["minzoom"].toString())
+    }
+
+    /** Đợt 2b: đủ mọi nhóm ⇒ đúng THỨ TỰ JSX web; cụm "+N" có cluster; công tắc chỉ đổi visibility. */
+    @Test fun kieuBanDo2bThuTuCumVaCongTac() {
+        val f = "/f/"
+        val t = KieuBanDo.Tep(
+            nen = "${f}n", dao = "${f}d", doSau = "${f}s", duongDoSau = "${f}l", denBien = "${f}b", xacTau = "${f}x", tramTrieu = "${f}t",
+            vungLong = "${f}vl", vungQuanLy = "${f}vq", vungQuanLyDiem = "${f}vqd", luongBien = "${f}lb", diaDanhNgam = "${f}dd",
+            hiemHoa = "${f}hh", baoHieuXa = "${f}bx", baoHieuVua = "${f}bv", baoHieuGan = "${f}bg", ran = "${f}r", baoHieuVn = "${f}bvn", khuTruBao = "${f}k",
+        )
+        val s = Json.parseToJsonElement(KieuBanDo.dung("https://web", t, KieuBanDo.Bat(nav = false))).jsonObject
+        val lops = s["layers"]!!.jsonArray.map { it.jsonObject }
+        val ids = lops.map { it["id"].toString().trim('"') }
+        val sau = ids.subList(ids.indexOf("base-top") + 1, ids.size)
+        // nguồn theo thứ tự JSX: vùng lộng → vùng quản lý → lưới → luồng → địa danh → đảo → độ sâu → hiểm hoạ → phao 3 tầng → rạn → phao VN → xác → đèn → trú bão → trạm
+        val dau = listOf("vung-long-fill", "vung-quan-ly-fill", "vung-quan-ly-dot", "map-grid-line", "sea-lane-vungcam-fill", "dia-danh-ngam-label", "island-dot",
+            "depth-line", "sounding-dot", "reef-hazard", "seamark-far", "seamark-mid", "seamark-near", "reef-dot", "vn-aid", "xac-tau", "den-bien", "khu-tru-bao-dot", "tram-trieu-dot", "chu-quyen")
+        assertEquals(dau, dau.sortedBy { sau.indexOf(it) }, "thứ tự lớp lệch JSX web")
+        assertTrue(dau.all { it in sau })
+        val nguon = s["sources"]!!.jsonObject
+        assertEquals("true", nguon["seamarks-mid"]!!.jsonObject["cluster"].toString())
+        assertTrue("cluster" !in nguon["seamarks-far"]!!.jsonObject) // tầng xa không gom (web)
+        // nav tắt ⇒ phao/đèn/xác/trú bão ẩn sẵn trong style; độ sâu vẫn hiện
+        fun hien(id: String) = lops.first { it["id"].toString().trim('"') == id }["layout"]?.jsonObject?.get("visibility")?.toString()?.trim('"') != "none"
+        assertTrue(!hien("seamark-near") && !hien("den-bien") && !hien("khu-tru-bao-dot") && !hien("sea-lane-cap"))
+        assertTrue(hien("sounding-dot") && hien("reef-dot") && hien("vung-long-line") && hien("island-label"))
+        assertTrue(!hien("map-grid-line")) // lưới mặc định tắt
+        // hienLop: tắt "Hải đồ chi tiết" ẩn cả ba nhóm, không đụng vùng lộng / trạm
+        val h = KieuBanDo.hienLop(KieuBanDo.Bat(chiTiet = false))
+        assertEquals(false, h["sounding-dot"]); assertEquals(false, h["seamark-mid-cum"]); assertEquals(false, h["dia-danh-ngam-label"])
+        assertEquals(true, h["vung-long-line"]); assertEquals(true, h["tram-trieu-dot"])
+        assertTrue("island-dot" !in h) // đảo luôn hiện (chủ quyền)
     }
 }

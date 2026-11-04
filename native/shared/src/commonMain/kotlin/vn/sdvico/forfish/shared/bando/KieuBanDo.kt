@@ -42,7 +42,63 @@ object KieuBanDo {
         val kyTu: String? = null,
         /** đường sprite trong máy không đuôi (…/chart-sprite); null ⇒ sprite từ máy chủ */
         val sprite: String? = null,
-    )
+        /* ── đợt 2b (khoá = `tep` của BanDoSinh.NHOM_2B) ── */
+        val vungLong: String? = null,
+        val vungQuanLy: String? = null,
+        val vungQuanLyDiem: String? = null,
+        val luongBien: String? = null,
+        val diaDanhNgam: String? = null,
+        val hiemHoa: String? = null,
+        val baoHieuXa: String? = null,
+        val baoHieuVua: String? = null,
+        val baoHieuGan: String? = null,
+        val ran: String? = null,
+        val baoHieuVn: String? = null,
+        val khuTruBao: String? = null,
+    ) {
+        internal fun theoKhoa(k: String): String? = when (k) {
+            "vungLong" -> vungLong
+            "vungQuanLy" -> vungQuanLy
+            "vungQuanLyDiem" -> vungQuanLyDiem
+            "luongBien" -> luongBien
+            "diaDanhNgam" -> diaDanhNgam
+            "hiemHoa" -> hiemHoa
+            "baoHieuXa" -> baoHieuXa
+            "baoHieuVua" -> baoHieuVua
+            "baoHieuGan" -> baoHieuGan
+            "ran" -> ran
+            "baoHieuVn" -> baoHieuVn
+            "khuTruBao" -> khuTruBao
+            else -> error("Tep không có khoá $k — BanDoSinh.NHOM_2B đổi mà KieuBanDo chưa theo")
+        }
+    }
+
+    /** Công tắc hiện lớp = web: `chiTiet` = chartDetailOn ("Hải đồ chi tiết"), ba nhóm con group{Depth|Nav|Name}On
+     *  (state phiên, mặc định bật — web không lưu), còn `vungLong`/`vungQuanLy`/`tramTrieu` = MapPrefs (lưu
+     *  `forfish.mapPrefs.v1`). Tắt chỉ là NHÌN — file vẫn tải (luật web "công tắc là chuyện nhìn"). */
+    data class Bat(
+        val chiTiet: Boolean = true,
+        val sau: Boolean = true,
+        val nav: Boolean = true,
+        val ten: Boolean = true,
+        val vungLong: Boolean = true,
+        val vungQuanLy: Boolean = true,
+        val tramTrieu: Boolean = true,
+        /** = MapPrefs.mapGrid — web MẶC ĐỊNH TẮT */
+        val luoi: Boolean = false,
+    ) {
+        internal fun dk(k: String?): Boolean = when (k) {
+            null -> true
+            "sau" -> chiTiet && sau
+            "nav" -> chiTiet && nav
+            "ten" -> chiTiet && ten
+            "vungLong" -> vungLong
+            "vungQuanLy" -> vungQuanLy
+            "tramTrieu" -> tramTrieu
+            "mapGrid" -> luoi
+            else -> error("Điều kiện lạ $k trong NHOM_2B")
+        }
+    }
 
     private fun lop(json: String, nguon: String): JsonObject =
         JsonObject(Json.parseToJsonElement(json).jsonObject + ("source" to JsonPrimitive(nguon)))
@@ -52,7 +108,37 @@ object KieuBanDo {
         put("data", "file://$duong")
     }
 
-    fun dung(webGoc: String, tep: Tep): String {
+    /** Lớp của từng nhóm (id lớp) theo điều kiện `dk` — để nền bật/tắt bằng `visibility`, KHÔNG nạp lại style
+     *  (nạp lại = đọc lại mọi GeoJSON, ~2 MB). Nhóm không có `dk` (đảo) luôn hiện nên không có ở đây. */
+    fun hienLop(bat: Bat): Map<String, Boolean> {
+        val ra = LinkedHashMap<String, Boolean>()
+        for (n in Json.parseToJsonElement(BanDoSinh.NHOM_2B).jsonArray) {
+            val o = n.jsonObject
+            val dk = (o["dk"] as? JsonPrimitive)?.content ?: continue
+            val hien = bat.dk(dk)
+            val ids = if ((o["moc"] as? JsonPrimitive)?.content == "true") idMoc((o["nguon"] as JsonPrimitive).content)
+            else o.getValue("lops").jsonArray.map { (it.jsonObject["id"] as JsonPrimitive).content }
+            ids.forEach { ra[it] = hien }
+        }
+        return ra
+    }
+
+    private fun idTrong(json: String) = Json.parseToJsonElement(json).let { e ->
+        if (e is JsonArray) e.map { (it.jsonObject["id"] as JsonPrimitive).content } else listOf((e.jsonObject["id"] as JsonPrimitive).content)
+    }
+
+    private fun idMoc(nguon: String): List<String> = when (nguon) {
+        "duong-do-sau" -> idTrong(BanDoSinh.LOP.getValue("DEPTH_LINE_LAYER"))
+        "do-sau" -> idTrong(BanDoSinh.LOP.getValue("SOUNDING_DOT_LAYER")) + idTrong(BanDoSinh.LOP.getValue("SOUNDING_LABEL_LAYER"))
+        "xac-tau-src" -> idTrong(BanDoSinh.LOP.getValue("WRECK_LAYER"))
+        "den-bien" -> idTrong(BanDoSinh.LOP.getValue("LIGHTHOUSE_LAYER")) + idTrong(BanDoSinh.LOP.getValue("LIGHTHOUSE_LABEL_LAYER"))
+        "tram-trieu" -> idTrong(BanDoSinh.LOP_TRAM)
+        else -> error("Mốc lạ $nguon trong NHOM_2B")
+    }
+
+    /** Dựng style ĐỦ mọi lớp có file; ẩn/hiện theo công tắc làm sau bằng `hienLop` (+ `bat` ở đây đặt `visibility`
+     *  ban đầu cho khỏi nháy lớp đang tắt lúc mở màn). */
+    fun dung(webGoc: String, tep: Tep, bat: Bat = Bat()): String {
         val goc = Json.parseToJsonElement(BanDoSinh.KIEU_NEN).jsonObject
         val nguon = goc.getValue("sources").jsonObject.toMutableMap()
         var lops = goc.getValue("layers").jsonArray.map { it.jsonObject }
@@ -64,23 +150,47 @@ object KieuBanDo {
             lops = lops.filter { (it["source"] as? JsonPrimitive)?.content != "basemap" }
         }
 
+        // Nhóm nguồn theo THỨ TỰ JSX web (BanDoSinh.NHOM_2B). Nhóm `moc` = lớp có từ 2a, dựng như cũ tại đúng chỗ.
         val them = mutableListOf<JsonObject>()
-        tep.dao?.let { nguon["dao"] = nguonFile(it); Json.parseToJsonElement(BanDoSinh.LOP_DAO).jsonArray.forEach { l -> them += JsonObject(l.jsonObject + ("source" to JsonPrimitive("dao"))) } }
-        tep.duongDoSau?.let { nguon["duong-do-sau"] = nguonFile(it); them += lop(BanDoSinh.LOP.getValue("DEPTH_LINE_LAYER"), "duong-do-sau") }
-        tep.doSau?.let {
-            nguon["do-sau"] = nguonFile(it)
-            them += lop(BanDoSinh.LOP.getValue("SOUNDING_DOT_LAYER"), "do-sau")
-            them += lop(BanDoSinh.LOP.getValue("SOUNDING_LABEL_LAYER"), "do-sau")
+        fun moc(id: String) {
+            when (id) {
+                "dao" -> tep.dao?.let { nguon["dao"] = nguonFile(it); Json.parseToJsonElement(BanDoSinh.LOP_DAO).jsonArray.forEach { l -> them += JsonObject(l.jsonObject + ("source" to JsonPrimitive("dao"))) } }
+                "duong-do-sau" -> tep.duongDoSau?.let { nguon[id] = nguonFile(it); them += lop(BanDoSinh.LOP.getValue("DEPTH_LINE_LAYER"), id) }
+                "do-sau" -> tep.doSau?.let {
+                    nguon[id] = nguonFile(it)
+                    them += lop(BanDoSinh.LOP.getValue("SOUNDING_DOT_LAYER"), id)
+                    them += lop(BanDoSinh.LOP.getValue("SOUNDING_LABEL_LAYER"), id)
+                }
+                "xac-tau-src" -> tep.xacTau?.let { nguon[id] = nguonFile(it); them += lop(BanDoSinh.LOP.getValue("WRECK_LAYER"), id) }
+                "den-bien" -> tep.denBien?.let {
+                    nguon[id] = nguonFile(it)
+                    them += lop(BanDoSinh.LOP.getValue("LIGHTHOUSE_LAYER"), id)
+                    them += lop(BanDoSinh.LOP.getValue("LIGHTHOUSE_LABEL_LAYER"), id)
+                }
+                "tram-trieu" -> tep.tramTrieu?.let {
+                    nguon[id] = nguonFile(it)
+                    Json.parseToJsonElement(BanDoSinh.LOP_TRAM).jsonArray.forEach { l -> them += JsonObject(l.jsonObject + ("source" to JsonPrimitive(id))) }
+                }
+                else -> error("Mốc lạ $id trong NHOM_2B")
+            }
         }
-        tep.xacTau?.let { nguon["xac-tau-src"] = nguonFile(it); them += lop(BanDoSinh.LOP.getValue("WRECK_LAYER"), "xac-tau-src") }
-        tep.denBien?.let {
-            nguon["den-bien"] = nguonFile(it)
-            them += lop(BanDoSinh.LOP.getValue("LIGHTHOUSE_LAYER"), "den-bien")
-            them += lop(BanDoSinh.LOP.getValue("LIGHTHOUSE_LABEL_LAYER"), "den-bien")
-        }
-        tep.tramTrieu?.let {
-            nguon["tram-trieu"] = nguonFile(it)
-            Json.parseToJsonElement(BanDoSinh.LOP_TRAM).jsonArray.forEach { l -> them += JsonObject(l.jsonObject + ("source" to JsonPrimitive("tram-trieu"))) }
+        for (n in Json.parseToJsonElement(BanDoSinh.NHOM_2B).jsonArray) {
+            val o = n.jsonObject
+            val id = (o["nguon"] as JsonPrimitive).content
+            if ((o["moc"] as? JsonPrimitive)?.content == "true") { moc(id); continue }
+            val nhung = o["data"] // dữ liệu tĩnh nhúng trong style (lưới toạ độ)
+            val duong = if (nhung != null) null else (tep.theoKhoa((o["tep"] as JsonPrimitive).content) ?: continue)
+            val cum = o["cum"] as? JsonObject
+            nguon[id] = buildJsonObject {
+                put("type", "geojson")
+                if (nhung != null) put("data", nhung) else put("data", "file://$duong")
+                if (cum != null) {
+                    put("cluster", true)
+                    put("clusterRadius", cum.getValue("radius"))
+                    put("clusterMaxZoom", cum.getValue("maxzoom"))
+                }
+            }
+            o.getValue("lops").jsonArray.forEach { l -> them += JsonObject(l.jsonObject + ("source" to JsonPrimitive(id))) }
         }
         // nhãn chủ quyền — luôn có, luôn trên cùng (web: Marker HTML; native: lớp chữ cùng nội dung + màu)
         nguon["chu-quyen"] = buildJsonObject {
@@ -91,7 +201,12 @@ object KieuBanDo {
 
         lops = lops.map(::minzoomTheoBeRong)
         val i = lops.indexOfFirst { (it["id"] as? JsonPrimitive)?.content == BanDoSinh.MOC_CHEN }.let { if (it < 0) lops.size else it + 1 }
-        val tatCa = lops.subList(0, i) + them + lops.subList(i, lops.size) + chuQuyen
+        val an = hienLop(bat).filterValues { !it }.keys
+        val themHien = them.map { l ->
+            if ((l["id"] as JsonPrimitive).content !in an) l
+            else JsonObject(l + ("layout" to JsonObject(((l["layout"] as? JsonObject) ?: JsonObject(emptyMap())) + ("visibility" to JsonPrimitive("none")))))
+        }
+        val tatCa = lops.subList(0, i) + themHien + lops.subList(i, lops.size) + chuQuyen
 
         val tuyetDoi = { s: String -> if (s.startsWith("/")) webGoc + s else s }
         return JsonObject(

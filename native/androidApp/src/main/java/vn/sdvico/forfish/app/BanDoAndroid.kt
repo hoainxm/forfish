@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -60,6 +62,7 @@ import vn.sdvico.forfish.app.giaodien.TheTrangThai
 import vn.sdvico.forfish.shared.UngDung
 import vn.sdvico.forfish.shared.bando.KieuBanDo
 import vn.sdvico.forfish.shared.bando.NapBanDo
+import vn.sdvico.forfish.shared.bando.TuyChonBanDo
 import vn.sdvico.forfish.shared.bando.ViTriTau
 import vn.sdvico.forfish.shared.dulieu.KhoTepFile
 import vn.sdvico.forfish.shared.giaodien.CoSinh
@@ -77,6 +80,8 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
     private val nap: NapBanDo = ung.napBanDo(KhoTepFile(File(filesDir, "du-lieu")))
     private var map: MapLibreMap? = null
     private var tepDangVe: KieuBanDo.Tep? = null
+    /** công tắc đang áp — style dựng mới đặt visibility theo nó; đổi công tắc thì chỉ đổi visibility (hienLop) */
+    private var batHienTai = KieuBanDo.Bat()
     private var viTri: Location? = null
     private var quang: ValueAnimator? = null
 
@@ -88,9 +93,16 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
     private fun veKieu(m: MapLibreMap, tep: KieuBanDo.Tep, xong: (Style) -> Unit) {
         if (tep == tepDangVe) return
         tepDangVe = tep
-        m.setStyle(Style.Builder().fromJson(KieuBanDo.dung(ung.mayChuGoc(), tep))) { st ->
+        m.setStyle(Style.Builder().fromJson(KieuBanDo.dung(ung.mayChuGoc(), tep, batHienTai))) { st ->
             themLopTau(st)
             xong(st)
+        }
+    }
+
+    /** Bật/tắt lớp theo công tắc — chỉ đổi `visibility`, không nạp lại style. Lớp chưa có (thiếu file) thì bỏ qua. */
+    private fun apDungHien(st: Style, bat: KieuBanDo.Bat) {
+        for ((id, hien) in KieuBanDo.hienLop(bat)) {
+            st.getLayer(id)?.setProperties(PropertyFactory.visibility(if (hien) Property.VISIBLE else Property.NONE))
         }
     }
 
@@ -158,6 +170,15 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
         var coQuyen by remember { mutableStateOf(coQuyenViTri(ctx)) }
         var thieuNen by remember { mutableStateOf(false) }
         var cu by remember { mutableStateOf(false) }
+        // Hải đồ chi tiết + ba nhóm = state phiên (web không lưu); vùng lộng/vùng quản lý/trạm/lưới = MapPrefs (lưu)
+        var batPhien by remember { mutableStateOf(KieuBanDo.Bat()) }
+        var tuyChon by remember { mutableStateOf(TuyChonBanDo.doc(ung.kho)) }
+        var lop by remember { mutableStateOf<String?>(null) } // null đóng · "luoi" lưới ô · id panel
+        val batTong = batPhien.copy(vungLong = tuyChon.vungLong, vungQuanLy = tuyChon.vungQuanLy, tramTrieu = tuyChon.tideStations, luoi = tuyChon.mapGrid)
+        LaunchedEffect(batTong) {
+            batHienTai = batTong
+            map?.style?.let { apDungHien(it, batTong) }
+        }
         val xin = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { kq ->
             coQuyen = kq.values.any { it }
             ghi("Quyền vị trí: $coQuyen")
@@ -232,6 +253,28 @@ class BanDoAndroid(private val ung: UngDung, private val mapView: MapView, files
             if (thieuNen) {
                 Column(Modifier.statusBarsPadding().padding(12.dp).fillMaxWidth()) {
                     TheTrangThai("Chưa tải được bản đồ nền", "Có sóng app sẽ tự tải. Đảo, độ sâu, đèn biển đã có thì vẫn hiện.", "Alert", Mau.warn, Mau.warnNen)
+                }
+            }
+            // NÚT "LỚP" (rail web: cột phải, trên) + lưới ô / panel nổi ngay dưới
+            Column(
+                Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 12.dp, end = 12.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                NutTron("Layers", if (lop == null) "Mở lớp bản đồ" else "Đóng lớp bản đồ", bat = lop != null) {
+                    lop = if (lop == null) "luoi" else null
+                }
+                Spacer(Modifier.height(8.dp))
+                when (val l = lop) {
+                    null -> {}
+                    "luoi" -> LuoiLop(mo = { lop = it }, dong = { lop = null })
+                    else -> PanelLop(
+                        l, batPhien, { batPhien = it }, tuyChon,
+                        { moi ->
+                            tuyChon = moi
+                            if (!TuyChonBanDo.ghi(ung.kho, moi)) ghi("Tuỳ chọn bản đồ: kho từ chối ghi — dùng trong RAM")
+                        },
+                        soTram = nap.soTramConNuoc(), quayLai = { lop = "luoi" }, dong = { lop = null },
+                    )
                 }
             }
             Box(

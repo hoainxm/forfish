@@ -40,8 +40,10 @@ class NapBanDoTest {
     }
 
     @Test fun chuaCoGiThiKhongCoLop() {
-        val (n) = dung(Moc()) { "2026-03-01" }
-        assertEquals(KieuBanDo.Tep(), n.daCat())
+        val (n, tep) = dung(Moc()) { "2026-03-01" }
+        // chỉ có vùng lộng — dữ liệu TĨNH trong code web (VungLongSinh), không cần tải
+        assertEquals(KieuBanDo.Tep(vungLong = tep.duong(NapBanDo.GEO_VUNG_LONG)), n.daCat())
+        assertEquals(VungLongSinh.GEO, tep.doc(NapBanDo.GEO_VUNG_LONG)!!.decodeToString())
     }
 
     @Test fun taiVeDungGeoJsonVaBaoFileThieu() = runTest {
