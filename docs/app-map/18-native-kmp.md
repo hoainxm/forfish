@@ -233,6 +233,16 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 
 **Cho Mac (iOS 2d)**: dữ liệu `NapDuBao(ung.mayChu, KhoTep, now, matSong).lay(days, canDongChay)` / `NapTruong.lay(kind, days)` (+ `peek` hiện ngay); vẽ: `LopDong.truongTuLuoi` + `TruongMau.anhTruong(…, 8, moRong = true)` ⇒ `MLNImageSource` 4 góc (bac/tay…), `LuoiDuBao.arrowFeatures` + `*_COLOR_EXPR` ⇒ line layer, hạt `HatGio.buildUVField/stepParticle` vẽ trên `CADisplayLink`; luật lớp: `KieuBanDo.Bat(dong = true)`. **Chưa build iOS.**
 
+### 3j. Đợt 2e — dự báo cá · mật độ tàu · AIS: phần chung (2026-11-04)
+
+**Đã làm (shared, chưa có màn)**:
+- `shared/ca`: `DuBaoCa.kt` (giải /api/fish-forecast + lọc vùng biển VN, FISH_LEVEL_BANDS, fishFailNote, fishGridStep/fishLead/fishView pha mùa vụ, `luoiCaGeo` = fishGridGeo, `diemNong` = fishHotspots nhận neo) · `VungBienSinh.kt` (sinh từ vms-zones.json) · `LoaiDanh` (fish-picks, khoá `forfish.fishPicks.v1`) · `KhiHau`/`BangPha`/`PhaMuaVu` (fish-blend + climatology + model-params) · `NapCa.kt` (= fetchFishForecast, 35 s; 401/403 ⇒ mã, KHÔNG xoá bản lưu; lỗi khác/mất sóng ⇒ bản lưu; kho `forfish.fc.fish.latest`) · `MatDoTau.kt` (fleet-density: giải + forecastFleetDensity + fleetGridGeo + câu trạng thái BaiTauDuBao + canSeeDensity; gió do bên gọi đưa).
+- `shared/ais`: `TauAis.kt` · `RadarCpa.kt` (ais-cpa: CPA/TCPA, mức nguy/cảnh, radar GeoJSON) · `QuanhTau.kt` (tau-ais-quanh) · `LopAis.kt` + `LopAisSinh.kt` (spec lớp chép JSX + icon tàu dạng lệnh Canvas do chính `dangKyIconTau` phát ra) · `ChuanTenSinh.kt` (bảng bỏ dấu) · `NapAis.kt` (bản tin/vết/quanh/quyền: trần, bản lưu, nhớ vết 10 phút ≤50 tàu, quyền thử lại 3 lượt cách 5 s).
+
+**Cổng khớp**: `sinh-ca.mjs` (118 KB) + `sinh-ais.mjs` (136 KB) chạy chính code web. jvmTest 165/165. Số qua sin/cos/sqrt so sai số ≤8 ulp / 1e-9 (JVM ≠ V8 bit cuối); chuỗi, mức, thứ tự so tuyệt đối.
+
+**Khác web có chủ ý**: 200 mà bản lưu có `generatedAt` mới hơn ⇒ KHÔNG đè (web đè); 403 `ais_off` ⇒ vẫn lùi bản lưu nhưng báo `aisOff`; dữ liệu hỏng từng dòng ⇒ bỏ dòng. Chưa port: `fishForecastTuKhoSW` (không có SW), lịch sử mật độ, thẻ tàu / chạm chọn tàu / hẹn giờ làm mới (Android ở commit sau).
+
 ## 4. Trong lúc chuyển
 
 - Bản Capacitor vẫn là bản phát hành; sửa lỗi của nó vẫn làm (vd thẻ "Cài app" hiện trong app native — ẩn bằng `Capacitor.isNativePlatform()`).
@@ -250,4 +260,4 @@ Mỗi đợt = build nội bộ chạy được trên máy thật (Android build
 - Đăng nhập, RLS, quyền giữ nguyên phía máy chủ; native không có quyền nào web không có.
 - Offline (CLAUDE.md, chỉ vai chủ tàu): bản native phải qua đủ bộ `ops/qa-offline-acceptance.md` trước khi phát hành.
 
-**Last updated**: 2026-11-04 — đợt 2d Android: lớp thời tiết động (§3i). Trước đó: đợt 2d phần chung (§3i). Trước đó: đợt 2c Android xong (§3h). Trước đó: đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
+**Last updated**: 2026-11-04 — đợt 2e phần chung (§3j). Trước đó: đợt 2d Android: lớp thời tiết động (§3i). Trước đó: đợt 2d phần chung (§3i). Trước đó: đợt 2c Android xong (§3h). Trước đó: đợt 2b Android xong (§3g). Trước đó: đợt 2a Android xong + chia việc PC/Mac (§3e–3f). Trước đó: đợt 1 xong cả hai nền (§3b). Trước đó: đợt 0 xong cả Android lẫn iOS (§3a). Trước đó: 2026-11-04 — tạo doc theo ADR 0019.
