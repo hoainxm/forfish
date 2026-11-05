@@ -36,8 +36,20 @@ export async function GET(req: Request) {
     giaHanMo ? listRenewalRequests(sdt, GIA_HAN_MS) : Promise.resolve(null),
   ]);
   const nowMs = Date.now();
-  // Máy đã huỷ / thu hồi (tên DE…/Thu…, nhóm DELETE — lib/stracking/may-da-bo) KHÔNG hiện: bà con không còn máy đó.
-  const conDung = (tauR.data ?? []).filter((t) => !laMayDaBo({ ten_tau: t.ten_tau as string | null, nhom: t.nhom as string | null }));
+  // Máy đã huỷ / thu hồi (tên DE…/Thu…, nhóm DELETE) hoặc bỏ đọng (>1 năm không cập nhật + hết hạn) — lib/stracking/may-da-bo
+  // — KHÔNG hiện: bà con không còn máy đó.
+  const conDung = (tauR.data ?? []).filter(
+    (t) =>
+      !laMayDaBo(
+        {
+          ten_tau: t.ten_tau as string | null,
+          nhom: t.nhom as string | null,
+          cap_nhat_nguon: t.cap_nhat_nguon as string | null,
+          het_han: t.het_han as string | null,
+        },
+        nowMs,
+      ),
+  );
   // Ghép yêu cầu ↔ máy theo SERIAL; yêu cầu cũ chưa có serial thì theo tên, nhưng KHÔNG khi tên trùng trong máy của SĐT này.
   const tenTrung = new Map(
     danhDauTenTrung(conDung.map((t) => ({ serial: t.serial as string, tenTau: (t.ten_tau as string | null) ?? null }))).map(
