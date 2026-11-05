@@ -6,7 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-11-05
-<!-- re-verified: 2026-11-05i — MIGRATION 0084 `customers.sdt_phu` (+ `sdt_phu_luc`): 1 SĐT phụ/tài khoản, check 10 số + khác SĐT chính, index một phần; chỉ nhân viên gán (PATCH /api/admin/accounts/sdt-phu). Tra máy S-Tracking theo SĐT chính + phụ qua `lib/stracking/sdt-phu`. ⏳ CHỜ APPLY prod. -->
+<!-- re-verified: 2026-11-05i — MIGRATION 0084 `customers.sdt_phu` (+ `sdt_phu_luc`): 1 SĐT phụ/tài khoản, check 10 số + khác SĐT chính, index một phần; chỉ nhân viên gán (PATCH /api/admin/accounts/sdt-phu). Tra máy S-Tracking theo SĐT chính + phụ qua `lib/stracking/sdt-phu`. ✅ ĐÃ APPLY prod 2026-11-05 (20261105150914, Supabase MCP, anh Long "Áp và gán luôn"); gán tay 0918388742 ⇒ sdt_phu 0946364444 (+1 dòng nhật ký account.sdt-phu). -->
 <!-- re-verified: 2026-11-05h — MIGRATION 0083 `dong_y_dieu_khoan` (anh Long 05/11: T&C lúc đăng ký/đăng nhập lần đầu, "1 cái click là đồng ý"): bảng chỉ-thêm phone · ban · luc_may · luc_chu · nguon (dang-ky|dang-nhap|mo-app) · platform · user_agent; RLS bật, 0 policy, revoke anon/authenticated (khuôn 0065). Ghi qua POST /api/me/dong-y, đọc ở /api/auth/token (`dongYBan`). ✅ ĐÃ APPLY prod 2026-11-05 (20261105141841). Code chịu được bảng chưa có (503 ⇒ máy giữ treo, gửi bù). -->
 <!-- re-verified: 2026-11-05g — KHOÁ GIA HẠN VÀO /quan-tri: KHÔNG migration. `app_config` thêm 2 khoá: `sdfish_renewal_secret` (secret, env dự phòng SDFISH_RENEWAL_SECRET; ≥16 ký tự, không khoảng trắng — phải TRÙNG secret bên CRM) + `sdwork_crm_url` (không secret, env dự phòng SDWORK_SUPABASE_URL; đúng khuôn https://<ref>.supabase.co). Ô DB thắng env. Chỉ luồng gia hạn (lib/renewal-server) đọc hai ô này. -->
 <!-- re-verified: 2026-11-04 — KHO Ô BẢN ĐỒ: KHÔNG migration. `app_config` thêm khoá `kho_o_tran_mb` (không secret, env dự phòng SDFISH_KHO_O_MB; 100–100000 MB, mặc định 2048) = trần ngăn máy chủ tự tải của kho ô đĩa (lib/kho-o-ban-do). Ô bản đồ lưu trên ĐĨA máy chủ, không vào DB/Storage. -->
@@ -47,7 +47,7 @@ ttl_days: 180
 
 ---
 
-### 0084 — SĐT PHỤ CHO TÀI KHOẢN — migration [`0084_sdt_phu.sql`](../../supabase/migrations/0084_sdt_phu.sql) (2026-11-05) — ⏳ **CHỜ APPLY prod**
+### 0084 — SĐT PHỤ CHO TÀI KHOẢN — migration [`0084_sdt_phu.sql`](../../supabase/migrations/0084_sdt_phu.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (Supabase MCP `apply_migration`, `schema_migrations` 20261105150914, anh Long: "Áp và gán luôn". Soi sau apply: RLS customers vẫn bật; gán 0918388742 ⇒ `sdt_phu` 0946364444)
 
 Anh Long 05/11: *"cho bổ sung thêm 1 sdt, tức là cho phép 1 acc 2 sdt"*. Ca thật: khách đăng nhập một SĐT, còn tàu trên S-Tracking (Viettel) đứng tên SĐT khác, nên khối Giám sát hành trình không hiện tàu đó.
 
