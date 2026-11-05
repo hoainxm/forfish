@@ -1,17 +1,17 @@
 // GET /api/stracking/cua-toi — máy giám sát hành trình S-Tracking CỦA người đang đăng nhập: các máy có SĐT chủ tàu
 // HOẶC SĐT thuyền trưởng = SĐT của phiên (lib/api-identity — KHÔNG nhận SĐT từ máy khách, không tra tàu người khác),
-// kèm hạn cước + cảnh báo 7 ngày gần nhất + giờ đồng bộ thành công gần nhất + YÊU CẦU GIA HẠN đang chạy
+// kèm hạn cước + cảnh báo TRONG NGÀY (giờ VN) + giờ đồng bộ thành công gần nhất + YÊU CẦU GIA HẠN đang chạy
 // của từng tàu (DB chung qua sdfish-renewal `list`, đồng hồ 6 s — hỏng/chậm thì `giaHan: null`, không chặn).
 // Trả { ok, capNhatLuc, giaHanMo, tau: [...], canhBao: [...] }. Chưa đăng nhập 401 · hạ tầng hỏng 503 (máy giữ bản đã lưu).
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { dauNgayVnIso } from "@/lib/stracking/dong-bo.mjs";
 import { giaHanCuaTau, isRenewalConfigured, listRenewalRequests } from "@/lib/renewal";
 
 export const dynamic = "force-dynamic";
 
 const TRAN_TAU = 30;
 const TRAN_CANH_BAO = 60;
-const CANH_BAO_NGAY = 7;
 const GIA_HAN_MS = 6000;
 
 export async function GET(req: Request) {
@@ -63,7 +63,8 @@ export async function GET(req: Request) {
   let canhBao: { imei: string; tenTau: string | null; muc: string | null; loai: string; luc: string }[] = [];
   const imeis = tau.map((t) => t.imei).filter((x): x is string => !!x);
   if (imeis.length) {
-    const tu = new Date(Date.now() - CANH_BAO_NGAY * 86_400_000).toISOString();
+    // CHỈ trong ngày giờ VN (anh Long 05/11: "cái nào trong ngày thôi").
+    const tu = dauNgayVnIso();
     const cbR = await admin
       .from("stracking_canh_bao")
       .select("imei, ten_tau, muc, loai, luc")

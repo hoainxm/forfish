@@ -135,6 +135,11 @@ export function homNayVn(now = Date.now()) {
   return new Date(now + 7 * 3600_000).toISOString().slice(0, 10);
 }
 
+/** 00:00 hôm nay giờ VN, dạng ISO UTC — mốc "cảnh báo trong ngày" (anh Long 05/11: "cái nào trong ngày thôi"). */
+export function dauNgayVnIso(now = Date.now()) {
+  return new Date(Date.parse(`${homNayVn(now)}T00:00:00+07:00`)).toISOString();
+}
+
 /** Ký tự điều khiển (NUL…) — Postgres từ chối \u0000 trong text ("unsupported Unicode escape sequence"; dính thật
  *  05/11: một cảnh báo S-Tracking mang NUL làm hỏng cả lô cuối). Bỏ ở CẢ máy thu (chu) lẫn máy chủ (chuoiHoacNull). */
 const KY_TU_DIEU_KHIEN = /[\u0000-\u001f\u007f]/g;
@@ -456,9 +461,12 @@ export function kiemCanhBao(r) {
 
 /**
  * Gói POST /api/stracking/nhap: { luc, trangThai: "ok"|"het-phien"|"loi", loi?, tong?, thietBi[], canhBao[] }.
- * Trả { ok, goi?, code?, boQua } — hàng hỏng bị BỎ (đếm ở boQua), không làm hỏng cả gói.
+ * Trả { ok, goi?, code?, boQua, boCu } — hàng hỏng bị BỎ (đếm ở boQua), không làm hỏng cả gói.
+ * Cảnh báo CHỈ TRONG NGÀY giờ VN (anh Long 05/11: "xóa đi, cái nào trong ngày thôi"): cũ hơn 00:00 hôm nay bị
+ * bỏ (đếm ở boCu) — S-Tracking trả lại cả cảnh báo cũ (tới 2018) mỗi lượt, đưa lên là dội thông báo cũ cho bà con.
  */
-export function kiemGoiNhap(b) {
+export function kiemGoiNhap(b, now = Date.now()) {
+  const dauNgay = Date.parse(dauNgayVnIso(now));
   if (!b || typeof b !== "object") return { ok: false, code: "bad_body" };
   if (!TRANG_THAI_GOI.includes(b.trangThai)) return { ok: false, code: "bad_trang_thai" };
   if (typeof b.luc !== "string" || !Number.isFinite(Date.parse(b.luc))) return { ok: false, code: "bad_luc" };
@@ -478,10 +486,12 @@ export function kiemGoiNhap(b) {
     }
   }
   const daCoCb = new Set();
+  let boCu = 0;
   for (const r of cb) {
     const k = kiemCanhBao(r);
     const khoa = k && `${k.imei}|${k.loai}|${k.luc}`;
     if (!k || daCoCb.has(khoa)) boQua++;
+    else if (Date.parse(k.luc) < dauNgay) boCu++;
     else {
       daCoCb.add(khoa);
       canhBao.push(k);
@@ -492,6 +502,7 @@ export function kiemGoiNhap(b) {
   return {
     ok: true,
     boQua,
+    boCu,
     goi: {
       luc: new Date(Date.parse(b.luc)).toISOString(),
       trangThai: b.trangThai,

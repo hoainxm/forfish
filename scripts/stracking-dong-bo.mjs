@@ -32,6 +32,7 @@ import {
   GOC_STRACKING,
   banGuiCanhBao,
   banGuiThietBi,
+  dauNgayVnIso,
   docBang,
   docCanhBao,
   docHetHan,
@@ -387,9 +388,14 @@ async function main() {
       const h = bam(b);
       if (GUI_LAI || docBam.get(t.serial)?.bam_da_gui !== h) canGui.push({ b, h });
     }
+    // CHỈ cảnh báo TRONG NGÀY giờ VN (anh Long 05/11: "xóa đi, cái nào trong ngày thôi"). Cũ hơn ⇒ đánh dấu da_gui=2
+    // (bỏ, không bao giờ gửi) — vẫn nằm trong kho máy nhà. Máy chủ cũng tự bỏ (kiemGoiNhap) nếu lọt.
+    const dauNgay = dauNgayVnIso();
+    const boCu = db.prepare("UPDATE canh_bao SET da_gui = 2 WHERE da_gui = 0 AND luc < ?").run(dauNgay);
+    if (Number(boCu.changes)) log(`bỏ ${boCu.changes} cảnh báo cũ hơn hôm nay (không gửi)`);
     const cbChuaGui = db
-      .prepare("SELECT imei, loai, luc, serial, vin, ten_tau AS tenTau, muc FROM canh_bao WHERE da_gui = 0 ORDER BY luc DESC LIMIT 20000")
-      .all();
+      .prepare("SELECT imei, loai, luc, serial, vin, ten_tau AS tenTau, muc FROM canh_bao WHERE da_gui = 0 AND luc >= ? ORDER BY luc DESC LIMIT 20000")
+      .all(dauNgay);
     log(`cần gửi: ${canGui.length} hồ sơ, ${cbChuaGui.length} cảnh báo`);
 
     if (THU) {

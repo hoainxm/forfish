@@ -19,6 +19,7 @@ import {
   thanHetHan,
   thanPhuongTien,
   trangThaiHan,
+  dauNgayVnIso,
 } from "@/lib/stracking/dong-bo.mjs";
 
 describe("thân yêu cầu", () => {
@@ -211,7 +212,7 @@ describe("gói gửi + máy chủ kiểm lại", () => {
       luc: "2026-11-05T08:00:00Z", trangThai: "ok", tong: { phuongTien: 16055, hetHan: 4078, canhBao: 4104 },
       thietBi: [g, g, { ...g, serial: "S2", het_han: "18/11/2026" }, { ...g, serial: "S3", sdt_chu_tau: "123" }],
       canhBao: [{ imei: "1", loai: "SOS", luc: "2026-11-05T08:47:45Z" }, { imei: "1", loai: "SOS", luc: "2026-11-05T08:47:45.000Z" }, { imei: "", loai: "x", luc: "x" }],
-    });
+    }, Date.parse("2026-11-05T10:00:00Z"));
     expect(r.ok).toBe(true);
     expect(r.goi?.thietBi.map((x: { serial: string }) => x.serial)).toEqual(["S1"]);
     expect(r.goi?.canhBao).toHaveLength(1);
@@ -225,7 +226,7 @@ describe("gói gửi + máy chủ kiểm lại", () => {
     const r = kiemGoiNhap({
       luc: "2026-11-05T08:00:00Z", trangThai: "ok",
       canhBao: [{ imei: "1", loai: "Mất\u0000 GPS", luc: "2026-11-05T08:47:45Z", ten_tau: "BV\u0000-1" }],
-    });
+    }, Date.parse("2026-11-05T10:00:00Z"));
     expect(JSON.stringify(r.goi?.canhBao)).not.toMatch(/\\u0000/);
     expect(r.goi?.canhBao[0].loai).toBe("Mất  GPS");
   });
@@ -255,5 +256,26 @@ describe("4 trường trạng thái máy (anh Long 05/11: \"quan trọng\") — 
     expect(gop[0]).toMatchObject({ nhom: "Nhóm B", dongBoTcts: "Thành công", hetHan: "2026-11-20" });
     const giu = gopThietBi([{ serial: "S1", nhom: "Nhóm A" }], [bc]);
     expect(giu[0].nhom).toBe("Nhóm A");
+  });
+});
+
+describe("cảnh báo CHỈ TRONG NGÀY giờ VN (anh Long 05/11: \"xóa đi, cái nào trong ngày thôi\")", () => {
+  it("00:00 hôm nay giờ VN", () => {
+    expect(dauNgayVnIso(Date.parse("2026-11-05T10:00:00Z"))).toBe("2026-11-04T17:00:00.000Z");
+    expect(dauNgayVnIso(Date.parse("2026-11-05T18:30:00Z"))).toBe("2026-11-05T17:00:00.000Z");
+  });
+  it("cảnh báo trước 00:00 VN bị bỏ (boCu), trong ngày giữ", () => {
+    const now = Date.parse("2026-11-05T10:00:00Z"); // 17:00 VN
+    const r = kiemGoiNhap({
+      luc: "2026-11-05T10:00:00Z", trangThai: "ok",
+      canhBao: [
+        { imei: "1", loai: "SOS", luc: "2026-11-04T16:59:59Z" }, // 23:59:59 hôm qua VN
+        { imei: "1", loai: "SOS", luc: "2026-11-04T17:00:00Z" }, // 00:00 hôm nay VN
+        { imei: "2", loai: "Vượt biên", luc: "2018-10-20T08:34:53Z" },
+      ],
+    }, now);
+    expect(r.goi?.canhBao.map((c: { luc: string }) => c.luc)).toEqual(["2026-11-04T17:00:00.000Z"]);
+    expect(r.boCu).toBe(2);
+    expect(r.boQua).toBe(0);
   });
 });
