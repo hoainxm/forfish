@@ -90,6 +90,23 @@ jobs:
           # workflow_run: đúng commit ci đã gác; bấm tay: đầu nhánh được chọn.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      # 1b. DỌN KHO GIT MỖI LẦN (2026-11-05 — runner đầy 9,3 GB: `.git\objects\pack` 252 file × ~90 MB = 6,4 GB).
+      #     Checkout `fetch-depth: 1` kéo TRỌN ảnh chụp commit mới thành MỘT pack mới mỗi lần (shallow không tận
+      #     dụng được pack cũ), còn `clean: false` giữ `.git` qua các lần và git không tự gộp ⇒ +90 MB/lần deploy.
+      #     Gộp về một pack + xoá đồ thừa: kho chỉ còn đúng commit đang build (~90–100 MB). Hỏng thì bỏ qua —
+      #     dọn kho không được chặn deploy. `safe.directory=*`: git trên runner báo "dubious ownership" (8262833a).
+      - name: Clean old git packs
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Continue"
+          $before = (Get-ChildItem .git\objects\pack\*.pack -ErrorAction SilentlyContinue).Count
+          git -c safe.directory=* reflog expire --expire=now --all
+          git -c safe.directory=* gc --prune=now --quiet
+          $after = (Get-ChildItem .git\objects\pack\*.pack -ErrorAction SilentlyContinue).Count
+          $mb = [math]::Round(((Get-ChildItem .git\objects\pack -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum) / 1MB)
+          Write-Host "git packs: $before -> $after ($mb MB)"
+          exit 0
+
       # 2. Setup Node.js — KHÔNG `cache: npm`: trên runner tự host, ~/.npm đã nằm sẵn trên
       #    đĩa; cache của action chỉ tốn thời gian nén + tải lên/xuống máy chủ GitHub.
       - name: Setup Node.js

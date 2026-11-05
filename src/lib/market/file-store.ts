@@ -35,7 +35,8 @@ export const DEV_UPLOAD_DIRNAME = "market-uploads";
  *  không đặt ⇒ `.local/market-dev.json` của repo (12 §5.1). */
 export function devStoreFile(env: Record<string, string | undefined> = process.env as Record<string, string | undefined>): string {
   const raw = env.MARKET_STORE_FILE?.trim();
-  return raw ? path.resolve(process.cwd(), raw) : path.join(process.cwd(), ".local", DEV_FILE_NAME);
+  // turbopackIgnore: đường dẫn kho dev dựng lúc chạy — thiếu thì Turbopack gom cả dự án vào gói deploy (xem kho-o-ban-do)
+  return raw ? path.resolve(/*turbopackIgnore: true*/ process.cwd(), raw) : path.join(/*turbopackIgnore: true*/ process.cwd(), ".local", DEV_FILE_NAME);
 }
 /** Thư mục chứa tệp kho — ảnh tải lên nằm cạnh nó, route uploads đọc cùng chỗ. */
 export function devLocalDir(): string {

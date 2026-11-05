@@ -45,8 +45,12 @@ export function chonThuMucKho(cwd: string, coThuMuc: (p: string) => boolean, tam
   return path.join(tam, "sdfish-kho-o");
 }
 
+/*  `turbopackIgnore` ở mọi lệnh đĩa/đường dẫn của kho (2026-11-05): đường dẫn kho DỰNG LÚC CHẠY từ `process.cwd()`
+    (lên cả thư mục CHA để tìm `<base>\shared`). Thiếu chú thích, Turbopack không đoán được file nào ⇒ gom CẢ dự án
+    lẫn thư mục cha (`.git`, node_modules) vào `.next/standalone` ⇒ runner IIS hết đĩa (ENOSPC), deploy aaf303dc +
+    683edd74 hỏng. Kho là dữ liệu lúc chạy, không phải mã — không file nào ở đây cần đi theo gói deploy. */
 export function thuMucKho(): string {
-  return chonThuMucKho(process.cwd(), existsSync, tmpdir());
+  return chonThuMucKho(/*turbopackIgnore: true*/ process.cwd(), existsSync, tmpdir());
 }
 
 /** Trần mặc định ngăn `song` khi /quan-tri chưa đặt `kho_o_tran_mb`. */
@@ -65,7 +69,7 @@ export function duoiAnh(ctype: string): "png" | "jpg" | null {
 }
 
 function duongO(ngan: NganKho, src: TileProxySource, z: number, x: number, y: number, duoi: string): string {
-  return path.join(thuMucKho(), ngan, src, String(z), String(x), `${y}.${duoi}`);
+  return path.join(/*turbopackIgnore: true*/ thuMucKho(), ngan, src, String(z), String(x), `${y}.${duoi}`);
 }
 
 /**
@@ -92,7 +96,7 @@ export async function docKhoO(src: TileProxySource, z: number, x: number, y: num
     for (const duoi of ["png", "jpg"] as const) {
       const f = duongO(ngan, src, z, x, y, duoi);
       try {
-        const [buf, st] = await Promise.all([readFile(f), stat(f)]);
+        const [buf, st] = await Promise.all([readFile(/*turbopackIgnore: true*/ f), stat(/*turbopackIgnore: true*/ f)]);
         if (buf.length === 0) continue;
         out.push({ ngan, buf: new Uint8Array(buf), ctype: duoi === "png" ? "image/png" : "image/jpeg", luc: st.mtimeMs });
         break;
@@ -151,7 +155,7 @@ export function chonXoa(files: { f: string; size: number; luc: number }[], tran:
 }
 
 async function donKhoSong(): Promise<void> {
-  const goc = path.join(thuMucKho(), "song");
+  const goc = path.join(/*turbopackIgnore: true*/ thuMucKho(), "song");
   const files: { f: string; size: number; luc: number }[] = [];
   const di = async (d: string) => {
     for (const e of await readdir(d, { withFileTypes: true }).catch(() => [])) {
@@ -194,7 +198,7 @@ export async function thongKeKho(): Promise<{ thuMuc: string; ghiDuoc: boolean; 
           }
         }
       };
-      await di(path.join(goc, ngan, src));
+      await di(path.join(/*turbopackIgnore: true*/ goc, ngan, src));
       nhom.push(tk);
     }
   }
@@ -210,7 +214,7 @@ export async function thongKeKho(): Promise<{ thuMuc: string; ghiDuoc: boolean; 
 
 /** Xoá cả một ngăn (quản trị bấm). Kho là bộ đệm — xoá xong tự đầy lại theo lượt xem / lượt máy nhà đẩy. */
 export async function xoaNganKho(ngan: NganKho): Promise<void> {
-  await rm(path.join(thuMucKho(), ngan), { recursive: true, force: true });
+  await rm(path.join(/*turbopackIgnore: true*/ thuMucKho(), ngan), { recursive: true, force: true });
 }
 
 // ---------- Gói máy nhà đẩy lên (/api/o-ban-do/nhap) ----------

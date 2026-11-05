@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, readdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -219,5 +219,21 @@ describe("đĩa + route /api/tiles — kho → nguồn → ô cũ", () => {
     const sau = await thongKeKho();
     expect(sau.nhom.filter((n) => n.ngan === "may-nha").every((n) => n.so === 0)).toBe(true);
     expect(sau.nhom.filter((n) => n.ngan === "song").some((n) => n.so > 0)).toBe(true);
+  });
+});
+
+/*  CỔNG CHỐNG GOM CẢ DỰ ÁN VÀO GÓI DEPLOY (2026-11-05). Đường dẫn kho dựng lúc chạy từ `process.cwd()` (lên cả thư mục
+    cha) ⇒ thiếu `turbopackIgnore` là Turbopack chép cả repo + `.git` vào `.next/standalone`, runner IIS hết đĩa (ENOSPC) —
+    deploy aaf303dc/683edd74 chết thật. CI không chạy `next build` nên cổng nằm ở đây. */
+describe("kho-o-ban-do — lệnh đĩa có turbopackIgnore", () => {
+  const src = readFileSync(path.join(__dirname, "..", "kho-o-ban-do.ts"), "utf8").split("\n");
+  const can = (l: string) =>
+    /process\.cwd\(\)/.test(l) ||
+    /\breadFile\(/.test(l) ||
+    /\brm\(/.test(l) ||
+    /path\.join\((thuMucKho\(\)|goc\b)/.test(l.replace(/\/\*turbopackIgnore: true\*\/ /g, ""));
+  it("mọi dòng đọc/xoá theo thư mục kho đều mang chú thích", () => {
+    const thieu = src.filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*") && can(l) && !l.includes("turbopackIgnore"));
+    expect(thieu).toEqual([]);
   });
 });
