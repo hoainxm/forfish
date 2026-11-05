@@ -51,3 +51,37 @@ export async function sdtTraCuaTaiKhoan(admin: unknown, phone: string): Promise<
     return [phone];
   }
 }
+
+type CustomersPhuReader = {
+  from(t: "customers"): {
+    select(c: "phone, sdt_phu"): {
+      in(c: "sdt_phu", v: string[]): PromiseLike<{ data: { phone: unknown; sdt_phu: unknown }[] | null; error: { message: string } | null }>;
+    };
+  };
+};
+
+/**
+ * Chiều ngược của SĐT phụ: SĐT trên máy ⇒ các tài khoản đã gán nó làm SĐT phụ (để gửi tin cảnh báo đủ cho họ).
+ * Hỏng ⇒ map rỗng + log: tin vẫn tới SĐT trên máy như cũ, chỉ thiếu bản cho tài khoản chính lượt này.
+ */
+export async function chinhCuaSdtPhu(admin: unknown, phones: readonly string[], lo = 300): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  const ds = [...new Set(phones.filter((s) => SDT.test(s)))];
+  try {
+    for (let i = 0; i < ds.length; i += lo) {
+      const { data, error } = await (admin as CustomersPhuReader).from("customers").select("phone, sdt_phu").in("sdt_phu", ds.slice(i, i + lo));
+      if (error) {
+        console.error("[sdt-phu] tra ngược hỏng:", error.message);
+        return new Map();
+      }
+      for (const r of data ?? []) {
+        if (typeof r.phone !== "string" || typeof r.sdt_phu !== "string") continue;
+        out.set(r.sdt_phu, [...(out.get(r.sdt_phu) ?? []), r.phone]);
+      }
+    }
+  } catch (e) {
+    console.error("[sdt-phu] tra ngược hỏng:", e instanceof Error ? e.message : e);
+    return new Map();
+  }
+  return out;
+}

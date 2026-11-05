@@ -58,7 +58,7 @@ Anh Long 05/11: *"cho bổ sung thêm 1 sdt, tức là cho phép 1 acc 2 sdt"*. 
 
 - **Ai ghi**: CHỈ nhân viên (quyền tab `tai-khoan` edit) — `PATCH /api/admin/accounts/sdt-phu`, nhật ký `account.sdt-phu` (cũ → mới). App chưa có OTP ⇒ bà con KHÔNG tự thêm (tự thêm = xem được máy, tên chủ tàu, cảnh báo của người khác).
 - **Ai đọc**: `lib/stracking/sdt-phu.sdtTraCuaTaiKhoan` ⇒ `/api/stracking/cua-toi`, `/api/renewal/request`, `/api/renewal/mine` tra `stracking_thiet_bi` theo SĐT chính + phụ. Đọc hỏng / cột chưa có ⇒ chỉ SĐT chính (không chặn khối).
-- **Không đổi**: đăng nhập, SĐT chính, yêu cầu gia hạn vẫn gửi dưới SĐT chính. Thông báo đẩy cảnh báo S-Tracking vẫn theo SĐT trên máy (chưa đẩy cho tài khoản có SĐT phụ — nợ ghi ở 02).
+- **Không đổi**: đăng nhập, SĐT chính, yêu cầu gia hạn vẫn gửi dưới SĐT chính. Tin cảnh báo S-Tracking (hộp thư + đẩy) gửi SĐT trên máy VÀ tài khoản có SĐT phụ trùng số đó (`/api/stracking/nhap` `guiTin`, anh Long 05/11 "gửi đủ về").
 
 ### 0083 — SỔ ĐỒNG Ý ĐIỀU KHOẢN — migration [`0083_dong_y_dieu_khoan.sql`](../../supabase/migrations/0083_dong_y_dieu_khoan.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (anh Long: "Áp luôn"; Supabase MCP `apply_migration`, `schema_migrations` 20261105141841. Soi sau apply: RLS bật, 0 policy, anon không đọc được, authenticated không ghi được, 0 hàng)
 

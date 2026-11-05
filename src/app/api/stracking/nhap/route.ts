@@ -14,6 +14,7 @@ import { kiemGoiNhap } from "@/lib/stracking/dong-bo.mjs";
 import {
   CHONG_LAP_MS,
   CUA_SO_MS,
+  chiaTinChoSdtPhu,
   ghepNhac,
   gomTinTau,
   STRACKING_PUSH_SENT_BY,
@@ -23,6 +24,7 @@ import {
   type TauCuaImei,
   type TinTau,
 } from "@/lib/stracking/thong-bao";
+import { chinhCuaSdtPhu } from "@/lib/stracking/sdt-phu";
 import { isPushConfigured, sendPushMany, type PushFanoutRow } from "@/lib/push-send";
 
 export const dynamic = "force-dynamic";
@@ -273,13 +275,15 @@ async function tinTuCanhBao(admin: NonNullable<ReturnType<typeof createAdminClie
 }
 
 /** Ghi hộp thư (push_messages, target account) TRƯỚC — lưới an toàn khi đẩy hụt / mất sóng — rồi Web Push cho tin `day`.
- *  Ném lỗi khi ghi hộp thư hỏng (caller nuốt + log). */
+ *  Ném lỗi khi ghi hộp thư hỏng (caller nuốt + log). Tin được nhân thêm cho tài khoản có SĐT phụ trùng SĐT trên máy. */
 async function guiTin(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
-  tin: TinTau[],
+  tinMay: TinTau[],
 ): Promise<{ tin: number; may: number; day: number }> {
   const kq = { tin: 0, may: 0, day: 0 };
-  if (!tin.length) return kq;
+  if (!tinMay.length) return kq;
+  // SĐT phụ (0084): tài khoản gán SĐT trên máy làm SĐT phụ cũng nhận tin (cả 3 loại đều qua đây). Tra hỏng ⇒ như cũ.
+  const tin = chiaTinChoSdtPhu(tinMay, await chinhCuaSdtPhu(admin, tinMay.map((t) => t.phone)));
 
   const subs = new Map<string, PushFanoutRow[]>();
   const phones = tin.map((t) => t.phone);

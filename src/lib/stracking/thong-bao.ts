@@ -242,3 +242,28 @@ export function gomTinTau(
   out.sort((a, b) => nangHon(a.nang, b.nang));
   return out.slice(0, TRAN_TIN_MOI_LUOT).map((t) => ({ phone: t.phone, title: t.title, body: t.body, url: t.url, tag: t.tag, day: t.day }));
 }
+
+/**
+ * SĐT PHỤ (0084, anh Long 05/11: "đã gán 2 sdt … thì gửi đủ về chứ"): tin gửi SĐT trên máy P ⇒ thêm bản cho mọi tài
+ * khoản đã gán P làm SĐT phụ. Tài khoản đó đã có tin riêng lượt này ⇒ GỘP (thêm dòng chưa có, `day` OR) để vẫn 1 tin/SĐT;
+ * chưa có ⇒ bản sao, `tag` theo SĐT nhận để đè đúng thông báo cũ của người đó.
+ * nợ: tin "đã hết cảnh báo" của P sao sang tài khoản chính mà không xét máy riêng của tài khoản chính còn cảnh báo không
+ *     (có thể đè thông báo cảnh báo của tàu kia trên màn khoá) — nâng khi khách có SĐT phụ kêu mất cảnh báo.
+ */
+export function chiaTinChoSdtPhu(tin: readonly TinTau[], chinhCuaPhu: ReadonlyMap<string, readonly string[]>): TinTau[] {
+  const out = new Map<string, TinTau>(tin.map((t) => [t.phone, { ...t }]));
+  for (const t of tin) {
+    for (const chinh of chinhCuaPhu.get(t.phone) ?? []) {
+      if (chinh === t.phone) continue;
+      const cu = out.get(chinh);
+      if (!cu) {
+        out.set(chinh, { ...t, phone: chinh, tag: `stracking-${chinh}` });
+        continue;
+      }
+      const dong = cu.body.split("\n");
+      const them = t.body.split("\n").filter((d) => !dong.includes(d));
+      out.set(chinh, { ...cu, body: [...dong, ...them].join("\n"), day: cu.day || t.day });
+    }
+  }
+  return [...out.values()];
+}
