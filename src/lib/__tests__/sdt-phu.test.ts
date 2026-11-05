@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { cacSdtTra, chinhCuaSdtPhu, locMayTheoSdt, sdtTraCuaTaiKhoan, vaiVoiMay } from "@/lib/stracking/sdt-phu";
-import { chiaTinChoSdtPhu } from "@/lib/stracking/thong-bao";
+import { cacSdtTra, chinhCuaSdtPhu, ganSdtThem, locMayTheoSdt, phuCuaCacSdt, sdtTraCuaTaiKhoan, vaiVoiMay } from "@/lib/stracking/sdt-phu";
+import { chiaTinChoSdtPhu, tinHetCanhBao } from "@/lib/stracking/thong-bao";
 
 function adminTra(kq: { data: unknown; error: { message: string } | null } | Error) {
   return {
@@ -92,6 +92,48 @@ describe("tin cảnh báo cho tài khoản có SĐT phụ", () => {
     expect([...m]).toEqual([["0946364444", ["0918388742"]]]);
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     expect((await chinhCuaSdtPhu(adminIn({ data: null, error: { message: "nghẹt" } }), ["0946364444"])).size).toBe(0);
+    err.mockRestore();
+  });
+});
+
+describe("tin \"đã hết cảnh báo\" xét MỌI tàu của tài khoản có SĐT phụ", () => {
+  const may = (imei: string, ten: string, chu: string) => ({ imei, serial: `S${imei}`, ten_tau: ten, sdt_chu_tau: chu, sdt_thuyen_truong: null });
+  const KG = may("1", "KG-91737-TS", "0946364444");
+  const AG = may("2", "AG-94783-TS", "0918388742");
+  const phuCua = new Map([["0918388742", "0946364444"]]);
+  const daBao = new Set(["0946364444", "0918388742"]);
+
+  it("ganSdtThem: máy của SĐT phụ có thêm tài khoản chính; máy khác không", () => {
+    const [kg, ag] = ganSdtThem([KG, AG], phuCua);
+    expect(kg.sdt_them).toEqual(["0918388742"]);
+    expect(ag.sdt_them).toEqual([]);
+  });
+
+  it("KG hết, AG CÒN cảnh báo ⇒ chỉ 444 nhận \"đã hết\", tài khoản chính KHÔNG (không đè cảnh báo AG)", () => {
+    const tin = tinHetCanhBao([{ imei: "1", luc: "2026-11-05T14:30:00Z" }], ganSdtThem([KG, AG], phuCua), new Set(["2"]), daBao);
+    expect(tin.map((t) => t.phone)).toEqual(["0946364444"]);
+  });
+
+  it("KG hết, AG cũng không còn cảnh báo ⇒ cả hai nhận \"đã hết\"", () => {
+    const tin = tinHetCanhBao([{ imei: "1", luc: "2026-11-05T14:30:00Z" }], ganSdtThem([KG, AG], phuCua), new Set(), daBao);
+    expect(tin.map((t) => t.phone).sort()).toEqual(["0918388742", "0946364444"]);
+    expect(tin.find((t) => t.phone === "0918388742")!.tag).toBe("stracking-0918388742");
+  });
+
+  it("tài khoản chính chưa được báo cảnh báo hôm nay ⇒ không gửi \"đã hết\" cho họ", () => {
+    const tin = tinHetCanhBao([{ imei: "1", luc: "2026-11-05T14:30:00Z" }], ganSdtThem([KG, AG], phuCua), new Set(), new Set(["0946364444"]));
+    expect(tin.map((t) => t.phone)).toEqual(["0946364444"]);
+  });
+
+  it("phuCuaCacSdt: tài khoản ⇒ SĐT phụ; hỏng ⇒ rỗng", async () => {
+    const adminIn = (kq: { data: unknown; error: { message: string } | null }) => ({
+      from: () => ({ select: () => ({ in: () => ({ not: () => Promise.resolve(kq) }) }) }),
+    });
+    expect([...(await phuCuaCacSdt(adminIn({ data: [{ phone: "0918388742", sdt_phu: "0946364444" }], error: null }), ["0918388742"]))]).toEqual([
+      ["0918388742", "0946364444"],
+    ]);
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await phuCuaCacSdt(adminIn({ data: null, error: { message: "x" } }), ["0918388742"])).size).toBe(0);
     err.mockRestore();
   });
 });

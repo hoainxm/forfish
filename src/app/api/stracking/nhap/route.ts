@@ -24,7 +24,7 @@ import {
   type TauCuaImei,
   type TinTau,
 } from "@/lib/stracking/thong-bao";
-import { chinhCuaSdtPhu } from "@/lib/stracking/sdt-phu";
+import { chinhCuaSdtPhu, ganSdtThem, phuCuaCacSdt } from "@/lib/stracking/sdt-phu";
 import { isPushConfigured, sendPushMany, type PushFanoutRow } from "@/lib/push-send";
 
 export const dynamic = "force-dynamic";
@@ -158,27 +158,34 @@ async function dongCanhBaoDaClear(
       if (error) throw error;
       tau.push(...((data ?? []) as TauCuaImei[]));
     }
-    // SĐT liên quan ⇒ mọi máy của họ (để biết còn tàu nào đang cảnh báo) + tin gần nhất hôm nay
-    const phones = [...new Set(tau.flatMap((t) => [t.sdt_chu_tau, t.sdt_thuyen_truong]).filter((p): p is string => !!p))];
+    // NGƯỜI NHẬN = SĐT trên máy + tài khoản gán SĐT đó làm SĐT phụ (0084). Mỗi người nhận ⇒ MỌI máy của họ (cả máy của
+    // SĐT phụ của họ) để chỉ báo "đã hết" khi KHÔNG còn tàu nào của họ đang cảnh báo (anh Long 05/11: "cảnh báo phải chuẩn").
+    const sdtMay = [...new Set(tau.flatMap((t) => [t.sdt_chu_tau, t.sdt_thuyen_truong]).filter((p): p is string => !!p))];
+    const chinhCuaPhu = await chinhCuaSdtPhu(admin, sdtMay);
+    const nguoiNhan = [...new Set([...sdtMay, ...[...chinhCuaPhu.values()].flat()])];
+    const phuCua = await phuCuaCacSdt(admin, nguoiNhan);
+    const sdtTraMay = [...new Set([...nguoiNhan, ...phuCua.values()])];
     const homNay = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
     const dauNgay = new Date(Date.parse(`${homNay}T00:00:00+07:00`)).toISOString();
-    const daBao = new Set<string>();
-    for (let i = 0; i < phones.length; i += LO_TRA) {
-      const lo = phones.slice(i, i + LO_TRA);
-      const [{ data: may }, { data: tin }] = await Promise.all([
-        admin
-          .from("stracking_thiet_bi")
-          .select("imei,serial,ten_tau,sdt_chu_tau,sdt_thuyen_truong")
-          .or(`sdt_chu_tau.in.(${lo.join(",")}),sdt_thuyen_truong.in.(${lo.join(",")})`),
-        admin
-          .from("push_messages")
-          .select("target_phone,title,created_at")
-          .eq("sent_by", STRACKING_PUSH_SENT_BY)
-          .in("target_phone", lo)
-          .gte("created_at", dauNgay)
-          .order("created_at", { ascending: false }),
-      ]);
+    for (let i = 0; i < sdtTraMay.length; i += LO_TRA) {
+      const lo = sdtTraMay.slice(i, i + LO_TRA);
+      const { data: may, error } = await admin
+        .from("stracking_thiet_bi")
+        .select("imei,serial,ten_tau,sdt_chu_tau,sdt_thuyen_truong")
+        .or(`sdt_chu_tau.in.(${lo.join(",")}),sdt_thuyen_truong.in.(${lo.join(",")})`);
+      // Thiếu danh sách máy ⇒ có thể báo "đã hết" sai ⇒ dừng, không gửi (lượt sau tính lại).
+      if (error) throw error;
       for (const m of (may ?? []) as TauCuaImei[]) if (!tau.some((t) => t.imei === m.imei)) tau.push(m);
+    }
+    const daBao = new Set<string>();
+    for (let i = 0; i < nguoiNhan.length; i += LO_TRA) {
+      const { data: tin } = await admin
+        .from("push_messages")
+        .select("target_phone,title,created_at")
+        .eq("sent_by", STRACKING_PUSH_SENT_BY)
+        .in("target_phone", nguoiNhan.slice(i, i + LO_TRA))
+        .gte("created_at", dauNgay)
+        .order("created_at", { ascending: false });
       const gapRoi = new Set<string>();
       for (const m of tin ?? []) {
         const p = m.target_phone as string;
@@ -187,8 +194,9 @@ async function dongCanhBaoDaClear(
         if (!/đã hết cảnh báo$/.test(m.title as string)) daBao.add(p);
       }
     }
-    const tinDong = tinHetCanhBao(imeiHet.map((imei) => ({ imei, luc: nowIso })), tau, conMoImei, daBao);
-    const r = await guiTin(admin, tinDong);
+    const tinDong = tinHetCanhBao(imeiHet.map((imei) => ({ imei, luc: nowIso })), ganSdtThem(tau, phuCua), conMoImei, daBao);
+    // Đã tính đủ người nhận ở trên ⇒ KHÔNG nhân tin cho SĐT phụ lần nữa.
+    const r = await guiTin(admin, tinDong, false);
     kq.tin = r.tin;
     kq.day = r.day;
   } catch (e) {
@@ -279,11 +287,13 @@ async function tinTuCanhBao(admin: NonNullable<ReturnType<typeof createAdminClie
 async function guiTin(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
   tinMay: TinTau[],
+  chiaSdtPhu = true,
 ): Promise<{ tin: number; may: number; day: number }> {
   const kq = { tin: 0, may: 0, day: 0 };
   if (!tinMay.length) return kq;
-  // SĐT phụ (0084): tài khoản gán SĐT trên máy làm SĐT phụ cũng nhận tin (cả 3 loại đều qua đây). Tra hỏng ⇒ như cũ.
-  const tin = chiaTinChoSdtPhu(tinMay, await chinhCuaSdtPhu(admin, tinMay.map((t) => t.phone)));
+  // SĐT phụ (0084): tài khoản gán SĐT trên máy làm SĐT phụ cũng nhận tin cảnh báo + nhắc. Tra hỏng ⇒ như cũ.
+  // Tin "đã hết cảnh báo" tự tính người nhận (dongCanhBaoDaClear) ⇒ chiaSdtPhu=false.
+  const tin = chiaSdtPhu ? chiaTinChoSdtPhu(tinMay, await chinhCuaSdtPhu(admin, tinMay.map((t) => t.phone))) : tinMay;
 
   const subs = new Map<string, PushFanoutRow[]>();
   const phones = tin.map((t) => t.phone);

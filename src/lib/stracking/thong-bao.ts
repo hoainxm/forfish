@@ -44,7 +44,11 @@ export interface TauCuaImei {
   serial: string;
   sdt_chu_tau: string | null;
   sdt_thuyen_truong: string | null;
+  /** Tài khoản gán SĐT chủ tàu/thuyền trưởng của máy này làm SĐT phụ (0084) — cũng là "người của máy". */
+  sdt_them?: readonly string[];
 }
+/** Mọi SĐT nhận tin về máy: chủ tàu, thuyền trưởng, tài khoản có SĐT phụ trùng. */
+const nguoiCuaMay = (t: TauCuaImei) => [...new Set([t.sdt_chu_tau, t.sdt_thuyen_truong, ...(t.sdt_them ?? [])])];
 export interface TinTau {
   phone: string;
   title: string;
@@ -144,12 +148,12 @@ export function tinHetCanhBao(
   // mọi máy của mỗi SĐT (để biết SĐT còn máy nào đang cảnh báo không)
   const mayCuaSdt = new Map<string, Set<string>>();
   for (const t of tau)
-    for (const sdt of [t.sdt_chu_tau, t.sdt_thuyen_truong]) if (sdt) mayCuaSdt.set(sdt, (mayCuaSdt.get(sdt) ?? new Set()).add(t.imei));
+    for (const sdt of nguoiCuaMay(t)) if (sdt) mayCuaSdt.set(sdt, (mayCuaSdt.get(sdt) ?? new Set()).add(t.imei));
   const dongTheoSdt = new Map<string, { ten: string; luc: string }[]>();
   for (const d of vuaDong) {
     const may = theoImei.get(d.imei);
     if (!may) continue;
-    for (const sdt of new Set([may.sdt_chu_tau, may.sdt_thuyen_truong])) {
+    for (const sdt of nguoiCuaMay(may)) {
       if (!sdt || !daBao.has(sdt)) continue;
       dongTheoSdt.set(sdt, [...(dongTheoSdt.get(sdt) ?? []), { ten: may.ten_tau ?? may.serial, luc: d.luc }]);
     }
@@ -247,8 +251,8 @@ export function gomTinTau(
  * SĐT PHỤ (0084, anh Long 05/11: "đã gán 2 sdt … thì gửi đủ về chứ"): tin gửi SĐT trên máy P ⇒ thêm bản cho mọi tài
  * khoản đã gán P làm SĐT phụ. Tài khoản đó đã có tin riêng lượt này ⇒ GỘP (thêm dòng chưa có, `day` OR) để vẫn 1 tin/SĐT;
  * chưa có ⇒ bản sao, `tag` theo SĐT nhận để đè đúng thông báo cũ của người đó.
- * nợ: tin "đã hết cảnh báo" của P sao sang tài khoản chính mà không xét máy riêng của tài khoản chính còn cảnh báo không
- *     (có thể đè thông báo cảnh báo của tàu kia trên màn khoá) — nâng khi khách có SĐT phụ kêu mất cảnh báo.
+ * KHÔNG dùng cho tin "đã hết cảnh báo": tin đó phải xét MỌI máy của tài khoản chính (máy riêng + máy của SĐT phụ) —
+ * route nhap gắn `sdt_them` cho máy rồi để `tinHetCanhBao` tự tính.
  */
 export function chiaTinChoSdtPhu(tin: readonly TinTau[], chinhCuaPhu: ReadonlyMap<string, readonly string[]>): TinTau[] {
   const out = new Map<string, TinTau>(tin.map((t) => [t.phone, { ...t }]));

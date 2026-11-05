@@ -99,7 +99,7 @@ const THU = co.has("--thu");
 const DANG_NHAP_TAY = co.has("--dang-nhap");
 const GUI_LAI = co.has("--gui-lai");
 const DAY_DU = co.has("--day-du");
-/** Lượt SIÊU NHẸ mỗi giờ: chỉ đọc mất kết nối ngoài khơi ⇒ nhắc mốc 6 giờ (timer stracking-mkn). */
+/** Lượt NHANH 15 phút/lần (timer stracking-mkn): cảnh báo + mất kết nối ngoài khơi ⇒ báo kịp thời, nhắc mốc 6 giờ. */
 const CHI_MKN = co.has("--mkn");
 const ANH = co.has("--anh");
 
@@ -517,18 +517,44 @@ async function main() {
     if (DANG_NHAP_TAY) log("phiên đang sống — các lượt timer sẽ dùng lại hồ sơ này");
 
     if (CHI_MKN) {
-      const mkn = await layMkn(page);
+      // Lượt NHANH (timer stracking-mkn, 15 phút/lần): CẢNH BÁO + mất kết nối, không hồ sơ. Anh Long 05/11: "cảnh báo phải
+      // chuẩn và kịp thời" — trước chỉ lượt đủ (4 lần/ngày) đọc cảnh báo ⇒ SOS/vượt ranh lúc 21:05 tới 07:30 mới báo.
+      const cb = await layCanhBao(page);
+      const luc = new Date().toISOString();
+      const { cbMoi } = ghiKho(db, [], cb.ds, luc);
+      const dauNgay = dauNgayVnIso();
+      db.prepare("UPDATE canh_bao SET da_gui = 2 WHERE da_gui = 0 AND luc < ?").run(dauNgay);
+      const cbChuaGui = db
+        .prepare("SELECT imei, loai, luc, serial, vin, ten_tau AS tenTau, muc FROM canh_bao WHERE da_gui = 0 AND luc >= ? ORDER BY luc DESC LIMIT 20000")
+        .all(dauNgay);
+      let mkn = [];
+      try {
+        mkn = await layMkn(page);
+      } catch (e) {
+        if (e instanceof HetPhien) throw e;
+        log(`đọc mất kết nối hỏng — lượt này chỉ gửi cảnh báo: ${e.message}`);
+      }
       const nhac = tinhNhac(db, mkn, true);
-      log(`mất kết nối ngoài khơi đang diễn ra: ${mkn.filter((m) => m.dangMat).length} · nhắc mới: ${nhac.length}`);
+      log(
+        `lượt nhanh — cảnh báo ${cb.ds.length}/${cb.tong ?? "?"} (${cbMoi} mới, ${cbChuaGui.length} chưa gửi) · ` +
+          `mất kết nối ngoài khơi: ${mkn.filter((m) => m.dangMat).length} · nhắc mới: ${nhac.length}`,
+      );
       if (THU) {
         for (const n of nhac.slice(0, 5)) log(`  [thử] ${n.sdt.slice(0, 4)}… ${n.dong}`);
-        ketThuc("thu", { gui: 0 });
+        ketThuc("thu", { cb: cb.ds.length, gui: 0 });
         return 0;
       }
-      const luc = new Date().toISOString();
-      const j = nhac.length ? await gui(c, { luc, trangThai: "ok", thietBi: [], canhBao: [], nhac: boKhoa(nhac) }) : null;
-      if (j) danhDauNhac(db, nhac, j, luc);
-      ketThuc("mkn", { gui: 0 });
+      // Trọn bộ đang mở chỉ khi đọc đủ (≥98%) — để máy chủ đóng cảnh báo đã hết; thiếu ⇒ không gửi (không đóng nhầm).
+      const dangMo = cb.tong && cb.ds.length >= cb.tong * 0.98 ? cb.ds.map((x) => ({ imei: x.imei, loai: x.loai, luc: x.luc })) : undefined;
+      const cbGui = cbChuaGui.map(banGuiCanhBao).filter(Boolean);
+      const j = await gui(c, { luc, trangThai: "ok", thietBi: [], canhBao: cbGui, dangMo, nhac: boKhoa(nhac) });
+      danhDauNhac(db, nhac, j, luc);
+      const danhDauCb = db.prepare("UPDATE canh_bao SET da_gui = 1 WHERE imei = ? AND loai = ? AND luc = ?");
+      db.exec("BEGIN");
+      for (const r of cbChuaGui) danhDauCb.run(r.imei, r.loai, r.luc);
+      db.exec("COMMIT");
+      log(`gửi: ${cbGui.length} cảnh báo + ${nhac.length} nhắc ⇒ ${JSON.stringify(j.ghi ?? {})} · ${Math.round((Date.now() - t0) / 1000)} s`);
+      ketThuc("mkn", { cb: cb.ds.length, gui: 0 });
       return 0;
     }
 

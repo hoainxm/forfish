@@ -85,3 +85,53 @@ export async function chinhCuaSdtPhu(admin: unknown, phones: readonly string[], 
   }
   return out;
 }
+
+type CustomersChinhReader = {
+  from(t: "customers"): {
+    select(c: "phone, sdt_phu"): {
+      in(c: "phone", v: string[]): {
+        not(c: "sdt_phu", op: "is", v: null): PromiseLike<{ data: { phone: unknown; sdt_phu: unknown }[] | null; error: { message: string } | null }>;
+      };
+    };
+  };
+};
+
+/** Chiều xuôi: tài khoản (SĐT chính) ⇒ SĐT phụ của nó. Hỏng ⇒ map rỗng + log. */
+export async function phuCuaCacSdt(admin: unknown, phones: readonly string[], lo = 300): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ds = [...new Set(phones.filter((s) => SDT.test(s)))];
+  try {
+    for (let i = 0; i < ds.length; i += lo) {
+      const { data, error } = await (admin as CustomersChinhReader)
+        .from("customers")
+        .select("phone, sdt_phu")
+        .in("phone", ds.slice(i, i + lo))
+        .not("sdt_phu", "is", null);
+      if (error) {
+        console.error("[sdt-phu] tra xuôi hỏng:", error.message);
+        return new Map();
+      }
+      for (const r of data ?? []) if (typeof r.phone === "string" && typeof r.sdt_phu === "string") out.set(r.phone, r.sdt_phu);
+    }
+  } catch (e) {
+    console.error("[sdt-phu] tra xuôi hỏng:", e instanceof Error ? e.message : e);
+    return new Map();
+  }
+  return out;
+}
+
+/**
+ * Gắn `sdt_them` cho máy: tài khoản M có SĐT phụ P trùng SĐT chủ tàu/thuyền trưởng của máy ⇒ M cũng là người của máy.
+ * `phuCua`: M ⇒ P. Trả bản mới, không sửa mảng vào.
+ */
+export function ganSdtThem<T extends { sdt_chu_tau: string | null; sdt_thuyen_truong: string | null }>(
+  tau: readonly T[],
+  phuCua: ReadonlyMap<string, string>,
+): (T & { sdt_them: string[] })[] {
+  const chinhCuaPhu = new Map<string, string[]>();
+  for (const [chinh, phu] of phuCua) chinhCuaPhu.set(phu, [...(chinhCuaPhu.get(phu) ?? []), chinh]);
+  return tau.map((t) => ({
+    ...t,
+    sdt_them: [...new Set([t.sdt_chu_tau, t.sdt_thuyen_truong].flatMap((s) => (s ? chinhCuaPhu.get(s) ?? [] : [])))],
+  }));
+}
