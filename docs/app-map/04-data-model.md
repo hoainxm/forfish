@@ -44,6 +44,12 @@ ttl_days: 180
 
 ---
 
+### 0082 — S-TRACKING: ĐÓNG CẢNH BÁO ĐÃ CLEAR — migration [`0082_stracking_dong_canh_bao.sql`](../../supabase/migrations/0082_stracking_dong_canh_bao.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (Supabase MCP, anh Long duyệt)
+
+Anh Long: *"nếu cảnh báo đã được clear thì đóng cảnh báo cho họ"*. `stracking_canh_bao` thêm `da_dong_luc` (timestamptz, null = còn mở) + index một phần `(imei) where da_dong_luc is null`. S-Tracking chỉ liệt kê cảnh báo ĐANG MỞ ⇒ "đã clear" = khoá (imei, loai, luc) biến khỏi danh sách: máy GPU gửi `dangMo` (trọn bộ khoá đang mở, chỉ khi đọc đủ) ⇒ `POST /api/stracking/nhap` đặt `da_dong_luc` cho cảnh báo mở không còn trong bộ đó + gửi tin "Tàu X đã hết cảnh báo" (cùng tag, đè thông báo cũ) cho SĐT mà tin S-Tracking gần nhất hôm nay vẫn là cảnh báo và MỌI máy của họ hết cảnh báo mở. `cua-toi` lọc `da_dong_luc is null`. Cộng thêm cột, không đổi dữ liệu cũ.
+
+---
+
 ### 0081 — S-TRACKING: 4 CỘT TRẠNG THÁI MÁY — migration [`0081_stracking_them_cot.sql`](../../supabase/migrations/0081_stracking_them_cot.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (Supabase MCP)
 
 Anh Long: *"Trạng thái đồng bộ Tổng cục, nhóm, ngày tạo, ngày cập nhật, trong bờ hay ngoài khơi cái này quan trọng nhé"*. `stracking_thiet_bi` thêm `dong_bo_tcts` (text ≤60, "Thành công"/"Thất bại"), `nhom` (text ≤160), `tao_luc`, `cap_nhat_nguon` (timestamptz) — đều nullable, không đổi/xoá gì (`trong_bo` có từ 0080). Máy GPU gửi kèm qua `banGuiThietBi` (băm bản gửi đổi ⇒ lượt sau gửi lại mọi hồ sơ); máy chủ kiểm ở `kiemThietBi`; `GET /api/stracking/cua-toi` trả `dongBoTcts`, `nhom`, `taoLuc`, `capNhatNguon`. Báo cáo dịch vụ bù `nhom` (groupName) + `cap_nhat_nguon` (logDate ms) khi danh sách phương tiện thiếu.
@@ -55,7 +61,7 @@ Anh Long: *"chạy GPU, check 7h, 12h, 17h, 21h để cập nhật cái hạn m�
 | Bảng | Khoá | Cột chính | Ghi / đọc |
 |---|---|---|---|
 | `stracking_thiet_bi` | `serial` | imei, ten_tau, chu_tau, `sdt_chu_tau`, thuyen_truong, `sdt_thuyen_truong` (check `^0[1-9]\d{8}$`, index một phần), dang_ky_luc, **het_han**, tam_ngung_tu/den, trong_bo, dong_bo_luc | ghi: `POST /api/stracking/nhap` (khoá máy GPU) · đọc: `GET /api/stracking/cua-toi` theo SĐT phiên |
-| `stracking_canh_bao` | (imei, loai, luc) | serial, ten_tau, muc (Báo động/Cảnh cáo), nhan_luc | thêm bỏ trùng; CHỈ cảnh báo TRONG NGÀY giờ VN (anh Long 05/11: "xóa đi, cái nào trong ngày thôi" — `kiemGoiNhap` bỏ cũ, máy GPU đánh dấu cũ `da_gui=2`; đã xoá tay 91 dòng cũ 05/11); route nhap còn xoá > 30 ngày |
+| `stracking_canh_bao` | (imei, loai, luc) | serial, ten_tau, muc (Báo động/Cảnh cáo), nhan_luc | thêm bỏ trùng; CHỈ cảnh báo TRONG NGÀY giờ VN (anh Long 05/11: "xóa đi, cái nào trong ngày thôi" — `kiemGoiNhap` bỏ cũ, máy GPU đánh dấu cũ `da_gui=2`; đã xoá tay 91 dòng cũ 05/11); route nhap xoá > 2 ngày; `da_dong_luc` (0082) = đã clear |
 | `stracking_lan_dong_bo` | id | luc, trang_thai (ok/het-phien/loi), loi, tong jsonb, so_thiet_bi, so_canh_bao | một dòng mỗi lần máy GPU gửi; giữ 90 ngày |
 
 Server CHỈ giữ trường bà con cần xem. Kho đầy đủ (địa chỉ, SĐT người thân, SĐT quản lý, niêm phong, nhóm, bản thô, **lịch sử đổi hạn** = các lần gia hạn) nằm ở máy GPU: SQLite `~/.local/forlife/stracking/stracking.db` (bảng `thiet_bi`, `han_lich_su`, `canh_bao`, `lan_chay`) — xem runbook › S-Tracking. Chưa apply ⇒ nhap trả 503 `store_down`, cua-toi 503 ⇒ giao diện giữ bản lưu / báo cần mạng, không vỡ.

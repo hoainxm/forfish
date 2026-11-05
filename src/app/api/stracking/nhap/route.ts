@@ -16,8 +16,10 @@ import {
   CUA_SO_MS,
   gomTinTau,
   STRACKING_PUSH_SENT_BY,
+  tinHetCanhBao,
   type CanhBaoMoi,
   type TauCuaImei,
+  type TinTau,
 } from "@/lib/stracking/thong-bao";
 import { isPushConfigured, sendPushMany, type PushFanoutRow } from "@/lib/push-send";
 
@@ -75,6 +77,9 @@ export async function POST(req: Request) {
     moiChen.push(...((data ?? []) as CanhBaoMoi[]));
   }
   const thongBao = await baoCanhBaoMoi(admin, moiChen);
+  // Cảnh báo đã CLEAR (biến khỏi danh sách đang mở của S-Tracking) ⇒ đóng + tin "đã hết cảnh báo". Chỉ khi máy thu đọc
+  // ĐỦ danh sách (gửi `dangMo`); vắng ⇒ không đóng gì.
+  const dong = Array.isArray(goi.dangMo) ? await dongCanhBaoDaClear(admin, goi.dangMo as { imei: string; loai: string; luc: string }[]) : null;
 
   // Sổ + dọn: hỏng chỉ log — dữ liệu đã ghi ở trên.
   const { error: eSo } = await admin.from("stracking_lan_dong_bo").insert({
@@ -94,7 +99,92 @@ export async function POST(req: Request) {
   ]);
   if (eDonCb || eDonSo) console.error("[stracking] dọn cũ hỏng:", eDonCb?.message ?? eDonSo?.message);
 
-  return Response.json({ ok: true, ghi: { thietBi: goi.thietBi.length, canhBao: goi.canhBao.length, boQua: r.boQua }, thongBao });
+  return Response.json({ ok: true, ghi: { thietBi: goi.thietBi.length, canhBao: goi.canhBao.length, boQua: r.boQua }, thongBao, dong });
+}
+
+const khoaCb = (c: { imei: string; loai: string; luc: string }) => `${c.imei}|${c.loai}|${Date.parse(c.luc)}`;
+
+/**
+ * Đóng mọi cảnh báo MỞ trong DB mà khoá (imei+loại+giờ) không còn trong bộ `dangMo` máy thu vừa đọc đủ; `[]` ⇒ đóng hết.
+ * Rồi báo "đã hết cảnh báo" theo MÁY (máy hết sạch khoá mở) cho SĐT mà tin S-Tracking gần nhất hôm nay vẫn là tin
+ * CẢNH BÁO (chưa đóng) — giờ "Thời gian cập nhật" của S-Tracking có thể nhích (khoá cũ đóng, khoá mới chèn) nên không
+ * xét theo từng khoá. Best-effort: hỏng chỉ log.
+ */
+async function dongCanhBaoDaClear(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  dangMo: { imei: string; loai: string; luc: string }[],
+): Promise<{ dong: number; tin: number; day: number }> {
+  const kq = { dong: 0, tin: 0, day: 0 };
+  try {
+    const conMoKhoa = new Set(dangMo.map(khoaCb));
+    const conMoImei = new Set(dangMo.map((c) => c.imei));
+    const moDb: ({ imei: string; loai: string; luc: string } & Record<string, unknown>)[] = [];
+    for (let tu = 0; ; tu += 1000) {
+      const { data, error } = await admin.from("stracking_canh_bao").select("*").is("da_dong_luc", null).range(tu, tu + 999);
+      if (error) throw error;
+      moDb.push(...((data ?? []) as typeof moDb));
+      if (!data || data.length < 1000) break;
+    }
+    const nowIso = new Date().toISOString();
+    const canDong = moDb
+      .filter((c) => !conMoKhoa.has(khoaCb(c)))
+      .map((c) => ({ ...c, da_dong_luc: nowIso }));
+    for (let i = 0; i < canDong.length; i += LO_GHI) {
+      const { error } = await admin.from("stracking_canh_bao").upsert(canDong.slice(i, i + LO_GHI), { onConflict: "imei,loai,luc" });
+      if (error) throw error;
+    }
+    kq.dong = canDong.length;
+    // máy HẾT SẠCH cảnh báo mở
+    const imeiHet = [...new Set(canDong.map((c) => c.imei))].filter((imei) => !conMoImei.has(imei));
+    if (!imeiHet.length) return kq;
+
+    const tau: TauCuaImei[] = [];
+    for (let i = 0; i < imeiHet.length; i += LO_TRA) {
+      const { data, error } = await admin
+        .from("stracking_thiet_bi")
+        .select("imei,serial,ten_tau,sdt_chu_tau,sdt_thuyen_truong")
+        .in("imei", imeiHet.slice(i, i + LO_TRA));
+      if (error) throw error;
+      tau.push(...((data ?? []) as TauCuaImei[]));
+    }
+    // SĐT liên quan ⇒ mọi máy của họ (để biết còn tàu nào đang cảnh báo) + tin gần nhất hôm nay
+    const phones = [...new Set(tau.flatMap((t) => [t.sdt_chu_tau, t.sdt_thuyen_truong]).filter((p): p is string => !!p))];
+    const homNay = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+    const dauNgay = new Date(Date.parse(`${homNay}T00:00:00+07:00`)).toISOString();
+    const daBao = new Set<string>();
+    for (let i = 0; i < phones.length; i += LO_TRA) {
+      const lo = phones.slice(i, i + LO_TRA);
+      const [{ data: may }, { data: tin }] = await Promise.all([
+        admin
+          .from("stracking_thiet_bi")
+          .select("imei,serial,ten_tau,sdt_chu_tau,sdt_thuyen_truong")
+          .or(`sdt_chu_tau.in.(${lo.join(",")}),sdt_thuyen_truong.in.(${lo.join(",")})`),
+        admin
+          .from("push_messages")
+          .select("target_phone,title,created_at")
+          .eq("sent_by", STRACKING_PUSH_SENT_BY)
+          .in("target_phone", lo)
+          .gte("created_at", dauNgay)
+          .order("created_at", { ascending: false }),
+      ]);
+      for (const m of (may ?? []) as TauCuaImei[]) if (!tau.some((t) => t.imei === m.imei)) tau.push(m);
+      const gapRoi = new Set<string>();
+      for (const m of tin ?? []) {
+        const p = m.target_phone as string;
+        if (gapRoi.has(p)) continue; // chỉ xét tin MỚI NHẤT
+        gapRoi.add(p);
+        if (!/đã hết cảnh báo$/.test(m.title as string)) daBao.add(p);
+      }
+    }
+    const tinDong = tinHetCanhBao(imeiHet.map((imei) => ({ imei, luc: nowIso })), tau, conMoImei, daBao);
+    const r = await guiTin(admin, tinDong);
+    kq.tin = r.tin;
+    kq.day = r.day;
+  } catch (e) {
+    console.error("[stracking] đóng cảnh báo hỏng:", e instanceof Error ? e.message : e);
+  }
+  console.log(`[stracking] đóng ${kq.dong} cảnh báo ⇒ ${kq.tin} tin đã hết, đẩy ${kq.day}`);
+  return kq;
 }
 
 const LO_TRA = 300;
@@ -136,54 +226,65 @@ async function baoCanhBaoMoi(
       for (const p of (data ?? []) as CanhBaoMoi[]) if (!khoaMoi.has(`${p.imei}|${p.loai}|${Date.parse(p.luc)}`)) truoc.push(p);
     }
     const tin = gomTinTau(moiChen, tau, nowMs, truoc);
-    if (!tin.length) return kq;
-
-    const subs = new Map<string, PushFanoutRow[]>();
-    const phones = tin.map((t) => t.phone);
-    for (let i = 0; i < phones.length; i += LO_TRA) {
-      const { data } = await admin
-        .from("push_subscriptions")
-        .select("id,endpoint,p256dh,auth_key,customer_phone")
-        .in("customer_phone", phones.slice(i, i + LO_TRA));
-      for (const s of data ?? []) {
-        const ds = subs.get(s.customer_phone as string) ?? [];
-        ds.push({ id: s.id as string, endpoint: s.endpoint, p256dh: s.p256dh, authKey: s.auth_key });
-        subs.set(s.customer_phone as string, ds);
-      }
-    }
-
-    // Hộp thư TRƯỚC (lưới an toàn khi đẩy hụt / mất sóng), rồi mới đẩy.
-    const { data: ghi, error: eGhi } = await admin
-      .from("push_messages")
-      .insert(
-        tin.map((t) => ({
-          title: t.title, body: t.body, url: t.url, target: "account", target_phone: t.phone,
-          sent_by: STRACKING_PUSH_SENT_BY, devices: t.day ? subs.get(t.phone)?.length ?? 0 : 0, sent: 0,
-        })),
-      )
-      .select("id,target_phone");
-    if (eGhi) throw eGhi;
-    kq.tin = tin.length;
-    const idTheoSdt = new Map((ghi ?? []).map((g) => [g.target_phone as string, g.id as string]));
-
-    if (!(await isPushConfigured())) return kq;
-    const sentAt = new Date().toISOString();
-    const chet: string[] = [];
-    await Promise.all(
-      tin
-        .filter((t) => t.day && subs.has(t.phone)) // Cảnh cáo chỉ nằm hộp thư, không đánh thức máy
-        .map(async (t) => {
-          const rows = subs.get(t.phone)!;
-          kq.may += rows.length;
-          const r = await sendPushMany(rows, { title: t.title, body: t.body, url: t.url, sentAt, messageId: idTheoSdt.get(t.phone) ?? null, tag: t.tag });
-          kq.day += r.sent;
-          chet.push(...r.goneIds);
-        }),
-    );
-    if (chet.length) await admin.from("push_subscriptions").delete().in("id", chet);
+    Object.assign(kq, await guiTin(admin, tin));
   } catch (e) {
     console.error("[stracking] thông báo cảnh báo hỏng:", e instanceof Error ? e.message : e);
   }
   console.log(`[stracking] cảnh báo mới ${moiChen.length} ⇒ ${kq.tin} tin, đẩy ${kq.day}/${kq.may} máy`);
+  return kq;
+}
+
+/** Ghi hộp thư (push_messages, target account) TRƯỚC — lưới an toàn khi đẩy hụt / mất sóng — rồi Web Push cho tin `day`.
+ *  Ném lỗi khi ghi hộp thư hỏng (caller nuốt + log). */
+async function guiTin(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  tin: TinTau[],
+): Promise<{ tin: number; may: number; day: number }> {
+  const kq = { tin: 0, may: 0, day: 0 };
+  if (!tin.length) return kq;
+
+  const subs = new Map<string, PushFanoutRow[]>();
+  const phones = tin.map((t) => t.phone);
+  for (let i = 0; i < phones.length; i += LO_TRA) {
+    const { data } = await admin
+      .from("push_subscriptions")
+      .select("id,endpoint,p256dh,auth_key,customer_phone")
+      .in("customer_phone", phones.slice(i, i + LO_TRA));
+    for (const s of data ?? []) {
+      const ds = subs.get(s.customer_phone as string) ?? [];
+      ds.push({ id: s.id as string, endpoint: s.endpoint, p256dh: s.p256dh, authKey: s.auth_key });
+      subs.set(s.customer_phone as string, ds);
+    }
+  }
+
+  // Hộp thư TRƯỚC (lưới an toàn khi đẩy hụt / mất sóng), rồi mới đẩy.
+  const { data: ghi, error: eGhi } = await admin
+    .from("push_messages")
+    .insert(
+      tin.map((t) => ({
+        title: t.title, body: t.body, url: t.url, target: "account", target_phone: t.phone,
+        sent_by: STRACKING_PUSH_SENT_BY, devices: t.day ? subs.get(t.phone)?.length ?? 0 : 0, sent: 0,
+      })),
+    )
+    .select("id,target_phone");
+  if (eGhi) throw eGhi;
+  kq.tin = tin.length;
+  const idTheoSdt = new Map((ghi ?? []).map((g) => [g.target_phone as string, g.id as string]));
+
+  if (!(await isPushConfigured())) return kq;
+  const sentAt = new Date().toISOString();
+  const chet: string[] = [];
+  await Promise.all(
+    tin
+      .filter((t) => t.day && subs.has(t.phone)) // Cảnh cáo chỉ nằm hộp thư, không đánh thức máy
+      .map(async (t) => {
+        const rows = subs.get(t.phone)!;
+        kq.may += rows.length;
+        const r = await sendPushMany(rows, { title: t.title, body: t.body, url: t.url, sentAt, messageId: idTheoSdt.get(t.phone) ?? null, tag: t.tag });
+        kq.day += r.sent;
+        chet.push(...r.goneIds);
+      }),
+  );
+  if (chet.length) await admin.from("push_subscriptions").delete().in("id", chet);
   return kq;
 }

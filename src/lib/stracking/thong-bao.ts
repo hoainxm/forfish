@@ -53,6 +53,52 @@ export interface TinTau {
   day: boolean;
 }
 
+/**
+ * TIN "ĐÃ HẾT CẢNH BÁO" (anh Long 05/11: "nếu cảnh báo đã được clear thì đóng cảnh báo cho họ"). Gửi cho SĐT đã được
+ * báo cảnh báo (trong ngày) mà nay MỌI máy của họ hết cảnh báo mở. Cùng `tag` `stracking-<sdt>` ⇒ ĐÈ thông báo cảnh báo
+ * cũ trên màn khoá; `day` = true để đè được (Web Push không xoá được tin từ xa, chỉ thay bằng tin cùng tag).
+ *
+ * @param vuaDong   máy (imei) vừa có cảnh báo bị đóng lượt này, kèm giờ về bình thường
+ * @param conMo     imei còn cảnh báo MỞ sau lượt này
+ * @param daBao     SĐT đã nhận tin cảnh báo hôm nay (chỉ những người này mới cần "đóng")
+ */
+export function tinHetCanhBao(
+  vuaDong: readonly { imei: string; luc: string }[],
+  tau: readonly TauCuaImei[],
+  conMo: ReadonlySet<string>,
+  daBao: ReadonlySet<string>,
+): TinTau[] {
+  const theoImei = new Map(tau.map((t) => [t.imei, t]));
+  // mọi máy của mỗi SĐT (để biết SĐT còn máy nào đang cảnh báo không)
+  const mayCuaSdt = new Map<string, Set<string>>();
+  for (const t of tau)
+    for (const sdt of [t.sdt_chu_tau, t.sdt_thuyen_truong]) if (sdt) mayCuaSdt.set(sdt, (mayCuaSdt.get(sdt) ?? new Set()).add(t.imei));
+  const dongTheoSdt = new Map<string, { ten: string; luc: string }[]>();
+  for (const d of vuaDong) {
+    const may = theoImei.get(d.imei);
+    if (!may) continue;
+    for (const sdt of new Set([may.sdt_chu_tau, may.sdt_thuyen_truong])) {
+      if (!sdt || !daBao.has(sdt)) continue;
+      dongTheoSdt.set(sdt, [...(dongTheoSdt.get(sdt) ?? []), { ten: may.ten_tau ?? may.serial, luc: d.luc }]);
+    }
+  }
+  const out: TinTau[] = [];
+  for (const [phone, ds] of dongTheoSdt) {
+    if ([...(mayCuaSdt.get(phone) ?? [])].some((imei) => conMo.has(imei))) continue; // còn tàu đang cảnh báo ⇒ chưa đóng
+    const cacTen = [...new Set(ds.map((d) => d.ten))];
+    const moiNhat = ds.reduce((a, b) => (Date.parse(b.luc) > Date.parse(a.luc) ? b : a)).luc;
+    out.push({
+      phone,
+      title: cacTen.length === 1 ? `Tàu ${cacTen[0]} đã hết cảnh báo` : `${cacTen.length} tàu của bạn đã hết cảnh báo`,
+      body: `Giám sát hành trình báo bình thường lúc ${gioVn(moiNhat)}.`,
+      url: "/tau",
+      tag: `stracking-${phone}`,
+      day: true,
+    });
+  }
+  return out.slice(0, TRAN_TIN_MOI_LUOT);
+}
+
 function gioVn(iso: string): string {
   const d = new Date(Date.parse(iso) + 7 * 3600_000);
   const p = (n: number) => String(n).padStart(2, "0");

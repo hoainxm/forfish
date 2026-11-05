@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CUA_SO_MS, TRAN_TIN_MOI_LUOT, gomTinTau } from "@/lib/stracking/thong-bao";
+import { CUA_SO_MS, TRAN_TIN_MOI_LUOT, gomTinTau, tinHetCanhBao } from "@/lib/stracking/thong-bao";
 
 const NOW = Date.parse("2026-11-05T10:00:00Z"); // 17:00 giờ VN
 const tau = [
@@ -83,6 +83,25 @@ describe("cảnh báo thông minh — gộp thông báo tàu", () => {
     const tin = gomTinTau(cb, nhieu, NOW);
     expect(tin).toHaveLength(TRAN_TIN_MOI_LUOT);
     expect(tin[0]).toMatchObject({ phone: nhieu[cuoi].sdt_chu_tau, day: true });
+  });
+
+  it("đã hết cảnh báo: chỉ SĐT đã được báo hôm nay, và chỉ khi MỌI tàu của họ hết cảnh báo; cùng tag để đè", () => {
+    const daBao = new Set(["0912345678", "0987654321"]);
+    // tàu 1 hết, tàu 2 (cùng chủ) còn mở ⇒ chủ chưa đóng; thuyền trưởng tàu 1 thì đóng
+    let tin = tinHetCanhBao([{ imei: "1", luc: "2026-11-05T09:30:00Z" }], tau, new Set(["2"]), daBao);
+    expect(tin).toHaveLength(1);
+    expect(tin[0]).toMatchObject({
+      phone: "0987654321",
+      title: "Tàu BV-1234-TS đã hết cảnh báo",
+      body: "Giám sát hành trình báo bình thường lúc 16:30.",
+      tag: "stracking-0987654321",
+      day: true,
+    });
+    // cả hai tàu hết ⇒ chủ nhận một tin gộp
+    tin = tinHetCanhBao([{ imei: "1", luc: "2026-11-05T09:30:00Z" }, { imei: "2", luc: "2026-11-05T09:40:00Z" }], tau, new Set(), daBao);
+    expect(tin.find((t) => t.phone === "0912345678")?.title).toBe("2 tàu của bạn đã hết cảnh báo");
+    // chưa từng được báo ⇒ không làm phiền
+    expect(tinHetCanhBao([{ imei: "3", luc: "2026-11-05T09:30:00Z" }], tau, new Set(), daBao)).toHaveLength(0);
   });
 
   it("quá 3 tàu ⇒ 'và N tàu khác'", () => {
