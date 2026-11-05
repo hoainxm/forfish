@@ -397,6 +397,7 @@ Anh Long: *"kiếm thêm nguồn phù du đi, chứ 1 nguồn ko ổn, cho gpu t
 | `danh sách phương tiện thiếu (N/M) — không ghi đè kho` | trang trả thiếu | lượt sau đọc lại; lặp nhiều lượt ⇒ soi `--thu --anh` |
 | `trang đổi định dạng — thiếu cột: …` | Viettel đổi bảng | sửa `COT_PHUONG_TIEN`/`COT_CANH_BAO` trong `lib/stracking/dong-bo.mjs` (+ test) |
 | `gửi hỏng: HTTP 401 bad_key` / `503 not_configured` / `503 store_down` | khoá lệch / app chưa có khoá / migration 0080 chưa apply | dán lại khoá / đặt khoá ở /quan-tri / apply 0080 |
+| `503 store_down` + log Vercel `unsupported Unicode escape sequence` | ký tự NUL trong dữ liệu Viettel (dính 05/11 ở cảnh báo) | đã lọc ở `chu`/`chuoiHoacNull` (`KY_TU_DIEU_KHIEN`); lỗi lại ⇒ soi trường mới chưa đi qua hai hàm này |
 
 ## Canh service máy GPU (2026-11-05)
 

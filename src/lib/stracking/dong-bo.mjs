@@ -135,9 +135,13 @@ export function homNayVn(now = Date.now()) {
   return new Date(now + 7 * 3600_000).toISOString().slice(0, 10);
 }
 
+/** Ký tự điều khiển (NUL…) — Postgres từ chối \u0000 trong text ("unsupported Unicode escape sequence"; dính thật
+ *  05/11: một cảnh báo S-Tracking mang NUL làm hỏng cả lô cuối). Bỏ ở CẢ máy thu (chu) lẫn máy chủ (chuoiHoacNull). */
+const KY_TU_DIEU_KHIEN = /[\u0000-\u001f\u007f]/g;
+
 function chu(v, tran = 200) {
   if (v == null) return null;
-  const s = String(v).replace(/\s+/g, " ").trim();
+  const s = String(v).replace(KY_TU_DIEU_KHIEN, " ").replace(/\s+/g, " ").trim();
   return s ? s.slice(0, tran) : null;
 }
 
@@ -394,7 +398,7 @@ const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 function chuoiHoacNull(v, tran) {
   if (v == null || v === "") return null;
   if (typeof v !== "string") return undefined;
-  const s = v.trim();
+  const s = v.replace(KY_TU_DIEU_KHIEN, " ").trim();
   return s && s.length <= tran ? s : undefined;
 }
 
@@ -477,7 +481,7 @@ export function kiemGoiNhap(b) {
     goi: {
       luc: new Date(Date.parse(b.luc)).toISOString(),
       trangThai: b.trangThai,
-      loi: typeof b.loi === "string" ? b.loi.slice(0, 500) : null,
+      loi: typeof b.loi === "string" ? b.loi.replace(KY_TU_DIEU_KHIEN, " ").slice(0, 500) : null,
       tong: { phuongTien: so(tong.phuongTien), hetHan: so(tong.hetHan), canhBao: so(tong.canhBao) },
       thietBi,
       canhBao,

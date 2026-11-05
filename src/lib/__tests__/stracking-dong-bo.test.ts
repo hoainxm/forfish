@@ -221,4 +221,12 @@ describe("gói gửi + máy chủ kiểm lại", () => {
     expect(kiemGoiNhap({ luc: "x", trangThai: "ok" }).ok).toBe(false);
     expect(kiemGoiNhap({ luc: "2026-11-05T08:00:00Z", trangThai: "het-phien", loi: "phiên hết" }).ok).toBe(true);
   });
+  it("bỏ ký tự NUL/điều khiển — Postgres từ chối \\u0000 (dính thật 05/11, cả lô hỏng)", () => {
+    const r = kiemGoiNhap({
+      luc: "2026-11-05T08:00:00Z", trangThai: "ok",
+      canhBao: [{ imei: "1", loai: "Mất\u0000 GPS", luc: "2026-11-05T08:47:45Z", ten_tau: "BV\u0000-1" }],
+    });
+    expect(JSON.stringify(r.goi?.canhBao)).not.toMatch(/\\u0000/);
+    expect(r.goi?.canhBao[0].loai).toBe("Mất  GPS");
+  });
 });
