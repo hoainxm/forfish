@@ -303,3 +303,21 @@ describe("lượt ĐỦ / NHẸ (anh Long 05/11: \"chỉ push cái thay đổi t
     expect(new URLSearchParams(thanPhuongTien(1)).getAll("filter[]")).toEqual([]);
   });
 });
+
+describe("cảnh báo đang mở — để máy chủ đóng cảnh báo đã hết (anh Long 05/11)", () => {
+  const now = Date.parse("2026-11-05T10:00:00Z");
+  it("có dangMo ⇒ trọn bộ khoá chuẩn hoá (kể cả cảnh báo cũ hơn hôm nay), hàng hỏng bị bỏ", () => {
+    const r = kiemGoiNhap({
+      luc: "2026-11-05T10:00:00Z", trangThai: "ok",
+      dangMo: [{ imei: "1", loai: "SOS", luc: "2026-11-05T08:47:45Z" }, { imei: "2", loai: "Mất GPS", luc: "2018-01-01T00:00:00Z" }, { imei: "", loai: "x", luc: "x" }],
+    }, now);
+    expect(r.goi?.dangMo).toEqual([
+      { imei: "1", loai: "SOS", luc: "2026-11-05T08:47:45.000Z" },
+      { imei: "2", loai: "Mất GPS", luc: "2018-01-01T00:00:00.000Z" },
+    ]);
+  });
+  it("vắng dangMo ⇒ null (máy chủ KHÔNG đóng gì); mảng rỗng ⇒ [] (đọc đủ mà không còn cảnh báo nào)", () => {
+    expect(kiemGoiNhap({ luc: "2026-11-05T10:00:00Z", trangThai: "ok" }, now).goi?.dangMo).toBeNull();
+    expect(kiemGoiNhap({ luc: "2026-11-05T10:00:00Z", trangThai: "ok", dangMo: [] }, now).goi?.dangMo).toEqual([]);
+  });
+});

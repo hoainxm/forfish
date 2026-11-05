@@ -526,6 +526,21 @@ export function kiemGoiNhap(b, now = Date.now()) {
       canhBao.push(k);
     }
   }
+  // CẢNH BÁO ĐANG MỞ (anh Long 05/11: "nếu cảnh báo đã được clear thì đóng cảnh báo cho họ"). /report/eventAlarmList là
+  // danh sách cảnh báo ĐANG MỞ (đo 05/11: ~1 dòng/máy, tổng lên xuống giữa các lượt, không có dòng "Bình thường") ⇒ hết
+  // cảnh báo = biến khỏi danh sách. Máy thu gửi `dangMo` = TRỌN BỘ khoá đang mở khi lượt đọc đủ; vắng ⇒ null ⇒ máy chủ
+  // KHÔNG đóng gì (đọc thiếu mà đóng là đóng oan cảnh báo thật).
+  let dangMo = null;
+  if (Array.isArray(b.dangMo)) {
+    if (b.dangMo.length > TRAN_CANH_BAO) return { ok: false, code: "too_many" };
+    dangMo = [];
+    for (const r of b.dangMo) {
+      const imei = chuoiHoacNull(r?.imei, 32);
+      const loai = chuoiHoacNull(r?.loai, 120);
+      if (!imei || !loai || typeof r.luc !== "string" || !Number.isFinite(Date.parse(r.luc))) continue;
+      dangMo.push({ imei, loai, luc: new Date(Date.parse(r.luc)).toISOString() });
+    }
+  }
   const tong = b.tong && typeof b.tong === "object" ? b.tong : {};
   const so = (v) => (Number.isInteger(v) && v >= 0 && v < 1e7 ? v : null);
   return {
@@ -539,6 +554,7 @@ export function kiemGoiNhap(b, now = Date.now()) {
       tong: { phuongTien: so(tong.phuongTien), hetHan: so(tong.hetHan), canhBao: so(tong.canhBao) },
       thietBi,
       canhBao,
+      dangMo,
     },
   };
 }

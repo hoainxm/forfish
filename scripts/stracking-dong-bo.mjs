@@ -466,7 +466,9 @@ async function main() {
       const phan = canGui.slice(i * GOI_MOI_LAN, (i + 1) * GOI_MOI_LAN);
       const cuoi = i === soLan - 1;
       const cbPhan = cuoi ? cbChuaGui.map(banGuiCanhBao).filter(Boolean) : [];
-      const j = await gui(c, { luc, trangThai: "ok", tong, thietBi: phan.map((x) => x.b), canhBao: cbPhan });
+      // Trọn bộ cảnh báo ĐANG MỞ — chỉ khi đọc đủ (≥98% tổng trang báo) để máy chủ đóng cảnh báo đã hết; thiếu ⇒ không gửi.
+      const dangMo = cuoi && cb.tong && cb.ds.length >= cb.tong * 0.98 ? cb.ds.map((x) => ({ imei: x.imei, loai: x.loai, luc: x.luc })) : undefined;
+      const j = await gui(c, { luc, trangThai: "ok", tong, thietBi: phan.map((x) => x.b), canhBao: cbPhan, dangMo });
       db.exec("BEGIN");
       for (const x of phan) danhDauTb.run(x.h, x.b.serial);
       if (cuoi) for (const r of cbChuaGui) danhDauCb.run(r.imei, r.loai, r.luc);
