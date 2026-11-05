@@ -19,6 +19,7 @@ export const ADMIN_ACTIONS = [
   "account.test-token",
   "account.xac-minh-thu-mua",
   "account.doi-vai",
+  "account.sdt-phu",
   // Sản phẩm
   "product.create",
   "product.update",
@@ -77,6 +78,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "account.test-token": "Cấp chuỗi thử (script test)",
   "account.xac-minh-thu-mua": "Bật/tắt xác minh thu mua",
   "account.doi-vai": "Sửa vai tài khoản (đi bạn/chủ tàu/thu mua/đại lý)",
+  "account.sdt-phu": "Gán/gỡ SĐT phụ (tra thêm máy giám sát hành trình)",
   "product.create": "Thêm sản phẩm",
   "product.update": "Sửa sản phẩm",
   "product.delete": "Xóa sản phẩm",

@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { dauNgayVnIso } from "@/lib/stracking/dong-bo.mjs";
 import { laMayDaBo } from "@/lib/stracking/may-da-bo.mjs";
 import { danhDauTenTrung, giaHanCuaTau } from "@/lib/renewal";
+import { locMayTheoSdt, sdtTraCuaTaiKhoan, vaiVoiMay } from "@/lib/stracking/sdt-phu";
 import { isRenewalConfigured, listRenewalRequests } from "@/lib/renewal-server";
 
 export const dynamic = "force-dynamic";
@@ -23,13 +24,16 @@ export async function GET(req: Request) {
   if (!admin) return Response.json({ ok: false, code: "unavailable" }, { status: 503 });
   const sdt = who.phone;
   const giaHanMo = await isRenewalConfigured();
-  if (!/^0[1-9]\d{8}$/.test(sdt)) return Response.json({ ok: true, capNhatLuc: null, giaHanMo, tau: [], canhBao: [] });
+  // SĐT chính + SĐT phụ nhân viên gán (0084) — tàu đứng tên SĐT phụ cũng là tàu của tài khoản này.
+  const sdts = await sdtTraCuaTaiKhoan(admin, sdt);
+  const loc = locMayTheoSdt(sdts);
+  if (!loc) return Response.json({ ok: true, capNhatLuc: null, giaHanMo, tau: [], canhBao: [] });
 
   const [tauR, soR, yeuCau] = await Promise.all([
     admin
       .from("stracking_thiet_bi")
       .select("serial, imei, ten_tau, chu_tau, sdt_chu_tau, thuyen_truong, sdt_thuyen_truong, dang_ky_luc, het_han, tam_ngung_tu, tam_ngung_den, trong_bo, dong_bo_tcts, nhom, tao_luc, cap_nhat_nguon, dong_bo_luc")
-      .or(`sdt_chu_tau.eq.${sdt},sdt_thuyen_truong.eq.${sdt}`)
+      .or(loc)
       .order("het_han", { ascending: true, nullsFirst: false })
       .limit(TRAN_TAU),
     admin.from("stracking_lan_dong_bo").select("luc").eq("trang_thai", "ok").order("luc", { ascending: false }).limit(1),
@@ -66,7 +70,7 @@ export async function GET(req: Request) {
     tenTau: (t.ten_tau as string | null) ?? null,
     chuTau: (t.chu_tau as string | null) ?? null,
     // Vai của người xem với máy này — chỉ để chữ; SĐT người kia KHÔNG trả về.
-    vai: t.sdt_chu_tau === sdt ? "chu-tau" : "thuyen-truong",
+    vai: vaiVoiMay(t.sdt_chu_tau as string | null, sdts),
     dangKyLuc: (t.dang_ky_luc as string | null) ?? null,
     hetHan: (t.het_han as string | null) ?? null,
     tamNgungTu: (t.tam_ngung_tu as string | null) ?? null,

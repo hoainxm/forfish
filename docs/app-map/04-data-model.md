@@ -6,6 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-11-05
+<!-- re-verified: 2026-11-05i — MIGRATION 0084 `customers.sdt_phu` (+ `sdt_phu_luc`): 1 SĐT phụ/tài khoản, check 10 số + khác SĐT chính, index một phần; chỉ nhân viên gán (PATCH /api/admin/accounts/sdt-phu). Tra máy S-Tracking theo SĐT chính + phụ qua `lib/stracking/sdt-phu`. ⏳ CHỜ APPLY prod. -->
 <!-- re-verified: 2026-11-05h — MIGRATION 0083 `dong_y_dieu_khoan` (anh Long 05/11: T&C lúc đăng ký/đăng nhập lần đầu, "1 cái click là đồng ý"): bảng chỉ-thêm phone · ban · luc_may · luc_chu · nguon (dang-ky|dang-nhap|mo-app) · platform · user_agent; RLS bật, 0 policy, revoke anon/authenticated (khuôn 0065). Ghi qua POST /api/me/dong-y, đọc ở /api/auth/token (`dongYBan`). ✅ ĐÃ APPLY prod 2026-11-05 (20261105141841). Code chịu được bảng chưa có (503 ⇒ máy giữ treo, gửi bù). -->
 <!-- re-verified: 2026-11-05g — KHOÁ GIA HẠN VÀO /quan-tri: KHÔNG migration. `app_config` thêm 2 khoá: `sdfish_renewal_secret` (secret, env dự phòng SDFISH_RENEWAL_SECRET; ≥16 ký tự, không khoảng trắng — phải TRÙNG secret bên CRM) + `sdwork_crm_url` (không secret, env dự phòng SDWORK_SUPABASE_URL; đúng khuôn https://<ref>.supabase.co). Ô DB thắng env. Chỉ luồng gia hạn (lib/renewal-server) đọc hai ô này. -->
 <!-- re-verified: 2026-11-04 — KHO Ô BẢN ĐỒ: KHÔNG migration. `app_config` thêm khoá `kho_o_tran_mb` (không secret, env dự phòng SDFISH_KHO_O_MB; 100–100000 MB, mặc định 2048) = trần ngăn máy chủ tự tải của kho ô đĩa (lib/kho-o-ban-do). Ô bản đồ lưu trên ĐĨA máy chủ, không vào DB/Storage. -->
@@ -45,6 +46,19 @@ ttl_days: 180
 <!-- re-verified: 2026-08-19 — GỘP BASE (sync base): migration base 0032/0033/0034/0036/0037 đánh lại số thành 0045/0046/0047/0048/0049 cho khỏi đụng số sdvico; base 0035_market_listings_owner_phone BỎ vì trùng logic 0043 của sdvico. Mọi mục dưới đây dùng SỐ MỚI và trạng thái apply tính theo prod SDVICO (⚠️ CHƯA APPLY), KHÔNG phải prod base. -->
 
 ---
+
+### 0084 — SĐT PHỤ CHO TÀI KHOẢN — migration [`0084_sdt_phu.sql`](../../supabase/migrations/0084_sdt_phu.sql) (2026-11-05) — ⏳ **CHỜ APPLY prod**
+
+Anh Long 05/11: *"cho bổ sung thêm 1 sdt, tức là cho phép 1 acc 2 sdt"*. Ca thật: khách đăng nhập một SĐT, còn tàu trên S-Tracking (Viettel) đứng tên SĐT khác, nên khối Giám sát hành trình không hiện tàu đó.
+
+| Cột | Kiểu | Luật |
+|---|---|---|
+| `customers.sdt_phu` | text null | `^0[1-9][0-9]{8}$`, khác `phone`; MỘT số/tài khoản; index một phần `where sdt_phu is not null` |
+| `customers.sdt_phu_luc` | timestamptz null | lần nhân viên đổi gần nhất |
+
+- **Ai ghi**: CHỈ nhân viên (quyền tab `tai-khoan` edit) — `PATCH /api/admin/accounts/sdt-phu`, nhật ký `account.sdt-phu` (cũ → mới). App chưa có OTP ⇒ bà con KHÔNG tự thêm (tự thêm = xem được máy, tên chủ tàu, cảnh báo của người khác).
+- **Ai đọc**: `lib/stracking/sdt-phu.sdtTraCuaTaiKhoan` ⇒ `/api/stracking/cua-toi`, `/api/renewal/request`, `/api/renewal/mine` tra `stracking_thiet_bi` theo SĐT chính + phụ. Đọc hỏng / cột chưa có ⇒ chỉ SĐT chính (không chặn khối).
+- **Không đổi**: đăng nhập, SĐT chính, yêu cầu gia hạn vẫn gửi dưới SĐT chính. Thông báo đẩy cảnh báo S-Tracking vẫn theo SĐT trên máy (chưa đẩy cho tài khoản có SĐT phụ — nợ ghi ở 02).
 
 ### 0083 — SỔ ĐỒNG Ý ĐIỀU KHOẢN — migration [`0083_dong_y_dieu_khoan.sql`](../../supabase/migrations/0083_dong_y_dieu_khoan.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (anh Long: "Áp luôn"; Supabase MCP `apply_migration`, `schema_migrations` 20261105141841. Soi sau apply: RLS bật, 0 policy, anon không đọc được, authenticated không ghi được, 0 hàng)
 

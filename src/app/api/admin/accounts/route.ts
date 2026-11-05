@@ -247,6 +247,14 @@ export async function GET() {
     if (!v.error)
       for (const x of (v.data ?? []) as { phone: string; vai: unknown }[]) if (isVai(x.vai)) vaiOf.set(x.phone, x.vai);
   }
+  // SĐT PHỤ (0084) — đọc riêng, cột chưa có ⇒ không ai có SĐT phụ, danh sách vẫn về
+  const sdtPhuOf = new Map<string, string>();
+  {
+    const p = await admin.from("customers").select("phone, sdt_phu").not("sdt_phu", "is", null);
+    if (!p.error)
+      for (const x of (p.data ?? []) as { phone: string; sdt_phu: unknown }[])
+        if (typeof x.sdt_phu === "string") sdtPhuOf.set(x.phone, x.sdt_phu);
+  }
 
   /*  LỊCH SỬ MÁY (customer_devices, 0033) — MỘT câu cho cả danh sách rồi gom
       trong JS, KHÔNG hỏi từng khách (716 khách = 716 câu). Bảng nhỏ (mỗi khách
@@ -294,6 +302,8 @@ export async function GET() {
     kind: kindOf.get(r.phone as string) ?? "real",
     /** ngu-dan | chu-tau | thu-mua | dai-ly | null (0079) */
     vai: vaiOf.get(r.phone as string) ?? null,
+    /** SĐT phụ nhân viên gán — tra thêm máy S-Tracking (0084) */
+    sdtPhu: sdtPhuOf.get(r.phone as string) ?? null,
     fromSdwork: Boolean(r.sdwork_ref),
     updatedAt: (r.updated_at as string) ?? null,
     canLogin: provisioned.has(r.phone as string),

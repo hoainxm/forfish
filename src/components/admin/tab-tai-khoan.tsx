@@ -7,6 +7,7 @@ import { tenVai, VAI, type Vai } from "@/lib/vai";
 import { AdminSkeleton } from "@/components/admin/admin-nav";
 import { XacMinhThuMua } from "@/components/admin/xac-minh-thu-mua";
 import { SuaVai } from "@/components/admin/sua-vai";
+import { SuaSdtPhu } from "@/components/admin/sua-sdt-phu";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiUrl } from "@/lib/api-base";
 import { PLATFORM_LABEL, USAGE_STAGE_LABEL, persistNote, readinessChip, type DevicePlatform, type ReadinessReason, type ReadinessTone, type UsageStage, usageStage } from "@/lib/app-usage";
@@ -33,6 +34,8 @@ export type Account = {
   kind?: "real" | "test" | "demo" | "reviewer";
   /** vai nghề (0079, spec 17) — null = chưa chọn / cột chưa có */
   vai?: Vai | null;
+  /** SĐT phụ — tra thêm máy S-Tracking (0084) */
+  sdtPhu?: string | null;
   fromSdwork: boolean;
   updatedAt: string | null;
   canLogin: boolean;
@@ -946,6 +949,8 @@ export function AccountsTab({ me }: { me: Me }) {
                     <XacMinhThuMua phone={a.phone} editable={perms.edit} />
                     {/* SỬA VAI (17 §3.3) — vai khoá trong app, chọn nhầm thì nhân viên sửa ở đây */}
                     <SuaVai key={`${a.phone}:${a.vai ?? ""}`} phone={a.phone} vai={a.vai ?? null} editable={perms.edit} onDone={load} />
+                    {/* SĐT PHỤ (0084) — tàu S-Tracking đứng tên số khác vẫn hiện ở Giám sát hành trình */}
+                    <SuaSdtPhu key={`${a.phone}:${a.sdtPhu ?? ""}`} phone={a.phone} sdtPhu={a.sdtPhu ?? null} editable={perms.edit} onDone={load} />
                   </div>
                 </li>
               ))}

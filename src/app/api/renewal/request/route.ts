@@ -10,6 +10,7 @@
 // Xem docs/contracts/stracking-renewal.contract.md.
 
 import { NextResponse } from "next/server";
+import { locMayTheoSdt, sdtTraCuaTaiKhoan } from "@/lib/stracking/sdt-phu";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { danhDauTenTrung, isValidRenewalMonths, yeuCauDangMo, type TauStrackingRow } from "@/lib/renewal";
@@ -51,13 +52,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, code: "khong_co_tren_stracking" }, { status: 422 });
   }
 
+  // Máy của SĐT chính + SĐT phụ nhân viên gán (0084).
+  const loc = locMayTheoSdt(await sdtTraCuaTaiKhoan(admin, who.phone));
+  if (!loc) return NextResponse.json({ ok: false, code: "khong_co_tren_stracking" }, { status: 422 });
   // Song song: tên khách (để nhân viên xưng hô) · máy S-Tracking của SĐT phiên · yêu cầu đã có (chống trùng).
   const [cust, tauST, daCo] = await Promise.all([
     admin.from("customers").select("name").eq("phone", who.phone).maybeSingle(),
     admin
       .from("stracking_thiet_bi")
       .select("serial, imei, ten_tau, chu_tau, het_han")
-      .or(`sdt_chu_tau.eq.${who.phone},sdt_thuyen_truong.eq.${who.phone}`)
+      .or(loc)
       .limit(30),
     listRenewalRequests(who.phone, TRA_TRUNG_MS),
   ]);

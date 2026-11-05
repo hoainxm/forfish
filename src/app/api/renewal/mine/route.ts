@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { locMayTheoSdt, sdtTraCuaTaiKhoan } from "@/lib/stracking/sdt-phu";
 import { danhDauTenTrung, laYeuCauCuaMay, xacNhanGiaHan } from "@/lib/renewal";
 import { isRenewalConfigured, listRenewalRequests } from "@/lib/renewal-server";
 
@@ -25,15 +26,11 @@ export async function GET(req: Request) {
   }
 
   const admin = createAdminClient();
+  // Máy của SĐT chính + SĐT phụ (0084) — yêu cầu gửi cho tàu đứng tên SĐT phụ cũng đối chiếu được hạn.
+  const loc = admin ? locMayTheoSdt(await sdtTraCuaTaiKhoan(admin, who.phone)) : null;
   const [requests, tauR] = await Promise.all([
     listRenewalRequests(who.phone),
-    admin && /^0[1-9]\d{8}$/.test(who.phone)
-      ? admin
-          .from("stracking_thiet_bi")
-          .select("serial, ten_tau, het_han")
-          .or(`sdt_chu_tau.eq.${who.phone},sdt_thuyen_truong.eq.${who.phone}`)
-          .limit(30)
-      : null,
+    admin && loc ? admin.from("stracking_thiet_bi").select("serial, ten_tau, het_han").or(loc).limit(30) : null,
   ]);
   if (requests == null) {
     return NextResponse.json({ ok: false, code: "crm_error" });
