@@ -6,7 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-11-05
-<!-- re-verified: 2026-11-05h — MIGRATION 0083 `dong_y_dieu_khoan` (anh Long 05/11: T&C lúc đăng ký/đăng nhập lần đầu, "1 cái click là đồng ý"): bảng chỉ-thêm phone · ban · luc_may · luc_chu · nguon (dang-ky|dang-nhap|mo-app) · platform · user_agent; RLS bật, 0 policy, revoke anon/authenticated (khuôn 0065). Ghi qua POST /api/me/dong-y, đọc ở /api/auth/token (`dongYBan`). ⏳ CHƯA APPLY prod — chờ anh Long duyệt. Code chịu được bảng chưa có (503 ⇒ máy giữ treo, gửi bù). -->
+<!-- re-verified: 2026-11-05h — MIGRATION 0083 `dong_y_dieu_khoan` (anh Long 05/11: T&C lúc đăng ký/đăng nhập lần đầu, "1 cái click là đồng ý"): bảng chỉ-thêm phone · ban · luc_may · luc_chu · nguon (dang-ky|dang-nhap|mo-app) · platform · user_agent; RLS bật, 0 policy, revoke anon/authenticated (khuôn 0065). Ghi qua POST /api/me/dong-y, đọc ở /api/auth/token (`dongYBan`). ✅ ĐÃ APPLY prod 2026-11-05 (20261105141841). Code chịu được bảng chưa có (503 ⇒ máy giữ treo, gửi bù). -->
 <!-- re-verified: 2026-11-05g — KHOÁ GIA HẠN VÀO /quan-tri: KHÔNG migration. `app_config` thêm 2 khoá: `sdfish_renewal_secret` (secret, env dự phòng SDFISH_RENEWAL_SECRET; ≥16 ký tự, không khoảng trắng — phải TRÙNG secret bên CRM) + `sdwork_crm_url` (không secret, env dự phòng SDWORK_SUPABASE_URL; đúng khuôn https://<ref>.supabase.co). Ô DB thắng env. Chỉ luồng gia hạn (lib/renewal-server) đọc hai ô này. -->
 <!-- re-verified: 2026-11-04 — KHO Ô BẢN ĐỒ: KHÔNG migration. `app_config` thêm khoá `kho_o_tran_mb` (không secret, env dự phòng SDFISH_KHO_O_MB; 100–100000 MB, mặc định 2048) = trần ngăn máy chủ tự tải của kho ô đĩa (lib/kho-o-ban-do). Ô bản đồ lưu trên ĐĨA máy chủ, không vào DB/Storage. -->
 <!-- re-verified: 2026-11-03 — MIGRATION 0079 `vai_viec_lam` (spec 17, anh Long: "tổ chức hệ thống account … ngư dân vô kiếm việc … đại lý … thu mua … chủ tàu"): `customers.vai` (ngu-dan|chu-tau|thu-mua|dai-ly|null, check) + `vai_doi_luc` + `vai_xac_minh_at` + index; suy vai cho hàng null theo §3.2 (shops ⇒ dai-ly · devices/user_docs boats ⇒ chu-tau · kairos nghe thu-mua ⇒ thu-mua); bảng `job_posts` · `job_seekers` · `job_reports` · `vua_profiles` (RLS bật, 0 policy, revoke anon/authenticated — khuôn 0065). ✅ ĐÃ APPLY prod 2026-11-03 (20261103071342). Code chịu được cột chưa có: /api/me/vai trả 503, cổng bản đồ theo vai bỏ qua (fail-open). -->
@@ -46,7 +46,7 @@ ttl_days: 180
 
 ---
 
-### 0083 — SỔ ĐỒNG Ý ĐIỀU KHOẢN — migration [`0083_dong_y_dieu_khoan.sql`](../../supabase/migrations/0083_dong_y_dieu_khoan.sql) (2026-11-05) — ⏳ **CHƯA APPLY prod** (chờ anh Long duyệt)
+### 0083 — SỔ ĐỒNG Ý ĐIỀU KHOẢN — migration [`0083_dong_y_dieu_khoan.sql`](../../supabase/migrations/0083_dong_y_dieu_khoan.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (anh Long: "Áp luôn"; Supabase MCP `apply_migration`, `schema_migrations` 20261105141841. Soi sau apply: RLS bật, 0 policy, anon không đọc được, authenticated không ghi được, 0 hàng)
 
 Vì sao: Luật BVDLCN 91/2025/QH15 + NĐ 356/2025/NĐ-CP Điều 6 — sự đồng ý phải **kiểm chứng được** (ai · lúc nào · bản nào) và bên kiểm soát dữ liệu (SDVICO) chịu trách nhiệm chứng minh; NĐ 330/2026 phạt việc coi im lặng là đồng ý / không lưu được bằng chứng. Bản trong máy (`forfish.dongY.v1`) chỉ là bản sao để khỏi hỏi lại.
 
