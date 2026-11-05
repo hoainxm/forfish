@@ -36,6 +36,8 @@ const USER_SCOPED_KEYS = [
   // Chuyến đang dẫn dở (lib/nav-phien.ts) — đổi số điện thoại trên cùng máy mà còn
   // giữ là người sau thấy "Dẫn đường tiếp tới …" của người trước: lộ chỗ đánh cá.
   "forfish.nav.phien.v1",
+  // Hạn cước S-Tracking + cảnh báo tàu của CHÍNH SĐT (components/stracking-cua-toi) — tên tàu, chủ tàu: riêng tư.
+  "forfish.stracking.v1",
 ] as const;
 
 /**

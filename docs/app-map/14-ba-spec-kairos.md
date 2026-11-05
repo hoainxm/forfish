@@ -300,7 +300,7 @@ Anh Long: "đã có cỗ máy phân phối tin theo người đọc chưa" → "
 Anh Long: "tổ chức cho con gpu thêm 1 task là cho sen biển giới thiệu về mạng xã hội dành riêng cho bà con, đọc báo, trợ lý ...".
 
 - **Ai đăng**: hồ sơ **Sen Biển** (sentinel `sen-bien:tro-ly`, `official` ⇒ dấu Chính thức, seed migration 0068) — trợ lý của SDVICO, KHÔNG giả làm người dùng.
-- **Nhịp**: 1 bài/ngày, giờ ngẫu nhiên 7h–19h (timer `kairos-sen-bien` trên gpu-desktop). Máy chủ chặn > 2 bài/20 giờ.
+- **Nhịp**: 1 bài/ngày lúc **10:00** (timer `kairos-sen-bien` trên gpu-desktop — trước 2026-11-05 là giờ ngẫu nhiên 7h–19h; anh Long chốt dàn lịch GPU các việc cách nhau ≥30 phút, runbook › Lịch máy GPU). Máy chủ chặn > 2 bài/20 giờ.
 - **Nội dung** (`lib/kairos/sen-bien-gioi-thieu.mjs`, thuần + test): 13 chủ đề — Vì sao tên là Kairos (ý nghĩa kết nối, 2026-10-24), Kairos là gì, đọc báo tóm tắt, bình luận/Hay, Bến theo cảng, hỏi Sen Biển, mất sóng vẫn đọc, bản đồ ngư trường, tin bão, tủ giấy tờ, Chợ cá, theo dõi/chặn/báo xấu, nội quy. Mỗi chủ đề có DỮ KIỆN (chỉ tính năng ĐANG CÓ — không hứa Nhắn tin, livestream…) + bài MẪU. Claude (`claude -p`) chỉ viết lại từ dữ kiện; hỏng/hết hạn mức/bài không qua `loiBai` (80–900 ký tự, không link/emoji/hashtag, cờ chủ quyền) ⇒ đăng bài mẫu. Không lặp chủ đề trong 10 ngày (sổ `sen-bien.json`).
 - **Route** `POST /api/kairos/sen-bien` (khoá ingest như /nhap): kiểm chủ đề ∈ CHU_DE + `loiBai` + lọc chữ bậy; kind `chinh-thuc`, không ghim, `mod_state` dat, chủ đề `doi-song` (bài không phải báo ⇒ tính là tin biển ở phân phối); nhật ký `sen_bien_post` trước khi đăng; thiếu hồ sơ ⇒ 503 `no_sen_bien_profile`.
 

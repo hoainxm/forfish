@@ -32,6 +32,7 @@ import {
   type RenewalRequestSummary,
 } from "@/lib/renewal";
 import type { Boat } from "@/lib/boats";
+import { StrackingCuaToi } from "@/components/stracking-cua-toi";
 
 /*
   Gia hạn thiết bị GIÁM SÁT HÀNH TRÌNH (S-Tracking/VMS) — trục 4 (Tuân thủ):
@@ -91,6 +92,8 @@ function VmsRenewalInner() {
   const [boatForm, setBoatForm] = useState<Boat | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  /*  Tàu lấy từ S-Tracking (danh sách "máy của tôi") — mở wizard với mã tàu thật, không qua tàu tự khai. */
+  const [tauSt, setTauSt] = useState<Boat | null>(null);
   const [statusOpen, setStatusOpen] = useState(false);
   /*  Số yêu cầu đã gửi — nhớ trong phiên tab (sessionStorage, KHÔNG khoá forfish.*): lúc mở
       màn KHÔNG gọi mạng (luật offline), chỉ cập nhật khi ngăn trạng thái tải xong. null = chưa
@@ -143,6 +146,8 @@ function VmsRenewalInner() {
         </button>
       </div>
 
+      <StrackingCuaToi onGiaHan={setTauSt} />
+
       {saveFailed && (
         <p
           role="alert"
@@ -187,12 +192,17 @@ function VmsRenewalInner() {
         />
       )}
 
-      {wizardOpen && current?.maTau && (
+      {(tauSt || (wizardOpen && current?.maTau)) && (
         <RenewalWizard
-          boat={current}
-          onClose={() => setWizardOpen(false)}
+          boat={tauSt ?? current!}
+          tuStracking={!!tauSt}
+          onClose={() => {
+            setWizardOpen(false);
+            setTauSt(null);
+          }}
           onDone={() => {
             setWizardOpen(false);
+            setTauSt(null);
             setStatusOpen(true);
           }}
         />
@@ -208,10 +218,13 @@ function VmsRenewalInner() {
 // ── Wizard: chọn số tháng → tạo yêu cầu → QR ──────────────────────────────
 function RenewalWizard({
   boat,
+  tuStracking = false,
   onClose,
   onDone,
 }: {
   boat: Boat;
+  /** true = mã tàu lấy từ S-Tracking (đã có trên hệ thống), không phải tàu bà con tự khai. */
+  tuStracking?: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -370,8 +383,10 @@ function RenewalWizard({
 
       <div className="mt-3">
         <RefNote tone="var(--t3)" bg="var(--t3-bg)">
-          Tàu do bạn tự khai — SDVICO xác minh mã tàu trước khi gia hạn. App
-          không tự trừ tiền; bà con chủ động chuyển khoản.
+          {tuStracking
+            ? "Mã tàu lấy từ hệ thống giám sát hành trình."
+            : "Tàu do bạn tự khai — SDVICO xác minh mã tàu trước khi gia hạn."}{" "}
+          App không tự trừ tiền; bà con chủ động chuyển khoản.
         </RefNote>
       </div>
 

@@ -175,6 +175,9 @@ export const NEVER_BACKUP_PREFIXES = [
    *    SĐT), tin đã lưu (`viec.luu.v1` — có sóng mở lại được) và nháp tin đang đăng
    *    (`viec.nhap.v1`, của riêng máy này). Có sóng là tải lại, không mất gì. */
   "forfish.viec.",
+  /*  · `stracking.` — hạn cước S-Tracking + cảnh báo tàu của CHÍNH SĐT (components/stracking-cua-toi, 2026-11-05): bản
+   *    lưu để xem lúc mất sóng; có tên tàu, chủ tàu. Máy khác đăng nhập là tải lại, không mất gì. */
+  "forfish.stracking.",
   "forfish.inbox.",
   "forfish.crew.",
   "forfish.identity.",

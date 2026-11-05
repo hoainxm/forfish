@@ -130,6 +130,7 @@ describe("matcher middleware.ts ↔ DATA_ROUTE_MATCHER ↔ route thật", () => 
       "version", // chỉ trả mã bản đang deploy (báo có bản mới) — công khai, không dữ liệu
       "status", // mã bản + ngày fit mô hình + TUỔI bản tính sẵn (lib/status-report) — công khai, không nội dung dự báo
       "market-listings", "crew-reports", "product-inquiries", "renewal", "sdvico", // nghiệp vụ per-user, identityFromRequest trong route
+      "stracking", // hạn cước S-Tracking: cua-toi = identityFromRequest (chỉ máy của SĐT phiên); nhap = khoá máy GPU
       "cho", "ban-hang", // chợ vật tư: xem chợ công khai; đơn/giỏ/kênh bán tự gác (identityFromRequest · openMyOrder · requireShopOwner)
       "dev", // kho file máy dev (isDevFileMode: MARKET_STORE=file, không Vercel, không production) — prod không vào
       "sen-bien", // máy GỬI mẫu câu nói lên (POST), không trả dữ liệu — identityFromRequest + rate limit trong route

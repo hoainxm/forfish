@@ -12,6 +12,7 @@ export type ConfigKey =
   | "data_key_premium"
   | "kairos_ingest_key"
   | "tau_ais_key"
+  | "stracking_key"
   | "tau_ais_xem"
   | "sdvico_lead_key"
   | "doi_tac_ais"
@@ -131,6 +132,18 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     generate: "hex32",
     help: "Máy thu AIS trên máy GPU gửi kèm khoá này. Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào ~/.config/forlife/tau-ais.env (TAU_AIS_KEY).",
   },
+  /*  KHOÁ MÁY ĐỒNG BỘ S-TRACKING (2026-11-05): máy GPU đọc stracking.viettel.io 4 lần/ngày rồi gửi hạn cước + cảnh
+      báo tàu lên POST /api/stracking/nhap kèm header `x-stracking-key`. Cùng luật env-thắng như AIS. */
+  {
+    key: "stracking_key",
+    label: "Khoá máy thu S-Tracking",
+    risk: "Đổi khoá mà chưa đổi trên máy GPU là hạn cước giám sát hành trình ngừng cập nhật (bà con vẫn thấy bản cũ, có giờ).",
+    secret: true,
+    envVar: "STRACKING_KEY",
+    envFirst: true,
+    generate: "hex32",
+    help: "Máy GPU đồng bộ S-Tracking gửi kèm khoá này. Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào ~/.config/forlife/stracking.env (STRACKING_KEY).",
+  },
   /*  AI ĐƯỢC XEM AIS (2026-10-29, anh Long: "AIS là chỉ cho Long view thôi nhé, cũng 1 dạng option bật cho ai
       người đó view đc") — danh sách SĐT; chưa đặt ⇒ chỉ chủ dự án (lib/tau-ais/quyen.ts). Middleware chặn
       /api/tau-ais theo ô này, /api/tau-ais/quyen cho máy biết để hiện nút AIS. */
@@ -212,6 +225,7 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
       return v.split(",").map((s) => s.trim()).filter(Boolean).every((s) => /^[a-z0-9][a-z0-9-]{1,39}:[0-9a-f]{64}:[1-5]{1,5}:(30|60)$/.test(s)); // = MUC_KHOA_DOI_TAC (lib/doi-tac)
     case "kairos_ingest_key":
     case "tau_ais_key":
+    case "stracking_key":
     case "sdvico_lead_key":
       // khoá chung với máy GPU / AI Assistant — đủ dài để không đoán được, không khoảng trắng (dán lỗi)
       return v.length >= 32 && v.length <= 200 && !/\s/.test(v);

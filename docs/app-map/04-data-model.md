@@ -44,6 +44,18 @@ ttl_days: 180
 
 ---
 
+### 0080 — HẠN CƯỚC + CẢNH BÁO S-TRACKING — migration [`0080_stracking.sql`](../../supabase/migrations/0080_stracking.sql) (2026-11-05) — ⏳ **CHƯA APPLY** (chờ anh Long cho chạy)
+
+Anh Long: *"chạy GPU, check 7h, 12h, 17h, 21h để cập nhật cái hạn mới nhất, tổ chức DB ở GPU lưu toàn bộ các thông tin liên quan tới user … dữ liệu tổ chức ở sdfish bảng riêng độc lập, để tránh conflict luồng sdwork"*. Ba bảng **độc lập** với DB chung CRM/SDWork (`stracking_renewal_*` không đụng tới, không trigger, không khoá ngoại); RLS bật + revoke anon/authenticated, 0 policy (chỉ service role):
+
+| Bảng | Khoá | Cột chính | Ghi / đọc |
+|---|---|---|---|
+| `stracking_thiet_bi` | `serial` | imei, ten_tau, chu_tau, `sdt_chu_tau`, thuyen_truong, `sdt_thuyen_truong` (check `^0[1-9]\d{8}$`, index một phần), dang_ky_luc, **het_han**, tam_ngung_tu/den, trong_bo, dong_bo_luc | ghi: `POST /api/stracking/nhap` (khoá máy GPU) · đọc: `GET /api/stracking/cua-toi` theo SĐT phiên |
+| `stracking_canh_bao` | (imei, loai, luc) | serial, ten_tau, muc (Báo động/Cảnh cáo), nhan_luc | thêm bỏ trùng; route nhap xoá > 30 ngày |
+| `stracking_lan_dong_bo` | id | luc, trang_thai (ok/het-phien/loi), loi, tong jsonb, so_thiet_bi, so_canh_bao | một dòng mỗi lần máy GPU gửi; giữ 90 ngày |
+
+Server CHỈ giữ trường bà con cần xem. Kho đầy đủ (địa chỉ, SĐT người thân, SĐT quản lý, niêm phong, nhóm, bản thô, **lịch sử đổi hạn** = các lần gia hạn) nằm ở máy GPU: SQLite `~/.local/forlife/stracking/stracking.db` (bảng `thiet_bi`, `han_lich_su`, `canh_bao`, `lan_chay`) — xem runbook › S-Tracking. Chưa apply ⇒ nhap trả 503 `store_down`, cua-toi 503 ⇒ giao diện giữ bản lưu / báo cần mạng, không vỡ.
+
 ### 0079 — VAI TÀI KHOẢN · VIỆC LÀM · HỒ SƠ VỰA — migration [`0079_vai_viec_lam.sql`](../../supabase/migrations/0079_vai_viec_lam.sql) (2026-11-03) — ✅ **ĐÃ APPLY prod 2026-11-03** (anh Long: "Chạy migration"; chạy qua `SUPABASE_DB_URL` trong một transaction — MCP Supabase không có quyền, `SUPABASE_ACCESS_TOKEN` hết hạn 401; `schema_migrations` 20261103071342. Soi sau apply: suy vai 510 `chu-tau` · 470 null · 0 vai khác; 4 bảng RLS bật, 0 policy, anon/authenticated không đọc được; thử thật qua route: `/api/viec` 200, `/api/me/vai` GET/PUT, Đi bạn đăng tin 403 `vai`, `/api/viec/nguoi` 403, vai rác 400)
 
 Spec: [17-ba-spec-vai-tai-khoan.md](17-ba-spec-vai-tai-khoan.md).

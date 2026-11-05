@@ -274,7 +274,7 @@ systemctl --user disable --now kairos-thu.timer kairos-kiem.timer   # tạm dừ
 
 **3g. Nguồn gov — tab Chính sách (2026-10-26, 14 §21)** — mae.gov.vn trả header HTTP sai chuẩn ⇒ fetch của Node báo "Response does not match the HTTP/1.1 protocol"; máy thu tự lùi về `curl` (cả trang lẫn PDF; curl có sẵn trên gpu-desktop). Nguồn `docTruoc` (Bộ) đọc trang chi tiết rồi mới lọc, tiêu đề chỉ số hiệu được ghép "trích yếu (số hiệu)". không timer mới: `kairos-thu` đọc thêm 3 nguồn `kieu: "gov"` (gialai.gov.vn danh mục văn bản + 2 RSS Sở NN&MT Gia Lai) trong cùng lượt 15 phút. Thử không gửi: `node scripts/kairos-thu.mjs --thu --goc --nguon=gov-gialai-van-ban,gov-gialai-snnmt-thong-bao,gov-gialai-snnmt-bien-dao` (`--goc` để tải cả trang chi tiết: dòng in `· N file đính kèm`). Log `(gov: K cho bà con)` = số bài qua lưới từ khoá; `[gov] a/b … c có file đính kèm`. Máy chủ trả 400 kèm nhiều `invalid` ⇒ máy thu đang gửi bài section chinh-sach từ host không phải gov (sửa kairos-nguon.json). Cột `attachments` chưa có (0074 chưa áp) ⇒ `/api/kairos/feed` lỗi 500 — áp migration trước khi deploy. **Tra cứu danh sách (14 §21b)**: PDF đính kèm ⇒ `pdftotext -layout` (poppler-utils) ⇒ `[dòng] <file>: N dòng tàu` ⇒ sau /nhap gửi `PUT /api/kairos/dinh-kem` (`[dòng] gửi N ⇒ nhận N`); bài chưa vào kho (404) thì nằm ở `cho-gui-dong.json` chờ lượt sau; bảng 0075 chưa áp ⇒ 503 cũng nằm chờ.
 
-**3i. Tin triển khai SDVICO (2026-10-31)** — `kairos-trien-khai.service` (ExecStartPre lam-moi.sh, `node …/app/scripts/kairos-trien-khai.mjs`) + `kairos-trien-khai.timer` (`OnCalendar=*-*-* 07..21:00/30`, `Persistent=true`). Mỗi lượt MỘT đợt ảnh cũ nhất (kho ảnh thực tế AI Assistant, nhóm "Triển Khai Kinh Doanh" + "SDVICO Sản xuất-DV Kỹ thuật") ⇒ Claude viết bài SDVICO Chính thức (vào thẳng, không "bà con ơi") ⇒ `POST /api/kairos/sdvico-tin` ≤5 ảnh. Dính tiền / chính sách / nhạy cảm ⇒ sổ `trien-khai.json` ghi `nhay_cam`, chờ anh duyệt cả đợt ở AI Assistant › Hệ thống › Ảnh thực tế rồi lượt sau đăng. Thử: `node scripts/kairos-trien-khai.mjs --thu`. 429 ⇒ đủ 3 tin/24 giờ. 503 `no_sdvico_profile` ⇒ thiếu hồ sơ `sdvico:chinh-thuc`.
+**3i. Tin triển khai SDVICO (2026-10-31)** — `kairos-trien-khai.service` (ExecStartPre lam-moi.sh, `node …/app/scripts/kairos-trien-khai.mjs`) + `kairos-trien-khai.timer` (`OnCalendar=*-*-* 07..21:16/30` — dời từ :00/:30 ngày 2026-11-05 cho khỏi trùng phút, xem "Lịch máy GPU", `Persistent=true`). Mỗi lượt MỘT đợt ảnh cũ nhất (kho ảnh thực tế AI Assistant, nhóm "Triển Khai Kinh Doanh" + "SDVICO Sản xuất-DV Kỹ thuật") ⇒ Claude viết bài SDVICO Chính thức (vào thẳng, không "bà con ơi") ⇒ `POST /api/kairos/sdvico-tin` ≤5 ảnh. Dính tiền / chính sách / nhạy cảm ⇒ sổ `trien-khai.json` ghi `nhay_cam`, chờ anh duyệt cả đợt ở AI Assistant › Hệ thống › Ảnh thực tế rồi lượt sau đăng. Thử: `node scripts/kairos-trien-khai.mjs --thu`. 429 ⇒ đủ 3 tin/24 giờ. 503 `no_sdvico_profile` ⇒ thiếu hồ sơ `sdvico:chinh-thuc`.
 
 **3h. Sen Biển tuyên truyền luật (2026-10-26, 14 §21e)** — `kairos-luat.service` (ExecStartPre lam-moi.sh, `node …/app/scripts/kairos-luat.mjs`) + `kairos-luat.timer` (`OnCalendar=*-*-* 08,16:00:00`, `RandomizedDelaySec=2h`, `Persistent=true` — 2 bài/ngày sáng chiều). Đi theo thứ tự kho `tuyen-truyen-luat.MUC` (37 mục, không lặp 45 ngày), sổ `luat.json` trong `KAIROS_STATE_DIR`. Thử: `node scripts/kairos-luat.mjs --thu` (gọi Claude, KHÔNG đăng) · `--thu --muc=d21-k2-a` xem một mục. Log `[claude] giải thích không qua kiểm (sai_so_tien)` = Claude nhắc mức tiền không có trong trích ⇒ dùng bản mẫu (bình thường). 400 `thieu_trich` = bản app trên GPU lệch bản máy chủ (kho khác nhau) ⇒ chạy lam-moi/deploy cho khớp. 429 ⇒ đã đủ 4 bài Sen Biển/20 giờ, bỏ lượt (mã 0). Tắt: `systemctl --user disable --now kairos-luat.timer`. Unit mẫu: chép `kairos-sen-bien.service/.timer` đổi tên + OnCalendar.
 
@@ -372,6 +372,70 @@ Anh Long: *"kiếm thêm nguồn phù du đi, chứ 1 nguồn ko ổn, cho gpu t
 - **Thử tay**: `~/.local/forlife/nguon-ngay/venv/bin/python ~/.local/forlife/nguon-ngay/app/scripts/nguon-ngay/quet.py --thu --cua-so 6` (tải + in, không gửi). Log: `journalctl --user -u nguon-ngay-quet -n 80`.
 - **Hỏng thì sao**: nguồn nào lỗi chỉ bỏ nguồn đó, lượt sau tự lấp (cửa sổ 25 ngày); máy chủ không trả được danh sách ngày đã có ⇒ dừng cả lượt (đừng tải lại cả cửa sổ). Lượt quét không đụng production — dự báo cá vẫn đọc nguồn như cũ.
 - **Đo lần đầu (2026-11-04, cửa sổ 6 ngày)**: phù du DINEOF (nguồn production) phủ 48% biển ngày 30/10; ghép thêm OLCI S3A + VIIRS N20/NPP ⇒ 64%; ngày 29/10 có thêm Copernicus L4 ⇒ 74% (≈ kín biển, phần còn lại là đất).
+
+## S-Tracking — hạn cước + cảnh báo tàu từ máy GPU (2026-11-05)
+
+> Anh Long: *"chạy GPU, check 7h, 12h, 17h, 21h để cập nhật cái hạn mới nhất, tổ chức DB ở GPU lưu toàn bộ các thông tin liên quan tới user"*. Anh là đại lý Viettel — Viettel cho phép lấy dữ liệu. Nguồn + đồng hồ: [external-services.md › S-Tracking](external-services.md). Bảng ForFish: migration 0080 ([04](../04-data-model.md)).
+
+1. **Tệp env** `~/.config/forlife/stracking.env` (chmod 600; Windows mở: `notepad \wsl.localhost\Ubuntu-24.04\home\long\.config\forlife\stracking.env`):
+   ```
+   STRACKING_USER=<tài khoản đại lý>
+   STRACKING_PASSWORD=<mật khẩu>
+   STRACKING_KEY=<khoá — /quan-tri › Hệ thống › Khoá máy thu S-Tracking › Tạo ngẫu nhiên › Lưu, dán CÙNG giá trị>
+   STRACKING_API_BASE=https://forfish.vercel.app
+   ```
+2. **Thư mục** `~/.local/forlife/stracking/`: `app` → bản chạy (`app-dev` cài tay 05/11; `lam-moi.sh` tự xuất `scripts/stracking-dong-bo.mjs` + `src/lib/stracking/dong-bo.mjs` từ origin/main khi có) · `node_modules` → `~/ForFish/node_modules` (Playwright) · `profile/` hồ sơ Chromium giữ phiên đăng nhập · **`stracking.db`** = KHO ĐẦY ĐỦ (SQLite): `thiet_bi` (mọi cột + bản thô `tho` + `bam_da_gui`), `han_lich_su` (mỗi lần hạn đổi = một lần gia hạn), `canh_bao`, `lan_chay`.
+3. **Unit** `stracking-dong-bo.{service,timer}`: 07:30 · 12:20 · 17:20 · 21:00 giờ VN (mỗi giờ một dòng `OnCalendar`, xem "Lịch máy GPU"), `TimeoutStartSec=20min`, ExecStart bọc `flock -w 600 ~/.local/forlife/.khoa-chromium` (không chạy chồng máy thu AIS). Xem: `journalctl --user -u stracking-dong-bo -n 30`.
+4. **Chạy thử không gửi**: `cd ~/.local/forlife/stracking && xvfb-run -a node app/scripts/stracking-dong-bo.mjs --thu` → đo 05/11: tự đăng nhập được, báo cáo dịch vụ 4 056 · phương tiện 15 857/16 055 · cảnh báo 4 106 · kho 15 853 máy (14 561 có SĐT) · **51 s**. Gửi lại toàn bộ: `--gui-lai`.
+5. **Mỗi lượt gửi gì**: chỉ hồ sơ ĐỔI so với lần gửi trước (băm từng hồ sơ) + cảnh báo chưa gửi; lô 4 000 hồ sơ, thân gzip ⇒ `POST /api/stracking/nhap`. Lượt đầu ~14,5 nghìn hồ sơ (4 lô).
+
+| Triệu chứng (journal) | Nguyên nhân | Làm gì |
+|---|---|---|
+| `thiếu cấu hình … STRACKING_KEY` (mã 2) | env thiếu | sửa tệp env (bước 1) |
+| `HẾT PHIÊN … trang đòi giải captcha` (mã 3) | Google bật thử thách reCAPTCHA — máy KHÔNG vượt | đăng nhập tay một lần: `cd ~/.local/forlife/stracking && node app/scripts/stracking-dong-bo.mjs --dang-nhap --thu` (cửa sổ thật trên WSLg, chờ ≤5 phút); các lượt sau dùng lại hồ sơ |
+| `HẾT PHIÊN … sai tài khoản/mật khẩu?` | mật khẩu đổi | sửa env |
+| `danh sách phương tiện thiếu (N/M) — không ghi đè kho` | trang trả thiếu | lượt sau đọc lại; lặp nhiều lượt ⇒ soi `--thu --anh` |
+| `trang đổi định dạng — thiếu cột: …` | Viettel đổi bảng | sửa `COT_PHUONG_TIEN`/`COT_CANH_BAO` trong `lib/stracking/dong-bo.mjs` (+ test) |
+| `gửi hỏng: HTTP 401 bad_key` / `503 not_configured` / `503 store_down` | khoá lệch / app chưa có khoá / migration 0080 chưa apply | dán lại khoá / đặt khoá ở /quan-tri / apply 0080 |
+
+## Canh service máy GPU (2026-11-05)
+
+Anh Long: *"gpu phải tổ chức kiểm tra định kỳ các service đang chạy nhé"*. `~/.local/forlife/canh/canh.sh` (NGOÀI mọi repo — canh MỌI unit user systemd, kể cả của AI-Assistant) + `canh-gpu.timer` (`*:03/10`). Mỗi lượt:
+1. Timer đã enable mà "dead" (không còn lịch — kiểu `forlife-watch` đứng từ 21/10 vì chỉ có `OnUnitActiveSec`) ⇒ restart timer.
+2. Service chạy liên tục (Type ≠ oneshot, enabled) không active ⇒ restart, ≤3 lần/giờ/service; quá thì báo "CẦN NGƯỜI XEM".
+3. Việc oneshot (theo lịch) failed ⇒ KHÔNG chạy lại (có việc nặng như vòng train đêm) — chỉ ghi 3 dòng log cuối của chính việc đó.
+
+Xem: `~/.local/forlife/canh/canh.sh xem` · `cat ~/.local/forlife/canh/su-kien.log` · `journalctl --user -t canh-gpu`. Lượt đầu 05/11 16:11: bật lại `forlife-watch.timer`; báo `forlife-dem` (cổng chấm "rò chéo không đạt", mã 21) và `o-ban-do-thu` (máy chủ trả 404 khi gửi, 171 gói hỏng). Chưa báo qua Zalo/push — chỉ ghi tệp + journal.
+
+## Lịch máy GPU — các việc theo giờ cách nhau ≥30 phút (2026-11-05)
+
+Anh Long: *"tối ưu phân phối cái lịch chạy GPU để tránh bị dồn tải"* rồi *"tách phân phối lại, cách nhau 30 phút"*. Luật:
+- Mọi việc chạy THEO GIỜ cách nhau **≥30 phút**, bỏ `RandomizedDelaySec` (ngẫu nhiên phá khoảng cách). Mỗi giờ một dòng `OnCalendar=*-*-* HH:MM:00 Asia/Ho_Chi_Minh` — systemd KHÔNG nhận `07:30,12:20` chung một dòng (dính thật 05/11: timer thành "elapsed", không còn lịch).
+- Việc theo NHỊP (`OnUnitActiveSec` 1–15 phút, `kairos-trien-khai` mỗi 30 phút) không xếp được ≥30 phút với nhau — chúng nhẹ hoặc gọi LLM ngắn, giữ ngẫu nhiên nhỏ.
+- Hai việc mở Chromium (`tau-ais-thu`, `stracking-dong-bo`) dùng chung khoá `~/.local/forlife/.khoa-chromium` (flock, chờ ≤10 phút).
+- Sửa lịch: `daemon-reload` rồi `restart` timer; `Persistent=true` sẽ chạy BÙ mốc vừa lỡ — với việc có đăng bài (Sen Biển, luật) phải xem trước mốc cuối đã chạy chưa. Bản cũ của unit: `*.bak-2026-11-05`. Unit AI-Assistant (`forlife-*`, `sen-bien-dem`) KHÔNG sửa — cặp 06:35/07:00 của nó cách 25 phút, để nguyên.
+
+| Giờ VN | Việc | Nặng |
+|---|---|---|
+| 00:30 | `forlife-dem` (AI-Assistant) | GPU train |
+| 05:50 | `thoi-tiet-thu` | mạng |
+| 06:35 | `sen-bien-dem` (AI-Assistant) | GPU |
+| 07:00 | `forlife-bao-cao-ams` (AI-Assistant) | nhẹ |
+| **07:30** | `stracking-dong-bo` | Chromium ~1 phút |
+| **08:00** | `o-ban-do-thu` (trước 07:40 +≤5′) | mạng/đĩa ~5 phút |
+| **09:00** | `kairos-luat` (trước 08h +≤2 giờ) | LLM |
+| **10:00** | `kairos-sen-bien` (trước ngẫu nhiên 7–19h) | LLM |
+| 11:50 | `thoi-tiet-thu` | mạng |
+| **12:20** | `stracking-dong-bo` | Chromium |
+| **12:50** | `nguon-ngay-quet` (trước 11:50 +≤5′, trùng thời tiết) | mạng |
+| **15:00** | `kairos-luat` (trước 16h +≤2 giờ) | LLM |
+| **17:20** | `stracking-dong-bo` | Chromium |
+| 17:50 | `thoi-tiet-thu` | mạng |
+| 19:40 | `o-ban-do-thu` | mạng/đĩa |
+| **21:00** | `stracking-dong-bo` | Chromium |
+| **22:50** | `nguon-ngay-quet` | mạng |
+| 23:50 | `thoi-tiet-thu` | mạng |
+| theo nhịp | `kairos-truc` 1′ · `kairos-kiem` 5′ · `forlife-truc-ntts` 5′ · `forlife-gpu-lich` :00/5 · `kairos-agent` 10′ · `tau-ais-thu` 10′ (khoá Chromium) · `canh-gpu` :03/10 · `kairos-thu` 15′ · `kairos-trien-khai` 07–21 :16/:46 | nhẹ / LLM ngắn |
 
 ## Escalation — KHÔNG được tự làm
 
