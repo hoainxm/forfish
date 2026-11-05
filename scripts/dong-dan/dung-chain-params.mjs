@@ -60,9 +60,11 @@ const moonEntry = (f, prior, extra = {}) => {
 const trangOut = {};
 for (const cat of CATS) trangOut[cat] = moonEntry(trang?.ket?.[`${cat}|all`], MOON_PRIOR_PEAK[cat]);
 // trăng theo LOÀI (nhóm học → tên species trong SPECIES_PROFILES)
-const LOAI = { "ca-com": ["Cá cơm", "pelagic-small"], "ca-nuc": ["Cá nục", "pelagic-small"], "muc-xa": ["Mực xà", "cephalopod"], "muc-ong": ["Mực ống", "cephalopod"] };
+// [tên species, nhóm, đỉnh dự đoán riêng (ghi đè nhóm)]. Ngừ vằn (2026-11-05): cá nổi lớn không có đỉnh dự đoán nhóm
+// ⇒ kiểm chiều bị bỏ qua; với ngừ vằn đặt 0 (trăng non — nghề vây ánh sáng) để kiểm CHẶT hơn, không nới.
+const LOAI = { "ca-com": ["Cá cơm", "pelagic-small"], "ca-nuc": ["Cá nục", "pelagic-small"], "muc-xa": ["Mực xà", "cephalopod"], "muc-ong": ["Mực ống", "cephalopod"], "ngu-van": ["Cá ngừ vằn", "pelagic-large", 0] };
 const trangLoai = {};
-for (const [g, [sp, cat]] of Object.entries(LOAI)) { const f = trang?.ket?.[`${g}|all`]; trangLoai[sp] = moonEntry(f, MOON_PRIOR_PEAK[cat], { coDuLieu: !!f && !f.bo }); }
+for (const [g, [sp, cat, prior]] of Object.entries(LOAI)) { const f = trang?.ket?.[`${g}|all`]; trangLoai[sp] = moonEntry(f, prior ?? MOON_PRIOR_PEAK[cat], { coDuLieu: !!f && !f.bo }); }
 
 // ── phù du / gió theo hộp (bước B) ────────────────────────────────────────────
 const lin = (comp, varName, giaName) => {

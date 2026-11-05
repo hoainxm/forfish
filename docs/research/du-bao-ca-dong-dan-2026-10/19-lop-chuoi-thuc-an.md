@@ -11,6 +11,7 @@ Trạng thái thông số (dựng lại 2026-10-23 sau **cổng trăng chặt**,
 | Thành phần | Trạng thái | Căn cứ |
 |---|---|---|
 | Trăng — **cá nục** (theo LOÀI) | **ĐANG ÁP** | 10 975 chuyến (bỏ Tết); biên độ 0,12 log kg (≈ ±13 %), đỉnh pha 0,88 (~3,5 ngày trước trăng non — đầu đêm tối, đúng cơ chế nghề đèn). Học tháng 1–5 → đoán tháng 6–10: r 0,088, CI 90 % [0,054; 0,118]; biên độ nửa sau 0,112 > ngưỡng giả khối tuần 0,101; đỉnh hai nửa 0,872 / 0,898 |
+| Trăng — **ngừ vằn** (theo LOÀI, thêm 2026-11-05) | **chưa áp** | đo cấp chuyến (README rà train §7.13) thấy trăng cộng thêm ΔR² +0,0155 nên đưa qua cổng chặt: 3 371 chuyến (bỏ Tết), biên độ 0,079, đỉnh 0,918 (T1–5 0,024, T6–10 0,888 — ổn định, gần trăng non); ngoài mẫu T1–5→T6–10 r 0,044, CI 90 % [−0,013; 0,100] **chạm 0**; biên độ T6–10 0,085 < giả khối tuần 0,157 ⇒ **trượt 2/3 kiểm**. Đỉnh dự đoán (trăng non) đặt SAU khi thấy kết quả cấp chuyến ⇒ không phải giả thuyết khoá trước; nhãn 2027 là phép thử thật. Các nhóm cũ chạy lại ra đúng số 23/10 |
 | Trăng — cá nổi nhỏ, cá nổi lớn, mực, cá đáy (cả nhóm) | chưa áp | biên độ tháng 6–10 không vượt phép giả khối tuần; cá đáy còn ngoài mẫu CI chạm 0; cá nổi nhỏ đỉnh lệch 0,73 / 0,89 |
 | Trăng — cá cơm | chưa áp, **không lùi về nhóm** | ngoài mẫu CI chạm 0, biên độ nửa sau 0,057 < giả 0,155 |
 | Trăng — mực xà, mực ống | chưa áp, không lùi về nhóm | ngoài mẫu dương (mực xà r 0,053 [0,029; 0,086]) nhưng biên độ nửa sau không vượt phép giả; hệ số lệch "sin" (giống nhịp lịch âm của người hơn ánh sáng) |

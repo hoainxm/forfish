@@ -38,6 +38,10 @@ const GROUPS = {
   "ca-nuc": codesBy(/cá nục(?! heo)/i),
   "muc-xa": codesBy(/mực xà/i),
   "muc-ong": codesBy(/mực (ống|giã)/i),
+  // 2026-11-05: ngừ vằn RIÊNG — đo cấp chuyến (README rà train §7.13) thấy trăng cộng thêm ΔR² +0,0155. ĐỂ CUỐI danh
+  // sách: rng tuần tự ⇒ các nhóm cũ giữ nguyên số. Giả thuyết đỉnh trăng non đặt SAU khi thấy kết quả cấp chuyến (không
+  // khoá trước) ⇒ phép thử thật là nhãn 2027.
+  "ngu-van": codesBy(/ngừ vằn/i),
 };
 const TAU = 2 * Math.PI;
 const peakOf = (c, s) => ((Math.atan2(s, c) / TAU) % 1 + 1) % 1;
