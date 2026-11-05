@@ -84,6 +84,9 @@ function nguoiNhan(t) {
  * Việc nhắc của MỘT lượt. `thietBi`: hồ sơ gộp (khoá camelCase như kho máy nhà: serial, tenTau, sdtChuTau, sdtThuyenTruong,
  * hetHan, dongBoTcts, trongBo). `mkn`: kết quả `docMkn` (chỉ đợt đang mất có nghĩa). Trả [{khoa, serial, tau, loai, day,
  * dong, nguoi[]}] — `khoa` cố định cho cùng một sự việc cùng mốc ⇒ máy nhà chống lặp; `day` = đẩy lên máy (còn lại chỉ hộp thư).
+ * Kiểu khai rõ: thiếu thì TS suy `mkn = []` thành `never[]` ⇒ `next build` (type check cả test) hỏng — đã làm hỏng MỌI bản
+ * deploy Vercel từ 9646e102 tới 3258fc6e (05/11).
+ * @param {{ thietBi: any[], mkn?: (ReturnType<typeof docMkn>)[], now?: number }} p
  */
 export function viecNhac({ thietBi, mkn = [], now = Date.now() }) {
   const homNay = homNayVn(now);
