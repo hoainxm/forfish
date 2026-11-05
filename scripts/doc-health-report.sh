@@ -1,5 +1,5 @@
 #!/bin/sh
-# ai-simple-version: 1.23.0
+# ai-simple-version: 1.25.0
 # doc-health-report — đo lường nguyên tắc 12 v2 (event-first). 3 chế độ:
 #   sh doc-health-report.sh              -> report đầy đủ ra stdout (exit 0 kể cả khi có vấn đề)
 #   sh doc-health-report.sh --ci         -> exit 1 khi: doc-lag quá ngưỡng / _generated stale /
@@ -114,7 +114,7 @@ append_after() { awk -v re="$2" -v line="$3" '{print} $0 ~ re {print line}' "$1"
 # Trước 2026-10-25 script còn chèn dòng `<!-- DOC-STATUS: … -->` vào từng doc; hậu quả là
 # mỗi lần commit, hàng chục doc bị máy sửa dở trong working tree, sửa thật của người lẫn
 # vào đó và bị bỏ quên (popover.tsx 2026-10-23 → 25). Bỏ hẳn: KHÔNG ghi gì vào doc nữa
-# (bỏ update_marker của bản gốc — `ai-simple update` sẽ đưa lại, phải gỡ lại).
+# (bỏ update_marker của bản gốc — từ ai-simple v1.25 `update` gộp 3 chiều nên giữ được việc bỏ này).
 
 # ── chế độ --self-test: fixture tổng hợp trong temp repo, bắt regression lớp Bug A/B ──
 if [ "$1" = "--self-test" ]; then

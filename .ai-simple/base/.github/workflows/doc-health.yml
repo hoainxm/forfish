@@ -1,0 +1,67 @@
+# GitHub Actions — doc-health gate (nguyên tắc 08 tầng 2 + 12 v2)
+# Cài: copy vào .github/workflows/doc-health.yml (sau khi đã copy doc-health-report.sh
+# vào scripts/). fetch-depth: 0 BẮT BUỘC — các check doc-lag/attestation đọc git timestamp.
+name: doc-health
+
+on:
+  pull_request: {}
+  schedule:
+    - cron: "0 1 * * 1"   # tuần 1 lần — full scan (symbol-level) + đặt marker
+
+jobs:
+  doc-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Self-test instrument trước khi tin kết quả của nó
+        run: sh scripts/doc-health-report.sh --self-test
+
+      - name: Regenerate doc-status (full — gồm symbol scan)
+        run: sh scripts/doc-health-report.sh --status
+
+      - name: Doc-health gate (fail PR khi doc-lag/ORPHANED/symbol chết/broken ref)
+        run: sh scripts/doc-health-report.sh --ci
+
+      # ── Vùng B của nguyên tắc 14 — SCA dependency audit (point-to-tool) ──
+      # Advisory mặc định (continue-on-error): report vuln nhưng KHÔNG fail PR. Bỏ continue-on-error
+      # để biến thành GATE khi đội sẵn sàng. Đây KHÔNG phải SAST/pentest — chỉ soi dependency (LLM03/A06).
+      - name: SCA — dependency audit (npm — bỏ qua nếu không phải project npm)
+        continue-on-error: true
+        run: |
+          if [ -f package-lock.json ] || [ -f package.json ]; then
+            npm audit --audit-level=high || echo "::warning::npm audit thay vuln high/critical — xem log (nguyên tắc 14 vùng B)"
+          else
+            echo "Không phải project npm — cấu hình osv-scanner/pip-audit/bundler-audit tương ứng (point-to-tool)."
+          fi
+
+      # ── Kênh báo bản mới ai-simple (OS-style update notification — tuần 1 lần theo schedule) ──
+      # Advisory THUẦN: continue-on-error + không exit ≠0 — WARN là WARN, không fail PR/schedule.
+      # Offline/registry chết → im lặng bỏ qua (cùng luật chống-oan với update-check trong doctor).
+      - name: Update-check ai-simple (advisory)
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        run: |
+          INSTALLED=$(sed -n 's/^# ai-simple-version: *//p' .githooks/pre-commit 2>/dev/null | head -1)
+          NPM_V=$(curl -fsS --max-time 10 https://registry.npmjs.org/ai-simple/latest 2>/dev/null | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' | head -1)
+          GH_V=$(curl -fsS --max-time 10 https://raw.githubusercontent.com/Long-Forfun/ai-simple--skill-product-dev/main/package.json 2>/dev/null | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' | head -1)
+          LATEST=$(printf '%s\n%s\n' "$NPM_V" "$GH_V" | grep -v '^$' | sort -V | tail -1)
+          if [ -n "$INSTALLED" ] && [ -n "$LATEST" ] && [ "$INSTALLED" != "$LATEST" ] \
+             && [ "$(printf '%s\n%s\n' "$INSTALLED" "$LATEST" | sort -V | tail -1)" = "$LATEST" ]; then
+            CMD='npx ai-simple@latest update'
+            [ "$NPM_V" != "$LATEST" ] && CMD='npx github:Long-Forfun/ai-simple--skill-product-dev update'
+            echo "::warning::ai-simple v$LATEST đã có (bản cài v$INSTALLED) — chạy '$CMD' (giữ CONFIG, backup .bak) rồi làm theo checklist RE-APPLY nó in ra."
+          else
+            echo "ai-simple: bản cài v${INSTALLED:-?} đã mới nhất (hoặc offline/tiny không hook — bỏ qua)."
+          fi
+
+      - name: Upload report artifact
+        if: always()
+        run: sh scripts/doc-health-report.sh > doc-health-report.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: doc-health-report
+          path: doc-health-report.txt
