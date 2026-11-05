@@ -68,6 +68,11 @@ describe("cảnh báo thông minh — gộp thông báo tàu", () => {
     expect(t.body).toBe("SOS 16:00".replace(/^/, "BV-5678-TS: "));
   });
 
+  it("máy đã huỷ / thu hồi (tên DE…) ⇒ không báo", () => {
+    const deTau = [{ imei: "7", serial: "S7", ten_tau: "DEKG-93388-TS", sdt_chu_tau: "0912345678", sdt_thuyen_truong: null }];
+    expect(gomTinTau([{ imei: "7", loai: "SOS", luc: "2026-11-05T09:00:00Z", muc: BD }], deTau, NOW)).toHaveLength(0);
+  });
+
   it("cảnh báo cũ quá cửa sổ / imei lạ ⇒ không báo", () => {
     const cu = new Date(NOW - CUA_SO_MS - 60_000).toISOString();
     expect(

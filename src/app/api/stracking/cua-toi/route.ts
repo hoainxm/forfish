@@ -6,6 +6,7 @@
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dauNgayVnIso } from "@/lib/stracking/dong-bo.mjs";
+import { laMayDaBo } from "@/lib/stracking/may-da-bo.mjs";
 import { danhDauTenTrung, giaHanCuaTau } from "@/lib/renewal";
 import { isRenewalConfigured, listRenewalRequests } from "@/lib/renewal-server";
 
@@ -35,9 +36,11 @@ export async function GET(req: Request) {
     giaHanMo ? listRenewalRequests(sdt, GIA_HAN_MS) : Promise.resolve(null),
   ]);
   const nowMs = Date.now();
+  // Máy đã huỷ / thu hồi (tên DE…/Thu…, nhóm DELETE — lib/stracking/may-da-bo) KHÔNG hiện: bà con không còn máy đó.
+  const conDung = (tauR.data ?? []).filter((t) => !laMayDaBo({ ten_tau: t.ten_tau as string | null, nhom: t.nhom as string | null }));
   // Ghép yêu cầu ↔ máy theo SERIAL; yêu cầu cũ chưa có serial thì theo tên, nhưng KHÔNG khi tên trùng trong máy của SĐT này.
   const tenTrung = new Map(
-    danhDauTenTrung((tauR.data ?? []).map((t) => ({ serial: t.serial as string, tenTau: (t.ten_tau as string | null) ?? null }))).map(
+    danhDauTenTrung(conDung.map((t) => ({ serial: t.serial as string, tenTau: (t.ten_tau as string | null) ?? null }))).map(
       (m) => [m.serial, m.tenTrung],
     ),
   );
@@ -45,7 +48,7 @@ export async function GET(req: Request) {
     console.error("[stracking] đọc máy hỏng:", tauR.error.message);
     return Response.json({ ok: false, code: "unavailable" }, { status: 503 });
   }
-  const tau = (tauR.data ?? []).map((t) => ({
+  const tau = conDung.map((t) => ({
     serial: t.serial as string,
     imei: (t.imei as string | null) ?? null,
     tenTau: (t.ten_tau as string | null) ?? null,

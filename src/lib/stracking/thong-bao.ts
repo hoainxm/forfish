@@ -13,6 +13,8 @@
 //  · Trần TRAN_TIN_MOI_LUOT tin/lượt — người có báo động nặng nhất, mới nhất được giữ trước.
 //  · `tag` theo SĐT: máy chỉ giữ tin mới nhất, không chồng chất.
 
+import { laMayDaBo } from "./may-da-bo.mjs";
+
 export const STRACKING_PUSH_SENT_BY = "system:stracking";
 /** Cảnh báo cũ hơn ngần này (so với lúc nhận) thì chỉ lưu, không báo — khe dài nhất giữa hai lượt là 21:00 → 07:30. */
 export const CUA_SO_MS = 12 * 3600_000;
@@ -137,7 +139,8 @@ export function tinHetCanhBao(
   conMo: ReadonlySet<string>,
   daBao: ReadonlySet<string>,
 ): TinTau[] {
-  const theoImei = new Map(tau.map((t) => [t.imei, t]));
+  // máy đã huỷ / thu hồi (lib/stracking/may-da-bo) không báo
+  const theoImei = new Map(tau.filter((t) => !laMayDaBo(t)).map((t) => [t.imei, t]));
   // mọi máy của mỗi SĐT (để biết SĐT còn máy nào đang cảnh báo không)
   const mayCuaSdt = new Map<string, Set<string>>();
   for (const t of tau)
@@ -193,7 +196,8 @@ export function gomTinTau(
   nowMs: number,
   truoc: readonly CanhBaoMoi[] = [],
 ): TinTau[] {
-  const theoImei = new Map(tau.map((t) => [t.imei, t]));
+  // máy đã huỷ / thu hồi (lib/stracking/may-da-bo) không báo
+  const theoImei = new Map(tau.filter((t) => !laMayDaBo(t)).map((t) => [t.imei, t]));
   const daCo = new Map<string, number[]>();
   for (const p of truoc) {
     const t = Date.parse(p.luc);
