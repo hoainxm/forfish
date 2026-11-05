@@ -20,12 +20,14 @@ export function cacSdtTra(chinh: string, phu?: unknown): string[] {
   return out;
 }
 
-/** Bộ lọc PostgREST `.or()` — máy có SĐT chủ tàu HOẶC thuyền trưởng thuộc danh sách. Danh sách rỗng ⇒ null (đừng tra). */
+/** Bộ lọc PostgREST `.or()` — máy có SĐT CHỦ TÀU thuộc danh sách. Danh sách rỗng ⇒ null (đừng tra).
+ *  CHỈ CHỦ TÀU (anh Long 06/11: "chủ tàu mới xem giám sát, thuyền trưởng nếu có chỉ là trong hồ sơ lao động thôi") —
+ *  SĐT thuyền trưởng trên S-Tracking KHÔNG cho xem / xoá / gia hạn máy. */
 export function locMayTheoSdt(sdts: readonly string[]): string | null {
   const ds = sdts.filter((s) => SDT.test(s));
   if (!ds.length) return null;
   const v = ds.join(",");
-  return `sdt_chu_tau.in.(${v}),sdt_thuyen_truong.in.(${v})`;
+  return `sdt_chu_tau.in.(${v})`;
 }
 
 /** Vai người xem với máy: chủ tàu nếu SĐT chủ tàu là một trong các SĐT của tài khoản. */

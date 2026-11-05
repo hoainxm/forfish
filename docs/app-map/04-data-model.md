@@ -49,7 +49,7 @@ ttl_days: 180
 
 ### 0085 — S-TRACKING: BÀ CON TỰ "XOÁ" MÁY — migration [`0085_stracking_an.sql`](../../supabase/migrations/0085_stracking_an.sql) (2026-11-06) — ✅ **ĐÃ APPLY prod 2026-11-06** (Supabase MCP, anh Long: "làm đi, migrate đi")
 
-Anh Hoà đề xuất trong nhóm Zalo, anh Long duyệt: *"máy nào ẩn thì ko cần thông báo liên quan nữa (ko gọi là ẩn mà là xoá, mặc dù trong hệ thống là ẩn)"*. Bảng `stracking_an (sdt, serial, an_luc, pk(sdt, serial))` — RLS bật + revoke, không policy (chỉ service role). Ghi qua `POST /api/stracking/an` (SĐT từ phiên, chỉ máy khớp SĐT chủ tàu/thuyền trưởng của tài khoản; ghi cho SĐT chính + mọi SĐT của tài khoản gắn với máy, để tin gộp từ SĐT phụ không mang máy về), `DELETE` = hiện lại. `cua-toi` không trả máy đã xoá (trả riêng `daXoa`); route nhap bỏ cảnh báo / "đã hết" / nhắc của (SĐT, máy) đã xoá. Kho `stracking_thiet_bi` không đụng — người khác cùng máy vẫn thấy.
+Anh Hoà đề xuất trong nhóm Zalo, anh Long duyệt: *"máy nào ẩn thì ko cần thông báo liên quan nữa (ko gọi là ẩn mà là xoá, mặc dù trong hệ thống là ẩn)"*. Bảng `stracking_an (sdt, serial, an_luc, pk(sdt, serial))` — RLS bật + revoke, không policy (chỉ service role). Ghi qua `POST /api/stracking/an` (SĐT từ phiên, chỉ máy khớp SĐT CHỦ TÀU của tài khoản — thuyền trưởng không xem giám sát, 06/11; ghi cho SĐT chính + mọi SĐT của tài khoản gắn với máy, để tin gộp từ SĐT phụ không mang máy về), `DELETE` = hiện lại. `cua-toi` không trả máy đã xoá (trả riêng `daXoa`); route nhap bỏ cảnh báo / "đã hết" / nhắc của (SĐT, máy) đã xoá. Kho `stracking_thiet_bi` không đụng — người khác cùng máy vẫn thấy.
 
 ---
 

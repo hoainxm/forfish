@@ -2,7 +2,7 @@
 // đề xuất, anh Long duyệt: "ko gọi là ẩn mà là xoá, mặc dù trong hệ thống là ẩn"; "máy nào ẩn thì ko cần thông báo liên
 // quan nữa"). Thân { serial }. Thực chất ghi/xoá dòng `stracking_an` (0085) — kho S-Tracking giữ nguyên.
 //
-// Quyền: SĐT lấy từ PHIÊN (không nhận từ máy khách); chỉ xoá được máy có SĐT chủ tàu HOẶC thuyền trưởng là một trong các
+// Quyền: SĐT lấy từ PHIÊN (không nhận từ máy khách); chỉ xoá được máy có SĐT CHỦ TÀU (anh Long 06/11) là một trong các
 // SĐT của tài khoản (SĐT chính + SĐT phụ 0084). Ghi dấu cho SĐT chính VÀ mọi SĐT của tài khoản đang gắn với máy, để tin đã
 // gộp từ SĐT phụ không mang máy đó trở lại. DELETE xoá dấu của mọi SĐT của tài khoản.
 // 401 chưa đăng nhập · 400 thân sai · 404 không phải máy của bạn · 503 hạ tầng.
@@ -38,13 +38,13 @@ export async function POST(req: Request) {
   if (!loc) return Response.json({ ok: false, code: "not_mine" }, { status: 404 });
   const { data: may, error } = await c.admin
     .from("stracking_thiet_bi")
-    .select("serial,sdt_chu_tau,sdt_thuyen_truong")
+    .select("serial,sdt_chu_tau")
     .eq("serial", c.serial)
     .or(loc)
     .maybeSingle();
   if (error) return Response.json({ ok: false, code: "unavailable" }, { status: 503 });
   if (!may) return Response.json({ ok: false, code: "not_mine" }, { status: 404 });
-  const ganMay = [may.sdt_chu_tau, may.sdt_thuyen_truong].filter((s): s is string => !!s && c.sdts.includes(s));
+  const ganMay = [may.sdt_chu_tau].filter((s): s is string => !!s && c.sdts.includes(s));
   const sdtGhi = [...new Set([c.phone, ...ganMay])].filter((s) => /^0[1-9]\d{8}$/.test(s));
   const { error: eGhi } = await c.admin
     .from("stracking_an")

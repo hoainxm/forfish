@@ -1,5 +1,5 @@
-// GET /api/stracking/cua-toi — máy giám sát hành trình S-Tracking CỦA người đang đăng nhập: các máy có SĐT chủ tàu
-// HOẶC SĐT thuyền trưởng = SĐT của phiên (lib/api-identity — KHÔNG nhận SĐT từ máy khách, không tra tàu người khác),
+// GET /api/stracking/cua-toi — máy giám sát hành trình S-Tracking CỦA người đang đăng nhập: các máy có SĐT CHỦ TÀU
+// = SĐT của phiên (anh Long 06/11: thuyền trưởng không xem giám sát — chỉ ở hồ sơ lao động) (lib/api-identity — KHÔNG nhận SĐT từ máy khách, không tra tàu người khác),
 // kèm hạn cước + cảnh báo TRONG NGÀY (giờ VN) + giờ đồng bộ thành công gần nhất + YÊU CẦU GIA HẠN đang chạy
 // của từng tàu (DB chung qua sdfish-renewal `list`, đồng hồ 6 s — hỏng/chậm thì `giaHan: null`, không chặn).
 // Trả { ok, capNhatLuc, giaHanMo, tau: [...], canhBao: [...], daXoa: [{serial, tenTau}] (máy bà con tự xoá — 0085) }. Chưa đăng nhập 401 · hạ tầng hỏng 503 (máy giữ bản đã lưu).

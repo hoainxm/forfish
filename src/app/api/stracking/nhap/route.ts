@@ -166,7 +166,8 @@ async function dongCanhBaoDaClear(
     }
     // NGƯỜI NHẬN = SĐT trên máy + tài khoản gán SĐT đó làm SĐT phụ (0084). Mỗi người nhận ⇒ MỌI máy của họ (cả máy của
     // SĐT phụ của họ) để chỉ báo "đã hết" khi KHÔNG còn tàu nào của họ đang cảnh báo (anh Long 05/11: "cảnh báo phải chuẩn").
-    const sdtMay = [...new Set(tau.flatMap((t) => [t.sdt_chu_tau, t.sdt_thuyen_truong]).filter((p): p is string => !!p))];
+    // Chỉ CHỦ TÀU nhận tin (anh Long 06/11) — thuyền trưởng không.
+    const sdtMay = [...new Set(tau.map((t) => t.sdt_chu_tau).filter((p): p is string => !!p))];
     const chinhCuaPhu = await chinhCuaSdtPhu(admin, sdtMay);
     const nguoiNhan = [...new Set([...sdtMay, ...[...chinhCuaPhu.values()].flat()])];
     const phuCua = await phuCuaCacSdt(admin, nguoiNhan);
@@ -178,7 +179,7 @@ async function dongCanhBaoDaClear(
       const { data: may, error } = await admin
         .from("stracking_thiet_bi")
         .select("imei,serial,ten_tau,sdt_chu_tau,sdt_thuyen_truong")
-        .or(`sdt_chu_tau.in.(${lo.join(",")}),sdt_thuyen_truong.in.(${lo.join(",")})`);
+        .in("sdt_chu_tau", lo);
       // Thiếu danh sách máy ⇒ có thể báo "đã hết" sai ⇒ dừng, không gửi (lượt sau tính lại).
       if (error) throw error;
       for (const m of (may ?? []) as TauCuaImei[]) if (!tau.some((t) => t.imei === m.imei)) tau.push(m);
@@ -213,6 +214,31 @@ async function dongCanhBaoDaClear(
 }
 
 const LO_TRA = 300;
+
+/**
+ * Chỉ giữ nhắc gửi CHỦ TÀU của máy (anh Long 06/11: "chủ tàu mới xem giám sát, thuyền trưởng nếu có chỉ là trong hồ sơ
+ * lao động thôi"). Nhắc có serial ⇒ so SĐT chủ tàu trên máy; chưa có serial ⇒ so theo tên tàu. Tra hỏng ⇒ giữ nguyên
+ * (thà nhắc thừa một lượt còn hơn mất nhắc mất kết nối của chủ tàu).
+ */
+async function chiNhacChuTau(admin: NonNullable<ReturnType<typeof createAdminClient>>, nhac: Nhac[]): Promise<Nhac[]> {
+  if (!nhac.length) return nhac;
+  try {
+    const sdts = [...new Set(nhac.map((n) => n.sdt))];
+    const cua = new Set<string>();
+    for (let i = 0; i < sdts.length; i += LO_TRA) {
+      const { data, error } = await admin.from("stracking_thiet_bi").select("serial,ten_tau,sdt_chu_tau").in("sdt_chu_tau", sdts.slice(i, i + LO_TRA));
+      if (error) throw error;
+      for (const t of data ?? []) {
+        cua.add(khoaXoa(t.sdt_chu_tau as string, t.serial as string));
+        if (t.ten_tau) cua.add(khoaXoaTen(t.sdt_chu_tau as string, t.ten_tau as string));
+      }
+    }
+    return nhac.filter((n) => (n.serial ? cua.has(khoaXoa(n.sdt, n.serial)) : cua.has(khoaXoaTen(n.sdt, n.tau))));
+  } catch (e) {
+    console.error("[stracking] lọc nhắc chủ tàu hỏng:", e instanceof Error ? e.message : e);
+    return nhac;
+  }
+}
 
 /**
  * Máy bà con đã "xoá" (stracking_an, 0085) ⇒ tập khoá `sdt|serial` + `sdt|t:tên tàu` (nhắc chưa có serial).
@@ -264,8 +290,9 @@ async function baoCanhBaoMoi(
   nhacSdt: string[];
   nhacSdtBo: string[];
 }> {
-  // Nhắc của máy đã xoá: bỏ, nhưng VẪN tính là đã xử lý (máy GPU đánh dấu, khỏi gửi lại mãi).
-  const nhac = locNhacDaXoa(nhacGoc, daXoa);
+  // Nhắc của máy đã xoá + nhắc gửi THUYỀN TRƯỞNG (không phải chủ tàu): bỏ, nhưng VẪN tính là đã xử lý (máy GPU đánh
+  // dấu, khỏi gửi lại mãi).
+  const nhac = locNhacDaXoa(await chiNhacChuTau(admin, nhacGoc), daXoa);
   const kq = { tin: 0, may: 0, day: 0, nhac: nhacGoc.length ? null : 0, nhacSdt: [] as string[], nhacSdtBo: [] as string[] };
   // Tin cảnh báo (hỏng ⇒ vẫn gửi nhắc)
   let tinCanhBao: TinTau[] = [];

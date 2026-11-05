@@ -4,7 +4,7 @@
 //
 // KHOÁ = SERIAL máy S-Tracking (2026-11-05, anh Long: "tránh để nhầm info"): máy khách
 // chỉ gửi serial + số tháng. Máy chủ tìm serial đó trong `stracking_thiet_bi` của ĐÚNG
-// SĐT phiên (chủ tàu hoặc thuyền trưởng) — không thấy ⇒ 422 `khong_co_tren_stracking`
+// SĐT phiên là CHỦ TÀU (06/11 — thuyền trưởng không gia hạn) — không thấy ⇒ 422 `khong_co_tren_stracking`
 // (bỏ hẳn lối tàu tự khai). Mã tàu, chủ tàu, IMEI, hạn hiện tại đều lấy từ S-Tracking.
 // Máy đã có yêu cầu CHƯA XONG (chờ CK / đã nhận tiền mà hạn chưa đổi) ⇒ 409.
 // Xem docs/contracts/stracking-renewal.contract.md.

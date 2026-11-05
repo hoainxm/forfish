@@ -22,7 +22,7 @@ const BD = "Báo động";
 const CC = "Cảnh cáo";
 
 describe("cảnh báo thông minh — gộp thông báo tàu", () => {
-  it("một tin/SĐT, mỗi tàu một dòng, tàu nguy hiểm hơn trước; chủ tàu + thuyền trưởng cùng nhận", () => {
+  it("một tin/SĐT, mỗi tàu một dòng, tàu nguy hiểm hơn trước; CHỈ chủ tàu nhận (thuyền trưởng không — anh Long 06/11)", () => {
     const tin = gomTinTau(
       [
         { imei: "1", loai: "Mất GPS", luc: "2026-11-05T09:02:00Z", muc: BD },
@@ -36,9 +36,8 @@ describe("cảnh báo thông minh — gộp thông báo tàu", () => {
     expect(chu.title).toBe("Cảnh báo 2 tàu của bạn");
     expect(chu.body.split("\n")).toEqual(["BV-1234-TS: SOS 15:47 · Mất GPS 16:02", "BV-5678-TS: Vượt biên 16:30"]);
     expect(chu).toMatchObject({ tag: "stracking-0912345678", day: true, url: "/tau" });
-    const tt = tin.find((t) => t.phone === "0987654321")!;
-    expect(tt.title).toBe("Cảnh báo tàu BV-1234-TS");
-    expect(tin).toHaveLength(2);
+    expect(tin.find((t) => t.phone === "0987654321")).toBeUndefined(); // thuyền trưởng tàu 1
+    expect(tin).toHaveLength(1);
   });
 
   it("Cảnh cáo ⇒ chỉ hộp thư (day=false); mức khác ⇒ bỏ", () => {
@@ -71,12 +70,14 @@ describe("cảnh báo thông minh — gộp thông báo tàu", () => {
     expect(t.body).toBe("SOS 16:00".replace(/^/, "BV-5678-TS: "));
   });
 
-  it("máy bà con đã XOÁ (0085) ⇒ SĐT đó không nhận cảnh báo / 'đã hết' / nhắc; người khác cùng máy vẫn nhận", () => {
+  it("máy bà con đã XOÁ (0085) ⇒ SĐT đó không nhận cảnh báo / 'đã hết' / nhắc; máy khác vẫn báo", () => {
     const daXoa = new Set([khoaXoa("0912345678", "S1"), khoaXoaTen("0912345678", "BV-1234-TS")]);
-    const tin = gomTinTau([{ imei: "1", loai: "SOS", luc: "2026-11-05T09:00:00Z", muc: BD }], tau, NOW, [], daXoa);
-    expect(tin.map((t) => t.phone)).toEqual(["0987654321"]); // thuyền trưởng vẫn nhận
-    const het = tinHetCanhBao([{ imei: "1", luc: "2026-11-05T09:30:00Z" }], tau, new Set(), new Set(["0912345678", "0987654321"]), daXoa);
-    expect(het.map((t) => t.phone)).toEqual(["0987654321"]);
+    const sos = (imei: string) => ({ imei, loai: "SOS", luc: "2026-11-05T09:00:00Z", muc: BD });
+    expect(gomTinTau([sos("1")], tau, NOW, [], daXoa)).toHaveLength(0);
+    const conMay2 = gomTinTau([sos("1"), sos("2")], tau, NOW, [], daXoa); // máy 2 (chưa xoá) vẫn báo
+    expect(conMay2.map((t) => t.body)).toEqual(["SOS 16:00".replace(/^/, "BV-5678-TS: ")]);
+    const het = tinHetCanhBao([{ imei: "1", luc: "2026-11-05T09:30:00Z" }], tau, new Set(), new Set(["0912345678"]), daXoa);
+    expect(het).toHaveLength(0);
     const nhac: Nhac[] = [
       { sdt: "0912345678", tau: "BV-1234-TS", loai: "han-sap-het", day: false, dong: "a", serial: "S1" },
       { sdt: "0912345678", tau: "BV-1234-TS", loai: "han-sap-het", day: false, dong: "b" }, // chưa có serial ⇒ khớp tên
@@ -117,14 +118,16 @@ describe("cảnh báo thông minh — gộp thông báo tàu", () => {
 
   it("đã hết cảnh báo: chỉ SĐT đã được báo hôm nay, và chỉ khi MỌI tàu của họ hết cảnh báo; cùng tag để đè", () => {
     const daBao = new Set(["0912345678", "0987654321"]);
-    // tàu 1 hết, tàu 2 (cùng chủ) còn mở ⇒ chủ chưa đóng; thuyền trưởng tàu 1 thì đóng
+    // tàu 1 hết, tàu 2 (cùng chủ) còn mở ⇒ chủ chưa đóng; thuyền trưởng tàu 1 KHÔNG nhận (chỉ chủ tàu)
     let tin = tinHetCanhBao([{ imei: "1", luc: "2026-11-05T09:30:00Z" }], tau, new Set(["2"]), daBao);
-    expect(tin).toHaveLength(1);
+    expect(tin).toHaveLength(0);
+    // chủ tàu 3 (chủ = thuyền trưởng) hết ⇒ nhận
+    tin = tinHetCanhBao([{ imei: "3", luc: "2026-11-05T09:30:00Z" }], tau, new Set(), new Set(["0911111111"]));
     expect(tin[0]).toMatchObject({
-      phone: "0987654321",
-      title: "Tàu BV-1234-TS đã hết cảnh báo",
+      phone: "0911111111",
+      title: "Tàu S3 đã hết cảnh báo",
       body: "Giám sát hành trình báo bình thường lúc 16:30.",
-      tag: "stracking-0987654321",
+      tag: "stracking-0911111111",
       day: true,
     });
     // cả hai tàu hết ⇒ chủ nhận một tin gộp

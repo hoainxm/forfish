@@ -48,7 +48,9 @@ export interface TauCuaImei {
   sdt_them?: readonly string[];
 }
 /** Mọi SĐT nhận tin về máy: chủ tàu, thuyền trưởng, tài khoản có SĐT phụ trùng. */
-const nguoiCuaMay = (t: TauCuaImei) => [...new Set([t.sdt_chu_tau, t.sdt_thuyen_truong, ...(t.sdt_them ?? [])])];
+/** Người nhận tin của một máy: CHỈ chủ tàu (+ tài khoản gán SĐT chủ tàu làm SĐT phụ). Thuyền trưởng không nhận — anh Long
+ *  06/11: "chủ tàu mới xem giám sát, thuyền trưởng nếu có chỉ là trong hồ sơ lao động thôi". */
+const nguoiCuaMay = (t: TauCuaImei) => [...new Set([t.sdt_chu_tau, ...(t.sdt_them ?? [])])];
 export interface TinTau {
   phone: string;
   title: string;
@@ -242,7 +244,7 @@ export function gomTinTau(
   for (const c of chon.values()) {
     const may = theoImei.get(c.imei)!;
     const ten = may.ten_tau ?? may.serial;
-    for (const sdt of new Set([may.sdt_chu_tau, may.sdt_thuyen_truong])) {
+    for (const sdt of new Set([may.sdt_chu_tau])) {
       if (!sdt || daXoa.has(khoaXoa(sdt, may.serial))) continue; // máy SĐT này đã xoá ⇒ không báo
       const cacTau = theoSdt.get(sdt) ?? new Map<string, CanhBaoMoi[]>();
       cacTau.set(ten, [...(cacTau.get(ten) ?? []), c]);

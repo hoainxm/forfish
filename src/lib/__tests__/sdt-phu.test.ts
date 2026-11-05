@@ -23,10 +23,8 @@ describe("SĐT phụ S-Tracking (0084)", () => {
     expect(cacSdtTra("abc", "0946364444")).toEqual(["0946364444"]);
   });
 
-  it("bộ lọc .or() phủ cả chủ tàu lẫn thuyền trưởng; rỗng ⇒ null", () => {
-    expect(locMayTheoSdt(["0918388742", "0946364444"])).toBe(
-      "sdt_chu_tau.in.(0918388742,0946364444),sdt_thuyen_truong.in.(0918388742,0946364444)",
-    );
+  it("bộ lọc .or() CHỈ chủ tàu (anh Long 06/11: thuyền trưởng không xem giám sát); rỗng ⇒ null", () => {
+    expect(locMayTheoSdt(["0918388742", "0946364444"])).toBe("sdt_chu_tau.in.(0918388742,0946364444)");
     expect(locMayTheoSdt([])).toBeNull();
     expect(locMayTheoSdt(["1,2)"])).toBeNull();
   });

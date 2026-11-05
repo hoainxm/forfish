@@ -339,7 +339,6 @@ export function StrackingCuaToi({
                     </p>
                   )}
                   {gh && <p className={`text-[0.875rem] font-semibold ${gh.mau}`}>{gh.chu}</p>}
-                  {t.vai === "thuyen-truong" && <p className="text-[0.875rem] text-muted">Bạn là thuyền trưởng</p>}
                   {/* Trạng thái máy trên S-Tracking (0081): đồng bộ Tổng cục · trong bờ/ngoài khơi + giờ cập nhật · nhóm + ngày tạo */}
                   {t.dongBoTcts && (
                     <p className={`text-[0.875rem] font-semibold ${/thất bại/i.test(t.dongBoTcts) ? "text-danger" : "text-ok"}`}>
