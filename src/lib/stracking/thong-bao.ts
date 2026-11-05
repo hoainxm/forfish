@@ -53,6 +53,75 @@ export interface TinTau {
   day: boolean;
 }
 
+// ── NHẮC NHỞ (máy GPU tính — lib/stracking/nhac-nho; máy chủ kiểm ở dong-bo kiemNhac) ───────────────────────
+// Anh Long 05/11: "đồng bộ Tổng cục / mất kết nối >6 giờ là bị phạt — cho Sen Biển nhắc", "nó ở màn thông báo đấy,
+// đẩy lên điện thoại". Chống lặp làm ở máy GPU (sổ da_nhac). Ở đây chỉ GỘP vào tin của SĐT (1 tin/SĐT/lượt, cùng tag).
+
+export type LoaiNhac = "mkn-sap-6h" | "mkn-qua-6h" | "tcts-that-bai" | "han-sap-het" | "han-qua-han";
+export interface Nhac {
+  sdt: string;
+  tau: string;
+  loai: LoaiNhac;
+  day: boolean;
+  /** câu hoàn chỉnh, có tên tàu */
+  dong: string;
+}
+/** Trần số SĐT nhận nhắc mỗi lượt — lượt đầu ~1.100 dòng nhắc trên cả kho; phần lớn chỉ vào hộp thư (máy chưa bật push). */
+export const TRAN_NHAC_MOI_LUOT = 1500;
+export const DONG_NHAC_TOI_DA = 4;
+/** Thứ tự nặng (nhỏ = nặng): mất kết nối là chuyện bị phạt ⇒ đứng trước cả cảnh báo. */
+const HANG_NHAC: Record<LoaiNhac, number> = { "mkn-qua-6h": 0, "mkn-sap-6h": 1, "han-qua-han": 2, "tcts-that-bai": 3, "han-sap-het": 4 };
+const TIEU_DE_NHAC: Record<LoaiNhac, (tau: string) => string> = {
+  "mkn-qua-6h": (t) => `Tàu ${t} mất kết nối quá 6 giờ`,
+  "mkn-sap-6h": (t) => `Tàu ${t} sắp quá 6 giờ mất kết nối`,
+  "han-qua-han": (t) => `Tàu ${t} quá hạn cước giám sát`,
+  "tcts-that-bai": (t) => `Tàu ${t} chưa đồng bộ Tổng cục`,
+  "han-sap-het": (t) => `Tàu ${t} sắp hết hạn cước giám sát`,
+};
+
+/**
+ * Ghép nhắc vào tin cảnh báo: SĐT đã có tin cảnh báo ⇒ thêm dòng (mất kết nối đứng TRƯỚC dòng cảnh báo, việc khác sau),
+ * giữ tiêu đề cảnh báo; SĐT chỉ có nhắc ⇒ tin mới, tiêu đề theo việc nặng nhất. `day` = cảnh báo đẩy HOẶC có nhắc đẩy.
+ * Quá TRAN_NHAC_MOI_LUOT SĐT ⇒ người có nhắc nặng/đẩy trước; phần bị bỏ trả `nhacSdtBo` (máy GPU giữ lại, gửi lượt sau).
+ */
+export function ghepNhac(
+  tinCanhBao: readonly TinTau[],
+  nhac: readonly Nhac[],
+): { tin: TinTau[]; nhacSdt: string[]; nhacSdtBo: string[]; soDongNhac: number } {
+  const theoSdt = new Map<string, Nhac[]>();
+  for (const n of nhac) theoSdt.set(n.sdt, [...(theoSdt.get(n.sdt) ?? []), n]);
+  const ds = [...theoSdt.entries()].map(([sdt, ns]) => ({
+    sdt,
+    ns: [...ns].sort((a, b) => HANG_NHAC[a.loai] - HANG_NHAC[b.loai]),
+  }));
+  ds.sort((a, b) => Number(b.ns.some((n) => n.day)) - Number(a.ns.some((n) => n.day)) || HANG_NHAC[a.ns[0].loai] - HANG_NHAC[b.ns[0].loai]);
+  const giu = ds.slice(0, TRAN_NHAC_MOI_LUOT);
+  const nhacSdtBo = ds.slice(TRAN_NHAC_MOI_LUOT).map((d) => d.sdt);
+
+  const tin = new Map(tinCanhBao.map((t) => [t.phone, { ...t }]));
+  let soDongNhac = 0;
+  for (const { sdt, ns } of giu) {
+    soDongNhac += ns.length;
+    const truoc = ns.filter((n) => n.loai.startsWith("mkn-")).map((n) => n.dong);
+    const sau = ns.filter((n) => !n.loai.startsWith("mkn-")).map((n) => n.dong);
+    const coDay = ns.some((n) => n.day);
+    const cu = tin.get(sdt);
+    if (cu) {
+      tin.set(sdt, { ...cu, body: [...truoc, cu.body, ...sau].join("\n"), day: cu.day || coDay });
+      continue;
+    }
+    const cacTau = [...new Set(ns.map((n) => n.tau).filter(Boolean))];
+    const title =
+      ns.length === 1 || (cacTau.length === 1 && ns.every((n) => n.loai === ns[0].loai))
+        ? TIEU_DE_NHAC[ns[0].loai](ns[0].tau || "của bạn")
+        : `Nhắc ${ns.length} việc giám sát hành trình`;
+    const dong = [...truoc, ...sau];
+    const body = [...dong.slice(0, DONG_NHAC_TOI_DA), ...(dong.length > DONG_NHAC_TOI_DA ? [`và ${dong.length - DONG_NHAC_TOI_DA} việc khác`] : [])];
+    tin.set(sdt, { phone: sdt, title, body: body.join("\n"), url: "/tau", tag: `stracking-${sdt}`, day: coDay });
+  }
+  return { tin: [...tin.values()], nhacSdt: giu.map((d) => d.sdt), nhacSdtBo, soDongNhac };
+}
+
 /**
  * TIN "ĐÃ HẾT CẢNH BÁO" (anh Long 05/11: "nếu cảnh báo đã được clear thì đóng cảnh báo cho họ"). Gửi cho SĐT đã được
  * báo cảnh báo (trong ngày) mà nay MỌI máy của họ hết cảnh báo mở. Cùng `tag` `stracking-<sdt>` ⇒ ĐÈ thông báo cảnh báo

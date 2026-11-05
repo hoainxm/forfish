@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { CUA_SO_MS, TRAN_TIN_MOI_LUOT, gomTinTau, tinHetCanhBao } from "@/lib/stracking/thong-bao";
+import {
+  CUA_SO_MS,
+  TRAN_NHAC_MOI_LUOT,
+  TRAN_TIN_MOI_LUOT,
+  ghepNhac,
+  gomTinTau,
+  tinHetCanhBao,
+  type Nhac,
+} from "@/lib/stracking/thong-bao";
 
 const NOW = Date.parse("2026-11-05T10:00:00Z"); // 17:00 giờ VN
 const tau = [
@@ -102,6 +110,44 @@ describe("cảnh báo thông minh — gộp thông báo tàu", () => {
     expect(tin.find((t) => t.phone === "0912345678")?.title).toBe("2 tàu của bạn đã hết cảnh báo");
     // chưa từng được báo ⇒ không làm phiền
     expect(tinHetCanhBao([{ imei: "3", luc: "2026-11-05T09:30:00Z" }], tau, new Set(), daBao)).toHaveLength(0);
+  });
+
+  it("ghép nhắc: SĐT có cảnh báo ⇒ mất kết nối đứng TRƯỚC dòng cảnh báo, việc khác sau; chỉ nhắc ⇒ tin riêng", () => {
+    const [cb] = gomTinTau([{ imei: "2", loai: "SOS", luc: "2026-11-05T09:00:00Z", muc: CC }], tau, NOW); // cảnh cáo ⇒ không đẩy
+    const r = ghepNhac(
+      [cb],
+      [
+        { sdt: "0912345678", tau: "BV-5678-TS", loai: "han-sap-het", day: false, dong: "BV-5678-TS: còn 5 ngày hết cước." },
+        { sdt: "0912345678", tau: "BV-5678-TS", loai: "mkn-qua-6h", day: true, dong: "BV-5678-TS: mất kết nối 7 giờ." },
+        { sdt: "0900000002", tau: "KG-1-TS", loai: "tcts-that-bai", day: false, dong: "KG-1-TS: chưa đồng bộ Tổng cục." },
+      ],
+    );
+    const a = r.tin.find((t) => t.phone === "0912345678")!;
+    expect(a.title).toBe(cb.title);
+    expect(a.body.split("\n")).toEqual(["BV-5678-TS: mất kết nối 7 giờ.", cb.body, "BV-5678-TS: còn 5 ngày hết cước."]);
+    expect(a.day).toBe(true); // nhắc đẩy kéo cả tin lên máy
+    const b = r.tin.find((t) => t.phone === "0900000002")!;
+    expect(b).toMatchObject({ title: "Tàu KG-1-TS chưa đồng bộ Tổng cục", day: false, tag: "stracking-0900000002", url: "/tau" });
+    expect(r.soDongNhac).toBe(3);
+    expect(r.nhacSdt.sort()).toEqual(["0900000002", "0912345678"]);
+    expect(r.nhacSdtBo).toEqual([]);
+  });
+
+  it("ghép nhắc: nhiều việc ⇒ 'Nhắc N việc', quá 4 dòng ⇒ 'và N việc khác'; quá trần ⇒ trả SĐT bị bỏ, người có nhắc đẩy giữ trước", () => {
+    const ns = ["mkn-sap-6h", "tcts-that-bai", "han-sap-het", "han-qua-han", "tcts-that-bai"].map((loai, i) => ({
+      sdt: "0900000001", tau: `T-${i}`, loai: loai as Nhac["loai"], day: false, dong: `dòng ${i}`,
+    }));
+    const [t] = ghepNhac([], ns).tin;
+    expect(t.title).toBe("Nhắc 5 việc giám sát hành trình");
+    expect(t.body.split("\n")).toHaveLength(5);
+    expect(t.body.endsWith("và 1 việc khác")).toBe(true);
+    const nhieu = Array.from({ length: TRAN_NHAC_MOI_LUOT + 2 }, (_, i) => ({
+      sdt: `09${String(i).padStart(8, "0")}`, tau: "T", loai: "han-sap-het" as const, day: i === TRAN_NHAC_MOI_LUOT + 1, dong: "x",
+    }));
+    const r = ghepNhac([], nhieu);
+    expect(r.tin).toHaveLength(TRAN_NHAC_MOI_LUOT);
+    expect(r.nhacSdt[0]).toBe(nhieu[TRAN_NHAC_MOI_LUOT + 1].sdt);
+    expect(r.nhacSdtBo).toHaveLength(2);
   });
 
   it("quá 3 tàu ⇒ 'và N tàu khác'", () => {

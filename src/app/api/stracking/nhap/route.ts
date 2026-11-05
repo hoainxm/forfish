@@ -14,10 +14,12 @@ import { kiemGoiNhap } from "@/lib/stracking/dong-bo.mjs";
 import {
   CHONG_LAP_MS,
   CUA_SO_MS,
+  ghepNhac,
   gomTinTau,
   STRACKING_PUSH_SENT_BY,
   tinHetCanhBao,
   type CanhBaoMoi,
+  type Nhac,
   type TauCuaImei,
   type TinTau,
 } from "@/lib/stracking/thong-bao";
@@ -76,7 +78,7 @@ export async function POST(req: Request) {
     }
     moiChen.push(...((data ?? []) as CanhBaoMoi[]));
   }
-  const thongBao = await baoCanhBaoMoi(admin, moiChen);
+  const { nhac: soNhac, nhacSdt, nhacSdtBo, ...thongBao } = await baoCanhBaoMoi(admin, moiChen, (goi.nhac ?? []) as Nhac[]);
   // Cảnh báo đã CLEAR (biến khỏi danh sách đang mở của S-Tracking) ⇒ đóng + tin "đã hết cảnh báo". Chỉ khi máy thu đọc
   // ĐỦ danh sách (gửi `dangMo`); vắng ⇒ không đóng gì.
   const dong = Array.isArray(goi.dangMo) ? await dongCanhBaoDaClear(admin, goi.dangMo as { imei: string; loai: string; luc: string }[]) : null;
@@ -99,7 +101,14 @@ export async function POST(req: Request) {
   ]);
   if (eDonCb || eDonSo) console.error("[stracking] dọn cũ hỏng:", eDonCb?.message ?? eDonSo?.message);
 
-  return Response.json({ ok: true, ghi: { thietBi: goi.thietBi.length, canhBao: goi.canhBao.length, boQua: r.boQua }, thongBao, dong });
+  // `ghi.nhac` là SỐ chỉ khi nhắc đã vào hộp thư — máy GPU dựa vào đó đánh dấu đã nhắc (null ⇒ giữ lại, gửi lượt sau).
+  // `nhacSdt` = SĐT đã nhận; `nhacSdtBo` = vượt trần lượt này (máy GPU KHÔNG được đánh dấu nhóm này).
+  return Response.json({
+    ok: true,
+    ghi: { thietBi: goi.thietBi.length, canhBao: goi.canhBao.length, boQua: r.boQua, nhac: soNhac, nhacSdt, nhacSdtBo },
+    thongBao,
+    dong,
+  });
 }
 
 const khoaCb = (c: { imei: string; loai: string; luc: string }) => `${c.imei}|${c.loai}|${Date.parse(c.luc)}`;
@@ -197,9 +206,40 @@ const LO_TRA = 300;
 async function baoCanhBaoMoi(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
   moiChen: CanhBaoMoi[],
-): Promise<{ tin: number; may: number; day: number }> {
-  const kq = { tin: 0, may: 0, day: 0 };
-  if (!moiChen.length) return kq;
+  nhac: Nhac[],
+): Promise<{
+  tin: number;
+  may: number;
+  day: number;
+  /** số DÒNG nhắc đã vào hộp thư — null = chưa ghi được (máy GPU giữ lại, gửi lượt sau) */
+  nhac: number | null;
+  nhacSdt: string[];
+  nhacSdtBo: string[];
+}> {
+  const kq = { tin: 0, may: 0, day: 0, nhac: nhac.length ? null : 0, nhacSdt: [] as string[], nhacSdtBo: [] as string[] };
+  // Tin cảnh báo (hỏng ⇒ vẫn gửi nhắc)
+  let tinCanhBao: TinTau[] = [];
+  if (moiChen.length) tinCanhBao = await tinTuCanhBao(admin, moiChen);
+  if (!tinCanhBao.length && !nhac.length) return kq;
+  try {
+    const g = ghepNhac(tinCanhBao, nhac);
+    Object.assign(kq, await guiTin(admin, g.tin));
+    // guiTin ném khi ghi hộp thư hỏng ⇒ tới đây là nhắc đã vào hộp thư
+    kq.nhac = g.soDongNhac;
+    kq.nhacSdt = g.nhacSdt;
+    kq.nhacSdtBo = g.nhacSdtBo;
+  } catch (e) {
+    console.error("[stracking] gửi thông báo hỏng:", e instanceof Error ? e.message : e);
+  }
+  console.log(
+    `[stracking] cảnh báo mới ${moiChen.length}, nhắc ${nhac.length} dòng ⇒ ${kq.tin} tin, đẩy ${kq.day}/${kq.may} máy` +
+      (kq.nhacSdtBo.length ? `, ${kq.nhacSdtBo.length} SĐT nhắc vượt trần (lượt sau)` : ""),
+  );
+  return kq;
+}
+
+/** Cảnh báo vừa chèn ⇒ tin gộp (chống lặp 6 giờ). Hỏng ⇒ [] + log (nhắc vẫn đi). */
+async function tinTuCanhBao(admin: NonNullable<ReturnType<typeof createAdminClient>>, moiChen: CanhBaoMoi[]): Promise<TinTau[]> {
   try {
     const imeis = [...new Set(moiChen.map((c) => c.imei))];
     const tau: TauCuaImei[] = [];
@@ -225,13 +265,11 @@ async function baoCanhBaoMoi(
       if (error) throw error;
       for (const p of (data ?? []) as CanhBaoMoi[]) if (!khoaMoi.has(`${p.imei}|${p.loai}|${Date.parse(p.luc)}`)) truoc.push(p);
     }
-    const tin = gomTinTau(moiChen, tau, nowMs, truoc);
-    Object.assign(kq, await guiTin(admin, tin));
+    return gomTinTau(moiChen, tau, nowMs, truoc);
   } catch (e) {
-    console.error("[stracking] thông báo cảnh báo hỏng:", e instanceof Error ? e.message : e);
+    console.error("[stracking] tính tin cảnh báo hỏng:", e instanceof Error ? e.message : e);
+    return [];
   }
-  console.log(`[stracking] cảnh báo mới ${moiChen.length} ⇒ ${kq.tin} tin, đẩy ${kq.day}/${kq.may} máy`);
-  return kq;
 }
 
 /** Ghi hộp thư (push_messages, target account) TRƯỚC — lưới an toàn khi đẩy hụt / mất sóng — rồi Web Push cho tin `day`.
