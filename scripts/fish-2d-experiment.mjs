@@ -192,6 +192,10 @@ async function main() {
   const PAD = Number(arg("pad", 15)), BOOT = Number(arg("boot", 300)), CTRL = Number(arg("ctrl-shift", 15));
   const RIDGE = Number(arg("ridge", 0.01)), HOT = Number(arg("hot-share", 0.113));
   const SCHEMES = arg("schemes", "folds,f3").split(",");
+  /*  --extra <thư mục> (2026-11-05, thí nghiệm THỜI TIẾT — README rà train §7.12): kênh thêm theo ngày trên ĐÚNG trục
+      lưới của cache (`<dir>/manifest.json` {names[], axis}; `<dir>/w-<ngày>.json` {values: [[NK số|null] × names]}).
+      Kênh thêm đi vào z như 8 kênh cũ (dị thường theo trung bình tháng của ô) và CHỈ nhánh (d) dùng, DẤU TỰ DO. */
+  const EXTRA = arg("extra", null) ? home(arg("extra")) : null;
   mkdirSync(OUT, { recursive: true });
   const T0 = Date.now();
   const lg = (...a) => console.log(`[${((Date.now() - T0) / 1000).toFixed(0)}s]`, ...a);
@@ -295,20 +299,27 @@ async function main() {
   }
 
   /* ── thông tin ngày: ô, khe, z (dị thường theo trung bình tháng của ô) ── */
-  const NZ = 8, ZNAMES = ["sst", "logChl", "frontNhiệt", "frontMồi", "xoáy", "nướcTrồi", "hộiTụ", "tầngNhiệt"];
+  const NZ0 = 8, ZNAMES = ["sst", "logChl", "frontNhiệt", "frontMồi", "xoáy", "nướcTrồi", "hộiTụ", "tầngNhiệt"];
+  const XM = EXTRA ? JSON.parse(readFileSync(join(EXTRA, "manifest.json"), "utf8")) : null;
+  if (XM && (XM.axis.nLat !== nLat || XM.axis.nLon !== nLon || Math.abs(XM.axis.lat0 - lat0) > 1e-6 || Math.abs(XM.axis.lon0 - lon0) > 1e-6 || Math.abs(XM.axis.step - step) > 1e-9))
+    throw new Error(`--extra: trục lưới ${JSON.stringify(XM.axis)} ≠ cache ${JSON.stringify(MF.axis)}`);
+  const NE = XM ? XM.names.length : 0, NZ = NZ0 + NE;
+  if (XM) ZNAMES.push(...XM.names);
+  const extraOf = (d) => { if (!XM) return null; const f = join(EXTRA, `w-${d}.json`); return existsSync(f) ? JSON.parse(readFileSync(f, "utf8")).values : null; };
   const info = new Map();
   const rawCh = new Map();
   const monthSum = new Map(), monthCnt = new Map();
   for (const d of dates) {
     const F = decodeFeatures(readFeatureDay(FEAT, d), MF.regions);
     const n = F.length, keys = new Int32Array(n), slot = new Int32Array(NK).fill(-1), ch = new Float32Array(n * NZ);
-    const ym = d.slice(0, 7);
+    const ym = d.slice(0, 7), X = extraOf(d);
     let S = monthSum.get(ym), C = monthCnt.get(ym);
     if (!S) { monthSum.set(ym, (S = new Float64Array(NK * NZ))); monthCnt.set(ym, (C = new Float64Array(NK * NZ))); }
     for (let q = 0; q < n; q++) {
       const f = F[q], key = f.i * nLon + f.j;
       keys[q] = key; slot[key] = q;
       const v = [f.t, f.c > 0 ? Math.log10(f.c) : NaN, f.fThermFront, f.fChlFront, f.fEddy ?? NaN, f.upwTerm ?? NaN, f.convTerm ?? NaN, f.thermoAnomM ?? NaN];
+      for (let e = 0; e < NE; e++) { const x = X?.[e]?.[key]; v.push(x == null ? NaN : x); }
       for (let c = 0; c < NZ; c++) {
         ch[q * NZ + c] = v[c];
         if (Number.isFinite(v[c])) { S[key * NZ + c] += v[c]; C[key * NZ + c]++; }
@@ -409,13 +420,14 @@ async function main() {
   }
   const C3 = [0, 2, 1]; // nhánh (c): cột z = [frontNhiệt, sst, logChl]
   const ORACLE = argv.includes("--oracle"); // ĐỐI CHỨNG DƯƠNG: nhánh "o" rò nhãn ngày — PHẢI thắng, nếu không thì bộ đo hỏng
-  const TEST_BR = ORACLE ? ["a", "b", "c", "o"] : ["a", "b", "c"];
+  const TEST_BR = [...(ORACLE ? ["a", "b", "c", "o"] : ["a", "b", "c"]), ...(NE ? ["d"] : [])];
   const BRANCHES = ["nen", ...TEST_BR];
 
   /** residual (b)/(c) cho loài s: fit trên hàng huấn luyện (offset = nền_raw) */
   function fitResidual(kind, s, trainDays, coefBase, which) {
     const gr = groupOf(s), cf = coefBase[gr];
-    const cols = which === "b" ? [...Array(NZ).keys()] : C3;
+    // (b) = 8 kênh vệ tinh như §7.8 (KHÔNG lẫn kênh thêm) · (c) = 3 kênh · (d) = CHỈ kênh thêm (thời tiết), dấu tự do
+    const cols = which === "b" ? [...Array(NZ0).keys()] : which === "d" ? Array.from({ length: NE }, (_, e) => NZ0 + e) : C3;
     const dd = cols.length + 1;
     let tot = 0, P = 0, N = 0;
     for (const d of trainDays) { const R = rowsFor(kind, s, d), sl = info.get(d).slot; for (let i = 0; i < R.m; i++) if (sl[R.key[i]] >= 0) { tot++; (R.y[i] ? (P += R.w[i]) : (N += R.w[i])); } }
@@ -454,7 +466,7 @@ async function main() {
       a[q] = 1 - (1 - fitSat) * (1 - CATCH_SCALE * (rankToScore(out.nen[q], HOT) / 100));
     }
     out.a = a;
-    for (const which of ["b", "c"]) {
+    for (const which of ["b", "c", ...(NE ? ["d"] : [])]) {
       const R = res[which];
       if (!R) { out[which] = out.nen; continue; }
       const raw = new Float64Array(raw0);
@@ -500,7 +512,7 @@ async function main() {
       const coef = fitBase(sp.kind, trainDays);
       const tab = fitTables(trainDays, spLive);
       for (const s of SPECIES) {
-        const res = { b: fitResidual(sp.kind, s, trainDays, coef, "b"), c: fitResidual(sp.kind, s, trainDays, coef, "c") };
+        const res = { b: fitResidual(sp.kind, s, trainDays, coef, "b"), c: fitResidual(sp.kind, s, trainDays, coef, "c"), ...(NE ? { d: fitResidual(sp.kind, s, trainDays, coef, "d") } : {}) };
         for (const d of testDays) {
           if (!hasKg(s, d)) continue;
           const F = decodeFeatures(readFeatureDay(FEAT, d), MF.regions);
@@ -510,7 +522,7 @@ async function main() {
           if (ORACLE) { const o = new Float64Array(n); const base = sc.nen; for (let q = 0; q < n; q++) o[q] = base[q] + (Lt.kg[q] > 0 ? 1 : 0); sc.o = rankFraction(o); }
           const cs = [CTRL, -CTRL].find((c) => { const ld = shiftDay(d, c); return (catchRaw[s].get(ld)?.size ?? 0) > 0 && ld >= "2026-01-01" && ld <= "2026-10-11"; });
           const Lc = cs == null ? null : labelVec(s, d, cs);
-          const rec = { d, split: sp.name, G: Lt.G, hot: {}, local: {}, score: {}, kg: Lt.kg, hr: Lt.hr, true: {}, ctrl: Lc && Lc.has ? {} : null, beta: { b: res.b && Array.from(res.b.beta), c: res.c && Array.from(res.c.beta) } };
+          const rec = { d, split: sp.name, G: Lt.G, hot: {}, local: {}, score: {}, kg: Lt.kg, hr: Lt.hr, true: {}, ctrl: Lc && Lc.has ? {} : null, beta: { b: res.b && Array.from(res.b.beta), c: res.c && Array.from(res.c.beta), ...(res.d ? { d: Array.from(res.d.beta) } : {}) } };
           for (const br of BRANCHES) {
             const sv = sc[br];
             rec.true[br] = recOf(sv, Lt, n);

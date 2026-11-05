@@ -686,3 +686,38 @@ python3 scripts/nguon-ngay/v3-mat-na-may.py
 for v in v0 v1 v2 v3; do npx tsx scripts/fish-features-cache.mjs --grids <lưới v> --out ~/sdfish-l3/$v/features; \
   NODE_OPTIONS=--max-old-space-size=14000 npx tsx scripts/fish-2d-experiment.mjs --features ~/sdfish-l3/$v/features --species "ngừ vằn,cá nục,bạc má,cá cơm,ngừ chù,cá trích,cá tráo" --out ~/sdfish-l3/$v/2d; done   # ~16 phút mỗi nguồn
 ```
+
+### 7.12 Thí nghiệm THỜI TIẾT — gió, sóng, mây của ngày có cộng thêm được gì? (2026-11-05, PC GPU, không đổi production)
+
+> **Kết luận: KHÔNG. 0/14** (7 loài × 2 sơ đồ, nhánh (d) = nền + chỉ kênh thời tiết, dấu tự do). Mức cộng thêm −0,0031 … +0,0025 (cổng +0,01), `pBH` = 1 mọi ô. Phản biện độc lập (cùng agent §7.11, tự đọc số + soát mã) cùng kết luận, không thấy lỗi cài đặt làm (d) thua oan.
+
+**Vì sao:** §7.11 thấy tín hiệu dị thường ngày duy nhất là mặt nạ mây ⇒ đo thời tiết TRỰC TIẾP. Đây là thời tiết THỰC TẾ của ngày đánh (cận trên thông tin — production chỉ có thời tiết dự báo): thua ở đây thì dự báo cũng không cứu được.
+
+**Cách đo:** `fish-2d-experiment.mjs` thêm cờ `--extra <dir>` (kênh theo ngày trên đúng trục cache, kiểm trục trong manifest; vào z như 8 kênh cũ — dị thường theo trung bình tháng của ô; CHỈ nhánh mới (d) dùng, dấu tự do; (b) giữ 8 kênh vệ tinh như cũ). Cache v0 (DINEOF) của §7.11 ⇒ (a)/(b)/(c) trùng tuyệt đối lượt v0 (đối chứng sạch). Kênh (`scripts/nguon-ngay/luoi-thoi-tiet.py`, dữ liệu `~/sdfish-l3/thoi-tiet/` trên GPU):
+- **gio** tốc độ gió TB ngày — NOAA NCEI Blended Winds 0,25° (`noaacwBlendedWindsDaily`, tháng 10 lấp bằng bản nrt; thiếu 17/289 ngày)
+- **song** độ cao sóng có nghĩa TB 00/06/12/18 UTC — Copernicus `GLOBAL_ANALYSISFORECAST_WAV_001_027` ARCO (đọc được cả lịch sử từ 11/2022)
+- **may** tỉ lệ ô mịn 0,083° không có ảnh L3 trong ô 0,25° (ngày cả vùng < 2 % ảnh ⇒ trống — mất dữ liệu ≠ mây kín; thiếu 4 ngày)
+
+**Kết quả (nhánh d):**
+
+| loài | F3: Δ [CI90] · Δ động · AUC 1° | 5 nếp: Δ [CI90] · AUC 1° | β gió / sóng / mây (TB nếp, F3) |
+|---|---|---|---|
+| ngừ vằn | +0,0008 [−0,0003…+0,0022] · +0,0008 · −0,0007 | −0,0002 · +0,0008 | +0,10 / −0,06 / −0,03 |
+| cá nục | −0,0004 · −0,0001 · −0,0060 | −0,0000 · −0,0041 | −0,03 / −0,06 / 0,00 |
+| bạc má | +0,0025 [+0,0001…+0,0048] · +0,0043 · −0,0031 | +0,0017 · −0,0023 | −0,13 / −0,01 / +0,05 |
+| cá cơm | +0,0005 · −0,0005 · −0,0055 | +0,0011 · −0,0023 | −0,04 / **−0,32** / +0,03 |
+| ngừ chù | −0,0007 · −0,0024 · −0,0055 | −0,0005 · −0,0041 | −0,03 / −0,02 / +0,01 |
+| cá trích | +0,0008 · +0,0031 · +0,0032 | +0,0002 · −0,0084 | −0,19 / +0,14 / +0,03 |
+| cá tráo | −0,0031 · −0,0015 · −0,0198 | −0,0019 · −0,0149 | +0,05 / −0,23 / +0,01 |
+
+Ô duy nhất CI dương (bạc má F3) đi kèm AUC 1° âm và ρ −0,011 ⇒ nhiễu. Một hệ số ổn định đúng chiều vật lý: **sóng của cá cơm luôn âm** (−0,22 … −0,43 qua mọi nếp) — có thật nhưng không đổi thứ hạng ô.
+
+**Vì sao mây ở (a) §7.11 có ρ +0,06 mà ở (d) không:** không mâu thuẫn. Residual (d) học "ô có cá vs ô có tàu làm" — đã có tàu ra làm thì mây gần như không đổi xác suất có cá (β mây 0,003–0,045). Ở (a) mây vào kiểu NHÂN (ô mây ⇒ sàn mồi) — một cú dịch điểm lớn không qua fit; ρ 0,06 ≈ 0,4 % phương sai, và Δ của (a) vẫn âm.
+
+**Hệ quả — dừng đo "lớp ngày" ở cấp Ô với nhãn hiện có:** nhãn N1 chia đều kg theo giờ chuyến ⇒ trong một chuyến mọi ô cùng CPUE; chênh giữa các ô trong ngày chủ yếu là "chuyến nào đi qua". Sau §7.8 (vệ tinh), §7.11 (4 nguồn phù du) và §7.12 (thời tiết) — 0/30 + 0/168 + 0/14 — kết luận thẳng: **với nhãn này chưa đo được tín hiệu ngày nào cộng thêm trên nền bãi cá theo mùa.** Hai đường còn mở: (1) đo ở CẤP CHUYẾN (dị thường thời tiết/SST dọc hành trình có dự báo CPUE cả chuyến không) — một lần thử; (2) nhãn có toạ độ mẻ (Q1). Không phải lý do đổi production.
+
+```bash
+venv/bin/python scripts/nguon-ngay/luoi-thoi-tiet.py --features ~/sdfish-l3/v0/features --l3 ~/sdfish-l3 --grids /mnt/c/Users/admin/sdfish-data/fc-full/grids --out ~/sdfish-l3/thoi-tiet   # ~15 phút
+NODE_OPTIONS=--max-old-space-size=14000 npx tsx scripts/fish-2d-experiment.mjs --features ~/sdfish-l3/v0/features --extra ~/sdfish-l3/thoi-tiet \
+  --species "ngừ vằn,cá nục,bạc má,cá cơm,ngừ chù,cá trích,cá tráo" --out ~/sdfish-l3/tt/2d   # ~23 phút
+```
