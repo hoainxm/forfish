@@ -19,6 +19,7 @@ export const NHAN = {
   huy: "Huỷ",
   sua: "Sửa",
   xoa: "Xoá",
+  hienLai: "Hiện lại",
   them: "Thêm",
   xong: "Xong",
   tiep: "Tiếp",

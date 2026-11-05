@@ -71,6 +71,19 @@ export interface Nhac {
   day: boolean;
   /** câu hoàn chỉnh, có tên tàu */
   dong: string;
+  /** serial máy (máy GPU gửi kèm từ 06/11) — để bỏ nhắc máy bà con đã xoá; vắng ⇒ khớp theo tên tàu */
+  serial?: string;
+}
+
+// ── MÁY BÀ CON ĐÃ "XOÁ" (0085 stracking_an; anh Long 06/11: "máy nào ẩn thì ko cần thông báo liên quan nữa") ──────────
+// Khoá `${sdt}|${serial}` (và `${sdt}|t:${tên tàu}` cho nhắc chưa có serial). Route nhap đọc bảng, lọc ở đây.
+export const khoaXoa = (sdt: string, serial: string) => `${sdt}|${serial}`;
+export const khoaXoaTen = (sdt: string, ten: string) => `${sdt}|t:${ten}`;
+
+/** Bỏ dòng nhắc của máy SĐT đó đã xoá (theo serial nếu có, không thì theo tên tàu). */
+export function locNhacDaXoa(nhac: readonly Nhac[], daXoa: ReadonlySet<string>): Nhac[] {
+  if (!daXoa.size) return [...nhac];
+  return nhac.filter((n) => !(n.serial ? daXoa.has(khoaXoa(n.sdt, n.serial)) : daXoa.has(khoaXoaTen(n.sdt, n.tau))));
 }
 /** Trần số SĐT nhận nhắc mỗi lượt — lượt đầu ~1.100 dòng nhắc trên cả kho; phần lớn chỉ vào hộp thư (máy chưa bật push). */
 export const TRAN_NHAC_MOI_LUOT = 1500;
@@ -142,19 +155,21 @@ export function tinHetCanhBao(
   tau: readonly TauCuaImei[],
   conMo: ReadonlySet<string>,
   daBao: ReadonlySet<string>,
+  daXoa: ReadonlySet<string> = new Set(),
 ): TinTau[] {
   // máy đã huỷ / thu hồi (lib/stracking/may-da-bo) không báo
   const theoImei = new Map(tau.filter((t) => !laMayDaBo(t)).map((t) => [t.imei, t]));
   // mọi máy của mỗi SĐT (để biết SĐT còn máy nào đang cảnh báo không)
   const mayCuaSdt = new Map<string, Set<string>>();
   for (const t of tau)
-    for (const sdt of nguoiCuaMay(t)) if (sdt) mayCuaSdt.set(sdt, (mayCuaSdt.get(sdt) ?? new Set()).add(t.imei));
+    for (const sdt of nguoiCuaMay(t))
+      if (sdt && !daXoa.has(khoaXoa(sdt, t.serial))) mayCuaSdt.set(sdt, (mayCuaSdt.get(sdt) ?? new Set()).add(t.imei));
   const dongTheoSdt = new Map<string, { ten: string; luc: string }[]>();
   for (const d of vuaDong) {
     const may = theoImei.get(d.imei);
     if (!may) continue;
     for (const sdt of nguoiCuaMay(may)) {
-      if (!sdt || !daBao.has(sdt)) continue;
+      if (!sdt || !daBao.has(sdt) || daXoa.has(khoaXoa(sdt, may.serial))) continue;
       dongTheoSdt.set(sdt, [...(dongTheoSdt.get(sdt) ?? []), { ten: may.ten_tau ?? may.serial, luc: d.luc }]);
     }
   }
@@ -199,6 +214,7 @@ export function gomTinTau(
   tau: readonly TauCuaImei[],
   nowMs: number,
   truoc: readonly CanhBaoMoi[] = [],
+  daXoa: ReadonlySet<string> = new Set(),
 ): TinTau[] {
   // máy đã huỷ / thu hồi (lib/stracking/may-da-bo) không báo
   const theoImei = new Map(tau.filter((t) => !laMayDaBo(t)).map((t) => [t.imei, t]));
@@ -227,7 +243,7 @@ export function gomTinTau(
     const may = theoImei.get(c.imei)!;
     const ten = may.ten_tau ?? may.serial;
     for (const sdt of new Set([may.sdt_chu_tau, may.sdt_thuyen_truong])) {
-      if (!sdt) continue;
+      if (!sdt || daXoa.has(khoaXoa(sdt, may.serial))) continue; // máy SĐT này đã xoá ⇒ không báo
       const cacTau = theoSdt.get(sdt) ?? new Map<string, CanhBaoMoi[]>();
       cacTau.set(ten, [...(cacTau.get(ten) ?? []), c]);
       theoSdt.set(sdt, cacTau);

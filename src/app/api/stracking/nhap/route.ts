@@ -16,6 +16,9 @@ import {
   CUA_SO_MS,
   chiaTinChoSdtPhu,
   ghepNhac,
+  khoaXoa,
+  khoaXoaTen,
+  locNhacDaXoa,
   gomTinTau,
   STRACKING_PUSH_SENT_BY,
   tinHetCanhBao,
@@ -80,10 +83,12 @@ export async function POST(req: Request) {
     }
     moiChen.push(...((data ?? []) as CanhBaoMoi[]));
   }
-  const { nhac: soNhac, nhacSdt, nhacSdtBo, ...thongBao } = await baoCanhBaoMoi(admin, moiChen, (goi.nhac ?? []) as Nhac[]);
+  // Máy bà con đã "xoá" (0085) ⇒ không cảnh báo / nhắc / "đã hết" cho SĐT đó.
+  const daXoa = await docDaXoa(admin);
+  const { nhac: soNhac, nhacSdt, nhacSdtBo, ...thongBao } = await baoCanhBaoMoi(admin, moiChen, (goi.nhac ?? []) as Nhac[], daXoa);
   // Cảnh báo đã CLEAR (biến khỏi danh sách đang mở của S-Tracking) ⇒ đóng + tin "đã hết cảnh báo". Chỉ khi máy thu đọc
   // ĐỦ danh sách (gửi `dangMo`); vắng ⇒ không đóng gì.
-  const dong = Array.isArray(goi.dangMo) ? await dongCanhBaoDaClear(admin, goi.dangMo as { imei: string; loai: string; luc: string }[]) : null;
+  const dong = Array.isArray(goi.dangMo) ? await dongCanhBaoDaClear(admin, goi.dangMo as { imei: string; loai: string; luc: string }[], daXoa) : null;
 
   // Sổ + dọn: hỏng chỉ log — dữ liệu đã ghi ở trên.
   const { error: eSo } = await admin.from("stracking_lan_dong_bo").insert({
@@ -124,6 +129,7 @@ const khoaCb = (c: { imei: string; loai: string; luc: string }) => `${c.imei}|${
 async function dongCanhBaoDaClear(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
   dangMo: { imei: string; loai: string; luc: string }[],
+  daXoa: ReadonlySet<string>,
 ): Promise<{ dong: number; tin: number; day: number }> {
   const kq = { dong: 0, tin: 0, day: 0 };
   try {
@@ -194,7 +200,7 @@ async function dongCanhBaoDaClear(
         if (!/đã hết cảnh báo$/.test(m.title as string)) daBao.add(p);
       }
     }
-    const tinDong = tinHetCanhBao(imeiHet.map((imei) => ({ imei, luc: nowIso })), ganSdtThem(tau, phuCua), conMoImei, daBao);
+    const tinDong = tinHetCanhBao(imeiHet.map((imei) => ({ imei, luc: nowIso })), ganSdtThem(tau, phuCua), conMoImei, daBao, daXoa);
     // Đã tính đủ người nhận ở trên ⇒ KHÔNG nhân tin cho SĐT phụ lần nữa.
     const r = await guiTin(admin, tinDong, false);
     kq.tin = r.tin;
@@ -209,6 +215,37 @@ async function dongCanhBaoDaClear(
 const LO_TRA = 300;
 
 /**
+ * Máy bà con đã "xoá" (stracking_an, 0085) ⇒ tập khoá `sdt|serial` + `sdt|t:tên tàu` (nhắc chưa có serial).
+ * Hỏng ⇒ tập rỗng + log: thà báo thừa một lượt còn hơn chặn cả cảnh báo SOS.
+ */
+async function docDaXoa(admin: NonNullable<ReturnType<typeof createAdminClient>>): Promise<Set<string>> {
+  const out = new Set<string>();
+  try {
+    const hang: { sdt: string; serial: string }[] = [];
+    for (let tu = 0; ; tu += 1000) {
+      const { data, error } = await admin.from("stracking_an").select("sdt,serial").range(tu, tu + 999);
+      if (error) throw error;
+      hang.push(...((data ?? []) as { sdt: string; serial: string }[]));
+      if (!data || data.length < 1000) break;
+    }
+    const tenCua = new Map<string, string>();
+    const serials = [...new Set(hang.map((h) => h.serial))];
+    for (let i = 0; i < serials.length; i += LO_TRA) {
+      const { data } = await admin.from("stracking_thiet_bi").select("serial,ten_tau").in("serial", serials.slice(i, i + LO_TRA));
+      for (const t of data ?? []) if (t.ten_tau) tenCua.set(t.serial as string, t.ten_tau as string);
+    }
+    for (const h of hang) {
+      out.add(khoaXoa(h.sdt, h.serial));
+      const ten = tenCua.get(h.serial);
+      if (ten) out.add(khoaXoaTen(h.sdt, ten));
+    }
+  } catch (e) {
+    console.error("[stracking] đọc máy đã xoá hỏng:", e instanceof Error ? e.message : e);
+  }
+  return out;
+}
+
+/**
  * Cảnh báo MỚI ⇒ hộp thư (push_messages, target account) + Web Push, gộp 1 tin/SĐT (luật ở lib/stracking/thong-bao).
  * Best-effort: hỏng chỉ log, KHÔNG làm 503 — dữ liệu đã ghi xong, 503 sẽ khiến máy thu gửi lại cả lô.
  * nợ: không cập nhật cột `sent` từng tin (đếm tổng ở log) — đủ khi cần soi thống kê đẩy ở /quan-tri thì ghi theo id.
@@ -216,7 +253,8 @@ const LO_TRA = 300;
 async function baoCanhBaoMoi(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
   moiChen: CanhBaoMoi[],
-  nhac: Nhac[],
+  nhacGoc: Nhac[],
+  daXoa: ReadonlySet<string>,
 ): Promise<{
   tin: number;
   may: number;
@@ -226,16 +264,18 @@ async function baoCanhBaoMoi(
   nhacSdt: string[];
   nhacSdtBo: string[];
 }> {
-  const kq = { tin: 0, may: 0, day: 0, nhac: nhac.length ? null : 0, nhacSdt: [] as string[], nhacSdtBo: [] as string[] };
+  // Nhắc của máy đã xoá: bỏ, nhưng VẪN tính là đã xử lý (máy GPU đánh dấu, khỏi gửi lại mãi).
+  const nhac = locNhacDaXoa(nhacGoc, daXoa);
+  const kq = { tin: 0, may: 0, day: 0, nhac: nhacGoc.length ? null : 0, nhacSdt: [] as string[], nhacSdtBo: [] as string[] };
   // Tin cảnh báo (hỏng ⇒ vẫn gửi nhắc)
   let tinCanhBao: TinTau[] = [];
-  if (moiChen.length) tinCanhBao = await tinTuCanhBao(admin, moiChen);
-  if (!tinCanhBao.length && !nhac.length) return kq;
+  if (moiChen.length) tinCanhBao = await tinTuCanhBao(admin, moiChen, daXoa);
+  if (!tinCanhBao.length && !nhac.length) return { ...kq, nhac: nhacGoc.length };
   try {
     const g = ghepNhac(tinCanhBao, nhac);
     Object.assign(kq, await guiTin(admin, g.tin));
     // guiTin ném khi ghi hộp thư hỏng ⇒ tới đây là nhắc đã vào hộp thư
-    kq.nhac = g.soDongNhac;
+    kq.nhac = g.soDongNhac + (nhacGoc.length - nhac.length);
     kq.nhacSdt = g.nhacSdt;
     kq.nhacSdtBo = g.nhacSdtBo;
   } catch (e) {
@@ -249,7 +289,11 @@ async function baoCanhBaoMoi(
 }
 
 /** Cảnh báo vừa chèn ⇒ tin gộp (chống lặp 6 giờ). Hỏng ⇒ [] + log (nhắc vẫn đi). */
-async function tinTuCanhBao(admin: NonNullable<ReturnType<typeof createAdminClient>>, moiChen: CanhBaoMoi[]): Promise<TinTau[]> {
+async function tinTuCanhBao(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  moiChen: CanhBaoMoi[],
+  daXoa: ReadonlySet<string>,
+): Promise<TinTau[]> {
   try {
     const imeis = [...new Set(moiChen.map((c) => c.imei))];
     const tau: TauCuaImei[] = [];
@@ -275,7 +319,7 @@ async function tinTuCanhBao(admin: NonNullable<ReturnType<typeof createAdminClie
       if (error) throw error;
       for (const p of (data ?? []) as CanhBaoMoi[]) if (!khoaMoi.has(`${p.imei}|${p.loai}|${Date.parse(p.luc)}`)) truoc.push(p);
     }
-    return gomTinTau(moiChen, tau, nowMs, truoc);
+    return gomTinTau(moiChen, tau, nowMs, truoc, daXoa);
   } catch (e) {
     console.error("[stracking] tính tin cảnh báo hỏng:", e instanceof Error ? e.message : e);
     return [];

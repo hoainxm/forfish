@@ -2,7 +2,7 @@
 // HOẶC SĐT thuyền trưởng = SĐT của phiên (lib/api-identity — KHÔNG nhận SĐT từ máy khách, không tra tàu người khác),
 // kèm hạn cước + cảnh báo TRONG NGÀY (giờ VN) + giờ đồng bộ thành công gần nhất + YÊU CẦU GIA HẠN đang chạy
 // của từng tàu (DB chung qua sdfish-renewal `list`, đồng hồ 6 s — hỏng/chậm thì `giaHan: null`, không chặn).
-// Trả { ok, capNhatLuc, giaHanMo, tau: [...], canhBao: [...] }. Chưa đăng nhập 401 · hạ tầng hỏng 503 (máy giữ bản đã lưu).
+// Trả { ok, capNhatLuc, giaHanMo, tau: [...], canhBao: [...], daXoa: [{serial, tenTau}] (máy bà con tự xoá — 0085) }. Chưa đăng nhập 401 · hạ tầng hỏng 503 (máy giữ bản đã lưu).
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dauNgayVnIso } from "@/lib/stracking/dong-bo.mjs";
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
   const loc = locMayTheoSdt(sdts);
   if (!loc) return Response.json({ ok: true, capNhatLuc: null, giaHanMo, tau: [], canhBao: [] });
 
-  const [tauR, soR, yeuCau] = await Promise.all([
+  const [tauR, soR, yeuCau, xoaR] = await Promise.all([
     admin
       .from("stracking_thiet_bi")
       .select("serial, imei, ten_tau, chu_tau, sdt_chu_tau, thuyen_truong, sdt_thuyen_truong, dang_ky_luc, het_han, tam_ngung_tu, tam_ngung_den, trong_bo, dong_bo_tcts, nhom, tao_luc, cap_nhat_nguon, dong_bo_luc")
@@ -38,11 +38,15 @@ export async function GET(req: Request) {
       .limit(TRAN_TAU),
     admin.from("stracking_lan_dong_bo").select("luc").eq("trang_thai", "ok").order("luc", { ascending: false }).limit(1),
     giaHanMo ? listRenewalRequests(sdt, GIA_HAN_MS) : Promise.resolve(null),
+    // Máy bà con tự "xoá" (0085) — theo mọi SĐT của tài khoản. Hỏng ⇒ coi như chưa xoá máy nào (log), không chặn thẻ.
+    admin.from("stracking_an").select("serial").in("sdt", sdts),
   ]);
+  if (xoaR.error) console.error("[stracking] đọc máy đã xoá hỏng:", xoaR.error.message);
+  const daXoa = new Set((xoaR.data ?? []).map((x) => x.serial as string));
   const nowMs = Date.now();
   // Máy đã huỷ / thu hồi (tên DE…/Thu…, nhóm DELETE) hoặc bỏ đọng (>1 năm không cập nhật + hết hạn) — lib/stracking/may-da-bo
   // — KHÔNG hiện: bà con không còn máy đó.
-  const conDung = (tauR.data ?? []).filter(
+  const conMay = (tauR.data ?? []).filter(
     (t) =>
       !laMayDaBo(
         {
@@ -54,6 +58,11 @@ export async function GET(req: Request) {
         nowMs,
       ),
   );
+  // Bà con tự xoá ⇒ không hiện; trả riêng tên để thẻ có "Hiện lại".
+  const conDung = conMay.filter((t) => !daXoa.has(t.serial as string));
+  const mayDaXoa = conMay
+    .filter((t) => daXoa.has(t.serial as string))
+    .map((t) => ({ serial: t.serial as string, tenTau: (t.ten_tau as string | null) ?? null }));
   // Ghép yêu cầu ↔ máy theo SERIAL; yêu cầu cũ chưa có serial thì theo tên, nhưng KHÔNG khi tên trùng trong máy của SĐT này.
   const tenTrung = new Map(
     danhDauTenTrung(conDung.map((t) => ({ serial: t.serial as string, tenTau: (t.ten_tau as string | null) ?? null }))).map(
@@ -119,7 +128,7 @@ export async function GET(req: Request) {
   }
 
   return Response.json(
-    { ok: true, capNhatLuc: (soR.data?.[0]?.luc as string | undefined) ?? null, giaHanMo, tau, canhBao },
+    { ok: true, capNhatLuc: (soR.data?.[0]?.luc as string | undefined) ?? null, giaHanMo, tau, canhBao, daXoa: mayDaXoa },
     { headers: { "cache-control": "private, no-store" } },
   );
 }

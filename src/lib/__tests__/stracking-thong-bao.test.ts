@@ -4,6 +4,9 @@ import {
   TRAN_NHAC_MOI_LUOT,
   TRAN_TIN_MOI_LUOT,
   ghepNhac,
+  khoaXoa,
+  khoaXoaTen,
+  locNhacDaXoa,
   gomTinTau,
   tinHetCanhBao,
   type Nhac,
@@ -66,6 +69,20 @@ describe("cảnh báo thông minh — gộp thông báo tàu", () => {
       NOW,
     );
     expect(t.body).toBe("SOS 16:00".replace(/^/, "BV-5678-TS: "));
+  });
+
+  it("máy bà con đã XOÁ (0085) ⇒ SĐT đó không nhận cảnh báo / 'đã hết' / nhắc; người khác cùng máy vẫn nhận", () => {
+    const daXoa = new Set([khoaXoa("0912345678", "S1"), khoaXoaTen("0912345678", "BV-1234-TS")]);
+    const tin = gomTinTau([{ imei: "1", loai: "SOS", luc: "2026-11-05T09:00:00Z", muc: BD }], tau, NOW, [], daXoa);
+    expect(tin.map((t) => t.phone)).toEqual(["0987654321"]); // thuyền trưởng vẫn nhận
+    const het = tinHetCanhBao([{ imei: "1", luc: "2026-11-05T09:30:00Z" }], tau, new Set(), new Set(["0912345678", "0987654321"]), daXoa);
+    expect(het.map((t) => t.phone)).toEqual(["0987654321"]);
+    const nhac: Nhac[] = [
+      { sdt: "0912345678", tau: "BV-1234-TS", loai: "han-sap-het", day: false, dong: "a", serial: "S1" },
+      { sdt: "0912345678", tau: "BV-1234-TS", loai: "han-sap-het", day: false, dong: "b" }, // chưa có serial ⇒ khớp tên
+      { sdt: "0912345678", tau: "BV-5678-TS", loai: "han-sap-het", day: false, dong: "c", serial: "S2" },
+    ];
+    expect(locNhacDaXoa(nhac, daXoa).map((n) => n.dong)).toEqual(["c"]);
   });
 
   it("máy đã huỷ / thu hồi (tên DE…) ⇒ không báo", () => {

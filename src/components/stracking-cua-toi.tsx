@@ -8,6 +8,7 @@ import { tokenHeader } from "@/lib/device-token-store";
 import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { PlusIcon } from "@/components/icons";
 import { CallButton } from "@/components/ui/primitives";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import type { GiaHanTau } from "@/lib/renewal";
 import { homNayVn, trangThaiHan } from "@/lib/stracking/dong-bo.mjs";
@@ -63,6 +64,12 @@ interface BanST {
   giaHanMo?: boolean;
   tau: TauST[];
   canhBao: CanhBaoST[];
+  /** Máy bà con tự "xoá" (0085, hệ thống chỉ ẩn) — để có "Hiện lại". Vắng (bản lưu cũ) = []. */
+  daXoa?: MayDaXoa[];
+}
+interface MayDaXoa {
+  serial: string;
+  tenTau: string | null;
 }
 
 function docBan(): BanST | null {
@@ -140,6 +147,11 @@ export function StrackingCuaToi({
 }) {
   const [ban, setBan] = useState<BanST | null>(null);
   const [trangThai, setTrangThai] = useState<"dang-tai" | "xong" | "mat-song" | "chua-dang-nhap">("dang-tai");
+  /*  XOÁ MÁY (anh Long 06/11: "ko gọi là ẩn mà là xoá, mặc dù trong hệ thống là ẩn"; máy đã xoá không còn thông báo).
+      Cần sóng: mất sóng ⇒ báo một dòng, không đổi gì. Xong ⇒ dời máy sang "Đã xoá" ngay + ghi bản lưu. */
+  const [canXoa, setCanXoa] = useState<TauST | null>(null);
+  const [loiXoa, setLoiXoa] = useState<string | null>(null);
+  const [lanTai, setLanTai] = useState(0);
   const onGiaHanMoRef = useRef(onGiaHanMo);
   useEffect(() => {
     onGiaHanMoRef.current = onGiaHanMo;
@@ -161,6 +173,7 @@ export function StrackingCuaToi({
           giaHanMo?: boolean;
           tau?: TauST[];
           canhBao?: CanhBaoST[];
+          daXoa?: MayDaXoa[];
         } | null;
         if (!song) return;
         if (!r.ok || !j?.ok || !Array.isArray(j.tau) || !Array.isArray(j.canhBao)) return setTrangThai("mat-song");
@@ -171,6 +184,7 @@ export function StrackingCuaToi({
           giaHanMo: j.giaHanMo !== false,
           tau: j.tau,
           canhBao: j.canhBao,
+          daXoa: Array.isArray(j.daXoa) ? j.daXoa : [],
         };
         setBan(moi);
         setTrangThai("xong");
@@ -186,7 +200,49 @@ export function StrackingCuaToi({
     return () => {
       song = false;
     };
-  }, []);
+  }, [lanTai]);
+
+  function luuBan(b: BanST) {
+    setBan(b);
+    try {
+      localStorage.setItem(STRACKING_CACHE_KEY, JSON.stringify(b));
+    } catch {
+      /* kho đầy/riêng tư — chỉ không giữ cho lúc mất sóng */
+    }
+  }
+
+  async function goiXoa(serial: string, cach: "POST" | "DELETE"): Promise<boolean> {
+    try {
+      const r = await fetch(apiUrl("/api/stracking/an"), {
+        method: cach,
+        headers: { "content-type": "application/json", ...tokenHeader() },
+        body: JSON.stringify({ serial }),
+        signal: timeoutSignal(HET_GIO_MS),
+      });
+      const j = (await r.json().catch(() => null)) as { ok?: boolean } | null;
+      return r.ok && !!j?.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function xoaMay(t: TauST) {
+    setCanXoa(null);
+    setLoiXoa(null);
+    if (!(await goiXoa(t.serial, "POST"))) return setLoiXoa("Chưa xoá được — cần có sóng, bà con thử lại sau.");
+    if (ban)
+      luuBan({
+        ...ban,
+        tau: ban.tau.filter((x) => x.serial !== t.serial),
+        daXoa: [...(ban.daXoa ?? []), { serial: t.serial, tenTau: t.tenTau }],
+      });
+  }
+
+  async function hienLai(m: MayDaXoa) {
+    setLoiXoa(null);
+    if (!(await goiXoa(m.serial, "DELETE"))) return setLoiXoa("Chưa hiện lại được — cần có sóng, bà con thử lại sau.");
+    setLanTai((n) => n + 1); // tải lại để máy về đủ hạn, cảnh báo, gia hạn
+  }
 
   const homNay = homNayVn();
 
@@ -205,14 +261,58 @@ export function StrackingCuaToi({
     .filter(Boolean)
     .join(" · ");
 
+  const daXoa = ban.daXoa ?? [];
+  const phanDuoi = (
+    <>
+      {loiXoa && (
+        <p role="alert" className="mt-2 text-[0.875rem] font-semibold text-danger">
+          {loiXoa}
+        </p>
+      )}
+      {daXoa.length > 0 && (
+        <details className="mt-2">
+          <summary className="min-h-[2.75rem] cursor-pointer py-2 text-[0.875rem] font-semibold text-muted">Đã xoá {daXoa.length} máy</summary>
+          <ul className="space-y-1">
+            {daXoa.map((m) => (
+              <li key={m.serial} className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate text-[0.875rem] text-muted">{m.tenTau ?? m.serial}</span>
+                <button
+                  type="button"
+                  onClick={() => hienLai(m)}
+                  className="min-h-[2.75rem] rounded-full px-3 text-[0.875rem] font-semibold text-sea"
+                >
+                  {NHAN.hienLai}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {canXoa && (
+        <ConfirmDialog
+          title={`Xoá tàu ${canXoa.tenTau ?? canXoa.serial} khỏi danh sách?`}
+          message="Máy này không còn hiện ở đây và bà con không nhận thông báo của nó nữa. Lỡ xoá nhầm thì bấm Hiện lại."
+          confirmLabel={NHAN.xoa}
+          onCancel={() => setCanXoa(null)}
+          onConfirm={() => xoaMay(canXoa)}
+        />
+      )}
+    </>
+  );
+
   if (!ban.tau.length) {
     return (
       // Gia hạn CHỈ cho máy có trên S-Tracking của SĐT này ⇒ không có máy thì lối duy nhất là gọi SDVICO.
-      <div className="mt-3 flex items-stretch gap-2">
-        <p className="flex min-w-0 flex-1 items-center text-[0.875rem] text-muted">
-          Chưa thấy máy giám sát hành trình nào đăng ký số điện thoại này. Máy đăng ký số khác thì gọi SDVICO để cập nhật và gia hạn.
-        </p>
-        <CallButton phone={SDVICO_HOTLINE} label={NHAN.goiSdvico} />
+      <div className="mt-3">
+        <div className="flex items-stretch gap-2">
+          <p className="flex min-w-0 flex-1 items-center text-[0.875rem] text-muted">
+            {daXoa.length
+              ? "Bà con đã xoá hết máy khỏi danh sách."
+              : "Chưa thấy máy giám sát hành trình nào đăng ký số điện thoại này. Máy đăng ký số khác thì gọi SDVICO để cập nhật và gia hạn."}
+          </p>
+          <CallButton phone={SDVICO_HOTLINE} label={NHAN.goiSdvico} />
+        </div>
+        {phanDuoi}
       </div>
     );
   }
@@ -274,6 +374,16 @@ export function StrackingCuaToi({
                   ))}
                 </ul>
               )}
+              {/* Máy đã huỷ / bán mà hệ thống chưa nhận ra ⇒ bà con tự xoá (anh Hoà đề xuất, anh Long duyệt 06/11). */}
+              <div className="mt-1 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setCanXoa(t)}
+                  className="-mr-2 min-h-[2.75rem] rounded-full px-3 text-[0.875rem] font-semibold text-muted"
+                >
+                  {NHAN.xoa}
+                </button>
+              </div>
             </li>
           );
         })}
@@ -286,6 +396,7 @@ export function StrackingCuaToi({
           <CallButton phone={SDVICO_HOTLINE} label={NHAN.goiSdvico} />
         </div>
       )}
+      {phanDuoi}
     </div>
   );
 }
