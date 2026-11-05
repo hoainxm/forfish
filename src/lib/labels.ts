@@ -183,6 +183,9 @@ export const NHAN = {
   anh: "Ảnh",
   canSong: "Cần sóng",
   dongY: "Đồng ý",
+  // Pháp lý (2026-11-05): link Điều khoản sử dụng · Chính sách quyền riêng tư
+  dieuKhoan: "Điều khoản",
+  riengTu: "Riêng tư",
   traLoi: "Trả lời",
   dangLai: "Đăng lại",
   guiDi: "Gửi đi",

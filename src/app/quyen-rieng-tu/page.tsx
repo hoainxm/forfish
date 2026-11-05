@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
 
@@ -37,7 +38,7 @@ export const metadata = {
   Cập nhật nội dung ở ĐÂY thì đổi luôn "Cập nhật lần cuối" bên dưới.
 */
 
-const UPDATED = "30/10/2026";
+const UPDATED = "05/11/2026";
 
 function Section({
   id,
@@ -104,6 +105,32 @@ export default function QuyenRiengTuPage() {
               không lưu lại, không gắn với tài khoản.
             </li>
             <li>Muốn xoá tài khoản: gọi SDVICO {SDVICO_HOTLINE_DISPLAY}.</li>
+          </ul>
+        </Section>
+
+        {/*  CĂN CỨ + NHÓM NHẠY CẢM + NƠI LƯU (2026-11-05, rà Luật BVDLCN 91/2025/QH15 + NĐ 356/2025/NĐ-CP). Luật buộc:
+             nói rõ ai là bên kiểm soát dữ liệu, báo trước dữ liệu NHẠY CẢM (NĐ 356 xếp ảnh CCCD + dữ liệu theo dõi hoạt
+             động trên mạng xã hội vào nhóm này — sổ thuyền viên và "bài đã xem trên Kairos" dính cả hai), và nói nơi lưu
+             khi dữ liệu ra khỏi Việt Nam (Supabase ap-northeast-2 = Seoul). */}
+        <Section id="can-cu" title="Ai giữ dữ liệu, theo luật nào">
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>
+              <b>Công ty SDVICO</b> là bên kiểm soát và xử lý dữ liệu cá nhân của bà con trong app, theo{" "}
+              <b>Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15</b> và <b>Nghị định 356/2025/NĐ-CP</b>.
+            </li>
+            <li>
+              Bà con đồng ý bằng cách <b>tick ô khi đăng ký</b> hoặc <b>bấm Đồng ý</b> khi vào app lần đầu. SDVICO lưu lại
+              lúc bà con đồng ý và bản điều khoản đã đồng ý. Không bấm thì không coi là đồng ý.
+            </li>
+            <li>
+              <b>Dữ liệu nhạy cảm</b> app có giữ: <b>ảnh giấy tờ</b> và <b>số CCCD</b> trong sổ thuyền viên / tủ giấy tờ (do
+              bà con tự thêm), và <b>bài bà con đã xem trên Kairos</b>. Lộ ra thì có thể bị mạo danh, nên SDVICO chỉ cho
+              chính chủ tài khoản xem, truyền và lưu có mã hoá.
+            </li>
+            <li>
+              <b>Nơi lưu</b>: máy chủ cơ sở dữ liệu (Supabase) đặt tại <b>Hàn Quốc</b>; trang web app chạy trên máy chủ ở Việt
+              Nam. Dữ liệu ra nước ngoài chỉ để lưu trữ cho app chạy, không giao cho ai dùng việc khác.
+            </li>
           </ul>
         </Section>
 
@@ -225,16 +252,39 @@ export default function QuyenRiengTuPage() {
               <a href={`tel:${SDVICO_HOTLINE}`} className="inline-flex min-h-[3.5rem] items-center font-semibold text-sea underline">
                 {SDVICO_HOTLINE_DISPLAY}
               </a>{" "}
-              — sẽ xoá trong thời gian hợp lý.
+              — xoá xong trong 20 ngày.
             </li>
           </ul>
         </Section>
 
         <Section id="quyen" title="5. Quyền lợi của bà con">
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>Xem, sửa dữ liệu của mình: làm thẳng trong app.</li>
+            <li>
+              <b>Rút lại đồng ý</b>, yêu cầu ngừng hoặc hạn chế dùng dữ liệu, <b>xin bản sao</b>, hoặc{" "}
+              <b>xoá tài khoản và dữ liệu</b>: gọi SDVICO. SDVICO trả lời trong <b>2 ngày làm việc</b>, làm xong trong{" "}
+              <b>15 ngày</b> (rút đồng ý) hoặc <b>20 ngày</b> (xoá dữ liệu).
+            </li>
+            <li>
+              Không muốn SDVICO gọi tư vấn sản phẩm: báo SDVICO, SDVICO ngừng gọi — bà con vẫn dùng app như thường.
+            </li>
+            <li>
+              Rút đồng ý thì những việc cần dữ liệu (giữ sổ trên máy chủ, đăng nhập) sẽ không làm được nữa; dữ liệu đã dùng
+              trước đó vẫn hợp lệ.
+            </li>
+            <li>
+              Dữ liệu bị lộ: SDVICO báo cơ quan chức năng theo luật và báo bà con khi việc lộ có thể gây hại.
+            </li>
+            <li>
+              App dành cho người trưởng thành làm nghề biển, <b>sản phẩm không định hướng tới trẻ em</b>.
+            </li>
+          </ul>
           <p>
-            Bà con có quyền xem, sửa, hoặc yêu cầu xoá dữ liệu của mình. Sửa trực
-            tiếp trong app; xoá tài khoản thì gọi SDVICO. App dành cho người trưởng
-            thành làm nghề biển, <b>sản phẩm không định hướng tới trẻ em</b>.
+            Xem thêm{" "}
+            <Link href="/dieu-khoan" className="inline-flex min-h-[3.5rem] items-center font-semibold text-sea underline">
+              Điều khoản sử dụng
+            </Link>
+            .
           </p>
         </Section>
 
@@ -294,7 +344,9 @@ export default function QuyenRiengTuPage() {
             advertising or analytics SDKs are present. Data is shared only with Supabase (auth
             &amp; hosting), SDVICO&apos;s internal CRM, and public weather/marine
             APIs which receive <b>coordinates only</b>. To delete your account,
-            call SDVICO {SDVICO_HOTLINE_DISPLAY}. Last updated: {UPDATED}.
+            call SDVICO {SDVICO_HOTLINE_DISPLAY}. SDVICO is the data controller under Vietnam&apos;s Personal Data
+            Protection Law No. 91/2025/QH15 and Decree 356/2025/ND-CP; consent is recorded when you tick the box or tap
+            Agree. The database is hosted in South Korea (Supabase). Last updated: {UPDATED}.
           </p>
         </Section>
 
