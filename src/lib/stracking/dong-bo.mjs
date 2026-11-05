@@ -13,8 +13,8 @@
 //   - POST /report/eventAlarmList (form, HTML) — cảnh báo mới nhất (SOS, vượt biên, mất GPS, pin…).
 // Đăng nhập có reCAPTCHA ⇒ máy KHÔNG tự đăng nhập: người đăng nhập tay một lần trong hồ sơ trình duyệt của máy GPU.
 
-/** Ba đường DUY NHẤT máy thu được gọi. Trang có cả form xoá thiết bị (/delDeviceAis) — cấm tuyệt đối. */
-export const DUONG_DOC = Object.freeze(["/report/expiredDevice", "/deviceAisList", "/report/eventAlarmList"]);
+/** Bốn đường DUY NHẤT máy thu được gọi (thêm báo cáo mất kết nối 05/11 cho nhắc nhở). Trang có cả form xoá thiết bị (/delDeviceAis) — cấm tuyệt đối. */
+export const DUONG_DOC = Object.freeze(["/report/expiredDevice", "/deviceAisList", "/report/eventAlarmList", "/getListDeviceDisconnect"]);
 export const GOC_STRACKING = "https://stracking.viettel.io";
 
 export function laDuongDoc(duong) {
@@ -83,6 +83,19 @@ export function thanCanhBao(trang, co = 1000) {
     ...dieuKien(6, "logDate", "Date", "between"),
     ...dieuKien(7, "logDate", "Date", "<="),
   ]).toString();
+}
+
+/**
+ * JSON /getListDeviceDisconnect — báo cáo MẤT KẾT NỐI, chỉ NGOÀI KHƠI (inOutShore "2"), mới bắt đầu trước. Trang trả theo
+ * con trỏ thời gian; MỘT trang 1 000 dòng ≈ 22 ngày gần nhất (đo 05/11: 0,9 s, 67 đợt đang mất) — đủ cho mốc 6 giờ.
+ * Trang ĐẦU phải đủ tham số con trỏ như trang tự gửi (page "1", pageSkip "0", direction "0", isFirstPage "true",
+ * isLastPage "false"); để trống ⇒ máy chủ trả HTTP 500 (đo thật 05/11).
+ */
+export function thanMkn(co = 1000) {
+  return JSON.stringify({
+    data: { imei: "", serial: "", deviceName: "", fromdate: "", todate: "", fromtime: "", totime: "", inOutShore: "2", iridiumStatus: "", isExpired: "" },
+    page: "1", pageSkip: "0", pageSize: String(co), pagingStartDate: "", pagingEndDate: "", direction: "0", isFirstPage: "true", isLastPage: "false",
+  });
 }
 
 /** JSON /report/expiredDevice — isLand "" = cả trong bờ lẫn ngoài khơi (đo 05/11: "" và "0" đều 4 078, "1" chỉ 2 890). */
@@ -488,8 +501,27 @@ export function kiemCanhBao(r) {
   return out;
 }
 
+// ── NHẮC NHỞ (lib/stracking/nhac-nho) — kiểm ở đây để kiemGoiNhap dùng, tránh import vòng ──
+const LOAI_NHAC = new Set(["mkn-sap-6h", "mkn-qua-6h", "tcts-that-bai", "han-sap-het", "han-qua-han"]);
+const TRAN_NHAC = 20_000;
+
+/** Máy chủ kiểm lại `nhac[]` do máy GPU tính (lib/stracking/nhac-nho viecNhac → nhacTheoNguoi). Hàng sai bị bỏ. Vắng ⇒ []. */
+export function kiemNhac(ds) {
+  if (!Array.isArray(ds)) return [];
+  const out = [];
+  for (const r of ds.slice(0, TRAN_NHAC)) {
+    if (!r || typeof r !== "object") continue;
+    if (typeof r.sdt !== "string" || !/^0[1-9]\d{8}$/.test(r.sdt)) continue;
+    if (!LOAI_NHAC.has(r.loai)) continue;
+    if (typeof r.dong !== "string" || !r.dong.trim() || r.dong.length > 400) continue;
+    const tau = typeof r.tau === "string" ? r.tau.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 120) : "";
+    out.push({ sdt: r.sdt, tau, loai: r.loai, day: r.day === true, dong: r.dong.replace(/[\u0000-\u001f\u007f]/g, " ").trim() });
+  }
+  return out;
+}
+
 /**
- * Gói POST /api/stracking/nhap: { luc, trangThai: "ok"|"het-phien"|"loi", loi?, tong?, thietBi[], canhBao[] }.
+ * Gói POST /api/stracking/nhap: { luc, trangThai: "ok"|"het-phien"|"loi", loi?, tong?, thietBi[], canhBao[], dangMo?, nhac? }.
  * Trả { ok, goi?, code?, boQua, boCu } — hàng hỏng bị BỎ (đếm ở boQua), không làm hỏng cả gói.
  * Cảnh báo CHỈ TRONG NGÀY giờ VN (anh Long 05/11: "xóa đi, cái nào trong ngày thôi"): cũ hơn 00:00 hôm nay bị
  * bỏ (đếm ở boCu) — S-Tracking trả lại cả cảnh báo cũ (tới 2018) mỗi lượt, đưa lên là dội thông báo cũ cho bà con.
@@ -555,6 +587,8 @@ export function kiemGoiNhap(b, now = Date.now()) {
       thietBi,
       canhBao,
       dangMo,
+      // Nhắc nhở mất kết nối / đồng bộ Tổng cục / hạn cước — một dòng/tàu/người; route gộp với cảnh báo thành 1 tin/SĐT.
+      nhac: kiemNhac(b.nhac),
     },
   };
 }

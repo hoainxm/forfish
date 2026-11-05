@@ -51,7 +51,9 @@ import {
   thanCanhBao,
   thanHetHan,
   thanPhuongTien,
+  thanMkn,
 } from "../src/lib/stracking/dong-bo.mjs";
+import { docMkn, nhacTheoNguoi, viecNhac } from "../src/lib/stracking/nhac-nho.mjs";
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 const CO_TRANG = 1000;
@@ -95,6 +97,8 @@ const THU = co.has("--thu");
 const DANG_NHAP_TAY = co.has("--dang-nhap");
 const GUI_LAI = co.has("--gui-lai");
 const DAY_DU = co.has("--day-du");
+/** Lượt SIÊU NHẸ mỗi giờ: chỉ đọc mất kết nối ngoài khơi ⇒ nhắc mốc 6 giờ (timer stracking-mkn). */
+const CHI_MKN = co.has("--mkn");
 const ANH = co.has("--anh");
 
 class HetPhien extends Error {}
@@ -134,6 +138,8 @@ function moKho(file) {
       so_gui INTEGER, loi TEXT
     );
     CREATE TABLE IF NOT EXISTS trang_thai (khoa TEXT PRIMARY KEY, gia_tri TEXT);
+    -- Sổ ĐÃ NHẮC (lib/stracking/nhac-nho): một việc (khoa) cho một người (sdt) chỉ nhắc một lần.
+    CREATE TABLE IF NOT EXISTS da_nhac (khoa TEXT NOT NULL, sdt TEXT NOT NULL, loai TEXT, luc TEXT NOT NULL, PRIMARY KEY (khoa, sdt));
   `);
   // Kho đời trước chưa có cột đánh dấu "đang trong báo cáo dịch vụ" (lượt nhẹ cần để biết máy nào vừa rời báo cáo).
   const cot = db.prepare("PRAGMA table_info(thiet_bi)").all().map((r) => r.name);
@@ -318,6 +324,58 @@ async function layCanhBao(page) {
   return { ds: out, tong };
 }
 
+/** Đợt mất kết nối NGOÀI KHƠI (một trang ≈ 22 ngày gần nhất). */
+async function layMkn(page) {
+  // Máy chủ chỉ trả báo cáo này khi phiên ĐÃ MỞ trang báo cáo mất kết nối (gọi từ trang khác ⇒ HTTP 500 — đo 05/11).
+  if (!/\/reportDisconnect/.test(new URL(page.url()).pathname)) {
+    await page.goto(`${GOC_STRACKING}/reportDisconnect`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    if (await canDangNhap(page)) throw new HetPhien("phiên hết khi mở báo cáo mất kết nối");
+  }
+  const text = await goi(page, "/getListDeviceDisconnect", thanMkn(1000), "json");
+  let j;
+  try {
+    j = JSON.parse(text);
+  } catch {
+    throw new HetPhien("báo cáo mất kết nối không trả JSON (phiên hết?)");
+  }
+  if (!j?.success || !Array.isArray(j?.content?.data)) throw new Error(`báo cáo mất kết nối trả lỗi: ${String(j?.errorString ?? "").slice(0, 120)}`);
+  return j.content.data.map(docMkn).filter(Boolean);
+}
+
+/**
+ * Việc nhắc CHƯA nhắc (lọc qua sổ da_nhac). Tính trên TOÀN BỘ kho (không chỉ máy của lượt này) — mất kết nối / Tổng cục /
+ * hạn là trạng thái của mọi máy. `chiMkn` ⇒ chỉ nhắc mất kết nối (lượt mỗi giờ).
+ */
+function tinhNhac(db, mkn, chiMkn) {
+  const thietBi = [];
+  for (const r of db.prepare("SELECT tho FROM thiet_bi").all()) {
+    try {
+      thietBi.push(JSON.parse(r.tho));
+    } catch {
+      /* bản thô hỏng ⇒ bỏ máy này lượt này */
+    }
+  }
+  let viec = viecNhac({ thietBi, mkn });
+  if (chiMkn) viec = viec.filter((v) => v.loai.startsWith("mkn-"));
+  const daCo = db.prepare("SELECT 1 FROM da_nhac WHERE khoa = ? AND sdt = ?");
+  const out = [];
+  for (const v of viec) for (const sdt of v.nguoi) if (!daCo.get(v.khoa, sdt)) out.push({ khoa: v.khoa, ...nhacTheoNguoi([{ ...v, nguoi: [sdt] }])[0] });
+  return out;
+}
+
+/** Đánh dấu đã nhắc — CHỈ khi máy chủ xác nhận nhận nhắc (`ghi.nhac` là số); chưa xác nhận ⇒ lượt sau gửi lại. */
+function danhDauNhac(db, nhac, j, luc) {
+  if (typeof j?.ghi?.nhac !== "number") {
+    if (nhac.length) log(`máy chủ chưa xác nhận nhận nhắc (thiếu ghi.nhac) — giữ ${nhac.length} nhắc để gửi lại`);
+    return;
+  }
+  const ghi = db.prepare("INSERT OR IGNORE INTO da_nhac (khoa, sdt, loai, luc) VALUES (?,?,?,?)");
+  db.exec("BEGIN");
+  for (const n of nhac) ghi.run(n.khoa, n.sdt, n.loai, luc);
+  db.exec("COMMIT");
+}
+const boKhoa = (nhac) => nhac.map((n) => ({ sdt: n.sdt, tau: n.tau, loai: n.loai, day: n.day, dong: n.dong }));
+
 // ── Gửi ForFish ──────────────────────────────────────────────────────────────────────────
 async function gui(c, goiTin) {
   const than = gzipSync(Buffer.from(JSON.stringify(goiTin)));
@@ -377,6 +435,22 @@ async function main() {
       await page.goto(`${GOC_STRACKING}/report/expiredDevice`, { waitUntil: "domcontentloaded", timeout: 60_000 });
     }
     if (DANG_NHAP_TAY) log("phiên đang sống — các lượt timer sẽ dùng lại hồ sơ này");
+
+    if (CHI_MKN) {
+      const mkn = await layMkn(page);
+      const nhac = tinhNhac(db, mkn, true);
+      log(`mất kết nối ngoài khơi đang diễn ra: ${mkn.filter((m) => m.dangMat).length} · nhắc mới: ${nhac.length}`);
+      if (THU) {
+        for (const n of nhac.slice(0, 5)) log(`  [thử] ${n.sdt.slice(0, 4)}… ${n.dong}`);
+        ketThuc("thu", { gui: 0 });
+        return 0;
+      }
+      const luc = new Date().toISOString();
+      const j = nhac.length ? await gui(c, { luc, trangThai: "ok", thietBi: [], canhBao: [], nhac: boKhoa(nhac) }) : null;
+      if (j) danhDauNhac(db, nhac, j, luc);
+      ketThuc("mkn", { gui: 0 });
+      return 0;
+    }
 
     const hh = await layHetHan(page);
     log(`báo cáo dịch vụ: ${hh.ds.length}/${hh.tong ?? "?"} máy ≤30 ngày hoặc quá hạn`);
@@ -449,11 +523,23 @@ async function main() {
     const cbChuaGui = db
       .prepare("SELECT imei, loai, luc, serial, vin, ten_tau AS tenTau, muc FROM canh_bao WHERE da_gui = 0 AND luc >= ? ORDER BY luc DESC LIMIT 20000")
       .all(dauNgay);
-    log(`cần gửi: ${canGui.length} hồ sơ, ${cbChuaGui.length} cảnh báo`);
+    // Nhắc nhở (mất kết nối, đồng bộ Tổng cục, hạn cước) — lỗi đọc mất kết nối không làm hỏng lượt: chỉ bỏ phần đó.
+    let mkn = [];
+    try {
+      mkn = await layMkn(page);
+    } catch (e) {
+      if (e instanceof HetPhien) throw e;
+      log(`đọc mất kết nối hỏng — lượt này không nhắc mất kết nối: ${e.message}`);
+    }
+    const nhac = tinhNhac(db, mkn, false);
+    log(`cần gửi: ${canGui.length} hồ sơ, ${cbChuaGui.length} cảnh báo, ${nhac.length} nhắc`);
 
     if (THU) {
       ketThuc("thu", { pt: pt?.ds.length ?? null, hh: hh.ds.length, cb: cb.ds.length, gui: 0 });
-      log("--thu: không gửi");
+      const dem = {};
+      for (const n of nhac) dem[n.loai] = (dem[n.loai] ?? 0) + 1;
+      log(`--thu: không gửi · nhắc theo loại ${JSON.stringify(dem)}`);
+      for (const n of nhac.slice(0, 5)) log(`  [thử] ${n.sdt.slice(0, 4)}… ${n.dong}`);
       return 0;
     }
 
@@ -468,13 +554,14 @@ async function main() {
       const cbPhan = cuoi ? cbChuaGui.map(banGuiCanhBao).filter(Boolean) : [];
       // Trọn bộ cảnh báo ĐANG MỞ — chỉ khi đọc đủ (≥98% tổng trang báo) để máy chủ đóng cảnh báo đã hết; thiếu ⇒ không gửi.
       const dangMo = cuoi && cb.tong && cb.ds.length >= cb.tong * 0.98 ? cb.ds.map((x) => ({ imei: x.imei, loai: x.loai, luc: x.luc })) : undefined;
-      const j = await gui(c, { luc, trangThai: "ok", tong, thietBi: phan.map((x) => x.b), canhBao: cbPhan, dangMo });
+      const j = await gui(c, { luc, trangThai: "ok", tong, thietBi: phan.map((x) => x.b), canhBao: cbPhan, dangMo, nhac: cuoi ? boKhoa(nhac) : [] });
+      if (cuoi) danhDauNhac(db, nhac, j, luc);
       db.exec("BEGIN");
       for (const x of phan) danhDauTb.run(x.h, x.b.serial);
       if (cuoi) for (const r of cbChuaGui) danhDauCb.run(r.imei, r.loai, r.luc);
       db.exec("COMMIT");
       daGui += phan.length;
-      log(`gửi ${i + 1}/${soLan}: ${phan.length} hồ sơ${cuoi ? ` + ${cbPhan.length} cảnh báo` : ""} ⇒ ${JSON.stringify(j.ghi ?? {})}`);
+      log(`gửi ${i + 1}/${soLan}: ${phan.length} hồ sơ${cuoi ? ` + ${cbPhan.length} cảnh báo + ${nhac.length} nhắc` : ""} ⇒ ${JSON.stringify(j.ghi ?? {})}`);
     }
     ketThuc("ok", { pt: pt?.ds.length ?? null, hh: hh.ds.length, cb: cb.ds.length, gui: daGui });
     return 0;
