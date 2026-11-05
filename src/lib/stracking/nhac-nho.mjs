@@ -6,7 +6,9 @@
 // bằng `khoa` trong sổ "đã nhắc" của máy nhà, rồi gửi `nhac[]` (một dòng/tàu/người) lên POST /api/stracking/nhap; máy chủ
 // gộp với cảnh báo tàu thành MỘT tin/SĐT/lượt vào hộp thư + đẩy lên máy (lib/stracking/thong-bao).
 //
-// Không viện dẫn điều khoản / mức tiền phạt cụ thể — chỉ mốc 6 giờ anh Long nêu.
+// Không viện dẫn mức tiền phạt cụ thể — chỉ mốc 6 giờ anh Long nêu.
+// GIỌNG (anh Long 05/11: "thông báo chọn ngôn ngữ để ngư dân thấy mình đang giúp họ"): mỗi câu = chuyện gì đang xảy ra
+// + bà con làm gì + SDVICO giúp được gì. Không doạ, không chữ in hoa hét, không "bị phạt" đứng trơ — nói "để tránh bị phạt".
 
 import { homNayVn, trangThaiHan } from "./dong-bo.mjs";
 import { laMayDaBo } from "./may-da-bo.mjs";
@@ -26,6 +28,21 @@ export const MOC_QUA_HAN = [1, 7, 30];
  * nâng cấp — 1 lần/tuần (anh Long chọn); lần ĐẦU đẩy lên máy, các tuần sau chỉ hộp thư (máy GPU quyết `day`).
  */
 export const MOC_LAP_ND37 = "2024-05-19";
+
+/**
+ * Đời máy CHẮC CHẮN phải nâng cấp theo NĐ 41/2026 — anh Long 05/11: "K2019 va D2019 là chắc chắn phải nâng cấp ND41".
+ * Serial S-Tracking = "MTR" + THÁNG (2 số) + NĂM SẢN XUẤT (4 số) + chữ DÒNG MÁY + số máy (vd MTR032026D006069 = tháng
+ * 03/2026, dòng D; đo kho 05/11: 15 851/15 853 serial có tháng 01–12). Đời = chữ dòng + năm, vd "D2019".
+ * Đo 05/11: D2019 = 2 052 máy; K2019 = 0 (dòng K đời cũ là K2018 — 292 máy); M2019 = 7 333 — hai đời này CHƯA vào danh
+ * sách, chờ anh Long chốt.
+ */
+export const DOI_PHAI_NANG_CAP = ["K2019", "D2019"];
+
+/** "MTR032019D…" ⇒ "D2019"; không đúng dạng ⇒ null. */
+export function doiMay(serial) {
+  const m = /^MTR(\d{2})(\d{4})([A-Z])/.exec(String(serial ?? ""));
+  return m && Number(m[1]) >= 1 && Number(m[1]) <= 12 ? `${m[3]}${m[2]}` : null;
+}
 
 const GIO_MS = 3600_000;
 
@@ -94,7 +111,7 @@ export function viecNhac({ thietBi, mkn = [], now = Date.now() }) {
         khoa: `mkn|${t.serial}|${m.batDau}|sap`,
         loai: "mkn-sap-6h",
         day: true,
-        dong: `${tau}: mất kết nối giám sát hành trình ${Math.floor(gio)} giờ (từ ${gioPhutVn(bd)}) — sắp quá 6 giờ là bị phạt. Kiểm tra nguồn điện, ăng-ten máy ngay.`,
+        dong: `${tau}: máy giám sát hành trình mất tín hiệu ${Math.floor(gio)} giờ rồi (từ ${gioPhutVn(bd)}). Bà con xem giúp nguồn điện, ăng-ten của máy để có tín hiệu lại trước mốc 6 giờ, tránh bị phạt. Cần hỗ trợ cứ gọi SDVICO.`,
       });
     } else {
       // Nhắc lại mỗi 6 giờ trong cùng một đợt mất.
@@ -105,7 +122,7 @@ export function viecNhac({ thietBi, mkn = [], now = Date.now() }) {
         khoa: `mkn|${t.serial}|${m.batDau}|${dot}`,
         loai: "mkn-qua-6h",
         day: true,
-        dong: `${tau}: đã mất kết nối giám sát hành trình ${thoiGian} (từ ${gioPhutVn(bd)}) — quá 6 giờ là bị phạt. Báo vị trí tàu cho cơ quan quản lý và gọi SDVICO kiểm tra máy.`,
+        dong: `${tau}: máy giám sát hành trình mất tín hiệu ${thoiGian} (từ ${gioPhutVn(bd)}). Để tránh bị phạt, bà con nhớ báo vị trí tàu cho cơ quan quản lý bằng liên lạc khác; SDVICO sẵn sàng kiểm tra máy giúp bà con.`,
       });
     }
   }
@@ -118,7 +135,7 @@ export function viecNhac({ thietBi, mkn = [], now = Date.now() }) {
         khoa: `tcts|${t.serial}|${homNay}`,
         loai: "tcts-that-bai",
         day: ngoai,
-        dong: `${t.tenTau ?? t.serial}: máy giám sát hành trình CHƯA đồng bộ dữ liệu về Tổng cục Thủy sản${ngoai ? " trong khi tàu đang ngoài khơi" : ""} — dễ bị tính mất kết nối. Gọi SDVICO kiểm tra.`,
+        dong: `${t.tenTau ?? t.serial}: dữ liệu máy giám sát hành trình chưa về được Tổng cục Thủy sản${ngoai ? " trong lúc tàu đang ngoài khơi" : ""}. Bà con gọi SDVICO, bên em kiểm tra giúp để tàu không bị tính mất kết nối.`,
       });
     }
     // 3) HẠN CƯỚC — nhắc đúng các mốc, hết hạn = máy ngừng truyền = mất kết nối.
@@ -130,26 +147,31 @@ export function viecNhac({ thietBi, mkn = [], now = Date.now() }) {
         day: s.soNgay <= 3,
         dong:
           s.soNgay === 0
-            ? `${t.tenTau ?? t.serial}: cước giám sát hành trình HẾT HẠN HÔM NAY — hết hạn máy ngừng truyền, tính là mất kết nối. Gia hạn trong app.`
-            : `${t.tenTau ?? t.serial}: cước giám sát hành trình còn ${s.soNgay} ngày (hết ${ngayVn(t.hetHan)}). Gia hạn sớm để máy không ngừng truyền.`,
+            ? `${t.tenTau ?? t.serial}: cước giám sát hành trình hết hạn hôm nay. Bà con gia hạn ngay trong app để máy không ngừng truyền khi đi biển.`
+            : `${t.tenTau ?? t.serial}: cước giám sát hành trình còn ${s.soNgay} ngày (hết ${ngayVn(t.hetHan)}). Bà con gia hạn sớm trong app để máy chạy liên tục, yên tâm ra khơi.`,
       });
     } else if (s.loai === "het-han" && MOC_QUA_HAN.includes(-s.soNgay)) {
       them(t, {
         khoa: `han|${t.serial}|${t.hetHan}|qua${-s.soNgay}`,
         loai: "han-qua-han",
         day: true,
-        dong: `${t.tenTau ?? t.serial}: cước giám sát hành trình đã quá hạn ${-s.soNgay} ngày (từ ${ngayVn(t.hetHan)}) — máy không truyền dữ liệu, ra khơi là bị tính mất kết nối. Gia hạn trong app.`,
+        dong: `${t.tenTau ?? t.serial}: cước giám sát hành trình đã quá hạn ${-s.soNgay} ngày (từ ${ngayVn(t.hetHan)}), máy đang ngừng truyền. Bà con gia hạn trong app trước khi ra khơi, hoặc gọi SDVICO để được hỗ trợ.`,
       });
     }
-    // 4) LẮP TRƯỚC MỐC NĐ 37/2024 ⇒ cần đáp ứng yêu cầu kỹ thuật NĐ 41/2026 — 1 lần/tuần (khoá theo tuần VN).
+    // 4) NGHỊ ĐỊNH 41/2026 — 1 lần/tuần (khoá theo tuần VN; một máy một dòng dù khớp cả hai luật):
+    //    (a) đời máy CHẮC CHẮN phải nâng cấp (DOI_PHAI_NANG_CAP, theo serial) ⇒ nói chắc;
+    //    (b) lắp TRƯỚC mốc 19/5/2024 (NĐ 37/2024) ⇒ máy lắp trước mốc chưa đáp ứng yêu cầu mới phải nâng cấp ⇒ mời kiểm tra.
+    const doi = doiMay(t.serial);
     const ngayLap = t.dangKyLuc || (typeof t.taoLuc === "string" ? isoNgayVn(t.taoLuc) : null);
-    if (ngayLap && /^\d{4}-\d{2}-\d{2}$/.test(ngayLap) && ngayLap < MOC_LAP_ND37) {
-      them(t, {
-        khoa: `nd41|${t.serial}|tuan${tuanVn(now)}`,
-        loai: "nd41-nang-cap",
-        day: false,
-        dong: `${t.tenTau ?? t.serial}: máy giám sát hành trình lắp từ ${ngayVn(ngayLap)}, trước mốc 19/5/2024 — theo Nghị định 41/2026, máy lắp trước mốc này chưa đáp ứng yêu cầu kỹ thuật mới phải nâng cấp hoặc thay. Liên hệ SDVICO để kiểm tra, nâng cấp.`,
-      });
+    const ten = t.tenTau ?? t.serial;
+    let dongNd41 = null;
+    if (doi && DOI_PHAI_NANG_CAP.includes(doi)) {
+      dongNd41 = `${ten}: máy giám sát hành trình đời ${doi.slice(0, 1)} ${doi.slice(1)} cần nâng cấp để đáp ứng Nghị định 41/2026. Bà con gọi SDVICO, bên em tư vấn và nâng cấp giúp để tàu yên tâm ra khơi đúng quy định.`;
+    } else if (ngayLap && /^\d{4}-\d{2}-\d{2}$/.test(ngayLap) && ngayLap < MOC_LAP_ND37) {
+      dongNd41 = `${ten}: máy giám sát hành trình lắp từ ${ngayVn(ngayLap)}, trước mốc 19/5/2024. Theo Nghị định 41/2026, máy lắp trước mốc này cần đáp ứng yêu cầu kỹ thuật mới — bà con gọi SDVICO để bên em kiểm tra giúp, cần nâng cấp thì hỗ trợ luôn.`;
+    }
+    if (dongNd41) {
+      them(t, { khoa: `nd41|${t.serial}|tuan${tuanVn(now)}`, loai: "nd41-nang-cap", day: false, dong: dongNd41 });
     }
   }
   return out;
