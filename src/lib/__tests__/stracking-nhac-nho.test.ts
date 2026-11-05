@@ -75,7 +75,7 @@ describe("gửi máy chủ", () => {
     const ds = nhacTheoNguoi(v);
     expect(ds).toHaveLength(4); // 2 việc × 2 người
     expect(kiemNhac([...ds, { sdt: "123", loai: "mkn-qua-6h", dong: "x" }, { sdt: "0967214151", loai: "la", dong: "x" }])).toHaveLength(4);
-    expect(kiemNhac([{ sdt: "0967214151", loai: "tcts-that-bai", tau: "A\u0000B", dong: "d\u0000ong", day: true }])[0]).toEqual({ sdt: "0967214151", tau: "A B", loai: "tcts-that-bai", day: true, dong: "d ong" });
+    expect(kiemNhac([{ sdt: "0967214151", loai: "tcts-that-bai", tau: "A\u0000B", dong: "d\u0000ong", day: true }])[0]).toEqual({ sdt: "0967214151", serial: null, tau: "A B", loai: "tcts-that-bai", day: true, dong: "d ong" });
     const r = kiemGoiNhap({ luc: "2026-11-05T10:00:00Z", trangThai: "ok", nhac: ds }, NOW);
     expect(r.goi?.nhac).toHaveLength(4);
     expect(kiemGoiNhap({ luc: "2026-11-05T10:00:00Z", trangThai: "ok" }, NOW).goi?.nhac).toEqual([]);
@@ -178,5 +178,16 @@ describe("M2019 thêm vào đời phải nâng cấp (anh Long 05/11: \"ok bổ 
     expect(nd("MTR052019M001234")[0].dong).toMatch(/đời M 2019 cần nâng cấp/);
     expect(nd("MTR052020M001234")).toEqual([]);
     expect(nd("MTR052018K001234")).toEqual([]);
+  });
+});
+
+describe("nhắc mang serial — máy chủ bỏ nhắc của máy khách đã tự xoá (0083)", () => {
+  it("nhacTheoNguoi gắn serial; kiemNhac giữ serial hợp lệ, sai/dài ⇒ null", () => {
+    const ds = nhacTheoNguoi(viecNhac({ thietBi: [tau({ dongBoTcts: "Thất bại" })], now: NOW }));
+    expect(ds.length).toBeGreaterThan(0);
+    expect(ds.every((x) => x.serial === "S1")).toBe(true);
+    expect(kiemNhac(ds)[0].serial).toBe("S1");
+    expect(kiemNhac([{ ...ds[0], serial: "x".repeat(65) }])[0].serial).toBeNull();
+    expect(kiemNhac([{ ...ds[0], serial: 5 }])[0].serial).toBeNull();
   });
 });

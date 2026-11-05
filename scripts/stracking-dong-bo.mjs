@@ -439,7 +439,7 @@ function danhDauNhac(db, nhac, j, luc) {
   db.exec("COMMIT");
   if (giu) log(`máy chủ cắt trần ${bo.size} SĐT — giữ ${giu} nhắc để gửi lượt sau`);
 }
-const boKhoa = (nhac) => nhac.map((n) => ({ sdt: n.sdt, tau: n.tau, loai: n.loai, day: n.day, dong: n.dong }));
+const boKhoa = (nhac) => nhac.map((n) => ({ sdt: n.sdt, serial: n.serial, tau: n.tau, loai: n.loai, day: n.day, dong: n.dong }));
 
 // ── Gửi ForFish ──────────────────────────────────────────────────────────────────────────
 async function gui(c, goiTin) {

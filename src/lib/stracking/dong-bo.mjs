@@ -515,7 +515,9 @@ export function kiemNhac(ds) {
     if (!LOAI_NHAC.has(r.loai)) continue;
     if (typeof r.dong !== "string" || !r.dong.trim() || r.dong.length > 400) continue;
     const tau = typeof r.tau === "string" ? r.tau.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 120) : "";
-    out.push({ sdt: r.sdt, tau, loai: r.loai, day: r.day === true, dong: r.dong.replace(/[\u0000-\u001f\u007f]/g, " ").trim() });
+    // serial: để máy chủ bỏ nhắc của máy khách đã tự XOÁ (bảng stracking_an, migration 0083). Thiếu/sai ⇒ null.
+    const serial = typeof r.serial === "string" && r.serial.trim() && r.serial.trim().length <= 64 ? r.serial.replace(/[\u0000-\u001f\u007f]/g, "").trim() : null;
+    out.push({ sdt: r.sdt, serial, tau, loai: r.loai, day: r.day === true, dong: r.dong.replace(/[\u0000-\u001f\u007f]/g, " ").trim() });
   }
   return out;
 }

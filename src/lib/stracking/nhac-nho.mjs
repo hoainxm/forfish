@@ -196,6 +196,6 @@ export function tuanVn(now = Date.now()) {
 /** Bung việc nhắc ra từng người nhận — dạng gửi máy chủ `nhac: [{sdt, tau, loai, day, dong}]`. */
 export function nhacTheoNguoi(viec) {
   const out = [];
-  for (const v of viec) for (const sdt of v.nguoi) out.push({ sdt, tau: v.tau, loai: v.loai, day: v.day, dong: v.dong });
+  for (const v of viec) for (const sdt of v.nguoi) out.push({ sdt, serial: v.serial, tau: v.tau, loai: v.loai, day: v.day, dong: v.dong });
   return out;
 }
