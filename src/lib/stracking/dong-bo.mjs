@@ -303,6 +303,9 @@ export function docHetHan(r) {
     tamNgungTu: ngayIso(r.dateStartSuspend),
     tamNgungDen: ngayIso(r.dateEndSuspend),
     trongBo: r.land == null ? null : String(r.land) === "true",
+    nhom: chu(r.groupName, 160),
+    // logDate = mốc ms (đo 05/11: số 13 chữ số) — ngày cập nhật của máy trên S-Tracking.
+    capNhatNguon: Number.isFinite(Number(r.logDate)) && Number(r.logDate) > 1e12 ? new Date(Number(r.logDate)).toISOString() : null,
   };
 }
 
@@ -340,7 +343,7 @@ export function gopThietBi(dsPhuongTien, dsHetHan) {
     if (b.hetHan) cu.hetHan = b.hetHan;
     if (b.tamNgungTu) cu.tamNgungTu = b.tamNgungTu;
     if (b.tamNgungDen) cu.tamNgungDen = b.tamNgungDen;
-    for (const k of ["imei", "mmsi", "tenTau", "chuTau", "sdtChuTau"]) if (!cu[k] && b[k]) cu[k] = b[k];
+    for (const k of ["imei", "mmsi", "tenTau", "chuTau", "sdtChuTau", "nhom", "capNhatNguon"]) if (!cu[k] && b[k]) cu[k] = b[k];
     if (cu.trongBo == null && b.trongBo != null) cu.trongBo = b.trongBo;
   }
   return [...theo.values()];
@@ -365,7 +368,8 @@ export function trangThaiHan(hetHan, homNay = homNayVn()) {
 
 /**
  * Hồ sơ đưa lên ForFish: CHỈ trường bà con cần xem + khoá tra theo SĐT. Địa chỉ, SĐT người thân, SĐT
- * quản lý, mã nhóm… ở lại máy GPU (kho đầy đủ). Máy không có SĐT nào thì không ai tra được ⇒ không gửi.
+ * quản lý, niêm phong… ở lại máy GPU (kho đầy đủ). Máy không có SĐT nào thì không ai tra được ⇒ không gửi.
+ * Đồng bộ Tổng cục, nhóm, ngày tạo, ngày cập nhật, trong bờ/ngoài khơi: anh Long 05/11 "cái này quan trọng" ⇒ gửi.
  */
 export function banGuiThietBi(t) {
   if (!t?.serial || (!t.sdtChuTau && !t.sdtThuyenTruong)) return null;
@@ -382,6 +386,10 @@ export function banGuiThietBi(t) {
     tam_ngung_tu: t.tamNgungTu ?? null,
     tam_ngung_den: t.tamNgungDen ?? null,
     trong_bo: typeof t.trongBo === "boolean" ? t.trongBo : null,
+    dong_bo_tcts: t.dongBoTcts ?? null,
+    nhom: t.nhom ?? null,
+    tao_luc: t.taoLuc ?? null,
+    cap_nhat_nguon: t.capNhatNguon ?? null,
   };
 }
 
@@ -411,10 +419,16 @@ export function kiemThietBi(r) {
   const sdtTT = r.sdt_thuyen_truong == null ? null : chuanSdt(r.sdt_thuyen_truong);
   if (!sdtChu && !sdtTT) return null;
   const out = { serial, sdt_chu_tau: sdtChu, sdt_thuyen_truong: sdtTT };
-  for (const [k, tran] of [["imei", 32], ["ten_tau", 120], ["chu_tau", 160], ["thuyen_truong", 160]]) {
+  for (const [k, tran] of [["imei", 32], ["ten_tau", 120], ["chu_tau", 160], ["thuyen_truong", 160], ["dong_bo_tcts", 60], ["nhom", 160]]) {
     const v = chuoiHoacNull(r[k], tran);
     if (v === undefined) return null;
     out[k] = v;
+  }
+  for (const k of ["tao_luc", "cap_nhat_nguon"]) {
+    const v = r[k];
+    if (v == null || v === "") out[k] = null;
+    else if (typeof v === "string" && Number.isFinite(Date.parse(v))) out[k] = new Date(Date.parse(v)).toISOString();
+    else return null;
   }
   for (const k of ["dang_ky_luc", "het_han", "tam_ngung_tu", "tam_ngung_den"]) {
     const v = r[k];

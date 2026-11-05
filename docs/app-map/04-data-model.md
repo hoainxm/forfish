@@ -44,6 +44,10 @@ ttl_days: 180
 
 ---
 
+### 0081 — S-TRACKING: 4 CỘT TRẠNG THÁI MÁY — migration [`0081_stracking_them_cot.sql`](../../supabase/migrations/0081_stracking_them_cot.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (Supabase MCP)
+
+Anh Long: *"Trạng thái đồng bộ Tổng cục, nhóm, ngày tạo, ngày cập nhật, trong bờ hay ngoài khơi cái này quan trọng nhé"*. `stracking_thiet_bi` thêm `dong_bo_tcts` (text ≤60, "Thành công"/"Thất bại"), `nhom` (text ≤160), `tao_luc`, `cap_nhat_nguon` (timestamptz) — đều nullable, không đổi/xoá gì (`trong_bo` có từ 0080). Máy GPU gửi kèm qua `banGuiThietBi` (băm bản gửi đổi ⇒ lượt sau gửi lại mọi hồ sơ); máy chủ kiểm ở `kiemThietBi`; `GET /api/stracking/cua-toi` trả `dongBoTcts`, `nhom`, `taoLuc`, `capNhatNguon`. Báo cáo dịch vụ bù `nhom` (groupName) + `cap_nhat_nguon` (logDate ms) khi danh sách phương tiện thiếu.
+
 ### 0080 — HẠN CƯỚC + CẢNH BÁO S-TRACKING — migration [`0080_stracking.sql`](../../supabase/migrations/0080_stracking.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (anh Long: "Làm cả ba"; qua Supabase MCP `apply_migration`. Soi sau apply: 3 bảng RLS bật, 0 policy, anon/authenticated không đọc được. `app_config.stracking_key` đã đặt — cùng giá trị trong `~/.config/forlife/stracking.env` máy GPU)
 
 Anh Long: *"chạy GPU, check 7h, 12h, 17h, 21h để cập nhật cái hạn mới nhất, tổ chức DB ở GPU lưu toàn bộ các thông tin liên quan tới user … dữ liệu tổ chức ở sdfish bảng riêng độc lập, để tránh conflict luồng sdwork"*. Ba bảng **độc lập** với DB chung CRM/SDWork (`stracking_renewal_*` không đụng tới, không trigger, không khoá ngoại); RLS bật + revoke anon/authenticated, 0 policy (chỉ service role):

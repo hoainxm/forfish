@@ -230,3 +230,30 @@ describe("gói gửi + máy chủ kiểm lại", () => {
     expect(r.goi?.canhBao[0].loai).toBe("Mất  GPS");
   });
 });
+
+describe("4 trường trạng thái máy (anh Long 05/11: \"quan trọng\") — migration 0081", () => {
+  const pt = {
+    serial: "S1", imei: "1", tenTau: "BV-1-TS", sdtChuTau: "0967214151", hetHan: "2026-11-18", trongBo: false,
+    dongBoTcts: "Thất bại", nhom: "Nhóm Vũng Tàu", taoLuc: "2026-03-01T01:00:00.000Z", capNhatNguon: "2026-11-05T08:00:54.000Z",
+  };
+  it("bản gửi mang đủ 4 trường + trong bờ; máy chủ giữ nguyên", () => {
+    const g = banGuiThietBi(pt);
+    expect(g).toMatchObject({ dong_bo_tcts: "Thất bại", nhom: "Nhóm Vũng Tàu", tao_luc: pt.taoLuc, cap_nhat_nguon: pt.capNhatNguon, trong_bo: false });
+    const r = kiemGoiNhap({ luc: "2026-11-05T08:00:00Z", trangThai: "ok", thietBi: [g] });
+    expect(r.goi?.thietBi[0]).toMatchObject({ dong_bo_tcts: "Thất bại", nhom: "Nhóm Vũng Tàu", tao_luc: pt.taoLuc, cap_nhat_nguon: pt.capNhatNguon });
+  });
+  it("hồ sơ đời cũ không có 4 trường vẫn qua (null); giờ sai ⇒ bỏ hồ sơ", () => {
+    const g = banGuiThietBi({ serial: "S2", sdtChuTau: "0967214151" });
+    expect(kiemGoiNhap({ luc: "2026-11-05T08:00:00Z", trangThai: "ok", thietBi: [g] }).goi?.thietBi[0]).toMatchObject({ dong_bo_tcts: null, nhom: null, tao_luc: null, cap_nhat_nguon: null });
+    const r = kiemGoiNhap({ luc: "2026-11-05T08:00:00Z", trangThai: "ok", thietBi: [{ ...g, tao_luc: "không phải giờ" }] });
+    expect(r.goi?.thietBi).toHaveLength(0);
+  });
+  it("báo cáo dịch vụ bù nhóm + ngày cập nhật (logDate ms) khi danh sách thiếu", () => {
+    const bc = docHetHan({ serial: "S1", dateExpried: "20/11/2026", groupName: "Nhóm B", logDate: 1793867826525 });
+    expect(bc).toMatchObject({ nhom: "Nhóm B", capNhatNguon: new Date(1793867826525).toISOString() });
+    const gop = gopThietBi([{ serial: "S1", nhom: null, capNhatNguon: null, dongBoTcts: "Thành công" }], [bc]);
+    expect(gop[0]).toMatchObject({ nhom: "Nhóm B", dongBoTcts: "Thành công", hetHan: "2026-11-20" });
+    const giu = gopThietBi([{ serial: "S1", nhom: "Nhóm A" }], [bc]);
+    expect(giu[0].nhom).toBe("Nhóm A");
+  });
+});
