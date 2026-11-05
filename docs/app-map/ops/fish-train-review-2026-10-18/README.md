@@ -721,3 +721,45 @@ venv/bin/python scripts/nguon-ngay/luoi-thoi-tiet.py --features ~/sdfish-l3/v0/f
 NODE_OPTIONS=--max-old-space-size=14000 npx tsx scripts/fish-2d-experiment.mjs --features ~/sdfish-l3/v0/features --extra ~/sdfish-l3/thoi-tiet \
   --species "ngừ vằn,cá nục,bạc má,cá cơm,ngừ chù,cá trích,cá tráo" --out ~/sdfish-l3/tt/2d   # ~23 phút
 ```
+
+### 7.13 Đo "lớp ngày" ở CẤP CHUYẾN — nhãn thật kg/giờ cả chuyến (2026-11-05, PC GPU, không đổi production)
+
+> **Kết luận: vệ tinh + thời tiết 0/7 loài; TRĂNG qua ở ngừ vằn** (ΔR² +0,0155 [+0,005; +0,028], hơn đối chứng xáo pha). Cá nục (production đang áp trăng) cùng chiều nhưng CI chạm 0. Bộ đo bắt được hiệu ứng cỡ Δρ ≈ 0,015–0,03 (đối chứng dương yếu qua ở 7/7). Phản biện độc lập soát cả hai lượt và xác nhận.
+
+**Vì sao cấp chuyến:** §7.8/§7.11/§7.12 đo ở cấp Ô, mà nhãn chia đều kg theo giờ trong chuyến ⇒ mọi ô một chuyến cùng năng suất; phép đo ô không thể thấy tín hiệu ngày. Ở cấp chuyến nhãn là thật.
+
+**Cách đo** (`scripts/nguon-ngay/do-cap-chuyen.py`): nhãn chuyến từ `dl-build-labels.mjs --v2 --trips` (cờ mới trong `dl-labels-v2.mjs`: `trips.ndjson` — id băm, nghề, lớp dài, kg theo loài đã nhân `wH` như catch.csv, giờ đánh, ô 0,25°×ngày + giờ; không số đăng ký/chủ tàu), 5 khúc, **124 206 chuyến**.
+- y = log(kg loài đích / giờ đánh), **chỉ chuyến có bắt loài** (5 550 ngừ vằn · 10 508 cá nục · 2 323 bạc má · 3 502 cá cơm · 3 479 ngừ chù · 706 cá trích · 724 cá tráo).
+- Nền = nghề×lớp dài + tháng×vùng 2° + log giờ đánh + log độ dài chuyến (ridge, trọng số tin cậy). Động = 6 dị thường TB theo giờ dọc ô–ngày đã đánh (SST, log phù du, |∇SST|, gió, sóng, mây — dị thường theo TB tháng của ô). Trăng = [cos 2πφ, sin 2πφ] lúc 20:00 VN, TB theo giờ (đúng dạng `lib/fish-chain`).
+- Nếp = tuần ISO mod 5, đệm ±1 tuần (nền biết tháng×vùng từ tuần khác — như production biết mùa vụ). Bootstrap khối tuần 500.
+- Đối chứng: động ⇒ cùng ô, ngày lệch ±15; trăng ⇒ **xáo pha ngẫu nhiên từng chuyến** (lệch cố định chỉ XOAY (cos,sin), mô hình hệ số tự do khớp y hệt — đã dính ở lượt đầu); oracle mạnh (phần dư + nhiễu cùng cỡ) và **oracle yếu** (nhiễu ×4).
+- Cổng siết theo phản biện: bản thật phải hơn NỀN (cận dưới ΔR² > 0) **và** hơn bản lệch, Δρ ≥ +0,01.
+
+**Hai lỗi lượt đầu (đã sửa, ghi lại để khỏi dính lại):** (1) lấy cả chuyến kg = 0 ⇒ y = log(1/H), nền có log H nên ρ 0,96 vô nghĩa và oracle THUA nền; (2) nếp theo cặp tháng ⇒ hệ số tháng×vùng của tháng thử không học được (R² ngoài nếp ngừ vằn −0,105).
+
+**Kết quả:**
+
+| loài | nền R² / ρ | Δ động R² [CI90] · Δρ | TRĂNG ΔR² [CI90] · hơn xáo pha [CI90] · β cos/sin | oracle yếu Δρ [CI90] |
+|---|---|---|---|---|
+| ngừ vằn | 0,197 / 0,513 | +0,0055 [−0,005;+0,014] · +0,001 | **+0,0155 [+0,005;+0,028] · [+0,004;+0,026] · +0,17/−0,06 — QUA** | [+0,025;+0,037] |
+| cá nục | 0,558 / 0,734 | −0,0019 · −0,001 | +0,0078 [−0,002;+0,017] · [−0,001;+0,017] · +0,17/−0,11 | [+0,014;+0,020] |
+| bạc má | 0,416 / 0,669 | −0,0136 · −0,003 | −0,037 (CI âm) | [+0,021;+0,051] |
+| cá cơm | 0,303 / 0,587 | +0,0047 · +0,001 | +0,0070 (CI cắt 0) | [+0,019;+0,037] |
+| ngừ chù | 0,351 / 0,583 | −0,0174 (CI âm) · −0,012 | −0,0037 | [+0,035;+0,050] |
+| cá trích | 0,312 / 0,624 | −0,0494 (CI âm) · −0,030 | −0,047 (CI âm) | [+0,018;+0,042] |
+| cá tráo | 0,417 / 0,702 | −0,0595 (CI âm) · −0,018 | +0,014 (CI rộng) | [+0,013;+0,055] |
+
+- Ngừ vằn có Δđộng R² +0,024 [+0,012;+0,036] nhưng là ẢO: bản lệch làm HẠI (R² 0,179 < nền 0,197) còn bản thật chỉ +0,0055 với CI chứa 0 ⇒ cổng siết loại.
+- Cá trích/cá tráo ít chuyến: thêm 6 dị thường làm tệ đi rõ = khớp quá.
+- Trăng: cả ngừ vằn lẫn cá nục có β cos dương = **trăng tối năng suất cao hơn** (≈ +18 % quanh trăng non so với rằm ở ngừ vằn) — đúng nghề vây/chụp dùng ánh sáng.
+
+**Hệ quả:**
+1. **Kết luận cả chuỗi §7.8 → §7.13:** với dữ liệu hiện có, chưa đo được tín hiệu ngày nào từ VỆ TINH hay THỜI TIẾT cộng thêm trên nền bãi cá theo mùa — ở cấp ô lẫn cấp chuyến, có đối chứng dương. Không quảng bá lớp vệ tinh/thời tiết là "dự báo cá". Production giữ DINEOF.
+2. **Trăng là thành phần ngày DUY NHẤT có bằng chứng**: khớp quyết định đang áp trăng cho cá nục (cùng chiều, cấp chuyến chưa đủ mạnh); **ngừ vằn là ứng viên mới** — đưa vào production phải qua đúng cổng chuỗi thức ăn (`fit-trang-loai.mjs`: bỏ Tết, ngoài mẫu T1–5→T6–10, giả khối tuần, đỉnh ổn định — README dòng dẫn trong memory/`du-bao-ca-dong-dan`), không áp thẳng từ bảng này.
+3. Lỗ hổng còn lại: chưa đo phần "có gặp cá không" (chỉ năng suất khi đã gặp); bootstrap không fit lại (CI hơi hẹp — nghiêng về báo dương, nên kết luận âm càng chắc); ridge gần như không phạt.
+
+```bash
+# gpu-desktop: nhãn chuyến 5 khúc (~4 phút/khúc) rồi đo (~4 phút)
+node --max-old-space-size=9000 scripts/dl-build-labels.mjs --v2 --trips --ports <catalog-ports> --encounters <vessels.json> --gear-map $D/dl-all/gear-map.json --pairs $D/dl-all/pairs.json --dir $D/dl-all --from 2026-01-01 --to 2026-10-11 --window <khúc> --out ~/sdfish-l3/trip-labels/<khúc>
+venv/bin/python scripts/nguon-ngay/do-cap-chuyen.py --trips ~/sdfish-l3/trip-labels --grids $D/fc-full/grids --thoi-tiet ~/sdfish-l3/thoi-tiet --boot 500 --oracle --out kq-cap-chuyen.json
+```

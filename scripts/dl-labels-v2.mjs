@@ -325,6 +325,11 @@ export async function buildLabelsV2(o) {
   const unitTrust = (u, active) => (u.kg > 0 ? u.ms.reduce((a, m) => a + trustScore(m.sig, active) * m.kg, 0) / u.kg : 1);
   for (const u of units) { u.tw = unitTrust(u, ACTIVE); for (const m of u.ms) m.score = trustScore(m.sig, ACTIVE); }
   let capped = 0, pairUnits = 0;
+  /*  --trips (2026-11-05, README rà train §7.13 — đo "lớp ngày" ở CẤP CHUYẾN): mỗi đơn vị chuyến có giờ đánh một dòng
+      `trips.ndjson`: mã băm (sha256/10 như trust-trips), nghề đã suy, lớp dài, nhóm tàu, kg theo loài (ĐÃ nhân cùng hệ
+      số wH như catch.csv), H giờ đánh, tripH, và các ô 0,25° × ngày VN đã đánh kèm giờ. KHÔNG số đăng ký, KHÔNG chủ tàu.
+      Không cờ ⇒ đầu ra cũ y nguyên byte. */
+  const tripRows = o.trips ? [] : null;
   for (const u of units) {
     if (!u.H) { if (u.kg > 0) { cov.declaredButNoFishing++; for (const m of u.ms) m.c6 = true; } continue; }
     if (u.pair) pairUnits++;
@@ -333,6 +338,16 @@ export async function buildLabelsV2(o) {
     if (scale < 1) for (const m of u.ms) m.c1 = true;
     const twV = ABL ? Object.fromEntries(SOFT_SIGNALS.map((n) => [n, unitTrust(u, ACTIVE.filter((x) => x !== n))])) : null;
     for (const m of u.ms) add(kgUsed, m.cls, m.kg);
+    if (tripRows) {
+      const cells = new Map();
+      for (const { s } of u.segs) { const ck = `${vnDate(s.t)},${axis025(s.lat)},${axis025(s.lon)}`; cells.set(ck, (cells.get(ck) ?? 0) + s.dtH); }
+      tripRows.push(JSON.stringify({
+        id: hash10(u.p.tcode), gear: u.p.gear, cls: u.p.cls, vh: vesselBucket(u.p.vid), pair: u.pair, tap: u.tap,
+        H: +u.H.toFixed(2), tripH: +u.tripH.toFixed(1), w: +wH.toFixed(4),
+        sp: Object.fromEntries([...u.sp].map(([c, kg]) => [u.tap ? "UNK" : c, +(kg * wH).toFixed(1)])),
+        cells: [...cells].map(([k, h]) => [...k.split(",").map((x, i) => (i ? +x : x)), +h.toFixed(2)]),
+      }));
+    }
     for (const { s, o: m } of u.segs) {
       const k = `${vnDate(s.t)},${snap(s.lat)},${snap(s.lon)}`;
       const tag = `${csv(m.gear)},${vesselBucket(m.vid)},${m.gs}`;
@@ -353,6 +368,7 @@ export async function buildLabelsV2(o) {
     }
     for (const m of u.ms) for (const x of m.sp) if (x.kg > 0) spTot.set(`${x.code}|${x.name}`, (spTot.get(`${x.code}|${x.name}`) ?? 0) + x.kg);
   }
+  if (tripRows) writeFileSync(join(OUT, "trips.ndjson"), tripRows.join("\n") + "\n");
   const hdr = (c) => c.join(",") + "\n";
   const rowsOf = (m, f = (v) => v.toFixed(1)) => [...m].map(([k, v]) => `${k},${f(v)}`).join("\n");
   writeFileSync(join(OUT, "effort.csv"), hdr(["date", "lat", "lon", "geartype", "vh", "gs", "hours"]) + rowsOf(eff, (h) => h.toFixed(2)));

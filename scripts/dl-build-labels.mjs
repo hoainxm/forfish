@@ -205,7 +205,7 @@ if (argv.includes("--v2")) {
     ports: home(arg("ports", join(root, "snapshots", latest ?? "", "catalog-ports.json.gz"))),
     bands: home(arg("bands", undefined)), gearMap: home(arg("gear-map", join(DIR, "gear-map.json"))),
     encounters: home(arg("encounters", join(root, "encounters", "vessels.json"))), pairs: home(arg("pairs", join(DIR, "pairs.json"))),
-    ablate: argv.includes("--ablate"), huber: argv.includes("--huber"),
+    ablate: argv.includes("--ablate"), huber: argv.includes("--huber"), trips: argv.includes("--trips"),
     // điểm tin cậy (README §7.2b): --signals c2_repeat,… (mặc định: mọi tín hiệu mềm; "none" = tắt) · --hide a1_gap,a2_flag,a3_eez (mặc định: cả ba; "none" = tắt)
     signals: arg("signals", null) ? arg("signals").split(",").filter((x) => x && x !== "none") : undefined,
     hide: arg("hide", null) ? arg("hide").split(",").filter((x) => x && x !== "none") : undefined,
