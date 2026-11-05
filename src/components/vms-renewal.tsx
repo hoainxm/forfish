@@ -27,6 +27,7 @@ import {
   renewalMonthsLabel,
   renewalTotal,
   renewalStatusView,
+  renewalExtendedView,
   type RenewalMonths,
   type RenewalCreateResult,
   type RenewalRequestSummary,
@@ -519,7 +520,8 @@ function RenewalStatusSheet({
       {state === "ok" && (
         <ul className="space-y-2.5">
           {requests.map((r) => {
-            const sv = renewalStatusView(r.status);
+            const sv = r.status === "extended" ? renewalExtendedView(r.xacNhanST) : renewalStatusView(r.status);
+            const choST = r.status === "extended" && (r.xacNhanST === "cho-xac-nhan" || r.xacNhanST === "lech");
             const created = fmtDate(r.createdAt);
             const newExpiry = fmtDate(r.newExpiryDate);
             const badgeStyle =
@@ -554,9 +556,21 @@ function RenewalStatusSheet({
                   {formatVnd(r.totalAmount)}
                 </p>
 
-                {r.status === "extended" && newExpiry && (
+                {/*  "Gia hạn tới …" CHỈ khi S-Tracking đã xác nhận (hoặc tàu tự khai, không đối chiếu được). */}
+                {r.status === "extended" && !choST && newExpiry && (
                   <StatusBanner level="ok" icon={<CheckIcon className="h-5 w-5" />}>
                     Gia hạn tới {newExpiry}
+                  </StatusBanner>
+                )}
+                {r.status === "extended" && r.xacNhanST === "cho-xac-nhan" && (
+                  <StatusBanner level="warn">
+                    SDVICO báo đã gia hạn. App đang chờ hệ thống giám sát hành trình đổi hạn
+                    {newExpiry ? ` sang ${newExpiry}` : ""} — máy kiểm tra 4 lần mỗi ngày.
+                  </StatusBanner>
+                )}
+                {r.status === "extended" && r.xacNhanST === "lech" && (
+                  <StatusBanner level="danger">
+                    Đã hơn 2 ngày mà hệ thống giám sát hành trình chưa đổi hạn. Bà con gọi SDVICO kiểm tra lại nhé.
                   </StatusBanner>
                 )}
 

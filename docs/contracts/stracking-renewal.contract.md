@@ -84,7 +84,9 @@ Lọc `requester_phone = <SĐT> AND origin='sdfish'`, mới trước, tối đa 
 
 ## Trạng thái (enum `stracking_renewal_status`, hiển thị ở SDFish)
 
-`draft` → `pending_payment` (Chờ chuyển khoản) → `pending_extension` (Đã nhận tiền, chờ gia hạn) → `extended` (Đã gia hạn xong); nhánh `cancelled` (Đã hủy) · `expired` (Hết hạn mã QR). SDFish CHỈ tạo tới `pending_payment`; các bước sau do nhân viên crm.
+`draft` → `pending_payment` (Chờ chuyển khoản) → `pending_extension` (Đã nhận tiền, chờ gia hạn) → `extended` (SDFish hiện **"SDVICO báo đã gia hạn"** — CHƯA phải xong: SDFish đối chiếu hạn S-Tracking, xem dưới); nhánh `cancelled` (Đã hủy) · `expired` (Hết hạn mã QR). SDFish CHỈ tạo tới `pending_payment`; các bước sau do nhân viên crm.
+
+**Đối chiếu S-Tracking (SDFish, 2026-11-05)**: `extended` chỉ thành "Đã gia hạn · S-Tracking đã xác nhận" khi hạn cước máy GPU kéo từ stracking.viettel.io ≥ `newExpiryDate` (thiếu thì ngày `extendedAt` giờ VN + `monthsCount`) − 3 ngày. Chưa tới ⇒ "chờ S-Tracking"; quá 48 giờ ⇒ "gọi SDVICO". Vì vậy nhân viên crm nên ghi `new_expiry_date` đúng hạn mới khi duyệt. Edge fn không đổi.
 
 ## Migration kèm (DB chung)
 

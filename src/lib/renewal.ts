@@ -71,7 +71,8 @@ export function renewalStatusView(status: RenewalStatus): RenewalStatusView {
     case "pending_extension":
       return { label: "Đã nhận tiền, chờ gia hạn", tone: "warn" };
     case "extended":
-      return { label: "Đã gia hạn xong", tone: "ok" };
+      // Chưa đối chiếu S-Tracking — xem renewalExtendedView (SDVICO báo ≠ xong thật).
+      return { label: "SDVICO báo đã gia hạn", tone: "ok" };
     case "cancelled":
       return { label: "Đã hủy", tone: "neutral" };
     case "expired":
@@ -106,6 +107,8 @@ export interface RenewalCreateResult {
 }
 
 export interface RenewalRequestSummary {
+  /** SDFish tự gắn ở /api/renewal/mine (không phải từ edge fn): đối chiếu hạn S-Tracking khi `extended`. */
+  xacNhanST?: XacNhanST | null;
   requestCode: string;
   status: RenewalStatus;
   totalAmount: number;
@@ -205,26 +208,87 @@ export function chuanMaTau(s: string | null | undefined): string {
   return (s ?? "").replace(/\s+/g, "").toUpperCase();
 }
 
-export type GiaHanTauLoai = "cho-ck" | "cho-gia-han" | "da-gia-han";
+// ── "Đã gia hạn" CHỈ KHI S-Tracking xác nhận (anh Long 2026-11-05) ──
+// "nếu gia hạn thì phải vô kiểm tra xem cái info trên hệ thống s tracking đã đổi chưa? chứ ko phải
+// sdvico nhận tiền báo đã gia hạn là ghi nhận". CRM `extended` = SDVICO BÁO đã gia hạn; xong thật khi
+// hạn cước trên S-Tracking (stracking_thiet_bi.het_han, máy GPU kéo về 4 lần/ngày) đã lùi tới mốc mới.
+
+/** Dung sai ngày khi so hạn S-Tracking với hạn mong đợi (lệch cách tính tháng/ngày chốt kỳ của Viettel). */
+export const XAC_NHAN_DUNG_SAI_NGAY = 3;
+/** CRM báo đã gia hạn quá ngần này mà S-Tracking chưa đổi ⇒ LỆCH, bà con gọi SDVICO. */
+export const XAC_NHAN_TRE_GIO = 48;
+
+export type XacNhanST = "da-xac-nhan" | "cho-xac-nhan" | "lech" | "khong-doi-chieu";
+
+function congNgay(iso: string, ngay: number): string {
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + ngay);
+  return d.toISOString().slice(0, 10);
+}
+function congThang(iso: string, thang: number): string {
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + thang);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * THUẦN — hạn TỐI THIỂU S-Tracking phải có sau khi gia hạn. Có `newExpiryDate` (nhân viên ghi) thì dùng;
+ * không thì ngày gia hạn + số tháng: gia hạn từ hạn cũ còn dài hay từ lúc quá hạn, hạn mới đều ≥ mốc này.
+ * Không đủ dữ liệu ⇒ null (không đối chiếu được).
+ */
+export function hanMongDoi(r: RenewalRequestSummary): string | null {
+  if (r.newExpiryDate) return r.newExpiryDate.slice(0, 10);
+  if (r.extendedAt && r.monthsCount) {
+    const t = Date.parse(r.extendedAt);
+    if (!Number.isFinite(t)) return null;
+    // Ngày theo giờ VN (UTC+7) — extendedAt là mốc ISO.
+    const ngayVn = new Date(t + 7 * 3600_000).toISOString().slice(0, 10);
+    return congThang(ngayVn, r.monthsCount);
+  }
+  return null;
+}
+
+/**
+ * THUẦN — đối chiếu yêu cầu `extended` với hạn S-Tracking của đúng tàu.
+ * `hetHanST === undefined` = tàu không có trên S-Tracking của SĐT này ⇒ "khong-doi-chieu".
+ * Hạn S-Tracking ≥ mong đợi − dung sai ⇒ "da-xac-nhan"; chưa tới và CRM báo xong > 48 giờ ⇒ "lech";
+ * còn lại "cho-xac-nhan". Trạng thái khác `extended` ⇒ null.
+ */
+export function xacNhanGiaHan(
+  r: RenewalRequestSummary,
+  hetHanST: string | null | undefined,
+  nowMs: number,
+): XacNhanST | null {
+  if (r.status !== "extended") return null;
+  if (hetHanST === undefined) return "khong-doi-chieu";
+  const mong = hanMongDoi(r);
+  if (mong && hetHanST && hetHanST.slice(0, 10) >= congNgay(mong, -XAC_NHAN_DUNG_SAI_NGAY)) return "da-xac-nhan";
+  const luc = r.extendedAt ? Date.parse(r.extendedAt) : NaN;
+  if (Number.isFinite(luc) && nowMs - luc > XAC_NHAN_TRE_GIO * 3600_000) return "lech";
+  return "cho-xac-nhan";
+}
+
+export type GiaHanTauLoai = "cho-ck" | "cho-gia-han" | "cho-xac-nhan" | "lech";
 export interface GiaHanTau {
   loai: GiaHanTauLoai;
   requestCode: string;
-  /** Chỉ có ở "da-gia-han": hạn mới nhân viên đã gia hạn. */
+  /** Hạn S-Tracking phải đạt (chỉ ở cho-xac-nhan/lech; null = không tính được). */
   hanMoi: string | null;
 }
 
 /**
- * THUẦN — yêu cầu gia hạn ĐANG CÓ HIỆU LỰC của một tàu (danh sách `list` đã mới trước).
- * - pending_payment còn hạn QR → "cho-ck" (đã gửi, chờ chuyển khoản) · hết hạn QR → coi như không có.
+ * THUẦN — yêu cầu gia hạn CHƯA XONG của một tàu có trên S-Tracking (danh sách `list` đã mới trước).
+ * - pending_payment còn hạn QR → "cho-ck" · hết hạn QR → coi như không có.
  * - pending_extension → "cho-gia-han" (đã nhận tiền).
- * - extended mà hạn mới VƯỢT hạn S-Tracking đang thấy → "da-gia-han" (chờ máy GPU kéo hạn mới về);
- *   S-Tracking đã bắt kịp (hoặc không có hạn mới) → không còn gì để báo.
- * - cancelled/expired/draft/lạ → không có. Chỉ xét yêu cầu MỚI NHẤT của tàu: yêu cầu cũ hơn đã bị thay.
+ * - extended → đối chiếu S-Tracking (`xacNhanGiaHan`): đã xác nhận ⇒ xong (null, dòng hạn đã hiện ngày mới);
+ *   chưa ⇒ "cho-xac-nhan"; quá 48 giờ chưa đổi ⇒ "lech".
+ * - cancelled/expired/draft/lạ → không có. Chỉ xét yêu cầu MỚI NHẤT của tàu.
  */
 export function giaHanCuaTau(
   requests: readonly RenewalRequestSummary[],
   maTau: string | null | undefined,
-  hetHanST: string | null,
+  /** undefined = tàu không có trên S-Tracking của SĐT này (tự khai) — `extended` coi như xong. */
+  hetHanST: string | null | undefined,
   nowMs: number,
 ): GiaHanTau | null {
   const ma = chuanMaTau(maTau);
@@ -240,28 +304,41 @@ export function giaHanCuaTau(
     return { loai: "cho-gia-han", requestCode: r.requestCode, hanMoi: null };
   }
   if (r.status === "extended") {
-    const moi = r.newExpiryDate?.slice(0, 10) ?? null;
-    if (!moi || (hetHanST && moi <= hetHanST.slice(0, 10))) return null;
-    return { loai: "da-gia-han", requestCode: r.requestCode, hanMoi: moi };
+    const x = xacNhanGiaHan(r, hetHanST, nowMs);
+    if (x === "cho-xac-nhan" || x === "lech") return { loai: x, requestCode: r.requestCode, hanMoi: hanMongDoi(r) };
   }
   return null;
 }
 
-/** THUẦN — tàu đã có yêu cầu đang mở (chưa CK hoặc đã CK chờ gia hạn) ⇒ CHẶN tạo thêm. */
+/**
+ * THUẦN — tàu còn yêu cầu CHƯA XONG ⇒ CHẶN tạo thêm (chống trả tiền hai lần): chờ CK, chờ gia hạn, và —
+ * khi tàu có trên S-Tracking (`hetHanST` khác undefined) — SDVICO báo xong mà S-Tracking chưa xác nhận.
+ * Tàu tự khai (không đối chiếu được) thì `extended` coi như xong như trước.
+ */
 export function yeuCauDangMo(
   requests: readonly RenewalRequestSummary[],
   maTau: string,
   nowMs: number,
+  hetHanST?: string | null,
 ): RenewalRequestSummary | null {
-  const g = giaHanCuaTau(requests, maTau, null, nowMs);
-  if (!g || g.loai === "da-gia-han") return null;
+  const g = giaHanCuaTau(requests, maTau, hetHanST, nowMs);
+  if (!g) return null;
   return requests.find((x) => x.requestCode === g.requestCode) ?? null;
+}
+
+/** THUẦN — nhãn màn "Yêu cầu" cho yêu cầu `extended`, theo đối chiếu S-Tracking. */
+export function renewalExtendedView(x: XacNhanST | null | undefined): RenewalStatusView {
+  if (x === "da-xac-nhan") return { label: "Đã gia hạn · S-Tracking đã xác nhận", tone: "ok" };
+  if (x === "cho-xac-nhan") return { label: "SDVICO báo đã gia hạn · chờ S-Tracking", tone: "warn" };
+  if (x === "lech") return { label: "S-Tracking chưa đổi hạn · gọi SDVICO", tone: "danger" };
+  return { label: "SDVICO báo đã gia hạn", tone: "ok" };
 }
 
 export interface TauStrackingRow {
   serial: string;
   ten_tau: string | null;
   chu_tau: string | null;
+  het_han?: string | null;
 }
 
 /**

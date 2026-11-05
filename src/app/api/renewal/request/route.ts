@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     admin && /^0[1-9]\d{8}$/.test(who.phone)
       ? admin
           .from("stracking_thiet_bi")
-          .select("serial, ten_tau, chu_tau")
+          .select("serial, ten_tau, chu_tau, het_han")
           .or(`sdt_chu_tau.eq.${who.phone},sdt_thuyen_truong.eq.${who.phone}`)
           .limit(30)
       : null,
@@ -87,7 +87,8 @@ export async function POST(req: Request) {
     ownerName = st.chu_tau?.trim() || ownerName;
   }
 
-  const trung = daCo ? yeuCauDangMo(daCo, maTau, Date.now()) : null;
+  // Tàu có trên S-Tracking: yêu cầu SDVICO báo "đã gia hạn" mà hạn S-Tracking chưa đổi VẪN là đang mở.
+  const trung = daCo ? yeuCauDangMo(daCo, maTau, Date.now(), st ? (st.het_han ?? null) : undefined) : null;
   if (trung) {
     return NextResponse.json(
       { ok: false, code: "da_co_yeu_cau", requestCode: trung.requestCode, status: trung.status },

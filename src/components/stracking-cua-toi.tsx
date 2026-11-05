@@ -19,7 +19,8 @@ import type { Boat } from "@/lib/boats";
   nút "Gia hạn" mỗi máy mở đúng wizard gia hạn sẵn có, điền mã tàu lấy từ S-Tracking (không phải tàu tự khai).
 
   YÊU CẦU GIA HẠN đang chạy của từng tàu (máy chủ ghép từ DB chung, 2026-11-05): đã gửi chờ CK / đã nhận tiền ⇒ hiện
-  dòng trạng thái + ẨN nút Gia hạn (máy chủ cũng chặn trùng 409); đã gia hạn mà S-Tracking chưa kéo hạn mới ⇒ báo hạn mới.
+  dòng trạng thái + ẨN nút Gia hạn (máy chủ cũng chặn trùng 409). SDVICO báo "đã gia hạn" CHƯA là xong: chỉ xong khi hạn
+  S-Tracking lùi tới mốc mới (lib/renewal xacNhanGiaHan) — tới lúc đó "chờ hệ thống cập nhật hạn", quá 48 giờ ⇒ "gọi SDVICO".
   Gia hạn trong app chưa bật (`giaHanMo:false`) ⇒ nút Gọi SDVICO thay cho nút Gia hạn.
 
   OFFLINE: hiện NGAY bản đã lưu (`forfish.stracking.v1`, gắn tài khoản — auth-scope xoá khi đổi/đăng xuất), rồi hỏi
@@ -108,7 +109,9 @@ function dongGiaHan(g: GiaHanTau | null | undefined): { chu: string; mau: string
   if (!g) return null;
   if (g.loai === "cho-ck") return { chu: `Đã gửi yêu cầu ${g.requestCode} · chờ chuyển khoản`, mau: "text-warn" };
   if (g.loai === "cho-gia-han") return { chu: "Đã nhận tiền · SDVICO đang gia hạn", mau: "text-warn" };
-  return { chu: `Đã gia hạn tới ${ngayVn(g.hanMoi!)} · hệ thống sắp cập nhật`, mau: "text-ok" };
+  if (g.loai === "lech") return { chu: "SDVICO báo đã gia hạn nhưng hạn chưa đổi · gọi SDVICO", mau: "text-danger" };
+  // "cho-xac-nhan" (+ "da-gia-han" của bản lưu cũ): CRM báo xong, S-Tracking chưa đổi — KHÔNG nói "đã gia hạn".
+  return { chu: "SDVICO báo đã gia hạn · chờ hệ thống cập nhật hạn", mau: "text-warn" };
 }
 
 function dangTamNgung(t: TauST, homNay: string): boolean {
@@ -193,7 +196,8 @@ export function StrackingCuaToi({ onGiaHan }: { onGiaHan: (boat: Boat, serial: s
           const ten = t.tenTau ?? t.serial;
           const gh = dongGiaHan(t.giaHan);
           const coMaTau = /^[\p{L}]{1,4}-\d{3,6}-[\p{L}]{1,4}$/u.test(ten);
-          const dangMo = t.giaHan?.loai === "cho-ck" || t.giaHan?.loai === "cho-gia-han";
+          // Mọi yêu cầu CHƯA XONG (kể cả SDVICO báo xong mà S-Tracking chưa đổi) ⇒ ẩn nút, không trả tiền hai lần.
+          const dangMo = !!t.giaHan;
           return (
             <li key={t.serial} className="rounded-2xl bg-field px-4 py-3">
               <div className="flex items-stretch gap-2">

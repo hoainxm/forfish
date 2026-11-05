@@ -9,6 +9,9 @@ import {
   chonTauStracking,
   giaHanCuaTau,
   yeuCauDangMo,
+  xacNhanGiaHan,
+  hanMongDoi,
+  renewalExtendedView,
   type RenewalRequestSummary,
 } from "@/lib/renewal";
 
@@ -52,9 +55,9 @@ describe("renewalStatusView — giọng nói thật cho bà con", () => {
   it("đã nhận tiền chờ gia hạn = warn", () => {
     expect(renewalStatusView("pending_extension").tone).toBe("warn");
   });
-  it("đã gia hạn xong = ok", () => {
+  it("SDVICO báo đã gia hạn = ok, nhưng KHÔNG nói 'xong' (chưa đối chiếu S-Tracking)", () => {
     expect(renewalStatusView("extended")).toEqual({
-      label: "Đã gia hạn xong",
+      label: "SDVICO báo đã gia hạn",
       tone: "ok",
     });
   });
@@ -109,15 +112,21 @@ describe("giaHanCuaTau — yêu cầu đang chạy của một tàu", () => {
     expect(giaHanCuaTau([yc({ status: "pending_extension" })], "BV-1234-TS", null, NOW)?.loai).toBe("cho-gia-han");
   });
 
-  it("đã gia hạn: báo khi hạn mới vượt hạn S-Tracking, im khi S-Tracking đã bắt kịp", () => {
-    const r = [yc({ status: "extended", newExpiryDate: "2027-05-01" })];
+  it("SDVICO báo đã gia hạn ≠ xong: chờ S-Tracking đổi hạn; đổi rồi mới hết báo", () => {
+    const r = [yc({ status: "extended", newExpiryDate: "2027-05-01", extendedAt: "2026-11-05T01:00:00Z" })];
     expect(giaHanCuaTau(r, "BV-1234-TS", "2026-11-01", NOW)).toEqual({
-      loai: "da-gia-han",
+      loai: "cho-xac-nhan",
       requestCode: "GH-1",
       hanMoi: "2027-05-01",
     });
     expect(giaHanCuaTau(r, "BV-1234-TS", "2027-05-01", NOW)).toBeNull();
-    expect(giaHanCuaTau([yc({ status: "extended" })], "BV-1234-TS", null, NOW)).toBeNull();
+    // S-Tracking có máy nhưng chưa có ngày ⇒ chưa xác nhận được
+    expect(giaHanCuaTau(r, "BV-1234-TS", null, NOW)?.loai).toBe("cho-xac-nhan");
+  });
+
+  it("quá 48 giờ mà S-Tracking chưa đổi ⇒ lech", () => {
+    const r = [yc({ status: "extended", newExpiryDate: "2027-05-01", extendedAt: "2026-11-02T00:00:00Z" })];
+    expect(giaHanCuaTau(r, "BV-1234-TS", "2026-11-01", NOW)?.loai).toBe("lech");
   });
 
   it("chỉ xét yêu cầu MỚI NHẤT của đúng tàu; huỷ/tàu khác → null", () => {
@@ -135,8 +144,36 @@ describe("yeuCauDangMo — chặn tạo trùng", () => {
   it("chờ CK / chờ gia hạn → chặn; đã gia hạn xong → cho tạo tiếp", () => {
     expect(yeuCauDangMo([yc({})], "BV-1234-TS", NOW)?.requestCode).toBe("GH-1");
     expect(yeuCauDangMo([yc({ status: "pending_extension" })], "BV-1234-TS", NOW)).not.toBeNull();
-    expect(yeuCauDangMo([yc({ status: "extended", newExpiryDate: "2027-05-01" })], "BV-1234-TS", NOW)).toBeNull();
     expect(yeuCauDangMo([], "BV-1234-TS", NOW)).toBeNull();
+  });
+
+  it("tàu S-Tracking: SDVICO báo xong mà hạn chưa đổi ⇒ VẪN chặn; đổi rồi ⇒ cho tạo", () => {
+    const r = [yc({ status: "extended", newExpiryDate: "2027-05-01", extendedAt: "2026-11-05T01:00:00Z" })];
+    expect(yeuCauDangMo(r, "BV-1234-TS", NOW, "2026-11-01")).not.toBeNull();
+    expect(yeuCauDangMo(r, "BV-1234-TS", NOW, "2027-05-01")).toBeNull();
+  });
+
+  it("tàu tự khai (không đối chiếu được) ⇒ extended coi như xong", () => {
+    expect(yeuCauDangMo([yc({ status: "extended", newExpiryDate: "2027-05-01" })], "BV-1234-TS", NOW)).toBeNull();
+  });
+});
+
+describe("xacNhanGiaHan — đối chiếu hạn S-Tracking", () => {
+  it("không có newExpiryDate ⇒ mốc = ngày gia hạn (giờ VN) + số tháng, dung sai 3 ngày", () => {
+    const r = yc({ status: "extended", extendedAt: "2026-11-04T18:00:00Z", monthsCount: 6 }); // 05/11 giờ VN
+    expect(hanMongDoi(r)).toBe("2027-05-05");
+    expect(xacNhanGiaHan(r, "2027-05-02", NOW)).toBe("da-xac-nhan");
+    expect(xacNhanGiaHan(r, "2027-05-01", NOW)).toBe("cho-xac-nhan");
+  });
+  it("tàu không có trên S-Tracking ⇒ khong-doi-chieu; trạng thái khác extended ⇒ null", () => {
+    expect(xacNhanGiaHan(yc({ status: "extended" }), undefined, NOW)).toBe("khong-doi-chieu");
+    expect(xacNhanGiaHan(yc({}), "2027-01-01", NOW)).toBeNull();
+  });
+  it("nhãn màn Yêu cầu không nói 'đã gia hạn xong' khi chưa xác nhận", () => {
+    expect(renewalExtendedView("da-xac-nhan").tone).toBe("ok");
+    expect(renewalExtendedView("cho-xac-nhan").tone).toBe("warn");
+    expect(renewalExtendedView("lech").tone).toBe("danger");
+    expect(renewalStatusView("extended").label).not.toMatch(/xong/);
   });
 });
 
