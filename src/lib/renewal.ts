@@ -3,18 +3,9 @@
 // của crm-sdvico-40; nhân viên đối soát + duyệt → trigger đổ sang trang "Quản lý
 // gia hạn" của cskh-tasker-hub. Contract: docs/contracts/stracking-renewal.contract.md.
 //
-// Phần GỌI MẠNG chỉ chạy server (đọc env server-only); mọi lỗi trả `null` (app
-// phải chạy được khi mất sóng — KHÔNG throw). Phần THUẦN (kỳ hạn, nhãn trạng
-// thái) test được, dùng chung client + server.
-
-import { timeoutSignal } from "@/lib/abort";
-
-const CRM_URL = process.env.SDWORK_SUPABASE_URL ?? "";
-const CRM_SECRET = process.env.SDFISH_RENEWAL_SECRET ?? "";
-
-export function isRenewalConfigured(): boolean {
-  return Boolean(CRM_URL && CRM_SECRET);
-}
+// File này CHỈ phần THUẦN + kiểu (kỳ hạn, nhãn, 3 bước, đối chiếu S-Tracking) — dùng
+// chung client + server, test được. Phần GỌI MẠNG ở lib/renewal-server.ts (server-only:
+// đọc khoá từ /quan-tri qua app_config).
 
 /** Kỳ hạn gia hạn cho SDFish CHỈ 3 mốc cố định (chủ dự án chốt). */
 export const RENEWAL_MONTH_OPTIONS = [3, 6, 12] as const;
@@ -127,34 +118,6 @@ export interface RenewalRequestSummary {
   currentExpiryDate?: string | null;
 }
 
-/** Gọi edge function sdfish-renewal — SERVER-ONLY, timeout mặc định 15s, mọi lỗi → null. */
-async function callRenewal<T>(
-  payload: Record<string, unknown>,
-  timeoutMs = 15000,
-): Promise<T | null> {
-  if (!isRenewalConfigured()) return null;
-  try {
-    const r = await fetch(`${CRM_URL}/functions/v1/sdfish-renewal`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // KHÔNG gửi apikey/Authorization: function chạy verify_jwt=false, mà anon key
-        // của project là định dạng mới `sb_publishable_…` — cổng Kong TỪ CHỐI nó khi
-        // gửi làm apikey (401 "Invalid API key") TRƯỚC khi tới function (đã đo thật
-        // 2026-08-21). Gác thật là shared secret `x-sdfish-secret`.
-        "x-sdfish-secret": CRM_SECRET,
-      },
-      body: JSON.stringify(payload),
-      signal: timeoutSignal(timeoutMs),
-    });
-    if (!r.ok) return null;
-    const j = (await r.json()) as { ok?: boolean } & T;
-    return j?.ok ? j : null;
-  } catch {
-    return null;
-  }
-}
-
 export interface RenewalCreateInput {
   /** SĐT đã XÁC THỰC ở cổng chuỗi — KHÔNG lấy từ body máy khách. */
   phone: string;
@@ -167,43 +130,6 @@ export interface RenewalCreateInput {
   /** Hạn hiện tại trên S-Tracking (YYYY-MM-DD) — mốc để tự xác nhận khi hạn đổi. */
   currentExpiry?: string | null;
   monthsCount: RenewalMonths;
-}
-
-/** Tạo 1 yêu cầu gia hạn + sinh QR. Trả `null` khi chưa cấu hình / CRM lỗi. */
-export async function createRenewalRequest(
-  input: RenewalCreateInput,
-): Promise<RenewalCreateResult | null> {
-  return callRenewal<RenewalCreateResult>({
-    action: "create",
-    phone: input.phone,
-    name: input.name,
-    monthsCount: input.monthsCount,
-    vessel: {
-      maTau: input.maTau,
-      ownerName: input.ownerName,
-      serial: input.serial,
-      imei: input.imei,
-      currentExpiry: input.currentExpiry ?? undefined,
-    },
-  });
-}
-
-/** Liệt kê yêu cầu gia hạn của 1 SĐT (màn theo dõi trạng thái). */
-export async function listRenewalRequests(
-  phone: string,
-  timeoutMs?: number,
-): Promise<RenewalRequestSummary[] | null> {
-  const j = await callRenewal<{ requests: RenewalRequestSummary[] }>(
-    { action: "list", phone },
-    timeoutMs,
-  );
-  return j?.requests ?? null;
-}
-
-/** Đơn giá/tháng hiện hành (để hiện tổng tiền TRƯỚC khi tạo yêu cầu). null = lỗi. */
-export async function getRenewalMonthlyPrice(): Promise<number | null> {
-  const j = await callRenewal<{ monthlyPrice: number }>({ action: "price" });
-  return j?.monthlyPrice ?? null;
 }
 
 // ── Gia hạn theo SERIAL máy S-Tracking (2026-11-05) ────────────────────────
@@ -395,22 +321,6 @@ export interface RenewalPending {
   monthsCount: number | null;
   currentExpiryDate: string | null;
   paidAt: string | null;
-}
-
-/** Danh sách yêu cầu `pending_extension` của SDFish. null = lỗi/chưa cấu hình. */
-export async function listPendingExtensions(): Promise<RenewalPending[] | null> {
-  const j = await callRenewal<{ requests: RenewalPending[] }>({ action: "pending" });
-  return j?.requests ?? null;
-}
-
-/** Đóng 1 yêu cầu: S-Tracking đã đổi hạn của đúng serial. Edge fn tự kiểm lại trạng thái + serial. */
-export async function confirmFromStracking(input: {
-  requestCode: string;
-  serialNumber: string;
-  newExpiryDate: string;
-}): Promise<boolean> {
-  const j = await callRenewal<{ requestCode: string }>({ action: "confirm", ...input });
-  return !!j;
 }
 
 export interface TauStrackingRow {

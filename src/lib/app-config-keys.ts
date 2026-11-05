@@ -13,6 +13,8 @@ export type ConfigKey =
   | "kairos_ingest_key"
   | "tau_ais_key"
   | "stracking_key"
+  | "sdfish_renewal_secret"
+  | "sdwork_crm_url"
   | "tau_ais_xem"
   | "sdvico_lead_key"
   | "doi_tac_ais"
@@ -144,6 +146,26 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     generate: "hex32",
     help: "Máy GPU đồng bộ S-Tracking gửi kèm khoá này. Tạo ngẫu nhiên → Lưu, rồi dán CÙNG giá trị vào ~/.config/forlife/stracking.env (STRACKING_KEY).",
   },
+  /*  GIA HẠN GIÁM SÁT HÀNH TRÌNH (2026-11-05, anh Long: "SDFISH_RENEWAL_SECRET đặt ở đâu? đưa vào quản trị đi"):
+      máy chủ SDFish gọi edge fn `sdfish-renewal` của DB chung crm/hub (tạo đơn + QR, tra đơn, tự đóng khi hạn
+      S-Tracking đổi) kèm header `x-sdfish-secret`. Ô này thắng env; trống cả hai ⇒ gia hạn trong app TẮT (bà con
+      thấy "gọi SDVICO"). Contract: docs/contracts/stracking-renewal.contract.md. */
+  {
+    key: "sdfish_renewal_secret",
+    label: "Khoá gia hạn giám sát hành trình",
+    risk: "Không trùng khoá bên CRM là bà con không tạo được yêu cầu gia hạn, không xem được đơn, và hệ thống ngừng tự đóng đơn khi hạn đổi.",
+    secret: true,
+    envVar: "SDFISH_RENEWAL_SECRET",
+    help: "Khoá chung với edge fn sdfish-renewal (DB chung crm/hub). Phải TRÙNG secret SDFISH_RENEWAL_SECRET đặt ở Supabase CRM (Edge Functions → Secrets). Đổi: đặt giá trị mới ở CRM trước, rồi dán vào đây.",
+  },
+  {
+    key: "sdwork_crm_url",
+    label: "Địa chỉ DB chung CRM (gia hạn)",
+    risk: "Sai địa chỉ là mọi lệnh gia hạn gửi nhầm chỗ — bà con không tạo được yêu cầu, đơn không tự đóng.",
+    secret: false,
+    envVar: "SDWORK_SUPABASE_URL",
+    help: "URL Supabase của DB chung crm/hub, dạng https://<ref>.supabase.co (không có / ở cuối). Hiện chỉ luồng gia hạn đọc ô này; các luồng SDWork khác vẫn đọc env SDWORK_SUPABASE_URL.",
+  },
   /*  AI ĐƯỢC XEM AIS (2026-10-29, anh Long: "AIS là chỉ cho Long view thôi nhé, cũng 1 dạng option bật cho ai
       người đó view đc") — danh sách SĐT; chưa đặt ⇒ chỉ chủ dự án (lib/tau-ais/quyen.ts). Middleware chặn
       /api/tau-ais theo ô này, /api/tau-ais/quyen cho máy biết để hiện nút AIS. */
@@ -223,6 +245,11 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
       return /^\d+$/.test(v) && Number(v) >= 100 && Number(v) <= 100_000;
     case "doi_tac_ais":
       return v.split(",").map((s) => s.trim()).filter(Boolean).every((s) => /^[a-z0-9][a-z0-9-]{1,39}:[0-9a-f]{64}:[1-5]{1,5}:(30|60)$/.test(s)); // = MUC_KHOA_DOI_TAC (lib/doi-tac)
+    case "sdwork_crm_url":
+      return /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(v);
+    case "sdfish_renewal_secret":
+      // khoá đã đặt sẵn bên CRM (độ dài do bên đó chọn) — chỉ chặn dán lỗi: đủ dài, không khoảng trắng
+      return v.length >= 16 && v.length <= 200 && !/\s/.test(v);
     case "kairos_ingest_key":
     case "tau_ais_key":
     case "stracking_key":

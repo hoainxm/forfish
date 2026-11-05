@@ -7,10 +7,11 @@
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { danhDauTenTrung, isRenewalConfigured, laYeuCauCuaMay, listRenewalRequests, xacNhanGiaHan } from "@/lib/renewal";
+import { danhDauTenTrung, laYeuCauCuaMay, xacNhanGiaHan } from "@/lib/renewal";
+import { isRenewalConfigured, listRenewalRequests } from "@/lib/renewal-server";
 
 export async function GET(req: Request) {
-  if (!isRenewalConfigured()) {
+  if (!(await isRenewalConfigured())) {
     return NextResponse.json({ ok: false, code: "not_configured" });
   }
 

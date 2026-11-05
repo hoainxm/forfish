@@ -14,12 +14,8 @@
 import { getCronSecret } from "@/lib/app-config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyAccount } from "@/lib/account-notify";
-import {
-  chonYeuCauDong,
-  confirmFromStracking,
-  isRenewalConfigured,
-  listPendingExtensions,
-} from "@/lib/renewal";
+import { chonYeuCauDong } from "@/lib/renewal";
+import { confirmFromStracking, isRenewalConfigured, listPendingExtensions } from "@/lib/renewal-server";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -41,7 +37,7 @@ export async function GET(req: Request) {
   if (!(await authorized(req))) {
     return Response.json({ ok: false, code: "unauthorized" }, { status: 401 });
   }
-  if (!isRenewalConfigured()) {
+  if (!(await isRenewalConfigured())) {
     return Response.json({ ok: true, skipped: "renewal_chua_cau_hinh" });
   }
   const admin = createAdminClient();

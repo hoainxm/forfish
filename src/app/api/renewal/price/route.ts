@@ -3,10 +3,10 @@
 // không cần đăng nhập; cache ngắn để không đập DB chung mỗi lần mở wizard.
 
 import { NextResponse } from "next/server";
-import { getRenewalMonthlyPrice, isRenewalConfigured } from "@/lib/renewal";
+import { getRenewalMonthlyPrice, isRenewalConfigured } from "@/lib/renewal-server";
 
 export async function GET() {
-  if (!isRenewalConfigured()) {
+  if (!(await isRenewalConfigured())) {
     return NextResponse.json({ ok: false, code: "not_configured" });
   }
   const monthlyPrice = await getRenewalMonthlyPrice();

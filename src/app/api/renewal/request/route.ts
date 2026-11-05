@@ -12,22 +12,15 @@
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  createRenewalRequest,
-  danhDauTenTrung,
-  isRenewalConfigured,
-  isValidRenewalMonths,
-  listRenewalRequests,
-  yeuCauDangMo,
-  type TauStrackingRow,
-} from "@/lib/renewal";
+import { danhDauTenTrung, isValidRenewalMonths, yeuCauDangMo, type TauStrackingRow } from "@/lib/renewal";
+import { createRenewalRequest, isRenewalConfigured, listRenewalRequests } from "@/lib/renewal-server";
 
 /** Tra trùng có đồng hồ riêng 4 s — chậm/hỏng thì bỏ qua tra trùng, tạo vẫn chạy trong đồng hồ 20 s của máy khách. */
 const TRA_TRUNG_MS = 4000;
 const SDT_HOP_LE = /^0[1-9]\d{8}$/;
 
 export async function POST(req: Request) {
-  if (!isRenewalConfigured()) {
+  if (!(await isRenewalConfigured())) {
     return NextResponse.json({ ok: false, code: "not_configured" }, { status: 503 });
   }
 

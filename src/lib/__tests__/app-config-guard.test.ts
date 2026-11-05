@@ -66,6 +66,16 @@ describe("validateConfigValue — chặn ở ranh giới", () => {
     expect(validateConfigValue("data_key_prev", "  ")).toBe(false);
   });
 
+  it("gia hạn S-Tracking (2026-11-05): khoá chung ≥16 không khoảng trắng; URL đúng khuôn Supabase", () => {
+    expect(validateConfigValue("sdfish_renewal_secret", "ngan")).toBe(false);
+    expect(validateConfigValue("sdfish_renewal_secret", "abc def ghi jkl mno")).toBe(false);
+    expect(validateConfigValue("sdfish_renewal_secret", "x".repeat(20))).toBe(true);
+    expect(validateConfigValue("sdwork_crm_url", "https://exueouggmbjtjvsvpfya.supabase.co")).toBe(true);
+    expect(validateConfigValue("sdwork_crm_url", "https://exueouggmbjtjvsvpfya.supabase.co/")).toBe(false);
+    expect(validateConfigValue("sdwork_crm_url", "http://exueouggmbjtjvsvpfya.supabase.co")).toBe(false);
+    expect(validateConfigValue("sdwork_crm_url", "0938635689")).toBe(false);
+  });
+
   it("isDataKeyValue: đúng 64 hex (không phân biệt hoa/thường, cắt khoảng trắng)", () => {
     expect(isDataKeyValue(HEX)).toBe(true);
     expect(isDataKeyValue(` ${HEX.toUpperCase()} `)).toBe(true);

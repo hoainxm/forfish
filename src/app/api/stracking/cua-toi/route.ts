@@ -6,7 +6,8 @@
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dauNgayVnIso } from "@/lib/stracking/dong-bo.mjs";
-import { danhDauTenTrung, giaHanCuaTau, isRenewalConfigured, listRenewalRequests } from "@/lib/renewal";
+import { danhDauTenTrung, giaHanCuaTau } from "@/lib/renewal";
+import { isRenewalConfigured, listRenewalRequests } from "@/lib/renewal-server";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,9 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   if (!admin) return Response.json({ ok: false, code: "unavailable" }, { status: 503 });
   const sdt = who.phone;
-  if (!/^0[1-9]\d{8}$/.test(sdt)) return Response.json({ ok: true, capNhatLuc: null, giaHanMo: isRenewalConfigured(), tau: [], canhBao: [] });
+  const giaHanMo = await isRenewalConfigured();
+  if (!/^0[1-9]\d{8}$/.test(sdt)) return Response.json({ ok: true, capNhatLuc: null, giaHanMo, tau: [], canhBao: [] });
 
-  const giaHanMo = isRenewalConfigured();
   const [tauR, soR, yeuCau] = await Promise.all([
     admin
       .from("stracking_thiet_bi")

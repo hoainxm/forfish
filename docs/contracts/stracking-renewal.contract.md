@@ -27,7 +27,8 @@ SDFish app (ngư dân)
 |---|---|---|
 | DB chung crm/hub (`exueouggmbjtjvsvpfya`) | Edge fn `supabase/functions/sdfish-renewal` (crm repo) | nhận yêu cầu SDFish, tạo request + QR, tra trạng thái |
 | DB chung | pipeline S-Tracking sẵn có (`stracking_renewal_*`, `generate-renewal-qr`, `confirm-renewal-done`, trigger bridge) | đối soát, duyệt, đổ sang hub — TÁI DÙNG, không sửa |
-| SDFish | `src/lib/renewal.ts` (adapter) | gọi edge fn, mọi lỗi → null |
+| SDFish | `src/lib/renewal-server.ts` (adapter, server-only, 2026-11-05) | gọi edge fn, mọi lỗi → null; đọc khoá + URL từ `/quan-tri` (app_config) |
+| SDFish | `src/lib/renewal.ts` | phần thuần + kiểu (3 bước, đối chiếu S-Tracking) — dùng chung client/server |
 | SDFish | `src/app/api/renewal/{price,request,mine}/route.ts` | cổng server, suy SĐT từ phiên |
 | SDFish | `src/components/vms-renewal.tsx` | UI: thẻ VMS + guard mã tàu + wizard + màn trạng thái |
 
@@ -116,8 +117,8 @@ Chỉ `pending_extension → extended` (UPDATE có điều kiện trạng thái)
 
 | Nơi | Env | Ý nghĩa |
 |---|---|---|
-| SDFish (forfish) | `SDWORK_SUPABASE_URL` | URL DB chung (đã có, dùng chung với gateway assets) |
-| SDFish | `SDFISH_RENEWAL_SECRET` | shared secret (server-only) — cổng gác THẬT (header `x-sdfish-secret`) |
+| SDFish (forfish) | **/quan-tri → Hệ thống → "Địa chỉ DB chung CRM (gia hạn)"** (`app_config.sdwork_crm_url`; env dự phòng `SDWORK_SUPABASE_URL`) | URL DB chung, dạng `https://<ref>.supabase.co` |
+| SDFish | **/quan-tri → Hệ thống → "Khoá gia hạn giám sát hành trình"** (`app_config.sdfish_renewal_secret`; env dự phòng `SDFISH_RENEWAL_SECRET`) | shared secret — cổng gác THẬT (header `x-sdfish-secret`). Ô quản trị THẮNG env, đổi có hiệu lực sau ≤30 s, không cần deploy lại (2026-11-05) |
 
 > ⚠️ **KHÔNG gửi `apikey`/`Authorization`**: function `verify_jwt=false`, mà anon key project là định dạng mới `sb_publishable_…` — cổng Kong từ chối nó khi gửi làm apikey (401 "Invalid API key") TRƯỚC khi tới function (đo thật 2026-08-21). Chỉ gửi `x-sdfish-secret`.
 | DB chung (crm) | `SDFISH_RENEWAL_SECRET` | KHỚP với phía SDFish |
