@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { docMkn, nhacTheoNguoi, viecNhac } from "@/lib/stracking/nhac-nho.mjs";
+import { docMkn, nhacTheoNguoi, tuanVn, viecNhac } from "@/lib/stracking/nhac-nho.mjs";
 import { kiemGoiNhap, kiemNhac, laDuongDoc, thanMkn } from "@/lib/stracking/dong-bo.mjs";
 
 // 05/11/2026 17:00 giờ VN
@@ -87,5 +87,44 @@ describe("gọi báo cáo mất kết nối", () => {
     const j = JSON.parse(thanMkn(1000));
     expect(j).toMatchObject({ page: "1", pageSkip: "0", pageSize: "1000", direction: "0", isFirstPage: "true", isLastPage: "false", data: { inOutShore: "2" } });
     expect(laDuongDoc("/getListDeviceDisconnect")).toBe(true);
+  });
+});
+
+describe("máy lắp trước mốc NĐ 37/2024 (19/5/2024) ⇒ nhắc nâng cấp theo NĐ 41/2026, 1 lần/tuần", () => {
+  const nd41 = (o: Record<string, unknown>, now = NOW) => viecNhac({ thietBi: [tau({ ...o })], now }).filter((v) => v.loai === "nd41-nang-cap");
+  it("ngày lắp = ngày đăng ký (thiếu thì ngày tạo); trước mốc mới nhắc", () => {
+    expect(nd41({ dangKyLuc: "2024-05-18" })).toHaveLength(1);
+    expect(nd41({ dangKyLuc: "2024-05-19" })).toEqual([]);
+    expect(nd41({ dangKyLuc: "2025-01-01", taoLuc: "2019-06-01T00:00:00Z" })).toEqual([]); // đăng ký thắng ngày tạo
+    expect(nd41({ dangKyLuc: null, taoLuc: "2020-03-01T03:00:00Z" })).toHaveLength(1);
+    expect(nd41({ dangKyLuc: null, taoLuc: null })).toEqual([]);
+    const v = nd41({ dangKyLuc: "2021-03-12" })[0];
+    expect(v.dong).toMatch(/lắp từ 12\/03\/2021, trước mốc 19\/5\/2024/);
+    expect(v.dong).toMatch(/Liên hệ SDVICO/);
+    expect(v.day).toBe(false); // máy GPU bật đẩy cho lần đầu
+  });
+  it("khoá theo tuần: cùng tuần ⇒ cùng khoá, tuần sau ⇒ khoá mới", () => {
+    const thu5 = Date.parse("2026-11-05T10:00:00Z"); // thứ Năm
+    const cn = Date.parse("2026-11-08T10:00:00Z"); // Chủ nhật cùng tuần
+    const thu2 = Date.parse("2026-11-09T01:00:00Z"); // thứ Hai tuần sau (08:00 VN)
+    expect(tuanVn(thu5)).toBe(tuanVn(cn));
+    expect(tuanVn(thu2)).toBe(tuanVn(thu5) + 1);
+    expect(nd41({ dangKyLuc: "2021-03-12" }, thu5)[0].khoa).toBe(nd41({ dangKyLuc: "2021-03-12" }, cn)[0].khoa);
+    expect(nd41({ dangKyLuc: "2021-03-12" }, thu2)[0].khoa).not.toBe(nd41({ dangKyLuc: "2021-03-12" }, thu5)[0].khoa);
+  });
+  it("máy chủ nhận loại nd41-nang-cap", () => {
+    expect(kiemNhac([{ sdt: "0967214151", loai: "nd41-nang-cap", tau: "BV-1-TS", dong: "x", day: true }])).toHaveLength(1);
+  });
+});
+
+describe("máy đã huỷ / thu hồi ⇒ không nhắc gì (báo Zalo 05/11)", () => {
+  it("tên DE…/Thu… hoặc nhóm DELETE: không hạn, không Tổng cục, không mất kết nối, không NĐ 41", () => {
+    const huy = [
+      tau({ serial: "S1", tenTau: "DEKG-93388-TS", hetHan: "2026-11-04", dongBoTcts: "Thất bại", dangKyLuc: "2021-01-01" }),
+      tau({ serial: "S1", tenTau: "ThuhoiCM-1-TS", hetHan: "2026-11-04" }),
+      tau({ serial: "S1", tenTau: "KG-1-TS", nhom: "04.DELETE", hetHan: "2026-11-04" }),
+    ];
+    for (const t of huy) expect(viecNhac({ thietBi: [t], mkn: [mkn(8)], now: NOW })).toEqual([]);
+    expect(viecNhac({ thietBi: [tau({ hetHan: "2026-11-04" })], now: NOW }).length).toBeGreaterThan(0); // máy thật vẫn nhắc
   });
 });

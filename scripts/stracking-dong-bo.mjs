@@ -406,8 +406,16 @@ function tinhNhac(db, mkn, chiMkn) {
   let viec = viecNhac({ thietBi, mkn });
   if (chiMkn) viec = viec.filter((v) => v.loai.startsWith("mkn-"));
   const daCo = db.prepare("SELECT 1 FROM da_nhac WHERE khoa = ? AND sdt = ?");
+  // NĐ 41 nhắc mỗi tuần: lần ĐẦU (chưa từng nhắc máy này cho người này) ⇒ đẩy lên máy; các tuần sau chỉ hộp thư.
+  const daNhacNd41 = db.prepare("SELECT 1 FROM da_nhac WHERE sdt = ? AND loai = 'nd41-nang-cap' AND khoa LIKE ? LIMIT 1");
   const out = [];
-  for (const v of viec) for (const sdt of v.nguoi) if (!daCo.get(v.khoa, sdt)) out.push({ khoa: v.khoa, ...nhacTheoNguoi([{ ...v, nguoi: [sdt] }])[0] });
+  for (const v of viec)
+    for (const sdt of v.nguoi) {
+      if (daCo.get(v.khoa, sdt)) continue;
+      const x = nhacTheoNguoi([{ ...v, nguoi: [sdt] }])[0];
+      if (v.loai === "nd41-nang-cap") x.day = !daNhacNd41.get(sdt, `nd41|${v.serial}|%`);
+      out.push({ khoa: v.khoa, ...x });
+    }
   return out;
 }
 
