@@ -29,7 +29,7 @@
 import path from "node:path";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { DatabaseSync } from "node:sqlite";
 import { chromium } from "playwright";
@@ -89,6 +89,8 @@ function cauHinh(env = process.env) {
     base: get("STRACKING_API_BASE").replace(/\/+$/, ""),
     stateDir,
     profile: get("STRACKING_PROFILE") || path.join(stateDir, "profile"),
+    /** Cookie phiên đăng nhập giữ qua các lượt (chmod 600) — xem napPhien/luuPhien. */
+    tepPhien: path.join(stateDir, "phien.json"),
   };
 }
 
@@ -201,6 +203,52 @@ function ghiKho(db, thietBi, canhBao, luc) {
   }
   return { doiHan, cbMoi };
 }
+
+// ── Giữ phiên đăng nhập qua các lượt ─────────────────────────────────────────────────────
+// Cookie đăng nhập S-Tracking là cookie PHIÊN (không ngày hết hạn, HttpOnly — Play Framework) ⇒ Chromium xoá khi đóng,
+// hồ sơ `profile/` không giữ được ⇒ trước 05/11 lượt nào cũng đăng nhập lại (~24 lần/ngày ⇒ dễ bị Google đòi captcha).
+// Giờ: đăng nhập xong + cuối mỗi lượt tốt ⇒ lưu cookie ra `phien.json` (chmod 600 — tương đương một phiên của tài khoản
+// đại lý, giữ kín như tệp env); đầu lượt nạp lại. Máy chủ đá ra ⇒ đăng nhập như cũ + ghi phiên đã sống bao lâu
+// (bảng trang_thai, khoá phien_song_gio) để biết thời hạn thật của máy chủ.
+
+function docPhien(file) {
+  try {
+    const p = JSON.parse(readFileSync(file, "utf8"));
+    return p && Array.isArray(p.cookies) ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+async function napPhien(ctx, c) {
+  const p = docPhien(c.tepPhien);
+  if (!p) return null;
+  const host = new URL(GOC_STRACKING).hostname;
+  const cookies = p.cookies.filter((k) => typeof k?.domain === "string" && host.endsWith(k.domain.replace(/^\./, "")));
+  if (!cookies.length) return null;
+  try {
+    await ctx.addCookies(cookies);
+  } catch (e) {
+    log(`nạp phiên đã lưu hỏng — đăng nhập lại: ${e.message}`);
+    return null;
+  }
+  return p;
+}
+
+async function luuPhien(ctx, c, dangNhapLuc) {
+  try {
+    const cookies = await ctx.cookies(GOC_STRACKING);
+    if (!cookies.length) return;
+    const tmp = `${c.tepPhien}.tmp`;
+    writeFileSync(tmp, JSON.stringify({ luu: new Date().toISOString(), dangNhapLuc, cookies }), { mode: 0o600 });
+    chmodSync(tmp, 0o600);
+    renameSync(tmp, c.tepPhien);
+  } catch (e) {
+    log(`lưu phiên hỏng (lượt sau đăng nhập lại, không sao): ${e.message}`);
+  }
+}
+
+const gioTu = (iso) => Math.round(((Date.now() - Date.parse(iso)) / 3600_000) * 10) / 10;
 
 // ── Trình duyệt ──────────────────────────────────────────────────────────────────────────
 async function canDangNhap(page) {
@@ -363,16 +411,25 @@ function tinhNhac(db, mkn, chiMkn) {
   return out;
 }
 
-/** Đánh dấu đã nhắc — CHỈ khi máy chủ xác nhận nhận nhắc (`ghi.nhac` là số); chưa xác nhận ⇒ lượt sau gửi lại. */
+/**
+ * Đánh dấu đã nhắc — CHỈ khi máy chủ xác nhận (`ghi.nhac` là số; null = ghi hộp thư hỏng) và SĐT không nằm trong
+ * `ghi.nhacSdtBo` (vượt trần lượt đó). Chưa xác nhận / bị cắt ⇒ giữ lại, lượt sau gửi lại.
+ */
 function danhDauNhac(db, nhac, j, luc) {
   if (typeof j?.ghi?.nhac !== "number") {
-    if (nhac.length) log(`máy chủ chưa xác nhận nhận nhắc (thiếu ghi.nhac) — giữ ${nhac.length} nhắc để gửi lại`);
+    if (nhac.length) log(`máy chủ chưa xác nhận nhận nhắc (ghi.nhac không phải số) — giữ ${nhac.length} nhắc để gửi lại`);
     return;
   }
+  const bo = new Set(Array.isArray(j.ghi.nhacSdtBo) ? j.ghi.nhacSdtBo : []);
   const ghi = db.prepare("INSERT OR IGNORE INTO da_nhac (khoa, sdt, loai, luc) VALUES (?,?,?,?)");
+  let giu = 0;
   db.exec("BEGIN");
-  for (const n of nhac) ghi.run(n.khoa, n.sdt, n.loai, luc);
+  for (const n of nhac) {
+    if (bo.has(n.sdt)) giu++;
+    else ghi.run(n.khoa, n.sdt, n.loai, luc);
+  }
   db.exec("COMMIT");
+  if (giu) log(`máy chủ cắt trần ${bo.size} SĐT — giữ ${giu} nhắc để gửi lượt sau`);
 }
 const boKhoa = (nhac) => nhac.map((n) => ({ sdt: n.sdt, tau: n.tau, loai: n.loai, day: n.day, dong: n.dong }));
 
@@ -427,13 +484,28 @@ async function main() {
   });
   const page = ctx.pages()[0] ?? (await ctx.newPage());
   const t0 = Date.now();
+  const phienCu = await napPhien(ctx, c);
+  let dangNhapLuc = phienCu?.dangNhapLuc ?? null;
+  let daVao = false;
   try {
     await page.goto(`${GOC_STRACKING}/report/expiredDevice`, { waitUntil: "domcontentloaded", timeout: 60_000 });
     if (await canDangNhap(page)) {
+      if (phienCu?.dangNhapLuc) {
+        const song = gioTu(phienCu.dangNhapLuc);
+        log(`phiên đã lưu hết hiệu lực — sống được ${song} giờ kể từ lần đăng nhập`);
+        db.prepare("INSERT INTO trang_thai (khoa, gia_tri) VALUES ('phien_song_gio', ?) ON CONFLICT(khoa) DO UPDATE SET gia_tri = excluded.gia_tri").run(
+          JSON.stringify({ gio: song, dangNhapLuc: phienCu.dangNhapLuc, hetLuc: new Date().toISOString() }),
+        );
+      }
       const vao = DANG_NHAP_TAY ? await choNguoiDangNhap(page) : await dangNhapTuDong(page, c);
       if (!vao) throw new HetPhien("chưa đăng nhập được");
+      dangNhapLuc = new Date().toISOString();
+      await luuPhien(ctx, c, dangNhapLuc);
       await page.goto(`${GOC_STRACKING}/report/expiredDevice`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    } else if (phienCu) {
+      log(`dùng lại phiên đã lưu (đăng nhập ${dangNhapLuc ? `${gioTu(dangNhapLuc)} giờ trước` : "lúc không rõ"}) — không cần đăng nhập`);
     }
+    daVao = true;
     if (DANG_NHAP_TAY) log("phiên đang sống — các lượt timer sẽ dùng lại hồ sơ này");
 
     if (CHI_MKN) {
@@ -573,6 +645,8 @@ async function main() {
     await guiTrangThai(c, hetPhien ? "het-phien" : "loi", String(e.message).slice(0, 300));
     return hetPhien ? 3 : 1;
   } finally {
+    // Cookie có thể được máy chủ làm mới trong lượt ⇒ lưu lại bản mới nhất (chỉ khi đã vào được).
+    if (daVao) await luuPhien(ctx, c, dangNhapLuc);
     await ctx.close().catch(() => {});
     db.close();
   }
