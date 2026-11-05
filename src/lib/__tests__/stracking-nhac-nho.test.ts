@@ -170,3 +170,13 @@ describe("giọng nhắc — cho bà con thấy mình đang giúp họ (anh Long
     }
   });
 });
+
+describe("M2019 thêm vào đời phải nâng cấp (anh Long 05/11: \"ok bổ sung thêm m2019 đi\")", () => {
+  it("M2019 đăng ký sau mốc vẫn được nhắc chắc chắn; M2020 / K2018 đăng ký sau mốc thì không", () => {
+    const nd = (serial: string) => viecNhac({ thietBi: [tau({ serial, dangKyLuc: "2025-03-01" })], now: NOW }).filter((v) => v.loai === "nd41-nang-cap");
+    expect(nd("MTR052019M001234")).toHaveLength(1);
+    expect(nd("MTR052019M001234")[0].dong).toMatch(/đời M 2019 cần nâng cấp/);
+    expect(nd("MTR052020M001234")).toEqual([]);
+    expect(nd("MTR052018K001234")).toEqual([]);
+  });
+});

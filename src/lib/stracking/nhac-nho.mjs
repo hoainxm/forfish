@@ -33,10 +33,11 @@ export const MOC_LAP_ND37 = "2024-05-19";
  * Đời máy CHẮC CHẮN phải nâng cấp theo NĐ 41/2026 — anh Long 05/11: "K2019 va D2019 là chắc chắn phải nâng cấp ND41".
  * Serial S-Tracking = "MTR" + THÁNG (2 số) + NĂM SẢN XUẤT (4 số) + chữ DÒNG MÁY + số máy (vd MTR032026D006069 = tháng
  * 03/2026, dòng D; đo kho 05/11: 15 851/15 853 serial có tháng 01–12). Đời = chữ dòng + năm, vd "D2019".
- * Đo 05/11: D2019 = 2 052 máy; K2019 = 0 (dòng K đời cũ là K2018 — 292 máy); M2019 = 7 333 — hai đời này CHƯA vào danh
- * sách, chờ anh Long chốt.
+ * Đo 05/11: D2019 = 2 052 máy; K2019 = 0 (dòng K đời cũ là K2018 — 292 máy, CHƯA vào danh sách).
+ * M2019 thêm 05/11 (anh Long: "ok bổ sung thêm m2019 đi") — 6 602 máy còn dùng có SĐT, ~61% đăng ký SAU mốc 19/5/2024 nên
+ * luật mốc ngày không phủ. Tổng nhắc NĐ 41 sau khi thêm: ~7 700 máy / ~7 350 SĐT (trước: ~3 700).
  */
-export const DOI_PHAI_NANG_CAP = ["K2019", "D2019"];
+export const DOI_PHAI_NANG_CAP = ["K2019", "D2019", "M2019"];
 
 /** "MTR032019D…" ⇒ "D2019"; không đúng dạng ⇒ null. */
 export function doiMay(serial) {
