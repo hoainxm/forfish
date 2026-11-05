@@ -76,8 +76,12 @@ export function docMkn(r) {
   };
 }
 
+/**
+ * Người nhận nhắc = CHỈ CHỦ TÀU (anh Long 06/11: "chủ tàu mới xem giám sát, thuyền trưởng nếu có chỉ là trong hồ sơ lao
+ * động thôi"). SĐT thuyền trưởng không nhận nhắc giám sát hành trình.
+ */
 function nguoiNhan(t) {
-  return [...new Set([t.sdtChuTau, t.sdtThuyenTruong].filter((s) => typeof s === "string" && /^0[1-9]\d{8}$/.test(s)))];
+  return typeof t.sdtChuTau === "string" && /^0[1-9]\d{8}$/.test(t.sdtChuTau) ? [t.sdtChuTau] : [];
 }
 
 /**

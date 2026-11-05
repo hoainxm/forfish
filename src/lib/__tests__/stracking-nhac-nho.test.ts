@@ -26,7 +26,7 @@ describe("nhắc mất kết nối ngoài khơi — mốc 6 giờ (anh Long: \"m
     expect(viecNhac({ thietBi: [tau()], mkn: [mkn(3)], now: NOW })).toEqual([]);
     const sap = viecNhac({ thietBi: [tau()], mkn: [mkn(5)], now: NOW });
     expect(sap).toHaveLength(1);
-    expect(sap[0]).toMatchObject({ loai: "mkn-sap-6h", day: true, nguoi: ["0967214151", "0911222333"] });
+    expect(sap[0]).toMatchObject({ loai: "mkn-sap-6h", day: true, nguoi: ["0967214151"] }); // chỉ chủ tàu (06/11)
     expect(sap[0].dong).toMatch(/trước mốc 6 giờ/);
     // CÙNG một đợt (bắt đầu 7 giờ trước NOW), đồng hồ trôi thêm 4 giờ rồi 6 giờ.
     const dot = [mkn(7)];
@@ -73,11 +73,11 @@ describe("gửi máy chủ", () => {
   it("bung theo người; máy chủ kiểm lại — SĐT/loại lạ bị bỏ, ký tự điều khiển bị lọc", () => {
     const v = viecNhac({ thietBi: [tau({ dongBoTcts: "Thất bại" })], mkn: [mkn(7)], now: NOW });
     const ds = nhacTheoNguoi(v);
-    expect(ds).toHaveLength(4); // 2 việc × 2 người
-    expect(kiemNhac([...ds, { sdt: "123", loai: "mkn-qua-6h", dong: "x" }, { sdt: "0967214151", loai: "la", dong: "x" }])).toHaveLength(4);
+    expect(ds).toHaveLength(2); // 2 việc × 1 người (chỉ chủ tàu)
+    expect(kiemNhac([...ds, { sdt: "123", loai: "mkn-qua-6h", dong: "x" }, { sdt: "0967214151", loai: "la", dong: "x" }])).toHaveLength(2);
     expect(kiemNhac([{ sdt: "0967214151", loai: "tcts-that-bai", tau: "A\u0000B", dong: "d\u0000ong", day: true }])[0]).toEqual({ sdt: "0967214151", serial: null, tau: "A B", loai: "tcts-that-bai", day: true, dong: "d ong" });
     const r = kiemGoiNhap({ luc: "2026-11-05T10:00:00Z", trangThai: "ok", nhac: ds }, NOW);
-    expect(r.goi?.nhac).toHaveLength(4);
+    expect(r.goi?.nhac).toHaveLength(2);
     expect(kiemGoiNhap({ luc: "2026-11-05T10:00:00Z", trangThai: "ok" }, NOW).goi?.nhac).toEqual([]);
   });
 });
@@ -189,5 +189,13 @@ describe("nhắc mang serial — máy chủ bỏ nhắc của máy khách đã t
     expect(kiemNhac(ds)[0].serial).toBe("S1");
     expect(kiemNhac([{ ...ds[0], serial: "x".repeat(65) }])[0].serial).toBeNull();
     expect(kiemNhac([{ ...ds[0], serial: 5 }])[0].serial).toBeNull();
+  });
+});
+
+describe("chỉ chủ tàu nhận nhắc (anh Long 06/11: \"chủ tàu mới xem giám sát\")", () => {
+  it("thuyền trưởng không nhận; máy chỉ có SĐT thuyền trưởng ⇒ không nhắc", () => {
+    const v = viecNhac({ thietBi: [tau({ dongBoTcts: "Thất bại" })], now: NOW });
+    expect(v[0].nguoi).toEqual(["0967214151"]);
+    expect(viecNhac({ thietBi: [tau({ sdtChuTau: null, dongBoTcts: "Thất bại" })], now: NOW })).toEqual([]);
   });
 });
