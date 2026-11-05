@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NHAN } from "@/lib/labels";
 import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
@@ -21,7 +21,7 @@ import type { Boat } from "@/lib/boats";
   YÊU CẦU GIA HẠN đang chạy của từng tàu (máy chủ ghép từ DB chung, 2026-11-05): đã gửi chờ CK / đã nhận tiền ⇒ hiện
   dòng trạng thái + ẨN nút Gia hạn (máy chủ cũng chặn trùng 409). SDVICO báo "đã gia hạn" CHƯA là xong: chỉ xong khi hạn
   S-Tracking lùi tới mốc mới (lib/renewal xacNhanGiaHan) — tới lúc đó "chờ hệ thống cập nhật hạn", quá 48 giờ ⇒ "gọi SDVICO".
-  Gia hạn trong app chưa bật (`giaHanMo:false`) ⇒ nút Gọi SDVICO thay cho nút Gia hạn.
+  Gia hạn trong app chưa bật (`giaHanMo:false`) ⇒ MỘT nút Gọi SDVICO cuối khối (không lặp mỗi tàu).
 
   OFFLINE: hiện NGAY bản đã lưu (`forfish.stracking.v1`, gắn tài khoản — auth-scope xoá khi đổi/đăng xuất), rồi hỏi
   máy chủ có đồng hồ 12 s; mất sóng thì giữ bản lưu + giờ cập nhật, không treo, không xoá.
@@ -80,12 +80,23 @@ function ngayVn(iso: string): string {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
 }
-/** Mốc ISO ⇒ "dd/mm/yyyy" theo giờ VN (ngày tạo máy). */
-function ngayLucVn(iso: string): string {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return "";
-  return new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(t));
+/** Cảnh báo cùng LOẠI của một tàu gộp một dòng "SOS · 3 lần, gần nhất 17:00" (anh Long 05/11: S-Tracking bắn SOS 30 phút/lần
+ *  ⇒ ba dòng giống nhau). Báo động trước, mới trước. */
+function gopCanhBao(ds: CanhBaoST[]): (CanhBaoST & { lan: number })[] {
+  const theoLoai = new Map<string, CanhBaoST & { lan: number }>();
+  for (const c of ds) {
+    const cu = theoLoai.get(c.loai);
+    if (!cu) theoLoai.set(c.loai, { ...c, lan: 1 });
+    else {
+      cu.lan++;
+      if (Date.parse(c.luc) > Date.parse(cu.luc)) Object.assign(cu, { luc: c.luc, muc: c.muc ?? cu.muc });
+    }
+  }
+  return [...theoLoai.values()].sort(
+    (a, b) => Number(b.muc === "Báo động") - Number(a.muc === "Báo động") || Date.parse(b.luc) - Date.parse(a.luc),
+  );
 }
+
 function gioVn(iso: string): string {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return "";
@@ -104,23 +115,38 @@ function dongHan(t: TauST, homNay: string): { chu: string; mau: string } {
   return { chu: "Chưa có ngày hết hạn", mau: "text-muted" };
 }
 
-/** Dòng yêu cầu gia hạn đang chạy (null = không có). */
+/** Dòng 3 bước của yêu cầu gia hạn (null = không có). Bản lưu cũ có loai lạ ("cho-gia-han", "cho-xac-nhan",
+    "da-gia-han") ⇒ hiện như bước 2 — an toàn: KHÔNG bao giờ nói đã gia hạn khi chưa chắc. */
 function dongGiaHan(g: GiaHanTau | null | undefined): { chu: string; mau: string } | null {
   if (!g) return null;
-  if (g.loai === "cho-ck") return { chu: `Đã gửi yêu cầu ${g.requestCode} · chờ chuyển khoản`, mau: "text-warn" };
-  if (g.loai === "cho-gia-han") return { chu: "Đã nhận tiền · SDVICO đang gia hạn", mau: "text-warn" };
-  if (g.loai === "lech") return { chu: "SDVICO báo đã gia hạn nhưng hạn chưa đổi · gọi SDVICO", mau: "text-danger" };
-  // "cho-xac-nhan" (+ "da-gia-han" của bản lưu cũ): CRM báo xong, S-Tracking chưa đổi — KHÔNG nói "đã gia hạn".
-  return { chu: "SDVICO báo đã gia hạn · chờ hệ thống cập nhật hạn", mau: "text-warn" };
+  if (g.loai === "cho-ck") return { chu: `Bước 1/3 · Chờ chuyển khoản · mã ${g.requestCode}`, mau: "text-warn" };
+  if (g.loai === "xong")
+    return { chu: `Bước 3/3 · Đã đổi hạn trên hệ thống${g.hanMoi ? ` tới ${ngayVn(g.hanMoi)}` : ""}`, mau: "text-ok" };
+  if (g.loai === "lech") return { chu: "Đã nhận tiền hơn 2 ngày mà hạn chưa đổi · gọi SDVICO", mau: "text-danger" };
+  return { chu: "Bước 2/3 · Đã nhận tiền · đang gia hạn", mau: "text-warn" };
 }
 
 function dangTamNgung(t: TauST, homNay: string): boolean {
   return !!t.tamNgungTu && t.tamNgungTu <= homNay && (!t.tamNgungDen || t.tamNgungDen >= homNay);
 }
 
-export function StrackingCuaToi({ onGiaHan }: { onGiaHan: (boat: Boat, serial: string) => void }) {
+export function StrackingCuaToi({
+  onGiaHan,
+  onGiaHanMo,
+}: {
+  onGiaHan: (boat: Boat, serial: string) => void;
+  /** Báo khối cha gia hạn trong app đã bật chưa (bản lưu hoặc máy chủ) — để ẩn hàng "Yêu cầu" khi chưa bật. */
+  onGiaHanMo?: (mo: boolean) => void;
+}) {
   const [ban, setBan] = useState<BanST | null>(null);
   const [trangThai, setTrangThai] = useState<"dang-tai" | "xong" | "mat-song" | "chua-dang-nhap">("dang-tai");
+  const onGiaHanMoRef = useRef(onGiaHanMo);
+  useEffect(() => {
+    onGiaHanMoRef.current = onGiaHanMo;
+  });
+  useEffect(() => {
+    if (ban) onGiaHanMoRef.current?.(ban.giaHanMo !== false);
+  }, [ban]);
 
   useEffect(() => {
     let song = true;
@@ -181,9 +207,13 @@ export function StrackingCuaToi({ onGiaHan }: { onGiaHan: (boat: Boat, serial: s
 
   if (!ban.tau.length) {
     return (
-      <p className="mt-3 text-[0.875rem] text-muted">
-        Chưa thấy máy giám sát hành trình nào đăng ký số điện thoại này. Máy đăng ký số khác thì gọi SDVICO để cập nhật.
-      </p>
+      // Gia hạn CHỈ cho máy có trên S-Tracking của SĐT này ⇒ không có máy thì lối duy nhất là gọi SDVICO.
+      <div className="mt-3 flex items-stretch gap-2">
+        <p className="flex min-w-0 flex-1 items-center text-[0.875rem] text-muted">
+          Chưa thấy máy giám sát hành trình nào đăng ký số điện thoại này. Máy đăng ký số khác thì gọi SDVICO để cập nhật và gia hạn.
+        </p>
+        <CallButton phone={SDVICO_HOTLINE} label={NHAN.goiSdvico} />
+      </div>
     );
   }
 
@@ -192,12 +222,11 @@ export function StrackingCuaToi({ onGiaHan }: { onGiaHan: (boat: Boat, serial: s
       <ul className="space-y-2">
         {ban.tau.map((t) => {
           const han = dongHan(t, homNay);
-          const cb = ban.canhBao.filter((c) => c.imei && c.imei === t.imei).slice(0, CANH_BAO_MOI_TAU);
+          const cb = gopCanhBao(ban.canhBao.filter((c) => c.imei && c.imei === t.imei)).slice(0, CANH_BAO_MOI_TAU);
           const ten = t.tenTau ?? t.serial;
           const gh = dongGiaHan(t.giaHan);
-          const coMaTau = /^[\p{L}]{1,4}-\d{3,6}-[\p{L}]{1,4}$/u.test(ten);
-          // Mọi yêu cầu CHƯA XONG (kể cả SDVICO báo xong mà S-Tracking chưa đổi) ⇒ ẩn nút, không trả tiền hai lần.
-          const dangMo = !!t.giaHan;
+          // Yêu cầu CHƯA XONG (bước 1/2/lệch) ⇒ ẩn nút, không trả tiền hai lần. Bước 3 xong rồi thì nút hiện lại.
+          const dangMo = !!t.giaHan && t.giaHan.loai !== "xong";
           return (
             <li key={t.serial} className="rounded-2xl bg-field px-4 py-3">
               <div className="flex items-stretch gap-2">
@@ -224,19 +253,11 @@ export function StrackingCuaToi({ onGiaHan }: { onGiaHan: (boat: Boat, serial: s
                         .join(" · ")}
                     </p>
                   )}
-                  {(t.nhom || t.taoLuc) && (
-                    <p className="text-[0.875rem] text-muted">
-                      {[t.nhom ? `Nhóm ${t.nhom}` : null, t.taoLuc ? `tạo ${ngayLucVn(t.taoLuc)}` : null].filter(Boolean).join(" · ")}
-                    </p>
-                  )}
                 </div>
-                {coMaTau && !dangMo && ban.giaHanMo === false && (
-                  <CallButton phone={SDVICO_HOTLINE} label={NHAN.goiSdvico} />
-                )}
-                {coMaTau && !dangMo && ban.giaHanMo !== false && (
+                {!dangMo && ban.giaHanMo !== false && (
                   <button
                     type="button"
-                    onClick={() => onGiaHan({ id: `st-${t.serial}`, name: ten, maTau: ten }, t.serial)}
+                    onClick={() => onGiaHan({ id: `st-${t.serial}`, name: ten, maTau: t.tenTau ?? undefined }, t.serial)}
                     className={`${SQ_BTN} bg-background text-navy`}
                   >
                     <PlusIcon className="h-6 w-6" />
@@ -247,8 +268,8 @@ export function StrackingCuaToi({ onGiaHan }: { onGiaHan: (boat: Boat, serial: s
               {cb.length > 0 && (
                 <ul className="mt-2 space-y-0.5 border-t border-foreground/10 pt-2">
                   {cb.map((c) => (
-                    <li key={`${c.loai}|${c.luc}`} className={`text-[0.875rem] ${c.muc === "Báo động" ? "text-danger" : "text-muted"}`}>
-                      {c.loai} · {gioVn(c.luc)}
+                    <li key={c.loai} className={`text-[0.875rem] ${c.muc === "Báo động" ? "text-danger" : "text-muted"}`}>
+                      {c.loai} · {c.lan > 1 ? `${c.lan} lần, gần nhất ${gioVn(c.luc)}` : gioVn(c.luc)}
                     </li>
                   ))}
                 </ul>
@@ -258,6 +279,13 @@ export function StrackingCuaToi({ onGiaHan }: { onGiaHan: (boat: Boat, serial: s
         })}
       </ul>
       {ghiChu && <p className="mt-1.5 text-[0.875rem] text-muted">{ghiChu}</p>}
+      {/* Gia hạn trong app chưa bật ⇒ MỘT nút gọi cho cả khối (anh Long 05/11: "tới 3 nút gọi? bố cục kém"), không lặp mỗi tàu. */}
+      {ban.giaHanMo === false && (
+        <div className="mt-3 flex items-center gap-2">
+          <p className="min-w-0 flex-1 text-[0.875rem] text-muted">Gia hạn máy nào thì gọi SDVICO.</p>
+          <CallButton phone={SDVICO_HOTLINE} label={NHAN.goiSdvico} />
+        </div>
+      )}
     </div>
   );
 }

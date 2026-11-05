@@ -2,15 +2,12 @@
 
 import { NHAN } from "@/lib/labels";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useBoats } from "@/lib/boat-store";
-import { BoatForm } from "@/components/boat-switcher";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ChipRow } from "@/components/ui/chip-row";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { CallButton, PrimaryButton, RefNote } from "@/components/ui/primitives";
 import { LoginGate } from "@/components/login-gate";
 import {
-  PlusIcon,
   CheckIcon,
   ChevronRightIcon,
 } from "@/components/icons";
@@ -19,7 +16,6 @@ import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import { tokenHeader } from "@/lib/device-token-store";
 import { formatVnd } from "@/lib/format";
-import { storageFullCopy } from "@/lib/user-store";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import {
   RENEWAL_MONTH_OPTIONS,
@@ -89,14 +85,15 @@ export function VmsRenewal() {
 }
 
 function VmsRenewalInner() {
-  const { boats, current, ready, addBoat, updateBoat } = useBoats();
-  const [boatForm, setBoatForm] = useState<Boat | null>(null);
-  const [saveFailed, setSaveFailed] = useState(false);
-  const [wizardOpen, setWizardOpen] = useState(false);
-  /*  Tàu lấy từ S-Tracking (danh sách "máy của tôi") — mở wizard với mã tàu thật, không qua tàu tự khai. */
+  /*  GIA HẠN CHỈ TỪ MÁY CÓ TRÊN S-TRACKING, khoá theo SERIAL (anh Long 2026-11-05: "đơn giản hơn, tránh nhầm
+      info, đích cuối là gia hạn, đóng tiền, đổi hạn"). Bỏ lối gia hạn tàu tự khai (gõ mã tàu): mã gõ tay không
+      kiểm chứng được, còn 72 tên tàu trên S-Tracking trùng nhau ⇒ ghép theo tên dễ nhầm máy. Máy không có trên
+      S-Tracking của SĐT này ⇒ thẻ bảo gọi SDVICO. */
   const [tauSt, setTauSt] = useState<{ boat: Boat; serial: string } | null>(null);
-  /*  Đổi khoá ⇒ thẻ S-Tracking tải lại sau khi tạo yêu cầu (hiện "Đã gửi yêu cầu…", ẩn nút Gia hạn). */
+  /*  Đổi khoá ⇒ thẻ S-Tracking tải lại sau khi tạo yêu cầu (hiện bước 1/3, ẩn nút Gia hạn). */
   const [lanTaiSt, setLanTaiSt] = useState(0);
+  /*  Gia hạn trong app đã bật chưa — thẻ S-Tracking báo lên (null = chưa biết ⇒ vẫn hiện hàng Yêu cầu). */
+  const [giaHanMo, setGiaHanMo] = useState<boolean | null>(null);
   const [statusOpen, setStatusOpen] = useState(false);
   /*  Số yêu cầu đã gửi — nhớ trong phiên tab (sessionStorage, KHÔNG khoá forfish.*): lúc mở
       màn KHÔNG gọi mạng (luật offline), chỉ cập nhật khi ngăn trạng thái tải xong. null = chưa
@@ -111,58 +108,26 @@ function VmsRenewalInner() {
     }
   }
 
-  if (!ready) return null;
-
-  const hasMaTau = !!current?.maTau?.trim();
-
-  /*  Bấm "Gia hạn": đủ mã tàu → wizard; chưa → MỞ THẲNG form tàu, con trỏ vào ô Mã tàu, lý do
-      nằm trong form (TAU-16, 2026-10-25) — bỏ ngăn trung gian "Chưa gia hạn được" chỉ để bấm
-      thêm một lần. */
-  function onRequest() {
-    if (hasMaTau) setWizardOpen(true);
-    else setBoatForm(current ?? { id: `boat-${Date.now()}`, name: "" });
-  }
-
   return (
-    // Khối phẳng KHỚP format "Sổ nhắc bảo dưỡng": tiêu đề + phụ đề + nút cam.
+    // Khối phẳng KHỚP format "Sổ nhắc bảo dưỡng": tiêu đề + phụ đề; nút Gia hạn nằm ở TỪNG MÁY bên dưới.
     <div>
       <h3 className="display mb-1 text-[1.125rem] font-semibold text-navy">
         Giám sát hành trình
       </h3>
+      <p className="mb-2 text-[0.875rem] text-foreground/70">
+        Gia hạn thiết bị để tàu đủ điều kiện ra khơi.
+      </p>
 
-      {/*  Ô nút INLINE cuối hàng phụ đề (2026-08-29, luật A2/A3/A4): trước là
-          4 nút full-width ăn riêng hàng LIÊN TIẾP nhau trong một khối. Nhãn rút
-          còn "Gia hạn" — ô SQ_BTN chỉ có 64px bề ngang. */}
-      <div className="mb-2 flex items-stretch gap-2">
-        <div className="flex min-w-0 flex-1 items-center">
-          <p className="text-[0.875rem] text-foreground/70">
-            Gia hạn thiết bị để tàu đủ điều kiện ra khơi.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onRequest}
-          className={`${SQ_BTN} bg-field text-navy`}
-        >
-          <PlusIcon className="h-6 w-6" />
-          Gia hạn
-        </button>
-      </div>
-
-      <StrackingCuaToi key={lanTaiSt} onGiaHan={(boat, serial) => setTauSt({ boat, serial })} />
-
-      {saveFailed && (
-        <p
-          role="alert"
-          className="mb-2.5 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-semibold leading-snug text-danger"
-        >
-          {storageFullCopy("hồ sơ tàu")}
-        </p>
-      )}
+      <StrackingCuaToi
+        key={lanTaiSt}
+        onGiaHan={(boat, serial) => setTauSt({ boat, serial })}
+        onGiaHanMo={setGiaHanMo}
+      />
 
       {/*  Hàng disclosure theo khuôn B1: [thân flex-1] + [ô w-16 mang chevron].
-          Nó CÓ nội dung nên không phải "nút ăn riêng hàng", chỉ cần vào khuôn. */}
-      {soYeuCau !== 0 && (
+          Nó CÓ nội dung nên không phải "nút ăn riêng hàng", chỉ cần vào khuôn.
+          Gia hạn chưa bật ⇒ ẩn (bấm vào chỉ là ngõ cụt; thẻ S-Tracking đã có hàng Gọi SDVICO). */}
+      {soYeuCau !== 0 && giaHanMo !== false && (
       <button
         type="button"
         onClick={() => setStatusOpen(true)}
@@ -178,34 +143,12 @@ function VmsRenewalInner() {
       </button>
       )}
 
-      {/* Form thêm/sửa tàu CÓ SẴN (tái dùng BoatForm) — mở vì thiếu mã tàu nên focus + lý do ở ô Mã tàu */}
-      {boatForm && (
-        <BoatForm
-          initial={boatForm}
-          isNew={!boats.some((b) => b.id === boatForm.id)}
-          canMaTau="Cần mã đăng ký để gia hạn giám sát hành trình."
-          onCancel={() => setBoatForm(null)}
-          onSave={(b) => {
-            const ok = boats.some((x) => x.id === b.id)
-              ? updateBoat(b)
-              : addBoat(b);
-            setSaveFailed(!ok);
-            setBoatForm(null);
-          }}
-        />
-      )}
-
-      {(tauSt || (wizardOpen && current?.maTau)) && (
+      {tauSt && (
         <RenewalWizard
-          boat={tauSt?.boat ?? current!}
-          serial={tauSt?.serial}
-          tuStracking={!!tauSt}
-          onClose={() => {
-            setWizardOpen(false);
-            setTauSt(null);
-          }}
+          boat={tauSt.boat}
+          serial={tauSt.serial}
+          onClose={() => setTauSt(null)}
           onDone={() => {
-            setWizardOpen(false);
             setTauSt(null);
             setLanTaiSt((n) => n + 1);
             setStatusOpen(true);
@@ -224,15 +167,12 @@ function VmsRenewalInner() {
 function RenewalWizard({
   boat,
   serial,
-  tuStracking = false,
   onClose,
   onDone,
 }: {
   boat: Boat;
-  /** Serial máy S-Tracking (chỉ khi mở từ thẻ "máy của tôi") — máy chủ đối chiếu lại theo SĐT phiên. */
-  serial?: string;
-  /** true = mã tàu lấy từ S-Tracking (đã có trên hệ thống), không phải tàu bà con tự khai. */
-  tuStracking?: boolean;
+  /** Serial máy S-Tracking — KHOÁ của yêu cầu; máy chủ đối chiếu lại theo SĐT phiên. */
+  serial: string;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -291,6 +231,8 @@ function RenewalWizard({
             ? "Bà con đăng nhập để tiếp tục gia hạn nhé."
             : j?.code === "da_co_yeu_cau"
               ? `Tàu này đã có yêu cầu ${j.requestCode ?? ""} đang chờ xử lý — xem ở “Yêu cầu”, không cần tạo thêm.`
+              : j?.code === "khong_co_tren_stracking"
+                ? "Máy này chưa đăng ký số điện thoại của bạn trên hệ thống. Bà con gọi SDVICO nhé."
               : j?.code === "not_configured"
                 ? "Gia hạn trong app đang tạm đóng. Bà con gọi SDVICO để gia hạn nhé."
                 : null,
@@ -354,7 +296,7 @@ function RenewalWizard({
     <BottomSheet title="Gia hạn máy giám sát hành trình" onClose={onClose}>
       <div className="rounded-2xl bg-field px-4 py-3">
         <p className="text-[1rem] font-semibold text-navy">{boat.name}</p>
-        <p className="text-[0.875rem] text-foreground/70">Mã tàu: {boat.maTau}</p>
+        <p className="text-[0.875rem] text-foreground/70">Số máy: {serial}</p>
       </div>
 
       <p className="mb-1.5 mt-4 text-[1rem] font-semibold text-navy">Chọn thời gian gia hạn</p>
@@ -395,10 +337,8 @@ function RenewalWizard({
 
       <div className="mt-3">
         <RefNote tone="var(--t3)" bg="var(--t3-bg)">
-          {tuStracking
-            ? "Mã tàu lấy từ hệ thống giám sát hành trình."
-            : "Tàu do bạn tự khai — SDVICO xác minh mã tàu trước khi gia hạn."}{" "}
-          App không tự trừ tiền; bà con chủ động chuyển khoản.
+          Máy lấy từ hệ thống giám sát hành trình. App không tự trừ tiền; bà con chủ
+          động chuyển khoản, hạn đổi trên hệ thống thì app báo.
         </RefNote>
       </div>
 
@@ -455,7 +395,8 @@ function RenewalStatusSheet({
   /** Báo số yêu cầu tải được — hàng "Yêu cầu · N" ngoài màn dùng, không gọi mạng thêm. */
   onCount?: (n: number) => void;
 }) {
-  const [state, setState] = useState<"loading" | "ok" | "empty" | "error">(
+  /*  "chua-mo" = máy chủ chưa bật gia hạn (`not_configured`) — KHÔNG phải lỗi sóng, nên không có nút Thử lại. */
+  const [state, setState] = useState<"loading" | "ok" | "empty" | "error" | "chua-mo">(
     "loading",
   );
   const [requests, setRequests] = useState<RenewalRequestSummary[]>([]);
@@ -478,7 +419,7 @@ function RenewalStatusSheet({
           setState(j.requests.length === 0 ? "empty" : "ok");
           onCountRef.current?.(j.requests.length);
         } else {
-          setState("error");
+          setState(j?.code === "not_configured" ? "chua-mo" : "error");
         }
       })
       .catch(() => setState("error"));
@@ -500,6 +441,15 @@ function RenewalStatusSheet({
         <p className="px-1 py-8 text-center text-[1rem] text-muted">
           Chưa có yêu cầu gia hạn nào.
         </p>
+      )}
+
+      {state === "chua-mo" && (
+        <div className="flex items-stretch gap-2 px-1 py-4">
+          <p className="flex min-w-0 flex-1 items-center text-[1rem] text-foreground/70">
+            Gia hạn trong app chưa mở — gọi SDVICO để gia hạn.
+          </p>
+          <CallButton phone={SDVICO_HOTLINE} label={NHAN.goiSdvico} />
+        </div>
       )}
 
       {state === "error" && (

@@ -6,7 +6,10 @@ import {
   renewalTotal,
   renewalStatusView,
   chuanMaTau,
-  chonTauStracking,
+  daDoiHan,
+  chonYeuCauDong,
+  danhDauTenTrung,
+  laYeuCauCuaMay,
   giaHanCuaTau,
   yeuCauDangMo,
   xacNhanGiaHan,
@@ -93,6 +96,8 @@ function yc(p: Partial<RenewalRequestSummary>): RenewalRequestSummary {
   };
 }
 
+const MAY = { serial: "S1", tenTau: "BV-1234-TS", tenTrung: false };
+
 describe("chuanMaTau", () => {
   it("bỏ khoảng trắng + chữ hoa; rỗng/null → ''", () => {
     expect(chuanMaTau(" bv-1234 -ts ")).toBe("BV-1234-TS");
@@ -100,76 +105,87 @@ describe("chuanMaTau", () => {
   });
 });
 
-describe("giaHanCuaTau — yêu cầu đang chạy của một tàu", () => {
-  it("chờ CK khi QR còn hạn; QR hết hạn → coi như không có", () => {
-    const con = [yc({ qrExpiresAt: "2026-11-06T00:00:00Z" })];
-    expect(giaHanCuaTau(con, "bv-1234-ts", null, NOW)?.loai).toBe("cho-ck");
-    const het = [yc({ qrExpiresAt: "2026-11-04T00:00:00Z" })];
-    expect(giaHanCuaTau(het, "BV-1234-TS", null, NOW)).toBeNull();
+describe("ghép yêu cầu ↔ máy — KHOÁ serial, chống nhầm tên trùng", () => {
+  it("có serial ⇒ chỉ so serial (tên giống mà serial khác là máy khác)", () => {
+    expect(laYeuCauCuaMay(yc({ serialNumber: "S1" }), MAY)).toBe(true);
+    expect(laYeuCauCuaMay(yc({ serialNumber: "S2" }), MAY)).toBe(false);
   });
-
-  it("đã nhận tiền → cho-gia-han", () => {
-    expect(giaHanCuaTau([yc({ status: "pending_extension" })], "BV-1234-TS", null, NOW)?.loai).toBe("cho-gia-han");
+  it("yêu cầu cũ chưa có serial ⇒ so tên, nhưng KHÔNG khi tên trùng trong máy của SĐT", () => {
+    expect(laYeuCauCuaMay(yc({}), MAY)).toBe(true);
+    expect(laYeuCauCuaMay(yc({}), { ...MAY, tenTrung: true })).toBe(false);
+    expect(laYeuCauCuaMay(yc({}), { ...MAY, tenTau: null })).toBe(false);
   });
-
-  it("SDVICO báo đã gia hạn ≠ xong: chờ S-Tracking đổi hạn; đổi rồi mới hết báo", () => {
-    const r = [yc({ status: "extended", newExpiryDate: "2027-05-01", extendedAt: "2026-11-05T01:00:00Z" })];
-    expect(giaHanCuaTau(r, "BV-1234-TS", "2026-11-01", NOW)).toEqual({
-      loai: "cho-xac-nhan",
-      requestCode: "GH-1",
-      hanMoi: "2027-05-01",
-    });
-    expect(giaHanCuaTau(r, "BV-1234-TS", "2027-05-01", NOW)).toBeNull();
-    // S-Tracking có máy nhưng chưa có ngày ⇒ chưa xác nhận được
-    expect(giaHanCuaTau(r, "BV-1234-TS", null, NOW)?.loai).toBe("cho-xac-nhan");
+  it("danhDauTenTrung đếm theo tên chuẩn hoá", () => {
+    const ds = danhDauTenTrung([
+      { serial: "A", tenTau: "BV-1-TS" },
+      { serial: "B", tenTau: "bv-1-ts" },
+      { serial: "C", tenTau: "KH-2-TS" },
+      { serial: "D", tenTau: null },
+    ]);
+    expect(ds.map((m) => m.tenTrung)).toEqual([true, true, false, false]);
   });
+});
 
-  it("quá 48 giờ mà S-Tracking chưa đổi ⇒ lech", () => {
-    const r = [yc({ status: "extended", newExpiryDate: "2027-05-01", extendedAt: "2026-11-02T00:00:00Z" })];
-    expect(giaHanCuaTau(r, "BV-1234-TS", "2026-11-01", NOW)?.loai).toBe("lech");
+describe("hanMongDoi / daDoiHan — đích cuối là HẠN ĐỔI trên S-Tracking", () => {
+  it("hạn cũ còn dài ⇒ tính từ hạn cũ; đã quá hạn ⇒ từ ngày nhận tiền (giờ VN)", () => {
+    expect(hanMongDoi({ currentExpiryDate: "2026-12-01", paidAt: "2026-11-05T02:00:00Z", monthsCount: 6 })).toBe("2027-06-01");
+    expect(hanMongDoi({ currentExpiryDate: "2026-10-01", paidAt: "2026-11-04T18:00:00Z", monthsCount: 3 })).toBe("2027-02-05");
+    expect(hanMongDoi({ newExpiryDate: "2027-05-01", monthsCount: 6 })).toBe("2027-05-01");
+    expect(hanMongDoi({ monthsCount: 6 })).toBeNull();
   });
+  it("đổi hạn = vượt hạn cũ VÀ ≥ mong đợi − 3 ngày", () => {
+    const r = { currentExpiryDate: "2026-12-01", paidAt: "2026-11-05T02:00:00Z", monthsCount: 6 };
+    expect(daDoiHan(r, "2027-05-29")).toBe(true);
+    expect(daDoiHan(r, "2027-05-28")).toBe(false);
+    expect(daDoiHan(r, "2026-12-01")).toBe(false);
+    expect(daDoiHan(r, null)).toBe(false);
+    expect(daDoiHan({ monthsCount: 6 }, "2030-01-01")).toBe(false); // không tính được ⇒ không đoán
+  });
+});
 
-  it("chỉ xét yêu cầu MỚI NHẤT của đúng tàu; huỷ/tàu khác → null", () => {
-    const r = [
-      yc({ requestCode: "GH-2", status: "cancelled" }),
-      yc({ requestCode: "GH-1", status: "pending_extension" }),
-    ];
-    expect(giaHanCuaTau(r, "BV-1234-TS", null, NOW)).toBeNull();
-    expect(giaHanCuaTau([yc({ status: "pending_extension" })], "BV-9999-TS", null, NOW)).toBeNull();
-    expect(giaHanCuaTau([yc({})], "", null, NOW)).toBeNull();
+describe("giaHanCuaTau — 3 bước", () => {
+  const nhanTien = { status: "pending_extension" as const, paidAt: "2026-11-05T01:00:00Z", currentExpiryDate: "2026-11-01", monthsCount: 6 };
+  it("bước 1: chờ CK khi QR còn hạn; QR hết hạn ⇒ không có", () => {
+    expect(giaHanCuaTau([yc({ qrExpiresAt: "2026-11-06T00:00:00Z" })], MAY, null, NOW)?.buoc).toBe(1);
+    expect(giaHanCuaTau([yc({ qrExpiresAt: "2026-11-04T00:00:00Z" })], MAY, null, NOW)).toBeNull();
+  });
+  it("bước 2: đã nhận tiền, hoặc SDVICO báo xong mà hạn chưa đổi", () => {
+    expect(giaHanCuaTau([yc(nhanTien)], MAY, "2026-11-01", NOW)).toMatchObject({ loai: "dang-gia-han", buoc: 2 });
+    const bao = yc({ ...nhanTien, status: "extended", extendedAt: "2026-11-05T02:00:00Z" });
+    expect(giaHanCuaTau([bao], MAY, "2026-11-01", NOW)?.loai).toBe("dang-gia-han");
+  });
+  it("bước 3: S-Tracking đổi hạn — kể cả khi CRM còn pending_extension; hết hiện sau 7 ngày", () => {
+    expect(giaHanCuaTau([yc(nhanTien)], MAY, "2027-05-05", NOW)).toMatchObject({ loai: "xong", buoc: 3, hanMoi: "2027-05-05" });
+    expect(giaHanCuaTau([yc(nhanTien)], MAY, "2027-05-05", NOW + 8 * 86_400_000)).toBeNull();
+  });
+  it("lệch: nhận tiền quá 48 giờ mà hạn chưa đổi", () => {
+    expect(giaHanCuaTau([yc({ ...nhanTien, paidAt: "2026-11-02T00:00:00Z" })], MAY, "2026-11-01", NOW)?.loai).toBe("lech");
+  });
+  it("yêu cầu của máy khác (serial khác) không dính", () => {
+    expect(giaHanCuaTau([yc({ ...nhanTien, serialNumber: "S9" })], MAY, "2026-11-01", NOW)).toBeNull();
   });
 });
 
 describe("yeuCauDangMo — chặn tạo trùng", () => {
-  it("chờ CK / chờ gia hạn → chặn; đã gia hạn xong → cho tạo tiếp", () => {
-    expect(yeuCauDangMo([yc({})], "BV-1234-TS", NOW)?.requestCode).toBe("GH-1");
-    expect(yeuCauDangMo([yc({ status: "pending_extension" })], "BV-1234-TS", NOW)).not.toBeNull();
-    expect(yeuCauDangMo([], "BV-1234-TS", NOW)).toBeNull();
-  });
-
-  it("tàu S-Tracking: SDVICO báo xong mà hạn chưa đổi ⇒ VẪN chặn; đổi rồi ⇒ cho tạo", () => {
-    const r = [yc({ status: "extended", newExpiryDate: "2027-05-01", extendedAt: "2026-11-05T01:00:00Z" })];
-    expect(yeuCauDangMo(r, "BV-1234-TS", NOW, "2026-11-01")).not.toBeNull();
-    expect(yeuCauDangMo(r, "BV-1234-TS", NOW, "2027-05-01")).toBeNull();
-  });
-
-  it("tàu tự khai (không đối chiếu được) ⇒ extended coi như xong", () => {
-    expect(yeuCauDangMo([yc({ status: "extended", newExpiryDate: "2027-05-01" })], "BV-1234-TS", NOW)).toBeNull();
+  it("bước 1/2/lệch ⇒ chặn; bước 3 hoặc không có ⇒ cho tạo", () => {
+    expect(yeuCauDangMo([yc({})], MAY, null, NOW)?.requestCode).toBe("GH-1");
+    const nhanTien = yc({ status: "pending_extension", paidAt: "2026-11-05T01:00:00Z", currentExpiryDate: "2026-11-01", monthsCount: 6 });
+    expect(yeuCauDangMo([nhanTien], MAY, "2026-11-01", NOW)).not.toBeNull();
+    expect(yeuCauDangMo([nhanTien], MAY, "2027-05-05", NOW)).toBeNull();
+    expect(yeuCauDangMo([], MAY, null, NOW)).toBeNull();
   });
 });
 
-describe("xacNhanGiaHan — đối chiếu hạn S-Tracking", () => {
-  it("không có newExpiryDate ⇒ mốc = ngày gia hạn (giờ VN) + số tháng, dung sai 3 ngày", () => {
-    const r = yc({ status: "extended", extendedAt: "2026-11-04T18:00:00Z", monthsCount: 6 }); // 05/11 giờ VN
-    expect(hanMongDoi(r)).toBe("2027-05-05");
-    expect(xacNhanGiaHan(r, "2027-05-02", NOW)).toBe("da-xac-nhan");
-    expect(xacNhanGiaHan(r, "2027-05-01", NOW)).toBe("cho-xac-nhan");
-  });
-  it("tàu không có trên S-Tracking ⇒ khong-doi-chieu; trạng thái khác extended ⇒ null", () => {
-    expect(xacNhanGiaHan(yc({ status: "extended" }), undefined, NOW)).toBe("khong-doi-chieu");
+describe("xacNhanGiaHan — màn Yêu cầu", () => {
+  const bao = yc({ status: "extended", extendedAt: "2026-11-05T01:00:00Z", currentExpiryDate: "2026-11-01", paidAt: "2026-11-05T00:00:00Z", monthsCount: 6 });
+  it("đã đổi / chờ / lệch / không đối chiếu", () => {
+    expect(xacNhanGiaHan(bao, "2027-05-05", NOW)).toBe("da-xac-nhan");
+    expect(xacNhanGiaHan(bao, "2026-11-01", NOW)).toBe("cho-xac-nhan");
+    expect(xacNhanGiaHan(bao, "2026-11-01", NOW + 3 * 86_400_000)).toBe("lech");
+    expect(xacNhanGiaHan(bao, undefined, NOW)).toBe("khong-doi-chieu");
     expect(xacNhanGiaHan(yc({}), "2027-01-01", NOW)).toBeNull();
   });
-  it("nhãn màn Yêu cầu không nói 'đã gia hạn xong' khi chưa xác nhận", () => {
+  it("nhãn không nói 'xong' khi chưa đổi hạn", () => {
     expect(renewalExtendedView("da-xac-nhan").tone).toBe("ok");
     expect(renewalExtendedView("cho-xac-nhan").tone).toBe("warn");
     expect(renewalExtendedView("lech").tone).toBe("danger");
@@ -177,17 +193,23 @@ describe("xacNhanGiaHan — đối chiếu hạn S-Tracking", () => {
   });
 });
 
-describe("chonTauStracking — máy chủ thay dữ liệu máy khách bằng S-Tracking", () => {
-  const rows = [
-    { serial: "S1", ten_tau: "BV-1234-TS", chu_tau: "Nguyễn A" },
-    { serial: "S2", ten_tau: "QNg-555-TS", chu_tau: null },
-  ];
-  it("ưu tiên serial, rồi mã tàu (không phân biệt hoa/khoảng trắng)", () => {
-    expect(chonTauStracking(rows, { maTau: "BV-1234-TS", serial: "S2" })?.serial).toBe("S2");
-    expect(chonTauStracking(rows, { maTau: "bv-1234-ts" })?.serial).toBe("S1");
-  });
-  it("serial lạ + mã lạ → null (tàu tự khai)", () => {
-    expect(chonTauStracking(rows, { maTau: "KH-1-TS", serial: "X" })).toBeNull();
-    expect(chonTauStracking([], { maTau: "BV-1234-TS" })).toBeNull();
+describe("chonYeuCauDong — cron tự đóng khi S-Tracking đổi hạn", () => {
+  const p = {
+    requestCode: "GH-7",
+    phone: "0901234567",
+    serialNumber: "S1",
+    vesselCode: "BV-1234-TS",
+    monthsCount: 6,
+    currentExpiryDate: "2026-11-01",
+    paidAt: "2026-11-05T01:00:00Z",
+  };
+  it("đóng khi hạn đúng serial đã đổi; giữ khi chưa đổi / không có máy / thiếu serial", () => {
+    const may = new Map([["S1", { het_han: "2027-05-05", ten_tau: "BV-1234-TS" }]]);
+    expect(chonYeuCauDong([p], may)).toEqual([
+      { requestCode: "GH-7", serialNumber: "S1", newExpiryDate: "2027-05-05", phone: "0901234567", tenTau: "BV-1234-TS" },
+    ]);
+    expect(chonYeuCauDong([p], new Map([["S1", { het_han: "2026-11-01", ten_tau: null }]]))).toEqual([]);
+    expect(chonYeuCauDong([p], new Map())).toEqual([]);
+    expect(chonYeuCauDong([{ ...p, serialNumber: null }], may)).toEqual([]);
   });
 });

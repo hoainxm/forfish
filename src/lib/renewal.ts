@@ -121,6 +121,10 @@ export interface RenewalRequestSummary {
   vesselCode: string | null;
   monthsCount: number | null;
   newExpiryDate: string | null;
+  /** Serial máy S-Tracking của yêu cầu — KHOÁ ghép yêu cầu ↔ máy (edge fn từ 2026-11-05; bản cũ không có). */
+  serialNumber?: string | null;
+  /** Hạn S-Tracking lúc tạo yêu cầu (mốc tính hạn mong đợi; edge fn từ 2026-11-05). */
+  currentExpiryDate?: string | null;
 }
 
 /** Gọi edge function sdfish-renewal — SERVER-ONLY, timeout mặc định 15s, mọi lỗi → null. */
@@ -159,6 +163,9 @@ export interface RenewalCreateInput {
   maTau: string;
   ownerName?: string;
   serial?: string;
+  imei?: string;
+  /** Hạn hiện tại trên S-Tracking (YYYY-MM-DD) — mốc để tự xác nhận khi hạn đổi. */
+  currentExpiry?: string | null;
   monthsCount: RenewalMonths;
 }
 
@@ -175,6 +182,8 @@ export async function createRenewalRequest(
       maTau: input.maTau,
       ownerName: input.ownerName,
       serial: input.serial,
+      imei: input.imei,
+      currentExpiry: input.currentExpiry ?? undefined,
     },
   });
 }
@@ -197,28 +206,26 @@ export async function getRenewalMonthlyPrice(): Promise<number | null> {
   return j?.monthlyPrice ?? null;
 }
 
-// ── Hứng luồng gia hạn từ thẻ S-Tracking (2026-11-05) ──────────────────────
-// Máy chủ SDFish đã có hạn cước THẬT (bảng stracking_thiet_bi, máy GPU đồng bộ)
-// ⇒ (1) không tin serial/chủ tàu từ máy khách khi tàu có trên S-Tracking của
-// đúng SĐT phiên, (2) không tạo yêu cầu TRÙNG khi tàu đã có yêu cầu đang mở,
-// (3) thẻ "máy của tôi" hiện yêu cầu gia hạn đang chạy của từng tàu.
+// ── Gia hạn theo SERIAL máy S-Tracking (2026-11-05) ────────────────────────
+// Anh Long: "đơn giản hơn, hiệu quả hơn, tránh để nhầm info, cái đích cuối là gia hạn, đóng tiền, đổi hạn".
+// MỘT khoá: serial máy trên S-Tracking (stracking_thiet_bi, máy GPU đồng bộ 4 lần/ngày). Bà con thấy 3 bước:
+//   ① Chờ chuyển khoản → ② Đã nhận tiền, đang gia hạn → ③ Hạn mới (CHỈ khi S-Tracking đổi hạn của ĐÚNG máy).
+// CRM `extended` (nhân viên bấm) CHƯA là bước 3. Hệ thống tự đóng yêu cầu khi thấy hạn đổi (cron
+// xac-nhan-gia-han → edge fn `confirm`) — nhân viên chỉ đối soát tiền + gia hạn trên stracking.viettel.io.
 
-/** THUẦN — mã tàu so khớp: bỏ khoảng trắng, chữ hoa ("bv 1234-ts" ≡ "BV-1234-TS" khi gõ khác cách). */
+/** THUẦN — mã tàu so khớp: bỏ khoảng trắng, chữ hoa. Chỉ dùng khi yêu cầu cũ không có serial. */
 export function chuanMaTau(s: string | null | undefined): string {
   return (s ?? "").replace(/\s+/g, "").toUpperCase();
 }
 
-// ── "Đã gia hạn" CHỈ KHI S-Tracking xác nhận (anh Long 2026-11-05) ──
-// "nếu gia hạn thì phải vô kiểm tra xem cái info trên hệ thống s tracking đã đổi chưa? chứ ko phải
-// sdvico nhận tiền báo đã gia hạn là ghi nhận". CRM `extended` = SDVICO BÁO đã gia hạn; xong thật khi
-// hạn cước trên S-Tracking (stracking_thiet_bi.het_han, máy GPU kéo về 4 lần/ngày) đã lùi tới mốc mới.
-
-/** Dung sai ngày khi so hạn S-Tracking với hạn mong đợi (lệch cách tính tháng/ngày chốt kỳ của Viettel). */
+/** Dung sai ngày khi so hạn S-Tracking với hạn mong đợi (cách tính tháng/ngày chốt kỳ của Viettel). */
 export const XAC_NHAN_DUNG_SAI_NGAY = 3;
-/** CRM báo đã gia hạn quá ngần này mà S-Tracking chưa đổi ⇒ LỆCH, bà con gọi SDVICO. */
+/** Đã nhận tiền / SDVICO báo xong quá ngần này mà S-Tracking chưa đổi ⇒ LỆCH, bà con gọi SDVICO. */
 export const XAC_NHAN_TRE_GIO = 48;
+/** Bước 3 "đã đổi hạn" còn hiện ngần này ngày sau khi xong, rồi thôi (dòng hạn đã ghi ngày mới). */
+export const XONG_HIEN_NGAY = 7;
 
-export type XacNhanST = "da-xac-nhan" | "cho-xac-nhan" | "lech" | "khong-doi-chieu";
+const NGAY_MS = 86_400_000;
 
 function congNgay(iso: string, ngay: number): string {
   const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
@@ -230,29 +237,52 @@ function congThang(iso: string, thang: number): string {
   d.setUTCMonth(d.getUTCMonth() + thang);
   return d.toISOString().slice(0, 10);
 }
-
-/**
- * THUẦN — hạn TỐI THIỂU S-Tracking phải có sau khi gia hạn. Có `newExpiryDate` (nhân viên ghi) thì dùng;
- * không thì ngày gia hạn + số tháng: gia hạn từ hạn cũ còn dài hay từ lúc quá hạn, hạn mới đều ≥ mốc này.
- * Không đủ dữ liệu ⇒ null (không đối chiếu được).
- */
-export function hanMongDoi(r: RenewalRequestSummary): string | null {
-  if (r.newExpiryDate) return r.newExpiryDate.slice(0, 10);
-  if (r.extendedAt && r.monthsCount) {
-    const t = Date.parse(r.extendedAt);
-    if (!Number.isFinite(t)) return null;
-    // Ngày theo giờ VN (UTC+7) — extendedAt là mốc ISO.
-    const ngayVn = new Date(t + 7 * 3600_000).toISOString().slice(0, 10);
-    return congThang(ngayVn, r.monthsCount);
-  }
-  return null;
+/** Ngày theo giờ VN (UTC+7) của một mốc ISO; lạ ⇒ null. */
+function ngayVnCua(iso: string | null | undefined): string | null {
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(t) ? new Date(t + 7 * 3600_000).toISOString().slice(0, 10) : null;
 }
 
 /**
- * THUẦN — đối chiếu yêu cầu `extended` với hạn S-Tracking của đúng tàu.
- * `hetHanST === undefined` = tàu không có trên S-Tracking của SĐT này ⇒ "khong-doi-chieu".
- * Hạn S-Tracking ≥ mong đợi − dung sai ⇒ "da-xac-nhan"; chưa tới và CRM báo xong > 48 giờ ⇒ "lech";
- * còn lại "cho-xac-nhan". Trạng thái khác `extended` ⇒ null.
+ * THUẦN — hạn TỐI THIỂU S-Tracking phải có sau khi gia hạn: (hạn cũ còn dài thì từ hạn cũ, đã quá hạn thì
+ * từ ngày nhận tiền) + số tháng. `newExpiryDate` nhân viên ghi thì dùng luôn. Thiếu dữ liệu ⇒ null.
+ */
+export function hanMongDoi(r: {
+  newExpiryDate?: string | null;
+  currentExpiryDate?: string | null;
+  paidAt?: string | null;
+  extendedAt?: string | null;
+  monthsCount?: number | null;
+}): string | null {
+  if (r.newExpiryDate) return r.newExpiryDate.slice(0, 10);
+  if (!r.monthsCount) return null;
+  const tu = ngayVnCua(r.paidAt) ?? ngayVnCua(r.extendedAt);
+  const cu = r.currentExpiryDate?.slice(0, 10) ?? null;
+  const goc = cu && tu ? (cu > tu ? cu : tu) : (cu ?? tu);
+  return goc ? congThang(goc, r.monthsCount) : null;
+}
+
+/**
+ * THUẦN — hạn S-Tracking `hetHanST` đã đủ để coi là ĐÃ ĐỔI HẠN chưa: ≥ mong đợi − dung sai, và (biết hạn cũ thì)
+ * phải LỚN HƠN hạn cũ. Không tính được mong đợi ⇒ false (không đoán).
+ */
+export function daDoiHan(
+  r: Parameters<typeof hanMongDoi>[0],
+  hetHanST: string | null | undefined,
+): boolean {
+  if (!hetHanST) return false;
+  const st = hetHanST.slice(0, 10);
+  const cu = r.currentExpiryDate?.slice(0, 10);
+  if (cu && st <= cu) return false;
+  const mong = hanMongDoi(r);
+  return !!mong && st >= congNgay(mong, -XAC_NHAN_DUNG_SAI_NGAY);
+}
+
+export type XacNhanST = "da-xac-nhan" | "cho-xac-nhan" | "lech" | "khong-doi-chieu";
+
+/**
+ * THUẦN — đối chiếu yêu cầu `extended` với hạn S-Tracking của đúng máy. `undefined` = không ghép được máy
+ * (yêu cầu cũ/không có trên S-Tracking của SĐT) ⇒ "khong-doi-chieu". Trạng thái khác `extended` ⇒ null.
  */
 export function xacNhanGiaHan(
   r: RenewalRequestSummary,
@@ -261,99 +291,164 @@ export function xacNhanGiaHan(
 ): XacNhanST | null {
   if (r.status !== "extended") return null;
   if (hetHanST === undefined) return "khong-doi-chieu";
-  const mong = hanMongDoi(r);
-  if (mong && hetHanST && hetHanST.slice(0, 10) >= congNgay(mong, -XAC_NHAN_DUNG_SAI_NGAY)) return "da-xac-nhan";
+  if (daDoiHan(r, hetHanST)) return "da-xac-nhan";
   const luc = r.extendedAt ? Date.parse(r.extendedAt) : NaN;
   if (Number.isFinite(luc) && nowMs - luc > XAC_NHAN_TRE_GIO * 3600_000) return "lech";
   return "cho-xac-nhan";
 }
 
-export type GiaHanTauLoai = "cho-ck" | "cho-gia-han" | "cho-xac-nhan" | "lech";
+/** Máy S-Tracking để ghép yêu cầu. `tenTrung` = trong máy CỦA SĐT này có máy khác cùng tên ⇒ cấm ghép theo tên. */
+export interface MayGhep {
+  serial: string;
+  tenTau: string | null;
+  tenTrung: boolean;
+}
+
+/** THUẦN — yêu cầu thuộc máy này? Có serial ⇒ so serial (chắc chắn). Yêu cầu cũ chưa có serial ⇒ so tên, CHỈ khi tên không trùng. */
+export function laYeuCauCuaMay(r: RenewalRequestSummary, m: MayGhep): boolean {
+  if (r.serialNumber) return r.serialNumber === m.serial;
+  if (m.tenTrung) return false;
+  const ma = chuanMaTau(m.tenTau);
+  return !!ma && chuanMaTau(r.vesselCode) === ma;
+}
+
+/** THUẦN — đánh dấu tên trùng trong danh sách máy của một SĐT. */
+export function danhDauTenTrung<T extends { serial: string; tenTau: string | null }>(ds: readonly T[]): (T & { tenTrung: boolean })[] {
+  const dem = new Map<string, number>();
+  for (const m of ds) {
+    const k = chuanMaTau(m.tenTau);
+    if (k) dem.set(k, (dem.get(k) ?? 0) + 1);
+  }
+  return ds.map((m) => ({ ...m, tenTrung: (dem.get(chuanMaTau(m.tenTau)) ?? 0) > 1 }));
+}
+
+/** 3 bước bà con thấy: 1 chờ CK · 2 đã nhận tiền/đang gia hạn (kể cả SDVICO báo xong mà hạn chưa đổi) · 3 đã đổi hạn. */
+export type GiaHanTauLoai = "cho-ck" | "dang-gia-han" | "lech" | "xong";
 export interface GiaHanTau {
   loai: GiaHanTauLoai;
+  buoc: 1 | 2 | 3;
   requestCode: string;
-  /** Hạn S-Tracking phải đạt (chỉ ở cho-xac-nhan/lech; null = không tính được). */
+  /** Hạn S-Tracking phải đạt (bước 2/lệch) hoặc hạn mới (bước 3); null = không tính được. */
   hanMoi: string | null;
 }
 
 /**
- * THUẦN — yêu cầu gia hạn CHƯA XONG của một tàu có trên S-Tracking (danh sách `list` đã mới trước).
- * - pending_payment còn hạn QR → "cho-ck" · hết hạn QR → coi như không có.
- * - pending_extension → "cho-gia-han" (đã nhận tiền).
- * - extended → đối chiếu S-Tracking (`xacNhanGiaHan`): đã xác nhận ⇒ xong (null, dòng hạn đã hiện ngày mới);
- *   chưa ⇒ "cho-xac-nhan"; quá 48 giờ chưa đổi ⇒ "lech".
- * - cancelled/expired/draft/lạ → không có. Chỉ xét yêu cầu MỚI NHẤT của tàu.
+ * THUẦN — yêu cầu gần nhất của MỘT máy → bước hiện tại (danh sách `list` đã mới trước). null = không có gì để báo.
+ * - pending_payment còn hạn QR → bước 1 · hết hạn QR → không có.
+ * - pending_extension / extended mà S-Tracking chưa đổi hạn → bước 2; quá 48 giờ kể từ lúc nhận tiền
+ *   (hoặc lúc SDVICO báo xong) → "lech".
+ * - S-Tracking đã đổi hạn (bất kể CRM đang ở pending_extension hay extended) → bước 3, hiện 7 ngày.
+ * - cancelled/expired/draft/lạ → không có.
  */
 export function giaHanCuaTau(
   requests: readonly RenewalRequestSummary[],
-  maTau: string | null | undefined,
-  /** undefined = tàu không có trên S-Tracking của SĐT này (tự khai) — `extended` coi như xong. */
-  hetHanST: string | null | undefined,
+  may: MayGhep,
+  hetHanST: string | null,
   nowMs: number,
 ): GiaHanTau | null {
-  const ma = chuanMaTau(maTau);
-  if (!ma) return null;
-  const r = requests.find((x) => chuanMaTau(x.vesselCode) === ma);
+  const r = requests.find((x) => laYeuCauCuaMay(x, may));
   if (!r) return null;
+  const base = { requestCode: r.requestCode };
   if (r.status === "pending_payment") {
     const het = r.qrExpiresAt ? Date.parse(r.qrExpiresAt) : NaN;
     if (Number.isFinite(het) && het <= nowMs) return null;
-    return { loai: "cho-ck", requestCode: r.requestCode, hanMoi: null };
+    return { ...base, loai: "cho-ck", buoc: 1, hanMoi: null };
   }
-  if (r.status === "pending_extension") {
-    return { loai: "cho-gia-han", requestCode: r.requestCode, hanMoi: null };
+  if (r.status !== "pending_extension" && r.status !== "extended") return null;
+  if (daDoiHan(r, hetHanST)) {
+    const moc = Date.parse(r.extendedAt ?? r.paidAt ?? "");
+    if (Number.isFinite(moc) && nowMs - moc > XONG_HIEN_NGAY * NGAY_MS) return null;
+    return { ...base, loai: "xong", buoc: 3, hanMoi: hetHanST!.slice(0, 10) };
   }
-  if (r.status === "extended") {
-    const x = xacNhanGiaHan(r, hetHanST, nowMs);
-    if (x === "cho-xac-nhan" || x === "lech") return { loai: x, requestCode: r.requestCode, hanMoi: hanMongDoi(r) };
-  }
-  return null;
+  const tu = Date.parse((r.status === "extended" ? r.extendedAt : r.paidAt) ?? "");
+  const tre = Number.isFinite(tu) && nowMs - tu > XAC_NHAN_TRE_GIO * 3600_000;
+  return { ...base, loai: tre ? "lech" : "dang-gia-han", buoc: 2, hanMoi: hanMongDoi(r) };
 }
 
-/**
- * THUẦN — tàu còn yêu cầu CHƯA XONG ⇒ CHẶN tạo thêm (chống trả tiền hai lần): chờ CK, chờ gia hạn, và —
- * khi tàu có trên S-Tracking (`hetHanST` khác undefined) — SDVICO báo xong mà S-Tracking chưa xác nhận.
- * Tàu tự khai (không đối chiếu được) thì `extended` coi như xong như trước.
- */
+/** THUẦN — máy còn yêu cầu CHƯA XONG (bước 1/2/lệch) ⇒ CHẶN tạo thêm, không trả tiền hai lần. */
 export function yeuCauDangMo(
   requests: readonly RenewalRequestSummary[],
-  maTau: string,
+  may: MayGhep,
+  hetHanST: string | null,
   nowMs: number,
-  hetHanST?: string | null,
 ): RenewalRequestSummary | null {
-  const g = giaHanCuaTau(requests, maTau, hetHanST, nowMs);
-  if (!g) return null;
+  const g = giaHanCuaTau(requests, may, hetHanST, nowMs);
+  if (!g || g.loai === "xong") return null;
   return requests.find((x) => x.requestCode === g.requestCode) ?? null;
 }
 
 /** THUẦN — nhãn màn "Yêu cầu" cho yêu cầu `extended`, theo đối chiếu S-Tracking. */
 export function renewalExtendedView(x: XacNhanST | null | undefined): RenewalStatusView {
-  if (x === "da-xac-nhan") return { label: "Đã gia hạn · S-Tracking đã xác nhận", tone: "ok" };
-  if (x === "cho-xac-nhan") return { label: "SDVICO báo đã gia hạn · chờ S-Tracking", tone: "warn" };
-  if (x === "lech") return { label: "S-Tracking chưa đổi hạn · gọi SDVICO", tone: "danger" };
+  if (x === "da-xac-nhan") return { label: "Đã đổi hạn trên hệ thống", tone: "ok" };
+  if (x === "cho-xac-nhan") return { label: "Đang chờ hệ thống đổi hạn", tone: "warn" };
+  if (x === "lech") return { label: "Hạn chưa đổi · gọi SDVICO", tone: "danger" };
   return { label: "SDVICO báo đã gia hạn", tone: "ok" };
+}
+
+// ── Tự đóng yêu cầu khi S-Tracking đổi hạn (cron xac-nhan-gia-han → edge fn) ──
+/** Yêu cầu SDFish đã nhận tiền, chờ đổi hạn (edge fn action `pending`). */
+export interface RenewalPending {
+  requestCode: string;
+  phone: string;
+  serialNumber: string | null;
+  vesselCode: string | null;
+  monthsCount: number | null;
+  currentExpiryDate: string | null;
+  paidAt: string | null;
+}
+
+/** Danh sách yêu cầu `pending_extension` của SDFish. null = lỗi/chưa cấu hình. */
+export async function listPendingExtensions(): Promise<RenewalPending[] | null> {
+  const j = await callRenewal<{ requests: RenewalPending[] }>({ action: "pending" });
+  return j?.requests ?? null;
+}
+
+/** Đóng 1 yêu cầu: S-Tracking đã đổi hạn của đúng serial. Edge fn tự kiểm lại trạng thái + serial. */
+export async function confirmFromStracking(input: {
+  requestCode: string;
+  serialNumber: string;
+  newExpiryDate: string;
+}): Promise<boolean> {
+  const j = await callRenewal<{ requestCode: string }>({ action: "confirm", ...input });
+  return !!j;
 }
 
 export interface TauStrackingRow {
   serial: string;
+  imei?: string | null;
   ten_tau: string | null;
   chu_tau: string | null;
   het_han?: string | null;
 }
 
+export interface DongYeuCau {
+  requestCode: string;
+  serialNumber: string;
+  newExpiryDate: string;
+  phone: string;
+  tenTau: string | null;
+}
+
 /**
- * THUẦN — tàu S-Tracking (đã lọc theo SĐT phiên) ứng với yêu cầu máy khách: ưu tiên khớp
- * serial, rồi khớp mã tàu. Khớp ⇒ máy chủ dùng serial/chủ tàu/mã tàu của S-Tracking.
+ * THUẦN — yêu cầu nào ĐÓNG được: có serial, máy đó có trên S-Tracking, và hạn S-Tracking đã đổi (`daDoiHan`).
+ * Yêu cầu thiếu serial (tạo trước 2026-11-05) KHÔNG đoán theo tên — để nhân viên đóng tay.
  */
-export function chonTauStracking(
-  rows: readonly TauStrackingRow[],
-  yeuCau: { maTau: string; serial?: string | null },
-): TauStrackingRow | null {
-  const serial = (yeuCau.serial ?? "").trim();
-  if (serial) {
-    const theoSerial = rows.find((r) => r.serial === serial);
-    if (theoSerial) return theoSerial;
+export function chonYeuCauDong(
+  pending: readonly RenewalPending[],
+  mayTheoSerial: ReadonlyMap<string, { het_han: string | null; ten_tau: string | null }>,
+): DongYeuCau[] {
+  const ra: DongYeuCau[] = [];
+  for (const p of pending) {
+    if (!p.serialNumber) continue;
+    const m = mayTheoSerial.get(p.serialNumber);
+    if (!m?.het_han || !daDoiHan(p, m.het_han)) continue;
+    ra.push({
+      requestCode: p.requestCode,
+      serialNumber: p.serialNumber,
+      newExpiryDate: m.het_han.slice(0, 10),
+      phone: p.phone,
+      tenTau: m.ten_tau ?? p.vesselCode,
+    });
   }
-  const ma = chuanMaTau(yeuCau.maTau);
-  return (ma && rows.find((r) => chuanMaTau(r.ten_tau) === ma)) || null;
+  return ra;
 }

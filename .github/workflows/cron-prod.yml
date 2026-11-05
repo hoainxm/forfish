@@ -25,6 +25,10 @@
 #   · /api/cron/notify-docs      GET  — NHẮC HẠN GIẤY TỜ qua thông báo điện
 #       thoại (2026-10-06), 07:00 giờ VN. KHÔNG có ở vercel.json — chỉ prod.
 #       Chạy hai lần cùng ngày không sao: sổ khử trùng là push_messages.
+#   · /api/cron/xac-nhan-gia-han GET — (2026-11-05) TỰ ĐÓNG đơn gia hạn S-Tracking của SDFish khi hạn trên
+#       S-Tracking của đúng serial đã đổi (edge fn sdfish-renewal `pending`/`confirm`) + báo bà con. 4 lượt/ngày,
+#       ~30 phút sau mỗi lượt máy GPU đồng bộ (07:30 · 12:20 · 17:20 · 21:00 giờ VN). Gia hạn chưa cấu hình
+#       (thiếu SDFISH_RENEWAL_SECRET) ⇒ route trả `skipped`, job xanh.
 #
 # CHẠY HAI LẦN CÓ SAO KHÔNG: không. archive ghi đè đúng file của ngày; các việc còn lại upsert theo khoá (sea_daily
 # collected_on,port_id,date · fish_forecast_daily collected_on,lat,lon ·
@@ -57,13 +61,17 @@ on:
     - cron: "35 3 * * *" # archive          — Vercel cũ 03:15
     - cron: "20 3 * * 6" # snapshot-prices  — Vercel cũ thứ Bảy 03:00
     - cron: "10 * * * *" # trace-payments   — mỗi giờ (theo ops/self-host-vps §7b); Vercel cũ 01:00 gọi GET ⇒ 405
+    - cron: "0 1 * * *" # xac-nhan-gia-han — 08:00 VN (GPU 07:30)
+    - cron: "50 5 * * *" # xac-nhan-gia-han — 12:50 VN (GPU 12:20)
+    - cron: "50 10 * * *" # xac-nhan-gia-han — 17:50 VN (GPU 17:20)
+    - cron: "30 14 * * *" # xac-nhan-gia-han — 21:30 VN (GPU 21:00)
     - cron: "0 0 * * *" # notify-docs      — 07:00 giờ VN, nhắc hạn giấy tờ (bà con dậy sớm, chưa ra khơi)
   workflow_dispatch:
     inputs:
       job:
         description: "Chạy tay việc nào"
         type: choice
-        options: [sea-daily, refresh-fish, archive, snapshot-prices, trace-payments, notify-docs]
+        options: [sea-daily, refresh-fish, archive, snapshot-prices, trace-payments, notify-docs, xac-nhan-gia-han]
         required: true
 
 permissions: {}
@@ -96,6 +104,7 @@ jobs:
             "35 3 * * *"|archive)           P=/api/collect/archive;      M=GET;  T=330 ;;
             "20 3 * * 6"|snapshot-prices)   P=/api/cron/snapshot-prices; M=GET;  T=90  ;;
             "10 * * * *"|trace-payments)     P=/api/cron/trace-payments;  M=POST; T=90  ;;
+            "0 1 * * *"|"50 5 * * *"|"50 10 * * *"|"30 14 * * *"|xac-nhan-gia-han) P=/api/cron/xac-nhan-gia-han; M=GET; T=90 ;;
             "0 0 * * *"|notify-docs)         P=/api/cron/notify-docs;     M=GET;  T=150 ;;
             *) echo "::error::Không rõ việc nào: '$WHICH'"; exit 1 ;;
           esac

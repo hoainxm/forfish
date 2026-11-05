@@ -6,7 +6,7 @@
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dauNgayVnIso } from "@/lib/stracking/dong-bo.mjs";
-import { giaHanCuaTau, isRenewalConfigured, listRenewalRequests } from "@/lib/renewal";
+import { danhDauTenTrung, giaHanCuaTau, isRenewalConfigured, listRenewalRequests } from "@/lib/renewal";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +34,12 @@ export async function GET(req: Request) {
     giaHanMo ? listRenewalRequests(sdt, GIA_HAN_MS) : Promise.resolve(null),
   ]);
   const nowMs = Date.now();
+  // Ghép yêu cầu ↔ máy theo SERIAL; yêu cầu cũ chưa có serial thì theo tên, nhưng KHÔNG khi tên trùng trong máy của SĐT này.
+  const tenTrung = new Map(
+    danhDauTenTrung((tauR.data ?? []).map((t) => ({ serial: t.serial as string, tenTau: (t.ten_tau as string | null) ?? null }))).map(
+      (m) => [m.serial, m.tenTrung],
+    ),
+  );
   if (tauR.error) {
     console.error("[stracking] đọc máy hỏng:", tauR.error.message);
     return Response.json({ ok: false, code: "unavailable" }, { status: 503 });
@@ -57,7 +63,14 @@ export async function GET(req: Request) {
     capNhatNguon: (t.cap_nhat_nguon as string | null) ?? null,
     // null = không có yêu cầu đang chạy HOẶC không tra được (máy khách không phân biệt — nút Gia hạn vẫn hiện,
     // máy chủ /api/renewal/request vẫn tự chặn trùng).
-    giaHan: yeuCau ? giaHanCuaTau(yeuCau, t.ten_tau as string | null, (t.het_han as string | null) ?? null, nowMs) : null,
+    giaHan: yeuCau
+      ? giaHanCuaTau(
+          yeuCau,
+          { serial: t.serial as string, tenTau: (t.ten_tau as string | null) ?? null, tenTrung: tenTrung.get(t.serial as string) ?? false },
+          (t.het_han as string | null) ?? null,
+          nowMs,
+        )
+      : null,
   }));
 
   let canhBao: { imei: string; tenTau: string | null; muc: string | null; loai: string; luc: string }[] = [];
@@ -70,6 +83,8 @@ export async function GET(req: Request) {
       .select("imei, ten_tau, muc, loai, luc")
       .in("imei", imeis)
       .gte("luc", tu)
+      // Cảnh báo S-Tracking đã hết (biến khỏi danh sách đang mở) ⇒ route nhap đóng (da_dong_luc, migration 0082) ⇒ không hiện.
+      .is("da_dong_luc", null)
       .order("luc", { ascending: false })
       .limit(TRAN_CANH_BAO);
     if (cbR.error) console.error("[stracking] đọc cảnh báo hỏng:", cbR.error.message);

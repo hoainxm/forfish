@@ -2,7 +2,7 @@
 
 > Single source of truth cho luồng ngư dân **tự gửi yêu cầu gia hạn thiết bị giám sát hành trình (S-Tracking/VMS)** từ SDFish. Yêu cầu vào ĐÚNG pipeline gia hạn dùng chung của **crm-sdvico-40** (Supabase project `exueouggmbjtjvsvpfya`); nhân viên đối soát + duyệt → DB trigger đổ sang bảng `extension_management` → trang **"Quản lý gia hạn"** của **cskh-tasker-hub**. Sửa ở đây, KHÔNG chép shape.
 
-**Version**: v1 — 2026-08-21
+**Version**: v1.1 — 2026-11-05 (thêm, không phá: serial, `pending`, `confirm`)
 
 ---
 
@@ -73,6 +73,9 @@ SDFish app (ngư dân)
 ```
 Ghi DB: `stracking_renewal_requests` (`origin='sdfish'`, `requester_user_id=NULL`, `status` draft→pending_payment) + 1 `stracking_renewal_items` (`source_table='vnf_data'`, `connection_record_id=NULL`, `vessel_code`, `months_count`, `monthly_price`, `subtotal` generated). QR VietQR + `qr_payment_logs` như `generate-renewal-qr`.
 
+### `create` — thêm từ v1.1
+`vessel.imei` (≤40) và `vessel.currentExpiry` (YYYY-MM-DD, hạn hiện tại trên S-Tracking) — **SDFish server điền từ `stracking_thiet_bi`**, không phải chữ ngư dân. `vessel.serial` từ v1.1 là KHOÁ (SDFish luôn gửi). `currentExpiry` có thì dùng thay cho tra `extension_management`.
+
 ### `list` → yêu cầu của 1 SĐT
 ```jsonc
 // req: { "action": "list", "phone": "0901234567" }
@@ -81,6 +84,23 @@ Ghi DB: `stracking_renewal_requests` (`origin='sdfish'`, `requester_user_id=NULL
 //   createdAt, paidAt, extendedAt, vesselCode, monthsCount, newExpiryDate } ] }
 ```
 Lọc `requester_phone = <SĐT> AND origin='sdfish'`, mới trước, tối đa 20.
+
+Từ v1.1 mỗi phần tử thêm `serialNumber`, `currentExpiryDate` (của item đầu). SDFish ghép đơn ↔ máy theo `serialNumber`; đơn cũ không có thì theo tên tàu, trừ khi tên trùng trong máy của SĐT.
+
+### `pending` → đơn SDFish đã nhận tiền, chờ đổi hạn (v1.1)
+```jsonc
+// req: { "action": "pending" }
+// res: { "ok": true, "requests": [ { requestCode, phone, serialNumber, vesselCode, monthsCount, currentExpiryDate, paidAt } ] }
+```
+Lọc `origin='sdfish' AND status='pending_extension'`, cũ trước, tối đa 200.
+
+### `confirm` → SDFish tự đóng đơn khi hạn S-Tracking đã đổi (v1.1)
+```jsonc
+// req: { "action": "confirm", "requestCode": "GH-…", "serialNumber": "…", "newExpiryDate": "YYYY-MM-DD" }
+// res: { "ok": true, requestCode, newExpiryDate, extendedAt }
+// lỗi: bad_request | not_found(404) | not_pending(409) | serial_mismatch(409) | expiry_not_advanced(409)
+```
+Chỉ `pending_extension → extended` (UPDATE có điều kiện trạng thái); item phải đúng 1 và mang đúng serial; `newExpiryDate` > `current_expiry_date`. Ghi `item.new_expiry_date`, `applied_at`; request `extended_at`, `extended_by=NULL`, `extension_notes='Tự xác nhận: hạn trên S-Tracking đã đổi sang … (SDFish đối chiếu serial …)'` ⇒ trigger sẵn có đổ sang `extension_management`. Gọi từ SDFish `/api/cron/xac-nhan-gia-han` 4 lần/ngày khi `daDoiHan` (hạn S-Tracking vượt hạn cũ VÀ ≥ mốc mong đợi − 3 ngày; mốc = max(hạn cũ, ngày nhận tiền giờ VN) + số tháng). Nhân viên vẫn đóng tay được qua `confirm-renewal-done`.
 
 ## Trạng thái (enum `stracking_renewal_status`, hiển thị ở SDFish)
 
@@ -115,5 +135,6 @@ Chưa đặt đủ env → adapter `isRenewalConfigured()` false → route trả
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 2026-11-05 | v1.1 | KHOÁ serial: SDFish chỉ cho gia hạn máy có trên S-Tracking của SĐT (bỏ tàu tự khai), `create` gửi `imei`/`currentExpiry` thật; `list` trả `serialNumber`/`currentExpiryDate`; thêm `pending` + `confirm` — hệ thống tự đóng đơn khi hạn S-Tracking đổi. Edge fn sửa ở crm-sdvico-40 nhánh `feat/sdfish-renewal-serial-tu-dong-dong`. |
 | 2026-11-05 | v1 (không đổi shape) | SDFish: thay tàu bằng dữ liệu S-Tracking khi khớp SĐT phiên; chống trùng qua `list` trước `create`; thẻ "máy của tôi" đọc `list` để hiện yêu cầu đang chạy. Edge fn KHÔNG đổi. |
 | 2026-08-21 | v1 | Khởi tạo: edge fn `sdfish-renewal` (price/create/list) + cột `origin` + UI VMS renewal SDFish. Kỳ hạn 3/6/12. |
