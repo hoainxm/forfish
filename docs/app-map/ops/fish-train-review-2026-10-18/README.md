@@ -650,3 +650,39 @@ npx tsx scripts/fish-2d-experiment.mjs --selftest
 - **Tách phần chênh 0,810 → 0,802** (B = 200, bản sao `~/.cache/forfish-irls`, chỉ thêm cấu hình chẩn đoán): bỏ `KEEP_MIN` 0,803 (+0,001) · thêm bỏ luật "vùng hết vụ thì bỏ ô" 0,803 (+0) · thêm vẽ MỌI ô SST, không giới hạn `REGION_REACH_DEG` 2° quanh vùng biển VN **0,809** (+0,006, ô ≥50 15,4 %). ⇒ gần như toàn bộ chênh là **ô có nhãn nằm ngoài vùng biển VN** mà app cố ý không vẽ. Không đổi: vẽ cá ở vùng biển nước khác là việc chủ quyền/IUU, cần anh Long quyết riêng — không phải tham số mô hình.
 
 **Hình dạng payload cuối (cho lead/2E):** `FishForecast { ok, date, cells, species, baseMode?: "catch-fleet-static" | "fleet-static", …cũ }`; `FishCell { lat, lon, s, top, sp, t, c, hint?: { sat: number | null, why: string[] } }` — `s`/`sp` ∈ 0..100 là điểm NỀN; `hint.sat` ∈ 0..100 là HSI của loài đứng đầu nền (null = HSI không chấm được); `hint.why` ≤3 cụm chữ đời thường ("ranh giới nước nóng–lạnh", "ranh giới nước nhiều mồi", "xoáy nước", "nước trồi", "dòng chảy gom mồi"). Không `baseMode` = bản cũ (HSI).
+
+### 7.11 Thí nghiệm NGUỒN PHÙ DU — nguồn mới có cứu được lớp vệ tinh không? (2026-11-05, PC GPU, không đổi production)
+
+> **Kết luận: KHÔNG. 0/168 tổ hợp thắng** (7 loài × 3 nhánh × 2 sơ đồ × 4 nguồn). Đổi nguồn phù du không đổi kết luận §7.8. Tín hiệu "hôm nay" duy nhất đo được là của **mặt nạ mây**, không phải của phù du. Production GIỮ DINEOF. Phản biện độc lập (agent riêng, tự đọc số) cùng kết luận.
+
+**Vì sao đo:** anh Long: *"cho chạy kiểm tra để làm cái dự báo cá theo các nguồn mới đánh giá phản biện tối ưu đi"* — sau khi GPU quét được phù du 7 nguồn (`scripts/nguon-ngay/quet.py`, ops/runbook). Câu hỏi: lần §7.8 thua vì phù du DINEOF (nội suy) kém, hay vì ảnh vệ tinh của ngày thật sự không xếp được ô?
+
+**Cách đo:** đúng `fish-2d-experiment.mjs` của §7.8 (mã `origin/main` aaf303dc, `~/fish-eval-r3`), 7 loài (5 loài §7.8 + cá trích, cá tráo — nhóm ăn phù du, nếu phù du có ích thì phải thấy trước), cache đặc trưng dựng lại cho TỪNG nguồn trên 289 ngày 01/01–16/10/2026. Bốn lưới phù du cùng ô DINEOF, các trường khác giống hệt (`scripts/nguon-ngay/luoi-chl-bien-the.py`, `v3-mat-na-may.py`; dữ liệu `~/sdfish-l3/` trên GPU):
+- **v0** DINEOF (`noaacwNPPN20VIIRSDINEOFDaily`, production) — phủ ~100 % biển ở dữ liệu lịch sử
+- **v1** ghép: trung bình log10 bốn nguồn L3 chụp thật (OLCI S3A/S3B, VIIRS N20/NPP) nếu ô có, không thì DINEOF
+- **v2** chỉ L3 chụp thật — phủ TB 50 % biển; tháng 7–8 chỉ 28–29 % (gió mùa tây nam), tháng 4 là 69 %
+- **v3** ĐỐI CHỨNG: giá trị DINEOF nhưng che null đúng ô v2 null (tách mặt nạ mây khỏi giá trị)
+Copernicus L4 không vào được: kho thời gian thực trả 403 trước validStartDate (~20/10/2026).
+
+**Kết quả:**
+- Nhánh (b)/(c) (nền + dị thường khoá dấu): Δ trong-nghề lớn nhất **+0,0005** (cổng +0,01), `pBH` = 1 ở mọi ô, bốn nguồn gần như trùng nhau.
+- Nhánh (a) (nền noisy-OR HSI): vẫn LÀM HẠI nền ở mọi nguồn (−0,004 … −0,081, CI âm). v2 hại ít hơn ở nhóm ăn phù du (cá tráo F3 −0,052 → −0,029, cá nục −0,036 → −0,027, cá cơm −0,014 → −0,010) — vì ô mây bị đẩy về sàn, không phải vì chấm đúng hơn.
+- Spearman dị thường ngày (nhánh a, `pBoot` khối 7 ngày — KHÔNG dùng `p` thô, ví dụ ngừ vằn p thô 0,003 nhưng pBoot 0,31): cá tráo v0 +0,013 (pBoot 0,19) · **v2 +0,063 (0,005)** · **v3 +0,059 (0,005)**; bạc má v0 +0,010 · v2 +0,042 · v3 +0,036; cá cơm ~+0,04–0,06 ở MỌI nguồn kể cả v0 ⇒ không liên quan nguồn.
+- **v3 tái tạo gần trọn tín hiệu của v2** ⇒ tín hiệu đến từ MẶT NẠ MÂY. Cơ chế (phản biện chỉ ra): `chlFit` trả 0 khi ô không có phù du (`src/lib/fish-predict.ts` quanh dòng 545) ⇒ `foodGate` ép HSI về sàn ⇒ nhánh (a) thực chất chấm "ô có mây không"; mây đi cùng thời tiết xấu.
+
+**Lỗ hổng đã biết của lần đo (phản biện):** ô thiếu số xử lý khác nhau giữa nhánh (a: phạt sàn, b/c: z = 0); front mồi đổi theo nguồn (zScale front mồi 0,113 → 0,196 v1 → 0,241 v2; front giả ở mép mây/đường nối hai nguồn); ~168 phép thử, Spearman không hiệu chỉnh BH, bootstrap Spearman 200 lần; dị thường theo trung bình tháng của chính chuỗi; nhãn N1 (kg chia đều theo giờ chuyến); cá cơm/cá trích dấu logChl = 0 nên nhiều ô trùng số giữa nguồn. Không lỗ hổng nào lật được kết luận âm của (b)/(c).
+
+**Hệ quả:**
+1. **Production giữ DINEOF.** Điểm production là NỀN; phù du chỉ vào `hint` và lớp chuỗi thức ăn. Đổi sang L3 thêm ô trống (28 % mùa hè) và nặng thêm phạt sàn mồi.
+2. **Hướng mới đáng thử — THỜI TIẾT, không phải phù du:** mặt nạ mây có tương quan dị thường ngày dương ở cá tráo/bạc má. Lấy mây/mưa/gió trực tiếp (kho `forecast-archive/weather/` có `scalar:cloud`/`scalar:rain` hằng ngày từ 10/10; lịch sử: Open-Meteo archive) làm đặc trưng có dấu tự do trên nền, đo bằng cùng bộ 2D. Chưa làm.
+3. **Kho phù du theo ngày vẫn có giá trị lưu** (fit lại khi có toạ độ mẻ Q1 hoặc nhãn năm sau), nhưng không phải lý do đổi production.
+
+**Lỗi tìm thấy khi dựng thí nghiệm (đã sửa cùng commit):** (i) `fish-features-cache.mjs` gọi `dataDir()` mà chỉ `export … from` (không import) ⇒ chạy là ReferenceError; (ii) **bẫy ERDDAP**: xin `[(D)]` mà ngày D không có thì ERDDAP LẶNG LẼ trả ngày gần nhất — `fish-validate-run.mjs` cất vào tệp tên D và ghi `usedDate = D`; quét `fc-full/grids`: 14/290 ngày phù du + 1 ngày SST/SLA/dị thường lệch ±1 ngày (quá nhỏ để đổi kết quả cũ). Nay kiểm ngày trong dữ liệu, lệch ⇒ coi như thiếu, thử ngày lân cận.
+
+```bash
+# trên gpu-desktop (venv ~/.local/forlife/nguon-ngay/venv có xarray/scipy)
+venv/bin/python scripts/nguon-ngay/luoi-chl-bien-the.py --grids /mnt/c/Users/admin/sdfish-data/fc-full/grids --out ~/sdfish-l3   # ~40 phút lần đầu (1 160 tệp .nc)
+python3 scripts/nguon-ngay/v3-mat-na-may.py
+for v in v0 v1 v2 v3; do npx tsx scripts/fish-features-cache.mjs --grids <lưới v> --out ~/sdfish-l3/$v/features; \
+  NODE_OPTIONS=--max-old-space-size=14000 npx tsx scripts/fish-2d-experiment.mjs --features ~/sdfish-l3/$v/features --species "ngừ vằn,cá nục,bạc má,cá cơm,ngừ chù,cá trích,cá tráo" --out ~/sdfish-l3/$v/2d; done   # ~16 phút mỗi nguồn
+```

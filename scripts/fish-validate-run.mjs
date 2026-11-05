@@ -124,6 +124,11 @@ async function loadGrid(name, date) {
       writeFileSync(file, JSON.stringify(raw)); // cache cả {missing:true} để khỏi hỏi lại
     }
     if (raw.missing) continue;
+    /*  BẪY ERDDAP (2026-11-05): xin `[(D)]` mà nguồn không có ngày D thì ERDDAP LẶNG LẼ trả ngày GẦN NHẤT. Bản cũ cất
+        nó vào tệp tên ngày D và ghi usedDate = D — quét fc-full/grids thấy 14/290 ngày phù du + 1 ngày SST/SLA/dị
+        thường lệch ±1 ngày. Ngày trong dữ liệu ≠ D ⇒ coi như thiếu D, thử ngày lân cận (tệp cache cũ cũng qua cổng này). */
+    const ngayThat = String(raw?.table?.rows?.[0]?.[0] ?? "").slice(0, 10);
+    if (ngayThat && ngayThat !== d) continue;
     const grid = SOURCES[name].parse(raw);
     if (grid.lats.length && grid.lons.length) return { grid, usedDate: d, shifted: off !== 0 };
   }

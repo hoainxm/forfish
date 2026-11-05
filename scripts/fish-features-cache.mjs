@@ -32,7 +32,10 @@ export const FEATURE_FIELDS = [
 export const NF = FEATURE_FIELDS.length;
 const NUL = NaN; // null ↔ NaN trong Float32
 
-export { dataDir } from "./lib/data-dir.mjs";
+// `export … from` chỉ XUẤT LẠI, không tạo tên dùng được trong tệp — thiếu dòng import này thì chạy là
+// "ReferenceError: dataDir is not defined" (bắt 2026-11-05 khi dựng cache cho thí nghiệm nguồn phù du).
+import { dataDir } from "./lib/data-dir.mjs";
+export { dataDir };
 
 /** CellFeatures[] → Float32Array [n × NF]; `regions` (mảng id) được bổ sung dần. */
 export function encodeFeatures(feats, regions) {
