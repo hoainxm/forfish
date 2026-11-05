@@ -20,6 +20,8 @@ import {
   thanPhuongTien,
   trangThaiHan,
   dauNgayVnIso,
+  canCaoDayDu,
+  serialRoiBaoCao,
 } from "@/lib/stracking/dong-bo.mjs";
 
 describe("thân yêu cầu", () => {
@@ -277,5 +279,27 @@ describe("cảnh báo CHỈ TRONG NGÀY giờ VN (anh Long 05/11: \"xóa đi, c�
     expect(r.goi?.canhBao.map((c: { luc: string }) => c.luc)).toEqual(["2026-11-04T17:00:00.000Z"]);
     expect(r.boCu).toBe(2);
     expect(r.boQua).toBe(0);
+  });
+});
+
+describe("lượt ĐỦ / NHẸ (anh Long 05/11: \"chỉ push cái thay đổi thôi, tránh nặng tải\")", () => {
+  const now = Date.parse("2026-11-05T05:20:00Z"); // 12:20 VN
+  it("cào đủ khi kho trống / chưa cào đủ hôm nay (giờ VN); đã cào sáng nay ⇒ nhẹ", () => {
+    expect(canCaoDayDu(null, 0, now)).toBe(true);
+    expect(canCaoDayDu(null, 15000, now)).toBe(true);
+    expect(canCaoDayDu("2026-11-04T14:00:00Z", 15000, now)).toBe(true); // 21:00 hôm qua VN
+    expect(canCaoDayDu("2026-11-05T00:30:00Z", 15000, now)).toBe(false); // 07:30 hôm nay VN
+    expect(canCaoDayDu("2026-11-04T17:10:00Z", 15000, now)).toBe(false); // 00:10 hôm nay VN
+  });
+  it("máy vừa rời báo cáo dịch vụ (có trần)", () => {
+    expect(serialRoiBaoCao(["A", "B", "C"], ["B", "D"])).toEqual(["A", "C"]);
+    expect(serialRoiBaoCao(["A", "B", "C"], [], 2)).toEqual(["A", "B"]);
+  });
+  it("tra lẻ một serial: bật filter[]=serial (thiếu là trang bỏ qua điều kiện)", () => {
+    const p = new URLSearchParams(thanPhuongTien(1, 5, { serial: "MTR1" }));
+    expect(p.getAll("filter[]")).toEqual(["serial"]);
+    expect(p.get("conditionList[2].fieldValue")).toBe("MTR1");
+    expect(p.get("isResetPage")).toBe("true");
+    expect(new URLSearchParams(thanPhuongTien(1)).getAll("filter[]")).toEqual([]);
   });
 });

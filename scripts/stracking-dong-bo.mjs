@@ -17,7 +17,12 @@
 //
 // Env (~/.config/forlife/stracking.env, chmod 600; env process đè): STRACKING_USER · STRACKING_PASSWORD · STRACKING_KEY ·
 // STRACKING_API_BASE (https) · STRACKING_STATE_DIR (mặc định ~/.local/forlife/stracking) · STRACKING_PROFILE.
-// Cờ: --thu (đọc + ghi kho, KHÔNG gửi) · --dang-nhap (mở cửa sổ thật, chờ người đăng nhập ≤5 phút) · --gui-lai (gửi lại
+// Lượt ĐỦ vs NHẸ (anh Long 05/11: "dữ liệu ban đầu thôi, sau đó cào thì chỉ push cái thay đổi thôi, tránh nặng tải"):
+//   - ĐỦ (một lần/ngày, lượt đầu tiên trong ngày VN = 07:30; hoặc kho trống; hoặc --day-du): cào cả danh sách phương tiện.
+//   - NHẸ (12:20 · 17:20 · 21:00): chỉ báo cáo dịch vụ (máy ≤30 ngày/quá hạn, JSON nhỏ) + cảnh báo + TRA LẺ từng máy vừa
+//     rời báo cáo (thường là vừa gia hạn ⇒ cần hạn mới). Hồ sơ còn lại lấy từ kho máy nhà.
+//   Cả hai loại chỉ GỬI hồ sơ có băm đổi + cảnh báo trong ngày chưa gửi.
+// Cờ: --thu (đọc + ghi kho, KHÔNG gửi) · --day-du (ép cào đủ) · --dang-nhap (mở cửa sổ thật, chờ người đăng nhập ≤5 phút) · --gui-lai (gửi lại
 // mọi hồ sơ, bỏ dấu đã gửi) · --anh (chụp màn hình vào state dir khi hỏng).
 // Mã thoát: 0 xong · 2 thiếu cấu hình · 3 hết phiên/không đăng nhập được · 1 lỗi khác.
 
@@ -32,6 +37,7 @@ import {
   GOC_STRACKING,
   banGuiCanhBao,
   banGuiThietBi,
+  canCaoDayDu,
   dauNgayVnIso,
   docBang,
   docCanhBao,
@@ -41,6 +47,7 @@ import {
   gopThietBi,
   laDuongDoc,
   laTrangDangNhap,
+  serialRoiBaoCao,
   thanCanhBao,
   thanHetHan,
   thanPhuongTien,
@@ -87,6 +94,7 @@ const co = new Set(process.argv.slice(2));
 const THU = co.has("--thu");
 const DANG_NHAP_TAY = co.has("--dang-nhap");
 const GUI_LAI = co.has("--gui-lai");
+const DAY_DU = co.has("--day-du");
 const ANH = co.has("--anh");
 
 class HetPhien extends Error {}
@@ -125,7 +133,11 @@ function moKho(file) {
       ket_qua TEXT, so_phuong_tien INTEGER, so_het_han INTEGER, so_canh_bao INTEGER,
       so_gui INTEGER, loi TEXT
     );
+    CREATE TABLE IF NOT EXISTS trang_thai (khoa TEXT PRIMARY KEY, gia_tri TEXT);
   `);
+  // Kho đời trước chưa có cột đánh dấu "đang trong báo cáo dịch vụ" (lượt nhẹ cần để biết máy nào vừa rời báo cáo).
+  const cot = db.prepare("PRAGMA table_info(thiet_bi)").all().map((r) => r.name);
+  if (!cot.includes("trong_bao_cao")) db.exec("ALTER TABLE thiet_bi ADD COLUMN trong_bao_cao INTEGER NOT NULL DEFAULT 0");
   return db;
 }
 
@@ -368,15 +380,56 @@ async function main() {
 
     const hh = await layHetHan(page);
     log(`báo cáo dịch vụ: ${hh.ds.length}/${hh.tong ?? "?"} máy ≤30 ngày hoặc quá hạn`);
-    const pt = await layPhuongTien(page);
-    log(`phương tiện: ${pt.ds.length}/${pt.tong ?? "?"}`);
-    if (pt.tong && pt.ds.length < pt.tong * 0.9) throw new Error(`danh sách phương tiện thiếu (${pt.ds.length}/${pt.tong}) — không ghi đè kho`);
+    const soMayKho = Number(db.prepare("SELECT count(*) AS n FROM thiet_bi").get().n);
+    const lanDayDu = db.prepare("SELECT gia_tri FROM trang_thai WHERE khoa = 'pt_day_du_luc'").get()?.gia_tri ?? null;
+    const dayDu = DAY_DU || canCaoDayDu(lanDayDu, soMayKho);
+    let pt = null;
+    let thietBi;
+    if (dayDu) {
+      pt = await layPhuongTien(page);
+      log(`lượt ĐỦ — phương tiện: ${pt.ds.length}/${pt.tong ?? "?"}`);
+      if (pt.tong && pt.ds.length < pt.tong * 0.9) throw new Error(`danh sách phương tiện thiếu (${pt.ds.length}/${pt.tong}) — không ghi đè kho`);
+      thietBi = gopThietBi(pt.ds, hh.ds);
+    } else {
+      // Lượt NHẸ: nền = bản gộp lượt trước trong kho của các máy liên quan; tra lẻ máy vừa rời báo cáo.
+      const truoc = db.prepare("SELECT serial FROM thiet_bi WHERE trong_bao_cao = 1").all().map((r) => r.serial);
+      const roi = serialRoiBaoCao(truoc, hh.ds.map((d) => d.serial));
+      const theo = new Map();
+      const docTho = db.prepare("SELECT tho FROM thiet_bi WHERE serial = ?");
+      for (const s of new Set([...hh.ds.map((d) => d.serial), ...roi])) {
+        const r = docTho.get(s);
+        if (!r?.tho) continue;
+        try {
+          theo.set(s, JSON.parse(r.tho));
+        } catch {
+          /* bản thô hỏng ⇒ coi như máy mới, báo cáo sẽ điền */
+        }
+      }
+      let traDuoc = 0;
+      for (const s of roi) {
+        const html = await goi(page, "/deviceAisList", thanPhuongTien(1, 5, { serial: s }), "form");
+        const moi = docPhuongTien(docBang(html)).find((x) => x.serial === s);
+        if (moi) {
+          theo.set(s, { ...theo.get(s), ...moi });
+          traDuoc++;
+        }
+        await page.waitForTimeout(300);
+      }
+      thietBi = gopThietBi([...theo.values()], hh.ds);
+      log(`lượt NHẸ — kho ${soMayKho} máy, ${roi.length} máy vừa rời báo cáo (tra lẻ được ${traDuoc})`);
+    }
     const cb = await layCanhBao(page);
     log(`cảnh báo: ${cb.ds.length}/${cb.tong ?? "?"}`);
 
     const luc = new Date().toISOString();
-    const thietBi = gopThietBi(pt.ds, hh.ds);
     const { doiHan, cbMoi } = ghiKho(db, thietBi, cb.ds, luc);
+    // Đánh dấu máy đang trong báo cáo dịch vụ (lượt nhẹ sau dựa vào đây) + mốc cào đủ.
+    db.exec("BEGIN");
+    db.exec("UPDATE thiet_bi SET trong_bao_cao = 0 WHERE trong_bao_cao = 1");
+    const danhDauBc = db.prepare("UPDATE thiet_bi SET trong_bao_cao = 1 WHERE serial = ?");
+    for (const d of hh.ds) danhDauBc.run(d.serial);
+    if (dayDu) db.prepare("INSERT INTO trang_thai (khoa, gia_tri) VALUES ('pt_day_du_luc', ?) ON CONFLICT(khoa) DO UPDATE SET gia_tri = excluded.gia_tri").run(luc);
+    db.exec("COMMIT");
     log(`kho máy nhà: ${thietBi.length} máy (${doiHan} đổi hạn), ${cbMoi} cảnh báo mới · ${Math.round((Date.now() - t0) / 1000)} s`);
 
     // Phần thay đổi so với bản đã gửi
@@ -399,12 +452,12 @@ async function main() {
     log(`cần gửi: ${canGui.length} hồ sơ, ${cbChuaGui.length} cảnh báo`);
 
     if (THU) {
-      ketThuc("thu", { pt: pt.ds.length, hh: hh.ds.length, cb: cb.ds.length, gui: 0 });
+      ketThuc("thu", { pt: pt?.ds.length ?? null, hh: hh.ds.length, cb: cb.ds.length, gui: 0 });
       log("--thu: không gửi");
       return 0;
     }
 
-    const tong = { phuongTien: pt.tong ?? pt.ds.length, hetHan: hh.tong ?? hh.ds.length, canhBao: cb.tong ?? cb.ds.length };
+    const tong = { phuongTien: pt ? (pt.tong ?? pt.ds.length) : soMayKho, hetHan: hh.tong ?? hh.ds.length, canhBao: cb.tong ?? cb.ds.length };
     const danhDauTb = db.prepare("UPDATE thiet_bi SET bam_da_gui = ? WHERE serial = ?");
     const danhDauCb = db.prepare("UPDATE canh_bao SET da_gui = 1 WHERE imei = ? AND loai = ? AND luc = ?");
     let daGui = 0;
@@ -421,7 +474,7 @@ async function main() {
       daGui += phan.length;
       log(`gửi ${i + 1}/${soLan}: ${phan.length} hồ sơ${cuoi ? ` + ${cbPhan.length} cảnh báo` : ""} ⇒ ${JSON.stringify(j.ghi ?? {})}`);
     }
-    ketThuc("ok", { pt: pt.ds.length, hh: hh.ds.length, cb: cb.ds.length, gui: daGui });
+    ketThuc("ok", { pt: pt?.ds.length ?? null, hh: hh.ds.length, cb: cb.ds.length, gui: daGui });
     return 0;
   } catch (e) {
     const hetPhien = e instanceof HetPhien;

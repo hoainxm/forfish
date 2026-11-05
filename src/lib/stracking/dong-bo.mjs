@@ -35,17 +35,23 @@ function dieuKien(i, ten, kieu, phep = "=", giaTri = "") {
   ];
 }
 
-/** Form /deviceAisList (urlencoded) — không lọc gì, mới tạo trước. */
-export function thanPhuongTien(trang, co = 1000) {
+/**
+ * Form /deviceAisList (urlencoded) — mới tạo trước. `loc.serial` = tra ĐÚNG một máy (lượt nhẹ: máy vừa rời báo cáo
+ * dịch vụ — thường là vừa gia hạn — cần hạn mới mà không phải cào cả 16 nghìn máy).
+ */
+export function thanPhuongTien(trang, co = 1000, loc = {}) {
+  // Điều kiện chỉ có hiệu lực khi có tên trong `filter[]` (đo 05/11: thiếu ⇒ trang bỏ qua, trả cả 16 nghìn máy).
+  const loc_ = loc.serial ? [["filter[]", "serial"]] : [];
   return new URLSearchParams([
     ["page", String(trang)],
     ["pageSize", String(co)],
-    ["isResetPage", "false"],
+    ["isResetPage", loc.serial ? "true" : "false"],
     ["sortFieldName", "createDate"],
     ["isDesc", "true"],
+    ...loc_,
     ...dieuKien(0, "imei", "String"),
     ...dieuKien(1, "mmsi", "String"),
-    ...dieuKien(2, "serial", "String"),
+    ...dieuKien(2, "serial", "String", "=", loc.serial ?? ""),
     ...dieuKien(3, "vin", "String"),
     ...dieuKien(4, "deviceName", "String"),
     ...dieuKien(5, "shipownerDevice", "String"),
@@ -133,6 +139,29 @@ export function lucIso(s) {
 /** Ngày hôm nay theo giờ VN, "yyyy-mm-dd". */
 export function homNayVn(now = Date.now()) {
   return new Date(now + 7 * 3600_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Lượt này có cần cào ĐỦ danh sách phương tiện (16 nghìn máy, ~64 MB HTML) không? Anh Long 05/11: "dữ liệu ban đầu
+ * thôi, sau đó cào thì chỉ push cái thay đổi thôi, tránh nặng tải". Cào đủ khi: kho trống, hoặc HÔM NAY (giờ VN)
+ * chưa cào đủ lần nào ⇒ thực tế một lần/ngày ở lượt 07:30; các lượt sau chỉ báo cáo dịch vụ + cảnh báo + tra lẻ.
+ */
+export function canCaoDayDu(lanDayDuCuoiIso, soMayTrongKho, now = Date.now()) {
+  if (!soMayTrongKho) return true;
+  const t = Date.parse(lanDayDuCuoiIso ?? "");
+  if (!Number.isFinite(t)) return true;
+  return homNayVn(t) !== homNayVn(now);
+}
+
+/** Máy CÓ trong báo cáo dịch vụ lượt trước mà lượt này KHÔNG còn — thường là vừa gia hạn (hết ≤30 ngày). Trần `tran`. */
+export function serialRoiBaoCao(truoc, nay, tran = 300) {
+  const conNay = new Set(nay);
+  const out = [];
+  for (const s of truoc) {
+    if (!conNay.has(s)) out.push(s);
+    if (out.length >= tran) break;
+  }
+  return out;
 }
 
 /** 00:00 hôm nay giờ VN, dạng ISO UTC — mốc "cảnh báo trong ngày" (anh Long 05/11: "cái nào trong ngày thôi"). */
