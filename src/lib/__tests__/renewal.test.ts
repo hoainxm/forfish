@@ -5,6 +5,11 @@ import {
   renewalMonthsLabel,
   renewalTotal,
   renewalStatusView,
+  chuanMaTau,
+  chonTauStracking,
+  giaHanCuaTau,
+  yeuCauDangMo,
+  type RenewalRequestSummary,
 } from "@/lib/renewal";
 
 describe("kỳ hạn gia hạn — chỉ 3/6/12 (chủ dự án chốt)", () => {
@@ -62,5 +67,90 @@ describe("renewalStatusView — giọng nói thật cho bà con", () => {
       label: "Đang xử lý",
       tone: "neutral",
     });
+  });
+});
+
+// ── Hứng luồng gia hạn từ thẻ S-Tracking (2026-11-05) ──
+const NOW = Date.parse("2026-11-05T05:00:00Z");
+function yc(p: Partial<RenewalRequestSummary>): RenewalRequestSummary {
+  return {
+    requestCode: "GH-1",
+    status: "pending_payment",
+    totalAmount: 0,
+    transferNote: "",
+    qrUrl: null,
+    qrExpiresAt: null,
+    createdAt: null,
+    paidAt: null,
+    extendedAt: null,
+    vesselCode: "BV-1234-TS",
+    monthsCount: 6,
+    newExpiryDate: null,
+    ...p,
+  };
+}
+
+describe("chuanMaTau", () => {
+  it("bỏ khoảng trắng + chữ hoa; rỗng/null → ''", () => {
+    expect(chuanMaTau(" bv-1234 -ts ")).toBe("BV-1234-TS");
+    expect(chuanMaTau(null)).toBe("");
+  });
+});
+
+describe("giaHanCuaTau — yêu cầu đang chạy của một tàu", () => {
+  it("chờ CK khi QR còn hạn; QR hết hạn → coi như không có", () => {
+    const con = [yc({ qrExpiresAt: "2026-11-06T00:00:00Z" })];
+    expect(giaHanCuaTau(con, "bv-1234-ts", null, NOW)?.loai).toBe("cho-ck");
+    const het = [yc({ qrExpiresAt: "2026-11-04T00:00:00Z" })];
+    expect(giaHanCuaTau(het, "BV-1234-TS", null, NOW)).toBeNull();
+  });
+
+  it("đã nhận tiền → cho-gia-han", () => {
+    expect(giaHanCuaTau([yc({ status: "pending_extension" })], "BV-1234-TS", null, NOW)?.loai).toBe("cho-gia-han");
+  });
+
+  it("đã gia hạn: báo khi hạn mới vượt hạn S-Tracking, im khi S-Tracking đã bắt kịp", () => {
+    const r = [yc({ status: "extended", newExpiryDate: "2027-05-01" })];
+    expect(giaHanCuaTau(r, "BV-1234-TS", "2026-11-01", NOW)).toEqual({
+      loai: "da-gia-han",
+      requestCode: "GH-1",
+      hanMoi: "2027-05-01",
+    });
+    expect(giaHanCuaTau(r, "BV-1234-TS", "2027-05-01", NOW)).toBeNull();
+    expect(giaHanCuaTau([yc({ status: "extended" })], "BV-1234-TS", null, NOW)).toBeNull();
+  });
+
+  it("chỉ xét yêu cầu MỚI NHẤT của đúng tàu; huỷ/tàu khác → null", () => {
+    const r = [
+      yc({ requestCode: "GH-2", status: "cancelled" }),
+      yc({ requestCode: "GH-1", status: "pending_extension" }),
+    ];
+    expect(giaHanCuaTau(r, "BV-1234-TS", null, NOW)).toBeNull();
+    expect(giaHanCuaTau([yc({ status: "pending_extension" })], "BV-9999-TS", null, NOW)).toBeNull();
+    expect(giaHanCuaTau([yc({})], "", null, NOW)).toBeNull();
+  });
+});
+
+describe("yeuCauDangMo — chặn tạo trùng", () => {
+  it("chờ CK / chờ gia hạn → chặn; đã gia hạn xong → cho tạo tiếp", () => {
+    expect(yeuCauDangMo([yc({})], "BV-1234-TS", NOW)?.requestCode).toBe("GH-1");
+    expect(yeuCauDangMo([yc({ status: "pending_extension" })], "BV-1234-TS", NOW)).not.toBeNull();
+    expect(yeuCauDangMo([yc({ status: "extended", newExpiryDate: "2027-05-01" })], "BV-1234-TS", NOW)).toBeNull();
+    expect(yeuCauDangMo([], "BV-1234-TS", NOW)).toBeNull();
+  });
+});
+
+describe("chonTauStracking — máy chủ thay dữ liệu máy khách bằng S-Tracking", () => {
+  const rows = [
+    { serial: "S1", ten_tau: "BV-1234-TS", chu_tau: "Nguyễn A" },
+    { serial: "S2", ten_tau: "QNg-555-TS", chu_tau: null },
+  ];
+  it("ưu tiên serial, rồi mã tàu (không phân biệt hoa/khoảng trắng)", () => {
+    expect(chonTauStracking(rows, { maTau: "BV-1234-TS", serial: "S2" })?.serial).toBe("S2");
+    expect(chonTauStracking(rows, { maTau: "bv-1234-ts" })?.serial).toBe("S1");
+  });
+  it("serial lạ + mã lạ → null (tàu tự khai)", () => {
+    expect(chonTauStracking(rows, { maTau: "KH-1-TS", serial: "X" })).toBeNull();
+    expect(chonTauStracking([], { maTau: "BV-1234-TS" })).toBeNull();
   });
 });

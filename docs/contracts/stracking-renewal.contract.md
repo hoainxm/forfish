@@ -36,6 +36,8 @@ SDFish app (ngư dân)
 - **Shared secret** `SDFISH_RENEWAL_SECRET` (env cả hai phía) — header `x-sdfish-secret`. `verify_jwt=false` cho function (anon key crm bán công khai, không đủ gác).
 - **SĐT lấy từ phiên đã xác thực** ở SDFish server (`identityFromRequest`), KHÔNG nhận từ body máy khách. Ngư dân chỉ gửi thông tin TÀU (mã/serial).
 - **Tàu do ngư dân TỰ KHAI** trong SDFish (local `forfish.boats.v1`) → `vessel_code` CHƯA kiểm chứng với hệ S-Tracking. Nhân viên PHẢI xác minh trước khi bấm "đã gia hạn". Kỳ hạn chỉ **3/6/12 tháng**.
+- **Tàu có trên S-Tracking** (2026-11-05): SDFish server khớp tàu với bảng `stracking_thiet_bi` (máy GPU đồng bộ từ stracking.viettel.io, lọc theo SĐT phiên là chủ tàu/thuyền trưởng) ⇒ `vessel.maTau`/`serial`/`ownerName` gửi đi là dữ liệu S-Tracking, không phải chữ máy khách. Nhân viên vẫn duyệt như cũ.
+- **Chống trùng phía SDFish** (2026-11-05): trước `create`, SDFish gọi `list` — tàu đã có yêu cầu `pending_payment` (QR còn hạn) hoặc `pending_extension` ⇒ SDFish trả 409 `da_co_yeu_cau`, KHÔNG gọi `create`. `list` lỗi ⇒ bỏ qua chống trùng (không chặn bà con).
 
 ## Actions (POST edge fn, body JSON, header `x-sdfish-secret`)
 
@@ -111,4 +113,5 @@ Chưa đặt đủ env → adapter `isRenewalConfigured()` false → route trả
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 2026-11-05 | v1 (không đổi shape) | SDFish: thay tàu bằng dữ liệu S-Tracking khi khớp SĐT phiên; chống trùng qua `list` trước `create`; thẻ "máy của tôi" đọc `list` để hiện yêu cầu đang chạy. Edge fn KHÔNG đổi. |
 | 2026-08-21 | v1 | Khởi tạo: edge fn `sdfish-renewal` (price/create/list) + cột `origin` + UI VMS renewal SDFish. Kỳ hạn 3/6/12. |

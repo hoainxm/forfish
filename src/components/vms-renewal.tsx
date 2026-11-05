@@ -93,7 +93,9 @@ function VmsRenewalInner() {
   const [saveFailed, setSaveFailed] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   /*  Tàu lấy từ S-Tracking (danh sách "máy của tôi") — mở wizard với mã tàu thật, không qua tàu tự khai. */
-  const [tauSt, setTauSt] = useState<Boat | null>(null);
+  const [tauSt, setTauSt] = useState<{ boat: Boat; serial: string } | null>(null);
+  /*  Đổi khoá ⇒ thẻ S-Tracking tải lại sau khi tạo yêu cầu (hiện "Đã gửi yêu cầu…", ẩn nút Gia hạn). */
+  const [lanTaiSt, setLanTaiSt] = useState(0);
   const [statusOpen, setStatusOpen] = useState(false);
   /*  Số yêu cầu đã gửi — nhớ trong phiên tab (sessionStorage, KHÔNG khoá forfish.*): lúc mở
       màn KHÔNG gọi mạng (luật offline), chỉ cập nhật khi ngăn trạng thái tải xong. null = chưa
@@ -146,7 +148,7 @@ function VmsRenewalInner() {
         </button>
       </div>
 
-      <StrackingCuaToi onGiaHan={setTauSt} />
+      <StrackingCuaToi key={lanTaiSt} onGiaHan={(boat, serial) => setTauSt({ boat, serial })} />
 
       {saveFailed && (
         <p
@@ -194,7 +196,8 @@ function VmsRenewalInner() {
 
       {(tauSt || (wizardOpen && current?.maTau)) && (
         <RenewalWizard
-          boat={tauSt ?? current!}
+          boat={tauSt?.boat ?? current!}
+          serial={tauSt?.serial}
           tuStracking={!!tauSt}
           onClose={() => {
             setWizardOpen(false);
@@ -203,6 +206,7 @@ function VmsRenewalInner() {
           onDone={() => {
             setWizardOpen(false);
             setTauSt(null);
+            setLanTaiSt((n) => n + 1);
             setStatusOpen(true);
           }}
         />
@@ -218,11 +222,14 @@ function VmsRenewalInner() {
 // ── Wizard: chọn số tháng → tạo yêu cầu → QR ──────────────────────────────
 function RenewalWizard({
   boat,
+  serial,
   tuStracking = false,
   onClose,
   onDone,
 }: {
   boat: Boat;
+  /** Serial máy S-Tracking (chỉ khi mở từ thẻ "máy của tôi") — máy chủ đối chiếu lại theo SĐT phiên. */
+  serial?: string;
   /** true = mã tàu lấy từ S-Tracking (đã có trên hệ thống), không phải tàu bà con tự khai. */
   tuStracking?: boolean;
   onClose: () => void;
@@ -270,7 +277,7 @@ function RenewalWizard({
       const r = await fetch(apiUrl("/api/renewal/request"), {
         method: "POST",
         headers: { "Content-Type": "application/json", ...tokenHeader() },
-        body: JSON.stringify({ maTau: boat.maTau, monthsCount: months }),
+        body: JSON.stringify({ maTau: boat.maTau, serial, monthsCount: months }),
         signal: timeoutSignal(20000),
       });
       const j = await r.json().catch(() => null);
@@ -281,7 +288,11 @@ function RenewalWizard({
         setErrText(
           j?.code === "not_signed_in" || r.status === 401
             ? "Bà con đăng nhập để tiếp tục gia hạn nhé."
-            : null,
+            : j?.code === "da_co_yeu_cau"
+              ? `Tàu này đã có yêu cầu ${j.requestCode ?? ""} đang chờ xử lý — xem ở “Yêu cầu”, không cần tạo thêm.`
+              : j?.code === "not_configured"
+                ? "Gia hạn trong app đang tạm đóng. Bà con gọi SDVICO để gia hạn nhé."
+                : null,
         );
         setPhase("error");
       }

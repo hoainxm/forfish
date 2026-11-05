@@ -120,9 +120,10 @@ export interface RenewalRequestSummary {
   newExpiryDate: string | null;
 }
 
-/** Gọi edge function sdfish-renewal — SERVER-ONLY, timeout 15s, mọi lỗi → null. */
+/** Gọi edge function sdfish-renewal — SERVER-ONLY, timeout mặc định 15s, mọi lỗi → null. */
 async function callRenewal<T>(
   payload: Record<string, unknown>,
+  timeoutMs = 15000,
 ): Promise<T | null> {
   if (!isRenewalConfigured()) return null;
   try {
@@ -137,7 +138,7 @@ async function callRenewal<T>(
         "x-sdfish-secret": CRM_SECRET,
       },
       body: JSON.stringify(payload),
-      signal: timeoutSignal(15000),
+      signal: timeoutSignal(timeoutMs),
     });
     if (!r.ok) return null;
     const j = (await r.json()) as { ok?: boolean } & T;
@@ -178,11 +179,12 @@ export async function createRenewalRequest(
 /** Liệt kê yêu cầu gia hạn của 1 SĐT (màn theo dõi trạng thái). */
 export async function listRenewalRequests(
   phone: string,
+  timeoutMs?: number,
 ): Promise<RenewalRequestSummary[] | null> {
-  const j = await callRenewal<{ requests: RenewalRequestSummary[] }>({
-    action: "list",
-    phone,
-  });
+  const j = await callRenewal<{ requests: RenewalRequestSummary[] }>(
+    { action: "list", phone },
+    timeoutMs,
+  );
   return j?.requests ?? null;
 }
 
@@ -190,4 +192,91 @@ export async function listRenewalRequests(
 export async function getRenewalMonthlyPrice(): Promise<number | null> {
   const j = await callRenewal<{ monthlyPrice: number }>({ action: "price" });
   return j?.monthlyPrice ?? null;
+}
+
+// ── Hứng luồng gia hạn từ thẻ S-Tracking (2026-11-05) ──────────────────────
+// Máy chủ SDFish đã có hạn cước THẬT (bảng stracking_thiet_bi, máy GPU đồng bộ)
+// ⇒ (1) không tin serial/chủ tàu từ máy khách khi tàu có trên S-Tracking của
+// đúng SĐT phiên, (2) không tạo yêu cầu TRÙNG khi tàu đã có yêu cầu đang mở,
+// (3) thẻ "máy của tôi" hiện yêu cầu gia hạn đang chạy của từng tàu.
+
+/** THUẦN — mã tàu so khớp: bỏ khoảng trắng, chữ hoa ("bv 1234-ts" ≡ "BV-1234-TS" khi gõ khác cách). */
+export function chuanMaTau(s: string | null | undefined): string {
+  return (s ?? "").replace(/\s+/g, "").toUpperCase();
+}
+
+export type GiaHanTauLoai = "cho-ck" | "cho-gia-han" | "da-gia-han";
+export interface GiaHanTau {
+  loai: GiaHanTauLoai;
+  requestCode: string;
+  /** Chỉ có ở "da-gia-han": hạn mới nhân viên đã gia hạn. */
+  hanMoi: string | null;
+}
+
+/**
+ * THUẦN — yêu cầu gia hạn ĐANG CÓ HIỆU LỰC của một tàu (danh sách `list` đã mới trước).
+ * - pending_payment còn hạn QR → "cho-ck" (đã gửi, chờ chuyển khoản) · hết hạn QR → coi như không có.
+ * - pending_extension → "cho-gia-han" (đã nhận tiền).
+ * - extended mà hạn mới VƯỢT hạn S-Tracking đang thấy → "da-gia-han" (chờ máy GPU kéo hạn mới về);
+ *   S-Tracking đã bắt kịp (hoặc không có hạn mới) → không còn gì để báo.
+ * - cancelled/expired/draft/lạ → không có. Chỉ xét yêu cầu MỚI NHẤT của tàu: yêu cầu cũ hơn đã bị thay.
+ */
+export function giaHanCuaTau(
+  requests: readonly RenewalRequestSummary[],
+  maTau: string | null | undefined,
+  hetHanST: string | null,
+  nowMs: number,
+): GiaHanTau | null {
+  const ma = chuanMaTau(maTau);
+  if (!ma) return null;
+  const r = requests.find((x) => chuanMaTau(x.vesselCode) === ma);
+  if (!r) return null;
+  if (r.status === "pending_payment") {
+    const het = r.qrExpiresAt ? Date.parse(r.qrExpiresAt) : NaN;
+    if (Number.isFinite(het) && het <= nowMs) return null;
+    return { loai: "cho-ck", requestCode: r.requestCode, hanMoi: null };
+  }
+  if (r.status === "pending_extension") {
+    return { loai: "cho-gia-han", requestCode: r.requestCode, hanMoi: null };
+  }
+  if (r.status === "extended") {
+    const moi = r.newExpiryDate?.slice(0, 10) ?? null;
+    if (!moi || (hetHanST && moi <= hetHanST.slice(0, 10))) return null;
+    return { loai: "da-gia-han", requestCode: r.requestCode, hanMoi: moi };
+  }
+  return null;
+}
+
+/** THUẦN — tàu đã có yêu cầu đang mở (chưa CK hoặc đã CK chờ gia hạn) ⇒ CHẶN tạo thêm. */
+export function yeuCauDangMo(
+  requests: readonly RenewalRequestSummary[],
+  maTau: string,
+  nowMs: number,
+): RenewalRequestSummary | null {
+  const g = giaHanCuaTau(requests, maTau, null, nowMs);
+  if (!g || g.loai === "da-gia-han") return null;
+  return requests.find((x) => x.requestCode === g.requestCode) ?? null;
+}
+
+export interface TauStrackingRow {
+  serial: string;
+  ten_tau: string | null;
+  chu_tau: string | null;
+}
+
+/**
+ * THUẦN — tàu S-Tracking (đã lọc theo SĐT phiên) ứng với yêu cầu máy khách: ưu tiên khớp
+ * serial, rồi khớp mã tàu. Khớp ⇒ máy chủ dùng serial/chủ tàu/mã tàu của S-Tracking.
+ */
+export function chonTauStracking(
+  rows: readonly TauStrackingRow[],
+  yeuCau: { maTau: string; serial?: string | null },
+): TauStrackingRow | null {
+  const serial = (yeuCau.serial ?? "").trim();
+  if (serial) {
+    const theoSerial = rows.find((r) => r.serial === serial);
+    if (theoSerial) return theoSerial;
+  }
+  const ma = chuanMaTau(yeuCau.maTau);
+  return (ma && rows.find((r) => chuanMaTau(r.ten_tau) === ma)) || null;
 }
