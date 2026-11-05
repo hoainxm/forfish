@@ -30,6 +30,8 @@ import { isValidTokenShape } from "@/lib/device-token";
 import { saveToken } from "@/lib/device-token-store";
 import { tokenIssueErrorMessage } from "@/lib/login-error";
 import { NHAN } from "@/lib/labels";
+import { ghiDongYMay } from "@/lib/dieu-khoan";
+import { guiDongYConTreo } from "@/components/dong-y-dieu-khoan";
 
 /*
   MÀN TỰ ĐĂNG KÝ MỞ LẠI (chủ dự án 2026-09-23: mở public self-signup cho người
@@ -60,6 +62,10 @@ export default function DangKyPage() {
   const [phoneErr, setPhoneErr] = useState<string | null>(null);
   const [pwErr, setPwErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /*  Ô ĐỒNG Ý — LUÔN TRỐNG lúc mở (NĐ 356/2025: cấm đặt sẵn đồng ý). `dongYLuc` = mốc bà con tick, gửi máy chủ
+      làm bằng chứng sau khi có tài khoản (lib/dieu-khoan, migration 0083). */
+  const [dongYLuc, setDongYLuc] = useState<string | null>(null);
+  const [dongYErr, setDongYErr] = useState<string | null>(null);
 
   if (!supabase) {
     return (
@@ -86,10 +92,12 @@ export default function DangKyPage() {
       : "Bà con nhập đủ 10 số nhé (ví dụ: 0901234567).";
     const pw = normalizePassword(password);
     const loiPw = passwordProblem(password);
-    if (loiSdt || loiPw) {
+    const loiDongY = dongYLuc ? null : "Bà con đánh dấu ô đồng ý trước nhé.";
+    if (loiSdt || loiPw || loiDongY) {
       setPhoneErr(loiSdt);
       setPwErr(loiPw);
-      document.getElementById(loiSdt ? "dk-sdt" : "dk-mk")?.focus();
+      setDongYErr(loiDongY);
+      document.getElementById(loiSdt ? "dk-sdt" : loiPw ? "dk-mk" : "dk-dong-y")?.focus();
       return;
     }
 
@@ -191,6 +199,11 @@ export default function DangKyPage() {
       setLoading(false);
       return;
     }
+    // bằng chứng đồng ý: ghi máy trước (mất sóng vẫn còn), gửi máy chủ — hụt thì tờ đồng ý gửi bù lúc mở app
+    if (dongYLuc) {
+      ghiDongYMay(phone, false, dongYLuc);
+      await guiDongYConTreo("dang-ky", phone);
+    }
     /*  BỎ PHIÊN SUPABASE — chuỗi cứng đã nằm trong máy, phiên bỏ lại chỉ tự chết
         chứ không mở được cửa nào. */
     await withDeadline(supabase!.auth.signOut(), 8000);
@@ -236,19 +249,43 @@ export default function DangKyPage() {
             minLength={PASSWORD_MIN_LENGTH}
             error={pwErr ?? undefined}
           />
+          {/* Ô ĐỒNG Ý (2026-11-05) — khuôn MoMo/Shopee: một ô, chữ bấm được để xem bản đầy đủ */}
+          <div className="mb-3">
+            <label className="flex min-h-(--h-ctl) items-start gap-3 text-[0.9375rem] leading-snug text-foreground">
+              <input
+                id="dk-dong-y"
+                type="checkbox"
+                className="mt-0.5 size-5 shrink-0 accent-sea"
+                checked={dongYLuc !== null}
+                aria-invalid={dongYErr ? true : undefined}
+                aria-describedby={dongYErr ? "dk-dong-y-loi" : undefined}
+                onChange={(e) => {
+                  setDongYLuc(e.target.checked ? new Date().toISOString() : null);
+                  setDongYErr(null);
+                }}
+              />
+              <span>
+                Tôi đồng ý với{" "}
+                <Link href="/dieu-khoan" className="py-3 font-semibold text-sea underline">
+                  Điều khoản sử dụng
+                </Link>{" "}
+                và{" "}
+                <Link href="/quyen-rieng-tu" className="py-3 font-semibold text-sea underline">
+                  Chính sách quyền riêng tư
+                </Link>
+                , gồm việc lưu dữ liệu nhạy cảm (ảnh, số CCCD trong sổ).
+              </span>
+            </label>
+            {dongYErr && (
+              <p id="dk-dong-y-loi" className="mt-1 text-[0.875rem] text-danger">
+                {dongYErr}
+              </p>
+            )}
+          </div>
           <PrimaryButton type="submit" disabled={loading}>
             {loading ? "Đang tạo…" : NHAN.dangKy}
           </PrimaryButton>
         </form>
-        <p className="mt-3 text-center text-[0.9375rem] leading-snug text-muted">
-          Tạo tài khoản tức là bà con đồng ý với{" "}
-          {/* py-3 trên phần tử INLINE: nới vùng chạm lên ~44px mà không xô dòng chữ (rà bố cục
-              2026-10-22 — trước cao 19px, tay ướt bấm trượt) */}
-          <Link href="/quyen-rieng-tu" className="py-3 font-semibold text-sea underline">
-            Chính sách quyền riêng tư
-          </Link>
-          .
-        </p>
         {/*  Vùng chạm lên sàn mà KHÔNG phình thành dải ngang: đây là đường DUY
             NHẤT từ màn đăng ký sang màn đăng nhập, cũng là đường bà con cần ngay
             khi vừa nhận lỗi "Số điện thoại này đã có tài khoản". */}

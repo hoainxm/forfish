@@ -153,10 +153,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, code: "issue_failed" }, { status: 503 });
   }
 
+  /*  ĐỒNG Ý ĐIỀU KHOẢN (0083, 2026-11-05): bản mới nhất bà con đã bấm Đồng ý — máy cài lại / máy mới khỏi hỏi lại.
+      Bảng chưa áp / tra lỗi ⇒ null ⇒ máy hỏi (an toàn: hỏi thừa một lần, không bao giờ coi như đã đồng ý).
+      KHÔNG chặn cấp chuỗi vì việc này. */
+  let dongYBan: string | null = null;
+  try {
+    const dy = await admin
+      .from("dong_y_dieu_khoan")
+      .select("ban")
+      .eq("phone", phone)
+      .order("luc_chu", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!dy.error && typeof dy.data?.ban === "string") dongYBan = dy.data.ban;
+  } catch (e) {
+    console.error("[auth/token] tra đồng ý điều khoản hỏng:", e);
+  }
+
   return NextResponse.json({
     ok: true,
     token,
     phone,
+    dongYBan,
     /** máy cũ vừa bị đá — để màn hình nói "đã đăng xuất máy trước" cho minh bạch.
         Admin không đá máy cũ (nhiều máy CỐ Ý) nên luôn 0. */
     kicked: kickedCount > 0,

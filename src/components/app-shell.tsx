@@ -7,6 +7,7 @@ import { dockActive, MOI_O_DOCK } from "@/lib/dock-nav";
 import { NativeGpsPrime } from "@/components/native-gps-prime";
 import { ToastHost } from "@/components/ui/toast";
 import { UserSyncInit } from "@/components/user-sync-init";
+import { DongYDieuKhoan } from "@/components/dong-y-dieu-khoan";
 
 // CHỈ dựng ở máy: tts.ts (plugin TTS Capacitor) đụng `window` lúc nạp module ⇒ dựng trên máy chủ là 500 mọi trang
 /*  CỬA TẢI SẴN (rà offline F3 2026-10-29) — tách chunk: kéo theo cả bộ tải dự báo, không được nằm trong bundle chung
@@ -56,6 +57,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* toast dùng chung (dung-chung 2026-10-25): một host cho cả app; host dự phòng ở use-post-actions tự im */}
       <ToastHost />
       <UserSyncInit />
+      {/* ĐỒNG Ý ĐIỀU KHOẢN lần đầu (Luật BVDLCN 91/2025 — 2026-11-05): tài khoản chưa bấm Đồng ý bản hiện hành */}
+      <DongYDieuKhoan />
       {/* CỬA TẢI SẴN đi biển ở tầng app (rà offline F3 2026-10-29): Trang chủ cũng tải sẵn, không chờ mở Bản đồ */}
       <PretripAutoRun />
     </div>

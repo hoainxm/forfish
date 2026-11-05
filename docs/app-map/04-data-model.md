@@ -5,7 +5,8 @@
 **Load khi / Load when**: đụng DB/migration/RLS, sửa `src/lib/documents.ts`, nối vault với Supabase, hoặc thêm bảng mới.
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
-last_verified: 2026-11-03
+last_verified: 2026-11-05
+<!-- re-verified: 2026-11-05h — MIGRATION 0083 `dong_y_dieu_khoan` (anh Long 05/11: T&C lúc đăng ký/đăng nhập lần đầu, "1 cái click là đồng ý"): bảng chỉ-thêm phone · ban · luc_may · luc_chu · nguon (dang-ky|dang-nhap|mo-app) · platform · user_agent; RLS bật, 0 policy, revoke anon/authenticated (khuôn 0065). Ghi qua POST /api/me/dong-y, đọc ở /api/auth/token (`dongYBan`). ⏳ CHƯA APPLY prod — chờ anh Long duyệt. Code chịu được bảng chưa có (503 ⇒ máy giữ treo, gửi bù). -->
 <!-- re-verified: 2026-11-05g — KHOÁ GIA HẠN VÀO /quan-tri: KHÔNG migration. `app_config` thêm 2 khoá: `sdfish_renewal_secret` (secret, env dự phòng SDFISH_RENEWAL_SECRET; ≥16 ký tự, không khoảng trắng — phải TRÙNG secret bên CRM) + `sdwork_crm_url` (không secret, env dự phòng SDWORK_SUPABASE_URL; đúng khuôn https://<ref>.supabase.co). Ô DB thắng env. Chỉ luồng gia hạn (lib/renewal-server) đọc hai ô này. -->
 <!-- re-verified: 2026-11-04 — KHO Ô BẢN ĐỒ: KHÔNG migration. `app_config` thêm khoá `kho_o_tran_mb` (không secret, env dự phòng SDFISH_KHO_O_MB; 100–100000 MB, mặc định 2048) = trần ngăn máy chủ tự tải của kho ô đĩa (lib/kho-o-ban-do). Ô bản đồ lưu trên ĐĨA máy chủ, không vào DB/Storage. -->
 <!-- re-verified: 2026-11-03 — MIGRATION 0079 `vai_viec_lam` (spec 17, anh Long: "tổ chức hệ thống account … ngư dân vô kiếm việc … đại lý … thu mua … chủ tàu"): `customers.vai` (ngu-dan|chu-tau|thu-mua|dai-ly|null, check) + `vai_doi_luc` + `vai_xac_minh_at` + index; suy vai cho hàng null theo §3.2 (shops ⇒ dai-ly · devices/user_docs boats ⇒ chu-tau · kairos nghe thu-mua ⇒ thu-mua); bảng `job_posts` · `job_seekers` · `job_reports` · `vua_profiles` (RLS bật, 0 policy, revoke anon/authenticated — khuôn 0065). ✅ ĐÃ APPLY prod 2026-11-03 (20261103071342). Code chịu được cột chưa có: /api/me/vai trả 503, cổng bản đồ theo vai bỏ qua (fail-open). -->
@@ -44,6 +45,20 @@ ttl_days: 180
 <!-- re-verified: 2026-08-19 — GỘP BASE (sync base): migration base 0032/0033/0034/0036/0037 đánh lại số thành 0045/0046/0047/0048/0049 cho khỏi đụng số sdvico; base 0035_market_listings_owner_phone BỎ vì trùng logic 0043 của sdvico. Mọi mục dưới đây dùng SỐ MỚI và trạng thái apply tính theo prod SDVICO (⚠️ CHƯA APPLY), KHÔNG phải prod base. -->
 
 ---
+
+### 0083 — SỔ ĐỒNG Ý ĐIỀU KHOẢN — migration [`0083_dong_y_dieu_khoan.sql`](../../supabase/migrations/0083_dong_y_dieu_khoan.sql) (2026-11-05) — ⏳ **CHƯA APPLY prod** (chờ anh Long duyệt)
+
+Vì sao: Luật BVDLCN 91/2025/QH15 + NĐ 356/2025/NĐ-CP Điều 6 — sự đồng ý phải **kiểm chứng được** (ai · lúc nào · bản nào) và bên kiểm soát dữ liệu (SDVICO) chịu trách nhiệm chứng minh; NĐ 330/2026 phạt việc coi im lặng là đồng ý / không lưu được bằng chứng. Bản trong máy (`forfish.dongY.v1`) chỉ là bản sao để khỏi hỏi lại.
+
+| Cột | Ý nghĩa |
+|---|---|
+| `phone` | SĐT từ chuỗi cứng (không nhận từ body) |
+| `ban` | `DIEU_KHOAN_BAN` (`lib/dieu-khoan.ts`), route chỉ nhận bản hiện hành (bản cũ ⇒ 409 `ban_cu`) |
+| `luc_may` / `luc_chu` | mốc bấm trên máy (bấm lúc mất sóng thì gửi bù) / mốc máy chủ nhận. `lucHopLe` chặn mốc trước 2026-01-01 hoặc vượt giờ máy chủ quá 1 ngày |
+| `nguon` | `dang-ky` (tick ô ở /dang-ky) · `mo-app` (tờ Đồng ý lần đầu sau đăng nhập / tài khoản cũ) · `dang-nhap` (dự phòng) |
+| `platform`, `user_agent` | soi khi tranh chấp |
+
+Chỉ thêm, không sửa/xoá từ app. Bản hiện hành của một SĐT = hàng `luc_chu` mới nhất. Rút đồng ý / xoá tài khoản: qua hotline SDVICO (chưa có màn — nhân viên làm tay; thời hạn NĐ 356: phản hồi 2 ngày làm việc, rút đồng ý 15 ngày, xoá 20 ngày).
 
 ### 0082 — S-TRACKING: ĐÓNG CẢNH BÁO ĐÃ CLEAR — migration [`0082_stracking_dong_canh_bao.sql`](../../supabase/migrations/0082_stracking_dong_canh_bao.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (Supabase MCP, anh Long duyệt)
 

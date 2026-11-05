@@ -178,6 +178,9 @@ export const NEVER_BACKUP_PREFIXES = [
   /*  · `stracking.` — hạn cước S-Tracking + cảnh báo tàu của CHÍNH SĐT (components/stracking-cua-toi, 2026-11-05): bản
    *    lưu để xem lúc mất sóng; có tên tàu, chủ tàu. Máy khác đăng nhập là tải lại, không mất gì. */
   "forfish.stracking.",
+  /*  · `dongY.` — đồng ý Điều khoản (lib/dieu-khoan, 2026-11-05): bằng chứng là việc CHÍNH người đó bấm, keyed theo SĐT.
+   *    Chép sang máy khác = máy kia "đã đồng ý" thay người ta. Máy chủ giữ bản thật (0083) — đăng nhập là lấy lại. */
+  "forfish.dongY.",
   "forfish.inbox.",
   "forfish.crew.",
   "forfish.identity.",

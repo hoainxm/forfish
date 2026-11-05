@@ -15,6 +15,7 @@ import { saveToken } from "@/lib/device-token-store";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import { NHAN } from "@/lib/labels";
+import { DIEU_KHOAN_BAN, ghiDongYMay } from "@/lib/dieu-khoan";
 import {
   AuthCard,
   AuthError,
@@ -175,6 +176,7 @@ export default function LoginPage() {
           mustChangePassword?: boolean;
           tier?: string | null;
           premiumUntil?: string | null;
+          dongYBan?: string | null;
         } | null,
       })),
       20000,
@@ -229,6 +231,9 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
+    /*  ĐÃ ĐỒNG Ý ĐIỀU KHOẢN bản này ở máy khác / trước khi cài lại ⇒ ghi bản sao vào máy, khỏi hỏi lại.
+        Chưa đồng ý ⇒ không ghi gì: tờ Đồng ý (DongYDieuKhoan) hiện ngay khi vào app (2026-11-05). */
+    if (body.dongYBan === DIEU_KHOAN_BAN) ghiDongYMay(phone, true);
     // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
     const mustChange = body.mustChangePassword === true;
     /*  ĐỔI MẬT KHẨU LẦN ĐẦU THÌ GIỮ PHIÊN TẠM (sửa 2026-08-02h, Codex bắt).
@@ -322,14 +327,16 @@ export default function LoginPage() {
             {NHAN.capLai}
           </Link>
         </p>
+        {/*  Câu "Đăng nhập tức là đồng ý" ĐÃ BỎ (2026-11-05): theo Luật BVDLCN 91/2025 im lặng không phải đồng ý.
+             Tài khoản chưa đồng ý sẽ gặp tờ Đồng ý MỘT LẦN ngay sau khi vào (components/dong-y-dieu-khoan). */}
         <p className="mt-1 text-center text-[0.875rem] leading-snug text-muted">
-          Đăng nhập tức là bà con đồng ý với{" "}
-          {/* py-3 trên phần tử INLINE: nới vùng chạm lên ~44px mà không xô dòng chữ (rà bố cục
-              2026-10-22 — trước cao 19px, tay ướt bấm trượt) */}
-          <Link href="/quyen-rieng-tu" className="py-3 font-semibold text-sea underline">
-            Chính sách quyền riêng tư
+          <Link href="/dieu-khoan" className="py-3 font-semibold text-sea underline">
+            {NHAN.dieuKhoan}
           </Link>
-          .
+          {" · "}
+          <Link href="/quyen-rieng-tu" className="py-3 font-semibold text-sea underline">
+            {NHAN.riengTu}
+          </Link>
         </p>
         {/*  Đường sang tự đăng ký (mở lại 2026-09-23): người ngoài chưa có tài
              khoản tạo nhanh bằng SĐT — câu lỗi "chưa có tài khoản" ở
