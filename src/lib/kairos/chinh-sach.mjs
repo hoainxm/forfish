@@ -285,6 +285,104 @@ export function docBaiGov(html, url) {
   };
 }
 
+// ───────── CỔNG LIFERAY "sdt-vanban-portlet" (14 §21g, 2026-11-06) ─────────
+// Anh Long 06/11: "các tin chính sách thì lấy các tin của các tỉnh … ví dụ hcm đang có các chính sách hỗ trợ ngư dân".
+// hochiminhcity.gov.vn + danang.gov.vn vẽ danh sách văn bản bằng JS (bảng bootstrap-table) ⇒ đọc HTML ra 0 bài (dò
+// 06/11: nguồn gov-hcm-van-ban chưa từng ra tin). Bảng gọi một URL tài nguyên trả JSON {total, rows[]} — tìm được theo
+// từ khoá (`txtSearch`, so trên trích yếu), có sẵn ngày ban hành + FILE ĐÍNH KÈM ⇒ không cần tải trang chi tiết.
+
+/** Một lượt hỏi trả ≤ chừng này văn bản (mới nhất trước). */
+export const VBDH_TOI_DA = 20;
+const VBDH_PORTLET = "VBDH_WAR_sdtvanbanportlet";
+const THANG = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+
+/**
+ * URL hỏi danh sách theo một từ khoá. `trang` = trang danh mục ("https://hochiminhcity.gov.vn/van-ban-chi-dao-dieu-hanh").
+ * @param {string} trang
+ * @param {string} tuKhoa
+ */
+export function urlVbdh(trang, tuKhoa, toiDa = VBDH_TOI_DA) {
+  const u = new URL(trang);
+  u.search = "";
+  for (const [k, v] of [
+    ["p_p_id", VBDH_PORTLET], ["p_p_lifecycle", "2"], ["p_p_state", "normal"], ["p_p_mode", "view"],
+    ["p_p_resource_id", "loadVanBanDieuHanh"], ["p_p_cacheability", "cacheLevelPage"],
+    ["txtSearch", tuKhoa], ["limit", String(toiDa)], ["offset", "0"],
+  ]) u.searchParams.set(k, v);
+  return u.toString();
+}
+
+/** Trang chi tiết một văn bản (đường `themMoi … view=details` mà chính bảng của cổng mở khi bấm "Xem chi tiết"). */
+export function urlChiTietVbdh(trang, id) {
+  const u = new URL(trang);
+  u.search = "";
+  for (const [k, v] of [
+    ["p_p_id", VBDH_PORTLET], ["p_p_lifecycle", "0"], ["p_p_state", "normal"], ["p_p_mode", "view"],
+    [`_${VBDH_PORTLET}_action`, "themMoi"], ["id", String(id)], ["view", "details"],
+  ]) u.searchParams.set(k, v);
+  return u.toString();
+}
+
+/** "Thu Nov 05 00:00:00 ICT 2026" (kiểu Date#toString của Java) ⇒ ISO 08:00 giờ VN; "05/11/2026" cũng nhận; hỏng ⇒ null. */
+export function ngayJava(s) {
+  const m = /^\w{3} (\w{3}) (\d{1,2}) [\d:]+ \w+ (\d{4})$/.exec(String(s ?? "").trim());
+  if (!m) return ngayVn(s);
+  const thang = THANG[/** @type {keyof typeof THANG} */ (m[1])];
+  if (thang === undefined || +m[2] < 1 || +m[2] > 31) return null;
+  return new Date(Date.UTC(+m[3], thang, +m[2], 1, 0, 0)).toISOString();
+}
+
+/**
+ * JSON danh sách ⇒ bài cho máy thu: tiêu đề "trích yếu (số hiệu)", mô tả = trích yếu đủ, ngày ban hành, file đính kèm
+ * (tên file, link mã hoá chuẩn — tên có dấu cách). Hàng hỏng bỏ; JSON hỏng ⇒ []. Không ném.
+ * @param {unknown} json  đã JSON.parse hoặc chuỗi
+ * @param {string} trang
+ */
+export function docVbdh(json, trang) {
+  let j = json;
+  if (typeof j === "string") {
+    try {
+      j = JSON.parse(j);
+    } catch {
+      return [];
+    }
+  }
+  const rows = j && typeof j === "object" && Array.isArray(/** @type {any} */ (j).rows) ? /** @type {any} */ (j).rows : [];
+  const out = [];
+  for (const r of rows) {
+    if (!r || typeof r !== "object") continue;
+    const trichYeu = String(r.trichYeu ?? "").replace(/\s+/g, " ").trim();
+    const id = Number(r.vanBanDieuHanhId);
+    if ([...trichYeu].length < 12 || !Number.isInteger(id) || id <= 0) continue;
+    const soHieu = String(r.soKyHieu ?? "").replace(/^Số\s*:\s*/i, "").replace(/\s+/g, " ").trim();
+    const files = Array.isArray(r.vanBanDieuHanhDinhKems) ? r.vanBanDieuHanhDinhKems : [];
+    const attachments = kiemDinhKem(
+      files.map((f) => {
+        let url = "";
+        try {
+          url = new URL(String(f?.fileDinhKem ?? ""), trang).toString(); // mã hoá dấu cách trong tên file
+        } catch {
+          /* bỏ */
+        }
+        return { title: String(f?.tenFile ?? "").trim() || `Văn bản đính kèm (${String(f?.typeFile ?? "file").toUpperCase()})`, url };
+      }),
+      { chiGov: true },
+    );
+    const title = soHieu ? `${trichYeu} (${soHieu})` : trichYeu;
+    out.push({
+      title: [...title].slice(0, 300).join(""),
+      link: urlChiTietVbdh(trang, id),
+      description: trichYeu,
+      sourceName: null,
+      sourceUrl: null,
+      publishedAt: ngayJava(r.ngayBanHanh),
+      coverUrl: null,
+      attachments,
+    });
+  }
+  return out;
+}
+
 /**
  * Prompt tóm tắt một lô thông báo nhà nước (≤20) — khác bài báo: nói cho bà con AI được, BAO NHIÊU, LÀM GÌ, HẠN NÀO,
  * NỘP Ở ĐÂU; có đợt thì nói rõ đợt. Bài là DỮ LIỆU (JSON). Luật chủ quyền chèn nguyên văn như promptTomTat.

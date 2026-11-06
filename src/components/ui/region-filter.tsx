@@ -15,6 +15,7 @@ import {
   HomePref,
   provinceKey,
   relevanceRank,
+  tenTinhGon,
 } from "@/lib/region";
 
 /*
@@ -197,12 +198,16 @@ export function ChonTinhPopover({
   onChon,
   onClose,
   caNuoc,
+  viTri,
 }: {
   anchor: HTMLElement | null;
   dangChon?: string;
   onChon: (province: string) => void;
   onClose: () => void;
   caNuoc?: { on: boolean; onChon: () => void };
+  /** hàng "Theo vị trí máy" (tab Chính sách, 14 §21c 2026-11-06): `ten` = tỉnh đo được (null = chưa đo), `loi` = câu
+   *  báo khi đo hỏng (từ chối quyền / xa bờ / không bắt được) */
+  viTri?: { on: boolean; ten: string | null; dangDo: boolean; loi: string | null; onChon: () => void };
 }) {
   const [q, setQ] = useState("");
   const qf = boDau(q.trim());
@@ -234,8 +239,35 @@ export function ChonTinhPopover({
             </button>
           </li>
         )}
+        {viTri && !qf && (
+          <li className="border-b border-line">
+            <button
+              type="button"
+              role="option"
+              aria-selected={viTri.on}
+              disabled={viTri.dangDo}
+              onClick={viTri.onChon}
+              className={`flex min-h-(--h-row) w-full items-center justify-between gap-2 rounded-xl px-3 text-left text-[0.9375rem] font-semibold disabled:opacity-60 ${
+                viTri.on ? "text-sea" : "text-navy"
+              }`}
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                <PinIcon className="h-4 w-4 shrink-0 text-sea" />
+                <span className="min-w-0 truncate">
+                  {viTri.dangDo ? "Đang tìm vị trí…" : viTri.ten ? `Theo vị trí máy · ${tenTinhGon(viTri.ten)}` : "Theo vị trí máy"}
+                </span>
+              </span>
+              {viTri.on && <CheckIcon className="h-5 w-5 shrink-0" />}
+            </button>
+            {viTri.loi && (
+              <p role="alert" className="px-3 pb-2 text-[0.8125rem] text-warn">
+                {viTri.loi}
+              </p>
+            )}
+          </li>
+        )}
         {ds.map((p) => {
-          const on = !caNuoc?.on && kChon !== "" && provinceKey(p.name) === kChon;
+          const on = !caNuoc?.on && !viTri?.on && kChon !== "" && provinceKey(p.name) === kChon;
           return (
             <li key={p.name}>
               <button

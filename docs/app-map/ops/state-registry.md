@@ -195,6 +195,7 @@ Thêm 2026-10-25 (rà FB toàn app, [design-review/08](../../design-review/08-ra
 | `forfish.mlist.v1` (ngăn `cho-home`, `cho-shop:<slug>`, `ban-hang/don`, `ban-hang/san-pham`, cùng ngăn `/cho/tim` có sẵn) | bản chụp danh sách + trang + chip + scrollY, ≤10 phút | `lib/market/list-state.ts` | màn danh sách tương ứng |
 | `tau.cuon:/tau`, `tau.cuon:/nguoi` | scrollY khi rời màn (`lib/giu-cuon.ts`) | `tau-toi-nav.tsx` | cùng |
 | `tau.gia-han.so-yeu-cau` | số yêu cầu gia hạn VMS đã gửi (để không fetch lúc mở) | `vms-renewal.tsx` | cùng |
+| `forfish.vitri.tinh.v1` (2026-11-06, 14 §21c) | tỉnh đo từ vị trí máy `{province, at}` — hạn 7 ngày; **không sao lưu** (`NEVER_BACKUP_PREFIXES` `forfish.vitri.`) | `lib/tinh-vi-tri.ts ghiTinhViTri` (qua `use-tinh-vi-tri`) | Kairos tab Chính sách (`kairos-screen` ⇒ lọc tỉnh) |
 | `forfish.home.phien.v1` (lô 2, 2026-10-25) | tỉnh chọn tạm khi chưa có tàu (`{province}`) | `lib/region.ts ghiHomePhien` | `useHome()` (Đầu mối, Mua bán, Cảng) |
 | `forfish.yeucau-nhap.v1` (lô 2) | nháp form "Đặt món" | `lib/market/request-form.ts` | `/cho/yeu-cau/moi` |
 
