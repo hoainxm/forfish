@@ -7,7 +7,7 @@
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { locMayTheoSdt, sdtTraCuaTaiKhoan } from "@/lib/stracking/sdt-phu";
+import { locMayTheoSdt, sdtTraCuaTaiKhoan } from "@/lib/sdt-khac";
 import { danhDauTenTrung, laYeuCauCuaMay, xacNhanGiaHan } from "@/lib/renewal";
 import { isRenewalConfigured, listRenewalRequests } from "@/lib/renewal-server";
 

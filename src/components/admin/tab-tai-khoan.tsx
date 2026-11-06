@@ -7,7 +7,7 @@ import { tenVai, VAI, type Vai } from "@/lib/vai";
 import { AdminSkeleton } from "@/components/admin/admin-nav";
 import { XacMinhThuMua } from "@/components/admin/xac-minh-thu-mua";
 import { SuaVai } from "@/components/admin/sua-vai";
-import { SuaSdtPhu } from "@/components/admin/sua-sdt-phu";
+import { SuaSoKhac, type SoKhacDong } from "@/components/admin/sua-so-khac";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiUrl } from "@/lib/api-base";
 import { PLATFORM_LABEL, USAGE_STAGE_LABEL, persistNote, readinessChip, type DevicePlatform, type ReadinessReason, type ReadinessTone, type UsageStage, usageStage } from "@/lib/app-usage";
@@ -35,8 +35,8 @@ export type Account = {
   kind?: "real" | "test" | "demo" | "reviewer";
   /** vai nghề (0079, spec 17) — null = chưa chọn / cột chưa có */
   vai?: Vai | null;
-  /** SĐT phụ — tra thêm máy S-Tracking (0084) */
-  sdtPhu?: string | null;
+  /** Số khác (0086) — đã duyệt: tra thêm máy S-Tracking + đồ mua SDVICO; chưa duyệt: bà con gửi từ app */
+  soKhac?: SoKhacDong[];
   fromSdwork: boolean;
   updatedAt: string | null;
   canLogin: boolean;
@@ -118,6 +118,8 @@ export function AccountsTab({ me }: { me: Me }) {
   // nhân sự (quản lý/quản trị viên) vẫn xem được bằng chip, vì đôi khi cần đặt
   // lại mật khẩu hoặc cấp premium cho chính họ.
   const [roleFilter, setRoleFilter] = useState<"khach" | "nhan-su">("khach");
+  // chỉ tài khoản có SỐ KHÁC bà con gửi đang chờ duyệt (0086) — nhân viên gọi xác nhận rồi bấm Duyệt
+  const [choDuyetOnly, setChoDuyetOnly] = useState(false);
   // dialog xác nhận — thay window.prompt/confirm (yêu cầu 2026-07-26).
   // Hạn xem trước tính LÚC BẤM NÚT (không gọi Date.now() trong render)
   const [toGrant, setToGrant] = useState<{
@@ -185,6 +187,7 @@ export function AccountsTab({ me }: { me: Me }) {
     const q = fold(query.trim());
     const qDigits = query.replace(/\D/g, "");
     return accounts.filter((a) => {
+      if (choDuyetOnly && !(a.soKhac ?? []).some((s) => !s.duyet)) return false;
       if (tierFilter !== "all" && effTier(a) !== tierFilter) return false;
       if (vaiFilter === "chua" ? !!a.vai : vaiFilter !== "all" && a.vai !== vaiFilter) return false;
       if (!q && !qDigits) return true;
@@ -193,7 +196,11 @@ export function AccountsTab({ me }: { me: Me }) {
       if (q && a.name && fold(a.name).includes(q)) return true;
       return false;
     });
-  }, [accounts, query, tierFilter, vaiFilter, effTier]);
+  }, [accounts, query, tierFilter, vaiFilter, effTier, choDuyetOnly]);
+  const soChoDuyet = useMemo(
+    () => (accounts ?? []).reduce((n, a) => n + (a.soKhac ?? []).filter((s) => !s.duyet).length, 0),
+    [accounts],
+  );
 
   const visible = useMemo(
     () =>
@@ -231,7 +238,7 @@ export function AccountsTab({ me }: { me: Me }) {
   /*  TRẦN VẼ — bảng đã 11 000+ khách (2026-11-06). Số ở trên đếm ĐỦ, nhưng chỉ vẽ
       từng đợt: mỗi dòng có ô Xác minh thu mua tự gọi mạng, vẽ hết là hàng nghìn
       request + đứng trình duyệt. Đổi bộ lọc ⇒ về đợt đầu. */
-  const filterKey = `${query}|${tierFilter}|${vaiFilter}|${roleFilter}`;
+  const filterKey = `${query}|${tierFilter}|${vaiFilter}|${roleFilter}|${choDuyetOnly}`;
   const [renderCap, setRenderCap] = useState({ key: filterKey, n: RENDER_STEP });
   const cap = renderCap.key === filterKey ? renderCap.n : RENDER_STEP;
 
@@ -700,6 +707,19 @@ export function AccountsTab({ me }: { me: Me }) {
       )}
       {visible && accounts && accounts.length > 0 && (
         <>
+          {(soChoDuyet > 0 || choDuyetOnly) && (
+            <button
+              type="button"
+              aria-pressed={choDuyetOnly}
+              onClick={() => setChoDuyetOnly((v) => !v)}
+              className={`flex min-h-[2.75rem] w-full items-center justify-between gap-2 rounded-2xl px-4 text-left text-[0.875rem] font-semibold ${
+                choDuyetOnly ? "bg-navy text-white" : "bg-warn-bg text-warn"
+              }`}
+            >
+              <span>{soChoDuyet} số khác bà con gửi đang chờ duyệt</span>
+              <span>{choDuyetOnly ? "Xem tất cả" : "Xem"}</span>
+            </button>
+          )}
           <p className="px-1 text-[0.8125rem] font-semibold text-muted">
             {/* đếm theo ĐÚNG nhóm đang xem — trước so với tổng cả bảng nên
                 lúc nào cũng ra "x/y khớp" dù không lọc gì */}
@@ -968,8 +988,8 @@ export function AccountsTab({ me }: { me: Me }) {
                     <XacMinhThuMua phone={a.phone} editable={perms.edit} />
                     {/* SỬA VAI (17 §3.3) — vai khoá trong app, chọn nhầm thì nhân viên sửa ở đây */}
                     <SuaVai key={`${a.phone}:${a.vai ?? ""}`} phone={a.phone} vai={a.vai ?? null} editable={perms.edit} onDone={load} />
-                    {/* SĐT PHỤ (0084) — tàu S-Tracking đứng tên số khác vẫn hiện ở Giám sát hành trình */}
-                    <SuaSdtPhu key={`${a.phone}:${a.sdtPhu ?? ""}`} phone={a.phone} sdtPhu={a.sdtPhu ?? null} editable={perms.edit} onDone={load} />
+                    {/* SỐ KHÁC (0086) — máy S-Tracking / đồ mua SDVICO đứng tên số khác vẫn hiện cho tài khoản này */}
+                    <SuaSoKhac phone={a.phone} soKhac={a.soKhac ?? []} editable={perms.edit} onDone={load} />
                   </div>
                 </li>
               ))}

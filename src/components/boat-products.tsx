@@ -226,8 +226,8 @@ export function BoatProducts() {
           </div>
         ) : syncStatus === "unlinked" ? (
           <RefNote>
-            Đã đăng nhập — chưa thấy đơn hàng SDVICO gắn với số này. Mua hàng
-            là đồ tự hiện ở đây; có thắc mắc bấm nút gọi bên tab Dịch vụ.
+            Chưa thấy đồ mua ở SDVICO theo số này. Lúc mua dùng số khác thì
+            bấm Thêm số ở mục Dịch vụ phía trên.
           </RefNote>
         ) : syncStatus === "guest" ? (
           <>

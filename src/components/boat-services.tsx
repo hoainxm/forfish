@@ -5,6 +5,8 @@ import { CheckIcon, ClockIcon } from "@/components/icons";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { MaintenanceReminders } from "@/components/maintenance-reminders";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
+import { SoKhacCuaToi } from "@/components/so-khac-cua-toi";
+import { useAuthUser } from "@/lib/use-auth";
 import { formatVnd, formatVnDate } from "@/lib/format";
 import {
   getServiceDueStatus,
@@ -29,7 +31,8 @@ export function BoatServices() {
   // "hôm nay" theo lịch VN, tính lại khi app đưa ra trước (lib/use-today)
   const { today, todayIso } = useTodayVN();
   // hook dùng chung với tab Sản phẩm — một lần fetch, 4 nấc trạng thái
-  const { status: syncStatus, assets: synced, retry } = useSdvicoAssets();
+  const { status: syncStatus, assets: synced, retry, choDuyet } = useSdvicoAssets();
+  const { phone } = useAuthUser();
 
   const activeServices = synced?.services.filter((s) => s.active) ?? [];
 
@@ -45,7 +48,9 @@ export function BoatServices() {
           {/* cùng cỡ tiêu đề mục 1.125rem như "Tủ giấy tờ", "Sổ nhắc bảo dưỡng", "Thiết bị
               đang dùng" (rà bố cục 2026-10-22 — trước 1rem, lệch bậc) */}
           <p className="min-w-0 flex-1 text-[1.125rem] font-semibold text-navy">
-            {activeServices.length} dịch vụ đang dùng
+            {/* Chưa có nguồn dịch vụ nào đổ về (route trả services []) ⇒ đừng in "0 dịch vụ đang dùng" như một con số
+                thật (anh Long 06/11). Có dịch vụ thì đếm. */}
+            {activeServices.length ? `${activeServices.length} dịch vụ đang dùng` : "Dịch vụ SDVICO"}
           </p>
           {/* nút phụ trung tính — cam chỉ cho MỘT hành động chính mỗi màn (TAU-15, 2026-10-25) */}
           <SdvicoRequestButton topic="sua-chua" label="Gọi SDVICO" phu />
@@ -65,6 +70,7 @@ export function BoatServices() {
             </Link>
           </div>
         )}
+        <SoKhacCuaToi status={syncStatus} choDuyet={choDuyet} phone={phone} />
         {syncStatus === "error" && (
           <div className="mt-2.5 flex items-center justify-between gap-3 rounded-2xl bg-danger-bg px-3.5 py-2.5">
             <p className="min-w-0 text-[0.875rem] font-semibold leading-snug text-danger">

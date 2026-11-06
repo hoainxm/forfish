@@ -10,7 +10,7 @@
 // Xem docs/contracts/stracking-renewal.contract.md.
 
 import { NextResponse } from "next/server";
-import { locMayTheoSdt, sdtTraCuaTaiKhoan } from "@/lib/stracking/sdt-phu";
+import { locMayTheoSdt, sdtTraCuaTaiKhoan } from "@/lib/sdt-khac";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { danhDauTenTrung, isValidRenewalMonths, yeuCauDangMo, type TauStrackingRow } from "@/lib/renewal";

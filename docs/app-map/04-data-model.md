@@ -6,6 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-11-05
+<!-- re-verified: 2026-11-06 — MIGRATION 0086 `sdt_khac` (thay `customers.sdt_phu` 0084): ≤3 số/tài khoản, một số đã duyệt một người, dòng chờ của bà con; CHƯA APPLY prod. -->
 <!-- re-verified: 2026-11-05i — MIGRATION 0084 `customers.sdt_phu` (+ `sdt_phu_luc`): 1 SĐT phụ/tài khoản, check 10 số + khác SĐT chính, index một phần; chỉ nhân viên gán (PATCH /api/admin/accounts/sdt-phu). Tra máy S-Tracking theo SĐT chính + phụ qua `lib/stracking/sdt-phu`. ✅ ĐÃ APPLY prod 2026-11-05 (20261105150914, Supabase MCP, anh Long "Áp và gán luôn"); gán tay 0918388742 ⇒ sdt_phu 0946364444 (+1 dòng nhật ký account.sdt-phu). -->
 <!-- re-verified: 2026-11-05h — MIGRATION 0083 `dong_y_dieu_khoan` (anh Long 05/11: T&C lúc đăng ký/đăng nhập lần đầu, "1 cái click là đồng ý"): bảng chỉ-thêm phone · ban · luc_may · luc_chu · nguon (dang-ky|dang-nhap|mo-app) · platform · user_agent; RLS bật, 0 policy, revoke anon/authenticated (khuôn 0065). Ghi qua POST /api/me/dong-y, đọc ở /api/auth/token (`dongYBan`). ✅ ĐÃ APPLY prod 2026-11-05 (20261105141841). Code chịu được bảng chưa có (503 ⇒ máy giữ treo, gửi bù). -->
 <!-- re-verified: 2026-11-05g — KHOÁ GIA HẠN VÀO /quan-tri: KHÔNG migration. `app_config` thêm 2 khoá: `sdfish_renewal_secret` (secret, env dự phòng SDFISH_RENEWAL_SECRET; ≥16 ký tự, không khoảng trắng — phải TRÙNG secret bên CRM) + `sdwork_crm_url` (không secret, env dự phòng SDWORK_SUPABASE_URL; đúng khuôn https://<ref>.supabase.co). Ô DB thắng env. Chỉ luồng gia hạn (lib/renewal-server) đọc hai ô này. -->
@@ -47,13 +48,29 @@ ttl_days: 180
 
 ---
 
+### 0086 — "SỐ KHÁC CỦA TÔI" (thay SĐT phụ một ô 0084) — migration [`0086_sdt_khac.sql`](../../supabase/migrations/0086_sdt_khac.sql) (2026-11-06) — ⏳ **CHƯA APPLY prod** (chờ anh Long duyệt; code chạy được trước migration nhờ đường lùi cột cũ)
+
+Anh Long 06/11: *"phải có phương án bind với sdt này hoặc cho khách bổ sung sdt mua hàng sdvico"* + *"có 3 SĐT (cái phụ đang để cho VMS phụ) có bị conflict ko?"*. Cột đơn `customers.sdt_phu` vỡ ở ba chỗ: (1) đăng nhập A, máy giám sát đứng tên B, mua hàng bằng C ⇒ một ô không chứa được cả B lẫn C; (2) chỉ mục 0084 không unique ⇒ một số gán được cho hai tài khoản; (3) chính số phụ có thể là tài khoản tự đăng nhập. Nghĩa của B và C như nhau — *"số này là của tôi, nhân viên đã xác nhận"* — nên MỘT danh sách dùng chung cho S-Tracking và đồ mua SDVICO.
+
+| Cột `sdt_khac` | Kiểu | Luật |
+|---|---|---|
+| `phone` | text | FK `customers.phone` (cascade) — tài khoản (SĐT chính) |
+| `sdt` | text | `^0[1-9][0-9]{8}$`, ≠ `phone`; unique `(phone, sdt)` |
+| `nguon` | text | `nhan-vien` (gán ở /quan-tri) · `khach` (bà con gửi từ app) |
+| `tao_luc` / `duyet_luc` / `duyet_boi` | timestamptz / timestamptz null / text | **chỉ dòng `duyet_luc` not null được dùng để tra** |
+
+- **Chặn ở DB**: ≤3 dòng / tài khoản kể cả dòng chờ (trigger `sdt_khac_toi_da`, cặp đã có thì nhường unique báo "đã có"); một số ĐÃ DUYỆT thuộc MỘT tài khoản (unique một phần `sdt_khac_da_duyet_mot_nguoi`). RLS bật, 0 policy — chỉ route service role.
+- **Chép 0084**: `customers.sdt_phu` ⇒ dòng đã duyệt (`duyet_boi='chep-0084'`); hai tài khoản trùng một số phụ ⇒ giữ dòng sửa sớm nhất. Cột `sdt_phu` GIỮ một nhịp làm đường lùi (bảng chưa có ⇒ `lib/sdt-khac` đọc cột cũ); bỏ ở migration sau. Thử trên pglite 06/11: chép đúng, 3 số + số thứ 4 ⇒ `toi_da`, số đã duyệt cho người khác ⇒ 23505, ≠ SĐT chính, FK, gửi trùng ⇒ `da_co`, chạy lại lần 2 không lỗi.
+- **Ai ghi**: bà con `POST/DELETE /api/me/sdt-khac` (dòng CHỜ — không mở quyền gì; rút được số chờ của mình) · nhân viên `POST/DELETE /api/admin/accounts/sdt-khac` (quyền `tai-khoan` edit, nhật ký `account.sdt-khac`; số đó có chuỗi máy còn hiệu lực ⇒ hỏi "Vẫn gắn").
+- **Ai đọc**: `lib/sdt-khac` (`sdtTraCuaTaiKhoan` · `phuCuaCacSdt` · `chinhCuaSdtPhu` · `soChoDuyet`) ⇒ `/api/stracking/cua-toi|an|nhap`, `/api/renewal/request|mine`, **`/api/me/sdvico`** (devices + support_requests theo mọi số đã duyệt), `/api/admin/accounts` (`soKhac`).
+
 ### 0085 — S-TRACKING: BÀ CON TỰ "XOÁ" MÁY — migration [`0085_stracking_an.sql`](../../supabase/migrations/0085_stracking_an.sql) (2026-11-06) — ✅ **ĐÃ APPLY prod 2026-11-06** (Supabase MCP, anh Long: "làm đi, migrate đi")
 
 Anh Hoà đề xuất trong nhóm Zalo, anh Long duyệt: *"máy nào ẩn thì ko cần thông báo liên quan nữa (ko gọi là ẩn mà là xoá, mặc dù trong hệ thống là ẩn)"*. Bảng `stracking_an (sdt, serial, an_luc, pk(sdt, serial))` — RLS bật + revoke, không policy (chỉ service role). Ghi qua `POST /api/stracking/an` (SĐT từ phiên, chỉ máy khớp SĐT CHỦ TÀU của tài khoản — thuyền trưởng không xem giám sát, 06/11; ghi cho SĐT chính + mọi SĐT của tài khoản gắn với máy, để tin gộp từ SĐT phụ không mang máy về), `DELETE` = hiện lại. `cua-toi` không trả máy đã xoá (trả riêng `daXoa`); route nhap bỏ cảnh báo / "đã hết" / nhắc của (SĐT, máy) đã xoá. Kho `stracking_thiet_bi` không đụng — người khác cùng máy vẫn thấy.
 
 ---
 
-### 0084 — SĐT PHỤ CHO TÀI KHOẢN — migration [`0084_sdt_phu.sql`](../../supabase/migrations/0084_sdt_phu.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (Supabase MCP `apply_migration`, `schema_migrations` 20261105150914, anh Long: "Áp và gán luôn". Soi sau apply: RLS customers vẫn bật; gán 0918388742 ⇒ `sdt_phu` 0946364444)
+### 0084 — SĐT PHỤ CHO TÀI KHOẢN (⛔ THAY bởi 0086 `sdt_khac` — đoạn dưới là lịch sử) — migration [`0084_sdt_phu.sql`](../../supabase/migrations/0084_sdt_phu.sql) (2026-11-05) — ✅ **ĐÃ APPLY prod 2026-11-05** (Supabase MCP `apply_migration`, `schema_migrations` 20261105150914, anh Long: "Áp và gán luôn". Soi sau apply: RLS customers vẫn bật; gán 0918388742 ⇒ `sdt_phu` 0946364444)
 
 Anh Long 05/11: *"cho bổ sung thêm 1 sdt, tức là cho phép 1 acc 2 sdt"*. Ca thật: khách đăng nhập một SĐT, còn tàu trên S-Tracking (Viettel) đứng tên SĐT khác, nên khối Giám sát hành trình không hiện tàu đó.
 

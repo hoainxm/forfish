@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { dauNgayVnIso } from "@/lib/stracking/dong-bo.mjs";
 import { laMayDaBo } from "@/lib/stracking/may-da-bo.mjs";
 import { danhDauTenTrung, giaHanCuaTau } from "@/lib/renewal";
-import { locMayTheoSdt, sdtTraCuaTaiKhoan, vaiVoiMay } from "@/lib/stracking/sdt-phu";
+import { locMayTheoSdt, sdtTraCuaTaiKhoan, vaiVoiMay } from "@/lib/sdt-khac";
 import { isRenewalConfigured, listRenewalRequests } from "@/lib/renewal-server";
 
 export const dynamic = "force-dynamic";

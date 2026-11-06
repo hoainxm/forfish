@@ -28,29 +28,33 @@ export interface SdvicoSync {
   assets: OwnedAssets | null;
   /** xóa cache + tải lại — dùng cho nút "Thử lại" khi status === "error" */
   retry: () => void;
+  /** "Số khác" bà con đã gửi, nhân viên chưa duyệt (0086) — để nói "đang chờ SDVICO xác nhận" */
+  choDuyet: string[];
 }
 
 /** Phân loại phản hồi /api/me/sdvico → 1 trong 4 nấc (logic thuần, có test). */
 export function classifySdvicoResponse(
   httpOk: boolean,
-  body: { ok?: boolean; code?: string; assets?: unknown } | null,
-): { status: Exclude<SdvicoStatus, "loading">; assets: OwnedAssets | null } {
-  if (!httpOk) return { status: "error", assets: null };
+  body: { ok?: boolean; code?: string; assets?: unknown; choDuyet?: unknown } | null,
+): { status: Exclude<SdvicoStatus, "loading">; assets: OwnedAssets | null; choDuyet: string[] } {
+  const choDuyet = Array.isArray(body?.choDuyet) ? body.choDuyet.filter((s): s is string => typeof s === "string") : [];
+  if (!httpOk) return { status: "error", assets: null, choDuyet };
   if (body?.ok && body.assets) {
-    return { status: "ok", assets: body.assets as OwnedAssets };
+    return { status: "ok", assets: body.assets as OwnedAssets, choDuyet };
   }
   switch (body?.code) {
     case "not_signed_in":
-    case "not_configured":
-      return { status: "guest", assets: null };
+      return { status: "guest", assets: null, choDuyet };
+    /*  not_configured = MÁY CHỦ thiếu cấu hình/DB, KHÔNG phải bà con chưa đăng nhập (anh Long 06/11: "vô đây là đang
+        vô app rồi còn đăng nhập gì nữa"). Trước đây gộp vào guest ⇒ người đã vào app bị mời Đăng nhập. */
     case "no_link":
-      return { status: "unlinked", assets: null };
+      return { status: "unlinked", assets: null, choDuyet };
     default:
-      return { status: "error", assets: null };
+      return { status: "error", assets: null, choDuyet };
   }
 }
 
-type CacheEntry = { status: SdvicoStatus; assets: OwnedAssets | null };
+type CacheEntry = { status: SdvicoStatus; assets: OwnedAssets | null; choDuyet: string[] };
 
 let cache: CacheEntry | null = null;
 let inflight: Promise<void> | null = null;
@@ -75,7 +79,7 @@ function startFetch() {
       const j = await r.json().catch(() => null);
       next = classifySdvicoResponse(r.ok, j);
     } catch {
-      next = { status: "error", assets: null };
+      next = { status: "error", assets: null, choDuyet: cache?.choDuyet ?? [] };
     }
     cache = next;
     inflight = null;
@@ -104,6 +108,32 @@ export function addOptimisticRequest(summary: string) {
   notify();
 }
 
+/**
+ * Bà con gửi / rút "số khác" (số mua hàng SDVICO, số máy giám sát) — /api/me/sdt-khac (0086). Cần sóng; trả mã lỗi để
+ * màn nói đúng câu. Xong ⇒ cập nhật `choDuyet` ngay (không đợi tải lại — route /api/me/sdvico có cache 10 phút).
+ */
+export async function guiSoKhac(sdt: string, rut = false): Promise<{ ok: true } | { ok: false; code: string }> {
+  try {
+    const r = await fetch(apiUrl("/api/me/sdt-khac"), {
+      method: rut ? "DELETE" : "POST",
+      headers: { "Content-Type": "application/json", ...tokenHeader() },
+      body: JSON.stringify({ sdt }),
+      signal: timeoutSignal(15000),
+    });
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; code?: string; sdt?: string } | null;
+    if (!j?.ok) return { ok: false, code: j?.code ?? `http_${r.status}` };
+    if (cache) {
+      const so = j.sdt ?? sdt;
+      const ds = cache.choDuyet.filter((x) => x !== so);
+      cache = { ...cache, choDuyet: rut ? ds : [...ds, so] };
+      notify();
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, code: "mat_song" };
+  }
+}
+
 export function useSdvicoAssets(): SdvicoSync {
   const [, force] = useState(0);
 
@@ -126,5 +156,6 @@ export function useSdvicoAssets(): SdvicoSync {
     status: cache?.status ?? "loading",
     assets: cache?.status === "ok" ? cache.assets : null,
     retry,
+    choDuyet: cache?.choDuyet ?? [],
   };
 }

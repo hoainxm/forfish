@@ -20,6 +20,7 @@ export const ADMIN_ACTIONS = [
   "account.xac-minh-thu-mua",
   "account.doi-vai",
   "account.sdt-phu",
+  "account.sdt-khac",
   // Sản phẩm
   "product.create",
   "product.update",
@@ -79,6 +80,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "account.xac-minh-thu-mua": "Bật/tắt xác minh thu mua",
   "account.doi-vai": "Sửa vai tài khoản (đi bạn/chủ tàu/thu mua/đại lý)",
   "account.sdt-phu": "Gán/gỡ SĐT phụ (tra thêm máy giám sát hành trình)",
+  "account.sdt-khac": "Gắn/duyệt/gỡ số khác của tài khoản (máy giám sát, đồ mua SDVICO)",
   "product.create": "Thêm sản phẩm",
   "product.update": "Sửa sản phẩm",
   "product.delete": "Xóa sản phẩm",

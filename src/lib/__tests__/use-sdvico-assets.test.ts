@@ -20,13 +20,20 @@ describe("classifySdvicoResponse — 4 nấc trạng thái đồng bộ SDVICO",
     expect(r.assets).toEqual(ASSETS);
   });
 
-  it("chưa đăng nhập / chưa cấu hình → guest (được mời đăng nhập)", () => {
+  it("CHỈ chưa đăng nhập → guest; máy chủ chưa cấu hình → error (người đã vào app không bị mời Đăng nhập — 06/11)", () => {
     expect(
       classifySdvicoResponse(true, { ok: false, code: "not_signed_in" }).status,
     ).toBe("guest");
     expect(
       classifySdvicoResponse(true, { ok: false, code: "not_configured" }).status,
-    ).toBe("guest");
+    ).toBe("error");
+  });
+
+  it("số khác chờ duyệt (0086) đi kèm mọi nấc; ô rác bị bỏ", () => {
+    expect(classifySdvicoResponse(true, { ok: false, code: "no_link", choDuyet: ["0903333333", 1] }).choDuyet).toEqual([
+      "0903333333",
+    ]);
+    expect(classifySdvicoResponse(true, { ok: false, code: "no_link" }).choDuyet).toEqual([]);
   });
 
   it("đăng nhập rồi nhưng chưa khớp đơn hàng → unlinked (KHÔNG mời đăng nhập)", () => {

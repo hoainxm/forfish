@@ -262,13 +262,22 @@ export async function GET() {
     if (v)
       for (const x of v.rows) if (isVai(x.vai)) vaiOf.set(x.phone, x.vai);
   }
-  // SĐT PHỤ (0084) — đọc riêng, cột chưa có ⇒ không ai có SĐT phụ, danh sách vẫn về
-  const sdtPhuOf = new Map<string, string>();
+  // SỐ KHÁC (0086, thay SĐT phụ 0084) — cả số đã duyệt lẫn số bà con gửi đang chờ. Bảng chưa có ⇒ lùi cột cũ sdt_phu
+  // (coi như đã duyệt); hỏng nữa ⇒ không ai có số khác, danh sách vẫn về.
+  const soKhacOf = new Map<string, { sdt: string; duyet: boolean; khach: boolean }[]>();
   {
-    const p = await admin.from("customers").select("phone, sdt_phu").not("sdt_phu", "is", null);
-    if (!p.error)
-      for (const x of (p.data ?? []) as { phone: string; sdt_phu: unknown }[])
-        if (typeof x.sdt_phu === "string") sdtPhuOf.set(x.phone, x.sdt_phu);
+    const them = (phone: string, x: { sdt: string; duyet: boolean; khach: boolean }) =>
+      soKhacOf.set(phone, [...(soKhacOf.get(phone) ?? []), x]);
+    const k = await admin.from("sdt_khac").select("phone, sdt, nguon, duyet_luc").order("tao_luc");
+    if (!k.error) {
+      for (const x of (k.data ?? []) as { phone: string; sdt: unknown; nguon: unknown; duyet_luc: unknown }[])
+        if (typeof x.sdt === "string") them(x.phone, { sdt: x.sdt, duyet: x.duyet_luc != null, khach: x.nguon === "khach" });
+    } else {
+      const p = await admin.from("customers").select("phone, sdt_phu").not("sdt_phu", "is", null);
+      if (!p.error)
+        for (const x of (p.data ?? []) as { phone: string; sdt_phu: unknown }[])
+          if (typeof x.sdt_phu === "string") them(x.phone, { sdt: x.sdt_phu, duyet: true, khach: false });
+    }
   }
 
   /*  LỊCH SỬ MÁY (customer_devices, 0033) — MỘT câu cho cả danh sách rồi gom
@@ -321,8 +330,8 @@ export async function GET() {
     kind: kindOf.get(r.phone as string) ?? "real",
     /** ngu-dan | chu-tau | thu-mua | dai-ly | null (0079) */
     vai: vaiOf.get(r.phone as string) ?? null,
-    /** SĐT phụ nhân viên gán — tra thêm máy S-Tracking (0084) */
-    sdtPhu: sdtPhuOf.get(r.phone as string) ?? null,
+    /** Số khác (0086) — đã duyệt: tra thêm máy S-Tracking + đồ mua SDVICO; chưa duyệt: bà con gửi, chờ nhân viên */
+    soKhac: soKhacOf.get(r.phone as string) ?? [],
     fromSdwork: Boolean(r.sdwork_ref),
     updatedAt: (r.updated_at as string) ?? null,
     canLogin: provisioned.has(r.phone as string),

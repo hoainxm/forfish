@@ -8,7 +8,7 @@
 // 401 chưa đăng nhập · 400 thân sai · 404 không phải máy của bạn · 503 hạ tầng.
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { locMayTheoSdt, sdtTraCuaTaiKhoan } from "@/lib/stracking/sdt-phu";
+import { locMayTheoSdt, sdtTraCuaTaiKhoan } from "@/lib/sdt-khac";
 
 export const dynamic = "force-dynamic";
 

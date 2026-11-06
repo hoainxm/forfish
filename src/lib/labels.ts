@@ -70,6 +70,9 @@ export const NHAN = {
   thanhToan: "Thanh toán",
   muaDo: "Mua đồ",
   giaHan: "Gia hạn",
+  // Số khác của tôi (0086) — số mua hàng SDVICO / số máy giám sát khác số đăng nhập
+  themSo: "Thêm số",
+  rutSo: "Rút số",
   yeuCau: "Yêu cầu",
   tim: "Tìm",
   loc: "Lọc",

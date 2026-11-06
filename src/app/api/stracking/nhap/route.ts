@@ -26,7 +26,7 @@ import {
   type TauCuaImei,
   type TinTau,
 } from "@/lib/stracking/thong-bao";
-import { chinhCuaSdtPhu, ganSdtThem, phuCuaCacSdt } from "@/lib/stracking/sdt-phu";
+import { chinhCuaSdtPhu, ganSdtThem, phuCuaCacSdt } from "@/lib/sdt-khac";
 import { isPushConfigured, sendPushMany, type PushFanoutRow } from "@/lib/push-send";
 
 export const dynamic = "force-dynamic";
@@ -170,7 +170,7 @@ async function dongCanhBaoDaClear(
     const chinhCuaPhu = await chinhCuaSdtPhu(admin, sdtMay);
     const nguoiNhan = [...new Set([...sdtMay, ...[...chinhCuaPhu.values()].flat()])];
     const phuCua = await phuCuaCacSdt(admin, nguoiNhan);
-    const sdtTraMay = [...new Set([...nguoiNhan, ...phuCua.values()])];
+    const sdtTraMay = [...new Set([...nguoiNhan, ...[...phuCua.values()].flat()])];
     const homNay = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
     const dauNgay = new Date(Date.parse(`${homNay}T00:00:00+07:00`)).toISOString();
     for (let i = 0; i < sdtTraMay.length; i += LO_TRA) {
