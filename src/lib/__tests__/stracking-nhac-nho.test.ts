@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { doiMay, docMkn, nhacTheoNguoi, tuanVn, viecNhac } from "@/lib/stracking/nhac-nho.mjs";
+import { doiKhoiDem, doiMay, docMkn, nacBaoTruoc, nhacTheoNguoi, tuanVn, viecNhac } from "@/lib/stracking/nhac-nho.mjs";
 import { kiemGoiNhap, kiemNhac, laDuongDoc, thanMkn } from "@/lib/stracking/dong-bo.mjs";
 
 // 05/11/2026 17:00 giờ VN
@@ -18,31 +18,6 @@ describe("đọc đợt mất kết nối", () => {
     expect(mkn(7, { dateOnline: NOW })?.dangMat).toBe(false);
     expect(mkn(7, { inShore: 1 })?.ngoaiKhoi).toBe(false);
     expect(docMkn({ report: { serial: "", dateTracking: 1 } })).toBeNull();
-  });
-});
-
-describe("nhắc mất kết nối ngoài khơi — mốc 6 giờ (anh Long: \"mkn >6h là họ sẽ bị phạt\")", () => {
-  it("<4 giờ: chưa nhắc · 4–6 giờ: sắp · ≥6 giờ: quá, nhắc lại mỗi 6 giờ", () => {
-    expect(viecNhac({ thietBi: [tau()], mkn: [mkn(3)], now: NOW })).toEqual([]);
-    const sap = viecNhac({ thietBi: [tau()], mkn: [mkn(5)], now: NOW });
-    expect(sap).toHaveLength(1);
-    expect(sap[0]).toMatchObject({ loai: "mkn-sap-6h", day: true, nguoi: ["0967214151"] }); // chỉ chủ tàu (06/11)
-    expect(sap[0].dong).toMatch(/trước mốc 6 giờ/);
-    // CÙNG một đợt (bắt đầu 7 giờ trước NOW), đồng hồ trôi thêm 4 giờ rồi 6 giờ.
-    const dot = [mkn(7)];
-    const qua7 = viecNhac({ thietBi: [tau()], mkn: dot, now: NOW })[0];
-    const qua11 = viecNhac({ thietBi: [tau()], mkn: dot, now: NOW + 4 * 3600_000 })[0];
-    const qua13 = viecNhac({ thietBi: [tau()], mkn: dot, now: NOW + 6 * 3600_000 })[0];
-    expect(qua7.loai).toBe("mkn-qua-6h");
-    expect(qua7.khoa).toBe(qua11.khoa); // cùng đợt 6–12 giờ ⇒ cùng khoá ⇒ không nhắc lại
-    expect(qua13.khoa).not.toBe(qua7.khoa); // sang mốc 12 giờ ⇒ nhắc lại
-    expect(viecNhac({ thietBi: [tau()], mkn: [mkn(50)], now: NOW })[0].dong).toMatch(/2 ngày/);
-  });
-  it("trong bờ / đã có kết nối lại / máy không có trong kho / không SĐT ⇒ không nhắc", () => {
-    expect(viecNhac({ thietBi: [tau()], mkn: [mkn(8, { inShore: 1 })], now: NOW })).toEqual([]);
-    expect(viecNhac({ thietBi: [tau()], mkn: [mkn(8, { dateOnline: NOW })], now: NOW })).toEqual([]);
-    expect(viecNhac({ thietBi: [tau({ serial: "KHAC" })], mkn: [mkn(8)], now: NOW })).toEqual([]);
-    expect(viecNhac({ thietBi: [tau({ sdtChuTau: null, sdtThuyenTruong: null })], mkn: [mkn(8)], now: NOW })).toEqual([]);
   });
 });
 
@@ -197,5 +172,79 @@ describe("chỉ chủ tàu nhận nhắc (anh Long 06/11: \"chủ tàu mới xem
     const v = viecNhac({ thietBi: [tau({ dongBoTcts: "Thất bại" })], now: NOW });
     expect(v[0].nguoi).toEqual(["0967214151"]);
     expect(viecNhac({ thietBi: [tau({ sdtChuTau: null, dongBoTcts: "Thất bại" })], now: NOW })).toEqual([]);
+  });
+});
+
+
+// NOW = 05/11/2026 17:00 giờ VN.
+const GIO = 3600_000;
+const mknLuc = (bdMs: number, o: Record<string, unknown> = {}) =>
+  docMkn({ report: { serial: "S1", imei: "1", deviceName: "BV-1-TS", dateTracking: bdMs, dateOnline: null, inShore: 2, ...o } });
+const mknV = (bdMs: number, now: number, o: Record<string, unknown> = {}, t: Record<string, unknown> = {}) =>
+  viecNhac({ thietBi: [tau(t)], mkn: [mknLuc(bdMs, o)], now }).filter((v) => v.loai.startsWith("mkn"));
+
+describe("mất kết nối NGOÀI KHƠI — báo trước nhiều nấc (anh Long 06/11: \"phải báo trước khi tới ngưỡng bị phạt\")", () => {
+  it("mất 2 giờ: chưa báo · ~3 giờ: nấc còn 3 giờ · ~5 giờ: nấc còn 1 giờ · ≥6 giờ: quá mốc", () => {
+    expect(mknV(NOW - 2 * GIO, NOW)).toEqual([]);
+    const n3 = mknV(NOW - 3 * GIO, NOW);
+    expect(n3[0]).toMatchObject({ loai: "mkn-sap-6h", day: true });
+    expect(n3[0].khoa).toMatch(/\|con3$/);
+    expect(n3[0].dong).toMatch(/Còn khoảng 3 giờ — trước 20:00 hôm nay máy cần có tín hiệu lại/);
+    const n1 = mknV(NOW - 5 * GIO - 10 * 60_000, NOW);
+    expect(n1[0].khoa).toMatch(/\|con1$/);
+    expect(n1[0].dong).toMatch(/Còn chưa tới 1 giờ/);
+    expect(mknV(NOW - 7 * GIO, NOW)[0].loai).toBe("mkn-qua-6h");
+  });
+  it("trừ 15 phút độ trễ đo: mất 2 giờ 50 phút đã báo nấc còn 3 giờ", () => {
+    expect(mknV(NOW - (2 * GIO + 50 * 60_000), NOW)[0].khoa).toMatch(/\|con3$/);
+  });
+  it("lỡ nấc: lượt đầu thấy đã còn <1 giờ ⇒ chỉ gửi nấc còn 1 giờ, không dồn nấc còn 3 giờ", () => {
+    const v = mknV(NOW - 5.5 * GIO, NOW);
+    expect(v).toHaveLength(1);
+    expect(v[0].khoa).toMatch(/\|con1$/);
+  });
+  it("quá mốc: nhắc lại mỗi 6 giờ trong cùng đợt", () => {
+    const bd = NOW - 7 * GIO;
+    expect(mknV(bd, NOW)[0].khoa).toBe(mknV(bd, NOW + 4 * GIO)[0].khoa);
+    expect(mknV(bd, NOW + 6 * GIO)[0].khoa).not.toBe(mknV(bd, NOW)[0].khoa);
+  });
+});
+
+describe("tránh nửa đêm — nấc rơi 22:00–05:00 dời lên 21:00 tối trước", () => {
+  it("doiKhoiDem", () => {
+    const vn = (s: string) => Date.parse(`${s}+07:00`);
+    expect(doiKhoiDem(vn("2026-11-05T23:00:00"), vn("2026-11-05T18:00:00"))).toBe(vn("2026-11-05T21:00:00"));
+    expect(doiKhoiDem(vn("2026-11-06T03:00:00"), vn("2026-11-05T18:00:00"))).toBe(vn("2026-11-05T21:00:00"));
+    expect(doiKhoiDem(vn("2026-11-06T06:00:00"), vn("2026-11-05T18:00:00"))).toBe(vn("2026-11-06T06:00:00"));
+    // bắt đầu mất sau 21:00 ⇒ không dời được về trước lúc bắt đầu ⇒ giữ nguyên
+    expect(doiKhoiDem(vn("2026-11-06T01:00:00"), vn("2026-11-05T22:30:00"))).toBe(vn("2026-11-06T01:00:00"));
+  });
+  it("mất lúc 18:00 (mốc 00:00): 21:00 đã báo nấc còn 1 giờ (nấc 23:00 dời về 21:00), không phải đợi 23:00", () => {
+    const vn = (s: string) => Date.parse(`${s}+07:00`);
+    expect(nacBaoTruoc(vn("2026-11-05T18:00:00"), vn("2026-11-06T00:00:00"), [3, 1], vn("2026-11-05T21:00:00"))).toBe(1);
+  });
+});
+
+describe("mất tín hiệu khi NẰM BỜ — mốc 1 ngày, báo trước còn 8 giờ / 3 giờ", () => {
+  const bo = { inShore: 1 };
+  it("mất 15 giờ: chưa · 16 giờ: nấc còn 8 giờ (giờ chót sáng/ngày mai) · ≥24 giờ: quá 1 ngày", () => {
+    expect(mknV(NOW - 15 * GIO, NOW, bo, { trongBo: true })).toEqual([]);
+    const n8 = mknV(NOW - 16 * GIO, NOW, bo, { trongBo: true });
+    expect(n8[0]).toMatchObject({ loai: "mkn-bo-sap-1ngay", day: true });
+    expect(n8[0].khoa).toMatch(/^mkn-bo\|.*\|con8$/);
+    expect(n8[0].dong).toMatch(/khi tàu nằm bờ/);
+    expect(n8[0].dong).toMatch(/bật máy để báo vị trí trước 01:00 sáng mai/);
+    const q = mknV(NOW - 30 * GIO, NOW, bo, { trongBo: true });
+    expect(q[0].loai).toBe("mkn-bo-qua-1ngay");
+    expect(mknV(NOW - 30 * GIO, NOW + 24 * GIO, bo, { trongBo: true })[0].khoa).not.toBe(q[0].khoa);
+  });
+  it("máy đang tạm ngưng (đã khai) ⇒ không nhắc", () => {
+    expect(mknV(NOW - 30 * GIO, NOW, bo, { trongBo: true, tamNgungTu: "2026-10-01", tamNgungDen: null })).toEqual([]);
+    expect(mknV(NOW - 30 * GIO, NOW, bo, { trongBo: true, tamNgungTu: "2026-10-01", tamNgungDen: "2026-10-31" })).toHaveLength(1);
+  });
+  it("máy chủ nhận 2 loại nằm bờ; đọc trong bờ bằng inOutShore \"1\"", () => {
+    expect(kiemNhac([{ sdt: "0967214151", loai: "mkn-bo-sap-1ngay", dong: "x" }, { sdt: "0967214151", loai: "mkn-bo-qua-1ngay", dong: "x" }])).toHaveLength(2);
+    expect(JSON.parse(thanMkn(1000, "1")).data.inOutShore).toBe("1");
+    expect(JSON.parse(thanMkn(1000)).data.inOutShore).toBe("2");
   });
 });

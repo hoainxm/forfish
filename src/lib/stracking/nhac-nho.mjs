@@ -13,8 +13,20 @@
 import { homNayVn, trangThaiHan } from "./dong-bo.mjs";
 import { laMayDaBo } from "./may-da-bo.mjs";
 
-export const MKN_SAP_GIO = 4;
+/**
+ * MẤT KẾT NỐI — BÁO TRƯỚC NHIỀU NẤC (anh Long 06/11: "phải báo trước khi tới ngưỡng bị phạt nhé, logic phải thông minh"):
+ *   · NGOÀI KHƠI mốc phạt 6 giờ ⇒ báo khi CÒN 3 giờ và CÒN 1 giờ; tới mốc ⇒ "quá 6 giờ", nhắc lại mỗi 6 giờ trong đợt.
+ *   · NẰM BỜ mốc 1 ngày (anh Long 06/11: "cái ở bờ tắt máy cũng bị phạt nếu 1 ngày ko báo cáo 1 vị trí đấy") ⇒ báo khi CÒN
+ *     8 giờ và CÒN 3 giờ; tới mốc ⇒ "quá 1 ngày", nhắc lại mỗi 24 giờ. Máy đang TẠM NGƯNG (đã khai) ⇒ không nhắc.
+ * Câu nói GIỜ CHÓT cụ thể ("trước 19:40 hôm nay"). Mỗi nấc đúng 1 lần (khoá serial + đợt + nấc); lỡ nấc thì chỉ gửi nấc
+ * gần nhất, không dồn. Nấc rơi 22:00–05:00 ⇒ dời lên 21:00 tối trước (nếu vẫn sau lúc bắt đầu mất) — bà con ngủ, sáng ra
+ * là quá mốc. Trừ TRE_DO_MS cho chu kỳ lượt kiểm (15 phút) — báo sớm một chút còn hơn trễ.
+ */
 export const MKN_PHAT_GIO = 6;
+export const MKN_BO_PHAT_GIO = 24;
+export const NAC_KHOI_CON_GIO = [3, 1];
+export const NAC_BO_CON_GIO = [8, 3];
+export const TRE_DO_MS = 15 * 60_000;
 /** Mốc nhắc hạn cước: còn N ngày (0 = hết hôm nay). */
 export const MOC_CON_HAN = [15, 7, 3, 1, 0];
 /** Mốc nhắc khi ĐÃ quá hạn: quá N ngày. */
@@ -105,32 +117,45 @@ export function viecNhac({ thietBi, mkn = [], now = Date.now() }) {
     if (nguoi.length) out.push({ serial: t.serial, tau: t.tenTau ?? t.serial, nguoi, ...x });
   };
 
-  // 1) MẤT KẾT NỐI đang diễn ra NGOÀI KHƠI — mốc 6 giờ là mốc bị phạt.
+  // 1) MẤT KẾT NỐI đang diễn ra — báo trước nhiều nấc tới mốc phạt (ngoài khơi 6 giờ, nằm bờ 1 ngày), quá mốc nhắc lại.
   for (const m of mkn) {
-    if (!m?.dangMat || !m.ngoaiKhoi) continue;
+    if (!m?.dangMat) continue;
     const t = theoSerial.get(m.serial);
     if (!t) continue;
+    const bo = !m.ngoaiKhoi;
+    if (bo && dangTamNgung(t, homNay)) continue;
     const bd = Date.parse(m.batDau);
-    const gio = (now - bd) / GIO_MS;
-    if (!(gio >= MKN_SAP_GIO)) continue;
+    if (!Number.isFinite(bd)) continue;
+    const mocGio = bo ? MKN_BO_PHAT_GIO : MKN_PHAT_GIO;
+    const mocMs = bd + mocGio * GIO_MS;
     const tau = t.tenTau ?? m.tenTau ?? t.serial;
-    if (gio < MKN_PHAT_GIO) {
+    const tu = gioPhutVn(bd);
+    const daMat = Math.floor((now - bd) / GIO_MS);
+    const noiMat = bo ? " khi tàu nằm bờ" : "";
+    if (now + TRE_DO_MS < mocMs) {
+      const nac = nacBaoTruoc(bd, mocMs, bo ? NAC_BO_CON_GIO : NAC_KHOI_CON_GIO, now);
+      if (!nac) continue;
+      const han = hanChot(mocMs, now);
+      const conLai = conLaiChu(mocMs - now);
       them(t, {
-        khoa: `mkn|${t.serial}|${m.batDau}|sap`,
-        loai: "mkn-sap-6h",
+        khoa: `${bo ? "mkn-bo" : "mkn"}|${t.serial}|${m.batDau}|con${nac}`,
+        loai: bo ? "mkn-bo-sap-1ngay" : "mkn-sap-6h",
         day: true,
-        dong: `${tau}: máy giám sát hành trình mất tín hiệu ${Math.floor(gio)} giờ rồi (từ ${gioPhutVn(bd)}). Bà con xem giúp nguồn điện, ăng-ten của máy để có tín hiệu lại trước mốc 6 giờ, tránh bị phạt. Cần hỗ trợ cứ gọi SDVICO.`,
+        dong: bo
+          ? `${tau}: máy giám sát hành trình mất tín hiệu ${daMat} giờ${noiMat} (từ ${tu}). Còn ${conLai} — bà con bật máy để báo vị trí trước ${han}, tránh bị phạt. Cần hỗ trợ cứ gọi SDVICO.`
+          : `${tau}: máy giám sát hành trình mất tín hiệu ${daMat} giờ (từ ${tu}). Còn ${conLai} — trước ${han} máy cần có tín hiệu lại để không bị phạt. Bà con kiểm tra giúp nguồn điện, ăng-ten; cần hỗ trợ cứ gọi SDVICO.`,
       });
     } else {
-      // Nhắc lại mỗi 6 giờ trong cùng một đợt mất.
-      const dot = Math.floor(gio / MKN_PHAT_GIO);
-      const gioTron = Math.floor(gio);
-      const thoiGian = gioTron >= 48 ? `${Math.floor(gioTron / 24)} ngày` : `${gioTron} giờ`;
+      // Đã tới mốc phạt — nhắc lại mỗi chu kỳ mốc (6 giờ / 24 giờ) trong cùng đợt.
+      const dot = Math.floor((now - bd) / (mocGio * GIO_MS));
+      const thoiGian = daMat >= 48 ? `${Math.floor(daMat / 24)} ngày` : `${daMat} giờ`;
       them(t, {
-        khoa: `mkn|${t.serial}|${m.batDau}|${dot}`,
-        loai: "mkn-qua-6h",
+        khoa: `${bo ? "mkn-bo" : "mkn"}|${t.serial}|${m.batDau}|${dot}`,
+        loai: bo ? "mkn-bo-qua-1ngay" : "mkn-qua-6h",
         day: true,
-        dong: `${tau}: máy giám sát hành trình mất tín hiệu ${thoiGian} (từ ${gioPhutVn(bd)}). Để tránh bị phạt, bà con nhớ báo vị trí tàu cho cơ quan quản lý bằng liên lạc khác; SDVICO sẵn sàng kiểm tra máy giúp bà con.`,
+        dong: bo
+          ? `${tau}: máy giám sát hành trình mất tín hiệu ${thoiGian}${noiMat} (từ ${tu}). Để tránh bị phạt, bà con bật lại máy hoặc báo vị trí cho cơ quan quản lý mỗi ngày; SDVICO sẵn sàng kiểm tra máy giúp bà con.`
+          : `${tau}: máy giám sát hành trình mất tín hiệu ${thoiGian} (từ ${tu}). Để tránh bị phạt, bà con nhớ báo vị trí tàu cho cơ quan quản lý bằng liên lạc khác; SDVICO sẵn sàng kiểm tra máy giúp bà con.`,
       });
     }
   }
@@ -183,6 +208,56 @@ export function viecNhac({ thietBi, mkn = [], now = Date.now() }) {
     }
   }
   return out;
+}
+
+/**
+ * Nấc báo trước HIỆN HÀNH (số giờ còn lại tới mốc, vd 3 hoặc 1) — nấc gần mốc nhất đã tới giờ báo; chưa nấc nào tới ⇒ null.
+ * Giờ báo của nấc = mốc − N giờ; rơi 22:00–05:00 giờ VN ⇒ dời về 21:00 tối trước nếu vẫn sau lúc bắt đầu mất.
+ * `now` cộng TRE_DO_MS (lượt kiểm 15 phút/lần ⇒ báo sớm hơn chút, không trễ).
+ */
+export function nacBaoTruoc(batDauMs, mocMs, nacConGio, now) {
+  let chon = null;
+  for (const n of nacConGio) {
+    const luc = doiKhoiDem(mocMs - n * GIO_MS, batDauMs);
+    if (now + TRE_DO_MS >= luc && (chon == null || n < chon)) chon = n;
+  }
+  return chon;
+}
+
+/** Giờ báo rơi 22:00–05:00 (giờ VN) ⇒ 21:00 tối trước; không sớm hơn lúc bắt đầu mất. */
+export function doiKhoiDem(lucMs, batDauMs) {
+  const vn = new Date(lucMs + 7 * GIO_MS);
+  const h = vn.getUTCHours();
+  if (h >= 5 && h < 22) return lucMs;
+  const ngay = new Date(Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate()));
+  if (h < 5) ngay.setUTCDate(ngay.getUTCDate() - 1);
+  const muoiMot = ngay.getTime() + 21 * GIO_MS - 7 * GIO_MS; // 21:00 VN của ngày đó, đổi về UTC
+  return muoiMot > batDauMs ? muoiMot : lucMs;
+}
+
+/** "19:40 hôm nay" / "07:10 sáng mai" / "13:40 ngày 08/11" (giờ VN). */
+function hanChot(mocMs, now) {
+  const d = new Date(mocMs + 7 * GIO_MS);
+  const p = (n) => String(n).padStart(2, "0");
+  const gio = `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+  const ngayMoc = homNayVn(mocMs);
+  const homNay = homNayVn(now);
+  const mai = homNayVn(now + 24 * GIO_MS);
+  if (ngayMoc === homNay) return `${gio} hôm nay`;
+  if (ngayMoc === mai) return `${gio} ${d.getUTCHours() < 12 ? "sáng mai" : "ngày mai"}`;
+  return `${gio} ngày ${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}`;
+}
+
+/** Thời gian còn lại nói cho dễ hiểu: "khoảng 3 giờ" / "chưa tới 1 giờ". */
+function conLaiChu(ms) {
+  const gio = ms / GIO_MS;
+  if (gio < 1) return "chưa tới 1 giờ";
+  return `khoảng ${Math.round(gio)} giờ`;
+}
+
+/** Máy đang tạm ngưng dịch vụ (đã khai trên S-Tracking) vào ngày `homNay`. */
+function dangTamNgung(t, homNay) {
+  return typeof t.tamNgungTu === "string" && t.tamNgungTu <= homNay && (!t.tamNgungDen || t.tamNgungDen >= homNay);
 }
 
 /** ISO (UTC) ⇒ ngày lịch VN "yyyy-mm-dd". */

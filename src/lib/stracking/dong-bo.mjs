@@ -91,9 +91,11 @@ export function thanCanhBao(trang, co = 1000) {
  * Trang ĐẦU phải đủ tham số con trỏ như trang tự gửi (page "1", pageSkip "0", direction "0", isFirstPage "true",
  * isLastPage "false"); để trống ⇒ máy chủ trả HTTP 500 (đo thật 05/11).
  */
-export function thanMkn(co = 1000) {
+export function thanMkn(co = 1000, viTri = "2") {
+  // viTri: "2" ngoài khơi (1 trang ≈ 22 ngày) · "1" trong bờ (1 trang ≈ 9 ngày — đo 06/11; đợt mất lâu hơn rơi khỏi trang
+  // đầu ⇒ thôi nhắc lại. nợ: chỉ đọc trang đầu, nâng khi cần nhắc máy nằm bờ mất tín hiệu >9 ngày).
   return JSON.stringify({
-    data: { imei: "", serial: "", deviceName: "", fromdate: "", todate: "", fromtime: "", totime: "", inOutShore: "2", iridiumStatus: "", isExpired: "" },
+    data: { imei: "", serial: "", deviceName: "", fromdate: "", todate: "", fromtime: "", totime: "", inOutShore: viTri, iridiumStatus: "", isExpired: "" },
     page: "1", pageSkip: "0", pageSize: String(co), pagingStartDate: "", pagingEndDate: "", direction: "0", isFirstPage: "true", isLastPage: "false",
   });
 }
@@ -502,7 +504,7 @@ export function kiemCanhBao(r) {
 }
 
 // ── NHẮC NHỞ (lib/stracking/nhac-nho) — kiểm ở đây để kiemGoiNhap dùng, tránh import vòng ──
-const LOAI_NHAC = new Set(["mkn-sap-6h", "mkn-qua-6h", "tcts-that-bai", "han-sap-het", "han-qua-han", "nd41-nang-cap"]);
+const LOAI_NHAC = new Set(["mkn-sap-6h", "mkn-qua-6h", "mkn-bo-sap-1ngay", "mkn-bo-qua-1ngay", "tcts-that-bai", "han-sap-het", "han-qua-han", "nd41-nang-cap"]);
 const TRAN_NHAC = 20_000;
 
 /** Máy chủ kiểm lại `nhac[]` do máy GPU tính (lib/stracking/nhac-nho viecNhac → nhacTheoNguoi). Hàng sai bị bỏ. Vắng ⇒ []. */

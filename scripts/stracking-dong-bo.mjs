@@ -386,15 +386,20 @@ async function layMkn(page) {
     await page.goto(`${GOC_STRACKING}/reportDisconnect`, { waitUntil: "domcontentloaded", timeout: 60_000 });
     if (await canDangNhap(page)) throw new HetPhien("phiên hết khi mở báo cáo mất kết nối");
   }
-  const text = await goi(page, "/getListDeviceDisconnect", thanMkn(1000), "json");
-  let j;
-  try {
-    j = JSON.parse(text);
-  } catch {
-    throw new HetPhien("báo cáo mất kết nối không trả JSON (phiên hết?)");
+  // Ngoài khơi (mốc 6 giờ) + TRONG BỜ (mốc 1 ngày — anh Long 06/11: "ở bờ tắt máy cũng bị phạt nếu 1 ngày ko báo cáo").
+  const out = [];
+  for (const viTri of ["2", "1"]) {
+    const text = await goi(page, "/getListDeviceDisconnect", thanMkn(1000, viTri), "json");
+    let j;
+    try {
+      j = JSON.parse(text);
+    } catch {
+      throw new HetPhien("báo cáo mất kết nối không trả JSON (phiên hết?)");
+    }
+    if (!j?.success || !Array.isArray(j?.content?.data)) throw new Error(`báo cáo mất kết nối trả lỗi: ${String(j?.errorString ?? "").slice(0, 120)}`);
+    out.push(...j.content.data.map(docMkn).filter(Boolean));
   }
-  if (!j?.success || !Array.isArray(j?.content?.data)) throw new Error(`báo cáo mất kết nối trả lỗi: ${String(j?.errorString ?? "").slice(0, 120)}`);
-  return j.content.data.map(docMkn).filter(Boolean);
+  return out;
 }
 
 /**
@@ -572,7 +577,7 @@ async function main() {
       const nhac = tinhNhac(db, mkn, true);
       log(
         `lượt nhanh — cảnh báo ${cb.ds.length}/${cb.tong ?? "?"} (${cbMoi} mới, ${cbChuaGui.length} chưa gửi) · ` +
-          `mất kết nối ngoài khơi: ${mkn.filter((m) => m.dangMat).length} · nhắc mới: ${nhac.length}`,
+          `đang mất kết nối: ngoài khơi ${mkn.filter((m) => m.dangMat && m.ngoaiKhoi).length}, trong bờ ${mkn.filter((m) => m.dangMat && !m.ngoaiKhoi).length} · nhắc mới: ${nhac.length}`,
       );
       if (THU) {
         for (const n of nhac.slice(0, 5)) log(`  [thử] ${n.sdt.slice(0, 4)}… ${n.dong}`);
