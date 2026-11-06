@@ -1027,6 +1027,7 @@ Nhánh ĐẦU của `sen-bien-toan-app onHeard` (trước `hieuLenhCho`, trướ
 - **Không cướp ý cũ**: cần dấu hiệu Kairos rõ ("Kairos"/"kai rốt", "bài", "đọc báo"); "tin…" yếu chỉ nhận khi có chủ đề/nơi; "thông tin", "tin nhắn", "thông báo", "hộp thư" bỏ qua. **"Có tin bão gì không" trần ⇒ KHÔNG vào đây** — tin bão chính thức (`answer.ts` + đài duyên hải) trả lời như trước (14 A86). Test chặn: thời tiết, giá dầu, giá mực, "câu mực ở đâu", dẫn đường, hộp thư.
 - **Offline — 4 câu**: (a) không request mới — chỉ đọc localStorage; (b) không đụng `sw.js`/SHELL/khoá mới; (c) không ghi gì (chỉ đọc bản lưu); (d) nhánh DUY NHẤT là bản lưu — mất sóng chạy y hệt, trang bài mở ra đọc bản lưu (post-detail).
 
+
 **Last updated**: 2026-10-24 — §27 Sen Biển tìm tin Kairos (bản lưu, không mạng). Trước đó: 2026-10-19 — §26 kho hỏi–đáp trong máy: v4 hiểu lệnh + v5b đầu kho + lọc + Gemma chọn câu (CHỈ BẢN TEST, kho chưa duyệt). Trước đó: 2026-10-18 — gộp main: tên bão đọc phiên âm Việt + bỏ tên Latin khỏi câu nói khu bảo tồn (§21n); gộp main: trả nợ §22b (64 mp3 Mỹ Duyên theo luật mp3 gọn; phần n-gram v3 học lệnh ngắn được v4 thay — v4 đã gồm 1.184 câu đó). Trước đó: 2026-10-18 — n-gram v4 thêm 13 ý sàn, cổng phụ hỏi lại khi luật hụt (§25). Trước đó: 2026-10-18 — Sen Biển làm mọi thao tác sàn (§25). Trước đó: 2026-10-18 — Sen Biển trợ lý giọng nói cho toàn app (§24). Trước đó: 2026-10-18 — gộp `feat/sen-bien-ranh-tay` vào `main` (§22b) + Sen Biển học thêm từ câu nói thật: ghi mẫu trong máy, có sóng gửi về (§23). Trước đó: 2026-10-18 — sửa lỗi chạy thử: mất giọng sau một lúc + "mất định vị" giả khi đứng yên (§22). Trước đó: 2026-10-17 — giọng Mỹ Duyên cho MỌI câu bằng ghép mảnh (§21). Trước đó: 2026-10-17 — Sen Biển Gemma trên Android, gói Play on-demand (§20). Trước đó: 2026-10-17 — Sen Biển thao tác bản đồ bằng giọng (§19), n-gram v3 52 ý. Trước đó: 2026-10-16 — n-gram v2 có 13 ý hỏi bản đồ, luật làm lưới (§18b); Gemma 270M chờ duyệt (ADR 0012). Trước đó: Sen Biển nghe trong máy + hỏi đáp bản đồ (§18). Trước đó: rảnh tay + giọng nữ (§17).
 
 ## 28. RÀ "TRẢ LỜI SAI NHIỀU, CHẬM, CHỒNG CHÉO" — SỬA GỐC (2026-10-24, anh Long: "sửa và hoàn thiện hết đi")
@@ -1252,3 +1253,34 @@ Anh Long: *"rà soát toàn bộ câu hỏi, các câu đã dùng, các cảnh b
 - **Màn bản đồ đọc Mỹ Duyên máy nhà** cho câu kho hỏi–đáp (có sóng + đăng nhập, `docKhoBangMayNha`) và câu trả lời máy nhà: `use-nav-voice` `SayOpts.mayNha` ⇒ `ttsSpeakMp3(doanXinMp3(chiaCau(câu)))` — vẫn ĐÚNG hàng đọc dẫn đường, cảnh báo đỏ chen trước như cũ; lỗi mạng ⇒ giọng máy câu đó. Test `nav-voice-hook` "câu đáp mayNha".
 - Cổng "trợ lý toàn app" thêm nhánh CÓ DỮ LIỆU (thời tiết theo ngày, bão có tên, con nước, giấy tờ, bạn thuyền, tàu, giá cá/mực, giá dầu, gọi SDVICO) — xanh.
 - **Trần còn lại (không sửa được bằng thu sẵn):** câu mang chữ bà con TỰ ĐẶT (tên việc bảo dưỡng, tên món trong giỏ, tên shop, tên tàu bằng chữ) đọc giọng máy cả câu; câu kho khi mất sóng vẫn giọng máy (trần git). Mảnh chữ cái + "tôm sú" (bộ nhận giọng nghe "tôm xú") cần nghe bằng tai.
+
+## 37. SEN BIỂN GEMMA TRÊN iOS + BUILD ANDROID Ở MÁY GPU (2026-11-03, ADR 0012 — anh Long: "chạy trên gpu đi, mac này build ios native")
+
+Khôi phục bản dở iOS 18/10 (tag `luu-tru/ios-gemma-wip-2026-10-18`) lên nền hiện tại — nền `ios/` không đổi từ đó nên lắp nguyên. Mô hình đổi sang **CÙNG bản đang phát cho Android**: release `sen-bien-gemma-v2` (g270v5r đa nhiệm, 64.693.664 byte, SHA-256 = `android/sen-bien-gemma/gemma.sha256`).
+
+- **Plugin Swift cục bộ** `ios/App/App/SenBienGemmaPlugin.swift`, CÙNG giao diện bản Kotlin §20: `trangThai` · `taiVe` (iOS: chỉ báo trạng thái) · `nap` · `hoi({he, nguoi}) → {txt, ms}` · `dong`, cùng mã lỗi `chua_co`/`nap`/`chay`/`tham_so`. Đăng ký ở `SDFishViewController.capacitorDidLoad`; `SceneDelegate` + `Main.storyboard` dùng lớp vỏ này.
+- **Runtime** LiteRT-LM **v0.18.0** (CÙNG bản `litertlm-android`), gói SPM cục bộ `ios/App/LiteRTLM-SPM` (lớp Swift Apache-2.0 + `CLiteRTLM.xcframework` theo URL có checksum — không trỏ repo Google vì cần Git LFS, ~190 MB). **CPU** (GPU Metal ra `<pad>`).
+- **Mô hình trong bản cài** (iOS không có tương đương Play on-demand chạy được từ iOS 15): Run Script "Sen Biển Gemma" chép `ios/App/sen-bien-gemma/gemma.litertlm` (gitignore) + `NOTICE.txt` vào `App.app/sen-bien/`, sai SHA-256 ⇒ build đỏ, thiếu file ⇒ cảnh báo, app chạy n-gram + luật. Bản cài tăng ~54 MB mô hình + ~18 MB nén lõi LiteRT. Phương án phân phối này chưa được chủ dự án duyệt chính thức; xét lại Background Assets khi đa số máy lên iOS 26.
+- **Vá kèm**: `npx cap sync ios` thêm `@capacitor-community/text-to-speech` vào `ios/App/CapApp-SPM/Package.swift` — bản iOS trước đó THIẾU plugin đọc giọng (ops/native-deploy §3b chỉ mới `cap update android`).
+- **Web**: `coGemma()` nhận `ios` lẫn `android` khi plugin có mặt — chỉ tới máy bà con khi web công ty (sdfish.sdvico.vn, app tải theo `server.url`) deploy bản này.
+
+**Đo 2026-11-03** (8 câu mẫu, cùng prompt `SYSTEM` + `userMsg`):
+
+| Máy | Nạp | Mỗi câu | Ghi chú |
+|---|---|---|---|
+| Simulator iPhone 18 Pro iOS 27.0 (CPU Mac) | 0,32 s | 0,14–0,26 s | lần đầu sau cài; RSS app ~380 MB (gồm WebView) |
+| Emulator Android 15 x86_64 trên gpu-desktop (AAB debug, gói on-demand qua `bundletool --local-testing`) | 0,75 s | 1,1–2,6 s | `taiVe` ⇒ `co` sau ~20 s; máy GPU đang chạy việc khác nên chậm hơn đo 17/10 (0,43–0,6 s) |
+
+Hai nền ra **cùng JSON** cho cùng câu (vd "XEM BẢN ĐỒ SÓNG CHIỀU MAI" → `mo_lop` sóng ngày 1; "tui đang ở mô rứa" → `hoi_o_dau`). "DẪN VỀ CẢNG XA HUYỀN" ra `cang nha` — đúng hành vi đã biết: tên lệch giọng chỉ đi khi khớp đúng MỘT chỗ (§20), không thì luật.
+
+**Chưa kiểm — chặn phát hành**: iPhone thật và điện thoại Android thật (ngưỡng ≤ ~1,5 s/câu khi máy ấm); g270v5r train theo bộ ý v4 — 11 ý v7/v8 chưa có Gemma tách tham số (đi luật); ứng viên Gemma vòng đêm 2026-10-29 (`gemma-uv`, qua cổng +34,3 điểm) đang CHỜ anh duyệt, chưa gói.
+
+| Trạng thái (bổ sung bảng §20) | Hành vi |
+|---|---|
+| Bản iOS build thiếu file mô hình | `trangThai` "chua_co", `taiVe` không tải ⇒ như web |
+| Lần đầu sau cài, câu chậm hơn 2,5 s | luật trả lời; Gemma xếp hàng, câu sau vẫn trần 2,5 s |
+| Rời bản đồ | `dong` nhả engine |
+
+**Offline — 4 câu**: (a) iOS không thêm request mạng (mô hình theo bản cài); Android giữ như §20; (b) không đụng `sw.js`/khoá `forfish.*`; (c) không đè dữ liệu bà con, engine chỉ ghi cache vào thư mục Caches; (d) chạy hoàn toàn trong máy.
+
+**Assumptions**: phân phối iOS theo cách "nhét trong bản cài" (an toàn nhất cho ngoài biển) tới khi chủ dự án chốt khác; bản build thiếu file vẫn chạy được.

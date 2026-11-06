@@ -1,12 +1,13 @@
-// SEN BIỂN — Gemma 3 270M TRONG MÁY, chỉ bản Android (ADR 0012, doc 15 §20).
+// SEN BIỂN — Gemma 3 270M TRONG MÁY, app Android + iOS (ADR 0012, doc 15 §20, §25).
 //
 // Vai: TÁCH THAM SỐ. Bộ n-gram + luật (hieu-y.ts) vẫn chọn việc và trả lời ngay;
 // có Gemma thì hỏi thêm Gemma, và CHỈ khi Gemma đoán CÙNG việc mới lấy tham số của
 // nó (hướng, loài, đi luôn, lớp, ngày giờ, tầng, tên chỗ lệch giọng). Gemma lỗi /
 // chưa tải / quá giờ ⇒ giữ nguyên câu trả lời của luật. Web không có Gemma.
 //
-// Mô hình 62 MB nằm trong gói Play Asset Delivery on-demand (plugin Kotlin
-// SenBienGemmaPlugin.kt). Prompt dưới đây phải KHỚP TỪNG CHỮ với lúc train (repo AI
+// Mô hình 62 MB: Android nằm trong gói Play Asset Delivery on-demand (plugin Kotlin
+// SenBienGemmaPlugin.kt); iOS nằm sẵn trong bản cài (plugin Swift SenBienGemmaPlugin.swift,
+// taiVe chỉ báo trạng thái). Hai plugin CÙNG giao diện. Prompt dưới đây phải KHỚP TỪNG CHỮ với lúc train (repo AI
 // Assistant train/tro-ly/chung.mjs SYSTEM + userMsg, du-doan-hf.py hạ chữ thường).
 
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
@@ -35,9 +36,10 @@ interface SenBienGemmaPlugin {
 
 const Plugin = registerPlugin<SenBienGemmaPlugin>("SenBienGemma");
 
-/** Có Gemma trong bản này không (chỉ app Android có plugin). */
+/** Có Gemma trong bản này không (chỉ app native có plugin; web không). */
 export function coGemma(): boolean {
-  return Capacitor.getPlatform() === "android" && Capacitor.isPluginAvailable("SenBienGemma");
+  const p = Capacitor.getPlatform();
+  return (p === "android" || p === "ios") && Capacitor.isPluginAvailable("SenBienGemma");
 }
 
 export const SYSTEM =

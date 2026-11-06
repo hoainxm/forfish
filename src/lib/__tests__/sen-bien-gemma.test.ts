@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { Capacitor } from "@capacitor/core";
+import { describe, expect, it, vi } from "vitest";
 
 import { SPECIES_META } from "@/lib/fish-predict";
 import { apDungGemma, canGemma, coGemma, docDap, hoiGemma, SYSTEM, userMsg } from "@/lib/sen-bien/gemma";
@@ -61,5 +62,24 @@ describe("web không có Gemma", () => {
   it("coGemma false, hoiGemma null không ném", async () => {
     expect(coGemma()).toBe(false);
     await expect(hoiGemma("xem sóng", {})).resolves.toBeNull();
+  });
+
+  it("app Android và iOS có plugin ⇒ có Gemma; thiếu plugin ⇒ không (§25)", () => {
+    const nen = vi.spyOn(Capacitor, "getPlatform");
+    const co = vi.spyOn(Capacitor, "isPluginAvailable").mockReturnValue(true);
+    try {
+      for (const p of ["android", "ios"]) {
+        nen.mockReturnValue(p);
+        expect(coGemma()).toBe(true);
+      }
+      nen.mockReturnValue("web");
+      expect(coGemma()).toBe(false);
+      nen.mockReturnValue("ios");
+      co.mockReturnValue(false);
+      expect(coGemma()).toBe(false);
+    } finally {
+      nen.mockRestore();
+      co.mockRestore();
+    }
   });
 });
