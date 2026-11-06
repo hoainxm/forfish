@@ -680,7 +680,7 @@ describe("hoursAt — giờ cộng dồn tới từng waypoint", () => {
 describe("Rạch Giá → nam Côn Đảo trên lưới THẬT (briefing-03, cổng đo §4)", () => {
   /*  Trước Đợt 0: null trong 2 ms ở cả hai vòng khung — "đất ngoài khơi" km
       8–12 + "rất cạn <4 m" km 14–24 chặn mọi lối. Nay: khai mớn 1,2 m thì có
-      tuyến; chưa khai thì (từ 2026-11-06) đi qua đoạn ra cửa có cờ — xem dưới. */
+      tuyến; chưa khai thì vẫn null (dải 2–4 m không mở cho tàu chưa biết mớn). */
   const VN: BBox = { latMin: 4, latMax: 24.5, lonMin: 99, lonMax: 119 };
   const clamp = (b: BBox): BBox => ({
     latMin: Math.max(VN.latMin, b.latMin), latMax: Math.min(VN.latMax, b.latMax),
@@ -718,17 +718,8 @@ describe("Rạch Giá → nam Côn Đảo trên lưới THẬT (briefing-03, c�
     expect(p!.hoursAt.length).toBe(p!.waypoints.length);
   });
 
-  /*  ĐỔI 2026-11-06 (chủ dự án: "nó phải luôn tìm được đường chứ?"): trước
-      đây null. Nay tách qua cửa biển — bãi bồi trước Rạch Giá thành ĐOẠN RA
-      CỬA (nới như sát bến, cắm cờ, thẻ vàng "Đoạn đầu/cuối tuyến sát bờ, cạn").
-      Luật mớn vẫn giữ ở GIỮA đường: không mở dải 2–4 m nhờ đoán mớn. */
-  it("chưa khai mớn → có tuyến, chỗ cạn chỉ ở đoạn ra cửa, không đoán mớn giữa đường", () => {
-    const p = tryPlan(null);
-    expect(p).not.toBeNull();
-    expect(p!.hasVeryShallowLeg).toBe(true);
-    expect(p!.nearPortOnly).toBe(true);
-    expect(p!.hasDraftShallowLeg).toBe(false);
-    expect(p!.hoursAt.length).toBe(p!.waypoints.length);
+  it("chưa khai mớn → vẫn null (đúng luật: không đoán mớn để vẽ qua bãi)", () => {
+    expect(tryPlan(null)).toBeNull();
   });
 });
 

@@ -91,7 +91,7 @@ Thanh dưới (dock) **chỉ có biểu tượng**; tên mục nằm ở `aria-l
 
 ## Video hướng dẫn
 
-Tám video, mỗi video 1–2 phút:
+Chín video, mỗi video 1–2,5 phút:
 - Giọng đọc **Mỹ Duyên** (VieNeu chạy trên máy GPU), có phụ đề cứng và kèm file `.srt`.
 - Quay trên **màn hình và dữ liệu thật** của production, dùng các tài khoản test `0900000780`–`0900000784` (khai trong `scripts/test-accounts.json`).
 
@@ -103,8 +103,9 @@ Tám video, mỗi video 1–2 phút:
 | 4 | Thu mua — tìm cá, đăng giá mua | vai Thu mua |
 | 5 | Đại lý — mở gian hàng, bán vật tư | vai Đại lý |
 | 6 | Bản đồ có gói dự báo (nước nóng lạnh, vùng nhiều mồi, gió sóng, dự báo cá, dẫn đường, 16 ngày) | gói dự báo |
-| 7 | Cài SDFish về điện thoại (Android + iPhone, PWA lưu dữ liệu thế nào, địa chỉ `sdfish.sdvico.vn`) | thường — màn trình duyệt là **minh hoạ** |
+| 7 | Cài SDFish về điện thoại: **Android** (Chrome thật, giả lập Android 15) + **iPhone** (Safari thật, iOS Simulator 27, giao diện tiếng Việt), PWA lưu dữ liệu thế nào | khách |
 | 8 | Tàu quanh đây (AIS): giữ tay ~3 giây trên bản đồ ⇒ tàu trong 6 hải lý, 6 giờ qua, lọc + chi tiết từng tàu | gói dự báo |
+| 9 | Kairos: dòng tin, nghe Sen Biển đọc, tải bài mang ra biển, tab Chính sách (lọc tỉnh, loại tin), bài luật kèm hạn giấy | thường |
 
 Nhạc nền **tự tổng hợp** (`scripts/video-hdsd/nhac.mjs`: pad + arpeggio + tiếng sóng, không dùng bài có bản quyền), tự hạ khi có lời. Mỗi video có thêm bản `-khong-nhac.mp4` (chỉ giọng đọc): muốn nhạc thịnh hành thì chọn "âm thanh" ngay trong TikTok lúc đăng — bản quyền nhạc TikTok chỉ áp trong TikTok. Công cụ quay: [`scripts/video-hdsd/`](scripts/video-hdsd/README.md).
 
