@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiUrl } from "@/lib/api-base";
 import { PLATFORM_LABEL, USAGE_STAGE_LABEL, persistNote, readinessChip, type DevicePlatform, type ReadinessReason, type ReadinessTone, type UsageStage, usageStage } from "@/lib/app-usage";
 import { tokenHeader } from "@/lib/device-token-store";
+import { NHAN } from "@/lib/labels";
 import { canResetPassword } from "@/lib/staff-permissions";
 import { DEFAULT_CUSTOMER_PASSWORD } from "@/lib/temp-password";
 import { PREMIUM_TERM_MAX_MONTHS, PREMIUM_TERM_MIN_MONTHS, PREMIUM_TERM_MONTHS, PREMIUM_TERM_PRESETS, clampTermMonths, nextPremiumUntil, premiumTermLabel, resolveTier } from "@/lib/tier";
@@ -92,6 +93,8 @@ export const fmtNgay = (d: string | null | undefined): string => {
 
 export type TierFilter = "all" | "premium" | "basic";
 
+const RENDER_STEP = 100;
+
 export function AccountsTab({ me }: { me: Me }) {
   const isAdmin = me.role === "admin";
   // Quyền trên tab Tài khoản: create=tạo khách · edit=cấp/gia hạn premium ·
@@ -101,6 +104,8 @@ export function AccountsTab({ me }: { me: Me }) {
   const perms = permsFor(me, "tai-khoan");
   const canReset = canResetPassword(me.role, me.permissions);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
+  /** server chạm trần đọc ⇒ nói thật là số/danh sách chưa đủ */
+  const [truncated, setTruncated] = useState(false);
   const [grantStats, setGrantStats] = useState<GrantStat[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyPhone, setBusyPhone] = useState<string | null>(null);
@@ -144,9 +149,11 @@ export function AccountsTab({ me }: { me: Me }) {
           code?: string;
           accounts?: Account[];
           grantStats?: GrantStat[];
+          truncated?: boolean;
         };
         if (!j.ok) throw new Error(j.code ?? "load");
         setAccounts(j.accounts ?? []);
+        setTruncated(Boolean(j.truncated));
         setGrantStats(j.grantStats ?? []);
       })
       // thiếu service-role thì nói THẲNG thiếu gì — "thử lại" vô ích
@@ -220,6 +227,13 @@ export function AccountsTab({ me }: { me: Me }) {
       manual: visible.filter((a) => !a.fromSdwork).length,
     };
   }, [visible, effTier]);
+
+  /*  TRẦN VẼ — bảng đã 11 000+ khách (2026-11-06). Số ở trên đếm ĐỦ, nhưng chỉ vẽ
+      từng đợt: mỗi dòng có ô Xác minh thu mua tự gọi mạng, vẽ hết là hàng nghìn
+      request + đứng trình duyệt. Đổi bộ lọc ⇒ về đợt đầu. */
+  const filterKey = `${query}|${tierFilter}|${vaiFilter}|${roleFilter}`;
+  const [renderCap, setRenderCap] = useState({ key: filterKey, n: RENDER_STEP });
+  const cap = renderCap.key === filterKey ? renderCap.n : RENDER_STEP;
 
   /** đang xem Khách mà tìm trúng nhân sự → mách một câu, đừng để tưởng mất */
   const hiddenStaff = useMemo(
@@ -501,6 +515,11 @@ export function AccountsTab({ me }: { me: Me }) {
   return (
     <div className="mt-4 space-y-4">
       {/* dải THỐNG KÊ — nhìn một phát biết sức khoẻ tệp khách */}
+      {truncated && (
+        <p className="surface px-4 py-2 text-[0.875rem] font-semibold text-warn">
+          Danh sách quá lớn, máy chủ mới đọc được một phần — số dưới đây CHƯA ĐỦ.
+        </p>
+      )}
       {stats && (
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           {(
@@ -700,7 +719,7 @@ export function AccountsTab({ me }: { me: Me }) {
             </p>
           ) : (
             <ul className="surface overflow-hidden">
-              {visible.map((a) => (
+              {visible.slice(0, cap).map((a) => (
                 <li
                   key={a.phone}
                   className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-line px-4 py-3 last:border-b-0"
@@ -955,6 +974,20 @@ export function AccountsTab({ me }: { me: Me }) {
                 </li>
               ))}
             </ul>
+          )}
+          {visible.length > cap && (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+              <p className="text-[0.8125rem] text-muted">
+                Đang hiện {cap} / {visible.length} — gõ tìm SĐT hoặc tên cho nhanh.
+              </p>
+              <button
+                type="button"
+                onClick={() => setRenderCap({ key: filterKey, n: cap + RENDER_STEP })}
+                className="min-h-[2.75rem] rounded-xl bg-navy px-5 text-[0.9375rem] font-bold text-white"
+              >
+                {NHAN.xemThem}
+              </button>
+            </div>
           )}
         </>
       )}

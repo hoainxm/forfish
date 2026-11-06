@@ -43,6 +43,7 @@ import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import { isVai, type Vai } from "@/lib/vai";
 import { normalizePlatform } from "@/lib/app-usage";
 import { canResetPassword, isMissingColumnError } from "@/lib/staff-permissions";
+import { eachAuthUser, readAll } from "@/lib/supabase/read-all";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -51,17 +52,17 @@ const err = (status: number, code: string) =>
 
 /** auth user theo email ảo — supabase-js chưa có getUserByEmail nên phân trang */
 async function findAuthUser(admin: Admin, email: string) {
-  for (let page = 1; page <= 20; page++) {
-    const { data, error } = await admin.auth.admin.listUsers({
-      page,
-      perPage: 200,
-    });
-    if (error) throw error;
-    const hit = data.users.find((u) => u.email === email);
-    if (hit) return hit;
-    if (data.users.length < 200) return null;
-  }
-  return null;
+  // trần cũ 20 × 200 = 4 000 user — prod 13 392 (2026-11-06) ⇒ khách mới không tìm thấy
+  type U = Awaited<ReturnType<typeof admin.auth.admin.listUsers>>["data"]["users"][number];
+  let hit: U | null = null;
+  await eachAuthUser(
+    (p) => admin.auth.admin.listUsers(p),
+    (u) => {
+      if (u.email === email) hit = u as U;
+      return hit != null;
+    },
+  );
+  return hit as U | null;
 }
 
 /** Ghi log cấp/hạ premium — log hỏng KHÔNG chặn thao tác chính, nhưng trả cờ
@@ -147,15 +148,23 @@ export async function GET() {
   // `.select()` với chuỗi cột ĐỘNG thì Supabase không suy được kiểu hàng nữa
   // (trả union kèm GenericStringError) — ép về bản ghi thô, phía dưới vẫn bóc
   // từng cột bằng `as` y như trước.
+  // ĐỌC HẾT THEO TRANG — select trần bị PostgREST cắt ở 1000 dòng mà không báo
+  // (2026-11-06: bảng 11 046 khách, màn hiện "1000 Đang xem · 2 Premium" thay vì 181).
+  // Thứ tự phụ `phone` cho trang ổn định khi nhiều dòng cùng updated_at.
+  let truncated = false;
   const read = async (cols: string) => {
-    const r = await admin
-      .from("customers")
-      .select(cols)
-      .order("updated_at", { ascending: false });
-    return {
-      data: r.data as unknown as Record<string, unknown>[] | null,
-      error: r.error,
-    };
+    const r = await readAll<Record<string, unknown>>(
+      (a, b) =>
+        admin
+          .from("customers")
+          .select(cols)
+          .order("updated_at", { ascending: false })
+          .order("phone")
+          .range(a, b),
+      50, // nợ: gộp trong bộ nhớ, trần 50 000 khách — vượt thì UI báo "chưa đủ", lúc đó chuyển sang phân trang ở server
+    );
+    if (r?.truncated) truncated = true;
+    return { data: r ? r.rows : null, error: r ? null : "read_failed" };
   };
 
   // Rộng → hẹp: bỏ dần nhóm dễ-thiếu-nhất (cột base chưa apply) trước, rồi
@@ -184,17 +193,13 @@ export async function GET() {
   // đối chiếu auth: SĐT nào đăng nhập được (đã provision)
   const provisioned = new Set<string>();
   try {
-    for (let page = 1; page <= 20; page++) {
-      const { data, error: e } = await admin.auth.admin.listUsers({
-        page,
-        perPage: 200,
-      });
-      if (e) throw e;
-      for (const u of data.users) {
+    const r = await eachAuthUser(
+      (p) => admin.auth.admin.listUsers(p),
+      (u) => {
         if (u.email) provisioned.add(u.email.split("@")[0]);
-      }
-      if (data.users.length < 200) break;
-    }
+      },
+    );
+    if (r.truncated) truncated = true;
   } catch {
     // đối chiếu hỏng thì vẫn trả danh sách — cột "đăng nhập được" để trống
   }
@@ -206,11 +211,15 @@ export async function GET() {
     { code: string; reconciledStatus: string }
   >();
   try {
-    const { data: pays } = await admin
-      .from("payments")
-      .select("customer_phone, code, reconciled_status, created_at")
-      .order("created_at", { ascending: false });
-    for (const p of (pays ?? []) as Record<string, unknown>[]) {
+    const pays = await readAll<Record<string, unknown>>((a, b) =>
+      admin
+        .from("payments")
+        .select("customer_phone, code, reconciled_status, created_at")
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(a, b),
+    );
+    for (const p of pays?.rows ?? []) {
       const ph = p.customer_phone as string;
       if (!latestPay.has(ph))
         latestPay.set(ph, {
@@ -235,17 +244,23 @@ export async function GET() {
   // LOẠI tài khoản (0056 account_kind) — đọc riêng, cột chưa có = mọi người "real"
   const kindOf = new Map<string, AccountKind>();
   {
-    const k = await admin.from("customers").select("phone, account_kind");
-    if (!k.error)
-      for (const x of (k.data ?? []) as { phone: string; account_kind: unknown }[])
+    const k = await readAll<{ phone: string; account_kind: unknown }>(
+      (a, b) => admin.from("customers").select("phone, account_kind").order("phone").range(a, b),
+      50,
+    );
+    if (k)
+      for (const x of k.rows)
         kindOf.set(x.phone, normalizeAccountKind(x.account_kind));
   }
   // VAI (0079, spec 17 §8) — đọc riêng như account_kind: cột chưa có (migration chưa áp) ⇒ mọi người "chưa chọn"
   const vaiOf = new Map<string, Vai>();
   {
-    const v = await admin.from("customers").select("phone, vai");
-    if (!v.error)
-      for (const x of (v.data ?? []) as { phone: string; vai: unknown }[]) if (isVai(x.vai)) vaiOf.set(x.phone, x.vai);
+    const v = await readAll<{ phone: string; vai: unknown }>(
+      (a, b) => admin.from("customers").select("phone, vai").order("phone").range(a, b),
+      50,
+    );
+    if (v)
+      for (const x of v.rows) if (isVai(x.vai)) vaiOf.set(x.phone, x.vai);
   }
   // SĐT PHỤ (0084) — đọc riêng, cột chưa có ⇒ không ai có SĐT phụ, danh sách vẫn về
   const sdtPhuOf = new Map<string, string>();
@@ -268,11 +283,15 @@ export async function GET() {
     { tag: string; platform: string | null; firstSeenAt: string | null; lastSeenAt: string | null }[]
   >();
   try {
-    const { data: devs } = await admin
-      .from("customer_devices")
-      .select("customer_phone, device_id, platform, first_seen_at, last_seen_at")
-      .order("last_seen_at", { ascending: false });
-    for (const d of (devs ?? []) as Record<string, unknown>[]) {
+    const devs = await readAll<Record<string, unknown>>((a, b) =>
+      admin
+        .from("customer_devices")
+        .select("customer_phone, device_id, platform, first_seen_at, last_seen_at")
+        .order("last_seen_at", { ascending: false })
+        .order("id")
+        .range(a, b),
+    );
+    for (const d of devs?.rows ?? []) {
       const key = d.customer_phone as string;
       const list = devicesByPhone.get(key) ?? [];
       list.push({
@@ -400,6 +419,8 @@ export async function GET() {
     me: { phone: who.phone, role: who.role, scope: who.scope },
     accounts: visible,
     grantStats,
+    /** chạm trần đọc ⇒ UI nói thật là danh sách/số chưa đủ */
+    truncated,
   });
 }
 

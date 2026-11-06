@@ -23,37 +23,18 @@ import {
   usageSnapshot,
 } from "@/lib/admin-reports";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { type ReadAll, readAll } from "@/lib/supabase/read-all";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
 
-const PAGE = 1000; // trần mỗi lượt select của PostgREST
 // nợ: gộp số liệu trong bộ nhớ, trần 20 trang × 1000 dòng mỗi bảng (~20k) — vượt
 // thì báo `truncated`; khi khách thật > ~10k thì chuyển sang RPC/view đếm trong DB.
 const MAX_PAGES = 20;
 
-type Read<T> = { rows: T[]; truncated: boolean } | null;
-
-/** Đọc hết bảng theo trang. Lỗi ⇒ null (caller ghi vào `failed`, không ném). */
-async function readAll<T>(
-  build: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>,
-): Promise<Read<T>> {
-  const rows: T[] = [];
-  try {
-    for (let p = 0; p < MAX_PAGES; p++) {
-      const { data, error } = await build(p * PAGE, p * PAGE + PAGE - 1);
-      if (error) return null;
-      const batch = (data ?? []) as T[];
-      rows.push(...batch);
-      if (batch.length < PAGE) return { rows, truncated: false };
-    }
-    return { rows, truncated: true };
-  } catch {
-    return null;
-  }
-}
+type Read<T> = ReadAll<T>;
 
 /** Tài khoản đăng nhập (auth.users): SĐT nằm ở phần trước @ của email ảo. */
 async function readSignups(admin: Admin): Promise<Read<{ phone: string; created_at: string }>> {
