@@ -13,6 +13,9 @@ import { CAU_GIO, CAU_LANG } from "@/lib/sen-bien/cau-vui";
 import { CAU_CAN_KIEM } from "@/lib/sen-bien/hoi-dap";
 import { CAU_CHUA_CHAC } from "@/lib/sen-bien/hoi-kho";
 import { loiDocGiamSat } from "@/lib/stracking/doc-canh-bao.mjs";
+import { answerOffline } from "@/lib/assistant/answer";
+import { parseUtterance } from "@/lib/assistant/parse";
+import type { DeviceSnapshot } from "@/lib/assistant/types";
 import { baoKhucRe, type KhucRe } from "@/lib/nav-khuc-re";
 import { cauVung } from "@/lib/nav-vung";
 import { tenNoi, type VungQuanLy } from "@/lib/vung-quan-ly";
@@ -292,5 +295,31 @@ describe("rà soát giọng: câu hỏi, cảnh báo, câu đã dùng trọn M�
       ...loai.map((l) => loiDocGiamSat({ tau: [t()], canhBao: [{ imei: "1", loai: l, luc: vn("2026-11-06T11:20:00"), muc: "Báo động" }], now })),
     ];
     phuHet(cau);
+  });
+});
+
+/*  LỌT 06/11 chiều (anh Long: "bản tin bão lúc chiều không có bão Biển Đông toàn giọng máy, Mỹ Duyên đâu, làm bao
+    nhiêu vòng rồi cứ lọt"): trợ lý TOÀN APP (lib/assistant/answer.ts) chưa từng vào NGUON của lap_manh. Cổng này gọi
+    ĐÚNG hàm trả lời trên snapshot thật — câu `speak` nào thiếu mảnh là đỏ, không đợi bà con nghe ra. */
+describe("trợ lý toàn app: câu đọc (speak) trọn Mỹ Duyên", () => {
+  const NOW = Date.parse("2026-11-06T08:00:00Z");
+  const H = 3600_000;
+  const snap = (over: Partial<DeviceSnapshot> = {}): DeviceSnapshot => ({
+    takenAt: NOW, route: "/", online: true, premium: false,
+    home: { portId: "quy-nhon", portName: "Quy Nhơn", province: "Gia Lai" },
+    weather: null, storm: null, tide: null, boat: null, docs: [], maintenance: [], crew: null,
+    cart: { lines: 0, titles: [] }, orders: null, fishPrices: null, fuel: null, inboxUnread: 0, placeNames: [],
+    ...over,
+  });
+  const ctx = { route: "/", awaitingConfirm: false, boatNames: [], portNames: ["Quy Nhơn"], placeNames: [] };
+  const noi = (cau: string, s: DeviceSnapshot) => answerOffline(parseUtterance(cau, ctx), s, NOW).speak;
+  it("tin bão: không bão (mọi tuổi tin), tin cũ, chưa có tin", () => {
+    const cau: string[] = [];
+    for (const h of [0, 0.5, 1, 3, 5, 11, 13, 30, 50]) cau.push(noi("có bão không", snap({ storm: { savedAt: NOW - h * H, storms: [] } })));
+    cau.push(noi("có bão không", snap()));
+    phuHet(cau);
+  });
+  it("câu thiếu dữ liệu hay gặp: con nước, giấy tờ, bảo dưỡng, bạn thuyền, tàu, giá", () => {
+    phuHet(["con nước hôm nay", "giấy tờ sắp hết hạn", "lịch bảo dưỡng", "bạn thuyền", "tàu của tôi", "giá cá hôm nay", "giá dầu"].map((c) => noi(c, snap())));
   });
 });
