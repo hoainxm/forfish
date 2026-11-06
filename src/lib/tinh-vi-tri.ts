@@ -21,6 +21,30 @@ export const TINH_VI_TRI_KEY = "forfish.vitri.tinh.v1";
 export const TINH_TOI_DA_KM = 150;
 /** tỉnh đo được giữ 7 ngày */
 export const TINH_HET_HAN_MS = 7 * 24 * 3600_000;
+/** tỉnh đo trong chừng này thì mở tab không đo lại (đỡ tốn pin, đỡ hỏi lại) */
+export const TINH_DO_LAI_MS = 6 * 3600_000;
+
+/*  TỰ CHỌN TỈNH — KHÔNG BẮT BÀ CON THAO TÁC (anh Long 06/11: "cái chọn phải tự động chứ đừng bắt người ta phải thao tác
+    nhiều, nó phải thông minh"). Lấy nguồn ĐÁNG TIN NHẤT đang có, theo thứ tự:
+      1. vị trí máy (đang đứng ở đâu — đúng ý "ví dụ hcm")
+      2. tỉnh cảng nhà của tàu đang chọn (bà con tự đặt / chọn ở Chợ cá)
+      3. cảng nhà mọi nguồn (ghim /cang, Sen Biển, app tự gắn — lib/cang-nha docCangNha)
+    Không nguồn nào ⇒ null (Cả nước). */
+export type NguonTinh = "vi-tri" | "tau" | "cang-nha";
+
+export function chonTinhTuDong(o: {
+  viTri?: string | null;
+  tinhTau?: string | null;
+  tinhCangNha?: string | null;
+}): { province: string; nguon: NguonTinh } | null {
+  const v = tenChuan(o.viTri ?? undefined);
+  if (v) return { province: v, nguon: "vi-tri" };
+  const t = tenChuan(o.tinhTau ?? undefined);
+  if (t) return { province: t, nguon: "tau" };
+  const c = tenChuan(o.tinhCangNha ?? undefined);
+  if (c) return { province: c, nguon: "cang-nha" };
+  return null;
+}
 
 type CangToaDo = { id?: string; province?: string; lat?: number; lng?: number };
 

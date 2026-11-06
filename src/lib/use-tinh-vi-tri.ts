@@ -2,13 +2,19 @@
 
 // Hook TỈNH THEO VỊ TRÍ MÁY cho tab Chính sách (14 §21c, 2026-11-06). Logic thuần ở lib/tinh-vi-tri.
 //
-// · Mở tab: đọc tỉnh đã lưu NGAY (không chờ GPS — mất sóng vẫn có). Quyền vị trí ĐÃ cho ⇒ đo lại lặng lẽ (cảm biến
-//   tại chỗ, KHÔNG request mạng, có timeout, lỗi thì thôi). Quyền CHƯA quyết ⇒ KHÔNG tự bung hộp xin quyền (web cấm
-//   khi không có thao tác; bản native đã xin lúc mở app — NativeGpsPrime) — bà con chạm "Theo vị trí máy" mới xin.
+// · Mở tab: đọc tỉnh đã lưu NGAY (không chờ GPS — mất sóng vẫn có), rồi TỰ ĐO (anh Long 06/11: "cái chọn phải tự động
+//   chứ đừng bắt người ta phải thao tác nhiều") — cảm biến tại chỗ, KHÔNG request mạng, timeout 10 s, lỗi thì im.
+//   Quyền chưa quyết ⇒ máy tự hỏi MỘT lần (hộp của trình duyệt/hệ điều hành); máy ĐÃ từ chối ⇒ không đo, không nhắc
+//   (tab lùi về tàu/cảng nhà/số tàu — tinh-vi-tri.chonTinhTuDong). Đo rồi trong TINH_DO_LAI_MS ⇒ không đo lại; mỗi lần
+//   mở trang đo tối đa một lần.
+// · Hàng "Theo vị trí máy" trong hộp chọn tỉnh chỉ còn là nút đo lại tay.
 // · Không bao giờ ném; mọi nhánh hỏng trả về trạng thái để màn nói ra.
 
 import { useCallback, useEffect, useState } from "react";
-import { docTinhViTri, ghiTinhViTri, tinhTuToaDo } from "@/lib/tinh-vi-tri";
+import { docTinhViTri, ghiTinhViTri, TINH_DO_LAI_MS, tinhTuToaDo } from "@/lib/tinh-vi-tri";
+
+/** đã tự đo trong lần mở trang này chưa — chuyển tab qua lại không đo lại */
+let daTuDo = false;
 
 export type KetQuaDo = "ok" | "tu-choi" | "xa-bo" | "loi";
 
@@ -50,25 +56,31 @@ export function useTinhViTri(bat: boolean) {
   }, []);
 
   useEffect(() => {
-    if (!bat) return;
+    if (!bat || daTuDo) return;
+    const cu = docTinhViTri();
+    if (cu && Date.now() - cu.at < TINH_DO_LAI_MS) return; // vừa đo, khỏi đo lại
+    daTuDo = true;
     let huy = false;
+    const chay = () =>
+      doViTri().then((r) => {
+        if (r.tinh) ghiTinhViTri(r.tinh); // màn đã đóng vẫn cất cho lần sau
+        if (!huy && r.tinh) setTinh(r.tinh);
+      });
     const perms = typeof navigator !== "undefined" ? navigator.permissions : undefined;
-    if (!perms?.query) return;
-    perms
-      .query({ name: "geolocation" as PermissionName })
-      .then((st) => {
-        if (huy || st.state !== "granted") return;
-        return doViTri().then((r) => {
-          if (!huy) nhan(r);
-        });
-      })
-      .catch(() => {});
+    if (!perms?.query) {
+      void chay(); // Safari cũ không tra được quyền ⇒ cứ đo, máy tự hỏi
+    } else {
+      perms
+        .query({ name: "geolocation" as PermissionName })
+        .then((st) => (st.state === "denied" ? undefined : chay())) // đã từ chối ⇒ không nhắc nữa
+        .catch(() => void chay());
+    }
     return () => {
       huy = true;
     };
-  }, [bat, nhan]);
+  }, [bat]);
 
-  /** bà con chạm "Theo vị trí máy" — có thao tác nên được bung hộp xin quyền */
+  /** bà con chạm "Theo vị trí máy" — đo lại tay */
   const xin = useCallback(async (): Promise<KetQuaDo> => {
     setDangDo(true);
     try {
