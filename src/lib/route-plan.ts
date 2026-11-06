@@ -936,6 +936,10 @@ const CUA_SO_CAP = 4;
     km, sông Tiền từ Mỹ Tho ~16 km lưới vẽ thành đất) nhưng KHÔNG để cửa phía bên kia đồng bằng thành cớ cắt
     ngang đất liền (đo: Mỏ Ó → cửa 160 km bên Cửu Long). Quá trần ⇒ bỏ cửa đó. */
 const CUA_DAT_MAX_KM = 20;
+/*  Đầu ĐỨNG TRONG NƯỚC (lưới vẽ được chỗ cảng) mà vẫn bị đất bao: chỉ cho dẫm
+    đủ qua lạch hẹp giữa đảo lưới 450 m lấp mất (Cái Rồng đo 2,6–5,2 km). Vành đất dày hơn là
+    đất chắn THẬT — không cắt ngang doi đất (cổng route-plan.test "vòng đất"). */
+const CUA_DAT_NUOC_MAX_KM = 6;
 
 /** km đất (lớp 0) dọc tuyến, lấy mẫu 0,4 km */
 function datTrenTuyenKm(depth: DepthGrid, wps: LatLon[]): number {
@@ -1030,13 +1034,21 @@ function planQuaCuaBien(args: PlanArgs): RoutePlanOutcome | null {
   /*  Đoạn đầu/cuối (đầu ↔ cửa): thử như thường; hỏng (lòng sông/luồng cửa
       sông lưới không vẽ nổi) thì nới riêng quanh đầu phía bờ tới tận cửa (xem
       `PlanArgs.noiCua`) — vẫn phạt, vẫn cắm cờ. */
+  /*  CHỈ nới khi lưới vẽ CHÍNH chỗ đứng thành đất/bãi (< lớp 3): đó là dấu
+      lưới không vẽ nổi lòng sông/lạch (Ba Tri, Cái Rồng). Đứng trong nước mà
+      vẫn bị đất bao kín là đất chắn THẬT — không cắt ngang doi đất. */
+  const luoiKhongVeNoi = (p: LatLon) => {
+    const c = depthClassAt(depth, p.lat, p.lon);
+    return c != null && c < 3;
+  };
+  const datToiDa = (p: LatLon) => (luoiKhongVeNoi(p) ? CUA_DAT_MAX_KM : CUA_DAT_NUOC_MAX_KM);
   const doanCua = (bo: LatLon, cua: LatLon, raKhoi: boolean, gio: number): RoutePlan | null => {
     const [a, b] = raKhoi ? [bo, cua] : [cua, bo];
     const khung = khungChangNgan(a, b, bbox);
     const p =
       tinh(a, b, khung, gio) ??
       tinh(a, b, khung, gio, { p: bo, km: haversineKm(bo, cua) - rKm * 0.5 });
-    return p && datTrenTuyenKm(depth, p.waypoints) <= CUA_DAT_MAX_KM ? p : null;
+    return p && datTrenTuyenKm(depth, p.waypoints) <= datToiDa(bo) ? p : null;
   };
 
   if (tripKm <= CUA_THANG_MAX_KM && (diThoang || denThoang)) {
@@ -1052,7 +1064,8 @@ function planQuaCuaBien(args: PlanArgs): RoutePlanOutcome | null {
     if (tripKm > CUA_THANG_MAX_KM) return null;
     const giua = { lat: (start.lat + dest.lat) / 2, lon: (start.lon + dest.lon) / 2 };
     const p = tinh(start, dest, khungChangNgan(start, dest, bbox), args.departHourIdx, { p: giua, km: tripKm / 2 + 2 });
-    return p && datTrenTuyenKm(depth, p.waypoints) <= CUA_DAT_MAX_KM ? { plan: p, failure: null } : null;
+    const tran = Math.max(datToiDa(start), datToiDa(dest));
+    return p && datTrenTuyenKm(depth, p.waypoints) <= tran ? { plan: p, failure: null } : null;
   };
   if (!cuaDi.length || !cuaDen.length) return noiCaChuyen();
 
