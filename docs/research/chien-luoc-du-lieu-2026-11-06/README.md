@@ -4,6 +4,15 @@
 >
 > **Phạm vi:** chỉ đọc. Không sửa repo, không ghi DB. Báo cáo không chứa SĐT, tên hay số tàu.
 
+## ⚑ Quyết định của anh Long (06/11, sau khi đọc báo cáo)
+
+> *"ko nhắn gì ngoài sdfish hết, mục tiêu bán trên sdfish thôi"*
+
+- **Không gửi Zalo ZNS/OA, SMS hay bất kỳ tin nào ra ngoài app.** Mọi lời nhắc, cảnh báo và chào bán chỉ đi trong ForFish: thông báo đẩy, hộp thư, thẻ trên màn hình.
+- **Bán ngay trên ForFish:** gia hạn cước, vật tư, premium. Luật đã chốt vẫn giữ: không thanh toán trong app, gia hạn đi qua luồng QR/CRM có sẵn.
+- **Hệ quả:** nút thắt "tới tay" giờ phải giải bằng **số người cài app và bật thông báo**. Các mục ZNS/SMS bên dưới coi như đã bỏ; xem kế hoạch 30 ngày ở mục 4 (bản đã sửa). Rủi ro "nhắn tiếp thị cho 10.000 số chưa đồng ý" cũng hết theo, vì chỉ người đã vào app và bấm Đồng ý mới nhận tin.
+- **Giữ gọi điện** (anh Long chốt 06/11): nhân viên gọi chăm sóc theo danh sách (S2, S5), mục tiêu là kéo khách vào app và gia hạn hoặc mua trên app. Đây là việc người làm, không phải tin nhắn tự động.
+
 ## 0. Năm sự thật từ dữ liệu
 
 | # | Sự thật | Số | Nguồn |
@@ -53,8 +62,8 @@
 
 | Ưu tiên | Sáng kiến | Cách làm | Phán quyết |
 |---|---|---|---|
-| 1 | **Kênh tới tay hợp luật** | Zalo OA + **chỉ mẫu ZNS giao dịch** (hạn cước, mất kết nối, đồng bộ thất bại); SMS dự phòng. Có trần số tin/lượt, công tắc tắt khẩn, **thí điểm 1 tỉnh**, câu chữ "có thể". Luồng xin đồng ý tiếp thị tách riêng | **Giữ, sửa phạm vi** |
-| 2 | **Gia hạn chủ động (S1)** | Nhắc ở các mốc 15/7/3/1/0 ngày, kèm QR theo luồng CRM 3 bước (không thanh toán trong app). Gọi kéo lại 194 máy quá hạn ≤30 ngày. Đối chứng 10% | **Sửa** (giao dịch, thí điểm, doanh thu = × c) |
+| 1 | **Kênh tới tay = chính ForFish** (đổi 06/11: không ZNS/SMS) | Thông báo đẩy tin cậy: hoàn thiện bản native (Capacitor) để push chạy được cả trên iOS, vì web push hiện chỉ tới 3/10.431 chủ tàu. Có hộp thư và chấm đỏ trong app. Có trần số tin/lượt, công tắc tắt khẩn, câu chữ "có thể". Đo: % chủ tàu đã cài app **và** bật thông báo | **Giữ, đổi kênh** |
+| 2 | **Gia hạn chủ động trong app (S1)** | Thẻ "còn X ngày cước", nhắc ở các mốc 15/7/3/1/0 ngày. Nút **Gia hạn** mở QR theo luồng CRM 3 bước (không thanh toán trong app). Nhân viên gọi kéo lại 194 máy quá hạn ≤30 ngày về app. Đối chứng 10% | **Sửa** (doanh thu = × c) |
 | 3 | **Danh sách gọi mỗi ngày (S2)** | ForFish tính điểm (giá trị cước × rủi ro × độ gấp); danh sách đổ vào CRM. **Ghi kết quả từng cuộc gọi**: đây là nhãn cho mọi mô hình về sau | **Giữ** |
 | 4 | **Chủ nhiều tàu (S3)** | 1.667 chủ khoảng 4.300 máy; gọi trước 137 chủ có từ 5 máy. Gia hạn đồng loạt về cùng một ngày, kèm bảng "đội tàu của anh" | **Giữ** |
 | 5 | **Chăm sóc kỹ thuật (S5)** | Phiếu từ tín hiệu máy, ưu tiên 109 máy ngoài khơi lỗi đồng bộ TCTS, sau đó SOS kẹt, pin, GPS. Hẹn sửa khi tàu cập bến | **Giữ** |
@@ -80,7 +89,13 @@
    - giám sát nhịp thu S-Tracking;
    - OTP thay mật khẩu mặc định;
    - ngừng Kairos mồi.
-2. **Kênh ZNS giao dịch, thí điểm 1 tỉnh** (Bình Định 1.497 máy hoặc Quảng Ngãi 1.382), có trần và công tắc tắt.
+2. **Đưa chủ tàu vào app và bật thông báo, thí điểm 1 tỉnh** (Bình Định 1.497 máy hoặc Quảng Ngãi 1.382). Không nhắn ra ngoài (quyết định 06/11). Gồm:
+   - mã QR "Mở ForFish" dán trên máy, in trên phiếu gia hạn và hoá đơn;
+   - nhân viên cài app ngay khi lắp hoặc gia hạn;
+   - đăng nhập một chạm, rồi bước bật thông báo;
+   - push đi qua bản native.
+
+   Chỉ số: % chủ tàu tỉnh thí điểm đã cài app và bật thông báo.
 3. **Đồng hồ mốc phạt miễn phí**, kèm hai luật nguyên nhân (cước, đồng bộ) trên thẻ tàu.
 4. **Gọi chăm sóc theo danh sách:** 109 máy lỗi TCTS ngoài khơi, SOS kẹt, 194 máy quá hạn ≤30 ngày, 137 chủ có từ 5 máy. Ghi kết quả từng cuộc.
 5. **Kích hoạt tại chỗ + hướng dẫn 14 ngày**, có đối chứng.
@@ -90,7 +105,7 @@ Ngày 31–90: tự động hoá đủ mốc nhắc gia hạn, đo lift so với
 ## 5. Anh Long cần trả lời trước khi chi tiền
 
 1. **SDVICO hưởng bao nhiêu trên mỗi đồng cước (c)?** Hợp đồng đại lý Viettel có cho dùng dữ liệu thuê bao để chăm sóc và bán hàng không?
-2. **Căn cứ pháp lý để nhắn tin cho khoảng 10.000 SĐT chưa đồng ý là gì?** Tin nào là giao dịch, tin nào là tiếp thị? Ai chịu trách nhiệm khi gửi nhầm cảnh báo phạt?
+2. ~~Căn cứ pháp lý để nhắn tin cho khoảng 10.000 SĐT chưa đồng ý là gì?~~ **Đã chốt 06/11: không nhắn ra ngoài app.** Còn một câu cần trả lời: ai chịu trách nhiệm khi app đẩy nhầm cảnh báo phạt?
 3. **Ranh giới xung đột lợi ích, cần văn bản pháp chế:** có được in "giờ Cục chốt" không, có được nói "bắt buộc NĐ 41" không, có nhận SLA cho SOS không, có xin văn bản dùng DataLake không?
 4. Luật "ngư dân chỉ trả cho dự báo cá" chỉ áp cho tính năng trong app, hay cho cả dịch vụ gắn thiết bị bán qua CRM?
 5. Chốt một giá premium. Ai giữ danh sách gọi (CRM hay ForFish). Ngân sách cho 1–2 người gọi.
