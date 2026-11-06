@@ -13,7 +13,8 @@ import type { NavAlert } from "@/lib/nav-hazards";
 
 type Spoken = { text: string; rate: number };
 /** câu đỏ mẫu khi đi giọng máy: số đã thành chữ nói (mảnh ghép Mỹ Duyên, doc 15 §21) */
-const RED_NOI = "Xác tàu phía trước chừng bốn trăm mét";
+// mp3 không tải được ⇒ CẢ LƯỢT giọng máy, đọc theo câu bằng CHỮ NÓI của mảnh (một lượt một giọng, 06/11)
+const RED_NOI = "Xác tàu phía trước chừng bốn trăm mét.";
 let spoken: Spoken[] = [];
 let hasVi = true;
 
@@ -112,7 +113,7 @@ describe("useNavVoice", () => {
     rerender(base({ on: true, alerts: [RED] }));
     await tick(1500);
     // câu có số nay GHÉP mảnh giọng Sen Biển: đoạn đọc mang chữ nói (doc 15 §21)
-    expect(spoken[0]?.text).toBe("Xác tàu phía trước chừng bốn trăm mét");
+    expect(spoken[0]?.text).toBe(RED_NOI);
   });
 
   it("tắt rồi bật lại: vẫn có bản tin mới và vẫn đọc", async () => {
@@ -207,7 +208,7 @@ describe("useNavVoice", () => {
     });
     await tick(10_000);
     const texts = spoken.map((s) => s.text);
-    expect(texts).toEqual(["Điểm mười bốn độ ba mươi tư phút Bắc", "Đang vẽ đường.", "Tới Sa Huỳnh", "mười bốn hải lý"]);
+    expect(texts).toEqual(["Điểm mười bốn độ ba mươi tư phút Bắc.", "Đang vẽ đường.", "Tới Sa Huỳnh, mười bốn hải lý."]);
   });
 
   it("máy không có giọng Việt VÀ không phát được mp3: không đọc, báo avail.ok=false để HUD nói thật", async () => {
@@ -310,7 +311,7 @@ describe("useNavVoice", () => {
     await tick(5000);
     rerender(base({ on: true, chart: "du", alerts: [RED] }));
     await tick(5000);
-    const reply = spoken.filter((s) => s.text === "Còn mười hai hải lý"); // số thành chữ nói (doc 15 §21)
+    const reply = spoken.filter((s) => s.text === "Còn mười hai hải lý, chừng một giờ."); // số thành chữ nói (doc 15 §21)
     expect(reply.length).toBe(1);
     expect(reply[0].rate).toBe(1.12);
     expect(spoken.find((s) => s.text === RED_NOI)?.rate).toBe(1);

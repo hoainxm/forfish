@@ -623,21 +623,22 @@ let warmSau: ReturnType<typeof setTimeout> | null = null;
  */
 let warmedAll = false;
 
-/** số clip soi mẫu — đủ dày để bắt kho bị dọn dở, đủ thưa để mở app không chờ */
-const MAU_KHO = 24;
-
-/** Mẫu rải đều của `urls` có nằm hết trong Cache Storage không. Không có Cache API / lỗi ⇒ false. */
-export async function khoDaDu(urls: string[]): Promise<boolean> {
-  if (urls.length === 0 || typeof caches === "undefined") return false;
+/**
+ * Clip nào CHƯA có trong Cache Storage (so ĐỦ cả danh sách, không soi mẫu). Rà soát giọng 2026-11-06: bản soi 24
+ * mẫu rải đều trúng hết các clip cũ ⇒ bỏ qua cả lượt tải ⇒ ~370 clip mới thêm cùng ngày không bao giờ vào kho, ra
+ * khơi mất sóng là câu đó giọng máy giữa bản tin Mỹ Duyên. Đọc `keys()` mỗi kho MỘT lần (không 3.700 lượt match).
+ * Không có Cache API / lỗi ⇒ null (chỗ gọi đi lượt tải đầy đủ như cũ).
+ */
+export async function clipThieu(urls: string[]): Promise<string[] | null> {
+  if (urls.length === 0 || typeof caches === "undefined") return null;
   try {
-    const buoc = Math.max(1, Math.floor(urls.length / MAU_KHO));
-    const mau: string[] = [];
-    for (let i = 0; i < urls.length; i += buoc) mau.push(urls[i]);
-    mau.push(urls[urls.length - 1]);
-    const trung = await Promise.all(mau.map((u) => caches.match(u)));
-    return trung.every(Boolean);
+    const co = new Set<string>();
+    for (const ten of await caches.keys()) {
+      for (const req of await (await caches.open(ten)).keys()) co.add(new URL(req.url).pathname);
+    }
+    return urls.filter((u) => !co.has(u));
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -652,19 +653,20 @@ export async function warmVoiceClips(): Promise<void> {
   /*  ĐÃ ĐỦ TRONG KHO SW ⇒ KHỎI ĐI LẠI (tăng tốc 2026-11-06). Cờ `warmedAll` chỉ
       sống trong RAM nên MỖI LẦN MỞ APP lại bắn ~2.900 lượt fetch qua SW — clip
       có sẵn vẫn phải đọc trọn thân, và SW xếp hàng chúng trước request thật của
-      màn đang mở. Nay soi một MẪU rải đều (cả lõi lẫn tên rạn) trong Cache
-      Storage: trúng hết ⇒ coi như đủ, thôi. Trượt một (iOS dọn kho / bộ giọng
-      mới đổi tên clip) ⇒ đi lượt đầy đủ như cũ. Không thêm khoá lưu trữ nào. */
-  if (await khoDaDu(all)) {
+      màn đang mở. Nay so ĐỦ danh sách với Cache Storage (`clipThieu`):
+      đủ hết ⇒ thôi; thiếu ⇒ CHỈ tải phần thiếu. Không thêm khoá lưu trữ nào. */
+  const thieu = await clipThieu(all);
+  if (thieu && thieu.length === 0) {
     warmedAll = true;
     return;
   }
-  const ok = await taiTruoc(all.filter((u) => !MANH_SAU.has(u)), 4);
+  const can = thieu ?? all;
+  const ok = await taiTruoc(can.filter((u) => !MANH_SAU.has(u)), 4);
   if (!ok) return;
   warmedAll = true;
   if (warmSau) return;
   warmSau = setTimeout(() => {
-    if (isOnline()) void taiTruoc(all.filter((u) => MANH_SAU.has(u)), 2);
+    if (isOnline()) void taiTruoc(can.filter((u) => MANH_SAU.has(u)), 2);
   }, WARM_SAU_MS);
 }
 
@@ -857,8 +859,9 @@ function synthPart(text: string, rate: number, done: (ok: boolean) => void): () 
  * bị HUỶ hoặc quá giờ (câu bị cắt ngang — chỗ gọi đừng coi là "đọc xong" mà
  * bật micro), true khi đi hết các đoạn (kể cả đoạn không đọc được).
  *
- * Từng đoạn (xem `speechParts`): có mp3 Sen Biển → phát mp3 (hỏng thì đọc giọng
- * máy); không có → giọng máy. Giọng máy không chịu phát ở một đoạn thì thử lại
+ * Từng đoạn (xem `speechParts`): có mp3 Sen Biển → phát mp3; không có → giọng máy.
+ * MỘT LƯỢT MỘT GIỌNG (`motGiongCaLuot`): đoạn nào thiếu mp3 / tải không kịp ⇒ cả
+ * lượt giọng máy; phát hỏng giữa lượt ⇒ phần còn lại giọng máy (đổi một lần). Giọng máy không chịu phát ở một đoạn thì thử lại
  * đúng đoạn đó một lần với giọng kế (giọng mạng hỏng → giọng trong máy); vẫn
  * không được thì bỏ đoạn đó — đoạn mp3 phía sau vẫn đọc.
  */
@@ -904,13 +907,27 @@ export function ttsSpeak(
   return cancel;
 
   function batDau() {
-    const parts = speechParts(text);
+    const coGiongMay = isNative() || vietnameseVoice() !== null;
+    let parts = motGiongCaLuot(speechParts(text), coGiongMay);
     if (parts.length === 0) {
       end(true);
       return;
     }
     const rate = opts.rate ?? TTS_RATE;
     timers.push(setTimeout(cancel, MAX_UTTER_MS));
+    /*  Cả lượt là mp3 ⇒ TẢI ĐỦ mọi clip TRƯỚC khi mở miệng (từ kho SW là mili giây). Thiếu một (mất sóng mà
+        clip chưa vào kho, mạng chậm quá CLIP_FETCH_MS) ⇒ CẢ LƯỢT giọng máy — không để câu đầu Mỹ Duyên, câu
+        giữa giọng máy (anh Long 2026-11-06: "lúc nghe giọng này lúc giọng kia nó ko đồng bộ"). */
+    const urls = parts.flatMap((p) => p.clips ?? []);
+    if (coGiongMay && urls.length > 0) {
+      void taiDuClip(urls).then((du) => {
+        if (ended) return;
+        if (!du) parts = conLaiGiongMay(parts, 0);
+        chay();
+      });
+    } else chay();
+
+    function chay() {
     if (!isNative() && webSupported()) {
       try {
         window.speechSynthesis.cancel();
@@ -943,24 +960,78 @@ export function ttsSpeak(
         });
       };
       if (p.clips) {
-        stopCur = playClips(p.clips, (ok) => (ok ? after() : synth(true)));
+        stopCur = playClips(p.clips, (ok) => {
+          if (ok) return after();
+          // tải được mà PHÁT hỏng giữa lượt ⇒ đổi giọng MỘT lần, phần còn lại cả lượt giọng máy (không đổi qua đổi lại)
+          if (!coGiongMay) return synth(true);
+          parts = conLaiGiongMay(parts, i - 1);
+          i = 0;
+          next();
+        });
       } else {
         synth(true);
       }
     };
     next();
+    }
+  }
+}
+
+/**
+ * MỘT LƯỢT NÓI MỘT GIỌNG (rà soát giọng 2026-11-06, anh Long: "lúc nghe giọng này lúc giọng kia nó ko đồng bộ").
+ * Luật "một câu một giọng" (§21) chưa đủ: bản tin nhiều câu mà MỘT câu thiếu mp3 (chữ bà con tự gõ, tên lạ) thì
+ * câu đó giọng máy, câu bên cạnh Mỹ Duyên ⇒ vẫn nghe hai giọng trong một lượt. Nay: lượt nào có câu thiếu ⇒ CẢ
+ * LƯỢT giọng máy, đọc theo câu — dùng CHỮ NÓI của mảnh (số thành chữ, mã tàu đánh vần) cho giống hệt lời Mỹ Duyên. Ngoại lệ: máy KHÔNG có giọng Việt (`coGiongMay` false) ⇒ giữ mp3 chỗ có, vì giọng
+ * máy lúc đó không đọc nổi tiếng Việt — thà nửa lượt có tiếng còn hơn câm.
+ */
+export function motGiongCaLuot(parts: SpeechPart[], coGiongMay: boolean): SpeechPart[] {
+  if (!coGiongMay || parts.every((p) => p.clips)) return parts;
+  return conLaiGiongMay(parts, 0);
+}
+
+/** Cả câu nói đọc giọng máy, chia theo câu (nghỉ giữa câu như thường). */
+function theoCauGiongMay(text: string): SpeechPart[] {
+  const out = splitSentences(text).map((s) => ({ text: s, clips: null, pauseMs: PAUSE_SENTENCE_MS }));
+  if (out.length) out[out.length - 1].pauseMs = 0;
+  return out;
+}
+
+/** Từ đoạn `from` trở đi đổi sang giọng máy: nối lại các mảnh thành câu (dấu nghỉ → dấu câu) để giọng máy đọc liền. */
+export function conLaiGiongMay(parts: readonly SpeechPart[], from: number): SpeechPart[] {
+  const ds = parts.slice(from);
+  let s = "";
+  ds.forEach((p, k) => {
+    const cuoi = k === ds.length - 1 || p.pauseMs >= PAUSE_SENTENCE_MS;
+    const dau = /[.!?…]$/.test(p.text.trim()) ? "" : cuoi ? "." : p.pauseMs > 0 ? "," : "";
+    s += `${p.text.trim()}${dau} `;
+  });
+  return theoCauGiongMay(s);
+}
+
+/** Tải đủ mọi clip của một lượt (song song, qua kho SW). Hỏng / quá CLIP_FETCH_MS một cái ⇒ false. */
+async function taiDuClip(urls: string[]): Promise<boolean> {
+  try {
+    await Promise.all([...new Set(urls)].map((u) => clipSrc(u)));
+    return true;
+  } catch {
+    return false;
   }
 }
 
 /**
  * ĐỌC CÂU MÁY NHÀ BẰNG MP3 MỸ DUYÊN (2026-10-19, ADR 0016 — chủ dự án: "đọc mỹ duyên hết chưa"). Câu Gemma là chữ
  * tự do ⇒ mảnh ghép sẵn không phủ; máy nhà đọc sẵn từng câu ra mp3. Mỗi đoạn: `mp3` là Promise url (blob:) — đã bắt
- * đầu tải TRƯỚC khi gọi (câu sau tải trong lúc câu trước phát). Có url ⇒ phát mp3; null / hỏng / chờ quá 6 s ⇒ đọc
- * đúng đoạn đó bằng giọng máy như `ttsSpeak`. Chung khoá "một lượt nói một lúc", tín hiệu icon, trần MAX_UTTER_MS.
+ * đầu tải TRƯỚC khi gọi (câu sau tải trong lúc câu trước phát). Có url ⇒ phát mp3; null / hỏng / chờ quá 6 s ⇒ giọng
+ * máy theo luật MỘT LƯỢT MỘT GIỌNG (xem trong thân hàm). Chung khoá "một lượt nói một lúc", tín hiệu icon, trần MAX_UTTER_MS.
  */
 export function ttsSpeakMp3(
   doan: readonly { text: string; mp3: Promise<string | null> }[],
-  opts: { onEnd?(completed: boolean): void; rate?: number; /** trần cả lượt (mặc định MAX_UTTER_MS) — đọc cả bài báo cần dài hơn */ maxMs?: number } = {},
+  opts: {
+    onEnd?(completed: boolean): void;
+    rate?: number;
+    /** trần cả lượt (mặc định MAX_UTTER_MS) — đọc cả bài báo cần dài hơn */ maxMs?: number;
+    /** phát ngay, không chờ đủ mp3 cả lượt (đọc bài báo) — vẫn chỉ đổi sang giọng máy MỘT lần */ noiNgay?: boolean;
+  } = {},
 ): () => void {
   activeCancel?.();
   phienPhat();
@@ -991,6 +1062,21 @@ export function ttsSpeakMp3(
   }
   const rate = opts.rate ?? TTS_RATE;
   timers.push(setTimeout(cancel, opts.maxMs ?? MAX_UTTER_MS));
+  /*  MỘT LƯỢT MỘT GIỌNG (2026-11-06, xem `motGiongCaLuot`): mp3 mỗi câu chờ tối đa 6 s, MỘT lần (memo). Câu nào hỏng
+      ⇒ từ đó tới hết lượt giọng máy — đổi giọng nhiều nhất MỘT lần. Mặc định còn CHỜ ĐỦ mọi câu trước khi mở miệng
+      (các câu đã xin song song nên chờ ≈ câu chậm nhất): thiếu một ⇒ cả lượt giọng máy ngay từ đầu, không đổi lần
+      nào. `noiNgay` (đọc bài báo — câu xin nối đuôi, chờ đủ là chờ cả bài; anh Long: "đọc báo thì có thể dùng giọng
+      máy") ⇒ phát ngay, chỉ giữ luật đổi một lần. */
+  const urlCau = doan.map((d) => {
+    let cho: ReturnType<typeof setTimeout> | undefined;
+    const quaGio = new Promise<null>((r) => (cho = setTimeout(() => r(null), 6_000)));
+    return Promise.race([d.mp3.catch(() => null), quaGio]).then((url) => {
+      clearTimeout(cho);
+      return url;
+    });
+  });
+  const coGiongMay = isNative() || vietnameseVoice() !== null;
+  let mayCa = false;
   let i = 0;
   const next = () => {
     if (ended) return;
@@ -999,24 +1085,30 @@ export function ttsSpeakMp3(
       end(true);
       return;
     }
-    const d = doan[i++];
+    const k = i++;
+    const d = doan[k];
     const after = () => {
       if (ended) return;
       timers.push(setTimeout(next, PAUSE_SENTENCE_MS));
     };
     const may = () => {
+      if (coGiongMay) mayCa = true;
       stopCur = synthPart(d.text, rate, () => after());
     };
-    let cho: ReturnType<typeof setTimeout> | undefined;
-    const quaGio = new Promise<null>((r) => (cho = setTimeout(() => r(null), 6_000)));
-    void Promise.race([d.mp3.catch(() => null), quaGio]).then((url) => {
-      clearTimeout(cho);
+    if (mayCa) return may();
+    void urlCau[k].then((url) => {
       if (ended) return;
       if (url) stopCur = playClips([url], (ok) => (ok ? after() : may()));
       else may();
     });
   };
-  next();
+  if (opts.noiNgay || !coGiongMay) next();
+  else
+    void Promise.all(urlCau).then((ds) => {
+      if (ended) return;
+      if (ds.some((u) => !u)) mayCa = true;
+      next();
+    });
   return cancel;
 }
 

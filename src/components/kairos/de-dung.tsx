@@ -80,7 +80,7 @@ export function NutNghe({ post }: { post: BaiDoc }) {
         });
         huy.current = m.ttsSpeakMp3(
           cau.map((text, i) => ({ text, mp3: mp3[i] })),
-          { onEnd: xong, maxMs: DOC_BAI_MS },
+          { onEnd: xong, maxMs: DOC_BAI_MS, noiNgay: true },
         );
       })
       .catch(() => setDang(false));

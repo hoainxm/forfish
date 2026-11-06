@@ -1311,3 +1311,24 @@ Anh Long: *"cái thông báo của giám sát hành trình sao ko đẩy ra cái
 - Tin tới lúc app đang mở: sw.js đã nhắn `PUSH_CHIME_MSG` (tag `stracking-…`) ⇒ hook làm mới hộp thư (`refreshInbox`, trần 10 s, mất sóng thì thôi) rồi đọc. Không đụng sw.js.
 - Mỗi tin một lần mỗi lượt chạy; tắt chạy rồi chạy lại mà vẫn chưa xem ⇒ nhắc lại. Không tự đánh dấu "đã thấy" (nghe ≠ thấy, chấm chưa đọc ở Trang chủ giữ nguyên).
 - KHÔNG tự đọc: tin thường (nhắc cước, đơn chợ, Kairos) — hỏi Sen Biển; tin bão trong hộp thư (bão đã đọc theo GPS, lấy nữa là đọc hai lần). Ngoài chế độ Đang chạy KHÔNG tự phát tiếng (iOS chặn tiếng khi chưa chạm; nói bất chợt giữa màn khác làm bà con giật mình).
+
+## 38. MỘT LƯỢT NÓI MỘT GIỌNG — CHỖ LỌT LÚC CHẠY (2026-11-06)
+
+Anh Long: *"câu máy đang canh độ sâu… vẫn là giọng máy?"* · *"có chỗ nào đọc thì đều rà soát, tránh lúc nghe giọng này lúc giọng kia"*. Câu đó CÓ mp3 (`dang_canh.mp3`, cổng §36 xanh) — chỗ lọt nằm ở LÚC CHẠY, không phải ở chữ:
+
+- **Tải mp3 không kịp / hỏng ⇒ riêng câu đó giọng máy** giữa bản tin Mỹ Duyên (clip chưa vào kho SW + mất sóng, mạng chậm quá 4 s). Luật §21 "một câu một giọng" chỉ giữ TRONG một câu, không giữ giữa các câu.
+- **Tải trước bỏ sót clip mới**: `warmVoiceClips` (tăng tốc sáng 06/11) soi 24 MẪU trong Cache Storage — trúng hết clip cũ là thôi ⇒ ~370 clip thêm cùng ngày không bao giờ vào kho, ra khơi là giọng máy.
+
+Sửa ở CỬA CHUNG `lib/voice/tts.ts` (mọi màn đọc đi qua đây — không sửa từng màn):
+
+| Đường đọc | Luật mới |
+|---|---|
+| `ttsSpeak` (bản tin, cảnh báo, Sen Biển, giám sát, hỏi từng câu…) | `motGiongCaLuot`: lượt có câu thiếu mp3 ⇒ CẢ lượt giọng máy, đọc theo câu bằng chữ nói của mảnh (số thành chữ, mã tàu đánh vần). Cả lượt là mp3 ⇒ `taiDuClip` TẢI ĐỦ mọi clip trước khi mở miệng; thiếu một ⇒ cả lượt giọng máy. Phát hỏng giữa lượt ⇒ `conLaiGiongMay`: phần còn lại giọng máy — đổi tối đa MỘT lần |
+| `ttsSpeakMp3` (máy nhà, kho hỏi–đáp) | chờ đủ mp3 mọi câu (đã xin song song, trần 6 s/câu); thiếu một ⇒ cả lượt giọng máy |
+| `ttsSpeakMp3 { noiNgay }` (đọc bài báo Kairos) | anh Long: *"đọc báo thì có thể dùng giọng máy"* ⇒ phát ngay, câu hỏng thì từ đó tới hết giọng máy, KHÔNG quay lại mp3 |
+| Máy KHÔNG có giọng Việt | giữ mp3 chỗ có (giọng máy lúc đó không đọc nổi tiếng Việt — thà có tiếng còn hơn câm) |
+
+- `warmVoiceClips` so ĐỦ danh sách (`clipThieu`: đọc `keys()` mỗi kho một lần) và CHỈ tải phần thiếu.
+- Test: `tts-voice` (một lượt một giọng, ttsSpeakMp3 cả hai chế độ, `clipThieu` tải đúng phần thiếu, `conLaiGiongMay`), `nav-voice-hook` (câu đỏ giọng máy cả câu bằng chữ nói).
+- **OFFLINE**: không thêm request lúc mở app; tải trước nay ÍT request hơn (chỉ phần thiếu). Mất sóng mà clip đã trong kho ⇒ Mỹ Duyên như cũ; clip chưa có ⇒ cả lượt giọng máy thay vì lẫn hai giọng. Không đụng `sw.js`, khoá `forfish.*`, dữ liệu đã tải.
+- **Trần**: mp3 sinh lại CÙNG đường dẫn (5 mảnh §36) không tới máy đã có bản cũ trong kho SW — nợ đã ghi ở `CLIPS` trong tts.ts.
