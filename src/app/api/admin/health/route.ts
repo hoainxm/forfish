@@ -41,9 +41,6 @@ export async function GET() {
   if (!admin) {
     return NextResponse.json({ ok: true, me, env, db: null });
   }
-  const fo = await findOwner(admin);
-  me.ownerConfigured = fo.ok && fo.owner !== null;
-
   const now = new Date().toISOString();
   const countAll = async (table: string) => {
     try {
@@ -69,31 +66,38 @@ export async function GET() {
     }
   };
 
-  const [customers, premium, devices, supplies] = await Promise.all([
+  // nhịp webhook: bản ghi mới nhất trong customers (mọi event customer đều
+  // chạm updated_at) — trễ lâu bất thường = webhook SDWork có thể đứt
+  const lastIngest = async (): Promise<string | null> => {
+    try {
+      const { data } = await admin
+        .from("customers")
+        .select("updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return (data?.updated_at as string) ?? null;
+    } catch {
+      return null; // bảng chưa có → null
+    }
+  };
+
+  /*  MỘT nhịp song song (tăng tốc 2026-11-06): route này CHẶN cả trang quản trị
+      (chưa về thì chỉ thấy khung xương) — bản cũ đi findOwner → 4 đếm → nhịp
+      webhook thành ba chặng nối nhau. */
+  const [fo, customers, premium, devices, supplies, lastIngestAt] = await Promise.all([
+    findOwner(admin),
     countAll("customers"),
     countPremium(),
     countAll("devices"),
     countAll("supplies"),
+    lastIngest(),
   ]);
+  me.ownerConfigured = fo.ok && fo.owner !== null;
 
   // premium=null mà customers đếm được → cột tier chưa có = migration 0003
   // chưa apply (dashboard phải nói to điều này, không im lặng)
   const tierMigrationApplied = !(premium == null && customers != null);
-
-  // nhịp webhook: bản ghi mới nhất trong customers (mọi event customer đều
-  // chạm updated_at) — trễ lâu bất thường = webhook SDWork có thể đứt
-  let lastIngestAt: string | null = null;
-  try {
-    const { data } = await admin
-      .from("customers")
-      .select("updated_at")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    lastIngestAt = (data?.updated_at as string) ?? null;
-  } catch {
-    /* bảng chưa có → null */
-  }
 
   return NextResponse.json({
     ok: true,

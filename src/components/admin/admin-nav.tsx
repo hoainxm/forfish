@@ -82,10 +82,10 @@ export function AdminNav({
       {/* ── MOBILE: thanh dính đầu màn ── */}
       <div className="sticky top-0 z-20 -mx-4 border-b border-line bg-background px-4 pb-2 pt-2 md:hidden">
         {groups.length > 1 && (
-          <div
-            className="grid gap-1.5"
-            style={{ gridTemplateColumns: `repeat(${groups.length}, minmax(0, 1fr))` }}
-          >
+          /* Hàng CUỘN NGANG, không chia lưới đều (sửa 2026-11-06): admin có 6
+             nhóm ⇒ lưới repeat(6) trên máy 375 chỉ còn ~57px/nút, nhãn
+             "Khách hàng"/"Chợ vật tư" không xuống dòng nên tràn đè nút bên. */
+          <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]">
             {groups.map((g) => {
               const on = g.id === activeGroup?.id;
               return (
@@ -94,7 +94,7 @@ export function AdminNav({
                   type="button"
                   aria-pressed={on}
                   onClick={() => onSelect(g.tabs[0])}
-                  className={`min-h-[2.75rem] whitespace-nowrap rounded-xl px-1 text-[0.8125rem] font-bold transition-colors duration-200 ${
+                  className={`min-h-[2.75rem] shrink-0 whitespace-nowrap rounded-xl px-3 text-[0.8125rem] font-bold transition-colors duration-200 ${
                     on
                       ? "bg-navy/10 text-navy ring-2 ring-navy/30"
                       : "text-muted"
@@ -110,7 +110,7 @@ export function AdminNav({
           <div
             key={activeGroup.id}
             role="tablist"
-            className="anim-fade-in mt-2 flex gap-1.5 overflow-x-auto"
+            className="anim-fade-in -mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]"
           >
             {activeGroup.tabs.map((id) => tabBtn(id, false))}
           </div>

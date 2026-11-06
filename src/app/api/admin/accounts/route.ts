@@ -167,8 +167,13 @@ export async function GET() {
     return { data: r ? r.rows : null, error: r ? null : "read_failed" };
   };
 
+  /*  SONG SONG (tăng tốc 2026-11-06): bản cũ chạy TUẦN TỰ ~8 khối đọc (customers
+      ×3, auth, payments, staff, số khác, máy) — mỗi khối hàng chục trang ⇒ tab
+      Tài khoản chờ cộng dồn mọi lượt. Các khối KHÔNG phụ thuộc nhau nên bắn cùng
+      lúc rồi chờ chung; từng khối vẫn tự nuốt lỗi như cũ (danh sách chính vẫn về). */
   // Rộng → hẹp: bỏ dần nhóm dễ-thiếu-nhất (cột base chưa apply) trước, rồi
   // onboarding/care của sdvico, cuối cùng CORE. Nấc nào chạy được thì dừng.
+  const mainP = (async () => {
   let { data: rows, error } = await read(
     `${CORE}, ${CARE}, ${ONBOARD}, ${DATA}, ${STOREQ}, device_platform, ${KHO_COLS}, storage_persist_asked`,
   );
@@ -188,11 +193,12 @@ export async function GET() {
     ({ data: rows, error } = await read(`${CORE}, ${CARE}, ${ONBOARD}`));
   if (error) ({ data: rows, error } = await read(`${CORE}, ${CARE}`));
   if (error) ({ data: rows, error } = await read(CORE));
-  if (error) return err(500, "query_failed");
+  return error ? null : rows;
+  })();
 
   // đối chiếu auth: SĐT nào đăng nhập được (đã provision)
   const provisioned = new Set<string>();
-  try {
+  const authP = (async () => { try {
     const r = await eachAuthUser(
       (p) => admin.auth.admin.listUsers(p),
       (u) => {
@@ -202,7 +208,7 @@ export async function GET() {
     if (r.truncated) truncated = true;
   } catch {
     // đối chiếu hỏng thì vẫn trả danh sách — cột "đăng nhập được" để trống
-  }
+  } })();
 
   // NV3 — TRẠNG THÁI THU TIỀN mới nhất mỗi khách (mã CK + đối chiếu). Degrade
   // nếu bảng payments chưa có (migration payments chưa apply).
@@ -210,7 +216,7 @@ export async function GET() {
     string,
     { code: string; reconciledStatus: string }
   >();
-  try {
+  const payP = (async () => { try {
     const pays = await readAll<Record<string, unknown>>((a, b) =>
       admin
         .from("payments")
@@ -229,7 +235,7 @@ export async function GET() {
     }
   } catch {
     /* bảng payments chưa có → không trạng thái thu */
-  }
+  } })();
 
   // QUẢN TRỊ VIÊN = env ADMIN_PHONES HOẶC role='admin' (2026-07-31, hai nguồn
   // — xem lib/admin-auth.ts). Trả cờ thật + nguồn để UI dán nhãn khỏi lẫn với
@@ -237,13 +243,10 @@ export async function GET() {
   const adminPhones = parseAdminPhones(process.env.ADMIN_PHONES);
   // VAI từ staff_accounts (0056) — chưa apply thì listDbStaff lùi về
   // customers.role. Tra hỏng → chỉ mất nhãn vai, danh sách vẫn về.
-  const dbStaff = await listDbStaff(admin);
-  const staffRole = new Map<string, "admin" | "manager">(
-    dbStaff.ok ? dbStaff.rows.map((x) => [x.phone, x.role]) : [],
-  );
+  const dbStaffP = listDbStaff(admin);
   // LOẠI tài khoản (0056 account_kind) — đọc riêng, cột chưa có = mọi người "real"
   const kindOf = new Map<string, AccountKind>();
-  {
+  const kindP = (async () => {
     const k = await readAll<{ phone: string; account_kind: unknown }>(
       (a, b) => admin.from("customers").select("phone, account_kind").order("phone").range(a, b),
       50,
@@ -251,21 +254,21 @@ export async function GET() {
     if (k)
       for (const x of k.rows)
         kindOf.set(x.phone, normalizeAccountKind(x.account_kind));
-  }
+  })();
   // VAI (0079, spec 17 §8) — đọc riêng như account_kind: cột chưa có (migration chưa áp) ⇒ mọi người "chưa chọn"
   const vaiOf = new Map<string, Vai>();
-  {
+  const vaiP = (async () => {
     const v = await readAll<{ phone: string; vai: unknown }>(
       (a, b) => admin.from("customers").select("phone, vai").order("phone").range(a, b),
       50,
     );
     if (v)
       for (const x of v.rows) if (isVai(x.vai)) vaiOf.set(x.phone, x.vai);
-  }
+  })();
   // SỐ KHÁC (0086, thay SĐT phụ 0084) — cả số đã duyệt lẫn số bà con gửi đang chờ. Bảng chưa có ⇒ lùi cột cũ sdt_phu
   // (coi như đã duyệt); hỏng nữa ⇒ không ai có số khác, danh sách vẫn về.
   const soKhacOf = new Map<string, { sdt: string; duyet: boolean; khach: boolean }[]>();
-  {
+  const soKhacP = (async () => {
     const them = (phone: string, x: { sdt: string; duyet: boolean; khach: boolean }) =>
       soKhacOf.set(phone, [...(soKhacOf.get(phone) ?? []), x]);
     const k = await admin.from("sdt_khac").select("phone, sdt, nguon, duyet_luc").order("tao_luc");
@@ -278,7 +281,7 @@ export async function GET() {
         for (const x of (p.data ?? []) as { phone: string; sdt_phu: unknown }[])
           if (typeof x.sdt_phu === "string") them(x.phone, { sdt: x.sdt_phu, duyet: true, khach: false });
     }
-  }
+  })();
 
   /*  LỊCH SỬ MÁY (customer_devices, 0033) — MỘT câu cho cả danh sách rồi gom
       trong JS, KHÔNG hỏi từng khách (716 khách = 716 câu). Bảng nhỏ (mỗi khách
@@ -291,7 +294,7 @@ export async function GET() {
     string,
     { tag: string; platform: string | null; firstSeenAt: string | null; lastSeenAt: string | null }[]
   >();
-  try {
+  const devP = (async () => { try {
     const devs = await readAll<Record<string, unknown>>((a, b) =>
       admin
         .from("customer_devices")
@@ -313,7 +316,22 @@ export async function GET() {
     }
   } catch {
     /* sổ phụ — không có thì thôi, danh sách chính vẫn phải về */
-  }
+  } })();
+
+  const [rows, dbStaff] = await Promise.all([
+    mainP,
+    dbStaffP,
+    authP,
+    payP,
+    kindP,
+    vaiP,
+    soKhacP,
+    devP,
+  ]);
+  if (!rows) return err(500, "query_failed");
+  const staffRole = new Map<string, "admin" | "manager">(
+    dbStaff.ok ? dbStaff.rows.map((x) => [x.phone, x.role]) : [],
+  );
 
   const accounts = (rows ?? []).map((r) => ({
     phone: r.phone as string,

@@ -137,7 +137,8 @@ export function CrewReportsTab({ perms }: { perms: TabPerms }) {
       {/* STAFF tự thêm thuyền viên có vấn đề → duyệt luôn (hiện ngay) — cần create */}
       {perms.create && <AddCrewReportForm onAdded={load} />}
 
-      <div className="flex gap-1.5">
+      {/* flex-wrap: 4 chip không vừa máy 375 ⇒ trước tràn ngang cả trang (soi 2026-11-06) */}
+      <div className="flex flex-wrap gap-1.5">
         {chip("pending", "Chờ duyệt")}
         {chip("approved", "Đã duyệt")}
         {chip("rejected", "Đã từ chối")}

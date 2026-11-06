@@ -522,6 +522,26 @@ describe("ttsSpeak — ghép mp3 Sen Biển với giọng máy", () => {
     expect(goi()).toHaveLength(0);
   });
 
+  it("warmVoiceClips: kho SW đã đủ mẫu ⇒ không fetch lượt nào; thiếu một ⇒ đi đủ lượt", async () => {
+    installSynth([]);
+    const log: string[] = [];
+    installAudio(log);
+    const goi = () => (fetch as unknown as { mock: { calls: [string][] } }).mock.calls.map((c) => c[0]);
+    vi.stubGlobal("caches", { match: vi.fn(async () => new Response("x")) });
+    let tts = await napTts();
+    await tts.warmVoiceClips();
+    expect(goi().filter((u) => u.includes("/giong/"))).toHaveLength(0);
+    // kho bị dọn dở: một clip trong mẫu trượt ⇒ tải lại như cũ
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(1) })));
+    let lan = 0;
+    vi.stubGlobal("caches", { match: vi.fn(async () => (lan++ === 3 ? undefined : new Response("x"))) });
+    tts = await napTts();
+    await tts.warmVoiceClips();
+    expect(goi().length).toBeGreaterThan(catalog.items.length);
+    vi.unstubAllGlobals();
+  });
+
   it("warmVoiceClips dừng ở lỗi đầu, lần sau thử lại", async () => {
     installSynth([]);
     const log: string[] = [];

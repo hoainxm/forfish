@@ -109,8 +109,18 @@ export function SenBienToanApp() {
   const [nangThanh, setNangThanh] = useState(0);
   useEffect(() => {
     let ro: ResizeObserver | null = null;
+    /*  GỘP + BỎ QUA KHI KHÔNG ĐỔI (tăng tốc 2026-11-06): Sen Biển có ở MỌI màn, mà
+        bản cũ mỗi đợt đổi DOM (vẽ danh sách, ảnh về…) đều querySelector + gỡ/gắn
+        lại ResizeObserver + getBoundingClientRect — ép trình duyệt tính bố cục
+        giữa lúc đang vẽ. Nay: tối đa một lần mỗi khung hình, và cùng thanh cũ thì
+        thôi (ResizeObserver đã lo chiều cao đổi). */
+    let dangTheo: HTMLElement | null | undefined;
+    let hen = 0;
     const bat = () => {
+      hen = 0;
       const thanh = document.querySelector<HTMLElement>(".market-purchase-bar");
+      if (thanh === dangTheo) return;
+      dangTheo = thanh;
       ro?.disconnect();
       ro = null;
       if (!thanh) {
@@ -126,9 +136,12 @@ export function SenBienToanApp() {
     };
     bat();
     // thanh mua dựng sau khi dữ liệu món về ⇒ nghe cây DOM thay vì chỉ đo lúc đổi trang
-    const mo = new MutationObserver(bat);
+    const mo = new MutationObserver(() => {
+      if (!hen) hen = requestAnimationFrame(bat);
+    });
     mo.observe(document.body, { childList: true, subtree: true });
     return () => {
+      if (hen) cancelAnimationFrame(hen);
       mo.disconnect();
       ro?.disconnect();
     };

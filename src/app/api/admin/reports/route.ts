@@ -23,7 +23,7 @@ import {
   usageSnapshot,
 } from "@/lib/admin-reports";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { type ReadAll, readAll } from "@/lib/supabase/read-all";
+import { type ReadAll, eachAuthUser, readAll } from "@/lib/supabase/read-all";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -38,16 +38,18 @@ type Read<T> = ReadAll<T>;
 
 /** Tài khoản đăng nhập (auth.users): SĐT nằm ở phần trước @ của email ảo. */
 async function readSignups(admin: Admin): Promise<Read<{ phone: string; created_at: string }>> {
+  /*  1000/trang qua eachAuthUser (tăng tốc 2026-11-06): bản cũ 200/trang ⇒ 13k
+      user = ~67 lượt nối đuôi, tab Báo cáo chờ cả chục giây. */
   const rows: { phone: string; created_at: string }[] = [];
   try {
-    for (let page = 1; page <= MAX_PAGES * 5; page++) {
-      const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
-      if (error) return null;
-      for (const u of data.users)
+    const r = await eachAuthUser(
+      (p) => admin.auth.admin.listUsers(p),
+      (u) => {
         if (u.email) rows.push({ phone: u.email.split("@")[0], created_at: u.created_at });
-      if (data.users.length < 200) return { rows, truncated: false };
-    }
-    return { rows, truncated: true };
+      },
+      MAX_PAGES,
+    );
+    return { rows, truncated: r.truncated };
   } catch {
     return null;
   }
