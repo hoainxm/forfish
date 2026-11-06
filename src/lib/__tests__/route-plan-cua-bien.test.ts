@@ -18,6 +18,7 @@ import {
     Khánh, Thạnh Phú (lòng sông lưới 450 m vẽ thành đất, bãi bùn cửa sông rộng hơn
     vòng nới 12 km), Cái Rồng, Hòn Gai (lối giữa đảo hẹp hơn ô lưới thô). Nay tách
     ba đoạn qua cửa biển (`planQuaCuaBien`); bộ quét đủ cảng 1019/1019 ra tuyến.
+    06/11b: chuyến ngắn từ cảng cửa sông/giữa đảo cũng ra — quét 1901/1901 (5–700 km).
     Test này ghim các ca đại diện trên CHÍNH lưới độ sâu máy dùng. */
 const buf = readFileSync("public/data/depth-grid.v1.bin");
 const depth = decodeDepthGrid(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer);
@@ -60,6 +61,10 @@ const CA: [string, LatLon, LatLon][] = [
   ["Mỹ Tho → khơi Vũng Tàu", { lat: 10.350849, lon: 106.378648 }, { lat: 10, lon: 107.5 }],
   ["Cái Rồng → vịnh Bắc Bộ", { lat: 21.061114, lon: 107.429209 }, { lat: 19, lon: 107.5 }],
   ["Hòn Gai → khơi Quảng Trị", { lat: 20.952837, lon: 107.08 }, { lat: 17.5, lon: 107.5 }],
+  // chuyến NGẮN (2026-11-06b): một đầu thoáng — cả chuyến là đoạn ra cửa
+  ["Ba Tri → khơi 25 km", { lat: 9.976821, lon: 106.617499 }, { lat: 9.976821, lon: 106.846 }],
+  // chuyến ngắn không đầu nào thoáng — giữa đảo Bái Tử Long
+  ["Cái Rồng → giữa đảo 25 km", { lat: 21.061114, lon: 107.429209 }, { lat: 20.902, lon: 107.26 }],
 ];
 
 describe("chuyến xa từ cảng sâu trong sông / giữa đảo phải ra tuyến", () => {

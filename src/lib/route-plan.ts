@@ -921,8 +921,10 @@ export function planRouteWithDiagnostics(args: PlanArgs): RoutePlanOutcome {
 
 /*  ── TÁCH CHUYẾN QUA "CỬA BIỂN" ─────────────────────────────────────────── */
 
-/** chuyến ngắn hơn mức này thì lưới đã mịn sẵn (4 km), tách không giúp gì */
-const CUA_MIN_TRIP_KM = 60;
+/*  Chuyến ngắn mà MỘT đầu đã ở biển thoáng (Ba Tri → khơi 25–45 km): không
+    cần cửa ở giữa — cả chuyến chính là đoạn ra cửa. Đo 06/11: 63 chuyến ngắn
+    từ cảng cửa sông còn hỏng khi tách chỉ bật từ 60 km. */
+const CUA_THANG_MAX_KM = 80;
 /** khoảng cách thử đặt cửa biển tính từ mỗi đầu (km) */
 const CUA_KHOANG_KM = [20, 35, 55, 80, 120, 160] as const;
 /** lệch hướng so với hướng tới đầu kia (độ) — 0 trước, xoè dần hai bên tới quay ngược (cảng vịnh Thái Lan đi biển Đông ra cửa phía tây) */
@@ -1012,16 +1014,16 @@ function planQuaCuaBien(args: PlanArgs): RoutePlanOutcome | null {
   const { depth, start, dest, bbox } = args;
   if (!depth) return null;
   const tripKm = haversineKm(start, dest);
-  if (tripKm < CUA_MIN_TRIP_KM) return null;
   /*  thoáng quá nửa đường chéo ô lưới thô (0,71 ô) ⇒ nút snap gần cửa nhất
       chắc chắn là nước. Đòi rộng hơn (1,5 ô) thì vịnh Thái Lan lốm đốm bãi
       cạn không còn chỗ nào "thoáng" ở khung rộng (đo: Mỏ Ó → khơi Vũng Tàu). */
   const rKm = Math.max(4, buocLuoiCuaKhung(bbox) * 0.75);
   const cuaDi = ungVienCua(depth, start, dest, rKm, bbox, tripKm);
   const cuaDen = ungVienCua(depth, dest, start, rKm, bbox, tripKm);
-  if (!cuaDi.length || !cuaDen.length) return null;
+  const diThoang = cuaDi[0] === start;
+  const denThoang = cuaDen[0] === dest;
   // cả hai đầu đã thoáng sẵn ⇒ tách cũng chỉ ra đúng lượt vừa hỏng
-  if (cuaDi[0] === start && cuaDen[0] === dest) return null;
+  if (diThoang && denThoang) return null;
 
   const tinh = (a: LatLon, b: LatLon, khung: BBox, gio: number, noiCua?: PlanArgs["noiCua"]): RoutePlan | null =>
     planMotKhung({ ...args, start: a, dest: b, bbox: khung, departHourIdx: gio, landExitPadKm: undefined, noiCua }).plan;
@@ -1036,6 +1038,23 @@ function planQuaCuaBien(args: PlanArgs): RoutePlanOutcome | null {
       tinh(a, b, khung, gio, { p: bo, km: haversineKm(bo, cua) - rKm * 0.5 });
     return p && datTrenTuyenKm(depth, p.waypoints) <= CUA_DAT_MAX_KM ? p : null;
   };
+
+  if (tripKm <= CUA_THANG_MAX_KM && (diThoang || denThoang)) {
+    const p = diThoang
+      ? doanCua(dest, start, false, args.departHourIdx)
+      : doanCua(start, dest, true, args.departHourIdx);
+    if (p) return { plan: p, failure: null };
+  }
+  /*  Lượt cuối cho chuyến ngắn mà KHÔNG đầu nào thoáng (hai chỗ cùng trong mê
+      cung đảo Hạ Long/Bái Tử Long, cùng trong bãi bồi): nới quanh giữa chuyến
+      phủ cả hai đầu — vẫn phạt đất, không nới rạn, trần đất CUA_DAT_MAX_KM. */
+  const noiCaChuyen = (): RoutePlanOutcome | null => {
+    if (tripKm > CUA_THANG_MAX_KM) return null;
+    const giua = { lat: (start.lat + dest.lat) / 2, lon: (start.lon + dest.lon) / 2 };
+    const p = tinh(start, dest, khungChangNgan(start, dest, bbox), args.departHourIdx, { p: giua, km: tripKm / 2 + 2 });
+    return p && datTrenTuyenKm(depth, p.waypoints) <= CUA_DAT_MAX_KM ? { plan: p, failure: null } : null;
+  };
+  if (!cuaDi.length || !cuaDen.length) return noiCaChuyen();
 
   for (let k = 0; k < CUA_SO_CAP; k++) {
     const g1 = cuaDi[Math.min(k, cuaDi.length - 1)];
@@ -1061,7 +1080,7 @@ function planQuaCuaBien(args: PlanArgs): RoutePlanOutcome | null {
     const gop = mergeLegPlans(legs);
     if (gop) return { plan: gop.plan, failure: null };
   }
-  return null;
+  return noiCaChuyen();
 }
 
 /** một lượt tìm trên MỘT khung (lưới đều) — kèm thử lại nới lối ra cảng sâu */
