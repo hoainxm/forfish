@@ -102,6 +102,32 @@ function cauCoDinh(src: string): string[] {
   return [...new Set(out)];
 }
 
+/** Thời lượng mp3 (giây) đếm theo khung MPEG — không cần ffprobe. File hỏng / không có khung ⇒ 0. */
+function thoiLuongMp3(b: Buffer): number {
+  const BR = { 1: [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320], 2: [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160] };
+  const SR = { 3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000] } as Record<number, number[]>;
+  let i = 0;
+  if (b.subarray(0, 3).toString("latin1") === "ID3") i = 10 + ((b[6] << 21) | (b[7] << 14) | (b[8] << 7) | b[9]);
+  let giay = 0;
+  let dau = true;
+  while (i + 4 <= b.length) {
+    if (b[i] !== 0xff || (b[i + 1] & 0xe0) !== 0xe0) { i++; continue; }
+    const ver = (b[i + 1] >> 3) & 3; // 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
+    const brI = b[i + 2] >> 4, srI = (b[i + 2] >> 2) & 3, pad = (b[i + 2] >> 1) & 1;
+    if (ver === 1 || brI === 0 || brI === 15 || srI === 3) { i++; continue; }
+    const sr = SR[ver][srI];
+    const kbps = BR[ver === 3 ? 1 : 2][brI];
+    const mau = ver === 3 ? 1152 : 576;
+    const dai = Math.floor(((ver === 3 ? 144 : 72) * kbps * 1000) / sr) + pad;
+    // khung đầu thường là khung Xing/Info (không mang tiếng) — bỏ
+    const xing = dau && /Xing|Info/.test(b.subarray(i + 4, i + 4 + 40).toString("latin1"));
+    if (!xing) giay += mau / sr;
+    dau = false;
+    i += Math.max(dai, 1);
+  }
+  return giay;
+}
+
 beforeAll(() => napManhGiong());
 
 describe("nguồn câu nói ↔ giọng thu sẵn (tự dò, không khai tay)", () => {
@@ -131,5 +157,23 @@ describe("nguồn câu nói ↔ giọng thu sẵn (tự dò, không khai tay)", 
   it("danh mục mảnh KHỚP nguồn: lap_manh --kiem ra 'mới 0 · bỏ 0'", { timeout: 60_000 }, () => {
     const out = execFileSync(process.execPath, ["scripts/sen-bien-giong/lap_manh.mjs", "--kiem"], { cwd: ROOT, encoding: "utf8" });
     expect(out).toMatch(/mới 0 · bỏ 0/);
+  });
+  /*  MẢNH HỎNG (06/11): "tàu", "bản", "khu" là file 180 byte chỉ có khung đầu — 0 giây tiếng; "sóng", "tiêu" bị cắt cụt
+      0,14 s. Từ 17/10 mọi câu ghép mấy chữ này mất tiếng ngay chỗ đó mà không cổng nào thấy. Đo 06/11: file lành
+      ≥ 0,25 s mỗi âm tiết (trung vị 0,33) ⇒ trần dưới 0,2 s/âm tiết. */
+  it("mọi mp3 giọng Sen Biển có TIẾNG đủ dài (≥ 0,2 s mỗi âm tiết) — bắt file rỗng / cắt cụt", () => {
+    const cau = JSON.parse(readFileSync(join(ROOT, "src/data/giong-sen-bien.json"), "utf8")) as { dir: string; items: { id: string; text: string; doc?: string }[] };
+    const manh = JSON.parse(readFileSync(join(ROOT, "src/data/giong-sen-bien-manh.json"), "utf8")) as { dir: string; nhom: Record<string, [string, string][]> };
+    const ds: [string, string][] = [
+      ...cau.items.map((i): [string, string] => [`${cau.dir}/${i.id}.mp3`, i.doc ?? i.text]),
+      ...Object.values(manh.nhom).flat().map(([id, t]): [string, string] => [`${manh.dir}/${id}.mp3`, t]),
+    ];
+    const hong: string[] = [];
+    for (const [url, chu] of ds) {
+      const am = chu.trim().split(/\s+/).length;
+      const giay = thoiLuongMp3(readFileSync(join(ROOT, "public", url)));
+      if (giay < 0.2 * am) hong.push(`${url} (${giay.toFixed(2)} s, ${am} âm tiết) "${chu}"`);
+    }
+    expect(hong).toEqual([]);
   });
 });

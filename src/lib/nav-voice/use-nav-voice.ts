@@ -21,6 +21,8 @@ import { loadLongestSavedGrid } from "@/lib/forecast-grid";
 import { gridToWeatherField } from "@/lib/route-weather";
 import { computeUrgent } from "@/lib/urgent";
 import { readToken } from "@/lib/device-token-store";
+import { doanXinMp3 } from "@/lib/sen-bien/hoi-may-chu";
+import { chiaCau } from "@/lib/kairos/de-dung";
 import {
   acknowledge,
   announce,
@@ -59,6 +61,7 @@ import {
   ttsCheck,
   ttsOpenInstall,
   ttsSpeak,
+  ttsSpeakMp3,
   ttsUnlock,
   type TtsAvail,
 } from "@/lib/voice/tts";
@@ -154,7 +157,14 @@ export type NavVoice = {
 
 /** `onSpoken` = đọc XONG thật (mở micro được) · `onXong` = câu đã thôi đọc, xong hay bị cắt (câu giờ báo để câu trả lời
  *  nói tiếp ngay, không ngồi chờ hết trần khi câu giờ bị cảnh báo cắt ngang). */
-export type SayOpts = { onSpoken?: () => void; onXong?: () => void };
+export type SayOpts = {
+  onSpoken?: () => void;
+  onXong?: () => void;
+  /** câu ĐÁP chữ tự do (kho hỏi–đáp, máy nhà) ⇒ đọc giọng Mỹ Duyên của máy nhà (mp3 xin từng câu, `hoi-may-chu.xinMp3`),
+   *  câu nào thiếu mp3 thì giọng máy. Chỗ gọi chỉ bật khi có sóng + đăng nhập (`docKhoBangMayNha`). Vẫn đi ĐÚNG hàng đọc
+   *  — cảnh báo đỏ vẫn chen trước, cắt ngang (rà soát giọng 2026-11-06). */
+  mayNha?: boolean;
+};
 
 export function useNavVoice(inp: NavVoiceInput): NavVoice {
   const [prefs, setPrefs] = useState<NavVoicePrefs>({ muc: "day-du", daXem: true, tuDoc: false });
@@ -208,6 +218,13 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
   const offQRef = useRef<{ text: string; key: string }[]>([]);
   /** "đọc xong thì báo" của câu đáp Sen Biển, theo key — câu bị cắt thì bỏ (không gọi) */
   const spokenCbRef = useRef(new Map<string, (completed: boolean) => void>());
+  /** khoá câu đáp đọc bằng mp3 máy nhà (SayOpts.mayNha) — dùng một lần lúc đọc rồi bỏ */
+  const mayNhaRef = useRef(new Set<string>());
+  /** đọc MỘT câu: câu đánh dấu máy nhà ⇒ mp3 Mỹ Duyên xin từng câu; còn lại ⇒ ttsSpeak (mp3 thu sẵn / mảnh / giọng máy) */
+  const docCau = useCallback((key: string, text: string, opts: { rate?: number; onEnd: (completed: boolean) => void }) => {
+    if (mayNhaRef.current.delete(key)) return ttsSpeakMp3(doanXinMp3(chiaCau(text)), opts);
+    return ttsSpeak(text, opts);
+  }, []);
   const fireSpoken = useCallback((key: string, completed: boolean) => {
     const cb = spokenCbRef.current.get(key);
     spokenCbRef.current.delete(key);
@@ -271,7 +288,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
         if (tok !== tokRef.current) return;
         setSpeaking({ text: u.text, red: u.tier === "do" });
         if (!u.reply) lastTextRef.current = u.text;
-        cancelRef.current = ttsSpeak(u.text, {
+        cancelRef.current = docCau(u.key, u.text, {
           rate: speechRate(u, u.text),
           onEnd: (completed) => {
             // bị cắt (đỏ chen, tắt màn, tắt giọng) ⇒ tok đã đổi / completed=false: không báo "xong"
@@ -289,7 +306,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
         runRef.current(pump(stRef.current, Date.now()));
       }, r.waitMs + 20);
     }
-  }, [fireSpoken]);
+  }, [fireSpoken, docCau]);
   useEffect(() => {
     runRef.current = run;
   }, [run]);
@@ -325,7 +342,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
         return;
       }
       offBusyRef.current = true;
-      ttsSpeak(t.text, {
+      docCau(t.key, t.text, {
         rate: speechRate({ reply: true }, t.text),
         onEnd: (completed) => {
           fireSpoken(t.key, completed);
@@ -333,7 +350,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
         },
       });
     },
-    [push, fireSpoken],
+    [push, fireSpoken, docCau],
   );
   const sayOff = useCallback(
     (text: string, key: string) => {
@@ -697,6 +714,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     (text: string, opts?: SayOpts) => {
       if (!text) return;
       const key = replyKey();
+      if (opts?.mayNha) mayNhaRef.current.add(key);
       if (opts?.onSpoken || opts?.onXong)
         spokenCbRef.current.set(key, (completed) => {
           if (completed) opts.onSpoken?.();

@@ -171,3 +171,29 @@ export function ghepManh(doan, tra, dai) {
   }
   return out;
 }
+
+/** Tên chữ cái kiểu đọc biển số tàu. */
+/** @type {Record<string, string>} */
+const TEN_CHU = { A: "a", B: "bê", C: "xê", D: "dê", Đ: "đê", E: "e", G: "giê", H: "hát", I: "i", K: "ca", L: "lờ", M: "mờ", N: "nờ", O: "ô", P: "pê", Q: "quy", R: "rờ", S: "ét", T: "tê", U: "u", V: "vê", X: "ích", Y: "i dài" };
+/** @type {string[]} */
+const SO_DOC = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+
+/**
+ * Mã tàu đọc như biển số (rà soát giọng 2026-11-06 — chữ cái có mảnh giọng thu sẵn, mã viết tắt thì không).
+ * "BV-92345-TS" ⇒ "bê vê chín hai ba bốn năm tê ét" (mã đăng ký tàu cá: chữ tỉnh, số, đuôi TS). Tên thường giữ nguyên.
+ * @param {unknown} ten
+ */
+export function tenTauDoc(ten) {
+  const t = String(ten ?? "").trim();
+  if (!/^[A-ZĐ][A-Za-zĐđ]{0,3}[\s.-]*\d{1,6}[\s.-]*[A-Z]{0,3}$/.test(t)) return t;
+  return danhVan(t);
+}
+
+/**
+ * Đánh vần từng chữ cái / chữ số ("TS" ⇒ "tê ét", "92" ⇒ "chín hai").
+ * @param {string} s
+ */
+export function danhVan(s) {
+  return [...s.toUpperCase().replace(/[\s.-]+/g, "")].map((c) => (/\d/.test(c) ? SO_DOC[+c] : TEN_CHU[c] ?? c)).join(" ");
+}
+

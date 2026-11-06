@@ -322,4 +322,37 @@ describe("trợ lý toàn app: câu đọc (speak) trọn Mỹ Duyên", () => {
   it("câu thiếu dữ liệu hay gặp: con nước, giấy tờ, bảo dưỡng, bạn thuyền, tàu, giá", () => {
     phuHet(["con nước hôm nay", "giấy tờ sắp hết hạn", "lịch bảo dưỡng", "bạn thuyền", "tàu của tôi", "giá cá hôm nay", "giá dầu"].map((c) => noi(c, snap())));
   });
+  it("nhánh CÓ DỮ LIỆU (số động): thời tiết theo ngày, bão có tên, con nước, giấy tờ, bảo dưỡng, đơn, giá, dầu", () => {
+    const day = (o: number, level: "good" | "caution" | "bad", score: number, wave: number, wind: number) => ({
+      date: `2026-11-${String(6 + o).padStart(2, "0")}`, score, level, waveMaxM: wave, waveEstimated: false,
+      windMaxKmh: wind, gustMaxKmh: wind + 12, precipMm: o, wmoCode: 1,
+    });
+    const weather = { portId: "quy-nhon", portName: "Quy Nhơn", savedAt: NOW - 2 * H, days: [day(0, "good", 82, 0.8, 25), day(1, "caution", 55, 1.6, 38), day(2, "bad", 20, 3.2, 62), day(3, "good", 76, 1, 20)] };
+    const day2 = (d: number) => new Date(NOW + d * 86_400_000).toISOString().slice(0, 10);
+    const full = snap({
+      premium: true,
+      weather,
+      storm: { savedAt: NOW - H, storms: [{ name: "Kajiki", kindLabel: "Bão", windKmh: 118, alert: "danger", distanceKm: 420 }] },
+      tide: { stationName: "Quy Nhơn", savedAt: NOW - H, extremes: [{ at: NOW + 2 * H, kind: "high", heightM: 2.1 }, { at: NOW + 8 * H, kind: "low", heightM: 0.4 }] },
+      boat: { name: "BĐ-91234-TS", count: 2, names: ["BĐ-91234-TS", "BĐ-95678-TS"] },
+      docs: [
+        { label: "Giấy phép khai thác", expiresOn: day2(-3), daysLeft: -3, level: "expired" },
+        { label: "Đăng kiểm", expiresOn: day2(12), daysLeft: 12, level: "soon" },
+      ],
+      maintenance: [{ item: "Thay nhớt máy", dueOn: day2(2), daysLeft: 2, level: "soon" }],
+      crew: { count: 6, issues: 1 },
+      cart: { lines: 2, titles: ["Lưới cước", "Dây phao"] },
+      orders: { savedAt: NOW - H, items: [{ code: "DH-UY3Y", status: "dang_giao", shopName: "Vật tư Hải Âu", totalVnd: 1_250_000 }] },
+      fishPrices: { savedAt: NOW - 3 * H, week: "2026-W45", items: [{ species: "Cá ngừ sọc dưa (cá ngừ vằn)", minVnd: 28_000, maxVnd: 35_000 }, { species: "Mực ống", minVnd: 180_000, maxVnd: 220_000 }] },
+      fuel: { savedAt: NOW - 5 * H, date: "2026-11-06", priceVnd: 19_850 },
+    });
+    const hoi = [
+      "thời tiết hôm nay", "mai đi được không", "thời tiết ngày kia", "có bão không", "con nước hôm nay",
+      "giấy tờ sắp hết hạn", "bạn thuyền", "tàu của tôi",
+      "giá cá hôm nay", "giá mực", "giá dầu", "gọi sdvico",
+    ];
+    // KHÔNG đưa: "lịch bảo dưỡng", "giỏ hàng", "đơn của tôi" — câu mang chữ bà con TỰ ĐẶT (tên việc, tên món, tên shop)
+    // không thu sẵn được ⇒ câu đó giọng máy (doc 15 §36 trần). Mã đơn / mã tàu thì đã đánh vần (ghep.danhVan).
+    phuHet(hoi.map((c) => noi(c, full)));
+  });
 });

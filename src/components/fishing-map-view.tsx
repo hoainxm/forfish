@@ -332,7 +332,7 @@ import { useNavTracking } from "@/lib/use-nav-tracking";
 import { useNavVoice } from "@/lib/nav-voice/use-nav-voice";
 import type { ChartReadiness } from "@/lib/nav-voice/opening";
 import type { VoiceMode } from "@/lib/nav-voice/announcer";
-import { cauVuaNoi, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
+import { cauVuaNoi, speechParts, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { datTenUuTien, napBoNghe, ngheRanhTay } from "@/lib/sen-bien/nghe-may";
 import { laTiengVong, NGHE_SAU_DOC_MS } from "@/lib/sen-bien/nghe";
 import { tachCauGoi } from "@/lib/sen-bien/goi-ranh-tay";
@@ -345,7 +345,7 @@ import { goLenhNgan, hoiKho } from "@/lib/sen-bien/hoi-kho";
 import { laHoiChinhSach } from "@/lib/kairos/tim-tin";
 import { traLoiSanPham } from "@/lib/sen-bien/hoi-san-pham";
 import { QuangCaoNoi } from "@/components/quang-cao-noi";
-import { hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { docKhoBangMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
 import { henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { readToken } from "@/lib/device-token-store";
@@ -5245,7 +5245,10 @@ export default function FishingMapView() {
           const kq = await hoiKho(text, r, bo, senNgramCtx(senDests, senAwait != null), chonKho, online && !!readToken());
           if (!conLuot()) return null;
           if (kq.vao && kq.dap) {
-            senSay(kq.dap.say);
+            // câu kho dài không thu sẵn được ⇒ có sóng + đăng nhập thì đọc Mỹ Duyên máy nhà, vẫn đi hàng đọc dẫn đường
+            // (rà soát giọng 06/11, như màn toàn app; mất sóng ⇒ giọng trong máy như cũ)
+            const mayNha = docKhoBangMayNha(kq.dap.say, { online, coToken: !!readToken(), phuDu: (c) => speechParts(c).every((p) => p.clips) });
+            senSay(kq.dap.say, { mayNha });
             return { show: kq.dap.say };
           }
           const a = traLoiApp(
@@ -5284,7 +5287,8 @@ export default function FishingMapView() {
             await xongGio();
             if (!conLuot()) return null;
             const say = "text" in kqN ? kqN.text : cauTruot(kqN.loi);
-            senSay(say);
+            // câu máy nhà = chữ tự do ⇒ giọng Mỹ Duyên máy nhà (ADR 0016; trước 06/11 màn bản đồ đọc giọng máy)
+            senSay(say, { mayNha: "text" in kqN });
             return { show: say };
           }
           const say = buoc.buoc === "noi" ? buoc.say : r.say;

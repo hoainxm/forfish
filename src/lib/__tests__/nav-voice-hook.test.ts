@@ -315,4 +315,17 @@ describe("useNavVoice", () => {
     expect(reply[0].rate).toBe(1.12);
     expect(spoken.find((s) => s.text === RED_NOI)?.rate).toBe(1);
   });
+  it("câu đáp mayNha (kho / máy nhà, rà soát giọng 06/11): xin mp3 Mỹ Duyên /api/sen-bien/doc; lỗi mạng ⇒ vẫn đọc giọng máy", async () => {
+    const f = vi.fn<(u: unknown) => Promise<never>>(() => Promise.reject(new TypeError("offline")));
+    vi.stubGlobal("fetch", f);
+    const { result } = renderHook((p: NavVoiceInput) => useNavVoice(p), { initialProps: base() });
+    const xinDoc = () => f.mock.calls.filter(([u]) => String(u).includes("/api/sen-bien/doc")).length;
+    act(() => result.current.say("Chủ tàu phải làm thủ tục đăng ký lại tàu đứng tên mình.", { mayNha: true }));
+    await tick(15_000);
+    expect(xinDoc()).toBe(1);
+    expect(spoken.some((x) => /thủ tục đăng ký lại/.test(x.text))).toBe(true);
+    act(() => result.current.say("Câu đáp thường không xin máy nhà."));
+    await tick(15_000);
+    expect(xinDoc()).toBe(1);
+  });
 });

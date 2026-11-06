@@ -13,6 +13,8 @@ import { savedAgoLabel } from "@/lib/forecast-cache";
 import { STORM_MAX_AGE_MS } from "@/lib/storms";
 import { weatherFromCode } from "@/lib/weather-codes";
 import { FREE_FORECAST_DAYS, THOI_TIET_XA_CAN_GOI } from "@/lib/tier";
+import { tenBaoNoi } from "@/lib/nav-voice/ten-bao";
+import { danhVan, tenTauDoc } from "@/lib/voice/ghep.mjs";
 import { SCREEN_LABEL } from "./intents";
 import { blockReasonOf } from "./parse";
 import { ALL_PORT_NAMES, matchPortKeys, nearPortKeys, portByKey } from "./ports";
@@ -79,9 +81,32 @@ export function limitSentences(text: string, n: number): string {
   return parts.slice(0, n).join(" ").trim();
 }
 
-/** Chữ hiện → chữ đọc: đơn vị viết tắt thành lời, số tiền thành lời, bỏ ngoặc/xuống dòng. */
+/*  MÃ / CHỮ VIẾT TẮT ⇒ CHỮ NÓI (rà soát giọng 2026-11-06, doc 15 §36). Luật một câu một giọng: câu dính MỘT chữ không
+    có mảnh thu sẵn ("BĐ-91234-TS", "DH-UY3Y", "Kajiki", "2026-W45", "dầu DO") là CẢ câu đọc giọng máy lệch tông. Chỉ đổi
+    chữ ĐỌC (`speak`) — chữ hiện (`text`) giữ nguyên mã cho bà con đối chiếu. Không lookbehind (Safari < 16.4). */
+const KHONG_CHU = "[^\\p{L}\\p{N}]";
+function chuNoiMa(text: string): string {
+  return (
+    text
+      // tuần ISO "2026-W45" ⇒ "45" (câu đã có chữ "tuần")
+      .replace(/\b\d{4}-W(\d{1,2})\b/g, "$1")
+      // mã tàu "BĐ-91234-TS" / "BĐ 91234" ⇒ đánh vần như biển số
+      .replace(new RegExp(`(^|${KHONG_CHU})([A-ZĐ][A-Za-zĐđ]{0,3}[ .-]?\\d{3,6}(?:[ .-]?[A-Z]{1,3})?)(?=${KHONG_CHU}|$)`, "gu"), (_m, a: string, ma: string) => `${a}${tenTauDoc(ma)}`)
+      // mã đơn "DH-UY3Y", "SD260904M3RT" (chữ hoa lẫn số) ⇒ đánh vần
+      .replace(/\b[A-Z]{2,}-[A-Z0-9]{3,}\b|\b(?=[A-Z0-9]*\d)(?=[A-Z0-9]*[A-Z])[A-Z0-9]{6,}\b/g, (m) => danhVan(m))
+      // tên bão quốc tế ⇒ phiên âm như bản tin bão chế độ Đang chạy (ten-bao.ts) — chữ lạ giữ nguyên
+      .replace(/\b[A-Z][a-z]{2,}\b|\b[A-Z]{4,}\b/g, (w) => tenBaoNoi(w))
+      .replace(/\b(dầu|Dầu) DO\b/g, (_m, d: string) => `${d} đi ô`)
+      .replace(/\/lít\b/g, " một lít")
+      .replace(/\s+–\s+/g, " đến ")
+      // ngày "6/11" ⇒ "ngày 6 tháng 11" (chừa "/100" của điểm đi biển cho bước sau)
+      .replace(/(ngày\s+)?\b(\d{1,2})\/(\d{1,2})\b(?!\d)/g, (m, _n, d: string, t: string) => (Number(t) > 12 ? m : `ngày ${d} tháng ${t}`))
+  );
+}
+
+/** Chữ hiện → chữ đọc: mã thành chữ nói, đơn vị viết tắt thành lời, số tiền thành lời, bỏ ngoặc/xuống dòng. */
 export function toSpeech(text: string): string {
-  return text
+  return chuNoiMa(text)
     .replace(/\b(\d{1,3}(?:\.\d{3})+)\b/g, (m) => vndSpeech(Number(m.replace(/\./g, ""))))
     .replace(/…/g, ".")
     .replace(/\s+—\s+/g, ", ")

@@ -60,6 +60,8 @@ const NGUON = [
   "src/lib/assistant/answer.ts",
   "src/lib/assistant/chao.ts",
   "src/lib/kairos/tim-tin.ts",
+  // tên loài trong câu báo giá của trợ lý ("Giá bến tuần 45: Cá thu …") — bảng giá bến
+  "src/data/port-prices.ts",
 ];
 
 /* ── quét chuỗi chữ trong mã TS ───────────────────────────────────────────── */
@@ -191,6 +193,8 @@ const CO_BAN = [
   // tên chữ cái (đánh vần mã tàu "bê vê … tê ét", chữ viết tắt SOS/GPS — stracking/doc-canh-bao.tenTauDoc, 2026-11-06)
   "a", "bê", "xê", "dê", "đê", "e", "giê", "hát", "i", "ca", "lờ", "mờ", "nờ", "ô", "pê", "quy", "rờ", "ét", "tê", "u", "vê", "ích", "i dài",
   // tuổi tin "lưu 3 giờ trước" (forecast-cache.savedAgoLabel — file lớn, không quét cả file)
+  // câu tiền / giá / dầu của trợ lý (answer.toSpeech: "28 ngàn đồng một ký", "dầu đi ô … đồng một lít")
+  "đồng", "ngàn đồng", "triệu đồng", "dầu", "dầu đi ô", "một ký", "tin", "tin lưu",
   "lưu", "lưu vừa xong", "phút trước", "giờ trước", "ngày trước",
   "tê ét", "ét ô ét", "giê pê ét", "rì sét", "mất giê pê ét", "thiết bị rì sét",
   "điểm", "chỗ", "ghé", "số", "bản đồ", "sóng", "gió", "cao", "thấp", "vừa", "lớn", "nhỏ", "và", "hoặc", "là", "có", "không", "đang", "đã", "chưa", "trên", "dưới",

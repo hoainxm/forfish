@@ -10,6 +10,9 @@
 
 import { homNayVn, trangThaiHan } from "./dong-bo.mjs";
 import { mucCanhBao } from "./muc-canh-bao.mjs";
+import { danhVan, tenTauDoc } from "../voice/ghep.mjs";
+
+export { tenTauDoc };
 
 const GIO_MS = 3600_000;
 /** Đọc tối đa ngần này cảnh báo mỗi tàu (nặng nhất trước). */
@@ -18,24 +21,9 @@ export const CANH_BAO_MOI_TAU = 2;
 /*  GIỌNG MỸ DUYÊN TRỌN CÂU (rà soát giọng 2026-11-06, anh Long: "tránh phải dùng cái giọng máy nó lệch tông"). Luật một
     câu một giọng (doc 15 §21): câu dính MỘT chữ không có mảnh thu sẵn ("BV-92345-TS", "SOS") là CẢ câu đọc giọng máy. Nên
     lời đọc viết sẵn bằng chữ nói: mã tàu đánh vần từng chữ cái + từng số (như bà con đọc biển số), chữ viết tắt đọc theo
-    tên chữ cái — chữ nào cũng có mảnh (lap_manh.mjs CO_BAN). Màn hình vẫn in mã gốc; chỉ câu NÓI đổi. */
-/** Tên chữ cái kiểu đọc biển số tàu. */
-const TEN_CHU = { A: "a", B: "bê", C: "xê", D: "dê", Đ: "đê", E: "e", G: "giê", H: "hát", I: "i", K: "ca", L: "lờ", M: "mờ", N: "nờ", O: "ô", P: "pê", Q: "quy", R: "rờ", S: "ét", T: "tê", U: "u", V: "vê", X: "ích", Y: "i dài" };
-const SO_DOC = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+    tên chữ cái — chữ nào cũng có mảnh (lap_manh.mjs CO_BAN). Hàm đánh vần dùng chung ở lib/voice/ghep.mjs. Màn hình vẫn in mã gốc; chỉ câu NÓI đổi. */
 /** Chữ viết tắt trong tên loại cảnh báo của Viettel ⇒ chữ nói. */
 const VIET_TAT = { SOS: "ét ô ét", GPS: "giê pê ét", Reset: "rì sét" };
-
-/** "BV-92345-TS" ⇒ "bê vê chín hai ba bốn năm tê ét" (mã đăng ký tàu cá: chữ tỉnh, số, đuôi TS). Tên thường giữ nguyên. */
-export function tenTauDoc(ten) {
-  const t = String(ten ?? "").trim();
-  if (!/^[A-ZĐ][A-Za-zĐđ]{0,3}[\s.-]*\d{1,6}[\s.-]*[A-Z]{0,3}$/.test(t)) return t;
-  return danhVan(t);
-}
-
-/** Đánh vần từng chữ cái / chữ số ("TS" ⇒ "tê ét", "92" ⇒ "chín hai"). */
-function danhVan(s) {
-  return [...s.toUpperCase().replace(/[\s.-]+/g, "")].map((c) => (/\d/.test(c) ? SO_DOC[+c] : TEN_CHU[c] ?? c)).join(" ");
-}
 
 /** Viết thường cho câu đọc liền mạch; chữ viết tắt (SOS, GPS) ⇒ tên chữ cái để có mảnh giọng Mỹ Duyên. */
 function chuThuong(loai) {
