@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chiTietTuDoc, chonTauCanTra, chuanHoaHang, danhSachO, gopHangTho, gopTau, hoHieuHopLe, imoHopLe, mmsiHopLe, gopVet, idCoDinh, khoaGioLuu, kiemGoi, thamSoVet, oTile, rutId, VUNG_QUET } from "@/lib/tau-ais/chuan-hoa.mjs";
-import { danhSachSdtHopLe, docDanhSachSdt, duocXemAis } from "@/lib/tau-ais/quyen";
+import { danhSachSdtHopLe, docDanhSachSdt, duocXemAis, duocXemTauQuanh } from "@/lib/tau-ais/quyen";
 import { validateConfigValue } from "@/lib/app-config-keys";
 import { cauVet, chuanTen, coTheXemVet, demTheoNhom, dinhDanhTau, fetchVetTau, moTaTau, vetGeoJson, timTau, tauGanDiem, tuoiTinLabel, tuoiTinPhut, type TauAis } from "@/lib/tau-ais";
 
@@ -120,6 +120,12 @@ describe("tàu AIS — quyền xem theo tài khoản", () => {
     expect(duocXemAis("0912345678", o)).toBe(true);
     expect(duocXemAis("0909999999", o)).toBe(false);
     expect(duocXemAis("0938635689", "0901234567")).toBe(false);
+  });
+  it("tàu quanh điểm (giữ lâu): danh sách AIS HOẶC premium (2026-11-06)", () => {
+    expect(duocXemTauQuanh("0938635689", null, false)).toBe(true);
+    expect(duocXemTauQuanh("0901234567", null, true)).toBe(true);
+    expect(duocXemTauQuanh("0901234567", null, false)).toBe(false);
+    expect(duocXemTauQuanh(null, null, true)).toBe(false);
   });
   it("ô quản trị: mọi mẩu phải là SĐT — gõ sai một số thì chặn", () => {
     expect(danhSachSdtHopLe("0938635689, 0901234567")).toBe(true);

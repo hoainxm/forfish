@@ -28,8 +28,9 @@ export type DataRouteRule = {
   /** Xô đếm rate limit (mỗi xô một kho riêng). */
   bucket: "fish" | "data" | "tiles" | "guest";
   rate: RateWindow;
-  /** Quyền bật theo tài khoản (403 `ais_off` nếu không có) — AIS: `app_config.tau_ais_xem`, lib/tau-ais/quyen. */
-  feature?: "ais";
+  /** Quyền bật theo tài khoản (403 `ais_off` nếu không có) — AIS: `app_config.tau_ais_xem`, lib/tau-ais/quyen.
+   *  `ais-quanh` (tàu quanh một điểm + đường đi một tàu): danh sách AIS HOẶC tài khoản premium (2026-11-06). */
+  feature?: "ais" | "ais-quanh";
 };
 
 const TEN_MIN = 10 * 60 * 1000;
@@ -111,6 +112,9 @@ export function dataRouteRule(pathname: string, search: URLSearchParams): DataRo
   if (CAN_GOI.has(p)) return banDo("data", true);
   if (TAI_KHOAN.has(p)) return banDo("data", false);
   // AIS: miễn phí nhưng CHỈ tài khoản được bật (2026-10-29) — chặn ở đây vì CDN giữ bản 2 phút, cổng trong route bị cache vượt
-  if (p === "/api/tau-ais" || p === "/api/tau-ais/vet" || p === "/api/tau-ais/quanh") return { ...banDo("data", false), feature: "ais" };
+  if (p === "/api/tau-ais") return { ...banDo("data", false), feature: "ais" };
+  // tàu quanh điểm (menu giữ lâu) + đường đi một tàu từ thẻ đó: thêm premium (2026-11-06, anh Long: "cho phép acc premium
+  // có tính năng giữ 6 s thì hiện ra cái tàu quanh 6 hải lý tương tự acc admin") — lớp AIS toàn biển vẫn chỉ danh sách
+  if (p === "/api/tau-ais/vet" || p === "/api/tau-ais/quanh") return { ...banDo("data", false), feature: "ais-quanh" };
   return null;
 }

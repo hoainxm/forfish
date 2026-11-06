@@ -9,7 +9,7 @@ import { allowRequest, type RateStore } from "@/lib/rate-limit";
 import { dataRouteRule, type DataRouteRule } from "@/lib/data-route-rules";
 import { supabaseMode } from "@/lib/demo-mode";
 import { getConfigValue } from "@/lib/app-config";
-import { duocXemAis } from "@/lib/tau-ais/quyen";
+import { duocXemAis, duocXemTauQuanh } from "@/lib/tau-ais/quyen";
 import { chanBanDoFree } from "@/lib/vai";
 
 /**
@@ -127,6 +127,16 @@ async function gateByPhone(
   // QUYỀN BẬT THEO TÀI KHOẢN (AIS, 2026-10-29). getConfigValue có đệm; DB nghẹt ⇒ ô rỗng ⇒ mặc định chủ dự án.
   if (rule.feature === "ais" && !duocXemAis(phone, await getConfigValue("tau_ais_xem"))) {
     return deny(403, "ais_off");
+  }
+  // TÀU QUANH ĐIỂM (2026-11-06): danh sách AIS trước (khỏi tra hạng), không có mới tra premium. Tra hạng hỏng ⇒ 503 để
+  // máy giữ bản đã lưu, không nói nhầm "không có quyền".
+  if (rule.feature === "ais-quanh") {
+    const cauHinh = await getConfigValue("tau_ais_xem");
+    if (!duocXemTauQuanh(phone, cauHinh, false)) {
+      const tier = await cachedTier(phone);
+      if (tier === "unavailable") return deny(503, "unavailable");
+      if (!duocXemTauQuanh(phone, cauHinh, tier === "premium")) return deny(403, "ais_off");
+    }
   }
   // Gọi dồn dập (cào để phát lại) → 429. Máy bà con gọi vài lượt mỗi lần mở
   // bản đồ, ô ảnh vài trăm — cách trần rất xa. 429 nằm trong `isRescuableStatus`

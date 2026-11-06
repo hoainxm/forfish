@@ -955,6 +955,11 @@ export default function FishingMapView() {
       "chưa tải được" với "biển không có xoáy" — mà hai chuyện đó khác hẳn nhau.
       Nay giữ cờ hỏng riêng cho lớp này, dùng lại đúng khuôn `gridFailed`. */
   const { access: premiumAccess } = useFeatureAccess();
+  /*  TÀU QUANH MỘT ĐIỂM (menu giữ lâu) — danh sách AIS HOẶC premium (2026-11-06, anh Long: "cho phép acc premium có
+      tính năng giữ 6 s thì hiện ra cái tàu quanh 6 hải lý tương tự acc admin"). Cùng luật cổng `ais-quanh` ở
+      middleware (lib/tau-ais/quyen duocXemTauQuanh). Lớp AIS toàn biển vẫn chỉ `aisAllowed`. "open" = premium (kể cả
+      dấu đã lưu khi mất sóng — thẻ tự lùi về bản AIS trong máy). */
+  const tauQuanhAllowed = aisAllowed || premiumAccess === "open";
   const premiumLocked =
     premiumAccess === "login" || premiumAccess === "upgrade";
   const [seaScalarFailed, setSeaScalarFailed] = useState<SeaScalarKind | null>(
@@ -6329,7 +6334,7 @@ export default function FishingMapView() {
             const rect = m.getContainer().getBoundingClientRect();
             const ll = m.unproject([px - rect.left, py - rect.top]);
             setPressMenu({ lat: ll.lat, lon: ll.lng, x: px, y: py });
-            if (aisAllowed) batDemAis();
+            if (tauQuanhAllowed) batDemAis();
           }, LONG_PRESS_MS);
         }}
         onPointerMove={(e) => {
@@ -9164,7 +9169,7 @@ export default function FishingMapView() {
             <StarIcon className="h-6 w-6 shrink-0 text-sun" />
             {NHAN.luuDiem}
           </button>
-          {pressMenu.ais && aisAllowed && (
+          {pressMenu.ais && tauQuanhAllowed && (
             <button
               type="button"
               onClick={() => {
@@ -9508,7 +9513,7 @@ export default function FishingMapView() {
                 onClose={thoatAis}
               />
             )}
-            {tauQuanh && aisAllowed && (
+            {tauQuanh && tauQuanhAllowed && (
               <TheTauQuanh
                 key={`${tauQuanh.tam.lat},${tauQuanh.tam.lon}`}
                 kq={tauQuanh.kq}

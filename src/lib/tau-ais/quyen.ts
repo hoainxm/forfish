@@ -35,3 +35,13 @@ export function duocXemAis(phone: string | null | undefined, cauHinh: string | n
   const hieuLuc = ds.length > 0 ? ds : [...MAC_DINH_XEM_AIS];
   return hieuLuc.includes(normalizeVnPhone(phone));
 }
+
+/**
+ * TÀU QUANH MỘT ĐIỂM (menu giữ lâu trên bản đồ, 6 hải lý · 6 giờ) + đường đi một tàu từ thẻ đó — danh sách AIS
+ * HOẶC tài khoản premium (2026-11-06, anh Long: "cho phép acc premium có tính năng giữ 6 s thì hiện ra cái tàu quanh
+ * 6 hải lý tương tự acc admin"). Lớp AIS toàn biển / bán kính radar vẫn chỉ `duocXemAis`.
+ */
+export function duocXemTauQuanh(phone: string | null | undefined, cauHinh: string | null | undefined, premium: boolean): boolean {
+  if (!phone) return false;
+  return premium || duocXemAis(phone, cauHinh);
+}

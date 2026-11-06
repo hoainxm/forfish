@@ -87,8 +87,9 @@ describe("dataRouteRule", () => {
     expect(dataRouteRule("/api/nautical", q())).toEqual(TK("data"));
     // AIS (2026-10-29): như lớp tài khoản nhưng thêm quyền bật theo tài khoản — middleware 403 ais_off
     expect(dataRouteRule("/api/tau-ais", q())).toEqual({ ...TK("data"), feature: "ais" });
-    expect(dataRouteRule("/api/tau-ais/vet", q("id=636012345"))).toEqual({ ...TK("data"), feature: "ais" });
-    expect(dataRouteRule("/api/tau-ais/quanh", q("lat=10.3&lon=107.1"))).toEqual({ ...TK("data"), feature: "ais" });
+    // tàu quanh điểm + đường đi một tàu (2026-11-06): danh sách AIS HOẶC premium
+    expect(dataRouteRule("/api/tau-ais/vet", q("id=636012345"))).toEqual({ ...TK("data"), feature: "ais-quanh" });
+    expect(dataRouteRule("/api/tau-ais/quanh", q("lat=10.3&lon=107.1"))).toEqual({ ...TK("data"), feature: "ais-quanh" });
   });
 
   it("xô khách rộng (nhiều máy chung IP nhà mạng)", () => {
