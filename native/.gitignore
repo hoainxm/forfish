@@ -1,0 +1,12 @@
+.gradle/
+build/
+local.properties
+.kotlin/
+*.iml
+.idea/
+# iOS: project sinh từ iosApp/project.yml bằng XcodeGen
+iosApp/*.xcodeproj/
+iosApp/build/
+# nền bản đồ chép từ public/data lúc build (đợt 0), mô hình Gemma — không vào git
+androidApp/src/main/assets/du-lieu/
+iosApp/du-lieu/

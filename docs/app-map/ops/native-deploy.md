@@ -4,6 +4,8 @@
 
 **Load khi**: làm gì liên quan cài đặt app, manifest, service worker, icon, hoặc wrap native.
 
+> **2026-11-04 — ADR 0019**: app native thật (KMP + Compose / SwiftUI) sẽ THAY vỏ Capacitor khi làm đủ như web — lộ trình [18-native-kmp](../18-native-kmp.md). Tới lúc đó các mục Capacitor dưới đây vẫn là đường phát hành.
+
 ---
 
 ## 1. Hiện trạng (đã có trong repo)
@@ -70,7 +72,7 @@ Chủ dự án chốt qua Zalo: *"cài app tự động bật GPS luôn"* (làm 
 - **Dep**: gói SPM cục bộ `ios/App/LiteRTLM-SPM` = LiteRT-LM **v0.18.0** (chép `swift/*.swift` bỏ test/`apple_fm` + `CLiteRTLM.xcframework` theo URL + checksum). **Không** sửa `CapApp-SPM/Package.swift` (Capacitor CLI quản). Nâng bản: chép lại Swift + url/checksum của tag mới, CÙNG bản `litertlm-android`.
 - **Mô hình**: Run Script "Sen Biển Gemma" chép `ios/App/sen-bien-gemma/gemma.litertlm` (**gitignore**) + `NOTICE.txt` của gói Android vào `App.app/sen-bien/`, kiểm SHA-256 với `android/sen-bien-gemma/gemma.sha256`. Sai hash ⇒ build đỏ; thiếu file ⇒ cảnh báo, app không Gemma.
 - **Build tay (Mac)**: lấy file release `sen-bien-gemma-v2` (hoặc chép từ gpu-desktop `~/.local/forlife/train/tro-ly/litert/g270v5r-k512-qb32e32kd-dynamic_wi4b32_afp32.litertlm`, cùng hash) vào `ios/App/sen-bien-gemma/`, tạo `out/index.html` stub, `npx cap sync ios`, rồi Xcode / `xcodebuild -project ios/App/App.xcodeproj -scheme App`. Chưa có CI iOS.
-- **Kiểm plugin không cần web mới**: tạm bỏ `server` trong `ios/App/App/capacitor.config.json` (file sinh) và đặt trang thử gọi `Capacitor.Plugins.SenBienGemma` vào `out/index.html`; xong chạy lại `npx cap sync ios`. Đã làm 2026-11-03 (doc 15 §36): nạp 0,32 s, 0,14–0,26 s/câu trên simulator.
+- **Kiểm plugin không cần web mới**: tạm bỏ `server` trong `ios/App/App/capacitor.config.json` (file sinh) và đặt trang thử gọi `Capacitor.Plugins.SenBienGemma` vào `out/index.html`; xong chạy lại `npx cap sync ios`. Đã làm 2026-11-03 (doc 15 §37): nạp 0,32 s, 0,14–0,26 s/câu trên simulator.
 
 ## 3e. Build Android ở gpu-desktop (2026-11-03 — Mac không có Android SDK)
 

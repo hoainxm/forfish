@@ -20,6 +20,7 @@
 | docs/app-map/15-flow-dang-chay-giong-noi.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/16-ba-spec-agent-kairos.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/17-ba-spec-vai-tai-khoan.md | VERIFIED | ok |
+| docs/app-map/18-native-kmp.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-notify-2026-08-18.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-notify-2026-10-20.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
@@ -51,6 +52,6 @@
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/runbook.md | SUSPECT | code 'scripts/kairos-thu.mjs' doi sau last_verified |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/cang-nha.ts' doi sau last_verified |
+| docs/app-map/ops/state-registry.md | VERIFIED | ok |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/test-tai-khoan.md | VERIFIED | ok |
