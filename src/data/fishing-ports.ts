@@ -202,6 +202,8 @@ export const FISHING_PORTS: FishingPortDir[] = [
 export const PORT_COORD_SAI = new Set([
   "lach-bang", "da-bac", "ca-mau", "song-tra-bong", "bai-dong", "phuong-6-thang-nhi",
   "dao-an-bang", "dao-phan-vinh", "dao-da-thuyen-chai", "hon-khoai",
+  // 2026-11-06: địa chỉ Trần Đề (Sóc Trăng, sát biển) mà toạ độ nằm sâu ~50 km trong đất gần Cần Thơ
+  "mo-o",
 ]);
 
 /** Chỉ cảng đang hoạt động, sắp theo tỉnh rồi tên. */

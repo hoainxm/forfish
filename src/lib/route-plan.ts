@@ -83,6 +83,7 @@ import {
 /*  `LatLon` + `haversineKm` sống ở module lá `geo.ts` (gỡ chu trình import với
     spatial-index — review đợt 4 G3); re-export để mọi chỗ gọi cũ giữ nguyên. */
 import { haversineKm, type LatLon } from "@/lib/geo";
+import { mergeLegPlans } from "@/lib/route-multi";
 export type { LatLon } from "@/lib/geo";
 export { haversineKm } from "@/lib/geo";
 
@@ -569,6 +570,25 @@ const dotPos = (d: Dot): LatLon => d;
 // ── lưới tìm đường + Dijkstra ────────────────────────────────────────────
 
 const MAX_NODES = 7500;
+/** bước lưới tìm đường: mịn nhất 4 km, thô dần để tổng nút ≤ MAX_NODES */
+function buocLuoiKm(spanLatKm: number, spanLonKm: number): number {
+  let stepKm = Math.max(4, Math.max(spanLatKm, spanLonKm) / 90);
+  for (;;) {
+    const nI = Math.floor(spanLatKm / stepKm) + 1;
+    const nJ = Math.floor(spanLonKm / stepKm) + 1;
+    if (nI * nJ <= MAX_NODES) return stepKm;
+    stepKm *= 1.2;
+  }
+}
+
+function buocLuoiCuaKhung(b: BBox): number {
+  const midLat = (b.latMin + b.latMax) / 2;
+  return buocLuoiKm(
+    (b.latMax - b.latMin) * 111.32,
+    (b.lonMax - b.lonMin) * 111.32 * Math.cos(rad(midLat)),
+  );
+}
+
 const NEIGHBORS: ReadonlyArray<readonly [number, number]> = [
   // 8 ô kề + 8 nước "mã" — 16 hướng để tuyến không bị gãy bậc thang (VISIR
   // dùng connectivity bậc cao cùng lý do)
@@ -800,6 +820,14 @@ export type PlanArgs = {
       như cũ (chỉ mặt nạ rạn lớp 1), `plan.reefDepthChecked` false. Luật: CHỈ THÊM chặn (ô có số nông hơn
       `nguongChanRanM`), KHÔNG mở ô nào mặt nạ cũ đang chặn — xem đầu `lib/reef-depth.ts`. */
   reefDepth?: ReefDepth | null;
+  /*  NỘI BỘ — ĐOẠN RA CỬA BIỂN (`planQuaCuaBien`, 2026-11-06): vòng nới riêng
+      quanh MỘT đầu (cảng sâu trong sông, cửa sông có bãi bồi) rộng hơn trần
+      12 km. Trong vòng: đất + nước cạn lớp 2–3 đi được như sát cảng — vẫn phạt
+      (LAND_PEN_KM, phạt rất cạn), vẫn cắm cờ, thẻ tuyến nói "Đoạn đầu/cuối tuyến
+      sát bờ, cạn" ⇒ máy chỉ dẫm đoạn ngắn nhất khi lưới 450 m không vẽ nổi lòng
+      sông/luồng. KHÔNG nới mặt nạ rạn/xác tàu (lớp 1), rạn có số, vật chặn,
+      vùng cấm. Đất dẫm > CUA_DAT_MAX_KM thì bỏ cửa đó. Chỗ gọi ngoài không truyền. */
+  noiCua?: { p: LatLon; km: number };
 };
 
 // hàng đợi ưu tiên nhị phân tối giản
@@ -879,6 +907,165 @@ type AttemptDiag = { seaBlocked: boolean; weatherGap: boolean };
  * phủ dự báo trước đây đều chạy thừa cả lượt thứ hai.
  */
 export function planRouteWithDiagnostics(args: PlanArgs): RoutePlanOutcome {
+  const o = planMotKhung(args);
+  if (o.plan) return o;
+  /*  CHUYẾN XA TỪ CẢNG SÂU TRONG SÔNG / GIỮA ĐẢO (2026-11-06). Lưới chỉ có
+      MAX_NODES ô cho cả khung ⇒ chuyến 400 km thì một ô 7–17 km, lạch sông ra
+      cửa (Ba Tri, Bình Khánh, Mỏ Ó, Hồng Triều) hay lối giữa đảo (Cái Rồng,
+      Hòn Gai) hẹp hơn một ô ⇒ lưới thấy toàn đất. Đo 527 chuyến thật: 129
+      chuyến hỏng, chuyến ngắn từ CHÍNH các cảng đó vẫn ra. Nên tách ba đoạn:
+      đầu → cửa biển (lưới mịn khung nhỏ) · cửa → cửa (lưới thô) · cửa → đích. */
+  const tach = planQuaCuaBien(args);
+  return tach ?? o;
+}
+
+/*  ── TÁCH CHUYẾN QUA "CỬA BIỂN" ─────────────────────────────────────────── */
+
+/** chuyến ngắn hơn mức này thì lưới đã mịn sẵn (4 km), tách không giúp gì */
+const CUA_MIN_TRIP_KM = 60;
+/** khoảng cách thử đặt cửa biển tính từ mỗi đầu (km) */
+const CUA_KHOANG_KM = [20, 35, 55, 80, 120, 160] as const;
+/** lệch hướng so với hướng tới đầu kia (độ) — 0 trước, xoè dần hai bên tới quay ngược (cảng vịnh Thái Lan đi biển Đông ra cửa phía tây) */
+const CUA_LECH_DEG = [0, 25, -25, 50, -50, 80, -80, 110, -110, 140, -140, 180] as const;
+/** số cặp cửa thử tối đa — mỗi cặp là 3 lượt tìm; trần thời gian máy yếu */
+const CUA_SO_CAP = 4;
+/*  Trần đất một đoạn ra cửa được dẫm. Vòng nới thường đã cho tới 12 km đất mỗi
+    đầu (LAND_VICINITY_MAX_KM); đoạn ra cửa cho thêm chút (lòng sông Ba Tri ~10
+    km, sông Tiền từ Mỹ Tho ~16 km lưới vẽ thành đất) nhưng KHÔNG để cửa phía bên kia đồng bằng thành cớ cắt
+    ngang đất liền (đo: Mỏ Ó → cửa 160 km bên Cửu Long). Quá trần ⇒ bỏ cửa đó. */
+const CUA_DAT_MAX_KM = 20;
+
+/** km đất (lớp 0) dọc tuyến, lấy mẫu 0,4 km */
+function datTrenTuyenKm(depth: DepthGrid, wps: LatLon[]): number {
+  let km = 0;
+  for (let i = 1; i < wps.length; i++) {
+    const a = wps[i - 1];
+    const b = wps[i];
+    const d = haversineKm(a, b);
+    const n = Math.max(1, Math.ceil(d / 0.4));
+    for (let k = 0; k < n; k++) {
+      const t = (k + 0.5) / n;
+      if (depthClassAt(depth, a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t) === 0) km += d / n;
+    }
+  }
+  return km;
+}
+
+function diemTheoHuong(p: LatLon, brgDeg: number, dKm: number): LatLon {
+  const lat = p.lat + (dKm * Math.cos(rad(brgDeg))) / 111.32;
+  const lon = p.lon + (dKm * Math.sin(rad(brgDeg))) / (111.32 * Math.cos(rad(p.lat)));
+  return { lat, lon };
+}
+
+/**
+ * Biển thoáng quanh `p` trong bán kính `rKm`: chính điểm ≥ lớp 4 (đi được),
+ * vòng 8 hướng ở r/2 và r không chạm đất/rạn/rất cạn (≥ lớp 3, hoặc ngoài lưới).
+ * Đủ thoáng thì lưới thô snap vào đây vẫn rơi xuống nước.
+ */
+function bienThoang(depth: DepthGrid, p: LatLon, rKm: number): boolean {
+  const c = depthClassAt(depth, p.lat, p.lon);
+  if (c != null && c < 4) return false;
+  for (const r of [rKm / 2, rKm]) {
+    for (let b = 0; b < 360; b += 45) {
+      const q = diemTheoHuong(p, b, r);
+      const k = depthClassAt(depth, q.lat, q.lon);
+      if (k != null && k < 3) return false;
+    }
+  }
+  return true;
+}
+
+function trongKhung(p: LatLon, b: BBox): boolean {
+  return p.lat >= b.latMin && p.lat <= b.latMax && p.lon >= b.lonMin && p.lon <= b.lonMax;
+}
+
+/** các cửa biển ứng viên cho đầu `p` (hướng về `kia`), gần trước xa sau */
+function ungVienCua(depth: DepthGrid, p: LatLon, kia: LatLon, rKm: number, bbox: BBox, tripKm: number): LatLon[] {
+  if (bienThoang(depth, p, rKm)) return [p];
+  const huong = bearingDeg(p, kia);
+  const out: LatLon[] = [];
+  for (const d of CUA_KHOANG_KM) {
+    if (d > tripKm * 0.8) break; // cảng sông sâu (Mỹ Tho ~50 km tới biển) vẫn có cửa
+    for (const lech of CUA_LECH_DEG) {
+      const q = diemTheoHuong(p, huong + lech, d);
+      if (!trongKhung(q, bbox) || !bienThoang(depth, q, rKm)) continue;
+      out.push(q);
+      break; // một cửa cho mỗi khoảng cách là đủ — cửa gần hướng đi nhất
+    }
+  }
+  return out;
+}
+
+/** khung nhỏ cho chặng đầu/cuối — như vòng margin đầu của route-planner, kẹp trong khung gọi */
+function khungChangNgan(a: LatLon, b: LatLon, ngoai: BBox): BBox {
+  const d = haversineKm(a, b);
+  const k = bboxOfPoints([a, b], Math.min(150, Math.max(45, d * 0.3)));
+  return {
+    latMin: Math.max(k.latMin, ngoai.latMin),
+    latMax: Math.min(k.latMax, ngoai.latMax),
+    lonMin: Math.max(k.lonMin, ngoai.lonMin),
+    lonMax: Math.min(k.lonMax, ngoai.lonMax),
+  };
+}
+
+function planQuaCuaBien(args: PlanArgs): RoutePlanOutcome | null {
+  const { depth, start, dest, bbox } = args;
+  if (!depth) return null;
+  const tripKm = haversineKm(start, dest);
+  if (tripKm < CUA_MIN_TRIP_KM) return null;
+  /*  thoáng quá nửa đường chéo ô lưới thô (0,71 ô) ⇒ nút snap gần cửa nhất
+      chắc chắn là nước. Đòi rộng hơn (1,5 ô) thì vịnh Thái Lan lốm đốm bãi
+      cạn không còn chỗ nào "thoáng" ở khung rộng (đo: Mỏ Ó → khơi Vũng Tàu). */
+  const rKm = Math.max(4, buocLuoiCuaKhung(bbox) * 0.75);
+  const cuaDi = ungVienCua(depth, start, dest, rKm, bbox, tripKm);
+  const cuaDen = ungVienCua(depth, dest, start, rKm, bbox, tripKm);
+  if (!cuaDi.length || !cuaDen.length) return null;
+  // cả hai đầu đã thoáng sẵn ⇒ tách cũng chỉ ra đúng lượt vừa hỏng
+  if (cuaDi[0] === start && cuaDen[0] === dest) return null;
+
+  const tinh = (a: LatLon, b: LatLon, khung: BBox, gio: number, noiCua?: PlanArgs["noiCua"]): RoutePlan | null =>
+    planMotKhung({ ...args, start: a, dest: b, bbox: khung, departHourIdx: gio, landExitPadKm: undefined, noiCua }).plan;
+  /*  Đoạn đầu/cuối (đầu ↔ cửa): thử như thường; hỏng (lòng sông/luồng cửa
+      sông lưới không vẽ nổi) thì nới riêng quanh đầu phía bờ tới tận cửa (xem
+      `PlanArgs.noiCua`) — vẫn phạt, vẫn cắm cờ. */
+  const doanCua = (bo: LatLon, cua: LatLon, raKhoi: boolean, gio: number): RoutePlan | null => {
+    const [a, b] = raKhoi ? [bo, cua] : [cua, bo];
+    const khung = khungChangNgan(a, b, bbox);
+    const p =
+      tinh(a, b, khung, gio) ??
+      tinh(a, b, khung, gio, { p: bo, km: haversineKm(bo, cua) - rKm * 0.5 });
+    return p && datTrenTuyenKm(depth, p.waypoints) <= CUA_DAT_MAX_KM ? p : null;
+  };
+
+  for (let k = 0; k < CUA_SO_CAP; k++) {
+    const g1 = cuaDi[Math.min(k, cuaDi.length - 1)];
+    const g2 = cuaDen[Math.min(k, cuaDen.length - 1)];
+    if (k > 0 && g1 === cuaDi[Math.min(k - 1, cuaDi.length - 1)] && g2 === cuaDen[Math.min(k - 1, cuaDen.length - 1)]) break;
+    const legs: RoutePlan[] = [];
+    let gio = args.departHourIdx;
+    if (g1 !== start) {
+      const p = doanCua(start, g1, true, gio);
+      if (!p) continue;
+      legs.push(p);
+      gio += Math.round(p.hours);
+    }
+    const giua = tinh(g1, g2, bbox, gio);
+    if (!giua) continue;
+    legs.push(giua);
+    gio += Math.round(giua.hours);
+    if (g2 !== dest) {
+      const p = doanCua(dest, g2, false, gio);
+      if (!p) continue;
+      legs.push(p);
+    }
+    const gop = mergeLegPlans(legs);
+    if (gop) return { plan: gop.plan, failure: null };
+  }
+  return null;
+}
+
+/** một lượt tìm trên MỘT khung (lưới đều) — kèm thử lại nới lối ra cảng sâu */
+function planMotKhung(args: PlanArgs): RoutePlanOutcome {
   const o = planOnceWithDiagnostics(args);
   if (o.plan || args.landExitPadKm != null) return o;
   /*  CẢNG SÂU TRONG SÔNG: không ra tuyến mà một đầu cách ô nước ≥ 2 km ⇒ có thể
@@ -954,14 +1141,7 @@ function planAttempt(
   const midLat = (bbox.latMin + bbox.latMax) / 2;
   const spanLatKm = (bbox.latMax - bbox.latMin) * 111.32;
   const spanLonKm = (bbox.lonMax - bbox.lonMin) * 111.32 * Math.cos(rad(midLat));
-  // bước lưới: mịn nhất 4 km, thô dần để tổng nút ≤ MAX_NODES
-  let stepKm = Math.max(4, Math.max(spanLatKm, spanLonKm) / 90);
-  for (;;) {
-    const nI = Math.floor(spanLatKm / stepKm) + 1;
-    const nJ = Math.floor(spanLonKm / stepKm) + 1;
-    if (nI * nJ <= MAX_NODES) break;
-    stepKm *= 1.2;
-  }
+  const stepKm = buocLuoiKm(spanLatKm, spanLonKm);
   const dLat = stepKm / 111.32;
   const dLon = stepKm / (111.32 * Math.cos(rad(midLat)));
   const nI = Math.floor((bbox.latMax - bbox.latMin) / dLat) + 1;
@@ -979,6 +1159,10 @@ function planAttempt(
   const sIdx = snap(start);
   const dIdx = snap(dest);
 
+  const noiCua = args.noiCua ?? null;
+  /** trong vòng nới riêng của đoạn ra cửa (`noiCua`) — nới đất + nước cạn lớp
+   *  2–3 như sát cảng (cắm cờ, phạt); KHÔNG nới mặt nạ rạn lớp 1, rạn có số */
+  const trongNoiCua = (p: LatLon) => noiCua != null && haversineKm(p, noiCua.p) <= noiCua.km;
   const nearEndpoints = (p: LatLon, radiusKm: number) =>
     haversineKm(p, start) <= radiusKm || haversineKm(p, dest) <= radiusKm;
   const landPad = args.landExitPadKm ?? LAND_EXIT_PAD_KM;
@@ -986,7 +1170,7 @@ function planAttempt(
   const landRDest = Math.min(LAND_VICINITY_MAX_KM, Math.max(VICINITY_LAND_KM, khoangRaNuocKm(depth, dest) + landPad));
   /** ô đất này nằm trong vòng nới (tự giãn) của một đầu */
   const nearLandEnd = (p: LatLon) =>
-    haversineKm(p, start) <= landRStart || haversineKm(p, dest) <= landRDest;
+    haversineKm(p, start) <= landRStart || haversineKm(p, dest) <= landRDest || trongNoiCua(p);
 
   /*  ── HIỂM HOẠ: DỰNG CHỈ MỤC MỘT LẦN CHO CẢ LƯỢT TÍNH ────────────────────
       `legCost` chạy ~120.000 lượt; dựng lưới ô ở đây (O(n) một lần, 285 vật
@@ -1207,8 +1391,10 @@ function planAttempt(
           landKm += distKm / nSamples;
         } else if (cls === 1 || cls === 2) {
           lowSeen = true;
-          // mặt nạ rạn / nước <2 m: "rất cạn" — chỉ nới sát cảng/điểm đến
-          if (!nearEndpoints(noGoProbe,VICINITY_SHALLOW_KM)) {
+          // mặt nạ rạn / nước <2 m: "rất cạn" — chỉ nới sát cảng/điểm đến;
+          // đoạn ra cửa (`noiCua`) nới thêm nước <2 m (bãi bồi cửa sông có luồng
+          // mà lưới không vẽ nổi) nhưng KHÔNG nới mặt nạ rạn/xác tàu (lớp 1)
+          if (!nearEndpoints(noGoProbe,VICINITY_SHALLOW_KM) && !(cls === 2 && trongNoiCua(noGoProbe))) {
             if (!relaxed) return INFEASIBLE_LEG;
             lowFar = true;
           }
@@ -1217,8 +1403,8 @@ function planAttempt(
           veryShallow = true;
         } else if (cls === 3) {
           lowSeen = true;
-          if (nearEndpoints(noGoProbe,VICINITY_SHALLOW_KM)) {
-            // sát cảng: như "rất cạn" cũ — nới cho đi, cắm cờ
+          if (nearEndpoints(noGoProbe,VICINITY_SHALLOW_KM) || trongNoiCua(noGoProbe)) {
+            // sát cảng / đoạn ra cửa: như "rất cạn" cũ — nới cho đi, cắm cờ
             veryShallow = true;
           } else {
             /*  Dải 2–4 m GIỮA ĐƯỜNG: mở khi đã khai mớn và đủ nước tại mẫu
