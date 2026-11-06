@@ -622,6 +622,25 @@ let warmSau: ReturnType<typeof setTimeout> | null = null;
  * file đã có trong kho SW thì lần sau đọc từ kho, không ra mạng).
  */
 let warmedAll = false;
+
+/** số clip soi mẫu — đủ dày để bắt kho bị dọn dở, đủ thưa để mở app không chờ */
+const MAU_KHO = 24;
+
+/** Mẫu rải đều của `urls` có nằm hết trong Cache Storage không. Không có Cache API / lỗi ⇒ false. */
+export async function khoDaDu(urls: string[]): Promise<boolean> {
+  if (urls.length === 0 || typeof caches === "undefined") return false;
+  try {
+    const buoc = Math.max(1, Math.floor(urls.length / MAU_KHO));
+    const mau: string[] = [];
+    for (let i = 0; i < urls.length; i += buoc) mau.push(urls[i]);
+    mau.push(urls[urls.length - 1]);
+    const trung = await Promise.all(mau.map((u) => caches.match(u)));
+    return trung.every(Boolean);
+  } catch {
+    return false;
+  }
+}
+
 export async function warmVoiceClips(): Promise<void> {
   /*  MỘT LƯỢT ĐỦ / PHIÊN (rà soát prod 2026-10-16): đủ một lượt là thôi, khỏi
       chen với lúc bản đồ đang dựng. Gộp 2026-10-18: nay có ~2.900 mảnh ghép
@@ -630,6 +649,16 @@ export async function warmVoiceClips(): Promise<void> {
   if (warmedAll || typeof fetch === "undefined" || !isOnline()) return;
   if (!(await napManhGiong())) return;
   const all = allClipUrls();
+  /*  ĐÃ ĐỦ TRONG KHO SW ⇒ KHỎI ĐI LẠI (tăng tốc 2026-11-06). Cờ `warmedAll` chỉ
+      sống trong RAM nên MỖI LẦN MỞ APP lại bắn ~2.900 lượt fetch qua SW — clip
+      có sẵn vẫn phải đọc trọn thân, và SW xếp hàng chúng trước request thật của
+      màn đang mở. Nay soi một MẪU rải đều (cả lõi lẫn tên rạn) trong Cache
+      Storage: trúng hết ⇒ coi như đủ, thôi. Trượt một (iOS dọn kho / bộ giọng
+      mới đổi tên clip) ⇒ đi lượt đầy đủ như cũ. Không thêm khoá lưu trữ nào. */
+  if (await khoDaDu(all)) {
+    warmedAll = true;
+    return;
+  }
   const ok = await taiTruoc(all.filter((u) => !MANH_SAU.has(u)), 4);
   if (!ok) return;
   warmedAll = true;

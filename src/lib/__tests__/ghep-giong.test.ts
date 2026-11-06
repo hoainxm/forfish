@@ -8,6 +8,14 @@ import { ageSpeech, clockSpeech, dirSpeech, distSpeech, speedSpeech, waveSpeech 
 import { cauDocSo, noiThoiDiem, type LopBanDo } from "@/lib/sen-bien/lenh-ban-do";
 import { hoiGi, traLoi, type KhoBanDo, type ViTri } from "@/lib/sen-bien/hoi-ban-do";
 import { napManhGiong, speechParts } from "@/lib/voice/tts";
+import { cauTomTat, KICH_BAN_GIAY, kichBanTau } from "@/lib/sen-bien/nhap-giong";
+import { CAU_GIO, CAU_LANG } from "@/lib/sen-bien/cau-vui";
+import { CAU_CAN_KIEM } from "@/lib/sen-bien/hoi-dap";
+import { CAU_CHUA_CHAC } from "@/lib/sen-bien/hoi-kho";
+import { loiDocGiamSat } from "@/lib/stracking/doc-canh-bao.mjs";
+import { answerOffline } from "@/lib/assistant/answer";
+import { parseUtterance } from "@/lib/assistant/parse";
+import type { DeviceSnapshot } from "@/lib/assistant/types";
 import { baoKhucRe, type KhucRe } from "@/lib/nav-khuc-re";
 import { cauVung } from "@/lib/nav-vung";
 import { tenNoi, type VungQuanLy } from "@/lib/vung-quan-ly";
@@ -257,5 +265,61 @@ describe("câu có số của app phủ đủ mảnh", () => {
     const cau = ["gần đảo nào nhất", "rạn gần nhất ở đâu", "phía trước có gì", "chỗ tránh trú bão gần nhất", "cảng nào gần nhất", "tàu đang ở đâu"]
       .map((q) => traLoi(hoiGi(q)!, kho, v, "nm", Date.UTC(2026, 9, 16, 3)).say);
     phuHet(cau);
+  });
+});
+
+/*  RÀ SOÁT GIỌNG 2026-11-06 (doc 15 §36, anh Long: "xây giọng đọc Mỹ Duyên cho nó hết đi"): câu hỏi nhập bằng giọng,
+    cảnh báo giám sát hành trình, câu lảng / câu giờ, câu an toàn kho — trọn giọng thu sẵn (câu nguyên hoặc mảnh).
+    Câu mới viết trong các file này mà chưa sinh giọng ⇒ đỏ: chạy ra-soat-giong.test.ts rồi lap_manh + gen_clips. */
+describe("rà soát giọng: câu hỏi, cảnh báo, câu đã dùng trọn Mỹ Duyên", () => {
+  it("câu hỏi nhập giấy tờ / tàu bằng giọng + câu tóm tắt", () => {
+    const hoi = [...KICH_BAN_GIAY, ...kichBanTau(["Bình Định", "Quảng Ngãi"])].map((b) => b.hoi);
+    phuHet([...hoi, cauTomTat(["dài 15 mét", "đóng năm 2015"]) /* tên riêng tự do (tên tàu, chủ tàu) không thu được — câu đó giọng máy */, cauTomTat([])]);
+  });
+  it("câu lảng + câu giờ + câu an toàn kho", () => {
+    phuHet([...Object.values(CAU_LANG).flat(), ...CAU_GIO.flat(), CAU_CAN_KIEM, CAU_CHUA_CHAC]);
+  });
+  it("cảnh báo giám sát hành trình: mất tín hiệu, mọi loại cảnh báo, cước, yên tâm", () => {
+    const now = Date.parse("2026-11-06T07:00:00Z");
+    const vn = (s: string) => new Date(Date.parse(`${s}+07:00`)).toISOString();
+    const t = (o: Record<string, unknown> = {}) => ({ tenTau: "BV-92345-TS", imei: "1", hetHan: "2027-06-01", trongBo: false, matKetNoiTu: null, ...o });
+    const loai = ["SOS", "Vượt biên", "Sắp vượt biên", "Tắt thiết bị", "Mất GPS", "Pin dự phòng sắp hết", "Thiết bị Reset", "Quá tốc độ", "Vùng chú ý đánh bắt"];
+    const cau = [
+      loiDocGiamSat({ tau: [], now }),
+      loiDocGiamSat({ tau: [t()], now }),
+      loiDocGiamSat({ tau: [t(), t({ imei: "2", tenTau: "QNg-90123-TS" })], now }),
+      loiDocGiamSat({ tau: [t({ matKetNoiTu: vn("2026-11-06T09:53:00") })], now }),
+      loiDocGiamSat({ tau: [t({ trongBo: true, matKetNoiTu: vn("2026-11-06T09:53:00") })], now }),
+      loiDocGiamSat({ tau: [t({ matKetNoiTu: vn("2026-11-06T06:00:00") })], now }),
+      ...["2026-11-19", "2026-11-06", "2026-11-01"].map((h) => loiDocGiamSat({ tau: [t({ hetHan: h })], now })),
+      ...loai.map((l) => loiDocGiamSat({ tau: [t()], canhBao: [{ imei: "1", loai: l, luc: vn("2026-11-06T11:20:00"), muc: "Báo động" }], now })),
+    ];
+    phuHet(cau);
+  });
+});
+
+/*  LỌT 06/11 chiều (anh Long: "bản tin bão lúc chiều không có bão Biển Đông toàn giọng máy, Mỹ Duyên đâu, làm bao
+    nhiêu vòng rồi cứ lọt"): trợ lý TOÀN APP (lib/assistant/answer.ts) chưa từng vào NGUON của lap_manh. Cổng này gọi
+    ĐÚNG hàm trả lời trên snapshot thật — câu `speak` nào thiếu mảnh là đỏ, không đợi bà con nghe ra. */
+describe("trợ lý toàn app: câu đọc (speak) trọn Mỹ Duyên", () => {
+  const NOW = Date.parse("2026-11-06T08:00:00Z");
+  const H = 3600_000;
+  const snap = (over: Partial<DeviceSnapshot> = {}): DeviceSnapshot => ({
+    takenAt: NOW, route: "/", online: true, premium: false,
+    home: { portId: "quy-nhon", portName: "Quy Nhơn", province: "Gia Lai" },
+    weather: null, storm: null, tide: null, boat: null, docs: [], maintenance: [], crew: null,
+    cart: { lines: 0, titles: [] }, orders: null, fishPrices: null, fuel: null, inboxUnread: 0, placeNames: [],
+    ...over,
+  });
+  const ctx = { route: "/", awaitingConfirm: false, boatNames: [], portNames: ["Quy Nhơn"], placeNames: [] };
+  const noi = (cau: string, s: DeviceSnapshot) => answerOffline(parseUtterance(cau, ctx), s, NOW).speak;
+  it("tin bão: không bão (mọi tuổi tin), tin cũ, chưa có tin", () => {
+    const cau: string[] = [];
+    for (const h of [0, 0.5, 1, 3, 5, 11, 13, 30, 50]) cau.push(noi("có bão không", snap({ storm: { savedAt: NOW - h * H, storms: [] } })));
+    cau.push(noi("có bão không", snap()));
+    phuHet(cau);
+  });
+  it("câu thiếu dữ liệu hay gặp: con nước, giấy tờ, bảo dưỡng, bạn thuyền, tàu, giá", () => {
+    phuHet(["con nước hôm nay", "giấy tờ sắp hết hạn", "lịch bảo dưỡng", "bạn thuyền", "tàu của tôi", "giá cá hôm nay", "giá dầu"].map((c) => noi(c, snap())));
   });
 });

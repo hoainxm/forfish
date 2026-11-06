@@ -18,15 +18,28 @@ export type ReadAll<T> = { rows: T[]; truncated: boolean } | null;
 export async function readAll<T>(
   build: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>,
   maxPages = 20,
+  concurrency = 4,
 ): Promise<ReadAll<T>> {
+  /*  SONG SONG THEO CỬA SỔ (tăng tốc 2026-11-06): bản cũ hỏi từng trang nối đuôi
+      ⇒ 11 046 khách = 12 lượt mạng nối nhau. Nay trang đầu đi một mình (bảng nhỏ
+      vẫn đúng 1 câu); đầy thì bắn `concurrency` trang tiếp CÙNG LÚC, ghép theo
+      THỨ TỰ trang, dừng ở trang thiếu đầu tiên (trang sau đó bỏ — có thể là dòng
+      mới chen vào giữa lúc đọc). Đổi lại: thừa tối đa concurrency-1 câu rỗng. */
   const rows: T[] = [];
   try {
-    for (let p = 0; p < maxPages; p++) {
-      const { data, error } = await build(p * PAGE, p * PAGE + PAGE - 1);
-      if (error) return null;
-      const batch = (data ?? []) as T[];
-      rows.push(...batch);
-      if (batch.length < PAGE) return { rows, truncated: false };
+    let p = 0;
+    while (p < maxPages) {
+      const n = p === 0 ? 1 : Math.min(Math.max(1, concurrency), maxPages - p);
+      const batches = await Promise.all(
+        Array.from({ length: n }, (_, k) => build((p + k) * PAGE, (p + k) * PAGE + PAGE - 1)),
+      );
+      for (const { data, error } of batches) {
+        if (error) return null;
+        const batch = (data ?? []) as T[];
+        rows.push(...batch);
+        if (batch.length < PAGE) return { rows, truncated: false };
+      }
+      p += n;
     }
     return { rows, truncated: true };
   } catch {

@@ -31,7 +31,8 @@ import { datCangNha } from "@/lib/cang-nha";
 import { readToken } from "@/lib/device-token-store";
 import { getExistingPushSubscription, isPushSupported } from "@/lib/push-client";
 import { hoanTacDangHien } from "@/lib/toast";
-import { doanMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { doanMayNha, doanXinMp3, docKhoBangMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { chiaCau } from "@/lib/kairos/de-dung";
 import { henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { chonKho } from "@/lib/sen-bien/gemma";
@@ -44,7 +45,7 @@ import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { doTin, guessIntent } from "@/lib/sen-bien/ngram";
 import { useAuthUser } from "@/lib/use-auth";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
-import { ttsCancel, ttsSpeak, ttsSpeakMp3, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
+import { speechParts, ttsCancel, ttsSpeak, ttsSpeakMp3, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { anKhiCuon } from "@/lib/sen-bien/an-khi-cuon";
 import { KAIROS_CACHE_KEY, parseCache } from "@/lib/kairos/cache";
 import { hieuTimTinKairos, traLoiTinKairos } from "@/lib/kairos/tim-tin";
@@ -108,8 +109,18 @@ export function SenBienToanApp() {
   const [nangThanh, setNangThanh] = useState(0);
   useEffect(() => {
     let ro: ResizeObserver | null = null;
+    /*  GỘP + BỎ QUA KHI KHÔNG ĐỔI (tăng tốc 2026-11-06): Sen Biển có ở MỌI màn, mà
+        bản cũ mỗi đợt đổi DOM (vẽ danh sách, ảnh về…) đều querySelector + gỡ/gắn
+        lại ResizeObserver + getBoundingClientRect — ép trình duyệt tính bố cục
+        giữa lúc đang vẽ. Nay: tối đa một lần mỗi khung hình, và cùng thanh cũ thì
+        thôi (ResizeObserver đã lo chiều cao đổi). */
+    let dangTheo: HTMLElement | null | undefined;
+    let hen = 0;
     const bat = () => {
+      hen = 0;
       const thanh = document.querySelector<HTMLElement>(".market-purchase-bar");
+      if (thanh === dangTheo) return;
+      dangTheo = thanh;
       ro?.disconnect();
       ro = null;
       if (!thanh) {
@@ -125,9 +136,12 @@ export function SenBienToanApp() {
     };
     bat();
     // thanh mua dựng sau khi dữ liệu món về ⇒ nghe cây DOM thay vì chỉ đo lúc đổi trang
-    const mo = new MutationObserver(bat);
+    const mo = new MutationObserver(() => {
+      if (!hen) hen = requestAnimationFrame(bat);
+    });
     mo.observe(document.body, { childList: true, subtree: true });
     return () => {
+      if (hen) cancelAnimationFrame(hen);
       mo.disconnect();
       ro?.disconnect();
     };
@@ -430,8 +444,21 @@ export function SenBienToanApp() {
       const kq = await hoiKho(text, r, bo, ctxN, chonKho, online && !!readToken());
       if (!conLuot()) return null;
       if (kq.vao && kq.dap) {
-        noi(kq.dap.say);
-        return { show: kq.dap.say };
+        const say = kq.dap.say;
+        // câu kho dài, không thu sẵn được ⇒ có sóng + đăng nhập thì đọc giọng Mỹ Duyên của máy nhà (hoi-may-chu.docKhoBangMayNha)
+        if (docKhoBangMayNha(say, { online, coToken: !!readToken(), phuDu: (c) => speechParts(c).every((p) => p.clips) })) {
+          cauCuoi.current = say;
+          const luot = ++luotDoc.current;
+          setDangDoc(true);
+          ttsSpeakMp3(doanXinMp3(chiaCau(say)), {
+            onEnd: (xong) => {
+              if (luot !== luotDoc.current) return;
+              setDangDoc(false);
+              if (xong) setTuNghe((n) => n + 1);
+            },
+          });
+        } else noi(say);
+        return { show: say };
       }
       let boats: string[] = [];
       let places: string[] = [];

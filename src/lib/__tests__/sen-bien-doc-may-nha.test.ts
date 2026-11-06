@@ -1,7 +1,7 @@
 // Sen Biển đọc câu máy nhà bằng GIỌNG MỸ DUYÊN (ADR 0016, 2026-10-19): ký đường /doc, kiểm ranh giới, dựng đoạn đọc.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { amThanhHopLe, bindOidc, dauKy, DUONG_DOC, kiemCauDoc, kyHmac } from "@/lib/sen-bien/cong-ai-ky";
-import { doanMayNha } from "@/lib/sen-bien/hoi-may-chu";
+import { doanMayNha, doanXinMp3, docKhoBangMayNha } from "@/lib/sen-bien/hoi-may-chu";
 
 const KHOA = "k".repeat(43);
 const TB = "tb-" + "a".repeat(24);
@@ -57,5 +57,29 @@ describe("doanMayNha — câu đầu dùng mp3 gửi kèm, câu sau xin /doc son
       throw new TypeError("mất sóng");
     }));
     expect(await doanMayNha({ text: "A.", speak: ["Câu một."], amThanh: null })[0].mp3).toBeNull();
+  });
+});
+
+describe("câu kho hỏi–đáp đọc Mỹ Duyên máy nhà (rà soát giọng 2026-11-06)", () => {
+  const co = { online: true, coToken: true, phuDu: () => false };
+  it("có sóng + đăng nhập + câu chưa có mp3 trong máy ⇒ xin máy nhà", () => {
+    expect(docKhoBangMayNha("Chủ tàu phải làm thủ tục đăng ký lại.", co)).toBe(true);
+  });
+  it("mất sóng / chưa đăng nhập ⇒ KHÔNG gọi mạng (giọng trong máy như cũ)", () => {
+    expect(docKhoBangMayNha("Câu kho.", { ...co, online: false })).toBe(false);
+    expect(docKhoBangMayNha("Câu kho.", { ...co, coToken: false })).toBe(false);
+  });
+  it("câu đã có mp3/mảnh trong máy (vd câu an toàn) ⇒ đọc mp3 trong máy, khỏi gọi mạng; câu rỗng ⇒ không", () => {
+    expect(docKhoBangMayNha("Câu này Sen Biển chưa chắc.", { ...co, phuDu: () => true })).toBe(false);
+    expect(docKhoBangMayNha("  ", co)).toBe(false);
+  });
+  it("doanXinMp3: mỗi câu một đoạn, xin song song ngay; lỗi mạng ⇒ null (câu đó giọng máy)", async () => {
+    const f = vi.fn().mockRejectedValue(new Error("mất sóng"));
+    vi.stubGlobal("fetch", f);
+    const d = doanXinMp3(["Câu một.", "Câu hai."]);
+    expect(d.map((x) => x.text)).toEqual(["Câu một.", "Câu hai."]);
+    expect(f).toHaveBeenCalledTimes(2);
+    expect(await Promise.all(d.map((x) => x.mp3))).toEqual([null, null]);
+    vi.unstubAllGlobals();
   });
 });

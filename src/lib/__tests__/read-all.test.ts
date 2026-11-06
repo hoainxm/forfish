@@ -22,11 +22,39 @@ describe("readAll", () => {
     expect(new Set(r?.rows.map((x) => x.i)).size).toBe(11046);
   });
 
-  it("đúng bội số 1000 ⇒ hỏi thêm một trang rỗng rồi dừng", async () => {
+  it("đúng bội số 1000 ⇒ dừng ở trang rỗng, không thừa quá một cửa sổ", async () => {
     const t = table(2000);
     const r = await readAll(t.build);
     expect(r?.rows.length).toBe(2000);
-    expect(t.calls.length).toBe(3);
+    expect(t.calls.length).toBe(1 + 4); // trang đầu + một cửa sổ 4 trang song song
+  });
+
+  it("bảng nhỏ chỉ đúng MỘT câu", async () => {
+    const t = table(300);
+    await readAll(t.build);
+    expect(t.calls.length).toBe(1);
+  });
+
+  it("song song nhưng giữ đúng thứ tự dòng", async () => {
+    const calls: number[] = [];
+    // trang sau trả NHANH hơn trang trước — kết quả vẫn phải theo thứ tự trang
+    const build = async (from: number, to: number) => {
+      calls.push(from);
+      await new Promise((ok) => setTimeout(ok, 20 - Math.min(from / PAGE, 19)));
+      const rows = [];
+      for (let i = from; i <= to && i < 5500; i++) rows.push({ i });
+      return { data: rows, error: null };
+    };
+    const r = await readAll<{ i: number }>(build);
+    expect(r?.rows.map((x) => x.i)).toEqual(Array.from({ length: 5500 }, (_, i) => i));
+  });
+
+  it("một trang trong cửa sổ lỗi ⇒ null", async () => {
+    const build = async (from: number) =>
+      from === 2 * PAGE
+        ? { data: null, error: { code: "x" } }
+        : { data: Array.from({ length: PAGE }, () => ({})), error: null };
+    expect(await readAll(build)).toBeNull();
   });
 
   it("bảng rỗng", async () => {

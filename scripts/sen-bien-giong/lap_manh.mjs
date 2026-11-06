@@ -48,6 +48,18 @@ const NGUON = [
   "src/lib/khu-tru-bao.ts",
   "src/lib/route-plan.ts",
   "src/lib/urgent.ts",
+  // rà soát giọng 2026-11-06 (ra-soat-giong.test.ts): câu có chỗ trống của cảnh báo giám sát hành trình, câu hỏi nhập
+  // bằng giọng, lệnh chợ vật tư — câu cố định trọn vẹn của các file này đã vào giong-sen-bien.json (câu nguyên)
+  "src/lib/stracking/doc-canh-bao.mjs",
+  "src/lib/sen-bien/nhap-giong.ts",
+  "src/lib/sen-bien/lam-cho.ts",
+  "src/lib/sen-bien/lenh-cho.ts",
+  "src/lib/stracking/muc-canh-bao.mjs",
+  // LỌT 06/11 chiều (anh Long: "bản tin bão … không có bão Biển Đông toàn giọng máy"): trợ lý TOÀN APP trả lời
+  // bão / gió sóng / con nước / giá qua lib/assistant — chưa từng vào danh sách nguồn. Cùng lượt: lời chào, tin Kairos.
+  "src/lib/assistant/answer.ts",
+  "src/lib/assistant/chao.ts",
+  "src/lib/kairos/tim-tin.ts",
 ];
 
 /* ── quét chuỗi chữ trong mã TS ───────────────────────────────────────────── */
@@ -176,6 +188,11 @@ const CO_BAN = [
   "hải lý", "cây số", "mét", "độ", "cấp", "phần trăm", "héc ta", "ki lô mét",
   "còn", "chừng", "tới", "về", "đi", "từ", "trong", "ngoài", "gần", "xa", "cách", "lúc", "sau", "trước", "nữa",
   "đảo", "hòn", "cảng", "cửa", "bãi", "đá", "mũi", "vũng", "trạm", "đèn", "phao", "rạn", "khu", "tàu",
+  // tên chữ cái (đánh vần mã tàu "bê vê … tê ét", chữ viết tắt SOS/GPS — stracking/doc-canh-bao.tenTauDoc, 2026-11-06)
+  "a", "bê", "xê", "dê", "đê", "e", "giê", "hát", "i", "ca", "lờ", "mờ", "nờ", "ô", "pê", "quy", "rờ", "ét", "tê", "u", "vê", "ích", "i dài",
+  // tuổi tin "lưu 3 giờ trước" (forecast-cache.savedAgoLabel — file lớn, không quét cả file)
+  "lưu", "lưu vừa xong", "phút trước", "giờ trước", "ngày trước",
+  "tê ét", "ét ô ét", "giê pê ét", "rì sét", "mất giê pê ét", "thiết bị rì sét",
   "điểm", "chỗ", "ghé", "số", "bản đồ", "sóng", "gió", "cao", "thấp", "vừa", "lớn", "nhỏ", "và", "hoặc", "là", "có", "không", "đang", "đã", "chưa", "trên", "dưới",
 ];
 

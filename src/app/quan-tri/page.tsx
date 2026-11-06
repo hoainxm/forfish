@@ -206,7 +206,7 @@ export default function QuanTriPage() {
             className="h-11 w-11 shrink-0 rounded-xl border border-line"
           />
           <div className="min-w-0">
-            <h1 className="display text-[1.5rem] font-bold leading-tight text-navy md:text-[1.75rem]">
+            <h1 className="display truncate text-[1.25rem] font-bold leading-tight text-navy md:text-[1.75rem]">
               SDFish Quản trị
             </h1>
             <p className="mt-0.5 truncate text-[0.9375rem] text-muted">

@@ -249,10 +249,24 @@ jobs:
           robocopy $env:STAGE_DIR $env:APP_DIR /MIR /MT:16 /R:2 /W:2 /NFL /NDL /NJH /NP | Out-Host
           $rc = $LASTEXITCODE
           Set-Location $env:APP_DIR
-          pm2 restart forfish --update-env 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            pm2 start server.js --name forfish --update-env
+          # HAI TIẾN TRÌNH (cluster, anh Long chốt 2026-11-06): một tiến trình Node
+          # gánh cả chunk JS, file dữ liệu, mp3 giọng lẫn API ⇒ nghẽn. Đang chạy
+          # đúng 2 bản cluster thì restart như cũ; còn lại (lần đầu / bản fork cũ)
+          # thì xoá rồi dựng lại -i 2 — restart KHÔNG đổi được fork ⇒ cluster.
+          # Hệ quả đã chấp nhận: đệm tier/role của middleware + rate-limit tính
+          # RIÊNG mỗi tiến trình (nợ rate-limit đã ghi); kho-o ghi file tạm theo pid.
+          $instances = 2
+          $cur = @()
+          try { $cur = @((pm2 jlist 2>$null | Out-String | ConvertFrom-Json) | Where-Object { $_.name -eq "forfish" }) } catch { $cur = @() }
+          $isCluster = $cur.Count -gt 0 -and $cur[0].pm2_env.exec_mode -eq "cluster_mode"
+          if ($cur.Count -eq $instances -and $isCluster) {
+            pm2 restart forfish --update-env 2>$null
+          } else {
+            pm2 delete forfish 2>$null
+            pm2 start server.js --name forfish -i $instances --update-env
           }
+          # ghi lại danh sách để máy khởi động lại dựng đúng 2 tiến trình
+          pm2 save 2>$null | Out-Null
           if ($rc -ge 8) { throw "robocopy stage -> live failed (code $rc) - check $env:APP_DIR" }
           exit 0
 
@@ -312,7 +326,11 @@ jobs:
             pm2 stop forfish 2>$null
             robocopy $env:PREV_DIR $env:APP_DIR /MIR /MT:16 /R:2 /W:2 /NFL /NDL /NJH /NP | Out-Host
             Set-Location $env:APP_DIR
-            pm2 restart forfish --update-env 2>$null
+            # quay về CẢ kiểu chạy đã biết là sống (một tiến trình fork) — lỡ chính
+            # cluster -i 2 là thứ làm hỏng thì restart cluster cũng hỏng tiếp
+            pm2 delete forfish 2>$null
+            pm2 start server.js --name forfish --update-env
+            pm2 save 2>$null | Out-Null
           }
           exit 1
 
