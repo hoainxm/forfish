@@ -482,7 +482,10 @@ export function InstallBanner({
     điều kiện. Không nói lý do kỹ thuật: bà con chỉ cần biết BẤM VÀO ĐÂU (video hiện trường 2026-10-27: bà con
     mở hộp CHIA SẺ để tìm, trong khi mục nằm ở menu ⋮).
     iPhone: Safari đời mới (đo trên iOS 27) bỏ nút Chia sẻ ở thanh dưới — phải ≡ › Chia sẻ › Xem thêm › Thêm vào Màn hình chính
-    (quay simulator iOS 27, 2026-11-06); máy cũ vẫn còn nút Chia sẻ ở thanh dưới nên câu nói cả hai. */
+    (quay simulator iOS 27, 2026-11-06); máy cũ vẫn còn nút Chia sẻ ở thanh dưới nên câu nói cả hai.
+    Android (2026-11-06, quay Chrome 156 thật trên giả lập Android 15 + trợ giúp Chrome tiếng Việt của Google): mục ⋮
+    "Thêm vào Màn hình chính" (máy tiếng Anh: "Install and create shortcut") mở bảng 2 lựa chọn — phải chọn "Cài đặt"
+    (Install), "Tạo lối tắt" chỉ là lối tắt mở trong Chrome; xác nhận xong máy có thể hỏi "Thêm vào màn hình chính". */
 function HuongDanTay({ ios }: { ios: boolean }) {
   return ios ? (
     <p className="rounded-xl bg-background p-3 text-[1rem] font-semibold leading-snug text-navy">
@@ -500,9 +503,11 @@ function HuongDanTay({ ios }: { ios: boolean }) {
   ) : (
     <p className="rounded-xl bg-background p-3 text-[1rem] font-semibold leading-snug text-navy">
       Trên Android: bấm nút <span className="font-semibold">⋮</span> ở góc trên
-      Chrome (không phải nút Chia sẻ), rồi chọn{" "}
-      <span className="font-semibold">“Thêm vào Màn hình chính”</span> (có máy
-      ghi <span className="font-semibold">“Cài ứng dụng”</span>).
+      Chrome (không phải nút Chia sẻ), chọn{" "}
+      <span className="font-semibold">“Thêm vào Màn hình chính”</span> (máy để
+      tiếng Anh ghi <span className="font-semibold">“Install and create shortcut”</span>), rồi
+      chọn <span className="font-semibold">“Cài đặt”</span> và xác nhận. Máy hỏi
+      thêm thì bấm <span className="font-semibold">“Thêm vào màn hình chính”</span>.
     </p>
   );
 }

@@ -12,6 +12,7 @@ last_verified: 2026-11-06
 <!-- re-verified: 2026-11-04 — /quan-tri › Hệ thống THÊM thẻ "Kho ô bản đồ" (dưới Cấu hình ứng dụng, components/admin/kho-o-ban-do-card.tsx): thư mục kho + cảnh báo đỏ khi máy chủ không ghi được; hai khối "Máy nhà đẩy lên" / "Máy chủ tự tải" (tổng MB, ngăn máy chủ kèm trần) liệt kê từng lớp: số ô · MB · lần ghi mới nhất; nút "Xoá" mỗi khối mở hộp xác nhận nói hậu quả (bản đồ vẫn chạy, gọi nguồn ngoài nhiều hơn tới khi đầy lại) → "Xoá thật"/"Huỷ". Trạng thái: đang tải (skeleton "Đang đếm kho ô…"), lỗi (câu đỏ), ngăn trống (nút Xoá mờ; máy nhà chưa đẩy thì một dòng nói rõ). -->
 <!-- re-verified: 2026-11-06 — thẻ /chon-vai có danh sách "ô · làm được gì" theo dock vai (TINH_NANG_VAI). -->
 <!-- re-verified: 2026-11-04 — NGƯ TRƯỜNG → BỘ CHỌN LOÀI BÀ CON ĐÁNH (anh Long 04/11: "dự báo tất cả các loài đang ko cần thiết… cho chọn 2-3 loài"). Bật Dự báo cá lần đầu (chưa có `forfish.fishPicks.v1`) ⇒ bản đồ CHƯA tô, panel mở bộ chọn "Bà con đánh loài nào?" + "Chọn tới 3 loài, bản đồ chỉ tô chỗ có loài đó." · hàng chip nghề Câu ngừ · Lưới vây · Lưới rê · Chụp mực (một chạm điền sẵn 3 loài của nghề, loài đang vụ ở vùng xem trước) · "Đang vụ quanh đây" ≤6 chip tên ngắn · "Loài khác ›" gập sẵn (đủ loài theo nhóm) · chân "Đã chọn n/3" + nút Xong (tắt khi 0). Đủ 3 ⇒ chip chưa chọn mờ 40%. Bộ chọn mở thì ngăn Lớp KHÔNG tự thu 5 s (thu là mất bộ chọn dở). Đã chọn ⇒ hàng chip 3 loài (chấm màu) + "Đổi"; chạm một chip = chỉ xem loài đó (chip khác nhạt), chạm lại = cả bộ. Ô/hồng tâm/thẻ điểm tính theo ĐIỂM CAO NHẤT trong bộ, thẻ chỉ nêu loài đã chọn. Sen Biển gọi tên loài vẫn thắng bộ. "Mọi loài" bỏ khỏi panel. Kiểm 375×812 acc test premium. -->
+<!-- re-verified: 2026-11-06c — HƯỚNG DẪN CÀI TAY ANDROID (install-prompt HuongDanTay + tooltip /quan-tri): "⋮ › Thêm vào Màn hình chính (EN: Install and create shortcut) › Cài đặt › xác nhận"; tooltip iPhone ở /quan-tri theo cùng đường ≡ › Chia sẻ › Xem thêm của 9eb80d18. Đối chiếu bản quay thật Chrome 156 (giả lập Android 15) — video HDSD 7. -->
 <!-- re-verified: 2026-11-04 — /chon-vai chỉ 2 thẻ Đi bạn · Chủ tàu; Thu mua / Đại lý do nhân viên duyệt (spec 17 §3.1). -->
 <!-- re-verified: 2026-11-03 — §4 DOCK THEO VAI + màn /chon-vai + trang chủ theo vai + cổng bản đồ theo vai (spec 17 §3, §4, §11). -->
 ttl_days: 90
@@ -1686,7 +1687,7 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 | Máy | Chrome có hỏi? | Thẻ hiện gì |
 |---|---|---|
 | Android | có (`beforeinstallprompt`) | nút **"Cài về máy"** bung hộp cài thật |
-| Android | không, sau `BIP_WAIT_MS` = 2,5s | **hướng dẫn tay**: bấm ⋮ → "Thêm vào Màn hình chính" (có máy ghi "Cài ứng dụng") |
+| Android | không, sau `BIP_WAIT_MS` = 2,5s | **hướng dẫn tay**: bấm ⋮ → "Thêm vào Màn hình chính" (máy tiếng Anh: "Install and create shortcut") → "Cài đặt" → xác nhận; máy hỏi thêm → "Thêm vào màn hình chính" (2026-11-06, đối chiếu Chrome 156 thật + trợ giúp Chrome tiếng Việt) |
 | iPhone | — | hướng dẫn tay qua nút Chia sẻ; Safari đời mới không còn nút ở thanh dưới ⇒ câu chỉ thêm đường ≡ › Chia sẻ › (Xem thêm) › “Thêm vào Màn hình chính” › Thêm (đo simulator iOS 27, 2026-11-06) |
 | Desktop | — | **không mời** — mời hão vì máy không cài được |
 

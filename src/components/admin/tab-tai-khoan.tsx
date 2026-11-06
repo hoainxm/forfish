@@ -1388,9 +1388,9 @@ export function AppUsage({ a }: { a: Account }) {
         <span
           title={
             a.devicePlatform === "ios"
-              ? "Với iPhone/iPad — Hướng dẫn: Bấm nút Chia sẻ → Thêm vào Màn hình chính. LƯU Ý: Bản cài ngoài Màn hình chính có kho lưu trữ độc lập, dữ liệu tải qua trình duyệt Safari sẽ không dùng được."
+              ? "Với iPhone/iPad — Hướng dẫn: Safari › nút Chia sẻ (iOS mới: nút ≡ cạnh ô địa chỉ › Chia sẻ) › Xem thêm › Thêm vào Màn hình chính › Thêm. LƯU Ý: Bản cài ngoài Màn hình chính có kho lưu trữ độc lập, dữ liệu tải qua trình duyệt Safari sẽ không dùng được."
               : a.devicePlatform === "android"
-                ? "Với máy Android — Hướng dẫn: Bấm Cài ứng dụng. Ứng dụng dùng chung bộ nhớ với trình duyệt Chrome nên có thể tải dữ liệu trên nền tảng nào cũng được."
+                ? "Với máy Android — Hướng dẫn: Chrome › nút ⋮ › Thêm vào Màn hình chính (tiếng Anh: Install and create shortcut) › Cài đặt › xác nhận. Ứng dụng dùng chung bộ nhớ với trình duyệt Chrome nên có thể tải dữ liệu trên nền tảng nào cũng được."
                 : "Hệ thống không xác định được thiết bị là iPhone hay Android (có thể khách dùng máy tính hoặc trình duyệt khác)."
           }
           className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-semibold text-foreground/70"
