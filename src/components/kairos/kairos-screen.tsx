@@ -24,6 +24,8 @@ import { useHome } from "@/components/ui/region-filter";
 import { Tabs } from "@/components/ui/tabs";
 import { provinceIdOf } from "@/lib/kairos/khu-vuc.mjs";
 import { useTinhViTri } from "@/lib/use-tinh-vi-tri";
+import { CANG_NHA_EVENT, docCangNha } from "@/lib/cang-nha";
+import { chonTinhTuDong } from "@/lib/tinh-vi-tri";
 import { loadFeedCache, loadTuyChon, portLabel } from "@/lib/kairos/feed-client";
 import { hienCauPhu } from "@/lib/kairos/dau-man";
 import { authorToi } from "@/lib/kairos/ho-so";
@@ -66,7 +68,21 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
       chọn luôn các tin liên quan tỉnh đó"): tỉnh đo được THẮNG tỉnh cảng nhà; bà con tự chọn tỉnh ⇒ thôi theo vị trí. */
   const viTri = useTinhViTri(chip === "chinh-sach");
   const [theoViTri, setTheoViTri] = useState(true);
-  const tinhTen = theoViTri && viTri.tinh ? viTri.tinh : (home.province ?? null);
+  /*  TỰ CHỌN, KHÔNG BẮT THAO TÁC (anh Long 06/11: "cái chọn phải tự động … nó phải thông minh"): vị trí máy (tự đo) ⇒
+      tỉnh tàu ⇒ cảng nhà mọi nguồn (ghim / Sen Biển / app tự gắn) (tinh-vi-tri.chonTinhTuDong). Đọc cảng nhà sau khi gắn máy + nghe CANG_NHA_EVENT (đặt cảng ở màn khác). */
+  const [tinhCangNha, setTinhCangNha] = useState<string | null>(null);
+  useEffect(() => {
+    const doc = () => setTinhCangNha(docCangNha()?.province ?? null);
+    doc();
+    window.addEventListener(CANG_NHA_EVENT, doc);
+    return () => window.removeEventListener(CANG_NHA_EVENT, doc);
+  }, []);
+  const tuDong = chonTinhTuDong({
+    viTri: theoViTri ? viTri.tinh : null,
+    tinhTau: home.province,
+    tinhCangNha,
+  });
+  const tinhTen = tuDong?.province ?? null;
   /** loại tin đang lọc (14 §21d) — null = tất cả; lọc trong máy */
   const [loai, setLoai] = useState<string | null>(null);
   const tinh = chip === "chinh-sach" && gan ? provinceIdOf(tinhTen) : null;
@@ -130,7 +146,7 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
             gan={gan}
             setGan={setGan}
             chonTinh={chonTinh}
-            viTri={{ on: theoViTri && !!viTri.tinh, ten: viTri.tinh, dangDo: viTri.dangDo, xin: viTri.xin, setOn: setTheoViTri }}
+            viTri={{ on: tuDong?.nguon === "vi-tri", ten: viTri.tinh, dangDo: viTri.dangDo, xin: viTri.xin, setOn: setTheoViTri }}
           />
           <LocLoaiTin loai={loai} setLoai={setLoai} />
         </div>

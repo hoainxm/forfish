@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { provinceIdOf } from "@/lib/kairos/khu-vuc.mjs";
 import { NEVER_BACKUP_PREFIXES } from "@/lib/offline-backup";
-import { docTinhViTri, ghiTinhViTri, TINH_HET_HAN_MS, TINH_VI_TRI_KEY, tinhTuToaDo } from "@/lib/tinh-vi-tri";
+import { chonTinhTuDong, docTinhViTri, ghiTinhViTri, TINH_HET_HAN_MS, TINH_VI_TRI_KEY, tinhTuToaDo } from "@/lib/tinh-vi-tri";
 
 const NOW = Date.parse("2026-11-06T08:00:00Z");
 
@@ -44,6 +44,18 @@ describe("toạ độ ⇒ tỉnh (danh bạ cảng cá thật)", () => {
   });
   it("bỏ cảng toạ độ sai rõ (PORT_COORD_SAI) — 'Phường 6 Thắng Nhì' Vũng Tàu ghi toạ độ Nha Trang", () => {
     expect(tinhTuToaDo(12.2517, 109.1962)).toBe("Khánh Hòa");
+  });
+});
+
+describe("tự chọn tỉnh — không bắt bà con thao tác (anh Long 06/11)", () => {
+  it("vị trí máy > tỉnh tàu > cảng nhà; tên lệch dạng vẫn ra tên chuẩn", () => {
+    expect(chonTinhTuDong({ viTri: "Thành phố Hồ Chí Minh", tinhTau: "Gia Lai", tinhCangNha: "Khánh Hòa" })).toEqual({ province: "Thành phố Hồ Chí Minh", nguon: "vi-tri" });
+    expect(chonTinhTuDong({ viTri: null, tinhTau: "Gia Lai", tinhCangNha: "Khánh Hòa" })).toEqual({ province: "Gia Lai", nguon: "tau" });
+    expect(chonTinhTuDong({ tinhCangNha: "TP.HCM" })).toEqual({ province: "Thành phố Hồ Chí Minh", nguon: "cang-nha" });
+  });
+  it("nguồn rác / không có gì ⇒ null (Cả nước); nguồn rác không chặn nguồn sau", () => {
+    expect(chonTinhTuDong({})).toBeNull();
+    expect(chonTinhTuDong({ viTri: "Sao Hỏa", tinhTau: "", tinhCangNha: "Cà Mau" })).toEqual({ province: "Cà Mau", nguon: "cang-nha" });
   });
 });
 
