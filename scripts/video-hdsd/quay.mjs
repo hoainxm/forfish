@@ -111,22 +111,26 @@ kb.canh.forEach((c, i) => {
 });
 const tong = moc.ket - tru;
 const tieuDe = kb.tieuDe;
+// KHUNG TRÀN MÀN (anh Long 06/11: "dùng full màn hình app luôn, bỏ viền xanh"): video 1080×2348 = đúng tỉ lệ màn
+// điện thoại 402×874 (máy quay dsf 2 ⇒ 804×1748, phóng 1,343). Tiêu đề chỉ hiện 4 giây đầu; phụ đề hộp mờ nằm trên
+// thanh dưới cùng (dock + thanh "Hôm nay") để không che nút.
+const VW_OUT = 1080, VH_OUT = 2348;
 const ass = `[Script Info]
 ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
+PlayResX: ${VW_OUT}
+PlayResY: ${VH_OUT}
 WrapStyle: 2
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Sub,Segoe UI,46,&H00FFFFFF,&H00FFFFFF,&H00402A12,&H00000000,1,0,0,0,100,100,0,0,1,0,0,2,50,50,58,1
-Style: Top,Segoe UI,40,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,8,40,40,30,1
-Style: Tag,Segoe UI,30,&H00E8D9A6,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,8,40,40,86,1
+Style: Sub,Segoe UI,50,&H00FFFFFF,&H00FFFFFF,&H30402A12,&H00000000,1,0,0,0,100,100,0,0,3,18,0,2,70,70,470,1
+Style: Top,Segoe UI,56,&H00FFFFFF,&H00FFFFFF,&H18402A12,&H00000000,1,0,0,0,100,100,0,0,3,26,0,5,60,60,0,1
+Style: Tag,Segoe UI,34,&H00E8D9A6,&H00FFFFFF,&H18402A12,&H00000000,0,0,0,0,100,100,0,0,3,14,0,5,60,60,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,${T(0)},${T(tong)},Top,,0,0,0,,${tieuDe}
-Dialogue: 0,${T(0)},${T(tong)},Tag,,0,0,0,,SDFish · Hướng dẫn sử dụng · ${kb.vaiTen}
+Dialogue: 0,${T(0)},${T(Math.min(4, tong))},Top,,0,0,0,,{\fad(250,400)\pos(540,1060)}${tieuDe}
+Dialogue: 0,${T(0)},${T(Math.min(4, tong))},Tag,,0,0,0,,{\fad(250,400)\pos(540,1170)}SDFish · Hướng dẫn sử dụng · ${kb.vaiTen}
 ${ev.join("\n")}
 `;
 writeFileSync(`${W}sub.ass`, ass);
@@ -142,22 +146,21 @@ for (const f of amIn) args.push("-i", f);
 const fc = amIn.map((_, i) => `[${i}:a]aresample=48000,adelay=${amF[i]}|${amF[i]}[a${i}]`).join(";") + ";" + amIn.map((_, i) => `[a${i}]`).join("") + `amix=inputs=${amIn.length}:normalize=0,apad=whole_dur=${tong.toFixed(2)},atrim=0:${tong.toFixed(2)},loudnorm=I=-16:TP=-1.5:LRA=11[a]`;
 args.push("-filter_complex", fc, "-map", "[a]", "-ar", "48000", "-ac", "2", `${W}giong.wav`);
 execFileSync("ffmpeg", args);
-// NHẠC NỀN tự tổng hợp (nhac.mjs — không bản quyền bên thứ ba), nhỏ ~-22 dB, tự hạ khi có lời (sidechain)
+// NHẠC NỀN tự tổng hợp (nhac.mjs — không bản quyền bên thứ ba). Anh Long 06/11 "thêm nhạc nền vô" — bản đầu −22 dB
+// và hạ sâu khi có lời nên nghe không ra ⇒ nay ~−12 dB, chỉ hạ nhẹ (ratio 2.5) khi có lời, khoảng lặng nghe rõ nhạc.
 execFileSync("node", [`${L.SRC}nhac.mjs`, `${W}nhac.wav`, (tong + 1).toFixed(0)]);
 execFileSync("ffmpeg", ["-y", "-v", "error", "-i", `${W}giong.wav`, "-i", `${W}nhac.wav`, "-filter_complex",
-  "[0:a]asplit=2[g][k];[1:a]aresample=48000,volume=0.16[m];[m][k]sidechaincompress=threshold=0.02:ratio=5:attack=30:release=600[md];[g][md]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95[a]",
+  "[0:a]asplit=2[g][k];[1:a]aresample=48000,volume=0.42[m];[m][k]sidechaincompress=threshold=0.06:ratio=2.5:attack=40:release=500[md];[g][md]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95[a]",
   "-map", "[a]", "-ar", "48000", "-ac", "2", `${W}tieng.wav`]);
 
-// hình: nền navy, màn điện thoại 732×1592 bo góc ở giữa (y=184), phụ đề dải dưới
-const fontsDir = `${L.DIR}fonts`;
-const vf = [
-  `[0:v]trim=start=${tru.toFixed(3)},setpts=PTS-STARTPTS,fps=30,scale=680:1478:flags=lanczos,format=rgba[s]`,
-  `[2:v]scale=680:1478,format=gray[m]`,
-  `[s][m]alphamerge[sm]`,
-  `[1:v][sm]overlay=200:150:shortest=0,trim=duration=${tong.toFixed(2)},subtitles=sub.ass:fontsdir=fonts,format=yuv420p[v]`,
-].join(";");
+// hình: màn app tràn khung 1080×2348, phụ đề + tiêu đề đốt thẳng
+const vf = `[0:v]trim=start=${tru.toFixed(3)},setpts=PTS-STARTPTS,fps=30,scale=${VW_OUT}:${VH_OUT}:flags=lanczos,setsar=1,trim=duration=${tong.toFixed(2)},subtitles=sub.ass:fontsdir=fonts,format=yuv420p[v]`;
 const out = `${L.DIR}out/${kb.ten}.mp4`;
-const r = spawnSync("ffmpeg", ["-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", moc.video, "-f", "lavfi", "-i", `color=c=0x0E2A40:s=1080x1920:r=30:d=${(tong + 1).toFixed(2)}`, "-loop", "1", "-i", `${L.DIR}mask.png`, "-i", `${W}tieng.wav`,
-  "-filter_complex", vf, "-map", "[v]", "-map", "3:a", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-r", "30", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", "-t", tong.toFixed(2), out], { cwd: W, encoding: "utf8" });
+const r = spawnSync("ffmpeg", ["-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", moc.video, "-i", `${W}tieng.wav`,
+  "-filter_complex", vf, "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-r", "30", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", "-t", tong.toFixed(2), out], { cwd: W, encoding: "utf8" });
 if (r.status !== 0) { console.log(r.stderr); process.exit(1); }
+// BẢN KHÔNG NHẠC (chỉ giọng đọc) — đăng TikTok thì chọn "âm thanh" thịnh hành ngay trong TikTok (bản quyền nhạc TikTok
+// chỉ áp trong TikTok; lồng bài thương mại vào file đăng nơi khác là vi phạm).
+const out2 = `${L.DIR}out/${kb.ten}-khong-nhac.mp4`;
+execFileSync("ffmpeg", ["-y", "-v", "error", "-i", out, "-i", `${W}giong.wav`, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-shortest", "-movflags", "+faststart", out2]);
 console.log("XONG:", out, (statSync(out).size / 1e6).toFixed(1), "MB,", tong.toFixed(1), "s");

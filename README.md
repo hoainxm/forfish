@@ -106,7 +106,7 @@ Tám video, mỗi video 1–2 phút:
 | 7 | Cài SDFish về điện thoại (Android + iPhone, PWA lưu dữ liệu thế nào, địa chỉ `sdfish.sdvico.vn`) | thường — màn trình duyệt là **minh hoạ** |
 | 8 | Tàu quanh đây (AIS): giữ tay ~3 giây trên bản đồ ⇒ tàu trong 6 hải lý, 6 giờ qua, lọc + chi tiết từng tàu | gói dự báo |
 
-Nhạc nền **tự tổng hợp** (`scripts/video-hdsd/nhac.mjs`: pad + arpeggio + tiếng sóng, không dùng bài có bản quyền), tự hạ khi có lời. Muốn nhạc thịnh hành thì chọn "âm thanh" ngay trong TikTok lúc đăng — bản quyền nhạc TikTok chỉ áp trong TikTok. Công cụ quay: [`scripts/video-hdsd/`](scripts/video-hdsd/README.md).
+Nhạc nền **tự tổng hợp** (`scripts/video-hdsd/nhac.mjs`: pad + arpeggio + tiếng sóng, không dùng bài có bản quyền), tự hạ khi có lời. Mỗi video có thêm bản `-khong-nhac.mp4` (chỉ giọng đọc): muốn nhạc thịnh hành thì chọn "âm thanh" ngay trong TikTok lúc đăng — bản quyền nhạc TikTok chỉ áp trong TikTok. Công cụ quay: [`scripts/video-hdsd/`](scripts/video-hdsd/README.md).
 
 ## Tech stack
 

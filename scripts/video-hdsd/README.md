@@ -24,13 +24,13 @@ BASE=https://sdfish.sdvico.vn node scripts/video-hdsd/quay.mjs kb-chu-tau-co-ban
 # chỉ ghép lại (đổi phụ đề/khung) không quay: thêm --chi-ghep
 ```
 
-Kho làm việc `test-reports/video-hdsd/` (ngoài git) cần `fonts/` (Segoe UI) + `mask.png` (khung bo góc 732×1592) — xem lệnh tạo trong lịch sử commit. Ra: `out/<tên>.mp4` (1080×1920, H.264 + AAC) và `out/<tên>/<tên>.srt`.
+Kho làm việc `test-reports/video-hdsd/` (ngoài git) cần `fonts/` (Segoe UI). Ra: `out/<tên>.mp4` (**1080×2348 tràn màn**, đúng tỉ lệ màn điện thoại; H.264 + AAC), `out/<tên>-khong-nhac.mp4` (chỉ giọng đọc — đăng TikTok thì chọn âm thanh thịnh hành ngay trong TikTok) và `out/<tên>/<tên>.srt`.
 
 ## Cách nó chạy
 
 1. Đọc từng câu thoại bằng Mỹ Duyên (cache theo nội dung) ⇒ biết mỗi cảnh dài bao lâu.
 2. Mở Chrome (402×874, dsf 2), gắn chuỗi thiết bị + danh tính vào localStorage, ghi hình qua **CDP screencast** (khung 804×1748 đúng pixel thật — `recordVideo` của Playwright chỉ ghi nửa độ phân giải). Mỗi cảnh: chạy thao tác (con trỏ cam + gợn chạm) rồi chờ đủ thời lượng lời.
-3. Nhạc nền `nhac.mjs` (tự tổng hợp, không bản quyền bên thứ ba) ~−22 dB, sidechain hạ khi có lời.
-4. Ghép: nền navy, màn điện thoại bo góc giữa khung, tiêu đề trên, phụ đề dưới, tiếng đặt đúng mốc từng câu, loudnorm −16 LUFS.
+3. Nhạc nền `nhac.mjs` (tự tổng hợp, không bản quyền bên thứ ba) ~−12 dB, chỉ hạ nhẹ khi có lời. KHÔNG lồng bài thương mại ("top hit TikTok"): bản quyền nhạc TikTok chỉ áp trong TikTok.
+4. Ghép: màn app **tràn khung** (bỏ nền navy/viền — anh Long 06/11), tiêu đề hiện 4 giây đầu giữa màn, phụ đề hộp mờ ngay trên thanh dưới, tiếng đặt đúng mốc từng câu, loudnorm −16 LUFS. `--chi-ghep` ghép lại từ khung đã quay, không quay lại.
 
 **Không đăng dữ liệu công khai giả lên production**: các cảnh hồ sơ tìm tàu, hồ sơ vựa, đăng ký gian hàng chỉ điền form và chỉ vào nút, KHÔNG bấm gửi. Dữ liệu riêng (tàu, giấy tờ, bạn thuyền) của tài khoản test được `don.mjs` xoá trước mỗi lần quay (chỉ số loại `test`).
