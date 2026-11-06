@@ -54,6 +54,7 @@ import {
   thanMkn,
 } from "../src/lib/stracking/dong-bo.mjs";
 import { docMkn, nhacTheoNguoi, viecNhac } from "../src/lib/stracking/nhac-nho.mjs";
+import { LOAI_SIEU_NHANH } from "../src/lib/stracking/muc-canh-bao.mjs";
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 const CO_TRANG = 1000;
@@ -101,6 +102,12 @@ const GUI_LAI = co.has("--gui-lai");
 const DAY_DU = co.has("--day-du");
 /** Lượt NHANH 15 phút/lần (timer stracking-mkn): cảnh báo + mất kết nối ngoài khơi ⇒ báo kịp thời, nhắc mốc 6 giờ. */
 const CHI_MKN = co.has("--mkn");
+/**
+ * Lượt SIÊU NHANH 5 phút (timer stracking-khan): chỉ đọc TRANG ĐẦU danh sách cảnh báo (mới nhất trước, 300 dòng) và chỉ gửi
+ * SOS / Vượt biên (lib/stracking/muc-canh-bao LOAI_SIEU_NHANH). Anh Long 06/11: "tăng cái logic cảnh báo lên để đúng và kịp
+ * thời" — đo 24 giờ: trễ trung bình 18 phút, có lúc 89–268 phút. Không gửi `dangMo` (chỉ đọc một phần ⇒ không đóng gì).
+ */
+const CHI_KHAN = co.has("--khan");
 const ANH = co.has("--anh");
 
 class HetPhien extends Error {}
@@ -515,6 +522,34 @@ async function main() {
     }
     daVao = true;
     if (DANG_NHAP_TAY) log("phiên đang sống — các lượt timer sẽ dùng lại hồ sơ này");
+
+    if (CHI_KHAN) {
+      const html = await goi(page, "/report/eventAlarmList", thanCanhBao(1, 300), "form");
+      const bang = docBang(html);
+      if (!bang) throw new Error("cảnh báo: không thấy bảng #myTable");
+      const ds = docCanhBao(bang).filter((x) => LOAI_SIEU_NHANH.includes(x.loai));
+      const luc = new Date().toISOString();
+      const { cbMoi } = ghiKho(db, [], ds, luc);
+      const dauNgay = dauNgayVnIso();
+      const cho = db
+        .prepare(
+          `SELECT imei, loai, luc, serial, vin, ten_tau AS tenTau, muc FROM canh_bao WHERE da_gui = 0 AND luc >= ? AND loai IN (${LOAI_SIEU_NHANH.map(() => "?").join(",")}) ORDER BY luc DESC LIMIT 2000`,
+        )
+        .all(dauNgay, ...LOAI_SIEU_NHANH);
+      log(`lượt siêu nhanh — ${ds.length} SOS/vượt biên ở trang đầu (${cbMoi} mới), ${cho.length} chưa gửi · ${Math.round((Date.now() - t0) / 1000)} s`);
+      if (THU || !cho.length) {
+        ketThuc(THU ? "thu" : "khan", { cb: ds.length, gui: 0 });
+        return 0;
+      }
+      const j = await gui(c, { luc, trangThai: "ok", thietBi: [], canhBao: cho.map(banGuiCanhBao).filter(Boolean) });
+      const danhDau = db.prepare("UPDATE canh_bao SET da_gui = 1 WHERE imei = ? AND loai = ? AND luc = ?");
+      db.exec("BEGIN");
+      for (const r of cho) danhDau.run(r.imei, r.loai, r.luc);
+      db.exec("COMMIT");
+      log(`gửi ${cho.length} cảnh báo khẩn ⇒ ${JSON.stringify(j.ghi ?? {})}`);
+      ketThuc("khan", { cb: ds.length, gui: 0 });
+      return 0;
+    }
 
     if (CHI_MKN) {
       // Lượt NHANH (timer stracking-mkn, 15 phút/lần): CẢNH BÁO + mất kết nối, không hồ sơ. Anh Long 05/11: "cảnh báo phải
