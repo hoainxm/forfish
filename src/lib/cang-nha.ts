@@ -119,5 +119,19 @@ export function datCangNha(portId: string): boolean {
   if (!c) return false;
   const next = upsertPlace(loadPlaces(), { name: c.name, lat: c.lat, lon: c.lon, asHome: true });
   if (!persistPlaces(next)) return false;
-  return saveHome({ ...loadHome(), portId: c.id, ...(c.province ? { province: c.province } : {}) });
+  const ok = saveHome({ ...loadHome(), portId: c.id, ...(c.province ? { province: c.province } : {}) });
+  if (ok) baoCangNhaDoi();
+  return ok;
+}
+
+/** Cảng nhà vừa đổi — thẻ Trang chủ (Biển hôm nay, Con nước, tầng 5) nghe để đọc lại NGAY, không chờ mount sau
+ *  (2026-11-06: cảng tự gắn theo số tàu S-Tracking về SAU khi thẻ đã vẽ "Chọn cảng nhà"). */
+export const CANG_NHA_EVENT = "forfish:cangnha";
+
+function baoCangNhaDoi(): void {
+  try {
+    window.dispatchEvent(new Event(CANG_NHA_EVENT));
+  } catch {
+    /* không có Event (test/WebView cũ) — thẻ đọc lại ở lần mở sau */
+  }
 }
