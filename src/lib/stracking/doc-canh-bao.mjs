@@ -23,7 +23,8 @@ export const CANH_BAO_MOI_TAU = 2;
     lời đọc viết sẵn bằng chữ nói: mã tàu đánh vần từng chữ cái + từng số (như bà con đọc biển số), chữ viết tắt đọc theo
     tên chữ cái — chữ nào cũng có mảnh (lap_manh.mjs CO_BAN). Hàm đánh vần dùng chung ở lib/voice/ghep.mjs. Màn hình vẫn in mã gốc; chỉ câu NÓI đổi. */
 /** Chữ viết tắt trong tên loại cảnh báo của Viettel ⇒ chữ nói. */
-const VIET_TAT = { SOS: "ét ô ét", GPS: "giê pê ét", Reset: "rì sét" };
+export const VIET_TAT_CANH_BAO = { SOS: "ét ô ét", GPS: "giê pê ét", Reset: "rì sét" };
+const VIET_TAT = VIET_TAT_CANH_BAO;
 
 /** Viết thường cho câu đọc liền mạch; chữ viết tắt (SOS, GPS) ⇒ tên chữ cái để có mảnh giọng Mỹ Duyên. */
 function chuThuong(loai) {

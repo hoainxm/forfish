@@ -26,7 +26,7 @@ import { getExpiryStatus, kindLabel } from "@/lib/documents";
 import { haversineKm } from "@/lib/geo";
 import { loadForecast } from "@/lib/forecast-cache";
 import type { FuelPrice } from "@/lib/fuel-price";
-import { chuaDocIds, loadHidden, loadInbox, loadSeen, locTinAn } from "@/lib/inbox";
+import { chuaDocIds, loadHidden, loadInbox, loadSeen, locTinAn, tinChuaDocDeDoc } from "@/lib/inbox";
 import { demChuaDocTrongMay } from "@/lib/kairos/chuong";
 import { coHoanTacDangHien } from "@/lib/toast";
 import { loadMarketCart } from "@/lib/market/cart";
@@ -208,6 +208,11 @@ function inboxUnreadOf(phone: string | null, now: number): number {
   return chuaDocIds(msgs, loadSeen(phone), now).size;
 }
 
+/** ≤3 tin chưa đọc (đã gom trùng, bỏ tin ẩn) để Sen Biển đọc to — gồm cả tin giám sát hành trình máy chủ gửi vào hộp thư. */
+function inboxTinMoiOf(phone: string | null, now: number): { title: string; body: string }[] {
+  return tinChuaDocDeDoc(loadInbox(phone), loadSeen(phone), loadHidden(phone), now).map((m) => ({ title: m.title, body: m.body }));
+}
+
 /*  Số di động DUY NHẤT đang hiện nút Nhắn (Zalo) trên màn — thẻ tin / vựa đang mở (cơ cấu mới 2026-10-25, hợp đồng §B
     nhan_zalo). Đọc THẲNG các link `zalo.me/<số>` đang vẽ (lien-he.tsx vẽ nút Nhắn bằng link đó) thay vì bắt từng màn
     đăng ký số: màn nào có nút Nhắn là Sen Biển thấy. Có 0 hoặc ≥2 số ⇒ undefined (answer hướng dẫn chạm Nhắn). */
@@ -258,6 +263,7 @@ export function gomSnapshot(route: string): DeviceSnapshot {
     fishPrices: safe(fishPricesOf, null),
     fuel: safe(fuelOf, null),
     inboxUnread: safe(() => inboxUnreadOf(phone, now), 0),
+    inboxTinMoi: safe(() => inboxTinMoiOf(phone, now), []),
     placeNames: safe(() => loadPlaces().slice(0, 12).map((p) => cut(p.name)), []),
     // cơ cấu mới 2026-10-25 — chỉ ở client (stripForServer bỏ)
     kairosChuaDoc: safe(() => demChuaDocTrongMay(phone), 0),
@@ -291,6 +297,7 @@ function scrub(v: unknown): unknown {
  */
 export function stripForServer(s: DeviceSnapshot): DeviceSnapshot {
   const rest = { ...s };
+  delete rest.inboxTinMoi; // nội dung tin riêng (tên tàu, mã đơn) — chỉ để đọc to ở client, không gửi máy chủ
   delete rest.soZaloDangMo; // SĐT đang hiện trên màn — CHỈ cho action client (14 luật 6: không gửi SĐT)
   const base: DeviceSnapshot = {
     ...rest,
