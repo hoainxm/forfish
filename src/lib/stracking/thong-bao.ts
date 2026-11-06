@@ -5,32 +5,28 @@
 // Luật:
 //  · CHỈ cảnh báo MỚI chèn (trùng khoá imei+loại+giờ ⇒ không báo lại), xảy ra ≤ CUA_SO_MS (máy chủ còn lọc "trong ngày"
 //    ở kiemGoiNhap) — kho tồn / gửi bù không dội tin chuyện đã qua.
-//  · Mức: "Báo động" ⇒ hộp thư + ĐẨY lên máy; "Cảnh cáo" ⇒ CHỈ hộp thư (không đánh thức máy); mức khác ⇒ bỏ.
-//  · CHỐNG LẶP: cùng máy + cùng loại đã có cảnh báo trong CHONG_LAP_MS trước đó ⇒ không báo lại (S-Tracking bắn lặp
-//    SOS / mất GPS liên tục); trong một lượt, cùng máy + cùng loại chỉ giữ một (giờ mới nhất).
-//  · GỘP một tin/SĐT/lượt (4 lượt/ngày), chủ tàu + thuyền trưởng cùng nhận; mỗi tàu một dòng
+//  · MỨC theo loại + trong bờ/ngoài khơi (lib/stracking/muc-canh-bao, 06/11): khẩn/cao/thường ⇒ ĐẨY lên máy (thường tối đa
+//    1 lần/ngày cùng máy + loại), "bỏ" ⇒ không báo (tàu nằm bờ mà tắt máy / không nguồn ngoài…).
+//  · CHỐNG LẶP theo LẦN ĐÃ BÁO (tính lại từ lịch sử 2 ngày), khoảng theo mức: SOS/vượt biên ngoài khơi 1 giờ, sắp vượt
+//    biên 3 giờ, tắt máy/mất GPS 6 giờ, pin 12 giờ, thường 24 giờ; trong một lượt cùng máy + loại chỉ giữ một.
+//  · GỘP một tin/SĐT/lượt, CHỈ chủ tàu nhận (06/11); mỗi tàu một dòng
 //    "BV-123-TS: SOS 15:47 · Mất GPS 16:02", tàu nguy hiểm hơn đứng trước; ≤ DONG_TOI_DA tàu + "và N tàu khác".
 //  · Trần TRAN_TIN_MOI_LUOT tin/lượt — người có báo động nặng nhất, mới nhất được giữ trước.
 //  · `tag` theo SĐT: máy chỉ giữ tin mới nhất, không chồng chất.
 
 import { laMayDaBo } from "./may-da-bo.mjs";
+import { mucCanhBao } from "./muc-canh-bao.mjs";
 
 export const STRACKING_PUSH_SENT_BY = "system:stracking";
 /** Cảnh báo cũ hơn ngần này (so với lúc nhận) thì chỉ lưu, không báo — khe dài nhất giữa hai lượt là 21:00 → 07:30. */
 export const CUA_SO_MS = 12 * 3600_000;
-export const CHONG_LAP_MS = 6 * 3600_000;
+/** Lịch sử cảnh báo route tra để TÍNH LẠI chuỗi đã báo (chống lặp dài nhất 24 giờ + cửa sổ 12 giờ, kho giữ 2 ngày). */
+export const TRA_LUI_MS = 48 * 3600_000;
 export const DONG_TOI_DA = 3;
 /** Trần tổng số tin MỖI LƯỢT — một lượt dồn (kho làm lại, gửi bù) không bắn cả nghìn tin. */
 export const TRAN_TIN_MOI_LUOT = 400;
 
 export const BAO_DONG = "Báo động";
-const CANH_CAO = "Cảnh cáo";
-/** Thứ tự nguy hiểm (nhỏ = nặng). Loại không có trong danh sách đứng sau. */
-const UU_TIEN = ["SOS", "Vượt biên", "Sắp vượt biên", "Tắt thiết bị", "Mất GPS", "Pin dự phòng sắp hết"];
-const hang = (loai: string) => {
-  const i = UU_TIEN.indexOf(loai);
-  return i < 0 ? UU_TIEN.length : i;
-};
 
 export interface CanhBaoMoi {
   imei: string;
@@ -44,6 +40,8 @@ export interface TauCuaImei {
   serial: string;
   sdt_chu_tau: string | null;
   sdt_thuyen_truong: string | null;
+  /** trong bờ (true) / ngoài khơi (false) / chưa rõ (null ⇒ như ngoài khơi) — mức cảnh báo phụ thuộc (muc-canh-bao) */
+  trong_bo?: boolean | null;
   /** Tài khoản gán SĐT chủ tàu/thuyền trưởng của máy này làm SĐT phụ (0084) — cũng là "người của máy". */
   sdt_them?: readonly string[];
 }
@@ -199,12 +197,9 @@ function gioVn(iso: string): string {
 }
 
 /** So sánh "nặng hơn đứng trước": báo động > cảnh cáo, rồi theo loại, rồi mới hơn. */
-function nangHon(a: CanhBaoMoi, b: CanhBaoMoi): number {
-  return (
-    Number(b.muc === BAO_DONG) - Number(a.muc === BAO_DONG) ||
-    hang(a.loai) - hang(b.loai) ||
-    Date.parse(b.luc) - Date.parse(a.luc)
-  );
+/** Xếp theo MỨC thật (muc-canh-bao `hang`: khẩn › cao › thường, rồi loại) — dùng khi biết trong bờ / ngoài khơi. */
+function nangHonTheoMuc(hangCua: (c: CanhBaoMoi) => number) {
+  return (a: CanhBaoMoi, b: CanhBaoMoi) => hangCua(a) - hangCua(b) || Date.parse(b.luc) - Date.parse(a.luc);
 }
 
 /**
@@ -220,25 +215,36 @@ export function gomTinTau(
 ): TinTau[] {
   // máy đã huỷ / thu hồi (lib/stracking/may-da-bo) không báo
   const theoImei = new Map(tau.filter((t) => !laMayDaBo(t)).map((t) => [t.imei, t]));
-  const daCo = new Map<string, number[]>();
-  for (const p of truoc) {
-    const t = Date.parse(p.luc);
-    if (!Number.isFinite(t)) continue;
-    const k = `${p.imei}|${p.loai}`;
-    daCo.set(k, [...(daCo.get(k) ?? []), t]);
-  }
-  // 1) lọc + chống lặp, cùng máy+loại trong lượt giữ bản mới nhất
-  const chon = new Map<string, CanhBaoMoi>();
-  for (const c of moi) {
-    if (c.muc !== BAO_DONG && c.muc !== CANH_CAO) continue;
-    const t = Date.parse(c.luc);
-    if (!Number.isFinite(t) || nowMs - t > CUA_SO_MS || t - nowMs > CUA_SO_MS) continue;
-    if (!theoImei.has(c.imei)) continue;
+  // MỨC theo loại + vị trí tàu (muc-canh-bao, anh Long 06/11: "đúng và kịp thời", "đẩy lên máy đi, tần suất ngày").
+  const muc = (c: CanhBaoMoi) => mucCanhBao({ loai: c.loai, muc: c.muc, trongBo: theoImei.get(c.imei)?.trong_bo ?? null });
+  // 1) CHỐNG LẶP THEO LẦN ĐÃ BÁO — tính lại chuỗi từ lịch sử (truoc + moi) cùng máy + cùng loại: báo cái đầu, cái sau chỉ
+  //    báo khi cách lần ĐÃ BÁO gần nhất ≥ chongLapMs. (Luật cũ so với cảnh báo liền trước: S-Tracking bắn SOS ~30 phút/lần
+  //    ⇒ luôn có cái liền trước ⇒ sau tin đầu KHÔNG BAO GIỜ báo lại — sai cho chuyện sống còn.) Không cần cột "đã báo":
+  //    lịch sử giữ 2 ngày ≥ chống lặp dài nhất 24 giờ.
+  const laMoi = new Set(moi.map((c) => `${c.imei}|${c.loai}|${Date.parse(c.luc)}`));
+  const theoKhoa = new Map<string, CanhBaoMoi[]>();
+  for (const c of [...truoc, ...moi]) {
+    if (!theoImei.has(c.imei) || !Number.isFinite(Date.parse(c.luc))) continue;
     const k = `${c.imei}|${c.loai}`;
-    if ((daCo.get(k) ?? []).some((p) => p < t && t - p <= CHONG_LAP_MS)) continue;
-    const cu = chon.get(k);
-    if (!cu || Date.parse(cu.luc) < t || (cu.muc !== BAO_DONG && c.muc === BAO_DONG)) chon.set(k, c);
+    const ds = theoKhoa.get(k) ?? [];
+    if (!ds.some((x) => Date.parse(x.luc) === Date.parse(c.luc))) ds.push(c);
+    theoKhoa.set(k, ds);
   }
+  const chon = new Map<string, CanhBaoMoi>();
+  for (const [k, ds] of theoKhoa) {
+    ds.sort((a, b) => Date.parse(a.luc) - Date.parse(b.luc));
+    let daBaoLuc: number | null = null;
+    for (const c of ds) {
+      const m = muc(c);
+      if (m.bac === "bo") continue; // chuyện bình thường khi tàu nằm bờ — không báo
+      const t = Date.parse(c.luc);
+      if (daBaoLuc != null && t - daBaoLuc < (m.chongLapMs ?? Infinity)) continue;
+      daBaoLuc = t;
+      const moiLuot = laMoi.has(`${c.imei}|${c.loai}|${t}`) && nowMs - t <= CUA_SO_MS && t - nowMs <= CUA_SO_MS;
+      if (moiLuot) chon.set(k, c); // trong lượt giữ lần báo MỚI NHẤT
+    }
+  }
+  const nangHonM = nangHonTheoMuc((c) => muc(c).hang);
   // 2) theo SĐT → theo tàu
   const theoSdt = new Map<string, Map<string, CanhBaoMoi[]>>();
   for (const c of chon.values()) {
@@ -254,14 +260,14 @@ export function gomTinTau(
   // 3) câu chữ
   const out: (TinTau & { nang: CanhBaoMoi })[] = [];
   for (const [phone, cacTau] of theoSdt) {
-    const dsTau = [...cacTau.entries()].map(([ten, ds]) => ({ ten, ds: ds.sort(nangHon) })).sort((a, b) => nangHon(a.ds[0], b.ds[0]));
+    const dsTau = [...cacTau.entries()].map(([ten, ds]) => ({ ten, ds: ds.sort(nangHonM) })).sort((a, b) => nangHonM(a.ds[0], b.ds[0]));
     const title = dsTau.length === 1 ? `Cảnh báo tàu ${dsTau[0].ten}` : `Cảnh báo ${dsTau.length} tàu của bạn`;
     const dong = dsTau.slice(0, DONG_TOI_DA).map(({ ten, ds }) => `${ten}: ${ds.map((c) => `${c.loai} ${gioVn(c.luc)}`).join(" · ")}`);
     if (dsTau.length > DONG_TOI_DA) dong.push(`và ${dsTau.length - DONG_TOI_DA} tàu khác`);
     const nang = dsTau[0].ds[0];
-    out.push({ phone, title, body: dong.join("\n"), url: "/tau", tag: `stracking-${phone}`, day: nang.muc === BAO_DONG, nang });
+    out.push({ phone, title, body: dong.join("\n"), url: "/tau", tag: `stracking-${phone}`, day: dsTau.some((x) => x.ds.some((c) => muc(c).day)), nang });
   }
-  out.sort((a, b) => nangHon(a.nang, b.nang));
+  out.sort((a, b) => nangHonM(a.nang, b.nang));
   return out.slice(0, TRAN_TIN_MOI_LUOT).map((t) => ({ phone: t.phone, title: t.title, body: t.body, url: t.url, tag: t.tag, day: t.day }));
 }
 

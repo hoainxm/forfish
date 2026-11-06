@@ -40,36 +40,29 @@ describe("cảnh báo thông minh — gộp thông báo tàu", () => {
     expect(tin).toHaveLength(1);
   });
 
-  it("Cảnh cáo ⇒ chỉ hộp thư (day=false); mức khác ⇒ bỏ", () => {
-    const tin = gomTinTau(
-      [
-        { imei: "3", loai: "Vùng chú ý đánh bắt", luc: "2026-11-05T09:00:00Z", muc: CC },
-        { imei: "2", loai: "x", luc: "2026-11-05T09:00:00Z", muc: "Bình thường" },
-      ],
-      tau,
-      NOW,
-    );
+  it("mức theo loại + vị trí (muc-canh-bao): tàu nằm bờ mà 'vùng chú ý' ⇒ bỏ; ngoài khơi ⇒ báo + đẩy", () => {
+    const vung = { imei: "3", loai: "Vùng chú ý đánh bắt", luc: "2026-11-05T09:00:00Z", muc: CC };
+    const trongBo = tau.map((t) => ({ ...t, trong_bo: true }));
+    expect(gomTinTau([vung], trongBo, NOW)).toHaveLength(0);
+    const ngoaiKhoi = tau.map((t) => ({ ...t, trong_bo: false }));
+    const tin = gomTinTau([vung], ngoaiKhoi, NOW);
     expect(tin).toHaveLength(1);
-    expect(tin[0]).toMatchObject({ phone: "0911111111", title: "Cảnh báo tàu S3", day: false });
+    expect(tin[0]).toMatchObject({ phone: "0911111111", title: "Cảnh báo tàu S3", day: true });
   });
-
-  it("chống lặp: cùng máy + loại đã báo trong 6 giờ ⇒ không báo; trong lượt chỉ giữ bản mới nhất", () => {
-    const truoc = [{ imei: "2", loai: "SOS", luc: "2026-11-05T06:00:00Z", muc: BD }];
-    expect(gomTinTau([{ imei: "2", loai: "SOS", luc: "2026-11-05T09:00:00Z", muc: BD }], tau, NOW, truoc)).toHaveLength(0);
-    // cách hơn 6 giờ ⇒ báo lại
-    const xa = [{ imei: "2", loai: "SOS", luc: "2026-11-05T02:00:00Z", muc: BD }];
-    expect(gomTinTau([{ imei: "2", loai: "SOS", luc: "2026-11-05T09:00:00Z", muc: BD }], tau, NOW, xa)).toHaveLength(1);
-    const [t] = gomTinTau(
-      [
-        { imei: "2", loai: "SOS", luc: "2026-11-05T08:00:00Z", muc: BD },
-        { imei: "2", loai: "SOS", luc: "2026-11-05T09:00:00Z", muc: BD },
-      ],
-      tau,
-      NOW,
-    );
-    expect(t.body).toBe("SOS 16:00".replace(/^/, "BV-5678-TS: "));
+  it("chống lặp theo LẦN ĐÃ BÁO: SOS bắn lại 30 phút/lần ⇒ vẫn báo lại mỗi 1 giờ (luật cũ thì im luôn)", () => {
+    const sos = (hh: string) => ({ imei: "2", loai: "SOS", luc: `2026-11-05T${hh}:00Z`, muc: BD });
+    // đã báo 08:00, 08:30 bị chặn ⇒ 09:00 cách lần ĐÃ BÁO đúng 1 giờ ⇒ báo
+    expect(gomTinTau([sos("09:00")], tau, NOW, [sos("08:00"), sos("08:30")])).toHaveLength(1);
+    // 08:30 đã báo ⇒ 09:00 mới 30 phút ⇒ chặn
+    expect(gomTinTau([sos("09:00")], tau, NOW, [sos("08:30")])).toHaveLength(0);
+    // tắt thiết bị ngoài khơi: chống lặp 6 giờ
+    const tat = (hh: string) => ({ imei: "2", loai: "Tắt thiết bị", luc: `2026-11-05T${hh}:00Z`, muc: BD });
+    expect(gomTinTau([tat("09:00")], tau, NOW, [tat("06:00")])).toHaveLength(0);
+    expect(gomTinTau([tat("09:00")], tau, NOW, [tat("02:00")])).toHaveLength(1);
+    // trong lượt: 2 lần đều được báo theo chuỗi ⇒ tin giữ lần MỚI NHẤT
+    const [t] = gomTinTau([sos("07:30"), sos("09:00")], tau, NOW);
+    expect(t.body).toBe("BV-5678-TS: SOS 16:00");
   });
-
   it("máy bà con đã XOÁ (0085) ⇒ SĐT đó không nhận cảnh báo / 'đã hết' / nhắc; máy khác vẫn báo", () => {
     const daXoa = new Set([khoaXoa("0912345678", "S1"), khoaXoaTen("0912345678", "BV-1234-TS")]);
     const sos = (imei: string) => ({ imei, loai: "SOS", luc: "2026-11-05T09:00:00Z", muc: BD });

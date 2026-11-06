@@ -39,6 +39,8 @@ const THU_TU_LOAI = ["SOS", "Vượt biên", "Sắp vượt biên", "Tắt thi�
  * Mức của MỘT cảnh báo. `trongBo`: true = trong bờ, false = ngoài khơi, null/undefined = chưa rõ (⇒ như ngoài khơi).
  * Trả { bac, day, chongLapMs, hang } — `day` = đẩy lên máy (mọi bậc trừ "bo"); `hang` để xếp (nhỏ = nặng). Loại lạ: theo cột "Kiểu"
  * (Báo động ⇒ cao 6 giờ, khác ⇒ thường 24 giờ; trong bờ ⇒ thường).
+ * @param {{ loai: string, muc?: string | null, trongBo?: boolean | null }} cb
+ * @returns {{ bac: "khan" | "cao" | "thuong" | "bo", day: boolean, chongLapMs: number | null, hang: number }}
  */
 export function mucCanhBao({ loai, muc, trongBo }) {
   const ngoaiKhoi = trongBo !== true;
@@ -58,6 +60,9 @@ export function mucCanhBao({ loai, muc, trongBo }) {
 
 /**
  * Có báo cảnh báo này không? `truocMs` = lần gần nhất đã BÁO cùng máy + cùng loại (null = chưa từng). Bậc "bo" ⇒ không.
+ * @param {{ loai: string, muc?: string | null, trongBo?: boolean | null }} cb
+ * @param {number} nowMs
+ * @param {number | null | undefined} truocMs
  */
 export function nenBao({ loai, muc, trongBo }, nowMs, truocMs) {
   const m = mucCanhBao({ loai, muc, trongBo });

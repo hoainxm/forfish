@@ -12,8 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { strackingKeyDenied } from "@/lib/stracking/khoa";
 import { kiemGoiNhap } from "@/lib/stracking/dong-bo.mjs";
 import {
-  CHONG_LAP_MS,
-  CUA_SO_MS,
+  TRA_LUI_MS,
   chiaTinChoSdtPhu,
   ghepNhac,
   khoaXoa,
@@ -327,14 +326,15 @@ async function tinTuCanhBao(
     for (let i = 0; i < imeis.length; i += LO_TRA) {
       const { data, error } = await admin
         .from("stracking_thiet_bi")
-        .select("imei,serial,ten_tau,sdt_chu_tau,sdt_thuyen_truong")
+        .select("imei,serial,ten_tau,sdt_chu_tau,sdt_thuyen_truong,trong_bo") // trong bờ ⇒ mức cảnh báo (muc-canh-bao)
         .in("imei", imeis.slice(i, i + LO_TRA));
       if (error) throw error;
       tau.push(...((data ?? []) as TauCuaImei[]));
     }
     // Cảnh báo ĐÃ CÓ trước lượt này của cùng máy (chống lặp 6 giờ) — loại đúng các hàng vừa chèn.
     const nowMs = Date.now();
-    const tu = new Date(nowMs - CUA_SO_MS - CHONG_LAP_MS).toISOString();
+    // Lịch sử 2 ngày để tính lại chuỗi ĐÃ BÁO (chống lặp theo mức, dài nhất 24 giờ).
+    const tu = new Date(nowMs - TRA_LUI_MS).toISOString();
     const khoaMoi = new Set(moiChen.map((c) => `${c.imei}|${c.loai}|${Date.parse(c.luc)}`));
     const truoc: CanhBaoMoi[] = [];
     for (let i = 0; i < imeis.length; i += LO_TRA) {
