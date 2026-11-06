@@ -18,7 +18,7 @@ import { chonVai } from "@/lib/vai-store";
 */
 export default function ChonVaiPage() {
   const router = useRouter();
-  const { phone, vai, san } = useVai();
+  const { phone, vai, goi, san } = useVai();
   const [next, setNext] = useState("/");
   const [dangGhi, setDangGhi] = useState<Vai | null>(null);
 
@@ -46,7 +46,7 @@ export default function ChonVaiPage() {
       <ManHeader title="Bà con làm nghề gì?" />
       <div className="space-y-4 px-4 pt-1">
         <p className="text-[0.9375rem] leading-snug text-foreground/70">App sắp xếp màn hình theo việc của bà con. Chọn một lần, không đổi sau.</p>
-        <ChonVaiThe hienTai={vai} dangGhi={dangGhi} onChon={(v) => void chon(v)} />
+        <ChonVaiThe hienTai={vai} coGoi={goi} dangGhi={dangGhi} onChon={(v) => void chon(v)} />
         <button
           type="button"
           onClick={() => router.replace(next)}

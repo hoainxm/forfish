@@ -174,3 +174,37 @@ describe("mọi màn của ô dock đều có dock (anh Long 03/11: /viec không
     for (const p of ["/login", "/dang-ky", "/chon-vai", "/quyen-rieng-tu"]) expect(dockActive(p, MOI_O_DOCK), p).toBeNull();
   });
 });
+
+describe("Thẻ chọn vai ghi rõ được gì theo từng ô (anh Long 06/11)", () => {
+  it("mọi ô ghi trong TINH_NANG_VAI là ô thật của dock vai đó, đúng thứ tự, không thiếu ô nào trừ Trang chủ", async () => {
+    const { dockTheoVai } = await import("@/lib/dock-nav");
+    const { TINH_NANG_VAI, VAI_IDS } = await import("@/lib/vai");
+    for (const v of VAI_IDS) {
+      const dock = dockTheoVai(v, true).map((m) => m.label).filter((l) => l !== "Trang chủ");
+      expect(TINH_NANG_VAI[v].map((t) => t.o)).toEqual(dock);
+    }
+  });
+  it("ô có gói đúng luật bản đồ §11: chủ tàu không cần gói, ba vai kia cần", async () => {
+    const { TINH_NANG_VAI, VAI_IDS, coBanDo } = await import("@/lib/vai");
+    for (const v of VAI_IDS) {
+      const banDo = TINH_NANG_VAI[v].find((t) => t.o === "Bản đồ");
+      expect(!!banDo?.goi).toBe(!coBanDo(v, false));
+    }
+  });
+  it("chưa có gói ⇒ dòng Bản đồ của Đi bạn bị khoá, mời dùng gói dự báo; có gói ⇒ dòng thường. Chủ tàu không khoá", async () => {
+    const { tinhNangHien } = await import("@/lib/vai");
+    const free = tinhNangHien("ngu-dan", false).find((t) => t.o === "Bản đồ");
+    expect(free?.khoa).toBe(true);
+    expect(free?.viec).toBe("Quan tâm bản đồ? Bà con dùng gói dự báo, liên hệ SDVICO để nâng cấp");
+    expect(free?.viec).not.toMatch(/premium/i);
+    const goi = tinhNangHien("ngu-dan", true).find((t) => t.o === "Bản đồ");
+    expect(goi).toEqual({ o: "Bản đồ", viec: "Dự báo cá", khoa: false });
+    expect(tinhNangHien("chu-tau", false).some((t) => t.khoa)).toBe(false);
+  });
+  it("Đi bạn có Việc làm: tạo hồ sơ + tìm tàu", async () => {
+    const { TINH_NANG_VAI } = await import("@/lib/vai");
+    const viec = TINH_NANG_VAI["ngu-dan"].find((t) => t.o === "Việc làm");
+    expect(viec?.viec).toMatch(/hồ sơ/);
+    expect(viec?.viec).toMatch(/tìm tàu/i);
+  });
+});

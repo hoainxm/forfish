@@ -5,7 +5,9 @@
 // chỗ: ô Bản đồ của đi bạn / thu mua / đại lý chỉ mở khi có gói (§11, anh Long: *"chủ tàu thì giữ nguyên như hiện tại,
 // còn ngư dân, thu mua, đại lý mới chia premium và free"*). Chủ tàu + chưa chọn vai: bản đồ y như hôm nay.
 
-export const VAI_IDS = ["ngu-dan", "chu-tau", "thu-mua", "dai-ly"] as const;
+import { NHAN, TEN_GOI } from "./labels";
+
+export const VAI_IDS =["ngu-dan", "chu-tau", "thu-mua", "dai-ly"] as const;
 export type Vai = (typeof VAI_IDS)[number];
 
 /** Bốn thẻ màn chọn vai — tên hiện cho bà con + một dòng phụ (§3.1). Thứ tự = thứ tự thẻ. */
@@ -17,6 +19,56 @@ export const VAI: readonly { id: Vai; ten: string; phu: string }[] = [
 ];
 
 const TEN = new Map<string, string>(VAI.map((v) => [v.id, v.ten]));
+
+/*
+  CHỌN VAI NÀY THÌ ĐƯỢC GÌ (anh Long 06/11: *"ghi rõ luôn dựa trên acc vô họ chọn cái đó thì sẽ xem dc gì, list nhanh
+  tính năng ngắn gọn theo tab thôi, ví dụ bạn thuyền thì giúp tạo hồ sơ rồi kiếm việc trên các tàu"*). Một dòng mỗi ô
+  dock của vai đó, đúng thứ tự dock (bỏ Trang chủ — vai nào cũng có). `o` = tên ô dock (NHAN) — test vai khoá: mọi `o`
+  phải là ô có thật trong dockTheoVai(vai, true), nên dock đổi mà quên sửa ở đây là đỏ. `goi` = ô chỉ có khi có gói (§11)
+  — tài khoản CHƯA có gói: dòng đó vẫn hiện nhưng MỜ + chữ đậm "Quan tâm bản đồ? Bà con dùng gói dự báo, liên hệ SDVICO để nâng cấp" (anh Long 06/11, câu nhẹ nhàng: "bôi
+  … cái bản đồ để họ ko chọn nhầm, ở đi bạn thì ghi rõ muốn xem bản đồ thì dùng bản pre" — tên gói hiển thị là TEN_GOI,
+  không dùng chữ Premium); dùng `tinhNangHien`, đừng đọc thẳng bảng.
+*/
+export type TinhNangVai = { o: string; viec: string; goi?: true };
+export const TINH_NANG_VAI: Record<Vai, readonly TinhNangVai[]> = {
+  "ngu-dan": [
+    { o: NHAN.kairos, viec: "Tin tức, chính sách" },
+    { o: NHAN.banDo, viec: "Dự báo cá", goi: true },
+    { o: NHAN.viecLam, viec: "Tạo hồ sơ, tìm tàu" },
+    { o: NHAN.choCa, viec: "Giá cá, tin mua bán" },
+    { o: NHAN.vatTu, viec: "Mua đồ đi biển" },
+  ],
+  "chu-tau": [
+    { o: NHAN.kairos, viec: "Tin tức, chính sách" },
+    { o: NHAN.banDo, viec: "Thời tiết, tin bão" },
+    { o: NHAN.tauToi, viec: "Giấy tờ, bạn thuyền" },
+    { o: NHAN.choCa, viec: "Giá cá, đăng bán" },
+    { o: NHAN.vatTu, viec: "Mua vật tư, thiết bị" },
+  ],
+  "thu-mua": [
+    { o: NHAN.kairos, viec: "Tin tức, chính sách" },
+    { o: NHAN.banDo, viec: "Dự báo cá", goi: true },
+    { o: NHAN.choCa, viec: "Tìm cá, đăng giá mua" },
+    { o: NHAN.vatTu, viec: "Mua vật tư, thiết bị" },
+  ],
+  "dai-ly": [
+    { o: NHAN.kairos, viec: "Tin tức, chính sách" },
+    { o: NHAN.banDo, viec: "Dự báo cá", goi: true },
+    { o: NHAN.banHang, viec: "Đăng hàng, nhận đơn" },
+    { o: NHAN.vatTu, viec: "Xem chợ vật tư" },
+  ],
+};
+
+/** Dòng thẻ vai sau khi xét gói. `khoa` = ô cần gói mà tài khoản chưa có — vẽ mờ, chữ việc đổi thành lời mời dùng gói. */
+export type TinhNangHien = { o: string; viec: string; khoa: boolean };
+
+/** Các dòng thẻ vai cho tài khoản này: chưa có gói ⇒ ô cần gói vẫn có dòng nhưng `khoa` (dock sẽ không có ô đó). */
+export function tinhNangHien(vai: Vai, coGoi: boolean): readonly TinhNangHien[] {
+  return TINH_NANG_VAI[vai].map((t) => {
+    const khoa = !!t.goi && !coGoi;
+    return { o: t.o, viec: khoa ? `Quan tâm ${t.o.toLowerCase()}? Bà con dùng ${TEN_GOI}, liên hệ SDVICO để nâng cấp` : t.viec, khoa };
+  });
+}
 
 /*
   VAI BÀ CON TỰ CHỌN ĐƯỢC (anh Long 04/11: *"thu mua và đại lý ko cho tự chọn nhé, phải do admin quản trị duyệt, ko cần

@@ -11,9 +11,9 @@ import { chonVai, docVaiMay, dongBoVai } from "@/lib/vai-store";
 /**
  * Vai của tài khoản đang đăng nhập (spec 17). `vai` null = chưa chọn hoặc chưa đăng nhập; `biet` = máy đã có bản vai
  * của tài khoản này (chưa có thì đừng vội mời chọn — có thể máy chủ đang trả lời). `banDo` = ô Bản đồ có hiện không (§11).
- * `san` = đã đọc kho máy (trước đó đừng quyết chặn/mở màn nặng như bản đồ).
+ * `goi` = có gói (thẻ chọn vai bỏ dòng ô cần gói khi false). `san` = đã đọc kho máy (trước đó đừng quyết chặn/mở màn nặng như bản đồ).
  */
-export function useVai(): { phone: string | null; vai: Vai | null; biet: boolean; banDo: boolean; san: boolean } {
+export function useVai(): { phone: string | null; vai: Vai | null; biet: boolean; banDo: boolean; goi: boolean; san: boolean } {
   const { phone, ready } = useAuthUser();
   const { access } = useFeatureAccess();
   // đọc trong effect, không lúc render — bản dựng máy chủ và bản vẽ đầu ở máy phải khớp nhau
@@ -42,7 +42,8 @@ export function useVai(): { phone: string | null; vai: Vai | null; biet: boolean
   }, [phone]);
 
   const vai = phone ? (may?.vai ?? null) : null;
-  return { phone, vai, biet: !!may, banDo: coBanDo(vai, coGoi(access)), san: san && ready };
+  const goi = coGoi(access);
+  return { phone, vai, biet: !!may, banDo: coBanDo(vai, goi), goi, san: san && ready };
 }
 
 /** "open" = có gói. Đang tra ("checking") thì dùng dấu hạng đã lưu — không để ô Bản đồ nháy mất rồi hiện lại. */
