@@ -6,7 +6,7 @@
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-11-05
-<!-- re-verified: 2026-11-06 — MIGRATION 0086 `sdt_khac` (thay `customers.sdt_phu` 0084): ≤3 số/tài khoản, một số đã duyệt một người, dòng chờ của bà con; CHƯA APPLY prod. -->
+<!-- re-verified: 2026-11-06 — MIGRATION 0086 `sdt_khac` (thay `customers.sdt_phu` 0084): ≤3 số/tài khoản, một số đã duyệt một người, dòng chờ của bà con; ✅ ĐÃ APPLY prod 2026-11-06 (20261106044448). -->
 <!-- re-verified: 2026-11-05i — MIGRATION 0084 `customers.sdt_phu` (+ `sdt_phu_luc`): 1 SĐT phụ/tài khoản, check 10 số + khác SĐT chính, index một phần; chỉ nhân viên gán (PATCH /api/admin/accounts/sdt-phu). Tra máy S-Tracking theo SĐT chính + phụ qua `lib/stracking/sdt-phu`. ✅ ĐÃ APPLY prod 2026-11-05 (20261105150914, Supabase MCP, anh Long "Áp và gán luôn"); gán tay 0918388742 ⇒ sdt_phu 0946364444 (+1 dòng nhật ký account.sdt-phu). -->
 <!-- re-verified: 2026-11-05h — MIGRATION 0083 `dong_y_dieu_khoan` (anh Long 05/11: T&C lúc đăng ký/đăng nhập lần đầu, "1 cái click là đồng ý"): bảng chỉ-thêm phone · ban · luc_may · luc_chu · nguon (dang-ky|dang-nhap|mo-app) · platform · user_agent; RLS bật, 0 policy, revoke anon/authenticated (khuôn 0065). Ghi qua POST /api/me/dong-y, đọc ở /api/auth/token (`dongYBan`). ✅ ĐÃ APPLY prod 2026-11-05 (20261105141841). Code chịu được bảng chưa có (503 ⇒ máy giữ treo, gửi bù). -->
 <!-- re-verified: 2026-11-05g — KHOÁ GIA HẠN VÀO /quan-tri: KHÔNG migration. `app_config` thêm 2 khoá: `sdfish_renewal_secret` (secret, env dự phòng SDFISH_RENEWAL_SECRET; ≥16 ký tự, không khoảng trắng — phải TRÙNG secret bên CRM) + `sdwork_crm_url` (không secret, env dự phòng SDWORK_SUPABASE_URL; đúng khuôn https://<ref>.supabase.co). Ô DB thắng env. Chỉ luồng gia hạn (lib/renewal-server) đọc hai ô này. -->
@@ -48,7 +48,7 @@ ttl_days: 180
 
 ---
 
-### 0086 — "SỐ KHÁC CỦA TÔI" (thay SĐT phụ một ô 0084) — migration [`0086_sdt_khac.sql`](../../supabase/migrations/0086_sdt_khac.sql) (2026-11-06) — ⏳ **CHƯA APPLY prod** (chờ anh Long duyệt; code chạy được trước migration nhờ đường lùi cột cũ)
+### 0086 — "SỐ KHÁC CỦA TÔI" (thay SĐT phụ một ô 0084) — migration [`0086_sdt_khac.sql`](../../supabase/migrations/0086_sdt_khac.sql) (2026-11-06) — ✅ **ĐÃ APPLY prod 2026-11-06** (anh Long: "Áp và đẩy"; Supabase MCP `apply_migration`, `schema_migrations` 20261106044448. Soi trước: 1 số phụ, 0 trùng, bảng chưa có. Soi sau: chép đúng 0918388742 ⇒ 0946364444 (đã duyệt, `chep-0084`); RLS bật, 0 policy; anon đọc thấy 0 dòng; authenticated ghi ⇒ 42501 bị chặn)
 
 Anh Long 06/11: *"phải có phương án bind với sdt này hoặc cho khách bổ sung sdt mua hàng sdvico"* + *"có 3 SĐT (cái phụ đang để cho VMS phụ) có bị conflict ko?"*. Cột đơn `customers.sdt_phu` vỡ ở ba chỗ: (1) đăng nhập A, máy giám sát đứng tên B, mua hàng bằng C ⇒ một ô không chứa được cả B lẫn C; (2) chỉ mục 0084 không unique ⇒ một số gán được cho hai tài khoản; (3) chính số phụ có thể là tài khoản tự đăng nhập. Nghĩa của B và C như nhau — *"số này là của tôi, nhân viên đã xác nhận"* — nên MỘT danh sách dùng chung cho S-Tracking và đồ mua SDVICO.
 
