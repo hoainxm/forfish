@@ -14,9 +14,9 @@ describe("mức cảnh báo theo loại + vị trí (anh Long 06/11: \"đúng v�
     expect(mucCanhBao({ loai: "SOS", muc: "Báo động", trongBo: null }).bac).toBe("khan");
     expect(mucCanhBao({ loai: "SOS", muc: "Báo động" }).bac).toBe("khan");
   });
-  it("trong bờ: tắt máy / không nguồn ngoài / sắp vượt biên ⇒ bỏ; SOS trong bờ ⇒ thường (1 lần/ngày)", () => {
+  it("trong bờ: không nguồn ngoài / sắp vượt biên ⇒ bỏ; SOS + TẮT MÁY trong bờ ⇒ thường (1 lần/ngày — tắt máy nằm bờ quá 1 ngày vẫn bị phạt)", () => {
     expect(mucCanhBao({ loai: "Thiết bị không sử dụng nguồn ngoài", muc: "Báo động", trongBo: true }).bac).toBe("bo");
-    expect(mucCanhBao({ loai: "Tắt thiết bị", muc: "Cảnh cáo", trongBo: true }).bac).toBe("bo");
+    expect(mucCanhBao({ loai: "Tắt thiết bị", muc: "Cảnh cáo", trongBo: true })).toMatchObject({ bac: "thuong", day: true, chongLapMs: 24 * GIO });
     expect(mucCanhBao({ loai: "Sắp vượt biên", muc: "Báo động", trongBo: true }).bac).toBe("bo");
     expect(mucCanhBao({ loai: "SOS", muc: "Báo động", trongBo: true })).toMatchObject({ bac: "thuong", day: true, chongLapMs: 24 * GIO });
   });
@@ -44,7 +44,7 @@ describe("nên báo — chống lặp theo mức", () => {
     expect(nenBao(sos, NOW, NOW - GIO)).toBe(true);
   });
   it("bậc bỏ ⇒ không bao giờ báo", () => {
-    expect(nenBao({ loai: "Tắt thiết bị", muc: "Cảnh cáo", trongBo: true }, NOW, null)).toBe(false);
+    expect(nenBao({ loai: "Thiết bị không sử dụng nguồn ngoài", muc: "Báo động", trongBo: true }, NOW, null)).toBe(false);
   });
   it("lượt siêu nhanh chỉ đọc SOS + Vượt biên", () => {
     expect([...LOAI_SIEU_NHANH].sort()).toEqual(["SOS", "Vượt biên"]);

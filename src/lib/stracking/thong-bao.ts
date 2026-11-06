@@ -63,7 +63,15 @@ export interface TinTau {
 // Anh Long 05/11: "đồng bộ Tổng cục / mất kết nối >6 giờ là bị phạt — cho Sen Biển nhắc", "nó ở màn thông báo đấy,
 // đẩy lên điện thoại". Chống lặp làm ở máy GPU (sổ da_nhac). Ở đây chỉ GỘP vào tin của SĐT (1 tin/SĐT/lượt, cùng tag).
 
-export type LoaiNhac = "mkn-sap-6h" | "mkn-qua-6h" | "tcts-that-bai" | "han-sap-het" | "han-qua-han";
+export type LoaiNhac =
+  | "mkn-sap-6h"
+  | "mkn-qua-6h"
+  // nằm bờ mà mất kết nối / tắt máy — quá 1 ngày không báo vị trí là bị phạt (anh Long 06/11)
+  | "mkn-bo-sap-1ngay"
+  | "mkn-bo-qua-1ngay"
+  | "tcts-that-bai"
+  | "han-sap-het"
+  | "han-qua-han";
 export interface Nhac {
   sdt: string;
   tau: string;
@@ -89,10 +97,20 @@ export function locNhacDaXoa(nhac: readonly Nhac[], daXoa: ReadonlySet<string>):
 export const TRAN_NHAC_MOI_LUOT = 1500;
 export const DONG_NHAC_TOI_DA = 4;
 /** Thứ tự nặng (nhỏ = nặng): mất kết nối là chuyện bị phạt ⇒ đứng trước cả cảnh báo. */
-const HANG_NHAC: Record<LoaiNhac, number> = { "mkn-qua-6h": 0, "mkn-sap-6h": 1, "han-qua-han": 2, "tcts-that-bai": 3, "han-sap-het": 4 };
+const HANG_NHAC: Record<LoaiNhac, number> = {
+  "mkn-qua-6h": 0,
+  "mkn-bo-qua-1ngay": 1,
+  "mkn-sap-6h": 2,
+  "mkn-bo-sap-1ngay": 3,
+  "han-qua-han": 4,
+  "tcts-that-bai": 5,
+  "han-sap-het": 6,
+};
 const TIEU_DE_NHAC: Record<LoaiNhac, (tau: string) => string> = {
   "mkn-qua-6h": (t) => `Tàu ${t} mất kết nối quá 6 giờ`,
   "mkn-sap-6h": (t) => `Tàu ${t} sắp quá 6 giờ mất kết nối`,
+  "mkn-bo-qua-1ngay": (t) => `Tàu ${t} quá 1 ngày chưa báo vị trí`,
+  "mkn-bo-sap-1ngay": (t) => `Tàu ${t} sắp 1 ngày chưa báo vị trí`,
   "han-qua-han": (t) => `Tàu ${t} quá hạn cước giám sát`,
   "tcts-that-bai": (t) => `Tàu ${t} chưa đồng bộ Tổng cục`,
   "han-sap-het": (t) => `Tàu ${t} sắp hết hạn cước giám sát`,

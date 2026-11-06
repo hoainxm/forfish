@@ -9,7 +9,8 @@
 //   khẩn  — đẩy lên máy, nhắc lại sớm khi còn diễn ra (SOS, Vượt biên ngoài khơi);
 //   cao   — đẩy lên máy, chống lặp vài giờ (sắp vượt biên, tắt máy, mất GPS, pin yếu ngoài khơi);
 //   thường — CŨNG đẩy lên máy nhưng tối đa 1 lần/NGÀY cùng máy + cùng loại (anh Long 06/11: "đẩy lên máy đi, tần suất ngày");
-//   bỏ    — không báo (chuyện bình thường khi tàu nằm bờ: tắt máy, không nguồn ngoài, sắp vượt biên do nhiễu GPS…).
+//   bỏ    — không báo (chuyện bình thường khi tàu nằm bờ: không nguồn ngoài, sắp vượt biên do nhiễu GPS…). TẮT MÁY khi nằm
+//           bờ KHÔNG bỏ: quá 1 ngày không báo vị trí là bị phạt ⇒ "thường" (1 lần/ngày) + nhắc mất kết nối mốc 1 ngày (nhac-nho).
 // Dùng ở: máy chủ (lib/stracking/thong-bao — quyết đẩy/hộp thư/chống lặp) + máy GPU (lượt siêu nhanh chỉ đọc cảnh báo khẩn).
 
 const GIO = 3600_000;
@@ -19,7 +20,8 @@ const BANG = {
   SOS: [{ bac: "khan", chongLap: 1 * GIO }, { bac: "thuong", chongLap: 24 * GIO }],
   "Vượt biên": [{ bac: "khan", chongLap: 1 * GIO }, { bac: "thuong", chongLap: 24 * GIO }],
   "Sắp vượt biên": [{ bac: "cao", chongLap: 3 * GIO }, { bac: "bo" }],
-  "Tắt thiết bị": [{ bac: "cao", chongLap: 6 * GIO }, { bac: "bo" }],
+  // Trong bờ vẫn BÁO 1 lần/ngày (anh Long 06/11: "cái ở bờ tắt máy cũng bị phạt nếu 1 ngày ko báo cáo 1 vị trí đấy").
+  "Tắt thiết bị": [{ bac: "cao", chongLap: 6 * GIO }, { bac: "thuong", chongLap: 24 * GIO }],
   "Mất GPS": [{ bac: "cao", chongLap: 6 * GIO }, { bac: "thuong", chongLap: 24 * GIO }],
   "Pin dự phòng sắp hết": [{ bac: "cao", chongLap: 12 * GIO }, { bac: "thuong", chongLap: 24 * GIO }],
   "Thiết bị không sử dụng nguồn ngoài": [{ bac: "thuong", chongLap: 24 * GIO }, { bac: "bo" }],
