@@ -6,6 +6,11 @@
     { "phone": "0900000777", "tier": "basic", "name": "Khách Test E2E", "purpose": "tài khoản thường; nâng premium tạm bằng --premium để thử cửa premium rồi script tự trả về basic" },
     { "phone": "0903333333", "tier": "basic", "name": "Test SDWork Side", "purpose": "tài khoản thường thứ hai — dùng khi cần một SĐT khác để không dính đệm hạng 5 phút của middleware" },
     { "phone": "0900000778", "tier": "basic", "name": "Test Hải đồ thường", "purpose": "tài khoản thường riêng cho rà/kiểm chế độ Hải đồ — tạo bằng `tao` 2026-11-04, tránh giành chuỗi với phiên khác" },
-    { "phone": "0900000779", "tier": "premium", "name": "Test Hải đồ gói", "purpose": "premium sẵn (hạn 10 năm) để kiểm phần gói trên Hải đồ / bản đồ — tạo bằng `tao` 2026-11-04" }
+    { "phone": "0900000779", "tier": "premium", "name": "Test Hải đồ gói", "purpose": "premium sẵn (hạn 10 năm) để kiểm phần gói trên Hải đồ / bản đồ — tạo bằng `tao` 2026-11-04" },
+    { "phone": "0900000780", "tier": "basic", "name": "Nguyễn Văn Ba", "purpose": "quay video HDSD CƠ BẢN (tài khoản thường) — tạo bằng `tao` 2026-11-06" },
+    { "phone": "0900000781", "tier": "premium", "name": "Trần Văn Tư", "purpose": "quay video HDSD NÂNG CAO (premium sẵn, hạn 10 năm) — tạo bằng `tao` 2026-11-06" },
+    { "phone": "0900000782", "tier": "basic", "name": "Lê Văn Năm", "purpose": "quay video HDSD vai ĐI BẠN — tạo bằng `tao` 2026-11-06" },
+    { "phone": "0900000783", "tier": "basic", "name": "Phạm Thị Sáu", "purpose": "quay video HDSD vai THU MUA — tạo bằng `tao` 2026-11-06" },
+    { "phone": "0900000784", "tier": "basic", "name": "Võ Văn Bảy", "purpose": "quay video HDSD vai ĐẠI LÝ — tạo bằng `tao` 2026-11-06" }
   ]
 }

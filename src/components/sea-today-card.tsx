@@ -22,7 +22,8 @@ import { soNgayThoiTiet } from "@/lib/tier";
 import Link from "next/link";
 import { PORTS, type FishingPort } from "@/data/ports";
 import { ChevronRightIcon } from "@/components/icons";
-import { docCangNha } from "@/lib/cang-nha";
+import { CANG_NHA_EVENT, docCangNha } from "@/lib/cang-nha";
+import { docDauTuDong } from "@/lib/cang-theo-so-tau";
 import { isoDateVN } from "@/lib/day-labels";
 import { gioLuu } from "@/lib/offline-line";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
@@ -77,8 +78,18 @@ export function SeaTodayCard() {
   const soNgay = soNgayThoiTiet(useFeatureAccess().access);
 
   // đọc localStorage SAU hydrate — SSR không có cảng nhà
+  /** cảng nhà do app TỰ GẮN theo số tàu S-Tracking (lib/cang-theo-so-tau) — hiện một dòng "· Đổi" để bà con biết mà sửa */
+  const [tuDong, setTuDong] = useState<{ ten: string; soTau: string } | null>(null);
   useEffect(() => {
-    setPort(cangBienHomNay());
+    const doc = () => {
+      setPort(cangBienHomNay());
+      const d = docDauTuDong();
+      const nha = docCangNha();
+      setTuDong(d && nha?.portId === d.portId ? { ten: nha.name, soTau: d.soTau } : null);
+    };
+    doc();
+    window.addEventListener(CANG_NHA_EVENT, doc);
+    return () => window.removeEventListener(CANG_NHA_EVENT, doc);
   }, []);
 
   useEffect(() => {
@@ -149,6 +160,14 @@ export function SeaTodayCard() {
         </span>
         <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/50" />
       </Link>
+      {tuDong && (
+        <p className="mt-1 px-1 text-[0.8125rem] leading-snug text-muted">
+          Cảng nhà {tuDong.ten} — app chọn theo số tàu {tuDong.soTau} ·{" "}
+          <Link href="/cang" className="font-semibold text-t1 underline-offset-2 hover:underline">
+            Đổi
+          </Link>
+        </p>
+      )}
       {ready}
     </section>
   );

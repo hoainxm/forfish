@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { TideCard, TideStationSheet } from "@/components/tide-card";
-import { docCangNha, type CangNha } from "@/lib/cang-nha";
+import { CANG_NHA_EVENT, docCangNha, type CangNha } from "@/lib/cang-nha";
 import { fetchTideStations, type TideStation } from "@/lib/tides";
 
 export function TideHomeCard() {
@@ -26,7 +26,11 @@ export function TideHomeCard() {
 
   // đọc localStorage SAU hydrate — SSR không có cảng nhà, tránh lệch markup
   useEffect(() => {
-    setCang(docCangNha());
+    const doc = () => setCang(docCangNha());
+    doc();
+    // cảng nhà tự gắn theo số tàu S-Tracking (lib/cang-theo-so-tau) có thể về SAU lúc thẻ vẽ
+    window.addEventListener(CANG_NHA_EVENT, doc);
+    return () => window.removeEventListener(CANG_NHA_EVENT, doc);
   }, []);
 
   useEffect(() => {

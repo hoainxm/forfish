@@ -2,8 +2,9 @@
 
 > Load khi: cần thử API/app bằng tài khoản thật trên production hoặc preview (premium, thường, bị chặn 401/403/429), không muốn nhớ SQL.
 covers: scripts/test-account.mjs, scripts/test-accounts.json
-last_verified: 2026-10-02
+last_verified: 2026-11-06
 ttl_days: 180
+<!-- re-verified: 2026-11-06 — thêm 0900000780–0784 (video HDSD theo vai, scripts/video-hdsd); lệnh ds/tao/cap/thu không đổi, đã chạy thật cả bốn -->
 
 ## Vì sao có
 
@@ -20,6 +21,11 @@ App xác thực bằng **chuỗi thiết bị** (`forfish.token.v1`, lib/device-
 | 0912345678 | premium | premium có sẵn; thường đang có máy thật ⇒ phải `--multi` |
 | 0900000778 | basic | riêng cho rà/kiểm chế độ Hải đồ (tạo bằng `tao` 2026-11-04) — tránh giành chuỗi với phiên khác đang dùng 0900000777 |
 | 0900000779 | premium | premium sẵn hạn 10 năm (tạo bằng `tao` 2026-11-04) — kiểm phần gói (dự báo cá, gió nhiều ngày, khay ⋯ màn cũ) không cần nâng tạm |
+| 0900000780 | basic | video HDSD **Chủ tàu — cơ bản** (`scripts/video-hdsd`, vai `chu-tau`, tạo bằng `tao` 2026-11-06) |
+| 0900000781 | premium | video HDSD **nâng cao / bản đồ gói / Tàu quanh AIS** (premium sẵn hạn 10 năm, vai `chu-tau`, 2026-11-06) |
+| 0900000782 | basic | video HDSD vai **Đi bạn** (`ngu-dan`, 2026-11-06) |
+| 0900000783 | basic | video HDSD vai **Thu mua** (`thu-mua`, gán bằng service role vì vai này nhân viên duyệt, 2026-11-06) |
+| 0900000784 | basic | video HDSD vai **Đại lý** (`dai-ly`, 2026-11-06) — chưa có gian hàng, video không bấm gửi đăng ký |
 | 0123456154 | premium | như trên |
 
 ## Lệnh

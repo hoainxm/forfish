@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Minh hoạ cài SDFish</title>
+<style>
+  :root { --navy:#0e2a40; --sea:#0f7c86; --muted:#5b6b78; }
+  * { box-sizing:border-box; margin:0; padding:0; font-family: system-ui, "Segoe UI", sans-serif; }
+  body { width:402px; height:874px; overflow:hidden; background:#f4f6f6; position:relative; }
+  .tag { position:absolute; top:6px; left:50%; transform:translateX(-50%); background:rgba(14,42,64,.85); color:#fff; font-size:11px; padding:3px 10px; border-radius:99px; z-index:50; letter-spacing:.3px }
+  .bar { height:64px; background:#fff; display:flex; align-items:center; gap:10px; padding:28px 10px 6px; box-shadow:0 1px 0 #e3e7ea; }
+  .url { flex:1; height:36px; border-radius:18px; background:#eef1f3; display:flex; align-items:center; padding:0 14px; font-size:15px; color:#222; }
+  .url .lock { margin-right:8px; color:#5b6b78 }
+  .caret { display:inline-block; width:2px; height:18px; background:#1a73e8; margin-left:1px; animation:b 1s steps(1) infinite }
+  @keyframes b { 50% { opacity:0 } }
+  .dots { width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:22px; color:#333; border-radius:50% }
+  .page { position:absolute; top:64px; left:0; right:0; bottom:0; padding:22px 18px; }
+  .page h1 { font-size:26px; color:var(--navy) } .page p { color:var(--muted); margin-top:8px; font-size:15px }
+  .ghost { height:110px; border-radius:16px; background:#fff; margin-top:16px; border:1px solid #e3e7ea }
+  .menu { position:absolute; top:60px; right:6px; width:250px; background:#fff; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.25); padding:6px 0; z-index:20; display:none }
+  .menu div { padding:13px 18px; font-size:15px; color:#222 }
+  .menu .hl { background:#e6f4f5; font-weight:600; color:var(--navy) }
+  .scrim { position:absolute; inset:0; background:rgba(0,0,0,.4); z-index:30; display:none }
+  .dlg { position:absolute; left:24px; right:24px; top:300px; background:#fff; border-radius:22px; padding:22px; z-index:31; display:none }
+  .dlg h2 { font-size:19px; color:#222 } .row { display:flex; align-items:center; gap:14px; margin-top:16px }
+  .row img { width:52px; height:52px; border-radius:12px } .row b { font-size:17px } .row small { display:block; color:#666; font-size:13px }
+  .btns { display:flex; justify-content:flex-end; gap:22px; margin-top:22px; font-size:15px; font-weight:600; color:#1a73e8 }
+  .home { position:absolute; inset:0; background:linear-gradient(160deg,#1b4d6b,#0e2a40 60%,#09202f); z-index:40; display:none; padding:80px 26px }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:26px 10px }
+  .app { text-align:center; color:#fff; font-size:12px } .app i { display:block; width:62px; height:62px; border-radius:16px; margin:0 auto 6px; background:rgba(255,255,255,.18) }
+  .app img { width:62px; height:62px; border-radius:16px; display:block; margin:0 auto 6px; box-shadow:0 0 0 3px #ffb347 }
+  /* Safari */
+  .sbar { position:absolute; left:0; right:0; bottom:0; height:96px; background:rgba(248,248,250,.97); border-top:1px solid #ddd; z-index:10 }
+  .surl { margin:8px 12px; height:40px; border-radius:12px; background:#e9e9ee; display:flex; align-items:center; justify-content:center; font-size:15px; color:#111 }
+  .sicons { display:flex; justify-content:space-around; font-size:22px; color:#0a7aff; padding-top:2px }
+  .sicons span { width:44px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:10px }
+  .sheet { position:absolute; left:0; right:0; bottom:0; height:470px; background:#f2f2f7; border-radius:16px 16px 0 0; z-index:31; display:none; padding:16px }
+  .sheet .head { display:flex; gap:12px; align-items:center; padding-bottom:12px; border-bottom:1px solid #ddd }
+  .sheet .head img { width:46px; height:46px; border-radius:10px } .sheet .list { background:#fff; border-radius:12px; margin-top:14px }
+  .sheet .list div { padding:14px 16px; font-size:16px; border-bottom:1px solid #eee; display:flex; justify-content:space-between }
+  .sheet .list .hl { background:#e6f0ff; font-weight:600 }
+  .add { position:absolute; inset:0; background:#f2f2f7; z-index:35; display:none; padding:20px 16px }
+  .add .top { display:flex; justify-content:space-between; font-size:16px; color:#0a7aff; font-weight:600 } .add .top b { color:#111 }
+  .add .card { background:#fff; border-radius:12px; margin-top:24px; padding:14px; display:flex; gap:14px; align-items:center }
+  .add .card img { width:60px; height:60px; border-radius:13px }
+</style></head>
+<body>
+<div class="tag">MINH HOẠ</div>
+<div id="android">
+  <div class="bar"><div class="url"><span class="lock">🔒</span><span id="u"></span><span class="caret"></span></div><div class="dots" id="dots" aria-label="Menu Chrome">⋮</div></div>
+  <div class="page"><h1>Chào bà con</h1><p>SDFish — app đồng hành của ngư dân</p><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div></div>
+  <div class="menu" id="menu">
+    <div>Thẻ mới</div><div>Lịch sử</div><div>Dấu trang</div><div>Chia sẻ…</div><div>Tìm trong trang</div>
+    <div class="hl" id="them" aria-label="Thêm vào Màn hình chính">Thêm vào Màn hình chính</div><div>Trang web cho máy tính</div><div>Cài đặt</div>
+  </div>
+</div>
+<div id="ios" style="display:none">
+  <div class="page" style="top:30px"><h1>Chào bà con</h1><p>SDFish — app đồng hành của ngư dân</p><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div></div>
+  <div class="sbar"><div class="surl">🔒 sdfish.sdvico.vn</div><div class="sicons"><span>‹</span><span>›</span><span id="share" aria-label="Chia sẻ">⇪</span><span>📖</span><span>⧉</span></div></div>
+  <div class="sheet" id="sheet"><div class="head"><img src="../../public/icons/apple-touch-icon.png"><div><b>SDFish</b><div style="font-size:13px;color:#666">sdfish.sdvico.vn</div></div></div>
+    <div class="list"><div>Sao chép</div><div>Thêm vào Danh sách đọc</div><div>Thêm dấu trang</div><div class="hl" id="ithem" aria-label="Thêm vào MH chính">Thêm vào MH chính <span>⊞</span></div><div>Tìm trên trang</div></div></div>
+  <div class="add" id="add"><div class="top"><span>Huỷ</span><b>Thêm vào MH chính</b><span id="ok" aria-label="Thêm">Thêm</span></div>
+    <div class="card"><img src="../../public/icons/apple-touch-icon.png"><div><b>SDFish</b><div style="font-size:13px;color:#666;margin-top:4px">sdfish.sdvico.vn</div></div></div></div>
+</div>
+<div class="scrim" id="scrim"></div>
+<div class="dlg" id="dlg"><h2>Thêm vào Màn hình chính</h2><div class="row"><img src="../../public/icons/apple-touch-icon.png"><div><b>SDFish</b><small>sdfish.sdvico.vn</small></div></div><div class="btns"><span>Huỷ</span><span id="cai" aria-label="Thêm">Thêm</span></div></div>
+<div class="home" id="home"><div class="grid">
+  <div class="app"><i></i>Điện thoại</div><div class="app"><i></i>Tin nhắn</div><div class="app"><i></i>Zalo</div><div class="app"><i></i>Máy ảnh</div>
+  <div class="app"><i></i>Ảnh</div><div class="app"><i></i>Cài đặt</div><div class="app"><img src="../../public/icons/apple-touch-icon.png" id="hicon" aria-label="Biểu tượng SDFish">SDFish</div>
+</div></div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const show = (id, v = "block") => ($(id).style.display = v);
+  window.mh = {
+    async go(url) { const u = $("u"); u.textContent = ""; for (const ch of url) { u.textContent += ch; await new Promise((r) => setTimeout(r, 110)); } },
+    menu() { show("menu"); }, dlg() { $("menu").style.display = "none"; show("scrim"); show("dlg"); },
+    home() { show("home"); },
+    ios() { $("android").style.display = "none"; show("ios"); },
+    sheet() { show("scrim"); show("sheet"); }, add() { show("add"); },
+  };
+  $("dots").onclick = () => mh.menu(); $("them").onclick = () => mh.dlg(); $("cai").onclick = () => mh.home();
+  $("share").onclick = () => mh.sheet(); $("ithem").onclick = () => mh.add(); $("ok").onclick = () => mh.home();
+  if (location.hash === "#ios") mh.ios();
+</script>
+</body></html>

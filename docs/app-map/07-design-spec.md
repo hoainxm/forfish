@@ -616,6 +616,7 @@ Hành vi + câu chữ: [13-ba-spec-tro-ly-giong-noi](13-ba-spec-tro-ly-giong-noi
 | Hành động | Thấy ngay sau đó |
 |---|---|
 | Trang chủ: chạm **"Chọn cảng nhà để xem biển hôm nay ›"** | mở /cang (danh bạ cảng, khách xem được); bấm "Đặt cảng nhà" ở một cảng ⇒ hàng đó hiện "Cảng nhà"; quay về Trang chủ ⇒ thẻ Biển hôm nay + Con nước hiện, hàng mời biến mất (2026-10-29) |
+| Trang chủ, tài khoản có máy giám sát S-Tracking, máy CHƯA có cảng nhà | app TỰ GẮN cảng nhà theo mã tỉnh trong số tàu (vd BĐ-97989-TS ⇒ Quy Nhơn; nhiều tàu ⇒ tỉnh nhiều tàu nhất) — hàng mời "Chọn cảng nhà" KHÔNG hiện; dưới thẻ Biển hôm nay một dòng chữ phụ 0.8125rem "Cảng nhà Quy Nhơn — app chọn theo số tàu BĐ-97989-TS · **Đổi**" (Đổi ⇒ /cang). Đã có cảng nhà ⇒ không đè; gắn MỘT lần (dấu `forfish.cangnha.tudong.v1`). Mất sóng/lỗi/không có tàu ⇒ hàng mời cũ (anh Long 2026-11-06) |
 | Sen Biển: **"đặt cảng nhà là Tam Quan"** | câu "Đã đặt cảng nhà là …" + chip Đổi lại; Trang chủ mở lại ⇒ thẻ Biển hôm nay theo cảng đó. Máy không lưu được ⇒ câu "Máy chưa lưu được cảng nhà — bà con chọn ở Danh bạ cảng." (2026-10-29) |
 | /cho: chạm **"Gian hàng của tôi · N đơn chờ ›"** (chỉ người có gian hàng) | mở /ban-hang (Tổng quan + đơn chờ xác nhận) — cùng số với badge ô Vật tư (2026-10-29) |
 | Dải việc gấp / Sen Biển: chạm **Bảo dưỡng · SDVICO** (`/tau?tab=dich-vu`) | /tau mở và cuộn thẳng tới khối Dịch vụ và bảo dưỡng (không còn rơi đầu trang qua cả tủ giấy tờ) (2026-10-29) |

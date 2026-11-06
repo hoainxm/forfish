@@ -39,6 +39,8 @@ import {
   syncPushAccount,
 } from "@/lib/push-client";
 import { cangBienHomNay } from "@/components/sea-today-card";
+import { CANG_NHA_EVENT } from "@/lib/cang-nha";
+import { useTuGanCangNha } from "@/lib/use-tu-gan-cang-nha";
 import { SQ_BTN } from "@/components/ui/sq-btn";
 import { baoToast } from "@/components/ui/toast";
 import {
@@ -178,6 +180,15 @@ function KhoiTang5({ cho }: { cho: "dau" | "cuoi" }) {
   const [chuongXong, setChuongXong] = useState(false);
   const [nhip, setNhip] = useState(0); // tính lại sau khi "Ẩn" chuông (sổ đổi trong máy)
   const [khoi, setKhoi] = useState<LoaiKhoi>(null);
+  const { signedIn } = useAuthUser();
+  /*  Chưa có cảng nhà ⇒ thử TỰ GẮN theo số tàu S-Tracking trước khi mời chọn (lib/cang-theo-so-tau, 2026-11-06).
+      Gắn được ⇒ `datCangNha` bắn CANG_NHA_EVENT ⇒ khối "Chọn cảng nhà" tự rút. Chỉ khối "dau" chạy. */
+  useTuGanCangNha(cho === "dau" && signedIn && online && coCangNha === false);
+  useEffect(() => {
+    const doc = () => setCoCangNha(cangBienHomNay() !== null);
+    window.addEventListener(CANG_NHA_EVENT, doc);
+    return () => window.removeEventListener(CANG_NHA_EVENT, doc);
+  }, []);
   useEffect(() => {
     setCoCangNha(cangBienHomNay() !== null);
     if (!isPushSupported()) return;

@@ -161,6 +161,9 @@ export const TRANSFER_KEYS = [
  *                    `offline-backup.test.ts` — khoá này ra đời sau bản vá.
  */
 export const NEVER_BACKUP_PREFIXES = [
+  /*  · `cangnha.tudong.` — dấu "app đã tự gắn cảng nhà theo số tàu S-Tracking" (lib/cang-theo-so-tau, 2026-11-06): mang
+   *    số đăng ký tàu của TÀI KHOẢN này. Máy mới không có dấu thì app tự gắn lại theo tài khoản đang dùng — đúng hơn chép. */
+  "forfish.cangnha.tudong.",
   /*  · `haiDoNeo.` / `haiDoMob.` — chế độ Hải đồ (2026-11-04): neo đang canh + điểm người rơi = toạ độ MỘT lúc
    *    của MỘT máy. Chép sang máy khác là máy đó kêu neo trôi / hiện người rơi không có thật. */
   "forfish.haiDoNeo.",
