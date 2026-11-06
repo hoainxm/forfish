@@ -162,10 +162,13 @@ export function nearestGridCell(
   grid: ForecastGrid,
   lat: number,
   lon: number,
+  /** chỉ xét ô thoả điều kiện (vd `gridCellCoSong`) — bỏ trống = mọi ô */
+  keep?: (c: GridCell) => boolean,
 ): { cell: GridCell; distDeg: number } | null {
   let best: GridCell | null = null;
   let bestScore = Infinity;
   for (const c of grid.cells ?? []) {
+    if (keep && !keep(c)) continue;
     const score = Math.max(
       Math.abs(c.lat - lat) / GRID_SNAP_MAX_LAT_DEG,
       Math.abs(c.lon - lon) / GRID_SNAP_MAX_LON_DEG,
@@ -177,6 +180,11 @@ export function nearestGridCell(
   }
   if (!best || bestScore > 1) return null;
   return { cell: best, distDeg: Math.hypot(best.lat - lat, best.lon - lon) };
+}
+
+/** Ô lưới có ÍT NHẤT một mốc có số sóng = ô biển. Ô toàn null là ô đất (hoặc nguồn sóng hỏng lúc dựng lưới). */
+export function gridCellCoSong(c: GridCell): boolean {
+  return (c.hours ?? []).some((h) => h != null && num(h.waveM) != null);
 }
 
 /** Toạ độ các điểm lưới — xuất riêng để test */

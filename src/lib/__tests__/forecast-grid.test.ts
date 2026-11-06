@@ -20,6 +20,7 @@ import {
   GRID_STEP_LAT_DEG,
   GRID_STEP_LON_DEG,
   nearestGridCell,
+  gridCellCoSong,
   type ForecastGrid,
 } from "../forecast-grid";
 
@@ -259,6 +260,28 @@ describe("stepHourIndices (bước tăng dần theo tầm ngày)", () => {
 
 /* Ô lưới GẦN NHẤT — dùng khi mất sóng, chạm điểm chưa từng mở xem. Ràng buộc
    sống còn: chỉ nhận ô CÒN PHỦ chỗ vừa chạm, không nhận ô cách xa. */
+describe("nearestGridCell lọc ô + gridCellCoSong (2026-11-06)", () => {
+  const hr = (waveM: number | null) => ({ windKmh: 10, windDirDeg: 0, waveM, waveDirDeg: 0 });
+  const dat = { lat: 11.45, lon: 108.42, hours: [hr(null), hr(null)] };
+  const bien = { lat: 11.45, lon: 109.3, hours: [hr(null), hr(0.9)] };
+  const grid: ForecastGrid = { cells: [dat, bien], times: ["a", "b"] };
+
+  it("ô có một mốc sóng là ô biển; toàn null / không mốc là không", () => {
+    expect(gridCellCoSong(bien)).toBe(true);
+    expect(gridCellCoSong(dat)).toBe(false);
+    expect(gridCellCoSong({ lat: 0, lon: 0, hours: [] })).toBe(false);
+  });
+
+  it("không lọc ⇒ ô gần nhất (ô đất); lọc ⇒ ô biển trong trần", () => {
+    expect(nearestGridCell(grid, 11.4, 108.5)?.cell).toBe(dat);
+    expect(nearestGridCell(grid, 11.4, 108.5, gridCellCoSong)?.cell).toBe(bien);
+  });
+
+  it("lọc mà ô biển ngoài trần snap ⇒ null (không nhận bừa ô xa)", () => {
+    expect(nearestGridCell(grid, 11.45, 107.0, gridCellCoSong)).toBeNull();
+  });
+});
+
 describe("nearestGridCell + GRID_SNAP_MAX_DEG", () => {
   const grid: ForecastGrid = {
     cells: gridPoints().map((p) => ({ lat: p.lat, lon: p.lon, hours: [] })),

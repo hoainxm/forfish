@@ -23,6 +23,7 @@ import {
   loadGridSnapshotClient,
   loadLongestSavedGrid,
   nearestGridCell,
+  gridCellCoSong,
   type ForecastGrid,
 } from "@/lib/forecast-grid";
 import { CLIENT_SNAPSHOT_DAYS } from "@/lib/weather-snapshot-id";
@@ -339,6 +340,8 @@ function banTrongMay(p: SeaPoint, id: string): SeaPointConditions[] {
   const out: SeaPointConditions[] = [];
   const hit = loadForecast<SeaPointConditions>(POINT_NS, id);
   if (hit) out.push({ ...hit.data, point: p, stale: true, savedAt: hit.savedAt, source: "saved-point" });
+  // nguồn sóng đã trả lời ĐÚNG toạ độ này là đất ⇒ đất không đổi theo lượt cập nhật; đừng để ô lưới (luôn onSea) đè
+  if (hit && hit.data.onSea === false) return out;
   // Chưa từng mở xem chỗ này, NHƯNG lưới gió/sóng đã lưu phủ cả vùng biển và
   // ĐÚNG vị trí đó (mũi tên đang vẽ ngay chỗ bà con vừa chạm).
   const g = seaPointFromSavedGrid(p);
@@ -378,19 +381,26 @@ export function seaPointFromSavedGrid(p: SeaPoint): SeaPointConditions | null {
  * Lưới đã lưu → điều kiện tại MỘT ĐIỂM. Thuần (không đụng mạng/localStorage).
  *
  * Luật:
- *  · lấy ô lưới PHỦ chỗ chạm (`nearestGridCell`); xa hơn nửa bước lưới → null,
+ *  · lấy ô lưới CÓ SÓNG gần nhất phủ chỗ chạm (`nearestGridCell` + `gridCellCoSong`), không có
+ *    thì ô gần nhất; xa hơn nửa bước lưới → null,
  *    giữ nguyên câu "chưa có số nào lưu trong máy" chứ KHÔNG nhận bừa ô xa;
  *  · gộp các mốc giờ theo NGÀY (mốc giờ của lưới đã là giờ VN) → mỗi ngày lấy
  *    GIÓ LỚN NHẤT và SÓNG CAO NHẤT, đúng như thẻ ngày đang mô tả ("gió tới…",
  *    "sóng tới…");
- *  · KHÔNG có mưa, dông, điểm đi biển → để null, UI phải ẩn.
+ *  · KHÔNG có mưa, dông, điểm đi biển → để null, UI phải ẩn;
+ *  · `onSea` LUÔN true — lưới thô không đủ cơ sở nói "đất liền".
  */
 export function seaPointFromGrid(
   grid: ForecastGrid,
   p: SeaPoint,
   savedAt: number | null,
 ): SeaPointConditions | null {
-  const near = nearestGridCell(grid, p.lat, p.lon);
+  /*  Ô BIỂN TRƯỚC (2026-11-06): lưới 13×12 bước ~2°, bắt ô tới ~1° (>100 km). Ô gần nhất của
+      điểm ven bờ hay rơi vào ô ĐẤT (đo thật: cách Phan Thiết ~40 km sóng 1,6 m nhưng ô bắt là
+      11.45,108.42 toàn null; ≥6,8% điểm biển ven bờ phía Nam dính). Nên lấy ô CÓ SÓNG gần nhất
+      trong trần snap; không có thì mới lấy ô gần nhất (còn số gió). */
+  const near =
+    nearestGridCell(grid, p.lat, p.lon, gridCellCoSong) ?? nearestGridCell(grid, p.lat, p.lon);
   if (!near) return null;
 
   const times = grid.times ?? [];
@@ -452,12 +462,13 @@ export function seaPointFromGrid(
   }
   if (days.length === 0) return null;
 
-  // Ô không có số sóng nào suốt cả kỳ = gần như chắc điểm lưới nằm trên đất liền
-  const onSea = days.some((d) => d.waveMaxM > 0);
-
+  /*  LƯỚI THÔ KHÔNG ĐỦ CƠ SỞ NÓI "ĐẤT LIỀN" (2026-11-06): ô lưới cách chỗ chạm tới ~100 km —
+      ô đó trên đất KHÔNG có nghĩa chỗ bà con chạm trên đất. Trước đây `onSea=false` ở đây làm
+      thẻ báo "Chỗ này trên đất liền" giữa biển VÀ ẩn nút Dẫn đường. Chỉ nguồn sóng trả lời ĐÚNG
+      toạ độ chạm (fetchSeaPointLive) mới được nói đất liền. Ô không sóng ⇒ sóng 0 = "—". */
   return {
     point: p,
-    onSea,
+    onSea: true,
     // Lưới chỉ có số THEO GIỜ DỰ BÁO, không có số đo "lúc này" → để trống hết
     windKmh: null,
     gustKmh: null,

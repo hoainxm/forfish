@@ -231,15 +231,45 @@ describe("seaPointFromGrid — dựng số điểm từ lưới đã lưu", () =
     expect(old.curKmh).toBeNull();
   });
 
-  it("ô lưới không có số sóng nào (điểm trên đất liền) → onSea = false", () => {
+  /*  2026-11-06: lưới thô (ô cách chỗ chạm tới ~100 km) KHÔNG được kết luận đất liền — bản cũ
+      onSea=false làm thẻ báo "Chỗ này trên đất liền" giữa biển và ẩn nút Dẫn đường. */
+  it("ô lưới không có số sóng nào → KHÔNG báo đất liền, vẫn có gió, sóng '—'", () => {
     const g: ForecastGrid = {
       cells: [{ lat: 16.5, lon: 112.0, hours: [h(12, null), h(15, null)] }],
       times: ["2026-07-27T00:00", "2026-07-27T12:00"],
     };
     const c = seaPointFromGrid(g, HOANG_SA, 1)!;
-    expect(c.onSea).toBe(false);
+    expect(c.onSea).toBe(true);
     expect(c.days[0].windMaxKmh).toBe(15);
     expect(c.days[0].waveMaxM).toBe(0); // 0 = "chưa có số", UI hiện "—"
+  });
+
+  it("ô gần nhất là ô ĐẤT nhưng có ô BIỂN trong trần snap → lấy ô biển", () => {
+    const g: ForecastGrid = {
+      cells: [
+        { lat: 12.5, lon: 108.42, hours: [h(12, null), h(15, null)] }, // ô đất, gần hơn
+        { lat: 11.45, lon: 109.3, hours: [h(20, 1.6), h(25, 1.8)] }, // ô biển, vẫn trong trần
+      ],
+      times: ["2026-07-27T00:00", "2026-07-27T12:00"],
+    };
+    const c = seaPointFromGrid(g, { lat: 12.0, lon: 108.6 }, 1)!;
+    expect(c.onSea).toBe(true);
+    expect(c.days[0].waveMaxM).toBe(1.8);
+    expect(c.days[0].windMaxKmh).toBe(25);
+  });
+
+  it("ca thật Phan Thiết ~40 km (10.6,108.3): ô bắt 11.45,108.42 toàn null → vẫn là biển", () => {
+    const g: ForecastGrid = {
+      cells: [
+        { lat: 11.45, lon: 108.42, hours: [h(18, null), h(22, null)] },
+        { lat: 9.36, lon: 108.42, hours: [h(20, 1.2), h(24, 1.3)] }, // ngoài trần snap vĩ độ
+      ],
+      times: ["2026-07-27T00:00", "2026-07-27T12:00"],
+    };
+    const c = seaPointFromGrid(g, { lat: 10.6, lon: 108.3 }, 1)!;
+    expect(c.onSea).toBe(true);
+    expect(c.days[0].windMaxKmh).toBe(22); // số gió của ô gần nhất, không mượn sóng ô quá xa
+    expect(c.days[0].waveMaxM).toBe(0);
   });
 
   it("lưới rỗng → null", () => {
@@ -467,6 +497,29 @@ describe("fetchSeaPoint — sóng hỏng KHÔNG phải đất liền", () => {
         : fakeOk(url),
     ) as unknown as typeof fetch;
     const c = await fetchSeaPoint({ lat: 12.25, lon: 109.0 });
+    expect(c.onSea).toBe(false);
+  });
+
+  it("đất liền ĐÃ được nguồn sóng xác nhận đúng toạ độ: mất sóng, ô lưới biển không đè thành biển", async () => {
+    const DAT = { lat: 16.5, lon: 112.0 };
+    globalThis.fetch = vi.fn().mockImplementation((url: string) =>
+      /\/api\/om\/marine|marine-api/.test(url)
+        ? Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({ current: { wave_height: null }, daily: { time: ["2026-07-25"], wave_height_max: [null] } }),
+          })
+        : fakeOk(url),
+    ) as unknown as typeof fetch;
+    const now = Date.now();
+    const dateNow = vi.spyOn(Date, "now").mockReturnValue(now - 2 * 86_400_000); // bản đất lưu 2 ngày trước
+    expect((await fetchSeaPoint(DAT)).onSea).toBe(false);
+    dateNow.mockReturnValue(now);
+    saveForecast(GRID_NS, gridCacheId(16), gridAt(16.5, 112.0)); // lưới (có sóng) MỚI hơn ⇒ ít lượt chậm hơn
+    globalThis.fetch = offline();
+    const c = await fetchSeaPoint(DAT);
+    dateNow.mockRestore();
+    expect(c.stale).toBe(true);
     expect(c.onSea).toBe(false);
   });
 

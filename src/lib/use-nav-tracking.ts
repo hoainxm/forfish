@@ -126,9 +126,19 @@ export const BO_LIEN_MAX = 3;
     bị bỏ gần nhất; quá NHAY_CHO_MS không có fix nào khác thì NHẬN nó. */
 export const NHAY_CHO_MS = 8_000;
 
-/** Điểm bị bỏ đang chờ có nên nhận không (không fix nào tới sau nó đủ lâu). Thuần, có test. */
+/** Điểm bị bỏ đang chờ có nên XIN XÁC NHẬN không (không fix nào tới sau nó đủ lâu). Thuần, có test. */
 export function nenNhanDiemCho(choAt: number | null, now: number): boolean {
   return choAt != null && now - choAt >= NHAY_CHO_MS;
+}
+
+/*  XÁC NHẬN TRƯỚC KHI NHẬN (2026-11-06): bản 02/11 nhận THẲNG điểm chờ sau 8 s. Nhưng một điểm GPS
+    vọt bậy (cách vài km, sai số đẹp) rồi máy im cũng y như vậy ⇒ điểm bậy thành vị trí thật, kêu
+    lệch tuyến, hay "tới nơi" giả xoá chuyến dở. Nay quá NHAY_CHO_MS thì HỎI LẠI GPS một lần
+    (getCurrentPosition, maximumAge 0): fix mới nằm gần điểm chờ ⇒ tàu đi thật, nhận fix mới; gần
+    chỗ cũ ⇒ điểm chờ là điểm bậy, fix mới đi đường lọc thường. Không hỏi được ⇒ giữ chỗ cũ, chờ
+    lượt sau (trạng thái "Mất định vị" tự lên theo fixQuaCu — nói thật, không đoán). */
+export function diemChoDuocXacNhan(cho: LatLon, moi: LatLon): boolean {
+  return haversineKm(cho, moi) * 1000 <= NHAY_MIN_M;
 }
 
 /** Nhận fix này không. `boLien` = số fix đã bỏ liền trước đó. Thuần, có test. */
@@ -194,6 +204,26 @@ export function useNavTracking(
 
     /** điểm bị bỏ gần nhất + lúc nhận được nó (đồng hồ máy) — xem NHAY_CHO_MS */
     let cho: { p: GeolocationPosition; at: number } | null = null;
+    let dangXacNhan = false;
+    /** hỏi lại GPS một lần cho điểm chờ — xem diemChoDuocXacNhan */
+    const xacNhanCho = (c: { p: GeolocationPosition; at: number }) => {
+      if (dangXacNhan) return;
+      dangXacNhan = true;
+      cho = null;
+      navigator.geolocation.getCurrentPosition(
+        (p2) => {
+          dangXacNhan = false;
+          if (stopped) return;
+          const choPos = { lat: c.p.coords.latitude, lon: c.p.coords.longitude };
+          onFix(p2, diemChoDuocXacNhan(choPos, { lat: p2.coords.latitude, lon: p2.coords.longitude }));
+        },
+        () => {
+          dangXacNhan = false;
+          if (!stopped && cho == null) cho = { p: c.p, at: Date.now() }; // không hỏi được — giữ chỗ cũ, thử lại lượt sau
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 },
+      );
+    };
     const onFix = (p: GeolocationPosition, epNhan = false) => {
       if (stopped) return;
       const now = p.timestamp || Date.now();
@@ -294,7 +324,7 @@ export function useNavTracking(
 
     // đồng hồ nhắc "mất định vị" khi fix quá cũ (không đóng băng số ngầm)
     const staleTimer = window.setInterval(() => {
-      if (cho && nenNhanDiemCho(cho.at, Date.now())) onFix(cho.p, true);
+      if (cho && nenNhanDiemCho(cho.at, Date.now())) xacNhanCho(cho);
       setState((s) => {
         if (s.status !== "tracking" || s.lastFixAt == null) return s;
         return fixQuaCu(s.lastFixAt, s.speedKmh, Date.now()) ? { ...s, status: "lost" } : s;

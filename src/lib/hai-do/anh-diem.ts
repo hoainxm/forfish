@@ -50,15 +50,23 @@ export async function luuAnhDiem(placeId: string, file: Blob): Promise<string | 
 }
 
 /**
- * Đẩy các ảnh còn trong kho chờ lên máy chủ (gọi lúc mở màn + khi có sóng lại). Trả danh sách điểm MỚI nếu có
- * ảnh đổi khoá, null nếu không có gì đổi. Lần lượt từng ảnh; mất sóng / lỗi giữa chừng thì dừng, lần sau đẩy tiếp.
+ * Đẩy các ảnh còn trong kho chờ lên máy chủ (gọi lúc mở màn + khi có sóng lại). Lần lượt từng ảnh; mất sóng / lỗi
+ * giữa chừng thì dừng, lần sau đẩy tiếp. Trả true nếu đã đổi khoá và GHI SỔ được.
+ *
+ * `ghi(doi)` do chỗ gọi đưa: áp `doi` (khoá chờ → path) lên SỔ ĐIỂM MỚI NHẤT rồi ghi, trả true nếu ghi được.
+ * KHÔNG áp lên `places` truyền vào (sửa 2026-11-06): mỗi ảnh đẩy tới 90 s, giữa chừng bà con thêm/xoá điểm thì
+ * bản cũ đó đè mất điểm mới / làm điểm đã xoá sống lại. Ảnh chỉ gỡ khỏi kho chờ SAU KHI sổ đã ghi path mới — ghi
+ * hỏng (đầy bộ nhớ) hay app bị tắt giữa chừng thì ảnh vẫn còn trong kho, lần sau đẩy lại, không mất ảnh.
  */
-export async function dayAnhCho(places: readonly SavedPlace[]): Promise<SavedPlace[] | null> {
+export async function dayAnhCho(
+  places: readonly SavedPlace[],
+  ghi: (doi: ReadonlyMap<string, string>) => boolean,
+): Promise<boolean> {
   const cho = places.flatMap((p) => (p.anh ?? []).filter(laAnhCho).map((k) => ({ p, k })));
   const tat = await tatCaCho();
   const dangDung = new Set(cho.map((c) => c.k));
   for (const h of tat) if (!dangDung.has(h.khoa) && Date.now() - h.luc > MO_COI_MS) await xoaCho(h.khoa);
-  if (!cho.length) return null;
+  if (!cho.length) return false;
   const doi = new Map<string, string>();
   for (const { p, k } of cho) {
     if (!coSong()) break;
@@ -67,9 +75,15 @@ export async function dayAnhCho(places: readonly SavedPlace[]): Promise<SavedPla
     const path = await uploadDocPhoto(docIdDiem(p.id), h.blob);
     if (!path) break; // sóng yếu / máy chủ lỗi — giữ trong kho chờ, lần sau
     doi.set(k, path);
-    await xoaCho(k);
   }
-  if (!doi.size) return null;
+  if (!doi.size || !ghi(doi)) return false;
+  // nợ: điểm bị xoá trong lúc đang đẩy thì ảnh đã lên máy chủ thành ảnh mồ côi (không ai thấy, chỉ tốn chỗ) — dọn khi có lệnh dọn ảnh mồ côi phía máy chủ
+  for (const k of doi.keys()) await xoaCho(k);
+  return true;
+}
+
+/** Áp `doi` (khoá chờ → path máy chủ) lên một sổ điểm. Thuần, có test. Điểm không còn khoá đó thì để nguyên. */
+export function apAnhDaDay(places: readonly SavedPlace[], doi: ReadonlyMap<string, string>): SavedPlace[] {
   return places.map((p) => (p.anh?.some((k) => doi.has(k)) ? { ...p, anh: p.anh.map((k) => doi.get(k) ?? k) } : p));
 }
 

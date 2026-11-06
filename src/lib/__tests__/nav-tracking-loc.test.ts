@@ -71,3 +71,15 @@ describe("nenNhanDiemCho — điểm bị bỏ mà không fix nào cãi lại (t
     expect(nenNhanDiemCho(null, 99_999)).toBe(false);
   });
 });
+
+/* 2026-11-06: điểm chờ KHÔNG còn được nhận thẳng sau 8 s — hỏi lại GPS, chỉ nhận khi fix mới nằm gần điểm chờ. */
+describe("diemChoDuocXacNhan — điểm vọt bậy rồi máy im không thành vị trí thật", async () => {
+  const { diemChoDuocXacNhan } = await import("@/lib/use-nav-tracking");
+  const cho = { lat: 15.05, lon: 109.0 }; // vọt ~5,5 km về bắc
+  it("fix mới gần điểm chờ (tàu đi thật) ⇒ xác nhận", () => {
+    expect(diemChoDuocXacNhan(cho, { lat: 15.0515, lon: 109.0 })).toBe(true);
+  });
+  it("fix mới quay về chỗ cũ (điểm chờ là điểm bậy) ⇒ không xác nhận", () => {
+    expect(diemChoDuocXacNhan(cho, { lat: 15.0, lon: 109.0 })).toBe(false);
+  });
+});

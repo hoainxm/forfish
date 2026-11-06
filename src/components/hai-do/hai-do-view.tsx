@@ -88,7 +88,7 @@ import { dsVet, luuVet, setChay, setTuyen, setVetGhi, useChay, useTuyen, useVetG
 import { auditRoute, type RouteHit } from "@/lib/route-hazards";
 import { buildHazardList, requiredDepthM } from "@/lib/hazards";
 import { ANH_DIEM_TOI_DA, GHI_CHU_TOI_DA, LOAI_DIEM, loadPlaces, persistPlaces, placeId, removePlace, upsertPlace, type LoaiDiem, type SavedPlace } from "@/lib/places";
-import { dayAnhCho, laAnhCho, luuAnhDiem, urlAnhDiem, xoaAnhDiem } from "@/lib/hai-do/anh-diem";
+import { apAnhDaDay, dayAnhCho, laAnhCho, luuAnhDiem, urlAnhDiem, xoaAnhDiem } from "@/lib/hai-do/anh-diem";
 import { DEFAULT_BOAT } from "@/lib/route-plan";
 import { DongY } from "@/components/hai-do/dong-y";
 import { SHEET_AUTO_HIDE_MS } from "@/lib/use-sheet-auto-hide";
@@ -629,10 +629,14 @@ export default function HaiDoView() {
   useEffect(() => {
     if (!online || dangDay.current || !places.some((p) => p.anh?.some(laAnhCho))) return;
     dangDay.current = true;
-    void dayAnhCho(places)
-      .then((moi) => {
-        if (moi && persistPlaces(moi)) setPlaces(moi);
-      })
+    // áp lên SỔ MỚI NHẤT trong máy lúc ghi (đẩy mỗi ảnh tới 90 s — `places` lúc bắt đầu có thể đã cũ)
+    void dayAnhCho(places, (doi) => {
+      const moi = apAnhDaDay(loadPlaces(), doi);
+      if (!persistPlaces(moi)) return false;
+      setPlaces(moi);
+      return true;
+    })
+      .catch(() => false) // kho chờ hỏng — ảnh vẫn nằm đó, lần sau thử lại
       .finally(() => {
         dangDay.current = false;
       });
@@ -1954,18 +1958,20 @@ export default function HaiDoView() {
                 setDangLuuDiem(true);
                 const id = placeId(diemMoi.lat, diemMoi.lon);
                 const cu = places.find((p) => p.id === id)?.anh ?? [];
-                let anh: string[] | undefined;
+                let k: string | null = null;
                 if (anhMoi) {
                   if (cu.length >= ANH_DIEM_TOI_DA) setBaoLoi(`Điểm này đã đủ ${ANH_DIEM_TOI_DA} ảnh — ảnh mới không lưu`);
                   else {
-                    const k = await luuAnhDiem(id, anhMoi);
-                    if (k) {
-                      anh = [...cu, k];
-                      if (laAnhCho(k)) setBaoLoi("Ảnh đã lưu trong máy — có sóng sẽ tự gửi lên");
-                    } else setBaoLoi("Chưa giữ được ảnh — điểm vẫn được lưu");
+                    k = await luuAnhDiem(id, anhMoi);
+                    if (k && laAnhCho(k)) setBaoLoi("Ảnh đã lưu trong máy — có sóng sẽ tự gửi lên");
+                    else if (!k) setBaoLoi("Chưa giữ được ảnh — điểm vẫn được lưu");
                   }
                 }
-                const moi = upsertPlace(places, { name: tenDiem, lat: diemMoi.lat, lon: diemMoi.lon, loai: loaiDiem, ghiChu: ghiChuDiem, ...(anh ? { anh } : {}) });
+                /* ĐỌC LẠI SỔ SAU KHI CHỜ ẢNH (2026-11-06): đẩy ảnh tới 90 s, giữa chừng lượt đẩy ảnh chờ có thể đã đổi
+                   khoá "cho:" thành path (và gỡ ảnh khỏi kho) — ghi bằng `places` cũ là trả khoá chờ về, mất ảnh. */
+                const ds = loadPlaces();
+                const anh = k ? [...(ds.find((p) => p.id === id)?.anh ?? []), k] : undefined;
+                const moi = upsertPlace(ds, { name: tenDiem, lat: diemMoi.lat, lon: diemMoi.lon, loai: loaiDiem, ghiChu: ghiChuDiem, ...(anh ? { anh } : {}) });
                 if (persistPlaces(moi)) setPlaces(moi);
                 else setBaoLoi("Không lưu được điểm vào máy");
                 setDangLuuDiem(false);
