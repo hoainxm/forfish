@@ -137,6 +137,22 @@ export async function xinMp3(cau: string): Promise<string | null> {
  * Các đoạn để đọc câu máy nhà bằng giọng Mỹ Duyên (`ttsSpeakMp3`): câu đầu = mp3 gửi kèm (không có thì xin);
  * câu sau xin NGAY, SONG SONG — tải trong lúc câu đầu đang phát, nối không chờ.
  */
+/**
+ * Câu trả lời KHO HỎI–ĐÁP đọc bằng giọng Mỹ Duyên của máy nhà? (rà soát giọng 2026-11-06, anh Long: "xây giọng đọc Mỹ
+ * Duyên cho nó hết đi, tránh giọng máy lệch tông"). Kho có ~1.600 câu đã duyệt, ~75.000 chữ — thu sẵn là ~100 MB mp3
+ * nằm vĩnh viễn trong git (CLAUDE.md chống phình) nên KHÔNG thu; có sóng + đăng nhập thì xin từng câu như câu máy nhà.
+ * Câu đã có mp3/mảnh trong máy (`phuDu`, vd câu an toàn CAU_CAN_KIEM) ⇒ false, đọc bằng mp3 trong máy, khỏi gọi mạng.
+ * Mất sóng ⇒ false ⇒ giọng máy như cũ (offline không đổi).
+ */
+export function docKhoBangMayNha(say: string, o: { online: boolean; coToken: boolean; phuDu: (cau: string) => boolean }): boolean {
+  return !!say.trim() && o.online && o.coToken && !o.phuDu(say);
+}
+
+/** Các đoạn để `ttsSpeakMp3` đọc một câu trả lời dài bằng Mỹ Duyên: chia câu (≤ trần /doc), xin mp3 SONG SONG ngay. */
+export function doanXinMp3(cau: readonly string[]): { text: string; mp3: Promise<string | null> }[] {
+  return cau.map((c) => ({ text: c, mp3: xinMp3(c) }));
+}
+
 export function doanMayNha(dap: DapMayNha): { text: string; mp3: Promise<string | null> }[] {
   return dap.speak.map((cau, i) => {
     const san = i === 0 ? urlMp3(dap.amThanh) : null;

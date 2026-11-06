@@ -8,6 +8,11 @@ import { ageSpeech, clockSpeech, dirSpeech, distSpeech, speedSpeech, waveSpeech 
 import { cauDocSo, noiThoiDiem, type LopBanDo } from "@/lib/sen-bien/lenh-ban-do";
 import { hoiGi, traLoi, type KhoBanDo, type ViTri } from "@/lib/sen-bien/hoi-ban-do";
 import { napManhGiong, speechParts } from "@/lib/voice/tts";
+import { cauTomTat, KICH_BAN_GIAY, kichBanTau } from "@/lib/sen-bien/nhap-giong";
+import { CAU_GIO, CAU_LANG } from "@/lib/sen-bien/cau-vui";
+import { CAU_CAN_KIEM } from "@/lib/sen-bien/hoi-dap";
+import { CAU_CHUA_CHAC } from "@/lib/sen-bien/hoi-kho";
+import { loiDocGiamSat } from "@/lib/stracking/doc-canh-bao.mjs";
 import { baoKhucRe, type KhucRe } from "@/lib/nav-khuc-re";
 import { cauVung } from "@/lib/nav-vung";
 import { tenNoi, type VungQuanLy } from "@/lib/vung-quan-ly";
@@ -256,6 +261,36 @@ describe("câu có số của app phủ đủ mảnh", () => {
     };
     const cau = ["gần đảo nào nhất", "rạn gần nhất ở đâu", "phía trước có gì", "chỗ tránh trú bão gần nhất", "cảng nào gần nhất", "tàu đang ở đâu"]
       .map((q) => traLoi(hoiGi(q)!, kho, v, "nm", Date.UTC(2026, 9, 16, 3)).say);
+    phuHet(cau);
+  });
+});
+
+/*  RÀ SOÁT GIỌNG 2026-11-06 (doc 15 §36, anh Long: "xây giọng đọc Mỹ Duyên cho nó hết đi"): câu hỏi nhập bằng giọng,
+    cảnh báo giám sát hành trình, câu lảng / câu giờ, câu an toàn kho — trọn giọng thu sẵn (câu nguyên hoặc mảnh).
+    Câu mới viết trong các file này mà chưa sinh giọng ⇒ đỏ: chạy ra-soat-giong.test.ts rồi lap_manh + gen_clips. */
+describe("rà soát giọng: câu hỏi, cảnh báo, câu đã dùng trọn Mỹ Duyên", () => {
+  it("câu hỏi nhập giấy tờ / tàu bằng giọng + câu tóm tắt", () => {
+    const hoi = [...KICH_BAN_GIAY, ...kichBanTau(["Bình Định", "Quảng Ngãi"])].map((b) => b.hoi);
+    phuHet([...hoi, cauTomTat(["dài 15 mét", "đóng năm 2015"]) /* tên riêng tự do (tên tàu, chủ tàu) không thu được — câu đó giọng máy */, cauTomTat([])]);
+  });
+  it("câu lảng + câu giờ + câu an toàn kho", () => {
+    phuHet([...Object.values(CAU_LANG).flat(), ...CAU_GIO.flat(), CAU_CAN_KIEM, CAU_CHUA_CHAC]);
+  });
+  it("cảnh báo giám sát hành trình: mất tín hiệu, mọi loại cảnh báo, cước, yên tâm", () => {
+    const now = Date.parse("2026-11-06T07:00:00Z");
+    const vn = (s: string) => new Date(Date.parse(`${s}+07:00`)).toISOString();
+    const t = (o: Record<string, unknown> = {}) => ({ tenTau: "BV-92345-TS", imei: "1", hetHan: "2027-06-01", trongBo: false, matKetNoiTu: null, ...o });
+    const loai = ["SOS", "Vượt biên", "Sắp vượt biên", "Tắt thiết bị", "Mất GPS", "Pin dự phòng sắp hết", "Thiết bị Reset", "Quá tốc độ", "Vùng chú ý đánh bắt"];
+    const cau = [
+      loiDocGiamSat({ tau: [], now }),
+      loiDocGiamSat({ tau: [t()], now }),
+      loiDocGiamSat({ tau: [t(), t({ imei: "2", tenTau: "QNg-90123-TS" })], now }),
+      loiDocGiamSat({ tau: [t({ matKetNoiTu: vn("2026-11-06T09:53:00") })], now }),
+      loiDocGiamSat({ tau: [t({ trongBo: true, matKetNoiTu: vn("2026-11-06T09:53:00") })], now }),
+      loiDocGiamSat({ tau: [t({ matKetNoiTu: vn("2026-11-06T06:00:00") })], now }),
+      ...["2026-11-19", "2026-11-06", "2026-11-01"].map((h) => loiDocGiamSat({ tau: [t({ hetHan: h })], now })),
+      ...loai.map((l) => loiDocGiamSat({ tau: [t()], canhBao: [{ imei: "1", loai: l, luc: vn("2026-11-06T11:20:00"), muc: "Báo động" }], now })),
+    ];
     phuHet(cau);
   });
 });

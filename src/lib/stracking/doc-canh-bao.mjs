@@ -5,7 +5,7 @@
 // `loiDocGiamSat(...)` rồi `ttsSpeak` TRONG handler chạm (iOS chỉ phát tiếng sau cử chỉ chạm thật — tts.ts ttsUnlock).
 //
 // Thứ tự = thứ tự nguy hiểm: mất tín hiệu (kèm giờ chót trước mốc phạt) ⇒ cảnh báo hôm nay (nặng trước) ⇒ cước sắp hết /
-// quá hạn ⇒ không có gì thì nói một câu yên tâm. Câu ngắn, giờ đọc kiểu "9 giờ 53" cho giọng máy đọc tròn; tối đa vài
+// quá hạn ⇒ không có gì thì nói một câu yên tâm. Câu ngắn, giờ đọc kiểu "9 giờ 53" (số có mảnh ghép); tối đa vài
 // câu mỗi tàu để không đọc dài lê thê.
 
 import { homNayVn, trangThaiHan } from "./dong-bo.mjs";
@@ -15,9 +15,31 @@ const GIO_MS = 3600_000;
 /** Đọc tối đa ngần này cảnh báo mỗi tàu (nặng nhất trước). */
 export const CANH_BAO_MOI_TAU = 2;
 
-/** Viết thường chữ đầu cho câu đọc liền mạch, GIỮ chữ viết tắt in hoa (SOS, GPS) để giọng máy đọc đúng. */
+/*  GIỌNG MỸ DUYÊN TRỌN CÂU (rà soát giọng 2026-11-06, anh Long: "tránh phải dùng cái giọng máy nó lệch tông"). Luật một
+    câu một giọng (doc 15 §21): câu dính MỘT chữ không có mảnh thu sẵn ("BV-92345-TS", "SOS") là CẢ câu đọc giọng máy. Nên
+    lời đọc viết sẵn bằng chữ nói: mã tàu đánh vần từng chữ cái + từng số (như bà con đọc biển số), chữ viết tắt đọc theo
+    tên chữ cái — chữ nào cũng có mảnh (lap_manh.mjs CO_BAN). Màn hình vẫn in mã gốc; chỉ câu NÓI đổi. */
+/** Tên chữ cái kiểu đọc biển số tàu. */
+const TEN_CHU = { A: "a", B: "bê", C: "xê", D: "dê", Đ: "đê", E: "e", G: "giê", H: "hát", I: "i", K: "ca", L: "lờ", M: "mờ", N: "nờ", O: "ô", P: "pê", Q: "quy", R: "rờ", S: "ét", T: "tê", U: "u", V: "vê", X: "ích", Y: "i dài" };
+const SO_DOC = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+/** Chữ viết tắt trong tên loại cảnh báo của Viettel ⇒ chữ nói. */
+const VIET_TAT = { SOS: "ét ô ét", GPS: "giê pê ét", Reset: "rì sét" };
+
+/** "BV-92345-TS" ⇒ "bê vê chín hai ba bốn năm tê ét" (mã đăng ký tàu cá: chữ tỉnh, số, đuôi TS). Tên thường giữ nguyên. */
+export function tenTauDoc(ten) {
+  const t = String(ten ?? "").trim();
+  if (!/^[A-ZĐ][A-Za-zĐđ]{0,3}[\s.-]*\d{1,6}[\s.-]*[A-Z]{0,3}$/.test(t)) return t;
+  return danhVan(t);
+}
+
+/** Đánh vần từng chữ cái / chữ số ("TS" ⇒ "tê ét", "92" ⇒ "chín hai"). */
+function danhVan(s) {
+  return [...s.toUpperCase().replace(/[\s.-]+/g, "")].map((c) => (/\d/.test(c) ? SO_DOC[+c] : TEN_CHU[c] ?? c)).join(" ");
+}
+
+/** Viết thường cho câu đọc liền mạch; chữ viết tắt (SOS, GPS) ⇒ tên chữ cái để có mảnh giọng Mỹ Duyên. */
 function chuThuong(loai) {
-  return String(loai).replace(/\S+/g, (w) => (/^[A-ZĐ]{2,}$/.test(w) ? w : w.toLowerCase()));
+  return String(loai).replace(/\S+/g, (w) => VIET_TAT[w] ?? (/^[A-ZĐ]{2,}$/.test(w) ? danhVan(w) : w.toLowerCase()));
 }
 
 /** ISO ⇒ "9 giờ 53" (giờ VN); khác ngày hôm nay ⇒ thêm "ngày 7 tháng 11". */
@@ -47,7 +69,7 @@ export function loiDocGiamSat({ tau = [], canhBao = [], now = Date.now() }) {
   const cau = [];
   let coViec = false;
   for (const t of tau) {
-    const ten = t.tenTau || "tàu của bà con";
+    const ten = t.tenTau ? tenTauDoc(t.tenTau) : "tàu của bà con";
     // 1) Mất tín hiệu — kèm giờ chót trước mốc phạt (ngoài khơi 6 giờ, nằm bờ 1 ngày).
     if (t.matKetNoiTu && Number.isFinite(Date.parse(t.matKetNoiTu))) {
       coViec = true;
@@ -79,7 +101,7 @@ export function loiDocGiamSat({ tau = [], canhBao = [], now = Date.now() }) {
   }
   if (!coViec) {
     return tau.length === 1
-      ? `Tàu ${tau[0].tenTau || "của bà con"} ổn, máy giám sát hành trình không có cảnh báo nào hôm nay.`
+      ? `Tàu ${tau[0].tenTau ? tenTauDoc(tau[0].tenTau) : "của bà con"} ổn, máy giám sát hành trình không có cảnh báo nào hôm nay.`
       : `${tau.length} tàu của bà con đều ổn, không có cảnh báo giám sát hành trình nào hôm nay.`;
   }
   return cau.join(" ");

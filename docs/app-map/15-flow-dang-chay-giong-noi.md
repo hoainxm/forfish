@@ -1210,3 +1210,25 @@ Anh Long: *"sen biển đang bị chê chậm và ko hiểu khách, nghe nói, p
 **Offline (4 câu CLAUDE.md):** (a) request MỚI duy nhất là lượt ấm — chỉ khi `navigator.onLine` + có chuỗi thiết bị, fire-and-forget, trần 6 s, `.catch`, không ai chờ nó; mất sóng không gửi; (b) không đụng `sw.js`/`SHELL`/khoá `forfish.*`; (c) không xoá/đè dữ liệu; (d) ba vá hiểu ý (đi/không đi, toạ độ, tiếng gọi) + câu chính sách chạy trong máy trên bản lưu — mất sóng là nhánh chính.
 
 **Assumptions:** (1) Tiếng gọi chỉ nhận khi CẢ câu là tiếng gọi (có việc phía sau thì xử lý việc); (2) câu hỏi có tên cảng mà mở bằng "đi/về/ra/vào/chạy/dẫn" vẫn là lệnh đi; (3) hỏi chính sách không nói tỉnh ⇒ mọi bài Chính sách trong bản lưu, mới nhất trước; (4) lượt ấm cách 45 s — ngắn hơn thì tốn gọi, dài hơn thì kết nối Funnel đã đóng. Đổi ở hằng trong file.
+
+## 36. RÀ SOÁT GIỌNG — MỸ DUYÊN CHO MỌI CÂU HỎI, CÂU ĐÃ DÙNG, CẢNH BÁO (2026-11-06)
+
+Anh Long: *"rà soát toàn bộ câu hỏi, các câu đã dùng, các cảnh báo, xây giọng đọc Mỹ Duyên cho nó hết đi, tránh phải dùng cái giọng máy nó lệch tông"*.
+
+**Công cụ rà:** `src/lib/__tests__/ra-soat-giong.test.ts` (env `RA_SOAT_GIONG=<file báo cáo>`, không phải cổng thường ngày) — quét chữ cố định của mọi file dựng câu nói (cách quét của `lap_manh.mjs`) + kho hỏi–đáp đã duyệt, cho qua `speechParts`, ghi: số câu còn đọc giọng máy theo nguồn + `cauNguyen` (câu cố định trọn vẹn đề xuất thu nguyên câu).
+
+**Đo trước khi sửa:** câu bản đồ / dẫn đường / bão / hỏi bản đồ / lệnh lúc chạy đã phủ gần trọn (§21, §33, §34). Hở: câu hỏi nhập bằng giọng (`nhap-giong`, 17/17), cảnh báo giám sát hành trình (`stracking/doc-canh-bao`, 13/14), câu lảng + câu giờ (`cau-vui`, 30/30), lệnh chợ vật tư (`lam-cho` 135/137, `lenh-cho` 30/30), câu đáp hàng SDVICO (`khuyen-mai`), câu an toàn kho, lời trong `hoi-tung-cau` / `sen-bien-toan-app` / `sen-bien-sheet`, và **1.607 câu kho hỏi–đáp** (~75.000 chữ).
+
+**Sửa:**
+- **194 câu nguyên mới** vào `giong-sen-bien.json` (câu cố định trọn vẹn — thu nguyên câu tự nhiên hơn ghép mảnh); câu có số / mã hàng kèm `doc` đọc bằng chữ (SF50 ⇒ "ét ép năm mươi", 12V ⇒ "mười hai vôn", 99,6% ⇒ "chín mươi chín phẩy sáu phần trăm", WHO ⇒ "Tổ chức Y tế Thế giới").
+- **Mảnh mới** (`lap_manh.mjs` NGUON thêm `doc-canh-bao`, `nhap-giong`, `lam-cho`, `lenh-cho`, `muc-canh-bao`; CO_BAN thêm tên chữ cái) cho câu có chỗ trống (giờ, số ngày, tên món, mã đơn).
+- **Cảnh báo giám sát đọc trọn giọng Mỹ Duyên:** luật một câu một giọng (§21) đẩy CẢ câu sang giọng máy chỉ vì "BV-92345-TS" hay "SOS". Nay câu NÓI đánh vần mã tàu như đọc biển số ("bê vê chín hai ba bốn năm tê ét", `tenTauDoc`), SOS ⇒ "ét ô ét", GPS ⇒ "giê pê ét" (đảo luật "giữ chữ SOS/GPS cho giọng máy" của bản đầu cùng ngày). Màn hình vẫn in mã gốc.
+- **Kho hỏi–đáp KHÔNG thu sẵn:** ~6 giờ tiếng ≈ 100 MB mp3 nằm vĩnh viễn trong git (chống phình). Có sóng + đăng nhập ⇒ màn toàn app đọc câu kho bằng Mỹ Duyên của máy nhà (`hoi-may-chu.docKhoBangMayNha` + `doanXinMp3`, như câu máy nhà ADR 0016); câu đã có mp3 trong máy (câu an toàn) ⇒ đọc mp3 trong máy, khỏi gọi mạng; mất sóng ⇒ giọng máy như cũ.
+- Sinh trên gpu-desktop (`~/sen-bien-manh/ra-soat-1106.sh`): VieNeu "Mỹ Duyên", 3 bản/câu, chọn theo UTMOS + bộ nhận giọng như §21l. **194 câu nguyên** (sai chữ TB 5,6 %) + **272 mảnh** (230 câu chợ/cảnh báo/câu hỏi sai chữ 5,6 %; 42 mảnh tên chữ cái / chữ viết tắt bộ nhận giọng chấm 54 % vì âm tiết rời không nghĩa — **phải nghe bằng tai**). Thêm **2,9 MB** vào `public/giong/` (16 → ~19 MB); `warmVoiceClips` tải thêm chừng đó một lần lúc còn sóng.
+- **Đo sau sửa** (ra-soat-giong): nhap-giong 0/17, doc-canh-bao 0/18, cau-vui 0/30, lam-cho 1/137, lenh-cho 0/30, câu an toàn kho 0, sen-bien-toan-app 0/9 còn đọc giọng máy. Phần còn lại trong báo cáo là nhãn nút/tiêu đề không đọc (sheet, hoi-tung-cau, khuyen-mai `hoi`/tên hàng). Câu có TÊN RIÊNG TỰ DO (tên tàu chữ, tên chủ tàu bà con nói) vẫn giọng máy cả câu — không thu được.
+- Cổng `ghep-giong.test.ts` "rà soát giọng": câu hỏi nhập giọng, câu lảng/câu giờ, câu an toàn, mọi nhánh cảnh báo giám sát (mọi loại trong `muc-canh-bao`) phủ 100 %.
+
+**Nợ còn lại:**
+- Màn bản đồ (`fishing-map-view`) đọc câu máy nhà + câu kho qua `navVoice.say` — CHƯA đi đường mp3 Mỹ Duyên máy nhà (chỉ màn toàn app có). Trần: câu kho/máy nhà trên màn bản đồ vẫn giọng máy; nâng khi `use-nav-voice` nhận đoạn mp3.
+- Câu kho khi mất sóng vẫn giọng máy (trần git). Nâng khi có cách nén/lưu ngoài git được chủ dự án duyệt.
+- Mảnh chữ cái một âm tiết đứng riêng nghe rời — gộp cặp hay gặp (§21l `gop`) ở lần lập kịch bản sau.

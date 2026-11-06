@@ -31,7 +31,8 @@ import { datCangNha } from "@/lib/cang-nha";
 import { readToken } from "@/lib/device-token-store";
 import { getExistingPushSubscription, isPushSupported } from "@/lib/push-client";
 import { hoanTacDangHien } from "@/lib/toast";
-import { doanMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { doanMayNha, doanXinMp3, docKhoBangMayNha, hoiMayChu } from "@/lib/sen-bien/hoi-may-chu";
+import { chiaCau } from "@/lib/kairos/de-dung";
 import { henCauGio } from "@/lib/sen-bien/cau-vui";
 import { cauTruot, chonBuoc, DAP_CAM_ON, laCauDem, luotMoi } from "@/lib/sen-bien/luong-tra-loi";
 import { chonKho } from "@/lib/sen-bien/gemma";
@@ -44,7 +45,7 @@ import { ghiMauSen, guiMauSen, phienMoi } from "@/lib/sen-bien/mau-hoc";
 import { doTin, guessIntent } from "@/lib/sen-bien/ngram";
 import { useAuthUser } from "@/lib/use-auth";
 import { traLoiApp, veBanDo } from "@/lib/sen-bien/tra-loi-app";
-import { ttsCancel, ttsSpeak, ttsSpeakMp3, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
+import { speechParts, ttsCancel, ttsSpeak, ttsSpeakMp3, ttsUnlock, warmVoiceClips } from "@/lib/voice/tts";
 import { anKhiCuon } from "@/lib/sen-bien/an-khi-cuon";
 import { KAIROS_CACHE_KEY, parseCache } from "@/lib/kairos/cache";
 import { hieuTimTinKairos, traLoiTinKairos } from "@/lib/kairos/tim-tin";
@@ -430,8 +431,21 @@ export function SenBienToanApp() {
       const kq = await hoiKho(text, r, bo, ctxN, chonKho, online && !!readToken());
       if (!conLuot()) return null;
       if (kq.vao && kq.dap) {
-        noi(kq.dap.say);
-        return { show: kq.dap.say };
+        const say = kq.dap.say;
+        // câu kho dài, không thu sẵn được ⇒ có sóng + đăng nhập thì đọc giọng Mỹ Duyên của máy nhà (hoi-may-chu.docKhoBangMayNha)
+        if (docKhoBangMayNha(say, { online, coToken: !!readToken(), phuDu: (c) => speechParts(c).every((p) => p.clips) })) {
+          cauCuoi.current = say;
+          const luot = ++luotDoc.current;
+          setDangDoc(true);
+          ttsSpeakMp3(doanXinMp3(chiaCau(say)), {
+            onEnd: (xong) => {
+              if (luot !== luotDoc.current) return;
+              setDangDoc(false);
+              if (xong) setTuNghe((n) => n + 1);
+            },
+          });
+        } else noi(say);
+        return { show: say };
       }
       let boats: string[] = [];
       let places: string[] = [];
