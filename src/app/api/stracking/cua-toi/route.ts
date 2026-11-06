@@ -29,10 +29,10 @@ export async function GET(req: Request) {
   const loc = locMayTheoSdt(sdts);
   if (!loc) return Response.json({ ok: true, capNhatLuc: null, giaHanMo, tau: [], canhBao: [] });
 
-  const [tauR, soR, yeuCau, xoaR] = await Promise.all([
+  const [tauR, soR, yeuCau, xoaR, kiemR] = await Promise.all([
     admin
       .from("stracking_thiet_bi")
-      .select("serial, imei, ten_tau, chu_tau, sdt_chu_tau, thuyen_truong, sdt_thuyen_truong, dang_ky_luc, het_han, tam_ngung_tu, tam_ngung_den, trong_bo, dong_bo_tcts, nhom, tao_luc, cap_nhat_nguon, dong_bo_luc")
+      .select("serial, imei, ten_tau, chu_tau, sdt_chu_tau, thuyen_truong, sdt_thuyen_truong, dang_ky_luc, het_han, tam_ngung_tu, tam_ngung_den, trong_bo, dong_bo_tcts, nhom, tao_luc, cap_nhat_nguon, dong_bo_luc, mat_ket_noi_tu, co_lai_luc, ket_noi_kiem_luc")
       .or(loc)
       .order("het_han", { ascending: true, nullsFirst: false })
       .limit(TRAN_TAU),
@@ -40,7 +40,15 @@ export async function GET(req: Request) {
     giaHanMo ? listRenewalRequests(sdt, GIA_HAN_MS) : Promise.resolve(null),
     // Máy bà con tự "xoá" (0085) — theo mọi SĐT của tài khoản. Hỏng ⇒ coi như chưa xoá máy nào (log), không chặn thẻ.
     admin.from("stracking_an").select("serial").in("sdt", sdts),
+    // Lần máy GPU kiểm kết nối gần nhất (cả kho) — máy KHÔNG có trong báo cáo mất kết nối = có tín hiệu tới lần kiểm này.
+    admin
+      .from("stracking_thiet_bi")
+      .select("ket_noi_kiem_luc")
+      .not("ket_noi_kiem_luc", "is", null)
+      .order("ket_noi_kiem_luc", { ascending: false })
+      .limit(1),
   ]);
+  const kiemChung = (kiemR.data?.[0]?.ket_noi_kiem_luc as string | undefined) ?? null;
   if (xoaR.error) console.error("[stracking] đọc máy đã xoá hỏng:", xoaR.error.message);
   const daXoa = new Set((xoaR.data ?? []).map((x) => x.serial as string));
   const nowMs = Date.now();
@@ -90,6 +98,15 @@ export async function GET(req: Request) {
     nhom: (t.nhom as string | null) ?? null,
     taoLuc: (t.tao_luc as string | null) ?? null,
     capNhatNguon: (t.cap_nhat_nguon as string | null) ?? null,
+    // Tín hiệu THẬT (báo cáo mất kết nối, máy GPU 15 phút/lần) — thẻ dùng thay "cập nhật HH:MM" dễ hiểu nhầm (06/11).
+    matKetNoiTu: (t.mat_ket_noi_tu as string | null) ?? null,
+    coLaiLuc: (t.co_lai_luc as string | null) ?? null,
+    // Máy không có trong báo cáo ⇒ dùng lần kiểm chung; chưa từng kiểm ⇒ null (thẻ không đoán).
+    // Lấy lần MỚI HƠN giữa giờ kiểm riêng của máy và lần kiểm chung (máy rời báo cáo thì giờ riêng đứng yên).
+    ketNoiKiemLuc: [(t.ket_noi_kiem_luc as string | null) ?? null, kiemChung]
+      .filter((x): x is string => !!x)
+      .sort()
+      .pop() ?? null,
     // null = không có yêu cầu đang chạy HOẶC không tra được (máy khách không phân biệt — nút Gia hạn vẫn hiện,
     // máy chủ /api/renewal/request vẫn tự chặn trùng).
     giaHan: yeuCau

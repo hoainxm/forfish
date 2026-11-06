@@ -48,6 +48,10 @@ interface TauST {
   nhom?: string | null;
   taoLuc?: string | null;
   capNhatNguon?: string | null;
+  /** Tín hiệu thật (06/11): đang mất từ / đợt gần nhất có lại / giờ kiểm. Bản lưu cũ vắng ⇒ không nói gì về tín hiệu. */
+  matKetNoiTu?: string | null;
+  coLaiLuc?: string | null;
+  ketNoiKiemLuc?: string | null;
   /** Có từ 2026-11-05 — bản lưu cũ thiếu ô này vẫn hợp lệ. */
   giaHan?: GiaHanTau | null;
 }
@@ -138,6 +142,24 @@ function dongGiaHan(g: GiaHanTau | null | undefined): { chu: string; mau: string
     return { chu: `Bước 3/3 · Đã đổi hạn trên hệ thống${g.hanMoi ? ` tới ${ngayVn(g.hanMoi)}` : ""}`, mau: "text-ok" };
   if (g.loai === "lech") return { chu: "Đã nhận tiền hơn 2 ngày mà hạn chưa đổi · gọi SDVICO", mau: "text-danger" };
   return { chu: "Bước 2/3 · Đã nhận tiền · đang gia hạn", mau: "text-warn" };
+}
+
+/** Mốc phạt mất tín hiệu: ngoài khơi 6 giờ, nằm bờ 1 ngày không báo vị trí (anh Long 05–06/11). Chưa rõ ⇒ như ngoài khơi. */
+const MOC_PHAT_GIO = { khoi: 6, bo: 24 } as const;
+
+/** Dòng tín hiệu: đang mất ⇒ "Mất tín hiệu từ 13:40 06/11 · cần có lại trước 19:40 06/11" (đỏ); có ⇒ "có tín hiệu (kiểm 14:05)".
+ *  Bản lưu cũ chưa có ô ⇒ null (không đoán). */
+function dongTinHieu(t: TauST, nowMs: number): { matTin: boolean; chu: string } | null {
+  if (!t.ketNoiKiemLuc && !t.matKetNoiTu) return null; // chưa từng kiểm (bản lưu cũ / tính năng chưa chạy) ⇒ không đoán
+  if (t.matKetNoiTu) {
+    const tu = Date.parse(t.matKetNoiTu);
+    if (Number.isFinite(tu)) {
+      const han = tu + (t.trongBo === true ? MOC_PHAT_GIO.bo : MOC_PHAT_GIO.khoi) * 3600_000;
+      const chot = han > nowMs ? ` · cần có lại trước ${gioVn(new Date(han).toISOString())}` : " · đã quá mốc, gọi SDVICO";
+      return { matTin: true, chu: `Mất tín hiệu từ ${gioVn(t.matKetNoiTu)}${chot}` };
+    }
+  }
+  return { matTin: false, chu: `có tín hiệu (kiểm ${gioVn(t.ketNoiKiemLuc!)})` };
 }
 
 function dangTamNgung(t: TauST, homNay: string): boolean {
@@ -378,11 +400,18 @@ export function StrackingCuaToi({
               {t.dongBoTcts && /thất bại/i.test(t.dongBoTcts) && (
                 <p className="text-[0.875rem] font-semibold text-danger">Chưa đồng bộ Tổng cục Thủy sản</p>
               )}
+              {/* TÍN HIỆU THẬT (06/11, vụ GL-99280): bỏ "cập nhật HH:MM" — đó là giờ sửa bản ghi S-Tracking, nhân viên đọc
+                  thành "6 giờ không tín hiệu". Đang mất ⇒ dòng đỏ + giờ chót (ngoài khơi 6 giờ, nằm bờ 1 ngày). */}
               {(() => {
+                const tinHieu = dongTinHieu(t, Date.now());
+                return tinHieu?.matTin ? <p className="text-[0.875rem] font-semibold text-danger">{tinHieu.chu}</p> : null;
+              })()}
+              {(() => {
+                const tinHieu = dongTinHieu(t, Date.now());
                 const dong = [
                   t.dongBoTcts && !/thất bại/i.test(t.dongBoTcts) ? "Đã đồng bộ Tổng cục" : null,
                   t.trongBo == null ? null : t.trongBo ? "Trong bờ" : "Ngoài khơi",
-                  t.capNhatNguon ? `cập nhật ${gioVn(t.capNhatNguon)}` : null,
+                  tinHieu && !tinHieu.matTin ? tinHieu.chu : null,
                 ].filter(Boolean);
                 return dong.length ? <p className="text-[0.875rem] text-muted">{dong.join(" · ")}</p> : null;
               })()}

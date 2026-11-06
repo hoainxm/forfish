@@ -68,6 +68,8 @@ export async function POST(req: Request) {
       return Response.json({ ok: false, code: "store_down" }, { status: 503 });
     }
   }
+  // Trạng thái KẾT NỐI thật (báo cáo mất kết nối S-Tracking) — chỉ máy đã có trong kho, máy vắng không đụng. Hỏng chỉ log.
+  if (Array.isArray(goi.ketNoi) && goi.ketNoi.length) await ghiKetNoi(admin, goi.ketNoi as KetNoi[], goi.luc);
   // `select` sau upsert bỏ-qua-trùng trả về ĐÚNG các hàng vừa chèn ⇒ cảnh báo mới (đã có thì không báo lại).
   const moiChen: CanhBaoMoi[] = [];
   for (let i = 0; i < goi.canhBao.length; i += LO_GHI) {
@@ -213,6 +215,42 @@ async function dongCanhBaoDaClear(
 }
 
 const LO_TRA = 300;
+
+interface KetNoi {
+  serial: string;
+  /** đang mất tín hiệu từ (null = không đang mất) */
+  matTu: string | null;
+  /** đợt mất gần nhất có lại lúc */
+  coLai: string | null;
+}
+
+/**
+ * Ghi trạng thái kết nối (anh Long 06/11 "fix hết đi" — vụ GL-99280: thẻ ghi "cập nhật 06:45" là giờ sửa BẢN GHI S-Tracking,
+ * bị hiểu thành "6 giờ không tín hiệu"). Chỉ máy ĐÃ CÓ trong kho (upsert gộp cột, không tạo hàng mới); `ket_noi_kiem_luc` =
+ * giờ máy GPU kiểm. Hỏng ⇒ log, không 503 (dữ liệu chính đã ghi).
+ */
+async function ghiKetNoi(admin: NonNullable<ReturnType<typeof createAdminClient>>, ketNoi: KetNoi[], luc: string): Promise<void> {
+  try {
+    const theoSerial = new Map(ketNoi.filter((k) => k && typeof k.serial === "string").map((k) => [k.serial, k]));
+    const serials = [...theoSerial.keys()];
+    const coThat: string[] = [];
+    for (let i = 0; i < serials.length; i += LO_TRA) {
+      const { data, error } = await admin.from("stracking_thiet_bi").select("serial").in("serial", serials.slice(i, i + LO_TRA));
+      if (error) throw error;
+      coThat.push(...(data ?? []).map((d) => d.serial as string));
+    }
+    const hang = coThat.map((serial) => {
+      const k = theoSerial.get(serial)!;
+      return { serial, mat_ket_noi_tu: k.matTu ?? null, co_lai_luc: k.coLai ?? null, ket_noi_kiem_luc: luc };
+    });
+    for (let i = 0; i < hang.length; i += LO_GHI) {
+      const { error } = await admin.from("stracking_thiet_bi").upsert(hang.slice(i, i + LO_GHI), { onConflict: "serial" });
+      if (error) throw error;
+    }
+  } catch (e) {
+    console.error("[stracking] ghi kết nối hỏng:", e instanceof Error ? e.message : e);
+  }
+}
 
 /**
  * Chỉ giữ nhắc gửi CHỦ TÀU của máy (anh Long 06/11: "chủ tàu mới xem giám sát, thuyền trưởng nếu có chỉ là trong hồ sơ
