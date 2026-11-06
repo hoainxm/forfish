@@ -480,13 +480,18 @@ export function InstallBanner({
 /*  HƯỚNG DẪN CÀI BẰNG TAY — dùng chung thẻ Trang chủ và mục "Cài app" trong menu tài khoản.
     Android: Chrome không hỏi — hầu hết vì máy đã có bản CH Play (Chrome coi origin này "đã cài") hoặc chưa đủ
     điều kiện. Không nói lý do kỹ thuật: bà con chỉ cần biết BẤM VÀO ĐÂU (video hiện trường 2026-10-27: bà con
-    mở hộp CHIA SẺ để tìm, trong khi mục nằm ở menu ⋮). */
+    mở hộp CHIA SẺ để tìm, trong khi mục nằm ở menu ⋮).
+    iPhone: Safari đời mới (đo trên iOS 27) bỏ nút Chia sẻ ở thanh dưới — phải ≡ › Chia sẻ › Xem thêm › Thêm vào Màn hình chính
+    (quay simulator iOS 27, 2026-11-06); máy cũ vẫn còn nút Chia sẻ ở thanh dưới nên câu nói cả hai. */
 function HuongDanTay({ ios }: { ios: boolean }) {
   return ios ? (
     <p className="rounded-xl bg-background p-3 text-[1rem] font-semibold leading-snug text-navy">
-      Trên iPhone: bấm nút <span className="font-semibold">Chia sẻ</span> ở thanh
-      dưới trình duyệt, rồi chọn{" "}
-      <span className="font-semibold">“Thêm vào Màn hình chính”</span>.
+      Trên iPhone: bấm nút <span className="font-semibold">Chia sẻ</span>{" "}
+      (máy mới: bấm <span className="font-semibold">≡</span> cạnh ô địa chỉ
+      rồi chọn <span className="font-semibold">Chia sẻ</span>), chọn{" "}
+      <span className="font-semibold">“Thêm vào Màn hình chính”</span> (không
+      thấy thì bấm <span className="font-semibold">Xem thêm</span>), rồi bấm{" "}
+      <span className="font-semibold">Thêm</span>.
       <span className="mt-2 block font-semibold text-danger">
         Cài xong mở app vừa cài NGAY khi còn sóng: bản cài bắt đầu từ kho
         trống, phải tải lại dự báo một lần.

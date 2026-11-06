@@ -85,7 +85,7 @@ export const prose = {
       { h3: "Cài app về màn hình chính", steps: [
         "Mở app bằng trình duyệt (Chrome trên Android, Safari trên iPhone).",
         "Android: bấm dấu ba chấm ở góc → chọn <b>Cài ứng dụng</b> (hoặc <b>Thêm vào màn hình chính</b>).",
-        "iPhone: bấm nút chia sẻ (ô vuông có mũi tên đi lên) → <b>Thêm vào MH chính</b>.",
+        "iPhone: bấm nút chia sẻ (ô vuông có mũi tên đi lên; máy mới thì bấm nút ≡ cạnh ô địa chỉ rồi chọn <b>Chia sẻ</b>) → <b>Thêm vào Màn hình chính</b> (không thấy thì bấm <b>Xem thêm</b>) → <b>Thêm</b>.",
         "Xong, biểu tượng SDFish nằm ngoài màn hình chính như mọi app khác.",
       ] },
       { note: "<b>Không đăng nhập vẫn xem được</b> giá cá, gió sóng, danh bạ cảng, chợ tin mua–bán. Những thứ riêng của bà con — giấy tờ, thuyền viên — thì phải đăng nhập, để người khác cầm máy cũng không xem được." },

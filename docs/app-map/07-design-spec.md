@@ -1687,7 +1687,7 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 |---|---|---|
 | Android | có (`beforeinstallprompt`) | nút **"Cài về máy"** bung hộp cài thật |
 | Android | không, sau `BIP_WAIT_MS` = 2,5s | **hướng dẫn tay**: bấm ⋮ → "Thêm vào Màn hình chính" (có máy ghi "Cài ứng dụng") |
-| iPhone | — | hướng dẫn tay qua nút Chia sẻ (như cũ) |
+| iPhone | — | hướng dẫn tay qua nút Chia sẻ; Safari đời mới không còn nút ở thanh dưới ⇒ câu chỉ thêm đường ≡ › Chia sẻ › (Xem thêm) › “Thêm vào Màn hình chính” › Thêm (đo simulator iOS 27, 2026-11-06) |
 | Desktop | — | **không mời** — mời hão vì máy không cài được |
 
 Sự kiện tới MUỘN vẫn được nhận và **nâng cấp** thẻ từ hướng-dẫn-tay lên nút bấm; không mất đường cài tử tế. Chờ 2,5s chứ không lâu hơn: Chrome bắn gần như tức thì khi máy đủ điều kiện, chờ lâu là thẻ nhấp nháy đổi hình trước mắt bà con.
