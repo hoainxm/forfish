@@ -13,6 +13,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import type { GiaHanTau } from "@/lib/renewal";
 import { homNayVn, trangThaiHan } from "@/lib/stracking/dong-bo.mjs";
+import { loiDocGiamSat } from "@/lib/stracking/doc-canh-bao.mjs";
+import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
 import type { Boat } from "@/lib/boats";
 
 /*
@@ -183,6 +185,12 @@ export function StrackingCuaToi({
   const [menu, setMenu] = useState<{ tau: TauST; el: HTMLButtonElement } | null>(null);
   const [loiXoa, setLoiXoa] = useState<string | null>(null);
   const [lanTai, setLanTai] = useState(0);
+  /*  SEN BIỂN ĐỌC (anh Long 06/11: "cho sen biển đọc cái cảnh báo"): nút Nghe đọc tình trạng các máy + cảnh báo hôm nay
+      bằng giọng Sen Biển (lib/stracking/doc-canh-bao — thứ tự: mất tín hiệu + giờ chót ⇒ cảnh báo ⇒ cước). Phát TRONG
+      handler chạm (iOS chỉ phát tiếng sau cử chỉ chạm thật — lib/voice/tts ttsUnlock); đọc cả bản lưu khi mất sóng. */
+  const [dangDoc, setDangDoc] = useState(false);
+  const huyDoc = useRef<(() => void) | null>(null);
+  useEffect(() => () => huyDoc.current?.(), []);
   const onGiaHanMoRef = useRef(onGiaHanMo);
   useEffect(() => {
     onGiaHanMoRef.current = onGiaHanMo;
@@ -348,8 +356,37 @@ export function StrackingCuaToi({
     );
   }
 
+  function bamNghe() {
+    if (!ban) return;
+    if (dangDoc) {
+      huyDoc.current?.();
+      huyDoc.current = null;
+      setDangDoc(false);
+      return;
+    }
+    ttsUnlock();
+    setDangDoc(true);
+    huyDoc.current = ttsSpeak(loiDocGiamSat({ tau: ban.tau, canhBao: ban.canhBao }), {
+      onEnd: () => {
+        huyDoc.current = null;
+        setDangDoc(false);
+      },
+    });
+  }
+
   return (
     <div className="mt-3">
+      <div className="mb-2 flex items-center gap-2">
+        <p className="min-w-0 flex-1 text-[0.875rem] text-muted">Sen Biển đọc tình trạng các tàu cho bà con nghe.</p>
+        <button
+          type="button"
+          onClick={bamNghe}
+          aria-pressed={dangDoc}
+          className="min-h-[2.75rem] shrink-0 rounded-full bg-field px-4 text-[0.875rem] font-semibold text-sea"
+        >
+          {dangDoc ? NHAN.dung : NHAN.nghe}
+        </button>
+      </div>
       <ul className="space-y-2">
         {ban.tau.map((t) => {
           const han = dongHan(t, homNay);
