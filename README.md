@@ -91,7 +91,7 @@ Thanh dưới (dock) **chỉ có biểu tượng**; tên mục nằm ở `aria-l
 
 ## Video hướng dẫn
 
-Chín video, mỗi video 1–2,5 phút:
+Mười video, mỗi video 1–2,5 phút:
 - Giọng đọc **Mỹ Duyên** (VieNeu chạy trên máy GPU), có phụ đề cứng và kèm file `.srt`.
 - Quay trên **màn hình và dữ liệu thật** của production, dùng các tài khoản test `0900000780`–`0900000784` (khai trong `scripts/test-accounts.json`).
 
@@ -106,6 +106,7 @@ Chín video, mỗi video 1–2,5 phút:
 | 7 | Cài SDFish về điện thoại: **Android** (Chrome thật, giả lập Android 15) + **iPhone** (Safari thật, iOS Simulator 27, giao diện tiếng Việt), PWA lưu dữ liệu thế nào | khách |
 | 8 | Tàu quanh đây (AIS): giữ tay ~3 giây trên bản đồ ⇒ tàu trong 6 hải lý, 6 giờ qua, lọc + chi tiết từng tàu | gói dự báo |
 | 9 | Kairos: dòng tin, nghe Sen Biển đọc, tải bài mang ra biển, tab Chính sách (lọc tỉnh, loại tin), bài luật kèm hạn giấy | thường |
+| 10 | Giám sát hành trình (S-Tracking): thẻ máy, hạn cước 3 mức, cảnh báo + thông báo, Sen Biển đọc, gia hạn 3/6/12 tháng | chủ tàu (gắn tạm số tàu được phép) |
 
 Nhạc nền **tự tổng hợp** (`scripts/video-hdsd/nhac.mjs`: pad + arpeggio + tiếng sóng, không dùng bài có bản quyền), tự hạ khi có lời. Mỗi video có thêm bản `-khong-nhac.mp4` (chỉ giọng đọc): muốn nhạc thịnh hành thì chọn "âm thanh" ngay trong TikTok lúc đăng — bản quyền nhạc TikTok chỉ áp trong TikTok. Công cụ quay: [`scripts/video-hdsd/`](scripts/video-hdsd/README.md).
 

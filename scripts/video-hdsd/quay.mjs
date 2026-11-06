@@ -26,7 +26,7 @@ function wavDur(buf) {
 }
 mkdirSync(`${L.DIR}tts-cache`, { recursive: true });
 async function doc(text) {
-  const doc = text.replace(/sdfish.sdvico.vn/g, "ét đê phít chấm ét đê vi cô chấm vi en").replace(/SDFish/g, "ét đê phít").replace(/PWA/g, "pê đáp liu a").replace(/CH Play/g, "xê hát pờ lây").replace(/ForFish/g, "ét đê phít").replace(/SDVICO/g, "ét đê vi cô").replace(/S-Tracking/g, "ét trắc king").replace(/Kairos/g, "Khai rốt").replace(/AIS/g, "a i ét").replace(/Sen Biển/g, "Sen Biển");
+  const doc = text.replace(/sdfish.sdvico.vn/g, "ét đê phít chấm ét đê vi cô chấm vi en").replace(/SDFish/g, "ét đê phít").replace(/PWA/g, "pê đáp liu a").replace(/CH Play/g, "xê hát pờ lây").replace(/ForFish/g, "ét đê phít").replace(/SDVICO/g, "ét đê vi cô").replace(/S-Tracking/g, "ét trắc king").replace(/Kairos/g, "Khai rốt").replace(/AIS/g, "a i ét").replace(/SOS/g, "ét ô ét").replace(/Sen Biển/g, "Sen Biển");
   const f = `${L.DIR}tts-cache/${createHash("md5").update(doc).digest("hex").slice(0, 12)}.wav`;
   if (!existsSync(f)) {
     for (let t = 0; t < 4; t++) {
