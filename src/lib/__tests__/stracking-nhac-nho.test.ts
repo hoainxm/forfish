@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { doiKhoiDem, doiMay, docMkn, nacBaoTruoc, nhacTheoNguoi, tuanVn, viecNhac } from "@/lib/stracking/nhac-nho.mjs";
-import { kiemGoiNhap, kiemNhac, laDuongDoc, thanMkn } from "@/lib/stracking/dong-bo.mjs";
+import { doiKhoiDem, doiMay, docMkn, nacBaoTruoc, nhacTheoNguoi, trangThaiKetNoi, tuanVn, viecNhac } from "@/lib/stracking/nhac-nho.mjs";
+import { kiemGoiNhap, kiemKetNoi, kiemNhac, laDuongDoc, thanMkn } from "@/lib/stracking/dong-bo.mjs";
 
 // 05/11/2026 17:00 giờ VN
 const NOW = Date.parse("2026-11-05T10:00:00Z");
@@ -246,5 +246,30 @@ describe("mất tín hiệu khi NẰM BỜ — mốc 1 ngày, báo trước còn
     expect(kiemNhac([{ sdt: "0967214151", loai: "mkn-bo-sap-1ngay", dong: "x" }, { sdt: "0967214151", loai: "mkn-bo-qua-1ngay", dong: "x" }])).toHaveLength(2);
     expect(JSON.parse(thanMkn(1000, "1")).data.inOutShore).toBe("1");
     expect(JSON.parse(thanMkn(1000)).data.inOutShore).toBe("2");
+  });
+});
+
+describe("trạng thái kết nối thật của từng máy (vụ GL-99280 \"Sao ko báo mkn\", anh Long 06/11 \"fix hết đi\")", () => {
+  const r = (serial: string, bdVn: string, coLaiVn: string | null) =>
+    docMkn({ report: { serial, dateTracking: Date.parse(`${bdVn}+07:00`), dateOnline: coLaiVn ? Date.parse(`${coLaiVn}+07:00`) : null, inShore: 1 } });
+  it("lấy đợt MỚI NHẤT mỗi máy: đã có lại ⇒ matTu null + coLai; đang mất ⇒ matTu", () => {
+    const ds = trangThaiKetNoi([
+      r("A", "2026-09-04T09:53:00", "2026-09-07T12:59:00"),
+      r("A", "2026-06-10T05:58:00", "2026-06-10T11:58:00"),
+      r("B", "2026-11-06T09:00:00", null),
+      r("B", "2026-11-01T09:00:00", "2026-11-01T12:00:00"),
+    ]);
+    expect(ds).toEqual([
+      { serial: "A", matTu: null, coLai: "2026-09-07T05:59:00.000Z" },
+      { serial: "B", matTu: "2026-11-06T02:00:00.000Z", coLai: null },
+    ]);
+  });
+  it("máy chủ kiểm ketNoi: vắng ⇒ null (không đụng); giờ sai ⇒ null; serial trống bị bỏ", () => {
+    expect(kiemGoiNhap({ luc: "2026-11-06T06:00:00Z", trangThai: "ok" }, NOW).goi?.ketNoi).toBeNull();
+    expect(kiemKetNoi([{ serial: "A", matTu: "x", coLai: "2026-09-07T05:59:00Z" }, { serial: "", matTu: null }])).toEqual([
+      { serial: "A", matTu: null, coLai: "2026-09-07T05:59:00.000Z" },
+    ]);
+    const g = kiemGoiNhap({ luc: "2026-11-06T06:00:00Z", trangThai: "ok", ketNoi: [{ serial: "B", matTu: "2026-11-06T02:00:00Z", coLai: null }] }, NOW);
+    expect(g.goi?.ketNoi).toEqual([{ serial: "B", matTu: "2026-11-06T02:00:00.000Z", coLai: null }]);
   });
 });

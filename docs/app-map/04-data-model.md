@@ -48,6 +48,10 @@ ttl_days: 180
 
 ---
 
+### 0087 — S-TRACKING: TRẠNG THÁI KẾT NỐI THẬT — migration [`0087_stracking_ket_noi.sql`](../../supabase/migrations/0087_stracking_ket_noi.sql) (2026-11-06) — ✅ **ĐÃ APPLY prod 2026-11-06** (Supabase MCP)
+
+Nhân viên hỏi "Sao ko báo mkn" khi thẻ GL-99280-TS ghi "cập nhật 06:45" lúc 13:11 — máy KHÔNG mất kết nối (đợt cuối 04/09 → 07/09); dòng đó là `cap_nhat_nguon` ("Ngày cập nhật" bản ghi S-Tracking, chỉ lấy lại lượt 07:30). Anh Long: "fix hết đi". `stracking_thiet_bi` thêm `mat_ket_noi_tu` (đang mất từ, null = không), `co_lai_luc` (đợt gần nhất có lại lúc), `ket_noi_kiem_luc` (lúc GPU kiểm) + index một phần `mat_ket_noi_tu is not null`. Máy GPU gửi `ketNoi: [{serial, matTu, coLai}]` mỗi 15 phút (đợt mới nhất mỗi máy trong báo cáo mất kết nối: ~22 ngày khơi / ~9 ngày bờ — `trangThaiKetNoi`); máy chủ (route nhap) chỉ update máy đã có, máy không có trong báo cáo không đụng. Thẻ máy hiện "Có tín hiệu" / "Mất tín hiệu từ …" thay dòng "cập nhật HH:MM".
+
 ### 0086 — "SỐ KHÁC CỦA TÔI" (thay SĐT phụ một ô 0084) — migration [`0086_sdt_khac.sql`](../../supabase/migrations/0086_sdt_khac.sql) (2026-11-06) — ✅ **ĐÃ APPLY prod 2026-11-06** (anh Long: "Áp và đẩy"; Supabase MCP `apply_migration`, `schema_migrations` 20261106044448. Soi trước: 1 số phụ, 0 trùng, bảng chưa có. Soi sau: chép đúng 0918388742 ⇒ 0946364444 (đã duyệt, `chep-0084`); RLS bật, 0 policy; anon đọc thấy 0 dòng; authenticated ghi ⇒ 42501 bị chặn)
 
 Anh Long 06/11: *"phải có phương án bind với sdt này hoặc cho khách bổ sung sdt mua hàng sdvico"* + *"có 3 SĐT (cái phụ đang để cho VMS phụ) có bị conflict ko?"*. Cột đơn `customers.sdt_phu` vỡ ở ba chỗ: (1) đăng nhập A, máy giám sát đứng tên B, mua hàng bằng C ⇒ một ô không chứa được cả B lẫn C; (2) chỉ mục 0084 không unique ⇒ một số gán được cho hai tài khoản; (3) chính số phụ có thể là tài khoản tự đăng nhập. Nghĩa của B và C như nhau — *"số này là của tôi, nhân viên đã xác nhận"* — nên MỘT danh sách dùng chung cho S-Tracking và đồ mua SDVICO.

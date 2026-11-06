@@ -508,6 +508,19 @@ const LOAI_NHAC = new Set(["mkn-sap-6h", "mkn-qua-6h", "mkn-bo-sap-1ngay", "mkn-
 const TRAN_NHAC = 20_000;
 
 /** Máy chủ kiểm lại `nhac[]` do máy GPU tính (lib/stracking/nhac-nho viecNhac → nhacTheoNguoi). Hàng sai bị bỏ. Vắng ⇒ []. */
+/** Máy chủ kiểm `ketNoi[]`: serial ≤64, matTu/coLai là giờ hợp lệ hoặc null; trùng serial giữ dòng sau. Vắng ⇒ null. */
+export function kiemKetNoi(ds) {
+  if (!Array.isArray(ds)) return null;
+  const gio = (v) => (typeof v === "string" && Number.isFinite(Date.parse(v)) ? new Date(Date.parse(v)).toISOString() : null);
+  const theo = new Map();
+  for (const r of ds.slice(0, 30_000)) {
+    const serial = chuoiHoacNull(r?.serial, 64);
+    if (!serial) continue;
+    theo.set(serial, { serial, matTu: gio(r.matTu), coLai: gio(r.coLai) });
+  }
+  return [...theo.values()];
+}
+
 export function kiemNhac(ds) {
   if (!Array.isArray(ds)) return [];
   const out = [];
@@ -593,6 +606,8 @@ export function kiemGoiNhap(b, now = Date.now()) {
       dangMo,
       // Nhắc nhở mất kết nối / đồng bộ Tổng cục / hạn cước — một dòng/tàu/người; route gộp với cảnh báo thành 1 tin/SĐT.
       nhac: kiemNhac(b.nhac),
+      // Trạng thái kết nối từng máy (lib/stracking/nhac-nho trangThaiKetNoi) — null = gói không mang ⇒ máy chủ không đụng.
+      ketNoi: kiemKetNoi(b.ketNoi),
     },
   };
 }

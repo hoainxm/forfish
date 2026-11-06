@@ -82,10 +82,27 @@ export function docMkn(r) {
     imei: typeof x.imei === "string" ? x.imei.trim() || null : null,
     tenTau: (typeof x.deviceName === "string" && x.deviceName.trim()) || (typeof x.vin === "string" && x.vin.trim()) || null,
     batDau: new Date(batDau).toISOString(),
+    ketThuc: ketThuc != null && Number.isFinite(ketThuc) ? new Date(ketThuc).toISOString() : null,
     dangMat: ketThuc == null || !Number.isFinite(ketThuc),
     // inShore: 1 = trong bờ, 2 = ngoài khơi (khớp bộ lọc "Vị trí" của trang).
     ngoaiKhoi: Number(x.inShore) === 2,
   };
+}
+
+/**
+ * TRẠNG THÁI KẾT NỐI hiện tại theo báo cáo mất kết nối (anh Long 06/11 "fix hết đi" — thẻ máy ghi "cập nhật 06:45" làm nhân
+ * viên tưởng mất kết nối). Mỗi máy lấy ĐỢT MỚI NHẤT (bắt đầu muộn nhất): đang mất ⇒ { matTu, coLai: null }; đã có lại ⇒
+ * { matTu: null, coLai }. Máy không có trong báo cáo (không đợt nào trong ~22 ngày khơi / ~9 ngày bờ) ⇒ không trả — máy chủ
+ * không đụng. Gửi lên máy chủ dạng `ketNoi: [{ serial, matTu, coLai }]`.
+ */
+export function trangThaiKetNoi(mkn) {
+  const moiNhat = new Map();
+  for (const m of mkn) {
+    if (!m?.serial) continue;
+    const cu = moiNhat.get(m.serial);
+    if (!cu || Date.parse(m.batDau) > Date.parse(cu.batDau)) moiNhat.set(m.serial, m);
+  }
+  return [...moiNhat.values()].map((m) => ({ serial: m.serial, matTu: m.dangMat ? m.batDau : null, coLai: m.dangMat ? null : m.ketThuc }));
 }
 
 /**

@@ -53,7 +53,7 @@ import {
   thanPhuongTien,
   thanMkn,
 } from "../src/lib/stracking/dong-bo.mjs";
-import { docMkn, nhacTheoNguoi, viecNhac } from "../src/lib/stracking/nhac-nho.mjs";
+import { docMkn, nhacTheoNguoi, trangThaiKetNoi, viecNhac } from "../src/lib/stracking/nhac-nho.mjs";
 import { LOAI_SIEU_NHANH } from "../src/lib/stracking/muc-canh-bao.mjs";
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
@@ -587,7 +587,9 @@ async function main() {
       // Trọn bộ đang mở chỉ khi đọc đủ (≥98%) — để máy chủ đóng cảnh báo đã hết; thiếu ⇒ không gửi (không đóng nhầm).
       const dangMo = cb.tong && cb.ds.length >= cb.tong * 0.98 ? cb.ds.map((x) => ({ imei: x.imei, loai: x.loai, luc: x.luc })) : undefined;
       const cbGui = cbChuaGui.map(banGuiCanhBao).filter(Boolean);
-      const j = await gui(c, { luc, trangThai: "ok", thietBi: [], canhBao: cbGui, dangMo, nhac: boKhoa(nhac) });
+      // Trạng thái kết nối thật từng máy (đợt mới nhất trong báo cáo) — thẻ máy hiện "Có tín hiệu" / "Mất tín hiệu từ …".
+      const ketNoi = mkn.length ? trangThaiKetNoi(mkn) : undefined;
+      const j = await gui(c, { luc, trangThai: "ok", thietBi: [], canhBao: cbGui, dangMo, nhac: boKhoa(nhac), ketNoi });
       danhDauNhac(db, nhac, j, luc);
       const danhDauCb = db.prepare("UPDATE canh_bao SET da_gui = 1 WHERE imei = ? AND loai = ? AND luc = ?");
       db.exec("BEGIN");
@@ -700,7 +702,8 @@ async function main() {
       const cbPhan = cuoi ? cbChuaGui.map(banGuiCanhBao).filter(Boolean) : [];
       // Trọn bộ cảnh báo ĐANG MỞ — chỉ khi đọc đủ (≥98% tổng trang báo) để máy chủ đóng cảnh báo đã hết; thiếu ⇒ không gửi.
       const dangMo = cuoi && cb.tong && cb.ds.length >= cb.tong * 0.98 ? cb.ds.map((x) => ({ imei: x.imei, loai: x.loai, luc: x.luc })) : undefined;
-      const j = await gui(c, { luc, trangThai: "ok", tong, thietBi: phan.map((x) => x.b), canhBao: cbPhan, dangMo, nhac: cuoi ? boKhoa(nhac) : [] });
+      const ketNoi = cuoi && mkn.length ? trangThaiKetNoi(mkn) : undefined;
+      const j = await gui(c, { luc, trangThai: "ok", tong, thietBi: phan.map((x) => x.b), canhBao: cbPhan, dangMo, nhac: cuoi ? boKhoa(nhac) : [], ketNoi });
       if (cuoi) danhDauNhac(db, nhac, j, luc);
       db.exec("BEGIN");
       for (const x of phan) danhDauTb.run(x.h, x.b.serial);
