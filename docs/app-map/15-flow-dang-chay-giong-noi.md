@@ -1293,3 +1293,21 @@ Anh Long: *"cái thông báo của giám sát hành trình sao ko đẩy ra cái
 - Gỡ nút **Nghe** riêng trong thẻ Giám sát hành trình (`loiDocGiamSat` không còn chỗ gọi trong UI; module `stracking/doc-canh-bao` giữ vì bộ mảnh giọng + test giọng dựa vào câu của nó, và `VIET_TAT_CANH_BAO` dùng chung cho `answer.chuNoiMa`).
 - Ý `hop_thu` / `chua_doc`: đọc ≤3 tin chưa đọc (`inbox.tinChuaDocDeDoc` — cùng luật ẩn/gom/7 ngày với màn), mỗi tin "tiêu đề: 2 dòng đầu". `chuNoiMa` thêm SOS/GPS/Reset ⇒ tên chữ cái, "15:47" ⇒ "15 giờ 47", " · " ⇒ dấu phẩy. Ngoại lệ luật speak ≤2 câu: 1 câu đếm + 1 câu mỗi tin.
 - `inboxTinMoi` có tên tàu ⇒ chỉ ở client, `stripForServer` bỏ.
+
+### §37b Tự đọc tin khẩn khi Đang chạy (2026-11-06 tối — anh Long: "cái nào tự động đọc cái nào ko? cái nào click đọc? đã có logic thông minh này chưa?")
+
+**Bảng ai đọc gì (chuẩn hiện hành):**
+
+| Chỗ | Đọc gì | Cách |
+|---|---|---|
+| Đang chạy (bản đồ) | hải đồ, ranh giới, bão theo GPS, sóng gió, lệch tuyến, bản tin mở đầu + điểm tin 30 phút, **tin khẩn hộp thư** | TỰ ĐỌC |
+| Icon Sen Biển (mọi màn) | hỏi gì đáp nấy; "có tin mới không" ⇒ đọc ≤3 tin chưa đọc | chạm rồi nói |
+| Kairos | bài (nút loa) | chạm |
+| Nhập giấy tờ/tàu | hỏi từng câu | chạm |
+| Thông báo đẩy (app tắt/nền) | chuông, không đọc (trình duyệt không cho) | — |
+
+- **Tin khẩn** = tin máy chủ gắn `khan=1` vào url (`stracking/thong-bao.urlTinTau`: tin có báo động — đúng tin được ĐẨY: SOS, vượt biên ngoài khơi, mất tín hiệu sắp/quá mốc phạt…). Không thêm cột/migration — hộp thư chỉ chở title/body/url.
+- `inbox.tinKhanDeDoc`: khẩn + chưa đọc + chưa ẩn + gửi ≤3 giờ + chưa đọc lượt chạy này; ≤2 tin, mới trước. Đọc `vang` ("Tin mới. " + `answer.cauDocTin` — cùng câu với hộp thư), sau bản tin mở đầu, mỗi nhịp phút xét lại.
+- Tin tới lúc app đang mở: sw.js đã nhắn `PUSH_CHIME_MSG` (tag `stracking-…`) ⇒ hook làm mới hộp thư (`refreshInbox`, trần 10 s, mất sóng thì thôi) rồi đọc. Không đụng sw.js.
+- Mỗi tin một lần mỗi lượt chạy; tắt chạy rồi chạy lại mà vẫn chưa xem ⇒ nhắc lại. Không tự đánh dấu "đã thấy" (nghe ≠ thấy, chấm chưa đọc ở Trang chủ giữ nguyên).
+- KHÔNG tự đọc: tin thường (nhắc cước, đơn chợ, Kairos) — hỏi Sen Biển; tin bão trong hộp thư (bão đã đọc theo GPS, lấy nữa là đọc hai lần). Ngoài chế độ Đang chạy KHÔNG tự phát tiếng (iOS chặn tiếng khi chưa chạm; nói bất chợt giữa màn khác làm bà con giật mình).

@@ -21,6 +21,7 @@ import {
   gomTinTau,
   STRACKING_PUSH_SENT_BY,
   tinHetCanhBao,
+  urlTinTau,
   type CanhBaoMoi,
   type Nhac,
   type TauCuaImei,
@@ -423,7 +424,7 @@ async function guiTin(
     .from("push_messages")
     .insert(
       tin.map((t) => ({
-        title: t.title, body: t.body, url: t.url, target: "account", target_phone: t.phone,
+        title: t.title, body: t.body, url: urlTinTau(t), target: "account", target_phone: t.phone,
         sent_by: STRACKING_PUSH_SENT_BY, devices: t.day ? subs.get(t.phone)?.length ?? 0 : 0, sent: 0,
       })),
     )
@@ -441,7 +442,7 @@ async function guiTin(
       .map(async (t) => {
         const rows = subs.get(t.phone)!;
         kq.may += rows.length;
-        const r = await sendPushMany(rows, { title: t.title, body: t.body, url: t.url, sentAt, messageId: idTheoSdt.get(t.phone) ?? null, tag: t.tag });
+        const r = await sendPushMany(rows, { title: t.title, body: t.body, url: urlTinTau(t), sentAt, messageId: idTheoSdt.get(t.phone) ?? null, tag: t.tag });
         kq.day += r.sent;
         chet.push(...r.goneIds);
       }),

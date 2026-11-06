@@ -23,6 +23,10 @@ import { computeUrgent } from "@/lib/urgent";
 import { readToken } from "@/lib/device-token-store";
 import { doanXinMp3 } from "@/lib/sen-bien/hoi-may-chu";
 import { chiaCau } from "@/lib/kairos/de-dung";
+import { loadHidden, loadInbox, loadSeen, refreshInbox, tinKhanDeDoc } from "@/lib/inbox";
+import { cauDocTin } from "@/lib/assistant/answer";
+import { offlineIdentityPhone } from "@/lib/offline-identity";
+import { PUSH_CHIME_MSG } from "@/lib/push-message";
 import {
   acknowledge,
   announce,
@@ -380,6 +384,7 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
       memRef.current = initVoiceMemory();
       startMsRef.current = null;
       openingDoneRef.current = false;
+      daDocTinRef.current = new Set();
       extraRef.current = [];
       pendingRef.current = [];
       diemMsRef.current = -Infinity;
@@ -535,6 +540,58 @@ export function useNavVoice(inp: NavVoiceInput): NavVoice {
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ theo nhịp phút
   }, [inp.on, tick]);
+
+  /* ── TIN KHẨN TRONG HỘP THƯ (2026-11-06, anh Long: "cái nào tự động đọc… logic thông minh") ────────────────
+     Hộp thư CHUNG là nguồn (cảnh báo tàu S-Tracking có báo động: SOS, vượt biên, mất tín hiệu sắp/quá mốc phạt — máy
+     chủ gắn `khan=1`, lib/stracking/thong-bao `urlTinTau`). Đang chạy ⇒ đọc tin khẩn CHƯA ĐỌC gửi trong 3 giờ
+     (`inbox.tinKhanDeDoc`): sau bản tin mở đầu, mỗi nhịp phút, và NGAY khi tin đẩy tới lúc app đang mở (sw.js nhắn
+     PUSH_CHIME_MSG tag `stracking-…` ⇒ làm mới hộp thư, có đồng hồ 10 s, mất sóng thì thôi). Mỗi tin đọc MỘT lần mỗi
+     lượt chạy (daDocTinRef); chạy lượt sau mà vẫn chưa xem ⇒ nhắc lại. Tin thường (nhắc cước, đơn chợ…) KHÔNG tự đọc —
+     hỏi Sen Biển "có tin mới không". Tin bão KHÔNG lấy ở đây: bão đã đọc theo GPS (nav-storm), lấy nữa là đọc hai lần. */
+  const daDocTinRef = useRef<Set<string>>(new Set());
+  const [tinMoiToi, setTinMoiToi] = useState(0);
+  useEffect(() => {
+    if (!inp.on) return;
+    const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
+    if (!sw) return;
+    let alive = true;
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data as { type?: string; tag?: unknown } | null;
+      if (!d || d.type !== PUSH_CHIME_MSG || typeof d.tag !== "string" || !d.tag.startsWith("stracking-")) return;
+      // sw ghi hộp thư TRƯỚC khi đẩy (route nhap) ⇒ làm mới là có tin; refreshInbox không ném, tự trần 10 s.
+      void refreshInbox().then(() => {
+        if (alive) setTinMoiToi((n) => n + 1);
+      });
+    };
+    sw.addEventListener("message", onMsg);
+    return () => {
+      alive = false;
+      sw.removeEventListener("message", onMsg);
+    };
+  }, [inp.on]);
+  useEffect(() => {
+    if (!inp.on || !openingDoneRef.current) return;
+    let ds: { id: string; title: string; body: string }[] = [];
+    try {
+      const phone = offlineIdentityPhone();
+      ds = tinKhanDeDoc(loadInbox(phone), loadSeen(phone), loadHidden(phone), daDocTinRef.current, Date.now());
+    } catch {
+      ds = []; // kho hỏng — chế độ chạy không được ngã vì hộp thư
+    }
+    if (!ds.length) return;
+    for (const m of ds) daDocTinRef.current.add(m.id);
+    extraRef.current = [
+      ...extraRef.current,
+      ...ds.map((m, i) => ({
+        key: `tinkhan:${m.id}`,
+        group: `tinkhan:${m.id}`,
+        tier: "vang" as const,
+        rank: 4 + i,
+        text: `Tin mới. ${cauDocTin(m)}`,
+      })),
+    ];
+    setTick((x) => x + 1);
+  }, [inp.on, tick, tinMoiToi]);
 
   /* ── TẮT / MỞ MÀN ─────────────────────────────────────────────────────── */
 

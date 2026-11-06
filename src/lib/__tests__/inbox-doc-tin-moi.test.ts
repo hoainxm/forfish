@@ -80,3 +80,35 @@ describe("Sen Biển đọc hộp thư — gồm tin giám sát hành trình", (
     expect(answerOffline(p("hop_thu"), snap({ inboxUnread: 2 }), NOW).text).toMatch(/2 tin chưa đọc, bác kéo xuống/);
   });
 });
+
+/*  TỰ ĐỌC TIN KHẨN (2026-11-06, anh Long: "cái nào tự động đọc cái nào ko… logic thông minh"). Máy chủ gắn `khan=1`
+    vào url tin có báo động (đúng tin được đẩy); chế độ Đang chạy đọc tin khẩn chưa đọc trong 3 giờ, mỗi tin một lần. */
+import { laTinKhan, tinKhanDeDoc, TIN_KHAN_DOC_MS } from "@/lib/inbox";
+import { urlTinTau } from "@/lib/stracking/thong-bao";
+import { cauDocTin } from "@/lib/assistant/answer";
+
+describe("tin khẩn — máy chủ gắn dấu, máy tự đọc", () => {
+  it("urlTinTau: chỉ tin có báo động (day) mang khan=1", () => {
+    expect(urlTinTau({ url: "/tau", day: true })).toBe("/tau?khan=1");
+    expect(urlTinTau({ url: "/tau?x=1", day: true })).toBe("/tau?x=1&khan=1");
+    expect(urlTinTau({ url: "/tau", day: false })).toBe("/tau");
+    expect(laTinKhan({ url: urlTinTau({ url: "/tau", day: true }) })).toBe(true);
+    expect(laTinKhan({ url: "/tau" })).toBe(false);
+    expect(laTinKhan({ url: null })).toBe(false);
+    expect(laTinKhan({ url: "/ngu-truong?bao=gdacs-x" })).toBe(false); // bão đọc theo GPS ở chế độ chạy, không lấy ở đây
+  });
+  it("tinKhanDeDoc: khẩn + chưa đọc + chưa ẩn + ≤3 giờ + chưa đọc lượt này, mới trước, ≤2", () => {
+    const k = (id: string, gio: number) => tin(id, gio, { url: "/tau?khan=1", title: `Cảnh báo ${id}`, body: id });
+    const ds = [k("a", 0.2), k("b", 0.5), k("c", 1), k("cu", 4), tin("thuong", 0.1), k("thay", 0.3), k("an", 0.4), k("doc", 0.6)];
+    const r = tinKhanDeDoc(ds, new Set(["thay"]), new Set(["an"]), new Set(["doc"]), NOW);
+    expect(r.map((m) => m.id)).toEqual(["a", "b"]);
+    expect(tinKhanDeDoc(ds, new Set(), new Set(), new Set(["a", "b", "c", "thay", "an", "doc"]), NOW)).toEqual([]);
+    expect(TIN_KHAN_DOC_MS).toBe(3 * 3600000);
+  });
+  it("cauDocTin: một tin một câu, cùng cách đọc với hộp thư", () => {
+    const c = cauDocTin({ title: "Cảnh báo tàu BV-12345-TS", body: "BV-12345-TS: SOS 15:47 · Mất GPS 16:02" });
+    expect(c).toContain("ét ô ét 15 giờ 47");
+    expect(c.match(/bê vê/g)).toHaveLength(1);
+    expect((c.match(/[.!?]/g) ?? []).length).toBe(1);
+  });
+});

@@ -653,6 +653,11 @@ function docTinMoi(s: DeviceSnapshot): { text: string; speak: string; soCau: num
   return { text: hien.map((d) => `• ${d}`).join("\n"), speak: noi.join(" "), soCau: noi.length };
 }
 
+/** MỘT tin ⇒ MỘT câu đọc (đã qua `toSpeech`) — cùng cách đọc với hộp thư ở trên; chế độ Đang chạy dùng để tự đọc tin khẩn. */
+export function cauDocTin(m: { title: string; body: string }): string {
+  return toSpeech(docTinMoi({ inboxTinMoi: [m] } as DeviceSnapshot)?.speak ?? "");
+}
+
 function answerHoanTac(s: DeviceSnapshot): AssistantReply {
   if (!s.coHoanTac) return reply("hoan_tac", "Không có gì để hoàn tác.");
   return reply("hoan_tac", "Sen Biển hoàn tác cho bác.", { action: { type: "undo" } });

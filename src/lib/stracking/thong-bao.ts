@@ -59,6 +59,16 @@ export interface TinTau {
   day: boolean;
 }
 
+/**
+ * DẤU "KHẨN" TRÊN ĐƯỜNG DẪN (2026-11-06, anh Long: Sen Biển phải biết tin nào tự đọc). Tin có báo động (`day` — đúng tin
+ * được ĐẨY lên máy) mang `khan=1` trong url ⇒ chế độ Đang chạy tự đọc to (lib/inbox `laTinKhan`); tin chỉ-hộp-thư thì
+ * không. Ghi vào url vì hộp thư (push_messages → /api/me/messages) chỉ chở title/body/url — không thêm cột, không migration.
+ */
+export function urlTinTau(t: Pick<TinTau, "url" | "day">): string {
+  if (!t.day) return t.url;
+  return `${t.url}${t.url.includes("?") ? "&" : "?"}khan=1`;
+}
+
 // ── NHẮC NHỞ (máy GPU tính — lib/stracking/nhac-nho; máy chủ kiểm ở dong-bo kiemNhac) ───────────────────────
 // Anh Long 05/11: "đồng bộ Tổng cục / mất kết nối >6 giờ là bị phạt — cho Sen Biển nhắc", "nó ở màn thông báo đấy,
 // đẩy lên điện thoại". Chống lặp làm ở máy GPU (sổ da_nhac). Ở đây chỉ GỘP vào tin của SĐT (1 tin/SĐT/lượt, cùng tag).

@@ -398,6 +398,42 @@ export function tinChuaDocDeDoc(
     .map((g) => g.msg);
 }
 
+/** Tin khẩn chỉ tự đọc khi gửi trong ngần này — chuyện qua lâu rồi thì bản tin, không phải báo động. */
+export const TIN_KHAN_DOC_MS = 3 * 3600000;
+
+/** Tin KHẨN — máy chủ gắn `khan=1` vào url (lib/stracking/thong-bao `urlTinTau`: tin có báo động, đúng tin được đẩy). */
+export function laTinKhan(m: Pick<InboxMessage, "url">): boolean {
+  const url = m.url;
+  if (!url) return false;
+  const q = url.indexOf("?");
+  if (q < 0) return false;
+  try {
+    return new URLSearchParams(url.slice(q + 1)).get("khan") === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Tin KHẨN để chế độ Đang chạy TỰ ĐỌC — THUẦN (2026-11-06). Khẩn (`laTinKhan`) + chưa đọc + chưa ẩn + gửi trong
+ * `TIN_KHAN_DOC_MS` + chưa đọc to lượt này (`daDoc`); mới nhất trước, ≤ `toiDa`. Tin thường KHÔNG tự đọc — hỏi Sen Biển.
+ */
+export function tinKhanDeDoc(
+  list: readonly InboxMessage[],
+  seen: ReadonlySet<string>,
+  hidden: ReadonlySet<string>,
+  daDoc: ReadonlySet<string>,
+  now: number,
+  toiDa = 2,
+): InboxMessage[] {
+  return tinChuaDocDeDoc(list, seen, hidden, now, Number.MAX_SAFE_INTEGER)
+    .filter((m) => {
+      const t = Date.parse(m.sentAt);
+      return laTinKhan(m) && !daDoc.has(m.id) && Number.isFinite(t) && now - t <= TIN_KHAN_DOC_MS && t <= now + 60000;
+    })
+    .slice(0, toiDa);
+}
+
 /** Chỉ những id CHƯA báo về được lần nào — chỗ gọi khỏi tự lọc */
 export function unreportedIds(phone: string | null, ids: string[]): string[] {
   if (typeof window === "undefined") return [];
