@@ -13,6 +13,7 @@ Quay app **thật** (mặc định production `https://sdfish.sdvico.vn`, đổi
 | `kb-cai-app.mjs` | (bản minh hoạ cũ) — thay bằng `ghep-cai.mjs` | 0900000780 |
 | `ghep-cai.mjs` | **Cài app bản thật**: ghép `android/quay-android.sh` (Chrome thật trên giả lập máy GPU, adb screenrecord + uiautomator) và bản quay iOS Simulator trên Mac (Safari, tiếng Việt) — mỗi bước một đoạn + lời đọc | khách |
 | `kb-kairos.mjs` | Kairos (không đăng bài / thả cảm xúc thật) | 0900000780 |
+| `kb-stracking.mjs` | Giám sát hành trình — gắn TẠM số chủ tàu được phép vào tài khoản test (`sdt_khac`, `duyet_boi = script:video-hdsd`), quay xong gỡ; KHÔNG bấm "Tạo yêu cầu" gia hạn | 0900000780 |
 | `kb-tau-quanh.mjs` | Tàu quanh đây (AIS) — giữ lâu bằng chuột + nuốt cú click khi nhả (điện thoại không sinh click) | 0900000781 (premium) |
 
 ## Chạy
