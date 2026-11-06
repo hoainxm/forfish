@@ -6,7 +6,8 @@ import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import { tokenHeader } from "@/lib/device-token-store";
 import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
-import { PlusIcon } from "@/components/icons";
+import { PlusIcon, TrashIcon } from "@/components/icons";
+import { Popover } from "@/components/ui/popover";
 import { CallButton } from "@/components/ui/primitives";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
@@ -104,12 +105,18 @@ function gopCanhBao(ds: CanhBaoST[]): (CanhBaoST & { lan: number })[] {
   );
 }
 
+/** "06:45 06/11" — giờ VN. Intl vi-VN in ngày-tháng bằng gạch ngang ("06-11"), lệch với "07/12/2026" ngay dòng trên ⇒ ghép tay. */
 function gioVn(iso: string): string {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return "";
-  return new Intl.DateTimeFormat("vi-VN", {
-    hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date(t));
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", hourCycle: "h23", timeZone: "Asia/Ho_Chi_Minh",
+    })
+      .formatToParts(new Date(t))
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.hour}:${p.minute} ${p.day}/${p.month}`;
 }
 
 /** Dòng hạn + màu (token) theo trạng thái. */
@@ -150,6 +157,8 @@ export function StrackingCuaToi({
   /*  XOÁ MÁY (anh Long 06/11: "ko gọi là ẩn mà là xoá, mặc dù trong hệ thống là ẩn"; máy đã xoá không còn thông báo).
       Cần sóng: mất sóng ⇒ báo một dòng, không đổi gì. Xong ⇒ dời máy sang "Đã xoá" ngay + ghi bản lưu. */
   const [canXoa, setCanXoa] = useState<TauST | null>(null);
+  /** Menu ⋯ của một thẻ máy (03 §6 mục 9) — Xoá nằm trong menu, không chiếm hàng riêng. */
+  const [menu, setMenu] = useState<{ tau: TauST; el: HTMLButtonElement } | null>(null);
   const [loiXoa, setLoiXoa] = useState<string | null>(null);
   const [lanTai, setLanTai] = useState(0);
   const onGiaHanMoRef = useRef(onGiaHanMo);
@@ -329,30 +338,10 @@ export function StrackingCuaToi({
           const dangMo = !!t.giaHan && t.giaHan.loai !== "xong";
           return (
             <li key={t.serial} className="rounded-2xl bg-field px-4 py-3">
-              <div className="flex items-stretch gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[1rem] font-semibold text-navy">{ten}</p>
-                  <p className={`text-[0.875rem] font-semibold ${han.mau}`}>{han.chu}</p>
-                  {dangTamNgung(t, homNay) && (
-                    <p className="text-[0.875rem] text-muted">
-                      Đang tạm ngưng{t.tamNgungDen ? ` tới ${ngayVn(t.tamNgungDen)}` : ""}
-                    </p>
-                  )}
-                  {gh && <p className={`text-[0.875rem] font-semibold ${gh.mau}`}>{gh.chu}</p>}
-                  {/* Trạng thái máy trên S-Tracking (0081): đồng bộ Tổng cục · trong bờ/ngoài khơi + giờ cập nhật · nhóm + ngày tạo */}
-                  {t.dongBoTcts && (
-                    <p className={`text-[0.875rem] font-semibold ${/thất bại/i.test(t.dongBoTcts) ? "text-danger" : "text-ok"}`}>
-                      {/thất bại/i.test(t.dongBoTcts) ? "Chưa đồng bộ Tổng cục Thủy sản" : "Đã đồng bộ Tổng cục Thủy sản"}
-                    </p>
-                  )}
-                  {(t.trongBo != null || t.capNhatNguon) && (
-                    <p className="text-[0.875rem] text-muted">
-                      {[t.trongBo == null ? null : t.trongBo ? "Trong bờ" : "Ngoài khơi", t.capNhatNguon ? `cập nhật ${gioVn(t.capNhatNguon)}` : null]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                  )}
-                </div>
+              {/* Bố cục 06/11 (anh Long: "tự dưng làm 1 hàng trống xoá, rồi để cái gia hạn?"): MỘT hàng đầu = tên · Gia hạn · ⋯
+                  (Xoá trong menu ⋯); dưới đó chữ trạng thái chạy hết bề ngang, không bị nút ép gãy dòng; một dòng màu cho hạn. */}
+              <div className="flex items-center gap-2">
+                <p className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">{ten}</p>
                 {!dangMo && ban.giaHanMo !== false && (
                   <button
                     type="button"
@@ -363,7 +352,40 @@ export function StrackingCuaToi({
                     {NHAN.giaHan}
                   </button>
                 )}
+                <button
+                  type="button"
+                  aria-label={`Thêm việc với ${ten}`}
+                  aria-haspopup="menu"
+                  aria-expanded={menu?.tau.serial === t.serial}
+                  onClick={(e) => {
+                    const el = e.currentTarget;
+                    setMenu((m) => (m?.tau.serial === t.serial ? null : { tau: t, el }));
+                  }}
+                  className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[1.25rem] font-bold text-muted transition active:scale-[0.95]"
+                >
+                  ⋯
+                </button>
               </div>
+              <p className={`text-[0.875rem] font-semibold ${han.mau}`}>{han.chu}</p>
+              {dangTamNgung(t, homNay) && (
+                <p className="text-[0.875rem] text-muted">
+                  Đang tạm ngưng{t.tamNgungDen ? ` tới ${ngayVn(t.tamNgungDen)}` : ""}
+                </p>
+              )}
+              {gh && <p className={`text-[0.875rem] font-semibold ${gh.mau}`}>{gh.chu}</p>}
+              {/* Trạng thái máy trên S-Tracking (0081). Đồng bộ thất bại mới là chuyện cần thấy ⇒ dòng đỏ riêng;
+                  đồng bộ được thì gộp vào dòng mờ "Đã đồng bộ Tổng cục · Trong bờ · cập nhật 06:45 06/11". */}
+              {t.dongBoTcts && /thất bại/i.test(t.dongBoTcts) && (
+                <p className="text-[0.875rem] font-semibold text-danger">Chưa đồng bộ Tổng cục Thủy sản</p>
+              )}
+              {(() => {
+                const dong = [
+                  t.dongBoTcts && !/thất bại/i.test(t.dongBoTcts) ? "Đã đồng bộ Tổng cục" : null,
+                  t.trongBo == null ? null : t.trongBo ? "Trong bờ" : "Ngoài khơi",
+                  t.capNhatNguon ? `cập nhật ${gioVn(t.capNhatNguon)}` : null,
+                ].filter(Boolean);
+                return dong.length ? <p className="text-[0.875rem] text-muted">{dong.join(" · ")}</p> : null;
+              })()}
               {cb.length > 0 && (
                 <ul className="mt-2 space-y-0.5 border-t border-foreground/10 pt-2">
                   {cb.map((c) => (
@@ -373,20 +395,27 @@ export function StrackingCuaToi({
                   ))}
                 </ul>
               )}
-              {/* Máy đã huỷ / bán mà hệ thống chưa nhận ra ⇒ bà con tự xoá (anh Hoà đề xuất, anh Long duyệt 06/11). */}
-              <div className="mt-1 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setCanXoa(t)}
-                  className="-mr-2 min-h-[2.75rem] rounded-full px-3 text-[0.875rem] font-semibold text-muted"
-                >
-                  {NHAN.xoa}
-                </button>
-              </div>
             </li>
           );
         })}
       </ul>
+      {/* Máy đã huỷ / bán mà hệ thống chưa nhận ra ⇒ bà con tự xoá (anh Hoà đề xuất, anh Long duyệt 06/11) — qua menu ⋯. */}
+      {menu && (
+        <Popover anchor={menu.el} label={`Việc với ${menu.tau.tenTau ?? menu.tau.serial}`} role="menu" onClose={() => setMenu(null)} className="w-[11rem] py-1">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setCanXoa(menu.tau);
+              setMenu(null);
+            }}
+            className="flex h-11 w-full items-center gap-2 px-4 text-left text-[0.9375rem] font-semibold text-danger"
+          >
+            <TrashIcon className="h-5 w-5" />
+            {NHAN.xoa}
+          </button>
+        </Popover>
+      )}
       {ghiChu && <p className="mt-1.5 text-[0.875rem] text-muted">{ghiChu}</p>}
       {/* Gia hạn trong app chưa bật ⇒ MỘT nút gọi cho cả khối (anh Long 05/11: "tới 3 nút gọi? bố cục kém"), không lặp mỗi tàu. */}
       {ban.giaHanMo === false && (
