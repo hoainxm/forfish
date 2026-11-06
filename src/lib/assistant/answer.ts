@@ -15,6 +15,7 @@ import { weatherFromCode } from "@/lib/weather-codes";
 import { FREE_FORECAST_DAYS, THOI_TIET_XA_CAN_GOI } from "@/lib/tier";
 import { tenBaoNoi } from "@/lib/nav-voice/ten-bao";
 import { danhVan, tenTauDoc } from "@/lib/voice/ghep.mjs";
+import { VIET_TAT_CANH_BAO } from "@/lib/stracking/doc-canh-bao.mjs";
 import { SCREEN_LABEL } from "./intents";
 import { blockReasonOf } from "./parse";
 import { ALL_PORT_NAMES, matchPortKeys, nearPortKeys, portByKey } from "./ports";
@@ -96,6 +97,11 @@ function chuNoiMa(text: string): string {
       .replace(/\b[A-Z]{2,}-[A-Z0-9]{3,}\b|\b(?=[A-Z0-9]*\d)(?=[A-Z0-9]*[A-Z])[A-Z0-9]{6,}\b/g, (m) => danhVan(m))
       // tên bão quốc tế ⇒ phiên âm như bản tin bão chế độ Đang chạy (ten-bao.ts) — chữ lạ giữ nguyên
       .replace(/\b[A-Z][a-z]{2,}\b|\b[A-Z]{4,}\b/g, (w) => tenBaoNoi(w))
+      // chữ viết tắt loại cảnh báo giám sát hành trình (tin hộp thư "SOS 15:47 · Mất GPS 16:02") ⇒ tên chữ cái
+      .replace(/\b(SOS|GPS|Reset)\b/g, (w) => VIET_TAT_CANH_BAO[w as keyof typeof VIET_TAT_CANH_BAO] ?? w)
+      // giờ "15:47" ⇒ "15 giờ 47", "07:00" ⇒ "7 giờ"
+      .replace(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g, (_m, h: string, m: string) => (Number(m) ? `${Number(h)} giờ ${Number(m)}` : `${Number(h)} giờ`))
+      .replace(/\s+·\s+/g, ", ")
       .replace(/\b(dầu|Dầu) DO\b/g, (_m, d: string) => `${d} đi ô`)
       .replace(/\/lít\b/g, " một lít")
       .replace(/\s+–\s+/g, " đến ")
@@ -162,9 +168,9 @@ function sentencesOf(text: string): string[] {
  * bị đổi thêm lần nữa. Câu an toàn (115 / đài duyên hải) nằm ngoài 2 câu đầu
  * thì ghép vào câu cuối bằng dấu phẩy — vẫn 2 câu, không mất dặn dò.
  */
-function reply(intent: Intent, text: string, extra: Partial<AssistantReply> = {}): AssistantReply {
+function reply(intent: Intent, text: string, extra: Partial<AssistantReply> = {}, soCau = 2): AssistantReply {
   const spoken = toSpeech(extra.speak ?? text);
-  let speak = limitSentences(spoken, 2);
+  let speak = limitSentences(spoken, soCau);
   if (SAFETY_RE.test(spoken) && !SAFETY_RE.test(speak)) {
     const safety = sentencesOf(spoken).find((x) => SAFETY_RE.test(x));
     if (safety) {
@@ -617,7 +623,34 @@ function answerChuaDoc(s: DeviceSnapshot): AssistantReply {
   const k = Math.max(0, (s.kairosChuaDoc ?? 0) | 0);
   if (n === 0 && k === 0) return reply("chua_doc", "Không có tin mới.");
   const parts = [n > 0 ? `${n} tin chưa đọc` : "", k > 0 ? `${k} tin Kairos` : ""].filter(Boolean);
+  const doc = docTinMoi(s);
+  if (doc) return reply("chua_doc", `Có ${parts.join(", ")}.\n${doc.text}`, { ...nav(SCREEN_HREF.hop_thu), speak: `Có ${parts.join(", ")}. ${doc.speak}` }, doc.soCau + 1);
   return reply("chua_doc", `Có ${parts.join(", ")}. Bác kéo xuống Thông báo ở Trang chủ.`, nav(SCREEN_HREF.hop_thu));
+}
+
+/*  ĐỌC TIN TRONG HỘP THƯ (2026-11-06, anh Long: thông báo giám sát hành trình "tính chung cho các loại thông báo", không
+    làm ô đọc riêng trong thẻ Giám sát). Mọi tin — bão, nhắc giấy tờ, đơn chợ, cảnh báo tàu S-Tracking — máy chủ đã ghi vào
+    MỘT hộp thư; Sen Biển đọc ≤3 tin chưa đọc mới nhất (`inbox.tinChuaDocDeDoc`), mỗi tin một câu: tiêu đề + 2 dòng đầu
+    nội dung. Chữ hiện giữ mã gốc; chữ đọc qua `toSpeech` (mã tàu đánh vần, SOS/GPS, giờ "15 giờ 47"). */
+const DONG_MOI_TIN = 2;
+function docTinMoi(s: DeviceSnapshot): { text: string; speak: string; soCau: number } | null {
+  const ds = (s.inboxTinMoi ?? []).slice(0, 3);
+  if (!ds.length) return null;
+  const hien: string[] = [];
+  const noi: string[] = [];
+  for (const m of ds) {
+    const tieuDe = m.title.trim().replace(/[.!?…]+$/, "");
+    const than = m.body.split("\n").map((x) => x.trim().replace(/[.!?…]+$/, "")).filter(Boolean).slice(0, DONG_MOI_TIN);
+    hien.push(than.length ? `${tieuDe}: ${than.join("; ")}` : tieuDe);
+    // Đọc: dòng "GL-99280-TS: …" mà tiêu đề đã nêu mã tàu ⇒ bỏ tiền tố, khỏi đọc mã hai lần; chấm giữa tin ⇒ phẩy để
+    // MỘT tin = MỘT câu (luật đếm câu không cắt mất tin sau).
+    const thanNoi = than.map((d) => {
+      const k = d.indexOf(": ");
+      return k > 0 && k <= 16 && tieuDe.includes(d.slice(0, k)) ? d.slice(k + 2) : d;
+    });
+    noi.push(`${thanNoi.length ? `${tieuDe}: ${thanNoi.join(", ")}` : tieuDe}`.replace(/[.!?…]+\s+/g, ", ") + ".");
+  }
+  return { text: hien.map((d) => `• ${d}`).join("\n"), speak: noi.join(" "), soCau: noi.length };
 }
 
 function answerHoanTac(s: DeviceSnapshot): AssistantReply {
@@ -692,6 +725,8 @@ function answerNavigate(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
 function answerInbox(s: DeviceSnapshot): AssistantReply {
   const extra = nav(SCREEN_HREF.hop_thu);
   if (s.inboxUnread === 0) return reply("hop_thu", "Không có tin mới.", extra);
+  const doc = docTinMoi(s);
+  if (doc) return reply("hop_thu", `${s.inboxUnread} tin chưa đọc.\n${doc.text}`, { ...extra, speak: `${s.inboxUnread} tin chưa đọc. ${doc.speak}` }, doc.soCau + 1);
   return reply("hop_thu", `${s.inboxUnread} tin chưa đọc, bác kéo xuống hộp thư ở Trang chủ.`, extra);
 }
 

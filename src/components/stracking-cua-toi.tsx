@@ -13,8 +13,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import type { GiaHanTau } from "@/lib/renewal";
 import { homNayVn, trangThaiHan } from "@/lib/stracking/dong-bo.mjs";
-import { loiDocGiamSat } from "@/lib/stracking/doc-canh-bao.mjs";
-import { ttsSpeak, ttsUnlock } from "@/lib/voice/tts";
 import type { Boat } from "@/lib/boats";
 
 /*
@@ -29,11 +27,16 @@ import type { Boat } from "@/lib/boats";
 
   OFFLINE: hiện NGAY bản đã lưu (`forfish.stracking.v1`, gắn tài khoản — auth-scope xoá khi đổi/đăng xuất), rồi hỏi
   máy chủ có đồng hồ 12 s; mất sóng thì giữ bản lưu + giờ cập nhật, không treo, không xoá.
+
+  CẢNH BÁO KHÔNG HIỆN Ở ĐÂY (2026-11-06, anh Long: "sao ko đẩy ra cái thông báo ở trang chủ, nó tính chung cho các loại
+  thông báo… làm app rời rạc phân mảnh"). Thẻ này CHỈ là TRẠNG THÁI máy (hạn cước, tín hiệu, gia hạn). Cảnh báo SOS/mất
+  GPS/vượt biên, nhắc mất tín hiệu, nhắc cước… máy chủ đã lọc theo mức + chống lặp (lib/stracking/thong-bao, nhac-nho) rồi
+  ghi vào HỘP THƯ CHUNG ⇒ mục Thông báo ở Trang chủ; Sen Biển đọc từ đó ("có tin mới không"). Trước đây thẻ tự vẽ danh
+  sách cảnh báo THÔ (không qua mức "bỏ", không chống lặp) + nút Nghe riêng ⇒ hai chỗ nói hai kiểu.
 */
 
 export const STRACKING_CACHE_KEY = "forfish.stracking.v1";
 const HET_GIO_MS = 12_000;
-const CANH_BAO_MOI_TAU = 3;
 
 interface TauST {
   serial: string;
@@ -94,23 +97,6 @@ function ngayVn(iso: string): string {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
 }
-/** Cảnh báo cùng LOẠI của một tàu gộp một dòng "SOS · 3 lần, gần nhất 17:00" (anh Long 05/11: S-Tracking bắn SOS 30 phút/lần
- *  ⇒ ba dòng giống nhau). Báo động trước, mới trước. */
-function gopCanhBao(ds: CanhBaoST[]): (CanhBaoST & { lan: number })[] {
-  const theoLoai = new Map<string, CanhBaoST & { lan: number }>();
-  for (const c of ds) {
-    const cu = theoLoai.get(c.loai);
-    if (!cu) theoLoai.set(c.loai, { ...c, lan: 1 });
-    else {
-      cu.lan++;
-      if (Date.parse(c.luc) > Date.parse(cu.luc)) Object.assign(cu, { luc: c.luc, muc: c.muc ?? cu.muc });
-    }
-  }
-  return [...theoLoai.values()].sort(
-    (a, b) => Number(b.muc === "Báo động") - Number(a.muc === "Báo động") || Date.parse(b.luc) - Date.parse(a.luc),
-  );
-}
-
 /** "06:45 06/11" — giờ VN. Intl vi-VN in ngày-tháng bằng gạch ngang ("06-11"), lệch với "07/12/2026" ngay dòng trên ⇒ ghép tay. */
 function gioVn(iso: string): string {
   const t = Date.parse(iso);
@@ -185,12 +171,6 @@ export function StrackingCuaToi({
   const [menu, setMenu] = useState<{ tau: TauST; el: HTMLButtonElement } | null>(null);
   const [loiXoa, setLoiXoa] = useState<string | null>(null);
   const [lanTai, setLanTai] = useState(0);
-  /*  SEN BIỂN ĐỌC (anh Long 06/11: "cho sen biển đọc cái cảnh báo"): nút Nghe đọc tình trạng các máy + cảnh báo hôm nay
-      bằng giọng Sen Biển (lib/stracking/doc-canh-bao — thứ tự: mất tín hiệu + giờ chót ⇒ cảnh báo ⇒ cước). Phát TRONG
-      handler chạm (iOS chỉ phát tiếng sau cử chỉ chạm thật — lib/voice/tts ttsUnlock); đọc cả bản lưu khi mất sóng. */
-  const [dangDoc, setDangDoc] = useState(false);
-  const huyDoc = useRef<(() => void) | null>(null);
-  useEffect(() => () => huyDoc.current?.(), []);
   const onGiaHanMoRef = useRef(onGiaHanMo);
   useEffect(() => {
     onGiaHanMoRef.current = onGiaHanMo;
@@ -356,41 +336,11 @@ export function StrackingCuaToi({
     );
   }
 
-  function bamNghe() {
-    if (!ban) return;
-    if (dangDoc) {
-      huyDoc.current?.();
-      huyDoc.current = null;
-      setDangDoc(false);
-      return;
-    }
-    ttsUnlock();
-    setDangDoc(true);
-    huyDoc.current = ttsSpeak(loiDocGiamSat({ tau: ban.tau, canhBao: ban.canhBao }), {
-      onEnd: () => {
-        huyDoc.current = null;
-        setDangDoc(false);
-      },
-    });
-  }
-
   return (
     <div className="mt-3">
-      <div className="mb-2 flex items-center gap-2">
-        <p className="min-w-0 flex-1 text-[0.875rem] text-muted">Sen Biển đọc tình trạng các tàu cho bà con nghe.</p>
-        <button
-          type="button"
-          onClick={bamNghe}
-          aria-pressed={dangDoc}
-          className="min-h-[2.75rem] shrink-0 rounded-full bg-field px-4 text-[0.875rem] font-semibold text-sea"
-        >
-          {dangDoc ? NHAN.dung : NHAN.nghe}
-        </button>
-      </div>
       <ul className="space-y-2">
         {ban.tau.map((t) => {
           const han = dongHan(t, homNay);
-          const cb = gopCanhBao(ban.canhBao.filter((c) => c.imei && c.imei === t.imei)).slice(0, CANH_BAO_MOI_TAU);
           const ten = t.tenTau ?? t.serial;
           const gh = dongGiaHan(t.giaHan);
           // Yêu cầu CHƯA XONG (bước 1/2/lệch) ⇒ ẩn nút, không trả tiền hai lần. Bước 3 xong rồi thì nút hiện lại.
@@ -433,7 +383,7 @@ export function StrackingCuaToi({
               )}
               {gh && <p className={`text-[0.875rem] font-semibold ${gh.mau}`}>{gh.chu}</p>}
               {/* Trạng thái máy trên S-Tracking (0081). Đồng bộ thất bại mới là chuyện cần thấy ⇒ dòng đỏ riêng;
-                  đồng bộ được thì gộp vào dòng mờ "Đã đồng bộ Tổng cục · Trong bờ · cập nhật 06:45 06/11". */}
+                  đồng bộ được thì gộp vào dòng mờ "Đã đồng bộ · Trong bờ · cập nhật 06:45 06/11". */}
               {t.dongBoTcts && /thất bại/i.test(t.dongBoTcts) && (
                 <p className="text-[0.875rem] font-semibold text-danger">Chưa đồng bộ Tổng cục Thủy sản</p>
               )}
@@ -446,21 +396,12 @@ export function StrackingCuaToi({
               {(() => {
                 const tinHieu = dongTinHieu(t, Date.now());
                 const dong = [
-                  t.dongBoTcts && !/thất bại/i.test(t.dongBoTcts) ? "Đã đồng bộ Tổng cục" : null,
+                  t.dongBoTcts && !/thất bại/i.test(t.dongBoTcts) ? "Đã đồng bộ" : null,
                   t.trongBo == null ? null : t.trongBo ? "Trong bờ" : "Ngoài khơi",
                   tinHieu && !tinHieu.matTin ? tinHieu.chu : null,
                 ].filter(Boolean);
                 return dong.length ? <p className="text-[0.875rem] text-muted">{dong.join(" · ")}</p> : null;
               })()}
-              {cb.length > 0 && (
-                <ul className="mt-2 space-y-0.5 border-t border-foreground/10 pt-2">
-                  {cb.map((c) => (
-                    <li key={c.loai} className={`text-[0.875rem] ${c.muc === "Báo động" ? "text-danger" : "text-muted"}`}>
-                      {c.loai} · {c.lan > 1 ? `${c.lan} lần, gần nhất ${gioVn(c.luc)}` : gioVn(c.luc)}
-                    </li>
-                  ))}
-                </ul>
-              )}
             </li>
           );
         })}

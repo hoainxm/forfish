@@ -247,6 +247,9 @@ export interface DeviceSnapshot {
   fishPrices: { savedAt: number; week: string | null; items: { species: string; minVnd: number; maxVnd: number }[] } | null; // ≤12
   fuel: { savedAt: number; date: string; priceVnd: number } | null;
   inboxUnread: number;
+  /** ≤3 tin chưa đọc (mới nhất trước, đã gom trùng) để Sen Biển đọc to — hop_thu / chua_doc. Có tên tàu ⇒ CHỈ ở client,
+   *  stripForServer bỏ. Thiếu = chỉ đếm. */
+  inboxTinMoi?: { title: string; body: string }[];
   /** tên điểm đã lưu (≤12) — chỉ tên, không toạ độ */
   placeNames: string[];
   /** tin Kairos chưa đọc trong máy (`kairos/chuong.demChuaDocTrongMay`) — chua_doc; thiếu = 0 */

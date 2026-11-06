@@ -377,6 +377,27 @@ export function gomTinTrung(list: InboxMessage[]): InboxGroup[] {
   return [...byKey.values()].sort((a, b) => ms(b.msg) - ms(a.msg));
 }
 
+/**
+ * Tin CHƯA ĐỌC để Sen Biển ĐỌC TO — THUẦN (2026-11-06, anh Long: thông báo giám sát hành trình phải về MỘT chỗ Thông báo
+ * ở Trang chủ, Sen Biển đọc từ đó chứ không đọc riêng trong thẻ Giám sát). Cùng luật với màn: bỏ tin đã ẩn, gom tin trùng
+ * (`gomTinTrung`), dòng nào còn ≥1 id chưa đọc (`chuaDocIds`) thì lấy; mới nhất trước; ≤ `toiDa` dòng.
+ */
+export function tinChuaDocDeDoc(
+  list: readonly InboxMessage[],
+  seen: ReadonlySet<string>,
+  hidden: ReadonlySet<string>,
+  now: number,
+  toiDa = 3,
+): InboxMessage[] {
+  const hien = locTinAn(list, hidden);
+  const chua = chuaDocIds(hien, seen, now);
+  if (chua.size === 0) return [];
+  return gomTinTrung(hien)
+    .filter((g) => g.ids.some((id) => chua.has(id)))
+    .slice(0, toiDa)
+    .map((g) => g.msg);
+}
+
 /** Chỉ những id CHƯA báo về được lần nào — chỗ gọi khỏi tự lọc */
 export function unreportedIds(phone: string | null, ids: string[]): string[] {
   if (typeof window === "undefined") return [];

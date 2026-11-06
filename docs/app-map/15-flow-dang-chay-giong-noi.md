@@ -1284,3 +1284,12 @@ Hai nền ra **cùng JSON** cho cùng câu (vd "XEM BẢN ĐỒ SÓNG CHIỀU MA
 **Offline — 4 câu**: (a) iOS không thêm request mạng (mô hình theo bản cài); Android giữ như §20; (b) không đụng `sw.js`/khoá `forfish.*`; (c) không đè dữ liệu bà con, engine chỉ ghi cache vào thư mục Caches; (d) chạy hoàn toàn trong máy.
 
 **Assumptions**: phân phối iOS theo cách "nhét trong bản cài" (an toàn nhất cho ngoài biển) tới khi chủ dự án chốt khác; bản build thiếu file vẫn chạy được.
+
+
+## §37 Thông báo một chỗ — Sen Biển đọc hộp thư (2026-11-06 tối)
+
+Anh Long: *"cái thông báo của giám sát hành trình sao ko đẩy ra cái thông báo ở trang chủ, nó tính chung cho các loại thông báo… ko đúng với logic sen biển, ko thông minh, làm app rời rạc phân mảnh"*.
+
+- Gỡ nút **Nghe** riêng trong thẻ Giám sát hành trình (`loiDocGiamSat` không còn chỗ gọi trong UI; module `stracking/doc-canh-bao` giữ vì bộ mảnh giọng + test giọng dựa vào câu của nó, và `VIET_TAT_CANH_BAO` dùng chung cho `answer.chuNoiMa`).
+- Ý `hop_thu` / `chua_doc`: đọc ≤3 tin chưa đọc (`inbox.tinChuaDocDeDoc` — cùng luật ẩn/gom/7 ngày với màn), mỗi tin "tiêu đề: 2 dòng đầu". `chuNoiMa` thêm SOS/GPS/Reset ⇒ tên chữ cái, "15:47" ⇒ "15 giờ 47", " · " ⇒ dấu phẩy. Ngoại lệ luật speak ≤2 câu: 1 câu đếm + 1 câu mỗi tin.
+- `inboxTinMoi` có tên tàu ⇒ chỉ ở client, `stripForServer` bỏ.
