@@ -153,6 +153,25 @@ export function coDauLop(state: unknown): boolean {
   return !!state && typeof state === "object" && DAU_LOP in (state as Record<string, unknown>);
 }
 
+/*  <Link> TRONG LỚP NỔI (2026-11-03 — Cài đặt → "Trang quản trị" bấm lần đầu đứng ở trang chủ, lần hai mới
+    qua; máy Asus + Edge). Cùng gốc với `diTrang` nhưng đường đi là THẺ <a> của Next chứ không phải router.push
+    do mình gọi, nên `diTrang` không phủ được: Link bắt đầu tải trang mới, bên gọi đóng lớp ⇒ cleanup lùi ⇒ Next
+    huỷ lượt đi. Lần hai thoát vì trang đã tải sẵn ⇒ Next ghi lịch sử kịp trước cleanup. Sửa ở GỐC (nguyên tắc 15
+    #3): hook nghe cú bấm (capture) — chạm link rời trang trong lúc lớp mở thì đánh dấu như `diTrang`. */
+/** THUẦN: cú bấm vào link `href` (đã ra URL tuyệt đối) có phải RỜI TRANG trong app không (Next sẽ điều hướng). */
+export function laLinkRoiTrang(href: string, here: string, target?: string | null, taiVe = false): boolean {
+  if (taiVe || (target && target !== "_self")) return false;
+  let to: URL, from: URL;
+  try {
+    to = new URL(href, here);
+    from = new URL(here);
+  } catch {
+    return false;
+  }
+  if (to.origin !== from.origin) return false; // ra ngoài app: trình duyệt tự rời trang, không qua Next
+  return to.pathname !== from.pathname || to.search !== from.search; // chỉ đổi #… thì không rời trang
+}
+
 /** Đi sang trang khác từ trong lớp nổi (đóng lớp trước hay sau đều được). Ngoài lớp thì như router.push. */
 export function diTrang(router: { push: (href: string) => void; replace: (href: string) => void }, href: string): void {
   if (typeof window !== "undefined" && coDauLop(window.history.state)) {
@@ -203,8 +222,20 @@ export function useLichSuDong(dong: () => void, bat = true): { dongTay: () => vo
       dongRef.current();
     };
     window.addEventListener("popstate", onPop);
+    // <Link> rời trang trong lúc lớp mở ⇒ đánh dấu như `diTrang` để cleanup KHÔNG lùi (xem `laLinkRoiTrang`).
+    // nợ: còn thừa mục lịch sử của lớp dưới trang mới (Back về trang cũ bấm 2 lần), nâng khi Next cho Link đổi push→replace lúc bấm.
+    // (diTrang thì replace được mục đó vì chính mình gọi router.)
+    const onLink = (e: MouseEvent) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (a && laLinkRoiTrang(a.href, window.location.href, a.getAttribute("target"), a.hasAttribute("download"))) {
+        roiTrangLuc = Date.now();
+      }
+    };
+    document.addEventListener("click", onLink, true);
     return () => {
       window.removeEventListener("popstate", onPop);
+      document.removeEventListener("click", onLink, true);
       if (choPop.current) {
         clearTimeout(choPop.current);
         choPop.current = null;
