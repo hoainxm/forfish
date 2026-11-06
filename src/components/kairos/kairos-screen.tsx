@@ -23,6 +23,7 @@ import { MarketHeader } from "@/components/market/shared/market-header";
 import { useHome } from "@/components/ui/region-filter";
 import { Tabs } from "@/components/ui/tabs";
 import { provinceIdOf } from "@/lib/kairos/khu-vuc.mjs";
+import { useTinhViTri } from "@/lib/use-tinh-vi-tri";
 import { loadFeedCache, loadTuyChon, portLabel } from "@/lib/kairos/feed-client";
 import { hienCauPhu } from "@/lib/kairos/dau-man";
 import { authorToi } from "@/lib/kairos/ho-so";
@@ -57,13 +58,18 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
   const chip: ChipId = !port && tab === "chinh-sach" ? "chinh-sach" : "moi";
   /*  TỈNH NÀO XEM TỈNH ĐÓ (14 §21c, anh Long 2026-10-26: "tổ chức phân phối tin chính sách thì chuẩn vào, tỉnh nào view
       tỉnh đó, dựa vào vị trí… tránh rối"): MỘT nút nhỏ "📍 <Tỉnh> ▾" (loc-tinh-chinh-sach.tsx — thay HomeBar ba nút, anh Long: "quá thô"), hộp chọn tỉnh dùng chung với Chợ cá. Tỉnh = cảng nhà
-      của tàu đang chọn, không có thì tỉnh chọn tạm trong phiên (useHome) — KHÔNG lấy GPS (không xin quyền vị trí chỉ để
+      của tàu đang chọn, không có thì tỉnh chọn tạm trong phiên (useHome) — từ 2026-11-06 vị trí máy đi trước (dưới). (trước đây: không lấy GPS, không xin quyền vị trí chỉ để
       lọc tin). Gần ⇒ thông báo gắn tỉnh đó + thông báo không gắn tỉnh nào (bộ/cục, cả nước). Chưa có tỉnh ⇒ nút ghi "Cả nước". */
   const { home, chonTinh } = useHome();
   const [gan, setGan] = useState(true);
+  /*  VỊ TRÍ MÁY (sửa 2026-11-06 — anh Long chốt dùng GPS: "thêm cái cơ sở là vị trí gps của điện thoại đang sử dụng để
+      chọn luôn các tin liên quan tỉnh đó"): tỉnh đo được THẮNG tỉnh cảng nhà; bà con tự chọn tỉnh ⇒ thôi theo vị trí. */
+  const viTri = useTinhViTri(chip === "chinh-sach");
+  const [theoViTri, setTheoViTri] = useState(true);
+  const tinhTen = theoViTri && viTri.tinh ? viTri.tinh : (home.province ?? null);
   /** loại tin đang lọc (14 §21d) — null = tất cả; lọc trong máy */
   const [loai, setLoai] = useState<string | null>(null);
-  const tinh = chip === "chinh-sach" && gan ? provinceIdOf(home.province ?? null) : null;
+  const tinh = chip === "chinh-sach" && gan ? provinceIdOf(tinhTen) : null;
   const trangToi = (
     <Link href="/kairos/u/toi" aria-label={NHAN.trangToi} title={NHAN.trangToi} className="flex shrink-0 rounded-full transition active:scale-[0.95]">
       <KairosAvatar id={toi?.profileId ?? phone ?? "toi"} name={toi?.handle ?? "Tôi"} url={null} nav />
@@ -118,7 +124,14 @@ export function KairosScreen({ port, title = "Kairos", sub }: { port?: string; t
       )}
       {chip === "chinh-sach" && (
         <div className="flex flex-wrap items-start gap-2 px-4 pb-2">
-          <LocTinhChinhSach home={home} gan={gan} setGan={setGan} chonTinh={chonTinh} />
+          <LocTinhChinhSach
+            home={home}
+            tinhTen={tinhTen}
+            gan={gan}
+            setGan={setGan}
+            chonTinh={chonTinh}
+            viTri={{ on: theoViTri && !!viTri.tinh, ten: viTri.tinh, dangDo: viTri.dangDo, xin: viTri.xin, setOn: setTheoViTri }}
+          />
           <LocLoaiTin loai={loai} setLoai={setLoai} />
         </div>
       )}

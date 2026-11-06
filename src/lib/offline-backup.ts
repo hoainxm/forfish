@@ -215,6 +215,9 @@ export const NEVER_BACKUP_PREFIXES = [
   /*  · `appInstalled.` — MÁY NÀY đã cài app chưa (lib/app-install, 2026-10-27): chép sang máy khác là máy đó tưởng
    *    đã cài, giấu mất lời mời cài. Tự ghi lại khi mở bằng app / Chrome báo. */
   "forfish.appInstalled.",
+  /*  · `vitri.` — TỈNH ĐO TỪ VỊ TRÍ MÁY NÀY (lib/tinh-vi-tri, 14 §21c 2026-11-06): máy kia đang đứng chỗ khác. Mất thì
+   *    lần mở tab Chính sách sau đo lại. */
+  "forfish.vitri.",
   /*  · `sync.` — SỔ BOOKKEEPING đồng bộ per-máy (lib/user-sync): mỗi kind đã ghi
    *    lúc nào (mốc client) + còn dirty không. Của RIÊNG máy này. Chép sang máy
    *    khác là dán mốc/dirty sai → máy nhận tưởng đã đẩy/đã mới, bỏ qua sổ thật

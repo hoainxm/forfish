@@ -196,7 +196,7 @@ export function parseFeed(xml) {
 
 /**
  * @typedef {{ id: string, outlet: string, feedUrl: string, section: string, topic: string, enabled: boolean,
- *   kieu: "rss" | "google-news" | "gov", chiTinBien: boolean, linkRe?: RegExp | null, docTruoc?: boolean }} Nguon
+ *   kieu: "rss" | "google-news" | "gov", chiTinBien: boolean, linkRe?: RegExp | null, docTruoc?: boolean, vbdh?: string[] }} Nguon
  *   docTruoc (chỉ gov): tiêu đề danh mục chỉ có số hiệu ("3773/QĐ-BNNMT" — Bộ NN&MT) ⇒ máy thu đọc trang chi tiết TRƯỚC
  *     rồi mới lọc laTinChoBaCon trên tiêu đề + mô tả (thay vì lọc tiêu đề ở bước đọc danh mục).
  *   kieu "google-news": feed TÌM KIẾM news.google.com/rss/search — báo gốc lấy ở <source>, chỉ nhận báo trong
@@ -250,9 +250,18 @@ export function docNguon(raw) {
         throw bad("linkRe không phải biểu thức hợp lệ");
       }
     }
+    // vbdh (14 §21g): từ khoá hỏi JSON cổng Liferay — chỉ nguồn gov, 1–8 từ khoá 2–40 ký tự
+    let vbdh = null;
+    if (x.vbdh != null) {
+      if (kieu !== "gov") throw bad("vbdh chỉ dành cho nguồn gov");
+      if (!Array.isArray(x.vbdh) || !x.vbdh.length || x.vbdh.length > 8) throw bad("vbdh phải là 1–8 từ khoá");
+      if (x.vbdh.some((k) => typeof k !== "string" || k.trim().length < 2 || k.length > 40)) throw bad("vbdh: từ khoá sai");
+      vbdh = x.vbdh.map((k) => k.trim());
+    }
     return {
       id: x.id, outlet: x.outlet.trim(), feedUrl: u.toString(), section: x.section, topic: x.topic, enabled: x.enabled !== false,
       kieu, chiTinBien: x.chiTinBien === true, linkRe, docTruoc: kieu === "gov" && x.docTruoc === true,
+      ...(vbdh ? { vbdh } : {}),
     };
   });
 }
@@ -468,6 +477,8 @@ export function locBaiMoi(nguon, items, so, now, daChonLuotNay = new Set(), baoD
       section: nguon.section,
       publishedAt: it.publishedAt,
       chuQuyen: chuQuyenFlagAll(it.title, description),
+      // nguồn vbdh (chinh-sach.docVbdh) mang sẵn file đính kèm từ JSON — giữ lại, máy thu khỏi tải trang chi tiết
+      ...(Array.isArray(it.attachments) && it.attachments.length ? { attachments: it.attachments } : {}),
     });
   }
   return out;

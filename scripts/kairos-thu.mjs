@@ -35,7 +35,7 @@ import {
   chinhSachCuMs, chuanSo, chiaLo, chonBai, docBaoDuocPhep, docGarturl, docNguon, docOg, docTomTat, ghiSo, gopHangDoi, GN_BATCH_URL,
   GOI_NHAP_TOI_DA, idTuLinkGN, khoaTrangGN, locBaiMoi, mucGui, nguonGui, parseFeed, promptTomTat, thanGarturl,
 } from "../src/lib/kairos/thu-core.mjs";
-import { docBaiGov, docDanhMucGov, docDongDanhSach, laTinChoBaCon, promptTomTatChinhSach } from "../src/lib/kairos/chinh-sach.mjs";
+import { docBaiGov, docDanhMucGov, docDongDanhSach, docVbdh, laTinChoBaCon, promptTomTatChinhSach, urlVbdh } from "../src/lib/kairos/chinh-sach.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -80,7 +80,31 @@ function curlBuf(url, ms = 60_000) {
 const UA_CURL = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
 const loiGiaoThuc = (e) => /HTTP\/1\.1 protocol|Parse Error|HPE_/i.test(`${e?.message ?? ""} ${e?.cause?.message ?? ""} ${e?.cause?.code ?? ""}`);
 
+/**
+ * Nguồn gov `vbdh: ["tàu cá", …]` (14 §21g — cổng Liferay HCM/Đà Nẵng vẽ danh sách bằng JS): mỗi từ khoá một lượt hỏi
+ * JSON, gộp theo link (một văn bản trúng nhiều từ khoá chỉ tính một). Một từ khoá hỏng không làm hỏng cả nguồn.
+ */
+async function taiVbdh(n) {
+  const theoLink = new Map();
+  const loi = [];
+  for (const k of n.vbdh) {
+    try {
+      const r = await fetch(urlVbdh(n.feedUrl, k), { headers: { "user-agent": UA_CURL, accept: "application/json" }, signal: AbortSignal.timeout(RSS_HET_GIO_MS) });
+      if (!r.ok) {
+        loi.push(`${k}: HTTP ${r.status}`);
+        continue;
+      }
+      for (const it of docVbdh(await r.text(), n.feedUrl)) if (!theoLink.has(it.link)) theoLink.set(it.link, it);
+    } catch (e) {
+      loi.push(`${k}: ${e?.name === "TimeoutError" ? "hết giờ" : String(e?.message ?? e).slice(0, 80)}`);
+    }
+  }
+  const items = [...theoLink.values()];
+  return items.length ? { items, loi: null } : { items: [], loi: loi.length ? loi.join("; ").slice(0, 200) : "không có văn bản nào khớp từ khoá" };
+}
+
 async function taiRss(n) {
+  if (n.kieu === "gov" && Array.isArray(n.vbdh) && n.vbdh.length) return taiVbdh(n);
   try {
     const r = await fetch(n.feedUrl, {
       headers: { "user-agent": "SDFish-Kairos/1.0 (+https://sdfish.vn)", accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5" },
@@ -272,7 +296,8 @@ async function main() {
   // 2c. Bài gov: tải trang chi tiết lấy mô tả + ngày ban hành + FILE ĐÍNH KÈM (chinh-sach.docBaiGov). Hỏng ⇒ giữ như cũ
   //     (tiêu đề + mô tả RSS nếu có), không chặn lượt. Bài không có ngày lấy được ⇒ coi là mới (chonBai đã qua).
   if (!dry || process.argv.includes("--goc")) {
-    const gov = chon.filter(laGov);
+    // bài vbdh mang sẵn file + trích yếu từ JSON ⇒ khỏi tải trang chi tiết (trang Liferay nặng ~100 KB, không thêm gì)
+    const gov = chon.filter((b) => laGov(b) && !b.attachments?.length);
     let duoc = 0;
     await chayLo(gov, 4, async (b) => {
       const html = await layChu(b.url, {}, 12_000);

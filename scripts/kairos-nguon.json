@@ -556,6 +556,17 @@
       "section": "chinh-sach",
       "topic": "chinh-sach",
       "kieu": "gov",
+      "vbdh": ["tàu cá", "thủy sản", "cảng cá", "ngư dân", "IUU", "nhiên liệu"],
+      "enabled": true
+    },
+    {
+      "id": "gov-danang-van-ban",
+      "outlet": "UBND TP Đà Nẵng",
+      "feedUrl": "https://danang.gov.vn/van-ban-chi-dao-dieu-hanh",
+      "section": "chinh-sach",
+      "topic": "chinh-sach",
+      "kieu": "gov",
+      "vbdh": ["tàu cá", "thủy sản", "cảng cá", "ngư dân", "IUU", "nhiên liệu"],
       "enabled": true
     },
     {

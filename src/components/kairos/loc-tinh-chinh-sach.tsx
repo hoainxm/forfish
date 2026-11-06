@@ -3,9 +3,12 @@
 /*
   LỌC TỈNH CỦA TAB CHÍNH SÁCH (14 §21c) — MỘT nút nhỏ "📍 <Tỉnh> ▾" bên trái dưới thanh tab (anh Long 2026-10-26: "design
   cái lọc quá xấu quá thô" — thay HomeBar ba nút to chồng dưới segmented control). Chạm ⇒ hộp chọn tỉnh dùng chung
-  (`ChonTinhPopover`, region-filter) có thêm hàng "Cả nước" ở đầu. Chọn tỉnh ⇒ ghi tỉnh nhà như Chợ cá (`useHome().chonTinh`
-  — vào tàu đang chọn, không có tàu thì vào phiên) + về chế độ "Gần". Chưa có tỉnh ⇒ nút ghi "Cả nước" (dòng tin cả nước).
-  Không GPS. Không mạng: chỉ đổi tham số `province` của dòng tin.
+  (`ChonTinhPopover`, region-filter) có thêm hàng "Cả nước" + "Theo vị trí máy" ở đầu. Chọn tỉnh ⇒ ghi tỉnh nhà như Chợ cá
+  (`useHome().chonTinh` — vào tàu đang chọn, không có tàu thì vào phiên) + về chế độ "Gần", thôi theo vị trí. Chưa có
+  tỉnh ⇒ nút ghi "Cả nước" (dòng tin cả nước).
+  VỊ TRÍ MÁY (sửa 2026-11-06, anh Long: "thêm cái cơ sở là vị trí gps của điện thoại đang sử dụng để chọn luôn các tin
+  liên quan tỉnh đó"): tỉnh đo được (lib/tinh-vi-tri — cảng cá gần nhất ≤150 km, không mạng) THẮNG tỉnh cảng nhà; xa
+  bờ / chưa đo / từ chối ⇒ lùi về cảng nhà. Không mạng: chỉ đổi tham số `province` của dòng tin.
 */
 
 import { useState } from "react";
@@ -13,7 +16,8 @@ import { CheckIcon, ChevronDownIcon, LayersIcon, PinIcon } from "@/components/ic
 import { Popover } from "@/components/ui/popover";
 import { ChonTinhPopover } from "@/components/ui/region-filter";
 import { LOAI_TIN } from "@/lib/kairos/chinh-sach.mjs";
-import type { HomePref } from "@/lib/region";
+import { tenTinhGon, type HomePref } from "@/lib/region";
+import type { KetQuaDo } from "@/lib/use-tinh-vi-tri";
 import { NHAN, NHAN_LOAI_TIN } from "@/lib/labels";
 
 /** khuôn nút lọc nhỏ dùng chung cho Tỉnh + Loại tin (một hàng dưới thanh tab) */
@@ -21,22 +25,35 @@ const NUT = "inline-flex h-9 max-w-full items-center gap-1.5 rounded-full pl-3 p
 const NUT_THUONG = "bg-sea/8 text-navy active:bg-sea/15";
 const NUT_DANG_LOC = "bg-navy text-white";
 
+const LOI_VI_TRI: Record<Exclude<KetQuaDo, "ok">, string> = {
+  "tu-choi": "Máy chưa cho xem vị trí — bật Vị trí trong cài đặt máy, hoặc chọn tỉnh bên dưới.",
+  "xa-bo": "Máy đang ở xa bờ — chọn tỉnh bên dưới nhé.",
+  loi: "Chưa bắt được vị trí — thử lại hoặc chọn tỉnh bên dưới.",
+};
+
 export function LocTinhChinhSach({
   home,
+  tinhTen,
   gan,
   setGan,
   chonTinh,
+  viTri,
 }: {
   home: HomePref;
-  /** true = chỉ tỉnh nhà (+ văn bản cả nước); false = cả nước */
+  /** tỉnh đang lọc (vị trí máy hoặc cảng nhà); null = chưa có tỉnh */
+  tinhTen: string | null;
+  /** true = chỉ tỉnh đó (+ văn bản cả nước); false = cả nước */
   gan: boolean;
   setGan: (v: boolean) => void;
   chonTinh: (province: string) => boolean;
+  viTri: { on: boolean; ten: string | null; dangDo: boolean; xin: () => Promise<KetQuaDo>; setOn: (v: boolean) => void };
 }) {
   const [nut, setNut] = useState<HTMLButtonElement | null>(null);
   const [mo, setMo] = useState(false);
   const [hong, setHong] = useState(false);
-  const theoTinh = gan && !!home.province;
+  const [loiViTri, setLoiViTri] = useState<string | null>(null);
+  const theoTinh = gan && !!tinhTen;
+  const nhan = theoTinh && tinhTen ? tenTinhGon(tinhTen) : "Cả nước";
   return (
     <div className="min-w-0">
       <button
@@ -44,12 +61,12 @@ export function LocTinhChinhSach({
         type="button"
         aria-haspopup="dialog"
         aria-expanded={mo}
-        aria-label={`${NHAN.chonTinh}: ${theoTinh ? home.province : "Cả nước"}`}
+        aria-label={`${NHAN.chonTinh}: ${nhan}${theoTinh && viTri.on ? " (theo vị trí máy)" : ""}`}
         onClick={() => setMo((v) => !v)}
         className={`${NUT} ${NUT_THUONG}`}
       >
         <PinIcon className="h-4 w-4 shrink-0 text-sea" />
-        <span className="min-w-0 truncate">{theoTinh ? home.province : "Cả nước"}</span>
+        <span className="min-w-0 truncate">{nhan}</span>
         <ChevronDownIcon className={`h-4 w-4 shrink-0 text-foreground/55 transition ${mo ? "rotate-180" : ""}`} />
       </button>
       {hong && (
@@ -60,7 +77,7 @@ export function LocTinhChinhSach({
       {mo && (
         <ChonTinhPopover
           anchor={nut}
-          dangChon={home.province}
+          dangChon={tinhTen ?? home.province}
           caNuoc={{
             on: !theoTinh,
             onChon: () => {
@@ -68,13 +85,34 @@ export function LocTinhChinhSach({
               setMo(false);
             },
           }}
+          viTri={{
+            on: theoTinh && viTri.on,
+            ten: viTri.ten,
+            dangDo: viTri.dangDo,
+            loi: loiViTri,
+            onChon: () => {
+              setLoiViTri(null);
+              void viTri.xin().then((kq) => {
+                if (kq !== "ok") return setLoiViTri(LOI_VI_TRI[kq]);
+                viTri.setOn(true);
+                setGan(true);
+                setMo(false);
+              });
+            },
+          }}
           onChon={(p) => {
             const ok = chonTinh(p);
             setHong(!ok);
             setMo(false);
-            if (ok) setGan(true);
+            if (ok) {
+              viTri.setOn(false); // bà con tự chọn tỉnh ⇒ thôi theo vị trí máy
+              setGan(true);
+            }
           }}
-          onClose={() => setMo(false)}
+          onClose={() => {
+            setLoiViTri(null);
+            setMo(false);
+          }}
         />
       )}
     </div>
