@@ -27,8 +27,12 @@ export const GIAI_THICH_TOI_DA = 700;
 export const BAI_TOI_DA = 1900;
 
 /**
- * @typedef {{ id: string, dieu: number, ten: string, trich: string, mau: string, luuY?: string[] }} MucLuat
- * dieu: số Điều · trich: NGUYÊN VĂN (khoản + điểm, giữ số thứ tự a) b) như văn bản) · mau: giải thích viết sẵn
+ * @typedef {{ id: string, dieu: number, ten: string, cauNho: string, trich: string, mau: string, luuY?: string[] }} MucLuat
+ * dieu: số Điều · cauNho: MỘT CÂU NGẮN DỄ NHỚ đứng đầu bài (anh Long 06/11: "chia nhỏ ra từng cái … ngắn gọn từng câu để dễ
+ * nhớ ví dụ phải duy trì kết nối trên biển nếu mất kết nối phải báo về bờ 6h 1 lần nếu ko bị phạt x đồng ? lấy đúng cái trong
+ * nghị định mới nhất") — khuôn "phải làm gì / không được làm gì — vi phạm thì ai bị phạt bao nhiêu"; MỌI số tiền phải có trong
+ * trích + lưu ý của chính mục (test tuyen-truyen-luat khoá) · trich: NGUYÊN VĂN (khoản + điểm, giữ số thứ tự a) b) như văn
+ * bản) · mau: giải thích viết sẵn
  * · luuY: ý phụ (hình phạt bổ sung, mức thuyền trưởng…) Claude được nhắc tới, cũng lấy từ văn bản.
  */
 
@@ -38,6 +42,7 @@ export const MUC = [
     id: "d62-hieu-luc",
     dieu: 62,
     ten: "Nghị định mới có hiệu lực",
+    cauNho: "Từ 18/8/2026, mọi lỗi nghề cá xử theo Nghị định 246/2026, thay Nghị định 38/2024.",
     trich:
       "1. Nghị định này có hiệu lực thi hành từ ngày 18 tháng 8 năm 2026.\n2. Nghị định này thay thế Nghị định số 38/2024/NĐ-CP ngày 05 tháng 4 năm 2024 của Chính phủ quy định xử phạt vi phạm hành chính trong lĩnh vực thủy sản và Nghị định số 301/2025/NĐ-CP ngày 17 tháng 11 năm 2025 của Chính phủ sửa đổi, bổ sung một số điều của Nghị định số 38/2024/NĐ-CP ngày 05 tháng 4 năm 2024 của Chính phủ quy định xử phạt vi phạm hành chính trong lĩnh vực thủy sản.",
     mau: "Bà con lưu ý: từ ngày 18/8/2026, xử phạt trong nghề cá theo Nghị định 246/2026/NĐ-CP, thay cho Nghị định 38/2024 trước đây. Nhiều mức phạt tăng mạnh, nhất là chuyện giấy phép, thiết bị giám sát hành trình và vượt ranh giới vùng biển. Sen Biển sẽ lần lượt đọc từng điều cho bà con nghe trên Kairos.",
@@ -46,6 +51,7 @@ export const MUC = [
     id: "d5-to-chuc-gap-doi",
     dieu: 5,
     ten: "Mức phạt tối đa, tổ chức gấp đôi",
+    cauNho: "Mức phạt Sen Biển đọc là với cá nhân, cao nhất 1 tỷ đồng một hành vi — tàu của công ty, hợp tác xã bị phạt gấp đôi.",
     trich:
       "1. Mức phạt tiền tối đa đối với một hành vi vi phạm hành chính do cá nhân thực hiện trong lĩnh vực thủy sản là 1.000.000.000 đồng.\n2. Mức phạt tiền quy định tại Chương II Nghị định này được áp dụng đối với một hành vi vi phạm hành chính của cá nhân, trừ quy định tại các khoản 5, 6 và 8 Điều 37 Nghị định này. Trường hợp tổ chức có hành vi vi phạm thì mức phạt tiền bằng 02 lần mức phạt tiền đối với cá nhân.",
     mau: "Các mức tiền Sen Biển đọc trong loạt bài này là mức phạt với cá nhân, cao nhất tới 1 tỷ đồng cho một hành vi. Tàu đứng tên công ty, hợp tác xã thì phạt gấp đôi. Bà con đọc mức nào cũng nhớ nhân hai nếu tàu thuộc tổ chức nghen.",
@@ -54,6 +60,7 @@ export const MUC = [
     id: "d21-k2-a",
     dieu: 21,
     ten: "Tàu 15–24 m không giấy phép khai thác",
+    cauNho: "Tàu 15–24 m ra biển phải có giấy phép khai thác còn hạn — không có, chủ tàu bị phạt 300 đến 500 triệu đồng.",
     trich:
       "2. Phạt tiền từ 300.000.000 đồng đến 500.000.000 đồng chủ tàu cá đối với một trong các hành vi vi phạm sau:\na) Sử dụng tàu cá có chiều dài lớn nhất từ 15 mét đến dưới 24 mét khai thác thủy sản trên biển không có Giấy phép khai thác thủy sản hoặc Giấy phép khai thác thủy sản đã hết hạn;",
     luuY: [
@@ -67,6 +74,7 @@ export const MUC = [
     id: "d21-k4-a",
     dieu: 21,
     ten: "Tàu từ 24 m không giấy phép khai thác",
+    cauNho: "Tàu từ 24 m ra biển phải có giấy phép khai thác còn hạn — không có, chủ tàu bị phạt 800 triệu đến 1 tỷ đồng.",
     trich:
       "4. Phạt tiền từ 800.000.000 đồng đến 1.000.000.000 đồng chủ tàu cá đối với một trong các hành vi vi phạm sau:\na) Sử dụng tàu cá có chiều dài lớn nhất từ 24 mét trở lên khai thác thủy sản trên biển không có Giấy phép khai thác thủy sản hoặc Giấy phép khai thác thủy sản đã hết hạn;",
     luuY: [
@@ -79,6 +87,7 @@ export const MUC = [
     id: "d21-k2-d",
     dieu: 21,
     ten: "Tàu từ 15 m vượt ranh giới vùng biển",
+    cauNho: "Tàu từ 15 m không được vượt ranh giới vùng biển được phép khai thác — vượt là chủ tàu bị phạt 300 đến 500 triệu đồng.",
     trich:
       "2. Phạt tiền từ 300.000.000 đồng đến 500.000.000 đồng chủ tàu cá đối với một trong các hành vi vi phạm sau:\nd) Sử dụng tàu cá có chiều dài lớn nhất từ 15 mét trở lên vượt qua ranh giới phía ngoài của vùng biển được phép khai thác, trừ trường hợp tàu cá được chấp thuận đi hoạt động tại vùng biển của quốc gia, vùng lãnh thổ khác hoặc được cấp phép đi hoạt động tại vùng biển thuộc quyền quản lý của tổ chức nghề cá khu vực;",
     luuY: [
@@ -91,6 +100,7 @@ export const MUC = [
     id: "d21-k4-b",
     dieu: 21,
     ten: "Khai thác ở vùng biển nước khác",
+    cauNho: "Không đánh bắt ở vùng biển nước khác — vi phạm, chủ tàu bị phạt 800 triệu đến 1 tỷ đồng và bị tịch thu tàu.",
     trich:
       "4. Phạt tiền từ 800.000.000 đồng đến 1.000.000.000 đồng chủ tàu cá đối với một trong các hành vi vi phạm sau:\nb) Khai thác thủy sản tại vùng biển của quốc gia, vùng lãnh thổ khác hoặc vùng biển thuộc quyền quản lý của Tổ chức nghề cá khu vực mà không có Giấy phép khai thác thủy sản hoặc Giấy phép khai thác thủy sản hết hạn hoặc không có giấy chấp thuận hoặc giấy chấp thuận hết hạn;",
     luuY: [
@@ -103,6 +113,7 @@ export const MUC = [
     id: "d21-k2-k",
     dieu: 21,
     ten: "Mất tín hiệu giám sát hành trình, không về bờ trong 10 ngày",
+    cauNho: "Máy giám sát hành trình mất tín hiệu mà không sửa được thì trong 10 ngày phải đưa tàu về bờ — không về, chủ tàu bị phạt 300 đến 500 triệu đồng.",
     trich:
       "2. Phạt tiền từ 300.000.000 đồng đến 500.000.000 đồng chủ tàu cá đối với một trong các hành vi vi phạm sau:\nk) Không đưa tàu cá về bờ trong thời hạn 10 ngày kể từ thời điểm tàu cá mất tín hiệu từ thiết bị giám sát hành trình;",
     luuY: [
@@ -115,6 +126,7 @@ export const MUC = [
     id: "d21-k2-g-h-i",
     dieu: 21,
     ten: "Tàu từ 24 m tắt, không có, không truyền giám sát hành trình",
+    cauNho: "Tàu từ 24 m phải mở máy giám sát hành trình suốt chuyến biển — tắt máy, không có máy, không truyền tín hiệu: chủ tàu bị phạt 300 đến 500 triệu đồng.",
     trich:
       "2. Phạt tiền từ 300.000.000 đồng đến 500.000.000 đồng chủ tàu cá đối với một trong các hành vi vi phạm sau:\ng) Không duy trì việc truyền thông tin từ thiết bị giám sát hành trình tàu cá về Hệ thống giám sát hành trình tàu cá theo quy định khi hoạt động trên biển, đảo (nơi không có cảng cá) đối với tàu cá có chiều dài lớn nhất từ 24 mét trở lên;\nh) Vô hiệu hóa thiết bị giám sát hành trình tàu cá khi hoạt động trên biển, đảo (nơi không có cảng cá) đối với tàu cá có chiều dài lớn nhất từ 24 mét trở lên;\ni) Không có thiết bị giám sát hành trình tàu cá khi tàu cá trên biển hoặc đảo (nơi không có cảng cá) đối với tàu cá có chiều dài lớn nhất từ 24 mét trở lên;",
     luuY: [
@@ -128,6 +140,7 @@ export const MUC = [
     id: "d37-k7",
     dieu: 37,
     ten: "Tàu 15–24 m tắt, không có, không truyền giám sát hành trình",
+    cauNho: "Tàu 15–24 m phải mở máy giám sát hành trình suốt chuyến biển — tắt máy, không có máy, không truyền tín hiệu: thuyền trưởng và chủ tàu bị phạt 100 đến 300 triệu đồng.",
     trich:
       "7. Phạt tiền từ 100.000.000 đồng đến 300.000.000 đồng đối với thuyền trưởng và chủ tàu cá vi phạm một trong các hành vi sau:\na) Không thực hiện báo cáo vị trí tàu cá theo quy định đối với tàu cá có chiều dài lớn nhất từ 24 mét trở lên mất tín hiệu thiết bị giám sát hành trình trên biển hoặc đảo (nơi không có cảng cá);\nb) Không duy trì việc truyền thông tin từ thiết bị giám sát hành trình về Hệ thống giám sát hành trình tàu cá theo quy định khi tàu cá trên biển hoặc đảo (nơi không có cảng cá) đối với tàu cá có chiều dài lớn nhất từ 15 mét đến dưới 24 mét;\nc) Vô hiệu hóa thiết bị giám sát hành trình tàu cá trên biển hoặc đảo (nơi không có cảng cá) đối với tàu cá có chiều dài lớn nhất từ 15 mét đến dưới 24 mét;\nd) Không có thiết bị giám sát hành trình tàu cá khi tàu cá trên biển hoặc đảo (nơi không có cảng cá) đối với tàu cá có chiều dài lớn nhất từ 15 mét đến dưới 24 mét.",
     luuY: [
@@ -140,6 +153,7 @@ export const MUC = [
     id: "d37-k4",
     dieu: 37,
     ten: "Mất tín hiệu trên biển mà không báo vị trí",
+    cauNho: "Mất kết nối trên biển phải báo vị trí về bờ, không quá 6 giờ một lần — không báo (tàu 15–24 m), thuyền trưởng và chủ tàu bị phạt 30 đến 40 triệu đồng.",
     trich:
       "4. Phạt tiền từ 30.000.000 đồng đến 40.000.000 đồng đối với thuyền trưởng và chủ tàu cá có hành vi không thực hiện báo cáo vị trí theo quy định đối với tàu cá có chiều dài lớn nhất từ 15 mét đến dưới 24 mét mất tín hiệu thiết bị giám sát hành trình trên biển hoặc đảo (nơi không có cảng cá).",
     luuY: [
@@ -152,6 +166,7 @@ export const MUC = [
     id: "d37-k1",
     dieu: 37,
     ten: "Tàu nằm bờ mất tín hiệu cũng phải báo",
+    cauNho: "Tàu nằm bờ mà máy mất tín hiệu thì 24 giờ phải báo vị trí một lần — không báo, chủ tàu bị phạt 1 đến 3 triệu đồng.",
     trich:
       "1. Phạt tiền từ 1.000.000 đồng đến 3.000.000 đồng đối với chủ tàu cá có một trong các hành vi sau:\na) Không báo cáo vị trí tàu cá neo đậu tại bờ định kỳ 07 ngày/lần cho cơ quan quản lý nhà nước về thủy sản cấp tỉnh nơi đăng ký tàu cá trong trường hợp chủ tàu đã ngừng dịch vụ truyền dữ liệu thiết bị giám sát hành trình trong thời gian không đi khai thác từ 03 tháng trở lên;\nb) Không duy trì việc truyền thông tin từ thiết bị giám sát hành trình tàu cá về Hệ thống giám sát hành trình tàu cá và không báo cáo vị trí về cơ quan quản lý nhà nước về thủy sản cấp tỉnh (qua bộ phận trực, vận hành Hệ thống giám sát hành trình tàu cá) định kỳ 24 giờ/lần trong trường hợp tàu cá mất tín hiệu thiết bị giám sát hành trình tại bờ hoặc đảo (nơi có cảng cá).",
     mau: "Tàu đậu ở bờ cũng không được quên máy giám sát hành trình. Máy mất tín hiệu khi tàu ở bờ thì cứ 24 giờ phải báo vị trí về cơ quan thủy sản tỉnh. Tàu nghỉ từ 3 tháng trở lên đã ngừng dịch vụ truyền dữ liệu thì cứ 7 ngày báo một lần. Không báo, chủ tàu bị phạt từ 1 đến 3 triệu đồng. Tiền không lớn nhưng vào sổ vi phạm, lần sau dính lỗi khác là bị tính tăng nặng.",
@@ -160,6 +175,7 @@ export const MUC = [
     id: "d21-k1-d37-k3",
     dieu: 21,
     ten: "Tháo gỡ thiết bị giám sát hành trình, phá kẹp chì",
+    cauNho: "Không tự tháo máy giám sát hành trình khi chưa có cơ quan chức năng giám sát — tự tháo, chủ tàu bị phạt 50 đến 100 triệu đồng.",
     trich:
       "1. Phạt tiền từ 50.000.000 đồng đến 100.000.000 đồng chủ tàu cá đối với hành vi tháo gỡ thiết bị giám sát hành trình tàu cá không được giám sát theo quy định mà chưa đến mức truy cứu trách nhiệm hình sự.",
     luuY: [
@@ -172,6 +188,7 @@ export const MUC = [
     id: "d21-k2-dd-e",
     dieu: 21,
     ten: "Giữ hộ, gửi thiết bị giám sát hành trình của tàu khác",
+    cauNho: "Không gửi máy giám sát hành trình sang tàu khác, không giữ hộ máy của tàu khác — vi phạm, chủ tàu bị phạt 300 đến 500 triệu đồng.",
     trich:
       "2. Phạt tiền từ 300.000.000 đồng đến 500.000.000 đồng chủ tàu cá đối với một trong các hành vi vi phạm sau:\nđ) Tàng trữ hoặc vận chuyển trái phép thiết bị giám sát hành trình của tàu cá khác mà chưa đến mức truy cứu trách nhiệm hình sự;\ne) Gửi trái phép thiết bị giám sát hành trình của tàu cá mà chưa đến mức truy cứu trách nhiệm hình sự;",
     luuY: [
@@ -184,6 +201,7 @@ export const MUC = [
     id: "d21-k3-g",
     dieu: 21,
     ten: "Giấu, làm giả, hủy chứng cứ vi phạm",
+    cauNho: "Không giấu, làm giả, hủy chứng cứ vi phạm — vi phạm, chủ tàu bị phạt 500 đến 700 triệu đồng.",
     trich:
       "3. Phạt tiền từ 500.000.000 đồng đến 700.000.000 đồng chủ tàu cá đối với một trong các hành vi vi phạm sau:\ng) Che giấu, giả mạo hoặc hủy chứng cứ vi phạm quy định về khai thác, bảo vệ nguồn lợi thủy sản;",
     luuY: ["Thuyền trưởng bị phạt riêng từ 250.000.000 đồng đến 300.000.000 đồng (khoản 5 điểm c).", "Tái phạm: từ 800.000.000 đồng đến 1.000.000.000 đồng (khoản 4 điểm g)."],
@@ -193,6 +211,7 @@ export const MUC = [
     id: "d22-tau-nho-ra-xa",
     dieu: 22,
     ten: "Tàu nhỏ ra vùng lộng, vùng khơi",
+    cauNho: "Tàu dưới 12 m chỉ làm ở vùng ven bờ — ra vùng lộng, vùng khơi, thuyền trưởng bị phạt 20 đến 30 triệu đồng.",
     trich:
       "1. Phạt tiền từ 20.000.000 đồng đến 30.000.000 đồng đối với thuyền trưởng có hành vi sử dụng tàu cá có chiều dài lớn nhất dưới 12 mét khai thác thủy sản hoặc chuyển tải thủy sản tại vùng lộng hoặc vùng khơi.\n2. Phạt tiền từ 30.000.000 đồng đến 40.000.000 đồng đối với thuyền trưởng có hành vi sử dụng tàu cá có chiều dài lớn nhất từ 12 mét đến dưới 15 mét khai thác thủy sản hoặc chuyển tải thủy sản tại vùng ven bờ hoặc vùng khơi.",
     luuY: ["Tước văn bằng, chứng chỉ thuyền trưởng tàu cá từ 03 tháng đến 06 tháng (khoản 5 điểm a)."],
@@ -202,6 +221,7 @@ export const MUC = [
     id: "d22-tau-lon-vao-gan",
     dieu: 22,
     ten: "Tàu lớn vào vùng ven bờ, vùng lộng",
+    cauNho: "Tàu từ 15 m là tàu vùng khơi — vào ven bờ, vùng lộng đánh bắt, tàu 15–24 m bị phạt 50 đến 70 triệu đồng, tàu từ 24 m 80 đến 100 triệu đồng.",
     trich:
       "3. Phạt tiền từ 50.000.000 đồng đến 70.000.000 đồng đối với thuyền trưởng và chủ tàu cá có hành vi sử dụng tàu cá có chiều dài lớn nhất từ 15 mét đến dưới 24 mét khai thác thủy sản hoặc chuyển tải thủy sản tại vùng ven bờ hoặc vùng lộng.\n4. Phạt tiền từ 80.000.000 đồng đến 100.000.000 đồng đối với thuyền trưởng và chủ tàu cá có hành vi sử dụng tàu cá có chiều dài lớn nhất từ 24 mét trở lên khai thác thủy sản hoặc chuyển tải thủy sản tại vùng ven bờ hoặc vùng lộng.",
     luuY: [
@@ -213,6 +233,7 @@ export const MUC = [
     id: "d24-khong-mang-giay-phep",
     dieu: 24,
     ten: "Không mang giấy phép theo tàu",
+    cauNho: "Đi khai thác phải mang theo giấy phép bản chính hoặc bản sao chứng thực — không mang, thuyền trưởng và chủ tàu bị phạt 5 đến 10 triệu đồng.",
     trich:
       "1. Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với thuyền trưởng và chủ tàu cá vi phạm một trong các hành vi sau:\na) Không mang bản chính hoặc bản sao chứng thực Giấy phép khai thác thủy sản khi tàu cá hoạt động khai thác thủy sản;",
     mau: "Có giấy phép nhưng để ở nhà, lúc kiểm tra không có bản chính hay bản sao chứng thực trên tàu thì thuyền trưởng và chủ tàu vẫn bị phạt từ 5 đến 10 triệu đồng. Giấy phép bỏ túi nilon cất trên tàu, chụp thêm một bản vào tủ giấy tờ trong app để lúc cần có sẵn.",
@@ -221,6 +242,7 @@ export const MUC = [
     id: "d24-tau-nho-khong-giay-phep",
     dieu: 24,
     ten: "Tàu dưới 15 m không giấy phép khai thác",
+    cauNho: "Tàu 6–12 m cũng phải có giấy phép khai thác còn hạn — không có, thuyền trưởng và chủ tàu bị phạt 20 đến 30 triệu đồng.",
     trich:
       "2. Phạt tiền từ 20.000.000 đồng đến 30.000.000 đồng đối với thuyền trưởng và chủ tàu cá vi phạm một trong các hành vi sau:\na) Sử dụng tàu cá có chiều dài lớn nhất từ 06 mét đến dưới 12 mét khai thác thủy sản trong vùng biển Việt Nam mà không có Giấy phép khai thác thủy sản hoặc Giấy phép khai thác thủy sản đã hết hạn;\n3. Phạt tiền từ 30.000.000 đồng đến 50.000.000 đồng đối với thuyền trưởng và chủ tàu cá vi phạm một trong các hành vi vi phạm như sau:\na) Sử dụng tàu cá có chiều dài lớn nhất từ 12 mét đến dưới 15 mét khai thác thủy sản trong vùng biển Việt Nam mà không có Giấy phép khai thác thủy sản hoặc Giấy phép khai thác thủy sản đã hết hạn;",
     luuY: [
@@ -233,6 +255,7 @@ export const MUC = [
     id: "d24-sai-nghe",
     dieu: 24,
     ten: "Làm không đúng nghề ghi trong giấy phép",
+    cauNho: "Giấy phép ghi nghề nào làm nghề đó — tàu từ 15 m làm sai nghề, thuyền trưởng và chủ tàu bị phạt 30 đến 50 triệu đồng.",
     trich:
       "3. Phạt tiền từ 30.000.000 đồng đến 50.000.000 đồng đối với thuyền trưởng và chủ tàu cá vi phạm một trong các hành vi vi phạm như sau:\nb) Sử dụng tàu cá có chiều dài lớn nhất từ 15 mét trở lên khai thác thủy sản không đúng nghề ghi trong Giấy phép khai thác thủy sản.",
     luuY: [
@@ -245,6 +268,7 @@ export const MUC = [
     id: "d26-khong-nhat-ky",
     dieu: 26,
     ten: "Không có, không ghi, không nộp nhật ký khai thác",
+    cauNho: "Tàu từ 12 m phải ghi và nộp nhật ký khai thác mỗi chuyến — không ghi, thuyền trưởng tàu 15–24 m bị phạt 5 đến 10 triệu đồng.",
     trich:
       "2. Phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng đối với thuyền trưởng tàu cá vi phạm một trong các hành vi sau:\na) Không có hoặc không ghi hoặc không nộp nhật ký khai thác thủy sản, nhật ký thu mua chuyển tải thủy sản theo quy định đối với tàu cá có chiều dài lớn nhất từ 12 mét đến dưới 15 mét;\n3. Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với thuyền trưởng tàu cá vi phạm một trong các hành vi sau:\na) Không có hoặc không ghi hoặc không nộp nhật ký khai thác thủy sản, nhật ký thu mua chuyển tải thủy sản theo quy định đối với tàu cá có chiều dài lớn nhất từ 15 mét đến dưới 24 mét;",
     luuY: [
@@ -258,6 +282,7 @@ export const MUC = [
     id: "d26-ghi-sai",
     dieu: 26,
     ten: "Ghi nhật ký không đúng, không đủ",
+    cauNho: "Nhật ký khai thác phải ghi đúng, ghi đủ — ghi sai, ghi thiếu (tàu 12–15 m), thuyền trưởng bị phạt 2 đến 3 triệu đồng.",
     trich:
       "1. Phạt tiền từ 2.000.000 đồng đến 3.000.000 đồng đối với thuyền trưởng tàu cá vi phạm một trong các hành vi sau:\na) Không nộp báo cáo khai thác thủy sản hoặc báo cáo không đầy đủ, không đúng theo quy định đối với tàu cá có chiều dài lớn nhất từ 06 mét đến dưới 12 mét;\nb) Ghi không đúng hoặc ghi không đầy đủ nhật ký khai thác thủy sản, nhật ký thu mua chuyển tải thủy sản theo quy định đối với tàu cá có chiều dài lớn nhất từ 12 mét đến dưới 15 mét.",
     luuY: [
@@ -270,6 +295,7 @@ export const MUC = [
     id: "d36-khong-dang-ky",
     dieu: 36,
     ten: "Tàu hoạt động không có giấy đăng ký",
+    cauNho: "Tàu phải có giấy chứng nhận đăng ký mới được hoạt động — không có, thuyền trưởng tàu 15–24 m bị phạt 100 đến 200 triệu đồng.",
     trich:
       "5. Phạt tiền đối với thuyền trưởng tàu cá, tàu phục vụ nuôi trồng thủy sản đang hoạt động mà không có Giấy chứng nhận đăng ký với các mức phạt như sau:\na) Phạt tiền từ 10.000.000 đồng đến 30.000.000 đồng đối với tàu có chiều dài lớn nhất từ 06 mét đến dưới 12 mét;\nb) Phạt tiền từ 30.000.000 đồng đến 50.000.000 đồng đối với tàu có chiều dài lớn nhất từ 12 mét đến dưới 15 mét;\nc) Phạt tiền từ 100.000.000 đồng đến 200.000.000 đồng đối với tàu có chiều dài lớn nhất từ 15 mét đến dưới 24 mét;\nd) Phạt tiền từ 300.000.000 đồng đến 500.000.000 đồng đối với tàu có chiều dài lớn nhất từ 24 mét trở lên.",
     luuY: [
@@ -282,6 +308,7 @@ export const MUC = [
     id: "d36-sang-ten",
     dieu: 36,
     ten: "Mua tàu không sang tên đúng hạn",
+    cauNho: "Mua bán tàu phải sang tên đúng hạn — trễ dưới 60 ngày, tàu 15–24 m bị phạt 20 đến 30 triệu đồng.",
     trich:
       "2. Phạt tiền đối với tổ chức, cá nhân có hành vi không thực hiện đăng ký sang tên tàu cá, tàu phục vụ nuôi trồng thủy sản quá hạn theo quy định đến dưới 60 ngày với các mức phạt sau:\na) Phạt tiền từ 6.000.000 đồng đến 8.000.000 đồng đối với tàu có chiều dài lớn nhất từ 06 mét đến dưới 12 mét;\nb) Phạt tiền từ 10.000.000 đồng đến 20.000.000 đồng đối với tàu có chiều dài lớn nhất từ 12 mét đến dưới 15 mét;\nc) Phạt tiền từ 20.000.000 đồng đến 30.000.000 đồng đối với tàu có chiều dài lớn nhất từ 15 mét đến dưới 24 mét;\nd) Phạt tiền từ 30.000.000 đồng đến 50.000.000 đồng đối với tàu có chiều dài lớn nhất từ 24 mét trở lên.",
     luuY: [
@@ -294,6 +321,7 @@ export const MUC = [
     id: "d38-k3-so-dang-ky",
     dieu: 38,
     ten: "Không viết hoặc viết sai số đăng ký tàu",
+    cauNho: "Số đăng ký trên mạn tàu phải viết đúng — không viết hoặc viết sai, tàu 15–24 m bị phạt 100 đến 200 triệu đồng.",
     trich:
       "3. Phạt tiền đối với thuyền trưởng và chủ tàu cá, tàu phục vụ nuôi trồng thủy sản có hành vi sử dụng tàu mà không viết hoặc viết không đúng số đăng ký của tàu như sau:\na) Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với tàu có chiều dài lớn nhất từ 06 mét đến dưới 12 mét;\nb) Phạt tiền từ 20.000.000 đồng đến 40.000.000 đồng đối với tàu có chiều dài lớn nhất từ 12 mét đến dưới 15 mét;\nc) Phạt tiền từ 100.000.000 đồng đến 200.000.000 đồng đối với tàu có chiều dài lớn nhất từ 15 mét đến dưới 24 mét;\nd) Phạt tiền từ 200.000.000 đồng đến 300.000.000 đồng đối với tàu có chiều dài lớn nhất từ 24 mét trở lên.",
     luuY: [
@@ -306,6 +334,7 @@ export const MUC = [
     id: "d34-k3-an-toan-ky-thuat",
     dieu: 34,
     ten: "Giấy chứng nhận an toàn kỹ thuật hết hạn",
+    cauNho: "Giấy chứng nhận an toàn kỹ thuật phải còn hạn — hết hạn mà vẫn chạy, thuyền trưởng tàu 15–24 m bị phạt 20 đến 30 triệu đồng.",
     trich:
       "3. Phạt tiền đối với thuyền trưởng tàu cá, tàu phục vụ nuôi trồng thủy sản có hành vi sử dụng Giấy chứng nhận an toàn kỹ thuật đã hết hạn hoặc không có Giấy chứng nhận an toàn kỹ thuật khi hoạt động theo các mức phạt sau:\na) Phạt tiền từ 10.000.000 đồng đến 20.000.000 đồng đối với tàu có chiều dài lớn nhất từ 12 mét đến dưới 15 mét;\nb) Phạt tiền từ 20.000.000 đồng đến 30.000.000 đồng đối với tàu có chiều dài lớn nhất từ 15 mét đến dưới 24 mét;\nc) Phạt tiền từ 30.000.000 đồng đến 40.000.000 đồng đối với tàu có chiều dài lớn nhất từ 24 mét trở lên.",
     luuY: [
@@ -318,6 +347,7 @@ export const MUC = [
     id: "d34-k2-trang-bi-an-toan",
     dieu: 34,
     ten: "Thiếu trang thiết bị an toàn trên tàu",
+    cauNho: "Tàu phải trang bị đủ thiết bị an toàn — thiếu, chủ tàu 15–24 m bị phạt 5 đến 10 triệu đồng.",
     trich:
       "2. Phạt tiền đối với chủ tàu cá, tàu phục vụ nuôi trồng thủy sản có hành vi không trang bị hoặc trang bị không đầy đủ trang thiết bị an toàn tàu cá, tàu phục vụ nuôi trồng thủy sản theo các mức phạt sau:\na) Phạt tiền từ 300.000 đồng đến 500.000 đồng đối với tàu có chiều dài lớn nhất dưới 06 mét;\nb) Phạt tiền từ 1.000.000 đồng đến 2.000.000 đồng đối với tàu có chiều dài lớn nhất từ 06 mét đến dưới 12 mét;\nc) Phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng đối với tàu có chiều dài lớn nhất từ 12 mét đến dưới 15 mét;\nd) Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với tàu có chiều dài lớn nhất từ 15 mét đến dưới 24 mét;\nđ) Phạt tiền từ 10.000.000 đồng đến 20.000.000 đồng đối với tàu có chiều dài lớn nhất từ 24 mét trở lên.",
     mau: "Phao cứu sinh, bình chữa cháy, đèn hiệu, máy liên lạc là đồ giữ mạng, luật cũng bắt phải có đủ. Thiếu hay không đủ thì chủ tàu bị phạt từ 300 đến 500 nghìn đồng với tàu dưới 6 m, tới 10 đến 20 triệu với tàu từ 24 m. Trước mỗi chuyến đi, bà con đếm lại phao đủ cho từng người trên tàu, bình chữa cháy còn hạn chưa.",
@@ -326,6 +356,7 @@ export const MUC = [
     id: "d39-thuyen-vien-giay-to",
     dieu: 39,
     ten: "Thuyền viên không giấy tờ, không có tên trong sổ danh bạ",
+    cauNho: "Bạn thuyền phải có tên trong sổ danh bạ thuyền viên — thiếu, thuyền trưởng bị phạt 1 đến 2 triệu đồng.",
     trich:
       "1. Phạt tiền đối với thuyền trưởng tàu cá từ 500.000 đồng đến 1.000.000 đồng đối với hành vi thuyền viên, người làm việc trên tàu không mang theo giấy tờ tùy thân.\n2. Phạt tiền từ 1.000.000 đồng đến 2.000.000 đồng đối với thuyền trưởng có một trong các hành vi vi phạm sau:\na) Thuyền viên trên tàu không có tên trong Sổ danh bạ thuyền viên tàu;\nb) Không có Sổ danh bạ thuyền viên tàu cá theo quy định;\nc) Không bố trí đủ chức danh, định biên an toàn tối thiểu trên tàu cá theo quy định.",
     luuY: ["Thuyền trưởng, máy trưởng, thuyền phó, thợ máy không có văn bằng, chứng chỉ: từ 2.000.000 đồng đến 10.000.000 đồng tùy chiều dài tàu (khoản 3)."],
@@ -335,6 +366,7 @@ export const MUC = [
     id: "d39-k4-bao-hiem",
     dieu: 39,
     ten: "Không mua bảo hiểm cho thuyền viên",
+    cauNho: "Chủ tàu phải mua bảo hiểm cho thuyền viên — không mua, phạt 5 đến 7 triệu đồng (dưới 3 người), tới 15 đến 20 triệu đồng (từ 10 người).",
     trich:
       "4. Phạt tiền đối với chủ tàu cá có hành vi không mua bảo hiểm theo quy định cho thuyền viên tàu cá theo các mức phạt sau:\na) Phạt tiền từ 5.000.000 đồng đến 7.000.000 đồng đối với trường hợp vi phạm dưới 03 thuyền viên làm việc trên tàu cá;\nb) Phạt tiền từ 7.000.000 đồng đến 10.000.000 đồng đối với trường hợp vi phạm từ 03 đến dưới 05 thuyền viên làm việc trên tàu cá;\nc) Phạt tiền từ 10.000.000 đồng đến 15.000.000 đồng đối với trường hợp vi phạm từ 05 đến dưới 10 thuyền viên làm việc trên tàu cá;\nd) Phạt tiền từ 15.000.000 đồng đến 20.000.000 đồng đối với trường hợp vi phạm từ 10 thuyền viên trở lên làm việc trên tàu cá.",
     mau: "Chủ tàu phải mua bảo hiểm cho bạn thuyền. Không mua là bị phạt từ 5 đến 7 triệu đồng nếu thiếu dưới 3 người, lên tới 15 đến 20 triệu nếu thiếu từ 10 người. Bảo hiểm vài trăm nghìn một người một năm, có chuyện ngoài biển thì gia đình bạn thuyền còn có chỗ dựa. Mua cho đủ người trước khi xuất bến, bà con nghen.",
@@ -343,6 +375,7 @@ export const MUC = [
     id: "d41-k5-khong-cap-cang",
     dieu: 41,
     ten: "Không cập cảng cá để bốc dỡ",
+    cauNho: "Tàu về phải cập cảng cá để bốc dỡ — tàu từ 15 m không cập cảng, thuyền trưởng bị phạt 20 đến 30 triệu đồng.",
     trich:
       "5. Phạt tiền đối với thuyền trưởng có hành vi không cập cảng cá để bốc dỡ thủy sản theo quy định như sau:\na) Phạt tiền từ 500.000 đồng đến 1.000.000 đồng đối với tàu có chiều dài lớn nhất từ 06 mét đến dưới 12 mét;\nb) Phạt tiền từ 2.000.000 đồng đến 3.000.000 đồng đối với tàu có chiều dài lớn nhất từ 12 mét đến dưới 15 mét;\nc) Phạt tiền từ 20.000.000 đồng đến 30.000.000 đồng đối với tàu có chiều dài lớn nhất từ 15 mét trở lên.",
     luuY: ["Tàu từ 15 m: tước văn bằng, chứng chỉ thuyền trưởng từ 01 tháng đến 03 tháng (khoản 6)."],
@@ -352,6 +385,7 @@ export const MUC = [
     id: "d41-k1-bao-cang",
     dieu: 41,
     ten: "Không báo trước khi vào, rời cảng",
+    cauNho: "Vào, rời cảng phải báo trước cho ban quản lý cảng — không báo, thuyền trưởng bị phạt 2 đến 5 triệu đồng.",
     trich:
       "1. Phạt tiền từ 2.000.000 đồng đến 5.000.000 đồng đối với thuyền trưởng tàu cá có một trong các hành vi sau:\na) Không thông báo hoặc thông báo không đầy đủ hoặc sai lệch thông tin theo quy định về thời gian cập cảng, sản lượng qua cảng cho tổ chức quản lý cảng cá trước khi vào hoặc thông tin rời cảng cá theo quy định;\nb) Không tuân thủ nội quy, sự điều động của tổ chức quản lý cảng cá, khu neo đậu tránh trú bão, trừ trường hợp bất khả kháng.",
     mau: "Trước khi vào cảng phải báo cho ban quản lý cảng giờ cập và sản lượng trên tàu, rời cảng cũng phải báo. Không báo, báo thiếu hay báo sai, thuyền trưởng bị phạt từ 2 đến 5 triệu đồng. Không nghe điều động của cảng, của khu neo đậu tránh bão cũng mức đó. Gọi cho cảng một cuộc trước khi vào, vừa đúng luật vừa có chỗ đậu sẵn.",
@@ -360,6 +394,7 @@ export const MUC = [
     id: "d28-k3-nghe-cam",
     dieu: 28,
     ten: "Dùng nghề cấm, ngư cụ cấm",
+    cauNho: "Không dùng nghề cấm, ngư cụ cấm — vi phạm, thuyền trưởng bị phạt 30 đến 50 triệu đồng.",
     trich:
       "3. Phạt tiền từ 30.000.000 đồng đến 50.000.000 đồng thuyền trưởng tàu cá có hành vi sử dụng nghề cấm, ngư cụ cấm để khai thác thủy sản mà chưa đến mức truy cứu trách nhiệm hình sự.",
     luuY: [
@@ -372,6 +407,7 @@ export const MUC = [
     id: "d29-kich-dien",
     dieu: 29,
     ten: "Dùng kích điện, dòng điện bắt cá",
+    cauNho: "Không chích điện bắt cá — tàu từ 15 m vi phạm, thuyền trưởng bị phạt 30 đến 40 triệu đồng.",
     trich:
       "2. Phạt tiền thuyền trưởng tàu cá đối với hành vi sử dụng công cụ kích điện hoặc sử dụng trực tiếp dòng điện từ máy phát điện trên tàu cá để khai thác thủy sản mà chưa đến mức truy cứu trách nhiệm hình sự theo các mức phạt sau:\na) Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với trường hợp tàu cá có chiều dài lớn nhất dưới 06 mét;\nb) Phạt tiền từ 15.000.000 đồng đến 20.000.000 đồng đối với trường hợp tàu cá có chiều dài lớn nhất từ 06 mét đến dưới 12 mét;\nc) Phạt tiền từ 20.000.000 đồng đến 30.000.000 đồng đối với trường hợp tàu cá có chiều dài lớn nhất từ 12 mét đến dưới 15 mét;\nd) Phạt tiền từ 30.000.000 đồng đến 40.000.000 đồng đối với trường hợp tàu cá có chiều dài lớn nhất từ 15 mét trở lên.",
     luuY: [
@@ -384,6 +420,7 @@ export const MUC = [
     id: "d30-chat-no",
     dieu: 30,
     ten: "Dùng chất nổ, chất độc bắt cá",
+    cauNho: "Không dùng chất nổ, chất độc bắt cá — tàu từ 24 m vi phạm, thuyền trưởng bị phạt 30 đến 50 triệu đồng.",
     trich:
       "1. Phạt tiền thuyền trưởng tàu cá đối với hành vi sử dụng chất cấm, hóa chất cấm, chất độc, chất nổ để khai thác thủy sản mà chưa đến mức truy cứu trách nhiệm hình sự theo các mức phạt sau:\na) Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với trường hợp tàu cá có chiều dài lớn nhất dưới 06 mét;\nb) Phạt tiền từ 10.000.000 đồng đến 20.000.000 đồng đối với trường hợp tàu cá có chiều dài lớn nhất từ 06 mét đến dưới 15 mét;\nc) Phạt tiền từ 20.000.000 đồng đến 30.000.000 đồng đối với trường hợp tàu cá có chiều dài lớn nhất từ 15 mét đến dưới 24 mét;\nd) Phạt tiền từ 30.000.000 đồng đến 50.000.000 đồng đối với trường hợp tàu cá có chiều dài lớn nhất từ 24 mét trở lên.",
     luuY: [
@@ -396,6 +433,7 @@ export const MUC = [
     id: "d32-treo-co",
     dieu: 32,
     ten: "Không treo cờ Tổ quốc trên tàu",
+    cauNho: "Tàu ra biển phải treo cờ Tổ quốc — không treo, thuyền trưởng bị phạt 2 đến 4 triệu đồng.",
     trich:
       "1. Phạt tiền từ 2.000.000 đồng đến 4.000.000 đồng đối với thuyền trưởng tàu cá có hành vi treo cờ không đúng quy định hoặc không treo cờ nước Cộng hòa xã hội chủ nghĩa Việt Nam trên tàu cá khi hoạt động.\n2. Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với thuyền trưởng tàu cá có hành vi vi phạm quy định tại khoản 1 Điều này trong trường hợp tái phạm hoặc vi phạm hành chính nhiều lần.",
     mau: "Tàu ra biển phải treo cờ Tổ quốc, treo đúng chỗ, cờ còn lành. Không treo hay treo không đúng, thuyền trưởng bị phạt từ 2 đến 4 triệu đồng, tái phạm 5 đến 10 triệu. Lá cờ trên nóc tàu là chủ quyền của mình ngoài khơi, cờ bạc màu, rách thì thay cờ mới trước chuyến đi.",
@@ -404,6 +442,7 @@ export const MUC = [
     id: "d45-can-tro-kiem-tra",
     dieu: 45,
     ten: "Không chấp hành kiểm tra",
+    cauNho: "Cơ quan chức năng kiểm tra thì phải chấp hành — không chấp hành, bị phạt 5 đến 10 triệu đồng.",
     trich:
       "1. Phạt tiền từ 5.000.000 đồng đến 10.000.000 đồng đối với hành vi không chấp hành hoặc xúi giục, lôi kéo người khác không chấp hành việc thanh tra, kiểm tra, giám sát của cơ quan nhà nước có thẩm quyền hoặc có lời nói, hành động đe dọa, lăng mạ, xúc phạm danh dự, nhân phẩm người thi hành công vụ.",
     mau: "Kiểm ngư, biên phòng, cảnh sát biển ra hiệu dừng tàu kiểm tra thì mình dừng, trình giấy tờ. Không chấp hành, bỏ chạy, hay rủ tàu khác không chấp hành, nói lời đe dọa, xúc phạm người thi hành công vụ là bị phạt từ 5 đến 10 triệu đồng, chưa kể lỗi đang bị kiểm tra. Giấy tờ đủ thì kiểm tra vài phút là xong, bà con bình tĩnh hợp tác.",
@@ -412,6 +451,7 @@ export const MUC = [
     id: "d5-k9-k10-tang-nang",
     dieu: 5,
     ten: "Mất kết nối nhiều lần là tăng nặng; chủ tàu kiêm thuyền trưởng",
+    cauNho: "Mất kết nối nhiều lần trong một chuyến mà không báo vị trí là bị tính tình tiết tăng nặng.",
     trich:
       "9. Trường hợp tàu cá mất kết nối tín hiệu giám sát hành trình nhiều lần trong cùng một chuyến biển mà chủ tàu, thuyền trưởng không thực hiện đúng quy định báo cáo vị trí theo quy định thì xử phạt hành chính tương ứng với hành vi vi phạm quy định tại Nghị định này và áp dụng tình tiết tăng nặng vi phạm hành chính nhiều lần.\n10. Việc xử phạt vi phạm hành chính đồng thời đối với thuyền trưởng và chủ tàu cá quy định tại Nghị định này được thực hiện như sau:\na) Trường hợp chủ tàu cá không đồng thời là thuyền trưởng tàu cá thì từng đối tượng vi phạm đều bị áp dụng các hình thức xử phạt, biện pháp khắc phục hậu quả quy định tương ứng đối với đối tượng và hành vi vi phạm hành chính đó;\nb) Trường hợp chủ tàu cá đồng thời là thuyền trưởng tàu cá thì chỉ áp dụng hình thức xử phạt chính, các hình thức xử phạt bổ sung và biện pháp khắc phục hậu quả quy định đối với hành vi vi phạm hành chính đó đối với chủ tàu cá.",
     mau: "Hai điều bà con hay hỏi Sen Biển. Một: trong cùng một chuyến mà máy giám sát hành trình mất kết nối nhiều lần, không báo vị trí đúng quy định, thì ngoài phạt còn bị tính tình tiết tăng nặng vì vi phạm nhiều lần. Hai: chủ tàu và thuyền trưởng là hai người khác nhau thì mỗi người bị phạt phần của mình; còn chủ tàu tự làm thuyền trưởng thì chỉ chịu một mức phạt của chủ tàu.",
@@ -420,6 +460,7 @@ export const MUC = [
     id: "d3-thoi-hieu",
     dieu: 3,
     ten: "Thời hiệu xử phạt 2 năm",
+    cauNho: "Lỗi nghề cá có thời hiệu 2 năm — làm từ hai năm trước vẫn có thể bị phạt.",
     trich: "Thời hiệu xử phạt vi phạm hành chính trong lĩnh vực thủy sản là 02 năm theo quy định tại điểm a khoản 1 Điều 6 Luật Xử lý vi phạm hành chính.",
     luuY: [
       "Điều 63: vi phạm xảy ra và kết thúc trước 18/8/2026 mà sau này mới bị phát hiện thì xử theo nghị định có hiệu lực lúc vi phạm; vi phạm bắt đầu trước nhưng còn kéo dài sau 18/8/2026 thì xử theo Nghị định 246/2026.",
@@ -442,7 +483,8 @@ export function canCu(m) {
  * @param {MucLuat} m
  */
 export function ghepBai(giaiThich, m) {
-  return `${String(giaiThich).trim()}\n\nTrích ${NGHI_DINH}:\n“${m.trich}”\n\n${canCu(m)}`;
+  // Câu ngắn dễ nhớ ĐỨNG ĐẦU bài (đọc lướt dòng tin là nhớ), rồi giải thích, rồi trích nguyên văn + căn cứ.
+  return `${m.cauNho}\n\n${String(giaiThich).trim()}\n\nTrích ${NGHI_DINH}:\n“${m.trich}”\n\n${canCu(m)}`;
 }
 
 /**
@@ -473,7 +515,7 @@ export function ngayVn(now = Date.now()) {
 export function promptLuat(m, now = Date.now()) {
   return [
     "Bạn là Sen Biển, trợ lý của một app dành cho ngư dân Việt Nam. Viết PHẦN GIẢI THÍCH ngắn cho một bài tuyên truyền pháp luật trên mạng xã hội Kairos trong app: giải thích cho bà con đi biển hiểu điều khoản dưới đây nói gì và nên làm gì để không bị phạt.",
-    "Yêu cầu: 3–5 câu tiếng Việt đời thường, thân thiện, xưng \"Sen Biển\" khi cần, gọi \"bà con\"; được dùng chút giọng miền biển nhẹ (\"nghen\", \"nha\"). CHỈ dùng số tiền, chiều dài tàu, số tháng, số ngày có trong TRÍCH và LƯU Ý — viết số tiền kiểu \"300 đến 500 triệu đồng\"; không thêm mức phạt, điều luật, thủ tục, lời hứa nào khác; không nói \"theo tôi\", không bịa ví dụ có tên người. Không emoji, không hashtag, không đường link, không tiêu đề, không chép lại nguyên văn trích (phần trích app tự gắn sau).",
+    "Yêu cầu: 2–3 câu NGẮN tiếng Việt đời thường (bài đã có sẵn một câu tóm tắt dễ nhớ ở đầu — đừng lặp lại nó), thân thiện, xưng \"Sen Biển\" khi cần, gọi \"bà con\"; được dùng chút giọng miền biển nhẹ (\"nghen\", \"nha\"). CHỈ dùng số tiền, chiều dài tàu, số tháng, số ngày có trong TRÍCH và LƯU Ý — viết số tiền kiểu \"300 đến 500 triệu đồng\"; không thêm mức phạt, điều luật, thủ tục, lời hứa nào khác; không nói \"theo tôi\", không bịa ví dụ có tên người. Không emoji, không hashtag, không đường link, không tiêu đề, không chép lại nguyên văn trích (phần trích app tự gắn sau).",
     "Gọi đúng tên Biển Đông, Hoàng Sa, Trường Sa của Việt Nam; không bao giờ dùng tên nước ngoài cho các vùng biển, đảo này.",
     "",
     `HÔM NAY: ${ngayVn(now)}. ${NGHI_DINH} ĐÃ có hiệu lực từ ${HIEU_LUC} — viết như luật đang áp dụng, KHÔNG viết "sắp", "chuẩn bị trước ngày…".`,
@@ -538,6 +580,8 @@ export function loiBaiLuat(body, m) {
   const i = t.indexOf(`“${m.trich}”`);
   if (i < 0) return "thieu_trich";
   if (!t.endsWith(canCu(m))) return "thieu_can_cu";
-  const giaiThich = t.slice(0, i).replace(/\n*Trích [^\n]*:\s*$/u, "").trim();
+  // Bài mới mở đầu bằng câu ngắn dễ nhớ (ghepBai) — bỏ ra trước khi kiểm phần giải thích; bài đời cũ không có vẫn hợp lệ.
+  const dau = t.startsWith(m.cauNho) ? m.cauNho.length : 0;
+  const giaiThich = t.slice(dau, i).replace(/\n*Trích [^\n]*:\s*$/u, "").trim();
   return loiGiaiThich(giaiThich, m);
 }

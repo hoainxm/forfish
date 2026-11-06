@@ -127,3 +127,38 @@ describe("promptLuat", () => {
     expect(p).toMatch(/ĐÃ có hiệu lực/);
   });
 });
+
+describe("câu ngắn dễ nhớ đầu bài (anh Long 06/11: \"ngắn gọn từng câu để dễ nhớ … lấy đúng cái trong nghị định mới nhất\")", () => {
+  it("mục nào cũng có MỘT câu ngắn (≤200 ký tự, một dòng), không link/emoji", () => {
+    for (const m of MUC) {
+      expect(typeof m.cauNho, m.id).toBe("string");
+      expect([...m.cauNho].length, m.id).toBeLessThanOrEqual(200);
+      expect(m.cauNho, m.id).not.toMatch(/\n|https?:\/\/|#\p{L}/u);
+      expect(m.cauNho, m.id).not.toMatch(/\p{Extended_Pictographic}/u);
+    }
+  });
+  it("MỌI số tiền trong câu ngắn đều có trong trích + lưu ý của chính mục — không bịa mức phạt", () => {
+    for (const m of MUC) {
+      const duoc = soTrieuTrong(`${m.trich}\n${(m.luuY ?? []).join("\n")}`);
+      for (const so of soTrieuDoiThuong(m.cauNho)) expect(duoc.has(so), `${m.id}: ${so} triệu`).toBe(true);
+    }
+  });
+  it("câu ví dụ của anh Long: mất kết nối trên biển báo 6 giờ một lần, phạt 30 đến 40 triệu (Điều 37 khoản 4)", () => {
+    const m = MUC.find((x) => x.id === "d37-k4")!;
+    expect(m.cauNho).toMatch(/không quá 6 giờ một lần/);
+    expect(m.cauNho).toMatch(/30 đến 40 triệu đồng/);
+    expect(m.trich).toMatch(/30\.000\.000 đồng đến 40\.000\.000 đồng/);
+  });
+  it("bài ghép mở đầu bằng câu ngắn và vẫn qua kiểm máy chủ; bài đời cũ không có câu ngắn vẫn hợp lệ", () => {
+    for (const m of MUC) {
+      const bai = ghepBai(m.mau, m);
+      expect(bai.startsWith(m.cauNho), m.id).toBe(true);
+      expect(loiBaiLuat(bai, m), m.id).toBeNull();
+      const cu = `${m.mau}\n\nTrích ${NGHI_DINH}:\n“${m.trich}”\n\n${canCu(m)}`;
+      expect(loiBaiLuat(cu, m), m.id).toBeNull();
+    }
+  });
+  it("prompt xin giải thích 2–3 câu ngắn, không lặp câu tóm tắt", () => {
+    expect(promptLuat(MUC[0], NOW)).toMatch(/2–3 câu NGẮN/);
+  });
+});
