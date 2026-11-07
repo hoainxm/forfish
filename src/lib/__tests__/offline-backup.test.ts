@@ -650,6 +650,14 @@ const EXCLUDED: Array<[string, string]> = [
     "dấu ĐỔI KHOÁ VAPID ĐANG DỞ của MÁY NÀY (2026-10-07) — mang endpoint đăng ký push của chính máy này; chép sang máy khác là máy đó tự đăng ký lại thông báo khi chủ chưa bật, và gửi endpoint lạ lên server",
   ],
   [
+    "forfish.push.tat.v1",
+    "dấu bà con TỰ TẮT thông báo trên MÁY NÀY (2026-11-07) — chép sang máy khác là máy đó không bao giờ tự đăng ký lại / tự hỏi quyền, mất tin bão mà chủ không hề tắt",
+  ],
+  [
+    "forfish.push.tuHoi.v1",
+    "mốc lần cuối MÁY NÀY tự hỏi quyền thông báo (2026-11-07) — quyền thông báo thuộc trình duyệt của máy, máy khác có quyền riêng",
+  ],
+  [
     "forfish.nav.rung.v1",
     "tắt/bật RUNG khi dẫn đường (2026-09-04, Đợt 3) — chuyện của MÁY NÀY: máy khác có thể không có mô-tơ rung, và ai tắt vì để máy trên giá thì máy mới không có lý do gì phải tắt theo. Mặc định BẬT là phía an toàn (rung là kênh cảnh báo còn tới được khi tiếng máy tàu át chuông), nên chép cái 'tắt' sang máy mới là âm thầm bịt một kênh cảnh báo",
   ],

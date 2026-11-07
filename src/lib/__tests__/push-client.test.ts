@@ -75,8 +75,14 @@ describe("decideRekey", () => {
     expect(decideRekey({ ...base, keyMatch: false, serverKey: false })).toBe("keep");
   });
 
-  it("không có đăng ký: có dấu đổi dở → resubscribe; không dấu (tự tắt) → keep", () => {
+  it("không có đăng ký: có dấu đổi dở → resubscribe; bà con TỰ TẮT → keep", () => {
     expect(decideRekey({ ...base, hasSubscription: false, pending: true, keyMatch: null })).toBe("resubscribe");
-    expect(decideRekey({ ...base, hasSubscription: false, pending: false, keyMatch: null })).toBe("keep");
+    expect(decideRekey({ ...base, hasSubscription: false, pending: true, keyMatch: null, userOff: true })).toBe("resubscribe");
+    expect(decideRekey({ ...base, hasSubscription: false, pending: false, keyMatch: null, userOff: true })).toBe("keep");
+  });
+
+  it("đã cho phép mà MẤT đăng ký (không tự tắt) → resubscribe (2026-11-07)", () => {
+    expect(decideRekey({ ...base, hasSubscription: false, pending: false, keyMatch: null })).toBe("resubscribe");
+    expect(decideRekey({ ...base, hasSubscription: false, keyMatch: null, permission: "default" })).toBe("keep");
   });
 });

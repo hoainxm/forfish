@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { SwRegister } from "@/components/sw-register";
 import { UpdateNotice } from "@/components/update-notice";
 import { UsageHeartbeat } from "@/components/usage-heartbeat";
+import { PushTuBat } from "@/components/push-tu-bat";
 import { ViewportGapFix } from "@/components/viewport-gap-fix";
 
 /*  ĐỘ ĐẬM = ĐÚNG CÁI CODE DÙNG (soát 2026-10-29): font-normal/medium/semibold/bold
@@ -92,6 +93,8 @@ export default function RootLayout({
         {/* Máy tự báo đã mở app (cho /quan-tri biết ai chưa mở BẢN CÀI).
             Không vẽ gì, không chặn gì — xem lib/heartbeat.ts. */}
         <UsageHeartbeat />
+        {/* Tự bật thông báo: hộp xin quyền ở cú chạm đầu tiên; mất đăng ký thì tự đăng ký lại — push-tu-bat.tsx. */}
+        <PushTuBat />
         {/* Vá bug iOS 26 Safari: dock đáy treo lưng chừng sau đóng bàn phím —
             xem viewport-gap-fix.tsx. Máy không dính bug thì nó im lặng. */}
         <ViewportGapFix />

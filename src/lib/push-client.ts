@@ -89,9 +89,15 @@ export function decideRekey(input: {
   pending: boolean;
   serverKey: boolean;
   keyMatch: boolean | null;
+  /** bà con TỰ TẮT công tắc thông báo trên máy này (`forfish.push.tat.v1`) — mặc định false */
+  userOff?: boolean;
 }): RekeyStep {
   if (input.permission !== "granted" || !input.serverKey) return "keep";
-  if (!input.hasSubscription) return input.pending ? "resubscribe" : "keep";
+  /*  ĐÃ CHO PHÉP MÀ MẤT ĐĂNG KÝ ⇒ ĐĂNG KÝ LẠI (2026-11-07, anh Long: "cho tự động bật thông báo cả đi"). Máy
+      đã cấp quyền nhưng không còn đăng ký (trình duyệt dọn, máy chủ xoá dòng chết 404/410, cài lại app) thì
+      trước đây im lặng mất tin vĩnh viễn — đo 07/11: máy đuôi 7924 nhận nhắc giấy tới 01/11 rồi mất. Chỉ
+      KHÔNG đăng ký lại khi bà con TỰ TẮT công tắc (`userOff`). */
+  if (!input.hasSubscription) return input.pending || !input.userOff ? "resubscribe" : "keep";
   return input.keyMatch === false ? "rotate" : "keep";
 }
 
@@ -144,6 +150,7 @@ export async function subscribeToPush(
   if (!isPushSupported()) return { ok: false, error: "unsupported" };
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return { ok: false, error: "denied" };
+  setPushUserOff(false);
 
   // Không service worker active thì không thể subscribe — timeout thay vì
   // treo "Đang xử lý" vô hạn (cùng lý do getExistingPushSubscription ở trên).
@@ -172,9 +179,29 @@ export async function subscribeToPush(
   return { ok: true };
 }
 
+/*  DẤU "BÀ CON TỰ TẮT" (2026-11-07). Tắt công tắc thì quyền máy vẫn "granted" — không có dấu này thì lượt tự đăng
+    ký lại (decideRekey) bật lại trái ý. Bật lại (subscribeToPush) thì xoá dấu. */
+const PUSH_OFF_KEY = "forfish.push.tat.v1";
+export function pushUserOff(): boolean {
+  try {
+    return localStorage.getItem(PUSH_OFF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function setPushUserOff(off: boolean): void {
+  try {
+    if (off) localStorage.setItem(PUSH_OFF_KEY, "1");
+    else localStorage.removeItem(PUSH_OFF_KEY);
+  } catch {
+    /* chế độ riêng tư — tệ nhất là lần mở sau tự bật lại; vẫn tắt được */
+  }
+}
+
 export async function unsubscribeFromPush(): Promise<boolean> {
   // bà con TỰ TẮT: bỏ dấu đổi khoá dở, kẻo lần mở sau "làm nốt" = bật lại trái ý
   clearRekey();
+  setPushUserOff(true);
   const sub = await getExistingPushSubscription();
   if (!sub) return true;
   const endpoint = sub.endpoint;
@@ -283,7 +310,8 @@ async function rekeyOnce(
   const permission = typeof Notification === "undefined" ? "unsupported" : Notification.permission;
   // không quyền / không có gì để so / trình duyệt không cho biết khoá → khỏi gọi mạng
   if (permission !== "granted") return { sub, pending };
-  if (!sub && !pending) return { sub, pending };
+  const userOff = pushUserOff();
+  if (!sub && !pending && userOff) return { sub, pending };
   const knownKey = sub ? sub.options?.applicationServerKey ?? null : null;
   if (sub && !knownKey && !pending) return { sub, pending };
 
@@ -294,6 +322,7 @@ async function rekeyOnce(
     pending: !!pending,
     serverKey: !!serverKey,
     keyMatch: sub && serverKey ? sameServerKey(knownKey, serverKey) : null,
+    userOff,
   });
   if (step === "keep" || !serverKey) return { sub, pending };
 
