@@ -504,7 +504,7 @@ export function kiemCanhBao(r) {
 }
 
 // ── NHẮC NHỞ (lib/stracking/nhac-nho) — kiểm ở đây để kiemGoiNhap dùng, tránh import vòng ──
-const LOAI_NHAC = new Set(["mkn-sap-6h", "mkn-qua-6h", "mkn-bo-sap-1ngay", "mkn-bo-qua-1ngay", "tcts-that-bai", "han-sap-het", "han-qua-han", "nd41-nang-cap"]);
+const LOAI_NHAC = new Set(["mkn-sap-6h", "mkn-qua-6h", "mkn-bo-sap-1ngay", "mkn-bo-qua-1ngay", "mkn-sap-10ngay", "mkn-qua-10ngay", "tcts-that-bai", "han-sap-het", "han-qua-han", "nd41-nang-cap"]);
 const TRAN_NHAC = 20_000;
 
 /** Máy chủ kiểm lại `nhac[]` do máy GPU tính (lib/stracking/nhac-nho viecNhac → nhacTheoNguoi). Hàng sai bị bỏ. Vắng ⇒ []. */

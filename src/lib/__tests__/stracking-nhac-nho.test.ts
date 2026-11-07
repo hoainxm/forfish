@@ -273,3 +273,94 @@ describe("trạng thái kết nối thật của từng máy (vụ GL-99280 \"Sa
     expect(g.goi?.ketNoi).toEqual([{ serial: "B", matTu: "2026-11-06T02:00:00.000Z", coLai: null }]);
   });
 });
+
+// ── 07/11 — anh Long "làm 2 tới 5" (docs/research/chien-luoc-du-lieu-2026-11-06, r5-mkn3) ─────────────────────────────
+describe("không rõ bờ/khơi ⇒ coi như NGOÀI KHƠI (mốc 6 giờ, sớm hơn)", () => {
+  const dong = (o: Record<string, unknown>, viTri?: string) =>
+    docMkn({ report: { serial: "S1", dateTracking: NOW - GIO, dateOnline: null, ...o } }, viTri);
+  it("inShore rõ thì theo inShore; thiếu/lạ thì theo bộ lọc lượt hỏi; cả hai không rõ ⇒ ngoài khơi", () => {
+    expect(dong({ inShore: 1 }, "2")?.ngoaiKhoi).toBe(false);
+    expect(dong({ inShore: "2" }, "1")?.ngoaiKhoi).toBe(true);
+    expect(dong({}, "1")?.ngoaiKhoi).toBe(false);
+    expect(dong({ inShore: 0 }, "2")?.ngoaiKhoi).toBe(true);
+    expect(dong({})?.ngoaiKhoi).toBe(true);
+    expect(dong({ inShore: null })?.ngoaiKhoi).toBe(true);
+  });
+  it("gọi kiểu .map(docMkn) (chỉ số mảng là số) không bị hiểu nhầm thành bộ lọc", () => {
+    const ds = [{ report: { serial: "S1", dateTracking: NOW - GIO, dateOnline: null } }, { report: { serial: "S2", dateTracking: NOW - GIO, dateOnline: null } }];
+    expect(ds.map(docMkn as (r: unknown, i: number) => ReturnType<typeof docMkn>).every((m) => m?.ngoaiKhoi)).toBe(true);
+  });
+  it("đợt không rõ vùng mất 4 giờ ⇒ đã có nhắc nấc ngoài khơi (không đợi mốc 24 giờ)", () => {
+    expect(mknV(NOW - 4 * GIO, NOW, { inShore: undefined })[0]?.loai).toBe("mkn-sap-6h");
+  });
+});
+
+describe("mất kết nối mà cước ĐÃ HẾT ⇒ nói thẳng nguyên nhân + gia hạn trong app", () => {
+  it("ngoài khơi trước mốc: không bảo kiểm ăng-ten, nói ngày hết cước", () => {
+    const v = mknV(NOW - 3 * GIO, NOW, {}, { hetHan: "2026-10-27" })[0];
+    expect(v.dong).toMatch(/cước giám sát hành trình đã hết hạn từ 27\/10\/2026 — bà con gia hạn ngay trong app/);
+    expect(v.dong).not.toMatch(/ăng-ten/);
+  });
+  it("nằm bờ quá mốc: không bảo bật máy (bật cũng không truyền)", () => {
+    const v = mknV(NOW - 30 * GIO, NOW, { inShore: 1 }, { trongBo: true, hetHan: "2026-10-27" })[0];
+    expect(v.dong).toMatch(/gia hạn ngay trong app/);
+    expect(v.dong).not.toMatch(/bật lại máy/);
+  });
+  it("cước còn hạn ⇒ câu cũ", () => {
+    expect(mknV(NOW - 3 * GIO, NOW)[0].dong).toMatch(/ăng-ten/);
+    expect(mknV(NOW - 3 * GIO, NOW)[0].dong).not.toMatch(/hết hạn/);
+  });
+});
+
+describe("nằm bờ quá 2 ngày ⇒ gợi ý làm đơn tạm ngừng (SDVICO làm hộ)", () => {
+  it("dưới 48 giờ chưa gợi ý; từ 48 giờ có gợi ý 7 ngày/lần", () => {
+    expect(mknV(NOW - 30 * GIO, NOW, { inShore: 1 }, { trongBo: true })[0].dong).not.toMatch(/tạm ngừng/);
+    const v = mknV(NOW - 50 * GIO, NOW, { inShore: 1 }, { trongBo: true })[0];
+    expect(v.dong).toMatch(/làm đơn tạm ngừng giám sát hành trình/);
+    expect(v.dong).toMatch(/7 ngày một lần; SDVICO làm hộ/);
+  });
+  it("ngoài khơi không bao giờ gợi ý tạm ngừng", () => {
+    expect(mknV(NOW - 50 * GIO, NOW)[0].dong).not.toMatch(/tạm ngừng/);
+  });
+});
+
+describe("ngoài khơi nấc 8 ngày và 10 ngày — hạn chót đưa tàu về bờ (NĐ 41/2026)", () => {
+  it("dưới 8 ngày vẫn chu kỳ 6 giờ; từ 8 ngày nhắc hạn chót, khoá theo NGÀY (1 lần/ngày)", () => {
+    expect(mknV(NOW - 7 * 24 * GIO, NOW)[0].loai).toBe("mkn-qua-6h");
+    const bd = NOW - 8 * 24 * GIO;
+    const v = mknV(bd, NOW)[0];
+    expect(v).toMatchObject({ loai: "mkn-sap-10ngay", day: true, khoa: `mkn|S1|${new Date(bd).toISOString()}|ngay8` });
+    expect(v.dong).toMatch(/mất tín hiệu 8 ngày/);
+    expect(v.dong).toMatch(/phải về bờ trong 10 ngày — tức trước 17:00 ngày 07\/11/);
+    expect(mknV(bd, NOW + 6 * GIO)[0].khoa).toBe(v.khoa); // cùng ngày ⇒ không nhắc lại mỗi 6 giờ
+    expect(mknV(bd, NOW + 24 * GIO)[0].khoa).toMatch(/\|ngay9$/);
+  });
+  it("trừ 15 phút độ trễ: còn 10 phút tới giờ 192 đã nhắc nấc 8 ngày", () => {
+    expect(mknV(NOW - (192 * GIO - 10 * 60_000), NOW)[0].loai).toBe("mkn-sap-10ngay");
+  });
+  it("quá 10 ngày ⇒ mkn-qua-10ngay, vẫn mỗi ngày một lần", () => {
+    const v = mknV(NOW - 11 * 24 * GIO, NOW)[0];
+    expect(v.loai).toBe("mkn-qua-10ngay");
+    expect(v.dong).toMatch(/Đã quá 10 ngày/);
+    expect(v.khoa).toMatch(/\|ngay11$/);
+  });
+  it("hết cước: nguyên nhân đứng TRƯỚC lời khuyên đưa tàu về", () => {
+    const d = mknV(NOW - 8 * 24 * GIO, NOW, {}, { hetHan: "2026-10-20" })[0].dong;
+    expect(d.indexOf("gia hạn ngay trong app")).toBeLessThan(d.indexOf("phải về bờ"));
+    expect(d).toMatch(/Chưa gia hạn được thì bà con sắp xếp đưa tàu về/);
+  });
+  it("nằm bờ không có nấc 10 ngày (vẫn mỗi 24 giờ)", () => {
+    expect(mknV(NOW - 12 * 24 * GIO, NOW, { inShore: 1 }, { trongBo: true })[0].loai).toBe("mkn-bo-qua-1ngay");
+  });
+  it("máy chủ nhận 2 loại mới", () => {
+    expect(kiemNhac([{ sdt: "0967214151", loai: "mkn-sap-10ngay", dong: "x" }, { sdt: "0967214151", loai: "mkn-qua-10ngay", dong: "x" }])).toHaveLength(2);
+  });
+  it("giọng: bà con + SDVICO/app, không in hoa hét", () => {
+    for (const h of [8 * 24, 11 * 24]) {
+      const d = mknV(NOW - h * GIO, NOW, {}, { hetHan: "2026-10-20" })[0].dong;
+      expect(d.replace(/SDVICO/g, "")).not.toMatch(/\b[A-ZĐ]{4,}\b/);
+      expect(d).toMatch(/bà con/i);
+      expect(d).toMatch(/SDVICO/);
+    }
+  });
+});

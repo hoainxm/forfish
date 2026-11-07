@@ -6,7 +6,7 @@
 // bằng `khoa` trong sổ "đã nhắc" của máy nhà, rồi gửi `nhac[]` (một dòng/tàu/người) lên POST /api/stracking/nhap; máy chủ
 // gộp với cảnh báo tàu thành MỘT tin/SĐT/lượt vào hộp thư + đẩy lên máy (lib/stracking/thong-bao).
 //
-// Không viện dẫn mức tiền phạt cụ thể — chỉ mốc 6 giờ anh Long nêu.
+// Không viện dẫn mức tiền phạt cụ thể — chỉ các mốc giờ/ngày (6 giờ, 1 ngày, 10 ngày về bờ).
 // GIỌNG (anh Long 05/11: "thông báo chọn ngôn ngữ để ngư dân thấy mình đang giúp họ"): mỗi câu = chuyện gì đang xảy ra
 // + bà con làm gì + SDVICO giúp được gì. Không doạ, không chữ in hoa hét, không "bị phạt" đứng trơ — nói "để tránh bị phạt".
 
@@ -21,8 +21,20 @@ import { laMayDaBo } from "./may-da-bo.mjs";
  * Câu nói GIỜ CHÓT cụ thể ("trước 19:40 hôm nay"). Mỗi nấc đúng 1 lần (khoá serial + đợt + nấc); lỡ nấc thì chỉ gửi nấc
  * gần nhất, không dồn. Nấc rơi 22:00–05:00 ⇒ dời lên 21:00 tối trước (nếu vẫn sau lúc bắt đầu mất) — bà con ngủ, sáng ra
  * là quá mốc. Trừ TRE_DO_MS cho chu kỳ lượt kiểm (15 phút) — báo sớm một chút còn hơn trễ.
+ *
+ * Bổ sung 07/11 (anh Long "làm 2 tới 5", theo docs/research/chien-luoc-du-lieu-2026-11-06 r5-mkn3):
+ *   · KHÔNG RÕ bờ/khơi ⇒ coi như NGOÀI KHƠI (mốc 6 giờ, sớm hơn) — nhầm sang bờ là trễ 18 giờ đúng chỗ phạt nặng.
+ *   · Máy đang mất mà CƯỚC ĐÃ HẾT ⇒ câu nói thẳng nguyên nhân + gia hạn trong app (thay "kiểm tra nguồn, ăng-ten").
+ *   · NẰM BỜ quá 2 ngày ⇒ thêm lối gỡ gốc: làm đơn TẠM NGỪNG (chỉ phải báo vị trí 7 ngày/lần), SDVICO làm hộ.
+ *   · NGOÀI KHƠI nấc 8 ngày và 10 ngày (NĐ 41/2026: máy không khắc phục được thì tàu phải về bờ trong 10 ngày; Cục nhắc
+ *     sớm ở giờ 192) ⇒ từ ngày 8 nhắc MỖI NGÀY một lần thay chu kỳ 6 giờ, nói hạn chót đưa tàu về.
  */
 export const MKN_PHAT_GIO = 6;
+/** Ngoài khơi: Cục nhắc sớm ở giờ 192 (8 ngày), quá 240 giờ (10 ngày) phải đưa tàu về bờ. */
+export const MKN_NHAC_VE_BO_GIO = 192;
+export const MKN_VE_BO_GIO = 240;
+/** Nằm bờ mất tín hiệu quá ngần này ⇒ gợi ý làm đơn tạm ngừng. */
+export const MKN_BO_GOI_Y_TAM_NGUNG_GIO = 48;
 export const MKN_BO_PHAT_GIO = 24;
 export const NAC_KHOI_CON_GIO = [3, 1];
 export const NAC_BO_CON_GIO = [8, 3];
@@ -69,8 +81,12 @@ function ngayVn(iso) {
   return `${d}/${m}/${y}`;
 }
 
-/** Một dòng JSON /getListDeviceDisconnect (content.data[].report) ⇒ đợt mất kết nối. Sai ⇒ null. */
-export function docMkn(r) {
+/**
+ * Một dòng JSON /getListDeviceDisconnect (content.data[].report) ⇒ đợt mất kết nối. Sai ⇒ null.
+ * `viTri` = bộ lọc của lượt hỏi ("1" trong bờ / "2" ngoài khơi) — dùng khi dòng thiếu/lạ `inShore`. Cả hai cùng không rõ
+ * ⇒ NGOÀI KHƠI (mặc định an toàn: mốc 6 giờ). Chỉ nhận chuỗi: gọi qua `.map(docMkn)` sẽ truyền chỉ số mảng (số) vào đây.
+ */
+export function docMkn(r, viTri) {
   const x = r?.report ?? r;
   if (!x || typeof x !== "object") return null;
   const serial = typeof x.serial === "string" ? x.serial.trim() : "";
@@ -85,8 +101,14 @@ export function docMkn(r) {
     ketThuc: ketThuc != null && Number.isFinite(ketThuc) ? new Date(ketThuc).toISOString() : null,
     dangMat: ketThuc == null || !Number.isFinite(ketThuc),
     // inShore: 1 = trong bờ, 2 = ngoài khơi (khớp bộ lọc "Vị trí" của trang).
-    ngoaiKhoi: Number(x.inShore) === 2,
+    ngoaiKhoi: laNgoaiKhoi(x.inShore, viTri),
   };
+}
+
+function laNgoaiKhoi(inShore, viTri) {
+  const v = Number(inShore);
+  if (inShore != null && inShore !== "" && (v === 1 || v === 2)) return v === 2;
+  return viTri !== "1";
 }
 
 /**
@@ -149,30 +171,56 @@ export function viecNhac({ thietBi, mkn = [], now = Date.now() }) {
     const tu = gioPhutVn(bd);
     const daMat = Math.floor((now - bd) / GIO_MS);
     const noiMat = bo ? " khi tàu nằm bờ" : "";
+    // Nguyên nhân CHẮC CHẮN: cước đã hết ⇒ máy ngừng truyền. Nói thẳng + gia hạn trong app (không bảo kiểm ăng-ten).
+    const hetCuoc = trangThaiHan(t.hetHan, homNay).loai === "het-han";
+    const caiCuoc = hetCuoc
+      ? ` Máy ngừng truyền vì cước giám sát hành trình đã hết hạn từ ${ngayVn(t.hetHan)} — bà con gia hạn ngay trong app để máy truyền lại.`
+      : "";
     if (now + TRE_DO_MS < mocMs) {
       const nac = nacBaoTruoc(bd, mocMs, bo ? NAC_BO_CON_GIO : NAC_KHOI_CON_GIO, now);
       if (!nac) continue;
       const han = hanChot(mocMs, now);
       const conLai = conLaiChu(mocMs - now);
+      const dau = `${tau}: máy giám sát hành trình mất tín hiệu ${daMat} giờ${noiMat} (từ ${tu}).`;
       them(t, {
         khoa: `${bo ? "mkn-bo" : "mkn"}|${t.serial}|${m.batDau}|con${nac}`,
         loai: bo ? "mkn-bo-sap-1ngay" : "mkn-sap-6h",
         day: true,
-        dong: bo
-          ? `${tau}: máy giám sát hành trình mất tín hiệu ${daMat} giờ${noiMat} (từ ${tu}). Còn ${conLai} — bà con bật máy để báo vị trí trước ${han}, tránh bị phạt. Cần hỗ trợ cứ gọi SDVICO.`
-          : `${tau}: máy giám sát hành trình mất tín hiệu ${daMat} giờ (từ ${tu}). Còn ${conLai} — trước ${han} máy cần có tín hiệu lại để không bị phạt. Bà con kiểm tra giúp nguồn điện, ăng-ten; cần hỗ trợ cứ gọi SDVICO.`,
+        dong: hetCuoc
+          ? `${dau} Còn ${conLai} — trước ${han} máy cần có tín hiệu lại để không bị phạt.${caiCuoc} Cần hỗ trợ cứ gọi SDVICO.`
+          : bo
+            ? `${dau} Còn ${conLai} — bà con bật máy để báo vị trí trước ${han}, tránh bị phạt. Cần hỗ trợ cứ gọi SDVICO.`
+            : `${dau} Còn ${conLai} — trước ${han} máy cần có tín hiệu lại để không bị phạt. Bà con kiểm tra giúp nguồn điện, ăng-ten; cần hỗ trợ cứ gọi SDVICO.`,
+      });
+    } else if (!bo && now + TRE_DO_MS >= bd + MKN_NHAC_VE_BO_GIO * GIO_MS) {
+      // NGOÀI KHƠI từ ngày thứ 8: nhắc MỖI NGÀY một lần (thay chu kỳ 6 giờ) hạn chót đưa tàu về bờ — mốc 10 ngày NĐ 41/2026.
+      const ngay = Math.floor((now + TRE_DO_MS - bd) / (24 * GIO_MS));
+      const quaVeBo = now >= bd + MKN_VE_BO_GIO * GIO_MS;
+      const dau = `${tau}: máy giám sát hành trình mất tín hiệu ${ngay} ngày (từ ${tu}).`;
+      them(t, {
+        khoa: `mkn|${t.serial}|${m.batDau}|ngay${ngay}`,
+        loai: quaVeBo ? "mkn-qua-10ngay" : "mkn-sap-10ngay",
+        day: true,
+        dong: quaVeBo
+          ? `${dau}${caiCuoc} Đã quá 10 ngày — theo quy định tàu phải về bờ khi máy không khắc phục được. Bà con đưa tàu về sớm nhất có thể và gọi SDVICO để sửa máy khi cập bến.`
+          : `${dau}${caiCuoc} Theo quy định, máy không khắc phục được thì tàu phải về bờ trong 10 ngày — tức trước ${hanChot(bd + MKN_VE_BO_GIO * GIO_MS, now)}. ${hetCuoc ? "Chưa gia hạn được thì bà con" : "Bà con"} sắp xếp đưa tàu về và gọi SDVICO để sửa máy khi cập bến.`,
       });
     } else {
       // Đã tới mốc phạt — nhắc lại mỗi chu kỳ mốc (6 giờ / 24 giờ) trong cùng đợt.
       const dot = Math.floor((now - bd) / (mocGio * GIO_MS));
       const thoiGian = daMat >= 48 ? `${Math.floor(daMat / 24)} ngày` : `${daMat} giờ`;
+      // Nằm bờ lâu: lối gỡ GỐC là đơn tạm ngừng (đang tạm ngừng chỉ báo vị trí 7 ngày/lần) — cả ngành mới 204 đơn.
+      const tamNgung =
+        bo && daMat >= MKN_BO_GOI_Y_TAM_NGUNG_GIO
+          ? " Tàu nằm bờ dài ngày thì nên làm đơn tạm ngừng giám sát hành trình — khi tạm ngừng chỉ phải báo vị trí 7 ngày một lần; SDVICO làm hộ, bà con cứ gọi."
+          : "";
       them(t, {
         khoa: `${bo ? "mkn-bo" : "mkn"}|${t.serial}|${m.batDau}|${dot}`,
         loai: bo ? "mkn-bo-qua-1ngay" : "mkn-qua-6h",
         day: true,
         dong: bo
-          ? `${tau}: máy giám sát hành trình mất tín hiệu ${thoiGian}${noiMat} (từ ${tu}). Để tránh bị phạt, bà con bật lại máy hoặc báo vị trí cho cơ quan quản lý mỗi ngày; SDVICO sẵn sàng kiểm tra máy giúp bà con.`
-          : `${tau}: máy giám sát hành trình mất tín hiệu ${thoiGian} (từ ${tu}). Để tránh bị phạt, bà con nhớ báo vị trí tàu cho cơ quan quản lý bằng liên lạc khác; SDVICO sẵn sàng kiểm tra máy giúp bà con.`,
+          ? `${tau}: máy giám sát hành trình mất tín hiệu ${thoiGian}${noiMat} (từ ${tu}).${caiCuoc} Để tránh bị phạt, bà con ${hetCuoc ? "" : "bật lại máy hoặc "}báo vị trí cho cơ quan quản lý mỗi ngày.${tamNgung || " SDVICO sẵn sàng kiểm tra máy giúp bà con."}`
+          : `${tau}: máy giám sát hành trình mất tín hiệu ${thoiGian} (từ ${tu}).${caiCuoc} Để tránh bị phạt, bà con nhớ báo vị trí tàu cho cơ quan quản lý bằng liên lạc khác; SDVICO sẵn sàng kiểm tra máy giúp bà con.`,
       });
     }
   }

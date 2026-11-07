@@ -60,6 +60,9 @@ const log = (...a) => console.log(new Date().toISOString(), ...a);
 const CO_TRANG = 1000;
 const TRAN_TRANG = 40; // 40 × 1000 = 40 nghìn — chặn vòng lặp vô tận nếu trang trả mãi một trang
 const TRAN_TRANG_CANH_BAO = 10;
+// Báo cáo mất kết nối TRONG BỜ: 1 000 dòng chỉ ≈ 9 ngày, mà 65% đợt nằm bờ kéo dài quá 10 ngày (r5-mkn3) ⇒ đọc trang lớn
+// hơn để không thôi nhắc giữa chừng. Máy chủ không nhận cỡ này thì log "x/5000 dòng" sẽ lộ ra.
+const CO_MKN_BO = 5000;
 const NGHI_MS = 800; // nghỉ giữa hai trang — không dồn máy chủ Viettel
 const HET_GIO_GOI_MS = 120_000;
 const HET_GIO_GUI_MS = 60_000;
@@ -389,7 +392,8 @@ async function layMkn(page) {
   // Ngoài khơi (mốc 6 giờ) + TRONG BỜ (mốc 1 ngày — anh Long 06/11: "ở bờ tắt máy cũng bị phạt nếu 1 ngày ko báo cáo").
   const out = [];
   for (const viTri of ["2", "1"]) {
-    const text = await goi(page, "/getListDeviceDisconnect", thanMkn(1000, viTri), "json");
+    const co = viTri === "1" ? CO_MKN_BO : 1000;
+    const text = await goi(page, "/getListDeviceDisconnect", thanMkn(co, viTri), "json");
     let j;
     try {
       j = JSON.parse(text);
@@ -397,7 +401,11 @@ async function layMkn(page) {
       throw new HetPhien("báo cáo mất kết nối không trả JSON (phiên hết?)");
     }
     if (!j?.success || !Array.isArray(j?.content?.data)) throw new Error(`báo cáo mất kết nối trả lỗi: ${String(j?.errorString ?? "").slice(0, 120)}`);
-    out.push(...j.content.data.map(docMkn).filter(Boolean));
+    // Truyền bộ lọc của lượt hỏi: dòng thiếu/lạ inShore vẫn biết bờ hay khơi (không để `.map` truyền chỉ số mảng).
+    const ds = j.content.data.map((r) => docMkn(r, viTri)).filter(Boolean);
+    const cuNhat = ds.reduce((a, m) => (a == null || m.batDau < a ? m.batDau : a), null);
+    log(`mất kết nối ${viTri === "1" ? "trong bờ" : "ngoài khơi"}: ${ds.length}/${co} dòng, cũ nhất ${cuNhat ?? "—"}`);
+    out.push(...ds);
   }
   return out;
 }

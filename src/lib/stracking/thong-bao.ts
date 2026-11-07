@@ -79,6 +79,9 @@ export type LoaiNhac =
   // nằm bờ mà mất kết nối / tắt máy — quá 1 ngày không báo vị trí là bị phạt (anh Long 06/11)
   | "mkn-bo-sap-1ngay"
   | "mkn-bo-qua-1ngay"
+  // ngoài khơi từ ngày 8: hạn chót đưa tàu về bờ (NĐ 41/2026, mốc 10 ngày) — 07/11
+  | "mkn-sap-10ngay"
+  | "mkn-qua-10ngay"
   | "tcts-that-bai"
   | "han-sap-het"
   | "han-qua-han";
@@ -108,6 +111,8 @@ export const TRAN_NHAC_MOI_LUOT = 1500;
 export const DONG_NHAC_TOI_DA = 4;
 /** Thứ tự nặng (nhỏ = nặng): mất kết nối là chuyện bị phạt ⇒ đứng trước cả cảnh báo. */
 const HANG_NHAC: Record<LoaiNhac, number> = {
+  "mkn-qua-10ngay": 0,
+  "mkn-sap-10ngay": 0,
   "mkn-qua-6h": 0,
   "mkn-bo-qua-1ngay": 1,
   "mkn-sap-6h": 2,
@@ -117,6 +122,8 @@ const HANG_NHAC: Record<LoaiNhac, number> = {
   "han-sap-het": 6,
 };
 const TIEU_DE_NHAC: Record<LoaiNhac, (tau: string) => string> = {
+  "mkn-qua-10ngay": (t) => `Tàu ${t} mất kết nối quá 10 ngày`,
+  "mkn-sap-10ngay": (t) => `Tàu ${t} sắp tới hạn 10 ngày phải về bờ`,
   "mkn-qua-6h": (t) => `Tàu ${t} mất kết nối quá 6 giờ`,
   "mkn-sap-6h": (t) => `Tàu ${t} sắp quá 6 giờ mất kết nối`,
   "mkn-bo-qua-1ngay": (t) => `Tàu ${t} quá 1 ngày chưa báo vị trí`,
