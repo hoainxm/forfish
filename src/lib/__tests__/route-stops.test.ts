@@ -248,3 +248,31 @@ describe("RouteStop.name — thêm trường TUỲ CHỌN, bản ghi cũ vẫn �
     expect(m.loadStops()[0].name).toBe("Cảng nhà");
   });
 });
+
+describe("guiNoiDi / layNoiDi — lộ trình gửi cảng xuất bến sang Dẫn đường (2026-11-08)", () => {
+  it("gửi rồi đọc được, xoá thì hết; quá 30 phút ⇒ bỏ; dữ liệu hỏng ⇒ null", async () => {
+    const { guiNoiDi, layNoiDi, xoaNoiDi } = await import("@/lib/route-stops");
+    // env node: không có sessionStorage — gắn bản giả tối thiểu
+    const kho = new Map<string, string>();
+    const ss = {
+      getItem: (k: string) => kho.get(k) ?? null,
+      setItem: (k: string, v: string) => void kho.set(k, String(v)),
+      removeItem: (k: string) => void kho.delete(k),
+      clear: () => kho.clear(),
+    };
+    vi.stubGlobal("sessionStorage", ss);
+    const sessionStorage = ss;
+    guiNoiDi({ lat: 13.76, lon: 109.27, ten: "Quy Nhơn" });
+    expect(layNoiDi()).toEqual({ lat: 13.76, lon: 109.27, ten: "Quy Nhơn" });
+    expect(layNoiDi()).not.toBeNull(); // đọc không xoá (StrictMode gọi initializer hai lần)
+    xoaNoiDi();
+    expect(layNoiDi()).toBeNull();
+    guiNoiDi({ lat: 13.76, lon: 109.27, ten: "Quy Nhơn" });
+    expect(layNoiDi(Date.now() + 31 * 60_000)).toBeNull();
+    sessionStorage.setItem("forfish.route.noiDi.v1", "{hỏng");
+    expect(layNoiDi()).toBeNull();
+    sessionStorage.setItem("forfish.route.noiDi.v1", JSON.stringify({ lat: 999, lon: 1, ten: "x", luc: Date.now() }));
+    expect(layNoiDi()).toBeNull();
+    vi.unstubAllGlobals();
+  });
+});

@@ -151,6 +151,25 @@ Cảng Quy Nhơn, khoảng 30 giờ" — không số điểm, không phần tră
 **Trần đã biết (nợ trong code)**: vùng chỉ tới được QUA vùng khác (không thẳng từ cảng) bị bỏ — hết
 khi chặng nối bằng `planRoute` đi vòng bờ; mỏm đất hẹp hơn 2 km giữa hai mẫu có thể lọt.
 
+#### §3 Phase 1b — NGHỀ × TRĂNG × SÓNG GIÓ (2026-11-08, anh Long: "câu ngừ chạy tút lên phía bắc?", "tính chuyến phải tính lịch trăng sóng gió … xác định tỷ trọng")
+
+Lỗi gốc: B1 chấm ô bằng `s` = điểm LOÀI TỐT NHẤT tại ô, bất kể nghề ⇒ tháng 11 cá nục/bạc má ven bờ Bắc Bộ
+vào vụ, kéo tàu câu ngừ Tam Quang ra Vịnh Bắc Bộ. Nay:
+
+| Yếu tố | Luật | Tỷ trọng / nguồn |
+|---|---|---|
+| **Cá theo nghề** | `dau-vao.ts LOAI_THEO_NGHE` + `diemOTheoNghe`: điểm ô = loài cao nhất TRONG nhóm loài của nghề (`sp`, tên ngắn `SPECIES_PROFILES`); ô không có loài của nghề bị bỏ; có nghề thì KHÔNG pha mùa vụ (`clim` là điểm gộp mọi loài). Câu ngừ = ngừ vây vàng + ngừ mắt to; lưới vây = ngừ vằn/chù/ồ + cá nổi nhỏ; lưới rê = cá thu, ngừ chấm/chù/ồ, cá ngân, cá cờ, nục heo; chụp mực = mực ống/xà/lá | `sp` là điểm nền "bãi cá theo mùa" ĐÃ trộn lưới VMS đội tàu theo nghề (`fleet-effort-025`, 76.723 tàu) + sản lượng loài ⇒ vùng = chỗ tàu cùng nghề hay đánh mùa này. Nhóm loài là ước (nợ trong code) |
+| **Trăng** | `he-so.ts heSoTrang = 1 + HIEU_UNG_RAM[nghề] × độ rọi` (độ rọi đêm 22 giờ, 0 non – 1 rằm) | Số đo sổ tàu 2026 (research 15b, cột rằm/tối): câu ngừ −5,3 %, vây cá nổi nhỏ −1,9 %, rê −1,2 %, chụp −12,9 %. Phản biện 18 hạ mức "giả thuyết" ⇒ dùng ĐÚNG số đo, không thổi theo truyền miệng |
+| **Sóng gió** | `heSoBien(sóng max, gió max)` qua `scoreDay` (lib/sea.ts — cùng thang Điểm đi biển cả app): ≥75 ×1 · 50–75 ×1→0,6 · 25–50 ×0,6→0 · ≤25 = bỏ ngày | Lưới gió sóng đủ vùng 16 ngày (`fetchForecastGrid(16)`, bản lưu `loadLongestSavedGrid` hiện trước) → `dungBienTheoNgay` (`seaPointFromGrid`, ô ~2°). Thiếu ⇒ hệ số 1 + ghi chú "chưa né được biển động" |
+
+Điểm ngày = cá × trăng × biển (NHÂN, không cộng: biển động mạnh phải kéo ngày về 0 dù cá dày). Áp TRƯỚC B2/B3
+⇒ thuật toán tự né ngày/vùng động. Kết quả mang thêm `VungDanh.loai` (loài chính, nặng điểm nhất trong vùng) và
+`VungDanh.yeuTo[]` (mỗi ngày đánh: điểm cá, độ rọi %, sóng m, gió km/h, hệ số) để màn ĐƯA RA. Ngày đánh hệ số
+biển < 0,6 ⇒ ghi chú "Ngày N ở vùng k: biển động — thuyền trưởng cân nhắc". Ghi chú đầu luôn có câu "Cách chấm…"
+nói ba yếu tố + tỷ trọng. Test `lo-trinh-he-so.test.ts`.
+**Assumptions**: nhóm loài theo nghề là ước phổ biến VN (chưa hỏi chủ tàu từng nghề) · ngày CHẠY chưa nhân hệ số biển (Dẫn đường né sóng từng chặng) · lộ trình lưu trước 08/11 không có `loai`/`yeuTo` (UI tự ẩn).
+Bước tiếp (phiên riêng 08/11): tách pha hoạt động từ vết tàu 1–2 năm (chạy/neo/dò/thả/thu) ⇒ curve đặc trưng theo nghề/tàu thay số ước.
+
 - **Thời tiết 2 tầng** (chuẩn voyage-optimization): per-leg time-dependent làm mặc định
   (bảng tra cụm↔cụm × mốc 3h, precompute ~100ms); chặng nào penalty sóng vượt ngưỡng mới chạy
   Dijkstra né sóng đầy đủ (chính là `planRoute` hiện có) CHỈ cho chặng đó. Không isochrone

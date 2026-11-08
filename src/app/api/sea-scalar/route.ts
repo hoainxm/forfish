@@ -1,4 +1,5 @@
-import { loadSeaScalar, SEA_SCALARS } from "@/lib/sea-scalars";
+import { SEA_SCALARS } from "@/lib/sea-scalars";
+import { loadSeaScalar } from "@/lib/sea-scalars-server";
 import type { SeaScalarKind } from "@/lib/sea-scalars";
 
 /**

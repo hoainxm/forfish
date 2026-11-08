@@ -49,7 +49,7 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 const SERIES: { key: keyof Report["series"]; title: string; hint: string }[] = [
-  { key: "signups", title: "Đăng ký tài khoản mới", hint: "Tài khoản đăng nhập được tạo trong kỳ (tự đăng ký, nhân viên tạo, SDWork gửi sang)." },
+  { key: "signups", title: "Đăng ký tài khoản mới", hint: "Tài khoản đăng nhập được tạo trong kỳ (tự đăng ký, nhân viên tạo, CRM gửi sang)." },
   { key: "premium", title: "Lượt premium bán ra", hint: "Kích hoạt + gia hạn premium trong kỳ (không tính hạ hạng)." },
   { key: "posts", title: "Bài Kairos của bà con", hint: "Bài bà con tự đăng — không tính báo gom về và bài SDVICO." },
   { key: "comments", title: "Bình luận Kairos", hint: "Bình luận của bà con dưới mọi bài." },
@@ -311,7 +311,7 @@ function GrantersCard({ granters, period }: { granters: Report["granters"]; peri
     <section className="surface px-4 py-4">
       <h3 className="text-[1rem] font-bold text-navy">Người cấp premium nhiều nhất</h3>
       <p className="mt-0.5 text-[0.8125rem] leading-snug text-muted">
-        Lượt kích hoạt + gia hạn trong {spanText(period)} qua. Số tiền xem ở SDWork.
+        Lượt kích hoạt + gia hạn trong {spanText(period)} qua. Số tiền xem ở CRM.
       </p>
       {!granters ? (
         <p className="mt-3 text-[0.875rem] text-muted">Chưa đọc được lịch sử cấp premium.</p>

@@ -91,7 +91,6 @@ export const STATIC_SELL_CONTACTS: SellContact[] = (() => {
       phone: w.phone,
       species: w.species ?? [],
       markets: [],
-      website: w.source,
       direct: false,
       note: w.note,
       visible: true,

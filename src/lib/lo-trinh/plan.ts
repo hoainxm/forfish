@@ -13,6 +13,7 @@
 import { haversineKm, type LatLon } from "@/lib/geo";
 import { distToSegmentKm, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
 import { trongVungNhanh } from "@/lib/lo-trinh/vung-nhanh";
+import { doRoiTrang, heSoBien, heSoTrang, hieuUngRam } from "@/lib/lo-trinh/he-so";
 import type {
   BaoRutGon,
   DongLich,
@@ -21,6 +22,7 @@ import type {
   Nghe,
   OCa,
   VungDanh,
+  YeuToNgay,
 } from "@/lib/lo-trinh/types";
 
 /* ───────────────────────── Tham số mặc định (ghi lại ở 09 §3 "Phase 1 ĐÃ LÀM") ─────────── */
@@ -181,6 +183,8 @@ interface DuLieuCa {
   tb: Map<number, number>;
   /** ngưỡng phân vị 80 của `tb` */
   nguong: number;
+  /** khoá ô → loài → tổng điểm các ngày (chỉ khi ô có `loai` — chấm theo nghề) */
+  loai: Map<number, Map<string, number>>;
 }
 
 const khoaO = (i: number, j: number) => (i + 5000) * 20000 + (j + 10000);
@@ -221,6 +225,7 @@ function docLopCa(caTheoNgay: LoTrinhInput["caTheoNgay"], D: number): DuLieuCa |
   const buoc = suyBuoc(mau);
   const o = new Map<number, O>();
   const ngay: Map<number, number>[] = [];
+  const loai = new Map<number, Map<string, number>>();
   for (let d = 0; d < D; d++) {
     const m = new Map<number, number>();
     for (const c of raw[d]) {
@@ -235,6 +240,11 @@ function docLopCa(caTheoNgay: LoTrinhInput["caTheoNgay"], D: number): DuLieuCa |
       if (!x.trong) continue;
       const s = Math.max(0, Math.min(100, c.s));
       if (s > (m.get(k) ?? -1)) m.set(k, s);
+      if (typeof c.loai === "string" && c.loai) {
+        let t = loai.get(k);
+        if (!t) loai.set(k, (t = new Map()));
+        t.set(c.loai, (t.get(c.loai) ?? 0) + s);
+      }
     }
     ngay.push(m);
   }
@@ -252,7 +262,7 @@ function docLopCa(caTheoNgay: LoTrinhInput["caTheoNgay"], D: number): DuLieuCa |
   }
   const vals = [...tb.values()].sort((x, y) => x - y);
   const nguong = vals[Math.floor(PHAN_VI_CUM * (vals.length - 1))];
-  return { buoc, o, ngay, tb, nguong };
+  return { buoc, o, ngay, tb, nguong, loai };
 }
 
 interface Cum {
@@ -260,6 +270,17 @@ interface Cum {
   lon: number;
   prize: number;
   keys: number[];
+  /** loài nặng điểm nhất trong vùng (tổng điểm theo ô × ngày); undefined khi lớp cá không mang loài */
+  loai?: string;
+}
+
+/** Loài nặng điểm nhất trên một tập ô — hoà thì tên nhỏ trước (tất định). */
+function loaiChinh(du: DuLieuCa, keys: readonly number[]): string | undefined {
+  const tong = new Map<string, number>();
+  for (const k of keys) for (const [l, v] of du.loai.get(k) ?? []) tong.set(l, (tong.get(l) ?? 0) + v);
+  let tot: string | undefined, max = 0;
+  for (const [l, v] of [...tong].sort((a, b) => (a[0] < b[0] ? -1 : 1))) if (v > max) { max = v; tot = l; }
+  return tot;
 }
 
 /** B1: ô ≥ phân vị 80, loang 8 hướng theo bước lưới (trong bán kính quanh đỉnh) ⇒ vùng; prize = Σ điểm, tâm = trọng tâm có trọng số.
@@ -303,7 +324,7 @@ function gomCum(du: DuLieuCa): Cum[] {
     let lat = la / sw, lon = lo / sw;
     // trọng tâm của vùng hình lưỡi liềm có thể rơi vào đảo / ra ngoài vùng ⇒ lấy ô cao điểm nhất
     if (!trongVungNhanh(lat, lon)) ({ lat, lon } = du.o.get(dinhK)!);
-    cum.push({ lat, lon, prize, keys });
+    cum.push({ lat, lon, prize, keys, loai: loaiChinh(du, keys) });
   }
   cum.sort((a, b) => b.prize - a.prize || a.keys[0] - b.keys[0]);
   return cum;
@@ -319,6 +340,9 @@ interface Nut {
   /** điểm theo ngày d (0..D-1) */
   diem: number[];
   prize: number;
+  loai?: string;
+  /** theo ngày d: điểm cá gốc + các hệ số — để đưa ra cho bà con (diem[d] = ca × trang × bien) */
+  yeu?: { ca: number; trang: number; doRoi: number; songM: number | null; gioKmh: number | null; bien: number }[];
 }
 
 interface KeHoach {
@@ -392,7 +416,9 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   /* B0 + B1 */
   const du = docLopCa(input.caTheoNgay, D);
   if (!du) {
-    ghiChu.push("Chưa có bản đồ cá trong vùng biển Việt Nam cho những ngày này — chưa đề xuất được lộ trình.");
+    ghiChu.push(
+      `Bản đồ cá chưa thấy vùng nào có cá của nghề ${TEN_NGHE[nghe]} trong vùng biển Việt Nam cho những ngày này — chưa đề xuất được lộ trình.`,
+    );
     return rong(D, hanMacDinh);
   }
 
@@ -448,8 +474,46 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
       diem.push(s);
     }
     idxVung.push(nut.length);
-    nut.push({ lat: c.lat, lon: c.lon, ten: "", quen: false, diem, prize: c.prize });
+    nut.push({ lat: c.lat, lon: c.lon, ten: "", quen: false, diem, prize: c.prize, ...(c.loai ? { loai: c.loai } : {}) });
   }
+
+  /* HỆ SỐ NGÀY (he-so.ts): điểm ngày = cá × trăng × sóng gió. Áp TRƯỚC khi tối ưu ⇒ thuật toán tự xếp ngày
+     đánh né ngày biển động / đêm sáng trăng (với nghề bị trăng ảnh hưởng), không phải chấm xong mới cảnh báo. */
+  const doRoi: number[] = [];
+  for (let d = 0; d < D; d++) doRoi.push(doRoiTrang(dauNgayVN(ngayDi) + d * NGAY_MS + 22 * 3_600_000)); // đêm 22 giờ
+  let thieuBien = false;
+  for (let i = 1; i < nut.length; i++) {
+    const x = nut[i];
+    x.yeu = [];
+    let tong = 0;
+    for (let d = 0; d < D; d++) {
+      let b: { songM: number | null; gioKmh: number | null } | null = null;
+      try {
+        b = typeof input.bienTheoNgay === "function" ? input.bienTheoNgay(x.lat, x.lon, d) : null;
+      } catch {
+        b = null; // một chỗ hỏng thì coi như chưa có dự báo chỗ đó — không làm hỏng cả chuyến
+      }
+      const hb = b ? heSoBien(b.songM, b.gioKmh) : null;
+      if (!hb) thieuBien = true;
+      const trang = heSoTrang(nghe, doRoi[d]);
+      const bien = hb ? hb.heSo : 1;
+      const ca = x.diem[d];
+      x.yeu.push({ ca, trang, doRoi: doRoi[d], songM: b?.songM ?? null, gioKmh: b?.gioKmh ?? null, bien });
+      x.diem[d] = ca * trang * bien;
+      tong += trang * bien;
+    }
+    x.prize *= D > 0 ? tong / D : 1;
+  }
+  const ram = hieuUngRam(nghe);
+  ghiChu.push(
+    `Cách chấm mỗi ngày đánh: điểm cá của nghề ${TEN_NGHE[nghe]} (đã gồm chỗ tàu cùng nghề hay đánh tháng này) × trăng ` +
+      (ram !== 0
+        ? `(sổ tàu năm qua: đêm rằm ${Math.round(Math.abs(ram) * 1000) / 10}% ${ram < 0 ? "ít" : "nhiều"} hơn đêm tối)`
+        : "(chưa có số trăng trong máy — chưa tính)") +
+      ` × sóng gió (biển êm giữ nguyên, động nhẹ trừ tới 40%, động mạnh bỏ ngày đó).`,
+  );
+  if (thieuBien)
+    ghiChu.push("Chưa có đủ dự báo sóng gió trong máy cho cả chuyến — những ngày thiếu, lộ trình chưa né được biển động.");
 
   const N = nut.length;
   const gio: number[][] = nut.map((a) => nut.map((b) => haversineKm(a, b) / KM_MOI_HAI_LY / tocDo!));
@@ -637,7 +701,27 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     const denDanh = tuDanh + ke.n[i] - 1;
     lich.push({ tuNgay: tuDanh, denNgay: denDanh, loai: "danh", vungId: ten.id, cau: `${nhanNgay(tuDanh, denDanh)}: đánh ở ${ten.trongCau}` });
     let dinh = 0;
-    for (let j = 0; j < ke.n[i]; j++) dinh = Math.max(dinh, nut[x].diem[Math.min(D - 1, ngayCuaKhoi(t1 + 24 * j))]);
+    const yeuTo: YeuToNgay[] = [];
+    for (let j = 0; j < ke.n[i]; j++) {
+      const d = Math.min(D - 1, ngayCuaKhoi(t1 + 24 * j));
+      dinh = Math.max(dinh, nut[x].diem[d]);
+      const y = nut[x].yeu?.[d];
+      if (y) {
+        const songM = y.songM == null ? null : Math.round(y.songM * 10) / 10;
+        yeuTo.push({
+          ngay: d + 1,
+          ca: Math.round(y.ca),
+          trang: Math.round(y.doRoi * 100),
+          songM,
+          gioKmh: y.gioKmh == null ? null : Math.round(y.gioKmh),
+          heSo: Math.round(y.trang * y.bien * 100) / 100,
+        });
+        if (y.bien < 0.6)
+          ghiChu.push(
+            `Ngày ${d + 1} ở ${ten.trongCau}: biển động${songM != null ? ` (sóng tới ${String(songM).replace(".", ",")} m)` : ""} — thuyền trưởng cân nhắc.`,
+          );
+      }
+    }
     vung.push({
       id: ten.id,
       ten: ten.ten,
@@ -646,6 +730,8 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
       dinh: Math.round(dinh),
       soNgayDanh: ke.n[i],
       ...(nut[x].quen ? { laDiemQuen: true } : {}),
+      ...(nut[x].loai ? { loai: nut[x].loai } : {}),
+      ...(yeuTo.length ? { yeuTo } : {}),
     });
     t = t1 + 24 * ke.n[i];
   }

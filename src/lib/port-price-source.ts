@@ -15,8 +15,8 @@ import { forecastStoreReady } from "@/lib/forecast-store";
 import { timeoutSignal } from "@/lib/abort";
 import { tokenHeader } from "@/lib/device-token-store";
 
-export const VASEP_LISTING_URL =
-  "https://vasep.com.vn/gia-thuy-san/gia-trong-nuoc";
+// URL trang nguồn ở `port-price-source-server.ts` — chỉ máy chủ (khong-lo-nguon nợ #8). Tên nguồn ghi ở trang
+// /nguon-du-lieu (ghi công một chỗ, nợ #15), không ở bảng giá.
 
 export interface LivePortPrice extends PortPrice {
   /** true = giá tuần này lấy từ VASEP; false = giá tĩnh tham khảo */
@@ -25,8 +25,8 @@ export interface LivePortPrice extends PortPrice {
 
 export interface LivePriceResult {
   ok: boolean;
-  /** "vasep" khi có giá tuần; "static" khi lùi về bảng tĩnh */
-  source: "vasep" | "static";
+  /** "tuan" khi có giá tuần; "static" khi lùi về bảng tĩnh (đổi từ tên nguồn 2026-11-08; bản lưu cũ đọc qua `chuanNguonGia`) */
+  source: "tuan" | "static";
   /** tỉnh của bản tin, vd "Khánh Hòa" */
   province?: string;
   /** khoảng tuần, vd "30/5 – 05/6/2026" */
@@ -202,8 +202,10 @@ export async function fetchLivePrices(): Promise<LivePriceResult> {
       signal: timeoutSignal(15000),
     });
     if (r.ok) {
-      const j = (await r.json()) as LivePriceResult;
-      if (j.ok) {
+      const tho = (await r.json()) as LivePriceResult;
+      // kho SW có thể trả bản cũ ghi tên nguồn — chuẩn lại trước khi lưu/hiện
+      const j = tho?.ok ? chuanNguonGia(tho) : tho;
+      if (j?.ok) {
         saveForecast(PRICE_NS, PORT_ID, j);
         return j;
       }
@@ -214,7 +216,7 @@ export async function fetchLivePrices(): Promise<LivePriceResult> {
     netFailed = true; // mạng lỗi → xuống nhánh bản lưu
   }
   const hit = loadForecast<LivePriceResult>(PRICE_NS, PORT_ID);
-  if (hit?.data?.ok) return { ...hit.data, savedAt: hit.savedAt, netFailed };
+  if (hit?.data?.ok) return { ...chuanNguonGia(hit.data), savedAt: hit.savedAt, netFailed };
   return {
     ok: false,
     source: "static",
@@ -226,4 +228,9 @@ export async function fetchLivePrices(): Promise<LivePriceResult> {
 /** Đã có bảng giá nào trong máy chưa (popup "đã lưu gì" + pretrip đọc) */
 export function savedPricesAt(): number | null {
   return loadForecast<LivePriceResult>(PRICE_NS, PORT_ID)?.savedAt ?? null;
+}
+
+/** Bản lưu từ trước 2026-11-08 ghi `source: "vasep"` — đọc về khuôn mới, không mất bản (khong-lo-nguon nợ #8). */
+export function chuanNguonGia<T extends { source?: unknown }>(r: T): T & { source: "tuan" | "static" } {
+  return { ...r, source: r.source === "static" ? "static" : "tuan" };
 }

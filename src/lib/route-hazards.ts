@@ -749,7 +749,7 @@ export function auditRoute(args: RouteAuditArgs): { hits: RouteHit[]; missing: s
         alongKm: worst.s.along,
         muc: "do",
         cau: worst.outside
-          ? `Tuyến có đoạn nằm ngoài ranh giới biển theo vùng VMS (vào trong chừng ${soViet(worst.nm)} hải lý) — xem lại điểm ghé.`
+          ? `Tuyến có đoạn nằm ngoài vùng biển được phép đánh bắt (vào trong chừng ${soViet(worst.nm)} hải lý) — xem lại điểm ghé.`
           : `Tuyến chạy sát ranh giới biển (còn chừng ${soViet(worst.nm)} hải lý) — canh vị trí khi tới đoạn này.`,
       });
     }

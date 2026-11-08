@@ -33,7 +33,7 @@ describe("dungCaTheoNgay", () => {
   });
 
   it("baseMode ⇒ trả nguyên ô (đã lọc trong vùng), chỉ lat/lon/s", () => {
-    const fc = { date: "2026-10-28", cells: [O(12, 110, 80), O(40, 140, 90)], baseMode: "catch-fleet-static" };
+    const fc = { date: "2026-10-28", cells: [O(12, 110, 80), O(40, 140, 90)], baseMode: true };
     const f = dungCaTheoNgay(fc, null, "2026-11-02", "2026-10-29");
     expect(f(5)).toEqual([{ lat: 12, lon: 110, s: 80 }]); // ô Nhật Bản bị lọc ngoài vùng
   });

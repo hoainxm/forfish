@@ -1,5 +1,5 @@
 import "server-only";
-import { VASEP_LISTING_URL } from "@/lib/port-price-source";
+import { VASEP_LISTING_URL } from "@/lib/port-price-source-server";
 import {
   buildWeeks,
   parseWeekEndFromUrl,

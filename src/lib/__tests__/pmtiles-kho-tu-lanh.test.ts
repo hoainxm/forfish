@@ -5,12 +5,12 @@ import { KhoTuLanh } from "../pmtiles-protocol";
 
 /*  Bản đồ "vuông loang lổ" (2026-11-04): kho mặc định của pmtiles giữ lời hứa HỎNG ⇒ một lần mạng chập là vùng
     ô chết mãi. Nguồn giả đọc file thật trong repo, hỏng đúng N lượt đầu rồi lành. */
-const FILE = readFileSync("public/data/reef-shapes-aca.v1.pmtiles");
+const FILE = readFileSync("public/data/ran-chi-tiet.v1.pmtiles");
 
 function nguonHong(soLuotHong: number, chiHongKhi: (offset: number) => boolean = () => true): Source {
   let hong = soLuotHong;
   return {
-    getKey: () => "/data/reef-shapes-aca.v1.pmtiles",
+    getKey: () => "/data/ran-chi-tiet.v1.pmtiles",
     getBytes: async (offset: number, length: number) => {
       if (hong > 0 && chiHongKhi(offset)) {
         hong--;

@@ -24,7 +24,7 @@ import type { AssistantAction } from "@/lib/assistant/types";
 import { LOCAL_BUILD_ID } from "@/lib/app-version";
 import { updateBoat } from "@/lib/boat-store";
 import { loadBoats, loadCurrentBoatId, saveCurrentBoatId } from "@/lib/boats";
-import { SPECIES_META } from "@/lib/fish-predict";
+import { SPECIES_META } from "@/lib/species-meta";
 import { loadPlaces } from "@/lib/places";
 import { ghiHomePhien, loadHome } from "@/lib/region";
 import { datCangNha } from "@/lib/cang-nha";

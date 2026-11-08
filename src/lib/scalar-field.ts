@@ -109,7 +109,7 @@ export async function fetchScalarFieldsLive(
     "forecast",
     `latitude=${lats}&longitude=${lons}` +
       `&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}&hourly=${hourly}` +
-      (opts?.model ? `&models=${opts.model}` : ""),
+      (opts?.model ? `&m=${opts.model}` : ""),
   );
 
   // 20 s = trần NGỪNG CHẢY (lib/tai-co-nhip, 2026-10-26), không phải trần tổng
@@ -161,7 +161,7 @@ export async function fetchScalarFieldsBackupLive(
   days = 3,
 ): Promise<Record<OMKind, ScalarGrid>> {
   return fetchScalarFieldsLive(days, {
-    model: "ecmwf_ifs025",
+    model: "g2", // mã mờ (lib/om-url)
     maxForecastDays: ECMWF_MAX_FORECAST_DAYS,
   });
 }
@@ -174,7 +174,7 @@ export async function fetchScalarFieldsBackupLive(
 export async function fetchScalarFieldsThirdLive(
   days = 3,
 ): Promise<Record<OMKind, ScalarGrid>> {
-  return fetchScalarFieldsLive(days, { model: "gfs_seamless" });
+  return fetchScalarFieldsLive(days, { model: "g3" });
 }
 
 export const SCALAR_NS = "scalar";
@@ -659,7 +659,7 @@ export const SCALAR_META: Record<
     label: "Độ mặn",
     unit: "PSU",
     tomTat: "Nhạt là gần cửa sông",
-    help: "Độ mặn nước biển (PSU) — chỗ nhạt gần cửa sông. Nguồn Copernicus Marine, theo ngày.",
+    help: "Độ mặn nước biển (PSU) — chỗ nhạt gần cửa sông. Số theo ngày.",
   },
   pressure: {
     label: "Áp suất",

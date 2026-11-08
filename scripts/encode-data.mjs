@@ -59,6 +59,66 @@ export function isCurated(name) {
   return !OPEN_SDF1.has(name);
 }
 
+/**
+ * LỌC TRƯỜNG NGUỒN TRƯỚC KHI MÃ (2026-11-08, docs/app-map/ops/khong-lo-nguon.md nợ #5, #11). Bản RÕ trong git giữ đủ
+ * lý lịch (test/script/hook đọc); bản PHÁT ra máy chỉ còn thứ app đọc. Người có khoá SDF2 giải được file thì cũng
+ * không thấy tên nguồn / bộ dữ liệu / cách dựng.
+ *  · Mọi `.json`: bỏ khoá CẤP ĐẦU trong `BO_TRUONG_DAU` (lý lịch cả file — app không đọc, đã rà 08/11).
+ *  · Vài file có lý lịch TỪNG MỤC: `LOC_RIENG` (danh sách CHO PHÉP theo đúng hàm đọc của app).
+ *  · KHÔNG đụng `prov` / `url` lồng trong thông báo hàng hải (vmsa, cảng vụ — thông tin nhà nước công bố, CLAUDE.md):
+ *    lib/provenance + màn chi tiết đọc chúng để lọc giấy phép và dẫn về thông báo gốc.
+ * Không parse được ⇒ trả nguyên (không làm hỏng file vì bước lọc).
+ */
+export const BO_TRUONG_DAU = ["nguon", "source", "sources", "credit", "builtFrom", "giayPhep", "phaseConvention", "attribution"];
+
+/** Đổi tên mô hình độ sâu trong câu lý do hiện cho bà con thành chữ chung. */
+const moHinhChung = (s) =>
+  typeof s === "string" ? s.replace(/\bGEBCO\b/g, "mô hình 1").replace(/\bETOPO\b/g, "mô hình 2").replace(/mô hình EOT20/g, "mô hình thuỷ triều") : s;
+
+/** @type {Record<string, (j: any) => any>} */
+export const LOC_RIENG = {
+  // lib/tides.ts đọc: id, name, lat, lon, z0, span, rmseM, note, cons, nguon (trạm đo / mô hình — nhãn độ tin)
+  "tide-stations.v1.json": (j) => ({
+    ...j,
+    stations: (j.stations ?? []).map((s) => {
+      const giu = { ...s, note: moHinhChung(s.note) };
+      delete giu.source;
+      return giu;
+    }),
+  }),
+  // lib/soundings-verified.ts decodeVerdicts đọc: tep, loai, i, kq, tinCay, bac, lyDo
+  "soundings-verified.v1.json": (j) => {
+    const dau = { ...j };
+    delete dau.moHinh;
+    delete dau.nguonGoc;
+    return {
+      ...dau,
+      muc: (j.muc ?? []).map((m) => ({ tep: m.tep, loai: m.loai, i: m.i, kq: m.kq, tinCay: m.tinCay, bac: m.bac, lyDo: moHinhChung(m.lyDo) })),
+    };
+  },
+};
+
+/**
+ * @param {string} name tên file
+ * @param {Uint8Array} raw
+ * @returns {Uint8Array}
+ */
+export function locTruongNguon(name, raw) {
+  if (extname(name) !== ".json") return raw;
+  let j;
+  try {
+    j = JSON.parse(new TextDecoder().decode(raw));
+  } catch {
+    return raw;
+  }
+  if (!j || typeof j !== "object" || Array.isArray(j)) return raw;
+  if (j.type === "FeatureCollection") return raw; // GeoJSON: không có lý lịch cấp đầu
+  const rieng = LOC_RIENG[name];
+  let out = rieng ? rieng(j) : j;
+  out = Object.fromEntries(Object.entries(out).filter(([k]) => !BO_TRUONG_DAU.includes(k)));
+  return new TextEncoder().encode(JSON.stringify(out));
+}
+
 /** @param {Uint8Array} key @returns {Uint8Array} 8 byte đầu SHA-256 — cùng công thức lib/data-key-server.ts */
 export function keyIdBytes(key) {
   return new Uint8Array(createHash("sha256").update(key).digest().subarray(0, 8));
@@ -105,11 +165,12 @@ export function encodeDir(dir, opts = {}) {
     const p = join(dir, name);
     const ext = extname(name);
     if (!statSync(p).isFile() || !DATA_EXTS.has(ext)) continue;
-    const raw = new Uint8Array(readFileSync(p));
-    if (hasDataHeader(raw) || hasDataHeader2(raw)) {
+    const tho = new Uint8Array(readFileSync(p));
+    if (hasDataHeader(tho) || hasDataHeader2(tho)) {
       skipped.push(name);
       continue;
     }
+    const raw = locTruongNguon(name, tho);
     if (cur(name)) {
       if (goi.has(name) && !keyGoi) {
         throw new Error(

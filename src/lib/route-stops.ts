@@ -164,3 +164,53 @@ export function removeStop(list: RouteStop[], id: string): RouteStop[] {
 export function clearStops(): RouteStop[] {
   return [];
 }
+
+/*  NƠI ĐI GỬI KÈM CHUỖI ĐIỂM (2026-11-08). Lộ trình chuyến biển bấm "Bản đồ" nạp chuỗi vùng sang Dẫn đường,
+    nhưng Dẫn đường mặc định đi từ VỊ TRÍ ĐIỆN THOẠI — người ngồi nhà ở TP.HCM bấm thử thì chặng đầu từ TP.HCM ra
+    Vịnh Bắc Bộ "vướng đất liền" (ảnh lỗi anh Long). Nay màn lộ trình gửi kèm cảng xuất bến; Dẫn đường đọc MỘT LẦN
+    lúc mở rồi xoá. sessionStorage: chỉ sống trong phiên này (một lần chuyển màn), không cần chép sang máy khác. */
+const NOI_DI_KEY = "forfish.route.noiDi.v1";
+/** Gửi quá lâu mà chưa mở Dẫn đường thì bỏ — mở bản đồ hôm sau không được nhảy về cảng của lộ trình cũ. */
+const NOI_DI_HAN_MS = 30 * 60_000;
+
+export interface NoiDiGui {
+  lat: number;
+  lon: number;
+  ten: string;
+}
+
+export function guiNoiDi(p: NoiDiGui): void {
+  try {
+    sessionStorage.setItem(NOI_DI_KEY, JSON.stringify({ ...p, luc: Date.now() }));
+  } catch {
+    /* chế độ riêng tư — tệ nhất là Dẫn đường đi từ nơi mặc định, bà con tự chọn cảng */
+  }
+}
+
+/** Xoá nơi đi đã gửi — gọi sau khi Dẫn đường đã nhận (đọc trong initializer, xoá ở effect: StrictMode gọi
+    initializer hai lần, đọc-là-xoá thì lần hai mất). */
+export function xoaNoiDi(): void {
+  try {
+    sessionStorage.removeItem(NOI_DI_KEY);
+  } catch {
+    /* không xoá được thì hạn 30 phút tự bỏ */
+  }
+}
+
+/** Đọc nơi đi đã gửi (KHÔNG xoá — xem `xoaNoiDi`); null khi không có / quá hạn / hỏng. */
+export function layNoiDi(nowMs: number = Date.now()): NoiDiGui | null {
+  try {
+    const raw = sessionStorage.getItem(NOI_DI_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<NoiDiGui> & { luc?: number };
+    if (
+      typeof v?.lat !== "number" || !Number.isFinite(v.lat) || Math.abs(v.lat) > 90 ||
+      typeof v?.lon !== "number" || !Number.isFinite(v.lon) || Math.abs(v.lon) > 180 ||
+      typeof v.luc !== "number" || nowMs - v.luc > NOI_DI_HAN_MS || v.luc > nowMs + 60_000
+    )
+      return null;
+    return { lat: v.lat, lon: v.lon, ten: typeof v.ten === "string" && v.ten.trim() ? v.ten.trim().slice(0, 60) : "Cảng xuất bến" };
+  } catch {
+    return null;
+  }
+}

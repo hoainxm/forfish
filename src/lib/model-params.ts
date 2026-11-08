@@ -21,6 +21,8 @@ export interface ModelParams {
   v?: number;
   fishBlend?: unknown;
   forecastSkill?: unknown;
+  /** hệ số trăng + nhóm loài theo nghề cho lộ trình (src/data/lo-trinh-params.json, 2026-11-08) */
+  loTrinh?: unknown;
 }
 
 let current: ModelParams | null = null;

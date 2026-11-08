@@ -2,8 +2,8 @@
 //
 //   node --max-old-space-size=8192 scripts/reef-to-pmtiles.mjs
 //
-// Đọc : public/data/reef-shapes-aca.v1.bin      (delta+zigzag+varint, src/lib/reef-bin.mjs)
-// Ghi : public/data/reef-shapes-aca.v1.pmtiles  (MVT, gzip từng ô, z3–z13)
+// Đọc : public/data/ran-chi-tiet.v1.bin      (delta+zigzag+varint, src/lib/reef-bin.mjs)
+// Ghi : public/data/ran-chi-tiet.v1.pmtiles  (MVT, gzip từng ô, z3–z13)
 //
 // ═══ VÌ SAO ════════════════════════════════════════════════════════════════
 // Đường đang đi: tải cả file .bin → giải mã ra MỘT FeatureCollection 4.030.270
@@ -55,8 +55,8 @@ import { VectorTile } from "@mapbox/vector-tile";
 import Pbf from "pbf";
 import { PMTiles, zxyToTileId } from "pmtiles";
 
-const SRC = "public/data/reef-shapes-aca.v1.bin";
-const OUT = "public/data/reef-shapes-aca.v1.pmtiles";
+const SRC = "public/data/ran-chi-tiet.v1.bin";
+const OUT = "public/data/ran-chi-tiet.v1.pmtiles";
 
 /** Tên lớp bên trong ô — style bên app trỏ vào bằng `source-layer`. */
 export const REEF_TILE_LAYER = "reef";
@@ -548,7 +548,7 @@ if (isMain) {
       name: "SDFish · hình rạn & bãi cạn (Allen Coral Atlas)",
       description:
         "Rạn san hô và bãi cạn vùng biển Việt Nam, cắt sẵn thành vector tile. " +
-        "Sinh bằng scripts/reef-to-pmtiles.mjs từ public/data/reef-shapes-aca.v1.bin.",
+        "Sinh bằng scripts/reef-to-pmtiles.mjs từ public/data/ran-chi-tiet.v1.bin.",
       attribution: fc.properties?.attribution ?? "Allen Coral Atlas",
       version: "1",
       vector_layers: [

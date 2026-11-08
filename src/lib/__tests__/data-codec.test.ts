@@ -276,7 +276,11 @@ describe("DÂY NỐI — cổng chữ (kiểu lỗi: file có, hàm có, mà kh�
 
   it("`npm run build` mã hoá TRƯỚC `next build`", () => {
     const pkg = JSON.parse(read("package.json")) as { scripts: { build: string }; license: string };
-    expect(pkg.scripts.build).toBe("node scripts/encode-data.mjs && next build");
+    // + cổng không lộ nguồn quét bundle SAU next build (2026-11-08, docs/app-map/ops/khong-lo-nguon.md §5)
+    // + bỏ chú thích public/*.js (nợ #12) trước next build
+    expect(pkg.scripts.build).toBe(
+      "node scripts/encode-data.mjs && node scripts/bo-chu-thich-public.mjs && next build && node scripts/kiem-lo-bundle.mjs",
+    );
     expect(pkg.license).toBe("UNLICENSED");
   });
 });

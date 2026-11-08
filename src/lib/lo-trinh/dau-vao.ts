@@ -16,30 +16,78 @@ import { stormStatus, type StormCheck } from "@/lib/storms";
 import { forecastTrack } from "@/lib/route-storm";
 import { DEFAULT_BOAT, positiveOrNull } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
+import { seaPointFromGrid } from "@/lib/marine-weather";
+import type { ForecastGrid } from "@/lib/forecast-grid";
 import { saveUserJson } from "@/lib/user-store";
-import type { BaoRutGon, OCa, TauTinh } from "./types";
+import type { BaoRutGon, Nghe, OCa, TauTinh } from "./types";
+import { getModelParams, type ModelParams } from "@/lib/model-params";
+import { loTrinhParams } from "./he-so";
+
+/**
+ * NHÓM LOÀI THEO NGHỀ (2026-11-08, anh Long: "câu ngừ chạy tút lên phía bắc?"). Trước đây lộ trình chấm ô bằng `s` =
+ * điểm LOÀI TỐT NHẤT tại ô, bất kể nghề ⇒ tháng 11 cá nục/bạc má ven bờ Bắc Bộ vào vụ, kéo tàu câu ngừ Tam Quang ra
+ * Vịnh Bắc Bộ. Nay ô = điểm cao nhất trong các loài CỦA NGHỀ (`sp`). Danh sách loài theo nghề nằm ở model-params
+ * (`src/data/lo-trinh-params.json` → SDF2, cất offline) — không viết cứng ở đây (khong-lo-nguon nợ #9).
+ * Chưa nạp tham số ⇒ `null` ⇒ ô chấm bằng loài tốt nhất như bản cũ (vẫn ra lộ trình, chỉ chưa theo nghề).
+ */
+export function loaiTheoNghe(nghe: Nghe, p: ModelParams | null = getModelParams()): readonly string[] | null {
+  const ds = loTrinhParams(p).loaiTheoNghe?.[nghe];
+  return Array.isArray(ds) && ds.length && ds.every((x) => typeof x === "string") ? ds : null;
+}
+
+/** Điểm ô theo nghề: loài cao nhất trong nhóm loài của nghề. Ô không có loài nào của nghề ⇒ null.
+ *  Chưa có nhóm loài (tham số chưa nạp) ⇒ loài cao nhất tại ô. */
+export function diemOTheoNghe(
+  sp: Record<string, number> | undefined,
+  nghe: Nghe,
+  p: ModelParams | null = getModelParams(),
+): { s: number; loai: string } | null {
+  if (!sp) return null;
+  const ds = loaiTheoNghe(nghe, p) ?? Object.keys(sp);
+  let tot: { s: number; loai: string } | null = null;
+  for (const loai of ds) {
+    const v = sp[loai];
+    if (typeof v === "number" && Number.isFinite(v) && v > 0 && (!tot || v > tot.s)) tot = { s: v, loai };
+  }
+  return tot;
+}
 
 /** Bản đồ cá tối thiểu cần cho lộ trình — cùng hình `FishForecast` (fish-predict). */
 export interface BanDoCaVao {
   date: string;
   cells: readonly BlendableCell[];
-  baseMode?: string;
+  baseMode?: boolean;
 }
 
 /**
  * Hàm `caTheoNgay(d)` cho `LoTrinhInput` — d = ngày thứ d của chuyến (0 = ngày xuất bến).
  * Không có bản đồ cá ⇒ mọi ngày trả mảng rỗng (thuật toán tự ghi chú, không bịa).
  * Nhớ kết quả theo (tầm, tháng) — thuật toán gọi lặp nhiều lần cùng một ngày.
+ * Có `nghe` ⇒ điểm ô = loài của nghề (`diemOTheoNghe`), bỏ ô không có loài nào của nghề, và KHÔNG pha
+ * mùa vụ: lưới mùa vụ (`clim`) là điểm gộp mọi loài, pha vào là kéo lại đúng lỗi vừa sửa. Bản production
+ * dựng bằng nền (`baseMode`) vốn đã không pha.
  */
 export function dungCaTheoNgay(
   fc: BanDoCaVao | null,
   clim: Climatology | null,
   ngayDi: string,
   homNayIso: string,
+  nghe?: Nghe,
 ): (d: number) => readonly OCa[] {
   const nho = new Map<string, readonly OCa[]>();
   return (d: number) => {
     if (!fc || !fc.cells.length) return [];
+    if (nghe) {
+      const co = nho.get("nghe");
+      if (co) return co;
+      const ra: OCa[] = [];
+      for (const c of locOTrongVung(fc.cells)) {
+        const x = diemOTheoNghe(c.sp, nghe);
+        if (x) ra.push({ lat: c.lat, lon: c.lon, s: x.s, loai: x.loai });
+      }
+      nho.set("nghe", ra);
+      return ra;
+    }
     const ngay = addDaysIso(ngayDi, Math.max(0, Math.round(d)));
     const tamTuHomNay = Math.max(0, daysBetweenISO(homNayIso, ngay));
     const tam = fc.baseMode ? 0 : fishLeadDays(fc.date, ngay, tamTuHomNay);
@@ -54,6 +102,38 @@ export function dungCaTheoNgay(
     const ra = locOTrongVung(pha).map((c) => ({ lat: c.lat, lon: c.lon, s: c.s }));
     nho.set(khoa, ra);
     return ra;
+  };
+}
+
+/**
+ * Hàm `bienTheoNgay(lat, lon, d)` từ lưới gió sóng ĐỦ VÙNG (`forecast-grid`, ~2°, có bản lưu offline): sóng cao
+ * nhất + gió mạnh nhất của NGÀY THỨ d chuyến tại ô lưới gần chỗ đó (`seaPointFromGrid` — cùng luật Bản đồ).
+ * Lưới null / ngày ngoài tầm lưới ⇒ null (thuật toán coi như chưa có dự báo và nói ra).
+ */
+export function dungBienTheoNgay(
+  grid: ForecastGrid | null,
+  ngayDi: string,
+): ((lat: number, lon: number, d: number) => { songM: number | null; gioKmh: number | null } | null) | null {
+  if (!grid?.cells?.length) return null;
+  const nho = new Map<string, Map<string, { songM: number | null; gioKmh: number | null }> | null>();
+  return (lat, lon, d) => {
+    const khoa = `${Math.round(lat * 2) / 2},${Math.round(lon * 2) / 2}`;
+    let ngay = nho.get(khoa);
+    if (ngay === undefined) {
+      const c = seaPointFromGrid(grid, { lat, lon }, null);
+      ngay = c
+        ? new Map(
+            c.days.map((x) => [
+              x.date,
+              // lưới ghi 0 khi "chưa có số" (không phải biển lặng) — đổi về null
+              { songM: x.waveMaxM > 0 ? x.waveMaxM : null, gioKmh: x.windMaxKmh > 0 ? x.windMaxKmh : null },
+            ]),
+          )
+        : null;
+      nho.set(khoa, ngay);
+    }
+    const v = ngay?.get(addDaysIso(ngayDi, Math.max(0, Math.round(d))));
+    return v && (v.songM != null || v.gioKmh != null) ? v : null;
   };
 }
 

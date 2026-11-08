@@ -30,6 +30,11 @@ describe("file phát hành ↔ nguồn sự thật", () => {
     expect(disk).toEqual(buildModelParams(ROOT));
   });
 
+  it("file phát hành CHỈ mang số app đọc — không builtFrom, tên bộ dữ liệu, mô tả phương pháp (khong-lo-nguon nợ #5)", () => {
+    const txt = readFileSync(join(ROOT, OUT), "utf8");
+    expect(txt).not.toMatch(/builtFrom|sources|noaa|method|caveat|verdict|crossVal|cvWins|origins|src\/data/i);
+  });
+
   it("thuộc nhóm SDF2 và có trong vỏ SW", () => {
     expect(isCurated("model-params.v1.json")).toBe(true);
     const sw = readFileSync(join(ROOT, "public", "sw.js"), "utf8");
@@ -47,7 +52,7 @@ describe("file phát hành ↔ nguồn sự thật", () => {
       return out;
     };
     const hits = walk(join(ROOT, "src")).filter((p) =>
-      /@\/data\/(fish-blend-weights|forecast-skill)\.json/.test(readFileSync(p, "utf8")),
+      /@\/data\/(fish-blend-weights|forecast-skill|lo-trinh-params)\.json/.test(readFileSync(p, "utf8")),
     );
     expect(hits).toEqual([]);
   });
@@ -72,7 +77,7 @@ describe("loader + consumer", () => {
     let called = 0;
     subscribeModelParams(() => called++);
     const p = await loadModelParams();
-    expect(p?.v).toBe(1);
+    expect(p?.v).toBe(2);
     expect(called).toBe(1);
     expect(blendUsable()).toBe(true);
     expect(maxMeasuredLead()).toBeGreaterThanOrEqual(10);

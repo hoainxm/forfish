@@ -17,9 +17,9 @@ import {
   encodeReefShapes,
 } from "@/lib/reef-bin.mjs";
 
-const BIN = "public/data/reef-shapes-aca.v1.bin";
+const BIN = "public/data/ran-chi-tiet.v1.bin";
 /** Bản JSON là VẬT LIỆU TRUNG GIAN, cố ý không nằm trong git — có thì soi thêm. */
-const JSON_SRC = "public/data/reef-shapes-aca.v1.json";
+const JSON_SRC = "public/data/ran-chi-tiet.v1.json";
 
 type Ring = Array<[number, number]>;
 interface Feat {

@@ -46,7 +46,7 @@ describe("nguồn tin bão — MỘT URL GDACS cho mọi chỗ gọi", () => {
   });
   it("URL GDACS chỉ khai ở lib/storms.ts", () => {
     const khai = tatCaFileMa(join(process.cwd(), "src")).filter((f) => boChuThich(readFileSync(f, "utf8")).includes("gdacsapi/api/events/geteventlist"));
-    expect(khai.map((f) => f.slice(f.indexOf("src")))).toEqual(["src/lib/storms.ts"]);
+    expect(khai.map((f) => f.slice(f.indexOf("src")).replace(/\\/g, "/"))).toEqual(["src/lib/storms.ts"]);
   });
 });
 
@@ -83,8 +83,8 @@ describe("nguồn tin bão Việt Nam phải còn trong đường đi", () => {
     expect(routeSrc).toMatch(/vn === null && gdacs === null/);
   });
 
-  it("payload khai nguồn nào trả lời được lượt này", () => {
-    expect(routeSrc).toContain("sources");
-    expect(routeSrc).toContain("nchmf");
+  it("payload KHÔNG khai nguồn (2026-11-08, khong-lo-nguon nợ #8) — id băm + khoá cơn qua stormsChoMay", () => {
+    expect(boChuThich(routeSrc)).not.toMatch(/sources\s*:/);
+    expect(routeSrc).toContain("stormsChoMay(");
   });
 });

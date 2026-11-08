@@ -130,7 +130,7 @@ export async function fetchEnsembleUncertainty(
     const url = omUrl(
       "ensemble",
       `latitude=${lat}&longitude=${lon}` +
-        `&models=gfs05&hourly=wind_speed_10m` +
+        `&m=e1&hourly=wind_speed_10m` +
         `&forecast_days=${days}&timezone=Asia%2FHo_Chi_Minh`,
     );
 

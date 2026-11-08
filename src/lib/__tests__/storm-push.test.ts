@@ -43,8 +43,8 @@ function daGui(s: StormAlert, atMs: number): SentStormRecord {
 }
 
 describe("stormKey — khoá theo CƠN, cùng khuôn với kho bản tin", () => {
-  it("GDACS: gdacs-<tên>", () => {
-    expect(stormKey(bao(), NGAY)).toBe("gdacs-wutip");
+  it("tin quốc tế: qt-<tên> (không tên nguồn)", () => {
+    expect(stormKey(bao(), NGAY)).toBe("qt-wutip");
   });
   it("NCHMF: hai bản tin (post khác nhau) cùng 'bão số 3' → cùng khoá bao-so-3-YYYY", () => {
     const a = bao({ id: "nchmf-12345", name: "số 3" });
@@ -65,9 +65,9 @@ describe("URL vừa là đường mở app vừa là sổ đã gửi", () => {
     const s = bao({ alert: "danger", kindLabel: "Bão mạnh" });
     const tMs = Date.parse(s.updated);
     const url = stormPushUrl(stormKey(s, tMs), stormSeverity(s), { lat: s.lat, lon: s.lon, tMs });
-    expect(url.startsWith("/ngu-truong?bao=gdacs-wutip&cap=danger")).toBe(true);
+    expect(url.startsWith("/ngu-truong?bao=qt-wutip&cap=danger")).toBe(true);
     expect(parseStormPushUrl(url)).toEqual({
-      key: "gdacs-wutip",
+      key: "qt-wutip",
       sev: { alert: 1, kind: 3 },
       tam: { lat: 15, lon: 112, tMs: Math.round(tMs / 1000) * 1000 },
     });
@@ -123,9 +123,9 @@ describe("decideStormPushes", () => {
     const out = decideStormPushes([s], [], NGAY);
     expect(out).toHaveLength(1);
     expect(out[0].reason).toBe("moi");
-    expect(out[0].tag).toBe("bao-gdacs-wutip");
+    expect(out[0].tag).toBe("bao-qt-wutip");
     expect(out[0].sentAtMs).toBe(Date.parse(s.updated));
-    expect(out[0].url.startsWith("/ngu-truong?bao=gdacs-wutip&cap=watch&muc=2&lat=15.00&lon=112.00&t=")).toBe(true);
+    expect(out[0].url.startsWith("/ngu-truong?bao=qt-wutip&cap=watch&muc=2&lat=15.00&lon=112.00&t=")).toBe(true);
   });
   it("đã gửi rồi, không đổi gì → im", () => {
     const s = bao();
@@ -168,7 +168,7 @@ describe("decideStormPushes", () => {
     const w = bao({ id: "1", name: "A", alert: "watch", lat: 8, lon: 105 });
     const d = bao({ id: "2", name: "B", alert: "danger", lat: 18, lon: 118 });
     const out = decideStormPushes([w, d], [], KHUYA);
-    expect(out.map((p) => p.key).sort()).toEqual(["gdacs-a", "gdacs-b"]);
+    expect(out.map((p) => p.key).sort()).toEqual(["qt-a", "qt-b"]);
   });
   it("NỐI CƠN theo vị trí: ATNĐ không tên đã gửi → 6h sau thành 'bão số 3' cách 120 km = LÊN CẤP, giữ khoá cũ", () => {
     const atnd = bao({ id: "nchmf-1", name: "", kindLabel: "Áp thấp nhiệt đới", lat: 15, lon: 112,
@@ -201,7 +201,7 @@ describe("decideStormPushes", () => {
     const so: SentStormRecord[] = [
       { url: null, created_at: "x" },
       { url: "/tau", created_at: new Date(NGAY).toISOString() },
-      { url: stormPushUrl("gdacs-wutip", { alert: 0, kind: 2 }), created_at: "không phải giờ" },
+      { url: stormPushUrl("qt-wutip", { alert: 0, kind: 2 }), created_at: "không phải giờ" },
     ];
     expect(decideStormPushes([s], so, NGAY).map((p) => p.reason)).toEqual(["moi"]);
   });

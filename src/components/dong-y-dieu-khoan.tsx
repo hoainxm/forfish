@@ -44,6 +44,7 @@ const KHONG_HIEN = [
   "/quen-mat-khau",
   "/dieu-khoan",
   "/quyen-rieng-tu",
+  "/nguon-du-lieu", // trang ghi công (2026-11-08) — đang đọc thì đừng che
 ];
 
 export type NguonDongY = "dang-ky" | "dang-nhap" | "mo-app";

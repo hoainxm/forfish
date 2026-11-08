@@ -16,7 +16,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "Chợ đầu mối Bình Điền, P. Bình Đông (Q.8 cũ), TP.HCM",
     phone: "0988887050",
     species: ["tôm", "cua", "ghẹ", "cá", "ốc"],
-    source: "https://quangcaolinhanh.com/vua-hai-san-phuc-an-tai-cho-binh-dien-tp-hcm/",
     note: "tham khảo, cần xác minh. SĐT phụ 0937531668. Vựa thủy hải sản tươi sống, bán sỉ & lẻ.",
   },
   {
@@ -27,7 +26,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "Lồng K, Sạp K1-025, Quản Trọng Linh, P. Bình Đông, TP.HCM",
     phone: "0903300483",
     species: ["cá khô", "mực khô", "tôm khô", "hải sản khô"],
-    source: "https://haisankhobinhdien.com/gioi-thieu",
     note: "tham khảo, cần xác minh. SĐT phụ 0908834483 (Mr. Tú). Chuyên hàng khô/một nắng.",
   },
   {
@@ -38,7 +36,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "Chợ đầu mối Bình Điền, Quản Trọng Linh, P. Bình Đông, TP.HCM",
     phone: "0877990055",
     species: ["thủy hải sản"],
-    source: "https://chodaumoibinhdien.com.vn/vua-hai-san-tuoi-song-tai-cho-binh-dien.html",
     note: "tham khảo, cần xác minh. Đầu mối liên hệ ban quản lý chợ — nhà lồng D ~300 sạp thủy hải sản tươi, nhà lồng K hàng khô.",
   },
 
@@ -51,7 +48,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "334 Trần Phú, P. Vũng Tàu (Vũng Tàu cũ), TP.HCM",
     phone: "02543550595",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://vietdutravel.com/15-vua-hai-san-vung-tau-uy-tin-chat-luong/",
     note: "tham khảo, cần xác minh. Tỉnh cũ: Bà Rịa–Vũng Tàu.",
   },
   {
@@ -62,7 +58,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "10 Hoàng Hoa Thám, P. Vũng Tàu (Vũng Tàu cũ), TP.HCM",
     phone: "02543850145",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://vietdutravel.com/15-vua-hai-san-vung-tau-uy-tin-chat-luong/",
     note: "tham khảo, cần xác minh. Tỉnh cũ: Bà Rịa–Vũng Tàu.",
   },
   {
@@ -73,7 +68,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "100 Hạ Long, P. Vũng Tàu (Vũng Tàu cũ), TP.HCM",
     phone: "0937818042",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://vietdutravel.com/15-vua-hai-san-vung-tau-uy-tin-chat-luong/",
     note: "tham khảo, cần xác minh. Tỉnh cũ: Bà Rịa–Vũng Tàu.",
   },
   {
@@ -84,7 +78,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "314 Trần Phú, P. Vũng Tàu (Vũng Tàu cũ), TP.HCM",
     phone: "02543836284",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://vietdutravel.com/15-vua-hai-san-vung-tau-uy-tin-chat-luong/",
     note: "tham khảo, cần xác minh. Tỉnh cũ: Bà Rịa–Vũng Tàu.",
   },
   {
@@ -95,7 +88,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "117 Trần Phú, P. Vũng Tàu (Vũng Tàu cũ), TP.HCM",
     phone: "02543551298",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://vietdutravel.com/15-vua-hai-san-vung-tau-uy-tin-chat-luong/",
     note: "tham khảo, cần xác minh. Tỉnh cũ: Bà Rịa–Vũng Tàu.",
   },
   {
@@ -106,7 +98,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "1638 Võ Nguyên Giáp, P. Phước Thắng (Vũng Tàu cũ), TP.HCM",
     phone: "0918350581",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://vietdutravel.com/15-vua-hai-san-vung-tau-uy-tin-chat-luong/",
     note: "tham khảo, cần xác minh. Tỉnh cũ: Bà Rịa–Vũng Tàu.",
   },
   {
@@ -117,7 +108,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "100 Hạ Long, P. Vũng Tàu (Vũng Tàu cũ), TP.HCM",
     phone: "02543810281",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://vietdutravel.com/15-vua-hai-san-vung-tau-uy-tin-chat-luong/",
     note: "tham khảo, cần xác minh. Tỉnh cũ: Bà Rịa–Vũng Tàu.",
   },
   {
@@ -128,7 +118,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "109 Trần Phú, P. Vũng Tàu (Vũng Tàu cũ), TP.HCM",
     phone: "02543551697",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://vietdutravel.com/15-vua-hai-san-vung-tau-uy-tin-chat-luong/",
     note: "tham khảo, cần xác minh. Tỉnh cũ: Bà Rịa–Vũng Tàu.",
   },
   {
@@ -139,7 +128,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "Kios 09, Nguyễn Hữu Cảnh, P. Rạch Dừa (Vũng Tàu cũ), TP.HCM",
     phone: "0378908179",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://vietdutravel.com/15-vua-hai-san-vung-tau-uy-tin-chat-luong/",
     note: "tham khảo, cần xác minh. Tỉnh cũ: Bà Rịa–Vũng Tàu.",
   },
   {
@@ -150,7 +138,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "Xưởng E26, Phước Tỉnh, Long Điền (BR-VT cũ), TP.HCM",
     phone: "0909882181",
     species: ["tôm", "mực", "cá", "hải sản khô"],
-    source: "https://haisanlonghai.net/gioi-thieu/",
     note: "tham khảo, cần xác minh. Khu vực Long Hải – Phước Tỉnh – Phước Hải. Tỉnh cũ: Bà Rịa–Vũng Tàu.",
   },
 
@@ -163,7 +150,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "33 Lý Thường Kiệt, TP. Mỹ Tho (Tiền Giang cũ), Đồng Tháp",
     phone: "0908554804",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://tiengiangtoplist.vn/top-vua-hai-san-tien-giang-tuoi-ngon/",
     note: "tham khảo, cần xác minh. SĐT phụ 0786827799. Tỉnh cũ: Tiền Giang.",
   },
   {
@@ -174,7 +160,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "377 Ấp Phong Thuận, xã Mỹ Chánh, TP. Mỹ Tho (Tiền Giang cũ), Đồng Tháp",
     phone: "0983330228",
     species: ["cá", "tôm", "mực"],
-    source: "https://tiengiangtoplist.vn/top-vua-hai-san-tien-giang-tuoi-ngon/",
     note: "tham khảo, cần xác minh. SĐT phụ 0963330228. Tỉnh cũ: Tiền Giang.",
   },
   {
@@ -185,7 +170,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "94 Thủ Khoa Huân, KP4, P5, TX. Gò Công (Tiền Giang cũ), Đồng Tháp",
     phone: "0937500352",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://tiengiangtoplist.vn/top-vua-hai-san-tien-giang-tuoi-ngon/",
     note: "tham khảo, cần xác minh. Khu Gò Công gần biển. Tỉnh cũ: Tiền Giang.",
   },
   {
@@ -196,7 +180,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "Ấp 4, xã Phú An, Cai Lậy (Tiền Giang cũ), Đồng Tháp",
     phone: "0938666362",
     species: ["cá", "tôm", "mực"],
-    source: "https://tiengiangtoplist.vn/top-vua-hai-san-tien-giang-tuoi-ngon/",
     note: "tham khảo, cần xác minh. Tỉnh cũ: Tiền Giang.",
   },
 
@@ -209,7 +192,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "Khu Cảng cá Tắc Cậu, xã Bình An, Châu Thành (Kiên Giang cũ), An Giang",
     phone: "07733616777",
     species: ["cá", "surimi", "thủy sản"],
-    source: "http://www.kiencuongseafood.com/",
     note: "tham khảo, cần xác minh. DN thu mua/chế biến tại cảng Tắc Cậu, công suất ~30.000 tấn/năm. Tỉnh cũ: Kiên Giang.",
   },
   {
@@ -220,7 +202,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     address: "Đường Tôn Đức Thắng, TP. Rạch Giá (Kiên Giang cũ), An Giang",
     phone: "0587122122",
     species: ["ghẹ", "cua", "cá", "tôm"],
-    source: "https://giatot24gio.com/vua-hai-san-rach-gia-kien-giang/",
     note: "tham khảo, cần xác minh. Địa chỉ chỉ ghi tuyến đường — cần hỏi số nhà cụ thể. Tỉnh cũ: Kiên Giang.",
   },
 
@@ -232,7 +213,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     province: "Cà Mau",
     address: "TT. Sông Đốc, Trần Văn Thời, Cà Mau",
     species: ["tôm", "cá biển", "mực", "hải sản"],
-    source: "https://www.facebook.com/p/V%E1%BB%B1a-H%E1%BA%A3i-S%E1%BA%A3n-L%C3%AA-H%E1%BA%B1ng-C%C3%A0-Mau-S%C3%B4ng-%C4%90%E1%BB%91c-100076139269064/",
     note: "tham khảo, cần xác minh. Trang Facebook vựa tại cảng Sông Đốc; SĐT chưa công khai rõ — liên hệ qua trang.",
   },
   {
@@ -242,7 +222,6 @@ export const WHOLESALERS_NAM: Wholesaler[] = [
     province: "Cà Mau",
     address: "TT. Sông Đốc, Trần Văn Thời, Cà Mau",
     species: ["tôm", "cá", "thủy sản"],
-    source: "https://masothue.com/2000101442-008-cua-hang-thu-mua-thuy-san-song-doc",
     note: "tham khảo, cần xác minh. Hộ kinh doanh thu mua thủy sản (mã số thuế 2000101442-008); SĐT không đăng công khai. Tỉnh: Cà Mau.",
   },
 ];

@@ -30,6 +30,8 @@ export type StormAlert = {
   track: number[][];
   /** Vùng ảnh hưởng — danh sách polygon, mỗi polygon = mảng ring [lon,lat][] */
   areas: number[][][][];
+  /** khoá CƠN do máy chủ đặt (`stormsChoMay`) — máy dùng nối link push; bản lưu cũ có thể thiếu */
+  key?: string;
 };
 
 export type StormCheck =

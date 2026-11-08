@@ -1,8 +1,8 @@
 // CẦU OPEN-METEO + SNAPSHOT HÔM NAY (2026-10-27, anh Long: "tất cả tải lưu server đi" + "thường ko có dự báo, chỉ có
 // ngày hôm nay thôi"): máy bà con không gọi thẳng nguồn nữa; cầu chỉ nhận danh sách trắng; bản hôm nay cắt từ bản gốc.
 import { describe, expect, it, vi } from "vitest";
-import { isOmApi, omDays, omUpstream, omUrl } from "@/lib/om-url";
-import { cat1Ngay, goc1Ngay } from "@/lib/snapshot-today";
+import { isOmApi, isOmModelCode, omDays, omServerUrl, omShape, omUpstream, omUrl } from "@/lib/om-url";
+import { cat1Ngay, goc1Ngay, snapshotChoMay } from "@/lib/snapshot-today";
 import { stepHourIndices } from "@/lib/forecast-grid";
 
 const q = (s: string) => new URLSearchParams(s);
@@ -12,7 +12,7 @@ describe("omUpstream — danh sách trắng", () => {
     const u = omUpstream("marine", q("latitude=10.5,11&longitude=107,108.25&forecast_days=1&hourly=wave_height&timezone=Asia/Ho_Chi_Minh"))!;
     expect(u.startsWith("https://marine-api.open-meteo.com/v1/marine?")).toBe(true);
     expect(u).toContain("forecast_days=1");
-    expect(omUpstream("ensemble", q("latitude=10&longitude=107&forecast_days=15&models=gfs05"))).toContain("ensemble-api");
+    expect(omUpstream("ensemble", q("latitude=10&longitude=107&forecast_days=15&m=e1"))).toContain("ensemble-api");
   });
   it("chặn: API lạ, tham số lạ, toạ độ hỏng, số ngày ngoài 1–16, ký tự lạ", () => {
     expect(omUpstream("archive", q("latitude=10&longitude=107&forecast_days=1"))).toBeNull();
@@ -46,6 +46,26 @@ describe("omUpstream — danh sách trắng", () => {
   });
 });
 
+describe("không lộ mô hình (khong-lo-nguon nợ #3)", () => {
+  it("máy gửi mã mờ m=…, máy chủ đổi ra models=…; mã lạ ⇒ route từ chối, cron bỏ qua", () => {
+    expect(omUpstream("marine", q("latitude=10&longitude=107&forecast_days=1&m=s1"))).toContain("models=ncep_gfswave025");
+    expect(omUpstream("marine", q("latitude=10&longitude=107&forecast_days=1&m=zz"))).toBeNull();
+    // tên thật không còn được nhận từ máy
+    expect(omUpstream("marine", q("latitude=10&longitude=107&forecast_days=1&models=ncep_gfswave025"))).toBeNull();
+    expect(omServerUrl("forecast", "latitude=10&m=g2&forecast_days=1")).toBe(
+      "https://api.open-meteo.com/v1/forecast?latitude=10&models=ecmwf_ifs025&forecast_days=1",
+    );
+    expect(omServerUrl("forecast", "m=zz&latitude=10")).toBe("https://api.open-meteo.com/v1/forecast?&latitude=10");
+    for (const c of ["s1", "s2", "g2", "g3", "e1"]) expect(isOmModelCode(c), c).toBe(true);
+  });
+  it("omShape: dựng lại hình riêng — bỏ trường phụ của nguồn, giữ số; lưới nhiều điểm là mảng", () => {
+    const tho = { latitude: 10, longitude: 107, generationtime_ms: 0.2, utc_offset_seconds: 25200, timezone: "Asia/Bangkok", timezone_abbreviation: "+07", elevation: 0, hourly_units: { time: "iso8601" }, hourly: { time: ["t"], wave_height: [1] } };
+    expect(omShape(tho)).toEqual({ latitude: 10, longitude: 107, utc_offset_seconds: 25200, hourly: { time: ["t"], wave_height: [1] } });
+    expect(omShape([tho, tho])).toHaveLength(2);
+    expect(omShape("x")).toBeNull();
+  });
+});
+
 describe("snapshot hôm nay — dựng từ bản gốc", () => {
   it("id hôm nay ⇒ id gốc; id thường ⇒ null", () => {
     expect(goc1Ngay("grid:d1")).toBe("grid:d3");
@@ -66,5 +86,15 @@ describe("snapshot hôm nay — dựng từ bản gốc", () => {
     expect(out.times).toEqual(times.slice(0, n));
     expect(out.cells[0].values).toEqual(times.map((_, i) => i).slice(0, n));
     expect(cat1Ngay("scalar:cloud:d1", null)).toBeNull();
+  });
+});
+
+describe("snapshotChoMay — không đưa dấu nguồn xuống máy (khong-lo-nguon nợ #4)", () => {
+  it("bỏ sources, giữ nguyên số + savedAt; mảng trần đi nguyên", () => {
+    const g = { savedAt: 5, times: [1], cells: [{ lat: 1 }], sources: [{ id: "x", savedAt: 5, days: ["d"] }] };
+    expect(snapshotChoMay(g)).toEqual({ savedAt: 5, times: [1], cells: [{ lat: 1 }] });
+    const d = [{ date: "2026-10-27" }];
+    expect(snapshotChoMay(d)).toBe(d);
+    expect(snapshotChoMay(null)).toBeNull();
   });
 });

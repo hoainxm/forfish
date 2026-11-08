@@ -29,7 +29,6 @@ export const WHOLESALERS_BS_NAM: Wholesaler[] = [
     address: "Ấp 11, xã Sông Đốc (TT. Sông Đốc, Trần Văn Thời cũ), Cà Mau",
     phone: "0919342769",
     species: ["cá biển", "mực", "thủy sản"],
-    source: "https://quocdatseafood.com/ve-chung-toi-a1.html",
     note: "tham khảo, cần xác minh. Cơ sở thu mua/chế biến tại cảng Sông Đốc, có hơn 7 tàu thu mua, ~60 tấn/ngày. Tỉnh cũ: Cà Mau (Sông Đốc, Trần Văn Thời).",
   },
   {
@@ -40,7 +39,6 @@ export const WHOLESALERS_BS_NAM: Wholesaler[] = [
     address: "Khóm 12, TT. Sông Đốc, Trần Văn Thời, Cà Mau",
     phone: "02903890333",
     species: ["cá biển", "cá tạp", "bột cá"],
-    source: "https://www.minhphatcamau.com/",
     note: "tham khảo, cần xác minh. SĐT phụ/hotline 0913975080. Nhà máy gần cửa biển cảng cá Sông Đốc, thu mua cá làm bột cá. Tỉnh: Cà Mau.",
   },
 
@@ -53,7 +51,6 @@ export const WHOLESALERS_BS_NAM: Wholesaler[] = [
     address: "Ấp 3, xã Đất Mới (Năm Căn cũ), Cà Mau",
     phone: "02903877146",
     species: ["tôm sú", "tôm thẻ", "tôm"],
-    source: "https://seanamico.com.vn/contact.html",
     note: "tham khảo, cần xác minh. SĐT phụ 02903876223. DN thu mua/chế biến tôm tại vùng Năm Căn (mã CK SNC). Tỉnh cũ: Cà Mau (huyện Năm Căn). Trụ sở cũ ghi Khóm 3, TT. Năm Căn.",
   },
 
@@ -66,7 +63,6 @@ export const WHOLESALERS_BS_NAM: Wholesaler[] = [
     address: "Ấp Tân Lập, xã Tân Ân Tây, Ngọc Hiển (vùng Rạch Gốc), Cà Mau",
     phone: "0913622425",
     species: ["tôm khô", "tôm đất", "cá khô"],
-    source: "https://tomkhotanphatloicamau.com/gioi-thieu/",
     note: "tham khảo, cần xác minh. Giám đốc Bùi Văn Chương. Cơ sở thu mua tôm tươi + chế biến tôm khô Rạch Gốc (OCOP); SĐT bán hàng Madeincamau 0813665858. Tỉnh: Cà Mau (Ngọc Hiển).",
   },
 
@@ -78,7 +74,6 @@ export const WHOLESALERS_BS_NAM: Wholesaler[] = [
     province: "An Giang",
     address: "Khu cảng cá Tắc Cậu, ấp Minh Phong, xã Bình An, Châu Thành (Kiên Giang cũ), An Giang",
     species: ["cá biển", "surimi", "chả cá"],
-    source: "https://trangvangdoanhnghiep.vn/1700579810-cong-ty-co-phan-thuy-san-tac-cau-cty/",
     note: "tham khảo, cần xác minh. MST 1700579810, thuộc Tập đoàn Phú Cường. Thu mua cá tươi từ ngư dân ~50-100 tấn/ngày tại cảng Tắc Cậu; SĐT không đăng công khai. Tỉnh cũ: Kiên Giang (Châu Thành).",
   },
   {
@@ -88,7 +83,6 @@ export const WHOLESALERS_BS_NAM: Wholesaler[] = [
     province: "An Giang",
     address: "Khu cảng cá Tắc Cậu, xã Bình An, Châu Thành (Kiên Giang cũ), An Giang",
     species: ["tôm", "thủy sản"],
-    source: "https://thuvienphapluat.vn/ma-so-thue/chi-nhanh-cong-ty-co-phan-che-bien-thuy-san-trung-son-tac-cau-mst-1701608687-001.html",
     note: "tham khảo, cần xác minh. MST 1701608687-001. Chi nhánh chế biến/thu mua thủy sản tại cảng Tắc Cậu; SĐT không đăng công khai. Tỉnh cũ: Kiên Giang (Châu Thành).",
   },
 ];

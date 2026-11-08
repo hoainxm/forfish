@@ -307,9 +307,9 @@ function part1() {
 
   const rows = [];
 
-  // ── reef-shapes-aca.v1.bin — 8 MB nhị phân, bộ giải trong src/lib/reef-bin.mjs
+  // ── ran-chi-tiet.v1.bin — 8 MB nhị phân, bộ giải trong src/lib/reef-bin.mjs
   {
-    const raw = readBin("reef-shapes-aca.v1.bin");
+    const raw = readBin("ran-chi-tiet.v1.bin");
     const m = measure("aca-bin", () => decodeReefShapes(raw), 3);
     decoded.reefAca = m.out;
     const v = m.out.features.reduce(
@@ -318,13 +318,13 @@ function part1() {
     );
     mark({
       group: "giải mã",
-      name: "reef-shapes-aca.v1.bin → FeatureCollection (reef-bin.mjs)",
+      name: "ran-chi-tiet.v1.bin → FeatureCollection (reef-bin.mjs)",
       ms: m.ms,
       live: false, // file đã có trong public/data nhưng CHƯA nối vào bản đồ
       note: `${num(m.out.features.length)} cụm · ${num(v)} đỉnh · giữ ${mb(m.heldMB * MB)} MB`,
     });
     rows.push([
-      "reef-shapes-aca.v1.bin",
+      "ran-chi-tiet.v1.bin",
       mb(raw.length),
       "varint-delta (reef-bin.mjs)",
       ms(m.ms),

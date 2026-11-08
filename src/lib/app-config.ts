@@ -8,9 +8,8 @@ import "server-only";
 // Khoá + helper THUẦN nằm ở app-config-keys.ts (không "server-only" → test được).
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CONFIG_KEYS, CONFIG_META } from "@/lib/app-config-meta";
 import {
-  CONFIG_KEYS,
-  CONFIG_META,
   configCacheFresh,
   nextConfigCache,
   resolveConfigCell,
@@ -19,9 +18,8 @@ import {
   type ConfigStatusRow,
 } from "@/lib/app-config-keys";
 
+export { CONFIG_KEYS, isConfigKey } from "@/lib/app-config-meta";
 export {
-  CONFIG_KEYS,
-  isConfigKey,
   resolveConfigCell,
   type ConfigKey,
   type ConfigKeyMeta,

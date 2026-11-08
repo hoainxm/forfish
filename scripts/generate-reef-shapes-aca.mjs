@@ -2,7 +2,7 @@
 //
 //   node --max-old-space-size=8192 scripts/generate-reef-shapes-aca.mjs
 //
-// Đầu ra: public/data/reef-shapes-aca.v1.json — FeatureCollection<MultiPolygon>,
+// Đầu ra: public/data/ran-chi-tiet.v1.json — FeatureCollection<MultiPolygon>,
 //   MỘT feature = MỘT CỤM rạn liên thông (xem phần (4) cuối file),
 //   properties: { kind: "reef" | "shoal", prov: Provenance }
 //   KHÔNG có trường tên nào (chủ dự án cấm tuyệt đối nhãn nước ngoài/chữ Hán).
@@ -81,9 +81,9 @@ const argOf = (name, dflt) => {
   const i = argv.indexOf(name);
   return i >= 0 && argv[i + 1] ? argv[i + 1] : dflt;
 };
-const OUT_PATH = argOf("--out", "public/data/reef-shapes-aca.v1.json");
+const OUT_PATH = argOf("--out", "public/data/ran-chi-tiet.v1.json");
 const bboxArg = argOf("--bbox", null);
-if (bboxArg && OUT_PATH === "public/data/reef-shapes-aca.v1.json") {
+if (bboxArg && OUT_PATH === "public/data/ran-chi-tiet.v1.json") {
   throw new Error("--bbox phải đi kèm --out <file khác>, đừng ghi đè bộ thật bằng khung thử.");
 }
 

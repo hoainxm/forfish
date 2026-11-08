@@ -2,8 +2,8 @@
 //
 //   node --max-old-space-size=4096 scripts/encode-reef-shapes.mjs
 //
-// Đọc : public/data/reef-shapes-aca.v1.json  (đầu ra của generate-reef-shapes-aca.mjs)
-// Ghi : public/data/reef-shapes-aca.v1.bin   (delta + zigzag + varint, xem src/lib/reef-bin.mjs)
+// Đọc : public/data/ran-chi-tiet.v1.json  (đầu ra của generate-reef-shapes-aca.mjs)
+// Ghi : public/data/ran-chi-tiet.v1.bin   (delta + zigzag + varint, xem src/lib/reef-bin.mjs)
 //
 // ═══ VÌ SAO ════════════════════════════════════════════════════════════════
 // Chủ dự án chốt 2026-08-29: dữ liệu bản đồ nằm TRONG CODE, không đẩy ra Vercel
@@ -27,8 +27,8 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { decodeReefShapes, encodeReefShapes, REEF_BIN_SCALE } from "../src/lib/reef-bin.mjs";
 
-const SRC = "public/data/reef-shapes-aca.v1.json";
-const OUT = "public/data/reef-shapes-aca.v1.bin";
+const SRC = "public/data/ran-chi-tiet.v1.json";
+const OUT = "public/data/ran-chi-tiet.v1.bin";
 /** Trần một file trong public/data — cùng con số hook đang chặn. */
 const FILE_MAX = 20 * 1024 * 1024;
 

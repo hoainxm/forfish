@@ -15,6 +15,11 @@ import { layers as protomapsLayers, namedFlavor } from "@protomaps/basemaps";
 import { chartSpriteUrl } from "@/lib/chart-symbols";
 import { dataSourceUrl } from "@/lib/data-fetch";
 
+/** Dòng nguồn ở nút ⓘ bản đồ — ⚠️ CHỜ LUẬT SƯ (xem src/app/nguon-du-lieu/page.tsx). */
+export const ATTRIBUTION_BAN_DO =
+  '<a href="/nguon-du-lieu">Nguồn dữ liệu</a> · © OpenStreetMap · OpenSeaMap — ' +
+  "Số độ sâu chỉ để THAM KHẢO, KHÔNG thay hải đồ chính thức và Thông báo hàng hải.";
+
 // "truecolor" (Ảnh mây trời) ĐÃ GỘP về lớp DỰ BÁO "Mây" (panel Thời tiết,
 // scalar-field) — user 2026-07-28: một chỗ cho mây, coi ảnh đã-qua là hôm nay
 // nhưng nay dùng thẳng dự báo (hôm nay→tương lai) thay ảnh vệ tinh trễ 2 ngày.
@@ -198,7 +203,7 @@ export const REEFS_DATA_URL = "/data/coral-reefs.v1.json";
     ⚠️ Đường dẫn phải nằm trong PMTILES_ARCHIVES của public/sw.js, không thì mất
     sóng là lớp này chết câm. Có test canh (sw-basemap-range). */
 export const REEF_SHAPES_PMTILES_URL =
-  "pmtiles:///data/reef-shapes-aca.v1.pmtiles";
+  "pmtiles:///data/ran-chi-tiet.v1.pmtiles";
 
 /** ĐIỂM hiểm hoạ (đá ngầm/xác tàu) — vẫn OSM, vì ACA/WCMC không có lớp điểm. */
 export const REEF_SHAPES_DATA_URL = "/data/reef-shapes.v1.json";
@@ -1037,10 +1042,9 @@ export function buildMapStyle(
 
           CLAUDE.md xếp "hứa độ chính xác dữ liệu mà nguồn không đảm bảo" vào
           danh sách KHÔNG ĐƯỢC. Câu này là cách giữ lời hứa đó. ĐỪNG GỠ. */
-      attribution:
-        "Ảnh: NASA · Độ sâu: ETOPO/EMODnet/GEBCO · Phao đèn: OpenSeaMap · " +
-        "Nền: © OpenStreetMap © Protomaps · Dự báo: Open-Meteo — " +
-        "Số độ sâu chỉ để THAM KHẢO, KHÔNG thay hải đồ chính thức và Thông báo hàng hải.",
+      // GHI CÔNG MỘT CHỖ (2026-11-08, khong-lo-nguon nợ #15): bản đồ chỉ giữ thứ ODbL đòi ở cạnh bản đồ + đường về
+      // /nguon-du-lieu (đủ danh sách). ⚠️ CHỜ LUẬT SƯ duyệt dạng câu — không tự đổi.
+      attribution: ATTRIBUTION_BAN_DO,
     },
     "sea-mask": {
       type: "geojson",

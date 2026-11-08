@@ -3,12 +3,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import {
-  CONFIG_KEYS,
   dataKeyShift,
-  isConfigKey,
   isDataKeyValue,
   validateConfigValue,
 } from "@/lib/app-config-keys";
+import { CONFIG_KEYS, isConfigKey } from "@/lib/app-config-meta";
 
 /*  CẤU HÌNH ỨNG DỤNG — LƯU SAI LÀ CHẾT HỆ THỐNG (chủ dự án 2026-09-17: "thao tác
     cái là chết hệ thống mà không cảnh báo"). Ba lớp, cổng canh cả ba:

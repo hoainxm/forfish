@@ -8,7 +8,7 @@ import {
   THAM_SO_BAN_DO,
   timConTheoLink,
 } from "@/lib/ban-do-link";
-import { stormKeyOf } from "@/lib/storm-identity";
+import { stormKeyOf, stormsChoMay } from "@/lib/storm-identity";
 import { stormPushUrl } from "@/lib/storm-push";
 import type { StormAlert } from "@/lib/storms";
 
@@ -64,8 +64,11 @@ describe("dichDenTuQuery", () => {
     expect(dichDenTuQuery(q, [], T0)).toEqual({ kind: "toa-do", lat: 14.6736, lon: 109.0698 });
   });
   it("khoá trùng cơn đang có ⇒ con-bao, kể cả khi không có lat/lon", () => {
-    const s = bao();
-    const q = docQueryBanDo(`?bao=${stormKeyOf(s, T0)}`);
+    // máy chủ gắn `key` (stormsChoMay) — máy so khoá, không tự đặt khoá (khong-lo-nguon nợ #8)
+    const [s] = stormsChoMay([bao()], T0);
+    expect(s.key).toBe(stormKeyOf(bao(), T0));
+    expect(s.id).toMatch(/^b[0-9a-f]+$/);
+    const q = docQueryBanDo(`?bao=${s.key}`);
     expect(dichDenTuQuery(q, [s], T0)).toEqual({ kind: "con-bao", storm: s });
   });
   it("khoá lệch nhưng tâm + giờ nối được ⇒ vẫn con-bao (áp thấp đổi khoá)", () => {

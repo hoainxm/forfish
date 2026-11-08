@@ -113,10 +113,10 @@ describe("/api/fish-forecast — lúc BUILD", () => {
   it("có snapshot (dù CŨ) → gieo kho bằng snapshot, KHÔNG tính live", async () => {
     buildPhase.value = true;
     snapshot.value = { ok: true, generatedAt: "cu" };
-    live.value = { ok: true, khongDuocGoi: true };
+    live.value = { ok: true, generatedAt: "live-khong-duoc-goi" };
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(await res.json()).not.toMatchObject({ khongDuocGoi: true });
+    expect((await res.json()).generatedAt).toBe("cu");
   });
 
   it("KHÔNG có snapshot → 503 NGAY, không đụng nguồn ngoài", async () => {
@@ -128,9 +128,39 @@ describe("/api/fish-forecast — lúc BUILD", () => {
 
   it("lúc CHẠY THẬT vẫn tính live như cũ — cổng build không được khoá nhầm", async () => {
     snapshot.value = { ok: true, generatedAt: "cu" };
-    live.value = { ok: true, tuoi: true };
+    live.value = { ok: true, generatedAt: "tuoi", cells: [] };
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ tuoi: true });
+    expect(await res.json()).toMatchObject({ generatedAt: "tuoi" });
+  });
+});
+
+/*  CHỈ TRƯỜNG CHO PHÉP đi xuống máy (2026-11-08, docs/app-map/ops/khong-lo-nguon.md nợ #2). */
+describe("/api/fish-forecast — không lộ nguồn / chẩn đoán", () => {
+  it("bỏ sources, dataQuality, chain, dateSkewDays, hint.why; baseMode thành cờ", async () => {
+    snapshot.value = {
+      ok: true,
+      generatedAt: "tuoi",
+      date: "2026-11-07",
+      species: ["ngừ vằn"],
+      baseMode: "catch-fleet-static",
+      sources: { sst: { id: "noaa-x", date: "d", stale: true } },
+      dataQuality: 0.8,
+      dateSkewDays: 1,
+      chain: { moon: 1 },
+      cells: [{ lat: 10, lon: 110, s: 70, top: ["ngừ vằn"], sp: { "ngừ vằn": 70 }, t: 29, c: 0.2, hint: { sat: 40, why: ["ranh nóng lạnh"] } }],
+    };
+    const res = await GET();
+    const j = await res.json();
+    expect(JSON.stringify(j)).not.toMatch(/sources|dataQuality|chain|dateSkewDays|why|noaa|catch-fleet/);
+    expect(j.baseMode).toBe(true);
+    expect(j.anhCu).toBe(true);
+    expect(j.cells[0]).toEqual({ lat: 10, lon: 110, s: 70, top: ["ngừ vằn"], sp: { "ngừ vằn": 70 }, t: 29, c: 0.2, hint: { sat: 40 } });
+  });
+  it("hết đường → 503 mã chung, không chuyển tiếp lý do bên trong", async () => {
+    live.value = { ok: false, loi: "nguon chet" };
+    const res = await GET();
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ ok: false, code: "unavailable" });
   });
 });

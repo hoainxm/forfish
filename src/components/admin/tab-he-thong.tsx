@@ -12,6 +12,38 @@ import { useCallback, useEffect, useState } from "react";
 import { type Health, fmtD, fmtDT } from "@/components/admin/quan-tri-chung";
 import { KhoOBanDoCard } from "@/components/admin/kho-o-ban-do-card";
 
+/*  CHỮ CÓ TÊN NGUỒN + CHẨN ĐOÁN CÁ lấy từ `/api/admin/he-thong` (2026-11-08, khong-lo-nguon nợ #2/#10): chunk này
+    tải được không cần quyền nên không viết tên nguồn ở đây. Chưa tải được ⇒ nhãn trung tính. Gọi một lần / phiên. */
+type HeThongInfo = {
+  nhan: { nguon: Record<string, string>; cronThoiTiet: string };
+  fish: { sources: { key: string; id: string; date: string; stale: boolean }[] } | null;
+};
+let heThongReq: Promise<HeThongInfo | null> | null = null;
+function loadHeThong(): Promise<HeThongInfo | null> {
+  heThongReq ??= fetch(apiUrl("/api/admin/he-thong"), { headers: tokenHeader(), signal: timeoutSignal(20000) })
+    .then(async (r) => {
+      const j = (await r.json().catch(() => null)) as (HeThongInfo & { ok?: boolean }) | null;
+      return r.ok && j?.ok ? j : null;
+    })
+    .catch(() => null)
+    .then((v) => {
+      if (!v) heThongReq = null; // hỏng thì lần sau thử lại
+      return v;
+    });
+  return heThongReq;
+}
+function useHeThong(): HeThongInfo | null {
+  const [v, setV] = useState<HeThongInfo | null>(null);
+  useEffect(() => {
+    let song = true;
+    void loadHeThong().then((x) => song && setV(x));
+    return () => {
+      song = false;
+    };
+  }, []);
+  return v;
+}
+
 /** Một nguồn dữ liệu app đang sống nhờ — check bằng chính API của app */
 export type SourceState =
   | { state: "loading" }
@@ -88,6 +120,7 @@ export function CronRow({
 }
 
 export function CronsPanel() {
+  const heThong = useHeThong();
   const [report, setReport] = useState<CronsReport | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -171,7 +204,7 @@ export function CronsPanel() {
           state={
             !report ? "loading" : !w || !w.ok ? "down" : w.keys === 0 ? "down" : w.fresh ? "ok" : "down"
           }
-          label="Bản lưu thời tiết (Snapshots) — tiến trình tự động refresh-weather (chạy lúc 02:30 UTC/ngày để dự phòng trường hợp API Open-Meteo gặp sự cố)"
+          label={heThong?.nhan.cronThoiTiet ?? "Bản lưu thời tiết (Snapshots) — tiến trình tự động refresh-weather (02:30 UTC/ngày)"}
           note={
             !report
               ? "đang rà soát…"
@@ -218,9 +251,8 @@ export function DataTab() {
   const [storms, setStorms] = useState<SourceState>({ state: "loading" });
   const [fuel, setFuel] = useState<SourceState>({ state: "loading" });
   const [prices, setPrices] = useState<SourceState>({ state: "loading" });
-  const [fishSources, setFishSources] = useState<
-    { key: string; id: string; date: string; stale: boolean }[]
-  >([]);
+  const heThong = useHeThong();
+  const fishSources = heThong?.fish?.sources ?? [];
 
   useEffect(() => {
     const check = async (
@@ -245,18 +277,6 @@ export function DataTab() {
           return;
         }
         set({ state: "ok", note: okNote(j) });
-        if (path === "/api/fish-forecast" && j.sources) {
-          setFishSources(
-            Object.entries(
-              j.sources as Record<string, Record<string, unknown>>,
-            ).map(([key, s]) => ({
-              key,
-              id: String(s.id ?? "?"),
-              date: String(s.date ?? "?"),
-              stale: Boolean(s.stale),
-            })),
-          );
-        }
       } catch {
         set({ state: "down", note: "không thể kết nối tới nguồn dữ liệu (lỗi timeout/mạng)" });
       }
@@ -276,15 +296,16 @@ export function DataTab() {
     });
     check("/api/fuel-price", setFuel, () => "đã cập nhật giá dầu DO mới nhất");
     check("/api/port-prices", setPrices, (j) =>
-      `nguồn tham khảo ${String(j.source ?? "?")}${j.province ? ` · ${String(j.province)}` : ""}`,
+      `đã có bảng giá${j.province ? ` · ${String(j.province)}` : ""}`,
     );
   }, []);
 
+  const nhan = (path: string, macDinh: string) => heThong?.nhan.nguon[path] ?? macDinh;
   const rows: [string, string, SourceState][] = [
-    ["Dữ liệu dự báo cá (từ vệ tinh NOAA/Copernicus/HYCOM)", "/api/fish-forecast", fish],
-    ["Thông tin cảnh báo bão khu vực Biển Đông", "/api/storms", storms],
-    ["Bảng giá dầu DO", "/api/fuel-price", fuel],
-    ["Bảng giá thuỷ sản (theo VASEP)", "/api/port-prices", prices],
+    [nhan("/api/fish-forecast", "Dữ liệu dự báo cá"), "/api/fish-forecast", fish],
+    [nhan("/api/storms", "Thông tin cảnh báo bão khu vực Biển Đông"), "/api/storms", storms],
+    [nhan("/api/fuel-price", "Bảng giá dầu DO"), "/api/fuel-price", fuel],
+    [nhan("/api/port-prices", "Bảng giá thuỷ sản"), "/api/port-prices", prices],
   ];
 
   return (
@@ -651,12 +672,12 @@ export function SystemTab({ health }: { health: Health }) {
           note={
             env?.serviceRole
               ? "đã cấu hình (chức năng gửi tin và ghi dữ liệu hoạt động bình thường)"
-              : "THIẾU cấu hình — liên kết với hệ thống SDWork hiện chưa ghi được dữ liệu"
+              : "THIẾU cấu hình — liên kết với hệ thống CRM hiện chưa ghi được dữ liệu"
           }
         />
         <Row
           ok={env?.webhookSecret ?? false}
-          label="Webhook SDWork (HMAC secret)"
+          label="Webhook CRM (HMAC secret)"
           note={
             env?.webhookSecret
               ? "đã được cấu hình đầy đủ"
@@ -705,10 +726,10 @@ export function SystemTab({ health }: { health: Health }) {
 
       {db && (
         <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
-          Webhook SDWork đẩy bản ghi khách gần nhất lúc{" "}
+          Webhook CRM đẩy bản ghi khách gần nhất lúc{" "}
           <b className="tabular-nums">{fmtDT(db.lastIngestAt)}</b>. Lâu bất
           thường (khách mới bên CRM mà bên này không thấy) → kiểm tra outbox
-          webhook bên SDWork và secret ở trên.
+          webhook bên CRM và secret ở trên.
         </p>
       )}
     </div>

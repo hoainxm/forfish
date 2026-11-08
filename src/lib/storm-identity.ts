@@ -23,6 +23,7 @@
 
 import type { StormAlert } from "@/lib/storms";
 import { khoangCachKm } from "@/lib/storm-bulletin";
+import { fnv1a64Hex } from "@/lib/market/order-ref";
 
 /** Hai bản ghi CÙNG LÚC mà tâm cách dưới ngần này = một cơn (hai nguồn đo lệch) */
 export const TRUNG_KM = 350;
@@ -85,8 +86,31 @@ export function stormKeyOf(s: Pick<StormAlert, "id" | "name" | "lat" | "lon" | "
     if (so != null) return `bao-so-${so}-${new Date(moc).getUTCFullYear()}`;
     return `atnd-${ngayUTC(moc)}-${s.lat.toFixed(1)}-${s.lon.toFixed(1)}`;
   }
+  // cơn tin QUỐC TẾ (không nối được tin VN): tiền tố trung tính `qt-` (đổi từ tên nguồn 2026-11-08, khong-lo-nguon
+  // nợ #8). Push đã gửi dưới khoá cũ vẫn nối được: storm-push giữ khoá cũ khi `cungCon` theo tâm + giờ.
   const ten = slug(s.name);
-  return ten ? `gdacs-${ten}` : `gdacs-${slug(s.id) || "khong-ro"}`;
+  return ten ? `qt-${ten}` : `qt-${slug(s.id) || "khong-ro"}`;
+}
+
+/**
+ * DANH SÁCH BÃO CHO MÁY (2026-11-08, docs/app-map/ops/khong-lo-nguon.md nợ #8): id nội bộ mang tên nguồn
+ * (`nchmf-…`, mã sự kiện quốc tế) ⇒ băm thành `b<hex>` ổn định; kèm `key` = khoá cơn (`stormKeyOf`) để máy nối
+ * link push mà KHÔNG cần biết luật đặt khoá. Liệt kê tường minh trường đi xuống.
+ */
+export function stormsChoMay(storms: StormAlert[], nowMs: number): (StormAlert & { key: string })[] {
+  return storms.map((s) => ({
+    id: `b${fnv1a64Hex(s.id)}`,
+    key: stormKeyOf(s, nowMs),
+    name: s.name,
+    kindLabel: s.kindLabel,
+    windKmh: s.windKmh,
+    lat: s.lat,
+    lon: s.lon,
+    alert: s.alert,
+    updated: s.updated,
+    track: s.track,
+    areas: s.areas,
+  }));
 }
 
 /**

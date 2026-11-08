@@ -37,3 +37,16 @@ export function cat1Ngay(id: string, payload: unknown): unknown {
   }
   return payload;
 }
+
+/**
+ * BẢN CHO MÁY của một snapshot thời tiết (2026-11-08, docs/app-map/ops/khong-lo-nguon.md nợ #4): bỏ `sources`
+ * (dấu nguồn nào thắng ngày nào — chỉ máy chủ/quản trị cần). Máy chỉ giữ số + `savedAt`. Mảng trần (cảng kiểu cũ)
+ * đi nguyên. Không đổi gì khác — client đọc đúng hình cũ.
+ */
+export function snapshotChoMay(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  if (!("sources" in payload)) return payload;
+  const con: Record<string, unknown> = { ...(payload as Record<string, unknown>) };
+  delete con.sources;
+  return con;
+}

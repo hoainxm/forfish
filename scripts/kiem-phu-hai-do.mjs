@@ -474,7 +474,7 @@ export function hangMucChuan() {
       ketLuan:
         rs.features.length > 0 &&
         daNoiSW("reef-shapes.v1.json") &&
-        daNoiSW("reef-shapes-aca.v1.pmtiles")
+        daNoiSW("ran-chi-tiet.v1.pmtiles")
           ? "VƯỢT"
           : "CHƯA",
       ghi: "ven bờ dày gấp 33,8 lần OSM, mỗi hình có lý lịch (prov); 80 cụm gốc WCMC còn mâu thuẫn giấy phép chưa xử (xem docs/research/thuoc-vuot-hai-do-2026-09.md §3.7).",

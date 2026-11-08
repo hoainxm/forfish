@@ -6,7 +6,7 @@ import { archiveKey, lamMoiKhoPmtiles, nguonCanNapLai } from "@/lib/pmtiles-prot
 
 const moTa: Record<string, { type: string; url?: string; data?: unknown }> = {
   basemap: { type: "vector", url: "pmtiles:///data/vn-basemap.pmtiles" },
-  "reef-shapes": { type: "vector", url: "pmtiles:///data/reef-shapes-aca.v1.pmtiles" },
+  "reef-shapes": { type: "vector", url: "pmtiles:///data/ran-chi-tiet.v1.pmtiles" },
   islands: { type: "geojson", data: "sdfdata:///data/islands.v1.json" },
   "sea-scalar": { type: "geojson", data: { type: "FeatureCollection", features: [] } },
   "ve-tinh": { type: "raster", url: "https://example.org/tiles.json" },
@@ -27,8 +27,8 @@ describe("nguonCanNapLai", () => {
       {
         id: "reef-shapes",
         kind: "vector",
-        url: "pmtiles:///data/reef-shapes-aca.v1.pmtiles",
-        archive: "/data/reef-shapes-aca.v1.pmtiles",
+        url: "pmtiles:///data/ran-chi-tiet.v1.pmtiles",
+        archive: "/data/ran-chi-tiet.v1.pmtiles",
       },
     ]);
   });

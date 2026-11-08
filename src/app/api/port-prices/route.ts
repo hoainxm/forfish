@@ -1,9 +1,9 @@
 import {
-  VASEP_LISTING_URL,
   mergeLivePrices,
   parseVasepBulletin,
   pickLatestBulletinUrl,
 } from "@/lib/port-price-source";
+import { VASEP_LISTING_URL } from "@/lib/port-price-source-server";
 import { timeoutSignal } from "@/lib/abort";
 
 /**
@@ -42,7 +42,7 @@ export async function GET() {
 
     return Response.json({
       ok: true,
-      source: "vasep",
+      source: "tuan",
       province: parsed.province,
       week: parsed.week,
       prices: mergeLivePrices(parsed.prices),

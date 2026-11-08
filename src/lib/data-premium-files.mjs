@@ -8,7 +8,7 @@
 
 /** Nguồn cho bán (CC-BY) hoặc phục vụ dự báo cá / dẫn đường. */
 export const PREMIUM_SDF2 = new Set([
-  "reef-shapes-aca.v1.pmtiles", // hình rạn chi tiết — Allen Coral Atlas (CC-BY)
+  "ran-chi-tiet.v1.pmtiles", // hình rạn chi tiết — Allen Coral Atlas (CC-BY)
   "chat-day.v1.pmtiles", // chất đáy — Allen Coral Atlas (CC-BY)
   "chat-day.v1.json",
   "reef-depth.v1.bin", // độ sâu rạn xa bờ — HHU24SWDSCS / SCSBathy10 (CC-BY), cho dẫn đường

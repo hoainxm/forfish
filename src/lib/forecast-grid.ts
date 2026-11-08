@@ -76,13 +76,13 @@ export const GRID_DAY_OPTIONS = [3, 5, 7, 10, 16] as const;
 export type GridDays = (typeof GRID_DAY_OPTIONS)[number];
 
 /** Model sóng phủ đủ 16 ngày theo giờ (best-match sóng chỉ ~9 ngày) */
-const WAVE_MODEL = "ncep_gfswave025";
+const WAVE_MODEL = "s1"; // mã mờ (lib/om-url OM_MODEL) — máy không biết tên mô hình
 
 /** Model DỰ PHÒNG (cron ghép snapshot 2 nguồn, 2026-07-29): ECMWF qua cùng API
     Open-Meteo — khác model thật (IFS ≠ GFS), probe thật phủ tới ~+14,5 ngày
     (gió + đủ 5 biến dải màu) / ~+14,5 ngày (sóng WAM). CHỈ cron gọi. */
-export const BACKUP_WIND_MODEL = "ecmwf_ifs025";
-export const BACKUP_WAVE_MODEL = "ecmwf_wam025";
+export const BACKUP_WIND_MODEL = "g2"; // mã mờ
+export const BACKUP_WAVE_MODEL = "s2"; // mã mờ
 
 /**
  * Chỉ số GIỜ cho từng khung của thanh thời gian: dày (3h) ở gần, thưa dần khi
@@ -814,7 +814,7 @@ async function fetchGridCore(
   // models=ncep_gfswave025 thì ocean_current_* trả toàn null (model sóng không
   // có biến dòng chảy). Nguồn dòng chảy = MeteoFrance SMOC (best_match), phủ
   // ~10 ngày — ngày 11–16 null, lớp vẽ tự trống, KHÔNG bịa số.
-  const windModelQ = opts.windModel ? `&models=${opts.windModel}` : "";
+  const windModelQ = opts.windModel ? `&m=${opts.windModel}` : "";
   const [windRes, waveRes, curRes] = await Promise.all([
     // QUA CẦU /api/om trên máy bà con (gác số ngày ở máy chủ — lib/om-url); cron gọi thẳng nguồn
     taiJsonCoNhip(
@@ -826,7 +826,7 @@ async function fetchGridCore(
       return json;
     }),
     taiJsonCoNhip(
-      omUrl("marine", `${common}&hourly=wave_height,wave_direction&models=${opts.waveModel ?? WAVE_MODEL}`),
+      omUrl("marine", `${common}&hourly=wave_height,wave_direction&m=${opts.waveModel ?? WAVE_MODEL}`),
       { headers: tokenHeader() },
       20000,
     )

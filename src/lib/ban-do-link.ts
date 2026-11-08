@@ -12,7 +12,7 @@
 */
 
 import type { StormAlert } from "@/lib/storms";
-import { cungCon, stormKeyOf } from "@/lib/storm-identity";
+import { cungCon } from "@/lib/storm-identity";
 import { daysBetweenISO } from "@/lib/day-labels";
 
 export type QueryBanDo = {
@@ -67,7 +67,10 @@ export type DichDenBanDo =
  */
 export function timConTheoLink(q: QueryBanDo, storms: StormAlert[], nowMs: number): StormAlert | null {
   if (!q.bao) return null;
-  const theoKhoa = storms.find((s) => stormKeyOf(s, nowMs) === q.bao);
+  // khoá do máy chủ gắn (`key`, 2026-11-08) — máy không tự đặt khoá; bản lưu cũ thiếu `key` thì nối theo tâm bên dưới.
+  // `nowMs` giữ trong chữ ký cho chỗ gọi (trước dùng đặt khoá áp thấp); nay không cần.
+  void nowMs;
+  const theoKhoa = storms.find((s) => s.key === q.bao);
   if (theoKhoa) return theoKhoa;
   if (q.lat == null || q.lon == null) return null;
   const moc = { lat: q.lat, lon: q.lon, tMs: q.tMs };

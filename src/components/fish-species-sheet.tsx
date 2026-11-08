@@ -14,7 +14,7 @@ import {
   CATEGORY_LABEL,
   SPECIES_META,
   type SpeciesCategory,
-} from "@/lib/fish-predict";
+} from "@/lib/species-meta";
 import { useState } from "react";
 import { CheckIcon, ChevronRightIcon } from "@/components/icons";
 import { NHAN } from "@/lib/labels";

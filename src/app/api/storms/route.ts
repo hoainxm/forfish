@@ -9,7 +9,7 @@ import {
 } from "@/lib/storms-vn";
 import { parseEarlyWarning, type EarlyWarning } from "@/lib/storm-early";
 import { timeoutSignal } from "@/lib/abort";
-import { gopNguonBao } from "@/lib/storm-identity";
+import { gopNguonBao, stormsChoMay } from "@/lib/storm-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   rowsToTracks,
@@ -274,20 +274,15 @@ export async function GET() {
 
   return Response.json({
     ok: true,
-    storms: gopNguon(vn ?? [], gdacs ?? []),
+    // id băm + khoá cơn — không tên nguồn trong thứ đi xuống máy (khong-lo-nguon nợ #8)
+    storms: stormsChoMay(gopNguon(vn ?? [], gdacs ?? []), now.getTime()),
     checkedAt: now.toISOString(),
     /*  Đường đi đã qua + dự báo sắp tới (kho 0036). Client cũ KHÔNG đọc trường
         này và vẫn chạy đúng — thêm trường là thêm, không phá hợp đồng. */
     tracks,
     /*  CẢNH BÁO SỚM (2026-09-09) — vùng áp thấp có khả năng mạnh lên thành
         ATNĐ/bão. null khi bản tin biển không báo / nguồn lỗi. Client cũ bỏ qua. */
-    earlyWarning,
-    /*  Nguồn nào trả lời được lượt này — để /quan-tri và người soát sau biết
-        app đang sống bằng nguồn nào, thay vì đoán. Client hiện KHÔNG đọc trường
-        này; thêm trường mới không phá `stormStatus` (nó chỉ đọc ok/storms/checkedAt). */
-    sources: {
-      nchmf: vn === null ? "hong" : "ok",
-      gdacs: gdacs === null ? "hong" : "ok",
-    },
+    // bỏ `url` bản tin nguồn — máy chỉ cần khung + mốc (khong-lo-nguon nợ #8)
+    earlyWarning: earlyWarning ? { kind: earlyWarning.kind, box: earlyWarning.box, when: earlyWarning.when } : null,
   });
 }

@@ -102,7 +102,7 @@ export const POINT_NS = "point";
  */
 export const FORECAST_MAX_DAYS = 16;
 /** Model sóng phủ đủ 16 ngày (best-match chỉ ~8). */
-const WAVE_MODEL = "ncep_gfswave025";
+const WAVE_MODEL = "s1"; // mã mờ (lib/om-url OM_MODEL)
 
 export type ForecastConfidence = {
   label: string;
@@ -529,7 +529,7 @@ async function fetchSeaPointLive(p: SeaPoint, soNgay: number): Promise<SeaPointC
   );
   const waveUrl = omUrl(
     "marine",
-    `${common}` + `&current=wave_height,wave_period&daily=wave_height_max&models=${WAVE_MODEL}`,
+    `${common}` + `&current=wave_height,wave_period&daily=wave_height_max&m=${WAVE_MODEL}`,
   );
   // DÒNG CHẢY = request riêng (SMOC best_match): ghim models sóng thì
   // ocean_current_* trả toàn null (probe 2026-07-29). Hỏng không kéo sập dự báo.

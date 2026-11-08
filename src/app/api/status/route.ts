@@ -2,12 +2,15 @@ import { LOCAL_BUILD_DATE, LOCAL_BUILD_ID } from "@/lib/app-version";
 import { buildStatus } from "@/lib/status-report";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { timeoutSignal } from "@/lib/abort";
+import { getCronSecret } from "@/lib/app-config";
 
 /**
  * TRẠNG THÁI BẢN ĐANG CHẠY + ĐỘ TƯƠI DỮ LIỆU (lib/status-report.ts). Công khai như
  * /api/version: chỉ mã bản, ngày fit tham số mô hình và TUỔI các bản tính sẵn — KHÔNG
  * trả nội dung dự báo nào (không phải route dữ liệu, ngoài dataGate; xem
- * data-route-rules.test). DB lỗi/thiếu env ⇒ vẫn 200 với duLieu "khong-doc-duoc"
+ * data-route-rules.test). GÁC (2026-11-08, khong-lo-nguon nợ #14): khối `model` (ngày fit tham số) CHỈ trả khi
+ * kèm `Authorization: Bearer <CRON_SECRET>` (smoke / người vận hành) — công khai chỉ còn mã bản + độ tươi.
+ * DB lỗi/thiếu env ⇒ vẫn 200 với duLieu "khong-doc-duoc"
  * (đây là trang để HỎI tình trạng — tự nó không được sập theo DB). Không cache.
  */
 export const dynamic = "force-dynamic";
@@ -29,7 +32,9 @@ async function moiNhat(table: string, idLike: string | null): Promise<{ at: stri
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const secret = await getCronSecret().catch(() => null);
+  const noiBo = !!secret && req.headers.get("authorization") === `Bearer ${secret}`;
   const [fish, weather] = await Promise.all([
     moiNhat("fish_forecast_snapshot", null),
     moiNhat("weather_snapshot", "grid:%"),
@@ -45,5 +50,7 @@ export async function GET() {
     dbOk: fish.ok && weather.ok,
     nowMs: Date.now(),
   });
-  return Response.json(body, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  const congKhai: Partial<typeof body> = { ...body };
+  delete congKhai.model;
+  return Response.json(noiBo ? body : congKhai, { headers: { "Cache-Control": "no-store, max-age=0" } });
 }

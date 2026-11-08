@@ -71,8 +71,12 @@ import {
   routeStartMatches,
   stopAt,
   clearStops,
+  layNoiDi,
+  xoaNoiDi,
   type RouteStop,
 } from "@/lib/route-stops";
+import { cangGanNhatSatBien, namTrenBo, type CangUngVien } from "@/lib/tren-bo";
+import { FISHING_PORTS } from "@/data/fishing-ports";
 import {
   fetchWeatherField,
   isWeatherRateLimit,
@@ -114,6 +118,9 @@ export type PlannedRoute = {
   plan: RoutePlan;
   start: LatLon;
   startLabel: string;
+  /** nơi đi BÀ CON CHỌN khi máy đã đổi sang cảng gần nhất vì nó nằm trên bờ (lib/tren-bo) — để so "tuyến còn
+      khớp nơi đi không" bằng chỗ bà con chọn, không bằng cảng máy thay (không thì băng "tuyến cũ" bật mãi) */
+  startGoc?: LatLon;
   /** điểm CUỐI của đường đi — giữ tên cũ để nav/fitBounds/staleRoute không phải sửa */
   dest: LatLon;
   /** các chỗ phải ghé, theo đúng thứ tự bà con chấm; phần tử cuối = `dest` */
@@ -132,6 +139,16 @@ export type PlannedRoute = {
 };
 
 const BOAT_KEY = "forfish.boat.v1";
+
+/** Cảng ứng viên khi nơi đi nằm sâu trên bờ (lib/tren-bo): 10 cảng dự báo + cảng cá đang hoạt động có toạ độ. */
+const CANG_UNG_VIEN: CangUngVien[] = [
+  ...PORTS.map((p) => ({ lat: p.lat, lon: p.lon, ten: `Cảng ${p.name}` })),
+  ...FISHING_PORTS.filter((p) => p.active && typeof p.lat === "number" && typeof p.lng === "number").map((p) => ({
+    lat: p.lat!,
+    lon: p.lng!,
+    ten: `Cảng ${p.name}`,
+  })),
+];
 
 /* HỒ SƠ TÀU CŨNG LÀ DỮ LIỆU GÕ TAY (K4, 2026-08-02): tốc độ chạy + lít dầu/giờ
    là con số chủ tàu tự đo, không tải lại được từ đâu. Cùng khuôn với sổ mối
@@ -366,15 +383,21 @@ export function RouteMode({
   const formRef = useRef<HTMLButtonElement>(null);
   /*  MỎ NEO THỨ TƯ: hàng "Thêm điểm dừng" — xem cú cuộn thứ tư dưới. */
   const addStopRef = useRef<HTMLDivElement>(null);
+  /*  NƠI ĐI LỘ TRÌNH GỬI SANG (2026-11-08, route-stops guiNoiDi): bấm "Bản đồ" ở lộ trình chuyến biển ⇒ đi từ
+      CẢNG XUẤT BẾN của lộ trình, không phải vị trí điện thoại. Đọc một lần lúc mở; effect dưới xoá. */
+  const [noiDiGui] = useState(() => layNoiDi());
+  useEffect(() => {
+    if (noiDiGui) xoaNoiDi();
+  }, [noiDiGui]);
   // "gps" | "place:<id>" | "port:<id>"; mặc định Cảng nhà nếu có
-  const [startId, setStartId] = useState<string>("");
+  const [startId, setStartId] = useState<string>(noiDiGui ? "fixed" : "");
   /*  NƠI XUẤT PHÁT CHỐT TẠI CHỖ (2026-10-16, chủ dự án: "đang có điểm 1, thêm
       điểm 2 thì nó thay đổi 1 sang 2 luôn"). Trước đây chọn "Điểm đang xem"
       là nơi đi BÁM THEO con trỏ — mà thêm điểm dừng chính là chạm bản đồ dời
       con trỏ ⇒ nơi đi nhảy theo điểm vừa chấm ("0 hải lý thẳng"). Nay chọn là
       CHỐT toạ độ lúc đó thành "Vị trí đã chọn" (id "fixed"); con trỏ đi đâu
       mặc nó. Muốn đổi thì mở bộ chọn, chọn lại "Điểm đang xem". */
-  const [fixedStart, setFixedStart] = useState<LatLon | null>(null);
+  const [fixedStart, setFixedStart] = useState<(LatLon & { ten?: string }) | null>(noiDiGui);
   // đọc thẳng localStorage lúc render đầu được vì cả cây bản đồ đã
   // next/dynamic ssr:false (không có HTML server để lệch); readBoat tự
   // fallback DEFAULT_BOAT khi không có window/storage
@@ -387,6 +410,8 @@ export function RouteMode({
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  /** câu "nơi đi trên bờ — máy tính từ cảng X" của lượt tính gần nhất (lib/tren-bo) */
+  const [trenBoNote, setTrenBoNote] = useState<string | null>(null);
   const [result, setResult] = useState<PlannedRoute | null>(null);
   // Mất sóng: tuyến tính từ lưới Windy ĐÃ LƯU (thô hơn, không dòng chảy) — giữ
   // mốc lưu để nói thật với bà con. null = tính từ dự báo mới (online).
@@ -540,7 +565,8 @@ export function RouteMode({
       ? [
           {
             id: "fixed",
-            label: `Vị trí đã chọn — ${fmtCoordPair(fixedStart.lat, fixedStart.lon, prefs.coordFormat)}`,
+            label: `${fixedStart.ten ?? "Vị trí đã chọn"} — ${fmtCoordPair(fixedStart.lat, fixedStart.lon, prefs.coordFormat)}`,
+            ...(fixedStart.ten ? { ngan: fixedStart.ten } : {}),
             coord: fixedStart,
           },
         ]
@@ -597,8 +623,8 @@ export function RouteMode({
   const startStale =
     activeRoute != null &&
     (effectiveStartId === "gps" && startCoord
-      ? haversineKm(activeRoute.start, startCoord) > GPS_LECH_KM
-      : !routeStartMatches(activeRoute.start, startCoord));
+      ? haversineKm(activeRoute.startGoc ?? activeRoute.start, startCoord) > GPS_LECH_KM
+      : !routeStartMatches(activeRoute.startGoc ?? activeRoute.start, startCoord));
   const staleRoute = chainStale || startStale ? activeRoute : null;
   /*  TỰ TÍNH NHƯ VIETMAP (anh Long 2026-11-02: "cái nút tính đường? dẫn đường? sao ko làm
       giống vietmap"): chọn / đổi điểm đến, đổi nơi xuất phát ⇒ tuyến tự ra, không còn nút
@@ -700,8 +726,8 @@ export function RouteMode({
       if (start) {
         // đã có định vị
       } else if (sid === "fixed" && fixedStart) {
-        start = fixedStart;
-        startLabel = "Vị trí đã chọn";
+        start = { lat: fixedStart.lat, lon: fixedStart.lon };
+        startLabel = fixedStart.ten ?? "Vị trí đã chọn";
       } else if (sid === "cursor") {
         start = { lat: dest.lat, lon: dest.lon };
         startLabel = "Điểm đang xem";
@@ -719,6 +745,38 @@ export function RouteMode({
         const port = PORTS.find((p) => p.id === portId) ?? nearestPort;
         start = { lat: port.lat, lon: port.lon };
         startLabel = `Cảng ${port.name}`;
+      }
+
+      /*  NƠI ĐI NẰM SÂU TRÊN BỜ ⇒ ĐI TỪ CẢNG GẦN NHẤT (2026-11-08, lib/tren-bo). Ảnh lỗi anh Long: định vị ở
+          TP.HCM (cách biển ~50 km) ⇒ "chưa tìm được đường… vướng đất liền". Bộ tính tuyến chỉ nới đất sát cảng
+          / đoạn ra cửa sông ≤20 km nên điểm sâu trong đất KHÔNG BAO GIỜ tính được — đổi sang cảng gần nhất có lối
+          ra biển và NÓI RA. Đường bộ tới cảng KHÔNG tính (app không có dữ liệu đường sá chạy offline), chỉ báo
+          khoảng cách đường chim bay. Thước = khoảng cách tới vùng biển VN (geofence, trong bundle) ⇒ không mạng.
+          Điểm ghé/điểm đến trên bờ: KHÔNG tự dời (dời là đổi chuỗi bà con chấm) — chỉ nói cảng gần. */
+      setTrenBoNote(null);
+      let startGoc: LatLon | null = null;
+      if (namTrenBo(start)) {
+        const gan = cangGanNhatSatBien(start, CANG_UNG_VIEN);
+        if (gan) {
+          startGoc = start;
+          setTrenBoNote(
+            `${startLabel} đang ở trên bờ, cách biển xa — máy tính đường biển từ ${gan.cang.ten} ` +
+              `(cách chỗ bà con khoảng ${Math.round(gan.km)} km đường chim bay; đường bộ tới cảng máy chưa tính).`,
+          );
+          start = { lat: gan.cang.lat, lon: gan.cang.lon };
+          startLabel = gan.cang.ten;
+        }
+      }
+      for (let i = 0; i < chainStops.length; i++) {
+        if (!namTrenBo(chainStops[i])) continue;
+        const gan = cangGanNhatSatBien(chainStops[i], CANG_UNG_VIEN);
+        const ten = i === chainStops.length - 1 ? "Điểm đến" : `Điểm ghé ${i + 1}`;
+        onDuongThang?.(null);
+        setError(
+          `${ten} đang nằm trên bờ, cách biển xa — máy không tính đường biển tới đó được.` +
+            (gan ? ` Cảng gần nhất là ${gan.cang.ten} (khoảng ${Math.round(gan.km)} km) — bà con chọn cảng đó nhé.` : ""),
+        );
+        return;
       }
 
       /*  Mỗi CHẶNG phải đủ dài: lưới tìm đường bước tối thiểu 4 km, hai điểm
@@ -1117,6 +1175,7 @@ export function RouteMode({
       const r: PlannedRoute = {
         plan,
         start,
+        ...(startGoc ? { startGoc } : {}),
         startLabel,
         dest: finalDest,
         stops: chainStops,
@@ -1145,6 +1204,7 @@ export function RouteMode({
     onDuongThang?.(null);
     setResult(null);
     setError(null);
+    setTrenBoNote(null);
     setOfflineSavedAt(undefined);
     setNoForecast(false);
     setAudit(null);
@@ -1661,6 +1721,9 @@ export function RouteMode({
         <p role="alert" className="text-[0.9375rem] font-semibold leading-snug text-danger">
           {error}
         </p>
+      )}
+      {trenBoNote && !error && (
+        <p className="text-[0.875rem] font-semibold leading-snug text-warn">{trenBoNote}</p>
       )}
 
       {(!plan || editing || panel !== "idle") && (

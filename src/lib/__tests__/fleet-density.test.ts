@@ -30,7 +30,11 @@ import {
   moonBinOf,
   seasonOfMonth,
   type FleetDensity,
-} from "../fleet-density";
+  nenFleet,
+  laNenFleet,
+  apHeSoNgay,
+  nenCuaNgay,
+} from "../fleet-density-server";
 import { moonPhase } from "../moon";
 
 /** Lưới tí hon: trục thật, 2 ngày, 1 tháng, 1 mùa, 1 pha trăng. */
@@ -153,8 +157,8 @@ describe("fleet-density — bãi tàu đánh theo ngày/tháng/mùa/trăng", () 
   });
 });
 
-describe("fleet-density — file thật public/data/fleet-density.v1.json (riêng tư + hình dạng)", () => {
-  const file = path.join(process.cwd(), "public/data/fleet-density.v1.json");
+describe("fleet-density — file thật src/data/fleet-density.v1.json (riêng tư + hình dạng)", () => {
+  const file = path.join(process.cwd(), "src/data/fleet-density.v1.json");
   const d = JSON.parse(fs.readFileSync(file, "utf8")) as FleetDensity;
 
   it("mốc FLEET_DENSITY_BUILT = builtFrom.to của file (đổi file phải đổi mốc — URL ?b= để máy đã cache nhận bản mới)", () => {
@@ -390,5 +394,37 @@ describe("fleet-density — rà Codex 2026-10-26: tàu/ngày · bão theo vùng 
     expect(f.thinBase).toBe(true);
     d.days.month["2026-10"] = DENSITY_THIN_DAYS;
     expect(forecastFleetDensity({ d, todayIso: today, dayOffset: 0, gear: "tat" }).thinBase).toBe(false);
+  });
+});
+
+/*  NỀN TÍNH Ở MÁY CHỦ (2026-11-08, khong-lo-nguon nợ #7): máy nhận `nenFleet` (đã làm gọn số) rồi tự nhân gió/bão —
+    phải ra CÙNG bản đồ với đường tính đủ, và payload đủ nhỏ để cất cả 16 ngày. */
+describe("fleet-density — nền máy chủ ⇒ máy nhân gió/bão", () => {
+  const d = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src/data/fleet-density.v1.json"), "utf8")) as FleetDensity;
+  it("bộ 16 ngày: đủ ngày, mọi ô có 7 số, ô dưới sàn đã bỏ, payload < 2 MB / nghề", { timeout: 60000 }, () => {
+    const n = nenFleet(d, "2026-11-08", "tat", "2026-11-08T00:00:00Z");
+    expect(laNenFleet(n)).toBe(true);
+    expect(n.ngay).toHaveLength(FLEET_FORECAST_DAYS);
+    for (const g of n.ngay) for (const o of g.o) expect(o).toHaveLength(7);
+    expect(JSON.stringify(n).length).toBeLessThan(2_000_000);
+    expect(JSON.stringify(n)).not.toMatch(/builtFrom|VMS|minVessels/);
+  });
+  it("máy nhân gió/bão trên nền đã làm gọn ⇒ cùng bản đồ với đường tính đủ (lệch ≤ 1 điểm do làm tròn)", { timeout: 60000 }, () => {
+    const wind = [{ lat: 13.77, lon: 109.23, byDate: { "2026-11-09": 55 } }];
+    const storms = [{ lat: 15, lon: 113 }];
+    const stormDays = new Set(["2026-11-09"]);
+    const n = nenFleet(d, "2026-11-08", "vay", "x");
+    const may = apHeSoNgay(nenCuaNgay(n, "2026-11-09")!, { wind, stormDays, storms });
+    const du = forecastFleetDensity({ d, todayIso: "2026-11-08", dayOffset: 1, gear: "vay", wind, stormDays, storms });
+    const theoO = new Map(du.cells.map((c) => [`${c.lat},${c.lon}`, c]));
+    let lech = 0;
+    for (const c of may.cells) {
+      const o = theoO.get(`${c.lat},${c.lon}`);
+      if (!o) { lech++; continue; }
+      expect(Math.abs(o.score - c.score)).toBeLessThanOrEqual(1);
+    }
+    expect(Math.abs(may.cells.length - du.cells.length) + lech).toBeLessThanOrEqual(Math.ceil(du.cells.length * 0.01) + 1);
+    expect(may.windMissing).toBe(false);
+    expect(may.storm).toBe(true);
   });
 });

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/encode-data.mjs && next build",
+    "build": "node scripts/encode-data.mjs && node scripts/bo-chu-thich-public.mjs && next build && node scripts/kiem-lo-bundle.mjs",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

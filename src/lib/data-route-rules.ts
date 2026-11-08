@@ -68,6 +68,7 @@ export const DATA_ROUTE_MATCHER = [
   "/api/tau-ais/quanh",
   "/api/tiles/:src/:z/:x/:y",
   "/api/om/:api",
+  "/api/fleet-density",
 ] as const;
 
 /** `grid:d16` / `scalar:cloud:d7` → 16 / 7; không có mốc ngày ⇒ null. */
@@ -80,7 +81,7 @@ export function snapshotDays(id: string | null): number | null {
 /** Khách xem được — tin bão, giá, giá dầu (Trang chủ, Chợ, Sen Biển dùng). */
 const KHACH = new Set(["/api/storms", "/api/port-prices", "/api/port-prices/history", "/api/fuel-price"]);
 /** Lớp bản đồ NGUỒN CHO BÁN — cần tài khoản + gói. */
-const CAN_GOI = new Set(["/api/currents-depth", "/api/sea-scalar", "/api/salinity"]);
+const CAN_GOI = new Set(["/api/currents-depth", "/api/sea-scalar", "/api/salinity", "/api/fleet-density"]);
 /** Lớp bản đồ miễn phí — chỉ cần tài khoản. */
 const TAI_KHOAN = new Set(["/api/nautical"]);
 

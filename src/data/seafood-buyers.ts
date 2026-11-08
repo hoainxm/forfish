@@ -81,7 +81,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     province: "Khánh Hòa",
     species: ["Cá ngừ đại dương", "Cá ngừ sọc dưa (cá ngừ vằn)"],
     markets: ["EU", "Mỹ", "Nhật"],
-    note: "Tham khảo. Thành viên hệ sinh thái Hải Vương, top 10 XK cá ngừ VN (theo VASEP).",
+    note: "Tham khảo. Thành viên hệ sinh thái Hải Vương, top 10 XK cá ngừ VN.",
   },
   {
     id: "bidifisco",
@@ -102,7 +102,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     species: ["Cá ngừ đại dương", "Cá ngừ vằn"],
     markets: ["EU", "Nhật", "Mỹ"],
     direct: true,
-    note: "Tham khảo. Tỉnh cũ: Phú Yên — cái nôi nghề câu cá ngừ đại dương. Thu mua từ tàu câu tay tại cảng Đông Tác/Phú Lạc. Cần xác minh pháp nhân/tên chính xác qua VASEP.",
+    note: "Tham khảo. Tỉnh cũ: Phú Yên — cái nôi nghề câu cá ngừ đại dương. Thu mua từ tàu câu tay tại cảng Đông Tác/Phú Lạc. Cần xác minh pháp nhân/tên chính xác qua hiệp hội thuỷ sản.",
   },
   {
     id: "hai-nam",
@@ -112,7 +112,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     species: ["Cá ngừ", "Mực", "Bạch tuộc", "Cá biển", "Tôm"],
     markets: ["EU", "Nhật", "Hàn", "Mỹ"],
     website: "https://hainam.com.vn",
-    note: "Tham khảo. Tỉnh cũ: Bình Thuận (Phan Thiết). Hội viên VASEP, chế biến hải sản tổng hợp.",
+    note: "Tham khảo. Tỉnh cũ: Bình Thuận (Phan Thiết). Hội viên hiệp hội thuỷ sản, chế biến hải sản tổng hợp.",
   },
 
   // ───────────────────────── TÔM — Đồng bằng sông Cửu Long ─────────────────
@@ -192,7 +192,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     province: "Cần Thơ",
     species: ["Tôm thẻ", "Tôm sú"],
     markets: ["Nhật", "Mỹ", "EU"],
-    note: "Tham khảo. Hội viên VASEP (khu vực ĐBSCL). Cần xác minh địa chỉ chính xác.",
+    note: "Tham khảo. Hội viên hiệp hội thuỷ sản (khu vực ĐBSCL). Cần xác minh địa chỉ chính xác.",
   },
 
   // ───────────────────────── CÁ TRA — ĐBSCL ────────────────────────────────
@@ -233,7 +233,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     province: "Cần Thơ",
     species: ["Cá tra"],
     markets: ["Mỹ", "EU"],
-    note: "Tham khảo. Cần Thơ. Top DN XK cá tra (theo VASEP), thường được hưởng thuế suất ưu đãi vào Mỹ.",
+    note: "Tham khảo. Cần Thơ. Top DN XK cá tra, thường được hưởng thuế suất ưu đãi vào Mỹ.",
   },
   {
     id: "van-duc-tien-giang",
@@ -242,7 +242,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     province: "Đồng Tháp",
     species: ["Cá tra"],
     markets: ["Mỹ", "EU"],
-    note: "Tham khảo. Tỉnh cũ: Tiền Giang. Top DN XK cá tra (theo VASEP).",
+    note: "Tham khảo. Tỉnh cũ: Tiền Giang. Top DN XK cá tra.",
   },
 
   // ───────────────────────── MỰC, BẠCH TUỘC, HẢI SẢN HỖN HỢP ───────────────
@@ -290,7 +290,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     province: "Thành phố Hồ Chí Minh",
     species: ["Mực", "Bạch tuộc", "Cá biển", "Tôm"],
     markets: ["Nhật", "Hàn", "EU"],
-    note: "Tham khảo. Hội viên VASEP. Cần xác minh tỉnh/địa chỉ qua danh bạ VASEP.",
+    note: "Tham khảo. Hội viên hiệp hội thuỷ sản. Cần xác minh tỉnh/địa chỉ qua danh bạ doanh nghiệp.",
   },
 
   // ───────────────────────── SURIMI / CHẢ CÁ ───────────────────────────────
@@ -329,7 +329,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     province: "Hải Phòng",
     species: ["Cá biển", "Mực", "Chả cá / surimi"],
     markets: ["TQ", "Hàn", "Nhật"],
-    note: "Tham khảo. Hội viên VASEP, khu vực phía Bắc. Cần xác minh địa chỉ qua danh bạ VASEP.",
+    note: "Tham khảo. Hội viên hiệp hội thuỷ sản, khu vực phía Bắc. Cần xác minh địa chỉ qua danh bạ doanh nghiệp.",
   },
   {
     id: "ts-xnk-hai-phong",
@@ -351,7 +351,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     species: ["Tôm", "Cá ngừ", "Mực", "Cá biển"],
     markets: ["EU", "Mỹ", "Úc"],
     website: "https://amandafoods.com.vn",
-    note: "Tham khảo. Hội viên VASEP, chế biến giá trị gia tăng đa loài.",
+    note: "Tham khảo. Hội viên hiệp hội thuỷ sản, chế biến giá trị gia tăng đa loài.",
   },
   {
     id: "highland-dragon",
@@ -360,7 +360,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     province: "Thành phố Hồ Chí Minh",
     species: ["Cá ngừ", "Cá biển"],
     markets: ["EU", "Mỹ"],
-    note: "Tham khảo. Tỉnh cũ: Bình Dương. Chế biến cá ngừ XK (hội viên VASEP).",
+    note: "Tham khảo. Tỉnh cũ: Bình Dương. Chế biến cá ngừ XK (hội viên hiệp hội thuỷ sản).",
   },
   {
     id: "everwin",
@@ -369,7 +369,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     province: "Thành phố Hồ Chí Minh",
     species: ["Cá ngừ", "Cá biển"],
     markets: ["EU", "Mỹ", "Nhật"],
-    note: "Tham khảo. Chế biến cá ngừ/hải sản XK (hội viên VASEP).",
+    note: "Tham khảo. Chế biến cá ngừ/hải sản XK (hội viên hiệp hội thuỷ sản).",
   },
   {
     id: "cadovimex",
@@ -387,7 +387,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     province: "Cà Mau",
     species: ["Tôm thẻ", "Tôm sú"],
     markets: ["Mỹ", "Nhật"],
-    note: "Tham khảo. Khu vực Cà Mau/ĐBSCL. Cần xác minh địa chỉ qua danh bạ VASEP.",
+    note: "Tham khảo. Khu vực Cà Mau/ĐBSCL. Cần xác minh địa chỉ qua danh bạ doanh nghiệp.",
   },
   {
     id: "kien-giang-seafood",

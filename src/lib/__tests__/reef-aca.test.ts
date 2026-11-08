@@ -1,7 +1,7 @@
 /**
  * BỘ RẠN VẼ LẠI TỪ NGUỒN ĐỘC LẬP — cổng nghiệm thu trên FILE THẬT.
  *
- * public/data/reef-shapes-aca.v1.bin do scripts/generate-reef-shapes-aca.mjs
+ * public/data/ran-chi-tiet.v1.bin do scripts/generate-reef-shapes-aca.mjs
  * sinh từ Allen Coral Atlas + UNEP-WCMC (cả hai CC BY 4.0), rồi
  * scripts/encode-reef-shapes.mjs đóng sang khuôn nhị phân delta+varint
  * (src/lib/reef-bin.mjs) để lọt trần 20 MB/file của hook. Lý do nó tồn tại là
@@ -37,7 +37,7 @@ type Feature = {
   geometry: { type: string; coordinates: Ring[][] | Ring[] | Ring };
 };
 
-const ACA_FILE = path.join(process.cwd(), "public/data/reef-shapes-aca.v1.bin");
+const ACA_FILE = path.join(process.cwd(), "public/data/ran-chi-tiet.v1.bin");
 const OSM_FILE = path.join(process.cwd(), "public/data/reef-shapes.v1.json");
 
 const aca = decodeReefShapes(readFileSync(ACA_FILE)) as unknown as {

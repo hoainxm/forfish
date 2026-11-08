@@ -29,7 +29,8 @@ export const metadata = {
      máy vẫn còn. Ngoài ra Supabase giữ tài khoản (SĐT/tên/uid).
    · Vị trí (getCurrentPosition ở route-planner + fishing-map-view) chỉ để canh
      bản đồ và hỏi gió sóng theo toạ độ — KHÔNG lưu DB, KHÔNG gắn tài khoản.
-   · Nguồn thời tiết/hải văn ngoài nhận TOẠ ĐỘ TRẦN, không định danh.
+   · Nguồn thời tiết/hải văn ngoài nhận TOẠ ĐỘ TRẦN từ MÁY CHỦ SDFish (máy bà con không gọi thẳng nguồn từ
+     2026-10-27, /api/om), không định danh. Ghi công nguồn: /nguon-du-lieu (2026-11-08).
 
   URL công khai để khai vào App Store Connect / Play Console:
    https://sdfish.sdvico.vn/quyen-rieng-tu   (khi domain đã trỏ Vercel + TLS)
@@ -38,7 +39,7 @@ export const metadata = {
   Cập nhật nội dung ở ĐÂY thì đổi luôn "Cập nhật lần cuối" bên dưới.
 */
 
-const UPDATED = "05/11/2026";
+const UPDATED = "08/11/2026";
 
 function Section({
   id,
@@ -211,11 +212,13 @@ export default function QuyenRiengTuPage() {
               tài khoản và dịch vụ cho khách đã mua hàng. Đây là hệ thống nội bộ
               của chính SDVICO.
             </li>
+            {/*  SỬA 2026-11-08 (khong-lo-nguon nợ #15): câu cũ "app gửi toạ độ tới các nhà cung cấp" đã SAI từ khi mọi
+                 lượt đi qua máy chủ SDFish (/api/om, /api/weather-snapshot…). Danh sách nguồn ở /nguon-du-lieu. */}
             <li>
-              <b>Hệ thống cung cấp dữ liệu thời tiết &amp; hải văn (dữ liệu công cộng)</b> (ví dụ
-              Open-Meteo, NOAA, Copernicus) — app gửi cho họ <b>toạ độ lấy mẫu (không chứa định danh)</b> để
-              lấy gió sóng, <b>đảm bảo không đi kèm</b> tên, số điện thoại hay bất cứ thông
-              tin nhận dạng nào.
+              <b>Nguồn dữ liệu thời tiết &amp; hải văn công cộng</b> (danh sách ở trang{" "}
+              <Link href="/nguon-du-lieu" className="font-semibold text-navy underline">Nguồn dữ liệu</Link>) — máy của bà
+              con <b>chỉ hỏi máy chủ SDFish</b>; máy chủ SDFish hỏi các nguồn đó bằng <b>toạ độ điểm cần xem</b>,{" "}
+              <b>không kèm</b> tên, số điện thoại, địa chỉ mạng của máy bà con hay bất cứ thông tin nhận dạng nào.
             </li>
           </ul>
           <p>
@@ -342,8 +345,9 @@ export default function QuyenRiengTuPage() {
             view or open and which Sponsored posts you tap — used only by SDVICO internally to rank your feed and to
             recommend relevant products when advising you; never shared with sponsors or third parties. No
             advertising or analytics SDKs are present. Data is shared only with Supabase (auth
-            &amp; hosting), SDVICO&apos;s internal CRM, and public weather/marine
-            APIs which receive <b>coordinates only</b>. To delete your account,
+            &amp; hosting) and SDVICO&apos;s internal CRM. Your device talks only to the SDFish server; the server
+            queries public weather/marine sources (listed at /nguon-du-lieu) with <b>coordinates only</b>, never your
+            identity or IP address. To delete your account,
             call SDVICO {SDVICO_HOTLINE_DISPLAY}. SDVICO is the data controller under Vietnam&apos;s Personal Data
             Protection Law No. 91/2025/QH15 and Decree 356/2025/ND-CP; consent is recorded when you tick the box or tap
             Agree. The database is hosted in South Korea (Supabase). Last updated: {UPDATED}.

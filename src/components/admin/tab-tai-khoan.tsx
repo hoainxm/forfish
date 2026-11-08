@@ -344,7 +344,7 @@ export function AccountsTab({ me }: { me: Me }) {
       return;
     }
     setNotice(
-      `Đã ghi nhận mã chuyển khoản cho ${a.phone}. Vui lòng kiểm tra biến động số dư SDWork và bấm "Đã đối chiếu".`,
+      `Đã ghi nhận mã chuyển khoản cho ${a.phone}. Vui lòng kiểm tra biến động số dư CRM và bấm "Đã đối chiếu".`,
     );
     load();
   }
@@ -701,7 +701,7 @@ export function AccountsTab({ me }: { me: Me }) {
       )}
       {accounts && accounts.length === 0 && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-muted">
-          Chưa có tài khoản nào — webhook SDWork chưa đẩy khách sang, hoặc tạo
+          Chưa có tài khoản nào — webhook CRM chưa đẩy khách sang, hoặc tạo
           tay bằng form trên.
         </p>
       )}
@@ -761,7 +761,7 @@ export function AccountsTab({ me }: { me: Me }) {
                       )}
                     </p>
                     <p className="mt-0.5 text-[0.8125rem] text-muted">
-                      {a.fromSdwork ? "Nguồn từ SDWork" : "Tạo thủ công"} ·{" "}
+                      {a.fromSdwork ? "Nguồn từ CRM" : "Tạo thủ công"} ·{" "}
                       {a.canLogin ? "Đã đăng nhập" : "Chưa tạo tài khoản"} ·
                       cập nhật {fmtDT(a.updatedAt)}
                       {a.premiumActivatedAt &&
@@ -819,7 +819,7 @@ export function AccountsTab({ me }: { me: Me }) {
                             type="button"
                             disabled={busyPhone === a.phone}
                             onClick={() => reconcilePayment(a)}
-                            title="Sau khi thấy tiền vào tài khoản SDWork → chọn đánh dấu đối chiếu"
+                            title="Sau khi thấy tiền vào tài khoản CRM → chọn đánh dấu đối chiếu"
                             className="min-h-[2rem] rounded-full bg-ok-bg px-2.5 text-[0.75rem] font-bold text-ok disabled:opacity-50"
                           >
                             ✓ Đối chiếu
@@ -1121,7 +1121,7 @@ export function AccountsTab({ me }: { me: Me }) {
             <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
               Mã CK = <b>Số điện thoại khách</b> (khách ghi SĐT vào nội dung chuyển khoản)
               — đã điền sẵn, sửa nếu khách ghi mã khác. Sau đó xem biến động số
-              dư SDWork thấy tiền vào rồi bấm &quot;Đã đối chiếu&quot;.
+              dư CRM thấy tiền vào rồi bấm &quot;Đã đối chiếu&quot;.
             </p>
             <input
               autoFocus

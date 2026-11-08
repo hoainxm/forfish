@@ -231,7 +231,7 @@ export function PriceHistorySheet({
             Chưa có lịch sử giá cho loại này.
           </p>
           <p className="mt-1 text-[1rem] text-foreground/70">
-            VASEP có tuần không đăng giá loại này. Bà con xem lại sau nhé.
+            Có tuần bản tin giá không đăng loại này. Bà con xem lại sau nhé.
           </p>
         </div>
       )}
@@ -269,7 +269,7 @@ export function PriceHistorySheet({
               (VASEP + Khánh Hòa + "giá thật tại cảng có thể khác") đã nằm ở dải
               nguồn của bảng giá NGAY PHÍA SAU sheet này, giữ ở MỘT chỗ. */}
           <p className="mt-3 rounded-xl bg-field px-3 py-2 text-[0.8125rem] leading-snug text-foreground/70">
-            Giá tuần của VASEP.
+            Giá tuần tham khảo — nguồn ghi ở trang Nguồn dữ liệu.
           </p>
         </>
       )}

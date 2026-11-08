@@ -122,7 +122,7 @@ export function InquiriesTab({ perms }: { perms: TabPerms }) {
       <PhieuSdvicoSection />
       <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
         Yêu cầu &ldquo;Để lại yêu cầu&rdquo; bà con gửi từ danh mục sản phẩm — chủ yếu sản
-        phẩm của <b>đơn vị đối tác ngoài SDWork</b> (hàng SDVICO vẫn đi qua hộp tư vấn
+        phẩm của <b>đơn vị đối tác ngoài SDVICO</b> (hàng SDVICO vẫn đi qua hộp tư vấn
         CRM như cũ, không hiện ở đây).
       </p>
 

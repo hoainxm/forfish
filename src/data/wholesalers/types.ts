@@ -18,6 +18,6 @@ export interface Wholesaler {
   address?: string;
   phone?: string;
   species?: string[];    // loài thu mua chính (nếu biết)
-  source?: string;       // URL nguồn công khai
+  // URL nguồn tổng hợp ở `nguon.json` (id → URL) — không đi xuống máy (khong-lo-nguon nợ #13)
   note?: string;         // "tham khảo, cần xác minh" + chi tiết
 }

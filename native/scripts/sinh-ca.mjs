@@ -31,7 +31,8 @@ const fb = await lib("fish-blend.ts");
 const mp = await lib("model-params.ts");
 const fp = await lib("fish-predict.ts");
 const sr = await lib("source-registry.ts");
-const fd = await lib("fleet-density.ts");
+// phần máy chủ re-export phần máy — đủ cả hàm dựng nền lẫn hệ số gió/bão (tách 2026-11-08, khong-lo-nguon nợ #7)
+const fd = await lib("fleet-density-server.ts");
 const { haversineKm } = await lib("geofence.ts");
 
 const docData = (ten) => JSON.parse(readFileSync(join(repo, "public/data", ten), "utf8"));
@@ -294,7 +295,8 @@ chuaPha.scale = [[11, cells.map((c) => c.s)], [7, [50, 60, 0, 99, 100, 40]], [3,
 chuaPha.climAt = [[10.025, 108.025, 11], [5.025, 102.025, 1], [22.0, 118.0, 6], [4.0, 110.0, 6], [12.6, 109.4, 13]].map(([a, b, m]) => [a, b, m, fb.climScoreAt(clim, a, b, m)]);
 
 /* ── 6. mật độ tàu (file thật) ── */
-const den = docData("fleet-density.v1.json");
+// lưới mật độ tàu không còn ở public/data (chỉ máy chủ, khong-lo-nguon nợ #7)
+const den = JSON.parse(readFileSync(join(repo, "src/data/fleet-density.v1.json"), "utf8"));
 const WIND = [
   { lat: 10.35, lon: 107.07, byDate: { "2026-11-04": 30, "2026-11-07": 45, "2026-11-14": 70, "2026-07-15": 20, "2026-07-18": 52 } },
   { lat: 16.07, lon: 108.22, byDate: { "2026-11-04": 64, "2026-11-07": 39, "2026-07-18": 38.9 } },

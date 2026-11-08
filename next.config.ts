@@ -26,6 +26,11 @@ const e2eDistDir = process.env.E2E_DEMO_BUILD
     : undefined;
 
 const nextConfig: NextConfig = {
+  // Không khoe "X-Powered-By: Next.js" (khong-lo-nguon §2.7, nợ #14). Source map production để MẶC ĐỊNH (tắt).
+  poweredByHeader: false,
+  // Lưới mật độ tàu CHỈ máy chủ đọc (fs, không import — 7 MB): mang theo khi build Vercel / standalone IIS
+  // (khong-lo-nguon nợ #7, route /api/fleet-density).
+  outputFileTracingIncludes: { "/api/fleet-density": ["./src/data/fleet-density.v1.json"] },
   // `output: "standalone"` CHỈ cho deploy SELF-HOST (PM2 + IIS/NSSM, xem
   // ops/deploy-windows-iis.md): build ra `.next/standalone/server.js` + node_modules
   // tối thiểu, copy gọn sang server, KHÔNG cần `npm install` lúc chạy.

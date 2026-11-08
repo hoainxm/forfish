@@ -6,7 +6,7 @@ import {
 import { premiumDenied } from "@/lib/api-identity";
 import { parseRouteTileId } from "@/lib/route-grid";
 import { getRouteTile } from "@/lib/route-grid-server";
-import { cat1Ngay, goc1Ngay } from "@/lib/snapshot-today";
+import { cat1Ngay, goc1Ngay, snapshotChoMay } from "@/lib/snapshot-today";
 
 /**
  * ĐỌC snapshot thời tiết (LƯỚI AN TOÀN) — client gọi khi live Open-Meteo lỗi.
@@ -68,7 +68,8 @@ export async function GET(req: Request) {
   }
   // Khung miễn phí: CDN + SW cache theo id (thời tiết đổi chậm, cron 1 lần/ngày).
   // Khung premium: `private` — không để CDN dùng chung bản đã qua cửa cho người khác.
-  return Response.json(payload, {
+  // chỉ số + savedAt đi xuống máy — `sources` (nguồn nào thắng ngày nào) ở lại máy chủ (khong-lo-nguon nợ #4)
+  return Response.json(snapshotChoMay(payload), {
     headers: {
       "Cache-Control": needsPremium
         ? "private, max-age=1800"

@@ -18,7 +18,7 @@
 // dính hình học rạn) — import lại nguyên, không chép (nguyên tắc 15 bậc 3:
 // grep trùng nghĩa thì dùng lại). Import một script khác KHÔNG chạy khối
 // `if (isMain)` của nó (đã kiểm bằng chính cách `reef-pmtiles.test.ts` đang
-// làm) nên an toàn, không tải lại `reef-shapes-aca.v1.bin`.
+// làm) nên an toàn, không tải lại `ran-chi-tiet.v1.bin`.
 //
 // Phần ĐÓNG GÓI PMTiles v3 (header 127 byte + mục lục varint) ở
 // `reef-to-pmtiles.mjs` là hàm RIÊNG (không export) — đây là bộ mã hoá viết

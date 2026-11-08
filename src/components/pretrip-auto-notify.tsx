@@ -50,7 +50,7 @@ import {
 import { isShellReady } from "@/lib/shell-ready";
 import { loadPlaces } from "@/lib/places";
 import { readToken } from "@/lib/device-token-store";
-import { savedFishMark } from "@/lib/fish-predict";
+import { savedFishMark } from "@/lib/fish-forecast-client";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { NHAN } from "@/lib/labels";
 import {

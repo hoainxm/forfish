@@ -25,7 +25,7 @@ import {
   SNAPSHOT_DAY_SET,
 } from "@/lib/weather-snapshot-id";
 import { fetchSalinityDaily, SALINITY_MAX_DAYS } from "@/lib/copernicus-salinity";
-import { loadSeaScalar } from "@/lib/sea-scalars";
+import { loadSeaScalar } from "@/lib/sea-scalars-server";
 import {
   mergeForecastGrids,
   mergeScalarGrids,

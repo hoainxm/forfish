@@ -131,7 +131,7 @@ export function PriceBoard() {
     return result.prices.filter((p) => boDau(p.species).includes(q));
   }, [query, result]);
 
-  const isLive = result.source === "vasep";
+  const isLive = result.source === "tuan";
 
   /*  BỐ CỤC THEO RÀ DESIGN CODEX LẦN 2 (2026-10-19): ô tìm → MỘT dòng nguồn/tuần
       → MỘT danh sách kẻ mảnh (tên trái, giá + xu hướng phải, nơi/ghi chú dưới;
@@ -158,7 +158,7 @@ export function PriceBoard() {
         <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-muted">Đang tải giá tuần…</p>
       ) : isLive ? (
         <p className="mb-2 px-1 text-[0.8125rem] leading-snug text-muted">
-          Giá tại bến {result.province}, tuần {result.week} · VASEP
+          Giá tại bến {result.province}, tuần {result.week}
           {result.savedAt != null
             ? ` · bản lưu (${savedAgoLabel(result.savedAt)})`
             : ""}

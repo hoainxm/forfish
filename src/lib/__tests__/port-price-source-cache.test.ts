@@ -43,7 +43,7 @@ describe("fetchLivePrices — bản lưu và cờ mất sóng", () => {
   it("máy chủ OK → trả giá tuần, cất vào máy, không cờ", async () => {
     vi.stubGlobal("fetch", async () => new Response(JSON.stringify(LIVE)));
     const r = await fetchLivePrices();
-    expect(r.source).toBe("vasep");
+    expect(r.source).toBe("tuan"); // bản cũ ghi tên nguồn ⇒ chuẩn về khuôn mới (khong-lo-nguon nợ #8)
     expect(r.netFailed).toBeUndefined();
     expect(cache.saved).toHaveLength(1);
   });
@@ -54,7 +54,7 @@ describe("fetchLivePrices — bản lưu và cờ mất sóng", () => {
     });
     cache.hit = { data: LIVE, savedAt: 1_700_000_000_000 };
     const r = await fetchLivePrices();
-    expect(r.source).toBe("vasep");
+    expect(r.source).toBe("tuan"); // bản cũ ghi tên nguồn ⇒ chuẩn về khuôn mới (khong-lo-nguon nợ #8)
     expect(r.savedAt).toBe(1_700_000_000_000);
     expect(r.netFailed).toBe(true);
   });

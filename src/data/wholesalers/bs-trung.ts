@@ -30,7 +30,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Quảng Ngãi",
     address: "Xóm 1, thôn Tân Diêm, xã Phổ Thạnh, TX. Đức Phổ, Quảng Ngãi",
     species: ["cá", "hải sản"],
-    source: "https://www.tratencongty.com/tinh-quang-ngai/thi-xa-duc-pho/",
     note: "Tham khảo, cần xác minh. Khu vực Sa Huỳnh (xã Phổ Thạnh cũ), gần cảng cá Sa Huỳnh. SĐT trên danh bạ ở dạng ảnh.",
   },
   {
@@ -40,7 +39,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Quảng Ngãi",
     address: "Xã Phổ Thạnh, TX. Đức Phổ, Quảng Ngãi",
     species: ["hải sản", "cá"],
-    source: "https://www.tratencongty.com/tinh-quang-ngai/thi-xa-duc-pho/",
     note: "Tham khảo, cần xác minh. HTX dịch vụ hậu cần/khai thác tại Sa Huỳnh; người đại diện Phan Hiển. SĐT chưa công khai dạng text.",
   },
   {
@@ -50,7 +48,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Quảng Ngãi",
     address: "Tổ dân phố Du Quang, phường Phổ Quang, TX. Đức Phổ, Quảng Ngãi",
     species: ["thủy sản"],
-    source: "https://www.tratencongty.com/tinh-quang-ngai/thi-xa-duc-pho/",
     note: "Tham khảo, cần xác minh. Đức Phổ (vùng cửa biển Mỹ Á/Sa Huỳnh); người đại diện Lê Ngọc Diệp.",
   },
 
@@ -62,7 +59,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Quảng Ngãi",
     address: "Cảng cá Tịnh Kỳ, xã Tịnh Kỳ, TP. Quảng Ngãi",
     species: ["cá cơm"],
-    source: "https://danviet.vn/ban-hai-san-cho-dau-nau-phai-chiu-nhieu-he-luy-tu-luat-rieng-7777926731.htm",
     note: "Tham khảo, cần xác minh. Một trong những chủ vựa thu mua cá lớn tại cảng Tịnh Kỳ (gần cảng Sa Kỳ); chủ yếu mua cá cơm muối làm mắm. Tên nêu trên báo, SĐT chưa công khai.",
   },
 
@@ -74,7 +70,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Lâm Đồng",
     address: "Đường Đinh Bộ Lĩnh, KP 8, P. Phước Hội, TX. La Gi, tỉnh Bình Thuận (cũ)",
     species: ["hải sản", "cá", "thủy sản chế biến"],
-    source: "https://www.tratencongty.com/company/103cea5c7-cong-ty-tnhh-che-bien-hai-san-phu-tan/",
     note: "Tham khảo, cần xác minh. La Gi nay thuộc Lâm Đồng. Ngành C1020 chế biến/bảo quản thủy sản, hoạt động từ 1999; người đại diện Nguyễn Anh Dũng. SĐT trên danh bạ ở dạng ảnh.",
   },
 
@@ -86,7 +81,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Lâm Đồng",
     address: "73 Lê Thánh Tôn, xã Tân Hải, TX. La Gi, tỉnh Bình Thuận (cũ)",
     species: ["hải sản"],
-    source: "https://www.tratencongty.com/tinh-binh-thuan/thi-xa-la-gi/xa-tan-hai/",
     note: "Tham khảo, cần xác minh. MST 0300644863; người đại diện Nguyễn Đỗ Minh Trí. La Gi nay thuộc Lâm Đồng.",
   },
   {
@@ -96,7 +90,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Lâm Đồng",
     address: "442A Tôn Đức Thắng, xã Tân Phước, TX. La Gi, tỉnh Bình Thuận (cũ)",
     species: ["hải sản"],
-    source: "https://www.tratencongty.com/company/103dd1b55-cong-ty-tnhh-hai-san-hung-thanh/",
     note: "Tham khảo, cần xác minh. Vùng La Gi (Tân Hải/Tân Phước), nay thuộc Lâm Đồng. Hoạt động từ 2019.",
   },
 
@@ -108,7 +101,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Khánh Hòa",
     address: "Thôn Lạc Sơn 1, xã Cà Ná, H. Thuận Nam, tỉnh Ninh Thuận (cũ)",
     species: ["cá", "thủy sản chế biến"],
-    source: "https://www.tratencongty.com/tinh-ninh-thuan/huyen-thuan-nam/xa-ca-na/",
     note: "Tham khảo, cần xác minh. Cà Ná nay thuộc Khánh Hòa; người đại diện Võ Thị Tú Oanh.",
   },
   {
@@ -118,7 +110,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Khánh Hòa",
     address: "Thôn Lạc Sơn 2, xã Cà Ná, H. Thuận Nam, tỉnh Ninh Thuận (cũ)",
     species: ["hải sản", "cá"],
-    source: "https://www.tratencongty.com/tinh-ninh-thuan/huyen-thuan-nam/xa-ca-na/",
     note: "Tham khảo, cần xác minh. Cà Ná nay thuộc Khánh Hòa; người đại diện Nguyễn Thị Hồng Thắm.",
   },
   {
@@ -128,7 +119,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Khánh Hòa",
     address: "AH1, thôn Lạc Sơn 2, xã Cà Ná, H. Thuận Nam, tỉnh Ninh Thuận (cũ)",
     species: ["cá cơm", "nước mắm"],
-    source: "https://www.tratencongty.com/tinh-ninh-thuan/huyen-thuan-nam/xa-ca-na/",
     note: "Tham khảo, cần xác minh. Thu mua cá cơm làm nước mắm; người đại diện Trịnh Nguyễn Đoàn. Cà Ná nay thuộc Khánh Hòa.",
   },
   {
@@ -139,7 +129,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     address: "Thôn Lạc Nghiệp, xã Cà Ná, H. Thuận Nam, tỉnh Ninh Thuận (cũ)",
     phone: "0911301828",
     species: ["cá cơm", "nước mắm"],
-    source: "https://nuocmamtrungnu.com/nuoc-mam-ca-na-chi-ca-com-tuoi-va-muoi-bien-tu-nhien/",
     note: "Tham khảo, cần xác minh. Xưởng chế biến cá cơm/nước mắm tại Cà Ná (nay thuộc Khánh Hòa). SĐT theo trang giới thiệu; còn số bàn 028 38767358.",
   },
 
@@ -151,7 +140,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Khánh Hòa",
     address: "Cảng cá Đông Hải, P. Đông Hải, TP. Phan Rang - Tháp Chàm, tỉnh Ninh Thuận (cũ)",
     species: ["cá", "thủy sản"],
-    source: "https://www.tratencongty.com/tinh-ninh-thuan/thanh-pho-phan-rang-thap-cham/phuong-dong-hai/",
     note: "Tham khảo, cần xác minh. Ngay tại cảng cá Đông Hải; người đại diện Huỳnh Hữu Lộc. Phan Rang nay thuộc Khánh Hòa.",
   },
   {
@@ -161,7 +149,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Khánh Hòa",
     address: "Cảng cá Đông Hải, P. Đông Hải, TP. Phan Rang - Tháp Chàm, tỉnh Ninh Thuận (cũ)",
     species: ["cá", "thủy sản"],
-    source: "https://www.tratencongty.com/tinh-ninh-thuan/thanh-pho-phan-rang-thap-cham/phuong-dong-hai/",
     note: "Tham khảo, cần xác minh. Tại cảng cá Đông Hải; người đại diện Nguyễn Văn Tuấn. Phan Rang nay thuộc Khánh Hòa.",
   },
   {
@@ -171,7 +158,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Khánh Hòa",
     address: "Số 30/3 Bạch Đằng, KP 4, P. Đông Hải, TP. Phan Rang - Tháp Chàm, tỉnh Ninh Thuận (cũ)",
     species: ["hải sản", "cá"],
-    source: "https://www.tratencongty.com/tinh-ninh-thuan/thanh-pho-phan-rang-thap-cham/phuong-dong-hai/",
     note: "Tham khảo, cần xác minh. Người đại diện Mã Thái Hùng. Phan Rang nay thuộc Khánh Hòa.",
   },
   {
@@ -181,7 +167,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Khánh Hòa",
     address: "Số 30/3 Bạch Đằng, KP 4, P. Đông Hải, TP. Phan Rang - Tháp Chàm, tỉnh Ninh Thuận (cũ)",
     species: ["hải sản", "cá"],
-    source: "https://www.tratencongty.com/tinh-ninh-thuan/thanh-pho-phan-rang-thap-cham/phuong-dong-hai/",
     note: "Tham khảo, cần xác minh. Người đại diện Vũ Quang Viên. Phan Rang nay thuộc Khánh Hòa.",
   },
   {
@@ -191,7 +176,6 @@ export const WHOLESALERS_BS_TRUNG: Wholesaler[] = [
     province: "Khánh Hòa",
     address: "96/11/2 KP 10, đường Tân Thành, P. Đông Hải, TP. Phan Rang - Tháp Chàm, tỉnh Ninh Thuận (cũ)",
     species: ["hải sản khô", "cá"],
-    source: "https://www.tratencongty.com/tinh-ninh-thuan/thanh-pho-phan-rang-thap-cham/phuong-dong-hai/",
     note: "Tham khảo, cần xác minh. Hải sản khô; người đại diện Nguyễn Gia Khanh. Phan Rang nay thuộc Khánh Hòa.",
   },
 ];

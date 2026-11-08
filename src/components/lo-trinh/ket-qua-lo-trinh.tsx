@@ -8,9 +8,11 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { baoToast } from "@/lib/toast";
 import { AlertIcon, CrosshairIcon, RouteIcon, StarIcon, TrashIcon } from "@/components/icons";
 import { formatDigits } from "@/lib/format";
-import { loadStops, persistStops } from "@/lib/route-stops";
+import { guiNoiDi, loadStops, persistStops } from "@/lib/route-stops";
 import { chuoiChangTuMoc, mucVung, soViTri, type KetQuaSoViTri } from "@/lib/lo-trinh/so-vi-tri";
-import type { LoTrinhKetQua } from "@/lib/lo-trinh/types";
+import type { LoTrinhKetQua, YeuToNgay } from "@/lib/lo-trinh/types";
+import { beaufort } from "@/lib/marine-weather";
+import { SoDoLoTrinh } from "./so-do-lo-trinh";
 
 /*
   KẾT QUẢ ĐỀ XUẤT LỘ TRÌNH (09-ba-spec §4 output, §5c) — dùng chung cho lộ trình VỪA TÍNH và lộ
@@ -24,6 +26,18 @@ const ngayVN = (iso: string) => {
   const [, m, d] = iso.split("-");
   return m && d ? `${d}/${m}` : iso;
 };
+
+/** Một dòng yếu tố của một ngày đánh — chữ, không in điểm cá (thang Được/Khá/Tốt như cả màn). */
+function cauYeuTo(y: YeuToNgay): string {
+  const so1 = (n: number) => String(n).replace(".", ",");
+  const phan = [`Ngày ${y.ngay}`, `cá ${mucVung(y.ca)}`, `trăng ${y.trang}%`];
+  if (y.songM != null) phan.push(`sóng ${so1(y.songM)} m`);
+  if (y.gioKmh != null) phan.push(`gió cấp ${beaufort(y.gioKmh)}`);
+  if (y.songM == null && y.gioKmh == null) phan.push("chưa có dự báo sóng gió");
+  const tru = Math.round((1 - y.heSo) * 100);
+  if (tru >= 1) phan.push(tru >= 100 ? "bỏ ngày này" : `trừ ${tru}%`);
+  return phan.join(" · ");
+}
 
 type ViTri =
   | { kind: "idle" }
@@ -65,7 +79,10 @@ export function KetQuaLoTrinh({
       return;
     }
     setHoiThayChuoi(null);
-    baoToast(`Đã nạp ${chuoi.length} điểm — ⋯ › ${NHAN.loTrinh}, Đi từ: ${cangTen}.`, { ms: 8000 });
+    // Dẫn đường đi từ CẢNG XUẤT BẾN, không từ vị trí điện thoại (người ngồi nhà ở TP.HCM ⇒ chặng đầu vướng đất)
+    const cang = kq.moc[0];
+    if (cang) guiNoiDi({ lat: cang.lat, lon: cang.lon, ten: cangTen });
+    baoToast(`Đã nạp ${chuoi.length} điểm, đi từ ${cangTen} — ⋯ › ${NHAN.loTrinh}.`, { ms: 8000 });
     router.push("/ngu-truong");
   };
   const bamBanDo = () => {
@@ -139,6 +156,8 @@ export function KetQuaLoTrinh({
         </p>
       )}
 
+      <SoDoLoTrinh kq={kq} />
+
       {kq.lich.length > 0 && (
         <>
           <h3 className="mt-4 text-[0.875rem] font-semibold text-navy">Lịch theo ngày</h3>
@@ -160,18 +179,30 @@ export function KetQuaLoTrinh({
           <h3 className="mt-4 text-[0.875rem] font-semibold text-navy">Vùng đánh</h3>
           <ol className="surface mt-1.5 divide-y divide-line">
             {kq.vung.map((v, i) => (
-              <li key={v.id} className="flex items-center gap-3 px-3 py-2.5 text-[1rem]">
-                <span
-                  aria-hidden
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-navy text-[0.8125rem] font-semibold text-white"
-                >
-                  {i + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-foreground">
-                  {v.ten}
-                  {v.laDiemQuen && <span className="text-[0.8125rem] text-muted"> · điểm quen</span>}
-                </span>
-                <span className="shrink-0 text-[0.8125rem] font-semibold text-sea">{mucVung(v.dinh)}</span>
+              <li key={v.id} className="px-3 py-2.5">
+                <div className="flex items-center gap-3 text-[1rem]">
+                  <span
+                    aria-hidden
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-navy text-[0.8125rem] font-semibold text-white"
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-foreground">
+                    {v.ten}
+                    {v.loai && <span className="text-[0.8125rem] text-muted"> · {v.loai}</span>}
+                    {v.laDiemQuen && <span className="text-[0.8125rem] text-muted"> · điểm quen</span>}
+                  </span>
+                  <span className="shrink-0 text-[0.8125rem] font-semibold text-sea">{mucVung(v.dinh)}</span>
+                </div>
+                {v.yeuTo && v.yeuTo.length > 0 && (
+                  <ul className="mt-1 space-y-0.5 pl-9">
+                    {v.yeuTo.map((y) => (
+                      <li key={y.ngay} className="text-[0.8125rem] leading-snug text-muted">
+                        {cauYeuTo(y)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ol>

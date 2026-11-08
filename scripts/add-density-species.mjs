@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// GHÉP "VÙNG NÀY HAY ĐÁNH CÁ GÌ" VÀO LƯỚI MẬT ĐỘ TÀU → public/data/fleet-density.v1.json (2026-10-25).
+// GHÉP "VÙNG NÀY HAY ĐÁNH CÁ GÌ" VÀO LƯỚI MẬT ĐỘ TÀU → src/data/fleet-density.v1.json (chỉ máy chủ, 2026-11-08) (2026-10-25).
 // ─────────────────────────────────────────────────────────────────────────────
 // VÌ SAO: anh Long 25/10 — "tàu đánh xong lần ngược lại là vùng đó sẽ hay đánh cá gì luôn".
 // NGUỒN: lưới sản lượng loài src/data/species-catch-025.v1.json (nhật ký × giờ đánh, ô ≥3 tàu, đã ẩn danh)
@@ -9,7 +9,7 @@
 // Chạy SAU build-fleet-density (file mật độ đã kéo về): node scripts/add-density-species.mjs
 import fs from "node:fs";
 
-const DENSITY = process.argv[2] || "public/data/fleet-density.v1.json";
+const DENSITY = process.argv[2] || "src/data/fleet-density.v1.json";
 const CATCH = process.argv[3] || "src/data/species-catch-025.v1.json";
 const TOP = 3, MIN_PCT = 5;
 

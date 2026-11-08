@@ -9,6 +9,11 @@
 //
 // Header: chỗ gọi phía máy tự gắn `tokenHeader()` (file này THUẦN — middleware import, không kéo kho máy vào).
 // DANH SÁCH TRẮNG: chỉ ba API, chỉ các tham số app đang dùng, giá trị chỉ ký tự an toàn — route không thành proxy mở.
+//
+// KHÔNG LỘ MÔ HÌNH (2026-11-08, docs/app-map/ops/khong-lo-nguon.md nợ #3): máy gửi MÃ MỜ `m=s1`, không gửi
+// `models=<tên thật>`; máy chủ đổi mã ra tên (`OM_MODEL`). Host + bảng mã chỉ được đọc trong nhánh máy chủ
+// (`typeof window === "undefined"`, route, middleware) — Next thay `typeof window` lúc build bundle máy nên nhánh đó
+// bị xoá, kéo theo hằng không còn ai dùng (cổng `kiem-lo-bundle` canh: `open-meteo`, `model-id`).
 
 import { apiUrl } from "@/lib/api-base";
 
@@ -17,7 +22,21 @@ export const OM_HOST = {
   marine: "https://marine-api.open-meteo.com/v1/marine",
   ensemble: "https://ensemble-api.open-meteo.com/v1/ensemble",
 } as const;
-export type OmApi = keyof typeof OM_HOST;
+export type OmApi = "forecast" | "marine" | "ensemble";
+
+/** Mã mờ ⇒ mô hình thật. Chỉ máy chủ đọc. Thêm mô hình = thêm một dòng ở đây, máy chỉ biết mã. */
+const OM_MODEL: Record<string, string> = {
+  s1: "ncep_gfswave025", // sóng chính (đủ 16 ngày)
+  s2: "ecmwf_wam025", // sóng dự phòng
+  g2: "ecmwf_ifs025", // gió/mưa dự phòng
+  g3: "gfs_seamless", // dải màu dự phòng thứ hai
+  e1: "gfs05", // tổ hợp (độ bất định)
+};
+
+/** Mã mờ có trong bảng không (để route từ chối mã lạ). */
+export function isOmModelCode(c: string): boolean {
+  return Object.prototype.hasOwnProperty.call(OM_MODEL, c);
+}
 
 export function isOmApi(s: string): s is OmApi {
   return Object.prototype.hasOwnProperty.call(OM_HOST, s);
@@ -32,7 +51,7 @@ const OM_PARAMS = new Set([
   "hourly",
   "daily",
   "current",
-  "models",
+  "m",
   "wind_speed_unit",
 ]);
 /** Lưới lớn nhất app xin là 156 điểm (scalar-field) — để dư. */
@@ -60,7 +79,10 @@ export function omUpstream(api: string, search: URLSearchParams): string | null 
   const q = new URLSearchParams();
   for (const [k, v] of search) {
     if (!OM_PARAMS.has(k) || !/^[A-Za-z0-9_,./-]{1,4000}$/.test(v)) return null;
-    q.append(k, v);
+    if (k === "m") {
+      if (!isOmModelCode(v)) return null;
+      q.append("models", OM_MODEL[v]);
+    } else q.append(k, v);
   }
   return `${OM_HOST[api]}?${q.toString()}`;
 }
@@ -70,7 +92,27 @@ export function omUpstream(api: string, search: URLSearchParams): string | null 
  * thẳng nguồn. `query` là chuỗi query như trước đây vẫn nối vào sau dấu "?".
  */
 export function omUrl(api: OmApi, query: string): string {
-  if (typeof window === "undefined") return `${OM_HOST[api]}?${query}`;
+  if (typeof window === "undefined") return omServerUrl(api, query);
   return apiUrl(`/api/om/${api}?${query}`);
+}
+
+/** Nhánh máy chủ: thẳng nguồn, mã mờ `m=` đổi thành `models=` (mã lạ ⇒ bỏ, nguồn dùng mặc định). */
+export function omServerUrl(api: OmApi, query: string): string {
+  const q = query.replace(/(^|&)m=([a-z0-9]+)/, (_, dau: string, ma: string) =>
+    isOmModelCode(ma) ? `${dau}models=${OM_MODEL[ma]}` : "",
+  );
+  return `${OM_HOST[api]}?${q}`;
+}
+
+/** Trường được đi xuống máy từ một điểm của nguồn — hình RIÊNG của app (bỏ `generationtime_ms`, `*_units`,
+ *  `elevation`, `timezone_abbreviation`…). Lưới nhiều điểm ⇒ mảng. */
+const OM_GIU = ["latitude", "longitude", "utc_offset_seconds", "hourly", "daily", "current"] as const;
+export function omShape(raw: unknown): unknown {
+  if (Array.isArray(raw)) return raw.map(omShape);
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const k of OM_GIU) if (o[k] !== undefined) out[k] = o[k];
+  return out;
 }
 

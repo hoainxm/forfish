@@ -21,16 +21,40 @@ export const OUT = join("public", "data", "model-params.v1.json");
 export const SOURCES = {
   fishBlend: "src/data/fish-blend-weights.json",
   forecastSkill: "src/data/forecast-skill.json",
+  loTrinh: "src/data/lo-trinh-params.json",
 };
 
-/** @param {string} root gốc repo */
+const so = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/**
+ * CHỈ SỐ APP DÙNG (2026-11-08, docs/app-map/ops/khong-lo-nguon.md nợ #5): file phát hành KHÔNG mang `builtFrom`,
+ * tên bộ dữ liệu, mô tả phương pháp, kết quả kiểm định chéo — chỉ đúng các trường `fish-blend.ts`,
+ * `forecast-quality.ts`, `lo-trinh/*` đọc. Bản đầy đủ vẫn ở `src/data/*` (git).
+ * @param {string} root gốc repo
+ */
 export function buildModelParams(root = process.cwd()) {
   const read = (p) => JSON.parse(readFileSync(join(root, p), "utf8"));
+  const fb = read(SOURCES.fishBlend);
+  const fs = read(SOURCES.forecastSkill);
+  const lt = read(SOURCES.loTrinh);
   return {
-    v: 1,
-    builtFrom: Object.values(SOURCES),
-    fishBlend: read(SOURCES.fishBlend),
-    forecastSkill: read(SOURCES.forecastSkill),
+    v: 2,
+    fishBlend: {
+      perLead: (fb.perLead ?? []).map((r) => ({ lead: so(r.lead), w: so(r.w) })),
+      guard: { degenerate: fb.guard?.degenerate === true },
+    },
+    forecastSkill: {
+      perLeadDay: (fs.perLeadDay ?? []).map((r) => ({
+        leadDay: so(r.leadDay),
+        windMae: so(r.windMae),
+        windBias: so(r.windBias),
+        waveMae: so(r.waveMae),
+        waveBias: so(r.waveBias),
+        confidence: so(r.confidence),
+        n: so(r.n),
+      })),
+    },
+    loTrinh: { hieuUngRam: lt.hieuUngRam, loaiTheoNghe: lt.loaiTheoNghe },
   };
 }
 

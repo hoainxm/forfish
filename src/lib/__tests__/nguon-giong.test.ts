@@ -31,6 +31,7 @@ const NGUON = new Set([...LAP.slice(LAP.indexOf("const NGUON"), LAP.indexOf("];"
 /** File trong vùng đọc tiếng mà chữ CHỈ HIỆN trên màn (không qua giọng). Mỗi dòng một lý do — thêm có cân nhắc. */
 const CHI_HIEN_THI: Record<string, string> = {
   "src/data/fish-seasons.ts": "mùa vụ từng loài — hiện trong thẻ loài cá trên bản đồ",
+  "src/lib/fish-forecast-client.ts": "câu ảnh cũ / lớp cá chưa tải được — dòng nổi trên bản đồ, không đọc",
   "src/data/fishing-ports.ts": "địa chỉ cảng — danh bạ cảng; tên cảng đọc qua nhóm mảnh `ten`",
   "src/data/sdvico-showcase.ts": "mô tả hàng SDVICO trên thẻ quảng bá; câu ĐÁP hàng Sen Biển đọc nằm ở khuyen-mai.ts (đã thu)",
   "src/lib/moon.ts": "ghi chú trăng / đánh đèn trên thẻ ngư trường",

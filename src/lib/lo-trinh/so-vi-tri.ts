@@ -11,7 +11,7 @@ import { distToSegmentKm } from "@/lib/route-storm";
 import { haversineKm, type LatLon } from "@/lib/geo";
 import { daysBetweenISO } from "@/lib/day-labels";
 import { todayIsoVN } from "@/lib/days";
-import { FISH_LEVEL_BANDS } from "@/lib/fish-predict";
+import { FISH_LEVEL_BANDS } from "@/lib/fish-forecast-client";
 import { addStop, MAX_STOPS, type RouteStop } from "@/lib/route-stops";
 import type { LoTrinhKetQua } from "./types";
 

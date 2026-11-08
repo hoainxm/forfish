@@ -1,22 +1,21 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildScalarCells,
-  loadSeaScalar,
-  SEA_SCALARS,
-  SEA_SCALAR_ORDER,
-} from "../sea-scalars";
+import { SEA_SCALARS, SEA_SCALAR_ORDER } from "../sea-scalars";
+import { buildScalarCells, loadSeaScalar, NGUON } from "../sea-scalars-server";
 
 describe("SEA_SCALARS config", () => {
   it("đủ lớp, URL trỏ đúng vùng VN, stops xen kẽ số-màu", () => {
     // sss rút khỏi UI (nguồn chết — xem comment trong sea-scalars.ts) nhưng
     // config vẫn phải hợp lệ để bật lại được
     expect(SEA_SCALAR_ORDER).toEqual(["ssha"]);
-    for (const def of Object.values(SEA_SCALARS)) {
-      const u = def.url("(last)");
+    for (const [kind, def] of Object.entries(SEA_SCALARS)) {
+      const src = NGUON[kind as keyof typeof NGUON];
+      const u = src.url("(last)");
       expect(u).toContain("(102.0)");
       expect(u).toContain("(22.0)");
       expect(u).toContain(encodeURIComponent("(last)"));
-      expect(def.timeAttempts.length).toBeGreaterThan(0);
+      expect(src.timeAttempts.length).toBeGreaterThan(0);
+      // phần máy không còn URL nguồn (khong-lo-nguon nợ #6)
+      expect(JSON.stringify(def)).not.toMatch(/http|erddap|noaa/i);
       for (let i = 0; i < def.colorStops.length; i += 2) {
         expect(typeof def.colorStops[i]).toBe("number");
         expect(typeof def.colorStops[i + 1]).toBe("string");

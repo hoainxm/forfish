@@ -7,7 +7,7 @@
 // trong fish-predict.ts) cho đi qua.
 //
 // NGUỒN (đều là bản RÕ trong git, không fetch):
-//   · public/data/reef-shapes-aca.v1.bin — Allen Coral Atlas + WCMC-008 (CC-BY 4.0),
+//   · public/data/ran-chi-tiet.v1.bin — Allen Coral Atlas + WCMC-008 (CC-BY 4.0),
 //     680 reef + 854 shoal MultiPolygon, 4,03 triệu đỉnh. Phủ cả Trường Sa (809
 //     feature trong 6–12°N/111–118°E) và Hoàng Sa (35) — đo 2026-10-03.
 //   · public/data/reef-shapes.v1.json — OSM natural=reef/shoal (Polygon) + rock/
@@ -36,7 +36,7 @@ import { decodeReefShapes } from "../src/lib/reef-bin.mjs";
 
 export const OUT = "src/data/reef-grid-025.v1.json";
 export const SOURCES = [
-  "public/data/reef-shapes-aca.v1.bin",
+  "public/data/ran-chi-tiet.v1.bin",
   "public/data/reef-shapes.v1.json",
   "public/data/coral-reefs.v1.json",
 ];

@@ -61,7 +61,9 @@ await step("mã bản", async () => {
 });
 
 await step("mô hình + tuổi dự báo", async () => {
-  const r = await get("/api/status");
+  // khối `model` chỉ trả khi kèm CRON_SECRET (2026-11-08, khong-lo-nguon nợ #14); thiếu thì in "?" — không lỗi
+  const sec = process.env.CRON_SECRET;
+  const r = await get("/api/status", sec ? { headers: { authorization: `Bearer ${sec}` } } : undefined);
   if (!r.ok) return out("CẢNH BÁO", "mô hình + tuổi dự báo", `HTTP ${r.status} (bản cũ chưa có /api/status?)`);
   const j = await r.json();
   const h = (x) => (x ? `${x.ageHours} giờ` : "chưa có");

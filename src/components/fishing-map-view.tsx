@@ -201,21 +201,24 @@ import {
   fetchFishForecast,
   banDoCaDaLuu,
   fishForecastTuKhoSW,
-  SPECIES_META,
   FISH_LEVEL_BANDS,
+  fishFailNote,
+  lowQualityNote,
   type FishForecast,
   type FishCell,
-} from "@/lib/fish-predict";
+} from "@/lib/fish-forecast-client";
+import { SPECIES_META } from "@/lib/species-meta";
 import {
   DENSITY_LEVELS,
   addDaysIso,
   canSeeDensity,
+  apHeSoNgay,
   densityCellAt,
-  densitySpeciesAt,
-  fetchFleetDensity,
-  forecastFleetDensity,
+  fetchFleetNen,
+  loaiTaiO,
+  nenCuaNgay,
   type DensityGear,
-  type FleetDensity,
+  type NenFleet,
   type WindStation,
   type StormZone,
 } from "@/lib/fleet-density";
@@ -232,7 +235,6 @@ import {
   blendUsable,
   type Climatology,
 } from "@/lib/fish-blend";
-import { fishFailNote, lowQualityNote } from "@/lib/source-registry";
 import { moonPhase } from "@/lib/moon";
 import { FREE_FORECAST_DAYS, soNgayThoiTiet, THOI_TIET_XA_CAN_GOI } from "@/lib/tier";
 import { useFeatureAccess } from "@/lib/use-tier";
@@ -841,7 +843,9 @@ export default function FishingMapView() {
   // (lib/fleet-density forecastFleetDensity). Lưới 0,25° CÙNG TRỤC lớp cá nên LOẠI TRỪ với lớp cá.
   // Tải MỘT lần khi bật (không tải lúc mở app); gió lấy từ dự báo các cảng (đã có đệm trong máy).
   const [fleetOn, setFleetOn] = useState(false);
-  const [fleetData, setFleetData] = useState<FleetDensity | null>(null);
+  // NỀN 16 ngày do MÁY CHỦ tính (khong-lo-nguon nợ #7) — máy chỉ nhân gió/bão; bộ đã cất dùng được khi mất sóng
+  const [fleetData, setFleetData] = useState<NenFleet | null>(null);
+  const fleetLuotRef = useRef<string | null>(null);
   const [fleetState, setFleetState] = useState<"idle" | "loading" | "error" | "ok">("idle");
   const [fleetDay, setFleetDay] = useState(0);
   const [fleetGear, setFleetGear] = useState<DensityGear>("tat");
@@ -1042,22 +1046,33 @@ export default function FishingMapView() {
   // (premiumAccess / premiumLocked khai báo sớm hơn — trước effect nước xoáy dùng nó)
   useEffect(() => {
     // chỉ tải khi bật + chưa có + không khoá premium; lỗi ⇒ "error", chạm thử lại tăng fleetRetry
-    if (!fleetOn || !fleetAllowed || fleetData || premiumLocked) return;
+    // có bộ đúng nghề + còn phủ hôm nay ⇒ khỏi tải; đổi nghề hoặc bộ đã hết ngày ⇒ tải bộ mới (mất sóng ⇒ bộ đã cất)
+    if (!fleetOn || !fleetAllowed || premiumLocked) return;
+    const homNay = isoDateVN(Date.now()); // todayIso khai sau effect này — tính lại tại chỗ, cùng luật giờ VN
+    if (fleetData && fleetData.nghe === fleetGear && nenCuaNgay(fleetData, homNay)) return;
+    // mỗi (nghề, ngày, lượt thử lại) chỉ tải MỘT lần — mất sóng + bộ đã cất hết ngày thì không được tải vòng tròn
+    const luot = `${fleetGear}|${homNay}|${fleetRetry}`;
+    if (fleetLuotRef.current === luot) return;
+    fleetLuotRef.current = luot;
     let alive = true;
     setFleetState("loading");
-    fetchFleetDensity()
+    let xong = false;
+    fetchFleetNen(fleetGear, homNay)
       .then((d) => {
+        xong = true;
         if (!alive) return;
         setFleetData(d);
         setFleetState("ok");
       })
       .catch(() => {
+        xong = true;
         if (alive) setFleetState("error");
       });
     return () => {
       alive = false;
+      if (!xong) fleetLuotRef.current = null; // huỷ giữa chừng (đổi nghề, StrictMode) ⇒ lượt sau được tải lại
     };
-  }, [fleetOn, fleetAllowed, fleetData, fleetRetry, premiumLocked]);
+  }, [fleetOn, fleetAllowed, fleetData, fleetRetry, premiumLocked, fleetGear]);
   useEffect(() => {
     // GIÓ cho dự báo mật độ: dự báo cảng (fetchSeaForecast đã có đệm + đường lùi mất sóng); cảng nào hỏng
     // thì bỏ, không chặn lớp — thiếu hết ⇒ hệ số 1 và panel nói "chưa có gió".
@@ -5778,16 +5793,11 @@ export default function FishingMapView() {
   );
   const fleetForecast = useMemo(
     () =>
-      fleetOn && fleetAllowed && fleetData && !anyExclusiveOverlay && !premiumLocked
-        ? forecastFleetDensity({
-            d: fleetData,
-            todayIso,
-            dayOffset: fleetDay,
-            gear: fleetGear,
-            wind: fleetWind ?? undefined,
-            stormDays: fleetStormDays,
-            storms: fleetStormZones,
-          })
+      fleetOn && fleetAllowed && fleetData && fleetData.nghe === fleetGear && !anyExclusiveOverlay && !premiumLocked
+        ? (() => {
+            const nen = nenCuaNgay(fleetData, addDaysIso(todayIso, fleetDay));
+            return nen ? apHeSoNgay(nen, { wind: fleetWind ?? undefined, stormDays: fleetStormDays, storms: fleetStormZones }) : null;
+          })()
         : null,
     [fleetOn, fleetAllowed, fleetData, anyExclusiveOverlay, premiumLocked, todayIso, fleetDay, fleetGear, fleetWind, fleetStormDays, fleetStormZones],
   );
@@ -5795,14 +5805,14 @@ export default function FishingMapView() {
   // Ô mật độ dưới điểm đang chạm + cá vùng đó hay có (theo tháng của ngày) — cho thẻ chạm.
   const fleetAtPoint = useMemo(() => {
     if (!fleetCells.length || !fleetData || !fleetForecast) return null;
-    const cell = densityCellAt(fleetCells, fleetData.axis.step, point.lat, point.lon) as (typeof fleetCells)[number] | null;
+    const cell = densityCellAt(fleetCells, fleetData.step, point.lat, point.lon) as (typeof fleetCells)[number] | null;
     if (!cell) return null;
-    const species = densitySpeciesAt(fleetData, { mode: "month", key: fleetForecast.dateIso.slice(0, 7), gear: "tat" }, cell.lat, cell.lon);
+    const species = loaiTaiO(fleetData, fleetForecast.dateIso, cell.lat, cell.lon);
     return { cell, lv: cell.level, species, dateIso: fleetForecast.dateIso };
   }, [fleetCells, fleetData, fleetForecast, point]);
   const fleetGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!fleetCells.length || !fleetData) return null;
-    const h = fleetData.axis.step / 2;
+    const h = fleetData.step / 2;
     return {
       type: "FeatureCollection",
       features: fleetCells.map((c) => ({

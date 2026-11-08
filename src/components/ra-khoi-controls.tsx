@@ -24,7 +24,7 @@ import {
   type FetchScalarKind,
 } from "@/lib/scalar-field";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
-import { SPECIES_META } from "@/lib/fish-predict";
+import { SPECIES_META } from "@/lib/species-meta";
 import { DENSITY_GEARS, FLEET_FORECAST_DAYS, addDaysIso, type DensityGear } from "@/lib/fleet-density";
 import { MAU_TAU } from "@/lib/tau-ais";
 import { NHAN } from "@/lib/labels";
@@ -1898,7 +1898,7 @@ function SettingsPanel({ vmsZones, tideCount }: { vmsZones: VmsZone[]; tideCount
       {vmsZones.length > 0 && (
         <>
           <p className="mb-1 mt-4 text-[0.75rem] font-semibold text-muted">
-            Vùng biển (dữ liệu VMS)
+            Vùng biển
           </p>
           {vmsZones.map((zone, i) => (
             <div key={zone.id}>
@@ -1928,7 +1928,7 @@ function SettingsPanel({ vmsZones, tideCount }: { vmsZones: VmsZone[]; tideCount
             </div>
           ))}
           <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/75">
-            Các ranh giới trên chỉ để hình dung (dữ liệu VMS{" "}
+            Các ranh giới trên chỉ để hình dung (cập nhật{" "}
             {VMS_ZONES_UPDATED.split("-").reverse().join("/")}) — ranh chính
             thức tra Chi cục Thuỷ sản.
           </p>

@@ -1,8 +1,8 @@
 /**
  * LỚP RẠN DẠNG VECTOR TILE — cổng nghiệm thu trên FILE THẬT.
  *
- * `public/data/reef-shapes-aca.v1.pmtiles` do `scripts/reef-to-pmtiles.mjs` cắt
- * ra từ `public/data/reef-shapes-aca.v1.bin`. Nó tồn tại để MapLibre không phải
+ * `public/data/ran-chi-tiet.v1.pmtiles` do `scripts/reef-to-pmtiles.mjs` cắt
+ * ra từ `public/data/ran-chi-tiet.v1.bin`. Nó tồn tại để MapLibre không phải
  * nuốt 4.030.270 đỉnh một lượt mới vẽ được cái rạn đầu tiên (đo:
  * `docs/research/ran-vector-tile-2026-08.md`).
  *
@@ -37,8 +37,8 @@ import {
   walkTiles,
 } from "../../../scripts/reef-to-pmtiles.mjs";
 
-const PMT_FILE = path.join(process.cwd(), "public/data/reef-shapes-aca.v1.pmtiles");
-const BIN_FILE = path.join(process.cwd(), "public/data/reef-shapes-aca.v1.bin");
+const PMT_FILE = path.join(process.cwd(), "public/data/ran-chi-tiet.v1.pmtiles");
+const BIN_FILE = path.join(process.cwd(), "public/data/ran-chi-tiet.v1.bin");
 
 type Ring = [number, number][];
 
@@ -89,7 +89,7 @@ async function layerAt(z: number, x: number, y: number) {
   return new VectorTile(new Pbf(new Uint8Array(r.data))).layers[REEF_TILE_LAYER];
 }
 
-describe("reef-shapes-aca.v1.pmtiles — kho vector tile lớp rạn", () => {
+describe("ran-chi-tiet.v1.pmtiles — kho vector tile lớp rạn", () => {
   it("mở được bằng đúng gói pmtiles app đăng ký cho MapLibre", async () => {
     const h = await archive.getHeader();
     expect(h.specVersion).toBe(3);

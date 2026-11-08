@@ -3,11 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   configCacheFresh,
   nextConfigCache,
-  CONFIG_KEYS,
-  isConfigKey,
   resolveConfigCell,
   configPrecedenceText,
 } from "@/lib/app-config-keys";
+import { CONFIG_KEYS, isConfigKey } from "@/lib/app-config-meta";
 
 describe("resolveConfigCell — DB đè env, che secret", () => {
   it("có DB → nguồn db, trả giá trị (khoá thường)", () => {

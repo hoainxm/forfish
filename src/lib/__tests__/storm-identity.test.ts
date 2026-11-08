@@ -77,8 +77,8 @@ describe("stormKeyOf — cùng khuôn với kho bản tin (stormKeyFor)", () => 
   });
   it("áp thấp không tên → theo ngày + tâm thấy đầu tiên; GDACS → theo tên", () => {
     expect(stormKeyOf(bao({ id: "nchmf-1", name: "" }), T0)).toBe("atnd-20260818-15.0-112.0");
-    expect(stormKeyOf(bao(), T0)).toBe("gdacs-wutip");
-    expect(stormKeyOf(bao({ name: "" }), T0)).toBe("gdacs-1001234");
+    expect(stormKeyOf(bao(), T0)).toBe("qt-wutip");
+    expect(stormKeyOf(bao({ name: "" }), T0)).toBe("qt-1001234");
   });
   it("soBaoTuTen đọc 'số 3', 'Bão số 12'", () => {
     expect(soBaoTuTen("số 3")).toBe(3);

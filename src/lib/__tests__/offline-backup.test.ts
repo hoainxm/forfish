@@ -650,6 +650,10 @@ const EXCLUDED: Array<[string, string]> = [
     "dấu ĐỔI KHOÁ VAPID ĐANG DỞ của MÁY NÀY (2026-10-07) — mang endpoint đăng ký push của chính máy này; chép sang máy khác là máy đó tự đăng ký lại thông báo khi chủ chưa bật, và gửi endpoint lạ lên server",
   ],
   [
+    "forfish.route.noiDi.v1",
+    "nơi đi lộ trình gửi sang Dẫn đường (2026-11-08, route-stops guiNoiDi) — sessionStorage, đọc một lần rồi xoá, hạn 30 phút; không phải dữ liệu của bà con",
+  ],
+  [
     "forfish.push.tat.v1",
     "dấu bà con TỰ TẮT thông báo trên MÁY NÀY (2026-11-07) — chép sang máy khác là máy đó không bao giờ tự đăng ký lại / tự hỏi quyền, mất tin bão mà chủ không hề tắt",
   ],

@@ -8,7 +8,7 @@ import { PORTS, type FishingPort } from "@/data/ports";
 import { haversineKm, type LatLon } from "@/lib/geo";
 import { apiUrl } from "@/lib/api-base";
 import { seaSnapshotId } from "@/lib/weather-snapshot-id";
-import { omUrl } from "@/lib/om-url";
+import { omServerUrl, omUrl } from "@/lib/om-url";
 import { isCacheCurrent } from "@/lib/source-cadence";
 /* Đồng hồ chặn cho fetch — `AbortSignal.timeout` chưa có trên WebView/Safari
    cũ (máy rẻ của bà con) và gọi thẳng sẽ ném TypeError ĐỒNG BỘ. Ở đây cái ném
@@ -67,7 +67,7 @@ export interface ScoredSeaDay extends SeaDay {
 // forecastConfidence + ensemble spread + bảng skill) nói thật theo từng ngày.
 const FORECAST_DAYS = 16;
 /** Model sóng phủ đủ 16 ngày (best-match chỉ ~8). Đổi nguồn sửa 1 chỗ này. */
-const WAVE_MODEL = "ncep_gfswave025";
+const WAVE_MODEL = "s1"; // mã mờ (lib/om-url OM_MODEL)
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 giờ — dự báo ngày không đổi nhanh hơn
 
 /**
@@ -142,7 +142,7 @@ export async function fetchSeaLive(port: FishingPort, soNgay: number = FORECAST_
      · SÓNG là nguồn PHỤ → hỏng thì vẫn dựng được ngày, sóng ước từ gió và gắn
        cờ `waveEstimated` để UI nói thật "ước", KHÔNG để 0 giả thành biển êm. */
   const [marineRes, weatherRes] = await Promise.all([
-    fetch(omUrl("marine", `${common}&daily=wave_height_max&models=${WAVE_MODEL}`), {
+    fetch(omUrl("marine", `${common}&daily=wave_height_max&m=${WAVE_MODEL}`), {
       headers: tokenHeader(),
       signal: timeoutSignal(15000),
     }).catch(() => null),
@@ -190,11 +190,11 @@ export async function fetchSeaBackupLive(port: FishingPort): Promise<ScoredSeaDa
   const common = `latitude=${port.lat}&longitude=${port.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${FORECAST_DAYS}`;
   const [marineRes, weatherRes] = await Promise.all([
     fetch(
-      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height&models=ecmwf_wam025`,
+      omServerUrl("marine", `${common}&hourly=wave_height&m=s2`),
       { signal: timeoutSignal(15000) },
     ),
     fetch(
-      `https://api.open-meteo.com/v1/forecast?${common}&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code&models=ecmwf_ifs025`,
+      omServerUrl("forecast", `${common}&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code&m=g2`),
       { signal: timeoutSignal(15000) },
     ),
   ]);

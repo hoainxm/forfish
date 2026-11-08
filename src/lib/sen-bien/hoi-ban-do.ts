@@ -15,7 +15,7 @@
 
 import type { DenBien } from "@/lib/den-bien";
 import { DEPTH_CLASS_LABEL, depthClassAt, type DepthGrid } from "@/lib/depth-grid";
-import type { FishCell } from "@/lib/fish-predict";
+import type { FishCell } from "@/lib/fish-forecast-client";
 import { haversineKm } from "@/lib/geo";
 import type { KhuTruBao } from "@/lib/khu-tru-bao";
 import { windDirectionVN } from "@/lib/marine-weather";

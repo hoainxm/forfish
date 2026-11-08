@@ -12,7 +12,7 @@
 // TRUNG THỰC: đây là vùng CÓ KHẢ NĂNG, tính từ ảnh trễ ~2 ngày, độ phân giải
 // ~25 km — không phải lời hứa "có cá", UI phải luôn ghi rõ.
 
-import { locBanDoCaTrongVung, trongVungBienVN } from "@/lib/vung-bien-vn";
+import { trongVungBienVN } from "@/lib/vung-bien-vn";
 import {
   type FishRegionId,
   FISH_SEASONS,
@@ -22,14 +22,9 @@ import {
   nearestRegionWithin,
   seasonPrior,
 } from "@/data/fish-seasons";
-import { apiUrl } from "@/lib/api-base";
 import { baseGroup, baseSeason, scoreBase, staticBins, staticLogLift, type BaseFeatures, type BaseParams } from "@/lib/fish-base";
 import { haversineKm } from "@/lib/geo";
-import { saveForecast, loadForecast } from "@/lib/forecast-cache";
-import { forecastStoreReady } from "@/lib/forecast-store";
 import type { FieldProvenance } from "@/lib/source-registry";
-import { timeoutSignal } from "@/lib/abort";
-import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 import { seasonalThermalBand, type SstClimatology } from "@/lib/thermal-band";
 import { fleetPresenceLookup, FLEET_FULL_HOURS, type FleetEffortGrid } from "@/lib/fleet-effort";
 import { applyDayShift, cellDeltaLogKg, chainDay, dayShiftFor, moonWhy, type ChainCategory, type ChainDay, type ChainDrivers, type ChainParams } from "@/lib/fish-chain";
@@ -44,23 +39,10 @@ export const REGION_REACH_DEG = 2.0;
    + trọng số mồi/front. Tổng hợp từ tài liệu sinh học nghề cá công khai
    (FAO species catalogue, RIMF) — mức THAM KHẢO, đủ cho phân vùng 25 km.
 ---------------------------------------------------------------------------- */
-/** Nhóm loài — cho bộ chọn loài + màu riêng từng nhóm (kiểu OceanFishMap) */
-export type SpeciesCategory =
-  | "pelagic-large" // cá nổi lớn xa bờ (ngừ, thu, cờ…)
-  | "pelagic-small" // cá nổi nhỏ ven bờ (cơm, trích, nục…)
-  | "cephalopod" // mực, bạch tuộc
-  | "demersal" // cá đáy mềm (mối, đổng, phèn…)
-  | "reef" // cá rạn (hồng, mú, kẽm)
-  | "crustacean"; // giáp xác (tôm, ghẹ, cua, ruốc)
-
-/**
- * Ảnh vệ tinh MẶT BIỂN dự báo được loài này tốt tới đâu — quyết định TRUNG THỰC:
- *   high   — cá nổi bám đúng front/xoáy/nước trồi mặt biển → dự báo điểm tin được
- *   medium — bán nổi / theo mùa rõ → dự báo có cơ sở nhưng vừa phải
- *   low    — loài ĐÁY/RẠN/cửa sông, ảnh mặt biển ít giúp → app lùi về MÙA VỤ + ĐỘ SÂU,
- *            KHÔNG vẽ điểm nóng giả, UI nói rõ
- */
-export type SurfaceSignal = "high" | "medium" | "low";
+import type { SpeciesCategory, SurfaceSignal } from "@/lib/species-meta";
+export type { SpeciesCategory, SurfaceSignal, SpeciesMeta } from "@/lib/species-meta";
+// Bảng HIỂN THỊ loài (tên/màu/nhóm) ở species-meta.ts — client chỉ import từ đó, KHÔNG từ đây (khong-lo-nguon nợ #1).
+export { SPECIES_META, CATEGORY_LABEL } from "@/lib/species-meta";
 
 /** Hệ số tin cậy theo tín hiệu mặt biển — kéo habitat về trung tính khi loài khó đoán */
 export const SURFACE_CONF: Record<SurfaceSignal, number> = {
@@ -473,39 +455,6 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   { species: "Ruốc", short: "ruốc", category: "crustacean", surfaceSignal: "medium", color: "var(--sp-ruoc)", depthBand: "tầng mặt ven bờ 0–30 m", sst: [21, 24, 30.5, 32.5], chlLog: [-0.3, 1.1], w: { thermFront: 0.3, chlFront: 0.4, eddy: 0.1, upw: 0.15, conv: 0.2 }, coldCore: true, inshore: [20, 50] },
 ];
 
-/** Tra cứu nhanh meta theo tên ngắn — cho UI (màu, nhóm, độ tin, độ sâu) */
-export interface SpeciesMeta {
-  full: string;
-  short: string;
-  category: SpeciesCategory;
-  surfaceSignal: SurfaceSignal;
-  color: string;
-  depthBand: string;
-}
-export const SPECIES_META: Record<string, SpeciesMeta> = Object.fromEntries(
-  SPECIES_PROFILES.map((p) => [
-    p.short,
-    {
-      full: p.species,
-      short: p.short,
-      category: p.category,
-      surfaceSignal: p.surfaceSignal,
-      color: p.color,
-      depthBand: p.depthBand,
-    },
-  ]),
-);
-
-/** Nhãn nhóm loài tiếng Việt đời thường + thứ tự hiển thị bộ chọn */
-export const CATEGORY_LABEL: Record<SpeciesCategory, string> = {
-  "pelagic-large": "Cá nổi lớn",
-  "pelagic-small": "Cá nổi nhỏ",
-  cephalopod: "Mực, bạch tuộc",
-  demersal: "Cá đáy",
-  reef: "Cá rạn",
-  crustacean: "Tôm, ghẹ, cua",
-};
-
 /* ----------------------------------------------------------------------------
    Toán thuần — test được
 ---------------------------------------------------------------------------- */
@@ -732,9 +681,12 @@ export function speciesWMax(w: SpeciesProfile["w"]): number {
 }
 
 /** Precompute 1 lần lúc nạp module: tên loài → wMax cố định (chấm điểm nóng) */
-const SPECIES_WMAX: Map<string, number> = new Map(
-  SPECIES_PROFILES.map((p) => [p.species, speciesWMax(p.w)]),
-);
+let speciesWMaxMemo: Map<string, number> | null = null;
+/** Lười dựng (không chạy lúc nạp module) — để file này không có tác dụng phụ kéo `SPECIES_PROFILES` vào bundle nào import nó. */
+function speciesWMaxOf(species: string): number | undefined {
+  speciesWMaxMemo ??= new Map(SPECIES_PROFILES.map((p) => [p.species, speciesWMax(p.w)]));
+  return speciesWMaxMemo.get(species);
+}
 
 /**
  * Hạng phân vị (0..1) của `v` trong mảng ĐÃ SẮP TĂNG DẦN — vị trí tương đối
@@ -1171,11 +1123,7 @@ export function spatialAnomaly(
  * chú giải. `min` của mức Thấp = SÀN hiển thị lưới (ô dưới ngưỡng này bị ẩn).
  * Ngưỡng: Thấp 40–60 · Trung bình 60–75 · Cao 75–100.
  */
-export const FISH_LEVEL_BANDS = [
-  { key: "low", label: "Thấp", min: 40, color: "#22c55e" },
-  { key: "mid", label: "Trung bình", min: 60, color: "#eab308" },
-  { key: "high", label: "Cao", min: 75, color: "#ef4444" },
-] as const;
+// FISH_LEVEL_BANDS: dời sang fish-forecast-client.ts (re-export ở cuối file).
 
 export interface FishCell {
   lat: number;
@@ -1627,7 +1575,7 @@ export function cellHabitat(
   const agg = softOrHabitat(
     mech,
     p.category === "pelagic-large" ? PELAGIC_LARGE_SOFTOR_SCALE : SOFTOR_SCALE,
-    SPECIES_WMAX.get(p.species) ?? speciesWMax(p.w),
+    speciesWMaxOf(p.species) ?? speciesWMax(p.w),
   );
   // TRUNG THỰC: loài đáy/rạn ảnh vệ tinh ít nói được → kéo tổ hợp về trung
   // tính, không vẽ điểm nóng giả. Loài nổi (high) giữ nguyên.
@@ -2250,164 +2198,19 @@ export function currentGridUrl(comp: "u" | "v"): string {
 }
 
 /* ----------------------------------------------------------------------------
-   Client gọi route nội bộ
+   Client gọi route nội bộ — ĐÃ DỜI sang `fish-forecast-client.ts` (2026-11-08, khong-lo-nguon nợ #1–2):
+   client import từ đó để KHÔNG kéo file mô hình này vào bundle. Re-export cho scripts/test cũ.
 ---------------------------------------------------------------------------- */
-export type FishForecastResult =
-  /*  `tuKhoOffline` — bản này LẤY TỪ KHO, không phải vừa tải về (2026-08-02k,
-      vòng soát 6). Mẻ tải sẵn PHẢI phân biệt được: nó chỉ ném khi `!ok`, mà từ
-      khi `!r.ok` lùi về bản đã lưu thì máy chủ nổ 500 vẫn cho ra `ok:true` ⇒
-      không bước nào hỏng ⇒ mẻ ghi mốc và KHOÁ 6 GIỜ trong khi bà con còn ở bờ,
-      còn sóng, và chưa có bản mới nào. Chuyện 500 kéo dài gần một ngày đã xảy
-      ra thật (a7c3388). */
-  | (FishForecast & { tuKhoOffline?: true })
-  // code "login_required"/"premium_required" = BỊ KHOÁ (middleware chặn,
-  // tính năng premium) — client hiện lời mời, KHÔNG hiện "lỗi, thử lại".
-  | { ok: false; code?: string };
+export {
+  fetchFishForecast,
+  fishForecastTuKhoSW,
+  banDoCaDaLuu,
+  savedFishMark,
+  toClientFish,
+  FISH_NS,
+  FISH_ID,
+  FISH_LEVEL_BANDS,
+} from "@/lib/fish-forecast-client";
 
-export async function fetchFishForecast(): Promise<FishForecastResult> {
-  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC BẢN LƯU (2026-08-02k — vòng đánh giá cuối).
-      Mất sóng thì `fetch` hỏng TỨC THÌ (không có độ trễ mạng che cửa sổ đua),
-      nên nhánh lùi chạy khi gương còn rỗng ⇒ trả `null` ⇒ màn hình nói "chưa
-      có" trong khi kho còn nguyên. Từ phiên thứ hai localStorage đã bị dọn nên
-      không còn lớp chắn nào. Hàm đã async; `forecastStoreReady()` có trần chờ. */
-  await forecastStoreReady();
-
-  try {
-    // Timeout client (invariant 02 §5): route lần lạnh ~30s (lưới ERDDAP nặng,
-    // maxDuration 60) → cho 35s để nhận data thật; quá thì hủy → pill thử lại.
-    // Sau lần đầu, ISR cache (revalidate 6h) trả tức thì.
-    const r = await fetch(apiUrl("/api/fish-forecast"), {
-      headers: tokenHeader(),
-      signal: timeoutSignal(35000),
-    });
-    /* MỘT DÒNG NÀY = chỗ này cũng phát hiện được máy bị đá. Bộ não vẫn
-       nằm ở `noteResponse`; ở đây chỉ đưa phản hồi cho nó soi. */
-    void noteResponse(r);
-    if (r.status === 401 || r.status === 403) {
-      const body = (await r.json().catch(() => null)) as {
-        code?: string;
-      } | null;
-      return {
-        ok: false,
-        code:
-          body?.code ??
-          (r.status === 401 ? "login_required" : "premium_required"),
-      };
-    }
-    /*  ⚠️ ĐỔI HÀNH VI (2026-08-02k): trước đây `!r.ok` trả thẳng `{ok:false}`.
-        Nay lùi về bản đồ cá ĐÃ LƯU nếu có. Được: mất sóng / nguồn bận thì bà
-        con vẫn có lớp cá thay vì màn trắng. Phải biết: máy chủ 500 cũng đi
-        đường này, tức app sẽ hiện bản MẤY NGÀY TUỔI thay vì báo hỏng — chấp
-        nhận được vì payload mang `generatedAt` và màn hình in tuổi thật của
-        bản, nhưng ai đọc mã sau này phải biết là nó KHÔNG còn báo lỗi ở đây. */
-    if (!r.ok) {
-      const luu = banDoCaDaLuu();
-      return luu ? { ...luu, tuKhoOffline: true as const } : { ok: false };
-    }
-    const tho = (await r.json()) as FishForecastResult;
-    // chỉ giữ ô trong vùng biển VN (lib/vung-bien-vn) — máy chủ đã lọc, lọc lại để bản cũ trong kho SW cũng sạch
-    const data = (tho && (tho as FishForecast).ok === true ? locBanDoCaTrongVung(tho as FishForecast) : tho) as FishForecastResult;
-    // DẤU "bản đồ cá đã có offline" — payload thật do Service Worker cache
-    // (/api/fish-forecast, same-origin), nhưng JS không đọc được kho SW đồng bộ.
-    // Ghi 1 dấu localStorage khi nhận 200 để bảng "trong máy có gì" báo được lớp
-    // cá + tới ngày nào (fetchFishForecast luôn qua đây).
-    if (data && (data as FishForecast).ok === true) luuBanDoCa(data as FishForecast);
-    return data;
-  } catch {
-    const luu = banDoCaDaLuu();
-    return luu ? { ...luu, tuKhoOffline: true as const } : { ok: false };
-  }
-}
-
-/** Ghi bản đồ cá vừa nhận (200, ok) vào kho bền — dùng chung cho
- *  `fetchFishForecast` và `fishForecastTuKhoSW`. */
-function luuBanDoCa(data: FishForecast) {
-  saveForecast(FISH_MARK_NS, FISH_MARK_ID, {
-    targetDate: data.targetDate ?? null,
-    // GHI KÈM MỐC MÁY CHỦ TÍNH (2026-07-31): mất sóng thì service worker
-    // vẫn trả 200 bằng bản CŨ, nên `savedAt` được làm mới mỗi lần vào đây
-    // ⇒ bảng "trong máy có gì" báo lớp cá còn tươi trong khi số liệu đã
-    // mấy ngày tuổi. `generatedAt` là tuổi THẬT của bản, không đổi.
-    generatedAt: data.generatedAt ?? null,
-  });
-  /*  ═══ VÀ GIỮ LUÔN BẢN ĐỒ THẬT, KHÔNG CHỈ CÁI DẤU ═══ (2026-08-02k)
-
-      Chủ dự án chốt: *"Cache API bị xoá sau 7 ngày thì cái này chỉ nên dùng
-      dự phòng, còn phải lưu và lấy trực tiếp từ local và IndexedDB."*
-
-      Đúng, và trước bản vá này thì ngược hẳn: payload bản đồ cá (~1 MB) nằm
-      DUY NHẤT trong kho Service Worker, còn localStorage chỉ giữ một cái dấu
-      vài chục byte nói "đã tải rồi". Nên khi WebKit dọn kho SW — 7 ngày
-      không mở, hoặc máy đầy, hoặc chính `reclaimRoom` của `sw.js` — thì dấu
-      vẫn còn mà bản đồ thì bay. Bảng "trong máy có gì" đọc cái dấu và báo
-      XANH. Tàu ra khơi tin là có lớp cá, mở ra thì trắng.
-
-      Nay bản thật nằm ở IndexedDB (qua `forecast-store`), kho SW tụt xuống
-      làm lớp đọc nhanh. Mất kho SW cũng không mất bản đồ. */
-  saveForecast(FISH_NS, FISH_ID, data);
-}
-
-/**
- * Đọc bản đồ cá THẲNG TỪ KHO SERVICE WORKER — gọi khi SW báo bản mới đã về kho
- * (lib/sw-api-fresh.ts). KHÔNG fetch: bản 3 MB vừa tải xong, tải lần hai là phí
- * sóng. Có thì ghi luôn vào kho bền như một lần tải thường. Không có kho / hỏng
- * / bản không ok ⇒ null (không bao giờ ném).
- */
-export async function fishForecastTuKhoSW(): Promise<FishForecast | null> {
-  if (typeof caches === "undefined") return null;
-  try {
-    const hit = await caches.match(apiUrl("/api/fish-forecast"), {
-      ignoreVary: true,
-    });
-    if (!hit) return null;
-    const d = (await hit.json()) as FishForecastResult;
-    if (!d || d.ok !== true) return null;
-    const sach = locBanDoCaTrongVung(d);
-    luuBanDoCa(sach);
-    return sach;
-  } catch {
-    return null;
-  }
-}
-
-const FISH_MARK_NS = "fishmark";
-const FISH_MARK_ID = "latest";
-/** Bản đồ cá ĐẦY ĐỦ trong kho bền — xem chú thích ở `fetchFishForecast`. */
-export const FISH_NS = "fish";
-export const FISH_ID = "latest";
-
-/**
- * Bản đồ cá đã lưu trong máy (IndexedDB) — `null` nếu chưa từng tải được.
- *
- * Chỉ trả bản CÒN DÙNG ĐƯỢC (`ok === true`): kho có thể còn giữ một phản hồi
- * hỏng từ thời route trả 200-kèm-lỗi, mà đây là bản DUY NHẤT của lớp cá nên đưa
- * rác ra màn hình còn tệ hơn nói "chưa tải được".
- */
-export function banDoCaDaLuu(): FishForecast | null {
-  const c = loadForecast<FishForecast>(FISH_NS, FISH_ID);
-  const d = c?.data;
-  // bản lưu từ trước 2026-10-29 có thể còn ô ngoài vùng biển VN — lọc lúc đọc, không cần tải lại
-  return d && (d as FishForecast).ok === true ? locBanDoCaTrongVung(d) : null;
-}
-
-/** Dấu "bản đồ cá đã tải offline" (từ lần fetchFishForecast gần nhất nhận 200).
- *  null = chưa lần nào tải được. Thuần đọc — cho pretrip-status.
- *  `dataAt` = lúc MÁY CHỦ TÍNH bản đang giữ (tuổi thật); thiếu thì đành lấy
- *  `savedAt` (bản lưu từ trước 2026-07-31, chưa ghi kèm generatedAt). */
-export function savedFishMark(): {
-  savedAt: number;
-  dataAt: number;
-  targetDate: string | null;
-} | null {
-  const c = loadForecast<{
-    targetDate: string | null;
-    generatedAt?: string | null;
-  }>(FISH_MARK_NS, FISH_MARK_ID);
-  if (!c) return null;
-  const gen = Date.parse(c.data?.generatedAt ?? "");
-  return {
-    savedAt: c.savedAt,
-    dataAt: Number.isFinite(gen) ? gen : c.savedAt,
-    targetDate: c.data?.targetDate ?? null,
-  };
-}
+/** Kết quả ĐẦY ĐỦ phía máy chủ (snapshot, cron, route) — còn trường chẩn đoán. Máy nhận bản qua `toClientFish`. */
+export type FishForecastResult = FishForecast | { ok: false; code?: string };

@@ -26,6 +26,8 @@ export interface OCa {
   lat: number;
   lon: number;
   s: number;
+  /** loài cho điểm `s` (tên ngắn) — có khi chấm theo nghề */
+  loai?: string;
 }
 
 /** Tin bão rút gọn cho cổng bão 0–5 ngày (§5b): tâm + bán kính ảnh hưởng (km) + các điểm dự báo. */
@@ -58,6 +60,28 @@ export interface LoTrinhInput {
   caTheoNgay: (d: number) => readonly OCa[];
   /** tin bão hiện có; null = CHƯA kiểm được tin bão (phải nói ra, không im — luật stormGateForRoute) */
   bao: BaoRutGon[] | null;
+  /**
+   * Sóng cao nhất (m) + gió mạnh nhất (km/h) NGÀY THỨ d của chuyến tại một chỗ — từ lưới gió sóng đủ vùng
+   * (`forecast-grid`, có bản lưu offline). Vắng / null / trả null ⇒ chưa có dự báo: hệ số biển = 1 và thuật
+   * toán GHI CHÚ "chưa né ngày biển động" (lo-trinh/he-so.ts).
+   */
+  bienTheoNgay?: ((lat: number, lon: number, d: number) => { songM: number | null; gioKmh: number | null } | null) | null;
+}
+
+/** Các yếu tố của MỘT ngày đánh ở một vùng — đưa ra cho bà con thấy máy chấm bằng gì (he-so.ts). */
+export interface YeuToNgay {
+  /** ngày thứ mấy của chuyến (từ 1) */
+  ngay: number;
+  /** điểm cá theo nghề 0–100 (làm tròn) */
+  ca: number;
+  /** độ rọi trăng 0–100 % (0 = trăng non, 100 = rằm) */
+  trang: number;
+  /** sóng cao nhất ngày (m), null = chưa có dự báo */
+  songM: number | null;
+  /** gió mạnh nhất ngày (km/h), null = chưa có dự báo */
+  gioKmh: number | null;
+  /** hệ số tổng trăng × biển (0–1, 2 số lẻ) — điểm ngày = cá × hệ số */
+  heSo: number;
 }
 
 export type LoaiChang = "chay" | "danh" | "ve";
@@ -86,6 +110,10 @@ export interface VungDanh {
   soNgayDanh: number;
   /** là điểm quen bà con nhập (không phải vùng app gợi ý) */
   laDiemQuen?: boolean;
+  /** loài chính của vùng theo nghề (tên ngắn, vd "ngừ vây vàng") — vắng ở điểm quen / lộ trình lưu cũ */
+  loai?: string;
+  /** yếu tố từng ngày đánh ở vùng này — vắng ở lộ trình lưu cũ */
+  yeuTo?: YeuToNgay[];
 }
 
 export interface LoTrinhKetQua {
@@ -117,6 +145,6 @@ export interface LoTrinhDaLuu {
   taoLuc: string; // ISO
   /** tuổi dữ liệu lúc tính — mở lại phải nói thật "tính từ bản đồ cá N ngày trước" */
   tuoiDuLieu: { ca: string | null; bao: string | null };
-  input: Omit<LoTrinhInput, "caTheoNgay" | "bao">;
+  input: Omit<LoTrinhInput, "caTheoNgay" | "bao" | "bienTheoNgay">;
   ketQua: LoTrinhKetQua;
 }

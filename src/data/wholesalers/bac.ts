@@ -25,7 +25,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     address: "Ki ốt 228-230 cạnh Chợ Hạ Long 1, P. Bạch Đằng, TP Hạ Long, Quảng Ninh",
     phone: "0905 568 899 / 0902 869 888 / 0913 505 871 / 0203 352 5799",
     species: ["cua", "ghẹ", "tôm", "mực", "cá"],
-    source: "https://mytour.vn/vi/blog/bai-viet/top-8-dia-chi-mua-hai-san-chat-luong-tai-quang-ninh.html",
     note: "tham khảo, cần xác minh; vựa hải sản tươi sống chợ Hạ Long",
   },
   {
@@ -36,7 +35,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     address: "399 Lý Anh Tông, TT Cái Rồng, Vân Đồn, Quảng Ninh",
     phone: "0985 286 522 / 0396 923 913",
     species: ["sá sùng", "mực", "ghẹ", "tôm", "hàu"],
-    source: "https://mytour.vn/vi/blog/bai-viet/top-8-dia-chi-mua-hai-san-chat-luong-tai-quang-ninh.html",
     note: "tham khảo, cần xác minh; hải sản Vân Đồn - Quan Lạn - Cô Tô",
   },
   {
@@ -47,7 +45,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     address: "Cảng cá Cái Rồng, TT Cái Rồng, Vân Đồn, Quảng Ninh",
     phone: "0962 945 536 / 0975 823 018",
     species: ["cá", "mực", "tôm", "ghẹ", "ngao", "tu hài"],
-    source: "https://toplist.vn/top-list/dia-chi-mua-hai-san-gia-re-va-uy-tin-nhat-tai-quang-ninh-15865.htm",
     note: "tham khảo, cần xác minh; thu mua tại cảng cá Cái Rồng",
   },
   {
@@ -57,7 +54,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     province: "Quảng Ninh",
     address: "179 QL18, P. Đại Yên, TP Hạ Long, Quảng Ninh",
     phone: "0203 385 7033",
-    source: "https://mytour.vn/vi/blog/bai-viet/top-8-dia-chi-mua-hai-san-chat-luong-tai-quang-ninh.html",
     note: "tham khảo, cần xác minh",
   },
   {
@@ -66,7 +62,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     kind: "co-so-thu-mua",
     province: "Quảng Ninh",
     address: "149 Trần Hưng Đạo, TP Hạ Long, Quảng Ninh",
-    source: "https://goldencoto.vn/hai-san-quang-ninh/",
     note: "tham khảo, cần xác minh; nguồn không nêu SĐT",
   },
   {
@@ -75,7 +70,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     kind: "co-so-thu-mua",
     province: "Quảng Ninh",
     address: "3 Cao Sơn, TP Cẩm Phả, Quảng Ninh",
-    source: "https://goldencoto.vn/hai-san-quang-ninh/",
     note: "tham khảo, cần xác minh; nguồn không nêu SĐT",
   },
 
@@ -87,7 +81,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     province: "Hải Phòng",
     address: "19 Trần Khánh Dư, P. Ngô Quyền, Hải Phòng",
     phone: "0889 591 818",
-    source: "https://toplist.vn/top-list/dia-chi-cung-cap-hai-san-tuoi-song-chat-luong-nhat-hai-phong-65695.htm",
     note: "tham khảo, cần xác minh",
   },
   {
@@ -98,7 +91,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     address: "Số 1 Văn Cao, P. Gia Viên, Hải Phòng",
     phone: "0865 508 222 / 0865 509 222",
     species: ["cá", "tôm", "cua", "ghẹ", "mực"],
-    source: "https://toplist.vn/top-list/dia-chi-cung-cap-hai-san-tuoi-song-chat-luong-nhat-hai-phong-65695.htm",
     note: "tham khảo, cần xác minh; bán buôn + bán lẻ hải sản vùng biển Hải Phòng",
   },
   {
@@ -108,7 +100,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     province: "Hải Phòng",
     address: "82 Hoàng Thế Thiện, P. Ngô Quyền, Hải Phòng",
     phone: "0911 555 886",
-    source: "https://toplist.vn/top-list/dia-chi-cung-cap-hai-san-tuoi-song-chat-luong-nhat-hai-phong-65695.htm",
     note: "tham khảo, cần xác minh; bán buôn + bán lẻ",
   },
   {
@@ -119,7 +110,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     address: "308-310-312 đường 208 An Đồng, P. An Hải, Hải Phòng",
     phone: "0904 456 086 / 0358 012 883",
     species: ["cá", "tôm", "cua", "mực"],
-    source: "https://toplist.vn/top-list/dia-chi-cung-cap-hai-san-tuoi-song-chat-luong-nhat-hai-phong-65695.htm",
     note: "tham khảo, cần xác minh; sỉ và lẻ thủy hải sản tươi sống",
   },
 
@@ -132,7 +122,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     kind: "co-so-thu-mua",
     province: "Hưng Yên",
     address: "Khu 3, TT Diêm Điền, Thái Thụy, Thái Bình",
-    source: "https://toplist.vn/top-list/dia-chi-mua-hai-san-tai-thai-binh-chat-luong-uy-tin-nhat-hien-nay-13249.htm",
     note: "tham khảo, cần xác minh; nguồn không nêu SĐT — gần cảng Diêm Điền",
   },
   {
@@ -141,7 +130,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     kind: "co-so-thu-mua",
     province: "Hưng Yên",
     address: "Đường 221A, Nam Trung, Tiền Hải, Thái Bình",
-    source: "https://toplist.vn/top-list/dia-chi-mua-hai-san-tai-thai-binh-chat-luong-uy-tin-nhat-hien-nay-13249.htm",
     note: "tham khảo, cần xác minh; nguồn không nêu SĐT",
   },
 
@@ -154,7 +142,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     address: "SN 49 đường Dương Hòa 4, KP5, xã Thiệu Hóa, Thanh Hóa",
     phone: "0975 123 200 / 0916 343 363",
     species: ["cá", "tôm", "mực", "ghẹ"],
-    source: "https://camerathanhhoa.org/shop/hai-san-sam-son/",
     note: "tham khảo, cần xác minh; cung cấp hải sản biển Sầm Sơn, giao TP Thanh Hóa",
   },
 
@@ -167,7 +154,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     address: "Số 144 đường Cửa Hội, khối Hải Giang 2, P. Cửa Lò, Nghệ An",
     phone: "0986 486 678",
     species: ["cá thu", "mực", "tôm"],
-    source: "https://quyetquyenseafood.com/cau-chuyen-san-pham/",
     note: "tham khảo, cần xác minh; kho đông lạnh lớn vùng Cửa Hội - Cửa Lò, thu mua từ tàu, bán cho nhà hàng/khách sạn",
   },
 
@@ -181,7 +167,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     province: "Hà Tĩnh",
     address: "Cụm CN chế biến hải sản Thạch Kim, xã Lộc Hà (cảng cá Cửa Sót), Hà Tĩnh",
     species: ["mực", "cá", "tôm"],
-    source: "https://vinascreal.com/thach-kim-seafood-processing-industrial-cluster-in-ha-tinh-province/",
     note: "tham khảo, cần xác minh; 5 kho ~100 tấn, thu mua hải sản tại cảng Cửa Sót — nguồn không nêu SĐT",
   },
   {
@@ -191,7 +176,6 @@ export const WHOLESALERS_BAC: Wholesaler[] = [
     province: "Hà Tĩnh",
     address: "Cụm CN chế biến hải sản Thạch Kim, xã Lộc Hà (cảng cá Cửa Sót), Hà Tĩnh",
     species: ["mực", "cá", "tôm"],
-    source: "https://vinascreal.com/thach-kim-seafood-processing-industrial-cluster-in-ha-tinh-province/",
     note: "tham khảo, cần xác minh; 4 kho ~240 tấn, thu mua tại cảng Cửa Sót — nguồn không nêu SĐT",
   },
 ];

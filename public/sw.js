@@ -154,9 +154,15 @@ const SDFISH_KAIROS_LUU_V = "kairos-luu-anh-v1";
     Thêm file .pmtiles mới thì THÊM VÀO ĐÂY, không có bước nào khác. */
 const PMTILES_ARCHIVES = [
   "/data/vn-basemap.pmtiles",
-  "/data/reef-shapes-aca.v1.pmtiles",
+  "/data/ran-chi-tiet.v1.pmtiles",
   "/data/chat-day.v1.pmtiles",
 ];
+/*  ĐỔI TÊN TRUNG TÍNH (2026-11-08, docs/app-map/ops/khong-lo-nguon.md nợ #12): tên file không mang tên nguồn.
+    Máy đã cất file dưới TÊN CŨ trong kho nền thì vẫn dùng bản đó — đọc kho theo tên mới, trượt thì tên cũ — để
+    ngoài biển mất sóng không mất lớp rạn chỉ vì đổi tên. Nội dung hai tên y hệt (git mv, không sinh lại). */
+const TEN_CU_DATA = {
+  "/data/ran-chi-tiet.v1.pmtiles": "/data/reef-shapes-aca.v1.pmtiles",
+};
 /** Giữ tên cũ cho chỗ khác đang dùng — nền bản đồ vẫn là file sống-còn nhất */
 const BASEMAP_ARCHIVE = PMTILES_ARCHIVES[0];
 
@@ -1345,7 +1351,7 @@ function basemapBuffer(path) {
       path,
       caches
         .open(SDFISH_BASEMAP_V)
-        .then((c) => c.match(path))
+        .then((c) => c.match(path).then((hit) => hit || (TEN_CU_DATA[path] ? c.match(TEN_CU_DATA[path]) : undefined)))
         .then((hit) => (hit ? hit.arrayBuffer() : null))
         .catch(() => null)
         .then((buf) => {
@@ -1371,6 +1377,7 @@ function fillBasemapArchive(path) {
       (async () => {
         const c = await caches.open(SDFISH_BASEMAP_V);
         if (await c.match(path)) return;
+        if (TEN_CU_DATA[path] && (await c.match(TEN_CU_DATA[path]))) return; // đã có dưới tên cũ — không tải lại
         // `fetch` phát TỪ service worker nên KHÔNG quay lại handler này (không đệ quy)
         const res = await fetch(path, { cache: "reload" });
         if (!res.ok || res.status !== 200) throw new Error("kho pmtiles tải thiếu");

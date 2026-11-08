@@ -17,7 +17,7 @@ const GOI = new Uint8Array(randomBytes(32));
 
 describe("khoá gói", () => {
   it("danh sách gói gồm lớp Allen, độ sâu rạn, mùa vụ cá — không gồm nền bản đồ", () => {
-    for (const f of ["reef-shapes-aca.v1.pmtiles", "chat-day.v1.pmtiles", "chat-day.v1.json", "reef-depth.v1.bin", "fish-climatology.v1.json"])
+    for (const f of ["ran-chi-tiet.v1.pmtiles", "chat-day.v1.pmtiles", "chat-day.v1.json", "reef-depth.v1.bin", "fish-climatology.v1.json"])
       expect(PREMIUM_SDF2.has(f), f).toBe(true);
     for (const f of ["vn-basemap.pmtiles", "seamarks.v1.json", "coral-reefs.v1.json", "depth-grid.v1.bin"]) expect(PREMIUM_SDF2.has(f), f).toBe(false);
   });

@@ -269,7 +269,7 @@ describe("deXuatLoTrinh — đầu vào rỗng/hỏng không ném", () => {
     const kq = deXuatLoTrinh(input({ caTheoNgay: () => [] }), NOW);
     expect(kq.vung).toEqual([]);
     expect(kq.lich).toEqual([]);
-    expect(kq.ghiChu.join(" ")).toMatch(/Chưa có bản đồ cá/);
+    expect(kq.ghiChu.join(" ")).toMatch(/Bản đồ cá chưa thấy vùng nào có cá của nghề/);
   });
 
   it("chỉ có ô ngoài vùng biển VN ⇒ rỗng", () => {

@@ -13,14 +13,16 @@ import { docCangNha } from "@/lib/cang-nha";
 import { loadPlaces, placeId, type SavedPlace } from "@/lib/places";
 import { loadCurrentBoatId } from "@/lib/boats";
 import { forecastStoreReady } from "@/lib/forecast-store";
-import { banDoCaDaLuu, fetchFishForecast, savedFishMark, type FishForecast } from "@/lib/fish-predict";
+import { banDoCaDaLuu, fetchFishForecast, savedFishMark, type FishForecast } from "@/lib/fish-forecast-client";
 import { fetchClimatology, type Climatology } from "@/lib/fish-blend";
 import { fetchStormCheck, type StormCheck } from "@/lib/storms";
+import { fetchForecastGrid, loadLongestSavedGrid, type ForecastGrid } from "@/lib/forecast-grid";
 import { deXuatLoTrinh } from "@/lib/lo-trinh/plan";
 import {
   baoTuTinBao,
   docSo,
   docTauTinh,
+  dungBienTheoNgay,
   dungCaTheoNgay,
   ghiTauTinh,
   gioTinBao,
@@ -115,6 +117,8 @@ function LoTrinhMo() {
   const [clim, setClim] = useState<Climatology | null>(null);
   const [storm, setStorm] = useState<StormCheck | null>(null);
   const [baoChuaKiem, setBaoChuaKiem] = useState(false);
+  /** lưới gió sóng đủ vùng 16 ngày — hệ số biển của lộ trình (he-so.ts); null = chưa có, thuật toán tự nói ra */
+  const [luoiBien, setLuoiBien] = useState<ForecastGrid | null>(null);
 
   useEffect(() => {
     let huy = false;
@@ -140,6 +144,16 @@ function LoTrinhMo() {
       .finally(() => !huy && setFcXong(true));
     fetchClimatology()
       .then((c) => !huy && setClim(c))
+      .catch(() => {});
+    // gió sóng: bản lưu dài ngày nhất NGAY (mất sóng vẫn có), rồi bản mới (snapshot trước, có trần chờ + lùi bản lưu)
+    forecastStoreReady()
+      .then(() => {
+        const luu = loadLongestSavedGrid();
+        if (!huy && luu) setLuoiBien((cu) => cu ?? luu.grid);
+      })
+      .catch(() => {});
+    fetchForecastGrid(16)
+      .then((g) => !huy && setLuoiBien(g))
       .catch(() => {});
     fetchStormCheck()
       .then((c) => {
@@ -268,8 +282,9 @@ function LoTrinhMo() {
             nghe,
             tau,
             diemQuen,
-            caTheoNgay: dungCaTheoNgay(fc, clim, ngayDi, todayIso),
+            caTheoNgay: dungCaTheoNgay(fc, clim, ngayDi, todayIso, nghe),
             bao,
+            bienTheoNgay: dungBienTheoNgay(luoiBien, ngayDi),
           },
           new Date(now),
         );

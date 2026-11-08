@@ -11,7 +11,7 @@
 // chúng đã tự lưu vào máy. Chạy TUẦN TỰ cho khỏi dội nguồn miễn phí.
 
 import { fetchSeaPoint, POINT_NS, type SeaPointConditions } from "@/lib/marine-weather";
-import { fetchFishForecast, savedFishMark, FISH_NS } from "@/lib/fish-predict";
+import { fetchFishForecast, savedFishMark, FISH_NS } from "@/lib/fish-forecast-client";
 import { fetchClimatology } from "@/lib/fish-blend";
 import {
   fetchForecastGrid,

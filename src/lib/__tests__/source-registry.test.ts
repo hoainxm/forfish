@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   dataQuality,
-  fishFailNote,
   LOW_QUALITY_THRESHOLD,
-  lowQualityNote,
   monthOfIsoDate,
   oldestIsoDate,
   resolveField,
   type FieldCandidate,
 } from "@/lib/source-registry";
+import { fishFailNote, lowQualityNote as noteCast, toClientFish } from "@/lib/fish-forecast-client";
+
+/** Câu nhắc tính trên bản ĐÃ QUA `toClientFish` (máy chủ dựng cờ `anhCu` từ `sources`, máy không thấy nguồn). */
+function lowQualityNote(x: { sources?: Record<string, { stale: boolean }> }) {
+  const c = toClientFish({ ok: true, cells: [], ...x });
+  expect(c).not.toBeNull();
+  expect(c && "sources" in c).toBe(false);
+  return noteCast(c!);
+}
 
 const TODAY = "2026-07-26";
 

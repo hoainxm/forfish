@@ -716,9 +716,10 @@ describe("cổng chặn khuôn", () => {
     }
   });
 
-  it("khoá kho bền của bản đồ cá phải khớp FISH_NS/FISH_ID ở fish-predict", () => {
+  it("khoá kho bền của bản đồ cá phải khớp FISH_NS/FISH_ID ở fish-forecast-client", () => {
+    // dời từ fish-predict.ts sang fish-forecast-client.ts 2026-11-08 (khong-lo-nguon nợ #1–2)
     const src = readFileSync(
-      join(process.cwd(), "src/lib/fish-predict.ts"),
+      join(process.cwd(), "src/lib/fish-forecast-client.ts"),
       "utf8",
     );
     const ns = /export const FISH_NS = "([^"]+)"/.exec(src)?.[1];

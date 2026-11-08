@@ -1,0 +1,5 @@
+{
+  "_ghi": "NỢ ĐÃ BIẾT của cổng kiem-lo-bundle. 15 nợ đo 2026-11-08 đã trả (docs/app-map/ops/khong-lo-nguon.md §6b) — chỉ còn dòng dưới, mỗi dòng có lý do, CHỜ anh Long duyệt giữ. Sửa xong thì XOÁ dòng (script báo ĐÃ SẠCH). Thêm dòng mới phải có lý do được anh Long duyệt — xem doc §5.",
+  "vms": "CHỮ NGHIỆP VỤ bà con cần (doc §5): 'dịch vụ giám sát hành trình (VMS)' ở thẻ gia hạn (components/vms-renewal.tsx) — tên thiết bị bắt buộc theo luật thuỷ sản, không phải nguồn dữ liệu. Các câu lộ 'dựng từ VMS' đã bỏ 08/11.",
+  "supabase-host": "HẠ TẦNG, không phải nguồn dữ liệu: lib/supabase/client.ts gọi Supabase (đăng nhập, ảnh) — host + khoá công khai (publishable) bắt buộc nằm ở máy. Muốn ẩn: tên miền riêng cho Supabase (custom domain, việc vận hành — anh Long quyết)."
+}

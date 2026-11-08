@@ -2,6 +2,7 @@
 // bbox. Cache 1 ngày — dữ liệu OSM seamark đổi chậm. Trả JSON gọn.
 
 import { NextResponse } from "next/server";
+import { fnv1a64Hex } from "@/lib/market/order-ref";
 import {
   fetchNautical,
   type BBox,
@@ -48,7 +49,8 @@ export async function GET(req: Request) {
     );
   }
   try {
-    const points = await fetchNautical(kind, bbox);
+    // id nội bộ của nguồn (`node/123`) ⇒ băm ổn định — không lộ nguồn qua mã điểm (khong-lo-nguon nợ #8)
+    const points = (await fetchNautical(kind, bbox)).map((p) => ({ ...p, id: `n${fnv1a64Hex(p.id)}` }));
     return NextResponse.json(
       { ok: true, kind, count: points.length, points },
       {
@@ -59,12 +61,10 @@ export async function GET(req: Request) {
       },
     );
   } catch (e) {
+    // KHÔNG chuyển tiếp câu lỗi của nguồn (vd "… 429") — log ở máy chủ, máy nhận mã chung
+    console.error("[nautical] nguồn hỏng:", e instanceof Error ? e.message : e);
     return NextResponse.json(
-      {
-        ok: false,
-        code: "upstream_failed",
-        detail: e instanceof Error ? e.message : "unknown",
-      },
+      { ok: false, code: "unavailable" },
       { status: 502 },
     );
   }

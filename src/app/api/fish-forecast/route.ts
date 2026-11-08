@@ -2,11 +2,14 @@ import { computeFishForecast } from "@/lib/fish-forecast-run";
 import { loadFishSnapshot, saveFishSnapshot } from "@/lib/fish-snapshot";
 import { isBuildPhase, isSnapshotFresh } from "@/lib/fish-snapshot-policy";
 import { locBanDoCaTrongVung } from "@/lib/vung-bien-vn";
+import { toClientFish } from "@/lib/fish-forecast-client";
 
 /*  CHỈ PHÁT Ô CÁ TRONG VÙNG BIỂN VIỆT NAM (anh Long 2026-10-29): MỌI nhánh trả bản đồ cá bọc
     `locBanDoCaTrongVung(…)`, nên ô ngoài vùng không ra khỏi máy chủ. Gọi thẳng ở từng nhánh, không
     gói hàm — cổng `api-error-status.test.ts` đếm từng chỗ `Response.json(` không kèm status.
-    Snapshot trong kho vẫn giữ trọn (backtest, mô hình). */
+    Snapshot trong kho vẫn giữ trọn (backtest, mô hình).
+    CHỈ TRƯỜNG CHO PHÉP (2026-11-08, khong-lo-nguon nợ #2): mọi nhánh bọc thêm `toClientFish(…)` — bỏ `sources`,
+    `dataQuality`, `chain`, `hint.why`, `dateSkewDays`; `baseMode` thành cờ. Chẩn đoán: `/api/admin/he-thong`. */
 
 /**
  * Dự báo cá (PFZ) đọc snapshot do cron tính sẵn. Middleware chặn premium trước
@@ -18,7 +21,7 @@ export const revalidate = 1800;
 export async function GET() {
   const snap = await loadFishSnapshot();
   if (snap && snap.ok && isSnapshotFresh(snap.generatedAt, Date.now())) {
-    return Response.json(locBanDoCaTrongVung(snap));
+    return Response.json(toClientFish(locBanDoCaTrongVung(snap)));
   }
   /*  2b) ĐANG BUILD → KHÔNG kéo bảy nguồn (2026-08-03). Next dựng sẵn route này
           lúc `next build` (có `revalidate`, không đụng API động); đọc snapshot
@@ -30,7 +33,7 @@ export async function GET() {
           Xem `isBuildPhase` để biết vì sao một nguồn thời tiết chậm KHÔNG được
           phép chặn việc ship bản vá. */
   if (isBuildPhase()) {
-    if (snap && snap.ok) return Response.json(locBanDoCaTrongVung(snap)); // ok:200 — snapshot thật, có `ok:true`
+    if (snap && snap.ok) return Response.json(toClientFish(locBanDoCaTrongVung(snap))); // ok:200 — snapshot thật, có `ok:true`
     return Response.json(
       { ok: false, reason: "build-phase" },
       { status: 503, headers: { "Cache-Control": "public, s-maxage=60" } },
@@ -54,9 +57,9 @@ export async function GET() {
       // ghi hỏng thì thôi (lần sau tính lại) — nhưng phải để lại dấu vết
       console.error("[fish-forecast] lưu snapshot ném lỗi:", e);
     }
-    return Response.json(locBanDoCaTrongVung(live));
+    return Response.json(toClientFish(locBanDoCaTrongVung(live)));
   }
-  if (snap && snap.ok) return Response.json(locBanDoCaTrongVung(snap));
+  if (snap && snap.ok) return Response.json(toClientFish(locBanDoCaTrongVung(snap)));
   /* 4) KHÔNG CÒN GÌ ĐỂ TRẢ → 503, KHÔNG PHẢI 200 (sửa 2026-08-02, audit C-4).
         Service worker chỉ cất phản hồi `res.ok`, mà `Response.json({ok:false})`
         mặc định là 200 ⇒ Supabase snapshot hỏng + nguồn live sập cùng lúc là
@@ -71,7 +74,7 @@ export async function GET() {
       sập toàn phần thì MỌI request lại chạy `computeFishForecast()` (7 nguồn,
       14–30 s) thay vì một lần mỗi 30 phút như hồi trả 200. Tự làm nghẽn đúng
       lúc hạ tầng đang yếu. 60 giây đủ chặn dồn mà vẫn hồi phục nhanh. */
-  return Response.json(live, {
+  return Response.json({ ok: false, code: "unavailable" }, {
     status: 503,
     headers: { "Cache-Control": "public, s-maxage=60" },
   });

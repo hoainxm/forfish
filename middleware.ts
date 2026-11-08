@@ -39,6 +39,7 @@ export const config = {
     "/api/tau-ais/quanh",
     "/api/tiles/:src/:z/:x/:y",
     "/api/om/:api",
+    "/api/fleet-density",
   ],
 };
 

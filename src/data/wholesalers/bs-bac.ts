@@ -29,7 +29,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     address:
       "Số 63 đường Nguyễn Thị Lợi, khu phố Nam Hải, P. Trung Sơn, TP Sầm Sơn, Thanh Hóa",
     species: ["cá", "mực", "tôm"],
-    source: "https://www.tratencongty.com/company/e02e8338-cong-ty-tnhh-thuy-san-sam-son/",
     note: "tham khảo, cần xác minh; DN thủy sản ĐKKD tại Sầm Sơn (ĐD: Vũ Văn Bộ) — nguồn không nêu SĐT",
   },
   {
@@ -39,7 +38,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     province: "Thanh Hóa",
     address: "Tổ dân phố Bình Tân, P. Quảng Tiến, TP Sầm Sơn, Thanh Hóa",
     species: ["hải sản khô", "cá", "mực"],
-    source: "https://www.tratencongty.com/tinh-thanh-hoa/thanh-pho-sam-son/phuong-quang-tien/",
     note: "tham khảo, cần xác minh; cơ sở chế biến/kinh doanh hải sản khô gần cảng Lạch Hới (ĐD: Lê Trung Kiên) — nguồn không nêu SĐT",
   },
 
@@ -52,7 +50,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     province: "Thanh Hóa",
     address: "Cụm công nghiệp Hòa Lộc, xã Hòa Lộc, H. Hậu Lộc, Thanh Hóa",
     species: ["cá", "mực", "tôm"],
-    source: "https://www.tratencongty.com/tinh-thanh-hoa/huyen-hau-loc/xa-hoa-loc/",
     note: "tham khảo, cần xác minh; chế biến + XNK thủy sản, cụm CN Hòa Lộc (ĐD: Vũ Văn Tiến) — nguồn không nêu SĐT",
   },
   {
@@ -62,7 +59,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     province: "Thanh Hóa",
     address: "Cụm công nghiệp Hòa Lộc, xã Hòa Lộc, H. Hậu Lộc, Thanh Hóa",
     species: ["cá", "mực", "tôm"],
-    source: "https://www.tratencongty.com/tinh-thanh-hoa/huyen-hau-loc/xa-hoa-loc/",
     note: "tham khảo, cần xác minh; chế biến + XNK thủy sản, cụm CN Hòa Lộc (ĐD: Vũ Văn Tiến) — nguồn không nêu SĐT",
   },
 
@@ -75,7 +71,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     address: "30 Bình Minh, P. Nghi Thủy, TX Cửa Lò, Nghệ An",
     phone: "0366 081 801",
     species: ["hải sản khô", "cá", "mực"],
-    source: "https://ngheantoplist.net/am-thuc/top-5-dia-chi-ban-hai-san-kho-nghe-an-ngon-re-chat-luong",
     note: "tham khảo, cần xác minh; cơ sở chế biến/kinh doanh hải sản khô Cửa Lò",
   },
 
@@ -88,7 +83,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     address: "Cảng cá nhân dân Lạch Quèn, xã Quỳnh Thuận, H. Quỳnh Lưu, Nghệ An",
     phone: "0969 847 459",
     species: ["cá biển", "bột cá"],
-    source: "https://thuysanmientrung.com/",
     note: "tham khảo, cần xác minh; thu mua cá biển nguyên con tại cảng Lạch Quèn để chế biến bột cá, công suất ~300 tấn/ngày",
   },
 
@@ -102,7 +96,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     province: "Hà Tĩnh",
     address: "Cụm công nghiệp Thạch Kim, xã Thạch Kim (cảng cá Cửa Sót), Hà Tĩnh",
     species: ["mực", "cá", "tôm"],
-    source: "https://www.tratencongty.com/tinh-ha-tinh/huyen-loc-ha/xa-thach-kim/",
     note: "tham khảo, cần xác minh; chế biến thủy hải sản cụm CN Thạch Kim (ĐD: Nguyễn Đình Biên) — nguồn không nêu SĐT",
   },
   {
@@ -112,7 +105,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     province: "Hà Tĩnh",
     address: "Thôn Xuân Phượng, cảng cá Cửa Sót, xã Thạch Kim, Hà Tĩnh",
     species: ["mực", "cá", "tôm"],
-    source: "https://www.tratencongty.com/tinh-ha-tinh/huyen-loc-ha/xa-thach-kim/",
     note: "tham khảo, cần xác minh; DN thủy sản tại cảng Cửa Sót (ĐD: Nguyễn Huy Sơn) — nguồn không nêu SĐT",
   },
   {
@@ -122,7 +114,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     province: "Hà Tĩnh",
     address: "Xã Thạch Kim, H. Lộc Hà (cảng cá Cửa Sót), Hà Tĩnh",
     species: ["mực", "cá", "tôm"],
-    source: "https://www.tratencongty.com/tinh-ha-tinh/huyen-loc-ha/xa-thach-kim/",
     note: "tham khảo, cần xác minh; HTX thu mua + chế biến + XNK thủy hải sản tại Thạch Kim — nguồn không nêu SĐT",
   },
   {
@@ -132,7 +123,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     province: "Hà Tĩnh",
     address: "Xã Thạch Kim, H. Lộc Hà (cảng cá Cửa Sót), Hà Tĩnh",
     species: ["mực", "cá", "tôm"],
-    source: "https://www.tratencongty.com/tinh-ha-tinh/huyen-loc-ha/xa-thach-kim/",
     note: "tham khảo, cần xác minh; kho đông lạnh hải sản Thạch Kim (ĐD: Phùng Văn Hoà) — nguồn không nêu SĐT",
   },
   {
@@ -142,7 +132,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     province: "Hà Tĩnh",
     address: "Thôn Long Hải, xã Thạch Kim, H. Lộc Hà, Hà Tĩnh",
     species: ["mực", "cá", "tôm"],
-    source: "https://www.tratencongty.com/tinh-ha-tinh/huyen-loc-ha/xa-thach-kim/",
     note: "tham khảo, cần xác minh; DNTN thủy sản Thạch Kim (ĐD: Nguyễn Đình Bình) — nguồn không nêu SĐT",
   },
 
@@ -154,7 +143,6 @@ export const WHOLESALERS_BS_BAC: Wholesaler[] = [
     province: "Hà Tĩnh",
     address: "Thôn Tam Hải 2, xã Kỳ Ninh, TX Kỳ Anh, Hà Tĩnh",
     species: ["cá", "mực", "tôm"],
-    source: "https://www.tratencongty.com/tinh-ha-tinh/thi-xa-ky-anh/xa-ky-ninh/",
     note: "tham khảo, cần xác minh; chế biến thủy hải sản Kỳ Ninh (ĐD: Nguyễn Tiến Dũng) — nguồn không nêu SĐT",
   },
 ];

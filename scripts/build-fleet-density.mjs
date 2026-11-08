@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// LƯỚI MẬT ĐỘ TÀU ĐÁNH BẮT theo NGÀY · THÁNG · MÙA · TRĂNG → public/data/fleet-density.v1.json (2026-10-25).
+// LƯỚI MẬT ĐỘ TÀU ĐÁNH BẮT theo NGÀY · THÁNG · MÙA · TRĂNG → src/data/fleet-density.v1.json (chỉ máy chủ, 2026-11-08) (2026-10-25).
 // ─────────────────────────────────────────────────────────────────────────────
 // VÌ SAO: anh Long 25/10 — "dựa vào VMS, phân tích tốc độ / đổi vị trí / khoảng cách điểm trước–sau
 // để biết tàu thường đánh bắt ở đâu, rồi dựng bản đồ nhiệt mật độ tàu theo ngày, theo mùa, theo trăng".
@@ -26,7 +26,7 @@
 //   vessels-asof-*.ndjson.gz, snapshots/<ngày>/catalog-ports.json.gz, encounters/vessels.json}
 //   + bộ phân loại nghề /mnt/c/Users/admin/sdfish-data/dl-all/gear-map.json.
 // CHẠY (có chủ ý, khi thêm tháng VMS — quy tắc dữ liệu trong git):
-//   node scripts/build-fleet-density.mjs --root <datalake-iuu> --gear-map <gear-map.json> --out public/data/fleet-density.v1.json
+//   node scripts/build-fleet-density.mjs --root <datalake-iuu> --gear-map <gear-map.json> --out src/data/fleet-density.v1.json
 //   File chạy ĐỘC LẬP ngoài repo: chép kèm fishing-def.mjs + fishing-bands.v2.json cùng thư mục.
 import fs from "node:fs";
 import path from "node:path";
@@ -40,7 +40,7 @@ const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
 const ROOT = arg("root", process.env.SDVICO_DATALAKE_ROOT || "../AI Assistant/sdvico-data/data-local/datalake-iuu");
 const GEAR_MAP = arg("gear-map", null);
-const OUT = arg("out", "public/data/fleet-density.v1.json");
+const OUT = arg("out", "src/data/fleet-density.v1.json"); // CHỈ máy chủ đọc (khong-lo-nguon nợ #7) — không phát ra máy
 const BANDS = arg("bands", path.join(HERE, "fishing-bands.v2.json"));
 const ONLY = (arg("only-months", "") || "").split(",").filter(Boolean); // kiểm nhanh: --only-months 2026-10
 // NGÀY BÃO (scripts/build-storm-days.mjs ← IBTrACS): anh Long 25/10 — "có bão thì không ai ra khơi" ⇒ các ngày
