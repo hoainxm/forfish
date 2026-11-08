@@ -18,6 +18,21 @@ import { fetchClimatology, type Climatology } from "@/lib/fish-blend";
 import { fetchStormCheck, type StormCheck } from "@/lib/storms";
 import { fetchForecastGrid, loadLongestSavedGrid, type ForecastGrid } from "@/lib/forecast-grid";
 import { fetchFleetNen, type NenFleet } from "@/lib/fleet-density";
+import { fetchFuelPrice, type FuelPrice } from "@/lib/fuel-price";
+import { daysBetweenISO } from "@/lib/day-labels";
+import { cauTienDau, tienDau } from "@/lib/lo-trinh/tien-dau";
+import {
+  cachTuyenTB,
+  docNhatKy,
+  ghiNhatKy,
+  ghiSanLuong,
+  nenHoiSanLuong,
+  nhatKyReadFailed,
+  soBamTuyen,
+  themLanSo,
+  timChuyen,
+  type NhatKyChuyen,
+} from "@/lib/lo-trinh/nhat-ky";
 import { deXuatLoTrinh, gioDiMacDinh, NGHE_DEN } from "@/lib/lo-trinh/plan";
 import {
   baoTuTinBao,
@@ -41,7 +56,7 @@ import {
   themLoTrinh,
   xoaLoTrinh,
 } from "@/lib/lo-trinh/luu";
-import type { DiemCoTen, LoTrinhDaLuu, Nghe } from "@/lib/lo-trinh/types";
+import type { DiemCoTen, LoTrinhDaLuu, Nghe, TauTinh } from "@/lib/lo-trinh/types";
 import { dungCuaTrieu } from "@/lib/lo-trinh/trieu-cang";
 import { bangTrongSo, bienDenCuaLuoi, cauMatKhiTinhLai, soVoiLucTinh, thamSoTrongSo, type DongTrongSo } from "@/lib/lo-trinh/offline-trong-so";
 import { fetchTideStations, type TideStation } from "@/lib/tides";
@@ -62,6 +77,9 @@ import { KetQuaLoTrinh } from "./ket-qua-lo-trinh";
      thay khi về; mùa vụ `fetchClimatology` (trần 15 s, không ném); tin bão `fetchStormCheck`
      (trần 28 s, lùi bản lưu). Không kiểm được bão ⇒ `bao: null` ⇒ thuật toán ghi chú, không im.
    · lộ trình đã lưu + hồ sơ tàu + điểm quen đọc thẳng localStorage — chạy trọn khi mất sóng.
+   · Phase 2/3 (2026-11-08): giá dầu `fetchFuelPrice` (trần 15 s, lùi bản đã cất; không có ⇒ chỉ in lít) · "Tính lại" từ
+     chỗ tàu đang đứng chạy TRONG MÁY bằng dữ liệu đang có (không request mới) · nhật ký đo hiệu quả `forfish.trip-log.v1`
+     chỉ trong máy.
 */
 
 type Ket = {
@@ -77,6 +95,8 @@ type Ket = {
   trongSo?: DongTrongSo[];
   /** mở bản lưu: câu "tính lại bây giờ sẽ mất …" (soạn lúc mở); null = tính lại không mất gì */
   cauTinhLai?: string | null;
+  /** bản ghi đã lưu đang mở (để ghi nhật ký so vị trí / sản lượng) — null với lộ trình vừa tính */
+  rec?: LoTrinhDaLuu | null;
 };
 
 const NGHE: { id: Nghe; label: string }[] = [
@@ -138,6 +158,8 @@ function LoTrinhMo() {
   /** trạm con nước (ghim offline, tính trong máy) + đoạn luồng cửa — null = chưa tải được */
   const [tram, setTram] = useState<TideStation[] | null>(null);
   const [luongDoan, setLuongDoan] = useState<FairwayDepth[] | null>(null);
+  /** giá dầu DO đã có trong máy (mạng hoặc bản cất) — null = chưa có ⇒ chỉ in lít */
+  const [giaDau, setGiaDau] = useState<FuelPrice | null>(null);
 
   useEffect(() => {
     let huy = false;
@@ -205,6 +227,9 @@ function LoTrinhMo() {
   const [diemLuu, setDiemLuu] = useState<SavedPlace[]>([]);
   const [tauHong, setTauHong] = useState(false);
   const [tauMacDinh, setTauMacDinh] = useState(false);
+  /** nhật ký đo hiệu quả (Phase 3) — chỉ trong máy */
+  const [nhatKy, setNhatKy] = useState<NhatKyChuyen[]>([]);
+  const [nhatKyLoi, setNhatKyLoi] = useState<string | null>(null);
 
   /* ── form ── */
   const [ngayDi, setNgayDi] = useState(todayIso);
@@ -230,6 +255,10 @@ function LoTrinhMo() {
     fetchFairwayDepths()
       .then((d) => !huy && setLuongDoan(d))
       .catch(() => {});
+    // giá dầu: trần 15 s, mất sóng trả bản đã cất (fuel-price.ts) — hỏng ⇒ null, màn chỉ in lít
+    fetchFuelPrice()
+      .then((g) => !huy && setGiaDau(g))
+      .catch(() => {});
     return () => {
       huy = true;
     };
@@ -251,6 +280,7 @@ function LoTrinhMo() {
   useEffect(() => {
     setDaLuu(docLoTrinhDaLuu());
     setDaLuuHong(loTrinhReadFailed());
+    setNhatKy(docNhatKy());
     const nha = docCangNha();
     if (nha) {
       setCangNha({ lat: nha.lat, lon: nha.lon, ten: nha.name });
@@ -273,9 +303,6 @@ function LoTrinhMo() {
     const p = PORTS.find((x) => x.id === cangId);
     return p ? { lat: p.lat, lon: p.lon, ten: `Cảng ${p.name}` } : null;
   }, [cangId, cangNha]);
-
-  // cửa triều của cảng đang chọn (mớn đọc từ hồ sơ tàu — chưa khai ⇒ chỉ báo nước lớn)
-  const cuaTrieu = useMemo(() => (cang ? dungCuaTrieu(cang, tram, luongDoan, docMonTau()) : null), [cang, tram, luongDoan]);
 
   const soNgay = /^\d{1,2}$/.test(soNgayRaw.trim()) ? Number(soNgayRaw.trim()) : NaN;
   const loiSoNgay =
@@ -327,19 +354,17 @@ function LoTrinhMo() {
     });
   };
 
-  const bamTinh = () => {
-    setDaBam(true);
-    if (loiSoNgay || loiNgayDi || !cang || loiTau || vToc == null || vDau == null) return;
-    // ô đèn chỉ có ở nghề đèn — nghề khác không gửi `litDem` ⇒ hồ sơ giữ nguyên số đã khai
-    const tau = { speedKn: vToc, litersPerHour: vDau, fuelTankL: vKet, ...(ngheDen ? { litDem: vLitDem } : {}) };
-    // ghi thông số tàu về hồ sơ — hỏng thì NÓI, vẫn tính bằng số đang gõ
-    setTauLuuLoi(
-      ghiTauTinh(tau)
-        ? null
-        : tauHong
-          ? "Hồ sơ tàu trong máy đọc không được — số này chỉ dùng cho lần tính này, chưa ghi đè."
-          : storageFullCopy("thông số tàu"),
-    );
+  /** Một lần tính (chuyến mới, hoặc tính lại từ chỗ đang đứng khi có `diemDau`) — dữ liệu lấy từ những gì ĐANG có trong máy. */
+  const tinh = (v: {
+    cang: DiemCoTen;
+    ngayDi: string;
+    gioDi: number;
+    soNgay: number;
+    nghe: Nghe;
+    tau: TauTinh;
+    diemQuen: DiemCoTen[];
+    diemDau?: DiemCoTen;
+  }) => {
     setDangTinh(true);
     setTinhLoi(false);
     setLuuLoi(null);
@@ -351,18 +376,12 @@ function LoTrinhMo() {
       try {
         kq = deXuatLoTrinh(
           {
-            cang,
-            ngayDi,
-            gioDi,
-            soNgay,
-            nghe,
-            tau,
-            diemQuen,
-            caTheoNgay: dungCaTheoNgay(fc, clim, ngayDi, todayIso, nghe),
+            ...v,
+            caTheoNgay: dungCaTheoNgay(fc, clim, v.ngayDi, todayIso, v.nghe),
             bao,
-            bienTheoNgay: dungBienTheoNgay(luoiBien, ngayDi),
-            baiTheoNgay: baiNen?.nghe === BAI_NGHE[nghe] ? dungBaiTheoNgay(baiNen, ngayDi) : null,
-            cuaTrieu,
+            bienTheoNgay: dungBienTheoNgay(luoiBien, v.ngayDi),
+            baiTheoNgay: baiNen?.nghe === BAI_NGHE[v.nghe] ? dungBaiTheoNgay(baiNen, v.ngayDi) : null,
+            cuaTrieu: dungCuaTrieu(v.cang, tram, luongDoan, docMonTau()),
           },
           new Date(now),
         );
@@ -379,17 +398,104 @@ function LoTrinhMo() {
       const taoLuc = new Date(now).toISOString();
       setKetQua({
         kq,
-        input: { cang, ngayDi, gioDi, soNgay, nghe, tau, diemQuen },
+        input: v,
         tuoiDuLieu,
         taoLuc,
         savedId: null,
         tuoiCa: cauTuoiLoTrinh({ taoLuc, tuoiDuLieu }, now),
-        trongSo: trongSoBayGio(now, cang, ngayDi, soNgay, nghe, bao != null),
+        trongSo: trongSoBayGio(now, v.cang, v.ngayDi, v.soNgay, v.nghe, bao != null),
+        rec: null,
       });
       setDangTinh(false);
       window.setTimeout(() => ketRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     }, 30);
   };
+
+  const bamTinh = () => {
+    setDaBam(true);
+    if (loiSoNgay || loiNgayDi || !cang || loiTau || vToc == null || vDau == null) return;
+    // ô đèn chỉ có ở nghề đèn — nghề khác không gửi `litDem` ⇒ hồ sơ giữ nguyên số đã khai
+    const tau = { speedKn: vToc, litersPerHour: vDau, fuelTankL: vKet, ...(ngheDen ? { litDem: vLitDem } : {}) };
+    // ghi thông số tàu về hồ sơ — hỏng thì NÓI, vẫn tính bằng số đang gõ
+    setTauLuuLoi(
+      ghiTauTinh(tau)
+        ? null
+        : tauHong
+          ? "Hồ sơ tàu trong máy đọc không được — số này chỉ dùng cho lần tính này, chưa ghi đè."
+          : storageFullCopy("thông số tàu"),
+    );
+    tinh({ cang, ngayDi, gioDi, soNgay, nghe, tau, diemQuen });
+  };
+
+  /*  TÍNH LẠI GIỮA CHUYẾN (Phase 2, 09 §6): từ chỗ tàu đang đứng (GPS của lần "Vị trí"), số ngày CÒN LẠI của chuyến đang mở
+      làm hạn, cùng cảng về / nghề / tàu / điểm quen. Chạy trong máy với dữ liệu đang có (mất sóng = bản đã cất) — câu tuổi
+      dữ liệu + bảng "Dữ liệu dùng lúc tính" nói thật lớp nào cũ/thiếu. */
+  const [tinhLaiLoi, setTinhLaiLoi] = useState<string | null>(null);
+  const tinhLaiTuDay = (pos: { lat: number; lon: number }) => {
+    if (!ketQua) return;
+    const g = ketQua.input;
+    const het = addDaysIso(g.ngayDi, Math.max(1, Math.min(TRAN_NGAY_TINH, g.soNgay)) - 1);
+    const con = daysBetweenISO(todayIso, het) + 1;
+    if (daysBetweenISO(g.ngayDi, todayIso) < 0) {
+      setTinhLaiLoi("Chưa tới ngày xuất bến — dùng nút Tính ở trên cho chuyến này.");
+      return;
+    }
+    if (con < 1) {
+      setTinhLaiLoi("Chuyến đã hết số ngày đã khai — tính chuyến mới ở trên.");
+      return;
+    }
+    setTinhLaiLoi(null);
+    // giờ VN hiện tại = giờ "đi" của bản tính lại
+    // eslint-disable-next-line react-hooks/purity
+    const gioVN = new Date(Date.now() + 7 * 3_600_000).getUTCHours();
+    tinh({
+      cang: g.cang,
+      ngayDi: todayIso,
+      gioDi: gioVN,
+      soNgay: con,
+      nghe: g.nghe,
+      tau: g.tau,
+      diemQuen: g.diemQuen ?? [],
+      diemDau: { lat: pos.lat, lon: pos.lon, ten: "Chỗ tàu đang đứng" },
+    });
+  };
+
+  /* ── nhật ký đo hiệu quả (Phase 3) — chỉ lộ trình ĐÃ LƯU, chỉ trong máy ── */
+  const ghiNk = (next: NhatKyChuyen[] | null) => {
+    if (!next) return;
+    if (!ghiNhatKy(next)) {
+      setNhatKyLoi(nhatKyReadFailed() ? "Nhật ký chuyến trong máy đọc không được — chưa ghi để khỏi đè mất." : storageFullCopy("nhật ký chuyến"));
+      return;
+    }
+    setNhatKyLoi(null);
+    setNhatKy(next);
+  };
+  const ghiLanSo = (pos: { lat: number; lon: number }, cachHaiLy: number) => {
+    if (!ketQua?.rec) return;
+    ghiNk(themLanSo(nhatKy, ketQua.rec, pos, cachHaiLy, Date.now(), todayIso));
+  };
+  const ghiKg = (kg: number) => {
+    if (!ketQua?.rec) return false;
+    const next = ghiSanLuong(nhatKy, ketQua.rec, kg, Date.now());
+    if (!next) return false;
+    ghiNk(next);
+    return true;
+  };
+  const chuyenNk = ketQua?.rec ? timChuyen(nhatKy, ketQua.rec.id) : null;
+  const cauDo = (() => {
+    if (!ketQua?.rec) return null;
+    const phan: string[] = [];
+    const tb = chuyenNk ? cachTuyenTB(chuyenNk) : null;
+    if (chuyenNk && tb != null)
+      phan.push(`Đã so vị trí ${chuyenNk.viTri.length} lần trong chuyến, trung bình cách tuyến ${Math.round(tb)} hải lý.`);
+    if (chuyenNk?.sanLuong) phan.push(`Sản lượng đã ghi: ${chuyenNk.sanLuong.kg.toLocaleString("vi-VN")} kg.`);
+    const so = soBamTuyen(nhatKy, ketQua.rec.input.nghe);
+    if (so.duSo && so.bam.kgTB != null && so.lech.kgTB != null)
+      phan.push(
+        `Các chuyến cùng nghề trong máy: đi sát tuyến trung bình ${so.bam.kgTB.toLocaleString("vi-VN")} kg (${so.bam.n} chuyến), đi khác tuyến ${so.lech.kgTB.toLocaleString("vi-VN")} kg (${so.lech.n} chuyến).`,
+      );
+    return phan.length ? phan.join(" ") : null;
+  })();
 
   const luu = () => {
     if (!ketQua || ketQua.savedId) return;
@@ -413,7 +519,7 @@ function LoTrinhMo() {
       return;
     }
     setDaLuu(next);
-    setKetQua({ ...ketQua, savedId: rec.id });
+    setKetQua({ ...ketQua, savedId: rec.id, rec });
   };
 
   const xoa = (id: string) => {
@@ -428,6 +534,7 @@ function LoTrinhMo() {
 
   const moDaLuu = (r: LoTrinhDaLuu) => {
     setLuuLoi(null);
+    setTinhLaiLoi(null);
     setKetQua({
       kq: r.ketQua,
       input: r.input,
@@ -438,6 +545,7 @@ function LoTrinhMo() {
       // eslint-disable-next-line react-hooks/purity
       tuoiCa: cauTuoiLoTrinh(r, Date.now()),
       ...(r.trongSo ? { trongSo: r.trongSo } : {}),
+      rec: r,
       // so với dữ liệu ĐANG có trong máy: tính lại bây giờ sẽ mất lớp nào (mất sóng thì nên xem bản này)
       cauTinhLai: cauMatKhiTinhLai(
         soVoiLucTinh(
@@ -683,6 +791,14 @@ function LoTrinhMo() {
             onLuu={ketQua.kq.chanBao ? undefined : luu}
             luuLoi={luuLoi}
             onXoa={ketQua.savedId ? () => xoa(ketQua.savedId!) : undefined}
+            cauTien={ketQua.kq.chanBao ? null : cauTienDau(tienDau(ketQua.kq.litDau, giaDau))}
+            onSoViTri={ketQua.rec ? ghiLanSo : undefined}
+            onTinhLai={ketQua.rec && !dangTinh ? tinhLaiTuDay : undefined}
+            tinhLaiLoi={tinhLaiLoi}
+            hoiSanLuong={ketQua.rec ? nenHoiSanLuong(chuyenNk, ketQua.rec, todayIso) : false}
+            onSanLuong={ghiKg}
+            cauDo={cauDo}
+            nhatKyLoi={nhatKyLoi}
           />
         )}
         {ketQua?.cauTinhLai && <p className="mt-2 text-[0.8125rem] leading-snug text-warn">{ketQua.cauTinhLai}</p>}

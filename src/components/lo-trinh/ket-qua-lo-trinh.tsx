@@ -10,6 +10,8 @@ import { AlertIcon, CrosshairIcon, RouteIcon, StarIcon, TrashIcon } from "@/comp
 import { formatDigits } from "@/lib/format";
 import { guiNoiDi, loadStops, persistStops } from "@/lib/route-stops";
 import { chuoiChangTuMoc, mucVung, soViTri, type KetQuaSoViTri } from "@/lib/lo-trinh/so-vi-tri";
+import { docKg } from "@/lib/lo-trinh/nhat-ky";
+import { inputClass } from "@/components/ui/primitives";
 import type { LoTrinhKetQua, YeuToNgay } from "@/lib/lo-trinh/types";
 import { beaufort } from "@/lib/marine-weather";
 import { SoDoLoTrinh } from "./so-do-lo-trinh";
@@ -20,6 +22,8 @@ import { SoDoLoTrinh } from "./so-do-lo-trinh";
   ba con số là hàng 1rem 600 + nhãn 0.8125rem `text-muted` — KHÔNG số to. Có `chanBao` ⇒ băng đỏ
   THAY cho lộ trình (không lịch, không vùng, không nút Lưu/Bản đồ). Không in điểm số vùng — chỉ
   thang Được/Khá/Tốt. Disclaimer cố định nằm ở đầu màn (ManHeader sub), không lặp ở đây.
+  Phase 2/3 (2026-11-08): dòng dầu theo pha + tiền dầu (giá đã có trong máy, kèm ngày kỳ giá); sau "Vị trí" có nút
+  "Tính lại" từ chỗ đang đứng; lộ trình đã lưu tới ngày về thì hỏi sản lượng (chỉ lưu trong máy, để tự so).
 */
 
 const ngayVN = (iso: string) => {
@@ -41,10 +45,19 @@ function cauYeuTo(y: YeuToNgay): string {
   return phan.join(" · ");
 }
 
+/** "Dầu chạy 900 lít · lúc đánh 300 lít · chong đèn 200 lít." — bỏ pha bằng 0. */
+function cauPha(p: { chay: number; danh: number; den: number }): string {
+  const so = (n: number) => formatDigits(String(n < 10 ? Math.round(n) : Math.round(n / 10) * 10));
+  const phan = [`Dầu chạy ${so(p.chay)} lít`];
+  if (p.danh > 0) phan.push(`lúc đánh ${so(p.danh)} lít`);
+  if (p.den > 0) phan.push(`chong đèn ${so(p.den)} lít`);
+  return phan.join(" · ") + ".";
+}
+
 type ViTri =
   | { kind: "idle" }
   | { kind: "dang" }
-  | { kind: "ok"; r: KetQuaSoViTri }
+  | { kind: "ok"; r: KetQuaSoViTri; pos: { lat: number; lon: number } }
   | { kind: "loi"; cau: string };
 
 export function KetQuaLoTrinh({
@@ -56,6 +69,14 @@ export function KetQuaLoTrinh({
   onLuu,
   luuLoi,
   onXoa,
+  cauTien = null,
+  onSoViTri,
+  onTinhLai,
+  tinhLaiLoi = null,
+  hoiSanLuong = false,
+  onSanLuong,
+  cauDo = null,
+  nhatKyLoi = null,
 }: {
   kq: LoTrinhKetQua;
   ngayDi: string;
@@ -68,11 +89,29 @@ export function KetQuaLoTrinh({
   /** câu báo lưu hỏng — null khi không có lỗi */
   luuLoi: string | null;
   onXoa?: () => void;
+  /** câu tiền dầu (tien-dau.ts) — null = chưa có giá dầu trong máy ⇒ chỉ in lít */
+  cauTien?: string | null;
+  /** lộ trình đã lưu: ghi lần so vị trí vào nhật ký (Phase 3) */
+  onSoViTri?: (pos: { lat: number; lon: number }, cachHaiLy: number) => void;
+  /** tính lại từ chỗ đang đứng (Phase 2) — chỉ hiện sau một lần "Vị trí" thành công */
+  onTinhLai?: (pos: { lat: number; lon: number }) => void;
+  tinhLaiLoi?: string | null;
+  /** hỏi sản lượng sau chuyến (Phase 3) */
+  hoiSanLuong?: boolean;
+  /** true = đã ghi */
+  onSanLuong?: (kg: number) => boolean;
+  /** câu tóm tắt nhật ký đo hiệu quả của chuyến này */
+  cauDo?: string | null;
+  nhatKyLoi?: string | null;
 }) {
   const router = useRouter();
   const [viTri, setViTri] = useState<ViTri>({ kind: "idle" });
   const [hoiThayChuoi, setHoiThayChuoi] = useState<number | null>(null);
   const [hoiXoa, setHoiXoa] = useState(false);
+  const [kgRaw, setKgRaw] = useState("");
+  const [kgLoi, setKgLoi] = useState(false);
+  /** nơi đi của chuỗi dẫn đường = mốc đầu (cảng, hoặc chỗ tàu đang đứng với lộ trình tính lại) */
+  const tenDi = kq.moc[0]?.ten ?? cangTen;
 
   const moBanDo = () => {
     const chuoi = chuoiChangTuMoc(kq.moc);
@@ -83,8 +122,8 @@ export function KetQuaLoTrinh({
     setHoiThayChuoi(null);
     // Dẫn đường đi từ CẢNG XUẤT BẾN, không từ vị trí điện thoại (người ngồi nhà ở TP.HCM ⇒ chặng đầu vướng đất)
     const cang = kq.moc[0];
-    if (cang) guiNoiDi({ lat: cang.lat, lon: cang.lon, ten: cangTen });
-    baoToast(`Đã nạp ${chuoi.length} điểm, đi từ ${cangTen} — ⋯ › ${NHAN.loTrinh}.`, { ms: 8000 });
+    if (cang) guiNoiDi({ lat: cang.lat, lon: cang.lon, ten: tenDi });
+    baoToast(`Đã nạp ${chuoi.length} điểm, đi từ ${tenDi} — ⋯ › ${NHAN.loTrinh}.`, { ms: 8000 });
     router.push("/ngu-truong");
   };
   const bamBanDo = () => {
@@ -100,11 +139,12 @@ export function KetQuaLoTrinh({
     }
     setViTri({ kind: "dang" });
     navigator.geolocation.getCurrentPosition(
-      (p) =>
-        setViTri({
-          kind: "ok",
-          r: soViTri(kq, ngayDi, { lat: p.coords.latitude, lon: p.coords.longitude }, Date.now()),
-        }),
+      (p) => {
+        const pos = { lat: p.coords.latitude, lon: p.coords.longitude };
+        const r = soViTri(kq, ngayDi, pos, Date.now());
+        setViTri({ kind: "ok", r, pos });
+        onSoViTri?.(pos, r.cachTuyenHaiLy);
+      },
       (e) =>
         setViTri({
           kind: "loi",
@@ -134,7 +174,7 @@ export function KetQuaLoTrinh({
 
   return (
     <section aria-label="Kết quả" className="mt-4">
-      <h2 className="display text-[1.125rem] font-semibold text-navy">Lộ trình gợi ý</h2>
+      <h2 className="display text-[1.125rem] font-semibold text-navy">{kq.tuChoDung ? "Lộ trình gợi ý từ chỗ đang đứng" : "Lộ trình gợi ý"}</h2>
       {tuoiCa && <p className="mt-0.5 text-[0.8125rem] leading-snug text-muted">{tuoiCa}</p>}
 
       {/* BA CON SỐ — gọn một hàng, cùng cỡ chữ nội dung (không số to) */}
@@ -152,6 +192,13 @@ export function KetQuaLoTrinh({
           <dd className="text-[1rem] font-semibold text-navy">{ngayVN(kq.ngayNenVe)}</dd>
         </div>
       </dl>
+      {(kq.dauTheoPha || cauTien) && (
+        <p className="mt-1.5 text-[0.8125rem] leading-snug text-muted">
+          {kq.dauTheoPha && cauPha(kq.dauTheoPha)}
+          {kq.dauTheoPha && cauTien ? " " : ""}
+          {cauTien}
+        </p>
+      )}
       {kq.thieuDau && (
         <p className="mt-2 text-[0.875rem] font-semibold leading-snug text-warn">
           Két dầu có thể không đủ (đã tính dư 30% cho gió ngược, chờ đánh).
@@ -272,9 +319,62 @@ export function KetQuaLoTrinh({
             <p>Cách tuyến {formatDigits(String(Math.round(viTri.r.cachTuyenHaiLy)))} hải lý.</p>
             <p>{viTri.r.theoKeHoach}</p>
             {viTri.r.lech && <p className="text-muted">Đang đi khác kế hoạch — không sao, thuyền trưởng quyết.</p>}
+            {onTinhLai && (
+              <button
+                type="button"
+                onClick={() => onTinhLai(viTri.pos)}
+                aria-label="Tính lại lộ trình từ chỗ tàu đang đứng, với số ngày còn lại"
+                className={`${SQ_BTN} mt-1.5 bg-field text-navy`}
+              >
+                <RouteIcon className="h-4 w-4" />
+                {NHAN.tinhLai}
+              </button>
+            )}
           </div>
         )}
+        {tinhLaiLoi && <p className="mt-1 text-[0.875rem] leading-snug text-warn">{tinhLaiLoi}</p>}
       </div>
+
+      {hoiSanLuong && onSanLuong && (
+        <div className="mt-4">
+          <label className="block">
+            <span className="mb-1 block text-[0.875rem] leading-snug text-navy">
+              Chuyến này được bao nhiêu ký cá? <span className="text-muted">Chỉ lưu trong máy, để tự xem lộ trình có giúp được không.</span>
+            </span>
+            <span className="grid grid-cols-[1fr_auto] gap-2">
+              <input
+                inputMode="numeric"
+                value={kgRaw}
+                placeholder="Số ký"
+                onChange={(e) => {
+                  setKgRaw(e.target.value);
+                  setKgLoi(false);
+                }}
+                aria-invalid={kgLoi}
+                className={inputClass}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const kg = docKg(kgRaw);
+                  if (kg == null || !onSanLuong(kg)) setKgLoi(true);
+                  else setKgRaw("");
+                }}
+                className={`${SQ_BTN} bg-field text-navy`}
+              >
+                {NHAN.luu}
+              </button>
+            </span>
+          </label>
+          {kgLoi && <p className="mt-1 text-[0.8125rem] text-danger">Nhập số ký từ 1 trở lên.</p>}
+        </div>
+      )}
+      {cauDo && <p className="mt-2 text-[0.8125rem] leading-snug text-muted">{cauDo}</p>}
+      {nhatKyLoi && (
+        <p role="alert" className="mt-2 text-[0.875rem] font-semibold leading-snug text-danger">
+          {nhatKyLoi}
+        </p>
+      )}
 
       {hoiThayChuoi != null && (
         <ConfirmDialog

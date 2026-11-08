@@ -136,6 +136,7 @@ export const TRANSFER_KEYS = [
   "forfish.routestops.v1",
   "forfish.savedroutes.v1",
   "forfish.routes.v1",
+  "forfish.trip-log.v1",
   "forfish.haiDoTuyen.v1",
   "forfish.maintenance.v1",
   "forfish.products.v1",
@@ -495,6 +496,14 @@ const PERSONAL_SPECS: Record<string, BackupGroupSpec> = {
     id: "routes",
     name: "lộ trình chuyến biển",
     unit: "lộ trình",
+    kind: "personal",
+  },
+  /*  Nhật ký đo hiệu quả lộ trình (lib/lo-trinh/nhat-ky.ts, 09 §6 Phase 3, 2026-11-08) — các lần so vị trí với tuyến +
+      sản lượng sau chuyến bà con khai; chỉ trong máy, mất là mất luôn số tự kiểm ⇒ "bà con tự gõ", chỉ đi cùng `transfer`. */
+  "forfish.trip-log.v1": {
+    id: "tripLog",
+    name: "nhật ký chuyến",
+    unit: "chuyến",
     kind: "personal",
   },
   /*  Tuyến bà con tự vẽ ở chế độ Hải đồ (lib/hai-do/kho-tuyen, 2026-11-04) — tự gõ, mất là vẽ lại ⇒ transfer. */

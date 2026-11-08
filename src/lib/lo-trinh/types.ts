@@ -1,7 +1,8 @@
 // ĐỀ XUẤT LỘ TRÌNH CHUYẾN BIỂN — kiểu dữ liệu chung (hợp đồng giữa thuật toán `lo-trinh/plan.ts`
 // và màn hình `/lo-trinh`). Oracle hành vi: docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md
 // §3 (pipeline B0–B3, B5), §4 (form + output), §5 (ràng buộc trung thực), §5c (lưu + so vị trí).
-// MVP = Phase 1 của §6 (+ GRASP, khung đánh theo nghề 2026-11-08); chưa re-plan giữa chuyến.
+// MVP = Phase 1 của §6 (+ GRASP, khung đánh theo nghề 2026-11-08) + Phase 2 (2026-11-08): tính lại giữa chuyến từ chỗ
+// tàu đang đứng (`diemDau`), sóng gió theo khung đánh (ô nửa ngày), dầu tách theo pha.
 import type { CuaTrieu } from "./trieu-cang";
 import type { DongTrongSo } from "./offline-trong-so";
 
@@ -76,7 +77,7 @@ export interface LoTrinhInput {
    * (`forecast-grid`, có bản lưu offline). Vắng / null / trả null ⇒ chưa có dự báo: hệ số biển = 1 và thuật
    * toán GHI CHÚ "chưa né ngày biển động" (lo-trinh/he-so.ts).
    */
-  bienTheoNgay?: ((lat: number, lon: number, d: number) => { songM: number | null; gioKmh: number | null } | null) | null;
+  bienTheoNgay?: ((lat: number, lon: number, d: number, khung?: KhungGio) => { songM: number | null; gioKmh: number | null } | null) | null;
   /**
    * BÃI CỦA NGHỀ (2026-11-08): mức tàu CÙNG NGHỀ đánh ở chỗ (lat, lon) ngày thứ d, 0–1 (1 = đông nhất quanh đó, 0 =
    * không ai đánh nghề này ở đó). Màn hình dựng từ lớp mật độ tàu theo nghề (`dungBaiTheoNgay`). Hàm vắng/trả null
@@ -88,6 +89,18 @@ export interface LoTrinhInput {
    * dời tới lúc đủ nước; không ràng buộc ⇒ chỉ báo nước lớn. null/vắng ⇒ thuật toán ghi chú "chưa tính con nước".
    */
   cuaTrieu?: CuaTrieu | null;
+  /**
+   * TÍNH LẠI GIỮA CHUYẾN (Phase 2, 09 §6): chỗ tàu ĐANG ĐỨNG (GPS) làm điểm đầu — chuyến đi từ đây, vẫn về `cang`.
+   * Có `diemDau` ⇒ không qua cửa lúc đi (đã ở ngoài biển), hạn về = `soNgay` (số ngày CÒN LẠI), không dùng mẫu ngày về của
+   * nghề (đã đánh mấy ngày rồi app không biết). Vắng = chuyến mới từ cảng.
+   */
+  diemDau?: DiemCoTen | null;
+}
+
+/** Khung giờ trong một ngày: bắt đầu `tuGio` giờ kể từ 0 giờ ngày đó (âm = từ tối hôm trước), dài `soGio` giờ. */
+export interface KhungGio {
+  tuGio: number;
+  soGio: number;
 }
 
 /** Các yếu tố của MỘT ngày đánh ở một vùng — đưa ra cho bà con thấy máy chấm bằng gì (he-so.ts). */
@@ -160,6 +173,10 @@ export interface LoTrinhKetQua {
   chanBao: string | null;
   /** câu ghi chú trung thực: chưa kiểm được bão, chỉ tính 16 ngày đầu, tốc độ mặc định… */
   ghiChu: string[];
+  /** lít dầu tách theo pha (P50, chưa làm tròn tới chục): chạy · máy lúc đánh · máy phát chong đèn. Vắng = bản lưu cũ */
+  dauTheoPha?: { chay: number; danh: number; den: number };
+  /** lộ trình tính lại giữa chuyến: tên chỗ xuất phát (GPS) — vắng = chuyến từ cảng */
+  tuChoDung?: string;
 }
 
 /** Bản ghi lộ trình đã lưu — khoá `forfish.routes.v1` (§5c), gắn tàu, kèm tuổi dữ liệu lúc tính. */

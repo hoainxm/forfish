@@ -314,6 +314,8 @@ export const NHAN = {
   chuyenBien: "Chuyến biển",
   tinh: "Tính",
   dangTinh: "Đang tính",
+  // Phase 2 (2026-11-08): tính lại lộ trình từ chỗ tàu đang đứng (sau khi so vị trí)
+  tinhLai: "Tính lại",
   cauNgu: "Câu ngừ",
   luoiVay: "Lưới vây",
   luoiRe: "Lưới rê",

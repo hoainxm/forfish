@@ -1,6 +1,7 @@
 // ĐỀ XUẤT LỘ TRÌNH CHUYẾN BIỂN — thuật toán Phase 1 (docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md
-// §3 B0–B5, §4 mẫu chuyến theo nghề, §5 ràng buộc trung thực). B4 GRASP tất định có từ 2026-11-08. Chưa re-plan
-// giữa chuyến — đó là Phase 2.
+// §3 B0–B5, §4 mẫu chuyến theo nghề, §5 ràng buộc trung thực). B4 GRASP tất định có từ 2026-11-08. Phase 2 (2026-11-08):
+// tính lại giữa chuyến từ chỗ tàu đang đứng (`input.diemDau`), sóng gió chấm trong KHUNG ĐÁNH của nghề (ô nửa ngày),
+// lít dầu tách theo pha (`dauTheoPha`).
 //
 // THUẦN: không React, không fetch, không localStorage — màn hình đưa dữ liệu vào qua `LoTrinhInput`.
 // Tất định: cùng input ⇒ cùng output (không ngẫu nhiên; mọi chỗ hoà điểm đều phá bằng chỉ số).
@@ -25,6 +26,7 @@ import type {
   LoTrinhKetQua,
   Nghe,
   OCa,
+  KhungGio,
   VungDanh,
   YeuToNgay,
 } from "@/lib/lo-trinh/types";
@@ -142,6 +144,16 @@ export function gioDiMacDinh(nghe: Nghe, p: ModelParams | null = getModelParams(
 /** Tới chỗ khi khung đã chạy chưa quá nửa ⇒ vẫn tính khung đó (đánh muộn), quá nửa ⇒ chờ khung sau. */
 const NUA_KHUNG = 0.5;
 
+/**
+ * Ô NỬA NGÀY (research vet-tau §7 B3): khung giờ đánh của nghề mà điểm giữa rơi vào ngày đó — sóng gió chấm trong khung
+ * này, không lấy cả ngày (nghề đêm không bị trừ vì gió trưa). Nghề đánh cả ngày đêm (khung ≥ 24 giờ) ⇒ undefined = cả ngày.
+ */
+export function khungBienCuaNghe(nghe: Nghe): KhungGio | undefined {
+  const k = KHUNG_DANH[nghe];
+  if (!k || k.dai >= 24) return undefined;
+  return { tuGio: k.batDau + k.dai / 2 >= 24 ? k.batDau - 24 : k.batDau, soGio: k.dai };
+}
+
 const KM_MOI_HAI_LY = 1.852;
 const NGAY_MS = 86_400_000;
 /** Giờ Việt Nam = UTC+7, không đổi giờ mùa hè. */
@@ -169,6 +181,12 @@ function congNgay(iso: string, n: number): string {
 function dauNgayVN(iso: string): number {
   const [y, m, d] = iso.split("-").map(Number);
   return Date.UTC(y, m - 1, d) - LECH_VN_MS;
+}
+
+/** epoch ms → "14 giờ 09/11" (giờ VN) */
+function gioNgayVN(ms: number): string {
+  const d = new Date(ms + LECH_VN_MS);
+  return `${d.getUTCHours()} giờ ${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function homNayVN(now: Date): string {
@@ -211,17 +229,17 @@ export function baoGanTuyen(
   tuyen: readonly LatLon[],
   batDauMs: number,
   soGio: number = CUA_SO_BAO_NGAY * 24,
-): { ten: string; km: number } | null {
+): { ten: string; km: number; at?: number } | null {
   if (tuyen.length === 0) return null;
   const het = batDauMs + Math.max(CUA_SO_BAO_NGAY * 24, soThat(soGio) ? soGio : 0) * 3_600_000;
-  let tot: { ten: string; km: number } | null = null;
+  let tot: { ten: string; km: number; at?: number } | null = null;
   for (const b of bao) {
     for (const p of b?.diem ?? []) {
       if (!toaDoHopLe(p)) continue;
       if (soThat(p.at) && p.at >= het) continue;
       let km = tuyen.length === 1 ? haversineKm(p, tuyen[0]) : Infinity;
       for (let i = 0; i + 1 < tuyen.length; i++) km = Math.min(km, distToSegmentKm(p, tuyen[i], tuyen[i + 1]));
-      if (km < STORM_SAFE_RADIUS_KM && (!tot || km < tot.km)) tot = { ten: b.ten, km };
+      if (km < STORM_SAFE_RADIUS_KM && (!tot || km < tot.km)) tot = { ten: b.ten, km, ...(soThat(p.at) ? { at: p.at } : {}) };
     }
   }
   return tot;
@@ -428,7 +446,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     ghiChu.push("Ngày xuất bến chưa đúng — tạm tính từ hôm nay.");
   }
   const nghe: Nghe = input && input.nghe in NGAY_NEN_VE ? input.nghe : "cau-ngu";
-  const mau = NGAY_NEN_VE[nghe];
+  let mau: { tinhTu: "ngay-danh-dau" | "ngay-di"; soNgay: number } = NGAY_NEN_VE[nghe];
 
   const rong = (soNgayTinh: number, ngayNenVe: string = ngayDi!): LoTrinhKetQua => ({
     vung: [],
@@ -452,6 +470,11 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     ghiChu.push(`Chuyến khai ${D} ngày — app chỉ tính ${TRAN_SO_NGAY} ngày đầu (dữ liệu tới ${TRAN_SO_NGAY} ngày).`);
     D = TRAN_SO_NGAY;
   }
+  /*  TÍNH LẠI GIỮA CHUYẾN (Phase 2): đi từ chỗ tàu đang đứng; số ngày khai = số ngày CÒN LẠI là hạn về cứng — app không
+      biết tàu đã đánh mấy ngày nên KHÔNG áp mẫu ngày về của nghề (câu ngừ 7 ngày kể từ ngày đánh đầu…). */
+  const dau = input.diemDau && toaDoHopLe(input.diemDau) ? input.diemDau : null;
+  if (input.diemDau && !dau) ghiChu.push("Vị trí tàu chưa đúng — tạm tính như chuyến mới từ cảng.");
+  if (dau) mau = { tinhTu: "ngay-di", soNgay: D };
   // hạn về mặc định khi chưa có tuyến: câu ngừ coi như đánh từ ngày đầu
   const hanMacDinh = congNgay(ngayDi, Math.min(D, mau.tinhTu === "ngay-di" ? mau.soNgay : mau.soNgay + 1) - 1);
 
@@ -509,7 +532,8 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     if (ms == null) { cuaKhongDuNuoc = true; return t + TIM_TOI_DA_GIO; }
     return Math.max(t, (ms - msDi) / 3_600_000);
   };
-  const tRa = quaCuaT(0);
+  // đang ngoài biển ⇒ không qua cửa lúc đi
+  const tRa = dau ? 0 : quaCuaT(0);
   if (!chang.doDuoc) ghiChu.push(`Chưa có số đo tàu cùng nghề trong máy — tạm tính dè dặt ${chang.vKn} hải lý/giờ.`);
   else if (tocKhai != null && tocKhai > chang.vKn + 0.05)
     ghiChu.push(`Giờ chạy tính theo tốc độ thật của tàu cùng nghề (${String(Math.round(chang.vKn * 10) / 10).replace(".", ",")} hải lý/giờ), chậm hơn số khai.`);
@@ -542,7 +566,11 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     return rong(D, hanMacDinh);
   }
 
-  const nut: Nut[] = [{ lat: cang.lat, lon: cang.lon, ten: cang.ten, quen: false, diem: [], prize: 0 }];
+  const nut: Nut[] = [{ lat: cang.lat, lon: cang.lon, ten: cang.ten, quen: false, diem: new Array<number>(D).fill(0), prize: 0 }];
+  /** nút xuất phát: 0 = cảng (chuyến mới); chuyến tính lại ⇒ chỗ tàu đang đứng (không bao giờ là chỗ ghé) */
+  const S = dau
+    ? nut.push({ lat: dau.lat, lon: dau.lon, ten: dau.ten?.trim() || "Chỗ tàu đang đứng", quen: false, diem: new Array<number>(D).fill(0), prize: 0 }) - 1
+    : 0;
 
   // điểm quen: chỉ nhận điểm trong vùng biển VN được phép (§5 #3 "hiển thị, không đề xuất")
   const quenVao = Array.isArray(input.diemQuen) ? input.diemQuen : [];
@@ -585,8 +613,8 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   const idxVung: number[] = [];
   for (const c of gomCum(du)) {
     if (idxVung.length >= TOI_DA_VUNG_UNG_VIEN) break;
-    if (2 * gioKm(haversineKm(cang, c)) * chang.p80HeSo + Math.min(khung.dai, 24) > gioToiDa + EPS) continue;
-    if (!doanTrongVung(cang, c)) continue;
+    if ((gioKm(haversineKm(nut[S], c)) + gioKm(haversineKm(c, cang))) * chang.p80HeSo + Math.min(khung.dai, 24) > gioToiDa + EPS) continue;
+    if (!doanTrongVung(nut[S], c) || (S !== 0 && !doanTrongVung(c, cang))) continue;
     const diem: number[] = [];
     for (let d = 0; d < D; d++) {
       let s = 0;
@@ -603,14 +631,16 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   for (let d = 0; d < D; d++) doRoi.push(doRoiTrang(dauNgayVN(ngayDi) + d * NGAY_MS + 22 * 3_600_000)); // đêm 22 giờ
   let thieuBien = false;
   let coBai = false, thieuBai = false;
+  const khungBien = khungBienCuaNghe(nghe);
   for (let i = 1; i < nut.length; i++) {
+    if (i === S) continue;
     const x = nut[i];
     x.yeu = [];
     let tong = 0;
     for (let d = 0; d < D; d++) {
       let b: { songM: number | null; gioKmh: number | null } | null = null;
       try {
-        b = typeof input.bienTheoNgay === "function" ? input.bienTheoNgay(x.lat, x.lon, d) : null;
+        b = typeof input.bienTheoNgay === "function" ? input.bienTheoNgay(x.lat, x.lon, d, khungBien) : null;
       } catch {
         b = null; // một chỗ hỏng thì coi như chưa có dự báo chỗ đó — không làm hỏng cả chuyến
       }
@@ -641,7 +671,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
       (ram !== 0
         ? `(sổ tàu năm qua: đêm rằm ${Math.round(Math.abs(ram) * 1000) / 10}% ${ram < 0 ? "ít" : "nhiều"} hơn đêm tối)`
         : "(chưa có số trăng trong máy — chưa tính)") +
-      ` × sóng gió (biển êm giữ nguyên, động nhẹ trừ tới 40%, động mạnh bỏ ngày đó)` +
+      ` × sóng gió${khungBien ? " lúc đánh (đúng khung giờ của nghề)" : ""} (biển êm giữ nguyên, động nhẹ trừ tới 40%, động mạnh bỏ ngày đó)` +
       (coBai ? ` × bãi (chỗ tàu ${TEN_NGHE[nghe]} hay đánh mùa này giữ nguyên, chỗ không ai đánh nghề này còn 25%)` : "") +
       (coDay ? ` × đáy (rạn, chỗ cạn, sát rạn trừ theo mức tàu ${TEN_NGHE[nghe]} thật sự đánh ở đó).` : "."),
   );
@@ -661,7 +691,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     return v;
   };
   const tuyenHopLe = (thuTu: number[]): boolean => {
-    let prev = 0;
+    let prev = S;
     for (const x of [...thuTu, 0]) { if (!hopLe(prev, x)) return false; prev = x; }
     return true;
   };
@@ -710,7 +740,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   /** B3: thứ tự cố định ⇒ chia khung đánh (mỗi chỗ ≥1 khung, khung dư cho chỗ lời nhất). null = không kịp. */
   const lap = (thuTu: number[]): KeHoach | null => {
     const h: number[] = [];
-    let prev = 0;
+    let prev = S;
     for (const x of thuTu) { h.push(gio[prev][x]); prev = x; }
     h.push(gio[prev][0]);
     const tongChay = h.reduce((a, b) => a + b, 0);
@@ -765,7 +795,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
       for (const z of idxVung) {
         if (thuTu.includes(z)) continue;
         for (let p = 0; p <= thuTu.length; p++) {
-          const a = p === 0 ? 0 : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
+          const a = p === 0 ? S : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
           const them = gio[a][z] + gio[z][b] - gio[a][b];
           ung.push({ z, p, r: nut[z].prize / Math.max(them, 0.5) });
         }
@@ -777,7 +807,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
         const moi = [...thuTu.slice(0, p), z, ...thuTu.slice(p)];
         const kh = lap(moi);
         if (!kh || kh.giaTri <= ke.giaTri + EPS) continue;
-        const a = p === 0 ? 0 : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
+        const a = p === 0 ? S : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
         if (!hopLe(a, z) || !hopLe(z, b)) continue;
         dat.push({ moi, kh });
         if (dat.length >= can) break;
@@ -797,7 +827,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     let khungQuen: number[] = [];
     {
       const con = [...idxQuen];
-      let cur = 0;
+      let cur = S;
       const thuTuQuen: number[] = [];
       while (con.length) {
         let bi = 0;
@@ -813,7 +843,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
           if (!lap(moi)) continue;
           kipGio = true;
           if (!tuyenHopLe(moi)) continue;
-          const a = p === 0 ? 0 : khungQuen[p - 1], b = p === khungQuen.length ? 0 : khungQuen[p];
+          const a = p === 0 ? S : khungQuen[p - 1], b = p === khungQuen.length ? 0 : khungQuen[p];
           const them = gio[a][q] + gio[q][b] - gio[a][b];
           if (them < totThem - EPS) { totThem = them; tot = moi; }
         }
@@ -860,7 +890,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   }
 
   /* B5a: cổng bão — trước khi dựng lịch; có bão gần tuyến thì KHÔNG đưa lộ trình (§4) */
-  const duong: LatLon[] = [nut[0], ...thuTu.map((x) => nut[x]), nut[0]];
+  const duong: LatLon[] = [nut[S], ...thuTu.map((x) => nut[x]), nut[0]];
   const mp = moPhong(ke.h, ke.n, 1);
   const ngayVe = congNgay(ngayDi, ngayThu(mp.ve, true) - 1);
   if (Array.isArray(input.bao) && input.bao.length > 0) {
@@ -868,7 +898,11 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     const soGio = Math.max(CUA_SO_BAO_NGAY * 24, GIO_DI + moPhong(ke.h, ke.n, chang.p80HeSo).ve);
     const gan = baoGanTuyen(input.bao, duong, dauNgayVN(ngayDi), soGio);
     if (gan) {
-      ghiChu.push(`Bão ${gan.ten} cách tuyến khoảng ${Math.round(gan.km / 10) * 10} km trong ${Math.ceil(soGio / 24 - EPS)} ngày tới.`);
+      ghiChu.push(
+        `Bão ${gan.ten} cách tuyến khoảng ${Math.round(gan.km / 10) * 10} km trong ${Math.ceil(soGio / 24 - EPS)} ngày tới` +
+          (gan.at != null ? ` (dự báo tới gần tuyến khoảng ${gioNgayVN(gan.at)})` : "") +
+          ".",
+      );
       return { ...rong(D, ngayVe), chanBao: CAU_CHAN_BAO };
     }
   }
@@ -910,7 +944,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
       loai: "chay",
       vungId: ten.id,
       cau:
-        `${nhanNgay(tu, den)}: ${i === 0 ? (tRa >= 0.5 ? `chờ nước, ra cửa lúc ${gioDong(tRa)}, chạy ra` : "chạy ra") : "sang"} ${ten.trongCau}, ${nhanGio(ke.h[i])}` +
+        `${nhanNgay(tu, den)}: ${i === 0 ? (dau ? "từ chỗ đang đứng chạy tới" : tRa >= 0.5 ? `chờ nước, ra cửa lúc ${gioDong(tRa)}, chạy ra` : "chạy ra") : "sang"} ${ten.trongCau}, ${nhanGio(ke.h[i])}` +
         (choGio >= 1 ? `, neo chờ tới ${khung.batDau} giờ` : ""),
     });
     const tuDanh = ngayKhung(s0, 0) + 1;
@@ -983,10 +1017,10 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
       ghiChu.push(`Giờ ra/vào cửa theo con nước (${tram}): ${phan.join("; ")}.`);
       if (cuaKhongDuNuoc) ghiChu.push("Có lúc cửa không đủ nước cả 36 giờ — app đã cộng thêm 36 giờ chờ; kiểm lại mớn tàu và độ sâu luồng.");
     } else {
-      const nlDi = cua.nuocLon(msDi);
+      const nlDi = dau ? null : cua.nuocLon(msDi);
       const nlVe = cua.nuocLon(msDi + mp.toiCua * 3_600_000 - 6 * 3_600_000);
       ghiChu.push(
-        `Con nước ở ${cang.ten} (${tram}): nước lớn ngày đi lúc ${nlDi ? tideClockText(nlDi.ms) : "?"}, lúc về khoảng ${nlVe ? tideClockText(nlVe.ms) : "?"}` +
+        `Con nước ở ${cang.ten} (${tram}): ${dau ? "" : `nước lớn ngày đi lúc ${nlDi ? tideClockText(nlDi.ms) : "?"}, `}lúc về khoảng ${nlVe ? tideClockText(nlVe.ms) : "?"}` +
           (cua.cuaDo
             ? " — tàu ở cửa này hơi né lúc nước ròng, nên canh giờ nước lớn."
             : cua.luong
@@ -997,7 +1031,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   }
 
   const moc: LoTrinhKetQua["moc"] = [
-    { lat: cang.lat, lon: cang.lon, ten: cang.ten, loai: "cang" },
+    { lat: nut[S].lat, lon: nut[S].lon, ten: nut[S].ten, loai: "cang" },
     ...thuTu.map((x) => ({
       lat: nut[x].lat,
       lon: nut[x].lon,
@@ -1010,7 +1044,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   // hải lý = tổng quãng thẳng các chặng (không suy từ giờ — giờ có phần cố định `a`)
   let haiLyRaw = 0;
   {
-    let prev = 0;
+    let prev = S;
     for (const x of [...thuTu, 0]) { haiLyRaw += haversineKm(nut[prev], nut[x]) / KM_MOI_HAI_LY; prev = x; }
   }
   // dầu: (giờ chạy P50 — gồm phần cố định `a` mỗi chặng, dè dặt — + giờ máy chạy ở bãi × số khung đánh) × lít/giờ
@@ -1032,7 +1066,9 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   );
   if (ket !== null && vuaKet)
     ghiChu.push(`Tuyến đã chọn vừa két ${Math.round(ket)} lít kể cả khi chạy chậm, còn dư 30% cho gió ngược.`);
-  if (mau.tinhTu === "ngay-danh-dau")
+  if (dau)
+    ghiChu.push(`Tính lại từ chỗ tàu đang đứng: còn ${D} ngày, về ${cang.ten} — app không biết tàu đã đánh mấy ngày, thuyền trưởng cân thêm độ tươi của cá.`);
+  else if (mau.tinhTu === "ngay-danh-dau")
     ghiChu.push(`Câu cá ngừ: nên về cảng trong ${mau.soNgay} ngày kể từ ngày đánh đầu để cá còn tươi.`);
   else if (mau.soNgay < D)
     ghiChu.push(`Theo mẫu chuyến ${TEN_NGHE[nghe]}: nên về trong ${mau.soNgay} ngày — thuyền trưởng quyết.`);
@@ -1048,6 +1084,13 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     soNgayTinh: D,
     chanBao: null,
     ghiChu,
+    // dầu theo pha (P50): chạy · máy lúc đánh · chong đèn — cộng lại = litRaw
+    dauTheoPha: {
+      chay: Math.round(ke.tongChay * dauMoiGio),
+      danh: Math.round((mayBai ?? 0) * soKhung * dauMoiGio),
+      den: Math.round((litDem ?? 0) * soKhung),
+    },
+    ...(dau ? { tuChoDung: nut[S].ten } : {}),
   };
 }
 
