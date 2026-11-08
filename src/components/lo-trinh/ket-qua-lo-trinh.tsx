@@ -22,7 +22,7 @@ import { SoDoLoTrinh } from "./so-do-lo-trinh";
   ba con số là hàng 1rem 600 + nhãn 0.8125rem `text-muted` — KHÔNG số to. Có `chanBao` ⇒ băng đỏ
   THAY cho lộ trình (không lịch, không vùng, không nút Lưu/Bản đồ). Không in điểm số vùng — chỉ
   thang Được/Khá/Tốt. Disclaimer cố định nằm ở đầu màn (ManHeader sub), không lặp ở đây.
-  Phase 2/3 (2026-11-08): dòng dầu theo pha + tiền dầu (giá đã có trong máy, kèm ngày kỳ giá); sau "Vị trí" có nút
+  Phase 2/3 (2026-11-08): dòng dầu theo pha (lít, không quy ra tiền — anh Long bỏ 08/11); sau "Vị trí" có nút
   "Tính lại" từ chỗ đang đứng; lộ trình đã lưu tới ngày về thì hỏi sản lượng (chỉ lưu trong máy, để tự so).
 */
 
@@ -69,7 +69,6 @@ export function KetQuaLoTrinh({
   onLuu,
   luuLoi,
   onXoa,
-  cauTien = null,
   onSoViTri,
   onTinhLai,
   tinhLaiLoi = null,
@@ -89,8 +88,6 @@ export function KetQuaLoTrinh({
   /** câu báo lưu hỏng — null khi không có lỗi */
   luuLoi: string | null;
   onXoa?: () => void;
-  /** câu tiền dầu (tien-dau.ts) — null = chưa có giá dầu trong máy ⇒ chỉ in lít */
-  cauTien?: string | null;
   /** lộ trình đã lưu: ghi lần so vị trí vào nhật ký (Phase 3) */
   onSoViTri?: (pos: { lat: number; lon: number }, cachHaiLy: number) => void;
   /** tính lại từ chỗ đang đứng (Phase 2) — chỉ hiện sau một lần "Vị trí" thành công */
@@ -192,13 +189,7 @@ export function KetQuaLoTrinh({
           <dd className="text-[1rem] font-semibold text-navy">{ngayVN(kq.ngayNenVe)}</dd>
         </div>
       </dl>
-      {(kq.dauTheoPha || cauTien) && (
-        <p className="mt-1.5 text-[0.8125rem] leading-snug text-muted">
-          {kq.dauTheoPha && cauPha(kq.dauTheoPha)}
-          {kq.dauTheoPha && cauTien ? " " : ""}
-          {cauTien}
-        </p>
-      )}
+      {kq.dauTheoPha && <p className="mt-1.5 text-[0.8125rem] leading-snug text-muted">{cauPha(kq.dauTheoPha)}</p>}
       {kq.thieuDau && (
         <p className="mt-2 text-[0.875rem] font-semibold leading-snug text-warn">
           Két dầu có thể không đủ (đã tính dư 30% cho gió ngược, chờ đánh).

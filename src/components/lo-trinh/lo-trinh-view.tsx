@@ -18,9 +18,7 @@ import { fetchClimatology, type Climatology } from "@/lib/fish-blend";
 import { fetchStormCheck, type StormCheck } from "@/lib/storms";
 import { fetchForecastGrid, loadLongestSavedGrid, type ForecastGrid } from "@/lib/forecast-grid";
 import { fetchFleetNen, type NenFleet } from "@/lib/fleet-density";
-import { fetchFuelPrice, type FuelPrice } from "@/lib/fuel-price";
 import { daysBetweenISO } from "@/lib/day-labels";
-import { cauTienDau, tienDau } from "@/lib/lo-trinh/tien-dau";
 import {
   cachTuyenTB,
   docNhatKy,
@@ -77,9 +75,8 @@ import { KetQuaLoTrinh } from "./ket-qua-lo-trinh";
      thay khi về; mùa vụ `fetchClimatology` (trần 15 s, không ném); tin bão `fetchStormCheck`
      (trần 28 s, lùi bản lưu). Không kiểm được bão ⇒ `bao: null` ⇒ thuật toán ghi chú, không im.
    · lộ trình đã lưu + hồ sơ tàu + điểm quen đọc thẳng localStorage — chạy trọn khi mất sóng.
-   · Phase 2/3 (2026-11-08): giá dầu `fetchFuelPrice` (trần 15 s, lùi bản đã cất; không có ⇒ chỉ in lít) · "Tính lại" từ
-     chỗ tàu đang đứng chạy TRONG MÁY bằng dữ liệu đang có (không request mới) · nhật ký đo hiệu quả `forfish.trip-log.v1`
-     chỉ trong máy.
+   · Phase 2/3 (2026-11-08): "Tính lại" từ chỗ tàu đang đứng chạy TRONG MÁY bằng dữ liệu đang có (không request mới) ·
+     nhật ký đo hiệu quả `forfish.trip-log.v1` chỉ trong máy. (Quy dầu ra tiền: anh Long bỏ 08/11 — không làm.)
 */
 
 type Ket = {
@@ -158,8 +155,6 @@ function LoTrinhMo() {
   /** trạm con nước (ghim offline, tính trong máy) + đoạn luồng cửa — null = chưa tải được */
   const [tram, setTram] = useState<TideStation[] | null>(null);
   const [luongDoan, setLuongDoan] = useState<FairwayDepth[] | null>(null);
-  /** giá dầu DO đã có trong máy (mạng hoặc bản cất) — null = chưa có ⇒ chỉ in lít */
-  const [giaDau, setGiaDau] = useState<FuelPrice | null>(null);
 
   useEffect(() => {
     let huy = false;
@@ -254,10 +249,6 @@ function LoTrinhMo() {
       .catch(() => {});
     fetchFairwayDepths()
       .then((d) => !huy && setLuongDoan(d))
-      .catch(() => {});
-    // giá dầu: trần 15 s, mất sóng trả bản đã cất (fuel-price.ts) — hỏng ⇒ null, màn chỉ in lít
-    fetchFuelPrice()
-      .then((g) => !huy && setGiaDau(g))
       .catch(() => {});
     return () => {
       huy = true;
@@ -791,7 +782,6 @@ function LoTrinhMo() {
             onLuu={ketQua.kq.chanBao ? undefined : luu}
             luuLoi={luuLoi}
             onXoa={ketQua.savedId ? () => xoa(ketQua.savedId!) : undefined}
-            cauTien={ketQua.kq.chanBao ? null : cauTienDau(tienDau(ketQua.kq.litDau, giaDau))}
             onSoViTri={ketQua.rec ? ghiLanSo : undefined}
             onTinhLai={ketQua.rec && !dangTinh ? tinhLaiTuDay : undefined}
             tinhLaiLoi={tinhLaiLoi}

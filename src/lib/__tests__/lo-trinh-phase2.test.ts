@@ -18,7 +18,6 @@ const _ls = (() => {
 
 import { deXuatLoTrinh, khungBienCuaNghe, KHUNG_DANH } from "../lo-trinh/plan";
 import { baoTuTinBao, dungBienTheoNgay, KM_KHOP_DUONG_BAO } from "../lo-trinh/dau-vao";
-import { cauTienDau, soTien, tienDau } from "../lo-trinh/tien-dau";
 import {
   docKg,
   docNhatKy,
@@ -227,25 +226,6 @@ describe("Phase 2 — mốc giờ bão từ đường dự báo NCHMF có sẵn 
     const kq = deXuatLoTrinh(input({ bao: [{ ten: "KAJIKI", diem: [{ lat: 12.6, lon: 110.6, at }] }] }), NOW);
     expect(kq.chanBao).not.toBeNull();
     expect(kq.ghiChu.some((g) => g.includes("Bão KAJIKI") && g.includes("dự báo tới gần tuyến khoảng 7 giờ 02/11"))).toBe(true);
-  });
-});
-
-describe("Phase 2 — quy dầu ra tiền", () => {
-  const gia = { do005Zone1: 19_500, do005Zone2: 19_900, date: "2026-11-06" };
-  it("lít × giá hai vùng, kèm ngày kỳ giá", () => {
-    const t = tienDau(1200, gia)!;
-    expect(t).toEqual({ tu: 23_400_000, den: 23_880_000, ngay: "2026-11-06" });
-    expect(cauTienDau(t)).toBe("Khoảng 23,4–23,9 triệu đồng tiền dầu (giá dầu DO kỳ 06/11, gần kho – xa kho).");
-  });
-  it("không có giá / giá lạ / lít 0 ⇒ null (chỉ in lít, không bịa)", () => {
-    expect(tienDau(1200, null)).toBeNull();
-    expect(tienDau(1200, { ...gia, do005Zone1: 0 })).toBeNull();
-    expect(tienDau(0, gia)).toBeNull();
-    expect(cauTienDau(null)).toBeNull();
-  });
-  it("hai vùng bằng nhau ⇒ một số; số nhỏ ⇒ nghìn", () => {
-    expect(cauTienDau(tienDau(10, { ...gia, do005Zone2: 19_500 }))).toBe("Khoảng 195 nghìn đồng tiền dầu (giá dầu DO kỳ 06/11).");
-    expect(soTien(850_000)).toBe("850 nghìn");
   });
 });
 
