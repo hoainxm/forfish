@@ -303,4 +303,6 @@ const NGHE_CHON: { id: Nghe; label: string }[] = [
   { id: "luoi-vay", label: NHAN.luoiVay },
   { id: "luoi-re", label: NHAN.luoiRe },
   { id: "chup-muc", label: NHAN.chupMuc },
+  { id: "luoi-keo", label: NHAN.cao },
+  { id: "keo-doi", label: NHAN.caoDoi },
 ];

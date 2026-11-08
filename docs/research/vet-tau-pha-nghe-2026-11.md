@@ -36,6 +36,7 @@
    - "Ngày nên về" vây 7 / chụp 10 / rê 15 khớp lần lượt ~p60 / p75 / p85 của chuyến thật.
    - Câu ngừ 7 ngày **chưa bác được**: luật tính từ ngày đánh đầu, còn nhóm "câu" trong sổ trộn câu vàng, câu tay và câu mực.
    - Bán kính vùng 55 km là bán kính gom ô dự báo, không phải độ tản chỗ đánh. Số đo chỉ cho thấy ở ngưỡng gom 55 km, 1–14 % chuyến cần > 4 chỗ ghé (§5).
+8. **Cào (lưới kéo) và cào đôi là hai nghề riêng, đã vào lộ trình** (§10). Sổ đăng kiểm gộp chung "kéo", nhưng vết cho thấy khoảng **80 %** tàu cào có VMS là cào đôi, giữ một bạn cố định. Giờ chặng cào fit trên chặng có đầu là cảng: sai trung vị 22 % (đôi) / 19 % (đơn), so với 38 % nếu tính 7 kn.
 
 ## 1. Nguồn dữ liệu
 
@@ -273,3 +274,66 @@ Hai trường dùng ngay được: `chang.aGio`, `chang.vKn`.
 | Phản biện độc lập | rút lại "55 km quá rộng", "> 4 vùng", "57 → 34 %", "HMM tốt hơn"; bug chặng B1/B2, gom vùng chỉ so vùng liền trước (B4), giờ trung điểm (B10) |
 
 Số v1 (trước phản biện) giữ ở `out/report.json` để đối chiếu, **không trích dẫn**.
+
+## 10. Cào (lưới kéo) và cào đôi (08/11, anh Long: "kiểm tra nghề cào, cào đôi" → "hoàn thiện hết, nó là nghề")
+
+Script `07_keo.py` (dò cặp) và `08_keo_chang.py` (giờ chặng, ngày chuyến). Kết quả `out/keo-doi.json`, `out/keo-chang.json` (không mã tàu). Nhãn từng tàu `work/keo-nhan.npy` chỉ nằm ở máy GPU.
+
+### 10.1 Sổ không tách được, vết thì tách rõ
+
+- Sổ đăng kiểm ghi **"kéo" cho 11 032 tàu**, chỉ 1 tàu ghi "kéo đôi". eCDT không có trường nghề. "Cào" là tên bà con miền Nam gọi lưới kéo.
+- **Cách dò**: điểm VMS đang làm lưới (pha HMM "lam", cách cảng > 20 km); nội suy vị trí tàu khác về đúng giờ đó; bạn = tàu cách ≤ 2 km. Mỗi tàu lấy **bạn quen** (bạn xuất hiện nhiều nhất) và tỉ lệ thời gian làm lưới có bạn quen.
+- Đối chứng bằng rê và câu: bãi đông, tàu đi bầy, nhưng không kéo chung.
+
+| Tháng 3 và 9/2026 | Cào | Rê | Câu |
+|---|---|---|---|
+| Tàu có bạn quen ≥ 40 % giờ làm lưới | **80 %** (trên 4 277 tàu T3 · 4 991 tàu T9) | 13 % | 11–14 % |
+| Bạn quen cũng là tàu cào | 96 % | — | — |
+| Khoảng cách tới bạn, trung vị | 0,5 km | 0,5 km | 0,44 km |
+| Số ngày đi cùng bạn trong tháng, trung vị | **24–25 / 30** | 13–19 | 11–20 |
+| Hai bên chọn nhau | 98 % | 85–87 % | 82–87 % |
+
+- **Ổn định**: 97,3 % tàu cào đôi ở tháng 3 vẫn đúng bạn đó ở tháng 9.
+- **Phân bố bạn quen có hai đỉnh** ở cào: khoảng 77 % tàu nằm ở 0,8–1,0; phần còn lại rải dưới 0,3. Rê và câu tập trung dưới 0,1.
+- Khoảng 11–14 % tàu rê/câu cũng có bạn quen. Đó là tàu đi bầy, hoặc tàu sổ ghi sai nghề: 21–34 % bạn của nhóm này là tàu cào.
+
+### 10.2 Đặc trưng (trung vị, cả năm, theo tàu)
+
+| | Cào đôi (4 355 tàu) | Cào đơn (467) | Lửng (604, chưa xếp) |
+|---|---|---|---|
+| Dài / máy | 21,8 m / 735 CV | 19,2 m / 420 CV | 17,1 m / 365 CV |
+| Tốc độ kéo (dây cung) | 2,65 kn | 2,45 kn | 2,39 kn |
+| Một lượt kéo liền | 4,0 giờ | 3,4 giờ | 3,0 giờ |
+| Giờ kéo rơi vào 18–06 giờ | 22 % | 46 % | 54 % |
+| Ngày chuyến (≥ 1 ngày) p50 / p75 | 9,3 / 20,6 | 7,1 / 16,0 | 6,5 / 11,2 |
+| Tỉnh nhiều nhất (mã GSO) | 91, 86, 79, 51 | 82, 86, 91 | 86, 82, 91, 38 |
+
+- Cào đôi kéo ban ngày, đúng kiểu cào cá đáy. Cào đơn kéo đêm gần một nửa, nhiều khả năng có cào tôm.
+- Nhóm lửng: tàu nhỏ, kéo đêm. Có thể là tàu chỉ đôi lúc mới đi cặp, hoặc cào tôm đơn. Chưa tách.
+- **Giới hạn**: VMS chỉ phủ tàu từ 15 m trở lên. Cào ven bờ dưới 15 m chưa soi được. Nhãn chưa đối chiếu với chủ tàu.
+
+### 10.3 Giờ chặng: dùng chặng có đầu là cảng
+
+- Tàu cào gần như kéo liên tục: khoảng 37 % giờ làm lưới, 3 % chạy. Chặng vùng → vùng thực ra là **kéo lưới dọc đường**. Fit trên mọi chặng ra a ≈ 7,6 giờ, v ≈ 7,8 kn, vô nghĩa cho phần chạy.
+- Lộ trình cần giờ chạy, nên fit `a + hải lý / v` trên chặng **cảng → vùng và vùng → cảng**, tàu 15–24 m. Học ≤ 06/2026, thử 07–10/2026, cùng cách §6.
+
+| | a | v | P80 × | Chặng thử | Sai trung vị | 7 kn | Phủ P80 |
+|---|---|---|---|---|---|---|---|
+| Cào đôi | 0,76 giờ | 4,94 kn | 1,70 | 11 845 | **22,3 %** | 38,4 % | 80,7 % |
+| Cào đơn | 0,65 giờ | 4,95 kn | 1,56 | 1 577 | **19,1 %** | 37,8 % | 77,8 % |
+
+- Hệ số P80 lớn hơn các nghề khác (1,13–1,14), vì chặng có đầu là cảng của cào vẫn lẫn một phần kéo (trung vị phần chạy 0,8–0,93).
+
+### 10.4 Đã đưa vào app (2026-11-08)
+
+- `Nghe` thêm `luoi-keo` (nhãn "Cào") và `keo-doi` ("Cào đôi") — chip nghề màn `/lo-trinh` thành 2 hàng × 3, bộ chọn loài lớp Dự báo cá cũng có hai nghề này.
+- `lo-trinh-params.json` → `model-params` (SDF2): `chang` theo §10.3, `loaiTheoNghe` cá đáy + tôm (ước theo nghề phổ biến, chưa hỏi chủ tàu). Hiệu ứng trăng cào **chưa đo** ⇒ không ghi, hệ số trăng = 1.
+- `NGAY_NEN_VE`: cào 16 ngày, cào đôi 20 ngày từ ngày đi (p75 §10.2). Trần dữ liệu 16 ngày vẫn chặn trước.
+- Dầu vẫn tính cho **một tàu** (tàu mình), không chia đôi cho cặp.
+
+### 10.5 Việc tiếp
+
+- Tách nhóm lửng và cào tôm đơn (giờ kéo đêm, tốc độ, độ sâu).
+- Hỏi chủ tàu vài cặp để xác nhận nhãn; nếu được thì đưa cặp vào hồ sơ tàu (đi cùng tàu nào).
+- Đo hiệu ứng trăng cho cào (cào tôm có thể nhạy trăng).
+

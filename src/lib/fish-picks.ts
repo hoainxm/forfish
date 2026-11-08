@@ -23,6 +23,9 @@ export const LOAI_THEO_NGHE: Record<Nghe, string[]> = {
   "luoi-vay": ["cá nục", "cá cơm", "cá trích", "bạc má", "cá tráo", "cá sòng", "ngừ vằn"],
   "luoi-re": ["cá thu", "ngừ chù", "ngừ ồ", "ngừ chấm", "cá ngân", "cá chim"],
   "chup-muc": ["mực xà", "mực ống", "cá cơm"],
+  // Cào đơn: tàu nhỏ hơn, gần nửa giờ kéo là ban đêm ⇒ có cào tôm; cào đôi: kéo ban ngày, cá đáy (vết VMS 2026-11-08)
+  "luoi-keo": ["tôm bạc", "mực nang", "cá đù", "cá mối", "cá phèn", "ghẹ xanh"],
+  "keo-doi": ["cá mối", "cá đổng", "cá phèn", "cá đù", "mực nang", "cá hố", "cá hồng"],
 };
 
 /** Gợi ý 3 loài cho một nghề: chỉ loài bản đồ có, loài đang vụ ở vùng lên trước. */

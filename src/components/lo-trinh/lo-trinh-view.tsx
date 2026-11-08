@@ -72,6 +72,8 @@ const NGHE: { id: Nghe; label: string }[] = [
   { id: "luoi-vay", label: NHAN.luoiVay },
   { id: "luoi-re", label: NHAN.luoiRe },
   { id: "chup-muc", label: NHAN.chupMuc },
+  { id: "luoi-keo", label: NHAN.cao },
+  { id: "keo-doi", label: NHAN.caoDoi },
 ];
 const CHIP_NGAY = ["7", "15", "16"] as const;
 const TRAN_NGAY_TINH = 16;
@@ -459,8 +461,8 @@ function LoTrinhMo() {
         )}
 
         <p className="mb-1.5 text-[0.875rem] font-semibold text-navy">Nghề</p>
-        {/* 4 nghề chia đều MỘT hàng (ChipRow min 5.5rem/chip tràn ở 360px, cắt mất "Chụp mực" — sửa bằng bố cục) */}
-        <div role="group" aria-label="Nghề" className="mb-3 grid grid-cols-4 gap-1.5">
+        {/* 6 nghề chia đều HAI hàng × 3 (ChipRow min 5.5rem/chip tràn ở 360px, cắt mất "Chụp mực" — sửa bằng bố cục) */}
+        <div role="group" aria-label="Nghề" className="mb-3 grid grid-cols-3 gap-1.5">
           {NGHE.map((o) => {
             const on = o.id === nghe;
             return (

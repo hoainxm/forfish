@@ -318,6 +318,9 @@ export const NHAN = {
   luoiVay: "Lưới vây",
   luoiRe: "Lưới rê",
   chupMuc: "Chụp mực",
+  // Cào (lưới kéo đơn) + cào đôi (2026-11-08): bà con miền Nam gọi "cào", đăng kiểm ghi "lưới kéo"
+  cao: "Cào",
+  caoDoi: "Cào đôi",
   // Bộ chọn loài lớp Dự báo cá (2026-11-04): mở danh sách đủ loài ngoài gợi ý
   loaiKhac: "Loài khác",
   // Chip trạng thái ĐƠN SDVICO (CRM → /cho/don, ADR 0018, 2026-11-02) — 4 mã CRM đã chuẩn hoá.

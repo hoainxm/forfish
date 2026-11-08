@@ -374,6 +374,8 @@ object LoaiDanh {
         "luoi-vay" to listOf("cá nục", "cá cơm", "cá trích", "bạc má", "cá tráo", "cá sòng", "ngừ vằn"),
         "luoi-re" to listOf("cá thu", "ngừ chù", "ngừ ồ", "ngừ chấm", "cá ngân", "cá chim"),
         "chup-muc" to listOf("mực xà", "mực ống", "cá cơm"),
+        "luoi-keo" to listOf("tôm bạc", "mực nang", "cá đù", "cá mối", "cá phèn", "ghẹ xanh"),
+        "keo-doi" to listOf("cá mối", "cá đổng", "cá phèn", "cá đù", "mực nang", "cá hố", "cá hồng"),
     )
 
     fun goiYTheoNghe(nghe: String, available: Collection<String>, dangVu: Set<String>): List<String> {

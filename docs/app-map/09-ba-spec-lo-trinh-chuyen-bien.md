@@ -142,7 +142,7 @@ các mốc (chưa né sóng gió — mỗi chặng còn đi qua `planRoute` khi 
 | B0 | Ô/vùng/điểm quen ngoài vùng biển VN được phép (`trongVungBienVN` — đã loại vùng cần chú ý quanh Hoàng Sa, §5 #3) bị bỏ; điểm quen ngoài vùng ⇒ `ghiChu` nêu tên. Đoạn giữa hai mốc lấy mẫu, mẫu nào ngoài vùng mà cách cả hai đầu > 15 km ⇒ đoạn không hợp lệ ⇒ không chọn vùng gây ra đoạn đó | `BUOC_MAU_KM` **2** (đề bài 10 km; đo mùa vụ tháng 4 thấy đoạn Quy Nhơn đi lên lọt mũi đất 13,90°B giữa hai mẫu 10 km) · `SAT_DAU_KM` 15 |
 | B1 | Điểm ô = trung bình các ngày chuyến (`caTheoNgay(d)`), lấy ô ≥ phân vị 80, loang 8 hướng theo bước lưới suy từ dữ liệu (thường 0,25°) **trong bán kính quanh đỉnh** (không giới hạn thì cả dải ven bờ dính thành một vùng nghìn km — cảng Cát Bà trắng tay). Giữ 25 vùng tốt nhất TRONG SỐ vùng đi thẳng từ cảng được | `PHAN_VI_CUM` 0,8 · `BAN_KINH_VUNG_KM` 55 (nợ: số ước) · `TOI_DA_VUNG_UNG_VIEN` 25 |
 | B2 | Khung = [cảng, điểm quen theo nearest-neighbor, cảng] (điểm quen không kịp/vướng đất ⇒ bỏ + `ghiChu`); chèn vùng tham lam theo prize ÷ giờ chạy thêm, NHẬN khi lịch B3 có lời hơn và đoạn mới hợp lệ; rồi 2-opt | ghé 1–`TOI_DA_CHO_GHE` **4** chỗ (bà con nhập 5 điểm quen thì giữ đủ 5, không thêm vùng) · `TOI_DA_DIEM_QUEN` 5 |
-| B3 | Đánh theo khối 24 giờ, mỗi chỗ ≥1 ngày, ngày dư cho chỗ lời nhất; giá trị ngày = điểm cao nhất của vùng ngày đó × 0,9^ngày-đã-ở. Điểm quen bản đồ cá không phủ ⇒ tính ngang ngưỡng p80 (tin kinh nghiệm thuyền trưởng). Ở thêm không được gì ⇒ về sớm | `GIAM_THEO_NGAY` 0,9 · ngày nên về `NGAY_NEN_VE`: câu ngừ ≤ ngày đánh đầu + 7 · lưới vây 7 · lưới rê 15 · chụp mực 10 ngày từ ngày đi (nợ: mẫu tạm) |
+| B3 | Đánh theo khối 24 giờ, mỗi chỗ ≥1 ngày, ngày dư cho chỗ lời nhất; giá trị ngày = điểm cao nhất của vùng ngày đó × 0,9^ngày-đã-ở. Điểm quen bản đồ cá không phủ ⇒ tính ngang ngưỡng p80 (tin kinh nghiệm thuyền trưởng). Ở thêm không được gì ⇒ về sớm | `GIAM_THEO_NGAY` 0,9 · ngày nên về `NGAY_NEN_VE`: câu ngừ ≤ ngày đánh đầu + 7 · lưới vây 7 · lưới rê 15 · chụp mực 10 · cào 16 · cào đôi 20 ngày từ ngày đi (nợ: vây/rê/chụp mẫu tạm; cào = p75 vết VMS, research §10) |
 | B5 | Dầu = giờ CHẠY × lít/giờ (ghi chú "chưa tính dầu neo, chong đèn"); `thieuDau` khi × 1,3 > két. Bão: `bao === null` ⇒ vẫn tính + "Chưa kiểm được tin bão — nghe đài duyên hải trước khi đi"; điểm bão cách đoạn tuyến < 200 km (`STORM_SAFE_RADIUS_KM`, `distToSegmentKm`) ⇒ `chanBao` "Có bão gần tuyến — chưa nên đi", `vung`/`lich`/`moc` rỗng | `DU_PHONG_DAU` 1,3 · `CUA_SO_BAO_NGAY` 5: điểm bão có `at` (tuỳ chọn) từ hết ngày thứ 5 trở đi KHÔNG chặn; không `at` (GDACS) ⇒ coi như có mặt suốt cửa sổ |
 
 Khác: `soNgay` > 16 ⇒ tính 16 + ghi chú; < 1 ⇒ rỗng + ghi chú. Lít-giờ hỏng ⇒ 20 L·h + ghi chú; tốc độ: xem Phase 1c (không còn 7 kn).
@@ -158,7 +158,7 @@ vào vụ, kéo tàu câu ngừ Tam Quang ra Vịnh Bắc Bộ. Nay:
 
 | Yếu tố | Luật | Tỷ trọng / nguồn |
 |---|---|---|
-| **Cá theo nghề** | `dau-vao.ts LOAI_THEO_NGHE` + `diemOTheoNghe`: điểm ô = loài cao nhất TRONG nhóm loài của nghề (`sp`, tên ngắn `SPECIES_PROFILES`); ô không có loài của nghề bị bỏ; có nghề thì KHÔNG pha mùa vụ (`clim` là điểm gộp mọi loài). Câu ngừ = ngừ vây vàng + ngừ mắt to; lưới vây = ngừ vằn/chù/ồ + cá nổi nhỏ; lưới rê = cá thu, ngừ chấm/chù/ồ, cá ngân, cá cờ, nục heo; chụp mực = mực ống/xà/lá | `sp` là điểm nền "bãi cá theo mùa" ĐÃ trộn lưới VMS đội tàu theo nghề (`fleet-effort-025`, 76.723 tàu) + sản lượng loài ⇒ vùng = chỗ tàu cùng nghề hay đánh mùa này. Nhóm loài là ước (nợ trong code) |
+| **Cá theo nghề** | `dau-vao.ts LOAI_THEO_NGHE` + `diemOTheoNghe`: điểm ô = loài cao nhất TRONG nhóm loài của nghề (`sp`, tên ngắn `SPECIES_PROFILES`); ô không có loài của nghề bị bỏ; có nghề thì KHÔNG pha mùa vụ (`clim` là điểm gộp mọi loài). Câu ngừ = ngừ vây vàng + ngừ mắt to; lưới vây = ngừ vằn/chù/ồ + cá nổi nhỏ; lưới rê = cá thu, ngừ chấm/chù/ồ, cá ngân, cá cờ, nục heo; chụp mực = mực ống/xà/lá; cào = tôm bạc, mực nang, cá đù/mối/phèn, ghẹ; cào đôi = cá mối/đổng/phèn/đù/hố/hồng, mực nang | `sp` là điểm nền "bãi cá theo mùa" ĐÃ trộn lưới VMS đội tàu theo nghề (`fleet-effort-025`, 76.723 tàu) + sản lượng loài ⇒ vùng = chỗ tàu cùng nghề hay đánh mùa này. Nhóm loài là ước (nợ trong code) |
 | **Trăng** | `he-so.ts heSoTrang = 1 + HIEU_UNG_RAM[nghề] × độ rọi` (độ rọi đêm 22 giờ, 0 non – 1 rằm) | Số đo sổ tàu 2026 (research 15b, cột rằm/tối): câu ngừ −5,3 %, vây cá nổi nhỏ −1,9 %, rê −1,2 %, chụp −12,9 %. Phản biện 18 hạ mức "giả thuyết" ⇒ dùng ĐÚNG số đo, không thổi theo truyền miệng |
 | **Sóng gió** | `heSoBien(sóng max, gió max)` qua `scoreDay` (lib/sea.ts — cùng thang Điểm đi biển cả app): ≥75 ×1 · 50–75 ×1→0,6 · 25–50 ×0,6→0 · ≤25 = bỏ ngày | Lưới gió sóng đủ vùng 16 ngày (`fetchForecastGrid(16)`, bản lưu `loadLongestSavedGrid` hiện trước) → `dungBienTheoNgay` (`seaPointFromGrid`, ô ~2°). Thiếu ⇒ hệ số 1 + ghi chú "chưa né được biển động" |
 
@@ -174,16 +174,16 @@ Bước tiếp (phiên riêng 08/11): tách pha hoạt động từ vết tàu 1
 
 | Thay | Trước | Nay |
 |---|---|---|
-| Giờ một chặng | hải lý ÷ 7 kn | `he-so.ts gioChang = a + hải lý / v` theo nghề (`moHinhChang`): câu ngừ a 1,52 h · v 5,17 kn · vây 0,99 · 5,32 · rê 1,55 · 5,14 · chụp 1,43 · 5,21 (tàu 15–24 m, 295 015 chặng VMS; backtest 07–10/2026 sai trung vị 42,8 % → 15,6 %, ước thiếu −3,1 → ~0 giờ) |
+| Giờ một chặng | hải lý ÷ 7 kn | `he-so.ts gioChang = a + hải lý / v` theo nghề (`moHinhChang`): câu ngừ a 1,52 h · v 5,17 kn · vây 0,99 · 5,32 · rê 1,55 · 5,14 · chụp 1,43 · 5,21 · **cào 0,65 · 4,95 · cào đôi 0,76 · 4,94** (cào fit trên chặng có đầu là cảng — research §10; sai trung vị 19–22 % so với 38 % của 7 kn) (tàu 15–24 m, 295 015 chặng VMS; backtest 07–10/2026 sai trung vị 42,8 % → 15,6 %, ước thiếu −3,1 → ~0 giờ) |
 | Tham số ở đâu | hằng `TOC_DO_MAC_DINH_KN` trong code | `src/data/lo-trinh-params.json` khối `chang` → `model-params.loTrinh.chang` (SDF2, cất offline) — không viết cứng (khong-lo-nguon) |
 | Chưa nạp tham số | 7 kn | **mặc định dè dặt** `CHANG_DE_DAT` 5 kn + 1,5 h/chặng, P80 ×1,15 + ghi chú "Chưa có số đo tàu cùng nghề trong máy" — KHÔNG quay về 7 kn (7 kn sai về phía nguy hiểm) |
 | Tốc độ bà con khai | thay số mặc định | chỉ là **TRẦN**: v = min(khai, đo). Khai nhanh hơn đo ⇒ ghi chú "Giờ chạy tính theo tốc độ thật của tàu cùng nghề (x hải lý/giờ), chậm hơn số khai." |
-| Kịp về / hạn chuyến | giờ chạy P50 | **P80** = P50 × `p80HeSo` (1,13–1,14, phủ ~78 %): vùng ứng viên, hạn chuyến, số ngày đánh đều xét theo P80 |
+| Kịp về / hạn chuyến | giờ chạy P50 | **P80** = P50 × `p80HeSo` (1,13–1,14, phủ ~78 %; cào 1,56 · cào đôi 1,70): vùng ứng viên, hạn chuyến, số ngày đánh đều xét theo P80 |
 | Câu lịch | "khoảng 36 giờ" | "khoảng P50–P80 giờ" (vd "khoảng 18–21 giờ") |
 | Hải lý | giờ × tốc độ | tổng quãng thẳng các chặng |
 | Dầu | giờ chạy × L/h | giờ chạy P50 (gồm phần `a` mỗi chặng — dè dặt) × L/h; dầu theo pha (§7 báo cáo) CHƯA làm |
 
-**Chưa làm (chờ chốt riêng, báo cáo §7)**: lịch ô nửa ngày ngày/đêm có trọng số khung giờ nghề · dầu theo pha + dầu chong đèn · GRASP 20 vòng · cổng bão cửa sổ max(5 ngày, giờ về P80) · nghề kéo (a 6,9 h vô nghĩa vì chặng lẫn giờ kéo — app chưa có nghề này). Test: `lo-trinh-he-so.test.ts` (khối "giờ chặng theo số đo đội tàu"), `lo-trinh-plan.test.ts`.
+**Chưa làm (chờ chốt riêng, báo cáo §7)**: lịch ô nửa ngày ngày/đêm có trọng số khung giờ nghề · dầu theo pha + dầu chong đèn · GRASP 20 vòng · cổng bão cửa sổ max(5 ngày, giờ về P80). Nghề kéo ĐÃ thêm 2026-11-08 thành **cào** (`luoi-keo`) + **cào đôi** (`keo-doi`) — research §10; chặng vùng→vùng của cào là kéo lưới dọc đường nên chỉ fit chặng có đầu là cảng; hiệu ứng trăng cào chưa đo (= 1); dầu tính cho một tàu. Test: `lo-trinh-he-so.test.ts` (khối "giờ chặng theo số đo đội tàu"), `lo-trinh-plan.test.ts`.
 
 - **Thời tiết 2 tầng** (chuẩn voyage-optimization): per-leg time-dependent làm mặc định
   (bảng tra cụm↔cụm × mốc 3h, precompute ~100ms); chặng nào penalty sóng vượt ngưỡng mới chạy
@@ -207,6 +207,8 @@ Bước tiếp (phiên riêng 08/11): tách pha hoạt động từ vết tàu 1
 | Lưới vây | 5–7 hoặc 20–25 ngày | Đêm (vây đèn) / ngày (vây đuổi) | — |
 | Lưới rê khơi | 10–20 ngày | Thả chiều, trôi đêm, thu sáng | — |
 | Chụp mực | 5–10 ngày | Đêm, **nghỉ kỳ trăng sáng** | Lịch chuyến bám con trăng âm lịch |
+| Cào (lưới kéo đơn) | 7 ngày (p50), 16 (p75) | Gần nửa giờ kéo là đêm (có cào tôm) | Kéo liên tục 2,4 kn, lượt ~3,4 giờ — vết VMS 2026 (research §10) |
+| Cào đôi (kéo đôi) | 9 ngày (p50), 20 (p75) | Ban ngày (78 % giờ kéo) | Hai tàu kéo chung, cách ~0,5 km, bạn cố định; dầu vẫn tính cho một tàu |
 
 **Hình hài tính năng (user chốt 2026-07-28): MỘT tính năng "Đề xuất lộ trình"** — một form nhập
 rồi bấm tính, không phải wizard nhiều màn:
@@ -214,7 +216,7 @@ rồi bấm tính, không phải wizard nhiều màn:
 | Ô nhập | Dạng | Ghi chú |
 |---|---|---|
 | **Chọn ngày** | ngày xuất bến + đi mấy ngày (chip 7/15/20/25, tự do tối đa 16 do trần dữ liệu) | chuyến khai >16 ngày vẫn tính được 16 ngày đầu + nói rõ |
-| **Chọn nghề** | chọn hình: câu cá ngừ / lưới vây / lưới rê / chụp mực | **MVP tune cho CÂU CÁ NGỪ** (chuyến dài, giá trị cao, đúng tập premium); nghề khác dùng mẫu tham số tạm, tune sau |
+| **Chọn nghề** | chọn hình: câu cá ngừ / lưới vây / lưới rê / chụp mực / cào / cào đôi (2026-11-08) | **MVP tune cho CÂU CÁ NGỪ** (chuyến dài, giá trị cao, đúng tập premium); nghề khác dùng mẫu tham số tạm, tune sau |
 | **Thông số liên quan** | cảng xuất bến (10 cảng sẵn) · tốc độ + lít dầu/giờ + két dầu (lấy từ hồ sơ tàu, sửa được tại chỗ) | lưu vào hồ sơ tàu theo boatId, lần sau chỉ xác nhận |
 | (Tùy chọn) điểm quen/chà | chấm trên bản đồ hoặc chọn từ điểm đã lưu | 0–5 điểm |
 

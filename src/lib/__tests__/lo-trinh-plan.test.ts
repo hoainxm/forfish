@@ -213,10 +213,11 @@ describe("deXuatLoTrinh — ngân sách ngày + ngày nên về", () => {
   it.each([
     ["luoi-re", 3], ["luoi-re", 10], ["luoi-re", 16],
     ["luoi-vay", 12], ["chup-muc", 14], ["cau-ngu", 5], ["cau-ngu", 16],
+    ["luoi-keo", 16], ["keo-doi", 16], ["keo-doi", 10],
   ] as [Nghe, number][])("%s %i ngày: về cảng không quá hạn", (nghe, soNgay) => {
     const kq = deXuatLoTrinh(input({ nghe, soNgay }), NOW);
     expect(kq.vung.length).toBeGreaterThan(0);
-    const han = { "luoi-vay": 7, "luoi-re": 15, "chup-muc": 10, "cau-ngu": 99 }[nghe];
+    const han = { "luoi-vay": 7, "luoi-re": 15, "chup-muc": 10, "cau-ngu": 99, "luoi-keo": 16, "keo-doi": 20 }[nghe];
     expect(ve(kq).denNgay).toBeLessThanOrEqual(Math.min(soNgay, han));
     expect(ngayCach("2026-11-01", kq.ngayNenVe)).toBe(ve(kq).denNgay - 1);
     // tổng ngày đánh ≤ số ngày tính

@@ -168,6 +168,12 @@ describe("giờ chặng theo số đo đội tàu", () => {
     expect(moHinhChang("luoi-vay")).toEqual(CHANG_DE_DAT);
     expect(CHANG_DE_DAT.vKn).toBeLessThan(7);
   });
+  it("cào / cào đôi có số đo riêng (chặng có đầu là cảng — báo cáo §10), không rơi về mặc định; rằm chưa đo ⇒ trung tính", () => {
+    expect(moHinhChang("luoi-keo")).toEqual({ aGio: 0.65, vKn: 4.95, p80HeSo: 1.56, doDuoc: true });
+    expect(moHinhChang("keo-doi")).toEqual({ aGio: 0.76, vKn: 4.94, p80HeSo: 1.7, doDuoc: true });
+    expect(hieuUngRam("keo-doi")).toBe(0);
+    expect(heSoTrang("luoi-keo", 1)).toBe(1);
+  });
   it("giờ = a + hải lý / v; 0 km ⇒ 0; tốc độ khai chỉ là TRẦN (khai nhanh hơn đo không làm chặng ngắn đi)", () => {
     const m = moHinhChang("cau-ngu");
     const km = 100 * 1.852; // 100 hải lý

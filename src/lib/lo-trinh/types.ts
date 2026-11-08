@@ -4,7 +4,9 @@
 // MVP = Phase 1 của §6: chưa GRASP, chưa re-plan giữa chuyến, chưa mask giờ theo nghề/con trăng.
 
 /** Nghề — §4. MVP tune cho câu cá ngừ; nghề khác dùng mẫu tham số tạm. */
-export type Nghe = "cau-ngu" | "luoi-vay" | "luoi-re" | "chup-muc";
+/** Cào (lưới kéo đơn) và cào đôi (kéo đôi) thêm 2026-11-08 — sổ đăng kiểm gộp chung "kéo", tách bằng vết VMS
+ *  (docs/research/vet-tau-pha-nghe-2026-11.md §10). */
+export type Nghe = "cau-ngu" | "luoi-vay" | "luoi-re" | "chup-muc" | "luoi-keo" | "keo-doi";
 
 export interface DiemCoTen {
   lat: number;

@@ -71,6 +71,9 @@ export const NGAY_NEN_VE: Record<Nghe, { tinhTu: "ngay-danh-dau" | "ngay-di"; so
   "luoi-vay": { tinhTu: "ngay-di", soNgay: 7 },
   "luoi-re": { tinhTu: "ngay-di", soNgay: 15 },
   "chup-muc": { tinhTu: "ngay-di", soNgay: 10 },
+  // cào/cào đôi: P75 ngày chuyến ≥1 ngày đo trên vết VMS 2026 (đơn 16,0 · đôi 20,6) — docs/research/vet-tau-pha-nghe-2026-11.md §10
+  "luoi-keo": { tinhTu: "ngay-di", soNgay: 16 },
+  "keo-doi": { tinhTu: "ngay-di", soNgay: 20 },
 };
 
 const TEN_NGHE: Record<Nghe, string> = {
@@ -78,6 +81,8 @@ const TEN_NGHE: Record<Nghe, string> = {
   "luoi-vay": "lưới vây",
   "luoi-re": "lưới rê",
   "chup-muc": "chụp mực",
+  "luoi-keo": "lưới cào",
+  "keo-doi": "cào đôi",
 };
 
 const KM_MOI_HAI_LY = 1.852;

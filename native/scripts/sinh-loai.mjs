@@ -37,6 +37,8 @@ const NGHE = [ // fish-species-sheet ~301
   { id: "luoi-vay", nhan: NHAN.luoiVay },
   { id: "luoi-re", nhan: NHAN.luoiRe },
   { id: "chup-muc", nhan: NHAN.chupMuc },
+  { id: "luoi-keo", nhan: NHAN.cao },
+  { id: "keo-doi", nhan: NHAN.caoDoi },
 ];
 const shortCua = (full) => Object.values(fp.SPECIES_META).find((x) => x.full === full)?.short;
 const loai = Object.values(fp.SPECIES_META).map((m) => ({ short: m.short, full: m.full, nhom: m.category, mau: hex(m.color) }));
