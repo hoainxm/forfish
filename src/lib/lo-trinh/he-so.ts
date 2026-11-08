@@ -23,6 +23,40 @@ import type { Nghe } from "./types";
 export interface LoTrinhParams {
   hieuUngRam?: Partial<Record<Nghe, number>>;
   loaiTheoNghe?: Partial<Record<Nghe, readonly string[]>>;
+  chang?: Partial<Record<Nghe, { aGio?: number; vKn?: number; p80HeSo?: number }>>;
+}
+
+/** Mô hình giờ một chặng: giờ = aGio + hải lý / vKn (P50); P80 = P50 × p80HeSo. */
+export interface MoHinhChang {
+  aGio: number;
+  vKn: number;
+  p80HeSo: number;
+  /** true = số đo đội tàu cùng nghề (model-params); false = mặc định dè dặt (chưa nạp tham số) */
+  doDuoc: boolean;
+}
+
+/**
+ * MẶC ĐỊNH DÈ DẶT khi máy chưa nạp tham số (docs/research/vet-tau-pha-nghe-2026-11.md §7 B0): 5 kn + 1,5 giờ/chặng,
+ * P80 ×1,15. CỐ Ý không quay về 7 kn — số đo cho thấy 7 kn ước thiếu ~3 giờ mỗi chặng, sai về phía nguy hiểm
+ * (giờ về, dầu đều lạc quan). Số tròn chọn dè dặt, không phải số fit.
+ */
+export const CHANG_DE_DAT: MoHinhChang = { aGio: 1.5, vKn: 5, p80HeSo: 1.15, doDuoc: false };
+
+/** Mô hình chặng của nghề — số đo qua model-params; thiếu/hỏng ⇒ CHANG_DE_DAT. */
+export function moHinhChang(nghe: Nghe, p: ModelParams | null = getModelParams()): MoHinhChang {
+  const c = loTrinhParams(p).chang?.[nghe];
+  const ok = (v: unknown, lo: number, hi: number): v is number => typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi;
+  if (!c || !ok(c.aGio, 0, 6) || !ok(c.vKn, 2, 15) || !ok(c.p80HeSo, 1, 2)) return CHANG_DE_DAT;
+  return { aGio: c.aGio, vKn: c.vKn, p80HeSo: c.p80HeSo, doDuoc: true };
+}
+
+/**
+ * Giờ một chặng `km` (P50). Tốc độ bà con khai là TRẦN, không thay số đo (§7 B0): v = min(khai, đo). Chặng 0 km ⇒ 0.
+ */
+export function gioChang(km: number, m: MoHinhChang, tocDoKhaiKn?: number | null): number {
+  if (!(km > 0)) return 0;
+  const v = tocDoKhaiKn != null && Number.isFinite(tocDoKhaiKn) && tocDoKhaiKn > 0 ? Math.min(tocDoKhaiKn, m.vKn) : m.vKn;
+  return m.aGio + km / 1.852 / v;
 }
 export function loTrinhParams(p: ModelParams | null = getModelParams()): LoTrinhParams {
   const x = p?.loTrinh;

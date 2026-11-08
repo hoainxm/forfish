@@ -13,7 +13,7 @@
 import { haversineKm, type LatLon } from "@/lib/geo";
 import { distToSegmentKm, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
 import { trongVungNhanh } from "@/lib/lo-trinh/vung-nhanh";
-import { doRoiTrang, heSoBien, heSoTrang, hieuUngRam } from "@/lib/lo-trinh/he-so";
+import { doRoiTrang, gioChang, heSoBien, heSoTrang, hieuUngRam, moHinhChang } from "@/lib/lo-trinh/he-so";
 import type {
   BaoRutGon,
   DongLich,
@@ -29,8 +29,8 @@ import type {
 
 /** Trần dữ liệu: lưới cá/thời tiết premium tới 16 ngày (§0 chốt #1). */
 export const TRAN_SO_NGAY = 16;
-/** Hồ sơ tàu thiếu số thì tạm dùng — cùng số mặc định của dẫn đường (§2 "mặc định 7kn/20L·h"). */
-export const TOC_DO_MAC_DINH_KN = 7;
+/** Hồ sơ tàu thiếu số dầu thì tạm dùng (§2 "20L·h"). TỐC ĐỘ không còn mặc định 7 kn: giờ chặng theo số đo đội tàu
+ *  cùng nghề `a + hải lý/v` (`moHinhChang`, model-params — docs/research/vet-tau-pha-nghe-2026-11.md, 2026-11-08). */
 export const DAU_GIO_MAC_DINH_L = 20;
 /**
  * Lấy mẫu đoạn thẳng giữa hai mốc mỗi 2 km để kiểm có ra ngoài vùng biển VN không. Đề bài ban đầu
@@ -399,11 +399,16 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   }
 
   const tau = input.tau ?? ({} as LoTrinhInput["tau"]);
-  let tocDo = tau.speedKn;
-  if (!soThat(tocDo) || tocDo <= 0) {
-    tocDo = TOC_DO_MAC_DINH_KN;
-    ghiChu.push(`Chưa có tốc độ tàu — tạm tính ${TOC_DO_MAC_DINH_KN} hải lý/giờ.`);
-  }
+  /*  GIỜ CHẶNG = a + hải lý / v theo nghề (§3 B0, 2026-11-08): đo trên 295 015 chặng VMS — "hải lý / 7 kn" ước thiếu
+      ~3 giờ mỗi chặng (sai về phía nguy hiểm). Tốc độ bà con khai là TRẦN, không thay số đo. Lập lịch theo P50; xét
+      kịp về / hạn chuyến theo P80 (= P50 × p80HeSo) cho an toàn. */
+  const chang = moHinhChang(nghe);
+  const tocKhai = soThat(tau.speedKn) && tau.speedKn > 0 ? tau.speedKn : null;
+  const tocDo = tocKhai != null ? Math.min(tocKhai, chang.vKn) : chang.vKn;
+  const gioKm = (km: number) => gioChang(km, chang, tocKhai);
+  if (!chang.doDuoc) ghiChu.push(`Chưa có số đo tàu cùng nghề trong máy — tạm tính dè dặt ${chang.vKn} hải lý/giờ.`);
+  else if (tocKhai != null && tocKhai > chang.vKn + 0.05)
+    ghiChu.push(`Giờ chạy tính theo tốc độ thật của tàu cùng nghề (${String(Math.round(chang.vKn * 10) / 10).replace(".", ",")} hải lý/giờ), chậm hơn số khai.`);
   let dauGio = tau.litersPerHour;
   if (!soThat(dauGio) || dauGio <= 0) {
     dauGio = DAU_GIO_MAC_DINH_L;
@@ -465,7 +470,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   const idxVung: number[] = [];
   for (const c of gomCum(du)) {
     if (idxVung.length >= TOI_DA_VUNG_UNG_VIEN) break;
-    if ((2 * haversineKm(cang, c)) / KM_MOI_HAI_LY / tocDo + 24 > gioToiDa + EPS) continue;
+    if (2 * gioKm(haversineKm(cang, c)) * chang.p80HeSo + 24 > gioToiDa + EPS) continue;
     if (!doanTrongVung(cang, c)) continue;
     const diem: number[] = [];
     for (let d = 0; d < D; d++) {
@@ -516,7 +521,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     ghiChu.push("Chưa có đủ dự báo sóng gió trong máy cho cả chuyến — những ngày thiếu, lộ trình chưa né được biển động.");
 
   const N = nut.length;
-  const gio: number[][] = nut.map((a) => nut.map((b) => haversineKm(a, b) / KM_MOI_HAI_LY / tocDo!));
+  const gio: number[][] = nut.map((a) => nut.map((b) => gioKm(haversineKm(a, b))));
   const hopLeNho = new Map<number, boolean>();
   const hopLe = (a: number, b: number): boolean => {
     const k = Math.min(a, b) * N + Math.max(a, b);
@@ -553,9 +558,11 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
       if (mau.tinhTu === "ngay-danh-dau") hetGio = Math.min(hetGio, (ngayCuaKhoi(h[0]) + mau.soNgay + 1) * 24);
       else hetGio = Math.min(hetGio, mau.soNgay * 24);
     }
-    if (tongChay > hetGio + EPS) return null;
+    // kịp về xét theo P80 (giờ chạy có thể dài hơn trung vị ~13–14 %) — thà bớt một ngày đánh hơn về trễ
+    const chayP80 = tongChay * chang.p80HeSo;
+    if (chayP80 > hetGio + EPS) return null;
     const k = thuTu.length;
-    const soNgayDanh = Math.floor((hetGio - tongChay) / 24 + EPS);
+    const soNgayDanh = Math.floor((hetGio - chayP80) / 24 + EPS);
     if (soNgayDanh < k) return null;
     const n = new Array<number>(k).fill(1);
     let giaTri = danhGia(thuTu, h, n);
@@ -680,7 +687,13 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     }
   }
   const nhanNgay = (a: number, b: number) => (a === b ? `Ngày ${a}` : `Ngày ${a}–${b}`);
-  const nhanGio = (h: number) => (h < 1 ? "chưa tới 1 giờ" : `khoảng ${Math.round(h)} giờ`);
+  /** P50–P80 của một chặng (§3 B5 "khoảng P50–P80 giờ"). */
+  const nhanGio = (h: number) => {
+    if (h < 1) return "chưa tới 1 giờ";
+    const lo = Math.round(h);
+    const hi = Math.round(h * chang.p80HeSo);
+    return hi > lo ? `khoảng ${lo}–${hi} giờ` : `khoảng ${lo} giờ`;
+  };
   const lich: DongLich[] = [];
   const vung: VungDanh[] = [];
   let t = 0;
@@ -753,7 +766,13 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     { lat: cang.lat, lon: cang.lon, ten: cang.ten, loai: "cang" },
   ];
 
-  const haiLyRaw = ke.tongChay * tocDo;
+  // hải lý = tổng quãng thẳng các chặng (không suy từ giờ — giờ có phần cố định `a`)
+  let haiLyRaw = 0;
+  {
+    let prev = 0;
+    for (const x of [...thuTu, 0]) { haiLyRaw += haversineKm(nut[prev], nut[x]) / KM_MOI_HAI_LY; prev = x; }
+  }
+  // dầu: giờ chạy P50 (gồm phần cố định `a` của mỗi chặng — dè dặt) × lít/giờ
   const litRaw = ke.tongChay * dauGio;
   ghiChu.push("Lít dầu chỉ tính giờ chạy máy — chưa tính dầu neo, chong đèn.");
   if (mau.tinhTu === "ngay-danh-dau")

@@ -1,10 +1,62 @@
 {
-  "_ghi": "THAM SỐ LỘ TRÌNH (2026-11-08, khong-lo-nguon nợ #9) — nguồn sự thật; scripts/build-model-params.mjs gộp vào public/data/model-params.v1.json (SDF2). App KHÔNG import file này. hieuUngRam: đêm rằm so đêm tối (tỉ lệ đổi sản lượng), đo sổ tàu 2026 — docs/research/du-bao-ca-dong-dan-2026-10/15b-trang-bang-so.md (câu ngừ −5,3 % [−13; +2,3]; vây −1,9 % [−7,2; +4,7]; rê −1,2 % [−4; +1,5]; chụp −12,9 % [−18,4; −7,4], phản biện: có thể là lịch âm). loaiTheoNghe: nhóm loài (tên ngắn của SPECIES_PROFILES) mỗi nghề — ước theo nghề phổ biến ở VN, chưa hỏi chủ tàu từng nghề.",
-  "hieuUngRam": { "cau-ngu": -0.053, "luoi-vay": -0.019, "luoi-re": -0.012, "chup-muc": -0.129 },
+  "_ghi": "THAM SỐ LỘ TRÌNH (2026-11-08, khong-lo-nguon nợ #9) — nguồn sự thật; scripts/build-model-params.mjs gộp vào public/data/model-params.v1.json (SDF2). App KHÔNG import file này. hieuUngRam: đêm rằm so đêm tối (tỉ lệ đổi sản lượng), đo sổ tàu 2026 — docs/research/du-bao-ca-dong-dan-2026-10/15b-trang-bang-so.md (câu ngừ −5,3 % [−13; +2,3]; vây −1,9 % [−7,2; +4,7]; rê −1,2 % [−4; +1,5]; chụp −12,9 % [−18,4; −7,4], phản biện: có thể là lịch âm). loaiTheoNghe: nhóm loài (tên ngắn của SPECIES_PROFILES) mỗi nghề — ước theo nghề phổ biến ở VN, chưa hỏi chủ tàu từng nghề. chang (2026-11-08, docs/research/vet-tau-pha-nghe-2026-11.md §0/§6): giờ một chặng = aGio + hải lý / vKn (P50), P80 = P50 × p80HeSo — đo trên 295 015 chặng VMS tàu 15–24 m, backtest 07–10/2026 sai trung vị 42,8 % → 15,6 %. câu ngừ = nhóm \"câu\", vây = \"vay\", rê = §6 (trip-curves chưa có rê), chụp = \"chup\".",
+  "hieuUngRam": {
+    "cau-ngu": -0.053,
+    "luoi-vay": -0.019,
+    "luoi-re": -0.012,
+    "chup-muc": -0.129
+  },
   "loaiTheoNghe": {
-    "cau-ngu": ["ngừ vây vàng", "ngừ mắt to"],
-    "luoi-vay": ["ngừ vằn", "ngừ chù", "ngừ ồ", "cá nục", "cá cơm", "cá trích", "bạc má", "cá tráo", "cá sòng"],
-    "luoi-re": ["cá thu", "ngừ chấm", "ngừ chù", "ngừ ồ", "cá ngân", "cá cờ", "nục heo"],
-    "chup-muc": ["mực ống", "mực xà", "mực lá"]
+    "cau-ngu": [
+      "ngừ vây vàng",
+      "ngừ mắt to"
+    ],
+    "luoi-vay": [
+      "ngừ vằn",
+      "ngừ chù",
+      "ngừ ồ",
+      "cá nục",
+      "cá cơm",
+      "cá trích",
+      "bạc má",
+      "cá tráo",
+      "cá sòng"
+    ],
+    "luoi-re": [
+      "cá thu",
+      "ngừ chấm",
+      "ngừ chù",
+      "ngừ ồ",
+      "cá ngân",
+      "cá cờ",
+      "nục heo"
+    ],
+    "chup-muc": [
+      "mực ống",
+      "mực xà",
+      "mực lá"
+    ]
+  },
+  "chang": {
+    "cau-ngu": {
+      "aGio": 1.52,
+      "vKn": 5.17,
+      "p80HeSo": 1.13
+    },
+    "luoi-vay": {
+      "aGio": 0.99,
+      "vKn": 5.32,
+      "p80HeSo": 1.14
+    },
+    "luoi-re": {
+      "aGio": 1.55,
+      "vKn": 5.14,
+      "p80HeSo": 1.14
+    },
+    "chup-muc": {
+      "aGio": 1.43,
+      "vKn": 5.21,
+      "p80HeSo": 1.13
+    }
   }
 }

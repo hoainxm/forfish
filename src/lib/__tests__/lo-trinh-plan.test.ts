@@ -126,7 +126,7 @@ describe("deXuatLoTrinh — tuyến cơ bản", () => {
       expect(d.cau).not.toMatch(/%|có cá|chắc chắn/);
       expect(d.tuNgay).toBeLessThanOrEqual(d.denNgay);
     }
-    expect(kq.lich[0].cau).toMatch(/chạy ra vùng 1, khoảng \d+ giờ/);
+    expect(kq.lich[0].cau).toMatch(/chạy ra vùng 1, khoảng \d+(–\d+)? giờ/); // P50–P80 (§3 B5)
     // ngày không lùi
     for (let i = 1; i < kq.lich.length; i++) expect(kq.lich[i].tuNgay).toBeGreaterThanOrEqual(kq.lich[i - 1].tuNgay);
   });
@@ -252,14 +252,15 @@ describe("deXuatLoTrinh — dầu", () => {
     const b = deXuatLoTrinh(input({ tau: { speedKn: 7, litersPerHour: 40, fuelTankL: 5000 } }), NOW);
     expect(b.moc).toEqual(a.moc);
     expect(Math.abs(b.litDau - 2 * a.litDau)).toBeLessThanOrEqual(20);
-    // ~ hải lý / tốc độ × lít/giờ
-    expect(Math.abs(a.litDau - (a.haiLy / 7) * 20)).toBeLessThanOrEqual(10);
+    // giờ chạy P50 = Σ (a + hải lý/v) × lít/giờ — test không nạp model-params ⇒ mặc định dè dặt 5 kn + 1,5 giờ/chặng
+    const soChang = a.moc.length - 1;
+    expect(Math.abs(a.litDau - (a.haiLy / 5 + 1.5 * soChang) * 20)).toBeLessThanOrEqual(20);
   });
 
   it("tốc độ hỏng ⇒ dùng mặc định + ghi chú", () => {
     const kq = deXuatLoTrinh(input({ tau: { speedKn: 0, litersPerHour: NaN, fuelTankL: null } }), NOW);
     expect(kq.vung.length).toBeGreaterThan(0);
-    expect(kq.ghiChu.join(" ")).toMatch(/tạm tính 7 hải lý\/giờ/);
+    expect(kq.ghiChu.join(" ")).toMatch(/tạm tính dè dặt 5 hải lý\/giờ/); // KHÔNG quay về 7 kn (vet-tau §7 B0)
     expect(kq.ghiChu.join(" ")).toMatch(/tạm tính 20 lít\/giờ/);
   });
 });

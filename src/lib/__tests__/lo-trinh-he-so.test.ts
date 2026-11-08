@@ -1,7 +1,7 @@
 // Lộ trình theo NGHỀ + hệ số TRĂNG × SÓNG GIÓ (2026-11-08) — lo-trinh/he-so.ts, dau-vao.ts, plan.ts.
 import { describe, it, expect, beforeEach } from "vitest";
 import { SPECIES_PROFILES } from "@/lib/fish-predict";
-import { doRoiTrang, heSoBien, heSoTrang, hieuUngRam, DIEM_BO_NGAY } from "@/lib/lo-trinh/he-so";
+import { CHANG_DE_DAT, doRoiTrang, gioChang, heSoBien, heSoTrang, hieuUngRam, moHinhChang, DIEM_BO_NGAY } from "@/lib/lo-trinh/he-so";
 import { diemOTheoNghe, dungCaTheoNgay } from "@/lib/lo-trinh/dau-vao";
 import { setModelParams } from "@/lib/model-params";
 import { buildModelParams } from "../../../scripts/build-model-params.mjs";
@@ -156,5 +156,47 @@ describe("deXuatLoTrinh với trăng × sóng gió", () => {
     const kq = deXuatLoTrinh(input({ caTheoNgay: () => [] }), NOW);
     expect(kq.vung).toEqual([]);
     expect(kq.ghiChu.some((g) => g.includes("câu cá ngừ"))).toBe(true);
+  });
+});
+
+/*  GIỜ CHẶNG = a + hải lý / v THEO NGHỀ (2026-11-08, docs/research/vet-tau-pha-nghe-2026-11.md §0, §6, §7 B0). */
+describe("giờ chặng theo số đo đội tàu", () => {
+  it("số đo đi qua model-params; thiếu ⇒ mặc định dè dặt 5 kn + 1,5 giờ (KHÔNG 7 kn)", () => {
+    const m = moHinhChang("luoi-vay");
+    expect(m).toEqual({ aGio: 0.99, vKn: 5.32, p80HeSo: 1.14, doDuoc: true });
+    setModelParams(null);
+    expect(moHinhChang("luoi-vay")).toEqual(CHANG_DE_DAT);
+    expect(CHANG_DE_DAT.vKn).toBeLessThan(7);
+  });
+  it("giờ = a + hải lý / v; 0 km ⇒ 0; tốc độ khai chỉ là TRẦN (khai nhanh hơn đo không làm chặng ngắn đi)", () => {
+    const m = moHinhChang("cau-ngu");
+    const km = 100 * 1.852; // 100 hải lý
+    expect(gioChang(km, m)).toBeCloseTo(1.52 + 100 / 5.17, 6);
+    expect(gioChang(0, m)).toBe(0);
+    expect(gioChang(km, m, 9)).toBeCloseTo(gioChang(km, m), 6);
+    expect(gioChang(km, m, 4)).toBeCloseTo(1.52 + 100 / 4, 6);
+    // so với "hải lý / 7 kn" cũ: chặng 100 hải lý dài thêm ~6 giờ — đúng chiều an toàn
+    expect(gioChang(km, m) - 100 / 7).toBeGreaterThan(5);
+  });
+  it("lộ trình: lịch báo khoảng P50–P80, khai 9 kn vẫn tính theo số đo + nói rõ", () => {
+    const kq = deXuatLoTrinh(
+      {
+        nghe: "luoi-vay",
+        cang: { lat: QUY_NHON.lat, lon: QUY_NHON.lon, ten: QUY_NHON.ten },
+        ngayDi: "2026-11-08",
+        soNgay: 7,
+        tau: { speedKn: 9, litersPerHour: 20, fuelTankL: 5000 },
+        diemQuen: [],
+        caTheoNgay: () => [
+          { lat: 13.2, lon: 110.6, s: 90 },
+          { lat: 13.25, lon: 110.65, s: 85 },
+          { lat: 13.3, lon: 110.6, s: 80 },
+        ],
+        bao: [],
+      } as unknown as LoTrinhInput,
+      NOW,
+    );
+    expect(kq.lich[0].cau).toMatch(/khoảng \d+–\d+ giờ/);
+    expect(kq.ghiChu.join(" ")).toMatch(/tốc độ thật của tàu cùng nghề \(5,3 hải lý\/giờ\)/);
   });
 });
