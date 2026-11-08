@@ -1,5 +1,5 @@
 {
-  "_ghi": "THAM SỐ LỘ TRÌNH (2026-11-08, khong-lo-nguon nợ #9) — nguồn sự thật; scripts/build-model-params.mjs gộp vào public/data/model-params.v1.json (SDF2). App KHÔNG import file này. hieuUngRam: đêm rằm so đêm tối (tỉ lệ đổi sản lượng), đo sổ tàu 2026 — docs/research/du-bao-ca-dong-dan-2026-10/15b-trang-bang-so.md (câu ngừ −5,3 % [−13; +2,3]; vây −1,9 % [−7,2; +4,7]; rê −1,2 % [−4; +1,5]; chụp −12,9 % [−18,4; −7,4], phản biện: có thể là lịch âm). loaiTheoNghe: nhóm loài (tên ngắn của SPECIES_PROFILES) mỗi nghề — ước theo nghề phổ biến ở VN, chưa hỏi chủ tàu từng nghề. chang (2026-11-08, docs/research/vet-tau-pha-nghe-2026-11.md §0/§6): giờ một chặng = aGio + hải lý / vKn (P50), P80 = P50 × p80HeSo — đo trên 295 015 chặng VMS tàu 15–24 m, backtest 07–10/2026 sai trung vị 42,8 % → 15,6 %. câu ngừ = nhóm \"câu\", vây = \"vay\", rê = §6 (trip-curves chưa có rê), chụp = \"chup\". CÀO (luoi-keo = cào đơn) / CÀO ĐÔI (keo-doi) 2026-11-08 (§10 báo cáo): sổ đăng kiểm gộp 'kéo', tách bằng vết VMS (cặp ≤ 2 km cùng bạn ~25/30 ngày). chang của cào fit trên chặng CÓ ĐẦU LÀ CẢNG (chặng vùng→vùng của cào là kéo lưới dọc đường, a ≈ 7,6 giờ — vô nghĩa cho chạy); thử 07–10/2026 sai trung vị đôi 22,3 % / đơn 19,1 % (7 kn: 38 %). hieuUngRam cào: chưa đo ⇒ không ghi (trung tính). loaiTheoNghe cào: cá đáy + tôm theo nghề phổ biến, chưa hỏi chủ tàu. gioMayBai (2026-11-08, research §10.5): giờ máy chạy mỗi ngày ở bãi = trung vị theo tàu của giờ đoạn ≥ 1,5 kn ngoài pha chạy, ngày cả ngày cách cảng > 20 km (VMS 12/2025–10/2026) — dầu lúc đánh. Câu 1,75 (câu ngừ dùng số nhóm câu) · vây 2,77 · rê 4,0 · chụp 1,65 · cào 13,56 · cào đôi 12,75.",
+  "_ghi": "THAM SỐ LỘ TRÌNH (2026-11-08, khong-lo-nguon nợ #9) — nguồn sự thật; scripts/build-model-params.mjs gộp vào public/data/model-params.v1.json (SDF2). App KHÔNG import file này. hieuUngRam: đêm rằm so đêm tối (tỉ lệ đổi sản lượng), đo sổ tàu 2026 — docs/research/du-bao-ca-dong-dan-2026-10/15b-trang-bang-so.md (câu ngừ −5,3 % [−13; +2,3]; vây −1,9 % [−7,2; +4,7]; rê −1,2 % [−4; +1,5]; chụp −12,9 % [−18,4; −7,4], phản biện: có thể là lịch âm). loaiTheoNghe: nhóm loài (tên ngắn của SPECIES_PROFILES) mỗi nghề — ước theo nghề phổ biến ở VN, chưa hỏi chủ tàu từng nghề. chang (2026-11-08, docs/research/vet-tau-pha-nghe-2026-11.md §0/§6): giờ một chặng = aGio + hải lý / vKn (P50), P80 = P50 × p80HeSo — đo trên 295 015 chặng VMS tàu 15–24 m, backtest 07–10/2026 sai trung vị 42,8 % → 15,6 %. câu ngừ = nhóm \"câu\", vây = \"vay\", rê = §6 (trip-curves chưa có rê), chụp = \"chup\". CÀO (luoi-keo = cào đơn) / CÀO ĐÔI (keo-doi) 2026-11-08 (§10 báo cáo): sổ đăng kiểm gộp 'kéo', tách bằng vết VMS (cặp ≤ 2 km cùng bạn ~25/30 ngày). chang của cào fit trên chặng CÓ ĐẦU LÀ CẢNG (chặng vùng→vùng của cào là kéo lưới dọc đường, a ≈ 7,6 giờ — vô nghĩa cho chạy); thử 07–10/2026 sai trung vị đôi 22,3 % / đơn 19,1 % (7 kn: 38 %). hieuUngRam cào: chưa đo ⇒ không ghi (trung tính). loaiTheoNghe cào: cá đáy + tôm theo nghề phổ biến, chưa hỏi chủ tàu. gioMayBai (2026-11-08, research §10.5): giờ máy chạy mỗi ngày ở bãi = trung vị theo tàu của giờ đoạn ≥ 1,5 kn ngoài pha chạy, ngày cả ngày cách cảng > 20 km (VMS 12/2025–10/2026) — dầu lúc đánh. Câu 1,75 (câu ngừ dùng số nhóm câu) · vây 2,77 · rê 4,0 · chụp 1,65 · cào 13,56 · cào đôi 12,75. dayNghe (2026-11-08, research §10.7, 12_day_nghe.py): hệ số loại đáy theo nghề = độ ưa đo từ vết (giờ làm lưới ở loại đáy ÷ giờ có mặt của mọi tàu) chia độ ưa ở nước sâu > 12 m, kẹp ≤ 1; câu ngừ dùng số nhóm câu, cào = cào đơn. Tỉ phần đáy từng ô 0,25° ở src/data/day-o025.json (13_day_o025.py, từ depth-grid.v1.bin).",
   "hieuUngRam": {
     "cau-ngu": -0.053,
     "luoi-vay": -0.019,
@@ -93,5 +93,55 @@
     "chup-muc": 1.65,
     "luoi-keo": 13.56,
     "keo-doi": 12.75
+  },
+  "dayNghe": {
+    "luoi-vay": {
+      "ran": 0.31,
+      "n2": 0.48,
+      "n4": 0.57,
+      "n12": 1.0,
+      "sau": 1.0,
+      "gan": 1.0
+    },
+    "cau-ngu": {
+      "ran": 0.76,
+      "n2": 0.13,
+      "n4": 0.11,
+      "n12": 0.3,
+      "sau": 1.0,
+      "gan": 1.0
+    },
+    "luoi-re": {
+      "ran": 0.18,
+      "n2": 0.42,
+      "n4": 0.74,
+      "n12": 0.92,
+      "sau": 1.0,
+      "gan": 1.0
+    },
+    "keo-doi": {
+      "ran": 0.02,
+      "n2": 0.02,
+      "n4": 0.07,
+      "n12": 0.15,
+      "sau": 1.0,
+      "gan": 0.19
+    },
+    "luoi-keo": {
+      "ran": 0.02,
+      "n2": 0.02,
+      "n4": 0.06,
+      "n12": 0.12,
+      "sau": 1.0,
+      "gan": 0.32
+    },
+    "chup-muc": {
+      "ran": 0.09,
+      "n2": 0.16,
+      "n4": 0.15,
+      "n12": 0.21,
+      "sau": 1.0,
+      "gan": 0.54
+    }
   }
 }

@@ -205,6 +205,13 @@ export const TAU_TRAN = {
 
 let tauDocHong = false;
 
+/** Mớn tàu (m) trong hồ sơ tàu — CHỈ ĐỌC (ô mớn nằm ở hồ sơ tàu / dẫn đường). null = chưa khai / đọc hỏng. */
+export function docMonTau(): number | null {
+  const r = readUserRecord<Record<string, unknown>>(BOAT_KEY);
+  const v = r.ok ? r.value?.draftM : null;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 && v <= 10 ? v : null;
+}
+
 /** `macDinh` = máy chưa có hồ sơ (đang dùng số mặc định) — màn phải nói để bà con sửa. */
 export function docTauTinh(): { tau: TauTinh; docHong: boolean; macDinh: boolean } {
   const r = readUserRecord<Record<string, unknown>>(BOAT_KEY);

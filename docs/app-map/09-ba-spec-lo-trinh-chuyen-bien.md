@@ -4,6 +4,7 @@
 covers: src/lib/fish-blend.ts, src/lib/lo-trinh, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
 last_verified: 2026-11-08
 <!-- re-verified: 2026-10-29u — MÀN PHASE 1 ĐÃ LÀM: route `/lo-trinh` (tên hiển thị "Chuyến biển", premium, RequireLogin + PremiumLock) gọi `deXuatLoTrinh` bản thật; lib màn `lo-trinh/dau-vao.ts` (dựng LoTrinhInput từ bản đồ cá đã lưu + mùa vụ + tin bão; bão chưa kiểm được ⇒ `null`) · `luu.ts` (`forfish.routes.v1`, tối đa 12 bản, tuổi dữ liệu) · `so-vi-tri.ts` (so GPS với tuyến, lệch > 20 hải lý ⇒ câu trung tính). Lối vào: khay ⋯ bản đồ. Nút "Bản đồ" nạp các mốc vào Dẫn đường nhiều chặng (persistStops), chưa tự mở bảng. Trường `at` của bão chưa điền (track GDACS không có giờ ⇒ chặn cả cửa sổ 5 ngày). -->
+<!-- re-verified: 2026-11-08g — §3 Phase 1e: con nước ở cảng đậu (`lo-trinh/trieu-cang.ts`), đáy theo nghề (`lo-trinh/day-nghe.ts`, model-params `loTrinh.dayNghe` + `dayO`), trọng số khi mất sóng (`lo-trinh/offline-trong-so.ts`, `LoTrinhDaLuu.trongSo`). §5c-b mới. -->
 <!-- re-verified: 2026-11-08f — §3 Phase 1f: giờ đi trên form, dầu chong đèn, két giới hạn tuyến (P80 × 1,3), cổng bão tới lúc về P80, GRASP 20 vòng tất định. -->
 <!-- re-verified: 2026-10-29L — THUẬT TOÁN PHASE 1 ĐÃ LÀM: `src/lib/lo-trinh/plan.ts` `deXuatLoTrinh(input, now?)` (B0–B3 + B5, chưa GRASP) + `lo-trinh/vung-nhanh.ts` `trongVungNhanh` (cùng kết quả `trongVungBienVN`, chia cạnh theo dải vĩ độ). Tham số + luật ở §3 "Phase 1 ĐÃ LÀM". `types.ts` thêm MỘT trường tuỳ chọn: `BaoRutGon.diem[].at?` (epoch ms). Test `lo-trinh-plan.test.ts` (32 ca). -->
 <!-- re-verified: 2026-10-29 — BẮT ĐẦU BUILD PHASE 1 (§6, anh Long "làm đi"): kiểu dữ liệu chung `src/lib/lo-trinh/types.ts` (LoTrinhInput · LoTrinhKetQua · DongLich · VungDanh · LoTrinhDaLuu cho khoá `forfish.routes.v1` §5c). Thuật toán `lo-trinh/plan.ts` và màn `/lo-trinh` đi trong các commit kế. -->
@@ -225,6 +226,17 @@ Test: `lo-trinh-plan.test.ts` khối "giờ đi, dầu đèn, vừa két, GRASP"
 - **Re-plan** (Phase 2): khi có bản đồ cá mới / bão đổi trạng thái, lấy vị trí hiện tại làm điểm
   đầu mới — pipeline <2s nên re-plan ngay trên máy, offline vẫn chạy với bản đã lưu (ghi rõ
   tuổi dữ liệu — bài học offline-16d).
+
+#### §3 Phase 1e — CON NƯỚC Ở CẢNG · ĐÁY THEO NGHỀ · TRỌNG SỐ KHI MẤT SÓNG (2026-11-08, anh Long: "giờ đi cần tính toán cả thuỷ triều ở chỗ họ đậu tàu nữa", "tính toán các kiểu rạn rồi nghề", "tính toán khi offline muốn xem lại thì xem gì, tính lại thì sẽ bị mất trọng số nào")
+
+| Phần | Luật |
+|---|---|
+| Con nước (`trieu-cang.ts dungCuaTrieu`) | Trạm con nước gần cảng ≤ 40 km (`tide-stations`, tính trong máy). Có độ sâu luồng cửa (`fairway-depths`, đoạn có đầu ≤ 15 km, lấy chỗ NÔNG nhất) **và** mớn tàu (`forfish.boat.v1.draftM`, cần = mớn + 0,5 m) ⇒ **ràng buộc**: giờ ra cửa dời tới lúc sâu luồng + triều ≥ nước cần (dò bước 10 phút, tối đa 36 giờ); về tới cửa thiếu nước ⇒ chờ ngoài cửa (giờ về P80 tính cả giờ chờ). Không đủ nước cả 36 giờ ⇒ cộng 36 giờ + ghi chú kiểm lại mớn/luồng. Thiếu luồng hoặc mớn ⇒ **chỉ báo** giờ nước lớn ngày đi/ngày về. Không trạm ⇒ ghi chú "chưa tính con nước". Trạm mô hình ⇒ nói "ước tính — giờ có thể lệch". `plan.ts` nhớ kết quả dò theo nấc 10 phút (GRASP gọi mô phỏng hàng nghìn lần) |
+| Đáy theo nghề (`day-nghe.ts heSoDay`) | Hệ số ô cá 0,25° = Σ tỉ phần loại đáy trong ô (`dayO`: rạn · <2 m · 2–4 m · 4–12 m · sâu · sát rạn, từ lưới độ sâu) × hệ số loại của nghề (`dayNghe`: độ ưa đo từ vết ÷ nước sâu, kẹp ≤ 1 — chỉ trừ, không thưởng). Nhân ở MỨC Ô trước khi gom vùng. Ô vắng = nước sâu ⇒ 1. Chưa nạp tham số ⇒ không nhân + ghi chú "chưa tránh rạn, chỗ cạn". Nguồn: research vet-tau §10.7 |
+| Trọng số khi mất sóng (`offline-trong-so.ts`) | Lúc tính chụp bảng 10 lớp (cá · mùa vụ · sóng gió · bão · bãi · trăng · giờ chạy · dầu lúc đánh · đáy · con nước) mỗi lớp đủ/cũ/thiếu/mất + câu hậu quả; cất vào `forfish.routes.v1[].trongSo` (tuỳ chọn). Mở bản lưu ⇒ so với bảng BÂY GIỜ: lớp nào sẽ yếu đi ⇒ câu vàng "Tính lại bây giờ sẽ mất: … — nên xem bản đã lưu"; bản lưu cũ không có bảng ⇒ nói thật "chưa ghi lúc tính có gì". Kết quả có mục gập "Dữ liệu dùng lúc tính · N/10 đủ". Bản đồ cá > 3 ngày = cũ |
+
+**Offline**: hai request khi MỞ màn `/lo-trinh` (`fetchTideStations`, `fetchFairwayDepths` — file tĩnh cùng origin đã nằm trong danh sách cache `sw.js`, hỏng ⇒ null + ghi chú); không đụng sw.js/SHELL/khoá; `forfish.routes.v1` chỉ thêm trường tuỳ chọn — bản lưu cũ đọc như cũ. Triều, đáy, trọng số tính trong máy.
+Test: `lo-trinh-trieu-day-offline.test.ts` (con nước · đáy · trọng số · lộ trình dùng con nước + đáy).
 
 ## 4. Nghiệp vụ + UX (người dùng ít rành công nghệ)
 
@@ -724,6 +736,9 @@ trơn tới mức nào" chứ không đo "dự báo được bao nhiêu". Trần
 - Chạm-để-xem, KHÔNG theo dõi nền liên tục (đỡ pin + đỡ quyền; nâng cấp nền là việc Capacitor sau).
 - Offline vẫn vẽ tuyến trên nền bờ biển offline sẵn có (`offline-basemap.ts`) — tuyến là dữ liệu
   local, không phụ thuộc ô bản đồ mạng; ghi rõ tuổi dữ liệu (luật offline-16d).
+
+### §5c-b. Mất sóng: xem lại gì, tính lại mất gì (2026-11-08)
+Xem lại bản đã lưu luôn được (localStorage). Tính lại khi mất sóng chỉ dùng được lớp còn trong máy — bảng ở §3 Phase 1e; màn hình nói lớp nào sẽ mất trước khi bà con tin bản tính lại.
 
 ## 6. Lộ trình build đề xuất (thứ tự theo mở-khóa/chi-phí)
 

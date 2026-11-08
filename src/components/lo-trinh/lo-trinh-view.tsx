@@ -21,6 +21,7 @@ import { fetchFleetNen, type NenFleet } from "@/lib/fleet-density";
 import { deXuatLoTrinh, GIO_XUAT_BEN, NGHE_DEN } from "@/lib/lo-trinh/plan";
 import {
   baoTuTinBao,
+  docMonTau,
   docSo,
   docTauTinh,
   BAI_NGHE,
@@ -41,6 +42,10 @@ import {
   xoaLoTrinh,
 } from "@/lib/lo-trinh/luu";
 import type { DiemCoTen, LoTrinhDaLuu, Nghe } from "@/lib/lo-trinh/types";
+import { dungCuaTrieu } from "@/lib/lo-trinh/trieu-cang";
+import { bangTrongSo, bienDenCuaLuoi, cauMatKhiTinhLai, soVoiLucTinh, thamSoTrongSo, type DongTrongSo } from "@/lib/lo-trinh/offline-trong-so";
+import { fetchTideStations, type TideStation } from "@/lib/tides";
+import { fetchFairwayDepths, type FairwayDepth } from "@/lib/fairway-depth";
 import { PremiumLock } from "@/components/premium-gate";
 import { ChipRow } from "@/components/ui/chip-row";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
@@ -68,6 +73,10 @@ type Ket = {
   savedId: string | null;
   /** câu tuổi dữ liệu, soạn lúc tính / lúc mở (không gọi giờ máy trong lúc vẽ) */
   tuoiCa: string;
+  /** lớp dữ liệu có/thiếu lúc tính (cất cùng bản lưu); vắng = bản lưu cũ */
+  trongSo?: DongTrongSo[];
+  /** mở bản lưu: câu "tính lại bây giờ sẽ mất …" (soạn lúc mở); null = tính lại không mất gì */
+  cauTinhLai?: string | null;
 };
 
 const NGHE: { id: Nghe; label: string }[] = [
@@ -126,6 +135,9 @@ function LoTrinhMo() {
   const [luoiBien, setLuoiBien] = useState<ForecastGrid | null>(null);
   /** bãi tàu CÙNG NGHỀ 16 ngày (lớp mật độ tàu, cất offline — fetchFleetNen tự lùi bản đã cất); null = chưa có */
   const [baiNen, setBaiNen] = useState<NenFleet | null>(null);
+  /** trạm con nước (ghim offline, tính trong máy) + đoạn luồng cửa — null = chưa tải được */
+  const [tram, setTram] = useState<TideStation[] | null>(null);
+  const [luongDoan, setLuongDoan] = useState<FairwayDepth[] | null>(null);
 
   useEffect(() => {
     let huy = false;
@@ -207,6 +219,20 @@ function LoTrinhMo() {
   const [quen, setQuen] = useState<string[]>([]);
   const [daBam, setDaBam] = useState(false); // hiện lỗi ô sau lần bấm Tính đầu
 
+  // con nước + độ sâu luồng: file tĩnh cùng origin (service worker giữ), một lần mỗi lần mở màn; hỏng ⇒ null, thuật toán nói ra
+  useEffect(() => {
+    let huy = false;
+    fetchTideStations()
+      .then((t) => !huy && setTram(t))
+      .catch(() => {});
+    fetchFairwayDepths()
+      .then((d) => !huy && setLuongDoan(d))
+      .catch(() => {});
+    return () => {
+      huy = true;
+    };
+  }, []);
+
   // bãi theo NGHỀ đang chọn: đổi nghề thì tải nền của nghề đó (trần 30 s, mất sóng/không gói ⇒ bản đã cất hoặc null
   // — thuật toán tự ghi chú "chưa có bãi"). Một request mỗi lần đổi nghề, không chạy lúc mở app.
   useEffect(() => {
@@ -246,6 +272,9 @@ function LoTrinhMo() {
     return p ? { lat: p.lat, lon: p.lon, ten: `Cảng ${p.name}` } : null;
   }, [cangId, cangNha]);
 
+  // cửa triều của cảng đang chọn (mớn đọc từ hồ sơ tàu — chưa khai ⇒ chỉ báo nước lớn)
+  const cuaTrieu = useMemo(() => (cang ? dungCuaTrieu(cang, tram, luongDoan, docMonTau()) : null), [cang, tram, luongDoan]);
+
   const soNgay = /^\d{1,2}$/.test(soNgayRaw.trim()) ? Number(soNgayRaw.trim()) : NaN;
   const loiSoNgay =
     Number.isFinite(soNgay) && soNgay >= 1 && soNgay <= TRAN_NGAY_KHAI ? "" : `Nhập số ngày từ 1 đến ${TRAN_NGAY_KHAI}.`;
@@ -278,6 +307,23 @@ function LoTrinhMo() {
   const chuaCoCa = !fc && fcXong;
   const dangTaiCa = !fc && !fcXong;
   const coTheTinh = !dangTinh && !dangTaiCa && (fc != null || diemQuen.length > 0);
+
+  /** Bảng lớp dữ liệu ĐANG CÓ trong máy cho một lần tính (offline-trong-so.ts) — chụp lúc tính, so lại khi mở bản lưu. */
+  const trongSoBayGio = (now: number, c: DiemCoTen, ngay: string, soN: number, ng: Nghe, baoKiem: boolean): DongTrongSo[] => {
+    const cua = dungCuaTrieu(c, tram, luongDoan, docMonTau());
+    return bangTrongSo({
+      now,
+      ngayDi: ngay,
+      soNgay: Math.min(16, soN),
+      caLuc: fcAt ?? null,
+      coMuaVu: clim != null,
+      bienDen: bienDenCuaLuoi(luoiBien),
+      baoKiemDuoc: baoKiem,
+      baiTu: baiNen?.nghe === BAI_NGHE[ng] ? baiNen.tu : null,
+      thamSo: thamSoTrongSo(ng),
+      trieu: tram == null ? null : { coTram: cua != null, rangBuoc: !!cua?.rangBuoc },
+    });
+  };
 
   const bamTinh = () => {
     setDaBam(true);
@@ -314,6 +360,7 @@ function LoTrinhMo() {
             bao,
             bienTheoNgay: dungBienTheoNgay(luoiBien, ngayDi),
             baiTheoNgay: baiNen?.nghe === BAI_NGHE[nghe] ? dungBaiTheoNgay(baiNen, ngayDi) : null,
+            cuaTrieu,
           },
           new Date(now),
         );
@@ -335,6 +382,7 @@ function LoTrinhMo() {
         taoLuc,
         savedId: null,
         tuoiCa: cauTuoiLoTrinh({ taoLuc, tuoiDuLieu }, now),
+        trongSo: trongSoBayGio(now, cang, ngayDi, soNgay, nghe, bao != null),
       });
       setDangTinh(false);
       window.setTimeout(() => ketRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -351,6 +399,7 @@ function LoTrinhMo() {
       tuoiDuLieu: ketQua.tuoiDuLieu,
       input: ketQua.input,
       ketQua: ketQua.kq,
+      ...(ketQua.trongSo ? { trongSo: ketQua.trongSo } : {}),
     };
     const next = themLoTrinh(daLuu, rec);
     if (!ghiLoTrinhDaLuu(next)) {
@@ -386,6 +435,15 @@ function LoTrinhMo() {
       // chạy trong onClick (không phải lúc vẽ) — luật purity không phân biệt được hàm handler
       // eslint-disable-next-line react-hooks/purity
       tuoiCa: cauTuoiLoTrinh(r, Date.now()),
+      ...(r.trongSo ? { trongSo: r.trongSo } : {}),
+      // so với dữ liệu ĐANG có trong máy: tính lại bây giờ sẽ mất lớp nào (mất sóng thì nên xem bản này)
+      cauTinhLai: cauMatKhiTinhLai(
+        soVoiLucTinh(
+          r.trongSo,
+          // eslint-disable-next-line react-hooks/purity
+          trongSoBayGio(Date.now(), r.input.cang, r.input.ngayDi, r.input.soNgay, r.input.nghe, baoTuTinBao(storm, Date.now()) != null),
+        ),
+      ),
     });
     window.setTimeout(() => ketRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
@@ -624,6 +682,21 @@ function LoTrinhMo() {
             luuLoi={luuLoi}
             onXoa={ketQua.savedId ? () => xoa(ketQua.savedId!) : undefined}
           />
+        )}
+        {ketQua?.cauTinhLai && <p className="mt-2 text-[0.8125rem] leading-snug text-warn">{ketQua.cauTinhLai}</p>}
+        {ketQua?.trongSo && ketQua.trongSo.length > 0 && (
+          <details className="mt-2 text-[0.8125rem] leading-snug">
+            <summary className="cursor-pointer text-muted">
+              Dữ liệu dùng lúc tính · {ketQua.trongSo.filter((r) => r.trangThai === "du").length}/{ketQua.trongSo.length} đủ
+            </summary>
+            <ul className="mt-1 space-y-0.5">
+              {ketQua.trongSo.map((r) => (
+                <li key={r.ma} className={r.trangThai === "du" ? "text-muted" : "text-warn"}>
+                  {r.cau}
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
     </div>

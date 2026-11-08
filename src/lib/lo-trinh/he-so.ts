@@ -26,6 +26,10 @@ export interface LoTrinhParams {
   chang?: Partial<Record<Nghe, { aGio?: number; vKn?: number; p80HeSo?: number }>>;
   /** giờ máy chạy (≥ 1,5 kn, ngoài pha chạy) mỗi NGÀY ở bãi — trung vị đội tàu cùng nghề (research §10.5) */
   gioMayBai?: Partial<Record<Nghe, number>>;
+  /** hệ số loại đáy theo nghề (day-nghe.ts) — độ ưa đo từ vết ÷ nước sâu, kẹp ≤ 1 */
+  dayNghe?: Partial<Record<Nghe, Partial<Record<"ran" | "n2" | "n4" | "n12" | "sau" | "gan", number>>>>;
+  /** "i,j" ô cá 0,25° → tỉ phần [ran, n2, n4, n12, sau, gan]; vắng = toàn nước sâu */
+  dayO?: Record<string, number[]>;
 }
 
 /** Giờ máy chạy mỗi ngày ở bãi của nghề (dầu lúc đánh). null = chưa nạp tham số ⇒ chỗ gọi nói "chưa tính". */

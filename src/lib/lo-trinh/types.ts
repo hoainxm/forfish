@@ -2,6 +2,8 @@
 // và màn hình `/lo-trinh`). Oracle hành vi: docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md
 // §3 (pipeline B0–B3, B5), §4 (form + output), §5 (ràng buộc trung thực), §5c (lưu + so vị trí).
 // MVP = Phase 1 của §6 (+ GRASP, khung đánh theo nghề 2026-11-08); chưa re-plan giữa chuyến.
+import type { CuaTrieu } from "./trieu-cang";
+import type { DongTrongSo } from "./offline-trong-so";
 
 /** Nghề — §4. MVP tune cho câu cá ngừ; nghề khác dùng mẫu tham số tạm. */
 /** Cào (lưới kéo đơn) và cào đôi (kéo đôi) thêm 2026-11-08 — sổ đăng kiểm gộp chung "kéo", tách bằng vết VMS
@@ -81,6 +83,11 @@ export interface LoTrinhInput {
    * ⇒ chưa có bãi ⇒ hệ số 1 + thuật toán GHI CHÚ (he-so.ts `heSoBai`).
    */
   baiTheoNgay?: ((lat: number, lon: number, d: number) => number | null) | null;
+  /**
+   * CON NƯỚC Ở CẢNG (2026-11-08, `trieu-cang.ts dungCuaTrieu`): giờ qua cửa lạch + giờ nước lớn. `rangBuoc` ⇒ giờ đi/về
+   * dời tới lúc đủ nước; không ràng buộc ⇒ chỉ báo nước lớn. null/vắng ⇒ thuật toán ghi chú "chưa tính con nước".
+   */
+  cuaTrieu?: CuaTrieu | null;
 }
 
 /** Các yếu tố của MỘT ngày đánh ở một vùng — đưa ra cho bà con thấy máy chấm bằng gì (he-so.ts). */
@@ -163,6 +170,8 @@ export interface LoTrinhDaLuu {
   taoLuc: string; // ISO
   /** tuổi dữ liệu lúc tính — mở lại phải nói thật "tính từ bản đồ cá N ngày trước" */
   tuoiDuLieu: { ca: string | null; bao: string | null };
-  input: Omit<LoTrinhInput, "caTheoNgay" | "bao" | "bienTheoNgay" | "baiTheoNgay">;
+  input: Omit<LoTrinhInput, "caTheoNgay" | "bao" | "bienTheoNgay" | "baiTheoNgay" | "cuaTrieu">;
   ketQua: LoTrinhKetQua;
+  /** lớp dữ liệu có/thiếu LÚC TÍNH (offline-trong-so.ts) — mở lại khi mất sóng so với bây giờ; vắng = lưu trước 2026-11-08 */
+  trongSo?: DongTrongSo[];
 }

@@ -22,6 +22,7 @@ export const SOURCES = {
   fishBlend: "src/data/fish-blend-weights.json",
   forecastSkill: "src/data/forecast-skill.json",
   loTrinh: "src/data/lo-trinh-params.json",
+  dayO: "src/data/day-o025.json",
 };
 
 const so = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -54,7 +55,7 @@ export function buildModelParams(root = process.cwd()) {
         n: so(r.n),
       })),
     },
-    loTrinh: { hieuUngRam: lt.hieuUngRam, loaiTheoNghe: lt.loaiTheoNghe, chang: lt.chang, gioMayBai: lt.gioMayBai },
+    loTrinh: { hieuUngRam: lt.hieuUngRam, loaiTheoNghe: lt.loaiTheoNghe, chang: lt.chang, gioMayBai: lt.gioMayBai, dayNghe: lt.dayNghe, dayO: read(SOURCES.dayO).o },
   };
 }
 
