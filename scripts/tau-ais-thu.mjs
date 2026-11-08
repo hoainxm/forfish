@@ -13,7 +13,7 @@
 // Env (~/.config/forlife/tau-ais.env, hoặc env process): TAU_AIS_KEY · TAU_AIS_API_BASE (https) ·
 // TAU_AIS_PROFILE (mặc định ~/.local/forlife/tau-ais/profile) · MT_EMAIL + MT_PASSWORD (TUỲ CHỌN:
 // có thì đăng nhập một lần, thiếu thì đi khách — khách vẫn thấy đủ tàu ở z:8) · TAU_AIS_STATE_DIR ·
-// TAU_AIS_LUU_DIR (kho vĩnh viễn, mặc định <state>/luu: mỗi giờ VN một bản, tệp ngày YYYY-MM/YYYY-MM-DD.ndjson.gz;
+// TAU_AIS_LUU_DIR (kho vĩnh viễn, mặc định <state>/luu: MỌI lượt ~10 phút một bản (từ 08/11; trước đó mỗi giờ một bản), tệp ngày YYYY-MM/YYYY-MM-DD.ndjson.gz;
 // kho chi tiết tàu MMSI/IMO… ở <luu>/chi-tiet/tau.ndjson — xem phần "CHI TIẾT TÀU" dưới).
 // Cờ: --thu (không gửi, in số tàu, tra chi tiết 5 tàu) · --anh (chụp màn hình vào state dir để soi khi hỏng).
 
@@ -81,7 +81,7 @@ function cauHinh(env = process.env) {
     base: get("TAU_AIS_API_BASE").replace(/\/+$/, ""),
     profile: get("TAU_AIS_PROFILE") || path.join(stateDir, "profile"),
     stateDir,
-    // kho vĩnh viễn mỗi giờ một bản (khoaGioLuu) — đặt TAU_AIS_LUU_DIR nếu muốn để ổ khác
+    // kho vĩnh viễn mỗi lượt một bản (tệp ngày theo khoaGioLuu) — đặt TAU_AIS_LUU_DIR nếu muốn để ổ khác
     luuDir: get("TAU_AIS_LUU_DIR") || path.join(stateDir, "luu"),
     email: get("MT_EMAIL"),
     password: get("MT_PASSWORD"),
@@ -257,8 +257,10 @@ try {
       BẢN 2 (2026-10-30, "lưu đủ"): dòng { v: 2, luc, soTau, tho[] } — `tho` = hàng NGUYÊN của nguồn (mọi trường, kể cả
       tàu vệ tinh và tin cũ hơn 4 giờ) + MMSI/IMO/CALLSIGN đã ghép; bản gọn suy lại được bằng chuanHoaHang. Dòng không có
       `v` là bản 1 (29–30/10): { luc, soTau, tau[] } đã gọn. */
+  /*  BẢN 3 (2026-11-08, anh Long: "lưu lại thì mới so khớp đúng theo mốc của vms đc chứ, lưu luôn đi"): lưu MỌI lượt
+      (~10 phút), không chỉ bản đầu mỗi giờ — so vị trí AIS ↔ VMS theo đúng mốc điểm VMS. ~6 MB nén/giờ ⇒ ~55 GB/năm. */
   const kg = khoaGioLuu(goi.luc);
-  if (!thu && kg && so.gioLuu !== kg.gio) {
+  if (!thu && kg) {
     try {
       const tep = path.join(c.luuDir, kg.tep);
       mkdirSync(path.dirname(tep), { recursive: true });
