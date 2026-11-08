@@ -106,7 +106,7 @@ describe("deXuatLoTrinh — tuyến cơ bản", () => {
     expect(kq.haiLy).toBeGreaterThan(0);
     expect(kq.litDau).toBeGreaterThan(0);
     expect(kq.vung.map((v) => v.ten)).toEqual(kq.vung.map((_, i) => `Vùng ${i + 1}`));
-    expect(kq.ghiChu.join(" ")).toMatch(/chưa tính dầu neo, chong đèn/);
+    expect(kq.ghiChu.join(" ")).toMatch(/Lít dầu chỉ tính giờ chạy máy/);
   });
 
   it("không có mẫu nào của tuyến nằm ngoài vùng biển VN (trừ sát cảng/điểm)", () => {

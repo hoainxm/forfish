@@ -68,6 +68,12 @@ export interface LoTrinhInput {
    * toán GHI CHÚ "chưa né ngày biển động" (lo-trinh/he-so.ts).
    */
   bienTheoNgay?: ((lat: number, lon: number, d: number) => { songM: number | null; gioKmh: number | null } | null) | null;
+  /**
+   * BÃI CỦA NGHỀ (2026-11-08): mức tàu CÙNG NGHỀ đánh ở chỗ (lat, lon) ngày thứ d, 0–1 (1 = đông nhất quanh đó, 0 =
+   * không ai đánh nghề này ở đó). Màn hình dựng từ lớp mật độ tàu theo nghề (`dungBaiTheoNgay`). Hàm vắng/trả null
+   * ⇒ chưa có bãi ⇒ hệ số 1 + thuật toán GHI CHÚ (he-so.ts `heSoBai`).
+   */
+  baiTheoNgay?: ((lat: number, lon: number, d: number) => number | null) | null;
 }
 
 /** Các yếu tố của MỘT ngày đánh ở một vùng — đưa ra cho bà con thấy máy chấm bằng gì (he-so.ts). */
@@ -82,7 +88,9 @@ export interface YeuToNgay {
   songM: number | null;
   /** gió mạnh nhất ngày (km/h), null = chưa có dự báo */
   gioKmh: number | null;
-  /** hệ số tổng trăng × biển (0–1, 2 số lẻ) — điểm ngày = cá × hệ số */
+  /** mức tàu cùng nghề đánh ở chỗ đó 0–100 %; null = chưa có bãi; vắng = bản lưu trước 2026-11-08 */
+  bai?: number | null;
+  /** hệ số tổng trăng × biển × bãi (0–1, 2 số lẻ) — điểm ngày = cá × hệ số */
   heSo: number;
 }
 
@@ -147,6 +155,6 @@ export interface LoTrinhDaLuu {
   taoLuc: string; // ISO
   /** tuổi dữ liệu lúc tính — mở lại phải nói thật "tính từ bản đồ cá N ngày trước" */
   tuoiDuLieu: { ca: string | null; bao: string | null };
-  input: Omit<LoTrinhInput, "caTheoNgay" | "bao" | "bienTheoNgay">;
+  input: Omit<LoTrinhInput, "caTheoNgay" | "bao" | "bienTheoNgay" | "baiTheoNgay">;
   ketQua: LoTrinhKetQua;
 }

@@ -1,8 +1,10 @@
 // Lộ trình theo NGHỀ + hệ số TRĂNG × SÓNG GIÓ (2026-11-08) — lo-trinh/he-so.ts, dau-vao.ts, plan.ts.
 import { describe, it, expect, beforeEach } from "vitest";
 import { SPECIES_PROFILES } from "@/lib/fish-predict";
-import { CHANG_DE_DAT, doRoiTrang, gioChang, heSoBien, heSoTrang, hieuUngRam, moHinhChang, DIEM_BO_NGAY } from "@/lib/lo-trinh/he-so";
-import { diemOTheoNghe, dungCaTheoNgay } from "@/lib/lo-trinh/dau-vao";
+import { CHANG_DE_DAT, doRoiTrang, gioChang, gioMayBai, heSoBai, heSoBien, heSoTrang, hieuUngRam, moHinhChang, DIEM_BO_NGAY, SAN_BAI } from "@/lib/lo-trinh/he-so";
+import { BAI_NGHE, diemOTheoNghe, dungBaiTheoNgay, dungCaTheoNgay } from "@/lib/lo-trinh/dau-vao";
+import { GIO_XUAT_BEN, KHUNG_DANH } from "@/lib/lo-trinh/plan";
+import type { NenFleet } from "@/lib/fleet-density";
 import { setModelParams } from "@/lib/model-params";
 import { buildModelParams } from "../../../scripts/build-model-params.mjs";
 import loTrinhParams from "@/data/lo-trinh-params.json";
@@ -206,3 +208,105 @@ describe("giờ chặng theo số đo đội tàu", () => {
     expect(kq.ghiChu.join(" ")).toMatch(/tốc độ thật của tàu cùng nghề \(5,3 hải lý\/giờ\)/);
   });
 });
+
+/*  MỖI NGHỀ MỘT CÁCH TÍNH (2026-11-08, anh Long: "mỗi nghề có cách tính riêng, dẫn tới bãi đánh riêng, lịch riêng").
+    research vet-tau §10.5 + 09 §3 Phase 1d. */
+describe("hồ sơ nghề — lịch, dầu, bãi", () => {
+  const vungGan = [
+    { lat: 13.2, lon: 109.75, s: 90 },
+    { lat: 13.25, lon: 109.75, s: 85 },
+  ];
+  const vao = (nghe: Nghe, them: Partial<LoTrinhInput> = {}): LoTrinhInput =>
+    ({
+      nghe,
+      cang: { lat: QUY_NHON.lat, lon: QUY_NHON.lon, ten: QUY_NHON.ten },
+      ngayDi: "2026-11-08",
+      soNgay: 5,
+      tau: { speedKn: 6, litersPerHour: 20, fuelTankL: null },
+      diemQuen: [],
+      caTheoNgay: () => vungGan,
+      bao: [],
+      ...them,
+    }) as LoTrinhInput;
+
+  it("khung đánh theo nghề: đêm/ngày/cả ngày; xuất bến 6 giờ", () => {
+    expect(GIO_XUAT_BEN).toBe(6);
+    expect(KHUNG_DANH["keo-doi"]).toMatchObject({ batDau: 6, dai: 11 });
+    expect(KHUNG_DANH["luoi-keo"].dai).toBe(24);
+    for (const n of ["chup-muc", "luoi-vay"] as Nghe[]) expect(KHUNG_DANH[n].batDau).toBeGreaterThanOrEqual(17);
+  });
+
+  it("tới bãi ~15 giờ 30 (đi 6 giờ, chạy ~9,5 giờ): chụp mực chờ tới 18 giờ đánh đêm; cào đôi quá nửa khung ⇒ chờ 6 giờ sáng; cào đơn kéo luôn", () => {
+    const chup = deXuatLoTrinh(vao("chup-muc"), NOW);
+    expect(chup.lich[0].cau).toMatch(/neo chờ tới 18 giờ/);
+    expect(chup.lich.find((d) => d.loai === "danh")!).toMatchObject({ tuNgay: 1 });
+    expect(chup.lich.find((d) => d.loai === "danh")!.cau).toMatch(/đánh đêm/);
+    const doi = deXuatLoTrinh(vao("keo-doi"), NOW);
+    expect(doi.lich[0].cau).toMatch(/neo chờ tới 6 giờ/);
+    expect(doi.lich.find((d) => d.loai === "danh")!).toMatchObject({ tuNgay: 2 });
+    expect(doi.lich.find((d) => d.loai === "danh")!.cau).toMatch(/kéo ban ngày 6–17 giờ/);
+    const don = deXuatLoTrinh(vao("luoi-keo"), NOW);
+    expect(don.lich[0].cau).not.toMatch(/neo chờ/);
+    expect(don.lich.find((d) => d.loai === "danh")!.cau).toMatch(/kéo cả ngày đêm/);
+    // chuyến không quá số ngày khai
+    for (const kq of [chup, doi, don]) expect(kq.lich.at(-1)!.denNgay).toBeLessThanOrEqual(5);
+  });
+
+  it("dầu lúc đánh: cào chạy máy ~13 giờ/ngày ở bãi ⇒ cùng tuyến tốn dầu hơn hẳn câu", () => {
+    expect(gioMayBai("keo-doi")).toBe(12.75);
+    expect(gioMayBai("luoi-keo")).toBe(13.56);
+    expect(gioMayBai("cau-ngu")).toBe(1.75);
+    const cau = deXuatLoTrinh(vao("cau-ngu"), NOW);
+    const keo = deXuatLoTrinh(vao("luoi-keo"), NOW);
+    expect(keo.litDau).toBeGreaterThan(cau.litDau * 2);
+    expect(keo.ghiChu.join(" ")).toMatch(/giờ máy lúc đánh \(tàu lưới cào chạy máy khoảng 13,6 giờ/);
+    expect(cau.ghiChu.join(" ")).toMatch(/chưa tính dầu máy phát chong đèn/);
+    setModelParams(null);
+    expect(gioMayBai("keo-doi")).toBeNull();
+    expect(deXuatLoTrinh(vao("keo-doi"), NOW).ghiChu.join(" ")).toMatch(/chưa có số giờ máy lúc đánh/);
+  });
+
+  it("hệ số bãi: chỗ không ai đánh nghề này còn 25 %, đông nhất giữ nguyên, chưa có bãi ⇒ 1", () => {
+    expect(SAN_BAI).toBe(0.25);
+    expect(heSoBai(0)).toBe(0.25);
+    expect(heSoBai(1)).toBe(1);
+    expect(heSoBai(0.5)).toBeCloseTo(0.625, 6);
+    expect(heSoBai(null)).toBe(1);
+    expect(heSoBai(Number.NaN)).toBe(1);
+  });
+
+  it("bãi kéo lộ trình về chỗ tàu cùng nghề hay đánh, dù điểm cá ở đó thấp hơn một chút", () => {
+    const hai = [
+      { lat: 12.0, lon: 109.6, s: 90 }, // cá cao nhưng không tàu cào nào đánh
+      { lat: 13.2, lon: 109.75, s: 80 }, // bãi cào
+    ];
+    const bai = (lat: number) => (lat > 13 ? 1 : 0);
+    const co = deXuatLoTrinh(vao("keo-doi", { caTheoNgay: () => hai, baiTheoNgay: (lat) => bai(lat), soNgay: 3 }), NOW);
+    expect(co.vung[0].lat).toBeGreaterThan(13);
+    expect(co.vung[0].yeuTo?.[0].bai).toBe(100);
+    expect(co.ghiChu.join(" ")).toMatch(/× bãi/);
+    const khong = deXuatLoTrinh(vao("keo-doi", { caTheoNgay: () => hai, soNgay: 3 }), NOW);
+    expect(khong.ghiChu.join(" ")).toMatch(/Chưa có bãi tàu cào đôi/);
+  });
+
+  it("dungBaiTheoNgay: điểm nền ÷ 100 theo ô + ngày; ô không có ⇒ 0; ngày ngoài bộ ⇒ null; mỗi nghề có bãi riêng", () => {
+    const nen = {
+      ok: true,
+      tu: "2026-11-08",
+      nghe: "keo-doi",
+      step: 0.25,
+      ngay: [{ dateIso: "2026-11-09", moonBin: "0", baseDays: 30, thinBase: false, ref: 1, o: [[13.275, 109.775, 5, 5, 80, 3, null]] }],
+      loai: {},
+      generatedAt: "",
+    } as unknown as NenFleet;
+    const f = dungBaiTheoNgay(nen, "2026-11-08")!;
+    expect(f(13.3, 109.8, 1)).toBeCloseTo(0.8, 6);
+    expect(f(10, 108, 1)).toBe(0);
+    expect(f(13.3, 109.8, 5)).toBeNull();
+    expect(dungBaiTheoNgay(null, "2026-11-08")).toBeNull();
+    expect(new Set(Object.values(BAI_NGHE)).size).toBe(6);
+    expect(BAI_NGHE["keo-doi"]).toBe("keo-doi");
+    expect(BAI_NGHE["luoi-keo"]).toBe("keo-don");
+  });
+});
+

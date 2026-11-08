@@ -185,6 +185,21 @@ Bước tiếp (phiên riêng 08/11): tách pha hoạt động từ vết tàu 1
 
 **Chưa làm (chờ chốt riêng, báo cáo §7)**: lịch ô nửa ngày ngày/đêm có trọng số khung giờ nghề · dầu theo pha + dầu chong đèn · GRASP 20 vòng · cổng bão cửa sổ max(5 ngày, giờ về P80). Nghề kéo ĐÃ thêm 2026-11-08 thành **cào** (`luoi-keo`) + **cào đôi** (`keo-doi`) — research §10; chặng vùng→vùng của cào là kéo lưới dọc đường nên chỉ fit chặng có đầu là cảng; hiệu ứng trăng cào chưa đo (= 1); dầu tính cho một tàu. Test: `lo-trinh-he-so.test.ts` (khối "giờ chặng theo số đo đội tàu"), `lo-trinh-plan.test.ts`.
 
+
+#### §3 Phase 1d — MỖI NGHỀ MỘT CÁCH TÍNH: LỊCH · DẦU · BÃI (2026-11-08, anh Long: "mỗi nghề có cách tính riêng, dẫn tới bãi đánh riêng, lịch riêng" → chọn "làm cả 3"; nguồn `docs/research/vet-tau-pha-nghe-2026-11.md` §10.5)
+
+| Phần | Trước | Nay |
+|---|---|---|
+| Ngày đánh | khối 24 giờ bắt đầu lúc tới chỗ, mọi nghề như nhau | **khung đánh của nghề** `plan.ts KHUNG_DANH`: câu ngừ 17 giờ ×13 (thả chiều tối, thu sáng) · vây 18 ×11 (đêm) · rê 16 ×14 (thả chiều, thu sáng) · chụp 18 ×11 (đêm) · **cào đôi 6 ×11 (kéo ban ngày — vết VMS 78 % giờ kéo 06–17)** · **cào 0 ×24 (kéo cả ngày đêm)**. Tới chỗ khi khung đã qua chưa quá nửa ⇒ đánh luôn khung đó; quá nửa / ngoài khung ⇒ **neo chờ** khung kế (lịch nói "neo chờ tới X giờ"). Xong khung chạy tiếp ngay — giờ ngoài khung dùng để chạy, không mất ngày. Khung xếp vào ngày chứa điểm giữa khung |
+| Giờ xuất bến | ngầm 0 giờ | `GIO_XUAT_BEN` = **6 giờ** (giả định — form chưa hỏi giờ; nợ trong code). Hạn về = hết ngày thứ N tính theo giờ VN |
+| Chia ngày | `soNgayDanh` tính trước rồi chia | tham lam từng khung: mỗi chỗ ≥ 1 khung, thêm khung cho chỗ lời nhất **chừng nào mô phỏng P80 (gồm giờ chờ khung) còn kịp về** |
+| Dầu | chỉ giờ chạy | **giờ chạy + giờ máy ở bãi × số khung** (`gioMayBai` model-params, đo VMS: cào 13,6 · cào đôi 12,75 · rê 4,0 · vây 2,8 · câu 1,75 · chụp 1,65 giờ/ngày), cùng L/giờ. Câu/vây/chụp ghi thêm "chưa tính dầu máy phát chong đèn". Thiếu tham số ⇒ chỉ giờ chạy + nói ra |
+| Bãi | điểm cá của loài theo nghề (đã trộn lưới VMS theo NHÓM nghề bắt loài đó) | × **hệ số bãi** `he-so.ts heSoBai` = 0,25 + 0,75·x, x = điểm nền 0–1 của **lớp mật độ tàu CÙNG NGHỀ** ngày đó (`/api/fleet-density?nghe=` — `dau-vao.ts BAI_NGHE`: câu ngừ→câu, vây, rê, chụp, cào→`keo-don`, cào đôi→`keo-doi`). Chỗ không ai đánh nghề đó còn 25 % (`SAN_BAI`, số chọn — nợ). Yếu tố ngày thêm "tàu cùng nghề đông/vừa/thưa/không có" |
+| Lớp mật độ tàu | chỉ xem trước nội bộ (chip lớp bản đồ) | lộ trình **dùng ngầm** cho mọi tài khoản gói (anh Long chốt 08/11) — route đã gác tài khoản + gói; lớp bản đồ vẫn chỉ xem trước nội bộ. Cào đôi/đơn: `scripts/add-density-keo-tach.mjs` thêm hai khoá nghề vào lát tháng/mùa/trăng (lát cũ giữ nguyên) |
+
+**Offline**: `/lo-trinh` thêm MỘT request khi đổi nghề (`fetchFleetNen`, trần 30 s, cất IndexedDB theo nghề, mất sóng ⇒ bản đã cất, không có ⇒ không bãi + ghi chú). Không chạy lúc mở app, không đụng sw.js.
+Test: `lo-trinh-he-so.test.ts` khối "hồ sơ nghề — lịch, dầu, bãi"; `fleet-density.test.ts` (cào đôi/đơn trong file thật).
+
 - **Thời tiết 2 tầng** (chuẩn voyage-optimization): per-leg time-dependent làm mặc định
   (bảng tra cụm↔cụm × mốc 3h, precompute ~100ms); chặng nào penalty sóng vượt ngưỡng mới chạy
   Dijkstra né sóng đầy đủ (chính là `planRoute` hiện có) CHỈ cho chặng đó. Không isochrone

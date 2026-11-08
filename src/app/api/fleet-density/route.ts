@@ -4,14 +4,14 @@
 // mùa × trăng (chấm theo vùng) cho 16 ngày từ `tu`; máy nhận số, cất cả bộ (offline đủ chuyến), tự nhân gió/bão.
 // Gác ở middleware (data-route-rules: tài khoản + gói, như lớp bản đồ cho bán). `tu` sai/xa hôm nay quá 2 ngày ⇒
 // dùng hôm nay (máy giờ sai không làm lệch cả bộ). Nguồn/đường file hỏng ⇒ 503 mã chung — máy giữ bản đã cất.
-import { DENSITY_GEARS, type DensityGear } from "@/lib/fleet-density";
+import { DENSITY_GEAR_IDS, type DensityGear } from "@/lib/fleet-density";
 import { docFleetDensity, nenFleet } from "@/lib/fleet-density-server";
 import { daysBetweenISO, isoDateVN } from "@/lib/day-labels";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const NGHE = new Set<string>(DENSITY_GEARS.map((g) => g.id));
+const NGHE = new Set<string>(DENSITY_GEAR_IDS);
 
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams;

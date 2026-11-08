@@ -17,11 +17,14 @@ import { banDoCaDaLuu, fetchFishForecast, savedFishMark, type FishForecast } fro
 import { fetchClimatology, type Climatology } from "@/lib/fish-blend";
 import { fetchStormCheck, type StormCheck } from "@/lib/storms";
 import { fetchForecastGrid, loadLongestSavedGrid, type ForecastGrid } from "@/lib/forecast-grid";
+import { fetchFleetNen, type NenFleet } from "@/lib/fleet-density";
 import { deXuatLoTrinh } from "@/lib/lo-trinh/plan";
 import {
   baoTuTinBao,
   docSo,
   docTauTinh,
+  BAI_NGHE,
+  dungBaiTheoNgay,
   dungBienTheoNgay,
   dungCaTheoNgay,
   ghiTauTinh,
@@ -121,6 +124,8 @@ function LoTrinhMo() {
   const [baoChuaKiem, setBaoChuaKiem] = useState(false);
   /** lưới gió sóng đủ vùng 16 ngày — hệ số biển của lộ trình (he-so.ts); null = chưa có, thuật toán tự nói ra */
   const [luoiBien, setLuoiBien] = useState<ForecastGrid | null>(null);
+  /** bãi tàu CÙNG NGHỀ 16 ngày (lớp mật độ tàu, cất offline — fetchFleetNen tự lùi bản đã cất); null = chưa có */
+  const [baiNen, setBaiNen] = useState<NenFleet | null>(null);
 
   useEffect(() => {
     let huy = false;
@@ -199,6 +204,19 @@ function LoTrinhMo() {
   const [ket, setKet] = useState("");
   const [quen, setQuen] = useState<string[]>([]);
   const [daBam, setDaBam] = useState(false); // hiện lỗi ô sau lần bấm Tính đầu
+
+  // bãi theo NGHỀ đang chọn: đổi nghề thì tải nền của nghề đó (trần 30 s, mất sóng/không gói ⇒ bản đã cất hoặc null
+  // — thuật toán tự ghi chú "chưa có bãi"). Một request mỗi lần đổi nghề, không chạy lúc mở app.
+  useEffect(() => {
+    let huy = false;
+    setBaiNen(null);
+    fetchFleetNen(BAI_NGHE[nghe], todayIso)
+      .then((n) => !huy && setBaiNen(n))
+      .catch(() => {});
+    return () => {
+      huy = true;
+    };
+  }, [nghe, todayIso]);
 
   useEffect(() => {
     setDaLuu(docLoTrinhDaLuu());
@@ -287,6 +305,7 @@ function LoTrinhMo() {
             caTheoNgay: dungCaTheoNgay(fc, clim, ngayDi, todayIso, nghe),
             bao,
             bienTheoNgay: dungBienTheoNgay(luoiBien, ngayDi),
+            baiTheoNgay: baiNen?.nghe === BAI_NGHE[nghe] ? dungBaiTheoNgay(baiNen, ngayDi) : null,
           },
           new Date(now),
         );

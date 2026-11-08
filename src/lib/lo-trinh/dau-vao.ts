@@ -18,6 +18,7 @@ import { DEFAULT_BOAT, positiveOrNull } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
 import { seaPointFromGrid } from "@/lib/marine-weather";
 import type { ForecastGrid } from "@/lib/forecast-grid";
+import type { DensityGear, NenFleet } from "@/lib/fleet-density";
 import { saveUserJson } from "@/lib/user-store";
 import type { BaoRutGon, Nghe, OCa, TauTinh } from "./types";
 import { getModelParams, type ModelParams } from "@/lib/model-params";
@@ -134,6 +135,40 @@ export function dungBienTheoNgay(
     }
     const v = ngay?.get(addDaysIso(ngayDi, Math.max(0, Math.round(d))));
     return v && (v.songM != null || v.gioKmh != null) ? v : null;
+  };
+}
+
+/** Nghề lộ trình → nghề của lớp mật độ tàu (bãi). Cào đơn/đôi dùng bãi tách riêng (scripts/add-density-keo-tach.mjs). */
+export const BAI_NGHE: Record<Nghe, DensityGear> = {
+  "cau-ngu": "cau",
+  "luoi-vay": "vay",
+  "luoi-re": "re",
+  "chup-muc": "chup",
+  "luoi-keo": "keo-don",
+  "keo-doi": "keo-doi",
+};
+
+/**
+ * Hàm `baiTheoNgay(lat, lon, d)` từ nền mật độ tàu CÙNG NGHỀ (`/api/fleet-density`, cất offline): điểm nền ô chứa chỗ đó
+ * ngày thứ d ÷ 100 (1 = đông nhất quanh đó). Ô không có trong nền (dưới ngưỡng / không tàu nghề đó) ⇒ 0. Ngày nằm
+ * ngoài bộ 16 ngày đã tải ⇒ null (thuật toán coi như chưa có bãi ngày đó). Nền null ⇒ hàm null.
+ */
+export function dungBaiTheoNgay(nen: NenFleet | null, ngayDi: string): ((lat: number, lon: number, d: number) => number | null) | null {
+  if (!nen?.ngay?.length || !(nen.step > 0)) return null;
+  const buoc = nen.step;
+  const theoNgay = new Map<string, Map<string, number>>();
+  for (const n of nen.ngay) {
+    const m = new Map<string, number>();
+    for (const o of n.o ?? []) {
+      const [la, lo, , , diem] = o;
+      if (Number.isFinite(la) && Number.isFinite(lo) && Number.isFinite(diem)) m.set(`${Math.round(la / buoc)},${Math.round(lo / buoc)}`, Math.min(1, Math.max(0, diem / 100)));
+    }
+    theoNgay.set(n.dateIso, m);
+  }
+  return (lat, lon, d) => {
+    const m = theoNgay.get(addDaysIso(ngayDi, Math.max(0, Math.round(d))));
+    if (!m) return null;
+    return m.get(`${Math.round(lat / buoc)},${Math.round(lon / buoc)}`) ?? 0;
   };
 }
 

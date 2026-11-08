@@ -34,6 +34,8 @@ function cauYeuTo(y: YeuToNgay): string {
   if (y.songM != null) phan.push(`sóng ${so1(y.songM)} m`);
   if (y.gioKmh != null) phan.push(`gió cấp ${beaufort(y.gioKmh)}`);
   if (y.songM == null && y.gioKmh == null) phan.push("chưa có dự báo sóng gió");
+  // bãi (2026-11-08): mức tàu cùng nghề đánh chỗ đó — chữ, không in số
+  if (y.bai != null) phan.push(`tàu cùng nghề ${y.bai >= 67 ? "đông" : y.bai >= 34 ? "vừa" : y.bai > 0 ? "thưa" : "không có"}`);
   const tru = Math.round((1 - y.heSo) * 100);
   if (tru >= 1) phan.push(tru >= 100 ? "bỏ ngày này" : `trừ ${tru}%`);
   return phan.join(" · ");

@@ -191,6 +191,20 @@ describe("fleet-density — file thật src/data/fleet-density.v1.json (riêng t
     expect(raw).not.toMatch(/VMS|snapshot|carrier|gearMap|bands|IBTrACS/i); // file ra ngoài không mang dấu vết nguồn
   });
 
+  it("cào đôi / cào đơn (add-density-keo-tach): có ở tháng/mùa/trăng, là phần CON của kéo (giờ ≤ kéo ở mỗi tháng)", () => {
+    expect(d.gears).toEqual(expect.arrayContaining(["keo-doi", "keo-don"]));
+    for (const g of ["keo-doi", "keo-don"] as const) {
+      expect(Object.keys(d.season).filter((k) => (d.season as Record<string, Record<string, unknown[]>>)[k][g]?.length)).toHaveLength(2);
+      expect(Object.values(d.moon).filter((m) => (m as Record<string, unknown[]>)[g]?.length)).toHaveLength(8);
+    }
+    for (const [ym, m] of Object.entries(d.month)) {
+      const gio = (g: string) => ((m as Record<string, number[][]>)[g] ?? []).reduce((a, r) => a + r[2], 0);
+      expect(gio("keo-doi") + gio("keo-don"), ym).toBeLessThanOrEqual(gio("keo") * 1.05);
+    }
+    const n = nenFleet(d, "2026-03-10", "keo-doi", "2026-03-10T00:00:00Z");
+    expect(n.ngay[0].o.length).toBeGreaterThan(20);
+  });
+
   it("bảng loài: có khoá mùa + cả năm, mỗi ô ≤3 loài, % 5..100, tên ngắn không rỗng", () => {
     const sp = d.species!;
     expect(sp.tat && sp.nam && sp.bac).toBeTruthy();

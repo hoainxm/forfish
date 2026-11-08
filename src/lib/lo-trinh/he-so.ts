@@ -24,6 +24,27 @@ export interface LoTrinhParams {
   hieuUngRam?: Partial<Record<Nghe, number>>;
   loaiTheoNghe?: Partial<Record<Nghe, readonly string[]>>;
   chang?: Partial<Record<Nghe, { aGio?: number; vKn?: number; p80HeSo?: number }>>;
+  /** giờ máy chạy (≥ 1,5 kn, ngoài pha chạy) mỗi NGÀY ở bãi — trung vị đội tàu cùng nghề (research §10.5) */
+  gioMayBai?: Partial<Record<Nghe, number>>;
+}
+
+/** Giờ máy chạy mỗi ngày ở bãi của nghề (dầu lúc đánh). null = chưa nạp tham số ⇒ chỗ gọi nói "chưa tính". */
+export function gioMayBai(nghe: Nghe, p: ModelParams | null = getModelParams()): number | null {
+  const v = loTrinhParams(p).gioMayBai?.[nghe];
+  return typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 24 ? v : null;
+}
+
+/**
+ * HỆ SỐ BÃI (2026-11-08, anh Long: "mỗi nghề … dẫn tới bãi đánh riêng"): điểm cá nhân với mức tàu CÙNG NGHỀ đánh
+ * ở ô đó mùa này (lớp mật độ tàu, `/api/fleet-density`, điểm nền 0–100 so với chỗ đông nhất quanh đó).
+ * Ô tàu cùng nghề không đánh (dưới ngưỡng/không có) vẫn giữ SAN_BAI điểm cá — cá có thể mới tới, nhưng nghề
+ * đó thường không làm được ở đó (đáy không kéo được, quá sâu cho rê…), nên kéo xuống mạnh.
+ * nợ: SAN_BAI 0,25 là số chọn, chưa fit; nâng khi backtest được "ô có tàu cùng nghề" vs sản lượng chuyến.
+ */
+export const SAN_BAI = 0.25;
+export function heSoBai(x: number | null): number {
+  if (x == null || !Number.isFinite(x)) return 1;
+  return SAN_BAI + (1 - SAN_BAI) * Math.max(0, Math.min(1, x));
 }
 
 /** Mô hình giờ một chặng: giờ = aGio + hải lý / vKn (P50); P80 = P50 × p80HeSo. */

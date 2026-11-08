@@ -54,7 +54,7 @@ export function buildModelParams(root = process.cwd()) {
         n: so(r.n),
       })),
     },
-    loTrinh: { hieuUngRam: lt.hieuUngRam, loaiTheoNghe: lt.loaiTheoNghe, chang: lt.chang },
+    loTrinh: { hieuUngRam: lt.hieuUngRam, loaiTheoNghe: lt.loaiTheoNghe, chang: lt.chang, gioMayBai: lt.gioMayBai },
   };
 }
 

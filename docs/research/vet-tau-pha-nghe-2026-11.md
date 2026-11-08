@@ -331,7 +331,29 @@ Script `07_keo.py` (dò cặp) và `08_keo_chang.py` (giờ chặng, ngày chuy�
 - `NGAY_NEN_VE`: cào 16 ngày, cào đôi 20 ngày từ ngày đi (p75 §10.2). Trần dữ liệu 16 ngày vẫn chặn trước.
 - Dầu vẫn tính cho **một tàu** (tàu mình), không chia đôi cho cặp.
 
-### 10.5 Việc tiếp
+### 10.5 Lịch · dầu · bãi theo nghề (cùng ngày, sau "mỗi nghề có cách tính riêng")
+
+Script `09_lich_dau.py` → `out/lich-dau.json`; `scripts/add-density-keo-tach.mjs` (trong repo, đọc nhãn ngoài repo).
+
+**Giờ máy chạy mỗi ngày ở bãi** — ngày lịch VN cả ngày cách cảng > 20 km, phủ ≥ 20 giờ; đếm giờ đoạn ≥ 1,5 kn ngoài pha "chạy" (chạy giữa chỗ đã nằm ở giờ chặng). Trung vị theo tàu, rồi phân vị giữa tàu:
+
+| Nghề | Tàu | Ngày ở bãi | p25 | **p50** | p75 |
+|---|---|---|---|---|---|
+| Cào đôi | 4 349 | 764 159 | 12,0 | **12,75** | 14,0 |
+| Cào đơn | 466 | 78 563 | 11,3 | **13,56** | 16,5 |
+| Rê | 3 831 | 414 317 | 2,0 | **4,0** | 7,2 |
+| Vây | 2 759 | 252 914 | 1,5 | **2,77** | 4,8 |
+| Câu | 5 715 | 542 994 | 1,0 | **1,75** | 3,0 |
+| Chụp | 1 491 | 140 140 | 1,4 | **1,65** | 2,0 |
+
+- Đưa vào `lo-trinh-params.gioMayBai` (p50). Trước đây dầu chỉ tính giờ chạy ⇒ với cào **thiếu khoảng 13 giờ máy mỗi ngày ở bãi**.
+- Chưa có dầu máy phát chong đèn (vây/chụp/câu đèn) — không thấy được từ tốc độ.
+
+**Giờ kéo theo giờ trong ngày**: cào đôi đỉnh 07–10 và 13–17 (mỗi giờ 6–7 %), đêm ~2 % ⇒ khung 6–17 giờ. Cào đơn trải đều hơn (đêm 2,7–3,5 %, ngày 4–5,5 %) ⇒ khung 24 giờ. Nghề ánh sáng: giữ mẫu nghề (§2.2 — tốc độ không tách được).
+
+**Bãi riêng cào đôi / cào đơn** trong lớp mật độ tàu (lát tháng/mùa/trăng, ô ≥ 3 tàu): tháng 3/2026 cào đôi 572 ô / 72 % giờ kéo, cào đơn 347 ô / 9 %; phần còn lại là tàu lửng và tàu chưa nhãn.
+
+### 10.6 Việc tiếp
 
 - Tách nhóm lửng và cào tôm đơn (giờ kéo đêm, tốc độ, độ sâu).
 - Hỏi chủ tàu vài cặp để xác nhận nhãn; nếu được thì đưa cặp vào hồ sơ tàu (đi cùng tàu nào).

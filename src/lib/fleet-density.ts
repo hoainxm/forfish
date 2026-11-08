@@ -23,7 +23,9 @@ export function canSeeDensity(phone: string | null | undefined): boolean {
   return (DENSITY_PREVIEW_PHONES as readonly string[]).includes(digits);
 }
 
-export type DensityGear = "tat" | "vay" | "cau" | "re" | "keo" | "chup" | "khac";
+/** "keo-doi"/"keo-don" (2026-11-08): cào đôi / cào đơn tách bằng vết VMS (scripts/add-density-keo-tach.mjs) — chỉ lát
+ *  tháng/mùa/trăng có; dùng để tính bãi của lộ trình, KHÔNG có chip trên lớp mật độ (`DENSITY_GEARS`). */
+export type DensityGear = "tat" | "vay" | "cau" | "re" | "keo" | "chup" | "khac" | "keo-doi" | "keo-don";
 
 export interface DensityCell {
   lat: number;
@@ -43,6 +45,9 @@ export const DENSITY_GEARS: { id: DensityGear; label: string }[] = [
   { id: "chup", label: "Chụp" },
   { id: "khac", label: "Khác" },
 ];
+
+/** Mọi nghề route `/api/fleet-density` nhận — chip lớp mật độ + hai nghề cào tách (chỉ lộ trình dùng). */
+export const DENSITY_GEAR_IDS: readonly DensityGear[] = [...DENSITY_GEARS.map((g) => g.id), "keo-doi", "keo-don"];
 
 /** Ba mức mật độ — một họ TÍM, KHÁC hẳn xanh/vàng/đỏ của lớp cá để không đọc nhầm thành "mức cá".
  *  Hex để ở đây (như FISH_LEVEL_BANDS) vì MapLibre paint không đọc được biến CSS. */
