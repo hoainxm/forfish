@@ -170,7 +170,7 @@ describe("deXuatLoTrinh — điểm quen", () => {
   });
 });
 
-describe("deXuatLoTrinh — cổng bão (cửa sổ 5 ngày)", () => {
+describe("deXuatLoTrinh — cổng bão (cửa sổ tới lúc về)", () => {
   const goc = deXuatLoTrinh(input(), NOW);
   const v1 = goc.vung[0];
 
@@ -183,15 +183,21 @@ describe("deXuatLoTrinh — cổng bão (cửa sổ 5 ngày)", () => {
     expect(kq.ghiChu.join(" ")).toMatch(/WUTIP/);
   });
 
-  it("bão có mốc giờ trong 5 ngày đầu ⇒ chặn; mốc ngày 8 ⇒ không chặn", () => {
+  it("cửa sổ = max(5 ngày, tới lúc về P80): chuyến 10 ngày ⇒ bão ngày 8 vẫn chặn, sau ngày về thì không", () => {
     const start = dauNgayVN("2026-11-01");
     const bao = (ngay: number) => [
       { ten: "B", diem: [{ lat: v1.lat, lon: v1.lon + 0.3, at: start + ngay * NGAY_MS }] },
     ];
     expect(deXuatLoTrinh(input({ bao: bao(2) }), NOW).chanBao).toBe(CAU_CHAN_BAO);
+    // trước 2026-11-08 cửa sổ chỉ 5 ngày ⇒ bão ngày 8 lọt; giờ chuyến còn ở biển ngày 8 ⇒ phải chặn
     const kq8 = deXuatLoTrinh(input({ bao: bao(8) }), NOW);
-    expect(kq8.chanBao).toBeNull();
-    expect(kq8.vung.length).toBeGreaterThan(0);
+    expect(kq8.chanBao).toBe(CAU_CHAN_BAO);
+    expect(kq8.ghiChu.join(" ")).toMatch(/trong (9|10|11) ngày tới/);
+    // chuyến ngắn 3 ngày: cửa sổ vẫn tối thiểu 5 ngày ⇒ bão ngày 4 chặn, ngày 8 không
+    expect(deXuatLoTrinh(input({ soNgay: 3, bao: bao(4) }), NOW).chanBao).toBe(CAU_CHAN_BAO);
+    const ngan8 = deXuatLoTrinh(input({ soNgay: 3, bao: bao(8) }), NOW);
+    expect(ngan8.chanBao).toBeNull();
+    expect(ngan8.vung.length).toBeGreaterThan(0);
   });
 
   it("bão xa tuyến (>200 km) ⇒ không chặn", () => {
@@ -337,5 +343,53 @@ describe("deXuatLoTrinh — tốc độ + dữ liệu thật", () => {
       MOC_KHONG_RA_NGOAI(kq);
       for (const v of kq.vung) expect(trongVungBienVN(v.lat, v.lon)).toBe(true);
     }
+  });
+});
+
+describe("deXuatLoTrinh — giờ đi, dầu đèn, vừa két, GRASP (2026-11-08)", () => {
+  const ketLon = { speedKn: 7, litersPerHour: 20, fuelTankL: 1e6 };
+
+  it("giờ đi: vắng = 6 giờ; giờ khác dời lịch; giờ sai ⇒ tạm 6 giờ + ghi chú", () => {
+    const vang = deXuatLoTrinh(input({ nghe: "luoi-vay" }), NOW);
+    expect(deXuatLoTrinh(input({ nghe: "luoi-vay", gioDi: 6 }), NOW)).toEqual(vang);
+    const toi = deXuatLoTrinh(input({ nghe: "luoi-vay", gioDi: 20 }), NOW);
+    expect(toi.lich.map((l) => l.cau)).not.toEqual(vang.lich.map((l) => l.cau));
+    const sai = deXuatLoTrinh(input({ nghe: "luoi-vay", gioDi: 25 }), NOW);
+    expect(sai.ghiChu.join(" ")).toMatch(/Giờ đi chưa đúng/);
+    expect(sai.moc).toEqual(vang.moc);
+  });
+
+  it("dầu chong đèn: nghề đèn cộng lít/đêm × số đêm đánh; nghề không đèn bỏ qua", () => {
+    const khong = deXuatLoTrinh(input({ nghe: "chup-muc", tau: ketLon }), NOW);
+    expect(khong.ghiChu.join(" ")).toMatch(/chưa tính dầu máy phát chong đèn/);
+    const co = deXuatLoTrinh(input({ nghe: "chup-muc", tau: { ...ketLon, litDem: 30 } }), NOW);
+    expect(co.moc).toEqual(khong.moc);
+    const dem = co.vung.reduce((a, v) => a + v.soNgayDanh, 0);
+    expect(dem).toBeGreaterThan(0);
+    expect(Math.abs(co.litDau - khong.litDau - 30 * dem)).toBeLessThanOrEqual(10);
+    expect(co.ghiChu.join(" ")).toMatch(new RegExp(`chong đèn 30 lít × ${dem} đêm`));
+    const re = deXuatLoTrinh(input({ nghe: "luoi-re", tau: { ...ketLon, litDem: 30 } }), NOW);
+    expect(re.litDau).toBe(deXuatLoTrinh(input({ nghe: "luoi-re", tau: ketLon }), NOW).litDau);
+  });
+
+  it("két vừa: tuyến tự gọn cho lít chạy chậm P80 × 1,3 ≤ két, không báo thiếu", () => {
+    const rong = deXuatLoTrinh(input({ tau: ketLon }), NOW);
+    const ket = Math.round(rong.litDau * 0.6);
+    const gon = deXuatLoTrinh(input({ tau: { ...ketLon, fuelTankL: ket } }), NOW);
+    expect(gon.vung.length).toBeGreaterThan(0);
+    expect(gon.thieuDau).toBe(false);
+    // test không nạp model-params ⇒ p80HeSo dè dặt 1,15; litDau đã làm tròn chục
+    expect(gon.litDau * 1.15 * 1.3).toBeLessThanOrEqual(ket + 30);
+    expect(gon.ghiChu.join(" ")).toMatch(new RegExp(`vừa két ${ket} lít`));
+  });
+
+  it("GRASP: tất định, tuyến hợp lệ, chạy dưới 300 ms", () => {
+    const t0 = performance.now();
+    const a = deXuatLoTrinh(input({ soNgay: 16, nghe: "luoi-keo" }), NOW);
+    const ms = performance.now() - t0;
+    expect(deXuatLoTrinh(input({ soNgay: 16, nghe: "luoi-keo" }), NOW)).toEqual(a);
+    expect(a.vung.length).toBeGreaterThan(0);
+    MOC_KHONG_RA_NGOAI(a);
+    expect(ms).toBeLessThan(300);
   });
 });

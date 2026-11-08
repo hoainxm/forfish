@@ -18,7 +18,7 @@ import { fetchClimatology, type Climatology } from "@/lib/fish-blend";
 import { fetchStormCheck, type StormCheck } from "@/lib/storms";
 import { fetchForecastGrid, loadLongestSavedGrid, type ForecastGrid } from "@/lib/forecast-grid";
 import { fetchFleetNen, type NenFleet } from "@/lib/fleet-density";
-import { deXuatLoTrinh } from "@/lib/lo-trinh/plan";
+import { deXuatLoTrinh, GIO_XUAT_BEN, NGHE_DEN } from "@/lib/lo-trinh/plan";
 import {
   baoTuTinBao,
   docSo,
@@ -197,11 +197,13 @@ function LoTrinhMo() {
   /* ── form ── */
   const [ngayDi, setNgayDi] = useState(todayIso);
   const [soNgayRaw, setSoNgayRaw] = useState("15");
+  const [gioDi, setGioDi] = useState(GIO_XUAT_BEN);
   const [nghe, setNghe] = useState<Nghe>("cau-ngu");
   const [cangId, setCangId] = useState("");
   const [toc, setToc] = useState("");
   const [dauGio, setDauGio] = useState("");
   const [ket, setKet] = useState("");
+  const [litDem, setLitDem] = useState("");
   const [quen, setQuen] = useState<string[]>([]);
   const [daBam, setDaBam] = useState(false); // hiện lỗi ô sau lần bấm Tính đầu
 
@@ -233,6 +235,7 @@ function LoTrinhMo() {
     setToc(String(t.tau.speedKn));
     setDauGio(String(t.tau.litersPerHour));
     setKet(t.tau.fuelTankL != null ? String(t.tau.fuelTankL) : "");
+    setLitDem(t.tau.litDem != null ? String(t.tau.litDem) : "");
     setTauHong(t.docHong);
     setTauMacDinh(t.macDinh);
   }, []);
@@ -255,7 +258,10 @@ function LoTrinhMo() {
   const vDau = docSo(dauGio, TAU_TRAN.litersPerHour);
   const vKet = ket.trim() ? docSo(ket, TAU_TRAN.fuelTankL) : null;
   const loiKet = ket.trim() && vKet == null ? "Két dầu chưa đúng" : "";
-  const loiTau = vToc == null || vDau == null || loiKet;
+  const ngheDen = NGHE_DEN.includes(nghe);
+  const vLitDem = ngheDen && litDem.trim() ? docSo(litDem, TAU_TRAN.litDem) : null;
+  const loiDen = ngheDen && litDem.trim() && vLitDem == null ? "Lít đèn chưa đúng" : "";
+  const loiTau = vToc == null || vDau == null || loiKet || loiDen;
 
   const diemQuen: DiemCoTen[] = diemLuu
     .filter((p) => quen.includes(p.id))
@@ -276,7 +282,8 @@ function LoTrinhMo() {
   const bamTinh = () => {
     setDaBam(true);
     if (loiSoNgay || loiNgayDi || !cang || loiTau || vToc == null || vDau == null) return;
-    const tau = { speedKn: vToc, litersPerHour: vDau, fuelTankL: vKet };
+    // ô đèn chỉ có ở nghề đèn — nghề khác không gửi `litDem` ⇒ hồ sơ giữ nguyên số đã khai
+    const tau = { speedKn: vToc, litersPerHour: vDau, fuelTankL: vKet, ...(ngheDen ? { litDem: vLitDem } : {}) };
     // ghi thông số tàu về hồ sơ — hỏng thì NÓI, vẫn tính bằng số đang gõ
     setTauLuuLoi(
       ghiTauTinh(tau)
@@ -298,6 +305,7 @@ function LoTrinhMo() {
           {
             cang,
             ngayDi,
+            gioDi,
             soNgay,
             nghe,
             tau,
@@ -322,7 +330,7 @@ function LoTrinhMo() {
       const taoLuc = new Date(now).toISOString();
       setKetQua({
         kq,
-        input: { cang, ngayDi, soNgay, nghe, tau, diemQuen },
+        input: { cang, ngayDi, gioDi, soNgay, nghe, tau, diemQuen },
         tuoiDuLieu,
         taoLuc,
         savedId: null,
@@ -444,7 +452,7 @@ function LoTrinhMo() {
       <section aria-label="Thông tin chuyến">
         <h2 className="display pb-2 pt-3 text-[1.125rem] font-semibold text-navy">Chuyến mới</h2>
 
-        <div className="grid grid-cols-[1fr_6rem] gap-3">
+        <div className="grid grid-cols-[1fr_5.5rem_5rem] gap-2">
           <Field label="Ngày đi" error={daBam ? loiNgayDi : ""}>
             <input
               type="date"
@@ -454,6 +462,15 @@ function LoTrinhMo() {
               onChange={(e) => setNgayDi(e.target.value)}
               className={inputClass}
             />
+          </Field>
+          <Field label="Giờ đi">
+            <select value={gioDi} onChange={(e) => setGioDi(Number(e.target.value))} className={inputClass}>
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>
+                  {h} giờ
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Mấy ngày" error={daBam ? loiSoNgay : ""}>
             <input
@@ -527,9 +544,15 @@ function LoTrinhMo() {
             <input inputMode="numeric" value={ket} placeholder="Tuỳ" onChange={(e) => setKet(e.target.value)} aria-invalid={!!(daBam && loiKet)} className={inputClass} />
           </label>
         </div>
+        {ngheDen && (
+          <label className="mt-2 grid grid-cols-[1fr_6rem] items-center gap-2">
+            <span className="text-[0.8125rem] leading-snug text-muted">Dầu máy phát chong đèn, lít mỗi đêm</span>
+            <input inputMode="decimal" value={litDem} placeholder="Tuỳ" onChange={(e) => setLitDem(e.target.value)} aria-invalid={!!(daBam && loiDen)} className={inputClass} />
+          </label>
+        )}
         {daBam && loiTau ? (
           <p role="alert" className="mt-1.5 text-[0.875rem] leading-snug text-danger">
-            Tốc độ 1–30 hải lý/giờ, dầu 1–500 lít/giờ, két để trống nếu chưa biết.
+            Tốc độ 1–30 hải lý/giờ, dầu 1–500 lít/giờ, két và lít đèn để trống nếu chưa biết.
           </p>
         ) : tauHong ? (
           <p className="mt-1.5 text-[0.8125rem] leading-snug text-warn">Hồ sơ tàu đọc không được — đang dùng số mặc định, máy giữ nguyên bản cũ.</p>

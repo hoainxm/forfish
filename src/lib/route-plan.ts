@@ -104,6 +104,8 @@ export type BoatProfile = {
       = chủ tàu CHƯA khai ⇒ không kiểm "đủ dầu đi về", không đoán két hộ. */
   fuelTankL?: number | null;
   lengthM?: number | null;
+  /** dầu máy phát chong đèn, lít mỗi đêm đánh (nghề đèn) — 2026-11-08, lộ trình chuyến biển. null/vắng = chưa khai. */
+  lampLitersPerNight?: number | null;
 };
 
 export const DEFAULT_BOAT: BoatProfile = { speedKn: 7, litersPerHour: 20, draftM: null };

@@ -200,6 +200,7 @@ export const TAU_TRAN = {
   speedKn: [1, 30],
   litersPerHour: [1, 500],
   fuelTankL: [1, 100000],
+  litDem: [1, 2000],
 } as const;
 
 let tauDocHong = false;
@@ -216,13 +217,14 @@ export function docTauTinh(): { tau: TauTinh; docHong: boolean; macDinh: boolean
       speedKn: so(b?.speedKn, TAU_TRAN.speedKn, DEFAULT_BOAT.speedKn),
       litersPerHour: so(b?.litersPerHour, TAU_TRAN.litersPerHour, DEFAULT_BOAT.litersPerHour),
       fuelTankL: positiveOrNull(b?.fuelTankL, TAU_TRAN.fuelTankL[1]),
+      litDem: positiveOrNull(b?.lampLitersPerNight, TAU_TRAN.litDem[1]),
     },
     docHong: !r.ok,
     macDinh: !b || typeof b.speedKn !== "number" || typeof b.litersPerHour !== "number",
   };
 }
 
-/** Ghi ba trường của form vào hồ sơ tàu, GIỮ các trường khác. `false` = không giữ được (đọc hỏng / hết chỗ). */
+/** Ghi các trường tàu của form (tốc độ, dầu/giờ, két, lít đèn/đêm) vào hồ sơ tàu, GIỮ các trường khác. `false` = không giữ được (đọc hỏng / hết chỗ). */
 export function ghiTauTinh(tau: TauTinh): boolean {
   if (tauDocHong) return false;
   const r = readUserRecord<Record<string, unknown>>(BOAT_KEY);
@@ -235,6 +237,8 @@ export function ghiTauTinh(tau: TauTinh): boolean {
     speedKn: tau.speedKn,
     litersPerHour: tau.litersPerHour,
     fuelTankL: tau.fuelTankL,
+    // chỉ ghi khi form có ô đèn (nghề đèn) — nghề khác không đụng số đã khai
+    ...(tau.litDem !== undefined ? { lampLitersPerNight: tau.litDem } : {}),
   });
 }
 

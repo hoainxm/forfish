@@ -4,6 +4,7 @@
 covers: src/lib/fish-blend.ts, src/lib/lo-trinh, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
 last_verified: 2026-11-08
 <!-- re-verified: 2026-10-29u — MÀN PHASE 1 ĐÃ LÀM: route `/lo-trinh` (tên hiển thị "Chuyến biển", premium, RequireLogin + PremiumLock) gọi `deXuatLoTrinh` bản thật; lib màn `lo-trinh/dau-vao.ts` (dựng LoTrinhInput từ bản đồ cá đã lưu + mùa vụ + tin bão; bão chưa kiểm được ⇒ `null`) · `luu.ts` (`forfish.routes.v1`, tối đa 12 bản, tuổi dữ liệu) · `so-vi-tri.ts` (so GPS với tuyến, lệch > 20 hải lý ⇒ câu trung tính). Lối vào: khay ⋯ bản đồ. Nút "Bản đồ" nạp các mốc vào Dẫn đường nhiều chặng (persistStops), chưa tự mở bảng. Trường `at` của bão chưa điền (track GDACS không có giờ ⇒ chặn cả cửa sổ 5 ngày). -->
+<!-- re-verified: 2026-11-08f — §3 Phase 1f: giờ đi trên form, dầu chong đèn, két giới hạn tuyến (P80 × 1,3), cổng bão tới lúc về P80, GRASP 20 vòng tất định. -->
 <!-- re-verified: 2026-10-29L — THUẬT TOÁN PHASE 1 ĐÃ LÀM: `src/lib/lo-trinh/plan.ts` `deXuatLoTrinh(input, now?)` (B0–B3 + B5, chưa GRASP) + `lo-trinh/vung-nhanh.ts` `trongVungNhanh` (cùng kết quả `trongVungBienVN`, chia cạnh theo dải vĩ độ). Tham số + luật ở §3 "Phase 1 ĐÃ LÀM". `types.ts` thêm MỘT trường tuỳ chọn: `BaoRutGon.diem[].at?` (epoch ms). Test `lo-trinh-plan.test.ts` (32 ca). -->
 <!-- re-verified: 2026-10-29 — BẮT ĐẦU BUILD PHASE 1 (§6, anh Long "làm đi"): kiểu dữ liệu chung `src/lib/lo-trinh/types.ts` (LoTrinhInput · LoTrinhKetQua · DongLich · VungDanh · LoTrinhDaLuu cho khoá `forfish.routes.v1` §5c). Thuật toán `lo-trinh/plan.ts` và màn `/lo-trinh` đi trong các commit kế. -->
 <!-- re-verified: 2026-10-29 — rà doc-health: `scripts/fit-fish-blend-weights.mjs` KHÔNG đổi từ 2026-07-28 (5481d7cc; báo SUSPECT là do clone nông thấy cả file như mới thêm); `fish-blend.ts` chỉ đổi ở fb5d065b 2026-10-19 (chú thích `baseMode`, đã ghi ở mục 2026-10-19 dưới) — đối chiếu lại export `blendFishCells`/`fishLeadDays`/`climScoreAt`/`decodeClimatology`/`fetchClimatology` còn đủ. Sửa §5d: w(d) không đọc thẳng `fish-blend-weights.json` nữa mà qua `model-params.v1.json` (`lib/model-params`, từ 2026-09-16) ⇒ fit xong phải chạy `scripts/build-model-params.mjs`. -->
@@ -183,7 +184,7 @@ Bước tiếp (phiên riêng 08/11): tách pha hoạt động từ vết tàu 1
 | Hải lý | giờ × tốc độ | tổng quãng thẳng các chặng |
 | Dầu | giờ chạy × L/h | giờ chạy P50 (gồm phần `a` mỗi chặng — dè dặt) × L/h; dầu theo pha (§7 báo cáo) CHƯA làm |
 
-**Chưa làm (chờ chốt riêng, báo cáo §7)**: lịch ô nửa ngày ngày/đêm có trọng số khung giờ nghề · dầu theo pha + dầu chong đèn · GRASP 20 vòng · cổng bão cửa sổ max(5 ngày, giờ về P80). Nghề kéo ĐÃ thêm 2026-11-08 thành **cào** (`luoi-keo`) + **cào đôi** (`keo-doi`) — research §10; chặng vùng→vùng của cào là kéo lưới dọc đường nên chỉ fit chặng có đầu là cảng; hiệu ứng trăng cào chưa đo (= 1); dầu tính cho một tàu. Test: `lo-trinh-he-so.test.ts` (khối "giờ chặng theo số đo đội tàu"), `lo-trinh-plan.test.ts`.
+**Phần còn lại của báo cáo §7**: lịch theo khung giờ nghề + dầu lúc đánh → Phase 1d; dầu chong đèn · GRASP 20 vòng · cổng bão cửa sổ max(5 ngày, giờ về P80) · két giới hạn tuyến → **Phase 1f**. Còn chờ DỮ LIỆU (không phải nghiệp vụ): trọng số khung giờ cho nghề đèn (tốc độ 90 phút không tách được), L/h theo tốc độ (luật chân vịt cần cặp số bà con khai). Nghề kéo ĐÃ thêm 2026-11-08 thành **cào** (`luoi-keo`) + **cào đôi** (`keo-doi`) — research §10; chặng vùng→vùng của cào là kéo lưới dọc đường nên chỉ fit chặng có đầu là cảng; hiệu ứng trăng cào chưa đo (= 1); dầu tính cho một tàu. Test: `lo-trinh-he-so.test.ts` (khối "giờ chặng theo số đo đội tàu"), `lo-trinh-plan.test.ts`.
 
 
 #### §3 Phase 1d — MỖI NGHỀ MỘT CÁCH TÍNH: LỊCH · DẦU · BÃI (2026-11-08, anh Long: "mỗi nghề có cách tính riêng, dẫn tới bãi đánh riêng, lịch riêng" → chọn "làm cả 3"; nguồn `docs/research/vet-tau-pha-nghe-2026-11.md` §10.5)
@@ -191,7 +192,7 @@ Bước tiếp (phiên riêng 08/11): tách pha hoạt động từ vết tàu 1
 | Phần | Trước | Nay |
 |---|---|---|
 | Ngày đánh | khối 24 giờ bắt đầu lúc tới chỗ, mọi nghề như nhau | **khung đánh của nghề** `plan.ts KHUNG_DANH`: câu ngừ 17 giờ ×13 (thả chiều tối, thu sáng) · vây 18 ×11 (đêm) · rê 16 ×14 (thả chiều, thu sáng) · chụp 18 ×11 (đêm) · **cào đôi 6 ×11 (kéo ban ngày — vết VMS 78 % giờ kéo 06–17)** · **cào 0 ×24 (kéo cả ngày đêm)**. Tới chỗ khi khung đã qua chưa quá nửa ⇒ đánh luôn khung đó; quá nửa / ngoài khung ⇒ **neo chờ** khung kế (lịch nói "neo chờ tới X giờ"). Xong khung chạy tiếp ngay — giờ ngoài khung dùng để chạy, không mất ngày. Khung xếp vào ngày chứa điểm giữa khung |
-| Giờ xuất bến | ngầm 0 giờ | `GIO_XUAT_BEN` = **6 giờ** (giả định — form chưa hỏi giờ; nợ trong code). Hạn về = hết ngày thứ N tính theo giờ VN |
+| Giờ xuất bến | ngầm 0 giờ | form hỏi **Giờ đi** từ Phase 1f (`LoTrinhInput.gioDi`); vắng (lộ trình lưu cũ) ⇒ `GIO_XUAT_BEN` = 6 giờ. Hạn về = hết ngày thứ N tính theo giờ VN |
 | Chia ngày | `soNgayDanh` tính trước rồi chia | tham lam từng khung: mỗi chỗ ≥ 1 khung, thêm khung cho chỗ lời nhất **chừng nào mô phỏng P80 (gồm giờ chờ khung) còn kịp về** |
 | Dầu | chỉ giờ chạy | **giờ chạy + giờ máy ở bãi × số khung** (`gioMayBai` model-params, đo VMS: cào 13,6 · cào đôi 12,75 · rê 4,0 · vây 2,8 · câu 1,75 · chụp 1,65 giờ/ngày), cùng L/giờ. Câu/vây/chụp ghi thêm "chưa tính dầu máy phát chong đèn". Thiếu tham số ⇒ chỉ giờ chạy + nói ra |
 | Bãi | điểm cá của loài theo nghề (đã trộn lưới VMS theo NHÓM nghề bắt loài đó) | × **hệ số bãi** `he-so.ts heSoBai` = 0,25 + 0,75·x, x = điểm nền 0–1 của **lớp mật độ tàu CÙNG NGHỀ** ngày đó (`/api/fleet-density?nghe=` — `dau-vao.ts BAI_NGHE`: câu ngừ→câu, vây, rê, chụp, cào→`keo-don`, cào đôi→`keo-doi`). Chỗ không ai đánh nghề đó còn 25 % (`SAN_BAI`, số chọn — nợ). Yếu tố ngày thêm "tàu cùng nghề đông/vừa/thưa/không có" |
@@ -199,6 +200,19 @@ Bước tiếp (phiên riêng 08/11): tách pha hoạt động từ vết tàu 1
 
 **Offline**: `/lo-trinh` thêm MỘT request khi đổi nghề (`fetchFleetNen`, trần 30 s, cất IndexedDB theo nghề, mất sóng ⇒ bản đã cất, không có ⇒ không bãi + ghi chú). Không chạy lúc mở app, không đụng sw.js.
 Test: `lo-trinh-he-so.test.ts` khối "hồ sơ nghề — lịch, dầu, bãi"; `fleet-density.test.ts` (cào đôi/đơn trong file thật).
+
+#### §3 Phase 1f — GIỜ ĐI · DẦU ĐÈN · VỪA KÉT · BÃO TỚI LÚC VỀ · GRASP (2026-11-08, anh Long: "làm đi" phần còn lại báo cáo vet-tau §7)
+
+| Phần | Trước | Nay |
+|---|---|---|
+| Giờ đi | giả định 6 giờ | ô chọn **Giờ đi** 0–23 giờ cạnh Ngày đi (`LoTrinhInput.gioDi`); mọi khung chờ, hạn về, ngày của dòng lịch tính từ giờ này. Vắng ⇒ 6 giờ (lộ trình lưu cũ mở lại y như cũ); số sai ⇒ 6 giờ + ghi chú "Giờ đi chưa đúng" |
+| Dầu chong đèn | chỉ ghi "chưa tính" | nghề đèn (`NGHE_DEN`: vây, chụp, câu ngừ) có ô **"Dầu máy phát chong đèn, lít mỗi đêm"** (tuỳ, 1–2000) ⇒ cộng lít × số khung đánh; ghi chú "+ dầu chong đèn X lít × N đêm". Trống ⇒ ghi chú "chưa tính … (khai số lít mỗi đêm để tính)". Nhớ vào hồ sơ tàu `forfish.boat.v1.lampLitersPerNight` (04); nghề không đèn không đụng số đã khai |
+| Két | cờ `thieuDau` khi lít P50 × 1,3 > két | két là **ràng buộc tuyến**: kế hoạch nào lít **P80** (giờ chạy × p80HeSo + giờ máy bãi + đèn) × 1,3 > két thì loại ngay khi lập lịch ⇒ tuyến tự gọn (ít vùng/ít khung hơn) + ghi chú "Tuyến đã chọn vừa két X lít kể cả khi chạy chậm". KHÔNG tuyến nào vừa ⇒ bỏ ràng buộc, đưa tuyến tốt nhất + `thieuDau` (không trắng tay im lặng) |
+| Cổng bão | cửa sổ 5 ngày đầu | cửa sổ **max(5 ngày, 0 giờ ngày đi → lúc về nếu chạy chậm P80)**: chuyến 10 ngày gặp bão ngày 8 trên tuyến ⇒ chặn. Ghi chú nói "trong N ngày tới". Điểm bão không mốc giờ (GDACS) như cũ — coi có mặt suốt cửa sổ |
+| Bộ tìm tuyến | tham lam + 2-opt | + **B4 GRASP tất định** `GRASP_VONG` 20 vòng: mỗi bước chèn chọn ngẫu nhiên (mulberry32, hạt cố định) trong `GRASP_RCL` 3 cách chèn đạt đầu tiên (mỗi vùng một cách), rồi 2-opt; chỉ thay tuyến tham lam khi lời hơn (hoà thì chạy ít hơn). Cùng input ⇒ cùng output; đo < 300 ms (test 16 ngày cào) |
+
+**Offline**: không request mới, không đụng sw.js/SHELL; khoá `forfish.boat.v1` chỉ thêm trường tuỳ chọn (giữ mọi trường khác), `forfish.routes.v1` input thêm `gioDi` tuỳ chọn — bản lưu cũ đọc như cũ.
+Test: `lo-trinh-plan.test.ts` khối "giờ đi, dầu đèn, vừa két, GRASP" (4 ca) + ca cổng bão "cửa sổ tới lúc về".
 
 - **Thời tiết 2 tầng** (chuẩn voyage-optimization): per-leg time-dependent làm mặc định
   (bảng tra cụm↔cụm × mốc 3h, precompute ~100ms); chặng nào penalty sóng vượt ngưỡng mới chạy

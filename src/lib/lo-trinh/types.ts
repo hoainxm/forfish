@@ -1,7 +1,7 @@
 // ĐỀ XUẤT LỘ TRÌNH CHUYẾN BIỂN — kiểu dữ liệu chung (hợp đồng giữa thuật toán `lo-trinh/plan.ts`
 // và màn hình `/lo-trinh`). Oracle hành vi: docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md
 // §3 (pipeline B0–B3, B5), §4 (form + output), §5 (ràng buộc trung thực), §5c (lưu + so vị trí).
-// MVP = Phase 1 của §6: chưa GRASP, chưa re-plan giữa chuyến, chưa mask giờ theo nghề/con trăng.
+// MVP = Phase 1 của §6 (+ GRASP, khung đánh theo nghề 2026-11-08); chưa re-plan giữa chuyến.
 
 /** Nghề — §4. MVP tune cho câu cá ngừ; nghề khác dùng mẫu tham số tạm. */
 /** Cào (lưới kéo đơn) và cào đôi (kéo đôi) thêm 2026-11-08 — sổ đăng kiểm gộp chung "kéo", tách bằng vết VMS
@@ -21,6 +21,11 @@ export interface TauTinh {
   litersPerHour: number;
   /** két dầu (lít); null = chưa khai ⇒ không cảnh báo thiếu dầu, chỉ báo tổng lít */
   fuelTankL: number | null;
+  /**
+   * Dầu máy phát chong đèn, lít MỖI ĐÊM đánh (2026-11-08, research vet-tau §7 B5) — chỉ nghề đèn (vây, chụp, câu ngừ).
+   * Vắng/null = chưa khai ⇒ không cộng, ghi chú "chưa tính dầu chong đèn". Tốc độ VMS không thấy được máy phát.
+   */
+  litDem?: number | null;
 }
 
 /** Ô cá đầu vào — cùng hình `FishCell` của fish-predict (lat, lon, điểm 0–100). */
@@ -48,6 +53,8 @@ export interface LoTrinhInput {
   cang: DiemCoTen;
   /** ngày xuất bến, YYYY-MM-DD (giờ VN) */
   ngayDi: string;
+  /** giờ xuất bến 0–23 (giờ VN). Vắng (lộ trình lưu trước 2026-11-08) ⇒ 6 giờ sáng (`GIO_XUAT_BEN`). */
+  gioDi?: number;
   /** đi mấy ngày; tính tối đa 16 (trần dữ liệu) — khai hơn thì tính 16 ngày đầu + ghi chú */
   soNgay: number;
   nghe: Nghe;
@@ -135,13 +142,14 @@ export interface LoTrinhKetQua {
   /** ước tính, đã làm tròn — "khoảng" */
   haiLy: number;
   litDau: number;
-  /** tổng lít × 1,3 (dự phòng) vượt két ⇒ true */
+  /** lít dầu khi chặng chạy chậm cỡ P80 (× 1,3 dự phòng) vẫn vượt két ⇒ true — thuật toán đã ưu tiên tuyến vừa két,
+   *  true nghĩa là KHÔNG tuyến nào vừa két */
   thieuDau: boolean;
   /** ngày nên quay về (YYYY-MM-DD) — mặc định theo nghề (§4) */
   ngayNenVe: string;
   /** số ngày thực tính (≤16) */
   soNgayTinh: number;
-  /** có bão trong cửa sổ 0–5 ngày đè lên tuyến ⇒ KHÔNG đưa lộ trình, chỉ câu này (§4 "thay cho lộ trình") */
+  /** có bão trong cửa sổ max(5 ngày, tới lúc về P80) đè lên tuyến ⇒ KHÔNG đưa lộ trình, chỉ câu này (§4 "thay cho lộ trình") */
   chanBao: string | null;
   /** câu ghi chú trung thực: chưa kiểm được bão, chỉ tính 16 ngày đầu, tốc độ mặc định… */
   ghiChu: string[];

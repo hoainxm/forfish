@@ -190,7 +190,7 @@ Mốc so sánh là **độ dài chuyến**. Nếu khai bừa có hệ thống (k
 | Khối 24 giờ | là đơn vị lịch. Kéo đánh ban ngày rõ rệt; nghề đèn chưa đo được | đổi sang ô nửa ngày ngày/đêm có trọng số khung giờ nghề (§7) |
 | `GIAM_THEO_NGAY = 0,9` | không đo được (không có kg theo ngày) | giữ, ghi nợ |
 
-## 7. Đề xuất thuật toán mới (B0 ĐÃ CODE 2026-11-08 — anh Long duyệt; spec ở 09 §3 Phase 1c; phần còn lại CHƯA code)
+## 7. Đề xuất thuật toán mới (ĐÃ CODE 2026-11-08: B0 → 09 Phase 1c · khung đánh + dầu lúc đánh → 1d · dầu chong đèn, két giới hạn tuyến, cổng bão tới lúc về, GRASP → 1f. Còn chờ DỮ LIỆU: trọng số khung giờ nghề đèn, L/h theo tốc độ)
 
 Ý chính (bài `toi-uu-chuyen.md` của team): **giữ bộ tìm tuyến** (tham lam + 2-opt, thêm GRASP tất định 20 vòng ≤ 300 ms). Chỗ sai lớn nằm ở **mô hình thời gian**, không ở bộ tìm.
 

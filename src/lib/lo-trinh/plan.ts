@@ -1,11 +1,11 @@
 // ĐỀ XUẤT LỘ TRÌNH CHUYẾN BIỂN — thuật toán Phase 1 (docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md
-// §3 B0–B3 + B5, §4 mẫu chuyến theo nghề, §5 ràng buộc trung thực). CHƯA có GRASP (B4), chưa
-// re-plan giữa chuyến, chưa mask giờ theo nghề/con trăng — đó là Phase 2.
+// §3 B0–B5, §4 mẫu chuyến theo nghề, §5 ràng buộc trung thực). B4 GRASP tất định có từ 2026-11-08. Chưa re-plan
+// giữa chuyến — đó là Phase 2.
 //
 // THUẦN: không React, không fetch, không localStorage — màn hình đưa dữ liệu vào qua `LoTrinhInput`.
 // Tất định: cùng input ⇒ cùng output (không ngẫu nhiên; mọi chỗ hoà điểm đều phá bằng chỉ số).
 //
-// Mô hình thời gian: giờ t tính từ lúc xuất bến (t = 0 = GIO_XUAT_BEN giờ VN ngày đi). Đánh cá theo KHUNG ĐÁNH
+// Mô hình thời gian: giờ t tính từ lúc xuất bến (t = 0 = giờ đi bà con chọn — mặc định GIO_XUAT_BEN — giờ VN ngày đi). Đánh cá theo KHUNG ĐÁNH
 // CỦA NGHỀ (KHUNG_DANH, 2026-11-08): tới chỗ ngoài khung thì neo chờ khung kế, xong khung thì chạy tiếp; một
 // khung được xếp vào ngày chứa điểm giữa khung. Cào đơn kéo cả ngày đêm ⇒ khung 24 giờ bắt đầu ngay khi tới.
 // Giờ chạy = hải lý / tốc độ, đường thẳng (chưa né sóng gió — đó là việc của planRoute từng chặng).
@@ -57,8 +57,29 @@ export const TOI_DA_DIEM_QUEN = 5;
 export const GIAM_THEO_NGAY = 0.9;
 /** Dự phòng dầu: tổng lít × 1,3 vượt két ⇒ thiếu dầu (§3 B5). */
 export const DU_PHONG_DAU = 1.3;
-/** Cổng bão: chỉ xét bão trong 5 ngày đầu chuyến (§6 Phase 1 "storm gate cửa sổ 0–5 ngày"). */
+/** Cổng bão: xét bão ÍT NHẤT 5 ngày đầu chuyến (§6 Phase 1); chuyến dài hơn thì tới lúc về theo giờ chạy chậm P80
+ *  (research vet-tau §7 B3, 2026-11-08 — bão ngày 8 trên đường về vẫn là bão). */
 export const CUA_SO_BAO_NGAY = 5;
+/**
+ * B4 GRASP tất định (research vet-tau §7 "giữ bộ tìm tuyến, thêm GRASP 20 vòng ≤ 300 ms"): sau tham lam + 2-opt,
+ * dựng lại tuyến thêm 20 lần — mỗi bước chèn chọn ngẫu nhiên trong 3 cách chèn lời nhất (hạt CỐ ĐỊNH ⇒ cùng input
+ * cùng output), mỗi lần 2-opt — giữ tuyến lời nhất. Tham lam hay kẹt ở vùng to gần cảng; GRASP thử bộ vùng khác.
+ */
+export const GRASP_VONG = 20;
+export const GRASP_RCL = 3;
+const GRASP_HAT = 0x5eed2026;
+/** Nghề đèn — có dầu máy phát chong đèn mỗi đêm đánh (kéo/rê không chong). */
+export const NGHE_DEN: readonly Nghe[] = ["luoi-vay", "chup-muc", "cau-ngu"];
+
+/** PRNG mulberry32 — tất định theo hạt. */
+function mulberry32(a: number): () => number {
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 /**
  * "Ngày nên quay về" theo nghề (§4). Câu cá ngừ: về ≤7 ngày sau NGÀY ĐÁNH ĐẦU TIÊN (chuẩn
@@ -101,10 +122,8 @@ export const KHUNG_DANH: Record<Nghe, { batDau: number; dai: number; ten: string
   "luoi-keo": { batDau: 0, dai: 24, ten: "kéo cả ngày đêm" },
   "keo-doi": { batDau: 6, dai: 11, ten: "kéo ban ngày 6–17 giờ" },
 };
-/**
- * Giờ xuất bến giả định (form chưa hỏi giờ). 6 giờ sáng — giờ bà con hay ra cửa. Đổi số này dời mọi khung chờ.
- * nợ: chưa hỏi giờ đi; thêm ô giờ vào form khi bà con báo lịch lệch.
- */
+/** Giờ xuất bến khi chưa chọn (lộ trình lưu cũ, input thiếu): 6 giờ sáng — giờ hay ra cửa. Form hỏi giờ từ
+ *  2026-11-08 (`LoTrinhInput.gioDi`). */
 export const GIO_XUAT_BEN = 6;
 /** Tới chỗ khi khung đã chạy chưa quá nửa ⇒ vẫn tính khung đó (đánh muộn), quá nửa ⇒ chờ khung sau. */
 const NUA_KHUNG = 0.5;
@@ -170,16 +189,17 @@ export function doanTrongVung(a: LatLon, b: LatLon): boolean {
 }
 
 /**
- * Bão gần tuyến trong cửa sổ 5 ngày đầu: điểm bão (bỏ điểm có `at` từ cuối ngày thứ 5 trở đi)
- * cách MỘT đoạn tuyến dưới 200 km. Trả bão gần nhất hoặc null.
+ * Bão gần tuyến trong cửa sổ `soGio` giờ kể từ `batDauMs` (không ngắn hơn 5 ngày): điểm bão (bỏ điểm có `at` từ cuối
+ * cửa sổ trở đi) cách MỘT đoạn tuyến dưới 200 km. Trả bão gần nhất hoặc null.
  */
 export function baoGanTuyen(
   bao: readonly BaoRutGon[],
   tuyen: readonly LatLon[],
   batDauMs: number,
+  soGio: number = CUA_SO_BAO_NGAY * 24,
 ): { ten: string; km: number } | null {
   if (tuyen.length === 0) return null;
-  const het = batDauMs + CUA_SO_BAO_NGAY * NGAY_MS;
+  const het = batDauMs + Math.max(CUA_SO_BAO_NGAY * 24, soThat(soGio) ? soGio : 0) * 3_600_000;
   let tot: { ten: string; km: number } | null = null;
   for (const b of bao) {
     for (const p of b?.diem ?? []) {
@@ -433,23 +453,26 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   const tocKhai = soThat(tau.speedKn) && tau.speedKn > 0 ? tau.speedKn : null;
   const tocDo = tocKhai != null ? Math.min(tocKhai, chang.vKn) : chang.vKn;
   const gioKm = (km: number) => gioChang(km, chang, tocKhai);
-  /*  LỊCH THEO KHUNG ĐÁNH CỦA NGHỀ (KHUNG_DANH): t = giờ kể từ lúc xuất bến (GIO_XUAT_BEN giờ VN ngày đi). */
+  /*  LỊCH THEO KHUNG ĐÁNH CỦA NGHỀ (KHUNG_DANH): t = giờ kể từ lúc xuất bến (giờ đi, giờ VN ngày đi). */
+  const GIO_DI =
+    soThat(input.gioDi) && input.gioDi >= 0 && input.gioDi < 24 ? Math.floor(input.gioDi) : GIO_XUAT_BEN;
+  if (input.gioDi != null && GIO_DI !== input.gioDi) ghiChu.push(`Giờ đi chưa đúng — tạm tính ${GIO_XUAT_BEN} giờ sáng.`);
   const khung = KHUNG_DANH[nghe];
   const caNgay = khung.dai >= 24;
   /** giờ bắt đầu (danh nghĩa) của khung đánh đầu tiên khi tới chỗ lúc t */
   const batKhung = (t: number): number => {
     if (caNgay) return t;
-    const c = (((GIO_XUAT_BEN + t - khung.batDau) % 24) + 24) % 24;
+    const c = (((GIO_DI + t - khung.batDau) % 24) + 24) % 24;
     return c < khung.dai * NUA_KHUNG ? t - c : t + 24 - c;
   };
   /** rời chỗ sau n khung đánh bắt đầu từ s */
   const ketKhung = (s: number, n: number): number => (caNgay ? s + 24 * n : s + 24 * (n - 1) + khung.dai);
   /** ngày (0 = ngày đi) của khung thứ j bắt đầu từ s — theo điểm giữa khung */
-  const ngayKhung = (s: number, j: number): number => Math.floor((GIO_XUAT_BEN + s + 24 * j + Math.min(khung.dai, 24) / 2) / 24);
+  const ngayKhung = (s: number, j: number): number => Math.floor((GIO_DI + s + 24 * j + Math.min(khung.dai, 24) / 2) / 24);
   /** ngày (1 = ngày đi) chứa thời điểm t; `het` = mốc kết thúc (lùi một chút để 24:00 không sang ngày sau) */
-  const ngayThu = (t: number, het = false): number => Math.floor((GIO_XUAT_BEN + t - (het ? 1e-6 : 0)) / 24) + 1;
+  const ngayThu = (t: number, het = false): number => Math.floor((GIO_DI + t - (het ? 1e-6 : 0)) / 24) + 1;
   /** mốc giờ (kể từ xuất bến) hết ngày thứ `ngay` (1 = ngày đi) */
-  const hetNgay = (ngay: number): number => ngay * 24 - GIO_XUAT_BEN;
+  const hetNgay = (ngay: number): number => ngay * 24 - GIO_DI;
   if (!chang.doDuoc) ghiChu.push(`Chưa có số đo tàu cùng nghề trong máy — tạm tính dè dặt ${chang.vKn} hải lý/giờ.`);
   else if (tocKhai != null && tocKhai > chang.vKn + 0.05)
     ghiChu.push(`Giờ chạy tính theo tốc độ thật của tàu cùng nghề (${String(Math.round(chang.vKn * 10) / 10).replace(".", ",")} hải lý/giờ), chậm hơn số khai.`);
@@ -459,6 +482,16 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     ghiChu.push(`Chưa có số lít dầu mỗi giờ — tạm tính ${DAU_GIO_MAC_DINH_L} lít/giờ.`);
   }
   const ket = soThat(tau.fuelTankL) && tau.fuelTankL > 0 ? tau.fuelTankL : null;
+  const den = NGHE_DEN.includes(nghe);
+  const litDem = den && soThat(tau.litDem) && tau.litDem > 0 ? tau.litDem : null;
+  const mayBai = gioMayBai(nghe);
+  const dauMoiGio = dauGio;
+  /** lít dầu của một kế hoạch: (giờ chạy × hs + giờ máy ở bãi × số khung) × lít/giờ + lít đèn × số đêm đánh.
+   *  hs = 1 (P50, số báo bà con) hoặc p80HeSo (chạy chậm — xét két). */
+  const litCua = (tongChay: number, soKhung: number, hs: number): number =>
+    (tongChay * hs + (mayBai ?? 0) * soKhung) * dauMoiGio + (litDem ?? 0) * soKhung;
+  /** Két giới hạn tuyến (research §7 B3): lít P80 × 1,3 ≤ két. Không tuyến nào vừa ⇒ tắt, vẫn đưa tuyến + cảnh báo. */
+  let gioiHanKet = ket !== null;
 
   if (input.bao === null || !Array.isArray(input.bao)) ghiChu.push(CAU_CHUA_KIEM_BAO);
 
@@ -616,6 +649,10 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   };
   /** kịp về: xét theo P80 (giờ chạy có thể dài hơn trung vị) — thà bớt một khung đánh hơn về trễ */
   const kip = (h: number[], n: number[]): boolean => {
+    if (gioiHanKet) {
+      const lit = litCua(h.reduce((a, b) => a + b, 0), n.reduce((a, b) => a + b, 0), chang.p80HeSo);
+      if (lit * DU_PHONG_DAU > ket! + EPS) return false;
+    }
     const p = moPhong(h, n, chang.p80HeSo);
     return p.ve <= hanVe(p.s[0]) + EPS;
   };
@@ -657,83 +694,124 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     return { thuTu, h, n, giaTri, tongChay };
   };
 
-  /* B2a: khung = điểm quen theo nearest-neighbor, chèn vào chỗ rẻ nhất còn hợp lệ */
-  let thuTu: number[] = [];
-  {
-    const con = [...idxQuen];
-    let cur = 0;
-    const thuTuQuen: number[] = [];
-    while (con.length) {
-      let bi = 0;
-      for (let i = 1; i < con.length; i++) if (gio[cur][con[i]] < gio[cur][con[bi]] - EPS) bi = i;
-      cur = con[bi];
-      thuTuQuen.push(cur);
-      con.splice(bi, 1);
-    }
-    for (const q of thuTuQuen) {
-      let tot: number[] | null = null, totThem = Infinity, kipGio = false;
-      for (let p = 0; p <= thuTu.length; p++) {
-        const moi = [...thuTu.slice(0, p), q, ...thuTu.slice(p)];
-        if (!lap(moi)) continue;
-        kipGio = true;
-        if (!tuyenHopLe(moi)) continue;
-        const a = p === 0 ? 0 : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
-        const them = gio[a][q] + gio[q][b] - gio[a][b];
-        if (them < totThem - EPS) { totThem = them; tot = moi; }
-      }
-      if (tot) thuTu = tot;
-      else
-        ghiChu.push(
-          kipGio
-            ? `Điểm quen “${nut[q].ten}”: đường thẳng tới đó vướng đất hoặc ra ngoài vùng biển — chưa đưa vào tuyến.`
-            : `Điểm quen “${nut[q].ten}” xa quá, không kịp đi về trong số ngày này — chưa đưa vào tuyến.`,
-        );
-    }
-  }
+  /** kế hoạch a hơn b: lời hơn, hoà thì chạy ít hơn */
+  const hon = (a: KeHoach, b: KeHoach): boolean =>
+    a.giaTri > b.giaTri + 1e-6 || (Math.abs(a.giaTri - b.giaTri) <= 1e-6 && a.tongChay < b.tongChay - 1e-6);
 
-  /* B2b: chèn vùng tham lam theo prize / giờ chạy thêm; nhận khi lịch B3 có lời hơn và đoạn mới hợp lệ */
-  let ke = lap(thuTu)!;
-  const toiDaCho = Math.max(TOI_DA_CHO_GHE, thuTu.length);
-  while (thuTu.length < toiDaCho) {
-    const ung: { z: number; p: number; r: number }[] = [];
-    for (const z of idxVung) {
-      if (thuTu.includes(z)) continue;
-      for (let p = 0; p <= thuTu.length; p++) {
-        const a = p === 0 ? 0 : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
-        const them = gio[a][z] + gio[z][b] - gio[a][b];
-        ung.push({ z, p, r: nut[z].prize / Math.max(them, 0.5) });
-      }
+  /** B2c: 2-opt trên các chỗ ghé (cảng giữ hai đầu) */
+  const haiOpt = (thuTu0: number[], ke0: KeHoach): { thuTu: number[]; ke: KeHoach } => {
+    let thuTu = thuTu0, ke = ke0;
+    for (let caiThien = true; caiThien && thuTu.length >= 2; ) {
+      caiThien = false;
+      for (let i = 0; i < thuTu.length - 1 && !caiThien; i++)
+        for (let j = i + 1; j < thuTu.length && !caiThien; j++) {
+          const moi = [...thuTu.slice(0, i), ...thuTu.slice(i, j + 1).reverse(), ...thuTu.slice(j + 1)];
+          const kh = lap(moi);
+          if (kh && hon(kh, ke) && tuyenHopLe(moi)) { thuTu = moi; ke = kh; caiThien = true; }
+        }
     }
-    ung.sort((x, y) => y.r - x.r || x.z - y.z || x.p - y.p);
-    let nhan = false;
-    for (const { z, p } of ung) {
-      const moi = [...thuTu.slice(0, p), z, ...thuTu.slice(p)];
-      const kh = lap(moi);
-      if (!kh || kh.giaTri <= ke.giaTri + EPS) continue;
-      const a = p === 0 ? 0 : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
-      if (!hopLe(a, z) || !hopLe(z, b)) continue;
-      thuTu = moi;
-      ke = kh;
-      nhan = true;
-      break;
-    }
-    if (!nhan) break;
-  }
+    return { thuTu, ke };
+  };
 
-  /* B2c: 2-opt trên các chỗ ghé (cảng giữ hai đầu) */
-  for (let caiThien = true; caiThien && thuTu.length >= 2; ) {
-    caiThien = false;
-    for (let i = 0; i < thuTu.length - 1 && !caiThien; i++)
-      for (let j = i + 1; j < thuTu.length && !caiThien; j++) {
-        const moi = [...thuTu.slice(0, i), ...thuTu.slice(i, j + 1).reverse(), ...thuTu.slice(j + 1)];
+  /** B2b: chèn vùng theo prize / giờ chạy thêm; nhận khi lịch B3 có lời hơn và đoạn mới hợp lệ. `rnd` null = tham lam
+   *  (lấy cách chèn đầu tiên đạt); có `rnd` = GRASP (chọn ngẫu nhiên trong GRASP_RCL cách chèn đạt đầu tiên). */
+  const xayTuyen = (goc: number[], keGoc: KeHoach, rnd: (() => number) | null) => {
+    let thuTu = goc, ke = keGoc;
+    const toiDaCho = Math.max(TOI_DA_CHO_GHE, goc.length);
+    const can = rnd ? GRASP_RCL : 1;
+    while (thuTu.length < toiDaCho) {
+      const ung: { z: number; p: number; r: number }[] = [];
+      for (const z of idxVung) {
+        if (thuTu.includes(z)) continue;
+        for (let p = 0; p <= thuTu.length; p++) {
+          const a = p === 0 ? 0 : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
+          const them = gio[a][z] + gio[z][b] - gio[a][b];
+          ung.push({ z, p, r: nut[z].prize / Math.max(them, 0.5) });
+        }
+      }
+      ung.sort((x, y) => y.r - x.r || x.z - y.z || x.p - y.p);
+      const dat: { moi: number[]; kh: KeHoach }[] = [];
+      for (const { z, p } of ung) {
+        if (dat.some((d) => d.moi.includes(z))) continue; // RCL: mỗi vùng một cách chèn
+        const moi = [...thuTu.slice(0, p), z, ...thuTu.slice(p)];
         const kh = lap(moi);
-        if (!kh) continue;
-        const hon =
-          kh.giaTri > ke.giaTri + 1e-6 ||
-          (Math.abs(kh.giaTri - ke.giaTri) <= 1e-6 && kh.tongChay < ke.tongChay - 1e-6);
-        if (hon && tuyenHopLe(moi)) { thuTu = moi; ke = kh; caiThien = true; }
+        if (!kh || kh.giaTri <= ke.giaTri + EPS) continue;
+        const a = p === 0 ? 0 : thuTu[p - 1], b = p === thuTu.length ? 0 : thuTu[p];
+        if (!hopLe(a, z) || !hopLe(z, b)) continue;
+        dat.push({ moi, kh });
+        if (dat.length >= can) break;
       }
+      if (!dat.length) break;
+      const c = dat[rnd ? Math.min(dat.length - 1, Math.floor(rnd() * dat.length)) : 0];
+      thuTu = c.moi;
+      ke = c.kh;
+    }
+    return haiOpt(thuTu, ke);
+  };
+
+  /** B2a khung điểm quen → B2b tham lam → B2c 2-opt → B4 GRASP. Ghi chú trả riêng (chạy lại khi bỏ giới hạn két). */
+  const timTuyen = (): { thuTu: number[]; ke: KeHoach; ghi: string[] } => {
+    const ghi: string[] = [];
+    /* B2a: khung = điểm quen theo nearest-neighbor, chèn vào chỗ rẻ nhất còn hợp lệ */
+    let khungQuen: number[] = [];
+    {
+      const con = [...idxQuen];
+      let cur = 0;
+      const thuTuQuen: number[] = [];
+      while (con.length) {
+        let bi = 0;
+        for (let i = 1; i < con.length; i++) if (gio[cur][con[i]] < gio[cur][con[bi]] - EPS) bi = i;
+        cur = con[bi];
+        thuTuQuen.push(cur);
+        con.splice(bi, 1);
+      }
+      for (const q of thuTuQuen) {
+        let tot: number[] | null = null, totThem = Infinity, kipGio = false;
+        for (let p = 0; p <= khungQuen.length; p++) {
+          const moi = [...khungQuen.slice(0, p), q, ...khungQuen.slice(p)];
+          if (!lap(moi)) continue;
+          kipGio = true;
+          if (!tuyenHopLe(moi)) continue;
+          const a = p === 0 ? 0 : khungQuen[p - 1], b = p === khungQuen.length ? 0 : khungQuen[p];
+          const them = gio[a][q] + gio[q][b] - gio[a][b];
+          if (them < totThem - EPS) { totThem = them; tot = moi; }
+        }
+        if (tot) khungQuen = tot;
+        else
+          ghi.push(
+            kipGio
+              ? `Điểm quen “${nut[q].ten}”: đường thẳng tới đó vướng đất hoặc ra ngoài vùng biển — chưa đưa vào tuyến.`
+              : gioiHanKet
+                ? `Điểm quen “${nut[q].ten}” xa quá — không kịp đi về hoặc két dầu không đủ — chưa đưa vào tuyến.`
+                : `Điểm quen “${nut[q].ten}” xa quá, không kịp đi về trong số ngày này — chưa đưa vào tuyến.`,
+          );
+      }
+    }
+    const keQuen: KeHoach = lap(khungQuen) ?? { thuTu: khungQuen, h: [0], n: [], giaTri: 0, tongChay: 0 };
+    let tot = xayTuyen(khungQuen, keQuen, null);
+    /* B4: GRASP tất định — chỉ thay khi lời hơn hẳn tuyến tham lam */
+    if (idxVung.length > 1) {
+      const rnd = mulberry32(GRASP_HAT);
+      for (let v = 0; v < GRASP_VONG; v++) {
+        const r = xayTuyen(khungQuen, keQuen, rnd);
+        if (hon(r.ke, tot.ke)) tot = r;
+      }
+    }
+    return { ...tot, ghi };
+  };
+
+  let tim = timTuyen();
+  let vuaKet = gioiHanKet;
+  if (gioiHanKet && tim.thuTu.length === 0) {
+    // két nhỏ tới mức không vùng nào vừa ⇒ vẫn đưa tuyến tốt nhất, cảnh báo thiếu dầu (không im lặng trắng tay)
+    gioiHanKet = false;
+    vuaKet = false;
+    tim = timTuyen();
   }
+  gioiHanKet = false;
+  ghiChu.push(...tim.ghi);
+  const thuTu = tim.thuTu;
+  const ke = tim.ke;
 
   if (thuTu.length === 0) {
     ghiChu.push("Không có vùng cá nào trong vùng biển Việt Nam kịp đi về trong số ngày này.");
@@ -745,9 +823,11 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   const mp = moPhong(ke.h, ke.n, 1);
   const ngayVe = congNgay(ngayDi, ngayThu(mp.ve, true) - 1);
   if (Array.isArray(input.bao) && input.bao.length > 0) {
-    const gan = baoGanTuyen(input.bao, duong, dauNgayVN(ngayDi));
+    // cửa sổ = max(5 ngày, tới lúc về nếu chạy chậm P80), tính từ 0 giờ ngày đi
+    const soGio = Math.max(CUA_SO_BAO_NGAY * 24, GIO_DI + moPhong(ke.h, ke.n, chang.p80HeSo).ve);
+    const gan = baoGanTuyen(input.bao, duong, dauNgayVN(ngayDi), soGio);
     if (gan) {
-      ghiChu.push(`Bão ${gan.ten} cách tuyến khoảng ${Math.round(gan.km / 10) * 10} km trong ${CUA_SO_BAO_NGAY} ngày tới.`);
+      ghiChu.push(`Bão ${gan.ten} cách tuyến khoảng ${Math.round(gan.km / 10) * 10} km trong ${Math.ceil(soGio / 24 - EPS)} ngày tới.`);
       return { ...rong(D, ngayVe), chanBao: CAU_CHAN_BAO };
     }
   }
@@ -860,18 +940,25 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     let prev = 0;
     for (const x of [...thuTu, 0]) { haiLyRaw += haversineKm(nut[prev], nut[x]) / KM_MOI_HAI_LY; prev = x; }
   }
-  // dầu: (giờ chạy P50 — gồm phần cố định `a` mỗi chặng, dè dặt — + giờ máy chạy ở bãi × số khung đánh) × lít/giờ.
-  // Giờ máy ở bãi = số đo đội tàu cùng nghề (cào kéo ~13 giờ/ngày; câu/chụp ~2 giờ) — tính cùng lít/giờ lúc chạy.
-  const mayBai = gioMayBai(nghe);
+  // dầu: (giờ chạy P50 — gồm phần cố định `a` mỗi chặng, dè dặt — + giờ máy chạy ở bãi × số khung đánh) × lít/giờ
+  // + dầu chong đèn × số đêm đánh (nghề đèn, khi bà con khai). Giờ máy ở bãi = số đo đội tàu cùng nghề.
+  // Xét két bằng giờ chạy P80 (chạy chậm) × 1,3 — số báo bà con là P50.
   const soKhung = ke.n.reduce((a, b) => a + b, 0);
-  const litRaw = (ke.tongChay + (mayBai ?? 0) * soKhung) * dauGio;
+  const litRaw = litCua(ke.tongChay, soKhung, 1);
+  const litP80 = litCua(ke.tongChay, soKhung, chang.p80HeSo);
   const so1 = (v: number) => String(Math.round(v * 10) / 10).replace(".", ",");
-  const denDau = nghe === "luoi-vay" || nghe === "chup-muc" || nghe === "cau-ngu" ? ", chưa tính dầu máy phát chong đèn" : "";
+  const denDau = !den
+    ? ""
+    : litDem != null
+      ? `, + dầu chong đèn ${so1(litDem)} lít × ${soKhung} đêm`
+      : ", chưa tính dầu máy phát chong đèn (khai số lít mỗi đêm để tính)";
   ghiChu.push(
     mayBai == null
-      ? "Lít dầu chỉ tính giờ chạy máy — chưa có số giờ máy lúc đánh của nghề này trong máy."
+      ? `Lít dầu chỉ tính giờ chạy máy — chưa có số giờ máy lúc đánh của nghề này trong máy${denDau}.`
       : `Lít dầu = giờ chạy + giờ máy lúc đánh (tàu ${TEN_NGHE[nghe]} chạy máy khoảng ${so1(mayBai)} giờ mỗi ngày ở bãi)${denDau}.`,
   );
+  if (ket !== null && vuaKet)
+    ghiChu.push(`Tuyến đã chọn vừa két ${Math.round(ket)} lít kể cả khi chạy chậm, còn dư 30% cho gió ngược.`);
   if (mau.tinhTu === "ngay-danh-dau")
     ghiChu.push(`Câu cá ngừ: nên về cảng trong ${mau.soNgay} ngày kể từ ngày đánh đầu để cá còn tươi.`);
   else if (mau.soNgay < D)
@@ -883,7 +970,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     moc,
     haiLy: Math.round(haiLyRaw),
     litDau: litRaw < 10 ? Math.round(litRaw) : Math.round(litRaw / 10) * 10,
-    thieuDau: ket !== null && litRaw * DU_PHONG_DAU > ket,
+    thieuDau: ket !== null && litP80 * DU_PHONG_DAU > ket + EPS,
     ngayNenVe: ngayVe,
     soNgayTinh: D,
     chanBao: null,
