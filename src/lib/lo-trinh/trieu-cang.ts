@@ -13,6 +13,8 @@ import { haversineKm, type LatLon } from "@/lib/geo";
 import { requiredDepthM } from "@/lib/hazards";
 import { isModelStation, nearestTideStation, tideHeightAt, tideUpcoming, type TideStation } from "@/lib/tides";
 import type { FairwayDepth } from "@/lib/fairway-depth";
+import { getModelParams, type ModelParams } from "@/lib/model-params";
+import { loTrinhParams } from "./he-so";
 
 /** Trạm triều xa cảng hơn ngần này thì coi như không có trạm cho cảng đó (con nước ở cửa lạch lệch giờ theo khoảng cách). */
 export const TRAM_TOI_DA_KM = 40;
@@ -21,6 +23,11 @@ export const BAN_KINH_LUONG_KM = 15;
 /** Tìm giờ đủ nước tối đa ngần này giờ tới; quá ⇒ báo "không đủ nước" (null). Hai chu kỳ bán nhật triều + dư. */
 export const TIM_TOI_DA_GIO = 36;
 const BUOC_PHUT = 10;
+/** Cửa đo được (model-params `cuaCang`) trong bán kính này quanh cảng bà con chọn ⇒ dùng số đo của cửa đó. */
+export const BAN_KINH_CUA_DO_KM = 6;
+/** Tỉ phần lượt qua cửa lúc nước dưới p25 nền: dưới ngưỡng này ⇒ cửa PHỤ THUỘC con nước (ràng buộc). Không phụ thuộc ⇒ ~0,25;
+ *  độ lệch chuẩn ~0,03 với 200 lượt ⇒ 0,15 là cách > 3 lần nhiễu. 0,15–0,2 chỉ báo. */
+export const NGUONG_PHU_THUOC = 0.15;
 
 export interface CuaTrieu {
   tenTram: string;
@@ -31,7 +38,10 @@ export interface CuaTrieu {
   luong: { ten: string; sauM: number; ngay: string } | null;
   /** nước tàu cần (m); null = chưa khai mớn */
   canM: number | null;
-  /** true = có luồng + có mớn ⇒ giờ ra/vào bị ràng buộc thật */
+  /** CỬA ĐO ĐƯỢC từ lượt ra/vào thật (research §10.8): tàu ở đây chỉ qua cửa khi triều ≥ nguongM (số 0 của trạm đo);
+   *  `phuThuoc` false = hơi phụ thuộc (chỉ báo). null = cảng chưa có số đo */
+  cuaDo: { nguongM: number; soLuot: number; tiLeNuocThap: number; phuThuoc: boolean; tram: string } | null;
+  /** true = (có luồng + có mớn) HOẶC cửa đo được là phụ thuộc ⇒ giờ ra/vào bị ràng buộc thật */
   rangBuoc: boolean;
   /** giờ (epoch ms) sớm nhất ≥ ms qua được cửa; không ràng buộc ⇒ trả ms; trong 36 giờ không đủ nước ⇒ null */
   quaCua: (ms: number) => number | null;
@@ -58,6 +68,7 @@ export function dungCuaTrieu(
   tram: readonly TideStation[] | null,
   doan: readonly FairwayDepth[] | null,
   draftM: number | null | undefined,
+  p: ModelParams | null = getModelParams(),
 ): CuaTrieu | null {
   if (!tram?.length || !Number.isFinite(cang?.lat) || !Number.isFinite(cang?.lon)) return null;
   const gan = nearestTideStation(tram, cang.lat, cang.lon);
@@ -65,14 +76,33 @@ export function dungCuaTrieu(
   const st = gan.station;
   const luong = doan?.length ? luongCuaCang(cang, doan) : null;
   const canM = requiredDepthM(draftM ?? null, 0);
-  const rangBuoc = luong != null && canM != null;
-  const du = (ms: number) => luong!.sauM + tideHeightAt(st, ms) >= canM! - 1e-9;
+  // cửa đo được gần nhất (≤ BAN_KINH_CUA_DO_KM); mực triều so ở ĐÚNG trạm đã dùng khi đo
+  let cuaDo: CuaTrieu["cuaDo"] = null;
+  let stDo: TideStation | null = null;
+  let kmDo = Infinity;
+  for (const c of loTrinhParams(p).cuaCang ?? []) {
+    if (!Array.isArray(c) || c.length < 6) continue;
+    const [la, lo, id, nguong, tiLe, n] = c;
+    const km = haversineKm(cang, { lat: la, lon: lo });
+    if (km > BAN_KINH_CUA_DO_KM || km >= kmDo || !Number.isFinite(nguong)) continue;
+    const s = tram.find((x) => x.id === id);
+    if (!s) continue;
+    kmDo = km;
+    stDo = s;
+    cuaDo = { nguongM: nguong, soLuot: n, tiLeNuocThap: tiLe, phuThuoc: tiLe < NGUONG_PHU_THUOC, tram: s.name };
+  }
+  const coLuong = luong != null && canM != null;
+  const rangBuoc = coLuong || !!cuaDo?.phuThuoc;
+  const du = (ms: number) =>
+    (!coLuong || luong!.sauM + tideHeightAt(st, ms) >= canM! - 1e-9) &&
+    (!cuaDo?.phuThuoc || tideHeightAt(stDo!, ms) >= cuaDo.nguongM - 1e-9);
   return {
     tenTram: st.name,
     kmTram: Math.round(gan.distanceKm),
     uocTinh: isModelStation(st),
     luong,
     canM,
+    cuaDo,
     rangBuoc,
     quaCua: (ms) => {
       if (!rangBuoc) return ms;

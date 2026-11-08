@@ -227,6 +227,16 @@ Test: `lo-trinh-plan.test.ts` khối "giờ đi, dầu đèn, vừa két, GRASP"
   đầu mới — pipeline <2s nên re-plan ngay trên máy, offline vẫn chạy với bản đã lưu (ghi rõ
   tuổi dữ liệu — bài học offline-16d).
 
+#### §3 Phase 1g — SỐ ĐO TỪ DATALAKE MỚI: CỬA PHỤ THUỘC CON NƯỚC · GIỜ ĐI THEO NGHỀ · CÂU NGỪ RIÊNG (2026-11-08, anh Long: "hoàn thiện hết đi, datalake có dữ liệu mới rồi đó"; research §10.8–10.9)
+
+| Phần | Trước | Nay |
+|---|---|---|
+| Cửa cảng | ràng buộc chỉ khi có độ sâu luồng (22 đoạn, phần lớn phía Bắc) + mớn | + **cửa đo được** `cuaCang` (model-params): tỉ phần lượt ra/vào thật lúc nước dưới p25 nền < 0,15 ⇒ giờ ra/vào chỉ khi triều ≥ ngưỡng đo (p05 lúc qua cửa, đúng trạm đã đo), KHÔNG cần mớn; 0,15–0,2 ⇒ chỉ báo "hơi né nước ròng". Cửa đo trong 6 km quanh cảng bà con chọn. Cả luồng+mớn lẫn cửa đo ⇒ phải thoả CẢ HAI |
+| Giờ đi mặc định | 6 giờ sáng mọi nghề | `gioDiMacDinh(nghe)` = giờ ra cảng hay gặp nhất (`gioDiThuong`): câu ngừ 11 · vây 16 · rê 17 · chụp 12 · cào 12 · cào đôi 16; ô "Giờ đi" tự theo nghề tới khi bà con chọn tay; chưa nạp tham số ⇒ 6 |
+| Câu ngừ | dùng số cả nhóm câu | số đo RIÊNG 1 680 tàu câu ngừ (loài khai eCDT): chặng 1,66 + hl/5,31 (P80 ×1,16), máy ở bãi 1,49, đáy chỉ nước sâu |
+
+Test: `lo-trinh-trieu-day-offline.test.ts` khối "số đo từ lượt ra/vào cảng thật".
+
 #### §3 Phase 1e — CON NƯỚC Ở CẢNG · ĐÁY THEO NGHỀ · TRỌNG SỐ KHI MẤT SÓNG (2026-11-08, anh Long: "giờ đi cần tính toán cả thuỷ triều ở chỗ họ đậu tàu nữa", "tính toán các kiểu rạn rồi nghề", "tính toán khi offline muốn xem lại thì xem gì, tính lại thì sẽ bị mất trọng số nào")
 
 | Phần | Luật |

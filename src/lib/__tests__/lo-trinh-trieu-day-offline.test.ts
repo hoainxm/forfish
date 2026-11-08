@@ -10,7 +10,8 @@ import { bangTrongSo, cauMatKhiTinhLai, soVoiLucTinh, type DauVaoTrongSo } from 
 import { setModelParams } from "@/lib/model-params";
 import { buildModelParams } from "../../../scripts/build-model-params.mjs";
 import dayO from "@/data/day-o025.json";
-import { deXuatLoTrinh } from "@/lib/lo-trinh/plan";
+import { deXuatLoTrinh, gioDiMacDinh, GIO_XUAT_BEN } from "@/lib/lo-trinh/plan";
+import loTrinhParams from "@/data/lo-trinh-params.json";
 import type { CuaTrieu } from "@/lib/lo-trinh/trieu-cang";
 import type { LoTrinhInput } from "@/lib/lo-trinh/types";
 
@@ -162,6 +163,7 @@ describe("lộ trình dùng con nước + đáy", () => {
     uocTinh: false,
     luong: { ten: "Luồng thử", sauM: 1, ngay: "2026-08-01" },
     canM: rangBuoc ? 2.5 : null,
+    cuaDo: null,
     rangBuoc,
     // cửa chỉ mở ở các mốc "chẵn choGio giờ" tính từ 0 giờ UTC — đủ để thấy dời giờ
     quaCua: (ms) => (rangBuoc ? Math.ceil(ms / (choGio * 3_600_000)) * choGio * 3_600_000 : ms),
@@ -181,6 +183,47 @@ describe("lộ trình dùng con nước + đáy", () => {
     expect(bao.ghiChu.join(" ")).toMatch(/nước lớn ngày đi lúc/);
     expect(bao.ghiChu.join(" ")).toMatch(/× đáy/);
     expect(deXuatLoTrinh(vao(null), NOW).ghiChu.join(" ")).toMatch(/Chưa tính con nước ở Quy Nhơn/);
+  });
+});
+
+describe("số đo từ lượt ra/vào cảng thật (research §10.8)", () => {
+  const cuaCang = (loTrinhParams as unknown as { cuaCang: [number, number, string, number, number, number][] }).cuaCang;
+
+  it("giờ đi mặc định theo nghề (không còn 6 giờ sáng cho mọi nghề); chưa nạp ⇒ 6", () => {
+    expect(gioDiMacDinh("luoi-vay")).toBe(16);
+    expect(gioDiMacDinh("cau-ngu")).toBe(11);
+    expect(gioDiMacDinh("keo-doi")).toBe(16);
+    setModelParams(null);
+    expect(gioDiMacDinh("luoi-vay")).toBe(GIO_XUAT_BEN);
+  });
+
+  it("cửa phụ thuộc con nước đo được ⇒ ràng buộc dù chưa có luồng/mớn; giờ qua cửa có triều ≥ ngưỡng đo", () => {
+    const [la, lo, id, nguong, tiLe, n] = cuaCang.filter((c) => c[4] < 0.15).sort((a, b) => b[5] - a[5])[0];
+    expect(tiLe).toBeLessThan(0.15);
+    const c = dungCuaTrieu({ lat: la, lon: lo }, tram, [], null)!;
+    expect(c.cuaDo).toMatchObject({ phuThuoc: true, nguongM: nguong, soLuot: n });
+    expect(c.rangBuoc).toBe(true);
+    const st = tram.find((s) => s.id === id)!;
+    const t0 = Date.parse("2026-11-09T23:00:00Z");
+    const ra = c.quaCua(t0)!;
+    expect(tideHeightAt(st, ra)).toBeGreaterThanOrEqual(nguong - 1e-9);
+    // cửa hơi phụ thuộc (0,15–0,2) ⇒ chỉ báo
+    const hoi = cuaCang.find((x) => x[4] >= 0.15);
+    if (hoi) {
+      const h = dungCuaTrieu({ lat: hoi[0], lon: hoi[1] }, tram, [], null)!;
+      expect(h.cuaDo?.phuThuoc).toBe(false);
+      expect(h.rangBuoc).toBe(false);
+    }
+  });
+
+  it("bảng cửa chỉ có số (không tên, không mã tàu), ngưỡng trong dải triều hợp lý", () => {
+    expect(cuaCang.length).toBeGreaterThan(30);
+    for (const c of cuaCang) {
+      expect(c).toHaveLength(6);
+      expect(c[3]).toBeGreaterThan(-1);
+      expect(c[3]).toBeLessThan(5);
+      expect(c[5]).toBeGreaterThanOrEqual(100);
+    }
   });
 });
 

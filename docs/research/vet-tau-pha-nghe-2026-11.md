@@ -353,6 +353,30 @@ Script `09_lich_dau.py` → `out/lich-dau.json`; `scripts/add-density-keo-tach.m
 
 **Bãi riêng cào đôi / cào đơn** trong lớp mật độ tàu (lát tháng/mùa/trăng, ô ≥ 3 tàu): tháng 3/2026 cào đôi 572 ô / 72 % giờ kéo, cào đơn 347 ô / 9 %; phần còn lại là tàu lửng và tàu chưa nhãn.
 
+### 10.8 Con nước ở cửa cảng + giờ ra cảng — đo từ lượt ra/vào THẬT (datalake 2026-11-08)
+
+Nguồn mới: `port-calls-2026-08..10` (lượt ra/vào cảng, chỉ lấy lượt **VMS xác nhận**, 150 nghìn lượt) × mực triều lúc đó (đúng bộ `tides.ts` của app, trạm ≤ 40 km). Script `14_trieu_cang.mjs` → `out/trieu-cang.json`.
+
+- So mực triều lúc qua cửa với mực triều **nền** (mỗi 10 phút suốt khung) cùng trạm. Chỉ số: tỉ phần lượt rơi vào lúc nước dưới p25 của nền. Không phụ thuộc con nước ⇒ ~0,25 (độ lệch chuẩn ~0,03 với 200 lượt).
+- 115 cảng đủ ≥ 60 lượt: **35 cảng < 0,15** (tàu né hẳn nước ròng), 26 cảng 0,15–0,2. Rõ nhất: Gò Ông Sầm 0, Lạch Hới 0,03, Hoà Lộc 0,06, Tân Sơn 0,06, Nhật Lệ 0,07, Cửa Hội 0,08, Tân Phước 0,09 — phần lớn cửa sông miền Bắc–Bắc Trung Bộ và TP HCM.
+- **Ngưỡng** = phân vị 5 mực triều lúc qua cửa (so số 0 của trạm) — vd Lạch Hới 1,69 m, Tân Phước 1,42 m. Giờ VMS lệch ~1–2 giờ so lúc qua cửa thật ⇒ ngưỡng hơi nhoè xuống.
+- Đưa vào app: `lo-trinh-params.cuaCang` (59 cửa < 0,2 và ≥ 100 lượt; chỉ số, không tên): < 0,15 ⇒ **ràng buộc** giờ ra/vào dù chưa có độ sâu luồng hay mớn; 0,15–0,2 ⇒ chỉ báo.
+
+**Giờ ra cảng thật** (lượt OUT VMS xác nhận) — KHÔNG có đỉnh 6 giờ sáng như giả định cũ: câu 11–12 giờ, vây 16–17, kéo 16–17, chụp 12–13, rê trải đều (nhô 3 giờ và 17 giờ), cào đơn trải đều. ⇒ `gioDiThuong` (mặc định ô "Giờ đi" theo nghề): câu ngừ 11 · vây 16 · rê 17 · chụp 12 · cào 12 · cào đôi 16.
+
+### 10.9 Câu ngừ tách khỏi "câu" (loài khai eCDT)
+
+Script `15_cau_ngu.py` → `out/cau-ngu.json`; ghi `ngheSo.cauLoai` vào kho nhãn. Tàu câu (sổ) có ngừ đại dương + cá cờ ≥ 50 % kg khai (kg lớn hơn giữa `catch`/`landed` — `catch` hay bỏ trống) = **1 680 câu ngừ**, 845 câu mực, 2 618 câu khác (5 143 tàu câu có ≥ 100 kg khai).
+
+| Câu ngừ (đo riêng) | Trước (cả nhóm câu) |
+|---|---|
+| giờ chặng 1,66 giờ + hl / 5,31 kn, P80 ×1,16; thử 07–10/2026 sai trung vị **10,7 %** (7 kn 40,6 %) | 1,52 + hl / 5,17 |
+| máy ở bãi 1,49 giờ/ngày | 1,75 |
+| đáy: chỉ nước sâu — 4–12 m **0**, < 4 m ~0, rạn 0,19, sát rạn 1 | 4–12 m 0,30, rạn 0,76 (ưa rạn của câu tay/câu mực) |
+| giờ ra cảng 11 giờ (21 %), 946 lượt | 11 |
+
+eCDT dùng ở đây để **phân loại nghề con** (loài nào), không dùng làm thước đo sản lượng — vẫn đúng luật §3.2.
+
 ### 10.6 Việc tiếp
 
 - Tách nhóm lửng và cào tôm đơn (giờ kéo đêm, tốc độ, độ sâu).

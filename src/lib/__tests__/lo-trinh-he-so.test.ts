@@ -179,10 +179,10 @@ describe("giờ chặng theo số đo đội tàu", () => {
   it("giờ = a + hải lý / v; 0 km ⇒ 0; tốc độ khai chỉ là TRẦN (khai nhanh hơn đo không làm chặng ngắn đi)", () => {
     const m = moHinhChang("cau-ngu");
     const km = 100 * 1.852; // 100 hải lý
-    expect(gioChang(km, m)).toBeCloseTo(1.52 + 100 / 5.17, 6);
+    expect(gioChang(km, m)).toBeCloseTo(1.66 + 100 / 5.31, 6); // câu ngừ đo riêng (research §10.9)
     expect(gioChang(0, m)).toBe(0);
     expect(gioChang(km, m, 9)).toBeCloseTo(gioChang(km, m), 6);
-    expect(gioChang(km, m, 4)).toBeCloseTo(1.52 + 100 / 4, 6);
+    expect(gioChang(km, m, 4)).toBeCloseTo(1.66 + 100 / 4, 6);
     // so với "hải lý / 7 kn" cũ: chặng 100 hải lý dài thêm ~6 giờ — đúng chiều an toàn
     expect(gioChang(km, m) - 100 / 7).toBeGreaterThan(5);
   });
@@ -221,6 +221,7 @@ describe("hồ sơ nghề — lịch, dầu, bãi", () => {
       nghe,
       cang: { lat: QUY_NHON.lat, lon: QUY_NHON.lon, ten: QUY_NHON.ten },
       ngayDi: "2026-11-08",
+      gioDi: 6, // ca thử dựng quanh giờ đi 6 giờ (giờ mặc định nay theo nghề — gioDiMacDinh)
       soNgay: 5,
       tau: { speedKn: 6, litersPerHour: 20, fuelTankL: null },
       diemQuen: [],
@@ -255,7 +256,7 @@ describe("hồ sơ nghề — lịch, dầu, bãi", () => {
   it("dầu lúc đánh: cào chạy máy ~13 giờ/ngày ở bãi ⇒ cùng tuyến tốn dầu hơn hẳn câu", () => {
     expect(gioMayBai("keo-doi")).toBe(12.75);
     expect(gioMayBai("luoi-keo")).toBe(13.56);
-    expect(gioMayBai("cau-ngu")).toBe(1.75);
+    expect(gioMayBai("cau-ngu")).toBe(1.49);
     const cau = deXuatLoTrinh(vao("cau-ngu"), NOW);
     const keo = deXuatLoTrinh(vao("luoi-keo"), NOW);
     expect(keo.litDau).toBeGreaterThan(cau.litDau * 2);

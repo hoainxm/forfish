@@ -18,7 +18,7 @@ import { fetchClimatology, type Climatology } from "@/lib/fish-blend";
 import { fetchStormCheck, type StormCheck } from "@/lib/storms";
 import { fetchForecastGrid, loadLongestSavedGrid, type ForecastGrid } from "@/lib/forecast-grid";
 import { fetchFleetNen, type NenFleet } from "@/lib/fleet-density";
-import { deXuatLoTrinh, GIO_XUAT_BEN, NGHE_DEN } from "@/lib/lo-trinh/plan";
+import { deXuatLoTrinh, gioDiMacDinh, NGHE_DEN } from "@/lib/lo-trinh/plan";
 import {
   baoTuTinBao,
   docMonTau,
@@ -209,8 +209,10 @@ function LoTrinhMo() {
   /* ── form ── */
   const [ngayDi, setNgayDi] = useState(todayIso);
   const [soNgayRaw, setSoNgayRaw] = useState("15");
-  const [gioDi, setGioDi] = useState(GIO_XUAT_BEN);
+  /** null = theo giờ tàu cùng nghề hay ra cảng (gioDiMacDinh, đổi theo nghề); bà con chọn thì giữ số đó */
+  const [gioDiChon, setGioDiChon] = useState<number | null>(null);
   const [nghe, setNghe] = useState<Nghe>("cau-ngu");
+  const gioDi = gioDiChon ?? gioDiMacDinh(nghe);
   const [cangId, setCangId] = useState("");
   const [toc, setToc] = useState("");
   const [dauGio, setDauGio] = useState("");
@@ -522,7 +524,7 @@ function LoTrinhMo() {
             />
           </Field>
           <Field label="Giờ đi">
-            <select value={gioDi} onChange={(e) => setGioDi(Number(e.target.value))} className={inputClass}>
+            <select value={gioDi} onChange={(e) => setGioDiChon(Number(e.target.value))} className={inputClass}>
               {Array.from({ length: 24 }, (_, h) => (
                 <option key={h} value={h}>
                   {h} giờ

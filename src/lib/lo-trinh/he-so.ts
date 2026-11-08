@@ -30,6 +30,10 @@ export interface LoTrinhParams {
   dayNghe?: Partial<Record<Nghe, Partial<Record<"ran" | "n2" | "n4" | "n12" | "sau" | "gan", number>>>>;
   /** "i,j" ô cá 0,25° → tỉ phần [ran, n2, n4, n12, sau, gan]; vắng = toàn nước sâu */
   dayO?: Record<string, number[]>;
+  /** giờ ra cảng hay gặp nhất theo nghề (giờ VN) — mặc định ô "Giờ đi" (đo lượt ra cảng thật 08–10/2026) */
+  gioDiThuong?: Partial<Record<Nghe, number>>;
+  /** cửa phụ thuộc con nước đo từ lượt ra/vào thật: [lat, lon, id trạm, ngưỡng m (số 0 trạm), tỉ phần lượt lúc nước thấp, số lượt] */
+  cuaCang?: [number, number, string, number, number, number][];
 }
 
 /** Giờ máy chạy mỗi ngày ở bãi của nghề (dầu lúc đánh). null = chưa nạp tham số ⇒ chỗ gọi nói "chưa tính". */

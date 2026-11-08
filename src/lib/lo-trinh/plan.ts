@@ -16,7 +16,8 @@ import { trongVungNhanh } from "@/lib/lo-trinh/vung-nhanh";
 import { heSoDay } from "@/lib/lo-trinh/day-nghe";
 import { TIM_TOI_DA_GIO } from "@/lib/lo-trinh/trieu-cang";
 import { tideClockText } from "@/lib/tides";
-import { doRoiTrang, gioChang, gioMayBai, heSoBai, heSoBien, heSoTrang, hieuUngRam, moHinhChang } from "@/lib/lo-trinh/he-so";
+import { doRoiTrang, gioChang, gioMayBai, heSoBai, heSoBien, heSoTrang, hieuUngRam, loTrinhParams, moHinhChang } from "@/lib/lo-trinh/he-so";
+import { getModelParams, type ModelParams } from "@/lib/model-params";
 import type {
   BaoRutGon,
   DongLich,
@@ -128,6 +129,16 @@ export const KHUNG_DANH: Record<Nghe, { batDau: number; dai: number; ten: string
 /** Giờ xuất bến khi chưa chọn (lộ trình lưu cũ, input thiếu): 6 giờ sáng — giờ hay ra cửa. Form hỏi giờ từ
  *  2026-11-08 (`LoTrinhInput.gioDi`). */
 export const GIO_XUAT_BEN = 6;
+
+/**
+ * Giờ đi mặc định của nghề = giờ tàu cùng nghề hay RA CẢNG nhất (model-params `gioDiThuong`, đo lượt ra cảng VMS
+ * xác nhận 08–10/2026 — research vet-tau §10.8: câu 11, vây 16, rê 17, chụp 12, cào 12, cào đôi 16). Không có đỉnh 6 giờ
+ * sáng như giả định cũ. Chưa nạp tham số ⇒ GIO_XUAT_BEN.
+ */
+export function gioDiMacDinh(nghe: Nghe, p: ModelParams | null = getModelParams()): number {
+  const v = loTrinhParams(p).gioDiThuong?.[nghe];
+  return typeof v === "number" && Number.isInteger(v) && v >= 0 && v < 24 ? v : GIO_XUAT_BEN;
+}
 /** Tới chỗ khi khung đã chạy chưa quá nửa ⇒ vẫn tính khung đó (đánh muộn), quá nửa ⇒ chờ khung sau. */
 const NUA_KHUNG = 0.5;
 
@@ -459,9 +470,9 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   const tocDo = tocKhai != null ? Math.min(tocKhai, chang.vKn) : chang.vKn;
   const gioKm = (km: number) => gioChang(km, chang, tocKhai);
   /*  LỊCH THEO KHUNG ĐÁNH CỦA NGHỀ (KHUNG_DANH): t = giờ kể từ lúc xuất bến (giờ đi, giờ VN ngày đi). */
-  const GIO_DI =
-    soThat(input.gioDi) && input.gioDi >= 0 && input.gioDi < 24 ? Math.floor(input.gioDi) : GIO_XUAT_BEN;
-  if (input.gioDi != null && GIO_DI !== input.gioDi) ghiChu.push(`Giờ đi chưa đúng — tạm tính ${GIO_XUAT_BEN} giờ sáng.`);
+  const gioMd = gioDiMacDinh(nghe);
+  const GIO_DI = soThat(input.gioDi) && input.gioDi >= 0 && input.gioDi < 24 ? Math.floor(input.gioDi) : gioMd;
+  if (input.gioDi != null && GIO_DI !== input.gioDi) ghiChu.push(`Giờ đi chưa đúng — tạm tính ${gioMd} giờ (giờ tàu ${TEN_NGHE[nghe]} hay ra cảng).`);
   const khung = KHUNG_DANH[nghe];
   const caNgay = khung.dai >= 24;
   /** giờ bắt đầu (danh nghĩa) của khung đánh đầu tiên khi tới chỗ lúc t */
@@ -964,16 +975,23 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     const tram = cua ? `trạm ${cua.tenTram}${cua.uocTinh ? ", con nước ước tính — giờ có thể lệch" : ""}` : "";
     if (!cua) ghiChu.push(`Chưa tính con nước ở ${cang.ten} — chưa có trạm con nước gần cảng trong máy.`);
     else if (rangBuocTrieu) {
-      ghiChu.push(
-        `Giờ ra/vào cửa theo con nước (${tram}): luồng ${cua.luong!.ten} sâu ${String(cua.luong!.sauM).replace(".", ",")} m, tàu cần ${String(cua.canM).replace(".", ",")} m nước.`,
-      );
-      if (cuaKhongDuNuoc) ghiChu.push("Có lúc cửa không đủ nước cho mớn tàu cả 36 giờ — app đã cộng thêm 36 giờ chờ; kiểm lại mớn tàu và độ sâu luồng.");
+      const so = (v: number) => String(Math.round(v * 100) / 100).replace(".", ",");
+      const phan: string[] = [];
+      if (cua.luong && cua.canM != null) phan.push(`luồng ${cua.luong.ten} sâu ${so(cua.luong.sauM)} m, tàu cần ${so(cua.canM)} m nước`);
+      if (cua.cuaDo?.phuThuoc)
+        phan.push(`tàu ở đây thường chỉ qua cửa khi nước trên ${so(cua.cuaDo.nguongM)} m (đo ${cua.cuaDo.soLuot} lượt ra vào thật, trạm ${cua.cuaDo.tram})`);
+      ghiChu.push(`Giờ ra/vào cửa theo con nước (${tram}): ${phan.join("; ")}.`);
+      if (cuaKhongDuNuoc) ghiChu.push("Có lúc cửa không đủ nước cả 36 giờ — app đã cộng thêm 36 giờ chờ; kiểm lại mớn tàu và độ sâu luồng.");
     } else {
       const nlDi = cua.nuocLon(msDi);
       const nlVe = cua.nuocLon(msDi + mp.toiCua * 3_600_000 - 6 * 3_600_000);
       ghiChu.push(
         `Con nước ở ${cang.ten} (${tram}): nước lớn ngày đi lúc ${nlDi ? tideClockText(nlDi.ms) : "?"}, lúc về khoảng ${nlVe ? tideClockText(nlVe.ms) : "?"}` +
-          (cua.luong ? " — khai mớn tàu để app tính giờ ra/vào cửa." : " — chưa có độ sâu luồng cửa, cửa cạn thì canh giờ nước lớn."),
+          (cua.cuaDo
+            ? " — tàu ở cửa này hơi né lúc nước ròng, nên canh giờ nước lớn."
+            : cua.luong
+              ? " — khai mớn tàu để app tính giờ ra/vào cửa."
+              : " — chưa có độ sâu luồng cửa, cửa cạn thì canh giờ nước lớn."),
       );
     }
   }
