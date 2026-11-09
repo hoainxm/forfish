@@ -1,0 +1,9 @@
+[Unit]
+Description=Trung chuyen hang tuan (CN 05:00, sau dl-day-du)
+
+[Timer]
+OnCalendar=Sun 05:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,8 @@
+[Unit]
+Description=Trung chuyen (chi GPU) — luot gap tren bien, thoi gian chuyen tai, tau hau can; doi chieu eCDT
+After=dl-day-du.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /home/long/fish-vet/scripts/trung-chuyen.sh
+Nice=10
