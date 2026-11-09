@@ -76,13 +76,15 @@ describe("chonXoa — trần kho", () => {
 });
 
 describe("chonThuMucKho — tự chọn, không cần env", () => {
-  const co = (ds: string[]) => (p: string) => ds.includes(p);
+  // Hàm dựng đường dẫn theo dấu của máy đang chạy (IIS = `\`) ⇒ so bằng path.join, không viết cứng `/`
+  // (viết cứng thì đỏ trên Windows: `\tmp\sdfish-kho-o` ≠ `/tmp/sdfish-kho-o`).
+  const co = (ds: string[]) => (p: string) => ds.map((d) => path.join(d)).includes(path.join(p));
   it("deploy IIS (`<base>/current` + `<base>/shared`) ⇒ `<base>/shared/kho-o` — ngoài vùng robocopy /MIR", () => {
-    expect(chonThuMucKho("/srv/FORFISH/current", co(["/srv/FORFISH/shared"]), "/tmp")).toBe("/srv/FORFISH/shared/kho-o");
+    expect(chonThuMucKho("/srv/FORFISH/current", co(["/srv/FORFISH/shared"]), "/tmp")).toBe(path.join("/srv/FORFISH/shared/kho-o"));
   });
   it("không đúng khuôn IIS ⇒ thư mục tạm (Vercel, máy dev)", () => {
-    expect(chonThuMucKho("/srv/FORFISH/current", co([]), "/tmp")).toBe("/tmp/sdfish-kho-o");
-    expect(chonThuMucKho("/var/task", co(["/var/shared"]), "/tmp")).toBe("/tmp/sdfish-kho-o");
+    expect(chonThuMucKho("/srv/FORFISH/current", co([]), "/tmp")).toBe(path.join("/tmp/sdfish-kho-o"));
+    expect(chonThuMucKho("/var/task", co(["/var/shared"]), "/tmp")).toBe(path.join("/tmp/sdfish-kho-o"));
   });
 });
 
