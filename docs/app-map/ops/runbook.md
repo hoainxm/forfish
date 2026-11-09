@@ -2,7 +2,7 @@
 
 > Load khi: cần deploy / build lỗi / regenerate asset tĩnh (icon, lưới độ sâu, isobath) / kiểm tra sức khỏe app trước khi push.
 
-covers: scripts/train/run.mjs, scripts/kairos-luat.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs, scripts/thoi-tiet-thu.mjs, scripts/o-ban-do-thu.mjs
+covers: scripts/train/run.mjs, scripts/kairos-luat.mjs, scripts/kairos-thu.mjs, scripts/kairos-kiem.mjs, scripts/kairos-chung.mjs, scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs, scripts/thoi-tiet-thu.mjs, scripts/thoi-tiet-nhip.mjs, scripts/o-ban-do-thu.mjs
 last_verified: 2026-11-06
 <!-- re-verified: 2026-10-30 — Kairos đổi sang Gemma qua Ollama (mục env + bước kiểm tay); log `[AI]` thay `[claude]`, thêm `[gemma] Ollama không trả lời … — thử Claude`. -->
 <!-- re-verified: 2026-10-29 — đọc `scripts/e2e-video-export.mjs` + `package.json` (e2e:export) + `playwright.config.ts` (outputDir, viewport 402×874, cổng 3100/3101) + `tests/e2e/{demo,auth}`: lệnh và bảng video khớp; bổ sung mục Video — xuất riêng một video bằng `npm run e2e:export -- 06`, tên file .mp4 theo số (`1-thoi-tiet-bien.mp4`…), thông số ffmpeg (3× lanczos = 1206×2622, 30 khung/giây, CRF 20, faststart, bỏ tiếng), vì sao không quay thẳng ở 3×, và hai lỗi dừng sớm (chưa quay / thiếu ffmpeg). -->
@@ -331,9 +331,10 @@ systemctl --user disable --now kairos-thu.timer kairos-kiem.timer   # tạm dừ
    THOI_TIET_API_BASE=https://forfish.vercel.app
    CRON_SECRET=<app_config.cron_secret>
    ```
-2. **Thư mục** `~/.local/forlife/thoi-tiet/`: `lam-moi.sh` (khuôn tau-ais) xuất `scripts/thoi-tiet-thu.mjs` từ origin/main của `C:\Code\ForFish` vào `app-<ref>`, `app` → symlink. Script không import gì ngoài Node.
+2. **Thư mục** `~/.local/forlife/thoi-tiet/`: `lam-moi.sh` (khuôn tau-ais) xuất `scripts/thoi-tiet-thu.mjs` + `scripts/thoi-tiet-nhip.mjs` (nhịp tải, 2026-11-09) từ origin/main của `C:\Code\ForFish` vào `app-<ref>`, `app` → symlink. Script chỉ import Node + `./thoi-tiet-nhip.mjs` — thêm file vào script thì PHẢI thêm vào dòng `git archive` của `lam-moi.sh` (thiếu ⇒ archive hỏng ⇒ giữ bản cũ, không chạy bản mới).
 3. **Unit** `~/.config/systemd/user/thoi-tiet-thu.{service,timer}`: `OnCalendar=*-*-* 05,11,17,23:50:00` (giờ VN = 22:50/04:50/10:50/16:50 UTC, ngay sau mốc ra bản 04/10/16/22 UTC), `Persistent=true`, `TimeoutStartSec=25min`. Xem: `journalctl --user -u thoi-tiet-thu -n 20`.
 4. **Chạy thử không gửi**: `node ~/.local/forlife/thoi-tiet/app/scripts/thoi-tiet-thu.mjs --thu` ⇒ `[tải] 56/56 URL · 22.8 MB ⇒ nén 1.91 MB`; lượt thật 30/10 17:26 VN: `"grid":{"3":true,"16":true}` · `"mayNha":{"nhan":56,"trung":36,"truot":0}` (20 URL dự phòng cảng không cần dùng).
+5. **Nhịp tải + dự phòng có điều kiện (2026-11-09)** — log 07–09/11: lượt nào cũng tải 56 URL mà máy chủ dùng 36, và dính 2 lần 429 theo phút (chờ mù 2 × 65 s). Nay: `GET` trả `urls` (36 URL lượt thật luôn gọi) + `duPhong` (nhóm ECMWF từng cảng, `{chinh, phu}`) — máy nhà chỉ tải `phu` khi một URL `chinh` của cảng đó hỏng, đúng như `lamMoiThoiTiet`. Tải giãn theo trọng số Open-Meteo ước (`thoi-tiet-nhip.mjs`: điểm × biến/10 × ngày/14, ngân sách 500/phút, cửa sổ 60 s) ⇒ chờ ĐÚNG lúc cần thay vì chạm trần. Đo chạy thử 09/11 (máy chủ còn bản cũ, 56 URL): `429: 0`, ~6 phút/lượt (trước ~2,5 phút kèm 2 lần 429) — dưới `TimeoutStartSec` 25 phút. Không đổi IP/không lách trần: đi chậm cho vừa hạn mức của nguồn.
 
 | Triệu chứng (journal) | Nguyên nhân | Làm gì |
 |---|---|---|

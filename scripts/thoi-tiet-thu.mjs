@@ -14,6 +14,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
+import { trongSoOM, xepLich } from "./thoi-tiet-nhip.mjs";
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 function docTepEnv(file) {
@@ -35,10 +36,12 @@ const SECRET = env.CRON_SECRET ?? "";
 const THU = process.argv.includes("--thu");
 const HET_GIO_URL_MS = 60_000;
 const HET_GIO_GUI_MS = 120_000;
-// Open-Meteo đếm trần THEO PHÚT có trọng số (lưới 156 điểm × 16 ngày rất nặng) ⇒ tải LẦN LƯỢT, gặp 429 chờ qua phút.
-const SONG_SONG = 1;
+// Open-Meteo đếm trần THEO PHÚT có trọng số (lưới 156 điểm × 16 ngày rất nặng) ⇒ tải LẦN LƯỢT và giãn nhịp theo
+// trọng số ước (thoi-tiet-nhip.mjs) để khỏi chạm trần; 429 vẫn lọt ⇒ chờ qua phút như cũ (lưới an toàn).
 const THU_LAI = 4;
 const CHO_429_MS = 65_000;
+const daGui = []; // { luc, w } — các lượt đã gửi, để giãn nhịp
+const ngu = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
 if (!/^https:\/\//.test(BASE) || !SECRET) {
   log("[thời tiết] thiếu THOI_TIET_API_BASE (https) hoặc CRON_SECRET — dừng");
@@ -47,8 +50,15 @@ if (!/^https:\/\//.test(BASE) || !SECRET) {
 const auth = { authorization: `Bearer ${SECRET}` };
 
 async function taiMot(url) {
+  const w = trongSoOM(url);
   for (let lan = 0; lan <= THU_LAI; lan++) {
     try {
+      const cho = xepLich(daGui, w, Date.now());
+      if (cho > 0) {
+        log(`[nhịp] chờ ${Math.round(cho / 1000)} s cho vừa trần phút (trọng số ${w.toFixed(0)})`);
+        await ngu(cho);
+      }
+      daGui.push({ luc: Date.now(), w });
       const r = await fetch(url, { signal: AbortSignal.timeout(HET_GIO_URL_MS) });
       const than = await r.text();
       if (r.ok && than.length > 0) {
@@ -58,16 +68,18 @@ async function taiMot(url) {
       log(`[tải] ${r.status} lần ${lan + 1}: ${url.slice(0, 90)}…`);
       if (r.status === 400) return null; // URL sai — thử lại vô ích
       if (r.status === 429) {
-        await new Promise((ok) => setTimeout(ok, CHO_429_MS));
+        dem429++;
+        await ngu(CHO_429_MS);
         continue;
       }
     } catch (e) {
       log(`[tải] hỏng lần ${lan + 1}: ${e?.message ?? e} — ${url.slice(0, 90)}…`);
     }
-    await new Promise((ok) => setTimeout(ok, 3000 * (lan + 1)));
+    await ngu(3000 * (lan + 1));
   }
   return null;
 }
+let dem429 = 0;
 
 const rk = await fetch(`${BASE}/api/thoi-tiet/nhap`, { headers: auth, signal: AbortSignal.timeout(HET_GIO_GUI_MS) }).catch(
   (e) => ({ ok: false, status: String(e?.message ?? e) }),
@@ -76,7 +88,7 @@ if (!rk.ok) {
   log(`[thời tiết] không lấy được danh sách URL: ${rk.status}`);
   process.exit(1);
 }
-const { urls } = await rk.json();
+const { urls, duPhong } = await rk.json();
 if (!Array.isArray(urls) || urls.length === 0) {
   log("[thời tiết] máy chủ trả danh sách rỗng — dừng");
   process.exit(1);
@@ -84,22 +96,31 @@ if (!Array.isArray(urls) || urls.length === 0) {
 
 const goi = {};
 let hong = 0;
-let i = 0;
-await Promise.all(
-  Array.from({ length: SONG_SONG }, async () => {
-    while (i < urls.length) {
-      const url = urls[i++];
-      const than = await taiMot(url);
-      if (than != null) goi[url] = than;
-      else hong++;
-    }
-  }),
-);
+for (const url of urls) {
+  const than = await taiMot(url);
+  if (than != null) goi[url] = than;
+  else hong++;
+}
+// Dự phòng cảng: lượt thật chỉ gọi khi nguồn chính của cảng hỏng ⇒ chỉ tải nhóm có URL chính hỏng.
+// Máy chủ cũ (chưa trả `duPhong`) đã gộp dự phòng vào `urls` — không cần làm gì thêm.
+let tongUrl = urls.length;
+for (const n of Array.isArray(duPhong) ? duPhong : []) {
+  if (!Array.isArray(n?.chinh) || !Array.isArray(n?.phu) || n.chinh.every((u) => u in goi)) continue;
+  for (const url of n.phu) {
+    if (url in goi) continue;
+    tongUrl++;
+    const than = await taiMot(url);
+    if (than != null) goi[url] = than;
+    else hong++;
+  }
+}
 const tho = Buffer.from(JSON.stringify({ goi }));
 const nen = gzipSync(tho, { level: 9 });
-log(`[tải] ${urls.length - hong}/${urls.length} URL · ${(tho.length / 1e6).toFixed(1)} MB ⇒ nén ${(nen.length / 1e6).toFixed(2)} MB`);
+log(
+  `[tải] ${tongUrl - hong}/${tongUrl} URL · 429: ${dem429} · ${(tho.length / 1e6).toFixed(1)} MB ⇒ nén ${(nen.length / 1e6).toFixed(2)} MB`,
+);
 if (THU) process.exit(0);
-if (urls.length - hong === 0) {
+if (tongUrl - hong === 0) {
   log("[thời tiết] không tải được URL nào — bỏ lượt");
   process.exit(1);
 }

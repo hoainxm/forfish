@@ -479,12 +479,17 @@ export async function lamMoiThoiTiet() {
   };
 }
 
-/** Danh sách URL Open-Meteo mà một lượt làm mới sẽ gọi — máy nhà tải đúng các URL này
-    (lib/goi-nguon-om). Gồm cả nguồn dự phòng cảng (lượt thật chỉ gọi khi nguồn chính hỏng). */
-export async function keHoachUrlOM(): Promise<string[]> {
-  return ghiUrlOM(async () => {
+/** Nhóm dự phòng cảng: `phu` chỉ cần tải khi một URL trong `chinh` tải hỏng (đúng như lamMoiThoiTiet). */
+export type NhomDuPhongOM = { chinh: string[]; phu: string[] };
+
+/** Danh sách URL Open-Meteo mà một lượt làm mới sẽ gọi — máy nhà tải đúng các URL này (lib/goi-nguon-om).
+    `urls` = URL lượt thật LUÔN gọi. `duPhong` = dự phòng ECMWF từng cảng: lượt thật chỉ gọi khi nguồn chính
+    của cảng đó hỏng ⇒ máy nhà cũng chỉ tải khi nguồn chính hỏng. Trước 2026-11-09 dự phòng nằm chung `urls`
+    ⇒ mỗi lượt tải 56 URL mà máy chủ dùng 36 (log gpu-desktop: `mayNha.trung 36`). */
+export async function keHoachTaiOM(): Promise<{ urls: string[]; duPhong: NhomDuPhongOM[] }> {
+  const urls = await ghiUrlOM(async () => {
     const viec: Promise<unknown>[] = [];
-    for (const port of PORTS) viec.push(fetchSeaLive(port), fetchSeaBackupLive(port));
+    for (const port of PORTS) viec.push(fetchSeaLive(port));
     for (const days of SNAPSHOT_DAY_SET)
       viec.push(
         fetchForecastGridLive(days),
@@ -495,4 +500,11 @@ export async function keHoachUrlOM(): Promise<string[]> {
       );
     await Promise.allSettled(viec);
   });
+  const duPhong: NhomDuPhongOM[] = [];
+  for (const port of PORTS) {
+    const chinh = await ghiUrlOM(() => fetchSeaLive(port));
+    const phu = await ghiUrlOM(() => fetchSeaBackupLive(port));
+    if (phu.length > 0) duPhong.push({ chinh, phu });
+  }
+  return { urls, duPhong };
 }
