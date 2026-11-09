@@ -493,7 +493,7 @@ export function BoatProducts() {
 // ── bottom-sheet form ────────────────────────────────────────
 
 const PRODUCT_SUGGESTIONS = [
-  "Máy giám sát hành trình (VMS)",
+  "Máy giám sát hành trình",
   "Bộ đàm ICOM",
   "Máy dò cá",
   "Định vị GPS",

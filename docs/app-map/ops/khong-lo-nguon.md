@@ -91,8 +91,9 @@
 | 13 | Trường `source` của 93 vựa → `src/data/wholesalers/nguon.json` (không import); chữ "theo VASEP / masothue" trong ghi chú → chữ chung | `src/data/wholesalers/*`, `seafood-buyers.ts` | Không |
 | 14 | `poweredByHeader:false`; `/api/status` công khai bỏ khối `model` (kèm `Bearer CRON_SECRET` mới có) | `next.config.ts`, `api/status/route.ts`, `scripts/smoke.mjs` | Không |
 | 15 | Trang `/nguon-du-lieu` (máy chủ dựng, không vào bundle) gom ghi công; bản đồ chỉ còn `© OpenStreetMap · OpenSeaMap` + link; sửa câu Quyền riêng tư (máy chỉ hỏi máy chủ SDFish). **⚠️ CHỜ LUẬT SƯ** duyệt dạng câu ghi công | `app/nguon-du-lieu/page.tsx`, `ocean-map.ts` `ATTRIBUTION_BAN_DO` | Không |
+| 16 | (09/11) Nợ `vms` trả: bỏ chữ viết tắt "(VMS)" ở 3 câu bà con thấy — thẻ gia hạn, gợi ý vật tư, nhãn kiểm xuất bến — giữ tên luật "giám sát hành trình"; xoá dòng `vms` khỏi `kiem-lo-bundle.no.json` | `vms-renewal.tsx`, `boat-products.tsx`, `departure-check.ts` | Không |
 
-**Còn lại trong `kiem-lo-bundle.no.json`** — mỗi dòng có lý do; xem chính file.
+**Còn lại trong `kiem-lo-bundle.no.json`** (re-verified 2026-11-09, `next build` + quét): CHỈ `supabase-host` — host + khoá publishable của Supabase trong client đăng nhập. Không trả được bằng code an toàn: proxy qua `/sb` đổi tên cookie phiên (`sb-<ref>-auth-token`) ⇒ đăng xuất mọi tài khoản + bản native cần URL tuyệt đối; đường đúng là tên miền riêng cho Supabase (gói trả phí + DNS — anh Long quyết).
 
 ## 7. Trần không vượt được (nói thật với chủ dự án)
 

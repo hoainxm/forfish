@@ -75,7 +75,7 @@ export function VmsRenewal() {
     <div className="px-4 pt-5 pb-2">
       <LoginGate
         feature="gia hạn máy giám sát hành trình"
-        blurb="Đăng nhập để gia hạn dịch vụ giám sát hành trình (VMS) cho tàu của bà con."
+        blurb="Đăng nhập để gia hạn dịch vụ giám sát hành trình cho tàu của bà con."
         accent="t3"
       >
         <VmsRenewalInner />

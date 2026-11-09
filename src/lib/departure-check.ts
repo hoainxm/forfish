@@ -142,7 +142,7 @@ export function departureCheck(args: {
   if (lengthM >= 15) {
     items.push({
       id: "vms",
-      label: "Thiết bị giám sát hành trình (VMS)",
+      label: "Thiết bị giám sát hành trình",
       auto: false,
       status: "manual",
       detail: "Tự kiểm máy còn báo tín hiệu — app không thấy được",
