@@ -9,7 +9,7 @@
 ## 0. Kết luận (đọc nếu chỉ có 1 phút)
 
 1. **Giờ chạy giữa các chỗ nên tính `giờ = a + hải lý / v` theo nghề × cỡ tàu, thay cho "hải lý / 7 kn".**
-   - Backtest sạch: học 12/2025–06/2026, thử 07–10/2026 trên 295 015 chặng.
+   - Backtest sạch: học 12/2025–06/2026, thử 07–10/2026 trên 295 015 chặng. **Đo lại 09/11** (thử 07–11/2026, 411 534 chặng): 42,9 % → 16,0 % — §11.
    - Sai trung vị **42,8 % → 15,6 %**. Sai tuyệt đối trung bình (MAE) 6,04 → 3,61 giờ. Bản cũ ước **thiếu 3,1 giờ** mỗi chặng, bản mới lệch ~0.
    - Tham số đo được: a ≈ 1,0–1,6 giờ, v ≈ 5,1–5,5 kn (§6).
    - Độ phủ P80 = 78 % (đặt mục tiêu 80 %).
@@ -383,3 +383,35 @@ eCDT dùng ở đây để **phân loại nghề con** (loài nào), không dùn
 - Hỏi chủ tàu vài cặp để xác nhận nhãn; nếu được thì đưa cặp vào hồ sơ tàu (đi cùng tàu nào).
 - Đo hiệu ứng trăng cho cào (cào tôm có thể nhạy trăng).
 
+
+## 11. Đo lại với VMS tới 09/11/2026 (anh Long 09/11: "đã đủ dữ liệu vms rồi")
+
+Nguồn thêm: vết VMS 06/10 → 09/11/2026 (kéo về GPU, `raw/dl-tracks`), chuyến + nhật ký + lượt ra/vào cảng tới 09/11. Chạy lại đủ 01 → 15 (HMM fit lại). Tổng: **139,6 triệu điểm** · 26 126 tàu · **517 627 chuyến** (trước 461 600) · 1,10 triệu chặng.
+
+| | 08/11 (thử 07–10) | **09/11 (thử 07–11)** |
+|---|---|---|
+| Chặng thử | 295 015 | **411 534** |
+| Sai trung vị 7 kn → `a + hl/v` | 42,8 % → 15,6 % | **42,9 % → 16,0 %** |
+| MAE (giờ) | 6,04 → 3,61 | 6,20 → 3,79 |
+| Phủ P80 | 78,3 % | 78,7 % |
+| Hệ số riêng tàu (MAE, CI 90 %) | [−0,007; +0,017] | [−0,001; +0,021] — vẫn không đáng làm |
+
+Kết luận §0 **đứng vững** trên 1 tháng thử mới (gồm đầu gió mùa Đông Bắc): tham số đổi ở chữ số thứ hai.
+
+| Tham số | Cũ | Mới |
+|---|---|---|
+| Câu ngừ a · v · P80 | 1,66 · 5,31 · ×1,16 | 1,64 · 5,31 · ×1,16 (thử 10,7 %, 80 483 chặng) |
+| Vây · chụp a | 0,99 · 1,43 | 0,98 · 1,42 |
+| Cào đôi a · v · P80 | 0,76 · 4,94 · ×1,70 | 0,79 · 4,95 · ×1,74 (thử 23,8 %, 7 kn 39,0 %) |
+| Cào đơn a · v · P80 | 0,65 · 4,95 · ×1,56 | 0,67 · 4,95 · ×1,58 (thử 20,3 %, 7 kn 38,5 %) |
+| Máy ở bãi (giờ/ngày) | vây 2,77 · cào đôi 12,75 · cào 13,56 · câu ngừ 1,49 · chụp 1,65 | 2,99 · 12,94 · 13,54 · 1,50 · 1,62 (rê 4,0 giữ) |
+| Đáy theo nghề | — | đổi ≤ 0,03 mỗi ô loại |
+| Cửa phụ thuộc con nước | 59 (34 < 0,15) | 55 (34 < 0,15); thêm Cửa Hội 0,09; Cô Tô 0,07 → 0,14, Tắc Cậu 0,10 → 0,19 (thêm lượt ⇒ về gần nền) |
+| Giờ ra cảng | câu 11 · vây 16 · rê 17 · chụp 12 · cào 12 · cào đôi 16 | **giữ**: câu/vây/chụp/cào đôi đo lại vẫn đỉnh cũ (cửa sổ 3 giờ); cào đơn và rê trải đều, đỉnh một giờ nhảy theo mẫu |
+| Tách câu | 1 680 ngừ · 845 mực · 2 618 khác | 1 678 · 851 · 2 663 |
+
+Cách dựng tham số từ số đo: `~/fish-vet/scripts/17_tham_so.py` (ngoài repo) — chạy trên số 08/11 ra **y hệt** `lo-trinh-params.json` cũ, nên khác biệt trên đây chỉ do dữ liệu. Rê giữ số §6 (trip-curves chưa tin tốc chạy rê).
+
+Lớp mật độ tàu (`src/data/fleet-density.v1.json`) dựng lại tới 08/11: đủ tháng 10, thêm tháng 11 (8 ngày) — trước đây ngày tháng 11 mượn T10/T12 × 0,5. Ngày bão IBTrACS tới 08/11: không có cơn mới trong hộp Biển Đông sau 02/09.
+
+Vẫn chờ dữ liệu KHÁC VMS (VMS không giải được): trọng số khung giờ nghề đèn (VIIRS), L/h theo tốc độ (bà con khai), dầu máy phát chong đèn.

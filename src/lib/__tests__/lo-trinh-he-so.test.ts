@@ -165,24 +165,24 @@ describe("deXuatLoTrinh với trăng × sóng gió", () => {
 describe("giờ chặng theo số đo đội tàu", () => {
   it("số đo đi qua model-params; thiếu ⇒ mặc định dè dặt 5 kn + 1,5 giờ (KHÔNG 7 kn)", () => {
     const m = moHinhChang("luoi-vay");
-    expect(m).toEqual({ aGio: 0.99, vKn: 5.32, p80HeSo: 1.14, doDuoc: true });
+    expect(m).toEqual({ aGio: 0.98, vKn: 5.32, p80HeSo: 1.14, doDuoc: true });
     setModelParams(null);
     expect(moHinhChang("luoi-vay")).toEqual(CHANG_DE_DAT);
     expect(CHANG_DE_DAT.vKn).toBeLessThan(7);
   });
   it("cào / cào đôi có số đo riêng (chặng có đầu là cảng — báo cáo §10), không rơi về mặc định; rằm chưa đo ⇒ trung tính", () => {
-    expect(moHinhChang("luoi-keo")).toEqual({ aGio: 0.65, vKn: 4.95, p80HeSo: 1.56, doDuoc: true });
-    expect(moHinhChang("keo-doi")).toEqual({ aGio: 0.76, vKn: 4.94, p80HeSo: 1.7, doDuoc: true });
+    expect(moHinhChang("luoi-keo")).toEqual({ aGio: 0.67, vKn: 4.95, p80HeSo: 1.58, doDuoc: true });
+    expect(moHinhChang("keo-doi")).toEqual({ aGio: 0.79, vKn: 4.95, p80HeSo: 1.74, doDuoc: true });
     expect(hieuUngRam("keo-doi")).toBe(0);
     expect(heSoTrang("luoi-keo", 1)).toBe(1);
   });
   it("giờ = a + hải lý / v; 0 km ⇒ 0; tốc độ khai chỉ là TRẦN (khai nhanh hơn đo không làm chặng ngắn đi)", () => {
     const m = moHinhChang("cau-ngu");
     const km = 100 * 1.852; // 100 hải lý
-    expect(gioChang(km, m)).toBeCloseTo(1.66 + 100 / 5.31, 6); // câu ngừ đo riêng (research §10.9)
+    expect(gioChang(km, m)).toBeCloseTo(1.64 + 100 / 5.31, 6); // câu ngừ đo riêng (research §10.9, đo lại 09/11)
     expect(gioChang(0, m)).toBe(0);
     expect(gioChang(km, m, 9)).toBeCloseTo(gioChang(km, m), 6);
-    expect(gioChang(km, m, 4)).toBeCloseTo(1.66 + 100 / 4, 6);
+    expect(gioChang(km, m, 4)).toBeCloseTo(1.64 + 100 / 4, 6);
     // so với "hải lý / 7 kn" cũ: chặng 100 hải lý dài thêm ~6 giờ — đúng chiều an toàn
     expect(gioChang(km, m) - 100 / 7).toBeGreaterThan(5);
   });
@@ -254,13 +254,13 @@ describe("hồ sơ nghề — lịch, dầu, bãi", () => {
   });
 
   it("dầu lúc đánh: cào chạy máy ~13 giờ/ngày ở bãi ⇒ cùng tuyến tốn dầu hơn hẳn câu", () => {
-    expect(gioMayBai("keo-doi")).toBe(12.75);
-    expect(gioMayBai("luoi-keo")).toBe(13.56);
-    expect(gioMayBai("cau-ngu")).toBe(1.49);
+    expect(gioMayBai("keo-doi")).toBe(12.94);
+    expect(gioMayBai("luoi-keo")).toBe(13.54);
+    expect(gioMayBai("cau-ngu")).toBe(1.5);
     const cau = deXuatLoTrinh(vao("cau-ngu"), NOW);
     const keo = deXuatLoTrinh(vao("luoi-keo"), NOW);
     expect(keo.litDau).toBeGreaterThan(cau.litDau * 2);
-    expect(keo.ghiChu.join(" ")).toMatch(/giờ máy lúc đánh \(tàu lưới cào chạy máy khoảng 13,6 giờ/);
+    expect(keo.ghiChu.join(" ")).toMatch(/giờ máy lúc đánh \(tàu lưới cào chạy máy khoảng 13,5 giờ/);
     expect(cau.ghiChu.join(" ")).toMatch(/chưa tính dầu máy phát chong đèn/);
     setModelParams(null);
     expect(gioMayBai("keo-doi")).toBeNull();

@@ -1,5 +1,5 @@
 {
-  "_ghi": "THAM SỐ LỘ TRÌNH (2026-11-08, khong-lo-nguon nợ #9) — nguồn sự thật; scripts/build-model-params.mjs gộp vào public/data/model-params.v1.json (SDF2). App KHÔNG import file này. hieuUngRam: đêm rằm so đêm tối (tỉ lệ đổi sản lượng), đo sổ tàu 2026 — docs/research/du-bao-ca-dong-dan-2026-10/15b-trang-bang-so.md (câu ngừ −5,3 % [−13; +2,3]; vây −1,9 % [−7,2; +4,7]; rê −1,2 % [−4; +1,5]; chụp −12,9 % [−18,4; −7,4], phản biện: có thể là lịch âm). loaiTheoNghe: nhóm loài (tên ngắn của SPECIES_PROFILES) mỗi nghề — ước theo nghề phổ biến ở VN, chưa hỏi chủ tàu từng nghề. chang (2026-11-08, docs/research/vet-tau-pha-nghe-2026-11.md §0/§6): giờ một chặng = aGio + hải lý / vKn (P50), P80 = P50 × p80HeSo — đo trên 295 015 chặng VMS tàu 15–24 m, backtest 07–10/2026 sai trung vị 42,8 % → 15,6 %. câu ngừ = nhóm \"câu\", vây = \"vay\", rê = §6 (trip-curves chưa có rê), chụp = \"chup\". CÀO (luoi-keo = cào đơn) / CÀO ĐÔI (keo-doi) 2026-11-08 (§10 báo cáo): sổ đăng kiểm gộp 'kéo', tách bằng vết VMS (cặp ≤ 2 km cùng bạn ~25/30 ngày). chang của cào fit trên chặng CÓ ĐẦU LÀ CẢNG (chặng vùng→vùng của cào là kéo lưới dọc đường, a ≈ 7,6 giờ — vô nghĩa cho chạy); thử 07–10/2026 sai trung vị đôi 22,3 % / đơn 19,1 % (7 kn: 38 %). hieuUngRam cào: chưa đo ⇒ không ghi (trung tính). loaiTheoNghe cào: cá đáy + tôm theo nghề phổ biến, chưa hỏi chủ tàu. gioMayBai (2026-11-08, research §10.5): giờ máy chạy mỗi ngày ở bãi = trung vị theo tàu của giờ đoạn ≥ 1,5 kn ngoài pha chạy, ngày cả ngày cách cảng > 20 km (VMS 12/2025–10/2026) — dầu lúc đánh. Câu 1,75 (câu ngừ dùng số nhóm câu) · vây 2,77 · rê 4,0 · chụp 1,65 · cào 13,56 · cào đôi 12,75. dayNghe (2026-11-08, research §10.7, 12_day_nghe.py): hệ số loại đáy theo nghề = độ ưa đo từ vết (giờ làm lưới ở loại đáy ÷ giờ có mặt của mọi tàu) chia độ ưa ở nước sâu > 12 m, kẹp ≤ 1; câu ngừ dùng số nhóm câu, cào = cào đơn. Tỉ phần đáy từng ô 0,25° ở src/data/day-o025.json (13_day_o025.py, từ depth-grid.v1.bin). gioDiThuong (2026-11-08, research §10.8, 14_trieu_cang.mjs): giờ ra cảng hay gặp nhất theo nghề, đo trên lượt ra cảng VMS xác nhận 08–10/2026 (câu 11, vây 16, rê 17, chụp 12, cào 12, cào đôi 16) — thay giả định 6 giờ sáng. cuaCang: cửa phụ thuộc con nước đo từ lượt ra/vào thật × triều tides.ts — [lat, lon, id trạm, ngưỡng mực triều lúc qua cửa p05 (m, số 0 trạm), tỉ phần lượt rơi vào lúc nước dưới p25 nền, số lượt]; tỉ phần < 0,15 ⇒ ràng buộc, 0,15–0,2 ⇒ chỉ báo. CÂU NGỪ TÁCH RIÊNG (2026-11-08, research §10.9, 15_cau_ngu.py): tàu câu (sổ) có ngừ đại dương + cá cờ ≥ 50 % kg khai eCDT 01–10/2026 (kg lớn hơn giữa catch/landed) = 1 680 tàu câu ngừ (845 câu mực, 2 618 câu khác). chang/gioMayBai/dayNghe của cau-ngu nay đo RIÊNG trên nhóm này: a 1,66 h + hl/5,31 (P80 ×1,16; thử 07–10/2026 sai trung vị 10,7 %, 7 kn 40,6 %), máy ở bãi 1,49 giờ/ngày, đáy chỉ nước sâu (4–12 m = 0, rạn 0,19).",
+  "_ghi": "THAM SỐ LỘ TRÌNH (2026-11-08, khong-lo-nguon nợ #9) — nguồn sự thật; scripts/build-model-params.mjs gộp vào public/data/model-params.v1.json (SDF2). App KHÔNG import file này. hieuUngRam: đêm rằm so đêm tối (tỉ lệ đổi sản lượng), đo sổ tàu 2026 — docs/research/du-bao-ca-dong-dan-2026-10/15b-trang-bang-so.md (câu ngừ −5,3 % [−13; +2,3]; vây −1,9 % [−7,2; +4,7]; rê −1,2 % [−4; +1,5]; chụp −12,9 % [−18,4; −7,4], phản biện: có thể là lịch âm). loaiTheoNghe: nhóm loài (tên ngắn của SPECIES_PROFILES) mỗi nghề — ước theo nghề phổ biến ở VN, chưa hỏi chủ tàu từng nghề. chang (2026-11-08, docs/research/vet-tau-pha-nghe-2026-11.md §0/§6): giờ một chặng = aGio + hải lý / vKn (P50), P80 = P50 × p80HeSo — đo trên 295 015 chặng VMS tàu 15–24 m, backtest 07–10/2026 sai trung vị 42,8 % → 15,6 %. câu ngừ = nhóm \"câu\", vây = \"vay\", rê = §6 (trip-curves chưa có rê), chụp = \"chup\". CÀO (luoi-keo = cào đơn) / CÀO ĐÔI (keo-doi) 2026-11-08 (§10 báo cáo): sổ đăng kiểm gộp 'kéo', tách bằng vết VMS (cặp ≤ 2 km cùng bạn ~25/30 ngày). chang của cào fit trên chặng CÓ ĐẦU LÀ CẢNG (chặng vùng→vùng của cào là kéo lưới dọc đường, a ≈ 7,6 giờ — vô nghĩa cho chạy); thử 07–10/2026 sai trung vị đôi 22,3 % / đơn 19,1 % (7 kn: 38 %). hieuUngRam cào: chưa đo ⇒ không ghi (trung tính). loaiTheoNghe cào: cá đáy + tôm theo nghề phổ biến, chưa hỏi chủ tàu. gioMayBai (2026-11-08, research §10.5): giờ máy chạy mỗi ngày ở bãi = trung vị theo tàu của giờ đoạn ≥ 1,5 kn ngoài pha chạy, ngày cả ngày cách cảng > 20 km (VMS 12/2025–10/2026) — dầu lúc đánh. Câu 1,75 (câu ngừ dùng số nhóm câu) · vây 2,77 · rê 4,0 · chụp 1,65 · cào 13,56 · cào đôi 12,75. dayNghe (2026-11-08, research §10.7, 12_day_nghe.py): hệ số loại đáy theo nghề = độ ưa đo từ vết (giờ làm lưới ở loại đáy ÷ giờ có mặt của mọi tàu) chia độ ưa ở nước sâu > 12 m, kẹp ≤ 1; câu ngừ dùng số nhóm câu, cào = cào đơn. Tỉ phần đáy từng ô 0,25° ở src/data/day-o025.json (13_day_o025.py, từ depth-grid.v1.bin). gioDiThuong (2026-11-08, research §10.8, 14_trieu_cang.mjs): giờ ra cảng hay gặp nhất theo nghề, đo trên lượt ra cảng VMS xác nhận 08–10/2026 (câu 11, vây 16, rê 17, chụp 12, cào 12, cào đôi 16) — thay giả định 6 giờ sáng. cuaCang: cửa phụ thuộc con nước đo từ lượt ra/vào thật × triều tides.ts — [lat, lon, id trạm, ngưỡng mực triều lúc qua cửa p05 (m, số 0 trạm), tỉ phần lượt rơi vào lúc nước dưới p25 nền, số lượt]; tỉ phần < 0,15 ⇒ ràng buộc, 0,15–0,2 ⇒ chỉ báo. CÂU NGỪ TÁCH RIÊNG (2026-11-08, research §10.9, 15_cau_ngu.py): tàu câu (sổ) có ngừ đại dương + cá cờ ≥ 50 % kg khai eCDT 01–10/2026 (kg lớn hơn giữa catch/landed) = 1 680 tàu câu ngừ (845 câu mực, 2 618 câu khác). chang/gioMayBai/dayNghe của cau-ngu nay đo RIÊNG trên nhóm này: a 1,66 h + hl/5,31 (P80 ×1,16; thử 07–10/2026 sai trung vị 10,7 %, 7 kn 40,6 %), máy ở bãi 1,49 giờ/ngày, đáy chỉ nước sâu (4–12 m = 0, rạn 0,19). ĐO LẠI 2026-11-09 (anh Long: \"đã đủ dữ liệu vms rồi\" — VMS tới 09/11/2026, 517 627 chuyến, 1,10 triệu chặng; thử 07–11/2026 trên 411 534 chặng: sai trung vị 42,9 % (7 kn) → 16,0 %, phủ P80 78,7 %): chang · gioMayBai · dayNghe · cuaCang dựng lại bằng ĐÚNG luật cũ (~/fish-vet/scripts/17_tham_so.py — chạy trên số 08/11 ra y hệt bản cũ). Đổi nhỏ: cào đôi a 0,79 h · P80 ×1,74 (thử 23,8 %, 7 kn 39 %), cào đơn 0,67 · ×1,58 (20,3 %), vây máy ở bãi 2,99, cào đôi 12,94; cuaCang 55 cửa (34 ràng buộc, như cũ), thêm Cửa Hội 0,09. rê giữ (chưa tin tốc chạy). gioDiThuong GIỮ: đo lại câu/vây/chụp/cào đôi đỉnh như cũ; cào đơn + rê trải đều (đỉnh một giờ nhảy theo mẫu).",
   "hieuUngRam": {
     "cau-ngu": -0.053,
     "luoi-vay": -0.019,
@@ -16,12 +16,12 @@
   },
   "chang": {
     "cau-ngu": {
-      "aGio": 1.66,
+      "aGio": 1.64,
       "vKn": 5.31,
       "p80HeSo": 1.16
     },
     "luoi-vay": {
-      "aGio": 0.99,
+      "aGio": 0.98,
       "vKn": 5.32,
       "p80HeSo": 1.14
     },
@@ -31,40 +31,40 @@
       "p80HeSo": 1.14
     },
     "chup-muc": {
-      "aGio": 1.43,
+      "aGio": 1.42,
       "vKn": 5.21,
       "p80HeSo": 1.13
     },
     "luoi-keo": {
-      "aGio": 0.65,
+      "aGio": 0.67,
       "vKn": 4.95,
-      "p80HeSo": 1.56
+      "p80HeSo": 1.58
     },
     "keo-doi": {
-      "aGio": 0.76,
-      "vKn": 4.94,
-      "p80HeSo": 1.7
+      "aGio": 0.79,
+      "vKn": 4.95,
+      "p80HeSo": 1.74
     }
   },
   "gioMayBai": {
-    "cau-ngu": 1.49,
-    "luoi-vay": 2.77,
+    "cau-ngu": 1.5,
+    "luoi-vay": 2.99,
     "luoi-re": 4.0,
-    "chup-muc": 1.65,
-    "luoi-keo": 13.56,
-    "keo-doi": 12.75
+    "chup-muc": 1.62,
+    "luoi-keo": 13.54,
+    "keo-doi": 12.94
   },
   "dayNghe": {
     "luoi-vay": {
-      "ran": 0.31,
-      "n2": 0.48,
+      "ran": 0.32,
+      "n2": 0.46,
       "n4": 0.57,
       "n12": 1.0,
       "sau": 1.0,
       "gan": 1.0
     },
     "cau-ngu": {
-      "ran": 0.19,
+      "ran": 0.2,
       "n2": 0.01,
       "n4": 0.0,
       "n12": 0.0,
@@ -72,9 +72,9 @@
       "gan": 1.0
     },
     "luoi-re": {
-      "ran": 0.18,
+      "ran": 0.19,
       "n2": 0.42,
-      "n4": 0.74,
+      "n4": 0.77,
       "n12": 0.92,
       "sau": 1.0,
       "gan": 1.0
@@ -83,7 +83,7 @@
       "ran": 0.02,
       "n2": 0.02,
       "n4": 0.07,
-      "n12": 0.15,
+      "n12": 0.14,
       "sau": 1.0,
       "gan": 0.19
     },
@@ -93,15 +93,15 @@
       "n4": 0.06,
       "n12": 0.12,
       "sau": 1.0,
-      "gan": 0.32
+      "gan": 0.31
     },
     "chup-muc": {
       "ran": 0.09,
-      "n2": 0.16,
+      "n2": 0.15,
       "n4": 0.15,
-      "n12": 0.21,
+      "n12": 0.22,
       "sau": 1.0,
-      "gan": 0.54
+      "gan": 0.51
     }
   },
   "gioDiThuong": {
@@ -113,64 +113,60 @@
     "keo-doi": 16
   },
   "cuaCang": [
-    [10.41, 107.17, "cang-tan-phuoc", 2.98, 0, 254],
-    [19.77, 105.9, "cang-lach-hoi", 1.69, 0.03, 338],
-    [20.94, 107.11, "cang-knd-tien-toi", 1.45, 0.05, 232],
-    [19.94, 105.89, "cang-hoa-loc", 1.39, 0.06, 1120],
-    [20.6, 106.61, "cang-tan-son", 1.39, 0.06, 1242],
-    [21.53, 107.97, "cang-ben-mui-ngoc", 1.46, 0.06, 217],
-    [17.48, 106.62, "cang-nhat-le", 0.61, 0.07, 883],
-    [17.71, 106.44, "cang-htx-kddv-cho-cau-tau-quang-phuc", 0.75, 0.07, 656],
-    [20.97, 107.76, "cang-co-to", 1.39, 0.07, 307],
-    [21.38, 107.72, "cang-ben-phuc-tien", 1.51, 0.08, 220],
-    [19, 105.61, "cang-lach-van", 1.14, 0.08, 709],
-    [10.41, 107.19, "cang-tan-phuoc", 1.42, 0.09, 1711],
-    [10.38, 107.24, "cang-xi-nghiep-dich-vu-hau-can-thuy-san-hung-thai", 1.42, 0.09, 134],
-    [9.8, 105.09, "cang-tac-cau", 0.25, 0.1, 577],
-    [9.68, 106.53, "cang-lang-chim", 1.7, 0.1, 239],
-    [17.7, 106.44, "cang-htx-kddv-cho-cau-tau-quang-phuc", 0.65, 0.1, 1150],
-    [18.81, 105.73, "cua-bien-lo", 0.93, 0.1, 1544],
-    [10.46, 107.34, "cang-loc-an", 1.21, 0.11, 1492],
-    [17.72, 106.47, "cang-htx-kddv-cho-cau-tau-quang-phuc", 0.62, 0.11, 432],
-    [17.93, 106.48, "cua-bien-hon-la", 0.71, 0.11, 1109],
-    [20.94, 106.8, "cang-ben-giang", 1.29, 0.11, 129],
-    [20.75, 107.01, "cang-tran-chau", 1.23, 0.11, 571],
-    [17.01, 107.11, "cang-cua-tung", 0.32, 0.11, 131],
-    [19.26, 105.77, "cang-quynh-phuong", 1.12, 0.11, 647],
-    [19.23, 105.74, "cang-quynh-phuong", 1.03, 0.11, 1263],
-    [10.38, 107.07, "vung-tau", 1.69, 0.12, 599],
-    [19.45, 105.78, "cang-hai-chau", 1.04, 0.12, 1002],
-    [20.89, 106.75, "cang-ben-giang", 1.18, 0.12, 707],
-    [20.22, 106.33, "cang-cty-tnhh-thanh-vui", 1.15, 0.13, 1526],
-    [9.61, 106.29, "cang-dinh-an", 1.5, 0.13, 910],
-    [20.72, 106.8, "hon-dau", 0.85, 0.13, 798],
-    [20.04, 106.22, "cang-cty-tnhh-thanh-vui", 1.04, 0.13, 347],
-    [16.9, 107.19, "cua-bien-viet", 0.28, 0.14, 945],
-    [9.64, 106.54, "cang-lang-chim", 1.59, 0.14, 138],
-    [10.38, 107.06, "vung-tau", 1.58, 0.15, 544],
-    [9.98, 106.62, "cang-ba-tri", 1.35, 0.16, 3568],
-    [9.04, 105.41, "cang-ganh-hao", 1.38, 0.16, 1613],
-    [9.68, 104.39, "rach-gia", 0.21, 0.16, 1316],
-    [16.9, 107.18, "cua-bien-viet", 0.26, 0.16, 691],
-    [8.63, 105.03, "cang-rach-goc", 0.93, 0.16, 1545],
-    [19.11, 105.71, "cang-lach-quen", 0.9, 0.16, 1125],
-    [8.83, 105.25, "cua-bien-bo-de", 1.26, 0.16, 189],
-    [10.2, 106.71, "cang-binh-dai", 1.27, 0.17, 1329],
-    [9.69, 104.36, "rach-gia", 0.2, 0.17, 462],
-    [9.31, 103.49, "cang-dao-tho-chau", 0.14, 0.17, 1006],
-    [21.06, 107.43, "cang-cai-rong", 0.93, 0.18, 936],
-    [10.1, 104.89, "cang-tac-cau", 0.2, 0.18, 1062],
-    [20.96, 107.75, "cang-co-to", 0.89, 0.18, 404],
-    [14.67, 109.07, "cang-sa-huynh", 0.44, 0.18, 360],
-    [20.73, 107.04, "cang-tran-chau", 0.88, 0.18, 221],
-    [9.68, 104.35, "rach-gia", 0.2, 0.18, 501],
-    [19.98, 106.17, "cua-bien-lach-giang", 0.98, 0.18, 1835],
-    [11.17, 108.56, "cang-phan-ri-cua", 0.7, 0.19, 2232],
-    [21.01, 107.27, "cang-knd-cam-thuy", 0.93, 0.19, 587],
-    [9.54, 106.2, "cang-tran-de", 1.37, 0.19, 1409],
-    [9.87, 105.13, "cang-tac-cau", 0.22, 0.19, 2323],
-    [20.13, 107.73, "cang-bach-long-vy", 0.87, 0.19, 534],
-    [10.02, 104.01, "cang-an-thoi", 0.23, 0.19, 2878],
-    [8.86, 104.81, "cang-da-bac", 0.35, 0.19, 267]
+    [10.41, 107.17, "cang-tan-phuoc", 2.92, 0, 331],
+    [19.77, 105.9, "cang-lach-hoi", 1.65, 0.04, 485],
+    [20.6, 106.61, "cang-tan-son", 1.38, 0.06, 1509],
+    [19.94, 105.89, "cang-hoa-loc", 1.34, 0.07, 1356],
+    [17.48, 106.62, "cang-nhat-le", 0.61, 0.07, 1135],
+    [19, 105.61, "cang-lach-van", 1.17, 0.07, 933],
+    [17.71, 106.44, "cang-htx-kddv-cho-cau-tau-quang-phuc", 0.76, 0.07, 894],
+    [20.94, 107.11, "cang-knd-tien-toi", 1.36, 0.07, 294],
+    [21.38, 107.72, "cang-ben-phuc-tien", 1.5, 0.08, 282],
+    [21.53, 107.97, "cang-ben-mui-ngoc", 1.41, 0.08, 250],
+    [10.41, 107.19, "cang-tan-phuoc", 1.5, 0.09, 2408],
+    [19.23, 105.74, "cang-quynh-phuong", 1.11, 0.09, 1642],
+    [17.7, 106.44, "cang-htx-kddv-cho-cau-tau-quang-phuc", 0.65, 0.09, 1576],
+    [18.76, 105.75, "cang-cua-hoi", 1.04, 0.09, 149],
+    [17.01, 107.11, "cang-cua-tung", 0.29, 0.09, 119],
+    [10.38, 107.24, "cang-xi-nghiep-dich-vu-hau-can-thuy-san-hung-thai", 1.39, 0.1, 220],
+    [10.38, 107.07, "vung-tau", 1.81, 0.11, 815],
+    [20.75, 107.01, "cang-tran-chau", 1.2, 0.11, 731],
+    [9.68, 106.53, "cang-lang-chim", 1.59, 0.11, 283],
+    [20.94, 106.8, "cang-ben-giang", 1.27, 0.11, 140],
+    [18.81, 105.73, "cua-bien-lo", 0.9, 0.12, 1976],
+    [10.46, 107.34, "cang-loc-an", 1.21, 0.12, 1808],
+    [17.93, 106.48, "cua-bien-hon-la", 0.69, 0.12, 1403],
+    [19.26, 105.77, "cang-quynh-phuong", 1.12, 0.12, 909],
+    [17.72, 106.47, "cang-htx-kddv-cho-cau-tau-quang-phuc", 0.62, 0.12, 544],
+    [19.11, 105.71, "cang-lach-quen", 1, 0.13, 1568],
+    [19.45, 105.78, "cang-hai-chau", 0.97, 0.13, 1537],
+    [16.9, 107.19, "cua-bien-viet", 0.28, 0.13, 1134],
+    [16.9, 107.18, "cua-bien-viet", 0.27, 0.13, 895],
+    [9.64, 106.54, "cang-lang-chim", 1.59, 0.13, 188],
+    [20.22, 106.33, "cang-cty-tnhh-thanh-vui", 1.03, 0.14, 1906],
+    [9.61, 106.29, "cang-dinh-an", 1.53, 0.14, 1198],
+    [20.72, 106.8, "hon-dau", 0.81, 0.14, 951],
+    [20.97, 107.76, "cang-co-to", 0.83, 0.14, 370],
+    [10.2, 106.71, "cang-binh-dai", 1.33, 0.15, 1876],
+    [20.89, 106.75, "cang-ben-giang", 0.97, 0.15, 985],
+    [10.38, 107.06, "vung-tau", 1.66, 0.15, 750],
+    [8.83, 105.25, "cua-bien-bo-de", 1.26, 0.15, 216],
+    [9.98, 106.62, "cang-ba-tri", 1.35, 0.17, 4537],
+    [9.04, 105.41, "cang-ganh-hao", 1.36, 0.17, 2231],
+    [9.31, 103.49, "cang-dao-tho-chau", 0.14, 0.17, 1156],
+    [21.06, 107.43, "cang-cai-rong", 0.93, 0.17, 1148],
+    [9.68, 104.39, "rach-gia", 0.2, 0.18, 1481],
+    [9.68, 104.35, "rach-gia", 0.2, 0.18, 608],
+    [9.69, 104.36, "rach-gia", 0.2, 0.18, 511],
+    [20.04, 106.22, "cang-cty-tnhh-thanh-vui", 0.79, 0.18, 460],
+    [9.88, 106.6, "cang-thanh-phu", 1.32, 0.18, 211],
+    [20.02, 106.2, "cang-cty-tnhh-thanh-vui", 0.87, 0.19, 5279],
+    [10.02, 104.01, "cang-an-thoi", 0.22, 0.19, 3909],
+    [8.63, 105.03, "cang-rach-goc", 0.84, 0.19, 2253],
+    [9.54, 106.2, "cang-tran-de", 1.38, 0.19, 2033],
+    [9.8, 105.09, "cang-tac-cau", 0.2, 0.19, 877],
+    [14.67, 109.07, "cang-sa-huynh", 0.43, 0.19, 498],
+    [20.73, 107.04, "cang-tran-chau", 0.83, 0.19, 299],
+    [20.36, 106.58, "cang-cua-lan", 0.9, 0.19, 104]
   ]
 }

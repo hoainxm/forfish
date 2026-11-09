@@ -36,7 +36,7 @@ export const FLEET_DENSITY_FILE = join("src", "data", "fleet-density.v1.json");
  * giữ bản cũ tới khi bump kho vỏ. URL mang mốc (`?b=`) ⇒ bản mới = khoá cache mới, tải khi có sóng; bản cũ vẫn
  * nằm trong kho cho lúc mất sóng. Cổng: fleet-density.test (file thật) đỏ khi mốc lệch file.
  */
-export const FLEET_DENSITY_BUILT = "2026-10-06";
+export const FLEET_DENSITY_BUILT = "2026-11-08";
 
 /** [i, j, giờ×10, số tàu] */
 export type DensityRow = [number, number, number, number];
