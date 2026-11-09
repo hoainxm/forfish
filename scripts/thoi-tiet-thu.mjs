@@ -41,6 +41,7 @@ const HET_GIO_GUI_MS = 120_000;
 const THU_LAI = 4;
 const CHO_429_MS = 65_000;
 const daGui = []; // { luc, w } — các lượt đã gửi, để giãn nhịp
+let dem429 = 0;
 const ngu = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
 if (!/^https:\/\//.test(BASE) || !SECRET) {
@@ -79,7 +80,6 @@ async function taiMot(url) {
   }
   return null;
 }
-let dem429 = 0;
 
 const rk = await fetch(`${BASE}/api/thoi-tiet/nhap`, { headers: auth, signal: AbortSignal.timeout(HET_GIO_GUI_MS) }).catch(
   (e) => ({ ok: false, status: String(e?.message ?? e) }),
@@ -96,23 +96,20 @@ if (!Array.isArray(urls) || urls.length === 0) {
 
 const goi = {};
 let hong = 0;
-for (const url of urls) {
+let tongUrl = 0;
+async function them(url) {
+  if (url in goi) return;
+  tongUrl++;
   const than = await taiMot(url);
   if (than != null) goi[url] = than;
   else hong++;
 }
+for (const url of urls) await them(url);
 // Dự phòng cảng: lượt thật chỉ gọi khi nguồn chính của cảng hỏng ⇒ chỉ tải nhóm có URL chính hỏng.
 // Máy chủ cũ (chưa trả `duPhong`) đã gộp dự phòng vào `urls` — không cần làm gì thêm.
-let tongUrl = urls.length;
 for (const n of Array.isArray(duPhong) ? duPhong : []) {
   if (!Array.isArray(n?.chinh) || !Array.isArray(n?.phu) || n.chinh.every((u) => u in goi)) continue;
-  for (const url of n.phu) {
-    if (url in goi) continue;
-    tongUrl++;
-    const than = await taiMot(url);
-    if (than != null) goi[url] = than;
-    else hong++;
-  }
+  for (const url of n.phu) await them(url);
 }
 const tho = Buffer.from(JSON.stringify({ goi }));
 const nen = gzipSync(tho, { level: 9 });
