@@ -22,7 +22,6 @@ import type { Nghe } from "./types";
 /** Khối `loTrinh` trong model-params (scripts/build-model-params.mjs). Thiếu/hỏng ⇒ {}. */
 export interface LoTrinhParams {
   hieuUngRam?: Partial<Record<Nghe, number>>;
-  loaiTheoNghe?: Partial<Record<Nghe, readonly string[]>>;
   chang?: Partial<Record<Nghe, { aGio?: number; vKn?: number; p80HeSo?: number }>>;
   /** giờ máy chạy (≥ 1,5 kn, ngoài pha chạy) mỗi NGÀY ở bãi — trung vị đội tàu cùng nghề (research §10.5) */
   gioMayBai?: Partial<Record<Nghe, number>>;
@@ -34,6 +33,16 @@ export interface LoTrinhParams {
   gioDiThuong?: Partial<Record<Nghe, number>>;
   /** cửa phụ thuộc con nước đo từ lượt ra/vào thật: [lat, lon, id trạm, ngưỡng m (số 0 trạm), tỉ phần lượt lúc nước thấp, số lượt] */
   cuaCang?: [number, number, string, number, number, number][];
+  /** DẦU TRUNG BÌNH theo nghề (09/11, anh Long "bỏ cái lít dầu đi, lấy trung bình"): lít mỗi giờ máy chạy + lít dầu máy
+   *  phát chong đèn mỗi đêm (chỉ nghề đèn). Nguồn + cách tính ở `_ghi` của lo-trinh-params.json. */
+  dauTrungBinh?: Partial<Record<Nghe, { litGio?: number; litDem?: number }>>;
+}
+
+/** Dầu trung bình của nghề. Thiếu/hỏng từng số ⇒ null (chỗ gọi lùi số mặc định / không cộng dầu đèn). */
+export function dauTrungBinh(nghe: Nghe, p: ModelParams | null = getModelParams()): { litGio: number | null; litDem: number | null } {
+  const d = loTrinhParams(p).dauTrungBinh?.[nghe];
+  const so = (v: unknown, tran: number) => (typeof v === "number" && Number.isFinite(v) && v > 0 && v <= tran ? v : null);
+  return { litGio: so(d?.litGio, 500), litDem: so(d?.litDem, 2000) };
 }
 
 /** Giờ máy chạy mỗi ngày ở bãi của nghề (dầu lúc đánh). null = chưa nạp tham số ⇒ chỗ gọi nói "chưa tính". */
@@ -96,6 +105,12 @@ export function loTrinhParams(p: ModelParams | null = getModelParams()): LoTrinh
 export function hieuUngRam(nghe: Nghe, p: ModelParams | null = getModelParams()): number {
   const v = loTrinhParams(p).hieuUngRam?.[nghe];
   return typeof v === "number" && Number.isFinite(v) && Math.abs(v) < 1 ? v : 0;
+}
+
+/** Nghề đã có SỐ ĐO trăng (kể cả 0 = đo rồi, không thấy hiệu ứng — cào đơn 09/11) hay chưa nạp/chưa đo. */
+export function daDoTrang(nghe: Nghe, p: ModelParams | null = getModelParams()): boolean {
+  const v = loTrinhParams(p).hieuUngRam?.[nghe];
+  return typeof v === "number" && Number.isFinite(v) && Math.abs(v) < 1;
 }
 
 const SYNODIC_DAYS = 29.530588853;

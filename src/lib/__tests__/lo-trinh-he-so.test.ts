@@ -1,8 +1,7 @@
 // Lộ trình theo NGHỀ + hệ số TRĂNG × SÓNG GIÓ (2026-11-08) — lo-trinh/he-so.ts, dau-vao.ts, plan.ts.
 import { describe, it, expect, beforeEach } from "vitest";
-import { SPECIES_PROFILES } from "@/lib/fish-predict";
-import { CHANG_DE_DAT, doRoiTrang, gioChang, gioMayBai, heSoBai, heSoBien, heSoTrang, hieuUngRam, moHinhChang, DIEM_BO_NGAY, SAN_BAI } from "@/lib/lo-trinh/he-so";
-import { BAI_NGHE, diemOTheoNghe, dungBaiTheoNgay, dungCaTheoNgay } from "@/lib/lo-trinh/dau-vao";
+import { CHANG_DE_DAT, daDoTrang, dauTrungBinh, doRoiTrang, gioChang, gioMayBai, heSoBai, heSoBien, heSoTrang, hieuUngRam, moHinhChang, DIEM_BO_NGAY, SAN_BAI } from "@/lib/lo-trinh/he-so";
+import { BAI_NGHE, diemOTheoLoai, dungBaiTheoNgay, dungCaTheoNgay } from "@/lib/lo-trinh/dau-vao";
 import { GIO_XUAT_BEN, KHUNG_DANH } from "@/lib/lo-trinh/plan";
 import type { NenFleet } from "@/lib/fleet-density";
 import { setModelParams } from "@/lib/model-params";
@@ -11,7 +10,6 @@ import loTrinhParams from "@/data/lo-trinh-params.json";
 
 // tham số lộ trình đi qua model-params (khong-lo-nguon nợ #9) — nạp đúng bản phát hành trước mỗi ca
 beforeEach(() => setModelParams(buildModelParams(process.cwd())));
-const LOAI_THEO_NGHE = loTrinhParams.loaiTheoNghe as Record<string, string[]>;
 import { deXuatLoTrinh } from "@/lib/lo-trinh/plan";
 import type { BlendableCell } from "@/lib/fish-blend";
 import type { LoTrinhInput, Nghe, OCa } from "@/lib/lo-trinh/types";
@@ -19,22 +17,20 @@ import type { LoTrinhInput, Nghe, OCa } from "@/lib/lo-trinh/types";
 const NOW = new Date("2026-11-08T03:00:00Z");
 const QUY_NHON = { lat: 13.76, lon: 109.27, ten: "Quy Nhơn" };
 
-describe("nhóm loài theo nghề", () => {
-  it("mọi tên loài trong LOAI_THEO_NGHE có thật trong SPECIES_PROFILES (tên ngắn = khoá của `sp`) — gõ sai là nghề đó trắng bản đồ", () => {
-    const ten = new Set(SPECIES_PROFILES.map((f) => f.short));
-    for (const [nghe, ds] of Object.entries(LOAI_THEO_NGHE)) {
-      expect(ds.length, nghe).toBeGreaterThan(0);
-      for (const l of ds) expect(ten.has(l), `${nghe}: ${l}`).toBe(true);
-    }
+describe("loài chủ tàu chọn (09/11 — bỏ nhóm loài đoán theo nghề)", () => {
+  it("tham số phát hành KHÔNG còn danh sách loài theo nghề", () => {
+    expect("loaiTheoNghe" in loTrinhParams).toBe(false);
   });
 
-  it("câu ngừ chấm theo loài ngừ đại dương, KHÔNG lấy cá nục dù cá nục điểm cao hơn", () => {
-    expect(diemOTheoNghe({ "cá nục": 95, "ngừ vây vàng": 40, "ngừ mắt to": 55 }, "cau-ngu")).toEqual({ s: 55, loai: "ngừ mắt to" });
-    expect(diemOTheoNghe({ "cá nục": 95 }, "cau-ngu")).toBeNull();
-    expect(diemOTheoNghe(undefined, "cau-ngu")).toBeNull();
+  it("chấm theo loài đã chọn, KHÔNG lấy cá nục dù cá nục điểm cao hơn", () => {
+    const chon = ["ngừ vây vàng", "ngừ mắt to"];
+    expect(diemOTheoLoai({ "cá nục": 95, "ngừ vây vàng": 40, "ngừ mắt to": 55 }, chon)).toEqual({ s: 55, loai: "ngừ mắt to" });
+    expect(diemOTheoLoai({ "cá nục": 95 }, chon)).toBeNull();
+    expect(diemOTheoLoai(undefined, chon)).toBeNull();
+    expect(diemOTheoLoai({ "cá nục": 95 }, [])).toBeNull();
   });
 
-  it("dungCaTheoNgay có nghề ⇒ bỏ ô không có loài của nghề, ô còn lại mang tên loài", () => {
+  it("dungCaTheoNgay có loài ⇒ bỏ ô không có loài đã chọn, ô còn lại mang tên loài; không chọn ⇒ điểm chung", () => {
     const o = (lat: number, lon: number, sp: Record<string, number>): BlendableCell => ({
       lat, lon, s: Math.max(0, ...Object.values(sp)), top: [], sp, t: 27, c: null,
     });
@@ -43,10 +39,11 @@ describe("nhóm loài theo nghề", () => {
       baseMode: true,
       cells: [o(19.5, 106.5, { "cá nục": 95 }), o(12.5, 110.5, { "ngừ vây vàng": 70 })],
     };
-    const ham = dungCaTheoNgay(fc, null, "2026-11-08", "2026-11-08", "cau-ngu");
-    const ra = ham(0);
+    const ra = dungCaTheoNgay(fc, null, "2026-11-08", "2026-11-08", ["ngừ vây vàng"])(0);
     expect(ra.every((c) => c.loai === "ngừ vây vàng")).toBe(true);
     expect(ra.some((c) => c.lat === 19.5)).toBe(false);
+    const chung = dungCaTheoNgay(fc, null, "2026-11-08", "2026-11-08", [])(0);
+    expect(chung.some((c) => c.lat === 19.5)).toBe(true);
   });
 });
 
@@ -62,10 +59,9 @@ describe("hệ số trăng", () => {
     expect(heSoTrang("cau-ngu", 0)).toBe(1);
     expect(heSoTrang("chup-muc", 1)).toBeCloseTo(0.871, 3);
   });
-  it("CHƯA NẠP tham số (máy mới, chưa khoá) ⇒ trăng trung tính, nhóm loài lùi về loài tốt nhất — không ném, không trắng", () => {
+  it("CHƯA NẠP tham số (máy mới, chưa khoá) ⇒ trăng trung tính — không ném", () => {
     setModelParams(null);
     expect(heSoTrang("chup-muc", 1)).toBe(1);
-    expect(diemOTheoNghe({ "cá nục": 95, "ngừ vây vàng": 40 }, "cau-ngu")).toEqual({ s: 95, loai: "cá nục" });
   });
 });
 
@@ -170,11 +166,20 @@ describe("giờ chặng theo số đo đội tàu", () => {
     expect(moHinhChang("luoi-vay")).toEqual(CHANG_DE_DAT);
     expect(CHANG_DE_DAT.vKn).toBeLessThan(7);
   });
-  it("cào / cào đôi có số đo riêng (chặng có đầu là cảng — báo cáo §10), không rơi về mặc định; rằm chưa đo ⇒ trung tính", () => {
+  it("cào / cào đôi có số đo riêng (chặng có đầu là cảng — báo cáo §10), không rơi về mặc định; trăng ĐÃ ĐO 09/11", () => {
     expect(moHinhChang("luoi-keo")).toEqual({ aGio: 0.67, vKn: 4.95, p80HeSo: 1.81, doDuoc: true });
     expect(moHinhChang("keo-doi")).toEqual({ aGio: 0.79, vKn: 4.95, p80HeSo: 1.98, doDuoc: true });
-    expect(hieuUngRam("keo-doi")).toBe(0);
+    // cào đôi: đêm rằm −9,7 % (p 0,002); cào đơn: CI chứa 0 ⇒ 0 nhưng là ĐÃ ĐO (ghi chú nói "như nhau", không "chưa có")
+    expect(hieuUngRam("keo-doi")).toBe(-0.097);
+    expect(heSoTrang("keo-doi", 1)).toBeCloseTo(0.903, 6);
+    expect(hieuUngRam("luoi-keo")).toBe(0);
+    expect(daDoTrang("luoi-keo")).toBe(true);
     expect(heSoTrang("luoi-keo", 1)).toBe(1);
+    setModelParams(null);
+    expect(daDoTrang("luoi-keo")).toBe(false);
+  });
+  it("rê: chặng đo lại trên chặng có đầu là cảng (09/11 — sai trung vị 21,4 % → 16,3 %)", () => {
+    expect(moHinhChang("luoi-re")).toEqual({ aGio: 0.79, vKn: 5.06, p80HeSo: 1.31, doDuoc: true });
   });
   it("giờ = a + hải lý / v; 0 km ⇒ 0; tốc độ khai chỉ là TRẦN (khai nhanh hơn đo không làm chặng ngắn đi)", () => {
     const m = moHinhChang("cau-ngu");
@@ -260,11 +265,26 @@ describe("hồ sơ nghề — lịch, dầu, bãi", () => {
     const cau = deXuatLoTrinh(vao("cau-ngu"), NOW);
     const keo = deXuatLoTrinh(vao("luoi-keo"), NOW);
     expect(keo.litDau).toBeGreaterThan(cau.litDau * 2);
-    expect(keo.ghiChu.join(" ")).toMatch(/giờ máy lúc đánh \(tàu lưới cào chạy máy khoảng 13,5 giờ/);
-    expect(cau.ghiChu.join(" ")).toMatch(/chưa tính dầu máy phát chong đèn/);
+    expect(keo.ghiChu.join(" ")).toMatch(/giờ máy lúc đánh \(55 lít mỗi giờ máy, mức trung bình tàu lưới cào; chạy máy khoảng 13,5 giờ/);
+    // câu ngừ chưa có bài đo dầu đèn ⇒ không cộng, KHÔNG đòi bà con khai (09/11)
+    expect(cau.ghiChu.join(" ")).not.toMatch(/chong đèn|khai số lít/);
     setModelParams(null);
     expect(gioMayBai("keo-doi")).toBeNull();
-    expect(deXuatLoTrinh(vao("keo-doi"), NOW).ghiChu.join(" ")).toMatch(/chưa có số giờ máy lúc đánh/);
+    expect(deXuatLoTrinh(vao("keo-doi"), NOW).ghiChu.join(" ")).toMatch(/Lít dầu tính theo giờ chạy máy \(20 lít mỗi giờ máy\)\./);
+  });
+
+  it("dầu TRUNG BÌNH theo nghề (09/11, bỏ ô lít dầu): số khai của bà con không đổi kết quả; đèn theo nghề", () => {
+    expect(dauTrungBinh("chup-muc")).toEqual({ litGio: 93, litDem: 180 });
+    expect(dauTrungBinh("luoi-vay")).toEqual({ litGio: 65, litDem: 70 });
+    expect(dauTrungBinh("cau-ngu")).toEqual({ litGio: 55, litDem: null });
+    const a = deXuatLoTrinh(vao("chup-muc"), NOW);
+    const b = deXuatLoTrinh({ ...vao("chup-muc"), tau: { speedKn: 7, litersPerHour: 999, fuelTankL: null, litDem: 999 } }, NOW);
+    expect(b.litDau).toBe(a.litDau);
+    const dem = a.vung.reduce((s, v) => s + v.soNgayDanh, 0);
+    expect(a.ghiChu.join(" ")).toMatch(new RegExp(`chong đèn 180 lít × ${dem} đêm`));
+    expect(a.ghiChu.join(" ")).not.toMatch(/tạm tính \d+ lít/);
+    setModelParams(null);
+    expect(dauTrungBinh("chup-muc")).toEqual({ litGio: null, litDem: null });
   });
 
   it("hệ số bãi: chỗ không ai đánh nghề này còn 25 %, đông nhất giữ nguyên, chưa có bãi ⇒ 1", () => {

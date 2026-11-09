@@ -61,6 +61,11 @@ export interface LoTrinhInput {
   /** đi mấy ngày; tính tối đa 16 (trần dữ liệu) — khai hơn thì tính 16 ngày đầu + ghi chú */
   soNgay: number;
   nghe: Nghe;
+  /**
+   * Loài chủ tàu chọn đánh (tên ngắn, ≤3 — 2026-11-09, anh Long "cho chủ tàu chủ động chọn"). Màn hình dựng `caTheoNgay`
+   * theo bộ này (`dungCaTheoNgay`). Lộ trình lưu trước 09/11 không có ⇒ tính lại chấm theo điểm chung của ô.
+   */
+  loai?: string[];
   tau: TauTinh;
   /** 0–5 điểm quen/chà bà con muốn ghé (hạt nhân tuyến — §4) */
   diemQuen: DiemCoTen[];

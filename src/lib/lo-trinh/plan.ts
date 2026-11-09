@@ -17,7 +17,7 @@ import { trongVungNhanh } from "@/lib/lo-trinh/vung-nhanh";
 import { heSoDay } from "@/lib/lo-trinh/day-nghe";
 import { TIM_TOI_DA_GIO } from "@/lib/lo-trinh/trieu-cang";
 import { tideClockText } from "@/lib/tides";
-import { doRoiTrang, gioChang, gioMayBai, heSoBai, heSoBien, heSoTrang, hieuUngRam, loTrinhParams, moHinhChang } from "@/lib/lo-trinh/he-so";
+import { daDoTrang, dauTrungBinh, doRoiTrang, gioChang, gioMayBai, heSoBai, heSoBien, heSoTrang, hieuUngRam, loTrinhParams, moHinhChang } from "@/lib/lo-trinh/he-so";
 import { getModelParams, type ModelParams } from "@/lib/model-params";
 import type {
   BaoRutGon,
@@ -537,14 +537,13 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   if (!chang.doDuoc) ghiChu.push(`Chưa có số đo tàu cùng nghề trong máy — tạm tính dè dặt ${chang.vKn} hải lý/giờ.`);
   else if (tocKhai != null && tocKhai > chang.vKn + 0.05)
     ghiChu.push(`Giờ chạy tính theo tốc độ thật của tàu cùng nghề (${String(Math.round(chang.vKn * 10) / 10).replace(".", ",")} hải lý/giờ), chậm hơn số khai.`);
-  let dauGio = tau.litersPerHour;
-  if (!soThat(dauGio) || dauGio <= 0) {
-    dauGio = DAU_GIO_MAC_DINH_L;
-    ghiChu.push(`Chưa có số lít dầu mỗi giờ — tạm tính ${DAU_GIO_MAC_DINH_L} lít/giờ.`);
-  }
+  // DẦU = SỐ TRUNG BÌNH theo nghề (anh Long 09/11 "bỏ cái lít dầu đi, lấy trung bình được rồi"): không đọc lít/giờ hay lít
+  // đèn bà con khai nữa, không ghi chú "tạm tính". Chưa nạp tham số ⇒ DAU_GIO_MAC_DINH_L, không cộng dầu đèn.
+  const dauTb = dauTrungBinh(nghe);
+  const dauGio = dauTb.litGio ?? DAU_GIO_MAC_DINH_L;
   const ket = soThat(tau.fuelTankL) && tau.fuelTankL > 0 ? tau.fuelTankL : null;
   const den = NGHE_DEN.includes(nghe);
-  const litDem = den && soThat(tau.litDem) && tau.litDem > 0 ? tau.litDem : null;
+  const litDem = den ? dauTb.litDem : null;
   const mayBai = gioMayBai(nghe);
   const dauMoiGio = dauGio;
   /** lít dầu của một kế hoạch: (giờ chạy × hs + giờ máy ở bãi × số khung) × lít/giờ + lít đèn × số đêm đánh.
@@ -670,7 +669,9 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     `Cách chấm mỗi ngày đánh: điểm cá của nghề ${TEN_NGHE[nghe]} (đã gồm chỗ tàu cùng nghề hay đánh tháng này) × trăng ` +
       (ram !== 0
         ? `(sổ tàu năm qua: đêm rằm ${Math.round(Math.abs(ram) * 1000) / 10}% ${ram < 0 ? "ít" : "nhiều"} hơn đêm tối)`
-        : "(chưa có số trăng trong máy — chưa tính)") +
+        : daDoTrang(nghe)
+          ? "(sổ tàu năm qua: đêm rằm và đêm tối đánh như nhau)"
+          : "(chưa có số trăng trong máy — chưa tính)") +
       ` × sóng gió${khungBien ? " lúc đánh (đúng khung giờ của nghề)" : ""} (biển êm giữ nguyên, động nhẹ trừ tới 40%, động mạnh bỏ ngày đó)` +
       (coBai ? ` × bãi (chỗ tàu ${TEN_NGHE[nghe]} hay đánh mùa này giữ nguyên, chỗ không ai đánh nghề này còn 25%)` : "") +
       (coDay ? ` × đáy (rạn, chỗ cạn, sát rạn trừ theo mức tàu ${TEN_NGHE[nghe]} thật sự đánh ở đó).` : "."),
@@ -1054,15 +1055,12 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   const litRaw = litCua(ke.tongChay, soKhung, 1);
   const litP80 = litCua(ke.tongChay, soKhung, chang.p80HeSo);
   const so1 = (v: number) => String(Math.round(v * 10) / 10).replace(".", ",");
-  const denDau = !den
-    ? ""
-    : litDem != null
-      ? `, + dầu chong đèn ${so1(litDem)} lít × ${soKhung} đêm`
-      : ", chưa tính dầu máy phát chong đèn (khai số lít mỗi đêm để tính)";
+  const denDau = den && litDem != null ? `, + dầu chong đèn ${so1(litDem)} lít × ${soKhung} đêm` : "";
+  const moiGio = `${so1(dauGio)} lít mỗi giờ máy${dauTb.litGio != null ? `, mức trung bình tàu ${TEN_NGHE[nghe]}` : ""}`;
   ghiChu.push(
     mayBai == null
-      ? `Lít dầu chỉ tính giờ chạy máy — chưa có số giờ máy lúc đánh của nghề này trong máy${denDau}.`
-      : `Lít dầu = giờ chạy + giờ máy lúc đánh (tàu ${TEN_NGHE[nghe]} chạy máy khoảng ${so1(mayBai)} giờ mỗi ngày ở bãi)${denDau}.`,
+      ? `Lít dầu tính theo giờ chạy máy (${moiGio})${denDau}.`
+      : `Lít dầu = giờ chạy + giờ máy lúc đánh (${moiGio}; chạy máy khoảng ${so1(mayBai)} giờ mỗi ngày ở bãi)${denDau}.`,
   );
   if (ket !== null && vuaKet)
     ghiChu.push(`Tuyến đã chọn vừa két ${Math.round(ket)} lít kể cả khi chạy chậm, còn dư 30% cho gió ngược.`);

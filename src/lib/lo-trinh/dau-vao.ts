@@ -23,34 +23,22 @@ import { haversineKm } from "@/lib/geo";
 import type { DensityGear, NenFleet } from "@/lib/fleet-density";
 import { saveUserJson } from "@/lib/user-store";
 import type { BaoRutGon, KhungGio, Nghe, OCa, TauTinh } from "./types";
-import { getModelParams, type ModelParams } from "@/lib/model-params";
-import { loTrinhParams } from "./he-so";
 
 /**
- * NHÓM LOÀI THEO NGHỀ (2026-11-08, anh Long: "câu ngừ chạy tút lên phía bắc?"). Trước đây lộ trình chấm ô bằng `s` =
- * điểm LOÀI TỐT NHẤT tại ô, bất kể nghề ⇒ tháng 11 cá nục/bạc má ven bờ Bắc Bộ vào vụ, kéo tàu câu ngừ Tam Quang ra
- * Vịnh Bắc Bộ. Nay ô = điểm cao nhất trong các loài CỦA NGHỀ (`sp`). Danh sách loài theo nghề nằm ở model-params
- * (`src/data/lo-trinh-params.json` → SDF2, cất offline) — không viết cứng ở đây (khong-lo-nguon nợ #9).
- * Chưa nạp tham số ⇒ `null` ⇒ ô chấm bằng loài tốt nhất như bản cũ (vẫn ra lộ trình, chỉ chưa theo nghề).
+ * LOÀI CHỦ TÀU CHỌN (2026-11-09, anh Long: "loài theo nghề thì cứ cho chủ tàu chủ động chọn thôi"). Bản trước đoán nhóm loài
+ * theo nghề (`loaiTheoNghe` trong model-params) — đã BỎ. Nay ô = điểm cao nhất trong các loài chủ tàu chọn ở form (cùng bộ
+ * `forfish.fishPicks.v1` của lớp Dự báo cá, tối đa 3). Lý do gốc vẫn giữ: chấm theo loài mình đánh thì tàu câu ngừ không bị
+ * cá nục/bạc má ven bờ Bắc Bộ kéo ra Vịnh (2026-11-08).
  */
-export function loaiTheoNghe(nghe: Nghe, p: ModelParams | null = getModelParams()): readonly string[] | null {
-  const ds = loTrinhParams(p).loaiTheoNghe?.[nghe];
-  return Array.isArray(ds) && ds.length && ds.every((x) => typeof x === "string") ? ds : null;
-}
-
-/** Điểm ô theo nghề: loài cao nhất trong nhóm loài của nghề. Ô không có loài nào của nghề ⇒ null.
- *  Chưa có nhóm loài (tham số chưa nạp) ⇒ loài cao nhất tại ô. */
-export function diemOTheoNghe(
+export function diemOTheoLoai(
   sp: Record<string, number> | undefined,
-  nghe: Nghe,
-  p: ModelParams | null = getModelParams(),
+  loai: readonly string[],
 ): { s: number; loai: string } | null {
-  if (!sp) return null;
-  const ds = loaiTheoNghe(nghe, p) ?? Object.keys(sp);
+  if (!sp || !loai.length) return null;
   let tot: { s: number; loai: string } | null = null;
-  for (const loai of ds) {
-    const v = sp[loai];
-    if (typeof v === "number" && Number.isFinite(v) && v > 0 && (!tot || v > tot.s)) tot = { s: v, loai };
+  for (const l of loai) {
+    const v = sp[l];
+    if (typeof v === "number" && Number.isFinite(v) && v > 0 && (!tot || v > tot.s)) tot = { s: v, loai: l };
   }
   return tot;
 }
@@ -66,29 +54,29 @@ export interface BanDoCaVao {
  * Hàm `caTheoNgay(d)` cho `LoTrinhInput` — d = ngày thứ d của chuyến (0 = ngày xuất bến).
  * Không có bản đồ cá ⇒ mọi ngày trả mảng rỗng (thuật toán tự ghi chú, không bịa).
  * Nhớ kết quả theo (tầm, tháng) — thuật toán gọi lặp nhiều lần cùng một ngày.
- * Có `nghe` ⇒ điểm ô = loài của nghề (`diemOTheoNghe`), bỏ ô không có loài nào của nghề, và KHÔNG pha
- * mùa vụ: lưới mùa vụ (`clim`) là điểm gộp mọi loài, pha vào là kéo lại đúng lỗi vừa sửa. Bản production
- * dựng bằng nền (`baseMode`) vốn đã không pha.
+ * Có `loai` (chủ tàu chọn) ⇒ điểm ô = loài đã chọn (`diemOTheoLoai`), bỏ ô không có loài nào đã chọn, và KHÔNG
+ * pha mùa vụ: lưới mùa vụ (`clim`) là điểm gộp mọi loài, pha vào là kéo lại đúng lỗi chấm sai loài. Bản production
+ * dựng bằng nền (`baseMode`) vốn đã không pha. `loai` rỗng/vắng (lộ trình lưu trước 09/11) ⇒ điểm chung `s`.
  */
 export function dungCaTheoNgay(
   fc: BanDoCaVao | null,
   clim: Climatology | null,
   ngayDi: string,
   homNayIso: string,
-  nghe?: Nghe,
+  loai?: readonly string[],
 ): (d: number) => readonly OCa[] {
   const nho = new Map<string, readonly OCa[]>();
   return (d: number) => {
     if (!fc || !fc.cells.length) return [];
-    if (nghe) {
-      const co = nho.get("nghe");
+    if (loai?.length) {
+      const co = nho.get("loai");
       if (co) return co;
       const ra: OCa[] = [];
       for (const c of locOTrongVung(fc.cells)) {
-        const x = diemOTheoNghe(c.sp, nghe);
+        const x = diemOTheoLoai(c.sp, loai);
         if (x) ra.push({ lat: c.lat, lon: c.lon, s: x.s, loai: x.loai });
       }
-      nho.set("nghe", ra);
+      nho.set("loai", ra);
       return ra;
     }
     const ngay = addDaysIso(ngayDi, Math.max(0, Math.round(d)));

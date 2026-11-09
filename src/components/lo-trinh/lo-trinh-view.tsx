@@ -31,7 +31,7 @@ import {
   timChuyen,
   type NhatKyChuyen,
 } from "@/lib/lo-trinh/nhat-ky";
-import { deXuatLoTrinh, gioDiMacDinh, NGHE_DEN } from "@/lib/lo-trinh/plan";
+import { deXuatLoTrinh, gioDiMacDinh } from "@/lib/lo-trinh/plan";
 import {
   baoTuTinBao,
   docMonTau,
@@ -63,6 +63,10 @@ import { PremiumLock } from "@/components/premium-gate";
 import { ChipRow } from "@/components/ui/chip-row";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { ChevronRightIcon } from "@/components/icons";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { FishPicker } from "@/components/fish-species-sheet";
+import { loadFishPicks, saveFishPicks } from "@/lib/fish-picks";
+import { SPECIES_META } from "@/lib/species-meta";
 import { KetQuaLoTrinh } from "./ket-qua-lo-trinh";
 
 /*
@@ -235,10 +239,15 @@ function LoTrinhMo() {
   const gioDi = gioDiChon ?? gioDiMacDinh(nghe);
   const [cangId, setCangId] = useState("");
   const [toc, setToc] = useState("");
-  const [dauGio, setDauGio] = useState("");
+  /** lít dầu/giờ trong hồ sơ tàu — form KHÔNG hỏi nữa (anh Long 09/11 "bỏ cái lít dầu đi, lấy trung bình"): chỉ giữ để ghi
+   *  hồ sơ không đè mất số đã khai ở chỗ khác; thuật toán dùng số TRUNG BÌNH theo nghề (`dauTrungBinh`, plan.ts). */
+  const [dauGioHoSo, setDauGioHoSo] = useState<number | null>(null);
   const [ket, setKet] = useState("");
-  const [litDem, setLitDem] = useState("");
   const [quen, setQuen] = useState<string[]>([]);
+  /** loài chủ tàu đánh — cùng bộ của lớp Dự báo cá (`forfish.fishPicks.v1`); chưa chọn ⇒ [] và nút Tính đòi chọn */
+  const [loai, setLoai] = useState<string[]>(() => loadFishPicks() ?? []);
+  const [moLoai, setMoLoai] = useState(false);
+  const [loaiNhap, setLoaiNhap] = useState<string[]>([]);
   const [daBam, setDaBam] = useState(false); // hiện lỗi ô sau lần bấm Tính đầu
 
   // con nước + độ sâu luồng: file tĩnh cùng origin (service worker giữ), một lần mỗi lần mở màn; hỏng ⇒ null, thuật toán nói ra
@@ -282,9 +291,8 @@ function LoTrinhMo() {
     setDiemLuu(loadPlaces().filter((p) => p.kind === "spot"));
     const t = docTauTinh();
     setToc(String(t.tau.speedKn));
-    setDauGio(String(t.tau.litersPerHour));
+    setDauGioHoSo(t.tau.litersPerHour);
     setKet(t.tau.fuelTankL != null ? String(t.tau.fuelTankL) : "");
-    setLitDem(t.tau.litDem != null ? String(t.tau.litDem) : "");
     setTauHong(t.docHong);
     setTauMacDinh(t.macDinh);
   }, []);
@@ -304,13 +312,16 @@ function LoTrinhMo() {
       ? "Ngày này đã qua — chọn từ hôm nay trở đi."
       : "";
   const vToc = docSo(toc, TAU_TRAN.speedKn);
-  const vDau = docSo(dauGio, TAU_TRAN.litersPerHour);
   const vKet = ket.trim() ? docSo(ket, TAU_TRAN.fuelTankL) : null;
   const loiKet = ket.trim() && vKet == null ? "Két dầu chưa đúng" : "";
-  const ngheDen = NGHE_DEN.includes(nghe);
-  const vLitDem = ngheDen && litDem.trim() ? docSo(litDem, TAU_TRAN.litDem) : null;
-  const loiDen = ngheDen && litDem.trim() && vLitDem == null ? "Lít đèn chưa đúng" : "";
-  const loiTau = vToc == null || vDau == null || loiKet || loiDen;
+  const loiTau = vToc == null || loiKet;
+  const loiLoai = loai.length === 0 ? "Chọn loài tàu mình đánh." : "";
+  /** loài để chọn: loài bản đồ cá đang có (khoá `sp` của ô), chưa có bản đồ ⇒ đủ danh sách loài */
+  const dsLoai = useMemo(() => {
+    const co = new Set<string>();
+    for (const c of fc?.cells ?? []) for (const k of Object.keys(c.sp ?? {})) if (SPECIES_META[k]) co.add(k);
+    return co.size ? [...co] : Object.keys(SPECIES_META);
+  }, [fc]);
 
   const diemQuen: DiemCoTen[] = diemLuu
     .filter((p) => quen.includes(p.id))
@@ -352,6 +363,7 @@ function LoTrinhMo() {
     gioDi: number;
     soNgay: number;
     nghe: Nghe;
+    loai?: string[];
     tau: TauTinh;
     diemQuen: DiemCoTen[];
     diemDau?: DiemCoTen;
@@ -368,7 +380,7 @@ function LoTrinhMo() {
         kq = deXuatLoTrinh(
           {
             ...v,
-            caTheoNgay: dungCaTheoNgay(fc, clim, v.ngayDi, todayIso, v.nghe),
+            caTheoNgay: dungCaTheoNgay(fc, clim, v.ngayDi, todayIso, v.loai),
             bao,
             bienTheoNgay: dungBienTheoNgay(luoiBien, v.ngayDi),
             baiTheoNgay: baiNen?.nghe === BAI_NGHE[v.nghe] ? dungBaiTheoNgay(baiNen, v.ngayDi) : null,
@@ -404,9 +416,9 @@ function LoTrinhMo() {
 
   const bamTinh = () => {
     setDaBam(true);
-    if (loiSoNgay || loiNgayDi || !cang || loiTau || vToc == null || vDau == null) return;
-    // ô đèn chỉ có ở nghề đèn — nghề khác không gửi `litDem` ⇒ hồ sơ giữ nguyên số đã khai
-    const tau = { speedKn: vToc, litersPerHour: vDau, fuelTankL: vKet, ...(ngheDen ? { litDem: vLitDem } : {}) };
+    if (loiSoNgay || loiNgayDi || !cang || loiTau || loiLoai || vToc == null) return;
+    // lít dầu/giờ + lít đèn: form không hỏi nữa — giữ nguyên số trong hồ sơ (không gửi `litDem` ⇒ không đụng)
+    const tau = { speedKn: vToc, litersPerHour: dauGioHoSo ?? TAU_TRAN.litersPerHour[0], fuelTankL: vKet };
     // ghi thông số tàu về hồ sơ — hỏng thì NÓI, vẫn tính bằng số đang gõ
     setTauLuuLoi(
       ghiTauTinh(tau)
@@ -415,7 +427,7 @@ function LoTrinhMo() {
           ? "Hồ sơ tàu trong máy đọc không được — số này chỉ dùng cho lần tính này, chưa ghi đè."
           : storageFullCopy("thông số tàu"),
     );
-    tinh({ cang, ngayDi, gioDi, soNgay, nghe, tau, diemQuen });
+    tinh({ cang, ngayDi, gioDi, soNgay, nghe, loai, tau, diemQuen });
   };
 
   /*  TÍNH LẠI GIỮA CHUYẾN (Phase 2, 09 §6): từ chỗ tàu đang đứng (GPS của lần "Vị trí"), số ngày CÒN LẠI của chuyến đang mở
@@ -445,6 +457,7 @@ function LoTrinhMo() {
       gioDi: gioVN,
       soNgay: con,
       nghe: g.nghe,
+      loai: g.loai,
       tau: g.tau,
       diemQuen: g.diemQuen ?? [],
       diemDau: { lat: pos.lat, lon: pos.lon, ten: "Chỗ tàu đang đứng" },
@@ -569,7 +582,7 @@ function LoTrinhMo() {
         ? "Chưa kiểm được tin bão — vẫn tính được, nhưng chưa đối chiếu bão."
         : null;
 
-  const coLoi = daBam && (loiSoNgay || loiNgayDi || !cang || loiTau);
+  const coLoi = daBam && (loiSoNgay || loiNgayDi || !cang || loiTau || loiLoai);
 
   return (
     <div className="px-4 pb-8">
@@ -676,6 +689,45 @@ function LoTrinhMo() {
           })}
         </div>
 
+        {/* LOÀI ĐÁNH (09/11, anh Long "cho chủ tàu chủ động chọn"): cùng bộ loài của lớp Dự báo cá — chọn ở đây thì bản đồ
+            cũng nhớ. Lộ trình chấm ô theo các loài này; chưa chọn thì nút Tính đòi chọn. */}
+        <p className="mb-1.5 text-[0.875rem] font-semibold text-navy">Loài đánh</p>
+        <button
+          type="button"
+          onClick={() => {
+            setLoaiNhap(loai);
+            setMoLoai(true);
+          }}
+          aria-invalid={!!(daBam && loiLoai)}
+          className={`${inputClass} mb-1 flex items-center gap-2 text-left`}
+        >
+          <span className={`min-w-0 flex-1 truncate ${loai.length ? "" : "text-muted"}`}>
+            {loai.length ? loai.map((l) => SPECIES_META[l]?.full ?? l).join(", ") : "Chọn loài…"}
+          </span>
+          <ChevronRightIcon className="h-4 w-4 shrink-0 text-muted" />
+        </button>
+        {daBam && loiLoai ? (
+          <p role="alert" className="mb-3 text-[0.875rem] leading-snug text-danger">{loiLoai}</p>
+        ) : (
+          <p className="mb-3 text-[0.8125rem] leading-snug text-muted">Lộ trình chỉ chấm chỗ có loài này.</p>
+        )}
+        {moLoai && (
+          <BottomSheet title="Loài đánh" onClose={() => setMoLoai(false)}>
+            <FishPicker
+              species={dsLoai}
+              picks={loaiNhap}
+              regionShorts={KHONG_VU}
+              onChange={setLoaiNhap}
+              onDone={() => {
+                setLoai(loaiNhap);
+                // ghi chung bộ với bản đồ; máy không cho ghi thì vẫn dùng trong phiên
+                saveFishPicks(loaiNhap);
+                setMoLoai(false);
+              }}
+            />
+          </BottomSheet>
+        )}
+
         <Field label="Cảng xuất bến" error={daBam && !cang ? "Chọn cảng xuất bến." : ""}>
           <select value={cangId} onChange={(e) => setCangId(e.target.value)} className={inputClass}>
             {!cangId && <option value="">Chọn cảng…</option>}
@@ -689,29 +741,19 @@ function LoTrinhMo() {
         </Field>
 
         <p className="mb-1.5 text-[0.875rem] font-semibold text-navy">Tàu</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <label className="block">
             <span className="mb-1 block text-[0.8125rem] text-muted">Hải lý/giờ</span>
             <input inputMode="decimal" value={toc} onChange={(e) => setToc(e.target.value)} aria-invalid={daBam && vToc == null} className={inputClass} />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-[0.8125rem] text-muted">Lít dầu/giờ</span>
-            <input inputMode="decimal" value={dauGio} onChange={(e) => setDauGio(e.target.value)} aria-invalid={daBam && vDau == null} className={inputClass} />
           </label>
           <label className="block">
             <span className="mb-1 block text-[0.8125rem] text-muted">Két (lít)</span>
             <input inputMode="numeric" value={ket} placeholder="Tuỳ" onChange={(e) => setKet(e.target.value)} aria-invalid={!!(daBam && loiKet)} className={inputClass} />
           </label>
         </div>
-        {ngheDen && (
-          <label className="mt-2 grid grid-cols-[1fr_6rem] items-center gap-2">
-            <span className="text-[0.8125rem] leading-snug text-muted">Dầu máy phát chong đèn, lít mỗi đêm</span>
-            <input inputMode="decimal" value={litDem} placeholder="Tuỳ" onChange={(e) => setLitDem(e.target.value)} aria-invalid={!!(daBam && loiDen)} className={inputClass} />
-          </label>
-        )}
         {daBam && loiTau ? (
           <p role="alert" className="mt-1.5 text-[0.875rem] leading-snug text-danger">
-            Tốc độ 1–30 hải lý/giờ, dầu 1–500 lít/giờ, két và lít đèn để trống nếu chưa biết.
+            Tốc độ 1–30 hải lý/giờ, két để trống nếu chưa biết.
           </p>
         ) : tauHong ? (
           <p className="mt-1.5 text-[0.8125rem] leading-snug text-warn">Hồ sơ tàu đọc không được — đang dùng số mặc định, máy giữ nguyên bản cũ.</p>
@@ -810,3 +852,6 @@ function LoTrinhMo() {
     </div>
   );
 }
+
+/** Bộ chọn loài ở form lộ trình không có "vùng đang xem" như bản đồ ⇒ không mục "Đang vụ quanh đây". */
+const KHONG_VU = new Set<string>();

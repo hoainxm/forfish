@@ -430,4 +430,82 @@ Chấm chéo trên chặng thử 07–11/2026 của bộ MỚI, tàu 15–24 m, 
 
 Học lại `a + hl/v` trên chặng mới (≤ 06/2026) ra hệ số chặn lớn hơn (vây 0,98 → 1,29 giờ) và đoán giờ trung vị **kém hơn** trên tháng thử, kể cả khi đã cắt giờ nằm bến ⇒ **giữ aGio/vKn**. Chỉ đo lại `p80HeSo` (phân vị 80 của giờ thật ÷ P50 đang dùng, trên chặng học), đổi ở nghề mà số mới phủ gần 80 % hơn: chụp, cào, cào đôi. Vây, câu ngừ, rê giữ.
 
-Vẫn chờ dữ liệu KHÁC VMS (VMS không giải được): trọng số khung giờ nghề đèn (VIIRS), L/h theo tốc độ (bà con khai), dầu máy phát chong đèn.
+Vẫn chờ dữ liệu KHÁC VMS (VMS không giải được — cập nhật §12): trọng số khung giờ nghề đèn (VIIRS), L/h theo tốc độ (bà con khai), dầu máy phát chong đèn.
+
+## 12. Sáu việc sau báo cáo hệ số (09/11 tối, anh Long qua phiên điều phối)
+
+Nguyên văn: *"bỏ cái lít đầu đi, lấy trung bình đc rồi, ko quan tâm nữa, dữ liệu vệ tinh có ko ? chạy chưa ? ảnh hưởng trăng đo đi, đủ dữ liệu sao ko đo, tốc độ dùng đi kết hợp nghiên cứu nghề từ các bài báo khoa học, loài theo nghề thì cứ cho chủ tàu chủ động chọn thôi, đã xác định bãi đánh thường chưa ?"*
+
+### 12.1 Dầu trung bình (đã vào app)
+
+Form bỏ ô lít dầu/giờ và lít đèn. `lo-trinh-params.json → dauTrungBinh` (model-params):
+
+| Nghề | CV trung vị (sổ, tàu ≥ 15 m) | Lít/giờ máy | Dầu đèn (lít/đêm) |
+|---|---|---|---|
+| Câu ngừ | 420 | 55 | — (chưa có bài đo) |
+| Vây | 500 | 65 | 70 |
+| Rê | 420 | 55 | — |
+| Chụp | 715 | 93 | 180 |
+| Cào đơn | 420 | 55 | — |
+| Cào đôi | 735 | 96 | — |
+
+- Lít/giờ = 0,13 × CV. Máy chạy khoảng 71 % công suất ghi (FAO: công suất ghi = 1,4 × lúc chạy), nhân khoảng 0,19 lít/CV·giờ (diesel ~220 g/kWh). Hệ số 0,19 là giả định, không bài nào đo cho tàu VN.
+- Cận trên theo hằng số FAO 0,25 lít/CV·giờ (Gulbrandsen 2012, *Fuel savings for small fishing vessels*, FAO, https://www.fao.org/4/i2461e/i2461e.pdf) là ~0,18 × CV.
+- Dầu đèn đo thật, đèn LED:
+  - Chụp: Đỗ Văn Thành và cs. 2023, Tạp chí KH-CN Thủy sản 3/2023, doi:10.53818/jfst.03.2023.172 — LED 100 kW, ~8,8 giờ/đêm, 178 lít/đêm; cao áp 278.
+  - Vây: Nguyen K.Q. và cs. 2021, *Aquaculture and Fisheries* 6(4):432–440, doi:10.1016/j.aaf.2020.07.011 — 70,8 lít/đêm; cao áp 114.
+- Phần lớn đội vây khơi đã chuyển LED: Nguyễn Phi Toàn và cs. 2025, doi:10.53818/jfst.04.2025.608.
+- Không tìm được bài đo lít/giờ theo nghề cho tàu VN; không có số dầu đèn câu ngừ/câu mực.
+
+### 12.2 VIIRS (vệ tinh chụp đèn đêm)
+
+- **Có dữ liệu chưa: KHÔNG.** Máy GPU chỉ có VIIRS **diệp lục** (`~/sdfish-l3/nc/noaacw*VIIRSchla*`, dùng cho lớp phù du), không có sản phẩm phát hiện tàu đèn (VIIRS Boat Detection — EOG, Colorado School of Mines).
+- **Chạy chưa: CHƯA.**
+- Lưu ý khi định lấy: VBD do vệ tinh quỹ đạo cực chụp **một lần mỗi đêm (~01:30 giờ địa phương)**. Nó trả lời được "đêm đó có tàu đèn ở đâu", KHÔNG cho trọng số từng giờ trong khung đánh — đúng việc app đang thiếu. Tải VBD cần tài khoản EOG (miễn phí, anh Long đăng ký).
+
+### 12.3 Trăng với cào (đã vào app)
+
+Script `~/fish-vet/scripts/21_trang_cao.mjs`: bước 15 giữ nguyên phương pháp, tách theo `cao`, eCDT 01–11/2026 × VMS tới 09/11, kiểm giả ngẫu nhiên 1 000 lần.
+
+| Nhóm | Chuyến (tàu) | Rằm/tối, tháng × vùng [CI 90 %] | p | Nửa tháng × vùng |
+|---|---|---|---|---|
+| Cào gộp | 9 759 (1 230) | −0,3 % [−4,5; +3,8] | 0,88 | −4,9 % |
+| **Cào đôi** | 5 439 (716) | **−9,7 % [−15,4; −3,3]** | 0,002 | −12,5 % |
+| **Cào đơn** | 402 (80) | −7,7 % [−16,3; +3,1] | 0,36 | −16,8 % (p 0,13) |
+| Cào lửng | 1 453 (143) | +7,7 % [−0,9; +15,8] | 0,04 | +17,5 % |
+
+- Cào đôi: lệch nửa chu kỳ trăng thì đổi dấu. Chỉ có tín hiệu ở tháng 6–11, nửa đầu năm không có ý nghĩa thống kê. App dùng −0,097.
+- Cào đơn: CI chứa 0 ⇒ **0, đã đo** (`daDoTrang`).
+- Tàu lửng ngược dấu vì mực (mực của cào đơn + lửng +25,9 % đêm rằm). Hai chiều triệt tiêu nhau nên bản gộp cũ ra 0.
+
+### 12.4 Tốc độ rê (đã vào app)
+
+- Tốc pha chạy rê 5,10 kn, ngang vây 5,38 và câu 4,97 — tốc không lệch.
+- Lý do bản cũ không tin: chặng bãi→bãi của rê chỉ 50 % là chạy (ngâm lưới dọc đường). Fit như cào, trên chặng có đầu là cảng (`22_re_chang.py`).
+- Kết quả: a 0,79 · 5,06 kn · P80 ×1,31.
+- Thử 07–11/2026 trên 27 104 chặng đầu cảng: sai trung vị 21,4 % → **16,3 %** (CI theo tàu [−5,5; −4,7] điểm), phủ P80 77,0 → 81,4 %. Tính 7 kn thì sai 36,4 %.
+- Giới hạn: chặng bãi→bãi chỉ phủ P80 61,8 %.
+- Đối chiếu bài báo: tốc tiết kiệm dầu FAO 2,1 × √(dài đường nước) = 8,4–9,4 kn cho tàu 16–20 m; tàu rê vỏ thép 24–27 m thiết kế 9,5–10 kn (QĐ 4947/QĐ-BNN-TCTS 2014, Khuyến nông VN số 20/2014). Đó là tốc MÁY/THIẾT KẾ. Dây cung VMS thấp hơn (≈ 0,87–0,90 × SOG, rê 0,76 — §3.3). Giờ chặng app dùng là giờ thật đo được.
+
+### 12.5 Bãi đánh quen từng tàu (đo ở GPU, CHƯA vào app)
+
+**Trước 09/11 chưa có theo từng tàu** (`grounds-025` là theo nghề × tháng).
+
+Cách đo (`23_bai_quen.py`, per-tàu ở `~/fish-vet/nhan/bai-quen.json`, không đưa vào repo):
+- Giờ pha làm lưới, cách cảng > 5 km, theo ô 0,25°.
+- Bãi quen = các ô lớn nhất gom tới 50 % giờ đánh.
+
+| Nghề | Tàu | Ô gom 50 % / 80 % | Lặp lại tháng xen (đối chứng đội tàu cùng tỉnh) | Kể cả ô kề |
+|---|---|---|---|---|
+| Tất cả | 22 382 | 5 / 12 | 37 % (5 %) | 77 % |
+| Cào đôi | 4 351 | 6 / 16 | 41 % (2 %) | 81 % |
+| Cào đơn | 464 | 4 / 10 | 44 % (3 %) | 86 % |
+| Rê | 4 000 | 4 / 10 | 36 % (3 %) | 79 % |
+| Vây | 3 209 | 4 / 10 | 39 % (5 %) | 76 % |
+| Chụp | 1 569 | 7 / 16 | 28 % (13 %) | 70 % |
+| Câu ngừ | 1 629 | 12 / 31 | 3 % (1 %) | 19 % |
+
+- Bãi quen theo tàu có thật và mạnh hơn hẳn thói quen của đội tàu.
+- **Câu ngừ không có bãi quen.**
+- Đưa vào app cần nối tài khoản → tàu (vesselId) và một route trả bãi riêng tàu. Đó là quyết định sản phẩm/riêng tư, chưa làm. Hiện bà con tự chọn "Điểm quen".
+

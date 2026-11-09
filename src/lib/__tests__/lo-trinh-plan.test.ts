@@ -106,7 +106,7 @@ describe("deXuatLoTrinh — tuyến cơ bản", () => {
     expect(kq.haiLy).toBeGreaterThan(0);
     expect(kq.litDau).toBeGreaterThan(0);
     expect(kq.vung.map((v) => v.ten)).toEqual(kq.vung.map((_, i) => `Vùng ${i + 1}`));
-    expect(kq.ghiChu.join(" ")).toMatch(/Lít dầu chỉ tính giờ chạy máy/);
+    expect(kq.ghiChu.join(" ")).toMatch(/Lít dầu tính theo giờ chạy máy \(20 lít mỗi giờ máy\)/);
   });
 
   it("không có mẫu nào của tuyến nằm ngoài vùng biển VN (trừ sát cảng/điểm)", () => {
@@ -254,11 +254,11 @@ describe("deXuatLoTrinh — dầu", () => {
     expect(deXuatLoTrinh(input({ tau: { speedKn: 7, litersPerHour: 20, fuelTankL: null } }), NOW).thieuDau).toBe(false);
   });
 
-  it("lít dầu = giờ chạy × lít/giờ (gấp đôi lít/giờ ⇒ gấp đôi dầu, cùng tuyến)", () => {
+  it("lít dầu = giờ chạy × lít/giờ TRUNG BÌNH (09/11: số lít/giờ bà con khai không dùng nữa)", () => {
     const a = deXuatLoTrinh(input(), NOW);
     const b = deXuatLoTrinh(input({ tau: { speedKn: 7, litersPerHour: 40, fuelTankL: 5000 } }), NOW);
     expect(b.moc).toEqual(a.moc);
-    expect(Math.abs(b.litDau - 2 * a.litDau)).toBeLessThanOrEqual(20);
+    expect(b.litDau).toBe(a.litDau);
     // giờ chạy P50 = Σ (a + hải lý/v) × lít/giờ — test không nạp model-params ⇒ mặc định dè dặt 5 kn + 1,5 giờ/chặng
     const soChang = a.moc.length - 1;
     expect(Math.abs(a.litDau - (a.haiLy / 5 + 1.5 * soChang) * 20)).toBeLessThanOrEqual(20);
@@ -268,7 +268,7 @@ describe("deXuatLoTrinh — dầu", () => {
     const kq = deXuatLoTrinh(input({ tau: { speedKn: 0, litersPerHour: NaN, fuelTankL: null } }), NOW);
     expect(kq.vung.length).toBeGreaterThan(0);
     expect(kq.ghiChu.join(" ")).toMatch(/tạm tính dè dặt 5 hải lý\/giờ/); // KHÔNG quay về 7 kn (vet-tau §7 B0)
-    expect(kq.ghiChu.join(" ")).toMatch(/tạm tính 20 lít\/giờ/);
+    expect(kq.ghiChu.join(" ")).not.toMatch(/tạm tính 20 lít/);
   });
 });
 
@@ -359,17 +359,11 @@ describe("deXuatLoTrinh — giờ đi, dầu đèn, vừa két, GRASP (2026-11-0
     expect(sai.moc).toEqual(vang.moc);
   });
 
-  it("dầu chong đèn: nghề đèn cộng lít/đêm × số đêm đánh; nghề không đèn bỏ qua", () => {
+  it("dầu chong đèn: chưa nạp tham số ⇒ không cộng, KHÔNG đòi khai; lít đèn khai tay không dùng (09/11)", () => {
     const khong = deXuatLoTrinh(input({ nghe: "chup-muc", tau: ketLon }), NOW);
-    expect(khong.ghiChu.join(" ")).toMatch(/chưa tính dầu máy phát chong đèn/);
+    expect(khong.ghiChu.join(" ")).not.toMatch(/chong đèn|khai số lít/);
     const co = deXuatLoTrinh(input({ nghe: "chup-muc", tau: { ...ketLon, litDem: 30 } }), NOW);
-    expect(co.moc).toEqual(khong.moc);
-    const dem = co.vung.reduce((a, v) => a + v.soNgayDanh, 0);
-    expect(dem).toBeGreaterThan(0);
-    expect(Math.abs(co.litDau - khong.litDau - 30 * dem)).toBeLessThanOrEqual(10);
-    expect(co.ghiChu.join(" ")).toMatch(new RegExp(`chong đèn 30 lít × ${dem} đêm`));
-    const re = deXuatLoTrinh(input({ nghe: "luoi-re", tau: { ...ketLon, litDem: 30 } }), NOW);
-    expect(re.litDau).toBe(deXuatLoTrinh(input({ nghe: "luoi-re", tau: ketLon }), NOW).litDau);
+    expect(co.litDau).toBe(khong.litDau);
   });
 
   it("két vừa: tuyến tự gọn cho lít chạy chậm P80 × 1,3 ≤ két, không báo thiếu", () => {

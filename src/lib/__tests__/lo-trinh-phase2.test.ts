@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { setModelParams } from "@/lib/model-params";
+import { buildModelParams } from "../../../scripts/build-model-params.mjs";
 
 const _ls = (() => {
   const m = new Map<string, string>();
@@ -40,6 +42,7 @@ import type { StormAlert, StormCheck } from "../storms";
 import type { StormTrack } from "../storm-track";
 
 beforeEach(() => localStorage.clear());
+afterEach(() => setModelParams(null));
 
 /* lưới cá giả: đốm ngoài khơi Quy Nhơn – Phú Yên, nằm trong vùng biển VN */
 function luoi(): OCa[] {
@@ -108,13 +111,15 @@ describe("Phase 2 — tính lại giữa chuyến từ chỗ tàu đang đứng"
 
 describe("Phase 2 — dầu theo pha", () => {
   it("chạy + lúc đánh + đèn cộng lại ≈ tổng lít (trước khi làm tròn tới chục)", () => {
-    const kq = deXuatLoTrinh(input({ nghe: "luoi-vay", tau: { speedKn: 7, litersPerHour: 20, fuelTankL: 8000, litDem: 50 } }), NOW);
+    setModelParams(buildModelParams(process.cwd())); // dầu đèn = số trung bình theo nghề trong model-params (09/11)
+    const kq = deXuatLoTrinh(input({ nghe: "luoi-vay", tau: { speedKn: 7, litersPerHour: 20, fuelTankL: 8000 } }), NOW);
     const p = kq.dauTheoPha!;
     expect(p.chay).toBeGreaterThan(0);
     expect(p.den).toBeGreaterThan(0);
     expect(Math.abs(p.chay + p.danh + p.den - kq.litDau)).toBeLessThanOrEqual(10);
   });
-  it("chưa khai lít đèn ⇒ pha đèn = 0", () => {
+  it("chưa nạp tham số ⇒ pha đèn = 0", () => {
+    setModelParams(null);
     const kq = deXuatLoTrinh(input({ nghe: "luoi-vay" }), NOW);
     expect(kq.dauTheoPha!.den).toBe(0);
   });
