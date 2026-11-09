@@ -86,7 +86,13 @@ def chuyen_tau(t, pk, dth, kn, lb):
         if kq and x[0] <= kq[-1][1]:
             if x[1] > kq[-1][1]: kq.append((kq[-1][1] + 1, x[1], 1))
         else: kq.append(x)
-    kq = [x for x in kq if x[1] > x[0]]
+    # cắt đoạn còn nằm ở cảng hai đầu (giờ VMS Data Lake tính cả lúc chờ ở bến ⇒ chặng ra bãi dài giả) — cùng luật ở-cảng như tu_do
+    inp = (pk <= 3.0) | ((pk <= 5.0) & (np.nan_to_num(kn, nan=0.0) < 0.5)); kq2 = []
+    for a_, b_, ng in kq:
+        while a_ < b_ and inp[a_]: a_ += 1
+        while b_ > a_ and inp[b_]: b_ -= 1
+        if b_ > a_: kq2.append((a_, b_, ng))
+    kq = kq2
     for a_, b_ in tu_do(t, pk, dth, kn):
         if not any(min(b_, y) >= max(a_, x) for x, y, _ in kq): kq.append((a_, b_, 0))
     return sorted(kq)

@@ -171,8 +171,8 @@ describe("giờ chặng theo số đo đội tàu", () => {
     expect(CHANG_DE_DAT.vKn).toBeLessThan(7);
   });
   it("cào / cào đôi có số đo riêng (chặng có đầu là cảng — báo cáo §10), không rơi về mặc định; rằm chưa đo ⇒ trung tính", () => {
-    expect(moHinhChang("luoi-keo")).toEqual({ aGio: 0.67, vKn: 4.95, p80HeSo: 1.58, doDuoc: true });
-    expect(moHinhChang("keo-doi")).toEqual({ aGio: 0.79, vKn: 4.95, p80HeSo: 1.74, doDuoc: true });
+    expect(moHinhChang("luoi-keo")).toEqual({ aGio: 0.67, vKn: 4.95, p80HeSo: 1.81, doDuoc: true });
+    expect(moHinhChang("keo-doi")).toEqual({ aGio: 0.79, vKn: 4.95, p80HeSo: 1.98, doDuoc: true });
     expect(hieuUngRam("keo-doi")).toBe(0);
     expect(heSoTrang("luoi-keo", 1)).toBe(1);
   });

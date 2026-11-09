@@ -414,4 +414,20 @@ Cách dựng tham số từ số đo: `~/fish-vet/scripts/17_tham_so.py` (ngoài
 
 Lớp mật độ tàu (`src/data/fleet-density.v1.json`) dựng lại tới 08/11: đủ tháng 10, thêm tháng 11 (8 ngày) — trước đây ngày tháng 11 mượn T10/T12 × 0,5. Ngày bão IBTrACS tới 08/11: không có cơn mới trong hộp Biển Đông sau 02/09.
 
+### 11b. Hệ số P80 theo chuyến bản 3 (09/11 tối, anh Long: "cập nhật app")
+
+Ranh chuyến đổi sang bản 3 (giờ đi/về VMS Data Lake khi có, tự dò ở-cảng cho phần còn lại, cắt giờ nằm bến hai đầu — `scripts/vet-tau/03_trips.py`; khớp chuyến khai báo 51 % → 77 %). Chặng dựng lại: 1 005 361 (trước 1 097 465 — bớt chặng giả do ghé ngang cảng). Chặng thật dài hơn: trung vị vây/chụp 6 → 8–9 giờ.
+
+Chấm chéo trên chặng thử 07–11/2026 của bộ MỚI, tàu 15–24 m, chặng có đầu là cảng:
+
+| Nghề | Sai trung vị — a/v đang dùng | — học lại a/v | Phủ P80 hệ số cũ | Phủ P80 đo lại |
+|---|---|---|---|---|
+| Vây | 15,5 % | 17,4 % | 79,3 % (×1,14) | 83,8 % (×1,20) |
+| Chụp | 17,6 % | 20,1 % | 75,4 % (×1,13) | **81,5 % (×1,24)** |
+| Cào đơn | 19,9 % | 20,9 % | 75,5 % (×1,58) | **79,2 % (×1,81)** |
+| Cào đôi | 23,3 % | 26,2 % | 78,5 % (×1,74) | **81,4 % (×1,98)** |
+| Câu ngừ | 8,5 % | — | 85,4 % (×1,16) | 84,2 % (×1,15) |
+
+Học lại `a + hl/v` trên chặng mới (≤ 06/2026) ra hệ số chặn lớn hơn (vây 0,98 → 1,29 giờ) và đoán giờ trung vị **kém hơn** trên tháng thử, kể cả khi đã cắt giờ nằm bến ⇒ **giữ aGio/vKn**. Chỉ đo lại `p80HeSo` (phân vị 80 của giờ thật ÷ P50 đang dùng, trên chặng học), đổi ở nghề mà số mới phủ gần 80 % hơn: chụp, cào, cào đôi. Vây, câu ngừ, rê giữ.
+
 Vẫn chờ dữ liệu KHÁC VMS (VMS không giải được): trọng số khung giờ nghề đèn (VIIRS), L/h theo tốc độ (bà con khai), dầu máy phát chong đèn.
