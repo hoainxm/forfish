@@ -509,3 +509,38 @@ Cách đo (`23_bai_quen.py`, per-tàu ở `~/fish-vet/nhan/bai-quen.json`, khôn
 - **Câu ngừ không có bãi quen.**
 - Đưa vào app cần nối tài khoản → tàu (vesselId) và một route trả bãi riêng tàu. Đó là quyết định sản phẩm/riêng tư, chưa làm. Hiện bà con tự chọn "Điểm quen".
 
+### 12.6 Bãi quen làm tín hiệu cho dự báo cá + lộ trình — ĐO RỒI, KHÔNG CỘNG ⇒ không đưa vào app (09/11 khuya)
+
+Anh Long: *"các bãi đó cần tính toán trong dự báo cá, vì tàu đánh xong về có cá hay ko ? thời gian nào, cá gì đã đủ ? cần đưa vào hệ số tính toán"* + *"dùng cho tính toán chuyến và dự báo thôi, ko gán vô tàu cố định"*. Script `~/fish-vet/scripts/24–28_*` (ngoài repo, chỉ số tổng ở `~/fish-vet/out/`).
+
+**Dữ liệu sản lượng có đủ chưa — trả lời thẳng:**
+
+| Nguồn | Quy mô | Có | Không có |
+|---|---|---|---|
+| Nhật ký eCDT | 416 501 chuyến, 47 421 tàu, 31/12/2025–09/11/2026 | kg theo loài **về bờ** (68,6 % nhật ký), cảng bốc dỡ | toạ độ, giờ thả/thu mẻ; kg đánh chỉ 2,4 %, số mẻ 2,9 % |
+| Chuyến VMS 01–10/2026 có nhật ký | 145 923 / 314 306 = **46,4 %** (tháng 31–59 %; kéo 35,5 %, chụp 68 %) | | |
+| Biên nhận bốc dỡ | 15 543 chuyến, 4 503 tàu | kg về bờ + kg mua theo loài, giờ cập | 41 % ghép được VMS |
+| Xác nhận nguyên liệu (SC) / chứng nhận khai thác (CC) | 3 071 / 1 384 tàu | kg theo chuyến (CC không có loài) | |
+| Chuyến khai báo / lượt ra-vào cảng | 699 344 chuyến / 406 730 lượt | giờ, cảng | kg |
+
+- "Cá gì, lúc nào" chỉ trả lời được ở **cấp chuyến**: kg loài + giờ cập, cho ~46 % chuyến có VMS.
+- "Ở đâu" thì không nguồn nào có tới cấp mẻ.
+- "Về có cá không" **chưa trả lời được**: chuyến không có nhật ký không có nghĩa là về không.
+- Tàu < 15 m (52 484 tàu, 51 % nhật ký) có kg nhưng không có vết.
+- 34 % kg ghi "cá tạp/xô/khác".
+- Lấp được bằng: toạ độ + giờ mẻ (yêu cầu GY-473e65c9), S-Tracking cho tàu nhỏ.
+
+**Kết quả đo:**
+- **Dự báo cá** (dl-eval-honest, nhãn v2 8–9/2026, B = 500, khối 7 ngày): nền 0,810. Thêm độ trung thành F / tỉ lệ quay lại R:
+  - Δ trong-nghề từ −0,0009 đến +0,0003, mọi CI chứa 0 hoặc âm.
+  - Theo loài lớn nhất +0,007 (cá mú); mực ống −0,010.
+  - Không loài nào vượt ngưỡng +0,01 (§7.12). Hệ số F âm ở cá nổi nhỏ và mực.
+- **Lộ trình** (chuỗi tiến 08–10/2026, 11 923 lượt tàu-tháng, top-10 ô trong 150 km quanh cảng): mật độ tàu tháng trước trúng 0,25.
+  - Nhân thêm hệ số bãi quen: Δ −0,001 đến +0,005.
+  - Chỉ chấm bằng bãi quen thì thua −0,06.
+- **Cấp chuyến** (92 235 chuyến có kg + vết): chuyến nhiều giờ ở bãi quen hơn **không** có kg/giờ cao hơn — hệ số −0,68 [−0,75; −0,62], đường bậc hình chữ U.
+
+**Kết luận:** tàu quay lại một bãi KHÔNG phải tín hiệu bãi đó nhiều cá hơn. Không đưa vào `fish-base`/`fish-predict`, không đưa vào `heSoBai` lộ trình.
+
+**Dấu hiệu phụ:** với cào đôi, mật độ tàu dài hạn thắng mật độ tháng trước +0,009 [+0,005; +0,013]. Đây là việc của lớp mật độ tàu, chưa làm.
+
