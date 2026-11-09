@@ -126,8 +126,8 @@ describe("dock theo vai (spec 17 §4.1)", () => {
 });
 
 describe("Thu mua / Đại lý do nhân viên duyệt, bà con không tự chọn (anh Long 04/11)", () => {
-  it("màn chọn vai chỉ có Đi bạn + Chủ tàu", () => {
-    expect(VAI_CHON.map((v) => v.id)).toEqual(["ngu-dan", "chu-tau"]);
+  it("màn chọn vai chỉ có Chủ tàu + Đi bạn — Chủ tàu là thẻ 1 (anh Long 09/11)", () => {
+    expect(VAI_CHON.map((v) => v.id)).toEqual(["chu-tau", "ngu-dan"]);
     expect(tuChonDuoc("thu-mua")).toBe(false);
     expect(tuChonDuoc("dai-ly")).toBe(false);
   });

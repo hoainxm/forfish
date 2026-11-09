@@ -77,8 +77,12 @@ export function tinhNangHien(vai: Vai, coGoi: boolean): readonly TinhNangHien[] 
 */
 const VAI_TU_CHON = new Set<Vai>(["ngu-dan", "chu-tau"]);
 export const tuChonDuoc = (v: Vai): boolean => VAI_TU_CHON.has(v);
-/** Thẻ của màn chọn vai — đúng thứ tự VAI, chỉ vai tự chọn được. */
-export const VAI_CHON = VAI.filter((v) => VAI_TU_CHON.has(v.id));
+/**
+ * Thẻ của màn chọn vai — chỉ vai tự chọn được, CHỦ TÀU LÊN THẺ 1 (anh Long 09/11: *"chỗ chọn vai lựa chọn 1 là chủ tàu,
+ * thay vì bạn tàu như hiện tại"*). Thứ tự này KHÁC thứ tự `VAI` (bảng quản trị / chip vẫn theo VAI).
+ */
+const THU_TU_CHON: readonly Vai[] = ["chu-tau", "ngu-dan"];
+export const VAI_CHON = THU_TU_CHON.map((id) => VAI.find((v) => v.id === id)!);
 
 export const isVai = (v: unknown): v is Vai => typeof v === "string" && TEN.has(v);
 export const tenVai = (v: Vai | null | undefined): string => (v ? TEN.get(v) ?? "" : "");

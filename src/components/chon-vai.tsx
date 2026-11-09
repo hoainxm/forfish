@@ -4,8 +4,8 @@ import { AnchorIcon, BriefcaseIcon, FishIcon, StoreIcon } from "@/components/ico
 import { tinhNangHien, VAI_CHON, type Vai } from "@/lib/vai";
 
 /*
-  THẺ CHỌN VAI (spec 17 §3.1) — chỉ ở màn /chon-vai (sau đăng ký / tài khoản chưa có vai). Chỉ Đi bạn + Chủ tàu (VAI_CHON —
-  Thu mua / Đại lý do nhân viên duyệt, 04/11). Vai chọn MỘT LẦN rồi khoá (§3.3) ⇒ không có ngăn "Đổi vai". Chạm một thẻ là
+  THẺ CHỌN VAI (spec 17 §3.1) — chỉ ở màn /chon-vai (sau đăng ký / tài khoản chưa có vai). Chỉ Chủ tàu + Đi bạn (VAI_CHON —
+  Chủ tàu là thẻ 1 từ 09/11; Thu mua / Đại lý do nhân viên duyệt, 04/11). Vai chọn MỘT LẦN rồi khoá (§3.3) ⇒ không có ngăn "Đổi vai". Chạm một thẻ là
   xong, không có nút Tiếp. Dưới tên: danh sách ngắn "ô dock · làm được gì" (TINH_NANG_VAI, anh Long 06/11) để bà con
   biết chọn vai này thì app có gì; chưa có gói thì dòng ô cần gói (Bản đồ của Đi bạn) vẽ MỜ + chữ đậm "Quan tâm bản đồ? Bà con dùng gói dự báo, liên hệ SDVICO để nâng cấp" — tránh chọn nhầm. `ICON_VAI` (đủ bốn vai) dùng chung cho chip vai.
 */
