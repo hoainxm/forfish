@@ -2,8 +2,8 @@
 //
 // App KHOÁ vai sau lần chọn đầu (lib/vai lyDoKhongDoiVai) — đây là đường DUY NHẤT đổi được vai tuỳ ý, và chỉ cho nhân
 // viên có quyền tab "tai-khoan" (edit). PATCH { phone, vai: Vai | null } (null = trả về "chưa chọn", bà con chọn lại ở
-// /chon-vai). Ghi nhật ký `account.doi-vai` kèm vai cũ → mới. Máy của bà con nhận vai mới ở lần đồng bộ vai kế tiếp
-// (đổi máy / đăng nhập lại) hoặc khi app gửi vai cũ lên và bị 409 trả vai máy chủ.
+// /chon-vai). Ghi nhật ký `account.doi-vai` kèm vai cũ → mới. Máy của bà con nhận vai mới ở LẦN MỞ APP KẾ TIẾP có sóng
+// (vai-store hỏi lại mỗi lần mở, anh Long 09/11 bỏ mốc 12 giờ) hoặc khi app gửi vai cũ lên và bị 409 trả vai máy chủ.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";

@@ -6,6 +6,7 @@
 covers: src/lib/vai.ts, src/lib/vai-store.ts, src/lib/dock-nav.ts, src/lib/viec.ts, src/lib/vua-profile.ts, src/app/chon-vai, src/app/viec, src/app/api/viec, src/app/api/me/vai
 last_verified: 2026-11-03
 ttl_days: 90
+<!-- re-verified: 2026-11-09b — §3.3: bỏ mốc 12 giờ, `vai-store dongBoVai` hỏi vai máy chủ mỗi lần mở app (một GET/lần mở, cửa bộ nhớ 60 s); vai nhân viên sửa về máy ngay lần mở kế (anh Long 09/11). -->
 <!-- re-verified: 2026-11-09 — /chon-vai: Chủ tàu lên thẻ 1, Đi bạn thẻ 2 (`VAI_CHON` có thứ tự riêng; anh Long 09/11). -->
 <!-- re-verified: 2026-11-06 — `lib/vai.ts` thêm `TINH_NANG_VAI` + `tinhNangHien`: thẻ /chon-vai ghi "ô · làm được gì" đúng dock vai (§3.1); ô Bản đồ của Đi bạn chưa có gói ⇒ dòng mờ + lời mời liên hệ SDVICO. Luật vai, dock, §11 KHÔNG đổi. -->
 <!-- re-verified: 2026-11-04 — `lib/dock-nav.ts` đổi vì CHẾ ĐỘ HẢI ĐỒ (cd261049, d08eabea), KHÔNG đổi luật vai: (1) khu ô "Bản đồ" thêm `/hai-do` (màn hải đồ thuần sáng đúng ô Bản đồ); (2) `boHaiDoKhiBam` — đang ở `/hai-do` bấm ô Bản đồ ⇒ tắt `moHaiDo`, về bản đồ thường. Ai có ô Bản đồ vẫn theo §4.1/§11 (`dockTheoVai`); `/hai-do` bọc `BanDoTheoVai` như `/ngu-truong` ⇒ vai không có ô Bản đồ cũng không vào được hải đồ. §11 không đổi. -->
@@ -95,7 +96,7 @@ Vai suy ra là vai THẬT (đã khoá như vai tự chọn). Sheet Tài khoản 
 
 ### 3.3 Khoá vai (thay "Đổi vai", anh Long 03/11)
 
-- Sheet Tài khoản: vai là chip (chỉ xem), không nút Đổi. **Nhân viên** sửa vai ở `/quan-tri` › Tài khoản (ô chọn vai trên dòng khách + Lưu vai, `PATCH /api/admin/accounts/vai`, quyền tai-khoan edit, nhật ký `account.doi-vai`); máy bà con hỏi lại vai tối đa 12 giờ/lần khi mở app có sóng (`vai-store HOI_LAI_MS`) nên vai sửa sẽ về máy. Chưa có vai ⇒ hàng "Bà con làm nghề gì? · Chọn" sang `/chon-vai`. `/chon-vai` khi đã có vai ⇒ tự về chỗ cũ.
+- Sheet Tài khoản: vai là chip (chỉ xem), không nút Đổi. **Nhân viên** sửa vai ở `/quan-tri` › Tài khoản (ô chọn vai trên dòng khách + Lưu vai, `PATCH /api/admin/accounts/vai`, quyền tai-khoan edit, nhật ký `account.doi-vai`); máy bà con hỏi lại vai **mỗi lần mở app** có sóng (anh Long 09/11 *"bỏ mốc đi"* — trước là tối đa 12 giờ/lần; `vai-store NHIP_HOI_MS` chỉ gom các component mount cùng lúc thành một GET) nên nhân viên sửa xong, bà con tắt mở app là nhận vai mới. Chưa có vai ⇒ hàng "Bà con làm nghề gì? · Chọn" sang `/chon-vai`. `/chon-vai` khi đã có vai ⇒ tự về chỗ cũ.
 - Máy chủ (`PUT /api/me/vai`): xin `thu-mua`/`dai-ly` (khác vai đang có) ⇒ 409 `can_duyet`, app nhận lại vai máy chủ; chưa có vai ⇒ ghi (có điều kiện `vai is null`, hai máy cùng chọn thì máy sau 409); có rồi ⇒ 409 `da_co_vai`; Đi bạn ⇒ Chủ tàu chỉ khi sổ tàu ĐÃ ĐỒNG BỘ có ≥1 tàu chưa xoá, chưa có ⇒ 409 `chua_co_tau`.
 - App: sổ tàu trong máy có ≥1 tàu mà vai là Đi bạn hoặc chưa chọn ⇒ tự lên Chủ tàu (ghi máy ngay, gửi lên; `chua_co_tau` ⇒ giữ cờ chờ, lần mở sau gửi lại). 409 `da_co_vai` ⇒ app nhận vai của máy chủ.
 - Màn đăng tin tuyển với vai khác Chủ tàu: Đi bạn ⇒ câu + nút Thêm (sang `/tau`); Thu mua / Đại lý ⇒ chỉ câu báo.

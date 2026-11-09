@@ -5,14 +5,24 @@
 //
 // MẠNG: chỉ hai lượt, đều có trần thời gian + nuốt lỗi — (1) chọn vai (một lần) / tự lên Chủ tàu thì PUT ngay, hỏng
 // thì giữ cờ `cho` và gửi lại lần mở app sau / khi có sóng lại; (2) máy chưa có bản vai của tài khoản này (mới đăng
-// nhập, đổi máy) thì GET; đã có thì GET lại tối đa 12 giờ/lần (vai do nhân viên sửa về tới máy). Vai đã khoá sau lần chọn đầu (lib/vai lyDoKhongDoiVai).
+// nhập, đổi máy) thì GET; đã có thì vẫn GET lại MỖI LẦN MỞ APP (anh Long 09/11 "bỏ mốc đi": nhân viên sửa vai ở
+// /quan-tri ⇒ tắt mở app là nhận ngay, không chờ 12 giờ như trước). Nhiều component cùng dùng useVai nên một lượt mở app
+// chỉ hỏi MỘT lần (cửa trong bộ nhớ NHIP_HOI_MS, không lưu máy — tải lại trang là hỏi lại). Vai đã khoá sau lần chọn đầu
+// (lib/vai lyDoKhongDoiVai).
 
 import { authedFetch } from "@/lib/device-token-store";
 import { isVai, nenNhanVaiMayChu, parseVaiMay, VAI_EVENT, VAI_KEY, type Vai, type VaiMay } from "@/lib/vai";
 
 const TRAN_MS = 8000;
-/** Hỏi lại vai máy chủ tối đa mỗi 12 giờ (một lượt GET khi mở app, có trần + nuốt lỗi). */
-export const HOI_LAI_MS = 12 * 60 * 60 * 1000;
+/** Cửa gom lượt hỏi vai trong MỘT lần mở app: ~11 component dùng useVai cùng mount ⇒ chỉ một GET. Chỉ trong bộ nhớ. */
+export const NHIP_HOI_MS = 60 * 1000;
+let hoiLuc = 0;
+let dangHoi: Promise<void> | null = null;
+/** Chỉ cho test: quên cửa gom để lượt kế coi như mở app mới. */
+export function _resetNhipHoi(): void {
+  hoiLuc = 0;
+  dangHoi = null;
+}
 
 export function docVaiMay(sdt: string | null): VaiMay | null {
   if (typeof window === "undefined") return null;
@@ -65,8 +75,9 @@ export async function chonVai(sdt: string, vai: Vai): Promise<void> {
 }
 
 /**
- * Lúc mở app: còn vai chờ gửi ⇒ gửi; máy chưa biết vai của tài khoản này ⇒ hỏi máy chủ một lần.
- * Máy chủ 503 / mất sóng ⇒ để nguyên, lần mở sau thử lại.
+ * Lúc mở app / có sóng lại: còn vai chờ gửi ⇒ gửi; không thì hỏi máy chủ vai hiện tại (máy chưa biết HAY đã có bản —
+ * nhân viên có thể vừa sửa ở /quan-tri, 17 §3.3). Một lần mở app chỉ hỏi một lần (cửa NHIP_HOI_MS trong bộ nhớ, các
+ * component mount cùng lúc dùng chung một promise). Máy chủ 503 / mất sóng ⇒ để nguyên, lần mở sau thử lại.
  */
 export async function dongBoVai(sdt: string): Promise<void> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return;
@@ -75,8 +86,16 @@ export async function dongBoVai(sdt: string): Promise<void> {
     await guiLen(sdt, may.vai).catch(() => false);
     return;
   }
-  // đã có bản vai: chỉ hỏi lại khi quá HOI_LAI_MS (nhân viên có thể đã sửa vai ở /quan-tri — 17 §3.3)
-  if (may && Date.now() - may.luc < HOI_LAI_MS) return;
+  if (dangHoi) return dangHoi;
+  if (Date.now() - hoiLuc < NHIP_HOI_MS) return;
+  hoiLuc = Date.now();
+  dangHoi = hoiMayChu(sdt).finally(() => {
+    dangHoi = null;
+  });
+  return dangHoi;
+}
+
+async function hoiMayChu(sdt: string): Promise<void> {
   const { res } = await authedFetch("/api/me/vai", {}, TRAN_MS);
   if (!res?.ok) return;
   const body = (await res.json().catch(() => null)) as { vai?: unknown } | null;
@@ -84,6 +103,5 @@ export async function dongBoVai(sdt: string): Promise<void> {
   if (body.vai !== null && !isVai(body.vai)) return; // giá trị lạ ⇒ giữ bản máy (thà cũ còn hơn sai)
   const sau = docVaiMay(sdt);
   if (sau?.cho) return; // vừa chọn trong lúc chờ — để lượt gửi lo
-  // khớp hay không cũng ghi lại mốc `luc` ⇒ 12 giờ sau mới hỏi tiếp
   if (nenNhanVaiMayChu(sau, body.vai) || sau) ghi({ sdt, vai: isVai(body.vai) ? body.vai : null, cho: false, luc: Date.now() });
 }
