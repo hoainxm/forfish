@@ -2,18 +2,30 @@
 //  1) đọc lời từng cảnh bằng Mỹ Duyên (cache) → biết độ dài từng câu
 //  2) mở app thật bằng tài khoản test, chạy thao tác từng cảnh, mỗi cảnh kéo đủ dài theo lời → ghi mốc thời gian
 //  3) ghép: khung dọc 1080×1920, màn điện thoại ở giữa, phụ đề dải dưới, tiếng đọc đặt đúng mốc
-import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import { pathToFileURL } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as L from "./lib.mjs";
 
-const kb = (await import("file:///" + L.SRC + process.argv[2] + "?t=" + Date.now())).default;
+const kb = (await import(pathToFileURL(L.SRC + process.argv[2]).href + "?t=" + Date.now())).default;
 const W = `${L.DIR}out/${kb.ten}/`;
 mkdirSync(W, { recursive: true });
 const CHI_GHEP = process.argv.includes("--chi-ghep");
+// --chi-quay: quay xong dừng, không ghép — máy không có ffmpeg (Mac) quay rồi chép cả thư mục cảnh sang máy GPU chạy --chi-ghep
+const CHI_QUAY = process.argv.includes("--chi-quay");
 
 // ---------- 1. TTS ----------
-const key = execFileSync("wsl", ["-e", "bash", "-lc", "grep -m1 '^TTS_API_KEY=' ~/.local/forlife/secrets.env | cut -d= -f2-"], { encoding: "utf8" }).trim();
+// khoá TTS (giọng chạy trên máy GPU = WSL của PC): env TTS_API_KEY ⇒ Linux (chính máy GPU) đọc secrets.env tại chỗ ⇒
+// Windows đọc qua WSL ⇒ Mac hỏi máy GPU qua ssh (Mac CŨNG có ~/.local/forlife/secrets.env nhưng khoá khác ⇒ 401 — đừng đọc).
+// Mac phải mở đường hầm tới máy GPU trước: ssh -fN -L 8791:127.0.0.1:8791 gpu-desktop
+const LAY_KEY = "grep -m1 '^TTS_API_KEY=' ~/.local/forlife/secrets.env | cut -d= -f2-";
+const key = (process.env.TTS_API_KEY
+  || (process.platform === "linux" ? (/^TTS_API_KEY=(.*)$/m.exec(readFileSync(`${homedir()}/.local/forlife/secrets.env`, "utf8"))?.[1] ?? "")
+    : process.platform === "win32" ? execFileSync("wsl", ["-e", "bash", "-lc", LAY_KEY], { encoding: "utf8" })
+      : execFileSync("ssh", [process.env.TTS_SSH || "gpu-desktop", LAY_KEY], { encoding: "utf8" }))).trim();
+const TTS_URL = process.env.TTS_URL || "http://127.0.0.1:8791/v1/tts";
 function wavDur(buf) {
   const byteRate = buf.readUInt32LE(28);
   let o = 12;
@@ -30,11 +42,12 @@ async function doc(text) {
   const f = `${L.DIR}tts-cache/${createHash("md5").update(doc).digest("hex").slice(0, 12)}.wav`;
   if (!existsSync(f)) {
     for (let t = 0; t < 4; t++) {
-      const r = await fetch("http://127.0.0.1:8791/v1/tts", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}` }, body: JSON.stringify({ text: doc, voice: "Mỹ Duyên" }) });
+      const r = await fetch(TTS_URL, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${key}` }, body: JSON.stringify({ text: doc, voice: "Mỹ Duyên" }) });
       if (r.ok) { writeFileSync(f, Buffer.from(await r.arrayBuffer())); break; }
       console.log("  tts lỗi", r.status, "thử lại"); await new Promise((r) => setTimeout(r, 1500));
     }
   }
+  if (!existsSync(f)) throw new Error(`TTS không đọc được câu (xem khoá/đường hầm 8791): ${text.slice(0, 60)}`);
   return { f, sec: wavDur(readFileSync(f)) };
 }
 const GAP = 0.35, LEAD = 0.25, TAIL = 0.45;
@@ -52,8 +65,8 @@ let moc;
 if (!CHI_GHEP) {
   if (kb.don) execFileSync("node", [`${L.SRC}don.mjs`, kb.phone]);
   const vdir = `${W}raw/`;
+  rmSync(vdir, { recursive: true, force: true });
   mkdirSync(vdir, { recursive: true });
-  for (const f of readdirSync(vdir)) execFileSync("cmd", ["/c", "del", "/q", (vdir + f).replace(/\//g, "\\")]);
   const { b, ctx, page } = await L.moPhien(kb.phone, { video: vdir });
   const t0 = Date.now();
   if (kb.chuanBi) await kb.chuanBi({ page, L });
@@ -83,17 +96,18 @@ if (!CHI_GHEP) {
   for (let i = 0; i < fr.length; i++) {
     const d = (i + 1 < fr.length ? fr[i + 1].t : moc.ket + 0.5) - fr[i].t;
     if (d <= 0) continue;
-    lst += `file '${fr[i].f}'
+    lst += `file '${fr[i].f.slice(W.length)}'
 duration ${d.toFixed(4)}
 `;
   }
-  lst += `file '${fr[fr.length - 1].f}'
+  lst += `file '${fr[fr.length - 1].f.slice(W.length)}'
 `;
   writeFileSync(`${W}khung.txt`, lst);
   moc.video = `${W}khung.txt`;
   console.log("khung hình:", fr.length);
   writeFileSync(mocFile, JSON.stringify(moc, null, 1));
 } else moc = JSON.parse(readFileSync(mocFile, "utf8"));
+if (CHI_QUAY) { console.log("QUAY XONG (chưa ghép):", W); process.exit(0); }
 
 // ---------- 3. GHÉP ----------
 // phụ đề ASS: mỗi câu một dòng sự kiện, đặt từ mốc đầu cảnh
@@ -156,7 +170,7 @@ execFileSync("ffmpeg", ["-y", "-v", "error", "-i", `${W}giong.wav`, "-i", `${W}n
 // hình: màn app tràn khung 1080×2348, phụ đề + tiêu đề đốt thẳng
 const vf = `[0:v]trim=start=${tru.toFixed(3)},setpts=PTS-STARTPTS,fps=30,scale=${VW_OUT}:${VH_OUT}:flags=lanczos,setsar=1,trim=duration=${tong.toFixed(2)},subtitles=sub.ass:fontsdir=fonts,format=yuv420p[v]`;
 const out = `${L.DIR}out/${kb.ten}.mp4`;
-const r = spawnSync("ffmpeg", ["-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", moc.video, "-i", `${W}tieng.wav`,
+const r = spawnSync("ffmpeg", ["-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", `${W}khung.txt`, "-i", `${W}tieng.wav`,
   "-filter_complex", vf, "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-r", "30", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", "-t", tong.toFixed(2), out], { cwd: W, encoding: "utf8" });
 if (r.status !== 0) { console.log(r.stderr); process.exit(1); }
 // BẢN KHÔNG NHẠC (chỉ giọng đọc) — đăng TikTok thì chọn "âm thanh" thịnh hành ngay trong TikTok (bản quyền nhạc TikTok

@@ -2,7 +2,8 @@
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 const require = createRequire(new URL("../../package.json", import.meta.url));
-export const { chromium } = require("playwright");
+// nạp playwright lúc mở phiên (không lúc import) ⇒ máy chỉ GHÉP (`--chi-ghep`, vd máy GPU không cài playwright) vẫn chạy được
+export const chromium = { launch: (o) => require("playwright").chromium.launch(o) };
 const HERE = new URL(".", import.meta.url).pathname.replace(/^\/(\w:)/, "$1");
 /** Mã nguồn kịch bản (thư mục này) */
 export const SRC = HERE;

@@ -14,6 +14,7 @@ Quay app **thật** (mặc định production `https://sdfish.sdvico.vn`, đổi
 | `ghep-cai.mjs` | **Cài app bản thật**: ghép `android/quay-android.sh` (Chrome thật trên giả lập máy GPU, adb screenrecord + uiautomator) và bản quay iOS Simulator trên Mac (Safari, tiếng Việt) — mỗi bước một đoạn + lời đọc | khách |
 | `kb-kairos.mjs` | Kairos (không đăng bài / thả cảm xúc thật) | 0900000780 |
 | `kb-stracking.mjs` | Giám sát hành trình — gắn TẠM số chủ tàu được phép vào tài khoản test (`sdt_khac`, `duyet_boi = script:video-hdsd`), quay xong gỡ; KHÔNG bấm "Tạo yêu cầu" gia hạn | 0900000780 |
+| `kb-chuyen-bien.mjs` | Chuyến biển `/lo-trinh` — câu ngừ từ Quy Nhơn: chọn ngày/nghề/loài/cảng/két ⇒ Tính ⇒ ba con số, lịch, vùng ⇒ Lưu ⇒ Bản đồ + Dẫn đường ⇒ Vị trí + Tính lại (GPS giả giữa chặng đầu). Lộ trình chỉ ở localStorage khung quay | 0900000781 (premium) |
 | `kb-tau-quanh.mjs` | Tàu quanh đây (AIS) — giữ lâu bằng chuột + nuốt cú click khi nhả (điện thoại không sinh click) | 0900000781 (premium) |
 
 ## Chạy
@@ -28,6 +29,18 @@ BASE=https://sdfish.sdvico.vn node scripts/video-hdsd/quay.mjs kb-chu-tau-co-ban
 ```
 
 Kho làm việc `test-reports/video-hdsd/` (ngoài git) cần `fonts/` (Segoe UI). Ra: `out/<tên>.mp4` (**1080×2348 tràn màn**, đúng tỉ lệ màn điện thoại; H.264 + AAC), `out/<tên>-khong-nhac.mp4` (chỉ giọng đọc — đăng TikTok thì chọn âm thanh thịnh hành ngay trong TikTok) và `out/<tên>/<tên>.srt`.
+
+### Quay trên Mac (không có ffmpeg) — ghép ở máy GPU
+
+```bash
+ssh -fN -L 8791:127.0.0.1:8791 gpu-desktop        # giọng Mỹ Duyên chạy trên máy GPU; khoá TTS script tự hỏi qua ssh
+BASE=https://sdfish.sdvico.vn node scripts/video-hdsd/quay.mjs kb-chuyen-bien.mjs --chi-quay
+# chép scripts/video-hdsd + test-reports/video-hdsd/{tts-cache,out/<tên>/{raw,khung.txt,moc.json}} sang máy GPU,
+# đặt fonts/ (segoeui*.ttf từ /mnt/c/Windows/Fonts) vào out/<tên>/, rồi trên máy GPU:
+node scripts/video-hdsd/quay.mjs <kịch bản> --chi-ghep
+```
+
+Khoá TTS: Mac CŨNG có `~/.local/forlife/secrets.env` nhưng khoá khác (401) — script chỉ đọc file tại chỗ khi chạy trên Linux (máy GPU). `khung.txt` ghi đường dẫn tương đối nên chép thư mục sang máy khác vẫn ghép được.
 
 ## Cách nó chạy
 
